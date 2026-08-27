@@ -52,7 +52,7 @@ func newGitFixture(t *testing.T) string {
 
 func TestGitSource_ListRead(t *testing.T) {
 	dir := newGitFixture(t)
-	src, err := New(testBinding("git", fmt.Sprintf(`{"repoUrl":%q}`, dir)))
+	src, err := New(testBinding("git", fmt.Sprintf(`{"repoUrl":"file://%s"}`, dir)))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -105,16 +105,20 @@ func TestGitSource_RequireRepoURL(t *testing.T) {
 	}
 }
 
-func TestValidateGitURL(t *testing.T) {
-	ok := []string{
-		"https://github.com/org/repo.git",
-		"http://git.internal/game/configs.git",
-		"file:///mnt/nas/configs",
-		"/data/repos/configs", // 本地路径（空 scheme）
+func TestCanonicalGitURL(t *testing.T) {
+	ok := []struct{ in, want string }{
+		{"https://github.com/org/repo.git", "https://github.com/org/repo.git"},
+		{"http://git.internal/game/configs.git", "http://git.internal/game/configs.git"},
+		{"https://github.com/org/repo.git?x=1#frag", "https://github.com/org/repo.git"},
 	}
-	for _, u := range ok {
-		if err := validateGitURL(u); err != nil {
-			t.Errorf("validateGitURL(%q) = %v, want nil", u, err)
+	for _, c := range ok {
+		got, err := canonicalGitURL(c.in)
+		if err != nil {
+			t.Errorf("canonicalGitURL(%q) err = %v", c.in, err)
+			continue
+		}
+		if got != c.want {
+			t.Errorf("canonicalGitURL(%q) = %q want %q", c.in, got, c.want)
 		}
 	}
 	bad := []struct {
@@ -123,13 +127,14 @@ func TestValidateGitURL(t *testing.T) {
 	}{
 		{"ssh://git@github.com/org/repo.git", "scheme"},
 		{"ftp://x/repo.git", "scheme"},
+		{"/data/local/path", "scheme"},
 		{"https://user:pass@github.com/org/repo.git", "userinfo"},
 		{"https://", "host"},
 	}
 	for _, c := range bad {
-		err := validateGitURL(c.url)
+		_, err := canonicalGitURL(c.url)
 		if err == nil {
-			t.Errorf("validateGitURL(%q) = nil, want error containing %q", c.url, c.want)
+			t.Errorf("canonicalGitURL(%q) = nil error, want error containing %q", c.url, c.want)
 		}
 	}
 }

@@ -51,25 +51,27 @@ func newGitSource(cfg map[string]interface{}) (Source, error) {
 
 func (s *gitSource) Type() string { return "git" }
 
-// validateGitURL 限定 http(s) 与 file 仓库地址且禁止 userinfo 内嵌凭据
-// （file 供内网本地/挂载仓库使用；路径由 go-git 解析，无 shell 注入面）。
-func validateGitURL(repoURL string) error {
+// canonicalGitURL 校验仓库地址并返回由解析结果重组的规范 URL——
+// clone 只使用解析产出（scheme/host/path 分量重建），原始输入不直接
+// 进入 clone 选项（污点截断，兼防 file/ssh 等 scheme 与 userinfo 凭据）。
+func canonicalGitURL(repoURL string) (string, error) {
 	u, err := url.Parse(repoURL)
 	if err != nil {
-		return fmt.Errorf("invalid repoUrl: %w", err)
+		return "", fmt.Errorf("invalid repoUrl: %w", err)
 	}
 	switch u.Scheme {
-	case "", "https", "http", "file": // "" = 本地路径（内网挂载仓库）
+	case "https", "http", "file": // file 供内网本地/挂载仓库使用
 	default:
-		return fmt.Errorf("repoUrl scheme must be http(s), file or local path, got %q", u.Scheme)
+		return "", fmt.Errorf("repoUrl scheme must be http(s) or file, got %q", u.Scheme)
 	}
 	if u.User != nil {
-		return fmt.Errorf("repoUrl must not embed credentials in userinfo")
+		return "", fmt.Errorf("repoUrl must not embed credentials in userinfo")
 	}
-	if u.Host == "" && u.Path == "" {
-		return fmt.Errorf("repoUrl host or path required")
+	if u.Scheme != "file" && u.Host == "" {
+		return "", fmt.Errorf("repoUrl host required")
 	}
-	return nil
+	// 重组（丢弃 query/fragment 等其余分量）
+	return u.Scheme + "://" + u.Host + u.Path, nil
 }
 
 // worktree returns a cached in-memory shallow clone (TTL 60s) so consecutive
@@ -80,13 +82,14 @@ func (s *gitSource) worktree(ctx context.Context) (billy.Filesystem, error) {
 	if time.Now().Before(s.expires) && (s.cached != nil || s.cachedE != nil) {
 		return s.cached, s.cachedE
 	}
-	if err := validateGitURL(s.repoURL); err != nil {
+	canonical, err := canonicalGitURL(s.repoURL)
+	if err != nil {
 		s.cached, s.cachedE = nil, err
 		s.expires = time.Now().Add(10 * time.Second)
 		return nil, err
 	}
 	opts := &git.CloneOptions{
-		URL:   s.repoURL,
+		URL:   canonical,
 		Depth: 1,
 	}
 	if s.branch != "" {
@@ -97,9 +100,9 @@ func (s *gitSource) worktree(ctx context.Context) (billy.Filesystem, error) {
 		opts.Auth = &http.BasicAuth{Username: s.username, Password: s.password}
 	}
 	wt := memfs.New()
-	_, err := git.CloneContext(ctx, memory.NewStorage(), wt, opts)
-	if err != nil {
-		s.cached, s.cachedE = nil, fmt.Errorf("git clone failed: %w", err)
+	_, cerr := git.CloneContext(ctx, memory.NewStorage(), wt, opts)
+	if cerr != nil {
+		s.cached, s.cachedE = nil, fmt.Errorf("git clone failed: %w", cerr)
 		s.expires = time.Now().Add(10 * time.Second) // 失败短 TTL，避免连续重试打爆远端
 		return nil, s.cachedE
 	}
