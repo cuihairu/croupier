@@ -17,4 +17,7 @@ type ClusterRuntime struct {
 	Membership cluster.Membership
 	// OwnerStats 返回 instance -> 持有 agent 数（共享归属表聚合）。
 	OwnerStats func(ctx context.Context) map[string]int64
+	// ListAgentOwners 返回 TTL 内全部归属记录（集群模式 agent 列表
+	// 的全集来源；本地 registry 只含本实例连接）。
+	ListAgentOwners func(ctx context.Context) ([]cluster.AgentOwnerRecord, error)
 }

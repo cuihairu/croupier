@@ -44,6 +44,7 @@ type NodeRow = RegistryAgent & {
   sdkVersion?: string;
   lastSeen?: string;
   nodeStatus?: string;
+  labels?: Record<string, string>;
   // System metrics (from detail)
   cpu?: {
     usagePercent: number;
@@ -98,6 +99,7 @@ function normalizeOpsNode(node: OpsNode): NodeRow {
     version: node.sdkVersion || '',
     lastSeen: node.lastSeen || '',
     nodeStatus: node.status || 'active',
+    labels: node.labels || {},
     // System metrics
     cpu: node.cpu,
     memory: node.memory,
@@ -247,6 +249,18 @@ export default function OpsNodesPage() {
     { title: '游戏', dataIndex: 'gameId', width: 100 },
     { title: '环境', dataIndex: 'env', width: 80 },
     { title: 'IP', dataIndex: 'ip', width: 130, ellipsis: true },
+    {
+      title: '归属实例',
+      dataIndex: ['labels', 'ownerInstance'],
+      width: 130,
+      ellipsis: true,
+      render: (v: unknown) =>
+        typeof v === 'string' && v ? (
+          <Tag color="geekblue">{v}</Tag>
+        ) : (
+          <span style={{ color: '#999' }}>本实例</span>
+        ),
+    },
     {
       title: '健康状态',
       dataIndex: 'healthy',

@@ -16,6 +16,8 @@ type OpsAgentInfo struct {
 	Functions []string          `json:"functions"`
 	Processes []string          `json:"processes"`
 	Labels    map[string]string `json:"labels"`
+	// OwnerInstance 集群模式下该 agent 连接的持有实例（本实例直连时为空）。
+	OwnerInstance string `json:"ownerInstance,omitempty"`
 }
 
 type OpsAgentMetaResponse struct {

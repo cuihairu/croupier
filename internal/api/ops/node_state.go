@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cuihairu/croupier/internal/cluster"
 	"github.com/cuihairu/croupier/internal/logic/utils"
 	"github.com/cuihairu/croupier/internal/model"
 	"github.com/cuihairu/croupier/internal/platform/registry"
@@ -40,6 +41,18 @@ func listNodes(ctx context.Context, svcCtx *svc.ServiceContext, gameID, env, sta
 	items := make([]nodeListItem, 0)
 	registered := make(map[string]bool)
 
+	// 集群模式：以共享归属表为在线全集（本地 registry 只含连到本实例的
+	// agent，只读本地会导致入口分流到不同实例时在线/离线判定随机翻转）。
+	// 本地持有的补全详情（metrics/函数数/SDK 信息），非本地的标注 owner。
+	aliveOwners := make(map[string]cluster.AgentOwnerRecord)
+	if svcCtx.Cluster != nil && svcCtx.Cluster.ListAgentOwners != nil {
+		if owners, err := svcCtx.Cluster.ListAgentOwners(ctx); err == nil {
+			for _, rec := range owners {
+				aliveOwners[rec.AgentID] = rec
+			}
+		}
+	}
+
 	if svcCtx.RegistryStore != nil {
 		store := svcCtx.RegistryStore
 		store.Mu().RLock()
@@ -63,6 +76,37 @@ func listNodes(ctx context.Context, svcCtx *svc.ServiceContext, gameID, env, sta
 			items = append(items, runtimeNodeListItem(sess, nodeStatus, svcCtx.MetricsStore))
 		}
 		store.Mu().RUnlock()
+
+		// 归属表里活跃、但连接不在本实例的节点（由对端持有）：
+		// 在线判定不能因分流实例不同而翻转。
+		for _, rec := range aliveOwners {
+			if registered[rec.AgentID] {
+				continue
+			}
+			if gameID != "" && rec.GameID != gameID {
+				continue
+			}
+			if env != "" && rec.Env != env {
+				continue
+			}
+			registered[rec.AgentID] = true
+			if !nodeStatusMatches(statusFilter, "online") {
+				continue
+			}
+			node := Node{
+				Id:       rec.AgentID,
+				GameId:   rec.GameID,
+				Env:      rec.Env,
+				Status:   "online",
+				Labels:   map[string]string{"ownerInstance": rec.InstanceID},
+				LastSeen: utils.FormatTimestamp(rec.LastSeenAt),
+			}
+			items = append(items, nodeListItem{
+				node:     node,
+				lastSeen: rec.LastSeenAt,
+				rank:     nodeStatusRank("online"),
+			})
+		}
 	}
 
 	items = append(items, offlineDatabaseNodeItems(ctx, svcCtx, registered, gameID, env, statusFilter)...)

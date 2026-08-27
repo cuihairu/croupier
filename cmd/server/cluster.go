@@ -92,6 +92,9 @@ func startCluster(ctx context.Context, c *config.Config, svcCtx *svc.ServiceCont
 		}
 		return counts
 	}
+	svcCtx.Cluster.ListAgentOwners = func(ctx context.Context) ([]cluster.AgentOwnerRecord, error) {
+		return resolver.ListAliveOwners(ctx)
+	}
 
 	// 互联端口（默认与 advertiseAddr 同地址；独立监听，Agent-facing 端口外）。
 	icAddr := cfg.InterconnectAddr

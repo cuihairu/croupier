@@ -22,6 +22,8 @@ export type OpsAgent = {
   lastSeen?: string;
   qpsLimit?: number;
   qps1m?: number;
+  // 集群模式下该 agent 连接的持有实例（连接不在处理请求的实例上时标注）
+  ownerInstance?: string;
 };
 
 // Source: croupier/internal/api/ops/dto.go OpsServiceProcess.

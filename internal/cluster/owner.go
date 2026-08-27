@@ -157,3 +157,18 @@ func (r *DBOwnerResolver) CountAgentsByOwner(ctx context.Context) (map[string]in
 	}
 	return out, nil
 }
+
+// ListAliveOwners 返回 TTL 内的全部归属记录（集群模式下 agent 列表的
+// 全集来源——本地 registry 只含连到本实例的 agent，跨实例视图必须以
+// 共享归属表为准，避免入口分流到不同实例时列表随机变化）。
+func (r *DBOwnerResolver) ListAliveOwners(ctx context.Context) ([]AgentOwnerRecord, error) {
+	var rows []AgentOwnerRecord
+	err := r.db.WithContext(ctx).
+		Where("last_seen_at > ?", time.Now().UTC().Add(-r.ownerTTL)).
+		Order("agent_id ASC").
+		Find(&rows).Error
+	if err != nil {
+		return nil, err
+	}
+	return rows, nil
+}

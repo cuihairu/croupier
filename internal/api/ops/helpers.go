@@ -17,6 +17,7 @@ import (
 	"github.com/cuihairu/croupier/internal/common/errorx"
 	"github.com/cuihairu/croupier/internal/logic/utils"
 	"github.com/cuihairu/croupier/internal/model"
+	"github.com/cuihairu/croupier/internal/platform/registry"
 	"github.com/cuihairu/croupier/internal/platform/settings"
 	"github.com/cuihairu/croupier/internal/svc"
 	"github.com/cuihairu/croupier/pkg/protocol"
@@ -66,9 +67,47 @@ func opsAgentsList(ctx context.Context, svcCtx *svc.ServiceContext, req *OpsAgen
 	}
 
 	store.Mu().RLock()
-	defer store.Mu().RUnlock()
+	local := make(map[string]*registry.AgentSession, len(store.AgentsUnsafe()))
+	for _, sess := range store.AgentsUnsafe() {
+		if sess != nil {
+			local[sess.AgentID] = sess
+		}
+	}
+	store.Mu().RUnlock()
 
-	agents := make([]OpsAgentInfo, 0, len(store.AgentsUnsafe()))
+	agents := make([]OpsAgentInfo, 0, len(local))
+
+	// 集群模式：以共享归属表为全集（本地 registry 只含连到本实例的
+	// agent；只读本地会导致入口分流到不同实例时列表随机变化）。
+	if svcCtx.Cluster != nil && svcCtx.Cluster.ListAgentOwners != nil {
+		if owners, err := svcCtx.Cluster.ListAgentOwners(ctx); err == nil {
+			for _, rec := range owners {
+				info := OpsAgentInfo{
+					AgentID:  rec.AgentID,
+					GameID:   rec.GameID,
+					Env:      rec.Env,
+					LastSeen: utils.FormatTimestamp(rec.LastSeenAt),
+				}
+				if sess, ok := local[rec.AgentID]; ok {
+					info.Connected = true
+					info.Addr = sess.Addr
+					info.Version = sess.Version
+					info.Labels = sess.Labels
+					functions := make([]string, 0, len(sess.Functions))
+					for fid := range sess.Functions {
+						functions = append(functions, fid)
+					}
+					info.Functions = functions
+				} else {
+					info.OwnerInstance = rec.InstanceID
+				}
+				agents = append(agents, info)
+			}
+			return &OpsAgentsListResponse{Agents: agents}, nil
+		}
+		// 归属表读取失败退回本地视图
+	}
+
 	for _, sess := range store.AgentsUnsafe() {
 		if sess == nil {
 			continue
