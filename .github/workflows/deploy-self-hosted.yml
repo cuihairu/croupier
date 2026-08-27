@@ -207,6 +207,14 @@ jobs:
           docker compose "${COMPOSE_ARGS[@]}" images server server2 agent agent2 haproxy dashboard
           docker compose "${COMPOSE_ARGS[@]}" up -d --force-recreate --wait server server2 agent agent2 haproxy dashboard
 
+      - name: Dump agent registration evidence
+        timeout-minutes: 2
+        run: |
+          for c in croupier-server croupier-server2; do
+            echo "===== ${c}: register/heartbeat/cluster tail ====="
+            docker logs --tail 200 "${c}" 2>&1 | grep -Ei "registered|heartbeat|cluster|owner" | tail -12 || true
+          done
+
       - name: Dump dashboard logs (on failure)
         if: failure()
         timeout-minutes: 2

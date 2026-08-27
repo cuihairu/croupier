@@ -487,11 +487,10 @@ func (s *ControlService) handleRegisterRequest(ctx context.Context, req *agentv1
 			if p == nil || p.ServiceId == "" {
 				continue
 			}
-			// Provider（SDK/自定义游戏服）scope 校验：agent 会话绑定单一
-			// (game_id, env)（作用域规范 §14），provider 上报的 scope 必须
-			// 一致。不一致说明 SDK 侧配置错误——注册继续（聚合路由仍按
-			// agent scope，保证调用路由稳定），但产生平台告警 + 注册警告，
-			// 不再静默吞掉。向后兼容：provider 未传 scope（空）不校验。
+			// Provider（SDK/自定义游戏服）scope 校验（作用域规范 §14.5）：
+			// agent 会话绑定单一 (game_id, env)，provider 上报的 scope 必须
+			// 一致——空值同样视为 mismatch，无兼容分支。不一致说明 SDK 侧
+			// 配置错误：产生业务层注册警告（路由仍按 agent scope 保持稳定）。
 			s.validateProviderScope(ctx, req, p, &warningTexts)
 			providers = append(providers, reg.ProviderSession{
 				ProviderID:   p.ServiceId,

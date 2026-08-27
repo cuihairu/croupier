@@ -66,6 +66,8 @@ func opsAgentsList(ctx context.Context, svcCtx *svc.ServiceContext, req *OpsAgen
 		}, nil
 	}
 
+	scope := svc.GameScopeFromContext(ctx)
+
 	store.Mu().RLock()
 	local := make(map[string]*registry.AgentSession, len(store.AgentsUnsafe()))
 	for _, sess := range store.AgentsUnsafe() {
@@ -82,6 +84,12 @@ func opsAgentsList(ctx context.Context, svcCtx *svc.ServiceContext, req *OpsAgen
 	if svcCtx.Cluster != nil && svcCtx.Cluster.ListAgentOwners != nil {
 		if owners, err := svcCtx.Cluster.ListAgentOwners(ctx); err == nil {
 			for _, rec := range owners {
+				if strings.TrimSpace(scope.GameID) != "" && rec.GameID != scope.GameID {
+					continue
+				}
+				if strings.TrimSpace(scope.Env) != "" && rec.Env != scope.Env {
+					continue
+				}
 				info := OpsAgentInfo{
 					AgentID:  rec.AgentID,
 					GameID:   rec.GameID,
@@ -412,8 +420,13 @@ func opsSilences(ctx context.Context, svcCtx *svc.ServiceContext, req *OpsSilenc
 // Node operations implementations
 
 func opsNodes(ctx context.Context, svcCtx *svc.ServiceContext, req *OpsNodesRequest) (*OpsNodesResponse, error) {
+	// 全局 scope（X-Game-ID/X-Env header，GameDBMiddleware 注入）决定
+	// 节点可见性：切换游戏/环境后列表随之过滤。
+	scope := svc.GameScopeFromContext(ctx)
+	gameID := strings.TrimSpace(scope.GameID)
+	env := strings.TrimSpace(scope.Env)
 	return &OpsNodesResponse{
-		Nodes: listNodes(ctx, svcCtx, "", "", ""),
+		Nodes: listNodes(ctx, svcCtx, gameID, env, ""),
 	}, nil
 }
 

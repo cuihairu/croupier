@@ -74,6 +74,40 @@ func startCluster(ctx context.Context, c *config.Config, svcCtx *svc.ServiceCont
 	if lifecycle == nil {
 		return nil, nil
 	}
+
+	// 归属 reconcile 兜底：本实例持有的 agent，只要本地 registry 会话
+	// 仍存活（LastSeen 新鲜），周期性续期归属行——防止心跳处理路径的
+	// 偶发漏 Touch 把活跃 agent 冻成过期（/ops/nodes 聚合按 TTL 判活）。
+	// 本地会话过期（僵尸）则不再续期，行按 TTL 自然衰减。
+	go func() {
+		ticker := time.NewTicker(30 * time.Second)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				if svcCtx.RegistryStore == nil {
+					continue
+				}
+				now := time.Now()
+				ids := make([]string, 0, 4)
+				svcCtx.RegistryStore.Mu().RLock()
+				for id, sess := range svcCtx.RegistryStore.AgentsUnsafe() {
+					if sess != nil && now.Sub(sess.LastSeen) < time.Minute {
+						ids = append(ids, id)
+					}
+				}
+				svcCtx.RegistryStore.Mu().RUnlock()
+				for _, id := range ids {
+					if err := resolver.Touch(ctx, id); err != nil {
+						slog.Warn("cluster: ownership touch failed", "agent_id", id, "error", err)
+					}
+				}
+			}
+		}
+	}()
+
 	svcCtx.Cluster = &svc.ClusterRuntime{
 		InstanceID: lcCfg.InstanceID,
 		Epoch:      lifecycle.Epoch(),
