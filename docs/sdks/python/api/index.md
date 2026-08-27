@@ -23,3 +23,4 @@ title: Python SDK API
 - [集成指南](/sdks/python/guide/integration)
 - [约定规范](/sdks/python/guide/conventions)
 - [主线程调度器](/sdks/python/guide/threading)
+- [OpenAPI 导入](/sdks/python/guide/openapi)

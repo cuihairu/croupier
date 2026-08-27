@@ -762,32 +762,38 @@ def main() -> None:
     client = CroupierClient(config)
     store = DemoStore()
 
+    # (id, resource, risk, operation, capability, execution, approvalPolicyKey, handler)
+    # Risk uses the canonical safe|warning|high|danger vocabulary; capability and
+    # execution follow Descriptor v2. mail.send is a batch/reward delivery and
+    # therefore declared as an async task.
     fns = [
-        ("player.create", "player", "medium", "create", make_player_create(store)),
-        ("player.get", "player", "low", "get", make_player_get(store)),
-        ("player.update", "player", "medium", "update", make_player_update(store)),
-        ("player.delete", "player", "high", "delete", make_player_delete(store)),
-        ("player.list", "player", "low", "list", make_player_list(store)),
-        ("order.create", "order", "medium", "create", make_order_create(store)),
-        ("order.get", "order", "low", "get", make_order_get(store)),
-        ("order.update", "order", "medium", "update", make_order_update(store)),
-        ("order.delete", "order", "high", "delete", make_order_delete(store)),
-        ("order.list", "order", "low", "list", make_order_list(store)),
-        ("leaderboard.list", "leaderboard", "low", "list", make_leaderboard_list(store)),
-        ("leaderboard.upsert", "leaderboard", "medium", "upsert", make_leaderboard_upsert(store)),
-        ("leaderboard.reset", "leaderboard", "high", "reset", make_leaderboard_reset(store)),
-        ("inventory.list", "inventory", "low", "list", make_inventory_list(store)),
-        ("inventory.grant", "inventory", "medium", "grant", make_inventory_grant(store)),
-        ("inventory.consume", "inventory", "medium", "consume", make_inventory_consume(store)),
-        ("mail.send", "mail", "medium", "send", make_mail_send(store)),
-        ("mail.list", "mail", "low", "list", make_mail_list(store)),
-        ("mail.claim", "mail", "medium", "claim", make_mail_claim(store)),
+        ("player.create", "player", "warning", "create", "create", "sync", None, make_player_create(store)),
+        ("player.get", "player", "safe", "get", "item_query", "sync", None, make_player_get(store)),
+        ("player.update", "player", "warning", "update", "update", "sync", None, make_player_update(store)),
+        ("player.delete", "player", "high", "delete", "delete", "sync", "gm.player.delete", make_player_delete(store)),
+        ("player.list", "player", "safe", "list", "collection_query", "sync", None, make_player_list(store)),
+        ("order.create", "order", "warning", "create", "create", "sync", None, make_order_create(store)),
+        ("order.get", "order", "safe", "get", "item_query", "sync", None, make_order_get(store)),
+        ("order.update", "order", "warning", "update", "update", "sync", None, make_order_update(store)),
+        ("order.delete", "order", "high", "delete", "delete", "sync", "gm.order.delete", make_order_delete(store)),
+        ("order.list", "order", "safe", "list", "collection_query", "sync", None, make_order_list(store)),
+        ("leaderboard.list", "leaderboard", "safe", "list", "collection_query", "sync", None, make_leaderboard_list(store)),
+        ("leaderboard.upsert", "leaderboard", "warning", "upsert", "action", "sync", None, make_leaderboard_upsert(store)),
+        ("leaderboard.reset", "leaderboard", "high", "reset", "action", "sync", "gm.leaderboard.reset", make_leaderboard_reset(store)),
+        ("inventory.list", "inventory", "safe", "list", "collection_query", "sync", None, make_inventory_list(store)),
+        ("inventory.grant", "inventory", "warning", "grant", "action", "sync", None, make_inventory_grant(store)),
+        ("inventory.consume", "inventory", "warning", "consume", "action", "sync", None, make_inventory_consume(store)),
+        ("mail.send", "mail", "warning", "send", "action", "task", None, make_mail_send(store)),
+        ("mail.list", "mail", "safe", "list", "collection_query", "sync", None, make_mail_list(store)),
+        ("mail.claim", "mail", "warning", "claim", "action", "sync", None, make_mail_claim(store)),
     ]
 
-    for fid, resource, risk, operation, handler in fns:
+    for fid, resource, risk, operation, capability, execution, approval_policy_key, handler in fns:
         desc = enrich_descriptor(FunctionDescriptor(
             id=fid, version="1.0.0", resource=resource, risk=risk,
-            operation=operation,
+            operation=operation, capability=capability, execution=execution,
+            approval_required=bool(approval_policy_key),
+            approval_policy_key=approval_policy_key,
         ))
         client.register_function(desc, handler)
         print(f"  registered: {fid}")

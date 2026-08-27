@@ -432,9 +432,9 @@ class CroupierClient:
             if descriptor.execution:
                 entry["execution"] = descriptor.execution
             if descriptor.approval_required:
-                entry["approval_required"] = True  # type: ignore[assignment]
+                entry["approvalRequired"] = True  # type: ignore[assignment]
             if descriptor.approval_policy_key:
-                entry["approval_policy_key"] = descriptor.approval_policy_key
+                entry["approvalPolicyKey"] = descriptor.approval_policy_key
             if descriptor.permission:
                 entry["permission"] = descriptor.permission
             if descriptor.enabled:

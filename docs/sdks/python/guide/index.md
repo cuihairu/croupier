@@ -23,4 +23,5 @@ Python SDK 使用单个双向连接与 Agent 通信，不需要本地额外监�
 - [主线程调度器](./threading)
 - [约定规范](./conventions)
 - [集成指南](./integration)
+- [OpenAPI 导入](./openapi)
 - [API 参考](../api/)

@@ -483,8 +483,8 @@ class TestManifestOptionalFields:
         assert fn["operation"] == "ban"
         assert fn["capability"] == " moderation"
         assert fn["execution"] == "async"
-        assert fn["approval_required"] is True
-        assert fn["approval_policy_key"] == "two-person"
+        assert fn["approvalRequired"] is True
+        assert fn["approvalPolicyKey"] == "two-person"
         assert fn["risk"] == "high"
         assert fn["permission"] == "player.ban"
 

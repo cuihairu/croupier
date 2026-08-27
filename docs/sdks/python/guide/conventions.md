@@ -39,7 +39,9 @@ client.connect()
 - `resource`
 - `operation`
 - `capability`
-- `risk`
+- `execution`（`sync` 或 `task`）
+- `approval_required` / `approval_policy_key`（Python 字段名；对应契约键 `approvalRequired` / `approvalPolicyKey`）
+- `risk`（词表 `safe/warning/high/danger`；`low`/`medium` 为废弃别名）
 - `enabled`
 - `permission`
 

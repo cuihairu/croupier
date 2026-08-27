@@ -143,7 +143,7 @@ def test_register_from_openapi_derives_id_from_path_when_missing():
 def test_register_from_openapi_risk_defaults_to_medium():
     client = RecordingClient()
     register_from_openapi(client, SPEC, handlers={"player_ban": handler_for("x"), "players.search": handler_for("y")})
-    assert client.registered[1][0].risk == "medium"
+    assert client.registered[1][0].risk == "warning"
     assert client.registered[0][0].risk == "high"
 
 
@@ -207,13 +207,14 @@ def test_register_from_openapi_empty_paths():
 def test_register_from_openapi_risk_level_mapping():
     from croupier.openapi import _parse_risk_level
 
-    assert _parse_risk_level("low") == "low"
-    assert _parse_risk_level("safe") == "low"
-    assert _parse_risk_level("medium") == "medium"
-    assert _parse_risk_level("moderate") == "medium"
+    assert _parse_risk_level("low") == "safe"
+    assert _parse_risk_level("safe") == "safe"
+    assert _parse_risk_level("medium") == "warning"
+    assert _parse_risk_level("moderate") == "warning"
+    assert _parse_risk_level("warning") == "warning"
     assert _parse_risk_level("HIGH") == "high"
     assert _parse_risk_level("critical") == "danger"
-    assert _parse_risk_level("bogus") == "medium"
+    assert _parse_risk_level("bogus") == "warning"
 
 
 # ---------------------------------------------------------------------------

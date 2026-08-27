@@ -26,6 +26,21 @@ _OPERATION_METHODS = (
     "trace",
 )
 
+# Descriptor v2 controlled vocabularies (docs/architecture/openapi-sdk-descriptor-v2.md).
+CAPABILITIES = frozenset(
+    {
+        "collection_query",
+        "item_query",
+        "create",
+        "update",
+        "delete",
+        "action",
+        "task",
+        "report",
+    }
+)
+EXECUTIONS = frozenset({"sync", "task"})
+
 
 @dataclass
 class ImportOptions:
@@ -33,6 +48,9 @@ class ImportOptions:
 
     resource_prefix: str = ""
     tag_prefix: str = ""
+    # Accepted for Go ImportOptions parity; the Python descriptor does not
+    # carry a behavior timeout field yet.
+    default_timeout_ms: int = 0
     continue_on_error: bool = False
 
 
@@ -115,14 +133,33 @@ def _extract_extension(operation: Dict[str, Any], key: str) -> str:
 
 
 def _parse_risk_level(level: str) -> str:
+    """Map an x-risk value to the canonical safe|warning|high|danger vocabulary.
+
+    ``low``/``medium``/``moderate`` are deprecated aliases kept for parsing only.
+    """
     normalized = level.lower()
     if normalized in ("low", "safe"):
-        return "low"
+        return "safe"
+    if normalized in ("medium", "moderate", "warning"):
+        return "warning"
     if normalized in ("high",):
         return "high"
     if normalized in ("danger", "critical"):
         return "danger"
-    return "medium"
+    return "warning"
+
+
+def _parse_approval(operation: Dict[str, Any]) -> tuple[bool, Optional[str]]:
+    """Extract x-approval {required, policyKey} into descriptor approval fields."""
+    approval = operation.get("x-approval")
+    if not isinstance(approval, dict):
+        return False, None
+    required = approval.get("required")
+    policy_key = approval.get("policyKey")
+    return (
+        required is True,
+        policy_key if isinstance(policy_key, str) and policy_key else None,
+    )
 
 
 def _operation_to_descriptor(
@@ -134,6 +171,10 @@ def _operation_to_descriptor(
     function_id = _derive_operation_id(operation, path)
     tags = [tag for tag in operation.get("tags", []) if isinstance(tag, str)]
 
+    capability = _extract_extension(operation, "x-capability")
+    execution = _extract_extension(operation, "x-execution")
+    approval_required, approval_policy_key = _parse_approval(operation)
+
     descriptor = FunctionDescriptor(
         id=function_id,
         summary=_derive_summary(operation, function_id),
@@ -141,6 +182,10 @@ def _operation_to_descriptor(
         tags=tags,
         resource=_extract_extension(operation, "x-resource") or None,
         operation=_extract_extension(operation, "x-operation") or None,
+        capability=capability if capability in CAPABILITIES else None,
+        execution=execution if execution in EXECUTIONS else None,
+        approval_required=approval_required,
+        approval_policy_key=approval_policy_key,
         permission=_extract_extension(operation, "x-permission") or None,
     )
 
@@ -150,10 +195,7 @@ def _operation_to_descriptor(
         descriptor.output_schema = _json_content_schema(responses.get("200"))
 
     risk = _extract_extension(operation, "x-risk")
-    if risk:
-        descriptor.risk = _parse_risk_level(risk)
-    else:
-        descriptor.risk = "medium"
+    descriptor.risk = _parse_risk_level(risk) if risk else "warning"
 
     if options is not None:
         if options.resource_prefix and descriptor.resource:
