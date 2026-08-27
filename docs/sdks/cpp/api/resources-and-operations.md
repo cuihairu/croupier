@@ -15,9 +15,11 @@
 - `resource`
 - `operation`
 - `capability`
+- `execution`（`sync` / `task`）
 - `risk`
 - `input_schema`（成员名；契约键 `inputSchema`）
 - `output_schema`（成员名；契约键 `outputSchema`）
+- 高危操作建议：`approval_required`（契约键 `approvalRequired`）与 `approval_policy_key`（契约键 `approvalPolicyKey`）
 
 SDK descriptor 不提供页面 schema、组件树、页面 mapping、菜单、分类显示名、页面标题、按钮文案或页面位置。
 

@@ -21,6 +21,9 @@ struct ImportOptions {
     std::string resource_prefix;
     /// Prefix prepended to every imported tag.
     std::string tag_prefix;
+    /// Default timeout in milliseconds (Go parity; the C++ provider wire
+    /// contract carries no timeout field, so this does not alter descriptors).
+    int default_timeout_ms = 0;
     /// Keep importing remaining operations when one fails.
     bool continue_on_error = false;
 };
@@ -40,6 +43,17 @@ using RegistrationSink =
  * Imports an OpenAPI 3 spec, converting every operation into a
  * FunctionDescriptor and handing it to the registration sink (mirrors the Go
  * SDK's RegisterFromOpenAPI).
+ *
+ * Conversion rules (Go parity):
+ *   - id          <- operationId, or path segments joined with "." when absent
+ *   - name        <- summary (title-cased operationId fallback)
+ *   - input/output schema <- requestBody / "200" response application/json
+ *   - resource / operation / permission / risk
+ *        <- x-resource / x-operation / x-permission / x-risk
+ *   - capability  <- x-capability
+ *        (collection_query|item_query|create|update|delete|action|task|report)
+ *   - execution   <- x-execution (sync|task)
+ *   - approval    <- x-approval {"required": bool, "policyKey": string}
  *
  * @param sink     receives each descriptor/handler pair
  * @param spec     OpenAPI 3 JSON document

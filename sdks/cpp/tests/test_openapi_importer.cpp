@@ -49,6 +49,9 @@ const char* kSpec = R"({
         "x-operation": "ban",
         "x-permission": "player.ban",
         "x-risk": "high",
+        "x-capability": "action",
+        "x-execution": "sync",
+        "x-approval": {"required": true, "policyKey": "player.ban.double_check"},
         "requestBody": {"content": {"application/json": {"schema": {
           "type": "object",
           "required": ["playerId", "reason"],
@@ -128,6 +131,67 @@ TEST(OpenAPIImporterTest, DerivesIdAndDefaultsWhenOperationIdMissing) {
     EXPECT_EQ("players.search", descriptor.id);
     EXPECT_EQ("Players.search", descriptor.summary);
     EXPECT_EQ("medium", descriptor.risk);
+}
+
+TEST(OpenAPIImporterTest, MapsV2ExecutionContract) {
+    RecordingSink sink;
+    ImportOptions options;
+    RegisterFromOpenAPI(sink.Sink(), kSpec, options,
+        [](const std::string&) { return std::optional<FunctionHandler>(Noop()); });
+
+    const FunctionDescriptor& with_ext = sink.registered[0].first;
+    EXPECT_EQ("action", with_ext.capability);
+    EXPECT_EQ("sync", with_ext.execution);
+
+    // Operations without x-capability/x-execution stay empty.
+    const FunctionDescriptor& without_ext = sink.registered[1].first;
+    EXPECT_TRUE(without_ext.capability.empty());
+    EXPECT_TRUE(without_ext.execution.empty());
+}
+
+TEST(OpenAPIImporterTest, MapsV2ApprovalExtension) {
+    RecordingSink sink;
+    ImportOptions options;
+    RegisterFromOpenAPI(sink.Sink(), kSpec, options,
+        [](const std::string&) { return std::optional<FunctionHandler>(Noop()); });
+
+    const FunctionDescriptor& descriptor = sink.registered[0].first;
+    EXPECT_TRUE(descriptor.approval_required);
+    EXPECT_EQ("player.ban.double_check", descriptor.approval_policy_key);
+
+    const FunctionDescriptor& plain = sink.registered[1].first;
+    EXPECT_FALSE(plain.approval_required);
+    EXPECT_TRUE(plain.approval_policy_key.empty());
+}
+
+TEST(OpenAPIImporterTest, ApprovalNotRequiredKeptExplicitlyFalse) {
+    const char* spec = R"({
+      "paths": {
+        "/players/{id}/kick": {
+          "post": {
+            "operationId": "player_kick",
+            "x-approval": {"required": false, "policyKey": "player.kick.optional"}
+          }
+        }
+      }
+    })";
+    RecordingSink sink;
+    ImportOptions options;
+    RegisterFromOpenAPI(sink.Sink(), spec, options,
+        [](const std::string&) { return std::optional<FunctionHandler>(Noop()); });
+
+    ASSERT_EQ(1u, sink.registered.size());
+    EXPECT_FALSE(sink.registered[0].first.approval_required);
+    EXPECT_EQ("player.kick.optional", sink.registered[0].first.approval_policy_key);
+}
+
+TEST(OpenAPIImporterTest, DefaultTimeoutMsOptionAccepted) {
+    RecordingSink sink;
+    ImportOptions options;
+    options.default_timeout_ms = 60000;
+    std::vector<std::string> registered = RegisterFromOpenAPI(sink.Sink(), kSpec, options,
+        [](const std::string&) { return std::optional<FunctionHandler>(Noop()); });
+    EXPECT_EQ(2u, registered.size());
 }
 
 TEST(OpenAPIImporterTest, AppliesPrefixOptions) {

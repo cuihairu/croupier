@@ -166,6 +166,20 @@ FunctionDescriptor OperationToDescriptor(const std::string& path,
     if (!operation_name.empty()) descriptor.operation = operation_name;
     std::string permission = ExtractExtension(operation, "x-permission");
     if (!permission.empty()) descriptor.permission = permission;
+    std::string capability = ExtractExtension(operation, "x-capability");
+    if (!capability.empty()) descriptor.capability = capability;
+    std::string execution = ExtractExtension(operation, "x-execution");
+    if (!execution.empty()) descriptor.execution = execution;
+
+    if (operation.contains("x-approval") && operation["x-approval"].is_object()) {
+        const auto& approval = operation["x-approval"];
+        if (approval.contains("required") && approval["required"].is_boolean()) {
+            descriptor.approval_required = approval["required"].get<bool>();
+        }
+        if (approval.contains("policyKey") && approval["policyKey"].is_string()) {
+            descriptor.approval_policy_key = approval["policyKey"].get<std::string>();
+        }
+    }
 
     if (auto input = JsonContentSchema(operation.contains("requestBody") ? operation["requestBody"] : nlohmann::json::object())) {
         descriptor.input_schema = *input;
