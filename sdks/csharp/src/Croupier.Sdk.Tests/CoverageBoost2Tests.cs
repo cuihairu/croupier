@@ -272,13 +272,13 @@ public sealed class CoverageBoost2Tests
     [Fact]
     public void OpenAPIImporter_RiskMappingMatrix()
     {
-        OpenAPIImporter.ParseRiskLevel("low").Should().Be("low");
-        OpenAPIImporter.ParseRiskLevel("SAFE").Should().Be("low");
-        OpenAPIImporter.ParseRiskLevel("medium").Should().Be("medium");
-        OpenAPIImporter.ParseRiskLevel("moderate").Should().Be("medium");
+        OpenAPIImporter.ParseRiskLevel("low").Should().Be("safe");
+        OpenAPIImporter.ParseRiskLevel("SAFE").Should().Be("safe");
+        OpenAPIImporter.ParseRiskLevel("medium").Should().Be("warning");
+        OpenAPIImporter.ParseRiskLevel("moderate").Should().Be("warning");
         OpenAPIImporter.ParseRiskLevel("high").Should().Be("high");
         OpenAPIImporter.ParseRiskLevel("critical").Should().Be("danger");
-        OpenAPIImporter.ParseRiskLevel("anything").Should().Be("medium");
+        OpenAPIImporter.ParseRiskLevel("anything").Should().Be("warning");
     }
 
     [Fact]

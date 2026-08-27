@@ -22,16 +22,19 @@ namespace Croupier.Sdk;
 /// <summary>
 /// OpenAPI 3 导入配置（与 Go SDK 的 ImportOptions 对齐）。
 /// </summary>
-public sealed class OpenAPIImportOptions
+public sealed record OpenAPIImportOptions
 {
     /// <summary>为每个导入的 resource 添加前缀（如 "game"）。</summary>
-    public string ResourcePrefix { get; set; } = string.Empty;
+    public string ResourcePrefix { get; init; } = string.Empty;
 
     /// <summary>为每个导入的 tag 添加前缀。</summary>
-    public string TagPrefix { get; set; } = string.Empty;
+    public string TagPrefix { get; init; } = string.Empty;
+
+    /// <summary>导入函数的默认超时（毫秒）。C# 描述符契约暂无 timeout 字段，仅保留选项位。</summary>
+    public int DefaultTimeoutMs { get; init; }
 
     /// <summary>单个函数失败时是否继续导入其余函数。</summary>
-    public bool ContinueOnError { get; set; }
+    public bool ContinueOnError { get; init; }
 }
 
 /// <summary>
@@ -204,14 +207,15 @@ public static class OpenAPIImporter
         var normalized = level.ToLowerInvariant();
         return normalized switch
         {
-            "low" or "safe" => "low",
+            "low" or "safe" => "safe",
+            "medium" or "moderate" or "warning" => "warning",
             "high" => "high",
             "danger" or "critical" => "danger",
-            _ => "medium",
+            _ => "warning",
         };
     }
 
-    private static FunctionDescriptor OperationToDescriptor(
+    internal static FunctionDescriptor OperationToDescriptor(
         string path, JsonElement operation, OpenAPIImportOptions? options)
     {
         var functionId = DeriveOperationId(operation, path);
@@ -254,6 +258,38 @@ public static class OpenAPIImporter
             descriptor.Permission = permission;
         }
 
+        // Descriptor v2 capability fields.
+        var capability = ExtractExtension(operation, "x-capability");
+        if (capability.Length > 0)
+        {
+            descriptor.Capability = capability;
+        }
+        var execution = ExtractExtension(operation, "x-execution");
+        if (execution.Length > 0)
+        {
+            descriptor.Execution = execution;
+        }
+        if (operation.TryGetProperty("x-approval", out var approval)
+            && approval.ValueKind == JsonValueKind.Object)
+        {
+            if (approval.TryGetProperty("required", out var required)
+                && (required.ValueKind == JsonValueKind.True || required.ValueKind == JsonValueKind.False))
+            {
+                descriptor.ApprovalRequired = required.GetBoolean();
+            }
+            if (approval.TryGetProperty("policyKey", out var policyKey)
+                && policyKey.ValueKind == JsonValueKind.String
+                && !string.IsNullOrEmpty(policyKey.GetString()))
+            {
+                descriptor.ApprovalPolicyKey = policyKey.GetString();
+            }
+        }
+        if (operation.TryGetProperty("x-enabled", out var enabled)
+            && (enabled.ValueKind == JsonValueKind.True || enabled.ValueKind == JsonValueKind.False))
+        {
+            descriptor.Enabled = enabled.GetBoolean();
+        }
+
         if (operation.TryGetProperty("requestBody", out var requestBody))
         {
             descriptor.InputSchema = JsonContentSchema(requestBody);
@@ -266,7 +302,7 @@ public static class OpenAPIImporter
         }
 
         var risk = ExtractExtension(operation, "x-risk");
-        descriptor.Risk = risk.Length == 0 ? "medium" : ParseRiskLevel(risk);
+        descriptor.Risk = risk.Length == 0 ? "warning" : ParseRiskLevel(risk);
 
         if (options is not null)
         {

@@ -82,9 +82,9 @@ public sealed class OpenApiSchemaRetryDrainTests
         OpenAPIImporter.DeriveOperationId(empty, "").Should().Be("unknown.function");
         OpenAPIImporter.DeriveOperationId(empty, "/api/players/{id}").Should().Be("api.players.{id}");
         OpenAPIImporter.ToTitleCase("player_ban").Should().Be("Player Ban");
-        OpenAPIImporter.ParseRiskLevel("safe").Should().Be("low");
+        OpenAPIImporter.ParseRiskLevel("safe").Should().Be("safe");
         OpenAPIImporter.ParseRiskLevel("critical").Should().Be("danger");
-        OpenAPIImporter.ParseRiskLevel("bogus").Should().Be("medium");
+        OpenAPIImporter.ParseRiskLevel("bogus").Should().Be("warning");
     }
 
     [Fact]

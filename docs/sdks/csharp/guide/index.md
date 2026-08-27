@@ -26,3 +26,4 @@ title: C# SDK 指南
 - [异步处理器](./async-handlers)
 - [错误处理](./error-handling)
 - [主线程调度器](./threading)
+- [OpenAPI 导入](./openapi-import)
