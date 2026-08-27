@@ -26,9 +26,9 @@ type OpenAPISource struct {
 	InfoTitle       string         `gorm:"size:256" json:"infoTitle,omitempty"`
 	InfoVersion     string         `gorm:"size:64" json:"infoVersion,omitempty"`
 	ContentHash     string         `gorm:"size:64;not null;index" json:"contentHash"`
-	SpecJSON        string         `gorm:"type:json" json:"-"`
-	OperationsJSON  string         `gorm:"type:json" json:"-"`
-	DiagnosticsJSON string         `gorm:"type:json" json:"-"`
+	SpecJSON        string         `gorm:"type:text" json:"-"`
+	OperationsJSON  string         `gorm:"type:text" json:"-"`
+	DiagnosticsJSON string         `gorm:"type:text" json:"-"`
 }
 
 func (OpenAPISource) TableName() string {

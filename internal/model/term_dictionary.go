@@ -19,7 +19,7 @@ type TermDictionary struct {
 	Domain    string            `gorm:"size:32;not null;index:idx_term_domain_key,priority:1;uniqueIndex:uidx_term_domain_alias,priority:1"`
 	TermKey   string            `gorm:"size:64;not null;index:idx_term_domain_key,priority:2"`
 	Alias     string            `gorm:"size:128;not null;uniqueIndex:uidx_term_domain_alias,priority:2"`
-	Display   map[string]string `gorm:"serializer:json;type:json"`
+	Display   map[string]string `gorm:"serializer:json"`
 	SortOrder int               `gorm:"default:100"`
 	CreatedAt time.Time         `gorm:"autoCreateTime"`
 	UpdatedAt time.Time         `gorm:"autoUpdateTime"`

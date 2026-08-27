@@ -23,13 +23,13 @@ type PageSpec struct {
 	PageKey             string         `gorm:"size:128;not null;uniqueIndex:uidx_page_specs_scope_key,priority:3" json:"pageKey"`
 	Type                string         `gorm:"size:32" json:"type"` // resource/operation/task/report
 	ResourceKey         string         `gorm:"size:128;index" json:"resourceKey,omitempty"`
-	TitleJSON           string         `gorm:"type:json" json:"-"`
+	TitleJSON           string         `gorm:"type:text" json:"-"`
 	CategoryKey         string         `gorm:"size:64;index" json:"categoryKey"`
-	CategoryLabelsJSON  string         `gorm:"type:json" json:"-"`
+	CategoryLabelsJSON  string         `gorm:"type:text" json:"-"`
 	CategoryOrder       int            `gorm:"default:0" json:"categoryOrder"`
 	Order               int            `gorm:"default:0" json:"order"`
 	Icon                string         `gorm:"size:64" json:"icon,omitempty"`
-	SpecJSON            string         `gorm:"type:json;not null" json:"-"`
+	SpecJSON            string         `gorm:"not null" json:"-"`
 	Status              string         `gorm:"size:32;default:'draft'" json:"status"` // draft/published/archived
 	PublishedActive     bool           `gorm:"default:false;index" json:"publishedActive"`
 	DraftRevision       int            `gorm:"default:1" json:"draftRevision"`
@@ -99,8 +99,8 @@ type PublishedPageSpec struct {
 	Env                   string     `gorm:"size:64;not null;default:'';uniqueIndex:uidx_published_page_specs_scope_version,priority:2;index:idx_published_page_specs_scope,priority:2" json:"env"`
 	PageKey               string     `gorm:"size:128;not null;uniqueIndex:uidx_published_page_specs_scope_version,priority:3" json:"pageKey"`
 	Version               int        `gorm:"not null;uniqueIndex:uidx_published_page_specs_scope_version,priority:4;index" json:"version"`
-	SpecJSON              string     `gorm:"type:json" json:"-"` // Full PageSpec JSON
-	BindingContractsJSON  string     `gorm:"type:json" json:"-"`
+	SpecJSON              string     `gorm:"type:text" json:"-"` // Full PageSpec JSON
+	BindingContractsJSON  string     `gorm:"type:text" json:"-"`
 	RendererSchemaVersion string     `gorm:"size:32;not null" json:"rendererSchemaVersion"`
 	BaseProposalKey       string     `gorm:"size:128;index" json:"baseProposalKey,omitempty"`
 	BaseProposalVersion   int        `gorm:"default:0" json:"baseProposalVersion,omitempty"`
@@ -125,7 +125,7 @@ type PageVersion struct {
 	Env       string    `gorm:"size:64;not null;default:'';index:idx_page_versions_scope_key,priority:2;uniqueIndex:uidx_page_versions_scope_key_version,priority:2" json:"env"`
 	PageKey   string    `gorm:"size:128;not null;index:idx_page_versions_scope_key,priority:3;uniqueIndex:uidx_page_versions_scope_key_version,priority:3" json:"pageKey"`
 	Version   int       `gorm:"index;uniqueIndex:uidx_page_versions_scope_key_version,priority:4" json:"version"`
-	SpecJSON  string    `gorm:"type:json" json:"-"`    // Full PageSpec JSON
+	SpecJSON  string    `gorm:"type:text" json:"-"`    // Full PageSpec JSON
 	Status    string    `gorm:"size:32" json:"status"` // draft/published
 	Message   string    `gorm:"size:512" json:"message,omitempty"`
 	CreatedBy string    `gorm:"size:128" json:"createdBy,omitempty"`
