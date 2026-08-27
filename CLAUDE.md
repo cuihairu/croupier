@@ -9,7 +9,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ```bash
 make dev          # Clean build from scratch: proto + build
 make build        # Build all binaries (server, agent) to /bin
-make proto        # Generate protobuf code using Buf (buf generate)
+make proto        # Generate protobuf code via local protoc (scripts/gen-proto.sh)
 make pack         # Generate pack artifacts via protoc-gen-croupier
 make test         # Run unit tests with race detection
 make clean        # Remove build artifacts and generated code
@@ -21,7 +21,7 @@ make clean        # Remove build artifacts and generated code
 git clone --recursive https://github.com/cuihairu/croupier.git
 go mod download && make submodules
 ./scripts/dev-certs.sh    # Generate self-signed TLS certs
-buf lint && buf generate  # Generate proto code
+buf lint proto && make proto  # Lint via buf, generate via local protoc
 make build               # Build binaries
 ```
 
@@ -127,11 +127,10 @@ Web UI → Server (HTTP) → Load Balancer → Agent → Game Server
 
 **CRITICAL: Protobuf Code Generation**
 
-- **ALWAYS** use `make proto` to generate protobuf code
-- Buf uses **remote plugins** with fixed versions (e.g., buf.build/protocolbuffers/go:v1.36.11)
-- **NEVER** use local `protoc` directly - it will generate incompatible code
-- Local protoc version mismatches will cause compilation failures
-- Buf config (`buf.gen.yaml`) specifies exact plugin versions to match CI environment
+- **ALWAYS** use `make proto` (scripts/gen-proto.sh) to generate protobuf code
+- Generation is fully **local**: protoc 34.x + protoc-gen-go v1.36.11 (no buf registry / remote plugins)
+- Buf is used only for `buf lint proto` (built-in WKT, no network)
+- protoc-gen-go version is pinned to match the protobuf 4.25.x API used by pkg/pb
 
 **Descriptor-Driven Architecture:**
 

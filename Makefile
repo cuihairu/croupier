@@ -57,15 +57,16 @@ sync-proto:
 		fi
 	@echo "[sync] proto files updated"
 
-# Ensure local protoc plugin exists before running buf
-proto: croupier-plugin
-	@echo "[proto] generating code via buf..."
-	buf generate proto --template buf.gen.yaml --clean
+# 本地生成（脱离 buf registry）：Go/Python/C++ 全走本地 protoc；
+# buf 仅保留 lint（不触网）。脚本：scripts/gen-proto.sh
+proto:
+	@bash scripts/gen-proto.sh
 
-# 本地编译 - 不上传 proto 文件到 buf 服务
-proto-local:
-	@echo "[proto] generating code locally via buf..."
-	buf generate proto --template buf.gen.local.yaml --clean
+# pack artifacts（protoc-gen-croupier 本地插件）
+pack: croupier-plugin
+	@echo "[pack] generating pack artifacts..."
+	protoc -Iproto --plugin=protoc-gen-croupier=$(BINDIR)/protoc-gen-croupier \
+		--croupier_out=packs $(shell find proto -name '*.proto')
 
 # Generate API code from .api files (DEPRECATED - go-zero removed)
 api:

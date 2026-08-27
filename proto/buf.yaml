@@ -12,6 +12,3 @@ lint:
 breaking:
   use:
     - FILE
-deps:
-  # 固定 protobuf 到 v25.1 (对应 protobuf 4.25.x)，确保所有 SDK 兼容性
-  - buf.build/protocolbuffers/wellknowntypes:v25.1
