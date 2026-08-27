@@ -19,9 +19,9 @@ type AgentSessionDB struct {
 	Version   string    `gorm:"size:32"`
 	Region    string    `gorm:"size:64;index"`
 	Zone      string    `gorm:"size:64;index"`
-	Labels    string    `gorm:"type:json"`
-	Functions string    `gorm:"type:json"`
-	Providers string    `gorm:"type:json"`
+	Labels    string    `gorm:"type:text"`
+	Functions string    `gorm:"type:text"`
+	Providers string    `gorm:"type:text"`
 	ExpireAt  time.Time `gorm:"index;not null"`
 	LastSeen  time.Time `gorm:"index;not null"`
 	CreatedAt time.Time
@@ -40,8 +40,8 @@ type AgentRegistrationOperationDB struct {
 	AgentID         string    `gorm:"size:64;index;not null"`
 	GameID          string    `gorm:"size:64;index;not null"`
 	Env             string    `gorm:"size:32;index;not null"`
-	PreviousSession string    `gorm:"type:json"`
-	TargetSession   string    `gorm:"type:json;not null"`
+	PreviousSession string    `gorm:"type:text"`
+	TargetSession   string    `gorm:"type:text;not null"`
 	Status          string    `gorm:"size:32;index;not null"`
 	LastError       string    `gorm:"type:text"`
 	CreatedAt       time.Time `gorm:"index"`

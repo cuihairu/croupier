@@ -665,9 +665,9 @@ func (s *Store) writeToDB(ctx context.Context, a *AgentSession) error {
 		Version   string
 		Region    string
 		Zone      string
-		Labels    string `gorm:"type:json"`
-		Functions string `gorm:"type:json"`
-		Providers string `gorm:"type:json"`
+		Labels    string `gorm:"type:text"`
+		Functions string `gorm:"type:text"`
+		Providers string `gorm:"type:text"`
 		ExpireAt  time.Time
 		LastSeen  time.Time
 	}{

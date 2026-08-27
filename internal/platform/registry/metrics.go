@@ -3,6 +3,7 @@ package registry
 import (
 	"context"
 	"encoding/json"
+	"github.com/cuihairu/croupier/internal/common/dbtype"
 	"sync"
 	"time"
 
@@ -19,12 +20,14 @@ type MetricsEntry struct {
 
 // AgentMetricsHistory is the database model for persisting metrics.
 type AgentMetricsHistory struct {
-	ID         uint      `gorm:"primaryKey"`
-	AgentID    string    `gorm:"index:idx_agent_time,not null"`
-	Timestamp  time.Time `gorm:"index:idx_agent_time,not null"`
-	CPUJSON    []byte    `gorm:"type:json"`
-	MemoryJSON []byte    `gorm:"type:json"`
-	DisksJSON  []byte    `gorm:"type:json"`
+	ID        uint      `gorm:"primaryKey"`
+	AgentID   string    `gorm:"index:idx_agent_time,not null"`
+	Timestamp time.Time `gorm:"index:idx_agent_time,not null"`
+	CPUJSON   dbtype.JSON
+
+	MemoryJSON dbtype.JSON
+
+	DisksJSON dbtype.JSON
 }
 
 func (AgentMetricsHistory) TableName() string {

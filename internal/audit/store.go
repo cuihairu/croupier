@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/cuihairu/croupier/internal/common/dbtype"
 	"io"
 	"strconv"
 	"strings"
@@ -16,25 +17,25 @@ import (
 
 // AuditModel is the GORM model for audit records
 type AuditModel struct {
-	ID             uint      `gorm:"primaryKey;autoIncrement" json:"id"`
-	AuditID        string    `gorm:"uniqueIndex;type:varchar(255)" json:"auditId"`
-	Timestamp      time.Time `gorm:"not null;index" json:"timestamp"`
-	EventType      string    `gorm:"type:varchar(100);not null;index" json:"eventType"`
-	Category       string    `gorm:"type:varchar(50);not null;index" json:"category"`
-	Severity       string    `gorm:"type:varchar(20);not null;index" json:"severity"`
-	ActorJSON      []byte    `gorm:"type:json" json:"actorJson"`
-	Action         string    `gorm:"type:varchar(255)" json:"action"`
-	ResourceJSON   []byte    `gorm:"type:json" json:"resourceJson"`
-	DetailsJSON    []byte    `gorm:"type:json" json:"detailsJson"`
-	ChangesJSON    []byte    `gorm:"type:json" json:"changesJson"`
-	ContextJSON    []byte    `gorm:"type:json" json:"contextJson"`
-	Outcome        string    `gorm:"type:varchar(50);not null;index" json:"outcome"`
-	ErrorMessage   string    `gorm:"type:text" json:"errorMessage"`
-	ChainHash      string    `gorm:"type:varchar(64);not null;index" json:"chainHash"`
-	ChainPrevHash  string    `gorm:"type:varchar(64)" json:"chainPrevHash"`
-	ChainSequence  int64     `gorm:"not null;uniqueIndex" json:"chainSequence"`
-	ChainSignerID  string    `gorm:"type:varchar(255)" json:"chainSignerId"`
-	ChainSignature string    `gorm:"type:text" json:"chainSignature"`
+	ID             uint        `gorm:"primaryKey;autoIncrement" json:"id"`
+	AuditID        string      `gorm:"uniqueIndex;type:varchar(255)" json:"auditId"`
+	Timestamp      time.Time   `gorm:"not null;index" json:"timestamp"`
+	EventType      string      `gorm:"type:varchar(100);not null;index" json:"eventType"`
+	Category       string      `gorm:"type:varchar(50);not null;index" json:"category"`
+	Severity       string      `gorm:"type:varchar(20);not null;index" json:"severity"`
+	ActorJSON      dbtype.JSON `json:"actorJson"`
+	Action         string      `gorm:"type:varchar(255)" json:"action"`
+	ResourceJSON   dbtype.JSON `json:"resourceJson"`
+	DetailsJSON    dbtype.JSON `json:"detailsJson"`
+	ChangesJSON    dbtype.JSON `json:"changesJson"`
+	ContextJSON    dbtype.JSON `json:"contextJson"`
+	Outcome        string      `gorm:"type:varchar(50);not null;index" json:"outcome"`
+	ErrorMessage   string      `gorm:"type:text" json:"errorMessage"`
+	ChainHash      string      `gorm:"type:varchar(64);not null;index" json:"chainHash"`
+	ChainPrevHash  string      `gorm:"type:varchar(64)" json:"chainPrevHash"`
+	ChainSequence  int64       `gorm:"not null;uniqueIndex" json:"chainSequence"`
+	ChainSignerID  string      `gorm:"type:varchar(255)" json:"chainSignerId"`
+	ChainSignature string      `gorm:"type:text" json:"chainSignature"`
 	// Promoted first-class columns derived from Resource/Details at write
 	// time (and backfilled for legacy rows). They make game/env scoping and
 	// invocation analytics aggregable in plain SQL, keeping queries

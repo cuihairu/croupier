@@ -2,6 +2,7 @@ package approvals
 
 import (
 	"encoding/json"
+	"github.com/cuihairu/croupier/internal/common/dbtype"
 	"time"
 
 	"gorm.io/gorm"
@@ -21,7 +22,7 @@ type ApprovalModel struct {
 	TargetServiceID string         `gorm:"type:varchar(255);index" json:"targetServiceId"`
 	HashKey         string         `gorm:"type:varchar(255);index" json:"hashKey"`
 	Payload         []byte         `gorm:"type:blob" json:"payload"`
-	MetadataJSON    []byte         `gorm:"type:json" json:"metadataJson"`
+	MetadataJSON    dbtype.JSON    `json:"metadataJson"`
 	Reason          string         `gorm:"type:text" json:"reason"`
 	ResultKind      string         `gorm:"type:varchar(50)" json:"resultKind"`
 	TaskID          string         `gorm:"type:varchar(255);index" json:"taskId"`
