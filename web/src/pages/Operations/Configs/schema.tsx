@@ -7,6 +7,8 @@ export const CONFIG_FORMAT_OPTIONS = [
   { label: 'json', value: 'json' },
   { label: 'csv', value: 'csv' },
   { label: 'yaml', value: 'yaml' },
+  { label: 'lua', value: 'lua' },
+  { label: 'python', value: 'python' },
   { label: 'ini', value: 'ini' },
   { label: 'xml', value: 'xml' },
 ];

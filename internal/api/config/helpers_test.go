@@ -350,6 +350,37 @@ func TestValidateConfigContent(t *testing.T) {
 			content: "  ",
 			wantErr: true,
 		},
+		// lua/python 脚本式配置：非空即通过（语法由编辑器/游戏侧兜底）
+		{
+			name:    "lua config",
+			format:  "lua",
+			content: `return { level = 1, name = "slime" }`,
+			wantErr: false,
+		},
+		{
+			name:    "python config",
+			format:  "python",
+			content: "CONFIG = {'level': 1}\n",
+			wantErr: false,
+		},
+		{
+			name:    "python alias py",
+			format:  "py",
+			content: "CONFIG = {}\n",
+			wantErr: false,
+		},
+		{
+			name:    "empty lua",
+			format:  "lua",
+			content: "  ",
+			wantErr: true,
+		},
+		{
+			name:    "lua with NUL byte (binary upload)",
+			format:  "lua",
+			content: "return {}\x00",
+			wantErr: true,
+		},
 		// Default/empty format (should parse as JSON)
 		{
 			name:    "empty format defaults to JSON",

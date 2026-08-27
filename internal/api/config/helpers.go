@@ -97,6 +97,17 @@ func validateConfigContent(format, content string) error {
 			return fmt.Errorf("csv content cannot be empty")
 		}
 		return nil
+	case "lua", "python", "py":
+		// lua/python 属于脚本式配置：服务端不内嵌解释器，语法正确性由
+		// 客户端 Monaco 编辑器与游戏侧加载兜底，这里只做基本卫生检查
+		// （非空、无 NUL 字节——NUL 几乎必然是二进制误传）。
+		if strings.TrimSpace(content) == "" {
+			return fmt.Errorf("%s content cannot be empty", format)
+		}
+		if strings.ContainsRune(content, 0) {
+			return fmt.Errorf("%s content contains NUL bytes (binary upload?)", format)
+		}
+		return nil
 	default:
 		return fmt.Errorf("unsupported config format: %s", format)
 	}

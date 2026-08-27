@@ -90,6 +90,8 @@ export function langOf(fmt: string): string {
   if (f === 'yaml' || f === 'yml') return 'yaml';
   if (f === 'xml') return 'xml';
   if (f === 'ini') return 'ini';
+  if (f === 'lua') return 'lua';
+  if (f === 'python' || f === 'py') return 'python';
   if (f === 'csv') return 'plaintext';
   return 'plaintext';
 }
