@@ -108,16 +108,16 @@ SDK 描述符不承载 UI、菜单、页面分类、多语言标题、页面 sch
 
 当前 Descriptor v2 / OpenAPI helper 实现状态：
 
-| SDK    | Descriptor v2 字段                | `RegisterFromOpenAPI` 等价 helper | 备注                                       |
-| ------ | --------------------------------- | --------------------------------- | ------------------------------------------ |
-| Go     | ✅ 已接 builder / OpenAPI helper  | ✅ 可验证                         | 作为当前基准实现                           |
-| JS/TS  | ✅ 已含 capability/execution 字段 | ❌ 未实现                         | 示例需补齐 v2 字段后才能标完成             |
-| Python | ✅ 已含 capability/execution 字段 | ❌ 未实现                         | 示例需补齐 v2 字段后才能标完成             |
-| Java   | ✅ 已含 capability/execution 字段 | ❌ 未实现                         | 示例需补齐 v2 字段后才能标完成             |
-| C++    | ✅ 生成 proto 已含字段            | ❌ 未实现                         | 示例需补齐 v2 字段后才能标完成             |
-| C#     | ✅ 生成 proto 已含字段            | ❌ 未实现                         | 生成 proto 已含字段，手写 API/示例仍需验收 |
+| SDK    | Descriptor v2 字段                        | `RegisterFromOpenAPI` 等价 helper        | 备注                                                      |
+| ------ | ----------------------------------------- | ---------------------------------------- | --------------------------------------------------------- |
+| Go     | ✅ builder + OpenAPI helper 全字段        | ✅ `function.RegisterFromOpenAPI`        | 基准实现；helper 解析 x-capability/x-execution/x-approval |
+| JS/TS  | ✅ 示例已用 capability/execution/approval | ✅ `registerFromOpenAPI`                 | jest 全绿；helper 支持 v2 词表 + continueOnError          |
+| Python | ✅ 示例 19 个 descriptor 已用 v2 字段     | ✅ `register_from_openapi`               | pytest 全绿；risk 别名 medium/low 已收敛为 canonical 词表 |
+| Java   | ✅ 示例 19 个 descriptor 已用 v2 字段     | ✅ `OpenAPIImporter`                     | gradle test 全绿；ImportOptions builder                   |
+| C++    | ✅ 示例 18 个 descriptor 已用 v2 字段     | ✅ `RegisterFromOpenAPI` 重载            | ctest 全绿；nlohmann_json 解析，无新增依赖                |
+| C#     | ✅ 示例 19 个 descriptor 已用 v2 字段     | ✅ `OpenAPIImporter.RegisterFromOpenAPI` | dotnet test 全绿；System.Text.Json，禁 dynamic            |
 
-验收前禁止在 README 或集成文档中写“所有 SDK 支持 OpenAPI 解析/上传注册”。Server 侧 OpenAPI Source 上传是控制台能力，不等于每个 SDK 都有本地 OpenAPI helper。
+六语言 helper 均为**纯本地解析**（不连 server）：operation → descriptor，扩展键 `x-resource`/`x-operation`/`x-permission`/`x-capability`/`x-execution`/`x-risk`/`x-approval`，`ImportOptions{resourcePrefix, tagPrefix, defaultTimeoutMs, continueOnError}` 语义一致（`defaultTimeoutMs` 仅 Go/C++ 有 timeout 字段可写入，其余语言为对齐保留位，见各语言文档）。Server 侧 OpenAPI Source 上传是控制台能力，与 SDK 本地 helper 互补。
 
 ---
 
