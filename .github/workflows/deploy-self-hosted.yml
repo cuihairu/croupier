@@ -20,11 +20,11 @@ on:
         required: true
         default: "main"
       sdk_example_tag:
-        description: "croupier-sdk-go game demo image tag"
+        description: "SDK example demo images tag (go/python/java/js/cpp/csharp 共用)"
         required: true
         default: "main"
       enable_sdk_examples:
-        description: "Deploy croupier-sdk-go game demo container"
+        description: "Deploy SDK example demo containers (六种语言全量)"
         required: true
         default: "true"
       deploy_dir:

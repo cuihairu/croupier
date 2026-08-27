@@ -11,6 +11,8 @@ on:
       - "cmd/server/**"
       - "internal/**"
       - "web/**"
+      - "docker/Dockerfile.web"
+      - "docker/nginx-main.conf"
   push:
     branches: [main]
     tags: ["v*"]
@@ -22,6 +24,8 @@ on:
       - "cmd/server/**"
       - "internal/**"
       - "web/**"
+      - "docker/Dockerfile.web"
+      - "docker/nginx-main.conf"
   workflow_dispatch:
     inputs:
       tag:
