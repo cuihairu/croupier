@@ -1,5 +1,5 @@
 # Docker deployment override for croupier-agent (instance 2).
-# 上游同实例 1：经 dashboard nginx L4 LB（croupier-dashboard:19090）
+# 上游同实例 1：经 dashboard nginx L4 LB（haproxy:19090）
 # 打散到 server/server2。Agent ID 与 httpAddr 必须与实例 1 区分
 # （注册与回调寻址冲突）。
 name: croupier-agent-2
@@ -7,7 +7,7 @@ host: 0.0.0.0
 port: 19091
 
 server:
-  addr: "croupier-dashboard:19090"
+  addr: "haproxy:19090"
   insecure: true
   serverName: ""
   insecureSkipVerify: false

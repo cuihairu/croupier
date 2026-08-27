@@ -114,10 +114,10 @@ docker-compose build [service_name]
 deploy 编排按 HA 多实例架构（`docs/architecture/server-ha-multi-instance.md`）部署：
 
 - **server / server2**：双 Server 实例（YAML anchor 共享配置，`server_data` 卷共享）；集群成员表 + owner 转发自动协同，任一实例故障另一实例接管调用
-- **agent / agent2**：双 Agent 实例，上游统一经 dashboard nginx 的 L4 LB（`croupier-dashboard:19090`）打散到两台 Server；断连重连由 LB 分发至存活实例（`configs/agent2.yaml` 区分 Agent ID 与 httpAddr）
-- **dashboard nginx 双层负载均衡**：
-  - L7（`/api/`）：`split_clients` 按请求哈希分流到两实例 18780（resolver 运行时解析，实例重建换 IP 不会 502；SSE 已关缓冲）
-  - L4（:19090 stream）：Agent 自研 transport TCP 长连接透传，`least_conn` 打散；Server 实例重建换 IP 后需 `--force-recreate dashboard` 重载 upstream
+- **agent / agent2**：双 Agent 实例，上游统一经 haproxy 的 L4 LB（`haproxy:19090`）打散到两台 Server；断连重连由 LB 分发至存活实例（`configs/agent2.yaml` 区分 Agent ID 与 httpAddr）
+- **两层负载均衡**（nginx 管人，HAProxy 管机器）：
+  - dashboard nginx（L7）：`split_clients` 按请求哈希分流到两实例 18780（resolver 运行时解析，实例重建换 IP 不会 502；SSE 已关缓冲）
+  - haproxy（L4，`configs/haproxy.cfg`）：Agent TCP `leastconn` 打散 + `tcp-check` 主动健康检查 + `resolvers` 运行时重解析 + stats 页（:8404）
 - 宿主端口只由每组实例 1 发布（server: 8443/18780，agent: 19091）；实例 2 仅集群内可达
 - 方案选型（nginx stream / HAProxy / keepalived）见 `docs/guide/load-balancing.md`
 

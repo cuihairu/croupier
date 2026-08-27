@@ -1,0 +1,9 @@
+# HAProxy L4 负载均衡（Agent transport TCP 入口打散到 Server 集群）。
+# 配置见 docker/configs/haproxy.cfg；选型与迁移路径见
+# docs/guide/load-balancing.md。
+ARG HAPROXY_IMAGE=haproxy:2.9-alpine
+FROM ${HAPROXY_IMAGE}
+
+COPY docker/configs/haproxy.cfg /usr/local/etc/haproxy/haproxy.cfg
+
+EXPOSE 19090 8404

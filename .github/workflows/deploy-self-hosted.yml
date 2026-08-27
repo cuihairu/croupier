@@ -73,17 +73,17 @@ jobs:
           # in place of the missing files, which then fail with "not a directory".
           rm -rf "${{ inputs.deploy_dir }}/configs"
           mkdir -p "${{ inputs.deploy_dir }}/configs"
-          cp docker/configs/server.yaml docker/configs/agent.yaml docker/configs/agent2.yaml "${{ inputs.deploy_dir }}/configs/"
+          cp docker/configs/server.yaml docker/configs/agent.yaml docker/configs/agent2.yaml docker/configs/haproxy.cfg "${{ inputs.deploy_dir }}/configs/"
           # agent*.yaml 的 game/env scope 是环境事实（生产 demo-game/development，
           # 全新安装 bootstrap 为 default/dev），部署覆盖会静默改写 scope 导致
           # 函数注册进不可见的游戏。策略：线上已有文件原样保留（scope 不动），
-          # 但 server.addr 强制收敛到 L4 LB 入口——HA 拓扑下 agent 不允许直连
-          # 单个 server 实例（旧直连地址不保留）。
+          # 但 server.addr 强制收敛到 HAProxy L4 LB 入口——HA 拓扑下 agent 不允许
+          # 直连单个 server 实例（旧直连/旧 nginx stream 入口地址均不保留）。
           for cfg in agent.yaml agent2.yaml; do
             if [ -f "${PREV_DIR}/${cfg}" ]; then
               cp "${PREV_DIR}/${cfg}" "${{ inputs.deploy_dir }}/configs/${cfg}"
             fi
-            sed -i 's|^  addr: "[^"]*"$|  addr: "croupier-dashboard:19090"|' \
+            sed -i 's|^  addr: "[^"]*"$|  addr: "haproxy:19090"|' \
               "${{ inputs.deploy_dir }}/configs/${cfg}"
           done
           rm -rf "${PREV_DIR}"
@@ -139,7 +139,7 @@ jobs:
             fi
             if [ "$i" = "3" ]; then
               echo "::warn::全量 pull 失败，尝试只拉核心镜像（观测栈沿用本地已有版本）"
-              docker compose "${COMPOSE_ARGS[@]}" pull server server2 agent agent2 dashboard || {
+              docker compose "${COMPOSE_ARGS[@]}" pull server server2 agent agent2 haproxy dashboard || {
                 echo "::error::核心镜像（server/agent/dashboard）拉取失败"
                 exit 1
               }
@@ -158,6 +158,7 @@ jobs:
             croupier-server2 \
             croupier-agent \
             croupier-agent-2 \
+            croupier-haproxy \
             croupier-dashboard \
             croupier-sdk-demo-go
           do

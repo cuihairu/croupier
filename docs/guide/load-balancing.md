@@ -46,16 +46,16 @@ Croupier HA 多实例架构（[Server 多实例 HA](../architecture/server-ha-mu
 
 推荐按部署形态选择：
 
-| 部署形态                                    | 推荐                                                                | 理由                                                                                    |
-| ------------------------------------------- | ------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
-| 单机 compose（`docker-compose.deploy.yml`） | **nginx stream**（现状）                                            | LB 与 dashboard 同容器、故障域一致；宿主挂了 LB 再高可用也无意义；IP 变动用部署流程兜底 |
-| 多宿主容器化生产                            | **HAProxy**（agent L4 入口）                                        | IP 变动自动跟随 + 主动摘除僵死实例 + stats 排查；dashboard 的 L7 仍由 nginx 承担        |
-| LB 自身不允许单点                           | **keepalived + HAProxy**（主备 VIP 漂移）；公有云等价物是**云 NLB** | VRRP 需要网络层支持，公有云内用 NLB 免运维                                              |
-| Kubernetes                                  | **Service（ClusterIP）**                                            | kube-proxy 天然负载均衡 + Endpoints 就绪探针，无需自建 LB 层                            |
+| 部署形态                                    | 推荐                                                                | 理由                                                                             |
+| ------------------------------------------- | ------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| 单机 compose（`docker-compose.deploy.yml`） | **HAProxy**（现状，独立 `haproxy` 服务）                            | 统一形态：L4 能力完整（重解析/健康检查/stats），单机与多宿主无需两套配置         |
+| 多宿主容器化生产                            | **HAProxy**（agent L4 入口）                                        | IP 变动自动跟随 + 主动摘除僵死实例 + stats 排查；dashboard 的 L7 仍由 nginx 承担 |
+| LB 自身不允许单点                           | **keepalived + HAProxy**（主备 VIP 漂移）；公有云等价物是**云 NLB** | VRRP 需要网络层支持，公有云内用 NLB 免运维                                       |
+| Kubernetes                                  | **Service（ClusterIP）**                                            | kube-proxy 天然负载均衡 + Endpoints 就绪探针，无需自建 LB 层                     |
 
 ## 配置示例
 
-### nginx stream（单机 compose，当前默认）
+### nginx stream（备选：复用 dashboard 容器）
 
 ```nginx
 # docker/nginx-main.conf（部署产物的一部分）
@@ -79,7 +79,7 @@ stream {
 - upstream 域名只在启动/reload 解析；**server 实例重建换 IP 后**：`docker compose up -d --force-recreate dashboard`
 - 被动探测：实例僵死但连接未断时不会被摘除，依赖 agent 侧心跳超时重连兜底
 
-### HAProxy（多宿主生产推荐）
+### HAProxy（本仓库默认，docker/configs/haproxy.cfg）
 
 ```haproxy
 # /etc/haproxy/haproxy.cfg（agent L4 入口）
