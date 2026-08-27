@@ -169,7 +169,8 @@ services:
       - croupier-network
 
   # ================================
-  # SDK 示例（可选：profiles: [examples]）
+  # SDK 示例（六语言 demo：go/python/java/js/cpp/csharp，
+  # 可选：profiles: [examples]）
   # ================================
 
   # Go SDK - 游戏演示（完整模拟游戏场景：玩家、订单、排行榜、道具、邮件）
@@ -187,54 +188,6 @@ services:
       CROUPIER_AGENT_ADDR: agent:19091
       CROUPIER_GAME_ID: default
       CROUPIER_SERVICE_ID: game-demo-service
-      CROUPIER_ENV: dev
-    depends_on:
-      agent:
-        condition: service_healthy
-    networks:
-      - croupier-network
-    profiles:
-      - examples
-
-  # Go SDK - 基础示例（演示函数注册和调用）
-  sdk-example-basic:
-    build:
-      context: ../sdks/go
-      dockerfile: examples/Dockerfile
-      args:
-        GO_IMAGE: ${GO_IMAGE:-golang:1.26.6}
-        RUNTIME_IMAGE: ${RUNTIME_IMAGE:-gcr.io/distroless/base-debian12:nonroot}
-        EXAMPLE_DIR: basic
-    container_name: croupier-sdk-basic
-    restart: unless-stopped
-    environment:
-      CROUPIER_AGENT_ADDR: agent:19091
-      CROUPIER_GAME_ID: default
-      CROUPIER_SERVICE_ID: example-service
-      CROUPIER_ENV: dev
-    depends_on:
-      agent:
-        condition: service_healthy
-    networks:
-      - croupier-network
-    profiles:
-      - examples
-
-  # Go SDK - 综合示例（演示所有 SDK 接口）
-  sdk-example-comprehensive:
-    build:
-      context: ../sdks/go
-      dockerfile: examples/Dockerfile
-      args:
-        GO_IMAGE: ${GO_IMAGE:-golang:1.26.6}
-        RUNTIME_IMAGE: ${RUNTIME_IMAGE:-gcr.io/distroless/base-debian12:nonroot}
-        EXAMPLE_DIR: comprehensive
-    container_name: croupier-sdk-comprehensive
-    restart: unless-stopped
-    environment:
-      CROUPIER_AGENT_ADDR: agent:19091
-      CROUPIER_GAME_ID: default
-      CROUPIER_SERVICE_ID: comprehensive-service
       CROUPIER_ENV: dev
     depends_on:
       agent:
