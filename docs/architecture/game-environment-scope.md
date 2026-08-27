@@ -424,11 +424,27 @@ scope 中立不等于绕过数据授权。`/api/v1/audit` 必须先校验 `audit
 
 协议层 `AgentProcess.game_id/env` 已为 per-provider scope 预留字段（"game scope the provider belongs to"）。若未来游戏数量大到共享集群内逐游戏部署 Agent 成为负担，可落地 provider 级 scope（函数路由已有 `(game_id, function_id)` 索引，改动集中在注册聚合与归属表粒度 Agent×game）。在此之前不启动。
 
-### 14.5 Review Checklist
+### 14.5 Provider 注册的 scope 校验（两层防线）
+
+SDK/自定义游戏服连接 Agent（ProviderConnect）与 Agent 注册（Register 的 Processes）时，provider 上报的 `game_id`/`env` 必须与 Agent 会话 scope 一致。不一致说明 SDK 侧配置错误（如连错环境的 agent）——两层防线：
+
+| 层          | 位置                                                  | 行为                                                                                                                      |
+| ----------- | ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| Agent 本地  | `internal/agent` ProviderConnect 处理                 | 本地日志警告 + 警告随响应回传 SDK（开发者立即可见）                                                                       |
+| Server 平台 | `internal/server` Register 的 `validateProviderScope` | 警告进注册响应 + **平台告警**（`provider_scope_mismatch`，firing；配置修复后一致注册自动 resolved），出现在 `/ops/alerts` |
+
+规则：
+
+- **向后兼容**：provider 未传 scope（空值）或 agent 未配置时不校验
+- **路由语义不变**：ProviderSession 聚合仍按 agent 会话 scope（调用路由稳定），mismatch 只告警不改变路由——修复手段是改 SDK 配置，不是让平台迁就错误 scope
+- 告警按 `provider_scope_mismatch:<agentID>:<serviceID>` 去重，避免重复注册刷屏
+
+### 14.6 Review Checklist
 
 - Agent 配置/注册不得出现 `games: []` 多值形态；新增能力不得绕过会话级单 scope
 - 双 agent 部署模板（deploy compose）的 `gameId/env` 必须一致（同一环境的多个接入实例，见 deploy workflow 的 scope 同步逻辑）
 - 集群归属表 `cluster_agent_owners` 保持 (agent_id → game_id, env) 单值语义
+- provider scope mismatch 不得被静默改写或吞掉——必须进平台告警（见 §14.5）
 
 ## 15. 迁移与验收顺序
 

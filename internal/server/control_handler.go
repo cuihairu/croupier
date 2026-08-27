@@ -119,6 +119,10 @@ type ControlService struct {
 		OnAgentDisconnected(ctx context.Context, agentID string)
 	}
 
+	// alertModel 平台告警通道（装配期注入；nil = 未启用，scope 校验
+	// 警告只进日志与注册响应，不落告警表）。
+	alertModel *model.AlertModel
+
 	mu     sync.RWMutex
 	ctx    context.Context
 	cancel context.CancelFunc
@@ -206,6 +210,14 @@ func (s *ControlService) SetClusterHooks(h interface {
 	s.mu.Lock()
 	s.clusterHooks = h
 	s.mu.Unlock()
+}
+
+// SetAlertModel 注入平台告警通道（装配期调用；provider scope 校验
+// 警告经此落 AlertModel，出现在 /ops/alerts）。
+func (s *ControlService) SetAlertModel(m *model.AlertModel) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.alertModel = m
 }
 
 func (s *ControlService) StartBackgroundTasks() {
@@ -487,6 +499,12 @@ func (s *ControlService) handleRegisterRequest(ctx context.Context, req *agentv1
 			if p == nil || p.ServiceId == "" {
 				continue
 			}
+			// Provider（SDK/自定义游戏服）scope 校验：agent 会话绑定单一
+			// (game_id, env)（作用域规范 §14），provider 上报的 scope 必须
+			// 一致。不一致说明 SDK 侧配置错误——注册继续（聚合路由仍按
+			// agent scope，保证调用路由稳定），但产生平台告警 + 注册警告，
+			// 不再静默吞掉。向后兼容：provider 未传 scope（空）不校验。
+			s.validateProviderScope(ctx, req, p, &warningTexts)
 			providers = append(providers, reg.ProviderSession{
 				ProviderID:   p.ServiceId,
 				GameID:       req.GameId,
@@ -566,6 +584,66 @@ func (s *ControlService) handleHeartbeatRequest(ctx context.Context, req *agentv
 	s.registry.Mu().Unlock()
 
 	return &agentv1.HeartbeatResponse{}, nil
+}
+
+// validateProviderScope 校验 provider 上报的 game/env 与 agent 会话 scope
+// 是否一致；mismatch 时写入 warningTexts 并落平台告警（firing），一致且
+// 存在历史 firing 告警时标记 resolved。
+func (s *ControlService) validateProviderScope(ctx context.Context, req *agentv1.RegisterRequest, p *agentv1.AgentProcess, warningTexts *[]string) {
+	mismatches := make([]string, 0, 2)
+	if p.GameId != "" && req.GameId != "" && p.GameId != req.GameId {
+		mismatches = append(mismatches, fmt.Sprintf("game_id mismatch: provider=%q agent=%q", p.GameId, req.GameId))
+	}
+	if p.Env != "" && req.Env != "" && p.Env != req.Env {
+		mismatches = append(mismatches, fmt.Sprintf("env mismatch: provider=%q agent=%q", p.Env, req.Env))
+	}
+
+	alertID := fmt.Sprintf("provider_scope_mismatch:%s:%s", req.AgentId, p.ServiceId)
+	s.mu.RLock()
+	am := s.alertModel
+	s.mu.RUnlock()
+	if am == nil {
+		// 告警通道未注入：警告仍进日志与注册响应。
+		for _, m := range mismatches {
+			*warningTexts = append(*warningTexts, fmt.Sprintf("service_id=%s: %s", p.ServiceId, m))
+			s.logger.Warn("provider scope mismatch", "agent_id", req.AgentId, "service_id", p.ServiceId, "detail", m)
+		}
+		return
+	}
+
+	if len(mismatches) > 0 {
+		for _, m := range mismatches {
+			*warningTexts = append(*warningTexts, fmt.Sprintf("service_id=%s: %s", p.ServiceId, m))
+			s.logger.Warn("provider scope mismatch", "agent_id", req.AgentId, "service_id", p.ServiceId, "detail", m)
+		}
+		if existing, err := am.FindByAlertID(ctx, alertID); err != nil || existing == nil {
+			if err := am.Create(ctx, &model.Alert{
+				AlertID: alertID,
+				Type:    "provider_scope_mismatch",
+				Level:   "warning",
+				Message: fmt.Sprintf("provider %s 注册 scope 与 agent %s 不一致（agent=%s/%s, provider=%s/%s）",
+					p.ServiceId, req.AgentId, req.GameId, req.Env, p.GameId, p.Env),
+				Source: "agent-register",
+				Status: "firing",
+				Details: map[string]interface{}{
+					"agentId": req.AgentId, "serviceId": p.ServiceId,
+					"agentGameId": req.GameId, "agentEnv": req.Env,
+					"providerGameId": p.GameId, "providerEnv": p.Env,
+					"mismatches": mismatches,
+				},
+			}); err != nil {
+				s.logger.Error("failed to record provider scope mismatch alert", "error", err)
+			}
+		}
+		return
+	}
+
+	// 一致注册：历史 firing 告警转 resolved（配置已修复）。
+	if existing, err := am.FindByAlertID(ctx, alertID); err == nil && existing != nil && existing.Status == "firing" {
+		if err := am.UpdateStatus(ctx, existing.ID, "resolved"); err != nil {
+			s.logger.Error("failed to resolve provider scope mismatch alert", "error", err)
+		}
+	}
 }
 
 func (s *ControlService) handleRegisterCapabilitiesRequest(ctx context.Context, req *agentv1.RegisterCapabilitiesRequest) (*agentv1.RegisterCapabilitiesResponse, error) {
