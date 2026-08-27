@@ -1,7 +1,7 @@
 ---
 title: 安全配置
 icon: shield-halved
-order: 2
+order: 40
 category:
   - 运维指南
 tag:

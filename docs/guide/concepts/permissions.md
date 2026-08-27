@@ -58,7 +58,7 @@ ABAC (Attribute-Based Access Control) 基于属性的访问控制。
 
 ```javascript
 // 评估表达式
-user.roles.includes('admin') || (game_id === 'my-game' && env === 'dev')
+user.roles.includes("admin") || (game_id === "my-game" && env === "dev");
 ```
 
 ## 用户和角色
@@ -165,25 +165,25 @@ game:{game_id}:{permission}
 
 ### 可用表达式
 
-| 函数 | 说明 | 示例 |
-|------|------|------|
-| `has_role(role)` | 检查角色 | `has_role('admin')` |
-| `has_permission(perm)` | 检查权限 | `has_permission('player.view')` |
-| `==` | 等于 | `env == 'prod'` |
-| `!=` | 不等于 | `env != 'dev'` |
-| `&&` | 逻辑与 | `has_role('admin') && env == 'prod'` |
-| `\|\|` | 逻辑或 | `has_role('admin') \|\| has_role('gm')` |
-| `()` | 分组 | `(a \|\| b) && c` |
+| 函数                   | 说明     | 示例                                    |
+| ---------------------- | -------- | --------------------------------------- |
+| `has_role(role)`       | 检查角色 | `has_role('admin')`                     |
+| `has_permission(perm)` | 检查权限 | `has_permission('player.view')`         |
+| `==`                   | 等于     | `env == 'prod'`                         |
+| `!=`                   | 不等于   | `env != 'dev'`                          |
+| `&&`                   | 逻辑与   | `has_role('admin') && env == 'prod'`    |
+| `\|\|`                 | 逻辑或   | `has_role('admin') \|\| has_role('gm')` |
+| `()`                   | 分组     | `(a \|\| b) && c`                       |
 
 ### 可用变量
 
-| 变量 | 类型 | 说明 |
-|------|------|------|
-| `user` | object | 当前用户信息 |
-| `user.roles` | array | 用户角色列表 |
-| `game_id` | string | 目标游戏 ID |
-| `env` | string | 逻辑环境 (dev/staging/prod) |
-| `function_id` | string | 被调用的函数 ID |
+| 变量          | 类型   | 说明                        |
+| ------------- | ------ | --------------------------- |
+| `user`        | object | 当前用户信息                |
+| `user.roles`  | array  | 用户角色列表                |
+| `game_id`     | string | 目标游戏 ID                 |
+| `env`         | string | 逻辑环境 (dev/staging/prod) |
+| `function_id` | string | 被调用的函数 ID             |
 
 ## 审批流程
 
@@ -199,7 +199,7 @@ game:{game_id}:{permission}
     "two_person_rule": true,
     "approval": {
       "enabled": true,
-      "threshold": 2  // 需要两人审批
+      "threshold": 2 // 需要两人审批
     }
   }
 }
@@ -304,13 +304,13 @@ server:
 
 ### 风险分级
 
-| 等级 | 说明 | 审批要求 | 审计要求 | 允许角色 |
-|------|------|----------|----------|----------|
-| `low` | 低风险 | 无需审批 | 无需审计 | user, operator |
-| `medium` | 中风险 | 无需审批 | 需要审计 | operator |
-| `high` | 高风险 | 单管理员审批 | 需要审计 | admin |
-| `danger` | 危险 | 双人审批 | 需要审计 | super_admin |
-| `unknown` | 未知（默认） | 同 medium | 同 medium | operator |
+| 等级      | 说明         | 审批要求     | 审计要求  | 允许角色       |
+| --------- | ------------ | ------------ | --------- | -------------- |
+| `low`     | 低风险       | 无需审批     | 无需审计  | user, operator |
+| `medium`  | 中风险       | 无需审批     | 需要审计  | operator       |
+| `high`    | 高风险       | 单管理员审批 | 需要审计  | admin          |
+| `danger`  | 危险         | 双人审批     | 需要审计  | super_admin    |
+| `unknown` | 未知（默认） | 同 medium    | 同 medium | operator       |
 
 ### 双层政策架构
 
@@ -347,10 +347,10 @@ Croupier 采用**双层政策架构**，结合配置文件默认策略和数据�
 
 **政策来源：**
 
-| 来源 | 说明 | 优先级 | 修改方式 |
-|------|------|--------|----------|
-| `default` | 来自 `configs/default-policies.yaml` 的默认政策 | 低 | 修改配置文件 |
-| `manual` | 数据库中的覆盖政策 | 高 | API 设置/删除 |
+| 来源      | 说明                                            | 优先级 | 修改方式      |
+| --------- | ----------------------------------------------- | ------ | ------------- |
+| `default` | 来自 `configs/default-policies.yaml` 的默认政策 | 低     | 修改配置文件  |
+| `manual`  | 数据库中的覆盖政策                              | 高     | API 设置/删除 |
 
 **默认政策配置** (`configs/default-policies.yaml`):
 
@@ -509,5 +509,5 @@ server:
 ## 相关文档
 
 - [函数管理](./function-management.md)
-- [配置管理](../configuration.md)
-- [安全配置](../operations/security.md)
+- [配置管理](../../operations/config-server.md)
+- [安全配置](../../operations/security.md)

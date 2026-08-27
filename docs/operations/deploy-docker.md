@@ -1,9 +1,9 @@
 ---
 title: 部署指南
 icon: rocket
-order: 4
+order: 3
 category:
-  - 入门指南
+  - 运维手册
 tag:
   - 部署
 ---
@@ -135,6 +135,6 @@ curl http://localhost:8088/healthz
 
 ## 下一步
 
-- [监控指南](./operations/monitoring.md)
-- [安全配置](./operations/security.md)
-- [故障排查](./operations/troubleshooting.md)
+- [监控指南](./monitoring.md)
+- [安全配置](./security.md)
+- [故障排查](./troubleshooting.md)

@@ -3,13 +3,13 @@ home: true
 title: 使用指南
 heroImage: /logo.png
 heroText: Croupier Guide
-tagline: 当前仓库对应的上手、配置与部署文档
+tagline: 上手与核心概念——部署、配置与运维见「运维」栏目
 actions:
   - text: 快速开始 →
     link: /guide/quick-start.html
     type: primary
   - text: 配置管理
-    link: /guide/configuration.html
+    link: /operations/
     type: secondary
 ---
 
@@ -19,8 +19,8 @@ actions:
 
 - `quick-start.md`: 本地启动最短路径
 - `installation.md`: 依赖安装
-- `configuration.md`: `configs/server.yaml` 与 `configs/agent.yaml`
-- `deployment.md`: Docker 与二进制部署
+
+部署、配置全解、负载均衡、监控/安全/故障排除、备份恢复等运维内容已独立为 [运维栏目](/operations/)。
 
 以下旧内容已经移除：
 
@@ -32,7 +32,7 @@ actions:
 
 1. [快速开始](./quick-start.md)
 2. [安装指南](./installation.md)
-3. [配置管理](./configuration.md)
-4. [部署指南](./deployment.md)
+3. [配置管理](../operations/config-server.md)
+4. [部署指南](../operations/deploy-docker.md)
 5. 核心概念：[系统概述](./concepts/overview.md) → [函数管理](./concepts/function-management.md) → [Page Studio](./concepts/function-registration-ui.md) → [权限控制](./concepts/permissions.md)
 6. 集成指南：[OpenAPI 注册](./integrations/openapi-registration.md)、[第三方平台](./integrations/third-party-platforms.md)

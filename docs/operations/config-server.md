@@ -1,9 +1,9 @@
 ---
 title: 配置管理
 icon: gears
-order: 3
+order: 10
 category:
-  - 入门指南
+  - 运维手册
 tag:
   - 配置
 ---
@@ -124,12 +124,12 @@ danger:
 
 **字段说明：**
 
-| 字段 | 说明 |
-|------|------|
-| `require_approval` | 是否需要审批 |
+| 字段                | 说明                                    |
+| ------------------- | --------------------------------------- |
+| `require_approval`  | 是否需要审批                            |
 | `approval_workflow` | 审批流程类型（single_admin/two_person） |
-| `require_audit` | 是否需要审计 |
-| `allowed_roles` | 允许调用的角色列表 |
+| `require_audit`     | 是否需要审计                            |
+| `allowed_roles`     | 允许调用的角色列表                      |
 
 **双层政策架构：**
 
@@ -154,12 +154,12 @@ POST /api/v1/policies/reload
 
 常见错误：
 
-| 错误 | 原因 | 解决方法 |
-|------|------|----------|
-| `invalid address` | 地址格式错误 | 检查 `Control.Addr`、`Server.Addr` |
-| `certificate not found` | 证书文件路径错误 | 检查证书文件是否存在 |
-| `database connection failed` | DSN 错误 | 检查数据库连接字符串 |
-| `permission denied` | 文件权限不足 | 检查配置、证书和数据目录权限 |
+| 错误                         | 原因             | 解决方法                           |
+| ---------------------------- | ---------------- | ---------------------------------- |
+| `invalid address`            | 地址格式错误     | 检查 `Control.Addr`、`Server.Addr` |
+| `certificate not found`      | 证书文件路径错误 | 检查证书文件是否存在               |
+| `database connection failed` | DSN 错误         | 检查数据库连接字符串               |
+| `permission denied`          | 文件权限不足     | 检查配置、证书和数据目录权限       |
 
 ## 最佳实践
 
@@ -187,5 +187,5 @@ cp configs/agent.yaml configs/agent.local.yaml
 
 ## 下一步
 
-- [部署指南](./deployment.md)
+- [部署指南](./deploy-docker.md)
 - [开发文档](../development/)

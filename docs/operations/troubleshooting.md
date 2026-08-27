@@ -1,7 +1,7 @@
 ---
 title: 故障排查
 icon: wrench
-order: 3
+order: 31
 category:
   - 运维指南
 tag:
@@ -74,11 +74,11 @@ openssl s_client -connect server:19090 \
 
 ### 常见原因
 
-| 现象 | 原因 |
-| --- | --- |
-| `connection refused` | Server session/control 端口未监听 |
-| TLS 握手失败 | 证书、CA、SNI 或 mTLS 配置错误 |
-| 反复重连 | 目标地址错误、首帧校验失败、心跳超时 |
+| 现象                 | 原因                                 |
+| -------------------- | ------------------------------------ |
+| `connection refused` | Server session/control 端口未监听    |
+| TLS 握手失败         | 证书、CA、SNI 或 mTLS 配置错误       |
+| 反复重连             | 目标地址错误、首帧校验失败、心跳超时 |
 
 ## SDK 无法连接到 Agent
 
@@ -97,11 +97,11 @@ nc -zv 127.0.0.1 19091
 
 ### 常见原因
 
-| 现象 | 原因 |
-| --- | --- |
+| 现象           | 原因                                               |
+| -------------- | -------------------------------------------------- |
 | 建连后立即断开 | 首帧不是 `ProviderConnectRequest` 或 body 解码失败 |
-| 连不上 Agent | 连接到了错误端口、Agent 未启动或 TLS 不匹配 |
-| 断线后不恢复 | 重连策略未启用或 backoff 配置错误 |
+| 连不上 Agent   | 连接到了错误端口、Agent 未启动或 TLS 不匹配        |
+| 断线后不恢复   | 重连策略未启用或 backoff 配置错误                  |
 
 ## 调用失败
 

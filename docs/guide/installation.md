@@ -338,6 +338,6 @@ port: 19080
 
 安装完成后，请参考：
 
-- [配置指南](./configuration.md) - 详细配置选项
-- [部署指南](./deployment.md) - 生产环境部署
+- [配置指南](../operations/config-server.md) - 详细配置选项
+- [部署指南](../operations/deploy-docker.md) - 生产环境部署
 - [核心概念](./concepts/overview.md) - 了解系统设计

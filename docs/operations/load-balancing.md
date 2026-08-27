@@ -1,9 +1,9 @@
 ---
 title: 负载均衡
 icon: deployment
-order: 5
+order: 7
 category:
-  - 入门指南
+  - 运维手册
 tag:
   - 部署
   - 高可用

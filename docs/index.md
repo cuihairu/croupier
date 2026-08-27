@@ -173,7 +173,7 @@ curl http://localhost:18780/api/v1/
 | **页面产品** | [函数管理](/guide/concepts/function-management) · [Page Studio](/guide/concepts/function-registration-ui) · [Resource Catalog](/api/resource) | 注册函数 → 自动生成页面 → Proposal Inbox 发布 → Console 受控执行 |
 | **SDK**      | [SDK 概览](/sdks/)                                                                                                                            | Provider / Invoker / 配置 / 能力矩阵，6 种语言                   |
 | **API**      | [API 参考](/api/)                                                                                                                             | REST 契约、鉴权、game/env scope、各资源 API                      |
-| **运维**     | [监控](/guide/operations/monitoring) · [数据分析](/analytics/)                                                                                | 部署、监控、备份、分析、故障排除                                 |
+| **运维**     | [监控](/operations/monitoring) · [数据分析](/analytics/)                                                                                      | 部署、监控、备份、分析、故障排除                                 |
 | **开发**     | [开发](/development/) · [架构](/architecture/)                                                                                                | 架构、代码规范、扩展策略、发布规则                               |
 
 历史设计与迁移文档归入 [架构 - 提案与迁移](/architecture/)（侧栏已折叠），不作为接入主路径。

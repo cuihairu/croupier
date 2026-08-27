@@ -1,7 +1,7 @@
 ---
 title: 监控指南
 icon: chart-line
-order: 1
+order: 20
 category:
   - 运维指南
 tag:
@@ -49,36 +49,36 @@ graph TB
 
 ### Server 指标
 
-| 指标名称 | 类型 | 说明 |
-|----------|------|------|
-| `croupier_server_requests_total` | Counter | 请求总数 |
-| `croupier_server_request_duration` | Histogram | 请求延迟 |
-| `croupier_server_functions_invoked_total` | Counter | 函数调用总数 |
-| `croupier_server_agents_connected` | Gauge | 已连接 Agent 数 |
-| `croupier_server_jobs_active` | Gauge | 活跃作业数 |
-| `croupier_server_approvals_pending` | Gauge | 待审批数 |
+| 指标名称                                  | 类型      | 说明            |
+| ----------------------------------------- | --------- | --------------- |
+| `croupier_server_requests_total`          | Counter   | 请求总数        |
+| `croupier_server_request_duration`        | Histogram | 请求延迟        |
+| `croupier_server_functions_invoked_total` | Counter   | 函数调用总数    |
+| `croupier_server_agents_connected`        | Gauge     | 已连接 Agent 数 |
+| `croupier_server_jobs_active`             | Gauge     | 活跃作业数      |
+| `croupier_server_approvals_pending`       | Gauge     | 待审批数        |
 
 ### Agent 指标
 
-| 指标名称 | 类型 | 说明 |
-|----------|------|------|
-| `croupier_agent_connected` | Gauge | Agent 连接状态 |
-| `croupier_agent_functions_registered` | Gauge | 已注册函数数 |
-| `croupier_agent_jobs_executed_total` | Counter | 执行作业总数 |
-| `croupier_agent_jobs_duration` | Histogram | 作业执行时长 |
+| 指标名称                              | 类型      | 说明           |
+| ------------------------------------- | --------- | -------------- |
+| `croupier_agent_connected`            | Gauge     | Agent 连接状态 |
+| `croupier_agent_functions_registered` | Gauge     | 已注册函数数   |
+| `croupier_agent_jobs_executed_total`  | Counter   | 执行作业总数   |
+| `croupier_agent_jobs_duration`        | Histogram | 作业执行时长   |
 
 ### 配置指标采集
 
 ```yaml
 # prometheus.yml
 scrape_configs:
-  - job_name: 'croupier-server'
+  - job_name: "croupier-server"
     static_configs:
-      - targets: ['server1:9090', 'server2:9090', 'server3:9090']
+      - targets: ["server1:9090", "server2:9090", "server3:9090"]
 
-  - job_name: 'croupier-agent'
+  - job_name: "croupier-agent"
     static_configs:
-      - targets: ['agent1:9091', 'agent2:9091', 'agent3:9091']
+      - targets: ["agent1:9091", "agent2:9091", "agent3:9091"]
 ```
 
 ## Grafana 面板
@@ -146,12 +146,12 @@ Croupier 使用结构化 JSON 日志：
 ```yaml
 server:
   log:
-    level: info      # debug | info | warn | error
-    format: json     # console | json
+    level: info # debug | info | warn | error
+    format: json # console | json
     file: logs/server.log
-    max_size: 100    # MB
+    max_size: 100 # MB
     max_backups: 3
-    max_age: 7       # days
+    max_age: 7 # days
 ```
 
 ### 日志收集 (Loki)
@@ -252,34 +252,34 @@ global:
   resolve_timeout: 5m
 
 route:
-  group_by: ['alertname', 'cluster', 'service']
+  group_by: ["alertname", "cluster", "service"]
   group_wait: 10s
   group_interval: 10s
   repeat_interval: 12h
-  receiver: 'default'
+  receiver: "default"
 
   routes:
     - match:
         severity: critical
-      receiver: 'pagerduty'
+      receiver: "pagerduty"
 
     - match:
         severity: warning
-      receiver: 'slack'
+      receiver: "slack"
 
 receivers:
-  - name: 'default'
+  - name: "default"
     webhook_configs:
-      - url: 'http://webhook:8080/webhook'
+      - url: "http://webhook:8080/webhook"
 
-  - name: 'pagerduty'
+  - name: "pagerduty"
     pagerduty_configs:
-      - service_key: '<PAGERDUTY_SERVICE_KEY>'
+      - service_key: "<PAGERDUTY_SERVICE_KEY>"
 
-  - name: 'slack'
+  - name: "slack"
     slack_configs:
-      - api_url: '<SLACK_WEBHOOK_URL>'
-        channel: '#alerts'
+      - api_url: "<SLACK_WEBHOOK_URL>"
+        channel: "#alerts"
 ```
 
 ## 分布式追踪
@@ -423,12 +423,12 @@ counter.WithLabelValues(
 
 ### 3. 日志级别
 
-| 级别 | 用途 |
-|------|------|
+| 级别    | 用途         |
+| ------- | ------------ |
 | `debug` | 开发调试信息 |
-| `info` | 正常操作日志 |
-| `warn` | 警告信息 |
-| `error` | 错误信息 |
+| `info`  | 正常操作日志 |
+| `warn`  | 警告信息     |
+| `error` | 错误信息     |
 
 ### 4. 敏感信息脱敏
 
@@ -443,6 +443,6 @@ server:
 
 ## 相关文档
 
-- [部署指南](../deployment.md)
+- [部署指南](./deploy-docker.md)
 - [安全配置](./security.md)
 - [故障排查](./troubleshooting.md)

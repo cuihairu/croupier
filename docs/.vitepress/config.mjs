@@ -20,6 +20,7 @@ const config = defineConfig({
       { text: '指南', link: '/guide/' },
       { text: '架构', link: '/architecture/' },
       { text: 'API 参考', link: '/api/' },
+      { text: '运维', link: '/operations/' },
       { text: '数据分析', link: '/analytics/' },
       {
         text: 'SDK',
@@ -45,9 +46,6 @@ const config = defineConfig({
             { text: '简介', link: '/guide/' },
             { text: '快速开始', link: '/guide/quick-start' },
             { text: '安装', link: '/guide/installation' },
-            { text: '配置', link: '/guide/configuration' },
-            { text: '部署', link: '/guide/deployment' },
-            { text: '负载均衡', link: '/guide/load-balancing' },
           ],
         },
         {
@@ -59,15 +57,6 @@ const config = defineConfig({
             { text: 'Page Studio', link: '/guide/concepts/function-registration-ui' },
             { text: '权限控制', link: '/guide/concepts/permissions' },
             { text: '资源与页面', link: '/architecture/dashboard-page-model' },
-          ],
-        },
-        {
-          text: '运维',
-          collapsed: true,
-          items: [
-            { text: '监控', link: '/guide/operations/monitoring' },
-            { text: '安全', link: '/guide/operations/security' },
-            { text: '故障排除', link: '/guide/operations/troubleshooting' },
           ],
         },
         {
@@ -155,6 +144,55 @@ const config = defineConfig({
             { text: '数据库监控', link: '/research/db-monitoring-design' },
             { text: '内部工具集成', link: '/research/tool-registry-design' },
             { text: '网站配置中心', link: '/research/site-settings-design' },
+          ],
+        },
+      ],
+
+      '/operations/': [
+        {
+          text: '部署',
+          collapsed: false,
+          items: [
+            { text: '部署形态总览', link: '/operations/deploy-overview' },
+            { text: 'Docker Compose 部署', link: '/operations/deploy-docker' },
+            { text: '二进制部署（systemd）', link: '/operations/deploy-binary' },
+            { text: 'Kubernetes 部署', link: '/operations/deploy-kubernetes' },
+            { text: '版本升级与回滚', link: '/operations/upgrade-rollback' },
+            { text: '负载均衡', link: '/operations/load-balancing' },
+          ],
+        },
+        {
+          text: '配置',
+          collapsed: false,
+          items: [
+            { text: 'Server 配置全解', link: '/operations/config-server' },
+            { text: 'Agent 配置全解', link: '/operations/config-agent' },
+            { text: 'TLS 与证书', link: '/operations/tls-certificates' },
+            { text: '配置分层（文件/数据库）', link: '/architecture/config-layering' },
+            { text: '功能开关', link: '/architecture/feature-flags' },
+          ],
+        },
+        {
+          text: '可观测性',
+          collapsed: false,
+          items: [
+            { text: '监控', link: '/operations/monitoring' },
+          ],
+        },
+        {
+          text: '可靠性',
+          collapsed: false,
+          items: [
+            { text: '备份与恢复', link: '/operations/backup-restore' },
+            { text: '故障排除', link: '/operations/troubleshooting' },
+            { text: '数据库迁移策略', link: '/architecture/database-migration-strategy' },
+          ],
+        },
+        {
+          text: '安全',
+          collapsed: true,
+          items: [
+            { text: '安全基线', link: '/operations/security' },
           ],
         },
       ],

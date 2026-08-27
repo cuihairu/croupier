@@ -13,7 +13,7 @@ tag:
 
 # Server 多实例高可用设计
 
-> **状态**：已实现 — 成员表（复用 RegistryStore 自注册 + 租约）、实例互联与 owner 转发（含 fencing epoch / 一跳防环）、`cluster.enabled` 接线与集群拓扑页均已落地；测试见 `internal/cluster/`。部署形态（L4 LB / 多宿主 / K8s）参见[负载均衡指南](../guide/load-balancing.md)。
+> **状态**：已实现 — 成员表（复用 RegistryStore 自注册 + 租约）、实例互联与 owner 转发（含 fencing epoch / 一跳防环）、`cluster.enabled` 接线与集群拓扑页均已落地；测试见 `internal/cluster/`。部署形态（L4 LB / 多宿主 / K8s）参见[负载均衡指南](../operations/load-balancing.md)。
 
 本文档定义 Croupier Server 控制面从单实例演进为多实例高可用（HA）部署的目标设计，覆盖问题分析、方案选型、共享目录、实例互联、转发协议、故障语义与实施拆解。
 
