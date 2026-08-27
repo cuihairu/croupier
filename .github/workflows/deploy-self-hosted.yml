@@ -177,6 +177,7 @@ jobs:
 
       - name: Deploy containers
         timeout-minutes: 10
+        id: deploy
         run: |
           COMPOSE_ARGS=(--project-name "${CROUPIER_COMPOSE_PROJECT}" --env-file "${{ inputs.deploy_dir }}/.env" -f "${{ inputs.deploy_dir }}/docker-compose.yml")
           if [ "${{ inputs.enable_sdk_examples }}" = "true" ]; then
@@ -184,6 +185,15 @@ jobs:
           else
             docker compose "${COMPOSE_ARGS[@]}" up -d --wait --remove-orphans
           fi
+
+      - name: Dump dashboard logs (on failure)
+        if: failure()
+        timeout-minutes: 2
+        run: |
+          echo "===== croupier-dashboard logs ====="
+          docker logs --tail 50 croupier-dashboard 2>&1 || true
+          echo "===== croupier-dashboard inspect (health) ====="
+          docker inspect --format '{{json .State.Health}}' croupier-dashboard 2>&1 || true
 
       - name: Show running services
         timeout-minutes: 2
