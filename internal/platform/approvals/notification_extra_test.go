@@ -365,5 +365,5 @@ func TestEmailSender_SendRejectsInjectedRecipient(t *testing.T) {
 	sender := NewEmailSender("smtp.example.com", 587, "", "", "from@example.com")
 	err := sender.Send(context.Background(), "user@example.com\r\nRCPT TO:<x@evil.com>", NotificationEvent{Title: "hi"})
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "rejected")
+	assert.Contains(t, err.Error(), "invalid email recipient")
 }

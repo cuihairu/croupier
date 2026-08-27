@@ -14,6 +14,7 @@ import (
 	"mime"
 	"net"
 	"net/http"
+	"net/mail"
 	"net/smtp"
 	"net/url"
 	"strconv"
@@ -765,12 +766,19 @@ func validateEmailAddress(addr string) error {
 	if addr == "" {
 		return fmt.Errorf("email recipient is required")
 	}
+	// net/mail.ParseAddress 是 CodeQL email-injection 认可的 sanitizer：
+	// 拒绝含 CR/LF 等控制字符的地址，阻断 SMTP 命令注入。
+	parsed, err := mail.ParseAddress(addr)
+	if err != nil {
+		return fmt.Errorf("invalid email recipient: %w", err)
+	}
+	// 只接受裸地址，不允许 "Display Name <addr>" 形态——
+	// 显示名可能含注入载荷（如 Name <real@x>\r\nRCPT TO:<evil>）。
+	if parsed.Address != addr {
+		return fmt.Errorf("invalid email recipient: display name not allowed")
+	}
 	if strings.ContainsAny(addr, "\r\n \t;,") {
 		return fmt.Errorf("invalid email recipient: control characters rejected")
-	}
-	at := strings.LastIndex(addr, "@")
-	if at <= 0 || at == len(addr)-1 {
-		return fmt.Errorf("invalid email recipient: %q", addr)
 	}
 	return nil
 }
