@@ -381,11 +381,12 @@ func (e *EmailSender) Send(ctx context.Context, recipient string, event Notifica
 		return err
 	}
 
+	safeEvent := sanitizeNotificationEventForEmail(event)
 	msg := &emailMessage{
 		From:    e.fromAddress,
 		To:      canonical,
-		Subject: event.Title,
-		Body:    buildEmailBody(event),
+		Subject: safeEvent.Title,
+		Body:    buildEmailBody(safeEvent),
 	}
 
 	sendMail := e.sendMail
@@ -474,10 +475,12 @@ func (e *EmailSender) defaultSendMail(ctx context.Context, msg *emailMessage) er
 
 // buildEmailMessage renders an RFC 5322 message with UTF-8 HTML body.
 func buildEmailMessage(msg *emailMessage) []byte {
+	safeSubject := sanitizeEmailText(msg.Subject)
+	safeBody := sanitizeEmailText(msg.Body)
 	headers := map[string]string{
 		"From":         msg.From,
 		"To":           msg.To,
-		"Subject":      mime.QEncoding.Encode("utf-8", msg.Subject),
+		"Subject":      mime.QEncoding.Encode("utf-8", safeSubject),
 		"MIME-Version": "1.0",
 		"Content-Type": "text/html; charset=UTF-8",
 	}
@@ -490,8 +493,45 @@ func buildEmailMessage(msg *emailMessage) []byte {
 		buf.WriteString("\r\n")
 	}
 	buf.WriteString("\r\n")
-	buf.WriteString(msg.Body)
+	buf.WriteString(safeBody)
 	return buf.Bytes()
+}
+
+func sanitizeNotificationEventForEmail(event NotificationEvent) NotificationEvent {
+	event.Title = sanitizeEmailText(event.Title)
+	event.Message = sanitizeEmailText(event.Message)
+	if len(event.Data) > 0 {
+		clean := make(map[string]interface{}, len(event.Data))
+		for k, v := range event.Data {
+			safeKey := sanitizeEmailText(k)
+			switch vv := v.(type) {
+			case string:
+				clean[safeKey] = sanitizeEmailText(vv)
+			default:
+				clean[safeKey] = sanitizeEmailText(fmt.Sprint(v))
+			}
+		}
+		event.Data = clean
+	}
+	return event
+}
+
+func sanitizeEmailText(s string) string {
+	var b strings.Builder
+	b.Grow(len(s))
+	for _, r := range s {
+		if r == '\r' || r == '\n' {
+			continue
+		}
+		if r < 0x20 && r != '\t' {
+			continue
+		}
+		if r == 0x7f {
+			continue
+		}
+		b.WriteRune(r)
+	}
+	return strings.TrimSpace(b.String())
 }
 
 // buildEmailBody renders an HTML body from the event fields, escaping user
