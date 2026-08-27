@@ -572,9 +572,13 @@ func TestDelegationService_CheckTimeRestriction(t *testing.T) {
 	})
 
 	t.Run("outside time window", func(t *testing.T) {
+		// 构造未来窗口（now+1h ~ now+2h），当前时刻必然不在其中。
+		// 不能用固定的 00:00-01:00——CI 在 UTC 午夜前后运行时会落进窗口。
+		// 跨午夜回绕时（now≈23:xx）窗口形如 [00:xx,01:xx]，字典序/分钟序
+		// 下 current(23:xx) > end 仍在窗外。
 		assert.False(t, svc.checkTimeRestriction(map[string]interface{}{
-			"allowed_start": "00:00",
-			"allowed_end":   "01:00",
+			"allowed_start": now.Add(time.Hour).Format("15:04"),
+			"allowed_end":   now.Add(2 * time.Hour).Format("15:04"),
 		}, now))
 	})
 
