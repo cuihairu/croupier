@@ -186,6 +186,14 @@ jobs:
             docker compose "${COMPOSE_ARGS[@]}" up -d --wait --remove-orphans
           fi
 
+          # 核心服务强制重建：自建 runner 上 compose 对同 tag 镜像更新的
+          # 检测曾失灵（pull 到新 digest 但 up 判定 Running 不重建），
+          # 发布语义要求核心服务必须运行最新镜像——每次部署强制重建，
+          # 基础设施（db/redis 等）仍按需重建。
+          echo "===== 镜像 digest 诊断（服务 -> 镜像 ID） ====="
+          docker compose "${COMPOSE_ARGS[@]}" images server server2 agent agent2 haproxy dashboard
+          docker compose "${COMPOSE_ARGS[@]}" up -d --force-recreate --wait server server2 agent agent2 haproxy dashboard
+
       - name: Dump dashboard logs (on failure)
         if: failure()
         timeout-minutes: 2
