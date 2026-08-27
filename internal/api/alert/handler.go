@@ -110,7 +110,7 @@ func (h *Handler) RulesCreate(c *gin.Context) {
 
 // RulesUpdate handles PUT /alerts/rules/:id.
 func (h *Handler) RulesUpdate(c *gin.Context) {
-	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	id, err := strconv.ParseUint(c.Param("id"), 10, strconv.IntSize)
 	if err != nil || id == 0 {
 		response.BadRequest(c, "无效的规则 ID")
 		return
@@ -130,7 +130,7 @@ func (h *Handler) RulesUpdate(c *gin.Context) {
 
 // RulesDelete handles DELETE /alerts/rules/:id.
 func (h *Handler) RulesDelete(c *gin.Context) {
-	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	id, err := strconv.ParseUint(c.Param("id"), 10, strconv.IntSize)
 	if err != nil || id == 0 {
 		response.BadRequest(c, "无效的规则 ID")
 		return

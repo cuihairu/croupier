@@ -341,3 +341,29 @@ func TestDingTalkSender_SignedURL(t *testing.T) {
 func TestReplaceAll_MultiOccurrence(t *testing.T) {
 	assert.Equal(t, "a-b-c", replaceAll("aXbXc", "X", "-"))
 }
+
+func TestValidateEmailAddress_Injection(t *testing.T) {
+	// 合法地址。
+	require.NoError(t, validateEmailAddress("user@example.com"))
+	require.NoError(t, validateEmailAddress("a.b+c@sub.example.com"))
+
+	// SMTP 命令注入尝试：CR/LF/空格/列表分隔符一律拒绝。
+	for _, bad := range []string{
+		"user@example.com\r\nRCPT TO:<attacker@evil.com>",
+		"user@example.com\nBCC:attacker@evil.com",
+		"user example@example.com",
+		"a@b@example.com,c@d@example.com",
+		"",
+		"@example.com",
+		"user@",
+	} {
+		require.Error(t, validateEmailAddress(bad), bad)
+	}
+}
+
+func TestEmailSender_SendRejectsInjectedRecipient(t *testing.T) {
+	sender := NewEmailSender("smtp.example.com", 587, "", "", "from@example.com")
+	err := sender.Send(context.Background(), "user@example.com\r\nRCPT TO:<x@evil.com>", NotificationEvent{Title: "hi"})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "rejected")
+}

@@ -106,7 +106,7 @@ func (h *Handler) Delete(c *gin.Context) {
 }
 
 func parseID(c *gin.Context) (uint, error) {
-	v, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	v, err := strconv.ParseUint(c.Param("id"), 10, strconv.IntSize)
 	if err != nil || v == 0 {
 		return 0, errBadRequest("无效的调度 ID")
 	}

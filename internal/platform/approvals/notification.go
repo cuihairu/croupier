@@ -372,8 +372,8 @@ func (e *EmailSender) Send(ctx context.Context, recipient string, event Notifica
 	if e.smtpHost == "" {
 		return nil
 	}
-	if recipient == "" {
-		return fmt.Errorf("email recipient is required")
+	if err := validateEmailAddress(recipient); err != nil {
+		return err
 	}
 
 	msg := &emailMessage{
@@ -442,6 +442,11 @@ func (e *EmailSender) defaultSendMail(ctx context.Context, msg *emailMessage) er
 
 	if err := client.Mail(e.fromAddress); err != nil {
 		return fmt.Errorf("smtp MAIL FROM: %w", err)
+	}
+	// 邮件注入防线：RCPT 前校验收件人不含 CR/LF 等控制字符，
+	// 防止恶意收件人字符串操纵 SMTP 命令序列。
+	if err := validateEmailAddress(msg.To); err != nil {
+		return err
 	}
 	if err := client.Rcpt(msg.To); err != nil {
 		return fmt.Errorf("smtp RCPT TO: %w", err)
@@ -752,4 +757,20 @@ func findSubstring(s, substr string) int {
 		}
 	}
 	return -1
+}
+
+// validateEmailAddress 阻止 SMTP 命令注入：地址不得含 CR/LF/空格等
+// 控制字符与分隔符（email-injection 防线），并要求 user@domain 基本形态。
+func validateEmailAddress(addr string) error {
+	if addr == "" {
+		return fmt.Errorf("email recipient is required")
+	}
+	if strings.ContainsAny(addr, "\r\n \t;,") {
+		return fmt.Errorf("invalid email recipient: control characters rejected")
+	}
+	at := strings.LastIndex(addr, "@")
+	if at <= 0 || at == len(addr)-1 {
+		return fmt.Errorf("invalid email recipient: %q", addr)
+	}
+	return nil
 }
