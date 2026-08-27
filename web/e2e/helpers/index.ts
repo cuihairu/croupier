@@ -6,6 +6,25 @@ import { expect } from '@playwright/test';
 import type { Page } from '@playwright/test';
 
 /**
+ * 带重试的页面导航：umi dev server 重编译或客户端重定向竞态时
+ * page.goto 会抛 net::ERR_ABORTED（CI 上 @openapi-list-pagination
+ * 因此 flake 过两次）。中止后等页面稳定再重试。
+ */
+async function gotoWithRetry(page: Page, url: string, attempts = 3): Promise<void> {
+  for (let i = 0; i < attempts; i++) {
+    try {
+      await page.goto(url, { timeout: 90000 });
+      return;
+    } catch (e) {
+      const aborted = String(e).includes('ERR_ABORTED');
+      if (!aborted || i === attempts - 1) throw e;
+      await page.waitForLoadState('domcontentloaded').catch(() => {});
+      await page.waitForTimeout(2000);
+    }
+  }
+}
+
+/**
  * 登录并保存认证状态。
  * storageState（globalSetup 预登录）存在时直接复用，跳过 UI 登录；
  * 否则走完整 UI 登录流程（真实环境/回退路径）。
@@ -13,7 +32,7 @@ import type { Page } from '@playwright/test';
 export async function login(page: Page): Promise<void> {
   // storageState 预登录时 token 已在 localStorage：先到应用页再检测，
   // 避免 about:blank 上访问 localStorage 抛 SecurityError。
-  await page.goto('/');
+  await gotoWithRetry(page, '/');
   await page.waitForLoadState('domcontentloaded');
   const hasToken = await page.evaluate(() => Boolean(window.localStorage.getItem('token')));
   if (hasToken && !page.url().includes('/user/login')) {
@@ -26,7 +45,7 @@ export async function login(page: Page): Promise<void> {
     return;
   }
 
-  await page.goto('/user/login');
+  await gotoWithRetry(page, '/user/login');
   await page.waitForLoadState('domcontentloaded');
 
   // umi dev overlay iframe 偶发拦截点击：移除所有 overlay iframe
