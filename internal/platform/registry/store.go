@@ -1126,3 +1126,35 @@ func (s *Store) cleanupExpiredSessions() {
 		slog.Info("Cleaned up expired agent sessions", "expired_count", expiredCount, "remaining", len(s.agents))
 	}
 }
+
+// RemoveRegistrationWarnings 删除匹配的注册警告（修复闭环：如 provider
+// scope 修正后再次注册一致时，清除历史 mismatch 警告——业务层警告的
+// 生命周期跟随注册行为，不借运维告警状态机）。
+func (s *Store) RemoveRegistrationWarnings(filter RegistrationWarningFilter) int {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	removed := 0
+	for key, item := range s.registrationWarnings {
+		if item == nil {
+			continue
+		}
+		if filter.GameID != "" && item.GameID != filter.GameID {
+			continue
+		}
+		if filter.Env != "" && item.Env != filter.Env {
+			continue
+		}
+		if filter.AgentID != "" && item.AgentID != filter.AgentID {
+			continue
+		}
+		if filter.FunctionID != "" && item.FunctionID != filter.FunctionID {
+			continue
+		}
+		if filter.Code != "" && item.Code != filter.Code {
+			continue
+		}
+		delete(s.registrationWarnings, key)
+		removed++
+	}
+	return removed
+}

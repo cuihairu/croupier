@@ -424,30 +424,34 @@ scope 中立不等于绕过数据授权。`/api/v1/audit` 必须先校验 `audit
 
 协议层 `AgentProcess.game_id/env` 已为 per-provider scope 预留字段（"game scope the provider belongs to"）。若未来游戏数量大到共享集群内逐游戏部署 Agent 成为负担，可落地 provider 级 scope（函数路由已有 `(game_id, function_id)` 索引，改动集中在注册聚合与归属表粒度 Agent×game）。在此之前不启动。
 
-### 14.5 Provider 注册的 scope 校验（三层防线）
+### 14.5 Provider 注册的 scope 校验（业务层闭环）
 
-SDK/自定义游戏服连接 Agent（ProviderConnect）与 Agent 注册（Register 的 Processes）时，provider 上报的 `game_id`/`env` 必须与 Agent 会话 scope 一致。不一致说明 SDK 侧配置错误（如连错环境的 agent）——三层防线：
+SDK/自定义游戏服连接 Agent（ProviderConnect）与 Agent 注册（Register 的 Processes）时，provider 上报的 `game_id`/`env` 必须与 Agent 会话 scope 一致。不一致说明 SDK 侧配置错误（如连错环境的 agent）。
 
-| 层              | 位置                                  | 行为                                                                                                                      |
-| --------------- | ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
-| Agent 本地      | `internal/agent` ProviderConnect 处理 | 本地日志警告 + 警告随响应回传 SDK（开发者立即可见）                                                                       |
-| Server 注册警告 | `validateProviderScope` 双写注册警告  | `code=provider_scope_mismatch` 进入 `/system/functions/warnings`——接入期配置错误与 invalid_version 等并列，**开发者视角** |
-| Server 运维告警 | `validateProviderScope` 落 AlertModel | 进入 `/ops/alerts`（firing；配置修复后一致注册自动 resolved，可静默），**运维跟进闭环视角**                               |
+**分层原则（Accepted）**：平台信号按受众分两层，**同一事件不跨层双写**：
 
-两类页面的分工：注册警告（内存、code 化、面向接入方）承载「注册时不合规」；运维告警（持久化、状态机、面向运维）承载「需要跟进到恢复」。scope mismatch 横跨两者——发生在注册时、但需要跟进修复——故双写。
+| 层     | 页面                                  | 受众        | 承载内容                                                                          | 生命周期                       |
+| ------ | ------------------------------------- | ----------- | --------------------------------------------------------------------------------- | ------------------------------ |
+| 业务层 | `/system/functions/warnings` 注册警告 | 研发/接入方 | 接入契约问题：`invalid_version`、`provider_scope_mismatch` 等 code 化注册校验警告 | 跟随注册行为：一致注册自动清除 |
+| 支持层 | `/ops/alerts` 运维告警                | 运维        | 基础设施健康：资源阈值、dbmon 锁等待等                                            | firing→resolved 状态机 + 静默  |
 
-规则：
+理由：**运维不关注业务接入问题，研发不关注支持层信息**。scope mismatch 是业务接入错误，其"恢复"就是下一次注册一致——属业务层自身生命周期，在注册警告体系内闭环（一致注册清除历史警告），不借运维告警的状态机。
 
-- **向后兼容**：provider 未传 scope（空值）或 agent 未配置时不校验
-- **路由语义不变**：ProviderSession 聚合仍按 agent 会话 scope（调用路由稳定），mismatch 只告警不改变路由——修复手段是改 SDK 配置，不是让平台迁就错误 scope
-- 告警按 `provider_scope_mismatch:<agentID>:<serviceID>` 去重，避免重复注册刷屏
+防线与规则：
+
+- **Agent 启动硬校验**：`agent.gameId`/`agent.env` 必填，缺失启动失败
+- **Agent 本地防线**：ProviderConnect 比对 provider scope vs agent 配置，警告回传 SDK
+- **Server 业务层防线**：Register 的 `validateProviderScope` 比对 Processes scope vs agent 会话 scope，mismatch 写注册警告（`code=provider_scope_mismatch`），一致注册清除历史警告
+- **硬切无兼容**：provider 未上报 scope（空值）同样视为 mismatch——SDK 必须显式携带 `game_id`/`env`；不保留任何空值跳过分支
+- **路由语义不变**：ProviderSession 聚合仍按 agent 会话 scope（调用路由稳定），mismatch 只警告不改路由——修复手段是改 SDK 配置，不是平台迁就错误 scope
 
 ### 14.6 Review Checklist
 
 - Agent 配置/注册不得出现 `games: []` 多值形态；新增能力不得绕过会话级单 scope
 - 双 agent 部署模板（deploy compose）的 `gameId/env` 必须一致（同一环境的多个接入实例，见 deploy workflow 的 scope 同步逻辑）
 - 集群归属表 `cluster_agent_owners` 保持 (agent_id → game_id, env) 单值语义
-- provider scope mismatch 不得被静默改写或吞掉——必须进平台告警（见 §14.5）
+- provider scope mismatch 不得被静默改写或吞掉——必须进业务层注册警告（见 §14.5）；不得跨层写入运维告警
+- 业务层/支持层信号不得双写：新增信号先判定受众（研发 or 运维）再落对应体系
 
 ## 15. 迁移与验收顺序
 

@@ -461,10 +461,17 @@ func runAgent() error {
 	if err := yaml.Unmarshal(data, &c); err != nil {
 		return fmt.Errorf("failed to parse config: %w", err)
 	}
+	// Agent 会话绑定单一 (gameId, env)（作用域规范 §14）——scope 必填，
+	// 缺失直接启动失败（无空值兼容：provider 校验依赖 agent scope 非空）。
+	if strings.TrimSpace(c.Agent.GameID) == "" || strings.TrimSpace(c.Agent.Env) == "" {
+		return fmt.Errorf("agent.gameId 和 agent.env 为必填（作用域规范 §14，单 agent 单 game+env）")
+	}
 	slog.Info("parsed agent upstream config",
 		"server_addr", strings.TrimSpace(c.Server.Addr),
 		"local_addr", strings.TrimSpace(c.Agent.LocalAddr),
 		"http_addr", strings.TrimSpace(c.Agent.HTTPAddr),
+		"game_id", strings.TrimSpace(c.Agent.GameID),
+		"env", strings.TrimSpace(c.Agent.Env),
 	)
 
 	// 初始化日志系统

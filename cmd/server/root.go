@@ -394,9 +394,6 @@ func startControlServer(ctx context.Context, c *config.Config, svcCtx *svc.Servi
 
 	// 创建 ControlService
 	controlService := server.NewControlService(svcCtx.RegistryStore, svcCtx.AgentSessionModel)
-	// provider scope 校验告警通道（SDK/游戏服注册的 game/env 与 agent
-	// 不一致 → /ops/alerts；见作用域规范 §14.6）
-	controlService.SetAlertModel(svcCtx.AlertModel)
 	controlService.SetTaskStore(tasks.NewStore(
 		model.NewTaskRunModel(svcCtx.DB),
 		model.NewTaskEventModel(svcCtx.DB),

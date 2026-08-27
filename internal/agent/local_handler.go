@@ -705,14 +705,15 @@ func (h *LocalHandler) handleProviderConnect(ctx context.Context, data []byte) (
 		return nil, fmt.Errorf("service_id is required")
 	}
 
-	// 校验 SDK 的 game_id/env 是否与 Agent 配置一致。
-	// 向后兼容：SDK 未传（空）或 Agent 未配置（空）时不触发警告。
+	// 校验 SDK 的 game_id/env 是否与 Agent 配置一致（作用域规范 §14：
+	// provider 必须上报 scope 且与 agent 一致——无空值兼容，空值即
+	// mismatch；agent 侧 scope 由启动校验保证非空）。
 	h.mu.RLock()
 	expectedGameID := h.expectedGameID
 	expectedEnv := h.expectedEnv
 	h.mu.RUnlock()
 	var warnings []string
-	if expectedGameID != "" && req.GameId != "" && req.GameId != expectedGameID {
+	if req.GameId != expectedGameID {
 		msg := fmt.Sprintf("game_id mismatch: provider=%q agent=%q", req.GameId, expectedGameID)
 		warnings = append(warnings, msg)
 		h.logger.Warn("provider game_id mismatch",
@@ -721,7 +722,7 @@ func (h *LocalHandler) handleProviderConnect(ctx context.Context, data []byte) (
 			"agent_game_id", expectedGameID,
 		)
 	}
-	if expectedEnv != "" && req.Env != "" && req.Env != expectedEnv {
+	if req.Env != expectedEnv {
 		msg := fmt.Sprintf("env mismatch: provider=%q agent=%q", req.Env, expectedEnv)
 		warnings = append(warnings, msg)
 		h.logger.Warn("provider env mismatch",
