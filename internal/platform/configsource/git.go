@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io/fs"
+	"net/url"
 	"sort"
 	"strings"
 	"sync"
@@ -50,6 +51,27 @@ func newGitSource(cfg map[string]interface{}) (Source, error) {
 
 func (s *gitSource) Type() string { return "git" }
 
+// validateGitURL 限定 http(s) 与 file 仓库地址且禁止 userinfo 内嵌凭据
+// （file 供内网本地/挂载仓库使用；路径由 go-git 解析，无 shell 注入面）。
+func validateGitURL(repoURL string) error {
+	u, err := url.Parse(repoURL)
+	if err != nil {
+		return fmt.Errorf("invalid repoUrl: %w", err)
+	}
+	switch u.Scheme {
+	case "", "https", "http", "file": // "" = 本地路径（内网挂载仓库）
+	default:
+		return fmt.Errorf("repoUrl scheme must be http(s), file or local path, got %q", u.Scheme)
+	}
+	if u.User != nil {
+		return fmt.Errorf("repoUrl must not embed credentials in userinfo")
+	}
+	if u.Host == "" && u.Path == "" {
+		return fmt.Errorf("repoUrl host or path required")
+	}
+	return nil
+}
+
 // worktree returns a cached in-memory shallow clone (TTL 60s) so consecutive
 // tree/read calls do not re-clone.
 func (s *gitSource) worktree(ctx context.Context) (billy.Filesystem, error) {
@@ -57,6 +79,11 @@ func (s *gitSource) worktree(ctx context.Context) (billy.Filesystem, error) {
 	defer s.mu.Unlock()
 	if time.Now().Before(s.expires) && (s.cached != nil || s.cachedE != nil) {
 		return s.cached, s.cachedE
+	}
+	if err := validateGitURL(s.repoURL); err != nil {
+		s.cached, s.cachedE = nil, err
+		s.expires = time.Now().Add(10 * time.Second)
+		return nil, err
 	}
 	opts := &git.CloneOptions{
 		URL:   s.repoURL,

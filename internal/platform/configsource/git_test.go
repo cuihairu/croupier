@@ -104,3 +104,32 @@ func TestGitSource_RequireRepoURL(t *testing.T) {
 		t.Errorf("repoUrl required")
 	}
 }
+
+func TestValidateGitURL(t *testing.T) {
+	ok := []string{
+		"https://github.com/org/repo.git",
+		"http://git.internal/game/configs.git",
+		"file:///mnt/nas/configs",
+		"/data/repos/configs", // 本地路径（空 scheme）
+	}
+	for _, u := range ok {
+		if err := validateGitURL(u); err != nil {
+			t.Errorf("validateGitURL(%q) = %v, want nil", u, err)
+		}
+	}
+	bad := []struct {
+		url  string
+		want string
+	}{
+		{"ssh://git@github.com/org/repo.git", "scheme"},
+		{"ftp://x/repo.git", "scheme"},
+		{"https://user:pass@github.com/org/repo.git", "userinfo"},
+		{"https://", "host"},
+	}
+	for _, c := range bad {
+		err := validateGitURL(c.url)
+		if err == nil {
+			t.Errorf("validateGitURL(%q) = nil, want error containing %q", c.url, c.want)
+		}
+	}
+}

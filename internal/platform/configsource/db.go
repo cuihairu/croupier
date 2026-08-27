@@ -57,18 +57,6 @@ func (s *dbSource) conn() (*gorm.DB, error) {
 	return db, nil
 }
 
-// validTable checks the whitelist and rejects identifier injection.
-func (s *dbSource) validTable(name string) bool {
-	if name == "" || strings.ContainsAny(name, "`; \t\n\"'") {
-		return false
-	}
-	if s.tables == nil {
-		return true
-	}
-	_, ok := s.tables[name]
-	return ok
-}
-
 func (s *dbSource) List(ctx context.Context, dir string) ([]Entry, error) {
 	if _, err := cleanPath(dir); err != nil {
 		return nil, err
@@ -80,31 +68,77 @@ func (s *dbSource) List(ctx context.Context, dir string) ([]Entry, error) {
 	if err != nil {
 		return nil, err
 	}
-	var tables []string
-	if err := db.WithContext(ctx).Raw("SHOW TABLES").Scan(&tables).Error; err != nil {
-		return nil, fmt.Errorf("list tables: %w", err)
+	tables, err := s.showTables(ctx, db)
+	if err != nil {
+		return nil, err
 	}
 	out := make([]Entry, 0, len(tables))
 	for _, t := range tables {
-		if !s.validTable(t) {
-			continue
-		}
 		out = append(out, Entry{Name: t + ".csv", Path: t + ".csv"})
 	}
 	return out, nil
 }
 
+// showTables 返回配置白名单允许的表名。查询所用表名必须来自本函数
+// （数据库自身的 SHOW TABLES 输出），而非用户输入——这是 SQL 注入的
+// 污点栅栏（CodeQL go/sql-injection）。
+func (s *dbSource) showTables(ctx context.Context, db *gorm.DB) ([]string, error) {
+	var all []string
+	if err := db.WithContext(ctx).Raw("SHOW TABLES").Scan(&all).Error; err != nil {
+		return nil, fmt.Errorf("list tables: %w", err)
+	}
+	out := make([]string, 0, len(all))
+	for _, t := range all {
+		if s.tableAllowed(t) {
+			out = append(out, t)
+		}
+	}
+	return out, nil
+}
+
+// tableAllowed 只做白名单判断，不做清洗——安全查询的表名来源是
+// showTables 的精确匹配，不经过本函数拼接进 SQL。
+func (s *dbSource) tableAllowed(name string) bool {
+	if name == "" {
+		return false
+	}
+	if s.tables == nil {
+		return true
+	}
+	_, ok := s.tables[name]
+	return ok
+}
+
+// resolveTable 把用户路径精确匹配到 SHOW TABLES 输出的真实表名；
+// 不匹配（含任何注入载荷）返回错误。SQL 只使用匹配出的真实表名。
+func (s *dbSource) resolveTable(ctx context.Context, db *gorm.DB, file string) (string, error) {
+	tables, err := s.showTables(ctx, db)
+	if err != nil {
+		return "", err
+	}
+	for _, t := range tables {
+		if t+".csv" == file || t == file {
+			return t, nil
+		}
+	}
+	return "", fmt.Errorf("table not found: %s", file)
+}
+
 // Read renders a table as CSV (首行列名，最多 500 行)。
 func (s *dbSource) Read(ctx context.Context, path string) ([]byte, error) {
-	path, err := cleanPath(path)
+	file, err := cleanPath(path)
 	if err != nil {
 		return nil, err
 	}
-	table := strings.TrimSuffix(path, ".csv")
-	if !s.validTable(table) {
-		return nil, fmt.Errorf("table not allowed: %s", path)
+	if file == "" {
+		return nil, fmt.Errorf("path required")
 	}
 	db, err := s.conn()
+	if err != nil {
+		return nil, err
+	}
+	// 表名来自 SHOW TABLES 精确匹配（信任源），反引号包裹为标识符
+	table, err := s.resolveTable(ctx, db, file)
 	if err != nil {
 		return nil, err
 	}
