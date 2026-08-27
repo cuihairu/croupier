@@ -297,6 +297,22 @@ export default [
         component: './Dev/Releases',
       },
       {
+        // Excel 在线编辑器：游戏业务数值表（道具/活动/数值）的策划创作
+        // 入口，编译为 ConfigVersion。
+        path: '/dev/excel-config',
+        name: 'ExcelConfig',
+        access: 'canDevRead',
+        component: './System/ExcelConfig',
+      },
+      {
+        // 游戏业务配置（ConfigVersion 版本化）管理：schema/diff/版本历史，
+        // 与 Excel 编辑器构成 创作→版本 链路。
+        path: '/dev/configs',
+        name: 'Configs',
+        access: 'canDevRead',
+        component: './Operations/Configs',
+      },
+      {
         path: '/dev/hotpatches',
         name: 'Hotpatches',
         access: 'canDevManage',
@@ -338,21 +354,6 @@ export default [
         name: 'Schedules',
         access: 'canOpsManage',
         component: './Ops/Schedules',
-      },
-      {
-        // 游戏业务配置（ConfigVersion 版本化）管理：schema/diff/版本历史
-        path: '/ops/configs',
-        name: 'Configs',
-        access: 'canOpsManage',
-        component: './Operations/Configs',
-      },
-      {
-        // Excel 在线配置编辑器：编译为 ConfigVersion 的创作入口，
-        // 与配置版本管理（Configs）同域。
-        path: '/ops/excel-config',
-        name: 'ExcelConfig',
-        access: 'canOpsManage',
-        component: './System/ExcelConfig',
       },
       {
         path: '/ops/alerts',
