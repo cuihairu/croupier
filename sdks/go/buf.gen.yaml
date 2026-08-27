@@ -10,7 +10,3 @@ plugins:
     out: sdks/go/pkg/pb
     opt:
       - paths=source_relative
-  - remote: buf.build/grpc/go:v1.5.1
-    out: sdks/go/pkg/pb
-    opt:
-      - paths=source_relative

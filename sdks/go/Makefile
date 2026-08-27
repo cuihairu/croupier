@@ -24,11 +24,11 @@ build: proto
 	@echo "Building SDK..."
 	go build ./...
 
-# Generate proto files from project root
+# Generate proto files from project root (buf 流程，与主仓库一致；
+# gRPC 插件已移除——内部传输为自研 TCP + protobuf)
 proto:
-	@echo "Generating gRPC code from project proto/ directory..."
-	@echo "Using fixed version plugins: protoc-gen-go@v1.36.11, protoc-gen-go-grpc@v1.5.1"
-	go run scripts/generate_proto.go
+	@echo "Generating protobuf code via buf (no gRPC plugins)..."
+	cd .. && buf generate sdks/go/buf.gen.yaml
 
 # Check if dependencies for proto generation are installed
 check-deps:

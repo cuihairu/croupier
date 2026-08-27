@@ -139,7 +139,7 @@ build-sdks: build-sdks-cpp build-sdks-go
 
 build-sdks-cpp:
 	@echo "[sdks] building C++ SDK..."
-	@cd sdks/cpp && cmake -B build -DCMAKE_BUILD_TYPE=Release -DENABLE_GRPC=ON
+	@cd sdks/cpp && cmake -B build -DCMAKE_BUILD_TYPE=Release
 	@cd sdks/cpp && cmake --build build --parallel
 
 build-sdks-go:
@@ -225,7 +225,7 @@ help:
 	@echo ""
 	@echo "Server Targets:"
 	@echo "  server           - Build croupier-server"
-	@echo "  agent            - Build croupier-agent (http+grpc core)"
+	@echo "  agent            - Build croupier-agent (http + TCP transport core)"
 	@echo ""
 	@echo "SDK Targets:"
 	@echo "  build-sdks       - Build all SDKs (C++, Go)"

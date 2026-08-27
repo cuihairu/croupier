@@ -92,7 +92,7 @@ func main() {
 				// Build OpenAPI operation
 				op := OpenAPIOperation{
 					ID:          funID,
-					Description: fmt.Sprintf("gRPC method: %s.%s/%s", pkg, svc.GetName(), m.GetName()),
+					Description: fmt.Sprintf("proto method: %s.%s/%s", pkg, svc.GetName(), m.GetName()),
 				}
 
 				// Apply overrides from function options

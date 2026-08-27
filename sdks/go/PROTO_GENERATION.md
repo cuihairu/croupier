@@ -1,233 +1,30 @@
 # Proto Generation Guide
 
-This document explains how to generate gRPC code from protobuf files for the Croupier Go SDK.
+Croupier 内部 RPC 不使用 gRPC（[传输层决策](../../docs/architecture/transport-no-grpc.md)）：Server ↔ Agent ↔ SDK 走自研 TCP transport（length-prefix framing）+ protobuf 消息。本文档说明 Go SDK 的 protobuf 代码生成流程。
 
-## Overview
+## 生成方式（buf，与主仓库一致）
 
-The Go SDK can operate in two modes:
-1. **Mock mode** - Uses mock gRPC implementation (default, no dependencies required)
-2. **Real gRPC mode** - Uses generated gRPC code (requires proto generation)
-
-## Quick Start
-
-### Option 1: Use Mock Mode (Easiest)
-
-No setup required! The SDK automatically uses mock gRPC implementation:
+统一使用 buf 远程插件生成，**只生成 protobuf 消息代码，不生成 gRPC 代码**：
 
 ```bash
-go run examples/basic/main.go
+# 在仓库根目录
+make proto          # 主仓库 pkg/pb（transport/agent/SDK 契约消息）
+make pack           # pack artifacts（protoc-gen-croupier）
+
+# Go SDK 单独生成（sdks/go/pkg/pb）
+cd sdks/go && make proto
 ```
 
-### Option 2: Use Real gRPC
+`sdks/go/buf.gen.yaml` 固定插件版本（与主仓库 CI 一致）：
 
-#### Step 1: Install Dependencies
+- `buf.build/protocolbuffers/go:v1.36.11` —— protobuf 消息代码
 
-**macOS:**
-```bash
-brew install protobuf
-go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
-go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
-```
+## 约束
 
-**Ubuntu/Debian:**
-```bash
-sudo apt-get install protobuf-compiler
-go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
-go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
-```
+- **不要引入 `protoc-gen-go-grpc` / `buf.build/grpc/*` 插件**——历史上配置过但从未产生被使用的产物，已移除。
+- 本地 `protoc` 版本与 buf 远程插件不匹配会生成不兼容代码，一律走 buf。
+- 生成的代码在 `sdks/go/pkg/pb/`（git 跟踪），只有 proto 契约变更时才需要重新生成。
 
-**Other systems:**
-Download protoc from [GitHub releases](https://github.com/protocolbuffers/protobuf/releases)
+## 历史说明
 
-#### Step 2: Generate gRPC Code
-
-```bash
-# Using the convenient script
-./generate_proto.sh
-
-# Or using Makefile
-make proto
-
-# Or directly with Go
-go run scripts/generate_proto.go
-```
-
-#### Step 3: Build with Real gRPC
-
-```bash
-# Using Makefile
-make build-with-grpc
-
-# Or with go build
-go build -tags=croupier_real_grpc ./...
-
-# Run examples
-make example
-```
-
-## Advanced Usage
-
-### Custom Proto Branch
-
-To generate from a different branch:
-
-```bash
-./generate_proto.sh --branch develop
-# or
-CROUPIER_PROTO_BRANCH=develop ./generate_proto.sh
-```
-
-### Skip Proto Generation
-
-If you have previously generated proto files and want to skip regeneration:
-
-```bash
-./generate_proto.sh --skip
-# or
-CROUPIER_SKIP_PROTO_GEN=1 ./generate_proto.sh
-```
-
-### Verbose Output
-
-For detailed output during generation:
-
-```bash
-./generate_proto.sh --verbose
-```
-
-## Using the Makefile
-
-The Makefile provides convenient targets:
-
-```bash
-# Build with mock gRPC (default)
-make build
-
-# Build with real gRPC (generates proto first)
-make build-with-grpc
-
-# Only generate proto files
-make proto
-
-# Check if dependencies are installed
-make check-deps
-
-# Install dependencies automatically
-make install-deps
-
-# Run tests
-make test
-
-# Run comprehensive example
-make example
-
-# Clean generated files
-make clean
-
-# Show build information
-make info
-```
-
-## Environment Variables
-
-- `CROUPIER_SKIP_PROTO_GEN`: Set to 1 to skip proto generation
-- `CROUPIER_PROTO_BRANCH`: Specify proto branch (default: main)
-- `CROUPIER_CI_BUILD`: Set to 1 to enable CI mode (strict error checking)
-
-## Build Tags
-
-The generated gRPC code is protected by the build tag `croupier_real_grpc`. This means:
-
-- Without the tag: Mock implementation is used
-- With the tag: Real gRPC implementation is used
-
-Example:
-```bash
-# Mock implementation
-go build ./...
-
-# Real gRPC implementation
-go build -tags=croupier_real_grpc ./...
-```
-
-## Directory Structure
-
-```
-.
-├── downloaded_proto/     # Downloaded proto files (temporary)
-├── proto/                # Generated Go code
-│   ├── build_tags.go     # Build tag indicator
-│   ├── croupier/         # Generated packages
-│   └── google/           # Generated Google APIs
-├── scripts/
-│   └── generate_proto.go # Proto generation script
-└── generate_proto.sh     # Convenience wrapper script
-```
-
-## Troubleshooting
-
-### protoc not found
-
-Install protoc:
-```bash
-# macOS
-brew install protobuf
-
-# Ubuntu
-sudo apt-get install protobuf-compiler
-```
-
-### Go protoc plugins not found
-
-Install the plugins:
-```bash
-go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
-go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
-```
-
-Make sure `$GOPATH/bin` is in your `$PATH`.
-
-### proto download failed
-
-Check your internet connection and branch name:
-```bash
-./generate_proto.sh --branch main --verbose
-```
-
-### Generated code conflicts
-
-Clean and regenerate:
-```bash
-make clean
-make proto
-```
-
-## CI Integration
-
-In CI environments, set `CROUPIER_CI_BUILD=1` to enable strict error checking:
-
-```yaml
-- name: Generate proto
-  run: |
-    export CROUPIER_CI_BUILD=1
-    make proto
-    make build-with-grpc
-```
-
-## Difference Between Mock and Real gRPC
-
-| Feature | Mock Mode | Real gRPC Mode |
-|---------|-----------|---------------|
-| Dependencies | None | protoc, Go plugins |
-| Network calls | Simulated | Real gRPC |
-| Performance | Faster | Slower (real calls) |
-| Testing | Good for unit tests | Integration tests |
-| Production use | No | Yes |
-
-## Best Practices
-
-1. **Development**: Use mock mode for faster iteration
-2. **Testing**: Use mock mode for unit tests
-3. **Integration**: Use real gRPC for integration tests
-4. **Production**: Always use real gRPC
-5. **CI**: Enable strict mode with `CROUPIER_CI_BUILD=1`
+早期 SDK 文档描述过 "Mock gRPC mode / Real gRPC mode" 双模式与 `generate_proto.sh` 脚本——该模型已随 gRPC 移除而废弃，脚本已删除。
