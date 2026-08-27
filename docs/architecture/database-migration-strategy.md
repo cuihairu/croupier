@@ -95,6 +95,9 @@ Server/Agent 启动时读取 `schema_migrations` 当前版本:
 2. ✅ 启动兼容校验（`MinimumRequiredVersion`，追平后低于最低版本即拒绝启动）；跨进程会话锁（MySQL `GET_LOCK` / PG advisory lock）覆盖「版本表探测 + baseline + 追平」全程，接入 `EnsureDatabase`（PG 建库竞态容错）与 `MigrateGame`；单库模式（`multiGame: false`）同样经 `EnsureUpToDate` 执行，不再每次启动裸跑 AutoMigrate。
 3. ✅ 存量补偿钩子（enum 回填、legacy 表/列/索引清理、openapi 回填）改写为编号迁移 0002–0004（goose Go 迁移，注册于 `internal/svc/migrations.go`，与 baseline 桥共用同一实现）；钩子从「每次启动执行」收敛为「仅 baseline 一次性」。根目录游离 SQL（001/002）已删除（002 收编为 0002）。
 4. ✅ CI 增加三方言迁移测试（`ci.yml` 的 `migrate-matrix` job：真实 MySQL 8.4 + Postgres 16 services，含并发首开锁验证；SQLite 由单测覆盖）与 Atlas 校验（社区版 `atlas migrate validate` 校验 `atlas.sum` 与文件顺序；注意 `atlas migrate lint` 自 v0.38 起 Pro 付费，规则化 lint 暂不可用）。
+
+   **SQL Server 状态（进行中）**：迁移执行器侧已就绪——`internal/db/migrate` 支持 sqlserver 方言映射、`sp_getapplock` 会话锁、`sys.objects` 版本表探测，集成测试 case 与 CI mssql 容器已接线（见 `ci.yml` 中被注释的 `TEST_SQLSERVER_DSN`）。当前阻塞在模型层：`datatypes.JSON` 对 sqlserver 无 DB 类型映射，gorm sqlserver 驱动对未知类型返回字面量 `json`，SQL Server 无此类型导致 AutoMigrate 建表失败。落地路径：引入方言感知的 JSON 列类型（sqlserver 用 `nvarchar(max)`），属独立的模型层改造，完成后取消 CI env 注释即可进矩阵。
+
 5. ✅ fan-out 批量滚动工具：`croupier-server db fanout`（读 `game_envs`，meta + 逐游戏库追平，输出报告表格；`--dry-run` 仅报告版本不执行 DDL；注册表引用但物理缺失的库标记 `missing-database`，运行时懒建不算错误）。
 
 ## Review Checklist

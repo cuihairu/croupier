@@ -36,12 +36,12 @@ Croupier 是面向游戏运营与控制场景的 Server / Agent / SDK 平台，�
 
 ## 支持的数据库
 
-| 数据库     | 驱动                       | 适用场景             |
-| ---------- | -------------------------- | -------------------- |
-| SQLite     | `glebarez/sqlite`          | 开发、测试、小型部署 |
-| MySQL      | `gorm.io/driver/mysql`     | 生产环境（推荐）     |
-| PostgreSQL | `gorm.io/driver/postgres`  | 生产环境             |
-| SQL Server | `gorm.io/driver/sqlserver` | 企业环境             |
+| 数据库     | 驱动                       | 适用场景                                                                     |
+| ---------- | -------------------------- | ---------------------------------------------------------------------------- |
+| SQLite     | `glebarez/sqlite`          | 开发、测试、小型部署                                                         |
+| MySQL      | `gorm.io/driver/mysql`     | 生产环境（推荐）                                                             |
+| PostgreSQL | `gorm.io/driver/postgres`  | 生产环境                                                                     |
+| SQL Server | `gorm.io/driver/sqlserver` | 企业环境；schema 迁移支持进行中（json 列类型映射待方言化，迁移矩阵暂未覆盖） |
 
 配置示例：
 
