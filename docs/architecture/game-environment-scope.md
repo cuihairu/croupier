@@ -398,7 +398,39 @@ scope 中立不等于绕过数据授权。`/api/v1/audit` 必须先校验 `audit
 
 原生浏览器 `EventSource` 不能自定义请求 header。SSE 认证应使用受保护的同源会话 Cookie 或项目统一的安全认证机制；不得将长期 JWT 放入 URL query。由于 SSE 不解析 scope，客户端无需也不应为它传递 scope。
 
-## 14. 迁移与验收顺序
+## 14. Agent 的 scope 绑定（单 game + 单 env）
+
+> **决策**：一个 Agent 实例绑定**一个** `game_id + env`。注册协议（`RegisterRequest`）与会话模型（registry session、集群归属表、审计）均为会话级单值。**Accepted——保持简单，不做多 game/env 绑定。**
+
+### 14.1 为什么单值
+
+| 维度          | 理由                                                                                                         |
+| ------------- | ------------------------------------------------------------------------------------------------------------ |
+| 网络拓扑      | Agent 部署在游戏网络里，游戏项目的网段/VPC/K8s 集群天然隔离——一个 Agent 的可达范围本来就限于一处             |
+| 故障域/攻击面 | Agent 是指令执行端；一 game 一 Agent 使凭据泄露的爆炸半径最小化                                              |
+| 审计与归属    | 归属表/审计链按 Agent → (game_id, env) 直查，单值模型让"谁在哪个环境"无歧义                                  |
+| 运维自治      | 各游戏团队独立升级/排障自己的 Agent，互不干扰                                                                |
+| 成本          | Agent 是轻量代理，容器化后多实例边际成本近零——多游戏就多部署 Agent（如 deploy compose 的 agent/agent2 形态） |
+
+### 14.2 硬约束：env 永远单值
+
+`dev/test/prod` 在数据库（per-game 路由）、权限策略、审批阈值、审计敏感度上完全不同。一个 Agent 混接多 env 意味着 prod 与非 prod 网络打通、一次凭据泄露暴露多环境——**任何演进都不得引入多 env 绑定**。
+
+### 14.3 多游戏场景的标准做法
+
+多游戏共享基础设施时，**部署多个 Agent 实例**（每游戏一个，可同机/同集群），而非让单 Agent 服务多 game。`docker-compose.deploy.yml` 的 `agent`/`agent2` 即此形态：独立 AgentID、独立配置、经 L4 LB 各自接入。
+
+### 14.4 演进备选（记录，非当前路线）
+
+协议层 `AgentProcess.game_id/env` 已为 per-provider scope 预留字段（"game scope the provider belongs to"）。若未来游戏数量大到共享集群内逐游戏部署 Agent 成为负担，可落地 provider 级 scope（函数路由已有 `(game_id, function_id)` 索引，改动集中在注册聚合与归属表粒度 Agent×game）。在此之前不启动。
+
+### 14.5 Review Checklist
+
+- Agent 配置/注册不得出现 `games: []` 多值形态；新增能力不得绕过会话级单 scope
+- 双 agent 部署模板（deploy compose）的 `gameId/env` 必须一致（同一环境的多个接入实例，见 deploy workflow 的 scope 同步逻辑）
+- 集群归属表 `cluster_agent_owners` 保持 (agent_id → game_id, env) 单值语义
+
+## 15. 迁移与验收顺序
 
 1. 建立 `admin_game_env_scopes` 的唯一约束和授权查询；迁移现有授权数据时，显式展开为环境级授权行。
 2. 为 `admins` 增加 `last_game_id`、`last_env`，并清理不完整或不再授权的历史值。
