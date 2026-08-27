@@ -375,5 +375,10 @@ func probeDialect(sqlDB *sql.DB) (string, error) {
 	if err := sqlDB.QueryRow("SELECT @@version_comment LIMIT 1").Scan(&s); err == nil {
 		return "mysql", nil
 	}
+	// SQL Server: @@VERSION 是 T-SQL 独有（MySQL 用 @@version_comment，
+	// postgres 无系统变量语法，二者已在前面试过）。
+	if err := sqlDB.QueryRow("SELECT @@VERSION").Scan(&s); err == nil {
+		return "mssql", nil
+	}
 	return "", fmt.Errorf("svc: probe dialect: unsupported database")
 }
