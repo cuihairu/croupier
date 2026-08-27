@@ -19,10 +19,13 @@ export default function MessagesBell() {
     };
     // prime once
     poll();
-    // periodic poll
+    // periodic poll：未读数是弱实时信息，5 分钟一轮足够；
+    // 页签不可见时跳过，避免后台页签空打请求。
     const loop = async () => {
-      await poll();
-      timer = setTimeout(loop, 60000);
+      if (!document.hidden) {
+        await poll();
+      }
+      timer = setTimeout(loop, 5 * 60 * 1000);
     };
     loop();
     return () => {
