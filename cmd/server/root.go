@@ -228,6 +228,12 @@ func runServer() error {
 	// 将 session resolver 注入到 Dispatcher
 	if svcCtx.Dispatcher != nil {
 		svcCtx.Dispatcher.SetSessionResolver(server.NewSessionResolverAdapter(sessionStore))
+		// HA 多实例：本地无该 agent 连接时经互联 mesh 转发到 owner 实例
+		// （docs/architecture/server-ha-multi-instance.md §6；单实例 Cluster
+		// 为 nil，保持本地 miss 即报错的既有语义）。
+		if svcCtx.Cluster != nil && svcCtx.Cluster.Mesh != nil {
+			svcCtx.Dispatcher.SetRemoteForwarder(newMeshForwarder(svcCtx.Cluster.Mesh))
+		}
 		// 将 task event query 注入到 Dispatcher（用于 StreamTask 查询）
 		taskRunModel := model.NewTaskRunModel(svcCtx.DB)
 		taskEventModel := model.NewTaskEventModel(svcCtx.DB)

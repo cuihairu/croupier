@@ -381,9 +381,20 @@ func TestAnalyticsBridge_BatchFlushToRedis(t *testing.T) {
 	_, hasTrace := props["trace_id"]
 	assert.False(t, hasTrace)
 
-	// Retention TTL must be applied via Expire.
-	ttl, err := client.TTL(ctx, stream).Result()
-	require.NoError(t, err)
+	// Retention TTL must be applied via Expire. flush 内 XAdd 与 Expire
+	// 是两步：消息可见时 Expire 可能尚未落键，这里轮询有界等待（CI 上
+	// 曾因竞态窗口拿到 -1ns 闪断）。
+	deadline := time.Now().Add(3 * time.Second)
+	var ttl time.Duration
+	for {
+		var err error
+		ttl, err = client.TTL(ctx, stream).Result()
+		require.NoError(t, err)
+		if ttl > 0 || time.Now().After(deadline) {
+			break
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
 	assert.True(t, ttl > 0 && ttl <= 2*time.Hour, "unexpected TTL: %v", ttl)
 
 	// NOTE: bridge.Shutdown is deliberately not called here — Shutdown

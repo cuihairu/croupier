@@ -93,11 +93,26 @@ type Dispatcher struct {
 	// TCP session routing
 	sessionResolver AgentSessionResolver
 
+	// remoteForwarder 把本地无连接的 agent 调用转发到持有其 session 的
+	// 实例（HA 多实例 owner 转发）；单实例为 nil，本地 miss 即报错。
+	remoteForwarder RemoteForwarder
+
 	// HA features
 	healthTracker *HealthTracker
 	loadBalancer  *LoadBalancer
 	haEnabled     bool
 }
+
+// RemoteForwarder forwards an invoke for an agent whose session lives on
+// another server instance. The cluster mesh wiring implements this; the
+// dispatcher treats a non-nil implementation as "forward on local miss".
+type RemoteForwarder interface {
+	ForwardInvoke(ctx context.Context, agentID, functionID string, payload []byte, metadata map[string]string, idempotencyKey string) ([]byte, error)
+}
+
+// errAgentUnreachable 标记「该 agent 当前不可达」（本地无 session 且
+// 转发失败/无路由）——可换下一候选重试的错误类。
+var errAgentUnreachable = errors.New("agent unreachable")
 
 func NewDispatcher(store *reg.Store) *Dispatcher {
 	return NewDispatcherWithTaskStore(store, nil, nil)
@@ -222,6 +237,12 @@ func (d *Dispatcher) SetSessionResolver(resolver AgentSessionResolver) {
 	d.sessionResolver = resolver
 }
 
+// SetRemoteForwarder wires the HA owner-forward path: local session miss
+// falls back to forwarding the invoke to the instance owning the agent.
+func (d *Dispatcher) SetRemoteForwarder(f RemoteForwarder) {
+	d.remoteForwarder = f
+}
+
 // SetTaskEventQuery sets the task event query for persistent storage access.
 func (d *Dispatcher) SetTaskEventQuery(query TaskEventQuery) {
 	d.mu.Lock()
@@ -256,63 +277,102 @@ func (d *Dispatcher) InvokeRequest(ctx context.Context, req *sdkv1.InvokeRequest
 	)
 	defer span.End()
 
-	agent, err := d.pickAgentWithRouting(req.GetFunctionId(), req.Metadata)
-	if err != nil {
-		span.RecordError(err)
-		span.SetStatus(codes.Error, err.Error())
-		return nil, err
+	// 原始 metadata：每次重试克隆后注入，避免上一轮的 agent_id/trace
+	// 泄漏到下一候选（转发链路按原始面重建）。
+	origMeta := map[string]string{}
+	for k, v := range req.GetMetadata() {
+		origMeta[k] = v
 	}
-	span.SetAttributes(attribute.String("agent.id", agent.AgentID))
+	// targeted/hash 路由语义上指定了唯一目标，失败换候选会破坏粘性——
+	// 只有默认 lb 路径才有 failover。
+	routePinned := strings.TrimSpace(origMeta["target_service_id"]) != "" ||
+		strings.TrimSpace(origMeta["hash_key"]) != ""
 
-	// Track connection start
+	tried := map[string]bool{}
+	maxAttempts := 1
+	if !routePinned {
+		maxAttempts = 3
+	}
+	var lastErr error
+	for attempt := 0; attempt < maxAttempts; attempt++ {
+		agent, err := d.pickAgentWithRouting(req.GetFunctionId(), origMeta, tried)
+		if err != nil {
+			if lastErr != nil {
+				return nil, fmt.Errorf("failover exhausted: %w (last error: %v)", lastErr, err)
+			}
+			span.RecordError(err)
+			span.SetStatus(codes.Error, err.Error())
+			return nil, err
+		}
+		tried[agent.AgentID] = true
+		span.SetAttributes(attribute.String("agent.id", agent.AgentID))
+
+		resp, err := d.invokeOnPickedAgent(ctx, span, agent, req, origMeta)
+		if err == nil {
+			return resp, nil
+		}
+		lastErr = err
+		if !errors.Is(err, errAgentUnreachable) {
+			span.RecordError(err)
+			span.SetStatus(codes.Error, err.Error())
+			return nil, err
+		}
+		// 该 agent 不可达（本地无连接且转发失败/无路由）→ 换下一候选。
+	}
+	span.RecordError(lastErr)
+	span.SetStatus(codes.Error, lastErr.Error())
+	return nil, lastErr
+}
+
+// invokeOnPickedAgent executes one invoke attempt against the selected agent.
+func (d *Dispatcher) invokeOnPickedAgent(ctx context.Context, span trace.Span, agent *reg.AgentSession, req *sdkv1.InvokeRequest, origMeta map[string]string) (*sdkv1.InvokeResponse, error) {
 	if d.healthTracker != nil {
 		d.healthTracker.IncrementConnections(agent.AgentID)
 		defer d.healthTracker.DecrementConnections(agent.AgentID)
 	}
 
+	// 原地重置再注入：保持 req.Metadata 的 map 身份不变——调用方
+	// （console/审计）在调用后仍读同一 map 拿 agent_id，换新实例会
+	// 让它们读到空值。
 	if req.Metadata == nil {
 		req.Metadata = map[string]string{}
 	}
-	req.Metadata["agent_id"] = agent.AgentID
-	req.Metadata = telemetry.InjectContext(ctx, req.Metadata)
+	meta := req.Metadata
+	for k := range meta {
+		delete(meta, k)
+	}
+	for k, v := range origMeta {
+		meta[k] = v
+	}
+	meta["agent_id"] = agent.AgentID
+	req.Metadata = telemetry.InjectContext(ctx, meta)
+	if req.Metadata == nil {
+		req.Metadata = meta
+	}
 
 	reqBytes, err := proto.Marshal(req)
 	if err != nil {
 		if d.healthTracker != nil {
 			d.healthTracker.RecordFailure(agent.AgentID)
 		}
-		err = fmt.Errorf("marshal request: %w", err)
-		span.RecordError(err)
-		span.SetStatus(codes.Error, err.Error())
-		return nil, err
+		return nil, fmt.Errorf("marshal request: %w", err)
 	}
 
-	respBytes, err := d.callAgent(ctx, agent.AgentID, protocol.MsgInvokeRequest, reqBytes)
+	respBytes, err := d.callAgentRouted(ctx, agent.AgentID, protocol.MsgInvokeRequest, req, reqBytes)
 	if err != nil {
 		if d.healthTracker != nil {
 			d.healthTracker.RecordFailure(agent.AgentID)
 		}
-		span.RecordError(err)
-		span.SetStatus(codes.Error, err.Error())
 		return nil, err
 	}
 
 	resp := &sdkv1.InvokeResponse{}
 	if err := proto.Unmarshal(respBytes, resp); err != nil {
-		if d.healthTracker != nil {
-			d.healthTracker.RecordFailure(agent.AgentID)
-		}
-		err = fmt.Errorf("unmarshal response: %w", err)
-		span.RecordError(err)
-		span.SetStatus(codes.Error, err.Error())
-		return nil, err
+		return nil, fmt.Errorf("unmarshal response: %w", err)
 	}
-
 	if d.healthTracker != nil {
 		d.healthTracker.RecordSuccess(agent.AgentID)
 	}
-
-	span.SetStatus(codes.Ok, "")
 	return resp, nil
 }
 
@@ -849,7 +909,7 @@ func (d *Dispatcher) selectAgent(functionID string, candidates []*reg.AgentSessi
 	return chosen, nil
 }
 
-func (d *Dispatcher) pickAgentWithRouting(functionID string, metadata map[string]string) (*reg.AgentSession, error) {
+func (d *Dispatcher) pickAgentWithRouting(functionID string, metadata map[string]string, exclude ...map[string]bool) (*reg.AgentSession, error) {
 	gameID, env, scoped, err := routingScopeFromMetadata(metadata)
 	if err != nil {
 		return nil, err
@@ -858,6 +918,15 @@ func (d *Dispatcher) pickAgentWithRouting(functionID string, metadata map[string
 	serviceID := strings.TrimSpace(metadata["target_service_id"])
 	hashKey := strings.TrimSpace(metadata["hash_key"])
 	candidates := d.listAgentsForFunctionInScope(functionID, gameID, env, scoped)
+	if len(exclude) > 0 && exclude[0] != nil {
+		filtered := make([]*reg.AgentSession, 0, len(candidates))
+		for _, a := range candidates {
+			if !exclude[0][a.AgentID] {
+				filtered = append(filtered, a)
+			}
+		}
+		candidates = filtered
+	}
 	if len(candidates) == 0 {
 		return nil, noLiveAgentError(functionID, gameID, env, scoped)
 	}
@@ -940,12 +1009,12 @@ func noHealthyAgentError(functionID, gameID, env string, scoped bool) error {
 // callAgent sends a request to an Agent via its established TCP session.
 func (d *Dispatcher) callAgent(ctx context.Context, agentID string, msgID uint32, reqBody []byte) ([]byte, error) {
 	if d.sessionResolver == nil {
-		return nil, fmt.Errorf("session resolver not configured")
+		return nil, fmt.Errorf("session resolver not configured: %w", errAgentUnreachable)
 	}
 
 	caller, ok := d.sessionResolver.ResolveAgentConn(agentID)
 	if !ok {
-		return nil, fmt.Errorf("agent %s session not found", agentID)
+		return nil, fmt.Errorf("agent %s session not found: %w", agentID, errAgentUnreachable)
 	}
 
 	callCtx, cancel := context.WithTimeout(ctx, d.invokeTimeout)
@@ -953,6 +1022,33 @@ func (d *Dispatcher) callAgent(ctx context.Context, agentID string, msgID uint32
 
 	_, respBody, err := caller.Call(callCtx, msgID, reqBody)
 	return respBody, err
+}
+
+// callAgentRouted 在本地调用之上叠加 HA 转发：本地无该 agent 的 session
+// 时，经 remoteForwarder 转发到持有连接的实例（一跳限制在 mesh 侧保证，
+// owner 侧 InvokeRequestOnAgent 不走本方法避免环路）。
+func (d *Dispatcher) callAgentRouted(ctx context.Context, agentID string, msgID uint32, req *sdkv1.InvokeRequest, reqBytes []byte) ([]byte, error) {
+	respBytes, err := d.callAgent(ctx, agentID, msgID, reqBytes)
+	if err == nil || !errors.Is(err, errAgentUnreachable) {
+		return respBytes, err
+	}
+	d.mu.RLock()
+	fwd := d.remoteForwarder
+	d.mu.RUnlock()
+	if fwd == nil {
+		return nil, err
+	}
+	fwdMeta := map[string]string{}
+	for k, v := range req.GetMetadata() {
+		fwdMeta[k] = v
+	}
+	// 转发链路自己重建路由/追踪上下文，本地注入的标记不带过去。
+	delete(fwdMeta, "agent_id")
+	respBytes, ferr := fwd.ForwardInvoke(ctx, agentID, req.GetFunctionId(), req.GetPayload(), fwdMeta, req.GetIdempotencyKey())
+	if ferr != nil {
+		return nil, fmt.Errorf("forward to owner of %s: %v: %w", agentID, ferr, errAgentUnreachable)
+	}
+	return respBytes, nil
 }
 
 // RegisterTask registers a task routing.

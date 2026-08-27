@@ -89,8 +89,7 @@ func (m *AgentSessionModel) Upsert(ctx context.Context, sess *AgentSession) erro
 		return err
 	}
 
-	// TEMP DIAG: enable gorm debug to see actual INSERT SQL
-	return m.db.Debug().WithContext(ctx).
+	return m.db.WithContext(ctx).
 		Clauses(clause.OnConflict{
 			Columns:   []clause.Column{{Name: "agent_id"}},
 			UpdateAll: true,

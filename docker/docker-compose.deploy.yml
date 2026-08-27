@@ -178,6 +178,10 @@ services:
       - "${SERVER_HTTP_PORT:-18780}:18780"
     environment:
       <<: *server-env
+      # HA 编排必须显式开集群（成员表 + owner 转发 + 跨实例调用），
+      # 只配 advertiseAddr 不开 enabled 会退化为两个互不知晓的单实例：
+      # 节点页只见本实例 agent、函数调用不转发（曾在线上复现）。
+      CROUPIER_CLUSTER_ENABLED: "true"
       CROUPIER_CLUSTER_INSTANCE_ID: croupier-server
       CROUPIER_CLUSTER_ADVERTISE_ADDR: croupier-server:19099
 
@@ -186,6 +190,7 @@ services:
     container_name: croupier-server2
     environment:
       <<: *server-env
+      CROUPIER_CLUSTER_ENABLED: "true"
       CROUPIER_CLUSTER_INSTANCE_ID: croupier-server2
       CROUPIER_CLUSTER_ADVERTISE_ADDR: croupier-server2:19099
 
