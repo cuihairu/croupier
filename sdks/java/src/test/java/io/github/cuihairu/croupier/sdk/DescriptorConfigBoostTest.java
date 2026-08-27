@@ -236,7 +236,7 @@ class DescriptorConfigBoostTest {
         assertEquals("unknown.function", OpenAPIImporter.deriveOperationId(empty, ""));
         assertEquals("Unnamed Function", OpenAPIImporter.deriveSummary(empty, "unknown.function"));
         assertEquals("", OpenAPIImporter.extractExtension(empty, "x-missing"));
-        assertEquals("medium", OpenAPIImporter.parseRiskLevel(""));
+        assertEquals("warning", OpenAPIImporter.parseRiskLevel(""));
     }
 
     @Test

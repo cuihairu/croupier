@@ -66,6 +66,9 @@ class OpenAPIImporterTest {
                     "x-operation": "ban",
                     "x-permission": "player.ban",
                     "x-risk": "high",
+                    "x-capability": "action",
+                    "x-execution": "task",
+                    "x-approval": {"required": true, "policyKey": "player.ban.v2"},
                     "requestBody": {"content": {"application/json": {"schema": {
                       "type": "object",
                       "required": ["playerId", "reason"],
@@ -117,6 +120,10 @@ class OpenAPIImporterTest {
         assertEquals("ban", descriptor.getOperation());
         assertEquals("player.ban", descriptor.getPermission());
         assertEquals("high", descriptor.getRisk());
+        assertEquals("action", descriptor.getCapability());
+        assertEquals("task", descriptor.getExecution());
+        assertTrue(descriptor.isApprovalRequired());
+        assertEquals("player.ban.v2", descriptor.getApprovalPolicyKey());
     }
 
     @Test
@@ -142,7 +149,11 @@ class OpenAPIImporterTest {
         FunctionDescriptor descriptor = client.registered.get(1).getKey();
         assertEquals("players.search", descriptor.getId());
         assertEquals("Players.search", descriptor.getSummary());
-        assertEquals("medium", descriptor.getRisk());
+        assertEquals("warning", descriptor.getRisk());
+        assertNull(descriptor.getCapability());
+        assertNull(descriptor.getExecution());
+        assertFalse(descriptor.isApprovalRequired());
+        assertNull(descriptor.getApprovalPolicyKey());
     }
 
     @Test
@@ -208,11 +219,42 @@ class OpenAPIImporterTest {
         assertEquals("unknown.function", OpenAPIImporter.deriveOperationId(operation, ""));
         assertEquals("api.players.{id}", OpenAPIImporter.deriveOperationId(operation, "/api/players/{id}"));
         assertEquals("Player Ban", OpenAPIImporter.toTitleCase("player_ban"));
-        assertEquals("low", OpenAPIImporter.parseRiskLevel("safe"));
+        assertEquals("safe", OpenAPIImporter.parseRiskLevel("safe"));
+        assertEquals("safe", OpenAPIImporter.parseRiskLevel("low"));
+        assertEquals("warning", OpenAPIImporter.parseRiskLevel("medium"));
+        assertEquals("warning", OpenAPIImporter.parseRiskLevel("moderate"));
+        assertEquals("high", OpenAPIImporter.parseRiskLevel("high"));
         assertEquals("danger", OpenAPIImporter.parseRiskLevel("critical"));
-        assertEquals("medium", OpenAPIImporter.parseRiskLevel("bogus"));
+        assertEquals("warning", OpenAPIImporter.parseRiskLevel("bogus"));
         assertEquals("42", OpenAPIImporter.extractExtension(Map.of("x-n", 42L), "x-n"));
         assertEquals("true", OpenAPIImporter.extractExtension(Map.of("x-b", Boolean.TRUE), "x-b"));
+    }
+
+    @Test
+    @DisplayName("v2 options and approval extension variants are accepted")
+    void v2OptionsAndApprovalVariants() throws Exception {
+        RecordingClient client = new RecordingClient();
+        OpenAPIImporter.ImportOptions options = new OpenAPIImporter.ImportOptions()
+            .resourcePrefix("game")
+            .defaultTimeoutMs(30000);
+        OpenAPIImporter.registerFromOpenAPIWithHandlers(
+            client, spec(), options, Map.of("player_ban", noop(), "players.search", noop()));
+        assertEquals(2, client.registered.size());
+        assertEquals("game.player", client.registered.get(0).getKey().getResource());
+
+        String stringApproval = """
+            {"paths": {"/ops/purge": {"post": {
+              "operationId": "ops_purge",
+              "x-approval": {"required": "true", "policyKey": "ops.purge"},
+              "responses": {"200": {"content": {"application/json": {"schema": {"type": "object"}}}}}
+            }}}}
+            """;
+        RecordingClient variant = new RecordingClient();
+        OpenAPIImporter.registerFromOpenAPI(
+            variant, stringApproval, null, id -> "ops_purge".equals(id) ? noop() : null);
+        FunctionDescriptor descriptor = variant.registered.get(0).getKey();
+        assertTrue(descriptor.isApprovalRequired());
+        assertEquals("ops.purge", descriptor.getApprovalPolicyKey());
     }
 
     // -----------------------------------------------------------------------

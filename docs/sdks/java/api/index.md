@@ -11,6 +11,7 @@ title: Java SDK API
 - `ClientConfig`
 - `CroupierClient`
 - 相关描述符与处理器类型
+- `OpenAPIImporter` / `OpenAPIImporter.ImportOptions`（OpenAPI 3 导入，支持 Descriptor v2 的 capability/execution/approval 扩展）
 
 ## 继续阅读
 

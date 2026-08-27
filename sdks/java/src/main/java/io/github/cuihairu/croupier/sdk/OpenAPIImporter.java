@@ -25,6 +25,8 @@ public final class OpenAPIImporter {
         private String resourcePrefix = "";
         /** Prefix prepended to every imported tag. */
         private String tagPrefix = "";
+        /** Default timeout in milliseconds (Go parity; the Java descriptor carries no timeout field yet). */
+        private long defaultTimeoutMs = 0;
         /** Keep importing remaining operations when one fails. */
         private boolean continueOnError = false;
 
@@ -35,6 +37,11 @@ public final class OpenAPIImporter {
 
         public ImportOptions tagPrefix(String tagPrefix) {
             this.tagPrefix = tagPrefix == null ? "" : tagPrefix;
+            return this;
+        }
+
+        public ImportOptions defaultTimeoutMs(long defaultTimeoutMs) {
+            this.defaultTimeoutMs = defaultTimeoutMs;
             return this;
         }
 
@@ -134,6 +141,9 @@ public final class OpenAPIImporter {
         descriptor.setResource(emptyToNull(extractExtension(operation, "x-resource")));
         descriptor.setOperation(emptyToNull(extractExtension(operation, "x-operation")));
         descriptor.setPermission(emptyToNull(extractExtension(operation, "x-permission")));
+        descriptor.setCapability(emptyToNull(extractExtension(operation, "x-capability")));
+        descriptor.setExecution(emptyToNull(extractExtension(operation, "x-execution")));
+        applyApprovalExtension(descriptor, operation.get("x-approval"));
 
         String inputSchema = jsonContentSchema(operation.get("requestBody"));
         if (inputSchema != null) {
@@ -148,7 +158,7 @@ public final class OpenAPIImporter {
         }
 
         String risk = extractExtension(operation, "x-risk");
-        descriptor.setRisk(risk.isEmpty() ? "medium" : parseRiskLevel(risk));
+        descriptor.setRisk(risk.isEmpty() ? "warning" : parseRiskLevel(risk));
 
         if (options != null) {
             if (!options.resourcePrefix.isEmpty() && descriptor.getResource() != null) {
@@ -279,14 +289,34 @@ public final class OpenAPIImporter {
         switch (normalized) {
             case "low":
             case "safe":
-                return "low";
+                return "safe";
+            case "medium":
+            case "moderate":
+            case "warning":
+                return "warning";
             case "high":
                 return "high";
             case "danger":
             case "critical":
                 return "danger";
             default:
-                return "medium";
+                return "warning";
+        }
+    }
+
+    /** Maps {@code x-approval: {required, policyKey}} onto descriptor v2 fields. */
+    private static void applyApprovalExtension(FunctionDescriptor descriptor, Object approval) {
+        if (!(approval instanceof Map<?, ?> approvalMap)) {
+            return;
+        }
+        Object required = approvalMap.get("required");
+        if (required instanceof Boolean flag) {
+            descriptor.setApprovalRequired(flag);
+        } else if (required instanceof String text && !text.isEmpty()) {
+            descriptor.setApprovalRequired(Boolean.parseBoolean(text));
+        }
+        if (approvalMap.get("policyKey") instanceof String policyKey && !policyKey.isEmpty()) {
+            descriptor.setApprovalPolicyKey(policyKey);
         }
     }
 

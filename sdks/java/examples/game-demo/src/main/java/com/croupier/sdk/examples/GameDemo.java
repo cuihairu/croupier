@@ -501,32 +501,38 @@ public class GameDemo {
     // ==================== Registration ====================
 
     static void registerAll(CroupierClient client, DemoStore store) throws CroupierException {
-        record Fn(String id, String risk, String resource, String op, FunctionHandler handler) {}
+        record Fn(String id, String risk, String resource, String op,
+                  String capability, String execution, String approvalPolicyKey, FunctionHandler handler) {}
         List<Fn> fns = List.of(
-            new Fn("player.create", "warning", "player", "create", playerCreate(store)),
-            new Fn("player.get", "safe", "player", "get", playerGet(store)),
-            new Fn("player.update", "warning", "player", "update", playerUpdate(store)),
-            new Fn("player.delete", "danger", "player", "delete", playerDelete(store)),
-            new Fn("player.list", "safe", "player", "list", playerList(store)),
-            new Fn("order.create", "warning", "order", "create", orderCreate(store)),
-            new Fn("order.get", "safe", "order", "get", orderGet(store)),
-            new Fn("order.update", "warning", "order", "update", orderUpdate(store)),
-            new Fn("order.delete", "danger", "order", "delete", orderDelete(store)),
-            new Fn("order.list", "safe", "order", "list", orderList(store)),
-            new Fn("leaderboard.list", "safe", "leaderboard", "list", leaderboardList(store)),
-            new Fn("leaderboard.upsert", "warning", "leaderboard", "upsert", leaderboardUpsert(store)),
-            new Fn("leaderboard.reset", "danger", "leaderboard", "reset", leaderboardReset(store)),
-            new Fn("inventory.list", "safe", "inventory", "list", inventoryList(store)),
-            new Fn("inventory.grant", "warning", "inventory", "grant", inventoryGrant(store)),
-            new Fn("inventory.consume", "warning", "inventory", "consume", inventoryConsume(store)),
-            new Fn("mail.send", "warning", "mail", "send", mailSend(store)),
-            new Fn("mail.list", "safe", "mail", "list", mailList(store)),
-            new Fn("mail.claim", "warning", "mail", "claim", mailClaim(store))
+            new Fn("player.create", "warning", "player", "create", "create", "sync", null, playerCreate(store)),
+            new Fn("player.get", "safe", "player", "get", "item_query", "sync", null, playerGet(store)),
+            new Fn("player.update", "warning", "player", "update", "update", "sync", null, playerUpdate(store)),
+            new Fn("player.delete", "danger", "player", "delete", "delete", "sync", "demo.player.delete", playerDelete(store)),
+            new Fn("player.list", "safe", "player", "list", "collection_query", "sync", null, playerList(store)),
+            new Fn("order.create", "warning", "order", "create", "create", "sync", null, orderCreate(store)),
+            new Fn("order.get", "safe", "order", "get", "item_query", "sync", null, orderGet(store)),
+            new Fn("order.update", "warning", "order", "update", "update", "sync", null, orderUpdate(store)),
+            new Fn("order.delete", "danger", "order", "delete", "delete", "sync", "demo.order.delete", orderDelete(store)),
+            new Fn("order.list", "safe", "order", "list", "collection_query", "sync", null, orderList(store)),
+            new Fn("leaderboard.list", "safe", "leaderboard", "list", "collection_query", "sync", null, leaderboardList(store)),
+            new Fn("leaderboard.upsert", "warning", "leaderboard", "upsert", "action", "sync", null, leaderboardUpsert(store)),
+            new Fn("leaderboard.reset", "danger", "leaderboard", "reset", "action", "task", "demo.leaderboard.reset", leaderboardReset(store)),
+            new Fn("inventory.list", "safe", "inventory", "list", "collection_query", "sync", null, inventoryList(store)),
+            new Fn("inventory.grant", "warning", "inventory", "grant", "action", "sync", null, inventoryGrant(store)),
+            new Fn("inventory.consume", "warning", "inventory", "consume", "action", "sync", null, inventoryConsume(store)),
+            new Fn("mail.send", "warning", "mail", "send", "action", "sync", null, mailSend(store)),
+            new Fn("mail.list", "safe", "mail", "list", "collection_query", "sync", null, mailList(store)),
+            new Fn("mail.claim", "warning", "mail", "claim", "action", "sync", null, mailClaim(store))
         );
         for (Fn f : fns) {
             FunctionDescriptor desc = new FunctionDescriptor(f.id, "1.0.0");
             desc.setRisk(f.risk); desc.setResource(f.resource);
             desc.setOperation(f.op); desc.setEnabled(true);
+            desc.setCapability(f.capability); desc.setExecution(f.execution);
+            if (f.approvalPolicyKey != null) {
+                desc.setApprovalRequired(true);
+                desc.setApprovalPolicyKey(f.approvalPolicyKey);
+            }
             enrichDescriptor(desc);
             client.registerFunction(desc, f.handler);
             log.info("registered: {}", f.id);
