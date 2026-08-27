@@ -210,20 +210,28 @@ describe("openapi extension extraction", () => {
     expect(descriptor.permission).toBe('{"role":"gm"}');
   });
 
-  it("maps every x-risk alias", () => {
+  it("maps every x-risk alias to the v2 vocabulary", () => {
     const cases: Array<[unknown, string]> = [
-      ["safe", "low"],
-      ["LOW", "low"],
+      ["safe", "safe"],
+      ["LOW", "safe"],
+      ["medium", "warning"],
+      ["MODERATE", "warning"],
       ["high", "high"],
       ["critical", "danger"],
       ["DANGER", "danger"],
-      ["unknown-word", "medium"],
     ];
     for (const [risk, expected] of cases) {
       const client = new BasicClient();
       registerFromOpenAPI(client, spec({ "x-risk": risk }), undefined, () => makeHandler());
       expect(descriptorsOf(client).get("x_post").risk).toBe(expected);
     }
+  });
+
+  it("rejects unknown x-risk values", () => {
+    const client = new BasicClient();
+    const action = () =>
+      registerFromOpenAPI(client, spec({ "x-risk": "unknown-word" }), undefined, () => makeHandler());
+    expect(action).toThrow("invalid x-risk");
   });
 });
 

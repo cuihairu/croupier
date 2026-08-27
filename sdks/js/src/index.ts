@@ -295,6 +295,8 @@ export interface FunctionDescriptor {
   approvalPolicyKey?: string;
   permission?: string;
   enabled?: boolean;
+  /** Handler timeout in milliseconds (Descriptor v2 behavior). */
+  timeoutMs?: number;
 }
 
 export interface FunctionHandler {
@@ -1564,6 +1566,7 @@ export {
   registerFromOpenAPI,
   type ImportOptions,
   type HandlerResolver as OpenAPIHandlerResolver,
+  type RegistrationTarget as OpenAPIRegistrationTarget,
 } from "./openapi";
 
 export { BasicClient as default };

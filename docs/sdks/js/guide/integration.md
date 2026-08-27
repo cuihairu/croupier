@@ -9,11 +9,7 @@ npm install @croupier/sdk
 ## 最小示例
 
 ```typescript
-import {
-  CroupierClient,
-  FunctionDescriptor,
-  ClientConfig,
-} from "@croupier/sdk";
+import { createClient, FunctionDescriptor, ClientConfig } from "@croupier/sdk";
 
 async function main() {
   const config: ClientConfig = {
@@ -21,12 +17,13 @@ async function main() {
     serviceId: "my-service",
   };
 
-  const client = new CroupierClient(config);
+  const client = createClient(config);
   const descriptor: FunctionDescriptor = {
     id: "game.action",
     version: "1.0.0",
-    category: "gameplay",
-    risk: "low",
+    resource: "game",
+    capability: "action",
+    risk: "safe",
   };
 
   client.registerFunction(descriptor, async () =>

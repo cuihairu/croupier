@@ -1,12 +1,12 @@
 /**
- * OpenAPI 3 import helpers — mirrors the Go SDK's RegisterFromOpenAPI.
+ * OpenAPI 3 import helpers — Descriptor v2 (mirrors Go RegisterFromOpenAPI).
  *
- * Parses an OpenAPI 3 spec, converts every operation into a
- * FunctionDescriptor and registers it on a CroupierClient with a
+ * Parses an OpenAPI 3 spec locally (no server connection), converts every
+ * operation into a FunctionDescriptor and registers it with a
  * caller-supplied handler.
  */
 
-import type { BasicClient, FunctionDescriptor, FunctionHandler } from "./index";
+import type { FunctionDescriptor, FunctionHandler } from "./index";
 
 /** Controls OpenAPI import behaviour (mirrors Go ImportOptions). */
 export interface ImportOptions {
@@ -14,6 +14,8 @@ export interface ImportOptions {
   resourcePrefix?: string;
   /** Prefix prepended to every imported tag. */
   tagPrefix?: string;
+  /** Default handler timeout (ms) applied to every imported function. */
+  defaultTimeoutMs?: number;
   /** Keep importing remaining operations when one fails. */
   continueOnError?: boolean;
 }
@@ -22,6 +24,41 @@ export interface ImportOptions {
 export type HandlerResolver = (
   functionId: string,
 ) => FunctionHandler | undefined;
+
+/** Minimal registration surface; BasicClient satisfies it structurally. */
+export interface RegistrationTarget {
+  registerFunction(
+    descriptor: FunctionDescriptor,
+    handler: FunctionHandler,
+  ): void;
+}
+
+/** Controlled capability vocabulary (Descriptor v2 contract). */
+const CAPABILITIES = [
+  "collection_query",
+  "item_query",
+  "create",
+  "update",
+  "delete",
+  "action",
+  "task",
+  "report",
+] as const;
+
+/** Controlled execution vocabulary (Descriptor v2 contract). */
+const EXECUTIONS = ["sync", "task"] as const;
+
+/** Risk vocabulary safe|warning|high|danger with deprecated aliases. */
+const RISK_ALIASES: Record<string, string> = {
+  safe: "safe",
+  low: "safe",
+  warning: "warning",
+  medium: "warning",
+  moderate: "warning",
+  high: "high",
+  danger: "danger",
+  critical: "danger",
+};
 
 const OPERATION_METHODS = [
   "get",
@@ -63,7 +100,7 @@ function toTitleCase(value: string): string {
     .join(" ");
 }
 
-function deriveSummary(operation: JsonRecord, operationId: string): string {
+function deriveName(operation: JsonRecord, operationId: string): string {
   const summary = operation.summary;
   if (typeof summary === "string" && summary) {
     return summary;
@@ -124,12 +161,60 @@ function extractExtension(operation: JsonRecord, key: string): string {
   return JSON.stringify(value);
 }
 
-function parseRiskLevel(level: string): string {
-  const normalized = level.toLowerCase();
-  if (normalized === "low" || normalized === "safe") return "low";
-  if (normalized === "high") return "high";
-  if (normalized === "danger" || normalized === "critical") return "danger";
-  return "medium";
+function parseCapability(value: string, functionId: string): string {
+  const normalized = value.trim().toLowerCase();
+  if (!(CAPABILITIES as readonly string[]).includes(normalized)) {
+    throw new Error(
+      `invalid x-capability "${value}" for ${functionId}: expected one of ${CAPABILITIES.join("|")}`,
+    );
+  }
+  return normalized;
+}
+
+function parseExecution(value: string, functionId: string): string {
+  const normalized = value.trim().toLowerCase();
+  if (!(EXECUTIONS as readonly string[]).includes(normalized)) {
+    throw new Error(
+      `invalid x-execution "${value}" for ${functionId}: expected sync|task`,
+    );
+  }
+  return normalized;
+}
+
+function parseRiskLevel(value: string, functionId: string): string {
+  const normalized = value.trim().toLowerCase();
+  const risk = RISK_ALIASES[normalized];
+  if (!risk) {
+    throw new Error(
+      `invalid x-risk "${value}" for ${functionId}: expected safe|warning|high|danger`,
+    );
+  }
+  return risk;
+}
+
+function applyApproval(
+  descriptor: FunctionDescriptor,
+  operation: JsonRecord,
+): void {
+  const value = operation["x-approval"];
+  if (value === undefined || value === null) return;
+  if (!isRecord(value)) {
+    throw new Error(
+      `x-approval for ${descriptor.id} must be an object: { required, policyKey }`,
+    );
+  }
+  const required = value.required;
+  if (required !== undefined && typeof required !== "boolean") {
+    throw new Error(`x-approval.required for ${descriptor.id} must be a boolean`);
+  }
+  const policyKey = value.policyKey;
+  if (policyKey !== undefined && typeof policyKey !== "string") {
+    throw new Error(`x-approval.policyKey for ${descriptor.id} must be a string`);
+  }
+  descriptor.approvalRequired = required === true;
+  if (policyKey) {
+    descriptor.approvalPolicyKey = policyKey;
+  }
 }
 
 function operationToDescriptor(
@@ -140,11 +225,13 @@ function operationToDescriptor(
   const functionId = deriveOperationId(operation, path);
   const rawTags = Array.isArray(operation.tags) ? operation.tags : [];
   const tags = rawTags.filter((tag): tag is string => typeof tag === "string");
+  const name = deriveName(operation, functionId);
 
   const descriptor: FunctionDescriptor = {
     id: functionId,
     version: "1.0.0",
-    summary: deriveSummary(operation, functionId),
+    name,
+    summary: name,
     description: typeof operation.description === "string" ? operation.description : undefined,
     tags,
     resource: extractExtension(operation, "x-resource") || undefined,
@@ -158,8 +245,16 @@ function operationToDescriptor(
     descriptor.outputSchema = jsonContentSchema(responses["200"]);
   }
 
+  const capability = extractExtension(operation, "x-capability");
+  if (capability) descriptor.capability = parseCapability(capability, functionId);
+
+  const execution = extractExtension(operation, "x-execution");
+  if (execution) descriptor.execution = parseExecution(execution, functionId);
+
   const risk = extractExtension(operation, "x-risk");
-  descriptor.risk = risk ? parseRiskLevel(risk) : "medium";
+  descriptor.risk = risk ? parseRiskLevel(risk, functionId) : "warning";
+
+  applyApproval(descriptor, operation);
 
   if (options) {
     if (options.resourcePrefix && descriptor.resource) {
@@ -167,6 +262,9 @@ function operationToDescriptor(
     }
     if (options.tagPrefix) {
       descriptor.tags = tags.map((tag) => options.tagPrefix! + tag);
+    }
+    if (options.defaultTimeoutMs && options.defaultTimeoutMs > 0) {
+      descriptor.timeoutMs = options.defaultTimeoutMs;
     }
   }
 
@@ -192,11 +290,11 @@ function* iterOperations(spec: JsonRecord): Generator<[string, JsonRecord]> {
  *
  * Handlers come from either `handlerResolver` (called with the derived
  * function ID) or the `handlers` mapping. Returns the list of registered
- * function IDs. Throws on invalid specs or when a handler is missing (unless
- * `options.continueOnError` is set).
+ * function IDs. Throws on invalid specs, invalid Descriptor v2 extension
+ * values or missing handlers (unless `options.continueOnError` is set).
  */
 export function registerFromOpenAPI(
-  client: BasicClient,
+  client: RegistrationTarget,
   spec: string | JsonRecord,
   options?: ImportOptions,
   handlerResolver?: HandlerResolver,
@@ -226,7 +324,15 @@ export function registerFromOpenAPI(
 
   const registered: string[] = [];
   for (const [path, operation] of iterOperations(document)) {
-    const descriptor = operationToDescriptor(path, operation, options);
+    let descriptor: FunctionDescriptor;
+    try {
+      descriptor = operationToDescriptor(path, operation, options);
+    } catch (error) {
+      if (options?.continueOnError) continue;
+      throw new Error(
+        `convert operation ${deriveOperationId(operation, path)} failed: ${(error as Error).message}`,
+      );
+    }
     const handler = resolver(descriptor.id);
     if (!handler) {
       if (options?.continueOnError) continue;

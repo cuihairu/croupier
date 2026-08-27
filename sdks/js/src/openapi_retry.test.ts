@@ -158,7 +158,7 @@ describe("registerFromOpenAPI", () => {
     const descriptor = registeredDescriptors(client).get("players.search")!;
     expect(descriptor.id).toBe("players.search");
     expect(descriptor.summary).toBe("Players.search");
-    expect(descriptor.risk).toBe("medium");
+    expect(descriptor.risk).toBe("warning");
   });
 
   it("applies resource and tag prefixes", () => {

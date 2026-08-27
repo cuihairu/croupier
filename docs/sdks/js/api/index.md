@@ -11,6 +11,7 @@ title: JavaScript SDK API
 - `CroupierClient`: 连接 Agent 并维持会话
 - `ClientConfig`: 客户端连接与标识配置
 - `registerFunction(...)`: 注册函数处理器
+- `registerFromOpenAPI(...)`: 从 OpenAPI 3 spec 本地导入并注册函数（Descriptor v2）
 
 ## 建议阅读顺序
 
