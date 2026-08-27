@@ -86,7 +86,8 @@ graph TB
   end
 
   subgraph "负载均衡"
-    LB[L4 LB<br/>Agent 连接打散 / HTTP 轮询]
+    NGINX[L7 LB · dashboard nginx<br/>HTTP API / SSE 分流]
+    HAPROXY[L4 LB · haproxy<br/>Agent TCP 连接打散]
   end
 
   subgraph "控制层（可多实例 HA）"
@@ -110,11 +111,13 @@ graph TB
     GS3[Game Server C<br/>SDK / Third-party App]
   end
 
-  UI -->|HTTP REST| LB
-  LB --> ServerA
-  LB --> ServerB
-  Agent1 -->|TCP Session + TLS| LB
-  Agent2 -->|TCP Session + TLS| LB
+  UI -->|HTTP REST| NGINX
+  NGINX --> ServerA
+  NGINX --> ServerB
+  Agent1 -->|TCP Session + TLS| HAPROXY
+  Agent2 -->|TCP Session + TLS| HAPROXY
+  HAPROXY --> ServerA
+  HAPROXY --> ServerB
   ServerA --- Shared
   ServerB --- Shared
   GS1 -->|TCP Session| Agent1

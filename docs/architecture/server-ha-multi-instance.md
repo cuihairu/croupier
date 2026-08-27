@@ -157,7 +157,7 @@ graph TB
     SB[Server B :8444]
     SC[Server C :8444]
   end
-  LB[L4 负载均衡]
+  LB[L4 LB<br/>Agent TCP 接入<br/>（haproxy stream/透传）]
   AG1[Agent 1]
   AG2[Agent 2]
   AG3[Agent 3]
@@ -174,6 +174,14 @@ graph TB
   LB --> SB
   LB --> SC
 ```
+
+> **两类入口两层 LB**（易混淆点）：Agent 的 TCP 长连接走 L4
+> （haproxy/nginx stream，四层透传、按活跃会话打散）；Dashboard HTTP
+> API 走 L7（nginx 反代 + split_clients）。二者职责不同不能合并——
+> 运维中心大屏/操作经 L7 到达任意实例（无状态路由），Agent 会话经 L4
+> 打散后由 owner 转发语义兜底。详见部署文档的「负载均衡方案选型」。
+
+````
 
 ### 4.1 状态分层：什么能共享，什么必须留在本地
 
@@ -211,7 +219,7 @@ type Interconnect interface {
     // Peers 返回当前已知存活对端（诊断/测试）。
     Peers() []PeerInfo
 }
-```
+````
 
 这不是引入真 broker 组件（NATS 类总线是模式①的终态演进）；转发本身就是
 "掮客"，接口化的价值：调用方零感知、实现可替换（模式③→①升级不动调用方）、
