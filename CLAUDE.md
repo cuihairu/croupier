@@ -9,7 +9,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ```bash
 make dev          # Clean build from scratch: proto + build
 make build        # Build all binaries (server, agent) to /bin
-make proto        # Generate gRPC code using Buf (buf generate)
+make proto        # Generate protobuf code using Buf (buf generate)
 make pack         # Generate pack artifacts via protoc-gen-croupier
 make test         # Run unit tests with race detection
 make clean        # Remove build artifacts and generated code
@@ -100,14 +100,14 @@ Croupier implements a **three-tier distributed GM backend system**:
 
 **Server** (`internal/server/`)
 
-- Central control plane with gRPC (8443) + HTTP REST (18780)
+- Central control plane with HTTP REST (18780) + self-built TCP transport (19090, agent/SDK connection entry); **gRPC is not used**, see docs/architecture/transport-no-grpc.md
 - Two main services: `ControlService` (agent registration) and `FunctionService` (invocation routing)
-- Features: load balancing, RBAC, audit chain, approval workflows, multi-game scoping
+- Features: load balancing, RBAC, audit chain, approval workflows, multi-game scoping, HA multi-instance (cluster member table + owner forwarding)
 
 **Agent** (`internal/agent/`)
 
-- Distributed proxy in game networks, outbound mTLS to Server
-- Local gRPC listener (19090) for game server function registration
+- Distributed proxy in game networks, outbound TCP connection (self-built transport/tcp, length-prefix framing + protobuf) to Server
+- Local TCP listener (19091) for game server function registration
 - Bidirectional tunnel support for request/response multiplexing
 - Job execution with async streaming, idempotency, cancellation
 
@@ -180,7 +180,7 @@ examples/                 # Demo game servers and invokers
 
 **Security Architecture:**
 
-- Enforced mTLS for all inter-service communication
+- TLS for inter-service communication (self-built TCP transport, TLS optional per config; prod should enable)
 - Field-level masking for sensitive data in audit logs
 - Two-person rule enforcement for high-risk operations
 - Audit chain with hash-based integrity
