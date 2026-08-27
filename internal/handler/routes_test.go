@@ -1,6 +1,8 @@
 package handler
 
 import (
+	"net/http"
+	"net/http/httptest"
 	"testing"
 
 	"github.com/cuihairu/croupier/internal/svc"
@@ -36,5 +38,21 @@ func TestRegisterHandlers_SiteSettingsPaths(t *testing.T) {
 		"DELETE /api/v1/site/:key",
 	} {
 		assert.True(t, paths[want], "缺少路由 %s", want)
+	}
+}
+
+// TestRegisterHandlers_MetaRootNoTrailingSlash 回归：生产 server 关闭了
+// RedirectTrailingSlash，GET /api/v1（无尾斜杠）必须直接 200 而非 404。
+func TestRegisterHandlers_MetaRootNoTrailingSlash(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	r := gin.New()
+	r.RedirectTrailingSlash = false // 与 cmd/server/root.go 一致
+	RegisterHandlers(r, &svc.ServiceContext{})
+
+	for _, target := range []string{"/api/v1", "/api/v1/"} {
+		req := httptest.NewRequest(http.MethodGet, target, nil)
+		rec := httptest.NewRecorder()
+		r.ServeHTTP(rec, req)
+		assert.Equal(t, http.StatusOK, rec.Code, "GET %s 应返回 200", target)
 	}
 }

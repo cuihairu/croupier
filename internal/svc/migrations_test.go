@@ -95,3 +95,32 @@ func TestProbeDialect_Sqlite(t *testing.T) {
 		t.Fatalf("wrapped dialector = %+v, want sqlite", wrapped.Dialector)
 	}
 }
+
+// TestGoMigrations_TaskSchedulesCatchUp 回归：已过 baseline 的存量库
+// （不再跑 AutoMigrate）通过 0014 catch-up 拿到 task_schedules 两张表，
+// 否则 GET /api/v1/schedules 在部署库上 500（表缺失）。
+func TestGoMigrations_TaskSchedulesCatchUp(t *testing.T) {
+	db := openMigrationTestDB(t)
+	ctx := context.Background()
+
+	// 模拟存量部署：只跑 baseline（AutoMigrate 全量模型）+ goose 到 0013
+	// 时代的表集合，其中 TaskSchedule 两张表被当作「尚未存在的 0014 新表」。
+	if err := autoMigrate(db); err != nil {
+		t.Fatalf("autoMigrate: %v", err)
+	}
+	// 删掉 0014 要补的表，模拟 6aba002b6 之前 baseline 过的库。
+	if err := db.Migrator().DropTable("task_schedules", "task_schedule_run_logs"); err != nil {
+		t.Fatalf("drop: %v", err)
+	}
+	if _, err := migrate.EnsureUpToDate(ctx, db, migrate.ScopeSingle, func(db *gorm.DB) error {
+		return nil // baseline 已完成，禁止再跑 AutoMigrate
+	}); err != nil {
+		t.Fatalf("EnsureUpToDate: %v", err)
+	}
+	if !db.Migrator().HasTable("task_schedules") {
+		t.Fatal("task_schedules 未由 0014 迁移创建")
+	}
+	if !db.Migrator().HasTable("task_schedule_run_logs") {
+		t.Fatal("task_schedule_run_logs 未由 0014 迁移创建")
+	}
+}

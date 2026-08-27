@@ -13,6 +13,7 @@ import (
 	"github.com/cuihairu/croupier/internal/api/bug"
 	"github.com/cuihairu/croupier/internal/api/certificate"
 	"github.com/cuihairu/croupier/internal/api/config"
+	"github.com/cuihairu/croupier/internal/api/configexplorer"
 	"github.com/cuihairu/croupier/internal/api/console"
 	dbmon "github.com/cuihairu/croupier/internal/api/dbmon"
 	"github.com/cuihairu/croupier/internal/api/extension"
@@ -176,6 +177,9 @@ func RegisterHandlers(r *gin.Engine, serverCtx *svc.ServiceContext) {
 		registerApprovalRoutes(scoped.Group("/approvals"), serverCtx)
 		registerAssignmentRoutes(scoped.Group("/assignments"), serverCtx)
 		registerConfigRoutes(scoped.Group("/configs"), serverCtx)
+		// 在线配置浏览器：只读浏览各配置中心（git/redis/nacos/db/croupier）+
+		// 可写源应急编辑（docs/research/config-workflows-analysis.md）
+		registerConfigExplorerRoutes(scoped.Group("/config-explorer"), serverCtx)
 		registerResourceRoutes(scoped.Group("/resources"), serverCtx)
 		registerResourceCatalogRoutes(scoped.Group("/resource-catalog"), serverCtx)
 		registerVersioningRoutes(scoped.Group("/versioning"), serverCtx)
@@ -222,6 +226,9 @@ func registerAuthRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 func registerMetaRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 	metaSvc := meta.NewService(ctx)
 	metaHandler := meta.NewHandler(metaSvc)
+	// server 启动时 RedirectTrailingSlash=false，只注册 "/" 会让前端
+	// 请求的 GET /api/v1（无尾斜杠）404。双路径注册，与 admin 路由同款。
+	g.GET("", metaHandler.Root)
 	g.GET("/", metaHandler.Root)
 }
 
@@ -708,6 +715,20 @@ func registerConfigRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 	g.GET("/:id/versions/:version", configHandler.GetVersionByID)
 	// SSE 配置变更订阅（通知只带版本号，数据走拉取）
 	g.GET("/watch", config.NewWatchHandler(config.NewWatchService(ctx)).Watch)
+}
+
+// ============================================================================
+// Config Explorer 路由注册
+// ============================================================================
+func registerConfigExplorerRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
+	explorerSvc := configexplorer.NewService(ctx)
+	explorerHandler := configexplorer.NewHandler(explorerSvc)
+	g.GET("/sources", explorerHandler.ListBindings)
+	g.POST("/sources", explorerHandler.UpsertBinding)
+	g.DELETE("/sources/:id", explorerHandler.DeleteBinding)
+	g.GET("/tree", explorerHandler.List)
+	g.GET("/file", explorerHandler.Read)
+	g.PUT("/file", explorerHandler.Write)
 }
 
 // ============================================================================

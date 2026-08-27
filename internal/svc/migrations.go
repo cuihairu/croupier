@@ -33,6 +33,7 @@ import (
 //   0011 (Go)   hotpatch baseline table (docs/research/hot-patch-design.md)
 //   0012 (Go)   db source registry table (docs/research/db-monitoring-design.md)
 //   0013 (Go)   platform settings table (docs/architecture/config-layering.md)
+//   0014 (Go)   task schedules tables (docs: cron 调度 task_schedules/run_logs)
 
 func init() {
 	if err := goose.SetGlobalMigrations(
@@ -48,6 +49,7 @@ func init() {
 		hotpatchMigration(),
 		dbSourceMigration(),
 		platformSettingsMigration(),
+		taskSchedulesMigration(),
 	); err != nil {
 		panic(fmt.Sprintf("svc: register goose go migrations: %v", err))
 	}
@@ -153,6 +155,33 @@ func bugTrackerMigration() *goose.Migration {
 			if !db.Migrator().HasTable(&model.Bug{}) {
 				if err := db.Migrator().CreateTable(&model.Bug{}); err != nil {
 					return fmt.Errorf("migrate: 0006 create bugs: %w", err)
+				}
+			}
+			return nil
+		}},
+		nil,
+	)
+}
+
+// taskSchedulesMigration creates the cron scheduling tables (0014):
+// task_schedules + task_schedule_run_logs. 表随 6aba002b6 加入
+// MetaModels，但已过 baseline 的部署库不会再跑 AutoMigrate——没有这条
+// 迁移时 GET /api/v1/schedules 因表缺失 500。
+func taskSchedulesMigration() *goose.Migration {
+	return goose.NewGoMigration(14,
+		&goose.GoFunc{RunDB: func(ctx context.Context, sqlDB *sql.DB) error {
+			db, err := wrapGorm(sqlDB)
+			if err != nil {
+				return err
+			}
+			if !db.Migrator().HasTable(&model.TaskSchedule{}) {
+				if err := db.Migrator().CreateTable(&model.TaskSchedule{}); err != nil {
+					return fmt.Errorf("migrate: 0014 create task_schedules: %w", err)
+				}
+			}
+			if !db.Migrator().HasTable(&model.TaskScheduleRunLog{}) {
+				if err := db.Migrator().CreateTable(&model.TaskScheduleRunLog{}); err != nil {
+					return fmt.Errorf("migrate: 0014 create task_schedule_run_logs: %w", err)
 				}
 			}
 			return nil
