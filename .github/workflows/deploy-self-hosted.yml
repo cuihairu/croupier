@@ -86,6 +86,19 @@ jobs:
             sed -i 's|^  addr: "[^"]*"$|  addr: "haproxy:19090"|' \
               "${{ inputs.deploy_dir }}/configs/${cfg}"
           done
+          # agent2 是同一环境的第二个接入实例：gameId/env 必须与 agent1
+          # 一致（否则注册进另一 scope，在 demo-game 视角下"消失"）。
+          # 以线上 agent.yaml 的 scope 为准同步给 agent2。
+          AGENT1_GAME="$(grep -oP '^  gameId: "\K[^"]*' "${{ inputs.deploy_dir }}/configs/agent.yaml" || true)"
+          AGENT1_ENV="$(grep -oP '^  env: "\K[^"]*' "${{ inputs.deploy_dir }}/configs/agent.yaml" || true)"
+          if [ -n "${AGENT1_GAME}" ]; then
+            sed -i "s|^  gameId: \"[^\"]*\"|  gameId: \"${AGENT1_GAME}\"|" \
+              "${{ inputs.deploy_dir }}/configs/agent2.yaml"
+          fi
+          if [ -n "${AGENT1_ENV}" ]; then
+            sed -i "s|^  env: \"[^\"]*\"|  env: \"${AGENT1_ENV}\"|" \
+              "${{ inputs.deploy_dir }}/configs/agent2.yaml"
+          fi
           rm -rf "${PREV_DIR}"
           # OTel collector 配置随部署分发（trace 栈由 deploy compose 固化）
           cp configs/otel-collector-config.yaml "${{ inputs.deploy_dir }}/configs/otel-collector.yaml"
