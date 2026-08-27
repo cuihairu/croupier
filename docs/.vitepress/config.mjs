@@ -47,6 +47,7 @@ const config = defineConfig({
             { text: '安装', link: '/guide/installation' },
             { text: '配置', link: '/guide/configuration' },
             { text: '部署', link: '/guide/deployment' },
+            { text: '负载均衡', link: '/guide/load-balancing' },
           ],
         },
         {

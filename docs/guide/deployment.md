@@ -69,22 +69,16 @@ docker compose -f docker-compose.deploy.yml up -d
 
 ### 负载均衡方案选型
 
-Agent 的 L4 入口与 Dashboard 的 L7 入口均可按部署环境替换，三种常见方案的取舍：
+Agent 的 L4 入口与 Dashboard 的 L7 入口均可按部署环境替换，详细对比（nginx stream vs HAProxy vs keepalived+LVS）、配置示例与迁移路径见独立篇 **[负载均衡](./load-balancing.md)**。速记：
 
-| 方案                           | 层级      | 优点                                                                                     | 缺点                                                             | 适用                                        |
-| ------------------------------ | --------- | ---------------------------------------------------------------------------------------- | ---------------------------------------------------------------- | ------------------------------------------- |
-| **nginx stream**（本仓库默认） | L4 TCP    | 复用 dashboard 镜像零新增组件；`least_conn` 适配长连接                                   | upstream 域名仅启动时解析（实例重建需 reload）；单容器承载 L7+L4 | 单机 compose / 中小规模                     |
-| **HAProxy**                    | L4/L7     | 运行时 DNS 重解析（`resolvers` + `resolve-headers`）天然适配容器 IP 变动；TCP 健康检查细 | 新增组件与配置面                                                 | 实例频繁重建的环境（如 K8s 之外的自建编排） |
-| **keepalived + LVS/nginx**     | L4 + VRRP | 解决 **LB 自身高可用**（VIP 漂移）；机房级容灾                                           | 需多台宿主 + 网络层支持 VRRP/组播；配置复杂                      | 多宿主生产部署，LB 不能是单点               |
+| 方案                               | 层级      | 适用                                                                                                       |
+| ---------------------------------- | --------- | ---------------------------------------------------------------------------------------------------------- |
+| **nginx stream**（本仓库默认）     | L4 TCP    | 单机 compose；复用 dashboard 镜像零新增组件，但 upstream 仅启动时解析（实例重建需 reload）、无主动健康检查 |
+| **HAProxy**                        | L4/L7     | 多宿主生产首选：运行时 DNS 重解析 + 主动健康检查 + 优雅下线 + stats 可观测                                 |
+| **keepalived + LVS/nginx/HAProxy** | VRRP + L4 | LB 自身高可用（VIP 漂移）；公有云等价物是云 NLB                                                            |
+| Kubernetes Service                 | L4        | K8s 环境无需自建 LB 层                                                                                     |
 
-选型原则：
-
-1. **单机双实例**（compose 形态）：nginx stream 足够——LB 与 dashboard 同容器，故障域一致。
-2. **多宿主容器化**：HAProxy 或云厂商 NLB（L4）打散 agent 连接；LB 自身 2 副本 + 前置 DNS 轮询。
-3. **LB 必须自身高可用**：keepalived VRRP VIP 漂移（主备 nginx/HAProxy），或直接用云 NLB 免运维。
-4. K8s 环境：直接用 Service（ClusterIP）+ Endpoints 天然负载均衡，无需自建 LB 层。
-
-无论哪种方案，**Agent 侧无需任何改动**：单地址连接 + 断线重连 + 重新注册（架构文档 §6.2 故障转移时间线），入口层换型对 Agent 透明。
+无论哪种方案，**Agent 侧无需任何改动**：单地址连接 + 断线重连 + 重新注册（架构文档 §6.2 故障转移时间线）。
 
 ### 单独构建镜像
 
