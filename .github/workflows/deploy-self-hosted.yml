@@ -60,31 +60,39 @@ jobs:
         timeout-minutes: 2
         run: |
           cp docker/docker-compose.deploy.yml "${{ inputs.deploy_dir }}/docker-compose.yml"
-          # Preserve the live agent scope across the configs dir rebuild below.
-          PREV_AGENT_CONFIG="$(mktemp)"
-          if [ -f "${{ inputs.deploy_dir }}/configs/agent.yaml" ]; then
-            cp "${{ inputs.deploy_dir }}/configs/agent.yaml" "${PREV_AGENT_CONFIG}"
-          fi
-          # Server/agent bind-mount ./configs/{server,agent}.yaml read-only
+          # 备份线上 agent 配置（scope 是环境事实，rm -rf configs 前抢救）
+          PREV_DIR="$(mktemp -d)"
+          for cfg in agent.yaml agent2.yaml; do
+            if [ -f "${{ inputs.deploy_dir }}/configs/${cfg}" ]; then
+              cp "${{ inputs.deploy_dir }}/configs/${cfg}" "${PREV_DIR}/${cfg}"
+            fi
+          done
+          # Server/agent bind-mount ./configs/{server,agent,agent2}.yaml read-only
           # (see docker-compose.deploy.yml). Recreate the dir each run: a prior
           # failed `up` leaves Docker auto-created empty same-name *directories*
           # in place of the missing files, which then fail with "not a directory".
           rm -rf "${{ inputs.deploy_dir }}/configs"
           mkdir -p "${{ inputs.deploy_dir }}/configs"
-          cp docker/configs/server.yaml docker/configs/agent.yaml "${{ inputs.deploy_dir }}/configs/"
+          cp docker/configs/server.yaml docker/configs/agent.yaml docker/configs/agent2.yaml "${{ inputs.deploy_dir }}/configs/"
+          # agent*.yaml 的 game/env scope 是环境事实（生产 demo-game/development，
+          # 全新安装 bootstrap 为 default/dev），部署覆盖会静默改写 scope 导致
+          # 函数注册进不可见的游戏。策略：线上已有文件原样保留（scope 不动），
+          # 但 server.addr 强制收敛到 L4 LB 入口——HA 拓扑下 agent 不允许直连
+          # 单个 server 实例（旧直连地址不保留）。
+          for cfg in agent.yaml agent2.yaml; do
+            if [ -f "${PREV_DIR}/${cfg}" ]; then
+              cp "${PREV_DIR}/${cfg}" "${{ inputs.deploy_dir }}/configs/${cfg}"
+            fi
+            sed -i 's|^  addr: "[^"]*"$|  addr: "croupier-dashboard:19090"|' \
+              "${{ inputs.deploy_dir }}/configs/${cfg}"
+          done
+          rm -rf "${PREV_DIR}"
           # OTel collector 配置随部署分发（trace 栈由 deploy compose 固化）
           cp configs/otel-collector-config.yaml "${{ inputs.deploy_dir }}/configs/otel-collector.yaml"
           # ClickHouse bootstrap DDL for the analytics profile (fresh volumes
           # get the worker-compatible schema automatically).
           mkdir -p "${{ inputs.deploy_dir }}/configs/clickhouse/initdb"
           cp configs/clickhouse/initdb/*.sql "${{ inputs.deploy_dir }}/configs/clickhouse/initdb/"
-          # agent.yaml 的 game/env scope 是环境事实（生产 demo-game/development，
-          # 全新安装 bootstrap 为 default/dev），部署覆盖会静默改写 scope 导致
-          # 函数注册进不可见的游戏。保留线上已有值，仅首次部署落模板。
-          if [ -s "${PREV_AGENT_CONFIG}" ]; then
-            cp "${PREV_AGENT_CONFIG}" "${{ inputs.deploy_dir }}/configs/agent.yaml"
-          fi
-          rm -f "${PREV_AGENT_CONFIG}"
           # SDK demo 的 game/env scope 与 agent.yaml 一样是环境事实；.env 每次
           # 重建会回落 default/dev，把 demo 注册进不可见 scope。
           PREV_GAME="${CROUPIER_SDK_EXAMPLE_GAME_ID_PERSIST:-}"
@@ -131,7 +139,7 @@ jobs:
             fi
             if [ "$i" = "3" ]; then
               echo "::warn::全量 pull 失败，尝试只拉核心镜像（观测栈沿用本地已有版本）"
-              docker compose "${COMPOSE_ARGS[@]}" pull server agent dashboard || {
+              docker compose "${COMPOSE_ARGS[@]}" pull server server2 agent agent2 dashboard || {
                 echo "::error::核心镜像（server/agent/dashboard）拉取失败"
                 exit 1
               }
@@ -147,7 +155,9 @@ jobs:
             croupier-redis \
             croupier-clickhouse \
             croupier-server \
+            croupier-server2 \
             croupier-agent \
+            croupier-agent-2 \
             croupier-dashboard \
             croupier-sdk-demo-go
           do
