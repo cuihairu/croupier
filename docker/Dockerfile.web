@@ -23,8 +23,10 @@ RUN pnpm run build
 # Runtime stage
 FROM ${NGINX_IMAGE} AS runtime
 
+# 主配置（含 stream 块：Agent TCP L4 负载均衡，19090）+ http 站点配置
+COPY docker/nginx-main.conf /etc/nginx/nginx.conf
 # Nginx config to serve SPA and proxy API to core service
 COPY web/nginx.conf /etc/nginx/conf.d/default.conf
 COPY --from=build /web/dist/ /usr/share/nginx/html/
 
-EXPOSE 80
+EXPOSE 80 19090

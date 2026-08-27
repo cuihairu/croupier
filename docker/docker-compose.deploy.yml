@@ -171,6 +171,8 @@ services:
         condition: service_healthy
       server2:
         condition: service_healthy
+      dashboard:
+        condition: service_started
     healthcheck: &agent-healthcheck
       # busybox applets 在 agent 镜像中位于 /usr/local/bin（distroless 的
       # /bin 对 nonroot 不可写）；TCP listener 绑定 0.0.0.0 后 localhost 可达。
@@ -188,7 +190,6 @@ services:
     volumes:
       - ./configs/agent.yaml:/app/configs/agent.yaml:ro
     ports:
-      - "${AGENT_GRPC_PORT:-19090}:19090"
       - "${AGENT_HTTP_PORT:-19091}:19091"
 
   agent2:
@@ -203,6 +204,9 @@ services:
     restart: unless-stopped
     ports:
       - "${DASHBOARD_PORT:-8000}:80"
+      # Agent L4 LB 入口（nginx stream）：外部宿主网段的 agent 需要时
+      # 取消注释映射；compose 内 agent 走容器网直连 croupier-dashboard:19090
+      # - "${AGENT_LB_PORT:-19090}:19090"
     depends_on:
       server:
         condition: service_healthy

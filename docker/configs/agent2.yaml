@@ -1,13 +1,13 @@
 # Docker deployment override for croupier-agent (instance 2).
-# HA 双实例部署：agent → server、agent2 → server2，分别归属不同
-# Server 实例；实例故障断连后重连漂移由部署层处理（重启对端容器）。
-# Agent ID 与 httpAddr 必须与实例 1 区分（注册与回调寻址冲突）。
+# 上游同实例 1：经 dashboard nginx L4 LB（croupier-dashboard:19090）
+# 打散到 server/server2。Agent ID 与 httpAddr 必须与实例 1 区分
+# （注册与回调寻址冲突）。
 name: croupier-agent-2
 host: 0.0.0.0
 port: 19091
 
 server:
-  addr: "server2:19090"
+  addr: "croupier-dashboard:19090"
   insecure: true
   serverName: ""
   insecureSkipVerify: false

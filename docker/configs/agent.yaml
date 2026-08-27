@@ -1,10 +1,12 @@
 # Docker deployment override for croupier-agent.
+# 上游经 dashboard nginx 的 L4 stream LB（croupier-dashboard:19090）打散
+# 到 server/server2——断连重连由 LB 分发至存活实例（架构文档 §6.1）。
 name: croupier-agent
 host: 0.0.0.0
 port: 19091
 
 server:
-  addr: "server:19090"
+  addr: "croupier-dashboard:19090"
   insecure: true
   serverName: ""
   insecureSkipVerify: false
