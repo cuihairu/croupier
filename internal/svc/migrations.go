@@ -10,6 +10,7 @@ import (
 	"github.com/pressly/goose/v3"
 	gmysql "gorm.io/driver/mysql"
 	gpostgres "gorm.io/driver/postgres"
+	gsqlserver "gorm.io/driver/sqlserver"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 )
@@ -347,6 +348,8 @@ func wrapGorm(sqlDB *sql.DB) (*gorm.DB, error) {
 		dialector = gmysql.New(gmysql.Config{Conn: sqlDB, SkipInitializeWithVersion: true})
 	case "postgres":
 		dialector = gpostgres.New(gpostgres.Config{Conn: sqlDB})
+	case "mssql":
+		dialector = gsqlserver.New(gsqlserver.Config{Conn: sqlDB})
 	default:
 		dialector = gsqlite.Dialector{Conn: sqlDB}
 	}
