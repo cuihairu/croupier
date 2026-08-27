@@ -171,6 +171,11 @@ func runServer() error {
 		c.BootstrapData.BaseDir = bootstrapDataDir
 	}
 
+	// 集群环境变量覆盖（HA 多实例部署共用同一份 server.yaml，按实例
+	// 注入差异：CROUPIER_CLUSTER_INSTANCE_ID / CROUPIER_CLUSTER_ADVERTISE_ADDR；
+	// docs/architecture/server-ha-multi-instance.md）
+	applyClusterEnvironmentOverrides(&c)
+
 	applyRuntimeDefaults(&c)
 
 	// 创建服务上下文
@@ -479,6 +484,7 @@ func applyRuntimeDefaults(c *config.Config) {
 	// ✅ Auto-adjust timeout based on SSE configuration to prevent premature disconnection
 	validateAndAdjustTimeout(c)
 	applyStorageEnvironmentOverrides(c)
+	applyClusterEnvironmentOverrides(c)
 
 	if strings.EqualFold(strings.TrimSpace(c.Storage.Driver), "file") {
 		if strings.TrimSpace(c.Storage.BaseDir) == "" {
@@ -499,6 +505,25 @@ func applyStorageEnvironmentOverrides(c *config.Config) {
 	}
 	if baseDir := strings.TrimSpace(os.Getenv("STORAGE_BASE_DIR")); baseDir != "" {
 		c.Storage.BaseDir = baseDir
+	}
+}
+
+// applyClusterEnvironmentOverrides lets HA multi-instance deployments share one
+// server.yaml while per-instance identity comes from the environment
+// (docker-compose.deploy.yml injects different values for server vs server2).
+// Precedence: environment beats YAML; YAML keeps working for bare-metal setups.
+func applyClusterEnvironmentOverrides(c *config.Config) {
+	if c == nil {
+		return
+	}
+	if v := strings.TrimSpace(os.Getenv("CROUPIER_CLUSTER_ENABLED")); v != "" {
+		c.Cluster.Enabled = strings.EqualFold(v, "true") || v == "1" || strings.EqualFold(v, "yes")
+	}
+	if v := strings.TrimSpace(os.Getenv("CROUPIER_CLUSTER_INSTANCE_ID")); v != "" {
+		c.Cluster.InstanceID = v
+	}
+	if v := strings.TrimSpace(os.Getenv("CROUPIER_CLUSTER_ADVERTISE_ADDR")); v != "" {
+		c.Cluster.AdvertiseAddr = v
 	}
 }
 

@@ -5,6 +5,16 @@ server:
   timeout: 600000
   mode: dev
 
+# HA 多实例（docs/architecture/server-ha-multi-instance.md）：
+# 身份字段（instanceId/advertiseAddr）由环境变量按实例注入
+# （CROUPIER_CLUSTER_*，cmd/server root.go applyClusterEnvironmentOverrides）；
+# 本文件仅提供共享默认值。enabled=true 但未给 advertiseAddr 时仍按单实例运行。
+cluster:
+  enabled: true
+  heartbeatInterval: 5s
+  leaseTtl: 15s
+  ownerTtl: 3m
+
 database:
   driver: postgres
   dataSource: "host=postgres port=5432 user=croupier password=croupier_dev_password dbname=croupier sslmode=disable TimeZone=Asia/Shanghai"

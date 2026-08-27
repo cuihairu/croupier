@@ -176,10 +176,18 @@ services:
     ports:
       - "${SERVER_TLS_PORT:-8443}:8443"
       - "${SERVER_HTTP_PORT:-18780}:18780"
+    environment:
+      <<: *server-env
+      CROUPIER_CLUSTER_INSTANCE_ID: croupier-server
+      CROUPIER_CLUSTER_ADVERTISE_ADDR: croupier-server:19099
 
   server2:
     <<: *server-common
     container_name: croupier-server2
+    environment:
+      <<: *server-env
+      CROUPIER_CLUSTER_INSTANCE_ID: croupier-server2
+      CROUPIER_CLUSTER_ADVERTISE_ADDR: croupier-server2:19099
 
   # HA 双实例 agent：agent → server、agent2 → server2（configs/agent*.yaml
   # 分别指定上游地址与 Agent ID）。宿主端口只由实例 1 发布。
