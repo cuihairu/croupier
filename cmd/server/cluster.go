@@ -112,6 +112,7 @@ func startCluster(ctx context.Context, c *config.Config, svcCtx *svc.ServiceCont
 		InstanceID: lcCfg.InstanceID,
 		Epoch:      lifecycle.Epoch(),
 		Mesh:       lifecycle.Mesh(),
+		Resolver:   resolver,
 	}
 
 	// 归属钩子：Agent 注册/心跳/断连 → 共享归属表

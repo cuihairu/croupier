@@ -119,6 +119,12 @@ type ControlService struct {
 		OnAgentDisconnected(ctx context.Context, agentID string)
 	}
 
+	// heartbeatOwnerLookup 心跳自愈用：本地会话丢失时从共享归属表回读
+	// 本实例持有的 agent 真实 scope 重建会话（装配期注入；nil = 无自愈）。
+	heartbeatOwnerLookup interface {
+		SelfOwnerScope(ctx context.Context, agentID string) (gameID, env string, ok bool)
+	}
+
 	mu     sync.RWMutex
 	ctx    context.Context
 	cancel context.CancelFunc
@@ -206,6 +212,15 @@ func (s *ControlService) SetClusterHooks(h interface {
 	s.mu.Lock()
 	s.clusterHooks = h
 	s.mu.Unlock()
+}
+
+// SetHeartbeatOwnerLookup 注入共享归属表回读能力（心跳自愈用）。
+func (s *ControlService) SetHeartbeatOwnerLookup(l interface {
+	SelfOwnerScope(ctx context.Context, agentID string) (gameID, env string, ok bool)
+}) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.heartbeatOwnerLookup = l
 }
 
 func (s *ControlService) StartBackgroundTasks() {
@@ -548,6 +563,51 @@ func (s *ControlService) handleHeartbeatRequest(ctx context.Context, req *agentv
 
 	s.registry.Mu().Lock()
 	agent := s.registry.AgentsUnsafe()[req.AgentId]
+	if agent == nil {
+		s.registry.Mu().Unlock()
+		// 僵尸防线：会话在本地 registry 意外丢失（过期清理/替换竞态）但
+		// TCP 连接仍活——心跳不能再静默成功，否则归属行冻结、agent 永不
+		// 自愈。从共享归属表回读真实 scope 重建最小会话并重新 Claim。
+		var gameID, env string
+		var owns bool
+		s.mu.RLock()
+		lookup := s.heartbeatOwnerLookup
+		s.mu.RUnlock()
+		if lookup != nil {
+			gameID, env, owns = lookup.SelfOwnerScope(ctx, req.AgentId)
+		}
+		if !owns {
+			s.logger.Error("heartbeat for unknown agent session; cannot self-heal (not this instance's claim or no owner record)", "agent_id", req.AgentId)
+			return &agentv1.HeartbeatResponse{}, nil
+		}
+		ttl := s.defaultSessionTTL
+		if ttl <= 0 {
+			ttl = 24 * time.Hour
+		}
+		reseed := &reg.AgentSession{
+			AgentID:   req.AgentId,
+			GameID:    gameID,
+			Env:       env,
+			ExpireAt:  time.Now().Add(ttl),
+			LastSeen:  time.Now(),
+			Labels:    map[string]string{"reseeded": "true"},
+			Functions: map[string]reg.FunctionMeta{},
+			Providers: []reg.ProviderSession{},
+		}
+		if err := s.registry.UpsertAgent(reseed); err != nil {
+			s.logger.Error("heartbeat self-heal reseed failed", "agent_id", req.AgentId, "error", err)
+			return &agentv1.HeartbeatResponse{}, nil
+		}
+		s.mu.RLock()
+		hooks := s.clusterHooks
+		s.mu.RUnlock()
+		if hooks != nil {
+			hooks.OnAgentRegistered(ctx, req.AgentId, gameID, env)
+		}
+		s.logger.Warn("heartbeat self-healed: session was missing, re-seeded from ownership table",
+			"agent_id", req.AgentId, "game_id", gameID, "env", env)
+		return &agentv1.HeartbeatResponse{}, nil
+	}
 	if agent != nil {
 		agent.ExpireAt = time.Now().Add(s.defaultSessionTTL)
 		agent.LastSeen = time.Now()

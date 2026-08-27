@@ -443,6 +443,7 @@ SDK/自定义游戏服连接 Agent（ProviderConnect）与 Agent 注册（Regist
 - **Agent 本地防线**：ProviderConnect 比对 provider scope vs agent 配置，警告回传 SDK
 - **Server 业务层防线**：Register 的 `validateProviderScope` 比对 Processes scope vs agent 会话 scope，mismatch 写注册警告（`code=provider_scope_mismatch`），一致注册清除历史警告
 - **硬切无兼容**：provider 未上报 scope（空值）同样视为 mismatch——SDK 必须显式携带 `game_id`/`env`；不保留任何空值跳过分支
+- **心跳自愈（僵尸防线）**：本地 registry 会话意外丢失但 TCP 仍活时，此前心跳静默成功导致归属行冻结、agent 永不自愈——现在从共享归属表回读本实例持有的 scope 重建会话并重新 Claim（非本实例持有则拒绝），僵尸会话 ≤1 个 TTL 内收敛
 - **路由语义不变**：ProviderSession 聚合仍按 agent 会话 scope（调用路由稳定），mismatch 只警告不改路由——修复手段是改 SDK 配置，不是平台迁就错误 scope
 
 ### 14.6 Review Checklist

@@ -15,6 +15,8 @@ type ClusterRuntime struct {
 	OwnerHooks *cluster.OwnerHooks
 	// Membership 成员表（ops 集群视图读取在线实例）。
 	Membership cluster.Membership
+	// Resolver 共享归属解析器（心跳自愈回读 scope）。
+	Resolver *cluster.DBOwnerResolver
 	// OwnerStats 返回 instance -> 持有 agent 数（共享归属表聚合）。
 	OwnerStats func(ctx context.Context) map[string]int64
 	// ListAgentOwners 返回 TTL 内全部归属记录（集群模式 agent 列表

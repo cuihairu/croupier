@@ -4,9 +4,13 @@ import (
 	"context"
 	"strings"
 	"testing"
+	"time"
 
+	cluster2 "github.com/cuihairu/croupier/internal/cluster"
 	"github.com/cuihairu/croupier/internal/platform/registry"
 	agentv1 "github.com/cuihairu/croupier/pkg/pb/croupier/agent/v1"
+	gosqlite "github.com/glebarez/sqlite"
+	"gorm.io/gorm"
 )
 
 func newScopeTestService(t *testing.T) *ControlService {
@@ -90,5 +94,76 @@ func TestValidateProviderScope_EmptyProviderScopeIsMismatch(t *testing.T) {
 	})
 	if len(got) != 1 || !strings.Contains(got[0].Message, "game_id mismatch") {
 		t.Fatalf("registration warnings = %+v", got)
+	}
+}
+
+// 心跳自愈：本地会话丢失但 TCP 仍活 → 从归属表回读本实例 scope 重建
+// 会话并重新 Claim（僵尸连接不再静默成功）。
+func TestHandleHeartbeatRequest_SelfHealsMissingSession(t *testing.T) {
+	gdb, err := gorm.Open(gosqlite.Open(t.TempDir()+"/owner.db"), &gorm.Config{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := gdb.AutoMigrate(&cluster2.AgentOwnerRecord{}); err != nil {
+		t.Fatal(err)
+	}
+	resolver := cluster2.NewDBOwnerResolverForSelf(gdb, time.Minute, "croupier-server")
+	if err := resolver.EnsureTable(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+
+	svc := NewControlService(registry.NewStore(), nil)
+	// 模拟本实例为 croupier-server 的持有者：
+	if err := resolver.ClaimOwner(context.Background(), "agent-1", "demo_game", "development", "croupier-server", 10); err != nil {
+		t.Fatal(err)
+	}
+	svc.SetHeartbeatOwnerLookup(resolver)
+
+	if _, err := svc.handleHeartbeatRequest(context.Background(), &agentv1.HeartbeatRequest{AgentId: "agent-1"}); err != nil {
+		t.Fatal(err)
+	}
+
+	// 会话被重建且 scope 从归属表回读正确。
+	sess := svc.registry.AgentsUnsafe()["agent-1"]
+	if sess == nil {
+		t.Fatal("session not re-seeded")
+	}
+	if sess.GameID != "demo_game" || sess.Env != "development" {
+		t.Fatalf("reseeded session = %+v", sess)
+	}
+
+	// 第二次心跳：会话已存在，走正常续期路径（不再自愈分支）。
+	hbBefore := sess.LastSeen
+	time.Sleep(5 * time.Millisecond)
+	if _, err := svc.handleHeartbeatRequest(context.Background(), &agentv1.HeartbeatRequest{AgentId: "agent-1"}); err != nil {
+		t.Fatal(err)
+	}
+	if !sess.LastSeen.After(hbBefore) {
+		t.Fatal("normal heartbeat path should refresh LastSeen")
+	}
+}
+
+// 非本实例持有的 agent 心跳：不自愈（避免跨实例复活僵尸）。
+func TestHandleHeartbeatRequest_ForeignClaimNoSelfHeal(t *testing.T) {
+	gdb, err := gorm.Open(gosqlite.Open(t.TempDir()+"/owner.db"), &gorm.Config{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := gdb.AutoMigrate(&cluster2.AgentOwnerRecord{}); err != nil {
+		t.Fatal(err)
+	}
+	resolver := cluster2.NewDBOwnerResolver(gdb, time.Minute)
+	if err := resolver.EnsureTable(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+
+	svc := NewControlService(registry.NewStore(), nil)
+	svc.SetHeartbeatOwnerLookup(resolver)
+
+	if _, err := svc.handleHeartbeatRequest(context.Background(), &agentv1.HeartbeatRequest{AgentId: "ghost"}); err != nil {
+		t.Fatal(err)
+	}
+	if sess := svc.registry.AgentsUnsafe()["ghost"]; sess != nil {
+		t.Fatalf("foreign claim must not self-heal, got %+v", sess)
 	}
 }

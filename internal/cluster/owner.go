@@ -26,8 +26,9 @@ func (AgentOwnerRecord) TableName() string { return "cluster_agent_owners" }
 
 // DBOwnerResolver 基于共享表的 owner 解析。
 type DBOwnerResolver struct {
-	db   *gorm.DB
-	self *MeshInterconnect
+	db             *gorm.DB
+	self           *MeshInterconnect
+	selfIDOverride string
 	// ownerTTL：owner 记录的存活窗口（Agent 心跳续期；超时视为断连）。
 	ownerTTL time.Duration
 }
@@ -35,10 +36,20 @@ type DBOwnerResolver struct {
 // NewDBOwnerResolver 创建解析器。ownerTTL <= 0 用默认 3 分钟
 // （Agent 心跳 30s × 6 容忍）。
 func NewDBOwnerResolver(db *gorm.DB, ownerTTL time.Duration) *DBOwnerResolver {
+	return newDBOwnerResolver(db, ownerTTL, "")
+}
+
+// NewDBOwnerResolverForSelf 显式指定本实例 ID（心跳自愈等需要
+// instance 身份、但无互联 mesh 的场景；生产主链路走 Start/SetMesh）。
+func NewDBOwnerResolverForSelf(db *gorm.DB, ownerTTL time.Duration, selfID string) *DBOwnerResolver {
+	return newDBOwnerResolver(db, ownerTTL, selfID)
+}
+
+func newDBOwnerResolver(db *gorm.DB, ownerTTL time.Duration, selfID string) *DBOwnerResolver {
 	if ownerTTL <= 0 {
 		ownerTTL = 3 * time.Minute
 	}
-	return &DBOwnerResolver{db: db, ownerTTL: ownerTTL}
+	return &DBOwnerResolver{db: db, ownerTTL: ownerTTL, selfIDOverride: selfID}
 }
 
 // EnsureTable 建表（幂等）。
@@ -93,6 +104,9 @@ func (r *DBOwnerResolver) Release(ctx context.Context, agentID string) error {
 }
 
 func (r *DBOwnerResolver) selfInstanceID() string {
+	if r.selfIDOverride != "" {
+		return r.selfIDOverride
+	}
 	if r.self != nil {
 		return r.self.SelfInfo().InstanceID
 	}
@@ -171,4 +185,33 @@ func (r *DBOwnerResolver) ListAliveOwners(ctx context.Context) ([]AgentOwnerReco
 		return nil, err
 	}
 	return rows, nil
+}
+
+// FindOwner 返回归属记录（不受 TTL 过滤——心跳自愈需要回读真实 scope，
+// 即使记录已临期）。不存在时返回 nil, nil。
+func (r *DBOwnerResolver) FindOwner(ctx context.Context, agentID string) (*AgentOwnerRecord, error) {
+	var rec AgentOwnerRecord
+	err := r.db.WithContext(ctx).
+		Where("agent_id = ?", agentID).
+		First(&rec).Error
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &rec, nil
+}
+
+// SelfOwnerScope 返回 agent 的归属 scope，仅当本实例是 Claim 持有者时
+// ok=true（心跳自愈只允许本实例重建会话）。
+func (r *DBOwnerResolver) SelfOwnerScope(ctx context.Context, agentID string) (gameID, env string, ok bool) {
+	var rec AgentOwnerRecord
+	err := r.db.WithContext(ctx).
+		Where("agent_id = ?", agentID).
+		First(&rec).Error
+	if err != nil || rec.InstanceID != r.selfInstanceID() {
+		return "", "", false
+	}
+	return rec.GameID, rec.Env, true
 }
