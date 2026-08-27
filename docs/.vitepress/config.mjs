@@ -149,6 +149,7 @@ const config = defineConfig({
             { text: '版本发布管理', link: '/research/release-management-design' },
             { text: '服务端热更新', link: '/research/hot-patch-design' },
             { text: '配置热更新', link: '/research/config-hot-reload-design' },
+            { text: '配置工作流全景分析', link: '/research/config-workflows-analysis' },
             { text: 'Excel 在线配置', link: '/research/excel-online-design' },
             { text: '数据库监控', link: '/research/db-monitoring-design' },
             { text: '内部工具集成', link: '/research/tool-registry-design' },
