@@ -60,7 +60,7 @@ func dialectOf(gormDialect string) string {
 	case "postgres", "postgresql":
 		return "postgres"
 	case "sqlserver", "mssql":
-		return "sqlserver"
+		return "mssql"
 	case "sqlite", "sqlite3":
 		return "sqlite3"
 	default:
@@ -90,7 +90,7 @@ const (
 // done. SQLite returns a no-op release because it is single-writer.
 func acquireSessionLock(ctx context.Context, sqlDB *sql.DB, gooseDialect string) (func(), error) {
 	switch gooseDialect {
-	case "mysql", "postgres", "sqlserver":
+	case "mysql", "postgres", "mssql":
 	default:
 		return func() {}, nil
 	}
@@ -115,7 +115,7 @@ func acquireSessionLock(ctx context.Context, sqlDB *sql.DB, gooseDialect string)
 				return false, err
 			}
 			return ok, nil
-		case "sqlserver":
+		case "mssql":
 			// sp_getapplock: session-scoped exclusive application lock on
 			// the bound connection. Return codes: 0 = granted, 1 = granted
 			// after wait; <0 = timeout/cancel/error. LockTimeout 0 →
@@ -161,7 +161,7 @@ func acquireSessionLock(ctx context.Context, sqlDB *sql.DB, gooseDialect string)
 		case "postgres":
 			query := fmt.Sprintf("SELECT pg_advisory_unlock(%d, %d)", pgAdvisoryLockKey1, pgAdvisoryLockKey2)
 			_, _ = conn.ExecContext(context.Background(), query)
-		case "sqlserver":
+		case "mssql":
 			query := fmt.Sprintf("EXEC sp_releaseapplock @Resource = N'%s', @LockOwner = 'Session'", sqlServerMigrationLockName)
 			_, _ = conn.ExecContext(context.Background(), query)
 		}
@@ -274,7 +274,7 @@ func versionTableExists(ctx context.Context, sqlDB *sql.DB, gooseDialect string)
 		query = "SELECT COUNT(1) FROM sqlite_master WHERE type = 'table' AND name = '" + VersionTableName + "'"
 	case "postgres":
 		query = "SELECT COUNT(1) FROM information_schema.tables WHERE table_schema = current_schema() AND table_name = '" + VersionTableName + "'"
-	case "sqlserver":
+	case "mssql":
 		query = "SELECT COUNT(1) FROM sys.objects WHERE type = 'U' AND name = '" + VersionTableName + "'"
 	default:
 		query = "SELECT COUNT(1) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = '" + VersionTableName + "'"
