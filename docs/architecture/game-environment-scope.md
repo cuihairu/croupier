@@ -424,14 +424,17 @@ scope 中立不等于绕过数据授权。`/api/v1/audit` 必须先校验 `audit
 
 协议层 `AgentProcess.game_id/env` 已为 per-provider scope 预留字段（"game scope the provider belongs to"）。若未来游戏数量大到共享集群内逐游戏部署 Agent 成为负担，可落地 provider 级 scope（函数路由已有 `(game_id, function_id)` 索引，改动集中在注册聚合与归属表粒度 Agent×game）。在此之前不启动。
 
-### 14.5 Provider 注册的 scope 校验（两层防线）
+### 14.5 Provider 注册的 scope 校验（三层防线）
 
-SDK/自定义游戏服连接 Agent（ProviderConnect）与 Agent 注册（Register 的 Processes）时，provider 上报的 `game_id`/`env` 必须与 Agent 会话 scope 一致。不一致说明 SDK 侧配置错误（如连错环境的 agent）——两层防线：
+SDK/自定义游戏服连接 Agent（ProviderConnect）与 Agent 注册（Register 的 Processes）时，provider 上报的 `game_id`/`env` 必须与 Agent 会话 scope 一致。不一致说明 SDK 侧配置错误（如连错环境的 agent）——三层防线：
 
-| 层          | 位置                                                  | 行为                                                                                                                      |
-| ----------- | ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
-| Agent 本地  | `internal/agent` ProviderConnect 处理                 | 本地日志警告 + 警告随响应回传 SDK（开发者立即可见）                                                                       |
-| Server 平台 | `internal/server` Register 的 `validateProviderScope` | 警告进注册响应 + **平台告警**（`provider_scope_mismatch`，firing；配置修复后一致注册自动 resolved），出现在 `/ops/alerts` |
+| 层              | 位置                                  | 行为                                                                                                                      |
+| --------------- | ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| Agent 本地      | `internal/agent` ProviderConnect 处理 | 本地日志警告 + 警告随响应回传 SDK（开发者立即可见）                                                                       |
+| Server 注册警告 | `validateProviderScope` 双写注册警告  | `code=provider_scope_mismatch` 进入 `/system/functions/warnings`——接入期配置错误与 invalid_version 等并列，**开发者视角** |
+| Server 运维告警 | `validateProviderScope` 落 AlertModel | 进入 `/ops/alerts`（firing；配置修复后一致注册自动 resolved，可静默），**运维跟进闭环视角**                               |
+
+两类页面的分工：注册警告（内存、code 化、面向接入方）承载「注册时不合规」；运维告警（持久化、状态机、面向运维）承载「需要跟进到恢复」。scope mismatch 横跨两者——发生在注册时、但需要跟进修复——故双写。
 
 规则：
 

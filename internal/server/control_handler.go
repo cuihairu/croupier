@@ -616,6 +616,18 @@ func (s *ControlService) validateProviderScope(ctx context.Context, req *agentv1
 			*warningTexts = append(*warningTexts, fmt.Sprintf("service_id=%s: %s", p.ServiceId, m))
 			s.logger.Warn("provider scope mismatch", "agent_id", req.AgentId, "service_id", p.ServiceId, "detail", m)
 		}
+		// 双写注册警告（/system/functions/warnings，开发者视角）：
+		// scope mismatch 是接入期配置错误，与 invalid_version 等注册
+		// 校验警告并列；FunctionID 留空（provider 级而非函数级）。
+		if err := s.registry.UpsertRegistrationWarning(ctx, reg.FunctionRegistrationWarning{
+			GameID:  req.GameId,
+			Env:     req.Env,
+			AgentID: req.AgentId,
+			Code:    "provider_scope_mismatch",
+			Message: fmt.Sprintf("service_id=%s: %s", p.ServiceId, strings.Join(mismatches, "; ")),
+		}); err != nil {
+			s.logger.Error("failed to upsert scope mismatch registration warning", "error", err)
+		}
 		if existing, err := am.FindByAlertID(ctx, alertID); err != nil || existing == nil {
 			if err := am.Create(ctx, &model.Alert{
 				AlertID: alertID,
