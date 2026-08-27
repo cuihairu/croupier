@@ -53,6 +53,14 @@ func (b *MetadataBuilder) SetPermission(permission string) *MetadataBuilder {
 	return b
 }
 
+// SetApproval marks the function as requiring two-person approval.
+// policyKey selects the approval policy; empty keeps the server default.
+func (b *MetadataBuilder) SetApproval(policyKey string) *MetadataBuilder {
+	b.metadata.ApprovalRequired = true
+	b.metadata.ApprovalPolicyKey = policyKey
+	return b
+}
+
 // SetCapability sets the capability kind.
 // Valid values: collection_query, item_query, create, update, delete, action, task, report
 func (b *MetadataBuilder) SetCapability(capability string) *MetadataBuilder {

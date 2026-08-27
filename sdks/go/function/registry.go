@@ -39,6 +39,11 @@ type FunctionMetadata struct {
 	Capability string `json:"capability,omitempty"` // collection_query|item_query|create|update|delete|action|task|report
 	Execution  string `json:"execution,omitempty"`  // sync|task
 	Permission string `json:"permission,omitempty"` // Optional permission identifier.
+
+	// Approval is orthogonal to Execution: execution=task may or may not
+	// require approval; approval never replaces the sync|task dichotomy.
+	ApprovalRequired  bool   `json:"approvalRequired,omitempty"`
+	ApprovalPolicyKey string `json:"approvalPolicyKey,omitempty"`
 }
 
 // FunctionBehavior defines how the function executes.
@@ -372,6 +377,9 @@ func (r *Registry) toFunctionDescriptor(metadata *FunctionMetadata) croupier.Fun
 		Execution:    metadata.Execution,
 		Permission:   metadata.Permission,
 		Enabled:      true,
+
+		ApprovalRequired:  metadata.ApprovalRequired,
+		ApprovalPolicyKey: metadata.ApprovalPolicyKey,
 	}
 
 	// Safely get risk level

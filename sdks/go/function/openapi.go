@@ -148,6 +148,9 @@ func (r *Registry) operationToMetadata(path string, op *openapi3.Operation, opti
 	metadata.Resource = extractExtension(op.Extensions, "x-resource")
 	metadata.Operation = extractExtension(op.Extensions, "x-operation")
 	metadata.Permission = extractExtension(op.Extensions, "x-permission")
+	metadata.Capability = extractExtension(op.Extensions, "x-capability")
+	metadata.Execution = extractExtension(op.Extensions, "x-execution")
+	metadata.ApprovalRequired, metadata.ApprovalPolicyKey = extractApprovalExtension(op.Extensions)
 	riskLevel := extractExtension(op.Extensions, "x-risk")
 
 	// Apply options
@@ -242,6 +245,43 @@ func extractExtension(extensions map[string]interface{}, key string) string {
 		return fmt.Sprintf("%v", v)
 	default:
 		return fmt.Sprintf("%v", v)
+	}
+}
+
+// extractApprovalExtension parses the x-approval extension. Accepted forms:
+//
+//	x-approval: true                        → required, default policy
+//	x-approval: "policy-key"                → required, named policy
+//	x-approval: { "required": true, "policyKey": "gm.player.delete" }
+func extractApprovalExtension(extensions map[string]interface{}) (required bool, policyKey string) {
+	if extensions == nil {
+		return false, ""
+	}
+	val, exists := extensions["x-approval"]
+	if !exists {
+		return false, ""
+	}
+	switch v := val.(type) {
+	case bool:
+		return v, ""
+	case string:
+		if v == "" {
+			return false, ""
+		}
+		return true, v
+	case map[string]interface{}:
+		if r, ok := v["required"].(bool); ok {
+			required = r
+		}
+		if p, ok := v["policyKey"].(string); ok {
+			policyKey = p
+		}
+		if !required && policyKey != "" {
+			required = true
+		}
+		return required, policyKey
+	default:
+		return false, ""
 	}
 }
 

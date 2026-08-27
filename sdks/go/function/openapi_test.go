@@ -58,6 +58,9 @@ func TestRegistry_RegisterFromOpenAPI(t *testing.T) {
 					"x-resource": "player",
 					"x-risk": "high",
 					"x-permission": "player.ban.invoke",
+					"x-capability": "action",
+					"x-execution": "sync",
+					"x-approval": {"required": true, "policyKey": "gm.player.ban"},
 					"requestBody": {
 						"required": true,
 						"content": {
@@ -128,6 +131,19 @@ func TestRegistry_RegisterFromOpenAPI(t *testing.T) {
 
 	if metadata.Risk.Level != RiskHigh {
 		t.Errorf("Expected risk level RiskHigh, got %v", metadata.Risk.Level)
+	}
+
+	if metadata.Capability != "action" {
+		t.Errorf("Expected capability 'action', got '%s'", metadata.Capability)
+	}
+
+	if metadata.Execution != "sync" {
+		t.Errorf("Expected execution 'sync', got '%s'", metadata.Execution)
+	}
+
+	if !metadata.ApprovalRequired || metadata.ApprovalPolicyKey != "gm.player.ban" {
+		t.Errorf("Expected approval required with policy 'gm.player.ban', got (%t, %q)",
+			metadata.ApprovalRequired, metadata.ApprovalPolicyKey)
 	}
 }
 
@@ -290,5 +306,48 @@ func TestDeriveOperationID(t *testing.T) {
 	result2 := deriveOperationID(op2, "/api/players/{id}")
 	if result2 != "api.players.{id}" {
 		t.Errorf("Expected 'api.players.{id}', got '%s'", result2)
+	}
+}
+
+func TestExtractApprovalExtension(t *testing.T) {
+	cases := []struct {
+		name     string
+		ext      map[string]interface{}
+		required bool
+		policy   string
+	}{
+		{"nil extensions", nil, false, ""},
+		{"absent", map[string]interface{}{}, false, ""},
+		{"bool true", map[string]interface{}{"x-approval": true}, true, ""},
+		{"bool false", map[string]interface{}{"x-approval": false}, false, ""},
+		{"string policy", map[string]interface{}{"x-approval": "gm.x"}, true, "gm.x"},
+		{"string empty", map[string]interface{}{"x-approval": ""}, false, ""},
+		{
+			"object full",
+			map[string]interface{}{"x-approval": map[string]interface{}{"required": true, "policyKey": "gm.y"}},
+			true,
+			"gm.y",
+		},
+		{
+			"object policy only",
+			map[string]interface{}{"x-approval": map[string]interface{}{"policyKey": "gm.z"}},
+			true,
+			"gm.z",
+		},
+		{
+			"object not required",
+			map[string]interface{}{"x-approval": map[string]interface{}{"required": false}},
+			false,
+			"",
+		},
+		{"unsupported type", map[string]interface{}{"x-approval": 42}, false, ""},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			required, policy := extractApprovalExtension(tc.ext)
+			if required != tc.required || policy != tc.policy {
+				t.Fatalf("got (%t, %q), want (%t, %q)", required, policy, tc.required, tc.policy)
+			}
+		})
 	}
 }
