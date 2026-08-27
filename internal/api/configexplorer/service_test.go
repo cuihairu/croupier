@@ -52,3 +52,48 @@ func TestFormatOf(t *testing.T) {
 		}
 	}
 }
+
+func TestRestoreDSNPassword(t *testing.T) {
+	cases := []struct {
+		name, oldDSN, newDSN, want string
+	}{
+		{"keeps old host tail", "user:secret@tcp(db:3306)/x", "user:******@tcp(newdb:3307)/y", "user:secret@tcp(newdb:3307)/y"},
+		{"no at in old", "plain-dsn", "user:******@h/d", "plain-dsn"},
+		{"no at in new", "user:secret@h/d", "plain", "user:secret@h/d"},
+		{"old cred without colon", "user@h/d", "user:******@h2/d", "user@h/d"},
+		{"pg url", "postgres://u:p@h:5432/db", "postgres://u:******@h2:5432/db2", "postgres://u:p@h2:5432/db2"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := restoreDSNPassword(tc.oldDSN, tc.newDSN); got != tc.want {
+				t.Fatalf("got %q, want %q", got, tc.want)
+			}
+		})
+	}
+}
+
+func TestIsTextFormat(t *testing.T) {
+	text := []string{"json", "yaml", "csv", "ini", "xml", "lua", "python", "txt", "md", "toml", "properties", "plaintext"}
+	for _, f := range text {
+		if !isTextFormat(f) {
+			t.Errorf("isTextFormat(%q) = false, want true", f)
+		}
+	}
+	for _, f := range []string{"png", "xlsx", "bin", ""} {
+		if isTextFormat(f) {
+			t.Errorf("isTextFormat(%q) = true, want false", f)
+		}
+	}
+}
+
+func TestParseID(t *testing.T) {
+	if id, err := parseID("42"); err != nil || id != 42 {
+		t.Fatalf("parseID(42) = (%d, %v)", id, err)
+	}
+	if _, err := parseID("abc"); err == nil {
+		t.Fatal("parseID(abc) should fail")
+	}
+	if _, err := parseID("-1"); err == nil {
+		t.Fatal("parseID(-1) should fail")
+	}
+}

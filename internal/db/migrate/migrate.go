@@ -59,6 +59,8 @@ func dialectOf(gormDialect string) string {
 		return "mysql"
 	case "postgres", "postgresql":
 		return "postgres"
+	case "sqlserver", "mssql":
+		return "sqlserver"
 	case "sqlite", "sqlite3":
 		return "sqlite3"
 	default:
@@ -71,6 +73,9 @@ func dialectOf(gormDialect string) string {
 const sessionLockDeadline = 60 * time.Second
 
 const mysqlMigrationLockName = "croupier_schema_migration"
+
+// Application-lock resource name for SQL Server (sp_getapplock).
+const sqlServerMigrationLockName = "croupier_schema_migration"
 
 // Advisory lock keys for Postgres (two int32 components). Chosen so they spell
 // "crou"+"pier" in ASCII; any stable constant pair works as long as every
@@ -85,7 +90,7 @@ const (
 // done. SQLite returns a no-op release because it is single-writer.
 func acquireSessionLock(ctx context.Context, sqlDB *sql.DB, gooseDialect string) (func(), error) {
 	switch gooseDialect {
-	case "mysql", "postgres":
+	case "mysql", "postgres", "sqlserver":
 	default:
 		return func() {}, nil
 	}
@@ -110,6 +115,17 @@ func acquireSessionLock(ctx context.Context, sqlDB *sql.DB, gooseDialect string)
 				return false, err
 			}
 			return ok, nil
+		case "sqlserver":
+			// sp_getapplock: session-scoped exclusive application lock on
+			// the bound connection. Return codes: 0 = granted, 1 = granted
+			// after wait; <0 = timeout/cancel/error. LockTimeout 0 →
+			// immediate, -1 when held elsewhere.
+			var code sql.NullInt32
+			query := "DECLARE @r int; EXEC @r = sp_getapplock @Resource = ?, @LockMode = 'Exclusive', @LockOwner = 'Session', @LockTimeout = 0; SELECT @r"
+			if err := conn.QueryRowContext(ctx, query, sqlServerMigrationLockName).Scan(&code); err != nil {
+				return false, err
+			}
+			return code.Valid && code.Int32 >= 0, nil
 		}
 		return false, nil
 	}
@@ -143,6 +159,8 @@ func acquireSessionLock(ctx context.Context, sqlDB *sql.DB, gooseDialect string)
 		case "postgres":
 			query := fmt.Sprintf("SELECT pg_advisory_unlock(%d, %d)", pgAdvisoryLockKey1, pgAdvisoryLockKey2)
 			_, _ = conn.ExecContext(context.Background(), query)
+		case "sqlserver":
+			_, _ = conn.ExecContext(context.Background(), "EXEC sp_releaseapplock @Resource = ?, @LockOwner = 'Session'", sqlServerMigrationLockName)
 		}
 		conn.Close()
 	}
@@ -253,6 +271,8 @@ func versionTableExists(ctx context.Context, sqlDB *sql.DB, gooseDialect string)
 		query = "SELECT COUNT(1) FROM sqlite_master WHERE type = 'table' AND name = '" + VersionTableName + "'"
 	case "postgres":
 		query = "SELECT COUNT(1) FROM information_schema.tables WHERE table_schema = current_schema() AND table_name = '" + VersionTableName + "'"
+	case "sqlserver":
+		query = "SELECT COUNT(1) FROM sys.objects WHERE type = 'U' AND name = '" + VersionTableName + "'"
 	default:
 		query = "SELECT COUNT(1) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = '" + VersionTableName + "'"
 	}

@@ -290,13 +290,13 @@ jobs:
           fi
 
   migrate-matrix:
-    name: Migration Matrix (MySQL/Postgres)
+    name: Migration Matrix (MySQL/Postgres/SQLServer)
     # Phase 4 of docs/architecture/database-migration-strategy.md: the
-    # versioned migration executor must work on all three dialects. SQLite is
+    # versioned migration executor must work on all four dialects. SQLite is
     # covered by the unit tests in internal/svc/migrations_test.go; this job
-    # runs the integration-tagged matrix against real MySQL and Postgres
-    # servers (fresh DB → baseline + catch-up, concurrent first boot proving
-    # the session lock, idempotent second boot).
+    # runs the integration-tagged matrix against real MySQL, Postgres and
+    # SQL Server servers (fresh DB → baseline + catch-up, concurrent first
+    # boot proving the session lock, idempotent second boot).
     runs-on: ubuntu-latest
     timeout-minutes: 20
     needs: [test]
@@ -324,9 +324,22 @@ jobs:
           --health-interval 5s
           --health-timeout 5s
           --health-retries 20
+      mssql:
+        image: mcr.microsoft.com/mssql/server:2022-latest
+        env:
+          ACCEPT_EULA: "Y"
+          MSSQL_SA_PASSWORD: "YourStr0ngPassw0rd"
+        ports:
+          - 1433:1433
+        options: >-
+          --health-cmd "/opt/mssql-tools18/bin/sqlcmd -C -No -S 127.0.0.1 -U sa -P 'YourStr0ngPassw0rd' -Q 'SELECT 1'"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 30
     env:
       TEST_MYSQL_DSN: "root:root@tcp(127.0.0.1:3306)/"
       TEST_POSTGRES_DSN: "postgres://postgres:postgres@127.0.0.1:5432/postgres?sslmode=disable"
+      TEST_SQLSERVER_DSN: "sqlserver://sa:YourStr0ngPassw0rd@127.0.0.1:1433"
     steps:
       - timeout-minutes: 3
         uses: actions/checkout@v7

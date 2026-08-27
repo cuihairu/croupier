@@ -9,6 +9,7 @@
 //
 //	TEST_MYSQL_DSN="root:root@tcp(127.0.0.1:3306)/"
 //	TEST_POSTGRES_DSN="postgres://postgres:postgres@127.0.0.1:5432/postgres?sslmode=disable"
+//	TEST_SQLSERVER_DSN="sqlserver://sa:YourStr0ngPass@127.0.0.1:1433"
 //
 // Each run creates (and finally drops) a uniquely named throwaway database.
 package svc
@@ -26,6 +27,7 @@ import (
 	"github.com/cuihairu/croupier/internal/db/migrate"
 	gmysql "gorm.io/driver/mysql"
 	gpostgres "gorm.io/driver/postgres"
+	gsqlserver "gorm.io/driver/sqlserver"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 )
@@ -48,6 +50,13 @@ func TestMigrationMatrix(t *testing.T) {
 		}
 		runMigrationMatrixCase(t, "postgres", dsn)
 	})
+	t.Run("SQLServer", func(t *testing.T) {
+		dsn := envOr("TEST_SQLSERVER_DSN", "")
+		if dsn == "" {
+			t.Skip("TEST_SQLSERVER_DSN not set")
+		}
+		runMigrationMatrixCase(t, "sqlserver", dsn)
+	})
 }
 
 func runMigrationMatrixCase(t *testing.T, dialect, adminDSN string) {
@@ -64,6 +73,10 @@ func runMigrationMatrixCase(t *testing.T, dialect, adminDSN string) {
 		open = func(dsn string) (*gorm.DB, error) {
 			return gorm.Open(gpostgres.Open(dsn), &gorm.Config{Logger: logger.Default.LogMode(logger.Silent)})
 		}
+	case "sqlserver":
+		open = func(dsn string) (*gorm.DB, error) {
+			return gorm.Open(gsqlserver.Open(dsn), &gorm.Config{Logger: logger.Default.LogMode(logger.Silent)})
+		}
 	}
 
 	admin, err := open(adminDSN)
@@ -71,16 +84,18 @@ func runMigrationMatrixCase(t *testing.T, dialect, adminDSN string) {
 		t.Fatalf("open admin connection: %v", err)
 	}
 	create := map[string]string{
-		"mysql":    fmt.Sprintf("CREATE DATABASE %s", dbName),
-		"postgres": fmt.Sprintf("CREATE DATABASE %s", dbName),
+		"mysql":     fmt.Sprintf("CREATE DATABASE %s", dbName),
+		"postgres":  fmt.Sprintf("CREATE DATABASE %s", dbName),
+		"sqlserver": fmt.Sprintf("CREATE DATABASE [%s]", dbName),
 	}[dialect]
 	if err := admin.Exec(create).Error; err != nil {
 		t.Fatalf("create throwaway database: %v", err)
 	}
 	t.Cleanup(func() {
 		drop := map[string]string{
-			"mysql":    fmt.Sprintf("DROP DATABASE IF EXISTS %s", dbName),
-			"postgres": fmt.Sprintf("DROP DATABASE IF EXISTS %s", dbName),
+			"mysql":     fmt.Sprintf("DROP DATABASE IF EXISTS %s", dbName),
+			"postgres":  fmt.Sprintf("DROP DATABASE IF EXISTS %s", dbName),
+			"sqlserver": fmt.Sprintf("IF DB_ID('%s') IS NOT NULL ALTER DATABASE [%s] SET SINGLE_USER WITH ROLLBACK IMMEDIATE; DROP DATABASE IF EXISTS [%s]", dbName, dbName, dbName),
 		}[dialect]
 		if err := admin.Exec(drop).Error; err != nil {
 			t.Logf("cleanup drop database: %v", err)
@@ -100,6 +115,16 @@ func runMigrationMatrixCase(t *testing.T, dialect, adminDSN string) {
 				t.Fatalf("parse postgres DSN: %v", err)
 			}
 			u.Path = "/" + name
+			return u.String()
+		},
+		"sqlserver": func(dsn, name string) string {
+			u, err := url.Parse(dsn)
+			if err != nil {
+				t.Fatalf("parse sqlserver DSN: %v", err)
+			}
+			q := u.Query()
+			q.Set("database", name)
+			u.RawQuery = q.Encode()
 			return u.String()
 		},
 	}[dialect](adminDSN, dbName)
@@ -146,7 +171,7 @@ func runMigrationMatrixCase(t *testing.T, dialect, adminDSN string) {
 	if err != nil {
 		t.Fatalf("sql.DB: %v", err)
 	}
-	gormDialect := map[string]string{"mysql": "mysql", "postgres": "postgres"}[dialect]
+	gormDialect := map[string]string{"mysql": "mysql", "postgres": "postgres", "sqlserver": "sqlserver"}[dialect]
 	version, ok, err := migrate.CurrentVersion(ctx, sqlDB, gormDialect)
 	if err != nil {
 		t.Fatalf("CurrentVersion: %v", err)
@@ -158,8 +183,9 @@ func runMigrationMatrixCase(t *testing.T, dialect, adminDSN string) {
 	// Spot-check a baseline table exists (admins is a meta model).
 	var count int
 	adminTable := map[string]string{
-		"mysql":    "SELECT COUNT(1) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = 'admins'",
-		"postgres": "SELECT COUNT(1) FROM information_schema.tables WHERE table_schema = current_schema() AND table_name = 'admins'",
+		"mysql":     "SELECT COUNT(1) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = 'admins'",
+		"postgres":  "SELECT COUNT(1) FROM information_schema.tables WHERE table_schema = current_schema() AND table_name = 'admins'",
+		"sqlserver": "SELECT COUNT(1) FROM sys.objects WHERE type = 'U' AND name = 'admins'",
 	}[dialect]
 	if err := db.Raw(adminTable).Scan(&count).Error; err != nil {
 		t.Fatalf("probe admins table: %v", err)
