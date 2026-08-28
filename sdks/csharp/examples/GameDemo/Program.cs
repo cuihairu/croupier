@@ -436,6 +436,14 @@ class Program
         "player.delete" => (BuildObj("{\"id\":" + SchemaStr + "}", new[] { "id" }), BuildObj("{\"playerId\":" + SchemaStr + "}")),
         "player.list" => (BuildObj("{\"page\":" + SchemaInt + ",\"pageSize\":" + SchemaInt + "}"),
                           BuildObj("{\"items\":{\"type\":\"array\",\"items\":" + SchemaObj + "},\"total\":" + SchemaInt + "}")),
+        // 其余 collection_query 函数与 Go demo 契约对齐（items/total）：
+        // 六语言共享同一契约槽位，action 形状 fallback 会覆盖正确
+        // collection schema，导致页面发布校验失败。
+        "order.list" or "leaderboard.list" or "mail.list"
+            => (BuildObj("{\"page\":" + SchemaInt + ",\"pageSize\":" + SchemaInt + "}"),
+                BuildObj("{\"items\":{\"type\":\"array\",\"items\":" + SchemaObj + "},\"total\":" + SchemaInt + "}")),
+        "inventory.list" => (BuildObj("{\"playerId\":" + SchemaStr + "}"),
+                BuildObj("{\"items\":{\"type\":\"array\",\"items\":" + SchemaObj + "},\"total\":" + SchemaInt + "}")),
         _ => (BuildObj("{}"), "{\"type\":\"object\",\"properties\":{\"status\":{\"type\":\"string\"},\"action\":{\"type\":\"string\"}}}"),
     };
 

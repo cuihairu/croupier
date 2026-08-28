@@ -71,6 +71,14 @@ static std::pair<std::string, std::string> demo_schema_for(const std::string& id
     if (id == "player.update") return {player_fields_schema(true), player_out};
     if (id == "player.delete") return {id_required_in, "{\"type\":\"object\",\"properties\":{\"playerId\":" + std::string(SCHEMA_STR) + "}}"};
     if (id == "player.list") return {pagination_in, list_out};
+    // 其余 collection_query 函数：与 Go demo 契约对齐（items/total 形状）。
+    // 此前这些函数落到 action fallback（{status,action}），六语言 demo
+    // 共享同一契约槽位，C++ 注册会覆盖 Go 的正确 collection schema，
+    // 导致页面发布校验 "/items,/total not found" 失败。
+    if (id == "order.list") return {pagination_in, list_out};
+    if (id == "leaderboard.list") return {pagination_in, list_out};
+    if (id == "inventory.list") return {pagination_in, list_out};
+    if (id == "mail.list") return {pagination_in, list_out};
     return {};
 }
 
