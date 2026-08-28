@@ -12,6 +12,7 @@ import (
 
 	"github.com/cuihairu/croupier/internal/cluster"
 	"github.com/cuihairu/croupier/internal/config"
+	reg "github.com/cuihairu/croupier/internal/platform/registry"
 	"github.com/cuihairu/croupier/internal/svc"
 	"github.com/cuihairu/croupier/internal/transport/tcp"
 	sdkv1 "github.com/cuihairu/croupier/pkg/pb/croupier/sdk/v1"
@@ -152,6 +153,13 @@ func startCluster(ctx context.Context, c *config.Config, svcCtx *svc.ServiceCont
 						slog.Warn("cluster: ownership touch failed", "agent_id", id, "error", err)
 					}
 				}
+
+				// 远端 agent 快照刷新：owner 表活跃但连接在对端的 agent，
+				// 本地 registry 快照的 ExpireAt/函数表冻结（心跳只更新持有
+				// 实例的内存），过期后会被内存清理器删除——跨实例函数调用
+				// 的候选集随本地实例视角丢失（"no live agent"）。从共享 DB
+				// 回读刷新（持有实例的节流落盘保证 DB 行新鲜）。
+				refreshRemoteSnapshots(ctx, svcCtx, resolver, lcCfg.InstanceID)
 			}
 		}
 	}()
@@ -276,6 +284,66 @@ func (li localInvoker) InvokeLocal(ctx context.Context, req *cluster.ForwardedIn
 		return &cluster.ForwardedResult{OK: false, Error: err.Error()}, nil
 	}
 	return &cluster.ForwardedResult{OK: true, Payload: json.RawMessage(respBytes)}, nil
+}
+
+// refreshRemoteSnapshots 把归属表活跃、连接在对端实例的 agent 的 DB
+// 会话刷回本地 registry（函数表 + ExpireAt），维持跨实例调用候选集。
+func refreshRemoteSnapshots(ctx context.Context, svcCtx *svc.ServiceContext, resolver cluster.OwnerStore, selfID string) {
+	owners, err := resolver.ListAliveOwners(ctx)
+	if err != nil || len(owners) == 0 {
+		return
+	}
+	remoteIDs := make([]string, 0, len(owners))
+	for _, rec := range owners {
+		if rec.InstanceID != selfID {
+			remoteIDs = append(remoteIDs, rec.AgentID)
+		}
+	}
+	if len(remoteIDs) == 0 || svcCtx.DB == nil || svcCtx.RegistryStore == nil {
+		return
+	}
+	sessions, err := reg.NewAgentSessionModel(svcCtx.DB).LoadActiveSessions(ctx)
+	if err != nil {
+		return
+	}
+	store := svcCtx.RegistryStore
+	store.Mu().RLock()
+	local := store.AgentsUnsafe()
+	store.Mu().RUnlock()
+	for i := range sessions {
+		sess := sessions[i]
+		if sess == nil {
+			continue
+		}
+		need := false
+		for _, id := range remoteIDs {
+			if id == sess.AgentID {
+				need = true
+				break
+			}
+		}
+		if !need {
+			continue
+		}
+		cur, ok := local[sess.AgentID]
+		// 本地无快照（被清理）或快照临期/函数表落后：刷回。持有连接的
+		// 实例永远走本地实时会话，这里的 Upsert 不会覆盖活跃本地视图
+		//（need 集合已排除本实例持有的 agent）。
+		if !ok || cur == nil || len(sess.Functions) > len(cur.Functions) || time.Until(cur.ExpireAt) < 10*time.Minute {
+			if err := store.UpsertAgent(sess); err == nil && (!ok || cur == nil) {
+				slog.Info("cluster: refreshed remote agent snapshot", "agent_id", sess.AgentID, "owner", ownerInstance(owners, sess.AgentID))
+			}
+		}
+	}
+}
+
+func ownerInstance(owners []cluster.AgentOwnerRecord, agentID string) string {
+	for _, rec := range owners {
+		if rec.AgentID == agentID {
+			return rec.InstanceID
+		}
+	}
+	return ""
 }
 
 // openClusterRedis 解析协调面 Redis 连接：cluster.redisAddr 优先，
