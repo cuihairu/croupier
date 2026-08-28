@@ -100,8 +100,14 @@ func openGorm(driver, dsn string) (*gorm.DB, error) {
 		if err := ensureSQLiteDir(dsn); err != nil {
 			return nil, err
 		}
-		// SQLite 会自动创建数据库文件，无需额外处理
-		return gorm.Open(gsqlite.Open(dsn), &gorm.Config{})
+		// 文件型 sqlite 统一带 busy_timeout + WAL：心跳/注册的后台并发写
+		// 撞上启动迁移等长写事务时排队等待而不是立刻 SQLITE_BUSY
+		//（real-dashboard fixture 曾因心跳 Upsert 等锁 58s 后失败挂掉）。
+		db, err := gorm.Open(gsqlite.Open(sqliteFileDSN(dsn)), &gorm.Config{})
+		if err != nil {
+			return nil, err
+		}
+		return db, nil
 	case "postgres", "postgresql", "pg":
 		if dsn == "" {
 			return nil, fmt.Errorf("postgres DSN is required")
@@ -601,4 +607,17 @@ func replaceMySQLDSNDB(dsn, dbName string) string {
 		return scheme + dsn[:idx+1] + dbName
 	}
 	return scheme + dsn + "/" + dbName
+}
+
+// sqliteFileDSN 为文件型 sqlite DSN 追加并发写韧性 pragma（幂等：
+// 已带 _pragma 的 DSN 原样返回）。
+func sqliteFileDSN(dsn string) string {
+	if strings.Contains(dsn, "_pragma=") {
+		return dsn
+	}
+	sep := "?"
+	if strings.Contains(dsn, "?") {
+		sep = "&"
+	}
+	return dsn + sep + "_pragma=busy_timeout(60000)&_pragma=journal_mode(WAL)"
 }

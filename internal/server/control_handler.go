@@ -119,6 +119,14 @@ type ControlService struct {
 		OnAgentDisconnected(ctx context.Context, agentID string)
 	}
 
+	// sessionPersistMu/sessionPersistAt 心跳 DB 落盘节流：距上次落盘
+	// 不足 sessionPersistInterval 的心跳跳过异步 Upsert——全量 JSON
+	// 会话每 30s 写一次既浪费也放大 sqlite/小实例的写锁竞争
+	//（real-dashboard fixture 曾因与注册事务互锁挂死）。
+	sessionPersistMu       sync.Mutex
+	sessionPersistAt       map[string]time.Time
+	sessionPersistInterval time.Duration
+
 	// heartbeatOwnerLookup 心跳自愈用：本地会话丢失时从共享归属表回读
 	// 本实例持有的 agent 真实 scope 重建会话（装配期注入；nil = 无自愈）。
 	heartbeatOwnerLookup interface {
@@ -619,7 +627,7 @@ func (s *ControlService) handleHeartbeatRequest(ctx context.Context, req *agentv
 			hooks.OnAgentHeartbeat(ctx, req.AgentId)
 		}
 		s.registry.Mu().Lock()
-		if s.agentSessionLoader != nil {
+		if s.agentSessionLoader != nil && s.shouldPersistSession(req.AgentId) {
 			agentToUpdate := agent
 			go func() {
 				if err := s.agentSessionLoader.Upsert(context.Background(), agentToUpdate); err != nil {
@@ -631,6 +639,24 @@ func (s *ControlService) handleHeartbeatRequest(ctx context.Context, req *agentv
 	s.registry.Mu().Unlock()
 
 	return &agentv1.HeartbeatResponse{}, nil
+}
+
+// shouldPersistSession 心跳落盘节流：间隔内只落一次（注册路径不受限）。
+func (s *ControlService) shouldPersistSession(agentID string) bool {
+	s.sessionPersistMu.Lock()
+	defer s.sessionPersistMu.Unlock()
+	now := time.Now()
+	if s.sessionPersistInterval <= 0 {
+		s.sessionPersistInterval = time.Minute
+	}
+	if s.sessionPersistAt == nil {
+		s.sessionPersistAt = map[string]time.Time{}
+	}
+	if last, ok := s.sessionPersistAt[agentID]; ok && now.Sub(last) < s.sessionPersistInterval {
+		return false
+	}
+	s.sessionPersistAt[agentID] = now
+	return true
 }
 
 // validateProviderScope 校验 provider 上报的 game/env 与 agent 会话 scope
