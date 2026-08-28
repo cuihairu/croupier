@@ -436,14 +436,27 @@ class Program
         "player.delete" => (BuildObj("{\"id\":" + SchemaStr + "}", new[] { "id" }), BuildObj("{\"playerId\":" + SchemaStr + "}")),
         "player.list" => (BuildObj("{\"page\":" + SchemaInt + ",\"pageSize\":" + SchemaInt + "}"),
                           BuildObj("{\"items\":{\"type\":\"array\",\"items\":" + SchemaObj + "},\"total\":" + SchemaInt + "}")),
-        // 其余 collection_query 函数与 Go demo 契约对齐（items/total）：
-        // 六语言共享同一契约槽位，action 形状 fallback 会覆盖正确
-        // collection schema，导致页面发布校验失败。
+        // 与 Go demo 契约逐一对齐（六语言共享同一契约槽位，fallback
+        // 形状会覆盖其他 SDK 写入的正确 schema → 发布校验失败）。
         "order.list" or "leaderboard.list" or "mail.list"
             => (BuildObj("{\"page\":" + SchemaInt + ",\"pageSize\":" + SchemaInt + "}"),
                 BuildObj("{\"items\":{\"type\":\"array\",\"items\":" + SchemaObj + "},\"total\":" + SchemaInt + "}")),
-        "inventory.list" => (BuildObj("{\"playerId\":" + SchemaStr + "}"),
+        "inventory.list" => (BuildObj("{\"playerId\":" + SchemaStr + "}", new[] { "playerId" }),
                 BuildObj("{\"items\":{\"type\":\"array\",\"items\":" + SchemaObj + "},\"total\":" + SchemaInt + "}")),
+        "order.create" => (BuildObj("{\"id\":" + SchemaStr + ",\"playerId\":" + SchemaStr + ",\"productId\":" + SchemaStr + ",\"amount\":" + SchemaInt + ",\"currency\":" + SchemaStr + ",\"status\":" + SchemaStr + ",\"channel\":" + SchemaStr + ",\"attributes\":" + SchemaObj + "}"),
+                BuildObj("{\"order\":" + SchemaObj + "}")),
+        "order.get" or "order.update" => (BuildObj("{\"id\":" + SchemaStr + ",\"status\":" + SchemaStr + ",\"channel\":" + SchemaStr + ",\"amount\":" + SchemaInt + "}", new[] { "id" }),
+                BuildObj("{\"order\":" + SchemaObj + "}")),
+        "order.delete" => (BuildObj("{\"id\":" + SchemaStr + "}", new[] { "id" }),
+                BuildObj("{\"deleted\":{\"type\":\"boolean\"}}")),
+        "leaderboard.upsert" => (BuildObj("{\"playerId\":" + SchemaStr + ",\"score\":" + SchemaInt + "}", new[] { "playerId" }),
+                BuildObj("{\"entry\":" + SchemaObj + "}")),
+        "leaderboard.reset" => (BuildObj("{}"),
+                BuildObj("{\"reset\":{\"type\":\"boolean\"}}")),
+        "inventory.grant" or "inventory.consume" => (BuildObj("{\"playerId\":" + SchemaStr + ",\"templateId\":" + SchemaStr + ",\"quantity\":" + SchemaInt + "}", new[] { "playerId", "templateId" }),
+                BuildObj("{\"item\":" + SchemaObj + "}")),
+        "mail.send" or "mail.claim" => (BuildObj("{\"playerId\":" + SchemaStr + ",\"mailId\":" + SchemaStr + "}", new[] { "playerId" }),
+                BuildObj("{\"mail\":" + SchemaObj + "}")),
         _ => (BuildObj("{}"), "{\"type\":\"object\",\"properties\":{\"status\":{\"type\":\"string\"},\"action\":{\"type\":\"string\"}}}"),
     };
 

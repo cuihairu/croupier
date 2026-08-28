@@ -71,14 +71,30 @@ static std::pair<std::string, std::string> demo_schema_for(const std::string& id
     if (id == "player.update") return {player_fields_schema(true), player_out};
     if (id == "player.delete") return {id_required_in, "{\"type\":\"object\",\"properties\":{\"playerId\":" + std::string(SCHEMA_STR) + "}}"};
     if (id == "player.list") return {pagination_in, list_out};
-    // 其余 collection_query 函数：与 Go demo 契约对齐（items/total 形状）。
-    // 此前这些函数落到 action fallback（{status,action}），六语言 demo
-    // 共享同一契约槽位，C++ 注册会覆盖 Go 的正确 collection schema，
-    // 导致页面发布校验 "/items,/total not found" 失败。
-    if (id == "order.list") return {pagination_in, list_out};
-    if (id == "leaderboard.list") return {pagination_in, list_out};
-    if (id == "inventory.list") return {pagination_in, list_out};
-    if (id == "mail.list") return {pagination_in, list_out};
+    // 与 Go demo 契约逐一对齐。此前未列出的函数落到 action fallback
+    //（{status,action}），六语言 demo 共享同一契约槽位，fallback 注册
+    // 会覆盖 Go 写入的正确 schema，导致页面发布校验
+    // "/items,/total not found" 失败（DB 实证全量污染）。
+    if (id == "order.list" || id == "leaderboard.list" ||
+        id == "inventory.list" || id == "mail.list") return {pagination_in, list_out};
+    if (id == "mail.batch_send") return {"{\"type\":\"object\",\"properties\":{\"mailIds\":{\"type\":\"array\",\"items\":{\"type\":\"string\"}},\"title\":{\"type\":\"string\"},\"content\":{\"type\":\"string\"},\"reward\":" + std::string(SCHEMA_OBJ) + "}}",
+                                          "{\"type\":\"object\",\"properties\":{\"sent\":{\"type\":\"integer\"},\"failed\":{\"type\":\"integer\"}}}"};
+    if (id == "leaderboard.reset") return {"{\"type\":\"object\",\"properties\":{}}",
+                                           "{\"type\":\"object\",\"properties\":{\"reset\":{\"type\":\"boolean\"}}}"};
+    if (id == "order.create") return {"{\"type\":\"object\",\"properties\":{\"id\":" + std::string(SCHEMA_STR) + ",\"playerId\":" + std::string(SCHEMA_STR) + ",\"productId\":" + std::string(SCHEMA_STR) + ",\"amount\":" + SCHEMA_INT + ",\"currency\":" + std::string(SCHEMA_STR) + ",\"status\":" + std::string(SCHEMA_STR) + ",\"channel\":" + std::string(SCHEMA_STR) + ",\"attributes\":" + std::string(SCHEMA_OBJ) + "}}",
+                                      "{\"type\":\"object\",\"properties\":{\"order\":" + std::string(SCHEMA_OBJ) + "}}"};
+    if (id == "order.get") return {"{\"type\":\"object\",\"properties\":{\"id\":" + std::string(SCHEMA_STR) + "},\"required\":[\"id\"]}",
+                                   "{\"type\":\"object\",\"properties\":{\"order\":" + std::string(SCHEMA_OBJ) + "}}"};
+    if (id == "order.update") return {"{\"type\":\"object\",\"properties\":{\"id\":" + std::string(SCHEMA_STR) + ",\"status\":" + std::string(SCHEMA_STR) + ",\"channel\":" + std::string(SCHEMA_STR) + ",\"amount\":" + SCHEMA_INT + "},\"required\":[\"id\"]}",
+                                      "{\"type\":\"object\",\"properties\":{\"order\":" + std::string(SCHEMA_OBJ) + "}}"};
+    if (id == "order.delete") return {"{\"type\":\"object\",\"properties\":{\"id\":" + std::string(SCHEMA_STR) + "},\"required\":[\"id\"]}",
+                                      "{\"type\":\"object\",\"properties\":{\"deleted\":{\"type\":\"boolean\"}}}"};
+    if (id == "leaderboard.upsert") return {"{\"type\":\"object\",\"properties\":{\"playerId\":" + std::string(SCHEMA_STR) + ",\"score\":" + SCHEMA_INT + "},\"required\":[\"playerId\"]}",
+                                            "{\"type\":\"object\",\"properties\":{\"entry\":" + std::string(SCHEMA_OBJ) + "}}"};
+    if (id == "inventory.grant" || id == "inventory.consume") return {"{\"type\":\"object\",\"properties\":{\"playerId\":" + std::string(SCHEMA_STR) + ",\"templateId\":" + std::string(SCHEMA_STR) + ",\"quantity\":" + SCHEMA_INT + "},\"required\":[\"playerId\",\"templateId\"]}",
+                                                                       "{\"type\":\"object\",\"properties\":{\"item\":" + std::string(SCHEMA_OBJ) + "}}"};
+    if (id == "mail.send" || id == "mail.claim") return {"{\"type\":\"object\",\"properties\":{\"playerId\":" + std::string(SCHEMA_STR) + ",\"mailId\":" + std::string(SCHEMA_STR) + "},\"required\":[\"playerId\"]}",
+                                                          "{\"type\":\"object\",\"properties\":{\"mail\":" + std::string(SCHEMA_OBJ) + "}}"};
     return {};
 }
 
