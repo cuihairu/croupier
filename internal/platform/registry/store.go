@@ -663,6 +663,7 @@ func (s *Store) writeToDB(ctx context.Context, a *AgentSession) error {
 		GameID    string
 		Env       string
 		Version   string
+		Addr      string
 		Region    string
 		Zone      string
 		Labels    string `gorm:"type:text"`
@@ -675,6 +676,7 @@ func (s *Store) writeToDB(ctx context.Context, a *AgentSession) error {
 		GameID:    a.GameID,
 		Env:       a.Env,
 		Version:   a.Version,
+		Addr:      a.Addr,
 		Region:    a.Region,
 		Zone:      a.Zone,
 		ExpireAt:  a.ExpireAt,
