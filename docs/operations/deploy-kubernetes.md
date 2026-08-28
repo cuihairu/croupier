@@ -41,6 +41,8 @@ data:
     database:
       driver: mysql
       dataSource: "user:$(DB_PASSWORD)@tcp(mysql:3306)/croupier_meta?charset=utf8mb4&parseTime=True&loc=Local"
+    auth:
+      jwtSecret: "$(CROUPIER_JWT_SECRET)"   # 加载时按环境变量展开（ExpandEnv）
     cache: { enabled: true, type: redis, addr: redis:6379 }
     # 多实例必开
     cluster:
@@ -82,9 +84,9 @@ spec:
           env:
             - name: POD_IP
               valueFrom: { fieldRef: { fieldPath: status.podIP } }
-            - name: CROUPIER_SERVER_CLUSTER_ADVERTISEADDR # 覆盖 YAML：用 Pod IP 做实例互联
-              value: "$(POD_IP):8444"
-            - name: CROUPIER_SERVER_AUTH_JWTSECRET
+            - name: CROUPIER_CLUSTER_ADVERTISE_ADDR # root.go 显式读取的覆盖变量：Pod IP 做实例互联
+              value: "$(POD_IP):19099"
+            - name: CROUPIER_JWT_SECRET # 供 server.yaml 占位符 $(CROUPIER_JWT_SECRET) 展开
               valueFrom:
                 {
                   secretKeyRef:

@@ -62,9 +62,11 @@ WorkingDirectory=/opt/croupier
 ExecStart=/opt/croupier/bin/croupier-server --config /opt/croupier/etc/server.yaml
 Restart=on-failure
 RestartSec=5
-# 环境变量覆盖（优先级高于 YAML，见配置全解）
-# Environment=CROUPIER_SERVER_AUTH_JWTSECRET=xxx
-# Environment=CROUPIER_SERVER_DATABASE_DATASOURCE=xxx
+# 敏感值建议：YAML 里写 $(VAR) 占位，加载时按环境变量展开
+# （config_loader 的 os.ExpandEnv），秘钥不落盘：
+#   auth:
+#     jwtSecret: "$(CROUPIER_JWT_SECRET)"
+# Environment=CROUPIER_JWT_SECRET=xxx
 NoNewPrivileges=true
 ProtectSystem=strict
 ReadWritePaths=/opt/croupier/data
