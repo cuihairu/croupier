@@ -228,12 +228,6 @@ func runServer() error {
 	// 将 session resolver 注入到 Dispatcher
 	if svcCtx.Dispatcher != nil {
 		svcCtx.Dispatcher.SetSessionResolver(server.NewSessionResolverAdapter(sessionStore))
-		// HA 多实例：本地无该 agent 连接时经互联 mesh 转发到 owner 实例
-		// （docs/architecture/server-ha-multi-instance.md §6；单实例 Cluster
-		// 为 nil，保持本地 miss 即报错的既有语义）。
-		if svcCtx.Cluster != nil && svcCtx.Cluster.Mesh != nil {
-			svcCtx.Dispatcher.SetRemoteForwarder(newMeshForwarder(svcCtx.Cluster.Mesh))
-		}
 		// 将 task event query 注入到 Dispatcher（用于 StreamTask 查询）
 		taskRunModel := model.NewTaskRunModel(svcCtx.DB)
 		taskEventModel := model.NewTaskEventModel(svcCtx.DB)
@@ -270,6 +264,14 @@ func runServer() error {
 	controlResources := startControlServer(rootCtx, &c, svcCtx, sessionStore)
 	// 集群归属钩子注入：Agent 注册/心跳/断连写共享归属表（多实例 HA）。
 	wireClusterHooks(svcCtx, controlResources)
+
+	// HA 转发注入：本地无该 agent 连接时经互联 mesh 转发到 owner 实例。
+	// 必须在 startCluster 之后（Cluster.Mesh 那时才存在）——曾因放在
+	// Dispatcher 初始化块（startCluster 之前）导致 svcCtx.Cluster 恒为
+	// nil、转发器从未装上，跨实例调用全部 "session not found"。
+	if svcCtx.Dispatcher != nil && svcCtx.Cluster != nil && svcCtx.Cluster.Mesh != nil {
+		svcCtx.Dispatcher.SetRemoteForwarder(newMeshForwarder(svcCtx.Cluster.Mesh))
+	}
 
 	// 启动 Registry 清理任务（定期删除过期的 AgentSession）
 	go startRegistryCleanup(rootCtx, svcCtx)
