@@ -800,12 +800,18 @@ export type ClusterInstanceItem = {
   agentCount: number;
 };
 
+export type ClusterLbStatsInfo = {
+  enabled: boolean;
+  queryUrl: string;
+};
+
 export type ClusterInfo = {
   enabled: boolean;
   self?: string;
   items: ClusterInstanceItem[];
   total: number;
   aliveCount: number;
+  lbStats?: ClusterLbStatsInfo;
 };
 
 export async function fetchClusterInfo(): Promise<ClusterInfo> {

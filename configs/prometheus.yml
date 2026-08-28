@@ -13,3 +13,13 @@ scrape_configs:
       - targets: ["otel-collector:8889"]
     scrape_interval: 10s
     metrics_path: "/metrics"
+
+  # Agent 入口 L4 负载均衡（croupier-haproxy 内置 exporter，:8404/metrics）。
+  # LB 监控管道：docs/operations/load-balancing.md「LB 监控」。
+  # 注意：telemetry 与 deploy 是两个 compose 网络——此目标要求两栈共享
+  # external network，或将目标改为宿主映射端口。
+  - job_name: "croupier-haproxy"
+    static_configs:
+      - targets: ["croupier-haproxy:8404"]
+    scrape_interval: 10s
+    metrics_path: "/metrics"

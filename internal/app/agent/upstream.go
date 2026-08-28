@@ -22,17 +22,20 @@ import (
 // UpstreamClient manages the connection to the central Croupier Server.
 type UpstreamClient struct {
 	serverAddr string
-	agentID    string
-	store      *agentlocal.LocalStore
-	client     controlClient
-	updateCh   chan struct{}
-	gameID     string
-	env        string
-	version    string
-	region     string
-	zone       string
-	labels     map[string]string
-	tlsCfg     *tlsutil.ClientTLSConfig
+	// reportedOwnerInstance 最近一次注册响应中的集群实例 ID（三方对账，
+	// agent 视角自报；心跳携带）。
+	reportedOwnerInstance string
+	agentID               string
+	store                 *agentlocal.LocalStore
+	client                controlClient
+	updateCh              chan struct{}
+	gameID                string
+	env                   string
+	version               string
+	region                string
+	zone                  string
+	labels                map[string]string
+	tlsCfg                *tlsutil.ClientTLSConfig
 
 	// Timeouts (from config, with defaults)
 	dialTimeout       time.Duration
@@ -400,7 +403,10 @@ func (c *UpstreamClient) heartbeatLoop(ctx context.Context) {
 			}
 			// 心跳调用设置超时，避免 server 关闭后一直阻塞
 			hbCtx, cancel := context.WithTimeout(ctx, 3*time.Second)
-			_, err := c.client.Heartbeat(hbCtx, &agentv1.HeartbeatRequest{AgentId: c.agentID})
+			_, err := c.client.Heartbeat(hbCtx, &agentv1.HeartbeatRequest{
+				AgentId:         c.agentID,
+				OwnerInstanceId: c.reportedOwnerInstance,
+			})
 			cancel()
 			if err != nil {
 				consecutiveFailures++
@@ -529,9 +535,13 @@ func (c *UpstreamClient) syncOnce(ctx context.Context) error {
 		Processes: providers,
 	}
 
-	_, err := c.client.Register(ctx, req)
+	resp, err := c.client.Register(ctx, req)
 	if err != nil {
 		return err
+	}
+	if v := resp.GetInstanceId(); v != "" {
+		c.reportedOwnerInstance = v
+		slog.Info("upstream owner instance reported", "instance_id", v)
 	}
 	slog.Info("synced with upstream server", "transport", c.transportKind, "functions", len(funcs))
 

@@ -26,6 +26,15 @@ type ClusterInfoResponse struct {
 	Items      []ClusterInstance `json:"items"`
 	Total      int               `json:"total"`
 	AliveCount int               `json:"aliveCount"`
+	// LbStats LB 监控可用性提示（nil = 未配置 Prometheus，前端隐藏对账列）。
+	LbStats *LBStatsInfo `json:"lbStats,omitempty"`
+}
+
+// LBStatsInfo 告知前端 LB 监控代理可用性与查询入口。
+type LBStatsInfo struct {
+	Enabled bool `json:"enabled"`
+	// QueryURL 是受限 PromQL 查询的代理端点（POST {query}）。
+	QueryURL string `json:"queryUrl"`
 }
 
 // GetClusterInfo serves GET /api/v1/ops/cluster：集群成员拓扑。
@@ -53,6 +62,9 @@ func (s *Service) GetClusterInfo(ctx context.Context) (*ClusterInfoResponse, err
 
 	resp.Enabled = true
 	resp.Self = s.svcCtx.Cluster.InstanceID
+	if s.svcCtx.Cluster.LBStats != nil && s.svcCtx.Cluster.LBStats.Enabled() {
+		resp.LbStats = &LBStatsInfo{Enabled: true, QueryURL: "/api/v1/ops/cluster/lb-stats"}
+	}
 
 	// 在线成员（成员表租约判定）。
 	if m := s.svcCtx.Cluster.Membership; m != nil {

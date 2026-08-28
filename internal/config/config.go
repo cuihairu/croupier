@@ -298,6 +298,11 @@ type ClusterConfig struct {
 	LeaseTTL string `json:"leaseTtl,omitempty" yaml:"leaseTtl,omitempty"`
 	// OwnerTTL agent 归属记录存活窗口（默认 3m，Agent 心跳续期）。
 	OwnerTTL string `json:"ownerTtl,omitempty" yaml:"ownerTtl,omitempty"`
+	// LbPrometheusUrl LB 监控数据源（Prometheus API，如
+	// http://prometheus:9090）——空则 /ops/lb 页面隐藏（docs/operations/
+	// load-balancing.md「LB 监控」）。支持环境变量
+	// CROUPIER_LB_PROMETHEUS_URL 覆盖。
+	LbPrometheusUrl string `json:"lbPrometheusUrl,omitempty" yaml:"lbPrometheusUrl,omitempty"`
 	// PeerPollInterval 对端发现轮询间隔（默认 10s）。
 	PeerPollInterval string `json:"peerPollInterval,omitempty" yaml:"peerPollInterval,omitempty"`
 	// InsecureSkipTLS 互联 TLS 校验跳过（仅开发联调）。

@@ -262,6 +262,27 @@ export default function OpsNodesPage() {
         ),
     },
     {
+      // 三方对账（agent 视角）：agent 自报"我连着的实例"（注册响应带回，
+      // 心跳续报）。与归属列不一致 = 路由漂移/半开连接信号。
+      title: 'agent 自报',
+      dataIndex: ['labels', 'reportedOwner'],
+      width: 150,
+      ellipsis: true,
+      render: (v: unknown, record) => {
+        const reported = typeof v === 'string' && v ? v : '';
+        if (!reported) return <span style={{ color: '#999' }}>—</span>;
+        const claimed = record.labels?.ownerInstance || '';
+        if (claimed && reported !== claimed) {
+          return (
+            <Tag color="red" title={`agent 自报 ${reported}，归属表 ${claimed}——疑似漂移/半开`}>
+              {reported} ≠ {claimed}
+            </Tag>
+          );
+        }
+        return <Tag color="green">{reported}</Tag>;
+      },
+    },
+    {
       title: '健康状态',
       dataIndex: 'healthy',
       width: 90,

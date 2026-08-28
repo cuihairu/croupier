@@ -349,6 +349,14 @@ export default [
       },
       { path: '/ops/nodes', name: 'Nodes', access: 'canOpsRead', component: './Ops/Nodes' },
       {
+        // LB 监控（管道用开源：haproxy exporter → prometheus → 平台原生渲染；
+        // docs/operations/load-balancing.md「LB 监控」）
+        path: '/ops/lb',
+        name: 'LBMonitor',
+        access: 'canOpsRead',
+        component: './Ops/LBMonitor',
+      },
+      {
         // Server 多实例成员拓扑（在线/离线/agent 分布）
         path: '/ops/cluster',
         name: 'Cluster',

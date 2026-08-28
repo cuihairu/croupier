@@ -8,6 +8,14 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 command -v protoc >/dev/null || { echo "缺少 protoc：从 https://github.com/protocolbuffers/protobuf/releases 安装 34.x"; exit 1; }
+# WKT include（google/protobuf/*.proto）：protoc 发行包 include/ 目录。
+# 解压到系统路径或设置 PROTOC_INCLUDE 后此处自动生效。
+PROTOC_INC=""
+if [ -n "${PROTOC_INCLUDE:-}" ]; then
+  PROTOC_INC="-I${PROTOC_INCLUDE}"
+elif [ -d /usr/local/include/google/protobuf ]; then
+  PROTOC_INC="-I/usr/local/include"
+fi
 command -v protoc-gen-go >/dev/null || { echo "缺少 protoc-gen-go：go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.36.11"; exit 1; }
 
 PROTO_VERSION="$(protoc --version)"
@@ -20,7 +28,7 @@ find . -name '*.proto' | sort > /tmp/gen_proto_files.txt
 echo "[gen] $(wc -l < /tmp/gen_proto_files.txt) proto files"
 
 # Go（主仓库 pkg/pb）
-protoc -I. \
+protoc -I. ${PROTOC_INC} \
   --plugin=protoc-gen-go="$(command -v protoc-gen-go)" \
   --go_out=../pkg/pb --go_opt=paths=source_relative \
   $(cat /tmp/gen_proto_files.txt)

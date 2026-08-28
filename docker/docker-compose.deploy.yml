@@ -184,6 +184,9 @@ services:
       CROUPIER_CLUSTER_ENABLED: "true"
       CROUPIER_CLUSTER_INSTANCE_ID: croupier-server
       CROUPIER_CLUSTER_ADVERTISE_ADDR: croupier-server:19099
+      # LB 监控数据源（telemetry 与 deploy 双网络时指宿主映射端口）；
+      # 未配置则 /ops/lb 页隐藏
+      CROUPIER_LB_PROMETHEUS_URL: ${CROUPIER_LB_PROMETHEUS_URL:-http://prometheus:9090}
 
   server2:
     <<: *server-common
@@ -193,6 +196,7 @@ services:
       CROUPIER_CLUSTER_ENABLED: "true"
       CROUPIER_CLUSTER_INSTANCE_ID: croupier-server2
       CROUPIER_CLUSTER_ADVERTISE_ADDR: croupier-server2:19099
+      CROUPIER_LB_PROMETHEUS_URL: ${CROUPIER_LB_PROMETHEUS_URL:-http://prometheus:9090}
 
   # HA 双实例 agent：agent → server、agent2 → server2（configs/agent*.yaml
   # 分别指定上游地址与 Agent ID）。宿主端口只由实例 1 发布。

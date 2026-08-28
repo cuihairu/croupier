@@ -167,3 +167,39 @@ func TestHandleHeartbeatRequest_ForeignClaimNoSelfHeal(t *testing.T) {
 		t.Fatalf("foreign claim must not self-heal, got %+v", sess)
 	}
 }
+
+// 三方对账（agent 视角）：注册响应回传 instanceId；agent 自报 owner
+// 存入 session labels 供 nodes 视图对账。
+func TestRegisterResponseCarriesInstanceID(t *testing.T) {
+	svc := newScopeTestService(t)
+	svc.SetClusterInstanceID("croupier-server")
+
+	resp, err := svc.handleRegisterRequest(context.Background(), &agentv1.RegisterRequest{
+		AgentId: "agent-1", GameId: "g", Env: "e",
+	}, "10.0.0.1:12345")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.GetInstanceId() != "croupier-server" {
+		t.Fatalf("instanceId = %q", resp.GetInstanceId())
+	}
+}
+
+func TestHeartbeatStoresReportedOwner(t *testing.T) {
+	svc := newScopeTestService(t)
+	// 先注册（建立会话），再心跳携带自报 owner。
+	if _, err := svc.handleRegisterRequest(context.Background(), &agentv1.RegisterRequest{
+		AgentId: "agent-1", GameId: "g", Env: "e",
+	}, "10.0.0.1:12345"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := svc.handleHeartbeatRequest(context.Background(), &agentv1.HeartbeatRequest{
+		AgentId: "agent-1", OwnerInstanceId: "croupier-server2",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	sess := svc.registry.AgentsUnsafe()["agent-1"]
+	if sess == nil || sess.Labels["reportedOwner"] != "croupier-server2" {
+		t.Fatalf("reportedOwner not stored: %+v", sess)
+	}
+}

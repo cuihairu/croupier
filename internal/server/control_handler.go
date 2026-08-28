@@ -133,6 +133,10 @@ type ControlService struct {
 		SelfOwnerScope(ctx context.Context, agentID string) (gameID, env string, ok bool)
 	}
 
+	// clusterInstanceID 本实例的集群身份（注册响应回传给 agent 做三方
+	// 对账；单实例/未启用时为空）。
+	clusterInstanceID string
+
 	mu     sync.RWMutex
 	ctx    context.Context
 	cancel context.CancelFunc
@@ -220,6 +224,13 @@ func (s *ControlService) SetClusterHooks(h interface {
 	s.mu.Lock()
 	s.clusterHooks = h
 	s.mu.Unlock()
+}
+
+// SetClusterInstanceID 注入本实例集群身份（注册响应回传 agent 三方对账）。
+func (s *ControlService) SetClusterInstanceID(id string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.clusterInstanceID = id
 }
 
 // SetHeartbeatOwnerLookup 注入共享归属表回读能力（心跳自愈用）。
@@ -555,8 +566,12 @@ func (s *ControlService) handleRegisterRequest(ctx context.Context, req *agentv1
 
 	s.logger.Info("Agent registered", "agent_id", req.AgentId, "game_id", req.GameId, "functions", len(functions), "warnings", len(warnings))
 
+	s.mu.RLock()
+	selfID := s.clusterInstanceID
+	s.mu.RUnlock()
 	return &agentv1.RegisterResponse{
-		Warnings: warningTexts,
+		Warnings:   warningTexts,
+		InstanceId: selfID,
 	}, nil
 }
 
@@ -571,6 +586,14 @@ func (s *ControlService) handleHeartbeatRequest(ctx context.Context, req *agentv
 
 	s.registry.Mu().Lock()
 	agent := s.registry.AgentsUnsafe()[req.AgentId]
+	// agent 自报 owner（三方对账，agent 视角）：存入 session labels 供
+	// nodes/cluster 视图与归属表 claim、LB 会话对照（半开/漂移探测）。
+	if agent != nil && req.OwnerInstanceId != "" {
+		if agent.Labels == nil {
+			agent.Labels = map[string]string{}
+		}
+		agent.Labels["reportedOwner"] = req.OwnerInstanceId
+	}
 	if agent == nil {
 		s.registry.Mu().Unlock()
 		// 僵尸防线：会话在本地 registry 意外丢失（过期清理/替换竞态）但

@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/cuihairu/croupier/internal/cluster"
+	"github.com/cuihairu/croupier/internal/platform/lbstats"
 )
 
 // ClusterRuntime 暴露多实例 HA 的运行句柄（诊断/ops 视图/转发接线用）。
@@ -13,6 +14,8 @@ type ClusterRuntime struct {
 	Mesh       *cluster.MeshInterconnect
 	// OwnerHooks 是 Agent 会话归属钩子（control/tcp listener 注入）。
 	OwnerHooks *cluster.OwnerHooks
+	// LBStats LB 监控只读代理（未配置 Prometheus 时 nil）。
+	LBStats *lbstats.LBStatsService
 	// Membership 成员表（ops 集群视图读取在线实例）。
 	Membership cluster.Membership
 	// Resolver 共享归属解析器（心跳自愈回读 scope）。

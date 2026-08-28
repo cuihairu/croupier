@@ -2,6 +2,7 @@ package ops
 
 import (
 	"context"
+	"errors"
 
 	"github.com/cuihairu/croupier/internal/svc"
 )
@@ -96,6 +97,14 @@ func (s *Service) OpsSilences(ctx context.Context, req *OpsSilencesRequest) (*Op
 
 func (s *Service) OpsNodes(ctx context.Context, req *OpsNodesRequest) (*OpsNodesResponse, error) {
 	return opsNodes(ctx, s.svcCtx, req)
+}
+
+// LBStatsQuery 代理受限 PromQL 查询到配置的 Prometheus（LB 监控）。
+func (s *Service) LBStatsQuery(ctx context.Context, query string) (interface{}, error) {
+	if s.svcCtx == nil || s.svcCtx.Cluster == nil || s.svcCtx.Cluster.LBStats == nil {
+		return nil, errors.New("lb stats not configured")
+	}
+	return s.svcCtx.Cluster.LBStats.Query(ctx, query)
 }
 
 func (s *Service) OpsNodeCommands(ctx context.Context, req *OpsNodeCommandsRequest) (*OpsNodeCommandsResponse, error) {

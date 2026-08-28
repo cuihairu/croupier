@@ -72,12 +72,18 @@ message RegisterResponse {
   string session_id = 1;
   int64 expire_at = 2; // epoch seconds
   repeated string warnings = 3;
+  // 处理本次注册的集群实例 ID（单实例部署为空）——agent 侧三方对账用：
+  // agent 自报"我连着的实例"，与归属表 claim、LB 会话对照定位半开/漂移
+  //（docs/operations/load-balancing.md「三方对账」）。
+  string instance_id = 4;
 }
 
 // Agent Heartbeat Request
 message HeartbeatRequest {
   string agent_id = 1;
   string session_id = 2;
+  // agent 自报：最近一次注册响应中的实例 ID（三方对账，agent 视角）。
+  string owner_instance_id = 3;
 }
 
 // Agent Heartbeat Response

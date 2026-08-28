@@ -407,6 +407,10 @@ func startControlServer(ctx context.Context, c *config.Config, svcCtx *svc.Servi
 	if svcCtx.Cluster != nil && svcCtx.Cluster.Resolver != nil {
 		controlService.SetHeartbeatOwnerLookup(svcCtx.Cluster.Resolver)
 	}
+	// 集群身份（注册响应回传 agent 三方对账；单实例为空）
+	if svcCtx.Cluster != nil {
+		controlService.SetClusterInstanceID(svcCtx.Cluster.InstanceID)
+	}
 	controlService.SetTaskStore(tasks.NewStore(
 		model.NewTaskRunModel(svcCtx.DB),
 		model.NewTaskEventModel(svcCtx.DB),
@@ -543,6 +547,9 @@ func applyClusterEnvironmentOverrides(c *config.Config) {
 	}
 	if v := strings.TrimSpace(os.Getenv("CROUPIER_CLUSTER_ADVERTISE_ADDR")); v != "" {
 		c.Cluster.AdvertiseAddr = v
+	}
+	if v := strings.TrimSpace(os.Getenv("CROUPIER_LB_PROMETHEUS_URL")); v != "" {
+		c.Cluster.LbPrometheusUrl = v
 	}
 }
 

@@ -51,6 +51,7 @@ export default {
   'menu.SystemConfig.ExtensionsAgentSync': 'Extension Sync Debug',
 
   'menu.Ops': 'Operations & SRE',
+  'menu.Ops.LBMonitor': 'LB Monitor',
   'menu.Ops.OpsStatus': 'Service Status',
   'menu.Ops.DBMonitor': 'DB Monitor',
   'menu.Ops.Nodes': 'Node Maintenance',

@@ -1,0 +1,200 @@
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { App, Card, Empty, Select, Space, Spin, Statistic, Typography } from 'antd';
+import { PageContainer } from '@ant-design/pro-components';
+import { Line, Gauge } from '@ant-design/charts';
+import {
+  fetchClusterInfo,
+  listOpsNodes,
+  type ClusterLbStatsInfo,
+  type OpsNode,
+} from '@/services/api/ops';
+import { queryLbStats } from '@/services/api/lbStats';
+import { extractErrorMessage } from '@/utils/errors';
+
+const { Text, Paragraph } = Typography;
+
+// LB 监控核心指标（PromQL 现成，docs/operations/load-balancing.md「LB 监控」）
+const QUERIES = {
+  backendSessions: 'sum by (backend) (haproxy_backend_current_sessions)',
+  serverStatus: 'haproxy_server_status',
+  errors: 'sum by (backend) (rate(haproxy_backend_errors_total[5m]))',
+} as const;
+
+type SeriesPoint = { time: string; value: number; backend: string };
+
+function toSeries(
+  rows: { metric: Record<string, string>; value: [number, string] }[],
+  labelKey: string,
+): SeriesPoint[] {
+  const t = new Date();
+  return rows.map((r) => ({
+    time: t.toLocaleTimeString(),
+    value: Number(r.value[1]) || 0,
+    backend: (r.metric[labelKey] || r.metric.instance || 'unknown').replace(/^.*\//, ''),
+  }));
+}
+
+export default function LBMonitor() {
+  const { message } = App.useApp();
+  const [loading, setLoading] = useState(true);
+  const [lbStats, setLbStats] = useState<ClusterLbStatsInfo | null>(null);
+  const [nodes, setNodes] = useState<OpsNode[]>([]);
+  const [sessionsData, setSessionsData] = useState<SeriesPoint[]>([]);
+  const [unhealthy, setUnhealthy] = useState<string[]>([]);
+  const [backend, setBackend] = useState<string>('all');
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const info = await fetchClusterInfo();
+      setLbStats(info.lbStats ?? null);
+      if (!info.lbStats?.enabled) {
+        setLoading(false);
+        return;
+      }
+      const [sessions, status] = await Promise.all([
+        queryLbStats({ query: QUERIES.backendSessions }),
+        queryLbStats({ query: QUERIES.serverStatus }),
+      ]);
+      setSessionsData(toSeries(sessions.data?.result || [], 'backend'));
+      // haproxy_server_status: value 1=UP 2=DOWN 0=MAINT...
+      const down = (status.data?.result || [])
+        .filter((r) => Number(r.value[1]) !== 1)
+        .map((r) => (r.metric.server || r.metric.instance || 'unknown').replace(/^.*\//, ''));
+      setUnhealthy(down);
+    } catch (error) {
+      message.error(extractErrorMessage(error, '加载 LB 监控失败'));
+    } finally {
+      setLoading(false);
+    }
+  }, [message]);
+
+  const loadNodes = useCallback(async () => {
+    try {
+      const r = await listOpsNodes();
+      setNodes(r.nodes || []);
+    } catch {
+      /* nodes 单独失败不打断 LB 图表 */
+    }
+  }, []);
+
+  useEffect(() => {
+    void load();
+    void loadNodes();
+    const t = setInterval(() => {
+      void load();
+      void loadNodes();
+    }, 15_000);
+    return () => clearInterval(t);
+  }, [load, loadNodes]);
+
+  const filteredSeries = useMemo(
+    () => (backend === 'all' ? sessionsData : sessionsData.filter((p) => p.backend === backend)),
+    [backend, sessionsData],
+  );
+
+  const backends = useMemo(
+    () => Array.from(new Set(sessionsData.map((p) => p.backend))),
+    [sessionsData],
+  );
+
+  if (!loading && !lbStats?.enabled) {
+    return (
+      <PageContainer>
+        <Card>
+          <Empty description="未配置 Prometheus（ops.lbPrometheusUrl），LB 监控不可用" />
+        </Card>
+      </PageContainer>
+    );
+  }
+
+  return (
+    <PageContainer
+      extra={
+        <Text type="secondary">
+          LB 监控（Prometheus 管道：haproxy exporter → prometheus → 平台代理） · 15s 自动刷新
+        </Text>
+      }
+    >
+      <Spin spinning={loading}>
+        <Space direction="vertical" style={{ width: '100%' }} size={12}>
+          <Card size="small">
+            <Space size={32} wrap>
+              <Statistic title="后端总数" value={backends.length} />
+              <Statistic
+                title="不健康后端"
+                value={unhealthy.length}
+                valueStyle={{ color: unhealthy.length ? '#cf1322' : '#3f8600' }}
+              />
+              <Statistic title="agent 节点（归属表）" value={nodes.length} />
+              <Statistic
+                title="LB 会话总数"
+                value={sessionsData.reduce((s, p) => s + p.value, 0)}
+              />
+            </Space>
+          </Card>
+
+          {unhealthy.length > 0 && (
+            <Card size="small" style={{ borderColor: '#ffa39e' }}>
+              <Paragraph type="danger" style={{ margin: 0 }}>
+                不健康后端：{unhealthy.join('、')}——TCP 会话可能仍在（半开），注意与 /ops/nodes
+                的归属状态对账。
+              </Paragraph>
+            </Card>
+          )}
+
+          <Card
+            size="small"
+            title="各后端会话分布（current_sessions）"
+            extra={
+              <Select
+                size="small"
+                style={{ width: 200 }}
+                value={backend}
+                onChange={setBackend}
+                options={[
+                  { label: '全部后端', value: 'all' },
+                  ...backends.map((b) => ({ label: b, value: b })),
+                ]}
+              />
+            }
+          >
+            {filteredSeries.length === 0 ? (
+              <Empty description="暂无数据（确认 prometheus 已抓取 haproxy /metrics）" />
+            ) : (
+              <Line
+                height={280}
+                data={filteredSeries}
+                xField="time"
+                yField="value"
+                colorField="backend"
+                xAxis={{ label: { autoRotate: true } }}
+              />
+            )}
+          </Card>
+
+          <Card size="small" title="归属 vs LB 对账（僵尸探测）">
+            <Text type="secondary">
+              归属表 agent 数与 LB 会话数长期不一致（连接在、心跳停）= 半开连接信号， 结合
+              /ops/nodes 的「agent 自报」列定位。
+            </Text>
+            <div style={{ marginTop: 12 }}>
+              <Gauge
+                height={160}
+                percent={
+                  nodes.length > 0 ? Math.min(nodes.length / Math.max(backends.length, 1), 1) : 0
+                }
+                innerRadius={0.7}
+                annotations={{
+                  0.5: {
+                    content: { content: `归属 ${nodes.length} / LB 后端 ${backends.length}` },
+                  },
+                }}
+              />
+            </div>
+          </Card>
+        </Space>
+      </Spin>
+    </PageContainer>
+  );
+}

@@ -46,6 +46,7 @@ export default {
   'menu.SystemConfig.ExtensionsAgentSync': '扩展同步调试',
 
   'menu.Ops': '运维中心',
+  'menu.Ops.LBMonitor': 'LB 监控',
   'menu.Ops.OpsStatus': '服务状态',
   'menu.Ops.DBMonitor': '数据库监控',
   'menu.Ops.Nodes': '节点维护',

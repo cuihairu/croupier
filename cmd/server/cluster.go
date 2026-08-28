@@ -11,6 +11,7 @@ import (
 
 	"github.com/cuihairu/croupier/internal/cluster"
 	"github.com/cuihairu/croupier/internal/config"
+	"github.com/cuihairu/croupier/internal/platform/lbstats"
 	reg "github.com/cuihairu/croupier/internal/platform/registry"
 	"github.com/cuihairu/croupier/internal/svc"
 	"github.com/cuihairu/croupier/internal/transport/tcp"
@@ -168,6 +169,8 @@ func startCluster(ctx context.Context, c *config.Config, svcCtx *svc.ServiceCont
 		Epoch:      lifecycle.Epoch(),
 		Mesh:       lifecycle.Mesh(),
 		Resolver:   resolver,
+		// LB 监控代理（未配置 Prometheus 时 nil，/ops/lb 隐藏）
+		LBStats: lbstats.NewLBStatsService(cfg.LbPrometheusUrl),
 	}
 
 	// 归属钩子：Agent 注册/心跳/断连 → 共享归属表
