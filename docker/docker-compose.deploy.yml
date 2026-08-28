@@ -192,6 +192,10 @@ services:
       # 容器名互不解析——走宿主映射端口 19092（extra_hosts 的
       # host.docker.internal:host-gateway）；未配置则 /ops/lb 页隐藏
       CROUPIER_LB_PROMETHEUS_URL: ${CROUPIER_LB_PROMETHEUS_URL:-http://host.docker.internal:19092}
+      # 外部身份源凭据（LDAP/OIDC；未设时保持 yaml 默认=关闭。
+      # 见 docker/configs/server.yaml auth.providers 注释样例）
+      CROUPIER_AUTH_LDAP_BIND_PASSWORD: ${CROUPIER_AUTH_LDAP_BIND_PASSWORD:-}
+      CROUPIER_AUTH_OIDC_CLIENT_SECRET: ${CROUPIER_AUTH_OIDC_CLIENT_SECRET:-}
 
   server2:
     <<: *server-common

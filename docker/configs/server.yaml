@@ -54,6 +54,25 @@ auth:
   rbacConfig: "configs/rbac.json"
   usersConfig: "configs/users.json"
   gamesConfig: "configs/games.json"
+  # 外部身份源（默认全部关闭，仅本地账号登录）。凭据类字段支持环境变量
+  # 覆盖（CROUPIER_AUTH_LDAP_BIND_PASSWORD / CROUPIER_AUTH_OIDC_CLIENT_SECRET），
+  # 生产环境勿将密码/secret 写入 yaml。
+  # providers:
+  #   ldap:
+  #     enabled: false
+  #     addr: "ldap.example.com:389"
+  #     baseDn: "dc=example,dc=com"
+  #     bindDn: "cn=admin,dc=example,dc=com"
+  #     bindPassword: ""          # 生产走 CROUPIER_AUTH_LDAP_BIND_PASSWORD
+  #     userFilter: "(uid={username})"
+  #     defaultRoles: ["viewer"]
+  #   oidc:
+  #     enabled: false
+  #     issuer: "https://keycloak.example.com/realms/croupier"
+  #     clientId: "croupier"
+  #     clientSecret: ""          # 生产走 CROUPIER_AUTH_OIDC_CLIENT_SECRET
+  #     redirectUrl: "https://croupier.example.com/api/v1/auth/oidc/callback"
+  #     defaultRoles: ["viewer"]
 
 bootstrapData:
   baseDir: "configs"

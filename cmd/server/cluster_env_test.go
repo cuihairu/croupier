@@ -56,3 +56,26 @@ func TestApplyClusterEnvironmentOverrides(t *testing.T) {
 		}
 	})
 }
+
+// 外部身份源凭据 env 覆盖（LDAP/OIDC secret 不落 yaml）。
+func TestApplyAuthSecretEnvironmentOverrides(t *testing.T) {
+	t.Run("no env keeps yaml", func(t *testing.T) {
+		c := &config.Config{}
+		applyAuthSecretEnvironmentOverrides(c)
+		if c.Auth.Providers.LDAP.BindPassword != "" || c.Auth.Providers.OIDC.ClientSecret != "" {
+			t.Fatalf("unexpected: %+v", c.Auth.Providers)
+		}
+	})
+	t.Run("env overrides", func(t *testing.T) {
+		t.Setenv("CROUPIER_AUTH_LDAP_BIND_PASSWORD", "ldapsecret")
+		t.Setenv("CROUPIER_AUTH_OIDC_CLIENT_SECRET", "oidcsecret")
+		c := &config.Config{}
+		applyAuthSecretEnvironmentOverrides(c)
+		if c.Auth.Providers.LDAP.BindPassword != "ldapsecret" {
+			t.Fatal("ldap password not overridden")
+		}
+		if c.Auth.Providers.OIDC.ClientSecret != "oidcsecret" {
+			t.Fatal("oidc secret not overridden")
+		}
+	})
+}

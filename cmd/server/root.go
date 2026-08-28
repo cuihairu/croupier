@@ -175,6 +175,7 @@ func runServer() error {
 	// 注入差异：CROUPIER_CLUSTER_INSTANCE_ID / CROUPIER_CLUSTER_ADVERTISE_ADDR；
 	// docs/architecture/server-ha-multi-instance.md）
 	applyClusterEnvironmentOverrides(&c)
+	applyAuthSecretEnvironmentOverrides(&c)
 
 	applyRuntimeDefaults(&c)
 
@@ -550,6 +551,21 @@ func applyClusterEnvironmentOverrides(c *config.Config) {
 	}
 	if v := strings.TrimSpace(os.Getenv("CROUPIER_LB_PROMETHEUS_URL")); v != "" {
 		c.Cluster.LbPrometheusUrl = v
+	}
+}
+
+// applyAuthSecretEnvironmentOverrides 让外部身份源（LDAP/OIDC）凭据经
+// 环境变量注入而不落 yaml（部署模板注释样例默认关闭；生产凭据走
+// CROUPIER_AUTH_LDAP_BIND_PASSWORD / CROUPIER_AUTH_OIDC_CLIENT_SECRET）。
+func applyAuthSecretEnvironmentOverrides(c *config.Config) {
+	if c == nil {
+		return
+	}
+	if v := strings.TrimSpace(os.Getenv("CROUPIER_AUTH_LDAP_BIND_PASSWORD")); v != "" {
+		c.Auth.Providers.LDAP.BindPassword = v
+	}
+	if v := strings.TrimSpace(os.Getenv("CROUPIER_AUTH_OIDC_CLIENT_SECRET")); v != "" {
+		c.Auth.Providers.OIDC.ClientSecret = v
 	}
 }
 
