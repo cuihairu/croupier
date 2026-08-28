@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"log/slog"
 	"strings"
@@ -283,7 +282,7 @@ func (li localInvoker) InvokeLocal(ctx context.Context, req *cluster.ForwardedIn
 	if err != nil {
 		return &cluster.ForwardedResult{OK: false, Error: err.Error()}, nil
 	}
-	return &cluster.ForwardedResult{OK: true, Payload: json.RawMessage(respBytes)}, nil
+	return &cluster.ForwardedResult{OK: true, Payload: respBytes}, nil
 }
 
 // refreshRemoteSnapshots 把归属表活跃、连接在对端实例的 agent 的 DB

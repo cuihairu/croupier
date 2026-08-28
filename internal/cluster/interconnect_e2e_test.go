@@ -8,14 +8,17 @@ import (
 	"time"
 
 	"github.com/cuihairu/croupier/internal/transport/tcp"
+	sdkv1 "github.com/cuihairu/croupier/pkg/pb/croupier/sdk/v1"
 	"github.com/cuihairu/croupier/pkg/protocol"
+	"google.golang.org/protobuf/proto"
 )
 
 // interconnectServeHandler 模拟 owner 实例的互联入站处理（对齐
 // cmd/server.interconnectHandler 的两类消息：hello + forward）。
 type interconnectServeHandler struct {
-	epoch   uint64
-	payload []byte
+	epoch     uint64
+	payload   []byte
+	rawResult []byte
 }
 
 func (h *interconnectServeHandler) Handle(ctx context.Context, msgID uint32, _ uint32, body []byte) ([]byte, error) {
@@ -25,7 +28,7 @@ func (h *interconnectServeHandler) Handle(ctx context.Context, msgID uint32, _ u
 		return resp, nil
 	case protocol.MsgForwardInvokeReq:
 		forward := ServeForwardHandler(h.epoch, func(_ context.Context, req *ForwardedInvoke) (*ForwardedResult, error) {
-			return &ForwardedResult{OK: true, Payload: h.payload}, nil
+			return &ForwardedResult{OK: true, Payload: h.rawResult}, nil
 		})
 		return forward(ctx, body), nil
 	default:
@@ -50,7 +53,13 @@ func TestInterconnect_E2EForwardDialAndServe(t *testing.T) {
 		SendTimeout: 5 * time.Second,
 		Insecure:    true, // 与生产接线同语义：内网明文
 	}
-	srv, err := tcp.NewServer(srvCfg, &interconnectServeHandler{epoch: 7, payload: []byte(`{"ok":true}`)})
+	// owner 侧返回 proto 编码的 InvokeResponse（ForwardedResult.Payload
+	// 的真实契约；真实场景由 localInvoker 填充 dispatcher 输出）。
+	protoResp, err := proto.Marshal(&sdkv1.InvokeResponse{Payload: []byte(`{"ok":true}`)})
+	if err != nil {
+		t.Fatalf("marshal fixture response: %v", err)
+	}
+	srv, err := tcp.NewServer(srvCfg, &interconnectServeHandler{epoch: 7, rawResult: protoResp})
 	if err != nil {
 		t.Fatalf("new server: %v", err)
 	}
@@ -76,8 +85,12 @@ func TestInterconnect_E2EForwardDialAndServe(t *testing.T) {
 	if !res.OK {
 		t.Fatalf("forward result not ok: %+v", res)
 	}
-	if string(res.Payload) != `{"ok":true}` {
-		t.Fatalf("payload = %s", res.Payload)
+	var resp sdkv1.InvokeResponse
+	if err := proto.Unmarshal(res.Payload, &resp); err != nil {
+		t.Fatalf("payload must be proto-encoded InvokeResponse: %v (raw=%x)", err, res.Payload)
+	}
+	if string(resp.Payload) != `{"ok":true}` {
+		t.Fatalf("inner payload = %s", resp.Payload)
 	}
 }
 

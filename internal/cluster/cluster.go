@@ -12,7 +12,6 @@ package cluster
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"time"
 )
@@ -68,9 +67,12 @@ type ForwardedInvoke struct {
 
 // ForwardedResult 是转发调用的结果。
 type ForwardedResult struct {
-	OK      bool            `json:"ok"`
-	Payload json.RawMessage `json:"payload,omitempty"`
-	Error   string          `json:"error,omitempty"`
+	OK bool `json:"ok"`
+	// Payload 是 proto 编码的 InvokeResponse 字节。曾用 json.RawMessage
+	// 承载——proto 字节不是合法 JSON，owner 侧 json.Marshal 必失败并
+	// 返回无意义的 "marshal" 错误（线上跨实例调用全挂的根因）。
+	Payload []byte `json:"payload,omitempty"`
+	Error   string `json:"error,omitempty"`
 	// NotOwner 为 true 时调用方应重解析目录重试。
 	NotOwner bool `json:"notOwner,omitempty"`
 }
