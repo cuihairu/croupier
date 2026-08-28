@@ -891,3 +891,48 @@ func TestSessionResolverAdapter_ResolveAgentConn(t *testing.T) {
 		assert.Nil(t, caller)
 	})
 }
+
+// TestAgentSessionHandler_HeartbeatTouchesClusterOwner 回归（线上事故）：
+// session 层心跳捷径曾只更新 sessionStore 即应答，绕过 ControlService
+// 的完整心跳链路——集群 owner 表永不 Touch、3 分钟后过期，拓扑页
+// agentCount 归零、跨实例转发解析不到 owner、函数调用报不在线。
+// 心跳必须委托 handleHeartbeatRequest（内部触发 OnAgentHeartbeat）。
+func TestAgentSessionHandler_HeartbeatTouchesClusterOwner(t *testing.T) {
+	config := &TCPListenerConfig{Address: ":0", Insecure: true}
+	listener, err := NewTCPListener(config, nil, nil, nil)
+	require.NoError(t, err)
+	defer listener.Close()
+
+	svc := newTestControlService()
+	listener.SetHandler(svc)
+
+	hooks := &countingClusterHooks{}
+	svc.SetClusterHooks(hooks)
+
+	handler := &agentSessionHandler{
+		listener: listener,
+		conn:     nil,
+	}
+	// 先注册（建立 registry 会话 + owner Claim）。
+	regReq := &agentv1.RegisterRequest{AgentId: "agent-hb", GameId: "g", Env: "prod"}
+	regData, _ := proto.Marshal(regReq)
+	_, err = handler.Handle(context.Background(), protocol.MsgRegisterRequest, 1, regData)
+	require.NoError(t, err)
+
+	hbReq := &agentv1.HeartbeatRequest{AgentId: "agent-hb"}
+	hbData, _ := proto.Marshal(hbReq)
+	_, err = handler.Handle(context.Background(), protocol.MsgHeartbeatRequest, 2, hbData)
+	require.NoError(t, err)
+
+	assert.Equal(t, 1, hooks.heartbeats, "session 层心跳必须触发 OnAgentHeartbeat（owner Touch）")
+}
+
+type countingClusterHooks struct {
+	heartbeats int
+}
+
+func (c *countingClusterHooks) OnAgentRegistered(ctx context.Context, agentID, gameID, env string) {}
+func (c *countingClusterHooks) OnAgentHeartbeat(ctx context.Context, agentID string) {
+	c.heartbeats++
+}
+func (c *countingClusterHooks) OnAgentDisconnected(ctx context.Context, agentID string) {}

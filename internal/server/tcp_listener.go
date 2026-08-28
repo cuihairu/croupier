@@ -384,6 +384,17 @@ func (h *agentSessionHandler) handleHeartbeat(ctx context.Context, body []byte) 
 		sess.UpdateLastSeen()
 	}
 
+	// 完整心跳链路必须走 ControlService：registry 内存续期 + 集群
+	// owner Touch（跨实例转发路由依据）+ DB 异步落盘。此前的捷径只
+	// 更新 sessionStore 就应答——owner 表 3 分钟后过期、拓扑页
+	// agentCount 归零、跨实例调用解析不到 owner 全部源于这里被绕过。
+	if h.listener.handler != nil {
+		if _, err := h.listener.handler.handleHeartbeatRequest(ctx, req); err != nil {
+			h.listener.logger.Warn("heartbeat full-path handling failed",
+				"agent_id", req.AgentId, "error", err)
+		}
+	}
+
 	resp := &agentv1.HeartbeatResponse{}
 	return proto.Marshal(resp)
 }
