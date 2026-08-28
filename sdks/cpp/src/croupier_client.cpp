@@ -404,6 +404,9 @@ public:
             std::unique_ptr<TCPTransport> replacement =
                 std::make_unique<TCPTransport>(agent_address.host, agent_address.port, config_.timeout_seconds * 1000);
             replacement->SetConnectTimeout(config_.connect_timeout_seconds * 1000);
+            replacement->SetInboundHandler([this](uint32_t msg_id, uint32_t req_id, const std::vector<uint8_t>& body) {
+                return handleAgentRequest(msg_id, req_id, body);
+            });
             replacement->Connect();
             std::string session_id = registerWithAgent(*replacement);
 
@@ -420,6 +423,35 @@ public:
         }
     }
 
+    // handleAgentRequest 处理 Agent -> Provider 调用（invoke / start task），
+    // 由 TCPTransport 的有界 worker 池并发执行（读循环只投递）。
+    std::vector<uint8_t> handleAgentRequest(uint32_t msg_id, uint32_t /*req_id*/, const std::vector<uint8_t>& body) {
+        try {
+            if (msg_id == protocol::MSG_INVOKE_REQUEST) {
+                auto req = ParseMessage<::croupier::sdk::v1::InvokeRequest>(body, "InvokeRequest");
+                auto it = handlers_.find(req.function_id());
+                if (it == handlers_.end()) {
+                    SDK_LOG_ERROR("Agent invoke: function not found: " + req.function_id());
+                    return {};
+                }
+                std::string context = "{}";
+                std::string payload(req.payload().begin(), req.payload().end());
+                std::string result = it->second(context, payload);
+                ::croupier::sdk::v1::InvokeResponse resp;
+                resp.set_payload(result);
+                return SerializeMessage(resp);
+            }
+            if (msg_id == protocol::MSG_PROVIDER_HEARTBEAT_REQUEST) {
+                // keepalive pong（agent 侧探针）
+                ::croupier::sdk::v1::ProviderHeartbeatResponse resp;
+                return SerializeMessage(resp);
+            }
+        } catch (const std::exception& e) {
+            SDK_LOG_ERROR(std::string("Agent request handling failed: ") + e.what());
+        }
+        return {};
+    }
+
     bool Connect() {
         if (connected_)
             return true;
@@ -433,6 +465,9 @@ public:
             const auto agent_address = ParseTCPAddress(config_.agent_addr);
             auto transport =
                 std::make_unique<TCPTransport>(agent_address.host, agent_address.port, config_.timeout_seconds * 1000);
+            transport->SetInboundHandler([this](uint32_t msg_id, uint32_t req_id, const std::vector<uint8_t>& body) {
+                return handleAgentRequest(msg_id, req_id, body);
+            });
             transport->Connect();
             std::string session_id = registerWithAgent(*transport);
 

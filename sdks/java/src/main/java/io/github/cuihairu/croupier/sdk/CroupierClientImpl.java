@@ -485,6 +485,7 @@ public class CroupierClientImpl implements CroupierClient {
             TransportClient old = transport;
             transport = nextTransport;
             sessionId = response.sessionId;
+            attachInboundListener(nextTransport);
             if (old != null) {
                 old.close();
             }
@@ -493,6 +494,13 @@ public class CroupierClientImpl implements CroupierClient {
         } catch (Exception e) {
             nextTransport.close();
             throw e;
+        }
+    }
+
+    /** 把 transport 的入站请求路由到本地 handler（Agent -> Provider 调用）。 */
+    private void attachInboundListener(TransportClient client) {
+        if (client instanceof io.github.cuihairu.croupier.sdk.transport.TCPTransport tcp) {
+            tcp.setInboundListener((msgId, requestId, body) -> handleLocalRequest(msgId, requestId, body));
         }
     }
 

@@ -14,6 +14,7 @@
 
 using System.Net.Sockets;
 using System.Collections.Concurrent;
+using System.Threading;
 using Croupier.Sdk.Logging;
 
 namespace Croupier.Sdk.Transport;
@@ -53,6 +54,14 @@ public sealed class TCPTransport : IClientTransport
 
     // Handler for inbound requests from Agent (e.g., InvokeRequest)
     private Func<int, int, byte[], Task<byte[]>>? _inboundRequestHandler;
+
+    // Inbound worker pool: bounded concurrency (default = CPU cores).
+    // Fire-and-forget per request is unbounded; a slow handler storm can
+    // exhaust memory. Queue capacity = workers * 4; overflow fast-fails
+    // with an empty response so the Agent-side failover takes over.
+    private readonly SemaphoreSlim _inboundLimiter = new(
+        Math.Max(2, Environment.ProcessorCount), Math.Max(2, Environment.ProcessorCount));
+    private int _inboundQueued;
 
     /// <summary>
     /// Gets whether the transport is connected.
@@ -334,7 +343,7 @@ public sealed class TCPTransport : IClientTransport
                     // awaiting a response to its own request. Do not await the
                     // callback in the sole read loop, otherwise its response
                     // cannot be read and both peers time out.
-                    _ = HandleInboundRequestAsync(parsed.MsgId, parsed.ReqId, parsed.Body, cancellationToken);
+                    DispatchInbound(parsed.MsgId, parsed.ReqId, parsed.Body, cancellationToken);
                 }
             }
             catch (OperationCanceledException)
@@ -370,6 +379,47 @@ public sealed class TCPTransport : IClientTransport
             tcs.TrySetException(new InvalidOperationException("connection closed"));
         }
         _pending.Clear();
+    }
+
+    private void DispatchInbound(int msgId, int reqId, byte[] body, CancellationToken cancellationToken)
+    {
+        int capacity = Math.Max(2, Environment.ProcessorCount) * 4;
+        if (Interlocked.CompareExchange(ref _inboundQueued, 0, 0) >= capacity)
+        {
+            // Queue full: respond immediately (empty) so the Agent fails over.
+            _ = WriteFrameAsync(
+                Protocol.NewMessage(Protocol.GetResponseMsgId(msgId), reqId, new byte[0]),
+                cancellationToken);
+            return;
+        }
+        Interlocked.Increment(ref _inboundQueued);
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await _inboundLimiter.WaitAsync(cancellationToken).ConfigureAwait(false);
+                try
+                {
+                    await HandleInboundRequest(msgId, reqId, body, cancellationToken).ConfigureAwait(false);
+                }
+                finally
+                {
+                    _ = _inboundLimiter.Release();
+                }
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                // Normal shutdown.
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError("TCPTransport", $"Inbound request processing failed: {ex.Message}", ex);
+            }
+            finally
+            {
+                Interlocked.Decrement(ref _inboundQueued);
+            }
+        });
     }
 
     private async Task HandleInboundRequestAsync(int msgId, int reqId, byte[] body, CancellationToken cancellationToken)

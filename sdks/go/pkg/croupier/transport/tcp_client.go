@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"runtime"
 	"strconv"
 	"strings"
 	"sync"
@@ -124,11 +125,15 @@ func NewTCPClient(config *Config) (*TCPClient, error) {
 	if config.InboundHandler != nil {
 		workers := config.InboundWorkers
 		if workers <= 0 {
-			workers = 8
+			workers = runtime.NumCPU()
+			if workers < 2 {
+				workers = 2
+			}
 		}
 		qlen := config.InboundQLen
 		if qlen <= 0 {
-			qlen = 32
+			// 队列容量与 worker 数成比例：突发吸收 4 轮 worker 满载
+			qlen = workers * 4
 		}
 		client.inbox = make(chan inboundTask, qlen)
 		client.inboxWg.Add(workers)

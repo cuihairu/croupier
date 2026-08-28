@@ -505,15 +505,21 @@ void TCPTransport::ReadLoop() {
         std::vector<uint8_t> body(body_size);
         std::memcpy(body.data(), payload.data() + PROTOCOL_HEADER_SIZE, body_size);
 
-        // Route to pending request
-        std::lock_guard<std::mutex> lock(pending_mutex_);
-        auto it = pending_responses_.find(req_id);
-        if (it != pending_responses_.end()) {
-            it->second->Signal(std::move(body), msg_id);
+        if (protocol::IsRequest(msg_id)) {
+            // Agent -> Provider call: dispatch to bounded worker pool.
+            // (Read loop never executes handler logic — inline processing
+            // would head-of-line block every request on one slow handler.)
+            DispatchInbound(msg_id, req_id, std::move(body));
         } else {
-            // Debug: log unmatched response
-            std::cerr << "[DEBUG] TCPTransport: Received response for unknown req_id: " << req_id
-                      << ", msg_id: " << msg_id << ", body_size: " << body_size << '\n';
+            // Route response to pending request
+            std::lock_guard<std::mutex> lock(pending_mutex_);
+            auto it = pending_responses_.find(req_id);
+            if (it != pending_responses_.end()) {
+                it->second->Signal(std::move(body), msg_id);
+            } else {
+                std::cerr << "[DEBUG] TCPTransport: Received response for unknown req_id: " << req_id
+                          << ", msg_id: " << msg_id << ", body_size: " << body_size << '\n';
+            }
         }
     }
 
@@ -906,6 +912,84 @@ bool TCPServer::SendMessage(socket_t sock, uint32_t msg_type, uint32_t req_id, c
     ssize_t sent = send(sock, reinterpret_cast<const char*>(frame.data()),
                        frame.size(), 0);
     return sent == static_cast<ssize_t>(frame.size());
+}
+
+// ---- Inbound dispatch ----
+
+int TCPTransport::InboundWorkerCount() {
+    unsigned int n = std::thread::hardware_concurrency();
+    return n == 0 ? 2 : static_cast<int>(std::max(2u, n));
+}
+
+void TCPTransport::SetInboundHandler(InboundHandler handler) {
+    inbound_handler_ = std::move(handler);
+}
+
+void TCPTransport::DispatchInbound(uint32_t msg_id, uint32_t req_id, std::vector<uint8_t> body) {
+    if (!inbound_handler_) {
+        return;
+    }
+    // 惰性启动固定 worker 池（默认 = 硬件并发数）
+    {
+        std::lock_guard<std::mutex> lock(inbound_pool_mutex_);
+        if (!inbound_pool_started_) {
+            int workers = InboundWorkerCount();
+            for (int i = 0; i < workers; ++i) {
+                inbound_workers_.emplace_back([this] {
+                    for (;;) {
+                        std::tuple<uint32_t, uint32_t, std::vector<uint8_t>> task;
+                        {
+                            std::unique_lock<std::mutex> lock(inbound_pool_mutex_);
+                            inbound_cv_.wait(lock, [this] { return !inbound_queue_.empty(); });
+                            task = std::move(inbound_queue_.front());
+                            inbound_queue_.pop();
+                        }
+                        auto [mid, rid, tbody] = std::move(task);
+                        std::vector<uint8_t> resp;
+                        try {
+                            resp = inbound_handler_(mid, rid, tbody);
+                        } catch (const std::exception& e) {
+                            std::cerr << "[ERROR] inbound handler: " << e.what() << '\n';
+                            resp.clear();
+                        }
+                        WriteResponseSilently(protocol::GetResponseMsgID(mid), rid, resp);
+                        inbound_queued_.fetch_sub(1);
+                    }
+                });
+            }
+            inbound_pool_started_ = true;
+        }
+    }
+    int workers = InboundWorkerCount();
+    if (inbound_queued_.load() >= workers * 4) {
+        // 队列满：立即回空响应，Agent 侧 failover 接管。
+        std::cerr << "[WARN] inbound queue full, fast-failing req_id=" << req_id << '\n';
+        WriteResponseSilently(protocol::GetResponseMsgID(msg_id), req_id, {});
+        return;
+    }
+    inbound_queued_.fetch_add(1);
+    {
+        std::lock_guard<std::mutex> lock(inbound_pool_mutex_);
+        inbound_queue_.emplace(msg_id, req_id, std::move(body));
+    }
+    inbound_cv_.notify_one();
+}
+
+void TCPTransport::WriteResponseSilently(uint32_t resp_msg_id, uint32_t req_id, const std::vector<uint8_t>& body) {
+    try {
+        auto frame = protocol::NewMessage(resp_msg_id, req_id, body);
+        std::vector<uint8_t> wrapped(4 + frame.size());
+        wrapped[0] = static_cast<uint8_t>((frame.size() >> 24) & 0xFF);
+        wrapped[1] = static_cast<uint8_t>((frame.size() >> 16) & 0xFF);
+        wrapped[2] = static_cast<uint8_t>((frame.size() >> 8) & 0xFF);
+        wrapped[3] = static_cast<uint8_t>(frame.size() & 0xFF);
+        std::memcpy(wrapped.data() + 4, frame.data(), frame.size());
+        ssize_t sent = send(socket_, reinterpret_cast<const char*>(wrapped.data()),
+                             static_cast<int>(wrapped.size()), 0);
+        (void)sent;
+    } catch (...) {
+        // best-effort
+    }
 }
 
 } // namespace sdk

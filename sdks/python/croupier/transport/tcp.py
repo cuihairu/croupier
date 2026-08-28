@@ -19,7 +19,9 @@ import logging
 import socket
 import ssl
 import struct
+import os
 import threading
+from concurrent.futures import ThreadPoolExecutor
 from typing import Callable, Optional, Tuple
 
 from .. import protocol
@@ -116,8 +118,16 @@ class TCPTransport:
         tls_ca_file: str = "",
         tls_server_name: str = "",
         tls_insecure_skip_verify: bool = False,
+        inbound_workers: int = 0,
     ):
         self.address = address
+        # 入站 worker 池（0=默认 CPU 核数）：读线程只投递，handler 由
+        # 固定线程池消费——同步处理会造成头部阻塞（一个慢 handler 卡住
+        # 整条连接的所有请求）。队列满立即回空响应（Agent failover）。
+        self._inbound_workers = inbound_workers if inbound_workers > 0 else max(2, os.cpu_count() or 2)
+        self._inbound_pool: Optional[ThreadPoolExecutor] = None
+        self._inbound_queue_size = 0
+        self._inbound_lock = threading.Lock()
         self.timeout_ms = timeout_ms
         self._tls_enabled = tls_enabled
         self._tls_cert_file = tls_cert_file
@@ -322,11 +332,35 @@ class TCPTransport:
                 break
 
     def _handle_inbound(self, msg_id: int, req_id: int, body: bytes) -> None:
+        """读线程只投递；handler 由固定线程池消费（防头部阻塞）。"""
         if self._handler is None:
             LOG.warning("No handler for inbound %s", protocol.msg_id_string(msg_id))
             return
+        if self._inbound_pool is None:
+            self._inbound_pool = ThreadPoolExecutor(
+                max_workers=self._inbound_workers, thread_name_prefix="croupier-inbound"
+            )
+        with self._inbound_lock:
+            queued = self._inbound_queue_size
+        if queued >= self._inbound_workers * 4:
+            # 队列满：立即回空响应，Agent 侧 failover 接管。
+            LOG.warning("Inbound queue full, fast-failing req_id=%d", req_id)
+            self.send_response(protocol.get_response_msg_id(msg_id), req_id, b"")
+            return
+        with self._inbound_lock:
+            self._inbound_queue_size += 1
+        self._inbound_pool.submit(self._run_inbound, msg_id, req_id, body)
+
+    def _run_inbound(self, msg_id: int, req_id: int, body: bytes) -> None:
         try:
-            resp_body = self._handler(msg_id, req_id, body)
+            self._process_inbound(msg_id, req_id, body)
+        finally:
+            with self._inbound_lock:
+                self._inbound_queue_size -= 1
+
+    def _process_inbound(self, msg_id: int, req_id: int, body: bytes) -> None:
+        try:
+            resp_body = self._handler(msg_id, req_id, body)  # type: ignore[misc]
             resp_msg_id = protocol.get_response_msg_id(msg_id)
             self.send_response(resp_msg_id, req_id, resp_body)
         except Exception as exc:

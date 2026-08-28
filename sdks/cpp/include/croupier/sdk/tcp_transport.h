@@ -141,6 +141,17 @@ private:
         }
     };
 
+    // ---- Inbound (Agent -> Provider calls) ----
+    // Read loop only dispatches; handlers run on a bounded worker pool
+    // (default = hardware concurrency, queue = workers * 4, overflow
+    // fast-fails with an empty response so Agent failover takes over).
+    using InboundHandler = std::function<std::vector<uint8_t>(uint32_t msg_id, uint32_t req_id, const std::vector<uint8_t>& body)>;
+
+    void SetInboundHandler(InboundHandler handler);
+    void DispatchInbound(uint32_t msg_id, uint32_t req_id, std::vector<uint8_t> body);
+    void WriteResponseSilently(uint32_t resp_msg_id, uint32_t req_id, const std::vector<uint8_t>& body);
+    static int InboundWorkerCount();
+
     void ReadLoop();
     int ReadFully(void* buf, size_t count);
     static void PutMsgId(uint8_t* buf, uint32_t msg_id);
@@ -159,6 +170,13 @@ private:
     std::unordered_map<uint32_t, std::unique_ptr<ResponseLatch>> pending_responses_;
     std::mutex pending_mutex_;
     std::thread read_thread_;
+    InboundHandler inbound_handler_;
+    std::mutex inbound_pool_mutex_;
+    std::vector<std::thread> inbound_workers_;
+    std::queue<std::tuple<uint32_t, uint32_t, std::vector<uint8_t>>> inbound_queue_;
+    std::condition_variable inbound_cv_;
+    std::atomic<int> inbound_queued_{0};
+    bool inbound_pool_started_ = false;
 
     static constexpr size_t FRAME_HEADER_BYTES = 4;
     static constexpr size_t PROTOCOL_HEADER_SIZE = 8;

@@ -13,6 +13,7 @@
  * Multiple concurrent request/response pairs multiplex on the same connection.
  */
 
+import os from "os";
 import {
   Socket,
   createConnection,
@@ -83,6 +84,10 @@ export interface TCPTransportConfig {
   address?: string;
   timeoutMs?: number;
   connectTimeoutMs?: number;  // Connection timeout (separate from request timeout)
+  // 入站处理并发（固定 worker 池，防读循环头部阻塞——一个慢 handler
+  // 卡住整条连接的所有请求）。0/未设 = os.cpus().length；队列容量
+  // = workers * 4，满时立即回 busy 错误响应（Agent failover 接管）。
+  inboundWorkers?: number;
   tlsEnabled?: boolean;
   tlsCertFile?: string;
   tlsKeyFile?: string;
@@ -129,8 +134,16 @@ export class TCPTransport {
 
   // inbound request handler
   private handler: RequestHandler | null = null;
+  // 入站 worker 池：读循环只投递，handler 由固定并发消费。
+  private inboundQueue: Array<{ msgId: number; reqId: number; body: Buffer }> = [];
+  private inboundWorkersRunning = 0;
+  private inboundWorkerLimit = 0;
 
   constructor(config: TCPTransportConfig = {}) {
+    this.inboundWorkerLimit =
+      config.inboundWorkers && config.inboundWorkers > 0
+        ? config.inboundWorkers
+        : Math.max(2, os.cpus().length);
     this.address = config.address ?? "127.0.0.1:19091";
     this.timeoutMs = config.timeoutMs ?? 30000;
     this.connectTimeoutMs = config.connectTimeoutMs ?? 5000;
@@ -332,7 +345,7 @@ export class TCPTransport {
               pending.resolve();
             }
           } else if (isRequest(msgId)) {
-            await this.handleInbound(msgId, reqId, body);
+            this.dispatchInbound(msgId, reqId, body);
           }
         } catch (err) {
           if (this.running) {
@@ -368,6 +381,32 @@ export class TCPTransport {
         }
       });
     });
+  }
+
+  /** 读循环只投递：固定并发消费 handler，队列满立即回 busy。 */
+  private dispatchInbound(msgId: number, reqId: number, body: Buffer): void {
+    const capacity = this.inboundWorkerLimit * 4;
+    if (this.inboundQueue.length >= capacity) {
+      // 队列满：立即回空/错误响应，Agent 侧 failover 接管。
+      this.sendResponse(getResponseMsgId(msgId), reqId, Buffer.alloc(0));
+      return;
+    }
+    this.inboundQueue.push({ msgId, reqId, body });
+    if (this.inboundWorkersRunning < this.inboundWorkerLimit) {
+      this.inboundWorkersRunning += 1;
+      void this.inboundWorkerLoop();
+    }
+  }
+
+  private async inboundWorkerLoop(): Promise<void> {
+    for (;;) {
+      const task = this.inboundQueue.shift();
+      if (!task) {
+        this.inboundWorkersRunning -= 1;
+        return;
+      }
+      await this.handleInbound(task.msgId, task.reqId, task.body);
+    }
   }
 
   private async handleInbound(

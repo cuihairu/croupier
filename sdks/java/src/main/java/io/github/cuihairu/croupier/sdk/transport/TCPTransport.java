@@ -23,6 +23,10 @@ import java.nio.ByteOrder;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.SynchronousQueue;
+import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -47,6 +51,25 @@ public class TCPTransport implements TransportClient {
     private final Map<Integer, ResponseLatch> pendingResponses = new ConcurrentHashMap<>();
     private volatile boolean closing = false;
     private Thread readLoopThread;
+
+    // Inbound request listener (Agent -> Provider calls). Read loop only
+    // dispatches; handlers run on a bounded worker pool (default = CPU
+    // cores, queue capacity = workers * 4, overflow fast-fails with an
+    // empty response so the Agent-side failover takes over). Processing
+    // inline would head-of-line block every request on one slow handler;
+    // fire-and-forget threads would be unbounded.
+    public interface InboundListener {
+        byte[] onRequest(int msgId, int requestId, byte[] body) throws Exception;
+    }
+
+    private volatile InboundListener inboundListener;
+    private volatile ExecutorService inboundPool;
+    private final AtomicInteger inboundQueued = new AtomicInteger();
+
+    /** Sets the inbound request listener; inbound dispatch is enabled only when set. */
+    public void setInboundListener(InboundListener listener) {
+        this.inboundListener = listener;
+    }
 
     private static class ResponseLatch {
         final CountDownLatch latch = new CountDownLatch(1);
@@ -249,12 +272,16 @@ public class TCPTransport implements TransportClient {
                 byte[] body = new byte[payload.length - PROTOCOL_HEADER_SIZE];
                 System.arraycopy(payload, PROTOCOL_HEADER_SIZE, body, 0, body.length);
 
-                // Route to pending request
-                ResponseLatch latch = pendingResponses.get(reqId);
-                if (latch != null) {
-                    latch.signal(body, msgId);
-                } else {
-                    LOG.debug("No pending request for reqId: {}", reqId);
+                if (Protocol.isResponse(msgId)) {
+                    // Route to pending request
+                    ResponseLatch latch = pendingResponses.get(reqId);
+                    if (latch != null) {
+                        latch.signal(body, msgId);
+                    } else {
+                        LOG.debug("No pending request for reqId: {}", reqId);
+                    }
+                } else if (Protocol.isRequest(msgId)) {
+                    dispatchInbound(msgId, reqId, body);
                 }
             }
         } catch (IOException e) {
@@ -325,6 +352,91 @@ public class TCPTransport implements TransportClient {
                 LOG.debug("Error closing socket", e);
             }
             socket = null;
+        }
+        ExecutorService pool = this.inboundPool;
+        if (pool != null) {
+            pool.shutdownNow();
+            this.inboundPool = null;
+        }
+
+    }
+
+    private void dispatchInbound(int msgId, int reqId, byte[] body) {
+        InboundListener listener = inboundListener;
+        if (listener == null) {
+            LOG.debug("No inbound listener for msgId {}", Integer.toHexString(msgId));
+            return;
+        }
+        ExecutorService pool = inboundPool();
+        int workers = inboundWorkerCount();
+        if (inboundQueued.get() >= workers * 4) {
+            LOG.warn("Inbound queue full, fast-failing reqId={}", reqId);
+            writeResponseSilently(Protocol.getResponseMsgID(msgId), reqId, new byte[0]);
+            return;
+        }
+        inboundQueued.incrementAndGet();
+        try {
+            pool.execute(() -> {
+                try {
+                    byte[] resp;
+                    try {
+                        resp = listener.onRequest(msgId, reqId, body);
+                    } catch (Exception e) {
+                        LOG.error("Inbound handler failed: {}", e.getMessage(), e);
+                        resp = new byte[0];
+                    }
+                    writeResponseSilently(Protocol.getResponseMsgID(msgId), reqId, resp);
+                } finally {
+                    inboundQueued.decrementAndGet();
+                }
+            });
+        } catch (RejectedExecutionException rejected) {
+            inboundQueued.decrementAndGet();
+            writeResponseSilently(Protocol.getResponseMsgID(msgId), reqId, new byte[0]);
+        }
+    }
+
+    private static int inboundWorkerCount() {
+        return Math.max(2, Runtime.getRuntime().availableProcessors());
+    }
+
+    private ExecutorService inboundPool() {
+        ExecutorService pool = this.inboundPool;
+        if (pool == null) {
+            synchronized (this) {
+                pool = this.inboundPool;
+                if (pool == null) {
+                    int workers = inboundWorkerCount();
+                    pool = new ThreadPoolExecutor(
+                        workers, workers, 60L, TimeUnit.SECONDS,
+                        new SynchronousQueue<>(),
+                        r -> {
+                            Thread t = new Thread(r, "croupier-inbound");
+                            t.setDaemon(true);
+                            return t;
+                        },
+                        new ThreadPoolExecutor.CallerRunsPolicy());
+                    this.inboundPool = pool;
+                }
+            }
+        }
+        return pool;
+    }
+
+    private void writeResponseSilently(int respMsgId, int reqId, byte[] body) {
+        try {
+            byte[] frame = Protocol.newMessage(respMsgId, reqId, body);
+            byte[] wrapped = ByteBuffer.allocate(4 + frame.length)
+                .order(ByteOrder.BIG_ENDIAN)
+                .putInt(frame.length)
+                .put(frame)
+                .array();
+            synchronized (outputStream) {
+                outputStream.write(wrapped);
+                outputStream.flush();
+            }
+        } catch (IOException e) {
+            LOG.debug("Failed to write inbound response: {}", e.getMessage());
         }
         if (readLoopThread != null) {
             try {
