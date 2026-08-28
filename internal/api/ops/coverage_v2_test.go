@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cuihairu/croupier/internal/cluster"
 	"github.com/cuihairu/croupier/internal/model"
 	"github.com/cuihairu/croupier/internal/platform/registry"
 	"github.com/cuihairu/croupier/internal/svc"
@@ -1260,4 +1261,78 @@ func TestHandler_AgentMetricsHistory_Success_V2(t *testing.T) {
 	ctx, rec := newOpsTestContext(http.MethodGet, "/api/v1/ops/agents/a1/metrics/history", "")
 	h.AgentMetricsHistory(ctx)
 	assert.True(t, rec.Code >= 200 && rec.Code < 600)
+}
+
+// TestListNodes_RemoteOwnedSnapshotNotStale 回归（HA 多实例）：本地
+// registry 里的远端 agent 快照（启动 LoadFromDB 载入、心跳只续对端侧、
+// 本地 ExpireAt 冻结过期）在共享归属表判定活跃且 owner 为对端实例时，
+// 必须报 online + ownerInstance 标签——修复前被 resolveNodeStatus 按本地
+// 过期 ExpireAt 误判 stale，且因 registered 提前短路轮不到 owner 聚合，
+// 页面表现为「一个在线一个离线」。
+func TestListNodes_RemoteOwnedSnapshotNotStale(t *testing.T) {
+	t.Parallel()
+
+	store := registry.NewStore()
+	now := time.Now()
+	// 本实例直连的 agent：正常 active。
+	store.UpsertAgent(&registry.AgentSession{
+		AgentID:   "agent-local",
+		GameID:    "g1",
+		Env:       "prod",
+		Addr:      "h:1",
+		Labels:    map[string]string{},
+		Functions: map[string]registry.FunctionMeta{},
+		LastSeen:  now,
+		ExpireAt:  now.Add(time.Hour),
+	})
+	// 远端 agent 的冻结快照：ExpireAt 已过（心跳只在对端实例续期）。
+	store.UpsertAgent(&registry.AgentSession{
+		AgentID:   "agent-remote",
+		GameID:    "g1",
+		Env:       "prod",
+		Addr:      "h:2",
+		Labels:    map[string]string{},
+		Functions: map[string]registry.FunctionMeta{},
+		LastSeen:  now.Add(-2 * time.Hour),
+		ExpireAt:  now.Add(-time.Hour),
+	})
+
+	svcCtx := &svc.ServiceContext{
+		RegistryStore: store,
+		Cluster: &svc.ClusterRuntime{
+			InstanceID: "self-inst",
+			ListAgentOwners: func(context.Context) ([]cluster.AgentOwnerRecord, error) {
+				return []cluster.AgentOwnerRecord{{
+					AgentID:    "agent-remote",
+					InstanceID: "peer-inst",
+					GameID:     "g1",
+					Env:        "prod",
+					LastSeenAt: now,
+				}}, nil
+			},
+		},
+	}
+
+	nodes := listNodes(context.Background(), svcCtx, "", "", "")
+	byID := map[string]Node{}
+	for _, n := range nodes {
+		byID[n.Id] = n
+	}
+	local, ok := byID["agent-local"]
+	if !ok {
+		t.Fatal("agent-local missing")
+	}
+	if local.Status != "active" {
+		t.Errorf("agent-local status = %s, want active", local.Status)
+	}
+	remote, ok := byID["agent-remote"]
+	if !ok {
+		t.Fatal("agent-remote missing")
+	}
+	if remote.Status != "online" {
+		t.Errorf("agent-remote status = %s, want online (owner 活跃的远端快照不得按本地过期 ExpireAt 判 stale)", remote.Status)
+	}
+	if remote.Labels["ownerInstance"] != "peer-inst" {
+		t.Errorf("agent-remote ownerInstance = %q, want peer-inst", remote.Labels["ownerInstance"])
+	}
 }

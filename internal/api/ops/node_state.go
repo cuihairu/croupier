@@ -53,6 +53,15 @@ func listNodes(ctx context.Context, svcCtx *svc.ServiceContext, gameID, env, sta
 		}
 	}
 
+	// selfInstanceID 用于区分「owner 是对端」：本地 registry 的快照可能
+	// 来自启动时 LoadFromDB（agent 实际连在对端实例），此后心跳只续
+	// 对端侧，本地 ExpireAt 冻结过期会把活跃 agent 误判成 stale——
+	// 此类节点必须以共享归属表为准判 online。
+	selfInstanceID := ""
+	if svcCtx.Cluster != nil {
+		selfInstanceID = svcCtx.Cluster.InstanceID
+	}
+
 	if svcCtx.RegistryStore != nil {
 		store := svcCtx.RegistryStore
 		store.Mu().RLock()
@@ -68,12 +77,33 @@ func listNodes(ctx context.Context, svcCtx *svc.ServiceContext, gameID, env, sta
 				continue
 			}
 
-			nodeStatus := resolveNodeStatus(sess, drainedNodes[sess.AgentID], now)
+			var nodeStatus, remoteOwner string
+			if owner, ok := aliveOwners[sess.AgentID]; ok && selfInstanceID != "" &&
+				owner.InstanceID != selfInstanceID {
+				// 远端持有的活跃 agent：本地快照仅提供详情（函数数/标签），
+				// 在线状态以归属表为准，并标注持有实例。
+				nodeStatus = "online"
+				if drainedNodes[sess.AgentID] {
+					nodeStatus = "drained"
+				}
+				remoteOwner = owner.InstanceID
+			} else {
+				nodeStatus = resolveNodeStatus(sess, drainedNodes[sess.AgentID], now)
+			}
 			if !nodeStatusMatches(statusFilter, nodeStatus) {
 				continue
 			}
 
-			items = append(items, runtimeNodeListItem(sess, nodeStatus, svcCtx.MetricsStore))
+			item := runtimeNodeListItem(sess, nodeStatus, svcCtx.MetricsStore)
+			if remoteOwner != "" {
+				labels := make(map[string]string, len(item.node.Labels)+1)
+				for k, v := range item.node.Labels {
+					labels[k] = v
+				}
+				labels["ownerInstance"] = remoteOwner
+				item.node.Labels = labels
+			}
+			items = append(items, item)
 		}
 		store.Mu().RUnlock()
 
