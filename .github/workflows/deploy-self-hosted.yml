@@ -60,6 +60,7 @@ jobs:
         timeout-minutes: 2
         run: |
           cp docker/docker-compose.deploy.yml "${{ inputs.deploy_dir }}/docker-compose.yml"
+          cp docker/docker-compose.telemetry.yaml "${{ inputs.deploy_dir }}/docker-compose.telemetry.yaml"
           # 备份线上 agent 配置（scope 是环境事实，rm -rf configs 前抢救）
           PREV_DIR="$(mktemp -d)"
           for cfg in agent.yaml agent2.yaml; do
@@ -74,6 +75,9 @@ jobs:
           rm -rf "${{ inputs.deploy_dir }}/configs"
           mkdir -p "${{ inputs.deploy_dir }}/configs"
           cp docker/configs/server.yaml docker/configs/agent.yaml docker/configs/agent2.yaml docker/configs/haproxy.cfg "${{ inputs.deploy_dir }}/configs/"
+          # telemetry 栈（prometheus/grafana/jaeger/otel）配置随部署分发——
+          # prometheus.yml 含 haproxy exporter 抓取目标（LB 监控管道）
+          cp configs/prometheus.yml "${{ inputs.deploy_dir }}/configs/prometheus.yml"
           # agent*.yaml 的 game/env scope 是环境事实（生产 demo-game/development，
           # 全新安装 bootstrap 为 default/dev），部署覆盖会静默改写 scope 导致
           # 函数注册进不可见的游戏。策略：线上已有文件原样保留（scope 不动），
@@ -206,6 +210,15 @@ jobs:
           echo "===== 镜像 digest 诊断（服务 -> 镜像 ID） ====="
           docker compose "${COMPOSE_ARGS[@]}" images server server2 agent agent2 haproxy dashboard
           docker compose "${COMPOSE_ARGS[@]}" up -d --force-recreate --wait server server2 agent agent2 haproxy dashboard
+
+          # telemetry 栈（独立 project：croupier-telemetry）：prometheus/
+          # grafana/jaeger/otel。宿主映射端口供 deploy 栈跨网络访问
+          #（LB 监控 19092）。telemetry 失败不阻塞主服务部署。
+          TELEMETRY_ARGS=(--project-name croupier-telemetry -f "${{ inputs.deploy_dir }}/docker-compose.telemetry.yaml")
+          sed -i 's|\.\./configs/|${{ inputs.deploy_dir }}/configs/|g' "${{ inputs.deploy_dir }}/docker-compose.telemetry.yaml"
+          if ! docker compose "${TELEMETRY_ARGS[@]}" up -d --wait; then
+            echo "::warn::telemetry 栈启动失败（主服务不受影响；LB 监控/trace 不可用）"
+          fi
 
       - name: Dump agent registration evidence
         timeout-minutes: 2
