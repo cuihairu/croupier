@@ -26,6 +26,12 @@ type Server struct {
 	closing  chan struct{}
 	once     sync.Once
 	wg       sync.WaitGroup
+
+	// mu/conns 跟踪活跃连接：Close 时主动断开，避免 wg.Wait 被
+	// 「阻塞在读直到 RecvTimeout」的 handler 卡住（互联 RecvTimeout
+	// 90s 时优雅停机会拖满整个超时）。
+	mu    sync.Mutex
+	conns map[net.Conn]struct{}
 }
 
 var _ transportcore.Server = (*Server)(nil)
@@ -81,9 +87,11 @@ func (s *Server) Serve(ctx context.Context) error {
 			return fmt.Errorf("accept: %w", err)
 		}
 
+		s.trackConn(conn)
 		s.wg.Add(1)
 		go func() {
 			defer s.wg.Done()
+			defer s.untrackConn(conn)
 			s.serveConn(ctx, conn)
 		}()
 	}
@@ -146,12 +154,35 @@ func (s *Server) serveConn(ctx context.Context, conn net.Conn) {
 	}
 }
 
-// Close stops accepting new connections.
+// trackConn registers an accepted connection for Close-time shutdown.
+func (s *Server) trackConn(conn net.Conn) {
+	s.mu.Lock()
+	if s.conns == nil {
+		s.conns = map[net.Conn]struct{}{}
+	}
+	s.conns[conn] = struct{}{}
+	s.mu.Unlock()
+}
+
+func (s *Server) untrackConn(conn net.Conn) {
+	s.mu.Lock()
+	delete(s.conns, conn)
+	s.mu.Unlock()
+}
+
+// Close stops accepting new connections and unblocks active handlers by
+// closing their connections — wg.Wait otherwise waits out the full
+// RecvTimeout on idle connections.
 func (s *Server) Close() error {
 	var closeErr error
 	s.once.Do(func() {
 		close(s.closing)
 		closeErr = s.listener.Close()
+		s.mu.Lock()
+		for conn := range s.conns {
+			_ = conn.Close()
+		}
+		s.mu.Unlock()
 		s.wg.Wait()
 	})
 	return closeErr

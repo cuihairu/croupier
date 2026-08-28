@@ -70,7 +70,22 @@ func startCluster(ctx context.Context, c *config.Config, svcCtx *svc.ServiceCont
 		return nil, nil
 	}
 
-	lifecycle := cluster.Start(ctx, lcCfg, member, resolver, nil)
+	// 互联当前语义是内网明文：ClusterConfig 没有证书配置面，Insecure
+	// 必须置 true——否则 listen() 落入 TLS 分支，空 tls.Config 直接报
+	// "neither Certificates ... set"（线上双实例互联监听全挂根因）。
+	// dialer 与 server 必须同语义，共用同一 Config。
+	icAddr := cfg.InterconnectAddr
+	if icAddr == "" {
+		icAddr = cfg.AdvertiseAddr
+	}
+	icCfg := &tcp.Config{
+		Address:     icAddr,
+		RecvTimeout: 90 * time.Second,
+		SendTimeout: 30 * time.Second,
+		Insecure:    true,
+	}
+
+	lifecycle := cluster.Start(ctx, lcCfg, member, resolver, cluster.NewTCPDialer(icCfg))
 	if lifecycle == nil {
 		return nil, nil
 	}
@@ -131,24 +146,11 @@ func startCluster(ctx context.Context, c *config.Config, svcCtx *svc.ServiceCont
 		return resolver.ListAliveOwners(ctx)
 	}
 
-	// 互联端口（默认与 advertiseAddr 同地址；独立监听，Agent-facing 端口外）。
-	icAddr := cfg.InterconnectAddr
-	if icAddr == "" {
-		icAddr = cfg.AdvertiseAddr
-	}
 	var invoker cluster.LocalInvoker
 	if svcCtx.Dispatcher != nil {
 		invoker = localInvoker{dispatcher: svcCtx.Dispatcher}
 	}
 	handler := newInterconnectHandler(lifecycle, invoker)
-	icCfg := &tcp.Config{
-		Address:     icAddr,
-		RecvTimeout: 90 * time.Second,
-		SendTimeout: 30 * time.Second,
-	}
-	if cfg.InsecureSkipTLS {
-		icCfg.InsecureSkipVerify = true
-	}
 	srv, err := tcp.NewServer(icCfg, handler)
 	if err != nil {
 		slog.Error("cluster: interconnect listen failed (mesh dial-out still active)", "addr", icAddr, "error", err)
