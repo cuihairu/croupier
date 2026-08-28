@@ -38,6 +38,8 @@ export default function LBMonitor() {
   const { message } = App.useApp();
   const [loading, setLoading] = useState(true);
   const [lbStats, setLbStats] = useState<ClusterLbStatsInfo | null>(null);
+  // 未配置 Prometheus 时置位：轮询完全停止（后台零请求），只留空态说明
+  const [disabled, setDisabled] = useState(false);
   const [nodes, setNodes] = useState<OpsNode[]>([]);
   const [sessionsData, setSessionsData] = useState<SeriesPoint[]>([]);
   const [unhealthy, setUnhealthy] = useState<string[]>([]);
@@ -49,7 +51,10 @@ export default function LBMonitor() {
       const info = await fetchClusterInfo();
       setLbStats(info.lbStats ?? null);
       if (!info.lbStats?.enabled) {
+        // 未配置 Prometheus：不再发起 LB 查询；轮询循环见 disabled 标记
+        // 停止（只保留这一次开关探测）
         setLoading(false);
+        setDisabled(true);
         return;
       }
       const [sessions, status] = await Promise.all([
@@ -85,12 +90,12 @@ export default function LBMonitor() {
     void loadNodes();
     // LB 状态弱实时：30s 轮询足够；页签不可见时跳过该轮（后台零请求）
     const t = setInterval(() => {
-      if (!document.hidden) {
+      if (!disabled && !document.hidden) {
         void load();
       }
     }, 30_000);
     const onVisible = () => {
-      if (!document.hidden) void load();
+      if (!disabled && !document.hidden) void load();
     };
     document.addEventListener('visibilitychange', onVisible);
     return () => {
