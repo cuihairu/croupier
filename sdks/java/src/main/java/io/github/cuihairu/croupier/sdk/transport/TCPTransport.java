@@ -272,16 +272,16 @@ public class TCPTransport implements TransportClient {
                 byte[] body = new byte[payload.length - PROTOCOL_HEADER_SIZE];
                 System.arraycopy(payload, PROTOCOL_HEADER_SIZE, body, 0, body.length);
 
-                if (Protocol.isResponse(msgId)) {
-                    // Route to pending request
-                    ResponseLatch latch = pendingResponses.get(reqId);
-                    if (latch != null) {
-                        latch.signal(body, msgId);
-                    } else {
-                        LOG.debug("No pending request for reqId: {}", reqId);
-                    }
+                // 响应优先按 pending reqId 匹配（保持既有语义：mock/旧对端
+                // 可能用非标准响应 msgId 回帧）；未命中 pending 且是请求帧
+                // 才走 inbound 分发（Agent -> Provider 调用）。
+                ResponseLatch latch = pendingResponses.get(reqId);
+                if (latch != null) {
+                    latch.signal(body, msgId);
                 } else if (Protocol.isRequest(msgId)) {
                     dispatchInbound(msgId, reqId, body);
+                } else {
+                    LOG.debug("No pending request for reqId: {}", reqId);
                 }
             }
         } catch (IOException e) {
