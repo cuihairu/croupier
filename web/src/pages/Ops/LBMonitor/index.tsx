@@ -61,7 +61,7 @@ export default function LBMonitor() {
         queryLbStats({ query: QUERIES.backendSessions }),
         queryLbStats({ query: QUERIES.serverStatus }),
       ]);
-      setSessionsData(toSeries(sessions.data?.result || [], 'backend'));
+      setSessionsData(toSeries(sessions.data?.result || [], 'proxy'));
       // haproxy_server_status 是 per-state 指标族（server×UP/DOWN/MAINT/
       // DRAIN/NOLB 各一行）——只看 state="UP" 行的值：1=健康，其余=不健康
       const down = (status.data?.result || [])
