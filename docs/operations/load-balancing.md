@@ -175,3 +175,101 @@ vrrp_instance VI_CROUPIER {
 4. nginx stream 块下线（dashboard 回归纯 L7）
 
 整个过程 Server 集群无感知（成员表按连接归属自动更新 owner）。
+
+## LB 监控（设计定案）
+
+> 状态：Accepted（方案定案，分阶段落地）。核心原则：**管道用开源生态，展示做平台原生；数据源可配置，不绑定任何 LB 品牌。**
+
+### 设计演进与结论
+
+监控 LB 的方案经历三轮讨论收敛：
+
+1. ~~server 端自研 LB stats 解析适配器（拉 haproxy CSV）~~ —— **否决**：重复造轮子，等价于重新实现 haproxy exporter 的一部分；且绑死 haproxy，换 LB 就废
+2. ~~跳转/iframe 嵌 Grafana~~ —— **否决为主案**：体验割裂（另一套 UI）、权限绕过平台 RBAC（Grafana 需配匿名/auth-proxy）
+3. **最终定案**：采集与存储用 Prometheus exporter 生态（开源），展示层由平台原生渲染（直读 Prometheus API + Ant Design Charts），Grafana 仅作深度分析外链兜底
+
+### 分层架构
+
+```text
+HAProxy 2.4+ 内置 exporter（零新增容器，cfg 一行）
+        → Prometheus（存储/历史/聚合/告警，开源 TSDB）
+        → Server 只读代理端点（metric 白名单 + 平台 RBAC 鉴权收口）
+        → Dashboard 原生图表页 /ops/lb（与 dbmon 同模式：server 拉数、原生渲染）
+```
+
+自己做 VS 不做的边界：
+
+| 层                 | 自研 or 开源         | 理由                                           |
+| ------------------ | -------------------- | ---------------------------------------------- |
+| 采集（exporter）   | 开源                 | 每个 LB 都有官方/社区 exporter，追不完也不该追 |
+| 存储/查询/告警引擎 | 开源（Prometheus）   | TSDB 自研纯属重复劳动                          |
+| 查询代理 + 图表    | **自研（薄两层）**   | 鉴权收口 + 体验一致；dbmon 页是同模式先例      |
+| 深度分析大盘       | 开源（Grafana 外链） | 平台只做日常对账，不复制 Grafana               |
+
+### 开源 exporter 对照表
+
+| LB         | 方案                                                                                                         | 接入成本       |
+| ---------- | ------------------------------------------------------------------------------------------------------------ | -------------- |
+| HAProxy    | 2.4+ 内置 Prometheus exporter（`http-request use-service prometheus-exporter`）——本仓库 haproxy 2.9 原生支持 | 极低（改 cfg） |
+| nginx      | `nginx-prometheus-exporter`（nginxinc 官方）                                                                 | 低（sidecar）  |
+| keepalived | `keepalived-exporter`（VRRP 状态/漂移）                                                                      | 低             |
+| LVS/IPVS   | `prometheus-ipvs-exporter`（需宿主权限）                                                                     | 中             |
+| 云 NLB     | 云厂商 exporter（AWS yace / 阿里云 aliyun-exporter）                                                         | 中（云凭据）   |
+| 通用兜底   | `blackbox_exporter`（TCP 探测入口可达/延迟——无管理接口也适用）                                               | 极低           |
+
+Grafana 官方大盘：HAProxy 2（dashboard ID 12693）、NGINX（12708），导入即用。
+
+### 平台侧核心图表（原生渲染）
+
+| 图              | PromQL（现成）                                                         | 对账意义                 |
+| --------------- | ---------------------------------------------------------------------- | ------------------------ |
+| 各后端会话分布  | `haproxy_backend_current_sessions`                                     | 与归属表 agentCount 对照 |
+| 后端健康状态    | `haproxy_server_status`                                                | UP/DOWN/NMA 实时可见     |
+| 请求速率/错误率 | `haproxy_backend_http_requests_total` / `haproxy_backend_errors_total` | 流量异常发现             |
+| 健康检查失败    | `haproxy_server_check_failures`                                        | 半死实例探测             |
+
+**对账列（僵尸探测器）**：`/ops/cluster` 每实例展示「LB 会话数 vs 归属表 agent 数」——两者长期不一致（连接在、心跳停）即半开连接信号，正是 HA 双实例排障中最缺的一屏可见性。
+
+### 配置化（不写死任何地址）
+
+```yaml
+# server.yaml——部署拓扑事实，支持环境变量覆盖（与 cluster 段同模式）
+ops:
+  prometheusUrl: http://prometheus:9090 # 空 = /ops/lb 页隐藏（单实例/无遥测栈优雅降级）
+  grafanaUrl: http://grafana:3000 # 可选，配置后出现"深度分析"外链
+```
+
+- 未配置 → 页面不出现，零依赖
+- 换 LB / 加 keepalived → 只改 prometheus.yml 的 scrape job，平台侧零改动
+- 配置归属支持层（ops 段），不进站点配置（业务运营开关）——遵循信号分层定案
+
+### 网络注意点（部署）
+
+telemetry 栈（`docker-compose.telemetry.yaml`）与 deploy 栈（`docker-compose.deploy.yml`）是**两个独立 compose 网络**。Server 连 Prometheus 需要任选其一：
+
+1. 共享 external network（`croupier-telemetry` 声明为 external 并挂给 deploy 栈）
+2. `prometheusUrl` 指宿主映射端口（`http://<host>:19092`）
+
+HAProxy exporter 端点只需集群内可达（scrape 走容器网），**无需暴露宿主端口**——顺带解决 stats :8404 裸奔问题（stats 页可加 basic auth 或完全收回内网，平台代理走 exporter 通道）。
+
+### 与 agent 视角三方对账的关系（并行推进）
+
+Prometheus 生态覆盖的是**支持层**（LB 管理面数据）；平台仍需自研**业务数据面真实性**（生态覆盖不了）：
+
+```text
+三方对账：
+  LB 视角   ：agent 的 TCP 会话在实例 X（Prometheus / exporter）
+  归属表视角：实例 X claim 了该 agent，心跳新鲜（cluster_agent_owners）
+  agent 视角：agent 自报"我连着实例 X"（注册响应携带 instanceId，心跳回传）
+```
+
+三方不一致的组合即可精确定位故障形态（半开连接 / 路由漂移 / 注册丢失）。agent 视角为零配置通用实现（不依赖任何 LB 类型），与本节 Prometheus 管道互补。
+
+### 落地阶段
+
+| 阶段 | 内容                                                                                                 | 依赖               |
+| ---- | ---------------------------------------------------------------------------------------------------- | ------------------ |
+| P0   | haproxy.cfg 开 exporter + telemetry prometheus.yml 加 scrape + 文档                                  | 无（纯配置）       |
+| P1   | `ops.prometheusUrl` 配置 + server 只读代理端点（metric 白名单）+ `/ops/lb` 原生图表 + cluster 对账列 | P0                 |
+| P2   | agent 视角三方对账（注册响应带 instanceId + 心跳自报 owner + nodes 页对账列）                        | 无（独立于 P0/P1） |
+| P3   | Grafana 外链配置化 + blackbox_exporter 数据面探测标配                                                | P1                 |
