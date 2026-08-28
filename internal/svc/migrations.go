@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/cuihairu/croupier/internal/model"
+	reg "github.com/cuihairu/croupier/internal/platform/registry"
 	gsqlite "github.com/glebarez/sqlite"
 	"github.com/pressly/goose/v3"
 	gmysql "gorm.io/driver/mysql"
@@ -34,6 +35,7 @@ import (
 //   0011 (Go)   hotpatch baseline table (docs/research/hot-patch-design.md)
 //   0012 (Go)   db source registry table (docs/research/db-monitoring-design.md)
 //   0013 (Go)   platform settings table (docs/architecture/config-layering.md)
+//   0015 (Go)   agent_sessions.addr column (HA 跨实例节点视图的 IP 展示)
 //   0014 (Go)   task schedules tables (docs: cron 调度 task_schedules/run_logs)
 
 func init() {
@@ -51,6 +53,7 @@ func init() {
 		dbSourceMigration(),
 		platformSettingsMigration(),
 		taskSchedulesMigration(),
+		agentSessionAddrMigration(),
 	); err != nil {
 		panic(fmt.Sprintf("svc: register goose go migrations: %v", err))
 	}
@@ -157,6 +160,34 @@ func bugTrackerMigration() *goose.Migration {
 				if err := db.Migrator().CreateTable(&model.Bug{}); err != nil {
 					return fmt.Errorf("migrate: 0006 create bugs: %w", err)
 				}
+			}
+			return nil
+		}},
+		nil,
+	)
+}
+
+// agentSessionAddrMigration 为存量库补 agent_sessions.addr 列
+// （0015）：HA 跨实例节点视图的 IP 依赖该列；新库由 baseline AutoMigrate
+// 直接带出。幂等：列已存在则跳过。
+func agentSessionAddrMigration() *goose.Migration {
+	return goose.NewGoMigration(15,
+		&goose.GoFunc{RunDB: func(ctx context.Context, sqlDB *sql.DB) error {
+			db, err := wrapGorm(sqlDB)
+			if err != nil {
+				return err
+			}
+			// agent_sessions 是 meta/single 库的表——fanout 会在每个 game 库
+			// 重放编号迁移，表不存在的库直接跳过（AddColumn 会凭空建出
+			// 空壳表，破坏后续 enum 迁移的表结构预期）。
+			if !db.Migrator().HasTable(&reg.AgentSessionDB{}) {
+				return nil
+			}
+			if db.Migrator().HasColumn(&reg.AgentSessionDB{}, "Addr") {
+				return nil
+			}
+			if err := db.Migrator().AddColumn(&reg.AgentSessionDB{}, "Addr"); err != nil {
+				return fmt.Errorf("migrate: 0015 add agent_sessions.addr: %w", err)
 			}
 			return nil
 		}},

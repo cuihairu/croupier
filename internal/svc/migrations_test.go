@@ -4,8 +4,10 @@ import (
 	"context"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/cuihairu/croupier/internal/db/migrate"
+	reg "github.com/cuihairu/croupier/internal/platform/registry"
 	gsqlite "github.com/glebarez/sqlite"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
@@ -122,5 +124,57 @@ func TestGoMigrations_TaskSchedulesCatchUp(t *testing.T) {
 	}
 	if !db.Migrator().HasTable("task_schedule_run_logs") {
 		t.Fatal("task_schedule_run_logs 未由 0014 迁移创建")
+	}
+}
+
+// TestGoMigrations_AgentSessionAddrCatchUp 回归：存量 meta 库通过 0015
+// 拿到 agent_sessions.addr 列（HA 跨实例节点视图的 IP 依赖）；
+// game 库（无该表）重放时不建空壳表。
+func TestGoMigrations_AgentSessionAddrCatchUp(t *testing.T) {
+	db := openMigrationTestDB(t)
+	ctx := context.Background()
+
+	if err := reg.MigrateAgentSessions(db); err != nil {
+		t.Fatalf("migrate agent sessions: %v", err)
+	}
+	// 模拟 0014 时代的旧 schema（无 addr 列）——sqlite 的 DropColumn 会
+	// 重建表并丢失唯一索引，直接按旧结构建表更真实。
+	if err := db.Migrator().DropTable(&reg.AgentSessionDB{}); err != nil {
+		t.Fatalf("drop table: %v", err)
+	}
+	if err := db.Exec(`CREATE TABLE agent_sessions (
+		id integer primary key autoincrement,
+		agent_id text not null, game_id text, env text, version text,
+		region text, zone text, labels text, functions text, providers text,
+		expire_at datetime, last_seen datetime,
+		created_at datetime, updated_at datetime, deleted_at datetime)`).Error; err != nil {
+		t.Fatalf("create legacy table: %v", err)
+	}
+	if err := db.Exec("CREATE UNIQUE INDEX idx_agent_sessions_agent ON agent_sessions(agent_id)").Error; err != nil {
+		t.Fatalf("create unique index: %v", err)
+	}
+	if _, err := migrate.EnsureUpToDate(ctx, db, migrate.ScopeSingle, func(db *gorm.DB) error {
+		return nil
+	}); err != nil {
+		t.Fatalf("EnsureUpToDate: %v", err)
+	}
+	if !db.Migrator().HasColumn(&reg.AgentSessionDB{}, "Addr") {
+		t.Fatal("addr column not backfilled by 0015")
+	}
+
+	// 持久化往返：Addr 落库并回读。
+	m := reg.NewAgentSessionModel(db)
+	if err := m.Upsert(ctx, &reg.AgentSession{
+		AgentID: "ag-1", GameID: "g", Env: "prod",
+		Addr: "10.1.2.3:54321", ExpireAt: time.Now().Add(time.Hour),
+	}); err != nil {
+		t.Fatalf("upsert: %v", err)
+	}
+	sessions, err := m.LoadActiveSessions(ctx)
+	if err != nil || len(sessions) != 1 {
+		t.Fatalf("load: %v (n=%d)", err, len(sessions))
+	}
+	if sessions[0].Addr != "10.1.2.3:54321" {
+		t.Fatalf("addr round-trip = %q, want 10.1.2.3:54321", sessions[0].Addr)
 	}
 }

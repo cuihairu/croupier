@@ -10,13 +10,16 @@ import (
 )
 
 // AgentSessionDB represents the database model for agent sessions.
-// RPCAddr is retained as a legacy compatibility column until a schema migration removes it.
 type AgentSessionDB struct {
-	ID        uint      `gorm:"primaryKey"`
-	AgentID   string    `gorm:"size:64;uniqueIndex;not null"`
-	GameID    string    `gorm:"size:64;index"`
-	Env       string    `gorm:"size:32;index"`
-	Version   string    `gorm:"size:32"`
+	ID      uint   `gorm:"primaryKey"`
+	AgentID string `gorm:"size:64;uniqueIndex;not null"`
+	GameID  string `gorm:"size:64;index"`
+	Env     string `gorm:"size:32;index"`
+	Version string `gorm:"size:32"`
+	// Addr 是该 agent 连接的 remote 地址（ip:port）。持久化它是 HA
+	// 跨实例视图的必需品：节点页的远端 agent 快照来自 LoadFromDB，
+	// 不落库则 IP 列永远为空（0015 迁移为存量库补列）。
+	Addr      string    `gorm:"size:128"`
 	Region    string    `gorm:"size:64;index"`
 	Zone      string    `gorm:"size:64;index"`
 	Labels    string    `gorm:"type:text"`
@@ -141,6 +144,7 @@ func toDomainSession(dbSess *AgentSessionDB) (*AgentSession, error) {
 		GameID:    dbSess.GameID,
 		Env:       dbSess.Env,
 		Version:   dbSess.Version,
+		Addr:      dbSess.Addr,
 		Region:    dbSess.Region,
 		Zone:      dbSess.Zone,
 		ExpireAt:  dbSess.ExpireAt,
@@ -181,6 +185,7 @@ func toDBSession(sess *AgentSession) (*AgentSessionDB, error) {
 		GameID:   sess.GameID,
 		Env:      sess.Env,
 		Version:  sess.Version,
+		Addr:     sess.Addr,
 		Region:   sess.Region,
 		Zone:     sess.Zone,
 		ExpireAt: sess.ExpireAt,
