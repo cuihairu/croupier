@@ -6,7 +6,7 @@ export default function ProposalsPage() {
   const location = useLocation();
 
   useEffect(() => {
-    history.replace(`/system/functions/pages${location.search}`);
+    history.replace(`/functions/pages${location.search}`);
   }, [location.search]);
 
   return null;

@@ -449,7 +449,7 @@ const ResourceCatalogPage: React.FC = () => {
   }, [fetchData, loadResourceDetail, resolveForm, selectedConflict, selectedResource]);
 
   const handleOpenProposals = useCallback((resourceKey: string) => {
-    history.push(`/system/functions/pages?resourceKey=${encodeURIComponent(resourceKey)}`);
+    history.push(`/functions/pages?resourceKey=${encodeURIComponent(resourceKey)}`);
   }, []);
 
   const renderFunctionSelect = (capability: CapabilityKind, placeholder: string) => (

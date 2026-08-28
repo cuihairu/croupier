@@ -71,13 +71,13 @@ const Welcome: React.FC = () => {
       title: '能力确认',
       description: '先在函数目录确认 descriptor、schema 和实例质量，确保供给可靠。',
       actionLabel: '查看函数目录',
-      path: '/system/functions/catalog',
+      path: '/functions/catalog',
     },
     {
       title: '页面装配',
       description: '在资源/页面候选中确认 PageSpec 生成质量，再进入 Page Studio 修改与发布。',
       actionLabel: '查看资源/页面候选',
-      path: '/system/functions/resource-catalog',
+      path: '/functions/resource-catalog',
     },
     {
       title: '运行验证',
@@ -125,7 +125,7 @@ const Welcome: React.FC = () => {
                     type="primary"
                     icon={<RocketOutlined />}
                     size="large"
-                    onClick={() => history.push('/system/functions/resource-catalog')}
+                    onClick={() => history.push('/functions/resource-catalog')}
                   >
                     查看资源/页面候选
                   </Button>
@@ -139,7 +139,7 @@ const Welcome: React.FC = () => {
                   <Button
                     size="large"
                     icon={<FunctionOutlined />}
-                    onClick={() => history.push('/system/functions/catalog')}
+                    onClick={() => history.push('/functions/catalog')}
                   >
                     浏览函数目录
                   </Button>
@@ -215,7 +215,7 @@ const Welcome: React.FC = () => {
               hint="Page Studio 页面装配"
               description="从资源/操作候选进入 Page Studio，创建页面骨架、绑定函数、校验映射并发布到运行控制台。"
               actionLabel="查看页面候选"
-              path="/system/functions/resource-catalog"
+              path="/functions/resource-catalog"
               icon={<SettingOutlined />}
               tone="linear-gradient(135deg, #1668dc 0%, #69b1ff 100%)"
             />
@@ -226,7 +226,7 @@ const Welcome: React.FC = () => {
               hint="管理原子能力"
               description="查看 descriptor、参数 schema、实例和告警。这里负责能力供给，不负责最终页面装配。"
               actionLabel="浏览函数能力"
-              path="/system/functions/catalog"
+              path="/functions/catalog"
               icon={<FunctionOutlined />}
               tone="linear-gradient(135deg, #0f766e 0%, #34d399 100%)"
             />

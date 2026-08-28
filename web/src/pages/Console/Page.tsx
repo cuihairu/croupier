@@ -224,7 +224,7 @@ export default function ConsolePage() {
                   type="primary"
                   size="small"
                   onClick={() =>
-                    history.push(`/system/functions/pages?focus=${encodeURIComponent(pageKey)}`)
+                    history.push(`/functions/pages?focus=${encodeURIComponent(pageKey)}`)
                   }
                 >
                   前往处理（diff / 合并 / 重新发布）
@@ -232,7 +232,7 @@ export default function ConsolePage() {
                 <Button
                   size="small"
                   onClick={() =>
-                    history.push(`/system/functions/pages?focus=${encodeURIComponent(pageKey)}`)
+                    history.push(`/functions/pages?focus=${encodeURIComponent(pageKey)}`)
                   }
                 >
                   打开 Proposal Inbox

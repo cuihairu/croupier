@@ -67,7 +67,7 @@ export default function useDirectoryPage() {
   const [selectedFunction, setSelectedFunction] = useState<DetailRow | null>(null);
 
   const buildInvokePath = useCallback((functionId: string) => {
-    return `/system/functions/invoke?fid=${encodeURIComponent(functionId)}`;
+    return `/functions/invoke?fid=${encodeURIComponent(functionId)}`;
   }, []);
 
   const reload = useCallback(async () => {
@@ -114,7 +114,7 @@ export default function useDirectoryPage() {
         rowActions: DIRECTORY_PAGE_SCHEMA.rowActions,
         onOpenDetail: (record) => handleViewDetail(record),
         onOpenSchema: (id) =>
-          history.push(`/system/functions/${encodeURIComponent(id)}?tab=config&subTab=schema`),
+          history.push(`/functions/${encodeURIComponent(id)}?tab=config&subTab=schema`),
         onInvoke: (record) => {
           history.push(buildInvokePath(record.id));
         },
@@ -147,7 +147,7 @@ export default function useDirectoryPage() {
           onAction: (key) => {
             if (!selectedFunction) return;
             if (key === 'detailPage') {
-              history.push(`/system/functions/${encodeURIComponent(selectedFunction.id)}`);
+              history.push(`/functions/${encodeURIComponent(selectedFunction.id)}`);
               return;
             }
             history.push(buildInvokePath(selectedFunction.id));

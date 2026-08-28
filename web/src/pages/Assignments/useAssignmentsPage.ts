@@ -224,9 +224,7 @@ export default function useAssignmentsPage() {
         setEditingAssignment,
         setCanaryModalVisible,
         onOpenDetail: (id) => {
-          routerHistory.push(
-            `/system/functions/${encodeURIComponent(id)}?tab=config&subTab=schema`,
-          );
+          routerHistory.push(`/functions/${encodeURIComponent(id)}?tab=config&subTab=schema`);
         },
       }),
     [canWrite, selected],
@@ -246,7 +244,7 @@ export default function useAssignmentsPage() {
       buildRouteColumns({
         capabilityColumns: ASSIGNMENTS_PAGE_SCHEMA.capabilityColumns,
         onOpenDetail: (id) => {
-          routerHistory.push(`/system/functions/${encodeURIComponent(id)}`);
+          routerHistory.push(`/functions/${encodeURIComponent(id)}`);
         },
       }),
     [],

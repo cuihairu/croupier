@@ -223,7 +223,7 @@ export default function FunctionInvokePage() {
   }, [execute]);
 
   const restore = (item: RequestHistoryItem) => {
-    history.push(`/system/functions/invoke?fid=${encodeURIComponent(item.functionId)}`);
+    history.push(`/functions/invoke?fid=${encodeURIComponent(item.functionId)}`);
     setRawJson(JSON.stringify(item.request, null, 2));
     setInputMode('json');
     setRoute(item.options.route || 'lb');
@@ -266,9 +266,7 @@ export default function FunctionInvokePage() {
                   placeholder="选择已注册函数"
                   style={{ width: '100%' }}
                   optionFilterProp="label"
-                  onChange={(id) =>
-                    history.push(`/system/functions/invoke?fid=${encodeURIComponent(id)}`)
-                  }
+                  onChange={(id) => history.push(`/functions/invoke?fid=${encodeURIComponent(id)}`)}
                   options={descriptors.map((item) => ({
                     value: item.id,
                     label: `${item.id}  ·  ${displayName(item, locale)}`,

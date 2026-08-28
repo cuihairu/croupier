@@ -114,7 +114,7 @@ export default function DirectoryPage() {
                       <Button
                         type="primary"
                         icon={<ApartmentOutlined />}
-                        onClick={() => history.push('/system/functions/resource-catalog')}
+                        onClick={() => history.push('/functions/resource-catalog')}
                       >
                         查看资源/页面候选
                       </Button>
@@ -123,7 +123,7 @@ export default function DirectoryPage() {
                           history.push(
                             selectedFunction
                               ? buildInvokePath(selectedFunction.id)
-                              : '/system/functions/invoke',
+                              : '/functions/invoke',
                           )
                         }
                       >
@@ -174,10 +174,7 @@ export default function DirectoryPage() {
           message="函数目录只展示能力供给，不承载页面 UI"
           description="如果目标是做运营人员真正访问的页面，不要在函数层配置菜单或页面布局；请到资源/页面候选中进入 Page Studio。"
           action={
-            <Button
-              type="primary"
-              onClick={() => history.push('/system/functions/resource-catalog')}
-            >
+            <Button type="primary" onClick={() => history.push('/functions/resource-catalog')}>
               查看资源
             </Button>
           }
@@ -280,7 +277,7 @@ export default function DirectoryPage() {
 
             <Card size="small" style={{ marginTop: 16 }}>
               <Space wrap>
-                <Button onClick={() => history.push('/system/functions/resource-catalog')}>
+                <Button onClick={() => history.push('/functions/resource-catalog')}>
                   查看资源/页面候选
                 </Button>
                 <Button

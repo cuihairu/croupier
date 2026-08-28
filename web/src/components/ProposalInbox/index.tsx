@@ -186,7 +186,7 @@ function navigateTo(path: string) {
 }
 
 export interface ProposalInboxProps {
-  /** 定位高亮的 pageKey（来自 /system/functions/pages?focus=）：命中时切换到对应
+  /** 定位高亮的 pageKey（来自 /functions/pages?focus=）：命中时切换到对应
    *  队列 Tab 并高亮相关行；与编辑器 focus 定位配合使用。 */
   focusPageKey?: string;
 }
@@ -269,7 +269,7 @@ export default function ProposalInbox({ focusPageKey = '' }: ProposalInboxProps)
     async (proposal: PageProposal) => {
       await acceptProposal(proposal.proposalKey);
       await fetchData();
-      navigateTo(`/system/functions/pages?focus=${encodeURIComponent(proposal.pageKey)}`);
+      navigateTo(`/functions/pages?focus=${encodeURIComponent(proposal.pageKey)}`);
     },
     [fetchData],
   );
@@ -303,7 +303,7 @@ export default function ProposalInbox({ focusPageKey = '' }: ProposalInboxProps)
     async (proposal: PageProposal) => {
       if (proposal.pageType === 'resource' && proposal.resourceKey) {
         navigateTo(
-          `/system/functions/resource-catalog?resourceKey=${encodeURIComponent(proposal.resourceKey)}`,
+          `/functions/resource-catalog?resourceKey=${encodeURIComponent(proposal.resourceKey)}`,
         );
         return;
       }
@@ -558,7 +558,7 @@ export default function ProposalInbox({ focusPageKey = '' }: ProposalInboxProps)
                 size="small"
                 icon={<FileTextOutlined />}
                 onClick={() =>
-                  navigateTo(`/system/functions/pages?focus=${encodeURIComponent(record.pageKey)}`)
+                  navigateTo(`/functions/pages?focus=${encodeURIComponent(record.pageKey)}`)
                 }
               >
                 去编辑
@@ -620,7 +620,7 @@ export default function ProposalInbox({ focusPageKey = '' }: ProposalInboxProps)
             icon={<ExclamationCircleOutlined />}
             onClick={() =>
               navigateTo(
-                `/system/functions/resource-catalog?resourceKey=${encodeURIComponent(record.resourceKey || '')}`,
+                `/functions/resource-catalog?resourceKey=${encodeURIComponent(record.resourceKey || '')}`,
               )
             }
           >
@@ -630,7 +630,7 @@ export default function ProposalInbox({ focusPageKey = '' }: ProposalInboxProps)
           <Button
             type="link"
             icon={<ExclamationCircleOutlined />}
-            onClick={() => navigateTo('/system/functions/resource-catalog')}
+            onClick={() => navigateTo('/functions/resource-catalog')}
           >
             查看目录
           </Button>
@@ -714,7 +714,7 @@ export default function ProposalInbox({ focusPageKey = '' }: ProposalInboxProps)
             type="link"
             size="small"
             onClick={() =>
-              navigateTo(`/system/functions/pages?focus=${encodeURIComponent(record.pageKey)}`)
+              navigateTo(`/functions/pages?focus=${encodeURIComponent(record.pageKey)}`)
             }
           >
             编辑

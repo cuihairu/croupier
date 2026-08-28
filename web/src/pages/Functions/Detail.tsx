@@ -49,10 +49,8 @@ export default function FunctionDetailPage() {
     handleDelete,
     handleSavePermissions,
   } = useFunctionDetailPage(params.id);
-  const pageStudioPath = '/system/functions/resource-catalog';
-  const invokePath = params.id
-    ? `/system/functions/invoke?fid=${encodeURIComponent(params.id)}`
-    : '';
+  const pageStudioPath = '/functions/resource-catalog';
+  const invokePath = params.id ? `/functions/invoke?fid=${encodeURIComponent(params.id)}` : '';
 
   const buildSearch = (tab: string, subTab?: string) => {
     const search = new URLSearchParams(location.search);
@@ -79,7 +77,7 @@ export default function FunctionDetailPage() {
           description="请检查函数 ID 是否正确，或从函数目录重新进入。"
           extra={params.id}
           actions={
-            <Button type="primary" onClick={() => history.push('/system/functions/catalog')}>
+            <Button type="primary" onClick={() => history.push('/functions/catalog')}>
               返回函数列表
             </Button>
           }
@@ -157,10 +155,7 @@ export default function FunctionDetailPage() {
     <PageContainer
       title={
         <Space>
-          <Button
-            icon={<ArrowLeftOutlined />}
-            onClick={() => history.push('/system/functions/catalog')}
-          >
+          <Button icon={<ArrowLeftOutlined />} onClick={() => history.push('/functions/catalog')}>
             返回
           </Button>
           <span>{functionDetail?.name || functionDetail?.id}</span>
