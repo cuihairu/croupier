@@ -302,6 +302,13 @@ type ClusterConfig struct {
 	PeerPollInterval string `json:"peerPollInterval,omitempty" yaml:"peerPollInterval,omitempty"`
 	// InsecureSkipTLS 互联 TLS 校验跳过（仅开发联调）。
 	InsecureSkipTLS bool `json:"insecureSkipTls,omitempty" yaml:"insecureSkipTls,omitempty"`
+	// Store 协调面存储：db（默认，共享关系库）| redis。
+	// 单实例部署不启用集群（enabled: false）时无协调面。
+	Store string `json:"store,omitempty" yaml:"store,omitempty"`
+	// RedisAddr 仅 store: redis 时生效；空则回退 cache 段的 redis 配置。
+	RedisAddr     string `json:"redisAddr,omitempty" yaml:"redisAddr,omitempty"`
+	RedisPassword string `json:"redisPassword,omitempty" yaml:"redisPassword,omitempty"`
+	RedisDB       int    `json:"redisDb,omitempty" yaml:"redisDb,omitempty"`
 }
 
 func (c *RegistryConfig) UnmarshalYAML(value *yaml.Node) error {

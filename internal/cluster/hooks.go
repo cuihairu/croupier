@@ -16,15 +16,16 @@ type SessionHooks interface {
 	OnAgentDisconnected(ctx context.Context, agentID string)
 }
 
-// OwnerHooks 基于 DBOwnerResolver + 本实例身份实现 SessionHooks。
+// OwnerHooks 基于 OwnerStore（DB 或 Redis 实现）+ 本实例身份实现
+// SessionHooks。
 type OwnerHooks struct {
-	resolver   *DBOwnerResolver
+	resolver   OwnerStore
 	instanceID string
 	epoch      uint64
 }
 
 // NewOwnerHooks 创建归属钩子。
-func NewOwnerHooks(resolver *DBOwnerResolver, instanceID string, epoch uint64) *OwnerHooks {
+func NewOwnerHooks(resolver OwnerStore, instanceID string, epoch uint64) *OwnerHooks {
 	return &OwnerHooks{resolver: resolver, instanceID: instanceID, epoch: epoch}
 }
 
@@ -44,11 +45,13 @@ func (h *OwnerHooks) OnAgentHeartbeat(ctx context.Context, agentID string) {
 	if h == nil || h.resolver == nil {
 		return
 	}
-	if err := h.resolver.Touch(ctx, agentID); err == nil {
-		return
+	if err := h.resolver.Touch(ctx, agentID); err != nil {
+		// Touch 失败可能是记录被接管（分区恢复后 agent 重连到别处）——
+		// 归属表以最后 Claim 为准。但必须留观测点：TCP 活着而归属行冻结
+		// 的僵尸连接排查全靠这条日志（曾在线上出现 owner 停续 343s 无任何
+		// 日志可查）。
+		slog.Default().Warn("cluster: touch owner failed", "agent", agentID, "error", err)
 	}
-	// Touch 失败可能是记录被接管（分区恢复后 agent 重连到别处）——
-	// 静默即可，归属表以最后 Claim 为准。
 }
 
 // OnAgentDisconnected releases ownership.

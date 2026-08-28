@@ -62,7 +62,7 @@ func parseDurationDefault(v string, def time.Duration) time.Duration {
 
 // Start 注册成员、启动心跳/发现循环并返回互联句柄。
 // 未启用/缺 advertiseAddr 时返回 nil（单实例行为）。
-func Start(ctx context.Context, cfg Config, member Membership, resolver *DBOwnerResolver, dial dialFunc) *Lifecycle {
+func Start(ctx context.Context, cfg Config, member Membership, resolver OwnerStore, dial dialFunc) *Lifecycle {
 	if member == nil || cfg.AdvertiseAddr == "" {
 		return nil
 	}

@@ -533,6 +533,12 @@ func applyClusterEnvironmentOverrides(c *config.Config) {
 	if v := strings.TrimSpace(os.Getenv("CROUPIER_CLUSTER_INSTANCE_ID")); v != "" {
 		c.Cluster.InstanceID = v
 	}
+	if v := strings.TrimSpace(os.Getenv("CROUPIER_CLUSTER_STORE")); v != "" {
+		c.Cluster.Store = v
+	}
+	if v := strings.TrimSpace(os.Getenv("CROUPIER_CLUSTER_REDIS_ADDR")); v != "" {
+		c.Cluster.RedisAddr = v
+	}
 	if v := strings.TrimSpace(os.Getenv("CROUPIER_CLUSTER_ADVERTISE_ADDR")); v != "" {
 		c.Cluster.AdvertiseAddr = v
 	}

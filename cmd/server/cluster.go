@@ -5,7 +5,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"strings"
 	"time"
+
+	"github.com/redis/go-redis/v9"
 
 	"github.com/cuihairu/croupier/internal/cluster"
 	"github.com/cuihairu/croupier/internal/config"
@@ -27,7 +30,14 @@ func startCluster(ctx context.Context, c *config.Config, svcCtx *svc.ServiceCont
 	if !cfg.Enabled {
 		return nil, nil
 	}
-	if svcCtx == nil || svcCtx.DB == nil {
+	if svcCtx == nil {
+		slog.Warn("cluster: enabled but service context unavailable, running standalone")
+		return nil, nil
+	}
+	// 协调面存储选择：db（默认，共享关系库）| redis。redis 模式不依赖
+	// 共享 DB（成员表/归属表全走 Redis 租约键），DB 仅剩业务库职责。
+	useRedis := strings.EqualFold(strings.TrimSpace(cfg.Store), "redis")
+	if !useRedis && svcCtx.DB == nil {
 		slog.Warn("cluster: enabled but DB unavailable, running standalone")
 		return nil, nil
 	}
@@ -52,22 +62,45 @@ func startCluster(ctx context.Context, c *config.Config, svcCtx *svc.ServiceCont
 		return nil, nil
 	}
 
-	member := cluster.NewDBMembership(svcCtx.DB, lcCfg.LeaseTTL)
-	if err := member.EnsureTable(ctx); err != nil {
-		slog.Error("cluster: ensure membership table failed, running standalone", "error", err)
-		return nil, nil
-	}
-
 	ownerTTL := time.Duration(0)
 	if cfg.OwnerTTL != "" {
 		if d, perr := time.ParseDuration(cfg.OwnerTTL); perr == nil {
 			ownerTTL = d
 		}
 	}
-	resolver := cluster.NewDBOwnerResolver(svcCtx.DB, ownerTTL)
-	if err := resolver.EnsureTable(ctx); err != nil {
-		slog.Error("cluster: ensure owner table failed, running standalone", "error", err)
-		return nil, nil
+
+	var member cluster.Membership
+	var resolver cluster.OwnerStore
+	if useRedis {
+		rdb, err := openClusterRedis(cfg, c)
+		if err != nil {
+			slog.Error("cluster: redis store unavailable, running standalone", "error", err)
+			return nil, nil
+		}
+		defer func() { _ = rdb.Close() }()
+		pingCtx, cancel := context.WithTimeout(ctx, 3*time.Second)
+		pingErr := rdb.Ping(pingCtx).Err()
+		cancel()
+		err = pingErr
+		if err != nil {
+			slog.Error("cluster: redis ping failed, running standalone", "error", err)
+			return nil, nil
+		}
+		member = cluster.NewRedisMembership(rdb, lcCfg.LeaseTTL)
+		resolver = cluster.NewRedisOwnerResolver(rdb, ownerTTL)
+	} else {
+		dbm := cluster.NewDBMembership(svcCtx.DB, lcCfg.LeaseTTL)
+		if err := dbm.EnsureTable(ctx); err != nil {
+			slog.Error("cluster: ensure membership table failed, running standalone", "error", err)
+			return nil, nil
+		}
+		member = dbm
+		dbr := cluster.NewDBOwnerResolver(svcCtx.DB, ownerTTL)
+		if err := dbr.EnsureTable(ctx); err != nil {
+			slog.Error("cluster: ensure owner table failed, running standalone", "error", err)
+			return nil, nil
+		}
+		resolver = dbr
 	}
 
 	// 互联当前语义是内网明文：ClusterConfig 没有证书配置面，Insecure
@@ -243,4 +276,32 @@ func (li localInvoker) InvokeLocal(ctx context.Context, req *cluster.ForwardedIn
 		return &cluster.ForwardedResult{OK: false, Error: err.Error()}, nil
 	}
 	return &cluster.ForwardedResult{OK: true, Payload: json.RawMessage(respBytes)}, nil
+}
+
+// openClusterRedis 解析协调面 Redis 连接：cluster.redisAddr 优先，
+// 空则回退 cache 段的 redis 配置（复用同一实例，不额外搭存储）。
+func openClusterRedis(cfg config.ClusterConfig, c *config.Config) (*redis.Client, error) {
+	addr := strings.TrimSpace(cfg.RedisAddr)
+	password := cfg.RedisPassword
+	db := cfg.RedisDB
+	if addr == "" && c != nil && strings.EqualFold(strings.TrimSpace(c.Cache.Type), "redis") {
+		addr = strings.TrimSpace(c.Cache.Addr)
+		if password == "" {
+			password = c.Cache.Password
+		}
+		if db == 0 {
+			db = c.Cache.DB
+		}
+	}
+	if addr == "" {
+		return nil, fmt.Errorf("cluster.store=redis 但未配置 redisAddr，且 cache 段非 redis，无可用连接")
+	}
+	return redis.NewClient(&redis.Options{
+		Addr:         addr,
+		Password:     password,
+		DB:           db,
+		DialTimeout:  3 * time.Second,
+		ReadTimeout:  3 * time.Second,
+		WriteTimeout: 3 * time.Second,
+	}), nil
 }
