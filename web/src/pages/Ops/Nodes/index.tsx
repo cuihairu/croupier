@@ -278,9 +278,9 @@ export default function OpsNodesPage() {
       title: '运维状态',
       dataIndex: 'nodeStatus',
       width: 100,
-      render: (v: string) => {
+      render: (v: string, record: NodeRow) => {
         const statusMap: Record<string, { color: string; text: string }> = {
-          active: { color: 'green', text: '运行中' },
+          active: { color: 'green', text: '在线' },
           online: { color: 'green', text: '在线' },
           drained: { color: 'orange', text: '已下线' },
           stale: { color: 'red', text: '离线' },
@@ -288,6 +288,17 @@ export default function OpsNodesPage() {
           restarting: { color: 'blue', text: '重启中' },
         };
         const s = statusMap[v] || { color: 'default', text: v || '未知' };
+        // active/online 对运维语义等价（都健康在线），区别只在连接归属
+        // 实例——active=本实例直连，online=集群对端持有（HA 转发可达），
+        // 归属信息放 title 提示而不是状态文案。
+        const owner = record.labels?.ownerInstance;
+        if (v === 'online' && owner) {
+          return (
+            <Tag color={s.color} title={`连接由集群实例 ${owner} 持有`}>
+              {s.text}
+            </Tag>
+          );
+        }
         return <Tag color={s.color}>{s.text}</Tag>;
       },
     },
@@ -454,7 +465,7 @@ export default function OpsNodesPage() {
               <Descriptions.Item label="运维状态">
                 {(() => {
                   const statusMap: Record<string, { color: string; text: string }> = {
-                    active: { color: 'green', text: '运行中' },
+                    active: { color: 'green', text: '在线' },
                     online: { color: 'green', text: '在线' },
                     drained: { color: 'orange', text: '已下线' },
                     stale: { color: 'red', text: '离线' },
