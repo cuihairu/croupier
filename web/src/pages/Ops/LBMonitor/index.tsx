@@ -57,9 +57,10 @@ export default function LBMonitor() {
         queryLbStats({ query: QUERIES.serverStatus }),
       ]);
       setSessionsData(toSeries(sessions.data?.result || [], 'backend'));
-      // haproxy_server_status: value 1=UP 2=DOWN 0=MAINT...
+      // haproxy_server_status 是 per-state 指标族（server×UP/DOWN/MAINT/
+      // DRAIN/NOLB 各一行）——只看 state="UP" 行的值：1=健康，其余=不健康
       const down = (status.data?.result || [])
-        .filter((r) => Number(r.value[1]) !== 1)
+        .filter((r) => r.metric.state === 'UP' && Number(r.value[1]) !== 1)
         .map((r) => (r.metric.server || r.metric.instance || 'unknown').replace(/^.*\//, ''));
       setUnhealthy(down);
     } catch (error) {
