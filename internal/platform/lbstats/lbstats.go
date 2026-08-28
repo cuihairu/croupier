@@ -84,6 +84,10 @@ func (s *LBStatsService) Query(ctx context.Context, query string) (*QueryResult,
 }
 
 // metricNameRe 提取 PromQL 中的裸指标名（跳过聚合/函数关键字、标签、数值）。
+// stringLiteralRe 剥离字符串字面量（标签值），rangeRe 剥离范围时长（如 [5m]）——
+// 它们的内部 token 不是标识符。
+var stringLiteralRe = regexp.MustCompile(`"[^"]*"`)
+var rangeRe = regexp.MustCompile(`\[[0-9]+[smhdwy]`)
 var metricNameRe = regexp.MustCompile(`[a-zA-Z_:][a-zA-Z0-9_:]*`)
 
 // promQLFuncs 是允许出现的聚合/函数关键字（白名单语义不构成指标）。
@@ -95,14 +99,27 @@ var promQLFuncs = map[string]struct{}{
 	"group_right": {}, "offset": {}, "bool": {}, "and": {}, "or": {}, "unless": {},
 }
 
-// allowedQuery 白名单校验：查询体内出现的每个指标名都必须命中
-// allowedMetricPrefixes（聚合函数关键字不算指标）——支持
+// allowedLabelKeys 是白名单指标的已知标签键（by/on 分组与选择器中
+// 合法出现）——封闭集：haproxy exporter 标签 + Prometheus 注入标签。
+var allowedLabelKeys = map[string]struct{}{
+	"proxy": {}, "server": {}, "backend": {}, "state": {}, "type": {},
+	"instance": {}, "job": {}, "name": {}, "addr": {}, "iid": {},
+}
+
+// allowedQuery 白名单校验：查询体内出现的每个标识符必须属于
+// 白名单指标前缀 / 聚合函数关键字 / 已知标签键 三者之一——支持
 // `sum by (backend) (haproxy_backend_current_sessions)` 等表达式；
-// 只要含任一非白名单指标即拒绝（防任意 PromQL 探测内部指标）。
+// 含任一其它标识符（go_goroutines、up 等内部指标）即拒绝。
 func allowedQuery(q string) bool {
+	// 剥离字符串字面量（标签值）与范围时长（[5m] 的 5m），它们不是标识符
+	q = stringLiteralRe.ReplaceAllString(q, "")
+	q = rangeRe.ReplaceAllString(q, "[")
 	found := false
 	for _, tok := range metricNameRe.FindAllString(q, -1) {
 		if _, isFunc := promQLFuncs[tok]; isFunc {
+			continue
+		}
+		if _, isLabel := allowedLabelKeys[tok]; isLabel {
 			continue
 		}
 		matched := false
