@@ -79,14 +79,24 @@ export default function LBMonitor() {
   }, []);
 
   useEffect(() => {
+    // 首次进入立即拉取；归属数（nodes）不随 LB 状态变化，只拉一次
     void load();
     void loadNodes();
+    // LB 状态弱实时：30s 轮询足够；页签不可见时跳过该轮（后台零请求）
     const t = setInterval(() => {
-      void load();
-      void loadNodes();
-    }, 15_000);
-    return () => clearInterval(t);
-  }, [load, loadNodes]);
+      if (!document.hidden) {
+        void load();
+      }
+    }, 30_000);
+    const onVisible = () => {
+      if (!document.hidden) void load();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      clearInterval(t);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
+  }, [load]);
 
   const filteredSeries = useMemo(
     () => (backend === 'all' ? sessionsData : sessionsData.filter((p) => p.backend === backend)),
@@ -112,7 +122,7 @@ export default function LBMonitor() {
     <PageContainer
       extra={
         <Text type="secondary">
-          LB 监控（Prometheus 管道：haproxy exporter → prometheus → 平台代理） · 15s 自动刷新
+          LB 监控（Prometheus 管道：haproxy exporter → prometheus → 平台代理） · 30s 自动刷新
         </Text>
       }
     >
