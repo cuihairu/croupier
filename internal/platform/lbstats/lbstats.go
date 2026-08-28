@@ -11,6 +11,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"regexp"
 	"strings"
 	"time"
 )
@@ -82,17 +83,39 @@ func (s *LBStatsService) Query(ctx context.Context, query string) (*QueryResult,
 	return &out, nil
 }
 
-// allowedQuery 白名单校验：仅允许以 LB 指标前缀开头的即时查询
-// （{...} 选择器语法允许，因为前缀在 { 之前）。
+// metricNameRe 提取 PromQL 中的裸指标名（跳过聚合/函数关键字、标签、数值）。
+var metricNameRe = regexp.MustCompile(`[a-zA-Z_:][a-zA-Z0-9_:]*`)
+
+// promQLFuncs 是允许出现的聚合/函数关键字（白名单语义不构成指标）。
+var promQLFuncs = map[string]struct{}{
+	"sum": {}, "min": {}, "max": {}, "avg": {}, "count": {}, "count_values": {},
+	"bottomk": {}, "topk": {}, "quantile": {}, "stddev": {}, "stdvar": {},
+	"rate": {}, "irate": {}, "increase": {}, "delta": {}, "idelta": {},
+	"by": {}, "without": {}, "on": {}, "ignoring": {}, "group_left": {},
+	"group_right": {}, "offset": {}, "bool": {}, "and": {}, "or": {}, "unless": {},
+}
+
+// allowedQuery 白名单校验：查询体内出现的每个指标名都必须命中
+// allowedMetricPrefixes（聚合函数关键字不算指标）——支持
+// `sum by (backend) (haproxy_backend_current_sessions)` 等表达式；
+// 只要含任一非白名单指标即拒绝（防任意 PromQL 探测内部指标）。
 func allowedQuery(q string) bool {
-	head := q
-	if i := strings.IndexAny(q, "{[ \t"); i >= 0 {
-		head = q[:i]
-	}
-	for _, prefix := range allowedMetricPrefixes {
-		if strings.HasPrefix(head, prefix) {
-			return true
+	found := false
+	for _, tok := range metricNameRe.FindAllString(q, -1) {
+		if _, isFunc := promQLFuncs[tok]; isFunc {
+			continue
 		}
+		matched := false
+		for _, prefix := range allowedMetricPrefixes {
+			if strings.HasPrefix(tok, prefix) {
+				matched = true
+				break
+			}
+		}
+		if !matched {
+			return false
+		}
+		found = true
 	}
-	return false
+	return found
 }
