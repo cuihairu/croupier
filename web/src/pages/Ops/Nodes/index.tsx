@@ -91,7 +91,7 @@ function normalizeOpsNode(node: OpsNode): NodeRow {
     addr: node.addr || '',
     ip: addrHost(node.addr),
     functions: node.functions || 0,
-    healthy: node.status === 'active' || node.status === 'healthy',
+    healthy: ['active', 'healthy', 'online'].includes(node.status || ''),
     expiresInSec: node.expiresInSec || 0,
     sdkName: node.sdkName || '',
     sdkLanguage: node.sdkLanguage || '',
@@ -281,6 +281,7 @@ export default function OpsNodesPage() {
       render: (v: string) => {
         const statusMap: Record<string, { color: string; text: string }> = {
           active: { color: 'green', text: '运行中' },
+          online: { color: 'green', text: '在线' },
           drained: { color: 'orange', text: '已下线' },
           stale: { color: 'red', text: '离线' },
           offline: { color: 'red', text: '离线' },
@@ -454,6 +455,7 @@ export default function OpsNodesPage() {
                 {(() => {
                   const statusMap: Record<string, { color: string; text: string }> = {
                     active: { color: 'green', text: '运行中' },
+                    online: { color: 'green', text: '在线' },
                     drained: { color: 'orange', text: '已下线' },
                     stale: { color: 'red', text: '离线' },
                     offline: { color: 'red', text: '离线' },
