@@ -36,6 +36,7 @@ type App struct {
 	extensionPuller  *ExtensionSyncPuller
 	outTLS           *tlsutil.ClientTLSConfig
 	providerManager  *ProviderManager
+	providerSessions *agent.ProviderSessionStore
 	telemetry        *telemetry.GameTelemetryService
 	configDir        string
 
@@ -140,6 +141,7 @@ func (a *App) StartLocalServer() error {
 	// forwarded over that session instead of dialing a provider-supplied address.
 	providerSessions := agent.NewProviderSessionStore()
 	a.localHandler.SetProviderSessionStore(providerSessions)
+	a.providerSessions = providerSessions
 	tcpServer, err := agent.NewTCPLocalListener(&agent.TCPLocalListenerConfig{
 		Address: a.localAddr,
 		// Go SDK providers heartbeat every 60 seconds by default. The listener
@@ -153,6 +155,13 @@ func (a *App) StartLocalServer() error {
 		return fmt.Errorf("failed to create TCP local server: %w", err)
 	}
 	tcpServer.SetLocalHandler(a.localHandler)
+	// provider keepalive 探针（间隔可配：CROUPIER_AGENTLOCAL_PROBE_INTERVAL，
+	// 默认 5s）：pong 经 SDK 事件循环回出，卡死的 provider 在 1~2 个周期
+	// 内被摘除——调用路由不再选到半死会话（连接在但处理不动的僵尸）。
+	if probeInterval := parseDurationEnv("CROUPIER_AGENTLOCAL_PROBE_INTERVAL", 5*time.Second); probeInterval > 0 {
+		probe := agent.NewProviderKeepalive(providerSessions, probeInterval, slog.Default())
+		go probe.Run(context.Background())
+	}
 	tcpServer.SetOnConnect(func(session *agent.ProviderSession) {
 		addr := session.Conn().RemoteAddr()
 		a.store.Register(session.SessionID, session.ServiceID, addr, session.Version, session.Functions, map[string]string{

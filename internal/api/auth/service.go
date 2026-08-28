@@ -11,9 +11,11 @@ import (
 	"fmt"
 	"log/slog"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/cuihairu/croupier/internal/audit"
+	"github.com/cuihairu/croupier/internal/config"
 	"github.com/cuihairu/croupier/internal/ipgeo"
 	"github.com/cuihairu/croupier/internal/model"
 	"github.com/cuihairu/croupier/internal/security/identity"
@@ -40,6 +42,10 @@ type Service struct {
 	oidcSuccessURL string
 	// providerDefaultRoles 按 Provider Kind 记录 JIT 建号时的默认角色名。
 	providerDefaultRoles map[string][]string
+
+	// providersMu 保护运行时身份提供方热刷新（站点设置「登录方式」
+	// 保存即生效——Harbor 模式：L3 DB 配置覆盖 yaml，无需重启）。
+	providersMu sync.RWMutex
 }
 
 // WithGameModel enables validation of persisted scope before login returns it
@@ -87,6 +93,39 @@ func (s *Service) WithOIDCProvider(p identity.OAuthProvider, defaultRoles []stri
 func (s *Service) WithProviderDefaultRoles(kind string, roles []string) *Service {
 	s.providerDefaultRoles[kind] = roles
 	return s
+}
+
+// snapshotProviders 返回身份提供方的当前快照（热刷新安全读取）。
+func (s *Service) snapshotProviders() ([]identity.PasswordProvider, identity.OAuthProvider, string, map[string][]string) {
+	s.providersMu.RLock()
+	defer s.providersMu.RUnlock()
+	roles := make(map[string][]string, len(s.providerDefaultRoles))
+	for k, v := range s.providerDefaultRoles {
+		roles[k] = v
+	}
+	return s.passwordProviders, s.oidc, s.oidcSuccessURL, roles
+}
+
+// RefreshIdentityProviders 用给定配置重建外部身份提供方（本地账号
+// 始终保留为级联首位）。无效配置返回错误且不改变现状（保存端可回滚）。
+func (s *Service) RefreshIdentityProviders(cfg config.AuthProvidersConfig) error {
+	ip, err := buildIdentityProviders(cfg)
+	if err != nil {
+		return err
+	}
+	s.providersMu.Lock()
+	defer s.providersMu.Unlock()
+	// 级联首位固定是本地 admins 表
+	s.passwordProviders = append([]identity.PasswordProvider{identity.NewLocalProvider(s.adminModel)}, ip.ldap)
+	s.oidc = ip.oidc
+	s.oidcSuccessURL = ip.oidcURL
+	if ip.ldapRoles != nil {
+		s.providerDefaultRoles[identity.KindLDAP] = ip.ldapRoles
+	}
+	if ip.oidc != nil {
+		s.providerDefaultRoles[identity.KindOIDC] = ip.oidcRoles
+	}
+	return nil
 }
 
 // OIDCEnabled reports whether the OIDC login flow is wired.
@@ -158,7 +197,8 @@ func (s *Service) Login(ctx context.Context, req *LoginRequest) (*LoginResponse,
 // "凭证错误"与"认证服务不可用"。
 func (s *Service) authenticatePassword(ctx context.Context, username, password string) (*identity.Identity, error) {
 	var infraErr error
-	for _, p := range s.passwordProviders {
+	providers, _, _, _ := s.snapshotProviders()
+	for _, p := range providers {
 		ident, err := p.Authenticate(ctx, username, password)
 		if err == nil {
 			return ident, nil
@@ -247,7 +287,8 @@ func (s *Service) assignDefaultRoles(ctx context.Context, adminID uint, provider
 	if s.roleModel == nil {
 		return
 	}
-	names := s.providerDefaultRoles[providerKind]
+	_, _, _, rolesMap := s.snapshotProviders()
+	names := rolesMap[providerKind]
 	for _, name := range names {
 		role, ok := s.findRoleByName(ctx, name)
 		if !ok {
@@ -312,20 +353,22 @@ func (s *Service) issueLogin(ctx context.Context, admin *model.Admin, ident *ide
 
 // OIDCAuthCodeURL 生成跳转到身份源的授权 URL，state 内含 HMAC 签名与时间戳。
 func (s *Service) OIDCAuthCodeURL() (string, error) {
-	if s.oidc == nil {
+	_, oidc, _, _ := s.snapshotProviders()
+	if oidc == nil {
 		return "", errors.New("OIDC 登录未启用")
 	}
 	state, err := s.newOIDCState()
 	if err != nil {
 		return "", err
 	}
-	return s.oidc.AuthCodeURL(state), nil
+	return oidc.AuthCodeURL(state), nil
 }
 
 // OIDCLoginCallback 处理回调：校验 state，用授权码换取身份，JIT 解析本地
 // 账号后签发平台 JWT。
 func (s *Service) OIDCLoginCallback(ctx context.Context, code, state string, req *LoginRequest) (*LoginResponse, error) {
-	if s.oidc == nil {
+	_, oidc, _, _ := s.snapshotProviders()
+	if oidc == nil {
 		return nil, errors.New("OIDC 登录未启用")
 	}
 	if !s.verifyOIDCState(state) {
@@ -336,7 +379,7 @@ func (s *Service) OIDCLoginCallback(ctx context.Context, code, state string, req
 		return nil, errors.New("缺少授权码")
 	}
 
-	ident, err := s.oidc.Exchange(ctx, code)
+	ident, err := oidc.Exchange(ctx, code)
 	if err != nil {
 		s.recordLoginAudit("", "auth.login_failed", "failed", req, "oidc_exchange_failed", identity.KindOIDC)
 		return nil, errors.New("OIDC 登录失败")
@@ -351,7 +394,10 @@ func (s *Service) OIDCLoginCallback(ctx context.Context, code, state string, req
 }
 
 // OIDCSuccessURL 返回配置的登录成功跳转地址（可为空）。
-func (s *Service) OIDCSuccessURL() string { return s.oidcSuccessURL }
+func (s *Service) OIDCSuccessURL() string {
+	_, _, url, _ := s.snapshotProviders()
+	return url
+}
 
 // newOIDCState 生成 "payload.signature" 形式的 state；
 // payload 为 base64url("nonce.timestamp")，签名为 HMAC-SHA256(jwtSecret, payload)。

@@ -88,7 +88,16 @@ func newTCPRPCHandler(manager *TCPManager) *tcpRPCHandler {
 	handler.methods[protocol.MsgStartTaskRequest] = handler.startTask
 	handler.methods[protocol.MsgCancelTaskRequest] = handler.cancelTask
 	handler.methods[protocol.MsgStreamTaskRequest] = handler.streamTask
+	// Agent 侧保活探针（LivenessProbe）：pong 必须经 SDK 事件循环回出——
+	// SDK 事件循环卡死时回不了 pong，agent 侧即摘除该 session，
+	// 调用路由不再选到"进程活着但处理不动"的 provider。
+	handler.methods[protocol.MsgProviderHeartbeatRequest] = handler.pong
 	return handler
+}
+
+// pong 回应 agent 的保活探测（空响应体）。
+func (h *tcpRPCHandler) pong(ctx context.Context, msgID uint32, reqID uint32, body []byte) (respBody []byte, err error) {
+	return proto.Marshal(&sdkv1.ProviderHeartbeatResponse{})
 }
 
 func (h *tcpRPCHandler) Handle(ctx context.Context, msgID uint32, reqID uint32, body []byte) (respBody []byte, err error) {

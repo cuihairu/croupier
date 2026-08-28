@@ -92,12 +92,17 @@ func RegisterHandlers(r *gin.Engine, serverCtx *svc.ServiceContext) {
 
 	// 网站配置：公开快照 + admin 写入（L3 覆盖层）
 	siteSettingsHandler := settingsapi.NewHandler(settings.Current(), serverCtx.PlatformSettingModel)
+	siteSettingsHandlerRef = siteSettingsHandler
 	// 通知服务：依赖 Layered（渠道配置）与消息模型（站内信）。
 	serverCtx.NotifyService = notify.New(settings.Current(), serverCtx.MessageModel)
 	settingsapi.RegisterPublic(v1.Group("/public"), siteSettingsHandler)
 	// RegisterAdmin 路径已带 /site 前缀（PUT/DELETE /site/:key、GET /site/features 等），
 	// 这里必须挂根组；挂 "/site" 会变成 /api/v1/site/site/... 全线 404。
 	siteSettingsHandler.RegisterAdmin(protected.Group("/"))
+	// 登录方式（外部身份源 L3 运行时配置——Harbor 模式：保存即热生效）
+	authSite := protected.Group("/site")
+	authSite.GET("/auth", siteSettingsHandler.GetAuth)
+	authSite.POST("/auth/test", siteSettingsHandler.TestAuthConnection)
 
 	// Scope-dependent 路由：需要 X-Game-ID/X-Env 的接口。
 	// GameDBMiddleware 仅挂在此组，解析 scope 并注入 context。
@@ -193,6 +198,10 @@ func RegisterHandlers(r *gin.Engine, serverCtx *svc.ServiceContext) {
 	}
 }
 
+// siteSettingsHandlerRef 让 registerAuthRoutes 能给站点设置注入
+// 登录方式热刷新回调（装配顺序：settings 先于 auth 创建）。
+var siteSettingsHandlerRef *settingsapi.Handler
+
 func registerAuthRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 	jwtSecret, err := jwtutil.ResolveSecret(ctx.Config)
 	if err != nil {
@@ -212,6 +221,11 @@ func registerAuthRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 		slog.Default().Error("identity providers config invalid", "error", err)
 	} else {
 		providers.Attach(authSvc)
+	}
+	// 登录方式热刷新：站点设置保存 auth.* 后即时重建身份提供方
+	//（L3 覆盖 yaml；无效配置被 PutKey 拒绝并回滚，见 sitesettings handler）
+	if siteSettingsHandlerRef != nil {
+		siteSettingsHandlerRef.SetAuthChangeCallback(authSvc.RefreshIdentityProviders)
 	}
 	authHandler := auth.NewHandler(authSvc)
 	g.POST("/login", authHandler.Login)

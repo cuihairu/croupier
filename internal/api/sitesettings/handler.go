@@ -10,6 +10,7 @@ import (
 
 	"github.com/cuihairu/croupier/internal/common/errorx"
 	"github.com/cuihairu/croupier/internal/common/response"
+	"github.com/cuihairu/croupier/internal/config"
 	"github.com/cuihairu/croupier/internal/model"
 	"github.com/cuihairu/croupier/internal/platform/settings"
 	"github.com/gin-gonic/gin"
@@ -18,11 +19,19 @@ import (
 type Handler struct {
 	layered *settings.Layered
 	store   *model.PlatformSettingModel
+	// onAuthChange 在 auth.* 键保存后调用（登录方式热刷新——Harbor 模式
+	// 保存即生效；nil = 未接线，配置仅在下次重启生效）。
+	onAuthChange func(cfg config.AuthProvidersConfig) error
 }
 
 // NewHandler creates a settings handler.
 func NewHandler(layered *settings.Layered, store *model.PlatformSettingModel) *Handler {
 	return &Handler{layered: layered, store: store}
+}
+
+// SetAuthChangeCallback 注入登录方式热刷新回调（装配期）。
+func (h *Handler) SetAuthChangeCallback(fn func(cfg config.AuthProvidersConfig) error) {
+	h.onAuthChange = fn
 }
 
 // RegisterPublic mounts GET /site on the public group.
@@ -91,12 +100,34 @@ func (h *Handler) PutKey(c *gin.Context) {
 		response.Error(c, errorx.NewBadRequest(err.Error()))
 		return
 	}
+	// secret 占位符保留：读取端回显的是掩码（****+尾4），前端原样回存
+	// 时不能把真值覆盖成掩码——检测掩码形态则沿用已存值。
+	if settings.IsSecretKey(key) {
+		var v string
+		if err := json.Unmarshal(req.Value, &v); err == nil && strings.HasPrefix(v, "****") {
+			if raw, src, ok := h.layered.GetString(c.Request.Context(), key); ok && src == "database" {
+				req.Value, _ = json.Marshal(raw)
+			} else {
+				response.Error(c, errorx.NewBadRequest("secret 未设置，请输入真实值而非掩码"))
+				return
+			}
+		}
+	}
 	updatedBy := currentUsername(c)
 	if err := h.store.Set(c.Request.Context(), key, req.Value, updatedBy); err != nil {
 		response.Error(c, err)
 		return
 	}
 	h.layered.Reload(c.Request.Context(), h.store)
+	// 登录方式键：热刷新身份提供方（失败回滚该键，保持现状可用）
+	if strings.HasPrefix(key, "auth.") && h.onAuthChange != nil {
+		if err := h.onAuthChange(h.layered.AuthProviderConfig()); err != nil {
+			_ = h.store.Clear(c.Request.Context(), key)
+			h.layered.Reload(c.Request.Context(), h.store)
+			response.Error(c, errorx.NewBadRequest("登录方式配置无效，已回滚: "+err.Error()))
+			return
+		}
+	}
 	response.Success(c, gin.H{"key": key, "source": "database"})
 }
 

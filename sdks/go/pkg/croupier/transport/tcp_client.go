@@ -39,6 +39,18 @@ type TCPClient struct {
 	// dead 在 receiveLoop 退出（连接死亡）后置位；晚于 failAllPending
 	// 到达的 Call 依赖它立即失败，否则只能等 ctx/deadline。
 	dead bool
+
+	// inbound 队列与固定 worker 池：读循环永不执行业务逻辑（串行处理
+	// 会导致头部阻塞——一个慢 handler 卡住整条连接的所有请求）。
+	inbox   chan inboundTask
+	inboxWg sync.WaitGroup
+}
+
+// inboundTask 是一个待处理的 Agent 入站请求。
+type inboundTask struct {
+	msgID uint32
+	reqID uint32
+	body  []byte
 }
 
 type responseTuple struct {
@@ -107,11 +119,65 @@ func NewTCPClient(config *Config) (*TCPClient, error) {
 		inbound:   config.InboundHandler,
 	}
 
+	// 入站 worker 池：读循环只投递，业务处理由固定 worker 并发执行。
+	// 有界队列满时立即回错误帧（Agent 侧 failover 接管），内存不积累。
+	if config.InboundHandler != nil {
+		workers := config.InboundWorkers
+		if workers <= 0 {
+			workers = 8
+		}
+		qlen := config.InboundQLen
+		if qlen <= 0 {
+			qlen = 32
+		}
+		client.inbox = make(chan inboundTask, qlen)
+		client.inboxWg.Add(workers)
+		for i := 0; i < workers; i++ {
+			go client.inboundWorker()
+		}
+	}
+
 	// Start receive loop
 	client.readLoopWg.Add(1)
 	go client.receiveLoop()
 
 	return client, nil
+}
+
+// inboundWorker 消费入站队列：执行 handler 并回写响应帧。
+// handler 错误仍回错误响应（原同步版语义，不吞错误）。
+func (c *TCPClient) inboundWorker() {
+	defer c.inboxWg.Done()
+	for task := range c.inbox {
+		respBody, err := c.inbound(context.Background(), task.msgID, task.reqID, task.body)
+		if err != nil {
+			// 失败也要答 Agent：否则对端阻塞到超时且无诊断。
+			if task.msgID == protocol.MsgInvokeRequest {
+				errResp := &sdkv1.InvokeResponse{
+					Payload: []byte(`{"error":` + strconv.Quote(err.Error()) + `}`),
+				}
+				if marshaled, marshalErr := proto.Marshal(errResp); marshalErr == nil {
+					respBody = marshaled
+				} else {
+					respBody = nil
+				}
+			} else {
+				respBody = nil
+			}
+		}
+		c.writeResponseFrame(task.msgID, task.reqID, respBody)
+	}
+}
+
+// writeResponseFrame 以写锁保护回写响应帧（worker 并发安全）。
+func (c *TCPClient) writeResponseFrame(msgID uint32, reqID uint32, respBody []byte) {
+	frameBody := protocol.NewMessageBody(protocol.GetResponseMsgID(msgID), reqID, respBody)
+	frame := make([]byte, frameHeaderBytes+len(frameBody))
+	binary.BigEndian.PutUint32(frame[:frameHeaderBytes], uint32(len(frameBody)))
+	copy(frame[frameHeaderBytes:], frameBody)
+	c.writeMu.Lock()
+	_, _ = c.conn.Write(frame)
+	c.writeMu.Unlock()
 }
 
 // parseHostPort parses a host:port string.
@@ -295,39 +361,31 @@ func (c *TCPClient) receiveLoop() {
 	}
 }
 
+// handleInboundRequest 把入站请求投递到 worker 池（读循环永不执行
+// 业务逻辑——串行处理会让一个慢 handler 卡住整条连接的所有请求）。
+// 队列满时立即回 busy 错误帧，让 Agent 侧 failover 接管而不是排队
+// 积压内存。
 func (c *TCPClient) handleInboundRequest(msgID uint32, reqID uint32, body []byte) {
 	if c.inbound == nil || !protocol.IsRequest(msgID) {
 		return
 	}
-	respBody, err := c.inbound(context.Background(), msgID, reqID, body)
-	if err != nil {
-		// A failed handler must still answer the Agent. Swallowing the error
-		// here leaves the caller blocked until its timeout with no diagnostic,
-		// which is exactly how "context deadline exceeded" masked provider
-		// validation errors (e.g. missing required payload fields). For
-		// InvokeRequest we can carry the error text inside the InvokeResponse
-		// payload; for other message types an empty body is a valid proto
-		// zero value so the caller sees the failure immediately.
+	task := inboundTask{msgID: msgID, reqID: reqID, body: body}
+	select {
+	case c.inbox <- task:
+	default:
+		// 队列满：回 busy 错误响应（handler 错误同款格式），Agent 侧
+		// failover 换实例重试。
+		var respBody []byte
 		if msgID == protocol.MsgInvokeRequest {
 			errResp := &sdkv1.InvokeResponse{
-				Payload: []byte(`{"error":` + strconv.Quote(err.Error()) + `}`),
+				Payload: []byte(`{"error":"inbound queue full, retry on another instance"}`),
 			}
 			if marshaled, marshalErr := proto.Marshal(errResp); marshalErr == nil {
 				respBody = marshaled
-			} else {
-				respBody = nil
 			}
-		} else {
-			respBody = nil
 		}
+		c.writeResponseFrame(msgID, reqID, respBody)
 	}
-	frameBody := protocol.NewMessageBody(protocol.GetResponseMsgID(msgID), reqID, respBody)
-	frame := make([]byte, frameHeaderBytes+len(frameBody))
-	binary.BigEndian.PutUint32(frame[:frameHeaderBytes], uint32(len(frameBody)))
-	copy(frame[frameHeaderBytes:], frameBody)
-	c.writeMu.Lock()
-	_, _ = c.conn.Write(frame)
-	c.writeMu.Unlock()
 }
 
 // failAllPending wakes every in-flight Call with a connection-dead error.
@@ -352,6 +410,12 @@ func (c *TCPClient) Close() error {
 		close(c.closing)
 		closeErr = c.conn.Close()
 		c.readLoopWg.Wait()
+		// 收编入站 worker：关闭队列（可能已有缓冲任务，worker 会快速
+		// 失败——连接已死写不出去），等待全部退出避免协程泄漏。
+		if c.inbox != nil {
+			close(c.inbox)
+			c.inboxWg.Wait()
+		}
 	})
 	return closeErr
 }

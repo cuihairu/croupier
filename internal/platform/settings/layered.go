@@ -10,6 +10,7 @@ package settings
 import (
 	"context"
 	"encoding/json"
+	"github.com/cuihairu/croupier/internal/config"
 	"log/slog"
 	"strconv"
 	"strings"
@@ -58,6 +59,23 @@ const (
 	KeyNotifyWebhookURL     = "notification.webhookUrl"     // string
 	KeyNotifyWebhookSecret  = "notification.webhookSecret"  // string
 	KeyNotifyInAppEnabled   = "notification.inAppEnabled"   // bool
+
+	// 登录方式（外部身份源，L3 运行时配置——Harbor 模式：yaml 仅作
+	// bootstrap 初始值，UI 配置热生效；凭据键脱敏回显）
+	KeyAuthLdapEnabled      = "auth.ldap.enabled"      // bool
+	KeyAuthLdapAddr         = "auth.ldap.addr"         // string
+	KeyAuthLdapBaseDn       = "auth.ldap.baseDn"       // string
+	KeyAuthLdapBindDn       = "auth.ldap.bindDn"       // string
+	KeyAuthLdapBindPassword = "auth.ldap.bindPassword" // string (secret)
+	KeyAuthLdapUserFilter   = "auth.ldap.userFilter"   // string
+	KeyAuthLdapStartTLS     = "auth.ldap.startTls"     // bool
+	KeyAuthLdapDefaultRoles = "auth.ldap.defaultRoles" // string (逗号分隔)
+	KeyAuthOidcEnabled      = "auth.oidc.enabled"      // bool
+	KeyAuthOidcIssuer       = "auth.oidc.issuer"       // string
+	KeyAuthOidcClientId     = "auth.oidc.clientId"     // string
+	KeyAuthOidcClientSecret = "auth.oidc.clientSecret" // string (secret)
+	KeyAuthOidcRedirectUrl  = "auth.oidc.redirectUrl"  // string
+	KeyAuthOidcDefaultRoles = "auth.oidc.defaultRoles" // string (逗号分隔)
 )
 
 // ValidKeys is the L3 whitelist.
@@ -75,6 +93,12 @@ var ValidKeys = map[string]struct{}{
 	KeyNotifySMTPUser: {}, KeyNotifySMTPPassword: {}, KeyNotifySMTPFrom: {},
 	KeyNotifyDingtalkURL: {}, KeyNotifyDingtalkSecret: {},
 	KeyNotifyWebhookURL: {}, KeyNotifyWebhookSecret: {}, KeyNotifyInAppEnabled: {},
+
+	KeyAuthLdapEnabled: {}, KeyAuthLdapAddr: {}, KeyAuthLdapBaseDn: {},
+	KeyAuthLdapBindDn: {}, KeyAuthLdapBindPassword: {}, KeyAuthLdapUserFilter: {},
+	KeyAuthLdapStartTLS: {}, KeyAuthLdapDefaultRoles: {},
+	KeyAuthOidcEnabled: {}, KeyAuthOidcIssuer: {}, KeyAuthOidcClientId: {},
+	KeyAuthOidcClientSecret: {}, KeyAuthOidcRedirectUrl: {}, KeyAuthOidcDefaultRoles: {},
 }
 
 // secretKeys 是读取时必须脱敏的 key（读取接口只回显尾 4 位）。
@@ -82,6 +106,8 @@ var secretKeys = map[string]struct{}{
 	KeyNotifySMTPPassword:   {},
 	KeyNotifyDingtalkSecret: {},
 	KeyNotifyWebhookSecret:  {},
+	KeyAuthLdapBindPassword: {},
+	KeyAuthOidcClientSecret: {},
 }
 
 // IsSecretKey reports whether the key holds a credential that must be masked
@@ -107,6 +133,7 @@ var boolKeys = map[string]struct{}{
 	KeyFeatureDev: {}, KeyFeatureSupport: {}, KeyFeatureAnalytics: {},
 	KeyFeatureOps: {}, KeyFeatureExtensions: {},
 	KeyNotifyEmailEnabled: {}, KeyNotifyInAppEnabled: {},
+	KeyAuthLdapEnabled: {}, KeyAuthLdapStartTLS: {}, KeyAuthOidcEnabled: {},
 }
 
 // IsBoolKey reports whether the key carries a JSON boolean value.
@@ -610,4 +637,110 @@ func ResetForTest() {
 func resetForTest() {
 	layeredOnce = sync.Once{}
 	layered = nil
+}
+
+// AuthSnapshot 是登录方式（外部身份源）的读视图（凭据脱敏）。
+type AuthSnapshot struct {
+	LDAP AuthProviderSnapshot `json:"ldap"`
+	OIDC AuthProviderSnapshot `json:"oidc"`
+}
+
+// AuthProviderSnapshot 单一身份源的生效配置（secret 只回 set+尾4）。
+type AuthProviderSnapshot struct {
+	Enabled      bool              `json:"enabled"`
+	Fields       map[string]string `json:"fields"`       // 非凭据字段的生效值
+	SecretSet    bool              `json:"secretSet"`    // 凭据是否已设置
+	SecretMasked string            `json:"secretMasked"` // ****+尾4
+	Sources      map[string]string `json:"sources"`      // 每键来源（database/yaml/default）
+}
+
+// AuthSnapshot resolves the identity provider settings (masked).
+func (l *Layered) AuthSnapshot() AuthSnapshot {
+	return AuthSnapshot{
+		LDAP: l.authProviderSnapshot("ldap"),
+		OIDC: l.authProviderSnapshot("oidc"),
+	}
+}
+
+func (l *Layered) authProviderSnapshot(kind string) AuthProviderSnapshot {
+	ctx := context.Background()
+	prefix := "auth." + kind + "."
+	snap := AuthProviderSnapshot{Fields: map[string]string{}, Sources: map[string]string{}}
+	snap.Enabled = l.GetBool(settingsKey(prefix+"enabled"), false)
+	for _, f := range []string{"addr", "baseDn", "bindDn", "userFilter", "issuer", "clientId", "redirectUrl", "defaultRoles", "startTls"} {
+		if v, src, ok := l.GetString(ctx, settingsKey(prefix+f)); ok && v != "" {
+			snap.Fields[f] = v
+			snap.Sources[f] = src
+		}
+	}
+	// startTls 是 bool，放进 Fields 的字符串视图
+	if l.GetBool(settingsKey(prefix+"startTls"), false) {
+		snap.Fields["startTls"] = "true"
+	}
+	var secretKey string
+	if kind == "ldap" {
+		secretKey = KeyAuthLdapBindPassword
+	} else {
+		secretKey = KeyAuthOidcClientSecret
+	}
+	if v, src, ok := l.GetString(ctx, secretKey); ok && v != "" {
+		snap.SecretSet = true
+		snap.Sources["secret"] = src
+		if len(v) > 4 {
+			snap.SecretMasked = "****" + v[len(v)-4:]
+		} else {
+			snap.SecretMasked = "****"
+		}
+	}
+	return snap
+}
+
+func settingsKey(k string) string { return k }
+
+// AuthProviderConfig 从分层配置解析出当前生效的外部身份源配置
+// （L3 DB 覆盖 yaml；供登录方式热刷新与 Test Connection 使用）。
+func (l *Layered) AuthProviderConfig() config.AuthProvidersConfig {
+	ctx := context.Background()
+	str := func(key string) string {
+		v, _, ok := l.GetString(ctx, key)
+		if !ok {
+			return ""
+		}
+		return v
+	}
+	roles := func(key string) []string {
+		raw := str(key)
+		if raw == "" {
+			return nil
+		}
+		parts := strings.Split(raw, ",")
+		out := make([]string, 0, len(parts))
+		for _, p := range parts {
+			if p = strings.TrimSpace(p); p != "" {
+				out = append(out, p)
+			}
+		}
+		return out
+	}
+	return config.AuthProvidersConfig{
+		LDAP: config.LDAPProviderConfig{
+			Enabled:        l.GetBool(KeyAuthLdapEnabled, false),
+			Addr:           str(KeyAuthLdapAddr),
+			BaseDN:         str(KeyAuthLdapBaseDn),
+			BindDN:         str(KeyAuthLdapBindDn),
+			BindPassword:   str(KeyAuthLdapBindPassword),
+			UserFilter:     str(KeyAuthLdapUserFilter),
+			StartTLS:       l.GetBool(KeyAuthLdapStartTLS, false),
+			UserDNTemplate: str(KeyAuthLdapUserFilter), // 兼容：filter 未配时回退模板语义由 build 侧处理
+			DefaultRoles:   roles(KeyAuthLdapDefaultRoles),
+		},
+		OIDC: config.OIDCProviderConfig{
+			Enabled:      l.GetBool(KeyAuthOidcEnabled, false),
+			Issuer:       str(KeyAuthOidcIssuer),
+			ClientID:     str(KeyAuthOidcClientId),
+			ClientSecret: str(KeyAuthOidcClientSecret),
+			RedirectURL:  str(KeyAuthOidcRedirectUrl),
+			DefaultRoles: roles(KeyAuthOidcDefaultRoles),
+		},
+	}
 }
