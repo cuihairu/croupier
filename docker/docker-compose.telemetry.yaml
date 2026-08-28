@@ -34,6 +34,9 @@ services:
   # Prometheus - 指标收集和存储
   prometheus:
     image: prom/prometheus:latest
+    # 抓取 deploy 栈的 haproxy exporter：跨 compose 网络走宿主映射端口
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     command:
       - "--config.file=/etc/prometheus/prometheus.yml"
       - "--storage.tsdb.path=/prometheus"

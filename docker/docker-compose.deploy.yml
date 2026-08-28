@@ -1,6 +1,10 @@
 x-server-common: &server-common
   image: ghcr.io/${GHCR_OWNER:-cuihairu}/croupier-server:${CROUPIER_SERVER_TAG:-main}
   restart: unless-stopped
+  # LB 监控数据源经宿主映射端口访问 telemetry 栈（双 compose 网络
+  # 互不连通）：host.docker.internal → host-gateway 由 Docker 解析
+  extra_hosts:
+    - "host.docker.internal:host-gateway"
   volumes:
     - ./configs/server.yaml:/app/configs/server.yaml:ro
     # assignments.json / 历史与上传文件落在容器可写层，up -d 重建即丢；
@@ -184,9 +188,10 @@ services:
       CROUPIER_CLUSTER_ENABLED: "true"
       CROUPIER_CLUSTER_INSTANCE_ID: croupier-server
       CROUPIER_CLUSTER_ADVERTISE_ADDR: croupier-server:19099
-      # LB 监控数据源（telemetry 与 deploy 双网络时指宿主映射端口）；
-      # 未配置则 /ops/lb 页隐藏
-      CROUPIER_LB_PROMETHEUS_URL: ${CROUPIER_LB_PROMETHEUS_URL:-http://prometheus:9090}
+      # LB 监控数据源：telemetry 栈与 deploy 栈是独立 compose 网络，
+      # 容器名互不解析——走宿主映射端口 19092（extra_hosts 的
+      # host.docker.internal:host-gateway）；未配置则 /ops/lb 页隐藏
+      CROUPIER_LB_PROMETHEUS_URL: ${CROUPIER_LB_PROMETHEUS_URL:-http://host.docker.internal:19092}
 
   server2:
     <<: *server-common
@@ -196,7 +201,7 @@ services:
       CROUPIER_CLUSTER_ENABLED: "true"
       CROUPIER_CLUSTER_INSTANCE_ID: croupier-server2
       CROUPIER_CLUSTER_ADVERTISE_ADDR: croupier-server2:19099
-      CROUPIER_LB_PROMETHEUS_URL: ${CROUPIER_LB_PROMETHEUS_URL:-http://prometheus:9090}
+      CROUPIER_LB_PROMETHEUS_URL: ${CROUPIER_LB_PROMETHEUS_URL:-http://host.docker.internal:19092}
 
   # HA 双实例 agent：agent → server、agent2 → server2（configs/agent*.yaml
   # 分别指定上游地址与 Agent ID）。宿主端口只由实例 1 发布。
