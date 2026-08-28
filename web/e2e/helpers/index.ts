@@ -97,7 +97,7 @@ export async function navigateToConsole(
  * 导航到系统功能页面
  */
 export async function navigateToSystem(page: Page, path: string): Promise<void> {
-  await page.goto(`/system/functions/${path}`);
+  await page.goto(`/functions/${path}`);
   await page.waitForLoadState('domcontentloaded');
 }
 

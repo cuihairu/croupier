@@ -11,7 +11,7 @@ test.describe('Page Studio', () => {
   });
 
   test('页面列表加载', async ({ page }) => {
-    await page.goto('/system/functions/pages');
+    await page.goto('/functions/pages');
     await waitForPageReady(page);
 
     await expect(page.getByText('页面工作台').first()).toBeVisible();
@@ -22,7 +22,7 @@ test.describe('Page Studio', () => {
   });
 
   test('Proposal Inbox 展示', async ({ page }) => {
-    await page.goto('/system/functions/pages');
+    await page.goto('/functions/pages');
     await waitForPageReady(page);
 
     await expect(page.getByPlaceholder('搜索提案、页面或资源')).toBeVisible();
@@ -32,7 +32,7 @@ test.describe('Page Studio', () => {
   });
 
   test('预览功能', async ({ page }) => {
-    await page.goto('/system/functions/pages');
+    await page.goto('/functions/pages');
     await waitForPageReady(page);
 
     const previewBtn = page
@@ -48,7 +48,7 @@ test.describe('Page Studio', () => {
   });
 
   test('发布功能', async ({ page }) => {
-    await page.goto('/system/functions/pages');
+    await page.goto('/functions/pages');
     await waitForPageReady(page);
 
     const publishBtn = page

@@ -11,7 +11,7 @@ test.describe('Resource Catalog', () => {
   });
 
   test('资源目录页面加载', async ({ page }) => {
-    await page.goto('/system/functions/resource-catalog');
+    await page.goto('/functions/resource-catalog');
     await waitForPageReady(page);
 
     await expect(page.getByText('资源能力目录', { exact: true })).toBeVisible();
@@ -19,7 +19,7 @@ test.describe('Resource Catalog', () => {
   });
 
   test('资源列表展示', async ({ page }) => {
-    await page.goto('/system/functions/resource-catalog');
+    await page.goto('/functions/resource-catalog');
     await waitForPageReady(page);
 
     await expectTableVisible(page);
@@ -28,7 +28,7 @@ test.describe('Resource Catalog', () => {
   });
 
   test('资源详情查看', async ({ page }) => {
-    await page.goto('/system/functions/resource-catalog');
+    await page.goto('/functions/resource-catalog');
     await waitForPageReady(page);
 
     // 操作列为紧凑图标按钮（Tooltip 提示），按 aria-label 定位查看
@@ -48,7 +48,7 @@ test.describe('Resource Catalog', () => {
   });
 
   test('语义信息展示', async ({ page }) => {
-    await page.goto('/system/functions/resource-catalog');
+    await page.goto('/functions/resource-catalog');
     await waitForPageReady(page);
 
     // 验证状态标签

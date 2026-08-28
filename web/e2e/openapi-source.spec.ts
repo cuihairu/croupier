@@ -20,7 +20,7 @@ test.describe('OpenAPI Source', () => {
   });
 
   test('OpenAPI Source 页面加载', async ({ page }) => {
-    await page.goto('/system/functions/openapi-sources');
+    await page.goto('/functions/openapi-sources');
     await waitForPageReady(page);
 
     await expect(page.getByText('OpenAPI Sources').first()).toBeVisible();
@@ -29,7 +29,7 @@ test.describe('OpenAPI Source', () => {
   });
 
   test('上传 OpenAPI 文档', async ({ page }) => {
-    await page.goto('/system/functions/openapi-sources');
+    await page.goto('/functions/openapi-sources');
     await waitForPageReady(page);
 
     const uploadBtn = page.getByRole('button', { name: '上传 Source' });
@@ -46,7 +46,7 @@ test.describe('OpenAPI Source', () => {
   });
 
   test('Provider 绑定', async ({ page }) => {
-    await page.goto('/system/functions/openapi-sources');
+    await page.goto('/functions/openapi-sources');
     await waitForPageReady(page);
 
     const openBtn = page.getByRole('button', { name: '打开' }).first();

@@ -223,7 +223,7 @@ test.describe('真实 SDK Operation 链路', () => {
     }
 
     await login(page);
-    await page.goto('/system/functions/pages');
+    await page.goto('/functions/pages');
     await waitForPageReady(page);
 
     const proposalRow = page.locator('tr').filter({ hasText: 'operation:mail.send' });
