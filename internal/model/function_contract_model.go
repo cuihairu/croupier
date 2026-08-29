@@ -38,7 +38,8 @@ func (m *FunctionContractModel) UpsertContract(ctx context.Context, contract *Fu
 	// 内容无变化则跳过写：agent 重启/SDK 重连的重注册是常态，
 	// 盲目 Save 会整行覆盖并刷新 updated_at——下游（proposal 重生成、
 	// 页面 freshness 对比快照）被幽灵扰动，已发布页面出现假性 stale。
-	if contractSemanticallyEqual(&existing, contract) {
+	// 软删除行不算"无变化"——重注册语义上就是复活（保存 DeletedAt 复位）。
+	if existing.DeletedAt.Time.IsZero() && contractSemanticallyEqual(&existing, contract) {
 		return nil
 	}
 	contract.ID = existing.ID
