@@ -192,6 +192,15 @@ jobs:
             echo "Container ${name}: project=${project}, service=${service}"
           done
 
+      - name: Dump server panic evidence (always)
+        if: always()
+        timeout-minutes: 2
+        run: |
+          for c in croupier-server croupier-server2; do
+            echo "===== ${c}: panic tail ====="
+            docker logs --tail 2000 "${c}" 2>&1 | grep -B 5 -A 40 -E "panic:|CreateCompositeProposal panic|recovered" | tail -60 || echo "(no panic evidence)"
+          done
+
       - name: Deploy containers
         timeout-minutes: 10
         id: deploy
@@ -226,15 +235,6 @@ jobs:
           for c in croupier-server croupier-server2; do
             echo "===== ${c}: register/heartbeat/cluster tail ====="
             docker logs --tail 200 "${c}" 2>&1 | grep -Ei "registered|heartbeat|cluster|owner" | tail -12 || true
-          done
-
-      - name: Dump server panic evidence (always)
-        if: always()
-        timeout-minutes: 2
-        run: |
-          for c in croupier-server croupier-server2; do
-            echo "===== ${c}: panic tail ====="
-            docker logs --tail 2000 "${c}" 2>&1 | grep -B 5 -A 40 -E "panic:|CreateCompositeProposal panic|recovered" | tail -60 || echo "(no panic evidence)"
           done
 
       - name: Dump dashboard logs (on failure)
