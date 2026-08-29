@@ -89,15 +89,37 @@ func canonicalJSON(raw JSON) []byte {
 	return out
 }
 
-// jsonMapEqual 比较 datatypes.JSONMap（nil 与空 map 视为相等）。
+// jsonMapEqual 比较 datatypes.JSONMap：nil / 空 / 零值（false、""）等价。
+// 注册链对 Approval 的零值在不同路径产生 nil 与 {required:false,policyKey:""}
+// 两种形态语义相同，不应触发重写。
 func jsonMapEqual(a, b datatypes.JSONMap) bool {
-	if len(a) != len(b) {
+	na, nb := normalizeJSONMap(a), normalizeJSONMap(b)
+	if len(na) != len(nb) {
 		return false
 	}
-	if len(a) == 0 {
+	if len(na) == 0 {
 		return true
 	}
-	return bytes.Equal(canonicalJSON(mustMarshalMap(a)), canonicalJSON(mustMarshalMap(b)))
+	return bytes.Equal(canonicalJSON(mustMarshalMap(na)), canonicalJSON(mustMarshalMap(nb)))
+}
+
+// normalizeJSONMap 剔除零值条目（false/空串），nil 返回空 map。
+func normalizeJSONMap(m datatypes.JSONMap) datatypes.JSONMap {
+	out := datatypes.JSONMap{}
+	for k, v := range m {
+		switch tv := v.(type) {
+		case bool:
+			if !tv {
+				continue
+			}
+		case string:
+			if strings.TrimSpace(tv) == "" {
+				continue
+			}
+		}
+		out[k] = v
+	}
+	return out
 }
 
 func mustMarshalMap(m datatypes.JSONMap) JSON {
