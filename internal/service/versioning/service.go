@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/cuihairu/croupier/internal/common/errorx"
+	"github.com/cuihairu/croupier/internal/dashboard/freshness"
 	"github.com/cuihairu/croupier/internal/dashboard/generator"
 	dashboardmerge "github.com/cuihairu/croupier/internal/dashboard/merge"
 	"github.com/cuihairu/croupier/internal/dashboard/spec"
@@ -2087,8 +2088,7 @@ func digestRaw(raw model.JSON) string {
 	if len(raw) == 0 {
 		return ""
 	}
-	sum := sha256.Sum256(raw)
-	return hex.EncodeToString(sum[:])
+	return freshness.CanonicalDigest(raw)
 }
 
 func localizedTextToJSONMap(values spec.LocalizedText) datatypes.JSONMap {

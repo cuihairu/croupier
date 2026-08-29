@@ -2,8 +2,6 @@ package service
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"sort"
@@ -1254,6 +1252,5 @@ func digestJSON(raw model.JSON) string {
 	if len(raw) == 0 {
 		return ""
 	}
-	sum := sha256.Sum256(raw)
-	return hex.EncodeToString(sum[:])
+	return freshness.CanonicalDigest(raw)
 }
