@@ -17,11 +17,17 @@ POST /api/ingest/events
 [
   {
     "event": "session.start",
-    "ts": 1731700000000,
-    "attrs": { "uid": "u1", "game_id": "demo", "env": "dev" }
+    "ts": "1731700000000",
+    "game_id": "demo",
+    "env": "dev",
+    "user_id": "u1",
+    "session_id": "s1"
   }
 ]
 ```
+
+注意：`ts`（毫秒）与 `game_id`/`env` 是**顶层字符串字段**（校验器按字符串读取，
+数字形态会报 `missing ts`）；业务扩展字段放顶层或 `attrs` 均可。
 
 - 返回：`{"ok":true}` 或错误详情
 

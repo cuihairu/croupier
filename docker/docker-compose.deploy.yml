@@ -13,6 +13,10 @@ x-server-common: &server-common
   environment: &server-env
     DATABASE_URL: ${DATABASE_URL:-postgres://croupier:croupier_dev_password@postgres:5432/croupier?sslmode=disable}
     REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+    # OTel→分析归流桥（T12）：开启后函数调用/权限检查事件经
+    # analytics:events 流进 ClickHouse（.env 置 true 启用）
+    ANALYTICS_BRIDGE_ENABLED: ${ANALYTICS_BRIDGE_ENABLED:-false}
+    ANALYTICS_REDIS_ADDR: ${ANALYTICS_REDIS_ADDR:-redis:6379}
     CLICKHOUSE_DSN: ${CLICKHOUSE_DSN:-clickhouse://clickhouse:9000/analytics?dial_timeout=5s&compress=true}
     IP2LOCATION_BIN_PATH: /app/configs/IP2LOCATION-LITE-DB3.BIN
     IP2LOCATION_BIN_PATH_V6: /app/configs/IP2LOCATION-LITE-DB3.IPV6.BIN
