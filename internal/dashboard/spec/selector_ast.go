@@ -121,6 +121,25 @@ type SelectorContext struct {
 // SelectorContextForBinding builds the runtime selector context for a concrete
 // page binding. It must stay aligned with PageRenderer execution contexts.
 func SelectorContextForBinding(page PageSpec, binding PageFunctionBinding) SelectorContext {
+	// composite 页：按 bindingId 的 "<resourceKey>." 前缀定位所属资源块，
+	// 以该块的 view 构造校验上下文（类型按 resource 语义——块内 selector
+	// 语义与单资源页完全一致）。
+	if page.Type == PageTypeComposite && page.Composite != nil {
+		if block := compositeBlockForBinding(page.Composite, binding.ID); block != nil {
+			blockPage := PageSpec{
+				Type:     PageTypeResource,
+				Resource: &block.View,
+			}
+			ctx := SelectorContextForBinding(blockPage, PageFunctionBinding{
+				ID:        strings.TrimPrefix(binding.ID, block.ResourceKey+"."),
+				Usage:     binding.Usage,
+				Selectors: binding.Selectors,
+				Execution: binding.Execution,
+			})
+			ctx.PageType = PageTypeResource
+			return ctx
+		}
+	}
 	ctx := SelectorContext{
 		PageType:      page.Type,
 		HasListView:   page.Resource != nil && page.Resource.ListView != nil,
@@ -147,6 +166,20 @@ func SelectorContextForBinding(page PageSpec, binding PageFunctionBinding) Selec
 		ctx.IsBatchAction = bindingUsesSelectionSource(binding)
 	}
 	return ctx
+}
+
+// compositeBlockForBinding 按 "<resourceKey>." 前缀定位组合页资源块。
+func compositeBlockForBinding(comp *CompositePageSpec, bindingID string) *CompositeResourceBlock {
+	if comp == nil {
+		return nil
+	}
+	for i := range comp.Resources {
+		rk := strings.TrimSpace(comp.Resources[i].ResourceKey)
+		if rk != "" && strings.HasPrefix(bindingID, rk+".") {
+			return &comp.Resources[i]
+		}
+	}
+	return nil
 }
 
 // FormSchemaForBinding returns the PageSpec form that supplies SourceForm
