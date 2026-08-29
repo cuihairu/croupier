@@ -27,6 +27,13 @@ export interface SortableListProps<T> {
     index: number,
     dragHandleProps: React.HTMLAttributes<HTMLElement>,
   ) => React.ReactNode;
+  /**
+   * true 时不渲染内部 DndContext，sortable 项注册到最近的祖先 DndContext——
+   * 用于父级需要单一拖拽域同时处理「外部拖入」与「列表内重排」的场景
+   * （如 CompositeBuilder：左栏函数拖到指定区块卡之后插入）。此时父级
+   * 的 onDragEnd 需自行处理条目重排（active.id 是条目 key 的场景）。
+   */
+  externalDnd?: boolean;
 }
 
 export interface SortableItemProps {
@@ -58,7 +65,13 @@ export function SortableItem({ id, children }: SortableItemProps) {
   );
 }
 
-export function SortableList<T>({ items, getKey, onReorder, children }: SortableListProps<T>) {
+export function SortableList<T>({
+  items,
+  getKey,
+  onReorder,
+  children,
+  externalDnd = false,
+}: SortableListProps<T>) {
   const sensors = useSensors(
     useSensor(PointerSensor),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
@@ -75,15 +88,21 @@ export function SortableList<T>({ items, getKey, onReorder, children }: Sortable
     onReorder(next);
   };
 
+  const content = (
+    <SortableContext items={items.map(getKey)} strategy={verticalListSortingStrategy}>
+      {items.map((item, index) => (
+        <SortableItem key={getKey(item)} id={getKey(item)}>
+          {(dragHandleProps) => children(item, index, dragHandleProps)}
+        </SortableItem>
+      ))}
+    </SortableContext>
+  );
+
+  if (externalDnd) return content;
+
   return (
     <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-      <SortableContext items={items.map(getKey)} strategy={verticalListSortingStrategy}>
-        {items.map((item, index) => (
-          <SortableItem key={getKey(item)} id={getKey(item)}>
-            {(dragHandleProps) => children(item, index, dragHandleProps)}
-          </SortableItem>
-        ))}
-      </SortableContext>
+      {content}
     </DndContext>
   );
 }

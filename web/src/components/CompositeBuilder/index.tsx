@@ -31,7 +31,9 @@ import { Tree } from 'antd';
 import {
   DndContext,
   DragOverlay,
+  KeyboardSensor,
   PointerSensor,
+  closestCenter,
   useSensor,
   useSensors,
   useDraggable,
@@ -39,6 +41,7 @@ import {
   type DragStartEvent,
   type DragEndEvent,
 } from '@dnd-kit/core';
+import { sortableKeyboardCoordinates } from '@dnd-kit/sortable';
 import { listDescriptors, type FunctionDescriptor } from '@/services/api/functions';
 import { SortableList } from '@/components/SortableList';
 import { localizedText } from '@/utils/localizedText';
@@ -160,24 +163,40 @@ export default function CompositeBuilder({
     setActiveFnId(null);
     const { active, over } = event;
     if (!over) return;
-    const fnId = String(active.id || '').slice(3);
-    if (!String(active.id).startsWith('fn:')) return; // 画布内排序由 SortableList 自己的 DndContext 处理
+    const activeId = String(active.id || '');
     const overId = String(over.id || '');
-    if (overId === 'composite-canvas') {
-      addSectionRef.current?.(fnId);
-    } else if (overId.startsWith('sec:')) {
-      // 拖到某区块卡上方：插入到该位置（append after index）
-      const targetKey = overId.slice(4);
-      const idx = sectionsRef.current.findIndex((x) => x.key === targetKey);
-      if (idx >= 0 && addSectionRef.current) {
-        addSectionRef.current(fnId, idx + 1);
+
+    // 场景一：左栏函数拖入画布（fn: 前缀 = 树节点）
+    if (activeId.startsWith('fn:')) {
+      const fnId = activeId.slice(3);
+      if (overId === 'composite-canvas') {
+        addSectionRef.current?.(fnId);
+      } else {
+        // 拖到某区块卡上：定位插入到该区块之后
+        const idx = sectionsRef.current.findIndex((x) => x.key === overId);
+        if (idx >= 0) addSectionRef.current?.(fnId, idx + 1);
       }
+      return;
     }
+
+    // 场景二：画布内区块重排（externalDnd：SortableList 的排序项
+    // 直接注册到本 context，重排逻辑在此统一处理）
+    if (overId === 'composite-canvas') return; // 落到容器空白：no-op
+    const oldIndex = sectionsRef.current.findIndex((x) => x.key === activeId);
+    const newIndex = sectionsRef.current.findIndex((x) => x.key === overId);
+    if (oldIndex === -1 || newIndex === -1 || oldIndex === newIndex) return;
+    const next = [...sectionsRef.current];
+    next.splice(newIndex, 0, next.splice(oldIndex, 1)[0]);
+    onChangeRef.current?.(next);
   }, []);
 
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }));
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
 
   const addSectionRef = React.useRef<(id: string, at?: number) => void>(() => {});
+  const onChangeRef = React.useRef<(sections: CompositeSectionDraft[]) => void>(() => {});
   const sectionsRef = React.useRef<CompositeSectionDraft[]>([]);
   sectionsRef.current = sections;
 
@@ -260,6 +279,7 @@ export default function CompositeBuilder({
   // ref 供外层 DndContext 的 dragEnd 读取最新闭包
   sectionsRef.current = sections;
   addSectionRef.current = addSection;
+  onChangeRef.current = onChange;
 
   const updateSection = useCallback(
     (idx: number, patch: Partial<CompositeSectionDraft>) => {
@@ -287,7 +307,12 @@ export default function CompositeBuilder({
   );
 
   return (
-    <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+    <DndContext
+      sensors={sensors}
+      collisionDetection={closestCenter}
+      onDragStart={handleDragStart}
+      onDragEnd={handleDragEnd}
+    >
       <div style={{ position: 'relative' }}>
         {/* 顶部：页面 Key（自动预填 + 可改） */}
         <Card size="small" style={{ marginBottom: 12 }}>
