@@ -95,8 +95,12 @@ func validatePageVariant(page PageSpec) []Diagnostic {
 		if page.Report != nil {
 			return nil
 		}
+	case PageTypeComposite:
+		if page.Composite != nil {
+			return nil
+		}
 	default:
-		return []Diagnostic{publishShapeDiagnostic("page_type_invalid", "page type must be resource, operation, task, or report", "type")}
+		return []Diagnostic{publishShapeDiagnostic("page_type_invalid", "page type must be resource, operation, task, report or composite", "type")}
 	}
 	return []Diagnostic{publishShapeDiagnostic("page_variant_type_mismatch", "page body must match page type", "type")}
 }
