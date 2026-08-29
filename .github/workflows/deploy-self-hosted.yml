@@ -234,7 +234,7 @@ jobs:
         run: |
           for c in croupier-server croupier-server2; do
             echo "===== ${c}: panic tail ====="
-            docker logs --tail 500 "${c}" 2>&1 | grep -B 2 -A 25 "panic:" | tail -40 || true
+            docker logs --tail 2000 "${c}" 2>&1 | grep -B 5 -A 40 -E "panic:|CreateCompositeProposal panic|recovered" | tail -60 || echo "(no panic evidence)"
           done
 
       - name: Dump dashboard logs (on failure)
