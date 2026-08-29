@@ -393,8 +393,13 @@ func buildListViewFromContract(contract *model.FunctionContract, semantics *mode
 	}
 	sort.Strings(keys)
 
-	identityField := strings.TrimSpace(semantics.IdentityField)
-	filters := buildFiltersFromContract(contract, semantics)
+	// nil semantics（组合页无资源语义上下文）：字段名用通用默认（items/total）
+	var identityField string
+	var filters []spec.FilterSpec
+	if semantics != nil {
+		identityField = strings.TrimSpace(semantics.IdentityField)
+		filters = buildFiltersFromContract(contract, semantics)
+	}
 	filterKeys := make(map[string]struct{}, len(filters))
 	for _, filter := range filters {
 		filterKeys[filter.Key] = struct{}{}
