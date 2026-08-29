@@ -1,15 +1,17 @@
 import { Footer } from '@/components';
 import { createSession, fetchCurrentUserGames } from '@/services/api';
+import { fetchLoginProviders, type LoginProviders } from '@/services/api/sites';
 import { setScope } from '@/stores/scope';
 import { LockOutlined, UserOutlined } from '@ant-design/icons';
 import { LoginForm, ProFormCheckbox, ProFormText } from '@ant-design/pro-components';
+import { LoginOutlined } from '@ant-design/icons';
 import { FormattedMessage, history, SelectLang, useIntl, useModel, Helmet } from '@umijs/max';
-import { Alert, Modal } from 'antd';
+import { Alert, Button, Divider, Modal, Typography } from 'antd';
 import { getMessage } from '@/utils/antdApp';
 import Settings from '../../../../config/defaultSettings';
 import { BRAND } from '@/config/branding';
 import { loadAuthedInitialState } from '@/services/initialState';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { flushSync } from 'react-dom';
 import { createStyles } from 'antd-style';
 
@@ -83,6 +85,13 @@ const Login: React.FC = () => {
   const { initialState, setInitialState } = useModel('@@initialState');
   const siteCfg = initialState?.siteConfig;
   const [forgotOpen, setForgotOpen] = useState(false);
+  // 已启用登录方式（LDAP 级联提示 / OIDC SSO 入口）；拉取失败静默回落本地登录
+  const [providers, setProviders] = useState<LoginProviders | null>(null);
+  useEffect(() => {
+    fetchLoginProviders()
+      .then(setProviders)
+      .catch(() => setProviders(null));
+  }, []);
   const { styles } = useStyles();
   const intl = useIntl();
 
@@ -175,8 +184,28 @@ const Login: React.FC = () => {
           initialValues={{
             autoLogin: true,
           }}
-          // remove other login methods/actions
-          actions={[]}
+          actions={
+            providers?.oidc
+              ? [
+                  <Divider plain key="sso-divider" style={{ margin: '8px 0' }}>
+                    <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                      其他登录方式
+                    </Typography.Text>
+                  </Divider>,
+                  <Button
+                    key="sso"
+                    block
+                    size="large"
+                    icon={<LoginOutlined />}
+                    onClick={() => {
+                      window.location.href = '/api/v1/auth/oidc/login';
+                    }}
+                  >
+                    SSO 登录
+                  </Button>,
+                ]
+              : []
+          }
           onFinish={async (values) => {
             await handleSubmit(values as { username: string; password: string });
           }}
@@ -239,6 +268,14 @@ const Login: React.FC = () => {
               />
             </>
           }
+          {providers?.ldap && (
+            <Alert
+              style={{ marginBottom: 16 }}
+              type="info"
+              showIcon
+              message="支持域账号：直接输入 LDAP 用户名和密码登录（本地账号校验失败时自动尝试目录服务）"
+            />
+          )}
           <div
             style={{
               marginBottom: 24,

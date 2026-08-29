@@ -8,6 +8,7 @@ import {
   type SettingSource,
 } from '@/services/api/sites';
 import { extractErrorMessage } from '@/utils/errors';
+import AuthTab from './AuthTab';
 import FeatureFlagsTab from './FeatureFlagsTab';
 import ObservabilityTab from './ObservabilityTab';
 import NotificationTab from './NotificationTab';
@@ -188,6 +189,7 @@ export default function SiteSettingsPage() {
         items={[
           { key: 'site', label: '站点信息', children: siteTab },
           { key: 'features', label: '功能开关', children: <FeatureFlagsTab /> },
+          { key: 'auth', label: '登录方式', children: <AuthTab /> },
           { key: 'notification', label: '通知设置', children: <NotificationTab /> },
           { key: 'observability', label: '观测集成', children: <ObservabilityTab /> },
         ]}

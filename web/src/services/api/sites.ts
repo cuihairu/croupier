@@ -107,3 +107,48 @@ export async function fetchNotificationSettings(): Promise<NotificationSettings>
     skipErrorHandler: true,
   });
 }
+
+// ---- 登录方式（auth.*，外部身份源 LDAP/OIDC，Harbor 模式热配置） ----
+
+// Source: internal/platform/settings/layered.go AuthSnapshot
+export type AuthProviderSnapshot = {
+  enabled: boolean;
+  fields: Record<string, string>;
+  secretSet: boolean;
+  secretMasked: string;
+  sources: Record<string, string>;
+};
+
+export type AuthSnapshot = {
+  ldap: AuthProviderSnapshot;
+  oidc: AuthProviderSnapshot;
+};
+
+// Admin: 登录方式生效配置（凭据脱敏回显）。
+export async function fetchAuthSnapshot(): Promise<AuthSnapshot> {
+  return request<AuthSnapshot>('/api/v1/site/auth', { skipErrorHandler: true });
+}
+
+export type AuthConnectionTest = { ok: boolean; message: string };
+
+// Admin: LDAP/OIDC 连通性测试（需先保存 enabled=true）。
+export async function testAuthConnection(kind: 'ldap' | 'oidc'): Promise<AuthConnectionTest> {
+  return request<AuthConnectionTest>('/api/v1/site/auth/test', {
+    method: 'POST',
+    data: { kind },
+  });
+}
+
+// ---- 登录页：已启用登录方式 ----
+
+// Source: internal/api/auth/handler.go Providers
+export type LoginProviders = {
+  local: boolean;
+  ldap: boolean;
+  oidc: boolean;
+};
+
+// Public: 登录页据此渲染 SSO 入口 / LDAP 提示。
+export async function fetchLoginProviders(): Promise<LoginProviders> {
+  return request<LoginProviders>('/api/v1/auth/providers', { skipErrorHandler: true });
+}
