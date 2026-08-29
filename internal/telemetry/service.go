@@ -148,6 +148,16 @@ func (s *GameTelemetryService) CompleteFunctionCall(ctx context.Context, result 
 	}
 }
 
+// BridgeFunctionCall 将平台函数调用归流到分析管道（analytics bridge）。
+// eventType 如 function.call / function.call.success / function.call.error；
+// 有活跃 span 时自动携带 trace 关联，无 span 也可安全调用。
+func (s *GameTelemetryService) BridgeFunctionCall(ctx context.Context, eventType string, attrs ...attribute.KeyValue) {
+	if s == nil || s.provider == nil || s.provider.Bridge == nil {
+		return
+	}
+	s.provider.Bridge.SendEvent(ctx, eventType, trace.SpanFromContext(ctx), attrs)
+}
+
 // === 权限验证追踪 ===
 
 // TrackPermissionCheck 追踪权限检查

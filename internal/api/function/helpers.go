@@ -254,7 +254,27 @@ func functionInvoke(ctx context.Context, svcCtx *svc.ServiceContext, req *Functi
 			attribute.String("game.id", strings.TrimSpace(req.GameID)),
 			attribute.String("game.env", strings.TrimSpace(req.Env)),
 		)
+		// 归流桥：函数调用是分析管道的核心业务事件（T12 断点④——
+		// 此前 bridge 建好但发送端从未接线，事件从未进过 ClickHouse）
+		svcCtx.Telemetry.BridgeFunctionCall(nextCtx, "function.call",
+			attribute.String("function.id", req.ID),
+			attribute.String("function.mode", strings.TrimSpace(req.Mode)),
+			attribute.String("function.route", strings.TrimSpace(req.Route)),
+			attribute.String("game.id", strings.TrimSpace(req.GameID)),
+			attribute.String("game.env", strings.TrimSpace(req.Env)),
+		)
 		defer func() {
+			eventType := "function.call.success"
+			completionAttrs := []attribute.KeyValue{
+				attribute.String("function.id", req.ID),
+				attribute.String("game.id", strings.TrimSpace(req.GameID)),
+				attribute.String("game.env", strings.TrimSpace(req.Env)),
+			}
+			if spanErr != nil {
+				eventType = "function.call.error"
+				completionAttrs = append(completionAttrs, attribute.String("error.message", spanErr.Error()))
+			}
+			svcCtx.Telemetry.BridgeFunctionCall(nextCtx, eventType, completionAttrs...)
 			svcCtx.Telemetry.EndSpan(span, startedAt, spanErr)
 		}()
 		ctx = nextCtx
