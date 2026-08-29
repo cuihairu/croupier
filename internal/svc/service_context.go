@@ -1248,11 +1248,14 @@ func NewAuthMiddlewareImpl(svcCtx *ServiceContext) *AuthMiddleware {
 		allowPaths: map[string]struct{}{
 			"/healthz":                   {},
 			"/api/v1/auth/login":         {},
+			"/api/v1/auth/logout":        {},
+			"/api/v1/auth/providers":     {}, // 登录页渲染 SSO/LDAP 入口（只回 bool）
 			"/api/v1/monitoring/health":  {},
 			"/api/v1/monitoring/healthz": {},
 		},
 		allowPref: []string{
 			"/api/v1/auth/login",
+			"/api/v1/auth/oidc/", // SSO 跳转 + 身份源回调（state 校验防 CSRF）
 		},
 		publicReadPrefixes: []string{
 			"/api/v1/registry", // 公开访问：注册中心（agents、functions）

@@ -36,6 +36,7 @@ import (
 	"github.com/cuihairu/croupier/internal/model"
 	dispatch "github.com/cuihairu/croupier/internal/platform/dispatch"
 	reg "github.com/cuihairu/croupier/internal/platform/registry"
+	"github.com/cuihairu/croupier/internal/platform/settings"
 	extensiongorm "github.com/cuihairu/croupier/internal/repo/gorm/extension"
 	"github.com/cuihairu/croupier/internal/security/jwtutil"
 	"github.com/cuihairu/croupier/internal/service"
@@ -87,7 +88,7 @@ func registerPublicRoutes(api *gin.RouterGroup, db *gorm.DB, cfg *config.Config)
 		permissionservice.NewPermissionService(db),
 		jwtSecret,
 	).WithRoleModel(model.NewRoleModel(db))
-	if providers, provErr := auth.BuildIdentityProvidersFromConfig(*cfg); provErr != nil {
+	if providers, provErr := auth.BuildIdentityProviders(settings.Current().AuthProviderConfig()); provErr != nil {
 		slog.Default().Error("identity providers config invalid", "error", provErr)
 	} else {
 		providers.Attach(authSvc)

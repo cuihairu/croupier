@@ -10,15 +10,15 @@ import (
 	"github.com/cuihairu/croupier/internal/security/identity"
 )
 
-// BuildIdentityProvidersFromConfig 从全局配置构建外部身份提供方，
-// 供路由装配时调用。返回的句柄通过 Attach 挂到 Service。
+// BuildIdentityProviders 从分层设置（yaml 初始值 + database L3 覆盖）
+// 构建外部身份提供方，供路由装配时调用。返回的句柄通过 Attach 挂到 Service。
 //
 // 构建策略是"失效降级"而非启动失败：
 //   - LDAP 无网络依赖（认证时才拨号），配置不完整直接报错提示；
 //   - OIDC 构建需要访问 Issuer 发现端点，失败时告警并跳过
 //     （避免身份源短暂不可用拖垮整个 Server 启动）。
-func BuildIdentityProvidersFromConfig(cfg config.Config) (*IdentityProviders, error) {
-	return buildIdentityProviders(cfg.Auth.Providers)
+func BuildIdentityProviders(cfg config.AuthProvidersConfig) (*IdentityProviders, error) {
+	return buildIdentityProviders(cfg)
 }
 
 // IdentityProviders 是装配结果：待挂到 Service 上的提供方与其配套参数。

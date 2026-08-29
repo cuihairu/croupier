@@ -74,6 +74,11 @@ func RegisterHandlers(r *gin.Engine, serverCtx *svc.ServiceContext) {
 	r.Use(reqinfo.Middleware())
 	v1 := r.Group("/api/v1")
 
+	// 网站配置 handler 必须先于 auth 路由创建：registerAuthRoutes 要把
+	// 「登录方式热刷新」回调注入进来（此前声明在使用之后，回调从未挂上）
+	siteSettingsHandler := settingsapi.NewHandler(settings.Current(), serverCtx.PlatformSettingModel)
+	siteSettingsHandlerRef = siteSettingsHandler
+
 	// 公开路由（无认证）
 	registerAuthRoutes(v1.Group("/auth"), serverCtx) // 修复：/api/v1/auth/login
 	registerMetaRoutes(v1, serverCtx)
@@ -90,9 +95,7 @@ func RegisterHandlers(r *gin.Engine, serverCtx *svc.ServiceContext) {
 	protected := v1.Group("/")
 	protected.Use(serverCtx.Authority)
 
-	// 网站配置：公开快照 + admin 写入（L3 覆盖层）
-	siteSettingsHandler := settingsapi.NewHandler(settings.Current(), serverCtx.PlatformSettingModel)
-	siteSettingsHandlerRef = siteSettingsHandler
+	// 网站配置：公开快照 + admin 写入（L3 覆盖层，handler 已提前创建）
 	// 通知服务：依赖 Layered（渠道配置）与消息模型（站内信）。
 	serverCtx.NotifyService = notify.New(settings.Current(), serverCtx.MessageModel)
 	settingsapi.RegisterPublic(v1.Group("/public"), siteSettingsHandler)
@@ -216,7 +219,9 @@ func registerAuthRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 		WithGameModel(ctx.GameModel).
 		WithAuditService(ctx.AuditService).
 		WithRoleModel(model.NewRoleModel(ctx.DB))
-	providers, err := auth.BuildIdentityProvidersFromConfig(ctx.Config)
+	// 初始装配从分层设置读取（yaml 初始值 + database L3 覆盖）：
+	// 只读 ctx.Config 会导致 UI 保存的登录方式重启后静默失效
+	providers, err := auth.BuildIdentityProviders(settings.Current().AuthProviderConfig())
 	if err != nil {
 		slog.Default().Error("identity providers config invalid", "error", err)
 	} else {

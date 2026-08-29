@@ -319,9 +319,9 @@ func fakeDiscoveryServer(t *testing.T) *httptest.Server {
 	return srv
 }
 
-func TestBuildIdentityProvidersFromConfig(t *testing.T) {
+func TestBuildIdentityProviders(t *testing.T) {
 	// 全关：空装配。
-	ips, err := BuildIdentityProvidersFromConfig(config.Config{})
+	ips, err := BuildIdentityProviders(config.AuthProvidersConfig{})
 	require.NoError(t, err)
 	require.NotNil(t, ips)
 	assert.Nil(t, ips.ldap)
@@ -336,7 +336,7 @@ func TestBuildIdentityProvidersFromConfig(t *testing.T) {
 		BindDN:     "uid=svc",
 		UserFilter: "(uid=%s)",
 	}
-	ips, err = BuildIdentityProvidersFromConfig(cfg)
+	ips, err = BuildIdentityProviders(cfg.Auth.Providers)
 	require.NoError(t, err)
 	assert.NotNil(t, ips.ldap)
 
@@ -356,7 +356,7 @@ func TestBuildIdentityProvidersFromConfig(t *testing.T) {
 		RedirectURL:     "http://localhost:18780/api/auth/oidc/callback",
 		LoginSuccessURL: "http://frontend:8000/login",
 	}
-	ips, err = BuildIdentityProvidersFromConfig(cfg)
+	ips, err = BuildIdentityProviders(cfg.Auth.Providers)
 	require.NoError(t, err)
 	assert.NotNil(t, ips.ldap)
 	assert.NotNil(t, ips.oidc)
@@ -368,7 +368,7 @@ func TestBuildIdentityProvidersFromConfig(t *testing.T) {
 
 	// OIDC 缺关键字段：报错。
 	cfg.Auth.Providers.OIDC.ClientID = ""
-	_, err = BuildIdentityProvidersFromConfig(cfg)
+	_, err = BuildIdentityProviders(cfg.Auth.Providers)
 	require.Error(t, err)
 
 	// OIDC 身份源不可达：降级（不报错、不装配 OIDC，LDAP 不受影响）。
@@ -379,7 +379,7 @@ func TestBuildIdentityProvidersFromConfig(t *testing.T) {
 		ClientSecret: "cs",
 		RedirectURL:  "http://localhost/cb",
 	}
-	ips, err = BuildIdentityProvidersFromConfig(cfg)
+	ips, err = BuildIdentityProviders(cfg.Auth.Providers)
 	require.NoError(t, err)
 	assert.NotNil(t, ips.ldap)
 	assert.Nil(t, ips.oidc)
