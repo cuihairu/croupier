@@ -158,17 +158,21 @@ func compositeUsage(view string) spec.PageBindingUsage {
 func compositeInputSelector(schema spec.JSONSchema, sectionKey string) spec.SelectorAST {
 	ast := spec.SelectorAST{}
 	for _, target := range sortedRequired(requiredProperties(schema)) {
+		// page_state 无嵌套 path（composite 状态按区块整体存储，渲染层
+		// 做同名字段合并），selector 声明目标字段即可。
 		ast.Assignments = append(ast.Assignments, spec.InputAssignment{
 			Target: "/" + target,
 			Source: spec.ValueSource{
 				Kind: spec.SourcePageState,
 				Key:  sectionKey,
-				Path: "/" + target,
 			},
 		})
 	}
 	return ast
 }
+
+// compositePageStateKeys 用于 composite 输入的 page_state 上下文：区块
+// key 即状态键。
 
 // requiredProperties 提取顶层 required 字段名。
 func requiredProperties(schema spec.JSONSchema) map[string]bool {
@@ -192,12 +196,12 @@ func requiredProperties(schema spec.JSONSchema) map[string]bool {
 // compositeOutputAssignments：输出根/常用字段写 stateKey=sectionKey，
 // 供下游区块（RefreshOn: [sectionKey]）消费。
 func compositeOutputAssignments(c *model.FunctionContract, view, sectionKey string) []spec.OutputAssignment {
-	shape := spec.OutputShapeObject
-	if view == "table" {
-		shape = spec.OutputShapeCollection
-	}
+	// 统一 object：页面状态以整个响应对象存储（table 视图在渲染层
+	// 读 data.items）。collection shape 要求 schema 顶层是数组，与
+	// 业务函数的 {items,total} 包装形态不符，会被发布校验拒绝。
+	_ = view
 	return []spec.OutputAssignment{
-		{StateKey: sectionKey, Source: "", Shape: shape},
+		{StateKey: sectionKey, Source: "", Shape: spec.OutputShapeObject},
 	}
 }
 
