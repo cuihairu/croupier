@@ -1,6 +1,7 @@
 package spec
 
 import (
+	"fmt"
 	"strconv"
 	"strings"
 )
@@ -22,8 +23,34 @@ func ValidatePublishablePageShape(page PageSpec) []Diagnostic {
 		diags = append(diags, validatePublishableTaskPage(page.Task, page.Bindings)...)
 	case PageTypeReport:
 		diags = append(diags, validatePublishableReportPage(page.Report)...)
+	case PageTypeComposite:
+		diags = append(diags, validatePublishableCompositePage(page.Composite)...)
 	default:
 		return diags
+	}
+	return diags
+}
+
+// validatePublishableCompositePage 校验组合页：至少一个资源块，每块
+// 的 view 沿用单资源页发布校验。
+func validatePublishableCompositePage(comp *CompositePageSpec) []Diagnostic {
+	var diags []Diagnostic
+	if comp == nil || len(comp.Resources) == 0 {
+		return []Diagnostic{publishShapeDiagnostic("composite_empty", "composite page must contain at least one resource block", "composite.resources")}
+	}
+	for i, block := range comp.Resources {
+		if strings.TrimSpace(block.ResourceKey) == "" {
+			diags = append(diags, publishShapeDiagnostic(
+				"composite_block_missing_resource",
+				fmt.Sprintf("composite block %d must declare resourceKey", i),
+				fmt.Sprintf("composite.resources[%d].resourceKey", i)))
+			continue
+		}
+		nested := validatePublishableResourcePage(&block.View)
+		for _, d := range nested {
+			d.Field = fmt.Sprintf("composite.resources[%s].%s", block.ResourceKey, d.Field)
+			diags = append(diags, d)
+		}
 	}
 	return diags
 }
@@ -42,6 +69,9 @@ func validatePageVariant(page PageSpec) []Diagnostic {
 		variantCount++
 	}
 	if page.Report != nil {
+		variantCount++
+	}
+	if page.Composite != nil {
 		variantCount++
 	}
 	if variantCount != 1 {
