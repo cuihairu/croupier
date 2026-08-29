@@ -67,7 +67,6 @@ func contractSemanticallyEqual(a, b *FunctionContract) bool {
 		a.Risk == b.Risk &&
 		strings.TrimSpace(a.Permission) == strings.TrimSpace(b.Permission) &&
 		a.Source == b.Source &&
-		strings.TrimSpace(a.SourceDigest) == strings.TrimSpace(b.SourceDigest) &&
 		jsonMapEqual(a.Approval, b.Approval) &&
 		bytes.Equal(canonicalJSON(a.InputSchema), canonicalJSON(b.InputSchema)) &&
 		bytes.Equal(canonicalJSON(a.OutputSchema), canonicalJSON(b.OutputSchema))
