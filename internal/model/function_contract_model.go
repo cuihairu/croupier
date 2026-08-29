@@ -1,11 +1,16 @@
 package model
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
+	"strings"
+
+	"gorm.io/datatypes"
+	"gorm.io/gorm"
 
 	"github.com/cuihairu/croupier/internal/db/dbctx"
-	"gorm.io/gorm"
 )
 
 // FunctionContractModel wraps data access for function contracts.
@@ -30,10 +35,75 @@ func (m *FunctionContractModel) UpsertContract(ctx context.Context, contract *Fu
 	if err != nil {
 		return err
 	}
+	// 内容无变化则跳过写：agent 重启/SDK 重连的重注册是常态，
+	// 盲目 Save 会整行覆盖并刷新 updated_at——下游（proposal 重生成、
+	// 页面 freshness 对比快照）被幽灵扰动，已发布页面出现假性 stale。
+	if contractSemanticallyEqual(&existing, contract) {
+		return nil
+	}
 	contract.ID = existing.ID
 	contract.CreatedAt = existing.CreatedAt
 	contract.DeletedAt = gorm.DeletedAt{}
 	return db.Save(contract).Error
+}
+
+// contractSemanticallyEqual 比较影响页面契约/治理判断的全部实质字段
+// （schema 用语义化 digest——键序/空格差异不算变化）。
+func contractSemanticallyEqual(a, b *FunctionContract) bool {
+	if a == nil || b == nil {
+		return false
+	}
+	return a.Version == b.Version &&
+		a.Enabled == b.Enabled &&
+		a.Deprecated == b.Deprecated &&
+		a.ResourceKey == b.ResourceKey &&
+		a.OperationKey == b.OperationKey &&
+		a.Capability == b.Capability &&
+		a.Execution == b.Execution &&
+		a.Risk == b.Risk &&
+		strings.TrimSpace(a.Permission) == strings.TrimSpace(b.Permission) &&
+		a.Source == b.Source &&
+		strings.TrimSpace(a.SourceDigest) == strings.TrimSpace(b.SourceDigest) &&
+		jsonMapEqual(a.Approval, b.Approval) &&
+		jsonMapEqual(a.Summary, b.Summary) &&
+		jsonMapEqual(a.Description, b.Description) &&
+		bytes.Equal(canonicalJSON(a.InputSchema), canonicalJSON(b.InputSchema)) &&
+		bytes.Equal(canonicalJSON(a.OutputSchema), canonicalJSON(b.OutputSchema)) &&
+		bytes.Equal(canonicalJSON(a.Tags), canonicalJSON(b.Tags)) &&
+		bytes.Equal(canonicalJSON(a.Diagnostics), canonicalJSON(b.Diagnostics))
+}
+
+// canonicalJSON 解析后按字典序键重排再序列化——语义相同、字节形态
+// 不同的 JSON（六语言 SDK 各自序列化）相等。
+func canonicalJSON(raw JSON) []byte {
+	if len(raw) == 0 {
+		return nil
+	}
+	var v interface{}
+	if err := json.Unmarshal(raw, &v); err != nil {
+		return []byte(raw)
+	}
+	out, err := json.Marshal(v)
+	if err != nil {
+		return []byte(raw)
+	}
+	return out
+}
+
+// jsonMapEqual 比较 datatypes.JSONMap（nil 与空 map 视为相等）。
+func jsonMapEqual(a, b datatypes.JSONMap) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	if len(a) == 0 {
+		return true
+	}
+	return bytes.Equal(canonicalJSON(mustMarshalMap(a)), canonicalJSON(mustMarshalMap(b)))
+}
+
+func mustMarshalMap(m datatypes.JSONMap) JSON {
+	b, _ := json.Marshal(m)
+	return JSON(b)
 }
 
 // FindByScopeAndFunctionID fetches a contract by scope and function ID.
