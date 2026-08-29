@@ -121,23 +121,13 @@ type SelectorContext struct {
 // SelectorContextForBinding builds the runtime selector context for a concrete
 // page binding. It must stay aligned with PageRenderer execution contexts.
 func SelectorContextForBinding(page PageSpec, binding PageFunctionBinding) SelectorContext {
-	// composite 页：按 bindingId 的 "<resourceKey>." 前缀定位所属资源块，
-	// 以该块的 view 构造校验上下文（类型按 resource 语义——块内 selector
-	// 语义与单资源页完全一致）。
+	// composite 页：组合区块无独立 form/row schema——输入来源受限为
+	// page_state（联动键）与 literal；输出为 OutputAssignment 写 state。
 	if page.Type == PageTypeComposite && page.Composite != nil {
-		if block := compositeBlockForBinding(page.Composite, binding.ID); block != nil {
-			blockPage := PageSpec{
-				Type:     PageTypeResource,
-				Resource: &block.View,
-			}
-			ctx := SelectorContextForBinding(blockPage, PageFunctionBinding{
-				ID:        strings.TrimPrefix(binding.ID, block.ResourceKey+"."),
-				Usage:     binding.Usage,
-				Selectors: binding.Selectors,
-				Execution: binding.Execution,
-			})
-			ctx.PageType = PageTypeResource
-			return ctx
+		return SelectorContext{
+			PageType:   page.Type,
+			PageState:  compositePageStateSchema(page.Composite),
+			FormSchema: JSONSchema(""),
 		}
 	}
 	ctx := SelectorContext{
@@ -168,18 +158,30 @@ func SelectorContextForBinding(page PageSpec, binding PageFunctionBinding) Selec
 	return ctx
 }
 
-// compositeBlockForBinding 按 "<resourceKey>." 前缀定位组合页资源块。
-func compositeBlockForBinding(comp *CompositePageSpec, bindingID string) *CompositeResourceBlock {
+// compositePageStateSchema 汇总组合页全部区块的联动 stateKey（宽松
+// object schema：键存在即可，具体形状由函数契约校验兜底）。
+func compositePageStateSchema(comp *CompositePageSpec) map[string]JSONSchema {
+	out := map[string]JSONSchema{}
 	if comp == nil {
-		return nil
+		return out
 	}
-	for i := range comp.Resources {
-		rk := strings.TrimSpace(comp.Resources[i].ResourceKey)
-		if rk != "" && strings.HasPrefix(bindingID, rk+".") {
-			return &comp.Resources[i]
+	seen := map[string]bool{}
+	add := func(key string) {
+		key = strings.TrimSpace(key)
+		if key == "" || seen[key] {
+			return
 		}
+		seen[key] = true
+		out[key] = JSONSchema(`{"type":"object"}`)
 	}
-	return nil
+	for i := range comp.Sections {
+		sec := &comp.Sections[i]
+		for _, dep := range sec.RefreshOn {
+			add(dep)
+		}
+		add(sec.BindingID)
+	}
+	return out
 }
 
 // FormSchemaForBinding returns the PageSpec form that supplies SourceForm

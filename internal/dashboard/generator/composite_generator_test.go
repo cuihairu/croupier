@@ -11,126 +11,73 @@ import (
 	"github.com/cuihairu/croupier/internal/model"
 )
 
-// 组合页：两个资源 → 两个 view 块、binding ID 带资源前缀、view 内引用同步改写。
-func TestGenerateCompositePage_TwoResources(t *testing.T) {
-	inputs := []CompositeResourceInput{
-		{ResourceKey: "player", Semantics: playerSemantics(), Contracts: playerContracts()},
-		{ResourceKey: "order", Semantics: orderSemantics(), Contracts: orderContracts()},
+// 自由组合页：多函数区块 + page_state 联动 + selector 骨架。
+func TestGenerateCompositePage_Sections(t *testing.T) {
+	contracts := []*model.FunctionContract{
+		{
+			Model:        gorm.Model{ID: 101},
+			FunctionID:   "player.get",
+			ResourceKey:  "player",
+			Capability:   dbenum.CapabilityItemQuery,
+			Execution:    string(spec.FunctionExecutionSync),
+			Enabled:      true,
+			InputSchema:  model.JSON(`{"type":"object","properties":{"id":{"type":"string"}},"required":["id"]}`),
+			OutputSchema: model.JSON(`{"type":"object","properties":{"player":{"type":"object"},"gold":{"type":"integer"}}}`),
+		},
+		{
+			Model:        gorm.Model{ID: 301},
+			FunctionID:   "order.list",
+			ResourceKey:  "order",
+			Capability:   dbenum.CapabilityCollectionQuery,
+			Execution:    string(spec.FunctionExecutionSync),
+			Enabled:      true,
+			InputSchema:  model.JSON(`{"type":"object","properties":{"playerId":{"type":"string"}},"required":["playerId"]}`),
+			OutputSchema: model.JSON(`{"type":"object","properties":{"items":{"type":"array"},"total":{"type":"integer"}}}`),
+		},
 	}
-	gen, ok := GenerateCompositePage("composite--player-order", inputs, DefaultGenerateOptions())
+	gen, ok := GenerateCompositePage("composite--player-overview", []CompositeSectionInput{
+		{FunctionID: "player.get", View: "fields", AutoRun: false},
+		{FunctionID: "order.list", View: "table", RefreshOn: []string{"player.get"}},
+	}, contracts, DefaultGenerateOptions())
 	if !ok {
-		t.Fatal("composite should generate")
+		t.Fatal("should generate")
 	}
-	if gen.Type != spec.PageTypeComposite {
-		t.Fatalf("type = %s", gen.Type)
+	if gen.Type != spec.PageTypeComposite || len(gen.Composite.Sections) != 2 {
+		t.Fatalf("sections = %+v", gen.Composite)
 	}
-	if len(gen.Composite.Resources) != 2 {
-		t.Fatalf("blocks = %d", len(gen.Composite.Resources))
-	}
-	// binding 前缀
-	seen := map[string]bool{}
+	// binding 与 section key 对应
+	byID := map[string]spec.PageFunctionBinding{}
 	for _, b := range gen.Bindings {
-		seen[b.ID] = true
-		if !strings.HasPrefix(b.ID, "player.") && !strings.HasPrefix(b.ID, "order.") {
-			t.Fatalf("binding %s lacks resource prefix", b.ID)
-		}
+		byID[b.ID] = b
 	}
-	if !seen["player.list"] || !seen["order.list"] {
-		t.Fatalf("expected player.list & order.list, got %v", seen)
+	if _, ok := byID["player.get"]; !ok {
+		t.Fatalf("expected binding player.get, got %v", byID)
 	}
-	// view 内 action 引用改写（player.update → player.update）
-	for _, b := range gen.Composite.Resources {
-		for _, a := range b.View.ListView.RowActions {
-			if a.BindingID != "" && !strings.HasPrefix(a.BindingID, b.ResourceKey+".") {
-				t.Fatalf("block %s action %s not rewritten", b.ResourceKey, a.BindingID)
-			}
-		}
-	}
-}
-
-// 单资源可用 + 单资源缺失 → 生成但带诊断（basic）。
-func TestGenerateCompositePage_OneSkipped(t *testing.T) {
-	inputs := []CompositeResourceInput{
-		{ResourceKey: "player", Semantics: playerSemantics(), Contracts: playerContracts()},
-		{ResourceKey: "broken", Semantics: &model.CapabilitySemantics{ResourceKey: "broken"}, Contracts: nil},
-	}
-	gen, ok := GenerateCompositePage("composite--mixed", inputs, DefaultGenerateOptions())
-	if !ok {
-		t.Fatal("should still generate with one good resource")
-	}
-	if len(gen.Composite.Resources) != 1 {
-		t.Fatalf("blocks = %d", len(gen.Composite.Resources))
-	}
+	// 必填输入映射 page_state（联动）
+	get := byID["player.get"]
 	found := false
-	for _, d := range gen.Diagnostics {
-		if strings.Contains(d.Message, "broken") {
+	for _, a := range get.Selectors.Input.Assignments {
+		if a.Target == "/id" && a.Source.Kind == spec.SourcePageState && a.Source.Key == "player.get" {
 			found = true
 		}
 	}
 	if !found {
-		t.Fatal("skipped resource should be diagnosed")
+		t.Fatalf("player.get required input should map page_state, got %+v", get.Selectors)
+	}
+	// 输出写 stateKey（供下游消费）
+	list := byID["order.list"]
+	if len(list.Selectors.Output) == 0 || list.Selectors.Output[0].StateKey != "order.list" {
+		t.Fatalf("output should write stateKey=order.list, got %+v", list.Selectors.Output)
+	}
+	// 缺函数诊断
+	if !strings.Contains(gen.Composite.Sections[1].Key, "order") {
+		t.Fatalf("section key unexpected: %s", gen.Composite.Sections[1].Key)
 	}
 }
 
-// 全部不可生成 → ok=false。
-func TestGenerateCompositePage_AllInvalid(t *testing.T) {
-	inputs := []CompositeResourceInput{
-		{ResourceKey: "a", Semantics: &model.CapabilitySemantics{ResourceKey: "a"}},
-		{ResourceKey: "b", Semantics: &model.CapabilitySemantics{ResourceKey: "b"}},
+// 全部函数缺失 → false。
+func TestGenerateCompositePage_AllMissing(t *testing.T) {
+	if _, ok := GenerateCompositePage("x", []CompositeSectionInput{{FunctionID: "nope"}}, nil, DefaultGenerateOptions()); ok {
+		t.Fatal("all missing should not generate")
 	}
-	if _, ok := GenerateCompositePage("composite--none", inputs, DefaultGenerateOptions()); ok {
-		t.Fatal("all-invalid should not generate")
-	}
-}
-
-// ---- fixtures（参照 golden_test 构造）----
-
-func gormID(id uint) gorm.Model {
-	return gormModelWithID(id)
-}
-
-func playerSemantics() *model.CapabilitySemantics {
-	return &model.CapabilitySemantics{
-		ResourceKey:       "player",
-		CollectionQueryID: 101,
-		IdentityField:     "id",
-		ItemsFieldName:    "items",
-		TotalFieldName:    "total",
-	}
-}
-
-func playerContracts() []*model.FunctionContract {
-	return []*model.FunctionContract{{
-		Model:        gormID(101),
-		FunctionID:   "player.list",
-		ResourceKey:  "player",
-		Capability:   dbenum.CapabilityCollectionQuery,
-		Execution:    string(spec.FunctionExecutionSync),
-		Enabled:      true,
-		InputSchema:  model.JSON(`{"type":"object","properties":{"page":{"type":"integer"}}}`),
-		OutputSchema: model.JSON(`{"type":"object","properties":{"items":{"type":"array","items":{"type":"object","properties":{"id":{"type":"string"}}}},"total":{"type":"integer"}}}`),
-	}}
-}
-
-func orderSemantics() *model.CapabilitySemantics {
-	return &model.CapabilitySemantics{
-		ResourceKey:       "order",
-		CollectionQueryID: 301,
-		IdentityField:     "id",
-		ItemsFieldName:    "items",
-		TotalFieldName:    "total",
-	}
-}
-
-func orderContracts() []*model.FunctionContract {
-	return []*model.FunctionContract{{
-		Model:        gormID(301),
-		FunctionID:   "order.list",
-		ResourceKey:  "order",
-		Capability:   dbenum.CapabilityCollectionQuery,
-		Execution:    string(spec.FunctionExecutionSync),
-		Enabled:      true,
-		InputSchema:  model.JSON(`{"type":"object","properties":{"page":{"type":"integer"}}}`),
-		OutputSchema: model.JSON(`{"type":"object","properties":{"items":{"type":"array","items":{"type":"object","properties":{"id":{"type":"string"}}}},"total":{"type":"integer"}}}`),
-	}}
 }

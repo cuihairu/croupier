@@ -1085,7 +1085,7 @@ func pageShapeMatchesType(page spec.PageSpec) bool {
 	case spec.PageTypeReport:
 		return page.Report != nil
 	case spec.PageTypeComposite:
-		return page.Composite != nil && len(page.Composite.Resources) > 0
+		return page.Composite != nil && len(page.Composite.Sections) > 0
 	default:
 		return false
 	}

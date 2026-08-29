@@ -3,6 +3,7 @@ package versioning
 import (
 	"github.com/cuihairu/croupier/internal/common/requestbind"
 	"github.com/cuihairu/croupier/internal/common/response"
+	"github.com/cuihairu/croupier/internal/service"
 	"github.com/cuihairu/croupier/internal/svc"
 	"github.com/gin-gonic/gin"
 )
@@ -203,8 +204,8 @@ func getScope(c *gin.Context) (string, string) {
 
 // CreateCompositePageRequest 创建组合页提案。
 type CreateCompositePageRequest struct {
-	PageKey      string   `json:"pageKey"`
-	ResourceKeys []string `json:"resourceKeys"`
+	PageKey  string                            `json:"pageKey"`
+	Sections []service.CompositeSectionRequest `json:"sections"`
 }
 
 // CreateCompositePage handles POST /versioning/pages/composite：聚合 2+
@@ -216,7 +217,7 @@ func (h *Handler) CreateCompositePage(c *gin.Context) {
 		return
 	}
 	gameID, env := getScope(c)
-	proposal, err := h.service.CreateCompositePage(c.Request.Context(), gameID, env, req.PageKey, req.ResourceKeys)
+	proposal, err := h.service.CreateCompositePage(c.Request.Context(), gameID, env, req.PageKey, req.Sections)
 	if err != nil {
 		response.Error(c, err)
 		return

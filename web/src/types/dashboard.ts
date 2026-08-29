@@ -353,16 +353,28 @@ interface PageSpecBase {
   bindings: PageFunctionBinding[];
 }
 
-/** 组合页：多资源聚合，Console 按 tab 渲染每资源视图。 */
+/** 组合页：区块布局，每区块绑一个函数，区块间 page_state 联动。 */
 export interface CompositePageSpec {
-  resources: CompositeResourceBlock[];
+  sections: CompositeSection[];
 }
 
-/** 组合页中单个资源的视图块（bindingId 带 "<resourceKey>." 前缀）。 */
-export interface CompositeResourceBlock {
-  resourceKey: string;
-  title: LocalizedText;
-  view: ResourcePageSpec;
+/** 组合页区块：绑定 + 视图形态 + 联动声明。 */
+export interface CompositeSection {
+  key: string;
+  bindingId: string;
+  title?: LocalizedText;
+  view: 'table' | 'fields' | 'form' | 'actions';
+  span?: number;
+  autoRun?: boolean;
+  refreshOn?: string[];
+  table?: {
+    columns: ColumnSpec[];
+    pagination?: Record<string, unknown>;
+    rowSchema?: Record<string, unknown>;
+    identityKey?: string;
+  };
+  fields?: DetailFieldSpec[];
+  form?: Record<string, unknown>;
 }
 
 /** 完整页面编排规格。页面类型与页面主体必须一一对应。 */

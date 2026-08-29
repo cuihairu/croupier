@@ -512,18 +512,44 @@ type PageSpec struct {
 	Bindings []PageFunctionBinding `json:"bindings"`
 }
 
-// CompositePageSpec 聚合多个资源的视图块。每个块是完整的
-// ResourcePageSpec + 资源键与 tab 标题；Console 渲染为 tab 布局，
-// 每 tab 一个资源视图。bindingId 命名 "<resourceKey>.<op>"。
+// CompositePageSpec 是自由组合页：区块（section）布局，每区块绑定
+// 一个函数并声明视图形态。区块间通过 page_state 联动——一个区块的
+// 输出（OutputAssignment.stateKey）可作为另一区块输入
+// （SourcePageState）——实现"选玩家 → 联动刷新订单/背包/操作"。
 type CompositePageSpec struct {
-	Resources []CompositeResourceBlock `json:"resources"`
+	Sections []CompositeSection `json:"sections"`
 }
 
-// CompositeResourceBlock 是组合页中单个资源的视图块。
-type CompositeResourceBlock struct {
-	ResourceKey string           `json:"resourceKey"`
-	Title       LocalizedText    `json:"title"`
-	View        ResourcePageSpec `json:"view"`
+// CompositeSection 是组合页的一个区块。
+type CompositeSection struct {
+	// Key 区块标识（布局内引用；建议与 bindingId 对应）。
+	Key string `json:"key"`
+	// BindingID 引用 PageSpec.Bindings 的绑定（任意函数）。
+	BindingID string        `json:"bindingId"`
+	Title     LocalizedText `json:"title,omitempty"`
+	// View 区块形态：table（列表）/ fields（键值）/ form（表单操作）/
+	// actions（按钮组）。渲染按形态消费 binding 输出。
+	View string `json:"view"`
+	// Span 栅格宽度（1-24，antd Col；0=整行）。同排区块span和≤24。
+	Span int `json:"span,omitempty"`
+	// AutoRun 页面加载即执行（查询类区块）；默认 false。
+	AutoRun bool `json:"autoRun,omitempty"`
+	// RefreshOn 声明依赖的 stateKey 列表——任一变化自动重跑本区块。
+	RefreshOn []string `json:"refreshOn,omitempty"`
+	// Table 视图参数（view=table）。
+	Table *CompositeTableSpec `json:"table,omitempty"`
+	// Fields 视图参数（view=fields）。
+	Fields []DetailFieldSpec `json:"fields,omitempty"`
+	// Form 视图参数（view=form）。
+	Form *FormPresentationSpec `json:"form,omitempty"`
+}
+
+// CompositeTableSpec 是组合页 table 区块参数。
+type CompositeTableSpec struct {
+	Columns     []ColumnSpec    `json:"columns"`
+	Pagination  *PaginationSpec `json:"pagination,omitempty"`
+	RowSchema   JSONSchema      `json:"rowSchema,omitempty"`
+	IdentityKey string          `json:"identityKey,omitempty"`
 }
 
 // PageCategorySpec groups pages into navigation categories.

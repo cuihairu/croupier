@@ -2157,6 +2157,6 @@ func firstNonEmpty(values ...string) string {
 
 // CreateCompositePage 聚合多资源生成组合页提案（委托 ContractService，
 // 复用提案/接受/发布既有工作流）。
-func (s *Service) CreateCompositePage(ctx context.Context, gameID, env, pageKey string, resourceKeys []string) (*model.PageProposal, error) {
-	return service.NewContractService(s.db).CreateCompositeProposal(ctx, gameID, env, pageKey, resourceKeys)
+func (s *Service) CreateCompositePage(ctx context.Context, gameID, env, pageKey string, sections []service.CompositeSectionRequest) (*model.PageProposal, error) {
+	return service.NewContractService(s.db).CreateCompositeProposal(ctx, gameID, env, pageKey, sections)
 }

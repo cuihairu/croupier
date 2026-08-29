@@ -1,6 +1,7 @@
 package generator
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -8,85 +9,110 @@ import (
 	"github.com/cuihairu/croupier/internal/model"
 )
 
-// CompositeResourceInput 是组合页的一个资源条目。
-type CompositeResourceInput struct {
-	ResourceKey string
-	Semantics   *model.CapabilitySemantics
-	Contracts   []*model.FunctionContract
+// CompositeSectionInput 是组合页的一个区块输入：函数 + 视图形态 +
+// 联动声明。函数契约决定 selector 骨架，视图参数可覆盖。
+type CompositeSectionInput struct {
+	FunctionID string
+	View       string // table|fields|form|actions
+	Title      string
+	Span       int
+	AutoRun    bool
+	RefreshOn  []string
 }
 
-// GenerateCompositePage 从多个资源生成组合页：每资源复用单资源生成器
-// 产出 view 与 bindings（bindingId 加 "<resourceKey>." 前缀，view 内
-// BindingID 引用同步改写），Console 按 tab 渲染每资源视图。
+// GenerateCompositePage 生成自由组合页：每区块绑定一个函数
+// （table=查询列表 / fields=详情键值 / form=输入操作 / actions=按钮组），
+// 区块间通过 page_state 联动——函数输出写 stateKey（OutputAssignment），
+// 依赖区块声明 RefreshOn 在状态变化时自动重跑。
 //
-// 至少需要 minResources 个可生成资源（有 collection_query + identity），
-// 不可生成的资源记入诊断但不阻塞其余资源。
-func GenerateCompositePage(pageKey string, inputs []CompositeResourceInput, opts GenerateOptions) (spec.GeneratedPageSpec, bool) {
+// selector 骨架按函数契约生成：必填输入映射 page_state（联动键或区块 key），
+// 输出映射 {stateKey: section.key}。
+func GenerateCompositePage(
+	pageKey string,
+	inputs []CompositeSectionInput,
+	contracts []*model.FunctionContract,
+	opts GenerateOptions,
+) (spec.GeneratedPageSpec, bool) {
 	opts = normalizeOptions(opts)
 	pageKey = strings.TrimSpace(pageKey)
-	if pageKey == "" {
+	if pageKey == "" || len(inputs) == 0 {
 		return spec.GeneratedPageSpec{}, false
 	}
 	locale := opts.DefaultLocale
 
-	blocks := []spec.CompositeResourceBlock{}
+	byID := map[string]*model.FunctionContract{}
+	for _, c := range contracts {
+		if c != nil && strings.TrimSpace(c.FunctionID) != "" {
+			byID[strings.TrimSpace(c.FunctionID)] = c
+		}
+	}
+
+	sections := []spec.CompositeSection{}
 	bindings := []spec.PageFunctionBinding{}
 	var diags []spec.Diagnostic
-	failed := []string{}
 
 	for _, in := range inputs {
-		rk := strings.TrimSpace(in.ResourceKey)
-		if rk == "" || in.Semantics == nil {
-			continue
-		}
-		gen, ok := GenerateResourcePageProposal(in.Semantics, in.Contracts, opts)
+		fid := strings.TrimSpace(in.FunctionID)
+		contract, ok := byID[fid]
 		if !ok {
-			failed = append(failed, rk)
 			diags = append(diags, spec.Diagnostic{
-				Field:   "composite.resources." + rk,
-				Message: fmt.Sprintf("resource %s cannot generate a view (missing collection_query or identity); skipped", rk),
+				Field:   "composite.sections." + fid,
+				Code:    "function_missing",
+				Message: fmt.Sprintf("function %s not found; section skipped", fid),
 			})
 			continue
 		}
-
-		// binding ID 前缀改写 + view 内引用同步
-		prefix := rk + "."
-		renamed := map[string]string{}
-		for i := range gen.Bindings {
-			old := gen.Bindings[i].ID
-			newID := prefix + old
-			renamed[old] = newID
-			gen.Bindings[i].ID = newID
+		key := sanitizeSourceKey(fid)
+		view := in.View
+		if view == "" {
+			view = defaultCompositeView(contract)
 		}
-		rewriteViewBindingRefs(&gen.PageSpec, renamed)
-		bindings = append(bindings, gen.Bindings...)
 
-		blockTitle := gen.Title
-		if term, ok := opts.Terms.Lookup("resource", rk); ok && len(term) > 0 {
-			blockTitle = term
+		section := spec.CompositeSection{
+			Key:       key,
+			BindingID: key,
+			Title:     spec.LocalizedText{locale: firstNonEmptyStr(in.Title, fid)},
+			View:      view,
+			Span:      in.Span,
+			AutoRun:   in.AutoRun,
+			RefreshOn: in.RefreshOn,
 		}
-		blocks = append(blocks, spec.CompositeResourceBlock{
-			ResourceKey: rk,
-			Title:       blockTitle,
-			View:        *gen.Resource,
-		})
-		diags = append(diags, gen.Diagnostics...)
+		if view == "table" {
+			lv := buildListViewFromContract(contract, nil)
+			if lv != nil {
+				section.Table = &spec.CompositeTableSpec{
+					Columns:     lv.Columns,
+					Pagination:  lv.Pagination,
+					RowSchema:   lv.RowSchema,
+					IdentityKey: lv.IdentityKey,
+				}
+			}
+		}
+
+		binding := spec.PageFunctionBinding{
+			ID:         key,
+			FunctionID: fid,
+			Usage:      compositeUsage(view),
+			Execution: spec.PageBindingExecution{
+				Mode:           spec.PageExecutionModeSync,
+				RequireConfirm: view == "form" && strings.Contains(contract.Risk.String(), "danger"),
+			},
+		}
+		selectors := &spec.BindingSelectors{}
+		if len(contract.InputSchema) > 0 {
+			selectors.Input = compositeInputSelector(spec.JSONSchema(contract.InputSchema), key)
+		}
+		selectors.Output = compositeOutputAssignments(contract, view, key)
+		if len(selectors.Input.Assignments) > 0 || len(selectors.Output) > 0 {
+			binding.Selectors = selectors
+		}
+
+		sections = append(sections, section)
+		bindings = append(bindings, binding)
 	}
 
-	if len(blocks) < 2 {
-		if len(blocks) == 0 {
-			return spec.GeneratedPageSpec{Diagnostics: diags}, false
-		}
-		diags = append(diags, spec.Diagnostic{
-			Field:   "composite.resources",
-			Message: "composite page expects 2+ generatable resources; produced a single block",
-		})
-	}
-	if len(failed) > 0 {
-		diags = append(diags, spec.Diagnostic{
-			Field:   "composite.skipped",
-			Message: "skipped resources: " + strings.Join(failed, ", "),
-		})
+	if len(sections) == 0 {
+		return spec.GeneratedPageSpec{Diagnostics: diags}, false
 	}
 
 	title := spec.LocalizedText{locale: fallbackLabel(strings.ReplaceAll(pageKey, "--", " "))}
@@ -97,56 +123,102 @@ func GenerateCompositePage(pageKey string, inputs []CompositeResourceInput, opts
 			Title:      title,
 			Category:   spec.PageCategorySpec{Key: "composite", Labels: spec.LocalizedText{locale: "组合"}},
 			Navigation: &spec.NavigationSpec{Title: title},
-			Composite:  &spec.CompositePageSpec{Resources: blocks},
+			Composite:  &spec.CompositePageSpec{Sections: sections},
 			Bindings:   bindings,
 		},
-		Quality:     compositeQuality(blocks, diags),
+		Quality:     spec.GeneratedPageQualityBasic,
 		Diagnostics: diags,
 	}, true
 }
 
-// rewriteViewBindingRefs 把 view 结构里的 BindingID 引用按改名映射重写。
-func rewriteViewBindingRefs(p *spec.PageSpec, renamed map[string]string) {
-	r := p.Resource
-	if r == nil {
-		return
-	}
-	sub := func(id string) string {
-		if v, ok := renamed[id]; ok {
-			return v
-		}
-		return id
-	}
-	if r.ListView != nil {
-		for i, a := range r.ListView.RowActions {
-			r.ListView.RowActions[i].BindingID = sub(a.BindingID)
-		}
-		for i, a := range r.ListView.BatchActions {
-			r.ListView.BatchActions[i].BindingID = sub(a.BindingID)
-		}
-		for i, a := range r.ListView.ToolbarActions {
-			r.ListView.ToolbarActions[i].BindingID = sub(a.BindingID)
-		}
-	}
-	if r.DeleteAction != nil {
-		r.DeleteAction.BindingID = sub(r.DeleteAction.BindingID)
+// defaultCompositeView 按函数能力推导默认视图。
+func defaultCompositeView(c *model.FunctionContract) string {
+	switch c.Capability.String() {
+	case "collection_query":
+		return "table"
+	case "item_query":
+		return "fields"
+	default:
+		return "form"
 	}
 }
 
-func compositeQuality(blocks []spec.CompositeResourceBlock, diags []spec.Diagnostic) spec.GeneratedPageQuality {
-	hasErr := false
-	for _, d := range diags {
-		if strings.Contains(strings.ToLower(d.Message), "missing") || strings.Contains(strings.ToLower(d.Message), "invalid") {
-			hasErr = true
-			break
+// compositeUsage 按视图推导 binding usage。
+func compositeUsage(view string) spec.PageBindingUsage {
+	switch view {
+	case "table", "fields":
+		return spec.BindingUsageQuery
+	default:
+		return spec.BindingUsageAction
+	}
+}
+
+// compositeInputSelector：必填字段缺省映射 page_state.<sectionKey>（联动）。
+// 联动键即区块 key——上游区块的输出写同名 stateKey。
+func compositeInputSelector(schema spec.JSONSchema, sectionKey string) spec.SelectorAST {
+	ast := spec.SelectorAST{}
+	for _, target := range sortedRequired(requiredProperties(schema)) {
+		ast.Assignments = append(ast.Assignments, spec.InputAssignment{
+			Target: "/" + target,
+			Source: spec.ValueSource{
+				Kind: spec.SourcePageState,
+				Key:  sectionKey,
+				Path: "/" + target,
+			},
+		})
+	}
+	return ast
+}
+
+// requiredProperties 提取顶层 required 字段名。
+func requiredProperties(schema spec.JSONSchema) map[string]bool {
+	out := map[string]bool{}
+	var obj map[string]interface{}
+	if err := json.Unmarshal(schema, &obj); err != nil {
+		return out
+	}
+	rawReq, ok := obj["required"].([]interface{})
+	if !ok {
+		return out
+	}
+	for _, r := range rawReq {
+		if s, ok := r.(string); ok {
+			out[s] = true
 		}
 	}
-	switch {
-	case len(blocks) >= 2 && !hasErr:
-		return spec.GeneratedPageQualityReady
-	case len(blocks) >= 1:
-		return spec.GeneratedPageQualityBasic
-	default:
-		return spec.GeneratedPageQualityNeedsReview
+	return out
+}
+
+// compositeOutputAssignments：输出根/常用字段写 stateKey=sectionKey，
+// 供下游区块（RefreshOn: [sectionKey]）消费。
+func compositeOutputAssignments(c *model.FunctionContract, view, sectionKey string) []spec.OutputAssignment {
+	shape := spec.OutputShapeObject
+	if view == "table" {
+		shape = spec.OutputShapeCollection
 	}
+	return []spec.OutputAssignment{
+		{StateKey: sectionKey, Source: "", Shape: shape},
+	}
+}
+
+func sortedRequired(m map[string]bool) []string {
+	out := make([]string, 0, len(m))
+	for k := range m {
+		out = append(out, k)
+	}
+	for i := 1; i < len(out); i++ {
+		for j := i; j > 0 && out[j] < out[j-1]; j-- {
+			out[j], out[j-1] = out[j-1], out[j]
+		}
+	}
+	return out
+}
+
+func firstNonEmptyStr(values ...string) string {
+	for _, v := range values {
+		if s := strings.TrimSpace(v); s != "" {
+			return s
+		}
+	}
+	return ""
 }

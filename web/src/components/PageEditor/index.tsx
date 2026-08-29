@@ -87,16 +87,17 @@ export default function PageEditor({ value, onChange, readonly = false }: PageEd
 
       case 'composite':
         return (
-          <Card size="small" title="组合页（多资源聚合）">
+          <Card size="small" title="组合页（自由函数区块）">
             <Text type="secondary">
               组合页由生成器按资源契约自动维护（每资源一个 tab 视图）；如需调整资源集合，
               请在提案收件箱删除后重新创建，或等待契约变更触发的提案更新。
             </Text>
-            {(value.composite?.resources || []).map((b) => (
-              <div key={b.resourceKey} style={{ marginTop: 8 }}>
-                <Tag color="cyan">{b.resourceKey}</Tag>
+            {(value.composite?.sections || []).map((sec) => (
+              <div key={sec.key} style={{ marginTop: 8 }}>
+                <Tag color="cyan">{sec.bindingId}</Tag>
                 <Text type="secondary">
-                  {localizedText(b.title, 'zh-CN', b.resourceKey)} · bindings 前缀 {b.resourceKey}.
+                  {localizedText(sec.title, 'zh-CN', sec.key)} · 视图 {sec.view}
+                  {sec.refreshOn?.length ? ` · 联动 ${sec.refreshOn.join(',')}` : ''}
                 </Text>
               </div>
             ))}

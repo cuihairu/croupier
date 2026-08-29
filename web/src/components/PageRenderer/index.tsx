@@ -12,7 +12,7 @@ import { localizedText } from '@/utils/localizedText';
  */
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Result, Tabs } from 'antd';
+import { Button, Card, Col, Descriptions, Result, Row, Table } from 'antd';
 import { WarningOutlined } from '@ant-design/icons';
 import ResourcePageRenderer from './ResourcePageRenderer';
 import OperationPageRenderer from './OperationPageRenderer';
@@ -32,6 +32,9 @@ import type {
   BindingExecutionContext,
   PageExecutionResult,
   ApprovalStatusResult,
+  CompositeSection,
+  PageFunctionBinding,
+  ColumnSpec,
 } from '@/types/dashboard';
 
 // ---------------------------------------------------------------------------
@@ -58,6 +61,99 @@ export interface PageRendererProps {
 // ---------------------------------------------------------------------------
 // PageRenderer 组件
 // ---------------------------------------------------------------------------
+
+/** 组合页渲染器：区块栅格布局；autoRun 区块加载即执行；refreshOn
+ * 声明的 stateKey 变化时自动重跑本区块（跨函数联动）。 */
+const CompositeRenderer: React.FC<{
+  sections: CompositeSection[];
+  bindings: PageFunctionBinding[];
+  onExecute: PageExecuteFn;
+  preview: boolean;
+}> = ({ sections, bindings, onExecute, preview }) => {
+  const [results, setResults] = useState<Record<string, PageExecutionResult | null>>({});
+  const [running, setRunning] = useState<Record<string, boolean>>({});
+  const [sectionInputs, setSectionInputs] = useState<Record<string, Record<string, unknown>>>({});
+
+  const runSection = useCallback(
+    async (section: CompositeSection) => {
+      setRunning((prev) => ({ ...prev, [section.key]: true }));
+      try {
+        const result = await onExecute(section.bindingId, sectionInputs[section.key] || {});
+        setResults((prev) => ({ ...prev, [section.key]: result || null }));
+      } finally {
+        setRunning((prev) => ({ ...prev, [section.key]: false }));
+      }
+    },
+    [onExecute, sectionInputs],
+  );
+
+  // autoRun：加载即执行
+  useEffect(() => {
+    for (const sec of sections) {
+      if (sec.autoRun) void runSection(sec);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const resultFor = (sec: CompositeSection): Record<string, unknown> | undefined => {
+    const r = results[sec.key];
+    return (r as { data?: Record<string, unknown> } | null | undefined)?.data;
+  };
+
+  return (
+    <Row gutter={[12, 12]}>
+      {sections.map((sec) => (
+        <Col key={sec.key} span={sec.span && sec.span > 0 && sec.span <= 24 ? sec.span : 24}>
+          <Card
+            size="small"
+            title={localizedText(sec.title, 'zh-CN', sec.key)}
+            loading={running[sec.key] || false}
+            extra={
+              sec.view !== 'actions' && !sec.autoRun ? (
+                <Button size="small" onClick={() => void runSection(sec)}>
+                  执行
+                </Button>
+              ) : null
+            }
+          >
+            {sec.view === 'table' ? (
+              <Table
+                size="small"
+                rowKey={(_, i) => String(i)}
+                columns={(sec.table?.columns || []).map((c) => ({
+                  title: localizedText(c.title, 'zh-CN', c.key),
+                  dataIndex: c.key,
+                  ellipsis: true,
+                }))}
+                dataSource={
+                  Array.isArray(resultFor(sec)?.items)
+                    ? (resultFor(sec)?.items as Record<string, unknown>[])
+                    : []
+                }
+                pagination={{ pageSize: 10, showSizeChanger: false }}
+              />
+            ) : sec.view === 'fields' ? (
+              <Descriptions size="small" column={2}>
+                {(resultFor(sec)
+                  ? Object.entries(resultFor(sec) as Record<string, unknown>)
+                  : []
+                ).map(([k, v]) => (
+                  <Descriptions.Item key={k} label={k}>
+                    {String(v ?? '-')}
+                  </Descriptions.Item>
+                ))}
+              </Descriptions>
+            ) : (
+              <Button type="primary" onClick={() => void runSection(sec)}>
+                {localizedText(sec.title, 'zh-CN', sec.key)}
+              </Button>
+            )}
+          </Card>
+        </Col>
+      ))}
+    </Row>
+  );
+};
 
 const PageRenderer: React.FC<PageRendererProps> = ({
   pageSpec,
@@ -102,7 +198,7 @@ const PageRenderer: React.FC<PageRendererProps> = ({
   // 根据页面类型选择渲染器
   switch (type) {
     case 'composite': {
-      if (!pageSpec.composite || pageSpec.composite.resources.length === 0) {
+      if (!pageSpec.composite || pageSpec.composite.sections.length === 0) {
         return (
           <Result
             status="warning"
@@ -112,22 +208,12 @@ const PageRenderer: React.FC<PageRendererProps> = ({
           />
         );
       }
-      const blocks = pageSpec.composite.resources;
       return (
-        <Tabs
-          items={blocks.map((block) => ({
-            key: block.resourceKey,
-            label: localizedText(block.title, 'zh-CN', block.resourceKey),
-            children: (
-              <ResourcePageRenderer
-                spec={block.view}
-                bindings={bindings}
-                onExecute={executeWithPageState}
-                preview={preview}
-                title={localizedText(block.title, 'zh-CN', block.resourceKey)}
-              />
-            ),
-          }))}
+        <CompositeRenderer
+          sections={pageSpec.composite.sections}
+          bindings={bindings}
+          onExecute={executeWithPageState}
+          preview={preview}
         />
       );
     }

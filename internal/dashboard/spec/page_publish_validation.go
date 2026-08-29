@@ -31,25 +31,30 @@ func ValidatePublishablePageShape(page PageSpec) []Diagnostic {
 	return diags
 }
 
-// validatePublishableCompositePage 校验组合页：至少一个资源块，每块
-// 的 view 沿用单资源页发布校验。
+// validatePublishableCompositePage 校验组合页：至少一个区块，binding
+// 引用有效、view 形态合法、span 在界内。
 func validatePublishableCompositePage(comp *CompositePageSpec) []Diagnostic {
 	var diags []Diagnostic
-	if comp == nil || len(comp.Resources) == 0 {
-		return []Diagnostic{publishShapeDiagnostic("composite_empty", "composite page must contain at least one resource block", "composite.resources")}
+	if comp == nil || len(comp.Sections) == 0 {
+		return []Diagnostic{publishShapeDiagnostic("composite_empty", "composite page must contain at least one section", "composite.sections")}
 	}
-	for i, block := range comp.Resources {
-		if strings.TrimSpace(block.ResourceKey) == "" {
-			diags = append(diags, publishShapeDiagnostic(
-				"composite_block_missing_resource",
-				fmt.Sprintf("composite block %d must declare resourceKey", i),
-				fmt.Sprintf("composite.resources[%d].resourceKey", i)))
-			continue
+	validViews := map[string]bool{"table": true, "fields": true, "form": true, "actions": true}
+	for i, sec := range comp.Sections {
+		field := fmt.Sprintf("composite.sections[%d]", i)
+		if strings.TrimSpace(sec.Key) == "" {
+			diags = append(diags, publishShapeDiagnostic("composite_section_key_missing", "section key is required", field+".key"))
 		}
-		nested := validatePublishableResourcePage(&block.View)
-		for _, d := range nested {
-			d.Field = fmt.Sprintf("composite.resources[%s].%s", block.ResourceKey, d.Field)
-			diags = append(diags, d)
+		if strings.TrimSpace(sec.BindingID) == "" {
+			diags = append(diags, publishShapeDiagnostic("composite_section_binding_missing", "section bindingId is required", field+".bindingId"))
+		}
+		if !validViews[sec.View] {
+			diags = append(diags, publishShapeDiagnostic("composite_section_view_invalid", "section view must be table|fields|form|actions", field+".view"))
+		}
+		if sec.Span < 0 || sec.Span > 24 {
+			diags = append(diags, publishShapeDiagnostic("composite_section_span_invalid", "section span must be within 0-24", field+".span"))
+		}
+		if sec.View == "table" && sec.Table == nil {
+			diags = append(diags, publishShapeDiagnostic("composite_section_table_missing", "table section requires table config", field+".table"))
 		}
 	}
 	return diags

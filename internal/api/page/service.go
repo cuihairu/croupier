@@ -904,7 +904,7 @@ func validatePageShape(page spec.PageSpec) []spec.Diagnostic {
 	case spec.PageTypeReport:
 		requireOnly("report", page.Report != nil)
 	case spec.PageTypeComposite:
-		requireOnly("composite", page.Composite != nil && len(page.Composite.Resources) > 0)
+		requireOnly("composite", page.Composite != nil && len(page.Composite.Sections) > 0)
 	}
 	return diags
 }
