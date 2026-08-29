@@ -176,3 +176,10 @@ func (m *PageProposalVersionModel) GetNextVersion(ctx context.Context, proposalI
 		Scan(&maxVersion).Error
 	return maxVersion + 1, err
 }
+
+// DeleteByScopeAndPageKey removes all proposals for a page (page cleanup).
+func (m *PageProposalModel) DeleteByScopeAndPageKey(ctx context.Context, gameID, env, pageKey string) error {
+	return dbctx.Resolve(ctx, m.db).WithContext(ctx).
+		Where("game_id = ? AND env = ? AND page_key = ?", gameID, env, pageKey).
+		Delete(&PageProposal{}).Error
+}

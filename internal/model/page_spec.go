@@ -350,3 +350,11 @@ func (m *PageVersionModel) GetNextVersion(ctx context.Context, gameID, env, page
 		Scan(&maxVersion).Error
 	return maxVersion + 1, err
 }
+
+// DeleteByScopeAndPageKey deletes all published versions of a page
+// (cleanup of obsolete page schemas, e.g. the legacy tab-composite).
+func (m *PublishedPageSpecModel) DeleteByScopeAndPageKey(ctx context.Context, gameID, env, pageKey string) error {
+	return dbctx.Resolve(ctx, m.db).WithContext(ctx).
+		Where("game_id = ? AND env = ? AND page_key = ?", gameID, env, pageKey).
+		Delete(&PublishedPageSpec{}).Error
+}

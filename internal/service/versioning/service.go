@@ -2160,3 +2160,22 @@ func firstNonEmpty(values ...string) string {
 func (s *Service) CreateCompositePage(ctx context.Context, gameID, env, pageKey string, sections []service.CompositeSectionRequest) (*model.PageProposal, error) {
 	return service.NewContractService(s.db).CreateCompositeProposal(ctx, gameID, env, pageKey, sections)
 }
+
+// DeletePage deletes a page's draft, published versions and pending proposals
+// (cleanup of obsolete page schemas).
+func (s *Service) DeletePage(ctx context.Context, gameID, env, pageKey string) error {
+	pageKey = strings.TrimSpace(pageKey)
+	if pageKey == "" {
+		return errorx.NewBadRequest("pageKey is required")
+	}
+	if err := s.pageModel.Delete(ctx, gameID, env, pageKey); err != nil {
+		return fmt.Errorf("delete page draft: %w", err)
+	}
+	if err := s.publishedModel.DeleteByScopeAndPageKey(ctx, gameID, env, pageKey); err != nil {
+		return fmt.Errorf("delete published page: %w", err)
+	}
+	if err := s.proposalModel.DeleteByScopeAndPageKey(ctx, gameID, env, pageKey); err != nil {
+		return fmt.Errorf("delete page proposals: %w", err)
+	}
+	return nil
+}

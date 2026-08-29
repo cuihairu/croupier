@@ -1,6 +1,8 @@
 package versioning
 
 import (
+	"strings"
+
 	"github.com/cuihairu/croupier/internal/common/requestbind"
 	"github.com/cuihairu/croupier/internal/common/response"
 	"github.com/cuihairu/croupier/internal/service"
@@ -228,4 +230,20 @@ func (h *Handler) CreateCompositePage(c *gin.Context) {
 		"pageType":    proposal.PageType,
 		"quality":     proposal.Quality,
 	})
+}
+
+// DeletePage handles DELETE /versioning/pages/:pageKey：清理草稿/已发布/提案
+// （废弃页面 schema 的清理，如旧 tab 版组合页）。
+func (h *Handler) DeletePage(c *gin.Context) {
+	pageKey := strings.TrimSpace(c.Param("pageKey"))
+	if pageKey == "" {
+		response.BadRequest(c, "pageKey is required")
+		return
+	}
+	gameID, env := getScope(c)
+	if err := h.service.DeletePage(c.Request.Context(), gameID, env, pageKey); err != nil {
+		response.Error(c, err)
+		return
+	}
+	response.Success(c, gin.H{"deleted": pageKey})
 }
