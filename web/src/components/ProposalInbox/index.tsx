@@ -1045,11 +1045,13 @@ export default function ProposalInbox({ focusPageKey = '' }: ProposalInboxProps)
       />
 
       <Modal
-        title="创建组合页"
+        title="组合页编辑工作台"
         open={compositeOpen}
         onCancel={() => setCompositeOpen(false)}
         footer={null}
-        width={1100}
+        width="94vw"
+        style={{ top: 24 }}
+        styles={{ body: { maxHeight: '82vh', overflow: 'auto' } }}
         destroyOnHidden
       >
         <CompositeBuilder

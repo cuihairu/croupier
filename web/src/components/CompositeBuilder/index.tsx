@@ -4,14 +4,12 @@ import {
   Button,
   Card,
   Col,
-  Collapse,
   Empty,
   Input,
   InputNumber,
   Row,
   Select,
   Space,
-  Tree,
   Typography,
 } from 'antd';
 import {
@@ -19,15 +17,21 @@ import {
   ArrowDownOutlined,
   ArrowUpOutlined,
   BarsOutlined,
+  CopyOutlined,
   DeleteOutlined,
   DragOutlined,
   FormOutlined,
+  FunctionOutlined,
+  ReloadOutlined,
   TableOutlined,
 } from '@ant-design/icons';
 import type { DataNode } from 'antd/es/tree';
+import { Tree } from 'antd';
 import { listDescriptors, type FunctionDescriptor } from '@/services/api/functions';
+import { SortableList } from '@/components/SortableList';
+import { localizedText } from '@/utils/localizedText';
 
-const { Text } = Typography;
+const { Text, Title } = Typography;
 
 export type CompositeSectionDraft = {
   key: string;
@@ -54,7 +58,22 @@ const VIEW_META: Record<string, { label: string; icon: React.ReactNode }> = {
   actions: { label: '按钮组', icon: <AppstoreOutlined /> },
 };
 
-/** 按资源分组的函数树数据 */
+const PAGE_KEY_PREFIX = 'composite--';
+
+/** 从当前区块自动推导 pageKey 预填值（主函数或资源组合） */
+function derivePageKey(sections: CompositeSectionDraft[]): string {
+  const resources = Array.from(
+    new Set(sections.map((s) => s.functionId.split('.')[0]).filter((r) => r && r.length > 0)),
+  );
+  const base = resources.length > 0 ? resources.join('-') : 'page';
+  return `${PAGE_KEY_PREFIX}${base}`;
+}
+
+/** pageKey 是否为自动推导值（用户改过则不再自动覆盖） */
+function isAutoKey(pageKey: string, sections: CompositeSectionDraft[]): boolean {
+  return pageKey === '' || pageKey === derivePageKey(sections);
+}
+
 function buildTreeData(descriptors: FunctionDescriptor[]): DataNode[] {
   const byResource = new Map<string, FunctionDescriptor[]>();
   for (const d of descriptors) {
@@ -62,23 +81,35 @@ function buildTreeData(descriptors: FunctionDescriptor[]): DataNode[] {
     if (!byResource.has(rk)) byResource.set(rk, []);
     byResource.get(rk)!.push(d);
   }
-  const nodes: DataNode[] = [];
-  for (const [rk, fns] of byResource) {
-    nodes.push({
-      title: rk,
+  return Array.from(byResource.entries())
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([rk, fns]) => ({
+      title: (
+        <Space size={4}>
+          <FunctionOutlined style={{ color: '#8c8c8c' }} />
+          <Text strong>{rk}</Text>
+          <Text type="secondary" style={{ fontSize: 11 }}>
+            {fns.length}
+          </Text>
+        </Space>
+      ),
       key: `res:${rk}`,
       selectable: false,
-      children: fns.map((fn) => ({
-        title: fn.id,
-        key: `fn:${fn.id}`,
-        isLeaf: true,
-      })),
-    });
-  }
-  return nodes;
+      children: fns
+        .sort((a, b) => a.id.localeCompare(b.id))
+        .map((fn) => ({
+          title: (
+            <Space size={4} style={{ fontSize: 12 }}>
+              <Text code>{fn.operation || fn.id.split('.').pop()}</Text>
+              <Text type="secondary">{fn.id}</Text>
+            </Space>
+          ),
+          key: `fn:${fn.id}`,
+          isLeaf: true,
+        })),
+    }));
 }
 
-/** 默认视图形态：collection_query→table、item_query→fields、其他→form */
 function defaultView(fn: FunctionDescriptor | undefined): string {
   if (!fn) return 'form';
   if (fn.operation === 'list') return 'table';
@@ -87,10 +118,10 @@ function defaultView(fn: FunctionDescriptor | undefined): string {
 }
 
 /**
- * 组合页三栏构建器：
- * 左=函数树（按资源分组，点选加入画布）
- * 中=区块画布（上移/下移/删块/调宽度/视图形态/联动键）
- * （右侧预览由 PageStudio 既有 livePreview 承担）
+ * 组合页编辑工作台（全屏三栏）：
+ * 左 = 资源/函数树（点击加入画布）
+ * 中 = 区块画布（拖拽排序 + 属性编辑）
+ * 右 = 实时布局预览
  */
 export default function CompositeBuilder({
   open,
@@ -101,14 +132,31 @@ export default function CompositeBuilder({
 }: CompositeBuilderProps) {
   const { message } = App.useApp();
   const [descriptors, setDescriptors] = useState<FunctionDescriptor[]>([]);
+  const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState('');
+  const [keyTouched, setKeyTouched] = useState(false);
+
+  const loadDescriptors = useCallback(async () => {
+    setLoading(true);
+    try {
+      setDescriptors(await listDescriptors());
+    } catch {
+      message.error('加载函数清单失败');
+    } finally {
+      setLoading(false);
+    }
+  }, [message]);
 
   useEffect(() => {
-    if (!open) return;
-    listDescriptors()
-      .then(setDescriptors)
-      .catch(() => message.error('加载函数清单失败'));
-  }, [open, message]);
+    if (open) void loadDescriptors();
+  }, [open, loadDescriptors]);
+
+  // pageKey 自动预填：用户未手动改过时，跟随区块变化更新
+  useEffect(() => {
+    if (!keyTouched && sections.length > 0 && isAutoKey(pageKey, sections)) {
+      onPageKeyChange(derivePageKey(sections));
+    }
+  }, [sections, keyTouched, pageKey, onPageKeyChange]);
 
   const treeData = useMemo(() => {
     const all = buildTreeData(descriptors);
@@ -141,14 +189,14 @@ export default function CompositeBuilder({
           key: functionId,
           functionId,
           view: defaultView(fn),
-          title: fn?.summary?.['zh-CN'] || functionId,
+          title: localizedText(fn?.summary, 'zh-CN', functionId),
           span: 24,
           autoRun: false,
           refreshOn: [],
         },
       ]);
     },
-    [sections, onChange, fnById],
+    [sections, onChange, fnById, message],
   );
 
   const updateSection = useCallback(
@@ -178,24 +226,73 @@ export default function CompositeBuilder({
 
   return (
     <div>
-      <Card size="small" title="页面 Key" style={{ marginBottom: 12 }}>
-        <Input
-          placeholder="如 composite--player-overview"
-          value={pageKey}
-          onChange={(e) => onPageKeyChange(e.target.value)}
-        />
+      {/* 顶部：页面 Key（自动预填 + 可改） */}
+      <Card size="small" style={{ marginBottom: 12 }}>
+        <Space wrap>
+          <Text strong>页面 Key</Text>
+          <Input
+            placeholder="自动生成（如 composite--player-order），可修改"
+            value={pageKey}
+            onChange={(e) => {
+              setKeyTouched(true);
+              onPageKeyChange(e.target.value);
+            }}
+            style={{ width: 360 }}
+            suffix={
+              <CopyOutlined
+                style={{ color: '#999', cursor: 'pointer' }}
+                onClick={() => {
+                  void navigator.clipboard?.writeText(pageKey);
+                  message.success('已复制');
+                }}
+              />
+            }
+          />
+          {keyTouched && (
+            <Button
+              size="small"
+              type="link"
+              onClick={() => {
+                setKeyTouched(false);
+                onPageKeyChange(sections.length > 0 ? derivePageKey(sections) : '');
+              }}
+            >
+              恢复自动
+            </Button>
+          )}
+          <Text type="secondary">
+            {sections.length} 个区块 · 联动 {sections.filter((s) => s.refreshOn.length > 0).length}{' '}
+            处
+          </Text>
+        </Space>
       </Card>
+
       <Row gutter={12}>
-        {/* 左：函数树 */}
-        <Col span={7}>
+        {/* 左：资源/函数树 */}
+        <Col span={5} style={{ minWidth: 260 }}>
           <Card
             size="small"
-            title="可用函数"
-            styles={{ body: { maxHeight: 520, overflow: 'auto' } }}
+            title={
+              <Space size={4}>
+                <Text strong>函数</Text>
+                <Text type="secondary">{descriptors.length}</Text>
+              </Space>
+            }
+            extra={
+              <Button
+                size="small"
+                type="text"
+                icon={<ReloadOutlined />}
+                onClick={() => void loadDescriptors()}
+              />
+            }
+            styles={{ body: { padding: 8, maxHeight: 640, overflow: 'auto' } }}
+            loading={loading}
           >
             <Input
               size="small"
-              placeholder="搜索函数"
+              placeholder="搜索函数 / 资源"
+              allowClear
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               style={{ marginBottom: 8 }}
@@ -207,6 +304,7 @@ export default function CompositeBuilder({
                 treeData={treeData}
                 defaultExpandAll
                 showLine={false}
+                blockNode
                 onSelect={(keys) => {
                   const key = String(keys[0] || '');
                   if (key.startsWith('fn:')) addSection(key.slice(3));
@@ -216,33 +314,50 @@ export default function CompositeBuilder({
           </Card>
         </Col>
 
-        {/* 中：区块画布 */}
-        <Col span={17}>
+        {/* 中：区块画布（拖拽排序 + 属性编辑） */}
+        <Col span={12}>
           <Card
             size="small"
-            title={`区块画布（${sections.length} 个区块，上→下为页面渲染顺序）`}
-            styles={{ body: { maxHeight: 520, overflow: 'auto' } }}
+            title={
+              <Space size={4}>
+                <Text strong>区块画布</Text>
+                <Text type="secondary" style={{ fontSize: 12 }}>
+                  拖拽 <DragOutlined /> 排序 · 上→下为渲染顺序
+                </Text>
+              </Space>
+            }
+            styles={{ body: { maxHeight: 640, overflow: 'auto' } }}
           >
             {sections.length === 0 ? (
-              <Empty description="从左侧点击函数加入画布" image={Empty.PRESENTED_IMAGE_SIMPLE} />
+              <Empty
+                description="从左侧点击函数加入画布"
+                image={Empty.PRESENTED_IMAGE_SIMPLE}
+                style={{ marginTop: 120 }}
+              />
             ) : (
-              <Space direction="vertical" style={{ width: '100%' }} size={8}>
-                {sections.map((sec, idx) => {
+              <SortableList items={sections} getKey={(sec) => sec.key} onReorder={onChange}>
+                {(sec, idx, dragHandleProps) => {
                   const fn = fnById.get(sec.functionId);
                   return (
                     <Card
-                      key={sec.key}
                       size="small"
+                      style={{ marginBottom: 8 }}
                       title={
                         <Space size={6}>
+                          <span {...dragHandleProps}>
+                            <DragOutlined style={{ cursor: 'grab', color: '#1677ff' }} />
+                          </span>
+                          {VIEW_META[sec.view]?.icon}
                           <Text code>{sec.functionId}</Text>
                           {fn?.summary?.['zh-CN'] ? (
-                            <Text type="secondary">{fn.summary['zh-CN']}</Text>
+                            <Text type="secondary" style={{ fontSize: 12 }}>
+                              {fn.summary['zh-CN']}
+                            </Text>
                           ) : null}
                         </Space>
                       }
                       extra={
-                        <Space size={4}>
+                        <Space size={2}>
                           <Button
                             size="small"
                             type="text"
@@ -268,11 +383,18 @@ export default function CompositeBuilder({
                       }
                     >
                       <Space wrap size={8}>
+                        <Input
+                          size="small"
+                          placeholder="标题"
+                          value={sec.title}
+                          onChange={(e) => updateSection(idx, { title: e.target.value })}
+                          style={{ width: 140 }}
+                        />
                         <Select
                           size="small"
                           value={sec.view}
                           onChange={(v) => updateSection(idx, { view: v })}
-                          style={{ width: 120 }}
+                          style={{ width: 110 }}
                           options={Object.entries(VIEW_META).map(([value, meta]) => ({
                             value,
                             label: (
@@ -289,8 +411,8 @@ export default function CompositeBuilder({
                           max={24}
                           value={sec.span}
                           onChange={(v) => updateSection(idx, { span: v || 0 })}
-                          addonBefore="宽度"
-                          style={{ width: 130 }}
+                          addonBefore="宽"
+                          style={{ width: 110 }}
                         />
                         <Input
                           size="small"
@@ -304,31 +426,102 @@ export default function CompositeBuilder({
                                 .filter(Boolean),
                             })
                           }
-                          style={{ width: 200 }}
-                          prefix={<DragOutlined style={{ color: '#bbb' }} />}
+                          style={{ width: 170 }}
                         />
+                        <label style={{ fontSize: 12, whiteSpace: 'nowrap' }}>
+                          <input
+                            type="checkbox"
+                            checked={sec.autoRun}
+                            onChange={(e) => updateSection(idx, { autoRun: e.target.checked })}
+                          />{' '}
+                          自动执行
+                        </label>
                       </Space>
-                      <div style={{ marginTop: 6 }}>
-                        <Space size={12}>
-                          <label style={{ fontSize: 12 }}>
-                            <input
-                              type="checkbox"
-                              checked={sec.autoRun}
-                              onChange={(e) => updateSection(idx, { autoRun: e.target.checked })}
-                            />{' '}
-                            加载即执行
-                          </label>
-                          {sec.refreshOn.length > 0 && (
-                            <Text type="secondary" style={{ fontSize: 12 }}>
-                              联动：{sec.refreshOn.join(' / ')} 变化时自动重跑
-                            </Text>
-                          )}
-                        </Space>
-                      </div>
+                      {sec.refreshOn.length > 0 && (
+                        <div style={{ marginTop: 6 }}>
+                          <Text type="secondary" style={{ fontSize: 11 }}>
+                            联动：{sec.refreshOn.join(' / ')} 变化时自动重跑
+                          </Text>
+                        </div>
+                      )}
                     </Card>
                   );
-                })}
-              </Space>
+                }}
+              </SortableList>
+            )}
+          </Card>
+        </Col>
+
+        {/* 右：实时布局预览 */}
+        <Col span={7}>
+          <Card
+            size="small"
+            title={<Text strong>布局预览</Text>}
+            styles={{ body: { maxHeight: 640, overflow: 'auto' } }}
+          >
+            {sections.length === 0 ? (
+              <Empty description="加入区块后预览布局" image={Empty.PRESENTED_IMAGE_SIMPLE} />
+            ) : (
+              <>
+                <div style={{ marginBottom: 8 }}>
+                  <Title level={5} style={{ margin: 0 }}>
+                    {pageKey || '（未命名）'}
+                  </Title>
+                </div>
+                <Row gutter={[8, 8]}>
+                  {sections.map((sec) => (
+                    <Col
+                      key={sec.key}
+                      span={sec.span && sec.span > 0 && sec.span <= 24 ? sec.span : 24}
+                    >
+                      <div
+                        style={{
+                          border: '1px dashed #bfbfbf',
+                          borderRadius: 6,
+                          padding: '8px 10px',
+                          minHeight: 68,
+                          background: sec.autoRun ? '#f6ffed' : '#fafafa',
+                        }}
+                      >
+                        <Space size={6}>
+                          {VIEW_META[sec.view]?.icon ?? <AppstoreOutlined />}
+                          <Text strong style={{ fontSize: 12 }}>
+                            {sec.title || sec.key}
+                          </Text>
+                        </Space>
+                        <div>
+                          <Text type="secondary" style={{ fontSize: 11 }}>
+                            {sec.functionId}
+                          </Text>
+                        </div>
+                        <div>
+                          <Text type="secondary" style={{ fontSize: 11 }}>
+                            {sec.autoRun ? '⏵ 自动执行' : ''}
+                            {sec.refreshOn?.length ? ` ⇄ ${sec.refreshOn.join(',')}` : ''}
+                          </Text>
+                        </div>
+                        {sec.view === 'table' && (
+                          <div style={{ marginTop: 4 }}>
+                            {[0, 1, 2].map((r) => (
+                              <div
+                                key={r}
+                                style={{
+                                  height: 13,
+                                  borderBottom: '1px solid #eee',
+                                  fontSize: 10,
+                                  color: '#bfbfbf',
+                                }}
+                              >
+                                row {r + 1}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </Col>
+                  ))}
+                </Row>
+              </>
             )}
           </Card>
         </Col>
