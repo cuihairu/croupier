@@ -71,7 +71,7 @@ export type CapabilityKind =
 export type FunctionExecution = 'sync' | 'task';
 
 /** 页面类型 */
-export type PageType = 'resource' | 'operation' | 'task' | 'report';
+export type PageType = 'resource' | 'operation' | 'task' | 'report' | 'composite';
 
 /** 页面 binding 在运行期的用途 */
 export type PageBindingUsage =
@@ -353,6 +353,18 @@ interface PageSpecBase {
   bindings: PageFunctionBinding[];
 }
 
+/** 组合页：多资源聚合，Console 按 tab 渲染每资源视图。 */
+export interface CompositePageSpec {
+  resources: CompositeResourceBlock[];
+}
+
+/** 组合页中单个资源的视图块（bindingId 带 "<resourceKey>." 前缀）。 */
+export interface CompositeResourceBlock {
+  resourceKey: string;
+  title: LocalizedText;
+  view: ResourcePageSpec;
+}
+
 /** 完整页面编排规格。页面类型与页面主体必须一一对应。 */
 export type PageSpec =
   | (PageSpecBase & {
@@ -382,6 +394,15 @@ export type PageSpec =
       operation?: never;
       task?: never;
       report: ReportPageSpec;
+      composite?: never;
+    })
+  | (PageSpecBase & {
+      type: 'composite';
+      resource?: never;
+      operation?: never;
+      task?: never;
+      report?: never;
+      composite: CompositePageSpec;
     });
 
 /** 页面导航规格 */

@@ -200,3 +200,31 @@ func getScope(c *gin.Context) (string, string) {
 	scope := svc.GameScopeFromContext(c.Request.Context())
 	return scope.GameID, scope.Env
 }
+
+// CreateCompositePageRequest 创建组合页提案。
+type CreateCompositePageRequest struct {
+	PageKey      string   `json:"pageKey"`
+	ResourceKeys []string `json:"resourceKeys"`
+}
+
+// CreateCompositePage handles POST /versioning/pages/composite：聚合 2+
+// 资源生成 composite 页提案（进入 ProposalInbox，接受并发布后生效）。
+func (h *Handler) CreateCompositePage(c *gin.Context) {
+	var req CreateCompositePageRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, err)
+		return
+	}
+	gameID, env := getScope(c)
+	proposal, err := h.service.CreateCompositePage(c.Request.Context(), gameID, env, req.PageKey, req.ResourceKeys)
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
+	response.Success(c, gin.H{
+		"proposalKey": proposal.ProposalKey,
+		"pageKey":     proposal.PageKey,
+		"pageType":    proposal.PageType,
+		"quality":     proposal.Quality,
+	})
+}

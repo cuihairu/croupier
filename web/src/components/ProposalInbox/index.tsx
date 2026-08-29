@@ -16,6 +16,7 @@ import {
   Input,
   Modal,
   Popconfirm,
+  Select,
   Space,
   Table,
   Tabs,
@@ -60,6 +61,7 @@ import type { ConflictResolution, MergeResponse } from '@/services/api/versionin
 import { publishPageDraft } from '@/services/api/pages';
 import PageRenderer from '@/components/PageRenderer';
 import { buildConsolePagePath, requestConsoleMenuRefresh } from '@/utils/consoleMenu';
+import { request } from '@umijs/max';
 import { localizedText } from '@/utils/localizedText';
 
 const { Paragraph, Text } = Typography;
@@ -108,6 +110,7 @@ const pageTypeLabels: Record<PageType, string> = {
   operation: '操作',
   task: '任务',
   report: '报表',
+  composite: '组合',
 };
 
 const pageTypeColors: Record<PageType, string> = {
@@ -115,6 +118,7 @@ const pageTypeColors: Record<PageType, string> = {
   operation: 'green',
   task: 'orange',
   report: 'purple',
+  composite: 'cyan',
 };
 
 function formatDate(value?: string): string {
@@ -204,6 +208,25 @@ export default function ProposalInbox({ focusPageKey = '' }: ProposalInboxProps)
   const [initialProposalKey] = useState(currentProposalKey);
   const [contractActionKey, setContractActionKey] = useState('');
   const [manualMergeVisible, setManualMergeVisible] = useState(false);
+  // 组合页创建：资源多选 + pageKey
+  const [compositeOpen, setCompositeOpen] = useState(false);
+  const [compositeKeys, setCompositeKeys] = useState<string[]>([]);
+  const [compositePageKey, setCompositePageKey] = useState('');
+  const [compositeCreating, setCompositeCreating] = useState(false);
+  const [resourceOptions, setResourceOptions] = useState<{ label: string; value: string }[]>([]);
+
+  const loadResourceOptions = useCallback(async () => {
+    try {
+      const resp = await request<{ items?: { resourceKey?: string }[] }>(
+        '/api/v1/resource-catalog',
+      );
+      const keys = (resp.items || []).map((it) => (it.resourceKey || '').trim()).filter(Boolean);
+      setResourceOptions(Array.from(new Set(keys)).map((k) => ({ label: k, value: k })));
+    } catch {
+      setResourceOptions([]);
+    }
+  }, []);
+
   const [manualMergeLoading, setManualMergeLoading] = useState(false);
   const [manualMergePreview, setManualMergePreview] = useState<MergeResponse | null>(null);
   const [manualMergeRecord, setManualMergeRecord] = useState<ContractChangeInfo | null>(null);
@@ -217,6 +240,29 @@ export default function ProposalInbox({ focusPageKey = '' }: ProposalInboxProps)
       setLoading(false);
     }
   }, [resourceKey]);
+  const createComposite = useCallback(async () => {
+    if (!compositePageKey.trim() || compositeKeys.length < 2) {
+      message.warning('需要 pageKey 与至少 2 个资源');
+      return;
+    }
+    setCompositeCreating(true);
+    try {
+      await request('/api/v1/versioning/pages/composite', {
+        method: 'POST',
+        data: { pageKey: compositePageKey.trim(), resourceKeys: compositeKeys },
+      });
+      message.success('组合页提案已生成，请在列表中接受并发布');
+      setCompositeOpen(false);
+      setCompositeKeys([]);
+      setCompositePageKey('');
+      await fetchData();
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : '创建失败';
+      message.error(msg);
+    } finally {
+      setCompositeCreating(false);
+    }
+  }, [compositePageKey, compositeKeys, fetchData, message]);
 
   useEffect(() => {
     fetchData();
@@ -778,6 +824,16 @@ export default function ProposalInbox({ focusPageKey = '' }: ProposalInboxProps)
           <Button icon={<ReloadOutlined />} onClick={fetchData}>
             刷新
           </Button>
+          <Button
+            type="primary"
+            ghost
+            onClick={() => {
+              setCompositeOpen(true);
+              void loadResourceOptions();
+            }}
+          >
+            创建组合页
+          </Button>
           {resourceKey && <Tag color="blue">当前资源：{resourceKey}</Tag>}
         </Space>
       </Card>
@@ -977,6 +1033,38 @@ export default function ProposalInbox({ focusPageKey = '' }: ProposalInboxProps)
         onCancel={() => setManualMergeVisible(false)}
         onSubmit={handleManualMergeSubmit}
       />
+
+      <Modal
+        title="创建组合页"
+        open={compositeOpen}
+        onCancel={() => setCompositeOpen(false)}
+        footer={null}
+        destroyOnHidden
+      >
+        <Space direction="vertical" style={{ width: '100%' }} size={12}>
+          <Input
+            placeholder="页面 Key（如 composite--player-order）"
+            value={compositePageKey}
+            onChange={(e) => setCompositePageKey(e.target.value)}
+          />
+          <Select
+            mode="multiple"
+            placeholder="选择 2+ 资源（每资源一个 tab 视图）"
+            value={compositeKeys}
+            onChange={setCompositeKeys}
+            options={resourceOptions}
+            style={{ width: '100%' }}
+          />
+          <Button
+            type="primary"
+            loading={compositeCreating}
+            disabled={compositeKeys.length < 2 || !compositePageKey.trim()}
+            onClick={() => void createComposite()}
+          >
+            生成组合页提案
+          </Button>
+        </Space>
+      </Modal>
     </Space>
   );
 }

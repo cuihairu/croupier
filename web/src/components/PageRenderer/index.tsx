@@ -12,7 +12,7 @@ import { localizedText } from '@/utils/localizedText';
  */
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Result } from 'antd';
+import { Result, Tabs } from 'antd';
 import { WarningOutlined } from '@ant-design/icons';
 import ResourcePageRenderer from './ResourcePageRenderer';
 import OperationPageRenderer from './OperationPageRenderer';
@@ -101,6 +101,37 @@ const PageRenderer: React.FC<PageRendererProps> = ({
 
   // 根据页面类型选择渲染器
   switch (type) {
+    case 'composite': {
+      if (!pageSpec.composite || pageSpec.composite.resources.length === 0) {
+        return (
+          <Result
+            status="warning"
+            title="配置错误"
+            subTitle="组合页面缺少 composite 配置"
+            icon={<WarningOutlined />}
+          />
+        );
+      }
+      const blocks = pageSpec.composite.resources;
+      return (
+        <Tabs
+          items={blocks.map((block) => ({
+            key: block.resourceKey,
+            label: localizedText(block.title, 'zh-CN', block.resourceKey),
+            children: (
+              <ResourcePageRenderer
+                spec={block.view}
+                bindings={bindings}
+                onExecute={executeWithPageState}
+                preview={preview}
+                title={localizedText(block.title, 'zh-CN', block.resourceKey)}
+              />
+            ),
+          }))}
+        />
+      );
+    }
+
     case 'resource':
       if (!pageSpec.resource) {
         return (

@@ -797,7 +797,8 @@ func requireScope(ctx context.Context) (string, string, error) {
 
 func isValidPageType(t spec.PageType) bool {
 	switch t {
-	case spec.PageTypeResource, spec.PageTypeOperation, spec.PageTypeTask, spec.PageTypeReport:
+	case spec.PageTypeResource, spec.PageTypeOperation, spec.PageTypeTask, spec.PageTypeReport,
+		spec.PageTypeComposite:
 		return true
 	default:
 		return false
@@ -902,6 +903,8 @@ func validatePageShape(page spec.PageSpec) []spec.Diagnostic {
 		requireOnly("task", page.Task != nil)
 	case spec.PageTypeReport:
 		requireOnly("report", page.Report != nil)
+	case spec.PageTypeComposite:
+		requireOnly("composite", page.Composite != nil && len(page.Composite.Resources) > 0)
 	}
 	return diags
 }

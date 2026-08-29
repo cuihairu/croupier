@@ -92,6 +92,10 @@ const (
 	PageTypeOperation PageType = "operation"
 	PageTypeTask      PageType = "task"
 	PageTypeReport    PageType = "report"
+	// PageTypeComposite 组合页：一页聚合多个资源的视图（每资源一个
+	// view 块，Console 按 tab 渲染）。bindings 数组承载全部资源函数，
+	// bindingId 带 "<resourceKey>." 前缀防跨资源冲突。
+	PageTypeComposite PageType = "composite"
 )
 
 // PageBindingUsage is the runtime meaning of a page binding. It belongs to
@@ -494,16 +498,32 @@ type PageSpec struct {
 	Order       int              `json:"order,omitempty"`
 	Icon        string           `json:"icon,omitempty"`
 
-	Navigation *NavigationSpec    `json:"navigation,omitempty"`
-	Resource   *ResourcePageSpec  `json:"resource,omitempty"`
-	Operation  *OperationPageSpec `json:"operation,omitempty"`
-	Task       *TaskPageSpec      `json:"task,omitempty"`
-	Report     *ReportPageSpec    `json:"report,omitempty"`
+	Navigation *NavigationSpec   `json:"navigation,omitempty"`
+	Resource   *ResourcePageSpec `json:"resource,omitempty"`
+	// Composite 仅 PageType=composite 时有效：多资源 view 块。
+	Composite *CompositePageSpec `json:"composite,omitempty"`
+	Operation *OperationPageSpec `json:"operation,omitempty"`
+	Task      *TaskPageSpec      `json:"task,omitempty"`
+	Report    *ReportPageSpec    `json:"report,omitempty"`
 
 	// Bindings lists the functions this page uses. Page content references
 	// bindings by bindingId; direct functionId references are invalid in
 	// published PageSpec.
 	Bindings []PageFunctionBinding `json:"bindings"`
+}
+
+// CompositePageSpec 聚合多个资源的视图块。每个块是完整的
+// ResourcePageSpec + 资源键与 tab 标题；Console 渲染为 tab 布局，
+// 每 tab 一个资源视图。bindingId 命名 "<resourceKey>.<op>"。
+type CompositePageSpec struct {
+	Resources []CompositeResourceBlock `json:"resources"`
+}
+
+// CompositeResourceBlock 是组合页中单个资源的视图块。
+type CompositeResourceBlock struct {
+	ResourceKey string           `json:"resourceKey"`
+	Title       LocalizedText    `json:"title"`
+	View        ResourcePageSpec `json:"view"`
 }
 
 // PageCategorySpec groups pages into navigation categories.

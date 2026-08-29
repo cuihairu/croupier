@@ -1265,3 +1265,59 @@ func (s *ContractService) RebuildAllProposals(ctx context.Context, gameID, env s
 
 	return nil
 }
+
+// CreateCompositeProposal 手动创建组合页提案：给定 2+ 资源键，聚合各资源
+// 的 semantics 与 contracts 生成 composite 页（每资源一个 view 块，Console
+// 按 tab 渲染）。提案进入 ProposalInbox，接受并发布后生效——与自动提案
+// 同一工作流，不旁路。
+func (s *ContractService) CreateCompositeProposal(
+	ctx context.Context,
+	gameID, env, pageKey string,
+	resourceKeys []string,
+) (*model.PageProposal, error) {
+	gameID = strings.TrimSpace(gameID)
+	env = strings.TrimSpace(env)
+	pageKey = strings.TrimSpace(pageKey)
+	if pageKey == "" || len(resourceKeys) < 2 {
+		return nil, fmt.Errorf("pageKey and 2+ resourceKeys are required")
+	}
+
+	inputs := make([]generator.CompositeResourceInput, 0, len(resourceKeys))
+	var allContracts []*model.FunctionContract
+	for _, rk := range resourceKeys {
+		rk = strings.TrimSpace(rk)
+		if rk == "" {
+			continue
+		}
+		semantics, err := s.semanticsModel.FindByScopeAndResourceKey(ctx, gameID, env, rk)
+		if err != nil {
+			return nil, fmt.Errorf("resource %s semantics not found: %w", rk, err)
+		}
+		contracts, err := s.contractModel.ListByResourceKey(ctx, gameID, env, rk)
+		if err != nil {
+			return nil, fmt.Errorf("resource %s contracts: %w", rk, err)
+		}
+		inputs = append(inputs, generator.CompositeResourceInput{
+			ResourceKey: rk,
+			Semantics:   semantics,
+			Contracts:   contracts,
+		})
+		allContracts = append(allContracts, contracts...)
+	}
+
+	opts := generator.DefaultGenerateOptions()
+	opts.Terms = s.loadTermDictionary(ctx)
+	generated, ok := generator.GenerateCompositePage(pageKey, inputs, opts)
+	if !ok {
+		return nil, fmt.Errorf("composite page cannot be generated (see diagnostics)")
+	}
+	proposalKey := compositeProposalKey(pageKey)
+	if err := s.upsertGeneratedProposal(ctx, gameID, env, proposalKey, nil, allContracts, generated); err != nil {
+		return nil, err
+	}
+	return s.proposalModel.FindByScopeAndKey(ctx, gameID, env, proposalKey)
+}
+
+func compositeProposalKey(pageKey string) string {
+	return "composite--" + strings.TrimSpace(pageKey)
+}
