@@ -79,7 +79,9 @@ func EvaluateBinding(
 			"bindingContracts."+bindingID+".functionVersion",
 		))
 	}
-	if digestRaw(fn.InputSchema) != strings.TrimSpace(contract.InputSchemaDigest) {
+	// digest 为空 = 发布于 digest 机制之前的旧快照——无法比对，
+	// 视为兼容跳过（否则旧页面在新代码下恒为 stale 被误阻断）。
+	if c := strings.TrimSpace(contract.InputSchemaDigest); c != "" && digestRaw(fn.InputSchema) != c {
 		out = append(out, bindingFreshnessDiagnostic(
 			bindingID,
 			functionID,
@@ -91,7 +93,7 @@ func EvaluateBinding(
 		out = append(out, selectorFreshnessDiagnostics(bindingID, functionID, binding, fn)...)
 		selectorChecked = true
 	}
-	if digestRaw(fn.OutputSchema) != strings.TrimSpace(contract.OutputSchemaDigest) {
+	if c := strings.TrimSpace(contract.OutputSchemaDigest); c != "" && digestRaw(fn.OutputSchema) != c {
 		out = append(out, bindingFreshnessDiagnostic(
 			bindingID,
 			functionID,
