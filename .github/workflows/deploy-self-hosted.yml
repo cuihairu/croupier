@@ -228,6 +228,15 @@ jobs:
             docker logs --tail 200 "${c}" 2>&1 | grep -Ei "registered|heartbeat|cluster|owner" | tail -12 || true
           done
 
+      - name: Dump server panic evidence (always)
+        if: always()
+        timeout-minutes: 2
+        run: |
+          for c in croupier-server croupier-server2; do
+            echo "===== ${c}: panic tail ====="
+            docker logs --tail 500 "${c}" 2>&1 | grep -B 2 -A 25 "panic:" | tail -40 || true
+          done
+
       - name: Dump dashboard logs (on failure)
         if: failure()
         timeout-minutes: 2
