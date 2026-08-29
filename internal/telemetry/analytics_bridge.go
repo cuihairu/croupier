@@ -59,7 +59,10 @@ const analyticsEventsStream = "analytics:events"
 // RFC3339 which both worker.parseEventTime (aggregation) and
 // worker.normalizeTimestamp (detail insert) accept.
 func workerPayloadFromEvent(e AnalyticsEvent) map[string]interface{} {
-	ts := time.Unix(e.Timestamp, 0).UTC().Format(time.RFC3339)
+	// Timestamp 是 UnixMilli（SendEvent 里 time.Now().UnixMilli()），
+	// 必须按毫秒还原——按秒解析会把事件抛到 5 万年后，worker 端
+	// ClickHouse event_time 解析失败全部进死信（T12 生产实测）
+	ts := time.UnixMilli(e.Timestamp).UTC().Format(time.RFC3339)
 	payload := map[string]interface{}{
 		"event":      e.EventType,
 		"game_id":    e.GameID,
