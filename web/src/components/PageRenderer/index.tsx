@@ -95,6 +95,46 @@ const CompositeRenderer: React.FC<{
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // refreshOn 联动：依赖的上游 stateKey（= 上游区块 key）产出新结果时
+  // 自动重跑本区块——跨函数联动（选玩家 → 订单/背包刷新）。
+  const resultsRef = useRef(results);
+  useEffect(() => {
+    resultsRef.current = results;
+  }, [results]);
+  useEffect(() => {
+    for (const sec of sections) {
+      if (!sec.refreshOn?.length) continue;
+      const depChanged = sec.refreshOn.some((dep) => dep in results);
+      if (depChanged && !running[sec.key]) {
+        void runSection(sec);
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [Object.keys(results).join(',')]);
+
+  // 每个区块完成后，把输出注入依赖它的区块输入（简单联动：取上游 data 同名字段）
+  useEffect(() => {
+    setSectionInputs((prev) => {
+      const next = { ...prev };
+      let changed = false;
+      for (const sec of sections) {
+        if (!sec.refreshOn?.length) continue;
+        const merged: Record<string, unknown> = { ...(next[sec.key] || {}) };
+        for (const dep of sec.refreshOn) {
+          const depData = (results[dep] as { data?: Record<string, unknown> } | null | undefined)
+            ?.data;
+          if (depData) {
+            Object.assign(merged, depData);
+            changed = true;
+          }
+        }
+        next[sec.key] = merged;
+      }
+      return changed ? next : prev;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [Object.keys(results).join(',')]);
+
   const resultFor = (sec: CompositeSection): Record<string, unknown> | undefined => {
     const r = results[sec.key];
     return (r as { data?: Record<string, unknown> } | null | undefined)?.data;

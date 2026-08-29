@@ -48,3 +48,43 @@ func TestCreateCompositeProposal_Repro(t *testing.T) {
 		t.Fatalf("proposal = %+v", proposal)
 	}
 }
+
+// 生产路由形态：ctx 注入 per-game DB 覆盖（GameDBMiddleware 路径）。
+func TestCreateCompositeProposal_ScopedCtxRepro(t *testing.T) {
+	db, err := gorm.Open(sqlite.Open(t.TempDir()+"/scoped.db"), &gorm.Config{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := db.AutoMigrate(
+		&model.FunctionContract{},
+		&model.CapabilitySemantics{},
+		&model.PageProposal{},
+		&model.PageProposalVersion{},
+		&model.TermDictionary{},
+		&model.ResourceCapability{},
+		&model.CapabilitySemanticVersion{},
+		&model.BlockedProposalIssue{},
+	); err != nil {
+		t.Fatal(err)
+	}
+	svc := NewContractService(db)
+
+	ctx := context.Background()
+	if err := svc.RebuildContractFromFunctionMeta(ctx, "demo_game", "development", "agent-1", spec.FunctionContractInput{ID: "player.get", Resource: "player", Capability: "item_query", Execution: "sync", Enabled: true, InputSchema: `{"type":"object","properties":{"id":{"type":"string"}},"required":["id"]}`, OutputSchema: `{"type":"object","properties":{"player":{"type":"object"}}}`}); err != nil {
+		t.Fatal(err)
+	}
+	if err := svc.RebuildContractFromFunctionMeta(ctx, "demo_game", "development", "agent-1", spec.FunctionContractInput{ID: "order.list", Resource: "order", Capability: "collection_query", Execution: "sync", Enabled: true, InputSchema: `{"type":"object","properties":{"playerId":{"type":"string"}},"required":["playerId"]}`, OutputSchema: `{"type":"object","properties":{"items":{"type":"array"},"total":{"type":"integer"}}}`}); err != nil {
+		t.Fatal(err)
+	}
+
+	proposal, err := svc.CreateCompositeProposal(ctx, "demo_game", "development", "composite--scoped", []CompositeSectionRequest{
+		{FunctionID: "player.get", View: "fields"},
+		{FunctionID: "order.list", View: "table", RefreshOn: []string{"player.get"}},
+	})
+	if err != nil {
+		t.Fatalf("scoped create failed: %v", err)
+	}
+	if proposal == nil || proposal.PageKey != "composite--scoped" {
+		t.Fatalf("proposal = %+v", proposal)
+	}
+}
