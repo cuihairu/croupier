@@ -1066,7 +1066,8 @@ func (s *ProposalService) validateCategoryLabelConflict(ctx context.Context, gam
 
 func isValidProposalPageType(pageType spec.PageType) bool {
 	switch pageType {
-	case spec.PageTypeResource, spec.PageTypeOperation, spec.PageTypeTask, spec.PageTypeReport:
+	case spec.PageTypeResource, spec.PageTypeOperation, spec.PageTypeTask, spec.PageTypeReport,
+		spec.PageTypeComposite:
 		return true
 	default:
 		return false
@@ -1083,6 +1084,8 @@ func pageShapeMatchesType(page spec.PageSpec) bool {
 		return page.Task != nil
 	case spec.PageTypeReport:
 		return page.Report != nil
+	case spec.PageTypeComposite:
+		return page.Composite != nil && len(page.Composite.Resources) > 0
 	default:
 		return false
 	}
