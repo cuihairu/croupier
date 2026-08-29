@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"runtime/debug"
 	"sort"
 	"strings"
 
@@ -1274,7 +1275,15 @@ func (s *ContractService) CreateCompositeProposal(
 	ctx context.Context,
 	gameID, env, pageKey string,
 	sections []CompositeSectionRequest,
-) (*model.PageProposal, error) {
+) (proposal *model.PageProposal, err error) {
+	// 组合页创建链路新近重构——panic 显式转为错误（含栈）返回前端，
+	// 避免 500 空响应无诊断。
+	defer func() {
+		if r := recover(); r != nil {
+			slog.Error("CreateCompositeProposal panic", "recover", r, "stack", string(debug.Stack()))
+			err = fmt.Errorf("internal error creating composite page: %v", r)
+		}
+	}()
 	gameID = strings.TrimSpace(gameID)
 	env = strings.TrimSpace(env)
 	pageKey = strings.TrimSpace(pageKey)
