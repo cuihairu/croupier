@@ -62,8 +62,7 @@ import type { ConflictResolution, MergeResponse } from '@/services/api/versionin
 import { publishPageDraft } from '@/services/api/pages';
 import PageRenderer from '@/components/PageRenderer';
 import { buildConsolePagePath, requestConsoleMenuRefresh } from '@/utils/consoleMenu';
-import { request } from '@umijs/max';
-import CompositeBuilder, { type CompositeSectionDraft } from '@/components/CompositeBuilder';
+import { history, request } from '@umijs/max';
 import { localizedText } from '@/utils/localizedText';
 
 const { Paragraph, Text } = Typography;
@@ -211,11 +210,6 @@ export default function ProposalInbox({ focusPageKey = '' }: ProposalInboxProps)
   const [contractActionKey, setContractActionKey] = useState('');
   const [manualMergeVisible, setManualMergeVisible] = useState(false);
   // 组合页创建：函数区块编排
-  const [compositeOpen, setCompositeOpen] = useState(false);
-  const [compositePageKey, setCompositePageKey] = useState('');
-  const [compositeCreating, setCompositeCreating] = useState(false);
-  const [functionOptions, setFunctionOptions] = useState<{ label: string; value: string }[]>([]);
-  const [sectionRows, setSectionRows] = useState<CompositeSectionDraft[]>([]);
 
   const [manualMergeLoading, setManualMergeLoading] = useState(false);
   const [manualMergePreview, setManualMergePreview] = useState<MergeResponse | null>(null);
@@ -230,49 +224,6 @@ export default function ProposalInbox({ focusPageKey = '' }: ProposalInboxProps)
       setLoading(false);
     }
   }, [resourceKey]);
-  const createComposite = useCallback(async () => {
-    const sections = sectionRows
-      .filter((r) => r.functionId.trim())
-      .map((r) => ({
-        functionId: r.functionId.trim(),
-        view: r.view.trim(),
-        title: r.title.trim(),
-        span: r.span,
-        autoRun: r.autoRun,
-        refreshOn: r.refreshOn,
-      }));
-    if (!compositePageKey.trim() || sections.length < 2) {
-      message.warning('需要 pageKey 与至少 2 个函数区块');
-      return;
-    }
-    setCompositeCreating(true);
-    try {
-      await request('/api/v1/versioning/pages/composite', {
-        method: 'POST',
-        data: { pageKey: compositePageKey.trim(), sections },
-      });
-      message.success('组合页提案已生成，请在列表中接受并发布');
-      setCompositeOpen(false);
-      setSectionRows([]);
-      setCompositePageKey('');
-      await fetchData();
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : '创建失败';
-      message.error(msg);
-    } finally {
-      setCompositeCreating(false);
-    }
-  }, [compositePageKey, sectionRows, fetchData, message]);
-
-  const loadFunctionOptions = useCallback(async () => {
-    try {
-      const resp = await request<{ items?: { id?: string }[] }>('/api/v1/functions');
-      const ids = (resp.items || []).map((it) => (it.id || '').trim()).filter(Boolean);
-      setFunctionOptions(Array.from(new Set(ids)).map((k) => ({ label: k, value: k })));
-    } catch {
-      setFunctionOptions([]);
-    }
-  }, []);
 
   useEffect(() => {
     fetchData();
@@ -837,10 +788,7 @@ export default function ProposalInbox({ focusPageKey = '' }: ProposalInboxProps)
           <Button
             type="primary"
             ghost
-            onClick={() => {
-              setCompositeOpen(true);
-              void loadFunctionOptions();
-            }}
+            onClick={() => history.push('/functions/pages/composite-editor')}
           >
             创建组合页
           </Button>
@@ -1043,41 +991,6 @@ export default function ProposalInbox({ focusPageKey = '' }: ProposalInboxProps)
         onCancel={() => setManualMergeVisible(false)}
         onSubmit={handleManualMergeSubmit}
       />
-
-      <Modal
-        title="组合页编辑工作台"
-        open={compositeOpen}
-        onCancel={() => setCompositeOpen(false)}
-        footer={null}
-        width="94vw"
-        style={{ top: 24 }}
-        styles={{ body: { maxHeight: '82vh', overflow: 'auto' } }}
-        destroyOnHidden
-      >
-        <CompositeBuilder
-          open={compositeOpen}
-          sections={sectionRows}
-          onChange={setSectionRows}
-          pageKey={compositePageKey}
-          onPageKeyChange={setCompositePageKey}
-        />
-        <div style={{ marginTop: 12, textAlign: 'right' }}>
-          <Space>
-            <Button onClick={() => setCompositeOpen(false)}>取消</Button>
-            <Button
-              type="primary"
-              loading={compositeCreating}
-              disabled={
-                sectionRows.filter((r) => r.functionId.trim()).length < 2 ||
-                !compositePageKey.trim()
-              }
-              onClick={() => void createComposite()}
-            >
-              生成组合页提案
-            </Button>
-          </Space>
-        </div>
-      </Modal>
     </Space>
   );
 }

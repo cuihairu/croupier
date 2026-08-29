@@ -34,6 +34,13 @@ const functionManagementRoutes = [
     icon: 'layout',
   },
   {
+    path: '/functions/pages/composite-editor',
+    name: 'CompositeEditor',
+    access: 'canPageRead',
+    component: './PageStudio/CompositeEditor',
+    hideInMenu: true,
+  },
+  {
     path: '/functions/openapi-sources',
     name: 'OpenAPISources',
     access: 'canOpenAPISourcesRead',
