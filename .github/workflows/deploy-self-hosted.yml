@@ -31,6 +31,10 @@ on:
         description: "Absolute deploy directory on runner host"
         required: true
         default: "/data/deploy/croupier"
+      analytics_bridge:
+        description: "Enable OTel→analytics bridge on servers (events land in ClickHouse)"
+        required: false
+        default: "false"
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
@@ -125,6 +129,7 @@ jobs:
           CROUPIER_DASHBOARD_TAG=${{ inputs.dashboard_tag }}
           CROUPIER_SDK_EXAMPLE_TAG=${{ inputs.sdk_example_tag }}
           ENABLE_SDK_EXAMPLES=${{ inputs.enable_sdk_examples }}
+          ANALYTICS_BRIDGE_ENABLED=${{ inputs.analytics_bridge }}
           EOF
           if [ -n "${PREV_GAME}" ]; then
             echo "CROUPIER_SDK_EXAMPLE_GAME_ID=${PREV_GAME}" >> "${{ inputs.deploy_dir }}/.env"
