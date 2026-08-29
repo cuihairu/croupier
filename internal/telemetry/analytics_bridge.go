@@ -142,6 +142,16 @@ func NewAnalyticsBridge(config AnalyticsBridgeConfig, gameID string, logger *slo
 		logger = slog.Default()
 	}
 
+	// 防御性默认值：YAML 配置路径（MergeEnv 只在 env 存在时覆盖）可能
+	// 带零值 FlushInterval/BatchSize——NewTicker(0) 会 panic 打崩 server
+	// （生产实测：deploy 栈开 bridge 后 server 重启循环）。
+	if config.FlushInterval <= 0 {
+		config.FlushInterval = 30 * time.Second
+	}
+	if config.BatchSize <= 0 {
+		config.BatchSize = 100
+	}
+
 	bridge := &AnalyticsBridge{
 		redisClient:     rdb,
 		logger:          logger,
