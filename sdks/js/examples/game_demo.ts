@@ -385,6 +385,9 @@ function mailClaim(store: DemoStore): FunctionHandler {
 
 function enrichDescriptor(desc: FunctionDescriptor): FunctionDescriptor {
   const tags = desc.tags || ([desc.resource, desc.operation].filter(Boolean) as string[]);
+  // 与 Go/Java demo 对齐：summary 兜底 functionID，避免各语言默认
+  // 文案不同导致契约展示字段在重注册时轮换。
+  desc.summary = desc.summary || desc.id;
   return {
     ...desc,
     tags,

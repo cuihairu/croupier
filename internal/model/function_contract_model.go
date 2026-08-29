@@ -48,11 +48,12 @@ func (m *FunctionContractModel) UpsertContract(ctx context.Context, contract *Fu
 	return db.Save(contract).Error
 }
 
-// contractSemanticallyEqual 只比较影响页面契约/治理/执行判断的实质
-// 字段（schema 用 canonical JSON——键序/空格差异不算变化）。
-// 展示层字段（Summary/Description/Tags）不参与：六语言 SDK 的默认
-// 文案不同，轮流注册会轮换这些字段——不构成"契约变化"，不应触发
-// 重写与下游 freshness 扰动。Diagnostics 属注册期质检快照同理。
+// contractSemanticallyEqual 比较契约全部字段（含展示层 Summary/
+// Description/Tags——文案变化需要写入，e2e 契约链路依赖 proposal
+// 反映新文案）；schema 用 canonical JSON（键序/空格形态差异不算
+// 变化——六语言 SDK 各自序列化同 schema 字节不同），JSONMap 走
+// 零值归一（nil 与 {required:false} 等价）。Diagnostics 属注册期
+// 质检快照，轮换不构成契约变化，不参与。
 func contractSemanticallyEqual(a, b *FunctionContract) bool {
 	if a == nil || b == nil {
 		return false
@@ -68,6 +69,9 @@ func contractSemanticallyEqual(a, b *FunctionContract) bool {
 		strings.TrimSpace(a.Permission) == strings.TrimSpace(b.Permission) &&
 		a.Source == b.Source &&
 		jsonMapEqual(a.Approval, b.Approval) &&
+		jsonMapEqual(a.Summary, b.Summary) &&
+		jsonMapEqual(a.Description, b.Description) &&
+		bytes.Equal(canonicalJSON(a.Tags), canonicalJSON(b.Tags)) &&
 		bytes.Equal(canonicalJSON(a.InputSchema), canonicalJSON(b.InputSchema)) &&
 		bytes.Equal(canonicalJSON(a.OutputSchema), canonicalJSON(b.OutputSchema))
 }
