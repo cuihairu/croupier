@@ -14,6 +14,7 @@
 #include <functional>
 #include <memory>
 #include <mutex>
+#include <queue>
 #include <string>
 #include <thread>
 #include <unordered_map>
@@ -107,6 +108,17 @@ public:
      */
     bool IsConnected() const;
 
+    // ---- Inbound (Agent -> Provider calls) ----
+    // Read loop only dispatches; handlers run on a bounded worker pool
+    // (default = hardware concurrency, queue = workers * 4, overflow
+    // fast-fails with an empty response so Agent failover takes over).
+    using InboundHandler = std::function<std::vector<uint8_t>(uint32_t msg_id, uint32_t req_id, const std::vector<uint8_t>& body)>;
+
+    void SetInboundHandler(InboundHandler handler);
+    void DispatchInbound(uint32_t msg_id, uint32_t req_id, std::vector<uint8_t> body);
+    void WriteResponseSilently(uint32_t resp_msg_id, uint32_t req_id, const std::vector<uint8_t>& body);
+    static int InboundWorkerCount();
+
     /**
      * Send a request and wait for response.
      *
@@ -140,17 +152,6 @@ private:
             cv.notify_one();
         }
     };
-
-    // ---- Inbound (Agent -> Provider calls) ----
-    // Read loop only dispatches; handlers run on a bounded worker pool
-    // (default = hardware concurrency, queue = workers * 4, overflow
-    // fast-fails with an empty response so Agent failover takes over).
-    using InboundHandler = std::function<std::vector<uint8_t>(uint32_t msg_id, uint32_t req_id, const std::vector<uint8_t>& body)>;
-
-    void SetInboundHandler(InboundHandler handler);
-    void DispatchInbound(uint32_t msg_id, uint32_t req_id, std::vector<uint8_t> body);
-    void WriteResponseSilently(uint32_t resp_msg_id, uint32_t req_id, const std::vector<uint8_t>& body);
-    static int InboundWorkerCount();
 
     void ReadLoop();
     int ReadFully(void* buf, size_t count);
