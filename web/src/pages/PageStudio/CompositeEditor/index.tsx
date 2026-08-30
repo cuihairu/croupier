@@ -3,12 +3,29 @@ import { App, Button, Card, Col, Empty, Input, Row, Space, Tabs, Tag, Typography
 import { ArrowLeftOutlined, EyeOutlined, SaveOutlined } from '@ant-design/icons';
 import { history } from '@umijs/max';
 import { PageContainer } from '@ant-design/pro-components';
+import ComponentPanel, { type AddFnEvent } from './ComponentPanel';
+import PropsPanel from './PropsPanel';
+import { registerBuiltinComponents } from './components/builtin';
+import { getComponent } from './registry';
 import type { FunctionDescriptor } from '@/services/api/functions';
-import FunctionPanel from './FunctionPanel';
-import { countNodes, findNode, nodeId, removeNode, type PageNode } from './model';
-import { defaultView } from './types';
+import {
+  countNodes,
+  findNode,
+  insertNode,
+  nodeId,
+  removeNode,
+  updateProps,
+  type PageNode,
+} from './model';
 
 const { Text } = Typography;
+
+registerBuiltinComponents();
+
+/** scaffold 按契约实例化节点 props。 */
+function scaffoldProps(type: PageNode['type'], fn?: FunctionDescriptor): Record<string, unknown> {
+  return getComponent(type)?.scaffold(fn) ?? {};
+}
 
 /**
  * 组合页编辑器 V3（组件化）：左=组件面板/大纲 Tabs，中=画布（组件树），
@@ -25,24 +42,46 @@ export default function CompositeEditorPage() {
   const [leftTab, setLeftTab] = useState('components');
 
   const fnById = useRef(new Map<string, FunctionDescriptor>());
+  const [, forceFn] = useState(0);
+  const registerFn = useCallback((fn: FunctionDescriptor) => {
+    fnById.current.set(fn.id, fn);
+    forceFn((n) => n + 1);
+  }, []);
 
   const selected = useMemo(() => findNode(tree, selectedId ?? ''), [tree, selectedId]);
 
-  // 函数点击 → 最小 fnTable/fnForm 节点（P1 scaffold 接管默认值）
-  const addFunction = useCallback((fn: FunctionDescriptor) => {
-    fnById.current.set(fn.id, fn);
-    const type =
-      defaultView(fn) === 'table'
-        ? 'fnTable'
-        : defaultView(fn) === 'fields'
-          ? 'fnFields'
-          : 'fnForm';
-    const node: PageNode = {
-      id: nodeId(type),
-      type,
-      props: { functionId: fn.id, title: fn.summary?.['zh-CN'] || fn.id },
-    };
+  /** 函数 → 组件节点（scaffold 按契约实例化，amis 式拖入即骨架）。 */
+  const addFunction = useCallback(
+    (e: AddFnEvent) => {
+      registerFn(e.fn);
+      const node: PageNode = {
+        id: nodeId(e.componentType),
+        type: e.componentType,
+        props: scaffoldProps(e.componentType, e.fn),
+      };
+      setTree((prev) => [...prev, node]);
+      setSelectedId(node.id);
+    },
+    [registerFn],
+  );
+
+  /** 基础组件 → 节点。 */
+  const addBasic = useCallback((type: 'button' | 'modal' | 'container' | 'text') => {
+    const node: PageNode = { id: nodeId(type), type, props: scaffoldProps(type) };
     setTree((prev) => [...prev, node]);
+    setSelectedId(node.id);
+  }, []);
+
+  const patchProps = useCallback(
+    (patch: Record<string, unknown>) => {
+      if (selectedId) setTree((prev) => updateProps(prev, selectedId, patch));
+    },
+    [selectedId],
+  );
+
+  /** 子节点放入容器（V1：modal 单 fnForm）。 */
+  const addChild = useCallback((parentId: string, node: PageNode) => {
+    setTree((prev) => insertNode(prev, node, parentId));
     setSelectedId(node.id);
   }, []);
 
@@ -106,7 +145,7 @@ export default function CompositeEditorPage() {
                   {
                     key: 'components',
                     label: '组件',
-                    children: <FunctionPanel addedIds={new Set()} onAdd={addFunction} />,
+                    children: <ComponentPanel onAddBasic={addBasic} onAddFunction={addFunction} />,
                   },
                   {
                     key: 'outline',
@@ -144,65 +183,72 @@ export default function CompositeEditorPage() {
               />
             ) : (
               <Space direction="vertical" size={8} style={{ width: '100%' }}>
-                {tree.map((n) => (
-                  <Card
-                    key={n.id}
-                    size="small"
-                    style={{
-                      borderColor: selectedId === n.id ? '#1677ff' : undefined,
-                      cursor: 'pointer',
-                    }}
-                    onClick={() => setSelectedId(n.id)}
-                    title={
-                      <Space size={6}>
-                        <Text strong style={{ fontSize: 13 }}>
-                          {String(n.props.title ?? n.type)}
+                {tree.map((n) => {
+                  const def = getComponent(n.type);
+                  const Comp = def?.Preview;
+                  return (
+                    <Card
+                      key={n.id}
+                      size="small"
+                      style={{
+                        borderColor: selectedId === n.id ? '#1677ff' : undefined,
+                        cursor: 'pointer',
+                      }}
+                      onClick={() => setSelectedId(n.id)}
+                      title={
+                        <Space size={6}>
+                          <Text strong style={{ fontSize: 13 }}>
+                            {String(n.props.title ?? n.type)}
+                          </Text>
+                          <Tag style={{ marginRight: 0 }}>{n.type}</Tag>
+                        </Space>
+                      }
+                      extra={
+                        <Button
+                          size="small"
+                          type="text"
+                          danger
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            deleteNode(n.id);
+                          }}
+                        >
+                          删除
+                        </Button>
+                      }
+                    >
+                      {Comp ? (
+                        <Comp
+                          node={n}
+                          fn={
+                            n.props.functionId
+                              ? fnById.current.get(String(n.props.functionId))
+                              : undefined
+                          }
+                        />
+                      ) : (
+                        <Text type="secondary" style={{ fontSize: 11 }}>
+                          {String(n.props.functionId ?? '（基础组件）')}
                         </Text>
-                        <Tag style={{ marginRight: 0 }}>{n.type}</Tag>
-                      </Space>
-                    }
-                    extra={
-                      <Button
-                        size="small"
-                        type="text"
-                        danger
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          deleteNode(n.id);
-                        }}
-                      >
-                        删除
-                      </Button>
-                    }
-                  >
-                    <Text type="secondary" style={{ fontSize: 11 }}>
-                      {String(n.props.functionId ?? '（基础组件）')}
-                    </Text>
-                    <div>
-                      <Text type="secondary" style={{ fontSize: 10 }}>
-                        画布树渲染在 P2 接管
-                      </Text>
-                    </div>
-                  </Card>
-                ))}
+                      )}
+                    </Card>
+                  );
+                })}
               </Space>
             )}
           </div>
         </Col>
 
-        {/* 右：属性面板（P1 rjsf 渲染接管） */}
+        {/* 右：属性面板（rjsf schema 驱动） */}
         {!preview && (
           <Col flex="360px">
-            <Card size="small" title={<Text strong>属性</Text>}>
-              {selected ? (
-                <Empty
-                  image={Empty.PRESENTED_IMAGE_SIMPLE}
-                  description={`属性面板（P1 批次）：${selected.type}`}
-                />
-              ) : (
-                <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="点击画布组件进行配置" />
-              )}
-            </Card>
+            <PropsPanel
+              node={selected}
+              nodes={tree}
+              fnById={fnById.current}
+              onPatch={patchProps}
+              onDelete={() => selected && deleteNode(selected.id)}
+            />
           </Col>
         )}
       </Row>

@@ -100,56 +100,56 @@ type ActionSpec =
 - 验收：临时给 fnTable 注册含 title/span 的 propSchema，选中后可改标题并回显画布
 - 依赖：T0.3 T0.4 ｜ 预估：0.5d
 
-### T1.2 fnTable 组件定义
+### ✅ T1.2 fnTable 组件定义
 
 - 文件：`web/src/pages/PageStudio/CompositeEditor/components/fnTable.tsx`（新目录）
 - 改动：propSchema（functionId 只读、标题、列多选 enum 来自 outputSchema、行操作配置、autoRun、span）；scaffold(fn) 默认列=输出 schema 全选；Preview = antd Table（列头真实、数据空态）
 - 验收：注册后面板可见；scaffold 用 inventory.list 契约生成正确列
 - 依赖：T0.3 T1.1 ｜ 预估：0.5d
 
-### T1.3 fnForm 组件定义
+### ✅ T1.3 fnForm 组件定义
 
 - 文件：`.../components/fnForm.tsx`
 - 改动：propSchema（functionId、标题、展示方式 inline/dialog、成功后刷新）；scaffold(fn) 字段=输入 schema；Preview = rjsf 表单（编辑态禁用交互）
 - 验收：inventory.grant scaffold 出 playerId/templateId 必填表单
 - 依赖：T0.3 T1.1 ｜ 预估：0.5d
 
-### T1.4 fnFields 组件定义
+### ✅ T1.4 fnFields 组件定义
 
 - 文件：`.../components/fnFields.tsx`
 - 改动：propSchema 同 fnTable 简化；Preview = Descriptions（键=输出 schema）
 - 验收：注册+预览正确
 - 依赖：T1.2（复用列提取工具）｜ 预估：0.25d
 
-### T1.5 button 组件定义
+### ✅ T1.5 button 组件定义
 
 - 文件：`.../components/button.tsx`
 - 改动：propSchema（文案、样式 primary/danger、onClick 动作占位字段）；Preview = antd Button
 - 验收：注册+画布预览
 - 依赖：T0.3 T1.1 ｜ 预估：0.25d
 
-### T1.6 modal 容器定义
+### ✅ T1.6 modal 容器定义
 
 - 文件：`.../components/modal.tsx`
 - 改动：allowedChildren=['fnForm']；propSchema（标题、宽度）；Preview = 画布收纳卡片（弹窗形态不占栅格，amis 悬浮预览 V1.1）
 - 验收：面板可拖入/点击加入；children 约束生效（加入非 fnForm 被拒）
 - 依赖：T0.3 ｜ 预估：0.25d
 
-### T1.7 container 与 text 定义
+### ✅ T1.7 container 与 text 定义
 
 - 文件：`.../components/container.tsx`、`.../components/text.tsx`
 - 改动：container allowedChildren=全部（一层）；text propSchema（内容、层级 h2/h3/p）
 - 验收：注册+预览
 - 依赖：T0.3 ｜ 预估：0.25d
 
-### T1.8 组件面板 UI
+### ✅ T1.8 组件面板 UI
 
 - 文件：`.../ComponentPanel.tsx`（新）
 - 改动：分两组——「函数组件」：拉 listDescriptors 按资源分组列出（每函数旁标注将生成的组件类型，点击=用契约 scaffold 加入）；「基础组件」：button/modal/container/text 网格（点击加入，amis 式 scaffold）
 - 验收：demo_game scope 下 22 个函数分组可见；点击 inventory.list 画布出现 fnTable
 - 依赖：T1.2–T1.7 ｜ 预估：0.5d
 
-### T1.9 scaffold/propSchema 单测固化
+### ✅ T1.9 scaffold/propSchema 单测固化
 
 - 文件：`.../components/__tests__/scaffold.test.tsx`
 - 改动：用 mock 契约（list/get/form 三形态）固化每个组件 scaffold 输出形状

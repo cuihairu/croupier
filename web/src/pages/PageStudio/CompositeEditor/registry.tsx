@@ -29,6 +29,8 @@ export interface PropSchemaCtx {
   nodes: PageNode[];
   /** 函数契约缓存。 */
   fnById: Map<string, FunctionDescriptor>;
+  /** 当前节点绑定的函数（函数组件）。 */
+  fn: FunctionDescriptor | undefined;
 }
 
 export interface PreviewProps {
