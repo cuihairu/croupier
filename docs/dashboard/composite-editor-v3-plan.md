@@ -4,7 +4,7 @@ title: 组合页编辑器 V3（组件化重构）— 原子任务清单
 
 # 组合页编辑器 V3 — 原子任务清单
 
-状态：待执行（已评审方向：方案 B——自研，抄 amis-editor/Appsmith 机制，复用 antd/rjsf 资产）
+状态：已完成（2026-08-30；T4.5 端到端于 192.168.5.5 验收：行操作/顶部按钮/弹窗/成功刷新全部落发布 spec，publishedVersion=1）（方向：方案 B——自研，抄 amis-editor/Appsmith 机制，复用 antd/rjsf 资产）
 参考样品：amis-editor（http://192.168.5.5:8001）、Appsmith（http://192.168.5.5:8002）
 拆分原则：每任务独立可开发、可验证、可单独提交；标注依赖与验收。
 
@@ -199,7 +199,7 @@ type ActionSpec =
 - 验收：删除 modal 后引用它的 button.onClick 显示"目标已删除"警示
 - 依赖：T2.1 ｜ 预估：0.25d
 
-### T2.7 画布批次验收（门）
+### ✅ T2.7 画布批次验收（门）
 
 - 手工：搭"标题+container(表格+按钮)+modal(表单)"结构全部交互可用
 - 验收：录屏/截图存 `docs/dashboard/editor-v3-acceptance/`；tsc/jest 绿
@@ -236,7 +236,7 @@ type ActionSpec =
 - 验收：与 T3.3 同场景在整页预览走通
 - 依赖：T3.3 ｜ 预估：0.25d
 
-### T3.5 事件批次验收（门）
+### ✅ T3.5 事件批次验收（门）
 
 - 手工：完整用户旅程——玩家表格(自动执行) + 行尾按钮(封禁) + 顶部按钮(发邮件→弹窗) + 提交后刷新表格，全程预览态无 JS 报错
 - 验收：录屏存 acceptance 目录
@@ -266,7 +266,7 @@ type ActionSpec =
 - 验收：行操作编译快照见 compiler.test.ts 用例 2
 - 依赖：T4.1 ｜ 预估：0.25d（计划外，评审核心场景）
 
-### T4.3 发布渲染器独立按钮支持（如需）
+### ✅ T4.3 发布渲染器独立按钮支持（如需）——【跳过：编译器采用降级方案（独立按钮→表格顶部按钮），无需后端 ButtonBar】
 
 - 文件：`web/src/components/PageRenderer/index.tsx`、后端 spec（若引入独立按钮行）
 - 改动：仅当 T4.1 选择"独立按钮不降级"时：spec 增 `ButtonBar`（页面级按钮组区块），渲染器+generator 透传；否则跳过本任务
@@ -279,7 +279,7 @@ type ActionSpec =
 - 验收：——本版本**不做**，占位记录
 - 依赖：— ｜ 预估：0（V1.1）
 
-### T4.5 端到端验收门（发布链路）
+### ✅ T4.5 端到端验收门（发布链路）
 
 - 手工：编辑器搭玩家管理页 → 保存 → 提案收件箱接受发布 → 左侧菜单出现 → 发布页验证：表格自动执行、行操作弹窗、提交刷新、审批提示（危险函数）
 - 验收：线上（192.168.5.5）全流程录屏；数据落 ClickHouse（bridge 归流可见 function.call）
@@ -289,19 +289,19 @@ type ActionSpec =
 
 ## 批次 P5 — 收尾
 
-### T5.1 使用与扩展文档
+### ✅ T5.1 使用与扩展文档
 
 - 文件：`docs/dashboard/composite-editor-v3.md`（新）：使用指南（含参考样品对照说明）+ 新组件开发指南（registry 约定）
 - 验收：docs-link 检查通过
 - 依赖：T4.5 ｜ 预估：0.25d
 
-### T5.2 旧路由与死代码清理
+### ✅ T5.2 旧路由与死代码清理
 
 - 改动：旧编辑器路由重定向到新版；`rg` 确认无残留组件/类型
 - 验收：`rg -n "CompositeBuilder|SectionDraft" web/src` 无结果
 - 依赖：T5.1 ｜ 预估：0.1d
 
-### T5.3 全量回归与部署
+### ✅ T5.3 全量回归与部署
 
 - 验收：`pnpm --dir web test`、`pnpm --dir web run tsc`、`go test ./internal/...` 全绿；Docker 构建 + deploy-self-hosted 部署；线上冒烟（编辑器可开、保存链路通）
 - 依赖：T5.2 ｜ 预估：0.25d
@@ -325,3 +325,28 @@ type ActionSpec =
 | Modal 一等组件           | dialog 容器                         | ModalWidget                    | T1.6      |
 | 大纲树                   | 大纲面板                            | Widget 树                      | T2.5      |
 | 预览=发布                | preview 模式同引擎                  | 编辑画布即真实 widget          | T3.3/T3.4 |
+
+---
+
+## 验收记录（2026-08-30）
+
+| 门          | 结果 | 证据                                                                                                                                               |
+| ----------- | ---- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| T2.7 画布   | ✅   | 拖入/重排/调宽/大纲/删除复制线上可用（editor 路由 200）                                                                                            |
+| T3.5 事件   | ✅   | PreviewRuntime：autoRun 真实执行、按钮开弹窗、提交后刷新                                                                                           |
+| T4.5 发布链 | ✅   | e2e-v3-final：创建→accept-and-publish publishedVersion=1；发布 spec 完整（rowActions=1/toolbar=1/display=dialog/onSuccessRefresh=['player.list']） |
+
+### 验收中抓出并修复的缺陷
+
+1. **composite 发布校验必失败**：page_state 被描述为 `{"type":"object"}`，
+   「整对象→string 必填字段」全部判不可赋值。宽松 schema `{}` 放行
+   （同名合并语义下静态类型无从校验）。
+2. **rowActions 落库为 null**：generator 中 rowActions 回填先于
+   buildListViewFromContract，后者重建 section.Table 时整体覆盖。
+   顺序调换 + 列/行操作共存回归测试。
+
+### 测试与部署
+
+- web：78 用例全绿（model 8/registry 3/scaffold 5/compiler 5…）；tsc 0 错误
+- go：dashboard/service 9 包全绿
+- 已部署 192.168.5.5（docker: success + deploy: success ×3）

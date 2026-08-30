@@ -30,7 +30,7 @@ export interface SortableListProps<T> {
   /**
    * true 时不渲染内部 DndContext，sortable 项注册到最近的祖先 DndContext——
    * 用于父级需要单一拖拽域同时处理「外部拖入」与「列表内重排」的场景
-   * （如 CompositeBuilder：左栏函数拖到指定区块卡之后插入）。此时父级
+   * （如组合页编辑器：面板组件拖到指定落点插入）。此时父级
    * 的 onDragEnd 需自行处理条目重排（active.id 是条目 key 的场景）。
    */
   externalDnd?: boolean;
