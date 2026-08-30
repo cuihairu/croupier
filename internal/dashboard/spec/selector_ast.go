@@ -172,7 +172,11 @@ func compositePageStateSchema(comp *CompositePageSpec) map[string]JSONSchema {
 			return
 		}
 		seen[key] = true
-		out[key] = JSONSchema(`{"type":"object"}`)
+		// composite 的 page_state 按区块整体存储、渲染层做同名字段合并
+		// （静态 schema 无法描述动态合并结果的字段类型）——宽松 schema
+		// 让类型校验放行；此前 {"type":"object"} 会把「整对象→string 字段」
+		// 全部判为不可赋值，composite 提案发布必失败（生产实测）。
+		out[key] = JSONSchema(`{}`)
 	}
 	for i := range comp.Sections {
 		sec := &comp.Sections[i]
