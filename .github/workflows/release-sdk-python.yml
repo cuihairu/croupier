@@ -1,0 +1,51 @@
+name: Release SDK — Python
+
+# Python SDK 发布到 PyPI。仅手动执行（workflow_dispatch），绝不自动触发。
+# 版本：留空 = 最新 release tag；可显式指定（v0.2.0 或 0.2.0 等价）。
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "发布版本（留空=最新 release tag）"
+        required: false
+        default: ""
+
+permissions: {}
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Resolve version
+        id: ver
+        run: |
+          if [ -n "${{ inputs.version }}" ]; then
+            V='${{ inputs.version }}'
+          else
+            V=$(gh release view --repo "$GITHUB_REPOSITORY" --json tagName -q .tagName)
+          fi
+          case "$V" in
+            v*) TAG="$V"; NUM="${V#v}" ;;
+            *)   TAG="v$V"; NUM="$V" ;;
+          esac
+          echo "version=$NUM" >> "$GITHUB_OUTPUT"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "Resolved: tag=$TAG version=$NUM"
+        env:
+          GH_TOKEN: ${{ github.token }}
+      - name: Require PYPI_API_TOKEN
+        run: test -n "$PYPI_API_TOKEN" || { echo "::error::缺少 secret PYPI_API_TOKEN"; exit 1; }
+        env:
+          PYPI_API_TOKEN: ${{ secrets.PYPI_API_TOKEN }}
+      - name: Set version & build
+        run: |
+          cd sdks/python
+          sed -i "s/^version = .*/version = \"${{ steps.ver.outputs.version }}\"/" pyproject.toml
+          pipx run build
+      - name: Publish to PyPI
+        run: twine upload -u __token__ -p "$PYPI_API_TOKEN" sdks/python/dist/*
+        env:
+          PYPI_API_TOKEN: ${{ secrets.PYPI_API_TOKEN }}

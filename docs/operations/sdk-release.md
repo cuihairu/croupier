@@ -11,25 +11,26 @@ tag:
 
 # SDK 包发布
 
-六语言 SDK 发布到各语言官方包仓库，入口为 GitHub Actions 手动工作流 **Release SDK Packages**（`.github/workflows/release-sdk.yml`，仅 `workflow_dispatch`，不在 push 时自动触发）。
+六语言 SDK 发布到各语言官方包仓库。**每语言一个独立手动工作流**（`.github/workflows/release-sdk-<lang>.yml`，仅 `workflow_dispatch`，不在 push 时自动触发）——失败重发互不影响，单独重跑即可。
 
 ```text
-Actions → Release SDK Packages → Run workflow
+Actions → Release SDK — Python / JS / Go / Java / C# / C++ → Run workflow
 ```
 
-## 1. 工作流输入
+## 1. 工作流输入（六个工作流相同）
 
-| 输入             | 类型 | 说明                                                                                                             |
-| ---------------- | ---- | ---------------------------------------------------------------------------------------------------------------- |
-| `version`        | 文本 | 发布版本。**留空 = 最新 release tag**（如 `v0.1.1`）；可显式指定，`v0.2.0` 与 `0.2.0` 两种写法等价（自动归一化） |
-| `publish_python` | 勾选 | 发布 Python → PyPI                                                                                               |
-| `publish_js`     | 勾选 | 发布 JS → npm                                                                                                    |
-| `publish_go`     | 勾选 | 发布 Go → module tag                                                                                             |
-| `publish_java`   | 勾选 | 发布 Java → GitHub Packages（可选同步 Maven Central）                                                            |
-| `publish_csharp` | 勾选 | 发布 C# → NuGet                                                                                                  |
-| `publish_cpp`    | 勾选 | 发布 C++ → GitHub Release 源码包                                                                                 |
+| 输入      | 类型 | 说明                                                                                                             |
+| --------- | ---- | ---------------------------------------------------------------------------------------------------------------- |
+| `version` | 文本 | 发布版本。**留空 = 最新 release tag**（如 `v0.1.1`）；可显式指定，`v0.2.0` 与 `0.2.0` 两种写法等价（自动归一化） |
 
-各勾选相互独立，一次可勾选多语言；运行结束后 Summary 汇总各 job 结果。
+| 工作流               | 目标                                  | 所需 Secrets                               |
+| -------------------- | ------------------------------------- | ------------------------------------------ |
+| Release SDK — Python | PyPI                                  | `PYPI_API_TOKEN`                           |
+| Release SDK — JS     | npm                                   | `NPM_TOKEN`                                |
+| Release SDK — Go     | Go module tag（`sdks/go/vX.Y.Z`）     | 无                                         |
+| Release SDK — Java   | GitHub Packages（可选 Maven Central） | 无（Central 需 `MAVEN_CENTRAL_*`+`GPG_*`） |
+| Release SDK — C#     | NuGet                                 | `NUGET_API_KEY`                            |
+| Release SDK — C++    | GitHub Release 源码包                 | 无                                         |
 
 ## 2. 发布目标与所需 Secrets
 

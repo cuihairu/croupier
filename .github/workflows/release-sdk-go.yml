@@ -1,0 +1,46 @@
+name: Release SDK — Go
+
+# Go SDK 发布到 Go module（tag sdks/go/vX.Y.Z）。仅手动执行（workflow_dispatch），绝不自动触发。
+# 版本：留空 = 最新 release tag；可显式指定（v0.2.0 或 0.2.0 等价）。
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "发布版本（留空=最新 release tag）"
+        required: false
+        default: ""
+
+permissions:
+  contents: write
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve version
+        id: ver
+        run: |
+          if [ -n "${{ inputs.version }}" ]; then
+            V='${{ inputs.version }}'
+          else
+            V=$(gh release view --repo "$GITHUB_REPOSITORY" --json tagName -q .tagName)
+          fi
+          case "$V" in
+            v*) TAG="$V"; NUM="${V#v}" ;;
+            *)   TAG="v$V"; NUM="$V" ;;
+          esac
+          echo "version=$NUM" >> "$GITHUB_OUTPUT"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "Resolved: tag=$TAG version=$NUM"
+        env:
+          GH_TOKEN: ${{ github.token }}
+      - name: Tag Go submodule
+        run: |
+          TAG="sdks/go/${{ steps.ver.outputs.tag }}"
+          if git rev-parse -q --verify "refs/tags/$TAG" >/dev/null; then
+            echo "tag $TAG 已存在，跳过（幂等）"
+            exit 0
+          fi
+          git tag "$TAG"
+          git push origin "$TAG"

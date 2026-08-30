@@ -1,0 +1,46 @@
+name: Release SDK — C++
+
+# C++ SDK 发布到 GitHub Release 源码包。仅手动执行（workflow_dispatch），绝不自动触发。
+# 版本：留空 = 最新 release tag；可显式指定（v0.2.0 或 0.2.0 等价）。
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "发布版本（留空=最新 release tag）"
+        required: false
+        default: ""
+
+permissions:
+  contents: write
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve version
+        id: ver
+        run: |
+          if [ -n "${{ inputs.version }}" ]; then
+            V='${{ inputs.version }}'
+          else
+            V=$(gh release view --repo "$GITHUB_REPOSITORY" --json tagName -q .tagName)
+          fi
+          case "$V" in
+            v*) TAG="$V"; NUM="${V#v}" ;;
+            *)   TAG="v$V"; NUM="$V" ;;
+          esac
+          echo "version=$NUM" >> "$GITHUB_OUTPUT"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "Resolved: tag=$TAG version=$NUM"
+        env:
+          GH_TOKEN: ${{ github.token }}
+      - name: Attach C++ SDK source to release
+        run: |
+          TAG="${{ steps.ver.outputs.tag }}"
+          mkdir -p /tmp/pkg
+          tar --exclude='sdks/cpp/build' -czf "/tmp/pkg/croupier-cpp-sdk-${{ steps.ver.outputs.version }}.tar.gz" -C sdks cpp
+          gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1 || gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --draft --title "$TAG"
+          gh release upload "$TAG" "/tmp/pkg/croupier-cpp-sdk-${{ steps.ver.outputs.version }}.tar.gz" --repo "$GITHUB_REPOSITORY" --clobber
+        env:
+          GH_TOKEN: ${{ github.token }}
