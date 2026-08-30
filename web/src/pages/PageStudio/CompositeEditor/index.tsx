@@ -95,6 +95,16 @@ export default function CompositeEditorPage() {
     setSelectedId(node.id);
   }, []);
 
+  // 弹窗收纳区子表单点选（ModalDropZone → 全局事件 → 选中该节点）
+  React.useEffect(() => {
+    const handler = (ev: Event) => {
+      const id = (ev as CustomEvent<string>).detail;
+      if (id) setSelectedId(id);
+    };
+    window.addEventListener('composite-select-node', handler);
+    return () => window.removeEventListener('composite-select-node', handler);
+  }, []);
+
   // pageKey 自动推导（函数 id 资源段）
   const derivedKey = useMemo(
     () =>

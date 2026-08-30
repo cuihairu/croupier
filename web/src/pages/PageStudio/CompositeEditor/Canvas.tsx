@@ -214,6 +214,12 @@ export default function Canvas({
                         : '空弹窗——从函数组件拖入表单'
                     }
                     onSelect={() => onSelect(m.id)}
+                    child={(() => {
+                      const c = m.children?.[0];
+                      if (!c) return undefined;
+                      const fn = fnById.get(String(c.props.functionId ?? ''));
+                      return { node: c, fnSummary: String(fn?.summary?.['zh-CN'] ?? fn?.id ?? '') };
+                    })()}
                   />
                 </Col>
               );
@@ -232,18 +238,23 @@ function ModalDropZone({
   title,
   childSummary,
   onSelect,
+  child,
 }: {
   modalId: string;
   selected: boolean;
   title: string;
   childSummary: string;
   onSelect: () => void;
+  child?: { node: PageNode; fnSummary: string };
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: `modal-drop:${modalId}` });
   return (
     <div
       ref={setNodeRef}
-      onClick={onSelect}
+      onClick={(e) => {
+        e.stopPropagation();
+        onSelect();
+      }}
       style={{
         border: selected ? '1px solid #1677ff' : '1px dashed #bbb',
         borderRadius: 6,
@@ -260,13 +271,49 @@ function ModalDropZone({
           </Text>
         }
       />
-      <div>
-        <Text type="secondary" style={{ fontSize: 11 }}>
-          {childSummary}
-        </Text>
-      </div>
+      {child ? (
+        <div
+          onClick={(e) => {
+            e.stopPropagation();
+            onSelectChild(child.node.id);
+          }}
+          style={{
+            marginTop: 6,
+            border: '1px solid #e6d5f5',
+            borderRadius: 4,
+            padding: '4px 8px',
+            background: '#faf5ff',
+          }}
+        >
+          <Space size={6}>
+            <Tag color="green" style={{ marginRight: 0, fontSize: 11 }}>
+              表单
+            </Tag>
+            <Text code style={{ fontSize: 11 }}>
+              {String(child.node.props.functionId ?? '')}
+            </Text>
+          </Space>
+          <div>
+            <Text type="secondary" style={{ fontSize: 11 }}>
+              {child.fnSummary}（点击配置）
+            </Text>
+          </div>
+        </div>
+      ) : (
+        <div>
+          <Text type="secondary" style={{ fontSize: 11 }}>
+            {childSummary}
+          </Text>
+        </div>
+      )}
     </div>
   );
+}
+
+/** modal 收纳区选中子节点回调（经由 ModalDropZone child 卡片点击）。 */
+function onSelectChild(id: string): void {
+  // Canvas 外部通过 onSelect prop 已能选中任意 id（PropsPanel 全树查找）
+  window.dispatchEvent(new CustomEvent('composite-select-node', { detail: id }));
 }
 
 /** 空画布根落区：droppable('canvas-root')。 */
