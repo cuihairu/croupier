@@ -93,7 +93,7 @@ type ActionSpec =
 
 ## 批次 P1 — 组件面板与属性面板
 
-### T1.1 属性面板渲染器（rjsf 驱动）
+### ✅ T1.1 属性面板渲染器（rjsf 驱动）
 
 - 文件：`web/src/pages/PageStudio/CompositeEditor/PropsPanel.tsx`（新）
 - 改动：读选中节点 `ComponentDef.propSchema` → `SchemaFormRenderer` 渲染；onChange 写回 `node.props`；无选中显示空态。propSchema 内约定字段（`title` 文案、`span` 数字、事件字段用 ui:widget 标记，事件编辑器 T3.2 替换实现）
@@ -343,6 +343,23 @@ type ActionSpec =
 | 多选         | 点选累积+批量删除                                                              |
 | 撤销/重做    | history-aware setTree，Ctrl+Z/Shift+Z，50 步                                   |
 | 右键菜单     | 上移/下移/选择父容器/复制/删除                                                 |
+
+## V3.2 通用事件系统（2026-08-30，评审：事件应全组件通用+执行钩子+更多行为）
+
+参考 Appsmith（全 widget 事件+20 余动作）/amis（统一动作协议）重做事件层：
+
+| 任务                  | 内容                                                                                                                                                                                                                                                                 | 状态 |
+| --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---- |
+| T6.1 事件通用化       | ComponentDef.events 声明制（WinForms 事件页语义）；属性面板「动作」Tab 由 events 自动合成——button.onClick、fnTable.onRowClick/onRowSelected、fnForm.onSuccess/onError、text/fnFields/container.onClick                                                               | ✅   |
+| T6.2 动作类型扩展     | 3→6 种：新增 closeModal/navigate(url)/showMessage(message)；ACTIONS 注册表 paramFields/needsTarget                                                                                                                                                                   | ✅   |
+| T6.3 执行参数（钩子） | run/refresh 步骤 params 来源：`节点.字段`/`row.字段`（事件行上下文）/字面量；预览 resolveParams 解析注入                                                                                                                                                             | ✅   |
+| T6.4 发布链闭环       | 后端 CompositeSection.Events（EventBinding：event→action+chain）全链透传；编译器事件→events（表格行点击/选中、表单成败、字段卡点击）；渲染器触发点（onRow/rowSelection 携行 ctx/表单成败/卡片点击）+ 链全动作类型执行（closeModal/navigate/showMessage/params 解析） | ✅   |
+| T6.5 内联创建弹窗     | 动作选「打开弹窗」无可用弹窗时：选函数一步创建（建 modal+装表单+绑定）                                                                                                                                                                                               | ✅   |
+| T6.6 属性面板 Tab 化  | 「配置/动作」两 Tab（Appsmith 属性/事件页形态）；选中按钮自动切「动作」                                                                                                                                                                                              | ✅   |
+
+附带修复：release-sdk workflow 创建即无效（needs.$j 非法表达式）→ toJSON+jq，dispatch 空跑验证 PASS；CLAUDE.md 落地「交付完成定义」七条。
+
+边界（保留）：container click 无独立 section 挂载点（预览可用，发布忽略，文档已知边界列出）。
 
 ## 验收记录（2026-08-30）
 
