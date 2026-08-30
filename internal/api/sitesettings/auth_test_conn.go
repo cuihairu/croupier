@@ -3,6 +3,7 @@ package sitesettings
 import (
 	"context"
 	"crypto/tls"
+	"errors"
 	"fmt"
 	"net"
 	"net/http"
@@ -82,11 +83,17 @@ func testOIDCDiscovery(cfg config.OIDCProviderConfig) error {
 	if issuer == "" {
 		return fmt.Errorf("issuer 未配置")
 	}
-	client := &http.Client{Timeout: 5 * time.Second, Transport: &http.Transport{
-		TLSClientConfig: &tls.Config{InsecureSkipVerify: true}, // 测试容忍自签
-	}}
+	// 证书校验使用系统信任链（CodeQL go/disabled-certificate-check：
+	// 此前 InsecureSkipVerify=true 会把探测降级为可被 MITM 的假阳性
+	//「连接成功」）。自签 issuer 的正确路径是配置 CA 后再测——
+	// x509 错误时在返回信息里明确引导，而不是静默跳过校验。
+	client := &http.Client{Timeout: 5 * time.Second}
 	resp, err := client.Get(issuer + "/.well-known/openid-configuration")
 	if err != nil {
+		var certErr *tls.CertificateVerificationError
+		if errors.As(err, &certErr) {
+			return fmt.Errorf("发现端点证书校验失败（自签证书请为系统/容器配置信任的 CA 后重试）: %w", certErr)
+		}
 		return fmt.Errorf("发现端点不可达: %w", err)
 	}
 	defer resp.Body.Close()
