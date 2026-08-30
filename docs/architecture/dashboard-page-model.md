@@ -363,19 +363,20 @@ ReportPage 必须使用已验证的数据集、指标和图表字段，不得只
 
 `CompositeSection` 字段模型（权威实现 `internal/dashboard/spec/types.go`，前端 `web/src/types/dashboard.ts`）：
 
-| 字段               | 类型                 | 语义                                                                                                                          |
-| ------------------ | -------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| `key`              | string               | 区块唯一标识。**同函数多实例**时依次 `fid`、`fid-2`、`fid-3`（一个数据源可拖多个组件分别配置）；创建端点重复 key 显式报错     |
-| `bindingId`        | string               | 引用 `PageSpec.bindings` 的绑定                                                                                               |
-| `view`             | string               | `table` / `fields` / `form`                                                                                                   |
-| `span`             | int                  | 栅格宽度 1-24（0=整行）                                                                                                       |
-| `autoRun`          | bool                 | 进入页面自动执行（查询类区块）                                                                                                |
-| `display`          | string               | `inline`（默认，栅格内）/ `dialog`（弹窗，不占栅格）                                                                          |
-| `group`            | string               | 弹窗分组：`display=dialog` 且 `group` 相同的区块渲染进**同一弹窗**（表单+字段卡+表格混排）；按钮/行操作的动作目标指向 `group` |
-| `refreshOn`        | []string             | 依赖的 stateKey（=上游区块 key）列表——任一变化自动重跑（page_state 联动：上游输出顶层字段同名合并进下游输入）                 |
-| `onSuccessRefresh` | []string             | 操作成功后自动重跑的区块 key（发邮件成功→刷新玩家表格）                                                                       |
-| `table`            | CompositeTableSpec   | `view=table`：columns/pagination/rowSchema/identityKey/**rowActions**                                                         |
-| `toolbar`          | CompositeToolbarSpec | 表格顶部按钮组（actions）                                                                                                     |
+| 字段               | 类型                    | 语义                                                                                                                                                 |
+| ------------------ | ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `key`              | string                  | 区块唯一标识。**同函数多实例**时依次 `fid`、`fid-2`、`fid-3`（一个数据源可拖多个组件分别配置）；创建端点重复 key 显式报错                            |
+| `bindingId`        | string                  | 引用 `PageSpec.bindings` 的绑定                                                                                                                      |
+| `view`             | string                  | `table` / `fields` / `form`                                                                                                                          |
+| `span`             | int                     | 栅格宽度 1-24（0=整行）                                                                                                                              |
+| `autoRun`          | bool                    | 进入页面自动执行（查询类区块）                                                                                                                       |
+| `display`          | string                  | `inline`（默认，栅格内）/ `dialog`（弹窗，不占栅格）                                                                                                 |
+| `group`            | string                  | 弹窗分组：`display=dialog` 且 `group` 相同的区块渲染进**同一弹窗**（表单+字段卡+表格混排）；按钮/行操作的动作目标指向 `group`                        |
+| `refreshOn`        | []string                | 依赖的 stateKey（=上游区块 key）列表——任一变化自动重跑（page_state 联动：上游输出顶层字段同名合并进下游输入）                                        |
+| `onSuccessRefresh` | []string                | 操作成功后自动重跑的区块 key（发邮件成功→刷新玩家表格）                                                                                              |
+| `events`           | []CompositeEventBinding | **通用事件绑定**（全组件事件发布触发点）：`rowClick`/`rowSelected`（table）、`success`/`error`（form）、`click`（fields）→ 动作步骤（6 种 kind）+ 链 |
+| `table`            | CompositeTableSpec      | `view=table`：columns/pagination/rowSchema/identityKey/**rowActions**                                                                                |
+| `toolbar`          | CompositeToolbarSpec    | 表格顶部按钮组（actions）                                                                                                                            |
 
 **行操作与按钮动作**（rowActions / toolbar.actions）：
 

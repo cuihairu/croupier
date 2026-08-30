@@ -26,6 +26,8 @@ type CompositeSectionInput struct {
 	RowActions []CompositeRowActionInput     // view=table
 	Toolbar    []CompositeToolbarActionInput // view=toolbar
 	OnSuccess  []string
+	// Events 通用事件绑定（发布触发点）。
+	Events []spec.CompositeEventBinding
 }
 
 // CompositeRowActionInput 表格行操作输入。
@@ -108,6 +110,7 @@ func GenerateCompositePage(
 			Display:          in.Display,
 			Group:            in.Group,
 			OnSuccessRefresh: in.OnSuccess,
+			Events:           in.Events,
 		}
 		if len(in.Toolbar) > 0 {
 			tb := &spec.CompositeToolbarSpec{}

@@ -1330,6 +1330,7 @@ func (s *ContractService) CreateCompositeProposal(
 			RefreshOn:  sec.RefreshOn,
 			Display:    sec.Display,
 			OnSuccess:  sec.OnSuccessRefresh,
+			Events:     convEvents(sec.Events),
 		}
 		for _, ra := range sec.RowActions {
 			in.RowActions = append(in.RowActions, generator.CompositeRowActionInput{
@@ -1383,6 +1384,15 @@ type CompositeSectionRequest struct {
 	ToolbarActions []CompositeToolbarActionRequest `json:"toolbarActions,omitempty"`
 	// OnSuccessRefresh 操作成功后自动重跑的区块 key。
 	OnSuccessRefresh []string `json:"onSuccessRefresh,omitempty"`
+	// Events 通用事件绑定（发布触发点）。
+	Events []EventBindingReq `json:"events,omitempty"`
+}
+
+// EventBindingReq 事件绑定请求。
+type EventBindingReq struct {
+	Event  string          `json:"event"`
+	Action ActionStepReq   `json:"action"`
+	Chain  []ActionStepReq `json:"chain,omitempty"`
 }
 
 // CompositeRowActionRequest 表格行操作输入。
@@ -1418,6 +1428,22 @@ func convChain(steps []ActionStepReq) []spec.CompositeActionStep {
 	out := make([]spec.CompositeActionStep, 0, len(steps))
 	for _, st := range steps {
 		out = append(out, spec.CompositeActionStep{Kind: st.Kind, Target: st.Target, Params: st.Params})
+	}
+	return out
+}
+
+// convEvents 事件绑定请求 → generator 输入。
+func convEvents(evs []EventBindingReq) []spec.CompositeEventBinding {
+	if len(evs) == 0 {
+		return nil
+	}
+	out := make([]spec.CompositeEventBinding, 0, len(evs))
+	for _, ev := range evs {
+		out = append(out, spec.CompositeEventBinding{
+			Event:  ev.Event,
+			Action: spec.CompositeActionStep{Kind: ev.Action.Kind, Target: ev.Action.Target, Params: ev.Action.Params},
+			Chain:  convChain(ev.Chain),
+		})
 	}
 	return out
 }

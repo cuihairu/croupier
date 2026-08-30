@@ -7,6 +7,12 @@ export type CompiledSection = {
   key: string;
   /** 弹窗分组名（modal 容器派生）；dialog 区块按 group 聚合渲染。 */
   group?: string;
+  /** 通用事件绑定（发布触发点）。 */
+  events?: Array<{
+    event: string;
+    action: { kind: string; target: string; params?: Record<string, string> };
+    chain?: Array<{ kind: string; target: string; params?: Record<string, string> }>;
+  }>;
   functionId: string;
   view: 'table' | 'fields' | 'form';
   title: string;
@@ -152,14 +158,7 @@ export function compileTree(tree: PageNode[]): CompileResult {
         compileButton(node);
         continue;
       }
-      // 通用组件事件：仅预览可用，发布触发点 V1 未接入 spec（诚实警告）
-      for (const evName of ['onClick', 'onRowClick', 'onRowSelected']) {
-        if (node.props[evName]) {
-          warnings.push(
-            `${String(node.props.title ?? node.type)} 的「${evName}」事件暂不参与发布（预览可用），已忽略`,
-          );
-        }
-      }
+
       if (VIEW_MAP[node.type]) {
         emitFnSection(node, node.props.display === 'dialog' ? 'dialog' : 'inline');
         continue;
@@ -212,6 +211,37 @@ export function compileTree(tree: PageNode[]): CompileResult {
     };
     if (node.props.onSuccess) collectRefresh(node.props.onSuccess, '执行成功后');
     if (node.props.onSuccessRefresh) collectRefresh(node.props.onSuccessRefresh, '成功后刷新');
+
+    // 通用事件编译：→ section.events（发布触发点）
+    // 事件名映射：onRowClick→rowClick；onRowSelected→rowSelected；onClick→click；onSuccess/onError→success/error
+    const eventNameMap: Record<string, string> = {
+      onRowClick: 'rowClick',
+      onRowSelected: 'rowSelected',
+      onClick: 'click',
+      onSuccess: 'success',
+      onError: 'error',
+    };
+    for (const [propName, eventName] of Object.entries(eventNameMap)) {
+      const raw = node.props[propName] as
+        | { kind?: string; target?: string; params?: Record<string, string>; chain?: unknown }
+        | undefined;
+      if (!raw || typeof raw.kind !== 'string') continue;
+      const stepNode = raw.target ? findNode(tree, raw.target) : undefined;
+      const targetKey = (stepNode && sectionKeyOf(stepNode)) ?? '';
+      const chain = compileChainRef(raw.chain);
+      section.events = [
+        ...(section.events ?? []),
+        {
+          event: eventName,
+          action: {
+            kind: raw.kind,
+            target: targetKey,
+            ...(raw.params && Object.keys(raw.params).length ? { params: raw.params } : {}),
+          },
+          ...(chain ? { chain } : {}),
+        },
+      ];
+    }
     // 行操作（表格属性面板直接编辑，目标弹窗→函数 id）
     if (node.type === 'fnTable' && Array.isArray(node.props.rowActions)) {
       const ras: CompiledAction[] = [];

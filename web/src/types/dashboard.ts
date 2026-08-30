@@ -371,6 +371,8 @@ export interface CompositeSection {
   display?: 'inline' | 'dialog';
   /** 弹窗分组：同 group 的 dialog 区块渲染进同一弹窗；动作目标指向 group。 */
   group?: string;
+  /** 通用事件绑定（发布触发点）：rowClick/rowSelected/success/error/click。 */
+  events?: CompositeEventBinding[];
   /** 操作成功后自动重跑的区块 key 列表。 */
   onSuccessRefresh?: string[];
   table?: {
@@ -383,6 +385,13 @@ export interface CompositeSection {
   fields?: DetailFieldSpec[];
   form?: Record<string, unknown>;
   toolbar?: CompositeToolbarSpec;
+}
+
+/** 事件绑定：事件名 → 动作步骤（含链与参数来源）。 */
+export interface CompositeEventBinding {
+  event: string;
+  action: { kind: string; target: string; params?: Record<string, string> };
+  chain?: Array<{ kind: string; target: string; params?: Record<string, string> }>;
 }
 
 /** 表格行操作：打开弹窗表单（行字段映射进参数）。 */

@@ -23,6 +23,7 @@ tag:
 | [可观测性](/operations/monitoring)  | 指标、健康检查、Prometheus 接入                                                                                                                                                                                                                      |
 | 可靠性                              | [备份与恢复](/operations/backup-restore)、[故障排除](/operations/troubleshooting)、[数据库迁移策略](/architecture/database-migration-strategy)                                                                                                       |
 | [安全](/operations/security)        | TLS、密钥、RBAC 审计基线                                                                                                                                                                                                                             |
+| 发布                                | [SDK 包发布](/operations/sdk-release)：六语言官方仓库发布工作流（手动）、所需 Secrets 配置、各语言发布机制与常见问题                                                                                                                                 |
 
 ## 端口与端点速查
 

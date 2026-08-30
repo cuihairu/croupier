@@ -2,6 +2,18 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## 交付完成定义（Delivery Definition of Done）— 强制
+
+用户审核前，交付必须同时满足以下全部条件，缺任何一项视为未完成、禁止宣称"已完成"：
+
+1. **编译**：`pnpm --dir web run tsc` 0 错误；涉及 Go 时 `go build ./...` 通过
+2. **测试**：`pnpm --dir web test` 与 `go test ./internal/...` 全绿（新功能必须带新用例）
+3. **Guard**：`bash scripts/dashboard_vnext_guard.sh`（必须从仓库根执行）PASSED
+4. **发布链闭环**：功能若涉及 PageSpec/渲染，创建提案→accept-and-publish 线上验证 spec 字段落库（禁止只验证编辑器/预览侧）
+5. **文档同步**：功能/字段变更同步 `docs/architecture/dashboard-page-model.md`（模型）、`docs/architecture/pagespec-protocol.md`（wire）、`docs/dashboard/composite-editor-v3.md`（使用）三层；`cd docs && pnpm build` 通过
+6. **部署**：Docker 构建成功 + deploy-self-hosted 完成 + CI Core 全绿后才可宣称上线
+7. **边界诚实**：未实现/仅预览可用的行为必须在交付说明与文档「已知边界」中列出，禁止静默丢弃
+
 ## Essential Development Commands
 
 **Build System (Makefile-driven):**

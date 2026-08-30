@@ -142,6 +142,7 @@ ListViewSpec | DetailViewSpec | ActionSpec | ConfirmActionSpec
 - `rowActions[].params`：行字段→表单参数映射（`"player_id": "uid"` = 行的 uid 填入弹窗表单 player_id）
 - `chain`：动作链，主动作后按序执行 `runBinding|refreshNode`
 - `onSuccessRefresh`：表单提交成功后自动重跑的区块 key
+- `events`：通用事件绑定（`rowClick`/`rowSelected`/`success`/`error`/`click` → 动作 + 链）；动作 kind：`runBinding`/`refreshNode`/`openModal`/`closeModal`/`navigate`/`showMessage`；步骤 `params` 支持来源引用（`"区块key.字段"`、`"row.字段"`、字面量）
 - `refreshOn`：page_state 联动——上游区块 key 变化自动重跑，上游输出顶层字段同名合并进本区块输入
 
 ## 数据引用和 mapping（Selector AST）

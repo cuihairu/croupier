@@ -554,6 +554,19 @@ type CompositeSection struct {
 	// OnSuccessRefresh 操作成功后自动重跑的区块 key 列表
 	//（如发邮件成功后刷新玩家表格）。
 	OnSuccessRefresh []string `json:"onSuccessRefresh,omitempty"`
+	// Events 通用事件绑定（编辑器全组件事件的发布触发点）：
+	// rowClick/rowSelected（table）、success/error（form）、click（fields/text）。
+	Events []CompositeEventBinding `json:"events,omitempty"`
+}
+
+// CompositeEventBinding 事件绑定：事件名 → 动作步骤（含参数来源）。
+type CompositeEventBinding struct {
+	// Event 事件名：rowClick|rowSelected|success|error|click。
+	Event string `json:"event"`
+	// Action 触发的动作（与动作链单步同构）。
+	Action CompositeActionStep `json:"action"`
+	// Chain 后续步骤。
+	Chain []CompositeActionStep `json:"chain,omitempty"`
 }
 
 // CompositeTableSpec 是组合页 table 区块参数。

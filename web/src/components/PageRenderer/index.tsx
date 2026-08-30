@@ -176,14 +176,51 @@ export const CompositeRenderer: React.FC<{
   );
 
   /** 动作链执行：runBinding/refreshNode 按序触发。 */
-  const runChain = useCallback((chain: Array<{ kind: string; target: string }> | undefined) => {
-    for (const step of chain ?? []) {
-      const target = sectionsRef.current.find(
-        (x) => x.key === step.target || x.group === step.target,
-      );
-      if (target && step.kind !== 'openModal') void runSectionRef.current(target);
-    }
-  }, []);
+  /** 动作链执行：run/refresh（params 来源解析）/closeModal/navigate/showMessage。 */
+  const runChain = useCallback(
+    (
+      chain: Array<{ kind: string; target: string; params?: Record<string, string> }> | undefined,
+      ctx?: Record<string, unknown>,
+    ) => {
+      for (const step of chain ?? []) {
+        if (step.kind === 'closeModal') {
+          setDialogKey(null);
+          continue;
+        }
+        if (step.kind === 'navigate') {
+          const url = step.params?.url;
+          if (url) window.open(url, '_blank');
+          continue;
+        }
+        if (step.kind === 'showMessage') {
+          message.info(step.params?.message ?? '');
+          continue;
+        }
+        if (step.kind === 'runBinding' || step.kind === 'refreshNode') {
+          const target = sectionsRef.current.find(
+            (x) => x.key === step.target || x.group === step.target,
+          );
+          if (target) {
+            void runSectionRef.current(
+              target,
+              resolveStepParams(step.params, resultsRef.current, ctx) as never,
+            );
+          }
+        }
+      }
+    },
+    [message],
+  );
+
+  /** 区块事件执行：events 里找事件名 → 主动作 + 链。 */
+  const fireEvent = useCallback(
+    (sec: CompositeSection, eventName: string, ctx?: Record<string, unknown>) => {
+      const binding = (sec.events ?? []).find((e) => e.event === eventName);
+      if (!binding) return;
+      runChain([{ ...binding.action }, ...(binding.chain ?? [])], ctx);
+    },
+    [runChain],
+  );
 
   /** 行字段映射：params 目标参数名 → 本行字段名。 */
   const mapRowParams = (
@@ -228,6 +265,21 @@ export const CompositeRenderer: React.FC<{
                 <Table
                   size="small"
                   rowKey={(_, i) => String(i)}
+                  onRow={(record) => ({
+                    onClick: () => fireEvent(sec, 'rowClick', record as Record<string, unknown>),
+                  })}
+                  rowSelection={
+                    (sec.events ?? []).some((e) => e.event === 'rowSelected')
+                      ? {
+                          type: 'radio',
+                          onChange: (_keys, rows) => {
+                            if (rows[0]) {
+                              fireEvent(sec, 'rowSelected', rows[0] as Record<string, unknown>);
+                            }
+                          },
+                        }
+                      : undefined
+                  }
                   columns={[
                     ...(sec.table?.columns || []).map((c) => ({
                       title: localizedText(c.title, 'zh-CN', c.key),
@@ -276,16 +328,18 @@ export const CompositeRenderer: React.FC<{
                   pagination={{ pageSize: 10, showSizeChanger: false }}
                 />
               ) : sec.view === 'fields' ? (
-                <Descriptions size="small" column={2}>
-                  {(resultFor(sec)
-                    ? Object.entries(resultFor(sec) as Record<string, unknown>)
-                    : []
-                  ).map(([k, v]) => (
-                    <Descriptions.Item key={k} label={k}>
-                      {String(v ?? '-')}
-                    </Descriptions.Item>
-                  ))}
-                </Descriptions>
+                <div onClick={() => fireEvent(sec, 'click')}>
+                  <Descriptions size="small" column={2}>
+                    {(resultFor(sec)
+                      ? Object.entries(resultFor(sec) as Record<string, unknown>)
+                      : []
+                    ).map(([k, v]) => (
+                      <Descriptions.Item key={k} label={k}>
+                        {String(v ?? '-')}
+                      </Descriptions.Item>
+                    ))}
+                  </Descriptions>
+                </div>
               ) : sec.view === 'toolbar' ? (
                 <Space wrap>
                   {(sec.toolbar?.actions || []).map((act, i) => (
@@ -310,7 +364,14 @@ export const CompositeRenderer: React.FC<{
                   ))}
                 </Space>
               ) : (
-                <Button type="primary" onClick={() => void runSection(sec)}>
+                <Button
+                  type="primary"
+                  onClick={() =>
+                    void runSection(sec).then((r) => {
+                      if (r && !(r as { error?: string }).error) fireEvent(sec, 'success');
+                    })
+                  }
+                >
                   {localizedText(sec.title, 'zh-CN', sec.key)}
                 </Button>
               )}
@@ -337,9 +398,11 @@ export const CompositeRenderer: React.FC<{
                   running={running[sec.key] || false}
                   initialParams={sectionInputs[dialogKey] || {}}
                   onSubmit={async (values) => {
-                    await runSectionRef.current(sec, values);
+                    const r = await runSectionRef.current(sec, values);
                     setDialogKey(null);
                     message.success(`${localizedText(sec.title, 'zh-CN', sec.key)} 执行成功`);
+                    fireEvent(sec, 'success');
+                    void r;
                   }}
                 />
               ) : sec.view === 'fields' ? (
@@ -616,3 +679,31 @@ const PageRenderer: React.FC<PageRendererProps> = ({
 };
 
 export default PageRenderer;
+
+/** 动作步骤参数解析："区块key.字段"取其输出、"row.字段"取事件行、其余字面量。 */
+function resolveStepParams(
+  params: Record<string, string> | undefined,
+  results: Record<string, unknown>,
+  ctx?: Record<string, unknown>,
+): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (const [k, src] of Object.entries(params ?? {})) {
+    const dot = src.indexOf('.');
+    if (dot > 0) {
+      const head = src.slice(0, dot);
+      const field = src.slice(dot + 1);
+      if ((head === 'row' || head === 'ctx') && ctx && ctx[field] !== undefined) {
+        out[k] = ctx[field];
+        continue;
+      }
+      const raw = results[head] as { data?: Record<string, unknown> } | undefined;
+      const payload = raw?.data ?? (raw as Record<string, unknown> | undefined);
+      if (payload && payload[field] !== undefined) {
+        out[k] = payload[field];
+        continue;
+      }
+    }
+    out[k] = src;
+  }
+  return out;
+}
