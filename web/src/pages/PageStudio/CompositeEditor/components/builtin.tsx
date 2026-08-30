@@ -47,6 +47,7 @@ const fnTable: ComponentDef = {
             columns: {
               type: 'array',
               title: '展示列',
+              format: 'columns',
               items: { type: 'string', enum: cols },
               default: cols,
             },
@@ -200,6 +201,7 @@ const button: ComponentDef = {
         default: 'default',
       },
       span: spanSchema(),
+      onClick: { type: 'object', title: '点击动作', format: 'action' },
     },
   }),
   scaffold: () => ({ title: '按钮', btnStyle: 'default', span: 6 }),

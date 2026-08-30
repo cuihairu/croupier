@@ -218,7 +218,11 @@ export default function Canvas({
                       const c = m.children?.[0];
                       if (!c) return undefined;
                       const fn = fnById.get(String(c.props.functionId ?? ''));
-                      return { node: c, fnSummary: String(fn?.summary?.['zh-CN'] ?? fn?.id ?? '') };
+                      return {
+                        node: c,
+                        fnSummary: String(fn?.summary?.['zh-CN'] ?? fn?.id ?? ''),
+                        onSelectChild: onSelect,
+                      };
                     })()}
                   />
                 </Col>
@@ -245,7 +249,7 @@ function ModalDropZone({
   title: string;
   childSummary: string;
   onSelect: () => void;
-  child?: { node: PageNode; fnSummary: string };
+  child?: { node: PageNode; fnSummary: string; onSelectChild: (id: string) => void };
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: `modal-drop:${modalId}` });
   return (
@@ -275,7 +279,7 @@ function ModalDropZone({
         <div
           onClick={(e) => {
             e.stopPropagation();
-            onSelectChild(child.node.id);
+            child.onSelectChild(child.node.id);
           }}
           style={{
             marginTop: 6,
@@ -309,13 +313,6 @@ function ModalDropZone({
     </div>
   );
 }
-
-/** modal 收纳区选中子节点回调（经由 ModalDropZone child 卡片点击）。 */
-function onSelectChild(id: string): void {
-  // Canvas 外部通过 onSelect prop 已能选中任意 id（PropsPanel 全树查找）
-  window.dispatchEvent(new CustomEvent('composite-select-node', { detail: id }));
-}
-
 /** 空画布根落区：droppable('canvas-root')。 */
 function RootDropZone() {
   const { setNodeRef, isOver } = useDroppable({ id: 'canvas-root' });

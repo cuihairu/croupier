@@ -21,6 +21,7 @@ import Canvas, { CanvasNode } from './Canvas';
 import OutlinePanel from './OutlinePanel';
 import PreviewRuntime from './PreviewRuntime';
 import QuickStart from './QuickStart';
+import { buildWizardTree } from './wizard';
 import { compileTree } from './compiler';
 import { schemaProperties } from './types';
 import { extractErrorMessage } from '@/utils/errors';
@@ -95,16 +96,6 @@ export default function CompositeEditorPage() {
     setSelectedId(node.id);
   }, []);
 
-  // 弹窗收纳区子表单点选（ModalDropZone → 全局事件 → 选中该节点）
-  React.useEffect(() => {
-    const handler = (ev: Event) => {
-      const id = (ev as CustomEvent<string>).detail;
-      if (id) setSelectedId(id);
-    };
-    window.addEventListener('composite-select-node', handler);
-    return () => window.removeEventListener('composite-select-node', handler);
-  }, []);
-
   // pageKey 自动推导（函数 id 资源段）
   const derivedKey = useMemo(
     () =>
@@ -159,42 +150,9 @@ export default function CompositeEditorPage() {
     (tableFn: FunctionDescriptor, actionFn: FunctionDescriptor) => {
       registerFn(tableFn);
       registerFn(actionFn);
-      const table: PageNode = {
-        id: nodeId('fnTable'),
-        type: 'fnTable',
-        props: scaffoldProps('fnTable', tableFn),
-      };
-      const form: PageNode = {
-        id: nodeId('fnForm'),
-        type: 'fnForm',
-        props: {
-          ...scaffoldProps('fnForm', actionFn),
-          display: 'inline',
-          onSuccessRefresh: { kind: 'refreshNode', target: table.id },
-        },
-      };
-      const modal: PageNode = {
-        id: nodeId('modal'),
-        type: 'modal',
-        props: { title: actionFn.summary?.['zh-CN'] || actionFn.id, width: 'medium' },
-        children: [form],
-      };
-      const rowFields = schemaProperties(tableFn.outputSchema);
-      const params = Object.fromEntries(
-        schemaProperties(actionFn.inputSchema)
-          .filter((p) => rowFields.includes(p))
-          .map((p) => [p, p]),
-      );
-      table.props.rowActions = [
-        {
-          label: actionFn.summary?.['zh-CN'] || actionFn.id,
-          targetSection: modal.id,
-          params,
-          danger: false,
-        },
-      ];
-      setTree([table, modal]);
-      setSelectedId(table.id);
+      const { tree: wizardTree, tableId } = buildWizardTree(tableFn, actionFn, scaffoldProps);
+      setTree(wizardTree);
+      setSelectedId(tableId);
     },
     [registerFn],
   );

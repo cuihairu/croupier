@@ -110,3 +110,39 @@ function resetAndGet(type: string) {
   if (!def) throw new Error(`missing ${type}`);
   return def;
 }
+
+describe('builtin propSchema 字段声明（属性面板渲染约定）', () => {
+  const ctx = { nodes: [] as never[], fnById: new Map(), fn: listFn } as never;
+
+  it('fnTable.columns：format=columns + enum=输出字段（Checkbox.Group 渲染）', () => {
+    const schema = resetAndGet('fnTable').propSchema(ctx) as {
+      properties: Record<string, { format?: string; items?: { enum?: string[] } }>;
+    };
+    const cols = schema.properties.columns;
+    expect(cols?.format).toBe('columns');
+    expect(cols?.items?.enum).toEqual(['id', 'name', 'quantity']);
+  });
+
+  it('fnTable.rowActions：format=rowActions（行操作编辑器渲染）', () => {
+    const schema = resetAndGet('fnTable').propSchema(ctx) as {
+      properties: Record<string, { format?: string }>;
+    };
+    expect(schema.properties.rowActions?.format).toBe('rowActions');
+  });
+
+  it('button.onClick：format=action（任意动作）', () => {
+    const schema = resetAndGet('button').propSchema(ctx) as {
+      properties: Record<string, { format?: string }>;
+    };
+    expect(schema.properties.onClick?.format).toBe('action');
+  });
+
+  it('fnForm.onSuccessRefresh：format=action 且限定 refreshNode', () => {
+    const schema = resetAndGet('fnForm').propSchema(ctx) as {
+      properties: Record<string, { format?: string; actionKinds?: string[] }>;
+    };
+    const f = schema.properties.onSuccessRefresh;
+    expect(f?.format).toBe('action');
+    expect(f?.actionKinds).toEqual(['refreshNode']);
+  });
+});
