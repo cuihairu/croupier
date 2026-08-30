@@ -1,4 +1,4 @@
-import type { PageNode } from './model';
+import { nodeId, type PageNode } from './model';
 import { parseAction } from './actions';
 
 /** 编译产物：与后端 CompositeSectionRequest 对齐（POST /versioning/pages/composite）。 */
@@ -100,9 +100,12 @@ export function compileTree(tree: PageNode[]): CompileResult {
         continue;
       }
       if (node.type === 'modal') {
-        const form = node.children?.find((c) => c.type === 'fnForm');
-        if (form) {
-          emitFnSection(form, 'dialog');
+        const forms = (node.children ?? []).filter((c) => c.type === 'fnForm');
+        for (const form of forms) emitFnSection(form, 'dialog');
+        for (const other of (node.children ?? []).filter((c) => c.type !== 'fnForm')) {
+          warnings.push(
+            `弹窗「${String(node.props.title ?? node.id)}」内组件 ${other.type} 不参与发布（V1 仅表单）`,
+          );
         }
         continue;
       }
@@ -208,6 +211,177 @@ function findNode(nodes: PageNode[], id: string): PageNode | undefined {
     if (n.id === id) return n;
     if (n.children) {
       const hit = findNode(n.children, id);
+      if (hit) return hit;
+    }
+  }
+  return undefined;
+}
+
+// ---------------------------------------------------------------------------
+// 回读编辑：CompositeSection → PageNode 树（编译的逆变换）
+// ---------------------------------------------------------------------------
+
+/** spec section 的宽松形态（回读自提案/发布 PageSpec）。 */
+export interface SpecSectionLike {
+  key?: string;
+  bindingId?: string;
+  functionId?: string;
+  view?: string;
+  title?: unknown;
+  span?: number;
+  autoRun?: boolean;
+  refreshOn?: string[];
+  display?: string;
+  onSuccessRefresh?: string[];
+  table?: { columns?: Array<{ key?: string }>; rowActions?: Array<Record<string, unknown>> };
+  toolbar?: { actions?: Array<Record<string, unknown>> };
+}
+
+/**
+ * 反编译：sections → 编辑树。
+ * - dialog sections → 各自一个 modal（含 fnForm 子节点）
+ * - inline sections → fnTable/fnFields/fnForm
+ * - rowActions/toolbarActions.targetSection（dialog key）→ 映射回 modal 节点 id
+ * - onSuccessRefresh（inline key）→ 映射回对应节点 id
+ * 返回 [树, 警告]（不可映射的引用降级为警告并丢弃）。
+ */
+export function decompileToTree(sections: SpecSectionLike[]): [PageNode[], string[]] {
+  const warnings: string[] = [];
+  const keyToNodeId = new Map<string, string>();
+  const dialogKeyToModalId = new Map<string, string>();
+  const titleOf = (sec: SpecSectionLike, fallback: string): string => {
+    const t = sec.title;
+    if (t && typeof t === 'object') {
+      const lt = t as Record<string, unknown>;
+      const v = lt['zh-CN'] ?? lt['en-US'];
+      if (typeof v === 'string' && v) return v;
+    }
+    if (typeof t === 'string' && t) return t;
+    return fallback;
+  };
+
+  // 第一遍：创建节点并登记映射
+  const nodes: PageNode[] = [];
+  const pendingDialogs: { sec: SpecSectionLike; modal: PageNode }[] = [];
+  for (const sec of sections) {
+    const fid = String(sec.functionId ?? sec.bindingId ?? '');
+    const key = String(sec.key ?? fid);
+    if (!fid) {
+      warnings.push('区块缺少函数绑定，已跳过');
+      continue;
+    }
+    const view = sec.view === 'table' ? 'fnTable' : sec.view === 'fields' ? 'fnFields' : 'fnForm';
+    const fnProps: Record<string, unknown> = {
+      functionId: fid,
+      title: titleOf(sec, fid),
+      span: Number(sec.span ?? 24) || 24,
+      autoRun: sec.autoRun === true,
+      onSuccessRefresh: undefined,
+    };
+    if (view === 'fnTable') {
+      fnProps.columns = (sec.table?.columns ?? []).map((c) => String(c.key ?? '')).filter(Boolean);
+      fnProps.rowActions = sec.table?.rowActions ?? [];
+    }
+    if (view === 'fnForm') fnProps.display = 'inline';
+
+    if (sec.display === 'dialog') {
+      const form: PageNode = { id: nodeId('fnForm'), type: 'fnForm', props: fnProps };
+      const modal: PageNode = {
+        id: nodeId('modal'),
+        type: 'modal',
+        props: { title: titleOf(sec, fid), width: 'medium' },
+        children: [form],
+      };
+      keyToNodeId.set(key, form.id);
+      dialogKeyToModalId.set(key, modal.id);
+      pendingDialogs.push({ sec, modal });
+      nodes.push(modal);
+    } else {
+      const node: PageNode = { id: nodeId(view), type: view, props: fnProps };
+      keyToNodeId.set(key, node.id);
+      nodes.push(node);
+    }
+  }
+
+  // 第二遍：重建引用（rowActions/toolbar/onSuccessRefresh）
+  for (const node of nodes) {
+    if (node.type === 'fnTable') {
+      const ras = (node.props.rowActions as Array<Record<string, unknown>>) ?? [];
+      node.props.rowActions = ras
+        .map((ra) => {
+          const t = String(ra.targetSection ?? '');
+          const modalId = dialogKeyToModalId.get(t);
+          if (!modalId) {
+            warnings.push(`行操作「${String(ra.label ?? '')}」的弹窗目标 ${t} 无法还原，已丢弃`);
+            return null;
+          }
+          return { ...ra, targetSection: modalId };
+        })
+        .filter((x) => x !== null);
+      const tas =
+        (node.props.toolbar as { actions?: Array<Record<string, unknown>> } | undefined)?.actions ??
+        [];
+      if (tas.length) {
+        const buttons = tas
+          .map((ta) => {
+            const t = String(ta.targetSection ?? '');
+            const modalId = dialogKeyToModalId.get(t);
+            if (!modalId) return null;
+            return {
+              label: String(ta.label ?? ''),
+              targetSection: modalId,
+              danger: ta.danger === true,
+            };
+          })
+          .filter((x) => x !== null);
+        // 顶部按钮在编辑树中不存在独立节点（编译产物）——回读为表格备注，编辑后再编译会以表格属性为准
+        void buttons;
+        warnings.push('表格顶部按钮为编译产物，回读后请在行操作/按钮重新配置（原始配置已丢弃）');
+      }
+      delete node.props.toolbar;
+    }
+    if (node.type === 'fnForm' && node.props.display === 'inline') {
+      void node;
+    }
+  }
+  // onSuccessRefresh：按 keyToNodeId（dialog 表单或 inline 节点）
+  let i = 0;
+  for (const sec of sections) {
+    const key = String(sec.key ?? sec.functionId ?? sec.bindingId ?? '');
+    const target = sec.onSuccessRefresh?.[0];
+    if (!target) {
+      i++;
+      continue;
+    }
+    const nodeIdOfSource = nodes.find((n) =>
+      n.type === 'modal' ? n.children?.[0] && dialogFormKey(n) === undefined : false,
+    );
+    void nodeIdOfSource;
+    // 找到 key 对应的 fnForm/inline 节点
+    const srcId = keyToNodeId.get(key);
+    const tgtId = keyToNodeId.get(target);
+    if (srcId && tgtId) {
+      const srcNode = findInNodes(nodes, srcId);
+      if (srcNode) srcNode.props.onSuccessRefresh = { kind: 'refreshNode', target: tgtId };
+    } else {
+      warnings.push(`「成功后刷新」引用 ${target} 无法还原，已丢弃`);
+    }
+    i++;
+  }
+  void i;
+  return [nodes, warnings];
+}
+
+function dialogFormKey(n: PageNode): string | undefined {
+  void n;
+  return undefined;
+}
+
+function findInNodes(nodes: PageNode[], id: string): PageNode | undefined {
+  for (const n of nodes) {
+    if (n.id === id) return n;
+    if (n.children) {
+      const hit = findInNodes(n.children, id);
       if (hit) return hit;
     }
   }

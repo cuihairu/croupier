@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
+import { history } from '@umijs/max';
 import { PageContainer, ProTable, type ProColumns } from '@ant-design/pro-components';
 import {
   Alert,
@@ -222,7 +223,12 @@ export default function PageStudio() {
   );
 
   const handleEdit = useCallback(
-    (pageKey: string) => {
+    (pageKey: string, pageType?: string) => {
+      if (pageType === 'composite') {
+        // 复合页走 V3 组件化编辑器（回读 spec 反编译为树）
+        history.push(`/functions/pages/composite-editor?pageKey=${encodeURIComponent(pageKey)}`);
+        return;
+      }
       loadDraftDetail(pageKey);
       setEditorVisible(true);
     },
@@ -567,7 +573,7 @@ export default function PageStudio() {
               type="link"
               size="small"
               icon={<EditOutlined />}
-              onClick={() => handleEdit(record.pageKey)}
+              onClick={() => handleEdit(record.pageKey, record.type)}
             />
           </Tooltip>
           <Tooltip title="预览">

@@ -1,7 +1,7 @@
 import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { App, Button, Card, Col, Empty, Input, Row, Space, Tabs, Tag, Typography } from 'antd';
 import { ArrowLeftOutlined, EyeOutlined, SaveOutlined } from '@ant-design/icons';
-import { history, request } from '@umijs/max';
+import { history, request, useSearchParams } from '@umijs/max';
 import { subscribeScope } from '@/stores/scope';
 import { PageContainer } from '@ant-design/pro-components';
 import {
@@ -23,7 +23,7 @@ import OutlinePanel from './OutlinePanel';
 import DataPanel from './DataPanel';
 import PreviewRuntime from './PreviewRuntime';
 import { findParent } from './model';
-import { compileTree } from './compiler';
+import { compileTree, decompileToTree, type SpecSectionLike } from './compiler';
 import { schemaProperties } from './types';
 import { extractErrorMessage } from '@/utils/errors';
 import { duplicateNode as duplicateTree, insertAfter, moveNode } from './model';
@@ -66,6 +66,8 @@ export default function CompositeEditorPage() {
   const [leftTab, setLeftTab] = useState('components');
   /** 弹窗内嵌编辑（面包屑）：当前进入的 modal 节点 id。 */
   const [editingModalId, setEditingModalId] = useState<string | null>(null);
+  const [searchParams] = useSearchParams();
+  const loadKey = searchParams.get('pageKey');
 
   const fnById = useRef(new Map<string, FunctionDescriptor>());
   const [allFns, setAllFns] = useState<FunctionDescriptor[]>([]);
@@ -82,6 +84,35 @@ export default function CompositeEditorPage() {
       .catch(() => undefined);
   }, [fnReload]);
   React.useEffect(() => subscribeScope(() => setFnReload((k) => k + 1)), []);
+
+  // 回读编辑：?pageKey= 已有复合页 → 反编译为树（改完保存=同 proposalKey upsert）
+  React.useEffect(() => {
+    if (!loadKey || tree.length > 0) return;
+    void (async () => {
+      const candidates = [`composite--${loadKey}`, loadKey];
+      for (const pk of candidates) {
+        try {
+          const resp = (await request(`/api/v1/proposals/${encodeURIComponent(pk)}`, {
+            skipErrorHandler: true,
+          })) as { pageSpec?: { composite?: { sections?: SpecSectionLike[] } } };
+          const sections = resp?.pageSpec?.composite?.sections;
+          if (!sections?.length) continue;
+          const [nodes, warnings] = decompileToTree(sections);
+          // 函数契约登记（fnById 供画布/属性面板）
+          setTree(nodes);
+          setPageKey(loadKey);
+          setKeyTouched(true);
+          if (warnings.length) message.warning(`回读警告：${warnings.join('；')}`);
+          message.success(`已载入页面 ${loadKey}（${sections.length} 个区块）`);
+          return;
+        } catch {
+          // 尝试下一个候选 key
+        }
+      }
+      message.warning(`未找到页面 ${loadKey} 的提案/发布 spec`);
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loadKey, fnReload]);
   const [, forceFn] = useState(0);
   const registerFn = useCallback((fn: FunctionDescriptor) => {
     fnById.current.set(fn.id, fn);
@@ -97,6 +128,12 @@ export default function CompositeEditorPage() {
   const canvasNodes = editingModal ? (editingModal.children ?? []) : tree;
 
   /** 函数 → 组件节点（scaffold 按契约实例化，amis 式拖入即骨架）。 */
+  /** 子节点放入容器（modal children）。 */
+  const addChild = useCallback((parentId: string, node: PageNode) => {
+    setTree((prev) => insertNode(prev, node, parentId));
+    setSelectedId(node.id);
+  }, []);
+
   const addFunction = useCallback(
     (e: AddFnEvent) => {
       registerFn(e.fn);
@@ -105,18 +142,33 @@ export default function CompositeEditorPage() {
         type: e.componentType,
         props: scaffoldProps(e.componentType, e.fn),
       };
+      if (editingModalId) {
+        if (node.type !== 'fnForm') {
+          message.warning('弹窗内只能放函数表单（V1）');
+          return;
+        }
+        addChild(editingModalId, node);
+        return;
+      }
       setTree((prev) => [...prev, node]);
       setSelectedId(node.id);
     },
-    [registerFn],
+    [registerFn, editingModalId, addChild, message],
   );
 
   /** 基础组件 → 节点。 */
-  const addBasic = useCallback((type: 'button' | 'modal' | 'container' | 'text') => {
-    const node: PageNode = { id: nodeId(type), type, props: scaffoldProps(type) };
-    setTree((prev) => [...prev, node]);
-    setSelectedId(node.id);
-  }, []);
+  const addBasic = useCallback(
+    (type: 'button' | 'modal' | 'container' | 'text') => {
+      const node: PageNode = { id: nodeId(type), type, props: scaffoldProps(type) };
+      if (editingModalId) {
+        message.warning('弹窗内只能放函数表单（V1）——返回页面级再添加');
+        return;
+      }
+      setTree((prev) => [...prev, node]);
+      setSelectedId(node.id);
+    },
+    [editingModalId, message],
+  );
 
   // pageKey 自动推导（函数 id 资源段）
   const derivedKey = useMemo(
@@ -188,12 +240,6 @@ export default function CompositeEditorPage() {
     },
     [selectedId, tree],
   );
-
-  /** 子节点放入容器（V1：modal 单 fnForm）。 */
-  const addChild = useCallback((parentId: string, node: PageNode) => {
-    setTree((prev) => insertNode(prev, node, parentId));
-    setSelectedId(node.id);
-  }, []);
 
   // ---- 拖拽（T2.2/T2.3）：面板→画布插入 / 画布内重排 / modal 收纳 ----
   const [dragItem, setDragItem] = useState<
@@ -276,8 +322,12 @@ export default function CompositeEditorPage() {
           else message.warning('弹窗内只能放函数表单（V1）');
           return;
         }
-        // 弹窗级编辑中：面板加入的节点落到当前弹窗 children
+        // 弹窗级编辑中：面板加入的节点落到当前弹窗 children（仅表单）
         if (editingModalRef.current) {
+          if (node.type !== 'fnForm') {
+            message.warning('弹窗内只能放函数表单（V1）');
+            return;
+          }
           addChild(editingModalRef.current, node);
           return;
         }

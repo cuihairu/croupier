@@ -105,7 +105,7 @@ export default function PreviewRuntime({
   const inline = tree.filter((n) => n.type !== 'modal');
   const modals = tree.filter((n) => n.type === 'modal');
   const openModal = modals.find((m) => m.id === dialogId);
-  const openForm = openModal?.children?.find((c) => c.type === 'fnForm');
+  const openForms = (openModal?.children ?? []).filter((c) => c.type === 'fnForm');
 
   return (
     <>
@@ -147,17 +147,22 @@ export default function PreviewRuntime({
             openModal.props.width === 'narrow' ? 420 : openModal.props.width === 'wide' ? 720 : 560
           }
         >
-          {openForm ? (
-            <ModalForm
-              node={openForm}
-              fn={fnById.get(String(openForm.props.functionId))}
-              running={running[openForm.id] || false}
-              onSubmit={async (params) => {
-                await runNode(openForm, params);
-                setDialogId(null);
-                message.success(`${String(openModal.props.title ?? '操作')} 执行成功`);
-              }}
-            />
+          {openForms.length > 0 ? (
+            <Space direction="vertical" size={16} style={{ width: '100%' }}>
+              {openForms.map((form) => (
+                <ModalForm
+                  key={form.id}
+                  node={form}
+                  fn={fnById.get(String(form.props.functionId))}
+                  running={running[form.id] || false}
+                  onSubmit={async (params) => {
+                    await runNode(form, params);
+                    setDialogId(null);
+                    message.success(`${String(openModal.props.title ?? '操作')} 执行成功`);
+                  }}
+                />
+              ))}
+            </Space>
           ) : (
             <Text type="secondary">弹窗没有内容——编辑态拖入函数表单</Text>
           )}
