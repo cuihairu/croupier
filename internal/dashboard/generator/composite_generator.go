@@ -99,19 +99,6 @@ func GenerateCompositePage(
 			Display:          in.Display,
 			OnSuccessRefresh: in.OnSuccess,
 		}
-		if view == "table" && len(in.RowActions) > 0 {
-			if section.Table == nil {
-				section.Table = &spec.CompositeTableSpec{}
-			}
-			for _, ra := range in.RowActions {
-				section.Table.RowActions = append(section.Table.RowActions, spec.CompositeRowAction{
-					Label:         spec.LocalizedText{locale: ra.Label},
-					TargetSection: ra.TargetSection,
-					Params:        ra.Params,
-					Danger:        ra.Danger,
-				})
-			}
-		}
 		if len(in.Toolbar) > 0 {
 			tb := &spec.CompositeToolbarSpec{}
 			for _, ta := range in.Toolbar {
@@ -133,6 +120,19 @@ func GenerateCompositePage(
 					RowSchema:   lv.RowSchema,
 					IdentityKey: lv.IdentityKey,
 				}
+			}
+		}
+		if view == "table" && len(in.RowActions) > 0 {
+			if section.Table == nil {
+				section.Table = &spec.CompositeTableSpec{}
+			}
+			for _, ra := range in.RowActions {
+				section.Table.RowActions = append(section.Table.RowActions, spec.CompositeRowAction{
+					Label:         spec.LocalizedText{locale: ra.Label},
+					TargetSection: ra.TargetSection,
+					Params:        ra.Params,
+					Danger:        ra.Danger,
+				})
 			}
 		}
 		if view == "form" || view == "actions" {

@@ -81,3 +81,42 @@ func TestGenerateCompositePage_AllMissing(t *testing.T) {
 		t.Fatal("all missing should not generate")
 	}
 }
+
+// TestCompositeRowActionsSurviveListView 行操作必须在 buildListView 重建
+// section.Table 之后回填——此前顺序相反导致 rowActions 落库为 null
+// （T4.5 生产实测：提案 spec table.rowActions 丢失）。
+func TestCompositeRowActionsSurviveListView(t *testing.T) {
+	contracts := []*model.FunctionContract{
+		{
+			FunctionID:   "player.list",
+			ResourceKey:  "player",
+			Capability:   dbenum.CapabilityCollectionQuery,
+			Execution:    string(spec.FunctionExecutionSync),
+			InputSchema:  model.JSON(`{"type":"object","properties":{"playerId":{"type":"string"}}}`),
+			OutputSchema: model.JSON(`{"type":"object","properties":{"items":{"type":"array","items":{"type":"object","properties":{"uid":{"type":"string"},"gold":{"type":"number"}},"required":["uid"]}},"total":{"type":"integer"}}}`),
+		},
+	}
+	inputs := []CompositeSectionInput{{
+		FunctionID: "player.list",
+		View:       "table",
+		RowActions: []CompositeRowActionInput{{
+			Label:         "发邮件",
+			TargetSection: "mail.send",
+			Params:        map[string]string{"playerId": "uid"},
+		}},
+	}}
+	generated, ok := GenerateCompositePage("k", inputs, contracts, DefaultGenerateOptions())
+	if !ok {
+		t.Fatal("generate failed")
+	}
+	sec := generated.PageSpec.Composite.Sections[0]
+	if len(sec.Table.Columns) == 0 {
+		t.Fatal("columns lost after rowActions fix")
+	}
+	if len(sec.Table.RowActions) != 1 {
+		t.Fatalf("rowActions lost: %+v", sec.Table)
+	}
+	if sec.Table.RowActions[0].Params["playerId"] != "uid" {
+		t.Fatalf("params lost: %+v", sec.Table.RowActions[0])
+	}
+}
