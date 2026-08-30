@@ -165,6 +165,7 @@ export default function Canvas({
   onDelete,
   onDuplicate,
   onSpanChange,
+  onEnterModal,
   canvasWidthRef,
   children,
 }: {
@@ -175,83 +176,36 @@ export default function Canvas({
   onDelete: (id: string) => void;
   onDuplicate: (id: string) => void;
   onSpanChange: (id: string, span: number) => void;
+  /** 点击弹窗占位卡进入内部编辑（面包屑模式）。 */
+  onEnterModal: (id: string) => void;
   canvasWidthRef: React.RefObject<HTMLDivElement | null>;
   /** SortableList 渲染的根级节点（含拖拽手柄 props 注入）。 */
   children: React.ReactNode;
 }) {
-  const modals = tree.filter((n) => n.type === 'modal');
+  void onEnterModal;
+  void fnById;
+  void onDuplicate;
+  void onSpanChange;
 
-  return (
-    <>
-      {tree.filter((n) => n.type !== 'modal').length === 0 && modals.length === 0 ? (
-        <RootDropZone />
-      ) : (
-        children
-      )}
-
-      {modals.length > 0 && (
-        <div style={{ marginTop: 12, borderTop: '1px dashed #d9d9d9', paddingTop: 8 }}>
-          <Space size={8}>
-            <Text strong style={{ fontSize: 12 }}>
-              弹窗（{modals.length}）
-            </Text>
-            <Text type="secondary" style={{ fontSize: 11 }}>
-              由按钮/行操作触发打开；V1 弹窗内放一个函数表单
-            </Text>
-          </Space>
-          <Row gutter={[8, 8]} style={{ marginTop: 8 }}>
-            {modals.map((m) => {
-              const def = getComponent(m.type);
-              return (
-                <Col key={m.id} span={8}>
-                  <ModalDropZone
-                    modalId={m.id}
-                    selected={selectedId === m.id}
-                    title={String(m.props.title ?? '弹窗')}
-                    childSummary={
-                      m.children?.length
-                        ? `内容：${m.children.map((c) => String(c.props.functionId ?? c.type)).join(', ')}`
-                        : '空弹窗——从函数组件拖入表单'
-                    }
-                    onSelect={() => onSelect(m.id)}
-                    child={(() => {
-                      const c = m.children?.[0];
-                      if (!c) return undefined;
-                      const fn = fnById.get(String(c.props.functionId ?? ''));
-                      return {
-                        node: c,
-                        fnSummary: String(fn?.summary?.['zh-CN'] ?? fn?.id ?? ''),
-                        onSelectChild: onSelect,
-                      };
-                    })()}
-                  />
-                </Col>
-              );
-            })}
-          </Row>
-        </div>
-      )}
-    </>
-  );
+  return <>{tree.length === 0 ? <RootDropZone /> : children}</>;
 }
 
-/** modal 收纳区：droppable（拖 fnForm 装入）。 */
-function ModalDropZone({
-  modalId,
+/** 弹窗占位卡（栅格内）：droppable 拖入表单 + 双击/按钮进入内部编辑。 */
+export function ModalPlaceholder({
+  modal,
   selected,
-  title,
-  childSummary,
+  fnById,
   onSelect,
-  child,
+  onEnterModal,
 }: {
-  modalId: string;
+  modal: PageNode;
   selected: boolean;
-  title: string;
-  childSummary: string;
+  fnById: Map<string, FunctionDescriptor>;
   onSelect: () => void;
-  child?: { node: PageNode; fnSummary: string; onSelectChild: (id: string) => void };
+  onEnterModal: () => void;
 }) {
-  const { setNodeRef, isOver } = useDroppable({ id: `modal-drop:${modalId}` });
+  const { setNodeRef, isOver } = useDroppable({ id: `modal-drop:${modal.id}` });
+  const kids = modal.children ?? [];
   return (
     <div
       ref={setNodeRef}
@@ -259,60 +213,76 @@ function ModalDropZone({
         e.stopPropagation();
         onSelect();
       }}
+      onDoubleClick={(e) => {
+        e.stopPropagation();
+        onEnterModal();
+      }}
       style={{
-        border: selected ? '1px solid #1677ff' : '1px dashed #bbb',
-        borderRadius: 6,
-        padding: '6px 10px',
+        border: selected ? '1px solid #1677ff' : '1px dashed #b37feb',
+        borderRadius: 8,
+        padding: 12,
         cursor: 'pointer',
-        background: isOver ? '#f6ffed' : '#fff',
+        background: isOver ? '#f6ffed' : '#faf5ff',
+        minHeight: 100,
       }}
     >
-      <Badge
-        color="purple"
-        text={
-          <Text strong style={{ fontSize: 12 }}>
-            {title}
+      <Space direction="vertical" size={4} style={{ width: '100%' }}>
+        <Badge
+          color="purple"
+          text={
+            <Text strong style={{ fontSize: 13 }}>
+              {String(modal.props.title ?? '弹窗')}
+            </Text>
+          }
+        />
+        {kids.length === 0 ? (
+          <Text type="secondary" style={{ fontSize: 11 }}>
+            空弹窗——拖入函数表单，或双击进入内部编辑
           </Text>
-        }
-      />
-      {child ? (
-        <div
+        ) : (
+          kids.map((c) => {
+            const fn = c.props.functionId ? fnById.get(String(c.props.functionId)) : undefined;
+            return (
+              <div
+                key={c.id}
+                style={{
+                  border: '1px solid #e6d5f5',
+                  borderRadius: 4,
+                  padding: '3px 8px',
+                  background: '#fff',
+                }}
+              >
+                <Space size={6}>
+                  <Tag color="green" style={{ marginRight: 0, fontSize: 11 }}>
+                    {c.type === 'fnForm' ? '表单' : c.type}
+                  </Tag>
+                  <Text code style={{ fontSize: 11 }}>
+                    {String(c.props.functionId ?? '')}
+                  </Text>
+                  <Text type="secondary" style={{ fontSize: 11 }}>
+                    {fn?.summary?.['zh-CN'] ?? ''}
+                  </Text>
+                </Space>
+              </div>
+            );
+          })
+        )}
+        <Button
+          size="small"
+          type="link"
+          style={{ padding: 0 }}
           onClick={(e) => {
             e.stopPropagation();
-            child.onSelectChild(child.node.id);
-          }}
-          style={{
-            marginTop: 6,
-            border: '1px solid #e6d5f5',
-            borderRadius: 4,
-            padding: '4px 8px',
-            background: '#faf5ff',
+            onEnterModal();
           }}
         >
-          <Space size={6}>
-            <Tag color="green" style={{ marginRight: 0, fontSize: 11 }}>
-              表单
-            </Tag>
-            <Text code style={{ fontSize: 11 }}>
-              {String(child.node.props.functionId ?? '')}
-            </Text>
-          </Space>
-          <div>
-            <Text type="secondary" style={{ fontSize: 11 }}>
-              {child.fnSummary}（点击配置）
-            </Text>
-          </div>
-        </div>
-      ) : (
-        <div>
-          <Text type="secondary" style={{ fontSize: 11 }}>
-            {childSummary}
-          </Text>
-        </div>
-      )}
+          进入弹窗编辑 →
+        </Button>
+      </Space>
     </div>
   );
 }
+
 /** 空画布根落区：droppable('canvas-root')。 */
 function RootDropZone() {
   const { setNodeRef, isOver } = useDroppable({ id: 'canvas-root' });

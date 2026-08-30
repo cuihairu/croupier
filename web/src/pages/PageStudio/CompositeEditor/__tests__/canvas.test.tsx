@@ -1,6 +1,6 @@
 import { render, screen, fireEvent } from '@testing-library/react';
 import { App } from 'antd';
-import Canvas from '../Canvas';
+import { ModalPlaceholder } from '../Canvas';
 import type { PageNode } from '../model';
 
 const formNode: PageNode = {
@@ -16,66 +16,44 @@ const modalNode: PageNode = {
   children: [formNode],
 };
 
-const tableNode: PageNode = {
-  id: 'table-1',
-  type: 'fnTable',
-  props: { functionId: 'player.list', title: '玩家列表', span: 24, autoRun: true },
-};
+const emptyModal: PageNode = { id: 'm2', type: 'modal', props: { title: '空' }, children: [] };
 
-function setup(over?: { selectedId?: string | null }) {
-  const calls: string[] = [];
-  const utils = render(
+function setup(modal: PageNode, calls: { select: string[]; enter: string[] }) {
+  render(
     <App>
-      <Canvas
-        tree={[tableNode, modalNode]}
-        selectedId={over?.selectedId ?? null}
+      <ModalPlaceholder
+        modal={modal}
+        selected={false}
         fnById={new Map()}
-        onSelect={(id) => calls.push(id)}
-        onDelete={() => undefined}
-        onDuplicate={() => undefined}
-        onSpanChange={() => undefined}
-        canvasWidthRef={{ current: null }}
-      >
-        <div>canvas-children</div>
-      </Canvas>
+        onSelect={() => calls.select.push(modal.id)}
+        onEnterModal={() => calls.enter.push(modal.id)}
+      />
     </App>,
   );
-  return { calls, ...utils };
 }
 
-describe('Canvas 弹窗收纳区（编辑死穴修复的可测面）', () => {
-  it('显示弹窗与其内部表单（函数 id 可见，不再只有摘要）', () => {
-    setup();
+describe('ModalPlaceholder（弹窗占位卡：D 项内嵌编辑的可测面）', () => {
+  it('显示弹窗标题与内部表单（函数 id 可见）', () => {
+    const calls = { select: [], enter: [] };
+    setup(modalNode, calls);
     expect(screen.getByText('发邮件弹窗')).toBeInTheDocument();
     expect(screen.getByText('mail.send')).toBeInTheDocument();
   });
 
-  it('点击收纳卡片选中弹窗；点击内部表单卡片选中表单节点', () => {
-    const { calls } = setup();
+  it('单击选中弹窗；双击/按钮进入内部编辑', () => {
+    const calls = { select: [], enter: [] };
+    setup(modalNode, calls);
     fireEvent.click(screen.getByText('发邮件弹窗'));
-    expect(calls).toContain('modal-1');
-    fireEvent.click(screen.getByText('mail.send'));
-    expect(calls).toContain('form-1');
+    expect(calls.select).toContain('modal-1');
+    fireEvent.doubleClick(screen.getByText('发邮件弹窗'));
+    expect(calls.enter).toContain('modal-1');
+    fireEvent.click(screen.getByText('进入弹窗编辑 →'));
+    expect(calls.enter).toHaveLength(2);
   });
 
-  it('空弹窗显示拖入引导文案', () => {
-    const emptyModal: PageNode = { id: 'm2', type: 'modal', props: { title: '空' }, children: [] };
-    render(
-      <App>
-        <Canvas
-          tree={[emptyModal]}
-          selectedId={null}
-          fnById={new Map()}
-          onSelect={() => undefined}
-          onDelete={() => undefined}
-          onDuplicate={() => undefined}
-          onSpanChange={() => undefined}
-          canvasWidthRef={{ current: null }}
-        >
-          <div>children</div>
-        </Canvas>
-      </App>,
-    );
-    expect(screen.getByText(/从函数组件拖入表单/)).toBeInTheDocument();
+  it('空弹窗显示拖入/进入引导文案', () => {
+    const calls = { select: [], enter: [] };
+    setup(emptyModal, calls);
+    expect(screen.getByText(/拖入函数表单/)).toBeInTheDocument();
   });
 });

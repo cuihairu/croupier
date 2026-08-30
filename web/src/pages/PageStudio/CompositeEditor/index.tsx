@@ -18,9 +18,11 @@ import {
 import { sortableKeyboardCoordinates } from '@dnd-kit/sortable';
 import { KeyboardSensor } from '@dnd-kit/core';
 import { SortableList } from '@/components/SortableList';
-import Canvas, { CanvasNode } from './Canvas';
+import Canvas, { CanvasNode, ModalPlaceholder } from './Canvas';
 import OutlinePanel from './OutlinePanel';
+import DataPanel from './DataPanel';
 import PreviewRuntime from './PreviewRuntime';
+import { findParent } from './model';
 import { compileTree } from './compiler';
 import { schemaProperties } from './types';
 import { extractErrorMessage } from '@/utils/errors';
@@ -62,6 +64,8 @@ export default function CompositeEditorPage() {
   const [keyTouched, setKeyTouched] = useState(false);
   const [mode, setMode] = useState<'edit' | 'preview'>('edit');
   const [leftTab, setLeftTab] = useState('components');
+  /** 弹窗内嵌编辑（面包屑）：当前进入的 modal 节点 id。 */
+  const [editingModalId, setEditingModalId] = useState<string | null>(null);
 
   const fnById = useRef(new Map<string, FunctionDescriptor>());
   const [allFns, setAllFns] = useState<FunctionDescriptor[]>([]);
@@ -85,6 +89,12 @@ export default function CompositeEditorPage() {
   }, []);
 
   const selected = useMemo(() => findNode(tree, selectedId ?? ''), [tree, selectedId]);
+  const editingModal = useMemo(
+    () => (editingModalId ? (tree.find((n) => n.id === editingModalId) ?? null) : null),
+    [tree, editingModalId],
+  );
+  /** 当前画布渲染的节点列表：弹窗级=其 children；页面级=全树。 */
+  const canvasNodes = editingModal ? (editingModal.children ?? []) : tree;
 
   /** 函数 → 组件节点（scaffold 按契约实例化，amis 式拖入即骨架）。 */
   const addFunction = useCallback(
@@ -193,11 +203,15 @@ export default function CompositeEditorPage() {
   >(null);
   const treeRef = useRef(tree);
   treeRef.current = tree;
+  const editingModalRef = useRef<string | null>(null);
+  editingModalRef.current = editingModalId;
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
+
+  const [overNodeId, setOverNodeId] = useState<string | null>(null);
 
   const handleDragStart = useCallback((e: DragStartEvent) => {
     const data = e.active.data.current as
@@ -255,11 +269,16 @@ export default function CompositeEditorPage() {
             props: scaffoldProps(data.componentType, data.fn),
           };
         }
-        // modal 收纳区：fnForm 装入 modal
+        // 弹窗占位卡 drop：fnForm 装入 modal
         if (overId.startsWith('modal-drop:')) {
           const modalId = overId.slice('modal-drop:'.length);
           if (node.type === 'fnForm') addChild(modalId, node);
           else message.warning('弹窗内只能放函数表单（V1）');
+          return;
+        }
+        // 弹窗级编辑中：面板加入的节点落到当前弹窗 children
+        if (editingModalRef.current) {
+          addChild(editingModalRef.current, node);
           return;
         }
         // 落点=某节点之后（over.id 即节点 key，无前缀）；根=末尾
@@ -272,18 +291,21 @@ export default function CompositeEditorPage() {
       // 画布内重排（active id = sortable 节点 id）
       if (overId === 'canvas-root') return;
       const activeId = String(active.id);
-      const overIdx = treeRef.current
-        .filter((n) => n.type !== 'modal')
-        .findIndex((n) => n.id === overId);
+      const dragList = editingModalRef.current
+        ? (treeRef.current.find((n) => n.id === editingModalRef.current)?.children ?? [])
+        : treeRef.current;
+      const overIdx = dragList.findIndex((n) => n.id === overId);
       if (overIdx === -1) return;
       setTree((prev) => {
-        const inline = prev.filter((n) => n.type !== 'modal');
-        const fromIdx = inline.findIndex((n) => n.id === activeId);
-        if (fromIdx === -1) return prev;
-        const target = overIdx;
-        const moved = moveNode(inline, activeId, target);
-        if (moved === inline) return prev;
-        return [...moved, ...prev.filter((n) => n.type === 'modal')];
+        if (editingModalRef.current) {
+          const m = prev.find((n) => n.id === editingModalRef.current);
+          const kids = m?.children ?? [];
+          const moved = moveNode(kids, activeId, overIdx);
+          if (moved === kids) return prev;
+          return prev.map((n) => (n.id === m?.id ? { ...n, children: moved } : n));
+        }
+        const moved = moveNode(prev, activeId, overIdx);
+        return moved === prev ? prev : moved;
       });
     },
     [addChild, message, registerFn],
@@ -350,7 +372,11 @@ export default function CompositeEditorPage() {
         sensors={sensors}
         collisionDetection={closestCenter}
         onDragStart={handleDragStart}
-        onDragEnd={handleDragEnd}
+        onDragOver={(e) => setOverNodeId(e.over ? String(e.over.id) : null)}
+        onDragEnd={(e) => {
+          setOverNodeId(null);
+          handleDragEnd(e);
+        }}
       >
         <Row gutter={12}>
           {/* 左：组件面板 / 大纲 */}
@@ -400,42 +426,89 @@ export default function CompositeEditorPage() {
                   background: '#fafafa',
                 }}
               >
+                {editingModal && (
+                  <div style={{ marginBottom: 8 }}>
+                    <Space size={8}>
+                      <a onClick={() => setEditingModalId(null)} style={{ fontSize: 12 }}>
+                        页面
+                      </a>
+                      <span style={{ fontSize: 12 }}>/</span>
+                      <Text strong style={{ fontSize: 12 }}>
+                        {String(editingModal.props.title ?? '弹窗')}（内部编辑）
+                      </Text>
+                      <Text type="secondary" style={{ fontSize: 11 }}>
+                        从左栏拖入/点击添加表单；拖拽排序
+                      </Text>
+                    </Space>
+                  </div>
+                )}
                 <Canvas
-                  tree={tree}
+                  tree={canvasNodes}
                   selectedId={selectedId}
                   fnById={fnById.current}
                   onSelect={setSelectedId}
                   onDelete={deleteNode}
                   onDuplicate={duplicateNode}
                   onSpanChange={patchSpan}
+                  onEnterModal={setEditingModalId}
                   canvasWidthRef={canvasRef}
                 >
                   <SortableList
-                    items={tree.filter((n) => n.type !== 'modal')}
+                    items={canvasNodes}
                     getKey={(n) => n.id}
-                    onReorder={(next) =>
-                      setTree((prev) => [...next, ...prev.filter((n) => n.type === 'modal')])
-                    }
+                    onReorder={(next) => {
+                      if (editingModal) {
+                        setTree((prev) =>
+                          prev.map((n) =>
+                            n.id === editingModal.id ? { ...n, children: next } : n,
+                          ),
+                        );
+                      } else {
+                        setTree(next);
+                      }
+                    }}
                     externalDnd
                   >
                     {(n, _idx, dragHandleProps) => (
-                      <Col key={n.id} span={Number(n.props.span ?? 24) || 24}>
-                        <CanvasNode
-                          node={n}
-                          fn={
-                            n.props.functionId
-                              ? fnById.current.get(String(n.props.functionId))
-                              : undefined
-                          }
-                          selected={selectedId === n.id}
-                          depth={0}
-                          onSelect={() => setSelectedId(n.id)}
-                          onDelete={() => deleteNode(n.id)}
-                          onDuplicate={() => duplicateNode(n.id)}
-                          onSpanChange={(span: number) => patchSpan(n.id, span)}
-                          dragHandleProps={dragHandleProps}
-                          canvasWidthRef={canvasRef}
-                        />
+                      <Col
+                        key={n.id}
+                        span={Number(n.props.span ?? 24) || 24}
+                        style={{
+                          borderTop:
+                            dragItem && overNodeId === n.id
+                              ? '3px solid #1677ff'
+                              : '3px solid transparent',
+                          transition: 'border-color 0.1s',
+                        }}
+                      >
+                        {n.type === 'modal' ? (
+                          <div onClick={(e) => e.stopPropagation()}>
+                            <ModalPlaceholder
+                              modal={n}
+                              selected={selectedId === n.id}
+                              fnById={fnById.current}
+                              onSelect={() => setSelectedId(n.id)}
+                              onEnterModal={() => setEditingModalId(n.id)}
+                            />
+                          </div>
+                        ) : (
+                          <CanvasNode
+                            node={n}
+                            fn={
+                              n.props.functionId
+                                ? fnById.current.get(String(n.props.functionId))
+                                : undefined
+                            }
+                            selected={selectedId === n.id}
+                            depth={0}
+                            onSelect={() => setSelectedId(n.id)}
+                            onDelete={() => deleteNode(n.id)}
+                            onDuplicate={() => duplicateNode(n.id)}
+                            onSpanChange={(span: number) => patchSpan(n.id, span)}
+                            dragHandleProps={dragHandleProps}
+                            canvasWidthRef={canvasRef}
+                          />
+                        )}
                       </Col>
                     )}
                   </SortableList>
@@ -458,6 +531,18 @@ export default function CompositeEditorPage() {
             </Col>
           )}
         </Row>
+        {!preview && (
+          <div style={{ position: 'sticky', bottom: 0, zIndex: 5 }}>
+            <DataPanel
+              node={selected}
+              fn={
+                selected?.props.functionId
+                  ? fnById.current.get(String(selected.props.functionId))
+                  : undefined
+              }
+            />
+          </div>
+        )}
         <DragOverlay dropAnimation={null}>
           {dragItem ? (
             <div

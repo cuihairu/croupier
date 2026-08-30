@@ -52,7 +52,14 @@ export default function PropsPanel({
       extra={
         <Button size="small" type="text" danger icon={<DeleteOutlined />} onClick={onDelete} />
       }
-      styles={{ body: { maxHeight: 'calc(100vh - 220px)', overflow: 'auto' } }}
+      styles={{
+        body: {
+          padding: 8,
+          display: 'flex',
+          flexDirection: 'column',
+          height: 'calc(100vh - 220px)',
+        },
+      }}
     >
       <PropertyFields
         schema={def.propSchema({
@@ -95,57 +102,70 @@ function PropertyFields({
   };
 
   return (
-    <>
-      {plainKeys.length > 0 && (
-        <SchemaFormRenderer
-          spec={{ jsonSchema: plainSchema, layout: 'vertical' }}
-          initialValues={node.props as Record<string, never>}
-          hideSubmit
-          onValuesChange={(changed) => onPatch(changed as Record<string, unknown>)}
-        />
-      )}
-      {rowActionsKeys.map((key) => (
-        <div key={key} style={{ marginTop: 12 }}>
-          <Typography.Text
-            type="secondary"
-            style={{ fontSize: 11, display: 'block', marginBottom: 4 }}
-          >
-            行操作（行尾按钮打开弹窗表单）
-          </Typography.Text>
-          <RowActionsEditor
-            value={node.props[key]}
-            nodes={nodes}
-            fnById={fnById}
-            rowFields={schemaProperties(
-              node.props.functionId
-                ? fnById.get(String(node.props.functionId))?.outputSchema
-                : undefined,
-            )}
-            onChange={(v) => onPatch({ [key]: v ?? [] })}
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+      <div style={{ flex: 1, overflow: 'auto', minHeight: 0 }}>
+        {plainKeys.length > 0 && (
+          <SchemaFormRenderer
+            spec={{ jsonSchema: plainSchema, layout: 'vertical' }}
+            initialValues={node.props as Record<string, never>}
+            hideSubmit
+            onValuesChange={(changed) => onPatch(changed as Record<string, unknown>)}
           />
-        </div>
-      ))}
+        )}
+      </div>
+      {(rowActionsKeys.length > 0 || actionKeys.length > 0) && (
+        <div
+          style={{
+            borderTop: '1px solid #f0f0f0',
+            paddingTop: 8,
+            marginTop: 8,
+            background: '#fafafa',
+          }}
+        >
+          {rowActionsKeys.map((key) => (
+            <div key={key} style={{ marginTop: 12 }}>
+              <Typography.Text
+                type="secondary"
+                style={{ fontSize: 11, display: 'block', marginBottom: 4 }}
+              >
+                行操作（行尾按钮打开弹窗表单）
+              </Typography.Text>
+              <RowActionsEditor
+                value={node.props[key]}
+                nodes={nodes}
+                fnById={fnById}
+                rowFields={schemaProperties(
+                  node.props.functionId
+                    ? fnById.get(String(node.props.functionId))?.outputSchema
+                    : undefined,
+                )}
+                onChange={(v) => onPatch({ [key]: v ?? [] })}
+              />
+            </div>
+          ))}
 
-      {actionKeys.map((key) => {
-        const field = props[key] as { title?: unknown; actionKinds?: ActionKind[] } | undefined;
-        const kinds = field?.actionKinds;
-        return (
-          <div key={key} style={{ marginTop: 12 }}>
-            <Typography.Text
-              type="secondary"
-              style={{ fontSize: 11, display: 'block', marginBottom: 4 }}
-            >
-              {String(field?.title ?? key)}
-            </Typography.Text>
-            <ActionEditor
-              value={node.props[key]}
-              nodes={nodes}
-              allowedKinds={kinds}
-              onChange={(v: ActionSpec | null) => onPatch({ [key]: v ?? undefined })}
-            />
-          </div>
-        );
-      })}
-    </>
+          {actionKeys.map((key) => {
+            const field = props[key] as { title?: unknown; actionKinds?: ActionKind[] } | undefined;
+            const kinds = field?.actionKinds;
+            return (
+              <div key={key} style={{ marginTop: 12 }}>
+                <Typography.Text
+                  type="secondary"
+                  style={{ fontSize: 11, display: 'block', marginBottom: 4 }}
+                >
+                  {String(field?.title ?? key)}
+                </Typography.Text>
+                <ActionEditor
+                  value={node.props[key]}
+                  nodes={nodes}
+                  allowedKinds={kinds}
+                  onChange={(v: ActionSpec | null) => onPatch({ [key]: v ?? undefined })}
+                />
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
   );
 }
