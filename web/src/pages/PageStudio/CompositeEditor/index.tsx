@@ -232,15 +232,10 @@ export default function CompositeEditorPage() {
           else message.warning('弹窗内只能放函数表单（V1）');
           return;
         }
-        // 落到某节点后 / 根末尾
-        if (overId === 'canvas-root' || overId.startsWith('sortable-')) {
-          const after = overId === 'canvas-root' ? undefined : findNode(treeRef.current, overId);
-          setTree((prev) => (after ? insertAfter(prev, node, after.id) : [...prev, node]));
-          setSelectedId(node.id);
-        } else {
-          setTree((prev) => [...prev, node]);
-          setSelectedId(node.id);
-        }
+        // 落点=某节点之后（over.id 即节点 key，无前缀）；根=末尾
+        const after = overId === 'canvas-root' ? undefined : findNode(treeRef.current, overId);
+        setTree((prev) => (after ? insertAfter(prev, node, after.id) : [...prev, node]));
+        setSelectedId(node.id);
         return;
       }
 

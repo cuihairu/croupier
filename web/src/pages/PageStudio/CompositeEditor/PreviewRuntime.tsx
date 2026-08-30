@@ -119,6 +119,18 @@ export default function PreviewRuntime({
               running={running[node.id] || false}
               onAction={handleAction}
               onSubmit={(params) => void runNode(node, params)}
+              renderChild={(child) => (
+                <PreviewNode
+                  node={child}
+                  fn={
+                    child.props.functionId ? fnById.get(String(child.props.functionId)) : undefined
+                  }
+                  data={results[child.id]}
+                  running={running[child.id] || false}
+                  onAction={handleAction}
+                  onSubmit={(params) => void runNode(child, params)}
+                />
+              )}
             />
           </Col>
         ))}
@@ -174,6 +186,7 @@ function PreviewNode({
   running,
   onAction,
   onSubmit,
+  renderChild,
 }: {
   node: PageNode;
   fn: FunctionDescriptor | undefined;
@@ -181,6 +194,8 @@ function PreviewNode({
   running: boolean;
   onAction: (raw: unknown) => void;
   onSubmit: (params: JSONRecord) => void;
+  /** 容器子节点渲染回调（由主组件注入执行上下文）。 */
+  renderChild?: (child: PageNode) => React.ReactNode;
 }) {
   const payload = useMemo(() => payloadOf(data), [data]);
   const items = useMemo(() => itemsOf(payload), [payload]);
@@ -252,17 +267,12 @@ function PreviewNode({
         <ModalForm node={node} fn={fn} running={running} onSubmit={onSubmit} inline />
       ) : node.type === 'container' ? (
         <Space direction="vertical" size={8} style={{ width: '100%' }}>
-          {node.children?.map((c) => (
-            <PreviewNode
-              key={c.id}
-              node={c}
-              fn={c.props.functionId ? undefined : undefined}
-              data={undefined}
-              running={false}
-              onAction={onAction}
-              onSubmit={() => undefined}
-            />
-          )) ?? <Text type="secondary">空容器</Text>}
+          {(node.children ?? []).map((c) => (
+            <React.Fragment key={c.id}>
+              {renderChild?.(c) ?? <Text type="secondary">{c.type}</Text>}
+            </React.Fragment>
+          ))}
+          {(node.children ?? []).length === 0 && <Text type="secondary">空容器</Text>}
         </Space>
       ) : null}
     </Card>
