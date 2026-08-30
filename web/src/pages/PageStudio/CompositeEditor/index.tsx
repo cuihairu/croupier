@@ -1,7 +1,7 @@
 import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { App, Button, Card, Col, Empty, Input, Row, Space, Tabs, Tag, Typography } from 'antd';
 import { ArrowLeftOutlined, EyeOutlined, SaveOutlined } from '@ant-design/icons';
-import { history } from '@umijs/max';
+import { history, request } from '@umijs/max';
 import { PageContainer } from '@ant-design/pro-components';
 import {
   DndContext,
@@ -20,6 +20,8 @@ import { SortableList } from '@/components/SortableList';
 import Canvas, { CanvasNode } from './Canvas';
 import OutlinePanel from './OutlinePanel';
 import PreviewRuntime from './PreviewRuntime';
+import { compileTree } from './compiler';
+import { extractErrorMessage } from '@/utils/errors';
 import { duplicateNode as duplicateTree, insertAfter, moveNode } from './model';
 import ComponentPanel, { type AddFnEvent } from './ComponentPanel';
 import PropsPanel from './PropsPanel';
@@ -51,7 +53,7 @@ function scaffoldProps(type: PageNode['type'], fn?: FunctionDescriptor): Record<
  * 页面状态是 PageNode 组件树；保存时编译为 CompositePageSpec（P4）。
  */
 export default function CompositeEditorPage() {
-  const { message } = App.useApp();
+  const { message, modal } = App.useApp();
   const [tree, setTree] = useState<PageNode[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [pageKey, setPageKey] = useState('');
@@ -90,6 +92,55 @@ export default function CompositeEditorPage() {
     setTree((prev) => [...prev, node]);
     setSelectedId(node.id);
   }, []);
+
+  // pageKey 自动推导（函数 id 资源段）
+  const derivedKey = useMemo(
+    () =>
+      tree
+        .map((n) => String(n.props.functionId ?? ''))
+        .filter(Boolean)
+        .map((fid) => fid.split('.')[0])
+        .filter(Boolean)
+        .filter((v, i, a) => a.indexOf(v) === i)
+        .join('-'),
+    [tree],
+  );
+  React.useEffect(() => {
+    if (!keyTouched) setPageKey((prev) => (prev === derivedKey ? prev : derivedKey));
+  }, [derivedKey, keyTouched]);
+
+  const [saving, setSaving] = useState(false);
+  const save = useCallback(async () => {
+    const key = pageKey.trim();
+    if (!key) {
+      message.warning('请填写页面 Key');
+      return;
+    }
+    const { sections, warnings } = compileTree(tree);
+    if (sections.length < 2) {
+      message.warning('组合页至少需要 2 个函数区块（当前有效的 ' + sections.length + ' 个）');
+      return;
+    }
+    setSaving(true);
+    try {
+      const resp = (await request('/api/v1/versioning/pages/composite', {
+        method: 'POST',
+        data: { pageKey: key, sections },
+      })) as { proposalKey?: unknown };
+      modal.success({
+        title: '提案已创建',
+        content:
+          (warnings.length ? `编译警告：${warnings.join('；')}。提案 ` : '提案 ') +
+          String(resp?.proposalKey ?? '') +
+          ' 已进入提案收件箱，接受并发布后生效。',
+        onOk: () => history.push('/functions/pages'),
+      });
+    } catch (err) {
+      message.error(extractErrorMessage(err, '创建提案失败'));
+    } finally {
+      setSaving(false);
+    }
+  }, [pageKey, tree, message, modal]);
 
   const patchProps = useCallback(
     (patch: Record<string, unknown>) => {
@@ -247,8 +298,9 @@ export default function CompositeEditorPage() {
             key="save"
             type="primary"
             icon={<SaveOutlined />}
+            loading={saving}
             disabled={preview}
-            onClick={() => message.info('保存将在 P4 批次接线（树 → CompositeSection 编译）')}
+            onClick={() => void save()}
           >
             保存为提案
           </Button>,

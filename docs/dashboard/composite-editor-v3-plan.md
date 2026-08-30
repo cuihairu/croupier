@@ -246,18 +246,25 @@ type ActionSpec =
 
 ## 批次 P4 — 编译保存与发布对齐
 
-### T4.1 树→CompositeSection 编译器
+### ✅ T4.1 树→CompositeSection 编译器
 
 - 文件：`.../compiler.ts`（新）+ 单测
 - 改动：modal+fnForm → `display=dialog` section；button.onClick.openModal 且按钮在表格行 → `rowActions`（参数映射列→弹窗表单参数）；按钮独立于表格 → 表格 `toolbarActions`（V1 约束：独立按钮编译为最近表格的顶部按钮，无表格则提示）；fnForm.onSuccess → `onSuccessRefresh`；container/text → span 组合（text 编译为区块标题行——V1 降级为"忽略并警告"亦可，按实现定）；pageKey 推导沿用
 - 验收：compiler.test.ts 固化三种典型树→spec 快照
 - 依赖：T3.2 ｜ 预估：0.5d
 
-### T4.2 保存创建提案
+### ✅ T4.2 保存创建提案
 
 - 改动：保存按钮 → 编译 → POST `/api/v1/versioning/pages/composite`（现有端点，payload 已支持 display/rowActions/toolbarActions/onSuccessRefresh）；错误回显
 - 验收：保存后提案收件箱出现提案，spec 内容与编译快照一致
 - 依赖：T4.1 ｜ 预估：0.25d
+
+### ✅ T4.1b fnTable 行操作编辑器（UI 补齐，编译产物 T4.1 已支持）
+
+- 文件：RowActionsEditor.tsx + PropsPanel format:'rowActions' 特殊渲染
+- 改动：行尾按钮（文案/目标弹窗/行字段→表单参数映射/危险标记）可视化编辑
+- 验收：行操作编译快照见 compiler.test.ts 用例 2
+- 依赖：T4.1 ｜ 预估：0.25d（计划外，评审核心场景）
 
 ### T4.3 发布渲染器独立按钮支持（如需）
 

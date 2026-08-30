@@ -52,6 +52,7 @@ const fnTable: ComponentDef = {
             },
           }
         : {}),
+      rowActions: { type: 'array', title: '行操作', format: 'rowActions' },
     });
   },
   scaffold: (fn) => ({

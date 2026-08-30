@@ -7,6 +7,8 @@ import { getComponent } from './registry';
 import type { PageNode } from './model';
 import type { JSONSchema } from '@/types/dashboard';
 import ActionEditor from './ActionEditor';
+import RowActionsEditor from './RowActionsEditor';
+import { schemaProperties } from './types';
 import type { ActionKind, ActionSpec } from './actions';
 
 const { Text } = Typography;
@@ -58,6 +60,7 @@ export default function PropsPanel({
         })}
         node={node}
         nodes={nodes}
+        fnById={fnById}
         onPatch={onPatch}
       />
     </Card>
@@ -69,20 +72,20 @@ function PropertyFields({
   schema,
   node,
   nodes,
+  fnById,
   onPatch,
 }: {
   schema: JSONSchema;
   node: PageNode;
   nodes: PageNode[];
+  fnById: Map<string, FunctionDescriptor>;
   onPatch: (patch: Record<string, unknown>) => void;
 }) {
   const props = (schema.properties ?? {}) as Record<string, JSONSchema>;
-  const plainKeys = Object.keys(props).filter(
-    (k) => (props[k] as { format?: string })?.format !== 'action',
-  );
-  const actionKeys = Object.keys(props).filter(
-    (k) => (props[k] as { format?: string })?.format === 'action',
-  );
+  const fmt = (k: string) => (props[k] as { format?: string })?.format;
+  const plainKeys = Object.keys(props).filter((k) => !fmt(k));
+  const actionKeys = Object.keys(props).filter((k) => fmt(k) === 'action');
+  const rowActionsKeys = Object.keys(props).filter((k) => fmt(k) === 'rowActions');
   const plainSchema: JSONSchema = {
     ...schema,
     properties: Object.fromEntries(plainKeys.map((k) => [k, props[k]])),
@@ -98,6 +101,28 @@ function PropertyFields({
           onValuesChange={(changed) => onPatch(changed as Record<string, unknown>)}
         />
       )}
+      {rowActionsKeys.map((key) => (
+        <div key={key} style={{ marginTop: 12 }}>
+          <Typography.Text
+            type="secondary"
+            style={{ fontSize: 11, display: 'block', marginBottom: 4 }}
+          >
+            行操作（行尾按钮打开弹窗表单）
+          </Typography.Text>
+          <RowActionsEditor
+            value={node.props[key]}
+            nodes={nodes}
+            fnById={fnById}
+            rowFields={schemaProperties(
+              node.props.functionId
+                ? fnById.get(String(node.props.functionId))?.outputSchema
+                : undefined,
+            )}
+            onChange={(v) => onPatch({ [key]: v ?? [] })}
+          />
+        </div>
+      ))}
+
       {actionKeys.map((key) => {
         const field = props[key] as { title?: unknown; actionKinds?: ActionKind[] } | undefined;
         const kinds = field?.actionKinds;
