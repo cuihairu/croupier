@@ -1,34 +1,7 @@
 import type { JSONValue } from '@/types/dashboard';
 import type { FunctionDescriptor } from '@/services/api/functions';
 
-/** 行操作/工具栏按钮草稿：打开弹窗表单 + 参数映射。 */
-export type ActionDraft = {
-  label: string;
-  targetSection: string;
-  params: Record<string, string>;
-  danger: boolean;
-};
-
-/** 组合页区块草稿。dependsOn 上游区块 key（提交映射 refreshOn）。 */
-export type SectionDraft = {
-  key: string;
-  functionId: string;
-  view: 'table' | 'fields' | 'form' | 'actions';
-  title: string;
-  span: number;
-  autoRun: boolean;
-  dependsOn: string[];
-  /** inline（默认）| dialog（弹窗表单，由按钮/行操作触发）。 */
-  display: 'inline' | 'dialog';
-  /** 表格行操作（view=table）。 */
-  rowActions: ActionDraft[];
-  /** 表格顶部按钮（view=table，打开弹窗）。 */
-  toolbarActions: ActionDraft[];
-  /** 操作成功后自动刷新的区块 key。 */
-  onSuccessRefresh: string[];
-};
-
-export type CompositeView = SectionDraft['view'];
+export type CompositeView = 'table' | 'fields' | 'form' | 'actions';
 
 export const VIEW_META: Record<CompositeView, { label: string; hint: string }> = {
   table: { label: '表格', hint: '列表查询，展示多行数据' },
@@ -107,9 +80,7 @@ export function defaultView(fn: FunctionDescriptor | undefined): CompositeView {
   return 'form';
 }
 
-export function derivePageKey(sections: SectionDraft[]): string {
-  const resources = Array.from(
-    new Set(sections.map((s) => s.functionId.split('.')[0]).filter(Boolean)),
-  );
+export function derivePageKey(functionIds: string[]): string {
+  const resources = Array.from(new Set(functionIds.map((id) => id.split('.')[0]).filter(Boolean)));
   return resources.length ? resources.join('-') : '';
 }

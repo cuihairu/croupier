@@ -76,14 +76,14 @@ type ActionSpec =
 - 验收：类型检查通过；registry 单测（注册/获取/重复注册报错）
 - 依赖：T0.2 ｜ 预估：0.25d
 
-### T0.4 编辑器四区布局骨架
+### ✅ T0.4 编辑器四区布局骨架
 
 - 文件：`web/src/pages/PageStudio/CompositeEditor/index.tsx`（重构）
 - 改动：页面骨架 = 顶栏（标题/pageKey/预览切换/保存）+ 左侧 Tabs（组件面板/大纲）+ 画布 + 右侧属性面板；页面状态从 sections 平铺改为 `tree: PageNode[]` + `selectedId`（本次只搭骨架，画布渲染 P2 接管）
 - 验收：路由可开、四区可见（空态）、tsc 通过
 - 依赖：T0.2 ｜ 预估：0.25d
 
-### T0.5 移除旧编辑器残留
+### ✅ T0.5 移除旧编辑器残留
 
 - 文件：删除 `SectionCard.tsx`/`SectionPreview.tsx`/`TryRunPanel.tsx`/旧 `Inspector.tsx`、`types.ts` 中平铺模型；ProposalInbox 入口保持跳转新编辑器
 - 验收：`rg -n "SectionDraft" web/src` 无结果；jest/tsc 全绿
