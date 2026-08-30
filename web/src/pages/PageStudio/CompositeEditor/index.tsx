@@ -21,8 +21,6 @@ import { SortableList } from '@/components/SortableList';
 import Canvas, { CanvasNode } from './Canvas';
 import OutlinePanel from './OutlinePanel';
 import PreviewRuntime from './PreviewRuntime';
-import QuickStart from './QuickStart';
-import { buildWizardTree } from './wizard';
 import { compileTree } from './compiler';
 import { schemaProperties } from './types';
 import { extractErrorMessage } from '@/utils/errors';
@@ -64,7 +62,6 @@ export default function CompositeEditorPage() {
   const [keyTouched, setKeyTouched] = useState(false);
   const [mode, setMode] = useState<'edit' | 'preview'>('edit');
   const [leftTab, setLeftTab] = useState('components');
-  const [skipWizard, setSkipWizard] = useState(false);
 
   const fnById = useRef(new Map<string, FunctionDescriptor>());
   const [allFns, setAllFns] = useState<FunctionDescriptor[]>([]);
@@ -159,18 +156,6 @@ export default function CompositeEditorPage() {
       setSaving(false);
     }
   }, [pageKey, tree, message, modal]);
-
-  /** 向导生成：表格（行操作→弹窗）+ 弹窗（表单，成功刷新表格）。 */
-  const generateFromWizard = useCallback(
-    (tableFn: FunctionDescriptor, actionFn: FunctionDescriptor) => {
-      registerFn(tableFn);
-      registerFn(actionFn);
-      const { tree: wizardTree, tableId } = buildWizardTree(tableFn, actionFn, scaffoldProps);
-      setTree(wizardTree);
-      setSelectedId(tableId);
-    },
-    [registerFn],
-  );
 
   const patchProps = useCallback(
     (patch: Record<string, unknown>) => {
@@ -404,8 +389,6 @@ export default function CompositeEditorPage() {
           <Col flex="auto" style={{ minWidth: 420 }}>
             {preview ? (
               <PreviewRuntime tree={tree} fnById={fnById.current} />
-            ) : tree.length === 0 && !skipWizard ? (
-              <QuickStart onGenerate={generateFromWizard} onSkip={() => setSkipWizard(true)} />
             ) : (
               <div
                 ref={canvasRef}
