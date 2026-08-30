@@ -28,6 +28,11 @@ export interface CanvasNodeProps {
   /** 上移/下移（右键菜单）。 */
   onMoveUp?: () => void;
   onMoveDown?: () => void;
+  /** 容器子节点交互：选中/删除/同级移动。 */
+  selectedChildId?: string | null;
+  onChildSelect?: (id: string) => void;
+  onChildDelete?: (id: string) => void;
+  onChildMove?: (id: string, dir: -1 | 1) => void;
   dragHandleProps: React.HTMLAttributes<HTMLElement>;
   canvasWidthRef: React.RefObject<HTMLDivElement | null>;
 }
@@ -45,6 +50,10 @@ export const CanvasNode: React.FC<CanvasNodeProps> = ({
   onSelectParent,
   onMoveUp,
   onMoveDown,
+  selectedChildId,
+  onChildSelect,
+  onChildDelete,
+  onChildMove,
   dragHandleProps,
   canvasWidthRef,
 }) => {
@@ -180,19 +189,76 @@ export const CanvasNode: React.FC<CanvasNodeProps> = ({
           <Comp node={node} fn={fn} />
           {node.children && node.children.length > 0 && (
             <Row gutter={[8, 8]} style={{ marginTop: 8 }}>
-              {node.children.map((c) => {
+              {node.children.map((c, ci) => {
                 const cdef = getComponent(c.type);
                 if (!cdef) return null;
                 return (
                   <Col key={c.id} span={spanOf(c)}>
-                    <div
-                      onClick={(e) => {
-                        e.stopPropagation();
+                    <Dropdown
+                      trigger={['contextMenu']}
+                      menu={{
+                        items: [
+                          {
+                            key: 'up',
+                            label: '上移',
+                            disabled: ci === 0,
+                            onClick: ({ domEvent }) => {
+                              domEvent.stopPropagation();
+                              onChildMove?.(c.id, -1);
+                            },
+                          },
+                          {
+                            key: 'down',
+                            label: '下移',
+                            disabled: ci === node.children!.length - 1,
+                            onClick: ({ domEvent }) => {
+                              domEvent.stopPropagation();
+                              onChildMove?.(c.id, 1);
+                            },
+                          },
+                          { type: 'divider' as const },
+                          {
+                            key: 'del',
+                            label: '删除',
+                            danger: true,
+                            onClick: ({ domEvent }) => {
+                              domEvent.stopPropagation();
+                              onChildDelete?.(c.id);
+                            },
+                          },
+                        ],
                       }}
-                      style={{ border: '1px dashed #d9d9d9', borderRadius: 6, padding: 6 }}
                     >
-                      <cdef.Preview node={c} fn={undefined} />
-                    </div>
+                      <div
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onChildSelect?.(c.id);
+                        }}
+                        style={{
+                          border:
+                            selectedChildId === c.id ? '1px solid #1677ff' : '1px dashed #d9d9d9',
+                          borderRadius: 6,
+                          padding: 6,
+                          cursor: 'pointer',
+                        }}
+                      >
+                        <cdef.Preview node={c} fn={undefined} />
+                        <div style={{ textAlign: 'right' }}>
+                          <Button
+                            size="small"
+                            type="text"
+                            danger
+                            style={{ height: 20, fontSize: 11 }}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onChildDelete?.(c.id);
+                            }}
+                          >
+                            删除
+                          </Button>
+                        </div>
+                      </div>
+                    </Dropdown>
                   </Col>
                 );
               })}

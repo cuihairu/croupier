@@ -1,7 +1,14 @@
 import React from 'react';
 import { Button, Select, Space, Typography } from 'antd';
 import { CloseOutlined } from '@ant-design/icons';
-import { ACTIONS, nodeSummary, parseAction, type ActionKind, type ActionSpec } from './actions';
+import {
+  ACTIONS,
+  nodeSummary,
+  parseAction,
+  type ActionKind,
+  type ActionSpec,
+  type ActionStep,
+} from './actions';
 import type { PageNode } from './model';
 
 const { Text } = Typography;
@@ -57,6 +64,78 @@ export default function ActionEditor({
         <Text type="danger" style={{ fontSize: 11 }}>
           目标节点已被删除——请重新选择
         </Text>
+      )}
+      {action && (
+        <div style={{ borderTop: '1px dashed #e8e8e8', paddingTop: 6 }}>
+          <Text type="secondary" style={{ fontSize: 11, display: 'block', marginBottom: 4 }}>
+            后续动作（主动作完成后按序执行）
+          </Text>
+          {(action.chain ?? []).map((step: ActionStep, i: number) => {
+            const stepTargets = ACTIONS[step.kind].targetFilter(nodes);
+            return (
+              <Space.Compact key={i} style={{ width: '100%', marginBottom: 4 }}>
+                <Select
+                  size="small"
+                  style={{ width: 90 }}
+                  value={step.kind}
+                  onChange={(k) => {
+                    const cand = ACTIONS[k].targetFilter(nodes);
+                    onChange({
+                      ...action,
+                      chain: (action.chain ?? []).map((s2, j) =>
+                        j === i ? { kind: k as ActionStep['kind'], target: cand[0]?.id ?? '' } : s2,
+                      ),
+                    });
+                  }}
+                  options={[
+                    { value: 'runBinding', label: '执行' },
+                    { value: 'refreshNode', label: '刷新' },
+                  ]}
+                />
+                <Select
+                  size="small"
+                  style={{ width: 150 }}
+                  value={stepTargets.some((t) => t.id === step.target) ? step.target : undefined}
+                  placeholder="目标"
+                  onChange={(t) =>
+                    onChange({
+                      ...action,
+                      chain: (action.chain ?? []).map((s2, j) =>
+                        j === i ? { ...s2, target: t } : s2,
+                      ),
+                    })
+                  }
+                  options={stepTargets.map((t) => ({ value: t.id, label: nodeSummary(t) }))}
+                  notFoundContent={<Text type="secondary">无</Text>}
+                />
+                <Button
+                  size="small"
+                  icon={<CloseOutlined />}
+                  onClick={() =>
+                    onChange({ ...action, chain: (action.chain ?? []).filter((_, j) => j !== i) })
+                  }
+                />
+              </Space.Compact>
+            );
+          })}
+          <Button
+            size="small"
+            type="link"
+            style={{ padding: 0, fontSize: 11 }}
+            onClick={() => {
+              const cand = ACTIONS.refreshNode.targetFilter(nodes);
+              onChange({
+                ...action,
+                chain: [
+                  ...(action.chain ?? []),
+                  { kind: 'refreshNode', target: cand[0]?.id ?? '' },
+                ],
+              });
+            }}
+          >
+            + 添加后续动作
+          </Button>
+        </div>
       )}
     </Space>
   );

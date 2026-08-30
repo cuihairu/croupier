@@ -5,6 +5,8 @@ import { parseAction } from './actions';
 export type CompiledSection = {
   /** 区块唯一 key（同函数多实例：fid、fid-2、fid-3…）；引用一律用 key。 */
   key: string;
+  /** 弹窗分组名（modal 容器派生）；dialog 区块按 group 聚合渲染。 */
+  group?: string;
   functionId: string;
   view: 'table' | 'fields' | 'form';
   title: string;
@@ -22,6 +24,7 @@ export type CompiledAction = {
   targetSection: string;
   params?: Record<string, string>;
   danger?: boolean;
+  chain?: Array<{ kind: 'runBinding' | 'refreshNode'; target: string }>;
 };
 
 export interface CompileResult {
@@ -74,19 +77,32 @@ export function compileTree(tree: PageNode[]): CompileResult {
   };
   assignKeys(tree);
 
-  // 收集 modal 目标映射（modalId → 弹窗内 fnForm 的区块 key）
-  const modalFn = new Map<string, string>();
+  // 弹窗分组：modal 容器 → group 名，动作目标统一指向 group
+  const modalGroup = new Map<string, string>();
   for (const m of tree.filter((n) => n.type === 'modal')) {
-    const form = m.children?.find((c) => c.type === 'fnForm');
-    const key = form ? nodeSectionKey.get(form.id) : undefined;
-    if (key) modalFn.set(m.id, key);
-    else warnings.push(`弹窗「${String(m.props.title ?? m.id)}」内没有函数表单，已忽略`);
+    modalGroup.set(m.id, `modal-${m.id.slice(-6)}`);
   }
+  const modalFn = modalGroup; // 兼容旧引用
 
-  /** 节点 → 区块 key（引用统一语义）。 */
+  /** 节点 → 引用目标（modal=group 名；其余=区块 key）。 */
   const sectionKeyOf = (n: PageNode): string | undefined => {
-    if (n.type === 'modal') return modalFn.get(n.id);
+    if (n.type === 'modal') return modalGroup.get(n.id);
     return nodeSectionKey.get(n.id);
+  };
+
+  /** 动作链编译：节点 id 引用 → section key/group 引用。 */
+  const compileChainRef = (
+    raw: unknown,
+  ): Array<{ kind: 'runBinding' | 'refreshNode'; target: string }> | undefined => {
+    if (!Array.isArray(raw) || raw.length === 0) return undefined;
+    const out: Array<{ kind: 'runBinding' | 'refreshNode'; target: string }> = [];
+    for (const step of raw as Array<Record<string, unknown>>) {
+      const kind = step.kind === 'runBinding' ? 'runBinding' : 'refreshNode';
+      const node = typeof step.target === 'string' ? findNode(tree, step.target) : undefined;
+      const target = node ? sectionKeyOf(node) : String(step.target ?? '');
+      if (target) out.push({ kind, target });
+    }
+    return out.length ? out : undefined;
   };
 
   const walk = (nodes: PageNode[]) => {
@@ -100,12 +116,15 @@ export function compileTree(tree: PageNode[]): CompileResult {
         continue;
       }
       if (node.type === 'modal') {
-        const forms = (node.children ?? []).filter((c) => c.type === 'fnForm');
-        for (const form of forms) emitFnSection(form, 'dialog');
-        for (const other of (node.children ?? []).filter((c) => c.type !== 'fnForm')) {
-          warnings.push(
-            `弹窗「${String(node.props.title ?? node.id)}」内组件 ${other.type} 不参与发布（V1 仅表单）`,
-          );
+        const group = modalGroup.get(node.id) ?? '';
+        const kids = node.children ?? [];
+        if (kids.length === 0) {
+          warnings.push(`弹窗「${String(node.props.title ?? node.id)}」为空，已忽略`);
+          continue;
+        }
+        for (const kid of kids) {
+          if (kid.type === 'text') continue; // 文本暂不进弹窗 spec
+          emitFnSection(kid, 'dialog', group);
         }
         continue;
       }
@@ -121,7 +140,7 @@ export function compileTree(tree: PageNode[]): CompileResult {
     }
   };
 
-  const emitFnSection = (node: PageNode, display: 'inline' | 'dialog') => {
+  const emitFnSection = (node: PageNode, display: 'inline' | 'dialog', group?: string) => {
     const fid = String(node.props.functionId ?? '');
     if (!fid) {
       warnings.push(`组件「${String(node.props.title ?? node.id)}」没有绑定函数，已忽略`);
@@ -129,6 +148,7 @@ export function compileTree(tree: PageNode[]): CompileResult {
     }
     const section: CompiledSection = {
       key: nodeSectionKey.get(node.id) ?? fid,
+      ...(group ? { group } : {}),
       functionId: fid,
       view: VIEW_MAP[node.type],
       title: String(node.props.title ?? fid),
@@ -161,6 +181,8 @@ export function compileTree(tree: PageNode[]): CompileResult {
           params: (raw.params as Record<string, string>) ?? undefined,
         };
         if (raw.danger === true) ra.danger = true;
+        const raChain = compileChainRef(raw.chain);
+        if (raChain) ra.chain = raChain;
         ras.push(ra);
       }
       if (ras.length) section.rowActions = ras;
@@ -170,28 +192,46 @@ export function compileTree(tree: PageNode[]): CompileResult {
 
   const compileButton = (node: PageNode) => {
     const act = parseAction(node.props.onClick);
-    if (!act) {
+    const extraChain = compileChainRef((node.props.onClick as { chain?: unknown })?.chain);
+    if (!act && !extraChain) {
       warnings.push(`按钮「${String(node.props.title ?? '')}」没有配置动作，已忽略`);
       return;
     }
-    if (act.kind !== 'openModal') {
-      warnings.push(
-        `按钮「${String(node.props.title ?? '')}」动作 ${act.kind} 不参与发布（V1 仅支持打开弹窗），已忽略`,
-      );
-      return;
-    }
-    const targetNode = findNode(tree, act.target);
-    const targetKey = (targetNode && sectionKeyOf(targetNode)) ?? modalFn.get(act.target);
-    if (!targetKey) {
-      warnings.push(`按钮「${String(node.props.title ?? '')}」的弹窗目标无效，已忽略`);
+    const targetNode = act?.target ? findNode(tree, act.target) : undefined;
+    if (targetNode?.type === 'modal' && !(targetNode.children ?? []).length) {
+      warnings.push(`按钮「${String(node.props.title ?? '')}」的弹窗目标无效（空弹窗），已忽略`);
       return;
     }
     // 挂到最近一个表格 section 的 toolbarActions
     const lastTable = [...sections].reverse().find((s) => s.view === 'table');
     if (!lastTable) {
       warnings.push(
-        `按钮「${String(node.props.title ?? '')}」需放置在表格之后（V1 编译为表格顶部按钮），已忽略`,
+        `按钮「${String(node.props.title ?? '')}」需放置在表格之后（编译为表格顶部按钮），已忽略`,
       );
+      return;
+    }
+    const targetKey = (targetNode && sectionKeyOf(targetNode)) ?? '';
+    const danger = node.props.btnStyle === 'danger' ? { danger: true } : {};
+    // 主动作非弹窗：发布为纯执行/刷新链
+    if (act && act.kind !== 'openModal') {
+      if (!targetKey) {
+        warnings.push(`按钮「${String(node.props.title ?? '')}」动作目标无效，已忽略`);
+        return;
+      }
+      const step = act.kind === 'runBinding' ? 'runBinding' : 'refreshNode';
+      lastTable.toolbarActions = [
+        ...(lastTable.toolbarActions ?? []),
+        {
+          label: String(node.props.title ?? '操作'),
+          targetSection: '',
+          chain: [{ kind: step, target: targetKey }, ...(extraChain ?? [])],
+          ...danger,
+        },
+      ];
+      return;
+    }
+    if (!targetKey) {
+      warnings.push(`按钮「${String(node.props.title ?? '')}」的弹窗目标无效，已忽略`);
       return;
     }
     const ta: CompiledAction = {
@@ -199,6 +239,7 @@ export function compileTree(tree: PageNode[]): CompileResult {
       targetSection: targetKey,
     };
     if (node.props.btnStyle === 'danger') ta.danger = true;
+    if (extraChain) ta.chain = extraChain;
     lastTable.toolbarActions = [...(lastTable.toolbarActions ?? []), ta];
   };
 
@@ -224,6 +265,7 @@ function findNode(nodes: PageNode[], id: string): PageNode | undefined {
 /** spec section 的宽松形态（回读自提案/发布 PageSpec）。 */
 export interface SpecSectionLike {
   key?: string;
+  group?: string;
   bindingId?: string;
   functionId?: string;
   view?: string;
@@ -263,6 +305,9 @@ export function decompileToTree(sections: SpecSectionLike[]): [PageNode[], strin
   // 第一遍：创建节点并登记映射
   const nodes: PageNode[] = [];
   const pendingDialogs: { sec: SpecSectionLike; modal: PageNode }[] = [];
+  const groupToModal = new Map<string, PageNode>();
+  const dialogGroupToModalId = new Map<string, string>();
+  const toolbarButtons: { tableId: string; actions: Array<Record<string, unknown>> }[] = [];
   for (const sec of sections) {
     const fid = String(sec.functionId ?? sec.bindingId ?? '');
     const key = String(sec.key ?? fid);
@@ -285,17 +330,23 @@ export function decompileToTree(sections: SpecSectionLike[]): [PageNode[], strin
     if (view === 'fnForm') fnProps.display = 'inline';
 
     if (sec.display === 'dialog') {
-      const form: PageNode = { id: nodeId('fnForm'), type: 'fnForm', props: fnProps };
-      const modal: PageNode = {
-        id: nodeId('modal'),
-        type: 'modal',
-        props: { title: titleOf(sec, fid), width: 'medium' },
-        children: [form],
-      };
+      const form: PageNode = { id: nodeId(view), type: view, props: fnProps };
+      const group = String(sec.group ?? key);
+      if (!groupToModal.has(group)) {
+        const modal: PageNode = {
+          id: nodeId('modal'),
+          type: 'modal',
+          props: { title: titleOf(sec, fid), width: 'medium' },
+          children: [form],
+        };
+        groupToModal.set(group, modal);
+        dialogGroupToModalId.set(group, modal.id);
+        nodes.push(modal);
+      } else {
+        groupToModal.get(group)!.children!.push(form);
+      }
       keyToNodeId.set(key, form.id);
-      dialogKeyToModalId.set(key, modal.id);
-      pendingDialogs.push({ sec, modal });
-      nodes.push(modal);
+      dialogKeyToModalId.set(key, groupToModal.get(group)!.id);
     } else {
       const node: PageNode = { id: nodeId(view), type: view, props: fnProps };
       keyToNodeId.set(key, node.id);
@@ -310,7 +361,7 @@ export function decompileToTree(sections: SpecSectionLike[]): [PageNode[], strin
       node.props.rowActions = ras
         .map((ra) => {
           const t = String(ra.targetSection ?? '');
-          const modalId = dialogKeyToModalId.get(t);
+          const modalId = dialogKeyToModalId.get(t) ?? dialogGroupToModalId.get(t);
           if (!modalId) {
             warnings.push(`行操作「${String(ra.label ?? '')}」的弹窗目标 ${t} 无法还原，已丢弃`);
             return null;
@@ -321,24 +372,8 @@ export function decompileToTree(sections: SpecSectionLike[]): [PageNode[], strin
       const tas =
         (node.props.toolbar as { actions?: Array<Record<string, unknown>> } | undefined)?.actions ??
         [];
-      if (tas.length) {
-        const buttons = tas
-          .map((ta) => {
-            const t = String(ta.targetSection ?? '');
-            const modalId = dialogKeyToModalId.get(t);
-            if (!modalId) return null;
-            return {
-              label: String(ta.label ?? ''),
-              targetSection: modalId,
-              danger: ta.danger === true,
-            };
-          })
-          .filter((x) => x !== null);
-        // 顶部按钮在编辑树中不存在独立节点（编译产物）——回读为表格备注，编辑后再编译会以表格属性为准
-        void buttons;
-        warnings.push('表格顶部按钮为编译产物，回读后请在行操作/按钮重新配置（原始配置已丢弃）');
-      }
       delete node.props.toolbar;
+      if (tas.length) toolbarButtons.push({ tableId: node.id, actions: tas });
     }
     if (node.type === 'fnForm' && node.props.display === 'inline') {
       void node;
@@ -369,6 +404,42 @@ export function decompileToTree(sections: SpecSectionLike[]): [PageNode[], strin
     i++;
   }
   void i;
+  // 顶部按钮还原为独立 button 节点（插到对应表格后——round-trip 等价）
+  for (const { tableId, actions } of toolbarButtons) {
+    let insertAt = nodes.findIndex((n) => n.id === tableId);
+    if (insertAt === -1) insertAt = nodes.length - 1;
+    for (const ta of actions) {
+      insertAt += 1;
+      const t = String(ta.targetSection ?? '');
+      const modalId = t ? (dialogGroupToModalId.get(t) ?? dialogKeyToModalId.get(t)) : undefined;
+      const label = String(ta.label ?? '操作');
+      const chain = Array.isArray(ta.chain)
+        ? (ta.chain as Array<{ kind: string; target: string }>).map((c) => ({
+            kind: c.kind === 'runBinding' ? 'runBinding' : 'refreshNode',
+            target: keyToNodeId.get(String(c.target)) ?? String(c.target),
+          }))
+        : undefined;
+      if (t && !modalId) {
+        warnings.push(`按钮「${label}」的弹窗目标 ${t} 无法还原，已丢弃`);
+        continue;
+      }
+      const btn: PageNode = {
+        id: nodeId('button'),
+        type: 'button',
+        props: {
+          title: label,
+          btnStyle: ta.danger === true ? 'danger' : 'default',
+          span: 6,
+          ...(modalId
+            ? { onClick: { kind: 'openModal', target: modalId, ...(chain ? { chain } : {}) } }
+            : chain
+              ? { onClick: { kind: chain[0].kind, target: chain[0].target, chain: chain.slice(1) } }
+              : {}),
+        },
+      };
+      nodes.splice(insertAt, 0, btn);
+    }
+  }
   return [nodes, warnings];
 }
 

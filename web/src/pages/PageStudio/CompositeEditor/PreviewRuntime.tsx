@@ -85,10 +85,14 @@ export default function PreviewRuntime({
       }
       if (act.kind === 'openModal') {
         setDialogId(act.target);
-      } else if (act.kind === 'runBinding') {
+      } else {
         void runRef.current(target);
-      } else if (act.kind === 'refreshNode') {
-        void runRef.current(target);
+      }
+      // 动作链：后续步骤按序执行
+      const chain = (raw as { chain?: Array<{ kind: string; target: string }> })?.chain ?? [];
+      for (const step of chain) {
+        const node = findIn(treeRef.current, step.target);
+        if (node) void runRef.current(node);
       }
     },
     [message],

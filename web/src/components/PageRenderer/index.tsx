@@ -158,7 +158,7 @@ export const CompositeRenderer: React.FC<{
     return (r as { data?: Record<string, unknown> } | null | undefined)?.data;
   };
 
-  /** 打开弹窗：行字段/静态参数映射进表单初始值（危险操作先确认）。 */
+  /** 打开弹窗：目标可以是区块 key 或弹窗分组名（Group）；危险操作先确认。 */
   const openDialog = useCallback(
     (targetSection: string, params: Record<string, unknown>, danger?: boolean, label?: string) => {
       setSectionInputs((prev) => ({ ...prev, [targetSection]: params }));
@@ -175,6 +175,16 @@ export const CompositeRenderer: React.FC<{
     [modal],
   );
 
+  /** 动作链执行：runBinding/refreshNode 按序触发。 */
+  const runChain = useCallback((chain: Array<{ kind: string; target: string }> | undefined) => {
+    for (const step of chain ?? []) {
+      const target = sectionsRef.current.find(
+        (x) => x.key === step.target || x.group === step.target,
+      );
+      if (target && step.kind !== 'openModal') void runSectionRef.current(target);
+    }
+  }, []);
+
   /** 行字段映射：params 目标参数名 → 本行字段名。 */
   const mapRowParams = (
     mapping: Record<string, string> | undefined,
@@ -189,6 +199,13 @@ export const CompositeRenderer: React.FC<{
 
   const inline = sections.filter((s) => s.display !== 'dialog');
   const dialogs = sections.filter((s) => s.display === 'dialog');
+  /** dialogKey 命中的弹窗分组（target 可为 group 名或区块 key）。 */
+  const groupOf = (sec: CompositeSection): string => sec.group ?? sec.key ?? sec.bindingId;
+  const activeDialogs = dialogKey
+    ? dialogs.filter(
+        (d) => groupOf(d) === dialogKey || d.key === dialogKey || d.bindingId === dialogKey,
+      )
+    : [];
 
   return (
     <>
@@ -230,15 +247,17 @@ export const CompositeRenderer: React.FC<{
                                     size="small"
                                     type="link"
                                     danger={ra.danger}
-                                    onClick={() =>
-                                      ra.targetSection &&
-                                      openDialog(
-                                        ra.targetSection,
-                                        mapRowParams(ra.params, row),
-                                        ra.danger,
-                                        localizedText(ra.label, 'zh-CN'),
-                                      )
-                                    }
+                                    onClick={() => {
+                                      if (ra.targetSection) {
+                                        openDialog(
+                                          ra.targetSection,
+                                          mapRowParams(ra.params, row),
+                                          ra.danger,
+                                          localizedText(ra.label, 'zh-CN'),
+                                        );
+                                      }
+                                      runChain(ra.chain);
+                                    }}
                                   >
                                     {localizedText(ra.label, 'zh-CN')}
                                   </Button>
@@ -274,15 +293,17 @@ export const CompositeRenderer: React.FC<{
                       key={i}
                       size="small"
                       danger={act.danger}
-                      onClick={() =>
-                        act.targetSection &&
-                        openDialog(
-                          act.targetSection,
-                          { ...(act.params || {}) },
-                          act.danger,
-                          localizedText(act.label, 'zh-CN'),
-                        )
-                      }
+                      onClick={() => {
+                        if (act.targetSection) {
+                          openDialog(
+                            act.targetSection,
+                            { ...(act.params || {}) },
+                            act.danger,
+                            localizedText(act.label, 'zh-CN'),
+                          );
+                        }
+                        runChain(act.chain);
+                      }}
                     >
                       {localizedText(act.label, 'zh-CN')}
                     </Button>
@@ -298,28 +319,62 @@ export const CompositeRenderer: React.FC<{
         ))}
       </Row>
 
-      {/* 弹窗形态区块：表单渲染，提交成功关窗 + 提示 */}
-      {dialogs.map((sec) => (
+      {/* 弹窗形态区块：按分组聚合渲染（一个弹窗多区块：表单提交 + 展示组件） */}
+      {dialogKey && activeDialogs.length > 0 && (
         <Modal
-          key={sec.key}
-          title={localizedText(sec.title, 'zh-CN', sec.key)}
-          open={dialogKey === sec.key}
+          title={localizedText(activeDialogs[0].title, 'zh-CN', dialogKey)}
+          open
           onCancel={() => setDialogKey(null)}
           footer={null}
           destroyOnHidden
         >
-          <DialogForm
-            section={sec}
-            running={running[sec.key] || false}
-            initialParams={sectionInputs[sec.key] || {}}
-            onSubmit={async (values) => {
-              await runSectionRef.current(sec, values);
-              setDialogKey(null);
-              message.success(`${localizedText(sec.title, 'zh-CN', sec.key)} 执行成功`);
-            }}
-          />
+          <Space direction="vertical" size={16} style={{ width: '100%' }}>
+            {activeDialogs.map((sec) =>
+              sec.view === 'form' ? (
+                <DialogForm
+                  key={sec.key}
+                  section={sec}
+                  running={running[sec.key] || false}
+                  initialParams={sectionInputs[dialogKey] || {}}
+                  onSubmit={async (values) => {
+                    await runSectionRef.current(sec, values);
+                    setDialogKey(null);
+                    message.success(`${localizedText(sec.title, 'zh-CN', sec.key)} 执行成功`);
+                  }}
+                />
+              ) : sec.view === 'fields' ? (
+                <Descriptions key={sec.key} size="small" column={1} bordered>
+                  {Object.entries(resultFor(sec) ?? {})
+                    .filter(([k]) => k !== 'items' && k !== 'total')
+                    .slice(0, 10)
+                    .map(([k, v]) => (
+                      <Descriptions.Item key={k} label={k}>
+                        {typeof v === 'object' ? JSON.stringify(v) : String(v ?? '-')}
+                      </Descriptions.Item>
+                    ))}
+                </Descriptions>
+              ) : sec.view === 'table' ? (
+                <Table
+                  key={sec.key}
+                  size="small"
+                  rowKey={(_, i) => String(i)}
+                  pagination={false}
+                  columns={(sec.table?.columns ?? []).map((c) => ({
+                    title: localizedText(c.title, 'zh-CN', c.key),
+                    dataIndex: c.key,
+                    ellipsis: true,
+                  }))}
+                  dataSource={
+                    Array.isArray(resultFor(sec)?.items)
+                      ? (resultFor(sec)?.items as Record<string, unknown>[])
+                      : []
+                  }
+                />
+              ) : null,
+            )}
+          </Space>
         </Modal>
-      ))}
+      )}
     </>
   );
 };

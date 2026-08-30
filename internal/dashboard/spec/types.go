@@ -545,6 +545,9 @@ type CompositeSection struct {
 	// Display 展示位置：inline（默认，栅格内）/ dialog（弹窗，不占
 	// 栅格，由行操作/工具栏按钮触发——「按钮 → 弹窗执行操作」组合）。
 	Display string `json:"display,omitempty"`
+	// Group 弹窗分组：display=dialog 且 Group 相同的区块渲染进同一弹窗
+	//（弹窗内可含表单+字段卡+文本等多组件）；动作目标指向 Group。
+	Group string `json:"group,omitempty"`
 	// Toolbar 视图参数（view=toolbar）：页面级按钮组，动作打开弹窗
 	// 或直接执行。
 	Toolbar *CompositeToolbarSpec `json:"toolbar,omitempty"`
@@ -575,7 +578,18 @@ type CompositeRowAction struct {
 	Params map[string]string `json:"params,omitempty"`
 	// Danger 危险操作样式 + 二次确认。
 	Danger bool `json:"danger,omitempty"`
+	// Chain 动作链：点击后按序执行的附加步骤（执行/刷新）。
+	Chain []CompositeActionStep `json:"chain,omitempty"`
 }
+
+// CompositeActionStep 动作链单步。
+type CompositeActionStep struct {
+	// Kind runBinding（执行区块）| refreshNode（刷新区块）。
+	Kind   string `json:"kind"`
+	Target string `json:"target"`
+}
+
+// CompositeToolbarSpec
 
 // CompositeToolbarSpec 工具栏按钮组（view=toolbar）。
 type CompositeToolbarSpec struct {
@@ -585,11 +599,13 @@ type CompositeToolbarSpec struct {
 // CompositeToolbarAction 工具栏按钮动作。
 type CompositeToolbarAction struct {
 	Label LocalizedText `json:"label"`
-	// TargetSection 弹窗形态区块 key（打开弹窗）。
+	// TargetSection 弹窗形态区块 key 或弹窗分组名（打开弹窗）。
 	TargetSection string `json:"targetSection,omitempty"`
 	// Params 静态参数（弹窗表单初始值）。
 	Params map[string]string `json:"params,omitempty"`
 	Danger bool              `json:"danger,omitempty"`
+	// Chain 动作链（同 RowAction.Chain）。
+	Chain []CompositeActionStep `json:"chain,omitempty"`
 }
 
 // PageCategorySpec groups pages into navigation categories.

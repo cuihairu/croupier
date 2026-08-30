@@ -369,6 +369,8 @@ export interface CompositeSection {
   refreshOn?: string[];
   /** inline（默认，栅格内）| dialog（弹窗，按钮/行操作触发）。 */
   display?: 'inline' | 'dialog';
+  /** 弹窗分组：同 group 的 dialog 区块渲染进同一弹窗；动作目标指向 group。 */
+  group?: string;
   /** 操作成功后自动重跑的区块 key 列表。 */
   onSuccessRefresh?: string[];
   table?: {
@@ -390,6 +392,8 @@ export interface CompositeRowAction {
   /** 目标表单参数名 → 本行字段名。 */
   params?: Record<string, string>;
   danger?: boolean;
+  /** 动作链：主动作后按序执行（runBinding/refreshNode）。 */
+  chain?: Array<{ kind: 'runBinding' | 'refreshNode'; target: string }>;
 }
 
 /** 工具栏按钮组。 */
@@ -399,6 +403,7 @@ export interface CompositeToolbarSpec {
     targetSection?: string;
     params?: Record<string, string>;
     danger?: boolean;
+    chain?: Array<{ kind: 'runBinding' | 'refreshNode'; target: string }>;
   }>;
 }
 

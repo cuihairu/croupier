@@ -4,9 +4,15 @@ import type { PageNode } from './model';
 export type ActionKind = 'openModal' | 'runBinding' | 'refreshNode';
 
 export type ActionSpec =
-  | { kind: 'openModal'; target: string }
-  | { kind: 'runBinding'; target: string }
-  | { kind: 'refreshNode'; target: string };
+  | { kind: 'openModal'; target: string; chain?: ActionStep[] }
+  | { kind: 'runBinding'; target: string; chain?: ActionStep[] }
+  | { kind: 'refreshNode'; target: string; chain?: ActionStep[] };
+
+/** 动作链后续步骤（仅 runBinding/refreshNode）。 */
+export type ActionStep = {
+  kind: 'runBinding' | 'refreshNode';
+  target: string;
+};
 
 export interface ActionDef {
   kind: ActionKind;

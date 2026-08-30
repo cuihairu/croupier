@@ -13,7 +13,9 @@ import (
 // 联动声明。函数契约决定 selector 骨架，视图参数可覆盖。
 type CompositeSectionInput struct {
 	// Key 区块唯一标识（同函数多实例区分；缺省=函数 id sanitize）。
-	Key        string
+	Key string
+	// Group 弹窗分组（dialog 区块渲染进同一弹窗）。
+	Group      string
 	FunctionID string
 	View       string // table|fields|form|actions|toolbar
 	Title      string
@@ -32,6 +34,7 @@ type CompositeRowActionInput struct {
 	TargetSection string
 	Params        map[string]string
 	Danger        bool
+	Chain         []spec.CompositeActionStep
 }
 
 // CompositeToolbarActionInput 工具栏按钮输入。
@@ -40,6 +43,7 @@ type CompositeToolbarActionInput struct {
 	TargetSection string
 	Params        map[string]string
 	Danger        bool
+	Chain         []spec.CompositeActionStep
 }
 
 // GenerateCompositePage 生成自由组合页：每区块绑定一个函数
@@ -102,6 +106,7 @@ func GenerateCompositePage(
 			AutoRun:          in.AutoRun,
 			RefreshOn:        in.RefreshOn,
 			Display:          in.Display,
+			Group:            in.Group,
 			OnSuccessRefresh: in.OnSuccess,
 		}
 		if len(in.Toolbar) > 0 {
@@ -111,6 +116,7 @@ func GenerateCompositePage(
 					Label:         spec.LocalizedText{locale: ta.Label},
 					TargetSection: ta.TargetSection,
 					Params:        ta.Params,
+					Chain:         ta.Chain,
 					Danger:        ta.Danger,
 				})
 			}
@@ -136,6 +142,7 @@ func GenerateCompositePage(
 					Label:         spec.LocalizedText{locale: ra.Label},
 					TargetSection: ra.TargetSection,
 					Params:        ra.Params,
+					Chain:         ra.Chain,
 					Danger:        ra.Danger,
 				})
 			}

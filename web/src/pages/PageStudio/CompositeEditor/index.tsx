@@ -63,6 +63,8 @@ export default function CompositeEditorPage() {
   const [past, setPast] = useState<PageNode[][]>([]);
   const [future, setFuture] = useState<PageNode[][]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  /** Shift 多选集合（批量删除）。 */
+  const [multiIds, setMultiIds] = useState<Set<string>>(new Set());
   const [pageKey, setPageKey] = useState('');
   const [keyTouched, setKeyTouched] = useState(false);
   const [mode, setMode] = useState<'edit' | 'preview'>('edit');
@@ -92,13 +94,35 @@ export default function CompositeEditorPage() {
   React.useEffect(() => {
     if (!loadKey || tree.length > 0) return;
     void (async () => {
-      const candidates = [`composite--${loadKey}`, loadKey];
-      for (const pk of candidates) {
-        try {
-          const resp = (await request(`/api/v1/proposals/${encodeURIComponent(pk)}`, {
+      const fetchers: Array<() => Promise<{ sections?: SpecSectionLike[] } | undefined>> = [
+        async () => {
+          const resp = (await request(
+            `/api/v1/proposals/${encodeURIComponent(`composite--${loadKey}`)}`,
+            {
+              skipErrorHandler: true,
+            },
+          )) as { pageSpec?: { composite?: { sections?: SpecSectionLike[] } } };
+          return resp?.pageSpec?.composite;
+        },
+        async () => {
+          const resp = (await request(`/api/v1/proposals/${encodeURIComponent(loadKey)}`, {
             skipErrorHandler: true,
           })) as { pageSpec?: { composite?: { sections?: SpecSectionLike[] } } };
-          const sections = resp?.pageSpec?.composite?.sections;
+          return resp?.pageSpec?.composite;
+        },
+        async () => {
+          // draft/已发布页（无提案时）：GET /versioning/pages/:pageKey
+          const resp = (await request(`/api/v1/versioning/pages/${encodeURIComponent(loadKey)}`, {
+            skipErrorHandler: true,
+          })) as Record<string, unknown>;
+          const spec = (resp?.pageSpec ?? resp?.spec ?? resp) as
+            { composite?: { sections?: SpecSectionLike[] } } | undefined;
+          return spec?.composite;
+        },
+      ];
+      for (const fetchSpec of fetchers) {
+        try {
+          const sections = (await fetchSpec())?.sections;
           if (!sections?.length) continue;
           const [nodes, warnings] = decompileToTree(sections);
           // 函数契约登记（fnById 供画布/属性面板）
@@ -109,10 +133,10 @@ export default function CompositeEditorPage() {
           message.success(`已载入页面 ${loadKey}（${sections.length} 个区块）`);
           return;
         } catch {
-          // 尝试下一个候选 key
+          // 尝试下一个数据源
         }
       }
-      message.warning(`未找到页面 ${loadKey} 的提案/发布 spec`);
+      message.warning(`未找到页面 ${loadKey} 的提案/草稿/发布 spec`);
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loadKey, fnReload]);
@@ -379,9 +403,13 @@ export default function CompositeEditorPage() {
           addChild(editingModalRef.current, node);
           return;
         }
-        // 落点=某节点之后（over.id 即节点 key，无前缀）；根=末尾
+        // 落点=容器节点 → 装入 children；其余=节点之后；根=末尾
         const after = overId === 'canvas-root' ? undefined : findNode(treeRef.current, overId);
-        setTree((prev) => (after ? insertAfter(prev, node, after.id) : [...prev, node]));
+        if (after?.type === 'container') {
+          addChild(after.id, node);
+        } else {
+          setTree((prev) => (after ? insertAfter(prev, node, after.id) : [...prev, node]));
+        }
         setSelectedId(node.id);
         return;
       }
@@ -465,6 +493,23 @@ export default function CompositeEditorPage() {
           >
             {preview ? '退出预览' : '预览'}
           </Button>,
+          multiIds.size > 1 && (
+            <Button
+              key="batch-del"
+              danger
+              onClick={() => {
+                setTree((prev) => {
+                  let next = prev;
+                  for (const id of multiIds) next = removeNode(next, id)[0];
+                  return next;
+                });
+                setMultiIds(new Set());
+                setSelectedId(null);
+              }}
+            >
+              删除所选（{multiIds.size}）
+            </Button>
+          ),
           <Button
             key="save"
             type="primary"
@@ -611,7 +656,15 @@ export default function CompositeEditorPage() {
                               modal={n}
                               selected={selectedId === n.id}
                               fnById={fnById.current}
-                              onSelect={() => setSelectedId(n.id)}
+                              onSelect={() => {
+                                setSelectedId(n.id);
+                                setMultiIds((prev) => {
+                                  const next = new Set(prev);
+                                  if (next.has(n.id)) next.delete(n.id);
+                                  else next.add(n.id);
+                                  return next;
+                                });
+                              }}
                               onEnterModal={() => setEditingModalId(n.id)}
                             />
                           </div>
@@ -623,9 +676,17 @@ export default function CompositeEditorPage() {
                                 ? fnById.current.get(String(n.props.functionId))
                                 : undefined
                             }
-                            selected={selectedId === n.id}
+                            selected={selectedId === n.id || multiIds.has(n.id)}
                             depth={0}
-                            onSelect={() => setSelectedId(n.id)}
+                            onSelect={() => {
+                              setSelectedId(n.id);
+                              setMultiIds((prev) => {
+                                const next = new Set(prev);
+                                if (next.has(n.id)) next.delete(n.id);
+                                else next.add(n.id);
+                                return next;
+                              });
+                            }}
                             onDelete={() => deleteNode(n.id)}
                             onDuplicate={() => duplicateNode(n.id)}
                             onSpanChange={(span: number) => patchSpan(n.id, span)}
@@ -639,6 +700,22 @@ export default function CompositeEditorPage() {
                             }
                             onMoveUp={() => moveWithin(canvasNodes, n.id, -1)}
                             onMoveDown={() => moveWithin(canvasNodes, n.id, 1)}
+                            selectedChildId={selectedId}
+                            onChildSelect={(id) => setSelectedId(id)}
+                            onChildDelete={(id) => deleteNode(id)}
+                            onChildMove={(id, dir) => {
+                              const container = findNode(tree, n.id);
+                              const kids = container?.children ?? [];
+                              const idx = kids.findIndex((k) => k.id === id);
+                              if (idx === -1) return;
+                              setTree((prev) =>
+                                prev.map((x) =>
+                                  x.id === n.id
+                                    ? { ...x, children: moveNode(kids, id, idx + dir) }
+                                    : x,
+                                ),
+                              );
+                            }}
                             dragHandleProps={dragHandleProps}
                             canvasWidthRef={canvasRef}
                           />

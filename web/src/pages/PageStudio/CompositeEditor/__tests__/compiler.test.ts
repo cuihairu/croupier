@@ -61,9 +61,12 @@ describe('compileTree（树→CompositeSection，防回归快照）', () => {
     const { sections, warnings } = compileTree([table, modal]);
     expect(warnings).toEqual([]);
     expect(sections).toHaveLength(2);
-    expect(sections[0].rowActions).toEqual([
-      { label: '发邮件', targetSection: 'mail.send', params: { player_id: 'uid' } },
-    ]);
+    expect(sections[0].rowActions).toHaveLength(1);
+    expect(sections[0].rowActions![0]).toMatchObject({
+      label: '发邮件',
+      params: { player_id: 'uid' },
+    });
+    expect(sections[0].rowActions![0].targetSection).toMatch(/^modal-/);
     expect(sections[1]).toMatchObject({
       functionId: 'mail.send',
       display: 'dialog',
@@ -86,9 +89,9 @@ describe('compileTree（树→CompositeSection，防回归快照）', () => {
     });
     const { sections, warnings } = compileTree([table, button, modal]);
     expect(warnings).toEqual([]);
-    expect(sections[0].toolbarActions).toEqual([
-      { label: '批量补偿', targetSection: 'order.compensate', danger: true },
-    ]);
+    expect(sections[0].toolbarActions).toHaveLength(1);
+    expect(sections[0].toolbarActions![0]).toMatchObject({ label: '批量补偿', danger: true });
+    expect(sections[0].toolbarActions![0].targetSection).toMatch(/^modal-/);
   });
 
   it('降级与警告：text 忽略 / 无表格按钮 / 空弹窗 / 动作缺失 / 重复函数', () => {
@@ -104,7 +107,7 @@ describe('compileTree（树→CompositeSection，防回归快照）', () => {
     expect(sections).toHaveLength(2);
     expect(new Set(sections.map((x) => x.key))).toEqual(new Set(['a.fn', 'a.fn-2']));
     expect(warnings.some((w) => w.includes('文本'))).toBe(true);
-    expect(warnings.some((w) => w.includes('弹窗') && w.includes('没有函数表单'))).toBe(true);
+    expect(warnings.some((w) => w.includes('为空'))).toBe(true);
     expect(warnings.some((w) => w.includes('弹窗目标无效'))).toBe(true);
     expect(warnings.some((w) => w.includes('没有配置动作'))).toBe(true);
   });
@@ -142,9 +145,8 @@ describe('compileTree 多实例（同函数多组件）', () => {
     const { sections, warnings } = compileTree([t1, t2, modal]);
     expect(warnings).toEqual([]);
     expect(sections.map((x) => x.key)).toEqual(['player.list', 'player.list-2', 'mail.send']);
-    expect(sections[0].rowActions).toEqual([
-      { label: '操作', targetSection: 'mail.send', params: {} },
-    ]);
+    expect(sections[0].rowActions).toHaveLength(1);
+    expect(sections[0].rowActions![0].targetSection).toMatch(/^modal-/);
     expect(sections[2].onSuccessRefresh).toEqual(['player.list-2']);
   });
 });

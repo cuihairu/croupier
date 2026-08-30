@@ -21,6 +21,7 @@ describe('decompileToTree（回读编辑：spec→树）', () => {
     },
     {
       key: 'mail.send',
+      group: 'modal-abc123',
       functionId: 'mail.send',
       view: 'form',
       title: { 'zh-CN': '发邮件' },
@@ -50,7 +51,7 @@ describe('decompileToTree（回读编辑：spec→树）', () => {
       targetSection: string;
       params: Record<string, string>;
     }>;
-    expect(ras[0].targetSection).toBe(modal!.id);
+    expect(ras[0].targetSection).toBe(modal!.id); // group → modal 节点 id
     expect(ras[0].params).toEqual({ playerId: 'uid' });
     // 成功刷新指向表格节点 id
     expect(modal!.children![0].props.onSuccessRefresh).toEqual({
@@ -67,9 +68,9 @@ describe('decompileToTree（回读编辑：spec→树）', () => {
     expect(warnings).toEqual([]);
     const t = sections.find((x) => x.key === 'player.list')!;
     const f = sections.find((x) => x.key === 'mail.send')!;
-    expect(t.rowActions).toEqual([
-      { label: '发邮件', targetSection: 'mail.send', params: { playerId: 'uid' } },
-    ]);
+    expect(t.rowActions).toHaveLength(1);
+    expect(t.rowActions![0]).toMatchObject({ label: '发邮件', params: { playerId: 'uid' } });
+    expect(t.rowActions![0].targetSection).toMatch(/^modal-/);
     expect(f.display).toBe('dialog');
     expect(f.onSuccessRefresh).toEqual(['player.list']);
   });
