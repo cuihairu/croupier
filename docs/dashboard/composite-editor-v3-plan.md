@@ -69,7 +69,7 @@ type ActionSpec =
 - 验收：`pnpm --dir web test` 新增 model.test.ts 用例（插/删/移/查/复制含子树）全绿
 - 依赖：无 ｜ 预估：0.25d
 
-### T0.3 ComponentRegistry 接口与骨架
+### ✅ T0.3 ComponentRegistry 接口与骨架
 
 - 文件：`web/src/pages/PageStudio/CompositeEditor/registry.tsx`（新）
 - 改动：组件定义接口 `ComponentDef { type; name; icon; category; allowedParents?; allowedChildren?; propSchema: JSONSchema; scaffold(fn?): PageNode['props']; Preview: React.FC }` + 空注册表 `registerComponent`/`getComponent`
