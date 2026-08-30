@@ -1,65 +1,37 @@
-import React, { useCallback, useState } from 'react';
-import { Button, Input, Space, Table, Typography, message } from 'antd';
+import React, { useState } from 'react';
+import { Button, Input, Space, Typography, message } from 'antd';
 import { CaretDownOutlined, CaretRightOutlined, PlayCircleOutlined } from '@ant-design/icons';
-import { invokeFunction } from '@/services/api/functions';
-import { extractErrorMessage } from '@/utils/errors';
 import { sectionParams, type SectionDraft } from './types';
 import type { FunctionDescriptor } from '@/services/api/functions';
 
 const { Text } = Typography;
 
-type JSONRecord = Record<string, unknown>;
-
-/** 试跑：按 inputSchema 生成参数表单，真实调用函数，展示结果。 */
+/**
+ * 试跑：编辑态下按 inputSchema 生成参数表单执行选中区块。
+ * 结果不在此展示——直接渲染进画布对应区块（真实数据所见即所得）。
+ */
 export default function TryRunPanel({
   section,
   fn,
+  onExecute,
+  running,
 }: {
   section: SectionDraft | undefined;
   fn: FunctionDescriptor | undefined;
+  onExecute: (params: Record<string, unknown>) => void;
+  running: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [values, setValues] = useState<Record<string, string>>({});
-  const [running, setRunning] = useState(false);
-  const [result, setResult] = useState<JSONRecord | null>(null);
-  const [error, setError] = useState('');
-
   const params = sectionParams(fn);
-
-  const run = useCallback(async () => {
-    if (!section) return;
-    setRunning(true);
-    setError('');
-    setResult(null);
-    try {
-      const payload: JSONRecord = {};
-      for (const [k, raw] of Object.entries(values)) {
-        if (raw === '') continue;
-        try {
-          payload[k] = JSON.parse(raw) as unknown;
-        } catch {
-          payload[k] = raw;
-        }
-      }
-      const resp = await invokeFunction(section.functionId, payload as never);
-      setResult((resp as unknown as JSONRecord) ?? {});
-    } catch (err) {
-      setError(extractErrorMessage(err, '调用失败'));
-    } finally {
-      setRunning(false);
-    }
-  }, [section, values]);
 
   if (!section) {
     return open ? (
-      <div style={{ padding: '8px 16px', borderTop: '1px solid #f0f0f0' }}>
+      <div style={{ padding: '8px 16px', borderTop: '1px solid #f0f0f0', background: '#fff' }}>
         <Text type="secondary">点击画布区块后可试跑</Text>
       </div>
     ) : null;
   }
-
-  const data = (result?.data ?? result) as JSONRecord | undefined;
-  const items = Array.isArray(data?.items) ? (data!.items as JSONRecord[]) : undefined;
 
   return (
     <div style={{ borderTop: '1px solid #f0f0f0', background: '#fff' }}>
@@ -78,7 +50,7 @@ export default function TryRunPanel({
           试跑：{section.title || section.functionId}
         </Text>
         <Text type="secondary" style={{ fontSize: 11 }}>
-          真实调用函数，验证参数与输出
+          真实调用函数，结果显示在画布区块中
         </Text>
       </div>
       {open && (
@@ -89,7 +61,7 @@ export default function TryRunPanel({
                 <Input
                   key={p.name}
                   size="small"
-                  style={{ width: 180 }}
+                  style={{ width: 190 }}
                   addonBefore={
                     <span style={{ fontSize: 11 }}>
                       {p.name}
@@ -114,48 +86,20 @@ export default function TryRunPanel({
                 message.warning('有必填参数未填');
                 return;
               }
-              void run();
+              const payload: Record<string, unknown> = {};
+              for (const [k, raw] of Object.entries(values)) {
+                if (raw === '') continue;
+                try {
+                  payload[k] = JSON.parse(raw) as unknown;
+                } catch {
+                  payload[k] = raw;
+                }
+              }
+              onExecute(payload);
             }}
           >
             执行
           </Button>
-
-          {error && <div style={{ marginTop: 8, color: '#ff4d4f', fontSize: 12 }}>{error}</div>}
-
-          {items && items.length > 0 && (
-            <Table<JSONRecord>
-              size="small"
-              style={{ marginTop: 8 }}
-              rowKey={(_, i) => String(i)}
-              pagination={{ pageSize: 5, size: 'small' }}
-              dataSource={items}
-              columns={Object.keys(items[0])
-                .slice(0, 8)
-                .map((k) => ({
-                  title: k,
-                  key: k,
-                  render: (_: unknown, row: JSONRecord) => (
-                    <Text style={{ fontSize: 12 }}>{String(row[k] ?? '')}</Text>
-                  ),
-                }))}
-            />
-          )}
-
-          {data && !items && (
-            <pre
-              style={{
-                marginTop: 8,
-                background: '#fafafa',
-                padding: 8,
-                borderRadius: 4,
-                fontSize: 12,
-                maxHeight: 200,
-                overflow: 'auto',
-              }}
-            >
-              {JSON.stringify(data, null, 2)}
-            </pre>
-          )}
         </div>
       )}
     </div>
