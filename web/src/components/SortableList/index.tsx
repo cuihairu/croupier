@@ -50,9 +50,6 @@ export function SortableItem({ id, children }: SortableItemProps) {
     transform: CSS.Transform.toString(transform),
     transition,
     opacity: isDragging ? 0.5 : 1,
-    // display:contents 让此包装 div 不参与布局——Col 的栅格依赖
-    // Row>Col 的 flex 结构，普通 block div 会打断栅格（全宽堆叠 bug）
-    display: 'contents',
   };
 
   const dragHandleProps: React.HTMLAttributes<HTMLElement> = {
