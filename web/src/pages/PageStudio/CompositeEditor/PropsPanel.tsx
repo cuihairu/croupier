@@ -22,6 +22,7 @@ export default function PropsPanel({
   fnById,
   onPatch,
   onDelete,
+  onCreateModal,
 }: {
   node: PageNode | undefined;
   nodes: PageNode[];
@@ -29,6 +30,8 @@ export default function PropsPanel({
   fnById: Map<string, FunctionDescriptor>;
   onPatch: (patch: Record<string, unknown>) => void;
   onDelete: () => void;
+  /** 无弹窗时按钮动作内联创建（建弹窗+装表单+绑定）。 */
+  onCreateModal?: (fn: FunctionDescriptor) => void;
 }) {
   const def = node ? getComponent(node.type) : undefined;
   const [activeTab, setActiveTab] = useState<string>('config');
@@ -162,7 +165,9 @@ export default function PropsPanel({
                             <ActionEditor
                               value={node.props[key]}
                               nodes={nodes}
+                              allFns={allFns}
                               allowedKinds={kinds}
+                              onCreateModal={onCreateModal}
                               onChange={(v: ActionSpec | null) =>
                                 onPatch({ [key]: v ?? undefined })
                               }

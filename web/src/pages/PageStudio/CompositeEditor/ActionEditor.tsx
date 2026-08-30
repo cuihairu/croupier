@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Button, Select, Space, Typography } from 'antd';
-import { CloseOutlined } from '@ant-design/icons';
+import { CloseOutlined, PlusOutlined } from '@ant-design/icons';
 import {
   ACTIONS,
   nodeSummary,
@@ -10,6 +10,7 @@ import {
   type ActionStep,
 } from './actions';
 import type { PageNode } from './model';
+import type { FunctionDescriptor } from '@/services/api/functions';
 
 const { Text } = Typography;
 
@@ -19,17 +20,24 @@ export default function ActionEditor({
   value,
   nodes,
   allowedKinds,
+  allFns,
+  onCreateModal,
   onChange,
 }: {
   value: unknown;
   nodes: PageNode[];
   allowedKinds?: ActionKind[];
+  allFns?: FunctionDescriptor[];
+  /** 内联创建弹窗（无可用弹窗时一步完成：建弹窗+装表单+绑定本按钮）。 */
+  onCreateModal?: (fn: FunctionDescriptor) => void;
   onChange: (v: ActionSpec | null) => void;
 }) {
+  const [newFnId, setNewFnId] = useState<string | undefined>();
   const action = parseAction(value);
   const kinds = allowedKinds ?? (Object.keys(ACTIONS) as ActionKind[]);
 
   const targets = action ? ACTIONS[action.kind].targetFilter(nodes) : [];
+  const needModal = action?.kind === 'openModal' && targets.length === 0;
 
   return (
     <Space direction="vertical" size={6} style={{ width: '100%' }}>
@@ -46,7 +54,7 @@ export default function ActionEditor({
         allowClear
         onClear={() => onChange(null)}
       />
-      {action && (
+      {action && !needModal && (
         <Space.Compact style={{ width: '100%' }}>
           <Select
             size="small"
@@ -59,6 +67,50 @@ export default function ActionEditor({
           />
           <Button size="small" icon={<CloseOutlined />} onClick={() => onChange(null)} />
         </Space.Compact>
+      )}
+      {needModal && (
+        <div
+          style={{
+            border: '1px dashed #b37feb',
+            borderRadius: 6,
+            padding: 8,
+            background: '#faf5ff',
+          }}
+        >
+          <Text strong style={{ fontSize: 12, display: 'block', marginBottom: 6 }}>
+            页面上还没有弹窗——选一个操作函数，一步创建并绑定：
+          </Text>
+          <Space.Compact style={{ width: '100%' }}>
+            <Select
+              size="small"
+              style={{ width: '100%' }}
+              showSearch
+              optionFilterProp="label"
+              placeholder="选操作函数（如 mail.send）"
+              value={newFnId}
+              onChange={setNewFnId}
+              options={(allFns ?? []).map((f) => ({
+                value: f.id,
+                label: f.summary?.['zh-CN'] ? `${f.id}（${f.summary['zh-CN']}）` : f.id,
+              }))}
+            />
+            <Button
+              size="small"
+              type="primary"
+              icon={<PlusOutlined />}
+              disabled={!newFnId || !allFns?.some((f) => f.id === newFnId)}
+              onClick={() => {
+                const fn = allFns?.find((f) => f.id === newFnId);
+                if (fn) onCreateModal?.(fn);
+              }}
+            >
+              创建弹窗并绑定
+            </Button>
+          </Space.Compact>
+          <Text type="secondary" style={{ fontSize: 11 }}>
+            自动完成：新建弹窗 → 装入该函数表单 → 绑定到本按钮
+          </Text>
+        </div>
       )}
       {action && !targets.some((t) => t.id === action.target) && (
         <Text type="danger" style={{ fontSize: 11 }}>

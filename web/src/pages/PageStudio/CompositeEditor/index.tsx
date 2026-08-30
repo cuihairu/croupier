@@ -455,6 +455,31 @@ export default function CompositeEditorPage() {
     [setTree],
   );
 
+  /** 按钮动作内联创建弹窗：建 modal（装入 fn 表单）→ 绑定当前按钮 onClick。 */
+  const createModalForButton = useCallback(
+    (fn: FunctionDescriptor) => {
+      if (!selectedId) return;
+      registerFn(fn);
+      const form: PageNode = {
+        id: nodeId('fnForm'),
+        type: 'fnForm',
+        props: scaffoldProps('fnForm', fn),
+      };
+      const modal: PageNode = {
+        id: nodeId('modal'),
+        type: 'modal',
+        props: { title: fn.summary?.['zh-CN'] || fn.id, width: 'medium' },
+        children: [form],
+      };
+      setTree((prev) => [...prev, modal]);
+      setTree((prev) =>
+        updateProps(prev, selectedId, { onClick: { kind: 'openModal', target: modal.id } }),
+      );
+      message.success(`弹窗已创建并绑定（${fn.id}）——可双击弹窗卡片编辑内部`);
+    },
+    [selectedId, registerFn, message, setTree],
+  );
+
   const deleteNode = useCallback((id: string) => {
     setTree((prev) => removeNode(prev, id)[0]);
     setSelectedId((cur) => (cur === id ? null : cur));
@@ -737,6 +762,7 @@ export default function CompositeEditorPage() {
                 allFns={allFns}
                 fnById={fnById.current}
                 onPatch={patchProps}
+                onCreateModal={createModalForButton}
                 onDelete={() => selected && deleteNode(selected.id)}
               />
             </Col>
