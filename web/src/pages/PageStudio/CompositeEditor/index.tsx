@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useMemo, useRef, useState, type SetStateAction } from 'react';
 import { App, Button, Card, Col, Empty, Input, Row, Space, Tabs, Tag, Typography } from 'antd';
 import { ArrowLeftOutlined, EyeOutlined, SaveOutlined } from '@ant-design/icons';
 import { history, request, useSearchParams } from '@umijs/max';
@@ -58,7 +58,10 @@ function scaffoldProps(type: PageNode['type'], fn?: FunctionDescriptor): Record<
  */
 export default function CompositeEditorPage() {
   const { message, modal } = App.useApp();
-  const [tree, setTree] = useState<PageNode[]>([]);
+  const [tree, setTreeState] = useState<PageNode[]>([]);
+  // 撤销/重做历史（快照栈，最多 50 步）
+  const [past, setPast] = useState<PageNode[][]>([]);
+  const [future, setFuture] = useState<PageNode[][]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [pageKey, setPageKey] = useState('');
   const [keyTouched, setKeyTouched] = useState(false);
@@ -252,6 +255,51 @@ export default function CompositeEditorPage() {
   const editingModalRef = useRef<string | null>(null);
   editingModalRef.current = editingModalId;
 
+  /** history-aware setTree：所有树变更统一入口（撤销/重做安全网）。
+   * 函数式 action 基于 treeRef 求值（避免 setState updater 内副作用
+   * 在 StrictMode 双调用下重复入栈）。 */
+  const setTree = useCallback((action: SetStateAction<PageNode[]>) => {
+    const next =
+      typeof action === 'function'
+        ? (action as (prev: PageNode[]) => PageNode[])(treeRef.current)
+        : action;
+    if (next === treeRef.current) return;
+    setPast((p) => [...p.slice(-49), treeRef.current]);
+    setFuture(() => []);
+    setTreeState(next);
+    treeRef.current = next;
+  }, []);
+
+  const undo = useCallback(() => {
+    if (past.length === 0) return;
+    const prev = past[past.length - 1];
+    setPast((p) => p.slice(0, -1));
+    setFuture((f) => [treeRef.current, ...f]);
+    setTreeState(prev);
+    treeRef.current = prev;
+  }, [past.length, past]);
+
+  const redo = useCallback(() => {
+    if (future.length === 0) return;
+    const next = future[0];
+    setFuture((f) => f.slice(1));
+    setPast((p) => [...p, treeRef.current]);
+    setTreeState(next);
+    treeRef.current = next;
+  }, [future.length, future]);
+
+  // 快捷键：Ctrl/Cmd+Z 撤销、Ctrl/Cmd+Shift+Z / Ctrl+Y 重做
+  React.useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (!(e.ctrlKey || e.metaKey) || e.key.toLowerCase() !== 'z') return;
+      e.preventDefault();
+      if (e.shiftKey) redo();
+      else undo();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [undo, redo]);
+
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
@@ -369,6 +417,16 @@ export default function CompositeEditorPage() {
     setTree((prev) => updateProps(prev, id, { span }));
   }, []);
 
+  /** 当前画布列表内上移/下移（右键菜单）。 */
+  const moveWithin = useCallback(
+    (list: PageNode[], id: string, dir: -1 | 1) => {
+      const idx = list.findIndex((n) => n.id === id);
+      if (idx === -1) return;
+      setTree(() => moveNode(list, id, idx + dir));
+    },
+    [setTree],
+  );
+
   const deleteNode = useCallback((id: string) => {
     setTree((prev) => removeNode(prev, id)[0]);
     setSelectedId((cur) => (cur === id ? null : cur));
@@ -383,6 +441,22 @@ export default function CompositeEditorPage() {
         onBack: () => history.push('/functions/pages'),
         backIcon: <ArrowLeftOutlined />,
         extra: [
+          <Button
+            key="undo"
+            disabled={preview || past.length === 0}
+            onClick={undo}
+            title="撤销 (Ctrl+Z)"
+          >
+            ↩
+          </Button>,
+          <Button
+            key="redo"
+            disabled={preview || future.length === 0}
+            onClick={redo}
+            title="重做 (Ctrl+Shift+Z)"
+          >
+            ↪
+          </Button>,
           <Button
             key="mode"
             type={preview ? 'primary' : 'default'}
@@ -555,6 +629,16 @@ export default function CompositeEditorPage() {
                             onDelete={() => deleteNode(n.id)}
                             onDuplicate={() => duplicateNode(n.id)}
                             onSpanChange={(span: number) => patchSpan(n.id, span)}
+                            onSelectParent={
+                              editingModal
+                                ? () => {
+                                    setEditingModalId(null);
+                                    setSelectedId(editingModal.id);
+                                  }
+                                : undefined
+                            }
+                            onMoveUp={() => moveWithin(canvasNodes, n.id, -1)}
+                            onMoveDown={() => moveWithin(canvasNodes, n.id, 1)}
                             dragHandleProps={dragHandleProps}
                             canvasWidthRef={canvasRef}
                           />

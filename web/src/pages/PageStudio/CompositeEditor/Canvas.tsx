@@ -1,5 +1,5 @@
 import React, { useCallback, useRef } from 'react';
-import { Badge, Button, Card, Col, Empty, Row, Space, Tag, Typography } from 'antd';
+import { Badge, Button, Card, Col, Dropdown, Empty, Row, Space, Tag, Typography } from 'antd';
 import { CopyOutlined, DeleteOutlined, DragOutlined } from '@ant-design/icons';
 import type { FunctionDescriptor } from '@/services/api/functions';
 import { useDroppable } from '@dnd-kit/core';
@@ -23,6 +23,11 @@ export interface CanvasNodeProps {
   onDelete: () => void;
   onDuplicate: () => void;
   onSpanChange: (span: number) => void;
+  /** 选择父容器（嵌套向上导航）。 */
+  onSelectParent?: () => void;
+  /** 上移/下移（右键菜单）。 */
+  onMoveUp?: () => void;
+  onMoveDown?: () => void;
   dragHandleProps: React.HTMLAttributes<HTMLElement>;
   canvasWidthRef: React.RefObject<HTMLDivElement | null>;
 }
@@ -37,6 +42,9 @@ export const CanvasNode: React.FC<CanvasNodeProps> = ({
   onDelete,
   onDuplicate,
   onSpanChange,
+  onSelectParent,
+  onMoveUp,
+  onMoveDown,
   dragHandleProps,
   canvasWidthRef,
 }) => {
@@ -71,88 +79,147 @@ export const CanvasNode: React.FC<CanvasNodeProps> = ({
   if (!Comp) return null;
 
   return (
-    <div onClick={onSelect} style={{ cursor: 'pointer', position: 'relative' }}>
-      <Card
-        size="small"
-        style={{
-          borderColor: selected ? '#1677ff' : undefined,
-          boxShadow: selected ? '0 0 0 2px rgba(22,119,255,0.15)' : undefined,
-          height: '100%',
-        }}
-        title={
-          <Space size={6}>
-            <span
-              {...dragHandleProps}
-              onClick={(e) => e.stopPropagation()}
-              style={{ cursor: 'grab', touchAction: 'none' }}
-            >
-              <DragOutlined style={{ color: selected ? '#1677ff' : '#999' }} />
-            </span>
-            {def?.icon}
-            <Text strong style={{ fontSize: 13 }}>
-              {String(node.props.title ?? node.props.content ?? def?.name ?? node.type)}
+    <Dropdown
+      trigger={['contextMenu']}
+      menu={{
+        items: [
+          {
+            key: 'up',
+            label: '上移',
+            onClick: ({ domEvent }) => {
+              domEvent.stopPropagation();
+              onMoveUp?.();
+            },
+            disabled: !onMoveUp,
+          },
+          {
+            key: 'down',
+            label: '下移',
+            onClick: ({ domEvent }) => {
+              domEvent.stopPropagation();
+              onMoveDown?.();
+            },
+            disabled: !onMoveDown,
+          },
+          {
+            key: 'parent',
+            label: '选择父容器',
+            onClick: ({ domEvent }) => {
+              domEvent.stopPropagation();
+              onSelectParent?.();
+            },
+            disabled: !onSelectParent,
+          },
+          { type: 'divider' as const },
+          {
+            key: 'dup',
+            label: '复制',
+            onClick: ({ domEvent }) => {
+              domEvent.stopPropagation();
+              onDuplicate();
+            },
+          },
+          {
+            key: 'del',
+            label: '删除',
+            danger: true,
+            onClick: ({ domEvent }) => {
+              domEvent.stopPropagation();
+              onDelete();
+            },
+          },
+        ],
+      }}
+    >
+      <div onClick={onSelect} style={{ cursor: 'pointer', position: 'relative' }}>
+        <Card
+          size="small"
+          style={{
+            borderColor: selected ? '#1677ff' : undefined,
+            boxShadow: selected ? '0 0 0 2px rgba(22,119,255,0.15)' : undefined,
+            height: '100%',
+          }}
+          title={
+            <Space size={6}>
+              <span
+                {...dragHandleProps}
+                onClick={(e) => e.stopPropagation()}
+                style={{ cursor: 'grab', touchAction: 'none' }}
+              >
+                <DragOutlined style={{ color: selected ? '#1677ff' : '#999' }} />
+              </span>
+              {def?.icon}
+              <Text strong style={{ fontSize: 13 }}>
+                {String(node.props.title ?? node.props.content ?? def?.name ?? node.type)}
+              </Text>
+            </Space>
+          }
+          extra={
+            <Space size={2} onClick={(e) => e.stopPropagation()}>
+              {node.props.autoRun === true && (
+                <Tag color="green" style={{ marginRight: 0 }}>
+                  自动
+                </Tag>
+              )}
+              {node.type === 'fnForm' && node.props.display === 'dialog' && (
+                <Tag color="purple" style={{ marginRight: 0 }}>
+                  弹窗
+                </Tag>
+              )}
+              <Button size="small" type="text" icon={<CopyOutlined />} onClick={onDuplicate} />
+              <Button
+                size="small"
+                type="text"
+                danger
+                icon={<DeleteOutlined />}
+                onClick={onDelete}
+              />
+            </Space>
+          }
+        >
+          <Comp node={node} fn={fn} />
+          {node.children && node.children.length > 0 && (
+            <Row gutter={[8, 8]} style={{ marginTop: 8 }}>
+              {node.children.map((c) => {
+                const cdef = getComponent(c.type);
+                if (!cdef) return null;
+                return (
+                  <Col key={c.id} span={spanOf(c)}>
+                    <div
+                      onClick={(e) => {
+                        e.stopPropagation();
+                      }}
+                      style={{ border: '1px dashed #d9d9d9', borderRadius: 6, padding: 6 }}
+                    >
+                      <cdef.Preview node={c} fn={undefined} />
+                    </div>
+                  </Col>
+                );
+              })}
+            </Row>
+          )}
+          {depth === 0 && node.type !== 'modal' && node.type !== 'text' && (
+            <Text type="secondary" style={{ fontSize: 10 }}>
+              拖手柄排序 · 拖右缘调宽 · 点击配置
             </Text>
-          </Space>
-        }
-        extra={
-          <Space size={2} onClick={(e) => e.stopPropagation()}>
-            {node.props.autoRun === true && (
-              <Tag color="green" style={{ marginRight: 0 }}>
-                自动
-              </Tag>
-            )}
-            {node.type === 'fnForm' && node.props.display === 'dialog' && (
-              <Tag color="purple" style={{ marginRight: 0 }}>
-                弹窗
-              </Tag>
-            )}
-            <Button size="small" type="text" icon={<CopyOutlined />} onClick={onDuplicate} />
-            <Button size="small" type="text" danger icon={<DeleteOutlined />} onClick={onDelete} />
-          </Space>
-        }
-      >
-        <Comp node={node} fn={fn} />
-        {node.children && node.children.length > 0 && (
-          <Row gutter={[8, 8]} style={{ marginTop: 8 }}>
-            {node.children.map((c) => {
-              const cdef = getComponent(c.type);
-              if (!cdef) return null;
-              return (
-                <Col key={c.id} span={spanOf(c)}>
-                  <div
-                    onClick={(e) => {
-                      e.stopPropagation();
-                    }}
-                    style={{ border: '1px dashed #d9d9d9', borderRadius: 6, padding: 6 }}
-                  >
-                    <cdef.Preview node={c} fn={undefined} />
-                  </div>
-                </Col>
-              );
-            })}
-          </Row>
-        )}
-        {depth === 0 && node.type !== 'modal' && node.type !== 'text' && (
-          <Text type="secondary" style={{ fontSize: 10 }}>
-            拖手柄排序 · 拖右缘调宽 · 点击配置
-          </Text>
-        )}
-      </Card>
-      {/* 右缘宽度手柄 */}
-      <div
-        onPointerDown={onResizeDown}
-        onClick={(e) => e.stopPropagation()}
-        style={{
-          position: 'absolute',
-          top: 0,
-          right: -5,
-          width: 8,
-          height: '100%',
-          cursor: 'col-resize',
-          zIndex: 2,
-        }}
-      />
-    </div>
+          )}
+        </Card>
+        {/* 右缘宽度手柄 */}
+        <div
+          onPointerDown={onResizeDown}
+          onClick={(e) => e.stopPropagation()}
+          style={{
+            position: 'absolute',
+            top: 0,
+            right: -5,
+            width: 8,
+            height: '100%',
+            cursor: 'col-resize',
+            zIndex: 2,
+          }}
+        />
+      </div>
+    </Dropdown>
   );
 };
 
