@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import { useDraggable } from '@dnd-kit/core';
 import { Empty, Input, Space, Typography } from 'antd';
 import { SearchOutlined } from '@ant-design/icons';
@@ -255,8 +255,11 @@ function PanelDraggable({
   compact?: boolean;
   onClick: () => void;
 }) {
+  // id 必须稳定：isDragging 触发重渲染时若 id 变化（此前 Math.random()），
+  // dnd-kit 的 active 项失效 → onDragEnd 拿不到 data → 拖入画布静默失败（线上实测）。
+  const idRef = useRef(`panel:${label}:${Math.random().toString(36).slice(2, 7)}`);
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
-    id: `panel:${label}:${Math.random().toString(36).slice(2, 7)}`,
+    id: idRef.current,
     data,
   });
   return (
