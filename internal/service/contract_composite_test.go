@@ -88,3 +88,35 @@ func TestCreateCompositeProposal_ScopedCtxRepro(t *testing.T) {
 		t.Fatalf("proposal = %+v", proposal)
 	}
 }
+
+// TestConvChainAndEvents V3.2：请求动作链/事件绑定 → generator 输入透传。
+func TestConvChainAndEvents(t *testing.T) {
+	chain := convChain([]ActionStepReq{
+		{Kind: "navigate", Params: map[string]string{"url": "/x"}},
+		{Kind: "runBinding", Target: "player.list", Params: map[string]string{"playerId": "row.uid"}},
+	})
+	if len(chain) != 2 {
+		t.Fatalf("chain lost: %+v", chain)
+	}
+	if chain[0].Kind != "navigate" || chain[0].Params["url"] != "/x" {
+		t.Fatalf("chain[0] wrong: %+v", chain[0])
+	}
+	if chain[1].Target != "player.list" || chain[1].Params["playerId"] != "row.uid" {
+		t.Fatalf("chain[1] wrong: %+v", chain[1])
+	}
+
+	evs := convEvents([]EventBindingReq{{
+		Event:  "rowClick",
+		Action: ActionStepReq{Kind: "openModal", Target: "modal-g1"},
+		Chain:  []ActionStepReq{{Kind: "showMessage", Params: map[string]string{"message": "ok"}}},
+	}})
+	if len(evs) != 1 || evs[0].Event != "rowClick" {
+		t.Fatalf("events lost: %+v", evs)
+	}
+	if evs[0].Action.Target != "modal-g1" {
+		t.Fatalf("event action wrong: %+v", evs[0].Action)
+	}
+	if evs[0].Chain[0].Params["message"] != "ok" {
+		t.Fatalf("event chain wrong: %+v", evs[0].Chain)
+	}
+}

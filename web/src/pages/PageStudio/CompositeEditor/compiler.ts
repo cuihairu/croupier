@@ -366,6 +366,11 @@ function findNode(nodes: PageNode[], id: string): PageNode | undefined {
 export interface SpecSectionLike {
   key?: string;
   group?: string;
+  events?: Array<{
+    event: string;
+    action: { kind: string; target: string; params?: Record<string, string> };
+    chain?: Array<{ kind: string; target: string; params?: Record<string, string> }>;
+  }>;
   bindingId?: string;
   functionId?: string;
   view?: string;
@@ -426,6 +431,7 @@ export function decompileToTree(sections: SpecSectionLike[]): [PageNode[], strin
     if (view === 'fnTable') {
       fnProps.columns = (sec.table?.columns ?? []).map((c) => String(c.key ?? '')).filter(Boolean);
       fnProps.rowActions = sec.table?.rowActions ?? [];
+      if (sec.toolbar) fnProps.toolbar = sec.toolbar; // 第二遍还原为按钮节点后移除
     }
     if (view === 'fnForm') fnProps.display = 'inline';
 
@@ -454,8 +460,49 @@ export function decompileToTree(sections: SpecSectionLike[]): [PageNode[], strin
     }
   }
 
-  // 第二遍：重建引用（rowActions/toolbar/onSuccessRefresh）
+  // 事件绑定暂存（第二遍按 key 映射到节点 props）
+  const pendingEvents = new Map<string, NonNullable<SpecSectionLike['events']>>();
+  for (const sec of sections) {
+    if (sec.events?.length) pendingEvents.set(String(sec.key ?? sec.functionId ?? ''), sec.events);
+  }
+
+  // 第二遍：重建引用（rowActions/toolbar/onSuccessRefresh/events）
   for (const node of nodes) {
+    // 事件还原：spec.event 名 → 编辑器事件 prop 名；target=section key → 节点 id
+    const evProp: Record<string, string> = {
+      rowClick: 'onRowClick',
+      rowSelected: 'onRowSelected',
+      click: 'onClick',
+      success: 'onSuccess',
+      error: 'onError',
+    };
+    for (const [secKey, evs] of pendingEvents) {
+      const owner = findInNodes(nodes, keyToNodeId.get(secKey) ?? '');
+      if (owner !== node) continue;
+      for (const ev of evs) {
+        const propName = evProp[ev.event];
+        if (!propName) continue;
+        const mapTarget = (t: string) => {
+          if (!t) return '';
+          const nid = keyToNodeId.get(t) ?? dialogGroupToModalId.get(t) ?? '';
+          return nid;
+        };
+        (node.props as Record<string, unknown>)[propName] = {
+          kind: ev.action.kind,
+          target: mapTarget(ev.action.target),
+          ...(ev.action.params ? { params: ev.action.params } : {}),
+          ...(ev.chain?.length
+            ? {
+                chain: ev.chain.map((st) => ({
+                  kind: st.kind,
+                  target: mapTarget(st.target),
+                  ...(st.params ? { params: st.params } : {}),
+                })),
+              }
+            : {}),
+        };
+      }
+    }
     if (node.type === 'fnTable') {
       const ras = (node.props.rowActions as Array<Record<string, unknown>>) ?? [];
       node.props.rowActions = ras
@@ -512,11 +559,22 @@ export function decompileToTree(sections: SpecSectionLike[]): [PageNode[], strin
       insertAt += 1;
       const t = String(ta.targetSection ?? '');
       const modalId = t ? (dialogGroupToModalId.get(t) ?? dialogKeyToModalId.get(t)) : undefined;
-      const label = String(ta.label ?? '操作');
+      const rawLabel = ta.label as unknown;
+      const label =
+        typeof rawLabel === 'string'
+          ? rawLabel
+          : String(
+              ((rawLabel as Record<string, unknown>)?.['zh-CN'] as string | undefined) ??
+                (rawLabel as Record<string, unknown>)?.['en-US'] ??
+                '操作',
+            );
       const chain = Array.isArray(ta.chain)
-        ? (ta.chain as Array<{ kind: string; target: string }>).map((c) => ({
-            kind: c.kind === 'runBinding' ? 'runBinding' : 'refreshNode',
+        ? (
+            ta.chain as Array<{ kind: string; target: string; params?: Record<string, string> }>
+          ).map((c) => ({
+            kind: c.kind,
             target: keyToNodeId.get(String(c.target)) ?? String(c.target),
+            ...(c.params ? { params: c.params } : {}),
           }))
         : undefined;
       if (t && !modalId) {

@@ -90,3 +90,79 @@ describe('decompileToTree（回读编辑：spec→树）', () => {
     expect((tree[0].props.rowActions as unknown[]).length).toBe(0);
   });
 });
+
+describe('decompileToTree V3.2：events 与顶部按钮还原', () => {
+  it('spec.events 还原为节点事件 props（rowClick→onRowClick，target group→modal 节点 id）', () => {
+    const spec: SpecSectionLike[] = [
+      {
+        key: 'player.list',
+        functionId: 'player.list',
+        view: 'table',
+        events: [
+          {
+            event: 'rowClick',
+            action: { kind: 'openModal', target: 'modal-g1' },
+            chain: [{ kind: 'navigate', target: '', params: { url: '/x' } }],
+          },
+        ],
+      },
+      {
+        key: 'mail.send',
+        group: 'modal-g1',
+        functionId: 'mail.send',
+        view: 'form',
+        display: 'dialog',
+      },
+    ];
+    const [tree, warnings] = decompileToTree(spec);
+    expect(warnings).toEqual([]);
+    const table = tree.find((n) => n.type === 'fnTable')!;
+    const modal = tree.find((n) => n.type === 'modal')!;
+    const ev = table.props.onRowClick as {
+      kind: string;
+      target: string;
+      chain: Array<{ kind: string; params?: Record<string, string> }>;
+    };
+    expect(ev.kind).toBe('openModal');
+    expect(ev.target).toBe(modal.id);
+    expect(ev.chain[0]).toEqual({ kind: 'navigate', target: '', params: { url: '/x' } });
+  });
+
+  it('toolbar.actions 还原为独立按钮节点（含链），round-trip 再编译等价', () => {
+    const spec: SpecSectionLike[] = [
+      {
+        key: 'player.list',
+        functionId: 'player.list',
+        view: 'table',
+        toolbar: {
+          actions: [
+            {
+              label: { 'zh-CN': '发邮件' },
+              targetSection: 'modal-g2',
+              chain: [{ kind: 'refreshNode', target: 'player.list' }],
+            },
+          ],
+        },
+      },
+      {
+        key: 'mail.send',
+        group: 'modal-g2',
+        functionId: 'mail.send',
+        view: 'form',
+        display: 'dialog',
+      },
+    ];
+    const [tree, warnings] = decompileToTree(spec);
+    expect(warnings).toEqual([]);
+    const btn = tree.find((n) => n.type === 'button')!;
+    expect(String(btn.props.title)).toBe('发邮件');
+    const onClick = btn.props.onClick as { kind: string; target: string };
+    expect(onClick.kind).toBe('openModal');
+    // 再编译：顶部按钮+链 round-trip
+    const { sections, warnings: w2 } = compileTree(tree);
+    expect(w2).toEqual([]);
+    const ta = sections.find((x) => x.key === 'player.list')!.toolbarActions![0];
+    expect(ta).toMatchObject({ label: '发邮件' });
+    expect(ta.chain).toEqual([{ kind: 'refreshNode', target: 'player.list' }]);
+  });
+});

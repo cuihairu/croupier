@@ -120,3 +120,60 @@ func TestCompositeRowActionsSurviveListView(t *testing.T) {
 		t.Fatalf("params lost: %+v", sec.Table.RowActions[0])
 	}
 }
+
+// TestCompositeEventsChainPassthrough V3.2：事件绑定与动作链（含 params）
+// 从 Input 透传到发布 spec。
+func TestCompositeEventsChainPassthrough(t *testing.T) {
+	contracts := []*model.FunctionContract{
+		{
+			FunctionID:   "player.list",
+			ResourceKey:  "player",
+			Capability:   dbenum.CapabilityCollectionQuery,
+			Execution:    string(spec.FunctionExecutionSync),
+			InputSchema:  model.JSON(`{"type":"object","properties":{"playerId":{"type":"string"}}}`),
+			OutputSchema: model.JSON(`{"type":"object","properties":{"items":{"type":"array","items":{"type":"object"}},"total":{"type":"integer"}}}`),
+		},
+	}
+	inputs := []CompositeSectionInput{{
+		FunctionID: "player.list",
+		View:       "table",
+		Group:      "",
+		Events: []spec.CompositeEventBinding{{
+			Event:  "rowClick",
+			Action: spec.CompositeActionStep{Kind: "openModal", Target: "modal-g1"},
+			Chain: []spec.CompositeActionStep{{
+				Kind:   "navigate",
+				Params: map[string]string{"url": "/docs"},
+			}},
+		}},
+		RowActions: []CompositeRowActionInput{{
+			Label:         "行操作",
+			TargetSection: "modal-g1",
+			Chain: []spec.CompositeActionStep{{
+				Kind:   "runBinding",
+				Target: "player.list",
+				Params: map[string]string{"playerId": "row.uid"},
+			}},
+		}},
+	}}
+	generated, ok := GenerateCompositePage("k", inputs, contracts, DefaultGenerateOptions())
+	if !ok {
+		t.Fatal("generate failed")
+	}
+	sec := generated.PageSpec.Composite.Sections[0]
+	// Events 透传
+	if len(sec.Events) != 1 || sec.Events[0].Event != "rowClick" {
+		t.Fatalf("events passthrough lost: %+v", sec.Events)
+	}
+	if sec.Events[0].Action.Kind != "openModal" || sec.Events[0].Action.Target != "modal-g1" {
+		t.Fatalf("event action lost: %+v", sec.Events[0].Action)
+	}
+	if sec.Events[0].Chain[0].Params["url"] != "/docs" {
+		t.Fatalf("event chain params lost: %+v", sec.Events[0].Chain)
+	}
+	// 行操作 chain params 透传
+	ra := sec.Table.RowActions[0]
+	if len(ra.Chain) != 1 || ra.Chain[0].Params["playerId"] != "row.uid" {
+		t.Fatalf("rowAction chain params lost: %+v", ra.Chain)
+	}
+}

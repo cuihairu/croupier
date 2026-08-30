@@ -92,13 +92,27 @@ export const EVENTS = {
   onError: { name: 'onError', label: '执行失败时' },
 } satisfies Record<string, ComponentEvent>;
 
-/** 解析 props 中的动作字段（非法/目标丢失返回 null）。 */
+/** 解析 props 中的动作字段（非法/需目标动作的目标丢失返回 null）。 */
 export function parseAction(v: unknown): ActionSpec | null {
   if (!v || typeof v !== 'object') return null;
-  const a = v as { kind?: unknown; target?: unknown };
+  const a = v as {
+    kind?: unknown;
+    target?: unknown;
+    params?: unknown;
+    chain?: unknown;
+  };
   if (typeof a.kind !== 'string' || !(a.kind in ACTIONS)) return null;
-  if (typeof a.target !== 'string' || !a.target) return null;
-  return { kind: a.kind as ActionKind, target: a.target };
+  const def = ACTIONS[a.kind as ActionKind];
+  const target = typeof a.target === 'string' ? a.target : '';
+  if (def.needsTarget && !target) return null; // 需目标的动作丢失目标才判非法
+  return {
+    kind: a.kind as ActionKind,
+    target,
+    ...(a.params && typeof a.params === 'object'
+      ? { params: a.params as Record<string, string> }
+      : {}),
+    ...(Array.isArray(a.chain) ? { chain: a.chain as ActionStep[] } : {}),
+  };
 }
 
 /** 目标节点摘要（下拉 label）。 */

@@ -150,3 +150,104 @@ describe('compileTree 多实例（同函数多组件）', () => {
     expect(sections[2].onSuccessRefresh).toEqual(['player.list-2']);
   });
 });
+
+describe('compileTree V3.2：分组弹窗 / 动作链 / 通用事件', () => {
+  it('弹窗多组件分组：modal 含表单+字段卡 → 两个 dialog section 共享同一 group', () => {
+    const modal: PageNode = {
+      id: 'M-G',
+      type: 'modal',
+      props: { title: '详情弹窗' },
+      children: [fn('fnForm', 'mail.send'), fn('fnFields', 'player.get')],
+    };
+    const { sections, warnings } = compileTree([fn('fnTable', 'player.list'), modal]);
+    expect(warnings).toEqual([]);
+    const dialogs = sections.filter((x) => x.display === 'dialog');
+    expect(dialogs).toHaveLength(2);
+    const groups = new Set(dialogs.map((d) => d.group));
+    expect(groups.size).toBe(1); // 同一弹窗
+  });
+
+  it('动作链编译：openModal + 后续（刷新 + 跳转带 url）→ toolbarActions chain 含 params', () => {
+    const modal: PageNode = {
+      id: 'M-C',
+      type: 'modal',
+      props: {},
+      children: [fn('fnForm', 'mail.send')],
+    };
+    const table = fn('fnTable', 'player.list');
+    const tableId = table.id;
+    const btn = fn('button', '', {
+      title: '发邮件',
+      onClick: {
+        kind: 'openModal',
+        target: 'M-C',
+        chain: [
+          { kind: 'refreshNode', target: tableId },
+          { kind: 'navigate', target: '', params: { url: 'https://example.com' } },
+        ],
+      },
+    });
+    const { sections, warnings } = compileTree([table, btn, modal]);
+    expect(warnings).toEqual([]);
+    const ta = sections[0].toolbarActions![0];
+    expect(ta.chain).toEqual([
+      { kind: 'refreshNode', target: 'player.list' },
+      { kind: 'navigate', target: '', params: { url: 'https://example.com' } },
+    ]);
+  });
+
+  it('无目标主动作（navigate）→ 发布为链首步带 params', () => {
+    const btn = fn('button', '', {
+      title: '帮助',
+      onClick: { kind: 'navigate', target: '', params: { url: '/docs' } },
+    });
+    const { sections, warnings } = compileTree([fn('fnTable', 'player.list'), btn]);
+    expect(warnings).toEqual([]);
+    expect(sections[0].toolbarActions![0]).toMatchObject({
+      label: '帮助',
+      targetSection: '',
+    });
+    expect(sections[0].toolbarActions![0].chain![0]).toEqual({
+      kind: 'navigate',
+      target: '',
+      params: { url: '/docs' },
+    });
+  });
+
+  it('fnForm.onSuccess 事件：refresh 步骤→onSuccessRefresh；非刷新步骤警告', () => {
+    const table = fn('fnTable', 'player.list');
+    const form = fn('fnForm', 'mail.send', {
+      onSuccess: {
+        kind: 'refreshNode',
+        target: table.id,
+        chain: [{ kind: 'showMessage', target: '', params: { message: 'ok' } }],
+      },
+    });
+    const { sections, warnings } = compileTree([table, form]);
+    expect(sections[1].onSuccessRefresh).toEqual(['player.list']);
+    expect(warnings.some((w) => w.includes('非刷新动作'))).toBe(true);
+  });
+
+  it('通用事件编译：表格行点击/行选中 → section.events', () => {
+    const table = fn('fnTable', 'player.list', {
+      onRowClick: { kind: 'openModal', target: 'M-E' },
+      onRowSelected: { kind: 'refreshNode', target: 'SELF' },
+    });
+    table.props.onRowSelected = { kind: 'refreshNode', target: table.id };
+    const modal: PageNode = {
+      id: 'M-E',
+      type: 'modal',
+      props: {},
+      children: [fn('fnForm', 'mail.send')],
+    };
+    const { sections, warnings } = compileTree([table, modal]);
+    expect(warnings).toEqual([]);
+    const evs = sections[0].events!;
+    expect(evs.find((e) => e.event === 'rowClick')?.action.kind).toBe('openModal');
+    expect(evs.find((e) => e.event === 'rowClick')?.action.target).toMatch(/^modal-/);
+    expect(evs.find((e) => e.event === 'rowSelected')?.action).toEqual({
+      kind: 'refreshNode',
+      target: 'player.list',
+    });
+  });
+});
