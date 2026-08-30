@@ -160,40 +160,40 @@ type ActionSpec =
 
 ## 批次 P2 — 画布
 
-### T2.1 画布树渲染与选中
+### ✅ T2.1 画布树渲染与选中
 
 - 文件：`.../Canvas.tsx`（新）
 - 改动：递归渲染 PageNode（container→Row/Col 嵌套一层；modal 收纳区）；选中高亮/点选；Preview 按 registry 渲染
 - 验收：含 container+fnTable+button+modal 的树正确渲染；点选联动属性面板
 - 依赖：T0.4 T1.8 ｜ 预估：0.5d
 
-### T2.2 面板→画布拖入（落点指示）
+### ✅ T2.2 面板→画布拖入（落点指示）
 
 - 文件：`.../Canvas.tsx`、`.../ComponentPanel.tsx`
 - 改动：dnd-kit 单一 DndContext；面板项 draggable（携带组件类型/函数 id）；画布 droppable 显示插入位置指示线（closestCenter 计算同级 index）
 - 验收：拖 fnTable 到 container 内指定位置生效；拖 modal 显示到收纳区
 - 依赖：T2.1 ｜ 预估：0.5d
 
-### T2.3 画布内移动排序
+### ✅ T2.3 画布内移动排序
 
 - 改动：节点拖拽手柄；同级重排（复用 SortableList externalDnd 模式或直接 dnd-kit）
 - 验收：拖动 fnTable 越过 button 顺序变化且树结构正确
 - 依赖：T2.2 ｜ 预估：0.25d
 
-### T2.4 边缘拖拽调宽
+### ✅ T2.4 边缘拖拽调宽
 
 - 改动：选中节点右缘 col-resize 手柄（px→24 栅格）；写回 props.span
 - 验收：拖动宽度即时变化，最小 4 最大 24
 - 依赖：T2.1 ｜ 预估：0.25d
 
-### T2.5 大纲树面板
+### ✅ T2.5 大纲树面板
 
 - 文件：`.../OutlinePanel.tsx`（新）
 - 改动：左侧 Tabs 第二页；antd Tree 映射 PageNode 树；点击定位选中、拖拽排序联动画布
 - 验收：大纲点击/画布点选双向同步；modal 子节点可见
 - 依赖：T2.1 ｜ 预估：0.25d
 
-### T2.6 删除/复制节点
+### ✅ T2.6 删除/复制节点
 
 - 改动：选中节点悬浮操作条（删除/复制，含子树；事件引用目标被删时属性面板标红）
 - 验收：删除 modal 后引用它的 button.onClick 显示"目标已删除"警示

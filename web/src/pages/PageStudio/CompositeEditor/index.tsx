@@ -3,6 +3,23 @@ import { App, Button, Card, Col, Empty, Input, Row, Space, Tabs, Tag, Typography
 import { ArrowLeftOutlined, EyeOutlined, SaveOutlined } from '@ant-design/icons';
 import { history } from '@umijs/max';
 import { PageContainer } from '@ant-design/pro-components';
+import {
+  DndContext,
+  DragOverlay,
+  PointerSensor,
+  closestCenter,
+  useSensor,
+  useSensors,
+  useDroppable,
+  type DragEndEvent,
+  type DragStartEvent,
+} from '@dnd-kit/core';
+import { sortableKeyboardCoordinates } from '@dnd-kit/sortable';
+import { KeyboardSensor } from '@dnd-kit/core';
+import { SortableList } from '@/components/SortableList';
+import Canvas, { CanvasNode } from './Canvas';
+import OutlinePanel from './OutlinePanel';
+import { duplicateNode as duplicateTree, insertAfter, moveNode } from './model';
 import ComponentPanel, { type AddFnEvent } from './ComponentPanel';
 import PropsPanel from './PropsPanel';
 import { registerBuiltinComponents } from './components/builtin';
@@ -42,6 +59,7 @@ export default function CompositeEditorPage() {
   const [leftTab, setLeftTab] = useState('components');
 
   const fnById = useRef(new Map<string, FunctionDescriptor>());
+  const canvasRef = useRef<HTMLDivElement>(null);
   const [, forceFn] = useState(0);
   const registerFn = useCallback((fn: FunctionDescriptor) => {
     fnById.current.set(fn.id, fn);
@@ -83,6 +101,123 @@ export default function CompositeEditorPage() {
   const addChild = useCallback((parentId: string, node: PageNode) => {
     setTree((prev) => insertNode(prev, node, parentId));
     setSelectedId(node.id);
+  }, []);
+
+  // ---- 拖拽（T2.2/T2.3）：面板→画布插入 / 画布内重排 / modal 收纳 ----
+  const [dragItem, setDragItem] = useState<
+    | null
+    | { kind: 'basic'; basicType: string }
+    | { kind: 'fn'; fn: AddFnEvent['fn']; componentType: AddFnEvent['componentType'] }
+  >(null);
+  const treeRef = useRef(tree);
+  treeRef.current = tree;
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
+
+  const handleDragStart = useCallback((e: DragStartEvent) => {
+    const data = e.active.data.current as
+      | { source: 'panel'; kind: 'basic'; basicType: string }
+      | {
+          source: 'panel';
+          kind: 'fn';
+          fn: AddFnEvent['fn'];
+          componentType: AddFnEvent['componentType'];
+        }
+      | { source: 'canvas' }
+      | undefined;
+    if (data?.source === 'panel') {
+      setDragItem(
+        data.kind === 'basic'
+          ? { kind: 'basic', basicType: data.basicType }
+          : { kind: 'fn', fn: data.fn, componentType: data.componentType },
+      );
+    } else {
+      setDragItem(null);
+    }
+  }, []);
+
+  const handleDragEnd = useCallback(
+    (e: DragEndEvent) => {
+      setDragItem(null);
+      const { active, over } = e;
+      if (!over) return;
+      const data = active.data.current as
+        | { source: 'panel'; kind: 'basic'; basicType: string }
+        | {
+            source: 'panel';
+            kind: 'fn';
+            fn: AddFnEvent['fn'];
+            componentType: AddFnEvent['componentType'];
+          }
+        | { source: 'canvas' }
+        | undefined;
+      const overId = String(over.id);
+
+      if (data?.source === 'panel') {
+        // 构造新节点
+        let node: PageNode | null = null;
+        if (data.kind === 'basic') {
+          node = {
+            id: nodeId(data.basicType as PageNode['type']),
+            type: data.basicType as PageNode['type'],
+            props: scaffoldProps(data.basicType as PageNode['type']),
+          };
+        } else {
+          registerFn(data.fn);
+          node = {
+            id: nodeId(data.componentType),
+            type: data.componentType,
+            props: scaffoldProps(data.componentType, data.fn),
+          };
+        }
+        // modal 收纳区：fnForm 装入 modal
+        if (overId.startsWith('modal-drop:')) {
+          const modalId = overId.slice('modal-drop:'.length);
+          if (node.type === 'fnForm') addChild(modalId, node);
+          else message.warning('弹窗内只能放函数表单（V1）');
+          return;
+        }
+        // 落到某节点后 / 根末尾
+        if (overId === 'canvas-root' || overId.startsWith('sortable-')) {
+          const after = overId === 'canvas-root' ? undefined : findNode(treeRef.current, overId);
+          setTree((prev) => (after ? insertAfter(prev, node, after.id) : [...prev, node]));
+          setSelectedId(node.id);
+        } else {
+          setTree((prev) => [...prev, node]);
+          setSelectedId(node.id);
+        }
+        return;
+      }
+
+      // 画布内重排（active id = sortable 节点 id）
+      if (overId === 'canvas-root') return;
+      const activeId = String(active.id);
+      const overIdx = treeRef.current
+        .filter((n) => n.type !== 'modal')
+        .findIndex((n) => n.id === overId);
+      if (overIdx === -1) return;
+      setTree((prev) => {
+        const inline = prev.filter((n) => n.type !== 'modal');
+        const fromIdx = inline.findIndex((n) => n.id === activeId);
+        if (fromIdx === -1) return prev;
+        const target = overIdx;
+        const moved = moveNode(inline, activeId, target);
+        if (moved === inline) return prev;
+        return [...moved, ...prev.filter((n) => n.type === 'modal')];
+      });
+    },
+    [addChild, message, registerFn],
+  );
+
+  const duplicateNode = useCallback((id: string) => {
+    setTree((prev) => duplicateTree(prev, id));
+  }, []);
+
+  const patchSpan = useCallback((id: string, span: number) => {
+    setTree((prev) => updateProps(prev, id, { span }));
   }, []);
 
   const deleteNode = useCallback((id: string) => {
@@ -133,125 +268,132 @@ export default function CompositeEditorPage() {
         <Text type="secondary">{countNodes(tree)} 个组件</Text>
       </Space>
 
-      <Row gutter={12}>
-        {/* 左：组件面板 / 大纲 */}
-        {!preview && (
-          <Col flex="300px">
-            <Card size="small" styles={{ body: { padding: 8 } }}>
-              <Tabs
-                activeKey={leftTab}
-                onChange={setLeftTab}
-                items={[
-                  {
-                    key: 'components',
-                    label: '组件',
-                    children: <ComponentPanel onAddBasic={addBasic} onAddFunction={addFunction} />,
-                  },
-                  {
-                    key: 'outline',
-                    label: '大纲',
-                    children: (
-                      <Empty
-                        image={Empty.PRESENTED_IMAGE_SIMPLE}
-                        description="大纲树（P2 批次）"
-                        style={{ marginTop: 40 }}
-                      />
-                    ),
-                  },
-                ]}
-              />
-            </Card>
-          </Col>
-        )}
-
-        {/* 中：画布（P2 树渲染接管；当前为节点列表占位） */}
-        <Col flex="auto" style={{ minWidth: 420 }}>
-          <div
-            style={{
-              border: '1px solid #f0f0f0',
-              borderRadius: 8,
-              minHeight: 'calc(100vh - 300px)',
-              padding: 12,
-              background: '#fafafa',
-            }}
-          >
-            {tree.length === 0 ? (
-              <Empty
-                style={{ marginTop: 120 }}
-                description="从左侧点击函数或拖入组件，开始搭建页面"
-                image={Empty.PRESENTED_IMAGE_SIMPLE}
-              />
-            ) : (
-              <Space direction="vertical" size={8} style={{ width: '100%' }}>
-                {tree.map((n) => {
-                  const def = getComponent(n.type);
-                  const Comp = def?.Preview;
-                  return (
-                    <Card
-                      key={n.id}
-                      size="small"
-                      style={{
-                        borderColor: selectedId === n.id ? '#1677ff' : undefined,
-                        cursor: 'pointer',
-                      }}
-                      onClick={() => setSelectedId(n.id)}
-                      title={
-                        <Space size={6}>
-                          <Text strong style={{ fontSize: 13 }}>
-                            {String(n.props.title ?? n.type)}
-                          </Text>
-                          <Tag style={{ marginRight: 0 }}>{n.type}</Tag>
-                        </Space>
-                      }
-                      extra={
-                        <Button
-                          size="small"
-                          type="text"
-                          danger
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            deleteNode(n.id);
-                          }}
-                        >
-                          删除
-                        </Button>
-                      }
-                    >
-                      {Comp ? (
-                        <Comp
-                          node={n}
-                          fn={
-                            n.props.functionId
-                              ? fnById.current.get(String(n.props.functionId))
-                              : undefined
-                          }
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCenter}
+        onDragStart={handleDragStart}
+        onDragEnd={handleDragEnd}
+      >
+        <Row gutter={12}>
+          {/* 左：组件面板 / 大纲 */}
+          {!preview && (
+            <Col flex="300px">
+              <Card size="small" styles={{ body: { padding: 8 } }}>
+                <Tabs
+                  activeKey={leftTab}
+                  onChange={setLeftTab}
+                  items={[
+                    {
+                      key: 'components',
+                      label: '组件',
+                      children: (
+                        <ComponentPanel onAddBasic={addBasic} onAddFunction={addFunction} />
+                      ),
+                    },
+                    {
+                      key: 'outline',
+                      label: '大纲',
+                      children: (
+                        <OutlinePanel
+                          tree={tree}
+                          selectedId={selectedId}
+                          onSelect={setSelectedId}
                         />
-                      ) : (
-                        <Text type="secondary" style={{ fontSize: 11 }}>
-                          {String(n.props.functionId ?? '（基础组件）')}
-                        </Text>
-                      )}
-                    </Card>
-                  );
-                })}
-              </Space>
-            )}
-          </div>
-        </Col>
+                      ),
+                    },
+                  ]}
+                />
+              </Card>
+            </Col>
+          )}
 
-        {/* 右：属性面板（rjsf schema 驱动） */}
-        {!preview && (
-          <Col flex="360px">
-            <PropsPanel
-              node={selected}
-              nodes={tree}
-              fnById={fnById.current}
-              onPatch={patchProps}
-              onDelete={() => selected && deleteNode(selected.id)}
-            />
+          {/* 中：画布（树渲染 + 拖拽排序 + modal 收纳） */}
+          <Col flex="auto" style={{ minWidth: 420 }}>
+            <div
+              ref={canvasRef}
+              style={{
+                border: '1px solid #f0f0f0',
+                borderRadius: 8,
+                minHeight: 'calc(100vh - 300px)',
+                padding: 12,
+                background: '#fafafa',
+              }}
+            >
+              <Canvas
+                tree={tree}
+                selectedId={selectedId}
+                fnById={fnById.current}
+                onSelect={setSelectedId}
+                onDelete={deleteNode}
+                onDuplicate={duplicateNode}
+                onSpanChange={patchSpan}
+                canvasWidthRef={canvasRef}
+              >
+                <SortableList
+                  items={tree.filter((n) => n.type !== 'modal')}
+                  getKey={(n) => n.id}
+                  onReorder={(next) =>
+                    setTree((prev) => [...next, ...prev.filter((n) => n.type === 'modal')])
+                  }
+                  externalDnd
+                >
+                  {(n, _idx, dragHandleProps) => (
+                    <Col key={n.id} span={Number(n.props.span ?? 24) || 24}>
+                      <CanvasNode
+                        node={n}
+                        fn={
+                          n.props.functionId
+                            ? fnById.current.get(String(n.props.functionId))
+                            : undefined
+                        }
+                        selected={selectedId === n.id}
+                        depth={0}
+                        onSelect={() => setSelectedId(n.id)}
+                        onDelete={() => deleteNode(n.id)}
+                        onDuplicate={() => duplicateNode(n.id)}
+                        onSpanChange={(span: number) => patchSpan(n.id, span)}
+                        dragHandleProps={dragHandleProps}
+                        canvasWidthRef={canvasRef}
+                      />
+                    </Col>
+                  )}
+                </SortableList>
+              </Canvas>
+            </div>
           </Col>
-        )}
-      </Row>
+
+          {/* 右：属性面板（rjsf schema 驱动） */}
+          {!preview && (
+            <Col flex="360px">
+              <PropsPanel
+                node={selected}
+                nodes={tree}
+                fnById={fnById.current}
+                onPatch={patchProps}
+                onDelete={() => selected && deleteNode(selected.id)}
+              />
+            </Col>
+          )}
+        </Row>
+        <DragOverlay dropAnimation={null}>
+          {dragItem ? (
+            <div
+              style={{
+                background: '#fff',
+                border: '1px solid #1677ff',
+                borderRadius: 6,
+                padding: '4px 10px',
+                fontSize: 12,
+                opacity: 0.9,
+              }}
+            >
+              {dragItem.kind === 'basic'
+                ? `组件：${dragItem.basicType}`
+                : `函数：${dragItem.fn.id}`}
+            </div>
+          ) : null}
+        </DragOverlay>
+      </DndContext>
     </PageContainer>
   );
 }

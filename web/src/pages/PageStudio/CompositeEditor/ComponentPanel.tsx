@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react';
+import { useDraggable } from '@dnd-kit/core';
 import { Empty, Input, Space, Typography } from 'antd';
 import { SearchOutlined } from '@ant-design/icons';
 import type { DataNode } from 'antd/es/tree';
@@ -150,18 +151,19 @@ export default function ComponentPanel({
           .map((f) => ({
             key: f.id,
             title: (
-              <Space size={6} style={{ fontSize: 12 }}>
-                <Text code style={{ fontSize: 11 }}>
-                  {f.operation || f.id.split('.').pop()}
-                </Text>
-                <Text type="secondary" style={{ fontSize: 11 }}>
-                  {viewTypeToComponent(defaultView(f)) === 'fnTable'
-                    ? '表格'
-                    : viewTypeToComponent(defaultView(f)) === 'fnFields'
-                      ? '字段卡'
-                      : '表单'}
-                </Text>
-              </Space>
+              <PanelDraggable
+                data={{
+                  source: 'panel',
+                  kind: 'fn',
+                  fn: f,
+                  componentType: viewTypeToComponent(defaultView(f)),
+                }}
+                label={f.operation || f.id.split('.').pop() || f.id}
+                compact
+                onClick={() =>
+                  onAddFunction({ fn: f, componentType: viewTypeToComponent(defaultView(f)) })
+                }
+              />
             ),
             isLeaf: true,
           })),
@@ -235,6 +237,53 @@ export default function ComponentPanel({
           }}
         />
       )}
+    </div>
+  );
+}
+
+/** 面板拖拽源：点击=直接加入画布；拖拽=拖到画布指定落点。 */
+function PanelDraggable({
+  data,
+  label,
+  icon,
+  compact,
+  onClick,
+}: {
+  data: Record<string, unknown>;
+  label: string;
+  icon?: React.ReactNode;
+  compact?: boolean;
+  onClick: () => void;
+}) {
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
+    id: `panel:${label}:${Math.random().toString(36).slice(2, 7)}`,
+    data,
+  });
+  return (
+    <div
+      ref={setNodeRef}
+      {...attributes}
+      {...listeners}
+      onClick={onClick}
+      style={{
+        border: compact ? 'none' : '1px solid #f0f0f0',
+        borderRadius: 6,
+        padding: compact ? '1px 4px' : '6px 8px',
+        fontSize: 12,
+        textAlign: compact ? 'left' : 'center',
+        background: '#fff',
+        cursor: 'grab',
+        opacity: isDragging ? 0.4 : 1,
+        display: compact ? 'flex' : 'block',
+        gap: 6,
+        alignItems: 'center',
+        touchAction: 'none',
+      }}
+    >
+      {icon ? <span>{icon}</span> : null}
+      <Text code={compact} style={{ fontSize: compact ? 12 : undefined }}>
+        {label}
+      </Text>
     </div>
   );
 }
