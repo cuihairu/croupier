@@ -25,14 +25,13 @@ export default function QuickStart({
       .catch(() => setDescriptors([]));
   }, []);
 
+  const isList = (f: FunctionDescriptor) => ['list', 'query', 'search'].includes(f.operation ?? '');
+  // 全量可选（列表类排前标「推荐」）——不做硬过滤，避免「只能选一个」
   const listFns = useMemo(
-    () => descriptors.filter((f) => ['list', 'query', 'search'].includes(f.operation ?? '')),
+    () => [...descriptors].sort((a, b) => Number(isList(b)) - Number(isList(a))),
     [descriptors],
   );
-  const actionFns = useMemo(
-    () => descriptors.filter((f) => !['list', 'query', 'search'].includes(f.operation ?? '')),
-    [descriptors],
-  );
+  const actionFns = useMemo(() => descriptors, [descriptors]);
 
   const tableFn = descriptors.find((f) => f.id === tableId);
   const actionFn = descriptors.find((f) => f.id === actionId);
@@ -77,11 +76,9 @@ export default function QuickStart({
                 onChange={setTableId}
                 options={listFns.map((f) => ({
                   value: f.id,
-                  label: `${f.id}${f.summary?.['zh-CN'] ? `（${f.summary['zh-CN']}）` : ''}`,
+                  label: `${f.id}${f.summary?.['zh-CN'] ? `（${f.summary['zh-CN']}）` : ''}${isList(f) ? '  ← 推荐' : ''}`,
                 }))}
-                notFoundContent={
-                  <Text type="secondary">当前 scope 没有列表类函数（operation=list）</Text>
-                }
+                notFoundContent={<Text type="secondary">当前 scope 没有函数</Text>}
               />
             ),
           },

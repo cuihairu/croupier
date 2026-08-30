@@ -9,17 +9,26 @@ import type { JSONSchema } from '@/types/dashboard';
 const { Text } = Typography;
 
 /** functionId 只读展示 + 通用字段（标题/宽度/自动执行）的公共 schema 片段。 */
+/** functionId 全量可换绑（当前 scope 所有函数）。 */
 function commonFnSchema(
   fn: FunctionDescriptor | undefined,
+  allFns: FunctionDescriptor[],
   extra: Record<string, unknown> = {},
 ): JSONSchema {
+  const pool = allFns ?? [];
+  const options = (pool.length ? pool : fn ? [fn] : []).map((f) => ({
+    value: f.id,
+    label: f.summary?.['zh-CN'] ? `${f.id}（${f.summary['zh-CN']}）` : f.id,
+  }));
   return {
     type: 'object',
     properties: {
       functionId: {
         type: 'string',
-        title: '函数',
-        ...(fn ? { enum: [fn.id], default: fn.id } : {}),
+        title: '函数（可换绑）',
+        enum: options.map((o) => o.value),
+        enumNames: options.map((o) => o.label),
+        ...(fn ? { default: fn.id } : {}),
       },
       title: { type: 'string', title: '标题' },
       ...extra,
@@ -37,9 +46,9 @@ const fnTable: ComponentDef = {
   name: '函数表格',
   icon: <Tag color="blue">表格</Tag>,
   category: 'function',
-  propSchema: ({ fn }) => {
+  propSchema: ({ fn, allFns }) => {
     const cols = schemaProperties(fn?.outputSchema);
-    return commonFnSchema(fn, {
+    return commonFnSchema(fn, allFns, {
       span: spanSchema(),
       autoRun: { type: 'boolean', title: '进入页面自动执行', default: true },
       ...(cols.length
@@ -93,8 +102,8 @@ const fnForm: ComponentDef = {
   name: '函数表单',
   icon: <Tag color="green">表单</Tag>,
   category: 'function',
-  propSchema: ({ fn }) => {
-    return commonFnSchema(fn, {
+  propSchema: ({ fn, allFns }) => {
+    return commonFnSchema(fn, allFns, {
       span: spanSchema(),
       display: {
         type: 'string',
@@ -154,8 +163,8 @@ const fnFields: ComponentDef = {
   name: '字段卡',
   icon: <Tag color="cyan">字段</Tag>,
   category: 'function',
-  propSchema: ({ fn }) => {
-    return commonFnSchema(fn, {
+  propSchema: ({ fn, allFns }) => {
+    return commonFnSchema(fn, allFns, {
       span: spanSchema(),
       autoRun: { type: 'boolean', title: '进入页面自动执行', default: true },
     });

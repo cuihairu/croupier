@@ -31,6 +31,8 @@ export interface PropSchemaCtx {
   fnById: Map<string, FunctionDescriptor>;
   /** 当前节点绑定的函数（函数组件）。 */
   fn: FunctionDescriptor | undefined;
+  /** 当前 scope 全部函数（换绑下拉）。 */
+  allFns: FunctionDescriptor[];
 }
 
 export interface PreviewProps {

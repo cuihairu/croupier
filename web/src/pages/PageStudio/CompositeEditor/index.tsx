@@ -2,6 +2,7 @@ import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { App, Button, Card, Col, Empty, Input, Row, Space, Tabs, Tag, Typography } from 'antd';
 import { ArrowLeftOutlined, EyeOutlined, SaveOutlined } from '@ant-design/icons';
 import { history, request } from '@umijs/max';
+import { subscribeScope } from '@/stores/scope';
 import { PageContainer } from '@ant-design/pro-components';
 import {
   DndContext,
@@ -30,7 +31,7 @@ import ComponentPanel, { type AddFnEvent } from './ComponentPanel';
 import PropsPanel from './PropsPanel';
 import { registerBuiltinComponents } from './components/builtin';
 import { getComponent } from './registry';
-import type { FunctionDescriptor } from '@/services/api/functions';
+import { listDescriptors, type FunctionDescriptor } from '@/services/api/functions';
 import {
   countNodes,
   findNode,
@@ -66,7 +67,20 @@ export default function CompositeEditorPage() {
   const [skipWizard, setSkipWizard] = useState(false);
 
   const fnById = useRef(new Map<string, FunctionDescriptor>());
+  const [allFns, setAllFns] = useState<FunctionDescriptor[]>([]);
   const canvasRef = useRef<HTMLDivElement>(null);
+
+  // 全量函数（属性面板换绑下拉）；scope 切换自动重拉
+  const [fnReload, setFnReload] = useState(0);
+  React.useEffect(() => {
+    listDescriptors()
+      .then((fns) => {
+        setAllFns(fns);
+        for (const f of fns) fnById.current.set(f.id, f);
+      })
+      .catch(() => undefined);
+  }, [fnReload]);
+  React.useEffect(() => subscribeScope(() => setFnReload((k) => k + 1)), []);
   const [, forceFn] = useState(0);
   const registerFn = useCallback((fn: FunctionDescriptor) => {
     fnById.current.set(fn.id, fn);
@@ -160,9 +174,24 @@ export default function CompositeEditorPage() {
 
   const patchProps = useCallback(
     (patch: Record<string, unknown>) => {
-      if (selectedId) setTree((prev) => updateProps(prev, selectedId, patch));
+      if (!selectedId) return;
+      // 换绑函数：重新 scaffold（列/字段/联动跟随新函数）
+      if (typeof patch.functionId === 'string') {
+        const node = findNode(tree, selectedId);
+        if (node && patch.functionId !== node.props.functionId) {
+          const fn = fnById.current.get(patch.functionId);
+          setTree((prev) =>
+            updateProps(prev, selectedId, {
+              ...scaffoldProps(node.type, fn),
+              functionId: patch.functionId,
+            }),
+          );
+          return;
+        }
+      }
+      setTree((prev) => updateProps(prev, selectedId, patch));
     },
-    [selectedId],
+    [selectedId, tree],
   );
 
   /** 子节点放入容器（V1：modal 单 fnForm）。 */
@@ -438,6 +467,7 @@ export default function CompositeEditorPage() {
               <PropsPanel
                 node={selected}
                 nodes={tree}
+                allFns={allFns}
                 fnById={fnById.current}
                 onPatch={patchProps}
                 onDelete={() => selected && deleteNode(selected.id)}

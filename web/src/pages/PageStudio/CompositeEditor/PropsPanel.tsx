@@ -18,12 +18,14 @@ const { Text } = Typography;
 export default function PropsPanel({
   node,
   nodes,
+  allFns,
   fnById,
   onPatch,
   onDelete,
 }: {
   node: PageNode | undefined;
   nodes: PageNode[];
+  allFns: FunctionDescriptor[];
   fnById: Map<string, FunctionDescriptor>;
   onPatch: (patch: Record<string, unknown>) => void;
   onDelete: () => void;
@@ -56,6 +58,7 @@ export default function PropsPanel({
         schema={def.propSchema({
           nodes,
           fnById,
+          allFns,
           fn: node.props.functionId ? fnById.get(String(node.props.functionId)) : undefined,
         })}
         node={node}

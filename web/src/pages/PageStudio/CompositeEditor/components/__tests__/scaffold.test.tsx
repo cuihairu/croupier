@@ -111,7 +111,12 @@ function resetAndGet(type: string) {
 }
 
 describe('builtin propSchema 字段声明（属性面板渲染约定）', () => {
-  const ctx = { nodes: [] as never[], fnById: new Map(), fn: listFn } as never;
+  const ctx = {
+    nodes: [] as never[],
+    fnById: new Map(),
+    fn: listFn,
+    allFns: [listFn, formFn],
+  } as never;
 
   it('fnTable.columns：format=columns + enum=输出字段（Checkbox.Group 渲染）', () => {
     const schema = resetAndGet('fnTable').propSchema(ctx) as {
