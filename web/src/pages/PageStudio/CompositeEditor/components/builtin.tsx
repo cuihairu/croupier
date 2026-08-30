@@ -4,6 +4,7 @@ import { PlusOutlined } from '@ant-design/icons';
 import type { FunctionDescriptor } from '@/services/api/functions';
 import { getComponent, registerComponent, type ComponentDef } from '../registry';
 import { schemaProperties, schemaRequired, type CompositeView } from '../types';
+import { EVENTS } from '../actions';
 import type { JSONSchema } from '@/types/dashboard';
 
 const { Text } = Typography;
@@ -46,6 +47,7 @@ const fnTable: ComponentDef = {
   name: '函数表格',
   icon: <Tag color="blue">表格</Tag>,
   category: 'function',
+  events: [EVENTS.onRowClick, EVENTS.onRowSelected],
   propSchema: ({ fn, allFns }) => {
     const cols = schemaProperties(fn?.outputSchema);
     return commonFnSchema(fn, allFns, {
@@ -100,6 +102,7 @@ const fnTable: ComponentDef = {
 const fnForm: ComponentDef = {
   type: 'fnForm',
   name: '函数表单',
+  events: [EVENTS.onSuccess, EVENTS.onError],
   icon: <Tag color="green">表单</Tag>,
   category: 'function',
   propSchema: ({ fn, allFns }) => {
@@ -111,12 +114,6 @@ const fnForm: ComponentDef = {
         enum: ['inline', 'dialog'],
         enumNames: ['行内 — 嵌在页面中', '弹窗 — 由按钮触发'],
         default: 'inline',
-      },
-      onSuccessRefresh: {
-        type: 'object',
-        title: '成功后刷新',
-        format: 'action',
-        actionKinds: ['refreshNode'],
       },
     });
   },
@@ -161,6 +158,7 @@ const fnForm: ComponentDef = {
 const fnFields: ComponentDef = {
   type: 'fnFields',
   name: '字段卡',
+  events: [EVENTS.onClick],
   icon: <Tag color="cyan">字段</Tag>,
   category: 'function',
   propSchema: ({ fn, allFns }) => {
@@ -196,6 +194,7 @@ const fnFields: ComponentDef = {
 const button: ComponentDef = {
   type: 'button',
   name: '按钮',
+  events: [EVENTS.onClick],
   icon: <Tag>按钮</Tag>,
   category: 'basic',
   propSchema: () => ({
@@ -210,7 +209,6 @@ const button: ComponentDef = {
         default: 'default',
       },
       span: spanSchema(),
-      onClick: { type: 'object', title: '点击动作', format: 'action' },
     },
   }),
   scaffold: () => ({ title: '按钮', btnStyle: 'default', span: 6 }),
@@ -284,6 +282,7 @@ const modal: ComponentDef = {
 const container: ComponentDef = {
   type: 'container',
   name: '分组容器',
+  events: [EVENTS.onClick],
   icon: <Tag color="geekblue">容器</Tag>,
   category: 'basic',
   allowedChildren: ['fnTable', 'fnFields', 'button', 'text'],
@@ -326,6 +325,7 @@ const container: ComponentDef = {
 const text: ComponentDef = {
   type: 'text',
   name: '文本',
+  events: [EVENTS.onClick],
   icon: <Tag>文本</Tag>,
   category: 'basic',
   propSchema: () => ({

@@ -1337,6 +1337,7 @@ func (s *ContractService) CreateCompositeProposal(
 				TargetSection: ra.TargetSection,
 				Params:        ra.Params,
 				Danger:        ra.Danger,
+				Chain:         convChain(ra.Chain),
 			})
 		}
 		for _, ta := range sec.ToolbarActions {
@@ -1345,6 +1346,7 @@ func (s *ContractService) CreateCompositeProposal(
 				TargetSection: ta.TargetSection,
 				Params:        ta.Params,
 				Danger:        ta.Danger,
+				Chain:         convChain(ta.Chain),
 			})
 		}
 		inputs = append(inputs, in)
@@ -1389,6 +1391,7 @@ type CompositeRowActionRequest struct {
 	TargetSection string            `json:"targetSection,omitempty"`
 	Params        map[string]string `json:"params,omitempty"`
 	Danger        bool              `json:"danger,omitempty"`
+	Chain         []ActionStepReq   `json:"chain,omitempty"`
 }
 
 // CompositeToolbarActionRequest 工具栏按钮输入。
@@ -1397,6 +1400,26 @@ type CompositeToolbarActionRequest struct {
 	TargetSection string            `json:"targetSection,omitempty"`
 	Params        map[string]string `json:"params,omitempty"`
 	Danger        bool              `json:"danger,omitempty"`
+	Chain         []ActionStepReq   `json:"chain,omitempty"`
+}
+
+// ActionStepReq 动作链单步。
+type ActionStepReq struct {
+	Kind   string            `json:"kind"`
+	Target string            `json:"target"`
+	Params map[string]string `json:"params,omitempty"`
+}
+
+// convChain 请求动作链 → generator 输入。
+func convChain(steps []ActionStepReq) []spec.CompositeActionStep {
+	if len(steps) == 0 {
+		return nil
+	}
+	out := make([]spec.CompositeActionStep, 0, len(steps))
+	for _, st := range steps {
+		out = append(out, spec.CompositeActionStep{Kind: st.Kind, Target: st.Target, Params: st.Params})
+	}
+	return out
 }
 
 func compositeProposalKey(pageKey string) string {

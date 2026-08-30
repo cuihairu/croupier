@@ -24,7 +24,7 @@ export type CompiledAction = {
   targetSection: string;
   params?: Record<string, string>;
   danger?: boolean;
-  chain?: Array<{ kind: 'runBinding' | 'refreshNode'; target: string }>;
+  chain?: Array<{ kind: string; target: string; params?: Record<string, string> }>;
 };
 
 export interface CompileResult {
@@ -90,17 +90,37 @@ export function compileTree(tree: PageNode[]): CompileResult {
     return nodeSectionKey.get(n.id);
   };
 
-  /** 动作链编译：节点 id 引用 → section key/group 引用。 */
+  /** 动作链编译：节点 id 引用 → section key/group 引用；params 透传。 */
   const compileChainRef = (
     raw: unknown,
-  ): Array<{ kind: 'runBinding' | 'refreshNode'; target: string }> | undefined => {
+  ):
+    | Array<{
+        kind: string;
+        target: string;
+        params?: Record<string, string>;
+      }>
+    | undefined => {
     if (!Array.isArray(raw) || raw.length === 0) return undefined;
-    const out: Array<{ kind: 'runBinding' | 'refreshNode'; target: string }> = [];
+    const out: Array<{ kind: string; target: string; params?: Record<string, string> }> = [];
     for (const step of raw as Array<Record<string, unknown>>) {
-      const kind = step.kind === 'runBinding' ? 'runBinding' : 'refreshNode';
-      const node = typeof step.target === 'string' ? findNode(tree, step.target) : undefined;
-      const target = node ? sectionKeyOf(node) : String(step.target ?? '');
-      if (target) out.push({ kind, target });
+      const kind = String(step.kind ?? 'refreshNode');
+      if (kind === 'runBinding' || kind === 'refreshNode') {
+        const node = typeof step.target === 'string' ? findNode(tree, step.target) : undefined;
+        const target = node ? sectionKeyOf(node) : String(step.target ?? '');
+        if (target) {
+          const params = step.params as Record<string, string> | undefined;
+          out.push({ kind, target, ...(params && Object.keys(params).length ? { params } : {}) });
+        }
+      } else {
+        // 无目标动作（navigate/showMessage/closeModal）
+        out.push({
+          kind,
+          target: '',
+          ...((step.params as Record<string, string>)
+            ? { params: step.params as Record<string, string> }
+            : {}),
+        });
+      }
     }
     return out.length ? out : undefined;
   };
@@ -132,6 +152,14 @@ export function compileTree(tree: PageNode[]): CompileResult {
         compileButton(node);
         continue;
       }
+      // 通用组件事件：仅预览可用，发布触发点 V1 未接入 spec（诚实警告）
+      for (const evName of ['onClick', 'onRowClick', 'onRowSelected']) {
+        if (node.props[evName]) {
+          warnings.push(
+            `${String(node.props.title ?? node.type)} 的「${evName}」事件暂不参与发布（预览可用），已忽略`,
+          );
+        }
+      }
       if (VIEW_MAP[node.type]) {
         emitFnSection(node, node.props.display === 'dialog' ? 'dialog' : 'inline');
         continue;
@@ -156,14 +184,34 @@ export function compileTree(tree: PageNode[]): CompileResult {
       autoRun: node.props.autoRun === true,
       display,
     };
-    // onSuccessRefresh：动作 target → 目标节点区块 key
-    const act = parseAction(node.props.onSuccessRefresh);
-    if (act?.kind === 'refreshNode') {
-      const target = findNode(tree, act.target);
-      const tkey = target && sectionKeyOf(target);
-      if (tkey) section.onSuccessRefresh = [tkey];
-      else warnings.push(`${fid} 的「成功后刷新」目标无效，已忽略`);
-    }
+    // 成功后刷新：fnForm.onSuccess 事件（refresh 步骤）+ 旧 onSuccessRefresh 兼容
+    const collectRefresh = (raw: unknown, source: string) => {
+      const a = parseAction(raw);
+      if (!a) return;
+      const targets: string[] = [];
+      if (a.kind === 'refreshNode') {
+        const t = findNode(tree, a.target);
+        const k = t && sectionKeyOf(t);
+        if (k) targets.push(k);
+      }
+      for (const step of (raw as { chain?: Array<{ kind: string; target: string }> })?.chain ??
+        []) {
+        if (step.kind !== 'refreshNode') continue;
+        const t = findNode(tree, step.target);
+        const k = t && sectionKeyOf(t);
+        if (k) targets.push(k);
+      }
+      if (targets.length)
+        section.onSuccessRefresh = [...(section.onSuccessRefresh ?? []), ...targets];
+      const hasNonRefresh = (raw as { chain?: Array<{ kind: string }> })?.chain?.some(
+        (st) => st.kind !== 'refreshNode',
+      );
+      if (hasNonRefresh) {
+        warnings.push(`${fid} 的「${source}」含非刷新动作（V1 发布仅支持刷新），已忽略该部分`);
+      }
+    };
+    if (node.props.onSuccess) collectRefresh(node.props.onSuccess, '执行成功后');
+    if (node.props.onSuccessRefresh) collectRefresh(node.props.onSuccessRefresh, '成功后刷新');
     // 行操作（表格属性面板直接编辑，目标弹窗→函数 id）
     if (node.type === 'fnTable' && Array.isArray(node.props.rowActions)) {
       const ras: CompiledAction[] = [];
@@ -212,7 +260,29 @@ export function compileTree(tree: PageNode[]): CompileResult {
     }
     const targetKey = (targetNode && sectionKeyOf(targetNode)) ?? '';
     const danger = node.props.btnStyle === 'danger' ? { danger: true } : {};
-    // 主动作非弹窗：发布为纯执行/刷新链
+    const actParams =
+      act?.params && Object.keys(act.params).length
+        ? (act.params as Record<string, string>)
+        : undefined;
+    // 主动作分类发布：无目标动作（navigate/showMessage/closeModal）/ 执行刷新链 / 弹窗
+    if (
+      act &&
+      (act.kind === 'navigate' || act.kind === 'showMessage' || act.kind === 'closeModal')
+    ) {
+      lastTable.toolbarActions = [
+        ...(lastTable.toolbarActions ?? []),
+        {
+          label: String(node.props.title ?? '操作'),
+          targetSection: '',
+          chain: [
+            { kind: act.kind, target: '', ...(actParams ? { params: actParams } : {}) },
+            ...(extraChain ?? []),
+          ],
+          ...danger,
+        },
+      ];
+      return;
+    }
     if (act && act.kind !== 'openModal') {
       if (!targetKey) {
         warnings.push(`按钮「${String(node.props.title ?? '')}」动作目标无效，已忽略`);

@@ -22,6 +22,8 @@ export interface ComponentDef {
   scaffold: (fn?: FunctionDescriptor) => Record<string, unknown>;
   /** 画布预览组件。 */
   Preview: React.FC<PreviewProps>;
+  /** 组件事件集（WinForms 式：声明后自动出现在属性面板「动作」Tab）。 */
+  events?: Array<{ name: string; label: string }>;
 }
 
 export interface PropSchemaCtx {

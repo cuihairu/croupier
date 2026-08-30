@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Button, Select, Space, Typography } from 'antd';
+import { Button, Input, Select, Space, Typography } from 'antd';
 import { CloseOutlined, PlusOutlined } from '@ant-design/icons';
 import {
   ACTIONS,
@@ -47,14 +47,35 @@ export default function ActionEditor({
         placeholder="选择动作"
         value={action?.kind}
         onChange={(kind) => {
-          const candidates = ACTIONS[kind].targetFilter(nodes);
+          const def = ACTIONS[kind];
+          if (!def.needsTarget) {
+            onChange({ kind, target: '', params: {} });
+            return;
+          }
+          const candidates = def.targetFilter(nodes);
           onChange(candidates.length ? { kind, target: candidates[0].id } : null);
         }}
         options={kinds.map((k) => ({ value: k, label: ACTIONS[k].label }))}
         allowClear
         onClear={() => onChange(null)}
       />
-      {action && !needModal && (
+      {action &&
+        (ACTIONS[action.kind].paramFields ?? []).map((pf) => (
+          <Input
+            key={pf.key}
+            size="small"
+            addonBefore={<span style={{ fontSize: 11 }}>{pf.label}</span>}
+            placeholder={pf.placeholder}
+            value={String(action.params?.[pf.key] ?? '')}
+            onChange={(e) =>
+              onChange({
+                ...action,
+                params: { ...(action.params ?? {}), [pf.key]: e.target.value },
+              })
+            }
+          />
+        ))}
+      {action && !needModal && ACTIONS[action.kind].needsTarget && (
         <Space.Compact style={{ width: '100%' }}>
           <Select
             size="small"
@@ -112,62 +133,96 @@ export default function ActionEditor({
           </Text>
         </div>
       )}
-      {action && !targets.some((t) => t.id === action.target) && (
-        <Text type="danger" style={{ fontSize: 11 }}>
-          目标节点已被删除——请重新选择
-        </Text>
-      )}
+      {action &&
+        ACTIONS[action.kind].needsTarget &&
+        !targets.some((t) => t.id === action.target) && (
+          <Text type="danger" style={{ fontSize: 11 }}>
+            目标节点已被删除——请重新选择
+          </Text>
+        )}
       {action && (
         <div style={{ borderTop: '1px dashed #e8e8e8', paddingTop: 6 }}>
           <Text type="secondary" style={{ fontSize: 11, display: 'block', marginBottom: 4 }}>
             后续动作（主动作完成后按序执行）
           </Text>
           {(action.chain ?? []).map((step: ActionStep, i: number) => {
-            const stepTargets = ACTIONS[step.kind].targetFilter(nodes);
+            const stepTargets = ACTIONS[step.kind]?.targetFilter(nodes) ?? [];
             return (
-              <Space.Compact key={i} style={{ width: '100%', marginBottom: 4 }}>
-                <Select
-                  size="small"
-                  style={{ width: 90 }}
-                  value={step.kind}
-                  onChange={(k) => {
-                    const cand = ACTIONS[k].targetFilter(nodes);
-                    onChange({
-                      ...action,
-                      chain: (action.chain ?? []).map((s2, j) =>
-                        j === i ? { kind: k as ActionStep['kind'], target: cand[0]?.id ?? '' } : s2,
-                      ),
-                    });
-                  }}
-                  options={[
-                    { value: 'runBinding', label: '执行' },
-                    { value: 'refreshNode', label: '刷新' },
-                  ]}
-                />
-                <Select
-                  size="small"
-                  style={{ width: 150 }}
-                  value={stepTargets.some((t) => t.id === step.target) ? step.target : undefined}
-                  placeholder="目标"
-                  onChange={(t) =>
-                    onChange({
-                      ...action,
-                      chain: (action.chain ?? []).map((s2, j) =>
-                        j === i ? { ...s2, target: t } : s2,
-                      ),
-                    })
-                  }
-                  options={stepTargets.map((t) => ({ value: t.id, label: nodeSummary(t) }))}
-                  notFoundContent={<Text type="secondary">无</Text>}
-                />
-                <Button
-                  size="small"
-                  icon={<CloseOutlined />}
-                  onClick={() =>
-                    onChange({ ...action, chain: (action.chain ?? []).filter((_, j) => j !== i) })
-                  }
-                />
-              </Space.Compact>
+              <div key={i} style={{ marginBottom: 4 }}>
+                <Space.Compact style={{ width: '100%' }}>
+                  <Select
+                    size="small"
+                    style={{ width: 90 }}
+                    value={step.kind}
+                    onChange={(k) => {
+                      const cand = ACTIONS[k].targetFilter(nodes);
+                      onChange({
+                        ...action,
+                        chain: (action.chain ?? []).map((s2, j) =>
+                          j === i
+                            ? { kind: k as ActionStep['kind'], target: cand[0]?.id ?? '' }
+                            : s2,
+                        ),
+                      });
+                    }}
+                    options={[
+                      { value: 'runBinding', label: '执行' },
+                      { value: 'refreshNode', label: '刷新' },
+                      { value: 'closeModal', label: '关弹窗' },
+                      { value: 'navigate', label: '跳转' },
+                      { value: 'showMessage', label: '提示' },
+                    ]}
+                  />
+                  <Select
+                    size="small"
+                    style={{ width: 150 }}
+                    value={stepTargets.some((t) => t.id === step.target) ? step.target : undefined}
+                    placeholder="目标"
+                    onChange={(t) =>
+                      onChange({
+                        ...action,
+                        chain: (action.chain ?? []).map((s2, j) =>
+                          j === i ? { ...s2, target: t } : s2,
+                        ),
+                      })
+                    }
+                    options={stepTargets.map((t) => ({ value: t.id, label: nodeSummary(t) }))}
+                    notFoundContent={<Text type="secondary">无</Text>}
+                  />
+                  <Button
+                    size="small"
+                    icon={<CloseOutlined />}
+                    onClick={() =>
+                      onChange({ ...action, chain: (action.chain ?? []).filter((_, j) => j !== i) })
+                    }
+                  />
+                </Space.Compact>
+                {(step.kind === 'runBinding' || step.kind === 'refreshNode') && (
+                  <Input
+                    size="small"
+                    style={{ fontSize: 11 }}
+                    placeholder="参数来源（如 playerId=行.uid，多个逗号分隔；节点.字段/row.字段/字面量）"
+                    value={Object.entries(step.params ?? {})
+                      .map(([k, v]) => `${k}=${v}`)
+                      .join(',')}
+                    onChange={(e) => {
+                      const params: Record<string, string> = {};
+                      for (const pair of e.target.value.split(',')) {
+                        const eq = pair.indexOf('=');
+                        if (eq > 0) {
+                          params[pair.slice(0, eq).trim()] = pair.slice(eq + 1).trim();
+                        }
+                      }
+                      onChange({
+                        ...action,
+                        chain: (action.chain ?? []).map((s2, j) =>
+                          j === i ? { ...s2, params } : s2,
+                        ),
+                      });
+                    }}
+                  />
+                )}
+              </div>
             );
           })}
           <Button

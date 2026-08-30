@@ -9,7 +9,6 @@ import type { JSONSchema } from '@/types/dashboard';
 import ActionEditor from './ActionEditor';
 import RowActionsEditor from './RowActionsEditor';
 import { schemaProperties } from './types';
-import type { ActionKind, ActionSpec } from './actions';
 
 const { Text } = Typography;
 
@@ -66,10 +65,9 @@ export default function PropsPanel({
   const props = (schema.properties ?? {}) as Record<string, JSONSchema>;
   const fmt = (k: string) => (props[k] as { format?: string })?.format;
   const plainKeys = Object.keys(props).filter((k) => !fmt(k));
-  const columnsKeys = Object.keys(props).filter((k) => fmt(k) === 'columns');
-  const actionKeys = Object.keys(props).filter((k) => fmt(k) === 'action');
   const rowActionsKeys = Object.keys(props).filter((k) => fmt(k) === 'rowActions');
-  const hasActions = rowActionsKeys.length > 0 || actionKeys.length > 0;
+  const events = def.events ?? [];
+  const hasActions = rowActionsKeys.length > 0 || events.length > 0;
   const plainSchema: JSONSchema = {
     ...schema,
     properties: Object.fromEntries(plainKeys.map((k) => [k, props[k]])),
@@ -119,7 +117,7 @@ export default function PropsPanel({
             ? [
                 {
                   key: 'actions',
-                  label: `动作${actionKeys.length + rowActionsKeys.length > 0 ? '' : ''}`,
+                  label: '动作',
                   forceRender: true,
                   children: (
                     <div
@@ -129,6 +127,23 @@ export default function PropsPanel({
                         paddingRight: 4,
                       }}
                     >
+                      {events.map((ev) => (
+                        <div key={ev.name} style={{ marginBottom: 16 }}>
+                          <Typography.Text
+                            type="secondary"
+                            style={{ fontSize: 11, display: 'block', marginBottom: 4 }}
+                          >
+                            {ev.label}（{ev.name}）
+                          </Typography.Text>
+                          <ActionEditor
+                            value={node.props[ev.name]}
+                            nodes={nodes}
+                            allFns={allFns}
+                            onCreateModal={onCreateModal}
+                            onChange={(v) => onPatch({ [ev.name]: v ?? undefined })}
+                          />
+                        </div>
+                      ))}
                       {rowActionsKeys.map((key) => (
                         <div key={key} style={{ marginBottom: 12 }}>
                           <Typography.Text
@@ -150,31 +165,6 @@ export default function PropsPanel({
                           />
                         </div>
                       ))}
-                      {actionKeys.map((key) => {
-                        const field = props[key] as
-                          { title?: unknown; actionKinds?: ActionKind[] } | undefined;
-                        const kinds = field?.actionKinds;
-                        return (
-                          <div key={key} style={{ marginBottom: 12 }}>
-                            <Typography.Text
-                              type="secondary"
-                              style={{ fontSize: 11, display: 'block', marginBottom: 4 }}
-                            >
-                              {String(field?.title ?? key)}
-                            </Typography.Text>
-                            <ActionEditor
-                              value={node.props[key]}
-                              nodes={nodes}
-                              allFns={allFns}
-                              allowedKinds={kinds}
-                              onCreateModal={onCreateModal}
-                              onChange={(v: ActionSpec | null) =>
-                                onPatch({ [key]: v ?? undefined })
-                              }
-                            />
-                          </div>
-                        );
-                      })}
                     </div>
                   ),
                 },

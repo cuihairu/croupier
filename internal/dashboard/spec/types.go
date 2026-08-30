@@ -584,9 +584,13 @@ type CompositeRowAction struct {
 
 // CompositeActionStep 动作链单步。
 type CompositeActionStep struct {
-	// Kind runBinding（执行区块）| refreshNode（刷新区块）。
-	Kind   string `json:"kind"`
+	// Kind runBinding|refreshNode|closeModal|navigate|showMessage|openModal。
+	Kind string `json:"kind"`
+	// Target 目标区块 key / 弹窗分组名（无目标动作为空）。
 	Target string `json:"target"`
+	// Params 动作参数：navigate={url}、showMessage={message}、
+	// runBinding=参数来源映射（"节点id.字段" / "row.字段" / 字面量）。
+	Params map[string]string `json:"params,omitempty"`
 }
 
 // CompositeToolbarSpec

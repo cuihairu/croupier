@@ -134,19 +134,14 @@ describe('builtin propSchema 字段声明（属性面板渲染约定）', () => 
     expect(schema.properties.rowActions?.format).toBe('rowActions');
   });
 
-  it('button.onClick：format=action（任意动作）', () => {
-    const schema = resetAndGet('button').propSchema(ctx) as {
-      properties: Record<string, { format?: string }>;
-    };
-    expect(schema.properties.onClick?.format).toBe('action');
-  });
-
-  it('fnForm.onSuccessRefresh：format=action 且限定 refreshNode', () => {
-    const schema = resetAndGet('fnForm').propSchema(ctx) as {
-      properties: Record<string, { format?: string; actionKinds?: string[] }>;
-    };
-    const f = schema.properties.onSuccessRefresh;
-    expect(f?.format).toBe('action');
-    expect(f?.actionKinds).toEqual(['refreshNode']);
+  it('事件声明：button=onClick；fnForm=onSuccess/onError；fnTable=行点击/行选中', () => {
+    expect(resetAndGet('button').events?.map((e) => e.name)).toEqual(['onClick']);
+    expect(resetAndGet('fnForm').events?.map((e) => e.name)).toEqual(['onSuccess', 'onError']);
+    expect(resetAndGet('fnTable').events?.map((e) => e.name)).toEqual([
+      'onRowClick',
+      'onRowSelected',
+    ]);
+    expect(resetAndGet('text').events?.map((e) => e.name)).toEqual(['onClick']);
+    expect(resetAndGet('fnFields').events?.map((e) => e.name)).toEqual(['onClick']);
   });
 });

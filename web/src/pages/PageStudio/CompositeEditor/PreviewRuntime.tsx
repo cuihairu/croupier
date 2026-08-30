@@ -212,11 +212,22 @@ function PreviewNode({
 
   if (node.type === 'text') {
     const level = String(node.props.level ?? 'p');
-    if (level === 'h2')
-      return <Typography.Title level={4}>{String(node.props.content ?? '')}</Typography.Title>;
-    if (level === 'h3')
-      return <Typography.Title level={5}>{String(node.props.content ?? '')}</Typography.Title>;
-    return <Text>{String(node.props.content ?? '')}</Text>;
+    const content = String(node.props.content ?? '');
+    const inner =
+      level === 'h2' ? (
+        <Typography.Title level={4}>{content}</Typography.Title>
+      ) : level === 'h3' ? (
+        <Typography.Title level={5}>{content}</Typography.Title>
+      ) : (
+        <Text>{content}</Text>
+      );
+    return node.props.onClick ? (
+      <span style={{ cursor: 'pointer' }} onClick={() => onAction(node.props.onClick)}>
+        {inner}
+      </span>
+    ) : (
+      inner
+    );
   }
 
   if (node.type === 'button') {
