@@ -229,9 +229,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Result
+        env:
+          NEEDS: ${{ toJSON(needs) }}
+          TAG: ${{ needs.resolve-version.outputs.tag }}
         run: |
-          echo "## SDK 发布结果（版本 ${{ needs.resolve-version.outputs.tag }}）" >> "$GITHUB_STEP_SUMMARY"
+          echo "## SDK 发布结果（版本 ${TAG}）" >> "$GITHUB_STEP_SUMMARY"
           for j in python-pypi js-npm go-module java-packages csharp-nuget cpp-release; do
-            R="${{ needs.$j.result }}"
+            R=$(printf '%s' "$NEEDS" | jq -r --arg j "$j" '.[$j].result // "skipped"')
             echo "- $j: ${R}" >> "$GITHUB_STEP_SUMMARY"
           done
