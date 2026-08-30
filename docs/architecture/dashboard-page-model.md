@@ -329,6 +329,7 @@ PageSpec = (pageKey, type, resourceKey?, category, title, icon, order,
 | `operation` | `Form`（FormPresentationSpec）+ `Confirm`（ConfirmActionSpec）+ `ResultViewSpec`                                                                                                                                |
 | `task`      | `Form`（FormPresentationSpec）+ `TaskViewSpec`（status/events/result/cancel 的 bindingId 引用）+ `ResultViewSpec`                                                                                               |
 | `report`    | `QueryForm`（FormPresentationSpec）+ `DatasetSpec` + `ChartSpec[]` + 表格 `ListViewSpec`                                                                                                                        |
+| `composite` | `CompositePageSpec`：`sections[]`（每区块绑定一个函数；`display` inline/dialog、`group` 弹窗分组、`rowActions`/`toolbar` 按钮动作含 `chain` 动作链、`onSuccessRefresh`、`refreshOn` page_state 联动）           |
 
 字段级的 wire 契约（含 FormPresentationSpec、Selector AST、Binding usage 枚举与 ABI 版本）以 [PageSpec 协议规范](./pagespec-protocol.md) 为唯一出处；其权威实现是 `internal/dashboard/spec`（Go DTO）与 `web/src/types/dashboard.ts`（前端共享类型），两侧逐项对应。
 
@@ -355,6 +356,38 @@ JSON Schema 为列表列、详情项和表单字段生成候选。`CapabilitySem
 TaskPage 的生命周期能力来自 `TaskSemantic`，生成器把 `start/status/events/result/cancel` 转成 PageSpec binding，并在 `TaskViewSpec` 中保存 bindingId 引用、固定 `taskId` page state key 与 `status.statePath`。运行时仍统一走 `POST /api/v1/console/pages/:pageKey/bindings/:bindingId/execute`，浏览器只提交 `page_state.taskId` 作为 selector source，不传 functionId、target、gameId 或 env。缺少 `status` binding 或 `statusStatePath` 的 TaskPage 不可发布；`events/result/cancel` 只有存在对应真实函数语义时才显示入口；retry 在真实 runtime 闭环前禁止发布。
 
 ReportPage 必须使用已验证的数据集、指标和图表字段，不得只显示 JSON。
+
+### CompositePage（自由组合页）
+
+组合页把多个函数区块编排成一个工作台页面（如「玩家管理」= 玩家表格 + 行操作弹窗 + 提交刷新）。区块是**平铺列表**，编辑器（组合页编辑器 V3）内部是组件树，保存时编译为平铺 sections——发布链（提案/校验/版本/菜单）零特判。
+
+`CompositeSection` 字段模型（权威实现 `internal/dashboard/spec/types.go`，前端 `web/src/types/dashboard.ts`）：
+
+| 字段               | 类型                 | 语义                                                                                                                          |
+| ------------------ | -------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| `key`              | string               | 区块唯一标识。**同函数多实例**时依次 `fid`、`fid-2`、`fid-3`（一个数据源可拖多个组件分别配置）；创建端点重复 key 显式报错     |
+| `bindingId`        | string               | 引用 `PageSpec.bindings` 的绑定                                                                                               |
+| `view`             | string               | `table` / `fields` / `form`                                                                                                   |
+| `span`             | int                  | 栅格宽度 1-24（0=整行）                                                                                                       |
+| `autoRun`          | bool                 | 进入页面自动执行（查询类区块）                                                                                                |
+| `display`          | string               | `inline`（默认，栅格内）/ `dialog`（弹窗，不占栅格）                                                                          |
+| `group`            | string               | 弹窗分组：`display=dialog` 且 `group` 相同的区块渲染进**同一弹窗**（表单+字段卡+表格混排）；按钮/行操作的动作目标指向 `group` |
+| `refreshOn`        | []string             | 依赖的 stateKey（=上游区块 key）列表——任一变化自动重跑（page_state 联动：上游输出顶层字段同名合并进下游输入）                 |
+| `onSuccessRefresh` | []string             | 操作成功后自动重跑的区块 key（发邮件成功→刷新玩家表格）                                                                       |
+| `table`            | CompositeTableSpec   | `view=table`：columns/pagination/rowSchema/identityKey/**rowActions**                                                         |
+| `toolbar`          | CompositeToolbarSpec | 表格顶部按钮组（actions）                                                                                                     |
+
+**行操作与按钮动作**（rowActions / toolbar.actions）：
+
+| 字段            | 语义                                                                        |
+| --------------- | --------------------------------------------------------------------------- |
+| `label`         | 按钮文案（LocalizedText）                                                   |
+| `targetSection` | 打开的弹窗目标：区块 key 或 **group 名**（空=纯动作链按钮）                 |
+| `params`        | 参数映射：行操作=行字段名→表单参数名（`player_id: uid`）；顶部按钮=静态初值 |
+| `danger`        | 危险样式 + 二次确认                                                         |
+| `chain`         | **动作链**：主动作后按序执行的步骤 `[{kind: runBinding                      | refreshNode, target: 区块key}]` |
+
+编辑器（`web/src/pages/PageStudio/CompositeEditor`）与发布渲染器（`PageRenderer` 的 `CompositeRenderer`）共用此模型；编译器（编辑器 → sections）与反编译器（sections → 编辑树，用于回读再编辑）保证配置 round-trip 不丢失。
 
 ## 前端运行时：ProComponents 页面渲染器
 

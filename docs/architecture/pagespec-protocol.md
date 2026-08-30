@@ -80,10 +80,69 @@ PageSpec 使用业务节点而非组件名。节点集合固定为：
 ```text
 ListViewSpec | DetailViewSpec | ActionSpec | ConfirmActionSpec
 | TaskViewSpec | ResultViewSpec | FormPresentationSpec
-| DatasetSpec | ChartSpec
+| DatasetSpec | ChartSpec | CompositePageSpec
 ```
 
 各页面类型的编排见 [Dashboard Resource/Page 模型](./dashboard-page-model.md)。每个节点有版本化、强类型字段和服务端校验器。页面 renderer 根据节点类型选择 ProComponents；PageSpec 不得出现具体 React 组件名或任意组件 props。
+
+### CompositePageSpec（组合页 wire 契约）
+
+`type: composite` 页面的主体（权威实现 `internal/dashboard/spec/types.go`，前端 `web/src/types/dashboard.ts`）。创建入口 `POST /api/v1/versioning/pages/composite`，请求为 `CompositeSectionRequest[]`（字段与 spec 同名透传，见 [使用指南 §3](../dashboard/composite-editor-v3.md)）。
+
+```json
+{
+  "sections": [
+    {
+      "key": "player.list",
+      "bindingId": "player.list",
+      "view": "table",
+      "span": 24,
+      "autoRun": true,
+      "refreshOn": [],
+      "table": {
+        "columns": [
+          { "key": "uid", "title": { "zh-CN": "用户" }, "dataType": "string" }
+        ],
+        "rowActions": [
+          {
+            "label": { "zh-CN": "发邮件" },
+            "targetSection": "modal-ab12cd",
+            "params": { "player_id": "uid" },
+            "chain": [{ "kind": "refreshNode", "target": "player.list" }]
+          }
+        ]
+      },
+      "toolbar": {
+        "actions": [
+          {
+            "label": { "zh-CN": "批量补偿" },
+            "targetSection": "modal-ab12cd",
+            "danger": true
+          }
+        ]
+      }
+    },
+    {
+      "key": "mail.send",
+      "group": "modal-ab12cd",
+      "bindingId": "mail.send",
+      "view": "form",
+      "display": "dialog",
+      "onSuccessRefresh": ["player.list"]
+    }
+  ]
+}
+```
+
+字段语义（详细规则见 [Dashboard 页面模型 CompositePage 节](./dashboard-page-model.md)）：
+
+- `key`：区块唯一标识；**同函数多实例**依次 `fid`/`fid-2`…，创建端点重复 key 显式报错
+- `display`: `inline`（默认）| `dialog`（弹窗，不占栅格）
+- `group`：弹窗分组——`dialog` 区块按 group 聚合渲染进同一弹窗（表单+字段卡+表格混排）；动作目标（`targetSection`）指向 group
+- `rowActions[].params`：行字段→表单参数映射（`"player_id": "uid"` = 行的 uid 填入弹窗表单 player_id）
+- `chain`：动作链，主动作后按序执行 `runBinding|refreshNode`
+- `onSuccessRefresh`：表单提交成功后自动重跑的区块 key
+- `refreshOn`：page_state 联动——上游区块 key 变化自动重跑，上游输出顶层字段同名合并进本区块输入
 
 ## 数据引用和 mapping（Selector AST）
 

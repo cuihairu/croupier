@@ -4,55 +4,82 @@ title: 组合页编辑器 V3 使用与扩展指南
 
 # 组合页编辑器 V3（组件化）
 
-> 状态：已上线（P0–P5 全批次完成，验收记录见 [V3 计划](./composite-editor-v3-plan.md)）
-> 参考样品：[amis-editor](http://192.168.5.5:8001)（scaffold/属性面板声明）、[Appsmith](http://192.168.5.5:8002)（一切皆组件/事件绑定）
+> 状态：**已上线全量**（V3 计划 + V3.1 边界清零：动作链/弹窗分组多组件/容器子级交互/回读增强/多选/撤销重做/右键菜单）
+> 设计依据：[V3 计划](./composite-editor-v3-plan.md)｜[参考产品对比分析](./editor-reference-analysis.md)｜spec 模型见 [Dashboard 页面模型](../architecture/dashboard-page-model.md) CompositePage 节
+> 参考样品：[amis-editor](http://192.168.5.5:8001)、[Appsmith](http://192.168.5.5:8002)
 
-## 用户指南
+## 1. 功能全景
 
-### 入口
+| 模块           | 能力                                                                                                                                |
+| -------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| 入口           | 提案收件箱「创建组合页」/ 页面管理列表 composite 页「编辑」（**回读已有页面**）                                                     |
+| 组件面板（左） | 函数组件（按资源分组、scaffold 按契约实例化）+ 基础组件（按钮/弹窗/容器/文本）；空 scope 引导切换                                   |
+| 大纲（左 Tab） | 组件树导航，点击定位                                                                                                                |
+| 添加           | 点击（根末尾）/ 拖拽（**落点指示线**；拖到容器上进 children；拖到弹窗占位卡进弹窗）                                                 |
+| 同函数多实例   | 同一函数可拖 N 个组件（key 自动 `fid`/`fid-2`…），分别配置                                                                          |
+| 换绑           | 属性面板「函数（可换绑）」全量下拉；换绑后组件重新 scaffold                                                                         |
+| 画布           | 拖拽排序、右缘调宽（4-24 栅格）、**右键菜单**（上移/下移/选择父容器/复制/删除）、容器子级点选/删除/同级移动                         |
+| 多选           | 点选累积（高亮+计数）→ 顶栏「删除所选」批量删除                                                                                     |
+| 撤销/重做      | 顶栏 ↩/↪ + **Ctrl+Z / Ctrl+Shift+Z**（50 步快照，覆盖全部树变更）                                                                   |
+| 弹窗           | 栅格占位卡 → **双击/「进入弹窗编辑」切换画布为弹窗内部**（面包屑「页面 / 弹窗名」返回）；内部可放多个函数表单                       |
+| 属性面板（右） | rjsf schema 驱动；**配置区滚动 + 事件/行操作区固定底部**；标题/宽度/自动执行/展示方式/列勾选（Checkbox）/成功后刷新                 |
+| 行操作         | 表格属性面板可视化配置：行尾按钮 → 弹窗，行字段→表单参数映射下拉，危险标记                                                          |
+| 动作链         | 按钮主动作 + **后续动作列表**（执行/刷新多步，按序执行）                                                                            |
+| 数据试跑       | 底部数据面板：选中函数组件一键执行（Appsmith Query 面板形态），结果表格/JSON 即席展示                                               |
+| 预览           | 顶栏切换，**复用发布渲染器**——autoRun 执行/弹窗提交/刷新级联/动作链，所见即发布                                                     |
+| 保存           | 编译树 → `POST /versioning/pages/composite`（提案）→ 收件箱接受发布 → 菜单出现                                                      |
+| 回读           | `?pageKey=` 自动载入（提案 `composite--key` → 裸 key → draft 三数据源 fallback），**顶部按钮还原为独立按钮节点**（round-trip 等价） |
 
-提案收件箱「创建组合页」或 `/functions/pages/composite-editor`。**函数按 (game, env) 隔离**——当前 scope 无函数时左栏会引导切换到有函数的 scope。
-
-### 三步搭「玩家管理页」
+## 2. 典型页面搭建（玩家管理页）
 
 ```
-1. 左栏点击 player.list   → 画布出现表格（列=输出 schema，自动执行）
-2. 左栏点「基础组件 → 弹窗」→ 弹窗收纳区出现空弹窗
-   左栏点击 mail.send 拖到弹窗卡片上 → 表单装入弹窗
-3. 选中表格 → 属性面板「行操作」→ 添加：
-     文案=发邮件 | 打开弹窗=发邮件 | 参数映射 playerId ← 行.uid
-   选中弹窗表单 → 「成功后刷新」= 刷新 player.list
+① 玩家表格（自动执行）
+   左栏点击 player.list → 表格组件（列=输出 schema 全选）
+② 发邮件弹窗
+   基础组件拖「弹窗」→ 画布紫色占位卡
+   双击占位卡 → 进入弹窗内部（面包屑出现）
+   左栏拖 mail.send 进来 → 表单（字段=输入 schema）
+   点选表单 → 属性面板「成功后刷新」= 刷新 player.list
+③ 行操作（行尾按钮）
+   面包屑回「页面」→ 点选表格 → 属性面板底部「行操作」
+   添加：文案=发邮件｜打开弹窗=发邮件｜映射 playerId ← 行.playerId｜危险=否
+④ 预览
+   顶栏「预览」→ 表格自动执行出数据 → 行尾[发邮件] → 弹窗（playerId 已带入）
+   → 提交 → 关窗+提示 → 表格自动刷新
+⑤ 保存
+   「保存为提案」→ 提案收件箱接受发布 → 左侧菜单出现页面
 ```
 
-点顶栏「预览」：表格自动执行出真实数据 → 行尾 `[发邮件]` → 弹窗（playerId 已带入）→ 提交 → 关窗 → 表格刷新。**预览即发布后形态**。
+变体：
 
-「保存为提案」→ 提案收件箱接受发布 → 左侧菜单出现页面。
+- **顶部按钮**：拖「按钮」到表格后 → 属性「点击动作」=打开弹窗（编译为表格顶部按钮）；可加**后续动作**（如先执行再刷新）
+- **同一数据多视图**：再拖一次 player.list（key 自动 -2 后缀），配置不同列/宽度
+- **弹窗多组件**：弹窗内部可继续拖入字段卡/第二个表单（同 group 渲染进同一弹窗）
 
-### 画布操作
+## 3. 编译规则（编辑树 → CompositeSection）
 
-| 操作      | 方式                                                  |
-| --------- | ----------------------------------------------------- |
-| 添加      | 左栏点击（加到末尾）或拖拽（拖到指定落点/弹窗收纳区） |
-| 排序      | 拖节点左上角手柄                                      |
-| 调宽      | 拖节点右边缘（4–24 栅格）                             |
-| 配置      | 点节点 → 右侧属性面板（rjsf schema 驱动）             |
-| 复制/删除 | 节点右上角操作按钮                                    |
-| 导航      | 左栏「大纲」Tab 组件树                                |
+| 画布                                | 发布 spec                                                            |
+| ----------------------------------- | -------------------------------------------------------------------- |
+| fnTable / fnFields / fnForm(inline) | 区块（view=table/fields/form）                                       |
+| 弹窗容器（modal）                   | 其每个函数子组件 → `display: dialog` + `group: modal-<id>`（同弹窗） |
+| 表格属性「行操作」                  | `table.rowActions`（目标=group；行字段→参数映射；链透传）            |
+| 独立按钮（置于表格后）              | 该表格 `toolbar.actions`；非弹窗动作（执行/刷新）发布为 `chain`      |
+| fnForm「成功后刷新」                | `onSuccessRefresh`（目标=区块 key）                                  |
+| 容器                                | 子节点平铺（span 各自保留）                                          |
+| 文本                                | 不发布（警告）                                                       |
 
-### 编译规则（保存时树 → CompositeSection）
+警告场景（保存时提示，不阻断）：空弹窗、动作目标已删、按钮不在任何表格之后、区块未绑定函数、文本组件。
 
-| 画布                                     | 发布 spec                                        |
-| ---------------------------------------- | ------------------------------------------------ |
-| fnTable / fnFields / fnForm(inline)      | 区块（view=table/fields/form）                   |
-| 弹窗容器 + fnForm                        | `display: dialog` 区块                           |
-| 表格属性「行操作」                       | `table.rowActions`（行字段→表单参数映射）        |
-| 独立按钮（onClick=打开弹窗，置于表格后） | 该表格 `toolbarActions`（V1 编译为表格顶部按钮） |
-| fnForm「成功后刷新」                     | `onSuccessRefresh`                               |
-| 文本                                     | 不发布（警告提示）                               |
+## 4. 发布页行为（PageRenderer/CompositeRenderer）
 
-## 组件开发指南
+- `autoRun` 区块进入页面自动执行；`refreshOn` 上游产出自动重跑（page_state 同名字段合并）
+- 行操作列/顶部按钮 → 打开 group 对应弹窗（参数预填，danger 二次确认）→ 提交成功关窗+提示 → `onSuccessRefresh` 级联刷新
+- `chain` 步骤在主动作后按序执行（runBinding/refreshNode）
+- 同函数多实例按 key 独立执行互不干扰
 
-新组件 = 在 `components/builtin.tsx` 注册一个 `ComponentDef`：
+## 5. 组件开发指南
+
+新组件 = 在 `components/builtin.tsx` 注册 `ComponentDef`：
 
 ```tsx
 registerComponent({
@@ -61,43 +88,59 @@ registerComponent({
   icon: <Tag color="orange">统计</Tag>,
   category: "basic", // function=由契约生成 / basic=直接拖入
   allowedChildren: ["fnFields"], // 容器类才配（可选）
-  propSchema: ({ nodes, fnById, fn }) => ({
+  propSchema: ({ nodes, fnById, allFns, fn }) => ({
     type: "object",
     properties: {
       title: { type: "string", title: "标题" },
       span: { type: "integer", minimum: 4, maximum: 24, default: 24 },
-      // 事件字段：format:'action' → ActionEditor 下拉编排
-      onClick: { type: "object", title: "点击动作", format: "action" },
+      onClick: { type: "object", title: "点击动作", format: "action" }, // 动作编排
     },
   }),
-  scaffold: (fn) => ({ title: fn?.id ?? "统计", span: 12 }),
-  Preview: ({ node, fn }) => <StatCardPreview node={node} fn={fn} />,
+  scaffold: (fn) => ({ title: fn?.id ?? "统计", span: 12 }), // 拖入即骨架
+  Preview: ({ node, fn }) => <StatCardPreview node={node} fn={fn} />, // 画布预览
 });
 ```
 
-约定：
+propSchema 字段渲染约定：
 
-- **propSchema 即属性面板**：普通字段 rjsf 渲染；`format:'action'` → 动作编排；`format:'rowActions'` → 行操作编辑器；`actionKinds` 限定可选动作。
-- **scaffold 按契约实例化**（amis 式）：函数组件从 FunctionContract 取输出列/输入字段作为默认值。
-- **Preview 是画布预览**：不执行调用；数据展示留空态文案引导试跑/预览。
-- 新组件若参与发布：`compiler.ts` 加编译规则 + 快照用例。
+| 声明                   | 渲染                                                                    |
+| ---------------------- | ----------------------------------------------------------------------- |
+| 普通字段               | rjsf（SchemaFormRenderer）                                              |
+| `format: 'columns'`    | Checkbox.Group 列勾选                                                   |
+| `format: 'rowActions'` | 行操作编辑器（目标弹窗+参数映射+危险）                                  |
+| `format: 'action'`     | 动作编排（主动作下拉+目标；`actionKinds` 限定可选动作；支持后续动作链） |
 
-## 架构位置
+新组件参与发布：`compiler.ts` 加编译规则 + 快照用例；参与回读：`decompileToTree` 对应分支。
+
+## 6. 代码结构
 
 ```
-编辑器（树模型 PageNode）          发布链（零改动复用）
-┌ 组件面板/大纲（左）              ┌ GenerateCompositePage
-│ registry: ComponentDef          │ spec.CompositeSection
-│  ├ scaffold（amis）              │  ├ display/rowActions/toolbar
-│  ├ propSchema（panelControls）   │  └ onSuccessRefresh
-│  └ Preview                      │ PageRenderer.CompositeRenderer
-├ 画布 Canvas（中）                │  ├ Modal 弹窗渲染
-│  ├ DnD 拖入/重排/调宽            │  ├ 行操作列（参数预填）
-│  └ modal 收纳区                  │  └ 成功刷新级联
-├ 属性面板 PropsPanel（右）        └ 提案 → 发布 → 菜单
-│  └ rjsf + ActionEditor
-└ 预览 PreviewRuntime = 发布形态
-   └ 保存 compiler: 树 → sections
+web/src/pages/PageStudio/CompositeEditor/
+├── model.ts          # PageNode 树模型 + 纯函数树操作（insert/remove/move/duplicate…8 用例）
+├── registry.tsx      # ComponentDef 注册表（scaffold/propSchema/Preview）
+├── components/builtin.tsx   # 七个内置组件定义
+├── ComponentPanel.tsx# 组件面板（函数分组+基础组件+scope 引导）
+├── Canvas.tsx        # 画布（CanvasNode 装饰+右键菜单 / ModalPlaceholder / RootDropZone）
+├── OutlinePanel.tsx  # 大纲树
+├── PropsPanel.tsx    # 属性面板（rjsf + columns/rowActions/action 分区渲染）
+├── ActionEditor.tsx  # 动作编排（主动作+链）
+├── RowActionsEditor.tsx      # 行操作编辑器
+├── PreviewRuntime.tsx# 预览运行时（=发布形态）
+├── DataPanel.tsx     # 底部数据试跑面板
+├── actions.ts        # ActionSpec/动作注册表
+├── compiler.ts       # 编译（树→sections）+ 反编译（sections→树，回读）
+└── index.tsx         # 编辑器主页（四区布局/拖拽域/撤销重做/多选/保存/回读）
 ```
 
-V1 边界（V1.1 计划内）：容器单层、弹窗内单表单、无撤销重做/动作链/多选、独立按钮编译依赖表格、回读编辑（已发布页反编译为树）。
+发布链：编译产物 `POST /api/v1/versioning/pages/composite`（请求结构含 `key/group/display/rowActions/toolbarActions/onSuccessRefresh/chain`）→ 提案 → 接受发布 → `PageRenderer/CompositeRenderer` 按 spec 渲染。
+
+## 7. 测试
+
+`__tests__/`：model 8（树操作）、registry 3（注册/约束）、scaffold 5+4（实例化快照/面板声明）、compiler 6（编译快照/多实例/警告）、decompile 3（回读 round-trip/破损引用）、canvas 3（弹窗占位卡交互）、action-editor 4（动作编排）。合计 36 用例，`pnpm --dir web test` 全绿。
+
+## 8. 已知边界
+
+- 容器子级两层内完整交互（孙层为简化预览）
+- 文本组件不参与发布（编译警告）
+- 弹窗内 text 组件不进 spec
+- 回读依赖提案或 draft 至少其一存在（三者都无则提示）
