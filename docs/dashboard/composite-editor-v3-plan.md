@@ -55,7 +55,7 @@ type ActionSpec =
 
 ## 批次 P0 — 地基
 
-### T0.1 编辑器空态 scope 引导
+### ✅ T0.1 编辑器空态 scope 引导
 
 - 文件：`web/src/pages/PageStudio/CompositeEditor/FunctionPanel.tsx`
 - 改动：descriptors 为空时显示当前 scope（`getScope()`）+ 调 `getMyGames()` 列出其他 scope 的函数计数，提供一键 `setScope` 切换按钮（修已实测的"死页面"：函数全在 demo_game/development，用户停在 default/prod 时 0 函数无提示）
