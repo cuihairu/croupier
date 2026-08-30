@@ -62,7 +62,7 @@ type ActionSpec =
 - 验收：default/prod 下打开编辑器，空态显示"当前 scope 无函数契约，demo_game/development 有 22 个 → [切换]"，点击后左栏出函数
 - 依赖：无 ｜ 预估：0.25d
 
-### T0.2 PageNode 树模型与类型
+### ✅ T0.2 PageNode 树模型与类型
 
 - 文件：`web/src/pages/PageStudio/CompositeEditor/model.ts`（新）
 - 改动：`PageNode`/`ActionSpec`/`ComponentType` 类型；树工具函数（insert/remove/move/find/updateProps/duplicate，全部纯函数）
