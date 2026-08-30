@@ -20,7 +20,9 @@ import { SortableList } from '@/components/SortableList';
 import Canvas, { CanvasNode } from './Canvas';
 import OutlinePanel from './OutlinePanel';
 import PreviewRuntime from './PreviewRuntime';
+import QuickStart from './QuickStart';
 import { compileTree } from './compiler';
+import { schemaProperties } from './types';
 import { extractErrorMessage } from '@/utils/errors';
 import { duplicateNode as duplicateTree, insertAfter, moveNode } from './model';
 import ComponentPanel, { type AddFnEvent } from './ComponentPanel';
@@ -141,6 +143,51 @@ export default function CompositeEditorPage() {
       setSaving(false);
     }
   }, [pageKey, tree, message, modal]);
+
+  /** 向导生成：表格（行操作→弹窗）+ 弹窗（表单，成功刷新表格）。 */
+  const generateFromWizard = useCallback(
+    (tableFn: FunctionDescriptor, actionFn: FunctionDescriptor) => {
+      registerFn(tableFn);
+      registerFn(actionFn);
+      const table: PageNode = {
+        id: nodeId('fnTable'),
+        type: 'fnTable',
+        props: scaffoldProps('fnTable', tableFn),
+      };
+      const form: PageNode = {
+        id: nodeId('fnForm'),
+        type: 'fnForm',
+        props: {
+          ...scaffoldProps('fnForm', actionFn),
+          display: 'inline',
+          onSuccessRefresh: { kind: 'refreshNode', target: table.id },
+        },
+      };
+      const modal: PageNode = {
+        id: nodeId('modal'),
+        type: 'modal',
+        props: { title: actionFn.summary?.['zh-CN'] || actionFn.id, width: 'medium' },
+        children: [form],
+      };
+      const rowFields = schemaProperties(tableFn.outputSchema);
+      const params = Object.fromEntries(
+        schemaProperties(actionFn.inputSchema)
+          .filter((p) => rowFields.includes(p))
+          .map((p) => [p, p]),
+      );
+      table.props.rowActions = [
+        {
+          label: actionFn.summary?.['zh-CN'] || actionFn.id,
+          targetSection: modal.id,
+          params,
+          danger: false,
+        },
+      ];
+      setTree([table, modal]);
+      setSelectedId(table.id);
+    },
+    [registerFn],
+  );
 
   const patchProps = useCallback(
     (patch: Record<string, unknown>) => {
@@ -359,6 +406,8 @@ export default function CompositeEditorPage() {
           <Col flex="auto" style={{ minWidth: 420 }}>
             {preview ? (
               <PreviewRuntime tree={tree} fnById={fnById.current} />
+            ) : tree.length === 0 ? (
+              <QuickStart onGenerate={generateFromWizard} />
             ) : (
               <div
                 ref={canvasRef}
