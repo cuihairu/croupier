@@ -63,6 +63,7 @@ export default function CompositeEditorPage() {
   const [keyTouched, setKeyTouched] = useState(false);
   const [mode, setMode] = useState<'edit' | 'preview'>('edit');
   const [leftTab, setLeftTab] = useState('components');
+  const [skipWizard, setSkipWizard] = useState(false);
 
   const fnById = useRef(new Map<string, FunctionDescriptor>());
   const canvasRef = useRef<HTMLDivElement>(null);
@@ -374,8 +375,8 @@ export default function CompositeEditorPage() {
           <Col flex="auto" style={{ minWidth: 420 }}>
             {preview ? (
               <PreviewRuntime tree={tree} fnById={fnById.current} />
-            ) : tree.length === 0 ? (
-              <QuickStart onGenerate={generateFromWizard} />
+            ) : tree.length === 0 && !skipWizard ? (
+              <QuickStart onGenerate={generateFromWizard} onSkip={() => setSkipWizard(true)} />
             ) : (
               <div
                 ref={canvasRef}

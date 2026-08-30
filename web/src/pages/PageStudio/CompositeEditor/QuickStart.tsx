@@ -10,8 +10,10 @@ const { Text, Title } = Typography;
  * （表格+行操作+弹窗+提交后刷新），把五步拖拽变成两步选择。 */
 export default function QuickStart({
   onGenerate,
+  onSkip,
 }: {
   onGenerate: (tableFn: FunctionDescriptor, actionFn: FunctionDescriptor) => void;
+  onSkip: () => void;
 }) {
   const [descriptors, setDescriptors] = useState<FunctionDescriptor[]>([]);
   const [tableId, setTableId] = useState<string | undefined>();
@@ -110,20 +112,26 @@ export default function QuickStart({
                     自动行字段映射：{autoMapping.map((p) => `${p}←行.${p}`).join('、')}
                   </Text>
                 )}
-                <Button
-                  type="primary"
-                  disabled={!tableFn || !actionFn}
-                  onClick={() => {
-                    if (tableFn && actionFn) {
-                      onGenerate(tableFn, actionFn);
-                      message.success('页面骨架已生成——可继续自由调整或直接预览');
-                    }
-                  }}
-                >
-                  生成页面（表格 + 行操作 + 弹窗 + 提交刷新）
-                </Button>
+                <Space size={8}>
+                  <Button
+                    type="primary"
+                    disabled={!tableFn || !actionFn}
+                    onClick={() => {
+                      if (tableFn && actionFn) {
+                        onGenerate(tableFn, actionFn);
+                        message.success(
+                          '骨架已生成——继续从左栏添加任意组件（同一函数也可以拖多次）',
+                        );
+                      }
+                    }}
+                  >
+                    生成页面（表格 + 行操作 + 弹窗 + 提交刷新）
+                  </Button>
+                  <Button onClick={onSkip}>跳过，自由搭建</Button>
+                </Space>
                 <Text type="secondary" style={{ fontSize: 11 }}>
-                  或者跳过向导，直接从左侧拖组件自由搭建
+                  向导只是起点：生成后可从左侧继续添加任意多个组件、任意函数
+                  （同一函数可拖多个实例分别配置）
                 </Text>
               </Space>
             ),

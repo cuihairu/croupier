@@ -12,6 +12,8 @@ import (
 // CompositeSectionInput 是组合页的一个区块输入：函数 + 视图形态 +
 // 联动声明。函数契约决定 selector 骨架，视图参数可覆盖。
 type CompositeSectionInput struct {
+	// Key 区块唯一标识（同函数多实例区分；缺省=函数 id sanitize）。
+	Key        string
 	FunctionID string
 	View       string // table|fields|form|actions|toolbar
 	Title      string
@@ -82,7 +84,10 @@ func GenerateCompositePage(
 			})
 			continue
 		}
-		key := sanitizeSourceKey(fid)
+		key := strings.TrimSpace(in.Key)
+		if key == "" {
+			key = sanitizeSourceKey(fid)
+		}
 		view := in.View
 		if view == "" {
 			view = defaultCompositeView(contract)

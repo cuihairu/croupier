@@ -3,6 +3,8 @@ import { parseAction } from './actions';
 
 /** 编译产物：与后端 CompositeSectionRequest 对齐（POST /versioning/pages/composite）。 */
 export type CompiledSection = {
+  /** 区块唯一 key（同函数多实例：fid、fid-2、fid-3…）；引用一律用 key。 */
+  key: string;
   functionId: string;
   view: 'table' | 'fields' | 'form';
   title: string;
@@ -33,11 +35,6 @@ const VIEW_MAP: Record<string, 'table' | 'fields' | 'form'> = {
   fnForm: 'form',
 };
 
-/** modal 容器 → 其内 fnForm 的 functionId（弹窗动作目标引用）。 */
-function modalTargetFunction(modal: PageNode): string | undefined {
-  return modal.children?.find((c) => c.type === 'fnForm')?.props.functionId as string | undefined;
-}
-
 /**
  * 编辑树 → 平铺 CompositeSection 列表。
  * 编译规则（V1）：
@@ -52,18 +49,44 @@ export function compileTree(tree: PageNode[]): CompileResult {
   const sections: CompiledSection[] = [];
   const warnings: string[] = [];
 
-  // 收集 modal 目标映射（modalId → fnForm functionId）
+  // 区块 key 分配：同函数多实例依次 fid、fid-2、fid-3……
+  //（编辑器允许同一函数拖多个组件，发布侧按 key 唯一区分）。
+  const nodeSectionKey = new Map<string, string>();
+  const usedKeys = new Set<string>();
+  const allocKey = (fid: string): string => {
+    let key = fid;
+    let i = 2;
+    while (usedKeys.has(key)) key = `${fid}-${i++}`;
+    usedKeys.add(key);
+    return key;
+  };
+  const assignKeys = (nodes: PageNode[]) => {
+    for (const n of nodes) {
+      if (n.type === 'modal') {
+        assignKeys(n.children ?? []);
+        continue;
+      }
+      if (VIEW_MAP[n.type] && typeof n.props.functionId === 'string' && n.props.functionId) {
+        nodeSectionKey.set(n.id, allocKey(String(n.props.functionId)));
+      }
+      if (n.children) assignKeys(n.children);
+    }
+  };
+  assignKeys(tree);
+
+  // 收集 modal 目标映射（modalId → 弹窗内 fnForm 的区块 key）
   const modalFn = new Map<string, string>();
   for (const m of tree.filter((n) => n.type === 'modal')) {
-    const fid = modalTargetFunction(m);
-    if (fid) modalFn.set(m.id, fid);
+    const form = m.children?.find((c) => c.type === 'fnForm');
+    const key = form ? nodeSectionKey.get(form.id) : undefined;
+    if (key) modalFn.set(m.id, key);
     else warnings.push(`弹窗「${String(m.props.title ?? m.id)}」内没有函数表单，已忽略`);
   }
 
-  const sectionFunctionId = (n: PageNode): string | undefined => {
+  /** 节点 → 区块 key（引用统一语义）。 */
+  const sectionKeyOf = (n: PageNode): string | undefined => {
     if (n.type === 'modal') return modalFn.get(n.id);
-    const fid = n.props.functionId;
-    return typeof fid === 'string' && fid ? fid : undefined;
+    return nodeSectionKey.get(n.id);
   };
 
   const walk = (nodes: PageNode[]) => {
@@ -102,6 +125,7 @@ export function compileTree(tree: PageNode[]): CompileResult {
       return;
     }
     const section: CompiledSection = {
+      key: nodeSectionKey.get(node.id) ?? fid,
       functionId: fid,
       view: VIEW_MAP[node.type],
       title: String(node.props.title ?? fid),
@@ -109,12 +133,12 @@ export function compileTree(tree: PageNode[]): CompileResult {
       autoRun: node.props.autoRun === true,
       display,
     };
-    // onSuccessRefresh：动作 target → 目标节点 functionId
+    // onSuccessRefresh：动作 target → 目标节点区块 key
     const act = parseAction(node.props.onSuccessRefresh);
     if (act?.kind === 'refreshNode') {
       const target = findNode(tree, act.target);
-      const tfid = target && sectionFunctionId(target);
-      if (tfid) section.onSuccessRefresh = [tfid];
+      const tkey = target && sectionKeyOf(target);
+      if (tkey) section.onSuccessRefresh = [tkey];
       else warnings.push(`${fid} 的「成功后刷新」目标无效，已忽略`);
     }
     // 行操作（表格属性面板直接编辑，目标弹窗→函数 id）
@@ -122,7 +146,8 @@ export function compileTree(tree: PageNode[]): CompileResult {
       const ras: CompiledAction[] = [];
       for (const raw of node.props.rowActions as Array<Record<string, unknown>>) {
         const target = typeof raw.targetSection === 'string' ? raw.targetSection : '';
-        const sectionTarget = modalFn.get(target) ?? target; // modal 节点 id → 函数 id
+        const targetNode = findNode(tree, target);
+        const sectionTarget = (targetNode && sectionKeyOf(targetNode)) ?? '';
         if (!sectionTarget) {
           warnings.push(`表格「${section.title}」有未配置目标的行操作，已忽略`);
           continue;
@@ -137,8 +162,7 @@ export function compileTree(tree: PageNode[]): CompileResult {
       }
       if (ras.length) section.rowActions = ras;
     }
-    if (!sections.some((s) => s.functionId === fid)) sections.push(section);
-    else warnings.push(`函数 ${fid} 被多个组件使用，仅保留第一个（V1 一个函数一区块）`);
+    sections.push(section);
   };
 
   const compileButton = (node: PageNode) => {
@@ -153,8 +177,9 @@ export function compileTree(tree: PageNode[]): CompileResult {
       );
       return;
     }
-    const targetFn = modalFn.get(act.target);
-    if (!targetFn) {
+    const targetNode = findNode(tree, act.target);
+    const targetKey = (targetNode && sectionKeyOf(targetNode)) ?? modalFn.get(act.target);
+    if (!targetKey) {
       warnings.push(`按钮「${String(node.props.title ?? '')}」的弹窗目标无效，已忽略`);
       return;
     }
@@ -168,7 +193,7 @@ export function compileTree(tree: PageNode[]): CompileResult {
     }
     const ta: CompiledAction = {
       label: String(node.props.title ?? '操作'),
-      targetSection: targetFn,
+      targetSection: targetKey,
     };
     if (node.props.btnStyle === 'danger') ta.danger = true;
     lastTable.toolbarActions = [...(lastTable.toolbarActions ?? []), ta];

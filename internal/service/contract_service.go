@@ -1293,19 +1293,35 @@ func (s *ContractService) CreateCompositeProposal(
 
 	var contracts []*model.FunctionContract
 	inputs := make([]generator.CompositeSectionInput, 0, len(sections))
-	seen := map[string]bool{}
+	seenKey := map[string]bool{}
+	contractCache := map[string]*model.FunctionContract{}
 	for _, sec := range sections {
 		fid := strings.TrimSpace(sec.FunctionID)
-		if fid == "" || seen[fid] {
+		if fid == "" {
 			continue
 		}
-		seen[fid] = true
-		contract, err := s.contractModel.FindByScopeAndFunctionID(ctx, gameID, env, fid)
-		if err != nil {
-			return nil, fmt.Errorf("function %s contract not found: %w", fid, err)
+		// 同函数多实例：不再丢弃，靠区块 key 唯一区分
+		//（同一 player.list 可拖两个表格分别配列/联动）。
+		key := strings.TrimSpace(sec.Key)
+		if key == "" {
+			key = fid
+		}
+		if seenKey[key] {
+			return nil, fmt.Errorf("duplicate section key %q (同函数多实例请提供不同 key)", key)
+		}
+		seenKey[key] = true
+		contract, ok := contractCache[fid]
+		if !ok {
+			var err error
+			contract, err = s.contractModel.FindByScopeAndFunctionID(ctx, gameID, env, fid)
+			if err != nil {
+				return nil, fmt.Errorf("function %s contract not found: %w", fid, err)
+			}
+			contractCache[fid] = contract
 		}
 		contracts = append(contracts, contract)
 		in := generator.CompositeSectionInput{
+			Key:        key,
 			FunctionID: fid,
 			View:       sec.View,
 			Title:      sec.Title,
@@ -1349,6 +1365,8 @@ func (s *ContractService) CreateCompositeProposal(
 
 // CompositeSectionRequest 组合页区块输入。
 type CompositeSectionRequest struct {
+	// Key 区块唯一标识（同函数多实例时必填以区分；缺省=函数 id）。
+	Key        string   `json:"key,omitempty"`
 	FunctionID string   `json:"functionId"`
 	View       string   `json:"view"` // table|fields|form|actions|toolbar（空=按能力推导）
 	Title      string   `json:"title,omitempty"`

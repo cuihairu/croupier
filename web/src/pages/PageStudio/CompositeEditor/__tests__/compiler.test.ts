@@ -14,6 +14,7 @@ describe('compileTree（树→CompositeSection，防回归快照）', () => {
     ]);
     expect(sections).toEqual([
       {
+        key: 'player.list',
         functionId: 'player.list',
         view: 'table',
         title: 'player.list',
@@ -22,6 +23,7 @@ describe('compileTree（树→CompositeSection，防回归快照）', () => {
         display: 'inline',
       },
       {
+        key: 'player.get',
         functionId: 'player.get',
         view: 'fields',
         title: 'player.get',
@@ -30,6 +32,7 @@ describe('compileTree（树→CompositeSection，防回归快照）', () => {
         display: 'inline',
       },
       {
+        key: 'mail.send',
         functionId: 'mail.send',
         view: 'form',
         title: 'mail.send',
@@ -98,11 +101,11 @@ describe('compileTree（树→CompositeSection，防回归快照）', () => {
       fn('fnForm', 'a.fn'),
       fn('button', '', { title: 'B2' }),
     ]);
-    expect(sections).toHaveLength(1);
+    expect(sections).toHaveLength(2);
+    expect(new Set(sections.map((x) => x.key))).toEqual(new Set(['a.fn', 'a.fn-2']));
     expect(warnings.some((w) => w.includes('文本'))).toBe(true);
     expect(warnings.some((w) => w.includes('弹窗') && w.includes('没有函数表单'))).toBe(true);
     expect(warnings.some((w) => w.includes('弹窗目标无效'))).toBe(true);
-    expect(warnings.some((w) => w.includes('仅保留第一个'))).toBe(true);
     expect(warnings.some((w) => w.includes('没有配置动作'))).toBe(true);
   });
 });
@@ -120,5 +123,28 @@ describe('compileTree 补充：有弹窗但无表格的按钮', () => {
       modal,
     ]);
     expect(warnings.some((w) => w.includes('需放置在表格之后'))).toBe(true);
+  });
+});
+
+describe('compileTree 多实例（同函数多组件）', () => {
+  it('同一函数两个表格：key 唯一（fid/fid-2），行操作与刷新引用正确 key', () => {
+    const t1 = fn('fnTable', 'player.list', { autoRun: true });
+    const t2 = fn('fnTable', 'player.list', { autoRun: true, title: '玩家列表(精简)' });
+    const modal: PageNode = {
+      id: 'M9',
+      type: 'modal',
+      props: { title: '操作' },
+      children: [
+        fn('fnForm', 'mail.send', { onSuccessRefresh: { kind: 'refreshNode', target: t2.id } }),
+      ],
+    };
+    t1.props.rowActions = [{ label: '操作', targetSection: 'M9', params: {} }];
+    const { sections, warnings } = compileTree([t1, t2, modal]);
+    expect(warnings).toEqual([]);
+    expect(sections.map((x) => x.key)).toEqual(['player.list', 'player.list-2', 'mail.send']);
+    expect(sections[0].rowActions).toEqual([
+      { label: '操作', targetSection: 'mail.send', params: {} },
+    ]);
+    expect(sections[2].onSuccessRefresh).toEqual(['player.list-2']);
   });
 });
