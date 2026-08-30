@@ -104,7 +104,6 @@ describe('builtin components scaffold（契约→组件默认值，防回归快�
 });
 
 function resetAndGet(type: string) {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const mods = require('../../registry');
   const def = mods.getComponent(type);
   if (!def) throw new Error(`missing ${type}`);
