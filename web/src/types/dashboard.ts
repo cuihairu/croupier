@@ -363,18 +363,43 @@ export interface CompositeSection {
   key: string;
   bindingId: string;
   title?: LocalizedText;
-  view: 'table' | 'fields' | 'form' | 'actions';
+  view: 'table' | 'fields' | 'form' | 'actions' | 'toolbar';
   span?: number;
   autoRun?: boolean;
   refreshOn?: string[];
+  /** inline（默认，栅格内）| dialog（弹窗，按钮/行操作触发）。 */
+  display?: 'inline' | 'dialog';
+  /** 操作成功后自动重跑的区块 key 列表。 */
+  onSuccessRefresh?: string[];
   table?: {
     columns: ColumnSpec[];
     pagination?: Record<string, unknown>;
     rowSchema?: Record<string, unknown>;
     identityKey?: string;
+    rowActions?: CompositeRowAction[];
   };
   fields?: DetailFieldSpec[];
   form?: Record<string, unknown>;
+  toolbar?: CompositeToolbarSpec;
+}
+
+/** 表格行操作：打开弹窗表单（行字段映射进参数）。 */
+export interface CompositeRowAction {
+  label: LocalizedText;
+  targetSection?: string;
+  /** 目标表单参数名 → 本行字段名。 */
+  params?: Record<string, string>;
+  danger?: boolean;
+}
+
+/** 工具栏按钮组。 */
+export interface CompositeToolbarSpec {
+  actions: Array<{
+    label: LocalizedText;
+    targetSection?: string;
+    params?: Record<string, string>;
+    danger?: boolean;
+  }>;
 }
 
 /** 完整页面编排规格。页面类型与页面主体必须一一对应。 */

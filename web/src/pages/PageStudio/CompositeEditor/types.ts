@@ -1,7 +1,15 @@
 import type { JSONValue } from '@/types/dashboard';
 import type { FunctionDescriptor } from '@/services/api/functions';
 
-/** 组合页区块草稿。dependsOn 是上游区块 key 列表（提交时映射 refreshOn）。 */
+/** 行操作/工具栏按钮草稿：打开弹窗表单 + 参数映射。 */
+export type ActionDraft = {
+  label: string;
+  targetSection: string;
+  params: Record<string, string>;
+  danger: boolean;
+};
+
+/** 组合页区块草稿。dependsOn 上游区块 key（提交映射 refreshOn）。 */
 export type SectionDraft = {
   key: string;
   functionId: string;
@@ -10,6 +18,14 @@ export type SectionDraft = {
   span: number;
   autoRun: boolean;
   dependsOn: string[];
+  /** inline（默认）| dialog（弹窗表单，由按钮/行操作触发）。 */
+  display: 'inline' | 'dialog';
+  /** 表格行操作（view=table）。 */
+  rowActions: ActionDraft[];
+  /** 表格顶部按钮（view=table，打开弹窗）。 */
+  toolbarActions: ActionDraft[];
+  /** 操作成功后自动刷新的区块 key。 */
+  onSuccessRefresh: string[];
 };
 
 export type CompositeView = SectionDraft['view'];

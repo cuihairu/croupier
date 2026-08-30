@@ -542,6 +542,15 @@ type CompositeSection struct {
 	Fields []DetailFieldSpec `json:"fields,omitempty"`
 	// Form 视图参数（view=form）。
 	Form *FormPresentationSpec `json:"form,omitempty"`
+	// Display 展示位置：inline（默认，栅格内）/ dialog（弹窗，不占
+	// 栅格，由行操作/工具栏按钮触发——「按钮 → 弹窗执行操作」组合）。
+	Display string `json:"display,omitempty"`
+	// Toolbar 视图参数（view=toolbar）：页面级按钮组，动作打开弹窗
+	// 或直接执行。
+	Toolbar *CompositeToolbarSpec `json:"toolbar,omitempty"`
+	// OnSuccessRefresh 操作成功后自动重跑的区块 key 列表
+	//（如发邮件成功后刷新玩家表格）。
+	OnSuccessRefresh []string `json:"onSuccessRefresh,omitempty"`
 }
 
 // CompositeTableSpec 是组合页 table 区块参数。
@@ -550,6 +559,37 @@ type CompositeTableSpec struct {
 	Pagination  *PaginationSpec `json:"pagination,omitempty"`
 	RowSchema   JSONSchema      `json:"rowSchema,omitempty"`
 	IdentityKey string          `json:"identityKey,omitempty"`
+	// RowActions 行尾操作按钮：打开弹窗表单（行字段映射进参数）或
+	// 直接执行函数。GM 后台最常见组合（列表行内封禁/发邮件）。
+	RowActions []CompositeRowAction `json:"rowActions,omitempty"`
+}
+
+// CompositeRowAction 表格行操作。
+type CompositeRowAction struct {
+	// Label 按钮文案。
+	Label LocalizedText `json:"label"`
+	// TargetSection 弹窗形态（display=dialog）的区块 key。
+	TargetSection string `json:"targetSection,omitempty"`
+	// Params 参数映射：目标表单参数名 → 行字段名（如
+	// player_id: uid 表示弹窗打开时把本行 uid 填入 player_id）。
+	Params map[string]string `json:"params,omitempty"`
+	// Danger 危险操作样式 + 二次确认。
+	Danger bool `json:"danger,omitempty"`
+}
+
+// CompositeToolbarSpec 工具栏按钮组（view=toolbar）。
+type CompositeToolbarSpec struct {
+	Actions []CompositeToolbarAction `json:"actions"`
+}
+
+// CompositeToolbarAction 工具栏按钮动作。
+type CompositeToolbarAction struct {
+	Label LocalizedText `json:"label"`
+	// TargetSection 弹窗形态区块 key（打开弹窗）。
+	TargetSection string `json:"targetSection,omitempty"`
+	// Params 静态参数（弹窗表单初始值）。
+	Params map[string]string `json:"params,omitempty"`
+	Danger bool              `json:"danger,omitempty"`
 }
 
 // PageCategorySpec groups pages into navigation categories.

@@ -1,16 +1,37 @@
 import React, { useCallback, useMemo, useRef, useState } from 'react';
-import { Alert, App, Button, Col, Empty, Input, Row, Segmented, Space, Typography } from 'antd';
+import {
+  Alert,
+  App,
+  Button,
+  Col,
+  Empty,
+  Input,
+  Row,
+  Segmented,
+  Space,
+  Tag,
+  Typography,
+} from 'antd';
 import { ArrowLeftOutlined, EyeOutlined, SaveOutlined, EditOutlined } from '@ant-design/icons';
 import { history, request } from '@umijs/max';
 import type { FunctionDescriptor } from '@/services/api/functions';
 import { invokeFunction } from '@/services/api/functions';
 import { PageContainer } from '@ant-design/pro-components';
 import { SortableList } from '@/components/SortableList';
+import { CompositeRenderer } from '@/components/PageRenderer';
+import type {
+  BindingExecutionContext,
+  ColumnSpec,
+  CompositeSection as SpecSection,
+  LocalizedText,
+  PageExecuteFn,
+  PageExecutionResult,
+} from '@/types/dashboard';
 import FunctionPanel from './FunctionPanel';
 import SectionCard from './SectionCard';
 import Inspector from './Inspector';
 import TryRunPanel from './TryRunPanel';
-import { defaultView, derivePageKey, type SectionDraft } from './types';
+import { defaultView, derivePageKey, sectionOutputFields, type SectionDraft } from './types';
 import { extractErrorMessage } from '@/utils/errors';
 
 const { Text } = Typography;
@@ -74,6 +95,10 @@ export default function CompositeEditorPage() {
           span: 24,
           autoRun: view === 'table' || view === 'fields',
           dependsOn: [],
+          display: 'inline',
+          rowActions: [],
+          toolbarActions: [],
+          onSuccessRefresh: [],
         };
         setSelectedKey(sec.key);
         return [...prev, sec];
@@ -150,6 +175,8 @@ export default function CompositeEditorPage() {
     [sections, selectedKey],
   );
 
+  const dialogSections = useMemo(() => sections.filter((s) => s.display === 'dialog'), [sections]);
+
   const depCounts = useMemo(() => {
     const downstream = new Map<string, number>();
     for (const s of sections) {
@@ -180,6 +207,10 @@ export default function CompositeEditorPage() {
           span: s.span,
           autoRun: s.autoRun,
           refreshOn: s.dependsOn,
+          display: s.display,
+          rowActions: s.rowActions,
+          toolbarActions: s.toolbarActions,
+          onSuccessRefresh: s.onSuccessRefresh,
         })),
       };
       const resp = (await request('/api/v1/versioning/pages/composite', {
@@ -298,7 +329,9 @@ export default function CompositeEditorPage() {
               background: preview ? '#fff' : '#fafafa',
             }}
           >
-            {sections.length === 0 ? (
+            {preview ? (
+              <PreviewRunner sections={sections} fnById={fnById.current} />
+            ) : sections.length === 0 ? (
               <Empty
                 style={{ marginTop: 120 }}
                 description="从左侧点击函数，开始搭建工作台页面"
@@ -307,9 +340,11 @@ export default function CompositeEditorPage() {
             ) : (
               <Row gutter={[12, 12]}>
                 <SortableList
-                  items={sections}
+                  items={sections.filter((x) => x.display !== 'dialog')}
                   getKey={(s) => s.key}
-                  onReorder={setSections}
+                  onReorder={(next) =>
+                    setSections((prev) => [...next, ...prev.filter((x) => x.display === 'dialog')])
+                  }
                   externalDnd
                 >
                   {(sec, _idx, dragHandleProps) => (
@@ -338,6 +373,54 @@ export default function CompositeEditorPage() {
                   )}
                 </SortableList>
               </Row>
+            )}
+
+            {/* 弹窗操作库：display=dialog 的区块（由按钮/行操作触发） */}
+            {dialogSections.length > 0 && (
+              <div
+                style={{
+                  marginTop: 12,
+                  borderTop: '1px dashed #d9d9d9',
+                  paddingTop: 8,
+                }}
+              >
+                <Text strong style={{ fontSize: 12 }}>
+                  弹窗操作（{dialogSections.length}）
+                </Text>
+                <Text type="secondary" style={{ fontSize: 11, marginLeft: 8 }}>
+                  由表格行操作 / 顶部按钮触发打开
+                </Text>
+                <Row gutter={[8, 8]} style={{ marginTop: 8 }}>
+                  {dialogSections.map((sec) => (
+                    <Col key={sec.key} span={8}>
+                      <div
+                        onClick={() => setSelectedKey(sec.key)}
+                        style={{
+                          border: selectedKey === sec.key ? '1px solid #1677ff' : '1px dashed #bbb',
+                          borderRadius: 6,
+                          padding: '6px 10px',
+                          cursor: 'pointer',
+                          background: '#fff',
+                        }}
+                      >
+                        <Space size={6}>
+                          <Tag color="purple" style={{ marginRight: 0 }}>
+                            弹窗
+                          </Tag>
+                          <Text strong style={{ fontSize: 12 }}>
+                            {sec.title || sec.key}
+                          </Text>
+                        </Space>
+                        <div>
+                          <Text type="secondary" style={{ fontSize: 11 }}>
+                            {sec.functionId}
+                          </Text>
+                        </div>
+                      </div>
+                    </Col>
+                  ))}
+                </Row>
+              </div>
             )}
           </div>
         </Col>
@@ -371,5 +454,85 @@ export default function CompositeEditorPage() {
         </div>
       )}
     </PageContainer>
+  );
+}
+
+/** 预览态：复用发布渲染器 CompositeRenderer（弹窗/行操作/工具栏/联动
+ * 全部真实可用），执行经 invokeFunction 适配——所见即发布后所得。 */
+function PreviewRunner({
+  sections,
+  fnById,
+}: {
+  sections: SectionDraft[];
+  fnById: Map<string, FunctionDescriptor>;
+}) {
+  const specSections = useMemo<SpecSection[]>(
+    () =>
+      sections.map((s) => {
+        const fn = fnById.get(s.functionId);
+        const title: LocalizedText = { 'zh-CN': s.title || s.functionId };
+        const base: SpecSection = {
+          key: s.key,
+          bindingId: s.key,
+          title,
+          view: s.view,
+          span: s.span,
+          autoRun: s.autoRun,
+          refreshOn: s.dependsOn,
+          display: s.display,
+          onSuccessRefresh: s.onSuccessRefresh,
+        };
+        if (s.view === 'table') {
+          const cols: ColumnSpec[] = sectionOutputFields(fn).map((f) => ({
+            key: f,
+            title: { 'zh-CN': f },
+            dataType: 'string',
+          }));
+          base.table = {
+            columns: cols,
+            rowActions: s.rowActions.map((a) => ({
+              label: { 'zh-CN': a.label },
+              targetSection: a.targetSection,
+              params: a.params,
+              danger: a.danger,
+            })),
+          };
+          if (s.toolbarActions.length) {
+            base.toolbar = {
+              actions: s.toolbarActions.map((a) => ({
+                label: { 'zh-CN': a.label },
+                targetSection: a.targetSection,
+                params: a.params,
+                danger: a.danger,
+              })),
+            };
+          }
+        }
+        if (s.view === 'form' || s.view === 'actions') {
+          base.form = { jsonSchema: (fn?.inputSchema ?? {}) as never };
+        }
+        return base;
+      }),
+    [sections, fnById],
+  );
+
+  const onExecute = useCallback<PageExecuteFn>(
+    async (bindingId, context) => {
+      const sec = sections.find((s) => s.key === bindingId);
+      if (!sec) throw new Error(`unknown binding ${String(bindingId)}`);
+      const form = ((context as BindingExecutionContext).form ?? {}) as Record<string, unknown>;
+      const resp = await invokeFunction(sec.functionId, form as never);
+      return { kind: 'sync', data: resp.result ?? resp } as unknown as PageExecutionResult;
+    },
+    [sections],
+  );
+
+  return (
+    <CompositeRenderer
+      sections={specSections}
+      bindings={[]}
+      onExecute={onExecute}
+      preview={false}
+    />
   );
 }

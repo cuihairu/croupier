@@ -13,11 +13,31 @@ import (
 // 联动声明。函数契约决定 selector 骨架，视图参数可覆盖。
 type CompositeSectionInput struct {
 	FunctionID string
-	View       string // table|fields|form|actions
+	View       string // table|fields|form|actions|toolbar
 	Title      string
 	Span       int
 	AutoRun    bool
 	RefreshOn  []string
+	Display    string                        // ""(inline) | dialog
+	RowActions []CompositeRowActionInput     // view=table
+	Toolbar    []CompositeToolbarActionInput // view=toolbar
+	OnSuccess  []string
+}
+
+// CompositeRowActionInput 表格行操作输入。
+type CompositeRowActionInput struct {
+	Label         string
+	TargetSection string
+	Params        map[string]string
+	Danger        bool
+}
+
+// CompositeToolbarActionInput 工具栏按钮输入。
+type CompositeToolbarActionInput struct {
+	Label         string
+	TargetSection string
+	Params        map[string]string
+	Danger        bool
 }
 
 // GenerateCompositePage 生成自由组合页：每区块绑定一个函数
@@ -69,13 +89,40 @@ func GenerateCompositePage(
 		}
 
 		section := spec.CompositeSection{
-			Key:       key,
-			BindingID: key,
-			Title:     spec.LocalizedText{locale: firstNonEmptyStr(in.Title, fid)},
-			View:      view,
-			Span:      in.Span,
-			AutoRun:   in.AutoRun,
-			RefreshOn: in.RefreshOn,
+			Key:              key,
+			BindingID:        key,
+			Title:            spec.LocalizedText{locale: firstNonEmptyStr(in.Title, fid)},
+			View:             view,
+			Span:             in.Span,
+			AutoRun:          in.AutoRun,
+			RefreshOn:        in.RefreshOn,
+			Display:          in.Display,
+			OnSuccessRefresh: in.OnSuccess,
+		}
+		if view == "table" && len(in.RowActions) > 0 {
+			if section.Table == nil {
+				section.Table = &spec.CompositeTableSpec{}
+			}
+			for _, ra := range in.RowActions {
+				section.Table.RowActions = append(section.Table.RowActions, spec.CompositeRowAction{
+					Label:         spec.LocalizedText{locale: ra.Label},
+					TargetSection: ra.TargetSection,
+					Params:        ra.Params,
+					Danger:        ra.Danger,
+				})
+			}
+		}
+		if len(in.Toolbar) > 0 {
+			tb := &spec.CompositeToolbarSpec{}
+			for _, ta := range in.Toolbar {
+				tb.Actions = append(tb.Actions, spec.CompositeToolbarAction{
+					Label:         spec.LocalizedText{locale: ta.Label},
+					TargetSection: ta.TargetSection,
+					Params:        ta.Params,
+					Danger:        ta.Danger,
+				})
+			}
+			section.Toolbar = tb
 		}
 		if view == "table" {
 			lv := buildListViewFromContract(contract, nil)
@@ -86,6 +133,12 @@ func GenerateCompositePage(
 					RowSchema:   lv.RowSchema,
 					IdentityKey: lv.IdentityKey,
 				}
+			}
+		}
+		if view == "form" || view == "actions" {
+			// 弹窗/行内表单渲染需要输入 schema（FormPresentationSpec）
+			if fp := buildFormFromContract(contract); fp != nil {
+				section.Form = fp
 			}
 		}
 

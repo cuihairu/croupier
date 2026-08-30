@@ -1305,14 +1305,33 @@ func (s *ContractService) CreateCompositeProposal(
 			return nil, fmt.Errorf("function %s contract not found: %w", fid, err)
 		}
 		contracts = append(contracts, contract)
-		inputs = append(inputs, generator.CompositeSectionInput{
+		in := generator.CompositeSectionInput{
 			FunctionID: fid,
 			View:       sec.View,
 			Title:      sec.Title,
 			Span:       sec.Span,
 			AutoRun:    sec.AutoRun,
 			RefreshOn:  sec.RefreshOn,
-		})
+			Display:    sec.Display,
+			OnSuccess:  sec.OnSuccessRefresh,
+		}
+		for _, ra := range sec.RowActions {
+			in.RowActions = append(in.RowActions, generator.CompositeRowActionInput{
+				Label:         ra.Label,
+				TargetSection: ra.TargetSection,
+				Params:        ra.Params,
+				Danger:        ra.Danger,
+			})
+		}
+		for _, ta := range sec.ToolbarActions {
+			in.Toolbar = append(in.Toolbar, generator.CompositeToolbarActionInput{
+				Label:         ta.Label,
+				TargetSection: ta.TargetSection,
+				Params:        ta.Params,
+				Danger:        ta.Danger,
+			})
+		}
+		inputs = append(inputs, in)
 	}
 
 	opts := generator.DefaultGenerateOptions()
@@ -1331,11 +1350,35 @@ func (s *ContractService) CreateCompositeProposal(
 // CompositeSectionRequest 组合页区块输入。
 type CompositeSectionRequest struct {
 	FunctionID string   `json:"functionId"`
-	View       string   `json:"view"` // table|fields|form|actions（空=按能力推导）
+	View       string   `json:"view"` // table|fields|form|actions|toolbar（空=按能力推导）
 	Title      string   `json:"title,omitempty"`
 	Span       int      `json:"span,omitempty"`
 	AutoRun    bool     `json:"autoRun,omitempty"`
 	RefreshOn  []string `json:"refreshOn,omitempty"`
+	// Display inline（默认）| dialog（弹窗表单，按钮触发）。
+	Display string `json:"display,omitempty"`
+	// RowActions 表格行操作（view=table）。
+	RowActions []CompositeRowActionRequest `json:"rowActions,omitempty"`
+	// ToolbarActions 工具栏按钮（view=toolbar）。
+	ToolbarActions []CompositeToolbarActionRequest `json:"toolbarActions,omitempty"`
+	// OnSuccessRefresh 操作成功后自动重跑的区块 key。
+	OnSuccessRefresh []string `json:"onSuccessRefresh,omitempty"`
+}
+
+// CompositeRowActionRequest 表格行操作输入。
+type CompositeRowActionRequest struct {
+	Label         string            `json:"label"`
+	TargetSection string            `json:"targetSection,omitempty"`
+	Params        map[string]string `json:"params,omitempty"`
+	Danger        bool              `json:"danger,omitempty"`
+}
+
+// CompositeToolbarActionRequest 工具栏按钮输入。
+type CompositeToolbarActionRequest struct {
+	Label         string            `json:"label"`
+	TargetSection string            `json:"targetSection,omitempty"`
+	Params        map[string]string `json:"params,omitempty"`
+	Danger        bool              `json:"danger,omitempty"`
 }
 
 func compositeProposalKey(pageKey string) string {

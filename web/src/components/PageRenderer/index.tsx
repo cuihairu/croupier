@@ -12,8 +12,8 @@ import { localizedText } from '@/utils/localizedText';
  */
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Button, Card, Col, Descriptions, Result, Row, Table } from 'antd';
-import { WarningOutlined } from '@ant-design/icons';
+import { App, Button, Card, Col, Descriptions, Modal, Result, Row, Space, Table } from 'antd';
+import { ExclamationCircleOutlined, WarningOutlined } from '@ant-design/icons';
 import ResourcePageRenderer from './ResourcePageRenderer';
 import OperationPageRenderer from './OperationPageRenderer';
 import TaskPageRenderer from './TaskPageRenderer';
@@ -62,57 +62,75 @@ export interface PageRendererProps {
 // PageRenderer 组件
 // ---------------------------------------------------------------------------
 
-/** 组合页渲染器：区块栅格布局；autoRun 区块加载即执行；refreshOn
- * 声明的 stateKey 变化时自动重跑本区块（跨函数联动）。 */
-const CompositeRenderer: React.FC<{
+/** 组合页渲染器：区块栅格布局；autoRun 加载即执行；refreshOn 联动
+ * 自动重跑；dialog 形态区块由行操作/工具栏按钮触发弹窗打开（行字段
+ * 映射进表单参数）；操作成功后按 onSuccessRefresh 刷新目标区块。 */
+export const CompositeRenderer: React.FC<{
   sections: CompositeSection[];
   bindings: PageFunctionBinding[];
   onExecute: PageExecuteFn;
   preview: boolean;
 }> = ({ sections, bindings, onExecute, preview }) => {
+  const { message, modal } = App.useApp();
   const [results, setResults] = useState<Record<string, PageExecutionResult | null>>({});
   const [running, setRunning] = useState<Record<string, boolean>>({});
   const [sectionInputs, setSectionInputs] = useState<Record<string, Record<string, unknown>>>({});
+  const [dialogKey, setDialogKey] = useState<string | null>(null);
+
+  const sectionsRef = useRef(sections);
+  sectionsRef.current = sections;
+  const inputsRef = useRef(sectionInputs);
+  inputsRef.current = sectionInputs;
 
   const runSection = useCallback(
-    async (section: CompositeSection) => {
-      setRunning((prev) => ({ ...prev, [section.key]: true }));
+    async (sec: CompositeSection, overrides?: Record<string, unknown>) => {
+      if (preview) return null;
+      const merged = { ...(inputsRef.current[sec.key] || {}), ...(overrides || {}) };
+      setRunning((prev) => ({ ...prev, [sec.key]: true }));
       try {
-        const result = await onExecute(section.bindingId, sectionInputs[section.key] || {});
-        setResults((prev) => ({ ...prev, [section.key]: result || null }));
+        const result = await onExecute(sec.bindingId, { form: merged as never });
+        setResults((prev) => ({ ...prev, [sec.key]: result || null }));
+        // 操作类区块成功后刷新目标（发邮件成功 → 刷新玩家表格）
+        if ((sec.view === 'form' || sec.view === 'actions') && sec.onSuccessRefresh?.length) {
+          for (const target of sec.onSuccessRefresh) {
+            const t = sectionsRef.current.find((x) => x.key === target);
+            if (t) void runSection(t);
+          }
+        }
+        return result;
       } finally {
-        setRunning((prev) => ({ ...prev, [section.key]: false }));
+        setRunning((prev) => ({ ...prev, [sec.key]: false }));
       }
     },
-    [onExecute, sectionInputs],
+    [onExecute, preview],
   );
 
-  // autoRun：加载即执行
+  const runSectionRef = useRef(runSection);
+  runSectionRef.current = runSection;
+
+  // autoRun：加载即执行（inline 区块）
   useEffect(() => {
     for (const sec of sections) {
-      if (sec.autoRun) void runSection(sec);
+      if (sec.autoRun && sec.display !== 'dialog') void runSection(sec);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // refreshOn 联动：依赖的上游 stateKey（= 上游区块 key）产出新结果时
-  // 自动重跑本区块——跨函数联动（选玩家 → 订单/背包刷新）。
+  // refreshOn 联动：上游产出新结果时自动重跑本区块（跨函数联动）。
   const resultsRef = useRef(results);
   useEffect(() => {
     resultsRef.current = results;
   }, [results]);
   useEffect(() => {
     for (const sec of sections) {
-      if (!sec.refreshOn?.length) continue;
+      if (!sec.refreshOn?.length || sec.display === 'dialog') continue;
       const depChanged = sec.refreshOn.some((dep) => dep in results);
-      if (depChanged && !running[sec.key]) {
-        void runSection(sec);
-      }
+      if (depChanged && !running[sec.key]) void runSection(sec);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [Object.keys(results).join(',')]);
 
-  // 每个区块完成后，把输出注入依赖它的区块输入（简单联动：取上游 data 同名字段）
+  // 上游输出同名字段合并进下游输入
   useEffect(() => {
     setSectionInputs((prev) => {
       const next = { ...prev };
@@ -140,58 +158,241 @@ const CompositeRenderer: React.FC<{
     return (r as { data?: Record<string, unknown> } | null | undefined)?.data;
   };
 
+  /** 打开弹窗：行字段/静态参数映射进表单初始值（危险操作先确认）。 */
+  const openDialog = useCallback(
+    (targetSection: string, params: Record<string, unknown>, danger?: boolean, label?: string) => {
+      setSectionInputs((prev) => ({ ...prev, [targetSection]: params }));
+      if (danger && label) {
+        modal.confirm({
+          title: `确认执行「${label}」`,
+          icon: <ExclamationCircleOutlined />,
+          onOk: () => setDialogKey(targetSection),
+        });
+        return;
+      }
+      setDialogKey(targetSection);
+    },
+    [modal],
+  );
+
+  /** 行字段映射：params 目标参数名 → 本行字段名。 */
+  const mapRowParams = (
+    mapping: Record<string, string> | undefined,
+    row: Record<string, unknown>,
+  ): Record<string, unknown> => {
+    const out: Record<string, unknown> = {};
+    for (const [param, rowField] of Object.entries(mapping || {})) {
+      out[param] = row[rowField];
+    }
+    return out;
+  };
+
+  const inline = sections.filter((s) => s.display !== 'dialog');
+  const dialogs = sections.filter((s) => s.display === 'dialog');
+
   return (
-    <Row gutter={[12, 12]}>
-      {sections.map((sec) => (
-        <Col key={sec.key} span={sec.span && sec.span > 0 && sec.span <= 24 ? sec.span : 24}>
-          <Card
-            size="small"
-            title={localizedText(sec.title, 'zh-CN', sec.key)}
-            loading={running[sec.key] || false}
-            extra={
-              sec.view !== 'actions' && !sec.autoRun ? (
-                <Button size="small" onClick={() => void runSection(sec)}>
-                  执行
-                </Button>
-              ) : null
-            }
-          >
-            {sec.view === 'table' ? (
-              <Table
-                size="small"
-                rowKey={(_, i) => String(i)}
-                columns={(sec.table?.columns || []).map((c) => ({
-                  title: localizedText(c.title, 'zh-CN', c.key),
-                  dataIndex: c.key,
-                  ellipsis: true,
-                }))}
-                dataSource={
-                  Array.isArray(resultFor(sec)?.items)
-                    ? (resultFor(sec)?.items as Record<string, unknown>[])
+    <>
+      <Row gutter={[12, 12]}>
+        {inline.map((sec) => (
+          <Col key={sec.key} span={sec.span && sec.span > 0 && sec.span <= 24 ? sec.span : 24}>
+            <Card
+              size="small"
+              title={localizedText(sec.title, 'zh-CN', sec.key)}
+              loading={running[sec.key] || false}
+              extra={
+                sec.view !== 'actions' && sec.view !== 'toolbar' && !sec.autoRun ? (
+                  <Button size="small" onClick={() => void runSection(sec)}>
+                    执行
+                  </Button>
+                ) : null
+              }
+            >
+              {sec.view === 'table' ? (
+                <Table
+                  size="small"
+                  rowKey={(_, i) => String(i)}
+                  columns={[
+                    ...(sec.table?.columns || []).map((c) => ({
+                      title: localizedText(c.title, 'zh-CN', c.key),
+                      dataIndex: c.key,
+                      ellipsis: true,
+                    })),
+                    ...(sec.table?.rowActions?.length
+                      ? [
+                          {
+                            title: '操作',
+                            key: '__row_actions',
+                            render: (_: unknown, row: Record<string, unknown>) => (
+                              <Space size={4}>
+                                {sec.table!.rowActions!.map((ra, i) => (
+                                  <Button
+                                    key={i}
+                                    size="small"
+                                    type="link"
+                                    danger={ra.danger}
+                                    onClick={() =>
+                                      ra.targetSection &&
+                                      openDialog(
+                                        ra.targetSection,
+                                        mapRowParams(ra.params, row),
+                                        ra.danger,
+                                        localizedText(ra.label, 'zh-CN'),
+                                      )
+                                    }
+                                  >
+                                    {localizedText(ra.label, 'zh-CN')}
+                                  </Button>
+                                ))}
+                              </Space>
+                            ),
+                          },
+                        ]
+                      : []),
+                  ]}
+                  dataSource={
+                    Array.isArray(resultFor(sec)?.items)
+                      ? (resultFor(sec)?.items as Record<string, unknown>[])
+                      : []
+                  }
+                  pagination={{ pageSize: 10, showSizeChanger: false }}
+                />
+              ) : sec.view === 'fields' ? (
+                <Descriptions size="small" column={2}>
+                  {(resultFor(sec)
+                    ? Object.entries(resultFor(sec) as Record<string, unknown>)
                     : []
-                }
-                pagination={{ pageSize: 10, showSizeChanger: false }}
-              />
-            ) : sec.view === 'fields' ? (
-              <Descriptions size="small" column={2}>
-                {(resultFor(sec)
-                  ? Object.entries(resultFor(sec) as Record<string, unknown>)
-                  : []
-                ).map(([k, v]) => (
-                  <Descriptions.Item key={k} label={k}>
-                    {String(v ?? '-')}
-                  </Descriptions.Item>
-                ))}
-              </Descriptions>
-            ) : (
-              <Button type="primary" onClick={() => void runSection(sec)}>
-                {localizedText(sec.title, 'zh-CN', sec.key)}
-              </Button>
-            )}
-          </Card>
-        </Col>
+                  ).map(([k, v]) => (
+                    <Descriptions.Item key={k} label={k}>
+                      {String(v ?? '-')}
+                    </Descriptions.Item>
+                  ))}
+                </Descriptions>
+              ) : sec.view === 'toolbar' ? (
+                <Space wrap>
+                  {(sec.toolbar?.actions || []).map((act, i) => (
+                    <Button
+                      key={i}
+                      size="small"
+                      danger={act.danger}
+                      onClick={() =>
+                        act.targetSection &&
+                        openDialog(
+                          act.targetSection,
+                          { ...(act.params || {}) },
+                          act.danger,
+                          localizedText(act.label, 'zh-CN'),
+                        )
+                      }
+                    >
+                      {localizedText(act.label, 'zh-CN')}
+                    </Button>
+                  ))}
+                </Space>
+              ) : (
+                <Button type="primary" onClick={() => void runSection(sec)}>
+                  {localizedText(sec.title, 'zh-CN', sec.key)}
+                </Button>
+              )}
+            </Card>
+          </Col>
+        ))}
+      </Row>
+
+      {/* 弹窗形态区块：表单渲染，提交成功关窗 + 提示 */}
+      {dialogs.map((sec) => (
+        <Modal
+          key={sec.key}
+          title={localizedText(sec.title, 'zh-CN', sec.key)}
+          open={dialogKey === sec.key}
+          onCancel={() => setDialogKey(null)}
+          footer={null}
+          destroyOnHidden
+        >
+          <DialogForm
+            section={sec}
+            running={running[sec.key] || false}
+            initialParams={sectionInputs[sec.key] || {}}
+            onSubmit={async (values) => {
+              await runSectionRef.current(sec, values);
+              setDialogKey(null);
+              message.success(`${localizedText(sec.title, 'zh-CN', sec.key)} 执行成功`);
+            }}
+          />
+        </Modal>
       ))}
-    </Row>
+    </>
+  );
+};
+
+/** 弹窗表单：按 FormPresentationSpec.jsonSchema 渲染输入项。 */
+const DialogForm: React.FC<{
+  section: CompositeSection;
+  running: boolean;
+  initialParams: Record<string, unknown>;
+  onSubmit: (values: Record<string, unknown>) => Promise<void>;
+}> = ({ section, running, initialParams, onSubmit }) => {
+  const [values, setValues] = useState<Record<string, unknown>>(initialParams);
+  const schema = (section.form?.jsonSchema || {}) as {
+    properties?: Record<string, Record<string, unknown>>;
+    required?: string[];
+  };
+  const props = schema.properties || {};
+  const required = new Set(schema.required || []);
+  const names = Object.keys(props);
+
+  if (names.length === 0) {
+    return (
+      <Button type="primary" block loading={running} onClick={() => void onSubmit({})}>
+        确认执行
+      </Button>
+    );
+  }
+  return (
+    <Space direction="vertical" size={12} style={{ width: '100%' }}>
+      {names.map((n) => {
+        const p = props[n] || {};
+        const type = typeof p.type === 'string' ? p.type : 'string';
+        const label = typeof p.title === 'string' ? p.title : n;
+        const v = values[n];
+        return (
+          <div key={n}>
+            <div style={{ fontSize: 12, marginBottom: 4 }}>
+              {label}
+              {required.has(n) && <span style={{ color: '#ff4d4f' }}> *</span>}
+            </div>
+            {type === 'boolean' ? (
+              <Button size="small" onClick={() => setValues((s) => ({ ...s, [n]: !s[n] }))}>
+                {v ? '是' : '否'}
+              </Button>
+            ) : (
+              <input
+                style={{
+                  width: '100%',
+                  height: 30,
+                  padding: '0 8px',
+                  border: '1px solid #d9d9dd',
+                  borderRadius: 6,
+                }}
+                type={type === 'number' || type === 'integer' ? 'number' : 'text'}
+                value={v === undefined || v === null ? '' : String(v)}
+                onChange={(e) =>
+                  setValues((s) => ({
+                    ...s,
+                    [n]:
+                      type === 'number' || type === 'integer'
+                        ? Number(e.target.value)
+                        : e.target.value,
+                  }))
+                }
+              />
+            )}
+          </div>
+        );
+      })}
+      <Button type="primary" block loading={running} onClick={() => void onSubmit(values)}>
+        提交
+      </Button>
+    </Space>
   );
 };
 

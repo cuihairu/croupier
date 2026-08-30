@@ -1,12 +1,25 @@
 import React from 'react';
-import { Alert, Card, Empty, Input, Select, Slider, Space, Switch, Tag, Typography } from 'antd';
-import { LinkOutlined, WarningOutlined } from '@ant-design/icons';
+import {
+  Alert,
+  Button,
+  Card,
+  Empty,
+  Input,
+  Select,
+  Slider,
+  Space,
+  Switch,
+  Tag,
+  Typography,
+} from 'antd';
+import { LinkOutlined, PlusOutlined, WarningOutlined } from '@ant-design/icons';
 import type { FunctionDescriptor } from '@/services/api/functions';
 import {
   VIEW_META,
   linkageCheck,
   sectionParams,
   sectionOutputFields,
+  type ActionDraft,
   type CompositeView,
   type SectionDraft,
 } from './types';
@@ -172,6 +185,76 @@ export default function Inspector({
           ))}
         </div>
 
+        {/* ---- 组合能力：弹窗 / 行操作 / 顶部按钮 / 成功刷新 ---- */}
+
+        {section.view === 'form' && (
+          <div>
+            <Text type="secondary" style={{ fontSize: 11, display: 'block', marginBottom: 4 }}>
+              展示方式
+            </Text>
+            <Select
+              size="small"
+              style={{ width: '100%' }}
+              value={section.display}
+              onChange={(v) => onChange({ display: v })}
+              options={[
+                { value: 'inline', label: '行内 — 嵌在页面栅格中' },
+                { value: 'dialog', label: '弹窗 — 由按钮/行操作触发打开' },
+              ]}
+            />
+            {section.display === 'dialog' && (
+              <Text type="secondary" style={{ fontSize: 11 }}>
+                配置表格区块的行操作或顶部按钮来触发此弹窗
+              </Text>
+            )}
+          </div>
+        )}
+
+        {(section.view === 'form' || section.view === 'actions') && others.length > 0 && (
+          <div>
+            <Text type="secondary" style={{ fontSize: 11, display: 'block', marginBottom: 4 }}>
+              成功后自动刷新
+            </Text>
+            <Select
+              mode="multiple"
+              size="small"
+              style={{ width: '100%' }}
+              placeholder="选择操作成功后重跑的区块"
+              value={section.onSuccessRefresh}
+              onChange={(v) => onChange({ onSuccessRefresh: v })}
+              options={others.map((s) => ({ value: s.key, label: s.title || s.functionId }))}
+            />
+          </div>
+        )}
+
+        {section.view === 'table' && (
+          <ActionsEditor
+            title="顶部按钮（打开弹窗操作）"
+            actions={section.toolbarActions}
+            dialogOptions={others
+              .filter((s) => s.display === 'dialog')
+              .map((s) => ({ value: s.key, label: s.title || s.functionId }))}
+            rowFields={sectionOutputFields(fn)}
+            paramOptions={sectionParams(fnById.get(section.functionId)).map((p) => p.name)}
+            onChange={(actions) => onChange({ toolbarActions: actions })}
+            mode="toolbar"
+          />
+        )}
+
+        {section.view === 'table' && (
+          <ActionsEditor
+            title="行操作（行尾按钮，行字段带入弹窗参数）"
+            actions={section.rowActions}
+            dialogOptions={others
+              .filter((s) => s.display === 'dialog')
+              .map((s) => ({ value: s.key, label: s.title || s.functionId }))}
+            rowFields={sectionOutputFields(fn)}
+            paramOptions={[]}
+            onChange={(actions) => onChange({ rowActions: actions })}
+            mode="row"
+          />
+        )}
+
         {downstream.length > 0 && (
           <div>
             <Text type="secondary" style={{ fontSize: 11, display: 'block' }}>
@@ -226,5 +309,176 @@ export default function Inspector({
         )}
       </Space>
     </Card>
+  );
+}
+
+/** 按钮动作编辑器（行操作 / 顶部按钮）：目标弹窗 + 参数映射 + 危险标记。 */
+function ActionsEditor({
+  title,
+  actions,
+  dialogOptions,
+  rowFields,
+  paramOptions,
+  onChange,
+  mode,
+}: {
+  title: string;
+  actions: ActionDraft[];
+  dialogOptions: { value: string; label: string }[];
+  rowFields: string[];
+  paramOptions: string[];
+  onChange: (actions: ActionDraft[]) => void;
+  mode: 'toolbar' | 'row';
+}) {
+  const patch = (i: number, p: Partial<ActionDraft>) =>
+    onChange(actions.map((a, idx) => (idx === i ? { ...a, ...p } : a)));
+
+  return (
+    <div>
+      <Text type="secondary" style={{ fontSize: 11, display: 'block', marginBottom: 4 }}>
+        {title}
+      </Text>
+      {dialogOptions.length === 0 && actions.length === 0 ? (
+        <Text type="secondary" style={{ fontSize: 11 }}>
+          先把某个 form 区块的展示方式设为「弹窗」
+        </Text>
+      ) : null}
+      {actions.map((a, i) => (
+        <div
+          key={i}
+          style={{ border: '1px solid #f0f0f0', borderRadius: 6, padding: 8, marginBottom: 8 }}
+        >
+          <Space direction="vertical" size={6} style={{ width: '100%' }}>
+            <Input
+              size="small"
+              placeholder="按钮文案"
+              value={a.label}
+              onChange={(e) => patch(i, { label: e.target.value })}
+              style={{ width: '100%' }}
+            />
+            <Select
+              size="small"
+              style={{ width: '100%' }}
+              placeholder="打开弹窗"
+              value={a.targetSection || undefined}
+              onChange={(v) => patch(i, { targetSection: v })}
+              options={dialogOptions}
+            />
+            {a.targetSection && (
+              <ParamsMapping
+                mapping={a.params}
+                rowFields={rowFields}
+                paramOptions={paramOptions}
+                onChange={(params) => patch(i, { params })}
+              />
+            )}
+            <Space size={8}>
+              <label style={{ fontSize: 11 }}>
+                <input
+                  type="checkbox"
+                  checked={a.danger}
+                  onChange={(e) => patch(i, { danger: e.target.checked })}
+                />{' '}
+                危险操作（红字+二次确认）
+              </label>
+              <Button
+                size="small"
+                type="link"
+                danger
+                style={{ padding: 0 }}
+                onClick={() => onChange(actions.filter((_, idx) => idx !== i))}
+              >
+                删除
+              </Button>
+            </Space>
+          </Space>
+        </div>
+      ))}
+      <Button
+        size="small"
+        type="dashed"
+        block
+        icon={<PlusOutlined />}
+        disabled={dialogOptions.length === 0}
+        onClick={() =>
+          onChange([...actions, { label: '', targetSection: '', params: {}, danger: false }])
+        }
+      >
+        添加{mode === 'row' ? '行操作' : '按钮'}
+      </Button>
+    </div>
+  );
+}
+
+/** 参数映射编辑：行字段 → 弹窗表单参数（row 模式）；静态初值（toolbar 模式）。 */
+function ParamsMapping({
+  mapping,
+  rowFields,
+  paramOptions,
+  onChange,
+}: {
+  mapping: Record<string, string>;
+  rowFields: string[];
+  paramOptions: string[];
+  onChange: (m: Record<string, string>) => void;
+}) {
+  const entries = Object.entries(mapping);
+  return (
+    <div style={{ fontSize: 11 }}>
+      <Text type="secondary">参数带入（行字段 → 表单参数）</Text>
+      {entries.map(([param, source]) => (
+        <Space key={param} size={4} style={{ display: 'flex', marginBottom: 4 }}>
+          <Select
+            size="small"
+            style={{ width: 120 }}
+            value={param}
+            onChange={(np) => {
+              const next = { ...mapping };
+              delete next[param];
+              next[np] = source;
+              onChange(next);
+            }}
+            options={(paramOptions.length ? paramOptions : rowFields).map((f) => ({
+              value: f,
+              label: f,
+            }))}
+          />
+          <span>←</span>
+          <Select
+            size="small"
+            style={{ width: 120 }}
+            value={source}
+            onChange={(v) => onChange({ ...mapping, [param]: v })}
+            options={rowFields.map((f) => ({ value: f, label: `行.${f}` }))}
+          />
+          <Button
+            size="small"
+            type="text"
+            danger
+            style={{ padding: 0 }}
+            onClick={() => {
+              const next = { ...mapping };
+              delete next[param];
+              onChange(next);
+            }}
+          >
+            ×
+          </Button>
+        </Space>
+      ))}
+      <Button
+        size="small"
+        type="link"
+        style={{ padding: 0, fontSize: 11 }}
+        disabled={rowFields.length === 0}
+        onClick={() => {
+          const used = new Set(Object.keys(mapping));
+          const free = rowFields.find((f) => !used.has(f)) ?? '';
+          if (free) onChange({ ...mapping, [free]: free });
+        }}
+      >
+        + 添加映射
+      </Button>
+    </div>
   );
 }
