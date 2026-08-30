@@ -19,6 +19,7 @@ import { KeyboardSensor } from '@dnd-kit/core';
 import { SortableList } from '@/components/SortableList';
 import Canvas, { CanvasNode } from './Canvas';
 import OutlinePanel from './OutlinePanel';
+import PreviewRuntime from './PreviewRuntime';
 import { duplicateNode as duplicateTree, insertAfter, moveNode } from './model';
 import ComponentPanel, { type AddFnEvent } from './ComponentPanel';
 import PropsPanel from './PropsPanel';
@@ -307,59 +308,63 @@ export default function CompositeEditorPage() {
             </Col>
           )}
 
-          {/* 中：画布（树渲染 + 拖拽排序 + modal 收纳） */}
+          {/* 中：预览=发布形态（真实执行/弹窗/刷新动作）；编辑=画布 */}
           <Col flex="auto" style={{ minWidth: 420 }}>
-            <div
-              ref={canvasRef}
-              style={{
-                border: '1px solid #f0f0f0',
-                borderRadius: 8,
-                minHeight: 'calc(100vh - 300px)',
-                padding: 12,
-                background: '#fafafa',
-              }}
-            >
-              <Canvas
-                tree={tree}
-                selectedId={selectedId}
-                fnById={fnById.current}
-                onSelect={setSelectedId}
-                onDelete={deleteNode}
-                onDuplicate={duplicateNode}
-                onSpanChange={patchSpan}
-                canvasWidthRef={canvasRef}
+            {preview ? (
+              <PreviewRuntime tree={tree} fnById={fnById.current} />
+            ) : (
+              <div
+                ref={canvasRef}
+                style={{
+                  border: '1px solid #f0f0f0',
+                  borderRadius: 8,
+                  minHeight: 'calc(100vh - 300px)',
+                  padding: 12,
+                  background: '#fafafa',
+                }}
               >
-                <SortableList
-                  items={tree.filter((n) => n.type !== 'modal')}
-                  getKey={(n) => n.id}
-                  onReorder={(next) =>
-                    setTree((prev) => [...next, ...prev.filter((n) => n.type === 'modal')])
-                  }
-                  externalDnd
+                <Canvas
+                  tree={tree}
+                  selectedId={selectedId}
+                  fnById={fnById.current}
+                  onSelect={setSelectedId}
+                  onDelete={deleteNode}
+                  onDuplicate={duplicateNode}
+                  onSpanChange={patchSpan}
+                  canvasWidthRef={canvasRef}
                 >
-                  {(n, _idx, dragHandleProps) => (
-                    <Col key={n.id} span={Number(n.props.span ?? 24) || 24}>
-                      <CanvasNode
-                        node={n}
-                        fn={
-                          n.props.functionId
-                            ? fnById.current.get(String(n.props.functionId))
-                            : undefined
-                        }
-                        selected={selectedId === n.id}
-                        depth={0}
-                        onSelect={() => setSelectedId(n.id)}
-                        onDelete={() => deleteNode(n.id)}
-                        onDuplicate={() => duplicateNode(n.id)}
-                        onSpanChange={(span: number) => patchSpan(n.id, span)}
-                        dragHandleProps={dragHandleProps}
-                        canvasWidthRef={canvasRef}
-                      />
-                    </Col>
-                  )}
-                </SortableList>
-              </Canvas>
-            </div>
+                  <SortableList
+                    items={tree.filter((n) => n.type !== 'modal')}
+                    getKey={(n) => n.id}
+                    onReorder={(next) =>
+                      setTree((prev) => [...next, ...prev.filter((n) => n.type === 'modal')])
+                    }
+                    externalDnd
+                  >
+                    {(n, _idx, dragHandleProps) => (
+                      <Col key={n.id} span={Number(n.props.span ?? 24) || 24}>
+                        <CanvasNode
+                          node={n}
+                          fn={
+                            n.props.functionId
+                              ? fnById.current.get(String(n.props.functionId))
+                              : undefined
+                          }
+                          selected={selectedId === n.id}
+                          depth={0}
+                          onSelect={() => setSelectedId(n.id)}
+                          onDelete={() => deleteNode(n.id)}
+                          onDuplicate={() => duplicateNode(n.id)}
+                          onSpanChange={(span: number) => patchSpan(n.id, span)}
+                          dragHandleProps={dragHandleProps}
+                          canvasWidthRef={canvasRef}
+                        />
+                      </Col>
+                    )}
+                  </SortableList>
+                </Canvas>
+              </div>
+            )}
           </Col>
 
           {/* 右：属性面板（rjsf schema 驱动） */}

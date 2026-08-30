@@ -209,28 +209,28 @@ type ActionSpec =
 
 ## 批次 P3 — 事件动作 + 预览
 
-### T3.1 ActionSpec 与动作注册表
+### ✅ T3.1 ActionSpec 与动作注册表
 
 - 文件：`.../actions.ts`（新）
 - 改动：ActionSpec 类型 + `ACTIONS: { kind; label; 目标选择器过滤 }` 注册表（openModal→modal 节点、runBinding→fn* 节点、refreshNode→fn* 节点）
 - 验收：类型测试
 - 依赖：T0.2 ｜ 预估：0.25d
 
-### T3.2 属性面板动作编辑器
+### ✅ T3.2 属性面板动作编辑器
 
 - 文件：`.../PropsPanel.tsx` 扩展
 - 改动：propSchema 中 `format: 'action'` 字段渲染为动作卡片（动作类型下拉 + 目标节点下拉——目标按注册表过滤）；支持单动作（V1 不做链）
 - 验收：button.onClick 配"打开弹窗[modal-1]"；fnForm.onSuccess 配"刷新[fnTable-1]"
 - 依赖：T3.1 T1.1 ｜ 预估：0.5d
 
-### T3.3 动作执行器（预览态）
+### ✅ T3.3 动作执行器（预览态）
 
 - 文件：`.../previewRuntime.tsx`（新）
 - 改动：预览模式执行树——autoRun fnTable 自动 invokeFunction；openModal 打开 Modal 渲染其 fnForm（rjsf 真实提交）；runBinding 执行；refreshNode 重跑；执行结果注入节点（表格显示真实行）
 - 验收：预览态表格出数、按钮开弹窗、提交成功刷新表格
 - 依赖：T3.2 T2.1 ｜ 预估：0.5d
 
-### T3.4 预览模式接线
+### ✅ T3.4 预览模式接线
 
 - 改动：顶栏"预览"切到 previewRuntime 渲染整树（隐藏编辑装饰与左右面板）
 - 验收：与 T3.3 同场景在整页预览走通

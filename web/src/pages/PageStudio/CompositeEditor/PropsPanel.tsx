@@ -5,6 +5,9 @@ import SchemaFormRenderer from '@/components/SchemaFormRenderer';
 import type { FunctionDescriptor } from '@/services/api/functions';
 import { getComponent } from './registry';
 import type { PageNode } from './model';
+import type { JSONSchema } from '@/types/dashboard';
+import ActionEditor from './ActionEditor';
+import type { ActionKind, ActionSpec } from './actions';
 
 const { Text } = Typography;
 
@@ -47,19 +50,74 @@ export default function PropsPanel({
       }
       styles={{ body: { maxHeight: 'calc(100vh - 220px)', overflow: 'auto' } }}
     >
-      <SchemaFormRenderer
-        spec={{
-          jsonSchema: def.propSchema({
-            nodes,
-            fnById,
-            fn: node.props.functionId ? fnById.get(String(node.props.functionId)) : undefined,
-          }),
-          layout: 'vertical',
-        }}
-        initialValues={node.props as Record<string, never>}
-        hideSubmit
-        onValuesChange={(changed) => onPatch(changed as Record<string, unknown>)}
+      <PropertyFields
+        schema={def.propSchema({
+          nodes,
+          fnById,
+          fn: node.props.functionId ? fnById.get(String(node.props.functionId)) : undefined,
+        })}
+        node={node}
+        nodes={nodes}
+        onPatch={onPatch}
       />
     </Card>
+  );
+}
+
+/** 属性字段渲染：普通字段走 rjsf；format:"action" 字段走 ActionEditor。 */
+function PropertyFields({
+  schema,
+  node,
+  nodes,
+  onPatch,
+}: {
+  schema: JSONSchema;
+  node: PageNode;
+  nodes: PageNode[];
+  onPatch: (patch: Record<string, unknown>) => void;
+}) {
+  const props = (schema.properties ?? {}) as Record<string, JSONSchema>;
+  const plainKeys = Object.keys(props).filter(
+    (k) => (props[k] as { format?: string })?.format !== 'action',
+  );
+  const actionKeys = Object.keys(props).filter(
+    (k) => (props[k] as { format?: string })?.format === 'action',
+  );
+  const plainSchema: JSONSchema = {
+    ...schema,
+    properties: Object.fromEntries(plainKeys.map((k) => [k, props[k]])),
+  };
+
+  return (
+    <>
+      {plainKeys.length > 0 && (
+        <SchemaFormRenderer
+          spec={{ jsonSchema: plainSchema, layout: 'vertical' }}
+          initialValues={node.props as Record<string, never>}
+          hideSubmit
+          onValuesChange={(changed) => onPatch(changed as Record<string, unknown>)}
+        />
+      )}
+      {actionKeys.map((key) => {
+        const field = props[key] as { title?: unknown; actionKinds?: ActionKind[] } | undefined;
+        const kinds = field?.actionKinds;
+        return (
+          <div key={key} style={{ marginTop: 12 }}>
+            <Typography.Text
+              type="secondary"
+              style={{ fontSize: 11, display: 'block', marginBottom: 4 }}
+            >
+              {String(field?.title ?? key)}
+            </Typography.Text>
+            <ActionEditor
+              value={node.props[key]}
+              nodes={nodes}
+              allowedKinds={kinds}
+              onChange={(v: ActionSpec | null) => onPatch({ [key]: v ?? undefined })}
+            />
+          </div>
+        );
+      })}
+    </>
   );
 }

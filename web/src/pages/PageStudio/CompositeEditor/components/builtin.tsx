@@ -101,6 +101,12 @@ const fnForm: ComponentDef = {
         enumNames: ['行内 — 嵌在页面中', '弹窗 — 由按钮触发'],
         default: 'inline',
       },
+      onSuccessRefresh: {
+        type: 'object',
+        title: '成功后刷新',
+        format: 'action',
+        actionKinds: ['refreshNode'],
+      },
     });
   },
   scaffold: (fn) => ({
