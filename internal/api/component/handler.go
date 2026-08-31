@@ -12,12 +12,23 @@ import (
 
 // Handler serves /api/v1/component-templates.
 type Handler struct {
-	model *model.ComponentTemplateModel
+	model       *model.ComponentTemplateModel
+	contractMdl *model.FunctionContractModel
 }
 
 // NewHandler creates a handler.
-func NewHandler(m *model.ComponentTemplateModel) *Handler {
-	return &Handler{model: m}
+func NewHandler(m *model.ComponentTemplateModel, contractMdl *model.FunctionContractModel) *Handler {
+	return &Handler{model: m, contractMdl: contractMdl}
+}
+
+// loadContracts loads contracts for the current scope (game/env).
+func (h *Handler) loadContracts(c *gin.Context) ([]*model.FunctionContract, error) {
+	if h.contractMdl == nil {
+		return nil, nil
+	}
+	gameID := c.GetHeader("X-Game-ID")
+	env := c.GetHeader("X-Env")
+	return h.contractMdl.ListByScope(c.Request.Context(), gameID, env)
 }
 
 // Register wires routes under the given group.
@@ -28,6 +39,7 @@ func (h *Handler) Register(g *gin.RouterGroup) {
 	g.POST("", h.Create)
 	g.PUT("/:key", h.Update)
 	g.DELETE("/:key", h.Delete)
+	g.POST("/regenerate", h.Regenerate)
 }
 
 // TemplateDTO is the wire shape.
@@ -210,4 +222,20 @@ func currentUser(c *gin.Context) string {
 		}
 	}
 	return ""
+}
+
+// Regenerate serves POST /component-templates/regenerate：
+// 扫描当前 scope 全部契约 → 生成/更新内置组件模板。
+func (h *Handler) Regenerate(c *gin.Context) {
+	// 从 FunctionContractModel 拉取当前 scope 的契约
+	contracts, err := h.loadContracts(c)
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
+	if err := h.RegenerateFromContracts(c.Request.Context(), contracts); err != nil {
+		response.Error(c, err)
+		return
+	}
+	response.Success(c, gin.H{"regenerated": len(contracts)})
 }

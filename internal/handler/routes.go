@@ -101,7 +101,7 @@ func RegisterHandlers(r *gin.Engine, serverCtx *svc.ServiceContext) {
 	serverCtx.NotifyService = notify.New(settings.Current(), serverCtx.MessageModel)
 	settingsapi.RegisterPublic(v1.Group("/public"), siteSettingsHandler)
 	// 组件模板（V4 三层组合）：CRUD
-	componentHandler := component.NewHandler(model.NewComponentTemplateModel(serverCtx.DB))
+	componentHandler := component.NewHandler(model.NewComponentTemplateModel(serverCtx.DB), model.NewFunctionContractModel(serverCtx.DB))
 	componentHandler.Register(protected.Group("/component-templates"))
 	// RegisterAdmin 路径已带 /site 前缀（PUT/DELETE /site/:key、GET /site/features 等），
 	// 这里必须挂根组；挂 "/site" 会变成 /api/v1/site/site/... 全线 404。

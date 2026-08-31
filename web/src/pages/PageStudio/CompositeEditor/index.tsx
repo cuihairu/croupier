@@ -28,6 +28,7 @@ import { schemaProperties } from './types';
 import { extractErrorMessage } from '@/utils/errors';
 import { duplicateNode as duplicateTree, insertAfter, moveNode } from './model';
 import ComponentPanel, { type AddFnEvent } from './ComponentPanel';
+import ComponentLibrary from './ComponentLibrary';
 import PropsPanel from './PropsPanel';
 import { registerBuiltinComponents } from './components/builtin';
 import { getComponent } from './registry';
@@ -585,8 +586,25 @@ export default function CompositeEditorPage() {
                   onChange={setLeftTab}
                   items={[
                     {
+                      key: 'library',
+                      label: '组件库',
+                      children: (
+                        <ComponentLibrary
+                          availableFnIds={new Set(allFns.map((f) => f.id))}
+                          onInsert={(nodes, tpl) => {
+                            setTree((prev) => [...prev, ...nodes]);
+                            for (const fid of tpl.requiredFunctions ?? []) {
+                              const fn = allFns.find((f) => f.id === fid);
+                              if (fn) registerFn(fn);
+                            }
+                            if (nodes.length > 0) setSelectedId(nodes[0].id);
+                          }}
+                        />
+                      ),
+                    },
+                    {
                       key: 'components',
-                      label: '组件',
+                      label: '函数',
                       children: (
                         <ComponentPanel onAddBasic={addBasic} onAddFunction={addFunction} />
                       ),
