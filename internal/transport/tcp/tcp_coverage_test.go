@@ -582,18 +582,17 @@ func TestMuxConn_HandleInboundRequestAsync_ClosesConnOnError(t *testing.T) {
 		return []byte("ok"), nil
 	}))
 
-	done := make(chan struct{})
-	go func() {
-		mc.handleInboundRequestAsync(context.Background(), protocol.MsgInvokeRequest, 1, []byte(`{}`))
-		close(done)
-	}()
-	select {
-	case <-done:
-	case <-time.After(2 * time.Second):
-		t.Fatal("handleInboundRequestAsync did not return")
+	// dispatchInbound 投递到业务车道；worker 处理时写失败（对端已关）
+	// 必须关闭连接（laneWorker 语义，替代原 handleInboundRequestAsync）。
+	if err := mc.dispatchInbound(context.Background(), protocol.MsgInvokeRequest, 1, []byte(`{}`)); err != nil {
+		t.Fatalf("dispatchInbound: %v", err)
 	}
-	if !mc.IsClosed() {
-		t.Fatal("connection should be closed after write failure")
+	deadline := time.Now().Add(2 * time.Second)
+	for !mc.IsClosed() {
+		if time.Now().After(deadline) {
+			t.Fatal("connection should be closed after write failure")
+		}
+		time.Sleep(5 * time.Millisecond)
 	}
 }
 

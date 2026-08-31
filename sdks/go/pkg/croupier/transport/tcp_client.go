@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"net"
 	"runtime"
 	"strconv"
@@ -45,6 +46,11 @@ type TCPClient struct {
 	// 会导致头部阻塞——一个慢 handler 卡住整条连接的所有请求）。
 	inbox   chan inboundTask
 	inboxWg sync.WaitGroup
+
+	// 系统车道（双车道派发）：控制请求（心跳/注册/drain）专用队列与
+	// worker，与业务队列容量隔离——业务过载时会话仍存活。
+	ctrlInbox chan inboundTask
+	ctrlWg    sync.WaitGroup
 }
 
 // inboundTask 是一个待处理的 Agent 入站请求。
@@ -140,6 +146,12 @@ func NewTCPClient(config *Config) (*TCPClient, error) {
 		for i := 0; i < workers; i++ {
 			go client.inboundWorker()
 		}
+
+		// 系统车道：控制请求专用小队列 + 单 worker（控制 handler 廉价），
+		// 永不 reject——业务队列打满时心跳/摘流照常可达。
+		client.ctrlInbox = make(chan inboundTask, 64)
+		client.ctrlWg.Add(1)
+		go client.ctrlWorker()
 	}
 
 	// Start receive loop
@@ -366,15 +378,25 @@ func (c *TCPClient) receiveLoop() {
 	}
 }
 
-// handleInboundRequest 把入站请求投递到 worker 池（读循环永不执行
+// handleInboundRequest 把入站请求投递到对应车道（读循环永不执行
 // 业务逻辑——串行处理会让一个慢 handler 卡住整条连接的所有请求）。
-// 队列满时立即回 busy 错误帧，让 Agent 侧 failover 接管而不是排队
-// 积压内存。
+// 双车道：控制请求（心跳/注册/会话控制/drain）走系统车道（专用队列，
+// 永不 reject——业务队列打满时会话仍存活、摘流可达）；业务请求队列
+// 满时立即回 busy 错误帧，让 Agent 侧 failover 接管而不是排队积压内存。
 func (c *TCPClient) handleInboundRequest(msgID uint32, reqID uint32, body []byte) {
 	if c.inbound == nil || !protocol.IsRequest(msgID) {
 		return
 	}
 	task := inboundTask{msgID: msgID, reqID: reqID, body: body}
+	if protocol.IsControlRequest(msgID) {
+		// 系统车道：专用 worker 消费。控制 handler 廉价（心跳记账/状态
+		// 翻转）且不得在读循环内联执行（若回 Call 会卡响应读取）。
+		select {
+		case c.ctrlInbox <- task:
+		case <-c.closing:
+		}
+		return
+	}
 	select {
 	case c.inbox <- task:
 	default:
@@ -390,6 +412,20 @@ func (c *TCPClient) handleInboundRequest(msgID uint32, reqID uint32, body []byte
 			}
 		}
 		c.writeResponseFrame(msgID, reqID, respBody)
+	}
+}
+
+// ctrlWorker 消费系统车道：执行控制 handler 并回写响应帧。
+// 与业务 worker 同款 range 退出语义——Close 在读循环退出后关闭队列。
+func (c *TCPClient) ctrlWorker() {
+	defer c.ctrlWg.Done()
+	for task := range c.ctrlInbox {
+		respBody, err := c.inbound(context.Background(), task.msgID, task.reqID, task.body)
+		if err != nil {
+			// 失败也要答对端：否则 Agent 心跳判定超时且无诊断。
+			slog.Warn("control handler error", "msg_id", protocol.MsgIDString(task.msgID), "error", err)
+		}
+		c.writeResponseFrame(task.msgID, task.reqID, respBody)
 	}
 }
 
@@ -420,6 +456,11 @@ func (c *TCPClient) Close() error {
 		if c.inbox != nil {
 			close(c.inbox)
 			c.inboxWg.Wait()
+		}
+		// 系统车道同款收编（读循环已退出，无并发发送方，close 安全）。
+		if c.ctrlInbox != nil {
+			close(c.ctrlInbox)
+			c.ctrlWg.Wait()
 		}
 	})
 	return closeErr

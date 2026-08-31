@@ -135,6 +135,27 @@ v1 不引入独立 `Magic`，而是直接用首条应用层消息识别子协议
 - `MuxConn` 的有界并发改造（对齐 SDK worker 池模式）在 `agent-server-session-transport-redesign.md` 的背压章节跟踪
 - `overloaded` / `retry_after_ms` / `too_many_inflight` 等显式过载信号字段尚未定义 wire 消息；当前唯一过载信号是 SDK 队列满时的错误 payload 文案
 
+### 双车道：控制消息优先级
+
+过载治理的一个结构性前提：**控制消息不能和业务消息共用车道**。
+业务洪峰打满共享队列时，心跳被 fail-fast 拒绝 → 对端判定会话死亡 →
+过载升级为连接雪崩；drain 摘流信号被淹没 → 过载时无法优雅下线。
+
+因此入站派发按 MsgID 显式分类为双车道（`protocol.IsControlRequest()`，
+显式集合而非裸字节前缀——0x06 集群族中 Hello 是控制、ForwardInvoke 是业务）：
+
+| 车道         | 消息                                                                                        | 队列语义                                         |
+| ------------ | ------------------------------------------------------------------------------------------- | ------------------------------------------------ |
+| 系统（控制） | `0x01xx` Register/Heartbeat、`0x05xx` Provider 会话控制（含 Drain）、`0x060101` ServerHello | 小专用队列，**永不 reject**                      |
+| 业务         | `0x03xx` Invoke/Task、`0x04xx` Ops/Metrics、`0x060103` ForwardInvoke                        | 有界队列，满则 fail-fast 回错帧（对端 failover） |
+| 事件         | `TaskEvent`/`MetricEvent` 等单向帧                                                          | 读循环内联，不排队（现状保持）                   |
+
+行为保证：
+
+- 业务车道打满时，心跳/drain/register 照常可达——**会话存活与摘流不受业务过载影响**
+- 系统车道自身也有界（防控制面被打爆），但容量独立且永不向对端回 reject
+- fail-fast 的 reject 语义只作用于业务请求，`retry on another instance` 文案不变
+
 ## drain 语义
 
 `drain` 是会话级的优雅摘流语义，不是立即断连语义。

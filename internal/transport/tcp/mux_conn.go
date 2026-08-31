@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net"
+	"runtime"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -65,6 +66,14 @@ type MuxConn struct {
 	recvTimeout time.Duration
 	sendTimeout time.Duration
 
+	// Dual-lane bounded dispatch (see docs/architecture/sdk-wire-protocol.md 双车道):
+	// control requests (heartbeat/register/drain/hello) get a dedicated
+	// never-reject lane so session liveness survives business overload;
+	// business requests run on a bounded pool that fails fast when saturated.
+	ctrlInbox chan muxTask
+	bizInbox  chan muxTask
+	workersWg sync.WaitGroup
+
 	writeMu   sync.Mutex
 	pendingMu sync.Mutex
 	pending   map[uint32]chan muxResponse
@@ -74,21 +83,124 @@ type MuxConn struct {
 	closed    chan struct{}
 }
 
+// muxTask is one dispatched inbound request.
+type muxTask struct {
+	msgID uint32
+	reqID uint32
+	body  []byte
+}
+
 // NewMuxConn creates a new bidirectional framed connection.
 func NewMuxConn(conn net.Conn, config *Config, handler transportcore.Handler) *MuxConn {
 	if config == nil {
 		config = &Config{}
 	}
+
+	workers := config.DispatchWorkers
+	if workers <= 0 {
+		workers = runtime.NumCPU()
+		if workers < 2 {
+			workers = 2
+		}
+	}
+	bizQLen := config.BusinessQLen
+	if bizQLen <= 0 {
+		// absorb ~4 rounds of saturated workers before failing fast
+		bizQLen = workers * 4
+	}
+	ctrlQLen := config.ControlQLen
+	if ctrlQLen <= 0 {
+		ctrlQLen = 64
+	}
+
 	m := &MuxConn{
 		conn:        conn,
 		handler:     handler,
 		recvTimeout: config.RecvTimeout,
 		sendTimeout: config.SendTimeout,
+		ctrlInbox:   make(chan muxTask, ctrlQLen),
+		bizInbox:    make(chan muxTask, bizQLen),
 		pending:     make(map[uint32]chan muxResponse),
 		closed:      make(chan struct{}),
 	}
 	m.nextReqID.Store(1)
+
+	// Control lane: dedicated single worker — control handlers are cheap
+	// (heartbeat bookkeeping, registration, drain state flips) and must be
+	// serialized-cheap rather than parallel-expensive. Never rejects: a full
+	// control lane blocks the read loop, which is natural control-plane
+	// backpressure (the peer slows down instead of losing liveness).
+	m.workersWg.Add(1)
+	go m.laneWorker(m.ctrlInbox)
+
+	// Business lane: bounded worker pool; saturation is answered inline with a
+	// busy frame so the Agent-side failover can reroute to another instance.
+	for i := 0; i < workers; i++ {
+		m.workersWg.Add(1)
+		go m.laneWorker(m.bizInbox)
+	}
+
 	return m
+}
+
+// laneWorker consumes one dispatch lane until the connection closes.
+// Inboxes are never closed (a concurrent dispatchInbound send on a closed
+// channel would panic); workers exit via the closed signal instead.
+func (c *MuxConn) laneWorker(inbox chan muxTask) {
+	defer c.workersWg.Done()
+	for {
+		select {
+		case <-c.closed:
+			return
+		case task := <-inbox:
+			if err := c.handleInboundRequest(context.Background(), task.msgID, task.reqID, task.body); err != nil {
+				// A protocol error cannot be represented as an RPC response; terminate
+				// the session just as the synchronous read loop did. Other write errors
+				// also make the connection unusable, and Close unblocks any pending calls.
+				_ = c.Close()
+				return
+			}
+		}
+	}
+}
+
+// dispatchInbound routes one inbound request to its lane.
+func (c *MuxConn) dispatchInbound(ctx context.Context, msgID uint32, reqID uint32, body []byte) error {
+	task := muxTask{msgID: msgID, reqID: reqID, body: body}
+
+	if protocol.IsControlRequest(msgID) {
+		// Never reject: block until the control lane accepts (or the conn dies).
+		// Control handlers drain fast; blocking here backpressures the peer's
+		// read loop instead of tearing down session liveness.
+		select {
+		case c.ctrlInbox <- task:
+			return nil
+		case <-c.closed:
+			return nil
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	}
+
+	select {
+	case c.bizInbox <- task:
+	default:
+		// Business lane saturated: answer inline with a busy frame so the peer
+		// can fail over to another instance; memory does not accumulate.
+		var respBody []byte
+		if msgID == protocol.MsgInvokeRequest {
+			resp := &sdkv1.InvokeResponse{
+				Payload: []byte(`{"error":"inbound queue full, retry on another instance"}`),
+			}
+			if marshaled, err := proto.Marshal(resp); err == nil {
+				respBody = marshaled
+			}
+		}
+		if err := c.writeFrame(reqID, protocol.GetResponseMsgID(msgID), respBody); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // RemoteAddr returns the remote peer address string.
@@ -182,12 +294,16 @@ func (c *MuxConn) Run(ctx context.Context) error {
 			return NewProtocolError(fmt.Errorf("no request handler configured for %s", protocol.MsgIDString(msgID)))
 		}
 
-		// A peer may issue an RPC while this side is waiting for a response to
-		// its own RPC. Handle requests independently so the read loop can still
-		// receive and fulfill that pending response. Processing the request inline
-		// deadlocks a bidirectional Provider session: the Agent waits for the
-		// Provider callback response while the read loop is unable to read it.
-		go c.handleInboundRequestAsync(ctx, msgID, reqID, body)
+		// Dual-lane bounded dispatch replaces the former unbounded
+		// `go handleInboundRequestAsync`: control requests keep a dedicated
+		// never-reject lane; business requests share a bounded pool that
+		// fails fast under saturation (see sdk-wire-protocol.md 双车道).
+		if err := c.dispatchInbound(ctx, msgID, reqID, body); err != nil {
+			if isProtocolError(err) || isTimeout(err) {
+				return err
+			}
+			return err
+		}
 	}
 }
 
@@ -253,6 +369,9 @@ func (c *MuxConn) Close() error {
 	var closeErr error
 	c.closeOnce.Do(func() {
 		close(c.closed)
+		// Workers observe closed and exit; queued lane tasks are dropped
+		// (their peers time out and fail over, same as a connection reset).
+		// Inboxes stay open — closing them would race dispatchInbound sends.
 		if c.conn != nil {
 			closeErr = c.conn.Close()
 		}
@@ -301,15 +420,6 @@ func (c *MuxConn) handleInboundRequest(ctx context.Context, msgID uint32, reqID 
 	}
 
 	return c.writeFrame(reqID, protocol.GetResponseMsgID(msgID), respBody)
-}
-
-func (c *MuxConn) handleInboundRequestAsync(ctx context.Context, msgID uint32, reqID uint32, body []byte) {
-	if err := c.handleInboundRequest(ctx, msgID, reqID, body); err != nil {
-		// A protocol error cannot be represented as an RPC response; terminate
-		// the session just as the synchronous read loop did. Other write errors
-		// also make the connection unusable, and Close unblocks any pending calls.
-		_ = c.Close()
-	}
 }
 
 func (c *MuxConn) writeFrame(reqID uint32, msgID uint32, body []byte) error {

@@ -286,8 +286,14 @@
 - `transport/tcp/mux_conn.go`（Agent↔Server 与 Agent↔Provider 双向会话）：
   读循环对每个入站请求 `go handleInboundRequestAsync` 无界派发——
   **无并发上限、无待处理队列**，上游洪峰时 goroutine 无界膨胀。
-  这是当前背压的主要缺口；改造方向为对齐 Go SDK 的有界 worker 池模式
-  （有界队列 + 队列满回 busy 错误帧触发对端 failover）。
+  这是当前背压的主要缺口；改造方向为**双车道有界派发**：
+  - 系统/控制车道（`0x01xx` 心跳注册、`0x05xx` 会话控制含 drain、
+    `0x060101` Hello）：小专用队列，永不 reject——业务过载不会杀会话，
+    摘流信号始终可达
+  - 业务车道（`0x03xx`/`0x04xx`/`0x060103` 转发调用）：有界队列 +
+    满则回 busy 错误帧触发对端 failover
+  - 分类由 `protocol.IsControlRequest()` 显式 MsgID 集合承担
+    （0x06 族 Hello=控制 / ForwardInvoke=业务，不能按字节前缀一刀切）
 - 显式过载信号（`overloaded` / `retry_after_ms` / `too_many_inflight`）
   的 wire 消息尚未定义。
 

@@ -110,6 +110,30 @@ func IsRequest(msgID uint32) bool {
 	return msgID%2 == 1 && msgID != MsgTaskEvent
 }
 
+// controlRequests is the explicit set of session/transport control requests
+// (dual-lane dispatch: control traffic never competes with the bounded
+// business queue — heartbeats and drain stay reachable under overload).
+var controlRequests = map[uint32]struct{}{
+	// Agent session control (0x01xx)
+	MsgRegisterRequest:         {},
+	MsgHeartbeatRequest:        {},
+	MsgRegisterCapabilitiesReq: {},
+	// Client session control (0x02xx)
+	MsgRegisterClientRequest:  {},
+	MsgClientHeartbeatRequest: {},
+	// Provider session control (0x05xx), incl. drain
+	MsgProviderConnectRequest:   {},
+	MsgProviderHeartbeatRequest: {},
+	MsgProviderDrainRequest:     {},
+}
+
+// IsControlRequest reports whether the MsgID is a session/transport control
+// request that must bypass the business dispatch lane.
+func IsControlRequest(msgID uint32) bool {
+	_, ok := controlRequests[msgID]
+	return ok
+}
+
 // IsResponse returns true if the MsgID indicates a response message.
 func IsResponse(msgID uint32) bool {
 	return msgID%2 == 0 && msgID != MsgTaskEvent // TaskEvent is a stream event, not a response

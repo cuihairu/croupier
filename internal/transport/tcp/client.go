@@ -30,6 +30,15 @@ type Config struct {
 	ConnectTimeout time.Duration
 	RecvTimeout    time.Duration
 	SendTimeout    time.Duration
+
+	// MuxConn dual-lane dispatch knobs (zero values use defaults).
+	// Business lane: DispatchWorkers (default NumCPU, min 2) workers with a
+	// BusinessQLen (default workers*4) bounded queue — saturated means an
+	// inline busy frame, never unbounded memory. Control lane: ControlQLen
+	// (default 64) dedicated queue, never rejects.
+	DispatchWorkers int
+	BusinessQLen    int
+	ControlQLen     int
 }
 
 // Client implements a plain TCP request-response transport.

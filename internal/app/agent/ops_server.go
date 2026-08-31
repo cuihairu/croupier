@@ -38,7 +38,11 @@ type managedProcess struct {
 	lastStart *timestamppb.Timestamp
 	config    ManagedProcessConfig
 	stopCh    chan struct{}
-	mu        sync.RWMutex
+	// waitDone 由 monitorProcess 在 cmd.Wait() 返回后关闭——
+	// Wait 的唯一属主是 monitorProcess；stopProcess 杀进程后等它收尸，
+	// 消除并发双 Wait 的 DATA RACE。
+	waitDone chan struct{}
+	mu       sync.RWMutex
 }
 
 // NewOpsServer creates a new Ops server instance.
@@ -293,6 +297,7 @@ func (s *OpsServer) startProcess(p *managedProcess) error {
 
 	p.cmd = cmd
 	p.pid = int32(cmd.Process.Pid)
+	p.waitDone = make(chan struct{})
 
 	// Start goroutine to monitor process
 	go s.monitorProcess(p)
@@ -312,8 +317,15 @@ func (s *OpsServer) stopProcess(p *managedProcess) {
 	}
 
 	if p.cmd != nil && p.cmd.Process != nil {
-		p.cmd.Process.Kill()
-		p.cmd.Wait()
+		_ = p.cmd.Process.Kill()
+		// 收尸交给 monitorProcess（Wait 唯一属主）；此处只等它完成，
+		// 并发双 Wait 曾是 DATA RACE。
+		if wd := p.waitDone; wd != nil {
+			select {
+			case <-wd:
+			case <-time.After(5 * time.Second):
+			}
+		}
 	}
 }
 
@@ -324,6 +336,9 @@ func (s *OpsServer) monitorProcess(p *managedProcess) {
 	}
 
 	err := p.cmd.Wait()
+	if p.waitDone != nil {
+		close(p.waitDone)
+	}
 	p.mu.Lock()
 	defer p.mu.Unlock()
 

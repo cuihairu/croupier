@@ -123,6 +123,35 @@ func IsEvent(msgID uint32) bool {
 	return msgID == MsgTaskEvent || msgID == MsgMetricEvent
 }
 
+// controlRequests is the explicit set of session/transport control requests.
+// They must be classified by explicit membership rather than service-family
+// byte prefixes: the cluster family (0x06xx) mixes control (ServerHello) with
+// business (ForwardInvoke).
+var controlRequests = map[uint32]struct{}{
+	// Agent session control (0x01xx)
+	MsgRegisterRequest:         {},
+	MsgHeartbeatRequest:        {},
+	MsgRegisterCapabilitiesReq: {},
+	// Client session control (0x02xx)
+	MsgRegisterClientRequest:  {},
+	MsgClientHeartbeatRequest: {},
+	// Provider session control (0x05xx), incl. drain
+	MsgProviderConnectRequest:   {},
+	MsgProviderHeartbeatRequest: {},
+	MsgProviderDrainRequest:     {},
+	// Cluster session control (0x06xx): hello only — ForwardInvoke is business
+	MsgServerHelloRequest: {},
+}
+
+// IsControlRequest reports whether the MsgID is a session/transport control
+// request. Control traffic gets a dedicated never-reject dispatch lane so that
+// heartbeats, registration and drain stay reachable while the business lane is
+// saturated (see docs/architecture/sdk-wire-protocol.md 双车道).
+func IsControlRequest(msgID uint32) bool {
+	_, ok := controlRequests[msgID]
+	return ok
+}
+
 // GetResponseMsgID returns the response MsgID for a given request MsgID.
 func GetResponseMsgID(reqMsgID uint32) uint32 {
 	return reqMsgID + 1

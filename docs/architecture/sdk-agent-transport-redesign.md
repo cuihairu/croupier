@@ -548,6 +548,15 @@ SDK 只需暴露最小必要配置：
 - `drop_oldest` / `caller_backoff` 策略尚未实现（当前 reject 语义与
   Agent failover 配合已闭环，暂无需求驱动）
 
+**已知缺口与改造方向——控制消息双车道**：当前心跳请求
+（`HeartbeatRequest`/`ProviderHeartbeatRequest`）与业务请求共享同一条
+有界队列。业务洪峰打满队列时心跳一并被拒，Agent 误判 Provider 死亡
+拆会话——过载升级为连接雪崩。改造为双车道：
+
+- 系统/控制请求（`protocol.IsControlRequest()`：心跳/注册/会话控制/drain）
+  走专用车道，**永不 reject**——会话存活不受业务过载影响
+- 业务请求维持现状（有界队列 + fail-fast reject + Agent failover）
+
 ### 过载反馈
 
 Agent 需要提供显式反馈，而不是只靠 SDK 盲猜：

@@ -123,6 +123,13 @@ func (m *mockTaskEventReporter) types() []string {
 	return append([]string(nil), m.eventTypes...)
 }
 
+// callCount 返回加锁的调用计数（异步 TaskRunner 写、测试读）。
+func (m *mockTaskEventReporter) callCount() int {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.reportCalled
+}
+
 // --- Tests for NewLocalHandler ---
 
 func TestNewLocalHandler(t *testing.T) {
@@ -665,7 +672,7 @@ func TestLocalHandler_TaskEventReporting(t *testing.T) {
 
 		// Allow the async task to run and report events.
 		time.Sleep(50 * time.Millisecond)
-		assert.GreaterOrEqual(t, reporter.reportCalled, 1)
+		assert.GreaterOrEqual(t, reporter.callCount(), 1)
 	})
 
 	t.Run("nil reporter does not panic", func(t *testing.T) {

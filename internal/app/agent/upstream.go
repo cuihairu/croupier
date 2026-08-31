@@ -27,15 +27,18 @@ type UpstreamClient struct {
 	reportedOwnerInstance string
 	agentID               string
 	store                 *agentlocal.LocalStore
-	client                controlClient
-	updateCh              chan struct{}
-	gameID                string
-	env                   string
-	version               string
-	region                string
-	zone                  string
-	labels                map[string]string
-	tlsCfg                *tlsutil.ClientTLSConfig
+	// client 由重连 goroutine 写、心跳/Stop/发送路径读——clientMu 保护
+	// 该字段的所有读写（曾为 DATA RACE：重连与 Stop 并发）。
+	clientMu sync.Mutex
+	client   controlClient
+	updateCh chan struct{}
+	gameID   string
+	env      string
+	version  string
+	region   string
+	zone     string
+	labels   map[string]string
+	tlsCfg   *tlsutil.ClientTLSConfig
 
 	// Timeouts (from config, with defaults)
 	dialTimeout       time.Duration
@@ -61,7 +64,11 @@ type UpstreamClient struct {
 }
 
 func (c *UpstreamClient) Connected() bool {
-	return c != nil && c.client != nil && c.client.Connected()
+	if c == nil {
+		return false
+	}
+	cl := c.currentClient()
+	return cl != nil && cl.Connected()
 }
 
 func (c *UpstreamClient) GameID() string {
@@ -79,17 +86,21 @@ func (c *UpstreamClient) Env() string {
 }
 
 func (c *UpstreamClient) SendTaskEvent(ctx context.Context, event *sdkv1.TaskEvent) error {
-	if c == nil || c.client == nil {
+	if c == nil {
 		return fmt.Errorf("upstream client is nil")
 	}
-	if !c.client.Connected() {
+	cl := c.currentClient()
+	if cl == nil {
+		return fmt.Errorf("upstream client is nil")
+	}
+	if !cl.Connected() {
 		return fmt.Errorf("upstream client not connected")
 	}
 	data, err := proto.Marshal(event)
 	if err != nil {
 		return fmt.Errorf("marshal task event: %w", err)
 	}
-	return c.client.SendTaskEvent(ctx, data)
+	return cl.SendTaskEvent(ctx, data)
 }
 
 func (c *UpstreamClient) ReportTaskEvent(ctx context.Context, event *sdkv1.TaskEvent) error {
@@ -204,9 +215,9 @@ func (c *UpstreamClient) OnDisconnected(callback func(error)) {
 // It closes any existing connection before establishing a new one.
 // On successful connection, it automatically calls register.
 func (c *UpstreamClient) dialServer(ctx context.Context) error {
-	if c.client != nil {
-		c.client.Close()
-		c.client = nil
+	if old := c.currentClient(); old != nil {
+		old.Close()
+		c.setClient(nil)
 	}
 
 	var client controlClient
@@ -221,15 +232,15 @@ func (c *UpstreamClient) dialServer(ctx context.Context) error {
 	}
 
 	if err != nil {
-		c.client = nil
+		c.setClient(nil)
 		return fmt.Errorf("failed to connect to upstream server via %s: %w", c.transportKind, err)
 	}
-	c.client = client
+	c.setClient(client)
 
 	// 连接成功后立即注册
 	if err := c.syncOnce(ctx); err != nil {
-		c.client.Close()
-		c.client = nil
+		client.Close()
+		c.setClient(nil)
 		return fmt.Errorf("failed to register after connection: %w", err)
 	}
 
@@ -389,7 +400,8 @@ func (c *UpstreamClient) heartbeatLoop(ctx context.Context) {
 		case <-ticker.C:
 			// 检查客户端是否可用。断连时必须主动重连，而不是跳过心跳：
 			// 否则 client 永远停留在未连接状态，没有任何路径会恢复连接。
-			if c.client == nil || !c.client.Connected() {
+			hbClient := c.currentClient()
+			if hbClient == nil || !hbClient.Connected() {
 				slog.Warn("upstream disconnected, attempting re-connect and register...")
 				if dialErr := c.dialServer(ctx); dialErr != nil {
 					slog.Error("re-connect dial failed", "error", dialErr)
@@ -403,9 +415,9 @@ func (c *UpstreamClient) heartbeatLoop(ctx context.Context) {
 			}
 			// 心跳调用设置超时，避免 server 关闭后一直阻塞
 			hbCtx, cancel := context.WithTimeout(ctx, 3*time.Second)
-			_, err := c.client.Heartbeat(hbCtx, &agentv1.HeartbeatRequest{
+			_, err := hbClient.Heartbeat(hbCtx, &agentv1.HeartbeatRequest{
 				AgentId:         c.agentID,
-				OwnerInstanceId: c.reportedOwnerInstance,
+				OwnerInstanceId: c.ownerInstance(),
 			})
 			cancel()
 			if err != nil {
@@ -477,7 +489,7 @@ func (c *UpstreamClient) syncWithRetry(ctx context.Context, attempts int) error 
 }
 
 func (c *UpstreamClient) syncOnce(ctx context.Context) error {
-	if c.client == nil || !c.client.Connected() {
+	if c.currentClient() == nil {
 		return fmt.Errorf("upstream client not connected")
 	}
 
@@ -535,12 +547,16 @@ func (c *UpstreamClient) syncOnce(ctx context.Context) error {
 		Processes: providers,
 	}
 
-	resp, err := c.client.Register(ctx, req)
+	regClient := c.currentClient()
+	if regClient == nil {
+		return fmt.Errorf("upstream client not connected")
+	}
+	resp, err := regClient.Register(ctx, req)
 	if err != nil {
 		return err
 	}
 	if v := resp.GetInstanceId(); v != "" {
-		c.reportedOwnerInstance = v
+		c.setOwnerInstance(v)
 		slog.Info("upstream owner instance reported", "instance_id", v)
 	}
 	slog.Info("synced with upstream server", "transport", c.transportKind, "functions", len(funcs))
@@ -625,7 +641,8 @@ func (c *UpstreamClient) Sync(ctx context.Context) error {
 	if c == nil {
 		return fmt.Errorf("upstream client is nil")
 	}
-	if c.client == nil || !c.client.Connected() {
+	mClient := c.currentClient()
+	if mClient == nil {
 		return fmt.Errorf("upstream client not connected")
 	}
 	return c.syncWithRetry(ctx, 3)
@@ -636,17 +653,46 @@ func (c *UpstreamClient) Heartbeat(ctx context.Context) error {
 	if c == nil {
 		return fmt.Errorf("upstream client is nil")
 	}
-	if c.client == nil || !c.client.Connected() {
+	hbClient := c.currentClient()
+	if hbClient == nil {
 		return fmt.Errorf("upstream client not connected")
 	}
-	_, err := c.client.Heartbeat(ctx, &agentv1.HeartbeatRequest{AgentId: c.agentID})
+	_, err := hbClient.Heartbeat(ctx, &agentv1.HeartbeatRequest{AgentId: c.agentID})
 	return err
 }
 
 func (c *UpstreamClient) Stop() {
-	if c.client != nil {
-		c.client.Close()
+	if cl := c.currentClient(); cl != nil {
+		cl.Close()
 	}
+}
+
+// currentClient 返回当前上游连接（加锁快照）。
+func (c *UpstreamClient) currentClient() controlClient {
+	c.clientMu.Lock()
+	defer c.clientMu.Unlock()
+	return c.client
+}
+
+// setClient 更新当前上游连接（重连/清理路径）。
+func (c *UpstreamClient) setClient(cl controlClient) {
+	c.clientMu.Lock()
+	defer c.clientMu.Unlock()
+	c.client = cl
+}
+
+// setOwnerInstance 记录最近注册响应中的集群实例 ID（syncOnce 写）。
+func (c *UpstreamClient) setOwnerInstance(v string) {
+	c.clientMu.Lock()
+	defer c.clientMu.Unlock()
+	c.reportedOwnerInstance = v
+}
+
+// ownerInstance 返回最近注册响应中的集群实例 ID（心跳循环读）。
+func (c *UpstreamClient) ownerInstance() string {
+	c.clientMu.Lock()
+	defer c.clientMu.Unlock()
+	return c.reportedOwnerInstance
 }
 
 func firstNonEmpty(values ...string) string {
@@ -701,7 +747,8 @@ func (c *UpstreamClient) SendMetricEvent(ctx context.Context, report *opsv1.Metr
 	if c == nil {
 		return fmt.Errorf("upstream client is nil")
 	}
-	if c.client == nil || !c.client.Connected() {
+	mClient := c.currentClient()
+	if mClient == nil {
 		return fmt.Errorf("upstream client not connected")
 	}
 	if report == nil {
@@ -711,7 +758,7 @@ func (c *UpstreamClient) SendMetricEvent(ctx context.Context, report *opsv1.Metr
 	if err != nil {
 		return fmt.Errorf("marshal metrics report: %w", err)
 	}
-	return c.client.SendMetricEvent(ctx, data)
+	return mClient.SendMetricEvent(ctx, data)
 }
 
 // reportMetrics collects a single snapshot and pushes it upstream. Errors
