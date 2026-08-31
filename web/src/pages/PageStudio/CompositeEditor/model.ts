@@ -72,14 +72,84 @@ export function insertAfter(nodes: PageNode[], node: PageNode, afterId: string):
   return walk(nodes);
 }
 
-/** 删除节点（含子树）。返回 [新树, 是否删除]；no-op 保持原引用。 */
+/** 删除节点（含子树），并清理树内指向被删节点的悬空绑定：
+ * 事件动作（onClick/onSuccess 等 ActionSpec 值）target 失效 → 移除该动作；
+ * 动作链 chain 中失效步骤剔除；表格 rowActions 的 targetSection 失效 → 移除该行操作。
+ * 返回 [新树, 是否删除]；no-op 保持原引用。 */
 export function removeNode(nodes: PageNode[], id: string): [PageNode[], boolean] {
   if (!findNode(nodes, id)) return [nodes, false];
   const walk = (list: PageNode[]): PageNode[] =>
     list
       .filter((n) => n.id !== id)
       .map((n) => (n.children ? { ...n, children: walk(n.children) } : n));
-  return [walk(nodes), true];
+  return [pruneDanglingBindings(walk(nodes)), true];
+}
+
+/** 清理树内悬空动作绑定（目标 id 不在树中）。 */
+export function pruneDanglingBindings(nodes: PageNode[]): PageNode[] {
+  const alive = new Set<string>();
+  const collect = (list: PageNode[]) => {
+    for (const n of list) {
+      alive.add(n.id);
+      if (n.children) collect(n.children);
+    }
+  };
+  collect(nodes);
+
+  const cleanAction = (v: unknown): unknown => {
+    if (!v || typeof v !== 'object') return v;
+    const a = v as { kind?: unknown; target?: unknown; chain?: unknown };
+    // 仅识别动作结构（kind 为已知动作类型；与 actions.ts ActionKind 保持一致）
+    if (
+      typeof a.kind !== 'string' ||
+      !['openModal', 'closeModal', 'runBinding', 'refreshNode', 'navigate', 'showMessage'].includes(
+        a.kind,
+      )
+    )
+      return v;
+    // 目标悬空 → 整个动作作废
+    if (typeof a.target === 'string' && a.target && !alive.has(a.target)) return undefined;
+    // 动作链剔除悬空步骤
+    if (Array.isArray(a.chain)) {
+      const chain = (a.chain as Array<{ target?: unknown }>).filter(
+        (s) => typeof s?.target !== 'string' || !s.target || alive.has(s.target),
+      );
+      if (chain.length !== (a.chain as unknown[]).length) {
+        return { ...a, chain: chain.length ? chain : undefined };
+      }
+    }
+    return v;
+  };
+
+  const cleanNode = (n: PageNode): PageNode => {
+    let props = n.props;
+    let changed = false;
+    const next: Record<string, unknown> = { ...props };
+    for (const [k, v] of Object.entries(props)) {
+      if (k === 'rowActions' && Array.isArray(v)) {
+        // 行操作：targetSection 指向弹窗，悬空则移除该操作项
+        const kept = (v as Array<{ targetSection?: string }>).filter(
+          (a) => !a?.targetSection || alive.has(a.targetSection),
+        );
+        if (kept.length !== v.length) {
+          next[k] = kept;
+          changed = true;
+        }
+        continue;
+      }
+      const cleaned = cleanAction(v);
+      if (cleaned !== v) {
+        if (cleaned === undefined) delete next[k];
+        else next[k] = cleaned;
+        changed = true;
+      }
+    }
+    if (changed) props = next as PageNode['props'];
+    const children = n.children?.map(cleanNode);
+    if (!changed && children === n.children) return n;
+    return { ...n, props, ...(children ? { children } : {}) };
+  };
+  return nodes.map(cleanNode);
 }
 
 /** 复制节点（含子树），插入到原节点之后，新 id 统一重生成。 */

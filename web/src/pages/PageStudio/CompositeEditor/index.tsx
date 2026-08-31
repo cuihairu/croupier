@@ -522,6 +522,8 @@ export default function CompositeEditorPage() {
   const deleteNode = useCallback((id: string) => {
     setTree((prev) => removeNode(prev, id)[0]);
     setSelectedId((cur) => (cur === id ? null : cur));
+    // 正在弹窗内部编辑时删掉该弹窗 → 退出弹窗编辑态
+    setEditingModalId((cur) => (cur === id ? null : cur));
   }, []);
 
   const preview = mode === 'preview';

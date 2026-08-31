@@ -78,15 +78,38 @@ export default function PreviewRuntime({
     (raw: unknown) => {
       const act = parseAction(raw);
       if (!act) return;
-      const target = findIn(treeRef.current, act.target);
-      if (!target) {
-        message.warning('动作目标不存在（可能已删除）');
-        return;
-      }
-      if (act.kind === 'openModal') {
-        setDialogId(act.target);
-      } else {
-        void runRef.current(target);
+      switch (act.kind) {
+        case 'openModal': {
+          const target = findIn(treeRef.current, act.target);
+          if (!target) {
+            message.warning('动作目标不存在（可能已删除）');
+            return;
+          }
+          // toggle 语义：重复点击已打开的弹窗 → 关闭（显示/隐藏直觉）
+          setDialogId((cur) => (cur === act.target ? null : act.target));
+          break;
+        }
+        case 'closeModal':
+          // 无目标=关当前打开的弹窗；有目标=仅当前打开的是它才关
+          setDialogId((cur) => (cur && (!act.target || cur === act.target) ? null : cur));
+          break;
+        case 'navigate': {
+          const url = String(act.params?.url ?? '');
+          if (url) window.open(url, '_blank', 'noopener');
+          break;
+        }
+        case 'showMessage':
+          message.info(String(act.params?.message ?? ''));
+          break;
+        default: {
+          // runBinding / refreshNode → 执行目标函数组件
+          const target = findIn(treeRef.current, act.target);
+          if (!target) {
+            message.warning('动作目标不存在（可能已删除）');
+            return;
+          }
+          void runRef.current(target);
+        }
       }
       // 动作链：后续步骤按序执行
       const chain = (raw as { chain?: Array<{ kind: string; target: string }> })?.chain ?? [];

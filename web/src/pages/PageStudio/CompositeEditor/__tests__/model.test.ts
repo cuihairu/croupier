@@ -53,6 +53,84 @@ describe('editor v3 model', () => {
     expect(same).toBe(tree);
   });
 
+  it('removeNode 清理指向被删节点的悬空绑定', () => {
+    const withModal: PageNode[] = [
+      n('modal', 'm1', [n('fnForm', 'ff1')]),
+      {
+        ...n('button', 'b1'),
+        props: {
+          title: 'b1',
+          onClick: { kind: 'openModal', target: 'm1' },
+        },
+      },
+      {
+        ...n('button', 'b2'),
+        props: {
+          title: 'b2',
+          // 动作链部分步骤悬空 → 仅剔除悬空步骤
+          onClick: {
+            kind: 'runBinding',
+            target: 'ff1',
+            chain: [
+              { kind: 'refreshNode', target: 'f1' },
+              { kind: 'refreshNode', target: 'm1' },
+            ],
+          },
+        },
+      },
+      {
+        ...n('fnTable', 't2'),
+        props: {
+          title: 't2',
+          functionId: 'player.list',
+          rowActions: [
+            { label: '发邮件', targetSection: 'm1', params: {}, danger: false },
+            { label: '详情', targetSection: '', params: {}, danger: false },
+          ],
+        },
+      },
+    ];
+    const [next, removed] = removeNode(withModal, 'm1');
+    expect(removed).toBe(true);
+    // 弹窗及其子树消失
+    expect(findNode(next, 'm1')).toBeUndefined();
+    expect(findNode(next, 'ff1')).toBeUndefined();
+    // b1 的 onClick 目标悬空 → 动作被清除（徽标恢复「点击绑定动作」）
+    expect(findNode(next, 'b1')?.props.onClick).toBeUndefined();
+    // b2 的 onClick target=ff1 也随子树悬空 → 清除
+    expect(findNode(next, 'b2')?.props.onClick).toBeUndefined();
+    // 行操作 targetSection 悬空项被移除，无目标项保留
+    const ra = findNode(next, 't2')?.props.rowActions as Array<{ label: string }>;
+    expect(ra.map((a) => a.label)).toEqual(['详情']);
+  });
+
+  it('removeNode 保留未悬空的绑定', () => {
+    const t: PageNode[] = [
+      n('fnForm', 'f9'),
+      {
+        ...n('button', 'b9'),
+        props: {
+          title: 'b9',
+          onClick: {
+            kind: 'runBinding',
+            target: 'f9',
+            chain: [{ kind: 'refreshNode', target: 'f9' }],
+          },
+        },
+      },
+      n('text', 'x9'),
+    ];
+    const [next] = removeNode(t, 'x9');
+    const act = findNode(next, 'b9')?.props.onClick as {
+      kind: string;
+      target: string;
+      chain?: unknown[];
+    };
+    expect(act.kind).toBe('runBinding');
+    expect(act.target).toBe('f9');
+    expect(act.chain).toHaveLength(1);
+  });
+
   it('duplicateNode 深拷贝+新 id，插到原节点后', () => {
     const next = duplicateNode(tree, 'c1');
     const idx = next.findIndex((x) => x.id === 'c1');
