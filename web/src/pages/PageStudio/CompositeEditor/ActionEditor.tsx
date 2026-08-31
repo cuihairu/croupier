@@ -36,8 +36,20 @@ export default function ActionEditor({
   const action = parseAction(value);
   const kinds = allowedKinds ?? (Object.keys(ACTIONS) as ActionKind[]);
 
-  const targets = action ? ACTIONS[action.kind].targetFilter(nodes) : [];
-  const needModal = action?.kind === 'openModal' && targets.length === 0;
+  // 原始 kind（parseAction 会把「需目标但目标为空」判 null——那是运行期保护；
+  // 编辑期刚选 openModal 还没建弹窗时 target 为空，必须保留 kind 才能渲染引导框）
+  const rawValue = value as { kind?: unknown } | null | undefined;
+  const rawKind =
+    rawValue &&
+    typeof rawValue === 'object' &&
+    typeof rawValue.kind === 'string' &&
+    rawValue.kind in ACTIONS
+      ? (rawValue.kind as ActionKind)
+      : undefined;
+
+  const effKind = action?.kind ?? rawKind;
+  const targets = effKind ? ACTIONS[effKind].targetFilter(nodes) : [];
+  const needModal = effKind === 'openModal' && targets.length === 0;
 
   return (
     <Space direction="vertical" size={6} style={{ width: '100%' }}>
@@ -45,7 +57,7 @@ export default function ActionEditor({
         size="small"
         style={{ width: '100%' }}
         placeholder="选择动作"
-        value={action?.kind}
+        value={effKind}
         onChange={(kind) => {
           const def = ACTIONS[kind];
           if (!def.needsTarget) {
@@ -53,36 +65,39 @@ export default function ActionEditor({
             return;
           }
           const candidates = def.targetFilter(nodes);
-          onChange(candidates.length ? { kind, target: candidates[0].id } : null);
+          // 无候选也保留 kind（target 留空）——openModal 时由引导框接手创建弹窗，
+          // 而非把动作清成 null 导致引导框永不出现
+          onChange({ kind, target: candidates.length ? candidates[0].id : '' });
         }}
         options={kinds.map((k) => ({ value: k, label: ACTIONS[k].label }))}
         allowClear
         onClear={() => onChange(null)}
       />
-      {action &&
-        (ACTIONS[action.kind].paramFields ?? []).map((pf) => (
+      {effKind &&
+        (ACTIONS[effKind].paramFields ?? []).map((pf) => (
           <Input
             key={pf.key}
             size="small"
             addonBefore={<span style={{ fontSize: 11 }}>{pf.label}</span>}
             placeholder={pf.placeholder}
-            value={String(action.params?.[pf.key] ?? '')}
+            value={String(action?.params?.[pf.key] ?? '')}
             onChange={(e) =>
               onChange({
-                ...action,
-                params: { ...(action.params ?? {}), [pf.key]: e.target.value },
+                kind: effKind,
+                target: action?.target ?? '',
+                params: { ...(action?.params ?? {}), [pf.key]: e.target.value },
               })
             }
           />
         ))}
-      {action && !needModal && ACTIONS[action.kind].needsTarget && (
+      {effKind && !needModal && ACTIONS[effKind].needsTarget && (
         <Space.Compact style={{ width: '100%' }}>
           <Select
             size="small"
             style={{ width: '100%' }}
-            value={targets.some((t) => t.id === action.target) ? action.target : undefined}
+            value={targets.some((t) => t.id === action?.target) ? action?.target : undefined}
             placeholder="选择目标"
-            onChange={(target) => onChange({ kind: action.kind, target })}
+            onChange={(target) => onChange({ kind: effKind, target })}
             options={targets.map((t) => ({ value: t.id, label: nodeSummary(t) }))}
             notFoundContent={<Text type="secondary">无可用目标</Text>}
           />

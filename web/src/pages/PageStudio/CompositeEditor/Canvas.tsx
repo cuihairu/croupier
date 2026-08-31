@@ -5,6 +5,7 @@ import type { FunctionDescriptor } from '@/services/api/functions';
 import { useDroppable } from '@dnd-kit/core';
 import { getComponent } from './registry';
 import { acceptsChild } from './registry';
+import { parseAction } from './actions';
 import type { PageNode } from './model';
 
 const { Text } = Typography;
@@ -167,14 +168,14 @@ export const CanvasNode: React.FC<CanvasNodeProps> = ({
             <Space size={2} onClick={(e) => e.stopPropagation()}>
               {node.type === 'button' && (
                 <Tag
-                  color={node.props.onClick ? 'blue' : 'default'}
+                  color={parseAction(node.props.onClick) ? 'blue' : 'default'}
                   style={{ marginRight: 0, cursor: 'pointer', fontSize: 11 }}
                   onClick={(e) => {
                     e.stopPropagation();
                     onSelect();
                   }}
                 >
-                  {node.props.onClick ? '已绑定动作' : '点击绑定动作 →'}
+                  {parseAction(node.props.onClick) ? '已绑定动作' : '点击绑定动作 →'}
                 </Tag>
               )}
               {node.props.autoRun === true && (
