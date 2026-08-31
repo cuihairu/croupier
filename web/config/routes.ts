@@ -41,6 +41,13 @@ const functionManagementRoutes = [
     hideInMenu: true,
   },
   {
+    path: '/system/component-templates',
+    name: 'ComponentTemplates',
+    access: 'canPageRead',
+    component: './PageStudio/ComponentTemplates',
+    icon: 'appstore',
+  },
+  {
     path: '/functions/openapi-sources',
     name: 'OpenAPISources',
     access: 'canOpenAPISourcesRead',
