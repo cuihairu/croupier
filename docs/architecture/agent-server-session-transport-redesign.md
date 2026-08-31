@@ -1,6 +1,7 @@
 # Agent-Server TCP Session 重构设计
 
 ## 状态
+
 - 状态: Accepted Target Design
 - 适用范围: `Agent <-> Server`
 - 不在范围内: `SDK <-> Agent`
@@ -275,6 +276,20 @@
 - 每个 agent session 的待处理队列上限
 - 最大帧大小
 - session 当前 `draining` 状态
+
+**实现现状（v0.1.2）**：
+
+- `transport/tcp/server.go`（Server 监听面）：读循环**同步**调用 handler——
+  handler 慢则读循环停摆，TCP 接收窗口收紧，形成端到端天然背压。
+  会话级 `max_inflight_requests` / 队列上限尚未实现（同步模型下暂不需要，
+  但无法主动摘流过载 session——依赖 `drain`）。
+- `transport/tcp/mux_conn.go`（Agent↔Server 与 Agent↔Provider 双向会话）：
+  读循环对每个入站请求 `go handleInboundRequestAsync` 无界派发——
+  **无并发上限、无待处理队列**，上游洪峰时 goroutine 无界膨胀。
+  这是当前背压的主要缺口；改造方向为对齐 Go SDK 的有界 worker 池模式
+  （有界队列 + 队列满回 busy 错误帧触发对端 failover）。
+- 显式过载信号（`overloaded` / `retry_after_ms` / `too_many_inflight`）
+  的 wire 消息尚未定义。
 
 ### drain
 

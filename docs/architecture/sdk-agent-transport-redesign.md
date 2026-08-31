@@ -536,6 +536,18 @@ SDK 只需暴露最小必要配置：
   - `drop_oldest`
   - `caller_backoff`
 
+**实现现状（v0.1.2）**：六语言 SDK 入站已统一为**有界 worker 池**模式
+（Go 基准实现 `sdks/go/pkg/croupier/transport/tcp_client.go`）：
+
+- 读循环只投递不处理；业务由固定 worker 并发执行
+  （`InboundWorkers`，默认 `NumCPU`，下限 2）
+- 待处理队列有界（`InboundQLen`，默认 `workers×4`）
+- 溢出策略为 **`reject`（fail-fast）**：队列满立即回错误帧
+  `inbound queue full, retry on another instance`，由 Agent 侧 failover
+  换实例重试；内存不积累
+- `drop_oldest` / `caller_backoff` 策略尚未实现（当前 reject 语义与
+  Agent failover 配合已闭环，暂无需求驱动）
+
 ### 过载反馈
 
 Agent 需要提供显式反馈，而不是只靠 SDK 盲猜：

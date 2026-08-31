@@ -120,6 +120,21 @@ v1 不引入独立 `Magic`，而是直接用首条应用层消息识别子协议
 - `responseMsgID = requestMsgID + 1` 仍是默认约定
 - 像 `TaskEvent` 这样的单向事件消息不属于标准 request/response 配对
 
+## 过载反馈与背压现状（截至 v0.1.2）
+
+按连接角色分层，当前实现状态如下：
+
+| 路径                                                        | 机制                                              | 背压语义                                                                                                             |
+| ----------------------------------------------------------- | ------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| Server → Agent/Provider（`transport/tcp/server.go`）        | 读循环同步调 handler                              | 天然背压：handler 慢则读停，TCP 窗口收紧端到端反压                                                                   |
+| SDK → Agent（各语言 SDK 入站，Go 基准 `tcp_client.go`）     | 有界 worker 池（默认 `NumCPU`，队列 `workers×4`） | fail-fast：队列满立即回 `inbound queue full, retry on another instance` 错误帧，Agent 侧 failover 换实例；内存不积累 |
+| Agent↔Server、Agent↔Provider（`transport/tcp/mux_conn.go`） | 读循环对每个请求 `go handleInboundRequestAsync`   | **无背压**：每请求一个 goroutine，无并发上限、无队列；洪峰下 goroutine 无界膨胀（已知缺口）                          |
+
+已知边界：
+
+- `MuxConn` 的有界并发改造（对齐 SDK worker 池模式）在 `agent-server-session-transport-redesign.md` 的背压章节跟踪
+- `overloaded` / `retry_after_ms` / `too_many_inflight` 等显式过载信号字段尚未定义 wire 消息；当前唯一过载信号是 SDK 队列满时的错误 payload 文案
+
 ## drain 语义
 
 `drain` 是会话级的优雅摘流语义，不是立即断连语义。
