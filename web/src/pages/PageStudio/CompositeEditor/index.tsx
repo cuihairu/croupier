@@ -1,6 +1,6 @@
 import React, { useCallback, useMemo, useRef, useState, type SetStateAction } from 'react';
 import { App, Button, Card, Col, Empty, Input, Row, Space, Tabs, Tag, Typography } from 'antd';
-import { ArrowLeftOutlined, EyeOutlined, SaveOutlined } from '@ant-design/icons';
+import { AppstoreOutlined, ArrowLeftOutlined, EyeOutlined, SaveOutlined } from '@ant-design/icons';
 import { history, request, useSearchParams } from '@umijs/max';
 import { subscribeScope } from '@/stores/scope';
 import { PageContainer } from '@ant-design/pro-components';
@@ -481,6 +481,44 @@ export default function CompositeEditorPage() {
     [selectedId, registerFn, message, setTree],
   );
 
+  /** 多选节点保存为组件模板（V4：用户自定义组件）。 */
+  const saveSelectionAsComponent = useCallback(async () => {
+    if (multiIds.size < 1) {
+      message.warning('请先选中至少一个组件');
+      return;
+    }
+    const selectedNodes = tree.filter((n) => multiIds.has(n.id));
+    const fnIds: string[] = [];
+    const collectFns = (nodes: PageNode[]) => {
+      for (const n of nodes) {
+        const fid = String(n.props.functionId ?? '');
+        if (fid && !fnIds.includes(fid)) fnIds.push(fid);
+        if (n.children) collectFns(n.children);
+      }
+    };
+    collectFns(selectedNodes);
+
+    try {
+      const key = `custom--${Date.now().toString(36)}`;
+      await request('/api/v1/component-templates', {
+        method: 'POST',
+        data: {
+          key,
+          name: { 'zh-CN': `自定义组件 ${selectedNodes.length} 节点` },
+          description: { 'zh-CN': `${selectedNodes.length} 个组件的组合` },
+          category: '自定义',
+          icon: 'AppstoreOutlined',
+          requiredFunctions: fnIds,
+          tree: selectedNodes,
+        },
+        skipErrorHandler: true,
+      });
+      message.success(`组件已保存——在组件库中可复用`);
+    } catch {
+      message.error('保存失败');
+    }
+  }, [multiIds, tree, message]);
+
   const deleteNode = useCallback((id: string) => {
     setTree((prev) => removeNode(prev, id)[0]);
     setSelectedId((cur) => (cur === id ? null : cur));
@@ -519,6 +557,15 @@ export default function CompositeEditorPage() {
           >
             {preview ? '退出预览' : '预览'}
           </Button>,
+          multiIds.size > 0 && (
+            <Button
+              key="save-component"
+              icon={<AppstoreOutlined />}
+              onClick={() => void saveSelectionAsComponent()}
+            >
+              保存为组件（{multiIds.size}）
+            </Button>
+          ),
           multiIds.size > 1 && (
             <Button
               key="batch-del"
