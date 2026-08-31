@@ -41,13 +41,6 @@ const functionManagementRoutes = [
     hideInMenu: true,
   },
   {
-    path: '/system/component-templates',
-    name: 'ComponentTemplates',
-    access: 'canPageRead',
-    component: './PageStudio/ComponentTemplates',
-    icon: 'appstore',
-  },
-  {
     path: '/functions/openapi-sources',
     name: 'OpenAPISources',
     access: 'canOpenAPISourcesRead',
@@ -94,6 +87,15 @@ const functionManagementRoutes = [
     access: 'canPageRead',
     component: './Proposals',
     hideInMenu: true,
+  },
+  {
+    // 静态段优先级高于 /functions/:id（react-router ranked matching），
+    // 不会被函数详情动态路由拦截。
+    path: '/functions/component-templates',
+    name: 'ComponentTemplates',
+    access: 'canPageRead',
+    component: './PageStudio/ComponentTemplates',
+    icon: 'appstore',
   },
   {
     path: '/functions/:id',
