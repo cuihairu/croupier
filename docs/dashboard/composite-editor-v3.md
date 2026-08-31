@@ -141,7 +141,12 @@ web/src/pages/PageStudio/CompositeEditor/
 
 `__tests__/`：model 8（树操作）、registry 3（注册/约束）、scaffold 5+4（实例化快照/面板声明）、compiler 6（编译快照/多实例/警告）、decompile 3（回读 round-trip/破损引用）、canvas 3（弹窗占位卡交互）、action-editor 4（动作编排）。合计 36 用例，`pnpm --dir web test` 全绿。
 
-## 8. 已知边界
+## 8. V4 展望：组件模板与三层组合
+
+V3 之上正在建设**组件模板层**（多函数封装为可复用组件，组件组合为页面），设计见
+[组合页编辑器 V4 设计](./composite-editor-v4-design.md)。
+
+## 9. 已知边界
 
 - 容器子级两层内完整交互（孙层为简化预览）
 - 文本组件不参与发布（编译警告）；弹窗内 text 组件不进 spec
