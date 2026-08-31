@@ -625,10 +625,10 @@ export default function CompositeEditorPage() {
           handleDragEnd(e);
         }}
       >
-        <Row gutter={12}>
+        <Row gutter={12} wrap={false}>
           {/* 左：组件面板 / 大纲 */}
           {!preview && (
-            <Col flex="300px">
+            <Col flex="300px" style={{ minWidth: 260 }}>
               <Card size="small" styles={{ body: { padding: 8 } }}>
                 <Tabs
                   activeKey={leftTab}
@@ -837,7 +837,7 @@ export default function CompositeEditorPage() {
 
           {/* 右：属性面板（rjsf schema 驱动） */}
           {!preview && (
-            <Col flex="360px">
+            <Col flex="360px" style={{ minWidth: 320 }}>
               <PropsPanel
                 node={selected}
                 nodes={tree}
