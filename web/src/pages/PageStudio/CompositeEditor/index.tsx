@@ -549,6 +549,9 @@ export default function CompositeEditorPage() {
       }}
     >
       <Space wrap style={{ marginBottom: 12 }}>
+        <Text type="secondary" style={{ fontSize: 10 }}>
+          v3.2.1
+        </Text>
         <Text strong>页面 Key</Text>
         <Input
           placeholder="按组件自动生成，可修改"
