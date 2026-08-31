@@ -60,3 +60,22 @@ func TestInitDB_IPv6Heuristic(t *testing.T) {
 		t.Fatal("db4 should stay nil when the only file is IPv6")
 	}
 }
+
+func TestRegion_ValidIPsNoDB(t *testing.T) {
+	resetDB(t)
+	t.Setenv("IP2LOCATION_BIN_PATH", "/nonexistent/no-such.BIN")
+	t.Setenv("IP2LOCATION_BIN_PATH_V6", "")
+	// 合法 IPv4/IPv6、带空白、空串：库不存在时优雅降级为空且不 panic
+	if got := Region("8.8.8.8"); got != "" {
+		t.Fatalf("ipv4: %q", got)
+	}
+	if got := Region("2001:4860:4860::8888"); got != "" {
+		t.Fatalf("ipv6: %q", got)
+	}
+	if got := Region("  8.8.8.8  "); got != "" {
+		t.Fatalf("whitespace: %q", got)
+	}
+	if got := Region(""); got != "" {
+		t.Fatalf("empty: %q", got)
+	}
+}
