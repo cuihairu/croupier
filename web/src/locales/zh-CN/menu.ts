@@ -23,6 +23,7 @@ export default {
   'menu.SystemConfig.GameEnvironments': '游戏环境',
   'menu.FunctionsAndPages': '函数与页面',
   'menu.FunctionsAndPages.FunctionCatalog': '函数目录',
+  'menu.FunctionsAndPages.ComponentTemplates': '组件模板',
   'menu.FunctionsAndPages.PageStudio': '页面工作台',
   'menu.FunctionsAndPages.OpenAPISources': 'OpenAPI 来源',
   'menu.FunctionsAndPages.FunctionInvoke': '函数调用',

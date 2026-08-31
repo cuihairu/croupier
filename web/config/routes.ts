@@ -22,6 +22,15 @@ const functionManagementRoutes = [
     component: './Functions/Directory',
   },
   {
+    // 静态段优先级高于 /functions/:id（react-router ranked matching），
+    // 不会被函数详情动态路由拦截。
+    path: '/functions/component-templates',
+    name: 'ComponentTemplates',
+    access: 'canPageRead',
+    component: './PageStudio/ComponentTemplates',
+    icon: 'appstore',
+  },
+  {
     // 旧「资源/操作」页已并入资源目录（ResourceCatalog），保留重定向兼容书签与旧链接。
     path: '/functions/resources',
     redirect: '/functions/resource-catalog',
@@ -87,15 +96,6 @@ const functionManagementRoutes = [
     access: 'canPageRead',
     component: './Proposals',
     hideInMenu: true,
-  },
-  {
-    // 静态段优先级高于 /functions/:id（react-router ranked matching），
-    // 不会被函数详情动态路由拦截。
-    path: '/functions/component-templates',
-    name: 'ComponentTemplates',
-    access: 'canPageRead',
-    component: './PageStudio/ComponentTemplates',
-    icon: 'appstore',
   },
   {
     path: '/functions/:id',
