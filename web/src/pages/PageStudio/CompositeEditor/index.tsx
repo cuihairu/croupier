@@ -675,23 +675,17 @@ export default function CompositeEditorPage() {
                       externalDnd
                     >
                       {(n, _idx, dragHandleProps) => {
-                        const spanNum = Number(n.props.span ?? 24) || 24;
+                        const spanNum = Math.min(24, Math.max(4, Number(n.props.span ?? 24) || 24));
                         return (
                           <div
                             key={n.id}
                             style={{
-                              width:
-                                spanNum >= 24 ? '100%' : `calc(${(spanNum / 24) * 100}% - 12px)`,
-                              flex:
-                                spanNum >= 24
-                                  ? '0 0 100%'
-                                  : `0 0 calc(${(spanNum / 24) * 100}% - 12px)`,
+                              gridColumn: `span ${spanNum}`,
                               borderTop:
                                 dragItem && overNodeId === n.id
                                   ? '3px solid #1677ff'
                                   : '3px solid transparent',
                               transition: 'border-color 0.1s',
-                              boxSizing: 'border-box',
                             }}
                           >
                             {n.type === 'modal' ? (
