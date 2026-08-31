@@ -204,6 +204,7 @@ func GameModels() []interface{} {
 		&PlatformSetting{},
 		&ConfigVersion{},
 		&ConfigSourceBinding{},
+		&ComponentTemplate{},
 	}
 }
 

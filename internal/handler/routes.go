@@ -12,6 +12,7 @@ import (
 	"github.com/cuihairu/croupier/internal/api/backup"
 	"github.com/cuihairu/croupier/internal/api/bug"
 	"github.com/cuihairu/croupier/internal/api/certificate"
+	"github.com/cuihairu/croupier/internal/api/component"
 	"github.com/cuihairu/croupier/internal/api/config"
 	"github.com/cuihairu/croupier/internal/api/configexplorer"
 	"github.com/cuihairu/croupier/internal/api/console"
@@ -80,7 +81,7 @@ func RegisterHandlers(r *gin.Engine, serverCtx *svc.ServiceContext) {
 	siteSettingsHandlerRef = siteSettingsHandler
 
 	// 公开路由（无认证）
-	registerAuthRoutes(v1.Group("/auth"), serverCtx) // 修复：/api/v1/auth/login
+	registerAuthRoutes(v1.Group("/auth"), serverCtx)
 	registerMetaRoutes(v1, serverCtx)
 	registerMonitoringPublicRoutes(r, v1.Group("/monitoring"), serverCtx)
 	registerRegistryRoutes(v1.Group("/registry"), serverCtx) // 公开访问
@@ -99,6 +100,9 @@ func RegisterHandlers(r *gin.Engine, serverCtx *svc.ServiceContext) {
 	// 通知服务：依赖 Layered（渠道配置）与消息模型（站内信）。
 	serverCtx.NotifyService = notify.New(settings.Current(), serverCtx.MessageModel)
 	settingsapi.RegisterPublic(v1.Group("/public"), siteSettingsHandler)
+	// 组件模板（V4 三层组合）：CRUD
+	componentHandler := component.NewHandler(model.NewComponentTemplateModel(serverCtx.DB))
+	componentHandler.Register(protected.Group("/component-templates"))
 	// RegisterAdmin 路径已带 /site 前缀（PUT/DELETE /site/:key、GET /site/features 等），
 	// 这里必须挂根组；挂 "/site" 会变成 /api/v1/site/site/... 全线 404。
 	siteSettingsHandler.RegisterAdmin(protected.Group("/"))
