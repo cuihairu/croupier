@@ -531,7 +531,6 @@ public:
         if (reconnect_thread_.joinable()) {
             reconnect_thread_.join();
         }
-
         closeTransport();
         session_id_.clear();
 

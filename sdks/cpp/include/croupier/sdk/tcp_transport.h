@@ -116,7 +116,8 @@ public:
 
     void SetInboundHandler(InboundHandler handler);
     void DispatchInbound(uint32_t msg_id, uint32_t req_id, std::vector<uint8_t> body);
-    void WriteResponseSilently(uint32_t resp_msg_id, uint32_t req_id, const std::vector<uint8_t>& body);
+    static void WriteResponseOnSocket(socket_t sock, uint32_t resp_msg_id, uint32_t req_id,
+                                       const std::vector<uint8_t>& body);
     static int InboundWorkerCount();
 
     /**
@@ -160,6 +161,22 @@ private:
     bool ConnectWithTimeout(int timeout_ms);
     void SetSocketNonBlocking(bool non_blocking);
 
+    // 入站 worker 池共享状态：worker 持 shared_ptr 而非 this——
+    // Close/析构后 worker 仍可安全退出（socket fd 为值拷贝，关闭后
+    // send 仅返回 EBADF），修复「worker for(;;) 永不退出 + 析构成员
+    // 被等待中的线程使用」导致的挂起/use-after-free。
+    struct InboundPool {
+        std::mutex mu;
+        std::condition_variable cv;
+        std::queue<std::tuple<uint32_t, uint32_t, std::vector<uint8_t>>> queue;
+        std::atomic<int> queued{0};
+        bool started = false;
+        bool stopping = false;
+        std::vector<std::thread> threads;
+        InboundHandler handler;
+        socket_t sock = INVALID_SOCKET_VALUE;
+    };
+
     std::string host_;
     int port_;
     int timeout_ms_;
@@ -167,17 +184,13 @@ private:
     socket_t socket_;
     std::atomic<bool> connected_;
     std::atomic<bool> closing_;
+    bool close_called_ = false;  // Close() 幂等：显式 Close + 析构 Close 双跑防护
     std::atomic<uint32_t> next_req_id_;
     std::unordered_map<uint32_t, std::unique_ptr<ResponseLatch>> pending_responses_;
     std::mutex pending_mutex_;
     std::thread read_thread_;
     InboundHandler inbound_handler_;
-    std::mutex inbound_pool_mutex_;
-    std::vector<std::thread> inbound_workers_;
-    std::queue<std::tuple<uint32_t, uint32_t, std::vector<uint8_t>>> inbound_queue_;
-    std::condition_variable inbound_cv_;
-    std::atomic<int> inbound_queued_{0};
-    bool inbound_pool_started_ = false;
+    std::shared_ptr<InboundPool> inbound_pool_;
 
     static constexpr size_t FRAME_HEADER_BYTES = 4;
     static constexpr size_t PROTOCOL_HEADER_SIZE = 8;

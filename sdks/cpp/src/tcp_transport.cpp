@@ -71,9 +71,14 @@ TCPTransport::TCPTransport(TCPTransport&& other) noexcept
       closing_(other.closing_.load()),
       next_req_id_(other.next_req_id_.load()),
       pending_responses_(std::move(other.pending_responses_)),
-      read_thread_(std::move(other.read_thread_)) {
+      read_thread_(std::move(other.read_thread_)),
+      inbound_pool_(std::move(other.inbound_pool_)) {
+    // 接管方的 close_called_ 必须复位：否则其析构被幂等守卫跳过，
+    // 被 move 进来的 read_thread_/pool 永不回收 → terminate。
+    close_called_ = other.close_called_;
     other.socket_ = INVALID_SOCKET_VALUE;
     other.connected_ = false;
+    other.close_called_ = true;  // 源对象已掏空，析构 Close 直通 no-op
 }
 
 TCPTransport& TCPTransport::operator=(TCPTransport&& other) noexcept {
@@ -90,9 +95,14 @@ TCPTransport& TCPTransport::operator=(TCPTransport&& other) noexcept {
         next_req_id_ = other.next_req_id_.load();
         pending_responses_ = std::move(other.pending_responses_);
         read_thread_ = std::move(other.read_thread_);
+        inbound_pool_ = std::move(other.inbound_pool_);
 
+        // 目标接管存活连接：close_called_ 复位，析构可正常回收线程；
+        // 源已掏空，置 true 让其析构 Close 直通 no-op。
+        close_called_ = other.close_called_;
         other.socket_ = INVALID_SOCKET_VALUE;
         other.connected_ = false;
+        other.close_called_ = true;
     }
     return *this;
 }
@@ -279,6 +289,12 @@ void TCPTransport::Connect() {
 }
 
 void TCPTransport::Close() {
+    // 幂等：显式 Close 与析构 Close 双跑防护（曾出现 socket/线程被
+    // 二次关闭与 join 的未定义行为）。
+    if (close_called_) {
+        return;
+    }
+    close_called_ = true;
     closing_ = true;
     connected_ = false;
 
@@ -312,6 +328,28 @@ void TCPTransport::Close() {
     // Wait for read thread to finish (it should exit when recv() returns due to closed socket)
     if (read_thread_.joinable()) {
         read_thread_.join();
+    }
+
+    // Inbound worker 池优雅停机：置 stopping + 唤醒全部 worker；worker
+    // 引用 shared_ptr<InboundPool>，detach 后即使仍有 handler 在途，
+    // pool 状态与 socket fd（值拷贝，send 仅得 EBADF）都保持有效——
+    // 不会因 ~TCPTransport 而悬空。join 会阻塞在用户 handler 上，
+    // 这里选择 detach（Go MuxConn 同款语义：不等待业务排空）。
+    if (inbound_pool_) {
+        {
+            std::lock_guard<std::mutex> lock(inbound_pool_->mu);
+            inbound_pool_->stopping = true;
+            inbound_pool_->sock = INVALID_SOCKET_VALUE;
+            inbound_pool_->handler = nullptr;
+        }
+        inbound_pool_->cv.notify_all();
+        for (auto& t : inbound_pool_->threads) {
+            if (t.joinable()) {
+                t.detach();
+            }
+        }
+        inbound_pool_->threads.clear();
+        inbound_pool_.reset();
     }
 
     // Clear any remaining responses (should be none after signaling)
@@ -923,59 +961,78 @@ int TCPTransport::InboundWorkerCount() {
 
 void TCPTransport::SetInboundHandler(InboundHandler handler) {
     inbound_handler_ = std::move(handler);
+    // 已启动的池同步更新 handler（重连复用同一 transport 的场景）。
+    if (inbound_pool_) {
+        std::lock_guard<std::mutex> lock(inbound_pool_->mu);
+        inbound_pool_->handler = inbound_handler_;
+    }
 }
 
 void TCPTransport::DispatchInbound(uint32_t msg_id, uint32_t req_id, std::vector<uint8_t> body) {
     if (!inbound_handler_) {
         return;
     }
-    // 惰性启动固定 worker 池（默认 = 硬件并发数）
-    {
-        std::lock_guard<std::mutex> lock(inbound_pool_mutex_);
-        if (!inbound_pool_started_) {
-            int workers = InboundWorkerCount();
-            for (int i = 0; i < workers; ++i) {
-                inbound_workers_.emplace_back([this] {
-                    for (;;) {
-                        std::tuple<uint32_t, uint32_t, std::vector<uint8_t>> task;
-                        {
-                            std::unique_lock<std::mutex> lock(inbound_pool_mutex_);
-                            inbound_cv_.wait(lock, [this] { return !inbound_queue_.empty(); });
-                            task = std::move(inbound_queue_.front());
-                            inbound_queue_.pop();
+    // 惰性启动固定 worker 池（默认 = 硬件并发数）。
+    // worker 捕获 pool 的 shared_ptr（不捕获 this）：Close/析构置 stopping
+    // 后 worker 自行退出，pool 状态由最后一个引用负责释放——修复
+    // 「worker for(;;) 永不退出、析构销毁被等待中的 mutex/cv」挂起。
+    if (!inbound_pool_) {
+        inbound_pool_ = std::make_shared<InboundPool>();
+        inbound_pool_->handler = inbound_handler_;
+        inbound_pool_->sock = socket_;
+        const int workers = InboundWorkerCount();
+        for (int i = 0; i < workers; ++i) {
+            auto pool = inbound_pool_;
+            inbound_pool_->threads.emplace_back([pool] {
+                for (;;) {
+                    std::tuple<uint32_t, uint32_t, std::vector<uint8_t>> task;
+                    {
+                        std::unique_lock<std::mutex> lock(pool->mu);
+                        pool->cv.wait(lock, [&pool] { return !pool->queue.empty() || pool->stopping; });
+                        if (pool->queue.empty()) {
+                            return;  // stopping 且无积压：退出
                         }
-                        auto [mid, rid, tbody] = std::move(task);
-                        std::vector<uint8_t> resp;
-                        try {
-                            resp = inbound_handler_(mid, rid, tbody);
-                        } catch (const std::exception& e) {
-                            std::cerr << "[ERROR] inbound handler: " << e.what() << '\n';
-                            resp.clear();
-                        }
-                        WriteResponseSilently(protocol::GetResponseMsgID(mid), rid, resp);
-                        inbound_queued_.fetch_sub(1);
+                        task = std::move(pool->queue.front());
+                        pool->queue.pop();
                     }
-                });
-            }
-            inbound_pool_started_ = true;
+                    auto [mid, rid, tbody] = std::move(task);
+                    std::vector<uint8_t> resp;
+                    try {
+                        if (pool->handler) {
+                            resp = pool->handler(mid, rid, tbody);
+                        }
+                    } catch (const std::exception& e) {
+                        std::cerr << "[ERROR] inbound handler: " << e.what() << '\n';
+                        resp.clear();
+                    }
+                    WriteResponseOnSocket(pool->sock, protocol::GetResponseMsgID(mid), rid, resp);
+                    pool->queued.fetch_sub(1);
+                }
+            });
         }
     }
-    int workers = InboundWorkerCount();
-    if (inbound_queued_.load() >= workers * 4) {
+    const int workers = InboundWorkerCount();
+    if (inbound_pool_->queued.load() >= workers * 4) {
         // 队列满：立即回空响应，Agent 侧 failover 接管。
         std::cerr << "[WARN] inbound queue full, fast-failing req_id=" << req_id << '\n';
-        WriteResponseSilently(protocol::GetResponseMsgID(msg_id), req_id, {});
+        WriteResponseOnSocket(socket_, protocol::GetResponseMsgID(msg_id), req_id, {});
         return;
     }
-    inbound_queued_.fetch_add(1);
+    inbound_pool_->queued.fetch_add(1);
     {
-        std::lock_guard<std::mutex> lock(inbound_pool_mutex_);
-        inbound_queue_.emplace(msg_id, req_id, std::move(body));
+        std::lock_guard<std::mutex> lock(inbound_pool_->mu);
+        inbound_pool_->queue.emplace(msg_id, req_id, std::move(body));
     }
-    inbound_cv_.notify_one();
+    inbound_pool_->cv.notify_one();
 }
 
-void TCPTransport::WriteResponseSilently(uint32_t resp_msg_id, uint32_t req_id, const std::vector<uint8_t>& body) {
+// WriteResponseOnSocket 向指定 fd 尽力写一帧（fd 已关闭时仅返回 EBADF，
+// 不影响调用方）。静态函数：worker 持 pool->sock 值，析构后仍安全。
+void TCPTransport::WriteResponseOnSocket(socket_t sock, uint32_t resp_msg_id, uint32_t req_id,
+                                         const std::vector<uint8_t>& body) {
+    if (sock == INVALID_SOCKET_VALUE) {
+        return;
+    }
     try {
         auto frame = protocol::NewMessage(resp_msg_id, req_id, body);
         std::vector<uint8_t> wrapped(4 + frame.size());
@@ -984,13 +1041,14 @@ void TCPTransport::WriteResponseSilently(uint32_t resp_msg_id, uint32_t req_id, 
         wrapped[2] = static_cast<uint8_t>((frame.size() >> 8) & 0xFF);
         wrapped[3] = static_cast<uint8_t>(frame.size() & 0xFF);
         std::memcpy(wrapped.data() + 4, frame.data(), frame.size());
-        ssize_t sent = send(socket_, reinterpret_cast<const char*>(wrapped.data()),
-                             static_cast<int>(wrapped.size()), 0);
-        (void)sent;
+        (void)send(sock, reinterpret_cast<const char*>(wrapped.data()),
+                   static_cast<int>(wrapped.size()), 0);
     } catch (...) {
         // best-effort
     }
 }
+
+
 
 } // namespace sdk
 } // namespace croupier
