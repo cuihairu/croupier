@@ -133,6 +133,9 @@ public class CroupierClientImpl implements CroupierClient {
                 }
                 transport = nextTransport;
                 sessionId = response.sessionId;
+                // 首连也必须挂入站 listener（Agent→Provider 调用）——此前仅
+                // 重连路径挂载，首连客户端对所有 agent 主动调用无响应。
+                attachInboundListener(nextTransport);
                 connected.set(true);
                 startHeartbeatLoop();
 

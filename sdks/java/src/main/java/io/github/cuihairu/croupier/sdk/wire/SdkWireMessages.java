@@ -441,15 +441,6 @@ public final class SdkWireMessages {
         );
     }
 
-    private static void writeMap(CodedOutputStream out, int fieldNumber, Map<String, String> value) throws IOException {
-        if (value == null || value.isEmpty()) {
-            return;
-        }
-        for (Map.Entry<String, String> entry : value.entrySet()) {
-            writeMessage(out, fieldNumber, encodeMapEntry(entry.getKey(), entry.getValue()));
-        }
-    }
-
     private static void readMapEntry(byte[] data, Map<String, String> target) {
         String key = "";
         String value = "";
