@@ -63,6 +63,9 @@ public sealed class TCPTransport : IClientTransport
         Math.Max(2, Environment.ProcessorCount), Math.Max(2, Environment.ProcessorCount));
     private int _inboundQueued;
 
+    // 帧写串行化锁（多 handler 并发回写交错会损坏帧）。
+    private readonly SemaphoreSlim _writeLock = new(1, 1);
+
     /// <summary>
     /// Gets whether the transport is connected.
     /// </summary>
@@ -320,6 +323,7 @@ public sealed class TCPTransport : IClientTransport
                 if (frameSize > MaxFrameBytes)
                 {
                     _logger.LogError("TCPTransport", $"Frame too large: {frameSize}");
+                    _connected = false;
                     break;
                 }
 
@@ -422,22 +426,6 @@ public sealed class TCPTransport : IClientTransport
         });
     }
 
-    private async Task HandleInboundRequestAsync(int msgId, int reqId, byte[] body, CancellationToken cancellationToken)
-    {
-        try
-        {
-            await HandleInboundRequest(msgId, reqId, body, cancellationToken).ConfigureAwait(false);
-        }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-        {
-            // Normal shutdown.
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError("TCPTransport", $"Inbound request processing failed: {ex.Message}", ex);
-        }
-    }
-
     /// <summary>
     /// Read exactly n bytes from the stream.
     /// Uses a short per-read timeout (1s) so the caller can detect connection
@@ -479,6 +467,8 @@ public sealed class TCPTransport : IClientTransport
 
     /// <summary>
     /// Write a length-prefixed frame to the stream.
+    /// 串行化写（header/payload/flush 三段 await 并发交错会损坏帧——
+    /// 多个入站 handler 并发回写时曾复现；对齐 Go MuxConn writeMu）。
     /// </summary>
     private async Task WriteFrameAsync(byte[] payload, CancellationToken cancellationToken)
     {
@@ -488,9 +478,17 @@ public sealed class TCPTransport : IClientTransport
         header[2] = (byte)(payload.Length >> 8);
         header[3] = (byte)payload.Length;
 
-        await _stream!.WriteAsync(header, cancellationToken).ConfigureAwait(false);
-        await _stream.WriteAsync(payload, cancellationToken).ConfigureAwait(false);
-        await _stream.FlushAsync(cancellationToken).ConfigureAwait(false);
+        await _writeLock.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            await _stream!.WriteAsync(header, cancellationToken).ConfigureAwait(false);
+            await _stream.WriteAsync(payload, cancellationToken).ConfigureAwait(false);
+            await _stream.FlushAsync(cancellationToken).ConfigureAwait(false);
+        }
+        finally
+        {
+            _ = _writeLock.Release();
+        }
     }
 
     /// <summary>
@@ -509,6 +507,7 @@ public sealed class TCPTransport : IClientTransport
         _readLoopCts?.Cancel();
         _readLoopTask?.Wait(TimeSpan.FromSeconds(1));
         _readLoopCts?.Dispose();
+        _writeLock.Dispose();
 
         _stream?.Dispose();
         _client?.Dispose();
