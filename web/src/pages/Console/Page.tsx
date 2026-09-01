@@ -41,6 +41,9 @@ export default function ConsolePage() {
       setLoading(true);
       setError('');
       setErrorCode('');
+      // 立即清空旧页面：同路由参数切换时组件不重挂载——旧 page 残留
+      // 会让 canonical 重定向指向「上一个页面」，把任何新页面弹回去。
+      setPage(null);
 
       try {
         const data = await getPublishedPage(pageKey);
@@ -73,8 +76,12 @@ export default function ConsolePage() {
   useEffect(() => {
     if (!page) return;
     if (!shouldRedirect) return;
+    // 双保险：仅当已加载页与当前路由 pageKey 一致时才做 canonical
+    // 重定向——pageKey 变化后、新 spec 到达前，page 是旧页数据，
+    // canonicalPath 指向旧页（曾导致任何新页面被弹回上一个页面）。
+    if (page.pageKey !== pageKey) return;
     history.replace(canonicalPath);
-  }, [canonicalPath, page, shouldRedirect]);
+  }, [canonicalPath, page, pageKey, shouldRedirect]);
 
   // scope 切换后重新加载发布页面：旧 scope 的数据与菜单必须立即失效。
   useEffect(() => {
