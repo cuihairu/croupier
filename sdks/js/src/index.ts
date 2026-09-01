@@ -91,6 +91,26 @@ message RegisterCapabilitiesRequest {
 }
 
 message RegisterCapabilitiesResponse {}
+
+// Inbound invocation messages (mirror proto/croupier/sdk/v1/invocation.proto).
+message InvokeRequest {
+  string function_id = 1;
+  string idempotency_key = 2;
+  bytes payload = 3;
+  map<string, string> metadata = 4;
+}
+
+message InvokeResponse {
+  bytes payload = 1;
+}
+
+message StartTaskResponse {
+  string task_id = 1;
+}
+
+message CancelTaskRequest {
+  string task_id = 1;
+}
 `;
 const providerRoot = protobuf.parse(PROVIDER_PROTO).root;
 const ProviderConnectRequestMessage = providerRoot.lookupType(
@@ -107,6 +127,18 @@ const RegisterCapabilitiesRequestMessage = providerRoot.lookupType(
 );
 const RegisterCapabilitiesResponseMessage = providerRoot.lookupType(
   "croupier.sdk.v1.RegisterCapabilitiesResponse",
+);
+const InvokeRequestMessage = providerRoot.lookupType(
+  "croupier.sdk.v1.InvokeRequest",
+);
+const InvokeResponseMessage = providerRoot.lookupType(
+  "croupier.sdk.v1.InvokeResponse",
+);
+const StartTaskResponseMessage = providerRoot.lookupType(
+  "croupier.sdk.v1.StartTaskResponse",
+);
+const CancelTaskRequestMessage = providerRoot.lookupType(
+  "croupier.sdk.v1.CancelTaskRequest",
 );
 
 /**
@@ -1271,6 +1303,9 @@ export class BasicClient implements CroupierClient {
       }
       this.transport = transport;
       this.sessionId = response.sessionId;
+      // 挂入站处理器：Agent 推送的 InvokeRequest/StartTask/CancelTask 经此分发。
+      // 首连与重连都走本函数，一处挂载覆盖两条路径。
+      transport.setHandler(this.handleInboundRequest);
       await this.maybeRegisterCapabilities();
     } catch (error) {
       transport.close();
@@ -1310,6 +1345,112 @@ export class BasicClient implements CroupierClient {
     } finally {
       controlTransport.close();
     }
+  }
+
+  // === Inbound dispatch (Agent -> Provider push) ===
+
+  /**
+   * 处理 Agent 主动推送的入站请求。TCPTransport 的读循环/worker 会调用本回调，
+   * 返回值作为响应帧回写；抛出的异常会被 transport 捕获并静默（不回帧）。
+   */
+  private handleInboundRequest = async (
+    msgId: number,
+    _reqId: number,
+    body: Buffer,
+  ): Promise<Buffer> => {
+    if (msgId === MSG_INVOKE_REQUEST) {
+      return this.handleInboundInvoke(body);
+    }
+    if (msgId === MSG_START_TASK_REQUEST) {
+      return this.handleInboundStartTask(body);
+    }
+    if (msgId === MSG_CANCEL_TASK_REQUEST) {
+      return this.handleInboundCancelTask(body);
+    }
+    // 未知入站消息：回空响应，避免 Agent 侧挂起等待超时。
+    return Buffer.alloc(0);
+  };
+
+  private decodeInvokeRequest(body: Buffer): {
+    functionId: string;
+    idempotencyKey: string;
+    payload: string;
+    metadata: Record<string, string>;
+  } {
+    const decoded = InvokeRequestMessage.toObject(
+      InvokeRequestMessage.decode(body),
+      { defaults: true },
+    ) as {
+      functionId?: string;
+      idempotencyKey?: string;
+      payload?: Uint8Array;
+      metadata?: Record<string, string>;
+    };
+    return {
+      functionId: decoded.functionId || "",
+      idempotencyKey: decoded.idempotencyKey || "",
+      payload: decoder.decode(decoded.payload ?? new Uint8Array()),
+      metadata: decoded.metadata ?? {},
+    };
+  }
+
+  private encodeInvokeResponse(payload: Uint8Array): Buffer {
+    return Buffer.from(
+      InvokeResponseMessage.encode(
+        InvokeResponseMessage.create({ payload }),
+      ).finish(),
+    );
+  }
+
+  private async handleInboundInvoke(body: Buffer): Promise<Buffer> {
+    const req = this.decodeInvokeRequest(body);
+    const handler = this.handlers.get(req.functionId);
+    if (!handler) {
+      // 未注册函数：回空 payload，Agent 侧按失败处理并 failover。
+      return this.encodeInvokeResponse(new Uint8Array());
+    }
+    const context = JSON.stringify({
+      ...req.metadata,
+      ...(req.idempotencyKey ? { idempotency_key: req.idempotencyKey } : {}),
+    });
+    try {
+      const result = await handler(context, req.payload);
+      return this.encodeInvokeResponse(encoder.encode(result ?? ""));
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Handler failed";
+      return this.encodeInvokeResponse(
+        encoder.encode(JSON.stringify({ error: message })),
+      );
+    }
+  }
+
+  private handleInboundStartTask(body: Buffer): Buffer {
+    const req = this.decodeInvokeRequest(body);
+    let taskId = "";
+    if (this.handlers.has(req.functionId)) {
+      try {
+        taskId = this.startTask(req.functionId, req.payload, req.metadata);
+      } catch {
+        // handler 启动失败：回空 task_id，Agent 侧按失败处理。
+        taskId = "";
+      }
+    }
+    return Buffer.from(
+      StartTaskResponseMessage.encode(
+        StartTaskResponseMessage.create({ taskId }),
+      ).finish(),
+    );
+  }
+
+  private handleInboundCancelTask(body: Buffer): Buffer {
+    const decoded = CancelTaskRequestMessage.toObject(
+      CancelTaskRequestMessage.decode(body),
+      { defaults: true },
+    ) as { taskId?: string };
+    if (decoded.taskId) {
+      this.cancelTask(decoded.taskId);
+    }
+    return this.encodeInvokeResponse(new Uint8Array());
   }
 
   private startHeartbeatLoop(): void {
