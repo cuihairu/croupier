@@ -188,14 +188,19 @@ docker run --rm -p 16686:16686 -p 4318:4318 jaegertracing/all-in-one:latest
 
 ## SDK 现状（六语言）
 
-| 语言   | 响应透出 traceId    | 请求注入 traceparent                         | Provider 提取延续 | 备注                     |
-| ------ | ------------------- | -------------------------------------------- | ----------------- | ------------------------ |
-| Go     | ✅（DTO `TraceID`） | ❌                                           | ❌                | 一期                     |
-| Python | ❌                  | ❌                                           | ❌                | 一期                     |
-| JS     | ❌                  | ❌                                           | ❌                | 一期                     |
-| Java   | ❌                  | ❌                                           | ❌                | 二期按需                 |
-| C#     | ❌                  | ❌                                           | ❌                | 二期按需                 |
-| C++    | 部分（task 状态）   | 部分（`trace_id` 明文注入 metadata，非 W3C） | ❌                | `InvokeOptions.trace_id` |
+| 语言   | 响应透出 traceId             | 请求注入 traceparent                         | Provider 提取延续                                                                        | 备注                     |
+| ------ | ---------------------------- | -------------------------------------------- | ---------------------------------------------------------------------------------------- | ------------------------ |
+| Go     | ✅（DTO `TraceID`）          | ❌                                           | ✅ 一期（ctx 注入 `WithTraceMetadata` + `TraceParentFromContext`/`TraceIDFromContext`）  | 一期                     |
+| Python | ✅（invoker `trace_id`）     | ❌                                           | ✅ 一期（context JSON 随 metadata 透传 + `croupier.trace` 读取辅助）                     | 一期                     |
+| JS     | ✅（`InvokeResult.traceId`） | ❌                                           | ✅ 一期（context JSON 随 metadata 透传 + `traceParentFromContext`/`traceIdFromContext`） | 一期                     |
+| Java   | ❌                           | ❌                                           | ❌                                                                                       | 二期按需                 |
+| C#     | ❌                           | ❌                                           | ❌                                                                                       | 二期按需                 |
+| C++    | 部分（task 状态）            | 部分（`trace_id` 明文注入 metadata，非 W3C） | ❌                                                                                       | `InvokeOptions.trace_id` |
+
+一期口径说明：Provider 侧"提取延续"当前为**无 otel 依赖的传播**——trace
+字段进入 handler 上下文（Go 为 context value，Python/JS 为 context JSON
+字段）供游戏方读取与日志关联；以 otel API 创建服务端 span（`sdk.invoke`）
+仍属后续增量（需引入各语言 otel 库依赖，见下节"为什么 SDK 只做传播"）。
 
 平台侧不依赖 SDK 是否实现传播：metadata 无 `traceparent` 时各层自动开新
 trace，行为与现状完全一致（**零侵入**）。

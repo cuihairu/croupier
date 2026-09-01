@@ -288,6 +288,10 @@ type AgentInfoConfig struct {
 	LocalAddr string            `json:"localAddr" yaml:"localAddr"`
 	HTTPAddr  string            `json:"httpAddr" yaml:"httpAddr"`
 	Labels    map[string]string `json:"labels" yaml:"labels"`
+	// InvokeTimeoutMs 是 Agent → Provider 同步调用的默认预算（毫秒）。
+	// 请求 metadata["timeout_ms"] 声明更小值时取更小者；默认 15000
+	// （对齐 Server 派发层）；上限 60000。
+	InvokeTimeoutMs int `json:"invokeTimeoutMs,omitempty" yaml:"invokeTimeoutMs,omitempty"`
 }
 
 func (c *AgentInfoConfig) UnmarshalYAML(value *yaml.Node) error {
@@ -550,6 +554,8 @@ func startAgentCore(ctx context.Context, c *AgentConfig, configDir string) (*age
 	core := agentcore.NewWithConfigDir(strings.TrimSpace(c.Server.Addr), agentID, configDir)
 	core.SetLocalAddr(localAddr)
 	core.SetUpstreamTransportKind(strings.TrimSpace(c.Server.Transport))
+	// Agent → Provider 同步调用预算（默认 15s，可经 agent.invokeTimeoutMs 配置）
+	core.SetProviderCallTimeout(time.Duration(c.Agent.InvokeTimeoutMs) * time.Millisecond)
 	core.WithUpstreamMetadata(agentcore.UpstreamMetadata{
 		GameID:            strings.TrimSpace(c.Agent.GameID),
 		Env:               strings.TrimSpace(c.Agent.Env),

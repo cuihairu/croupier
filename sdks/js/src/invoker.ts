@@ -159,6 +159,8 @@ export interface TaskStatus {
 /** Result of a synchronous invoke. */
 export interface InvokeResult {
   payload: unknown;
+  /** 平台侧 trace id——贴进 Jaeger/Grafana 可查整条调用链。 */
+  traceId?: string;
 }
 
 /** Error thrown when the server returns a non-2xx response. */
@@ -321,7 +323,11 @@ export class Invoker {
             if (!data || typeof data !== "object" || !("result" in data)) {
               throw new InvokerError("server did not return a result", 502, "no_result", data);
             }
-            return { payload: (data as { result: unknown }).result };
+            const { result, traceId } = data as {
+              result: unknown;
+              traceId?: string;
+            };
+            return { payload: result, traceId };
           } finally {
             cancel();
           }

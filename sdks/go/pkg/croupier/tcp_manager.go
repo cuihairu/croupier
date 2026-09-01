@@ -441,6 +441,8 @@ func (h *tcpRPCHandler) invoke(ctx context.Context, msgID uint32, reqID uint32, 
 		return nil, fmt.Errorf("function not found: %s", req.FunctionId)
 	}
 
+	// OTel 一期传播：metadata trace 字段进 handler 上下文（零侵入，无则原 ctx）
+	ctx = WithTraceMetadata(ctx, req.GetMetadata())
 	result, err := handler(ctx, req.Payload)
 	if err != nil {
 		return nil, err
@@ -466,7 +468,8 @@ func (h *tcpRPCHandler) startTask(ctx context.Context, msgID uint32, reqID uint3
 		return nil, fmt.Errorf("function not found: %s", req.FunctionId)
 	}
 
-	taskCtx, cancel := context.WithCancel(ctx)
+	// OTel 一期传播：任务 handler 上下文同样可读 trace 字段
+	taskCtx, cancel := context.WithCancel(WithTraceMetadata(ctx, req.GetMetadata()))
 
 	// Generate new task ID
 	h.manager.tasksMutex.Lock()

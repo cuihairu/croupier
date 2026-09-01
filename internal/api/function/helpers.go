@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -345,6 +346,11 @@ func functionInvoke(ctx context.Context, svcCtx *svc.ServiceContext, req *Functi
 	}
 	if req.Mode == "async" {
 		metadata["async"] = "true"
+	}
+	// 调用方声明的同步调用预算（毫秒）→ 约定键 timeout_ms，端到端各跳
+	// 取 min 生效（dispatcher/agent clamp 到 [1s, 上限]）。
+	if req.TimeoutMs > 0 {
+		metadata["timeout_ms"] = strconv.Itoa(req.TimeoutMs)
 	}
 	if gameID := strings.TrimSpace(req.GameID); gameID != "" {
 		metadata["game_id"] = gameID

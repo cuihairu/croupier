@@ -120,6 +120,22 @@ v1 不引入独立 `Magic`，而是直接用首条应用层消息识别子协议
 - `responseMsgID = requestMsgID + 1` 仍是默认约定
 - 像 `TaskEvent` 这样的单向事件消息不属于标准 request/response 配对
 
+### 同步调用超时：metadata `timeout_ms` 约定
+
+调用方声明的一次同步调用预算（毫秒，字符串十进制），放在 invoke 请求的
+metadata map 中端到端传播，各跳取 **min(本跳配置, 声明值)** 生效（Go
+context deadline 的天然 min 语义）：
+
+| 层          | 行为                                                                                                    |
+| ----------- | ------------------------------------------------------------------------------------------------------- |
+| HTTP API    | 请求体 `timeoutMs`（可选）→ 注入 `metadata["timeout_ms"]`                                               |
+| Server 派发 | `requestTimeoutBudget`：clamp [1000, 60000]，收紧 ctx；全局默认 15s 只作上限                            |
+| Agent       | `providerCallDeadline`：clamp [1000, Agent 配置上限]，与默认（`agent.invokeTimeoutMs`，默认 15000）取小 |
+
+- 垃圾值/缺失 → 各跳沿用自身默认，不报错（零侵入）
+- 同步通道硬上限 60s：更长操作应走异步任务（事件流语义）
+- 语义修正：Agent 侧旧实现硬编码 10s 与 Server 默认 15s 倒挂，现已对齐并可配
+
 ## 过载反馈与背压现状
 
 按连接角色分层，当前实现状态如下（双车道已落地，见下节）：

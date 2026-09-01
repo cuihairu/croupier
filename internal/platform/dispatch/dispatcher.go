@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -269,6 +270,14 @@ func (d *Dispatcher) Invoke(ctx context.Context, functionID string, payload []by
 func (d *Dispatcher) InvokeRequest(ctx context.Context, req *sdkv1.InvokeRequest) (*sdkv1.InvokeResponse, error) {
 	if req == nil || req.GetFunctionId() == "" {
 		return nil, fmt.Errorf("function id is required")
+	}
+	// 调用方声明的同步调用预算（metadata["timeout_ms"]，毫秒）：
+	// 生效范围 [1s, invokeTimeout]，越界 clamp。Go context 的 deadline 取
+	// min 语义——这里收紧后，内层 callAgent 的 invokeTimeout 只作上限。
+	if budget := requestTimeoutBudget(req.GetMetadata()); budget > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, budget)
+		defer cancel()
 	}
 	ctx = telemetry.ExtractContext(ctx, req.Metadata)
 	ctx, span := dispatchTracer().Start(ctx, "function.dispatch.invoke",
@@ -1022,6 +1031,28 @@ func (d *Dispatcher) callAgent(ctx context.Context, agentID string, msgID uint32
 
 	_, respBody, err := caller.Call(callCtx, msgID, reqBody)
 	return respBody, err
+}
+
+// requestTimeoutBudget 解析 metadata["timeout_ms"]（调用方声明的一次同步
+// 调用预算，毫秒）。有效范围 [1s, 60s]：小于 1s 提到 1s（防误传 0/负值瞬断），
+// 大于 60s 截到 60s（同步通道上限，更长操作应走异步任务）。垃圾值/缺失
+// 返回 0（= 不收紧，沿用 invokeTimeout 全局默认）。
+func requestTimeoutBudget(meta map[string]string) time.Duration {
+	raw := strings.TrimSpace(meta["timeout_ms"])
+	if raw == "" {
+		return 0
+	}
+	ms, err := strconv.ParseInt(raw, 10, 64)
+	if err != nil || ms <= 0 {
+		return 0
+	}
+	if ms < 1000 {
+		ms = 1000
+	}
+	if ms > 60000 {
+		ms = 60000
+	}
+	return time.Duration(ms) * time.Millisecond
 }
 
 // callAgentRouted 在本地调用之上叠加 HA 转发：本地无该 agent 的 session

@@ -299,6 +299,15 @@ func (a *App) Stop() {
 	}
 }
 
+// SetProviderCallTimeout 配置 Agent → Provider 同步调用默认预算（透传
+// LocalHandler；非正值/超上限在 LocalHandler 内归一）。
+func (a *App) SetProviderCallTimeout(d time.Duration) {
+	if a == nil || a.localHandler == nil {
+		return
+	}
+	a.localHandler.SetProviderCallTimeout(d)
+}
+
 // WithUpstreamMetadata updates metadata fields propagated to the control server.
 func (a *App) WithUpstreamMetadata(meta UpstreamMetadata) {
 	if a == nil || a.upstream == nil {

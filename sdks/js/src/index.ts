@@ -1688,6 +1688,7 @@ export function createClient(config?: ClientConfig): CroupierClient {
 // Export protocol and transport
 export * from "./protocol";
 export { TCPTransport } from "./tcp_transport";
+export { traceParentFromContext, traceIdFromContext } from "./trace";
 
 // L3 Invoker (independent caller-side module over HTTP)
 export {

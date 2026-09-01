@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -66,7 +67,11 @@ type LocalHandler struct {
 	agentID          string
 	expectedGameID   string // Agent 配置的 gameId，用于校验 SDK 注册
 	expectedEnv      string // Agent 配置的 env，用于校验 SDK 注册
-	mu               sync.RWMutex
+	// providerCallTimeout 是 Agent → Provider 同步调用的默认预算；
+	// 请求 metadata["timeout_ms"] 声明更小值时取更小者（Go deadline
+	// min 语义）。此前硬编码 10s 与 Server 派发层 15s 倒挂。
+	providerCallTimeout time.Duration
+	mu                  sync.RWMutex
 }
 
 // SetProviderSessionStore enables callback over the Provider's established
@@ -87,10 +92,54 @@ func NewLocalHandler(store *agentlocal.LocalStore, configDir, agentID string, lo
 		logger:    logger,
 		configDir: configDir,
 		agentID:   agentID,
+		// 默认对齐 Server 派发层 invokeTimeout（15s），消除旧 10s<15s 倒挂。
+		providerCallTimeout: 15 * time.Second,
 	}
 	// TaskRunner executes tasks via the handler's invoke path.
 	h.tasks = NewTaskRunner(h.executeTask, nil, logger)
 	return h
+}
+
+// SetProviderCallTimeout 配置 Agent → Provider 同步调用默认预算。
+// 非正值回落默认 15s；上限 60s（同步通道边界，更长操作应走异步任务）。
+func (h *LocalHandler) SetProviderCallTimeout(d time.Duration) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	if d <= 0 {
+		d = 15 * time.Second
+	}
+	if d > 60*time.Second {
+		d = 60 * time.Second
+	}
+	h.providerCallTimeout = d
+}
+
+// providerCallDeadline 计算本次 Provider 调用的超时：请求 metadata 声明的
+// timeout_ms（有效范围 [1s, 配置上限]，clamp）与配置默认取更小者。
+// 垃圾值/缺失 → 配置默认。
+func (h *LocalHandler) providerCallDeadline(meta map[string]string) time.Duration {
+	h.mu.RLock()
+	def := h.providerCallTimeout
+	h.mu.RUnlock()
+	if def <= 0 {
+		def = 15 * time.Second
+	}
+	raw := strings.TrimSpace(meta["timeout_ms"])
+	if raw == "" {
+		return def
+	}
+	ms, err := strconv.ParseInt(raw, 10, 64)
+	if err != nil || ms <= 0 {
+		return def
+	}
+	budget := time.Duration(ms) * time.Millisecond
+	if budget < time.Second {
+		budget = time.Second
+	}
+	if budget > def {
+		budget = def
+	}
+	return budget
 }
 
 // SetProviderManager sets the provider manager
@@ -224,7 +273,7 @@ func (h *LocalHandler) handleInvoke(ctx context.Context, data []byte) ([]byte, e
 	}
 	span.SetAttributes(attribute.String("provider.addr", addr))
 
-	callCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	callCtx, cancel := context.WithTimeout(ctx, h.providerCallDeadline(req.GetMetadata()))
 	defer cancel()
 
 	reqBytes, err := proto.Marshal(req)

@@ -151,16 +151,19 @@ type FunctionInstancesResponse struct {
 
 // FunctionInvokeRequest represents a request to invoke a function
 type FunctionInvokeRequest struct {
-	ID              string            `uri:"id"`
-	Params          json.RawMessage   `json:"params,omitempty"`
-	Payload         json.RawMessage   `json:"payload,omitempty"`
-	GameID          string            `json:"gameId"`
-	Env             string            `json:"env"`
-	Mode            string            `json:"mode"`
-	Route           string            `json:"route"`
-	TargetServiceID string            `json:"targetServiceId"`
-	HashKey         string            `json:"hashKey"`
-	Metadata        map[string]string `json:"-"`
+	ID              string          `uri:"id"`
+	Params          json.RawMessage `json:"params,omitempty"`
+	Payload         json.RawMessage `json:"payload,omitempty"`
+	GameID          string          `json:"gameId"`
+	Env             string          `json:"env"`
+	Mode            string          `json:"mode"`
+	Route           string          `json:"route"`
+	TargetServiceID string          `json:"targetServiceId"`
+	HashKey         string          `json:"hashKey"`
+	// TimeoutMs 声明本次同步调用的超时预算（毫秒，[1000,60000] 越界
+	// clamp）。仅 sync 模式有意义；async 任务有自己的生命周期。
+	TimeoutMs int               `json:"timeoutMs,omitempty"`
+	Metadata  map[string]string `json:"-"`
 }
 
 // FunctionInvokeResponse represents the response of a function invocation

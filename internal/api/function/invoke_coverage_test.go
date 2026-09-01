@@ -629,3 +629,31 @@ func TestFunctionWarnings_WithRegistry(t *testing.T) {
 	require.NoError(t, err)
 	assert.Empty(t, resp.Items)
 }
+
+// timeoutMs 请求选项 → 约定键 metadata["timeout_ms"] 端到端透传到派发层。
+func TestFunctionInvoke_TimeoutMsInjectedIntoMetadata(t *testing.T) {
+	f := newInvokeFixture(t)
+	f.createOperator(t, "opuser", "admin")
+	f.registerAgent(t, "agent-1", "demo.echo")
+	f.caller = &fakeSessionCaller{invokePayload: []byte(`{}`)}
+	f.resolver.callers["agent-1"] = f.caller
+
+	svcAPI := NewService(f.svcCtx)
+	resp, err := svcAPI.FunctionInvoke(f.ctxFor("opuser"), &FunctionInvokeRequest{
+		ID: "demo.echo", Payload: []byte(`{}`), TimeoutMs: 2500,
+	})
+	require.NoError(t, err)
+	require.NotNil(t, resp)
+
+	require.Len(t, f.caller.requests, 1)
+	assert.Equal(t, "2500", f.caller.requests[0].GetMetadata()["timeout_ms"])
+
+	// 未声明 → 不注入（沿用全局默认）
+	second := &fakeSessionCaller{invokePayload: []byte(`{}`)}
+	f.resolver.callers["agent-1"] = second
+	_, err = svcAPI.FunctionInvoke(f.ctxFor("opuser"), &FunctionInvokeRequest{
+		ID: "demo.echo", Payload: []byte(`{}`),
+	})
+	require.NoError(t, err)
+	assert.NotContains(t, second.requests[0].GetMetadata(), "timeout_ms")
+}
