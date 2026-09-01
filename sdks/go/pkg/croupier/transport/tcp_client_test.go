@@ -66,8 +66,10 @@ func TestNewTCPClient_InvalidAddress(t *testing.T) {
 			expectError: true,
 		},
 		{
-			name:        "non-existent host",
-			address:     "nonexistent.example.com:19090",
+			name: "non-existent host",
+			// 不依赖 DNS（fake-ip 环境会把不存在域名解析成代理地址导致
+			// 拨号「成功」）；用本机保留端口确保 connection refused。
+			address:     "127.0.0.1:1",
 			expectError: true,
 		},
 	}
