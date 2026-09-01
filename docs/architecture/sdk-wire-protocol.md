@@ -149,7 +149,7 @@ context deadline 的天然 min 语义）：
 已知边界：
 
 - `overloaded` / `retry_after_ms` / `too_many_inflight` 等显式过载信号字段尚未定义 wire 消息；当前唯一过载信号是业务队列满时的错误 payload 文案
-- 双车道目前落地于 Go 侧（`MuxConn` + Go SDK）；Python/Java/JS/C++/C# 的入站仍为单队列有界 worker 池（心跳与业务共队列），待按 Go 基准迁移
+- 双车道已落地：Go（`MuxConn` + Go SDK）、Python（`transport/tcp.py` 控制车道单 worker，永不拒绝）、JS（`tcp_transport.ts` 控制队列 + 单并发 loop）。Java/C++/C# 的入站仍为单队列有界 worker 池（心跳与业务共队列），待按 Go 基准迁移
 
 ### 双车道：控制消息优先级
 

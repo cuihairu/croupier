@@ -145,6 +145,28 @@ export function getResponseMsgId(reqMsgId: number): number {
 }
 
 /**
+ * 会话/传输控制消息集合（对齐 Go pkg/protocol.IsControlRequest）：
+ * 心跳、注册、drain 走独立派发车道，业务洪峰打满业务队列时控制面
+ * 依然可达——否则心跳被 fail-fast 拒绝 → 对端判定会话死亡 → 过载
+ * 升级为连接雪崩（见 docs/architecture/sdk-wire-protocol.md 双车道）。
+ */
+const CONTROL_REQUESTS: ReadonlySet<number> = new Set<number>([
+  MSG_REGISTER_REQUEST,
+  MSG_HEARTBEAT_REQUEST,
+  MSG_REGISTER_CAPABILITIES_REQ,
+  MSG_REGISTER_CLIENT_REQUEST,
+  MSG_CLIENT_HEARTBEAT_REQUEST,
+  MSG_PROVIDER_CONNECT_REQUEST,
+  MSG_PROVIDER_HEARTBEAT_REQUEST,
+  MSG_PROVIDER_DRAIN_REQUEST,
+]);
+
+/** 控制消息（心跳/注册/drain）走独立车道，永不 fail-fast。 */
+export function isControlRequest(msgId: number): boolean {
+  return CONTROL_REQUESTS.has(msgId);
+}
+
+/**
  * Get human-readable string for MsgID.
  */
 export function msgIdString(msgId: number): string {

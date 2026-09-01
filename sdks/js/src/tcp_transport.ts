@@ -19,7 +19,7 @@ import {
   createConnection,
   TcpSocketConnectOpts,
 } from "net";
-import { getResponseMsgId } from "./protocol";
+import { getResponseMsgId, isControlRequest } from "./protocol";
 
 /** Frame constants */
 const FRAME_HEADER_BYTES = 4; // 4-byte big-endian length prefix
@@ -138,6 +138,9 @@ export class TCPTransport {
   private inboundQueue: Array<{ msgId: number; reqId: number; body: Buffer }> = [];
   private inboundWorkersRunning = 0;
   private inboundWorkerLimit = 0;
+  // 控制车道：心跳/注册/drain 独立队列 + 单并发（双车道，对齐 Go MuxConn）
+  private controlQueue: Array<{ msgId: number; reqId: number; body: Buffer }> = [];
+  private controlWorkerRunning = false;
 
   constructor(config: TCPTransportConfig = {}) {
     this.inboundWorkerLimit =
@@ -383,8 +386,20 @@ export class TCPTransport {
     });
   }
 
-  /** 读循环只投递：固定并发消费 handler，队列满立即回 busy。 */
+  /** 读循环只投递：双车道派发（对齐 Go MuxConn）。
+
+   * - 控制消息（心跳/注册/drain）→ 独立车道，永不拒绝
+   * - 业务消息 → 固定并发消费 handler，队列满立即回 busy（failover）
+   */
   private dispatchInbound(msgId: number, reqId: number, body: Buffer): void {
+    if (isControlRequest(msgId)) {
+      this.controlQueue.push({ msgId, reqId, body });
+      if (!this.controlWorkerRunning) {
+        this.controlWorkerRunning = true;
+        void this.controlWorkerLoop();
+      }
+      return;
+    }
     const capacity = this.inboundWorkerLimit * 4;
     if (this.inboundQueue.length >= capacity) {
       // 队列满：立即回空/错误响应，Agent 侧 failover 接管。
@@ -395,6 +410,17 @@ export class TCPTransport {
     if (this.inboundWorkersRunning < this.inboundWorkerLimit) {
       this.inboundWorkersRunning += 1;
       void this.inboundWorkerLoop();
+    }
+  }
+
+  private async controlWorkerLoop(): Promise<void> {
+    for (;;) {
+      const task = this.controlQueue.shift();
+      if (!task) {
+        this.controlWorkerRunning = false;
+        return;
+      }
+      await this.handleInbound(task.msgId, task.reqId, task.body);
     }
   }
 

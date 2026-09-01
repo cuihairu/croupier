@@ -128,6 +128,9 @@ class TCPTransport:
         self._inbound_pool: Optional[ThreadPoolExecutor] = None
         self._inbound_queue_size = 0
         self._inbound_lock = threading.Lock()
+        # 控制车道：心跳/注册/drain 专用单 worker，永不 fail-fast——
+        # 业务队列打满时控制面仍可达（双车道，对齐 Go MuxConn）。
+        self._control_pool: Optional[ThreadPoolExecutor] = None
         self.timeout_ms = timeout_ms
         self._tls_enabled = tls_enabled
         self._tls_cert_file = tls_cert_file
@@ -215,6 +218,10 @@ class TCPTransport:
         if self._reader_thread:
             self._reader_thread.join(timeout=2)
             self._reader_thread = None
+
+        if self._control_pool:
+            self._control_pool.shutdown(wait=False)
+            self._control_pool = None
 
         LOG.info("TCP transport closed")
 
@@ -332,9 +339,20 @@ class TCPTransport:
                 break
 
     def _handle_inbound(self, msg_id: int, req_id: int, body: bytes) -> None:
-        """读线程只投递；handler 由固定线程池消费（防头部阻塞）。"""
+        """读线程只投递；双车道派发（对齐 Go MuxConn）：
+
+        - 控制消息（心跳/注册/drain）→ 独立单 worker 车道，永不拒绝
+        - 业务消息 → 固定线程池 + 有界队列，满则 fail-fast 回空响应
+        """
         if self._handler is None:
             LOG.warning("No handler for inbound %s", protocol.msg_id_string(msg_id))
+            return
+        if protocol.is_control_request(msg_id):
+            if self._control_pool is None:
+                self._control_pool = ThreadPoolExecutor(
+                    max_workers=1, thread_name_prefix="croupier-ctrl"
+                )
+            self._control_pool.submit(self._run_control, msg_id, req_id, body)
             return
         if self._inbound_pool is None:
             self._inbound_pool = ThreadPoolExecutor(
@@ -350,6 +368,11 @@ class TCPTransport:
         with self._inbound_lock:
             self._inbound_queue_size += 1
         self._inbound_pool.submit(self._run_inbound, msg_id, req_id, body)
+
+    def _run_control(self, msg_id: int, req_id: int, body: bytes) -> None:
+        # 控制车道无有界队列语义（executor 队列按需增长）：控制 handler
+        # 都是快操作，堆积只在对端控制面异常时发生，此时排队优于拒绝。
+        self._process_inbound(msg_id, req_id, body)
 
     def _run_inbound(self, msg_id: int, req_id: int, body: bytes) -> None:
         try:
