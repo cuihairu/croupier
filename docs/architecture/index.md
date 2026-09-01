@@ -29,19 +29,28 @@ Croupier 当前的目标架构已经从"多条回拨链路 + 历史 旧传输/gR
 
 ## 总体拓扑
 
+入口按受众分为两个独立的面，不要合并成一个"负载均衡层"：
+
+- **Web 控制台面**（面向运营/管理员，公网或办公网）：L7 `dashboard nginx`，按请求分流 HTTP API / SSE 到 Server 的 `:18780`
+- **Agent 面**（内网，面向游戏 VPC 出站连接）：L4 `haproxy`（`:19090`），按 TCP 长连接打散到 Server 的 control listener；连接语义是"断线重连即漂移"，与 HTTP 的按请求分流完全不同
+
 ```mermaid
 graph TB
   subgraph "展示层"
     UI[Dashboard<br/>React + Ant Design Pro + ProComponents]
   end
 
-  subgraph "负载均衡"
-    LB[L4 LB<br/>Agent 连接打散 / HTTP 轮询]
+  subgraph "入口 · Web 控制台面（L7，按请求分流）"
+    NGINX[dashboard nginx<br/>HTTP API / SSE → :18780]
+  end
+
+  subgraph "入口 · Agent 面（L4，内网，按连接打散）"
+    HAPROXY[haproxy :19090<br/>TCP 长连接 / 主动健康检查]
   end
 
   subgraph "控制层（可多实例 HA）"
-    ServerA[Server A<br/>Registry / Dispatch / RBAC / Audit]
-    ServerB[Server B<br/>Registry / Dispatch / RBAC / Audit]
+    ServerA["Server A<br/>:18780 HTTP · :19090 TCP<br/>Registry / Dispatch / RBAC / Audit"]
+    ServerB["Server B<br/>:18780 HTTP · :19090 TCP<br/>Registry / Dispatch / RBAC / Audit"]
     ServerA <-.->|实例互联<br/>转发 + fencing| ServerB
   end
 
@@ -60,17 +69,23 @@ graph TB
     GS3[Game Server C<br/>SDK / Third-party App]
   end
 
-  UI -->|HTTP REST| LB
-  LB --> ServerA
-  LB --> ServerB
-  Agent1 -->|TCP Session + TLS| LB
-  Agent2 -->|TCP Session + TLS| LB
+  UI -->|HTTPS · REST / SSE| NGINX
+  NGINX --> ServerA
+  NGINX --> ServerB
+  Agent1 -->|TCP Session + TLS| HAPROXY
+  Agent2 -->|TCP Session + TLS| HAPROXY
+  HAPROXY --> ServerA
+  HAPROXY --> ServerB
   ServerA --- Shared
   ServerB --- Shared
   GS1 -->|TCP Session| Agent1
   GS2 -->|TCP Session| Agent2
   GS3 -->|TCP Session| Agent1
 ```
+
+> 两个入口面互不共享：Web 面的 nginx 不碰 Agent 流量，Agent 面的 haproxy
+> 不碰 HTTP。L4/L7 选型与 VRRP 消除 LB 单点的论证见
+> [负载均衡](../operations/load-balancing.md)。
 
 > Server 支持多实例高可用部署（`cluster.enabled`）：单实例默认关闭集群，零
 > 开销。详见 [Server 多实例高可用设计](./server-ha-multi-instance.md)。

@@ -77,64 +77,12 @@ database:
 | Python | `sdks/python/` | [![Build](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-python.yml/badge.svg)](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-python.yml) | [![Coverage](https://codecov.io/gh/cuihairu/croupier/branch/main/graph/badge.svg?flag=python-sdk)](https://codecov.io/gh/cuihairu/croupier) | [README](sdks/python/README.md) |
 | JS/TS  | `sdks/js/`     | [![Build](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-js.yml/badge.svg)](https://github.com/cuihairu/croupier/actions/workflows/ci-sdk-js.yml)         | [![Coverage](https://codecov.io/gh/cuihairu/croupier/branch/main/graph/badge.svg?flag=js-sdk)](https://codecov.io/gh/cuihairu/croupier)     | [README](sdks/js/README.md)     |
 
-## 当前架构
+## 架构
 
-```mermaid
-graph TB
-  subgraph "展示层"
-    UI[Dashboard<br/>React + Ant Design Pro + ProComponents]
-  end
+三层结构：控制台（Web）→ Server（控制面，可多实例 HA）→ Agent（游戏 VPC 代理）→ Game Server / SDK。
+入口按受众分离：Web 控制台走 L7（HTTP API / SSE），Agent 走内网 L4（TCP 长连接）。
 
-  subgraph "负载均衡"
-    NGINX[L7 LB · dashboard nginx<br/>HTTP API / SSE 分流]
-    HAPROXY[L4 LB · haproxy<br/>Agent TCP 连接打散]
-  end
-
-  subgraph "控制层（可多实例 HA）"
-    ServerA[Server A<br/>Registry / Dispatch / RBAC / Audit]
-    ServerB[Server B<br/>Registry / Dispatch / RBAC / Audit]
-    ServerA <-.->|实例互联<br/>转发 + fencing| ServerB
-  end
-
-  subgraph "共享状态"
-    Shared[(共享目录<br/>成员表 / 注册表 / DB / Redis)]
-  end
-
-  subgraph "代理层（游戏 VPC，只出不进）"
-    Agent1[Agent 1<br/>Session Client + Local Gateway]
-    Agent2[Agent 2<br/>Session Client + Local Gateway]
-  end
-
-  subgraph "业务层"
-    GS1[Game Server A<br/>SDK / Third-party App]
-    GS2[Game Server B<br/>SDK / Third-party App]
-    GS3[Game Server C<br/>SDK / Third-party App]
-  end
-
-  UI -->|HTTP REST| NGINX
-  NGINX --> ServerA
-  NGINX --> ServerB
-  Agent1 -->|TCP Session + TLS| HAPROXY
-  Agent2 -->|TCP Session + TLS| HAPROXY
-  HAPROXY --> ServerA
-  HAPROXY --> ServerB
-  ServerA --- Shared
-  ServerB --- Shared
-  GS1 -->|TCP Session| Agent1
-  GS2 -->|TCP Session| Agent2
-  GS3 -->|TCP Session| Agent1
-```
-
-> Server 支持多实例高可用部署（`cluster.enabled`）：成员发现走共享存储（无
-> seed、无静态 peers），请求落到非 owner 实例时经实例互联转发（一跳限制 +
-> epoch fencing）。单实例部署默认关闭集群，零开销。详见
-> [Server 多实例高可用设计](docs/architecture/server-ha-multi-instance.md)。
-
-关键边界说明：
-
-- `Server` 不再依赖反向直连 `Agent` 暴露的 `rpc_addr`
-- `Agent` 本地监听只服务 `GameServer / SDK / 第三方应用`
-- `Server -> Agent` 的 `Invoke / StartTask / CancelTask / Ops` 都应复用既有 `Agent-Server` session
+详见 [系统架构总览](docs/architecture/index.md)与[负载均衡选型](docs/operations/load-balancing.md)。
 
 ## Session 模型
 

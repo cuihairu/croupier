@@ -119,7 +119,7 @@ deploy 编排按 HA 多实例架构（`docs/architecture/server-ha-multi-instanc
   - dashboard nginx（L7）：`split_clients` 按请求哈希分流到两实例 18780（resolver 运行时解析，实例重建换 IP 不会 502；SSE 已关缓冲）
   - haproxy（L4，`configs/haproxy.cfg`）：Agent TCP `leastconn` 打散 + `tcp-check` 主动健康检查 + `resolvers` 运行时重解析 + stats 页（:8404）
 - 宿主端口只由每组实例 1 发布（server: 8443/18780，agent: 19091）；实例 2 仅集群内可达
-- 方案选型（nginx stream / HAProxy / keepalived）见 `docs/guide/load-balancing.md`
+- 方案选型（nginx stream / HAProxy / keepalived）见 `docs/operations/load-balancing.md`
 
 ## 开发建议
 

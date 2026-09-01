@@ -251,7 +251,7 @@ services:
   # server/server2。与 nginx stream 的关键差异：resolvers 运行时
   # DNS 重解析（server 容器重建换 IP 自动跟随，无需 reload）+
   # tcp-check 主动健康检查（摘除僵死实例）+ stats 可观测（:8404）。
-  # 配置：docker/configs/haproxy.cfg；选型：docs/guide/load-balancing.md
+  # 配置：docker/configs/haproxy.cfg；选型：docs/operations/load-balancing.md
   haproxy:
     image: ${HAPROXY_IMAGE:-haproxy:2.9-alpine}
     container_name: croupier-haproxy
