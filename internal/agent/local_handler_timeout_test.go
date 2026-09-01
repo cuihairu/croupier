@@ -24,17 +24,17 @@ func TestProviderCallDeadlineSemantics(t *testing.T) {
 	assert.Equal(t, 15*time.Second, h.providerCallDeadline(nil))
 	assert.Equal(t, 15*time.Second, h.providerCallDeadline(map[string]string{"timeout_ms": "garbage"}))
 
-	// 请求声明更小值 → 生效
+	// 请求声明是权威预算：声明即生效（不被默认值收紧）
 	assert.Equal(t, 3*time.Second, h.providerCallDeadline(map[string]string{"timeout_ms": "3000"}))
-	// 低于 1s 提到 1s；高于配置默认 → clamp 回默认
+	// 低于 1s 提到 1s；高于 60s 截到 60s（同步通道硬顶）
 	assert.Equal(t, time.Second, h.providerCallDeadline(map[string]string{"timeout_ms": "50"}))
-	assert.Equal(t, 15*time.Second, h.providerCallDeadline(map[string]string{"timeout_ms": "999999"}))
+	assert.Equal(t, 60*time.Second, h.providerCallDeadline(map[string]string{"timeout_ms": "999999"}))
 
-	// 配置自定义默认：请求声明可小于配置，不可超过
+	// 配置默认只作用于无声明的请求；声明值可高于配置默认
 	h.SetProviderCallTimeout(2 * time.Second)
 	assert.Equal(t, 2*time.Second, h.providerCallDeadline(nil))
 	assert.Equal(t, 1500*time.Millisecond, h.providerCallDeadline(map[string]string{"timeout_ms": "1500"}))
-	assert.Equal(t, 2*time.Second, h.providerCallDeadline(map[string]string{"timeout_ms": "30000"}))
+	assert.Equal(t, 30*time.Second, h.providerCallDeadline(map[string]string{"timeout_ms": "30000"}))
 
 	// 非法配置回落默认；超上限截断
 	h.SetProviderCallTimeout(-1)

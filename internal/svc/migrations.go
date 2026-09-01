@@ -37,6 +37,7 @@ import (
 //   0013 (Go)   platform settings table (docs/architecture/config-layering.md)
 //   0015 (Go)   agent_sessions.addr column (HA 跨实例节点视图的 IP 展示)
 //   0014 (Go)   task schedules tables (docs: cron 调度 task_schedules/run_logs)
+//   0016 (Go)   function_contracts.timeout_ms column（声明式超时执行层接线）
 
 func init() {
 	if err := goose.SetGlobalMigrations(
@@ -54,6 +55,7 @@ func init() {
 		platformSettingsMigration(),
 		taskSchedulesMigration(),
 		agentSessionAddrMigration(),
+		contractTimeoutMigration(),
 	); err != nil {
 		panic(fmt.Sprintf("svc: register goose go migrations: %v", err))
 	}
@@ -193,6 +195,35 @@ func agentSessionAddrMigration() *goose.Migration {
 		}},
 		nil,
 	)
+}
+
+// contractTimeoutMigration 为存量库补 function_contracts.timeout_ms 列
+// （0016）：声明式同步调用预算的契约存储；新库由 baseline AutoMigrate 带
+// 出。幂等：列已存在则跳过。
+func contractTimeoutMigration() *goose.Migration {
+	return goose.NewGoMigration(16,
+		&goose.GoFunc{RunDB: addContractTimeoutColumn},
+		nil,
+	)
+}
+
+// addContractTimeoutColumn 是 0016 的迁移体（抽出便于直测）：
+// 存量库补 function_contracts.timeout_ms；幂等；缺表跳过。
+func addContractTimeoutColumn(ctx context.Context, sqlDB *sql.DB) error {
+	db, err := wrapGorm(sqlDB)
+	if err != nil {
+		return err
+	}
+	if !db.Migrator().HasTable(&model.FunctionContract{}) {
+		return nil
+	}
+	if db.Migrator().HasColumn(&model.FunctionContract{}, "TimeoutMs") {
+		return nil
+	}
+	if err := db.Migrator().AddColumn(&model.FunctionContract{}, "TimeoutMs"); err != nil {
+		return fmt.Errorf("migrate: 0016 add function_contracts.timeout_ms: %w", err)
+	}
+	return nil
 }
 
 // taskSchedulesMigration creates the cron scheduling tables (0014):

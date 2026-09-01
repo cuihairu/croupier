@@ -1888,3 +1888,43 @@ func TestParseOpenAPISource_ParseFailure(t *testing.T) {
 	}
 	assert.True(t, found, "expected error diagnostic from parse failure")
 }
+
+// x-timeout-ms：数值/字符串两种形态解析；非法值产 error 诊断并按未声明。
+func TestService_CreateSource_WithTimeoutMs(t *testing.T) {
+	t.Parallel()
+	service := setupOpenAPITestService(t)
+
+	mk := func(v interface{}) map[string]interface{} {
+		return map[string]interface{}{
+			"openapi": "3.0.3",
+			"info":    map[string]interface{}{"title": "T", "version": "1"},
+			"paths": map[string]interface{}{
+				"/t": map[string]interface{}{
+					"get": map[string]interface{}{
+						"operationId":  "tOp",
+						"x-timeout-ms": v,
+						"responses":    map[string]interface{}{"200": map[string]interface{}{"description": "OK"}},
+					},
+				},
+			},
+		}
+	}
+
+	// json number → 解析
+	resp, err := service.CreateSource(openAPITestContext(), &OpenAPISourceCreateRequest{Spec: rawSpec(t, mk(20000))})
+	require.NoError(t, err)
+	require.Len(t, resp.Source.Operations, 1)
+	assert.Equal(t, 20000, resp.Source.Operations[0].TimeoutMs)
+
+	// 数字字符串 → 解析
+	service2 := setupOpenAPITestService(t)
+	spec2 := mk("15000")
+	resp2, err := service2.CreateSource(openAPITestContext(), &OpenAPISourceCreateRequest{Spec: rawSpec(t, spec2)})
+	require.NoError(t, err)
+	assert.Equal(t, 15000, resp2.Source.Operations[0].TimeoutMs)
+
+	// 非法值 → error 诊断阻断创建（既有诊断约定）
+	service3 := setupOpenAPITestService(t)
+	_, err = service3.CreateSource(openAPITestContext(), &OpenAPISourceCreateRequest{Spec: rawSpec(t, mk("fast"))})
+	require.ErrorContains(t, err, "invalid")
+}

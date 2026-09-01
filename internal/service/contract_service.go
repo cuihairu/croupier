@@ -96,6 +96,7 @@ func (s *ContractService) RebuildContractFromFunctionMeta(ctx context.Context, g
 		Permission:        input.Permission,
 		Enabled:           input.Enabled,
 		Tags:              input.Tags,
+		TimeoutMs:         input.TimeoutMs,
 	}
 	result := normalizer.Normalize(normInput)
 	if validationErr := contractValidationError(result.Diagnostics); validationErr != nil {
@@ -117,6 +118,7 @@ func (s *ContractService) RebuildContractFromFunctionMeta(ctx context.Context, g
 		OperationKey: result.Function.Operation,
 		Capability:   mustParseCapability(string(result.Function.Capability)),
 		Execution:    string(result.Function.Execution),
+		TimeoutMs:    int32(result.Function.TimeoutMs),
 		Approval:     approvalPolicyToJSONMap(result.Function.Approval),
 		Risk:         mustParseRisk(string(result.Function.Risk)),
 		Permission:   result.Function.Permission,

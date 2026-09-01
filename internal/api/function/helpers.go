@@ -347,16 +347,21 @@ func functionInvoke(ctx context.Context, svcCtx *svc.ServiceContext, req *Functi
 	if req.Mode == "async" {
 		metadata["async"] = "true"
 	}
-	// 调用方声明的同步调用预算（毫秒）→ 约定键 timeout_ms，端到端各跳
-	// 取 min 生效（dispatcher/agent clamp 到 [1s, 上限]）。
-	if req.TimeoutMs > 0 {
-		metadata["timeout_ms"] = strconv.Itoa(req.TimeoutMs)
+	// 同步调用预算（毫秒）→ 约定键 timeout_ms：契约声明是上限，调用方
+	// 显式值不得突破契约（声明即契约）；两者皆无则不注入（各层全局默认）。
+	if req.Mode != "async" {
+		if effective := effectiveTimeoutMs(ctx, svcCtx, req); effective > 0 {
+			metadata["timeout_ms"] = strconv.Itoa(effective)
+		}
 	}
 	if gameID := strings.TrimSpace(req.GameID); gameID != "" {
 		metadata["game_id"] = gameID
 	}
 	if env := strings.TrimSpace(req.Env); env != "" {
 		metadata["env"] = env
+	}
+	if route := strings.TrimSpace(req.Route); route != "" {
+		metadata["route"] = route
 	}
 	if targetServiceID := strings.TrimSpace(req.TargetServiceID); targetServiceID != "" {
 		metadata["target_service_id"] = targetServiceID
@@ -487,6 +492,50 @@ func isPageSnapshotGoverned(metadata map[string]string) bool {
 		return false
 	}
 	return strings.EqualFold(strings.TrimSpace(metadata["page_snapshot_governance"]), "validated")
+}
+
+// effectiveTimeoutMs 计算同步调用的注入预算：
+//
+//	explicit = req.TimeoutMs（调用方显式声明）
+//	declared = 契约 FunctionContract.TimeoutMs（函数契约声明）
+//
+// 语义（声明即契约）：显式值不得突破契约上限 → effective = min(explicit,
+// declared)（两者皆有）；只有契约 → declared；只有显式 → explicit；
+// 都无 → 0（不注入，各层沿用全局默认）。契约读取失败按未声明处理
+// （查询问题不应阻断调用——超时预算是优化项不是准入项）。
+func effectiveTimeoutMs(ctx context.Context, svcCtx *svc.ServiceContext, req *FunctionInvokeRequest) int {
+	explicit := req.TimeoutMs
+	if explicit < 0 {
+		explicit = 0
+	}
+	declared := declaredTimeoutMs(ctx, svcCtx, req)
+	switch {
+	case declared > 0 && explicit > 0:
+		return min(explicit, declared)
+	case declared > 0:
+		return declared
+	default:
+		return explicit
+	}
+}
+
+// declaredTimeoutMs 读取函数契约声明的同步预算（毫秒）；无契约/无声明/
+// 读取失败 → 0。
+func declaredTimeoutMs(ctx context.Context, svcCtx *svc.ServiceContext, req *FunctionInvokeRequest) int {
+	if svcCtx == nil || svcCtx.DB == nil {
+		return 0
+	}
+	gameID := strings.TrimSpace(req.GameID)
+	env := strings.TrimSpace(req.Env)
+	if gameID == "" || env == "" {
+		return 0
+	}
+	contract, err := model.NewFunctionContractModel(svcCtx.DB).
+		FindByScopeAndFunctionID(ctx, gameID, env, strings.TrimSpace(req.ID))
+	if err != nil || contract == nil {
+		return 0
+	}
+	return int(contract.TimeoutMs)
 }
 
 // auditFunctionInvoke logs function invocation to audit service

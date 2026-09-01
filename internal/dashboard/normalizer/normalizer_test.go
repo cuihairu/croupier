@@ -406,3 +406,44 @@ func assertDiagnostic(t *testing.T, diagnostics []spec.Diagnostic, code string) 
 	}
 	t.Fatalf("diagnostic %s not found in %#v", code, diagnostics)
 }
+
+func TestNormalizeTimeoutMs(t *testing.T) {
+	// 未声明 → 0，无诊断
+	result := Normalize(DescriptorInput{ID: "f.a", Version: "1.0.0", Resource: "r", Operation: "a", Capability: "action", Enabled: true})
+	if result.Function.TimeoutMs != 0 {
+		t.Fatalf("unset timeout = %d, want 0", result.Function.TimeoutMs)
+	}
+
+	// 有效值原样
+	result = Normalize(DescriptorInput{ID: "f.b", Version: "1.0.0", Resource: "r", Operation: "b", Capability: "action", Enabled: true, TimeoutMs: 5000})
+	if result.Function.TimeoutMs != 5000 {
+		t.Fatalf("timeout = %d, want 5000", result.Function.TimeoutMs)
+	}
+
+	// 低于下限 → clamp 到 1000 + warning
+	result = Normalize(DescriptorInput{ID: "f.c", Version: "1.0.0", Resource: "r", Operation: "c", Capability: "action", Enabled: true, TimeoutMs: 100})
+	if result.Function.TimeoutMs != 1000 {
+		t.Fatalf("timeout = %d, want 1000", result.Function.TimeoutMs)
+	}
+	if !hasDiagnostic(result.Function.Diagnostics, "timeout_ms_below_floor") {
+		t.Fatalf("expected below-floor diagnostic, got %#v", result.Function.Diagnostics)
+	}
+
+	// 高于上限 → clamp 到 60000 + warning
+	result = Normalize(DescriptorInput{ID: "f.d", Version: "1.0.0", Resource: "r", Operation: "d", Capability: "action", Enabled: true, TimeoutMs: 300000})
+	if result.Function.TimeoutMs != 60000 {
+		t.Fatalf("timeout = %d, want 60000", result.Function.TimeoutMs)
+	}
+	if !hasDiagnostic(result.Function.Diagnostics, "timeout_ms_above_ceiling") {
+		t.Fatalf("expected above-ceiling diagnostic, got %#v", result.Function.Diagnostics)
+	}
+}
+
+func hasDiagnostic(diags []spec.Diagnostic, code string) bool {
+	for _, d := range diags {
+		if d.Code == code {
+			return true
+		}
+	}
+	return false
+}

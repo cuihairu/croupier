@@ -1026,8 +1026,15 @@ func (d *Dispatcher) callAgent(ctx context.Context, agentID string, msgID uint32
 		return nil, fmt.Errorf("agent %s session not found: %w", agentID, errAgentUnreachable)
 	}
 
-	callCtx, cancel := context.WithTimeout(ctx, d.invokeTimeout)
-	defer cancel()
+	callCtx := ctx
+	if _, hasDeadline := ctx.Deadline(); !hasDeadline {
+		// 无调用方/契约声明预算时才套全局默认——已声明预算（ctx deadline，
+		// 由 requestTimeoutBudget clamp 到 [1s,60s]）是权威值，不被默认值
+		// 收紧（声明 30s 契约不应被 15s 默认截断）。
+		var cancel context.CancelFunc
+		callCtx, cancel = context.WithTimeout(ctx, d.invokeTimeout)
+		defer cancel()
+	}
 
 	_, respBody, err := caller.Call(callCtx, msgID, reqBody)
 	return respBody, err

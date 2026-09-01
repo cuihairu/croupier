@@ -24,6 +24,7 @@ type FunctionContract struct {
 	OperationKey string            `gorm:"size:64"`
 	Capability   dbenum.Capability // collection_query|item_query|create|update|delete|action|task|report (int-backed)
 	Execution    string            `gorm:"size:32"`   // sync|task
+	TimeoutMs    int32             `gorm:"default:0"` // 同步调用契约预算（毫秒）；0 = 未声明（全局默认）
 	Approval     datatypes.JSONMap `gorm:"type:json"` // ApprovalPolicy
 	Risk         dbenum.Risk       // safe|warning|high|danger (int-backed)
 	Permission   string            `gorm:"size:128"`

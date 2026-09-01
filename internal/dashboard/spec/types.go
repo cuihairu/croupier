@@ -63,6 +63,9 @@ type FunctionContractInput struct {
 	Risk              string
 	Permission        string
 	Tags              []string
+	// TimeoutMs 声明同步调用契约预算（毫秒）。0 = 未声明（沿用全局默认）。
+	// 调用链语义见 docs/architecture/sdk-wire-protocol.md「同步调用超时」。
+	TimeoutMs int
 }
 
 // ---------------------------------------------------------------------------
@@ -430,6 +433,10 @@ type FunctionSpec struct {
 	Risk       RiskLevel `json:"risk,omitempty"`
 	Permission string    `json:"permission,omitempty"`
 	Tags       []string  `json:"tags,omitempty"`
+
+	// TimeoutMs 同步调用契约预算（毫秒）。0 = 未声明（沿用全局默认）；
+	// 执行层把它作为调用方预算的上限（声明即契约）。
+	TimeoutMs int `json:"timeoutMs,omitempty"`
 
 	// Diagnostics generated during normalization
 	Diagnostics []Diagnostic `json:"diagnostics,omitempty"`

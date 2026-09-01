@@ -12,6 +12,7 @@ import (
 	"log/slog"
 	"mime/multipart"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -487,6 +488,7 @@ func (s *Service) functionMetaInputForBinding(
 		Risk:              firstNonEmpty(string(operation.Risk), runtimeMeta.Risk),
 		Permission:        firstNonEmpty(operation.Permission, runtimeMeta.Permission),
 		Tags:              tags,
+		TimeoutMs:         operation.TimeoutMs,
 	}, nil
 }
 
@@ -959,6 +961,7 @@ func operationDTOFromOpenAPI(candidate methodOperation, operationID string, diag
 	}
 	appendStableSourceKeyDiagnostic(diags, "openapi_resource_key_invalid", resourceKey, fieldPrefix+".x-resource")
 	appendStableSourceKeyDiagnostic(diags, "openapi_operation_key_invalid", operationKey, fieldPrefix+".x-operation")
+	timeoutMs := extensionInt(extensions, "x-timeout-ms", fieldPrefix, diags)
 	return OpenAPISourceOperation{
 		OperationID: operationID,
 		Method:      candidate.method,
@@ -973,6 +976,7 @@ func operationDTOFromOpenAPI(candidate methodOperation, operationID string, diag
 		Approval:    approval,
 		Risk:        risk,
 		Permission:  extensionString(extensions, "x-permission"),
+		TimeoutMs:   timeoutMs,
 	}
 }
 
@@ -1596,6 +1600,44 @@ func sanitizeBindingID(value string) string {
 		return uuid.NewString()
 	}
 	return out
+}
+
+// extensionInt 读取数值型扩展（json number 或数字字符串）。非法值产出
+// error 诊断并按未声明处理（0）。
+func extensionInt(extensions map[string]interface{}, key, field string, diags *[]spec.Diagnostic) int {
+	if extensions == nil {
+		return 0
+	}
+	value, ok := extensions[key]
+	if !ok {
+		return 0
+	}
+	var n int
+	switch v := value.(type) {
+	case float64:
+		n = int(v)
+	case string:
+		parsed, err := strconv.Atoi(strings.TrimSpace(v))
+		if err != nil {
+			*diags = append(*diags, sourceDiagnostic(
+				"openapi_timeout_ms_invalid",
+				spec.SeverityError,
+				key+" must be an integer (milliseconds)",
+				field+"."+key,
+			))
+			return 0
+		}
+		n = parsed
+	default:
+		*diags = append(*diags, sourceDiagnostic(
+			"openapi_timeout_ms_invalid",
+			spec.SeverityError,
+			key+" must be an integer (milliseconds)",
+			field+"."+key,
+		))
+		return 0
+	}
+	return n
 }
 
 func extensionString(extensions map[string]interface{}, key string) string {

@@ -120,3 +120,60 @@ func TestConvChainAndEvents(t *testing.T) {
 		t.Fatalf("event chain wrong: %+v", evs[0].Chain)
 	}
 }
+
+// 声明式超时契约往返：输入 TimeoutMs → 契约列落库可读（执行层接线依赖）。
+func TestContractTimeoutMsRoundTrip(t *testing.T) {
+	db, err := gorm.Open(sqlite.Open(t.TempDir()+"/meta.db"), &gorm.Config{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := db.AutoMigrate(&model.FunctionContract{}); err != nil {
+		t.Fatal(err)
+	}
+	svc := NewContractService(db)
+	ctx := context.Background()
+
+	if err := svc.RebuildContractFromFunctionMeta(ctx, "demo", "prod", "openapi", spec.FunctionContractInput{
+		ID: "player.ban", Resource: "player", Capability: "update", Execution: "sync",
+		Enabled: true, TimeoutMs: 25000,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err := svc.RebuildContractFromFunctionMeta(ctx, "demo", "prod", "openapi", spec.FunctionContractInput{
+		ID: "player.query", Resource: "player", Capability: "item_query", Execution: "sync",
+		Enabled: true, // 未声明 → 0
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	contractModel := model.NewFunctionContractModel(db)
+	withTimeout, err := contractModel.FindByScopeAndFunctionID(ctx, "demo", "prod", "player.ban")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if withTimeout.TimeoutMs != 25000 {
+		t.Fatalf("timeout_ms = %d, want 25000", withTimeout.TimeoutMs)
+	}
+	without, err := contractModel.FindByScopeAndFunctionID(ctx, "demo", "prod", "player.query")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if without.TimeoutMs != 0 {
+		t.Fatalf("undeclared timeout_ms = %d, want 0", without.TimeoutMs)
+	}
+
+	// 再声明（重注册覆盖）：clamp 后的值更新落库
+	if err := svc.RebuildContractFromFunctionMeta(ctx, "demo", "prod", "openapi", spec.FunctionContractInput{
+		ID: "player.ban", Resource: "player", Capability: "update", Execution: "sync",
+		Enabled: true, TimeoutMs: 300000, // 越界 → 60000
+	}); err != nil {
+		t.Fatal(err)
+	}
+	withTimeout, err = contractModel.FindByScopeAndFunctionID(ctx, "demo", "prod", "player.ban")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if withTimeout.TimeoutMs != 60000 {
+		t.Fatalf("clamped timeout_ms = %d, want 60000", withTimeout.TimeoutMs)
+	}
+}

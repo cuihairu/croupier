@@ -102,9 +102,11 @@ type OpenAPISourceOperation struct {
 	Approval    spec.ApprovalPolicy    `json:"approval"`
 	Risk        spec.RiskLevel         `json:"risk,omitempty"`
 	Permission  string                 `json:"permission,omitempty"`
-	Bound       bool                   `json:"bound"`
-	BindingID   string                 `json:"bindingId,omitempty"`
-	FunctionID  string                 `json:"functionId,omitempty"`
+	// TimeoutMs 同步调用契约预算（毫秒，x-timeout-ms 扩展）；0 = 未声明。
+	TimeoutMs  int    `json:"timeoutMs,omitempty"`
+	Bound      bool   `json:"bound"`
+	BindingID  string `json:"bindingId,omitempty"`
+	FunctionID string `json:"functionId,omitempty"`
 }
 
 type OpenAPISourceDetail struct {

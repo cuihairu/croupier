@@ -1,6 +1,7 @@
 package svc
 
 import (
+	"context"
 	"testing"
 
 	"github.com/DATA-DOG/go-sqlmock"
@@ -126,4 +127,29 @@ func TestWrapGormMySQLConnAndProbeFailure(t *testing.T) {
 func TestSQLiteFileDSNPragmaInjection(t *testing.T) {
 	assert.Contains(t, sqliteFileDSN("/tmp/a.db"), "_pragma=busy_timeout")
 	assert.Contains(t, sqliteFileDSN("file:x.db?cache=shared"), "_pragma=busy_timeout")
+}
+
+// 0016：function_contracts.timeout_ms 列迁移（幂等 + 缺表跳过）。
+func TestContractTimeoutMigration(t *testing.T) {
+	db, err := gorm.Open(gsqlite.Open(t.TempDir()+"/m16.db"), &gorm.Config{})
+	require.NoError(t, err)
+	require.NoError(t, db.AutoMigrate(&model.FunctionContract{}))
+	// 模拟存量库：删列后跑迁移补列
+	require.NoError(t, db.Migrator().DropColumn(&model.FunctionContract{}, "TimeoutMs"))
+
+	sqlDB, err := db.DB()
+	require.NoError(t, err)
+	require.NoError(t, addContractTimeoutColumn(context.Background(), sqlDB))
+	require.True(t, db.Migrator().HasColumn(&model.FunctionContract{}, "TimeoutMs"))
+
+	// 幂等：重复执行不报错
+	require.NoError(t, addContractTimeoutColumn(context.Background(), sqlDB))
+
+	// 缺表库（fanout 重放到无该表的 game 库）：跳过不建空壳表
+	db2, err := gorm.Open(gsqlite.Open(t.TempDir()+"/m16b.db"), &gorm.Config{})
+	require.NoError(t, err)
+	sqlDB2, err := db2.DB()
+	require.NoError(t, err)
+	require.NoError(t, addContractTimeoutColumn(context.Background(), sqlDB2))
+	require.False(t, db2.Migrator().HasTable(&model.FunctionContract{}))
 }

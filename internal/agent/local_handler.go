@@ -115,8 +115,8 @@ func (h *LocalHandler) SetProviderCallTimeout(d time.Duration) {
 }
 
 // providerCallDeadline 计算本次 Provider 调用的超时：请求 metadata 声明的
-// timeout_ms（有效范围 [1s, 配置上限]，clamp）与配置默认取更小者。
-// 垃圾值/缺失 → 配置默认。
+// timeout_ms 是权威预算（clamp [1s, 60s] 硬顶），无声明时用配置默认。
+// 垃圾值 → 配置默认。
 func (h *LocalHandler) providerCallDeadline(meta map[string]string) time.Duration {
 	h.mu.RLock()
 	def := h.providerCallTimeout
@@ -136,8 +136,8 @@ func (h *LocalHandler) providerCallDeadline(meta map[string]string) time.Duratio
 	if budget < time.Second {
 		budget = time.Second
 	}
-	if budget > def {
-		budget = def
+	if budget > 60*time.Second {
+		budget = 60 * time.Second
 	}
 	return budget
 }

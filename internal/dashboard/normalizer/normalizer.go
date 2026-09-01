@@ -47,6 +47,9 @@ type DescriptorInput struct {
 	Risk              string `json:"risk,omitempty"`
 	Permission        string `json:"permission,omitempty"`
 	Enabled           bool   `json:"enabled"`
+	// TimeoutMs 同步调用契约预算（毫秒）。0 = 未声明；越界值 clamp 进
+	// [1000, 60000] 并产出诊断（同步通道硬上限 60s，更长操作走异步任务）。
+	TimeoutMs int `json:"timeoutMs,omitempty"`
 
 	SummaryMap     map[string]string `json:"summaryMap,omitempty"`
 	DescriptionMap map[string]string `json:"descriptionMap,omitempty"`
@@ -133,6 +136,8 @@ func Normalize(input DescriptorInput) NormalizerResult {
 	diags = append(diags, capabilityDiagnostics...)
 	execution, executionDiagnostics := normalizeExecution(input.Execution, capability, functionID)
 	diags = append(diags, executionDiagnostics...)
+	timeoutMs, timeoutDiagnostics := normalizeTimeoutMs(input.TimeoutMs, functionID)
+	diags = append(diags, timeoutDiagnostics...)
 	approval := spec.ApprovalPolicy{
 		Required:  input.ApprovalRequired,
 		PolicyKey: strings.TrimSpace(input.ApprovalPolicyKey),
@@ -173,6 +178,7 @@ func Normalize(input DescriptorInput) NormalizerResult {
 		Risk:         normalizeRisk(input.Risk),
 		Permission:   strings.TrimSpace(input.Permission),
 		Tags:         input.Tags,
+		TimeoutMs:    timeoutMs,
 		Diagnostics:  diags,
 	}
 
@@ -339,6 +345,40 @@ func normalizeCapability(value string, functionID string) (spec.CapabilityKind, 
 		FunctionID: functionID,
 		Field:      "capability",
 	}}
+}
+
+// normalizeTimeoutMs 归一契约预算：0 = 未声明（原样返回）；越界 clamp 进
+// [1000, 60000] 并产出 warning 诊断（同步通道硬上限 60s——更长操作应走
+// 异步任务的事件流语义）。
+func normalizeTimeoutMs(value int, functionID string) (int, []spec.Diagnostic) {
+	if value == 0 {
+		return 0, nil
+	}
+	clamped := value
+	var diag *spec.Diagnostic
+	if value < 1000 {
+		clamped = 1000
+		diag = &spec.Diagnostic{
+			Code:       "timeout_ms_below_floor",
+			Severity:   spec.SeverityWarning,
+			Message:    "timeoutMs below 1000 was clamped up to 1000",
+			FunctionID: functionID,
+			Field:      "timeoutMs",
+		}
+	} else if value > 60000 {
+		clamped = 60000
+		diag = &spec.Diagnostic{
+			Code:       "timeout_ms_above_ceiling",
+			Severity:   spec.SeverityWarning,
+			Message:    "timeoutMs above 60000 was clamped down to 60000 (longer work should use async tasks)",
+			FunctionID: functionID,
+			Field:      "timeoutMs",
+		}
+	}
+	if diag != nil {
+		return clamped, []spec.Diagnostic{*diag}
+	}
+	return clamped, nil
 }
 
 func normalizeExecution(value string, capability spec.CapabilityKind, functionID string) (spec.FunctionExecution, []spec.Diagnostic) {

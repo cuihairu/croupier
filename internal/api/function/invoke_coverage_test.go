@@ -657,3 +657,62 @@ func TestFunctionInvoke_TimeoutMsInjectedIntoMetadata(t *testing.T) {
 	require.NoError(t, err)
 	assert.NotContains(t, second.requests[0].GetMetadata(), "timeout_ms")
 }
+
+// 声明式超时（契约 Behavior.TimeoutMs）执行层接线：
+// 声明即契约——显式值不得突破契约上限；契约缺失时显式值直通。
+func TestFunctionInvoke_DeclaredTimeoutContract(t *testing.T) {
+	f := newInvokeFixture(t)
+	f.createOperator(t, "opuser", "admin")
+	f.registerAgent(t, "agent-1", "demo.echo", "demo.slow", "demo.free")
+	f.caller = &fakeSessionCaller{invokePayload: []byte(`{}`)}
+	f.resolver.callers["agent-1"] = f.caller
+
+	// 契约：slow 声明 20s；free 未声明
+	contractModel := model.NewFunctionContractModel(f.svcCtx.DB)
+	require.NoError(t, contractModel.UpsertContract(f.ctxFor("opuser"), &model.FunctionContract{
+		GameID: "demo", Env: "prod", FunctionID: "demo.slow", Enabled: true,
+		Execution: "sync", TimeoutMs: 20000,
+	}))
+	require.NoError(t, contractModel.UpsertContract(f.ctxFor("opuser"), &model.FunctionContract{
+		GameID: "demo", Env: "prod", FunctionID: "demo.free", Enabled: true,
+		Execution: "sync", // 未声明
+	}))
+
+	svcAPI := NewService(f.svcCtx)
+	ctx := f.ctxFor("opuser")
+
+	// 1) 显式 30s > 契约 20s → 被契约截到 20s
+	resp, err := svcAPI.FunctionInvoke(ctx, &FunctionInvokeRequest{ID: "demo.slow", Payload: []byte(`{}`), TimeoutMs: 30000})
+	require.NoError(t, err)
+	require.NotNil(t, resp)
+	require.Len(t, f.caller.requests, 1)
+	assert.Equal(t, "20000", f.caller.requests[0].GetMetadata()["timeout_ms"])
+
+	// 2) 只有契约 → 契约值注入
+	second := &fakeSessionCaller{invokePayload: []byte(`{}`)}
+	f.resolver.callers["agent-1"] = second
+	_, err = svcAPI.FunctionInvoke(ctx, &FunctionInvokeRequest{ID: "demo.slow", Payload: []byte(`{}`)})
+	require.NoError(t, err)
+	assert.Equal(t, "20000", second.requests[0].GetMetadata()["timeout_ms"])
+
+	// 3) 无契约无显式 → 不注入
+	third := &fakeSessionCaller{invokePayload: []byte(`{}`)}
+	f.resolver.callers["agent-1"] = third
+	_, err = svcAPI.FunctionInvoke(ctx, &FunctionInvokeRequest{ID: "demo.free", Payload: []byte(`{}`)})
+	require.NoError(t, err)
+	assert.NotContains(t, third.requests[0].GetMetadata(), "timeout_ms")
+
+	// 4) 无契约 + 显式 8s → 直通
+	fourth := &fakeSessionCaller{invokePayload: []byte(`{}`)}
+	f.resolver.callers["agent-1"] = fourth
+	_, err = svcAPI.FunctionInvoke(ctx, &FunctionInvokeRequest{ID: "demo.free", Payload: []byte(`{}`), TimeoutMs: 8000})
+	require.NoError(t, err)
+	assert.Equal(t, "8000", fourth.requests[0].GetMetadata()["timeout_ms"])
+
+	// 5) async 模式不注入超时（任务有自己的生命周期）
+	fifth := &fakeSessionCaller{invokePayload: []byte(`{}`)}
+	f.resolver.callers["agent-1"] = fifth
+	_, err = svcAPI.FunctionInvoke(ctx, &FunctionInvokeRequest{ID: "demo.slow", Payload: []byte(`{}`), Mode: "async", TimeoutMs: 5000})
+	require.NoError(t, err)
+	assert.NotContains(t, fifth.requests[0].GetMetadata(), "timeout_ms")
+}

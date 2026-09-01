@@ -65,6 +65,7 @@ func contractSemanticallyEqual(a, b *FunctionContract) bool {
 		a.OperationKey == b.OperationKey &&
 		a.Capability == b.Capability &&
 		a.Execution == b.Execution &&
+		a.TimeoutMs == b.TimeoutMs &&
 		a.Risk == b.Risk &&
 		strings.TrimSpace(a.Permission) == strings.TrimSpace(b.Permission) &&
 		a.Source == b.Source &&
