@@ -11,8 +11,6 @@
 
 2. request definition
 
-
-
 ```go
 type ProvidersListRequest struct {
 	Page int `form:"page,optional"`
@@ -20,17 +18,11 @@ type ProvidersListRequest struct {
 }
 ```
 
-
 3. response definition
 
-
-
 ```go
-type ProvidersListResponse struct {
-	Code int `json:"code"`
-	Message string `json:"message"`
-	Data interface{} `json:"data,omitempty"`
-}
+// 实际响应为裸 payload（业务 DTO 直接 JSON 序列化），无 code/message envelope。
+// 错误统一 { "error", "message", "details" }（见 rest.md）。
 ```
 
 ### 2. "获取提供者详情"
@@ -44,25 +36,17 @@ type ProvidersListResponse struct {
 
 2. request definition
 
-
-
 ```go
 type ProviderDetailRequest struct {
 	ID string `path:"id"`
 }
 ```
 
-
 3. response definition
 
-
-
 ```go
-type ProviderDetailResponse struct {
-	Code int `json:"code"`
-	Message string `json:"message"`
-	Data interface{} `json:"data,omitempty"`
-}
+// 实际响应为裸 payload（业务 DTO 直接 JSON 序列化），无 code/message envelope。
+// 错误统一 { "error", "message", "details" }（见 rest.md）。
 ```
 
 ### 3. "删除提供者"
@@ -76,25 +60,17 @@ type ProviderDetailResponse struct {
 
 2. request definition
 
-
-
 ```go
 type ProviderActionRequest struct {
 	ID string `path:"id"`
 }
 ```
 
-
 3. response definition
 
-
-
 ```go
-type ProviderDeleteResponse struct {
-	Code int `json:"code"`
-	Message string `json:"message"`
-	Data interface{} `json:"data,omitempty"`
-}
+// 实际响应为裸 payload（业务 DTO 直接 JSON 序列化），无 code/message envelope。
+// 错误统一 { "error", "message", "details" }（见 rest.md）。
 ```
 
 ### 4. "获取提供者资源"
@@ -108,25 +84,17 @@ type ProviderDeleteResponse struct {
 
 2. request definition
 
-
-
 ```go
 type ProvidersResourcesRequest struct {
 	ID string `path:"id"`
 }
 ```
 
-
 3. response definition
 
-
-
 ```go
-type ProvidersResourcesResponse struct {
-	Code int `json:"code"`
-	Message string `json:"message"`
-	Data interface{} `json:"data,omitempty"`
-}
+// 实际响应为裸 payload（业务 DTO 直接 JSON 序列化），无 code/message envelope。
+// 错误统一 { "error", "message", "details" }（见 rest.md）。
 ```
 
 ### 5. "重新加载提供者"
@@ -140,25 +108,17 @@ type ProvidersResourcesResponse struct {
 
 2. request definition
 
-
-
 ```go
 type ProviderActionRequest struct {
 	ID string `path:"id"`
 }
 ```
 
-
 3. response definition
 
-
-
 ```go
-type ProviderReloadResponse struct {
-	Code int `json:"code"`
-	Message string `json:"message"`
-	Data interface{} `json:"data,omitempty"`
-}
+// 实际响应为裸 payload（业务 DTO 直接 JSON 序列化），无 code/message envelope。
+// 错误统一 { "error", "message", "details" }（见 rest.md）。
 ```
 
 ### 6. "获取提供者能力"
@@ -172,24 +132,16 @@ type ProviderReloadResponse struct {
 
 2. request definition
 
-
-
 ```go
 type ProvidersCapabilitiesRequest struct {
 }
 ```
 
-
 3. response definition
 
-
-
 ```go
-type ProvidersCapabilitiesResponse struct {
-	Code int `json:"code"`
-	Message string `json:"message"`
-	Data interface{} `json:"data,omitempty"`
-}
+// 实际响应为裸 payload（业务 DTO 直接 JSON 序列化），无 code/message envelope。
+// 错误统一 { "error", "message", "details" }（见 rest.md）。
 ```
 
 ### 7. "获取提供者描述符"
@@ -203,22 +155,14 @@ type ProvidersCapabilitiesResponse struct {
 
 2. request definition
 
-
-
 ```go
 type ProvidersDescriptorsRequest struct {
 }
 ```
 
-
 3. response definition
 
-
-
 ```go
-type ProvidersDescriptorsResponse struct {
-	Code int `json:"code"`
-	Message string `json:"message"`
-	Data interface{} `json:"data,omitempty"`
-}
+// 实际响应为裸 payload（业务 DTO 直接 JSON 序列化），无 code/message envelope。
+// 错误统一 { "error", "message", "details" }（见 rest.md）。
 ```

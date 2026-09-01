@@ -120,20 +120,20 @@ v1 不引入独立 `Magic`，而是直接用首条应用层消息识别子协议
 - `responseMsgID = requestMsgID + 1` 仍是默认约定
 - 像 `TaskEvent` 这样的单向事件消息不属于标准 request/response 配对
 
-## 过载反馈与背压现状（截至 v0.1.2）
+## 过载反馈与背压现状
 
-按连接角色分层，当前实现状态如下：
+按连接角色分层，当前实现状态如下（双车道已落地，见下节）：
 
-| 路径                                                        | 机制                                              | 背压语义                                                                                                             |
-| ----------------------------------------------------------- | ------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
-| Server → Agent/Provider（`transport/tcp/server.go`）        | 读循环同步调 handler                              | 天然背压：handler 慢则读停，TCP 窗口收紧端到端反压                                                                   |
-| SDK → Agent（各语言 SDK 入站，Go 基准 `tcp_client.go`）     | 有界 worker 池（默认 `NumCPU`，队列 `workers×4`） | fail-fast：队列满立即回 `inbound queue full, retry on another instance` 错误帧，Agent 侧 failover 换实例；内存不积累 |
-| Agent↔Server、Agent↔Provider（`transport/tcp/mux_conn.go`） | 读循环对每个请求 `go handleInboundRequestAsync`   | **无背压**：每请求一个 goroutine，无并发上限、无队列；洪峰下 goroutine 无界膨胀（已知缺口）                          |
+| 路径                                                        | 机制                                                                                                                 | 背压语义                                                                                                                 |
+| ----------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| Server → Agent/Provider（`transport/tcp/server.go`）        | 读循环同步调 handler                                                                                                 | 天然背压：handler 慢则读停，TCP 窗口收紧端到端反压                                                                       |
+| SDK → Agent（各语言 SDK 入站，Go 基准 `tcp_client.go`）     | 有界 worker 池（默认 `NumCPU`，队列 `workers×4`）+ Go 控制车道                                                       | fail-fast：业务队列满立即回 `inbound queue full, retry on another instance` 错误帧，Agent 侧 failover 换实例；内存不积累 |
+| Agent↔Server、Agent↔Provider（`transport/tcp/mux_conn.go`） | **双车道有界派发**（`dispatchInbound`）：系统车道专用队列(64)+单 worker；业务车道 NumCPU worker + workers×4 有界队列 | 业务车道满则内联回 busy 错误帧（对端 failover）；控制车道永不 reject（满则阻塞读循环=自然控制面反压）                    |
 
 已知边界：
 
-- `MuxConn` 的有界并发改造（对齐 SDK worker 池模式）在 `agent-server-session-transport-redesign.md` 的背压章节跟踪
-- `overloaded` / `retry_after_ms` / `too_many_inflight` 等显式过载信号字段尚未定义 wire 消息；当前唯一过载信号是 SDK 队列满时的错误 payload 文案
+- `overloaded` / `retry_after_ms` / `too_many_inflight` 等显式过载信号字段尚未定义 wire 消息；当前唯一过载信号是业务队列满时的错误 payload 文案
+- 双车道目前落地于 Go 侧（`MuxConn` + Go SDK）；Python/Java/JS/C++/C# 的入站仍为单队列有界 worker 池（心跳与业务共队列），待按 Go 基准迁移
 
 ### 双车道：控制消息优先级
 
@@ -155,6 +155,11 @@ v1 不引入独立 `Magic`，而是直接用首条应用层消息识别子协议
 - 业务车道打满时，心跳/drain/register 照常可达——**会话存活与摘流不受业务过载影响**
 - 系统车道自身也有界（防控制面被打爆），但容量独立且永不向对端回 reject
 - fail-fast 的 reject 语义只作用于业务请求，`retry on another instance` 文案不变
+
+实现位置：`MuxConn.dispatchInbound`（`internal/transport/tcp/mux_conn.go`，
+Config `DispatchWorkers`/`BusinessQLen`/`ControlQLen`，默认 NumCPU / workers×4 / 64）
+与 Go SDK `handleInboundRequest`（`sdks/go/pkg/croupier/transport/tcp_client.go`，
+`ctrlInbox` 容量 64 + 单 worker）。测试：`mux_conn_dual_lane_test.go`、`dual_lane_test.go`。
 
 ## drain 语义
 

@@ -63,7 +63,8 @@ type TaskStartResponse struct {
 
 1. route definition
 
-- Url: /api/v1/tasks/:id/cancel
+- Url: /api/v1/tasks/:id/cancel（路径参数取消）
+- Url: /api/v1/tasks/cancel（body 取消：`{ "taskId": "..." }`，OpenAPI 客户端友好）
 - Method: POST
 - Request: `TaskCancelRequest`
 

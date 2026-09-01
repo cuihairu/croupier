@@ -548,14 +548,15 @@ SDK 只需暴露最小必要配置：
 - `drop_oldest` / `caller_backoff` 策略尚未实现（当前 reject 语义与
   Agent failover 配合已闭环，暂无需求驱动）
 
-**已知缺口与改造方向——控制消息双车道**：当前心跳请求
-（`HeartbeatRequest`/`ProviderHeartbeatRequest`）与业务请求共享同一条
-有界队列。业务洪峰打满队列时心跳一并被拒，Agent 误判 Provider 死亡
-拆会话——过载升级为连接雪崩。改造为双车道：
+**控制消息双车道（Go 已落地）**：心跳请求（`HeartbeatRequest`/
+`ProviderHeartbeatRequest`）等控制消息不再与业务请求共用车道——
+Go SDK 已实现 `ctrlInbox` 专用车道（`tcp_client.go`，容量 64 + 单 worker，
+永不 reject），业务洪峰打满业务队列时会话仍存活、drain 仍可达
+（测试 `dual_lane_test.go`）。
 
-- 系统/控制请求（`protocol.IsControlRequest()`：心跳/注册/会话控制/drain）
-  走专用车道，**永不 reject**——会话存活不受业务过载影响
-- 业务请求维持现状（有界队列 + fail-fast reject + Agent failover）
+**待迁移**：Python/Java/JS/C++/C# 的入站仍为单队列有界 worker 池
+（心跳与业务共队列），需按 Go 基准补双车道（`protocol.IsControlRequest()`
+分类 + 控制专用队列）。
 
 ### 过载反馈
 

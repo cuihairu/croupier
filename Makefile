@@ -162,18 +162,18 @@ build-sdks-python:
 # ========== Web & Docs Build Targets ==========
 build-web: build-dashboard build-docs
 
-build-dashboard: submodules
+build-dashboard:
 	@echo "[web] building dashboard..."
-	@cd dashboard && npm ci && npm run build
+	@cd web && pnpm install --frozen-lockfile && pnpm run build
 
 build-docs:
 	@echo "[docs] building documentation..."
 	@cd docs && pnpm install --frozen-lockfile && pnpm run build
 
 # ========== Development Targets ==========
-dev-dashboard: submodules
+dev-dashboard:
 	@echo "[web] starting dashboard development server..."
-	@cd dashboard && npm ci && npm run dev
+	@cd web && pnpm install && pnpm run dev
 
 dev-docs:
 	@echo "[docs] starting VitePress documentation dev server..."

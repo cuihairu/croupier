@@ -116,7 +116,7 @@ graph TB
   - 默认不启用 `tls`
   - 面向 provider session
 - `agent-server subprotocol`
-  - 首条消息是 `AgentConnectRequest` 或其兼容注册消息
+  - 首条消息是 `RegisterRequest`（proto 现名；演进命名 AgentConnectRequest 见传输重设计文档）
   - 默认启用 `tls`
   - 面向 agent session
 
@@ -205,7 +205,9 @@ server_id LowCardinality(String) -- 例如 "s1", "asia1", "us_west_1"
 - [数据流](./data-flow.md)
 - [游戏与环境作用域](./game-environment-scope.md)
 - [Session 生命周期](./session-lifecycle.md)
-- [SDK Wire 协议](./sdk-wire-protocol.md)
+- [SDK Wire 协议](./sdk-wire-protocol.md) — 含过载反馈/背压现状与双车道设计
+- [本地化文本契约](./localized-text-contract.md) — `LocalizedText` BCP47 键与前后端归一规则
+- [SDK OTel 传播](./sdk-otel-propagation.md) — trace 上下文跨 SDK 边界传播
 
 ### Dashboard 页面模型
 
@@ -220,6 +222,9 @@ server_id LowCardinality(String) -- 例如 "s1", "asia1", "us_west_1"
 ### 决策与边界
 
 - [传输层决策（不使用 gRPC）](./transport-no-grpc.md)
+- [平台配置分层 L1←L2←L3](./config-layering.md)
+- [功能开关](./feature-flags.md)
+- [数据库迁移策略](./database-migration-strategy.md)
 - [扩展安装模型](./extension-installation-model.md)
 - [核心与扩展边界映射](./core-extension-mapping.md)
 - [扩展 API 契约基线](./extensions-api-contract-baseline.md)
@@ -231,7 +236,7 @@ server_id LowCardinality(String) -- 例如 "s1", "asia1", "us_west_1"
 - [Agent-Server TCP Session 重构设计](./agent-server-session-transport-redesign.md)
 - [扩展统一模式](./official-extension-unified-pattern.md)
 - [双布局设计（设计态/运行态导航隔离）](./dual-layout-design.md) — 已评审待决策
-- [Server 多实例高可用设计](./server-ha-multi-instance.md) — 共享目录 + 实例互联转发的 HA 提案，待其他功能完善后实施
+- [Server 多实例高可用设计](./server-ha-multi-instance.md) — 已实现：成员表、实例互联与 owner 转发、`cluster.enabled` 接线与集群拓扑页（正文标注 Current）
 
 ### 参考资料
 

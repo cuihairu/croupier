@@ -154,8 +154,8 @@ git clone https://github.com/cuihairu/croupier.git
 cd croupier
 git submodule update --init --recursive
 
-# 构建发布版本
-make build-release
+# 构建二进制（server + agent）
+make build
 
 # 二进制文件位于 bin/ 目录
 ls -la bin/
@@ -163,52 +163,43 @@ ls -la bin/
 
 ## SDK 安装
 
+各语言 SDK 均为本仓库 `sdks/<lang>/` 目录下的源码（安装细节以
+[docs/sdks/](../sdks/index.md) 各语言指南为准）：
+
 ### Go SDK
 
 ```bash
-go get github.com/cuihairu/croupier-sdk-go@latest
+go get github.com/cuihairu/croupier/sdks/go@latest
 ```
 
 ### C++ SDK
 
 ```bash
-# 使用 vcpkg
-vcpkg install croupier-sdk-cpp
-
-# 或从源码构建
-cd sdks/croupier-sdk-cpp
-mkdir build && cd build
-cmake .. -DCMAKE_BUILD_TYPE=Release
-make install
+# 从本仓库源码构建（vcpkg 依赖清单见 sdks/cpp/vcpkg.json）
+cd sdks/cpp
+cmake --preset linux-x64-release-vcpkg
+cmake --build --preset linux-x64-release
 ```
 
 ### Java SDK
 
-```xml
-<dependency>
-    <groupId>com.github.cuihairu</groupId>
-    <artifactId>croupier-sdk-java</artifactId>
-    <version>LATEST</version>
-</dependency>
+```bash
+# 从本仓库源码构建（产物发布规划中，暂未上 Maven Central）
+cd sdks/java && ./gradlew publishToMavenLocal
 ```
 
 ### JavaScript/TypeScript SDK
 
 ```bash
-# npm
-npm install @croupier/sdk-js
-
-# pnpm
-pnpm add @croupier/sdk-js
-
-# yarn
-yarn add @croupier/sdk-js
+# 包名 croupier-js-sdk（源码构建）
+cd sdks/js && pnpm install && pnpm build
 ```
 
 ### Python SDK
 
 ```bash
-pip install croupier-sdk-python
+# 包名 croupier-sdk（源码构建）
+cd sdks/python && pip install .
 ```
 
 ## 配置文件
@@ -216,11 +207,11 @@ pip install croupier-sdk-python
 ### Server 配置
 
 ```yaml
-name: croupier-server
-host: 0.0.0.0
-port: 18780 # HTTP 监听地址
-control:
-  addr: ":19090" # Control 监听地址
+server:
+  host: 0.0.0.0
+  port: 18780 # HTTP 监听地址
+  control:
+    addr: ":19090" # Control（agent 接入）监听地址
 database:
   # 支持 sqlite、mysql、postgres、sqlserver
   driver: postgres
@@ -328,7 +319,7 @@ export PATH=$PATH:$(go env GOPATH)/bin
 
 ```yaml
 control:
-  addr: ":19091"
+  addr: ":19092"
 port: 19080
 ```
 

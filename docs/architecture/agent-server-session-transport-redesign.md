@@ -284,16 +284,19 @@
   会话级 `max_inflight_requests` / 队列上限尚未实现（同步模型下暂不需要，
   但无法主动摘流过载 session——依赖 `drain`）。
 - `transport/tcp/mux_conn.go`（Agent↔Server 与 Agent↔Provider 双向会话）：
-  读循环对每个入站请求 `go handleInboundRequestAsync` 无界派发——
-  **无并发上限、无待处理队列**，上游洪峰时 goroutine 无界膨胀。
-  这是当前背压的主要缺口；改造方向为**双车道有界派发**：
+  **双车道有界派发已落地**（`dispatchInbound`，commit `31d7bdc0f`）：
   - 系统/控制车道（`0x01xx` 心跳注册、`0x05xx` 会话控制含 drain、
-    `0x060101` Hello）：小专用队列，永不 reject——业务过载不会杀会话，
-    摘流信号始终可达
-  - 业务车道（`0x03xx`/`0x04xx`/`0x060103` 转发调用）：有界队列 +
+    `0x060101` Hello）：专用队列（`ControlQLen`，默认 64）+ 单 worker，
+    永不 reject——业务过载不会杀会话，摘流信号始终可达
+  - 业务车道（`0x03xx`/`0x04xx`/`0x060103` 转发调用）：`DispatchWorkers`
+    （默认 NumCPU）worker + `BusinessQLen`（默认 workers×4）有界队列，
     满则回 busy 错误帧触发对端 failover
   - 分类由 `protocol.IsControlRequest()` 显式 MsgID 集合承担
     （0x06 族 Hello=控制 / ForwardInvoke=业务，不能按字节前缀一刀切）
+  - 测试：`mux_conn_dual_lane_test.go`（业务饱和时心跳即时应答/控制车道
+    永不 reject/并发写安全）
+- Go SDK 同步落地双车道（`ctrlInbox`），其余五语言待迁移
+  （见 `sdk-wire-protocol.md` 双车道章节）。
 - 显式过载信号（`overloaded` / `retry_after_ms` / `too_many_inflight`）
   的 wire 消息尚未定义。
 
@@ -314,21 +317,23 @@
 
 ## 协议与消息演进建议
 
-当前 `agent/v1/register.proto` 仍带有明显的旧模型痕迹，例如：
+`agent/v1/register.proto` 的旧模型清理已部分完成：
 
-- `rpc_addr`
-- 将 `RegisterRequest` 仅视为控制面注册，而非 session 建立
+- `rpc_addr` 已 reserved（proto 字段删除），registry 已执行 DB 列删除
+  （`internal/platform/registry/agent_session_db.go` DropColumn），仅
+  `internal/logic/utils/registry_helpers.go` 留兼容别名
+- `RegisterRequest` 的语义已从「控制面注册」收敛为「session 建立 +
+  注册合一」（见 `sdk-wire-protocol.md` 消息族）
 
-后续建议：
+剩余命名演进建议：
 
 1. 保留现有消息做过渡兼容
-2. 明确其语义切换为“session connect/register”
-3. 逐步引入更准确的命名，例如：
+2. 逐步引入更准确的命名，例如：
    - `AgentConnectRequest`
    - `AgentConnectResponse`
    - `AgentHeartbeatRequest`
    - `AgentDrainRequest`
-4. 在过渡完成后废弃 `rpc_addr`
+3. 在过渡完成后废弃 `rpc_addr`
 
 ## 实施顺序
 

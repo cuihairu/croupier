@@ -14,6 +14,6 @@ var client = new CroupierClient(new ClientConfig {
     AgentAddr = "127.0.0.1:19091",
     ServiceId = "my-service",
     GameId = "my-game",
-    Env = "dev"
+    Env = "development"
 });
 ```

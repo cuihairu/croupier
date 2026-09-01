@@ -11,8 +11,6 @@
 
 2. request definition
 
-
-
 ```go
 type AnalyticsBehaviorRequest struct {
 	GameID string `form:"gameId,optional"`
@@ -22,17 +20,11 @@ type AnalyticsBehaviorRequest struct {
 }
 ```
 
-
 3. response definition
 
-
-
 ```go
-type AnalyticsBehaviorResponse struct {
-	Code int `json:"code"`
-	Message string `json:"message"`
-	Data interface{} `json:"data,omitempty"`
-}
+// 实际响应为裸 payload（业务 DTO 直接 JSON 序列化），无 code/message envelope。
+// 错误统一 { "error", "message", "details" }（见 rest.md）。
 ```
 
 ### 2. "获取功能采用率"
@@ -46,8 +38,6 @@ type AnalyticsBehaviorResponse struct {
 
 2. request definition
 
-
-
 ```go
 type AnalyticsBehaviorAdoptionRequest struct {
 	GameID string `form:"gameId,optional"`
@@ -55,17 +45,11 @@ type AnalyticsBehaviorAdoptionRequest struct {
 }
 ```
 
-
 3. response definition
 
-
-
 ```go
-type AnalyticsBehaviorAdoptionResponse struct {
-	Code int `json:"code"`
-	Message string `json:"message"`
-	Data interface{} `json:"data,omitempty"`
-}
+// 实际响应为裸 payload（业务 DTO 直接 JSON 序列化），无 code/message envelope。
+// 错误统一 { "error", "message", "details" }（见 rest.md）。
 ```
 
 ### 3. "获取功能采用率明细"
@@ -79,8 +63,6 @@ type AnalyticsBehaviorAdoptionResponse struct {
 
 2. request definition
 
-
-
 ```go
 type AnalyticsBehaviorAdoptionBreakdownRequest struct {
 	GameID string `form:"gameId,optional"`
@@ -89,17 +71,11 @@ type AnalyticsBehaviorAdoptionBreakdownRequest struct {
 }
 ```
 
-
 3. response definition
 
-
-
 ```go
-type AnalyticsBehaviorAdoptionBreakdownResponse struct {
-	Code int `json:"code"`
-	Message string `json:"message"`
-	Data interface{} `json:"data,omitempty"`
-}
+// 实际响应为裸 payload（业务 DTO 直接 JSON 序列化），无 code/message envelope。
+// 错误统一 { "error", "message", "details" }（见 rest.md）。
 ```
 
 ### 4. "获取行为事件"
@@ -113,8 +89,6 @@ type AnalyticsBehaviorAdoptionBreakdownResponse struct {
 
 2. request definition
 
-
-
 ```go
 type AnalyticsBehaviorEventsRequest struct {
 	GameID string `form:"gameId,optional"`
@@ -123,17 +97,11 @@ type AnalyticsBehaviorEventsRequest struct {
 }
 ```
 
-
 3. response definition
 
-
-
 ```go
-type AnalyticsBehaviorEventsResponse struct {
-	Code int `json:"code"`
-	Message string `json:"message"`
-	Data interface{} `json:"data,omitempty"`
-}
+// 实际响应为裸 payload（业务 DTO 直接 JSON 序列化），无 code/message envelope。
+// 错误统一 { "error", "message", "details" }（见 rest.md）。
 ```
 
 ### 5. "获取行为漏斗"
@@ -147,8 +115,6 @@ type AnalyticsBehaviorEventsResponse struct {
 
 2. request definition
 
-
-
 ```go
 type AnalyticsBehaviorFunnelRequest struct {
 	GameID string `form:"gameId,optional"`
@@ -157,17 +123,11 @@ type AnalyticsBehaviorFunnelRequest struct {
 }
 ```
 
-
 3. response definition
 
-
-
 ```go
-type AnalyticsBehaviorFunnelResponse struct {
-	Code int `json:"code"`
-	Message string `json:"message"`
-	Data interface{} `json:"data,omitempty"`
-}
+// 实际响应为裸 payload（业务 DTO 直接 JSON 序列化），无 code/message envelope。
+// 错误统一 { "error", "message", "details" }（见 rest.md）。
 ```
 
 ### 6. "获取行为路径"
@@ -181,8 +141,6 @@ type AnalyticsBehaviorFunnelResponse struct {
 
 2. request definition
 
-
-
 ```go
 type AnalyticsBehaviorPathsRequest struct {
 	GameID string `form:"gameId,optional"`
@@ -190,17 +148,11 @@ type AnalyticsBehaviorPathsRequest struct {
 }
 ```
 
-
 3. response definition
 
-
-
 ```go
-type AnalyticsBehaviorPathsResponse struct {
-	Code int `json:"code"`
-	Message string `json:"message"`
-	Data interface{} `json:"data,omitempty"`
-}
+// 实际响应为裸 payload（业务 DTO 直接 JSON 序列化），无 code/message envelope。
+// 错误统一 { "error", "message", "details" }（见 rest.md）。
 ```
 
 ### 7. "获取分析过滤器"
@@ -214,8 +166,6 @@ type AnalyticsBehaviorPathsResponse struct {
 
 2. request definition
 
-
-
 ```go
 type AnalyticsFiltersGetRequest struct {
 	GameID string `form:"gameId,optional"`
@@ -223,17 +173,11 @@ type AnalyticsFiltersGetRequest struct {
 }
 ```
 
-
 3. response definition
 
-
-
 ```go
-type AnalyticsFiltersGetResponse struct {
-	Code int `json:"code"`
-	Message string `json:"message"`
-	Data interface{} `json:"data,omitempty"`
-}
+// 实际响应为裸 payload（业务 DTO 直接 JSON 序列化），无 code/message envelope。
+// 错误统一 { "error", "message", "details" }（见 rest.md）。
 ```
 
 ### 8. "更新分析过滤器"
@@ -247,8 +191,6 @@ type AnalyticsFiltersGetResponse struct {
 
 2. request definition
 
-
-
 ```go
 type AnalyticsFiltersUpdateRequest struct {
 	GameID string `json:"gameId"`
@@ -258,17 +200,11 @@ type AnalyticsFiltersUpdateRequest struct {
 }
 ```
 
-
 3. response definition
 
-
-
 ```go
-type AnalyticsFiltersUpdateResponse struct {
-	Code int `json:"code"`
-	Message string `json:"message"`
-	Data interface{} `json:"data,omitempty"`
-}
+// 实际响应为裸 payload（业务 DTO 直接 JSON 序列化），无 code/message envelope。
+// 错误统一 { "error", "message", "details" }（见 rest.md）。
 ```
 
 ### 9. "采集分析数据"
@@ -282,8 +218,6 @@ type AnalyticsFiltersUpdateResponse struct {
 
 2. request definition
 
-
-
 ```go
 type AnalyticsIngestRequest struct {
 	GameID string `json:"gameId"`
@@ -292,17 +226,11 @@ type AnalyticsIngestRequest struct {
 }
 ```
 
-
 3. response definition
 
-
-
 ```go
-type AnalyticsIngestResponse struct {
-	Code int `json:"code"`
-	Message string `json:"message"`
-	Data interface{} `json:"data,omitempty"`
-}
+// 实际响应为裸 payload（业务 DTO 直接 JSON 序列化），无 code/message envelope。
+// 错误统一 { "error", "message", "details" }（见 rest.md）。
 ```
 
 ### 10. "获取等级分析"
@@ -316,8 +244,6 @@ type AnalyticsIngestResponse struct {
 
 2. request definition
 
-
-
 ```go
 type AnalyticsLevelsRequest struct {
 	GameID string `form:"gameId,optional"`
@@ -325,17 +251,11 @@ type AnalyticsLevelsRequest struct {
 }
 ```
 
-
 3. response definition
 
-
-
 ```go
-type AnalyticsLevelsResponse struct {
-	Code int `json:"code"`
-	Message string `json:"message"`
-	Data interface{} `json:"data,omitempty"`
-}
+// 实际响应为裸 payload（业务 DTO 直接 JSON 序列化），无 code/message envelope。
+// 错误统一 { "error", "message", "details" }（见 rest.md）。
 ```
 
 ### 11. "获取关卡分析"
@@ -349,8 +269,6 @@ type AnalyticsLevelsResponse struct {
 
 2. request definition
 
-
-
 ```go
 type AnalyticsLevelsEpisodesRequest struct {
 	GameID string `form:"gameId,optional"`
@@ -358,17 +276,11 @@ type AnalyticsLevelsEpisodesRequest struct {
 }
 ```
 
-
 3. response definition
 
-
-
 ```go
-type AnalyticsLevelsEpisodesResponse struct {
-	Code int `json:"code"`
-	Message string `json:"message"`
-	Data interface{} `json:"data,omitempty"`
-}
+// 实际响应为裸 payload（业务 DTO 直接 JSON 序列化），无 code/message envelope。
+// 错误统一 { "error", "message", "details" }（见 rest.md）。
 ```
 
 ### 12. "获取地图分析"
@@ -382,8 +294,6 @@ type AnalyticsLevelsEpisodesResponse struct {
 
 2. request definition
 
-
-
 ```go
 type AnalyticsLevelsMapsRequest struct {
 	GameID string `form:"gameId,optional"`
@@ -391,17 +301,11 @@ type AnalyticsLevelsMapsRequest struct {
 }
 ```
 
-
 3. response definition
 
-
-
 ```go
-type AnalyticsLevelsMapsResponse struct {
-	Code int `json:"code"`
-	Message string `json:"message"`
-	Data interface{} `json:"data,omitempty"`
-}
+// 实际响应为裸 payload（业务 DTO 直接 JSON 序列化），无 code/message envelope。
+// 错误统一 { "error", "message", "details" }（见 rest.md）。
 ```
 
 ### 13. "获取分析概览"
@@ -415,8 +319,6 @@ type AnalyticsLevelsMapsResponse struct {
 
 2. request definition
 
-
-
 ```go
 type AnalyticsOverviewRequest struct {
 	GameID string `form:"gameId,optional"`
@@ -426,17 +328,11 @@ type AnalyticsOverviewRequest struct {
 }
 ```
 
-
 3. response definition
 
-
-
 ```go
-type AnalyticsOverviewResponse struct {
-	Code int `json:"code"`
-	Message string `json:"message"`
-	Data interface{} `json:"data,omitempty"`
-}
+// 实际响应为裸 payload（业务 DTO 直接 JSON 序列化），无 code/message envelope。
+// 错误统一 { "error", "message", "details" }（见 rest.md）。
 ```
 
 ### 14. "获取支付分析"
@@ -450,8 +346,6 @@ type AnalyticsOverviewResponse struct {
 
 2. request definition
 
-
-
 ```go
 type AnalyticsPaymentsRequest struct {
 	GameID string `form:"gameId,optional"`
@@ -461,17 +355,11 @@ type AnalyticsPaymentsRequest struct {
 }
 ```
 
-
 3. response definition
 
-
-
 ```go
-type AnalyticsPaymentsResponse struct {
-	Code int `json:"code"`
-	Message string `json:"message"`
-	Data interface{} `json:"data,omitempty"`
-}
+// 实际响应为裸 payload（业务 DTO 直接 JSON 序列化），无 code/message envelope。
+// 错误统一 { "error", "message", "details" }（见 rest.md）。
 ```
 
 ### 15. "采集支付数据"
@@ -485,8 +373,6 @@ type AnalyticsPaymentsResponse struct {
 
 2. request definition
 
-
-
 ```go
 type AnalyticsPaymentsIngestRequest struct {
 	GameID string `json:"gameId"`
@@ -495,17 +381,11 @@ type AnalyticsPaymentsIngestRequest struct {
 }
 ```
 
-
 3. response definition
 
-
-
 ```go
-type AnalyticsPaymentsIngestResponse struct {
-	Code int `json:"code"`
-	Message string `json:"message"`
-	Data interface{} `json:"data,omitempty"`
-}
+// 实际响应为裸 payload（业务 DTO 直接 JSON 序列化），无 code/message envelope。
+// 错误统一 { "error", "message", "details" }（见 rest.md）。
 ```
 
 ### 16. "获取产品趋势"
@@ -519,8 +399,6 @@ type AnalyticsPaymentsIngestResponse struct {
 
 2. request definition
 
-
-
 ```go
 type AnalyticsPaymentsProductTrendRequest struct {
 	GameID string `form:"gameId,optional"`
@@ -529,17 +407,11 @@ type AnalyticsPaymentsProductTrendRequest struct {
 }
 ```
 
-
 3. response definition
 
-
-
 ```go
-type AnalyticsPaymentsProductTrendResponse struct {
-	Code int `json:"code"`
-	Message string `json:"message"`
-	Data interface{} `json:"data,omitempty"`
-}
+// 实际响应为裸 payload（业务 DTO 直接 JSON 序列化），无 code/message envelope。
+// 错误统一 { "error", "message", "details" }（见 rest.md）。
 ```
 
 ### 17. "获取支付摘要"
@@ -553,8 +425,6 @@ type AnalyticsPaymentsProductTrendResponse struct {
 
 2. request definition
 
-
-
 ```go
 type AnalyticsPaymentsSummaryRequest struct {
 	GameID string `form:"gameId,optional"`
@@ -562,17 +432,11 @@ type AnalyticsPaymentsSummaryRequest struct {
 }
 ```
 
-
 3. response definition
 
-
-
 ```go
-type AnalyticsPaymentsSummaryResponse struct {
-	Code int `json:"code"`
-	Message string `json:"message"`
-	Data interface{} `json:"data,omitempty"`
-}
+// 实际响应为裸 payload（业务 DTO 直接 JSON 序列化），无 code/message envelope。
+// 错误统一 { "error", "message", "details" }（见 rest.md）。
 ```
 
 ### 18. "获取支付交易列表"
@@ -586,8 +450,6 @@ type AnalyticsPaymentsSummaryResponse struct {
 
 2. request definition
 
-
-
 ```go
 type AnalyticsPaymentsTransactionsRequest struct {
 	GameID string `form:"gameId,optional"`
@@ -597,17 +459,11 @@ type AnalyticsPaymentsTransactionsRequest struct {
 }
 ```
 
-
 3. response definition
 
-
-
 ```go
-type AnalyticsPaymentsTransactionsResponse struct {
-	Code int `json:"code"`
-	Message string `json:"message"`
-	Data interface{} `json:"data,omitempty"`
-}
+// 实际响应为裸 payload（业务 DTO 直接 JSON 序列化），无 code/message envelope。
+// 错误统一 { "error", "message", "details" }（见 rest.md）。
 ```
 
 ### 19. "获取实时数据"
@@ -621,8 +477,6 @@ type AnalyticsPaymentsTransactionsResponse struct {
 
 2. request definition
 
-
-
 ```go
 type AnalyticsRealtimeRequest struct {
 	GameID string `form:"gameId,optional"`
@@ -630,17 +484,11 @@ type AnalyticsRealtimeRequest struct {
 }
 ```
 
-
 3. response definition
 
-
-
 ```go
-type AnalyticsRealtimeResponse struct {
-	Code int `json:"code"`
-	Message string `json:"message"`
-	Data interface{} `json:"data,omitempty"`
-}
+// 实际响应为裸 payload（业务 DTO 直接 JSON 序列化），无 code/message envelope。
+// 错误统一 { "error", "message", "details" }（见 rest.md）。
 ```
 
 ### 20. "获取实时序列数据"
@@ -654,8 +502,6 @@ type AnalyticsRealtimeResponse struct {
 
 2. request definition
 
-
-
 ```go
 type AnalyticsRealtimeSeriesRequest struct {
 	GameID string `form:"gameId,optional"`
@@ -664,17 +510,11 @@ type AnalyticsRealtimeSeriesRequest struct {
 }
 ```
 
-
 3. response definition
 
-
-
 ```go
-type AnalyticsRealtimeSeriesResponse struct {
-	Code int `json:"code"`
-	Message string `json:"message"`
-	Data interface{} `json:"data,omitempty"`
-}
+// 实际响应为裸 payload（业务 DTO 直接 JSON 序列化），无 code/message envelope。
+// 错误统一 { "error", "message", "details" }（见 rest.md）。
 ```
 
 ### 21. "获取留存分析"
@@ -688,8 +528,6 @@ type AnalyticsRealtimeSeriesResponse struct {
 
 2. request definition
 
-
-
 ```go
 type AnalyticsRetentionRequest struct {
 	GameID string `form:"gameId,optional"`
@@ -699,16 +537,9 @@ type AnalyticsRetentionRequest struct {
 }
 ```
 
-
 3. response definition
 
-
-
 ```go
-type AnalyticsRetentionResponse struct {
-	Code int `json:"code"`
-	Message string `json:"message"`
-	Data interface{} `json:"data,omitempty"`
-}
+// 实际响应为裸 payload（业务 DTO 直接 JSON 序列化），无 code/message envelope。
+// 错误统一 { "error", "message", "details" }（见 rest.md）。
 ```
-

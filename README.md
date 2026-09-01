@@ -225,7 +225,7 @@ cp scripts/pre-commit .git/hooks/pre-commit && chmod +x .git/hooks/pre-commit
 4. 构建
 
 ```bash
-make dev
+make proto && make build
 ```
 
 5. 启动

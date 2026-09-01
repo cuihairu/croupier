@@ -11,8 +11,6 @@
 
 2. request definition
 
-
-
 ```go
 type MessagesListRequest struct {
 	Page int `form:"page,optional"`
@@ -22,17 +20,11 @@ type MessagesListRequest struct {
 }
 ```
 
-
 3. response definition
 
-
-
 ```go
-type MessagesListResponse struct {
-	Code int `json:"code"`
-	Message string `json:"message"`
-	Data interface{} `json:"data,omitempty"`
-}
+// 实际响应为裸 payload（业务 DTO 直接 JSON 序列化），无 code/message envelope。
+// 错误统一 { "error", "message", "details" }（见 rest.md）。
 ```
 
 ### 2. "发送消息"
@@ -46,8 +38,6 @@ type MessagesListResponse struct {
 
 2. request definition
 
-
-
 ```go
 type MessageSendRequest struct {
 	To string `json:"to"`
@@ -58,17 +48,11 @@ type MessageSendRequest struct {
 }
 ```
 
-
 3. response definition
 
-
-
 ```go
-type MessageSendResponse struct {
-	Code int `json:"code"`
-	Message string `json:"message"`
-	Data interface{} `json:"data,omitempty"`
-}
+// 实际响应为裸 payload（业务 DTO 直接 JSON 序列化），无 code/message envelope。
+// 错误统一 { "error", "message", "details" }（见 rest.md）。
 ```
 
 ### 3. "获取消息详情"
@@ -82,25 +66,17 @@ type MessageSendResponse struct {
 
 2. request definition
 
-
-
 ```go
 type MessageDetailRequest struct {
 	ID string `path:"id"`
 }
 ```
 
-
 3. response definition
 
-
-
 ```go
-type MessageDetailResponse struct {
-	Code int `json:"code"`
-	Message string `json:"message"`
-	Data interface{} `json:"data,omitempty"`
-}
+// 实际响应为裸 payload（业务 DTO 直接 JSON 序列化），无 code/message envelope。
+// 错误统一 { "error", "message", "details" }（见 rest.md）。
 ```
 
 ### 4. "标记消息已读"
@@ -114,25 +90,17 @@ type MessageDetailResponse struct {
 
 2. request definition
 
-
-
 ```go
 type MessageReadRequest struct {
 	ID string `path:"id"`
 }
 ```
 
-
 3. response definition
 
-
-
 ```go
-type MessageReadResponse struct {
-	Code int `json:"code"`
-	Message string `json:"message"`
-	Data interface{} `json:"data,omitempty"`
-}
+// 实际响应为裸 payload（业务 DTO 直接 JSON 序列化），无 code/message envelope。
+// 错误统一 { "error", "message", "details" }（见 rest.md）。
 ```
 
 ### 5. "消息流（实时推送）"
@@ -146,24 +114,16 @@ type MessageReadResponse struct {
 
 2. request definition
 
-
-
 ```go
 type StreamMessagesRequest struct {
 }
 ```
 
-
 3. response definition
 
-
-
 ```go
-type StreamMessagesResponse struct {
-	Code int `json:"code"`
-	Message string `json:"message"`
-	Data interface{} `json:"data,omitempty"`
-}
+// 实际响应为裸 payload（业务 DTO 直接 JSON 序列化），无 code/message envelope。
+// 错误统一 { "error", "message", "details" }（见 rest.md）。
 ```
 
 ### 6. "获取未读消息数量"
@@ -177,23 +137,14 @@ type StreamMessagesResponse struct {
 
 2. request definition
 
-
-
 ```go
 type MessagesUnreadCountRequest struct {
 }
 ```
 
-
 3. response definition
 
-
-
 ```go
-type MessagesUnreadCountResponse struct {
-	Code int `json:"code"`
-	Message string `json:"message"`
-	Data interface{} `json:"data,omitempty"`
-}
+// 实际响应为裸 payload（业务 DTO 直接 JSON 序列化），无 code/message envelope。
+// 错误统一 { "error", "message", "details" }（见 rest.md）。
 ```
-

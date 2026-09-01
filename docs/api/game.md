@@ -11,8 +11,6 @@
 
 2. request definition
 
-
-
 ```go
 type GamesListRequest struct {
 	Page int `form:"page,optional"`
@@ -21,15 +19,11 @@ type GamesListRequest struct {
 }
 ```
 
-
 3. response definition
-
-
 
 ```go
 type GamesListResponse struct {
-	Code int `json:"code"`
-	Message string `json:"message"`
+	// 响应为裸 payload（去掉 envelope 的 code/message 两行）
 	Data GamesData `json:"data,omitempty"`
 }
 
@@ -50,8 +44,6 @@ type GamesData struct {
 
 2. request definition
 
-
-
 ```go
 type GameCreateRequest struct {
 	Name string `json:"name"`
@@ -60,17 +52,11 @@ type GameCreateRequest struct {
 }
 ```
 
-
 3. response definition
 
-
-
 ```go
-type GameCreateResponse struct {
-	Code int `json:"code"`
-	Message string `json:"message"`
-	Data interface{} `json:"data,omitempty"`
-}
+// 实际响应为裸 payload（业务 DTO 直接 JSON 序列化），无 code/message envelope。
+// 错误统一 { "error", "message", "details" }（见 rest.md）。
 ```
 
 ### 3. "获取游戏详情"
@@ -84,23 +70,17 @@ type GameCreateResponse struct {
 
 2. request definition
 
-
-
 ```go
 type GameDetailRequest struct {
 	ID string `path:"id"`
 }
 ```
 
-
 3. response definition
-
-
 
 ```go
 type GameDetailResponse struct {
-	Code int `json:"code"`
-	Message string `json:"message"`
+	// 响应为裸 payload（去掉 envelope 的 code/message 两行）
 	Data GameInfo `json:"data,omitempty"`
 }
 
@@ -133,8 +113,6 @@ type GameInfo struct {
 
 2. request definition
 
-
-
 ```go
 type GameUpdateRequest struct {
 	ID string `path:"id"`
@@ -145,15 +123,11 @@ type GameUpdateRequest struct {
 }
 ```
 
-
 3. response definition
-
-
 
 ```go
 type GameUpdateResponse struct {
-	Code int `json:"code"`
-	Message string `json:"message"`
+	// 响应为裸 payload（去掉 envelope 的 code/message 两行）
 	Data GameInfo `json:"data,omitempty"`
 }
 
@@ -186,25 +160,17 @@ type GameInfo struct {
 
 2. request definition
 
-
-
 ```go
 type GameDeleteRequest struct {
 	ID string `path:"id"`
 }
 ```
 
-
 3. response definition
 
-
-
 ```go
-type GameDeleteResponse struct {
-	Code int `json:"code"`
-	Message string `json:"message"`
-	Data interface{} `json:"data,omitempty"`
-}
+// 实际响应为裸 payload（业务 DTO 直接 JSON 序列化），无 code/message envelope。
+// 错误统一 { "error", "message", "details" }（见 rest.md）。
 ```
 
 ### 6. "获取游戏环境列表"
@@ -218,23 +184,17 @@ type GameDeleteResponse struct {
 
 2. request definition
 
-
-
 ```go
 type GameEnvsListRequest struct {
 	ID string `path:"id"`
 }
 ```
 
-
 3. response definition
-
-
 
 ```go
 type GameEnvsListResponse struct {
-	Code int `json:"code"`
-	Message string `json:"message"`
+	// 响应为裸 payload（去掉 envelope 的 code/message 两行）
 	Data GameEnvsData `json:"data,omitempty"`
 }
 
@@ -254,8 +214,6 @@ type GameEnvsData struct {
 
 2. request definition
 
-
-
 ```go
 type GameEnvAddRequest struct {
 	ID string `path:"id"`
@@ -264,17 +222,11 @@ type GameEnvAddRequest struct {
 }
 ```
 
-
 3. response definition
 
-
-
 ```go
-type GameEnvAddResponse struct {
-	Code int `json:"code"`
-	Message string `json:"message"`
-	Data interface{} `json:"data,omitempty"`
-}
+// 实际响应为裸 payload（业务 DTO 直接 JSON 序列化），无 code/message envelope。
+// 错误统一 { "error", "message", "details" }（见 rest.md）。
 ```
 
 ### 8. "更新游戏环境"
@@ -288,8 +240,6 @@ type GameEnvAddResponse struct {
 
 2. request definition
 
-
-
 ```go
 type GameEnvUpdateRequest struct {
 	ID string `path:"id"`
@@ -299,17 +249,11 @@ type GameEnvUpdateRequest struct {
 }
 ```
 
-
 3. response definition
 
-
-
 ```go
-type GameEnvUpdateResponse struct {
-	Code int `json:"code"`
-	Message string `json:"message"`
-	Data interface{} `json:"data,omitempty"`
-}
+// 实际响应为裸 payload（业务 DTO 直接 JSON 序列化），无 code/message envelope。
+// 错误统一 { "error", "message", "details" }（见 rest.md）。
 ```
 
 ### 9. "删除游戏环境"
@@ -323,8 +267,6 @@ type GameEnvUpdateResponse struct {
 
 2. request definition
 
-
-
 ```go
 type GameEnvDeleteRequest struct {
 	ID string `path:"id"`
@@ -332,16 +274,9 @@ type GameEnvDeleteRequest struct {
 }
 ```
 
-
 3. response definition
 
-
-
 ```go
-type GameEnvDeleteResponse struct {
-	Code int `json:"code"`
-	Message string `json:"message"`
-	Data interface{} `json:"data,omitempty"`
-}
+// 实际响应为裸 payload（业务 DTO 直接 JSON 序列化），无 code/message envelope。
+// 错误统一 { "error", "message", "details" }（见 rest.md）。
 ```
-

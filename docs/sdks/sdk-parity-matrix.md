@@ -3,7 +3,7 @@
 本文档是使用者文档入口。跨语言功能点的单一事实来源是源码目录中的
 [`sdks/SDK_FEATURE_MATRIX.md`](https://github.com/cuihairu/croupier/blob/main/sdks/SDK_FEATURE_MATRIX.md)；本文只摘录关键基线和当前必须避免误解的能力状态。
 
-不要把 Server 侧 OpenAPI Source 上传能力等同于每个 SDK 都支持本地 OpenAPI 解析。当前只有 Go SDK 提供并验证了 `RegisterFromOpenAPI` 等价 helper；JS/TS、Python、Java、C#、C++ 只能按 Descriptor v2 字段注册函数，不能在文档或示例中宣称已支持本地 OpenAPI helper。
+不要把 Server 侧 OpenAPI Source 上传能力等同于每个 SDK 都支持本地 OpenAPI 解析。六语言 SDK 均已提供 OpenAPI 导入 helper（Go `RegisterFromOpenAPI`、Python `register_from_openapi`、Java `OpenAPIImporter`、JS `registerFromOpenAPI`、C# `OpenAPIImporter`、C++ `RegisterFromOpenAPI(WithHandlers)`），语义以 [Descriptor v2](../architecture/openapi-sdk-descriptor-v2.md) 为准；具体方法清单以 [`sdks/SDK_FEATURE_MATRIX.md`](https://github.com/cuihairu/croupier/blob/main/sdks/SDK_FEATURE_MATRIX.md) 为单一事实来源。
 
 ## 评估口径
 
@@ -123,14 +123,16 @@ OpenAPI helper 只能解析函数能力契约字段：`operationId/tags/summary/
 
 详细功能状态以 [`sdks/SDK_FEATURE_MATRIX.md`](https://github.com/cuihairu/croupier/blob/main/sdks/SDK_FEATURE_MATRIX.md) 为准；每个 SDK 的 README、测试矩阵和 CI 结果只能补充语言本地使用说明，不能覆盖该矩阵。
 
-## SDK 仓库
+## SDK 源码位置
 
-- Go: `croupier-sdk-go`
-- C++: `croupier-sdk-cpp`
-- Java: `croupier-sdk-java`
-- JS/TS: `croupier-sdk-js`
-- Python: `croupier-sdk-python`
-- C#: `croupier-sdk-csharp`
+六语言 SDK 已收编进本仓库 monorepo，源码与说明以各目录 README 为准：
+
+- Go: [`sdks/go/`](https://github.com/cuihairu/croupier/blob/main/sdks/go/README.md)
+- C++: [`sdks/cpp/`](https://github.com/cuihairu/croupier/blob/main/sdks/cpp/README.md)
+- Java: [`sdks/java/`](https://github.com/cuihairu/croupier/blob/main/sdks/java/README.md)
+- JS/TS: [`sdks/js/`](https://github.com/cuihairu/croupier/blob/main/sdks/js/README.md)
+- Python: [`sdks/python/`](https://github.com/cuihairu/croupier/blob/main/sdks/python/README.md)
+- C#: [`sdks/csharp/`](https://github.com/cuihairu/croupier/blob/main/sdks/csharp/README.md)
 
 ## 相关文档
 

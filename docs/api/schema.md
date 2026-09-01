@@ -11,8 +11,6 @@
 
 2. request definition
 
-
-
 ```go
 type SchemasListRequest struct {
 	Page int `form:"page,optional"`
@@ -20,17 +18,11 @@ type SchemasListRequest struct {
 }
 ```
 
-
 3. response definition
 
-
-
 ```go
-type SchemasListResponse struct {
-	Code int `json:"code"`
-	Message string `json:"message"`
-	Data interface{} `json:"data,omitempty"`
-}
+// 实际响应为裸 payload（业务 DTO 直接 JSON 序列化），无 code/message envelope。
+// 错误统一 { "error", "message", "details" }（见 rest.md）。
 ```
 
 ### 2. "创建模式"
@@ -44,8 +36,6 @@ type SchemasListResponse struct {
 
 2. request definition
 
-
-
 ```go
 type SchemaCreateRequest struct {
 	Name string `json:"name"`
@@ -53,17 +43,11 @@ type SchemaCreateRequest struct {
 }
 ```
 
-
 3. response definition
 
-
-
 ```go
-type SchemaCreateResponse struct {
-	Code int `json:"code"`
-	Message string `json:"message"`
-	Data interface{} `json:"data,omitempty"`
-}
+// 实际响应为裸 payload（业务 DTO 直接 JSON 序列化），无 code/message envelope。
+// 错误统一 { "error", "message", "details" }（见 rest.md）。
 ```
 
 ### 3. "获取模式详情"
@@ -77,25 +61,17 @@ type SchemaCreateResponse struct {
 
 2. request definition
 
-
-
 ```go
 type SchemaDetailRequest struct {
 	ID string `path:"id"`
 }
 ```
 
-
 3. response definition
 
-
-
 ```go
-type SchemaDetailResponse struct {
-	Code int `json:"code"`
-	Message string `json:"message"`
-	Data interface{} `json:"data,omitempty"`
-}
+// 实际响应为裸 payload（业务 DTO 直接 JSON 序列化），无 code/message envelope。
+// 错误统一 { "error", "message", "details" }（见 rest.md）。
 ```
 
 ### 4. "更新模式"
@@ -109,8 +85,6 @@ type SchemaDetailResponse struct {
 
 2. request definition
 
-
-
 ```go
 type SchemaUpdateRequest struct {
 	ID string `path:"id"`
@@ -118,17 +92,11 @@ type SchemaUpdateRequest struct {
 }
 ```
 
-
 3. response definition
 
-
-
 ```go
-type SchemaUpdateResponse struct {
-	Code int `json:"code"`
-	Message string `json:"message"`
-	Data interface{} `json:"data,omitempty"`
-}
+// 实际响应为裸 payload（业务 DTO 直接 JSON 序列化），无 code/message envelope。
+// 错误统一 { "error", "message", "details" }（见 rest.md）。
 ```
 
 ### 5. "删除模式"
@@ -142,25 +110,17 @@ type SchemaUpdateResponse struct {
 
 2. request definition
 
-
-
 ```go
 type SchemaDeleteRequest struct {
 	ID string `path:"id"`
 }
 ```
 
-
 3. response definition
 
-
-
 ```go
-type SchemaDeleteResponse struct {
-	Code int `json:"code"`
-	Message string `json:"message"`
-	Data interface{} `json:"data,omitempty"`
-}
+// 实际响应为裸 payload（业务 DTO 直接 JSON 序列化），无 code/message envelope。
+// 错误统一 { "error", "message", "details" }（见 rest.md）。
 ```
 
 ### 6. "获取模式UI配置"
@@ -174,25 +134,17 @@ type SchemaDeleteResponse struct {
 
 2. request definition
 
-
-
 ```go
 type SchemaUIConfigRequest struct {
 	ID string `path:"id"`
 }
 ```
 
-
 3. response definition
 
-
-
 ```go
-type SchemaUIConfigResponse struct {
-	Code int `json:"code"`
-	Message string `json:"message"`
-	Data interface{} `json:"data,omitempty"`
-}
+// 实际响应为裸 payload（业务 DTO 直接 JSON 序列化），无 code/message envelope。
+// 错误统一 { "error", "message", "details" }（见 rest.md）。
 ```
 
 ### 7. "更新模式UI配置"
@@ -206,8 +158,6 @@ type SchemaUIConfigResponse struct {
 
 2. request definition
 
-
-
 ```go
 type SchemaUIConfigUpdateRequest struct {
 	ID string `path:"id"`
@@ -215,17 +165,11 @@ type SchemaUIConfigUpdateRequest struct {
 }
 ```
 
-
 3. response definition
 
-
-
 ```go
-type SchemaUIConfigUpdateResponse struct {
-	Code int `json:"code"`
-	Message string `json:"message"`
-	Data interface{} `json:"data,omitempty"`
-}
+// 实际响应为裸 payload（业务 DTO 直接 JSON 序列化），无 code/message envelope。
+// 错误统一 { "error", "message", "details" }（见 rest.md）。
 ```
 
 ### 8. "验证模式数据"
@@ -239,8 +183,6 @@ type SchemaUIConfigUpdateResponse struct {
 
 2. request definition
 
-
-
 ```go
 type SchemaValidateRequest struct {
 	ID string `path:"id"`
@@ -248,17 +190,11 @@ type SchemaValidateRequest struct {
 }
 ```
 
-
 3. response definition
 
-
-
 ```go
-type SchemaValidateResponse struct {
-	Code int `json:"code"`
-	Message string `json:"message"`
-	Data interface{} `json:"data,omitempty"`
-}
+// 实际响应为裸 payload（业务 DTO 直接 JSON 序列化），无 code/message envelope。
+// 错误统一 { "error", "message", "details" }（见 rest.md）。
 ```
 
 ### 9. "原始模式验证"
@@ -272,8 +208,6 @@ type SchemaValidateResponse struct {
 
 2. request definition
 
-
-
 ```go
 type SchemaRawValidateRequest struct {
 	Schema interface{} `json:"schema"`
@@ -281,16 +215,9 @@ type SchemaRawValidateRequest struct {
 }
 ```
 
-
 3. response definition
 
-
-
 ```go
-type SchemaRawValidateResponse struct {
-	Code int `json:"code"`
-	Message string `json:"message"`
-	Data interface{} `json:"data,omitempty"`
-}
+// 实际响应为裸 payload（业务 DTO 直接 JSON 序列化），无 code/message envelope。
+// 错误统一 { "error", "message", "details" }（见 rest.md）。
 ```
-

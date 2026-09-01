@@ -64,7 +64,7 @@ type Config struct {
 	// 通常含 IO 等待时可在连接配置里显式调高）。显式有界——每请求
 	// 一个 goroutine 的无界模型在并发下会爆内存。
 	InboundWorkers int
-	// InboundQLen 是入站请求队列长度（0=默认 32）。队列满时新请求
+	// InboundQLen 是入站请求队列长度（0=默认 workers×4）。队列满时新请求
 	// 立即回错误响应（Agent 侧 failover 接管），不排队积累内存。
 	InboundQLen int
 }

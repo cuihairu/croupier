@@ -229,6 +229,12 @@ interface NavigationSpec {
 
 PageProposal 根据 resource/page key 提供默认值；PageDraft 保存最终值；PublishedPageSpec 是 Console 动态菜单的唯一来源。静态 locale 与字典都不得成为动态页面事实源。`ConditionSpec` 只读取当前表单或 page state，禁止通过可见性条件访问 row、详情、外部函数或任意 JSONPath，以保证保存、发布和运行时具有一致语义。
 
+## 组件模板 API（相关 wire 契约）
+
+组件模板（V4 复用层）的 REST 契约不承载 PageSpec 本体，但模板 `tree`
+字段持有组合页 PageNode 子树（经组合页编辑器编译为 PageSpec 后发布）。
+端点与 DTO 定义见 [组件模板 API](../api/component-templates.md)。
+
 ## ABI 与版本
 
 `rendererSchemaVersion`（当前 `page-spec:1`）、`generatorVersion`（当前 `page-generator:1`）和各 snapshot digest 必须单独保存。发布校验必须拒绝未知版本、未知节点、未知字段和非法 mapping。页面运行时不得尝试降级、猜测或转换成其他 layout/schema。

@@ -20,12 +20,12 @@
 
 ```go
 type ListRequest struct {
-	FunctionID string `form:"function_id"`
-	GameID     string `form:"game_id"`
+	FunctionID string `form:"functionId"`
+	GameID     string `form:"gameId"`
 	Env        string `form:"env"`
 	Status     string `form:"status"`
 	Page       int    `form:"page"`
-	PageSize   int    `form:"page_size"`
+	PageSize   int    `form:"pageSize"`
 }
 ```
 

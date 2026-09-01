@@ -3,13 +3,17 @@
 ## 安装
 
 ```bash
-npm install @croupier/sdk
+npm install croupier-js-sdk
 ```
 
 ## 最小示例
 
 ```typescript
-import { createClient, FunctionDescriptor, ClientConfig } from "@croupier/sdk";
+import {
+  createClient,
+  FunctionDescriptor,
+  ClientConfig,
+} from "croupier-js-sdk";
 
 async function main() {
   const config: ClientConfig = {

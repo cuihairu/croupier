@@ -39,6 +39,9 @@
 - `risk`
 - `enabled`
 - `permission`
+- `execution`（ExecutionSemantics：超时/重试/并发语义）
+- `approvalRequired`（是否需审批）
+- `approvalPolicyKey`（审批策略键；两字段合称 ApprovalPolicy）
 
 语义约束：
 

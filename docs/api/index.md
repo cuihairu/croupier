@@ -39,17 +39,17 @@ API 文档当前处于收敛期。新增或修改接口时按以下规则维护�
 
 ## 主要接口分类
 
-| 分类       | Canonical 文档                                                                                                                                                                                      |
-| ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 认证与基础 | [认证 API](./auth.md)、[REST 契约](./rest.md)、[Schema API](./schema.md)、[元数据 API](./meta.md)                                                                                                   |
-| 核心业务   | [游戏 API](./game.md)、[玩家 API](./player.md)、[函数 API](./function.md)、[函数元数据注册](./meta.md)、[任务 API](./task.md)、[消息 API](./message.md)、[配置 API](./config.md)                    |
-| 审批与审计 | [审批 API](./approval.md)、[审计 API](./audit.md)                                                                                                                                                   |
-| 页面产品域 | [页面与控制台 API](./page.md)（Proposal / Pages / Versioning / Console）、[Resource Catalog API](./resource.md)、[OpenAPI 注册](../guide/integrations/openapi-registration.md)                      |
-| 运维与平台 | [运维 API](./ops.md)、[Agent API](./agent.md)、[节点 API](./node.md)、[注册表 API](./registry.md)、[平台 API](./platform.md)、[Provider API](./provider.md)                                         |
-| 数据分析   | [数据分析 API](./analytics.md)、[分析概览 API](./analytics_overview.md)、[行为分析 API](./analytics_behavior.md)、[留存分析 API](./analytics_retention.md)、[支付分析 API](./analytics_payments.md) |
-| 控制台域   | [管理员 API](./admin.md)、[Profile API](./profile.md)                                                                                                                                               |
-| 运营支持   | [分配 API](./assignment.md)、[工单 API](./ticket.md)、[反馈 API](./feedback.md)、[支持 API](./support.md)、[FAQ](./faq.md)                                                                          |
-| 系统能力   | [存储 API](./storage.md)、[备份 API](./backup.md)、[迁移 API](./migrate.md)、[监控 API](./monitoring.md)、[证书 API](./certificate.md)、[限流 API](./rate_limit.md)、[告警 API](./alert.md)         |
+| 分类       | Canonical 文档                                                                                                                                                                                                                             |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 认证与基础 | [认证 API](./auth.md)、[REST 契约](./rest.md)、[Schema API](./schema.md)、[元数据 API](./meta.md)                                                                                                                                          |
+| 核心业务   | [游戏 API](./game.md)、[玩家 API](./player.md)、[函数 API](./function.md)、[函数元数据注册](./meta.md)、[任务 API](./task.md)、[消息 API](./message.md)、[配置 API](./config.md)                                                           |
+| 审批与审计 | [审批 API](./approval.md)、[审计 API](./audit.md)                                                                                                                                                                                          |
+| 页面产品域 | [页面与控制台 API](./page.md)（Proposal / Pages / Versioning / Console）、[Resource Catalog API](./resource.md)、[OpenAPI 注册](../guide/integrations/openapi-registration.md)                                                             |
+| 运维与平台 | [运维 API](./ops.md)、[Agent API](./agent.md)、[节点 API](./node.md)、[注册表 API](./registry.md)、[平台 API](./platform.md)、[Provider API](./provider.md)                                                                                |
+| 数据分析   | [数据分析 API](./analytics.md)、[分析概览 API](./analytics_overview.md)、[行为分析 API](./analytics_behavior.md)、[留存分析 API](./analytics_retention.md)、[支付分析 API](./analytics_payments.md)                                        |
+| 控制台域   | [管理员 API](./admin.md)、[Profile API](./profile.md)                                                                                                                                                                                      |
+| 运营支持   | [分配 API](./assignment.md)、[工单 API](./ticket.md)、[反馈 API](./feedback.md)、[支持 API](./support.md)、[FAQ](./faq.md)                                                                                                                 |
+| 系统能力   | [存储 API](./storage.md)、[备份 API](./backup.md)、[监控 API](./monitoring.md)、[组件模板 API](./component-templates.md)、[定时调度 API](./schedule.md)、[证书 API](./certificate.md)、[限流 API](./rate_limit.md)、[告警 API](./alert.md) |
 
 ## 兼容页
 

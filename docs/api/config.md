@@ -11,8 +11,6 @@
 
 2. request definition
 
-
-
 ```go
 type ConfigUpsertRequest struct {
 	Key string `json:"key"` // 配置键
@@ -20,17 +18,11 @@ type ConfigUpsertRequest struct {
 }
 ```
 
-
 3. response definition
 
-
-
 ```go
-type ConfigUpsertResponse struct {
-	Code int `json:"code"`
-	Message string `json:"message"`
-	Data interface{} `json:"data,omitempty"`
-}
+// 实际响应为裸 payload（业务 DTO 直接 JSON 序列化），无 code/message envelope。
+// 错误统一 { "error", "message", "details" }（见 rest.md）。
 ```
 
 ### 2. "获取配置版本详情"
@@ -44,8 +36,6 @@ type ConfigUpsertResponse struct {
 
 2. request definition
 
-
-
 ```go
 type ConfigVersionDetailRequest struct {
 	Key string `form:"key"` // 配置键
@@ -53,17 +43,11 @@ type ConfigVersionDetailRequest struct {
 }
 ```
 
-
 3. response definition
 
-
-
 ```go
-type ConfigVersionDetailResponse struct {
-	Code int `json:"code"`
-	Message string `json:"message"`
-	Data interface{} `json:"data,omitempty"`
-}
+// 实际响应为裸 payload（业务 DTO 直接 JSON 序列化），无 code/message envelope。
+// 错误统一 { "error", "message", "details" }（见 rest.md）。
 ```
 
 ### 3. "获取配置版本列表"
@@ -77,24 +61,15 @@ type ConfigVersionDetailResponse struct {
 
 2. request definition
 
-
-
 ```go
 type ConfigVersionsRequest struct {
 	Key string `form:"key"` // 配置键
 }
 ```
 
-
 3. response definition
 
-
-
 ```go
-type ConfigVersionsResponse struct {
-	Code int `json:"code"`
-	Message string `json:"message"`
-	Data interface{} `json:"data,omitempty"`
-}
+// 实际响应为裸 payload（业务 DTO 直接 JSON 序列化），无 code/message envelope。
+// 错误统一 { "error", "message", "details" }（见 rest.md）。
 ```
-

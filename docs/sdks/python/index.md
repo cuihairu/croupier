@@ -35,6 +35,11 @@ client = CroupierClient(
     )
 )
 
+client.register_function(
+    function_id="hello.world",
+    handler=lambda payload: {"message": "hello"},
+)
+
 client.connect()
 ```
 

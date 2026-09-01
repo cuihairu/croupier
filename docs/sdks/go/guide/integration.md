@@ -26,8 +26,9 @@ func main() {
 
     _ = client.RegisterFunction(croupier.FunctionDescriptor{
         ID: "hello.world", Version: "0.1.0", Enabled: true,
-    }, func(ctx context.Context, payload string) (string, error) {
-        return `{\"message\":\"Hello from Go!\"}`, nil
+    }, func(ctx context.Context, payload []byte) ([]byte, error) {
+        // 契约签名：FunctionHandler = func(ctx, payload []byte) ([]byte, error)
+        return []byte(`{"message":"Hello from Go!"}`), nil
     })
 }
 ```

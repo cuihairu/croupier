@@ -11,16 +11,11 @@
 
 2. request definition
 
-
-
 3. response definition
-
-
 
 ```go
 type ListPlatformsResponse struct {
-	Code int `json:"code"`
-	Message string `json:"message"`
+	// 响应为裸 payload（去掉 envelope 的 code/message 两行）
 	Platforms []PlatformInfo `json:"platforms,omitempty"`
 }
 ```
@@ -36,16 +31,11 @@ type ListPlatformsResponse struct {
 
 2. request definition
 
-
-
 3. response definition
-
-
 
 ```go
 type ListPlatformMethodsResponse struct {
-	Code int `json:"code"`
-	Message string `json:"message"`
+	// 响应为裸 payload（去掉 envelope 的 code/message 两行）
 	Methods []string `json:"methods,omitempty"`
 }
 ```
@@ -61,8 +51,6 @@ type ListPlatformMethodsResponse struct {
 
 2. request definition
 
-
-
 ```go
 type CallPlatformRequest struct {
 	Platform string `json:"platform"` // 平台名称，如 "quicksdk"
@@ -71,17 +59,11 @@ type CallPlatformRequest struct {
 }
 ```
 
-
 3. response definition
-
-
 
 ```go
 type CallPlatformResponse struct {
-	Code int `json:"code"`
-	Message string `json:"message"`
+	// 响应为裸 payload（去掉 envelope 的 code/message 两行）
 	Response interface{} `json:"response,omitempty"` // 平台返回的响应
 }
 ```
-
-

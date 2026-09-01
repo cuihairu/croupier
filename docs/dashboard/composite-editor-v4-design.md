@@ -173,12 +173,14 @@ type ComponentTemplate struct {
 ### 3.3 选中多节点 → 保存为组件
 
 ```text
-画布上 Shift 点选多个节点 →
-  右键 → 「保存为组件」→
+画布上选中 1 个或多个节点（点选累积）→
+  顶栏「保存为组件（N）」按钮 →
   弹出表单：组件名 / 描述 / 分类 / 图标 →
   序列化选中的节点子树（含引用关系）→
   存入 ComponentTemplate（builtin=false）
 ```
+
+（无右键菜单入口——4.4 使用指南描述的顶栏按钮是唯一入口。）
 
 ### 3.4 组件实例展开编辑
 
@@ -206,17 +208,15 @@ DELETE /api/v1/component-templates/:key      # 删除（内置不可删）
 
 ```text
 POST /api/v1/component-templates/regenerate  # 手动触发契约扫描→生成
-                                             #（agent 注册时自动触发）
 ```
 
-### 4.3 拖入时检查
+### 4.3 拖入时可用性检查（前端本地实现）
 
-```text
-POST /api/v1/component-templates/:key/check  # 检查当前 scope 可用性
-→ { "available": true/false, "missing": ["mail.send"] }
-```
+无 `check` 端点：组件库面板加载时以当前 scope 的函数集（`availableFnIds`）
+比对模板 `requiredFunctions`，缺失时组件卡置灰并提示缺少的函数
+（`ComponentLibrary.tsx` 的 `checkAvailable`）。
 
-## 4.5 使用指南
+## 4.4 使用指南
 
 ### 从组件库搭建页面（30 秒一个 CRUD）
 
@@ -234,7 +234,7 @@ POST /api/v1/component-templates/:key/check  # 检查当前 scope 可用性
 
 ### 管理组件模板
 
-- 页面：`/system/component-templates`（左侧菜单「组件模板」）
+- 页面：`/functions/component-templates`（「函数与页面」菜单域下）
 - 操作：查看卡片列表 / 预览树结构 JSON / 从契约重新生成 / 删除自定义组件
 - 内置组件（契约自动生成）不可删除
 
@@ -254,7 +254,7 @@ POST /api/v1/component-templates/:key/check  # 检查当前 scope 可用性
 | ✅ V4-1  | 后端模型   | ComponentTemplate 表 + CRUD API + 契约扫描自动生成 | 1d     |
 | ✅ V4-2  | 组件库面板 | 左栏 Tab + 搜索/分类/描述展示 + 拖入               | 0.5d   |
 | ✅ V4-3  | 实例化     | tree 复制 + id 重分配 + 引用重映射 + scope 检查    | 0.5d   |
-| ✅ V4-4  | 保存为组件 | 选中多节点 → 右键 → 序列化保存                     | 0.5d   |
+| ✅ V4-4  | 保存为组件 | 选中节点 → 顶栏「保存为组件」→ 序列化保存          | 0.5d   |
 | ✅ V4-5  | 预置模板   | CRUD 资源→「资源管理」组件（契约推导）             | 1d     |
 | ✅ V4-6  | 集成测试   | 拖入→编辑→保存→发布全链 + round-trip               | 0.5d   |
 | **合计** |            |                                                    | **4d** |

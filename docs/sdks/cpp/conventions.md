@@ -32,6 +32,8 @@
 - `operation`
 - `capability`
 - `risk`
+- `execution`（ExecutionSemantics：超时/重试/并发语义）
+- `approvalRequired` / `approvalPolicyKey`（ApprovalPolicy）
 - `enabled`
 - `permission`
 

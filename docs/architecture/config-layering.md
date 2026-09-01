@@ -10,7 +10,7 @@ Accepted（分层模型定稿）。原则一句话：**逐层覆盖，L3 最高�
 
 ## 1. 问题
 
-网站配置中心（site-settings-design.md）引出通用问题：一个配置项同时存在于配置文件和数据库时，谁是唯一来源？
+网站配置中心（../research/site-settings-design.md）引出通用问题：一个配置项同时存在于配置文件和数据库时，谁是唯一来源？
 
 采用业界标准的**分层覆盖模型**（Kubernetes/Spring Cloud 同款思路）：
 
@@ -66,7 +66,7 @@ L3 白名单制（§4 表格标注）。准入标准：**纯运行时行为/展�
 | telemetry/collector                         | **L2 only**                | 启动期接线                                                                                  |
 | featureFlags 五域开关                       | **L2 + L3 覆盖（已落地）** | L2=物理裁剪（路由注册）；L3=运行时软开关（middleware 403），合成 L2∧L3，key 为 `features.*` |
 | 观测集成 URL（alertmanager/grafana/jaeger） | **L3 主战场（已落地）**    | key 为 `obs.*`，自 OpsStateStore 内存态迁入，重启不丢；env var 为 L2 兜底                   |
-| 站点品牌/logo/页脚/登录页                   | **L3 主战场**              | site-settings-design.md                                                                     |
+| 站点品牌/logo/页脚/登录页                   | **L3 主战场**              | ../research/site-settings-design.md                                                         |
 | 默认语言                                    | L2 缺省 + L3 覆盖          |                                                                                             |
 | 告警阈值默认（dbmon 等）                    | L1 内置 + 未来 L3          |                                                                                             |
 | SMTP/通知渠道（P2 待迁）                    | 未来 L3                    | 审批/告警通知的配置来源                                                                     |

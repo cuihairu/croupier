@@ -122,7 +122,7 @@ ANALYTICS_INGEST_SECRET=dev-secret ./bin/ingest --addr :8088 --secret dev-secret
 ## 健康检查
 
 ```bash
-curl http://localhost:18780/api/v1/monitoring/health
+curl http://localhost:18780/healthz
 curl http://localhost:8088/healthz
 ```
 

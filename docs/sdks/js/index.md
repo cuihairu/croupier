@@ -20,13 +20,13 @@ TypeScript 优先的 Node.js SDK，用于连接 Croupier Agent、注册函数并
 ## 安装
 
 ```bash
-npm install @croupier/sdk
+npm install croupier-js-sdk
 ```
 
 ## 快速开始
 
 ```ts
-import { CroupierClient } from "@croupier/sdk";
+import { CroupierClient } from "croupier-js-sdk";
 
 const client = new CroupierClient({
   agentAddr: "127.0.0.1:19091",

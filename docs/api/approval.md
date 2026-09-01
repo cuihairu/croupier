@@ -11,8 +11,6 @@
 
 2. request definition
 
-
-
 ```go
 type ApprovalsListRequest struct {
 	Page int `form:"page,optional"` // 页码
@@ -21,17 +19,11 @@ type ApprovalsListRequest struct {
 }
 ```
 
-
 3. response definition
 
-
-
 ```go
-type ApprovalsListResponse struct {
-	Code int `json:"code"`
-	Message string `json:"message"`
-	Data interface{} `json:"data,omitempty"`
-}
+// 实际响应为裸 payload（业务 DTO 直接 JSON 序列化），无 code/message envelope。
+// 错误统一 { "error", "message", "details" }（见 rest.md）。
 ```
 
 ### 2. "获取审批详情"
@@ -45,25 +37,17 @@ type ApprovalsListResponse struct {
 
 2. request definition
 
-
-
 ```go
 type ApprovalGetRequest struct {
 	ID string `path:"id"` // 审批ID
 }
 ```
 
-
 3. response definition
 
-
-
 ```go
-type ApprovalGetResponse struct {
-	Code int `json:"code"`
-	Message string `json:"message"`
-	Data interface{} `json:"data,omitempty"`
-}
+// 实际响应为裸 payload（业务 DTO 直接 JSON 序列化），无 code/message envelope。
+// 错误统一 { "error", "message", "details" }（见 rest.md）。
 ```
 
 ### 3. "通过审批"
@@ -77,25 +61,17 @@ type ApprovalGetResponse struct {
 
 2. request definition
 
-
-
 ```go
 type ApprovalApproveRequest struct {
 	ID string `path:"id"` // 审批ID
 }
 ```
 
-
 3. response definition
 
-
-
 ```go
-type ApprovalApproveResponse struct {
-	Code int `json:"code"`
-	Message string `json:"message"`
-	Data interface{} `json:"data,omitempty"`
-}
+// 实际响应为裸 payload（业务 DTO 直接 JSON 序列化），无 code/message envelope。
+// 错误统一 { "error", "message", "details" }（见 rest.md）。
 ```
 
 ### 4. "拒绝审批"
@@ -109,8 +85,6 @@ type ApprovalApproveResponse struct {
 
 2. request definition
 
-
-
 ```go
 type ApprovalRejectRequest struct {
 	ID string `path:"id"` // 审批ID
@@ -118,16 +92,9 @@ type ApprovalRejectRequest struct {
 }
 ```
 
-
 3. response definition
 
-
-
 ```go
-type ApprovalRejectResponse struct {
-	Code int `json:"code"`
-	Message string `json:"message"`
-	Data interface{} `json:"data,omitempty"`
-}
+// 实际响应为裸 payload（业务 DTO 直接 JSON 序列化），无 code/message envelope。
+// 错误统一 { "error", "message", "details" }（见 rest.md）。
 ```
-

@@ -94,7 +94,7 @@ sequenceDiagram
     participant Agent as Agent
     participant Server as Server
 
-    Agent->>Server: AgentConnectRequest / RegisterRequest
+    Agent->>Server: RegisterRequest（演进命名 AgentConnectRequest）
     Server-->>Agent: AgentConnectResponse / RegisterResponse(session_id)
     Agent->>Server: Heartbeat
     Server-->>Agent: HeartbeatResponse

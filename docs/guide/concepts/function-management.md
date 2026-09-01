@@ -91,12 +91,16 @@ sequenceDiagram
 
 **风险等级 (`risk`)：**
 
-| 等级     | 说明       | 审批要求            | 允许角色       |
-| -------- | ---------- | ------------------- | -------------- |
-| `low`    | 低风险操作 | 无需审批            | user, operator |
-| `medium` | 中风险操作 | 无需审批，需审计    | operator       |
-| `high`   | 高风险操作 | 单管理员审批 + 审计 | admin          |
-| `danger` | 危险操作   | 双人审批 + 审计     | super_admin    |
+| 等级      | 说明       | 审批要求            | 允许角色       |
+| --------- | ---------- | ------------------- | -------------- |
+| `safe`    | 安全操作   | 无需审批            | user, operator |
+| `warning` | 提示级风险 | 无需审批，需审计    | operator       |
+| `high`    | 高风险操作 | 单管理员审批 + 审计 | admin          |
+| `danger`  | 危险操作   | 双人审批 + 审计     | super_admin    |
+
+> 契约层取值为 `safe/warning/high/danger`（Descriptor v2 规范，
+> `low/medium` 仅为 legacy 别名，注册时归一化）；政策层配置键
+> （configs/default-policies.yaml）沿用 low/medium/high/danger 历史命名。
 
 函数注册时会根据风险等级自动创建对应的默认政策，也可以通过 API 覆盖。详见[权限控制](./permissions.md)文档。
 

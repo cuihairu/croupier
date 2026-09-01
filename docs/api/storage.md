@@ -11,8 +11,6 @@
 
 2. request definition
 
-
-
 ```go
 type SignedUrlRequest struct {
 	Path string `form:"path"`
@@ -20,16 +18,9 @@ type SignedUrlRequest struct {
 }
 ```
 
-
 3. response definition
 
-
-
 ```go
-type SignedUrlResponse struct {
-	Code int `json:"code"`
-	Message string `json:"message"`
-	Data interface{} `json:"data,omitempty"`
-}
+// 实际响应为裸 payload（业务 DTO 直接 JSON 序列化），无 code/message envelope。
+// 错误统一 { "error", "message", "details" }（见 rest.md）。
 ```
-

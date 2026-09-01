@@ -20,8 +20,8 @@ Java SDK 面向 JVM 服务，提供连接 Agent、注册函数和处理调用的
 
 ```xml
 <dependency>
-  <groupId>croupier.cuihairu.github.io</groupId>
-  <artifactId>croupier-sdk-java</artifactId>
+  <groupId>io.github.cuihairu.croupier</groupId>
+  <artifactId>croupier-java-sdk</artifactId>
   <version>0.1.1</version>
 </dependency>
 ```

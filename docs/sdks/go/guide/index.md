@@ -20,6 +20,7 @@ Go SDK 适合并发服务场景，但处理器仍然需要明确边界，避免�
 
 ## 继续阅读
 
+- [OpenAPI 导入](./openapi)
 - [并发与调度](./threading)
 - [约定规范](./conventions)
 - [集成指南](./integration)

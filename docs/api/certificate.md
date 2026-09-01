@@ -11,8 +11,6 @@
 
 2. request definition
 
-
-
 ```go
 type CertificatesListRequest struct {
 	Page int `form:"page,optional"`
@@ -21,17 +19,11 @@ type CertificatesListRequest struct {
 }
 ```
 
-
 3. response definition
 
-
-
 ```go
-type CertificatesListResponse struct {
-	Code int `json:"code"`
-	Message string `json:"message"`
-	Data interface{} `json:"data,omitempty"`
-}
+// 实际响应为裸 payload（业务 DTO 直接 JSON 序列化），无 code/message envelope。
+// 错误统一 { "error", "message", "details" }（见 rest.md）。
 ```
 
 ### 2. "添加证书"
@@ -45,8 +37,6 @@ type CertificatesListResponse struct {
 
 2. request definition
 
-
-
 ```go
 type CertificateAddRequest struct {
 	Domain string `json:"domain"`
@@ -55,17 +45,11 @@ type CertificateAddRequest struct {
 }
 ```
 
-
 3. response definition
 
-
-
 ```go
-type CertificateAddResponse struct {
-	Code int `json:"code"`
-	Message string `json:"message"`
-	Data interface{} `json:"data,omitempty"`
-}
+// 实际响应为裸 payload（业务 DTO 直接 JSON 序列化），无 code/message envelope。
+// 错误统一 { "error", "message", "details" }（见 rest.md）。
 ```
 
 ### 3. "获取证书详情"
@@ -79,25 +63,17 @@ type CertificateAddResponse struct {
 
 2. request definition
 
-
-
 ```go
 type CertificateDetailRequest struct {
 	ID string `path:"id"`
 }
 ```
 
-
 3. response definition
 
-
-
 ```go
-type CertificateDetailResponse struct {
-	Code int `json:"code"`
-	Message string `json:"message"`
-	Data interface{} `json:"data,omitempty"`
-}
+// 实际响应为裸 payload（业务 DTO 直接 JSON 序列化），无 code/message envelope。
+// 错误统一 { "error", "message", "details" }（见 rest.md）。
 ```
 
 ### 4. "删除证书"
@@ -111,25 +87,17 @@ type CertificateDetailResponse struct {
 
 2. request definition
 
-
-
 ```go
 type CertificateDeleteRequest struct {
 	ID string `path:"id"`
 }
 ```
 
-
 3. response definition
 
-
-
 ```go
-type CertificateDeleteResponse struct {
-	Code int `json:"code"`
-	Message string `json:"message"`
-	Data interface{} `json:"data,omitempty"`
-}
+// 实际响应为裸 payload（业务 DTO 直接 JSON 序列化），无 code/message envelope。
+// 错误统一 { "error", "message", "details" }（见 rest.md）。
 ```
 
 ### 5. "检查证书状态"
@@ -143,25 +111,17 @@ type CertificateDeleteResponse struct {
 
 2. request definition
 
-
-
 ```go
 type CertificateCheckRequest struct {
 	ID string `path:"id"`
 }
 ```
 
-
 3. response definition
 
-
-
 ```go
-type CertificateCheckResponse struct {
-	Code int `json:"code"`
-	Message string `json:"message"`
-	Data interface{} `json:"data,omitempty"`
-}
+// 实际响应为裸 payload（业务 DTO 直接 JSON 序列化），无 code/message envelope。
+// 错误统一 { "error", "message", "details" }（见 rest.md）。
 ```
 
 ### 6. "添加证书告警"
@@ -175,8 +135,6 @@ type CertificateCheckResponse struct {
 
 2. request definition
 
-
-
 ```go
 type CertificateAlertAddRequest struct {
 	Domain string `json:"domain"`
@@ -184,17 +142,11 @@ type CertificateAlertAddRequest struct {
 }
 ```
 
-
 3. response definition
 
-
-
 ```go
-type CertificateAlertAddResponse struct {
-	Code int `json:"code"`
-	Message string `json:"message"`
-	Data interface{} `json:"data,omitempty"`
-}
+// 实际响应为裸 payload（业务 DTO 直接 JSON 序列化），无 code/message envelope。
+// 错误统一 { "error", "message", "details" }（见 rest.md）。
 ```
 
 ### 7. "获取证书告警列表"
@@ -208,8 +160,6 @@ type CertificateAlertAddResponse struct {
 
 2. request definition
 
-
-
 ```go
 type CertificateAlertsListRequest struct {
 	Page int `form:"page,optional"`
@@ -217,17 +167,11 @@ type CertificateAlertsListRequest struct {
 }
 ```
 
-
 3. response definition
 
-
-
 ```go
-type CertificateAlertsListResponse struct {
-	Code int `json:"code"`
-	Message string `json:"message"`
-	Data interface{} `json:"data,omitempty"`
-}
+// 实际响应为裸 payload（业务 DTO 直接 JSON 序列化），无 code/message envelope。
+// 错误统一 { "error", "message", "details" }（见 rest.md）。
 ```
 
 ### 8. "检查所有证书"
@@ -241,24 +185,16 @@ type CertificateAlertsListResponse struct {
 
 2. request definition
 
-
-
 ```go
 type CertificateCheckAllRequest struct {
 }
 ```
 
-
 3. response definition
 
-
-
 ```go
-type CertificateCheckAllResponse struct {
-	Code int `json:"code"`
-	Message string `json:"message"`
-	Data interface{} `json:"data,omitempty"`
-}
+// 实际响应为裸 payload（业务 DTO 直接 JSON 序列化），无 code/message envelope。
+// 错误统一 { "error", "message", "details" }（见 rest.md）。
 ```
 
 ### 9. "获取域名证书信息"
@@ -272,25 +208,17 @@ type CertificateCheckAllResponse struct {
 
 2. request definition
 
-
-
 ```go
 type CertificateDomainInfoRequest struct {
 	Domain string `form:"domain"`
 }
 ```
 
-
 3. response definition
 
-
-
 ```go
-type CertificateDomainInfoResponse struct {
-	Code int `json:"code"`
-	Message string `json:"message"`
-	Data interface{} `json:"data,omitempty"`
-}
+// 实际响应为裸 payload（业务 DTO 直接 JSON 序列化），无 code/message envelope。
+// 错误统一 { "error", "message", "details" }（见 rest.md）。
 ```
 
 ### 10. "获取即将过期的证书"
@@ -304,25 +232,17 @@ type CertificateDomainInfoResponse struct {
 
 2. request definition
 
-
-
 ```go
 type CertificateExpiringRequest struct {
 	Days int `form:"days,optional"`
 }
 ```
 
-
 3. response definition
 
-
-
 ```go
-type CertificateExpiringResponse struct {
-	Code int `json:"code"`
-	Message string `json:"message"`
-	Data interface{} `json:"data,omitempty"`
-}
+// 实际响应为裸 payload（业务 DTO 直接 JSON 序列化），无 code/message envelope。
+// 错误统一 { "error", "message", "details" }（见 rest.md）。
 ```
 
 ### 11. "获取证书统计"
@@ -336,23 +256,14 @@ type CertificateExpiringResponse struct {
 
 2. request definition
 
-
-
 ```go
 type CertificateStatsRequest struct {
 }
 ```
 
-
 3. response definition
 
-
-
 ```go
-type CertificateStatsResponse struct {
-	Code int `json:"code"`
-	Message string `json:"message"`
-	Data interface{} `json:"data,omitempty"`
-}
+// 实际响应为裸 payload（业务 DTO 直接 JSON 序列化），无 code/message envelope。
+// 错误统一 { "error", "message", "details" }（见 rest.md）。
 ```
-

@@ -22,7 +22,7 @@ title: 组合页编辑器 V3 使用与扩展指南
 | 多选           | 点选累积（高亮+计数）→ 顶栏「删除所选」批量删除                                                                                                             |
 | 撤销/重做      | 顶栏 ↩/↪ + **Ctrl+Z / Ctrl+Shift+Z**（50 步快照，覆盖全部树变更）                                                                                           |
 | 弹窗           | 栅格占位卡 → **双击/「进入弹窗编辑」切换画布为弹窗内部**（面包屑「页面 / 弹窗名」返回）；内部可放多个函数表单                                               |
-| 属性面板（右） | rjsf schema 驱动；**配置区滚动 + 事件/行操作区固定底部**；标题/宽度/自动执行/展示方式/列勾选（Checkbox）/成功后刷新                                         |
+| 属性面板（右） | rjsf schema 驱动；**「配置/动作」两 Tab**（Appsmith 式；选中按钮自动切「动作」Tab）；标题/宽度/自动执行/展示方式/列勾选（Checkbox）/成功后刷新              |
 | 行操作         | 表格属性面板可视化配置：行尾按钮 → 弹窗，行字段→表单参数映射下拉，危险标记                                                                                  |
 | 动作链         | 按钮主动作 + **后续动作列表**（执行/刷新/关弹窗/跳转/提示，按序执行，步骤可带参数来源）                                                                     |
 | **通用事件**   | 全组件事件（WinForms 式）：button=点击；**表格=行点击/行选中**（携带行数据上下文）；**表单=成功后/失败时**；文本/字段卡=点击——「动作」Tab 自动出现          |
@@ -57,7 +57,7 @@ title: 组合页编辑器 V3 使用与扩展指南
 
 - **顶部按钮**：拖「按钮」到表格后 → 属性「点击动作」=打开弹窗（编译为表格顶部按钮）；可加**后续动作**（如先执行再刷新）
 - **同一数据多视图**：再拖一次 player.list（key 自动 -2 后缀），配置不同列/宽度
-- **弹窗多组件**：弹窗内部可继续拖入字段卡/第二个表单（同 group 渲染进同一弹窗）
+- **弹窗多组件**：弹窗内部可继续拖入第二个函数表单（编辑器限制弹窗内仅 fnForm，V1 边界；同 group 渲染进同一弹窗）
 
 ## 3. 编译规则（编辑树 → CompositeSection）
 
@@ -119,7 +119,7 @@ propSchema 字段渲染约定：
 
 ```
 web/src/pages/PageStudio/CompositeEditor/
-├── model.ts          # PageNode 树模型 + 纯函数树操作（insert/remove/move/duplicate…8 用例）
+├── model.ts          # PageNode 树模型 + 纯函数树操作（insert/remove/move/duplicate/pruneDanglingBindings…10 用例）
 ├── registry.tsx      # ComponentDef 注册表（scaffold/propSchema/Preview）
 ├── components/builtin.tsx   # 七个内置组件定义
 ├── ComponentPanel.tsx# 组件面板（函数分组+基础组件+scope 引导）
@@ -139,11 +139,13 @@ web/src/pages/PageStudio/CompositeEditor/
 
 ## 7. 测试
 
-`__tests__/`：model 8（树操作）、registry 3（注册/约束）、scaffold 5+4（实例化快照/面板声明）、compiler 6（编译快照/多实例/警告）、decompile 3（回读 round-trip/破损引用）、canvas 3（弹窗占位卡交互）、action-editor 4（动作编排）。合计 36 用例，`pnpm --dir web test` 全绿。
+`__tests__/`：model 10（树操作/悬空绑定清理）、registry 3（注册/约束）、scaffold 8（实例化快照/面板声明）、compiler 11（编译快照/多实例/警告）、decompile 5（回读 round-trip/破损引用）、canvas 3（弹窗占位卡交互）、action-editor 6（动作编排）、integration 4（组合流程）。合计 50 用例，`pnpm --dir web test` 全绿。
+
+V4 新增文件：`ComponentLibrary.tsx`（组件库面板——模板浏览/实例化/id 重映射/scope 检查）、`types.ts`（共享类型）。
 
 ## 8. V4 展望：组件模板与三层组合
 
-V3 之上正在建设**组件模板层**（多函数封装为可复用组件，组件组合为页面），设计见
+V3 之上已上线**组件模板层 V4**（组件库面板实例化 + 选中节点保存为组件 + 契约自动生成模板），详见
 [组合页编辑器 V4 设计](./composite-editor-v4-design.md)。
 
 ## 9. 已知边界

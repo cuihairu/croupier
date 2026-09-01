@@ -11,8 +11,6 @@
 
 2. request definition
 
-
-
 ```go
 type OpsAgentMetaUpdateRequest struct {
 	AgentID string `json:"agentId"`
@@ -20,17 +18,11 @@ type OpsAgentMetaUpdateRequest struct {
 }
 ```
 
-
 3. response definition
 
-
-
 ```go
-type OpsAgentMetaResponse struct {
-	Code int `json:"code"`
-	Message string `json:"message"`
-	Data interface{} `json:"data,omitempty"`
-}
+// 实际响应为裸 payload（业务 DTO 直接 JSON 序列化），无 code/message envelope。
+// 错误统一 { "error", "message", "details" }（见 rest.md）。
 ```
 
 ### 2. "获取 Agent 列表"
@@ -44,22 +36,16 @@ type OpsAgentMetaResponse struct {
 
 2. request definition
 
-
-
 ```go
 type OpsAgentsListRequest struct {
 }
 ```
 
-
 3. response definition
-
-
 
 ```go
 type OpsAgentsListResponse struct {
-	Code int `json:"code"`
-	Message string `json:"message"`
+	// 响应为裸 payload（去掉 envelope 的 code/message 两行）
 	Data []OpsAgentInfo `json:"data,omitempty"`
 }
 ```
@@ -75,8 +61,6 @@ type OpsAgentsListResponse struct {
 
 2. request definition
 
-
-
 ```go
 type OpsExecCommandRequest struct {
 	AgentID string `path:"agentId"`
@@ -86,15 +70,11 @@ type OpsExecCommandRequest struct {
 }
 ```
 
-
 3. response definition
-
-
 
 ```go
 type OpsExecCommandResponse struct {
-	Code int `json:"code"`
-	Message string `json:"message"`
+	// 响应为裸 payload（去掉 envelope 的 code/message 两行）
 	Data OpsExecCommandResult `json:"data,omitempty"`
 }
 
@@ -117,23 +97,17 @@ type OpsExecCommandResult struct {
 
 2. request definition
 
-
-
 ```go
 type OpsAgentProcessesRequest struct {
 	AgentID string `path:"agentId"`
 }
 ```
 
-
 3. response definition
-
-
 
 ```go
 type OpsAgentProcessesResponse struct {
-	Code int `json:"code"`
-	Message string `json:"message"`
+	// 响应为裸 payload（去掉 envelope 的 code/message 两行）
 	Data []OpsManagedProcess `json:"data,omitempty"`
 }
 ```
@@ -149,8 +123,6 @@ type OpsAgentProcessesResponse struct {
 
 2. request definition
 
-
-
 ```go
 type OpsProcessActionRequest struct {
 	AgentID string `path:"agentId"`
@@ -159,15 +131,11 @@ type OpsProcessActionRequest struct {
 }
 ```
 
-
 3. response definition
-
-
 
 ```go
 type OpsProcessActionResponse struct {
-	Code int `json:"code"`
-	Message string `json:"message"`
+	// 响应为裸 payload（去掉 envelope 的 code/message 两行）
 	Data int32 `json:"pid,omitempty"`
 }
 ```
@@ -183,8 +151,6 @@ type OpsProcessActionResponse struct {
 
 2. request definition
 
-
-
 ```go
 type OpsProcessStartRequest struct {
 	AgentID string `path:"agentId"`
@@ -192,15 +158,11 @@ type OpsProcessStartRequest struct {
 }
 ```
 
-
 3. response definition
-
-
 
 ```go
 type OpsProcessStartResponse struct {
-	Code int `json:"code"`
-	Message string `json:"message"`
+	// 响应为裸 payload（去掉 envelope 的 code/message 两行）
 	Data int32 `json:"pid,omitempty"`
 }
 ```
@@ -216,8 +178,6 @@ type OpsProcessStartResponse struct {
 
 2. request definition
 
-
-
 ```go
 type OpsProcessActionRequest struct {
 	AgentID string `path:"agentId"`
@@ -226,15 +186,11 @@ type OpsProcessActionRequest struct {
 }
 ```
 
-
 3. response definition
-
-
 
 ```go
 type OpsProcessActionResponse struct {
-	Code int `json:"code"`
-	Message string `json:"message"`
+	// 响应为裸 payload（去掉 envelope 的 code/message 两行）
 	Data int32 `json:"pid,omitempty"`
 }
 ```
@@ -250,23 +206,17 @@ type OpsProcessActionResponse struct {
 
 2. request definition
 
-
-
 ```go
 type OpsAgentSystemInfoRequest struct {
 	AgentID string `path:"agentId"`
 }
 ```
 
-
 3. response definition
-
-
 
 ```go
 type OpsAgentSystemInfoResponse struct {
-	Code int `json:"code"`
-	Message string `json:"message"`
+	// 响应为裸 payload（去掉 envelope 的 code/message 两行）
 	Data OpsAgentSystemInfo `json:"data,omitempty"`
 }
 
@@ -294,8 +244,6 @@ type OpsAgentSystemInfo struct {
 
 2. request definition
 
-
-
 ```go
 type OpsAgentMetricsRequest struct {
 	AgentID string `form:"agentId,optional"`
@@ -304,15 +252,11 @@ type OpsAgentMetricsRequest struct {
 }
 ```
 
-
 3. response definition
-
-
 
 ```go
 type OpsAgentMetricsResponse struct {
-	Code int `json:"code"`
-	Message string `json:"message"`
+	// 响应为裸 payload（去掉 envelope 的 code/message 两行）
 	Data []OpsMetricsData `json:"data,omitempty"`
 }
 ```
@@ -328,17 +272,12 @@ type OpsAgentMetricsResponse struct {
 
 2. request definition
 
-
-
 ```go
 type OpsAlertsRequest struct {
 }
 ```
 
-
 3. response definition
-
-
 
 ```go
 type OpsAlertsResponse struct {
@@ -357,8 +296,6 @@ type OpsAlertsResponse struct {
 
 2. request definition
 
-
-
 ```go
 type OpsAlertSilenceRequest struct {
 	AlertID string `json:"alertId"`
@@ -366,17 +303,11 @@ type OpsAlertSilenceRequest struct {
 }
 ```
 
-
 3. response definition
 
-
-
 ```go
-type OpsAlertSilenceResponse struct {
-	Code int `json:"code"`
-	Message string `json:"message"`
-	Data interface{} `json:"data,omitempty"`
-}
+// 实际响应为裸 payload（业务 DTO 直接 JSON 序列化），无 code/message envelope。
+// 错误统一 { "error", "message", "details" }（见 rest.md）。
 ```
 
 ### 12. "创建备份"
@@ -390,25 +321,17 @@ type OpsAlertSilenceResponse struct {
 
 2. request definition
 
-
-
 ```go
 type OpsBackupCreateRequest struct {
 	Name string `json:"name,optional"`
 }
 ```
 
-
 3. response definition
 
-
-
 ```go
-type OpsBackupCreateResponse struct {
-	Code int `json:"code"`
-	Message string `json:"message"`
-	Data interface{} `json:"data,omitempty"`
-}
+// 实际响应为裸 payload（业务 DTO 直接 JSON 序列化），无 code/message envelope。
+// 错误统一 { "error", "message", "details" }（见 rest.md）。
 ```
 
 ### 13. "获取备份列表"
@@ -422,8 +345,6 @@ type OpsBackupCreateResponse struct {
 
 2. request definition
 
-
-
 ```go
 type OpsBackupsListRequest struct {
 	Page int `form:"page,optional"`
@@ -431,17 +352,11 @@ type OpsBackupsListRequest struct {
 }
 ```
 
-
 3. response definition
 
-
-
 ```go
-type OpsBackupsListResponse struct {
-	Code int `json:"code"`
-	Message string `json:"message"`
-	Data interface{} `json:"data,omitempty"`
-}
+// 实际响应为裸 payload（业务 DTO 直接 JSON 序列化），无 code/message envelope。
+// 错误统一 { "error", "message", "details" }（见 rest.md）。
 ```
 
 ### 14. "删除备份"
@@ -455,25 +370,17 @@ type OpsBackupsListResponse struct {
 
 2. request definition
 
-
-
 ```go
 type OpsBackupDeleteRequest struct {
 	ID string `path:"id"`
 }
 ```
 
-
 3. response definition
 
-
-
 ```go
-type OpsBackupDeleteResponse struct {
-	Code int `json:"code"`
-	Message string `json:"message"`
-	Data interface{} `json:"data,omitempty"`
-}
+// 实际响应为裸 payload（业务 DTO 直接 JSON 序列化），无 code/message envelope。
+// 错误统一 { "error", "message", "details" }（见 rest.md）。
 ```
 
 ### 15. "下载备份"
@@ -487,25 +394,17 @@ type OpsBackupDeleteResponse struct {
 
 2. request definition
 
-
-
 ```go
 type OpsBackupDownloadRequest struct {
 	ID string `path:"id"`
 }
 ```
 
-
 3. response definition
 
-
-
 ```go
-type OpsBackupDownloadResponse struct {
-	Code int `json:"code"`
-	Message string `json:"message"`
-	Data interface{} `json:"data,omitempty"`
-}
+// 实际响应为裸 payload（业务 DTO 直接 JSON 序列化），无 code/message envelope。
+// 错误统一 { "error", "message", "details" }（见 rest.md）。
 ```
 
 ### 16. "获取运维配置"
@@ -519,24 +418,16 @@ type OpsBackupDownloadResponse struct {
 
 2. request definition
 
-
-
 ```go
 type OpsConfigRequest struct {
 }
 ```
 
-
 3. response definition
 
-
-
 ```go
-type OpsConfigResponse struct {
-	Code int `json:"code"`
-	Message string `json:"message"`
-	Data interface{} `json:"data,omitempty"`
-}
+// 实际响应为裸 payload（业务 DTO 直接 JSON 序列化），无 code/message envelope。
+// 错误统一 { "error", "message", "details" }（见 rest.md）。
 ```
 
 ### 17. "获取函数列表"
@@ -550,24 +441,16 @@ type OpsConfigResponse struct {
 
 2. request definition
 
-
-
 ```go
 type OpsFunctionsRequest struct {
 }
 ```
 
-
 3. response definition
 
-
-
 ```go
-type OpsFunctionsResponse struct {
-	Code int `json:"code"`
-	Message string `json:"message"`
-	Data interface{} `json:"data,omitempty"`
-}
+// 实际响应为裸 payload（业务 DTO 直接 JSON 序列化），无 code/message envelope。
+// 错误统一 { "error", "message", "details" }（见 rest.md）。
 ```
 
 ### 18. "获取健康状态"
@@ -581,24 +464,16 @@ type OpsFunctionsResponse struct {
 
 2. request definition
 
-
-
 ```go
 type OpsHealthGetRequest struct {
 }
 ```
 
-
 3. response definition
 
-
-
 ```go
-type OpsHealthGetResponse struct {
-	Code int `json:"code"`
-	Message string `json:"message"`
-	Data interface{} `json:"data,omitempty"`
-}
+// 实际响应为裸 payload（业务 DTO 直接 JSON 序列化），无 code/message envelope。
+// 错误统一 { "error", "message", "details" }（见 rest.md）。
 ```
 
 ### 19. "更新健康检查配置"
@@ -612,8 +487,6 @@ type OpsHealthGetResponse struct {
 
 2. request definition
 
-
-
 ```go
 type OpsHealthUpdateRequest struct {
 	Enabled bool `json:"enabled"`
@@ -621,17 +494,11 @@ type OpsHealthUpdateRequest struct {
 }
 ```
 
-
 3. response definition
 
-
-
 ```go
-type OpsHealthUpdateResponse struct {
-	Code int `json:"code"`
-	Message string `json:"message"`
-	Data interface{} `json:"data,omitempty"`
-}
+// 实际响应为裸 payload（业务 DTO 直接 JSON 序列化），无 code/message envelope。
+// 错误统一 { "error", "message", "details" }（见 rest.md）。
 ```
 
 ### 20. "运行健康检查"
@@ -645,25 +512,17 @@ type OpsHealthUpdateResponse struct {
 
 2. request definition
 
-
-
 ```go
 type OpsHealthRunRequest struct {
 	ID string `json:"id,optional"`
 }
 ```
 
-
 3. response definition
 
-
-
 ```go
-type OpsHealthRunResponse struct {
-	Code int `json:"code"`
-	Message string `json:"message"`
-	Data interface{} `json:"data,omitempty"`
-}
+// 实际响应为裸 payload（业务 DTO 直接 JSON 序列化），无 code/message envelope。
+// 错误统一 { "error", "message", "details" }（见 rest.md）。
 ```
 
 ### 21. "获取维护模式状态"
@@ -677,24 +536,16 @@ type OpsHealthRunResponse struct {
 
 2. request definition
 
-
-
 ```go
 type OpsMaintenanceGetRequest struct {
 }
 ```
 
-
 3. response definition
 
-
-
 ```go
-type OpsMaintenanceGetResponse struct {
-	Code int `json:"code"`
-	Message string `json:"message"`
-	Data interface{} `json:"data,omitempty"`
-}
+// 实际响应为裸 payload（业务 DTO 直接 JSON 序列化），无 code/message envelope。
+// 错误统一 { "error", "message", "details" }（见 rest.md）。
 ```
 
 ### 22. "更新维护模式"
@@ -708,8 +559,6 @@ type OpsMaintenanceGetResponse struct {
 
 2. request definition
 
-
-
 ```go
 type OpsMaintenanceUpdateRequest struct {
 	Enabled bool `json:"enabled"`
@@ -718,17 +567,11 @@ type OpsMaintenanceUpdateRequest struct {
 }
 ```
 
-
 3. response definition
 
-
-
 ```go
-type OpsMaintenanceUpdateResponse struct {
-	Code int `json:"code"`
-	Message string `json:"message"`
-	Data interface{} `json:"data,omitempty"`
-}
+// 实际响应为裸 payload（业务 DTO 直接 JSON 序列化），无 code/message envelope。
+// 错误统一 { "error", "message", "details" }（见 rest.md）。
 ```
 
 ### 23. "获取指标"
@@ -742,8 +585,6 @@ type OpsMaintenanceUpdateResponse struct {
 
 2. request definition
 
-
-
 ```go
 type OpsMetricsQuery struct {
 	Start string `form:"start,optional"`
@@ -751,17 +592,11 @@ type OpsMetricsQuery struct {
 }
 ```
 
-
 3. response definition
 
-
-
 ```go
-type OpsMetricsResponse struct {
-	Code int `json:"code"`
-	Message string `json:"message"`
-	Data interface{} `json:"data,omitempty"`
-}
+// 实际响应为裸 payload（业务 DTO 直接 JSON 序列化），无 code/message envelope。
+// 错误统一 { "error", "message", "details" }（见 rest.md）。
 ```
 
 ### 24. "获取消息队列状态"
@@ -775,24 +610,16 @@ type OpsMetricsResponse struct {
 
 2. request definition
 
-
-
 ```go
 type OpsMQRequest struct {
 }
 ```
 
-
 3. response definition
 
-
-
 ```go
-type OpsMQResponse struct {
-	Code int `json:"code"`
-	Message string `json:"message"`
-	Data interface{} `json:"data,omitempty"`
-}
+// 实际响应为裸 payload（业务 DTO 直接 JSON 序列化），无 code/message envelope。
+// 错误统一 { "error", "message", "details" }（见 rest.md）。
 ```
 
 ### 25. "获取节点列表"
@@ -806,22 +633,16 @@ type OpsMQResponse struct {
 
 2. request definition
 
-
-
 ```go
 type OpsNodesRequest struct {
 }
 ```
 
-
 3. response definition
-
-
 
 ```go
 type OpsNodesResponse struct {
-	Code int `json:"code"`
-	Message string `json:"message"`
+	// 响应为裸 payload（去掉 envelope 的 code/message 两行）
 	Data interface{} `json:"data,omitempty"`
 }
 
@@ -852,25 +673,17 @@ type Node struct {
 
 2. request definition
 
-
-
 ```go
 type OpsNodeActionRequest struct {
 	NodeID string `path:"nodeId"`
 }
 ```
 
-
 3. response definition
 
-
-
 ```go
-type OpsNodeDrainResponse struct {
-	Code int `json:"code"`
-	Message string `json:"message"`
-	Data interface{} `json:"data,omitempty"`
-}
+// 实际响应为裸 payload（业务 DTO 直接 JSON 序列化），无 code/message envelope。
+// 错误统一 { "error", "message", "details" }（见 rest.md）。
 ```
 
 ### 27. "获取节点元数据"
@@ -884,25 +697,17 @@ type OpsNodeDrainResponse struct {
 
 2. request definition
 
-
-
 ```go
 type OpsNodeMetaRequest struct {
 	NodeID string `path:"nodeId"`
 }
 ```
 
-
 3. response definition
 
-
-
 ```go
-type OpsNodeMetaResponse struct {
-	Code int `json:"code"`
-	Message string `json:"message"`
-	Data interface{} `json:"data,omitempty"`
-}
+// 实际响应为裸 payload（业务 DTO 直接 JSON 序列化），无 code/message envelope。
+// 错误统一 { "error", "message", "details" }（见 rest.md）。
 ```
 
 ### 28. "重启节点"
@@ -916,25 +721,17 @@ type OpsNodeMetaResponse struct {
 
 2. request definition
 
-
-
 ```go
 type OpsNodeActionRequest struct {
 	NodeID string `path:"nodeId"`
 }
 ```
 
-
 3. response definition
 
-
-
 ```go
-type OpsNodeRestartResponse struct {
-	Code int `json:"code"`
-	Message string `json:"message"`
-	Data interface{} `json:"data,omitempty"`
-}
+// 实际响应为裸 payload（业务 DTO 直接 JSON 序列化），无 code/message envelope。
+// 错误统一 { "error", "message", "details" }（见 rest.md）。
 ```
 
 ### 29. "取消排空节点"
@@ -948,25 +745,17 @@ type OpsNodeRestartResponse struct {
 
 2. request definition
 
-
-
 ```go
 type OpsNodeActionRequest struct {
 	NodeID string `path:"nodeId"`
 }
 ```
 
-
 3. response definition
 
-
-
 ```go
-type OpsNodeUndrainResponse struct {
-	Code int `json:"code"`
-	Message string `json:"message"`
-	Data interface{} `json:"data,omitempty"`
-}
+// 实际响应为裸 payload（业务 DTO 直接 JSON 序列化），无 code/message envelope。
+// 错误统一 { "error", "message", "details" }（见 rest.md）。
 ```
 
 ### 30. "获取节点命令"
@@ -980,25 +769,17 @@ type OpsNodeUndrainResponse struct {
 
 2. request definition
 
-
-
 ```go
 type OpsNodeCommandsQuery struct {
 	NodeID string `form:"nodeId"`
 }
 ```
 
-
 3. response definition
 
-
-
 ```go
-type OpsNodeCommandsResponse struct {
-	Code int `json:"code"`
-	Message string `json:"message"`
-	Data interface{} `json:"data,omitempty"`
-}
+// 实际响应为裸 payload（业务 DTO 直接 JSON 序列化），无 code/message envelope。
+// 错误统一 { "error", "message", "details" }（见 rest.md）。
 ```
 
 ### 31. "获取通知配置"
@@ -1012,24 +793,16 @@ type OpsNodeCommandsResponse struct {
 
 2. request definition
 
-
-
 ```go
 type OpsNotificationsGetRequest struct {
 }
 ```
 
-
 3. response definition
 
-
-
 ```go
-type OpsNotificationsGetResponse struct {
-	Code int `json:"code"`
-	Message string `json:"message"`
-	Data interface{} `json:"data,omitempty"`
-}
+// 实际响应为裸 payload（业务 DTO 直接 JSON 序列化），无 code/message envelope。
+// 错误统一 { "error", "message", "details" }（见 rest.md）。
 ```
 
 ### 32. "更新通知配置"
@@ -1043,8 +816,6 @@ type OpsNotificationsGetResponse struct {
 
 2. request definition
 
-
-
 ```go
 type OpsNotificationsUpdateRequest struct {
 	Enabled bool `json:"enabled"`
@@ -1053,17 +824,11 @@ type OpsNotificationsUpdateRequest struct {
 }
 ```
 
-
 3. response definition
 
-
-
 ```go
-type OpsNotificationsUpdateResponse struct {
-	Code int `json:"code"`
-	Message string `json:"message"`
-	Data interface{} `json:"data,omitempty"`
-}
+// 实际响应为裸 payload（业务 DTO 直接 JSON 序列化），无 code/message envelope。
+// 错误统一 { "error", "message", "details" }（见 rest.md）。
 ```
 
 ### 33. "获取服务列表"
@@ -1077,24 +842,16 @@ type OpsNotificationsUpdateResponse struct {
 
 2. request definition
 
-
-
 ```go
 type OpsServicesRequest struct {
 }
 ```
 
-
 3. response definition
 
-
-
 ```go
-type OpsServicesResponse struct {
-	Code int `json:"code"`
-	Message string `json:"message"`
-	Data interface{} `json:"data,omitempty"`
-}
+// 实际响应为裸 payload（业务 DTO 直接 JSON 序列化），无 code/message envelope。
+// 错误统一 { "error", "message", "details" }（见 rest.md）。
 ```
 
 ### 34. "获取静默规则列表"
@@ -1108,24 +865,16 @@ type OpsServicesResponse struct {
 
 2. request definition
 
-
-
 ```go
 type OpsSilencesRequest struct {
 }
 ```
 
-
 3. response definition
 
-
-
 ```go
-type OpsSilencesResponse struct {
-	Code int `json:"code"`
-	Message string `json:"message"`
-	Data interface{} `json:"data,omitempty"`
-}
+// 实际响应为裸 payload（业务 DTO 直接 JSON 序列化），无 code/message envelope。
+// 错误统一 { "error", "message", "details" }（见 rest.md）。
 ```
 
 ### 35. "删除静默规则"
@@ -1139,24 +888,26 @@ type OpsSilencesResponse struct {
 
 2. request definition
 
-
-
 ```go
 type OpsAlertSilenceDeleteRequest struct {
 	ID string `path:"id"`
 }
 ```
 
-
 3. response definition
 
-
-
 ```go
-type OpsSilenceDeleteResponse struct {
-	Code int `json:"code"`
-	Message string `json:"message"`
-	Data interface{} `json:"data,omitempty"`
-}
+// 实际响应为裸 payload（业务 DTO 直接 JSON 序列化），无 code/message envelope。
+// 错误统一 { "error", "message", "details" }（见 rest.md）。
 ```
 
+## 集群与 LB 监控端点
+
+| 方法 | 路径                                | 说明                                                              |
+| ---- | ----------------------------------- | ----------------------------------------------------------------- |
+| GET  | `/api/v1/ops/cluster`               | 集群拓扑（成员表、owner 分布、实例互联状态）——页面 `/ops/cluster` |
+| POST | `/api/v1/ops/cluster/lb-stats`      | LB 监控（HAProxy 统计 + agent 三方对账）——页面 `/ops/lb`          |
+| GET  | `/api/v1/ops/agent/metrics/history` | agent 指标历史（节点详情页用）                                    |
+
+LB 监控依赖 `ops.prometheusUrl`（env `CROUPIER_LB_PROMETHEUS_URL`），
+详见 [负载均衡监控](../operations/load-balancing.md)。

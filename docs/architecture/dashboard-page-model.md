@@ -312,6 +312,40 @@ interface BlockedProposalIssue {
 
 PageDraft 是用户接受 Proposal 后形成的可编辑页面；PublishedPageSpec 是包含完整 PageSpec、binding snapshot、表单展示快照和 renderer version 的不可变运行产物。Proposal 重新生成绝不覆盖 Draft 或 PublishedPageSpec。
 
+### ComponentTemplate（组件模板层，V4）
+
+组件模板是三层之间的**复用中间层**：多个函数（连同其 PageNode 子树编排）
+封装为可整体实例化的组件，组件组合为页面。
+
+```ts
+interface ComponentTemplate {
+  key: string; // 唯一标识（snake/kebab 域名风格）
+  name: LocalizedText; // BCP47 本地化名
+  description?: LocalizedText;
+  category?: string; // 组件库分组（如「资源管理」）
+  icon?: string;
+  requiredFunctions: string[]; // 实例化前置：scope 内必须存在的函数 id
+  tree: PageNode[]; // 组合页编辑器 PageNode 子树（含引用关系）
+  builtin: boolean; // 内置模板（由 regenerate 维护）vs 用户保存
+  createdBy?: string;
+}
+```
+
+生成与维护：
+
+- **契约 → 模板自动生成**：agent 注册函数后，生成器按 ResourceCapability
+  聚合产出 builtin 模板（如 `player.crud` = list/create/update/delete 四函数
+  CRUD 子树），入口 `POST /api/v1/component-templates/regenerate`（手动触发；
+  agent 注册不会自动 regenerate）
+- **用户保存为组件**：组合页编辑器选中 1..N 节点 → 顶栏「保存为组件」→
+  序列化 PageNode 子树存为 `builtin=false` 模板
+- **实例化**：组件库面板点击模板 → tree 复制 + id 重分配 + 函数引用重映射进画布；
+  可用性检查在前端本地完成（`requiredFunctions` 与 scope 函数集比对，缺失置灰）
+
+REST：`/api/v1/component-templates`（List/Get/Create/Update/Delete/Regenerate），
+wire 契约见 [API 文档](../api/component-templates.md)。使用层文档见
+[组合页编辑器 V4](../dashboard/composite-editor-v4-design.md)。
+
 ## PageSpec：业务级页面协议
 
 PageSpec 是平台唯一的页面编排协议。它不持久化 `ProTable`、`ProForm` 等具体组件名，而是强类型的业务级 DSL：

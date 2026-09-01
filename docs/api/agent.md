@@ -11,24 +11,16 @@
 
 2. request definition
 
-
-
 ```go
 type AnalyticsFiltersQuery struct {
 }
 ```
 
-
 3. response definition
 
-
-
 ```go
-type AgentAnalyticsFiltersResponse struct {
-	Code int `json:"code"`
-	Message string `json:"message"`
-	Data interface{} `json:"data,omitempty"`
-}
+// 实际响应为裸 payload（业务 DTO 直接 JSON 序列化），无 code/message envelope。
+// 错误统一 { "error", "message", "details" }（见 rest.md）。
 ```
 
 ### 2. "上报代理元数据"
@@ -42,23 +34,14 @@ type AgentAnalyticsFiltersResponse struct {
 
 2. request definition
 
-
-
 ```go
 type AgentMetaReportRequest struct {
 }
 ```
 
-
 3. response definition
 
-
-
 ```go
-type AgentMetaResponse struct {
-	Code int `json:"code"`
-	Message string `json:"message"`
-	Data interface{} `json:"data,omitempty"`
-}
+// 实际响应为裸 payload（业务 DTO 直接 JSON 序列化），无 code/message envelope。
+// 错误统一 { "error", "message", "details" }（见 rest.md）。
 ```
-

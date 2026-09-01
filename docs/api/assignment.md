@@ -11,8 +11,6 @@
 
 2. request definition
 
-
-
 ```go
 type AssignmentsListRequest struct {
 	Page int `form:"page,optional"`
@@ -22,17 +20,11 @@ type AssignmentsListRequest struct {
 }
 ```
 
-
 3. response definition
 
-
-
 ```go
-type AssignmentsListResponse struct {
-	Code int `json:"code"`
-	Message string `json:"message"`
-	Data interface{} `json:"data,omitempty"`
-}
+// 实际响应为裸 payload（业务 DTO 直接 JSON 序列化），无 code/message envelope。
+// 错误统一 { "error", "message", "details" }（见 rest.md）。
 ```
 
 ### 2. "更新分配"
@@ -46,8 +38,6 @@ type AssignmentsListResponse struct {
 
 2. request definition
 
-
-
 ```go
 type AssignmentsUpdateRequest struct {
 	GameId string `json:"game_id"`
@@ -56,16 +46,9 @@ type AssignmentsUpdateRequest struct {
 }
 ```
 
-
 3. response definition
 
-
-
 ```go
-type AssignmentsUpdateResponse struct {
-	Code int `json:"code"`
-	Message string `json:"message"`
-	Data interface{} `json:"data,omitempty"`
-}
+// 实际响应为裸 payload（业务 DTO 直接 JSON 序列化），无 code/message envelope。
+// 错误统一 { "error", "message", "details" }（见 rest.md）。
 ```
-

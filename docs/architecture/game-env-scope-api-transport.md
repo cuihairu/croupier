@@ -53,10 +53,10 @@ env     : string, 逻辑环境，如 "dev", "test", "staging", "prod"
 
 用于 Dashboard 发起的普通 API 请求、内部服务调用。
 
-| Header | 含义 | 示例 |
-|--------|------|------|
+| Header      | 含义         | 示例    |
+| ----------- | ------------ | ------- |
 | `X-Game-ID` | 当前游戏标识 | `tower` |
-| `X-Env` | 当前逻辑环境 | `prod` |
+| `X-Env`     | 当前逻辑环境 | `prod`  |
 
 规则：
 
@@ -68,11 +68,11 @@ env     : string, 逻辑环境，如 "dev", "test", "staging", "prod"
 
 用于无法携带自定义 header 的场景：
 
-| 场景 | 参数 | 示例 |
-|------|------|------|
+| 场景              | 参数                     | 示例                                 |
+| ----------------- | ------------------------ | ------------------------------------ |
 | SSE / EventSource | `?gameId=tower&env=prod` | Analytics 实时数据（若未来恢复 SSE） |
-| 文件下载 / 导出 | `?gameId=tower&env=prod` | 审计日志导出 |
-| 页面深链接 | `?gameId=tower&env=prod` | 分享特定 scope 的 Dashboard 页面 |
+| 文件下载 / 导出   | `?gameId=tower&env=prod` | 审计日志导出                         |
+| 页面深链接        | `?gameId=tower&env=prod` | 分享特定 scope 的 Dashboard 页面     |
 
 规则：
 
@@ -103,21 +103,21 @@ env     : string, 逻辑环境，如 "dev", "test", "staging", "prod"
 
 #### 对比表
 
-| 维度 | Header | Query 参数 | Body 参数 |
-|------|--------|-----------|-----------|
-| **接口签名整洁度** | 干净，不污染 path/query/body | 污染 URL，每个 GET 都要带 | 污染请求体，POST/PUT 要加字段 |
-| **REST 语义** | 符合“传输上下文”定位（与 Authorization 同类） | 语义上是“过滤条件”，不是作用域 | 语义上是“请求数据”，跨 scope 操作尚属合理 |
-| **调试可见性** | DevTools 需切 Headers 面板 | URL 一眼可见，最易排查 | 需看 Payload 面板 |
-| **日志检索** | 需 access log 记录 header 才能查 | URL 自带，最易 grep | 一般不记 body，排查难 |
-| **深链接 / 分享** | 无法嵌入 URL | 天然支持 | 不支持（GET 无 body） |
-| **SSE / EventSource** | **不支持**，浏览器 API 硬限制 | 支持 | 不支持 |
-| **文件下载** | 浏览器直接触发时带不了 | 支持 | 不支持 |
-| **缓存键** | 不参与 URL 缓存键，CDN 可能串 scope | 天然参与缓存键，隔离正确 | 不涉及 |
-| **CORS** | 自定义 header 触发 preflight，需配置放行 | 无额外成本 | 无额外成本 |
-| **中间代理** | 部分网关/CDN 可能丢未知 header | 稳定 | 稳定 |
-| **误用风险** | 低，前端框架统一注入 | 高，业务方容易当普通过滤参数随意改 | 中，POST 需手动加 |
-| **GET 请求适配** | 适合 | 适合 | **不适合**（GET body 语义有争议，很多框架忽略） |
-| **一致性维护成本** | 前端一处拦截器搞定 | 每个调用点都要拼 | 每个调用点都要拼 |
+| 维度                  | Header                                        | Query 参数                         | Body 参数                                       |
+| --------------------- | --------------------------------------------- | ---------------------------------- | ----------------------------------------------- |
+| **接口签名整洁度**    | 干净，不污染 path/query/body                  | 污染 URL，每个 GET 都要带          | 污染请求体，POST/PUT 要加字段                   |
+| **REST 语义**         | 符合“传输上下文”定位（与 Authorization 同类） | 语义上是“过滤条件”，不是作用域     | 语义上是“请求数据”，跨 scope 操作尚属合理       |
+| **调试可见性**        | DevTools 需切 Headers 面板                    | URL 一眼可见，最易排查             | 需看 Payload 面板                               |
+| **日志检索**          | 需 access log 记录 header 才能查              | URL 自带，最易 grep                | 一般不记 body，排查难                           |
+| **深链接 / 分享**     | 无法嵌入 URL                                  | 天然支持                           | 不支持（GET 无 body）                           |
+| **SSE / EventSource** | **不支持**，浏览器 API 硬限制                 | 支持                               | 不支持                                          |
+| **文件下载**          | 浏览器直接触发时带不了                        | 支持                               | 不支持                                          |
+| **缓存键**            | 不参与 URL 缓存键，CDN 可能串 scope           | 天然参与缓存键，隔离正确           | 不涉及                                          |
+| **CORS**              | 自定义 header 触发 preflight，需配置放行      | 无额外成本                         | 无额外成本                                      |
+| **中间代理**          | 部分网关/CDN 可能丢未知 header                | 稳定                               | 稳定                                            |
+| **误用风险**          | 低，前端框架统一注入                          | 高，业务方容易当普通过滤参数随意改 | 中，POST 需手动加                               |
+| **GET 请求适配**      | 适合                                          | 适合                               | **不适合**（GET body 语义有争议，很多框架忽略） |
+| **一致性维护成本**    | 前端一处拦截器搞定                            | 每个调用点都要拼                   | 每个调用点都要拼                                |
 
 #### 关键差异分析
 
@@ -165,11 +165,11 @@ POST /api/v1/functions/fn-1/copy
 
 #### 选型结论
 
-| 场景 | 选择 | 理由 |
-|------|------|------|
-| Dashboard 常规请求（约 90% 流量） | **Header** | 职责分离，接口干净，一处拦截器统一注入，维护成本最低 |
-| SSE / 下载 / 深链接 | **Query** | header 物理上传不过去，只能 query |
-| 跨 scope 管理操作 | **Body / 显式参数** | scope 是业务参数而非上下文 |
+| 场景                              | 选择                | 理由                                                 |
+| --------------------------------- | ------------------- | ---------------------------------------------------- |
+| Dashboard 常规请求（约 90% 流量） | **Header**          | 职责分离，接口干净，一处拦截器统一注入，维护成本最低 |
+| SSE / 下载 / 深链接               | **Query**           | header 物理上传不过去，只能 query                    |
+| 跨 scope 管理操作                 | **Body / 显式参数** | scope 是业务参数而非上下文                           |
 
 如果硬要“只用一种”：选 query 会牺牲接口整洁度和职责分离；选 header 会丢掉 SSE/下载/深链接——两头都会踩坑。
 
@@ -192,8 +192,8 @@ POST /api/v1/functions/fn-1/copy
 export function getScopeHeaders(): Record<string, string> {
   const { gameId, env } = getScope();
   const headers: Record<string, string> = {};
-  if (gameId) headers['X-Game-ID'] = gameId;
-  if (env) headers['X-Env'] = env;
+  if (gameId) headers["X-Game-ID"] = gameId;
+  if (env) headers["X-Env"] = env;
   return headers;
 }
 
@@ -226,11 +226,17 @@ URL query 中的 `gameId` / `env` 可以覆盖当前 scope，并同步到 store�
 
 ### 6.1 Middleware：`GameScopeMiddleware`
 
-统一解析 scope 并注入 context，支持 header → query 回退：
+统一解析 scope 并注入 context。
+
+> **提案目标 vs 当前实现**：header → query 回退（SSE/下载/深链接场景）
+> 是本提案的目标形态；当前实现（`internal/svc/game_middleware.go` 的
+> `GameDBMiddleware`）**只读 header，有意拒绝 query/body 回退**，避免
+> scope 来源歧义。SSE/下载场景需在 URL 中显式携带 header 等价物时，
+> 应走专门的公开端点白名单而非通用回退。
 
 ```go
-// internal/svc/scope_middleware.go
-func GameScopeMiddleware(svcCtx *ServiceContext) gin.HandlerFunc {
+// internal/svc/game_middleware.go
+func GameDBMiddleware(svcCtx *ServiceContext) gin.HandlerFunc {
     return func(c *gin.Context) {
         gameID := strings.TrimSpace(c.GetHeader(GameDBHeader))
         env := strings.TrimSpace(c.GetHeader(EnvHeader))
@@ -319,8 +325,8 @@ if req.Env != "" {
 
 ### 7.1 默认 scope 接口
 
-| 方法 | 路径 | Scope 来源 | 说明 |
-|------|------|-----------|------|
+| 方法                | 路径         | Scope 来源     | 说明           |
+| ------------------- | ------------ | -------------- | -------------- |
 | GET/POST/PUT/DELETE | `/api/v1/**` | Header / Query | Dashboard 默认 |
 
 示例：
@@ -334,11 +340,11 @@ X-Env: prod
 
 ### 7.2 SSE / 下载接口
 
-| 方法 | 路径 | Scope 来源 |
-|------|------|-----------|
-| GET | `/api/v1/analytics/realtime` | Query |
-| GET | `/api/v1/messages/stream` | Query |
-| GET | `/api/v1/audit/export` | Query |
+| 方法 | 路径                         | Scope 来源 |
+| ---- | ---------------------------- | ---------- |
+| GET  | `/api/v1/analytics/realtime` | Query      |
+| GET  | `/api/v1/messages/stream`    | Query      |
+| GET  | `/api/v1/audit/export`       | Query      |
 
 示例：
 
@@ -349,10 +355,10 @@ Authorization: Bearer <token>
 
 ### 7.3 跨 scope 管理接口
 
-| 方法 | 路径 | Scope 来源 | 权限 |
-|------|------|-----------|------|
-| POST | `/api/v1/functions/:id/copy` | Body | admin:all |
-| GET | `/api/v1/admin/:id/games` | Query | admin:all |
+| 方法 | 路径                         | Scope 来源 | 权限      |
+| ---- | ---------------------------- | ---------- | --------- |
+| POST | `/api/v1/functions/:id/copy` | Body       | admin:all |
+| GET  | `/api/v1/admin/:id/games`    | Query      | admin:all |
 
 示例：
 
@@ -369,24 +375,24 @@ POST /api/v1/functions/fn-1/copy
 
 ### 8.1 前端
 
-| 文件 | 问题 | 修复方式 |
-|------|------|----------|
-| `web/src/services/api/functions.ts` | 直接读 `localStorage`，把 `gameId` 当 query param 传给 descriptors | 改为走统一拦截器；backend 修复字段含义 |
-| `web/src/services/api/audit.ts` | 组件内直接读 `localStorage` | 改为从 `getScope()` 或统一拦截器 |
-| `web/src/services/api/analytics.ts` | 混用 `getScope()` 和手动 params | 统一走拦截器，SSE 走 query 回退 |
-| `web/src/services/api/nodes.ts` / `pages.ts` / `resources.ts` / `versioning.ts` / `alerts.ts` | 不传 scope，仅靠 header | 保持 header 即可，确保拦截器统一加 |
-| `web/src/services/core/http.ts` | `createEventSource` 不带 scope | 自动拼接 `getScopeParams()` |
+| 文件                                                                                          | 问题                                                               | 修复方式                               |
+| --------------------------------------------------------------------------------------------- | ------------------------------------------------------------------ | -------------------------------------- |
+| `web/src/services/api/functions.ts`                                                           | 直接读 `localStorage`，把 `gameId` 当 query param 传给 descriptors | 改为走统一拦截器；backend 修复字段含义 |
+| `web/src/services/api/audit.ts`                                                               | 组件内直接读 `localStorage`                                        | 改为从 `getScope()` 或统一拦截器       |
+| `web/src/services/api/analytics.ts`                                                           | 混用 `getScope()` 和手动 params                                    | 统一走拦截器，SSE 走 query 回退        |
+| `web/src/services/api/nodes.ts` / `pages.ts` / `resources.ts` / `versioning.ts` / `alerts.ts` | 不传 scope，仅靠 header                                            | 保持 header 即可，确保拦截器统一加     |
+| `web/src/services/core/http.ts`                                                               | `createEventSource` 不带 scope                                     | 自动拼接 `getScopeParams()`            |
 
 ### 8.2 后端
 
-| 文件/接口 | 问题 | 修复方式 |
-|-----------|------|----------|
+| 文件/接口                              | 问题                                                   | 修复方式                                      |
+| -------------------------------------- | ------------------------------------------------------ | --------------------------------------------- |
 | `internal/api/function/helpers.go:591` | `req.GameId` 被当 `function_id` 传入 `ListDescriptors` | 修复 DTO 字段含义或新增 `functionId` 过滤参数 |
-| `internal/api/analytics/handler.go` | SSE 只读 query | 改为 middleware 统一解析 |
-| `internal/api/function/helpers.go` | 函数告警/分析/历史/待审批返回空 stub | 按业务优先级逐个实现 |
-| `internal/api/audit/service.go` | 从 OpsStateStore 读，非 DB | 评估是否迁移到 per-game DB |
-| `internal/api/function/helpers.go:478` | 函数实例不按 scope 过滤 | 如需隔离，从 context 取 scope 过滤 |
-| `internal/svc/game_middleware.go` | 只读 header | 增加 query 回退 |
+| `internal/api/analytics/handler.go`    | SSE 只读 query                                         | 改为 middleware 统一解析                      |
+| `internal/api/function/helpers.go`     | 函数告警/分析/历史/待审批返回空 stub                   | 按业务优先级逐个实现                          |
+| `internal/api/audit/service.go`        | 从 OpsStateStore 读，非 DB                             | 评估是否迁移到 per-game DB                    |
+| `internal/api/function/helpers.go:478` | 函数实例不按 scope 过滤                                | 如需隔离，从 context 取 scope 过滤            |
+| `internal/svc/game_middleware.go`      | 只读 header                                            | 增加 query 回退                               |
 
 ## 9. 迁移计划
 

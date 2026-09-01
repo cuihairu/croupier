@@ -19,7 +19,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 **Build System (Makefile-driven):**
 
 ```bash
-make dev          # Clean build from scratch: proto + build
+make proto        # Generate protobuf code (make dev 不存在)
 make build        # Build all binaries (server, agent) to /bin
 make proto        # Generate protobuf code via local protoc (scripts/gen-proto.sh)
 make pack         # Generate pack artifacts via protoc-gen-croupier
@@ -31,7 +31,7 @@ make clean        # Remove build artifacts and generated code
 
 ```bash
 git clone --recursive https://github.com/cuihairu/croupier.git
-go mod download && make submodules
+go mod download
 ./scripts/dev-certs.sh    # Generate self-signed TLS certs
 buf lint proto && make proto  # Lint via buf, generate via local protoc
 make build               # Build binaries
