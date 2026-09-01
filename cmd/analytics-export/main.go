@@ -17,7 +17,7 @@ type Spec struct {
 	Version   string         `json:"version"`
 	Events    map[string]Any `json:"events"`
 	Metrics   map[string]Any `json:"metrics"`
-	GameTypes map[string]Any `json:"game_types"`
+	GameTypes map[string]Any `json:"gameTypes"`
 	Taxonomy  map[string]Any `json:"taxonomy"`
 	Derived   map[string]Any `json:"derived,omitempty"`
 }
@@ -78,7 +78,7 @@ func main() {
 				}
 			}
 		}
-		spec.Derived["events_by_id"] = m
+		spec.Derived["eventsById"] = m
 	}
 	if mets, ok := metrics["metrics"].([]any); ok {
 		m := map[string]Any{}
@@ -89,7 +89,7 @@ func main() {
 				}
 			}
 		}
-		spec.Derived["metrics_by_id"] = m
+		spec.Derived["metricsById"] = m
 	}
 	if gts, ok := gameTypes["game_types"].([]any); ok {
 		m := map[string]Any{}
@@ -100,7 +100,7 @@ func main() {
 				}
 			}
 		}
-		spec.Derived["game_types_by_id"] = m
+		spec.Derived["gameTypesById"] = m
 	}
 
 	b, err := json.MarshalIndent(spec, "", "  ")

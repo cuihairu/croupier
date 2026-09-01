@@ -124,3 +124,34 @@ func TestBundledDockerConfigUsesDedicatedLocalGatewayPort(t *testing.T) {
 		t.Fatalf("httpAddr = %q, want %q", cfg.Agent.HTTPAddr, "agent:19091")
 	}
 }
+
+// Ops 键命名契约：canonical 小驼峰 + 旧 snake_case 仅解析兼容。
+func TestAgentConfigOpsMetricsKeys(t *testing.T) {
+	canon := []byte(`
+ops:
+  enabled: true
+  metricsInterval: 30s
+  metricsEnabled: true
+`)
+	var cfg AgentConfig
+	if err := yaml.Unmarshal(canon, &cfg); err != nil {
+		t.Fatalf("unmarshal canonical: %v", err)
+	}
+	if cfg.Ops == nil || !cfg.Ops.MetricsEnabled || cfg.Ops.MetricsInterval != "30s" {
+		t.Fatalf("canonical ops keys not parsed: %+v", cfg.Ops)
+	}
+
+	legacy := []byte(`
+ops:
+  enabled: true
+  metrics_interval: 45s
+  metrics_enabled: false
+`)
+	var cfg2 AgentConfig
+	if err := yaml.Unmarshal(legacy, &cfg2); err != nil {
+		t.Fatalf("unmarshal legacy: %v", err)
+	}
+	if cfg2.Ops == nil || cfg2.Ops.MetricsInterval != "45s" || cfg2.Ops.MetricsEnabled {
+		t.Fatalf("legacy ops keys not compat-parsed: %+v", cfg2.Ops)
+	}
+}

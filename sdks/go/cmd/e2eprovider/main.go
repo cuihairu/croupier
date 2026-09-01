@@ -104,7 +104,7 @@ func handleInvoke(ctx context.Context, reportURL, functionID string, payload []b
 	switch functionID {
 	case "mail.send":
 		var req struct {
-			PlayerID string `json:"player_id"`
+			PlayerID string `json:"playerId"`
 			Title    string `json:"title"`
 			Content  string `json:"content"`
 		}
@@ -116,7 +116,7 @@ func handleInvoke(ctx context.Context, reportURL, functionID string, payload []b
 		})
 	case "mail.wait":
 		var req struct {
-			WaitMS int `json:"wait_ms"`
+			WaitMS int `json:"waitMs"`
 		}
 		_ = json.Unmarshal(payload, &req)
 		wait := time.Duration(req.WaitMS) * time.Millisecond
@@ -129,7 +129,7 @@ func handleInvoke(ctx context.Context, reportURL, functionID string, payload []b
 		case <-ctx.Done():
 			return nil, ctx.Err()
 		case <-timer.C:
-			return json.Marshal(map[string]interface{}{"success": true, "waited_ms": req.WaitMS})
+			return json.Marshal(map[string]interface{}{"success": true, "waitedMs": req.WaitMS})
 		}
 	default:
 		return json.Marshal(map[string]interface{}{"success": true})

@@ -91,8 +91,34 @@ type AgentConfig struct {
 // OpsConfig represents the ops module configuration
 type OpsConfig struct {
 	Enabled         bool   `json:"enabled" yaml:"enabled"`
-	MetricsInterval string `json:"metrics_interval" yaml:"metrics_interval"`
-	MetricsEnabled  bool   `json:"metrics_enabled" yaml:"metrics_enabled"`
+	MetricsInterval string `json:"metricsInterval" yaml:"metricsInterval"`
+	MetricsEnabled  bool   `json:"metricsEnabled" yaml:"metricsEnabled"`
+}
+
+// UnmarshalYAML 兼容旧部署的 snake_case 写法（metrics_interval /
+// metrics_enabled）——按配置契约，兼容只存在于解析代码，示例与文档一律
+// 使用 canonical 小驼峰。
+func (c *OpsConfig) UnmarshalYAML(value *yaml.Node) error {
+	type plain OpsConfig
+	var decoded plain
+	if err := value.Decode(&decoded); err != nil {
+		return err
+	}
+	var compat struct {
+		MetricsInterval string `yaml:"metrics_interval,omitempty"`
+		MetricsEnabled  *bool  `yaml:"metrics_enabled,omitempty"`
+	}
+	if err := value.Decode(&compat); err != nil {
+		return err
+	}
+	if decoded.MetricsInterval == "" {
+		decoded.MetricsInterval = compat.MetricsInterval
+	}
+	if !decoded.MetricsEnabled && compat.MetricsEnabled != nil {
+		decoded.MetricsEnabled = *compat.MetricsEnabled
+	}
+	*c = OpsConfig(decoded)
+	return nil
 }
 
 type AgentTLSConfig struct {

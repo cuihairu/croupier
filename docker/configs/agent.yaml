@@ -44,5 +44,5 @@ outboundTLS:
 # Controls system metrics collection and reporting
 ops:
   enabled: true
-  metrics_interval: 30s
-  metrics_enabled: true
+  metricsInterval: 30s
+  metricsEnabled: true
