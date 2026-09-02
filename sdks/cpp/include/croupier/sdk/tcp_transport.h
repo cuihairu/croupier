@@ -248,6 +248,7 @@ public:
      */
     std::string GetListenAddress() const;
 
+
 private:
     struct ClientConnection {
         socket_t socket;

@@ -50,6 +50,11 @@ public class CroupierClientImpl implements CroupierClient {
     private final AtomicBoolean connected = new AtomicBoolean(false);
     private final AtomicBoolean serving = new AtomicBoolean(false);
     private final AtomicBoolean reconnecting = new AtomicBoolean(false);
+    // drain 状态：收到 ProviderDrainRequest 后置位——拒绝新 Invoke，
+    // 在途调用清零后复用 recoverConnection 恢复会话（对齐 C# 参考实现）。
+    private final AtomicBoolean draining = new AtomicBoolean(false);
+    private final java.util.concurrent.atomic.AtomicLong inflightCalls =
+        new java.util.concurrent.atomic.AtomicLong(0);
 
     private volatile TransportClient transport;
     private String sessionId = "";
@@ -509,6 +514,7 @@ public class CroupierClientImpl implements CroupierClient {
 
     private byte[] handleLocalRequest(int msgType, int requestId, byte[] body) throws Exception {
         return switch (msgType) {
+            case Protocol.MSG_PROVIDER_DRAIN_REQUEST -> handleDrainRequest(body);
             case Protocol.MSG_INVOKE_REQUEST -> handleInvokeRequest(body);
             case Protocol.MSG_START_TASK_REQUEST -> handleStartTaskRequest(body);
             case Protocol.MSG_STREAM_TASK_REQUEST -> handleStreamTaskRequest(body);
@@ -517,7 +523,71 @@ public class CroupierClientImpl implements CroupierClient {
         };
     }
 
+    /**
+     * 处理 Agent 的优雅下线请求：置位 drain 状态（拒绝新 Invoke）、异步等待
+     * 在途调用清零后复用 recoverConnection 恢复会话；协议规定立即回空
+     * ProviderDrainResponse 确认。幂等：重复 drain 只回确认。
+     */
+    private byte[] handleDrainRequest(byte[] body) {
+        if (draining.compareAndSet(false, true)) {
+            SdkWireMessages.ProviderDrainRequest request;
+            try {
+                request = SdkWireMessages.decodeProviderDrainRequest(body);
+                logger.info("Drain requested (session={}, reason={}, retryAfterMs={})",
+                    request.sessionId, request.reason, request.retryAfterMs);
+            } catch (Exception e) {
+                logger.warn("Drain requested (unparsable body)");
+                request = null;
+            }
+            Thread drainThread = new Thread(this::drainAndRecover, "croupier-java-client-drain");
+            drainThread.setDaemon(true);
+            drainThread.start();
+        }
+        return SdkWireMessages.encodeProviderDrainResponse();
+    }
+
+    private void drainAndRecover() {
+        try {
+            // 等待在途调用完成（最多 30 秒，超时后仅记录并继续）。
+            long deadline = System.currentTimeMillis() + 30_000L;
+            while (inflightCalls.get() > 0 && System.currentTimeMillis() < deadline) {
+                Thread.sleep(100);
+            }
+            if (inflightCalls.get() > 0) {
+                logger.warn("Drain timeout with {} in-flight call(s) still running", inflightCalls.get());
+            }
+            if (config.getReconnect() == null || config.getReconnect().isEnabled()) {
+                logger.info("Drain complete, reconnecting provider session");
+                recoverConnection();
+            } else {
+                logger.info("Drain complete, auto-reconnect disabled — closing session");
+                closeTransport();
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        } catch (Exception e) {
+            logger.error("Drain recovery failed: " + e.getMessage());
+        } finally {
+            draining.set(false);
+        }
+    }
+
     private byte[] handleInvokeRequest(byte[] body) throws Exception {
+        // drain 期间拒绝新调用，等待 Agent 停止投递。
+        if (draining.get()) {
+            return SdkWireMessages.encodeInvokeResponse(
+                new SdkWireMessages.InvokeResponse(
+                    "{\"error\":\"provider is draining\"}".getBytes(StandardCharsets.UTF_8)));
+        }
+        inflightCalls.incrementAndGet();
+        try {
+            return invokeInbound(body);
+        } finally {
+            inflightCalls.decrementAndGet();
+        }
+    }
+
+    private byte[] invokeInbound(byte[] body) throws Exception {
         SdkWireMessages.InvokeRequest request = SdkWireMessages.decodeInvokeRequest(body);
         String result = invoke(
             request.functionId,

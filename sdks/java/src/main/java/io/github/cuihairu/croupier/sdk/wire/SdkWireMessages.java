@@ -474,6 +474,58 @@ public final class SdkWireMessages {
         void writeTo(CodedOutputStream out) throws IOException;
     }
 
+    /** ProviderDrainRequest：Agent 请求 Provider 优雅下线。 */
+    public static final class ProviderDrainRequest {
+        public final String sessionId;
+        public final String reason;
+        public final int retryAfterMs;
+
+        public ProviderDrainRequest(String sessionId, String reason, int retryAfterMs) {
+            this.sessionId = sessionId == null ? "" : sessionId;
+            this.reason = reason == null ? "" : reason;
+            this.retryAfterMs = retryAfterMs;
+        }
+    }
+
+    public static byte[] encodeProviderDrainRequest(ProviderDrainRequest message) {
+        return encode(out -> {
+            writeString(out, 1, message.sessionId);
+            writeString(out, 2, message.reason);
+            if (message.retryAfterMs > 0) {
+                out.writeUInt32(3, message.retryAfterMs);
+            }
+        });
+    }
+
+    public static ProviderDrainRequest decodeProviderDrainRequest(byte[] data) {
+        String sessionId = "";
+        String reason = "";
+        int retryAfterMs = 0;
+        CodedInputStream input = newInput(data);
+        try {
+            while (!input.isAtEnd()) {
+                int tag = input.readTag();
+                if (tag == 0) {
+                    break;
+                }
+                switch (WireFormat.getTagFieldNumber(tag)) {
+                    case 1 -> sessionId = input.readString();
+                    case 2 -> reason = input.readString();
+                    case 3 -> retryAfterMs = input.readUInt32();
+                    default -> input.skipField(tag);
+                }
+            }
+        } catch (IOException e) {
+            throw new IllegalArgumentException("Failed to decode ProviderDrainRequest", e);
+        }
+        return new ProviderDrainRequest(sessionId, reason, retryAfterMs);
+    }
+
+    /** ProviderDrainResponse：空消息确认帧。 */
+    public static byte[] encodeProviderDrainResponse() {
+        return encode(out -> { });
+    }
+
     public static final class InvokeRequest {
         public final String functionId;
         public final String idempotencyKey;

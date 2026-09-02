@@ -105,6 +105,13 @@ public:
         WriteFrame(msg_id, req_id, body);
     }
 
+    // 接受客户端的重连（drain 恢复 / 断线重连均会发起二次握手）。
+    void AcceptAndHandshakeAgain() {
+        if (conn_ != INVALID_SOCK) closesocket(conn_);
+        conn_ = INVALID_SOCK;
+        AcceptAndHandshake();
+    }
+
     protocol::ParsedMessage ReadFrame() {
         uint8_t hdr[4] = {0};
         if (!ReadAll(conn_, hdr, 4)) ADD_FAILURE() << "read frame header failed";
@@ -332,3 +339,93 @@ TEST(ClientAddressTest, HTTPSchemeRejectedForTCPClient) {
 
 } // namespace
 } // namespace croupier::sdk::test
+
+namespace croupier::sdk::test {
+namespace {
+
+// Agent 下发 drain：客户端立即回空确认并置位 IsDraining；
+// drain 期间新 Invoke 被拒（错误 payload）；恢复后状态清除。
+TEST(ProviderInboundTest, AgentDrainAcksRejectsInvokeAndRecovers) {
+    RawFakeAgent agent;
+    std::thread agent_thread([&] { agent.AcceptAndHandshake(); });
+
+    CroupierClient client(ProviderConfig(agent.address()));
+    FunctionDescriptor desc;
+    desc.id = "test.echo";
+    desc.version = "1.0.0";
+    desc.operation = "echo";
+    desc.capability = "action";
+    desc.risk = "safe";
+    std::atomic<int> calls{0};
+    ASSERT_TRUE(client.RegisterFunction(
+        desc, [&](const std::string&, const std::string& payload) {
+            calls.fetch_add(1);
+            std::this_thread::sleep_for(std::chrono::milliseconds(120));
+            return "echo:" + payload;
+        }));
+    ASSERT_TRUE(client.Connect());
+    agent_thread.join();
+
+    EXPECT_FALSE(client.IsDraining());
+
+    // 在途调用先行：handler 睡 120ms，drain 必须等它完成
+    agent.PushRequest(protocol::MSG_INVOKE_REQUEST, 9101, InvokeBody("test.echo", "inflight"));
+    std::this_thread::sleep_for(std::chrono::milliseconds(30));
+
+    // 推 drain 请求（req_id 9102）
+    agent.PushRequest(protocol::MSG_PROVIDER_DRAIN_REQUEST, 9102, {});
+
+    // drain 期间的新 Invoke 被拒（handler 不应执行）
+    agent.PushRequest(protocol::MSG_INVOKE_REQUEST, 9103, InvokeBody("test.echo", "rejected"));
+    auto rejected = agent.ReadResponseFor(9103);
+    v1::InvokeResponse rejected_resp;
+    ASSERT_TRUE(rejected_resp.ParseFromArray(rejected.body.data(), static_cast<int>(rejected.body.size())));
+    EXPECT_NE(rejected_resp.payload().find("provider is draining"), std::string::npos);
+    EXPECT_EQ(calls.load(), 1); // 只有在途那次执行了
+
+    // drain 确认帧（空 ProviderDrainResponse）
+    auto ack = agent.ReadResponseFor(9102);
+    EXPECT_EQ(ack.msg_id, protocol::MSG_PROVIDER_DRAIN_RESPONSE);
+    EXPECT_TRUE(ack.body.empty());
+
+    // 等在途完成 + 恢复（auto_reconnect 默认 true → 重连重注册）
+    std::thread reconnect_thread([&] { agent.AcceptAndHandshakeAgain(); });
+    reconnect_thread.join();
+    for (int i = 0; i < 50 && client.IsDraining(); ++i) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(20));
+    }
+    EXPECT_FALSE(client.IsDraining());
+
+    client.Close();
+}
+
+// drain 幂等：重复请求只回确认，不重复触发恢复。
+TEST(ProviderInboundTest, AgentDrainIsIdempotent) {
+    RawFakeAgent agent;
+    std::thread agent_thread([&] { agent.AcceptAndHandshake(); });
+
+    CroupierClient client(ProviderConfig(agent.address()));
+    FunctionDescriptor desc;
+    desc.id = "test.echo";
+    desc.version = "1.0.0";
+    desc.operation = "echo";
+    desc.capability = "action";
+    desc.risk = "safe";
+    ASSERT_TRUE(client.RegisterFunction(
+        desc, [](const std::string&, const std::string& payload) { return payload; }));
+    ASSERT_TRUE(client.Connect());
+    agent_thread.join();
+
+    agent.PushRequest(protocol::MSG_PROVIDER_DRAIN_REQUEST, 9201, {});
+    auto ack1 = agent.ReadResponseFor(9201);
+    EXPECT_EQ(ack1.msg_id, protocol::MSG_PROVIDER_DRAIN_RESPONSE);
+    agent.PushRequest(protocol::MSG_PROVIDER_DRAIN_REQUEST, 9202, {});
+    auto ack2 = agent.ReadResponseFor(9202);
+    EXPECT_EQ(ack2.msg_id, protocol::MSG_PROVIDER_DRAIN_RESPONSE);
+    EXPECT_TRUE(client.IsDraining());
+
+    client.Close();
+}
+
+}  // namespace
+}  // namespace croupier::sdk::test

@@ -59,6 +59,8 @@ public final class Protocol {
     public static final int MSG_PROVIDER_CONNECT_REQUEST = 0x050101;
     public static final int MSG_PROVIDER_CONNECT_RESPONSE = 0x050102;
     public static final int MSG_PROVIDER_HEARTBEAT_REQUEST = 0x050103;
+    public static final int MSG_PROVIDER_DRAIN_REQUEST = 0x050105;
+    public static final int MSG_PROVIDER_DRAIN_RESPONSE = 0x050106;
     public static final int MSG_PROVIDER_HEARTBEAT_RESPONSE = 0x050104;
 
     /**

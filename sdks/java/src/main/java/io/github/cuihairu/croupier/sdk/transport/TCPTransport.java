@@ -44,6 +44,8 @@ public class TCPTransport implements TransportClient {
     private final String host;
     private final int port;
     private final int timeoutMs;
+    private javax.net.ssl.SSLSocketFactory socketFactory;
+    private String serverName;
     private Socket socket;
     private InputStream inputStream;
     private OutputStream outputStream;
@@ -101,6 +103,19 @@ public class TCPTransport implements TransportClient {
     }
 
     /**
+     * TLS transport：通过 SSLSocketFactory 建立加密会话（insecure=false 时使用）。
+     * serverName 非 null 时启用端点名校验（防中间人）。
+     */
+    public TCPTransport(String host, int port, int timeoutMs,
+                        javax.net.ssl.SSLSocketFactory socketFactory, String serverName) {
+        this.host = host;
+        this.port = port;
+        this.timeoutMs = timeoutMs;
+        this.socketFactory = socketFactory;
+        this.serverName = serverName;
+    }
+
+    /**
      * Initialize TCP transport with default timeout (30s).
      */
     public TCPTransport(String host, int port) {
@@ -118,9 +133,25 @@ public class TCPTransport implements TransportClient {
 
         LOG.info("Connecting to TCP server at {}:{}", host, port);
 
-        Socket nextSocket = new Socket();
+        Socket nextSocket = null;
         try {
-            nextSocket.connect(new InetSocketAddress(host, port), timeoutMs);
+            if (socketFactory != null) {
+                // createSocket(host, port) 记录 peer host（JSSE 端点校验依赖它，
+                // 否则主机名校验被静默跳过）。serverName 与 host 不同时，
+                // 握手完成后额外校验证书 SAN/CN 覆盖 serverName。
+                nextSocket = socketFactory.createSocket(host, port);
+                if (nextSocket instanceof javax.net.ssl.SSLSocket sslSocket) {
+                    var params = sslSocket.getSSLParameters();
+                    params.setEndpointIdentificationAlgorithm("HTTPS");
+                    sslSocket.setSSLParameters(params);
+                    if (serverName != null && !serverName.isBlank() && !serverName.equalsIgnoreCase(host)) {
+                        verifyPeerName(sslSocket, serverName);
+                    }
+                }
+            } else {
+                nextSocket = new Socket();
+                nextSocket.connect(new InetSocketAddress(host, port), timeoutMs);
+            }
             nextSocket.setSoTimeout(timeoutMs);
             outputStream = nextSocket.getOutputStream();
             inputStream = nextSocket.getInputStream();
@@ -138,12 +169,46 @@ public class TCPTransport implements TransportClient {
                 nextSocket.close();
             } catch (IOException closeError) {
                 e.addSuppressed(closeError);
+            } catch (RuntimeException closeFailure) {
+                // SSL socket close may also throw unchecked errors
             }
             socket = null;
             inputStream = null;
             outputStream = null;
             throw new RuntimeException("Failed to connect to " + host + ":" + port, e);
         }
+    }
+
+    /**
+     * 校验证书 SAN(dNSName)/CN 覆盖 serverName（裸 SSLSocket 上 serverName
+     * 与连接主机不同时 JSSE 不会自动比对，需显式校验防中间人）。
+     */
+    private static void verifyPeerName(javax.net.ssl.SSLSocket socket, String serverName) throws IOException {
+        var session = socket.getSession();
+        if (session.getPeerCertificates() == null || session.getPeerCertificates().length == 0) {
+            throw new IOException("TLS handshake failed: no peer certificate");
+        }
+        var cert = (java.security.cert.X509Certificate) session.getPeerCertificates()[0];
+        try {
+            var sans = cert.getSubjectAlternativeNames();
+            if (sans != null) {
+                for (var san : sans) {
+                    if (Integer.valueOf(2).equals(san.get(0))
+                        && serverName.equalsIgnoreCase(String.valueOf(san.get(1)))) {
+                        return;
+                    }
+                }
+            }
+        } catch (java.security.cert.CertificateParsingException ignored) {
+            // fall through to CN check
+        }
+        for (String part : cert.getSubjectX500Principal().getName().split(",")) {
+            part = part.trim();
+            if (part.regionMatches(true, 0, "CN=", 0, 3) && serverName.equalsIgnoreCase(part.substring(3))) {
+                return;
+            }
+        }
+        throw new IOException("TLS handshake failed: certificate does not match serverName " + serverName);
     }
 
     /**

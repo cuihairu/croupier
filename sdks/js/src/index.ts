@@ -23,6 +23,7 @@ import {
   MSG_START_TASK_RESPONSE,
   MSG_TASK_EVENT,
   MSG_CANCEL_TASK_REQUEST,
+  MSG_PROVIDER_DRAIN_REQUEST,
 } from "./protocol";
 
 const encoder = new TextEncoder();
@@ -545,6 +546,10 @@ export interface CroupierClient {
 export class BasicClient implements CroupierClient {
   private readonly config: Required<ClientConfig>;
   private handlers: Map<string, FunctionHandler> = new Map();
+  // drain 状态：收到 ProviderDrainRequest 后置位——拒绝新 Invoke，
+  // 在途调用清零后复用 scheduleReconnect 恢复会话（对齐 C# 参考实现）。
+  private draining = false;
+  private inflightCalls = 0;
   private descriptors: Map<string, FunctionDescriptor> = new Map();
   private taskStates: Map<string, TaskState> = new Map();
   private transport: TCPTransport | null = null;
@@ -1367,9 +1372,54 @@ export class BasicClient implements CroupierClient {
     if (msgId === MSG_CANCEL_TASK_REQUEST) {
       return this.handleInboundCancelTask(body);
     }
+    if (msgId === MSG_PROVIDER_DRAIN_REQUEST) {
+      return this.handleDrainRequest(body);
+    }
     // 未知入站消息：回空响应，避免 Agent 侧挂起等待超时。
     return Buffer.alloc(0);
   };
+
+  /**
+   * 处理 Agent 的优雅下线请求：置位 drain 状态（拒绝新 Invoke）、
+   * 异步等待在途调用清零后恢复会话；协议规定立即回空 ProviderDrainResponse 确认。
+   * 幂等：重复 drain 只回确认。
+   */
+  private handleDrainRequest(_body: Buffer): Buffer {
+    if (!this.draining) {
+      this.draining = true;
+      void this.drainAndRecover();
+    }
+    return Buffer.alloc(0);
+  }
+
+  private async drainAndRecover(): Promise<void> {
+    try {
+      // 等待在途调用完成（最多 30 秒，超时后仅记录并继续）。
+      const deadline = Date.now() + 30_000;
+      while (this.inflightCalls > 0 && Date.now() < deadline) {
+        await this.delay(100);
+      }
+      if (this.inflightCalls > 0) {
+        console.warn(
+          `[croupier] Drain timeout with ${this.inflightCalls} in-flight call(s) still running`,
+        );
+      }
+      if (
+        this.config.autoReconnect &&
+        this.config.reconnect.enabled &&
+        !this.stopRequested
+      ) {
+        await this.scheduleReconnect();
+      } else {
+        this.connected = false;
+        this.stopHeartbeatLoop();
+        this.transport?.close();
+        this.transport = null;
+      }
+    } finally {
+      this.draining = false;
+    }
+  }
 
   private decodeInvokeRequest(body: Buffer): {
     functionId: string;
@@ -1403,6 +1453,21 @@ export class BasicClient implements CroupierClient {
   }
 
   private async handleInboundInvoke(body: Buffer): Promise<Buffer> {
+    // drain 期间拒绝新调用，等待 Agent 停止投递。
+    if (this.draining) {
+      return this.encodeInvokeResponse(
+        encoder.encode(JSON.stringify({ error: "provider is draining" })),
+      );
+    }
+    this.inflightCalls += 1;
+    try {
+      return await this.invokeInbound(body);
+    } finally {
+      this.inflightCalls -= 1;
+    }
+  }
+
+  private async invokeInbound(body: Buffer): Promise<Buffer> {
     const req = this.decodeInvokeRequest(body);
     const handler = this.handlers.get(req.functionId);
     if (!handler) {

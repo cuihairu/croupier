@@ -338,6 +338,11 @@ public:
     std::optional<std::thread::id> heartbeat_thread_id_;
     std::string last_error_;
 
+    // Drain 状态：收到 ProviderDrainRequest 后置位——拒绝新 Invoke，
+    // 在途调用清零后复用 RegisterAllFunctions 恢复会话（对齐 C# 参考实现）。
+    std::atomic<bool> draining_{false};
+    std::atomic<int64_t> inflight_calls_{0};
+
     // Reconnection state
     std::atomic<bool> is_reconnecting_{false};
     std::atomic<bool> should_stop_reconnecting_{false};
@@ -423,11 +428,57 @@ public:
         }
     }
 
+    // 在途调用 RAII 计数：drain 恢复以其清零为信号。
+    struct InflightGuard {
+        explicit InflightGuard(Impl* impl) : impl_(impl) { impl_->inflight_calls_.fetch_add(1); }
+        ~InflightGuard() { impl_->inflight_calls_.fetch_sub(1); }
+        Impl* impl_;
+    };
+
+    // 等待在途调用完成（最多 30s），随后按 auto_reconnect 语义恢复会话。
+    void DrainAndRecover() {
+        const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(30);
+        while (inflight_calls_.load() > 0 && std::chrono::steady_clock::now() < deadline
+               && running_.load()) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        }
+        if (inflight_calls_.load() > 0) {
+            SDK_LOG_ERROR("Drain timeout with in-flight calls still running");
+        }
+        if (config_.auto_reconnect && running_.load()) {
+            SDK_LOG_INFO("Drain complete, reconnecting provider session");
+            try {
+                RegisterAllFunctions();
+            } catch (const std::exception& e) {
+                SDK_LOG_ERROR(std::string("Drain recovery failed: ") + e.what());
+            } catch (...) {
+                SDK_LOG_ERROR("Drain recovery failed: unknown error");
+            }
+        }
+        draining_.store(false);
+    }
+
     // handleAgentRequest 处理 Agent -> Provider 调用（invoke / start task），
     // 由 TCPTransport 的有界 worker 池并发执行（读循环只投递）。
     std::vector<uint8_t> handleAgentRequest(uint32_t msg_id, uint32_t /*req_id*/, const std::vector<uint8_t>& body) {
         try {
+            if (msg_id == protocol::MSG_PROVIDER_DRAIN_REQUEST) {
+                // 幂等：重复 drain 只回确认。置位后异步等待在途清零再恢复。
+                if (!draining_.exchange(true)) {
+                    SDK_LOG_INFO("Drain requested");
+                    std::thread([this]() { DrainAndRecover(); }).detach();
+                }
+                ::croupier::sdk::v1::ProviderDrainResponse resp;
+                return SerializeMessage(resp);
+            }
             if (msg_id == protocol::MSG_INVOKE_REQUEST) {
+                // drain 期间拒绝新调用，等待 Agent 停止投递。
+                if (draining_.load()) {
+                    ::croupier::sdk::v1::InvokeResponse resp;
+                    resp.set_payload("{\"error\":\"provider is draining\"}");
+                    return SerializeMessage(resp);
+                }
+                InflightGuard guard(this);
                 auto req = ParseMessage<::croupier::sdk::v1::InvokeRequest>(body, "InvokeRequest");
                 auto it = handlers_.find(req.function_id());
                 if (it == handlers_.end()) {
@@ -2072,6 +2123,10 @@ bool CroupierClient::Connect() {
 
 bool CroupierClient::IsConnected() const {
     return impl_->IsConnected();
+}
+
+bool CroupierClient::IsDraining() const {
+    return impl_->draining_.load();
 }
 
 void CroupierClient::Serve() {

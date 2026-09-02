@@ -246,6 +246,10 @@ public:
     // Check if the client is connected to the agent
     bool IsConnected() const;
 
+    // 是否处于 drain 状态（收到 Agent 的 ProviderDrainRequest 后为 true，
+    // 恢复完成或停止后为 false）
+    bool IsDraining() const;
+
     // Start serving (blocking call until Stop() is called)
     void Serve();
 

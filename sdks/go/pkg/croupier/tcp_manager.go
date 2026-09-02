@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	agentv1 "github.com/cuihairu/croupier/sdks/go/pkg/pb/croupier/agent/v1"
@@ -46,6 +47,11 @@ type TCPManager struct {
 
 	// Reconnection callback — called when connection is lost
 	onDisconnect func()
+
+	// Drain 状态：收到 ProviderDrainRequest 后置位——拒绝新 Invoke，
+	// 在途调用清零后经 handleDisconnect 走既有重连编排恢复会话。
+	draining      atomic.Bool
+	inflightCalls atomic.Int64
 }
 
 // Task represents an async task execution
@@ -92,12 +98,50 @@ func newTCPRPCHandler(manager *TCPManager) *tcpRPCHandler {
 	// SDK 事件循环卡死时回不了 pong，agent 侧即摘除该 session，
 	// 调用路由不再选到"进程活着但处理不动"的 provider。
 	handler.methods[protocol.MsgProviderHeartbeatRequest] = handler.pong
+	handler.methods[protocol.MsgProviderDrainRequest] = handler.handleDrain
 	return handler
 }
 
 // pong 回应 agent 的保活探测（空响应体）。
 func (h *tcpRPCHandler) pong(ctx context.Context, msgID uint32, reqID uint32, body []byte) (respBody []byte, err error) {
 	return proto.Marshal(&sdkv1.ProviderHeartbeatResponse{})
+}
+
+// handleDrain 处理 agent 的优雅下线请求：置位 drain 状态（拒绝新 Invoke）、
+// 异步等待在途调用清零后经 handleDisconnect 触发既有重连编排；
+// 协议规定立即回空 ProviderDrainResponse 确认。幂等：重复 drain 只回确认。
+func (h *tcpRPCHandler) handleDrain(ctx context.Context, msgID uint32, reqID uint32, body []byte) (respBody []byte, err error) {
+	m := h.manager
+	if m.draining.CompareAndSwap(false, true) {
+		var req sdkv1.ProviderDrainRequest
+		if err := proto.Unmarshal(body, &req); err == nil {
+			logInfof("Drain requested (session=%s, reason=%s, retryAfterMs=%d)", req.SessionId, req.Reason, req.RetryAfterMs)
+		} else {
+			logWarnf("Drain requested (unparsable body)")
+		}
+		go m.drainAndRecover()
+	}
+	return proto.Marshal(&sdkv1.ProviderDrainResponse{})
+}
+
+// drainAndRecover 等待在途调用完成（最多 30s），随后断开会话并触发
+// client.go 的重连循环（backoff 重拨 + 重注册）。恢复完成后清除 drain 状态。
+func (m *TCPManager) drainAndRecover() {
+	defer m.draining.Store(false)
+	deadline := time.Now().Add(30 * time.Second)
+	for m.inflightCalls.Load() > 0 && time.Now().Before(deadline) {
+		time.Sleep(100 * time.Millisecond)
+	}
+	if n := m.inflightCalls.Load(); n > 0 {
+		logWarnf("Drain timeout with %d in-flight call(s) still running", n)
+	}
+	if m.config.Reconnect == nil || !m.config.Reconnect.Enabled {
+		logInfof("Drain complete, auto-reconnect disabled — session closed")
+		m.Disconnect()
+		return
+	}
+	logInfof("Drain complete, reconnecting provider session")
+	m.handleDisconnect()
 }
 
 func (h *tcpRPCHandler) Handle(ctx context.Context, msgID uint32, reqID uint32, body []byte) (respBody []byte, err error) {
@@ -428,6 +472,17 @@ func (m *TCPManager) sendHeartbeat(ctx context.Context) error {
 }
 
 func (h *tcpRPCHandler) invoke(ctx context.Context, msgID uint32, reqID uint32, body []byte) (respBody []byte, err error) {
+	// drain 期间拒绝新调用，等待 agent 停止投递（对齐 C# 参考实现）。
+	if h.manager.draining.Load() {
+		errResp := &sdkv1.InvokeResponse{Payload: []byte(`{"error":"provider is draining"}`)}
+		if b, marshalErr := proto.Marshal(errResp); marshalErr == nil {
+			return b, nil
+		}
+		return nil, fmt.Errorf("provider is draining")
+	}
+	h.manager.inflightCalls.Add(1)
+	defer h.manager.inflightCalls.Add(-1)
+
 	req := &sdkv1.InvokeRequest{}
 	if err := proto.Unmarshal(body, req); err != nil {
 		return nil, fmt.Errorf("unmarshal InvokeRequest: %w", err)
