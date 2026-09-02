@@ -257,6 +257,43 @@ class CroupierClient:
             self._connected = True
             LOG.info("Client connected with %d functions", len(self._handlers))
 
+        # F：控制面 manifest 上传（best-effort，不阻断连接结果）
+        self._maybe_register_capabilities()
+
+    def _maybe_register_capabilities(self) -> None:
+        """向控制面（control_addr）上传能力清单；失败仅告警不影响连接。"""
+        control_addr = getattr(self._config, "control_addr", None)
+        if not control_addr:
+            return
+        try:
+            register_pb2 = _load_proto_module("croupier.agent.v1.register_pb2")
+            request = register_pb2.RegisterCapabilitiesRequest(
+                provider=register_pb2.ProviderMeta(
+                    id=self._config.service_id,
+                    version=self._config.service_version,
+                    lang=self._config.provider_lang,
+                    sdk=self._config.provider_sdk,
+                ),
+                manifest_json_gz=gzip.compress(self.build_manifest()),
+            )
+            transport = TCPTransport(
+                address=control_addr,
+                timeout_ms=max(self._config.timeout_seconds, 5) * 1000,
+                tls_enabled=not self._config.insecure,
+                tls_cert_file=self._config.cert_file or "",
+                tls_key_file=self._config.key_file or "",
+                tls_ca_file=self._config.ca_file or "",
+                tls_server_name=self._config.server_name or "",
+            )
+            transport.connect()
+            try:
+                transport.call(protocol.MSG_REGISTER_CAPABILITIES_REQ, request.SerializeToString())
+            finally:
+                transport.close()
+            LOG.info("Capabilities registered to control plane: %s", control_addr)
+        except Exception as error:  # noqa: BLE001 — 上传失败不影响注册
+            LOG.warning("Failed to register capabilities: %s", error)
+
     def disconnect(self) -> None:
         self._heartbeat_stop.set()
         if self._heartbeat_thread:

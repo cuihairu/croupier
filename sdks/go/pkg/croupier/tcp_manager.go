@@ -2,6 +2,8 @@
 package croupier
 
 import (
+	"bytes"
+	"compress/gzip"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -291,7 +293,126 @@ func (m *TCPManager) RegisterWithAgent(ctx context.Context, serviceID, serviceVe
 	m.heartbeatStop = cancel
 	go m.heartbeatLoop(ctx)
 
+	// 控制面 manifest 上传（best-effort，不阻断注册结果）
+	m.maybeRegisterCapabilities()
+
 	return m.sessionID, nil
+}
+
+// buildManifest 构建供控制面注册的能力清单（provider 元数据 + 函数摘要），
+// 与 JS/C# 参考实现同构。
+func (m *TCPManager) buildManifest() map[string]interface{} {
+	provider := map[string]interface{}{
+		"id":      orDefault(m.serviceID, "go-service"),
+		"version": orDefault(m.serviceVersion, "1.0.0"),
+		"lang":    orDefault(m.config.ProviderLang, "go"),
+		"sdk":     orDefault(m.config.ProviderSDK, "croupier-go-sdk"),
+	}
+	functions := make([]map[string]interface{}, 0, len(m.functions))
+	for _, descriptor := range m.functions {
+		if descriptor == nil || strings.TrimSpace(descriptor.Id) == "" {
+			continue
+		}
+		entry := map[string]interface{}{
+			"id":      descriptor.Id,
+			"version": orDefault(descriptor.Version, "1.0.0"),
+		}
+		if descriptor.Resource != "" {
+			entry["resource"] = descriptor.Resource
+		}
+		if descriptor.Operation != "" {
+			entry["operation"] = descriptor.Operation
+		}
+		if descriptor.Risk != "" {
+			entry["risk"] = descriptor.Risk
+		}
+		if descriptor.Permission != "" {
+			entry["permission"] = descriptor.Permission
+		}
+		if descriptor.Description != "" {
+			entry["description"] = descriptor.Description
+		}
+		if descriptor.InputSchema != "" {
+			entry["inputSchema"] = json.RawMessage(descriptor.InputSchema)
+		}
+		if descriptor.OutputSchema != "" {
+			entry["outputSchema"] = json.RawMessage(descriptor.OutputSchema)
+		}
+		functions = append(functions, entry)
+	}
+	return map[string]interface{}{"provider": provider, "functions": functions}
+}
+
+func orDefault(value, fallback string) string {
+	if strings.TrimSpace(value) == "" {
+		return fallback
+	}
+	return value
+}
+
+// gzipBytes 压缩 manifest JSON（RegisterCapabilitiesRequest.manifest_json_gz）。
+func gzipBytes(data []byte) ([]byte, error) {
+	var buf bytes.Buffer
+	writer := gzip.NewWriter(&buf)
+	if _, err := writer.Write(data); err != nil {
+		return nil, err
+	}
+	if err := writer.Close(); err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
+}
+
+// maybeRegisterCapabilities 向控制面（config.ControlAddr）上传能力清单。
+// 独立短连接 + 5s 超时；任何失败仅告警，不影响已完成的函数注册。
+func (m *TCPManager) maybeRegisterCapabilities() {
+	if strings.TrimSpace(m.config.ControlAddr) == "" {
+		return
+	}
+
+	manifestJSON, err := json.Marshal(m.buildManifest())
+	if err != nil {
+		logWarnf("register capabilities: marshal manifest: %v", err)
+		return
+	}
+	manifestGz, err := gzipBytes(manifestJSON)
+	if err != nil {
+		logWarnf("register capabilities: gzip manifest: %v", err)
+		return
+	}
+	req := &agentv1.RegisterCapabilitiesRequest{
+		Provider: &agentv1.ProviderMeta{
+			Id:      orDefault(m.serviceID, "go-service"),
+			Version: orDefault(m.serviceVersion, "1.0.0"),
+			Lang:    orDefault(m.config.ProviderLang, "go"),
+			Sdk:     orDefault(m.config.ProviderSDK, "croupier-go-sdk"),
+		},
+		ManifestJsonGz: manifestGz,
+	}
+	reqBody, err := proto.Marshal(req)
+	if err != nil {
+		logWarnf("register capabilities: marshal request: %v", err)
+		return
+	}
+
+	controlClient, err := transport.NewTCPClient(&transport.Config{
+		Address:     m.config.ControlAddr,
+		Insecure:    m.config.Insecure,
+		DialTimeout: 5 * time.Second,
+	})
+	if err != nil {
+		logWarnf("register capabilities: connect control plane: %v", err)
+		return
+	}
+	defer controlClient.Close()
+
+	callCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if _, _, err := controlClient.Call(callCtx, protocol.MsgRegisterCapabilitiesReq, reqBody); err != nil {
+		logWarnf("register capabilities: call: %v", err)
+		return
+	}
+	logInfof("Capabilities registered to control plane: %s", m.config.ControlAddr)
 }
 
 func (m *TCPManager) IsConnected() bool {
