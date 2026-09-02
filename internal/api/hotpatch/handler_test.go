@@ -103,10 +103,9 @@ func TestHandler_List(t *testing.T) {
 	assert.Equal(t, "draft", item["status"])
 	assert.Equal(t, "demo", item["gameId"])
 
-	// page 非数字 → 绑定错误（strconv 错误未被 response.Error 识别，
-	// 当前映射为 500 而非 400，见任务报告）。
+	// Bug4 修复后：page 非数字按契约返回 400
 	rec = doJSON(t, r, http.MethodGet, "/hotpatches?page=abc", "")
-	assert.Equal(t, http.StatusInternalServerError, rec.Code)
+	assert.Equal(t, http.StatusBadRequest, rec.Code)
 }
 
 func TestHandler_CreateValidation(t *testing.T) {

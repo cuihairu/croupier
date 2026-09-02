@@ -57,8 +57,8 @@ func TestHandler_CatalogList(t *testing.T) {
 			w := httptest.NewRecorder()
 			router.ServeHTTP(w, req)
 
-			// Accept either 200 or 500 since service isn't fully mocked
-			assert.True(t, w.Code == http.StatusOK || w.Code == http.StatusInternalServerError, "got status %d", w.Code)
+			// Accept 200 / 400 (invalid query param, Bug4 修复后) / 500
+			assert.True(t, w.Code == http.StatusOK || w.Code == http.StatusBadRequest || w.Code == http.StatusInternalServerError, "got status %d", w.Code)
 		})
 	}
 }

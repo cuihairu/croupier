@@ -413,8 +413,8 @@ func TestHandler_RolesList_BindQueryError(t *testing.T) {
 
 	router.ServeHTTP(resp, req)
 
-	// Without auth context, will return internal server error
-	assert.Equal(t, http.StatusInternalServerError, resp.Code)
+	// Bug4 修复后：page=invalid 按契约返回 400
+	assert.Equal(t, http.StatusBadRequest, resp.Code)
 }
 
 func TestHandler_RolesList_EmptyQuery(t *testing.T) {
