@@ -114,3 +114,210 @@
 ## 执行顺序建议
 
 T5（无风险热身）→ T1 → T2 → T3 → T4。前四个每个含独立 goose 迁移，按落地顺序编迁移序号；每个任务单独提交。
+
+---
+
+# 函数注册 → UI 生成链路体验补强 TODO（F 系列）
+
+现状诊断（2026-09-02 全链路走查结论）：
+
+- **两套 UI 体系脱节**：Invoke 工作台（`web/src/pages/Functions/Invoke/index.tsx:110`）把 `inputSchema` 直接包成 `{ jsonSchema, layout: 'vertical' }`，`FormPresentationSpec` 的 widget/分组/联动机制完全没接入（descriptor 里没有呈现数据，也没有推导层）；PageSpec/PageStudio 体系能力完整但靠人工配置，与 descriptor 不打通。
+- **widget 大面积退化**：`SchemaFormRenderer/index.tsx:133-174` `widgetToRjsf` 中 Select/Cascader/TreeSelect/Upload/RichText/KeyValue/Array/Object 等返回 undefined，退化为默认 input。
+- **结果渲染裸 JSON**：`InvocationResponse.tsx` 仅 Monaco viewer，`outputSchema` 未参与渲染；错误 `details` 不结构化。
+- **无远程枚举源**：选择玩家等高频操作只能手输 id。
+- **契约演进无保护**：注册 schema 直接覆盖，无 diff/breaking 检查；`Diagnostics`/`SourceDigest` 存了但 UI 不消费。
+- **其他**：visibleWhen 是删除式隐藏（丢数据）、FormGroupSpec 定义了但 `deriveRuntimeSchema` 未实现、AJV 错误消息英文裸奔、async 调用只弹 taskId 无进度面板。
+
+约定：proto `FunctionDescriptor` 保持无 UI 元数据（有意设计），呈现富化通过 **JSON Schema `x-ui-*` 扩展字段**（`input_schema` 本就是字符串透传，wire 契约零改动）+ 平台侧覆盖层实现。每个任务原子：独立实现、独立测试、独立提交。
+
+> **状态：全部待办**
+
+## F-A 阶段：呈现层打通（P0，改动小见效快）
+
+## F1. x-ui 呈现 hints 契约规范（文档先行）⬜
+
+**目标**：定义 JSON Schema `x-ui-*` 扩展字段规范，作为 SDK/游戏方声明呈现意图的唯一约定。
+
+**改动点**：
+
+- [ ] 新增 `docs/architecture/presentation-hints.md`：字段清单（`x-widget`/`x-label`/`x-placeholder`/`x-group`/`x-col-span`/`x-order`/`x-visible-when`/`x-options-source` 等）、与 `FormPresentationSpec`（`web/src/types/dashboard.ts:692` FormFieldSpec）的映射表、兼容性说明（未知 x-* 对 OpenAPI/AJV 无害透传）
+- [ ] `docs/architecture/pagespec-protocol.md` 增补「descriptor hints → presentation spec 推导」小节链接
+- [ ] `cd docs && pnpm build` 通过
+
+**验收**：规范含完整字段表与 3 个以上示例（含远程选项源示例）；文档构建通过。
+
+## F2. 前端推导器：inputSchema x-* hints → FormPresentationSpec ⬜
+
+**目标**：Invoke 工作台真正吃到 FormPresentationSpec 能力，取代裸 schema。
+
+**改动点**：
+
+- [ ] 新增 `web/src/utils/schemaHints.ts`：`derivePresentationSpec(schema): FormPresentationSpec`——遍历顶层 properties 提取 x-* hints 生成 fields（widget/label/placeholder/visibleWhen/group/order）
+- [ ] `web/src/pages/Functions/Invoke/index.tsx:110` 接入推导器（有 hints 时生成 fields，无 hints 保持现状 `layout: 'vertical'`）
+- [ ] JSON 模式与表单模式双向同步不受影响（现状 rawJson 联动保留）
+- [ ] 单测：`schemaHints.test.ts`（各 hint 提取、无 hints 回退、嵌套 properties 不误伤）
+
+**验收**：`pnpm --dir web run tsc` 0 错误；`pnpm --dir web test` 全绿。
+
+## F3. widget 映射补全 · 第一批（Select 系）⬜
+
+**目标**：FormWidget 声明的 Select 系 widget 不再退化为 input。
+
+**改动点**：
+
+- [ ] `SchemaFormRenderer/index.tsx`：注册 RJSF 自定义 widgets（`widgets` prop），实现 Select/MultiSelect（enumOptions + enumNames 驱动，MultiSelect 多选映射）/TreeSelect（x-ui tree-data hint）/Cascader/Rate
+- [ ] `widgetToRjsf`（index.tsx:133-174）移除上述 case 的 undefined 返回，改走自定义 widget 名
+- [ ] 单测：`__tests__/widgets-select.test.tsx`（渲染断言 + 枚举选项本地化）
+
+**验收**：tsc + web test 全绿；PageStudio 预览与 Invoke 表单中 Select 系正常渲染。
+
+## F4. widget 映射补全 · 第二批（上传/键值对）⬜
+
+**目标**：Upload/ImageUpload/FileUpload/KeyValue 可用。
+
+**改动点**：
+
+- [ ] 自定义 Upload 系 widget：antd Upload，值约定为 URL 字符串/字符串数组（`action`/`accept`/`maxCount` 从 widgetProps 透传，`x-ui-upload` hint 可选）
+- [ ] KeyValue widget：键值对编辑器（对象 → `{k:v}[]` 编辑行），输出归一为 object
+- [ ] 单测：上传值归一、KeyValue 增删行
+
+**验收**：tsc + web test 全绿。
+
+## F5. 表单 label 兜底与人性化 ⬜
+
+**目标**：字段 title 缺失时不裸奔英文 key。
+
+**改动点**：
+
+- [ ] `deriveRuntimeSchema`（SchemaFormRenderer/index.tsx:186-194）：title 缺失时 fallback——x-label hint > schema.title > key 人性化（camelCase/snake_case 拆词、首字母大写）
+- [ ] description 缺失时 x-description hint 兜底
+- [ ] 单测：三种来源优先级
+
+**验收**：tsc + web test 全绿。
+
+## F6. AJV 校验错误消息中文化 ⬜
+
+**目标**：表单校验错误直接可读。
+
+**改动点**：
+
+- [ ] `SchemaFormRenderer` 传入 `transformErrors`：AJV 关键字（required/format/minimum/maxLength 等）→ 中文模板（含字段 title 插值）
+- [ ] 中英文案跟随平台 locale（`getLocale()`）
+- [ ] 单测：required/格式错误两类消息断言
+
+**验收**：tsc + web test 全绿。
+
+## F-B 阶段：联动与布局（P1）
+
+## F7. FormGroupSpec 接线：分组渲染 ⬜
+
+**目标**：`types/dashboard.ts:683` FormGroupSpec 从定义变为实际渲染。
+
+**改动点**：
+
+- [ ] 自定义 `ObjectFieldTemplate`：按 `spec.groups` 分组渲染 antd Card/ Collapse（title/description/description 字段归属分组，未分组字段进默认组）
+- [ ] 每字段 `x-col-span`（FormFieldSpec 扩展 colSpan）→ grid 布局下 Row/Col 宽度
+- [ ] `deriveRuntimeSchema` 输出 formContext 携带分组元数据
+- [ ] 单测：分组归属、colSpan 计算、无 groups 时行为不变
+
+**验收**：tsc + web test 全绿；PageStudio 预览分组正常。
+
+## F8. visibleWhen 隐藏策略改进：不丢值 ⬜
+
+**目标**：条件隐藏切换时保留用户已填数据，避免来回切换丢输入。
+
+**改动点**：
+
+- [ ] `deriveRuntimeSchema`（index.tsx:278-287）：隐藏字段不再从 schema.properties 删除，改 `ui:widget: 'hidden'` + 从 required 移除（校验豁免）
+- [ ] 确认提交 payload 是否含隐藏字段值：`omitExtraData` 行为验证，必要时提交前按可见性过滤
+- [ ] 单测：隐藏→显示值保留、隐藏字段不参与校验
+
+**验收**：tsc + web test 全绿。
+
+## F9. 远程选项源（x-options-source）⬜
+
+**目标**：选择玩家/角色等高频输入从「手输 id」变为「下拉搜索」。
+
+**改动点**：
+
+- [ ] FormFieldSpec 扩展 `remoteOptions: { functionId, labelPath?, valuePath?, searchParam? }`；x-options-source hint 提取进 F2 推导器
+- [ ] 新增 hook `useRemoteOptions`：表单字段失焦/打开下拉时 `invokeFunction(functionId, …)` 拉取（labelPath/valuePath 取值），会话级 Map 缓存（key=functionId+params），失败静默降级为手输
+- [ ] F3 的 Select/TreeSelect widget 接入该 hook
+- [ ] 权限天然走 RBAC（调用需权限，无权限时提示不可用）
+- [ ] 单测：mock invokeFunction——选项映射、缓存命中、失败降级
+
+**验收**：tsc + web test 全绿；demo 包（examples）配一个带 x-options-source 的示例函数验证端到端。
+
+## F-C 阶段：结果渲染与调用 UX（P1）
+
+## F10. outputSchema 驱动结果渲染 ⬜
+
+**目标**：调用结果不再是裸 JSON，优先结构化展示。
+
+**改动点**：
+
+- [ ] 新增 `deriveResultSpec(outputSchema)`：对象 → 字段卡片（复用 `web/src/components/PageRenderer/ResultViewRenderer.tsx`）；对象数组 → antd Table（列=properties）；其余/解析失败 → 现有 JSON viewer 兜底
+- [ ] `InvocationResponse.tsx` 加「结构化 / JSON」Tabs，结构化优先展示
+- [ ] 错误响应 `details` 结构化渲染（字段级错误列表，对接后端 error 契约 details）
+- [ ] 单测：deriveResultSpec 三分支、details 渲染
+
+**验收**：tsc + web test 全绿。
+
+## F11. 异步任务进度内嵌 ⬜
+
+**目标**：async 调用后在工作台内直接看任务进度，不再只弹 taskId。
+
+**改动点**：
+
+- [ ] `Invoke/index.tsx` asyncMode 成功后：内嵌任务面板（taskId → 轮询或复用既有任务事件流通道，见 `internal/jobs` 与 task API；SSE 通道已有则优先复用）
+- [ ] 展示状态机（pending/running/done/error）+ 进度/日志尾部 + 完成后结果展示（对接 F10 渲染）
+- [ ] 取消按钮（对接既有 CancelTask）
+- [ ] 单测：状态轮询/事件流 mock、完成渲染、取消交互
+
+**验收**：tsc + web test 全绿；demo task 函数端到端可见进度。
+
+## F-D 阶段：契约演进保护（P2）
+
+## F12. 注册时 schema 兼容性 diff ⬜
+
+**目标**：schema 破坏性变更不被静默覆盖。
+
+**改动点**：
+
+- [ ] 新增 `internal/function/schemadiff`（或 internal/api/openapi 旁）：JSON Schema 语义 diff——新增 required、删除已有 properties、类型变更、enum 收窄 = breaking；新增可选字段/描述变更 = compatible
+- [ ] `internal/server/control_handler.go` `handleRegisterRequest`（:429）upsert contract 前对比旧 `input_schema`/`output_schema`：breaking 时写入 contract `Diagnostics`（字段已有）+ `RegisterResponse.warnings` 返回 agent
+- [ ] 不阻断注册（只告警），策略开关 `functions.schemaDiffWarn`（默认开）
+- [ ] 单测：diff 五类判定、upsert 写 Diagnostics、warnings 透传
+
+**验收**：`go test ./internal/function/... ./internal/server/...` 全绿；`go build ./...` 通过。
+
+## F13. 契约变更可视化（依赖 F12）⬜
+
+**目标**：运营在 Functions 页能看到契约近期变更与告警。
+
+**改动点**：
+
+- [ ] Functions 详情页（`web/src/pages/Functions/Detail.tsx`）展示 Diagnostics 告警条 + `SourceDigest`/`UpdatedAt` 变更提示
+- [ ] contract 变更写入审计链（upsert 处加审计事件 `function.contract_updated`，含 diff 摘要）
+- [ ] 单测：告警条渲染（mock diagnostics）、审计事件断言
+
+**验收**：tsc + web test 全绿；`go test ./internal/server/...` 全绿。
+
+## F14.（可选）SDK 便捷层注入 hints ⬜
+
+**目标**：游戏方在 SDK 侧低成本声明呈现意图。
+
+**改动点**：
+
+- [ ] Go SDK `function/builder.go`：`SetFieldHint(key, hintKey, value)` / `SetFieldWidget(key, widget)` ——向 InputSchema 的 properties[key] 合并 x-* 字段
+- [ ] Python/JS SDK 对齐（按 `sdks/SDK_FEATURE_MATRIX.md` 标注为 L2 可选能力）
+- [ ] `sdks/SDK_FEATURE_MATRIX.md` 与 `docs/sdks/<lang>/` 同步
+- [ ] Go SDK 单测：hints 合并/覆盖/非法 key 拒绝
+
+**验收**：`go test ./sdks/...`（模块内）全绿；examples 示例更新展示 hints 用法。
+
+## 执行顺序建议（F 系列）
+
+F1（规范先行）→ F2（推导器，后续任务的接线点）→ F5/F6（独立小项，可穿插）→ F3 → F4 → F7/F8 → F9（依赖 F3）→ F10/F11 → F12 → F13（依赖 F12）→ F14（可选）。
+
+F2 是汇聚点：F3-F9 的成果都通过它进入 Invoke 工作台。每个任务独立提交；涉及 web 的按交付 DoD 跑 `pnpm --dir web run tsc` + `pnpm --dir web test` + `bash scripts/dashboard_vnext_guard.sh`，涉及文档的 `cd docs && pnpm build`。
