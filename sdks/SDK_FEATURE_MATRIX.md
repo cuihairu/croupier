@@ -43,14 +43,14 @@
 
 ### L2 Provider 扩展
 
-| 能力                                                                   | Go              | Python                | Java                                  | JS/TS               | C++ | C#                       |
-| ---------------------------------------------------------------------- | --------------- | --------------------- | ------------------------------------- | ------------------- | --- | ------------------------ |
-| Descriptor v2 字段（builder/构造器）                                   | ✅              | ✅                    | ✅                                    | ✅                  | ✅  | ✅                       |
-| 呈现 hints 便捷层（`SetFieldHint`/`SetFieldWidget` 等价，x-ui-* 契约） | ✅ builder 方法 | ✅ `set_field_hint()` | ❌                                    | ✅ `setFieldHint()` | ❌  | ❌                       |
-| OpenAPI 注册 helper（`RegisterFromOpenAPI` 等价）                      | ✅              | ✅                    | ✅                                    | ✅                  | ✅  | ✅                       |
-| JSON Schema 入站 payload 校验（provider 侧，`validateInputPayloads`）  | ✅              | ✅                    | ❌                                    | ✅                  | ❌  | ✅ `JsonSchemaValidator` |
-| 控制面 manifest 上传（`control_addr` → `RegisterCapabilitiesRequest`） | ✅              | ✅                    | ❌ 配置字段+manifest 构建已备，未接线 | ✅                  | ❌  | ✅                       |
-| 文件传输（`enable_file_transfer`）                                     | ❌              | ❌                    | ❌                                    | ❌                  | ❌  | ❌                       |
+| 能力                                                                   | Go              | Python                | Java            | JS/TS               | C++                | C#                       |
+| ---------------------------------------------------------------------- | --------------- | --------------------- | --------------- | ------------------- | ------------------ | ------------------------ |
+| Descriptor v2 字段（builder/构造器）                                   | ✅              | ✅                    | ✅              | ✅                  | ✅                 | ✅                       |
+| 呈现 hints 便捷层（`SetFieldHint`/`SetFieldWidget` 等价，x-ui-* 契约） | ✅ builder 方法 | ✅ `set_field_hint()` | ✅ `FieldHints` | ✅ `setFieldHint()` | ✅ `field_hints.h` | ✅ `FieldHints`          |
+| OpenAPI 注册 helper（`RegisterFromOpenAPI` 等价）                      | ✅              | ✅                    | ✅              | ✅                  | ✅                 | ✅                       |
+| JSON Schema 入站 payload 校验（provider 侧，`validateInputPayloads`）  | ✅              | ✅                    | ✅              | ✅                  | ✅                 | ✅ `JsonSchemaValidator` |
+| 控制面 manifest 上传（`control_addr` → `RegisterCapabilitiesRequest`） | ✅              | ✅                    | ✅              | ✅                  | ✅                 | ✅                       |
+| 文件传输（`enable_file_transfer`）                                     | ❌              | ❌                    | ❌              | ❌                  | ❌                 | ❌                       |
 
 ### L3 Invoker（invoke / startTask / getTaskStatus / streamTask / cancelTask）
 
@@ -65,12 +65,10 @@ C# DI / Unity / Java Spring Boot starter），明细见下文第五章；此层�
 
 ### 已知缺口（按优先级）
 
-1. **manifest 上传（L2）**：Go/Python/JS/C#/Java 已实现（注册后独立短连接
+1. **manifest 上传（L2）**：六语言均已实现（注册后独立短连接
    `control_addr` → `RegisterCapabilitiesRequest`，best-effort 不阻断注册）；
-   **C++ 未实现**。Java 已具备 manifest 构建，发送接线待补。
+   已知边界：C++ 端到端帧回路测试未覆盖（编译与逻辑对齐 Go 已验证版本）。
 2. **文件传输（L2）**：六语言均未实现；如无平台侧需求建议从矩阵移除或标注"规划中"。
-3. **Java TLS transport**（已补齐）：`TlsSocketFactory` 支持 CA 校验与 mTLS（PKCS#8），
-   显式 `startHandshake` + 握手后 SAN/CN 端点校验。
 
 ---
 
