@@ -48,7 +48,7 @@ import {
   ProfilePermission,
 } from '@/services/api/me';
 import { listAudit, AuditEvent } from '@/services/api/audit';
-import { listMessages, MessageItem } from '@/services/api/messages';
+import { listMessages, markMessagesRead, MessageItem } from '@/services/api/messages';
 import { listPermissions, type PermissionRecord } from '@/services/api/permissions';
 import { createFeedback } from '@/services/api/support';
 import { buildAvatarObjectKey, uploadAsset } from '@/services/api/storage';
@@ -56,7 +56,7 @@ import type { JSONValue } from '@/types/dashboard';
 import type { UploadProps } from 'antd/es/upload/interface';
 import './index.less';
 
-const { Title, Text } = Typography;
+const { Title, Text, Paragraph } = Typography;
 
 const TAB_KEYS = {
   PROFILE: 'profile',
@@ -186,6 +186,7 @@ export default function Profile() {
   const [activities, setActivities] = useState<AuditEvent[]>([]);
   const [loginRecords, setLoginRecords] = useState<AuditEvent[]>([]);
   const [notifications, setNotifications] = useState<MessageItem[]>([]);
+  const [detailMessage, setDetailMessage] = useState<MessageItem | null>(null);
   const [extrasLoading, setExtrasLoading] = useState(false);
   const [applyForm] = Form.useForm();
   const [avatarForm] = Form.useForm();
@@ -211,6 +212,33 @@ export default function Profile() {
   useEffect(() => {
     setActiveTab(initialTab);
   }, [initialTab]);
+
+  // 消息详情：打开未读消息即标记已读并刷新列表状态
+  const openMessage = useCallback((item: MessageItem) => {
+    setDetailMessage(item);
+    if (item.status !== 'read') {
+      markMessagesRead([item.id])
+        .then(() => {
+          setNotifications((prev) =>
+            prev.map((m) => (m.id === item.id ? { ...m, status: 'read' } : m)),
+          );
+          setDetailMessage((prev) =>
+            prev && prev.id === item.id ? { ...prev, status: 'read' } : prev,
+          );
+        })
+        .catch(() => undefined);
+    }
+  }, []);
+
+  const markAllRead = useCallback(() => {
+    const unread = notifications.filter((m) => m.status !== 'read');
+    if (unread.length === 0) return;
+    markMessagesRead(unread.map((m) => m.id))
+      .then(() => {
+        setNotifications((prev) => prev.map((m) => ({ ...m, status: 'read' })));
+      })
+      .catch(() => undefined);
+  }, [notifications]);
 
   const loadExtras = useCallback(
     async (username?: string) => {
@@ -720,26 +748,51 @@ export default function Profile() {
   );
 
   const renderNotifications = () => (
-    <Card loading={extrasLoading}>
+    <Card
+      loading={extrasLoading}
+      extra={
+        notifications.some((m) => m.status !== 'read') ? (
+          <Button size="small" onClick={markAllRead}>
+            全部标为已读
+          </Button>
+        ) : null
+      }
+    >
       <List
         dataSource={notifications}
         locale={{ emptyText: formatMessage('profile.notifications.empty') }}
         renderItem={(item) => (
-          <List.Item>
+          <List.Item
+            style={{ cursor: 'pointer', borderRadius: 6, padding: '10px 8px' }}
+            onClick={() => openMessage(item)}
+          >
             <List.Item.Meta
               title={
                 <Space>
                   <Badge status={item.status === 'read' ? 'default' : 'processing'} />
-                  <Text strong>
+                  <Text strong={item.status !== 'read'}>
                     {item.title || formatMessage('profile.notifications.untitled')}
                   </Text>
+                  <Tag style={{ fontSize: 10 }}>{item.type}</Tag>
+                  {item.data != null && (
+                    <Tag style={{ fontSize: 10 }} color="blue">
+                      含数据
+                    </Tag>
+                  )}
                 </Space>
               }
               description={
                 <Space direction="vertical" size={0}>
-                  <Text>{item.content}</Text>
-                  <Text type="secondary">
+                  <Text
+                    type="secondary"
+                    ellipsis
+                    style={{ maxWidth: 560, color: item.status !== 'read' ? undefined : undefined }}
+                  >
+                    {item.content}
+                  </Text>
+                  <Text type="secondary" style={{ fontSize: 12 }}>
                     {item.createdAt ? new Date(item.createdAt).toLocaleString() : ''}
+                    {item.status !== 'read' ? ' · 未读' : ''}
                   </Text>
                 </Space>
               }
@@ -747,6 +800,49 @@ export default function Profile() {
           </List.Item>
         )}
       />
+      <Modal
+        open={!!detailMessage}
+        title={detailMessage?.title || formatMessage('profile.notifications.untitled')}
+        footer={null}
+        onCancel={() => setDetailMessage(null)}
+        width={560}
+      >
+        {detailMessage && (
+          <div>
+            <Space style={{ marginBottom: 12 }}>
+              <Tag>{detailMessage.type}</Tag>
+              <Text type="secondary" style={{ fontSize: 12 }}>
+                {detailMessage.createdAt ? new Date(detailMessage.createdAt).toLocaleString() : ''}
+              </Text>
+              <Text type="secondary" style={{ fontSize: 12 }}>
+                {detailMessage.status === 'read' ? '已读' : '未读'}
+              </Text>
+            </Space>
+            <Paragraph style={{ whiteSpace: 'pre-wrap' }}>
+              {detailMessage.content || '（无正文）'}
+            </Paragraph>
+            {detailMessage.data != null && (
+              <>
+                <Text type="secondary" style={{ fontSize: 12 }}>
+                  结构化数据：
+                </Text>
+                <pre
+                  style={{
+                    background: '#fafafa',
+                    padding: 12,
+                    borderRadius: 6,
+                    fontSize: 12,
+                    maxHeight: 260,
+                    overflow: 'auto',
+                  }}
+                >
+                  {JSON.stringify(detailMessage.data, null, 2)}
+                </pre>
+              </>
+            )}
+          </div>
+        )}
+      </Modal>
     </Card>
   );
 
