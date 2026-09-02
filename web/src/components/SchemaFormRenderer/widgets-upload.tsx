@@ -164,7 +164,7 @@ export function KeyValueField({
   void schema;
 
   return (
-    <Space direction="vertical" style={{ width: '100%' }} data-testid={id}>
+    <Space orientation="vertical" style={{ width: '100%' }} data-testid={id}>
       {rows.map((row, index) => (
         <Space.Compact key={index} style={{ width: '100%' }} data-testid={`${id}-row-${index}`}>
           <Input
