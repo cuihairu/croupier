@@ -145,6 +145,9 @@ public class CroupierClientImpl implements CroupierClient {
                 startHeartbeatLoop();
 
                 logger.info("Successfully connected");
+
+                // F：控制面 manifest 上传（best-effort，不阻断连接结果）
+                maybeRegisterCapabilities();
             } catch (Exception e) {
                 connected.set(false);
                 sessionId = "";
@@ -297,6 +300,40 @@ public class CroupierClientImpl implements CroupierClient {
         if (transport != null) {
             transport.close();
             transport = null;
+        }
+    }
+
+    /**
+     * F：向控制面（control_addr）上传能力清单。
+     * 独立短连接 + best-effort：任何失败仅告警，不影响已完成的注册连接。
+     */
+    private void maybeRegisterCapabilities() {
+        String controlAddr = config.getControlAddr();
+        if (controlAddr == null || controlAddr.isBlank()) {
+            return;
+        }
+        TransportClient controlTransport = null;
+        try {
+            controlTransport = transportFactory.apply(controlAddr, config.getTimeoutSeconds() * 1000);
+            controlTransport.connect();
+            SdkWireMessages.RegisterCapabilitiesRequest request =
+                new SdkWireMessages.RegisterCapabilitiesRequest(
+                    new SdkWireMessages.ProviderMeta(
+                        config.getServiceId(),
+                        config.getServiceVersion(),
+                        config.getProviderLang(),
+                        config.getProviderSdk()),
+                    getManifestGzipped());
+            controlTransport.request(
+                Protocol.MSG_REGISTER_CAPABILITIES_REQ,
+                SdkWireMessages.encodeRegisterCapabilitiesRequest(request));
+            logger.info("Capabilities registered to control plane: {}", controlAddr);
+        } catch (Exception e) {
+            logger.warn("Failed to register capabilities: {}", e.getMessage());
+        } finally {
+            if (controlTransport != null) {
+                controlTransport.close();
+            }
         }
     }
 
@@ -589,14 +626,43 @@ public class CroupierClientImpl implements CroupierClient {
 
     private byte[] invokeInbound(byte[] body) throws Exception {
         SdkWireMessages.InvokeRequest request = SdkWireMessages.decodeInvokeRequest(body);
-        String result = invoke(
-            request.functionId,
-            new String(request.payload, StandardCharsets.UTF_8),
-            request.metadata
-        );
+        String payload = new String(request.payload, StandardCharsets.UTF_8);
+
+        // Provider 侧入站校验（可选）：按函数声明的 input schema 校验 payload，
+        // 失败回错误响应，handler 不被调用（服务端仍是权威校验方）。
+        if (config.isValidateInputPayloads()) {
+            String validationError = validateInboundPayload(request.functionId, payload);
+            if (validationError != null) {
+                return SdkWireMessages.encodeInvokeResponse(
+                    new SdkWireMessages.InvokeResponse(
+                        ("{\"error\":" + io.github.cuihairu.croupier.sdk.invoker.Json.stringify(validationError) + "}")
+                            .getBytes(StandardCharsets.UTF_8)));
+            }
+        }
+
+        String result = invoke(request.functionId, payload, request.metadata);
         return SdkWireMessages.encodeInvokeResponse(
             new SdkWireMessages.InvokeResponse(result.getBytes(StandardCharsets.UTF_8))
         );
+    }
+
+    /**
+     * Provider 侧入站校验（F：与 Go/Python/JS/C# 语义对齐）：按函数声明的
+     * input schema 校验 payload。开关关闭/未注册/schema 缺失时跳过（服务端
+     * 仍是权威校验方）；失败返回错误消息，通过则返回 null。
+     */
+    private String validateInboundPayload(String functionId, String payload) {
+        if (!config.isValidateInputPayloads()) {
+            return null;
+        }
+        FunctionDescriptor descriptor = descriptors.get(functionId);
+        if (descriptor == null || descriptor.getInputSchema() == null
+                || descriptor.getInputSchema().isBlank()) {
+            return null;
+        }
+        List<String> errors = io.github.cuihairu.croupier.sdk.invoker.JsonSchemaValidator.validate(
+            payload, descriptor.getInputSchema());
+        return errors.isEmpty() ? null : "payload validation failed: " + String.join("; ", errors);
     }
 
     private byte[] handleStartTaskRequest(byte[] body) throws Exception {
@@ -605,6 +671,15 @@ public class CroupierClientImpl implements CroupierClient {
         FunctionHandler handler = handlers.get(functionId);
         if (handler == null) {
             throw new CroupierException("Function not found: " + functionId);
+        }
+
+        // F：入站校验（同 invoke）——失败抛错，任务不启动
+        if (config.isValidateInputPayloads()) {
+            String validationError = validateInboundPayload(
+                functionId, new String(request.payload, StandardCharsets.UTF_8));
+            if (validationError != null) {
+                throw new CroupierException(validationError);
+            }
         }
 
         String payload = new String(request.payload, StandardCharsets.UTF_8);

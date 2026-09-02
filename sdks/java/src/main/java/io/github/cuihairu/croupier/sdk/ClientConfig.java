@@ -48,6 +48,7 @@ public class ClientConfig {
 
     // ========== File Transfer Configuration ==========
     private boolean enableFileTransfer = false;  // Enable file transfer functionality (default: false)
+    private boolean validateInputPayloads = false; // F：provider 侧入站校验（按函数声明 input schema），默认关闭
     private int maxFileSize = 10485760;         // Max file size in bytes (default: 10MB)
 
     // ========== Logging Configuration ==========
@@ -122,6 +123,9 @@ public class ClientConfig {
 
     public boolean isEnableFileTransfer() { return enableFileTransfer; }
     public void setEnableFileTransfer(boolean enableFileTransfer) { this.enableFileTransfer = enableFileTransfer; }
+
+    public boolean isValidateInputPayloads() { return validateInputPayloads; }
+    public void setValidateInputPayloads(boolean validateInputPayloads) { this.validateInputPayloads = validateInputPayloads; }
 
     public int getMaxFileSize() { return maxFileSize; }
     public void setMaxFileSize(int maxFileSize) { this.maxFileSize = maxFileSize; }

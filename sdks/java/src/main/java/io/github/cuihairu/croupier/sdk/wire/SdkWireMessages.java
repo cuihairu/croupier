@@ -475,6 +475,91 @@ public final class SdkWireMessages {
     }
 
     /** ProviderDrainRequest：Agent 请求 Provider 优雅下线。 */
+    // ===== F：控制面能力清单上传 =====
+
+    public static final class ProviderMeta {
+        public final String id;
+        public final String version;
+        public final String lang;
+        public final String sdk;
+
+        public ProviderMeta(String id, String version, String lang, String sdk) {
+            this.id = id == null ? "" : id;
+            this.version = version == null ? "" : version;
+            this.lang = lang == null ? "" : lang;
+            this.sdk = sdk == null ? "" : sdk;
+        }
+    }
+
+    public static final class RegisterCapabilitiesRequest {
+        public final ProviderMeta provider;
+        public final byte[] manifestJsonGz;
+
+        public RegisterCapabilitiesRequest(ProviderMeta provider, byte[] manifestJsonGz) {
+            this.provider = provider;
+            this.manifestJsonGz = manifestJsonGz == null ? new byte[0] : manifestJsonGz;
+        }
+    }
+
+    public static byte[] encodeRegisterCapabilitiesRequest(RegisterCapabilitiesRequest message) {
+        return encode(out -> {
+            writeMessage(out, 1, encodeProviderMeta(message.provider));
+            writeBytes(out, 2, message.manifestJsonGz);
+        });
+    }
+
+    public static RegisterCapabilitiesRequest decodeRegisterCapabilitiesRequest(byte[] data) {
+        ProviderMeta provider = new ProviderMeta("", "", "", "");
+        byte[] manifestJsonGz = new byte[0];
+        CodedInputStream input = newInput(data);
+        try {
+            while (!input.isAtEnd()) {
+                int tag = input.readTag();
+                if (tag == 0) {
+                    break;
+                }
+                switch (WireFormat.getTagFieldNumber(tag)) {
+                    case 1 -> {
+                        byte[] nested = input.readByteArray();
+                        CodedInputStream nestedInput = newInput(nested);
+                        String id = "";
+                        String version = "";
+                        String lang = "";
+                        String sdk = "";
+                        while (!nestedInput.isAtEnd()) {
+                            int nestedTag = nestedInput.readTag();
+                            if (nestedTag == 0) {
+                                break;
+                            }
+                            switch (WireFormat.getTagFieldNumber(nestedTag)) {
+                                case 1 -> id = nestedInput.readString();
+                                case 2 -> version = nestedInput.readString();
+                                case 3 -> lang = nestedInput.readString();
+                                case 4 -> sdk = nestedInput.readString();
+                                default -> nestedInput.skipField(nestedTag);
+                            }
+                        }
+                        provider = new ProviderMeta(id, version, lang, sdk);
+                    }
+                    case 2 -> manifestJsonGz = input.readByteArray();
+                    default -> input.skipField(tag);
+                }
+            }
+        } catch (java.io.IOException e) {
+            throw new IllegalArgumentException("failed to decode RegisterCapabilitiesRequest", e);
+        }
+        return new RegisterCapabilitiesRequest(provider, manifestJsonGz);
+    }
+
+    private static byte[] encodeProviderMeta(ProviderMeta meta) {
+        return encode(out -> {
+            writeString(out, 1, meta.id);
+            writeString(out, 2, meta.version);
+            writeString(out, 3, meta.lang);
+            writeString(out, 4, meta.sdk);
+        });
+    }
+
     public static final class ProviderDrainRequest {
         public final String sessionId;
         public final String reason;
