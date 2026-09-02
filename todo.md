@@ -173,17 +173,20 @@ T5（无风险热身）→ T1 → T2 → T3 → T4。前四个每个含独立 go
 
 **验收**：tsc 0 错误 + web test 全绿（161 passed）+ guard PASSED。
 
-## F4. widget 映射补全 · 第二批（上传/键值对）⬜
+## F4. widget 映射补全 · 第二批（上传/键值对）✅
 
 **目标**：Upload/ImageUpload/FileUpload/KeyValue 可用。
 
 **改动点**：
 
-- [ ] 自定义 Upload 系 widget：antd Upload，值约定为 URL 字符串/字符串数组（`action`/`accept`/`maxCount` 从 widgetProps 透传，`x-ui-upload` hint 可选）
-- [ ] KeyValue widget：键值对编辑器（对象 → `{k:v}[]` 编辑行），输出归一为 object
-- [ ] 单测：上传值归一、KeyValue 增删行
+- [x] Upload 系 widget（`widgets-upload.tsx`）：antd Upload，值为 URL string/string[]（schema.type 驱动），done 文件取 `file.url ?? response?.url`，action/accept/maxCount/listType 经 widgetProps 透传；`uploadValueFromFileList` 导出供测试
+- [x] KeyValue：键值对编辑器，值为 object——object 类型 rjsf 走 ObjectField 忽略 ui:widget，故注册为自定义 field（`ui:field: 'keyValue'`）；空 key 行不计入提交
+- [x] SchemaFormRenderer 加固：handler useCallback 稳定化（rjsf 任意 props 变化会重置内部 state 为 formData，引用不稳定 + 镜像滞后会回滚用户输入）；getValues 优先读 Form 实时 state
+- [x] 单测：上传值归一（done/uploading/error、response 兜底）、KeyValue 增删改行、Upload 移除清值
 
-**验收**：tsc + web test 全绿。
+> 已知边界：Upload 需游戏方在 x-widget-props 配置 action 上传端点，无 action/失败不计值；free-form object 字段建议声明 `additionalProperties: true`，否则 rjsf omitExtraData 会剪除空内容对象。
+
+**验收**：tsc 0 错误 + web test 全绿（166 passed）+ guard PASSED。
 
 ## F5. 表单 label 兜底与人性化 ✅
 
