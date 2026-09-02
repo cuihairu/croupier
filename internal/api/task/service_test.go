@@ -256,7 +256,7 @@ func (f *fakeAgentSessionCaller) Call(_ context.Context, msgID uint32, reqBody [
 	}
 	f.sawFunctionID = req.GetFunctionId()
 	if req.Metadata != nil {
-		f.handledTaskID = req.Metadata["task_id"]
+		f.handledTaskID = req.Metadata["taskId"]
 	}
 	resp, err := proto.Marshal(&sdkv1.StartTaskResponse{TaskId: f.handledTaskID})
 	if err != nil {

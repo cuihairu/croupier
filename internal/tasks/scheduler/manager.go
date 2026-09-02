@@ -166,9 +166,9 @@ func (m *Manager) triggerSchedule(ctx context.Context, s *model.TaskSchedule, no
 	if meta == nil {
 		meta = map[string]string{}
 	}
-	meta["game_id"] = s.GameID
+	meta["gameId"] = s.GameID
 	meta["env"] = s.Env
-	meta["schedule_id"] = fmt.Sprintf("%d", s.ID)
+	meta["scheduleId"] = fmt.Sprintf("%d", s.ID)
 	req := &sdkv1.InvokeRequest{
 		FunctionId: s.FunctionID,
 		Payload:    []byte(s.Payload.String()),

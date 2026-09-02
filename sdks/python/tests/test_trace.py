@@ -6,7 +6,7 @@ from croupier.trace import trace_id_from_context, trace_parent_from_context
 
 
 def test_extract_trace_fields():
-    ctx = json.dumps({"traceparent": "00-abc-def-01", "trace_id": "abc", "game_id": "demo"})
+    ctx = json.dumps({"traceparent": "00-abc-def-01", "traceId": "abc", "game_id": "demo"})
     assert trace_parent_from_context(ctx) == "00-abc-def-01"
     assert trace_id_from_context(ctx) == "abc"
 
@@ -24,5 +24,5 @@ def test_malformed_context_yields_empty():
 
 
 def test_non_string_value_yields_empty():
-    ctx = json.dumps({"trace_id": 123})
+    ctx = json.dumps({"traceId": 123})
     assert trace_id_from_context(ctx) == ""

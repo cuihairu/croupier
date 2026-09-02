@@ -91,7 +91,7 @@ func TestService_UpsertAndGet_RoundTrip(t *testing.T) {
 		Limit:    10,
 		Window:   60,
 		Action:   "reject",
-		Rules:    map[string]interface{}{"game_id": "demo"},
+		Rules:    map[string]interface{}{"gameId": "demo"},
 	})
 	require.NoError(t, err)
 	require.NotNil(t, upsertResp)
@@ -183,7 +183,7 @@ func TestService_Preview_OK(t *testing.T) {
 	svc := NewService(svcCtx)
 
 	resp, err := svc.Preview(context.Background(), &RateLimitPreviewRequest{
-		Rules: map[string]interface{}{"game_id": "demo", "env": "prod"},
+		Rules: map[string]interface{}{"gameId": "demo", "env": "prod"},
 	})
 	require.NoError(t, err)
 	require.NotNil(t, resp)

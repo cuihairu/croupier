@@ -44,12 +44,12 @@ func TestIsApprovedContinuation_V2(t *testing.T) {
 
 	assert.False(t, isApprovedContinuation(nil))
 	assert.False(t, isApprovedContinuation(map[string]string{}))
-	assert.False(t, isApprovedContinuation(map[string]string{"approval_bypass": "pending"}))
+	assert.False(t, isApprovedContinuation(map[string]string{"approvalBypass": "pending"}))
 	// " approved " is trimmed to "approved" so it should be true
-	assert.True(t, isApprovedContinuation(map[string]string{"approval_bypass": " approved "}))
-	assert.True(t, isApprovedContinuation(map[string]string{"approval_bypass": "approved"}))
-	assert.True(t, isApprovedContinuation(map[string]string{"approval_bypass": "Approved"}))
-	assert.True(t, isApprovedContinuation(map[string]string{"approval_bypass": " APPROVED "}))
+	assert.True(t, isApprovedContinuation(map[string]string{"approvalBypass": " approved "}))
+	assert.True(t, isApprovedContinuation(map[string]string{"approvalBypass": "approved"}))
+	assert.True(t, isApprovedContinuation(map[string]string{"approvalBypass": "Approved"}))
+	assert.True(t, isApprovedContinuation(map[string]string{"approvalBypass": " APPROVED "}))
 }
 
 // ---- isPageSnapshotGoverned ----
@@ -59,11 +59,11 @@ func TestIsPageSnapshotGoverned_V2(t *testing.T) {
 
 	assert.False(t, isPageSnapshotGoverned(nil))
 	assert.False(t, isPageSnapshotGoverned(map[string]string{}))
-	assert.False(t, isPageSnapshotGoverned(map[string]string{"page_snapshot_governance": "pending"}))
+	assert.False(t, isPageSnapshotGoverned(map[string]string{"pageSnapshotGovernance": "pending"}))
 	// " validated " is trimmed to "validated" so it should be true
-	assert.True(t, isPageSnapshotGoverned(map[string]string{"page_snapshot_governance": " validated "}))
-	assert.True(t, isPageSnapshotGoverned(map[string]string{"page_snapshot_governance": "validated"}))
-	assert.True(t, isPageSnapshotGoverned(map[string]string{"page_snapshot_governance": "Validated"}))
+	assert.True(t, isPageSnapshotGoverned(map[string]string{"pageSnapshotGovernance": " validated "}))
+	assert.True(t, isPageSnapshotGoverned(map[string]string{"pageSnapshotGovernance": "validated"}))
+	assert.True(t, isPageSnapshotGoverned(map[string]string{"pageSnapshotGovernance": "Validated"}))
 }
 
 // ---- invokePayload ----

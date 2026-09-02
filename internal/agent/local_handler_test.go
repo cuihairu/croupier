@@ -250,7 +250,7 @@ func TestTaskRunner(t *testing.T) {
 			return nil, ctx.Err()
 		}, reporter, nil)
 
-		id := r.Start(&sdkv1.InvokeRequest{FunctionId: "f", Metadata: map[string]string{"task_id": "task-1"}})
+		id := r.Start(&sdkv1.InvokeRequest{FunctionId: "f", Metadata: map[string]string{"taskId": "task-1"}})
 		assert.Equal(t, "task-1", id)
 		assert.Equal(t, 1, r.Count())
 
@@ -662,7 +662,7 @@ func TestLocalHandler_TaskEventReporting(t *testing.T) {
 		// still emits started + failed events through the reporter.
 		req := &sdkv1.InvokeRequest{
 			FunctionId: "fn.echo",
-			Metadata:   map[string]string{"task_id": "task-evt"},
+			Metadata:   map[string]string{"taskId": "task-evt"},
 		}
 		data, _ := proto.Marshal(req)
 
@@ -681,7 +681,7 @@ func TestLocalHandler_TaskEventReporting(t *testing.T) {
 		// No reporter set; starting a task must not panic and events are dropped.
 		req := &sdkv1.InvokeRequest{
 			FunctionId: "fn.echo",
-			Metadata:   map[string]string{"task_id": "task-nil"},
+			Metadata:   map[string]string{"taskId": "task-nil"},
 		}
 		data, _ := proto.Marshal(req)
 		_, err := handler.handleStartTask(context.Background(), data)
@@ -1238,7 +1238,7 @@ func TestLocalHandler_HandleCancelTask_WithExistingTask(t *testing.T) {
 	}, reporter, nil)
 	handler.tasks.Start(&sdkv1.InvokeRequest{
 		FunctionId: "fn.block",
-		Metadata:   map[string]string{"task_id": "task-1"},
+		Metadata:   map[string]string{"taskId": "task-1"},
 	})
 
 	req := &sdkv1.CancelTaskRequest{
@@ -1263,7 +1263,7 @@ func TestLocalHandler_TaskRunner_NilReporterSafe(t *testing.T) {
 	r := NewTaskRunner(func(context.Context, *sdkv1.InvokeRequest) ([]byte, error) {
 		return []byte("null"), nil
 	}, nil, nil)
-	r.Start(&sdkv1.InvokeRequest{FunctionId: "f", Metadata: map[string]string{"task_id": "t"}})
+	r.Start(&sdkv1.InvokeRequest{FunctionId: "f", Metadata: map[string]string{"taskId": "t"}})
 	time.Sleep(30 * time.Millisecond)
 	assert.Equal(t, 0, r.Count()) // task completes and untracks itself
 }

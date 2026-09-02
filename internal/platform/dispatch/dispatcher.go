@@ -271,7 +271,7 @@ func (d *Dispatcher) InvokeRequest(ctx context.Context, req *sdkv1.InvokeRequest
 	if req == nil || req.GetFunctionId() == "" {
 		return nil, fmt.Errorf("function id is required")
 	}
-	// 调用方声明的同步调用预算（metadata["timeout_ms"]，毫秒）：
+	// 调用方声明的同步调用预算（metadata["timeoutMs"]，毫秒）：
 	// 生效范围 [1s, invokeTimeout]，越界 clamp。Go context 的 deadline 取
 	// min 语义——这里收紧后，内层 callAgent 的 invokeTimeout 只作上限。
 	if budget := requestTimeoutBudget(req.GetMetadata()); budget > 0 {
@@ -353,7 +353,7 @@ func (d *Dispatcher) invokeOnPickedAgent(ctx context.Context, span trace.Span, a
 	for k, v := range origMeta {
 		meta[k] = v
 	}
-	meta["agent_id"] = agent.AgentID
+	meta["agentId"] = agent.AgentID
 	req.Metadata = telemetry.InjectContext(ctx, meta)
 	if req.Metadata == nil {
 		req.Metadata = meta
@@ -448,7 +448,7 @@ func (d *Dispatcher) InvokeBroadcast(ctx context.Context, req *sdkv1.InvokeReque
 			if localReq.Metadata == nil {
 				localReq.Metadata = map[string]string{}
 			}
-			localReq.Metadata["agent_id"] = agent.AgentID
+			localReq.Metadata["agentId"] = agent.AgentID
 			localReq.Metadata = telemetry.InjectContext(ctx, localReq.Metadata)
 
 			if d.healthTracker != nil {
@@ -567,7 +567,7 @@ func (d *Dispatcher) StartTaskRequest(ctx context.Context, req *sdkv1.InvokeRequ
 	if req.Metadata == nil {
 		req.Metadata = map[string]string{}
 	}
-	req.Metadata["agent_id"] = agent.AgentID
+	req.Metadata["agentId"] = agent.AgentID
 	req.Metadata = telemetry.InjectContext(ctx, req.Metadata)
 
 	// Generate a server-side task ID so events flowing back from the agent
@@ -578,9 +578,9 @@ func (d *Dispatcher) StartTaskRequest(ctx context.Context, req *sdkv1.InvokeRequ
 
 	if writer != nil {
 		taskID := generateTaskID()
-		req.Metadata["task_id"] = taskID
+		req.Metadata["taskId"] = taskID
 		span.SetAttributes(attribute.String("task.id", taskID))
-		gameID := req.Metadata["game_id"]
+		gameID := req.Metadata["gameId"]
 		env := req.Metadata["env"]
 		actor := req.Metadata["actor"]
 		addr := agent.Addr
@@ -924,8 +924,8 @@ func (d *Dispatcher) pickAgentWithRouting(functionID string, metadata map[string
 		return nil, err
 	}
 
-	serviceID := strings.TrimSpace(metadata["target_service_id"])
-	hashKey := strings.TrimSpace(metadata["hash_key"])
+	serviceID := strings.TrimSpace(metadata["targetServiceId"])
+	hashKey := strings.TrimSpace(metadata["hashKey"])
 	candidates := d.listAgentsForFunctionInScope(functionID, gameID, env, scoped)
 	if len(exclude) > 0 && exclude[0] != nil {
 		filtered := make([]*reg.AgentSession, 0, len(candidates))
@@ -976,7 +976,7 @@ func routingScopeFromMetadata(metadata map[string]string) (gameID, env string, s
 	if len(metadata) == 0 {
 		return "", "", false, nil
 	}
-	gameID = strings.TrimSpace(metadata["game_id"])
+	gameID = strings.TrimSpace(metadata["gameId"])
 	env = strings.TrimSpace(metadata["env"])
 	if gameID == "" && env == "" {
 		return "", "", false, nil
@@ -1040,12 +1040,12 @@ func (d *Dispatcher) callAgent(ctx context.Context, agentID string, msgID uint32
 	return respBody, err
 }
 
-// requestTimeoutBudget 解析 metadata["timeout_ms"]（调用方声明的一次同步
+// requestTimeoutBudget 解析 metadata["timeoutMs"]（调用方声明的一次同步
 // 调用预算，毫秒）。有效范围 [1s, 60s]：小于 1s 提到 1s（防误传 0/负值瞬断），
 // 大于 60s 截到 60s（同步通道上限，更长操作应走异步任务）。垃圾值/缺失
 // 返回 0（= 不收紧，沿用 invokeTimeout 全局默认）。
 func requestTimeoutBudget(meta map[string]string) time.Duration {
-	raw := strings.TrimSpace(meta["timeout_ms"])
+	raw := strings.TrimSpace(meta["timeoutMs"])
 	if raw == "" {
 		return 0
 	}
@@ -1081,7 +1081,7 @@ func (d *Dispatcher) callAgentRouted(ctx context.Context, agentID string, msgID 
 		fwdMeta[k] = v
 	}
 	// 转发链路自己重建路由/追踪上下文，本地注入的标记不带过去。
-	delete(fwdMeta, "agent_id")
+	delete(fwdMeta, "agentId")
 	respBytes, ferr := fwd.ForwardInvoke(ctx, agentID, req.GetFunctionId(), req.GetPayload(), fwdMeta, req.GetIdempotencyKey())
 	if ferr != nil {
 		return nil, fmt.Errorf("forward to owner of %s: %v: %w", agentID, ferr, errAgentUnreachable)

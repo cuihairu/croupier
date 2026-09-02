@@ -120,7 +120,7 @@ v1 不引入独立 `Magic`，而是直接用首条应用层消息识别子协议
 - `responseMsgID = requestMsgID + 1` 仍是默认约定
 - 像 `TaskEvent` 这样的单向事件消息不属于标准 request/response 配对
 
-### 同步调用超时：metadata `timeout_ms` 约定
+### 同步调用超时：metadata `timeoutMs` 约定
 
 调用方声明的一次同步调用预算（毫秒，字符串十进制），放在 invoke 请求的
 metadata map 中端到端传播，各跳取 **min(本跳配置, 声明值)** 生效（Go
@@ -128,7 +128,7 @@ context deadline 的天然 min 语义）：
 
 | 层          | 行为                                                                                                    |
 | ----------- | ------------------------------------------------------------------------------------------------------- |
-| HTTP API    | 请求体 `timeoutMs`（可选）→ 注入 `metadata["timeout_ms"]`                                               |
+| HTTP API    | 请求体 `timeoutMs`（可选）→ 注入 `metadata["timeoutMs"]`                                                |
 | Server 派发 | `requestTimeoutBudget`：clamp [1000, 60000]，收紧 ctx；全局默认 15s 只作上限                            |
 | Agent       | `providerCallDeadline`：clamp [1000, Agent 配置上限]，与默认（`agent.invokeTimeoutMs`，默认 15000）取小 |
 
@@ -306,11 +306,11 @@ v1 默认规则：
 - `function_id`
 - `session_id`
 - `idempotency_key`
-- `trace_id`
+- `traceId`
   - W3C trace 传播详见 `docs/architecture/sdk-otel-propagation.md`（SDK 只做传播不做导出）
-- `game_id`
+- `gameId`
 - `env`
-- `timeout_ms`
+- `timeoutMs`
 - `priority`
 - 能力协商、限流、重试、审计相关字段
 

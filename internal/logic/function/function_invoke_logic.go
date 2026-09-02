@@ -56,7 +56,7 @@ func (l *FunctionInvokeLogic) FunctionInvoke(req *FunctionInvokeRequest) (*Funct
 
 	metadata := map[string]string{}
 	if gameID != "" {
-		metadata["game_id"] = gameID
+		metadata["gameId"] = gameID
 	}
 	if env != "" {
 		metadata["env"] = env
@@ -69,13 +69,13 @@ func (l *FunctionInvokeLogic) FunctionInvoke(req *FunctionInvokeRequest) (*Funct
 		if sid == "" {
 			return nil, errorx.NewBadRequest("target_service_id is required for route=targeted")
 		}
-		metadata["target_service_id"] = sid
+		metadata["targetServiceId"] = sid
 	case "hash":
 		key := strings.TrimSpace(req.HashKey)
 		if key == "" {
 			return nil, errorx.NewBadRequest("hash_key is required for route=hash")
 		}
-		metadata["hash_key"] = key
+		metadata["hashKey"] = key
 	case "broadcast":
 		// no metadata required; fan-out happens via Dispatcher.InvokeBroadcast.
 	default:

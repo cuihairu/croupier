@@ -1078,7 +1078,7 @@ func TestOfflineDatabaseNode_V2(t *testing.T) {
 		node := offlineDatabaseNode(model.Node{
 			NodeID: "n1",
 			Meta: map[string]interface{}{
-				"game_id": "g2",
+				"gameId": "g2",
 			},
 		})
 		assert.Equal(t, "g2", node.GameId)

@@ -12,7 +12,7 @@ import json
 from typing import Any, Dict
 
 METADATA_TRACEPARENT = "traceparent"
-METADATA_TRACE_ID = "trace_id"
+METADATA_TRACE_ID = "traceId"
 
 
 def trace_parent_from_context(context_json: str) -> str:

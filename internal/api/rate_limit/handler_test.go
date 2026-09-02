@@ -143,7 +143,7 @@ func TestHandler_Preview_Returns200(t *testing.T) {
 	router := newRouter(handler)
 
 	rec := doJSON(t, router, http.MethodPost, "/rate-limits/preview",
-		`{"rules":{"game_id":"demo","env":"prod"}}`)
+		`{"rules":{"gameId":"demo","env":"prod"}}`)
 	assertStatus(t, rec, http.StatusOK)
 
 	var resp map[string]interface{}

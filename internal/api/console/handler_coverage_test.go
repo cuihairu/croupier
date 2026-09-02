@@ -161,7 +161,7 @@ func TestCreatePageApprovalStoresPendingApproval(t *testing.T) {
 	binding := spec.PageFunctionBinding{ID: "b1", FunctionID: "player.query"}
 	contract := spec.BindingContractSnapshot{BindingID: "b1", FunctionID: "player.query"}
 	approvalID, err := service.createPageApproval(ctx, "demo-game", "development",
-		binding, contract, json.RawMessage(`{"keyword":"a"}`), "", map[string]string{"trace_id": "t-1"})
+		binding, contract, json.RawMessage(`{"keyword":"a"}`), "", map[string]string{"traceId": "t-1"})
 	require.NoError(t, err)
 	assert.True(t, strings.HasPrefix(approvalID, "page_player_query_"))
 
@@ -171,7 +171,7 @@ func TestCreatePageApprovalStoresPendingApproval(t *testing.T) {
 	assert.Equal(t, "demo-game", stored.GameID)
 	assert.Equal(t, "development", stored.Env)
 	assert.JSONEq(t, `{"keyword":"a"}`, string(stored.Payload))
-	assert.Equal(t, "t-1", stored.Metadata["trace_id"])
+	assert.Equal(t, "t-1", stored.Metadata["traceId"])
 }
 
 func TestCreatePageApprovalSanitizesFunctionID(t *testing.T) {

@@ -183,9 +183,9 @@ func TestDispatcher_StartTaskRequest_SuccessViaSession(t *testing.T) {
 		FunctionId: "test-func",
 		Payload:    []byte("payload"),
 		Metadata: map[string]string{
-			"game_id": "demo-game",
-			"env":     "development",
-			"actor":   "admin",
+			"gameId": "demo-game",
+			"env":    "development",
+			"actor":  "admin",
 		},
 	})
 	require.NoError(t, err)

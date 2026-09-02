@@ -165,7 +165,7 @@ func TestBuildFunctionPermissions(t *testing.T) {
 func TestBuildInvokeRequest(t *testing.T) {
 	functionID := "test.function"
 	payload := []byte(`{"key": "value"}`)
-	metadata := map[string]string{"game_id": "game1", "env": "prod"}
+	metadata := map[string]string{"gameId": "game1", "env": "prod"}
 
 	result := BuildInvokeRequest(functionID, payload, metadata)
 

@@ -661,7 +661,7 @@ func TestDispatcher_pickAgentWithRouting_TargetServiceID(t *testing.T) {
 		},
 	})
 
-	metadata := map[string]string{"target_service_id": "service-1"}
+	metadata := map[string]string{"targetServiceId": "service-1"}
 	agent, err := d.pickAgentWithRouting("test-func", metadata)
 
 	if err != nil {
@@ -687,7 +687,7 @@ func TestDispatcher_pickAgentWithRouting_TargetServiceIDNotFound(t *testing.T) {
 		},
 	})
 
-	metadata := map[string]string{"target_service_id": "non-existent"}
+	metadata := map[string]string{"targetServiceId": "non-existent"}
 	_, err := d.pickAgentWithRouting("test-func", metadata)
 
 	if err == nil {
@@ -717,7 +717,7 @@ func TestDispatcher_pickAgentWithRouting_HashKey(t *testing.T) {
 		},
 	})
 
-	metadata := map[string]string{"hash_key": "user-123"}
+	metadata := map[string]string{"hashKey": "user-123"}
 	agent1, _ := d.pickAgentWithRouting("test-func", metadata)
 	agent2, _ := d.pickAgentWithRouting("test-func", metadata)
 
@@ -744,7 +744,7 @@ func TestDispatcher_pickAgentWithRouting_EmptyHashKey(t *testing.T) {
 		},
 	})
 
-	metadata := map[string]string{"hash_key": "  "} // 只有空格
+	metadata := map[string]string{"hashKey": "  "} // 只有空格
 	agent, err := d.pickAgentWithRouting("test-func", metadata)
 
 	if err != nil {
@@ -792,7 +792,7 @@ func TestDispatcher_pickAgentWithRouting_FiltersGameEnvironment(t *testing.T) {
 		d.store.UpsertAgent(agent)
 	}
 
-	selected, err := d.pickAgentWithRouting("test-func", map[string]string{"game_id": "game-a", "env": "prod"})
+	selected, err := d.pickAgentWithRouting("test-func", map[string]string{"gameId": "game-a", "env": "prod"})
 	if err != nil {
 		t.Fatalf("pickAgentWithRouting() error = %v", err)
 	}
@@ -803,7 +803,7 @@ func TestDispatcher_pickAgentWithRouting_FiltersGameEnvironment(t *testing.T) {
 
 func TestDispatcher_pickAgentWithRouting_RejectsPartialScope(t *testing.T) {
 	d := NewDispatcher(nil)
-	_, err := d.pickAgentWithRouting("test-func", map[string]string{"game_id": "game-a"})
+	_, err := d.pickAgentWithRouting("test-func", map[string]string{"gameId": "game-a"})
 	if err == nil {
 		t.Fatal("expected partial game scope to be rejected")
 	}

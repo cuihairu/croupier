@@ -40,7 +40,7 @@ Croupier 的实现遵循两个业界标准，使用者无需学习私有概念�
                            │ trace 开始（或延续外部 traceparent）
                            │ telemetry.InjectContext(ctx, metadata)
                            │   metadata["traceparent"] = "00-<traceId>-<spanId>-01"
-                           │   metadata["trace_id"]    = "<traceId>"   ← 冗余明文，便于弱端读取
+                           │   metadata["traceId"]     = "<traceId>"   ← 冗余明文，便于弱端读取
                            ▼
                       function.dispatch.invoke (SpanKind=Client)
                            │ ExtractContext 延续 trace → 选 Agent → TCP 转发
@@ -86,7 +86,7 @@ SpanKind 语义：`Server` = 承接入站请求，`Client` = 发起出站调用�
 | ------------- | ----------------------------------------------------------- | --------------------------------------------- |
 | `traceparent` | W3C：`00-{32位hex traceId}-{16位hex spanId}-{2位hex flags}` | 标准跨进程传播字段，otel SDK 可直接 Extract   |
 | `tracestate`  | W3C：厂商扩展键值对（通常为空）                             | 透传保留                                      |
-| `trace_id`    | 32 位 hex 明文                                              | 冗余字段：不解析 `traceparent` 的简单端直接读 |
+| `traceId`     | 32 位 hex 明文                                              | 冗余字段：不解析 `traceparent` 的简单端直接读 |
 
 W3C `traceparent` 示例：
 
@@ -168,7 +168,7 @@ OTEL_ENABLE_TRACING=true
 ```
 
 未开启 tracing（或 collector 不可达）时：**传播字段照常注入 metadata**
-（`traceparent`/`trace_id` 仍存在），但 span 不会被导出，响应 `traceId`
+（`traceparent`/`traceId` 仍存在），但 span 不会被导出，响应 `traceId`
 为空。属部署配置，非代码缺口。
 
 ### Dashboard 跳转（决定"能不能一键跳"）
@@ -188,14 +188,14 @@ docker run --rm -p 16686:16686 -p 4318:4318 jaegertracing/all-in-one:latest
 
 ## SDK 现状（六语言）
 
-| 语言   | 响应透出 traceId             | 请求注入 traceparent                         | Provider 提取延续                                                                        | 备注                     |
-| ------ | ---------------------------- | -------------------------------------------- | ---------------------------------------------------------------------------------------- | ------------------------ |
-| Go     | ✅（DTO `TraceID`）          | ❌                                           | ✅ 一期（ctx 注入 `WithTraceMetadata` + `TraceParentFromContext`/`TraceIDFromContext`）  | 一期                     |
-| Python | ✅（invoker `trace_id`）     | ❌                                           | ✅ 一期（context JSON 随 metadata 透传 + `croupier.trace` 读取辅助）                     | 一期                     |
-| JS     | ✅（`InvokeResult.traceId`） | ❌                                           | ✅ 一期（context JSON 随 metadata 透传 + `traceParentFromContext`/`traceIdFromContext`） | 一期                     |
-| Java   | ❌                           | ❌                                           | ❌                                                                                       | 二期按需                 |
-| C#     | ❌                           | ❌                                           | ❌                                                                                       | 二期按需                 |
-| C++    | 部分（task 状态）            | 部分（`trace_id` 明文注入 metadata，非 W3C） | ❌                                                                                       | `InvokeOptions.trace_id` |
+| 语言   | 响应透出 traceId             | 请求注入 traceparent                        | Provider 提取延续                                                                        | 备注                    |
+| ------ | ---------------------------- | ------------------------------------------- | ---------------------------------------------------------------------------------------- | ----------------------- |
+| Go     | ✅（DTO `TraceID`）          | ❌                                          | ✅ 一期（ctx 注入 `WithTraceMetadata` + `TraceParentFromContext`/`TraceIDFromContext`）  | 一期                    |
+| Python | ✅（invoker `trace_id`）     | ❌                                          | ✅ 一期（context JSON 随 metadata 透传 + `croupier.trace` 读取辅助）                     | 一期                    |
+| JS     | ✅（`InvokeResult.traceId`） | ❌                                          | ✅ 一期（context JSON 随 metadata 透传 + `traceParentFromContext`/`traceIdFromContext`） | 一期                    |
+| Java   | ❌                           | ❌                                          | ❌                                                                                       | 二期按需                |
+| C#     | ❌                           | ❌                                          | ❌                                                                                       | 二期按需                |
+| C++    | 部分（task 状态）            | 部分（`traceId` 明文注入 metadata，非 W3C） | ❌                                                                                       | `InvokeOptions.traceId` |
 
 一期口径说明：Provider 侧"提取延续"当前为**无 otel 依赖的传播**——trace
 字段进入 handler 上下文（Go 为 context value，Python/JS 为 context JSON

@@ -9,7 +9,7 @@ import (
 )
 
 const (
-	MetadataTraceID     = "trace_id"
+	MetadataTraceID     = "traceId"
 	MetadataTraceparent = "traceparent"
 	MetadataTracestate  = "tracestate"
 )

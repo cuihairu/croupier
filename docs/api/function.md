@@ -231,8 +231,8 @@ type FunctionInvokeRequest struct {
 	Env string `json:"env,optional"`     // 兼容字段；生效 scope 以 X-Game-ID/X-Env 请求头为准
 	Mode string `json:"mode,optional"`
 	Route string `json:"route,optional"`
-	TargetServiceID string `json:"target_service_id,optional"`
-	HashKey string `json:"hash_key,optional"`
+	TargetServiceID string `json:"targetServiceId,optional"`
+	HashKey string `json:"hashKey,optional"`
 }
 ```
 

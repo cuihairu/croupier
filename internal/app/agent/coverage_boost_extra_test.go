@@ -187,7 +187,7 @@ func TestBuildProviders_InstanceVariants(t *testing.T) {
 				ProviderID: "svc-b",
 				Addr:       "10.0.0.2:2000",
 				LastSeen:   now,
-				Metadata:   map[string]string{"sdk_language": "go", "sdk_version": "1.2", "sdk_name": "croupier-go", "game_id": "g1", "env": "prod"},
+				Metadata:   map[string]string{"sdkLanguage": "go", "sdkVersion": "1.2", "sdkName": "croupier-go", "gameId": "g1", "env": "prod"},
 			},
 		},
 	}

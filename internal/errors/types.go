@@ -163,7 +163,7 @@ func (e *AppError) ToJSON() map[string]interface{} {
 		"message":     e.Message,
 		"operation":   e.Operation,
 		"timestamp":   e.Timestamp,
-		"trace_id":    e.TraceID,
+		"traceId":     e.TraceID,
 		"severity":    e.Severity,
 		"category":    e.Category,
 		"user_error":  e.UserError,

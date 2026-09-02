@@ -68,7 +68,7 @@ type LocalHandler struct {
 	expectedGameID   string // Agent 配置的 gameId，用于校验 SDK 注册
 	expectedEnv      string // Agent 配置的 env，用于校验 SDK 注册
 	// providerCallTimeout 是 Agent → Provider 同步调用的默认预算；
-	// 请求 metadata["timeout_ms"] 声明更小值时取更小者（Go deadline
+	// 请求 metadata["timeoutMs"] 声明更小值时取更小者（Go deadline
 	// min 语义）。此前硬编码 10s 与 Server 派发层 15s 倒挂。
 	providerCallTimeout time.Duration
 	mu                  sync.RWMutex
@@ -124,7 +124,7 @@ func (h *LocalHandler) providerCallDeadline(meta map[string]string) time.Duratio
 	if def <= 0 {
 		def = 15 * time.Second
 	}
-	raw := strings.TrimSpace(meta["timeout_ms"])
+	raw := strings.TrimSpace(meta["timeoutMs"])
 	if raw == "" {
 		return def
 	}
@@ -248,8 +248,8 @@ func (h *LocalHandler) handleInvoke(ctx context.Context, data []byte) ([]byte, e
 		trace.WithAttributes(
 			attribute.String("function.id", functionID),
 			attribute.String("agent.id", h.agentID),
-			attribute.String("service.id", req.GetMetadata()["service_id"]),
-			attribute.String("task.id", req.GetMetadata()["task_id"]),
+			attribute.String("service.id", req.GetMetadata()["serviceId"]),
+			attribute.String("task.id", req.GetMetadata()["taskId"]),
 		),
 	)
 	defer span.End()
@@ -307,7 +307,7 @@ func (h *LocalHandler) callProvider(ctx context.Context, functionID string, meta
 	sessions := h.providerSessions
 	h.mu.RUnlock()
 	if sessions != nil {
-		serviceID := metadata["service_id"]
+		serviceID := metadata["serviceId"]
 		if serviceID != "" {
 			if session, ok := sessions.GetByServiceID(serviceID); ok && session.Conn() != nil {
 				_, response, err := session.Conn().Call(ctx, msgID, data)
@@ -385,7 +385,7 @@ func (h *LocalHandler) pickInstance(functionID string, metadata map[string]strin
 	}
 
 	// 按 service_id 路由（一级过滤）
-	targetService := metadata["service_id"]
+	targetService := metadata["serviceId"]
 	var arr []agentlocal.Instance
 	if targetService != "" {
 		arr = serviceMap[targetService]
@@ -462,7 +462,7 @@ func (h *LocalHandler) executeTask(ctx context.Context, req *sdkv1.InvokeRequest
 		trace.WithAttributes(
 			attribute.String("function.id", req.GetFunctionId()),
 			attribute.String("agent.id", h.agentID),
-			attribute.String("task.id", req.GetMetadata()["task_id"]),
+			attribute.String("task.id", req.GetMetadata()["taskId"]),
 		),
 	)
 	defer span.End()
@@ -818,11 +818,11 @@ func (h *LocalHandler) handleProviderConnect(ctx context.Context, data []byte) (
 		}
 		// 提取元数据（参考 Nacos metadata）
 		metadata := map[string]string{
-			"sdk_language":     req.SdkLanguage,
-			"sdk_version":      req.SdkVersion,
-			"sdk_name":         req.SdkName,
+			"sdkLanguage":      req.SdkLanguage,
+			"sdkVersion":       req.SdkVersion,
+			"sdkName":          req.SdkName,
 			"protocol_version": req.ProtocolVersion,
-			"game_id":          req.GameId,
+			"gameId":           req.GameId,
 			"env":              req.Env,
 		}
 		// Use empty addr here; the TCP onConnect path sets the real address.

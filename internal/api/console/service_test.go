@@ -229,9 +229,9 @@ func TestServiceExecuteBindingWritesAuditWithPageContext(t *testing.T) {
 	assert.Equal(t, "function-digest-1", caller.lastRequest.Metadata["function_digest"])
 	assert.Equal(t, "semantics-digest-1", caller.lastRequest.Metadata["semantics_digest"])
 	assert.Equal(t, "page-generator:test", caller.lastRequest.Metadata["generator_version"])
-	assert.Equal(t, "agent-1", caller.lastRequest.Metadata["agent_id"])
+	assert.Equal(t, "agent-1", caller.lastRequest.Metadata["agentId"])
 	assert.Equal(t, resp.Result.RequestID, caller.lastRequest.Metadata["page_request_id"])
-	assert.Equal(t, resp.Result.TraceID, caller.lastRequest.Metadata["trace_id"])
+	assert.Equal(t, resp.Result.TraceID, caller.lastRequest.Metadata["traceId"])
 	assert.Equal(t, "console.binding.execute", caller.lastRequest.Metadata["page_runtime_api"])
 
 	pageSpan := findEndedSpan(t, spanRecorder, "page.binding.execute")

@@ -163,7 +163,7 @@ func (r *TaskRunner) report(ctx context.Context, event *sdkv1.TaskEvent) error {
 // generates a local fallback when absent (backward compatibility).
 func resolveTaskID(req *sdkv1.InvokeRequest) string {
 	if req.GetMetadata() != nil {
-		if id := strings.TrimSpace(req.Metadata["task_id"]); id != "" {
+		if id := strings.TrimSpace(req.Metadata["taskId"]); id != "" {
 			return id
 		}
 	}

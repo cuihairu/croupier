@@ -297,7 +297,7 @@ func TestPageExecutionTargetV2(t *testing.T) {
 
 	// agent_id in metadata
 	resp := &function.FunctionInvokeResponse{
-		ExecutionMetadata: map[string]string{"agent_id": "agent-1"},
+		ExecutionMetadata: map[string]string{"agentId": "agent-1"},
 	}
 	assert.Equal(t, "agent-1", pageExecutionTarget(resp))
 
@@ -320,7 +320,7 @@ func TestPageExecutionTargetV2(t *testing.T) {
 
 	// broadcast with agent_id in metadata
 	resp = &function.FunctionInvokeResponse{
-		ExecutionMetadata: map[string]string{"agent_id": "agent-1"},
+		ExecutionMetadata: map[string]string{"agentId": "agent-1"},
 		Broadcast: &function.BroadcastResult{
 			Results: []function.BroadcastAgentItem{
 				{AgentID: "agent-a"},

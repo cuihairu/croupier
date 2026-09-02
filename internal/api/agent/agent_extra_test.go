@@ -33,7 +33,7 @@ func TestHandler_GetAnalyticsFilters_WithBody(t *testing.T) {
 
 	rec := httptest.NewRecorder()
 	ctx, _ := gin.CreateTestContext(rec)
-	ctx.Request = httptest.NewRequest("POST", "/agent/filters", bytes.NewBuffer([]byte(`{"game_id": "test"}`)))
+	ctx.Request = httptest.NewRequest("POST", "/agent/filters", bytes.NewBuffer([]byte(`{"gameId": "test"}`)))
 	ctx.Request.Header.Set("Content-Type", "application/json")
 
 	handler.GetAnalyticsFilters(ctx)
@@ -51,7 +51,7 @@ func TestHandler_UpdateMeta_WithBody(t *testing.T) {
 
 	rec := httptest.NewRecorder()
 	ctx, _ := gin.CreateTestContext(rec)
-	ctx.Request = httptest.NewRequest("POST", "/agent/meta", bytes.NewBuffer([]byte(`{"agent_id": "test"}`)))
+	ctx.Request = httptest.NewRequest("POST", "/agent/meta", bytes.NewBuffer([]byte(`{"agentId": "test"}`)))
 	ctx.Request.Header.Set("Content-Type", "application/json")
 
 	handler.UpdateMeta(ctx)

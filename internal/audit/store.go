@@ -296,7 +296,7 @@ func (s *SQLAuditStore) backfillPromotedFields() {
 				continue
 			}
 			if err := s.db.Model(&AuditModel{}).Where("id = ?", m.ID).Updates(map[string]interface{}{
-				"game_id":     gameID,
+				"gameId":      gameID,
 				"env":         env,
 				"function_id": functionID,
 				"duration_ms": durationMs,

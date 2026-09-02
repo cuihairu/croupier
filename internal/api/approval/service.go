@@ -165,7 +165,7 @@ func (s *Service) Approve(ctx context.Context, req *ApprovalApproveRequest) (*Ap
 	}
 	_ = s.upsertApprovalToExtension(ctx, buildApprovalDetail(record))
 	_ = s.recordApprovalEvent(ctx, "approvals_approve", "approval approved",
-		fmt.Sprintf(`{"approval_id":"%s"}`, record.ID),
+		fmt.Sprintf(`{"approvalId":"%s"}`, record.ID),
 	)
 	s.notifyApprovalEvent(ctx, "approval.approved", record,
 		"审批已通过: "+record.FunctionID,
@@ -207,7 +207,7 @@ func (s *Service) Reject(ctx context.Context, req *ApprovalRejectRequest) (*Appr
 	}
 	_ = s.upsertApprovalToExtension(ctx, buildApprovalDetail(record))
 	_ = s.recordApprovalEvent(ctx, "approvals_reject", "approval rejected",
-		fmt.Sprintf(`{"approval_id":"%s"}`, record.ID),
+		fmt.Sprintf(`{"approvalId":"%s"}`, record.ID),
 	)
 	s.notifyApprovalEvent(ctx, "approval.rejected", record,
 		"审批已拒绝: "+record.FunctionID,
@@ -347,9 +347,9 @@ func (s *Service) continueApprovedFunction(ctx context.Context, record *approval
 		return approvalContinuationResult{}, nil
 	}
 	metadata := cloneApprovalMetadata(record.Metadata)
-	metadata["approval_bypass"] = "approved"
-	metadata["approval_id"] = strings.TrimSpace(record.ID)
-	metadata["approval_actor"] = strings.TrimSpace(record.Actor)
+	metadata["approvalBypass"] = "approved"
+	metadata["approvalId"] = strings.TrimSpace(record.ID)
+	metadata["approvalActor"] = strings.TrimSpace(record.Actor)
 	metadata["runtime_api"] = "approval.continue"
 	if err := s.ensurePageApprovalStillFresh(ctx, record, metadata); err != nil {
 		return approvalContinuationResult{}, err
@@ -385,7 +385,7 @@ func (s *Service) continueApprovedFunction(ctx context.Context, record *approval
 }
 
 func (s *Service) ensurePageApprovalStillFresh(ctx context.Context, record *approvals.Approval, metadata map[string]string) error {
-	if !strings.EqualFold(strings.TrimSpace(metadata["page_snapshot_governance"]), "validated") {
+	if !strings.EqualFold(strings.TrimSpace(metadata["pageSnapshotGovernance"]), "validated") {
 		return nil
 	}
 	if s == nil || s.svcCtx == nil || s.svcCtx.PublishedPageSpecModel == nil {

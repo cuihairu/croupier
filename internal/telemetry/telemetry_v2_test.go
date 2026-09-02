@@ -212,7 +212,7 @@ func TestTraceIDFromMetadataV2(t *testing.T) {
 	assert.Equal(t, "", TraceIDFromMetadata(map[string]string{}))
 
 	// with trace_id
-	assert.Equal(t, "abc123", TraceIDFromMetadata(map[string]string{"trace_id": "abc123"}))
+	assert.Equal(t, "abc123", TraceIDFromMetadata(map[string]string{"traceId": "abc123"}))
 }
 
 func TestTraceIDFromContextV2(t *testing.T) {

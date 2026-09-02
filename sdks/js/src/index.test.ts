@@ -1511,7 +1511,7 @@ describe("BasicClient", () => {
       expect(result).toBe("result");
       expect(handler).toHaveBeenCalled();
       const context = JSON.parse(receivedContext);
-      expect(context.idempotency_key).toBe("unique-key-123");
+      expect(context.idempotencyKey).toBe("unique-key-123");
       expect(context["x-custom"]).toBe("value");
     });
 
@@ -1598,7 +1598,7 @@ describe("BasicClient", () => {
       }
 
       const context = JSON.parse(receivedContext);
-      expect(context.idempotency_key).toBe("job-key-456");
+      expect(context.idempotencyKey).toBe("job-key-456");
       expect(context["x-job-id"]).toBe("123");
     });
 
@@ -1654,7 +1654,7 @@ describe("BasicClient", () => {
 
       expect(result).toBe("result");
       const context = JSON.parse(receivedContext);
-      expect(context.idempotency_key).toBe("complete-key");
+      expect(context.idempotencyKey).toBe("complete-key");
       expect(context.timeout).toBe(20000);
       expect(context["x-request-id"]).toBe("req-789");
       expect(context["x-game-id"]).toBe("game-123");

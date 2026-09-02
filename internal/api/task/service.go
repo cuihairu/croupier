@@ -88,7 +88,7 @@ func (s *Service) Start(ctx context.Context, req *StartRequest) (*StartResponse,
 
 	metadata := map[string]string{}
 	if gameID != "" {
-		metadata["game_id"] = gameID
+		metadata["gameId"] = gameID
 	}
 	if env != "" {
 		metadata["env"] = env

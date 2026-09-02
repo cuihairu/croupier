@@ -22,19 +22,19 @@ func TestProviderCallDeadlineSemantics(t *testing.T) {
 
 	// 默认 15s（对齐 Server 派发层，替代旧硬编码 10s）
 	assert.Equal(t, 15*time.Second, h.providerCallDeadline(nil))
-	assert.Equal(t, 15*time.Second, h.providerCallDeadline(map[string]string{"timeout_ms": "garbage"}))
+	assert.Equal(t, 15*time.Second, h.providerCallDeadline(map[string]string{"timeoutMs": "garbage"}))
 
 	// 请求声明是权威预算：声明即生效（不被默认值收紧）
-	assert.Equal(t, 3*time.Second, h.providerCallDeadline(map[string]string{"timeout_ms": "3000"}))
+	assert.Equal(t, 3*time.Second, h.providerCallDeadline(map[string]string{"timeoutMs": "3000"}))
 	// 低于 1s 提到 1s；高于 60s 截到 60s（同步通道硬顶）
-	assert.Equal(t, time.Second, h.providerCallDeadline(map[string]string{"timeout_ms": "50"}))
-	assert.Equal(t, 60*time.Second, h.providerCallDeadline(map[string]string{"timeout_ms": "999999"}))
+	assert.Equal(t, time.Second, h.providerCallDeadline(map[string]string{"timeoutMs": "50"}))
+	assert.Equal(t, 60*time.Second, h.providerCallDeadline(map[string]string{"timeoutMs": "999999"}))
 
 	// 配置默认只作用于无声明的请求；声明值可高于配置默认
 	h.SetProviderCallTimeout(2 * time.Second)
 	assert.Equal(t, 2*time.Second, h.providerCallDeadline(nil))
-	assert.Equal(t, 1500*time.Millisecond, h.providerCallDeadline(map[string]string{"timeout_ms": "1500"}))
-	assert.Equal(t, 30*time.Second, h.providerCallDeadline(map[string]string{"timeout_ms": "30000"}))
+	assert.Equal(t, 1500*time.Millisecond, h.providerCallDeadline(map[string]string{"timeoutMs": "1500"}))
+	assert.Equal(t, 30*time.Second, h.providerCallDeadline(map[string]string{"timeoutMs": "30000"}))
 
 	// 非法配置回落默认；超上限截断
 	h.SetProviderCallTimeout(-1)
@@ -111,7 +111,7 @@ func TestHandleInvokeRespectsMetadataTimeout(t *testing.T) {
 	invokeBody, err := proto.Marshal(&sdkv1.InvokeRequest{
 		FunctionId: "slow.fn",
 		Payload:    []byte(`{}`),
-		Metadata:   map[string]string{"timeout_ms": "1200"},
+		Metadata:   map[string]string{"timeoutMs": "1200"},
 	})
 	require.NoError(t, err)
 

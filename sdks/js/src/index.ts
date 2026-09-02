@@ -95,7 +95,7 @@ message RegisterCapabilitiesResponse {}
 // Inbound invocation messages (mirror proto/croupier/sdk/v1/invocation.proto).
 message InvokeRequest {
   string function_id = 1;
-  string idempotency_key = 2;
+  string idempotencyKey = 2;
   bytes payload = 3;
   map<string, string> metadata = 4;
 }
@@ -819,7 +819,7 @@ export class BasicClient implements CroupierClient {
           function_id: functionId,
           payload: encoder.encode(payload),
           metadata,
-          idempotency_key: options.idempotencyKey,
+          idempotencyKey: options.idempotencyKey,
           timeout,
           retry_config: retryConfig,
         }),
@@ -835,7 +835,7 @@ export class BasicClient implements CroupierClient {
     const context = JSON.stringify({
       ...metadata,
       ...(options.idempotencyKey && {
-        idempotency_key: options.idempotencyKey,
+        idempotencyKey: options.idempotencyKey,
       }),
       timeout,
     });
@@ -887,7 +887,7 @@ export class BasicClient implements CroupierClient {
     const context = JSON.stringify({
       ...metadata,
       ...(options.idempotencyKey && {
-        idempotency_key: options.idempotencyKey,
+        idempotencyKey: options.idempotencyKey,
       }),
       timeout,
     });
@@ -1411,7 +1411,7 @@ export class BasicClient implements CroupierClient {
     }
     const context = JSON.stringify({
       ...req.metadata,
-      ...(req.idempotencyKey ? { idempotency_key: req.idempotencyKey } : {}),
+      ...(req.idempotencyKey ? { idempotencyKey: req.idempotencyKey } : {}),
     });
     try {
       const result = await handler(context, req.payload);

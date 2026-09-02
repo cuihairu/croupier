@@ -110,8 +110,8 @@ func TestInjectAndExtractRoundTrip(t *testing.T) {
 }
 
 func TestMetadataConstants(t *testing.T) {
-	if MetadataTraceID != "trace_id" {
-		t.Errorf("expected trace_id, got %q", MetadataTraceID)
+	if MetadataTraceID != "traceId" {
+		t.Errorf("expected traceId, got %q", MetadataTraceID)
 	}
 	if MetadataTraceparent != "traceparent" {
 		t.Errorf("expected traceparent, got %q", MetadataTraceparent)

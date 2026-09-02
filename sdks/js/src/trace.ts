@@ -14,7 +14,7 @@ export function traceParentFromContext(contextJson: string): string {
 
 /** 从 handler context JSON 提取 trace_id 明文（无则空串）。 */
 export function traceIdFromContext(contextJson: string): string {
-  return readTraceField(contextJson, "trace_id");
+  return readTraceField(contextJson, "traceId");
 }
 
 function readTraceField(contextJson: string, field: string): string {

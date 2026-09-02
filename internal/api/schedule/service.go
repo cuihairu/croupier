@@ -219,10 +219,10 @@ func (s *Service) TriggerNow(ctx context.Context, id uint) (*TriggerNowResponse,
 		return nil, err
 	}
 	meta := map[string]string{
-		"game_id":     sch.GameID,
-		"env":         sch.Env,
-		"schedule_id": strconv.FormatUint(uint64(sch.ID), 10),
-		"actor":       currentActor(ctx),
+		"gameId":     sch.GameID,
+		"env":        sch.Env,
+		"scheduleId": strconv.FormatUint(uint64(sch.ID), 10),
+		"actor":      currentActor(ctx),
 	}
 	var extra map[string]string
 	if len(sch.Metadata) > 0 {

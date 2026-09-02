@@ -393,7 +393,7 @@ Agent 至少需要实现：
 - `trace_id`
 - `game_id`
 - `env`
-- `timeout_ms`
+- `timeoutMs`（metadata 键）
 - `retry` / `priority` 这类平台治理字段
 
 应留在 JSON payload 的字段：
@@ -580,20 +580,20 @@ SDK 收到这些信号后，可以：
 
 所有 SDK 建议统一收敛到以下字段语义：
 
-| Field                          | 说明             |
-| ------------------------------ | ---------------- |
-| `transport.kind`               | 固定优先为 `tcp` |
-| `transport.address`            | Agent 地址       |
-| `transport.connect_timeout_ms` | 连接超时         |
-| `transport.request_timeout_ms` | 请求超时         |
-| `transport.tls`                | TLS 配置         |
-| `reconnect.enabled`            | 是否自动重连     |
-| `reconnect.initial_delay_ms`   | 初始退避         |
-| `reconnect.max_delay_ms`       | 最大退避         |
-| `reconnect.backoff_multiplier` | 指数退避倍率     |
-| `reconnect.jitter_factor`      | 抖动因子         |
-| `backpressure.max_concurrency` | 本地并发上限     |
-| `backpressure.max_queue_size`  | 本地排队上限     |
+| Field                         | 说明             |
+| ----------------------------- | ---------------- |
+| `transport.kind`              | 固定优先为 `tcp` |
+| `transport.address`           | Agent 地址       |
+| `transport.connectTimeoutMs`  | 连接超时         |
+| `transport.requestTimeoutMs`  | 请求超时         |
+| `transport.tls`               | TLS 配置         |
+| `reconnect.enabled`           | 是否自动重连     |
+| `reconnect.initialDelayMs`    | 初始退避         |
+| `reconnect.maxDelayMs`        | 最大退避         |
+| `reconnect.backoffMultiplier` | 指数退避倍率     |
+| `reconnect.jitterFactor`      | 抖动因子         |
+| `backpressure.maxConcurrency` | 本地并发上限     |
+| `backpressure.max_queue_size` | 本地排队上限     |
 
 ### 废弃字段
 

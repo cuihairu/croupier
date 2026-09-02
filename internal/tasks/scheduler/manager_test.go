@@ -212,9 +212,9 @@ func TestManager_MetadataCarriesScope(t *testing.T) {
 
 	require.NotNil(t, captured)
 	assert.Equal(t, "player.cleanup", captured.FunctionId)
-	assert.Equal(t, "demo", captured.Metadata["game_id"])
+	assert.Equal(t, "demo", captured.Metadata["gameId"])
 	assert.Equal(t, "prod", captured.Metadata["env"])
-	assert.Equal(t, "1", captured.Metadata["schedule_id"])
+	assert.Equal(t, "1", captured.Metadata["scheduleId"])
 }
 
 // gormModelID 构造带 ID 的 gorm.Model（测试便利）。

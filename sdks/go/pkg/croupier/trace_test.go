@@ -8,7 +8,7 @@ import (
 func TestTraceMetadataRoundTrip(t *testing.T) {
 	ctx := WithTraceMetadata(context.Background(), map[string]string{
 		"traceparent": " 00-abc-def-01 ",
-		"trace_id":    " abc ",
+		"traceId":     " abc ",
 		"other":       "ignored",
 	})
 	if got := TraceParentFromContext(ctx); got != "00-abc-def-01" {

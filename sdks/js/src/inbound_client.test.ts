@@ -33,7 +33,7 @@ message ProviderConnectResponse {
 
 message InvokeRequest {
   string function_id = 1;
-  string idempotency_key = 2;
+  string idempotencyKey = 2;
   bytes payload = 3;
   map<string, string> metadata = 4;
 }
@@ -275,7 +275,7 @@ describe("BasicClient inbound dispatch", () => {
     expect(seen.payload).toBe("hello");
     expect(JSON.parse(seen.context ?? "{}")).toMatchObject({
       k: "v",
-      idempotency_key: "idem-1",
+      idempotencyKey: "idem-1",
     });
   });
 

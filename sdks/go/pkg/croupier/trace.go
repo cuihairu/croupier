@@ -13,7 +13,7 @@ import (
 // metadata 约定键（与平台 telemetry.InjectContext 一致）。
 const (
 	MetadataTraceparent = "traceparent"
-	MetadataTraceID     = "trace_id"
+	MetadataTraceID     = "traceId"
 )
 
 type traceContextKey struct{}

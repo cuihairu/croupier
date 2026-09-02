@@ -351,11 +351,11 @@ func functionInvoke(ctx context.Context, svcCtx *svc.ServiceContext, req *Functi
 	// 显式值不得突破契约（声明即契约）；两者皆无则不注入（各层全局默认）。
 	if req.Mode != "async" {
 		if effective := effectiveTimeoutMs(ctx, svcCtx, req); effective > 0 {
-			metadata["timeout_ms"] = strconv.Itoa(effective)
+			metadata["timeoutMs"] = strconv.Itoa(effective)
 		}
 	}
 	if gameID := strings.TrimSpace(req.GameID); gameID != "" {
-		metadata["game_id"] = gameID
+		metadata["gameId"] = gameID
 	}
 	if env := strings.TrimSpace(req.Env); env != "" {
 		metadata["env"] = env
@@ -364,10 +364,10 @@ func functionInvoke(ctx context.Context, svcCtx *svc.ServiceContext, req *Functi
 		metadata["route"] = route
 	}
 	if targetServiceID := strings.TrimSpace(req.TargetServiceID); targetServiceID != "" {
-		metadata["target_service_id"] = targetServiceID
+		metadata["targetServiceId"] = targetServiceID
 	}
 	if hashKey := strings.TrimSpace(req.HashKey); hashKey != "" {
-		metadata["hash_key"] = hashKey
+		metadata["hashKey"] = hashKey
 	}
 
 	// 记录操作者
@@ -484,14 +484,14 @@ func isApprovedContinuation(metadata map[string]string) bool {
 	if metadata == nil {
 		return false
 	}
-	return strings.EqualFold(strings.TrimSpace(metadata["approval_bypass"]), "approved")
+	return strings.EqualFold(strings.TrimSpace(metadata["approvalBypass"]), "approved")
 }
 
 func isPageSnapshotGoverned(metadata map[string]string) bool {
 	if metadata == nil {
 		return false
 	}
-	return strings.EqualFold(strings.TrimSpace(metadata["page_snapshot_governance"]), "validated")
+	return strings.EqualFold(strings.TrimSpace(metadata["pageSnapshotGovernance"]), "validated")
 }
 
 // effectiveTimeoutMs 计算同步调用的注入预算：
@@ -564,8 +564,8 @@ func auditFunctionInvoke(ctx context.Context, svcCtx *svc.ServiceContext, functi
 		// Duration and trace id make audit records a data source for
 		// invocation analytics (volume / success rate / latency / Jaeger hop).
 		"duration_ms": durationMs,
-		"trace_id":    telemetry.TraceIDFromContext(ctx),
-		"game_id":     svc.ResolveGameID(ctx, ""),
+		"traceId":     telemetry.TraceIDFromContext(ctx),
+		"gameId":      svc.ResolveGameID(ctx, ""),
 		"env":         svc.ResolveEnv(ctx, ""),
 	}
 
@@ -678,7 +678,7 @@ func auditApprovalCreated(ctx context.Context, svcCtx *svc.ServiceContext, funct
 	// Build audit details
 	details := map[string]interface{}{
 		"function_id":       functionID,
-		"approval_id":       approvalID,
+		"approvalId":        approvalID,
 		"approval_workflow": functionPolicy.ApprovalWorkflow,
 		"risk_level":        functionPolicy.DefaultRiskLevel,
 		"user_roles":        userRoles,

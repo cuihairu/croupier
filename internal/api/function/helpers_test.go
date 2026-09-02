@@ -343,27 +343,27 @@ func TestIsApprovedContinuation(t *testing.T) {
 		},
 		{
 			name:     "approved",
-			metadata: map[string]string{"approval_bypass": "approved"},
+			metadata: map[string]string{"approvalBypass": "approved"},
 			want:     true,
 		},
 		{
 			name:     "approved uppercase",
-			metadata: map[string]string{"approval_bypass": "APPROVED"},
+			metadata: map[string]string{"approvalBypass": "APPROVED"},
 			want:     true,
 		},
 		{
 			name:     "approved with spaces",
-			metadata: map[string]string{"approval_bypass": "  approved  "},
+			metadata: map[string]string{"approvalBypass": "  approved  "},
 			want:     true,
 		},
 		{
 			name:     "not approved",
-			metadata: map[string]string{"approval_bypass": "pending"},
+			metadata: map[string]string{"approvalBypass": "pending"},
 			want:     false,
 		},
 		{
 			name:     "empty value",
-			metadata: map[string]string{"approval_bypass": ""},
+			metadata: map[string]string{"approvalBypass": ""},
 			want:     false,
 		},
 	}
@@ -391,27 +391,27 @@ func TestIsPageSnapshotGoverned(t *testing.T) {
 		},
 		{
 			name:     "validated",
-			metadata: map[string]string{"page_snapshot_governance": "validated"},
+			metadata: map[string]string{"pageSnapshotGovernance": "validated"},
 			want:     true,
 		},
 		{
 			name:     "validated uppercase",
-			metadata: map[string]string{"page_snapshot_governance": "VALIDATED"},
+			metadata: map[string]string{"pageSnapshotGovernance": "VALIDATED"},
 			want:     true,
 		},
 		{
 			name:     "validated with spaces",
-			metadata: map[string]string{"page_snapshot_governance": "  validated  "},
+			metadata: map[string]string{"pageSnapshotGovernance": "  validated  "},
 			want:     true,
 		},
 		{
 			name:     "not validated",
-			metadata: map[string]string{"page_snapshot_governance": "pending"},
+			metadata: map[string]string{"pageSnapshotGovernance": "pending"},
 			want:     false,
 		},
 		{
 			name:     "empty value",
-			metadata: map[string]string{"page_snapshot_governance": ""},
+			metadata: map[string]string{"pageSnapshotGovernance": ""},
 			want:     false,
 		},
 	}

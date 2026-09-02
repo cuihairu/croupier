@@ -4,7 +4,7 @@ describe("trace context helpers", () => {
   it("extracts trace fields from a handler context", () => {
     const ctx = JSON.stringify({
       traceparent: "00-abc-def-01",
-      trace_id: "abc",
+      traceId: "abc",
       game_id: "demo",
     });
     expect(traceParentFromContext(ctx)).toBe("00-abc-def-01");

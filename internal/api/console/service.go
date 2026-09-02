@@ -237,7 +237,7 @@ func publishedBindingExecutionMetadata(
 		"binding_usage":            string(binding.Usage),
 		"page_request_id":          requestID,
 		"page_runtime_api":         "console.binding.execute",
-		"page_snapshot_governance": "validated",
+		"pageSnapshotGovernance":   "validated",
 		"function_id":              binding.FunctionID,
 		"snapshot_function_id":     contract.FunctionID,
 		"snapshot_function_ver":    contract.FunctionVersion,
@@ -679,8 +679,8 @@ func (s *Service) auditPageExecute(
 	}
 	details := map[string]interface{}{
 		"request_id":                 requestID,
-		"trace_id":                   traceID,
-		"game_id":                    gameID,
+		"traceId":                    traceID,
+		"gameId":                     gameID,
 		"env":                        env,
 		"page_key":                   page.PageKey,
 		"publish_version":            page.Version,
@@ -700,8 +700,8 @@ func (s *Service) auditPageExecute(
 		"snapshot_approval_policy":   strings.TrimSpace(contract.Approval.PolicyKey),
 		"result_kind":                string(result.Kind),
 		"elapsed_ms":                 elapsedMs,
-		"task_id":                    result.TaskID,
-		"approval_id":                result.ApprovalID,
+		"taskId":                     result.TaskID,
+		"approvalId":                 result.ApprovalID,
 		"diagnostic_count":           len(result.Diagnostics),
 	}
 	_, err := s.svcCtx.AuditService.Log(ctx, audit.EventPageExecute,
@@ -743,7 +743,7 @@ func pageExecutionTarget(resp *function.FunctionInvokeResponse) string {
 	if resp == nil {
 		return ""
 	}
-	if agentID := strings.TrimSpace(resp.ExecutionMetadata["agent_id"]); agentID != "" {
+	if agentID := strings.TrimSpace(resp.ExecutionMetadata["agentId"]); agentID != "" {
 		return agentID
 	}
 	if resp.Broadcast != nil {

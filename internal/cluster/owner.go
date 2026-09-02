@@ -68,7 +68,7 @@ func (r *DBOwnerResolver) ClaimOwner(ctx context.Context, agentID, gameID, env s
 		updates := map[string]interface{}{
 			"instance_id":  instanceID,
 			"owner_epoch":  epoch,
-			"game_id":      gameID,
+			"gameId":       gameID,
 			"env":          env,
 			"last_seen_at": now,
 		}

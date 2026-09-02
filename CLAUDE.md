@@ -175,8 +175,9 @@ cmd/                      # Binary entry points (server, agent, unified CLI)
 proto/                    # Protobuf definitions (Buf workspace)
 internal/server/          # Server business logic (control, function, http, registry)
 internal/agent/           # Agent logic (tunnel, local server, jobs)
-internal/auth/            # RBAC, JWT, TOTP, user management
-internal/function/        # Descriptor loading and validation
+internal/security/          # RBAC, JWT, TOTP, identity providers (local/LDAP/OIDC)
+internal/api/               # REST API handlers (auth, admin, role, permission, approval, audit, ...)
+internal/function/          # Descriptor loading and validation
 internal/jobs/            # Job state machine and execution
 internal/loadbalancer/    # Load balancing strategies (RR, consistent hash, least conn)
 sdks/                     # Multi-language SDKs (go, python, java, js, cpp, csharp)
@@ -224,9 +225,9 @@ examples/                 # Demo game servers and invokers
 
 Unit tests focus on:
 
-- RBAC policy grant/deny logic (`internal/auth/rbac/`)
+- RBAC policy grant/deny logic (`internal/security/rbac/`)
 - Job executor state transitions and idempotency (`internal/agent/jobs/`)
-- Sensitive field masking (`internal/server/http/`)
+- Sensitive field masking (`internal/api/` response helpers)
 - Pack import/export workflows
 - Registry agent session management
 

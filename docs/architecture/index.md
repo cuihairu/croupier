@@ -25,7 +25,7 @@ Croupier 当前的目标架构已经从"多条回拨链路 + 历史 旧传输/gR
 - `env` 表达逻辑生命周期阶段，不直接表示物理部署位置
 - `scope` 与 `target` 必须分离
 - **数据库采用按游戏分库架构**
-- **多服务可共享同一个 Agent**：一个 Agent 可接入多个 game service，函数路由按 `functionId → serviceId → Instance` 双层索引（Nacos 风格），invoke 可在 metadata 带 `service_id` 精确路由
+- **多服务可共享同一个 Agent**：一个 Agent 可接入多个 game service，函数路由按 `functionId → serviceId → Instance` 双层索引（Nacos 风格），invoke 可在 metadata 带 `serviceId` 精确路由
 
 ## 总体拓扑
 

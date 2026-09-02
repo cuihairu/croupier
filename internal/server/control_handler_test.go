@@ -1846,7 +1846,7 @@ func TestDescriptorPresentationField(t *testing.T) {
 	desc := &agentv1.FunctionDescriptor{
 		Id:          "player.list",
 		Version:     "1.0.0",
-		InputSchema: `{"type":"object","properties":{"game_id":{"type":"string"}}}`,
+		InputSchema: `{"type":"object","properties":{"gameId":{"type":"string"}}}`,
 	}
 	field, ok = descriptorPresentationField(desc)
 	assert.False(t, ok)

@@ -175,7 +175,7 @@ func TestFunctionInvoke_SyncSuccess(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, resp)
 	assert.JSONEq(t, `{"echo":true}`, string(resp.Result))
-	assert.Equal(t, "demo", resp.ExecutionMetadata["game_id"])
+	assert.Equal(t, "demo", resp.ExecutionMetadata["gameId"])
 	assert.Equal(t, "prod", resp.ExecutionMetadata["env"])
 	assert.Equal(t, "opuser", resp.ExecutionMetadata["actor"])
 	assert.Equal(t, "false", resp.ExecutionMetadata["async"])
@@ -183,7 +183,7 @@ func TestFunctionInvoke_SyncSuccess(t *testing.T) {
 	require.Len(t, f.caller.requests, 1)
 	sent := f.caller.requests[0]
 	assert.Equal(t, "demo.echo", sent.GetFunctionId())
-	assert.Equal(t, "agent-1", sent.GetMetadata()["agent_id"])
+	assert.Equal(t, "agent-1", sent.GetMetadata()["agentId"])
 	assert.JSONEq(t, `{"x":1}`, string(sent.GetPayload()))
 }
 
@@ -293,7 +293,7 @@ func TestFunctionInvoke_ApprovalBypassContinuation(t *testing.T) {
 	req := &FunctionInvokeRequest{
 		ID:       "danger.blast",
 		Payload:  []byte(`{}`),
-		Metadata: map[string]string{"approval_bypass": "approved"},
+		Metadata: map[string]string{"approvalBypass": "approved"},
 	}
 	resp, err := NewService(f.svcCtx).FunctionInvoke(f.ctxFor("opuser"), req)
 	require.NoError(t, err)
@@ -313,7 +313,7 @@ func TestFunctionInvoke_PageSnapshotGovernedSkipsPolicy(t *testing.T) {
 	// The snapshot-governed flag must bypass the role restriction.
 	resp, err := NewService(f.svcCtx).FunctionInvoke(f.ctxFor("opuser"), &FunctionInvokeRequest{
 		ID:       "gov.fn",
-		Metadata: map[string]string{"page_snapshot_governance": "validated"},
+		Metadata: map[string]string{"pageSnapshotGovernance": "validated"},
 	})
 	// No agent connection is registered: policy is skipped and dispatch fails.
 	require.Error(t, err)
@@ -397,7 +397,7 @@ func TestFunctionInvoke_TargetedRouting(t *testing.T) {
 	})
 	require.NoError(t, err)
 	assert.JSONEq(t, `"b"`, string(resp.Result))
-	assert.Equal(t, "agent-b", targeted.requests[0].GetMetadata()["agent_id"])
+	assert.Equal(t, "agent-b", targeted.requests[0].GetMetadata()["agentId"])
 }
 
 // --- buildBroadcastResponse unit test ---
@@ -630,7 +630,7 @@ func TestFunctionWarnings_WithRegistry(t *testing.T) {
 	assert.Empty(t, resp.Items)
 }
 
-// timeoutMs 请求选项 → 约定键 metadata["timeout_ms"] 端到端透传到派发层。
+// timeoutMs 请求选项 → 约定键 metadata["timeoutMs"] 端到端透传到派发层。
 func TestFunctionInvoke_TimeoutMsInjectedIntoMetadata(t *testing.T) {
 	f := newInvokeFixture(t)
 	f.createOperator(t, "opuser", "admin")
@@ -646,7 +646,7 @@ func TestFunctionInvoke_TimeoutMsInjectedIntoMetadata(t *testing.T) {
 	require.NotNil(t, resp)
 
 	require.Len(t, f.caller.requests, 1)
-	assert.Equal(t, "2500", f.caller.requests[0].GetMetadata()["timeout_ms"])
+	assert.Equal(t, "2500", f.caller.requests[0].GetMetadata()["timeoutMs"])
 
 	// 未声明 → 不注入（沿用全局默认）
 	second := &fakeSessionCaller{invokePayload: []byte(`{}`)}
@@ -655,7 +655,7 @@ func TestFunctionInvoke_TimeoutMsInjectedIntoMetadata(t *testing.T) {
 		ID: "demo.echo", Payload: []byte(`{}`),
 	})
 	require.NoError(t, err)
-	assert.NotContains(t, second.requests[0].GetMetadata(), "timeout_ms")
+	assert.NotContains(t, second.requests[0].GetMetadata(), "timeoutMs")
 }
 
 // 声明式超时（契约 Behavior.TimeoutMs）执行层接线：
@@ -686,33 +686,33 @@ func TestFunctionInvoke_DeclaredTimeoutContract(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, resp)
 	require.Len(t, f.caller.requests, 1)
-	assert.Equal(t, "20000", f.caller.requests[0].GetMetadata()["timeout_ms"])
+	assert.Equal(t, "20000", f.caller.requests[0].GetMetadata()["timeoutMs"])
 
 	// 2) 只有契约 → 契约值注入
 	second := &fakeSessionCaller{invokePayload: []byte(`{}`)}
 	f.resolver.callers["agent-1"] = second
 	_, err = svcAPI.FunctionInvoke(ctx, &FunctionInvokeRequest{ID: "demo.slow", Payload: []byte(`{}`)})
 	require.NoError(t, err)
-	assert.Equal(t, "20000", second.requests[0].GetMetadata()["timeout_ms"])
+	assert.Equal(t, "20000", second.requests[0].GetMetadata()["timeoutMs"])
 
 	// 3) 无契约无显式 → 不注入
 	third := &fakeSessionCaller{invokePayload: []byte(`{}`)}
 	f.resolver.callers["agent-1"] = third
 	_, err = svcAPI.FunctionInvoke(ctx, &FunctionInvokeRequest{ID: "demo.free", Payload: []byte(`{}`)})
 	require.NoError(t, err)
-	assert.NotContains(t, third.requests[0].GetMetadata(), "timeout_ms")
+	assert.NotContains(t, third.requests[0].GetMetadata(), "timeoutMs")
 
 	// 4) 无契约 + 显式 8s → 直通
 	fourth := &fakeSessionCaller{invokePayload: []byte(`{}`)}
 	f.resolver.callers["agent-1"] = fourth
 	_, err = svcAPI.FunctionInvoke(ctx, &FunctionInvokeRequest{ID: "demo.free", Payload: []byte(`{}`), TimeoutMs: 8000})
 	require.NoError(t, err)
-	assert.Equal(t, "8000", fourth.requests[0].GetMetadata()["timeout_ms"])
+	assert.Equal(t, "8000", fourth.requests[0].GetMetadata()["timeoutMs"])
 
 	// 5) async 模式不注入超时（任务有自己的生命周期）
 	fifth := &fakeSessionCaller{invokePayload: []byte(`{}`)}
 	f.resolver.callers["agent-1"] = fifth
 	_, err = svcAPI.FunctionInvoke(ctx, &FunctionInvokeRequest{ID: "demo.slow", Payload: []byte(`{}`), Mode: "async", TimeoutMs: 5000})
 	require.NoError(t, err)
-	assert.NotContains(t, fifth.requests[0].GetMetadata(), "timeout_ms")
+	assert.NotContains(t, fifth.requests[0].GetMetadata(), "timeoutMs")
 }

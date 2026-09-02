@@ -183,7 +183,7 @@ describe("remote invocation path", () => {
 
     const request = JSON.parse(calls[0].data.toString());
     expect(request.function_id).toBe("test.fn");
-    expect(request.idempotency_key).toBe("key-9");
+    expect(request.idempotencyKey).toBe("key-9");
     expect(request.timeout).toBe(1234);
     expect(request.metadata.Authorization).toBe("Bearer tok");
     expect(request.metadata["X-Game-ID"]).toBe("game-1");

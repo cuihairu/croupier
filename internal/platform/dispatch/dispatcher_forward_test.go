@@ -130,7 +130,7 @@ func TestInvokeRequest_TargetedRoutingNoFailover(t *testing.T) {
 
 	_, err := d.InvokeRequest(context.Background(), &sdkv1.InvokeRequest{
 		FunctionId: "test-func",
-		Metadata:   map[string]string{"target_service_id": "service-1"},
+		Metadata:   map[string]string{"targetServiceId": "service-1"},
 	})
 	if err == nil {
 		t.Fatal("expected error for unreachable targeted agent")

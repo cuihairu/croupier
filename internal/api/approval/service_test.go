@@ -317,10 +317,10 @@ func TestApproveRejectsPageContinuationWhenPublishedBindingStale(t *testing.T) {
 		Actor:      "tester",
 		Payload:    []byte(`{"playerId":"p1"}`),
 		Metadata: map[string]string{
-			"page_snapshot_governance": "validated",
-			"page_key":                 "player.manage",
-			"publish_version":          "1",
-			"binding_id":               "player.ban",
+			"pageSnapshotGovernance": "validated",
+			"page_key":               "player.manage",
+			"publish_version":        "1",
+			"binding_id":             "player.ban",
 		},
 	}); err != nil {
 		t.Fatalf("create approval failed: %v", err)
