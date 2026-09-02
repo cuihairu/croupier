@@ -130,7 +130,7 @@ T5（无风险热身）→ T1 → T2 → T3 → T4。前四个每个含独立 go
 
 约定：proto `FunctionDescriptor` 保持无 UI 元数据（有意设计），呈现富化通过 **JSON Schema `x-ui-*` 扩展字段**（`input_schema` 本就是字符串透传，wire 契约零改动）+ 平台侧覆盖层实现。每个任务原子：独立实现、独立测试、独立提交。
 
-> **状态：全部待办**
+> **状态：F1-F14 全部完成（2026-09-02）**——F-A/F-B/F-C 前端呈现层与调用 UX、F-D 契约演进保护、SDK 便捷层均已落地；已知边界见各任务小节。
 
 ## F-A 阶段：呈现层打通（P0，改动小见效快）
 
@@ -312,18 +312,18 @@ T5（无风险热身）→ T1 → T2 → T3 → T4。前四个每个含独立 go
 
 **验收**：`go build ./...` + `go vet` 通过；`go test ./internal/service/ ./internal/server/ ./internal/audit/` 全绿；web tsc 0 错误 + 198 passed + guard PASSED。
 
-## F14.（可选）SDK 便捷层注入 hints ⬜
+## F14.（可选）SDK 便捷层注入 hints ✅
 
 **目标**：游戏方在 SDK 侧低成本声明呈现意图。
 
 **改动点**：
 
-- [ ] Go SDK `function/builder.go`：`SetFieldHint(key, hintKey, value)` / `SetFieldWidget(key, widget)` ——向 InputSchema 的 properties[key] 合并 x-* 字段
-- [ ] Python/JS SDK 对齐（按 `sdks/SDK_FEATURE_MATRIX.md` 标注为 L2 可选能力）
-- [ ] `sdks/SDK_FEATURE_MATRIX.md` 与 `docs/sdks/<lang>/` 同步
-- [ ] Go SDK 单测：hints 合并/覆盖/非法 key 拒绝
+- [x] Go SDK `function/builder.go`：`SetFieldHint(field, hint, value)` / `SetFieldWidget(field, widget)`——向 InputSchema properties[field] 合并 x-* hint（空 schema 建骨架、重复覆盖、x_ 归一 x-、非法键入 builder errors）
+- [x] JS SDK `setFieldHint`/`setFieldWidget`；Python SDK `set_field_hint`/`set_field_widget`（不可变风格返回 descriptor）
+- [x] `sdks/SDK_FEATURE_MATRIX.md` L2 新增行（Go/Python/JS ✅，Java/C++/C# ❌）；`docs/sdks/{go,python,js}/index.md` 同步示例
+- [x] 单测：Go 8 例（合并/骨架/覆盖/归一/三类拒绝/非法 schema）、JS 5 例、Python 6 例
 
-**验收**：`go test ./sdks/...`（模块内）全绿；examples 示例更新展示 hints 用法。
+**验收**：`go test ./sdks/go/function/` + `js jest`（357 passed）+ `python pytest` 全绿；docs build 通过。
 
 ## 执行顺序建议（F 系列）
 

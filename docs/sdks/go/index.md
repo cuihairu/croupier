@@ -15,6 +15,20 @@ title: Go SDK
 - 与 monorepo 中的 `proto/**` 保持演进一致
 - 支持函数描述符、会话管理与错误处理
 - 适合服务端高并发集成
+- 呈现 hints 便捷层（x-ui-* 契约，见 [呈现 Hints 契约](/architecture/presentation-hints)）：
+
+```go
+metadata, _ := function.NewMetadataBuilder().
+    SetID("player.ban").
+    SetInputSchema(`{"type":"object","properties":{"id":{"type":"string"}}}`).
+    SetFieldWidget("id", "Select").
+    SetFieldHint("id", "x-options-source", map[string]interface{}{
+        "functionId": "player.list",
+        "labelPath":  "/items/*/name",
+        "valuePath":  "/items/*/id",
+    }).
+    Build()
+```
 
 ## 安装
 

@@ -103,6 +103,47 @@ class FunctionDescriptor:
     permission: Optional[str] = None
 
 
+def _normalize_hint_key(hint: str) -> Optional[str]:
+    """校验并归一 hint 键：x_/X- 变体统一为 x- 形式。"""
+    trimmed = (hint or "").strip()
+    if not trimmed:
+        return None
+    lower = trimmed.lower()
+    if lower.startswith("x_"):
+        return "x-" + trimmed[2:]
+    if lower.startswith("x-"):
+        return trimmed
+    return None
+
+
+def set_field_hint(desc: FunctionDescriptor, field: str, hint: str, value: object) -> FunctionDescriptor:
+    """F14：向 input_schema 的 properties[field] 合并单个呈现 hint（x-ui 契约）。"""
+    if not (field or "").strip():
+        raise ValueError("field key is required for set_field_hint")
+    normalized = _normalize_hint_key(hint)
+    if normalized is None:
+        raise ValueError(f'hint "{hint}" must be an x- extension key (e.g. x-widget)')
+    schema = desc.input_schema
+    if isinstance(schema, str):
+        schema = json.loads(schema) if schema.strip() else None
+    schema = dict(schema) if isinstance(schema, dict) else {"type": "object"}
+    schema.setdefault("type", "object")
+    properties = dict(schema.get("properties") or {})
+    property_entry = dict(properties.get(field) or {})
+    property_entry[normalized] = value
+    properties[field] = property_entry
+    schema["properties"] = properties
+    desc.input_schema = schema
+    return desc
+
+
+def set_field_widget(desc: FunctionDescriptor, field: str, widget: str) -> FunctionDescriptor:
+    """等价于 set_field_hint(desc, field, "x-widget", widget)。"""
+    if not (widget or "").strip():
+        raise ValueError("widget is required for set_field_widget")
+    return set_field_hint(desc, field, "x-widget", widget)
+
+
 @dataclass
 class ClientConfig:
     """Runtime configuration for the Python SDK client."""

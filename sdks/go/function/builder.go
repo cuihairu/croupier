@@ -2,7 +2,9 @@
 package function
 
 import (
+	"encoding/json"
 	"fmt"
+	"strings"
 )
 
 // MetadataBuilder builds FunctionMetadata using the builder pattern.
@@ -121,6 +123,86 @@ func (b *MetadataBuilder) SetOutputSchema(schema string) *MetadataBuilder {
 func (b *MetadataBuilder) SetBehavior(behavior *FunctionBehavior) *MetadataBuilder {
 	b.metadata.Behavior = behavior
 	return b
+}
+
+// SetFieldHint 向 InputSchema 的 properties[field] 合并单个呈现 hint
+// （F14，x-ui-* 呈现契约的 SDK 便捷层，docs/architecture/presentation-hints.md）。
+// schema 为空时自动创建 object 骨架；属性不存在时创建空属性；重复设置覆盖。
+// hint 必须是 x-/x_ 扩展键（归一为 x- 形式），否则记入校验错误。
+func (b *MetadataBuilder) SetFieldHint(field, hint string, value interface{}) *MetadataBuilder {
+	if strings.TrimSpace(field) == "" {
+		b.errors = append(b.errors, fmt.Errorf("field key is required for SetFieldHint"))
+		return b
+	}
+	normalizedHint, ok := normalizeHintKey(hint)
+	if !ok {
+		b.errors = append(b.errors, fmt.Errorf("hint %q must be an x- extension key (e.g. x-widget)", hint))
+		return b
+	}
+	schema, err := ensureSchemaObject(b.metadata.InputSchema)
+	if err != nil {
+		b.errors = append(b.errors, err)
+		return b
+	}
+	properties, _ := schema["properties"].(map[string]interface{})
+	if properties == nil {
+		properties = map[string]interface{}{}
+		schema["properties"] = properties
+	}
+	property, _ := properties[field].(map[string]interface{})
+	if property == nil {
+		property = map[string]interface{}{}
+		properties[field] = property
+	}
+	property[normalizedHint] = value
+	out, err := json.Marshal(schema)
+	if err != nil {
+		b.errors = append(b.errors, fmt.Errorf("marshal input schema: %w", err))
+		return b
+	}
+	b.metadata.InputSchema = string(out)
+	return b
+}
+
+// SetFieldWidget 等价于 SetFieldHint(field, "x-widget", widget)。
+func (b *MetadataBuilder) SetFieldWidget(field, widget string) *MetadataBuilder {
+	if strings.TrimSpace(widget) == "" {
+		b.errors = append(b.errors, fmt.Errorf("widget is required for SetFieldWidget"))
+		return b
+	}
+	return b.SetFieldHint(field, "x-widget", widget)
+}
+
+// normalizeHintKey 校验并归一 hint 键：x_/X- 变体统一为 x- 形式。
+func normalizeHintKey(hint string) (string, bool) {
+	trimmed := strings.TrimSpace(hint)
+	if trimmed == "" {
+		return "", false
+	}
+	lower := strings.ToLower(trimmed)
+	switch {
+	case strings.HasPrefix(lower, "x_"):
+		return "x-" + trimmed[2:], true
+	case strings.HasPrefix(lower, "x-"):
+		return trimmed, true
+	default:
+		return "", false
+	}
+}
+
+// ensureSchemaObject 解析既有 InputSchema（空串创建 object 骨架）；
+// 非法 JSON 返回错误。
+func ensureSchemaObject(raw string) (map[string]interface{}, error) {
+	schema := map[string]interface{}{}
+	if strings.TrimSpace(raw) != "" {
+		if err := json.Unmarshal([]byte(raw), &schema); err != nil {
+			return nil, fmt.Errorf("input schema is not valid JSON: %w", err)
+		}
+	}
+	if schema["type"] == nil {
+		schema["type"] = "object"
+	}
+	return schema, nil
 }
 
 // SetRisk sets the function risk.
