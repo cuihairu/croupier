@@ -11,10 +11,11 @@ import {
   type FunctionDescriptor,
   type InvokeFunctionOptions,
 } from '@/services/api';
-import { extractErrorMessage } from '@/utils/errors';
+import { extractErrorDetails, extractErrorMessage } from '@/utils/errors';
 import { deriveSchemaDefaults, parseInputSchema, type JSONSchemaType } from '@/utils/json';
 import { derivePresentationSpec } from '@/utils/schemaHints';
 import { isScopeReady, subscribeScope } from '@/stores/scope';
+import type { ApiErrorDetail } from '@/utils/errors';
 import type { FormValues, JSONSchema, JSONValue } from '@/types/dashboard';
 import ExecutionOptions from './ExecutionOptions';
 import InvocationResponse from './InvocationResponse';
@@ -33,6 +34,15 @@ function displayName(descriptor: FunctionDescriptor, locale: string) {
     localizedText(descriptor.summary, locale, '') ||
     descriptor.id
   );
+}
+
+function resolveOutputSchema(descriptor: FunctionDescriptor): JSONSchema | null {
+  const raw = descriptor.outputSchema;
+  if (typeof raw === 'string') {
+    return parseInputSchema(raw) as JSONSchema | null;
+  }
+  if (raw && typeof raw === 'object' && !Array.isArray(raw)) return raw as JSONSchema;
+  return null;
 }
 
 function resolveSchema(descriptor: FunctionDescriptor): JSONSchemaType | null {
@@ -74,6 +84,7 @@ export default function FunctionInvokePage() {
   const [response, setResponse] = useState<JSONValue>();
   const [traceId, setTraceId] = useState('');
   const [error, setError] = useState('');
+  const [errorDetails, setErrorDetails] = useState<ApiErrorDetail[]>([]);
   const [duration, setDuration] = useState(0);
   const [historyItems, setHistoryItems] = useState<RequestHistoryItem[]>(loadHistory);
   const [showHistory, setShowHistory] = useState(false);
@@ -118,6 +129,7 @@ export default function FunctionInvokePage() {
     setRawJson(JSON.stringify(defaults, null, 2));
     setResponse(undefined);
     setError('');
+    setErrorDetails([]);
   }, [selected]);
   useEffect(() => {
     try {
@@ -195,6 +207,7 @@ export default function FunctionInvokePage() {
       };
       setDuration(elapsed);
       setError(detail);
+      setErrorDetails(extractErrorDetails(err));
       setHistoryItems((items) => [item, ...items].slice(0, 50));
       message.error(detail);
     } finally {
@@ -232,6 +245,7 @@ export default function FunctionInvokePage() {
     setHashKey(item.options.hashKey || '');
     setResponse(item.response);
     setError(item.error || '');
+    setErrorDetails([]);
     setDuration(item.duration);
   };
   const responseRaw = response === undefined ? '' : JSON.stringify(response, null, 2);
@@ -337,6 +351,9 @@ export default function FunctionInvokePage() {
             <InvocationResponse
               responseRaw={responseRaw}
               error={error}
+              errorDetails={errorDetails}
+              response={response}
+              outputSchema={selected ? resolveOutputSchema(selected) : null}
               duration={duration}
               traceId={traceId}
               onCopy={(value) =>

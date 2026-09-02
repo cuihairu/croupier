@@ -1,5 +1,18 @@
-import { useEffect, useState } from 'react';
-import { Alert, Button, Card, Empty, Space, Tabs, Tag, Tooltip, Typography, Input } from 'antd';
+import { useEffect, useMemo, useState } from 'react';
+import {
+  Alert,
+  Button,
+  Card,
+  Descriptions,
+  Empty,
+  Space,
+  Table,
+  Tabs,
+  Tag,
+  Tooltip,
+  Typography,
+  Input,
+} from 'antd';
 import {
   ClockCircleOutlined,
   CopyOutlined,
@@ -10,6 +23,11 @@ import { CodeEditor } from '@/components/MonacoDynamic';
 import { fetchOpsConfig, type OpsConfig } from '@/services/api/ops';
 import { history } from '@umijs/max';
 import { formatDuration } from './types';
+import { deriveResultSpec, isArrayOfObjects } from '@/utils/resultSpec';
+import { renderJSONValueSummary } from '@/components/PageRenderer/ResultViewRenderer';
+import type { ApiErrorDetail } from '@/utils/errors';
+import { localizedText } from '@/utils/localizedText';
+import type { JSONSchema, JSONValue } from '@/types/dashboard';
 
 const { Text } = Typography;
 const { TextArea } = Input;
@@ -17,17 +35,26 @@ const { TextArea } = Input;
 interface InvocationResponseProps {
   responseRaw: string;
   error: string;
+  /** F10：结构化错误明细（后端 error 契约 details） */
+  errorDetails?: ApiErrorDetail[];
   duration: number;
   /** OTel trace id returned by the invoke API, empty when unavailable. */
   traceId?: string;
+  /** F10：函数 outputSchema，可推导结构化结果视图 */
+  outputSchema?: JSONSchema | null;
+  /** F10：解析后的调用结果（未提供时仅展示 JSON 兜底） */
+  response?: JSONValue;
   onCopy: (value: string) => void;
 }
 
 export default function InvocationResponse({
   responseRaw,
   error,
+  errorDetails,
   duration,
   traceId,
+  outputSchema,
+  response,
   onCopy,
 }: InvocationResponseProps) {
   const [opsConfig, setOpsConfig] = useState<OpsConfig>({});
@@ -81,6 +108,88 @@ export default function InvocationResponse({
     </Tooltip>
   ) : null;
 
+  // F10：结构化视图（outputSchema 可推导时）
+  const derived = useMemo(() => deriveResultSpec(outputSchema), [outputSchema]);
+  const structuredBody = useMemo(() => {
+    if (!derived || response === undefined || response === null || error) return null;
+    if (
+      derived.shape === 'object' &&
+      typeof response === 'object' &&
+      !Array.isArray(response) &&
+      response !== null
+    ) {
+      return (
+        <Descriptions column={1} bordered size="small">
+          {derived.spec.fields!.map((field) => (
+            <Descriptions.Item
+              key={field.key}
+              label={localizedText(field.title, 'zh-CN', field.key)}
+            >
+              {renderJSONValueSummary((response as Record<string, JSONValue>)[field.key])}
+            </Descriptions.Item>
+          ))}
+        </Descriptions>
+      );
+    }
+    if (derived.shape === 'arrayOfObjects' && isArrayOfObjects(response)) {
+      return (
+        <Table
+          size="small"
+          rowKey={(_, index) => String(index)}
+          pagination={{ pageSize: 10, hideOnSinglePage: true }}
+          columns={derived.spec.fields!.map((field) => ({
+            title: localizedText(field.title, 'zh-CN', field.key),
+            dataIndex: field.key,
+            key: field.key,
+            render: (value: JSONValue) => renderJSONValueSummary(value),
+          }))}
+          dataSource={response as Record<string, JSONValue>[]}
+        />
+      );
+    }
+    // 数据形态与 schema 不匹配时回退 JSON
+    return null;
+  }, [derived, response, error]);
+
+  const errorDetailList = errorDetails?.length ? (
+    <ul style={{ margin: '8px 0 0', paddingLeft: 18 }}>
+      {errorDetails.map((detail, index) => (
+        <li key={`${detail.field}-${index}`}>
+          {detail.field ? <Text code>{detail.field}</Text> : null}
+          {detail.field ? '：' : ''}
+          {detail.message}
+        </li>
+      ))}
+    </ul>
+  ) : null;
+
+  const jsonTab = {
+    key: 'pretty',
+    label: '格式化',
+    children: (
+      <CodeEditor
+        value={responseRaw || 'null'}
+        language="json"
+        theme="vs-dark"
+        readOnly
+        height={320}
+        options={{ lineNumbers: 'on', folding: true, scrollBeyondLastLine: false }}
+      />
+    ),
+  };
+  const rawTab = {
+    key: 'raw',
+    label: '原始数据',
+    children: (
+      <TextArea
+        readOnly
+        value={responseRaw}
+        rows={12}
+        style={{ fontFamily: 'var(--ant-font-family-code, monospace)' }}
+      />
+    ),
+  };
+
   return (
     <Card
       size="small"
@@ -103,36 +212,32 @@ export default function InvocationResponse({
       }
     >
       {error ? (
-        <Alert type="error" showIcon message="调用失败" description={error} />
+        <Alert
+          type="error"
+          showIcon
+          message="调用失败"
+          description={
+            <>
+              {error}
+              {errorDetailList}
+            </>
+          }
+        />
       ) : hasResponse ? (
         <Tabs
           items={[
-            {
-              key: 'pretty',
-              label: '格式化',
-              children: (
-                <CodeEditor
-                  value={responseRaw || 'null'}
-                  language="json"
-                  theme="vs-dark"
-                  readOnly
-                  height={320}
-                  options={{ lineNumbers: 'on', folding: true, scrollBeyondLastLine: false }}
-                />
-              ),
-            },
-            {
-              key: 'raw',
-              label: '原始数据',
-              children: (
-                <TextArea
-                  readOnly
-                  value={responseRaw}
-                  rows={12}
-                  style={{ fontFamily: 'var(--ant-font-family-code, monospace)' }}
-                />
-              ),
-            },
+            // F10：结构化优先展示；不可结构化时仅 JSON 两档
+            ...(structuredBody
+              ? [
+                  {
+                    key: 'structured',
+                    label: '结构化',
+                    children: structuredBody,
+                  },
+                ]
+              : []),
+            jsonTab,
+            rawTab,
           ]}
         />
       ) : (

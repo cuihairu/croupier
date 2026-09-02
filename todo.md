@@ -257,18 +257,19 @@ T5（无风险热身）→ T1 → T2 → T3 → T4。前四个每个含独立 go
 
 ## F-C 阶段：结果渲染与调用 UX（P1）
 
-## F10. outputSchema 驱动结果渲染 ⬜
+## F10. outputSchema 驱动结果渲染 ✅
 
 **目标**：调用结果不再是裸 JSON，优先结构化展示。
 
 **改动点**：
 
-- [ ] 新增 `deriveResultSpec(outputSchema)`：对象 → 字段卡片（复用 `web/src/components/PageRenderer/ResultViewRenderer.tsx`）；对象数组 → antd Table（列=properties）；其余/解析失败 → 现有 JSON viewer 兜底
-- [ ] `InvocationResponse.tsx` 加「结构化 / JSON」Tabs，结构化优先展示
-- [ ] 错误响应 `details` 结构化渲染（字段级错误列表，对接后端 error 契约 details）
-- [ ] 单测：deriveResultSpec 三分支、details 渲染
+- [x] 新增 `web/src/utils/resultSpec.ts`：`deriveResultSpec(outputSchema)`——object+properties → 字段卡片（title 缺失人性化兜底，LocalizedText 形态）；array+items.properties → 表格列；标量/解析失败 → undefined（JSON 兜底）
+- [x] `InvocationResponse.tsx`：结构化 Tab 优先（对象 → Descriptions、对象数组 → antd Table，复用 PageRenderer 的 `renderJSONValueSummary`），JSON/原始 Tab 保留兜底
+- [x] 错误响应 `details` 结构化渲染（对接 `extractErrorDetails`，字段级错误列表）
+- [x] Invoke 页接线：`resolveOutputSchema`（string/object 双形态解析）、errorDetails 状态维护
+- [x] 单测 8 例：规格推导三分支、isArrayOfObjects、结构化卡片/表格/兜底、错误明细
 
-**验收**：tsc + web test 全绿。
+**验收**：tsc 0 错误 + web test 全绿（190 passed）+ guard PASSED。
 
 ## F11. 异步任务进度内嵌 ⬜
 
