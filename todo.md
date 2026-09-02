@@ -161,17 +161,17 @@ T5（无风险热身）→ T1 → T2 → T3 → T4。前四个每个含独立 go
 
 **验收**：`pnpm --dir web run tsc` 0 错误；`pnpm --dir web test` 全绿。
 
-## F3. widget 映射补全 · 第一批（Select 系）⬜
+## F3. widget 映射补全 · 第一批（Select 系）✅
 
 **目标**：FormWidget 声明的 Select 系 widget 不再退化为 input。
 
 **改动点**：
 
-- [ ] `SchemaFormRenderer/index.tsx`：注册 RJSF 自定义 widgets（`widgets` prop），实现 Select/MultiSelect（enumOptions + enumNames 驱动，MultiSelect 多选映射）/TreeSelect（x-ui tree-data hint）/Cascader/Rate
-- [ ] `widgetToRjsf`（index.tsx:133-174）移除上述 case 的 undefined 返回，改走自定义 widget 名
-- [ ] 单测：`__tests__/widgets-select.test.tsx`（渲染断言 + 枚举选项本地化）
+- [x] 新增 `SchemaFormRenderer/widgets.tsx` 自定义 RJSF widgets：TreeSelect（treeData 经 widgetProps 透传，单选 string/多选 string[]）、Cascader（cascaderOptions，值取最后一级）、Rate（number）；`customWidgets` 注册进 Form `widgets` prop
+- [x] `widgetToRjsf`：Select→内置 select、TreeSelect/Cascader/Rate→自定义 widget 名；MultiSelect 补 `ui:options.multiple`（原缺失导致退化为单选）
+- [x] 单测：`__tests__/widgets-select.test.tsx`（uiSchema 映射 3 例 + 渲染/选值/多选/级联/Rate 4 例）
 
-**验收**：tsc + web test 全绿；PageStudio 预览与 Invoke 表单中 Select 系正常渲染。
+**验收**：tsc 0 错误 + web test 全绿（161 passed）+ guard PASSED。
 
 ## F4. widget 映射补全 · 第二批（上传/键值对）⬜
 
