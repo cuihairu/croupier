@@ -40,3 +40,29 @@ func TestOpenGorm_OracleDriver_Rejected(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "unsupported database driver")
 }
+
+func TestOpenGorm_PostgresEmptyDSN_Rejected(t *testing.T) {
+	_, err := openGorm("postgres", "")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "postgres DSN is required")
+
+	_, err = openGorm("postgresql", "")
+	require.Error(t, err)
+}
+
+func TestOpenGorm_PostgresConnRefused(t *testing.T) {
+	// 端口 1 无人监听 → 连接失败且不含 "does not exist" → else 分支直接返回错误
+	_, err := openGorm("pg", "postgres://u:p@127.0.0.1:1/dbname?sslmode=disable")
+	require.Error(t, err)
+}
+
+func TestOpenGorm_MysqlEmptyDSN_Rejected(t *testing.T) {
+	_, err := openGorm("mysql", "")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "mysql DSN is required")
+}
+
+func TestOpenGorm_MysqlConnRefused(t *testing.T) {
+	_, err := openGorm("mysql", "u:p@tcp(127.0.0.1:1)/dbname")
+	require.Error(t, err)
+}

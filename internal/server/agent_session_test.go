@@ -4,9 +4,12 @@
 package server
 
 import (
+	"context"
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestAgentSessionFields(t *testing.T) {
@@ -420,3 +423,23 @@ func TestSessionResolverAdapter(t *testing.T) {
 		t.Error("Adapter store field doesn't match provided store")
 	}
 }
+
+// SetClusterHooks setter 覆盖（TCPListener + ControlService 两处）。
+func TestSetClusterHooks_Setters(t *testing.T) {
+	ln := &TCPListener{}
+	assert.Nil(t, ln.clusterHooks)
+	hook := &fakeClusterHook{}
+	ln.SetClusterHooks(hook)
+	assert.Equal(t, hook, ln.clusterHooks)
+
+	svc := newTestControlService()
+	assert.Nil(t, svc.clusterHooks)
+	svc.SetClusterHooks(hook)
+	assert.Equal(t, hook, svc.clusterHooks)
+}
+
+type fakeClusterHook struct{}
+
+func (f *fakeClusterHook) OnAgentRegistered(context.Context, string, string, string) {}
+func (f *fakeClusterHook) OnAgentHeartbeat(context.Context, string)                  {}
+func (f *fakeClusterHook) OnAgentDisconnected(context.Context, string)               {}

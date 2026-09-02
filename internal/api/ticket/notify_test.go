@@ -192,3 +192,20 @@ func TestTruncateContent(t *testing.T) {
 	assert.Equal(t, 103, len([]rune(got)))
 	assert.True(t, strings.HasSuffix(got, "..."))
 }
+
+func TestMapTicketPriority_Branches(t *testing.T) {
+	assert.Equal(t, "urgent", mapTicketPriority("URGENT"))
+	assert.Equal(t, "high", mapTicketPriority(" high "))
+	assert.Equal(t, "low", mapTicketPriority("Low"))
+	assert.Equal(t, "normal", mapTicketPriority("bogus"))
+	assert.Equal(t, "normal", mapTicketPriority(""))
+}
+
+func TestTruncateContent_Branches(t *testing.T) {
+	assert.Equal(t, "", truncateContent("", 5))
+	assert.Equal(t, "abc", truncateContent("abc", 0), "limit<=0 不截断")
+	assert.Equal(t, "abcdef", truncateContent("abcdef", -1))
+	assert.Equal(t, "abcde", truncateContent("abcde", 5), "恰好等于 limit 不截断")
+	assert.Equal(t, "ab...", truncateContent("abcdef", 2))
+	assert.Equal(t, "中文字...", truncateContent("中文字符串", 3), "按 rune 截断")
+}

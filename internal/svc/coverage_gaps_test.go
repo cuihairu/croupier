@@ -12,6 +12,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
+
+	sdkv1 "github.com/cuihairu/croupier/pkg/pb/croupier/sdk/v1"
 )
 
 // ---- truncate（此前 0%） ----
@@ -152,4 +154,23 @@ func TestContractTimeoutMigration(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, addContractTimeoutColumn(context.Background(), sqlDB2))
 	require.False(t, db2.Migrator().HasTable(&model.FunctionContract{}))
+}
+
+// dispatcherAdapter.StartTask 委托覆盖（此前 0%：调度触发仅在真实 cron 命中时执行）。
+func TestDispatcherAdapter_StartTask_Delegates(t *testing.T) {
+	called := false
+	adapter := dispatcherAdapter{d: &fakeDispatcher{onStart: func() { called = true }}}
+	resp, err := adapter.StartTask(context.Background(), &sdkv1.InvokeRequest{FunctionId: "f"})
+	require.NoError(t, err)
+	assert.NotNil(t, resp)
+	assert.True(t, called, "应委托给 Dispatcher.StartTaskRequest")
+}
+
+type fakeDispatcher struct {
+	onStart func()
+}
+
+func (f *fakeDispatcher) StartTaskRequest(ctx context.Context, req *sdkv1.InvokeRequest) (*sdkv1.StartTaskResponse, error) {
+	f.onStart()
+	return &sdkv1.StartTaskResponse{TaskId: "t-1"}, nil
 }
