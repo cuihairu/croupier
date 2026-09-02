@@ -9,6 +9,7 @@ import {
   Modal,
   Popconfirm,
   Row,
+  Segmented,
   Space,
   Tag,
   Typography,
@@ -23,6 +24,13 @@ import {
 } from '@ant-design/icons';
 import { PageContainer } from '@ant-design/pro-components';
 import { request } from '@umijs/max';
+import { listDescriptors, type FunctionDescriptor } from '@/services/api/functions';
+import {
+  instantiateTemplate,
+  type ComponentTemplateDTO,
+} from '../CompositeEditor/ComponentLibrary';
+import PreviewRuntime from '../CompositeEditor/PreviewRuntime';
+import type { PageNode } from '../CompositeEditor/model';
 
 const { Text, Title } = Typography;
 
@@ -34,7 +42,7 @@ interface TemplateDTO {
   category?: string;
   icon?: string;
   requiredFunctions?: string[];
-  tree: unknown[];
+  tree: PageNode[];
   builtin: boolean;
   createdBy?: string;
 }
@@ -70,7 +78,16 @@ export default function ComponentTemplatesPage() {
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState('');
   const [previewKey, setPreviewKey] = useState<string | null>(null);
+  const [previewTab, setPreviewTab] = useState<'ui' | 'json'>('ui');
   const [regenerating, setRegenerating] = useState(false);
+  // 函数契约（fnForm/fnTable 渲染需要 schema；拉取失败按空集降级——
+  // 组件结构仍可预览，仅表单缺字段提示）。
+  const [fnById, setFnById] = useState<Map<string, FunctionDescriptor>>(new Map());
+  useEffect(() => {
+    listDescriptors()
+      .then((fns) => setFnById(new Map(fns.map((f) => [f.id, f]))))
+      .catch(() => undefined);
+  }, []);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -144,6 +161,13 @@ export default function ComponentTemplatesPage() {
   }, [filtered]);
 
   const previewTpl = templates.find((t) => t.key === previewKey);
+  // 实例化一次（重分配 id/重映射引用），previewKey 变化才重建——
+  // PreviewRuntime 的 autoRun 语义依赖挂载时机。
+  const previewTree = useMemo(
+    () => (previewTpl ? instantiateTemplate(previewTpl as unknown as ComponentTemplateDTO) : []),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [previewKey],
+  );
 
   return (
     <PageContainer
@@ -251,25 +275,50 @@ export default function ComponentTemplatesPage() {
         open={!!previewKey}
         onCancel={() => setPreviewKey(null)}
         footer={null}
-        width={640}
+        width={880}
       >
         {previewTpl && (
           <div>
-            <Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 8 }}>
-              结构：{treeSummary(previewTpl.tree)}
-            </Text>
-            <pre
-              style={{
-                background: '#fafafa',
-                padding: 12,
-                borderRadius: 6,
-                fontSize: 12,
-                maxHeight: 400,
-                overflow: 'auto',
-              }}
-            >
-              {JSON.stringify(previewTpl.tree, null, 2)}
-            </pre>
+            <Space style={{ marginBottom: 12, width: '100%', justifyContent: 'space-between' }}>
+              <Segmented
+                value={previewTab}
+                onChange={(v) => setPreviewTab(v as 'ui' | 'json')}
+                options={[
+                  { label: '界面预览', value: 'ui' },
+                  { label: 'JSON', value: 'json' },
+                ]}
+              />
+              <Text type="secondary" style={{ fontSize: 12 }}>
+                结构：{treeSummary(previewTpl.tree)}
+              </Text>
+            </Space>
+            {previewTab === 'ui' ? (
+              <div
+                style={{
+                  border: '1px solid #f0f0f0',
+                  borderRadius: 6,
+                  padding: 16,
+                  maxHeight: 480,
+                  overflow: 'auto',
+                  background: '#fff',
+                }}
+              >
+                <PreviewRuntime tree={previewTree} fnById={fnById} />
+              </div>
+            ) : (
+              <pre
+                style={{
+                  background: '#fafafa',
+                  padding: 12,
+                  borderRadius: 6,
+                  fontSize: 12,
+                  maxHeight: 400,
+                  overflow: 'auto',
+                }}
+              >
+                {JSON.stringify(previewTpl.tree, null, 2)}
+              </pre>
+            )}
           </div>
         )}
       </Modal>

@@ -235,7 +235,7 @@ POST /api/v1/component-templates/regenerate  # 手动触发契约扫描→生成
 ### 管理组件模板
 
 - 页面：`/functions/component-templates`（「函数与页面」菜单域下）
-- 操作：查看卡片列表 / 预览树结构 JSON / 从契约重新生成 / 删除自定义组件
+- 操作：查看卡片列表 / 预览（界面渲染=复用编辑器发布渲染器 PreviewRuntime，含 autoRun/弹窗/动作链；可切 JSON 结构视图）/ 从契约重新生成 / 删除自定义组件
 - 内置组件（契约自动生成）不可删除
 
 ### 组件模板自动生成规则
