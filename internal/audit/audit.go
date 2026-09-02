@@ -63,6 +63,8 @@ const (
 	EventFunctionRegister   AuditEventType = "function.register"
 	EventFunctionUnregister AuditEventType = "function.unregister"
 	EventFunctionUpdate     AuditEventType = "function.update"
+	// EventFunctionContractUpdated 契约更新（含 schema 兼容性 diff 摘要，F13）
+	EventFunctionContractUpdated AuditEventType = "function.contract_updated"
 
 	// Dashboard page events
 	EventPageDraftSave AuditEventType = "page.draft_save"
@@ -501,7 +503,8 @@ func (s *AuditService) inferCategory(eventType AuditEventType) AuditCategory {
 	case eventType == EventUserCreate || eventType == EventUserUpdate || eventType == EventUserDelete:
 		return CategoryAdmin
 	case eventType == EventFunctionInvoke || eventType == EventFunctionRegister || eventType == EventFunctionUnregister ||
-		eventType == EventFunctionUpdate || eventType == EventPageDraftSave || eventType == EventPagePublish ||
+		eventType == EventFunctionUpdate || eventType == EventFunctionContractUpdated ||
+		eventType == EventPageDraftSave || eventType == EventPagePublish ||
 		eventType == EventPageUnpublish || eventType == EventPageRollback || eventType == EventPageExecute ||
 		eventType == EventOpenAPISourceCreate || eventType == EventOpenAPISourceBindingCreate ||
 		eventType == EventOpenAPISourceUpdate || eventType == EventOpenAPISourceBindingDelete ||

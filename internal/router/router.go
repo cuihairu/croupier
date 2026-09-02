@@ -24,6 +24,7 @@ import (
 	resourcecatalog "github.com/cuihairu/croupier/internal/api/resourcecatalog"
 	roleapi "github.com/cuihairu/croupier/internal/api/role"
 	taskapi "github.com/cuihairu/croupier/internal/api/task"
+	"github.com/cuihairu/croupier/internal/audit"
 	"github.com/cuihairu/croupier/internal/config"
 	extensioncatalog "github.com/cuihairu/croupier/internal/core/extension/catalog"
 	extensioninstallation "github.com/cuihairu/croupier/internal/core/extension/installation"
@@ -123,6 +124,13 @@ func registerAuthenticatedRoutes(api *gin.RouterGroup, db *gorm.DB, cfg *config.
 	// Wire ContractService into registry store so gRPC function registration
 	// automatically persists FunctionContracts.
 	contractService := service.NewContractService(db)
+	// F13：契约更新写 function.contract_updated 审计（含 schema diff 摘要）。
+	// 该路由栈按 cfg 构建，审计服务与 svc 同构装配（SQL store，失败降级无审计）。
+	if auditStore, auditErr := audit.NewSQLAuditStore(db); auditErr == nil {
+		contractService.WithAuditService(audit.NewAuditService(auditStore, nil))
+	} else {
+		slog.Default().Warn("audit store init failed, function.contract_updated audit disabled", "error", auditErr)
+	}
 	registryStore.SetContractService(contractService)
 	registryStore.SetScopeContextResolver(func(gameID, env string) context.Context {
 		return svc.WithGameScope(context.Background(), svc.GameScope{GameID: gameID, Env: env})

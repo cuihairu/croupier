@@ -4,8 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"testing"
 
+	"github.com/cuihairu/croupier/internal/audit"
 	"github.com/cuihairu/croupier/internal/dashboard/spec"
 	"github.com/cuihairu/croupier/internal/dbenum"
 	"github.com/cuihairu/croupier/internal/model"
@@ -1577,4 +1579,63 @@ func TestContractService_SchemaBreakingChangeWritesDiagnostics(t *testing.T) {
 	props, ok := schema["properties"].(map[string]interface{})
 	require.True(t, ok)
 	assert.Contains(t, props, "level")
+}
+
+// F13：契约更新写 function.contract_updated 审计（含 diff 摘要）；首注不写。
+func TestContractService_ContractUpdateAudit(t *testing.T) {
+	db := setupTestDB(t)
+	ctx := context.Background()
+	store := audit.NewInMemoryAuditStore()
+	auditSvc := audit.NewAuditService(store, nil)
+	service := NewContractService(db).WithAuditService(auditSvc)
+
+	meta := FunctionMetaInput{
+		ID:          "player.ban",
+		Version:     "1.0.0",
+		Enabled:     true,
+		Resource:    "player",
+		Operation:   "ban",
+		Capability:  "action",
+		Execution:   "sync",
+		InputSchema: `{"type":"object","properties":{"playerId":{"type":"string"},"reason":{"type":"string"}}}`,
+	}
+
+	// 首次注册不写 contract_updated
+	require.NoError(t, service.RebuildContractFromFunctionMeta(ctx, "demo-game", "development", "sdk", meta))
+	records, _, err := store.List(audit.AuditFilter{EventType: []audit.AuditEventType{audit.EventFunctionContractUpdated}}, audit.AuditPage{})
+	require.NoError(t, err)
+	assert.Empty(t, records)
+
+	// 更新且含 breaking：写审计并带 diff 摘要
+	meta.InputSchema = `{"type":"object","properties":{"playerId":{"type":"string"}}}`
+	require.NoError(t, service.RebuildContractFromFunctionMeta(ctx, "demo-game", "development", "sdk", meta))
+	records, _, err = store.List(audit.AuditFilter{EventType: []audit.AuditEventType{audit.EventFunctionContractUpdated}}, audit.AuditPage{})
+	require.NoError(t, err)
+	require.Len(t, records, 1)
+	assert.Equal(t, "function.contract_updated", string(records[0].EventType))
+	assert.Equal(t, "player.ban", records[0].Resource.ID)
+	breaking := auditBreakList(records[0])
+	assert.NotEmpty(t, breaking)
+
+	// 无 breaking 的更新也写审计（变更事实本身值得记录），但 breaking 为空
+	meta.InputSchema = `{"type":"object","properties":{"playerId":{"type":"string"},"note":{"type":"string"}}}`
+	require.NoError(t, service.RebuildContractFromFunctionMeta(ctx, "demo-game", "development", "sdk", meta))
+	records, _, err = store.List(audit.AuditFilter{EventType: []audit.AuditEventType{audit.EventFunctionContractUpdated}}, audit.AuditPage{})
+	require.NoError(t, err)
+	assert.Len(t, records, 2)
+}
+
+func auditBreakList(record *audit.AuditRecord) []string {
+	switch v := record.Details["breaking"].(type) {
+	case []interface{}:
+		out := make([]string, 0, len(v))
+		for _, item := range v {
+			out = append(out, fmt.Sprint(item))
+		}
+		return out
+	case []string:
+		return v
+	default:
+		return nil
+	}
 }

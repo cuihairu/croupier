@@ -67,7 +67,21 @@ func FunctionSpecFromContract(contract *model.FunctionContract) spec.FunctionSpe
 		Approval:     ApprovalPolicyFromJSONMap(contract.Approval),
 		Risk:         spec.RiskLevel(contract.Risk.String()),
 		Permission:   strings.TrimSpace(contract.Permission),
+		// F13：契约诊断（含 schema_breaking_change 告警）透传给 descriptors API
+		Diagnostics: DiagnosticsFromJSON(json.RawMessage(contract.Diagnostics)),
 	}
+}
+
+// DiagnosticsFromJSON 解析契约 Diagnostics 列；非法 JSON 返回 nil。
+func DiagnosticsFromJSON(raw json.RawMessage) []spec.Diagnostic {
+	if len(raw) == 0 {
+		return nil
+	}
+	var diags []spec.Diagnostic
+	if err := json.Unmarshal(raw, &diags); err != nil {
+		return nil
+	}
+	return diags
 }
 
 func OperationSpecFromContract(contract *model.FunctionContract) spec.OperationSpec {

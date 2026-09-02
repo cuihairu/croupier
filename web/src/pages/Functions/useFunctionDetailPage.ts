@@ -371,6 +371,12 @@ export default function useFunctionDetailPage(functionId?: string) {
     }
   };
 
+  // F13：契约诊断（schema_breaking_change 等），来自 FunctionContract
+  const contractDiagnostics = useMemo(
+    () => descriptorIndexItem?.diagnostics ?? [],
+    [descriptorIndexItem],
+  );
+
   return {
     loading,
     functionDetail,
@@ -391,5 +397,6 @@ export default function useFunctionDetailPage(functionId?: string) {
     handleCopy,
     handleDelete,
     handleSavePermissions,
+    contractDiagnostics,
   };
 }

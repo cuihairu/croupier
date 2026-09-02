@@ -48,6 +48,7 @@ export default function FunctionDetailPage() {
     handleCopy,
     handleDelete,
     handleSavePermissions,
+    contractDiagnostics,
   } = useFunctionDetailPage(params.id);
   const pageStudioPath = '/functions/resource-catalog';
   const invokePath = params.id ? `/functions/invoke?fid=${encodeURIComponent(params.id)}` : '';
@@ -280,6 +281,25 @@ export default function FunctionDetailPage() {
         </Card>
 
         <Card loading={loading}>
+          {contractDiagnostics.length > 0 ? (
+            <Alert
+              type="warning"
+              showIcon
+              style={{ marginBottom: 16 }}
+              message="契约诊断告警"
+              description={
+                <ul style={{ margin: '8px 0 0', paddingLeft: 18 }}>
+                  {contractDiagnostics.map((diag, index) => (
+                    <li key={`${diag.code}-${index}`}>
+                      <Typography.Text code>{diag.code}</Typography.Text>
+                      {diag.field ? <Tag style={{ marginInlineStart: 8 }}>{diag.field}</Tag> : null}
+                      {diag.message ? <Typography.Text>{diag.message}</Typography.Text> : null}
+                    </li>
+                  ))}
+                </ul>
+              }
+            />
+          ) : null}
           <Alert
             type="info"
             showIcon

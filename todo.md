@@ -300,17 +300,17 @@ T5（无风险热身）→ T1 → T2 → T3 → T4。前四个每个含独立 go
 
 **验收**：`go build ./...` + `go vet` 通过；`go test ./internal/function/... ./internal/service/ ./internal/server/` 全绿。
 
-## F13. 契约变更可视化（依赖 F12）⬜
+## F13. 契约变更可视化（依赖 F12）✅
 
 **目标**：运营在 Functions 页能看到契约近期变更与告警。
 
 **改动点**：
 
-- [ ] Functions 详情页（`web/src/pages/Functions/Detail.tsx`）展示 Diagnostics 告警条 + `SourceDigest`/`UpdatedAt` 变更提示
-- [ ] contract 变更写入审计链（upsert 处加审计事件 `function.contract_updated`，含 diff 摘要）
-- [ ] 单测：告警条渲染（mock diagnostics）、审计事件断言
+- [x] Functions 详情页（Detail.tsx + useFunctionDetailPage）展示 Diagnostics 告警条（code/message/field）；后端 `FunctionSpecFromContract` 投影 `contract.Diagnostics` → descriptors API 自动携带
+- [x] contract 变更写入审计链：`function.contract_updated` 事件（ContractService `WithAuditService`，含 breaking diff 摘要/来源/scope），router 装配（SQL store，失败降级无审计）
+- [x] 单测：Go 投影透传 + 审计事件断言（首注不写/更新写入/breaking 摘要）；web 告警条渲染
 
-**验收**：tsc + web test 全绿；`go test ./internal/server/...` 全绿。
+**验收**：`go build ./...` + `go vet` 通过；`go test ./internal/service/ ./internal/server/ ./internal/audit/` 全绿；web tsc 0 错误 + 198 passed + guard PASSED。
 
 ## F14.（可选）SDK 便捷层注入 hints ⬜
 

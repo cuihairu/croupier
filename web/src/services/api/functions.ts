@@ -30,6 +30,17 @@ export type FunctionDescriptor = {
   operations?: JSONValue;
   inputSchema?: JSONValue; // JSON Schema for request body (from proto)
   outputSchema?: JSONValue; // JSON Schema for response body (from proto)
+  /** F13：契约诊断（含 schema_breaking_change 告警），来自 FunctionContract */
+  diagnostics?: FunctionContractDiagnostic[];
+};
+
+/** 契约诊断条目（对齐 spec.Diagnostic wire 契约） */
+export type FunctionContractDiagnostic = {
+  code: string;
+  severity?: string;
+  message?: string;
+  functionId?: string;
+  field?: string;
 };
 
 type RawLocalizedText = Record<string, string | undefined>;

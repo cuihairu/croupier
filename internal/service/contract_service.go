@@ -12,6 +12,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/cuihairu/croupier/internal/audit"
 	"github.com/cuihairu/croupier/internal/dashboard/generator"
 	"github.com/cuihairu/croupier/internal/dashboard/normalizer"
 	"github.com/cuihairu/croupier/internal/dashboard/spec"
@@ -56,6 +57,14 @@ type ContractService struct {
 	proposalModel    *model.PageProposalModel
 	proposalVersions *model.PageProposalVersionModel
 	blockedIssues    *model.BlockedProposalIssueModel
+	auditSvc         *audit.AuditService
+}
+
+// WithAuditService 注入审计服务（可选）：契约更新时写 function.contract_updated
+// 审计事件（含 schema 兼容性 diff 摘要）。
+func (s *ContractService) WithAuditService(auditSvc *audit.AuditService) *ContractService {
+	s.auditSvc = auditSvc
+	return s
 }
 
 // NewContractService creates the service.
@@ -136,13 +145,16 @@ func (s *ContractService) RebuildContractFromFunctionMeta(ctx context.Context, g
 
 	// 4. Schema 兼容性 diff（F12）：与库中现有契约对比，破坏性变更
 	// 写入 Diagnostics 告警（不阻断注册，由告警/可视化层消费）。
-	diagnostics := mergeSchemaDiffDiagnostics(ctx, s.contractModel, gameID, env, input.ID, contract, toJSON(result.Diagnostics))
+	diagnostics, diffFindings, isUpdate := mergeSchemaDiffDiagnostics(ctx, s.contractModel, gameID, env, input.ID, contract, toJSON(result.Diagnostics))
 
 	// 5. Upsert contract
 	contract.Diagnostics = diagnostics
 	if err := s.contractModel.UpsertContract(ctx, contract); err != nil {
 		return fmt.Errorf("upsert function contract: %w", err)
 	}
+
+	// F13：契约更新审计（function.contract_updated，含 diff 摘要）。
+	s.logContractUpdateAudit(ctx, gameID, env, source, input.ID, isUpdate, diffFindings)
 
 	slog.Info("rebuilt function contract",
 		"game_id", gameID,
@@ -152,6 +164,41 @@ func (s *ContractService) RebuildContractFromFunctionMeta(ctx context.Context, g
 		"capability", input.Capability)
 
 	return nil
+}
+
+// logContractUpdateAudit 在契约更新（非首次注册）时写审计事件；audit 服务
+// 未注入或写入失败不影响注册主流程。
+func (s *ContractService) logContractUpdateAudit(
+	ctx context.Context,
+	gameID, env, source, functionID string,
+	isUpdate bool,
+	findings []schemadiff.Finding,
+) {
+	if !isUpdate || s.auditSvc == nil {
+		return
+	}
+	breaking := make([]string, 0, len(findings))
+	for _, finding := range findings {
+		if finding.Severity == schemadiff.SeverityBreaking {
+			breaking = append(breaking, fmt.Sprintf("%s%s: %s", finding.Source, finding.Path, finding.Reason))
+		}
+	}
+	details := map[string]interface{}{
+		"gameId":       gameID,
+		"env":          env,
+		"functionId":   functionID,
+		"source":       source,
+		"diffFindings": len(findings),
+		"breaking":     breaking,
+	}
+	if _, err := s.auditSvc.Log(ctx, audit.EventFunctionContractUpdated,
+		audit.WithResourceID("function_contract", functionID),
+		audit.WithActorID("system", "system", "Contract Rebuild"),
+		audit.WithDetails(details),
+	); err != nil {
+		slog.Warn("failed to write function.contract_updated audit",
+			"game_id", gameID, "env", env, "function_id", functionID, "error", err)
+	}
 }
 
 // RebuildResourceCapability rebuilds a ResourceCapability from existing contracts.
@@ -710,13 +757,14 @@ func toJSON(v interface{}) model.JSON {
 // mergeSchemaDiffDiagnostics 在契约 upsert 前对比库中现有契约的
 // input/output schema：破坏性变更（F12）作为 Diagnostic 追加到现有
 // diagnostics 之后；无现有契约（首次注册）或非破坏性差异时原样返回。
+// 同时返回全部 findings 与是否为更新（供 F13 审计消费）。
 func mergeSchemaDiffDiagnostics(
 	ctx context.Context,
 	contractModel *model.FunctionContractModel,
 	gameID, env, functionID string,
 	contract *model.FunctionContract,
 	base model.JSON,
-) model.JSON {
+) (model.JSON, []schemadiff.Finding, bool) {
 	existing, err := contractModel.FindByScopeAndFunctionID(ctx, gameID, env, functionID)
 	if err != nil {
 		// 首次注册（not found）或查询失败都不阻断；查询异常记录后跳过
@@ -724,14 +772,14 @@ func mergeSchemaDiffDiagnostics(
 			slog.Warn("schema diff: failed to load existing contract",
 				"game_id", gameID, "env", env, "function_id", functionID, "error", err)
 		}
-		return base
+		return base, nil, false
 	}
 
 	findings := schemadiff.DiffSchemas("input_schema", json.RawMessage(existing.InputSchema), json.RawMessage(contract.InputSchema))
 	findings = append(findings,
 		schemadiff.DiffSchemas("output_schema", json.RawMessage(existing.OutputSchema), json.RawMessage(contract.OutputSchema))...)
 	if !schemadiff.HasBreaking(findings) {
-		return base
+		return base, findings, true
 	}
 
 	// 现有 diagnostics（数组）之上追加 schema diff 条目
@@ -750,7 +798,7 @@ func mergeSchemaDiffDiagnostics(
 			"field":    finding.Source,
 		})
 	}
-	return toJSON(diags)
+	return toJSON(diags), findings, true
 }
 
 func toJSONMap(m spec.LocalizedText) datatypes.JSONMap {
