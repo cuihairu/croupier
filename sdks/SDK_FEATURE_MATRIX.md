@@ -23,7 +23,58 @@
 
 ---
 
-## 二、L1 Core Provider（必备）
+## 二、实现状态总览（✓/✗ 速查）
+
+> 本节是**全功能 × 全 SDK** 的实现状态网格，2026-09 由 `scripts/check-sdk-matrix.sh` 回归
+> 加逐项源码核对生成。能力定义见后续章节；"该做什么"的规范见
+> [`docs/sdks/sdk-parity-matrix.md`](../docs/sdks/sdk-parity-matrix.md)。
+
+### L1 Core Provider
+
+| 能力                                                | Go  | Python | Java                                | JS/TS | C++ | C#  |
+| --------------------------------------------------- | --- | ------ | ----------------------------------- | ----- | --- | --- |
+| 构造 / 注册 / 会话 / 服务循环 / 停止（L1 API 表面） | ✅  | ✅     | ✅                                  | ✅    | ✅  | ✅  |
+| 多路复用（RequestID 配对）                          | ✅  | ✅     | ✅                                  | ✅    | ✅  | ✅  |
+| 心跳（默认 60s，可配置）                            | ✅  | ✅     | ✅                                  | ✅    | ✅  | ✅  |
+| 自动重连（指数退避 + jitter）                       | ✅  | ✅     | ✅                                  | ✅    | ✅  | ✅  |
+| TLS（`insecure=false`，ca/cert/key）                | ✅  | ✅     | ❌ 仅配置字段，transport 未实现 SSL | ✅    | ✅  | ✅  |
+| 鉴权（`auth_token` → Bearer 握手 metadata）         | ✅  | ✅     | ✅                                  | ✅    | ✅  | ✅  |
+| 平台 drain 处理（`ProviderDrainRequest`）           | ✅  | ✅     | ❌ 未实现请求处理                   | ✅    | ✅  | ✅  |
+
+### L2 Provider 扩展
+
+| 能力                                                                   | Go                  | Python                      | Java | JS/TS                | C++ | C#                       |
+| ---------------------------------------------------------------------- | ------------------- | --------------------------- | ---- | -------------------- | --- | ------------------------ |
+| Descriptor v2 字段（builder/构造器）                                   | ✅                  | ✅                          | ✅   | ✅                   | ✅  | ✅                       |
+| OpenAPI 注册 helper（`RegisterFromOpenAPI` 等价）                      | ✅                  | ✅                          | ✅   | ✅                   | ✅  | ✅                       |
+| JSON Schema 入站 payload 校验                                          | ❌ 依赖已声明未接线 | ❌ jsonschema 仅 Invoker 侧 | ❌   | ❌ Ajv 仅 Invoker 侧 | ❌  | ✅ `JsonSchemaValidator` |
+| 控制面 manifest 上传（`control_addr` → `RegisterCapabilitiesRequest`） | ❌                  | ❌                          | ❌   | ❌                   | ❌  | ❌                       |
+| 文件传输（`enable_file_transfer`）                                     | ❌                  | ❌                          | ❌   | ❌                   | ❌  | ❌                       |
+
+### L3 Invoker（invoke / startTask / getTaskStatus / streamTask / cancelTask）
+
+| SDK                                        | Go  | Python | Java | JS/TS | C++ | C#  |
+| ------------------------------------------ | --- | ------ | ---- | ----- | --- | --- |
+| 独立 Invoker（Server HTTP，`task` 系命名） | ✅  | ✅     | ✅   | ✅    | ✅  | ✅  |
+
+### L4 语言/引擎扩展
+
+各 SDK 的 L4 扩展均为 **✅ 已实现**（VirtualObject / Component / 动态插件 / Lua / Skynet /
+C# DI / Unity / Java Spring Boot starter），明细见下文第五章；此层不要求跨语言对齐。
+
+### 已知缺口（按优先级）
+
+1. **manifest 上传（L2）**：六语言均未实现 `control_addr` → `RegisterCapabilitiesRequest`；
+   当前能力发现依赖 Agent 转发的注册帧。若控制台需要"不调用即知全量能力"，需补齐。
+2. **文件传输（L2）**：六语言均未实现；如无平台侧需求建议从矩阵移除或标注"规划中"。
+3. **Java drain + TLS**：Java 是唯一缺 drain 处理与 TLS transport 的 SDK（配置字段已就位），
+   补齐后 L1 即六语言全对齐。
+4. **入站 payload schema 校验（L2）**：仅 C# 有真校验模块；Go 已声明 `gojsonschema` 依赖、
+   JS/Python 的校验器目前只在 Invoker 侧使用，接线到 Provider 入站即可点亮。
+
+---
+
+## 三、L1 Core Provider（必备）
 
 所有 SDK **必须**实现以下 API 与语义：
 
@@ -93,7 +144,7 @@ SDK 描述符不承载 UI、菜单、页面分类、多语言标题、页面 sch
 
 ---
 
-## 三、L2 Provider 扩展（可选但语义统一）
+## 四、L2 Provider 扩展（可选但语义统一）
 
 | 能力                 | 触发条件                                     | 统一字段/语义                                                                                                                                                                                                                                                  |
 | -------------------- | -------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -121,7 +172,7 @@ SDK 描述符不承载 UI、菜单、页面分类、多语言标题、页面 sch
 
 ---
 
-## 四、L3 Invoker（独立调用方能力）
+## 五、L3 Invoker（独立调用方能力）
 
 当 SDK 同时提供调用方时，**必须**独立成模块，禁止与 Provider Client 共享配置入口。
 
@@ -148,7 +199,7 @@ SDK 描述符不承载 UI、菜单、页面分类、多语言标题、页面 sch
 
 ---
 
-## 五、L4 语言/引擎扩展（不要求跨语言对齐）
+## 六、L4 语言/引擎扩展（不要求跨语言对齐）
 
 仅在所属 SDK 内文档化，不进入跨语言一致性矩阵：
 
@@ -165,7 +216,7 @@ SDK 描述符不承载 UI、菜单、页面分类、多语言标题、页面 sch
 
 ---
 
-## 六、README 描述规范
+## 七、README 描述规范
 
 所有 SDK 的 README **必须**：
 
@@ -177,7 +228,7 @@ SDK 描述符不承载 UI、菜单、页面分类、多语言标题、页面 sch
 
 ---
 
-## 七、各语言 L1 API 表面映射
+## 八、各语言 L1 API 表面映射
 
 > 命名风格遵循各语言本地规范；矩阵校验只要求**符号存在**，不要求命名一致。
 
@@ -224,7 +275,7 @@ SDK 描述符不承载 UI、菜单、页面分类、多语言标题、页面 sch
 
 ---
 
-## 八、版本与变更管理
+## 九、版本与变更管理
 
 - 协议层变更：先改 `proto/croupier/sdk/v1/*.proto` + `docs/architecture/sdk-wire-protocol.md`，再更新本表。
 - 能力新增：先在本表登记所属层级，再落地到 SDK 实现与 README。
