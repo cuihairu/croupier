@@ -12,6 +12,7 @@ import { Readable } from "node:stream";
 import { gzipSync } from "node:zlib";
 import { TextDecoder, TextEncoder } from "node:util";
 import * as protobuf from "protobufjs";
+import Ajv, { type ValidateFunction } from "ajv";
 import { TCPTransport } from "./tcp_transport";
 import {
   MSG_PROVIDER_HEARTBEAT_REQUEST,
@@ -378,6 +379,11 @@ export interface ClientConfig {
   // === Retry ===
   retry?: RetryConfig;
 
+  // === Inbound Payload Validation (F15) ===
+  /** Provider 侧入站校验：按函数声明的 input schema 校验 invoke/startTask
+   *  payload，失败回 {"error":"payload validation failed: ..."}。默认关闭。 */
+  validateInputPayloads?: boolean;
+
   // === File Transfer ===
   enableFileTransfer?: boolean;
   maxFileSize?: number;
@@ -551,6 +557,9 @@ export class BasicClient implements CroupierClient {
   private draining = false;
   private inflightCalls = 0;
   private descriptors: Map<string, FunctionDescriptor> = new Map();
+  // F15：入站校验编译缓存（schema 原文 → 编译后的校验函数）
+  private readonly inboundAjv = new Ajv({ allErrors: true });
+  private readonly inboundSchemaCache = new Map<string, ValidateFunction | null>();
   private taskStates: Map<string, TaskState> = new Map();
   private transport: TCPTransport | null = null;
   private connected = false;
@@ -582,6 +591,9 @@ export class BasicClient implements CroupierClient {
       // Provider Info
       providerLang: "node",
       providerSdk: "croupier-js-sdk",
+
+      // Inbound payload validation (opt-in)
+      validateInputPayloads: false,
 
       // TLS (defaults: insecure local development)
       insecure: true,
@@ -1467,12 +1479,55 @@ export class BasicClient implements CroupierClient {
     }
   }
 
+  /**
+   * F15：按函数声明的 input schema 校验入站 payload。开关关闭 / 未注册 /
+   * schema 缺失或非法时跳过（服务端仍是权威校验方）；失败返回 Error。
+   */
+  private validateInboundPayload(functionId: string, payload: string): Error | null {
+    if (!this.config.validateInputPayloads) return null;
+    const descriptor = this.descriptors.get(functionId);
+    const schema = descriptor?.inputSchema as Record<string, unknown> | undefined;
+    if (!schema || typeof schema !== "object") return null;
+    const cacheKey = JSON.stringify(schema);
+    if (!this.inboundSchemaCache.has(cacheKey)) {
+      try {
+        this.inboundSchemaCache.set(cacheKey, this.inboundAjv.compile(schema));
+      } catch {
+        this.inboundSchemaCache.set(cacheKey, null); // 非法 schema：跳过
+      }
+    }
+    const validate = this.inboundSchemaCache.get(cacheKey);
+    if (!validate) return null;
+    let value: unknown;
+    try {
+      value = JSON.parse(payload || "{}");
+    } catch (error) {
+      return new Error(
+        `payload must be valid JSON: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+    const ok = validate(value);
+    if (!ok) {
+      const messages = (validate.errors ?? [])
+        .map((item) => `${item.instancePath || "/"} ${item.message ?? ""}`.trim())
+        .join("; ");
+      return new Error(`payload validation failed: ${messages}`);
+    }
+    return null;
+  }
+
   private async invokeInbound(body: Buffer): Promise<Buffer> {
     const req = this.decodeInvokeRequest(body);
     const handler = this.handlers.get(req.functionId);
     if (!handler) {
       // 未注册函数：回空 payload，Agent 侧按失败处理并 failover。
       return this.encodeInvokeResponse(new Uint8Array());
+    }
+    const validationError = this.validateInboundPayload(req.functionId, req.payload);
+    if (validationError) {
+      return this.encodeInvokeResponse(
+        encoder.encode(JSON.stringify({ error: validationError.message })),
+      );
     }
     const context = JSON.stringify({
       ...req.metadata,
@@ -1492,7 +1547,8 @@ export class BasicClient implements CroupierClient {
   private handleInboundStartTask(body: Buffer): Buffer {
     const req = this.decodeInvokeRequest(body);
     let taskId = "";
-    if (this.handlers.has(req.functionId)) {
+    const validationError = this.validateInboundPayload(req.functionId, req.payload);
+    if (!validationError && this.handlers.has(req.functionId)) {
       try {
         taskId = this.startTask(req.functionId, req.payload, req.metadata);
       } catch {

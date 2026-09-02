@@ -130,7 +130,7 @@ T5（无风险热身）→ T1 → T2 → T3 → T4。前四个每个含独立 go
 
 约定：proto `FunctionDescriptor` 保持无 UI 元数据（有意设计），呈现富化通过 **JSON Schema `x-ui-*` 扩展字段**（`input_schema` 本就是字符串透传，wire 契约零改动）+ 平台侧覆盖层实现。每个任务原子：独立实现、独立测试、独立提交。
 
-> **状态：F1-F14 全部完成（2026-09-02）**——F-A/F-B/F-C 前端呈现层与调用 UX、F-D 契约演进保护、SDK 便捷层均已落地；已知边界见各任务小节。
+> **状态：F1-F15 全部完成（2026-09-02）**——F-A/F-B/F-C 前端呈现层与调用 UX、F-D 契约演进保护、SDK 便捷层与 provider 侧入站校验均已落地；已知边界见各任务小节。
 
 ## F-A 阶段：呈现层打通（P0，改动小见效快）
 
@@ -324,6 +324,19 @@ T5（无风险热身）→ T1 → T2 → T3 → T4。前四个每个含独立 go
 - [x] 单测：Go 8 例（合并/骨架/覆盖/归一/三类拒绝/非法 schema）、JS 5 例、Python 6 例
 
 **验收**：`go test ./sdks/go/function/` + `js jest`（357 passed）+ `python pytest` 全绿；docs build 通过。
+
+## F15. JSON Schema 入站 payload 校验（provider 侧）✅
+
+**目标**：补齐 SDK 矩阵缺口——SDK 收到 InvokeRequest 后、派发用户 handler 前，按函数声明的 input schema 校验 payload（服务端仍是权威校验方）。
+
+**改动点**：
+
+- [x] Go：`ClientConfig.ValidateInputPayloads`（默认关）；`TCPManager.validateInboundPayload`（Draft7 编译，非法 schema/payload JSON 跳过不阻断），invoke 失败回 `{"error":"payload validation failed: …"}`、startTask 返回错误；8 例单测
+- [x] JS：`ClientConfig.validateInputPayloads`（默认关）；Ajv 编译缓存，invokeInbound/handleInboundStartTask 接入；4 例单测
+- [x] Python：`ClientConfig.validate_input_payloads`（默认关）；jsonschema 校验进 `invoke`/`start_task`；6 例单测
+- [x] `sdks/SDK_FEATURE_MATRIX.md` 更新为 Go/Python/JS ✅（Java/C++ ❌）
+
+**验收**：go build/vet/test、js tsc + jest、python pytest 全绿；`check-sdk-matrix.sh` 通过。
 
 ## 执行顺序建议（F 系列）
 

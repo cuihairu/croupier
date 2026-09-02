@@ -137,6 +137,11 @@ type ClientConfig struct {
 	// File transfer settings
 	EnableFileTransfer bool `json:"enableFileTransfer"` // enable file transfer
 	MaxFileSize        int  `json:"maxFileSize"`        // max file size in bytes
+
+	// Inbound payload validation (F15): when true, provider-side dispatch
+	// validates incoming invoke/task payloads against the function's declared
+	// input schema before invoking the handler. Server remains authoritative.
+	ValidateInputPayloads bool `json:"validateInputPayloads"`
 }
 
 // generateUUID generates a random UUID-like string using crypto/rand

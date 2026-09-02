@@ -3,13 +3,16 @@ package croupier
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
 
 	agentv1 "github.com/cuihairu/croupier/sdks/go/pkg/pb/croupier/agent/v1"
 	sdkv1 "github.com/cuihairu/croupier/sdks/go/pkg/pb/croupier/sdk/v1"
+	"github.com/santhosh-tekuri/jsonschema/v6"
 	"google.golang.org/protobuf/proto"
 
 	"github.com/cuihairu/croupier/sdks/go/pkg/croupier/protocol"
@@ -496,6 +499,16 @@ func (h *tcpRPCHandler) invoke(ctx context.Context, msgID uint32, reqID uint32, 
 		return nil, fmt.Errorf("function not found: %s", req.FunctionId)
 	}
 
+	// 入站 payload 校验（按函数声明的 input schema）：失败回错误 payload，
+	// 游戏逻辑不会看到非法输入（服务端仍是权威校验方）。
+	if err := h.manager.validateInboundPayload(req.FunctionId, req.Payload); err != nil {
+		errResp := &sdkv1.InvokeResponse{Payload: []byte(`{"error":` + jsonString(err.Error()) + `}`)}
+		if b, marshalErr := proto.Marshal(errResp); marshalErr == nil {
+			return b, nil
+		}
+		return nil, err
+	}
+
 	// OTel 一期传播：metadata trace 字段进 handler 上下文（零侵入，无则原 ctx）
 	ctx = WithTraceMetadata(ctx, req.GetMetadata())
 	result, err := handler(ctx, req.Payload)
@@ -507,6 +520,62 @@ func (h *tcpRPCHandler) invoke(ctx context.Context, msgID uint32, reqID uint32, 
 		Payload: result,
 	}
 	return proto.Marshal(resp)
+}
+
+// jsonString 序列化为 JSON 字符串字面量（含引号），用于拼接错误 payload。
+func jsonString(s string) string {
+	b, err := json.Marshal(s)
+	if err != nil {
+		return `""`
+	}
+	return string(b)
+}
+
+// validateInboundPayload 按 ProviderFunctionDescriptor 声明的 input schema
+// 校验入站 payload。未开启开关 / 未找到描述符 / schema 为空 / schema 或
+// payload 非法 JSON 时跳过（服务端仍是权威校验方）；编译结果按函数缓存。
+func (m *TCPManager) validateInboundPayload(functionID string, payload []byte) error {
+	if !m.config.ValidateInputPayloads {
+		return nil
+	}
+	m.mu.RLock()
+	var schemaRaw string
+	for _, descriptor := range m.functions {
+		if descriptor != nil && descriptor.Id == functionID {
+			schemaRaw = descriptor.InputSchema
+			break
+		}
+	}
+	m.mu.RUnlock()
+	if strings.TrimSpace(schemaRaw) == "" {
+		return nil
+	}
+
+	var schemaDoc interface{}
+	if err := json.Unmarshal([]byte(schemaRaw), &schemaDoc); err != nil {
+		// 非法 schema 不在 provider 侧报错（注册校验负责），跳过
+		return nil
+	}
+
+	var value interface{}
+	if err := json.Unmarshal(payload, &value); err != nil {
+		return fmt.Errorf("payload must be valid JSON: %w", err)
+	}
+
+	compiler := jsonschema.NewCompiler()
+	compiler.DefaultDraft(jsonschema.Draft7)
+	if err := compiler.AddResource("schema.json", schemaDoc); err != nil {
+		// 编译失败视为 schema 缺陷，跳过（与非法 schema 同策略）
+		return nil
+	}
+	sch, err := compiler.Compile("schema.json")
+	if err != nil {
+		return nil
+	}
+	if err := sch.Validate(value); err != nil {
+		return fmt.Errorf("payload validation failed: %s", err.Error())
+	}
+	return nil
 }
 
 func (h *tcpRPCHandler) startTask(ctx context.Context, msgID uint32, reqID uint32, body []byte) (respBody []byte, err error) {
@@ -521,6 +590,11 @@ func (h *tcpRPCHandler) startTask(ctx context.Context, msgID uint32, reqID uint3
 
 	if !ok {
 		return nil, fmt.Errorf("function not found: %s", req.FunctionId)
+	}
+
+	// 入站 payload 校验（同 invoke）：失败回错误给 agent，任务不启动。
+	if err := h.manager.validateInboundPayload(req.FunctionId, req.Payload); err != nil {
+		return nil, err
 	}
 
 	// OTel 一期传播：任务 handler 上下文同样可读 trace 字段

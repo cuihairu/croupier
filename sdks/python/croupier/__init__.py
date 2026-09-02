@@ -166,6 +166,8 @@ class ClientConfig:
     headers: Dict[str, str] = field(default_factory=dict)
     provider_lang: str = "python"
     provider_sdk: str = "croupier-python-sdk"
+    # F15：provider 侧入站校验（按函数声明的 input schema），默认关闭
+    validate_input_payloads: bool = False
     auto_reconnect: bool = True
     reconnect_interval: float = 1.0
     reconnect_max_attempts: int = 0
@@ -316,6 +318,35 @@ class CroupierClient:
             protocol_version="1.0.0",
         )
 
+    def _validate_inbound_payload(self, function_id: str, payload: bytes) -> None:
+        """F15：按函数声明的 input schema 校验入站 payload。
+
+        开关关闭 / 未注册 / schema 缺失时跳过（服务端仍是权威校验方）；
+        校验失败抛 ValueError("payload validation failed: ...")。
+        """
+        if not getattr(self._config, "validate_input_payloads", False):
+            return
+        descriptor = self._descriptors.get(function_id)
+        if descriptor is None:
+            return
+        schema = descriptor.input_schema
+        if isinstance(schema, (bytes, bytearray)):
+            schema = bytes(schema).decode("utf-8", "replace")
+        if isinstance(schema, str):
+            schema = json.loads(schema) if schema.strip() else None
+        if not isinstance(schema, dict):
+            return
+        try:
+            value = json.loads(payload.decode("utf-8")) if payload else {}
+        except (json.JSONDecodeError, UnicodeDecodeError) as error:
+            raise ValueError(f"payload must be valid JSON: {error}") from error
+        import jsonschema
+
+        try:
+            jsonschema.validate(instance=value, schema=schema)
+        except jsonschema.ValidationError as error:
+            raise ValueError(f"payload validation failed: {error.message}") from error
+
     def invoke(
         self, function_id: str, payload: bytes, metadata: Optional[Dict[str, str]] = None
     ) -> bytes:
@@ -323,6 +354,8 @@ class CroupierClient:
         handler = self._handlers.get(function_id)
         if handler is None:
             raise ValueError(f"Function {function_id} not found")
+
+        self._validate_inbound_payload(function_id, payload)
 
         metadata_json = json.dumps(metadata or {})
         result: bytes
@@ -340,6 +373,8 @@ class CroupierClient:
         handler = self._handlers.get(function_id)
         if handler is None:
             raise ValueError(f"Function {function_id} not found")
+
+        self._validate_inbound_payload(function_id, payload)
 
         task_id = f"{function_id}-{uuid.uuid4().hex}"
         state = _TaskState()

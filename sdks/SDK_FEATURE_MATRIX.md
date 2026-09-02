@@ -43,14 +43,14 @@
 
 ### L2 Provider 扩展
 
-| 能力                                                                   | Go                  | Python                      | Java | JS/TS                | C++ | C#                       |
-| ---------------------------------------------------------------------- | ------------------- | --------------------------- | ---- | -------------------- | --- | ------------------------ |
-| Descriptor v2 字段（builder/构造器）                                   | ✅                  | ✅                          | ✅   | ✅                   | ✅  | ✅                       |
-| 呈现 hints 便捷层（`SetFieldHint`/`SetFieldWidget` 等价，x-ui-* 契约） | ✅ builder 方法     | ✅ `set_field_hint()`       | ❌   | ✅ `setFieldHint()`  | ❌  | ❌                       |
-| OpenAPI 注册 helper（`RegisterFromOpenAPI` 等价）                      | ✅                  | ✅                          | ✅   | ✅                   | ✅  | ✅                       |
-| JSON Schema 入站 payload 校验                                          | ❌ 依赖已声明未接线 | ❌ jsonschema 仅 Invoker 侧 | ❌   | ❌ Ajv 仅 Invoker 侧 | ❌  | ✅ `JsonSchemaValidator` |
-| 控制面 manifest 上传（`control_addr` → `RegisterCapabilitiesRequest`） | ❌                  | ❌                          | ❌   | ❌                   | ❌  | ❌                       |
-| 文件传输（`enable_file_transfer`）                                     | ❌                  | ❌                          | ❌   | ❌                   | ❌  | ❌                       |
+| 能力                                                                   | Go              | Python                | Java | JS/TS               | C++ | C#                       |
+| ---------------------------------------------------------------------- | --------------- | --------------------- | ---- | ------------------- | --- | ------------------------ |
+| Descriptor v2 字段（builder/构造器）                                   | ✅              | ✅                    | ✅   | ✅                  | ✅  | ✅                       |
+| 呈现 hints 便捷层（`SetFieldHint`/`SetFieldWidget` 等价，x-ui-* 契约） | ✅ builder 方法 | ✅ `set_field_hint()` | ❌   | ✅ `setFieldHint()` | ❌  | ❌                       |
+| OpenAPI 注册 helper（`RegisterFromOpenAPI` 等价）                      | ✅              | ✅                    | ✅   | ✅                  | ✅  | ✅                       |
+| JSON Schema 入站 payload 校验（provider 侧，`validateInputPayloads`）  | ✅              | ✅                    | ❌   | ✅                  | ❌  | ✅ `JsonSchemaValidator` |
+| 控制面 manifest 上传（`control_addr` → `RegisterCapabilitiesRequest`） | ❌              | ❌                    | ❌   | ❌                  | ❌  | ❌                       |
+| 文件传输（`enable_file_transfer`）                                     | ❌              | ❌                    | ❌   | ❌                  | ❌  | ❌                       |
 
 ### L3 Invoker（invoke / startTask / getTaskStatus / streamTask / cancelTask）
 
