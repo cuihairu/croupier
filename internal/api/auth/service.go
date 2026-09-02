@@ -1,6 +1,8 @@
 package auth
 
 import (
+	"net/http"
+
 	"context"
 	"crypto/hmac"
 	"crypto/rand"
@@ -9,6 +11,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"github.com/cuihairu/croupier/internal/common/errorx"
 	"log/slog"
 	"strings"
 	"sync"
@@ -26,8 +29,13 @@ import (
 )
 
 // ErrMFARequired 表示本地账号已启用 TOTP，登录请求缺少二次验证码。
-// handler 据此返回 401 + error=mfa_required，前端展示二次输入。
-var ErrMFARequired = errors.New("mfa_required")
+// CodeError 携带 401 + StableCode=mfa_required：经统一 response.Error 输出，
+// 前端按 error 码分支展示二次验证码输入，不读 message。
+var ErrMFARequired = &errorx.CodeError{
+	Code:       http.StatusUnauthorized,
+	Message:    "该账号已启用二次验证，请输入动态验证码",
+	StableCode: "mfa_required",
+}
 
 type Service struct {
 	adminModel *model.AdminModel

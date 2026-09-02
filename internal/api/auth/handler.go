@@ -32,11 +32,9 @@ func (h *Handler) Login(c *gin.Context) {
 	resp, err := h.service.Login(c.Request.Context(), &req)
 	if err != nil {
 		if errors.Is(err, ErrMFARequired) {
-			// 前端按 error 码分支展示二次验证码输入，不读 message。
-			c.JSON(http.StatusUnauthorized, gin.H{
-				"error":   "mfa_required",
-				"message": "该账号已启用二次验证，请输入动态验证码",
-			})
+			// CodeError → 401 + error=mfa_required（前端按稳定码分支
+			// 展示二次验证码输入）；其余凭据错误保持 401 语义。
+			response.Error(c, err)
 			return
 		}
 		response.Unauthorized(c, err.Error())
