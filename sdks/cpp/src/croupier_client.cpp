@@ -29,6 +29,9 @@
 #include <unordered_map>
 
 #include <nlohmann/json.hpp>
+#include <zlib.h>
+
+#include "croupier/agent/v1/register.pb.h"
 
 // Logging macros with configuration support
 // These check the global logger configuration before outputting
@@ -558,6 +561,10 @@ public:
             last_error_.clear();
             startHeartbeatLoop();
             SDK_LOG_INFO("Connected to agent at " + NormalizeTCPAddress(config_.agent_addr));
+
+            // 控制面 manifest 上传（best-effort，不阻断注册结果）
+            maybeRegisterCapabilities();
+
             return true;
         } catch (const std::exception& e) {
             last_error_ = e.what();
@@ -623,6 +630,96 @@ public:
         if (transport_) {
             transport_->Close();
             transport_.reset();
+        }
+    }
+
+    // 构建控制面能力清单（provider 元数据 + 函数摘要），与 JS/C#/Go 同构。
+    std::string buildManifestJson() const {
+        std::string json = "{\"provider\":{";
+        json += "\"id\":\"" + EscapeJsonString(
+            config_.service_id.empty() ? std::string("cpp-service") : config_.service_id) + "\",";
+        json += "\"version\":\"" + EscapeJsonString(
+            config_.service_version.empty() ? std::string("1.0.0") : config_.service_version) + "\",";
+        json += "\"lang\":\"" + EscapeJsonString(
+            config_.provider_lang.empty() ? std::string("cpp") : config_.provider_lang) + "\",";
+        json += "\"sdk\":\"" + EscapeJsonString(
+            config_.provider_sdk.empty() ? std::string("croupier-cpp-sdk") : config_.provider_sdk) + "\"}";
+        json += ",\"functions\":[";
+        bool first = true;
+        for (const auto& [function_id, desc] : descriptors_) {
+            if (function_id.empty()) continue;
+            if (!first) json += ",";
+            first = false;
+            json += "{\"id\":\"" + EscapeJsonString(function_id) + "\"";
+            json += ",\"version\":\"" + EscapeJsonString(desc.version.empty() ? std::string("1.0.0") : desc.version) + "\"";
+            if (!desc.resource.empty()) json += ",\"resource\":\"" + EscapeJsonString(desc.resource) + "\"";
+            if (!desc.operation.empty()) json += ",\"operation\":\"" + EscapeJsonString(desc.operation) + "\"";
+            if (!desc.risk.empty()) json += ",\"risk\":\"" + EscapeJsonString(desc.risk) + "\"";
+            if (!desc.permission.empty()) json += ",\"permission\":\"" + EscapeJsonString(desc.permission) + "\"";
+            if (!desc.description.empty()) json += ",\"description\":\"" + EscapeJsonString(desc.description) + "\"";
+            if (!desc.input_schema.empty()) json += ",\"inputSchema\":" + desc.input_schema;
+            if (!desc.output_schema.empty()) json += ",\"outputSchema\":" + desc.output_schema;
+            json += "}";
+        }
+        json += "]}";
+        return json;
+    }
+
+    // gzip 压缩（RFC 1952 envelope）：zlib deflate + windowBits 15+16。
+    static std::vector<uint8_t> GzipCompress(const std::string& data) {
+        std::vector<uint8_t> out;
+        z_stream stream{};
+        if (deflateInit2(&stream, Z_DEFAULT_COMPRESSION, Z_DEFLATED, 15 + 16, 8, Z_DEFAULT_STRATEGY) != Z_OK) {
+            throw std::runtime_error("gzip init failed");
+        }
+        stream.next_in = reinterpret_cast<Bytef*>(const_cast<char*>(data.data()));
+        stream.avail_in = static_cast<uInt>(data.size());
+        char buffer[4096];
+        int status = Z_OK;
+        do {
+            stream.next_out = reinterpret_cast<Bytef*>(buffer);
+            stream.avail_out = sizeof(buffer);
+            status = deflate(&stream, Z_FINISH);
+            if (status != Z_OK && status != Z_STREAM_END && status != Z_BUF_ERROR) {
+                deflateEnd(&stream);
+                throw std::runtime_error("gzip deflate failed");
+            }
+            out.insert(out.end(), buffer, buffer + (sizeof(buffer) - stream.avail_out));
+        } while (status != Z_STREAM_END);
+        deflateEnd(&stream);
+        return out;
+    }
+
+    // 向控制面（config_.control_addr）上传能力清单。
+    // 独立短连接 + 超时；任何失败仅告警，不影响已完成的函数注册。
+    void maybeRegisterCapabilities() {
+        if (config_.control_addr.empty()) {
+            return;
+        }
+        try {
+            const auto address = ParseTCPAddress(config_.control_addr);
+            TCPTransport control(address.host, address.port, 5000);
+            control.Connect();
+
+            ::croupier::agent::v1::ProviderMeta meta;
+            meta.set_id(config_.service_id.empty() ? std::string("cpp-service") : config_.service_id);
+            meta.set_version(config_.service_version.empty() ? std::string("1.0.0") : config_.service_version);
+            meta.set_lang(config_.provider_lang.empty() ? std::string("cpp") : config_.provider_lang);
+            meta.set_sdk(config_.provider_sdk.empty() ? std::string("croupier-cpp-sdk") : config_.provider_sdk);
+            ::croupier::agent::v1::RegisterCapabilitiesRequest request;
+            *request.mutable_provider() = meta;
+            const std::string manifest = buildManifestJson();
+            const auto manifest_gz = GzipCompress(manifest);
+            request.set_manifest_json_gz(manifest_gz.data(), manifest_gz.size());
+
+            const auto body = SerializeMessage(request);
+            const auto [resp_msg, resp_data] = control.Call(protocol::MSG_REGISTER_CAPABILITIES_REQ, body);
+            (void)resp_msg;
+            (void)resp_data;
+            control.Close();
+            SDK_LOG_INFO("Capabilities registered to control plane: " + config_.control_addr);
+        } catch (const std::exception& e) {
+            SDK_LOG_WARN(std::string("Failed to register capabilities: ") + e.what());
         }
     }
 

@@ -116,6 +116,9 @@ find_package(CURL REQUIRED)
 # TCP transport is enabled by default (gRPC removed)
 set(tcp_ENABLED ON)
 
+# zlib for control-plane manifest gzip
+find_package(ZLIB REQUIRED)
+
 # Protobuf for message serialization
 find_package(Protobuf CONFIG)
 if(NOT Protobuf_FOUND)
@@ -138,6 +141,8 @@ if(tcp_ENABLED AND (NOT DEFINED GENERATED_PROTO_SOURCES OR NOT GENERATED_PROTO_S
     set(_sdk_generated_invocation_h "${_sdk_generated_proto_dir}/croupier/sdk/v1/invocation.pb.h")
     set(_sdk_generated_provider_cc "${_sdk_generated_proto_dir}/croupier/sdk/v1/provider.pb.cc")
     set(_sdk_generated_provider_h "${_sdk_generated_proto_dir}/croupier/sdk/v1/provider.pb.h")
+    set(_sdk_generated_register_cc "${_sdk_generated_proto_dir}/croupier/agent/v1/register.pb.cc")
+    set(_sdk_generated_register_h "${_sdk_generated_proto_dir}/croupier/agent/v1/register.pb.h")
     if(EXISTS "${_sdk_generated_invocation_cc}" AND EXISTS "${_sdk_generated_invocation_h}" AND
        EXISTS "${_sdk_generated_provider_cc}" AND EXISTS "${_sdk_generated_provider_h}")
         set(PROTO_GENERATED_DIR "${_sdk_generated_proto_dir}")
@@ -147,6 +152,11 @@ if(tcp_ENABLED AND (NOT DEFINED GENERATED_PROTO_SOURCES OR NOT GENERATED_PROTO_S
         set(GENERATED_PROTO_HEADERS
             "${_sdk_generated_invocation_h}"
             "${_sdk_generated_provider_h}")
+        if(EXISTS "${_sdk_generated_register_cc}" AND EXISTS "${_sdk_generated_register_h}")
+            # agent/v1 register（RegisterCapabilitiesRequest 等，F：manifest 上传）
+            list(APPEND GENERATED_PROTO_SOURCES "${_sdk_generated_register_cc}")
+            list(APPEND GENERATED_PROTO_HEADERS "${_sdk_generated_register_h}")
+        endif()
         message(STATUS "Using checked-in generated invocation/provider protobuf sources")
     endif()
 endif()
@@ -402,6 +412,9 @@ if(BUILD_SHARED_LIBS)
         PUBLIC
             protobuf::libprotobuf
     )
+
+    # Link zlib for control-plane manifest gzip
+    target_link_libraries(croupier-sdk-shared PUBLIC ZLIB::ZLIB)
 
     if(JSON_LIBRARY)
         target_link_libraries(croupier-sdk-shared
@@ -665,6 +678,7 @@ if(BUILD_TESTS)
     if(TARGET GTest::gtest_main OR TARGET gtest_main)
         set(CROUPIER_TEST_SOURCES
             tests/test_utils.cpp
+            tests/test_field_hints.cpp
             tests/test_json_utils.cpp
             tests/test_file_utils.cpp
             tests/test_main_thread_dispatcher.cpp
