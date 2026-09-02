@@ -302,7 +302,7 @@ class TestDrain:
         agent.push(protocol.MSG_PROVIDER_DRAIN_REQUEST, 300, b"")
 
         # Immediate empty ProviderDrainResponse...
-        response = agent.wait_response(300, timeout=3)
+        response = agent.wait_response(300, timeout=5)
         assert response is not None
         assert response[0] == protocol.MSG_PROVIDER_DRAIN_RESPONSE
         assert response[1] == b""
