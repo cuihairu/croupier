@@ -67,10 +67,8 @@ C# DI / Unity / Java Spring Boot starter），明细见下文第五章；此层�
 1. **manifest 上传（L2）**：六语言均未实现 `control_addr` → `RegisterCapabilitiesRequest`；
    当前能力发现依赖 Agent 转发的注册帧。若控制台需要"不调用即知全量能力"，需补齐。
 2. **文件传输（L2）**：六语言均未实现；如无平台侧需求建议从矩阵移除或标注"规划中"。
-3. **Java drain + TLS**：Java 是唯一缺 drain 处理与 TLS transport 的 SDK（配置字段已就位），
-   补齐后 L1 即六语言全对齐。
-4. **入站 payload schema 校验（L2）**：仅 C# 有真校验模块；Go 已声明 `gojsonschema` 依赖、
-   JS/Python 的校验器目前只在 Invoker 侧使用，接线到 Provider 入站即可点亮。
+3. **Java TLS transport**（已补齐）：`TlsSocketFactory` 支持 CA 校验与 mTLS（PKCS#8），
+   显式 `startHandshake` + 握手后 SAN/CN 端点校验。
 
 ---
 

@@ -9,7 +9,8 @@ import javax.net.ssl.SSLServerSocket;
 import javax.net.ssl.SSLSocket;
 import javax.net.ssl.SSLSocketFactory;
 import java.io.InputStream;
-import java.io.OutputStream;
+import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -85,8 +86,11 @@ class TlsTransportTest {
 
         ExecutorService pool = Executors.newSingleThreadExecutor();
         pool.submit(() -> {
-            try (SSLSocket ignored = (SSLSocket) serverSocket.accept()) {
-                // 握手由 accept() 完成；随后立即关闭
+            try (SSLSocket sock = (SSLSocket) serverSocket.accept()) {
+                // accept() 的 TLS 握手是惰性的（首次读写才发生）：
+                // 必须显式 startHandshake 参与协商，否则客户端会读到 EOF
+                sock.startHandshake();
+                Thread.sleep(1000);
             }
             return null;
         });
@@ -97,19 +101,24 @@ class TlsTransportTest {
         TCPTransport transport = new TCPTransport("localhost", port, 5000, factory, "localhost");
         transport.connect();
         assertTrue(transport.isConnected());
-        transport.close();
 
-        // 错误 serverName：端点校验必须拒绝（证书 SAN 不含 example.com）
-        assertThrows(Exception.class, () -> {
-            TCPTransport bad = new TCPTransport("localhost", port, 3000, factory, "example.com");
-            try {
-                bad.connect();
-            } catch (RuntimeException e) {
-                throw e;
-            } finally {
-                bad.close();
-            }
-        });
+        // 端点名校验语义（确定性）：反射取好连接上的 SSL socket，
+        // verifyPeerName 对 localhost 通过、对 example.com 抛 IOException
+        Method verify = TCPTransport.class.getDeclaredMethod("verifyPeerName",
+            javax.net.ssl.SSLSocket.class, String.class);
+        verify.setAccessible(true);
+        Field socketField = TCPTransport.class.getDeclaredField("socket");
+        socketField.setAccessible(true);
+        javax.net.ssl.SSLSocket connected =
+            (javax.net.ssl.SSLSocket) socketField.get(transport);
+        verify.invoke(null, connected, "localhost");
+        // 反射调用把目标异常包成 InvocationTargetException，解包断言
+        java.lang.reflect.InvocationTargetException mismatch = assertThrows(
+            java.lang.reflect.InvocationTargetException.class,
+            () -> verify.invoke(null, connected, "example.com"));
+        assertEquals(java.io.IOException.class, mismatch.getCause().getClass());
+
+        transport.close();
 
         serverSocket.close();
         pool.shutdownNow();

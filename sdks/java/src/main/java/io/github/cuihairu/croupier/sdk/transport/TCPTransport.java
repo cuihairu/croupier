@@ -136,23 +136,22 @@ public class TCPTransport implements TransportClient {
         Socket nextSocket = null;
         try {
             if (socketFactory != null) {
-                // createSocket(host, port) 记录 peer host（JSSE 端点校验依赖它，
-                // 否则主机名校验被静默跳过）。serverName 与 host 不同时，
-                // 握手完成后额外校验证书 SAN/CN 覆盖 serverName。
-                nextSocket = socketFactory.createSocket(host, port);
-                if (nextSocket instanceof javax.net.ssl.SSLSocket sslSocket) {
-                    var params = sslSocket.getSSLParameters();
-                    params.setEndpointIdentificationAlgorithm("HTTPS");
-                    sslSocket.setSSLParameters(params);
-                    if (serverName != null && !serverName.isBlank() && !serverName.equalsIgnoreCase(host)) {
-                        verifyPeerName(sslSocket, serverName);
-                    }
-                }
+                // 显式控制握手超时：createSocket(host,port) 内部握手不可中断，
+                // 这里用无参 createSocket + connect(timeout) + startHandshake()。
+                // JSSE 对无 peer host 的裸 socket 会跳过主机名校验，
+                // 握手后用 verifyPeerName 显式比对 serverName。
+                nextSocket = socketFactory.createSocket();
+                nextSocket.connect(new InetSocketAddress(host, port), timeoutMs);
+                nextSocket.setSoTimeout(timeoutMs);
+                javax.net.ssl.SSLSocket sslSocket = (javax.net.ssl.SSLSocket) nextSocket;
+                sslSocket.startHandshake();
+                String expectedName = (serverName != null && !serverName.isBlank()) ? serverName : host;
+                verifyPeerName(sslSocket, expectedName);
             } else {
                 nextSocket = new Socket();
                 nextSocket.connect(new InetSocketAddress(host, port), timeoutMs);
+                nextSocket.setSoTimeout(timeoutMs);
             }
-            nextSocket.setSoTimeout(timeoutMs);
             outputStream = nextSocket.getOutputStream();
             inputStream = nextSocket.getInputStream();
             socket = nextSocket;
