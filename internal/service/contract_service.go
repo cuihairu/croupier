@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"math"
 	"runtime/debug"
 	"sort"
 	"strings"
@@ -118,7 +119,7 @@ func (s *ContractService) RebuildContractFromFunctionMeta(ctx context.Context, g
 		OperationKey: result.Function.Operation,
 		Capability:   mustParseCapability(string(result.Function.Capability)),
 		Execution:    string(result.Function.Execution),
-		TimeoutMs:    int32(result.Function.TimeoutMs),
+		TimeoutMs:    timeoutMsToInt32(result.Function.TimeoutMs),
 		Approval:     approvalPolicyToJSONMap(result.Function.Approval),
 		Risk:         mustParseRisk(string(result.Function.Risk)),
 		Permission:   result.Function.Permission,
@@ -675,6 +676,19 @@ func schemaString(raw json.RawMessage) string {
 // FunctionMetaInput remains a concise service-level alias for the canonical
 // registration contract. It does not create a second DTO or conversion path.
 type FunctionMetaInput = spec.FunctionContractInput
+
+// timeoutMsToInt32 把归一后的契约预算（int）安全收窄为 int32。
+// 归一层已 clamp [1000, 60000]，这里再设防御上界——收窄转换必须显式
+// 有界（CodeQL go/incorrect-integer-conversion），负值按未声明归零。
+func timeoutMsToInt32(v int) int32 {
+	if v < 0 {
+		return 0
+	}
+	if v > math.MaxInt32 {
+		return math.MaxInt32
+	}
+	return int32(v)
+}
 
 func computeDigest(v interface{}) string {
 	b, _ := json.Marshal(v)

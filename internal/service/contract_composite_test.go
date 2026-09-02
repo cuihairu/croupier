@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"math"
 	"testing"
 
 	"github.com/glebarez/sqlite"
@@ -175,5 +176,18 @@ func TestContractTimeoutMsRoundTrip(t *testing.T) {
 	}
 	if withTimeout.TimeoutMs != 60000 {
 		t.Fatalf("clamped timeout_ms = %d, want 60000", withTimeout.TimeoutMs)
+	}
+}
+
+// timeoutMsToInt32：收窄转换显式有界（CodeQL go/incorrect-integer-conversion）。
+func TestTimeoutMsToInt32Bounds(t *testing.T) {
+	if got := timeoutMsToInt32(-5); got != 0 {
+		t.Fatalf("negative = %d, want 0", got)
+	}
+	if got := timeoutMsToInt32(25000); got != 25000 {
+		t.Fatalf("normal = %d, want 25000", got)
+	}
+	if got := timeoutMsToInt32(1 << 40); got != math.MaxInt32 {
+		t.Fatalf("overflow = %d, want MaxInt32", got)
 	}
 }
