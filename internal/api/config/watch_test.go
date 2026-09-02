@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -134,4 +135,67 @@ func copyVersions(in map[string]int) map[string]int {
 		out[k] = v
 	}
 	return out
+}
+
+// 轮询循环分支：无变更 → ping 心跳；版本变更 → changed 事件；取消 → 返回。
+func TestWatchHandler_Loop_PingChangedDone(t *testing.T) {
+	db := newWatchTestDB(t)
+	require.NoError(t, db.Create(&model.ConfigVersion{
+		Namespace: "runtime", Key: "k1", Version: 1, Value: "v", Format: "json",
+	}).Error)
+	svcCtx := &svc.ServiceContext{ConfigVersionModel: model.NewConfigVersionModel(db)}
+	h := NewWatchHandler(NewWatchService(svcCtx))
+	h.interval = 10 * time.Millisecond
+
+	gin.SetMode(gin.TestMode)
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	ctx, cancel := context.WithCancel(context.Background())
+	c.Request = httptest.NewRequest(http.MethodGet, "/configs/watch?namespaces=runtime", nil).WithContext(ctx)
+
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		h.Watch(c)
+	}()
+
+	// 等几轮 tick：前几轮无变更 → ping
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) && !strings.Contains(w.Body.String(), ": ping") {
+		time.Sleep(5 * time.Millisecond)
+	}
+
+	// 版本 bump → 下一轮 tick 发 changed
+	require.NoError(t, db.Create(&model.ConfigVersion{
+		Namespace: "runtime", Key: "k1", Version: 2, Value: "v2", Format: "json",
+	}).Error)
+	deadline = time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) && !strings.Contains(w.Body.String(), "event: changed") {
+		time.Sleep(5 * time.Millisecond)
+	}
+	assert.Contains(t, w.Body.String(), "event: changed", w.Body.String())
+	assert.Contains(t, w.Body.String(), `"runtime/k1":2`)
+
+	cancel()
+	select {
+	case <-done:
+	case <-time.After(time.Second):
+		t.Fatal("cancel 后 Watch 未返回")
+	}
+}
+
+// currentVersions 查询失败 → 告警并返回空表（不 panic）。
+func TestWatchService_CurrentVersions_DBError(t *testing.T) {
+	db := newWatchTestDB(t)
+	require.NoError(t, db.Migrator().DropTable("config_versions"))
+	ws := NewWatchService(&svc.ServiceContext{ConfigVersionModel: model.NewConfigVersionModel(db)})
+	out := ws.currentVersions(context.Background(), []string{"runtime"})
+	assert.Empty(t, out)
+}
+
+// parseNamespaces 重复项去重。
+func TestParseNamespaces_Dedup(t *testing.T) {
+	ns, err := parseNamespaces("runtime,runtime")
+	require.NoError(t, err)
+	assert.Equal(t, []string{"runtime"}, ns)
 }

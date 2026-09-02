@@ -117,3 +117,35 @@ func TestHandler_ImportExcel_Success(t *testing.T) {
 	require.Equal(t, http.StatusOK, w.Code, w.Body.String())
 	assert.Contains(t, w.Body.String(), `"rows":1`)
 }
+
+// excel 编译纯函数分支：空行判定 / atoi 兜底 / 当前用户回退。
+func TestExcelCompile_Helpers(t *testing.T) {
+	assert.True(t, rowAllEmpty(nil))
+	assert.True(t, rowAllEmpty([]string{" ", ""}))
+	assert.False(t, rowAllEmpty([]string{"", "x"}))
+
+	assert.Equal(t, 7, atoiDefault("7", 1))
+	assert.Equal(t, 1, atoiDefault("abc", 1))
+	assert.Equal(t, 0, atoiDefault("", 0))
+
+	assert.Equal(t, "system", currentExcelUser(context.Background()))
+	assert.Equal(t, "alice", currentExcelUser(context.WithValue(context.Background(), "username", "alice")))
+}
+
+// ImportXLSX 参数守卫分支：空数据 / 超限 / 非 xlsx 字节。
+func TestImportXLSX_Guards(t *testing.T) {
+	db, err := gorm.Open(gsqlite.Open(":memory:"), &gorm.Config{})
+	require.NoError(t, err)
+	require.NoError(t, db.AutoMigrate(&model.ConfigVersion{}))
+	svc := NewExcelService(&svc.ServiceContext{ConfigVersionModel: model.NewConfigVersionModel(db)})
+	ctx := context.Background()
+
+	_, err = svc.ImportXLSX(ctx, &ImportXLSXRequest{})
+	assert.ErrorContains(t, err, "缺少 xlsx")
+
+	_, err = svc.ImportXLSX(ctx, &ImportXLSXRequest{Data: make([]byte, 4*1024*1024+1)})
+	assert.ErrorContains(t, err, "4MB")
+
+	_, err = svc.ImportXLSX(ctx, &ImportXLSXRequest{Data: []byte("not an xlsx")})
+	assert.Error(t, err)
+}

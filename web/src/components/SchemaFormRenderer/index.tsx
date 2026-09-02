@@ -31,6 +31,7 @@ import type {
 import { localizedText } from '@/utils/localizedText';
 import { humanizeFieldKey } from '@/utils/humanize';
 import { customWidgets } from './widgets';
+import { uploadFields, uploadWidgets } from './widgets-upload';
 
 export interface SchemaFormRendererHandle {
   submit: () => void;
@@ -242,15 +243,18 @@ function widgetToRjsf(widget?: FormWidget, schema?: JSONSchema): string | undefi
       return 'cascader';
     case 'Rate':
       return 'rate';
+    case 'Upload':
+    case 'ImageUpload':
+    case 'FileUpload':
+      return 'upload';
+    case 'KeyValue':
+      // object 类型走 ObjectField（忽略 ui:widget），KeyValue 以 ui:field 接入
+      return undefined;
     case 'MultiSelect':
     case 'Input':
     case 'InputNumber':
     case 'DateRange':
-    case 'Upload':
-    case 'ImageUpload':
-    case 'FileUpload':
     case 'RichText':
-    case 'KeyValue':
     case 'Array':
     case 'Object':
     default:
@@ -298,6 +302,7 @@ function applyFieldPresentation(
   if (field.disabled) nextUi['ui:disabled'] = true;
   if (field.placeholder) nextUi['ui:placeholder'] = localizedText(field.placeholder, 'zh-CN', '');
   if (widget) nextUi['ui:widget'] = widget;
+  if (field.widget === 'KeyValue') nextUi['ui:field'] = 'keyValue';
   if (field.widget === 'MultiSelect') {
     // F3：多选 = 内置 select + multiple；enum 由 schema enum/enumNames 提供
     nextUi['ui:widget'] = 'select';
@@ -447,7 +452,8 @@ const SchemaFormRenderer = forwardRef<SchemaFormRendererHandle, SchemaFormRender
         uiSchema={uiSchema}
         formContext={formContext}
         validator={validator}
-        widgets={customWidgets}
+        widgets={{ ...customWidgets, ...uploadWidgets }}
+        fields={uploadFields}
         formData={formValues}
         readonly={readonly}
         disabled={disabled}

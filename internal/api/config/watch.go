@@ -31,11 +31,13 @@ func NewWatchService(svcCtx *svc.ServiceContext) *WatchService {
 // may be lost, data must be fetched).
 type WatchHandler struct {
 	service *WatchService
+	// interval 轮询间隔；默认 5s，测试可缩短以确定性覆盖 changed/ping 分支。
+	interval time.Duration
 }
 
 // NewWatchHandler creates a watch handler.
 func NewWatchHandler(service *WatchService) *WatchHandler {
-	return &WatchHandler{service: service}
+	return &WatchHandler{service: service, interval: 5 * time.Second}
 }
 
 // WatchHandles serves GET /configs/watch?namespaces=runtime,iap (SSE).
@@ -61,7 +63,7 @@ func (h *WatchHandler) Watch(c *gin.Context) {
 	// Initial snapshot so subscribers converge without an extra pull.
 	h.writeSnapshot(c, lastVersions)
 
-	ticker := time.NewTicker(5 * time.Second)
+	ticker := time.NewTicker(h.interval)
 	defer ticker.Stop()
 	for {
 		select {
