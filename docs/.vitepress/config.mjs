@@ -91,6 +91,7 @@ const config = defineConfig({
             { text: 'Resource/Page 模型', link: '/architecture/dashboard-page-model' },
             { text: 'Descriptor v2 注册契约', link: '/architecture/openapi-sdk-descriptor-v2' },
             { text: 'PageSpec 协议规范', link: '/architecture/pagespec-protocol' },
+            { text: '呈现 Hints 契约（x-ui-*）', link: '/architecture/presentation-hints' },
             { text: '页面生成与运行时', link: '/architecture/ui-generation' },
             { text: 'Console 动态菜单', link: '/architecture/console-dynamic-menu' },
             { text: '旧模型删除清单（存档）', link: '/architecture/legacy-deletion-inventory' },

@@ -73,6 +73,14 @@ Server 从 input JSON Schema 生成默认 FormPresentationSpec；管理员只能
 
 历史表单展示数据不提供转换或导入路径；只能在删除旧路径前导出、备份，并由管理员在 Page Studio 按当前 FormPresentationSpec 人工重建。旧数据不得进入新页面发布流程。
 
+### Descriptor 呈现 hints（x-ui-\*）
+
+SDK/游戏方可在 `input_schema` 的字段 schema 上声明 `x-ui-*` 扩展字段（widget/label/
+分组/联动/远程选项源等），前端经 `derivePresentationSpec` 推导为本协议的
+`FormPresentationSpec`。字段清单、推导规则与治理边界见
+[呈现 Hints 契约](./presentation-hints.md)。hints 不进入页面编排（PageSpec），wire
+契约零改动。
+
 ## PageSpec 视图节点
 
 PageSpec 使用业务节点而非组件名。节点集合固定为：

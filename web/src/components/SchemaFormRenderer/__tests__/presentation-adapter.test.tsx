@@ -100,4 +100,41 @@ describe('P0-0: FormPresentationSpec adapter', () => {
     expect(properties.targets.items).toEqual({ type: 'string' });
     expect(properties.filter.properties).toEqual({ level: { type: 'integer', default: 1 } });
   });
+
+  test('F5: title 缺失时按 key 人性化兜底，已有 title 不覆盖', () => {
+    const spec: FormPresentationSpec = {
+      jsonSchema: {
+        type: 'object',
+        properties: {
+          playerId: { type: 'string' },
+          batch_file: { type: 'string' },
+          named: { type: 'string', title: '已有名称' },
+        },
+      },
+    };
+
+    const { schema } = deriveRuntimeSchema(spec, {});
+    const properties = schema.properties as Record<string, { title?: string }>;
+    expect(properties.playerId.title).toBe('Player Id');
+    expect(properties.batch_file.title).toBe('Batch File');
+    expect(properties.named.title).toBe('已有名称');
+  });
+
+  test('F5: label 优先级 x-label > schema.title > humanize', () => {
+    const spec: FormPresentationSpec = {
+      jsonSchema: {
+        type: 'object',
+        properties: {
+          a: { type: 'string', title: 'schema 标题' },
+          b: { type: 'string' },
+        },
+      },
+      fields: [{ key: 'a', label: { 'zh-CN': 'hint 标签' } }, { key: 'b' }],
+    };
+
+    const { schema } = deriveRuntimeSchema(spec, {});
+    const properties = schema.properties as Record<string, { title?: string }>;
+    expect(properties.a.title).toBe('hint 标签');
+    expect(properties.b.title).toBe('B');
+  });
 });

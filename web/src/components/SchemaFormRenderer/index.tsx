@@ -17,7 +17,8 @@ import Form from '@rjsf/antd';
 import type CoreForm from '@rjsf/core';
 import type { IChangeEvent } from '@rjsf/core';
 import validator from '@rjsf/validator-ajv8';
-import type { RJSFSchema, UiSchema } from '@rjsf/utils';
+import { getLocale } from '@umijs/max';
+import type { RJSFValidationError, RJSFSchema, UiSchema } from '@rjsf/utils';
 import type {
   FormFieldSpec,
   FormPresentationSpec,
@@ -28,6 +29,7 @@ import type {
   JSONValue,
 } from '@/types/dashboard';
 import { localizedText } from '@/utils/localizedText';
+import { humanizeFieldKey } from '@/utils/humanize';
 
 export interface SchemaFormRendererHandle {
   submit: () => void;
@@ -128,6 +130,84 @@ function getEnumNames(field: FormFieldSpec | undefined): string[] | undefined {
 
 function shouldUseTextarea(schema: JSONSchema): boolean {
   return schema.format === 'textarea' || Number(schema.maxLength || 0) > 120;
+}
+
+// ---------------------------------------------------------------------------
+// AJV 校验错误本地化（F6）：跟随平台 locale，title 用派生后 schema 的
+// 人工标题（x-label > schema.title > humanize，见 F5）。
+// ---------------------------------------------------------------------------
+
+const ERROR_TEMPLATES: Record<string, { zh: string; en: string }> = {
+  required: { zh: '「{title}」为必填项', en: '"{title}" is required' },
+  minLength: { zh: '至少需要 {limit} 个字符', en: 'must be at least {limit} characters' },
+  maxLength: { zh: '最多允许 {limit} 个字符', en: 'must be at most {limit} characters' },
+  minimum: { zh: '不能小于 {limit}', en: 'must be greater than or equal to {limit}' },
+  maximum: { zh: '不能大于 {limit}', en: 'must be less than or equal to {limit}' },
+  minItems: { zh: '至少需要 {limit} 项', en: 'must have at least {limit} items' },
+  maxItems: { zh: '最多允许 {limit} 项', en: 'must have at most {limit} items' },
+  pattern: { zh: '格式不正确', en: 'does not match the expected pattern' },
+  format: { zh: '格式不正确（{format}）', en: 'invalid format ({format})' },
+  type: { zh: '类型应为 {type}', en: 'must be of type {type}' },
+  enum: { zh: '可选值：{values}', en: 'allowed values: {values}' },
+  oneOf: { zh: '不满足任一允许的组合', en: 'does not match any of the allowed variants' },
+  anyOf: { zh: '不满足任一允许的组合', en: 'does not match any of the allowed variants' },
+  const: { zh: '必须为 {allowedValue}', en: 'must be equal to {allowedValue}' },
+};
+
+function resolveFieldTitle(error: RJSFValidationError, schema: RJSFSchema): string {
+  const rawPath = String(error.property ?? '')
+    .replace(/^\./, '')
+    .replace(/['\[\]]/g, '');
+  const segments =
+    error.name === 'required'
+      ? [...rawPath.split('.').filter(Boolean), String(error.params?.missingProperty ?? '')]
+      : rawPath.split('.').filter(Boolean);
+  const leafKey = segments[segments.length - 1] ?? '';
+  // 沿 property 路径下钻，取路径上最后一个人工 title
+  let title = '';
+  let node: RJSFSchema = schema;
+  for (const segment of segments) {
+    if (!segment) continue;
+    const props = node.properties as Record<string, RJSFSchema> | undefined;
+    const child = props?.[segment];
+    if (!child) break;
+    if (typeof child.title === 'string' && child.title) title = child.title;
+    node = child;
+  }
+  return title || leafKey || '该字段';
+}
+
+/** 平台当前 locale；umi 运行时外（单测/异常）回退 zh-CN。 */
+function currentLocale(): string {
+  try {
+    return getLocale() || 'zh-CN';
+  } catch {
+    return 'zh-CN';
+  }
+}
+
+/** AJV 错误 → 平台语言消息；未收录关键字保留原始 message。 */
+export function localizeFormErrors(
+  errors: RJSFValidationError[],
+  schema: RJSFSchema,
+  locale: string,
+): RJSFValidationError[] {
+  const isZh = !locale.toLowerCase().startsWith('en');
+  return errors.map((error) => {
+    const template = ERROR_TEMPLATES[error.name ?? ''];
+    if (!template) return error;
+    let text = isZh ? template.zh : template.en;
+    text = text
+      .replaceAll('{title}', resolveFieldTitle(error, schema))
+      .replaceAll('{limit}', String(error.params?.limit ?? ''))
+      .replaceAll('{type}', String(error.params?.type ?? ''))
+      .replaceAll('{format}', String(error.params?.format ?? ''))
+      .replaceAll('{allowedValue}', String(error.params?.allowedValue ?? ''));
+    if (error.name === 'enum' && Array.isArray(error.params?.allowedValues)) {
+      text = text.replaceAll('{values}', error.params.allowedValues.map(String).join('、'));
+    }
+    return { ...error, message: text };
+  });
 }
 
 function widgetToRjsf(widget?: FormWidget, schema?: JSONSchema): string | undefined {
@@ -286,6 +366,17 @@ export function deriveRuntimeSchema(
     }
   }
 
+  // label 兜底链（F5）：x-label hint（fields）> schema.title > key 人性化，
+  // 覆盖 spec.fields 之外的字段，避免英文 key 裸奔。
+  const props = schema.properties as Record<string, RJSFSchema> | undefined;
+  if (props) {
+    for (const [key, child] of Object.entries(props)) {
+      if (child && typeof child === 'object' && !child.title) {
+        child.title = humanizeFieldKey(key);
+      }
+    }
+  }
+
   const order = spec.fields
     ?.map((field) => field.key)
     .filter((key) => Boolean(key) && !hiddenFields.has(key));
@@ -337,6 +428,9 @@ const SchemaFormRenderer = forwardRef<SchemaFormRendererHandle, SchemaFormRender
       getValues: () => currentValuesRef.current,
     }));
 
+    const transformErrors = (errors: RJSFValidationError[]): RJSFValidationError[] =>
+      localizeFormErrors(errors, schema, currentLocale());
+
     return (
       // @ts-expect-error rjsf types not yet compatible with React 19
       <Form
@@ -351,6 +445,7 @@ const SchemaFormRenderer = forwardRef<SchemaFormRendererHandle, SchemaFormRender
         liveValidate={false}
         omitExtraData
         noHtml5Validate
+        transformErrors={transformErrors}
         onChange={(event: IChangeEvent<FormValues>) => {
           const next = normalizeFormValues(event.formData);
           currentValuesRef.current = next;

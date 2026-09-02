@@ -13,6 +13,7 @@ import {
 } from '@/services/api';
 import { extractErrorMessage } from '@/utils/errors';
 import { deriveSchemaDefaults, parseInputSchema, type JSONSchemaType } from '@/utils/json';
+import { derivePresentationSpec } from '@/utils/schemaHints';
 import { isScopeReady, subscribeScope } from '@/stores/scope';
 import type { FormValues, JSONSchema, JSONValue } from '@/types/dashboard';
 import ExecutionOptions from './ExecutionOptions';
@@ -107,7 +108,7 @@ export default function FunctionInvokePage() {
     const schema = resolveSchema(selected);
     setFormState(
       schema
-        ? { status: 'ready', spec: { jsonSchema: schema as JSONSchema, layout: 'vertical' } }
+        ? { status: 'ready', spec: derivePresentationSpec(schema as JSONSchema) }
         : { status: 'unavailable', error: '该函数未声明输入 Schema；请使用原始 JSON 调用。' },
     );
     // 按 Schema 类型派生默认值：default > example > enum 首项 > 类型占位值，

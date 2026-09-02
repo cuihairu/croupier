@@ -149,9 +149,9 @@ describe('P0-0: 真实游戏 JSON Schema 验证', () => {
     const submitBtn = screen.getByRole('button', { name: /提\s*交|submit/i });
     fireEvent.click(submitBtn);
 
-    // 验证错误提示
+    // 验证错误提示（F6 本地化后：required → 「title」为必填项）
     await waitFor(() => {
-      expect(screen.getAllByText(/required property/i).length).toBeGreaterThan(0);
+      expect(screen.getAllByText(/必填项/).length).toBeGreaterThan(0);
     });
     expect(onFinish).not.toHaveBeenCalled();
   });
@@ -227,9 +227,9 @@ describe('P0-0: 真实游戏 JSON Schema 验证', () => {
     const submitBtn = screen.getByRole('button', { name: /提\s*交|submit/i });
     fireEvent.click(submitBtn);
 
-    // AJV 默认错误文本由运行时提供，不把语言文案写死为产品契约。
+    // F6 本地化后：minLength → 「至少需要 2 个字符」
     await waitFor(() => {
-      expect(screen.getAllByText(/fewer than 2 characters/i).length).toBeGreaterThan(0);
+      expect(screen.getAllByText(/至少需要 2 个字符/).length).toBeGreaterThan(0);
     });
   });
 });
