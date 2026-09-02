@@ -9,6 +9,7 @@ import (
 
 	"github.com/cuihairu/croupier/internal/common/response"
 	"github.com/cuihairu/croupier/internal/config"
+	"github.com/cuihairu/croupier/internal/logic/utils"
 	"github.com/gin-gonic/gin"
 )
 
@@ -65,10 +66,7 @@ func (h *Handler) Send(c *gin.Context) {
 // Detail handles the request to get message details
 func (h *Handler) Detail(c *gin.Context) {
 	var req MessageDetailRequest
-	if err := c.ShouldBindUri(&req); err != nil {
-		response.Error(c, err)
-		return
-	}
+	_ = c.ShouldBindUri(&req) // uri 字段均为 string 且无 required：绑定不会失败，保留填充语义
 
 	resp, err := h.service.Detail(c.Request.Context(), currentUsername(c), &req)
 	if err != nil {
@@ -81,10 +79,7 @@ func (h *Handler) Detail(c *gin.Context) {
 // Read handles the request to mark a message as read
 func (h *Handler) Read(c *gin.Context) {
 	var req MessageReadRequest
-	if err := c.ShouldBindUri(&req); err != nil {
-		response.Error(c, err)
-		return
-	}
+	_ = c.ShouldBindUri(&req) // uri 字段均为 string 且无 required：绑定不会失败，保留填充语义
 
 	resp, err := h.service.Read(c.Request.Context(), currentUsername(c), &req)
 	if err != nil {
@@ -158,4 +153,40 @@ func (h *Handler) sendMessagesEvent(c *gin.Context, username string) {
 // Get alias for route compatibility
 func (h *Handler) Get(c *gin.Context) {
 	h.Detail(c)
+}
+
+// Broadcast serves POST /messages/broadcast：管理员群发站内信
+// （全员/按角色/指定用户）。仅 admin 角色可调用。
+func (h *Handler) Broadcast(c *gin.Context) {
+	if !isBroadcaster(c, h) {
+		response.Forbidden(c, "仅管理员可群发消息")
+		return
+	}
+	var req BroadcastRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, err)
+		return
+	}
+	resp, err := h.service.Broadcast(c.Request.Context(), &req)
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
+	response.Success(c, resp)
+}
+
+// isBroadcaster 校验当前用户具有 admin 角色（群发是后台运营能力，
+// 不属于普通用户的单发语义）。
+func isBroadcaster(c *gin.Context, h *Handler) bool {
+	admin, roles, err := utils.LoadCurrentAdmin(c.Request.Context(), h.service.svcCtx)
+	if err != nil {
+		return false
+	}
+	_ = admin
+	for _, r := range roles {
+		if r.Name == "admin" {
+			return true
+		}
+	}
+	return false
 }

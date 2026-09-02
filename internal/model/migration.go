@@ -143,6 +143,8 @@ func MetaModels() []interface{} {
 		&Node{},
 		&NodeCommand{},
 		&Message{},
+		&Announcement{},
+		&AnnouncementRead{},
 		&Certificate{},
 		&CertificateAlert{},
 		&AgentSessionDB{},

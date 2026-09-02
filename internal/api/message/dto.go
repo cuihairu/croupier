@@ -35,6 +35,22 @@ type MessageSendRequest struct {
 
 type MessageSendResponse = MessageItem
 
+// BroadcastRequest 管理员群发站内信：受众=全员/按角色/指定用户列表。
+type BroadcastRequest struct {
+	Audience  string      `json:"audience"` // all | role | users
+	Role      string      `json:"role,omitempty"`
+	Usernames []string    `json:"usernames,omitempty"`
+	Type      string      `json:"type"`
+	Title     string      `json:"title"`
+	Content   string      `json:"content"`
+	Data      interface{} `json:"data,omitempty"`
+}
+
+type BroadcastResponse struct {
+	Sent       int      `json:"sent"`
+	Recipients []string `json:"recipients"`
+}
+
 type MessagesListRequest struct {
 	Page     int    `form:"page"`
 	PageSize int    `form:"pageSize"`

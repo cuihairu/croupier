@@ -5,6 +5,7 @@ import (
 	"github.com/cuihairu/croupier/internal/api/agent"
 	"github.com/cuihairu/croupier/internal/api/alert"
 	"github.com/cuihairu/croupier/internal/api/analytics"
+	"github.com/cuihairu/croupier/internal/api/announcement"
 	"github.com/cuihairu/croupier/internal/api/approval"
 	"github.com/cuihairu/croupier/internal/api/assignment"
 	"github.com/cuihairu/croupier/internal/api/audit"
@@ -157,6 +158,7 @@ func RegisterHandlers(r *gin.Engine, serverCtx *svc.ServiceContext) {
 			registerTicketRoutes(supportSoft.Group("/tickets"), serverCtx)
 		}
 		registerMessageRoutes(protected.Group("/messages"), serverCtx)
+		registerAnnouncementRoutes(protected.Group("/admin"), protected.Group("/"), serverCtx)
 		registerMonitoringProtectedRoutes(protected.Group("/monitoring"), serverCtx)
 		registerPermissionRoutes(protected.Group("/permissions"), serverCtx)
 		registerProfileRoutes(protected.Group("/profile"), serverCtx)
@@ -800,11 +802,38 @@ func registerFeedbackRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 }
 
 // ============================================================================
+// Announcement 路由注册
+// ============================================================================
+func registerAnnouncementRoutes(adminGroup, userGroup *gin.RouterGroup, ctx *svc.ServiceContext) {
+	announcementSvc := announcement.NewService(ctx)
+	announcementHandler := announcement.NewHandler(announcementSvc)
+	// 管理端
+	ag := adminGroup.Group("/announcements")
+	{
+		ag.GET("", announcementHandler.List)
+		ag.GET("/", announcementHandler.List)
+		ag.POST("", announcementHandler.Create)
+		ag.POST("/", announcementHandler.Create)
+		ag.PUT("/:id", announcementHandler.Update)
+		ag.DELETE("/:id", announcementHandler.Delete)
+	}
+	// 用户侧
+	ug := userGroup.Group("/announcements")
+	{
+		ug.GET("/active", announcementHandler.Active)
+		ug.POST("/:id/dismiss", announcementHandler.Dismiss)
+	}
+}
+
+// ============================================================================
 // Message 路由注册
 // ============================================================================
 func registerMessageRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 	messageSvc := message.NewService(ctx)
 	messageHandler := message.NewHandler(messageSvc, ctx.Config.SSE)
+	// 管理员群发（handler 内校验 admin 角色——/admin/:id wildcard 与静态
+	// 段同方法冲突，故挂本组静态路径）
+	g.POST("/broadcast", messageHandler.Broadcast)
 	g.GET("", messageHandler.List)
 	g.GET("/", messageHandler.List)
 	g.POST("", messageHandler.Send)

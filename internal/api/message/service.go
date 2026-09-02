@@ -3,6 +3,7 @@ package message
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 
 	"github.com/cuihairu/croupier/internal/common/errorx"
@@ -225,4 +226,124 @@ func parseMessageStatusFilter(value string) dbenum.MessageStatus {
 		return -1
 	}
 	return parsed
+}
+
+// Broadcast 管理员群发站内信：展开受众（all=全员 / role=按角色 /
+// users=指定用户名列表）后批量落库，复用单发的校验规则。当前后台用户
+// 量级（几十~几百）同步展开即可；量大再异步化。
+func (s *Service) Broadcast(ctx context.Context, req *BroadcastRequest) (*BroadcastResponse, error) {
+	if s.svcCtx.MessageModel == nil || s.svcCtx.AdminModel == nil {
+		return nil, errors.New("消息服务未初始化")
+	}
+	messageType, err := utils.ValidateMessageType(strings.TrimSpace(req.Type))
+	if err != nil {
+		return nil, err
+	}
+	if strings.TrimSpace(req.Title) == "" {
+		return nil, errors.New("消息标题不能为空")
+	}
+	if strings.TrimSpace(req.Content) == "" {
+		return nil, errors.New("消息内容不能为空")
+	}
+
+	recipients, err := s.resolveRecipients(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+	if len(recipients) == 0 {
+		return nil, errors.New("收件人列表为空")
+	}
+	dataJSON, err := model.EncodeData(req.Data)
+	if err != nil {
+		return nil, errorx.NewBadRequest("序列化消息数据失败")
+	}
+	for _, to := range recipients {
+		msg := &model.Message{
+			To:      to,
+			Type:    messageType,
+			Title:   req.Title,
+			Content: req.Content,
+			Data:    dataJSON,
+		}
+		if err := s.svcCtx.MessageModel.Create(ctx, msg); err != nil {
+			return nil, err
+		}
+	}
+	return &BroadcastResponse{Sent: len(recipients), Recipients: recipients}, nil
+}
+
+func (s *Service) resolveRecipients(ctx context.Context, req *BroadcastRequest) ([]string, error) {
+	switch strings.ToLower(strings.TrimSpace(req.Audience)) {
+	case "", "all":
+		return s.allUsernames(ctx)
+	case "role":
+		role := strings.TrimSpace(req.Role)
+		if role == "" {
+			return nil, errors.New("audience=role 时必须指定 role")
+		}
+		return s.usernamesByRole(ctx, role)
+	case "users":
+		if len(req.Usernames) == 0 {
+			return nil, errors.New("audience=users 时必须提供 usernames")
+		}
+		seen := map[string]bool{}
+		out := make([]string, 0, len(req.Usernames))
+		for _, name := range req.Usernames {
+			name = strings.TrimSpace(name)
+			if name == "" || seen[name] {
+				continue
+			}
+			if _, err := s.svcCtx.AdminModel.FindByUsername(ctx, name); err != nil {
+				return nil, fmt.Errorf("用户 %s 不存在", name)
+			}
+			seen[name] = true
+			out = append(out, name)
+		}
+		return out, nil
+	default:
+		return nil, errors.New("audience 必须是 all、role 或 users")
+	}
+}
+
+func (s *Service) allUsernames(ctx context.Context) ([]string, error) {
+	var out []string
+	page := 1
+	for {
+		admins, total, err := s.svcCtx.AdminModel.List(ctx, model.ListAdminsOptions{Page: page, PageSize: 500, Status: statusActivePtr()})
+		if err != nil {
+			return nil, err
+		}
+		for _, a := range admins {
+			out = append(out, a.Username)
+		}
+		if int64(page*500) >= total {
+			break
+		}
+		page++
+	}
+	return out, nil
+}
+
+func (s *Service) usernamesByRole(ctx context.Context, role string) ([]string, error) {
+	var out []string
+	page := 1
+	for {
+		admins, total, err := s.svcCtx.AdminModel.List(ctx, model.ListAdminsOptions{Page: page, PageSize: 500, Role: role, Status: statusActivePtr()})
+		if err != nil {
+			return nil, err
+		}
+		for _, a := range admins {
+			out = append(out, a.Username)
+		}
+		if int64(page*500) >= total {
+			break
+		}
+		page++
+	}
+	return out, nil
+}
+
+func statusActivePtr() *int {
+	v := 1
+	return &v
 }

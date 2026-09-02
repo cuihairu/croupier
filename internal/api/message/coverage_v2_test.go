@@ -9,8 +9,13 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	gsqlite "github.com/glebarez/sqlite"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gorm.io/gorm"
+
+	"github.com/cuihairu/croupier/internal/model"
+	svc "github.com/cuihairu/croupier/internal/svc"
 )
 
 // ---- stringValue ----
@@ -307,4 +312,73 @@ func TestHandler_UnreadCount_V2(t *testing.T) {
 func jsonStr(v interface{}) string {
 	b, _ := json.Marshal(v)
 	return string(b)
+}
+
+// ---- Broadcast（管理员群发）----
+
+func newBroadcastFixture(t *testing.T) *Service {
+	t.Helper()
+	db, err := gorm.Open(gsqlite.Open(":memory:"), &gorm.Config{})
+	require.NoError(t, err)
+	require.NoError(t, db.AutoMigrate(&model.Message{}, &model.Admin{}, &model.Role{}, &model.AdminRole{}))
+	return NewService(&svc.ServiceContext{
+		DB:           db,
+		MessageModel: model.NewMessageModel(db),
+		AdminModel:   model.NewAdminModel(db),
+	})
+}
+
+// Broadcast 受众三态：全员/按角色/指定用户；含存在性校验与去重。
+func TestService_BroadcastAudiences(t *testing.T) {
+	s := newBroadcastFixture(t)
+	ctx := context.Background()
+	for _, name := range []string{"u1", "u2"} {
+		require.NoError(t, s.svcCtx.AdminModel.Create(ctx, &model.Admin{Username: name, Status: 1}, "pw"))
+	}
+	role := &model.Role{Name: "ops", Category: "test"}
+	require.NoError(t, s.svcCtx.DB.Create(role).Error)
+	var u1 model.Admin
+	require.NoError(t, s.svcCtx.DB.Where("username = ?", "u1").First(&u1).Error)
+	require.NoError(t, s.svcCtx.AdminModel.AssignRole(ctx, u1.ID, role.ID))
+
+	// 1) users 指定（重复名去重）
+	resp, err := s.Broadcast(ctx, &BroadcastRequest{
+		Audience: "users", Usernames: []string{"u1", "u2", "u1"},
+		Type: "system", Title: "点名", Content: "hi",
+	})
+	require.NoError(t, err)
+	assert.Equal(t, 2, resp.Sent)
+
+	// 2) 不存在的用户拒绝
+	_, err = s.Broadcast(ctx, &BroadcastRequest{
+		Audience: "users", Usernames: []string{"ghost"},
+		Type: "system", Title: "x", Content: "y",
+	})
+	require.ErrorContains(t, err, "ghost")
+
+	// 3) role 受众
+	resp, err = s.Broadcast(ctx, &BroadcastRequest{
+		Audience: "role", Role: "ops", Type: "system", Title: "运营通知", Content: "hi",
+	})
+	require.NoError(t, err)
+	assert.Equal(t, 1, resp.Sent)
+
+	// 4) all（本库仅 2 个活跃管理员）
+	resp, err = s.Broadcast(ctx, &BroadcastRequest{
+		Audience: "all", Type: "system", Title: "全员", Content: "hi",
+	})
+	require.NoError(t, err)
+	assert.Equal(t, 2, resp.Sent)
+
+	// 5) 非法受众 / role 缺失
+	_, err = s.Broadcast(ctx, &BroadcastRequest{Audience: "bogus", Type: "s", Title: "t", Content: "c"})
+	assert.ErrorContains(t, err, "all、role 或 users")
+	_, err = s.Broadcast(ctx, &BroadcastRequest{Audience: "role", Type: "s", Title: "t", Content: "c"})
+	assert.Error(t, err)
+
+	// 6) 落库核验：u1 收到 users+role+all 三条
+	var count int64
+	require.NoError(t, s.svcCtx.DB.Model(&model.Message{}).
+		Where("recipient = ?", "u1").Count(&count).Error)
+	assert.Equal(t, int64(3), count)
 }

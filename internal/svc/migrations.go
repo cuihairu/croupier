@@ -40,6 +40,7 @@ import (
 //   0016 (Go)   function_contracts.timeout_ms column（声明式超时执行层接线）
 //   0017 (Go)   admins 登录安全列（failed_attempts/locked_until/token_version，
 //               见 todo.md T1/T2：登录失败锁定 + token 撤销）
+//   0019 (Go)   announcements + announcement_reads（公告系统：markdown 公告 + 弹窗确认）
 //   0018 (Go)   admins.otp_enabled 列（T3：MFA 按 provider 接线，local 账号
 //               可启用 TOTP；ldap/oidc 登录跳过平台 MFA）
 
@@ -60,6 +61,7 @@ func init() {
 		taskSchedulesMigration(),
 		agentSessionAddrMigration(),
 		contractTimeoutMigration(),
+		announcementTablesMigration(),
 		adminLoginSecurityMigration(),
 		adminMfaMigration(),
 	); err != nil {
@@ -211,6 +213,31 @@ func contractTimeoutMigration() *goose.Migration {
 		&goose.GoFunc{RunDB: addContractTimeoutColumn},
 		nil,
 	)
+}
+
+// announcementTablesMigration 为存量库补公告两表（0019）；新库由
+// baseline AutoMigrate 带出。幂等：表已存在则跳过。
+func announcementTablesMigration() *goose.Migration {
+	return goose.NewGoMigration(19,
+		&goose.GoFunc{RunDB: createAnnouncementTables},
+		nil,
+	)
+}
+
+func createAnnouncementTables(ctx context.Context, sqlDB *sql.DB) error {
+	db, err := wrapGorm(sqlDB)
+	if err != nil {
+		return err
+	}
+	for _, m := range []interface{}{&model.Announcement{}, &model.AnnouncementRead{}} {
+		if db.Migrator().HasTable(m) {
+			continue
+		}
+		if err := db.Migrator().CreateTable(m); err != nil {
+			return fmt.Errorf("migrate: 0019 create announcement tables: %w", err)
+		}
+	}
+	return nil
 }
 
 // addContractTimeoutColumn 是 0016 的迁移体（抽出便于直测）：
