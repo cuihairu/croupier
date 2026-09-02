@@ -33,6 +33,7 @@ import { localizedText } from '@/utils/localizedText';
 import { humanizeFieldKey } from '@/utils/humanize';
 import { customWidgets } from './widgets';
 import { uploadFields, uploadWidgets } from './widgets-upload';
+import { customTemplates } from './templates';
 
 export interface SchemaFormRendererHandle {
   submit: () => void;
@@ -367,6 +368,19 @@ export function deriveRuntimeSchema(
       break;
   }
 
+  // F7：分组与字段宽度元数据注入 formContext，供 GroupedObjectFieldTemplate 消费
+  if (spec.groups?.length) {
+    formContext.__groups = spec.groups;
+    formContext.__fieldGroups = Object.fromEntries(
+      spec.groups.flatMap((group) => group.fields.map((fieldKey) => [fieldKey, group.key])),
+    );
+  }
+  const fieldWidths: Record<string, number> = {};
+  for (const field of spec.fields || []) {
+    if (typeof field.width === 'number') fieldWidths[field.key] = field.width;
+  }
+  if (Object.keys(fieldWidths).length) formContext.__fieldWidths = fieldWidths;
+
   if (!schema.type) schema.type = 'object';
   if (!schema.properties) schema.properties = {};
 
@@ -496,6 +510,7 @@ const SchemaFormRenderer = forwardRef<SchemaFormRendererHandle, SchemaFormRender
         validator={validator}
         widgets={widgets}
         fields={uploadFields}
+        templates={customTemplates}
         formData={formValues}
         readonly={readonly}
         disabled={disabled}

@@ -214,18 +214,18 @@ T5（无风险热身）→ T1 → T2 → T3 → T4。前四个每个含独立 go
 
 ## F-B 阶段：联动与布局（P1）
 
-## F7. FormGroupSpec 接线：分组渲染 ⬜
+## F7. FormGroupSpec 接线：分组渲染 ✅
 
 **目标**：`types/dashboard.ts:683` FormGroupSpec 从定义变为实际渲染。
 
 **改动点**：
 
-- [ ] 自定义 `ObjectFieldTemplate`：按 `spec.groups` 分组渲染 antd Card/ Collapse（title/description/description 字段归属分组，未分组字段进默认组）
-- [ ] 每字段 `x-col-span`（FormFieldSpec 扩展 colSpan）→ grid 布局下 Row/Col 宽度
-- [ ] `deriveRuntimeSchema` 输出 formContext 携带分组元数据
-- [ ] 单测：分组归属、colSpan 计算、无 groups 时行为不变
+- [x] 自定义根级 `ObjectFieldTemplate`（`templates.tsx`）：分组渲染 antd Card（LocalizedText 标题），collapsible 分组用 antd Collapse（v6 Card 无 collapsible）；未分组字段置顶；无分组/无宽度且非根级时委托 antd 默认模板
+- [x] 每字段 `width`（FormFieldSpec 既有字段，对应 x-width 1-12）→ Col 栅格宽度，优先级 width > formContext.colSpan > antd 默认
+- [x] `deriveRuntimeSchema` 向 formContext 注入 `__groups/__fieldGroups/__fieldWidths`
+- [x] 单测：元数据注入、Card 归属、Collapse 展开、width 生效、无分组回退
 
-**验收**：tsc + web test 全绿；PageStudio 预览分组正常。
+**验收**：tsc 0 错误 + web test 全绿（172 passed）+ guard PASSED + docs build 通过。
 
 ## F8. visibleWhen 隐藏策略改进：不丢值 ⬜
 
