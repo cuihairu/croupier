@@ -93,7 +93,7 @@ func TestRegisterRoutes_ProtectedRoleAndPermissionEndpointsMounted(t *testing.T)
 	require.NoError(t, model.AutoMigrate(db))
 
 	adminID := seedRouterAdminWithRoleRead(t, db)
-	token, err := jwtutil.Sign("test-router-secret", "router-admin", []string{"admin"}, adminID, nowForTest())
+	token, err := jwtutil.Sign("test-router-secret", "router-admin", []string{"admin"}, adminID, 0, nowForTest())
 	require.NoError(t, err)
 
 	for _, path := range []string{

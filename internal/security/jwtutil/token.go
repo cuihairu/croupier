@@ -13,13 +13,18 @@ type Claims struct {
 	Username string   `json:"username"`
 	Roles    []string `json:"roles"`
 	AdminID  uint     `json:"adminId"`
+	// TokenVersion 与 admins.token_version 对应；中间件比对不一致即拒绝，
+	// 使改密码/禁用/登出后旧 token 立即失效。旧 token（无此字段）解析为
+	// 0，与库中初始版本 0 一致，平滑兼容。
+	TokenVersion int `json:"tokenVersion"`
 	jwt.RegisteredClaims
 }
 
 const tokenTTL = 24 * time.Hour
 
 // Sign issues a JWT for the provided user/roles using the shared secret.
-func Sign(secret string, username string, roles []string, adminID uint, issuedAt time.Time) (string, error) {
+// tokenVersion 应取签发时刻 admins.token_version 的当前值。
+func Sign(secret string, username string, roles []string, adminID uint, tokenVersion int, issuedAt time.Time) (string, error) {
 	if secret == "" {
 		return "", errors.New("jwt secret is empty")
 	}
@@ -27,9 +32,10 @@ func Sign(secret string, username string, roles []string, adminID uint, issuedAt
 		issuedAt = time.Now().UTC()
 	}
 	claims := Claims{
-		Username: username,
-		Roles:    roles,
-		AdminID:  adminID,
+		Username:     username,
+		Roles:        roles,
+		AdminID:      adminID,
+		TokenVersion: tokenVersion,
 		RegisteredClaims: jwt.RegisteredClaims{
 			Subject:   username,
 			IssuedAt:  jwt.NewNumericDate(issuedAt),

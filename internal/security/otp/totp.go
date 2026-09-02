@@ -2,6 +2,7 @@ package otp
 
 import (
 	"crypto/hmac"
+	"crypto/rand"
 	"crypto/sha1"
 	"encoding/base32"
 	"encoding/binary"
@@ -9,6 +10,16 @@ import (
 	"strings"
 	"time"
 )
+
+// GenerateSecret generates a random 160-bit TOTP secret, base32-encoded
+// without padding (the form authenticator apps expect).
+func GenerateSecret() (string, error) {
+	buf := make([]byte, 20)
+	if _, err := rand.Read(buf); err != nil {
+		return "", err
+	}
+	return base32.StdEncoding.WithPadding(base32.NoPadding).EncodeToString(buf), nil
+}
 
 // VerifyTOTP verifies an RFC 6238 TOTP code with 30s step and given skew steps.
 // secret can be base32 (no padding) as common authenticator apps export.

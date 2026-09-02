@@ -1239,11 +1239,23 @@ type AuthMiddleware struct {
 	allowPaths         map[string]struct{}
 	allowPref          []string
 	publicReadPrefixes []string
+
+	// tokenVersions 缓存 adminID → (tokenVersion, 缓存时刻)，TTL 内不再打库；
+	// 撤销操作（登出/改密/禁用）最多延迟 TTL 生效，换取每请求零额外查询。
+	tokenVersions sync.Map
+}
+
+// tokenVersionCacheTTL 是 token 版本缓存的生存期。撤销生效延迟上界。
+const tokenVersionCacheTTL = 30 * time.Second
+
+type tokenVersionEntry struct {
+	version   int
+	fetchedAt time.Time
 }
 
 // NewAuthMiddlewareImpl 创建认证中间件实例
 func NewAuthMiddlewareImpl(svcCtx *ServiceContext) *AuthMiddleware {
-	return &AuthMiddleware{
+	m := &AuthMiddleware{
 		svcCtx: svcCtx,
 		allowPaths: map[string]struct{}{
 			"/healthz":                   {},
@@ -1264,6 +1276,11 @@ func NewAuthMiddlewareImpl(svcCtx *ServiceContext) *AuthMiddleware {
 			"/api/v1/releases/check",
 		},
 	}
+	// Prometheus 抓取器不带 JWT：端点开启时加入免认证白名单。
+	if svcCtx != nil && svcCtx.Config.Telemetry.Prometheus.Enabled {
+		m.allowPaths[svcCtx.Config.Telemetry.Prometheus.PrometheusPath()] = struct{}{}
+	}
+	return m
 }
 
 // Handle 处理认证中间件（Gin 风格）
@@ -1328,7 +1345,46 @@ func (m *AuthMiddleware) authenticate(ctx context.Context, token string) (string
 		return "", nil, 0, fmt.Errorf("invalid token: %w", err)
 	}
 
+	// token 版本比对：改密码/禁用/登出后 admins.token_version 已递增，
+	// 旧 claims 版本落后即拒绝。版本查询走 30s 进程内缓存（见结构体注释）。
+	if err := m.checkTokenVersion(ctx, claims); err != nil {
+		return "", nil, 0, err
+	}
+
 	return claims.Username, claims.Roles, claims.AdminID, nil
+}
+
+// checkTokenVersion 校验 claims.TokenVersion 与库中当前版本一致。
+// AdminModel 不可用（单测/精简部署）时跳过校验，保持向后兼容。
+func (m *AuthMiddleware) checkTokenVersion(ctx context.Context, claims *jwtutil.Claims) error {
+	if m.svcCtx == nil || m.svcCtx.AdminModel == nil || claims.AdminID == 0 {
+		return nil
+	}
+	current, err := m.currentTokenVersion(ctx, claims.AdminID)
+	if err != nil {
+		// 存储故障时不放大为全站 401：记日志并放行，可用性优先。
+		slog.WarnContext(ctx, "token version check skipped", "adminID", claims.AdminID, "error", err)
+		return nil
+	}
+	if claims.TokenVersion != current {
+		return errors.New("token revoked")
+	}
+	return nil
+}
+
+func (m *AuthMiddleware) currentTokenVersion(ctx context.Context, adminID uint) (int, error) {
+	if v, ok := m.tokenVersions.Load(adminID); ok {
+		entry := v.(tokenVersionEntry)
+		if time.Since(entry.fetchedAt) < tokenVersionCacheTTL {
+			return entry.version, nil
+		}
+	}
+	version, err := m.svcCtx.AdminModel.GetTokenVersion(ctx, adminID)
+	if err != nil {
+		return 0, err
+	}
+	m.tokenVersions.Store(adminID, tokenVersionEntry{version: version, fetchedAt: time.Now()})
+	return version, nil
 }
 
 func (m *AuthMiddleware) shouldBypass(r *http.Request) bool {

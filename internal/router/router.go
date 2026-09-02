@@ -87,7 +87,8 @@ func registerPublicRoutes(api *gin.RouterGroup, db *gorm.DB, cfg *config.Config)
 		model.NewAdminModel(db),
 		permissionservice.NewPermissionService(db),
 		jwtSecret,
-	).WithRoleModel(model.NewRoleModel(db))
+	).WithRoleModel(model.NewRoleModel(db)).
+		WithLoginLockout(cfg.Auth.LoginLockout)
 	if providers, provErr := auth.BuildIdentityProviders(settings.Current().AuthProviderConfig()); provErr != nil {
 		slog.Default().Error("identity providers config invalid", "error", provErr)
 	} else {

@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"errors"
 	"net/http"
 	"net/url"
 
@@ -30,6 +31,14 @@ func (h *Handler) Login(c *gin.Context) {
 
 	resp, err := h.service.Login(c.Request.Context(), &req)
 	if err != nil {
+		if errors.Is(err, ErrMFARequired) {
+			// 前端按 error 码分支展示二次验证码输入，不读 message。
+			c.JSON(http.StatusUnauthorized, gin.H{
+				"error":   "mfa_required",
+				"message": "该账号已启用二次验证，请输入动态验证码",
+			})
+			return
+		}
 		response.Unauthorized(c, err.Error())
 		return
 	}
@@ -77,6 +86,69 @@ func (h *Handler) Providers(c *gin.Context) {
 		"ldap":  h.service.LDAPEnabled(),
 		"oidc":  h.service.OIDCEnabled(),
 	})
+}
+
+// mfaUsername 从认证上下文取当前用户；未登录返回空串并由调用方 401。
+func mfaUsername(c *gin.Context) string {
+	if username, ok := c.Get("username"); ok {
+		if s, ok := username.(string); ok {
+			return s
+		}
+	}
+	return ""
+}
+
+// MFASetup 生成 TOTP 密钥（POST /api/v1/auth/mfa/setup，需登录）。
+func (h *Handler) MFASetup(c *gin.Context) {
+	username := mfaUsername(c)
+	if username == "" {
+		response.Unauthorized(c, "未授权")
+		return
+	}
+	resp, err := h.service.MFASetup(c.Request.Context(), username)
+	if err != nil {
+		response.BadRequest(c, err.Error())
+		return
+	}
+	response.Success(c, resp)
+}
+
+// MFAConfirm 确认启用 TOTP（POST /api/v1/auth/mfa/confirm，需登录）。
+func (h *Handler) MFAConfirm(c *gin.Context) {
+	username := mfaUsername(c)
+	if username == "" {
+		response.Unauthorized(c, "未授权")
+		return
+	}
+	var req MFAConfirmRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, "参数错误: "+err.Error())
+		return
+	}
+	if err := h.service.MFAConfirm(c.Request.Context(), username, req.Code); err != nil {
+		response.BadRequest(c, err.Error())
+		return
+	}
+	response.Success(c, gin.H{"ok": true})
+}
+
+// MFADisable 关闭 TOTP（POST /api/v1/auth/mfa/disable，需登录，码+密码双确认）。
+func (h *Handler) MFADisable(c *gin.Context) {
+	username := mfaUsername(c)
+	if username == "" {
+		response.Unauthorized(c, "未授权")
+		return
+	}
+	var req MFADisableRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, "参数错误: "+err.Error())
+		return
+	}
+	if err := h.service.MFADisable(c.Request.Context(), username, req.Code, req.Password); err != nil {
+		response.BadRequest(c, err.Error())
+		return
+	}
+	response.Success(c, gin.H{"ok": true})
 }
 
 // OIDCLogin 生成跳转到身份源的授权 URL 并 302 重定向。

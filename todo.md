@@ -4,7 +4,17 @@
 
 每个任务原子性：独立完成、独立迁移文件、独立测试、独立可提交，互相之间无代码依赖（仅迁移序号需按落地顺序递增）。
 
-## T1. 登录失败锁定
+> **状态：全部完成（T5→T1→T2→T3→T4 顺序落地，2026-09-02）**
+>
+> - T1: 迁移 0017（admins.failed_attempts/locked_until/token_version）+ `LoginLockoutConfig`（默认 5 次/15 分钟，仅 local 计数）+ `auth.login_locked` 审计；测试 `internal/api/auth/lockout_test.go`
+> - T2: JWT claims 增 `tokenVersion`（旧 token 解析为 0 平滑兼容）；中间件比对 + 30s 进程内缓存；登出/改密（自助+重置）/禁用账号递增；测试 `internal/svc/token_revoke_test.go`
+> - T3: 迁移 0018（admins.otp_enabled）+ MFA API（setup/confirm/disable）+ 登录按 provider 分支（local 校验 totpCode，外部身份源跳过）+ `mfa_required` 错误码；测试 `internal/api/auth/mfa_test.go`
+> - T4: `telemetry.prometheus.enabled`（默认 false）+ exposition 端点（默认 `/metrics/prometheus`，免认证白名单动态注册）+ go/process + 平台指标（与 JSON /metrics 同口径）；测试 `internal/api/monitoring/prometheus_test.go`；文档 `docs/operations/monitoring.md` 已按实际实现修正
+> - T5: 删除 `internal/api/user` 空壳；CLAUDE.md 路径漂移修正（`internal/auth/` → `internal/security/`）
+>
+> 已知边界：token 撤销最长 30s 生效延迟（缓存 TTL）；MFA 前端二次输入 UI 未做（后端契约就绪，`401 + error=mfa_required`）；`docs/security.md` 已记录。
+
+## T1. 登录失败锁定 ✅
 
 **目标**：密码连续失败 N 次后锁定账号 M 分钟，防止在线爆破。
 
@@ -25,7 +35,7 @@
 - `go test ./internal/api/auth/...` 通过
 - 锁定事件写入哈希链审计可查
 
-## T2. tokenVersion 撤销机制
+## T2. tokenVersion 撤销机制 ✅
 
 **目标**：改密码、禁用账号、登出后旧 token 立即失效，消除 24h 不可吊销窗口。
 
@@ -43,7 +53,7 @@
 - 新增单测：登出后旧 token 401、改密码后旧 token 401、正常 token 不受影响、缓存失效后版本同步
 - `go test ./internal/api/auth/... ./internal/middleware/...` 通过
 
-## T3. MFA（TOTP）按 provider 接线
+## T3. MFA（TOTP）按 provider 接线 ✅
 
 **目标**：`VerifyTOTP` 接入登录流程；local provider 账号可启用 TOTP，LDAP/OIDC 登录跳过平台 MFA（信任 IdP）。
 
@@ -67,7 +77,7 @@
 - `go test ./internal/api/auth/...` 通过
 - 前端二次输入 UI 不在本任务范围（仅后端契约 + 错误码），在交付说明中列为已知边界
 
-## T4. Prometheus /metrics 端点（默认关闭）
+## T4. Prometheus /metrics 端点（默认关闭） ✅
 
 **目标**：提供标准 Prometheus exposition，不强制部署 OTel Collector。
 
@@ -84,7 +94,7 @@
 - 默认配置下行为与现状一致（回归）
 - `go test ./internal/telemetry/... ./internal/handler/...` 通过
 
-## T5. 文档债清理
+## T5. 文档债清理 ✅
 
 **目标**：删除空壳模块、修正 CLAUDE.md 路径漂移。
 

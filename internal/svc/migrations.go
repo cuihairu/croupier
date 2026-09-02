@@ -38,6 +38,10 @@ import (
 //   0015 (Go)   agent_sessions.addr column (HA 跨实例节点视图的 IP 展示)
 //   0014 (Go)   task schedules tables (docs: cron 调度 task_schedules/run_logs)
 //   0016 (Go)   function_contracts.timeout_ms column（声明式超时执行层接线）
+//   0017 (Go)   admins 登录安全列（failed_attempts/locked_until/token_version，
+//               见 todo.md T1/T2：登录失败锁定 + token 撤销）
+//   0018 (Go)   admins.otp_enabled 列（T3：MFA 按 provider 接线，local 账号
+//               可启用 TOTP；ldap/oidc 登录跳过平台 MFA）
 
 func init() {
 	if err := goose.SetGlobalMigrations(
@@ -56,6 +60,8 @@ func init() {
 		taskSchedulesMigration(),
 		agentSessionAddrMigration(),
 		contractTimeoutMigration(),
+		adminLoginSecurityMigration(),
+		adminMfaMigration(),
 	); err != nil {
 		panic(fmt.Sprintf("svc: register goose go migrations: %v", err))
 	}
@@ -224,6 +230,61 @@ func addContractTimeoutColumn(ctx context.Context, sqlDB *sql.DB) error {
 		return fmt.Errorf("migrate: 0016 add function_contracts.timeout_ms: %w", err)
 	}
 	return nil
+}
+
+// adminLoginSecurityMigration 为存量库补 admins 登录安全列（0017）：
+// failed_attempts/locked_until（T1 登录失败锁定）与 token_version
+// （T2 token 撤销）一次补齐，避免两条迁移改同一张表。新库由 baseline
+// AutoMigrate 直接带出；幂等：列已存在则跳过。admins 是 meta 库表，
+// fanout 重放到 game 库时表不存在则直接跳过（与 0015 同理）。
+func adminLoginSecurityMigration() *goose.Migration {
+	return goose.NewGoMigration(17,
+		&goose.GoFunc{RunDB: func(ctx context.Context, sqlDB *sql.DB) error {
+			db, err := wrapGorm(sqlDB)
+			if err != nil {
+				return err
+			}
+			migrator := db.Migrator()
+			if !migrator.HasTable(&model.Admin{}) {
+				return nil
+			}
+			for _, col := range []string{"FailedAttempts", "LockedUntil", "TokenVersion"} {
+				if migrator.HasColumn(&model.Admin{}, col) {
+					continue
+				}
+				if err := migrator.AddColumn(&model.Admin{}, col); err != nil {
+					return fmt.Errorf("migrate: 0017 add admins.%s: %w", col, err)
+				}
+			}
+			return nil
+		}},
+		nil,
+	)
+}
+
+// adminMfaMigration 为存量库补 admins.otp_enabled 列（0018）；新库由
+// baseline AutoMigrate 带出；幂等；game 库无 admins 表直接跳过。
+func adminMfaMigration() *goose.Migration {
+	return goose.NewGoMigration(18,
+		&goose.GoFunc{RunDB: func(ctx context.Context, sqlDB *sql.DB) error {
+			db, err := wrapGorm(sqlDB)
+			if err != nil {
+				return err
+			}
+			migrator := db.Migrator()
+			if !migrator.HasTable(&model.Admin{}) {
+				return nil
+			}
+			if migrator.HasColumn(&model.Admin{}, "OTPEnabled") {
+				return nil
+			}
+			if err := migrator.AddColumn(&model.Admin{}, "OTPEnabled"); err != nil {
+				return fmt.Errorf("migrate: 0018 add admins.otp_enabled: %w", err)
+			}
+			return nil
+		}},
+		nil,
+	)
 }
 
 // taskSchedulesMigration creates the cron scheduling tables (0014):

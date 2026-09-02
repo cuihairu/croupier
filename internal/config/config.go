@@ -1,6 +1,9 @@
 package config
 
 import (
+	"strings"
+	"time"
+
 	"github.com/cuihairu/croupier/internal/cli/common"
 	"gopkg.in/yaml.v3"
 )
@@ -72,6 +75,25 @@ type TelemetryConfig struct {
 	UseTLS         bool                   `json:"useTls" yaml:"use_tls"`
 	Headers        string                 `json:"headers" yaml:"headers"`
 	Analytics      TelemetryAnalyticsConf `json:"analytics" yaml:"analytics"`
+	// Prometheus 暴露标准 exposition 端点（默认关闭；开启后无需部署
+	// OTel Collector 即可被 Prometheus 抓取）。与 OTLP 推送链路互不影响。
+	Prometheus TelemetryPrometheusConfig `json:"prometheus" yaml:"prometheus"`
+}
+
+// TelemetryPrometheusConfig 控制 Prometheus exposition 端点。
+type TelemetryPrometheusConfig struct {
+	Enabled bool `json:"enabled" yaml:"enabled"`
+	// Path 是 exposition 挂载路径；默认 /metrics/prometheus（避开既有
+	// JSON /metrics API）。
+	Path string `json:"path,omitempty" yaml:"path,omitempty"`
+}
+
+// PrometheusPath 返回应用默认值后的挂载路径。
+func (c TelemetryPrometheusConfig) PrometheusPath() string {
+	if strings.TrimSpace(c.Path) == "" {
+		return "/metrics/prometheus"
+	}
+	return c.Path
 }
 
 type TelemetryAnalyticsConf struct {
@@ -578,8 +600,33 @@ type AuthConfig struct {
 	RBACConfig  string `json:"rbacConfig,omitempty" yaml:"rbacConfig,omitempty"`
 	UsersConfig string `json:"usersConfig,omitempty" yaml:"usersConfig,omitempty"`
 	GamesConfig string `json:"gamesConfig,omitempty" yaml:"gamesConfig,omitempty"`
+	// LoginLockout 配置本地账号连续密码失败后的临时锁定策略。
+	// 仅对 local provider 生效；LDAP/OIDC 的失败计数由外部身份源负责。
+	LoginLockout LoginLockoutConfig `json:"loginLockout,omitempty" yaml:"loginLockout,omitempty"`
 	// Providers 配置外部身份源（LDAP/OIDC）。默认全部关闭，仅本地账号登录。
 	Providers AuthProvidersConfig `json:"providers,omitempty" yaml:"providers,omitempty"`
+}
+
+// LoginLockoutConfig 描述本地账号登录失败锁定策略。
+// 零值（未配置）时使用默认值：阈值 5 次、锁定 15 分钟。
+type LoginLockoutConfig struct {
+	// Threshold 触发锁定的连续失败次数；<=0 时使用默认值 5。
+	Threshold int `json:"threshold,omitempty" yaml:"threshold,omitempty"`
+	// LockMinutes 锁定时长（分钟）；<=0 时使用默认值 15。
+	LockMinutes int `json:"lockMinutes,omitempty" yaml:"lockMinutes,omitempty"`
+}
+
+// LoginLockoutDefaults 返回应用默认值后的锁定配置。
+func (c LoginLockoutConfig) LoginLockoutDefaults() (threshold int, lock time.Duration) {
+	threshold = c.Threshold
+	if threshold <= 0 {
+		threshold = 5
+	}
+	lock = time.Duration(c.LockMinutes) * time.Minute
+	if lock <= 0 {
+		lock = 15 * time.Minute
+	}
+	return threshold, lock
 }
 
 // AuthProvidersConfig 汇总外部身份提供方配置。

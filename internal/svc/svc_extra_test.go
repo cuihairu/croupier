@@ -459,7 +459,7 @@ func TestAuthMiddleware_Handle(t *testing.T) {
 	})
 
 	t.Run("valid token via header", func(t *testing.T) {
-		token, err := jwtutil.Sign("test-secret-for-svc", "alice", []string{"admin"}, 42, time.Now())
+		token, err := jwtutil.Sign("test-secret-for-svc", "alice", []string{"admin"}, 42, 0, time.Now())
 		require.NoError(t, err)
 		req := httptest.NewRequest(http.MethodGet, "/any", nil)
 		req.Header.Set("Authorization", "Bearer "+token)
@@ -470,7 +470,7 @@ func TestAuthMiddleware_Handle(t *testing.T) {
 	})
 
 	t.Run("valid token via query", func(t *testing.T) {
-		token, err := jwtutil.Sign("test-secret-for-svc", "bob", nil, 43, time.Now())
+		token, err := jwtutil.Sign("test-secret-for-svc", "bob", nil, 43, 0, time.Now())
 		require.NoError(t, err)
 		req := httptest.NewRequest(http.MethodGet, "/any?token="+token, nil)
 		w := httptest.NewRecorder()
@@ -485,7 +485,7 @@ func TestAuthenticate_InvalidToken(t *testing.T) {
 	m := NewAuthMiddlewareImpl(nil)
 
 	// 使用错误 secret 签发的 token 应被拒绝
-	token, err := jwtutil.Sign("wrong-secret", "eve", nil, 1, time.Now())
+	token, err := jwtutil.Sign("wrong-secret", "eve", nil, 1, 0, time.Now())
 	require.NoError(t, err)
 	_, _, _, err = m.authenticate(context.Background(), token)
 	require.Error(t, err)

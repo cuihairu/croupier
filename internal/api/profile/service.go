@@ -282,6 +282,12 @@ func (s *Service) ChangePassword(ctx context.Context, username string, req *Chan
 		return nil, errors.New("修改密码失败")
 	}
 
+	// 密码变更即吊销所有已签发 token（当前请求完成后旧 token 失效，
+	// 前端需引导重新登录）
+	if err := s.adminModel.BumpTokenVersion(ctx, admin.ID); err != nil {
+		return nil, errors.New("修改密码失败")
+	}
+
 	return &ChangePasswordResponse{Ok: true}, nil
 }
 

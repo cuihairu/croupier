@@ -84,6 +84,12 @@ func RegisterHandlers(r *gin.Engine, serverCtx *svc.ServiceContext) {
 	registerAuthRoutes(v1.Group("/auth"), serverCtx)
 	registerMetaRoutes(v1, serverCtx)
 	registerMonitoringPublicRoutes(r, v1.Group("/monitoring"), serverCtx)
+	// Prometheus exposition（telemetry.prometheus.enabled 开启时挂载；
+	// 免认证——抓取器不带 JWT，路径已动态加入 AuthMiddleware 白名单）
+	if serverCtx.Config.Telemetry.Prometheus.Enabled {
+		r.GET(serverCtx.Config.Telemetry.Prometheus.PrometheusPath(),
+			gin.WrapH(monitoring.NewPrometheusHandler(serverCtx)))
+	}
 	registerRegistryRoutes(v1.Group("/registry"), serverCtx) // 公开访问
 	registerOpenAPIReadRoutes(v1, serverCtx)
 	registerPublicReleaseRoutes(v1, serverCtx) // 客户端检查更新(公开)
@@ -222,7 +228,8 @@ func registerAuthRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 	authSvc := auth.NewService(ctx.AdminModel, permissionservice.NewPermissionService(ctx.DB), jwtSecret, ctx.OpsStateStore).
 		WithGameModel(ctx.GameModel).
 		WithAuditService(ctx.AuditService).
-		WithRoleModel(model.NewRoleModel(ctx.DB))
+		WithRoleModel(model.NewRoleModel(ctx.DB)).
+		WithLoginLockout(ctx.Config.Auth.LoginLockout)
 	// 初始装配从分层设置读取（yaml 初始值 + database L3 覆盖）：
 	// 只读 ctx.Config 会导致 UI 保存的登录方式重启后静默失效
 	providers, err := auth.BuildIdentityProviders(settings.Current().AuthProviderConfig())
@@ -242,6 +249,9 @@ func registerAuthRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 	g.GET("/providers", authHandler.Providers)
 	g.GET("/oidc/login", authHandler.OIDCLogin)
 	g.GET("/oidc/callback", authHandler.OIDCCallback)
+	g.POST("/mfa/setup", ctx.Authority, authHandler.MFASetup)
+	g.POST("/mfa/confirm", ctx.Authority, authHandler.MFAConfirm)
+	g.POST("/mfa/disable", ctx.Authority, authHandler.MFADisable)
 	g.POST("/check", ctx.Authority, authHandler.Check)
 	g.POST("/check/batch", ctx.Authority, authHandler.BatchCheck)
 }

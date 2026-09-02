@@ -168,6 +168,80 @@ func (m *AdminModel) UpdatePassword(ctx context.Context, id uint, newPassword st
 		Update("password_hash", string(hashedPassword)).Error
 }
 
+// RecordLoginFailure atomically increments the consecutive-failure counter
+// and returns the new value. When the value reaches threshold, the account
+// is locked until now+lockDuration. The increment is done in SQL so
+// concurrent login attempts cannot lose updates.
+func (m *AdminModel) RecordLoginFailure(ctx context.Context, id uint, threshold int, lockDuration time.Duration) (attempts int, lockedUntil *time.Time, err error) {
+	if err := m.db.WithContext(ctx).Model(&Admin{}).Where("id = ?", id).
+		Update("failed_attempts", gorm.Expr("failed_attempts + 1")).Error; err != nil {
+		return 0, nil, err
+	}
+	var admin Admin
+	if err := m.db.WithContext(ctx).Select("failed_attempts", "locked_until").
+		Where("id = ?", id).First(&admin).Error; err != nil {
+		return 0, nil, err
+	}
+	attempts = admin.FailedAttempts
+	if attempts >= threshold && (admin.LockedUntil == nil || admin.LockedUntil.Before(time.Now())) {
+		until := time.Now().Add(lockDuration).UTC()
+		if err := m.db.WithContext(ctx).Model(&Admin{}).Where("id = ?", id).
+			Update("locked_until", until).Error; err != nil {
+			return attempts, nil, err
+		}
+		lockedUntil = &until
+	}
+	return attempts, lockedUntil, nil
+}
+
+// ResetLoginFailures clears the failure counter and any stale lock after a
+// successful local login.
+func (m *AdminModel) ResetLoginFailures(ctx context.Context, id uint) error {
+	return m.db.WithContext(ctx).Model(&Admin{}).Where("id = ?", id).
+		Updates(map[string]interface{}{
+			"failed_attempts": 0,
+			"locked_until":    nil,
+		}).Error
+}
+
+// GetTokenVersion returns the admin's current token version.
+func (m *AdminModel) GetTokenVersion(ctx context.Context, id uint) (int, error) {
+	var admin Admin
+	if err := m.db.WithContext(ctx).Select("token_version").Where("id = ?", id).First(&admin).Error; err != nil {
+		return 0, err
+	}
+	return admin.TokenVersion, nil
+}
+
+// BumpTokenVersion atomically increments the token version, revoking every
+// JWT issued before this point. Used by logout, password change and account
+// disable.
+func (m *AdminModel) BumpTokenVersion(ctx context.Context, id uint) error {
+	return m.db.WithContext(ctx).Model(&Admin{}).Where("id = ?", id).
+		Update("token_version", gorm.Expr("token_version + 1")).Error
+}
+
+// SetOTPSecret stages a TOTP secret for confirmation (not yet enabled).
+func (m *AdminModel) SetOTPSecret(ctx context.Context, id uint, secret string) error {
+	return m.db.WithContext(ctx).Model(&Admin{}).Where("id = ?", id).
+		Update("otp_secret", secret).Error
+}
+
+// EnableOTP marks TOTP as confirmed for the admin.
+func (m *AdminModel) EnableOTP(ctx context.Context, id uint) error {
+	return m.db.WithContext(ctx).Model(&Admin{}).Where("id = ?", id).
+		Update("otp_enabled", true).Error
+}
+
+// DisableOTP clears the TOTP secret and disables the second factor.
+func (m *AdminModel) DisableOTP(ctx context.Context, id uint) error {
+	return m.db.WithContext(ctx).Model(&Admin{}).Where("id = ?", id).
+		Updates(map[string]interface{}{
+			"otp_secret":  "",
+			"otp_enabled": false,
+		}).Error
+}
+
 // AssignRole attaches a role to an admin.
 func (m *AdminModel) AssignRole(ctx context.Context, adminID, roleID uint) error {
 	adminRole := &AdminRole{

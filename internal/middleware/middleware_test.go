@@ -133,7 +133,7 @@ func TestAuthMiddleware_Struct(t *testing.T) {
 	t.Run("Authenticate with valid token", func(t *testing.T) {
 		secret := "test-secret-auth-valid"
 		mw := NewAuthMiddleware(secret)
-		token, err := jwtutil.Sign(secret, "testuser", []string{"admin"}, 123, time.Now())
+		token, err := jwtutil.Sign(secret, "testuser", []string{"admin"}, 123, 0, time.Now())
 		require.NoError(t, err)
 
 		username, roles, adminID, err := mw.Authenticate(token)
@@ -146,7 +146,7 @@ func TestAuthMiddleware_Struct(t *testing.T) {
 	t.Run("Handle with valid token passes through", func(t *testing.T) {
 		secret := "test-secret-valid-handle"
 		mw := NewAuthMiddleware(secret)
-		token, err := jwtutil.Sign(secret, "testuser", []string{"admin"}, 1, time.Now())
+		token, err := jwtutil.Sign(secret, "testuser", []string{"admin"}, 1, 0, time.Now())
 		require.NoError(t, err)
 
 		router := gin.New()
@@ -192,7 +192,7 @@ func TestAuth_GlobalFunction(t *testing.T) {
 
 	t.Run("with secret set validates tokens", func(t *testing.T) {
 		secret := getTestSecret()
-		token, err := jwtutil.Sign(secret, "testuser", []string{"admin"}, 1, time.Now())
+		token, err := jwtutil.Sign(secret, "testuser", []string{"admin"}, 1, 0, time.Now())
 		require.NoError(t, err)
 
 		router := gin.New()
@@ -302,7 +302,7 @@ func TestOptionalAuth(t *testing.T) {
 
 	t.Run("allows request with valid token", func(t *testing.T) {
 		secret := getTestSecret()
-		token, err := jwtutil.Sign(secret, "testuser", []string{"admin"}, 1, time.Now())
+		token, err := jwtutil.Sign(secret, "testuser", []string{"admin"}, 1, 0, time.Now())
 		require.NoError(t, err)
 
 		router := gin.New()

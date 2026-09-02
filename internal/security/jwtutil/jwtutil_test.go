@@ -238,26 +238,26 @@ func TestSign(t *testing.T) {
 	secret := "test-signing-secret"
 
 	t.Run("signs valid token", func(t *testing.T) {
-		token, err := Sign(secret, "testuser", []string{"admin"}, 123, time.Now())
+		token, err := Sign(secret, "testuser", []string{"admin"}, 123, 0, time.Now())
 		require.NoError(t, err)
 		assert.NotEmpty(t, token)
 	})
 
 	t.Run("uses current time when issuedAt is zero", func(t *testing.T) {
-		token, err := Sign(secret, "testuser", []string{"admin"}, 123, time.Time{})
+		token, err := Sign(secret, "testuser", []string{"admin"}, 123, 0, time.Time{})
 		require.NoError(t, err)
 		assert.NotEmpty(t, token)
 	})
 
 	t.Run("errors with empty secret", func(t *testing.T) {
-		_, err := Sign("", "testuser", []string{"admin"}, 123, time.Now())
+		_, err := Sign("", "testuser", []string{"admin"}, 123, 0, time.Now())
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "jwt secret is empty")
 	})
 
 	t.Run("token contains correct claims", func(t *testing.T) {
 		issuedAt := time.Now().UTC()
-		token, err := Sign(secret, "testuser", []string{"admin", "user"}, 456, issuedAt)
+		token, err := Sign(secret, "testuser", []string{"admin", "user"}, 456, 0, issuedAt)
 		require.NoError(t, err)
 
 		claims, err := Parse(token, secret)
@@ -274,7 +274,7 @@ func TestParse(t *testing.T) {
 
 	t.Run("parses valid token", func(t *testing.T) {
 		issuedAt := time.Now().UTC()
-		token, err := Sign(secret, "testuser", []string{"admin"}, 123, issuedAt)
+		token, err := Sign(secret, "testuser", []string{"admin"}, 123, 0, issuedAt)
 		require.NoError(t, err)
 
 		claims, err := Parse(token, secret)
@@ -296,7 +296,7 @@ func TestParse(t *testing.T) {
 	})
 
 	t.Run("errors with wrong secret", func(t *testing.T) {
-		token, err := Sign("original-secret", "testuser", []string{"admin"}, 123, time.Now())
+		token, err := Sign("original-secret", "testuser", []string{"admin"}, 123, 0, time.Now())
 		require.NoError(t, err)
 
 		_, err = Parse(token, "wrong-secret")
@@ -306,7 +306,7 @@ func TestParse(t *testing.T) {
 	t.Run("errors with expired token", func(t *testing.T) {
 		// Create a token that expired 1 hour ago
 		issuedAt := time.Now().UTC().Add(-25 * time.Hour)
-		token, err := Sign(secret, "testuser", []string{"admin"}, 123, issuedAt)
+		token, err := Sign(secret, "testuser", []string{"admin"}, 123, 0, issuedAt)
 		require.NoError(t, err)
 
 		_, err = Parse(token, secret)
@@ -325,7 +325,7 @@ func TestTokenTTL(t *testing.T) {
 	secret := "test-ttl-secret"
 	issuedAt := time.Now().UTC()
 
-	token, err := Sign(secret, "testuser", []string{"admin"}, 123, issuedAt)
+	token, err := Sign(secret, "testuser", []string{"admin"}, 123, 0, issuedAt)
 	require.NoError(t, err)
 
 	claims, err := Parse(token, secret)

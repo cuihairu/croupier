@@ -15,6 +15,19 @@ tag:
 - OIDC/MFA for users
 - RBAC/ABAC, approvals, audit log chain
 
+认证与会话安全（Auth Hardening）
+
+- 登录失败锁定：本地账号（local provider）连续密码失败达到阈值后临时锁定，成功登录清零。
+  配置 `auth.loginLockout.threshold`（默认 5）与 `auth.loginLockout.lockMinutes`（默认 15）。
+  仅 local provider 计数——LDAP/OIDC 的失败锁定由身份源自己负责；锁定事件入审计链（`auth.login_locked`）。
+- token 撤销：`admins.token_version` 随 JWT claims 下发；登出、改密码（自助/重置）、禁用账号时递增，
+  旧 token 即时失效。已知边界：中间件有 30 秒版本缓存，撤销最长延迟 30s 生效；
+  存储故障时放行（可用性优先，记 warn 日志）。
+- TOTP MFA：本地账号可自助绑定（`POST /api/v1/auth/mfa/setup` → `confirm`，`disable` 需验证码+密码双确认）。
+  启用后登录需携带 `totpCode`，缺失返回 `401 + error=mfa_required`。
+  仅 local provider 生效——OIDC 登录的 MFA 属 IdP 职责；裸 LDAP 部署需要 MFA 时应改用本地账号承载。
+  已知边界：前端二次验证码输入 UI 暂未提供（后端契约已就绪），审计事件 `auth.mfa_enabled/disabled` 已接线。
+
 Approvals (Two-person rule)
 
 - 契约：函数描述符的 `Approval` 字段（ApprovalPolicy：`approvalRequired` + `approvalPolicyKey`，

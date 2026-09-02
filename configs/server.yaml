@@ -57,6 +57,10 @@ auth:
   rbacConfig: "configs/rbac.json"
   usersConfig: "configs/users.json"
   gamesConfig: "configs/games.json"
+  # 本地账号连续密码失败锁定（仅 local provider；LDAP/OIDC 由 IdP 负责）
+  loginLockout:
+    threshold: 5 # 连续失败次数达到阈值后锁定
+    lockMinutes: 15 # 锁定时长（分钟）
 
 bootstrapData:
   baseDir: "configs"

@@ -95,7 +95,7 @@ func TestParseUnexpectedSigningMethod(t *testing.T) {
 // TestParseWithDifferentSigningMethods tests various signing methods
 func TestParseWithDifferentSigningMethods(t *testing.T) {
 	secret := "test-secret"
-	token, err := Sign(secret, "testuser", []string{"admin"}, 123, time.Now())
+	token, err := Sign(secret, "testuser", []string{"admin"}, 123, 0, time.Now())
 	require.NoError(t, err)
 
 	t.Run("valid HMAC token", func(t *testing.T) {
@@ -126,7 +126,7 @@ func TestSignAndParseRoundTrip(t *testing.T) {
 		}
 
 		for _, u := range users {
-			token, err := Sign(secret, u.username, u.roles, u.adminID, time.Now())
+			token, err := Sign(secret, u.username, u.roles, u.adminID, 0, time.Now())
 			require.NoError(t, err)
 
 			claims, err := Parse(token, secret)

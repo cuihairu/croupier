@@ -9,11 +9,18 @@ telemetry:
   environment: "production"
   game_id: "tower-defense-hero"
 
+  # Prometheus exposition 端点（默认关闭）
+  # 开启后无需部署 OTel Collector 即可被 Prometheus 直接抓取，
+  # 暴露 Go runtime/process 指标与平台基础指标（DB 延迟/agent 在线/函数注册数）
+  prometheus:
+    enabled: false
+    path: /metrics/prometheus
+
   # OTel Collector配置
   collector_url: "http://otel-collector:4318"
   enable_tracing: true
   enable_metrics: true
-  sampling_ratio: 0.1  # 10% 采样率，生产环境建议
+  sampling_ratio: 0.1 # 10% 采样率，生产环境建议
 
   # Analytics桥接器配置
   analytics:
@@ -21,12 +28,12 @@ telemetry:
 
     # Redis配置 (现有Analytics MQ)
     redis_addr: "analytics-redis:6379"
-    redis_password: ""  # 从环境变量或密钥文件读取
-    redis_db: 2         # 专用DB避免冲突
+    redis_password: "" # 从环境变量或密钥文件读取
+    redis_db: 2 # 专用DB避免冲突
 
     # 事件流配置
     topic_prefix: "game:events"
-    retention_hours: 168  # 7天事件保留期
+    retention_hours: 168 # 7天事件保留期
 
     # 批量发送配置
     batch_size: 100

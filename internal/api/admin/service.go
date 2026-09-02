@@ -200,6 +200,12 @@ func (s *Service) Update(ctx context.Context, req *UpdateRequest) (*UpdateRespon
 			if err := adminModel.Update(ctx, adminID, updates); err != nil {
 				return err
 			}
+			// 禁用账号即吊销所有已签发 token
+			if req.Status == 0 {
+				if err := adminModel.BumpTokenVersion(ctx, adminID); err != nil {
+					return err
+				}
+			}
 		}
 
 		if req.Roles != nil {
@@ -324,6 +330,11 @@ func (s *Service) PasswordReset(ctx context.Context, req *PasswordResetRequest) 
 	}
 
 	if err := s.svcCtx.AdminModel.UpdatePassword(ctx, adminID, password); err != nil {
+		return err
+	}
+
+	// 密码变更即吊销该账号所有已签发 token
+	if err := s.svcCtx.AdminModel.BumpTokenVersion(ctx, adminID); err != nil {
 		return err
 	}
 

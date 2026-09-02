@@ -75,7 +75,7 @@ func TestAuthMiddleware_Authenticate(t *testing.T) {
 	jwtutil.InitGlobalSecret("unit-test-secret")
 	defer jwtutil.InitGlobalSecret("")
 
-	token, err := jwtutil.Sign("unit-test-secret", "alice", []string{"admin"}, 7, time.Now())
+	token, err := jwtutil.Sign("unit-test-secret", "alice", []string{"admin"}, 7, 0, time.Now())
 	require.NoError(t, err)
 
 	username, roles, adminID, err := m.authenticate(context.Background(), token)

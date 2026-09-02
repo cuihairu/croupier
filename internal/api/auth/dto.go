@@ -2,8 +2,10 @@ package auth
 
 // LoginRequest 登录请求
 type LoginRequest struct {
-	Username  string `json:"username" binding:"required"`
-	Password  string `json:"password" binding:"required"`
+	Username string `json:"username" binding:"required"`
+	Password string `json:"password" binding:"required"`
+	// TOTPCode 是已启用 MFA 的本地账号登录时必须携带的二次验证码。
+	TOTPCode  string `json:"totpCode,omitempty"`
 	ClientIP  string `json:"-"`
 	UserAgent string `json:"-"`
 }
@@ -24,7 +26,10 @@ type UserInfo struct {
 }
 
 // LogoutRequest 登出请求
-type LogoutRequest struct{}
+type LogoutRequest struct {
+	// Username 由 handler 从认证上下文注入（不从请求体绑定）。
+	Username string `json:"-"`
+}
 
 // LogoutResponse 登出响应
 type LogoutResponse struct{}

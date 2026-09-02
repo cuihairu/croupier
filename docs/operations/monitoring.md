@@ -47,16 +47,31 @@ graph TB
 
 ## Prometheus 指标
 
+Server 提供 Prometheus exposition 端点，**默认关闭**。开启后无需部署 OTel Collector 即可被 Prometheus 直接抓取（与 OTLP 推送链路互不影响）：
+
+```yaml
+telemetry:
+  prometheus:
+    enabled: true
+    path: /metrics/prometheus # 默认值，可自定义
+```
+
+端点免认证（抓取器不带 JWT），路径在开启时自动加入认证白名单。
+
 ### Server 指标
 
-| 指标名称                                  | 类型      | 说明            |
-| ----------------------------------------- | --------- | --------------- |
-| `croupier_server_requests_total`          | Counter   | 请求总数        |
-| `croupier_server_request_duration`        | Histogram | 请求延迟        |
-| `croupier_server_functions_invoked_total` | Counter   | 函数调用总数    |
-| `croupier_server_agents_connected`        | Gauge     | 已连接 Agent 数 |
-| `croupier_server_jobs_active`             | Gauge     | 活跃作业数      |
-| `croupier_server_approvals_pending`       | Gauge     | 待审批数        |
+| 指标名称                        | 类型  | 说明                          |
+| ------------------------------- | ----- | ----------------------------- |
+| `croupier_db_up`                | Gauge | 数据库连通性（1=正常 0=异常） |
+| `croupier_db_latency_ms`        | Gauge | 数据库 ping 延迟（毫秒）      |
+| `croupier_agents_total`         | Gauge | 已注册 Agent 数               |
+| `croupier_agents_healthy`       | Gauge | 健康检查通过的 Agent 数       |
+| `croupier_functions_registered` | Gauge | 当前已注册函数数              |
+| `go_*` / `process_*`            | -     | Go runtime 与进程标准指标     |
+
+以上平台指标与 JSON 端点 `GET /api/v1/monitoring/metrics` 同源同口径（请求时实时计算，无后台采样）。
+
+> 历史文档曾列出 `croupier_server_requests_total` 等指标，从未有对应实现，已移除。
 
 ### Agent 指标
 
