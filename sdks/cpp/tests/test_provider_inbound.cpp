@@ -429,3 +429,128 @@ TEST(ProviderInboundTest, AgentDrainIsIdempotent) {
 
 }  // namespace
 }  // namespace croupier::sdk::test
+
+namespace croupier::sdk::test {
+
+// ===== F：Provider 侧入站 payload 校验 =====
+
+TEST(ProviderInboundTest, InputValidationRejectsInvalidPayload) {
+    RawFakeAgent agent;
+    std::thread agent_thread([&] { agent.AcceptAndHandshake(); });
+
+    ClientConfig config = ProviderConfig(agent.address());
+    config.validate_input_payloads = true;
+    CroupierClient client(config);
+    FunctionDescriptor desc;
+    desc.id = "player.ban";
+    desc.version = "1.0.0";
+    desc.capability = "action";
+    desc.risk = "high";
+    desc.input_schema =
+        R"({"type":"object","properties":{"id":{"type":"string"}},"required":["id"]})";
+    std::atomic<int> calls{0};
+    ASSERT_TRUE(client.RegisterFunction(
+        desc, [&](const std::string&, const std::string&) {
+            calls.fetch_add(1);
+            return std::string("ok");
+        }));
+    ASSERT_TRUE(client.Connect());
+    agent_thread.join();
+
+    // 缺 required 字段：回错误 payload，handler 不被调用
+    agent.PushRequest(protocol::MSG_INVOKE_REQUEST, 9101, InvokeBody("player.ban", "{}"));
+    auto resp = agent.ReadResponseFor(9101);
+    v1::InvokeResponse parsed;
+    ASSERT_TRUE(parsed.ParseFromArray(resp.body.data(), static_cast<int>(resp.body.size())));
+    EXPECT_NE(parsed.payload().find("payload validation failed"), std::string::npos)
+        << "payload=" << parsed.payload();
+    EXPECT_EQ(calls.load(), 0);
+
+    client.Close();
+}
+
+TEST(ProviderInboundTest, InputValidationPassesValidPayload) {
+    RawFakeAgent agent;
+    std::thread agent_thread([&] { agent.AcceptAndHandshake(); });
+
+    ClientConfig config = ProviderConfig(agent.address());
+    config.validate_input_payloads = true;
+    CroupierClient client(config);
+    FunctionDescriptor desc;
+    desc.id = "player.ban";
+    desc.version = "1.0.0";
+    desc.input_schema =
+        R"({"type":"object","properties":{"id":{"type":"string"}},"required":["id"]})";
+    ASSERT_TRUE(client.RegisterFunction(
+        desc, [&](const std::string&, const std::string& payload) {
+            return "ban:" + payload;
+        }));
+    ASSERT_TRUE(client.Connect());
+    agent_thread.join();
+
+    agent.PushRequest(protocol::MSG_INVOKE_REQUEST, 9102,
+                      InvokeBody("player.ban", R"({"id":"p1"})"));
+    auto resp = agent.ReadResponseFor(9102);
+    v1::InvokeResponse parsed;
+    ASSERT_TRUE(parsed.ParseFromArray(resp.body.data(), static_cast<int>(resp.body.size())));
+    EXPECT_EQ(parsed.payload(), "ban:{\"id\":\"p1\"}");
+
+    client.Close();
+}
+
+TEST(ProviderInboundTest, InputValidationDisabledKeepsLegacyBehavior) {
+    RawFakeAgent agent;
+    std::thread agent_thread([&] { agent.AcceptAndHandshake(); });
+
+    ClientConfig config = ProviderConfig(agent.address());
+    // validate_input_payloads 默认 false
+    CroupierClient client(config);
+    FunctionDescriptor desc;
+    desc.id = "player.ban";
+    desc.version = "1.0.0";
+    desc.input_schema =
+        R"({"type":"object","properties":{"id":{"type":"string"}},"required":["id"]})";
+    std::atomic<int> calls{0};
+    ASSERT_TRUE(client.RegisterFunction(
+        desc, [&](const std::string&, const std::string&) {
+            calls.fetch_add(1);
+            return std::string("ok");
+        }));
+    ASSERT_TRUE(client.Connect());
+    agent_thread.join();
+
+    agent.PushRequest(protocol::MSG_INVOKE_REQUEST, 9103, InvokeBody("player.ban", "{}"));
+    auto resp = agent.ReadResponseFor(9103);
+    v1::InvokeResponse parsed;
+    ASSERT_TRUE(parsed.ParseFromArray(resp.body.data(), static_cast<int>(resp.body.size())));
+    EXPECT_EQ(parsed.payload(), "ok");
+    EXPECT_GE(calls.load(), 1);
+
+    client.Close();
+}
+
+TEST(ProviderInboundTest, InputValidationSkipsWhenSchemaMissing) {
+    RawFakeAgent agent;
+    std::thread agent_thread([&] { agent.AcceptAndHandshake(); });
+
+    ClientConfig config = ProviderConfig(agent.address());
+    config.validate_input_payloads = true;
+    CroupierClient client(config);
+    FunctionDescriptor desc;
+    desc.id = "player.free";  // 未声明 input_schema
+    desc.version = "1.0.0";
+    ASSERT_TRUE(client.RegisterFunction(
+        desc, [](const std::string&, const std::string&) { return std::string("ok"); }));
+    ASSERT_TRUE(client.Connect());
+    agent_thread.join();
+
+    agent.PushRequest(protocol::MSG_INVOKE_REQUEST, 9104, InvokeBody("player.free", "{}"));
+    auto resp = agent.ReadResponseFor(9104);
+    v1::InvokeResponse parsed;
+    ASSERT_TRUE(parsed.ParseFromArray(resp.body.data(), static_cast<int>(resp.body.size())));
+    EXPECT_EQ(parsed.payload(), "ok");
+
+    client.Close();
+}
+
+}  // namespace croupier::sdk::test

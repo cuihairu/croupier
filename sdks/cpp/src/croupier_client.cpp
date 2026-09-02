@@ -487,6 +487,28 @@ public:
                 }
                 std::string context = "{}";
                 std::string payload(req.payload().begin(), req.payload().end());
+
+                // Provider 侧入站校验（可选）：按函数声明的 input schema 校验
+                // payload，失败回错误响应，handler 不被调用（服务端仍是权威
+                // 校验方）。schema 缺失/为空跳过。
+                if (config_.validate_input_payloads) {
+                    std::string input_schema;
+                    {
+                        std::lock_guard<std::mutex> lock(transport_mutex_);
+                        auto descIt = descriptors_.find(req.function_id());
+                        if (descIt != descriptors_.end()) {
+                            input_schema = descIt->second.input_schema;
+                        }
+                    }
+                    if (!input_schema.empty() &&
+                        !::croupier::sdk::utils::JsonUtils::ValidateJsonSchema(payload, input_schema)) {
+                        SDK_LOG_ERROR("Agent invoke: payload validation failed: " + req.function_id());
+                        ::croupier::sdk::v1::InvokeResponse errResp;
+                        errResp.set_payload("{\"error\":\"payload validation failed\"}");
+                        return SerializeMessage(errResp);
+                    }
+                }
+
                 std::string result = it->second(context, payload);
                 ::croupier::sdk::v1::InvokeResponse resp;
                 resp.set_payload(result);

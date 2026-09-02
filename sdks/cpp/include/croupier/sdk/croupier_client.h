@@ -75,6 +75,12 @@ struct ClientConfig {
 
     bool insecure = true;  // For development; set false for production with TLS
 
+    // ========== Inbound Payload Validation ==========
+    // When true, provider-side dispatch validates incoming invoke payloads
+    // against the function's declared input schema before invoking the
+    // handler. Server remains the authoritative validator.
+    bool validate_input_payloads = false;
+
     // ========== Optional TLS Configuration ==========
     std::string cert_file;    // Client certificate file path
     std::string key_file;     // Client private key file path
