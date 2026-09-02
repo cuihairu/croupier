@@ -30,6 +30,7 @@ import type {
 } from '@/types/dashboard';
 import { localizedText } from '@/utils/localizedText';
 import { humanizeFieldKey } from '@/utils/humanize';
+import { customWidgets } from './widgets';
 
 export interface SchemaFormRendererHandle {
   submit: () => void;
@@ -234,6 +235,13 @@ function widgetToRjsf(widget?: FormWidget, schema?: JSONSchema): string | undefi
     case 'Slider':
       return 'range';
     case 'Select':
+      return 'select';
+    case 'TreeSelect':
+      return 'treeSelect';
+    case 'Cascader':
+      return 'cascader';
+    case 'Rate':
+      return 'rate';
     case 'MultiSelect':
     case 'Input':
     case 'InputNumber':
@@ -242,9 +250,6 @@ function widgetToRjsf(widget?: FormWidget, schema?: JSONSchema): string | undefi
     case 'ImageUpload':
     case 'FileUpload':
     case 'RichText':
-    case 'Cascader':
-    case 'TreeSelect':
-    case 'Rate':
     case 'KeyValue':
     case 'Array':
     case 'Object':
@@ -293,7 +298,11 @@ function applyFieldPresentation(
   if (field.disabled) nextUi['ui:disabled'] = true;
   if (field.placeholder) nextUi['ui:placeholder'] = localizedText(field.placeholder, 'zh-CN', '');
   if (widget) nextUi['ui:widget'] = widget;
-  if (field.widget === 'MultiSelect') nextUi['ui:widget'] = 'select';
+  if (field.widget === 'MultiSelect') {
+    // F3：多选 = 内置 select + multiple；enum 由 schema enum/enumNames 提供
+    nextUi['ui:widget'] = 'select';
+    nextUi['ui:options'] = { ...(nextUi['ui:options'] || {}), multiple: true };
+  }
   if (field.widgetProps)
     nextUi['ui:options'] = { ...(nextUi['ui:options'] || {}), ...field.widgetProps };
   uiSchema[field.key] = nextUi;
@@ -432,13 +441,13 @@ const SchemaFormRenderer = forwardRef<SchemaFormRendererHandle, SchemaFormRender
       localizeFormErrors(errors, schema, currentLocale());
 
     return (
-      // @ts-expect-error rjsf types not yet compatible with React 19
       <Form
         ref={formRef as React.Ref<RJSFFormRef>}
         schema={schema}
         uiSchema={uiSchema}
         formContext={formContext}
         validator={validator}
+        widgets={customWidgets}
         formData={formValues}
         readonly={readonly}
         disabled={disabled}
