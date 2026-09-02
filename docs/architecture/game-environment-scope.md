@@ -30,6 +30,10 @@ Croupier 不是一个 SaaS 多租户平台。
 scope = game_id + env
 ```
 
+> 命名分层：本文以 `game_id` 指代该字段的模型/存储语义（proto 字段与
+> DB 列同名）。各契约面一律小驼峰 `gameId`（REST/SDK 契约键、wire
+> metadata），HTTP 头为 `X-Game-ID`——见 CLAUDE.md 契约字段命名规则。
+
 ## 2. 为什么是 `game_id + env`
 
 `game_id` 表达业务归属。

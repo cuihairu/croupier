@@ -27,7 +27,7 @@ Croupier 是面向游戏运营与控制场景的 Server / Agent / SDK 平台，�
 
 ## Highlights
 
-- 单公司、多游戏、多环境作用域模型：标准业务边界是 `game_id + env`
+- 单公司、多游戏、多环境作用域模型：标准业务边界是 `gameId + env`
 - 业务作用域与运行目标分离：`scope` 表达归属，`target` 表达部署与执行位置
 - 统一的函数注册、调度、调用与作业模型
 - 轻量 session 传输：单连接、双向请求、可重连、可背压、可摘流
@@ -110,7 +110,7 @@ Croupier 当前的核心传输抽象不是 `历史消息模式`，而是轻量�
 
 Croupier 不采用 SaaS 多租户抽象。标准业务作用域为：
 
-- `game_id`：游戏标识
+- `gameId`：游戏标识。分层形态：REST/SDK 契约键 `gameId`，HTTP 头 `X-Game-ID`，proto 字段与 DB 列 `game_id`
 - `env`：逻辑环境标识，如 `dev`、`staging`、`prod`
 
 这里的 `env` 表达的是生命周期阶段，不直接等于具体数据库、集群或节点。物理部署与运行位置应通过单独的 `target`、`node`、`agent` 等抽象表达，而不是混入 `env`。
