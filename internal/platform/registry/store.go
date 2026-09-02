@@ -518,6 +518,23 @@ func (s *Store) previousFunctions(agentID string) map[string]FunctionMeta {
 	return functions
 }
 
+// PreviousFunctionSchema 返回该 agent 当前会话中函数的上一次注册
+// input/output schema（同 scope），用于注册时 schema 兼容性 diff。
+// 会话不存在 / scope 不一致 / 函数不在会话中均返回 ok=false（视为首次注册）。
+func (s *Store) PreviousFunctionSchema(agentID, gameID, env, functionID string) (inputSchema, outputSchema string, ok bool) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	current := s.agents[agentID]
+	if current == nil || current.GameID != gameID || current.Env != env {
+		return "", "", false
+	}
+	meta, exists := current.Functions[functionID]
+	if !exists {
+		return "", "", false
+	}
+	return meta.InputSchema, meta.OutputSchema, true
+}
+
 func (s *Store) survivingFunctionMeta(agentID, gameID, env, functionID string) (FunctionMeta, bool) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()

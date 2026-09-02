@@ -286,18 +286,19 @@ T5（无风险热身）→ T1 → T2 → T3 → T4。前四个每个含独立 go
 
 ## F-D 阶段：契约演进保护（P2）
 
-## F12. 注册时 schema 兼容性 diff ⬜
+## F12. 注册时 schema 兼容性 diff ✅
 
 **目标**：schema 破坏性变更不被静默覆盖。
 
 **改动点**：
 
-- [ ] 新增 `internal/function/schemadiff`（或 internal/api/openapi 旁）：JSON Schema 语义 diff——新增 required、删除已有 properties、类型变更、enum 收窄 = breaking；新增可选字段/描述变更 = compatible
-- [ ] `internal/server/control_handler.go` `handleRegisterRequest`（:429）upsert contract 前对比旧 `input_schema`/`output_schema`：breaking 时写入 contract `Diagnostics`（字段已有）+ `RegisterResponse.warnings` 返回 agent
-- [ ] 不阻断注册（只告警），策略开关 `functions.schemaDiffWarn`（默认开）
-- [ ] 单测：diff 五类判定、upsert 写 Diagnostics、warnings 透传
+- [x] 新增 `internal/function/schemadiff`：JSON Schema 语义 diff——新增 required、删除已有 properties、schema type/结构类型变更、enum 扩张 = breaking；新增可选字段/描述标题增改 = compatible；首注（旧空）/非法 JSON 不产差异
+- [x] `ContractService.RebuildContractFromFunctionMeta`：upsert 前对比库中现有契约 input/output schema，breaking 追加 `schema_breaking_change` Diagnostics（SDK/OpenAPI 来源统一覆盖）
+- [x] `ControlService.handleRegisterRequest`：与会话中上次注册 schema 对比，breaking 写入注册警告（code=`schema_breaking_change`）+ `RegisterResponse.warnings` 返回 agent；在 UpsertAgent 覆盖会话前执行
+- [x] 开关 `descriptors.schemaDiffWarn`（默认开，`*bool` 三态），`cmd/server/root.go` 接线
+- [x] 单测：diff 八类判定（required/删除/类型/enum/兼容/嵌套/首注/source 标签）、service Diagnostics 合并、handler 警告透传与开关抑制
 
-**验收**：`go test ./internal/function/... ./internal/server/...` 全绿；`go build ./...` 通过。
+**验收**：`go build ./...` + `go vet` 通过；`go test ./internal/function/... ./internal/service/ ./internal/server/` 全绿。
 
 ## F13. 契约变更可视化（依赖 F12）⬜
 

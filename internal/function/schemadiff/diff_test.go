@@ -1,0 +1,132 @@
+package schemadiff
+
+import (
+	"encoding/json"
+	"testing"
+)
+
+func mustRaw(t *testing.T, v string) json.RawMessage {
+	t.Helper()
+	return json.RawMessage(v)
+}
+
+func findByPath(findings []Finding, path string) (Finding, bool) {
+	for _, finding := range findings {
+		if finding.Path == path {
+			return finding, true
+		}
+	}
+	return Finding{}, false
+}
+
+// 1. 新增 required = breaking
+func TestDiffRequiredAdded(t *testing.T) {
+	oldRaw := mustRaw(t, `{"type":"object","properties":{"a":{"type":"string"}}}`)
+	newRaw := mustRaw(t, `{"type":"object","properties":{"a":{"type":"string"}},"required":["a"]}`)
+	findings := DiffSchemas("input_schema", oldRaw, newRaw)
+	if !HasBreaking(findings) {
+		t.Fatalf("expected breaking finding, got %+v", findings)
+	}
+	if _, ok := findByPath(findings, "$/required/a"); !ok {
+		t.Fatalf("expected required/a finding, got %+v", findings)
+	}
+}
+
+// 2. 删除已有 properties = breaking
+func TestDiffPropertyRemoved(t *testing.T) {
+	oldRaw := mustRaw(t, `{"type":"object","properties":{"a":{"type":"string"},"b":{"type":"integer"}}}`)
+	newRaw := mustRaw(t, `{"type":"object","properties":{"a":{"type":"string"}}}`)
+	findings := DiffSchemas("input_schema", oldRaw, newRaw)
+	if !HasBreaking(findings) {
+		t.Fatalf("expected breaking finding, got %+v", findings)
+	}
+	if finding, ok := findByPath(findings, "$/b"); !ok || finding.Reason == "" {
+		t.Fatalf("expected $/b removal finding, got %+v", findings)
+	}
+}
+
+// 3. 类型变更 = breaking（schema type 关键字）
+func TestDiffTypeChanged(t *testing.T) {
+	oldRaw := mustRaw(t, `{"type":"object","properties":{"a":{"type":"string"}}}`)
+	newRaw := mustRaw(t, `{"type":"object","properties":{"a":{"type":"integer"}}}`)
+	findings := DiffSchemas("input_schema", oldRaw, newRaw)
+	if !HasBreaking(findings) {
+		t.Fatalf("expected breaking finding, got %+v", findings)
+	}
+	if _, ok := findByPath(findings, "$/a"); !ok {
+		t.Fatalf("expected $/a type finding, got %+v", findings)
+	}
+}
+
+// 4. enum 收窄/扩张 = breaking（新取值不在旧取值域）
+func TestDiffEnumNarrowed(t *testing.T) {
+	oldRaw := mustRaw(t, `{"type":"object","properties":{"level":{"type":"string","enum":["low","high"]}}}`)
+	// 收窄（去掉 high）兼容；扩张（加 critical）breaking
+	compatible := mustRaw(t, `{"type":"object","properties":{"level":{"type":"string","enum":["low"]}}}`)
+	if findings := DiffSchemas("input_schema", oldRaw, compatible); HasBreaking(findings) {
+		t.Fatalf("enum narrowing (subset) should be compatible, got %+v", findings)
+	}
+	expanded := mustRaw(t, `{"type":"object","properties":{"level":{"type":"string","enum":["low","high","critical"]}}}`)
+	findings := DiffSchemas("input_schema", oldRaw, expanded)
+	if !HasBreaking(findings) {
+		t.Fatalf("expected breaking finding for enum expansion, got %+v", findings)
+	}
+	if _, ok := findByPath(findings, "$/level/enum/critical"); !ok {
+		t.Fatalf("expected enum/critical finding, got %+v", findings)
+	}
+}
+
+// 5. 新增可选字段 / 描述变更 = compatible
+func TestDiffCompatibleChanges(t *testing.T) {
+	oldRaw := mustRaw(t, `{"type":"object","properties":{"a":{"type":"string","title":"A"}},"required":["a"]}`)
+	newRaw := mustRaw(t, `{"type":"object","properties":{"a":{"type":"string","title":"A","description":"field a"},"b":{"type":"integer"}},"required":["a"]}`)
+	findings := DiffSchemas("input_schema", oldRaw, newRaw)
+	if HasBreaking(findings) {
+		t.Fatalf("expected only compatible findings, got %+v", findings)
+	}
+	if len(findings) != 2 {
+		t.Fatalf("expected 2 compatible findings (new field + description), got %+v", findings)
+	}
+}
+
+// 结构对比：结构类型变化（object → scalar）breaking
+func TestDiffStructureTypeChanged(t *testing.T) {
+	oldRaw := mustRaw(t, `{"type":"object","properties":{"profile":{"type":"object"}}}`)
+	newRaw := mustRaw(t, `{"type":"object","properties":{"profile":{"type":"string"}}}`)
+	findings := DiffSchemas("input_schema", oldRaw, newRaw)
+	if !HasBreaking(findings) {
+		t.Fatalf("expected breaking finding, got %+v", findings)
+	}
+}
+
+// 首次注册（旧 schema 为空）与非法 JSON 不产生差异
+func TestDiffEmptyAndInvalid(t *testing.T) {
+	if findings := DiffSchemas("input_schema", nil, mustRaw(t, `{"type":"object"}`)); len(findings) != 0 {
+		t.Fatalf("expected no findings for initial registration, got %+v", findings)
+	}
+	if findings := DiffSchemas("input_schema", mustRaw(t, `not-json`), mustRaw(t, `{"type":"object"}`)); len(findings) != 0 {
+		t.Fatalf("expected no findings for invalid old schema, got %+v", findings)
+	}
+}
+
+// 嵌套 properties 的破坏性变更可检出
+func TestDiffNestedBreaking(t *testing.T) {
+	oldRaw := mustRaw(t, `{"type":"object","properties":{"profile":{"type":"object","properties":{"city":{"type":"string"}}}}}`)
+	newRaw := mustRaw(t, `{"type":"object","properties":{"profile":{"type":"object","properties":{}}}}`)
+	findings := DiffSchemas("input_schema", oldRaw, newRaw)
+	if !HasBreaking(findings) {
+		t.Fatalf("expected nested breaking finding, got %+v", findings)
+	}
+	if _, ok := findByPath(findings, "$/profile/city"); !ok {
+		t.Fatalf("expected $/profile/city finding, got %+v", findings)
+	}
+}
+
+// source 区分 input/output
+func TestDiffSourceLabels(t *testing.T) {
+	oldRaw := mustRaw(t, `{"type":"object","properties":{"a":{"type":"string"}}}`)
+	findings := DiffSchemas("output_schema", oldRaw, mustRaw(t, `{"type":"object","properties":{}}`))
+	if len(findings) != 1 || findings[0].Source != "output_schema" {
+		t.Fatalf("expected single output_schema finding, got %+v", findings)
+	}
+}

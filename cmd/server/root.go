@@ -403,6 +403,8 @@ func startControlServer(ctx context.Context, c *config.Config, svcCtx *svc.Servi
 
 	// 创建 ControlService
 	controlService := server.NewControlService(svcCtx.RegistryStore, svcCtx.AgentSessionModel)
+	// F12：注册时 schema 兼容性告警开关（descriptors.schemaDiffWarn，默认开）
+	controlService.SetSchemaDiffWarnEnabled(svcCtx.Config.Descriptors.SchemaDiffWarnEnabled())
 	// 心跳自愈：本地会话丢失（过期清理/替换竞态）但 TCP 仍活时，从
 	// 共享归属表回读本实例持有的 scope 重建会话——僵尸连接不再静默。
 	if svcCtx.Cluster != nil && svcCtx.Cluster.Resolver != nil {

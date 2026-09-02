@@ -1532,3 +1532,49 @@ func TestContractService_GeneratedProposalUsesTermDictionary(t *testing.T) {
 	assert.Equal(t, "消耗", page.Title["zh-CN"])
 	assert.Equal(t, "Consume", page.Title["en-US"])
 }
+
+// F12：注册时 schema 破坏性变更写入契约 Diagnostics（不阻断注册）。
+func TestContractService_SchemaBreakingChangeWritesDiagnostics(t *testing.T) {
+	db := setupTestDB(t)
+	ctx := context.Background()
+	service := NewContractService(db)
+
+	base := FunctionMetaInput{
+		ID:          "player.ban",
+		Version:     "1.0.0",
+		Enabled:     true,
+		Resource:    "player",
+		Operation:   "ban",
+		Capability:  "action",
+		Execution:   "sync",
+		InputSchema: `{"type":"object","properties":{"playerId":{"type":"string"},"reason":{"type":"string"}}}`,
+	}
+
+	// 首次注册：无 schema diff 告警
+	require.NoError(t, service.RebuildContractFromFunctionMeta(ctx, "demo-game", "development", "sdk", base))
+	contract, err := service.GetContract(ctx, "demo-game", "development", "player.ban")
+	require.NoError(t, err)
+	assert.NotContains(t, string(contract.Diagnostics), "schema_breaking_change")
+
+	// 第二次注册：删除 reason 字段 = breaking → Diagnostics 追加告警，
+	// 注册本身仍成功（不阻断）
+	breaking := base
+	breaking.InputSchema = `{"type":"object","properties":{"playerId":{"type":"string"}}}`
+	require.NoError(t, service.RebuildContractFromFunctionMeta(ctx, "demo-game", "development", "sdk", breaking))
+	contract, err = service.GetContract(ctx, "demo-game", "development", "player.ban")
+	require.NoError(t, err)
+	assert.Contains(t, string(contract.Diagnostics), "schema_breaking_change")
+	assert.Contains(t, string(contract.Diagnostics), "input_schema$/reason")
+
+	// 兼容性变更（新增可选字段）：不产生告警
+	compatible := base
+	compatible.InputSchema = `{"type":"object","properties":{"playerId":{"type":"string"},"reason":{"type":"string"},"level":{"type":"integer"}}}`
+	require.NoError(t, service.RebuildContractFromFunctionMeta(ctx, "demo-game", "development", "sdk", compatible))
+	contract, err = service.GetContract(ctx, "demo-game", "development", "player.ban")
+	require.NoError(t, err)
+	var schema map[string]interface{}
+	require.NoError(t, json.Unmarshal(contract.InputSchema, &schema))
+	props, ok := schema["properties"].(map[string]interface{})
+	require.True(t, ok)
+	assert.Contains(t, props, "level")
+}

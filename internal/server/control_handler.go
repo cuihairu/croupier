@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"compress/gzip"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"log/slog"
@@ -17,6 +18,7 @@ import (
 
 	"github.com/cuihairu/croupier/internal/function/converter"
 	"github.com/cuihairu/croupier/internal/function/registrationguard"
+	"github.com/cuihairu/croupier/internal/function/schemadiff"
 	"github.com/cuihairu/croupier/internal/model"
 	reg "github.com/cuihairu/croupier/internal/platform/registry"
 	"github.com/cuihairu/croupier/internal/tasks"
@@ -112,6 +114,11 @@ type ControlService struct {
 
 	upstream Handler
 
+	// schemaDiffWarn 注册时 schema 兼容性检查开关（默认开）：破坏性
+	// schema 变更写入注册警告并随 RegisterResponse.warnings 返回 agent，
+	// 不阻断注册。
+	schemaDiffWarn bool
+
 	// clusterHooks 集群归属钩子（多实例 HA；nil = 未启用，no-op）。
 	clusterHooks interface {
 		OnAgentRegistered(ctx context.Context, agentID, gameID, env string)
@@ -157,10 +164,16 @@ func NewControlService(registry *reg.Store, loader AgentSessionLoader) *ControlS
 		metricsStore:       reg.NewMetricsStore(),
 		systemInfoCache:    reg.NewSystemInfoCache(),
 		defaultSessionTTL:  5 * time.Minute,
+		schemaDiffWarn:     true,
 		ctx:                ctx,
 		cancel:             cancel,
 		logger:             slog.Default(),
 	}
+}
+
+// SetSchemaDiffWarnEnabled 开关注册时 schema 兼容性告警（默认开启）。
+func (s *ControlService) SetSchemaDiffWarnEnabled(enabled bool) {
+	s.schemaDiffWarn = enabled
 }
 
 func (s *ControlService) SetTaskStore(store TaskStore) {
@@ -512,6 +525,43 @@ func (s *ControlService) handleRegisterRequest(ctx context.Context, req *agentv1
 			}
 		} else {
 			s.logger.Warn("failed to convert function descriptor to openapi operation", "function_id", f.Id, "error", err)
+		}
+	}
+
+	// F12：注册时 schema 兼容性检查——与会话中上一次注册的 schema 对比，
+	// 破坏性变更写入注册警告并随 RegisterResponse.warnings 返回 agent。
+	// 只告警不阻断；必须在 UpsertAgent 覆盖会话之前执行。
+	if s.schemaDiffWarn {
+		for _, f := range functions {
+			if f == nil || f.Id == "" {
+				continue
+			}
+			oldInput, oldOutput, ok := s.registry.PreviousFunctionSchema(req.AgentId, req.GameId, req.Env, f.Id)
+			if !ok {
+				continue
+			}
+			findings := schemadiff.DiffSchemas("input_schema", json.RawMessage(oldInput), json.RawMessage(f.GetInputSchema()))
+			findings = append(findings,
+				schemadiff.DiffSchemas("output_schema", json.RawMessage(oldOutput), json.RawMessage(f.GetOutputSchema()))...)
+			for _, finding := range findings {
+				if finding.Severity != schemadiff.SeverityBreaking {
+					continue
+				}
+				warning := fmt.Sprintf("function %s %s%s: %s", f.Id, finding.Source, finding.Path, finding.Reason)
+				warningTexts = append(warningTexts, warning)
+				s.logger.Warn("register schema breaking change", "agent_id", req.AgentId, "function_id", f.Id, "source", finding.Source, "path", finding.Path, "reason", finding.Reason)
+				if err := s.registry.UpsertRegistrationWarning(ctx, reg.FunctionRegistrationWarning{
+					GameID:     req.GameId,
+					Env:        req.Env,
+					AgentID:    req.AgentId,
+					FunctionID: f.Id,
+					Version:    f.Version,
+					Code:       "schema_breaking_change",
+					Message:    warning,
+				}); err != nil {
+					s.logger.Error("failed to upsert schema diff warning", "error", err)
+				}
+			}
 		}
 	}
 

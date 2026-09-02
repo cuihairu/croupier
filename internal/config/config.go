@@ -722,6 +722,15 @@ func (c *BootstrapDataConfig) UnmarshalYAML(value *yaml.Node) error {
 
 type DescriptorConfig struct {
 	Dir string `json:"dir,omitempty" yaml:"dir,omitempty"`
+	// SchemaDiffWarn 注册时 schema 兼容性告警开关（默认开启）：破坏性
+	// schema 变更写入注册警告并随 RegisterResponse.warnings 返回 agent，
+	// 不阻断注册。仅显式 false 关闭。
+	SchemaDiffWarn *bool `json:"schemaDiffWarn,omitempty" yaml:"schemaDiffWarn,omitempty"`
+}
+
+// SchemaDiffWarnEnabled 返回生效值（nil 默认开启）。
+func (c *DescriptorConfig) SchemaDiffWarnEnabled() bool {
+	return c.SchemaDiffWarn == nil || *c.SchemaDiffWarn
 }
 
 func (c *DescriptorConfig) UnmarshalYAML(value *yaml.Node) error {

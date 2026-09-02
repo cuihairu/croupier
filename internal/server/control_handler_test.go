@@ -6,6 +6,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -1872,4 +1873,96 @@ func TestCloneStringMap(t *testing.T) {
 	// Verify it's a copy
 	result3["key3"] = "value3"
 	assert.NotEqual(t, input, result3)
+}
+
+// F12：重复注册时 schema 破坏性变更 → warnings 透传 + 注册警告；开关关闭则不告警。
+func TestControlService_HandleRegisterSchemaDiffWarnings(t *testing.T) {
+	newReq := func(reason string) *agentv1.RegisterRequest {
+		return &agentv1.RegisterRequest{
+			AgentId: "agent-schema-diff",
+			GameId:  "game-1",
+			Env:     "prod",
+			Functions: []*agentv1.FunctionDescriptor{
+				{
+					Id:          "game.player.ban",
+					Version:     "1.0.0",
+					Enabled:     true,
+					Resource:    "player",
+					Operation:   "ban",
+					Capability:  "action",
+					Execution:   "sync",
+					InputSchema: fmt.Sprintf(`{"type":"object","properties":{"id":{"type":"string"},"reason":{"type":"string","description":%q}}}`, reason),
+				},
+			},
+		}
+	}
+	breakingReq := &agentv1.RegisterRequest{
+		AgentId: "agent-schema-diff",
+		GameId:  "game-1",
+		Env:     "prod",
+		Functions: []*agentv1.FunctionDescriptor{
+			{
+				Id:          "game.player.ban",
+				Version:     "1.0.0",
+				Enabled:     true,
+				Resource:    "player",
+				Operation:   "ban",
+				Capability:  "action",
+				Execution:   "sync",
+				InputSchema: `{"type":"object","properties":{"id":{"type":"string"}}}`,
+			},
+		},
+	}
+
+	t.Run("breaking change produces warning", func(t *testing.T) {
+		svc := newTestControlService()
+
+		// 首次注册：无 schema diff 警告
+		resp, err := svc.handleRegisterRequest(context.Background(), newReq("v1"), "")
+		require.NoError(t, err)
+		for _, warning := range resp.Warnings {
+			assert.NotContains(t, warning, "schema_breaking_change")
+			assert.NotContains(t, warning, "reason")
+		}
+
+		// 二次注册删除 reason 字段 = breaking → warnings 透传
+		resp, err = svc.handleRegisterRequest(context.Background(), breakingReq, "")
+		require.NoError(t, err)
+		found := false
+		for _, warning := range resp.Warnings {
+			if strings.Contains(warning, "reason") && strings.Contains(warning, "删除") {
+				found = true
+			}
+		}
+		assert.True(t, found, "expected breaking change warning in %v", resp.Warnings)
+
+		// 注册警告表可查
+		warnings := svc.registry.ListRegistrationWarnings(registry.RegistrationWarningFilter{
+			GameID:     "game-1",
+			Env:        "prod",
+			FunctionID: "game.player.ban",
+			Code:       "schema_breaking_change",
+		})
+		assert.NotEmpty(t, warnings)
+	})
+
+	t.Run("disabled flag suppresses warnings", func(t *testing.T) {
+		svc := newTestControlService()
+		svc.SetSchemaDiffWarnEnabled(false)
+
+		_, err := svc.handleRegisterRequest(context.Background(), newReq("v1"), "")
+		require.NoError(t, err)
+		resp, err := svc.handleRegisterRequest(context.Background(), breakingReq, "")
+		require.NoError(t, err)
+		for _, warning := range resp.Warnings {
+			assert.NotContains(t, warning, "reason")
+		}
+		warnings := svc.registry.ListRegistrationWarnings(registry.RegistrationWarningFilter{
+			GameID:     "game-1",
+			Env:        "prod",
+			FunctionID: "game.player.ban",
+			Code:       "schema_breaking_change",
+		})
+		assert.Empty(t, warnings)
+	})
 }
