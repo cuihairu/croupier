@@ -515,6 +515,18 @@ export interface EnumOption {
   color?: string;
 }
 
+/** 远程选项源（F9）：指向同作用域已注册的 collection_query 函数 */
+export interface RemoteOptionsSpec {
+  /** 数据源函数 ID，如 "player.list"；调用走既有 RBAC */
+  functionId: string;
+  // 结果标签取值路径，支持 * 通配数组段，如 "/items/*/name"
+  labelPath?: string;
+  // 结果取值路径，如 "/items/*/id"
+  valuePath?: string;
+  /** 搜索关键词参数名；设置后下拉搜索会以该参数重新调用 */
+  searchParam?: string;
+}
+
 /** 排序规格 */
 export interface SortSpec {
   field: string;
@@ -703,6 +715,8 @@ export interface FormFieldSpec {
   required?: boolean;
   defaultValue?: JSONValue;
   enumOptions?: EnumOption[];
+  /** 远程选项源（x-options-source 推导）；与 enumOptions 互斥，优先 remoteOptions */
+  remoteOptions?: RemoteOptionsSpec;
   widgetProps?: Record<string, JSONValue>;
   validationRules?: ValidationRule[];
 }

@@ -182,19 +182,32 @@ describe('derivePresentationSpec', () => {
     expect(spec.groups![0].fields).toEqual(['a']);
   });
 
-  it('x-options-source 为保留字段，当前被忽略', () => {
+  it('x-options-source 提取为 remoteOptions（F9）', () => {
     const spec = derivePresentationSpec(
       schema({
         type: 'object',
         properties: {
           player: {
             type: 'string',
-            'x-options-source': { functionId: 'player.list' },
+            'x-widget': 'Select',
+            'x-options-source': {
+              functionId: 'player.list',
+              labelPath: '/items/*/name',
+              valuePath: '/items/*/id',
+            },
           },
+          bad: { type: 'string', 'x-options-source': {} },
         },
       }),
     );
-    expect(spec.fields).toBeUndefined();
+    const player = spec.fields!.find((f) => f.key === 'player')!;
+    expect(player.remoteOptions).toEqual({
+      functionId: 'player.list',
+      labelPath: '/items/*/name',
+      valuePath: '/items/*/id',
+    });
+    // 非法（缺 functionId）被忽略
+    expect(spec.fields!.find((f) => f.key === 'bad')!.remoteOptions).toBeUndefined();
   });
 
   it('非对象/空 schema 安全回退', () => {

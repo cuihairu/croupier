@@ -239,19 +239,21 @@ T5（无风险热身）→ T1 → T2 → T3 → T4。前四个每个含独立 go
 
 **验收**：tsc 0 错误 + web test 全绿（176 passed）+ guard PASSED。
 
-## F9. 远程选项源（x-options-source）⬜
+## F9. 远程选项源（x-options-source）✅
 
 **目标**：选择玩家/角色等高频输入从「手输 id」变为「下拉搜索」。
 
 **改动点**：
 
-- [ ] FormFieldSpec 扩展 `remoteOptions: { functionId, labelPath?, valuePath?, searchParam? }`；x-options-source hint 提取进 F2 推导器
-- [ ] 新增 hook `useRemoteOptions`：表单字段失焦/打开下拉时 `invokeFunction(functionId, …)` 拉取（labelPath/valuePath 取值），会话级 Map 缓存（key=functionId+params），失败静默降级为手输
-- [ ] F3 的 Select/TreeSelect widget 接入该 hook
-- [ ] 权限天然走 RBAC（调用需权限，无权限时提示不可用）
-- [ ] 单测：mock invokeFunction——选项映射、缓存命中、失败降级
+- [x] `FormFieldSpec` 扩展 `remoteOptions`（types/dashboard.ts `RemoteOptionsSpec`）；`asRemoteOptions` 提取进 F2 推导器（缺 functionId 忽略）
+- [x] 新增 hook `useRemoteOptions`：会话级缓存（functionId+search），失败静默降级为空选项（widget 退化为普通输入），`selectByPointer` 支持 `*` 通配数组段
+- [x] Select（`RemoteSelectWidget` 覆盖内置 `select`，非远程委托内置）/TreeSelect（`RemoteTreeSelectBody`）接入；searchParam 声明时下拉搜索重新调用
+- [x] 权限天然走 RBAC（无权限调用失败 → 降级手输）
+- [x] 单测 6 例：通配取值、label/value 映射兜底、缓存命中、失败降级、searchParam 重调、Select 集成（走真实 hints 推导链）+ F2 测试同步为新语义
 
-**验收**：tsc + web test 全绿；demo 包（examples）配一个带 x-options-source 的示例函数验证端到端。
+> 已知边界：valuePath 缺省复用 labelPath、选项 label 缺省复用 value；远程选项在 TreeSelect 中为平铺列表（无层级）。
+
+**验收**：tsc + web test 全绿（182 passed）+ guard PASSED + demo `player.ban` 配置 x-options-source 端到端示例 + docs build 通过。
 
 ## F-C 阶段：结果渲染与调用 UX（P1）
 

@@ -19,6 +19,7 @@ import type {
   JSONSchema,
   JSONValue,
   LocalizedText,
+  RemoteOptionsSpec,
 } from '@/types/dashboard';
 
 const FORM_WIDGETS: readonly FormWidget[] = [
@@ -148,6 +149,19 @@ function asGroupKey(value: unknown): string | undefined {
   return typeof value === 'string' && value.trim() ? value.trim() : undefined;
 }
 
+function asRemoteOptions(value: unknown): RemoteOptionsSpec | undefined {
+  if (!isPlainObject(value)) return undefined;
+  const functionId = value.functionId;
+  if (typeof functionId !== 'string' || !functionId.trim()) return undefined;
+  const spec: RemoteOptionsSpec = { functionId: functionId.trim() };
+  if (typeof value.labelPath === 'string' && value.labelPath) spec.labelPath = value.labelPath;
+  if (typeof value.valuePath === 'string' && value.valuePath) spec.valuePath = value.valuePath;
+  if (typeof value.searchParam === 'string' && value.searchParam) {
+    spec.searchParam = value.searchParam;
+  }
+  return spec;
+}
+
 interface FieldDerived {
   field: FormFieldSpec;
   /** 有任一可用 hint（含 x-group）才进入 fields 输出 */
@@ -208,7 +222,11 @@ function deriveLeaf(key: string, schema: SchemaNode): FieldDerived {
     field.widgetProps = widgetProps;
     included = true;
   }
-  // x-options-source：保留字段（todo.md F9），消费实现落地前忽略
+  const remoteOptions = asRemoteOptions(schema['x-options-source']);
+  if (remoteOptions) {
+    field.remoteOptions = remoteOptions;
+    included = true;
+  }
 
   const group = asGroupKey(schema['x-group']);
   if (group) included = true;

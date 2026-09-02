@@ -51,20 +51,20 @@ hints 放置在 **字段 schema 对象**上（支持嵌套，推导为点路径 
 
 ### 字段级 hints
 
-| hint               | 类型                        | 映射到 `FormFieldSpec`    | 说明                                                                                                                             |
-| ------------------ | --------------------------- | ------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| `x-widget`         | `FormWidget` 枚举           | `widget`                  | 受控枚举，取值同 pagespec-protocol.md「FormPresentationSpec」（`Input`/`Select`/`TreeSelect`/…）；未知值忽略并按 schema 默认推导 |
-| `x-label`          | `LocalizedText` 或 `string` | `label`                   | 覆盖 schema `title`；string 归一为 `{ "zh-CN": s }`                                                                              |
-| `x-placeholder`    | `LocalizedText` 或 `string` | `placeholder`             |                                                                                                                                  |
-| `x-description`    | `LocalizedText` 或 `string` | `description`             | 帮助文本；schema `description` 缺失时的兜底来源之一                                                                              |
-| `x-width`          | `1..12` int                 | `width`                   | grid 布局栅格宽度                                                                                                                |
-| `x-order`          | number                      | `order`                   | 排序，小者在前；未声明时按 schema properties 顺序                                                                                |
-| `x-disabled`       | bool                        | `disabled`                |                                                                                                                                  |
-| `x-visible-when`   | `ConditionSpec`             | `visibleWhen`             | 受限表达式，结构同 pagespec-protocol.md（`equals`/`notEquals`/`exists`/`all`/`any`，path 为 JSON Pointer）                       |
-| `x-enum-options`   | `[{ value, label }]`        | `enumOptions`             | 只补充标签展示；`label` 为 `LocalizedText` 或 `string`                                                                           |
-| `x-widget-props`   | object                      | `widgetProps`             | 透传给 widget 的额外 props（如 `treeData`、`accept`、`maxCount`）                                                                |
-| `x-group`          | string                      | 归入 `groups[].fields`    | 分组 key；组标题在根级 `x-ui-groups` 声明                                                                                        |
-| `x-options-source` | 见下文                      | `remoteOptions`（规划中） | 远程选项源，**当前为保留字段**，状态见下文                                                                                       |
+| hint               | 类型                        | 映射到 `FormFieldSpec` | 说明                                                                                                                             |
+| ------------------ | --------------------------- | ---------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| `x-widget`         | `FormWidget` 枚举           | `widget`               | 受控枚举，取值同 pagespec-protocol.md「FormPresentationSpec」（`Input`/`Select`/`TreeSelect`/…）；未知值忽略并按 schema 默认推导 |
+| `x-label`          | `LocalizedText` 或 `string` | `label`                | 覆盖 schema `title`；string 归一为 `{ "zh-CN": s }`                                                                              |
+| `x-placeholder`    | `LocalizedText` 或 `string` | `placeholder`          |                                                                                                                                  |
+| `x-description`    | `LocalizedText` 或 `string` | `description`          | 帮助文本；schema `description` 缺失时的兜底来源之一                                                                              |
+| `x-width`          | `1..12` int                 | `width`                | grid 布局栅格宽度                                                                                                                |
+| `x-order`          | number                      | `order`                | 排序，小者在前；未声明时按 schema properties 顺序                                                                                |
+| `x-disabled`       | bool                        | `disabled`             |                                                                                                                                  |
+| `x-visible-when`   | `ConditionSpec`             | `visibleWhen`          | 受限表达式，结构同 pagespec-protocol.md（`equals`/`notEquals`/`exists`/`all`/`any`，path 为 JSON Pointer）                       |
+| `x-enum-options`   | `[{ value, label }]`        | `enumOptions`          | 只补充标签展示；`label` 为 `LocalizedText` 或 `string`                                                                           |
+| `x-widget-props`   | object                      | `widgetProps`          | 透传给 widget 的额外 props（如 `treeData`、`accept`、`maxCount`）                                                                |
+| `x-group`          | string                      | 归入 `groups[].fields` | 分组 key；组标题在根级 `x-ui-groups` 声明                                                                                        |
+| `x-options-source` | 见下文                      | `remoteOptions`        | 远程选项源，消费实现见下文                                                                                                       |
 
 ### 根级 hints
 
@@ -73,20 +73,27 @@ hints 放置在 **字段 schema 对象**上（支持嵌套，推导为点路径 
 | `x-ui-layout` | `vertical`/`horizontal`/`inline`/`grid`       | `layout`                      | 缺省 `vertical`                                                                                              |
 | `x-ui-groups` | `[{ key, title?, collapsible?, collapsed? }]` | `groups`                      | 组成员由字段 `x-group` 归属；未在 `x-ui-groups` 声明的分组 key 按字段出现顺序自动补组（title 取 key 人性化） |
 
-### 远程选项源（`x-options-source`，保留）
+### 远程选项源（`x-options-source`）
 
 ```json
 "x-options-source": {
   "functionId": "player.list",
-  "labelPath": "/items/*/nickname",
-  "valuePath": "/items/*/playerId",
+  "labelPath": "/items/*/name",
+  "valuePath": "/items/*/id",
   "searchParam": "keyword"
 }
 ```
 
-指向同 `(game_id, env)` 作用域内已注册的 `collection_query` 函数，运行时调用获取选项。
-**状态：契约已预留、前端消费未实现**（todo.md F9）；消费实现落地前，该字段被推导器
-忽略。调用走既有 RBAC（无权限时降级为普通输入）。
+指向同 `(game_id, env)` 作用域内已注册的 `collection_query` 函数，运行时调用获取选项：
+
+- **取值路径**：`labelPath`/`valuePath` 为 JSON Pointer，支持 `*` 通配数组段
+  （`/items/*/id`）；`valuePath` 缺省复用 `labelPath`，选项 label 缺省复用 value。
+- **搜索**：声明 `searchParam` 后，下拉搜索以该参数重新调用数据源；未声明则
+  首次拉取后本地过滤。
+- **缓存**：会话级按 `functionId + 搜索词` 缓存，同参数只调用一次。
+- **权限**：调用走既有 RBAC——无权限时调用失败，**静默降级为普通输入**。
+- **消费 widget**：`Select`（覆盖内置实现，非远程选项仍委托内置）与
+  `TreeSelect`（远程选项降级为平铺列表）。
 
 ## 推导规则
 

@@ -319,6 +319,14 @@ function applyFieldPresentation(
     nextUi['ui:widget'] = 'select';
     nextUi['ui:options'] = { ...(nextUi['ui:options'] || {}), multiple: true };
   }
+  if (field.remoteOptions) {
+    // F9：远程选项源随 ui:options 进入 widget（Select/TreeSelect 消费，
+    // widget 名仍由 x-widget 决定，不在此强制）
+    nextUi['ui:options'] = {
+      ...(nextUi['ui:options'] || {}),
+      remoteOptions: field.remoteOptions,
+    };
+  }
   if (field.widgetProps)
     nextUi['ui:options'] = { ...(nextUi['ui:options'] || {}), ...field.widgetProps };
   uiSchema[field.key] = nextUi;
