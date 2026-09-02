@@ -45,7 +45,7 @@ func (h *Handler) Create(c *gin.Context) {
 
 // Update serves PUT /admin/announcements/:id.
 func (h *Handler) Update(c *gin.Context) {
-	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
 	if err != nil {
 		response.BadRequest(c, "无效的公告 ID")
 		return
@@ -65,7 +65,7 @@ func (h *Handler) Update(c *gin.Context) {
 
 // Delete serves DELETE /admin/announcements/:id.
 func (h *Handler) Delete(c *gin.Context) {
-	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
 	if err != nil {
 		response.BadRequest(c, "无效的公告 ID")
 		return
@@ -97,7 +97,7 @@ func (h *Handler) Active(c *gin.Context) {
 
 // Dismiss serves POST /announcements/:id/dismiss：确认公告（不再弹窗，幂等）。
 func (h *Handler) Dismiss(c *gin.Context) {
-	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
 	if err != nil {
 		response.BadRequest(c, "无效的公告 ID")
 		return
