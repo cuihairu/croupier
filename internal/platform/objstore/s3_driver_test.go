@@ -89,7 +89,7 @@ func TestS3Store_DeleteSingleObject(t *testing.T) {
 
 // TestS3Store_DeleteFolderKeySanitized 文档化当前行为：sanitizeKey 会去掉尾部斜杠，
 // Delete("dir/") 实际删除的是对象 "dir"（非前缀递归删除）。
-// 若目录标记 "dir/" 存在而 "dir" 不存在（memblob 语义），则返回 NotFound。
+// 尾斜杠键走前缀递归删除（历史上被 sanitizeKey 吃掉尾斜杠后报 NotFound，已修复）。
 func TestS3Store_DeleteFolderKeySanitized(t *testing.T) {
 	ctx := context.Background()
 	s := newMemS3Store(t)
@@ -97,9 +97,13 @@ func TestS3Store_DeleteFolderKeySanitized(t *testing.T) {
 	require.NoError(t, s.CreatePrefix(ctx, "dir"))
 	require.NoError(t, s.Put(ctx, "dir/f1.txt", strings.NewReader("1"), 1, ""))
 
-	err := s.Delete(ctx, "dir/")
-	require.Error(t, err) // memblob: key "dir" 不存在
-	assert.Contains(t, err.Error(), "NotFound")
+	require.NoError(t, s.Delete(ctx, "dir/"))
+
+	res, err := s.List(ctx, "", "", "", 0)
+	require.NoError(t, err)
+	for _, o := range res.Objects {
+		assert.NotContains(t, o.Key, "dir/", "prefix must be deleted, got %s", o.Key)
+	}
 }
 
 func TestS3Store_ListDelimiter(t *testing.T) {

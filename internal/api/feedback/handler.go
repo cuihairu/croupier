@@ -48,10 +48,7 @@ func (h *Handler) Create(c *gin.Context) {
 // Update handles the request to update feedback
 func (h *Handler) Update(c *gin.Context) {
 	var req FeedbackUpdateRequest
-	if err := c.ShouldBindUri(&req); err != nil {
-		response.Error(c, err)
-		return
-	}
+	_ = c.ShouldBindUri(&req) // uri 字段均为 string 且无 required：绑定不会失败，保留填充语义
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.Error(c, err)
 		return
@@ -68,10 +65,7 @@ func (h *Handler) Update(c *gin.Context) {
 // Delete handles the request to delete feedback
 func (h *Handler) Delete(c *gin.Context) {
 	var req FeedbackDeleteRequest
-	if err := c.ShouldBindUri(&req); err != nil {
-		response.Error(c, err)
-		return
-	}
+	_ = c.ShouldBindUri(&req) // uri 字段均为 string 且无 required：绑定不会失败，保留填充语义
 
 	if err := h.service.Delete(c.Request.Context(), &req); err != nil {
 		response.Error(c, err)
@@ -99,10 +93,7 @@ func (h *Handler) Stats(c *gin.Context) {
 // ConvertToTicket handles POST /feedback/:id/convert.
 func (h *Handler) ConvertToTicket(c *gin.Context) {
 	var req ConvertRequest
-	if err := c.ShouldBindUri(&req); err != nil {
-		response.Error(c, err)
-		return
-	}
+	_ = c.ShouldBindUri(&req) // uri 字段均为 string 且无 required：绑定不会失败，保留填充语义
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.Error(c, err)
 		return

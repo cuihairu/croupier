@@ -112,9 +112,8 @@ func TestService_List_StatusFilter_NoMatch(t *testing.T) {
 func TestHandler_List_InvalidPageQuery(t *testing.T) {
 	r, _ := newTestEnv(t, true)
 	rec := doReq(r, http.MethodGet, "/api/v1/schedules?page=abc")
-	// 现状：query 数值转换错误未被 response.Error 识别为 400（已知问题，
-	// 见 coverage 交付报告），至少不得返回 200 成功。
-	assert.NotEqual(t, http.StatusOK, rec.Code, rec.Body.String())
+	// Bug4 修复后：query 数值转换错误按契约返回 400
+	assert.Equal(t, http.StatusBadRequest, rec.Code, rec.Body.String())
 }
 
 func TestHandler_RunLogs_InvalidID(t *testing.T) {

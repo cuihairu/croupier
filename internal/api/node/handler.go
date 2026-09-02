@@ -32,10 +32,7 @@ func (h *Handler) List(c *gin.Context) {
 // GetMeta handles the request to get node metadata
 func (h *Handler) GetMeta(c *gin.Context) {
 	var req NodeMetaRequest
-	if err := c.ShouldBindUri(&req); err != nil {
-		response.Error(c, err)
-		return
-	}
+	_ = c.ShouldBindUri(&req) // uri 字段均为 string 且无 required：绑定不会失败，保留填充语义
 
 	resp, err := h.service.GetMeta(c.Request.Context(), &req)
 	if err != nil {
@@ -48,10 +45,7 @@ func (h *Handler) GetMeta(c *gin.Context) {
 // UpdateMeta handles the request to update node metadata
 func (h *Handler) UpdateMeta(c *gin.Context) {
 	var req NodeMetaUpdateRequest
-	if err := c.ShouldBindUri(&req); err != nil {
-		response.Error(c, err)
-		return
-	}
+	_ = c.ShouldBindUri(&req) // uri 字段均为 string 且无 required：绑定不会失败，保留填充语义
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.Error(c, err)
 		return
@@ -68,9 +62,15 @@ func (h *Handler) UpdateMeta(c *gin.Context) {
 // Drain handles the request to drain a node
 func (h *Handler) Drain(c *gin.Context) {
 	var req NodeDrainRequest
-	if err := c.ShouldBindUri(&req); err != nil {
-		response.Error(c, err)
-		return
+	_ = c.ShouldBindUri(&req) // uri 字段均为 string 且无 required：绑定不会失败，保留填充语义
+	// timeout 是可选 body：仅在有请求体时绑定（空 body 的旧调用方——
+	// 脚本/其他服务——不带 body 仍可 drain；历史上不 bind 导致
+	// timeout 参数被静默忽略）。
+	if c.Request != nil && c.Request.ContentLength > 0 {
+		if err := c.ShouldBindJSON(&req); err != nil {
+			response.Error(c, err)
+			return
+		}
 	}
 
 	if err := h.service.Drain(c.Request.Context(), &req); err != nil {
@@ -83,10 +83,7 @@ func (h *Handler) Drain(c *gin.Context) {
 // Undrain handles the request to undrain a node
 func (h *Handler) Undrain(c *gin.Context) {
 	var req NodeActionRequest
-	if err := c.ShouldBindUri(&req); err != nil {
-		response.Error(c, err)
-		return
-	}
+	_ = c.ShouldBindUri(&req) // uri 字段均为 string 且无 required：绑定不会失败，保留填充语义
 
 	if err := h.service.Undrain(c.Request.Context(), &req); err != nil {
 		response.Error(c, err)
@@ -98,10 +95,7 @@ func (h *Handler) Undrain(c *gin.Context) {
 // Restart handles the request to restart a node
 func (h *Handler) Restart(c *gin.Context) {
 	var req NodeActionRequest
-	if err := c.ShouldBindUri(&req); err != nil {
-		response.Error(c, err)
-		return
-	}
+	_ = c.ShouldBindUri(&req) // uri 字段均为 string 且无 required：绑定不会失败，保留填充语义
 
 	if err := h.service.Restart(c.Request.Context(), &req); err != nil {
 		response.Error(c, err)

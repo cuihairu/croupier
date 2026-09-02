@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"reflect"
+	"strconv"
 	"testing"
 
 	"github.com/cuihairu/croupier/internal/common/errorx"
@@ -319,4 +320,20 @@ func TestError_NilError(t *testing.T) {
 		req, _ := http.NewRequest("GET", "/test", nil)
 		router.ServeHTTP(w, req)
 	})
+}
+
+// Bug4 修复验证：query 数值转换失败（strconv.NumError）应返回 400 而非 500
+func TestError_StrconvNumError_BadRequest(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	router := gin.New()
+	router.GET("/test", func(c *gin.Context) {
+		_, err := strconv.Atoi("abc")
+		Error(c, err)
+	})
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest("GET", "/test", nil)
+	router.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+	assert.Contains(t, w.Body.String(), "bad_request")
 }

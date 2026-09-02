@@ -5,6 +5,7 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"strconv"
 
 	"github.com/cuihairu/croupier/internal/common/errorx"
 	"github.com/gin-gonic/gin"
@@ -49,6 +50,13 @@ func Error(c *gin.Context, err error) {
 	}
 	var unmarshalTypeErr *json.UnmarshalTypeError
 	if errors.As(err, &unmarshalTypeErr) {
+		BadRequest(c, err.Error())
+		return
+	}
+	// query/uri 数值转换失败（?page=abc 之类）是客户端输入错误，
+	// 应按契约返回 400 而非 500（历史上落入 internal_error 兜底）。
+	var numErr *strconv.NumError
+	if errors.As(err, &numErr) {
 		BadRequest(c, err.Error())
 		return
 	}

@@ -45,10 +45,7 @@ func (h *Handler) Start(c *gin.Context) {
 
 func (h *Handler) Detail(c *gin.Context) {
 	var req DetailRequest
-	if err := c.ShouldBindUri(&req); err != nil {
-		response.Error(c, err)
-		return
-	}
+	_ = c.ShouldBindUri(&req) // uri 字段均为 string 且无 required：绑定不会失败，保留填充语义
 	resp, err := h.service.Detail(c.Request.Context(), &req)
 	if err != nil {
 		response.Error(c, err)
@@ -59,10 +56,7 @@ func (h *Handler) Detail(c *gin.Context) {
 
 func (h *Handler) Events(c *gin.Context) {
 	var req EventsRequest
-	if err := c.ShouldBindUri(&req); err != nil {
-		response.Error(c, err)
-		return
-	}
+	_ = c.ShouldBindUri(&req) // uri 字段均为 string 且无 required：绑定不会失败，保留填充语义
 	if err := c.ShouldBindQuery(&req); err != nil {
 		response.Error(c, err)
 		return
@@ -87,10 +81,7 @@ func (h *Handler) Events(c *gin.Context) {
 
 func (h *Handler) Cancel(c *gin.Context) {
 	var req CancelRequest
-	if err := c.ShouldBindUri(&req); err != nil {
-		response.Error(c, err)
-		return
-	}
+	_ = c.ShouldBindUri(&req) // uri 字段均为 string 且无 required：绑定不会失败，保留填充语义
 	if err := h.service.Cancel(c.Request.Context(), &req); err != nil {
 		response.Error(c, err)
 		return

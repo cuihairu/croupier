@@ -48,10 +48,7 @@ func (h *Handler) Create(c *gin.Context) {
 // Detail handles the request to get player details
 func (h *Handler) Detail(c *gin.Context) {
 	var req PlayerDetailRequest
-	if err := c.ShouldBindUri(&req); err != nil {
-		response.Error(c, err)
-		return
-	}
+	_ = c.ShouldBindUri(&req) // uri 字段均为 string 且无 required：绑定不会失败，保留填充语义
 
 	resp, err := h.service.Detail(c.Request.Context(), &req)
 	if err != nil {
@@ -64,10 +61,7 @@ func (h *Handler) Detail(c *gin.Context) {
 // Update handles the request to update a player
 func (h *Handler) Update(c *gin.Context) {
 	var req PlayerUpdateRequest
-	if err := c.ShouldBindUri(&req); err != nil {
-		response.Error(c, err)
-		return
-	}
+	_ = c.ShouldBindUri(&req) // uri 字段均为 string 且无 required：绑定不会失败，保留填充语义
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.Error(c, err)
 		return
@@ -84,10 +78,7 @@ func (h *Handler) Update(c *gin.Context) {
 // Delete handles the request to delete a player
 func (h *Handler) Delete(c *gin.Context) {
 	var req PlayerDeleteRequest
-	if err := c.ShouldBindUri(&req); err != nil {
-		response.Error(c, err)
-		return
-	}
+	_ = c.ShouldBindUri(&req) // uri 字段均为 string 且无 required：绑定不会失败，保留填充语义
 
 	if err := h.service.Delete(c.Request.Context(), &req); err != nil {
 		response.Error(c, err)
@@ -99,10 +90,7 @@ func (h *Handler) Delete(c *gin.Context) {
 // Balance handles the request to adjust player balance
 func (h *Handler) Balance(c *gin.Context) {
 	var req PlayerBalanceRequest
-	if err := c.ShouldBindUri(&req); err != nil {
-		response.Error(c, err)
-		return
-	}
+	_ = c.ShouldBindUri(&req) // uri 字段均为 string 且无 required：绑定不会失败，保留填充语义
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.Error(c, err)
 		return

@@ -117,8 +117,11 @@ func (s *CronSpec) Matches(t time.Time) bool {
 func (s *CronSpec) dayMatches(t time.Time) bool {
 	dayHit := s.Day&(1<<uint(t.Day())) != 0
 	dowHit := s.Weekday&(1<<uint(int(t.Weekday()))) != 0
-	dayStar := s.Day == (1<<32)-1 // 1-31 全置
-	dowStar := s.Weekday == 127   // 0-6 全置
+	// day 字段取值 1..31：`*` 置位 bit1..31，即 (1<<32)-2。
+	// 历史写成 (1<<32)-1（含 bit0），dayStar 恒 false，"日*周N"
+	// 表达式会退化为每天触发。
+	dayStar := s.Day == (1<<32)-2
+	dowStar := s.Weekday == 127 // 0-6 全置
 	switch {
 	case dayStar && dowStar:
 		return true

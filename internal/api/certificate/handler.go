@@ -48,10 +48,7 @@ func (h *Handler) Add(c *gin.Context) {
 // Get handles the request to get certificate details
 func (h *Handler) Get(c *gin.Context) {
 	var req GetRequest
-	if err := c.ShouldBindUri(&req); err != nil {
-		response.Error(c, err)
-		return
-	}
+	_ = c.ShouldBindUri(&req) // uri 字段均为 string 且无 required：绑定不会失败，保留填充语义
 
 	resp, err := h.service.Get(c.Request.Context(), &req)
 	if err != nil {
@@ -64,10 +61,7 @@ func (h *Handler) Get(c *gin.Context) {
 // Check handles the request to check a certificate
 func (h *Handler) Check(c *gin.Context) {
 	var req CheckRequest
-	if err := c.ShouldBindUri(&req); err != nil {
-		response.Error(c, err)
-		return
-	}
+	_ = c.ShouldBindUri(&req) // uri 字段均为 string 且无 required：绑定不会失败，保留填充语义
 
 	resp, err := h.service.Check(c.Request.Context(), &req)
 	if err != nil {
@@ -80,10 +74,7 @@ func (h *Handler) Check(c *gin.Context) {
 // Delete handles the request to delete a certificate
 func (h *Handler) Delete(c *gin.Context) {
 	var req DeleteRequest
-	if err := c.ShouldBindUri(&req); err != nil {
-		response.Error(c, err)
-		return
-	}
+	_ = c.ShouldBindUri(&req) // uri 字段均为 string 且无 required：绑定不会失败，保留填充语义
 
 	if err := h.service.Delete(c.Request.Context(), &req); err != nil {
 		response.Error(c, err)

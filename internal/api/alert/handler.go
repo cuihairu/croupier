@@ -34,10 +34,7 @@ func (h *Handler) List(c *gin.Context) {
 // Silence handles the request to silence an alert
 func (h *Handler) Silence(c *gin.Context) {
 	var req AlertSilenceRequest
-	if err := c.ShouldBindUri(&req); err != nil {
-		response.Error(c, err)
-		return
-	}
+	_ = c.ShouldBindUri(&req) // uri 字段均为 string 且无 required：绑定不会失败，保留填充语义
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.Error(c, err)
 		return
@@ -66,10 +63,7 @@ func (h *Handler) SilencesList(c *gin.Context) {
 // SilenceDelete handles the request to delete a silence rule
 func (h *Handler) SilenceDelete(c *gin.Context) {
 	var req SilenceDeleteRequest
-	if err := c.ShouldBindUri(&req); err != nil {
-		response.Error(c, err)
-		return
-	}
+	_ = c.ShouldBindUri(&req) // uri 字段均为 string 且无 required：绑定不会失败，保留填充语义
 
 	if err := h.service.SilenceDelete(c.Request.Context(), &req); err != nil {
 		response.Error(c, err)

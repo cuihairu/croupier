@@ -80,10 +80,12 @@ func (s *fileStore) SignedURL(_ context.Context, key string, method string, _ ti
 }
 
 func (s *fileStore) Delete(_ context.Context, key string) error {
+	// sanitizeKey 会剥掉尾斜杠：目录键的语义必须先记录（见 s3Store.Delete）。
+	isDir := strings.HasSuffix(strings.TrimSpace(key), "/")
 	key = sanitizeKey(key)
 
-	// 如果是文件夹（以 / 结尾），需要递归删除
-	if strings.HasSuffix(key, "/") {
+	// 如果是文件夹（尾斜杠键），递归删除
+	if isDir {
 		rawPath := filepath.Join(s.base, filepath.FromSlash(key))
 		// 确保路径在 base 目录内，防止路径遍历攻击
 		safePath, err := s.validateAndCleanPath(rawPath)

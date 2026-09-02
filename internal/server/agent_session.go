@@ -41,6 +41,9 @@ type AgentSession struct {
 
 // Conn returns the underlying MuxConn for sending requests to this Agent.
 func (s *AgentSession) Conn() *tcptr.MuxConn {
+	if s == nil {
+		return nil
+	}
 	return s.conn
 }
 
@@ -66,10 +69,10 @@ func (s *AgentSession) GetLastSeen() time.Time {
 
 // Close closes the underlying connection.
 func (s *AgentSession) Close() error {
-	if s.conn != nil {
-		return s.conn.Close()
+	if s == nil || s.conn == nil {
+		return nil
 	}
-	return nil
+	return s.conn.Close()
 }
 
 // AgentSessionStore manages active Agent sessions.

@@ -109,14 +109,18 @@ func (s *Service) GetAuditLogs(ctx context.Context, req *AuditRequest) (*AuditLi
 		return nil, err
 	}
 
+	// 空 scope（受限用户无任何 game 授权）时 buildAuditQuery 返回
+	// (nil, nil)：必须先短路返回空列表，否则 query.Count 对 nil 指针
+	// panic（ExportRows 即是此顺序）。
+	if query == nil {
+		return &AuditListResponse{Items: []AuditItem{}, Total: 0, Page: page, PageSize: size}, nil
+	}
+
 	var total int64
 	if err := query.Count(&total).Error; err != nil {
 		return nil, err
 	}
 
-	if query == nil {
-		return &AuditListResponse{Items: []AuditItem{}, Total: 0, Page: page, PageSize: size}, nil
-	}
 	rows := []auditRawRow{}
 	if err := query.
 		Select(exportSelectColumns).

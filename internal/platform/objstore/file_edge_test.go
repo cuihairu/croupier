@@ -89,11 +89,11 @@ func TestFileStore_DeleteFolderKeySanitized(t *testing.T) {
 	require.NoError(t, st.CreatePrefix(ctx, "emptydir"))
 	require.NoError(t, st.Delete(ctx, "emptydir/"))
 
+	// 尾斜杠键递归删除非空目录（历史上被 sanitizeKey 吃掉尾斜杠后
+	// 退化为单文件删除并报 directory not empty，已修复）
 	require.NoError(t, st.Put(ctx, "dir/a.txt", strings.NewReader("1"), 1, ""))
 	require.NoError(t, st.Put(ctx, "dir/sub/b.txt", strings.NewReader("2"), 1, ""))
-	err := st.Delete(ctx, "dir/")
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "directory not empty")
+	require.NoError(t, st.Delete(ctx, "dir/"))
 }
 
 func TestFileStore_DeleteNonexistent(t *testing.T) {

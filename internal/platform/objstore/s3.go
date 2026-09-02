@@ -80,13 +80,17 @@ func (s *s3Store) SignedURL(ctx context.Context, key string, method string, expi
 }
 
 func (s *s3Store) Delete(ctx context.Context, key string) error {
+	// sanitizeKey 会剥掉尾斜杠（Clean 语义）：目录键的尾斜杠必须先记录，
+	// 否则前缀递归删除分支永远不可达（历史 bug：Delete("dir/") 实际删 "dir"）。
+	isDir := strings.HasSuffix(strings.TrimSpace(key), "/")
 	key = sanitizeKey(key)
 
 	// 如果是文件夹（以 / 结尾），需要递归删除所有对象
-	if strings.HasSuffix(key, "/") {
+	if isDir {
+		prefix := key + "/"
 		// 列出所有以该前缀开头的对象
 		iter := s.bk.List(&blob.ListOptions{
-			Prefix: key,
+			Prefix: prefix,
 		})
 
 		// 删除所有对象
@@ -100,7 +104,7 @@ func (s *s3Store) Delete(ctx context.Context, key string) error {
 			}
 
 			// 跳过文件夹标记本身
-			if obj.Key == key {
+			if obj.Key == prefix {
 				continue
 			}
 
@@ -108,9 +112,12 @@ func (s *s3Store) Delete(ctx context.Context, key string) error {
 				return err
 			}
 		}
+
+		// 删除文件夹标记本身
+		return s.bk.Delete(ctx, prefix)
 	}
 
-	// 删除文件夹标记本身或单个文件
+	// 删除单个文件
 	return s.bk.Delete(ctx, key)
 }
 

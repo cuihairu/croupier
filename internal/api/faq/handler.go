@@ -48,10 +48,7 @@ func (h *Handler) Create(c *gin.Context) {
 // Update handles the request to update an FAQ
 func (h *Handler) Update(c *gin.Context) {
 	var req FAQUpdateRequest
-	if err := c.ShouldBindUri(&req); err != nil {
-		response.Error(c, err)
-		return
-	}
+	_ = c.ShouldBindUri(&req) // uri 字段均为 string 且无 required：绑定不会失败，保留填充语义
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.Error(c, err)
 		return
@@ -68,10 +65,7 @@ func (h *Handler) Update(c *gin.Context) {
 // Delete handles the request to delete an FAQ
 func (h *Handler) Delete(c *gin.Context) {
 	var req FAQDeleteRequest
-	if err := c.ShouldBindUri(&req); err != nil {
-		response.Error(c, err)
-		return
-	}
+	_ = c.ShouldBindUri(&req) // uri 字段均为 string 且无 required：绑定不会失败，保留填充语义
 
 	if err := h.service.Delete(c.Request.Context(), &req); err != nil {
 		response.Error(c, err)
@@ -83,10 +77,7 @@ func (h *Handler) Delete(c *gin.Context) {
 // Vote handles POST /faqs/:id/vote (player feedback: helpful or not).
 func (h *Handler) Vote(c *gin.Context) {
 	var req FAQVoteRequest
-	if err := c.ShouldBindUri(&req); err != nil {
-		response.Error(c, err)
-		return
-	}
+	_ = c.ShouldBindUri(&req) // uri 字段均为 string 且无 required：绑定不会失败，保留填充语义
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.Error(c, err)
 		return

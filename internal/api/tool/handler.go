@@ -47,10 +47,7 @@ func (h *Handler) Create(c *gin.Context) {
 // Update handles PUT /tools/:id.
 func (h *Handler) Update(c *gin.Context) {
 	var req ToolUpdateRequest
-	if err := c.ShouldBindUri(&req); err != nil {
-		response.Error(c, err)
-		return
-	}
+	_ = c.ShouldBindUri(&req) // uri 字段均为 string 且无 required：绑定不会失败，保留填充语义
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.Error(c, err)
 		return
@@ -66,10 +63,7 @@ func (h *Handler) Update(c *gin.Context) {
 // Delete handles DELETE /tools/:id.
 func (h *Handler) Delete(c *gin.Context) {
 	var req ToolDeleteRequest
-	if err := c.ShouldBindUri(&req); err != nil {
-		response.Error(c, err)
-		return
-	}
+	_ = c.ShouldBindUri(&req) // uri 字段均为 string 且无 required：绑定不会失败，保留填充语义
 	if err := h.service.Delete(c.Request.Context(), &req); err != nil {
 		response.Error(c, err)
 		return

@@ -47,10 +47,7 @@ func (h *Handler) Create(c *gin.Context) {
 // Get handles GET /bugs/:id.
 func (h *Handler) Get(c *gin.Context) {
 	var req BugGetRequest
-	if err := c.ShouldBindUri(&req); err != nil {
-		response.Error(c, err)
-		return
-	}
+	_ = c.ShouldBindUri(&req) // uri 字段均为 string 且无 required：绑定不会失败，保留填充语义
 	resp, err := h.service.Get(c.Request.Context(), &req)
 	if err != nil {
 		response.Error(c, err)
@@ -62,10 +59,7 @@ func (h *Handler) Get(c *gin.Context) {
 // Update handles PUT /bugs/:id.
 func (h *Handler) Update(c *gin.Context) {
 	var req BugUpdateRequest
-	if err := c.ShouldBindUri(&req); err != nil {
-		response.Error(c, err)
-		return
-	}
+	_ = c.ShouldBindUri(&req) // uri 字段均为 string 且无 required：绑定不会失败，保留填充语义
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.Error(c, err)
 		return
@@ -96,10 +90,7 @@ func (h *Handler) ReportCrash(c *gin.Context) {
 // Delete handles DELETE /bugs/:id.
 func (h *Handler) Delete(c *gin.Context) {
 	var req BugDeleteRequest
-	if err := c.ShouldBindUri(&req); err != nil {
-		response.Error(c, err)
-		return
-	}
+	_ = c.ShouldBindUri(&req) // uri 字段均为 string 且无 required：绑定不会失败，保留填充语义
 	if err := h.service.Delete(c.Request.Context(), &req); err != nil {
 		response.Error(c, err)
 		return

@@ -53,14 +53,10 @@ func TestFileStore_Delete_FolderRecursive(t *testing.T) {
 	require.NoError(t, os.MkdirAll(filepath.Join(dir, "d", "sub"), 0o755))
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "d", "sub", "f.txt"), []byte("x"), 0o644))
 
-	// 已知 bug 固化：sanitizeKey 会吃掉尾斜杠（Clean("/d/") == "d"），
-	// Delete("d/") 的"目录递归删除"分支永远不可达，走单文件 os.Remove，
-	// 对非空目录报 directory not empty。
-	err := store.raw.Delete(ctx, "d/")
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "directory not empty")
-	_, statErr := os.Stat(filepath.Join(dir, "d", "sub", "f.txt"))
-	assert.NoError(t, statErr, "file must survive until the trailing-slash bug is fixed")
+	// 尾斜杠键递归删除目录（sanitizeKey 前保留目录语义）
+	require.NoError(t, store.raw.Delete(ctx, "d/"))
+	_, err := os.Stat(filepath.Join(dir, "d"))
+	assert.True(t, os.IsNotExist(err), "directory must be removed recursively")
 }
 
 func TestFileStore_Delete_PathTraversal(t *testing.T) {

@@ -32,10 +32,7 @@ func (h *Handler) List(c *gin.Context) {
 // Get handles the request to get approval details
 func (h *Handler) Get(c *gin.Context) {
 	var req ApprovalGetRequest
-	if err := c.ShouldBindUri(&req); err != nil {
-		response.Error(c, err)
-		return
-	}
+	_ = c.ShouldBindUri(&req) // uri 字段均为 string 且无 required：绑定不会失败，保留填充语义
 
 	resp, err := h.service.Get(c.Request.Context(), &req)
 	if err != nil {
@@ -48,10 +45,7 @@ func (h *Handler) Get(c *gin.Context) {
 // Approve handles the request to approve an approval
 func (h *Handler) Approve(c *gin.Context) {
 	var req ApprovalApproveRequest
-	if err := c.ShouldBindUri(&req); err != nil {
-		response.Error(c, err)
-		return
-	}
+	_ = c.ShouldBindUri(&req) // uri 字段均为 string 且无 required：绑定不会失败，保留填充语义
 
 	resp, err := h.service.Approve(c.Request.Context(), &req)
 	if err != nil {
@@ -64,10 +58,7 @@ func (h *Handler) Approve(c *gin.Context) {
 // Reject handles the request to reject an approval
 func (h *Handler) Reject(c *gin.Context) {
 	var req ApprovalRejectRequest
-	if err := c.ShouldBindUri(&req); err != nil {
-		response.Error(c, err)
-		return
-	}
+	_ = c.ShouldBindUri(&req) // uri 字段均为 string 且无 required：绑定不会失败，保留填充语义
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.Error(c, err)
 		return

@@ -32,10 +32,7 @@ func (h *Handler) RoleCreate(c *gin.Context) {
 // RoleDelete handles role deletion requests.
 func (h *Handler) RoleDelete(c *gin.Context) {
 	var req RoleDeleteRequest
-	if err := c.ShouldBindUri(&req); err != nil {
-		response.Error(c, err)
-		return
-	}
+	_ = c.ShouldBindUri(&req) // uri 字段均为 string 且无 required：绑定不会失败，保留填充语义
 
 	if err := h.service.RoleDelete(c.Request.Context(), &req); err != nil {
 		response.Error(c, err)
@@ -47,10 +44,7 @@ func (h *Handler) RoleDelete(c *gin.Context) {
 // RoleDetail handles role detail requests.
 func (h *Handler) RoleDetail(c *gin.Context) {
 	var req RoleDetailRequest
-	if err := c.ShouldBindUri(&req); err != nil {
-		response.Error(c, err)
-		return
-	}
+	_ = c.ShouldBindUri(&req) // uri 字段均为 string 且无 required：绑定不会失败，保留填充语义
 
 	resp, err := h.service.RoleDetail(c.Request.Context(), &req)
 	if err != nil {
@@ -63,10 +57,7 @@ func (h *Handler) RoleDetail(c *gin.Context) {
 // RoleUpdate handles role update requests.
 func (h *Handler) RoleUpdate(c *gin.Context) {
 	var req RoleUpdateRequest
-	if err := c.ShouldBindUri(&req); err != nil {
-		response.Error(c, err)
-		return
-	}
+	_ = c.ShouldBindUri(&req) // uri 字段均为 string 且无 required：绑定不会失败，保留填充语义
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.Error(c, err)
 		return

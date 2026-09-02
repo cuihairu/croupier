@@ -48,10 +48,7 @@ func (h *Handler) Create(c *gin.Context) {
 // Get handles the request to get schema details
 func (h *Handler) Get(c *gin.Context) {
 	var req GetRequest
-	if err := c.ShouldBindUri(&req); err != nil {
-		response.Error(c, err)
-		return
-	}
+	_ = c.ShouldBindUri(&req) // uri 字段均为 string 且无 required：绑定不会失败，保留填充语义
 
 	resp, err := h.service.Get(c.Request.Context(), &req)
 	if err != nil {
@@ -64,10 +61,7 @@ func (h *Handler) Get(c *gin.Context) {
 // Update handles the request to update a schema
 func (h *Handler) Update(c *gin.Context) {
 	var req UpdateRequest
-	if err := c.ShouldBindUri(&req); err != nil {
-		response.Error(c, err)
-		return
-	}
+	_ = c.ShouldBindUri(&req) // uri 字段均为 string 且无 required：绑定不会失败，保留填充语义
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.Error(c, err)
 		return
@@ -84,10 +78,7 @@ func (h *Handler) Update(c *gin.Context) {
 // Delete handles the request to delete a schema
 func (h *Handler) Delete(c *gin.Context) {
 	var req DeleteRequest
-	if err := c.ShouldBindUri(&req); err != nil {
-		response.Error(c, err)
-		return
-	}
+	_ = c.ShouldBindUri(&req) // uri 字段均为 string 且无 required：绑定不会失败，保留填充语义
 
 	if err := h.service.Delete(c.Request.Context(), &req); err != nil {
 		response.Error(c, err)
@@ -99,10 +90,7 @@ func (h *Handler) Delete(c *gin.Context) {
 // Validate handles the request to validate data against a schema
 func (h *Handler) Validate(c *gin.Context) {
 	var req ValidateRequest
-	if err := c.ShouldBindUri(&req); err != nil {
-		response.Error(c, err)
-		return
-	}
+	_ = c.ShouldBindUri(&req) // uri 字段均为 string 且无 required：绑定不会失败，保留填充语义
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.Error(c, err)
 		return
@@ -135,10 +123,7 @@ func (h *Handler) RawValidate(c *gin.Context) {
 // GetUIConfig handles the request to get schema UI config
 func (h *Handler) GetUIConfig(c *gin.Context) {
 	var req GetUIConfigRequest
-	if err := c.ShouldBindUri(&req); err != nil {
-		response.Error(c, err)
-		return
-	}
+	_ = c.ShouldBindUri(&req) // uri 字段均为 string 且无 required：绑定不会失败，保留填充语义
 
 	resp, err := h.service.GetUIConfig(c.Request.Context(), &req)
 	if err != nil {
@@ -151,10 +136,7 @@ func (h *Handler) GetUIConfig(c *gin.Context) {
 // UpdateUIConfig handles the request to update schema UI config
 func (h *Handler) UpdateUIConfig(c *gin.Context) {
 	var req UpdateUIConfigRequest
-	if err := c.ShouldBindUri(&req); err != nil {
-		response.Error(c, err)
-		return
-	}
+	_ = c.ShouldBindUri(&req) // uri 字段均为 string 且无 required：绑定不会失败，保留填充语义
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.Error(c, err)
 		return

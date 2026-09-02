@@ -287,7 +287,7 @@ func TestPageFlow_VersionsAndRollback(t *testing.T) {
 
 	// HTTP: versions endpoint with bad query and rollback round trip.
 	rec := env.do(t, http.MethodGet, "/api/v1/pages/version.page/versions?limit=abc", "")
-	assert.Equal(t, http.StatusInternalServerError, rec.Code)
+	assert.Equal(t, http.StatusBadRequest, rec.Code, "limit=abc 应返回 400（Bug4 修复）")
 
 	rec = env.do(t, http.MethodGet, "/api/v1/pages/version.page/versions/1", "")
 	assert.Equal(t, http.StatusOK, rec.Code)

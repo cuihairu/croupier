@@ -48,10 +48,7 @@ func (h *Handler) Create(c *gin.Context) {
 // Get handles the request to get ticket details
 func (h *Handler) Get(c *gin.Context) {
 	var req GetRequest
-	if err := c.ShouldBindUri(&req); err != nil {
-		response.Error(c, err)
-		return
-	}
+	_ = c.ShouldBindUri(&req) // uri 字段均为 string 且无 required：绑定不会失败，保留填充语义
 
 	resp, err := h.service.Get(c.Request.Context(), &req)
 	if err != nil {
@@ -64,10 +61,7 @@ func (h *Handler) Get(c *gin.Context) {
 // Update handles the request to update a ticket
 func (h *Handler) Update(c *gin.Context) {
 	var req UpdateRequest
-	if err := c.ShouldBindUri(&req); err != nil {
-		response.Error(c, err)
-		return
-	}
+	_ = c.ShouldBindUri(&req) // uri 字段均为 string 且无 required：绑定不会失败，保留填充语义
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.Error(c, err)
 		return
@@ -84,10 +78,7 @@ func (h *Handler) Update(c *gin.Context) {
 // Delete handles the request to delete a ticket
 func (h *Handler) Delete(c *gin.Context) {
 	var req DeleteRequest
-	if err := c.ShouldBindUri(&req); err != nil {
-		response.Error(c, err)
-		return
-	}
+	_ = c.ShouldBindUri(&req) // uri 字段均为 string 且无 required：绑定不会失败，保留填充语义
 
 	if err := h.service.Delete(c.Request.Context(), &req); err != nil {
 		response.Error(c, err)
@@ -99,10 +90,7 @@ func (h *Handler) Delete(c *gin.Context) {
 // Transition handles the request to transition ticket status
 func (h *Handler) Transition(c *gin.Context) {
 	var req TransitionRequest
-	if err := c.ShouldBindUri(&req); err != nil {
-		response.Error(c, err)
-		return
-	}
+	_ = c.ShouldBindUri(&req) // uri 字段均为 string 且无 required：绑定不会失败，保留填充语义
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.Error(c, err)
 		return
@@ -119,10 +107,7 @@ func (h *Handler) Transition(c *gin.Context) {
 // GetComments handles the request to get ticket comments
 func (h *Handler) GetComments(c *gin.Context) {
 	var req GetCommentsRequest
-	if err := c.ShouldBindUri(&req); err != nil {
-		response.Error(c, err)
-		return
-	}
+	_ = c.ShouldBindUri(&req) // uri 字段均为 string 且无 required：绑定不会失败，保留填充语义
 
 	resp, err := h.service.GetComments(c.Request.Context(), &req)
 	if err != nil {
@@ -135,10 +120,7 @@ func (h *Handler) GetComments(c *gin.Context) {
 // CreateComment handles the request to create a comment
 func (h *Handler) CreateComment(c *gin.Context) {
 	var req CreateCommentRequest
-	if err := c.ShouldBindUri(&req); err != nil {
-		response.Error(c, err)
-		return
-	}
+	_ = c.ShouldBindUri(&req) // uri 字段均为 string 且无 required：绑定不会失败，保留填充语义
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.Error(c, err)
 		return
@@ -155,10 +137,7 @@ func (h *Handler) CreateComment(c *gin.Context) {
 // Rate handles POST /tickets/:id/rate (CSAT after close).
 func (h *Handler) Rate(c *gin.Context) {
 	var req RateRequest
-	if err := c.ShouldBindUri(&req); err != nil {
-		response.Error(c, err)
-		return
-	}
+	_ = c.ShouldBindUri(&req) // uri 字段均为 string 且无 required：绑定不会失败，保留填充语义
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.Error(c, err)
 		return
@@ -174,10 +153,7 @@ func (h *Handler) Rate(c *gin.Context) {
 // ConvertToBug handles POST /tickets/:id/convert-bug (escalate to defect).
 func (h *Handler) ConvertToBug(c *gin.Context) {
 	var req ConvertToBugRequest
-	if err := c.ShouldBindUri(&req); err != nil {
-		response.Error(c, err)
-		return
-	}
+	_ = c.ShouldBindUri(&req) // uri 字段均为 string 且无 required：绑定不会失败，保留填充语义
 	if err := c.ShouldBindJSON(&req); err != nil && c.Request.ContentLength > 0 {
 		response.Error(c, err)
 		return

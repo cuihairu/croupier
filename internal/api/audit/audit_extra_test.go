@@ -412,7 +412,7 @@ func TestGetAuditLogs_KindAliasFilterAndCountError(t *testing.T) {
 // buildAuditQuery 返回 (nil, nil) 而 Count 先于 nil 检查执行 → panic。
 // 这是生产代码缺陷（ExportRows 中 nil 检查在 Count 之前，GetAuditLogs 顺序颠倒），
 // 以 panic 测试固定现状，修复后应改为断言空列表。
-func TestGetAuditLogs_EmptyVisibleScopesPanicsBeforeNilCheck(t *testing.T) {
+func TestGetAuditLogs_EmptyVisibleScopes_ReturnsEmpty(t *testing.T) {
 	db := newAuditExtraDB(t)
 	admin, username := seedAuditViewer(t, db, "auditor")
 	require.NoError(t, model.NewAdminModel(db).SetGameEnvScope(
@@ -422,7 +422,10 @@ func TestGetAuditLogs_EmptyVisibleScopesPanicsBeforeNilCheck(t *testing.T) {
 		GameModel: model.NewGameModel(db),
 	})
 
-	assert.Panics(t, func() {
-		_, _ = svc.GetAuditLogs(context.WithValue(context.Background(), "username", username), &AuditRequest{})
-	})
+	// 历史缺陷：query.Count 先于 nil 检查导致 panic，已修复为空列表短路
+	resp, err := svc.GetAuditLogs(context.WithValue(context.Background(), "username", username), &AuditRequest{})
+	require.NoError(t, err)
+	require.NotNil(t, resp)
+	assert.Empty(t, resp.Items)
+	assert.Equal(t, 0, resp.Total)
 }

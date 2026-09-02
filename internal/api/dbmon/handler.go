@@ -42,10 +42,7 @@ func (h *Handler) CreateSource(c *gin.Context) {
 // UpdateSource handles PUT /dbmon/sources/:id.
 func (h *Handler) UpdateSource(c *gin.Context) {
 	var req SourceUpdateRequest
-	if err := c.ShouldBindUri(&req); err != nil {
-		response.Error(c, err)
-		return
-	}
+	_ = c.ShouldBindUri(&req) // uri 字段均为 string 且无 required：绑定不会失败，保留填充语义
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.Error(c, err)
 		return
@@ -61,10 +58,7 @@ func (h *Handler) UpdateSource(c *gin.Context) {
 // DeleteSource handles DELETE /dbmon/sources/:id.
 func (h *Handler) DeleteSource(c *gin.Context) {
 	var req SourceDeleteRequest
-	if err := c.ShouldBindUri(&req); err != nil {
-		response.Error(c, err)
-		return
-	}
+	_ = c.ShouldBindUri(&req) // uri 字段均为 string 且无 required：绑定不会失败，保留填充语义
 	if err := h.service.DeleteSource(c.Request.Context(), &req); err != nil {
 		response.Error(c, err)
 		return

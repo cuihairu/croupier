@@ -628,7 +628,7 @@ func TestHandler_List(t *testing.T) {
 	assert.Contains(t, rec.Body.String(), "bkp-h1")
 
 	rec = doBackupRequest(t, env, http.MethodGet, "/api/v1/backups?page=abc", "")
-	assert.Equal(t, http.StatusInternalServerError, rec.Code)
+	assert.Equal(t, http.StatusBadRequest, rec.Code, "page=abc 数值转换错误应返回 400（Bug4 修复）")
 }
 
 func TestHandler_Create(t *testing.T) {

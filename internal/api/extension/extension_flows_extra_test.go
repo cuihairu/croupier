@@ -746,10 +746,10 @@ func TestExtensionFlow_HandlerBranches(t *testing.T) {
 	assert.Equal(t, http.StatusBadRequest, rec.Code) // missing required fields
 
 	rec = env.do(t, http.MethodGet, "/api/v1/extensions/installations?page=abc", "")
-	assert.Equal(t, http.StatusInternalServerError, rec.Code)
+	assert.Equal(t, http.StatusBadRequest, rec.Code, "page=abc 应返回 400（Bug4 修复）")
 
 	rec = env.do(t, http.MethodGet, "/api/v1/extensions/installations/"+fmt.Sprint(id)+"/events?page=abc", "")
-	assert.Equal(t, http.StatusInternalServerError, rec.Code)
+	assert.Equal(t, http.StatusBadRequest, rec.Code, "page=abc 应返回 400（Bug4 修复）")
 
 	rec = env.do(t, http.MethodPost, fmt.Sprintf("/api/v1/extensions/installations/%d/upgrade", id), "{bad")
 	assert.Equal(t, http.StatusBadRequest, rec.Code)

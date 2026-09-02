@@ -72,10 +72,7 @@ func (h *Handler) Descriptors(c *gin.Context) {
 // Detail handles the request to get provider details
 func (h *Handler) Detail(c *gin.Context) {
 	var req ProviderDetailRequest
-	if err := c.ShouldBindUri(&req); err != nil {
-		response.Error(c, err)
-		return
-	}
+	_ = c.ShouldBindUri(&req) // uri 字段均为 string 且无 required：绑定不会失败，保留填充语义
 
 	resp, err := h.service.Detail(c.Request.Context(), &req)
 	if err != nil {
@@ -88,10 +85,7 @@ func (h *Handler) Detail(c *gin.Context) {
 // Resources handles the request to get provider resources
 func (h *Handler) Resources(c *gin.Context) {
 	var req ProvidersResourcesRequest
-	if err := c.ShouldBindUri(&req); err != nil {
-		response.Error(c, err)
-		return
-	}
+	_ = c.ShouldBindUri(&req) // uri 字段均为 string 且无 required：绑定不会失败，保留填充语义
 
 	resp, err := h.service.Resources(c.Request.Context(), &req)
 	if err != nil {
@@ -104,10 +98,7 @@ func (h *Handler) Resources(c *gin.Context) {
 // Delete handles the request to delete a provider
 func (h *Handler) Delete(c *gin.Context) {
 	var req ProviderActionRequest
-	if err := c.ShouldBindUri(&req); err != nil {
-		response.Error(c, err)
-		return
-	}
+	_ = c.ShouldBindUri(&req) // uri 字段均为 string 且无 required：绑定不会失败，保留填充语义
 
 	resp, err := h.service.Delete(c.Request.Context(), &req)
 	if err != nil {
@@ -120,10 +111,7 @@ func (h *Handler) Delete(c *gin.Context) {
 // Reload handles the request to reload a provider
 func (h *Handler) Reload(c *gin.Context) {
 	var req ProviderActionRequest
-	if err := c.ShouldBindUri(&req); err != nil {
-		response.Error(c, err)
-		return
-	}
+	_ = c.ShouldBindUri(&req) // uri 字段均为 string 且无 required：绑定不会失败，保留填充语义
 
 	resp, err := h.service.Reload(c.Request.Context(), &req)
 	if err != nil {

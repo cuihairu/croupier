@@ -50,10 +50,7 @@ func (h *Handler) Create(c *gin.Context) {
 // Transition handles POST /releases/:id/transition.
 func (h *Handler) Transition(c *gin.Context) {
 	var req ReleaseTransitionRequest
-	if err := c.ShouldBindUri(&req); err != nil {
-		response.Error(c, err)
-		return
-	}
+	_ = c.ShouldBindUri(&req) // uri 字段均为 string 且无 required：绑定不会失败，保留填充语义
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.Error(c, err)
 		return

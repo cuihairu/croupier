@@ -114,11 +114,9 @@ func TestDayMatches_BranchMatrix(t *testing.T) {
 	}{
 		{"0 0 * * *", wednesday, true, "both stars hit"},
 		{"0 0 * * 3", wednesday, true, "day star, dow hit"},
-		// 疑似生产 bug 固化：day 字段范围是 1..31，"*" 解析为 bit1..31
-		// (=(1<<32)-2)，而 dayMatches 判 dayStar 用 (1<<32)-1，导致
-		// dayStar 恒 false、走进 OR 分支且 dayHit 恒真——"日 * 周 3"
-		// 在周四也命中（标准 cron 语义应仅周三命中）。
-		{"0 0 * * 3", thursday, true, "day star, dow miss (bug-pinned: matches every day)"},
+		// dayStar 已修复为 (1<<32)-2（bit1..31）："日 * 周 3" 按
+		// 标准 cron 语义仅周三命中，周四不命中。
+		{"0 0 * * 3", thursday, false, "day star, dow miss (fixed: wed only)"},
 		{"0 0 26 * *", wednesday, true, "dow star, day hit"},
 		{"0 0 26 * *", thursday, false, "dow star, day miss"},
 		{"0 0 26 * 3", wednesday, true, "both restricted, OR hit"},

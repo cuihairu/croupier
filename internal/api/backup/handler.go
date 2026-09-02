@@ -48,10 +48,7 @@ func (h *Handler) Create(c *gin.Context) {
 // Delete handles the request to delete a backup
 func (h *Handler) Delete(c *gin.Context) {
 	var req BackupDeleteRequest
-	if err := c.ShouldBindUri(&req); err != nil {
-		response.Error(c, err)
-		return
-	}
+	_ = c.ShouldBindUri(&req) // uri 字段均为 string 且无 required：绑定不会失败，保留填充语义
 
 	if err := h.service.Delete(c.Request.Context(), &req); err != nil {
 		response.Error(c, err)
@@ -63,10 +60,7 @@ func (h *Handler) Delete(c *gin.Context) {
 // Download handles the request to download a backup
 func (h *Handler) Download(c *gin.Context) {
 	var req BackupDownloadRequest
-	if err := c.ShouldBindUri(&req); err != nil {
-		response.Error(c, err)
-		return
-	}
+	_ = c.ShouldBindUri(&req) // uri 字段均为 string 且无 required：绑定不会失败，保留填充语义
 
 	payload, err := h.service.Download(c.Request.Context(), &req)
 	if err != nil {

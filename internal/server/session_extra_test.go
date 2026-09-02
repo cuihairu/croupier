@@ -10,11 +10,12 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestAgentSession_Addr_NilSafe(t *testing.T) {
+func TestAgentSession_NilReceiver_Safe(t *testing.T) {
 	var s *AgentSession
-	// 已知不对称：Addr 对 nil receiver 安全；Conn/Close 未做 nil 检查
-	//（agent_session.go:44/69），nil receiver 会 panic——只固化 Addr。
+	// Conn/Addr/Close 均已做 nil receiver 防护（历史上 Conn/Close 会 panic）
+	assert.Nil(t, s.Conn())
 	assert.Equal(t, "", s.Addr(), "nil session Addr must be empty")
+	assert.NoError(t, s.Close())
 
 	zero := &AgentSession{}
 	assert.Nil(t, zero.Conn(), "zero-value session has no conn")

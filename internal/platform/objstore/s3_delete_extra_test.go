@@ -30,20 +30,12 @@ func TestS3Store_Delete_PrefixRecursive(t *testing.T) {
 	require.NoError(t, s.Put(ctx, "dir/a.txt", strings.NewReader("a"), 1, ""))
 	require.NoError(t, s.Put(ctx, "dir/b.txt", strings.NewReader("b"), 1, ""))
 
-	// 已知 bug 固化（与 fileStore.Delete 同源）：sanitizeKey 吃掉尾斜杠，
-	// Delete("dir/") 的前缀递归删除分支不可达——实际删的是 "dir"，
-	// memblob 下该 key 不存在（只有 dir/a.txt 等），报 NotFound。
-	err := s.Delete(ctx, "dir/")
-	require.Error(t, err)
+	// 尾斜杠键前缀递归删除（sanitizeKey 前保留目录语义）
+	require.NoError(t, s.Delete(ctx, "dir/"))
 
-	// 对象仍在（递归删除未生效）
 	res, err := s.List(ctx, "", "", "", 0)
 	require.NoError(t, err)
-	found := false
 	for _, o := range res.Objects {
-		if strings.HasPrefix(o.Key, "dir/") {
-			found = true
-		}
+		assert.NotContains(t, o.Key, "dir/", "prefix objects must be deleted, got %s", o.Key)
 	}
-	assert.True(t, found, "prefix objects survive until the trailing-slash bug is fixed")
 }

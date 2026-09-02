@@ -89,6 +89,40 @@ func TestService_Drain_TimeoutStatus(t *testing.T) {
 	assert.Equal(t, "restarting", node.Status)
 }
 
+// 验证 Bug5 修复：Drain handler 现在绑定可选 body 的 timeout
+func TestHandler_Drain_BindsTimeoutFromBody(t *testing.T) {
+	db := newNodeTestDB(t)
+	seedNode(t, db, "agent-tb")
+	handler := newNodeHandler(db)
+
+	ctx, rec := newNodeRequest(http.MethodPost, "/api/v1/nodes/agent-tb/drain", `{"timeout":33}`)
+	ctx.Params = gin.Params{{Key: "id", Value: "agent-tb"}}
+	handler.Drain(ctx)
+	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+
+	svc := NewService(nodeSvcCtxOf(db))
+	node, err := svc.svcCtx.NodeModel.FindByNodeID(context.Background(), "agent-tb")
+	require.NoError(t, err)
+	assert.Equal(t, "draining:33", node.Status, "timeout 必须从 body 读取（历史被静默忽略）")
+}
+
+// 空 body 兼容：不带 body 的旧调用方仍可 drain（不带 timeout）
+func TestHandler_Drain_EmptyBody_Compatible(t *testing.T) {
+	db := newNodeTestDB(t)
+	seedNode(t, db, "agent-te")
+	handler := newNodeHandler(db)
+
+	ctx, rec := newNodeRequest(http.MethodPost, "/api/v1/nodes/agent-te/drain", "")
+	ctx.Params = gin.Params{{Key: "id", Value: "agent-te"}}
+	handler.Drain(ctx)
+	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+
+	svc := NewService(nodeSvcCtxOf(db))
+	node, err := svc.svcCtx.NodeModel.FindByNodeID(context.Background(), "agent-te")
+	require.NoError(t, err)
+	assert.Equal(t, "draining", node.Status)
+}
+
 func TestService_ListCommands_WithSeed_StoreError(t *testing.T) {
 	db := newNodeTestDB(t)
 	require.NoError(t, db.Create(&model.NodeCommand{Name: "drain", Description: "Drain node"}).Error)

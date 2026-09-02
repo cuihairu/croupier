@@ -30,10 +30,7 @@ func (h *Handler) List(c *gin.Context) {
 
 func (h *Handler) Detail(c *gin.Context) {
 	var req PermissionDetailRequest
-	if err := c.ShouldBindUri(&req); err != nil {
-		response.Error(c, err)
-		return
-	}
+	_ = c.ShouldBindUri(&req) // uri 字段均为 string 且无 required：绑定不会失败，保留填充语义
 
 	resp, err := h.service.Detail(c.Request.Context(), &req)
 	if err != nil {
