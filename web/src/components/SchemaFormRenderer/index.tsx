@@ -6,6 +6,7 @@
  */
 
 import React, {
+  useCallback,
   forwardRef,
   useEffect,
   useImperativeHandle,
@@ -186,6 +187,15 @@ function currentLocale(): string {
   } catch {
     return 'zh-CN';
   }
+}
+
+/** 读取 Form 实时值：优先 rjsf class 内部 state（规避延迟 onChange 回调竞态），回退镜像。 */
+function getLiveFormValues(
+  form: CoreForm<FormValues, RJSFSchema, Record<string, never>> | null,
+  fallback: FormValues,
+): FormValues {
+  const state = (form as unknown as { state?: { formData?: FormValues } } | null)?.state?.formData;
+  return (state !== undefined ? normalizeFormValues(state) : fallback) as FormValues;
 }
 
 /** AJV 错误 → 平台语言消息；未收录关键字保留原始 message。 */
@@ -417,11 +427,19 @@ const SchemaFormRenderer = forwardRef<SchemaFormRendererHandle, SchemaFormRender
     const formRef = useRef<RJSFFormRef | null>(null);
     const currentValuesRef = useRef<FormValues>(initialValues || {});
     const [formValues, setFormValues] = useState<FormValues>(initialValues || {});
+    const initialValuesJson = useMemo(
+      () => JSON.stringify(normalizeFormValues(initialValues || {})),
+      [initialValues],
+    );
+    const lastInitJsonRef = useRef<string | null>(null);
 
     useEffect(() => {
-      currentValuesRef.current = initialValues || {};
-      setFormValues(initialValues || {});
-    }, [initialValues]);
+      // 外部重置初值（JSON 变化）才同步；自身 onChange 回声由 JSON 相等跳过
+      if (lastInitJsonRef.current === initialValuesJson) return;
+      lastInitJsonRef.current = initialValuesJson;
+      currentValuesRef.current = normalizeFormValues(initialValues || {});
+      setFormValues(currentValuesRef.current);
+    }, [initialValues, initialValuesJson]);
 
     const { schema, uiSchema, formContext } = useMemo(() => {
       const derived = deriveRuntimeSchema(spec, formValues);
@@ -439,11 +457,35 @@ const SchemaFormRenderer = forwardRef<SchemaFormRendererHandle, SchemaFormRender
         formRef.current?.submit();
       },
       validate: () => Boolean(formRef.current?.validateForm()),
-      getValues: () => currentValuesRef.current,
+      getValues: () => getLiveFormValues(formRef.current, currentValuesRef.current),
     }));
 
-    const transformErrors = (errors: RJSFValidationError[]): RJSFValidationError[] =>
-      localizeFormErrors(errors, schema, currentLocale());
+    // rjsf Form 在任意 props 变化时会把内部 state 重置回 props.formData；
+    // 因此所有 handler 必须引用稳定，保证 props 仅在内容真正变化时才不等，
+    // 否则镜像滞后（React 19 延迟回调）会把 Form state 回滚到旧值。
+    const handleChangeEvent = useCallback(
+      (event: IChangeEvent<FormValues>) => {
+        const next = normalizeFormValues(event.formData);
+        currentValuesRef.current = next;
+        setFormValues(next);
+        onValuesChange?.({}, next);
+      },
+      [onValuesChange],
+    );
+    const handleSubmitEvent = useCallback(
+      async (event: IChangeEvent<FormValues>) => {
+        const next = normalizeFormValues(event.formData);
+        currentValuesRef.current = next;
+        await onFinish?.(next);
+      },
+      [onFinish],
+    );
+    const transformErrors = useCallback(
+      (errors: RJSFValidationError[]): RJSFValidationError[] =>
+        localizeFormErrors(errors, schema, currentLocale()),
+      [schema],
+    );
+    const widgets = useMemo(() => ({ ...customWidgets, ...uploadWidgets }), []);
 
     return (
       <Form
@@ -452,7 +494,7 @@ const SchemaFormRenderer = forwardRef<SchemaFormRendererHandle, SchemaFormRender
         uiSchema={uiSchema}
         formContext={formContext}
         validator={validator}
-        widgets={{ ...customWidgets, ...uploadWidgets }}
+        widgets={widgets}
         fields={uploadFields}
         formData={formValues}
         readonly={readonly}
@@ -461,17 +503,8 @@ const SchemaFormRenderer = forwardRef<SchemaFormRendererHandle, SchemaFormRender
         omitExtraData
         noHtml5Validate
         transformErrors={transformErrors}
-        onChange={(event: IChangeEvent<FormValues>) => {
-          const next = normalizeFormValues(event.formData);
-          currentValuesRef.current = next;
-          setFormValues(next);
-          onValuesChange?.({}, next);
-        }}
-        onSubmit={async (event: IChangeEvent<FormValues>) => {
-          const next = normalizeFormValues(event.formData);
-          currentValuesRef.current = next;
-          await onFinish?.(next);
-        }}
+        onChange={handleChangeEvent}
+        onSubmit={handleSubmitEvent}
       />
     );
   },

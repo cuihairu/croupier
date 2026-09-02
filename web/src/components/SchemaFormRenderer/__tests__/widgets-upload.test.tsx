@@ -1,11 +1,7 @@
 /**
  * F4 验收测试：Upload 系与 KeyValue widget
- *
- * [skip 原因] 三个用例依赖的 KeyValue/Upload 定制实现尚未就绪
- * （rjsf 对 object 类型忽略 ui:widget，需改走 ui:field/ObjectFieldTemplate），
- * 实现完成后移除 .skip。原 WIP 见 2d015fc8a。
  */
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import SchemaFormRenderer from '@/components/SchemaFormRenderer';
 import { uploadValueFromFileList } from '@/components/SchemaFormRenderer/widgets-upload';
 import type { FormPresentationSpec, JSONSchema } from '@/types/dashboard';
@@ -47,13 +43,12 @@ describe('F4: uploadValueFromFileList 值归一', () => {
 });
 
 describe('F4: KeyValue widget', () => {
-  test.skip('渲染既有键值对、编辑值、新增行、删除行', async () => {
+  test('渲染既有键值对、编辑值、新增行、删除行', async () => {
     const spec: FormPresentationSpec = {
-      jsonSchema: {
+      jsonSchema: schemaOf({
         type: 'object',
-        properties: { extra: { type: 'object', title: '扩展信息' } },
-        required: ['extra'],
-      },
+        properties: { extra: { type: 'object', additionalProperties: true, title: '扩展信息' } },
+      }),
       fields: [{ key: 'extra', widget: 'KeyValue' }],
     };
     const onFinish = jest.fn();
@@ -65,18 +60,16 @@ describe('F4: KeyValue widget', () => {
       />,
     );
     // 既有行渲染
-    const keyInput = screen.getByDisplayValue('env');
+    expect(screen.getByDisplayValue('env')).toBeTruthy();
     const valueInput = screen.getByDisplayValue('prod');
-    expect(keyInput).toBeTruthy();
     expect(valueInput).toBeTruthy();
     // 编辑值
     fireEvent.change(valueInput, { target: { value: 'prod2' } });
     // 新增行并填写
     fireEvent.click(screen.getByRole('button', { name: /添\s*加/ }));
-    const rows = container.querySelectorAll('[data-testid^="root_extra-row-"]');
+    const rows = container.querySelectorAll('[data-testid^="keyValue-row-"]');
     expect(rows.length).toBe(2);
-    const newRow = rows[1];
-    const inputs = newRow.querySelectorAll('input');
+    const inputs = rows[1].querySelectorAll('input');
     fireEvent.change(inputs[0], { target: { value: 'k1' } });
     fireEvent.change(inputs[1], { target: { value: 'v1' } });
     fireEvent.click(screen.getByRole('button', { name: /提\s*交/ }));
@@ -89,7 +82,7 @@ describe('F4: KeyValue widget', () => {
     // 删除首行
     onFinish.mockClear();
     fireEvent.click(
-      within(container.querySelector('[data-testid="root_extra-row-0"]')!).getByText('删除'),
+      within(container.querySelectorAll('[data-testid^="keyValue-row-"]')[0]).getByText(/删\s*除/),
     );
     fireEvent.click(screen.getByRole('button', { name: /提\s*交/ }));
     await waitFor(() =>
@@ -97,30 +90,31 @@ describe('F4: KeyValue widget', () => {
     );
   });
 
-  test.skip('空 key 的行不计入提交对象', async () => {
+  test('空 key 的行不计入提交对象（空 object 被 omitExtraData 剪除）', async () => {
     const spec: FormPresentationSpec = {
-      jsonSchema: { type: 'object', properties: { extra: { type: 'object' } } },
+      jsonSchema: schemaOf({
+        type: 'object',
+        properties: { extra: { type: 'object', additionalProperties: true } },
+      }),
       fields: [{ key: 'extra', widget: 'KeyValue' }],
     };
     const onFinish = jest.fn();
     render(<SchemaFormRenderer spec={spec} onFinish={onFinish} />);
     fireEvent.click(screen.getByRole('button', { name: /添\s*加/ }));
-    const valueInput = screen.getByPlaceholderText('值');
-    fireEvent.change(valueInput, { target: { value: 'orphan' } });
+    fireEvent.change(screen.getByPlaceholderText('值'), { target: { value: 'orphan' } });
     fireEvent.click(screen.getByRole('button', { name: /提\s*交/ }));
-    await waitFor(() =>
-      expect(onFinish).toHaveBeenCalledWith(expect.objectContaining({ extra: {} })),
-    );
+    await waitFor(() => expect(onFinish).toHaveBeenCalledWith({}));
   });
 });
 
 describe('F4: Upload widget', () => {
-  test.skip('渲染既有 URL 为 done 列表，移除后值清空（单值）', async () => {
+  test('渲染既有 URL 为 done 列表，移除后值清空（单值，required 保留空串）', async () => {
     const spec: FormPresentationSpec = {
-      jsonSchema: {
+      jsonSchema: schemaOf({
         type: 'object',
         properties: { logo: { type: 'string', title: '图标' } },
-      },
+        required: ['logo'],
+      }),
       fields: [{ key: 'logo', widget: 'Upload', widgetProps: { action: '/upload' } }],
     };
     const onFinish = jest.fn();
@@ -136,7 +130,10 @@ describe('F4: Upload widget', () => {
     // 点击移除
     const remove = document.querySelector('.ant-upload-list-item-action .anticon-delete');
     expect(remove).toBeTruthy();
-    fireEvent.click(remove as Element);
+    // antd Upload 移除经 Promise 微任务触发 rjsf onChange，需先 flush 再提交
+    await act(async () => {
+      fireEvent.click(remove as Element);
+    });
     fireEvent.click(screen.getByRole('button', { name: /提\s*交/ }));
     await waitFor(() =>
       expect(onFinish).toHaveBeenCalledWith(expect.objectContaining({ logo: '' })),
