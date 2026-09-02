@@ -227,17 +227,17 @@ T5（无风险热身）→ T1 → T2 → T3 → T4。前四个每个含独立 go
 
 **验收**：tsc 0 错误 + web test 全绿（172 passed）+ guard PASSED + docs build 通过。
 
-## F8. visibleWhen 隐藏策略改进：不丢值 ⬜
+## F8. visibleWhen 隐藏策略改进：不丢值 ✅
 
 **目标**：条件隐藏切换时保留用户已填数据，避免来回切换丢输入。
 
 **改动点**：
 
-- [ ] `deriveRuntimeSchema`（index.tsx:278-287）：隐藏字段不再从 schema.properties 删除，改 `ui:widget: 'hidden'` + 从 required 移除（校验豁免）
-- [ ] 确认提交 payload 是否含隐藏字段值：`omitExtraData` 行为验证，必要时提交前按可见性过滤
-- [ ] 单测：隐藏→显示值保留、隐藏字段不参与校验
+- [x] `deriveRuntimeSchema`：隐藏字段不再从 schema.properties 删除，改 `ui:widget: 'hidden'`（rjsf 从 uiSchema uiOptions 读 hidden）+ 从 required 移除（校验豁免）；返回 `hiddenKeys`
+- [x] 提交 payload 剔除隐藏字段（`handleSubmitEvent` 按 hiddenKeysRef 过滤）——表单内保值可恢复，但不可见的值不提交
+- [x] 单测：保值/required 摘除、可见性往返恢复、提交剔除、隐藏必填不阻断（4 例）
 
-**验收**：tsc + web test 全绿。
+**验收**：tsc 0 错误 + web test 全绿（176 passed）+ guard PASSED。
 
 ## F9. 远程选项源（x-options-source）⬜
 

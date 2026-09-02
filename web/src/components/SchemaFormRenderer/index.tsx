@@ -336,6 +336,8 @@ export function deriveRuntimeSchema(
   schema: RJSFSchema;
   uiSchema: UiSchema;
   formContext: Record<string, unknown>;
+  /** F8：当前因 visibleWhen 隐藏的字段 key（值保留在表单中，提交时剔除） */
+  hiddenKeys: string[];
 } {
   const schema = cloneSchema(spec.jsonSchema);
   const uiSchema: UiSchema = {
@@ -393,11 +395,16 @@ export function deriveRuntimeSchema(
     if (!visible) hiddenFields.add(field.key);
   }
 
+  // F8：条件隐藏改为 ui:widget hidden——不再从 schema.properties 删除，
+  // 切换联动时保留用户已填数据；仅从 required 摘除以豁免校验。
   if (hiddenFields.size > 0) {
     const properties = schema.properties as Record<string, RJSFSchema> | undefined;
     for (const key of hiddenFields) {
-      delete properties?.[key];
-      delete uiSchema[key];
+      if (!properties?.[key]) continue;
+      // rjsf SchemaField 从 uiSchema 的 uiOptions 读 hidden，schema 保持纯净
+      const nextUi = (uiSchema[key] || {}) as UiSchema;
+      nextUi['ui:widget'] = 'hidden';
+      uiSchema[key] = nextUi;
     }
     if (Array.isArray(schema.required)) {
       schema.required = schema.required.filter((key) => !hiddenFields.has(key));
@@ -415,6 +422,7 @@ export function deriveRuntimeSchema(
     }
   }
 
+  // ui:order 跳过隐藏字段，但隐藏字段仍保留在 schema 中（保值）
   const order = spec.fields
     ?.map((field) => field.key)
     .filter((key) => Boolean(key) && !hiddenFields.has(key));
@@ -422,7 +430,7 @@ export function deriveRuntimeSchema(
     uiSchema['ui:order'] = [...order, '*'];
   }
 
-  return { schema, uiSchema, formContext };
+  return { schema, uiSchema, formContext, hiddenKeys: [...hiddenFields] };
 }
 
 const SchemaFormRenderer = forwardRef<SchemaFormRendererHandle, SchemaFormRendererProps>(
@@ -455,7 +463,7 @@ const SchemaFormRenderer = forwardRef<SchemaFormRendererHandle, SchemaFormRender
       setFormValues(currentValuesRef.current);
     }, [initialValues, initialValuesJson]);
 
-    const { schema, uiSchema, formContext } = useMemo(() => {
+    const { schema, uiSchema, formContext, hiddenKeys } = useMemo(() => {
       const derived = deriveRuntimeSchema(spec, formValues);
       if (hideSubmit || readonly) {
         derived.uiSchema['ui:submitButtonOptions'] = {
@@ -465,6 +473,8 @@ const SchemaFormRenderer = forwardRef<SchemaFormRendererHandle, SchemaFormRender
       }
       return derived;
     }, [formValues, hideSubmit, readonly, spec]);
+    const hiddenKeysRef = useRef<string[]>(hiddenKeys);
+    hiddenKeysRef.current = hiddenKeys;
 
     useImperativeHandle(ref, () => ({
       submit: () => {
@@ -488,7 +498,12 @@ const SchemaFormRenderer = forwardRef<SchemaFormRendererHandle, SchemaFormRender
     );
     const handleSubmitEvent = useCallback(
       async (event: IChangeEvent<FormValues>) => {
-        const next = normalizeFormValues(event.formData);
+        // F8：隐藏字段值保留在表单中便于切换恢复，但提交 payload 剔除
+        const hidden = new Set(hiddenKeysRef.current);
+        const raw = normalizeFormValues(event.formData);
+        const next = Object.fromEntries(
+          Object.entries(raw).filter(([key]) => !hidden.has(key)),
+        ) as FormValues;
         currentValuesRef.current = next;
         await onFinish?.(next);
       },
