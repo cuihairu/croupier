@@ -163,4 +163,11 @@ public class ClientConfig
     /// 最大文件大小（字节）
     /// </summary>
     public int MaxFileSize { get; set; } = 10 * 1024 * 1024;
+
+    /// <summary>
+    /// Provider 侧入站校验（默认关闭）：按函数声明的 input schema 校验入站
+    /// invoke payload，失败回 {"error":"payload validation failed: …"}，
+    /// handler 不被调用；服务端仍是权威校验方。
+    /// </summary>
+    public bool ValidateInputPayloads { get; set; }
 }

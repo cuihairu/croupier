@@ -441,6 +441,40 @@ public partial class CroupierClient : IDisposable
     }
 
     /// <summary>
+    /// Provider 侧入站校验（F：与 Go/Python/JS 语义对齐）：按函数声明的
+    /// input schema 校验 payload。开关关闭/未注册/schema 缺失或非法时
+    /// 跳过（服务端仍是权威校验方）；失败返回错误消息。
+    /// </summary>
+    private string? ValidateInboundPayload(string functionId, string payload)
+    {
+        if (!_descriptors.TryGetValue(functionId, out var descriptor))
+        {
+            return null;
+        }
+        if (string.IsNullOrWhiteSpace(descriptor.InputSchema))
+        {
+            return null;
+        }
+        try
+        {
+            using var schemaDocument = System.Text.Json.JsonDocument.Parse(descriptor.InputSchema);
+            using var payloadDocument = System.Text.Json.JsonDocument.Parse(
+                string.IsNullOrWhiteSpace(payload) ? "{}" : payload);
+            var errors = Validation.JsonSchemaValidator.Validate(
+                schemaDocument.RootElement, payloadDocument.RootElement);
+            return errors.Count > 0
+                ? $"payload validation failed: {string.Join("; ", errors)}"
+                : null;
+        }
+        catch (System.Text.Json.JsonException exception)
+        {
+            // schema 非法视为契约缺陷，跳过校验（与 Go/Python 同策略）
+            if (string.IsNullOrWhiteSpace(payload)) return null;
+            return $"payload must be valid JSON: {exception.Message}";
+        }
+    }
+
+    /// <summary>
     /// 处理来自Agent的入站请求（InvokeRequest）
     /// </summary>
     private async Task<byte[]> HandleInboundRequestAsync(int msgId, int reqId, byte[] body)
@@ -463,6 +497,21 @@ public partial class CroupierClient : IDisposable
 
             var request = InvokeRequest.Parser.ParseFrom(body);
             var payload = request.Payload.ToStringUtf8();
+
+            // Provider 侧入站校验（可选）：按函数声明的 input schema 校验
+            // payload，失败回错误响应，handler 不被调用。
+            if (_config.ValidateInputPayloads)
+            {
+                var validationError = ValidateInboundPayload(request.FunctionId, payload);
+                if (validationError != null)
+                {
+                    return new InvokeResponse
+                    {
+                        Payload = Google.Protobuf.ByteString.CopyFromUtf8(
+                            "{\"error\":" + System.Text.Json.JsonSerializer.Serialize(validationError) + "}")
+                    }.ToByteArray();
+                }
+            }
 
             // Extract metadata
             request.Metadata.TryGetValue("X-Game-ID", out var gameId);
