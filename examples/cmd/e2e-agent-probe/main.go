@@ -238,7 +238,7 @@ func (h *probeHandler) handleStartTask(body []byte) ([]byte, error) {
 	if err := proto.Unmarshal(body, req); err != nil {
 		return nil, fmt.Errorf("unmarshal InvokeRequest: %w", err)
 	}
-	taskID := req.GetMetadata()["task_id"]
+	taskID := req.GetMetadata()["taskId"]
 	if taskID == "" {
 		taskID = fmt.Sprintf("probe-%d", time.Now().UnixNano())
 	}

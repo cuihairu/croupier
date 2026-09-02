@@ -63,12 +63,12 @@ func (s *server) Invoke(ctx context.Context, req *sdkv1.InvokeRequest) (*sdkv1.I
 	}
 	if req.Metadata != nil {
 		if r.Header.Get("X-Trace-Id") == "" {
-			if v := req.Metadata["trace_id"]; v != "" {
+			if v := req.Metadata["traceId"]; v != "" {
 				r.Header.Set("X-Trace-Id", v)
 			}
 		}
 		if r.Header.Get("X-Game-Id") == "" {
-			if v := req.Metadata["game_id"]; v != "" {
+			if v := req.Metadata["gameId"]; v != "" {
 				r.Header.Set("X-Game-Id", v)
 			}
 		}

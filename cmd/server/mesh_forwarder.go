@@ -21,7 +21,7 @@ func newMeshForwarder(mesh *cluster.MeshInterconnect) *meshForwarder {
 
 func (f *meshForwarder) ForwardInvoke(ctx context.Context, agentID, functionID string, payload []byte, metadata map[string]string, idempotencyKey string) ([]byte, error) {
 	caller := cluster.CallerContext{
-		GameID: metadata["game_id"],
+		GameID: metadata["gameId"],
 		Env:    metadata["env"],
 	}
 	if v, ok := ctx.Value("username").(string); ok {

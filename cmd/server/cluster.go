@@ -276,7 +276,7 @@ func (li localInvoker) InvokeLocal(ctx context.Context, req *cluster.ForwardedIn
 	// 转发标记不透传 Agent；调用者信息进 metadata 供审计。
 	invokeReq.Metadata["forwarded_by"] = req.Caller.Username
 	if req.Caller.GameID != "" {
-		invokeReq.Metadata["game_id"] = req.Caller.GameID
+		invokeReq.Metadata["gameId"] = req.Caller.GameID
 	}
 	if req.Caller.Env != "" {
 		invokeReq.Metadata["env"] = req.Caller.Env
