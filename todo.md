@@ -271,18 +271,18 @@ T5（无风险热身）→ T1 → T2 → T3 → T4。前四个每个含独立 go
 
 **验收**：tsc 0 错误 + web test 全绿（190 passed）+ guard PASSED。
 
-## F11. 异步任务进度内嵌 ⬜
+## F11. 异步任务进度内嵌 ✅
 
 **目标**：async 调用后在工作台内直接看任务进度，不再只弹 taskId。
 
 **改动点**：
 
-- [ ] `Invoke/index.tsx` asyncMode 成功后：内嵌任务面板（taskId → 轮询或复用既有任务事件流通道，见 `internal/jobs` 与 task API；SSE 通道已有则优先复用）
-- [ ] 展示状态机（pending/running/done/error）+ 进度/日志尾部 + 完成后结果展示（对接 F10 渲染）
-- [ ] 取消按钮（对接既有 CancelTask）
-- [ ] 单测：状态轮询/事件流 mock、完成渲染、取消交互
+- [x] 新增 `TaskProgressPanel.tsx`：taskId → 轮询 `GET /api/v1/tasks/:id`（2s 间隔，终态停止），展示状态机标签（queued/dispatching/running/succeeded/failed/cancelled/timed_out 中文化）
+- [x] succeeded 时 `onCompleted(payload)` 交回工作台，结果进入 F10 结构化渲染；failed/timed_out 展示错误详情
+- [x] 取消按钮（对接 `cancelTask`）+ 手动刷新；终态后收起操作
+- [x] 单测 5 例：轮询状态机与终态停摆、失败展示、取消调用、终态收起、单次轮询失败自恢复
 
-**验收**：tsc + web test 全绿；demo task 函数端到端可见进度。
+**验收**：tsc 0 错误 + web test 全绿（195 passed）+ guard PASSED。
 
 ## F-D 阶段：契约演进保护（P2）
 

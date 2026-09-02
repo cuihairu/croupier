@@ -19,6 +19,7 @@ import type { ApiErrorDetail } from '@/utils/errors';
 import type { FormValues, JSONSchema, JSONValue } from '@/types/dashboard';
 import ExecutionOptions from './ExecutionOptions';
 import InvocationResponse from './InvocationResponse';
+import TaskProgressPanel from './TaskProgressPanel';
 import RequestBodyEditor from './RequestBodyEditor';
 import RequestHistory from './RequestHistory';
 import type { FormSchemaState, RequestHistoryItem } from './types';
@@ -85,6 +86,7 @@ export default function FunctionInvokePage() {
   const [traceId, setTraceId] = useState('');
   const [error, setError] = useState('');
   const [errorDetails, setErrorDetails] = useState<ApiErrorDetail[]>([]);
+  const [activeTaskId, setActiveTaskId] = useState('');
   const [duration, setDuration] = useState(0);
   const [historyItems, setHistoryItems] = useState<RequestHistoryItem[]>(loadHistory);
   const [showHistory, setShowHistory] = useState(false);
@@ -130,6 +132,7 @@ export default function FunctionInvokePage() {
     setResponse(undefined);
     setError('');
     setErrorDetails([]);
+    setActiveTaskId('');
   }, [selected]);
   useEffect(() => {
     try {
@@ -191,7 +194,12 @@ export default function FunctionInvokePage() {
       setDuration(item.duration);
       setResponse(item.response);
       setHistoryItems((items) => [item, ...items].slice(0, 50));
-      message.success(asyncMode && result.taskId ? `任务已创建：${result.taskId}` : '调用成功');
+      if (asyncMode && result.taskId) {
+        setActiveTaskId(result.taskId);
+        message.success(`任务已创建：${result.taskId}`);
+      } else {
+        message.success('调用成功');
+      }
     } catch (err) {
       const detail = extractErrorMessage(err, '调用失败');
       const elapsed = Date.now() - startedAt;
@@ -246,6 +254,7 @@ export default function FunctionInvokePage() {
     setResponse(item.response);
     setError(item.error || '');
     setErrorDetails([]);
+    setActiveTaskId('');
     setDuration(item.duration);
   };
   const responseRaw = response === undefined ? '' : JSON.stringify(response, null, 2);
@@ -348,6 +357,15 @@ export default function FunctionInvokePage() {
                 }
               }}
             />
+            {activeTaskId ? (
+              <TaskProgressPanel
+                taskId={activeTaskId}
+                onCompleted={(result) => {
+                  setResponse(result ?? undefined);
+                  setRawJson(JSON.stringify(result ?? null, null, 2));
+                }}
+              />
+            ) : null}
             <InvocationResponse
               responseRaw={responseRaw}
               error={error}
