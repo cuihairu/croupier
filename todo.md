@@ -134,28 +134,30 @@ T5（无风险热身）→ T1 → T2 → T3 → T4。前四个每个含独立 go
 
 ## F-A 阶段：呈现层打通（P0，改动小见效快）
 
-## F1. x-ui 呈现 hints 契约规范（文档先行）⬜
+## F1. x-ui 呈现 hints 契约规范（文档先行）✅
 
 **目标**：定义 JSON Schema `x-ui-*` 扩展字段规范，作为 SDK/游戏方声明呈现意图的唯一约定。
 
 **改动点**：
 
-- [ ] 新增 `docs/architecture/presentation-hints.md`：字段清单（`x-widget`/`x-label`/`x-placeholder`/`x-group`/`x-col-span`/`x-order`/`x-visible-when`/`x-options-source` 等）、与 `FormPresentationSpec`（`web/src/types/dashboard.ts:692` FormFieldSpec）的映射表、兼容性说明（未知 x-* 对 OpenAPI/AJV 无害透传）
-- [ ] `docs/architecture/pagespec-protocol.md` 增补「descriptor hints → presentation spec 推导」小节链接
-- [ ] `cd docs && pnpm build` 通过
+- [x] 新增 `docs/architecture/presentation-hints.md`：字段清单（`x-widget`/`x-label`/`x-placeholder`/`x-group`/`x-col-span`/`x-order`/`x-visible-when`/`x-options-source` 等）、与 `FormPresentationSpec`（`web/src/types/dashboard.ts:692` FormFieldSpec）的映射表、兼容性说明（未知 x-* 对 OpenAPI/AJV 无害透传）
+- [x] `docs/architecture/pagespec-protocol.md` 增补「descriptor hints → presentation spec 推导」小节链接
+- [x] `cd docs && pnpm build` 通过
 
 **验收**：规范含完整字段表与 3 个以上示例（含远程选项源示例）；文档构建通过。
 
-## F2. 前端推导器：inputSchema x-* hints → FormPresentationSpec ⬜
+## F2. 前端推导器：inputSchema x-* hints → FormPresentationSpec ✅
 
 **目标**：Invoke 工作台真正吃到 FormPresentationSpec 能力，取代裸 schema。
 
 **改动点**：
 
-- [ ] 新增 `web/src/utils/schemaHints.ts`：`derivePresentationSpec(schema): FormPresentationSpec`——遍历顶层 properties 提取 x-* hints 生成 fields（widget/label/placeholder/visibleWhen/group/order）
-- [ ] `web/src/pages/Functions/Invoke/index.tsx:110` 接入推导器（有 hints 时生成 fields，无 hints 保持现状 `layout: 'vertical'`）
-- [ ] JSON 模式与表单模式双向同步不受影响（现状 rawJson 联动保留）
-- [ ] 单测：`schemaHints.test.ts`（各 hint 提取、无 hints 回退、嵌套 properties 不误伤）
+- [x] 新增 `web/src/utils/schemaHints.ts`：`derivePresentationSpec(schema): FormPresentationSpec`——遍历顶层 properties 提取 x-* hints 生成 fields（widget/label/placeholder/visibleWhen/group/order）
+- [x] `web/src/pages/Functions/Invoke/index.tsx:110` 接入推导器（有 hints 时生成 fields，无 hints 保持现状 `layout: 'vertical'`）
+- [x] JSON 模式与表单模式双向同步不受影响（现状 rawJson 联动保留）
+- [x] 单测：`schemaHints.test.ts`（各 hint 提取、无 hints 回退、嵌套 properties 不误伤）
+
+> 已知边界：嵌套 object 暂不展开为点路径字段（渲染器 dotted uiSchema 支持待 F7 后评估），嵌套容器上的 hints（x-widget/x-label 等）照常生效；docs/architecture/presentation-hints.md 推导规则已与实现同步。
 
 **验收**：`pnpm --dir web run tsc` 0 错误；`pnpm --dir web test` 全绿。
 
@@ -183,29 +185,29 @@ T5（无风险热身）→ T1 → T2 → T3 → T4。前四个每个含独立 go
 
 **验收**：tsc + web test 全绿。
 
-## F5. 表单 label 兜底与人性化 ⬜
+## F5. 表单 label 兜底与人性化 ✅
 
 **目标**：字段 title 缺失时不裸奔英文 key。
 
 **改动点**：
 
-- [ ] `deriveRuntimeSchema`（SchemaFormRenderer/index.tsx:186-194）：title 缺失时 fallback——x-label hint > schema.title > key 人性化（camelCase/snake_case 拆词、首字母大写）
-- [ ] description 缺失时 x-description hint 兜底
-- [ ] 单测：三种来源优先级
+- [x] `deriveRuntimeSchema`（SchemaFormRenderer/index.tsx）：title 缺失时 fallback——x-label hint > schema.title > key 人性化（`web/src/utils/humanize.ts`，全量覆盖 spec.fields 之外的字段）
+- [x] description 缺失时 x-description hint 兜底（F2 推导器已映射 `FormFieldSpec.description`）
+- [x] 单测：三种来源优先级（presentation-adapter.test.tsx）
 
-**验收**：tsc + web test 全绿。
+**验收**：tsc + web test 全绿（149 passed）。
 
-## F6. AJV 校验错误消息中文化 ⬜
+## F6. AJV 校验错误消息中文化 ✅
 
 **目标**：表单校验错误直接可读。
 
 **改动点**：
 
-- [ ] `SchemaFormRenderer` 传入 `transformErrors`：AJV 关键字（required/format/minimum/maxLength 等）→ 中文模板（含字段 title 插值）
-- [ ] 中英文案跟随平台 locale（`getLocale()`）
-- [ ] 单测：required/格式错误两类消息断言
+- [x] `SchemaFormRenderer` 传入 `transformErrors`（`localizeFormErrors`）：AJV 关键字（required/minLength/maxLength/minimum/maximum/pattern/format/type/enum/oneOf/anyOf/const）→ 本地化模板（含字段 title 插值，沿 property 路径解析嵌套 title）
+- [x] 中英文案跟随平台 locale（`getLocale()`，umi 运行时外回退 zh-CN）
+- [x] 单测：required/格式/enum/嵌套 title 五类断言（error-localization.test.ts）；既有 game-schema 断言同步为本地化文案
 
-**验收**：tsc + web test 全绿。
+**验收**：tsc 0 错误 + web test 全绿（154 passed）+ guard PASSED。
 
 ## F-B 阶段：联动与布局（P1）
 
