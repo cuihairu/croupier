@@ -57,6 +57,7 @@ export default {
   'menu.Ops.DBMonitor': 'DB Monitor',
   'menu.Ops.Nodes': 'Node Maintenance',
   'menu.Ops.Cluster': 'Cluster Topology',
+  'menu.Ops.SdkDistribution': 'SDK Distribution',
   'menu.Ops.Jobs': 'Jobs',
   'menu.Ops.Schedules': 'Schedules',
   'menu.Ops.Traces': 'Traces',

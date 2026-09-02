@@ -906,6 +906,7 @@ func registerProviderRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 	g.GET("/", providerHandler.List)
 	g.GET("/capabilities", providerHandler.Capabilities)
 	g.GET("/descriptors", providerHandler.Descriptors)
+	g.GET("/sdk-stats", providerHandler.SdkStats)
 	g.GET("/:id", providerHandler.Get)
 	g.GET("/:id/resources", providerHandler.Resources)
 	g.DELETE("/:id", providerHandler.Delete)

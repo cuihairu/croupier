@@ -62,6 +62,53 @@ type ProviderSession struct {
 	OpenAPIDoc   json.RawMessage
 }
 
+// ProviderSessionSnapshot 是在线 Provider 的只读快照（含所属 agent/scope），
+// 供 SDK 版本分布等观测 API 消费（F：sdk-stats）。
+type ProviderSessionSnapshot struct {
+	ProviderID   string   `json:"providerId"`
+	AgentID      string   `json:"agentId"`
+	GameID       string   `json:"gameId"`
+	Env          string   `json:"env"`
+	Addr         string   `json:"addr"`
+	Version      string   `json:"version"`
+	SDKLanguage  string   `json:"sdkLanguage"`
+	SDKVersion   string   `json:"sdkVersion"`
+	SDKName      string   `json:"sdkName"`
+	LastSeenUnix int64    `json:"lastSeenUnix"`
+	FunctionIDs  []string `json:"functionIds"`
+}
+
+// ProviderSessionSnapshots 返回全部在线 Provider 会话的快照（深拷贝）。
+func (s *Store) ProviderSessionSnapshots() []ProviderSessionSnapshot {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	out := make([]ProviderSessionSnapshot, 0)
+	for _, sess := range s.agents {
+		if sess == nil {
+			continue
+		}
+		for _, p := range sess.Providers {
+			snapshot := ProviderSessionSnapshot{
+				ProviderID:   p.ProviderID,
+				AgentID:      sess.AgentID,
+				GameID:       sess.GameID,
+				Env:          sess.Env,
+				Addr:         p.Addr,
+				Version:      p.Version,
+				SDKLanguage:  p.SDKLanguage,
+				SDKVersion:   p.SDKVersion,
+				SDKName:      p.SDKName,
+				LastSeenUnix: p.LastSeenUnix,
+			}
+			if len(p.FunctionIDs) > 0 {
+				snapshot.FunctionIDs = append([]string(nil), p.FunctionIDs...)
+			}
+			out = append(out, snapshot)
+		}
+	}
+	return out
+}
+
 // AgentSession represents a registered agent instance in the registry.
 // RPCAddr is retained only as a compatibility mirror while the runtime moves
 // to session-first routing.

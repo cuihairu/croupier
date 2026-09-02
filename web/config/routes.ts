@@ -381,6 +381,13 @@ export default [
       },
       { path: '/ops/jobs', name: 'Jobs', access: 'canOpsRead', component: './Ops/Jobs' },
       {
+        // SDK 版本分布：在线 provider 实例按 SDK 语言/版本聚合（F：sdk-stats）
+        path: '/ops/sdk-distribution',
+        name: 'SdkDistribution',
+        access: 'canOpsRead',
+        component: './Ops/SdkDistribution',
+      },
+      {
         // cron 定时调度管理（/api/v1/schedules）
         path: '/ops/schedules',
         name: 'Schedules',

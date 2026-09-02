@@ -125,3 +125,14 @@ func (h *Handler) Reload(c *gin.Context) {
 func (h *Handler) Get(c *gin.Context) {
 	h.Detail(c)
 }
+
+// SdkStats handles the request to get SDK language/version distribution
+// across online provider sessions.
+func (h *Handler) SdkStats(c *gin.Context) {
+	resp, err := h.service.SdkStats(c.Request.Context(), &SdkStatsRequest{})
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
+	response.Success(c, resp)
+}
