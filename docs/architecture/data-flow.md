@@ -71,7 +71,7 @@ sequenceDiagram
 当一个 Agent 后挂多个游戏服务（service）时，Agent 内部按 **Nacos 风格的双层索引**选择目标实例：
 
 - **注册期**：SDK 的 `ProviderConnectRequest` 携带 `service_id` 与 `Metadata`（proto 字段 `sdk_language`/`sdk_version`/`game_id`/`env` 等）。Agent 以 `functionId → serviceId → []Instance` 双层索引登记，实例带 `LastSeen` 用于健康判断（`internal/platform/agentlocal/store.go`）。
-- **调用期**：`pickInstance`（`internal/agent/local_handler.go`）先按 `functionId` 取 service 索引；若 invoke metadata 带 `service_id` 则精确落到该 service 的实例集合，否则合并该函数下所有 service 的实例；再按 `LastSeen` 过滤健康实例并做负载均衡。
+- **调用期**：`pickInstance`（`internal/agent/local_handler.go`）先按 `functionId` 取 service 索引；若 invoke metadata 带 `serviceId` 则精确落到该 service 的实例集合，否则合并该函数下所有 service 的实例；再按 `LastSeen` 过滤健康实例并做负载均衡。
 - `Instance.Metadata` 负责透传 SDK 元信息（键为 `sdkLanguage`/`sdkVersion`/`gameId` 等小驼峰），最终经 `AgentProcess → ProviderSession` 暴露到 opsNodes。
 
 ## 3. SDK 注册到 Agent

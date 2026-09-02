@@ -51,6 +51,25 @@ log:
   format: console
 ```
 
+各库 `dataSource`（DSN）示例——`croupier_meta` 为元数据库，按游戏分库时由平台自动建游戏库：
+
+```yaml
+# SQLite（开发/测试）
+database:
+  driver: sqlite
+  dataSource: "data/croupier.db"
+
+# MySQL（生产推荐）
+database:
+  driver: mysql
+  dataSource: "user:pass@tcp(host:3306)/croupier_meta?charset=utf8mb4&parseTime=True"
+
+# PostgreSQL
+database:
+  driver: postgres
+  dataSource: "host=localhost port=5432 user=postgres password=pass dbname=croupier_meta sslmode=disable"
+```
+
 ### 常见覆盖项
 
 ```bash

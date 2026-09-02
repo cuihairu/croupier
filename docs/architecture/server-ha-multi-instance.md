@@ -96,7 +96,7 @@ GameServer ──► Edge（连接层，只持有连接）◄──► NATS（�
 
 代表：**Tailscale DERP**、**Kubernetes Konnectivity**。不转发，由控制面目录告诉调用方"目标连接在哪台实例"，调用方自己连到该实例投递（Konnectivity：apiserver 与所有 konnectivity-server 副本保持连接，按 agentID 哈希选目标副本，选错则重解析重试）。
 
-- 对应到 Croupier：入口网关按 `game_id`/`agent_id` 一致性哈希路由 HTTP 请求到 owner 实例
+- 对应到 Croupier：入口网关按 `gameId`/`agentId` 一致性哈希路由 HTTP 请求到 owner 实例
 - 优点：无转发代码、无跳跃延迟
 - 缺点：复杂度转移到网关/LB 层；Agent 重连换实例后哈希映射需跟随；网关自身成为关键组件
 

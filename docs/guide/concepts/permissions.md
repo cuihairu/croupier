@@ -58,7 +58,7 @@ ABAC (Attribute-Based Access Control) 基于属性的访问控制。
 
 ```javascript
 // 评估表达式
-user.roles.includes("admin") || (game_id === "my-game" && env === "dev");
+user.roles.includes("admin") || (gameId === "my-game" && env === "dev");
 ```
 
 ## 用户和角色
@@ -129,14 +129,14 @@ user.roles.includes("admin") || (game_id === "my-game" && env === "dev");
 权限可以限定到特定游戏：
 
 ```
-game:{game_id}:{permission}
+game:{gameId}:{permission}
 
 示例：
 - game:my-game:player.ban    # 仅 my-game 的封禁权限
 - game:test-game:*.*         # test-game 的所有权限
 ```
 
-在实际请求中，Croupier 还会结合 `env` 做环境级治理，因此完整业务边界通常是 `game_id + env`。
+在实际请求中，Croupier 还会结合 `env` 做环境级治理，因此完整业务边界通常是 `gameId + env`（proto/DB 层为 `game_id`）。
 
 ## 函数权限配置
 
@@ -181,9 +181,9 @@ game:{game_id}:{permission}
 | ------------- | ------ | --------------------------- |
 | `user`        | object | 当前用户信息                |
 | `user.roles`  | array  | 用户角色列表                |
-| `game_id`     | string | 目标游戏 ID                 |
+| `gameId`      | string | 目标游戏 ID                 |
 | `env`         | string | 逻辑环境 (dev/staging/prod) |
-| `function_id` | string | 被调用的函数 ID             |
+| `functionId`  | string | 被调用的函数 ID             |
 
 ## 审批流程
 

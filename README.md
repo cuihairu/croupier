@@ -43,24 +43,7 @@ Croupier 是面向游戏运营与控制场景的 Server / Agent / SDK 平台，�
 | PostgreSQL | `gorm.io/driver/postgres`  | 生产环境             |
 | SQL Server | `gorm.io/driver/sqlserver` | 企业环境             |
 
-配置示例：
-
-```yaml
-# SQLite（开发/测试）
-database:
-  driver: sqlite
-  dataSource: "data/croupier.db"
-
-# MySQL（生产推荐）
-database:
-  driver: mysql
-  dataSource: "user:pass@tcp(host:3306)/croupier_meta?charset=utf8mb4&parseTime=True"
-
-# PostgreSQL
-database:
-  driver: postgres
-  dataSource: "host=localhost port=5432 user=postgres password=pass dbname=croupier_meta sslmode=disable"
-```
+各库 DSN 配置示例见[服务端配置说明](docs/operations/config-server.md)。
 
 ## SDK 生态
 
