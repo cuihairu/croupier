@@ -40,10 +40,16 @@ import (
 	"github.com/cuihairu/croupier/internal/service/permission"
 	scheduler "github.com/cuihairu/croupier/internal/tasks/scheduler"
 	"github.com/cuihairu/croupier/internal/telemetry"
+	"github.com/cuihairu/croupier/internal/transport"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 	"log/slog"
 )
+
+// AgentSessionResolver 解析在线 Agent 的会话调用器（ops 代理调用入口）。
+type AgentSessionResolver interface {
+	ResolveSessionCaller(agentID string) (transport.SessionCaller, bool)
+}
 
 type ServiceContext struct {
 	Config        config.Config
@@ -57,8 +63,10 @@ type ServiceContext struct {
 	PermissionService *permission.PermissionService
 	RegistryStore     *reg.Store
 	Dispatcher        *dispatch.Dispatcher
-	Cache             cache.CacheStore
-	CacheHelper       *cache.CacheHelper
+	// AgentSessions 解析在线 Agent 会话（ops 代理调用：cron/服务列表）。
+	AgentSessions AgentSessionResolver
+	Cache         cache.CacheStore
+	CacheHelper   *cache.CacheHelper
 
 	AnalyticsFiltersLock *sync.RWMutex
 

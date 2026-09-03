@@ -9,6 +9,7 @@ import (
 
 	"github.com/cuihairu/croupier/internal/model"
 	"github.com/cuihairu/croupier/internal/svc"
+	"github.com/cuihairu/croupier/internal/transport"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -187,4 +188,23 @@ func TestHandler_Restart_ServiceError(t *testing.T) {
 	ctx.Params = gin.Params{{Key: "id", Value: "ghost"}}
 	handler.Restart(ctx)
 	assert.NotEqual(t, http.StatusOK, rec.Code, rec.Body.String())
+}
+
+// ListCronJobs：会话表未初始化 / 节点不在线 → 错误分支。
+func TestService_ListCronJobs_Guards(t *testing.T) {
+	db := newNodeTestDB(t)
+	svc := NewService(&svc.ServiceContext{DB: db}) // AgentSessions 为 nil
+
+	_, err := svc.ListCronJobs(context.Background(), "agent-x")
+	assert.ErrorContains(t, err, "会话表未初始化")
+
+	svc.svcCtx.AgentSessions = fakeSessionResolver{}
+	_, err = svc.ListCronJobs(context.Background(), "agent-offline")
+	assert.ErrorContains(t, err, "节点不在线")
+}
+
+type fakeSessionResolver struct{}
+
+func (fakeSessionResolver) ResolveSessionCaller(string) (transport.SessionCaller, bool) {
+	return nil, false
 }

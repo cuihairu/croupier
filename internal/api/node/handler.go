@@ -120,6 +120,17 @@ func (h *Handler) ListCommands(c *gin.Context) {
 	response.Success(c, resp)
 }
 
+// ListCronJobs 读取节点所在主机的定时任务（crontab + /etc/cron.d）。
+func (h *Handler) ListCronJobs(c *gin.Context) {
+	id := c.Param("id")
+	jobs, err := h.service.ListCronJobs(c.Request.Context(), id)
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
+	response.Success(c, gin.H{"items": jobs, "total": len(jobs)})
+}
+
 // Commands alias for route compatibility
 func (h *Handler) Commands(c *gin.Context) {
 	h.ListCommands(c)

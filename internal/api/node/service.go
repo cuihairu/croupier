@@ -6,11 +6,13 @@ import (
 	"fmt"
 	"strings"
 
+	"encoding/json"
 	"gorm.io/datatypes"
 
 	"github.com/cuihairu/croupier/internal/logic/utils"
 	"github.com/cuihairu/croupier/internal/model"
 	"github.com/cuihairu/croupier/internal/svc"
+	"github.com/cuihairu/croupier/pkg/protocol"
 )
 
 type Service struct {
@@ -143,6 +145,37 @@ func (s *Service) Restart(ctx context.Context, req *NodeActionRequest) error {
 	}
 
 	return s.svcCtx.NodeModel.UpdateStatus(ctx, nodeID, "restarting")
+}
+
+// NodeCronJob 主机定时任务条目（agent 侧解析 crontab + /etc/cron.d）。
+type NodeCronJob struct {
+	Schedule   string `json:"schedule"`
+	Command    string `json:"command"`
+	User       string `json:"user"`
+	SourceFile string `json:"sourceFile"`
+	Enabled    bool   `json:"enabled"`
+}
+
+// ListCronJobs 经会话表代理到在线 Agent，读取其所在主机的定时任务。
+func (s *Service) ListCronJobs(ctx context.Context, nodeID string) ([]NodeCronJob, error) {
+	if s.svcCtx.AgentSessions == nil {
+		return nil, errors.New("会话表未初始化")
+	}
+	caller, ok := s.svcCtx.AgentSessions.ResolveSessionCaller(nodeID)
+	if !ok {
+		return nil, errors.New("节点不在线")
+	}
+	_, respBody, err := caller.Call(ctx, protocol.MsgListCronJobsRequest, []byte("{}"))
+	if err != nil {
+		return nil, fmt.Errorf("调用 agent 失败: %w", err)
+	}
+	var resp struct {
+		Jobs []NodeCronJob `json:"jobs"`
+	}
+	if err := json.Unmarshal(respBody, &resp); err != nil {
+		return nil, fmt.Errorf("解析 agent 响应失败: %w", err)
+	}
+	return resp.Jobs, nil
 }
 
 // ListCommands returns the list of available node commands

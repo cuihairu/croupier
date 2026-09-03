@@ -471,6 +471,7 @@ func registerNodeRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 	g.POST("/:id/undrain", nodeHandler.Undrain)
 	g.POST("/:id/restart", nodeHandler.Restart)
 	g.GET("/commands", nodeHandler.Commands)
+	g.GET("/:id/cron-jobs", nodeHandler.ListCronJobs)
 }
 
 // ============================================================================

@@ -218,6 +218,8 @@ func (h *LocalHandler) handleRequest(ctx context.Context, msgID uint32, data []b
 		return h.handleListServices(ctx, data)
 	case protocol.MsgGetServiceStatusRequest:
 		return h.handleGetServiceStatus(ctx, data)
+	case protocol.MsgListCronJobsRequest:
+		return h.handleListCronJobs(ctx, data)
 	case protocol.MsgRegisterCapabilitiesReq:
 		return h.handleRegisterCapabilities(ctx, data)
 
@@ -689,6 +691,18 @@ func (h *LocalHandler) handleListServices(ctx context.Context, data []byte) ([]b
 
 	// Use JSON to avoid circular dependency
 	return ops.ListServicesJSON(ctx, data)
+}
+
+// handleListCronJobs handles ListCronJobsRequest（Agent 所在主机的定时任务）。
+func (h *LocalHandler) handleListCronJobs(ctx context.Context, _ []byte) ([]byte, error) {
+	h.mu.RLock()
+	ops := h.opsServer
+	h.mu.RUnlock()
+
+	if ops == nil {
+		return nil, fmt.Errorf("ops server not configured")
+	}
+	return ops.ListCronJobsJSON(ctx)
 }
 
 // handleGetServiceStatus handles GetServiceStatusRequest

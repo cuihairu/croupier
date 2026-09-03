@@ -229,6 +229,10 @@ func runServer() error {
 	// 将 session resolver 注入到 Dispatcher
 	if svcCtx.Dispatcher != nil {
 		svcCtx.Dispatcher.SetSessionResolver(server.NewSessionResolverAdapter(sessionStore))
+	}
+	// ops 代理（主机 cron/服务列表）需要经会话表解析在线 Agent。
+	svcCtx.AgentSessions = sessionStore
+	if svcCtx.Dispatcher != nil {
 		// 将 task event query 注入到 Dispatcher（用于 StreamTask 查询）
 		taskRunModel := model.NewTaskRunModel(svcCtx.DB)
 		taskEventModel := model.NewTaskEventModel(svcCtx.DB)

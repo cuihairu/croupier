@@ -80,6 +80,9 @@ const (
 	MsgListServicesResponse     = 0x040112
 	MsgGetServiceStatusRequest  = 0x040113
 	MsgGetServiceStatusResponse = 0x040114
+	// Host cron jobs (Agent 自身应答，读 crontab + /etc/cron.d + systemd timers)
+	MsgListCronJobsRequest  = 0x040115
+	MsgListCronJobsResponse = 0x040116
 
 	// ProviderSessionService (0x05xx) - SDK <-> Agent provider session control
 	MsgProviderConnectRequest    = 0x050101

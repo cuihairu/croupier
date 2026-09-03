@@ -817,3 +817,20 @@ export type ClusterInfo = {
 export async function fetchClusterInfo(): Promise<ClusterInfo> {
   return request('/api/v1/ops/cluster');
 }
+
+// 节点主机定时任务（agent 读取 crontab + /etc/cron.d）。
+export interface NodeCronJob {
+  schedule: string;
+  command: string;
+  user: string;
+  sourceFile: string;
+  enabled: boolean;
+}
+
+export async function fetchNodeCronJobs(nodeId: string): Promise<NodeCronJob[]> {
+  const res = await request<{ items: NodeCronJob[]; total: number }>(
+    `/api/v1/nodes/${encodeURIComponent(nodeId)}/cron-jobs`,
+    { method: 'GET' },
+  );
+  return res.items ?? [];
+}

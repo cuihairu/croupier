@@ -28,6 +28,7 @@ import {
   type MetricsHistoryEntry,
   type OpsNode,
 } from '@/services/api/ops';
+import { fetchNodeCronJobs, type NodeCronJob } from '@/services/api/ops';
 import { fetchRegistry, type RegistryAgent } from '@/services/api/registry';
 import { StandardFilterBar, StandardListSection, SummaryOverview } from '@/components';
 import { formatBytes } from '@/utils/format';
@@ -116,6 +117,21 @@ export default function OpsNodesPage() {
   const [env, setEnv] = useState<string>('');
   const [game, setGame] = useState<string>('');
   const [detailNode, setDetailNode] = useState<NodeRow | null>(null);
+  const [cronNode, setCronNode] = useState<NodeRow | null>(null);
+  const [cronJobs, setCronJobs] = useState<NodeCronJob[]>([]);
+  const [cronLoading, setCronLoading] = useState(false);
+  const openCron = useCallback(async (r: NodeRow) => {
+    setCronNode(r);
+    setCronLoading(true);
+    setCronJobs([]);
+    try {
+      setCronJobs(await fetchNodeCronJobs(r.agentId));
+    } catch {
+      // 错误信息由全局拦截器提示；面板展示空态
+    } finally {
+      setCronLoading(false);
+    }
+  }, []);
   const [metricsHistory, setMetricsHistory] = useState<MetricsHistoryEntry[]>([]);
   const [metricsLoading, setMetricsLoading] = useState(false);
   const [metricsMinutes, setMetricsMinutes] = useState(5);
@@ -337,6 +353,9 @@ export default function OpsNodesPage() {
           </Button>
           <Button size="small" onClick={() => restart(r.agentId)}>
             重启
+          </Button>
+          <Button size="small" onClick={() => void openCron(r)}>
+            定时任务
           </Button>
         </Space>
       ),
@@ -755,6 +774,34 @@ export default function OpsNodesPage() {
             </Space>
           </Space>
         )}
+      </Drawer>
+
+      <Drawer
+        title={`主机定时任务${cronNode ? ` · ${cronNode.agentId}` : ''}`}
+        width={720}
+        open={Boolean(cronNode)}
+        onClose={() => setCronNode(null)}
+      >
+        <Table
+          rowKey={(r) => `${r.schedule}-${r.command}-${r.user}`}
+          size="small"
+          loading={cronLoading}
+          dataSource={cronJobs}
+          pagination={false}
+          columns={[
+            { title: '计划', dataIndex: 'schedule', width: 120 },
+            { title: '命令', dataIndex: 'command', ellipsis: true },
+            { title: '用户', dataIndex: 'user', width: 90 },
+            { title: '来源', dataIndex: 'sourceFile', ellipsis: true, width: 160 },
+            {
+              title: '状态',
+              dataIndex: 'enabled',
+              width: 70,
+              render: (v: boolean) => (v ? '启用' : '停用'),
+            },
+          ]}
+          locale={{ emptyText: '未读取到定时任务（或节点离线）' }}
+        />
       </Drawer>
     </PageContainer>
   );
