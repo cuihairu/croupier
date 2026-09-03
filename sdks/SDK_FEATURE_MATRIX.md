@@ -66,8 +66,8 @@ C# DI / Unity / Java Spring Boot starter），明细见下文第五章；此层�
 ### 已知缺口（按优先级）
 
 1. **manifest 上传（L2）**：六语言均已实现（注册后独立短连接
-   `control_addr` → `RegisterCapabilitiesRequest`，best-effort 不阻断注册）；
-   已知边界：C++ 端到端帧回路测试未覆盖（编译与逻辑对齐 Go 已验证版本）。
+   `control_addr` → `RegisterCapabilitiesRequest`，best-effort 不阻断注册），
+   均带测试（含 C++ 端到端帧回路）。
 2. **文件下发接收（L2）**：Go/Python/JS 已实现（`MsgProviderFilePushRequest
 0x050109`，protobuf 兼容 wire 手写编解码；校验链：开关/大小/ basename/
    sha256/ 暂存区原子落盘，**不自动应用**——应用由 hotpatch runner 单独
