@@ -23,6 +23,9 @@ public class ClientConfig {
     // ========== Connection Settings ==========
     private int timeoutSeconds = 30; // connection timeout in seconds
     private boolean insecure = true; // use insecure connection (for development)
+    // 入站调用 worker 数。0（默认）= max(2, CPU)；1 = 串行模式：handler
+    // 顺序执行互不并发——单线程游戏服务器应设为 1。
+    private int inboundWorkers = 0;
 
     // ========== Heartbeat Configuration ==========
     private int heartbeatInterval = 60; // heartbeat interval in seconds
@@ -89,6 +92,8 @@ public class ClientConfig {
     public void setTimeoutSeconds(int timeoutSeconds) { this.timeoutSeconds = timeoutSeconds; }
 
     public boolean isInsecure() { return insecure; }
+    public int getInboundWorkers() { return inboundWorkers; }
+    public void setInboundWorkers(int inboundWorkers) { this.inboundWorkers = inboundWorkers; }
     public void setInsecure(boolean insecure) { this.insecure = insecure; }
 
     public int getHeartbeatInterval() { return heartbeatInterval; }

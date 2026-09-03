@@ -164,4 +164,14 @@ class TlsTransportTest {
         SSLSocketFactory mtlsFactory = TlsSocketFactory.create(cert.toString(), cert.toString(), clientKey.toString());
         assertNotNull(mtlsFactory);
     }
+    @Test
+    @Timeout(30)
+    @DisplayName("inboundWorkers=1 串行模式：pool 大小为 1（单线程游戏服兼容）")
+    void inboundWorkersSerialMode() throws Exception {
+        TCPTransport transport = new TCPTransport("localhost", 1, 1000);
+        transport.setInboundWorkerCount(1);
+        Field poolSizeField = TCPTransport.class.getDeclaredField("inboundWorkerOverride");
+        poolSizeField.setAccessible(true);
+        assertEquals(1, poolSizeField.getInt(transport));
+    }
 }

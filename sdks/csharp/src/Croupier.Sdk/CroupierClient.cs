@@ -635,9 +635,32 @@ public partial class CroupierClient : IDisposable
     {
         _logger.LogInfo("CroupierClient", "Call processor started");
 
+        var maxConcurrent = _config.MaxConcurrentCalls;
+        System.Threading.SemaphoreSlim? gate =
+            maxConcurrent > 0 ? new System.Threading.SemaphoreSlim(maxConcurrent) : null;
+
         await foreach (var task in _callChannel.Reader.ReadAllAsync(cancellationToken))
         {
-            _ = Task.Run(() => ProcessFunctionCallAsync(task), cancellationToken);
+            if (gate != null)
+            {
+                // 串行/限流模式：等待空位后再派发（handler 互不并发）。
+                await gate.WaitAsync(cancellationToken);
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        await ProcessFunctionCallAsync(task);
+                    }
+                    finally
+                    {
+                        gate.Release();
+                    }
+                }, cancellationToken);
+            }
+            else
+            {
+                _ = Task.Run(() => ProcessFunctionCallAsync(task), cancellationToken);
+            }
         }
 
         _logger.LogInfo("CroupierClient", "Call processor stopped");

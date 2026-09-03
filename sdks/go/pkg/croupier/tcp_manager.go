@@ -169,9 +169,10 @@ func (m *TCPManager) Connect(ctx context.Context) error {
 	logInfof("Connecting to Croupier Agent via TCP: %s", m.config.AgentAddr)
 
 	client, err := transport.NewTCPClient(&transport.Config{
-		Address:     m.config.AgentAddr,
-		Insecure:    m.config.Insecure,
-		DialTimeout: 30 * time.Second,
+		Address:        m.config.AgentAddr,
+		Insecure:       m.config.Insecure,
+		InboundWorkers: m.config.InboundWorkers,
+		DialTimeout:    30 * time.Second,
 		InboundHandler: func(ctx context.Context, msgID uint32, reqID uint32, body []byte) ([]byte, error) {
 			return m.rpcHandler.Handle(ctx, msgID, reqID, body)
 		},

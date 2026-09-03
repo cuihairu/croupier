@@ -61,6 +61,10 @@ struct ClientConfig {
     // ========== Connection Resiliency ==========
     // When true, the SDK will keep trying to reconnect to the Agent and re-register on reconnect.
     bool auto_reconnect = true;
+    // 入站调用 worker 数。0（默认）= 硬件并发（最少 2）；1 = 串行模式：
+    // handler 顺序执行互不并发——单线程游戏服务器应设为 1。心跳走
+    // 独立控制车道不受影响。
+    int inbound_workers = 0;
     // Seconds between reconnect attempts (default: 5s).
     int reconnect_interval_seconds = 5;
     // Max reconnect attempts (0 = unlimited).

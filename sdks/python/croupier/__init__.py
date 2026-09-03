@@ -157,6 +157,10 @@ class ClientConfig:
     agent_id: Optional[str] = None
     heartbeat_interval: int = 60
     timeout_seconds: int = 30
+    # 入站调用 worker 数。0（默认）= max(2, CPU)；1 = 串行模式：handler
+    # 顺序执行、互不并发——单线程游戏服务器应设为 1。心跳走独立控制
+    # 车道不受影响。
+    inbound_workers: int = 0
     control_addr: Optional[str] = None
     cert_file: Optional[str] = None
     key_file: Optional[str] = None
@@ -585,6 +589,7 @@ class CroupierClient:
         transport = TCPTransport(
             address=address,
             timeout_ms=self._config.timeout_seconds * 1000,
+            inbound_workers=self._config.inbound_workers,
             tls_enabled=tls_enabled,
             tls_cert_file=self._config.cert_file or "",
             tls_key_file=self._config.key_file or "",

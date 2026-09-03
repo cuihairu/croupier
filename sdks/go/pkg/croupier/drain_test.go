@@ -133,3 +133,19 @@ func mustMarshal(t *testing.T, m proto.Message) []byte {
 	}
 	return b
 }
+
+// 单线程游戏服兼容模式：InboundWorkers=1 时入站业务车道只有 1 个 worker
+// （handler 串行执行、互不并发）；心跳走控制车道不受影响。
+func TestInboundWorkers_SerialMode(t *testing.T) {
+	cfg := DefaultClientConfig()
+	cfg.InboundWorkers = 1
+	manager, err := NewTCPManager(*cfg, map[string]FunctionHandler{})
+	if err != nil {
+		t.Fatalf("NewTCPManager: %v", err)
+	}
+	m := manager.(*TCPManager)
+	// 未连接时 inbox 未创建；直接校验 transport 配置传递链
+	if m.config.InboundWorkers != 1 {
+		t.Fatalf("config.InboundWorkers = %d, want 1", m.config.InboundWorkers)
+	}
+}

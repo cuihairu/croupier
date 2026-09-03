@@ -120,6 +120,13 @@ public class ClientConfig
     public bool AutoReconnect { get; set; } = true;
 
     /// <summary>
+    /// 入站调用并发上限。0（默认）= 不限；1 = 串行模式：handler 顺序执行
+    /// 互不并发——单线程游戏服务器（Unity 主线程/脚本 VM）应设为 1。
+    /// 心跳等控制消息不受影响。
+    /// </summary>
+    public int MaxConcurrentCalls { get; set; } = 0;
+
+    /// <summary>
     /// 重连间隔（秒）
     /// </summary>
     public int ReconnectIntervalSeconds { get; set; } = 5;

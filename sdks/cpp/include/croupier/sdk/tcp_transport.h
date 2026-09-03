@@ -119,6 +119,9 @@ public:
     static void WriteResponseOnSocket(socket_t sock, uint32_t resp_msg_id, uint32_t req_id,
                                        const std::vector<uint8_t>& body);
     static int InboundWorkerCount();
+    // 覆盖默认入站 worker 数（单线程游戏服设 1 = 串行模式：handler
+    // 顺序执行互不并发）。<=0 恢复默认（硬件并发，最少 2）。
+    static void SetInboundWorkerCount(int workers);
 
     /**
      * Send a request and wait for response.

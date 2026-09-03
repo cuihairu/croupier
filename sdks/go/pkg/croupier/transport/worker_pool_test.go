@@ -4,6 +4,7 @@ import (
 	"context"
 	"net"
 	"runtime"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -217,5 +218,58 @@ func TestInboundWorkersExplicit(t *testing.T) {
 
 	if cap(client.inbox) != 10 {
 		t.Fatalf("显式队列容量被忽略：cap=%d 期望 10", cap(client.inbox))
+	}
+}
+
+// InboundWorkers=1：单 worker 串行模式（单线程游戏服兼容）——两个任务
+// 顺序执行、处理期间无第二个 worker 并发进入；队列容量按 1 缩放。
+func TestWorkerPool_SingleWorkerSerial(t *testing.T) {
+	var inside, maxInside, completed int32
+	release := make(chan struct{})
+	srv, _ := startDrainServer(t)
+	cfg := &Config{
+		Address:        srv.Addr().String(),
+		Insecure:       true,
+		InboundWorkers: 1,
+		InboundHandler: func(ctx context.Context, msgID uint32, reqID uint32, body []byte) ([]byte, error) {
+			cur := atomic.AddInt32(&inside, 1)
+			for {
+				old := atomic.LoadInt32(&maxInside)
+				if cur <= old || atomic.CompareAndSwapInt32(&maxInside, old, cur) {
+					break
+				}
+			}
+			<-release
+			atomic.AddInt32(&inside, -1)
+			atomic.AddInt32(&completed, 1)
+			return []byte(`{}`), nil
+		},
+	}
+	client, err := NewTCPClient(cfg)
+	if err != nil {
+		t.Fatalf("NewTCPClient: %v", err)
+	}
+	defer client.Close()
+
+	if cap(client.inbox) != 4 { // qlen = workers * 4 = 4
+		t.Fatalf("inbox cap = %d, want 4", cap(client.inbox))
+	}
+
+	// 投递两个任务：第一个占住唯一 worker，第二个只能排队（不并发执行）
+	client.inbox <- inboundTask{msgID: protocol.MsgInvokeRequest, reqID: 1}
+	client.inbox <- inboundTask{msgID: protocol.MsgInvokeRequest, reqID: 2}
+	close(release)
+
+	// 等两个任务全部处理完（worker 空闲时阻塞在 channel 上，不能 Wait）
+	deadline := time.Now().Add(2 * time.Second)
+	for atomic.LoadInt32(&completed) < 2 && time.Now().Before(deadline) {
+		time.Sleep(10 * time.Millisecond)
+	}
+	client.Close()
+	if got := atomic.LoadInt32(&maxInside); got != 1 {
+		t.Fatalf("max concurrent handlers = %d, want 1 (serial)", got)
+	}
+	if n := atomic.LoadInt32(&completed); n != 2 {
+		t.Fatalf("completed = %d, want 2", n)
 	}
 }

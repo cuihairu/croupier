@@ -247,3 +247,19 @@ TEST(ProviderLifecycleTest, CloseClearsState) {
 
 }  // namespace
 }  // namespace croupier::sdk::test
+
+namespace croupier::sdk::test {
+
+// 单线程游戏服兼容：inbound_workers=1 → 入站 worker 池为 1（handler 串行）。
+TEST(ProviderLifecycleTest, InboundWorkersSerialMode) {
+    EXPECT_EQ(1, [] {
+        ::croupier::sdk::TCPTransport::SetInboundWorkerCount(1);
+        const int n = ::croupier::sdk::TCPTransport::InboundWorkerCount();
+        ::croupier::sdk::TCPTransport::SetInboundWorkerCount(0); // 恢复默认
+        return n;
+    }());
+    // 恢复后回到默认（>=2）
+    EXPECT_GE(::croupier::sdk::TCPTransport::InboundWorkerCount(), 2);
+}
+
+}  // namespace croupier::sdk::test

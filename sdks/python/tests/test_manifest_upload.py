@@ -98,3 +98,33 @@ def test_no_control_addr_is_noop():
     client.register_function(FunctionDescriptor(id="f"), lambda m, p: b"ok")
     # 不应抛错
     client._maybe_register_capabilities()
+
+
+def test_inbound_workers_serial_mode_exposed_on_transport():
+    """单线程游戏服兼容：inbound_workers=1 应透传到 TCPTransport（串行车道）。"""
+    from unittest import mock
+
+    from croupier import ClientConfig, CroupierClient
+
+    config = ClientConfig()
+    config.inbound_workers = 1
+    client = CroupierClient(config)
+    from croupier import FunctionDescriptor
+    client.register_function(FunctionDescriptor(id="demo.fn", version="1.0.0"),
+                             lambda ctx, payload: "{}")
+
+    captured = {}
+
+    real_tcp = __import__("croupier.transport.tcp", fromlist=["TCPTransport"]).TCPTransport
+
+    def spy(**kwargs):
+        captured["inbound_workers"] = kwargs.get("inbound_workers")
+        return mock.MagicMock(spec=real_tcp)
+
+    with mock.patch("croupier.TCPTransport", side_effect=spy):
+        try:
+            client.connect()
+        except Exception:
+            pass  # 连接失败不影响参数透传断言
+
+    assert captured.get("inbound_workers") == 1

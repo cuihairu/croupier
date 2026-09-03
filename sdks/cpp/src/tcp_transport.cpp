@@ -954,7 +954,19 @@ bool TCPServer::SendMessage(socket_t sock, uint32_t msg_type, uint32_t req_id, c
 
 // ---- Inbound dispatch ----
 
+namespace {
+std::atomic<int> g_inbound_worker_override{0};
+}
+
+void TCPTransport::SetInboundWorkerCount(int workers) {
+    g_inbound_worker_override.store(workers);
+}
+
 int TCPTransport::InboundWorkerCount() {
+    const int overrideWorkers = g_inbound_worker_override.load();
+    if (overrideWorkers > 0) {
+        return overrideWorkers;
+    }
     unsigned int n = std::thread::hardware_concurrency();
     return n == 0 ? 2 : static_cast<int>(std::max(2u, n));
 }

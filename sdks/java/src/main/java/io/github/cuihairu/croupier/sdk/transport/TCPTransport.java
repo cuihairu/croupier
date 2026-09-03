@@ -46,6 +46,8 @@ public class TCPTransport implements TransportClient {
     private final int timeoutMs;
     private javax.net.ssl.SSLSocketFactory socketFactory;
     private String serverName;
+    // 入站 worker 数覆盖：1 = 串行模式（单线程游戏服兼容）。<=0 用默认。
+    private volatile int inboundWorkerOverride;
     private Socket socket;
     private InputStream inputStream;
     private OutputStream outputStream;
@@ -69,6 +71,14 @@ public class TCPTransport implements TransportClient {
     private final AtomicInteger inboundQueued = new AtomicInteger();
 
     /** Sets the inbound request listener; inbound dispatch is enabled only when set. */
+    /**
+     * 覆盖入站 worker 数（须在 connect() 前调用）。1 = 串行模式：
+     * handler 顺序执行互不并发——单线程游戏服务器应设为 1。
+     */
+    public void setInboundWorkerCount(int workers) {
+        this.inboundWorkerOverride = workers;
+    }
+
     public void setInboundListener(InboundListener listener) {
         this.inboundListener = listener;
     }
@@ -460,7 +470,10 @@ public class TCPTransport implements TransportClient {
         }
     }
 
-    private static int inboundWorkerCount() {
+    private int inboundWorkerCount() {
+        if (inboundWorkerOverride > 0) {
+            return inboundWorkerOverride;
+        }
         return Math.max(2, Runtime.getRuntime().availableProcessors());
     }
 

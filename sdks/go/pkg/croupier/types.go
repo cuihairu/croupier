@@ -111,6 +111,11 @@ type ClientConfig struct {
 	TimeoutSeconds    int  `json:"timeoutSeconds"`    // connection timeout in seconds
 	HeartbeatInterval int  `json:"heartbeatInterval"` // heartbeat interval in seconds
 	Insecure          bool `json:"insecure"`          // use insecure connection (for development)
+	// InboundWorkers 处理 Agent 入站调用的 worker 数。0（默认）= NumCPU
+	//（最少 2）；1 = 串行模式：handler 顺序执行、互不并发——单线程游戏
+	// 服务器（业务循环/脚本 VM 不允许并发进入）应设为 1。心跳等控制
+	// 消息走独立控制车道，不受业务 worker 数影响。
+	InboundWorkers int `json:"inboundWorkers"`
 
 	// TLS settings (when not insecure)
 	CAFile     string `json:"caFile"`     // CA certificate file path
