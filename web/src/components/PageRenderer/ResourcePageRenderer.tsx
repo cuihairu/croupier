@@ -494,12 +494,14 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
   // 构建表格列
   const columns: ProColumns<FormValues>[] = spec.listView?.columns.map(columnSpecToProColumn) || [];
 
-  // 添加操作列
+  // 添加操作列（固定右侧：窄屏横向滚动时操作始终可见，与平台其他 ProTable 一致）
   if (spec.detailView || rowActions.length > 0 || deleteBinding) {
     columns.push({
       title: '操作',
       valueType: 'option',
       key: 'action',
+      fixed: 'right',
+      width: spec.detailView && rowActions.length > 0 ? 160 : undefined,
       render: (_, record) => (
         <Space>
           {spec.detailView ? (
