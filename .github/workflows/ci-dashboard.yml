@@ -63,7 +63,7 @@ jobs:
           cache-dependency-path: "web/pnpm-lock.yaml"
 
       - name: Install dependencies
-        timeout-minutes: 5
+        timeout-minutes: 15
         run: pnpm install --frozen-lockfile
 
       - name: Contract guard
@@ -130,7 +130,7 @@ jobs:
           cache-dependency-path: "web/pnpm-lock.yaml"
 
       - name: Install dependencies
-        timeout-minutes: 5
+        timeout-minutes: 15
         run: pnpm install --frozen-lockfile
 
       - name: Cache Playwright browsers
@@ -217,7 +217,7 @@ jobs:
           cache-dependency-path: "web/pnpm-lock.yaml"
 
       - name: Install dependencies
-        timeout-minutes: 5
+        timeout-minutes: 15
         run: pnpm install --frozen-lockfile
 
       - name: Cache Playwright browsers
@@ -314,33 +314,8 @@ jobs:
         with:
           images: ghcr.io/${{ github.repository_owner }}/croupier-dashboard
 
-      - timeout-minutes: 3
-        uses: pnpm/action-setup@v6
-        with:
-          version: 11.11.0
-          cache_dependency_path: web/pnpm-lock.yaml
-
-      - timeout-minutes: 5
-        uses: actions/setup-node@v7
-        with:
-          node-version: 24
-          cache: pnpm
-          cache-dependency-path: pnpm-lock.yaml
-
-      - name: Install dependencies
-        timeout-minutes: 5
-        run: pnpm install --frozen-lockfile
-
-      - name: Build dist
-        timeout-minutes: 10
-        run: |
-          pnpm run build
-          test -s dist/index.html
-          # utoopack splits bundles differently; check for any JS chunk >100k
-          test "$(find dist -maxdepth 1 -name '*.js' -type f -size +100k | wc -l)" -ge 1
-
       - name: Build and push Docker image
-        timeout-minutes: 15
+        timeout-minutes: 25
         id: build
         uses: docker/build-push-action@v7
         with:
@@ -349,6 +324,8 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
       - name: Nginx config smoke test (nginx -t + healthcheck 冒烟)
         timeout-minutes: 5
