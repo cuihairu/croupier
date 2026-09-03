@@ -147,3 +147,15 @@ type PageRollbackResponse struct {
 	PageKey       string `json:"pageKey"`
 	DraftRevision int    `json:"draftRevision"`
 }
+
+// PageBulkRequest 一键发布/一键下架请求（预留过滤参数）。
+type PageBulkRequest struct{}
+
+// PageBulkResult 一键发布/下架结果。
+type PageBulkResult struct {
+	Total       int                 `json:"total"`
+	Published   []string            `json:"published,omitempty"`
+	Unpublished []string            `json:"unpublished,omitempty"`
+	Skipped     []string            `json:"skipped,omitempty"`
+	Failed      []map[string]string `json:"failed,omitempty"`
+}

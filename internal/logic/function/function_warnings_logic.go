@@ -42,6 +42,7 @@ func (l *FunctionWarningsLogic) FunctionWarnings(req *FunctionWarningsRequest) (
 			Count:      item.Count,
 			FirstSeen:  item.FirstSeen.Format(time.RFC3339),
 			LastSeen:   item.LastSeen.Format(time.RFC3339),
+			Read:       item.Read,
 		})
 	}
 	return &FunctionWarningsResponse{Items: out}, nil

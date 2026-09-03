@@ -170,6 +170,7 @@ type FunctionRegistrationWarning struct {
 	Count      int
 	FirstSeen  time.Time
 	LastSeen   time.Time
+	Read       bool // F：已读状态（删除/已读 UI）
 }
 
 type RegistrationWarningFilter struct {
@@ -563,6 +564,53 @@ func (s *Store) previousFunctions(agentID string) map[string]FunctionMeta {
 		functions[functionID] = meta
 	}
 	return functions
+}
+
+// DeleteRegistrationWarning 删除单条注册警告（key 为去重主键）。
+func (s *Store) DeleteRegistrationWarning(key string) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if _, ok := s.registrationWarnings[key]; !ok {
+		return false
+	}
+	delete(s.registrationWarnings, key)
+	return true
+}
+
+// DeleteAllRegistrationWarnings 清空注册警告（「全部清除」UI）。
+// 返回清除条数。
+func (s *Store) DeleteAllRegistrationWarnings() int {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	n := len(s.registrationWarnings)
+	s.registrationWarnings = map[string]*FunctionRegistrationWarning{}
+	return n
+}
+
+// MarkRegistrationWarningRead 标记单条警告已读。
+func (s *Store) MarkRegistrationWarningRead(key string) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	item, ok := s.registrationWarnings[key]
+	if !ok || item == nil {
+		return false
+	}
+	item.Read = true
+	return true
+}
+
+// MarkAllRegistrationWarningsRead 全部标记已读，返回条数。
+func (s *Store) MarkAllRegistrationWarningsRead() int {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	n := 0
+	for _, item := range s.registrationWarnings {
+		if item != nil && !item.Read {
+			item.Read = true
+			n++
+		}
+	}
+	return n
 }
 
 // PreviousFunctionSchema 返回该 agent 当前会话中函数的上一次注册

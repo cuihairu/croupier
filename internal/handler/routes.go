@@ -392,6 +392,10 @@ func registerFunctionRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 	g.POST("/batch-copy", functionHandler.BatchCopy)
 	g.POST("/batch-delete", functionHandler.BatchDelete)
 	g.GET("/warnings", functionHandler.Warnings)
+	g.DELETE("/warnings/:key", functionHandler.WarningDelete)
+	g.POST("/warnings/read/:key", functionHandler.WarningMarkRead)
+	g.POST("/warnings/read-all", functionHandler.WarningMarkAllRead)
+	g.DELETE("/warnings", functionHandler.WarningDeleteAll)
 }
 
 func registerFunctionCallRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {

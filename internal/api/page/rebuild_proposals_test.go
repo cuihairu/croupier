@@ -106,3 +106,31 @@ func seedResourceProposal(t *testing.T, service *Service) {
 	require.NoError(t, contractSvc.RebuildResourceCapability(ctx, "demo-game", "development", "player"))
 	require.NoError(t, contractSvc.RebuildProposalsForResource(ctx, "demo-game", "development", "player"))
 }
+
+// F：一键发布全部——ready 提案全部通过真实 accept-and-publish 链路上架。
+func TestBulkPublish_PublishesAllReadyProposals(t *testing.T) {
+	service, ctx, _ := newPageTestService(t, "pages:publish")
+	seedResourceProposal(t, service)
+
+	resp, err := service.BulkPublish(ctx, &PageBulkRequest{})
+	require.NoError(t, err)
+	assert.NotEmpty(t, resp.Published)
+
+	// 再次执行：无 pending ready 提案 → 空发布
+	resp2, err := service.BulkPublish(ctx, &PageBulkRequest{})
+	require.NoError(t, err)
+	assert.Empty(t, resp2.Published)
+}
+
+// F：一键下架全部——已发布页面逐个走真实 Unpublish 链路。
+func TestBulkUnpublish_OfflinesAllPublished(t *testing.T) {
+	service, ctx, _ := newPageTestService(t, "pages:publish")
+	seedResourceProposal(t, service)
+
+	if _, err := service.BulkPublish(ctx, &PageBulkRequest{}); err != nil {
+		t.Fatalf("bulk publish: %v", err)
+	}
+	resp, err := service.BulkUnpublish(ctx, &PageBulkRequest{})
+	require.NoError(t, err)
+	assert.NotEmpty(t, resp.Unpublished)
+}

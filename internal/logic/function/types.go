@@ -303,6 +303,7 @@ type FunctionWarningItem struct {
 	Count      int    `json:"count"`
 	FirstSeen  string `json:"firstSeen"`
 	LastSeen   string `json:"lastSeen"`
+	Read       bool   `json:"read"`
 }
 
 // DescriptorsRequest represents a request to get descriptors

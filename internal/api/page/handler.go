@@ -268,3 +268,33 @@ func (h *Handler) Rollback(c *gin.Context) {
 	}
 	response.Success(c, resp)
 }
+
+// BulkPublish 处理一键发布全部 ready/basic 提案。
+func (h *Handler) BulkPublish(c *gin.Context) {
+	resp, err := h.service.BulkPublish(c.Request.Context(), &PageBulkRequest{})
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
+	response.Success(c, resp)
+}
+
+// BulkUnpublish 处理一键下架全部已发布页面。
+func (h *Handler) BulkUnpublish(c *gin.Context) {
+	resp, err := h.service.BulkUnpublish(c.Request.Context(), &PageBulkRequest{})
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
+	response.Success(c, resp)
+}
+
+// SeedDemoData 处理演示数据填充（Terms/发布页面/注册警告）。
+func (h *Handler) SeedDemoData(c *gin.Context) {
+	resp, err := h.service.SeedDemoData(c.Request.Context(), &PageSeedDemoRequest{})
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
+	response.Success(c, resp)
+}

@@ -1,6 +1,7 @@
 package function
 
 import (
+	"github.com/cuihairu/croupier/internal/common/errorx"
 	"github.com/cuihairu/croupier/internal/common/requestbind"
 	"github.com/cuihairu/croupier/internal/common/response"
 	logicfunction "github.com/cuihairu/croupier/internal/logic/function"
@@ -410,4 +411,63 @@ func (h *Handler) BatchCopy(c *gin.Context) {
 
 func (h *Handler) BatchDelete(c *gin.Context) {
 	h.BatchDeleteFunctions(c)
+}
+
+// WarningDelete 处理删除单条注册警告。
+func (h *Handler) WarningDelete(c *gin.Context) {
+	var uri struct {
+		Key string `uri:"key" binding:"required"`
+	}
+	if err := c.ShouldBindUri(&uri); err != nil {
+		response.Error(c, err)
+		return
+	}
+	if h.service.SvcCtx().RegistryStore == nil {
+		response.Error(c, errorx.NewNotFound("注册警告存储不可用"))
+		return
+	}
+	if !h.service.SvcCtx().RegistryStore.DeleteRegistrationWarning(uri.Key) {
+		response.Error(c, errorx.NewNotFound("注册警告不存在"))
+		return
+	}
+	response.Success(c, gin.H{"deleted": true, "key": uri.Key})
+}
+
+// WarningDeleteAll 处理清空全部注册警告。
+func (h *Handler) WarningDeleteAll(c *gin.Context) {
+	if h.service.SvcCtx().RegistryStore == nil {
+		response.Error(c, errorx.NewNotFound("注册警告存储不可用"))
+		return
+	}
+	n := h.service.SvcCtx().RegistryStore.DeleteAllRegistrationWarnings()
+	response.Success(c, gin.H{"deleted": n})
+}
+
+// WarningMarkRead 处理标记单条警告已读。
+func (h *Handler) WarningMarkRead(c *gin.Context) {
+	var uri struct {
+		Key string `uri:"key" binding:"required"`
+	}
+	if err := c.ShouldBindUri(&uri); err != nil {
+		response.Error(c, err)
+		return
+	}
+	if h.service.SvcCtx().RegistryStore == nil {
+		response.Error(c, errorx.NewNotFound("注册警告存储不可用"))
+		return
+	}
+	if !h.service.SvcCtx().RegistryStore.MarkRegistrationWarningRead(uri.Key) {
+		response.Error(c, errorx.NewNotFound("注册警告不存在"))
+		return
+	}
+	response.Success(c, gin.H{"key": uri.Key, "read": true})
+}
+
+// WarningMarkAllRead 处理全部标记已读。
+func (h *Handler) WarningMarkAllRead(c *gin.Context) {
+	if h.service.SvcCtx().RegistryStore == nil {
+		response.Error(c, errorx.NewNotFound("注册警告存储不可用"))
+		return
+	}
+	response.Success(c, gin.H{"marked": h.service.SvcCtx().RegistryStore.MarkAllRegistrationWarningsRead()})
 }

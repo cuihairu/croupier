@@ -1520,3 +1520,106 @@ func (s *Service) RebuildAllProposals(ctx context.Context) (*PageProposalsRebuil
 	)
 	return &PageProposalsRebuildResponse{GameID: gameID, Env: env}, nil
 }
+
+// BulkPublish 一键发布全部：先重算提案（拉取最新契约生成），随后将
+// pending 且质量为 ready/basic 的提案逐一 accept-and-publish。
+// 返回发布成功与失败清单（失败的包含原因）。
+func (s *Service) BulkPublish(ctx context.Context, req *PageBulkRequest) (*PageBulkResult, error) {
+	if err := s.requirePagePublish(ctx); err != nil {
+		return nil, err
+	}
+	gameID, env, err := requireScope(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	contractSvc := contractsvc.NewContractService(s.svcCtx.DB)
+	if err := contractSvc.RebuildAllProposals(ctx, gameID, env); err != nil {
+		return nil, err
+	}
+
+	proposalSvc := contractsvc.NewProposalService(s.svcCtx.DB)
+	pending, err := proposalSvc.ListProposalsByStatus(ctx, gameID, env, dbenum.ProposalStatusPending)
+	if err != nil {
+		return nil, err
+	}
+
+	result := &PageBulkResult{Total: len(pending)}
+	for _, proposal := range pending {
+		if proposal.Quality != "ready" && proposal.Quality != "basic" {
+			result.Skipped = append(result.Skipped, proposal.PageKey)
+			continue
+		}
+		if _, err := proposalSvc.AcceptAndPublishProposal(ctx, gameID, env, proposal.ProposalKey); err != nil {
+			result.Failed = append(result.Failed, map[string]string{
+				"pageKey": proposal.PageKey,
+				"error":   err.Error(),
+			})
+			continue
+		}
+		result.Published = append(result.Published, proposal.PageKey)
+	}
+	return result, nil
+}
+
+// BulkUnpublish 一键下架全部：将 scope 内所有已发布页面逐一下线
+// （复用单页 Unpublish 的真实下线链路：快照停用 + 草稿回退）。
+func (s *Service) BulkUnpublish(ctx context.Context, req *PageBulkRequest) (*PageBulkResult, error) {
+	if err := s.requirePagePublish(ctx); err != nil {
+		return nil, err
+	}
+	gameID, env, err := requireScope(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	pages, err := s.svcCtx.PageSpecModel.ListByScopeAndStatus(ctx, gameID, env, "published")
+	if err != nil {
+		return nil, err
+	}
+
+	result := &PageBulkResult{Total: len(pages)}
+	for _, page := range pages {
+		if _, err := s.Unpublish(ctx, &PageUnpublishRequest{PageKey: page.PageKey}); err != nil {
+			result.Failed = append(result.Failed, map[string]string{
+				"pageKey": page.PageKey,
+				"error":   err.Error(),
+			})
+			continue
+		}
+		result.Unpublished = append(result.Unpublished, page.PageKey)
+	}
+	return result, nil
+}
+
+// SeedDemoData 填充演示数据（F：演示站点）：
+//  1. Terms 词条字典写入 resource/operation 显示名；
+//  2. RebuildAllProposals 按已注册契约重算提案（Terms 生效）；
+//  3. 一键发布全部 ready/basic 提案（复用 BulkPublish 真实发布链路）；
+//  4. 伪造演示注册警告（registry 内存存储）供 /functions/warnings 验证。
+//
+// 幂等性：Terms/警告按 key upsert；已发布提案跳过。只动 demo-game scope。
+func (s *Service) SeedDemoData(ctx context.Context, req *PageSeedDemoRequest) (*PageSeedDemoResponse, error) {
+	gameID, env, err := requireScope(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if err := s.requirePagePublish(ctx); err != nil {
+		return nil, err
+	}
+
+	seeder := newDemoDataSeeder(s, gameID, env)
+	summary, err := seeder.seed(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return &PageSeedDemoResponse{Summary: summary}, nil
+}
+
+// PageSeedDemoRequest 演示数据填充请求。
+type PageSeedDemoRequest struct{}
+
+// PageSeedDemoResponse 演示数据填充结果摘要。
+type PageSeedDemoResponse struct {
+	Summary map[string]interface{} `json:"summary"`
+}

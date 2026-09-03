@@ -15,6 +15,9 @@ func NewService(svcCtx *svc.ServiceContext) *Service {
 	return &Service{svcCtx: svcCtx}
 }
 
+// SvcCtx 暴露服务上下文（供 handler 层扩展使用）。
+func (s *Service) SvcCtx() *svc.ServiceContext { return s.svcCtx }
+
 // Function management methods
 
 func (s *Service) FunctionsList(ctx context.Context, req *FunctionsListRequest) (*FunctionsListResponse, error) {
