@@ -7,13 +7,20 @@
 
 import { createHash, randomUUID } from "node:crypto";
 import { readFile } from "node:fs/promises";
-import { extname, basename } from "node:path";
+import { mkdirSync, renameSync, writeFileSync } from "node:fs";
+import { extname, basename, join as pathJoin } from "node:path";
 import { Readable } from "node:stream";
 import { gzipSync } from "node:zlib";
 import { TextDecoder, TextEncoder } from "node:util";
 import * as protobuf from "protobufjs";
 import Ajv, { type ValidateFunction } from "ajv";
-import { TCPTransport } from "./tcp_transport";
+import {
+  TCPTransport,
+} from "./tcp_transport";
+import {
+  MSG_PROVIDER_FILE_PUSH_REQUEST,
+  MSG_PROVIDER_FILE_PUSH_RESPONSE,
+} from "./protocol";
 import {
   MSG_PROVIDER_HEARTBEAT_REQUEST,
   MSG_INVOKE_REQUEST,
@@ -94,6 +101,20 @@ message RegisterCapabilitiesRequest {
 
 message RegisterCapabilitiesResponse {}
 
+// F：文件下发原语（hotpatch P1 传输层）
+message FilePushRequest {
+  string transfer_id = 1;
+  string file_name = 2;
+  string content_sha256 = 3;
+  bytes data = 4;
+}
+message FilePushResponse {
+  string transfer_id = 1;
+  bool ok = 2;
+  string stored_path = 3;
+  string error = 4;
+}
+
 // Inbound invocation messages (mirror proto/croupier/sdk/v1/invocation.proto).
 message InvokeRequest {
   string function_id = 1;
@@ -129,6 +150,12 @@ const RegisterCapabilitiesRequestMessage = providerRoot.lookupType(
 );
 const RegisterCapabilitiesResponseMessage = providerRoot.lookupType(
   "croupier.sdk.v1.RegisterCapabilitiesResponse",
+);
+const FilePushRequestMessage = providerRoot.lookupType(
+  "croupier.sdk.v1.FilePushRequest",
+);
+const FilePushResponseMessage = providerRoot.lookupType(
+  "croupier.sdk.v1.FilePushResponse",
 );
 const InvokeRequestMessage = providerRoot.lookupType(
   "croupier.sdk.v1.InvokeRequest",
@@ -379,6 +406,10 @@ export interface ClientConfig {
   // === Retry ===
   retry?: RetryConfig;
 
+  // === File Push (F：文件下发接收，hotpatch P1 传输层) ===
+  /** 暂存目录：下发文件仅落盘至此（不自动应用），默认 ./croupier-staging */
+  fileStagingDir?: string;
+
   // === Inbound Payload Validation (F15) ===
   /** Provider 侧入站校验：按函数声明的 input schema 校验 invoke/startTask
    *  payload，失败回 {"error":"payload validation failed: ..."}。默认关闭。 */
@@ -594,6 +625,7 @@ export class BasicClient implements CroupierClient {
 
       // Inbound payload validation (opt-in)
       validateInputPayloads: false,
+      fileStagingDir: "./croupier-staging",
 
       // TLS (defaults: insecure local development)
       insecure: true,
@@ -1323,7 +1355,12 @@ export class BasicClient implements CroupierClient {
       // 挂入站处理器：Agent 推送的 InvokeRequest/StartTask/CancelTask 经此分发。
       // 首连与重连都走本函数，一处挂载覆盖两条路径。
       transport.setHandler(this.handleInboundRequest);
-      await this.maybeRegisterCapabilities();
+      // 审查发现 #2：fire-and-forget——控制面慢/不可达不得阻塞注册主路径
+      this.maybeRegisterCapabilities().catch((error) => {
+        if (!this.config.disableLogging) {
+          console.warn("Failed to register capabilities:", error);
+        }
+      });
     } catch (error) {
       transport.close();
       throw error;
@@ -1387,9 +1424,83 @@ export class BasicClient implements CroupierClient {
     if (msgId === MSG_PROVIDER_DRAIN_REQUEST) {
       return this.handleDrainRequest(body);
     }
+    if (msgId === MSG_PROVIDER_FILE_PUSH_REQUEST) {
+      return Buffer.from(this.handleFilePushRequest(body));
+    }
     // 未知入站消息：回空响应，避免 Agent 侧挂起等待超时。
     return Buffer.alloc(0);
   };
+
+  /**
+   * F：文件下发接收（hotpatch P1 传输层）。
+   * 安全链全部强制：总开关 → 大小上限 → 仅 basename（拒穿越）→
+   * sha256 校验 → 原子落盘暂存目录。**不自动应用**——应用由后续
+   * hotpatch runner 单独编排。任何失败回 {error} 响应。
+   */
+  private handleFilePushRequest(body: Buffer): Buffer {
+    const fail = (error: string): Buffer => {
+      const response = FilePushResponseMessage.encode(
+        FilePushResponseMessage.create({ error }),
+      ).finish();
+      return Buffer.from(response);
+    };
+    if (!this.config.enableFileTransfer) {
+      return fail("file transfer is disabled on this provider");
+    }
+    let decoded: {
+      transferId?: string;
+      fileName?: string;
+      contentSha256?: string;
+      data?: Uint8Array;
+    };
+    try {
+      decoded = FilePushRequestMessage.toObject(
+        FilePushRequestMessage.decode(body),
+        { defaults: true },
+      ) as typeof decoded;
+    } catch (error) {
+      return fail(`unmarshal FilePushRequest: ${error instanceof Error ? error.message : String(error)}`);
+    }
+    const transferId = decoded.transferId ?? "";
+    const fileName = (decoded.fileName ?? "").trim();
+    const contentSha256 = (decoded.contentSha256 ?? "").trim();
+    const data = Buffer.from(decoded.data ?? new Uint8Array());
+
+    if (!transferId) return fail("transfer_id is required");
+    if (!fileName || fileName.includes("/") || fileName.includes("\\") || fileName.includes("..")) {
+      return fail(`file name must be a bare basename: "${fileName}"`);
+    }
+    const maxSize = this.config.maxFileSize ?? 10 * 1024 * 1024;
+    if (data.length === 0) return fail("file payload is empty");
+    if (data.length > maxSize) {
+      return fail(`file size ${data.length} exceeds max ${maxSize}`);
+    }
+    if (!contentSha256) return fail("content_sha256 is required");
+    const actualSha = createHash("sha256").update(data).digest("hex");
+    if (actualSha.toLowerCase() !== contentSha256.toLowerCase()) {
+      return fail("checksum mismatch");
+    }
+
+    // 原子落盘暂存目录（tmp + rename），仅暂存不自动应用
+    const stagingDir = this.config.fileStagingDir ?? "./croupier-staging";
+    try {
+      mkdirSync(stagingDir, { recursive: true });
+      const storedPath = pathJoin(stagingDir, fileName);
+      const tmpPath = pathJoin(stagingDir, `.push-${transferId}-${Date.now()}`);
+      writeFileSync(tmpPath, data);
+      renameSync(tmpPath, storedPath);
+      const response = FilePushResponseMessage.encode(
+        FilePushResponseMessage.create({
+          transferId,
+          ok: true,
+          storedPath,
+        }),
+      ).finish();
+      return Buffer.from(response);
+    } catch (error) {
+      return fail(`write staging file: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
 
   /**
    * 处理 Agent 的优雅下线请求：置位 drain 状态（拒绝新 Invoke）、

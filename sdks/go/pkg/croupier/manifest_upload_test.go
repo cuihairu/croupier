@@ -44,7 +44,7 @@ func TestTCPManager_BuildManifest(t *testing.T) {
 		{Id: "  "}, // 空 id 跳过
 	}
 
-	manifest := m.buildManifest()
+	manifest := m.buildManifest("go-1", "2.0.0", m.functions)
 	provider, ok := manifest["provider"].(map[string]interface{})
 	if !ok {
 		t.Fatalf("provider missing: %+v", manifest)
@@ -135,7 +135,7 @@ func TestTCPManager_MaybeRegisterCapabilities(t *testing.T) {
 	m.serviceID = "go-1"
 	m.functions = []*sdkv1.ProviderFunctionDescriptor{{Id: "f1"}}
 
-	m.maybeRegisterCapabilities()
+	m.maybeRegisterCapabilities("go-1", "2.0.0", m.functions)
 	if !gotCapabilities {
 		t.Fatal("control plane did not receive a valid manifest")
 	}
@@ -148,7 +148,7 @@ func TestTCPManager_MaybeRegisterCapabilities_NoControlAddr(t *testing.T) {
 	}
 	m := manager.(*TCPManager)
 	// 未配置 ControlAddr：应直接返回（无连接、无 panic）
-	m.maybeRegisterCapabilities()
+	m.maybeRegisterCapabilities("go-1", "2.0.0", m.functions)
 	if strings.TrimSpace(m.config.ControlAddr) != "" {
 		t.Fatal("expected empty ControlAddr")
 	}

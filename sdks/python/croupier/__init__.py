@@ -176,6 +176,8 @@ class ClientConfig:
     log_level: str = "INFO"
     enable_file_transfer: bool = False
     max_file_size: int = 10 * 1024 * 1024
+    # F：下发文件仅落盘至此暂存目录（不自动应用）
+    file_staging_dir: str = "./croupier-staging"
     # Optional RetryConfig (defined in croupier.invoker); aligns the provider
     # client config surface with the Go/Java SDKs. Typed as Any to avoid a
     # circular import at module definition time.
@@ -257,8 +259,11 @@ class CroupierClient:
             self._connected = True
             LOG.info("Client connected with %d functions", len(self._handlers))
 
-        # F：控制面 manifest 上传（best-effort，不阻断连接结果）
-        self._maybe_register_capabilities()
+        # F：控制面 manifest 上传（审查发现 #2）：fire-and-forget——
+        # 控制面慢/不可达不得拖慢注册主路径（方法内部已 fail-open）
+        threading.Thread(
+            target=self._maybe_register_capabilities, daemon=True
+        ).start()
 
     def _maybe_register_capabilities(self) -> None:
         """向控制面（control_addr）上传能力清单；失败仅告警不影响连接。"""
@@ -618,8 +623,112 @@ class CroupierClient:
             return self._handle_inbound_cancel_task(body)
         if msg_type == protocol.MSG_STREAM_TASK_REQUEST:
             return self._handle_inbound_stream_task(body)
+        if msg_type == protocol.MSG_PROVIDER_FILE_PUSH_REQ:
+            return self._handle_inbound_file_push(body)
         LOG.warning("Unsupported inbound MsgID: %s", protocol.msg_id_string(msg_type))
         return b""
+
+    def _handle_inbound_file_push(self, body: bytes) -> bytes:
+        """F：文件下发接收（hotpatch P1 传输层）。
+
+        wire 与 Go/JS 一致（protobuf 兼容手写编解码）：
+          FilePushRequest  { 1: transfer_id, 2: file_name, 3: content_sha256, 4: data }
+          FilePushResponse { 1: transfer_id, 2: ok, 3: stored_path, 4: error }
+        安全链全部强制：总开关 → 大小上限 → 仅 basename（拒穿越）→
+        sha256 → 原子落盘暂存目录。**不自动应用**——应用由后续
+        hotpatch runner 单独编排。任何失败回 error 响应。
+        """
+
+        def _fail(message: str) -> bytes:
+            return self._encode_file_push_response("", False, "", message)
+
+        if not self._config.enable_file_transfer:
+            return _fail("file transfer is disabled on this provider")
+
+        transfer_id, file_name, content_sha256, data = self._decode_file_push_request(body)
+
+        if not transfer_id:
+            return _fail("transfer_id is required")
+        if not file_name or "/" in file_name or "\\" in file_name or ".." in file_name:
+            return _fail(f'file name must be a bare basename: "{file_name}"')
+        max_size = self._config.max_file_size or 10 * 1024 * 1024
+        if not data:
+            return _fail("file payload is empty")
+        if len(data) > max_size:
+            return _fail(f"file size {len(data)} exceeds max {max_size}")
+        if not content_sha256:
+            return _fail("content_sha256 is required")
+        import hashlib
+
+        actual = hashlib.sha256(data).hexdigest()
+        if actual.lower() != content_sha256.lower():
+            return _fail("checksum mismatch")
+
+        staging_dir = self._config.file_staging_dir or "./croupier-staging"
+        import os
+
+        os.makedirs(staging_dir, exist_ok=True)
+        target = os.path.join(staging_dir, os.path.basename(file_name))
+        if not os.path.abspath(target).startswith(os.path.abspath(staging_dir)):
+            return _fail('file name must be a bare basename: "' + file_name + '"')
+        tmp_path = target + f".push-{transfer_id}"
+        with open(tmp_path, "wb") as handle:
+            handle.write(data)
+        os.replace(tmp_path, target)
+        return self._encode_file_push_response(transfer_id, True, target, "")
+
+    @staticmethod
+    def _decode_file_push_request(body: bytes):
+        """手写 protobuf wire 解码：FilePushRequest 四字段（长度限定）。"""
+        idx = 0
+        fields: dict = {}
+        while idx < len(body):
+            tag = body[idx]
+            idx += 1
+            field_number = tag >> 3
+            wire_type = tag & 0x7
+            if wire_type != 2:
+                raise ValueError(f"unsupported wire type {wire_type}")
+            length = 0
+            shift = 0
+            while True:
+                byte = body[idx]
+                idx += 1
+                length |= (byte & 0x7F) << shift
+                if not byte & 0x80:
+                    break
+                shift += 7
+            value = body[idx : idx + length]
+            idx += length
+            fields.setdefault(field_number, value)
+        transfer_id = fields.get(1, b"").decode("utf-8")
+        file_name = fields.get(2, b"").decode("utf-8")
+        content_sha256 = fields.get(3, b"").decode("utf-8")
+        return transfer_id, file_name, content_sha256, fields.get(4, b"")
+
+    @staticmethod
+    def _encode_file_push_response(transfer_id: str, ok: bool, stored_path: str, error: str) -> bytes:
+        """手写 protobuf wire 编码 FilePushResponse。"""
+
+        def _field(field_number: int, value: bytes) -> bytes:
+            out = bytes([(field_number << 3) | 2])
+            length = len(value)
+            while length >= 0x80:
+                out += bytes([(length & 0x7F) | 0x80])
+                length >>= 7
+            out += bytes([length])
+            return out + value
+
+        out = b""
+        if transfer_id:
+            out += _field(1, transfer_id.encode("utf-8"))
+        if ok:
+            out += bytes([0x10, 0x01])
+        if stored_path:
+            out += _field(3, stored_path.encode("utf-8"))
+        if error:
+            out += _field(4, error.encode("utf-8"))
+        return out
 
     def _handle_inbound_invoke(self, body: bytes) -> bytes:
         if self._draining.is_set():

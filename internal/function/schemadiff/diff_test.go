@@ -58,21 +58,28 @@ func TestDiffTypeChanged(t *testing.T) {
 	}
 }
 
-// 4. enum 收窄/扩张 = breaking（新取值不在旧取值域）
-func TestDiffEnumNarrowed(t *testing.T) {
+//  4. enum 方向性（审查修正）：input 收窄 = breaking、扩张 = compatible；
+//     output 恰好相反。
+func TestDiffEnumDirectional(t *testing.T) {
 	oldRaw := mustRaw(t, `{"type":"object","properties":{"level":{"type":"string","enum":["low","high"]}}}`)
-	// 收窄（去掉 high）兼容；扩张（加 critical）breaking
-	compatible := mustRaw(t, `{"type":"object","properties":{"level":{"type":"string","enum":["low"]}}}`)
-	if findings := DiffSchemas("input_schema", oldRaw, compatible); HasBreaking(findings) {
-		t.Fatalf("enum narrowing (subset) should be compatible, got %+v", findings)
-	}
+	narrowed := mustRaw(t, `{"type":"object","properties":{"level":{"type":"string","enum":["low"]}}}`)
 	expanded := mustRaw(t, `{"type":"object","properties":{"level":{"type":"string","enum":["low","high","critical"]}}}`)
-	findings := DiffSchemas("input_schema", oldRaw, expanded)
-	if !HasBreaking(findings) {
-		t.Fatalf("expected breaking finding for enum expansion, got %+v", findings)
+
+	// input_schema：收窄 = breaking（旧调用发被删值会被拒）
+	if findings := DiffSchemas("input_schema", oldRaw, narrowed); !HasBreaking(findings) {
+		t.Fatalf("input enum narrowing should be breaking, got %+v", findings)
 	}
-	if _, ok := findByPath(findings, "$/level/enum/critical"); !ok {
-		t.Fatalf("expected enum/critical finding, got %+v", findings)
+	// input_schema：扩张 = compatible（旧调用方不受影响）
+	if findings := DiffSchemas("input_schema", oldRaw, expanded); HasBreaking(findings) {
+		t.Fatalf("input enum expansion should be compatible, got %+v", findings)
+	}
+	// output_schema：扩张 = breaking（消费方会见到新值）
+	if findings := DiffSchemas("output_schema", oldRaw, expanded); !HasBreaking(findings) {
+		t.Fatalf("output enum expansion should be breaking, got %+v", findings)
+	}
+	// output_schema：收窄 = compatible
+	if findings := DiffSchemas("output_schema", oldRaw, narrowed); HasBreaking(findings) {
+		t.Fatalf("output enum narrowing should be compatible, got %+v", findings)
 	}
 }
 

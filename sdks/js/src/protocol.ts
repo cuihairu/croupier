@@ -63,6 +63,9 @@ export const MSG_PROVIDER_HEARTBEAT_REQUEST = 0x050103;
 export const MSG_PROVIDER_HEARTBEAT_RESPONSE = 0x050104;
 export const MSG_PROVIDER_DRAIN_REQUEST = 0x050105;
 export const MSG_PROVIDER_DRAIN_RESPONSE = 0x050106;
+// F：文件下发原语（hotpatch P1 传输层）
+export const MSG_PROVIDER_FILE_PUSH_REQUEST = 0x050109;
+export const MSG_PROVIDER_FILE_PUSH_RESPONSE = 0x05010A;
 
 /**
  * Encode a 24-bit MsgID into 3 bytes (big-endian).

@@ -223,12 +223,10 @@ public sealed class CroupierClientLifecycleTests : IDisposable
     }
 
     [Fact]
-    public async Task ConnectAsync_WithDeadControlAddr_FailsProviderConnect_DocumentsBug()
+    public async Task ConnectAsync_WithDeadControlAddr_IsFailOpen()
     {
-        // Documents a bug: in RegisterCapabilitiesAsync, transport.Connect()
-        // runs OUTSIDE the try/catch that guards CallAsync. A dead ControlAddr
-        // therefore aborts the whole provider connect, even though capability
-        // registration is supposed to be best-effort (warning + continue).
+        // 审查发现 #2 修复后：manifest 上传 fire-and-forget 且整体 fail-open
+        // （原实现在 try 外 Connect，死控制面会中止整个 provider connect）。
         var probe = new System.Net.Sockets.TcpListener(System.Net.IPAddress.Loopback, 0);
         probe.Start();
         var deadPort = ((System.Net.IPEndPoint)probe.LocalEndpoint).Port;
@@ -241,10 +239,8 @@ public sealed class CroupierClientLifecycleTests : IDisposable
         }));
         client.RegisterFunction(Descriptor("fn.cap-dead"), (ctx, payload) => Task.FromResult("{}"));
 
-        var action = () => client.ConnectAsync();
-
-        await action.Should().ThrowAsync<Exception>();
-        client.IsConnected.Should().BeFalse();
+        await client.ConnectAsync();
+        client.IsConnected.Should().BeTrue();
     }
 
     [Fact]
@@ -259,6 +255,12 @@ public sealed class CroupierClientLifecycleTests : IDisposable
         await client.ConnectAsync();
 
         client.IsConnected.Should().BeTrue();
+        // fire-and-forget：能力帧异步到达，轮询等待
+        var deadline = DateTime.UtcNow.AddSeconds(5);
+        while (control.CapabilityRequests.Count == 0 && DateTime.UtcNow < deadline)
+        {
+            await Task.Delay(50);
+        }
         control.CapabilityRequests.Should().ContainSingle();
     }
 

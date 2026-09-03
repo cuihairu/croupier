@@ -294,23 +294,26 @@ func (m *TCPManager) RegisterWithAgent(ctx context.Context, serviceID, serviceVe
 	m.heartbeatStop = cancel
 	go m.heartbeatLoop(ctx)
 
-	// 控制面 manifest 上传（best-effort，不阻断注册结果）
-	m.maybeRegisterCapabilities()
+	// 控制面 manifest 上传（审查发现 #2）：fire-and-forget——控制面慢/
+	// 不可达时不得拖慢注册主路径（同步执行最长 10s）。参数全部取
+	// 快照传值，避免与后续重注册竞态。
+	m.maybeRegisterCapabilitiesAsync()
 
 	return m.sessionID, nil
 }
 
 // buildManifest 构建供控制面注册的能力清单（provider 元数据 + 函数摘要），
 // 与 JS/C# 参考实现同构。
-func (m *TCPManager) buildManifest() map[string]interface{} {
+func (m *TCPManager) buildManifest(serviceID, serviceVersion string,
+	functions []*sdkv1.ProviderFunctionDescriptor) map[string]interface{} {
 	provider := map[string]interface{}{
-		"id":      orDefault(m.serviceID, "go-service"),
-		"version": orDefault(m.serviceVersion, "1.0.0"),
+		"id":      orDefault(serviceID, "go-service"),
+		"version": orDefault(serviceVersion, "1.0.0"),
 		"lang":    orDefault(m.config.ProviderLang, "go"),
 		"sdk":     orDefault(m.config.ProviderSDK, "croupier-go-sdk"),
 	}
-	functions := make([]map[string]interface{}, 0, len(m.functions))
-	for _, descriptor := range m.functions {
+	entries := make([]map[string]interface{}, 0, len(functions))
+	for _, descriptor := range functions {
 		if descriptor == nil || strings.TrimSpace(descriptor.Id) == "" {
 			continue
 		}
@@ -339,9 +342,9 @@ func (m *TCPManager) buildManifest() map[string]interface{} {
 		if descriptor.OutputSchema != "" {
 			entry["outputSchema"] = json.RawMessage(descriptor.OutputSchema)
 		}
-		functions = append(functions, entry)
+		entries = append(entries, entry)
 	}
-	return map[string]interface{}{"provider": provider, "functions": functions}
+	return map[string]interface{}{"provider": provider, "functions": entries}
 }
 
 func orDefault(value, fallback string) string {
@@ -364,14 +367,31 @@ func gzipBytes(data []byte) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
+// maybeRegisterCapabilitiesAsync 异步 fire-and-forget：先快照上传所需
+// 状态（functions 会在重注册时整体替换），再交后台执行——注册主路径
+// 不再被控制面连接/调用阻塞（审查发现 #2）。
+func (m *TCPManager) maybeRegisterCapabilitiesAsync() {
+	if strings.TrimSpace(m.config.ControlAddr) == "" {
+		return
+	}
+	m.mu.RLock()
+	serviceID, serviceVersion := m.serviceID, m.serviceVersion
+	functions := make([]*sdkv1.ProviderFunctionDescriptor, len(m.functions))
+	copy(functions, m.functions)
+	m.mu.RUnlock()
+
+	go m.maybeRegisterCapabilities(serviceID, serviceVersion, functions)
+}
+
 // maybeRegisterCapabilities 向控制面（config.ControlAddr）上传能力清单。
 // 独立短连接 + 5s 超时；任何失败仅告警，不影响已完成的函数注册。
-func (m *TCPManager) maybeRegisterCapabilities() {
+func (m *TCPManager) maybeRegisterCapabilities(serviceID, serviceVersion string,
+	functions []*sdkv1.ProviderFunctionDescriptor) {
 	if strings.TrimSpace(m.config.ControlAddr) == "" {
 		return
 	}
 
-	manifestJSON, err := json.Marshal(m.buildManifest())
+	manifestJSON, err := json.Marshal(m.buildManifest(serviceID, serviceVersion, functions))
 	if err != nil {
 		logWarnf("register capabilities: marshal manifest: %v", err)
 		return

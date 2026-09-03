@@ -146,8 +146,11 @@ public class CroupierClientImpl implements CroupierClient {
 
                 logger.info("Successfully connected");
 
-                // F：控制面 manifest 上传（best-effort，不阻断连接结果）
-                maybeRegisterCapabilities();
+                // F/审查发现 #2：控制面 manifest 上传 fire-and-forget——
+                // 控制面慢/不可达不得阻塞注册主路径（方法内部已 fail-open）
+                Thread capabilitiesThread = new Thread(this::maybeRegisterCapabilities);
+                capabilitiesThread.setDaemon(true);
+                capabilitiesThread.start();
             } catch (Exception e) {
                 connected.set(false);
                 sessionId = "";

@@ -187,31 +187,61 @@ func diffRequired(source, path string, oldMap, newMap map[string]interface{}, fi
 	}
 }
 
+// diffEnum 枚举方向性判定（审查修正）：破坏方向取决于数据流向——
+//   - input_schema：收窄 = breaking（旧调用方发被删的值会被服务端拒绝），
+//     扩张 = compatible（旧调用方不受影响）；
+//   - output_schema：扩张 = breaking（消费方会见到新值），
+//     收窄 = compatible（消费方只会见到更少的值）。
 func diffEnum(source, path string, oldMap, newMap map[string]interface{}, findings *[]Finding) {
 	oldEnum, okOld := oldMap["enum"].([]interface{})
 	newEnum, okNew := newMap["enum"].([]interface{})
 	if !okOld || !okNew {
 		return
 	}
-	// 枚举收窄 = breaking：新取值域必须是旧取值域的子集
+	isInput := source == "input_schema"
 	oldValues := make(map[string]bool, len(oldEnum))
 	for _, item := range oldEnum {
 		oldValues[fmt.Sprint(item)] = true
 	}
-	newValues := make([]string, 0, len(newEnum))
+	newValues := make(map[string]bool, len(newEnum))
+	changed := make([]string, 0)
 	for _, item := range newEnum {
 		key := fmt.Sprint(item)
-		newValues = append(newValues, key)
+		newValues[key] = true
 		if !oldValues[key] {
-			*findings = append(*findings, Finding{
-				Severity: SeverityBreaking,
-				Source:   source,
-				Path:     path + "/enum/" + key,
-				Reason:   fmt.Sprintf("枚举新增取值 %q", item),
-			})
+			changed = append(changed, key)
 		}
 	}
-	sort.Strings(newValues)
+	for _, item := range oldEnum {
+		key := fmt.Sprint(item)
+		if !newValues[key] {
+			changed = append(changed, key)
+		}
+	}
+	sort.Strings(changed)
+	for _, key := range changed {
+		added := newValues[key]
+		breaking := added != isInput // input：删旧值破坏；output：增新值破坏
+		severity := SeverityCompatible
+		reason := fmt.Sprintf("枚举新增取值 %q", key)
+		if !added {
+			reason = fmt.Sprintf("枚举删除取值 %q", key)
+		}
+		if breaking {
+			severity = SeverityBreaking
+			if added {
+				reason = fmt.Sprintf("枚举新增取值 %q（消费方会见到新值）", key)
+			} else {
+				reason = fmt.Sprintf("枚举删除取值 %q（旧调用方发被删值将被拒绝）", key)
+			}
+		}
+		*findings = append(*findings, Finding{
+			Severity: severity,
+			Source:   source,
+			Path:     path + "/enum/" + key,
+			Reason:   reason,
+		})
+	}
 }
 
 func requiredSet(node map[string]interface{}) map[string]bool {

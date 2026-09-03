@@ -677,7 +677,9 @@ public partial class CroupierClient : IDisposable
             // Register inbound request handler for InvokeRequest from Agent
             transport.SetInboundRequestHandler(HandleInboundRequestAsync);
 
-            await RegisterCapabilitiesAsync(cancellationToken);
+            // 审查发现 #2：manifest 上传 fire-and-forget——控制面慢/不可达
+            // 不得拖慢注册主路径（方法内部已 fail-open）。
+            _ = RegisterCapabilitiesAsync(cancellationToken);
         }
         catch
         {
@@ -739,10 +741,12 @@ public partial class CroupierClient : IDisposable
             ? _config.ControlAddr["tcp://".Length..]
             : _config.ControlAddr;
         using var transport = _transportFactory(address, _config.TimeoutSeconds * 1000, _config.ConnectTimeoutSeconds * 1000, _logger);
-        transport.Connect();
 
         try
         {
+            // 审查发现 #2：连接也在 fail-open 范围内（原实现在 try 外，
+            // 死控制面会中止整个 provider connect）
+            transport.Connect();
             await transport.CallAsync(
                 Protocol.MsgRegisterCapabilitiesReq,
                 BuildRegisterCapabilitiesRequestData(),
