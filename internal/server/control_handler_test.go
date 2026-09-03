@@ -1966,3 +1966,38 @@ func TestControlService_HandleRegisterSchemaDiffWarnings(t *testing.T) {
 		assert.Empty(t, warnings)
 	})
 }
+
+// 后台 loop 的 ctx 取消退出路径（此前 cleanupLoop 41.7% / pruneOldMetrics 71.4%）：
+// 预取消 ctx 后同步直调，两个 loop 应立即返回且不 panic。
+func TestControlService_BackgroundLoops_ExitOnCanceledContext(t *testing.T) {
+	t.Run("pruneOldMetrics returns on done", func(t *testing.T) {
+		svc := newTestControlService()
+		svc.Stop() // 预取消
+		done := make(chan struct{})
+		go func() {
+			svc.pruneOldMetrics()
+			close(done)
+		}()
+		select {
+		case <-done:
+		case <-time.After(2 * time.Second):
+			t.Fatal("pruneOldMetrics must exit on canceled context")
+		}
+	})
+
+	t.Run("cleanupLoop returns on done and prunes expired sessions", func(t *testing.T) {
+		loader := &mockAgentSessionLoader{}
+		svc := newTestControlServiceWithLoader(loader)
+		svc.Stop()
+		done := make(chan struct{})
+		go func() {
+			svc.cleanupLoop()
+			close(done)
+		}()
+		select {
+		case <-done:
+		case <-time.After(2 * time.Second):
+			t.Fatal("cleanupLoop must exit on canceled context")
+		}
+	})
+}

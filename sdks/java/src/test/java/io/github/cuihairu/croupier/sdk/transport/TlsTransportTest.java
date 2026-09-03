@@ -123,4 +123,45 @@ class TlsTransportTest {
         serverSocket.close();
         pool.shutdownNow();
     }
+    @Test
+    @Timeout(60)
+    @DisplayName("TlsSocketFactory 守卫分支：缺 caFile / 坏 PEM / mTLS 上下文构建")
+    void factoryGuardsAndMutualTls() throws Exception {
+        Path dir = Files.createTempDirectory("croupier-tls-mtls");
+        Path cert = generateCert(dir, "srv", null, null);
+
+        // 缺 caFile → IOException
+        assertThrows(java.io.IOException.class,
+            () -> TlsSocketFactory.create(null, null, null));
+        assertThrows(java.io.IOException.class,
+            () -> TlsSocketFactory.create("  ", null, null));
+
+        // 坏 CA 内容（非 PEM）→ 无证书可解析
+        Path badCa = dir.resolve("bad-ca.pem");
+        Files.writeString(badCa, "not a pem document");
+        assertThrows(Exception.class, () -> TlsSocketFactory.create(badCa.toString(), null, null));
+
+        // mTLS：程序化生成客户端 RSA 私钥（PKCS#8 PEM）+ 复用服务端证书作链
+        java.security.KeyPairGenerator kpg = java.security.KeyPairGenerator.getInstance("RSA");
+        kpg.initialize(2048);
+        java.security.KeyPair kp = kpg.generateKeyPair();
+        String pkcs8Pem = "-----BEGIN PRIVATE KEY-----\n"
+            + java.util.Base64.getMimeEncoder().encodeToString(kp.getPrivate().getEncoded())
+            + "\n-----END PRIVATE KEY-----\n";
+        Path clientKey = dir.resolve("client.key");
+        Files.writeString(clientKey, pkcs8Pem);
+
+        // certFile 存在但 keyFile 为空 → 不启用 mTLS，仅 CA 校验
+        assertNotNull(TlsSocketFactory.create(cert.toString(), cert.toString(), null));
+
+        // keyFile 内容坏 → 私钥解析失败
+        Path badKey = dir.resolve("bad.key");
+        Files.writeString(badKey, "-----BEGIN PRIVATE KEY-----\nbm90IGEga2V5\n-----END PRIVATE KEY-----\n");
+        assertThrows(Exception.class,
+            () -> TlsSocketFactory.create(cert.toString(), cert.toString(), badKey.toString()));
+
+        // 完整 mTLS 上下文构建成功
+        SSLSocketFactory mtlsFactory = TlsSocketFactory.create(cert.toString(), cert.toString(), clientKey.toString());
+        assertNotNull(mtlsFactory);
+    }
 }

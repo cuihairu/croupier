@@ -2,8 +2,16 @@ package server
 
 import (
 	"context"
+	"crypto/rand"
+	"crypto/rsa"
+	"crypto/x509"
+	"crypto/x509/pkix"
+	"encoding/pem"
 	"log/slog"
+	"math/big"
 	"net"
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -936,3 +944,64 @@ func (c *countingClusterHooks) OnAgentHeartbeat(ctx context.Context, agentID str
 	c.heartbeats++
 }
 func (c *countingClusterHooks) OnAgentDisconnected(ctx context.Context, agentID string) {}
+
+// listenTCP TLS 分支：cert/key 正常加载、坏路径/坏 CA 报错（此前 63.2%）。
+func TestListenTCP_TLSBranches(t *testing.T) {
+	dir := t.TempDir()
+	certPath := filepath.Join(dir, "cert.pem")
+	keyPath := filepath.Join(dir, "key.pem")
+	caPath := filepath.Join(dir, "ca.pem")
+
+	// 生成自签证书（crypto/x509 标准库，无外部依赖）
+	priv, err := rsa.GenerateKey(rand.Reader, 2048)
+	require.NoError(t, err)
+	tmpl := x509.Certificate{
+		SerialNumber: big.NewInt(1),
+		Subject:      pkix.Name{CommonName: "localhost"},
+		NotBefore:    time.Now().Add(-time.Hour),
+		NotAfter:     time.Now().Add(time.Hour),
+		IsCA:         true,
+		KeyUsage:     x509.KeyUsageKeyEncipherment | x509.KeyUsageDigitalSignature | x509.KeyUsageCertSign,
+		ExtKeyUsage:  []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
+	}
+	der, err := x509.CreateCertificate(rand.Reader, &tmpl, &tmpl, &priv.PublicKey, priv)
+	require.NoError(t, err)
+	certPEM := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: der})
+	keyPEM := pem.EncodeToMemory(&pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(priv)})
+	require.NoError(t, os.WriteFile(certPath, certPEM, 0o600))
+	require.NoError(t, os.WriteFile(keyPath, keyPEM, 0o600))
+	require.NoError(t, os.WriteFile(caPath, certPEM, 0o600))
+
+	// cert+key+CA 齐备：TLS listener 建立成功
+	ln, err := listenTCP(&TCPListenerConfig{
+		Address:  "127.0.0.1:0",
+		Insecure: false,
+		CertFile: certPath, KeyFile: keyPath, CAFile: caPath,
+	})
+	require.NoError(t, err)
+	ln.Close()
+
+	// 坏证书路径 → load server certificate 错误
+	_, err = listenTCP(&TCPListenerConfig{
+		Address: "127.0.0.1:0", Insecure: false,
+		CertFile: filepath.Join(dir, "missing.pem"), KeyFile: keyPath,
+	})
+	require.ErrorContains(t, err, "load server certificate")
+
+	// 坏 CA 文件路径 → read CA file 错误
+	_, err = listenTCP(&TCPListenerConfig{
+		Address: "127.0.0.1:0", Insecure: false,
+		CertFile: certPath, KeyFile: keyPath,
+		CAFile: filepath.Join(dir, "missing-ca.pem"),
+	})
+	require.ErrorContains(t, err, "read CA file")
+
+	// 非 PEM 内容 → append CA certificate 错误
+	badCA := filepath.Join(dir, "bad-ca.pem")
+	require.NoError(t, os.WriteFile(badCA, []byte("not a pem"), 0o600))
+	_, err = listenTCP(&TCPListenerConfig{
+		Address: "127.0.0.1:0", Insecure: false,
+		CertFile: certPath, KeyFile: keyPath, CAFile: badCA,
+	})
+	require.ErrorContains(t, err, "append CA certificate")
+}
