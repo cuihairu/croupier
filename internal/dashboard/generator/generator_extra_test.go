@@ -21,15 +21,18 @@ func TestExtraRawInt(t *testing.T) {
 }
 
 func TestExtraFallbackLabel(t *testing.T) {
+	// F：humanize 语义——分隔符与 camelCase 拆词、首字母大写
 	cases := map[string]string{
 		"":            "",
 		"   ":         "",
-		"player_id":   "player_id",
-		"create-task": "create-task",
-		"createTask":  "createTask",
-		"a.b.c":       "a.b.c",
-		"already ok":  "already ok",
+		"player_id":   "Player Id",
+		"create-task": "Create Task",
+		"createTask":  "Create Task",
+		"a.b.c":       "A B C",
+		"already ok":  "Already Ok",
 		"ID":          "ID",
+		"HTTPServer":  "HTTP Server",
+		"player.ban":  "Player Ban",
 	}
 	for input, want := range cases {
 		assert.Equal(t, want, fallbackLabel(input), "fallbackLabel(%q)", input)

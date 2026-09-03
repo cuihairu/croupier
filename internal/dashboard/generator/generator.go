@@ -1246,7 +1246,7 @@ func firstNonEmpty(values ...string) string {
 }
 
 func fallbackLabel(value string) string {
-	return strings.TrimSpace(value)
+	return HumanizeKey(value)
 }
 
 func flushWord(words *[]string, current *strings.Builder) {

@@ -45,7 +45,7 @@ func TestRebuildAllProposals_RegeneratesStaleGeneratorVersion(t *testing.T) {
 	specJSON, err := json.Marshal(staleSpec)
 	require.NoError(t, err)
 	stale.GeneratorVersion = "page-generator:1"
-	stale.Title = gormDatatypes.JSONMap{"zh-CN": "Player", "en-US": "Player"}
+	stale.Title = gormDatatypes.JSONMap{"zh-CN": "player", "en-US": "player"}
 	stale.PageSpec = model.JSON(specJSON)
 	require.NoError(t, proposalModel.UpsertProposal(ctx, stale))
 
@@ -57,8 +57,10 @@ func TestRebuildAllProposals_RegeneratesStaleGeneratorVersion(t *testing.T) {
 	updated, err := proposalModel.FindByScopeAndKey(ctx, gameID, env, key)
 	require.NoError(t, err)
 	assert.Equal(t, contractsvc.PageProposalGeneratorVersion, updated.GeneratorVersion)
-	assert.NotContains(t, string(updated.PageSpec), "Created At",
-		"regenerated spec must not keep Title Case fallback labels")
+	// humanize 兜底：重生成的标题/列名为 Humanize 后的可读形式，
+	// 不再保留旧生成器的裸 key。
+	assert.Contains(t, string(updated.PageSpec), "Player")
+	assert.NotContains(t, string(updated.PageSpec), "\"zh-CN\":\"player\"")
 }
 
 // TestRebuildAllProposals_UpToDateProposalsStayUntouched ensures idempotency:

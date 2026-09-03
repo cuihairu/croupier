@@ -32,6 +32,8 @@ React Admin 的可借鉴之处是“资源语义 -> 默认后台页面 -> 局部
 
 生成器从持久化 FunctionContract 与 CapabilitySemantics 生成 PageProposal，且必须是确定性的：相同输入摘要和 generator version 产生相同 Proposal。
 
+生成兜底的显示名使用 humanize 规则：分隔符（`.` `_` `-` 空格）与 camelCase 边界拆词、每个词首字母大写后以空格连接（如 `player.ban` → `Player Ban`、`HTTPServer` → `HTTP Server`）。实现位于生成器 `HumanizeKey`；页面发布后仍可在 Page Studio 覆盖。
+
 生成器同时负责产出默认 NavigationSpec：ResourcePage `title` 取 humanize `resourceKey`；Operation/Task/Report 的 `title` 取主 binding 的 `summary[systemDefaultLocale]`，缺失时 humanize `operationKey`，再缺失时 humanize 原始 `functionId`；`category.key` 对 ResourcePage 取 `resourceKey` 的第一个 `.` 前缀、对独立 Operation/Task/Report 页面取原始 `functionId` 的第一个 `.` 前缀（无 `.` 时取完整 key），`category.labels` 取该 key 的 humanize 结果。不得从 `operation--mail.send` 这类 pageKey 推断分类。显式 labels 只能来自 Page Studio 人工编辑，SDK/OpenAPI 注册不得提供 labels。`LocalizedText` 显示时按当前界面语言、系统默认语言依次回退；生成器只保证系统默认语言。只有能产出系统默认语言 labels 的 Proposal 才允许标记为 `ready`/`basic`；labels 不齐备时必须降级并记录 diagnostic，不得让“可直接发布”的 Proposal 到发布时才失败。
 
 ### Resource CRUD 模板
