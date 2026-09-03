@@ -33,6 +33,7 @@ func setupTestDB(t *testing.T) *gorm.DB {
 		&model.PublishedPageSpec{},
 		&model.PageVersion{},
 		&model.TermDictionary{},
+		&model.Alert{},
 	)
 	require.NoError(t, err)
 
@@ -1638,4 +1639,50 @@ func auditBreakList(record *audit.AuditRecord) []string {
 	default:
 		return nil
 	}
+}
+
+// F：schema 破坏性变更写告警中心（去重：相同变更不重复）。
+func TestContractService_SchemaBreakingChangeCreatesAlert(t *testing.T) {
+	db := setupTestDB(t)
+	ctx := context.Background()
+	service := NewContractService(db)
+
+	meta := FunctionMetaInput{
+		ID:          "player.ban",
+		Version:     "1.0.0",
+		Enabled:     true,
+		Resource:    "player",
+		Operation:   "ban",
+		Capability:  "action",
+		Execution:   "sync",
+		InputSchema: `{"type":"object","properties":{"playerId":{"type":"string"},"reason":{"type":"string"}}}`,
+	}
+
+	// 首次注册：无告警
+	require.NoError(t, service.RebuildContractFromFunctionMeta(ctx, "demo-game", "development", "sdk", meta))
+	alerts, _, err := service.alertModel.List(ctx, model.ListAlertsOptions{Source: "contract"})
+	require.NoError(t, err)
+	assert.Empty(t, alerts)
+
+	// 相同 schema 重复注册：仍无告警
+	require.NoError(t, service.RebuildContractFromFunctionMeta(ctx, "demo-game", "development", "sdk", meta))
+	alerts, _, err = service.alertModel.List(ctx, model.ListAlertsOptions{Source: "contract"})
+	require.NoError(t, err)
+	assert.Empty(t, alerts)
+
+	// breaking：删除 reason 字段 → 告警产生
+	meta.InputSchema = `{"type":"object","properties":{"playerId":{"type":"string"}}}`
+	require.NoError(t, service.RebuildContractFromFunctionMeta(ctx, "demo-game", "development", "sdk", meta))
+	alerts, _, err = service.alertModel.List(ctx, model.ListAlertsOptions{Source: "contract"})
+	require.NoError(t, err)
+	require.Len(t, alerts, 1)
+	assert.Equal(t, "schema_diff", alerts[0].Type)
+	assert.Equal(t, "warning", alerts[0].Level)
+	assert.Contains(t, alerts[0].Message, "player.ban")
+
+	// 相同 breaking 再次注册：指纹相同，不重复告警
+	require.NoError(t, service.RebuildContractFromFunctionMeta(ctx, "demo-game", "development", "sdk", meta))
+	alerts, _, err = service.alertModel.List(ctx, model.ListAlertsOptions{Source: "contract"})
+	require.NoError(t, err)
+	assert.Len(t, alerts, 1)
 }

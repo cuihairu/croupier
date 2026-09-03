@@ -15,9 +15,10 @@ const { Text, Paragraph } = Typography;
 
 // LB 监控核心指标（PromQL 现成，docs/operations/load-balancing.md「LB 监控」）
 const QUERIES = {
-  backendSessions: 'sum by (backend) (haproxy_backend_current_sessions)',
+  // haproxy 内置 metrics（:8404）的维度标签是 proxy（非 backend）
+  backendSessions: 'sum by (proxy) (haproxy_backend_current_sessions)',
   serverStatus: 'haproxy_server_status',
-  errors: 'sum by (backend) (rate(haproxy_backend_errors_total[5m]))',
+  errors: 'sum by (proxy) (rate(haproxy_backend_errors_total[5m]))',
 } as const;
 
 type SeriesPoint = { time: string; value: number; backend: string };
@@ -63,7 +64,7 @@ export default function LBMonitor() {
         queryLbStats({ query: QUERIES.backendSessions }),
         queryLbStats({ query: QUERIES.serverStatus }),
       ]);
-      setSessionsData(toSeries(sessions.data?.result || [], 'backend'));
+      setSessionsData(toSeries(sessions.data?.result || [], 'proxy'));
       // haproxy_server_status 是 per-state 指标族（server×UP/DOWN/MAINT/
       // DRAIN/NOLB 各一行）——只看 state="UP" 行的值：1=健康，其余=不健康
       const down = (status.data?.result || [])
