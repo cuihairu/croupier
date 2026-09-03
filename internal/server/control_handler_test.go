@@ -2001,3 +2001,63 @@ func TestControlService_BackgroundLoops_ExitOnCanceledContext(t *testing.T) {
 		}
 	})
 }
+
+// runSessionCleanup / pruneMetricsOnce 直接单测（loop tick 体提取后可测）。
+func TestControlService_BackgroundLoopTicks(t *testing.T) {
+	t.Run("session cleanup success and error", func(t *testing.T) {
+		loader := &mockAgentSessionLoader{}
+		svc := newTestControlServiceWithLoader(loader)
+		svc.runSessionCleanup() // deleted == 0：静默分支
+
+		loader.deleteErr = assert.AnError
+		svc.runSessionCleanup() // error 分支：仅记日志不 panic
+
+		loader.deleteErr = nil
+		loader.deleteCount = 3
+		svc.runSessionCleanup() // deleted > 0：info 分支
+	})
+
+	t.Run("prune metrics once", func(t *testing.T) {
+		svc := newTestControlService()
+		svc.pruneMetricsOnce() // 空 store 上 prune 不 panic
+	})
+}
+
+// descriptorPresentationField 的未知 proto 字段拒绝 + compareSemver 解析兜底。
+func TestDescriptorUnknownFieldsAndSemverFallback(t *testing.T) {
+	t.Run("unknown proto fields rejected", func(t *testing.T) {
+		desc := &agentv1.FunctionDescriptor{Id: "f.v1", Version: "1.0.0"}
+		raw, err := proto.Marshal(desc)
+		require.NoError(t, err)
+		// 追加未知字段（field 200, varint 1）：wire = 0xC0 0x0C 0x01
+		raw = append(raw, 0xC0, 0x0C, 0x01)
+		var parsed agentv1.FunctionDescriptor
+		require.NoError(t, proto.Unmarshal(raw, &parsed))
+		field, rejected := descriptorPresentationField(&parsed)
+		assert.Equal(t, "unknown_proto_fields", field)
+		assert.True(t, rejected, "unknown proto fields must be rejected")
+	})
+
+	t.Run("semver compare fallback on non numeric", func(t *testing.T) {
+		// 非数字段 → parse 返回 [0,0,0]，比较不 panic
+		assert.Equal(t, 0, compareSemver("1.2.x", "1.2.y"))
+		assert.Equal(t, -1, compareSemver("0.0.0", "1.0.0"))
+	})
+}
+
+// NewTCPListener nil 配置兜底。
+func TestNewTCPListener_NilConfigDefaults(t *testing.T) {
+	listener, err := NewTCPListener(nil, nil, nil, nil)
+	require.NoError(t, err)
+	defer listener.Close()
+	assert.NotNil(t, listener)
+}
+
+// LoadAgentSessions 的 loader 错误分支。
+func TestControlService_LoadAgentSessions_LoadError(t *testing.T) {
+	loader := &mockAgentSessionLoader{loadErr: assert.AnError}
+	svc := newTestControlServiceWithLoader(loader)
+	err := svc.LoadAgentSessions()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to load agent sessions")
+}

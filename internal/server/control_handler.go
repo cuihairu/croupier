@@ -803,6 +803,12 @@ func (s *ControlService) handleRegisterCapabilitiesRequest(ctx context.Context, 
 	return &agentv1.RegisterCapabilitiesResponse{}, nil
 }
 
+// pruneMetricsOnce 执行一轮指标/缓存修剪（供循环调用与直接测试）。
+func (s *ControlService) pruneMetricsOnce() {
+	s.metricsStore.Prune(time.Hour)
+	s.systemInfoCache.Prune(time.Hour)
+}
+
 func (s *ControlService) pruneOldMetrics() {
 	ticker := time.NewTicker(5 * time.Minute)
 	defer ticker.Stop()
@@ -811,9 +817,20 @@ func (s *ControlService) pruneOldMetrics() {
 		case <-s.ctx.Done():
 			return
 		case <-ticker.C:
-			s.metricsStore.Prune(time.Hour)
-			s.systemInfoCache.Prune(time.Hour)
+			s.pruneMetricsOnce()
 		}
+	}
+}
+
+// runSessionCleanup 执行一轮过期会话清理（供循环调用与直接测试）。
+func (s *ControlService) runSessionCleanup() {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	deleted, err := s.agentSessionLoader.DeleteExpired(ctx)
+	if err != nil {
+		s.logger.Error("failed to delete expired sessions", "error", err)
+	} else if deleted > 0 {
+		s.logger.Info("deleted expired sessions from database", "count", deleted)
 	}
 }
 
@@ -825,14 +842,7 @@ func (s *ControlService) cleanupLoop() {
 		case <-s.ctx.Done():
 			return
 		case <-ticker.C:
-			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-			deleted, err := s.agentSessionLoader.DeleteExpired(ctx)
-			cancel()
-			if err != nil {
-				s.logger.Error("failed to delete expired sessions", "error", err)
-			} else if deleted > 0 {
-				s.logger.Info("deleted expired sessions from database", "count", deleted)
-			}
+			s.runSessionCleanup()
 		}
 	}
 }

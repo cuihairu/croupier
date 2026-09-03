@@ -1005,3 +1005,24 @@ func TestListenTCP_TLSBranches(t *testing.T) {
 	})
 	require.ErrorContains(t, err, "append CA certificate")
 }
+
+// Serve 空闲等连接：accept 1s 超时 → continue 循环 → ctx 取消后退出（113-121）。
+func TestTCPListener_Serve_IdleTimeoutThenCancel(t *testing.T) {
+	listener, err := NewTCPListener(&TCPListenerConfig{Address: ":0", Insecure: true}, nil, nil, nil)
+	require.NoError(t, err)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	errCh := make(chan error, 1)
+	go func() { errCh <- listener.Serve(ctx) }()
+
+	time.Sleep(1200 * time.Millisecond) // 跨过一次 1s accept deadline
+	cancel()
+	select {
+	case err := <-errCh:
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "context canceled")
+	case <-time.After(3 * time.Second):
+		t.Fatal("timeout waiting for serve to return")
+	}
+	listener.Close()
+}
