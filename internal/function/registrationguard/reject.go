@@ -140,10 +140,10 @@ func FindPresentationViolation(extensions map[string]string, inputSchema, output
 		}
 	}
 	if field, path, ok := ScanJSON(inputSchema); ok {
-		return PresentationViolation{Field: field, Location: "input_schema" + path[1:]}, true
+		return PresentationViolation{Field: field, Location: "inputSchema" + path[1:]}, true
 	}
 	if field, path, ok := ScanJSON(outputSchema); ok {
-		return PresentationViolation{Field: field, Location: "output_schema" + path[1:]}, true
+		return PresentationViolation{Field: field, Location: "outputSchema" + path[1:]}, true
 	}
 	return PresentationViolation{}, false
 }

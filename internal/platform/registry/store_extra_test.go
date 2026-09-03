@@ -195,7 +195,7 @@ func TestStore_UpsertAgentRejectsPresentationSchemaBeforePersistence(t *testing.
 	})
 
 	require.Error(t, err)
-	assert.ErrorContains(t, err, `function "player.list" input_schema.x-menu`)
+	assert.ErrorContains(t, err, `function "player.list" inputSchema.x-menu`)
 	assert.ErrorContains(t, err, `forbidden presentation field "x-menu"`)
 	assert.Empty(t, store.AgentsUnsafe())
 	assert.Empty(t, recorder.scopes)

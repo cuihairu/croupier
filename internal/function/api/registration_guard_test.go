@@ -65,7 +65,7 @@ func TestRegisterFunction_RejectsPresentationFieldInSchema(t *testing.T) {
 	details, ok := resp["details"].(map[string]interface{})
 	True(t, ok, "expected structured details, got %v", resp)
 	Equal(t, "x-pagination", details["field"])
-	Equal(t, "input_schema.properties.keyword.x-pagination", details["location"])
+	Equal(t, "inputSchema.properties.keyword.x-pagination", details["location"])
 }
 
 func TestRegisterFunction_AcceptsCapabilityContractFields(t *testing.T) {

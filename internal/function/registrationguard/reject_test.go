@@ -50,7 +50,7 @@ func TestFindPresentationViolation(t *testing.T) {
 	violation, found = FindPresentationViolation(nil, `{"type":"object","x-menu":"Players"}`, ``)
 	assert.True(t, found)
 	assert.Equal(t, "x-menu", violation.Field)
-	assert.Equal(t, "input_schema.x-menu", violation.Location)
+	assert.Equal(t, "inputSchema.x-menu", violation.Location)
 }
 
 func TestForbiddenRegistrationExtensionField(t *testing.T) {
