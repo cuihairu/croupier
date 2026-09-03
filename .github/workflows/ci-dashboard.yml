@@ -50,10 +50,16 @@ jobs:
         with:
           ref: ${{ inputs.tag || github.ref }}
 
-      - timeout-minutes: 3
-        uses: pnpm/action-setup@v6
-        with:
-          version: 11.11.0
+      # pnpm CLI 下载抖动曾致 3 分钟超时：失败自动重试 3 次
+      - name: Setup pnpm
+        timeout-minutes: 10
+        run: |
+          for attempt in 1 2 3; do
+            npm install -g pnpm@11.11.0 && exit 0
+            echo "pnpm install attempt $attempt failed, retrying in 15s..."
+            sleep 15
+          done
+          exit 1
 
       - timeout-minutes: 5
         uses: actions/setup-node@v7
@@ -117,10 +123,16 @@ jobs:
         with:
           ref: ${{ inputs.tag || github.ref }}
 
-      - timeout-minutes: 3
-        uses: pnpm/action-setup@v6
-        with:
-          version: 11.11.0
+      # pnpm CLI 下载抖动曾致 3 分钟超时：失败自动重试 3 次
+      - name: Setup pnpm
+        timeout-minutes: 10
+        run: |
+          for attempt in 1 2 3; do
+            npm install -g pnpm@11.11.0 && exit 0
+            echo "pnpm install attempt $attempt failed, retrying in 15s..."
+            sleep 15
+          done
+          exit 1
 
       - timeout-minutes: 5
         uses: actions/setup-node@v7
@@ -204,10 +216,16 @@ jobs:
         with:
           go-version-file: go.mod
 
-      - timeout-minutes: 3
-        uses: pnpm/action-setup@v6
-        with:
-          version: 11.11.0
+      # pnpm CLI 下载抖动曾致 3 分钟超时：失败自动重试 3 次
+      - name: Setup pnpm
+        timeout-minutes: 10
+        run: |
+          for attempt in 1 2 3; do
+            npm install -g pnpm@11.11.0 && exit 0
+            echo "pnpm install attempt $attempt failed, retrying in 15s..."
+            sleep 15
+          done
+          exit 1
 
       - timeout-minutes: 5
         uses: actions/setup-node@v7
