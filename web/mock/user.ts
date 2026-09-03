@@ -129,6 +129,37 @@ export default {
       access = 'admin';
       return;
     }
+    // F：MFA 场景（mfa-admin）——无 totpCode 返回 401+mfa_required；
+    // totpCode=123456 登录成功，其它动态码按错误动态码处理
+    if (username === 'mfa-admin' && password === 'ant.design') {
+      const { totpCode } = req.body;
+      if (!totpCode) {
+        access = 'guest';
+        res.status(401).send({
+          error: 'mfa_required',
+          message: '该账号已启用两步验证，请输入动态验证码',
+        });
+        return;
+      }
+      if (totpCode === '123456') {
+        res.send({
+          token: 'mock-jwt-token-mfa',
+          user: {
+            username: 'mfa-admin',
+            nickname: 'MFA 管理员',
+            roles: ['admin'],
+          },
+        });
+        access = 'admin';
+        return;
+      }
+      access = 'guest';
+      res.status(401).send({
+        error: 'invalid_totp_code',
+        message: '动态验证码错误',
+      });
+      return;
+    }
     if (password === 'ant.design' && username === 'user') {
       res.send({
         status: 'ok',
@@ -171,6 +202,37 @@ export default {
         },
       });
       access = 'admin';
+      return;
+    }
+    // F：MFA 场景（mfa-admin）——无 totpCode 返回 401+mfa_required；
+    // totpCode=123456 登录成功，其它动态码按错误动态码处理
+    if (username === 'mfa-admin' && password === 'ant.design') {
+      const { totpCode } = req.body;
+      if (!totpCode) {
+        access = 'guest';
+        res.status(401).send({
+          error: 'mfa_required',
+          message: '该账号已启用两步验证，请输入动态验证码',
+        });
+        return;
+      }
+      if (totpCode === '123456') {
+        res.send({
+          token: 'mock-jwt-token-mfa',
+          user: {
+            username: 'mfa-admin',
+            nickname: 'MFA 管理员',
+            roles: ['admin'],
+          },
+        });
+        access = 'admin';
+        return;
+      }
+      access = 'guest';
+      res.status(401).send({
+        error: 'invalid_totp_code',
+        message: '动态验证码错误',
+      });
       return;
     }
     if (password === 'ant.design' && username === 'user') {
