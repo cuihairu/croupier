@@ -291,8 +291,8 @@ test.describe('真实 SDK Operation 链路', () => {
     await waitForPageReady(page);
 
     await page.getByRole('textbox', { name: /player[ _-]?id/i }).fill('p-001');
-    await page.getByRole('textbox', { name: /title/ }).fill('真实 SDK 邮件');
-    await page.getByRole('textbox', { name: 'content' }).fill('fixture message');
+    await page.getByRole('textbox', { name: /title/i }).fill('真实 SDK 邮件');
+    await page.getByRole('textbox', { name: /content/i }).fill('fixture message');
     const executeResponsePromise = page.waitForResponse(
       (response) =>
         response.url().includes('/bindings/mail.send.main/execute') &&
