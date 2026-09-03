@@ -476,6 +476,11 @@ export default [
     hideInMenu: true,
   },
   {
+    path: '/ops/telemetry/traces',
+    redirect: '/dev/traces',
+    hideInMenu: true,
+  },
+  {
     path: '/ops/services',
     redirect: '/ops/nodes',
     hideInMenu: true,

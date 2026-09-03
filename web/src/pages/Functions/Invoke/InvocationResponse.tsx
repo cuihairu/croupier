@@ -258,9 +258,7 @@ export default function InvocationResponse({
               size="small"
               type="link"
               icon={<LinkOutlined />}
-              onClick={() =>
-                history.push(`/ops/telemetry/traces?traceId=${encodeURIComponent(traceId)}`)
-              }
+              onClick={() => history.push(`/dev/traces?traceId=${encodeURIComponent(traceId)}`)}
             >
               链路追踪页
             </Button>

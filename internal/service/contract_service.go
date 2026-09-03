@@ -28,7 +28,9 @@ import (
 // revision. It participates in proposalComparableDigest, so bumping it makes
 // every stored proposal compare as changed on the next rebuild pass and get
 // regenerated from the current generator (e.g. after label-fallback changes).
-const PageProposalGeneratorVersion = "page-generator:2"
+// page-generator:3：humanize 兜底上线（裸 key → 可读标题），存量提案
+// 在下一轮 RebuildAllProposals 时按版本差异自动重生成。
+const PageProposalGeneratorVersion = "page-generator:3"
 
 // normalizeSchemaToJSON ensures schema is stored as a native JSON object,
 // not as a JSON string value. This prevents the API from returning schemas
@@ -58,6 +60,13 @@ type ContractService struct {
 	proposalVersions *model.PageProposalVersionModel
 	blockedIssues    *model.BlockedProposalIssueModel
 	auditSvc         *audit.AuditService
+	alertModel       *model.AlertModel
+}
+
+// WithAlertModel 注入告警模型（可选）：schema 破坏性变更写告警中心。
+func (s *ContractService) WithAlertModel(m *model.AlertModel) *ContractService {
+	s.alertModel = m
+	return s
 }
 
 // WithAuditService 注入审计服务（可选）：契约更新时写 function.contract_updated
@@ -78,6 +87,7 @@ func NewContractService(db *gorm.DB) *ContractService {
 		proposalModel:    model.NewPageProposalModel(db),
 		proposalVersions: model.NewPageProposalVersionModel(db),
 		blockedIssues:    model.NewBlockedProposalIssueModel(db),
+		alertModel:       model.NewAlertModel(db),
 	}
 }
 
@@ -156,6 +166,9 @@ func (s *ContractService) RebuildContractFromFunctionMeta(ctx context.Context, g
 	// F13：契约更新审计（function.contract_updated，含 diff 摘要）。
 	s.logContractUpdateAudit(ctx, gameID, env, source, input.ID, isUpdate, diffFindings)
 
+	// F：schema 破坏性变更写告警中心（主动提醒运营；按内容去重防骚扰）。
+	s.warnBreakingSchemaChanges(ctx, gameID, env, source, input.ID, diffFindings)
+
 	slog.Info("rebuilt function contract",
 		"game_id", gameID,
 		"env", env,
@@ -197,6 +210,51 @@ func (s *ContractService) logContractUpdateAudit(
 		audit.WithDetails(details),
 	); err != nil {
 		slog.Warn("failed to write function.contract_updated audit",
+			"game_id", gameID, "env", env, "function_id", functionID, "error", err)
+	}
+}
+
+// warnBreakingSchemaChanges 将 schema 破坏性变更写入告警中心。
+// AlertID 含变更内容指纹：相同变更不重复告警；修复后再次出现会重新告警。
+func (s *ContractService) warnBreakingSchemaChanges(
+	ctx context.Context, gameID, env, source, functionID string, findings []schemadiff.Finding,
+) {
+	var breaking []schemadiff.Finding
+	for _, finding := range findings {
+		if finding.Severity == schemadiff.SeverityBreaking {
+			breaking = append(breaking, finding)
+		}
+	}
+	if len(breaking) == 0 || s.alertModel == nil {
+		return
+	}
+	fingerprint := fmt.Sprintf("%s-%s-%s", gameID, env, functionID)
+	details := map[string]interface{}{
+		"gameId":     gameID,
+		"env":        env,
+		"functionId": functionID,
+		"source":     source,
+		"findings":   breaking,
+	}
+	raw, _ := json.Marshal(breaking)
+	fingerprint += "-" + fmt.Sprintf("%x", sha256.Sum256(raw))[:12]
+	alertID := "schema-diff-" + fmt.Sprintf("%x", sha256.Sum256([]byte(fingerprint)))[:16]
+
+	if existing, err := s.alertModel.FindByAlertID(ctx, alertID); err == nil && existing != nil {
+		return // 相同变更已告警过
+	}
+	message := fmt.Sprintf("函数 %s 的 schema 存在 %d 处破坏性变更（来源 %s）", functionID, len(breaking), source)
+	if err := s.alertModel.Create(ctx, &model.Alert{
+		AlertID:   alertID,
+		Type:      "schema_diff",
+		Level:     "warning",
+		Message:   message,
+		Source:    "contract",
+		Status:    "firing",
+		Details:   details,
+		CreatedBy: "system",
+	}); err != nil {
+		slog.Warn("failed to create schema diff alert",
 			"game_id", gameID, "env", env, "function_id", functionID, "error", err)
 	}
 }

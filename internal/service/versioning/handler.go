@@ -153,9 +153,13 @@ func (h *Handler) RegenerateProposal(c *gin.Context) {
 		response.Error(c, err)
 		return
 	}
-	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Error(c, err)
-		return
+	// body 可选（Force 为唯一可选字段）：前端「重新生成」按钮不带 body，
+	// 空 body 不应报 EOF。
+	if c.Request.Body != nil && c.Request.ContentLength > 0 {
+		if err := c.ShouldBindJSON(&req); err != nil {
+			response.Error(c, err)
+			return
+		}
 	}
 
 	// Get scope from context
@@ -179,9 +183,12 @@ func (h *Handler) Republish(c *gin.Context) {
 		response.Error(c, err)
 		return
 	}
-	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Error(c, err)
-		return
+	// body 可选（Reason 为唯一可选字段）：空 body 不报 EOF
+	if c.Request.Body != nil && c.Request.ContentLength > 0 {
+		if err := c.ShouldBindJSON(&req); err != nil {
+			response.Error(c, err)
+			return
+		}
 	}
 
 	// Get scope from context
