@@ -50,7 +50,7 @@
 | OpenAPI 注册 helper（`RegisterFromOpenAPI` 等价）                      | ✅              | ✅                    | ✅              | ✅                  | ✅                 | ✅                       |
 | JSON Schema 入站 payload 校验（provider 侧，`validateInputPayloads`）  | ✅              | ✅                    | ✅              | ✅                  | ✅                 | ✅ `JsonSchemaValidator` |
 | 控制面 manifest 上传（`control_addr` → `RegisterCapabilitiesRequest`） | ✅              | ✅                    | ✅              | ✅                  | ✅                 | ✅                       |
-| 文件传输（`enable_file_transfer`）                                     | ❌              | ❌                    | ❌              | ❌                  | ❌                 | ❌                       |
+| 文件下发接收（`enableFileTransfer`，暂存区落盘，hotpatch P1 传输层）   | ✅              | ❌                    | ❌              | ❌                  | ❌                 | ❌                       |
 
 ### L3 Invoker（invoke / startTask / getTaskStatus / streamTask / cancelTask）
 
@@ -68,7 +68,9 @@ C# DI / Unity / Java Spring Boot starter），明细见下文第五章；此层�
 1. **manifest 上传（L2）**：六语言均已实现（注册后独立短连接
    `control_addr` → `RegisterCapabilitiesRequest`，best-effort 不阻断注册）；
    已知边界：C++ 端到端帧回路测试未覆盖（编译与逻辑对齐 Go 已验证版本）。
-2. **文件传输（L2）**：六语言均未实现；如无平台侧需求建议从矩阵移除或标注"规划中"。
+2. **文件下发接收（L2）**：Go 已实现（`MsgProviderFilePushRequest 0x050109`，
+   校验链：开关/大小/ basename/ sha256/ 暂存区原子落盘，**不自动应用**——
+   应用由 hotpatch runner 单独编排）；其余语言待对齐。
 
 ---
 

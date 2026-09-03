@@ -137,6 +137,10 @@ type ClientConfig struct {
 	// File transfer settings
 	EnableFileTransfer bool `json:"enableFileTransfer"` // enable file transfer
 	MaxFileSize        int  `json:"maxFileSize"`        // max file size in bytes
+	// FileStagingDir is the directory where pushed files are staged. Files
+	// land here ONLY (never applied automatically); the hotpatch runner
+	// consumes them separately.
+	FileStagingDir string `json:"fileStagingDir"` // default "./croupier-staging"
 
 	// Inbound payload validation (F15): when true, provider-side dispatch
 	// validates incoming invoke/task payloads against the function's declared

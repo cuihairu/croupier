@@ -64,6 +64,10 @@ const (
 	MsgProviderDrainResponse     = 0x050106
 	MsgGetTaskResultRequest      = 0x050107
 	MsgGetTaskResultResponse     = 0x050108
+
+	// Provider file push (F：文件下发原语，hotpatch P1 传输层)
+	MsgProviderFilePushRequest  = 0x050109
+	MsgProviderFilePushResponse = 0x05010A
 )
 
 // PutMsgID encodes a 24-bit MsgID into buf in big-endian order.

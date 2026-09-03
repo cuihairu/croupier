@@ -104,6 +104,7 @@ func newTCPRPCHandler(manager *TCPManager) *tcpRPCHandler {
 	// 调用路由不再选到"进程活着但处理不动"的 provider。
 	handler.methods[protocol.MsgProviderHeartbeatRequest] = handler.pong
 	handler.methods[protocol.MsgProviderDrainRequest] = handler.handleDrain
+	handler.methods[protocol.MsgProviderFilePushRequest] = handler.filePush
 	return handler
 }
 
@@ -593,6 +594,11 @@ func (m *TCPManager) sendHeartbeat(ctx context.Context) error {
 	defer hbCancel()
 	_, _, err = client.Call(hbCtx, protocol.MsgProviderHeartbeatRequest, reqBody)
 	return err
+}
+
+// filePush 处理 agent → provider 的文件下发（hotpatch P1 传输层）。
+func (h *tcpRPCHandler) filePush(ctx context.Context, msgID uint32, reqID uint32, body []byte) (respBody []byte, err error) {
+	return h.manager.handleFilePushRequest(body)
 }
 
 func (h *tcpRPCHandler) invoke(ctx context.Context, msgID uint32, reqID uint32, body []byte) (respBody []byte, err error) {
