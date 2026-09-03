@@ -559,6 +559,7 @@ public class CroupierClientImpl implements CroupierClient {
             case Protocol.MSG_START_TASK_REQUEST -> handleStartTaskRequest(body);
             case Protocol.MSG_STREAM_TASK_REQUEST -> handleStreamTaskRequest(body);
             case Protocol.MSG_CANCEL_TASK_REQUEST -> handleCancelTaskRequest(body);
+            case Protocol.MSG_PROVIDER_FILE_PUSH_REQ -> handleFilePushRequest(body);
             default -> throw new CroupierException("Unsupported local request type: " + requestId);
         };
     }
@@ -647,6 +648,87 @@ public class CroupierClientImpl implements CroupierClient {
         return SdkWireMessages.encodeInvokeResponse(
             new SdkWireMessages.InvokeResponse(result.getBytes(StandardCharsets.UTF_8))
         );
+    }
+
+    /**
+     * F：文件下发接收（hotpatch P1 传输层）。
+     * 安全链全部强制：总开关 → 大小上限 → 仅 basename（拒穿越）→
+     * sha256 → 原子落盘暂存目录。**不自动应用**——应用由后续
+     * hotpatch runner 单独编排。任何失败回 error 响应。
+     */
+    private byte[] handleFilePushRequest(byte[] body) throws java.security.NoSuchAlgorithmException {
+        SdkWireMessages.FilePushRequest request = SdkWireMessages.decodeFilePushRequest(body);
+        String transferId = request.transferId;
+        String fileName = request.fileName.trim();
+        String contentSha256 = request.contentSha256.trim();
+        byte[] data = request.data;
+
+        if (!config.isEnableFileTransfer()) {
+            return SdkWireMessages.encodeFilePushResponse(
+                new SdkWireMessages.FilePushResponse(transferId, false, "",
+                    "file transfer is disabled on this provider"));
+        }
+        if (transferId.isBlank()) {
+            return SdkWireMessages.encodeFilePushResponse(
+                new SdkWireMessages.FilePushResponse("", false, "", "transferId is required"));
+        }
+        if (fileName.isBlank() || fileName.contains("/") || fileName.contains("\\")
+                || fileName.contains("..")) {
+            return SdkWireMessages.encodeFilePushResponse(
+                new SdkWireMessages.FilePushResponse(transferId, false, "",
+                    "file name must be a bare basename: \"" + fileName + "\""));
+        }
+        if (data.length == 0) {
+            return SdkWireMessages.encodeFilePushResponse(
+                new SdkWireMessages.FilePushResponse(transferId, false, "", "file payload is empty"));
+        }
+        int maxSize = config.getMaxFileSize() > 0 ? config.getMaxFileSize() : 10 * 1024 * 1024;
+        if (data.length > maxSize) {
+            return SdkWireMessages.encodeFilePushResponse(
+                new SdkWireMessages.FilePushResponse(transferId, false, "",
+                    "file size " + data.length + " exceeds max " + maxSize));
+        }
+        if (contentSha256.isBlank()) {
+            return SdkWireMessages.encodeFilePushResponse(
+                new SdkWireMessages.FilePushResponse(transferId, false, "", "contentSha256 is required"));
+        }
+        String actualHex = toHex(java.security.MessageDigest.getInstance("SHA-256").digest(data));
+        if (!actualHex.equalsIgnoreCase(contentSha256)) {
+            return SdkWireMessages.encodeFilePushResponse(
+                new SdkWireMessages.FilePushResponse(transferId, false, "", "checksum mismatch"));
+        }
+
+        // 原子落盘暂存目录（tmp + rename）
+        try {
+            java.nio.file.Path staging = java.nio.file.Paths.get(
+                config.getFileStagingDir() == null || config.getFileStagingDir().isBlank()
+                    ? "./croupier-staging" : config.getFileStagingDir());
+            java.nio.file.Files.createDirectories(staging);
+            java.nio.file.Path target = staging.resolve(fileName).normalize();
+            if (!target.startsWith(staging)) {
+                return SdkWireMessages.encodeFilePushResponse(
+                    new SdkWireMessages.FilePushResponse(transferId, false, "",
+                        "file name must be a bare basename: \"" + fileName + "\""));
+            }
+            java.nio.file.Path tmp = staging.resolve(".push-" + transferId);
+            java.nio.file.Files.write(tmp, data);
+            java.nio.file.Files.move(tmp, target,
+                java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+            return SdkWireMessages.encodeFilePushResponse(
+                new SdkWireMessages.FilePushResponse(transferId, true, target.toString(), ""));
+        } catch (Exception e) {
+            return SdkWireMessages.encodeFilePushResponse(
+                new SdkWireMessages.FilePushResponse(transferId, false, "",
+                    "write staging file: " + e.getMessage()));
+        }
+    }
+
+    private static String toHex(byte[] bytes) {
+        StringBuilder sb = new StringBuilder(bytes.length * 2);
+        for (byte b : bytes) {
+            sb.append(java.lang.String.format("%02x", b));
+        }
+        return sb.toString();
     }
 
     /**

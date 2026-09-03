@@ -58,6 +58,9 @@ const (
 	KeyNotifyDingtalkSecret = "notification.dingtalkSecret" // string
 	KeyNotifyWebhookURL     = "notification.webhookUrl"     // string
 	KeyNotifyWebhookSecret  = "notification.webhookSecret"  // string
+	KeyNotifyWecomURL       = "notification.wecomUrl"       // string
+	KeyNotifyFeishuURL      = "notification.feishuUrl"      // string
+	KeyNotifyFeishuSecret   = "notification.feishuSecret"   // string
 	KeyNotifyInAppEnabled   = "notification.inAppEnabled"   // bool
 
 	// 登录方式（外部身份源，L3 运行时配置——Harbor 模式：yaml 仅作
@@ -93,6 +96,7 @@ var ValidKeys = map[string]struct{}{
 	KeyNotifySMTPUser: {}, KeyNotifySMTPPassword: {}, KeyNotifySMTPFrom: {},
 	KeyNotifyDingtalkURL: {}, KeyNotifyDingtalkSecret: {},
 	KeyNotifyWebhookURL: {}, KeyNotifyWebhookSecret: {}, KeyNotifyInAppEnabled: {},
+	KeyNotifyWecomURL: {}, KeyNotifyFeishuURL: {}, KeyNotifyFeishuSecret: {},
 
 	KeyAuthLdapEnabled: {}, KeyAuthLdapAddr: {}, KeyAuthLdapBaseDn: {},
 	KeyAuthLdapBindDn: {}, KeyAuthLdapBindPassword: {}, KeyAuthLdapUserFilter: {},
@@ -406,6 +410,10 @@ type NotificationSnapshot struct {
 	WebhookURL           string            `json:"webhookUrl"`
 	WebhookSecretSet     bool              `json:"webhookSecretSet"`
 	WebhookSecretMasked  string            `json:"webhookSecretMasked,omitempty"`
+	WecomURL             string            `json:"wecomUrl"`
+	FeishuURL            string            `json:"feishuUrl"`
+	FeishuSecretSet      bool              `json:"feishuSecretSet"`
+	FeishuSecretMasked   string            `json:"feishuSecretMasked,omitempty"`
 	InAppEnabled         bool              `json:"inAppEnabled"`
 	Sources              map[string]string `json:"sources"`
 }
@@ -420,6 +428,8 @@ func (l *Layered) NotificationSnapshot() NotificationSnapshot {
 		SMTPFrom:     stringOrEmpty(l.GetString(context.Background(), KeyNotifySMTPFrom)),
 		DingtalkURL:  stringOrEmpty(l.GetString(context.Background(), KeyNotifyDingtalkURL)),
 		WebhookURL:   stringOrEmpty(l.GetString(context.Background(), KeyNotifyWebhookURL)),
+		WecomURL:     stringOrEmpty(l.GetString(context.Background(), KeyNotifyWecomURL)),
+		FeishuURL:    stringOrEmpty(l.GetString(context.Background(), KeyNotifyFeishuURL)),
 		InAppEnabled: l.GetBool(KeyNotifyInAppEnabled, true),
 		Sources:      map[string]string{},
 	}
@@ -437,6 +447,7 @@ func (l *Layered) NotificationSnapshot() NotificationSnapshot {
 	snap.SMTPPasswordSet, snap.SMTPPasswordMasked = mask(KeyNotifySMTPPassword)
 	snap.DingtalkSecretSet, snap.DingtalkSecretMasked = mask(KeyNotifyDingtalkSecret)
 	snap.WebhookSecretSet, snap.WebhookSecretMasked = mask(KeyNotifyWebhookSecret)
+	snap.FeishuSecretSet, snap.FeishuSecretMasked = mask(KeyNotifyFeishuSecret)
 	return snap
 }
 
@@ -468,6 +479,9 @@ type NotifyChannelsResolved struct {
 	DingtalkSecret string
 	WebhookURL     string
 	WebhookSecret  string
+	WecomURL       string
+	FeishuURL      string
+	FeishuSecret   string
 	InAppEnabled   bool
 	EmailEnabled   bool
 }
@@ -479,6 +493,9 @@ func (l *Layered) NotifyChannels() NotifyChannelsResolved {
 		DingtalkSecret: stringOrEmpty(l.GetString(context.Background(), KeyNotifyDingtalkSecret)),
 		WebhookURL:     stringOrEmpty(l.GetString(context.Background(), KeyNotifyWebhookURL)),
 		WebhookSecret:  stringOrEmpty(l.GetString(context.Background(), KeyNotifyWebhookSecret)),
+		WecomURL:       stringOrEmpty(l.GetString(context.Background(), KeyNotifyWecomURL)),
+		FeishuURL:      stringOrEmpty(l.GetString(context.Background(), KeyNotifyFeishuURL)),
+		FeishuSecret:   stringOrEmpty(l.GetString(context.Background(), KeyNotifyFeishuSecret)),
 		InAppEnabled:   l.GetBool(KeyNotifyInAppEnabled, true),
 		EmailEnabled:   l.GetBool(KeyNotifyEmailEnabled, false),
 	}

@@ -2,6 +2,10 @@ package approvals
 
 import (
 	"context"
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"io"
 	"net/http"
@@ -371,4 +375,69 @@ func TestEmailSender_SendRejectsInjectedRecipient(t *testing.T) {
 	err := sender.Send(context.Background(), "user@example.com\r\nRCPT TO:<x@evil.com>", NotificationEvent{Title: "hi"})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "invalid email recipient")
+}
+
+// 企业微信：markdown 载荷、无加签、URL 原样。
+func TestWecomSender_Payload(t *testing.T) {
+	var gotURL string
+	var gotBody []byte
+	w := NewWecomSender("https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=k1")
+	w.postJSON = func(ctx context.Context, url string, payload []byte) error {
+		gotURL, gotBody = url, payload
+		return nil
+	}
+	require.NoError(t, w.Send(context.Background(), "", NotificationEvent{
+		Title: "审批待办", Message: "订单退款需要审批",
+	}))
+	assert.Equal(t, "https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=k1", gotURL)
+	assert.Contains(t, string(gotBody), `"msgtype":"markdown"`)
+	assert.Contains(t, string(gotBody), "审批待办")
+	assert.Equal(t, ChannelWecom, w.Channel())
+
+	// 未配置 URL：no-op
+	idle := NewWecomSender("")
+	assert.NoError(t, idle.Send(context.Background(), "", NotificationEvent{Title: "x"}))
+}
+
+// 飞书：text 载荷 + 加签（timestamp/sign 顶层字段，签名可复现校验）。
+func TestFeishuSender_PayloadAndSign(t *testing.T) {
+	var gotURL string
+	var gotBody []byte
+	f := NewFeishuSender("https://open.feishu.cn/open-apis/bot/v2/hook/h1", "sec-1")
+	f.postJSON = func(ctx context.Context, url string, payload []byte) error {
+		gotURL, gotBody = url, payload
+		return nil
+	}
+	require.NoError(t, f.Send(context.Background(), "", NotificationEvent{
+		Title: "告警", Message: "agent 离线",
+	}))
+	assert.Equal(t, "https://open.feishu.cn/open-apis/bot/v2/hook/h1", gotURL)
+
+	var payload map[string]interface{}
+	require.NoError(t, json.Unmarshal(gotBody, &payload))
+	assert.Equal(t, "text", payload["msg_type"])
+	content := payload["content"].(map[string]interface{})
+	assert.Contains(t, content["text"], "告警")
+	assert.Contains(t, content["text"], "agent 离线")
+
+	// 加签可复现：timestamp + sign 与本地 HMAC 结果一致
+	ts, ok := payload["timestamp"].(string)
+	require.True(t, ok)
+	sign, ok := payload["sign"].(string)
+	require.True(t, ok)
+	mac := hmac.New(sha256.New, []byte(ts+"\nsec-1"))
+	expect := base64.StdEncoding.EncodeToString(mac.Sum(nil))
+	assert.Equal(t, expect, sign)
+	assert.Equal(t, ChannelFeishu, f.Channel())
+
+	// 无密钥：不携带 timestamp/sign
+	noSign := NewFeishuSender("https://open.feishu.cn/hook/h2", "")
+	noSign.postJSON = func(ctx context.Context, url string, payload []byte) error {
+		var p map[string]interface{}
+		require.NoError(t, json.Unmarshal(payload, &p))
+		assert.NotContains(t, p, "sign")
+		assert.NotContains(t, p, "timestamp")
+		return nil
+	}
+	require.NoError(t, noSign.Send(context.Background(), "", NotificationEvent{Title: "x"}))
 }

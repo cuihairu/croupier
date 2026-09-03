@@ -166,7 +166,8 @@ func validateValue(key string, raw json.RawMessage) error {
 			return fmt.Errorf("%s 需要是 http(s) URL", key)
 		}
 	}
-	if key == settings.KeyNotifyDingtalkURL || key == settings.KeyNotifyWebhookURL {
+	if key == settings.KeyNotifyDingtalkURL || key == settings.KeyNotifyWebhookURL ||
+		key == settings.KeyNotifyWecomURL || key == settings.KeyNotifyFeishuURL {
 		if v != "" && !isHTTPLikeURL(v) {
 			return fmt.Errorf("%s 需要是 http(s) URL", key)
 		}

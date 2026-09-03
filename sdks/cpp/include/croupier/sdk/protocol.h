@@ -42,6 +42,10 @@ constexpr uint32_t MSG_HEARTBEAT_RESPONSE = 0x010104;
 constexpr uint32_t MSG_REGISTER_CAPABILITIES_REQ = 0x010105;
 constexpr uint32_t MSG_REGISTER_CAPABILITIES_RESP = 0x010106;
 
+// F：文件下发原语（hotpatch P1 传输层）
+constexpr uint32_t MSG_PROVIDER_FILE_PUSH_REQ = 0x050109;
+constexpr uint32_t MSG_PROVIDER_FILE_PUSH_RESP = 0x05010A;
+
 // ClientService (0x02xx)
 constexpr uint32_t MSG_REGISTER_CLIENT_REQUEST = 0x020101;
 constexpr uint32_t MSG_REGISTER_CLIENT_RESPONSE = 0x020102;

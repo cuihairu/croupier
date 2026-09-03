@@ -45,6 +45,8 @@ const (
 	ChannelDingTalk  NotificationChannel = "dingtalk"
 	ChannelWeChat    NotificationChannel = "wechat"
 	ChannelSlack     NotificationChannel = "slack"
+	ChannelWecom     NotificationChannel = "wecom"
+	ChannelFeishu    NotificationChannel = "feishu"
 	ChannelInApp     NotificationChannel = "in_app"
 )
 
@@ -827,4 +829,97 @@ func validateEmailAddress(addr string) (string, error) {
 		return "", fmt.Errorf("invalid email recipient: control characters rejected")
 	}
 	return parsed.Address, nil
+}
+
+// WecomSender sends 企业微信群机器人 notifications.
+//
+// webhookURL 为群机器人 webhook（https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=…）。
+// 企业微信机器人无加签机制，key 由 URL 携带。URL 为空时视为未配置，Send 直接 no-op。
+type WecomSender struct {
+	webhookURL string
+
+	// postJSON 与 DingTalkSender 同款测试注入口。
+	postJSON func(ctx context.Context, url string, payload []byte) error
+}
+
+// NewWecomSender creates a new 企业微信 sender.
+func NewWecomSender(webhookURL string) *WecomSender {
+	return &WecomSender{webhookURL: webhookURL}
+}
+
+// Send posts a markdown message to the group bot.
+func (w *WecomSender) Send(ctx context.Context, recipient string, event NotificationEvent) error {
+	if w.webhookURL == "" {
+		return nil
+	}
+	payload := map[string]interface{}{
+		"msgtype": "markdown",
+		"markdown": map[string]string{
+			"content": fmt.Sprintf("### %s\n\n%s", event.Title, event.Message),
+		},
+	}
+	body, err := json.Marshal(payload)
+	if err != nil {
+		return err
+	}
+	postJSON := w.postJSON
+	if postJSON == nil {
+		postJSON = defaultPostJSON
+	}
+	return postJSON(ctx, w.webhookURL, body)
+}
+
+// Channel returns the channel type.
+func (w *WecomSender) Channel() NotificationChannel {
+	return ChannelWecom
+}
+
+// FeishuSender sends 飞书群机器人 notifications.
+//
+// webhookURL 为自定义机器人 webhook（https://open.feishu.cn/open-apis/bot/v2/hook/…）。
+// secret 为可选的加签密钥：官方校验方式为 sign = base64(hmac_sha256(key=timestamp+"\n"+secret, data=""))，
+// payload 顶层附带 timestamp（秒）与 sign。
+type FeishuSender struct {
+	webhookURL string
+	secret     string
+
+	postJSON func(ctx context.Context, url string, payload []byte) error
+}
+
+// NewFeishuSender creates a new 飞书 sender.
+func NewFeishuSender(webhookURL, secret string) *FeishuSender {
+	return &FeishuSender{webhookURL: webhookURL, secret: secret}
+}
+
+// Send posts a text message to the group bot.
+func (f *FeishuSender) Send(ctx context.Context, recipient string, event NotificationEvent) error {
+	if f.webhookURL == "" {
+		return nil
+	}
+	payload := map[string]interface{}{
+		"msg_type": "text",
+		"content": map[string]string{
+			"text": fmt.Sprintf("%s\n%s", event.Title, event.Message),
+		},
+	}
+	if f.secret != "" {
+		ts := time.Now().Unix()
+		mac := hmac.New(sha256.New, []byte(fmt.Sprintf("%d\n%s", ts, f.secret)))
+		payload["timestamp"] = fmt.Sprintf("%d", ts)
+		payload["sign"] = base64.StdEncoding.EncodeToString(mac.Sum(nil))
+	}
+	body, err := json.Marshal(payload)
+	if err != nil {
+		return err
+	}
+	postJSON := f.postJSON
+	if postJSON == nil {
+		postJSON = defaultPostJSON
+	}
+	return postJSON(ctx, f.webhookURL, body)
+}
+
+// Channel returns the channel type.
+func (f *FeishuSender) Channel() NotificationChannel {
+	return ChannelFeishu
 }

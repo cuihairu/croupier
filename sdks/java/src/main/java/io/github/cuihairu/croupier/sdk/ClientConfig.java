@@ -53,6 +53,7 @@ public class ClientConfig {
     private boolean enableFileTransfer = false;  // Enable file transfer functionality (default: false)
     private boolean validateInputPayloads = false; // F：provider 侧入站校验（按函数声明 input schema），默认关闭
     private int maxFileSize = 10485760;         // Max file size in bytes (default: 10MB)
+    private String fileStagingDir = "./croupier-staging"; // F：下发文件仅落盘至此（不自动应用）
 
     // ========== Logging Configuration ==========
     private boolean disableLogging = false;  // Disable all logging
@@ -134,6 +135,9 @@ public class ClientConfig {
 
     public int getMaxFileSize() { return maxFileSize; }
     public void setMaxFileSize(int maxFileSize) { this.maxFileSize = maxFileSize; }
+
+    public String getFileStagingDir() { return fileStagingDir; }
+    public void setFileStagingDir(String fileStagingDir) { this.fileStagingDir = fileStagingDir; }
 
     public boolean isDisableLogging() { return disableLogging; }
     public void setDisableLogging(boolean disableLogging) { this.disableLogging = disableLogging; }

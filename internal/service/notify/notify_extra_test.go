@@ -9,6 +9,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"sync"
+
+	gsqlite "github.com/glebarez/sqlite"
 	"testing"
 
 	"github.com/cuihairu/croupier/internal/model"
@@ -154,4 +156,45 @@ func TestDispatch_OnlyLayeredNoMessageModel(t *testing.T) {
 	assert.NotPanics(t, func() {
 		svc.Dispatch(context.Background(), notifyservice.Event{Title: "t", Recipients: []string{"a"}})
 	})
+}
+
+// 企业微信/飞书渠道接线：配置 URL 后 dispatchExternal 投递两渠道。
+func TestDispatchExternal_WecomAndFeishu(t *testing.T) {
+	var wecomBody, feishuBody []byte
+	wecomSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		wecomBody, _ = io.ReadAll(r.Body)
+		w.WriteHeader(200)
+	}))
+	defer wecomSrv.Close()
+	feishuSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		feishuBody, _ = io.ReadAll(r.Body)
+		w.WriteHeader(200)
+	}))
+	defer feishuSrv.Close()
+
+	settings.ResetForTest()
+	db, err := gorm.Open(gsqlite.Open(t.TempDir()+"/notify-wf.db"), &gorm.Config{})
+	require.NoError(t, err)
+	require.NoError(t, model.AutoMigrate(db))
+	settingStore := model.NewPlatformSettingModel(db)
+	layered := settings.InitLayered(context.Background(), &settings.ConfigInput{}, settingStore)
+	setStr := func(key, val string) {
+		require.NoError(t, settingStore.Set(context.Background(), key, json.RawMessage(`"`+val+`"`), "test"))
+		layered.Reload(context.Background(), settingStore)
+	}
+	setStr("notification.wecomUrl", wecomSrv.URL)
+	setStr("notification.feishuUrl", feishuSrv.URL)
+	setStr("notification.feishuSecret", "s")
+
+	svc := notifyservice.New(layered, nil)
+	svc.Dispatch(context.Background(), notifyservice.Event{
+		Type: "approval_required", Title: "T", Message: "M",
+	})
+
+	require.NotEmpty(t, wecomBody, "wecom 应收到投递")
+	assert.Contains(t, string(wecomBody), `"msgtype":"markdown"`)
+	assert.Contains(t, string(wecomBody), "T")
+
+	require.NotEmpty(t, feishuBody, "feishu 应收到投递")
+	assert.Contains(t, string(feishuBody), `"msg_type":"text"`)
 }

@@ -51,6 +51,31 @@ const DINGTALK_FIELDS: FieldDef[] = [
   },
 ];
 
+const WECOM_FIELDS: FieldDef[] = [
+  {
+    key: 'notification.wecomUrl',
+    label: '群机器人 Webhook',
+    placeholder: 'https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=…',
+    help: '企业微信群 → 群设置 → 群机器人 → 添加机器人（key 由 URL 携带，无加签）',
+  },
+];
+
+const FEISHU_FIELDS: FieldDef[] = [
+  {
+    key: 'notification.feishuUrl',
+    label: '群机器人 Webhook',
+    placeholder: 'https://open.feishu.cn/open-apis/bot/v2/hook/…',
+    help: '飞书群 → 设置 → 群机器人 → 添加"自定义机器人"',
+  },
+  {
+    key: 'notification.feishuSecret',
+    label: '加签密钥',
+    placeholder: '签名校验密钥',
+    secret: true,
+    help: '机器人安全设置开启"签名校验"时必填',
+  },
+];
+
 const WEBHOOK_FIELDS: FieldDef[] = [
   {
     key: 'notification.webhookUrl',
@@ -87,6 +112,9 @@ export default function NotificationTab() {
         'notification.dingtalkSecret': undefined,
         'notification.webhookUrl': cfg.webhookUrl || undefined,
         'notification.webhookSecret': undefined,
+        'notification.wecomUrl': cfg.wecomUrl || undefined,
+        'notification.feishuUrl': cfg.feishuUrl || undefined,
+        'notification.feishuSecret': undefined,
       });
     } catch (error) {
       message.error(extractErrorMessage(error, '加载通知配置失败'));
@@ -230,6 +258,16 @@ export default function NotificationTab() {
           钉钉群机器人
         </Typography.Title>
         {DINGTALK_FIELDS.map(renderField)}
+
+        <Typography.Title level={5} style={{ marginTop: 16 }}>
+          企业微信群机器人
+        </Typography.Title>
+        {WECOM_FIELDS.map(renderField)}
+
+        <Typography.Title level={5} style={{ marginTop: 16 }}>
+          飞书群机器人
+        </Typography.Title>
+        {FEISHU_FIELDS.map(renderField)}
 
         <Typography.Title level={5} style={{ marginTop: 16 }}>
           通用 Webhook

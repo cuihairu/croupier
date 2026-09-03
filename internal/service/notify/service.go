@@ -3,6 +3,8 @@
 // 渠道矩阵（docs/architecture/config-layering.md notification.*）：
 //   - 站内信（默认开启）：写 messages 表 + SSE 推送，复用 message 模块
 //   - 钉钉群机器人：notification.dingtalkUrl/Secret 配置后启用
+//   - 企业微信群机器人：notification.wecomUrl 配置后启用（无加签，key 在 URL）
+//   - 飞书群机器人：notification.feishuUrl/Secret 配置后启用（加签可选）
 //   - 通用 webhook：notification.webhookUrl/Secret 配置后启用
 //   - 邮件：notification.emailEnabled + smtp.* 配置后启用
 //
@@ -103,6 +105,18 @@ func (s *Service) dispatchExternal(ctx context.Context, ev Event) {
 		sender := approvals.NewDingTalkSender(ch.DingtalkURL, ch.DingtalkSecret)
 		if err := sender.Send(ctx, "", approvalEvent); err != nil {
 			slog.WarnContext(ctx, "notify: dingtalk send failed", "error", err)
+		}
+	}
+	if ch.WecomURL != "" {
+		sender := approvals.NewWecomSender(ch.WecomURL)
+		if err := sender.Send(ctx, "", approvalEvent); err != nil {
+			slog.WarnContext(ctx, "notify: wecom send failed", "error", err)
+		}
+	}
+	if ch.FeishuURL != "" {
+		sender := approvals.NewFeishuSender(ch.FeishuURL, ch.FeishuSecret)
+		if err := sender.Send(ctx, "", approvalEvent); err != nil {
+			slog.WarnContext(ctx, "notify: feishu send failed", "error", err)
 		}
 	}
 	if ch.WebhookURL != "" {

@@ -560,6 +560,108 @@ public final class SdkWireMessages {
         });
     }
 
+    // ===== F：文件下发原语（hotpatch P1 传输层）=====
+
+    public static final class FilePushRequest {
+        public final String transferId;
+        public final String fileName;
+        public final String contentSha256;
+        public final byte[] data;
+
+        public FilePushRequest(String transferId, String fileName, String contentSha256, byte[] data) {
+            this.transferId = transferId == null ? "" : transferId;
+            this.fileName = fileName == null ? "" : fileName;
+            this.contentSha256 = contentSha256 == null ? "" : contentSha256;
+            this.data = data == null ? new byte[0] : data;
+        }
+    }
+
+    public static final class FilePushResponse {
+        public final String transferId;
+        public final boolean ok;
+        public final String storedPath;
+        public final String error;
+
+        public FilePushResponse(String transferId, boolean ok, String storedPath, String error) {
+            this.transferId = transferId == null ? "" : transferId;
+            this.ok = ok;
+            this.storedPath = storedPath == null ? "" : storedPath;
+            this.error = error == null ? "" : error;
+        }
+    }
+
+    public static byte[] encodeFilePushRequest(FilePushRequest message) {
+        return encode(out -> {
+            writeString(out, 1, message.transferId);
+            writeString(out, 2, message.fileName);
+            writeString(out, 3, message.contentSha256);
+            writeBytes(out, 4, message.data);
+        });
+    }
+
+    public static FilePushRequest decodeFilePushRequest(byte[] data) {
+        String transferId = "";
+        String fileName = "";
+        String contentSha256 = "";
+        byte[] payload = new byte[0];
+        CodedInputStream input = newInput(data);
+        try {
+            while (!input.isAtEnd()) {
+                int tag = input.readTag();
+                if (tag == 0) {
+                    break;
+                }
+                switch (WireFormat.getTagFieldNumber(tag)) {
+                    case 1 -> transferId = input.readString();
+                    case 2 -> fileName = input.readString();
+                    case 3 -> contentSha256 = input.readString();
+                    case 4 -> payload = input.readByteArray();
+                    default -> input.skipField(tag);
+                }
+            }
+        } catch (java.io.IOException e) {
+            throw new IllegalArgumentException("failed to decode FilePushRequest", e);
+        }
+        return new FilePushRequest(transferId, fileName, contentSha256, payload);
+    }
+
+    public static byte[] encodeFilePushResponse(FilePushResponse message) {
+        return encode(out -> {
+            writeString(out, 1, message.transferId);
+            if (message.ok) {
+                out.writeBool(2, true);
+            }
+            writeString(out, 3, message.storedPath);
+            writeString(out, 4, message.error);
+        });
+    }
+
+    public static FilePushResponse decodeFilePushResponse(byte[] data) {
+        String transferId = "";
+        boolean ok = false;
+        String storedPath = "";
+        String error = "";
+        CodedInputStream input = newInput(data);
+        try {
+            while (!input.isAtEnd()) {
+                int tag = input.readTag();
+                if (tag == 0) {
+                    break;
+                }
+                switch (WireFormat.getTagFieldNumber(tag)) {
+                    case 1 -> transferId = input.readString();
+                    case 2 -> ok = input.readBool();
+                    case 3 -> storedPath = input.readString();
+                    case 4 -> error = input.readString();
+                    default -> input.skipField(tag);
+                }
+            }
+        } catch (java.io.IOException e) {
+            throw new IllegalArgumentException("failed to decode FilePushResponse", e);
+        }
+        return new FilePushResponse(transferId, ok, storedPath, error);
+    }
+
     public static final class ProviderDrainRequest {
         public final String sessionId;
         public final String reason;

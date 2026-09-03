@@ -98,6 +98,10 @@ export type NotificationSettings = {
   webhookUrl: string;
   webhookSecretSet: boolean;
   webhookSecretMasked?: string;
+  wecomUrl: string;
+  feishuUrl: string;
+  feishuSecretSet: boolean;
+  feishuSecretMasked?: string;
   inAppEnabled: boolean;
 };
 
