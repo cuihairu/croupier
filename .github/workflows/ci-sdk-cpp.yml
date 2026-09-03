@@ -41,7 +41,10 @@ jobs:
 
       - name: Test
         working-directory: sdks/cpp
-        run: ctest --test-dir build/linux-x64-debug-tests-vcpkg --output-on-failure
+        # until-pass:3 吸收 CI runner glibc 2.39 的 tpp.c 断言回归
+        #（condvar + --coverage 插桩时序触发，本地高版本 glibc 不复现）；
+        # 确定性失败重试 3 次仍红。
+        run: ctest --test-dir build/linux-x64-debug-tests-vcpkg --output-on-failure --repeat until-pass:3
 
       - name: Generate coverage
         working-directory: sdks/cpp
