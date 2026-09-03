@@ -14,7 +14,7 @@ import (
 type Finding struct {
 	// Severity: "breaking" | "compatible"
 	Severity string `json:"severity"`
-	// Source: "input_schema" | "output_schema"
+	// Source: "inputSchema" | "outputSchema"
 	Source string `json:"source"`
 	// Path JSON Pointer（如 "/playerId"）
 	Path string `json:"path"`
@@ -188,9 +188,9 @@ func diffRequired(source, path string, oldMap, newMap map[string]interface{}, fi
 }
 
 // diffEnum 枚举方向性判定（审查修正）：破坏方向取决于数据流向——
-//   - input_schema：收窄 = breaking（旧调用方发被删的值会被服务端拒绝），
+//   - inputSchema：收窄 = breaking（旧调用方发被删的值会被服务端拒绝），
 //     扩张 = compatible（旧调用方不受影响）；
-//   - output_schema：扩张 = breaking（消费方会见到新值），
+//   - outputSchema：扩张 = breaking（消费方会见到新值），
 //     收窄 = compatible（消费方只会见到更少的值）。
 func diffEnum(source, path string, oldMap, newMap map[string]interface{}, findings *[]Finding) {
 	oldEnum, okOld := oldMap["enum"].([]interface{})
@@ -198,7 +198,7 @@ func diffEnum(source, path string, oldMap, newMap map[string]interface{}, findin
 	if !okOld || !okNew {
 		return
 	}
-	isInput := source == "input_schema"
+	isInput := source == "inputSchema"
 	oldValues := make(map[string]bool, len(oldEnum))
 	for _, item := range oldEnum {
 		oldValues[fmt.Sprint(item)] = true

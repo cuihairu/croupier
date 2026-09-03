@@ -1340,7 +1340,7 @@ func TestValidateAndNormalizeFunctions(t *testing.T) {
 		assert.Len(t, warnings, 1)
 		assert.Equal(t, "function_presentation_field_not_allowed", warnings[0].Code)
 		assert.Equal(t, "game.player.get", warnings[0].FunctionID)
-		assert.Contains(t, warnings[0].Message, "input_schema.x-table-columns")
+		assert.Contains(t, warnings[0].Message, "inputSchema.x-table-columns")
 	})
 
 	t.Run("presentation extension in output schema is rejected", func(t *testing.T) {
@@ -1356,7 +1356,7 @@ func TestValidateAndNormalizeFunctions(t *testing.T) {
 		assert.Empty(t, functions)
 		assert.Len(t, warnings, 1)
 		assert.Equal(t, "function_presentation_field_not_allowed", warnings[0].Code)
-		assert.Contains(t, warnings[0].Message, "output_schema.x-menu")
+		assert.Contains(t, warnings[0].Message, "outputSchema.x-menu")
 	})
 
 	t.Run("full capability contract fields pass", func(t *testing.T) {

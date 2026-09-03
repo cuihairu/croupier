@@ -84,14 +84,14 @@ func TestFilePushValidation(t *testing.T) {
 		errSubstr  string
 	}{
 		{"disabled flag", false, "t-1", "patch.lua", validSha, validFile, "file transfer is disabled"},
-		{"empty transfer_id", true, "", "patch.lua", validSha, validFile, "transfer_id is required"},
+		{"empty transfer_id", true, "", "patch.lua", validSha, validFile, "transferId is required"},
 		{"path traversal ../", true, "t-1", "../evil.lua", validSha, validFile, "bare basename"},
 		{"absolute path", true, "t-1", "/etc/evil.lua", validSha, validFile, "bare basename"},
 		{"subdir escape", true, "t-1", "sub/dir/evil.lua", validSha, validFile, "bare basename"},
 		{"dotdot name rejected", true, "t-1", "..evil", validSha, validFile, "bare basename"},
 		{"empty payload", true, "t-1", "patch.lua", validSha, nil, "file payload is empty"},
 		{"oversize", true, "t-1", "patch.lua", validSha, make([]byte, 2048), "exceeds max"},
-		{"missing sha", true, "t-1", "patch.lua", "", validFile, "content_sha256 is required"},
+		{"missing sha", true, "t-1", "patch.lua", "", validFile, "contentSha256 is required"},
 		{"checksum mismatch", true, "t-1", "patch.lua", strings.Repeat("ab", 32), validFile, "checksum mismatch"},
 	}
 

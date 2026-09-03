@@ -150,4 +150,4 @@ def test_empty_transfer_id_rejects(tmp_path):
         client, encode_file_push("", "a.lua", hashlib.sha256(data).hexdigest(), data)
     )
     assert response[2] is False
-    assert "transfer_id is required" in response[4]
+    assert "transferId is required" in response[4]

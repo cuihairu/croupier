@@ -775,9 +775,9 @@ func mergeSchemaDiffDiagnostics(
 		return base, nil, false
 	}
 
-	findings := schemadiff.DiffSchemas("input_schema", json.RawMessage(existing.InputSchema), json.RawMessage(contract.InputSchema))
+	findings := schemadiff.DiffSchemas("inputSchema", json.RawMessage(existing.InputSchema), json.RawMessage(contract.InputSchema))
 	findings = append(findings,
-		schemadiff.DiffSchemas("output_schema", json.RawMessage(existing.OutputSchema), json.RawMessage(contract.OutputSchema))...)
+		schemadiff.DiffSchemas("outputSchema", json.RawMessage(existing.OutputSchema), json.RawMessage(contract.OutputSchema))...)
 	if !schemadiff.HasBreaking(findings) {
 		return base, findings, true
 	}

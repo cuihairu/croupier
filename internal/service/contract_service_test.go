@@ -121,7 +121,7 @@ func TestContractService_RebuildContractRejectsPresentationSchema(t *testing.T) 
 	})
 
 	require.Error(t, err)
-	assert.ErrorContains(t, err, `forbidden presentation field "x-menu" at input_schema.x-menu`)
+	assert.ErrorContains(t, err, `forbidden presentation field "x-menu" at inputSchema.x-menu`)
 	contracts, listErr := service.ListContracts(ctx, "demo-game", "development")
 	require.NoError(t, listErr)
 	assert.Empty(t, contracts)
@@ -1566,7 +1566,7 @@ func TestContractService_SchemaBreakingChangeWritesDiagnostics(t *testing.T) {
 	contract, err = service.GetContract(ctx, "demo-game", "development", "player.ban")
 	require.NoError(t, err)
 	assert.Contains(t, string(contract.Diagnostics), "schema_breaking_change")
-	assert.Contains(t, string(contract.Diagnostics), "input_schema$/reason")
+	assert.Contains(t, string(contract.Diagnostics), "inputSchema$/reason")
 
 	// 兼容性变更（新增可选字段）：不产生告警
 	compatible := base

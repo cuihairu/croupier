@@ -1466,7 +1466,7 @@ export class BasicClient implements CroupierClient {
     const contentSha256 = (decoded.contentSha256 ?? "").trim();
     const data = Buffer.from(decoded.data ?? new Uint8Array());
 
-    if (!transferId) return fail("transfer_id is required");
+    if (!transferId) return fail("transferId is required");
     if (!fileName || fileName.includes("/") || fileName.includes("\\") || fileName.includes("..")) {
       return fail(`file name must be a bare basename: "${fileName}"`);
     }
@@ -1475,7 +1475,7 @@ export class BasicClient implements CroupierClient {
     if (data.length > maxSize) {
       return fail(`file size ${data.length} exceeds max ${maxSize}`);
     }
-    if (!contentSha256) return fail("content_sha256 is required");
+    if (!contentSha256) return fail("contentSha256 is required");
     const actualSha = createHash("sha256").update(data).digest("hex");
     if (actualSha.toLowerCase() !== contentSha256.toLowerCase()) {
       return fail("checksum mismatch");

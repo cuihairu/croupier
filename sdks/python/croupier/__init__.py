@@ -648,7 +648,7 @@ class CroupierClient:
         transfer_id, file_name, content_sha256, data = self._decode_file_push_request(body)
 
         if not transfer_id:
-            return _fail("transfer_id is required")
+            return _fail("transferId is required")
         if not file_name or "/" in file_name or "\\" in file_name or ".." in file_name:
             return _fail(f'file name must be a bare basename: "{file_name}"')
         max_size = self._config.max_file_size or 10 * 1024 * 1024
@@ -657,7 +657,7 @@ class CroupierClient:
         if len(data) > max_size:
             return _fail(f"file size {len(data)} exceeds max {max_size}")
         if not content_sha256:
-            return _fail("content_sha256 is required")
+            return _fail("contentSha256 is required")
         import hashlib
 
         actual = hashlib.sha256(data).hexdigest()

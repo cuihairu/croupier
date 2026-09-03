@@ -35,7 +35,7 @@ describe('F13: 契约诊断告警条', () => {
           {
             code: 'schema_breaking_change',
             message: 'input_schema$/reason: 已声明的字段被删除',
-            field: 'input_schema',
+            field: 'inputSchema',
           },
         ]}
       />,

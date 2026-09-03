@@ -540,9 +540,9 @@ func (s *ControlService) handleRegisterRequest(ctx context.Context, req *agentv1
 			if !ok {
 				continue
 			}
-			findings := schemadiff.DiffSchemas("input_schema", json.RawMessage(oldInput), json.RawMessage(f.GetInputSchema()))
+			findings := schemadiff.DiffSchemas("inputSchema", json.RawMessage(oldInput), json.RawMessage(f.GetInputSchema()))
 			findings = append(findings,
-				schemadiff.DiffSchemas("output_schema", json.RawMessage(oldOutput), json.RawMessage(f.GetOutputSchema()))...)
+				schemadiff.DiffSchemas("outputSchema", json.RawMessage(oldOutput), json.RawMessage(f.GetOutputSchema()))...)
 			for _, finding := range findings {
 				if finding.Severity != schemadiff.SeverityBreaking {
 					continue
@@ -916,10 +916,10 @@ func descriptorPresentationField(f *agentv1.FunctionDescriptor) (string, bool) {
 	// formily, ...). Reject the whole descriptor instead of silently
 	// persisting a smuggled UI hint.
 	if field, _, ok := registrationguard.ScanJSON(f.GetInputSchema()); ok {
-		return "input_schema." + field, true
+		return "inputSchema." + field, true
 	}
 	if field, _, ok := registrationguard.ScanJSON(f.GetOutputSchema()); ok {
-		return "output_schema." + field, true
+		return "outputSchema." + field, true
 	}
 	return "", false
 }

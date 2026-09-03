@@ -11,8 +11,8 @@ package croupier
 //     hotpatch runner（备份→替换→自检→回滚）单独编排。
 //
 // wire（protobuf 兼容，手写编解码避免全 SDK 再生成）：
-//   FilePushRequest  { 1: transfer_id, 2: file_name, 3: content_sha256(hex), 4: data }
-//   FilePushResponse { 1: transfer_id, 2: ok, 3: stored_path, 4: error }
+//   FilePushRequest  { 1: transferId, 2: fileName, 3: contentSha256(hex), 4: data }
+//   FilePushResponse { 1: transferId, 2: ok, 3: storedPath, 4: error }
 
 import (
 	"crypto/sha256"
@@ -150,7 +150,7 @@ func (m *TCPManager) validateFilePush(req *filePushRequest) error {
 		return errors.New("file transfer is disabled on this provider")
 	}
 	if strings.TrimSpace(req.transferID) == "" {
-		return errors.New("transfer_id is required")
+		return errors.New("transferId is required")
 	}
 	if _, err := safeStagingPath(m.fileStagingDir(), req.fileName); err != nil {
 		return err
@@ -166,7 +166,7 @@ func (m *TCPManager) validateFilePush(req *filePushRequest) error {
 		return fmt.Errorf("file size %d exceeds max %d", len(req.data), maxSize)
 	}
 	if strings.TrimSpace(req.contentSha256) == "" {
-		return errors.New("content_sha256 is required")
+		return errors.New("contentSha256 is required")
 	}
 	sum := sha256.Sum256(req.data)
 	if !strings.EqualFold(hex.EncodeToString(sum[:]), strings.TrimSpace(req.contentSha256)) {
@@ -227,7 +227,7 @@ type filePushResponse struct {
 }
 
 // encodeFilePushResponse 手写 protobuf 兼容编码：
-// { 1: transfer_id(string), 2: ok(bool), 3: stored_path(string), 4: error(string) }。
+// { 1: transferId(string), 2: ok(bool), 3: storedPath(string), 4: error(string) }。
 func encodeFilePushResponse(resp filePushResponse) []byte {
 	var out []byte
 	if resp.transferID != "" {

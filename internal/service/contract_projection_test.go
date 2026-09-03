@@ -16,8 +16,8 @@ func TestFunctionSpecFromContract_Diagnostics(t *testing.T) {
 		{
 			"code":     "schema_breaking_change",
 			"severity": "warning",
-			"message":  "input_schema$/reason: 已声明的字段被删除",
-			"field":    "input_schema",
+			"message":  "inputSchema$/reason: 已声明的字段被删除",
+			"field":    "inputSchema",
 		},
 	}
 	raw, err := json.Marshal(diagnostics)
