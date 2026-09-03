@@ -1,8 +1,9 @@
 import { Footer } from '@/components';
 import { createSession, fetchCurrentUserGames } from '@/services/api';
+import { extractErrorCode, isMfaRequiredError } from '@/utils/errors';
 import { fetchLoginProviders, type LoginProviders } from '@/services/api/sites';
 import { setScope } from '@/stores/scope';
-import { LockOutlined, UserOutlined } from '@ant-design/icons';
+import { LockOutlined, SafetyCertificateOutlined, UserOutlined } from '@ant-design/icons';
 import { LoginForm, ProFormCheckbox, ProFormText } from '@ant-design/pro-components';
 import { LoginOutlined } from '@ant-design/icons';
 import { FormattedMessage, history, SelectLang, useIntl, useModel, Helmet } from '@umijs/max';
@@ -65,14 +66,15 @@ const Lang = () => {
 
 const LoginMessage: React.FC<{
   content: string;
-}> = ({ content }) => {
+  type?: 'error' | 'info' | 'warning' | 'success';
+}> = ({ content, type = 'error' }) => {
   return (
     <Alert
       style={{
         marginBottom: 24,
       }}
       message={content}
-      type="error"
+      type={type}
       showIcon
     />
   );
@@ -85,6 +87,9 @@ const Login: React.FC = () => {
   const { initialState, setInitialState } = useModel('@@initialState');
   const siteCfg = initialState?.siteConfig;
   const [forgotOpen, setForgotOpen] = useState(false);
+  // MFA 二次验证：401+mfa_required 后置 true，展示动态验证码输入（凭据由
+  // 表单 values 持续携带，重试时一并提供）
+  const [mfaRequired, setMfaRequired] = useState(false);
   // 已启用登录方式（LDAP 级联提示 / OIDC SSO 入口）；拉取失败静默回落本地登录
   const [providers, setProviders] = useState<LoginProviders | null>(null);
   useEffect(() => {
@@ -109,10 +114,18 @@ const Login: React.FC = () => {
     }
   };
 
-  const handleSubmit = async (values: { username: string; password: string }) => {
+  const handleSubmit = async (values: {
+    username: string;
+    password: string;
+    totpCode?: string;
+  }) => {
     try {
       // RESTful: 创建会话
-      const res = await createSession({ username: values.username, password: values.password });
+      const res = await createSession({
+        username: values.username,
+        password: values.password,
+        totpCode: values.totpCode,
+      });
       localStorage.setItem('token', res.token);
       try {
         // Restore last-selected scope from server, or fall back to first authorized game
@@ -140,11 +153,22 @@ const Login: React.FC = () => {
       history.push(urlParams.get('redirect') || '/');
       return;
     } catch (error) {
+      // MFA 已启用账号：401 + error=mfa_required → 展示动态验证码输入，
+      // 凭据由表单 values 保留，重试时一并提供 totpCode。
+      if (isMfaRequiredError(error)) {
+        setMfaRequired(true);
+        getMessage()?.info(
+          intl.formatMessage({
+            id: 'pages.login.mfa.required.info',
+            defaultMessage: '该账号已启用两步验证，请输入动态验证码',
+          }),
+        );
+        return;
+      }
       const defaultLoginFailureMessage = intl.formatMessage({
         id: 'pages.login.failure',
         defaultMessage: '登录失败，请重试！',
       });
-      console.log(error);
       getMessage()?.error(defaultLoginFailureMessage);
     }
   };
@@ -212,6 +236,15 @@ const Login: React.FC = () => {
         >
           {/* Only account/password login */}
 
+          {mfaRequired && (
+            <LoginMessage
+              type="info"
+              content={intl.formatMessage({
+                id: 'pages.login.mfa.hint',
+                defaultMessage: '两步验证已开启，请输入认证器 App 中的 6 位动态验证码',
+              })}
+            />
+          )}
           {status === 'error' && (
             <LoginMessage
               content={intl.formatMessage({
@@ -266,6 +299,32 @@ const Login: React.FC = () => {
                   },
                 ]}
               />
+              {mfaRequired && (
+                <ProFormText.Password
+                  name="totpCode"
+                  fieldProps={{
+                    size: 'large',
+                    prefix: <SafetyCertificateOutlined />,
+                    maxLength: 6,
+                    autoComplete: 'one-time-code',
+                  }}
+                  placeholder={intl.formatMessage({
+                    id: 'pages.login.mfa.placeholder',
+                    defaultMessage: '动态验证码（6 位）',
+                  })}
+                  rules={[
+                    {
+                      required: true,
+                      message: (
+                        <FormattedMessage
+                          id="pages.login.mfa.required"
+                          defaultMessage="请输入动态验证码！"
+                        />
+                      ),
+                    },
+                  ]}
+                />
+              )}
             </>
           }
           {providers?.ldap && (

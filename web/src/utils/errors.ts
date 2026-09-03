@@ -24,6 +24,19 @@ function errorPayloadOf(error: unknown): ErrorPayload | undefined {
   return undefined;
 }
 
+/** 提取后端统一错误体的稳定错误码（error 字段），如 "mfa_required"。 */
+export function extractErrorCode(error: unknown): string | undefined {
+  const payload = errorPayloadOf(error);
+  if (!payload) return undefined;
+  if (typeof payload.error === 'string' && payload.error) return payload.error;
+  return undefined;
+}
+
+/** 是否为 MFA 二次验证需求错误（登录 401 + error=mfa_required）。 */
+export function isMfaRequiredError(error: unknown): boolean {
+  return extractErrorCode(error) === 'mfa_required';
+}
+
 export function extractErrorMessage(error: unknown, fallback: string): string {
   if (!error || typeof error !== 'object') return fallback;
   const err = error as RequestLikeError;

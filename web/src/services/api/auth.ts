@@ -59,10 +59,14 @@ function toCurrentUser(profile: MeProfile): CurrentUser {
 export async function createSession(params: {
   username: string;
   password: string;
+  /** MFA 已启用账号的二次验证码（TOTP 6 位）；登录 401+mfa_required 后重试携带 */
+  totpCode?: string;
 }): Promise<SessionResponse> {
   return request<SessionResponse>('/api/v1/auth/login', {
     method: 'POST',
     data: params,
+    // 登录页自管错误展示（含 401+mfa_required 分支），跳过全局 401 跳转
+    skipErrorHandler: true,
   });
 }
 

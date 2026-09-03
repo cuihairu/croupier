@@ -1,4 +1,10 @@
-import { extractErrorDetails, extractErrorMessage, formatErrorDetails } from './errors';
+import {
+  extractErrorCode,
+  extractErrorDetails,
+  extractErrorMessage,
+  formatErrorDetails,
+  isMfaRequiredError,
+} from './errors';
 
 const validationError = {
   response: {
@@ -56,5 +62,31 @@ describe('formatErrorDetails', () => {
         'bindings[0].selectors.input./patch: target field not found in schema',
       ].join('\n'),
     );
+  });
+});
+
+describe('extractErrorCode / isMfaRequiredError', () => {
+  it('提取 response.data.error 稳定码', () => {
+    const error = {
+      response: { status: 401, data: { error: 'mfa_required', message: '需要动态验证码' } },
+    };
+    expect(extractErrorCode(error)).toBe('mfa_required');
+    expect(isMfaRequiredError(error)).toBe(true);
+  });
+
+  it('data / info.data 回退路径', () => {
+    expect(extractErrorCode({ data: { error: 'rate_limited' } })).toBe('rate_limited');
+    expect(extractErrorCode({ info: { data: { error: 'forbidden' } } })).toBe('forbidden');
+  });
+
+  it('非对象 / 无 error 字段返回 undefined', () => {
+    expect(extractErrorCode(undefined)).toBeUndefined();
+    expect(extractErrorCode('boom')).toBeUndefined();
+    expect(extractErrorCode({ message: 'no code here' })).toBeUndefined();
+  });
+
+  it('isMfaRequiredError 对其它错误码返回 false', () => {
+    expect(isMfaRequiredError({ response: { data: { error: 'unauthorized' } } })).toBe(false);
+    expect(isMfaRequiredError(new Error('network down'))).toBe(false);
   });
 });

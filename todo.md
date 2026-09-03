@@ -12,7 +12,8 @@
 > - T4: `telemetry.prometheus.enabled`（默认 false）+ exposition 端点（默认 `/metrics/prometheus`，免认证白名单动态注册）+ go/process + 平台指标（与 JSON /metrics 同口径）；测试 `internal/api/monitoring/prometheus_test.go`；文档 `docs/operations/monitoring.md` 已按实际实现修正
 > - T5: 删除 `internal/api/user` 空壳；CLAUDE.md 路径漂移修正（`internal/auth/` → `internal/security/`）
 >
-> 已知边界：token 撤销最长 30s 生效延迟（缓存 TTL）；MFA 前端二次输入 UI 未做（后端契约就绪，`401 + error=mfa_required`）；`docs/security.md` 已记录。
+> 已知边界：token 撤销最长 30s 生效延迟（缓存 TTL）；`docs/security.md` 已记录。
+> MFA 前端二次输入 UI（原 T3 边界）已于 2026-09-02 补齐：登录页拦截 `401 + error=mfa_required`，展示动态验证码输入并以 `totpCode` 重试（`web/src/pages/User/Login/`）。
 
 ## T1. 登录失败锁定 ✅
 
