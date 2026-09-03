@@ -7,6 +7,7 @@
 #include <gtest/gtest.h>
 #include "croupier/sdk/croupier_client.h"
 #include "croupier/sdk/protocol.h"
+#include "croupier/agent/v1/register.pb.h"
 #include "croupier/sdk/v1/provider.pb.h"
 #include "croupier/sdk/v1/invocation.pb.h"
 
@@ -17,6 +18,7 @@
 #include <string>
 #include <thread>
 #include <vector>
+#include <zlib.h>
 
 #ifdef _WIN32
 #include <winsock2.h>
@@ -428,6 +430,143 @@ TEST(ProviderInboundTest, AgentDrainIsIdempotent) {
 }
 
 }  // namespace
+
+// ===== F：控制面 manifest 上传——端到端帧回路 =====
+
+namespace {
+
+socket_t listen_tcp(unsigned short* out_port) {
+    socket_t fd = ::socket(AF_INET, SOCK_STREAM, 0);
+    if (fd == INVALID_SOCK) return INVALID_SOCK;
+    sockaddr_in addr{};
+    addr.sin_family = AF_INET;
+    addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+    addr.sin_port = 0;
+    if (::bind(fd, reinterpret_cast<sockaddr*>(&addr), sizeof(addr)) != 0 ||
+        ::listen(fd, 1) != 0) {
+        closesocket(fd);
+        return INVALID_SOCK;
+    }
+    sockaddr_in bound{};
+    socklen_t blen = sizeof(bound);
+    ::getsockname(fd, reinterpret_cast<sockaddr*>(&bound), &blen);
+    *out_port = ntohs(bound.sin_port);
+    return fd;
+}
+
+std::vector<uint8_t> recv_exact(socket_t conn, size_t len) {
+    std::vector<uint8_t> out(len);
+    size_t got = 0;
+    while (got < len) {
+        int n = static_cast<int>(::recv(conn, reinterpret_cast<char*>(out.data()) + got,
+                                        static_cast<int>(len - got), 0));
+        if (n <= 0) return {};
+        got += static_cast<size_t>(n);
+    }
+    return out;
+}
+
+std::string gzip_decompress(const std::string& compressed) {
+    std::string out;
+    z_stream stream{};
+    if (inflateInit2(&stream, 15 + 16) != Z_OK) return out;
+    stream.next_in = reinterpret_cast<Bytef*>(const_cast<char*>(compressed.data()));
+    stream.avail_in = static_cast<uInt>(compressed.size());
+    char buffer[4096];
+    int status = Z_OK;
+    do {
+        stream.next_out = reinterpret_cast<Bytef*>(buffer);
+        stream.avail_out = sizeof(buffer);
+        status = inflate(&stream, Z_NO_FLUSH);
+        if (status != Z_OK && status != Z_STREAM_END && status != Z_BUF_ERROR) break;
+        out.append(buffer, sizeof(buffer) - stream.avail_out);
+    } while (status != Z_STREAM_END);
+    inflateEnd(&stream);
+    return out;
+}
+
+}  // namespace
+
+TEST(ManifestUploadTest, UploadsGzippedManifestToControlPlane) {
+    // Agent（复用 RawFakeAgent 完整握手）+ 控制面（独立监听）
+    RawFakeAgent agent;
+    std::thread agent_thread([&] { agent.AcceptAndHandshake(); });
+
+    unsigned short control_port = 0;
+    socket_t control_fd = listen_tcp(&control_port);
+    ASSERT_NE(control_fd, INVALID_SOCK);
+
+    std::atomic<bool> got_manifest{false};
+    std::thread control_thread([&] {
+        socket_t conn = ::accept(control_fd, nullptr, nullptr);
+        if (conn == INVALID_SOCK) return;
+        auto header = recv_exact(conn, 4);
+        if (header.empty()) return;
+        uint32_t len = (uint32_t(header[0]) << 24) | (uint32_t(header[1]) << 16) |
+                       (uint32_t(header[2]) << 8) | uint32_t(header[3]);
+        auto frame_body = recv_exact(conn, len);
+        constexpr size_t kHeaderSize = 8;  // version(1) + msg_id(3) + req_id(4)
+        if (frame_body.size() < kHeaderSize) return;
+        uint32_t msg_id = protocol::GetMsgID(frame_body.data() + 1);
+        ASSERT_EQ(msg_id, static_cast<unsigned>(protocol::MSG_REGISTER_CAPABILITIES_REQ));
+        uint32_t req_id = (uint32_t(frame_body[4]) << 24) | (uint32_t(frame_body[5]) << 16) |
+                          (uint32_t(frame_body[6]) << 8) | uint32_t(frame_body[7]);
+
+        ::croupier::agent::v1::RegisterCapabilitiesRequest req;
+        ASSERT_TRUE(req.ParseFromArray(frame_body.data() + kHeaderSize,
+                                       static_cast<int>(frame_body.size() - kHeaderSize)));
+        std::string decompressed =
+            gzip_decompress(std::string(req.manifest_json_gz().begin(),
+                                        req.manifest_json_gz().end()));
+        EXPECT_NE(decompressed.find("\"provider\""), std::string::npos);
+        EXPECT_NE(decompressed.find("player.ban"), std::string::npos);
+        got_manifest.store(true);
+
+        // 回确认帧
+        ::croupier::agent::v1::RegisterCapabilitiesResponse ack;
+        std::string ack_out;
+        ack.SerializeToString(&ack_out);
+        auto resp_frame = protocol::NewMessage(
+            protocol::GetResponseMsgID(msg_id), req_id,
+            std::vector<uint8_t>(ack_out.begin(), ack_out.end()));
+        std::vector<uint8_t> wrapped(4 + resp_frame.size());
+        wrapped[0] = static_cast<uint8_t>((resp_frame.size() >> 24) & 0xFF);
+        wrapped[1] = static_cast<uint8_t>((resp_frame.size() >> 16) & 0xFF);
+        wrapped[2] = static_cast<uint8_t>((resp_frame.size() >> 8) & 0xFF);
+        wrapped[3] = static_cast<uint8_t>(resp_frame.size() & 0xFF);
+        std::memcpy(wrapped.data() + 4, resp_frame.data(), resp_frame.size());
+        ::send(conn, reinterpret_cast<const char*>(wrapped.data()),
+               static_cast<int>(wrapped.size()), 0);
+        closesocket(conn);
+    });
+
+    ClientConfig config;
+    config.agent_addr = agent.address();
+    config.control_addr = "127.0.0.1:" + std::to_string(control_port);
+    config.service_id = "cpp-manifest-test";
+    config.game_id = "game-test";
+    config.env = "development";
+    config.timeout_seconds = 5;
+    config.disable_logging = true;
+
+    CroupierClient client(config);
+    FunctionDescriptor desc;
+    desc.id = "player.ban";
+    desc.version = "1.0.0";
+    desc.input_schema = R"({"type":"object","properties":{"id":{"type":"string"}}})";
+    ASSERT_TRUE(client.RegisterFunction(desc, [](const std::string&, const std::string&) {
+        return std::string("ok");
+    }));
+
+    // Connect 内部：agent 握手成功后向控制面上传 manifest（best-effort）
+    ASSERT_TRUE(client.Connect());
+    control_thread.join();
+    agent_thread.join();
+    client.Close();
+    closesocket(control_fd);
+    ASSERT_TRUE(got_manifest.load());
+}
+
 }  // namespace croupier::sdk::test
 
 namespace croupier::sdk::test {
