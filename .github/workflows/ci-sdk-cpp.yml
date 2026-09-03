@@ -16,7 +16,9 @@ env:
 jobs:
   test:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    # vcpkg 依赖安装 + 全量编译 + 585 测试 + 覆盖率：常态 ~10-14 分钟，
+    # 新增依赖（zlib）触发 manifest 重装时逼近 15 分钟，留足余量。
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
 
