@@ -278,7 +278,7 @@ test.describe('真实 SDK Operation 链路', () => {
     await waitForPageReady(page);
     await expect(page.getByText('Send an in-game mail', { exact: true }).first()).toBeVisible();
     await expect(page.getByText('operation--mail.send', { exact: true })).toBeVisible();
-    await expect(page.getByRole('textbox', { name: /player_id/ })).toBeVisible();
+    await expect(page.getByRole('textbox', { name: /player[ _-]?id/i })).toBeVisible();
     await expectFormVisible(page);
   });
 
@@ -290,7 +290,7 @@ test.describe('真实 SDK Operation 链路', () => {
     await navigateToConsole(page, 'mail', 'operation--mail.send');
     await waitForPageReady(page);
 
-    await page.getByRole('textbox', { name: /player_id/ }).fill('p-001');
+    await page.getByRole('textbox', { name: /player[ _-]?id/i }).fill('p-001');
     await page.getByRole('textbox', { name: /title/ }).fill('真实 SDK 邮件');
     await page.getByRole('textbox', { name: 'content' }).fill('fixture message');
     const executeResponsePromise = page.waitForResponse(

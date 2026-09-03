@@ -40,7 +40,7 @@ test.describe('高风险动作', () => {
     );
     await confirmModal.getByRole('button', { name: /确\s*定|确\s*认/ }).click();
     expect((await executeResponse).status()).toBe(200);
-    await expect(page.getByText('操作成功', { exact: true })).toBeVisible();
+    await expect(page.getByText('操作成功', { exact: true }).first()).toBeVisible();
   });
 
   test('高风险操作审批状态', async ({ page }) => {
