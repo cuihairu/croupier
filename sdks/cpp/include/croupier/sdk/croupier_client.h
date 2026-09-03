@@ -85,6 +85,7 @@ struct ClientConfig {
     // handler. Server remains the authoritative validator.
     bool validate_input_payloads = false;
 
+
     // ========== Optional TLS Configuration ==========
     std::string cert_file;    // Client certificate file path
     std::string key_file;     // Client private key file path
@@ -114,14 +115,6 @@ struct ClientConfig {
     bool debug_logging = false;      // Enable debug level logging
     std::string log_level = "INFO";  // Log level: "DEBUG", "INFO", "WARN", "ERROR", "OFF"
 
-    // ========== File Transfer Configuration (SECURITY SENSITIVE) ==========
-    // File transfer is DISABLED by default for security reasons.
-    // Enabling requires explicit configuration and security review.
-    bool enable_file_transfer = false;            // Enable file transfer functionality (default: false)
-    int max_file_size = 10485760;                 // Max file size in bytes (default: 10MB)
-    std::vector<std::string> allowed_extensions;  // Allowed file extensions (whitelist, e.g., ".png", ".jpg")
-    std::vector<std::string> allowed_mime_types;  // Allowed MIME types (whitelist, e.g., "image/png")
-    int upload_timeout = 300000;                  // Upload timeout in milliseconds (default: 5 minutes)
 };
 
 // Reconnection configuration with exponential backoff
@@ -188,6 +181,8 @@ struct InvokerConfig {
     // Enabling requires explicit configuration and security review.
     bool enable_file_transfer = false;            // Enable file transfer functionality (default: false)
     int max_file_size = 10485760;                 // Max file size in bytes (default: 10MB)
+    // F：下发文件仅落盘至此暂存目录（不自动应用，hotpatch runner 编排）
+    std::string file_staging_dir = "./croupier-staging";
     std::vector<std::string> allowed_extensions;  // Allowed file extensions (whitelist, e.g., ".png", ".jpg")
     std::vector<std::string> allowed_mime_types;  // Allowed MIME types (whitelist, e.g., "image/png")
     int upload_timeout = 300000;                  // Upload timeout in milliseconds (default: 5 minutes)
