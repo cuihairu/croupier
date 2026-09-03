@@ -30,7 +30,9 @@ function toSeries(
   return rows.map((r) => ({
     time: t.toLocaleTimeString(),
     value: Number(r.value[1]) || 0,
-    backend: (r.metric[labelKey] || r.metric.instance || 'unknown').replace(/^.*\//, ''),
+    // fallback 链覆盖 exporter 标签变体；都缺失时才归为 unknown
+    backend:
+      r.metric[labelKey] || r.metric.proxy || r.metric.backend || r.metric.instance || 'unknown',
   }));
 }
 
@@ -61,7 +63,7 @@ export default function LBMonitor() {
         queryLbStats({ query: QUERIES.backendSessions }),
         queryLbStats({ query: QUERIES.serverStatus }),
       ]);
-      setSessionsData(toSeries(sessions.data?.result || [], 'proxy'));
+      setSessionsData(toSeries(sessions.data?.result || [], 'backend'));
       // haproxy_server_status 是 per-state 指标族（server×UP/DOWN/MAINT/
       // DRAIN/NOLB 各一行）——只看 state="UP" 行的值：1=健康，其余=不健康
       const down = (status.data?.result || [])
