@@ -348,13 +348,6 @@ export default [
         access: 'canDevRead',
         component: './Telemetry/Traces',
       },
-      {
-        // SDK 版本分布：在线 provider 实例按 SDK 语言/版本聚合（F：sdk-stats）
-        path: '/dev/sdk-distribution',
-        name: 'SdkDistribution',
-        access: 'canDevRead',
-        component: './Dev/SdkDistribution',
-      },
     ],
   },
   // Ops (运维)
