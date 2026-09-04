@@ -372,7 +372,7 @@ export function ModalPlaceholder({
         minHeight: 100,
       }}
     >
-      <Space direction="vertical" size={4} style={{ width: '100%' }}>
+      <Space orientation="vertical" size={4} style={{ width: '100%' }}>
         <Badge
           color="purple"
           text={

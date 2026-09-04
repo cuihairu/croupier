@@ -165,7 +165,7 @@ export default function ExtensionsInstallationsPage() {
             Modal.warning({
               title: '无法卸载：存在依赖',
               content: (
-                <Space direction="vertical">
+                <Space orientation="vertical">
                   <Text type="secondary">以下扩展仍依赖当前扩展，请先处理它们：</Text>
                   {blockers.map((item: unknown) => (
                     <Tag key={String(item)} color="orange">
@@ -246,7 +246,7 @@ export default function ExtensionsInstallationsPage() {
       dataIndex: 'displayName',
       key: 'displayName',
       render: (_, row) => (
-        <Space direction="vertical" size={0}>
+        <Space orientation="vertical" size={0}>
           <Text strong>{row.displayName || row.extensionId}</Text>
           <Text type="secondary">
             #{row.id} / {row.installationKey}
@@ -286,7 +286,7 @@ export default function ExtensionsInstallationsPage() {
       title: 'Scope/Target',
       key: 'scope_target',
       render: (_, row) => (
-        <Space direction="vertical" size={0}>
+        <Space orientation="vertical" size={0}>
           <Text>
             {row.scopeType}:{row.scopeId}
           </Text>
@@ -399,7 +399,7 @@ export default function ExtensionsInstallationsPage() {
 
   return (
     <PageContainer title="扩展安装" subTitle="查看和管理已安装扩展实例">
-      <Space direction="vertical" size={16} style={{ width: '100%' }}>
+      <Space orientation="vertical" size={16} style={{ width: '100%' }}>
         <SummaryOverview
           title="扩展概览"
           description="这个页面优先承担安装实例排查和运维动作，建议先按扩展或状态筛选，再进入详情、事件或升级流程。"
@@ -754,7 +754,7 @@ export default function ExtensionsInstallationsPage() {
           </Space>
         }
       >
-        <Space direction="vertical" style={{ width: '100%' }} size="large">
+        <Space orientation="vertical" style={{ width: '100%' }} size="large">
           {detailLoading && <Text type="secondary">加载中...</Text>}
           {!detailLoading && detailTarget && (
             <>
@@ -796,7 +796,7 @@ export default function ExtensionsInstallationsPage() {
               </Card>
 
               <Card size="small" title="配置调整">
-                <Space direction="vertical" size={12} style={{ width: '100%' }}>
+                <Space orientation="vertical" size={12} style={{ width: '100%' }}>
                   <Alert
                     type="info"
                     showIcon
@@ -808,7 +808,7 @@ export default function ExtensionsInstallationsPage() {
                     <div style={{ marginTop: 8 }}>
                       {detailConfigSchema?.properties &&
                       typeof detailConfigSchema.properties === 'object' ? (
-                        <Space direction="vertical" style={{ width: '100%' }}>
+                        <Space orientation="vertical" style={{ width: '100%' }}>
                           {Object.entries(detailConfigSchema.properties).map(([key, raw]) => {
                             const field = (raw || {}) as Record<string, JSONValue>;
                             const required = Array.isArray(detailConfigSchema.required)

@@ -859,7 +859,7 @@ const ResourceCatalogPage: React.FC = () => {
                   </Descriptions.Item>
                   <Descriptions.Item label="Tasks">
                     {selectedResource.semantics.tasks?.length ? (
-                      <Space direction="vertical" size={4}>
+                      <Space orientation="vertical" size={4}>
                         {selectedResource.semantics.tasks.map((task) => (
                           <Text code key={task.start.functionId}>
                             {task.start.functionId} / status: {task.status.function.functionId}
@@ -873,7 +873,7 @@ const ResourceCatalogPage: React.FC = () => {
                   </Descriptions.Item>
                   <Descriptions.Item label="Reports">
                     {selectedResource.semantics.reports?.length ? (
-                      <Space direction="vertical" size={4}>
+                      <Space orientation="vertical" size={4}>
                         {selectedResource.semantics.reports.map((report) => (
                           <Text code key={report.query.functionId}>
                             {report.query.functionId} / dataset: {report.datasetPath || '(root)'} /

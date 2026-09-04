@@ -467,7 +467,7 @@ export default function ProposalInbox({ focusPageKey = '' }: ProposalInboxProps)
         // 两者一致时只显示一行，避免相邻两行看起来是重复字段。
         const bareKey = record.proposalKey.replace(/^(operation|resource|task|report)--/, '');
         return (
-          <Space direction="vertical" size={0}>
+          <Space orientation="vertical" size={0}>
             <Text strong>{record.proposalKey}</Text>
             {record.pageKey && record.pageKey !== bareKey && (
               <Text type="secondary">{record.pageKey}</Text>
@@ -621,7 +621,7 @@ export default function ProposalInbox({ focusPageKey = '' }: ProposalInboxProps)
       dataIndex: 'id',
       key: 'id',
       render: (_, record) => (
-        <Space direction="vertical" size={0}>
+        <Space orientation="vertical" size={0}>
           <Text strong>{record.functionId || record.resourceKey || `issue-${record.id}`}</Text>
           <Text type="secondary">{record.resourceKey || '-'}</Text>
         </Space>
@@ -682,7 +682,7 @@ export default function ProposalInbox({ focusPageKey = '' }: ProposalInboxProps)
       dataIndex: 'pageKey',
       key: 'pageKey',
       render: (_, record) => (
-        <Space direction="vertical" size={0}>
+        <Space orientation="vertical" size={0}>
           <Text strong>{localizedText(record.title, record.pageKey)}</Text>
           <Text type="secondary">{record.pageKey}</Text>
         </Space>
@@ -804,7 +804,7 @@ export default function ProposalInbox({ focusPageKey = '' }: ProposalInboxProps)
   const contractChanges = inbox.contractChanges;
 
   return (
-    <Space direction="vertical" style={{ width: '100%', marginTop: 16 }} size={16}>
+    <Space orientation="vertical" style={{ width: '100%', marginTop: 16 }} size={16}>
       <Alert
         type="info"
         showIcon
@@ -872,7 +872,7 @@ export default function ProposalInbox({ focusPageKey = '' }: ProposalInboxProps)
               </Space>
             ),
             children: (
-              <Space direction="vertical" style={{ width: '100%' }} size={16}>
+              <Space orientation="vertical" style={{ width: '100%' }} size={16}>
                 <Table
                   columns={proposalColumns}
                   dataSource={needsReview}
@@ -928,7 +928,7 @@ export default function ProposalInbox({ focusPageKey = '' }: ProposalInboxProps)
         width={920}
       >
         {selectedProposal && (
-          <Space direction="vertical" style={{ width: '100%' }} size={16}>
+          <Space orientation="vertical" style={{ width: '100%' }} size={16}>
             <Descriptions column={2} bordered>
               <Descriptions.Item label="提案">{selectedProposal.proposalKey}</Descriptions.Item>
               <Descriptions.Item label="页面">{selectedProposal.pageKey}</Descriptions.Item>

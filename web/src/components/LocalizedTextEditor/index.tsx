@@ -84,7 +84,7 @@ export default function LocalizedTextEditor({
 
   const customContent = (
     <div style={{ width: 280 }}>
-      <Space direction="vertical" size={4} style={{ width: '100%' }}>
+      <Space orientation="vertical" size={4} style={{ width: '100%' }}>
         <Text type="secondary" style={{ fontSize: 12 }}>
           下方列出平台界面支持的全部 {SUPPORTED_LOCALES.length} 种语言。需要界面之外的语言 （如
           ru-RU、ko-KR）时，在此输入自定义 BCP47 locale：

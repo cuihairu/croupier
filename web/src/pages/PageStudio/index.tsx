@@ -316,7 +316,7 @@ export default function PageStudio() {
               title: '发布失败（草稿已保存）',
               width: 560,
               content: (
-                <Space direction="vertical" size={4} style={{ width: '100%' }}>
+                <Space orientation="vertical" size={4} style={{ width: '100%' }}>
                   <Typography.Text type="secondary">失败原因：{reason}</Typography.Text>
                   <ErrorDetailList error={publishError} />
                   <Typography.Text type="warning">
@@ -338,7 +338,7 @@ export default function PageStudio() {
           title: '保存失败',
           width: 560,
           content: (
-            <Space direction="vertical" size={4} style={{ width: '100%' }}>
+            <Space orientation="vertical" size={4} style={{ width: '100%' }}>
               <Typography.Text type="secondary">
                 {extractErrorMessage(saveError, '保存失败，请稍后重试')}
               </Typography.Text>
@@ -865,7 +865,7 @@ export default function PageStudio() {
         open={versionsVisible}
         onClose={() => setVersionsVisible(false)}
       >
-        <Space direction="vertical" style={{ width: '100%' }} size="middle">
+        <Space orientation="vertical" style={{ width: '100%' }} size="middle">
           <Paragraph>
             <Text strong>页面：</Text> {selectedPageKey || '-'}
           </Paragraph>
@@ -979,7 +979,7 @@ export default function PageStudio() {
         loading={changeChainLoading}
       >
         {changeChain ? (
-          <Space direction="vertical" style={{ width: '100%' }}>
+          <Space orientation="vertical" style={{ width: '100%' }}>
             <Paragraph>
               <Text strong>页面：</Text> {changeChain.pageKey}
             </Paragraph>
@@ -997,7 +997,7 @@ export default function PageStudio() {
             <Timeline
               items={changeChain.items.map((item) => ({
                 children: (
-                  <Space direction="vertical" size={0}>
+                  <Space orientation="vertical" size={0}>
                     <Space>
                       <Tag color="blue">{item.type}</Tag>
                       <Text>{item.summary}</Text>
@@ -1029,13 +1029,13 @@ export default function PageStudio() {
         }
       >
         {diffData ? (
-          <Space direction="vertical" style={{ width: '100%' }}>
+          <Space orientation="vertical" style={{ width: '100%' }}>
             <Paragraph>
               <Text strong>{diffData.summary}</Text>
             </Paragraph>
             {diffData.autoMergeItems?.length ? (
               <Card size="small" title={`可自动合并 ${diffData.autoMergeItems.length} 个展示字段`}>
-                <Space direction="vertical" style={{ width: '100%' }}>
+                <Space orientation="vertical" style={{ width: '100%' }}>
                   {diffData.autoMergeItems.map((item) => (
                     <Space key={item.field}>
                       <Tag color="blue">auto</Tag>
@@ -1048,7 +1048,7 @@ export default function PageStudio() {
             ) : null}
             {diffData.conflictItems?.length ? (
               <Card size="small" title={`必须人工确认 ${diffData.conflictItems.length} 个冲突字段`}>
-                <Space direction="vertical" style={{ width: '100%' }}>
+                <Space orientation="vertical" style={{ width: '100%' }}>
                   {diffData.conflictItems.map((item) => (
                     <Space key={item.field}>
                       <Tag color="red">conflict</Tag>
@@ -1061,7 +1061,7 @@ export default function PageStudio() {
             ) : null}
             {diffData.changes.map((change) => (
               <Card key={`${change.path}:${change.changeType}`} size="small">
-                <Space direction="vertical" style={{ width: '100%' }}>
+                <Space orientation="vertical" style={{ width: '100%' }}>
                   <Space>
                     <Tag
                       color={

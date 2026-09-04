@@ -24,7 +24,7 @@ export default function RequestHistory({ items, onClear, onSelect }: RequestHist
       {items.length === 0 ? (
         <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="暂无本地历史记录" />
       ) : (
-        <Space direction="vertical" size={8} style={{ width: '100%' }}>
+        <Space orientation="vertical" size={8} style={{ width: '100%' }}>
           {items.map((item) => (
             <Card
               key={item.id}

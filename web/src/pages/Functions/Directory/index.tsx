@@ -65,7 +65,7 @@ export default function DirectoryPage() {
       subTitle="函数目录只管理原子能力契约；页面、菜单和分类在 Page Studio 中确定"
       extra={headerActions}
     >
-      <Space direction="vertical" size={16} style={{ width: '100%' }}>
+      <Space orientation="vertical" size={16} style={{ width: '100%' }}>
         <Card
           styles={{
             body: {
@@ -75,7 +75,7 @@ export default function DirectoryPage() {
             },
           }}
         >
-          <Space direction="vertical" size={18} style={{ width: '100%' }}>
+          <Space orientation="vertical" size={18} style={{ width: '100%' }}>
             <Space wrap size={[8, 8]}>
               <Tag color="blue">能力供给层</Tag>
               <Tag color="green">{`可装配函数 ${summary.enabledCount}`}</Tag>
@@ -84,7 +84,7 @@ export default function DirectoryPage() {
                 <Tag color="purple">{`当前最大资源 ${summary.topResourceLabel} · ${summary.topResourceCount}`}</Tag>
               ) : null}
             </Space>
-            <Space direction="vertical" size={6} style={{ width: '100%' }}>
+            <Space orientation="vertical" size={6} style={{ width: '100%' }}>
               <Typography.Title level={4} style={{ margin: 0 }}>
                 先确认函数能力，再进入 Page Studio 编排页面
               </Typography.Title>
@@ -101,7 +101,7 @@ export default function DirectoryPage() {
                   style={{ height: '100%', background: 'rgba(255,255,255,0.78)' }}
                   styles={{ body: { padding: DASHBOARD_PAGE_TOKENS.cardPadding } }}
                 >
-                  <Space direction="vertical" size={8} style={{ width: '100%' }}>
+                  <Space orientation="vertical" size={8} style={{ width: '100%' }}>
                     <Space wrap size={[8, 8]}>
                       <ProfileOutlined />
                       <Typography.Text strong>当前建议动作</Typography.Text>
@@ -139,7 +139,7 @@ export default function DirectoryPage() {
                   style={{ height: '100%', background: 'rgba(255,255,255,0.78)' }}
                   styles={{ body: { padding: DASHBOARD_PAGE_TOKENS.cardPadding } }}
                 >
-                  <Space direction="vertical" size={8} style={{ width: '100%' }}>
+                  <Space orientation="vertical" size={8} style={{ width: '100%' }}>
                     <Typography.Text strong>这里适合确认什么</Typography.Text>
                     <Typography.Text type="secondary">
                       重点检查函数是否启用、是否有可调用实例、资源和操作声明是否清晰，以及是否有足够

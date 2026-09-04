@@ -108,7 +108,7 @@ const MfaSettings: React.FC = () => {
 
   return (
     <div className="security-item">
-      <Space direction="vertical" size="small" style={{ width: '100%' }}>
+      <Space orientation="vertical" size="small" style={{ width: '100%' }}>
         <Space>
           <div>
             <Text strong>两步验证（TOTP）</Text>
@@ -140,7 +140,7 @@ const MfaSettings: React.FC = () => {
             </Button>
           </Space>
         ) : setup ? (
-          <Space direction="vertical" size="small" style={{ width: '100%' }}>
+          <Space orientation="vertical" size="small" style={{ width: '100%' }}>
             <Text>
               1. 在验证器 App 中<strong>手动录入密钥</strong>，或使用
               <Text copyable>{setup.otpauthUrl}</Text>

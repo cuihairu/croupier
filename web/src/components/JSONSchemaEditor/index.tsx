@@ -178,7 +178,7 @@ const InlinePropertyEditor: React.FC<{
 
   return (
     <Card size="small" style={{ marginBottom: 8 }}>
-      <Space direction="vertical" style={{ width: '100%' }}>
+      <Space orientation="vertical" style={{ width: '100%' }}>
         <Space>
           <Input
             placeholder="Property Name"
@@ -414,7 +414,7 @@ const ObjectPropertyEditor: React.FC<{
 
   return (
     <div>
-      <Space direction="vertical" style={{ width: '100%' }}>
+      <Space orientation="vertical" style={{ width: '100%' }}>
         <Space>
           <Input
             placeholder="Property name"
@@ -551,7 +551,7 @@ export default function JSONSchemaEditor({ value, onChange }: JSONSchemaEditorPr
 
   return (
     <Card>
-      <Space direction="vertical" style={{ width: '100%' }}>
+      <Space orientation="vertical" style={{ width: '100%' }}>
         <Space>
           <Button.Group>
             <Button icon={<FunctionOutlined />} onClick={() => addCommonProperty('string')}>

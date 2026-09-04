@@ -37,7 +37,7 @@ export default function AssignmentsPage() {
       subTitle="管理不同游戏环境中可用的函数列表"
       extra={headerActions}
     >
-      <Space direction="vertical" size={16} style={{ width: '100%' }}>
+      <Space orientation="vertical" size={16} style={{ width: '100%' }}>
         <SummaryOverview
           title="分配概览"
           description="这里优先处理“当前环境该开放哪些函数”，函数按 resource 分组；菜单和页面归属不在这里配置。"
@@ -65,7 +65,7 @@ export default function AssignmentsPage() {
       </Space>
 
       <HistoryModal
-        visible={historyVisible}
+        open={historyVisible}
         history={history}
         loading={historyLoading}
         page={historyPage}
@@ -82,7 +82,7 @@ export default function AssignmentsPage() {
       />
 
       <CanaryModal
-        visible={canaryModalVisible}
+        open={canaryModalVisible}
         assignment={editingAssignment}
         onClose={() => setCanaryModalVisible(false)}
         onSave={(values) => {
@@ -92,7 +92,7 @@ export default function AssignmentsPage() {
       />
 
       <CloneModal
-        visible={cloneModalVisible}
+        open={cloneModalVisible}
         onClose={() => setCloneModalVisible(false)}
         onSave={async (targetEnv) => {
           const ok = await onCloneToEnv(targetEnv);

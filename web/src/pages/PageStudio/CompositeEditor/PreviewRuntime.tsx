@@ -178,7 +178,7 @@ export default function PreviewRuntime({
           }
         >
           {openForms.length > 0 ? (
-            <Space direction="vertical" size={16} style={{ width: '100%' }}>
+            <Space orientation="vertical" size={16} style={{ width: '100%' }}>
               {openForms.map((form) => (
                 <ModalForm
                   key={form.id}
@@ -311,7 +311,7 @@ function PreviewNode({
       ) : node.type === 'fnForm' ? (
         <ModalForm fn={fn} running={running} onSubmit={onSubmit} inline />
       ) : node.type === 'container' ? (
-        <Space direction="vertical" size={8} style={{ width: '100%' }}>
+        <Space orientation="vertical" size={8} style={{ width: '100%' }}>
           {(node.children ?? []).map((c) => (
             <React.Fragment key={c.id}>
               {renderChild?.(c) ?? <Text type="secondary">{c.type}</Text>}

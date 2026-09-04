@@ -137,7 +137,7 @@ export default function ComponentLibrary({
       <Empty
         image={Empty.PRESENTED_IMAGE_SIMPLE}
         description={
-          <Space direction="vertical" size={4}>
+          <Space orientation="vertical" size={4}>
             <Text type="secondary" style={{ fontSize: 12 }}>
               暂无组件模板
             </Text>

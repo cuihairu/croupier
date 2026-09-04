@@ -111,7 +111,7 @@ export default function TaskPageEditor({ value, onChange, readonly = false }: Ta
             </Text>
           </Form.Item>
           <Form.Item label="Lifecycle bindings">
-            <Space direction="vertical" size={4}>
+            <Space orientation="vertical" size={4}>
               <Text type="secondary">
                 taskId state: <Text code>{value.taskView.taskIdStateKey || 'taskId'}</Text>
               </Text>

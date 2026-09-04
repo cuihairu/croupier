@@ -43,8 +43,12 @@ export function SummaryOverview({
         },
       }}
     >
-      <Space direction="vertical" size={DASHBOARD_PAGE_TOKENS.sectionGap} style={{ width: '100%' }}>
-        <Space direction="vertical" size={6} style={{ width: '100%' }}>
+      <Space
+        orientation="vertical"
+        size={DASHBOARD_PAGE_TOKENS.sectionGap}
+        style={{ width: '100%' }}
+      >
+        <Space orientation="vertical" size={6} style={{ width: '100%' }}>
           <Typography.Title level={4} style={{ margin: 0 }}>
             {title}
           </Typography.Title>
@@ -103,7 +107,7 @@ export function StandardListSection({
         },
       }}
     >
-      <Space direction="vertical" size={12} style={{ width: '100%' }}>
+      <Space orientation="vertical" size={12} style={{ width: '100%' }}>
         {resultText ? <Typography.Text type="secondary">{resultText}</Typography.Text> : null}
         {children}
       </Space>
@@ -199,12 +203,16 @@ export function PageStatePanel({
         },
       }}
     >
-      <Space direction="vertical" size={DASHBOARD_PAGE_TOKENS.sectionGap} style={{ width: '100%' }}>
+      <Space
+        orientation="vertical"
+        size={DASHBOARD_PAGE_TOKENS.sectionGap}
+        style={{ width: '100%' }}
+      >
         <Space wrap size={[8, 8]}>
           <Badge status={theme.badgeStatus} text={badgeText || theme.label} />
           {extra}
         </Space>
-        <Space direction="vertical" size={6} style={{ width: '100%' }}>
+        <Space orientation="vertical" size={6} style={{ width: '100%' }}>
           <Typography.Title level={4} style={{ margin: 0, color: theme.accent }}>
             {title}
           </Typography.Title>

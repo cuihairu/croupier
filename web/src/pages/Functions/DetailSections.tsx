@@ -270,7 +270,7 @@ export function PermissionsTab({
         <Form form={permForm} layout="vertical">
           <Form.List name="items">
             {(fields, { add, remove }) => (
-              <Space direction="vertical" style={{ width: '100%' }} size="middle">
+              <Space orientation="vertical" style={{ width: '100%' }} size="middle">
                 {fields.map((field) => (
                   <Card
                     key={field.key}

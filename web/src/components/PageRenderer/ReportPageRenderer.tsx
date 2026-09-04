@@ -357,7 +357,7 @@ const ReportPageRenderer: React.FC<ReportPageRendererProps> = ({
                         </span>
                       ),
                       children: (
-                        <Space direction="vertical" style={{ width: '100%' }}>
+                        <Space orientation="vertical" style={{ width: '100%' }}>
                           {spec.charts.map((chart, index) => (
                             <ChartRenderer key={index} chart={chart} data={data} />
                           ))}

@@ -110,7 +110,7 @@ export default function PageEditor({ value, onChange, readonly = false }: PageEd
   };
 
   return (
-    <Space direction="vertical" style={{ width: '100%' }} size={16}>
+    <Space orientation="vertical" style={{ width: '100%' }} size={16}>
       <Card title="页面与菜单信息">
         <Text type="secondary">
           这些字段会进入 PublishedPageSpec，并作为运行控制台动态菜单的唯一文本来源；函数注册和静态

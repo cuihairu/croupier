@@ -52,7 +52,7 @@ export default function ActionEditor({
   const needModal = effKind === 'openModal' && targets.length === 0;
 
   return (
-    <Space direction="vertical" size={6} style={{ width: '100%' }}>
+    <Space orientation="vertical" size={6} style={{ width: '100%' }}>
       <Select
         size="small"
         style={{ width: '100%' }}

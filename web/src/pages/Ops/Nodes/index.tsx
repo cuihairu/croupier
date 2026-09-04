@@ -382,7 +382,7 @@ export default function OpsNodesPage() {
 
   return (
     <PageContainer title="节点维护" subTitle="查看节点健康状态，并执行下线、恢复和重启等运维动作">
-      <Space direction="vertical" size={16} style={{ width: '100%' }}>
+      <Space orientation="vertical" size={16} style={{ width: '100%' }}>
         <SummaryOverview
           title="节点概览"
           description="这里优先完成节点排查和运维动作，建议先用筛选缩小范围，再对单个节点执行操作。"
@@ -490,7 +490,7 @@ export default function OpsNodesPage() {
         width={600}
       >
         {detailNode && (
-          <Space direction="vertical" size={24} style={{ width: '100%' }}>
+          <Space orientation="vertical" size={24} style={{ width: '100%' }}>
             {/* 基本信息 */}
             <Descriptions title="基本信息" bordered column={2} size="small">
               <Descriptions.Item label="节点 ID">{detailNode.agentId}</Descriptions.Item>
@@ -530,11 +530,11 @@ export default function OpsNodesPage() {
                 系统指标
               </Text>
               {detailNode.cpu || detailNode.memory ? (
-                <Space direction="vertical" size={16} style={{ width: '100%' }}>
+                <Space orientation="vertical" size={16} style={{ width: '100%' }}>
                   {/* CPU */}
                   {detailNode.cpu && (
                     <Card title="CPU" size="small">
-                      <Space direction="vertical" size={8} style={{ width: '100%' }}>
+                      <Space orientation="vertical" size={8} style={{ width: '100%' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                           <Text>使用率</Text>
                           <Text strong>{detailNode.cpu.usagePercent.toFixed(2)}%</Text>
@@ -560,7 +560,7 @@ export default function OpsNodesPage() {
                   {/* 内存 */}
                   {detailNode.memory && (
                     <Card title="内存" size="small">
-                      <Space direction="vertical" size={8} style={{ width: '100%' }}>
+                      <Space orientation="vertical" size={8} style={{ width: '100%' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                           <Text>使用率</Text>
                           <Text strong>{detailNode.memory.usagePercent.toFixed(2)}%</Text>
@@ -591,7 +591,7 @@ export default function OpsNodesPage() {
                   {/* 磁盘 */}
                   {detailNode.disks && detailNode.disks.length > 0 && (
                     <Card title="磁盘" size="small">
-                      <Space direction="vertical" size={12} style={{ width: '100%' }}>
+                      <Space orientation="vertical" size={12} style={{ width: '100%' }}>
                         {detailNode.disks.map((disk, idx) => (
                           <div key={idx}>
                             <div
@@ -688,7 +688,7 @@ export default function OpsNodesPage() {
                   <Spin size="small" />
                 </div>
               ) : metricsHistory.length > 0 ? (
-                <Space direction="vertical" size={16} style={{ width: '100%' }}>
+                <Space orientation="vertical" size={16} style={{ width: '100%' }}>
                   {/* CPU 趋势图 */}
                   <Card title="CPU 使用率趋势" size="small">
                     <Line

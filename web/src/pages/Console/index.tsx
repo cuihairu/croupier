@@ -161,10 +161,10 @@ export default function ConsoleIndex() {
     : '运行控制台';
 
   return (
-    <Space direction="vertical" size={16} style={{ width: '100%' }}>
+    <Space orientation="vertical" size={16} style={{ width: '100%' }}>
       {/* 概览信息 */}
       <Card>
-        <Space direction="vertical" size={8}>
+        <Space orientation="vertical" size={8}>
           <Typography.Title level={4} style={{ margin: 0 }}>
             {pageTitle}
           </Typography.Title>
@@ -180,7 +180,7 @@ export default function ConsoleIndex() {
 
       {/* 分类列表 */}
       {menu?.items && menu.items.length > 0 ? (
-        <Space direction="vertical" size={16} style={{ width: '100%' }}>
+        <Space orientation="vertical" size={16} style={{ width: '100%' }}>
           {visibleCategories.map((category) => (
             <Card
               key={category.key}

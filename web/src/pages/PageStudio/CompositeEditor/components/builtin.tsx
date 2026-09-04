@@ -302,7 +302,7 @@ const container: ComponentDef = {
         </Text>
       ) : null}
       {node.children?.length ? (
-        <Space direction="vertical" size={6} style={{ width: '100%', marginTop: 4 }}>
+        <Space orientation="vertical" size={6} style={{ width: '100%', marginTop: 4 }}>
           {node.children.map((c) => {
             const def = getComponent(c.type);
             return def ? (

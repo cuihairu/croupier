@@ -365,7 +365,7 @@ export default function TicketDetailPage() {
               }}
             />
             <Divider>添加评论</Divider>
-            <Space direction="vertical" style={{ width: '100%' }}>
+            <Space orientation="vertical" style={{ width: '100%' }}>
               <Input.TextArea
                 rows={4}
                 value={cmt}
@@ -408,7 +408,7 @@ export default function TicketDetailPage() {
           onOk={doTransition}
           onCancel={() => setTransOpen(false)}
         >
-          <Space direction="vertical" style={{ width: '100%' }}>
+          <Space orientation="vertical" style={{ width: '100%' }}>
             <Select
               placeholder="选择状态"
               value={transStatus}

@@ -573,7 +573,7 @@ export default function DevBugsPage() {
         width={720}
       >
         {detail ? (
-          <Space direction="vertical" size={12} style={{ width: '100%' }}>
+          <Space orientation="vertical" size={12} style={{ width: '100%' }}>
             <Space wrap>
               <Tag color={bugStatusColors[detail.status]}>{bugStatusLabels[detail.status]}</Tag>
               {detail.severity ? (

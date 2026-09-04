@@ -238,7 +238,7 @@ export default function ExecutionLogsPage() {
       >
         {detail && (
           <>
-            <Space direction="vertical" size={4} style={{ width: '100%', marginBottom: 12 }}>
+            <Space orientation="vertical" size={4} style={{ width: '100%', marginBottom: 12 }}>
               <Text>
                 <Text type="secondary">申请人：</Text>
                 {detail.actor}

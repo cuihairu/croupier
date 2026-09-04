@@ -620,7 +620,7 @@ export default function Profile() {
                 </Space>
               }
               description={
-                <Space direction="vertical" size="small">
+                <Space orientation="vertical" size="small">
                   <div>
                     <Text type="secondary">{formatMessage('profile.games.envs')}</Text>
                     <Space wrap>
@@ -649,7 +649,7 @@ export default function Profile() {
   );
 
   const renderPermissions = () => (
-    <Space direction="vertical" size={16} style={{ width: '100%' }}>
+    <Space orientation="vertical" size={16} style={{ width: '100%' }}>
       <Card loading={extrasLoading} title={formatMessage('profile.permissions.summary.title')}>
         <List
           dataSource={permissionGroups}
@@ -731,7 +731,7 @@ export default function Profile() {
               </Space>
             }
             description={
-              <Space direction="vertical" size={0}>
+              <Space orientation="vertical" size={0}>
                 <Text type="secondary">
                   {item.time ? new Date(item.time).toLocaleString() : '-'}
                 </Text>
@@ -838,7 +838,7 @@ export default function Profile() {
                 </Space>
               }
               description={
-                <Space direction="vertical" size={0}>
+                <Space orientation="vertical" size={0}>
                   <Text
                     type="secondary"
                     ellipsis
@@ -1129,7 +1129,7 @@ export default function Profile() {
       okText={formatMessage('profile.permissions.apply.modal.submit')}
       confirmLoading={applySubmitting}
     >
-      <Space direction="vertical" style={{ width: '100%' }} size={12}>
+      <Space orientation="vertical" style={{ width: '100%' }} size={12}>
         {selectedApplyPermission && (
           <Alert
             showIcon
@@ -1179,7 +1179,7 @@ export default function Profile() {
       <>
         <PageContainer>
           <Card>
-            <Space size="large" direction="vertical" align="center" style={{ width: '100%' }}>
+            <Space size="large" orientation="vertical" align="center" style={{ width: '100%' }}>
               <Avatar size={96} icon={<UserOutlined />} />
               <Title level={4}>{formatMessage('profile.loading')}</Title>
             </Space>
@@ -1247,7 +1247,7 @@ export default function Profile() {
   return (
     <>
       <PageContainer className="profile-page">
-        <Space direction="vertical" size="large" style={{ width: '100%' }}>
+        <Space orientation="vertical" size="large" style={{ width: '100%' }}>
           <Card className="profile-hero" styles={{ body: { padding: 24 } }}>
             <Row gutter={[32, 24]} align="middle">
               <Col xs={24} md={10}>
@@ -1487,7 +1487,7 @@ export default function Profile() {
                   <Row gutter={[24, 24]}>
                     <Col xs={24}>
                       <Card title={formatMessage('profile.security.center')}>
-                        <Space direction="vertical" size="large" style={{ width: '100%' }}>
+                        <Space orientation="vertical" size="large" style={{ width: '100%' }}>
                           <div className="security-item">
                             <Space>
                               <LockOutlined />
@@ -1573,7 +1573,7 @@ export default function Profile() {
                   </Space>
                 ),
                 children: (
-                  <Space direction="vertical" size={16} style={{ width: '100%' }}>
+                  <Space orientation="vertical" size={16} style={{ width: '100%' }}>
                     {activities.length === 0 && !extrasLoading
                       ? renderUnavailableState('profile.activities.unavailable')
                       : null}
@@ -1602,7 +1602,7 @@ export default function Profile() {
                   </Space>
                 ),
                 children: (
-                  <Space direction="vertical" size={16} style={{ width: '100%' }}>
+                  <Space orientation="vertical" size={16} style={{ width: '100%' }}>
                     {loginSessionRows.length === 0 && !extrasLoading
                       ? renderUnavailableState('profile.sessions.unavailable')
                       : null}
@@ -1619,7 +1619,7 @@ export default function Profile() {
                   </Space>
                 ),
                 children: (
-                  <Space direction="vertical" size={16} style={{ width: '100%' }}>
+                  <Space orientation="vertical" size={16} style={{ width: '100%' }}>
                     {notifications.length === 0 && !extrasLoading
                       ? renderUnavailableState('profile.notifications.unavailable')
                       : null}

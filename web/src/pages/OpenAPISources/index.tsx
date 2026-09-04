@@ -373,7 +373,7 @@ export default function OpenAPISourcesPage() {
       title: 'Source',
       dataIndex: 'name',
       render: (_, record) => (
-        <Space direction="vertical" size={0}>
+        <Space orientation="vertical" size={0}>
           <Typography.Text strong>{record.name}</Typography.Text>
           <Typography.Text code>{record.sourceId}</Typography.Text>
         </Space>
@@ -443,7 +443,7 @@ export default function OpenAPISourcesPage() {
       title: 'Operation',
       dataIndex: 'operationId',
       render: (_, record) => (
-        <Space direction="vertical" size={0}>
+        <Space orientation="vertical" size={0}>
           <Typography.Text strong>{operationLabel(record)}</Typography.Text>
           <Typography.Text code>{record.operationId}</Typography.Text>
           <Typography.Text type="secondary">{`${record.method} ${record.path}`}</Typography.Text>
@@ -455,7 +455,7 @@ export default function OpenAPISourcesPage() {
       dataIndex: 'resource',
       width: 320,
       render: (_, record) => (
-        <Space direction="vertical" size={4}>
+        <Space orientation="vertical" size={4}>
           <Space size={4} wrap>
             <Tag color={record.resource ? 'blue' : undefined}>
               {record.resource || '无 resource'}
@@ -483,7 +483,7 @@ export default function OpenAPISourcesPage() {
       dataIndex: 'bound',
       width: 260,
       render: (_, record) => (
-        <Space direction="vertical" size={2}>
+        <Space orientation="vertical" size={2}>
           <Tag color={record.bound ? 'green' : 'orange'}>{record.bound ? 'bound' : 'unbound'}</Tag>
           {record.bindingId ? <Typography.Text code>{record.bindingId}</Typography.Text> : null}
           {record.functionId ? <Typography.Text>{record.functionId}</Typography.Text> : null}
@@ -572,7 +572,7 @@ export default function OpenAPISourcesPage() {
       subTitle="上传 OpenAPI 只产生能力契约和诊断；可执行性必须显式绑定 Provider，页面 UI 仍在 Page Studio 确定。"
       extra={pageActions}
     >
-      <Space direction="vertical" size={16} style={{ width: '100%' }}>
+      <Space orientation="vertical" size={16} style={{ width: '100%' }}>
         <Alert
           type="info"
           showIcon
@@ -589,7 +589,7 @@ export default function OpenAPISourcesPage() {
         ) : null}
         {sourceDiagnostics.length > 0 ? (
           <Card title="最近一次诊断">
-            <Space direction="vertical" size={6}>
+            <Space orientation="vertical" size={6}>
               {sourceDiagnostics.map((item) => (
                 <Alert
                   key={`${item.code}:${item.field || ''}:${item.message}`}
@@ -637,7 +637,7 @@ export default function OpenAPISourcesPage() {
         destroyOnClose
       >
         {detail ? (
-          <Space direction="vertical" size={16} style={{ width: '100%' }}>
+          <Space orientation="vertical" size={16} style={{ width: '100%' }}>
             <Card loading={detailLoading}>
               <Space wrap>
                 <Tag>{`rev ${detail.revision}`}</Tag>
@@ -653,7 +653,7 @@ export default function OpenAPISourcesPage() {
               {(detail.diagnostics || []).length === 0 ? (
                 <Typography.Text type="secondary">无诊断</Typography.Text>
               ) : (
-                <Space direction="vertical" size={8} style={{ width: '100%' }}>
+                <Space orientation="vertical" size={8} style={{ width: '100%' }}>
                   {(detail.diagnostics || []).map((item) => (
                     <Alert
                       key={`${item.code}:${item.field || ''}:${item.message}`}
@@ -717,7 +717,7 @@ export default function OpenAPISourcesPage() {
         okText={isUpdatingSource ? '更新 revision' : '创建'}
         width={760}
       >
-        <Space direction="vertical" size={12} style={{ width: '100%' }}>
+        <Space orientation="vertical" size={12} style={{ width: '100%' }}>
           <Alert
             type={isUpdatingSource ? 'info' : 'warning'}
             showIcon
@@ -770,7 +770,7 @@ export default function OpenAPISourcesPage() {
         onOk={submitBinding}
         okText="保存 binding"
       >
-        <Space direction="vertical" size={12} style={{ width: '100%' }}>
+        <Space orientation="vertical" size={12} style={{ width: '100%' }}>
           <Alert
             type="info"
             showIcon

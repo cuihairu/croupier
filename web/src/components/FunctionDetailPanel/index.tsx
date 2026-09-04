@@ -85,7 +85,7 @@ export const FunctionDetailPanel: React.FC<FunctionDetailPanelProps> = ({
   };
 
   return (
-    <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+    <Space orientation="vertical" size="middle" style={{ width: '100%' }}>
       {/* Header with basic info and actions */}
       <Card size={compact ? 'small' : 'default'}>
         <Space
@@ -164,7 +164,7 @@ export const FunctionDetailPanel: React.FC<FunctionDetailPanelProps> = ({
       {(localizedText(func.summary, 'zh-CN', '') ||
         localizedText(func.description, 'zh-CN', '')) && (
         <Card title="函数描述" size={compact ? 'small' : 'default'}>
-          <Space direction="vertical" style={{ width: '100%' }}>
+          <Space orientation="vertical" style={{ width: '100%' }}>
             {localizedText(func.summary, 'zh-CN', '') && (
               <div>
                 <Text strong>摘要：</Text>
@@ -227,7 +227,7 @@ export const FunctionDetailPanel: React.FC<FunctionDetailPanelProps> = ({
       {/* Instances Coverage */}
       {func.instances && func.instances.length > 0 && (
         <Card title={`实例覆盖 (${func.instances.length} 个)`} size={compact ? 'small' : 'default'}>
-          <Space direction="vertical" style={{ width: '100%' }}>
+          <Space orientation="vertical" style={{ width: '100%' }}>
             {func.instances.map((instance, index) => (
               <Card key={index} size="small" style={{ backgroundColor: '#fafafa' }}>
                 <Descriptions column={compact ? 1 : 2} size="small">
@@ -276,7 +276,7 @@ export const FunctionDetailPanel: React.FC<FunctionDetailPanelProps> = ({
                   call.status === 'success' ? 'green' : call.status === 'failed' ? 'red' : 'blue'
                 }
               >
-                <Space direction="vertical" size="small">
+                <Space orientation="vertical" size="small">
                   <Space>
                     <Badge
                       status={
@@ -311,7 +311,7 @@ export const FunctionDetailPanel: React.FC<FunctionDetailPanelProps> = ({
           <Empty
             image={Empty.PRESENTED_IMAGE_SIMPLE}
             description={
-              <Space direction="vertical">
+              <Space orientation="vertical">
                 <Text type="secondary">暂无详细信息</Text>
                 {showActions && onInvoke && (
                   <Button

@@ -326,8 +326,8 @@ export default function FunctionInvokePage() {
     >
       <Row gutter={16}>
         <Col xs={24} xl={showHistory ? 17 : 24}>
-          <Space direction="vertical" size={16} style={{ width: '100%' }}>
-            <Card size="small" bodyStyle={{ padding: 12 }}>
+          <Space orientation="vertical" size={16} style={{ width: '100%' }}>
+            <Card size="small" styles={{ body: { padding: 12 } }}>
               <Space.Compact style={{ width: '100%' }}>
                 <Button style={{ width: 88 }} disabled>
                   POST
@@ -440,7 +440,7 @@ export default function FunctionInvokePage() {
                         : '审批已过期'
                 }
                 description={
-                  <Space direction="vertical" size={4}>
+                  <Space orientation="vertical" size={4}>
                     <Text type="secondary">
                       审批单号：{pendingApproval.approvalId}（自动刷新中）
                     </Text>

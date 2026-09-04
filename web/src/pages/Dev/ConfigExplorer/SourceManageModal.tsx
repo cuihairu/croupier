@@ -138,7 +138,7 @@ export default function SourceManageModal({
       onCancel={onClose}
       destroyOnHidden
     >
-      <Space direction="vertical" style={{ width: '100%' }}>
+      <Space orientation="vertical" style={{ width: '100%' }}>
         <Button type="primary" onClick={openCreate}>
           添加数据源
         </Button>

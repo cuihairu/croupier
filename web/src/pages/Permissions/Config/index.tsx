@@ -616,7 +616,7 @@ export default function ConfigPage() {
                           border: '1px solid #ffbb96',
                         }}
                       >
-                        <Space direction="vertical" style={{ width: '100%' }}>
+                        <Space orientation="vertical" style={{ width: '100%' }}>
                           <Text strong style={{ color: '#d4380d' }}>
                             <SecurityScanOutlined /> 以下权限需要特别注意
                           </Text>

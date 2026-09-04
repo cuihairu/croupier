@@ -83,7 +83,7 @@ export default function HistoryModal({
                 </Space>
               }
               description={
-                <Space direction="vertical" style={{ width: '100%' }}>
+                <Space orientation="vertical" style={{ width: '100%' }}>
                   <span>
                     操作人: {item.operatedBy} | 时间: {formatDateTime(item.operatedAt)}
                   </span>

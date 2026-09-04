@@ -346,7 +346,7 @@ export default function OpsAlertsPage() {
       />
       <Drawer title="告警详情" width={720} open={!!detail} onClose={() => setDetail(null)}>
         {detail && (
-          <Space direction="vertical" style={{ width: '100%' }}>
+          <Space orientation="vertical" style={{ width: '100%' }}>
             <div>
               <b>严重度:</b>{' '}
               <Tag

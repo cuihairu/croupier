@@ -345,7 +345,7 @@ export default function ConfigExplorer() {
                 scroll={{ x: 'max-content' }}
               />
             ) : (
-              <Space direction="vertical" style={{ width: '100%' }}>
+              <Space orientation="vertical" style={{ width: '100%' }}>
                 <Space>
                   <Text strong>{file.path}</Text>
                   <Tag>{file.format}</Tag>
@@ -389,7 +389,7 @@ export default function ConfigExplorer() {
         onOk={doSave}
         destroyOnHidden
       >
-        <Space direction="vertical" style={{ width: '100%' }}>
+        <Space orientation="vertical" style={{ width: '100%' }}>
           <Text type="secondary">
             将写回 <Text code>{currentSource?.name}</Text>（{currentSource?.type}
             ）的 <Text code>{file?.path}</Text>；各项目配置流程不变，原因必填并记入审计。

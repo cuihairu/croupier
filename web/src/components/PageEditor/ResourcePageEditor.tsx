@@ -137,7 +137,7 @@ export default function ResourcePageEditor({
           {actions.length === 0 ? (
             <Tag color="default">未生成</Tag>
           ) : (
-            <Space direction="vertical" style={{ width: '100%' }}>
+            <Space orientation="vertical" style={{ width: '100%' }}>
               {actions.map((action, index) => (
                 <Card
                   key={action.key}
@@ -336,7 +336,7 @@ export default function ResourcePageEditor({
         }
         key="actions"
       >
-        <Space direction="vertical" style={{ width: '100%' }}>
+        <Space orientation="vertical" style={{ width: '100%' }}>
           <Text type="secondary">
             动作能力来自 Resource Catalog 的
             ActionSemantic；这里只能调整已生成动作的展示文案、样式和确认，不创建新函数绑定。
@@ -362,7 +362,7 @@ export default function ResourcePageEditor({
         }
         key="forms"
       >
-        <Space direction="vertical" style={{ width: '100%' }}>
+        <Space orientation="vertical" style={{ width: '100%' }}>
           <div>
             <Text type="secondary">创建表单</Text>
             <div style={{ marginTop: 8 }}>

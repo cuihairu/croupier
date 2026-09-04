@@ -49,7 +49,7 @@ export default function FormPresentationEditor({
     onChange({ ...value, fields: updateField(value.fields, index, updates) });
 
   return (
-    <Space direction="vertical" size={12} style={{ width: '100%' }}>
+    <Space orientation="vertical" size={12} style={{ width: '100%' }}>
       <Text type="secondary">
         字段来自函数 JSON Schema；这里只调整展示（拖动 ⠿ 调整顺序），不改变输入结构、binding 或
         selector。

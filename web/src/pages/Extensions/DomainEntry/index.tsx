@@ -82,7 +82,7 @@ export default function ExtensionDomainEntryPage() {
   return (
     <PageContainer title={meta.title} subTitle={meta.description}>
       <Card loading={loading}>
-        <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+        <Space orientation="vertical" size="middle" style={{ width: '100%' }}>
           <Space wrap>
             <Tag color={installedCount > 0 ? 'green' : 'default'}>扩展: {meta.extensionId}</Tag>
             <Tag color={installedCount > 0 ? 'blue' : 'default'}>安装实例: {installedCount}</Tag>
@@ -90,7 +90,7 @@ export default function ExtensionDomainEntryPage() {
 
           {pages.length > 0 ? (
             <Card size="small" title="扩展页面入口">
-              <Space direction="vertical" style={{ width: '100%' }}>
+              <Space orientation="vertical" style={{ width: '100%' }}>
                 {pages.map((p, idx) => (
                   <Space key={`${p.path || p.title || 'page'}-${idx}`} wrap>
                     <Text strong>{p.title || `Page ${idx + 1}`}</Text>

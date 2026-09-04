@@ -215,7 +215,7 @@ export default function ConsolePage() {
           style={{ marginBottom: 16 }}
           message="页面绑定的函数契约已变化，执行已被阻断"
           description={
-            <Space direction="vertical" size={4}>
+            <Space orientation="vertical" size={4}>
               {bindingFreshness.map((item) => (
                 <Space key={`${item.bindingId}:${item.status}:${item.diagnostic.code}`} wrap>
                   <Tag color="red">{item.status}</Tag>

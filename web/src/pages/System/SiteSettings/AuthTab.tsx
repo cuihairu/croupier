@@ -505,7 +505,7 @@ export default function AuthTab() {
   );
 
   return (
-    <Space direction="vertical" size={12} style={{ width: '100%' }}>
+    <Space orientation="vertical" size={12} style={{ width: '100%' }}>
       {extra}
       <LDAPCard snapshot={snapshot?.ldap} onReload={load} />
       <OIDCCard snapshot={snapshot?.oidc} onReload={load} />

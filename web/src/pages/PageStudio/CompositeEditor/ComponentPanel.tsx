@@ -80,7 +80,7 @@ function ScopeGuide({ onReload }: { onReload: () => void }) {
           其他 scope 也没有函数——请先通过 SDK/OpenAPI 注册函数
         </Text>
       ) : (
-        <Space direction="vertical" size={4} style={{ width: '100%', marginTop: 8 }}>
+        <Space orientation="vertical" size={4} style={{ width: '100%', marginTop: 8 }}>
           {scopes
             .filter((s) => s.gameId !== current.gameId || s.env !== current.env)
             .map((s) => (

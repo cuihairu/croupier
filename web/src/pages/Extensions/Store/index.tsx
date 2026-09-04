@@ -279,7 +279,7 @@ export default function ExtensionsStorePage() {
       dataIndex: 'displayName',
       key: 'displayName',
       render: (_, row) => (
-        <Space direction="vertical" size={0}>
+        <Space orientation="vertical" size={0}>
           <Text strong>{row.displayName || row.name}</Text>
           <Text type="secondary">{row.id}</Text>
         </Space>
@@ -437,7 +437,7 @@ export default function ExtensionsStorePage() {
         title={detailItem?.displayName || detailItem?.name || '扩展详情'}
         width={840}
       >
-        <Space direction="vertical" style={{ width: '100%' }}>
+        <Space orientation="vertical" style={{ width: '100%' }}>
           {detailLoading && <Text type="secondary">加载中...</Text>}
           <div>
             <Text strong>ID: </Text>
@@ -533,7 +533,7 @@ export default function ExtensionsStorePage() {
           {installConfigSchema?.properties &&
             typeof installConfigSchema.properties === 'object' && (
               <Card size="small" title="配置字段（来自 manifest.configSchema）">
-                <Space direction="vertical" style={{ width: '100%' }}>
+                <Space orientation="vertical" style={{ width: '100%' }}>
                   {Object.entries(installConfigSchema.properties).map(([key, raw]) => {
                     const field = (raw || {}) as Record<string, JSONValue>;
                     const type = String(field.type || 'string');

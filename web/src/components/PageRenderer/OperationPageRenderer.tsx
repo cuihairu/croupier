@@ -269,7 +269,7 @@ const OperationPageRenderer: React.FC<OperationPageRendererProps> = ({
               subTitle="审批通过后才会继续执行，请在审批中心查看状态。"
               icon={<ClockCircleOutlined />}
               extra={
-                <Space direction="vertical">
+                <Space orientation="vertical">
                   <Alert
                     type="info"
                     showIcon

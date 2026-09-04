@@ -76,7 +76,7 @@ export default function TracesPage() {
           style={{ marginBottom: 16 }}
         />
 
-        <Space direction="vertical" style={{ width: '100%' }} size={16}>
+        <Space orientation="vertical" style={{ width: '100%' }} size={16}>
           <Space wrap>
             <Input
               placeholder="输入 Trace ID（用于跳转）"

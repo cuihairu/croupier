@@ -199,7 +199,7 @@ export const FunctionCallHistory: React.FC<FunctionCallHistoryProps> = ({
                 style={{ marginBottom: 8, cursor: 'pointer' }}
                 onClick={() => handleViewDetail(call)}
               >
-                <Space direction="vertical" style={{ width: '100%' }}>
+                <Space orientation="vertical" style={{ width: '100%' }}>
                   <Space style={{ justifyContent: 'space-between', width: '100%' }}>
                     <Space>
                       {getStatusBadge(call.status)}
@@ -249,7 +249,7 @@ export const FunctionCallHistory: React.FC<FunctionCallHistoryProps> = ({
         onClose={() => setDetailVisible(false)}
       >
         {selectedCall && (
-          <Space direction="vertical" style={{ width: '100%' }}>
+          <Space orientation="vertical" style={{ width: '100%' }}>
             <Card title="基本信息" size="small">
               <Descriptions column={1} size="small">
                 <Descriptions.Item label="调用ID">

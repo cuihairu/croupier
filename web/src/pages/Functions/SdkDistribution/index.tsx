@@ -54,7 +54,7 @@ function LanguageCard({ stats }: { stats: SdkLanguageStats }) {
       }
       style={{ height: '100%' }}
     >
-      <Space direction="vertical" size={6} style={{ width: '100%' }}>
+      <Space orientation="vertical" size={6} style={{ width: '100%' }}>
         {stats.versions.map((version) => (
           <div key={version.version} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <Text code style={{ minWidth: 90 }}>
@@ -176,7 +176,7 @@ export default function SdkDistributionPage() {
         </Button>,
       ]}
     >
-      <Space direction="vertical" size={16} style={{ width: '100%' }}>
+      <Space orientation="vertical" size={16} style={{ width: '100%' }}>
         <Card size="small">
           <Space size={48} wrap>
             <Statistic title="在线实例" value={stats?.totalInstances ?? 0} />

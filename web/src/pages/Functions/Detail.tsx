@@ -195,7 +195,7 @@ export default function FunctionDetailPage() {
         </Space>,
       ]}
     >
-      <Space direction="vertical" size={16} style={{ width: '100%' }}>
+      <Space orientation="vertical" size={16} style={{ width: '100%' }}>
         <Card
           loading={loading}
           styles={{
@@ -206,7 +206,7 @@ export default function FunctionDetailPage() {
             },
           }}
         >
-          <Space direction="vertical" size={18} style={{ width: '100%' }}>
+          <Space orientation="vertical" size={18} style={{ width: '100%' }}>
             <Space wrap size={[8, 8]}>
               <Tag color="blue">函数能力详情</Tag>
               <Badge status={functionStatusTone} text={functionStatusText} />
@@ -215,7 +215,7 @@ export default function FunctionDetailPage() {
               {descriptorResource ? <Tag>{`资源 ${descriptorResource}`}</Tag> : null}
               {descriptorOperation ? <Tag>{`操作 ${descriptorOperation}`}</Tag> : null}
             </Space>
-            <Space direction="vertical" size={6} style={{ width: '100%' }}>
+            <Space orientation="vertical" size={6} style={{ width: '100%' }}>
               <Typography.Title level={4} style={{ margin: 0 }}>
                 {functionDetail?.name || functionDetail?.id}
               </Typography.Title>
@@ -231,7 +231,7 @@ export default function FunctionDetailPage() {
                   style={{ height: '100%', background: 'rgba(255,255,255,0.78)' }}
                   styles={{ body: { padding: DASHBOARD_PAGE_TOKENS.cardPadding } }}
                 >
-                  <Space direction="vertical" size={8} style={{ width: '100%' }}>
+                  <Space orientation="vertical" size={8} style={{ width: '100%' }}>
                     <Typography.Text strong>当前建议动作</Typography.Text>
                     <Typography.Text type="secondary">
                       函数能力确认无误后，下一步应该去资源/页面候选检查 PageSpec
@@ -262,7 +262,7 @@ export default function FunctionDetailPage() {
                   style={{ height: '100%', background: 'rgba(255,255,255,0.78)' }}
                   styles={{ body: { padding: DASHBOARD_PAGE_TOKENS.cardPadding } }}
                 >
-                  <Space direction="vertical" size={8} style={{ width: '100%' }}>
+                  <Space orientation="vertical" size={8} style={{ width: '100%' }}>
                     <Typography.Text strong>这里适合确认什么</Typography.Text>
                     <Typography.Text type="secondary">
                       重点检查函数摘要、入参

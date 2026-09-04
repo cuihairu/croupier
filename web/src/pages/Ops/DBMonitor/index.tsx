@@ -198,7 +198,7 @@ export default function DBMonitorPage() {
                       ) : undefined
                     }
                   >
-                    <Space direction="vertical" size={4} style={{ width: '100%' }}>
+                    <Space orientation="vertical" size={4} style={{ width: '100%' }}>
                       <Space wrap size={4}>
                         <Tag color="blue">{src.driver}</Tag>
                         <Tag>{dbKindLabels[src.kind as DBSourceKind] || src.kind}</Tag>

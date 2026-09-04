@@ -401,7 +401,7 @@ export const CompositeRenderer: React.FC<{
           footer={null}
           destroyOnHidden
         >
-          <Space direction="vertical" size={16} style={{ width: '100%' }}>
+          <Space orientation="vertical" size={16} style={{ width: '100%' }}>
             {activeDialogs.map((sec) =>
               sec.view === 'form' ? (
                 <DialogForm

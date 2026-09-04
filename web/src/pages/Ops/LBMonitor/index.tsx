@@ -136,7 +136,7 @@ export default function LBMonitor() {
       }
     >
       <Spin spinning={loading}>
-        <Space direction="vertical" style={{ width: '100%' }} size={12}>
+        <Space orientation="vertical" style={{ width: '100%' }} size={12}>
           <Card size="small">
             <Space size={32} wrap>
               <Statistic title="后端总数" value={backends.length} />

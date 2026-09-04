@@ -117,7 +117,7 @@ export default function AnalyticsOverviewPage() {
   return (
     <PageContainer>
       <Card title={intl.formatMessage({ id: 'pages.analytics.overview.title' }) || '概览 KPI'}>
-        <Space direction="vertical" size={16} style={{ width: '100%' }}>
+        <Space orientation="vertical" size={16} style={{ width: '100%' }}>
           <Row gutter={[16, 16]}>
             <Col span={4}>
               <Card loading={loading}>

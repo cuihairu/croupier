@@ -127,14 +127,14 @@ export default function MergeConflictModal(props: MergeConflictModalProps) {
       destroyOnClose
     >
       {preview ? (
-        <Space direction="vertical" style={{ width: '100%' }} size="middle">
+        <Space orientation="vertical" style={{ width: '100%' }} size="middle">
           <Paragraph>
             <Text strong>{preview.message}</Text>
           </Paragraph>
 
           {autoMergeItems.length > 0 ? (
             <Card size="small" title={`将自动合并 ${autoMergeItems.length} 个展示字段`}>
-              <Space direction="vertical" style={{ width: '100%' }}>
+              <Space orientation="vertical" style={{ width: '100%' }}>
                 {autoMergeItems.map((item) => (
                   <Space key={item.field} align="start">
                     <Tag color="blue">auto</Tag>
@@ -160,7 +160,7 @@ export default function MergeConflictModal(props: MergeConflictModalProps) {
                     </Space>
                   }
                 >
-                  <Space direction="vertical" style={{ width: '100%' }} size="middle">
+                  <Space orientation="vertical" style={{ width: '100%' }} size="middle">
                     <Text type="secondary">{item.reason}</Text>
                     <Radio.Group
                       value={current.mode}
@@ -169,7 +169,7 @@ export default function MergeConflictModal(props: MergeConflictModalProps) {
                         updateResolution(item.field, (state) => ({ ...state, mode: nextMode }));
                       }}
                     >
-                      <Space direction="vertical">
+                      <Space orientation="vertical">
                         <Radio value="draft">保留当前草稿值</Radio>
                         <Radio value="latest">接受最新 Proposal 值</Radio>
                         <Radio value="custom">自定义 JSON</Radio>

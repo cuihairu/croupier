@@ -130,7 +130,7 @@ export const FunctionListTable: React.FC<FunctionListTableProps> = ({
       copyable: true,
       ellipsis: true,
       render: (_, record) => (
-        <Space direction="vertical" size="small">
+        <Space orientation="vertical" size="small">
           <Space>
             <Badge status={record.enabled ? 'success' : 'default'} />
             <Text code>{record.id}</Text>

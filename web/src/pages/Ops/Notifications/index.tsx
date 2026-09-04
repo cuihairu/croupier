@@ -130,7 +130,7 @@ export default function OpsNotificationsPage() {
           </Space>
         }
       >
-        <Space direction="vertical" style={{ width: '100%' }} size={16}>
+        <Space orientation="vertical" style={{ width: '100%' }} size={16}>
           <div>
             <b>渠道</b>
             <Table

@@ -127,7 +127,7 @@ export default function ReportPageEditor({
         }
         key="dataset"
       >
-        <Space direction="vertical" style={{ width: '100%' }}>
+        <Space orientation="vertical" style={{ width: '100%' }}>
           <div>
             <Space style={{ marginBottom: 8 }}>
               <Text strong>维度</Text>

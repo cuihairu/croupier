@@ -195,7 +195,7 @@ export default function DevToolsPage() {
         {tools.length === 0 && !loading ? (
           <Empty description="暂无工具。让管理员登记 Jenkins / GitLab / Grafana 等内部工具链接，即可在此集中访问。" />
         ) : (
-          <Space direction="vertical" size={16} style={{ width: '100%' }}>
+          <Space orientation="vertical" size={16} style={{ width: '100%' }}>
             {grouped.map(({ category, items }) => (
               <div key={category}>
                 <Space style={{ marginBottom: 8 }}>
@@ -238,7 +238,7 @@ export default function DevToolsPage() {
                             </a>
                           }
                           description={
-                            <Space direction="vertical" size={4}>
+                            <Space orientation="vertical" size={4}>
                               {tool.description ? (
                                 <Paragraph ellipsis={{ rows: 2 }} style={{ marginBottom: 0 }}>
                                   {tool.description}

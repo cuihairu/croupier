@@ -108,7 +108,7 @@ export default function DetailConfigTab({
       key: 'schema',
       label: '契约 Schema',
       children: (
-        <Space direction="vertical" size={16} style={{ width: '100%' }}>
+        <Space orientation="vertical" size={16} style={{ width: '100%' }}>
           <Alert
             message="函数注册只提供契约，不保存页面 UI"
             description="这里展示 input/output JSON Schema，用于核对调用参数和返回结构。默认业务页面由 PageProposal 生成，接受后进入 Page Studio 编辑和发布。"

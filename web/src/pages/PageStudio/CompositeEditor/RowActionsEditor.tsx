@@ -44,7 +44,7 @@ export default function RowActionsEditor({
     onChange(actions.map((a, idx) => (idx === i ? { ...a, ...p } : a)));
 
   return (
-    <Space direction="vertical" size={8} style={{ width: '100%' }}>
+    <Space orientation="vertical" size={8} style={{ width: '100%' }}>
       {actions.map((a, i) => {
         const targetModal = modals.find((m) => m.id === a.targetSection);
         const formFnId = String(
@@ -53,7 +53,7 @@ export default function RowActionsEditor({
         const targetParamFields = getParamFields(targetModal, fnById);
         return (
           <div key={i} style={{ border: '1px solid #f0f0f0', borderRadius: 6, padding: 8 }}>
-            <Space direction="vertical" size={6} style={{ width: '100%' }}>
+            <Space orientation="vertical" size={6} style={{ width: '100%' }}>
               <Input
                 size="small"
                 placeholder="按钮文案（如：发邮件）"

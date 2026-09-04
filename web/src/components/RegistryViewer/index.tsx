@@ -155,7 +155,7 @@ export const RegistryViewer: React.FC<RegistryViewerProps> = ({
       dataIndex: 'status',
       width: 100,
       render: (_value, record) => (
-        <Space direction="vertical" size="small">
+        <Space orientation="vertical" size="small">
           {getStatusBadge(record.status)}
           {!compact && record.version && <Tag color="blue">{record.version}</Tag>}
         </Space>
@@ -200,7 +200,7 @@ export const RegistryViewer: React.FC<RegistryViewerProps> = ({
             dataIndex: 'gameId',
             width: 120,
             render: (_value: unknown, record: RegistryService) => (
-              <Space direction="vertical" size="small">
+              <Space orientation="vertical" size="small">
                 {record.gameId && <Tag color="geekblue">{record.gameId}</Tag>}
                 {record.env && <Tag color="orange">{record.env}</Tag>}
               </Space>
@@ -216,7 +216,7 @@ export const RegistryViewer: React.FC<RegistryViewerProps> = ({
   ];
 
   return (
-    <Space direction="vertical" style={{ width: '100%' }} size="middle">
+    <Space orientation="vertical" style={{ width: '100%' }} size="middle">
       {/* Statistics Panel */}
       {showStats && stats && (
         <Card size={compact ? 'small' : 'default'}>

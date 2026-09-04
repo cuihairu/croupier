@@ -196,7 +196,7 @@ export default () => {
       dataIndex: 'gameId',
       width: 150,
       render: (_, record) => (
-        <Space direction="vertical" size={0}>
+        <Space orientation="vertical" size={0}>
           <span>{record.gameId || '-'}</span>
           {record.env && <Tag>{record.env}</Tag>}
         </Space>

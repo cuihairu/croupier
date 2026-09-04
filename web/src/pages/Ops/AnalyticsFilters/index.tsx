@@ -115,7 +115,7 @@ export default function AnalyticsFiltersPage() {
           </Space>
         }
       >
-        <Space direction="vertical" style={{ width: '100%' }}>
+        <Space orientation="vertical" style={{ width: '100%' }}>
           <div>
             <b>全局采样：</b>
             <InputNumber

@@ -30,7 +30,7 @@ function EntryCard({ title, description, hint, icon, actionLabel, path, tone }: 
       styles={{ body: { height: '100%' } }}
       onClick={() => history.push(path)}
     >
-      <Space direction="vertical" size={16} style={{ width: '100%', height: '100%' }}>
+      <Space orientation="vertical" size={16} style={{ width: '100%', height: '100%' }}>
         <Space size={12}>
           <div
             style={{
@@ -46,7 +46,7 @@ function EntryCard({ title, description, hint, icon, actionLabel, path, tone }: 
           >
             {icon}
           </div>
-          <Space direction="vertical" size={2}>
+          <Space orientation="vertical" size={2}>
             <Typography.Title level={4} style={{ margin: 0 }}>
               {title}
             </Typography.Title>
@@ -94,7 +94,7 @@ const Welcome: React.FC = () => {
         breadcrumb: {},
       }}
     >
-      <Space direction="vertical" size={20} style={{ width: '100%' }}>
+      <Space orientation="vertical" size={20} style={{ width: '100%' }}>
         <Card
           bordered={false}
           style={{
@@ -104,7 +104,7 @@ const Welcome: React.FC = () => {
         >
           <Row gutter={[24, 24]} align="middle">
             <Col xs={24} xl={16}>
-              <Space direction="vertical" size={18} style={{ width: '100%' }}>
+              <Space orientation="vertical" size={18} style={{ width: '100%' }}>
                 <Space wrap>
                   <Tag color="blue">能力供给</Tag>
                   <Tag color="cyan">页面装配</Tag>
@@ -151,7 +151,7 @@ const Welcome: React.FC = () => {
                 size="small"
                 style={{ background: 'rgba(255,255,255,0.65)', borderColor: token.colorBorder }}
               >
-                <Space direction="vertical" size={10} style={{ width: '100%' }}>
+                <Space orientation="vertical" size={10} style={{ width: '100%' }}>
                   <Typography.Text strong>当前产品重心</Typography.Text>
                   <Space wrap size={[8, 8]}>
                     <Tag color="processing">正式能力：tabs + list/form/detail/form-detail</Tag>
@@ -185,7 +185,7 @@ const Welcome: React.FC = () => {
                       : undefined,
                 }}
               >
-                <Space direction="vertical" size={10} style={{ width: '100%' }}>
+                <Space orientation="vertical" size={10} style={{ width: '100%' }}>
                   <Space wrap size={[8, 8]}>
                     <Tag color={index === 0 ? 'green' : index === 1 ? 'blue' : 'gold'}>
                       {`步骤 ${index + 1}`}

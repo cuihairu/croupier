@@ -64,7 +64,7 @@ export default function ServerHistoryPanel({ functionId }: { functionId?: string
   };
 
   return (
-    <Space direction="vertical" size={8} style={{ width: '100%' }}>
+    <Space orientation="vertical" size={8} style={{ width: '100%' }}>
       <Space wrap style={{ justifyContent: 'space-between', width: '100%' }}>
         <label style={{ fontSize: 12 }}>
           <input
@@ -87,7 +87,7 @@ export default function ServerHistoryPanel({ functionId }: { functionId?: string
           showIcon
           message="服务端记录加载失败"
           description={
-            <Space direction="vertical" size={4}>
+            <Space orientation="vertical" size={4}>
               <Text type="secondary">{loadError}</Text>
               <Button size="small" icon={<ReloadOutlined />} onClick={() => void list()}>
                 重试
@@ -115,7 +115,7 @@ export default function ServerHistoryPanel({ functionId }: { functionId?: string
                 detail.loading ? (
                   <Text type="secondary">加载中…</Text>
                 ) : (
-                  <Space direction="vertical" size={8} style={{ width: '100%' }}>
+                  <Space orientation="vertical" size={8} style={{ width: '100%' }}>
                     <div>
                       <Text type="secondary">请求：</Text>
                       <pre style={preStyle}>

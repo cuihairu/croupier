@@ -568,7 +568,7 @@ export default () => {
         </Button>,
       ]}
     >
-      <Space direction="vertical" size={16} style={{ width: '100%' }}>
+      <Space orientation="vertical" size={16} style={{ width: '100%' }}>
         <SummaryOverview
           title="实例概览"
           description="这里应该优先回答哪些函数实例在线、分布在哪、哪里有异常。详情、日志和调试属于次级动作，应该在确认目标实例后再进入。"
@@ -922,7 +922,7 @@ export default () => {
         width="min(700px, calc(100vw - 16px))"
         footer={debugFooter}
       >
-        <Space direction="vertical" style={{ width: '100%' }} size="large">
+        <Space orientation="vertical" style={{ width: '100%' }} size="large">
           <Alert
             message="调试请求将真实执行"
             description={

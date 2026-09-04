@@ -591,7 +591,7 @@ const TaskPageRenderer: React.FC<TaskPageRendererProps> = ({
 
     return (
       <Card title="任务状态" style={{ marginTop: 16 }}>
-        <Space direction="vertical" style={{ width: '100%' }}>
+        <Space orientation="vertical" style={{ width: '100%' }}>
           {/* 状态标签 */}
           <Space>
             <Text strong>状态:</Text>

@@ -232,7 +232,7 @@ export default function OpsTasksPage() {
 
   return (
     <PageContainer title="任务监控" subTitle="先缩小任务范围，再查看执行细节、事件流和最终结果">
-      <Space direction="vertical" size={16} style={{ width: '100%' }}>
+      <Space orientation="vertical" size={16} style={{ width: '100%' }}>
         <SummaryOverview
           title="任务概览"
           description="这个页面优先服务排查和追踪，不把所有信息一次性堆进表格。先按状态、函数或操作者收敛范围，再进详情查看。"
@@ -377,7 +377,7 @@ export default function OpsTasksPage() {
         }
       >
         {detail && (
-          <Space direction="vertical" style={{ width: '100%' }}>
+          <Space orientation="vertical" style={{ width: '100%' }}>
             <SummaryOverview
               title="任务状态"
               description="先判断任务当前处于运行、成功还是失败，再决定要不要刷新结果或查看事件流。"
@@ -443,7 +443,7 @@ export default function OpsTasksPage() {
             )}
             <Card size="small" title={`结果${result?.state ? `（${result.state}）` : ''}`}>
               {result ? (
-                <Space direction="vertical" size={10} style={{ width: '100%' }}>
+                <Space orientation="vertical" size={10} style={{ width: '100%' }}>
                   {result.error && (
                     <Paragraph copyable={{ text: result.error }} style={{ color: '#ff4d4f' }}>
                       错误：{result.error}

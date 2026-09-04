@@ -164,7 +164,7 @@ export default function AnalyticsBehaviorPage() {
 
   return (
     <PageContainer>
-      <Space direction="vertical" style={{ width: '100%' }}>
+      <Space orientation="vertical" style={{ width: '100%' }}>
         <Card
           title="事件探索"
           extra={
@@ -366,7 +366,7 @@ const PathControls: React.FC<{
     }
   };
   return (
-    <Space direction="vertical" style={{ width: '100%' }}>
+    <Space orientation="vertical" style={{ width: '100%' }}>
       <Space>
         <Select
           value={per}
@@ -815,7 +815,7 @@ const AdoptionControls: React.FC<{ range: [Dayjs | null, Dayjs | null] | null }>
     }
   };
   return (
-    <Space direction="vertical" style={{ width: '100%' }}>
+    <Space orientation="vertical" style={{ width: '100%' }}>
       <Space>
         <Select
           mode="tags"

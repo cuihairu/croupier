@@ -94,7 +94,7 @@ export default function AnalyticsWarehousePage() {
 
   return (
     <PageContainer>
-      <Space direction="vertical" size={16} style={{ width: '100%' }}>
+      <Space orientation="vertical" size={16} style={{ width: '100%' }}>
         <Card
           title={intl.formatMessage({ id: 'pages.analytics.warehouse.title' })}
           loading={status === 'loading'}
