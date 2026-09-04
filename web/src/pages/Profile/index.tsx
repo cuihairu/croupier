@@ -823,6 +823,18 @@ export default function Profile() {
                       含数据
                     </Tag>
                   )}
+                  {typeof item.data === 'object' &&
+                    item.data !== null &&
+                    'approvalId' in item.data && (
+                      <a
+                        style={{ fontSize: 12 }}
+                        href={`/approvals?approvalId=${encodeURIComponent(
+                          String((item.data as Record<string, unknown>).approvalId),
+                        )}`}
+                      >
+                        查看审批
+                      </a>
+                    )}
                 </Space>
               }
               description={
@@ -865,6 +877,19 @@ export default function Profile() {
             <Paragraph style={{ whiteSpace: 'pre-wrap' }}>
               {detailMessage.content || '（无正文）'}
             </Paragraph>
+            {typeof detailMessage.data === 'object' &&
+              detailMessage.data !== null &&
+              'approvalId' in detailMessage.data && (
+                <p>
+                  <a
+                    href={`/approvals?approvalId=${encodeURIComponent(
+                      String((detailMessage.data as Record<string, unknown>).approvalId),
+                    )}`}
+                  >
+                    查看审批详情
+                  </a>
+                </p>
+              )}
             {detailMessage.data != null && (
               <>
                 <Text type="secondary" style={{ fontSize: 12 }}>

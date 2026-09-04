@@ -292,9 +292,18 @@ func (s *Service) createPageApproval(
 	if _, err := s.svcCtx.ApprovalsStore.Create(approval); err != nil {
 		return "", fmt.Errorf("failed to create page approval: %w", err)
 	}
-	// 通知有审批权限的管理员（渠道未配置时静默跳过）。
+	// 通知有审批权限的管理员（渠道未配置时静默跳过）；申请人同步接收提交通知。
 	if s.svcCtx.NotifyService != nil {
 		recipients := approvalRecipients(ctx, s.svcCtx)
+		if approval.Actor != "" {
+			seen := make(map[string]struct{}, len(recipients)+1)
+			for _, r := range recipients {
+				seen[r] = struct{}{}
+			}
+			if _, ok := seen[approval.Actor]; !ok {
+				recipients = append(recipients, approval.Actor)
+			}
+		}
 		s.svcCtx.NotifyService.Dispatch(ctx, notify.Event{
 			Type:       "approval.created",
 			Title:      "新的页面发布审批",

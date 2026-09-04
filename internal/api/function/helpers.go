@@ -626,10 +626,14 @@ func createFunctionApproval(ctx context.Context, svcCtx *svc.ServiceContext, req
 	}
 
 	// 通知有审批权限的管理员（站内信/钉钉/webhook，未配置渠道静默跳过）。
+	// 申请人同步接收提交通知，与完成事件（approval.approved/rejected）对齐。
 	if svcCtx.NotifyService != nil {
 		recipients, rErr := approvalNotifyRecipients(ctx, svcCtx)
 		if rErr != nil {
 			recipients = nil
+		}
+		if approval.Actor != "" {
+			recipients = dedupeStrings(append(recipients, approval.Actor))
 		}
 		svcCtx.NotifyService.Dispatch(ctx, notify.Event{
 			Type:       "approval.created",
@@ -666,6 +670,23 @@ func approvalNotifyRecipients(ctx context.Context, svcCtx *svc.ServiceContext) (
 		}
 	}
 	return out, nil
+}
+
+// dedupeStrings 去除空串与重复接收人。
+func dedupeStrings(in []string) []string {
+	seen := make(map[string]struct{}, len(in))
+	out := make([]string, 0, len(in))
+	for _, v := range in {
+		if v == "" {
+			continue
+		}
+		if _, ok := seen[v]; ok {
+			continue
+		}
+		seen[v] = struct{}{}
+		out = append(out, v)
+	}
+	return out
 }
 
 // auditApprovalCreated logs approval creation to audit service
