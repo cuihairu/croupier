@@ -15,6 +15,9 @@ permissions:
 jobs:
   release:
     runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.ver.outputs.tag }}
+      version: ${{ steps.ver.outputs.version }}
     steps:
       - uses: actions/checkout@v4
 
@@ -42,5 +45,66 @@ jobs:
           tar --exclude='sdks/cpp/build' -czf "/tmp/pkg/croupier-cpp-sdk-${{ steps.ver.outputs.version }}.tar.gz" -C sdks cpp
           gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1 || gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --draft --title "$TAG"
           gh release upload "$TAG" "/tmp/pkg/croupier-cpp-sdk-${{ steps.ver.outputs.version }}.tar.gz" --repo "$GITHUB_REPOSITORY" --clobber
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+  build-linux-x64:
+    # F：编译产物发布——linux-x64 静态/动态库 + 头文件包。
+    # 游戏服使用方解包即可链接，无需自装 vcpkg（依赖需按 vcpkg.json
+    # 清单自备 protobuf/curl/zlib/openssl/nlohmann-json）。
+    needs: release
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.release.outputs.tag }}
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake g++ ninja-build
+
+      - name: Setup vcpkg (pinned)
+        run: |
+          git clone https://github.com/microsoft/vcpkg sdks/cpp/vcpkg-ci
+          sdks/cpp/vcpkg-ci/bootstrap-vcpkg.sh -disableMetrics
+          echo "VCPKG_ROOT=$PWD/sdks/cpp/vcpkg-ci" >> "$GITHUB_ENV"
+
+      - name: Configure (Release, vcpkg manifest)
+        working-directory: sdks/cpp
+        run: >
+          cmake -B build/linux-x64-release -G Ninja
+          -DCMAKE_BUILD_TYPE=Release
+          -DBUILD_TESTING=OFF
+          -DBUILD_EXAMPLES=OFF
+          -DENABLE_VCPKG=ON
+          -DCMAKE_TOOLCHAIN_FILE="$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake"
+          -DVCPKG_OVERLAY_PORTS="${{ github.workspace }}/sdks/cpp/vcpkg-overlays"
+          -DVCPKG_OVERLAY_TRIPLETS="${{ github.workspace }}/sdks/cpp/vcpkg-overlays/triplets"
+
+      - name: Build
+        working-directory: sdks/cpp/build/linux-x64-release
+        run: cmake --build . --target croupier-sdk-static croupier-sdk-shared -j"$(nproc)"
+
+      - name: Package
+        id: pkg
+        working-directory: sdks/cpp/build/linux-x64-release
+        run: |
+          VER="${{ needs.release.outputs.version }}"
+          PKG="croupier-cpp-sdk-${VER}-linux-x64"
+          mkdir -p "/tmp/${PKG}/include/croupier/sdk"
+          cp -r "${{ github.workspace }}/sdks/cpp/include/croupier/sdk/."                 "/tmp/${PKG}/include/croupier/sdk/"
+          find build -name "libcroupier-sdk-*.a" -o -name "libcroupier-sdk-*.so*" |
+            xargs -I{} cp {} "/tmp/${PKG}/"
+          cp "${{ github.workspace }}/sdks/cpp/vcpkg.json" "/tmp/${PKG}/"
+          cp "${{ github.workspace }}/LICENSE" "/tmp/${PKG}/" 2>/dev/null || true
+          tar -czf "/tmp/${PKG}.tar.gz" -C "/tmp" "${PKG}"
+          echo "pkg=/tmp/${PKG}.tar.gz" >> "$GITHUB_OUTPUT"
+
+      - name: Upload prebuilt to release
+        run: |
+          gh release upload "${{ needs.release.outputs.tag }}" \
+            "${{ steps.pkg.outputs.pkg }}" --repo "$GITHUB_REPOSITORY" --clobber
         env:
           GH_TOKEN: ${{ github.token }}
