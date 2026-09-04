@@ -347,7 +347,7 @@ F2 是汇聚点：F3-F9 的成果都通过它进入 Invoke 工作台。每个任
 
 ---
 
-# A 阶段：审批可见性（申请人视角，P1）
+# A 阶段：审批可见性（申请人视角，P1）—— ✅ 全部完成（2026-09-04，A1→A5）
 
 背景：高风险执行进入审批后，申请人几乎无法追踪自己的申请——Invoke 页不消费 approvalId、审批中心无「我发起的」视图、审批创建不通知申请人。调研结论（2026-09-04）：
 
@@ -357,67 +357,67 @@ F2 是汇聚点：F3-F9 的成果都通过它进入 Invoke 工作台。每个任
 - approve/reject 无「审批人 ≠ 申请人」校验（`internal/api/approval/service.go:131`）
 - 审批 created 事件只通知 admin（`internal/api/function/helpers.go:634`），完成事件才含申请人（`internal/api/approval/notify.go:29`）
 
-## A1. 审批列表 API 补 actor 过滤 + 修复参数契约漂移
+## A1. 审批列表 API 补 actor 过滤 + 修复参数契约漂移 ✅
 
 **目标**：审批列表支持服务端 actor 过滤，前端既有过滤参数真实生效。
 
 **改动点**：
 
-- [ ] `internal/api/approval/dto.go` `ApprovalsListRequest` 增加 `actor`、`functionId`、`gameId`、`env` 绑定（与前端既有发送参数对齐）；`state` 别名兼容或前端改发 `status`（二选一，禁止双读并存，按 CLAUDE.md 兼容规则处理）
-- [ ] `internal/api/approval/service.go` 列表查询透传 Filter（存储层 `Filter.Actor` 已支持，接线即可）
-- [ ] 新增 `mine=true` 参数：服务端忽略请求中的 actor、强制 `actor = 当前登录用户`（防止越权枚举他人申请）
-- [ ] 单测：actor 过滤命中/不命中、mine=true 强制覆盖 actor、参数漂移修复后前端契约回归
+- [x] `internal/api/approval/dto.go` `ApprovalsListRequest` 增加 `actor`、`functionId`、`gameId`、`env` 绑定（与前端既有发送参数对齐）；`state` 别名兼容或前端改发 `status`（二选一，禁止双读并存，按 CLAUDE.md 兼容规则处理）
+- [x] `internal/api/approval/service.go` 列表查询透传 Filter（存储层 `Filter.Actor` 已支持，接线即可）
+- [x] 新增 `mine=true` 参数：服务端忽略请求中的 actor、强制 `actor = 当前登录用户`（防止越权枚举他人申请）
+- [x] 单测：actor 过滤命中/不命中、mine=true 强制覆盖 actor、参数漂移修复后前端契约回归
 
 **验收**：`go test ./internal/api/approval/...` 全绿；curl 带各过滤参数返回过滤后结果。
 
-## A2. 两人规则：禁止申请人自批
+## A2. 两人规则：禁止申请人自批 ✅
 
 **目标**：消除申请人自行通过自己申请的合规缺口。
 
 **改动点**：
 
-- [ ] `internal/api/approval/service.go` `Approve`/`Reject` 校验操作者 ≠ `record.Actor`，违反返回 403 `self_approval_forbidden`
-- [ ] 逃生门配置 `approval.allowSelfApprove`（默认 false；单管理员环境可显式打开），配置示例更新
-- [ ] 自批拦截写审计 `approval.self_rejected`（复用哈希链审计）
-- [ ] 单测：自批 403、开启逃生门后放行、他人正常审批不受影响
+- [x] `internal/api/approval/service.go` `Approve`/`Reject` 校验操作者 ≠ `record.Actor`，违反返回 403 `self_approval_forbidden`
+- [x] 逃生门配置 `approval.allowSelfApprove`（默认 false；单管理员环境可显式打开），配置示例更新
+- [x] 自批拦截写审计 `approval.self_rejected`（复用哈希链审计）
+- [x] 单测：自批 403、开启逃生门后放行、他人正常审批不受影响
 
 **验收**：`go test ./internal/api/approval/...` 全绿；审计事件可查。
 
-## A3. 审批中心「我发起的」视图 + 过滤修复（依赖 A1）
+## A3. 审批中心「我发起的」视图 + 过滤修复（依赖 A1）✅
 
 **目标**：申请人一站式看到自己的申请（审批中/已通过/已拒绝）。
 
 **改动点**：
 
-- [ ] `web/src/pages/Approvals/index.tsx` 增加 Tabs：待我审批 / 我发起的 / 全部；「我发起的」带 `mine=true` 且隐藏通过/拒绝操作列
-- [ ] 前端过滤参数与 A1 新契约对齐（状态/函数/游戏/环境过滤真实生效，删除仅前端补过滤的 `filtered` 逻辑）
-- [ ] Drawer 详情支持 deep-link：`/approvals?approvalId=xxx` 打开对应申请
-- [ ] web tsc + 既有 Approvals 测试更新 + guard
+- [x] `web/src/pages/Approvals/index.tsx` 增加 Tabs：待我审批 / 我发起的 / 全部；「我发起的」带 `mine=true` 且隐藏通过/拒绝操作列
+- [x] 前端过滤参数与 A1 新契约对齐（状态/函数/游戏/环境过滤真实生效，删除仅前端补过滤的 `filtered` 逻辑）
+- [x] Drawer 详情支持 deep-link：`/approvals?approvalId=xxx` 打开对应申请
+- [x] web tsc + 既有 Approvals 测试更新 + guard
 
 **验收**：`pnpm --dir web run tsc` + `pnpm --dir web test` 全绿；`bash scripts/dashboard_vnext_guard.sh` PASSED。
 
-## A4. Invoke 页审批中状态（消费 approvalId）
+## A4. Invoke 页审批中状态（消费 approvalId）✅
 
 **目标**：Invoke 调试页触发审批后，申请人原地看到状态并可跟进。
 
 **改动点**：
 
-- [ ] `web/src/pages/Functions/Invoke/index.tsx`：`approvalRequired=true` 时展示「审批中」Alert（含 approvalId），修正误弹「调用成功」的 toast
-- [ ] 轮询 `GET /api/v1/approvals/:id`（复用 `web/src/services/console.ts:148` `queryApprovalStatus` 模式，10s 间隔可停）
-- [ ] 审批通过后提示并提供「重新调用」（携原参数一键重发）；拒绝后展示 reason
-- [ ] 单测：approvalRequired 渲染、轮询状态机（pending→approved/rejected 停止）
+- [x] `web/src/pages/Functions/Invoke/index.tsx`：`approvalRequired=true` 时展示「审批中」Alert（含 approvalId），修正误弹「调用成功」的 toast
+- [x] 轮询 `GET /api/v1/approvals/:id`（复用 `web/src/services/console.ts:148` `queryApprovalStatus` 模式，10s 间隔可停）
+- [x] 审批通过后提示并提供「重新调用」（携原参数一键重发）；拒绝后展示 reason
+- [x] 单测：approvalRequired 渲染、轮询状态机（pending→approved/rejected 停止）
 
 **验收**：web tsc + test 全绿。
 
-## A5. 审批事件通知申请人
+## A5. 审批事件通知申请人 ✅
 
 **目标**：审批创建/完成申请人全程有感知。
 
 **改动点**：
 
-- [ ] `internal/api/function/helpers.go` 与 `internal/api/console/service.go` 的 `approval.created` 通知接收人加入 `record.Actor`（与完成事件 `notify.go:29` 对齐）
-- [ ] 站内信 Data 携带 `approvalId`；`web/src/components/MessagesBell.tsx` / Profile 收件箱点击跳转 `/approvals?approvalId=xxx`（依赖 A3 deep-link）
-- [ ] 单测：created 通知含申请人、完成通知不回归
+- [x] `internal/api/function/helpers.go` 与 `internal/api/console/service.go` 的 `approval.created` 通知接收人加入 `record.Actor`（与完成事件 `notify.go:29` 对齐）
+- [x] 站内信 Data 携带 `approvalId`；`web/src/components/MessagesBell.tsx` / Profile 收件箱点击跳转 `/approvals?approvalId=xxx`（依赖 A3 deep-link）
+- [x] 单测：created 通知含申请人、完成通知不回归
 
 **验收**：`go test ./internal/api/approval/... ./internal/api/function/... ./internal/api/console/...` 相关用例全绿。
 
