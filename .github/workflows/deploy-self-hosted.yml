@@ -139,9 +139,17 @@ jobs:
           fi
 
       - name: Login GHCR
-        timeout-minutes: 2
+        timeout-minutes: 3
         run: |
-          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+          # runner 到 ghcr.io 偶发 EOF（网络抖动），失败重试避免部署静默失败留旧容器
+          for i in 1 2 3; do
+            if echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin; then
+              exit 0
+            fi
+            echo "ghcr login failed (attempt $i/3), retrying in 10s..."
+            sleep 10
+          done
+          exit 1
 
       - name: Pull latest images
         timeout-minutes: 40
