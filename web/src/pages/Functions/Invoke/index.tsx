@@ -344,7 +344,21 @@ export default function FunctionInvokePage() {
               formValues={formValues}
               formRef={formRef as React.RefObject<SchemaFormRendererHandle>}
               onModeChange={setInputMode}
-              onRawJsonChange={setRawJson}
+              onRawJsonChange={(json) => {
+                setRawJson(json);
+                // JSON → 表单回写：合法对象时同步表单初值，切回表单模式所见一致；
+                // 输入未完成的 JSON 时保留旧表单值
+                if (formState.status === 'ready') {
+                  try {
+                    const parsed: unknown = JSON.parse(json);
+                    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+                      setFormValues(parsed as FormValues);
+                    }
+                  } catch {
+                    /* 半成品 JSON 忽略 */
+                  }
+                }
+              }}
               onFormValuesChange={(values) => {
                 setFormValues(values);
                 setRawJson(JSON.stringify(values, null, 2));

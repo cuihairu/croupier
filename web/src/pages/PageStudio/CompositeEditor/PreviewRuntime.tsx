@@ -1,7 +1,10 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { App, Button, Card, Col, Descriptions, Modal, Row, Space, Table, Typography } from 'antd';
 import type { FunctionDescriptor } from '@/services/api/functions';
+import type { JSONSchema } from '@/types/dashboard';
 import { invokeFunction } from '@/services/api/functions';
+import SchemaFormRenderer from '@/components/SchemaFormRenderer';
+import { derivePresentationSpec } from '@/utils/schemaHints';
 import { parseAction } from './actions';
 import type { PageNode } from './model';
 import { schemaProperties } from './types';
@@ -179,7 +182,6 @@ export default function PreviewRuntime({
               {openForms.map((form) => (
                 <ModalForm
                   key={form.id}
-                  node={form}
                   fn={fnById.get(String(form.props.functionId))}
                   running={running[form.id] || false}
                   onSubmit={async (params) => {
@@ -307,7 +309,7 @@ function PreviewNode({
             ))}
         </Descriptions>
       ) : node.type === 'fnForm' ? (
-        <ModalForm node={node} fn={fn} running={running} onSubmit={onSubmit} inline />
+        <ModalForm fn={fn} running={running} onSubmit={onSubmit} inline />
       ) : node.type === 'container' ? (
         <Space direction="vertical" size={8} style={{ width: '100%' }}>
           {(node.children ?? []).map((c) => (
@@ -322,88 +324,38 @@ function PreviewNode({
   );
 }
 
-/** 表单（弹窗/行内共用）：按 inputSchema 生成字段，提交执行。 */
+/** 表单（弹窗/行内共用）：复用 SchemaFormRenderer（与发布渲染器同一 RJSF
+ * 运行时），控件与校验行为和 Invoke/操作页一致。 */
 function ModalForm({
-  node,
   fn,
   running,
   onSubmit,
   inline,
 }: {
-  node: PageNode;
   fn: FunctionDescriptor | undefined;
   running: boolean;
   onSubmit: (params: JSONRecord) => void | Promise<void>;
   inline?: boolean;
 }) {
-  const [values, setValues] = useState<JSONRecord>({});
-  const schema = (fn?.inputSchema ?? {}) as {
-    properties?: Record<string, Record<string, unknown>>;
-    required?: string[];
-  };
-  const names = Object.keys(schema.properties ?? {});
-  const required = new Set(schema.required ?? []);
-
-  if (names.length === 0) {
+  const raw = fn?.inputSchema;
+  const schema = raw && typeof raw === 'object' && !Array.isArray(raw) ? (raw as JSONSchema) : null;
+  const spec = useMemo(() => derivePresentationSpec(schema), [schema]);
+  const properties = schema?.properties;
+  if (!fn || !properties || typeof properties !== 'object') {
     return (
       <Button type="primary" block loading={running} onClick={() => void onSubmit({})}>
         确认执行
       </Button>
     );
   }
-
   return (
-    <Space direction="vertical" size={10} style={{ width: '100%' }}>
-      {names.map((n) => {
-        const p = schema.properties?.[n] ?? {};
-        const type = typeof p.type === 'string' ? p.type : 'string';
-        const label = typeof p.title === 'string' ? p.title : n;
-        const v = values[n];
-        return (
-          <div key={n}>
-            <div style={{ fontSize: 12, marginBottom: 4 }}>
-              {label}
-              {required.has(n) && <span style={{ color: '#ff4d4f' }}> *</span>}
-            </div>
-            <input
-              style={{
-                width: '100%',
-                height: 30,
-                padding: '0 8px',
-                border: '1px solid #d9d9d9',
-                borderRadius: 6,
-              }}
-              type={type === 'number' || type === 'integer' ? 'number' : 'text'}
-              value={v === undefined || v === null ? '' : String(v)}
-              onChange={(e) =>
-                setValues((s) => ({
-                  ...s,
-                  [n]:
-                    type === 'number' || type === 'integer'
-                      ? Number(e.target.value)
-                      : e.target.value,
-                }))
-              }
-            />
-          </div>
-        );
-      })}
-      <Button
-        type="primary"
-        block
-        loading={running}
-        onClick={() => {
-          for (const r of required) {
-            if (values[r] === undefined || values[r] === '') {
-              return; // 必填缺失：浏览器原生约束兜底，简单静默
-            }
-          }
-          void onSubmit(values);
-        }}
-      >
-        {inline ? '执行' : '提交'}
-      </Button>
-    </Space>
+    <SchemaFormRenderer
+      spec={spec}
+      disabled={running}
+      onFinish={async (values) => {
+        await onSubmit(values as JSONRecord);
+      }}
+    />
   );
 }
 

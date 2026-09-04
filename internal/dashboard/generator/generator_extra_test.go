@@ -300,11 +300,14 @@ func TestExtraBuildFormFields(t *testing.T) {
 	for _, f := range fields {
 		byKey[f.Key] = f
 	}
-	assert.NotContains(t, byKey, "nickname", "titled fields keep their schema title and are skipped")
+	// 有 title 的字段也产出条目（保证 ui:order 完整），但不覆盖 label——
+	// 渲染端直接读 schema.title
+	require.Contains(t, byKey, "nickname")
+	assert.Nil(t, byKey["nickname"].Label, "titled fields keep their schema title")
 	assert.Equal(t, spec.FormWidgetTextArea, byKey["bio"].Widget)
 	assert.Equal(t, spec.FormWidgetTextArea, byKey["signature"].Widget)
 	assert.Equal(t, spec.FormWidgetNumber, byKey["level"].Widget)
 	assert.Equal(t, spec.FormWidgetSwitch, byKey["muted"].Widget)
-	assert.NotEmpty(t, byKey["region"].Placeholder)
+	assert.Equal(t, spec.FormWidgetSelect, byKey["region"].Widget)
 	assert.NotEmpty(t, byKey["level"].Label["zh-CN"])
 }

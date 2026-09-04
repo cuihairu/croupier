@@ -97,6 +97,8 @@ hints 放置在 **字段 schema 对象**上（支持嵌套，推导为点路径 
 
 ## 推导规则
 
+### 前端调试路径（Invoke 页 / 编辑器预览）
+
 `derivePresentationSpec(schema: JSONSchema): FormPresentationSpec`
 （`web/src/utils/schemaHints.ts`，纯函数、无副作用）：
 
@@ -112,6 +114,28 @@ hints 放置在 **字段 schema 对象**上（支持嵌套，推导为点路径 
    hint，不影响其余推导，也不产生运行时错误。未知 `x-ui-*` 键一律忽略（向前兼容）。
 5. **无 hints 时**：输出与现状等价的 `{ jsonSchema, layout: 'vertical' }`，保证回退行为
    与历史一致。
+
+### 服务端发布路径（PageSpec 生成器）
+
+`buildFormFields(schema, locale)`（`internal/dashboard/generator/form_hints.go` +
+`generator.go`）在生成 published FormPresentationSpec 时消费同一套 hints，保证同一
+函数在调试页与发布页（operation/task/report/resource/composite 全部页型）表现一致：
+
+1. **hints 优先**：`x-widget`（受控枚举校验，非法忽略）、`x-label`、`x-placeholder`、
+   `x-description`、`x-width`（1-12）、`x-order`、`x-disabled`、`x-visible-when`、
+   `x-enum-options`、`x-widget-props`；`x-options-source` 暂不参与服务端派生
+   （Go spec 侧尚无 RemoteOptionsSpec 字段，发布页回退为普通控件）。
+2. **类型缺省控件**（`x-widget` 缺省时）：integer/number→`InputNumber`、
+   boolean→`Switch`、enum→`Select`、array(enum items)→`MultiSelect`、
+   format `date`/`date-time`→`DatePicker`、`time`→`TimePicker`、
+   textarea/maxLength>120→`TextArea`。
+3. **label 兜底链**：`x-label` > schema `title`（不重复下发）> key 人性化。
+4. **顺序**：`x-order` 升序，未声明者按 key 字母序稳定排后。
+5. **全覆盖**：每个顶层 `properties` 字段都产出条目（保证 `ui:order` 完整），
+   含有 `title` 的字段也不例外（此时不下发 label）。
+6. **发布一致性**：`buildFormFromContract`（resource/composite 表单）与
+   `buildFormPresentation`（operation/task/report 表单）共用同一派生，禁止页型间
+   表单表现漂移。
 
 ## 兼容性
 

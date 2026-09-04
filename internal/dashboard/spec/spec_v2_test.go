@@ -16,10 +16,10 @@ func TestDefaultFormPresentation(t *testing.T) {
 	require.NotNil(t, fp)
 	assert.Equal(t, FormLayoutVertical, fp.Layout)
 	assert.Equal(t, "提交", fp.SubmitButton.Text["zh-CN"])
-	assert.Equal(t, "Submit", fp.SubmitButton.Text["en"])
+	assert.Equal(t, "Submit", fp.SubmitButton.Text["en-US"])
 	assert.Equal(t, "primary", fp.SubmitButton.Type)
 	assert.Equal(t, "取消", fp.CancelButton.Text["zh-CN"])
-	assert.Equal(t, "Cancel", fp.CancelButton.Text["en"])
+	assert.Equal(t, "Cancel", fp.CancelButton.Text["en-US"])
 	// Schema should be stored as-is
 	assert.Equal(t, schema, JSONSchema(fp.JSONSchema))
 }

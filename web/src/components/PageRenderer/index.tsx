@@ -14,6 +14,7 @@ import { localizedText } from '@/utils/localizedText';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { App, Button, Card, Col, Descriptions, Modal, Result, Row, Space, Table } from 'antd';
 import { ExclamationCircleOutlined, WarningOutlined } from '@ant-design/icons';
+import SchemaFormRenderer from '@/components/SchemaFormRenderer';
 import ResourcePageRenderer from './ResourcePageRenderer';
 import OperationPageRenderer from './OperationPageRenderer';
 import TaskPageRenderer from './TaskPageRenderer';
@@ -35,6 +36,7 @@ import type {
   CompositeSection,
   PageFunctionBinding,
   ColumnSpec,
+  FormValues,
 } from '@/types/dashboard';
 
 // ---------------------------------------------------------------------------
@@ -363,6 +365,16 @@ export const CompositeRenderer: React.FC<{
                     </Button>
                   ))}
                 </Space>
+              ) : sectionHasForm(sec) ? (
+                <SchemaFormRenderer
+                  spec={sec.form!}
+                  initialValues={(sectionInputs[sec.key] || {}) as FormValues}
+                  disabled={running[sec.key] || false}
+                  onFinish={async (values) => {
+                    const r = await runSection(sec, values);
+                    if (r && !(r as { error?: string }).error) fireEvent(sec, 'success');
+                  }}
+                />
               ) : (
                 <Button
                   type="primary"
@@ -442,23 +454,18 @@ export const CompositeRenderer: React.FC<{
   );
 };
 
-/** 弹窗表单：按 FormPresentationSpec.jsonSchema 渲染输入项。 */
+/** 弹窗表单：复用 SchemaFormRenderer（与 Operation/Task 页同一 RJSF 运行时），
+ * 保证 enum/日期/校验等控件行为与独立操作页一致。 */
 const DialogForm: React.FC<{
   section: CompositeSection;
   running: boolean;
   initialParams: Record<string, unknown>;
   onSubmit: (values: Record<string, unknown>) => Promise<void>;
 }> = ({ section, running, initialParams, onSubmit }) => {
-  const [values, setValues] = useState<Record<string, unknown>>(initialParams);
-  const schema = (section.form?.jsonSchema || {}) as {
-    properties?: Record<string, Record<string, unknown>>;
-    required?: string[];
-  };
-  const props = schema.properties || {};
-  const required = new Set(schema.required || []);
-  const names = Object.keys(props);
-
-  if (names.length === 0) {
+  const spec = section.form;
+  const properties = spec?.jsonSchema?.properties;
+  const hasFields = !!properties && typeof properties === 'object';
+  if (!spec || !hasFields) {
     return (
       <Button type="primary" block loading={running} onClick={() => void onSubmit({})}>
         确认执行
@@ -466,51 +473,14 @@ const DialogForm: React.FC<{
     );
   }
   return (
-    <Space direction="vertical" size={12} style={{ width: '100%' }}>
-      {names.map((n) => {
-        const p = props[n] || {};
-        const type = typeof p.type === 'string' ? p.type : 'string';
-        const label = typeof p.title === 'string' ? p.title : n;
-        const v = values[n];
-        return (
-          <div key={n}>
-            <div style={{ fontSize: 12, marginBottom: 4 }}>
-              {label}
-              {required.has(n) && <span style={{ color: '#ff4d4f' }}> *</span>}
-            </div>
-            {type === 'boolean' ? (
-              <Button size="small" onClick={() => setValues((s) => ({ ...s, [n]: !s[n] }))}>
-                {v ? '是' : '否'}
-              </Button>
-            ) : (
-              <input
-                style={{
-                  width: '100%',
-                  height: 30,
-                  padding: '0 8px',
-                  border: '1px solid #d9d9dd',
-                  borderRadius: 6,
-                }}
-                type={type === 'number' || type === 'integer' ? 'number' : 'text'}
-                value={v === undefined || v === null ? '' : String(v)}
-                onChange={(e) =>
-                  setValues((s) => ({
-                    ...s,
-                    [n]:
-                      type === 'number' || type === 'integer'
-                        ? Number(e.target.value)
-                        : e.target.value,
-                  }))
-                }
-              />
-            )}
-          </div>
-        );
-      })}
-      <Button type="primary" block loading={running} onClick={() => void onSubmit(values)}>
-        提交
-      </Button>
-    </Space>
+    <SchemaFormRenderer
+      spec={spec}
+      initialValues={initialParams as FormValues}
+      disabled={running}
+      onFinish={async (values) => {
+        await onSubmit(values);
+      }}
+    />
   );
 };
 
@@ -679,6 +649,12 @@ const PageRenderer: React.FC<PageRendererProps> = ({
 };
 
 export default PageRenderer;
+
+/** 区块是否带有可渲染的表单 schema（无字段时降级为执行按钮）。 */
+function sectionHasForm(sec: CompositeSection): boolean {
+  const properties = sec.form?.jsonSchema?.properties;
+  return !!properties && typeof properties === 'object' && Object.keys(properties).length > 0;
+}
 
 /** 动作步骤参数解析："区块key.字段"取其输出、"row.字段"取事件行、其余字面量。 */
 function resolveStepParams(

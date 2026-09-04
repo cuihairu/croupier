@@ -187,13 +187,16 @@ func TestBuildFormFieldsEnumSelectV9(t *testing.T) {
 	fields := buildFormFields(spec.JSONSchema(`{
 		"type":"object",
 		"properties":{
-			"status":{"type":"string","enum":{"active":"banned"}},
+			"status":{"type":"string","enum":["active","banned"]},
 			"note":{"type":"string","title":"备注"}
 		}
 	}`), "zh-CN")
-	require.Len(t, fields, 1)
-	assert.Equal(t, "status", fields[0].Key)
-	assert.Equal(t, spec.FormWidgetSelect, fields[0].Widget)
+	require.Len(t, fields, 2)
+	// 无 x-order 时保持 key 字母序：note < status
+	assert.Equal(t, "note", fields[0].Key)
+	assert.Nil(t, fields[0].Label)
+	assert.Equal(t, "status", fields[1].Key)
+	assert.Equal(t, spec.FormWidgetSelect, fields[1].Widget)
 }
 
 // ---------------------------------------------------------------------------

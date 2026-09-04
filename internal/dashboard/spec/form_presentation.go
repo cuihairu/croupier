@@ -166,11 +166,11 @@ func DefaultFormPresentation(schema JSONSchema) *FormPresentationSpec {
 		JSONSchema: schema,
 		Layout:     FormLayoutVertical,
 		SubmitButton: &FormButtonSpec{
-			Text: LocalizedText{"zh-CN": "提交", "en": "Submit"},
+			Text: LocalizedText{"zh-CN": "提交", "en-US": "Submit"},
 			Type: "primary",
 		},
 		CancelButton: &FormButtonSpec{
-			Text: LocalizedText{"zh-CN": "取消", "en": "Cancel"},
+			Text: LocalizedText{"zh-CN": "取消", "en-US": "Cancel"},
 		},
 	}
 }

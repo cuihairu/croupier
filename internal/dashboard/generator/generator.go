@@ -607,7 +607,9 @@ func buildFormPresentation(op spec.OperationSpec, opts GenerateOptions) *spec.Fo
 }
 
 // buildFormFields 从 JSON Schema 自动生成 FormFieldSpec 列表。
-// 只为 schema 中没有 title 的字段生成标签。
+// 每个顶层字段都产出条目（保证 ui:order 完整，与前端 derivePresentationSpec
+// 一致）：x-ui-* hints 优先，其次按类型推导缺省控件；label 兜底链
+// x-label > schema.title > humanize。
 func buildFormFields(schema spec.JSONSchema, locale string) []spec.FormFieldSpec {
 	if len(schema) == 0 {
 		return nil
@@ -624,37 +626,72 @@ func buildFormFields(schema spec.JSONSchema, locale string) []spec.FormFieldSpec
 	fields := make([]spec.FormFieldSpec, 0, len(keys))
 	for _, key := range keys {
 		prop := parseJSONObject(properties[key])
-		// 如果 schema 已经有 title，跳过自动生成
-		if title := rawString(prop["title"]); title != "" {
-			continue
+		field := spec.FormFieldSpec{Key: key}
+
+		if widget := hintWidget(rawString(prop["x-widget"])); widget != "" {
+			field.Widget = widget
 		}
-		field := spec.FormFieldSpec{
-			Key: key,
-			Label: spec.LocalizedText{
+		if label := hintLocalized(prop["x-label"]); label != nil {
+			field.Label = label
+		}
+		if placeholder := hintLocalized(prop["x-placeholder"]); placeholder != nil {
+			field.Placeholder = placeholder
+		}
+		if description := hintLocalized(prop["x-description"]); description != nil {
+			field.Description = description
+		}
+		if width := rawInt(prop["x-width"]); width >= 1 && width <= 12 {
+			field.Width = width
+		}
+		if _, ok := prop["x-order"]; ok {
+			field.Order = rawInt(prop["x-order"])
+		}
+		if disabled := rawBool(prop["x-disabled"]); disabled != nil {
+			field.Disabled = disabled
+		}
+		if condition := hintCondition(prop["x-visible-when"]); condition != nil {
+			field.VisibleWhen = condition
+		}
+		if enumOptions := hintEnumOptions(prop["x-enum-options"]); len(enumOptions) > 0 {
+			field.EnumOptions = enumOptions
+		}
+		if widgetProps := hintWidgetProps(prop["x-widget-props"]); len(widgetProps) > 0 {
+			field.WidgetProps = widgetProps
+		}
+
+		// x-widget 缺省时按类型推导缺省控件
+		if field.Widget == "" {
+			field.Widget = defaultWidgetForSchema(prop)
+		}
+
+		// label 兜底：x-label 缺省且 schema 无 title 时用 humanize，
+		// 有 title 时不重复下发（渲染端直接读 schema.title）
+		if field.Label == nil && rawString(prop["title"]) == "" {
+			field.Label = spec.LocalizedText{
 				locale: fallbackLabel(key),
-			},
-		}
-		// 根据类型推断 widget 和 placeholder
-		switch schemaTypeFromObject(prop) {
-		case "string":
-			if format := rawString(prop["format"]); format == "textarea" || rawInt(prop["maxLength"]) > 120 {
-				field.Widget = spec.FormWidgetTextArea
 			}
+		}
+		// string 输入的 placeholder 兜底（与历史行为一致）
+		if field.Placeholder == nil && schemaTypeFromObject(prop) == "string" &&
+			(field.Widget == "" || field.Widget == spec.FormWidgetInput) {
 			field.Placeholder = spec.LocalizedText{
 				locale: "请输入" + fallbackLabel(key),
 			}
-		case "integer", "number":
-			field.Widget = spec.FormWidgetNumber
-		case "boolean":
-			field.Widget = spec.FormWidgetSwitch
-		}
-		// 有 enum 的字段用 Select
-		if enumArr := objectProperty(prop, "enum"); len(enumArr) > 0 {
-			field.Widget = spec.FormWidgetSelect
 		}
 		fields = append(fields, field)
 	}
+	// x-order 排序：未声明者按 key 序排后（与前端 MAX_SAFE_INTEGER 兜底一致）
+	sort.SliceStable(fields, func(i, j int) bool {
+		return orderSortKey(fields[i]) < orderSortKey(fields[j])
+	})
 	return fields
+}
+
+func orderSortKey(field spec.FormFieldSpec) int {
+	if field.Order != 0 {
+		return field.Order
+	}
+	return int(^uint(0) >> 1)
 }
 
 func executionModeForOperation(op spec.OperationSpec) spec.PageExecutionMode {

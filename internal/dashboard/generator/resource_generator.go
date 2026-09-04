@@ -252,7 +252,12 @@ func buildFormFromContract(contract *model.FunctionContract) *spec.FormPresentat
 	if contract == nil || len(contract.InputSchema) == 0 {
 		return nil
 	}
-	return spec.DefaultFormPresentation(spec.JSONSchema(contract.InputSchema))
+	schema := spec.JSONSchema(contract.InputSchema)
+	form := spec.DefaultFormPresentation(schema)
+	// 与 operation/task/report 页同一字段派生：hints（x-ui-*）+ 类型缺省控件，
+	// 保证同一函数在各页型表单表现一致。
+	form.Fields = buildFormFields(schema, "zh-CN")
+	return form
 }
 
 func buildUpdateFormFromContract(contract *model.FunctionContract, semantics *model.CapabilitySemantics) *spec.FormPresentationSpec {

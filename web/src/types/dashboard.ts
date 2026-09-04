@@ -383,7 +383,7 @@ export interface CompositeSection {
     rowActions?: CompositeRowAction[];
   };
   fields?: DetailFieldSpec[];
-  form?: Record<string, unknown>;
+  form?: FormPresentationSpec;
   toolbar?: CompositeToolbarSpec;
 }
 
