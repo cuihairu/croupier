@@ -119,3 +119,20 @@ func (s *Service) recordMfaAudit(ctx context.Context, username string, event aud
 		slog.Default().Warn("mfa audit failed", "event", event, "username", username, "error", err)
 	}
 }
+
+// MFAStatusResponse 报告当前账号的 TOTP 启用状态。
+// local=false 表示外部身份源账号（MFA 由 IdP 管理，平台侧不可配置）。
+type MFAStatusResponse struct {
+	Enabled bool `json:"enabled"`
+	Local   bool `json:"local"`
+}
+
+// MFAStatus 查询当前登录账号的两步验证状态。
+func (s *Service) MFAStatus(ctx context.Context, username string) (*MFAStatusResponse, error) {
+	admin, err := s.adminModel.FindByUsername(ctx, username)
+	if err != nil || admin == nil {
+		return &MFAStatusResponse{}, nil
+	}
+	local := admin.PasswordHash != ""
+	return &MFAStatusResponse{Enabled: local && admin.OTPEnabled, Local: local}, nil
+}

@@ -48,6 +48,7 @@ import {
   ProfileGame,
   ProfilePermission,
 } from '@/services/api/me';
+import MfaSettings from './MfaSettings';
 import { broadcastMessage } from '@/services/api/messages';
 import { extractErrorMessage } from '@/utils/errors';
 import { listAudit, AuditEvent } from '@/services/api/audit';
@@ -1511,6 +1512,7 @@ export default function Profile() {
                                 : formatMessage('profile.security.audit.empty')}
                             </Tag>
                           </div>
+                          <MfaSettings />
                         </Space>
                       </Card>
                     </Col>

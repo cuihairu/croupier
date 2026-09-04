@@ -111,3 +111,38 @@ export async function fetchCurrentUserPermissions(params?: {
 export async function fetchCurrentUserGames(): Promise<CurrentUserGamesResponse> {
   return getMyGames();
 }
+
+// ---- 两步验证（TOTP MFA，仅本地账号） ----
+
+export interface MfaStatus {
+  enabled: boolean;
+  local: boolean;
+}
+
+export interface MfaSetupResult {
+  secret: string;
+  otpauthUrl: string;
+  alreadyEnabled: boolean;
+}
+
+export async function fetchMfaStatus(): Promise<MfaStatus> {
+  return request<MfaStatus>('/api/v1/auth/mfa/status', { method: 'GET' });
+}
+
+export async function setupMfa(): Promise<MfaSetupResult> {
+  return request<MfaSetupResult>('/api/v1/auth/mfa/setup', { method: 'POST' });
+}
+
+export async function confirmMfa(code: string): Promise<void> {
+  await request('/api/v1/auth/mfa/confirm', {
+    method: 'POST',
+    data: { code },
+  });
+}
+
+export async function disableMfa(code: string, password: string): Promise<void> {
+  await request('/api/v1/auth/mfa/disable', {
+    method: 'POST',
+    data: { code, password },
+  });
+}

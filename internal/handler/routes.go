@@ -251,6 +251,7 @@ func registerAuthRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 	g.GET("/providers", authHandler.Providers)
 	g.GET("/oidc/login", authHandler.OIDCLogin)
 	g.GET("/oidc/callback", authHandler.OIDCCallback)
+	g.GET("/mfa/status", ctx.Authority, authHandler.MFAStatus)
 	g.POST("/mfa/setup", ctx.Authority, authHandler.MFASetup)
 	g.POST("/mfa/confirm", ctx.Authority, authHandler.MFAConfirm)
 	g.POST("/mfa/disable", ctx.Authority, authHandler.MFADisable)

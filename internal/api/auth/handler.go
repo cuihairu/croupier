@@ -130,6 +130,21 @@ func (h *Handler) MFAConfirm(c *gin.Context) {
 	response.Success(c, gin.H{"ok": true})
 }
 
+// MFAStatus 查询当前账号两步验证状态（GET /api/v1/auth/mfa/status）。
+func (h *Handler) MFAStatus(c *gin.Context) {
+	username := mfaUsername(c)
+	if username == "" {
+		response.Unauthorized(c, "未授权")
+		return
+	}
+	resp, err := h.service.MFAStatus(c.Request.Context(), username)
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
+	response.Success(c, resp)
+}
+
 // MFADisable 关闭 TOTP（POST /api/v1/auth/mfa/disable，需登录，码+密码双确认）。
 func (h *Handler) MFADisable(c *gin.Context) {
 	username := mfaUsername(c)
