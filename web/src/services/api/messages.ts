@@ -85,3 +85,20 @@ export async function sendMessage(body: MessageSendRequest): Promise<MessageItem
 export function openMessagesStream() {
   return createEventSource('/api/v1/messages/stream');
 }
+
+// F：管理员群发（audience: all | role | users；users 时需 usernames）
+export type BroadcastMessageRequest = {
+  audience: 'all' | 'role' | 'users';
+  role?: string;
+  usernames?: string[];
+  type: string;
+  title: string;
+  content: string;
+};
+
+export async function broadcastMessage(body: BroadcastMessageRequest): Promise<{ sent: number }> {
+  return request<{ sent: number }>('/api/v1/messages/broadcast', {
+    method: 'POST',
+    data: body,
+  });
+}

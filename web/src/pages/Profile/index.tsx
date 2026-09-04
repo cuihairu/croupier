@@ -21,6 +21,7 @@ import {
   Typography,
   Upload,
   message,
+  Select,
 } from 'antd';
 import {
   BellOutlined,
@@ -37,7 +38,7 @@ import {
   UserOutlined,
 } from '@ant-design/icons';
 import { PageContainer } from '@ant-design/pro-components';
-import { useIntl, useLocation, useNavigate } from '@umijs/max';
+import { useIntl, useLocation, useModel, useNavigate } from '@umijs/max';
 import {
   changeMyPassword,
   getMyGames,
@@ -47,6 +48,8 @@ import {
   ProfileGame,
   ProfilePermission,
 } from '@/services/api/me';
+import { broadcastMessage } from '@/services/api/messages';
+import { extractErrorMessage } from '@/utils/errors';
 import { listAudit, AuditEvent } from '@/services/api/audit';
 import { listMessages, markMessagesRead, MessageItem } from '@/services/api/messages';
 import { listPermissions, type PermissionRecord } from '@/services/api/permissions';
@@ -747,15 +750,55 @@ export default function Profile() {
     />
   );
 
+  // F：管理员群发消息（仅 admin 角色可见入口）
+  const [sendOpen, setSendOpen] = useState(false);
+  const [sendForm] = Form.useForm();
+  const { initialState } = useModel('@@initialState');
+  const isAdminUser = (initialState?.currentUser?.roles || []).includes('admin');
+  const [sending, setSending] = useState(false);
+  const handleSendBroadcast = async (values: {
+    title: string;
+    content: string;
+    audience: 'all' | 'users';
+    toUser?: string;
+  }) => {
+    setSending(true);
+    try {
+      const isAll = values.audience === 'all';
+      const res = await broadcastMessage({
+        audience: isAll ? 'all' : 'users',
+        usernames: isAll ? undefined : [values.toUser || ''].filter(Boolean),
+        type: 'system',
+        title: values.title,
+        content: values.content,
+      });
+      message.success(`已发送给 ${res.sent} 位用户`);
+      setSendOpen(false);
+      sendForm.resetFields();
+      loadExtras?.();
+    } catch (error) {
+      message.error(extractErrorMessage(error, '发送失败'));
+    } finally {
+      setSending(false);
+    }
+  };
+
   const renderNotifications = () => (
     <Card
       loading={extrasLoading}
       extra={
-        notifications.some((m) => m.status !== 'read') ? (
-          <Button size="small" onClick={markAllRead}>
-            全部标为已读
-          </Button>
-        ) : null
+        <Space>
+          {isAdminUser && (
+            <Button size="small" type="primary" onClick={() => setSendOpen(true)}>
+              发送消息
+            </Button>
+          )}
+          {notifications.some((m) => m.status !== 'read') && (
+            <Button size="small" onClick={markAllRead}>
+              全部标为已读
+            </Button>
+          )}
+        </Space>
       }
     >
       <List
@@ -1117,6 +1160,60 @@ export default function Profile() {
           </Card>
         </PageContainer>
         {passwordModal}
+        <Modal
+          title="发送站内消息"
+          open={sendOpen}
+          confirmLoading={sending}
+          onCancel={() => setSendOpen(false)}
+          onOk={() => {
+            sendForm.validateFields().then(async (values) => {
+              await handleSendBroadcast(values);
+            });
+          }}
+          destroyOnClose
+        >
+          <Form form={sendForm} layout="vertical">
+            <Form.Item
+              name="audience"
+              label="接收范围"
+              initialValue="all"
+              rules={[{ required: true }]}
+            >
+              <Select
+                options={[
+                  { value: 'all', label: '全部管理员/用户（广播）' },
+                  { value: 'users', label: '指定用户' },
+                ]}
+                onChange={(value) => {
+                  if (value === 'all') sendForm.setFieldsValue({ toUser: undefined });
+                }}
+              />
+            </Form.Item>
+            {sendForm.getFieldValue('audience') === 'users' && (
+              <Form.Item
+                name="toUser"
+                label="接收用户名"
+                rules={[{ required: true, message: '请输入接收用户名' }]}
+              >
+                <Input placeholder="用户名" />
+              </Form.Item>
+            )}
+            <Form.Item
+              name="title"
+              label="标题"
+              rules={[{ required: true, message: '请输入标题' }]}
+            >
+              <Input placeholder="消息标题" maxLength={100} />
+            </Form.Item>
+            <Form.Item
+              name="content"
+              label="内容"
+              rules={[{ required: true, message: '请输入内容' }]}
+            >
+              <Input.TextArea rows={4} placeholder="消息内容" maxLength={2000} showCount />
+            </Form.Item>
+          </Form>
+        </Modal>
       </>
     );
   }

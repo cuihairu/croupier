@@ -22,7 +22,7 @@ func BuildMessageDTO(msg *model.Message) map[string]interface{} {
 		"title":     msg.Title,
 		"content":   msg.Content,
 		"data":      payload,
-		"status":    msg.Status,
+		"status":    msg.Status.String(),
 		"readAt":    FormatTimestampPtr(msg.ReadAt),
 		"createdAt": FormatTimestamp(msg.CreatedAt),
 		"updatedAt": FormatTimestamp(msg.UpdatedAt),
