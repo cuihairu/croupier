@@ -71,6 +71,14 @@ const functionManagementRoutes = [
     icon: 'cluster',
   },
   {
+    // SDK 版本分布：在线 provider 实例按 SDK 语言/版本聚合（F：sdk-stats）
+    path: '/functions/sdk-distribution',
+    name: 'SdkDistribution',
+    access: 'canFunctionsRead',
+    component: './Functions/SdkDistribution',
+    icon: 'cluster',
+  },
+  {
     path: '/functions/warnings',
     name: 'FunctionWarnings',
     access: 'canFunctionsRead',
