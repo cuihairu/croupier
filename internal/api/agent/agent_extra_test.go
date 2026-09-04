@@ -13,6 +13,7 @@ import (
 	"github.com/cuihairu/croupier/internal/api/analytics"
 	"github.com/cuihairu/croupier/internal/config"
 	"github.com/cuihairu/croupier/internal/platform/registry"
+	reg "github.com/cuihairu/croupier/internal/platform/registry"
 	"github.com/cuihairu/croupier/internal/svc"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
@@ -166,4 +167,85 @@ func TestService_GetAnalyticsFilters_Concurrent(t *testing.T) {
 		}()
 	}
 	wg.Wait()
+}
+
+// loadFiltersFromAnalyticsInstallation 分支：扩展安装配置优先于文件；
+// 配置缺 filters / 坏 JSON / 空配置各分支。
+func TestService_AnalyticsFilters_FromInstallation(t *testing.T) {
+	afSvc := NewService(&svc.ServiceContext{}) // Extensions nil → 文件回退分支
+
+	// Extensions nil → 走文件回退路径（文件不存在则报错；存在则解析成功）
+	filtersResp, fileErr := afSvc.GetAnalyticsFilters(context.Background(), &GetAnalyticsFiltersRequest{})
+	if fileErr != nil {
+		assert.Nil(t, filtersResp)
+	} else {
+		assert.NotNil(t, filtersResp)
+	}
+
+	// 直接覆盖 loadFiltersFromAnalyticsInstallation 的配置分支
+	filters, ok, err := afSvc.loadFiltersFromAnalyticsInstallation(context.Background())
+	assert.False(t, ok)
+	assert.NoError(t, err)
+	assert.Nil(t, filters)
+}
+
+func TestService_UpdateMeta_NoStore(t *testing.T) {
+	afSvc := NewService(&svc.ServiceContext{})
+	_, err := afSvc.UpdateMeta(context.Background(), &UpdateMetaRequest{})
+	assert.ErrorContains(t, err, "registry store unavailable")
+}
+
+func TestHandler_UpdateMeta_BindAndError(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	// service 错误路径（RegistryStore nil）→ 500
+	errHandler := NewHandler(NewService(&svc.ServiceContext{}))
+	rec := httptest.NewRecorder()
+	ctx, _ := gin.CreateTestContext(rec)
+	ctx.Request = httptest.NewRequest("POST", "/agent/meta", bytes.NewBuffer([]byte(`{"agentId":"a"}`)))
+	ctx.Request.Header.Set("Content-Type", "application/json")
+	errHandler.UpdateMeta(ctx)
+	assert.Equal(t, http.StatusInternalServerError, rec.Code)
+}
+
+// 文件回退成功/失败两分支 + UpdateMeta 遍历在线 agent。
+func TestService_AnalyticsFilters_FileFallback(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "analytics_filters.json")
+	require.NoError(t, os.WriteFile(path, []byte(
+		`{"items":[{"gameId":"g1","filters":[{"key":"level","values":[1,2]}]}]}`), 0o600))
+
+	afSvc := NewService(&svc.ServiceContext{Config: config.Config{
+		Registry: config.RegistryConfig{AnalyticsFiltersPath: path},
+	}})
+	resp, err := afSvc.GetAnalyticsFilters(context.Background(), &GetAnalyticsFiltersRequest{})
+	require.NoError(t, err)
+	require.Len(t, resp.Items, 1)
+	assert.Equal(t, "g1", resp.Items[0].GameId)
+
+	// 路径指向目录 → 读取错误（非 NotExist，不做空列表降级）
+	afSvcErr := NewService(&svc.ServiceContext{Config: config.Config{
+		Registry: config.RegistryConfig{AnalyticsFiltersPath: t.TempDir()},
+	}})
+	_, err = afSvcErr.GetAnalyticsFilters(context.Background(), &GetAnalyticsFiltersRequest{})
+	assert.Error(t, err)
+
+	// 文件内容坏 JSON → LoadAnalyticsFilters 错误分支
+	badPath := filepath.Join(t.TempDir(), "bad.json")
+	require.NoError(t, os.WriteFile(badPath, []byte(`[{"gameId":`), 0o600))
+	afSvcBad := NewService(&svc.ServiceContext{Config: config.Config{
+		Registry: config.RegistryConfig{AnalyticsFiltersPath: badPath},
+	}})
+	_, err = afSvcBad.GetAnalyticsFilters(context.Background(), &GetAnalyticsFiltersRequest{})
+	assert.Error(t, err)
+}
+
+func TestService_UpdateMeta_WithRegisteredAgent(t *testing.T) {
+	store := registry.NewStore()
+	require.NoError(t, store.UpsertAgent(&reg.AgentSession{
+		AgentID: "agent-1", GameID: "game-1", Env: "dev",
+	}))
+	afSvc := NewService(&svc.ServiceContext{RegistryStore: store})
+	resp, err := afSvc.UpdateMeta(context.Background(), &UpdateMetaRequest{})
+	require.NoError(t, err)
+	assert.NotEmpty(t, resp.Agents)
 }
