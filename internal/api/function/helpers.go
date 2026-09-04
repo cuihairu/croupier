@@ -423,8 +423,9 @@ func functionInvoke(ctx context.Context, svcCtx *svc.ServiceContext, req *Functi
 		auditFunctionInvoke(ctx, svcCtx, req.ID, admin, utils.RoleNamesFromModels(roles), functionPolicy, invokeErr, invokeDurationMs)
 	}
 
-	// 执行留痕（R1）：payload 级请求/响应异步落库（与 require_audit 解耦）
-	if svcCtx.ExecutionLogWriter != nil {
+	// 执行留痕（R1）：payload 级请求/响应异步落库（与 require_audit 解耦）；
+	// 页面绑定执行的内部 invoke 由 page 源记录承担，此处跳过避免双写
+	if svcCtx.ExecutionLogWriter != nil && !executionlog.Skipped(ctx) {
 		invokeDurationMs := time.Since(startedAt).Milliseconds()
 		var actor string
 		if admin != nil {

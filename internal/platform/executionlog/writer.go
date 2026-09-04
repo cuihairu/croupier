@@ -229,3 +229,21 @@ func normalizeJSON(value interface{}) interface{} {
 	}
 	return out
 }
+
+// ctxSkipKey 标记内层实现调用不再单独留痕（页面绑定执行的内部 invoke
+// 由 page 源记录承担）。
+type ctxSkipKey struct{}
+
+// WithSkipContext 标记该 ctx 中的 invoke 为上层动作的实现细节，跳过留痕。
+func WithSkipContext(ctx context.Context) context.Context {
+	return context.WithValue(ctx, ctxSkipKey{}, true)
+}
+
+// Skipped 返回 ctx 是否携带跳过标记。
+func Skipped(ctx context.Context) bool {
+	if ctx == nil {
+		return false
+	}
+	_, ok := ctx.Value(ctxSkipKey{}).(bool)
+	return ok
+}

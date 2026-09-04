@@ -20,6 +20,7 @@ import (
 	logicutils "github.com/cuihairu/croupier/internal/logic/utils"
 	"github.com/cuihairu/croupier/internal/model"
 	"github.com/cuihairu/croupier/internal/platform/approvals"
+	"github.com/cuihairu/croupier/internal/platform/executionlog"
 	contractsvc "github.com/cuihairu/croupier/internal/service"
 	notify "github.com/cuihairu/croupier/internal/service/notify"
 	"github.com/cuihairu/croupier/internal/svc"
@@ -136,12 +137,40 @@ func (s *Service) ExecuteBinding(ctx context.Context, req *ConsoleExecuteBinding
 	actor := currentActor(ctx)
 	var result spec.PageExecutionResult
 	var target string
+	var payload json.RawMessage
 	ctx, finishSpan := s.startPageExecuteSpan(ctx, gameID, env, *published, binding, contract, requestID, actor)
 	defer func() {
 		finishSpan(err, result, target)
 		s.auditPageExecute(ctx, gameID, env, *published, binding, contract, requestID, target, result, err, time.Since(executeStartedAt).Milliseconds())
+		// 执行留痕（R2）：审批类执行不写（审批单本身已有 Payload 留痕）
+		if s.svcCtx.ExecutionLogWriter != nil && result.Kind != spec.PageExecutionKindApproval {
+			status := executionlog.StatusOK
+			var respBody interface{}
+			if err != nil {
+				status = executionlog.StatusFail
+				respBody = map[string]string{"error": err.Error()}
+			} else if len(result.Data) > 0 {
+				respBody = json.RawMessage(result.Data)
+			}
+			s.svcCtx.ExecutionLogWriter.Log(executionlog.Entry{
+				GameID:     gameID,
+				Env:        env,
+				Source:     executionlog.SourcePage,
+				FunctionID: contract.FunctionID,
+				PageKey:    req.PageKey,
+				BindingID:  req.BindingID,
+				Actor:      actor,
+				Status:     status,
+				DurationMs: time.Since(executeStartedAt).Milliseconds(),
+				TraceID:    result.TraceID,
+				Request:    payload,
+				Response:   respBody,
+			})
+		}
 	}()
 
+	// 内层 FunctionInvoke 不再单独留痕（page 源记录已覆盖）
+	ctx = executionlog.WithSkipContext(ctx)
 	if err := s.ensureBindingFresh(binding, contract, functions); err != nil {
 		return nil, err
 	}
@@ -149,7 +178,7 @@ func (s *Service) ExecuteBinding(ctx context.Context, req *ConsoleExecuteBinding
 		return nil, err
 	}
 
-	payload, err := buildBindingPayloadFromSelectors(binding, req.Context)
+	payload, err = buildBindingPayloadFromSelectors(binding, req.Context)
 	if err != nil {
 		return nil, err
 	}
