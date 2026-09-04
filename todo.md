@@ -344,3 +344,151 @@ T5（无风险热身）→ T1 → T2 → T3 → T4。前四个每个含独立 go
 F1（规范先行）→ F2（推导器，后续任务的接线点）→ F5/F6（独立小项，可穿插）→ F3 → F4 → F7/F8 → F9（依赖 F3）→ F10/F11 → F12 → F13（依赖 F12）→ F14（可选）。
 
 F2 是汇聚点：F3-F9 的成果都通过它进入 Invoke 工作台。每个任务独立提交；涉及 web 的按交付 DoD 跑 `pnpm --dir web run tsc` + `pnpm --dir web test` + `bash scripts/dashboard_vnext_guard.sh`，涉及文档的 `cd docs && pnpm build`。
+
+---
+
+# A 阶段：审批可见性（申请人视角，P1）
+
+背景：高风险执行进入审批后，申请人几乎无法追踪自己的申请——Invoke 页不消费 approvalId、审批中心无「我发起的」视图、审批创建不通知申请人。调研结论（2026-09-04）：
+
+- 存储层已支持按 actor 过滤（`internal/platform/approvals/sql_store.go:133`），仅 API/前端未暴露
+- 前端 `/approvals` 发送的过滤参数与后端 `ApprovalsListRequest`（仅 `page/pageSize/status`，`internal/api/approval/dto.go:35`）参数名漂移，状态/操作者过滤实际不生效
+- Console 页面执行有「等待审批 + 刷新」入口（`OperationPageRenderer.tsx:265`）；Invoke 页对 `approvalId` 零处理且误弹「调用成功」
+- approve/reject 无「审批人 ≠ 申请人」校验（`internal/api/approval/service.go:131`）
+- 审批 created 事件只通知 admin（`internal/api/function/helpers.go:634`），完成事件才含申请人（`internal/api/approval/notify.go:29`）
+
+## A1. 审批列表 API 补 actor 过滤 + 修复参数契约漂移
+
+**目标**：审批列表支持服务端 actor 过滤，前端既有过滤参数真实生效。
+
+**改动点**：
+
+- [ ] `internal/api/approval/dto.go` `ApprovalsListRequest` 增加 `actor`、`functionId`、`gameId`、`env` 绑定（与前端既有发送参数对齐）；`state` 别名兼容或前端改发 `status`（二选一，禁止双读并存，按 CLAUDE.md 兼容规则处理）
+- [ ] `internal/api/approval/service.go` 列表查询透传 Filter（存储层 `Filter.Actor` 已支持，接线即可）
+- [ ] 新增 `mine=true` 参数：服务端忽略请求中的 actor、强制 `actor = 当前登录用户`（防止越权枚举他人申请）
+- [ ] 单测：actor 过滤命中/不命中、mine=true 强制覆盖 actor、参数漂移修复后前端契约回归
+
+**验收**：`go test ./internal/api/approval/...` 全绿；curl 带各过滤参数返回过滤后结果。
+
+## A2. 两人规则：禁止申请人自批
+
+**目标**：消除申请人自行通过自己申请的合规缺口。
+
+**改动点**：
+
+- [ ] `internal/api/approval/service.go` `Approve`/`Reject` 校验操作者 ≠ `record.Actor`，违反返回 403 `self_approval_forbidden`
+- [ ] 逃生门配置 `approval.allowSelfApprove`（默认 false；单管理员环境可显式打开），配置示例更新
+- [ ] 自批拦截写审计 `approval.self_rejected`（复用哈希链审计）
+- [ ] 单测：自批 403、开启逃生门后放行、他人正常审批不受影响
+
+**验收**：`go test ./internal/api/approval/...` 全绿；审计事件可查。
+
+## A3. 审批中心「我发起的」视图 + 过滤修复（依赖 A1）
+
+**目标**：申请人一站式看到自己的申请（审批中/已通过/已拒绝）。
+
+**改动点**：
+
+- [ ] `web/src/pages/Approvals/index.tsx` 增加 Tabs：待我审批 / 我发起的 / 全部；「我发起的」带 `mine=true` 且隐藏通过/拒绝操作列
+- [ ] 前端过滤参数与 A1 新契约对齐（状态/函数/游戏/环境过滤真实生效，删除仅前端补过滤的 `filtered` 逻辑）
+- [ ] Drawer 详情支持 deep-link：`/approvals?approvalId=xxx` 打开对应申请
+- [ ] web tsc + 既有 Approvals 测试更新 + guard
+
+**验收**：`pnpm --dir web run tsc` + `pnpm --dir web test` 全绿；`bash scripts/dashboard_vnext_guard.sh` PASSED。
+
+## A4. Invoke 页审批中状态（消费 approvalId）
+
+**目标**：Invoke 调试页触发审批后，申请人原地看到状态并可跟进。
+
+**改动点**：
+
+- [ ] `web/src/pages/Functions/Invoke/index.tsx`：`approvalRequired=true` 时展示「审批中」Alert（含 approvalId），修正误弹「调用成功」的 toast
+- [ ] 轮询 `GET /api/v1/approvals/:id`（复用 `web/src/services/console.ts:148` `queryApprovalStatus` 模式，10s 间隔可停）
+- [ ] 审批通过后提示并提供「重新调用」（携原参数一键重发）；拒绝后展示 reason
+- [ ] 单测：approvalRequired 渲染、轮询状态机（pending→approved/rejected 停止）
+
+**验收**：web tsc + test 全绿。
+
+## A5. 审批事件通知申请人
+
+**目标**：审批创建/完成申请人全程有感知。
+
+**改动点**：
+
+- [ ] `internal/api/function/helpers.go` 与 `internal/api/console/service.go` 的 `approval.created` 通知接收人加入 `record.Actor`（与完成事件 `notify.go:29` 对齐）
+- [ ] 站内信 Data 携带 `approvalId`；`web/src/components/MessagesBell.tsx` / Profile 收件箱点击跳转 `/approvals?approvalId=xxx`（依赖 A3 deep-link）
+- [ ] 单测：created 通知含申请人、完成通知不回归
+
+**验收**：`go test ./internal/api/approval/... ./internal/api/function/... ./internal/api/console/...` 相关用例全绿。
+
+# R 阶段：执行留痕与保留期（P1）
+
+背景：同步执行的请求体/响应体完全不落库（审计仅元数据，且 `function.invoke` 受 `require_audit` 开关默认关）；`task_runs.input_payload/result_payload` 反而完整落库却永久累积无清理；`audit_records` 的 `DeleteBefore`/`Archive` 是死代码。目标：payload 级留痕可查、保留期可配，审计链永久保留不参与清理。
+
+## R1. execution_logs 表 + REST invoke 写入
+
+**目标**：同步函数调用的请求/响应落库，payload 级事后可查。
+
+**改动点**：
+
+- [ ] 迁移：`execution_logs` 表——`id/game_id/env/source/function_id/page_key/binding_id/actor/route/status/duration_ms/trace_id/request_payload/response_body/truncated/created_at`，索引 `(game_id, env, created_at)` + `(actor, created_at)` + `(function_id, created_at)`
+- [ ] 写入点：`internal/api/function/helpers.go` invoke 成功/失败后**异步**写入（带缓冲 channel，丢写只告警不阻断主路径）；响应体只存 JSON 类型结果
+- [ ] 脱敏：复用 `internal/audit` `maskSensitiveData` 清单；单条 payload 上限（默认 64KB，超出截断置 `truncated=true`）
+- [ ] 开关与上限配置 `executionLog.enabled`（默认 true）/ `maxPayloadBytes`
+- [ ] 单测：成功/失败写入、脱敏命中、截断、开关关闭不写、异步失败不影响调用
+
+**验收**：`go test ./internal/api/function/...` 全绿；invoke 后表内有记录且敏感字段已掩码。
+
+## R2. 页面绑定执行写入 execution_logs
+
+**目标**：Console 页面执行与 REST 调用同一留痕（`source=page`）。
+
+**改动点**：
+
+- [ ] `internal/api/console/service.go` execute 路径接入同一异步写入器（复用 R1 writer），记录 page_key/binding_id/publish_version
+- [ ] 单测：页面执行写入、审批类执行（kind=approval）不写（审批走 approvals 表已有 Payload）
+
+**验收**：`go test ./internal/api/console/...` 全绿。
+
+## R3. 保留期配置 + 清理循环（含 task_runs 纳管）
+
+**目标**：payload 类数据默认 7 天过期，可配置；审计链永久保留不动。
+
+**改动点**：
+
+- [ ] 配置 `executionLog.retentionDays`（默认 7，0=永久）；`taskLog.retentionDays`（默认 7，0=永久）——`internal/config/config.go` + `configs/server.yaml` 示例
+- [ ] `internal/model` 增加 `ExecutionLogModel.DeleteBefore` / `TaskRunModel.DeleteBefore`（含 task_events 级联）；`audit_records` 明确排除在清理外（哈希链完整性，代码注释 + 文档声明）
+- [ ] 清理循环：复用 `internal/server/control_handler.go:195` 指标清理的每小时模式，删除分批（防长事务）
+- [ ] 单测：过期删除、0 天不删、audit 表不受影响、分批边界
+
+**验收**：`go test ./internal/model/... ./internal/server/...` 全绿。
+
+## R4. 「我的调用记录」查询 API
+
+**目标**：给前端提供带权限边界的执行留痕查询。
+
+**改动点**：
+
+- [ ] `GET /api/v1/execution-logs`：分页 + 过滤（function_id/status/时间范围）+ `mine=true` 强制 actor=当前用户；非 mine 需 `audit:read` 权限（与审批中心同级）
+- [ ] 响应脱敏沿用存储时掩码（不二次处理）；`GET /:id` 详情（mine 或有权限）
+- [ ] 单测：权限边界（普通用户仅 mine）、scope 隔离（game/env）、分页
+
+**验收**：`go test ./internal/api/...` 新增模块用例全绿。
+
+## R5. 前端「我的调用记录」（依赖 A3/R4）
+
+**目标**：申请人在 UI 里查自己的执行历史与请求/响应，替代仅本地的 localStorage 历史。
+
+**改动点**：
+
+- [ ] Invoke 页历史区改造：本地 50 条之外提供「服务端记录」入口（mine 视图，展示请求/响应 Drawer）
+- [ ] 审批中心「我发起的」Tab 行内可跳转对应调用记录（approvalId 关联 trace 关联的留痕，可按 trace_id 串联）
+- [ ] web tsc + test + guard
+
+**验收**：交付 DoD 全项（tsc/test/guard）；涉及页面发布的按 DoD 走一次 accept-and-publish 线上验证。
+
+## 执行顺序建议（A/R 系列）
+
+A1（API 契约先行）→ A2（独立可并行）→ A3（依赖 A1）→ A4（独立，可穿插）→ A5（依赖 A3 deep-link）；R1（表+writer）→ R2（复用 writer）→ R3（清理循环）→ R4（查询 API）→ R5（依赖 A3/R4）。
+
+A 系列与 R 系列互相独立可并行。每个任务独立提交；涉及 web 的按交付 DoD 跑 `pnpm --dir web run tsc` + `pnpm --dir web test` + `bash scripts/dashboard_vnext_guard.sh`，涉及文档的 `cd docs && pnpm build`。
