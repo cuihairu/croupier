@@ -373,6 +373,13 @@ export default [
       },
       { path: '/ops/nodes', name: 'Nodes', access: 'canOpsRead', component: './Ops/Nodes' },
       {
+        // 执行留痕（管理员审计视角）：全量执行记录按用户/函数/时间过滤
+        path: '/ops/execution-logs',
+        name: 'Ops.ExecutionLogs',
+        access: 'canAuditRead',
+        component: './Ops/ExecutionLogs',
+      },
+      {
         // LB 监控（管道用开源：haproxy exporter → prometheus → 平台原生渲染；
         // docs/operations/load-balancing.md「LB 监控」）
         path: '/ops/lb',

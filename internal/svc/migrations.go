@@ -43,6 +43,7 @@ import (
 //   0019 (Go)   announcements + announcement_reads（公告系统：markdown 公告 + 弹窗确认）
 //   0018 (Go)   admins.otp_enabled 列（T3：MFA 按 provider 接线，local 账号
 //               可启用 TOTP；ldap/oidc 登录跳过平台 MFA）
+//   0020 (Go)   execution_logs 表（R1 执行留痕：payload 级请求/响应落库）
 
 func init() {
 	if err := goose.SetGlobalMigrations(
@@ -64,6 +65,7 @@ func init() {
 		announcementTablesMigration(),
 		adminLoginSecurityMigration(),
 		adminMfaMigration(),
+		executionLogsTableMigration(),
 	); err != nil {
 		panic(fmt.Sprintf("svc: register goose go migrations: %v", err))
 	}
@@ -307,6 +309,29 @@ func adminMfaMigration() *goose.Migration {
 			}
 			if err := migrator.AddColumn(&model.Admin{}, "OTPEnabled"); err != nil {
 				return fmt.Errorf("migrate: 0018 add admins.otp_enabled: %w", err)
+			}
+			return nil
+		}},
+		nil,
+	)
+}
+
+// executionLogsTableMigration creates the execution_logs table (0020, R1
+// 执行留痕)：payload 级请求/响应落库。新库由 baseline AutoMigrate（已注册
+// GameModels）带出；存量库经本迁移补齐。幂等：表已存在则跳过。
+// 单库/多游戏两种模式都会在对应 scope 上执行本迁移。
+func executionLogsTableMigration() *goose.Migration {
+	return goose.NewGoMigration(20,
+		&goose.GoFunc{RunDB: func(ctx context.Context, sqlDB *sql.DB) error {
+			db, err := wrapGorm(sqlDB)
+			if err != nil {
+				return err
+			}
+			if db.Migrator().HasTable(&model.ExecutionLog{}) {
+				return nil
+			}
+			if err := db.Migrator().CreateTable(&model.ExecutionLog{}); err != nil {
+				return fmt.Errorf("migrate: 0020 create execution_logs: %w", err)
 			}
 			return nil
 		}},

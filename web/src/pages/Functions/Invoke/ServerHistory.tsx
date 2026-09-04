@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { Button, Drawer, Space, Table, Tag, Typography } from 'antd';
+import { Alert, Button, Space, Table, Tag, Typography } from 'antd';
+import { ReloadOutlined } from '@ant-design/icons';
 import {
   getExecutionLog,
   listExecutionLogs,
@@ -10,12 +11,13 @@ const { Text } = Typography;
 
 const PAGE_SIZE = 10;
 
-/** 服务端调用记录（R5）：我的执行留痕，替代仅本地的调用历史。 */
-export default function ServerHistory({ open, onClose }: { open: boolean; onClose: () => void }) {
+/** 服务端调用记录（R5）：我的执行留痕（保留期默认 7 天，脱敏+截断）。 */
+export default function ServerHistoryPanel() {
   const [items, setItems] = useState<ExecutionLogItem[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(false);
+  const [loadError, setLoadError] = useState<string>('');
   const [detail, setDetail] = useState<null | {
     id: number;
     loading: boolean;
@@ -25,20 +27,23 @@ export default function ServerHistory({ open, onClose }: { open: boolean; onClos
 
   const list = useCallback(async () => {
     setLoading(true);
+    setLoadError('');
     try {
       const json = await listExecutionLogs({ mine: true, page, pageSize: PAGE_SIZE });
       setItems(json.items || []);
       setTotal(json.total || 0);
-    } catch {
-      /* 失败静默：Drawer 内下次翻页重试 */
+    } catch (e) {
+      setItems([]);
+      setTotal(0);
+      setLoadError(e instanceof Error ? e.message : '加载失败');
     } finally {
       setLoading(false);
     }
   }, [page]);
 
   useEffect(() => {
-    if (open) void list();
-  }, [open, list]);
+    void list();
+  }, [list]);
 
   const viewDetail = async (id: number) => {
     setDetail({ id, loading: true });
@@ -51,7 +56,22 @@ export default function ServerHistory({ open, onClose }: { open: boolean; onClos
   };
 
   return (
-    <Drawer title="服务端调用记录" width={720} open={open} onClose={onClose}>
+    <Space direction="vertical" size={8} style={{ width: '100%' }}>
+      {loadError ? (
+        <Alert
+          type="error"
+          showIcon
+          message="服务端记录加载失败"
+          description={
+            <Space direction="vertical" size={4}>
+              <Text type="secondary">{loadError}</Text>
+              <Button size="small" icon={<ReloadOutlined />} onClick={() => void list()}>
+                重试
+              </Button>
+            </Space>
+          }
+        />
+      ) : null}
       <Table
         rowKey="id"
         size="small"
@@ -62,6 +82,7 @@ export default function ServerHistory({ open, onClose }: { open: boolean; onClos
           pageSize: PAGE_SIZE,
           total,
           onChange: setPage,
+          showSizeChanger: false,
         }}
         expandable={{
           expandedRowRender: (record) => (
@@ -120,7 +141,10 @@ export default function ServerHistory({ open, onClose }: { open: boolean; onClos
           { title: '耗时(ms)', dataIndex: 'durationMs', width: 90 },
         ]}
       />
-    </Drawer>
+      <Text type="secondary" style={{ fontSize: 12 }}>
+        仅显示本人记录；载荷已脱敏，保留期默认 7 天。
+      </Text>
+    </Space>
   );
 }
 

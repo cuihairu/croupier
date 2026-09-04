@@ -57,6 +57,7 @@ export default {
   'menu.Ops.OpsStatus': 'Service Status',
   'menu.Ops.DBMonitor': 'DB Monitor',
   'menu.Ops.Nodes': 'Node Maintenance',
+  'menu.Ops.ExecutionLogs': 'Execution Logs',
   'menu.Ops.Cluster': 'Cluster Topology',
   'menu.Ops.Jobs': 'Jobs',
   'menu.Ops.Schedules': 'Schedules',

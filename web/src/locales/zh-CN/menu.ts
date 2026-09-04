@@ -52,6 +52,7 @@ export default {
   'menu.Ops.OpsStatus': '服务状态',
   'menu.Ops.DBMonitor': '数据库监控',
   'menu.Ops.Nodes': '节点维护',
+  'menu.Ops.ExecutionLogs': '执行留痕',
   'menu.Ops.Cluster': '集群拓扑',
   'menu.Ops.Jobs': '任务监控',
   'menu.Ops.Schedules': '定时调度',

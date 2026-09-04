@@ -1,6 +1,6 @@
 import React from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
-import ServerHistory from './ServerHistory';
+import ServerHistoryPanel from './ServerHistory';
 import { listExecutionLogs, getExecutionLog } from '@/services/api/executionLogs';
 
 jest.mock('@/services/api/executionLogs');
@@ -39,8 +39,8 @@ describe('ServerHistory', () => {
     mockedLogs.mockResolvedValue({ items: rows, total: 2, page: 1, size: 10 });
   });
 
-  it('打开时拉取 mine 记录并渲染行', async () => {
-    render(<ServerHistory open onClose={jest.fn()} />);
+  it('挂载即拉取 mine 记录并渲染行', async () => {
+    render(<ServerHistoryPanel />);
     await waitFor(() =>
       expect(mockedLogs).toHaveBeenCalledWith(expect.objectContaining({ mine: true })),
     );
@@ -56,7 +56,7 @@ describe('ServerHistory', () => {
       requestPayload: { playerId: 'p1' },
       responseBody: { success: true },
     });
-    render(<ServerHistory open onClose={jest.fn()} />);
+    render(<ServerHistoryPanel />);
     await screen.findByText('mail.send');
     await waitFor(() =>
       expect(document.querySelectorAll('.ant-table-row-expand-icon').length).toBeGreaterThan(0),
@@ -69,10 +69,5 @@ describe('ServerHistory', () => {
     await waitFor(() => expect(mockedGet).toHaveBeenCalledWith(1));
     expect(await screen.findByText(/"playerId": "p1"/)).toBeInTheDocument();
     expect(screen.getByText(/"success": true/)).toBeInTheDocument();
-  });
-
-  it('关闭时不触发请求', () => {
-    render(<ServerHistory open={false} onClose={jest.fn()} />);
-    expect(mockedLogs).not.toHaveBeenCalled();
   });
 });

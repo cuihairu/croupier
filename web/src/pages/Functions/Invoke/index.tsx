@@ -1,7 +1,7 @@
 /** 函数调用工作台：编排状态和调用，展示逻辑由子组件承担。 */
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { PageContainer } from '@ant-design/pro-components';
-import { Alert, App, Button, Card, Col, Row, Select, Space, Tag, Typography } from 'antd';
+import { Alert, App, Button, Card, Col, Row, Select, Space, Tabs, Tag, Typography } from 'antd';
 import {
   CloudServerOutlined,
   HistoryOutlined,
@@ -28,7 +28,7 @@ import InvocationResponse from './InvocationResponse';
 import TaskProgressPanel from './TaskProgressPanel';
 import RequestBodyEditor from './RequestBodyEditor';
 import RequestHistory from './RequestHistory';
-import ServerHistory from './ServerHistory';
+import ServerHistoryPanel from './ServerHistory';
 import { startApprovalPolling } from './approvalPolling';
 import type { FormSchemaState, RequestHistoryItem } from './types';
 import { localizedText } from '@/utils/localizedText';
@@ -105,7 +105,6 @@ export default function FunctionInvokePage() {
   const [errorDetails, setErrorDetails] = useState<ApiErrorDetail[]>([]);
   const [activeTaskId, setActiveTaskId] = useState('');
   const [pendingApproval, setPendingApproval] = useState<PendingApproval | null>(null);
-  const [showServerHistory, setShowServerHistory] = useState(false);
   const [duration, setDuration] = useState(0);
   const [historyItems, setHistoryItems] = useState<RequestHistoryItem[]>(loadHistory);
   const [showHistory, setShowHistory] = useState(false);
@@ -323,13 +322,6 @@ export default function FunctionInvokePage() {
         >
           历史记录
         </Button>,
-        <Button
-          key="server-history"
-          icon={<CloudServerOutlined />}
-          onClick={() => setShowServerHistory(true)}
-        >
-          服务端记录
-        </Button>,
       ]}
     >
       <Row gutter={16}>
@@ -495,15 +487,31 @@ export default function FunctionInvokePage() {
         </Col>
         {showHistory ? (
           <Col xs={24} xl={7}>
-            <RequestHistory
-              items={historyItems}
-              onClear={() => setHistoryItems([])}
-              onSelect={restore}
-            />
+            <Card size="small" title="历史记录">
+              <Tabs
+                items={[
+                  {
+                    key: 'local',
+                    label: '本地草稿',
+                    children: (
+                      <RequestHistory
+                        items={historyItems}
+                        onClear={() => setHistoryItems([])}
+                        onSelect={restore}
+                      />
+                    ),
+                  },
+                  {
+                    key: 'server',
+                    label: '服务端记录',
+                    children: <ServerHistoryPanel />,
+                  },
+                ]}
+              />
+            </Card>
           </Col>
         ) : null}
       </Row>
-      <ServerHistory open={showServerHistory} onClose={() => setShowServerHistory(false)} />
     </PageContainer>
   );
 }

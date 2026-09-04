@@ -61,6 +61,8 @@ func (s *Service) List(ctx context.Context, req *ListRequest) (*ListResponse, er
 		if _, _, err := logicutils.RequireAnyPermission(ctx, s.svcCtx, "无权查看执行留痕", "admin:all", "audit:read"); err != nil {
 			return nil, err
 		}
+		// 审计视角：可按申请人过滤（mine 分支忽略该参数）
+		opts.Actor = strings.TrimSpace(req.Actor)
 	}
 
 	items, total, err := s.svcCtx.ExecutionLogModel.List(ctx, opts)

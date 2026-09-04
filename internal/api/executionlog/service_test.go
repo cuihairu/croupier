@@ -143,3 +143,25 @@ func grantAuditRead(t *testing.T, svcCtx *svc.ServiceContext) {
 	require.NoError(t, svcCtx.DB.FirstOrCreate(&model.RolePermission{RoleID: role.ID, PermissionID: perm.ID}, model.RolePermission{RoleID: role.ID, PermissionID: perm.ID}).Error)
 	_ = strings.TrimSpace("")
 }
+
+func TestListActorFilterRequiresPermission(t *testing.T) {
+	s, svcCtx, _ := newExecLogTestService(t, "alice")
+	seedExecLog(t, svcCtx, "alice", "mail.send")
+	seedExecLog(t, svcCtx, "bob", "player.ban")
+	grantAuditRead(t, svcCtx)
+
+	ctx := svc.WithGameScope(context.WithValue(context.Background(), "username", "alice"),
+		svc.GameScope{GameID: "demo-game", Env: "development"})
+
+	// 审计权限 + actor 过滤
+	resp, err := s.List(ctx, &ListRequest{Actor: "bob"})
+	require.NoError(t, err)
+	require.Len(t, resp.Items, 1)
+	assert.Equal(t, "bob", resp.Items[0].Actor)
+
+	// mine 分支忽略 actor 参数，强制当前用户
+	respMine, err := s.List(ctx, &ListRequest{Mine: true, Actor: "bob"})
+	require.NoError(t, err)
+	require.Len(t, respMine.Items, 1)
+	assert.Equal(t, "alice", respMine.Items[0].Actor)
+}

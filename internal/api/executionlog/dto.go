@@ -35,9 +35,12 @@ type ListRequest struct {
 	Page       int    `form:"page,optional,default=1"`
 	PageSize   int    `form:"pageSize,optional,default=20"`
 	FunctionID string `form:"functionId"`
-	Source     string `form:"source"`
-	Status     string `form:"status"`
-	TraceID    string `form:"traceId"`
+	// Actor 按申请人过滤——仅在非 mine 分支（需审计权限）生效；
+	// mine=true 时服务端强制 actor=当前登录人并忽略本参数。
+	Actor   string `form:"actor"`
+	Source  string `form:"source"`
+	Status  string `form:"status"`
+	TraceID string `form:"traceId"`
 	// From/To 为 RFC3339 时间（可只传其一）。
 	From string `form:"from"`
 	To   string `form:"to"`
