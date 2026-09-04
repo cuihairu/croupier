@@ -90,11 +90,19 @@ export async function startRealFixture(): Promise<RealFixtureState> {
   fs.mkdirSync(binDir, { recursive: true });
   const serverBin = path.join(binDir, 'croupier-server');
 
-  const build = spawnSync('go', ['build', '-o', serverBin, './cmd/server'], {
-    cwd: repoRoot,
-    stdio: 'inherit',
-  });
-  if (build.status !== 0) {
+  // proxy.golang.org 偶发流错误会让单次 go build 失败：带退避重试以消化瞬时网络抖动
+  let buildStatus: number | null = 1;
+  for (let attempt = 1; attempt <= 3; attempt += 1) {
+    const build = spawnSync('go', ['build', '-o', serverBin, './cmd/server'], {
+      cwd: repoRoot,
+      stdio: 'inherit',
+    });
+    buildStatus = build.status;
+    if (buildStatus === 0) break;
+    console.log(`[real-dashboard fixture] go build attempt ${attempt} failed, retrying...`);
+    Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 15000);
+  }
+  if (buildStatus !== 0) {
     throw new Error('failed to build croupier-server for real-dashboard fixture');
   }
 

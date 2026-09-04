@@ -215,6 +215,20 @@ jobs:
         uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
+          cache: true
+          cache-dependency-path: go.sum
+
+      # proxy.golang.org 瞬时流错误曾致 e2e 构建 server 失败：预下载全部模块并自动重试
+      - name: Prefetch Go modules
+        timeout-minutes: 15
+        working-directory: .
+        run: |
+          for attempt in 1 2 3; do
+            go mod download all && exit 0
+            echo "go mod download attempt $attempt failed, retrying in 15s..."
+            sleep 15
+          done
+          exit 1
 
       # pnpm CLI 下载抖动曾致 3 分钟超时：失败自动重试 3 次
       - name: Setup pnpm
