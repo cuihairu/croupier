@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Card, Table, Tag, Space, Button, Drawer, Descriptions, Select, Input } from 'antd';
+import { Card, Table, Tag, Space, Button, Drawer, Descriptions, Select, Input, Tabs } from 'antd';
 import { getMessage } from '@/utils/antdApp';
 import {
   approveApproval,
@@ -12,40 +12,31 @@ import type { FunctionDescriptor } from '@/services/api/functions';
 
 type Approval = {
   id: string;
-  ID?: string;
   createdAt: string;
-  CreatedAt?: string;
+  updatedAt?: string;
   actor: string;
-  Actor?: string;
   functionId: string;
-  FunctionID?: string;
   gameId?: string;
-  GameID?: string;
   env?: string;
-  Env?: string;
   state: 'pending' | 'approved' | 'rejected';
-  State?: 'pending' | 'approved' | 'rejected';
-  mode: 'invoke' | 'start_job';
-  Mode?: 'invoke' | 'start_job';
+  mode?: string;
   route?: string;
-  Route?: string;
   reason?: string;
   idempotencyKey?: string;
-  IdempotencyKey?: string;
   targetServiceId?: string;
-  TargetServiceID?: string;
   hashKey?: string;
-  HashKey?: string;
-  payload?: unknown;
   payloadPreview?: string;
-  // optional audit enrichment (when with_audit=1)
-  ApproveIP?: string;
-  ApproveTime?: string;
-  ApproveIPRegion?: string;
-  RejectIP?: string;
-  RejectTime?: string;
-  RejectIPRegion?: string;
+  approver?: string;
+  reviewedAt?: string;
+  reviewedByOther?: boolean;
 };
+
+type ViewMode = 'todo' | 'mine' | 'all';
+
+const stateTag = (state: Approval['state']) =>
+  state === 'pending' ? 'gold' : state === 'approved' ? 'green' : 'red';
+const stateText = (state: Approval['state']) =>
+  state === 'pending' ? '待审批' : state === 'approved' ? '已通过' : '已拒绝';
 
 export default function ApprovalsPage() {
   const [data, setData] = useState<Approval[]>([]);
@@ -53,62 +44,13 @@ export default function ApprovalsPage() {
   const [loading, setLoading] = useState(false);
   const [page, setPage] = useState(1);
   const [size, setSize] = useState(20);
+  const [viewMode, setViewMode] = useState<ViewMode>('todo');
   const [state, setState] = useState<string>('pending');
   const [functionId, setFunctionId] = useState<string>('');
   const [gameId, setGameId] = useState<string>('');
   const [env, setEnv] = useState<string>('');
   const [actor, setActor] = useState<string>('');
-  const [ipFilter, setIpFilter] = useState<string>('');
   const [riskFilter, setRiskFilter] = useState<string>('');
-  const [completedOnly, setCompletedOnly] = useState<boolean>(false);
-  const onExport = () => {
-    const rows = (filtered || []).map((r: Approval) => [
-      r.CreatedAt || '',
-      r.Actor || '',
-      r.FunctionID || '',
-      `${r.GameID || ''}/${r.Env || ''}`,
-      r.State || '',
-      r.Mode || '',
-      r.Route || '',
-      r.IdempotencyKey || '',
-      r.TargetServiceID || '',
-      r.HashKey || '',
-      r.State === 'approved' ? r.ApproveIP || '' : r.State === 'rejected' ? r.RejectIP || '' : '',
-      r.State === 'approved'
-        ? r.ApproveTime || ''
-        : r.State === 'rejected'
-          ? r.RejectTime || ''
-          : '',
-    ]);
-    rows.unshift([
-      '创建时间',
-      '操作者',
-      '函数',
-      '游戏/环境',
-      '状态',
-      '模式',
-      '路由',
-      '幂等键',
-      '目标服务',
-      'HashKey',
-      'IP',
-      '时间',
-    ]);
-    const content = rows
-      .map((r) =>
-        r
-          .map((x) => (/[",\n]/.test(String(x)) ? `"${String(x).replace(/"/g, '""')}"` : String(x)))
-          .join(','),
-      )
-      .join('\n');
-    const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'approvals.csv';
-    a.click();
-    URL.revokeObjectURL(url);
-  };
   const [open, setOpen] = useState(false);
   const [current, setCurrent] = useState<Approval | undefined>();
   const [preview, setPreview] = useState<string>('');
@@ -124,16 +66,16 @@ export default function ApprovalsPage() {
   const list = useCallback(async () => {
     setLoading(true);
     const qs = new URLSearchParams();
+    // 我发起的：服务端强制按当前登录人过滤；其余视图按状态过滤
+    if (viewMode === 'mine') qs.set('mine', 'true');
     if (state) qs.set('status', state);
     if (functionId) qs.set('functionId', functionId);
     if (gameId) qs.set('gameId', gameId);
     if (env) qs.set('env', env);
-    if (actor) qs.set('actor', actor);
+    if (viewMode !== 'mine' && actor) qs.set('actor', actor);
     if (riskFilter) qs.set('risk', riskFilter);
     qs.set('page', String(page));
     qs.set('pageSize', String(size));
-    qs.set('with_audit', '1');
-    if (completedOnly) qs.set('completed_only', '1');
     let json: Awaited<ReturnType<typeof listApprovals>>;
     try {
       json = await listApprovals(Object.fromEntries(qs));
@@ -146,27 +88,16 @@ export default function ApprovalsPage() {
     setData(json.approvals || []);
     setTotal(json.total || 0);
     setLoading(false);
-  }, [state, functionId, gameId, env, actor, riskFilter, page, size, completedOnly]);
+  }, [viewMode, state, functionId, gameId, env, actor, riskFilter, page, size]);
 
   const filtered = useMemo(() => {
-    const ip = (ipFilter || '').trim();
     const wantRisk = (riskFilter || '').trim().toLowerCase();
-    const matchIp = (r: Approval) => {
-      if (!ip) return true;
-      if (r.State === 'approved') return (r.ApproveIP || '').includes(ip);
-      if (r.State === 'rejected') return (r.RejectIP || '').includes(ip);
-      return false;
-    };
-    const matchRisk = (r: Approval) => {
-      if (!wantRisk) return true;
-      const d = descMap[r.FunctionID || ''];
-      const rk = (d?.risk || '').toString().toLowerCase();
-      return rk === wantRisk;
-    };
-    const matchCompleted = (r: Approval) =>
-      !completedOnly || r.State === 'approved' || r.State === 'rejected';
-    return (data || []).filter((r) => matchIp(r) && matchRisk(r) && matchCompleted(r));
-  }, [data, ipFilter, riskFilter, completedOnly, descMap]);
+    if (!wantRisk) return data || [];
+    return (data || []).filter((r) => {
+      const d = descMap[r.functionId || ''];
+      return (d?.risk || '').toString().toLowerCase() === wantRisk;
+    });
+  }, [data, riskFilter, descMap]);
 
   async function view(id: string) {
     let json: Awaited<ReturnType<typeof getApproval>>;
@@ -177,18 +108,17 @@ export default function ApprovalsPage() {
       getMessage()?.error(msg);
       return;
     }
-    setCurrent(json);
+    setCurrent(json as Approval);
     setPreview(json.payloadPreview || '');
     setOpen(true);
   }
 
   async function approve(id: string) {
-    const a = data.find((x) => x.ID === id || x.id === id);
-    const funcId = a?.FunctionID || a?.functionId || '';
+    const a = data.find((x) => x.id === id);
+    const funcId = a?.functionId || '';
     const desc = funcId ? descMap[funcId] : undefined;
     const risk = (desc?.risk || '').toString().toLowerCase();
-    const needConfirm = risk === 'high';
-    if (needConfirm) {
+    if (risk === 'high') {
       // Require typing the function id as a simple safeguard
       const text = window.prompt(`高风险函数，请输入函数ID确认：${funcId}`) || '';
       if (funcId && text.trim() !== funcId) {
@@ -225,24 +155,23 @@ export default function ApprovalsPage() {
 
   const exportDetailJSON = () => {
     if (!current) return;
-    const v: Approval = current;
     const obj = {
-      id: v.id || v.ID,
-      createdAt: v.createdAt || v.CreatedAt,
-      actor: v.actor || v.Actor,
-      functionId: v.functionId || v.FunctionID,
-      gameId: v.gameId || v.GameID,
-      env: v.env || v.Env,
-      state: v.state || v.State,
-      mode: v.mode || v.Mode,
-      route: v.route || v.Route,
-      idempotencyKey: v.idempotencyKey || v.IdempotencyKey,
-      targetServiceId: v.targetServiceId || v.TargetServiceID,
-      hashKey: v.hashKey || v.HashKey,
-      approveIp: v.ApproveIP,
-      approveTime: v.ApproveTime,
-      rejectIp: v.RejectIP,
-      rejectTime: v.RejectTime,
+      id: current.id,
+      createdAt: current.createdAt,
+      actor: current.actor,
+      functionId: current.functionId,
+      gameId: current.gameId,
+      env: current.env,
+      state: current.state,
+      mode: current.mode,
+      route: current.route,
+      idempotencyKey: current.idempotencyKey,
+      targetServiceId: current.targetServiceId,
+      hashKey: current.hashKey,
+      approver: current.approver,
+      reviewedAt: current.reviewedAt,
+      reviewedByOther: current.reviewedByOther,
+      reason: current.reason,
       payloadPreview: preview,
     };
     const blob = new Blob([JSON.stringify(obj, null, 2)], {
@@ -256,16 +185,6 @@ export default function ApprovalsPage() {
     URL.revokeObjectURL(url);
   };
 
-  const exportPreviewText = () => {
-    const blob = new Blob([preview || ''], { type: 'text/plain;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `approval_preview_${current?.id || current?.ID || ''}.txt`;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
-
   useEffect(() => {
     list();
   }, [list]);
@@ -275,8 +194,30 @@ export default function ApprovalsPage() {
       .catch(() => {});
   }, []);
 
+  // deep-link：/approvals?approvalId=xxx 直接打开详情（站内信/申请人跳转入口）
+  useEffect(() => {
+    const approvalId = new URLSearchParams(window.location.search).get('approvalId');
+    if (approvalId) void view(approvalId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   return (
-    <Card title="审批管理">
+    <Card title="审批中心">
+      <Tabs
+        activeKey={viewMode}
+        onChange={(key) => {
+          const next = key as ViewMode;
+          setViewMode(next);
+          setPage(1);
+          // 待我审批聚焦 pending；我发起的/全部默认查全部状态
+          setState(next === 'todo' ? 'pending' : '');
+        }}
+        items={[
+          { key: 'todo', label: '待我审批' },
+          { key: 'mine', label: '我发起的' },
+          { key: 'all', label: '全部' },
+        ]}
+      />
       <Space style={{ marginBottom: 16 }} wrap>
         <span>状态:</span>
         <Select
@@ -308,12 +249,14 @@ export default function ApprovalsPage() {
           onChange={(e) => setEnv(e.target.value)}
           style={{ width: 120 }}
         />
-        <Input
-          placeholder="操作者"
-          value={actor}
-          onChange={(e) => setActor(e.target.value)}
-          style={{ width: 160 }}
-        />
+        {viewMode !== 'mine' && (
+          <Input
+            placeholder="申请人"
+            value={actor}
+            onChange={(e) => setActor(e.target.value)}
+            style={{ width: 160 }}
+          />
+        )}
         <Select
           placeholder="风险"
           style={{ width: 140 }}
@@ -326,22 +269,6 @@ export default function ApprovalsPage() {
             { label: '低', value: 'low' },
           ]}
         />
-        <Input
-          placeholder="IP 过滤（仅对已通过/已拒绝有效）"
-          value={ipFilter}
-          onChange={(e) => setIpFilter(e.target.value)}
-          style={{ width: 260 }}
-        />
-        <span>仅显示已处理</span>
-        <Select
-          style={{ width: 120 }}
-          value={completedOnly ? 'yes' : 'no'}
-          onChange={(v) => setCompletedOnly(v === 'yes')}
-          options={[
-            { label: '否', value: 'no' },
-            { label: '是', value: 'yes' },
-          ]}
-        />
         <Button
           onClick={() => {
             setPage(1);
@@ -351,10 +278,9 @@ export default function ApprovalsPage() {
         >
           查询
         </Button>
-        <Button onClick={onExport}>导出 CSV</Button>
       </Space>
       <Table
-        rowKey="ID"
+        rowKey="id"
         loading={loading}
         dataSource={filtered}
         pagination={{
@@ -367,11 +293,11 @@ export default function ApprovalsPage() {
           },
         }}
         columns={[
-          { title: '创建时间', dataIndex: 'CreatedAt' },
-          { title: '操作者', dataIndex: 'Actor' },
+          { title: '创建时间', dataIndex: 'createdAt' },
+          { title: '申请人', dataIndex: 'actor' },
           {
             title: '函数',
-            dataIndex: 'FunctionID',
+            dataIndex: 'functionId',
             render: (v) => {
               const d = descMap[v];
               const risk = (d?.risk || '').toString().toLowerCase();
@@ -396,63 +322,47 @@ export default function ApprovalsPage() {
               );
             },
           },
-          {
-            title: '风险',
-            render: (_, r) => {
-              const d = descMap[r.FunctionID || ''];
-              const risk = (d?.risk || '').toString().toLowerCase();
-              if (!risk) return '-';
-              const map: Record<string, { c: string; t: string }> = {
-                high: { c: 'red', t: '高' },
-                medium: { c: 'gold', t: '中' },
-                low: { c: 'default', t: '低' },
-              };
-              const v = map[risk] || { c: 'default', t: risk };
-              return <Tag color={v.c}>{v.t}</Tag>;
-            },
-          },
-          { title: '游戏/环境', render: (_, r) => `${r.GameID || ''}/${r.Env || ''}` },
+          { title: '游戏/环境', render: (_, r) => `${r.gameId || ''}/${r.env || ''}` },
           {
             title: '状态',
-            dataIndex: 'State',
-            render: (v) => (
-              <Tag color={v === 'pending' ? 'gold' : v === 'approved' ? 'green' : 'red'}>
-                {v === 'pending' ? '待审批' : v === 'approved' ? '已通过' : '已拒绝'}
-              </Tag>
-            ),
+            dataIndex: 'state',
+            render: (v) => <Tag color={stateTag(v)}>{stateText(v)}</Tag>,
           },
           {
-            title: 'IP/时间',
-            render: (_: unknown, r: Approval) => {
-              if (r.State === 'approved' && (r.ApproveIP || r.ApproveTime)) {
-                const base = `${r.ApproveIP || ''}${r.ApproveTime ? ' / ' + r.ApproveTime : ''}`;
-                const region = r.ApproveIPRegion || '';
-                return region ? `${base}（${region}）` : base;
-              }
-              if (r.State === 'rejected' && (r.RejectIP || r.RejectTime)) {
-                const base = `${r.RejectIP || ''}${r.RejectTime ? ' / ' + r.RejectTime : ''}`;
-                const region = r.RejectIPRegion || '';
-                return region ? `${base}（${region}）` : base;
-              }
-              return '-';
+            title: '审批信息',
+            render: (_, r) => {
+              if (!r.approver) return '-';
+              return (
+                <Space size={4}>
+                  <span>
+                    {r.approver}
+                    {r.reviewedAt ? ` / ${r.reviewedAt}` : ''}
+                  </span>
+                  {r.reviewedByOther && (
+                    <Tag color="green" style={{ marginInlineEnd: 0 }}>
+                      两人复核
+                    </Tag>
+                  )}
+                </Space>
+              );
             },
           },
-          { title: '模式', dataIndex: 'Mode' },
-          { title: '路由', dataIndex: 'Route' },
+          { title: '模式', dataIndex: 'mode' },
           {
             title: '操作',
             render: (_, r) => (
               <Space>
-                <Button size="small" onClick={() => view(r.ID || r.id)}>
+                <Button size="small" onClick={() => view(r.id)}>
                   查看
                 </Button>
-                {r.State === 'pending' && (
-                  <Button size="small" type="primary" onClick={() => approve(r.ID || r.id)}>
+                {/* 我发起的视图只读：两人规则下申请人无权审批自己的申请 */}
+                {viewMode !== 'mine' && r.state === 'pending' && (
+                  <Button size="small" type="primary" onClick={() => approve(r.id)}>
                     通过
                   </Button>
                 )}
-                {r.State === 'pending' && (
-                  <Button size="small" danger onClick={() => reject(r.ID || r.id)}>
+                {viewMode !== 'mine' && r.state === 'pending' && (
+                  <Button size="small" danger onClick={() => reject(r.id)}>
                     拒绝
                   </Button>
                 )}
@@ -462,35 +372,33 @@ export default function ApprovalsPage() {
         ]}
       />
       <Drawer
-        title={`审批详情 ${current?.id || current?.ID || ''}`}
+        title={`审批详情 ${current?.id || ''}`}
         width={720}
         open={open}
         onClose={() => setOpen(false)}
       >
         {current && (
           <>
-            <Space style={{ marginBottom: 12 }}>
-              {(current.actor || current.Actor) && (
+            <Space style={{ marginBottom: 12 }} wrap>
+              {current.actor && (
                 <Button
                   size="small"
                   onClick={() =>
                     window.open(
-                      `/ops/audit?actor=${encodeURIComponent(current.actor || current.Actor || '')}`,
+                      `/ops/audit?actor=${encodeURIComponent(current.actor || '')}`,
                       '_blank',
                     )
                   }
                 >
-                  查看审计（操作者）
+                  查看审计（申请人）
                 </Button>
               )}
-              {(current.state === 'approved' || current.State === 'approved') && (
+              {current.state === 'approved' && (
                 <Button
                   size="small"
                   onClick={() =>
                     window.open(
-                      `/ops/audit?actor=${encodeURIComponent(
-                        current.actor || current.Actor || '',
-                      )}&kind=approval_approve`,
+                      `/ops/audit?actor=${encodeURIComponent(current.approver || current.actor || '')}&kind=approval_approve`,
                       '_blank',
                     )
                   }
@@ -498,14 +406,12 @@ export default function ApprovalsPage() {
                   查看审计（批准）
                 </Button>
               )}
-              {(current.state === 'rejected' || current.State === 'rejected') && (
+              {current.state === 'rejected' && (
                 <Button
                   size="small"
                   onClick={() =>
                     window.open(
-                      `/ops/audit?actor=${encodeURIComponent(
-                        current.actor || current.Actor || '',
-                      )}&kind=approval_reject`,
+                      `/ops/audit?actor=${encodeURIComponent(current.approver || current.actor || '')}&kind=approval_reject`,
                       '_blank',
                     )
                   }
@@ -516,59 +422,53 @@ export default function ApprovalsPage() {
               <Button size="small" onClick={exportDetailJSON}>
                 导出 JSON
               </Button>
-              <Button size="small" onClick={exportPreviewText}>
+              <Button
+                size="small"
+                onClick={() => {
+                  const blob = new Blob([preview || ''], { type: 'text/plain;charset=utf-8;' });
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement('a');
+                  a.href = url;
+                  a.download = `approval_preview_${current.id || ''}.txt`;
+                  a.click();
+                  URL.revokeObjectURL(url);
+                }}
+              >
                 导出预览文本
               </Button>
             </Space>
             <Descriptions size="small" column={1} bordered>
-              <Descriptions.Item label="操作者">{current.actor || current.Actor}</Descriptions.Item>
-              <Descriptions.Item label="函数">
-                {current.functionId || current.FunctionID}
-              </Descriptions.Item>
+              <Descriptions.Item label="申请人">{current.actor}</Descriptions.Item>
+              <Descriptions.Item label="函数">{current.functionId}</Descriptions.Item>
               <Descriptions.Item label="游戏/环境">
-                {current.gameId || current.GameID || ''}/{current.env || current.Env || ''}
+                {current.gameId || ''}/{current.env || ''}
               </Descriptions.Item>
               <Descriptions.Item label="状态">
-                {(current.state || current.State) as string}
+                <Tag color={stateTag(current.state)}>{stateText(current.state)}</Tag>
               </Descriptions.Item>
-              <Descriptions.Item label="模式">{current.mode || current.Mode}</Descriptions.Item>
-              <Descriptions.Item label="创建时间">
-                {current.createdAt || current.CreatedAt}
-              </Descriptions.Item>
-              <Descriptions.Item label="幂等键">
-                {current.idempotencyKey || current.IdempotencyKey}
-              </Descriptions.Item>
-              <Descriptions.Item label="路由">{current.route || current.Route}</Descriptions.Item>
-              <Descriptions.Item label="目标服务">
-                {current.targetServiceId || current.TargetServiceID}
-              </Descriptions.Item>
-              <Descriptions.Item label="Hash Key">
-                {current.hashKey || current.HashKey}
-              </Descriptions.Item>
+              <Descriptions.Item label="模式">{current.mode}</Descriptions.Item>
+              <Descriptions.Item label="创建时间">{current.createdAt}</Descriptions.Item>
+              {current.approver && (
+                <Descriptions.Item label="审批人">
+                  <Space size={4}>
+                    <span>
+                      {current.approver}
+                      {current.reviewedAt ? ` / ${current.reviewedAt}` : ''}
+                    </span>
+                    {current.reviewedByOther && (
+                      <Tag color="green" style={{ marginInlineEnd: 0 }}>
+                        两人复核
+                      </Tag>
+                    )}
+                  </Space>
+                </Descriptions.Item>
+              )}
+              <Descriptions.Item label="幂等键">{current.idempotencyKey}</Descriptions.Item>
+              <Descriptions.Item label="路由">{current.route}</Descriptions.Item>
+              <Descriptions.Item label="目标服务">{current.targetServiceId}</Descriptions.Item>
+              <Descriptions.Item label="Hash Key">{current.hashKey}</Descriptions.Item>
               {current.reason && (
                 <Descriptions.Item label="原因">{current.reason}</Descriptions.Item>
-              )}
-              {(current.ApproveIP || current.ApproveTime) && (
-                <Descriptions.Item label="批准IP/时间">
-                  {(() => {
-                    const base =
-                      (current.ApproveIP || '') +
-                      (current.ApproveTime ? ' / ' + current.ApproveTime : '');
-                    const region = current.ApproveIPRegion || '';
-                    return region ? `${base}（${region}）` : base;
-                  })()}
-                </Descriptions.Item>
-              )}
-              {(current.RejectIP || current.RejectTime) && (
-                <Descriptions.Item label="拒绝IP/时间">
-                  {(() => {
-                    const base =
-                      (current.RejectIP || '') +
-                      (current.RejectTime ? ' / ' + current.RejectTime : '');
-                    const region = current.RejectIPRegion || '';
-                    return region ? `${base}（${region}）` : base;
-                  })()}
-                </Descriptions.Item>
               )}
             </Descriptions>
             <h4 style={{ marginTop: 16 }}>载荷预览</h4>
