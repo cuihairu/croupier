@@ -8,8 +8,10 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/cuihairu/croupier/internal/api/function"
+	"github.com/cuihairu/croupier/internal/audit"
 	"github.com/cuihairu/croupier/internal/common/errorx"
 	extensioninstallation "github.com/cuihairu/croupier/internal/core/extension/installation"
 	"github.com/cuihairu/croupier/internal/dashboard/freshness"
@@ -112,6 +114,47 @@ func currentApprovalActor(ctx context.Context) string {
 	return strings.TrimSpace(username)
 }
 
+// rejectSelfApproval 落实两人规则：申请人不能审批自己的申请。
+// approval.allowSelfApprove=true 时放开（单管理员部署的显式选择）；
+// 拦截与放行均写哈希链审计 approval.self_approval_blocked 供追溯。
+func (s *Service) rejectSelfApproval(ctx context.Context, operator string, record *approvals.Approval, action string) error {
+	if s == nil || record == nil {
+		return nil
+	}
+	if !strings.EqualFold(operator, strings.TrimSpace(record.Actor)) {
+		return nil
+	}
+	outcome := "blocked"
+	if s.svcCtx.Config.Approval.AllowSelfApprove {
+		outcome = "allowed_by_config"
+	}
+	s.logSelfApprovalAudit(ctx, operator, record, action, outcome)
+	if outcome != "blocked" {
+		return nil
+	}
+	return errorx.NewForbidden("申请人不能审批自己的申请 (self_approval_forbidden)")
+}
+
+func (s *Service) logSelfApprovalAudit(ctx context.Context, operator string, record *approvals.Approval, action, outcome string) {
+	if s.svcCtx == nil || s.svcCtx.AuditService == nil {
+		return
+	}
+	_, _ = s.svcCtx.AuditService.Log(ctx, audit.AuditEventType("approval.self_approval_blocked"),
+		audit.WithActorID(operator, "admin", operator),
+		audit.WithResourceID("approval", record.ID),
+		audit.WithDetails(map[string]interface{}{
+			"approvalId": record.ID,
+			"functionId": record.FunctionID,
+			"actor":      record.Actor,
+			"operator":   operator,
+			"action":     action,
+			"outcome":    outcome,
+			"gameId":     record.GameID,
+			"env":        record.Env,
+		}),
+	)
+}
+
 // Get retrieves details of a specific approval
 func (s *Service) Get(ctx context.Context, req *ApprovalGetRequest) (*ApprovalGetResponse, error) {
 	if req == nil || strings.TrimSpace(req.ID) == "" {
@@ -167,8 +210,15 @@ func (s *Service) Approve(ctx context.Context, req *ApprovalApproveRequest) (*Ap
 	if err := requireApprovalScope(scope, existing.GameID, existing.Env); err != nil {
 		return nil, err
 	}
+	operator := currentApprovalActor(ctx)
+	if operator == "" {
+		return nil, errorx.NewUnauthorized("审批操作需要登录态")
+	}
+	if err := s.rejectSelfApproval(ctx, operator, existing, "approve"); err != nil {
+		return nil, err
+	}
 
-	record, err := s.svcCtx.ApprovalsStore.Approve(strings.TrimSpace(req.ID))
+	record, err := s.svcCtx.ApprovalsStore.Approve(strings.TrimSpace(req.ID), operator)
 	if err != nil {
 		return nil, err
 	}
@@ -224,8 +274,15 @@ func (s *Service) Reject(ctx context.Context, req *ApprovalRejectRequest) (*Appr
 	if err := requireApprovalScope(scope, existing.GameID, existing.Env); err != nil {
 		return nil, err
 	}
+	operator := currentApprovalActor(ctx)
+	if operator == "" {
+		return nil, errorx.NewUnauthorized("审批操作需要登录态")
+	}
+	if err := s.rejectSelfApproval(ctx, operator, existing, "reject"); err != nil {
+		return nil, err
+	}
 
-	record, err := s.svcCtx.ApprovalsStore.Reject(strings.TrimSpace(req.ID), strings.TrimSpace(req.Reason))
+	record, err := s.svcCtx.ApprovalsStore.Reject(strings.TrimSpace(req.ID), strings.TrimSpace(req.Reason), operator)
 	if err != nil {
 		return nil, err
 	}
@@ -279,6 +336,7 @@ func buildApprovalSummary(a *approvals.Approval) ApprovalSummary {
 	if a == nil {
 		return ApprovalSummary{}
 	}
+	approver := strings.TrimSpace(a.Approver)
 	return ApprovalSummary{
 		ID:              a.ID,
 		CreatedAt:       utils.FormatTimestamp(a.CreatedAt),
@@ -298,7 +356,17 @@ func buildApprovalSummary(a *approvals.Approval) ApprovalSummary {
 		ResultKind:      a.ResultKind,
 		TaskID:          a.TaskID,
 		Result:          string(a.Result),
+		Approver:        approver,
+		ReviewedAt:      formatReviewedAt(a.ReviewedAt),
+		ReviewedByOther: approver != "" && !strings.EqualFold(approver, strings.TrimSpace(a.Actor)),
 	}
+}
+
+func formatReviewedAt(t *time.Time) string {
+	if t == nil || t.IsZero() {
+		return ""
+	}
+	return utils.FormatTimestamp(*t)
 }
 
 func buildApprovalDetail(a *approvals.Approval) Approval {
@@ -323,6 +391,9 @@ func buildApprovalDetail(a *approvals.Approval) Approval {
 		ResultKind:      summary.ResultKind,
 		TaskID:          summary.TaskID,
 		Result:          summary.Result,
+		Approver:        summary.Approver,
+		ReviewedAt:      summary.ReviewedAt,
+		ReviewedByOther: summary.ReviewedByOther,
 		Payload:         payload,
 		PayloadPreview:  preview,
 	}

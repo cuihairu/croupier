@@ -447,7 +447,7 @@ func TestService_ApproveRejectStoreOperationError(t *testing.T) {
 	record := &approvals.Approval{ID: "ap-flaky", State: "pending", Actor: "tester"}
 	s := NewService(&svc.ServiceContext{ApprovalsStore: &stubStore{record: record}})
 
-	_, err := s.Approve(context.Background(), &ApprovalApproveRequest{ID: "ap-flaky"})
+	_, err := s.Approve(context.WithValue(context.Background(), "username", "admin"), &ApprovalApproveRequest{ID: "ap-flaky"})
 	require.Error(t, err)
 
 	_, err = s.Reject(context.Background(), &ApprovalRejectRequest{ID: "ap-flaky", Reason: "no"})
@@ -461,7 +461,7 @@ func TestApprove_FreshPageSnapshotContinuationFailureRecordsReason(t *testing.T)
 		seedPageFunctionContract(t, db)
 	})
 	s := NewService(env.svcCtx)
-	ctx := context.Background()
+	ctx := context.WithValue(context.Background(), "username", "approver-1")
 	_, err := env.svcCtx.ApprovalsStore.Create(pageGovernedRecord())
 	require.NoError(t, err)
 

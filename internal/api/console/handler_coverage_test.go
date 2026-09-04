@@ -398,10 +398,10 @@ func (failingApprovalStore) List(approvals.Filter, approvals.Page) ([]*approvals
 	return nil, 0, nil
 }
 func (failingApprovalStore) Get(string) (*approvals.Approval, error) { return nil, nil }
-func (failingApprovalStore) Approve(string) (*approvals.Approval, error) {
+func (failingApprovalStore) Approve(string, string) (*approvals.Approval, error) {
 	return nil, nil
 }
-func (failingApprovalStore) Reject(string, string) (*approvals.Approval, error) {
+func (failingApprovalStore) Reject(string, string, string) (*approvals.Approval, error) {
 	return nil, nil
 }
 func (failingApprovalStore) Create(*approvals.Approval) (*approvals.Approval, error) {

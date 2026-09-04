@@ -20,6 +20,10 @@ type Approval struct {
 	GameID     string
 	Env        string
 	Actor      string
+	// Approver 是批准/拒绝该申请的操作人（"system" 表示超时/取消等系统动作）；
+	// 大多数调用无需审批，仅有审批记录的执行才携带审批人与审批时间。
+	Approver   string
+	ReviewedAt *time.Time
 	Mode       string
 	// Optional fields used by HTTP views
 	IdempotencyKey  string
@@ -54,8 +58,8 @@ type Page struct {
 type Store interface {
 	List(f Filter, p Page) ([]*Approval, int, error)
 	Get(id string) (*Approval, error)
-	Approve(id string) (*Approval, error)
-	Reject(id, reason string) (*Approval, error)
+	Approve(id, operator string) (*Approval, error)
+	Reject(id, reason, operator string) (*Approval, error)
 	Create(approval *Approval) (*Approval, error)
 	Update(approval *Approval) (*Approval, error)
 }
@@ -122,7 +126,7 @@ func (s *MemStore) Get(id string) (*Approval, error) {
 	return nil, errors.New("not found")
 }
 
-func (s *MemStore) Approve(id string) (*Approval, error) {
+func (s *MemStore) Approve(id, operator string) (*Approval, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	a := s.data[id]
@@ -130,11 +134,14 @@ func (s *MemStore) Approve(id string) (*Approval, error) {
 		return nil, errors.New("not found")
 	}
 	a.State = "approved"
-	a.UpdatedAt = time.Now()
+	a.Approver = strings.TrimSpace(operator)
+	now := time.Now()
+	a.ReviewedAt = &now
+	a.UpdatedAt = now
 	return a, nil
 }
 
-func (s *MemStore) Reject(id, reason string) (*Approval, error) {
+func (s *MemStore) Reject(id, reason, operator string) (*Approval, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	a := s.data[id]
@@ -143,7 +150,10 @@ func (s *MemStore) Reject(id, reason string) (*Approval, error) {
 	}
 	a.State = "rejected"
 	a.Reason = reason
-	a.UpdatedAt = time.Now()
+	a.Approver = strings.TrimSpace(operator)
+	now := time.Now()
+	a.ReviewedAt = &now
+	a.UpdatedAt = now
 	return a, nil
 }
 

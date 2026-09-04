@@ -22,6 +22,11 @@ type ApprovalSummary struct {
 	ResultKind      string `json:"resultKind,omitempty"`
 	TaskID          string `json:"taskId,omitempty"`
 	Result          string `json:"result,omitempty"`
+	// Approver 是批准/拒绝人（"system" 表示超时等系统动作）；
+	// ReviewedByOther = 已审批且审批人 ≠ 申请人（两人规则达成）。
+	Approver        string `json:"approver,omitempty"`
+	ReviewedAt      string `json:"reviewedAt,omitempty"`
+	ReviewedByOther bool   `json:"reviewedByOther"`
 }
 
 // ApprovalDetail represents an approval detail
@@ -80,6 +85,9 @@ type Approval struct {
 	ResultKind      string                 `json:"resultKind,omitempty"`
 	TaskID          string                 `json:"taskId,omitempty"`
 	Result          string                 `json:"result,omitempty"`
+	Approver        string                 `json:"approver,omitempty"`
+	ReviewedAt      string                 `json:"reviewedAt,omitempty"`
+	ReviewedByOther bool                   `json:"reviewedByOther"`
 	Payload         map[string]interface{} `json:"payload,omitempty"`
 	PayloadPreview  string                 `json:"payloadPreview,omitempty"`
 }

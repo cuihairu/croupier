@@ -66,10 +66,10 @@ func (failingApprovalsStoreV9) List(approvals.Filter, approvals.Page) ([]*approv
 func (failingApprovalsStoreV9) Get(string) (*approvals.Approval, error) {
 	return nil, errors.New("approvals boom")
 }
-func (failingApprovalsStoreV9) Approve(string) (*approvals.Approval, error) {
+func (failingApprovalsStoreV9) Approve(string, string) (*approvals.Approval, error) {
 	return nil, errors.New("approvals boom")
 }
-func (failingApprovalsStoreV9) Reject(string, string) (*approvals.Approval, error) {
+func (failingApprovalsStoreV9) Reject(string, string, string) (*approvals.Approval, error) {
 	return nil, errors.New("approvals boom")
 }
 func (failingApprovalsStoreV9) Create(*approvals.Approval) (*approvals.Approval, error) {

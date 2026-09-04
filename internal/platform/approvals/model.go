@@ -16,6 +16,8 @@ type ApprovalModel struct {
 	GameID          string         `gorm:"type:varchar(255);not null;index" json:"gameId"`
 	Env             string         `gorm:"type:varchar(100);not null;index" json:"env"`
 	Actor           string         `gorm:"type:varchar(255);not null;index" json:"actor"`
+	Approver        string         `gorm:"type:varchar(255);index" json:"approver"`
+	ReviewedAt      *time.Time     `json:"reviewedAt"`
 	Mode            string         `gorm:"type:varchar(50);default:invoke" json:"mode"`
 	IdempotencyKey  string         `gorm:"type:varchar(255);index" json:"idempotencyKey"`
 	Route           string         `gorm:"type:varchar(500)" json:"route"`
@@ -49,6 +51,8 @@ func (a *ApprovalModel) ToApproval() *Approval {
 		GameID:          a.GameID,
 		Env:             a.Env,
 		Actor:           a.Actor,
+		Approver:        a.Approver,
+		ReviewedAt:      a.ReviewedAt,
 		Mode:            a.Mode,
 		IdempotencyKey:  a.IdempotencyKey,
 		Route:           a.Route,
@@ -78,6 +82,8 @@ func FromApproval(a *Approval) *ApprovalModel {
 		GameID:          a.GameID,
 		Env:             a.Env,
 		Actor:           a.Actor,
+		Approver:        a.Approver,
+		ReviewedAt:      a.ReviewedAt,
 		Mode:            a.Mode,
 		IdempotencyKey:  a.IdempotencyKey,
 		Route:           a.Route,

@@ -48,7 +48,7 @@ func TestMemStore(t *testing.T) {
 		created, err := store.Create(approval)
 		require.NoError(t, err)
 
-		approved, err := store.Approve(created.ID)
+		approved, err := store.Approve(created.ID, "tester")
 		require.NoError(t, err)
 		assert.Equal(t, "approved", approved.State)
 	})
@@ -66,7 +66,7 @@ func TestMemStore(t *testing.T) {
 		created, err := store.Create(approval)
 		require.NoError(t, err)
 
-		rejected, err := store.Reject(created.ID, "Test rejection")
+		rejected, err := store.Reject(created.ID, "Test rejection", "tester")
 		require.NoError(t, err)
 		assert.Equal(t, "rejected", rejected.State)
 		assert.Equal(t, "Test rejection", rejected.Reason)

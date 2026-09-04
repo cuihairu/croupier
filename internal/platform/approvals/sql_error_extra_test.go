@@ -66,13 +66,13 @@ func TestSQLStore_DatabaseErrors(t *testing.T) {
 	})
 	t.Run("approve", func(t *testing.T) {
 		store, _ := brokenStore(t)
-		_, err := store.Approve("id")
+		_, err := store.Approve("id", "tester")
 		require.Error(t, err)
 	})
 
 	t.Run("reject", func(t *testing.T) {
 		store, _ := brokenStore(t)
-		_, err := store.Reject("id", "reason")
+		_, err := store.Reject("id", "reason", "tester")
 		require.Error(t, err)
 	})
 
@@ -101,7 +101,7 @@ func TestSQLStore_SaveErrorOnApproveAndReject(t *testing.T) {
 	// Save() fails.
 	require.NoError(t, db.Migrator().DropTable("approvals"))
 
-	_, err = store.Approve(created.ID)
+	_, err = store.Approve(created.ID, "tester")
 	require.Error(t, err)
 }
 

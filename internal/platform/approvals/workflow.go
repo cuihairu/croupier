@@ -409,7 +409,7 @@ func (e *WorkflowEngine) ApproveStep(ctx context.Context, instanceID, approver, 
 			instance.ExpiresAt = nil
 
 			// Approve the original approval record
-			if _, err := e.approvalStore.Approve(instance.ApprovalID); err != nil {
+			if _, err := e.approvalStore.Approve(instance.ApprovalID, approver); err != nil {
 				// Log error but don't fail
 			}
 
@@ -492,7 +492,7 @@ func (e *WorkflowEngine) RejectStep(ctx context.Context, instanceID, approver, r
 	})
 
 	// Reject the original approval record
-	if _, err := e.approvalStore.Reject(instance.ApprovalID, reason); err != nil {
+	if _, err := e.approvalStore.Reject(instance.ApprovalID, reason, approver); err != nil {
 		// Log error but don't fail
 	}
 
@@ -534,7 +534,7 @@ func (e *WorkflowEngine) CancelWorkflow(ctx context.Context, instanceID, actor, 
 	})
 
 	// Reject the original approval record
-	if _, err := e.approvalStore.Reject(instance.ApprovalID, "Cancelled: "+reason); err != nil {
+	if _, err := e.approvalStore.Reject(instance.ApprovalID, "Cancelled: "+reason, actor); err != nil {
 		// Log error but don't fail
 	}
 
@@ -598,7 +598,7 @@ func (e *WorkflowEngine) timeoutApprove(ctx context.Context, instance *WorkflowI
 		Details:   "Auto-approved due to timeout",
 	})
 
-	if _, err := e.approvalStore.Approve(instance.ApprovalID); err != nil {
+	if _, err := e.approvalStore.Approve(instance.ApprovalID, "system"); err != nil {
 		// Log error
 	}
 
@@ -618,7 +618,7 @@ func (e *WorkflowEngine) timeoutReject(ctx context.Context, instance *WorkflowIn
 		Details:   "Rejected due to timeout",
 	})
 
-	if _, err := e.approvalStore.Reject(instance.ApprovalID, "Expired due to timeout"); err != nil {
+	if _, err := e.approvalStore.Reject(instance.ApprovalID, "Expired due to timeout", "system"); err != nil {
 		// Log error
 	}
 

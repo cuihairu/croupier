@@ -122,11 +122,11 @@ func (s *errorApprovalsStore) Update(a *approvals.Approval) (*approvals.Approval
 	return nil, assert.AnError
 }
 
-func (s *errorApprovalsStore) Approve(id string) (*approvals.Approval, error) {
+func (s *errorApprovalsStore) Approve(id, operator string) (*approvals.Approval, error) {
 	return nil, assert.AnError
 }
 
-func (s *errorApprovalsStore) Reject(id, reason string) (*approvals.Approval, error) {
+func (s *errorApprovalsStore) Reject(id, reason, operator string) (*approvals.Approval, error) {
 	return nil, assert.AnError
 }
 

@@ -141,7 +141,7 @@ func TestMemStore_Create_DuplicateID(t *testing.T) {
 
 func TestMemStore_Approve_NotFound(t *testing.T) {
 	s := NewMemStore()
-	_, err := s.Approve("missing")
+	_, err := s.Approve("missing", "tester")
 	if err == nil {
 		t.Error("expected error")
 	}
@@ -149,7 +149,7 @@ func TestMemStore_Approve_NotFound(t *testing.T) {
 
 func TestMemStore_Reject_NotFound(t *testing.T) {
 	s := NewMemStore()
-	_, err := s.Reject("missing", "reason")
+	_, err := s.Reject("missing", "reason", "tester")
 	if err == nil {
 		t.Error("expected error")
 	}

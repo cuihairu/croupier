@@ -235,7 +235,7 @@ func TestApproveSyncsApprovalToExtensionConfig(t *testing.T) {
 			Installation: installationSvc,
 		},
 	})
-	if _, err := s.Approve(context.Background(), &ApprovalApproveRequest{ID: "ap-sync-1"}); err != nil {
+	if _, err := s.Approve(context.WithValue(context.Background(), "username", "admin"), &ApprovalApproveRequest{ID: "ap-sync-1"}); err != nil {
 		t.Fatalf("Approve() error = %v", err)
 	}
 
@@ -345,7 +345,7 @@ func TestApproveRejectsPageContinuationWhenPublishedBindingStale(t *testing.T) {
 		},
 	})
 
-	_, err = NewService(svcCtx).Approve(context.Background(), &ApprovalApproveRequest{ID: "page-player-ban-1"})
+	_, err = NewService(svcCtx).Approve(context.WithValue(context.Background(), "username", "admin"), &ApprovalApproveRequest{ID: "page-player-ban-1"})
 
 	if err == nil {
 		t.Fatal("expected stale published binding to block approval continuation")

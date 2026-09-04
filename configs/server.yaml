@@ -52,6 +52,11 @@ agentDispatch:
     serverName: ""
     insecureSkipVerify: false
 
+# 审批流：allowSelfApprove 放开「申请人不能审批自己」两人规则（默认 false，
+# 仅建议单管理员部署显式打开）
+approval:
+  allowSelfApprove: false
+
 auth:
   jwtSecret: "localdevsecret-change-me"
   rbacConfig: "configs/rbac.json"

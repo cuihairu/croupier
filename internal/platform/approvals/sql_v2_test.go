@@ -78,7 +78,7 @@ func TestSQLStore_Approve(t *testing.T) {
 	require.NoError(t, err)
 
 	_, _ = store.Create(&Approval{ID: "a1", State: "pending"})
-	got, err := store.Approve("a1")
+	got, err := store.Approve("a1", "tester")
 	require.NoError(t, err)
 	assert.Equal(t, "approved", got.State)
 }
@@ -87,7 +87,7 @@ func TestSQLStore_Approve_NotFound(t *testing.T) {
 	db := openTestDB(t)
 	store, err := NewSQLStore(db)
 	require.NoError(t, err)
-	_, err = store.Approve("missing")
+	_, err = store.Approve("missing", "tester")
 	assert.Error(t, err)
 }
 
@@ -97,7 +97,7 @@ func TestSQLStore_Reject(t *testing.T) {
 	require.NoError(t, err)
 
 	_, _ = store.Create(&Approval{ID: "a1", State: "pending"})
-	got, err := store.Reject("a1", "reason")
+	got, err := store.Reject("a1", "reason", "tester")
 	require.NoError(t, err)
 	assert.Equal(t, "rejected", got.State)
 	assert.Equal(t, "reason", got.Reason)
@@ -107,7 +107,7 @@ func TestSQLStore_Reject_NotFound(t *testing.T) {
 	db := openTestDB(t)
 	store, err := NewSQLStore(db)
 	require.NoError(t, err)
-	_, err = store.Reject("missing", "r")
+	_, err = store.Reject("missing", "r", "tester")
 	assert.Error(t, err)
 }
 

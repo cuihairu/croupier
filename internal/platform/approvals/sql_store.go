@@ -3,6 +3,7 @@ package approvals
 import (
 	"errors"
 	"strings"
+	"time"
 
 	"gorm.io/gorm"
 )
@@ -75,7 +76,7 @@ func (s *SQLStore) Get(id string) (*Approval, error) {
 }
 
 // Approve updates an approval state to approved
-func (s *SQLStore) Approve(id string) (*Approval, error) {
+func (s *SQLStore) Approve(id, operator string) (*Approval, error) {
 	var model ApprovalModel
 	if err := s.db.Where("id = ?", id).First(&model).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -86,6 +87,9 @@ func (s *SQLStore) Approve(id string) (*Approval, error) {
 
 	// Update state
 	model.State = "approved"
+	model.Approver = strings.TrimSpace(operator)
+	now := time.Now()
+	model.ReviewedAt = &now
 	if err := s.db.Save(&model).Error; err != nil {
 		return nil, err
 	}
@@ -94,7 +98,7 @@ func (s *SQLStore) Approve(id string) (*Approval, error) {
 }
 
 // Reject updates an approval state to rejected with reason
-func (s *SQLStore) Reject(id, reason string) (*Approval, error) {
+func (s *SQLStore) Reject(id, reason, operator string) (*Approval, error) {
 	var model ApprovalModel
 	if err := s.db.Where("id = ?", id).First(&model).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -106,6 +110,9 @@ func (s *SQLStore) Reject(id, reason string) (*Approval, error) {
 	// Update state and reason
 	model.State = "rejected"
 	model.Reason = reason
+	model.Approver = strings.TrimSpace(operator)
+	now := time.Now()
+	model.ReviewedAt = &now
 	if err := s.db.Save(&model).Error; err != nil {
 		return nil, err
 	}

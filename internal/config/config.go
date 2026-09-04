@@ -16,6 +16,7 @@ type Config struct {
 	Cluster       ClusterConfig            `json:"cluster" yaml:"cluster"`
 	AgentDispatch AgentDispatchConfig      `json:"agentDispatch" yaml:"agentDispatch"`
 	Auth          AuthConfig               `json:"auth" yaml:"auth"`
+	Approval      ApprovalConfig           `json:"approval" yaml:"approval"`
 	BootstrapData BootstrapDataConfig      `json:"bootstrapData" yaml:"bootstrapData"`
 	Descriptors   DescriptorConfig         `json:"descriptors" yaml:"descriptors"`
 	Schemas       SchemasConfig            `json:"schemas" yaml:"schemas"`
@@ -593,6 +594,13 @@ func (c *ReconnectionConfig) UnmarshalYAML(value *yaml.Node) error {
 	}
 	*c = ReconnectionConfig(decoded)
 	return nil
+}
+
+// ApprovalConfig 审批流行为配置。
+type ApprovalConfig struct {
+	// AllowSelfApprove 放开「申请人不能审批自己的申请」两人规则。
+	// 默认 false；仅建议单管理员部署显式打开。
+	AllowSelfApprove bool `json:"allowSelfApprove,omitempty" yaml:"allowSelfApprove,omitempty"`
 }
 
 type AuthConfig struct {

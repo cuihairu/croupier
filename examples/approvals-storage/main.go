@@ -168,7 +168,7 @@ func demonstrateStore(store approvals.Store) {
 	// 6. 审批操作
 	fmt.Printf("\n6. 执行审批操作\n")
 	fmt.Printf("   批准审批: %s\n", approval.ID)
-	approved, err := store.Approve(approval.ID)
+	approved, err := store.Approve(approval.ID, "demo-admin")
 	if err != nil {
 		log.Fatalf("批准失败: %v", err)
 	}
@@ -177,7 +177,7 @@ func demonstrateStore(store approvals.Store) {
 
 	// 拒绝另一个审批
 	fmt.Printf("\n   拒绝审批: %s\n", testApprovals[0].ID)
-	rejectedApproval, err := store.Reject(testApprovals[0].ID, "缺少必要信息")
+	rejectedApproval, err := store.Reject(testApprovals[0].ID, "缺少必要信息", "demo-admin")
 	if err != nil {
 		log.Fatalf("拒绝失败: %v", err)
 	}

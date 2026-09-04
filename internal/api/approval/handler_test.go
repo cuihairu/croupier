@@ -182,7 +182,10 @@ func TestHandler_Reject_Success(t *testing.T) {
 	handler := NewHandler(service)
 
 	router := gin.New()
-	router.POST("/approvals/:id/reject", handler.Reject)
+	router.POST("/approvals/:id/reject", func(c *gin.Context) {
+		c.Request = c.Request.WithContext(context.WithValue(c.Request.Context(), "username", "admin"))
+		handler.Reject(c)
+	})
 
 	reqBody := `{"reason":"test reason"}`
 	req := httptest.NewRequest("POST", "/approvals/test-reject-1/reject", bytes.NewBufferString(reqBody))
