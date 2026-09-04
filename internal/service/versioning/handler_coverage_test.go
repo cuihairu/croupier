@@ -637,11 +637,17 @@ func TestRegenerateProposal_StandaloneMismatchedPageKey(t *testing.T) {
 		}},
 	}))
 
-	_, err := service.RegenerateProposal(ctx, &RegenerateProposalRequest{
+	// 新语义：重新生成以当前页面为身份，派生 key 漂移不再 409 卡死页面；
+	// 内容刷新到 operation--weird-name。
+	resp, err := service.RegenerateProposal(ctx, &RegenerateProposalRequest{
 		GameID: "demo-game", Env: "development", PageKey: "operation--weird-name",
 	})
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "pageKey does not match")
+	require.NoError(t, err)
+	assert.Contains(t, resp.Message, "operation--weird-name")
+
+	page, err := model.NewPageSpecModel(db).FindByScopeAndPageKey(ctx, "demo-game", "development", "operation--weird-name")
+	require.NoError(t, err)
+	assert.Equal(t, "operation--weird-name", page.PageKey)
 }
 
 func TestRegenerateProposal_NoMainContract(t *testing.T) {

@@ -136,3 +136,32 @@ func TestHandler_Delete_InvalidJSON_BadRequest(t *testing.T) {
 	assert.Equal(t, http.StatusBadRequest, rec.Code, rec.Body.String())
 	assertTermsErrorShape(t, rec)
 }
+
+// DB 故障 + 非法 domain：List/Upsert/Delete 的错误分支（此前 85.7%）。
+func TestTerms_ErrorBranches(t *testing.T) {
+	db := newTermsTestDB(t)
+	handler := newTermsHandler(db)
+
+	// 非法 domain → 400（BadRequest）
+	ctx, rec := newTermsRequest(http.MethodPost, "/terms",
+		`{"domain":"nope","alias":"a","content":"c"}`)
+	handler.Upsert(ctx)
+	assert.Equal(t, http.StatusBadRequest, rec.Code, rec.Body.String())
+
+	ctx2, rec2 := newTermsRequest(http.MethodDelete, "/terms",
+		`{"domain":"nope","alias":"a"}`)
+	handler.Delete(ctx2)
+	assert.Equal(t, http.StatusBadRequest, rec2.Code)
+
+	// 删表 → service 错误分支
+	require.NoError(t, db.Migrator().DropTable("term_dictionary"))
+
+	ctx3, rec3 := newTermsRequest(http.MethodGet, "/terms?domain=champion", "")
+	handler.List(ctx3)
+	assert.NotEqual(t, http.StatusOK, rec3.Code)
+
+	ctx4, rec4 := newTermsRequest(http.MethodDelete, "/terms",
+		`{"domain":"champion","alias":"a"}`)
+	handler.Delete(ctx4)
+	assert.NotEqual(t, http.StatusOK, rec4.Code)
+}

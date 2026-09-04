@@ -34,6 +34,7 @@ import {
   ReloadOutlined,
   RocketOutlined,
   SearchOutlined,
+  DeleteOutlined,
   SyncOutlined,
 } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
@@ -58,6 +59,7 @@ import {
   rejectProposal,
   republish,
 } from '@/services/dashboard';
+import { deleteVersioningPage } from '@/services/api/versioning';
 import type { ConflictResolution, MergeResponse } from '@/services/api/versioning';
 import { publishPageDraft } from '@/services/api/pages';
 import PageRenderer from '@/components/PageRenderer';
@@ -342,6 +344,24 @@ export default function ProposalInbox({ focusPageKey = '' }: ProposalInboxProps)
       await runContractAction(`regenerate:${record.pageKey}`, async () => {
         const result = await regenerateProposal(record.pageKey);
         Modal.success({ title: '已重新生成 Proposal', content: result.message });
+      });
+    },
+    [runContractAction],
+  );
+
+  const handleDeletePage = useCallback(
+    async (record: ContractChangeInfo) => {
+      Modal.confirm({
+        title: '删除页面',
+        content: `将删除页面 ${record.pageKey} 的草稿、已发布版本与待审提案，且不可恢复。确认删除？`,
+        okType: 'danger',
+        okText: '删除',
+        onOk: async () => {
+          await runContractAction(`delete:${record.pageKey}`, async () => {
+            await deleteVersioningPage(record.pageKey);
+            Modal.success({ title: '页面已删除' });
+          });
+        },
       });
     },
     [runContractAction],
@@ -741,6 +761,14 @@ export default function ProposalInbox({ focusPageKey = '' }: ProposalInboxProps)
                   icon: <SyncOutlined />,
                   label: '自动合并',
                   onClick: () => handleAutoMerge(record),
+                },
+                { type: 'divider' },
+                {
+                  key: 'delete-page',
+                  icon: <DeleteOutlined />,
+                  label: '删除页面',
+                  danger: true,
+                  onClick: () => handleDeletePage(record),
                 },
                 {
                   key: 'manual-merge',

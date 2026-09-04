@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"sort"
 	"strconv"
 	"strings"
@@ -660,7 +661,7 @@ func (s *Service) loadTermDictionary(ctx context.Context) generator.TermDictiona
 	return out
 }
 
-func (s *Service) regenerateStandaloneProposal(ctx context.Context, gameID, env string, pageSpec spec.PageSpec) error {
+func (s *Service) regenerateStandaloneProposal(ctx context.Context, gameID, env string, pageSpec spec.PageSpec, page *model.PageSpec) error {
 	mainContract, err := s.mainContractForStandalonePage(ctx, gameID, env, pageSpec)
 	if err != nil {
 		return err
@@ -674,10 +675,18 @@ func (s *Service) regenerateStandaloneProposal(ctx context.Context, gameID, env 
 		Functions:     functions,
 		Terms:         s.loadTermDictionary(ctx),
 	})
+	// 页面身份以现存 pageKey 为准：生成器派生 key 可能因契约 execution/
+	// resource 语义变化而漂移，此时内容仍刷新到当前页面（重新生成 =
+	// 以当前页为身份重写），漂移仅记录诊断，不再 409 卡死页面。
 	if strings.TrimSpace(generated.PageKey) != strings.TrimSpace(pageSpec.PageKey) {
-		return errorx.NewConflict("regenerated proposal pageKey does not match current page")
+		slog.WarnContext(ctx, "regenerated pageKey drifted; keeping current page identity",
+			"current", pageSpec.PageKey, "derived", generated.PageKey)
+		generated.PageKey = pageSpec.PageKey
 	}
-	proposalKey := proposalKeyForPage(pageSpec.Type, strings.TrimSpace(mainContract.FunctionID))
+	proposalKey := strings.TrimSpace(page.BaseProposalKey)
+	if proposalKey == "" {
+		proposalKey = proposalKeyForPage(pageSpec.Type, strings.TrimSpace(mainContract.FunctionID))
+	}
 	if proposalKey == "" {
 		return errorx.NewValidationError("cannot derive proposalKey for page")
 	}
@@ -1747,7 +1756,7 @@ func (s *Service) RegenerateProposal(ctx context.Context, req *RegenerateProposa
 		}, nil
 	}
 
-	if err := s.regenerateStandaloneProposal(ctx, req.GameID, req.Env, pageSpec); err != nil {
+	if err := s.regenerateStandaloneProposal(ctx, req.GameID, req.Env, pageSpec, page); err != nil {
 		return nil, err
 	}
 	return &RegenerateProposalResponse{

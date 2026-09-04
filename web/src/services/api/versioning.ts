@@ -187,6 +187,12 @@ export async function rollbackPublish(
 /**
  * 重新生成 Proposal
  */
+export async function deleteVersioningPage(pageKey: string): Promise<void> {
+  await request(`/api/v1/versioning/pages/${encodeURIComponent(pageKey)}`, {
+    method: 'DELETE',
+  });
+}
+
 export async function regenerateProposal(pageKey: string): Promise<{ message: string }> {
   return request<{ message: string }>(`/api/v1/versioning/pages/${pageKey}/regenerate`, {
     method: 'POST',
