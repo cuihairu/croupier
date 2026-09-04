@@ -46,6 +46,8 @@ jobs:
             EXTRA="-PforceRelease"
             echo "已配置 Maven Central 凭据，同步发布 Central"
           fi
+          sed -i 's/^    public static final String VERSION = ".*";/    public static final String VERSION = "${{ steps.ver.outputs.version }}";/' \
+            src/main/java/io/github/cuihairu/croupier/sdk/SdkInfo.java
           # shellcheck disable=SC2086
           ./gradlew publish -PoverrideVersion=${{ steps.ver.outputs.version }} $EXTRA
         env:

@@ -45,6 +45,7 @@ jobs:
         run: |
           cd sdks/js
           npm version "${{ steps.ver.outputs.version }}" --no-git-tag-version
+          sed -i 's/^export const SDK_VERSION = ".*";/export const SDK_VERSION = "${{ steps.ver.outputs.version }}";/' src/version.ts
           npm ci || npm install
           npm run build --if-present
           npm publish --access public

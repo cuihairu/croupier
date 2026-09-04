@@ -3,6 +3,10 @@
 #define NOMINMAX
 #endif
 
+#ifndef CROUPIER_SDK_VERSION
+#define CROUPIER_SDK_VERSION "0.1.0"
+#endif
+
 #include "croupier/sdk/croupier_client.h"
 
 #include "croupier/sdk/logger.h"
@@ -775,7 +779,7 @@ public:
         request.set_service_id(config_.service_id);
         request.set_version(config_.service_version);
         request.set_sdk_language("cpp");
-        request.set_sdk_version("1.0.0");
+        request.set_sdk_version(CROUPIER_SDK_VERSION);
         request.set_sdk_name("croupier-cpp-sdk");
         request.set_protocol_version("1.0.0");
         request.set_transport_security_mode(config_.insecure ? "plaintext" : "tls");

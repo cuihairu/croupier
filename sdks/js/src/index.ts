@@ -14,6 +14,7 @@ import { gzipSync } from "node:zlib";
 import { TextDecoder, TextEncoder } from "node:util";
 import * as protobuf from "protobufjs";
 import Ajv, { type ValidateFunction } from "ajv";
+import { SDK_VERSION } from "./version";
 import {
   TCPTransport,
 } from "./tcp_transport";
@@ -1808,7 +1809,7 @@ export class BasicClient implements CroupierClient {
         permission: fn.permission,
       })),
       sdkLanguage: this.config.providerLang || "javascript",
-      sdkVersion: "1.0.0",
+      sdkVersion: SDK_VERSION,
       sdkName: "croupier-js-sdk",
       protocolVersion: "1.0.0",
       transportSecurityMode: this.config.insecure ? "plaintext" : "tls",

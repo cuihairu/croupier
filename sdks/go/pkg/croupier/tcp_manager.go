@@ -7,11 +7,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"runtime/debug"
 	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
 
+	sdkversion "github.com/cuihairu/croupier/sdks/go"
 	agentv1 "github.com/cuihairu/croupier/sdks/go/pkg/pb/croupier/agent/v1"
 	sdkv1 "github.com/cuihairu/croupier/sdks/go/pkg/pb/croupier/sdk/v1"
 	"github.com/santhosh-tekuri/jsonschema/v6"
@@ -20,6 +22,17 @@ import (
 	"github.com/cuihairu/croupier/sdks/go/pkg/croupier/protocol"
 	"github.com/cuihairu/croupier/sdks/go/pkg/croupier/transport"
 )
+
+func sdkVersion() string {
+	if bi, ok := debug.ReadBuildInfo(); ok {
+		for _, dep := range bi.Deps {
+			if dep.Path == "github.com/cuihairu/croupier/sdks/go" && dep.Version != "" {
+				return dep.Version
+			}
+		}
+	}
+	return sdkversion.Version
+}
 
 // TCPManager implements Manager interface using TCP transport
 type TCPManager struct {
@@ -249,7 +262,7 @@ func (m *TCPManager) RegisterWithAgent(ctx context.Context, serviceID, serviceVe
 		Version:     serviceVersion,
 		Functions:   descriptors,
 		SdkLanguage: "go",
-		SdkVersion:  "1.0.0",
+		SdkVersion:  sdkVersion(),
 		SdkName:     "croupier-go-sdk",
 		GameId:      m.config.GameID,
 		Env:         m.config.Env,
@@ -539,7 +552,7 @@ func (m *TCPManager) Reconnect(ctx context.Context) error {
 		Version:     m.serviceVersion,
 		Functions:   m.functions,
 		SdkLanguage: "go",
-		SdkVersion:  "1.0.0",
+		SdkVersion:  sdkVersion(),
 		SdkName:     "croupier-go-sdk",
 		GameId:      m.config.GameID,
 		Env:         m.config.Env,

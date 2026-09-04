@@ -202,10 +202,11 @@ version:
 	@echo ""
 	@echo "SDK Versions:"
 	@echo "  JS:     $$(grep '"version"' sdks/js/package.json | head -1 | sed 's/.*: "\(.*\)".*/\1/')"
-	@echo "  Python: $$(grep 'version=' sdks/python/setup.py | sed 's/.*version="\(.*\)".*/\1/')"
+	@echo "  Python: $$(grep '^version' sdks/python/pyproject.toml | sed 's/.*"\(.*\)".*/\1/')"
 	@echo "  Java:   $$(grep '^version' sdks/java/build.gradle | sed "s/.*'\(.*\)'.*/\1/")"
 	@echo "  C++:    $$(grep -A1 '^project' sdks/cpp/CMakeLists.txt | grep 'VERSION' | awk '{print $$2}')"
 	@echo "  Go:     $$(grep 'const Version' sdks/go/version.go 2>/dev/null | sed 's/.*"\(.*\)".*/\1/' || echo 'N/A')"
+	@echo "  C#:     $$(grep '<Version>' sdks/csharp/src/Croupier.Sdk/Croupier.Sdk.csproj | sed 's/.*<Version>\(.*\)<\/Version>.*/\1/')"
 
 version-sync:
 	@echo "[version] Synchronizing all SDK versions..."

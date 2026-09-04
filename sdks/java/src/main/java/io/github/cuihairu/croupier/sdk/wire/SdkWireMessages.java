@@ -3,6 +3,7 @@ package io.github.cuihairu.croupier.sdk.wire;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 import com.google.protobuf.WireFormat;
+import io.github.cuihairu.croupier.sdk.SdkInfo;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -793,7 +794,7 @@ public final class SdkWireMessages {
 
         public ProviderConnectRequest(String serviceId, String version, String rpcAddr,
                                     java.util.List<ProviderFunctionDescriptor> functions) {
-            this(serviceId, version, rpcAddr, functions, "java", "1.0.0", "croupier-java-sdk", "1.0.0");
+            this(serviceId, version, rpcAddr, functions, "java", SdkInfo.VERSION, "croupier-java-sdk", "1.0.0");
         }
 
         public ProviderConnectRequest(String serviceId, String version, String rpcAddr,

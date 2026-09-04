@@ -718,7 +718,7 @@ public partial class CroupierClient : IDisposable
             ServiceId = _config.ServiceId,
             Version = _config.ServiceVersion,
             SdkLanguage = _config.ProviderLang,
-            SdkVersion = "1.0.0",
+            SdkVersion = typeof(CroupierClient).Assembly.GetName().Version?.ToString(3) ?? "unknown",
             SdkName = "croupier-csharp-sdk",
             ProtocolVersion = "v1"
         };
