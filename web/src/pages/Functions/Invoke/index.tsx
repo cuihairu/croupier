@@ -15,6 +15,7 @@ import { extractErrorDetails, extractErrorMessage } from '@/utils/errors';
 import { deriveSchemaDefaults, parseInputSchema, type JSONSchemaType } from '@/utils/json';
 import { derivePresentationSpec } from '@/utils/schemaHints';
 import { isScopeReady, subscribeScope } from '@/stores/scope';
+import { queryApprovalStatus } from '@/services/console';
 import type { ApiErrorDetail } from '@/utils/errors';
 import type { FormValues, JSONSchema, JSONValue } from '@/types/dashboard';
 import ExecutionOptions from './ExecutionOptions';
@@ -22,12 +23,22 @@ import InvocationResponse from './InvocationResponse';
 import TaskProgressPanel from './TaskProgressPanel';
 import RequestBodyEditor from './RequestBodyEditor';
 import RequestHistory from './RequestHistory';
+import { startApprovalPolling } from './approvalPolling';
 import type { FormSchemaState, RequestHistoryItem } from './types';
 import { localizedText } from '@/utils/localizedText';
 
 const { Text } = Typography;
 const HISTORY_KEY = 'croupier.function-invoke.history.v1';
 const EMPTY_FORM_STATE: FormSchemaState = { status: 'idle' };
+const APPROVAL_POLL_INTERVAL_MS = 10000;
+
+/** 审批中状态（A4）：invoke 返回 approvalRequired 时进入轮询直到终态。 */
+type PendingApproval = {
+  approvalId: string;
+  functionId: string;
+  status: 'pending' | 'approved' | 'rejected' | 'expired';
+  reason?: string;
+};
 
 function displayName(descriptor: FunctionDescriptor, locale: string) {
   return (
@@ -87,6 +98,7 @@ export default function FunctionInvokePage() {
   const [error, setError] = useState('');
   const [errorDetails, setErrorDetails] = useState<ApiErrorDetail[]>([]);
   const [activeTaskId, setActiveTaskId] = useState('');
+  const [pendingApproval, setPendingApproval] = useState<PendingApproval | null>(null);
   const [duration, setDuration] = useState(0);
   const [historyItems, setHistoryItems] = useState<RequestHistoryItem[]>(loadHistory);
   const [showHistory, setShowHistory] = useState(false);
@@ -133,6 +145,7 @@ export default function FunctionInvokePage() {
     setError('');
     setErrorDetails([]);
     setActiveTaskId('');
+    setPendingApproval(null);
   }, [selected]);
   useEffect(() => {
     try {
@@ -181,6 +194,17 @@ export default function FunctionInvokePage() {
     try {
       const result = await invokeFunction(selected.id, payload, options);
       setTraceId(result?.traceId || '');
+      // 审批流：不写成功历史、不展示结果面板，进入轮询等待审批结论
+      if (result.approvalRequired && result.approvalId) {
+        setPendingApproval({
+          approvalId: result.approvalId,
+          functionId: selected.id,
+          status: 'pending',
+        });
+        message.info('该操作需要审批，已提交审批流程');
+        return;
+      }
+      setPendingApproval(null);
       const item: RequestHistoryItem = {
         id: `${startedAt}`,
         functionId: selected.id,
@@ -244,6 +268,24 @@ export default function FunctionInvokePage() {
     return () => window.removeEventListener('keydown', handler);
   }, [execute]);
 
+  // 审批轮询：pending 时立即查询一次并按间隔轮询，到达终态停止
+  useEffect(() => {
+    if (!pendingApproval || pendingApproval.status !== 'pending') return;
+    return startApprovalPolling(
+      pendingApproval.approvalId,
+      (update) => {
+        setPendingApproval((prev) =>
+          prev ? { ...prev, status: update.status, reason: update.reason } : prev,
+        );
+      },
+      async (id) => {
+        const st = await queryApprovalStatus(id);
+        return { status: st.status, reason: st.reason };
+      },
+      APPROVAL_POLL_INTERVAL_MS,
+    );
+  }, [pendingApproval]);
+
   const restore = (item: RequestHistoryItem) => {
     history.push(`/functions/invoke?fid=${encodeURIComponent(item.functionId)}`);
     setRawJson(JSON.stringify(item.request, null, 2));
@@ -255,6 +297,7 @@ export default function FunctionInvokePage() {
     setError(item.error || '');
     setErrorDetails([]);
     setActiveTaskId('');
+    setPendingApproval(null);
     setDuration(item.duration);
   };
   const responseRaw = response === undefined ? '' : JSON.stringify(response, null, 2);
@@ -371,6 +414,48 @@ export default function FunctionInvokePage() {
                 }
               }}
             />
+            {pendingApproval ? (
+              <Alert
+                type={
+                  pendingApproval.status === 'rejected'
+                    ? 'error'
+                    : pendingApproval.status === 'approved'
+                      ? 'success'
+                      : 'warning'
+                }
+                showIcon
+                message={
+                  pendingApproval.status === 'pending'
+                    ? '审批中：该操作需要审批通过后才会执行'
+                    : pendingApproval.status === 'approved'
+                      ? '审批已通过：可重新发起调用'
+                      : pendingApproval.status === 'rejected'
+                        ? `审批已拒绝${pendingApproval.reason ? `：${pendingApproval.reason}` : ''}`
+                        : '审批已过期'
+                }
+                description={
+                  <Space direction="vertical" size={4}>
+                    <Text type="secondary">
+                      审批单号：{pendingApproval.approvalId}（自动刷新中）
+                    </Text>
+                    <Space size={8}>
+                      <a
+                        href={`/approvals?approvalId=${encodeURIComponent(pendingApproval.approvalId)}`}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        前往审批中心查看
+                      </a>
+                      {pendingApproval.status === 'approved' && (
+                        <Button size="small" type="primary" onClick={() => void execute()}>
+                          重新调用
+                        </Button>
+                      )}
+                    </Space>
+                  </Space>
+                }
+              />
+            ) : null}
             {activeTaskId ? (
               <TaskProgressPanel
                 taskId={activeTaskId}
