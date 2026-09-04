@@ -60,6 +60,7 @@ import {
   republish,
 } from '@/services/dashboard';
 import { deleteVersioningPage } from '@/services/api/versioning';
+import { extractErrorMessage } from '@/utils/errors';
 import type { ConflictResolution, MergeResponse } from '@/services/api/versioning';
 import { publishPageDraft } from '@/services/api/pages';
 import PageRenderer from '@/components/PageRenderer';
@@ -342,8 +343,18 @@ export default function ProposalInbox({ focusPageKey = '' }: ProposalInboxProps)
   const handleRegenerateProposal = useCallback(
     async (record: ContractChangeInfo) => {
       await runContractAction(`regenerate:${record.pageKey}`, async () => {
-        const result = await regenerateProposal(record.pageKey);
-        Modal.success({ title: '已重新生成 Proposal', content: result.message });
+        try {
+          const result = await regenerateProposal(record.pageKey);
+          Modal.success({ title: '已重新生成 Proposal', content: result.message });
+        } catch (e) {
+          // 生成失败（函数禁用/schema 非法等错误级诊断）必须显式反馈，
+          // 静默成功会让用户误以为报错已修复。
+          Modal.error({
+            title: '重新生成失败',
+            content: extractErrorMessage(e, '生成页面时出现错误级诊断，请查看页面详情'),
+          });
+          throw e;
+        }
       });
     },
     [runContractAction],

@@ -675,6 +675,16 @@ func (s *Service) regenerateStandaloneProposal(ctx context.Context, gameID, env 
 		Functions:     functions,
 		Terms:         s.loadTermDictionary(ctx),
 	})
+	// 错误级诊断（函数禁用/schema 非法等）= 重新生成无法产出可用页面，
+	// 直接失败并把原因带回去——假装成功、刷新后报错依旧，只会更困惑。
+	for i := range generated.Diagnostics {
+		if generated.Diagnostics[i].Severity != spec.SeverityError {
+			continue
+		}
+		return errorx.NewValidationError(fmt.Sprintf(
+			"无法重新生成：%s（%s）。请先修复函数契约状态（如启用函数/修正 schema）后再试",
+			generated.Diagnostics[i].Message, generated.Diagnostics[i].Code))
+	}
 	// 页面身份以现存 pageKey 为准：生成器派生 key 可能因契约 execution/
 	// resource 语义变化而漂移，此时内容仍刷新到当前页面（重新生成 =
 	// 以当前页为身份重写），漂移仅记录诊断，不再 409 卡死页面。

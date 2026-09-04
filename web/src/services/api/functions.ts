@@ -194,6 +194,18 @@ export async function listDescriptors() {
   return raw.map(normalizeFunctionDescriptor);
 }
 
+export async function deleteFunctionWarning(key: string) {
+  return request(`/api/v1/function/warnings/${encodeURIComponent(key)}`, { method: 'DELETE' });
+}
+
+export async function markFunctionWarningRead(key: string) {
+  return request(`/api/v1/function/warnings/${encodeURIComponent(key)}/read`, { method: 'POST' });
+}
+
+export async function markAllFunctionWarningsRead(): Promise<{ marked: number }> {
+  return request<{ marked: number }>('/api/v1/functions/warnings/read-all', { method: 'POST' });
+}
+
 export async function listFunctionWarnings(params?: {
   functionId?: string;
   agentId?: string;

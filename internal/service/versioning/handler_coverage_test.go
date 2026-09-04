@@ -971,3 +971,32 @@ func TestRollbackPublish_DecodeSpecFailure(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "decode published page spec")
 }
+
+// 错误级诊断（函数禁用）时重新生成必须失败并携带原因——假装成功只会让
+// 用户困惑（修复后报错依旧）。
+func TestRegenerateProposal_DisabledFunctionFails(t *testing.T) {
+	db := setupTestDB(t)
+	ctx := context.Background()
+	service := NewService(db)
+
+	require.NoError(t, model.NewFunctionContractModel(db).UpsertContract(ctx, &model.FunctionContract{
+		GameID: "demo-game", Env: "development", FunctionID: "player.ban",
+		Version: "1.0.0", Enabled: false, Capability: dbenum.CapabilityAction, UpdatedAt: time.Now(),
+	}))
+	require.NoError(t, createVersioningTestPage(db, "demo-game", "development", spec.PageSpec{
+		PageKey:  "task--player.ban",
+		Type:     spec.PageTypeTask,
+		Category: spec.PageCategorySpec{Key: "player"},
+		Bindings: []spec.PageFunctionBinding{{
+			ID: "run", FunctionID: "player.ban", Usage: spec.BindingUsageAction,
+			Execution: spec.PageBindingExecution{Mode: spec.PageExecutionModeTask},
+		}},
+	}))
+
+	_, err := service.RegenerateProposal(ctx, &RegenerateProposalRequest{
+		GameID: "demo-game", Env: "development", PageKey: "task--player.ban",
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "无法重新生成")
+	assert.Contains(t, err.Error(), "disabled")
+}
