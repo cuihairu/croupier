@@ -504,7 +504,7 @@ export default function FunctionInvokePage() {
                   {
                     key: 'server',
                     label: '服务端记录',
-                    children: <ServerHistoryPanel />,
+                    children: <ServerHistoryPanel functionId={selected?.id} />,
                   },
                 ]}
               />

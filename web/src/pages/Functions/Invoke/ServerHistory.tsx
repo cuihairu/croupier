@@ -11,13 +11,15 @@ const { Text } = Typography;
 
 const PAGE_SIZE = 10;
 
-/** 服务端调用记录（R5）：我的执行留痕（保留期默认 7 天，脱敏+截断）。 */
-export default function ServerHistoryPanel() {
+/** 服务端调用记录（R5）：我的执行留痕（保留期默认 7 天，脱敏+截断）。
+ * functionId 传入时默认只看当前函数（可切换），并提供运维全量审计入口。 */
+export default function ServerHistoryPanel({ functionId }: { functionId?: string }) {
   const [items, setItems] = useState<ExecutionLogItem[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState<string>('');
+  const [onlyCurrent, setOnlyCurrent] = useState<boolean>(!!functionId);
   const [detail, setDetail] = useState<null | {
     id: number;
     loading: boolean;
@@ -28,8 +30,14 @@ export default function ServerHistoryPanel() {
   const list = useCallback(async () => {
     setLoading(true);
     setLoadError('');
+    const params: Record<string, string | number | boolean> = {
+      mine: true,
+      page,
+      pageSize: PAGE_SIZE,
+    };
+    if (onlyCurrent && functionId) params.functionId = functionId;
     try {
-      const json = await listExecutionLogs({ mine: true, page, pageSize: PAGE_SIZE });
+      const json = await listExecutionLogs(params);
       setItems(json.items || []);
       setTotal(json.total || 0);
     } catch (e) {
@@ -39,7 +47,7 @@ export default function ServerHistoryPanel() {
     } finally {
       setLoading(false);
     }
-  }, [page]);
+  }, [page, onlyCurrent, functionId]);
 
   useEffect(() => {
     void list();
@@ -57,6 +65,22 @@ export default function ServerHistoryPanel() {
 
   return (
     <Space direction="vertical" size={8} style={{ width: '100%' }}>
+      <Space wrap style={{ justifyContent: 'space-between', width: '100%' }}>
+        <label style={{ fontSize: 12 }}>
+          <input
+            type="checkbox"
+            checked={onlyCurrent}
+            onChange={(e) => {
+              setOnlyCurrent(e.target.checked);
+              setPage(1);
+            }}
+          />{' '}
+          仅看当前函数{functionId ? `（${functionId}）` : ''}
+        </label>
+        <a href="/ops/execution-logs" target="_blank" rel="noreferrer" style={{ fontSize: 12 }}>
+          查看全部执行留痕（运维审计）→
+        </a>
+      </Space>
       {loadError ? (
         <Alert
           type="error"
