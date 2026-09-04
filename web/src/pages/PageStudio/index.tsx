@@ -45,6 +45,8 @@ import {
   regeneratePageDraft,
   savePageDraft,
   unpublishPage,
+  bulkPublishPages,
+  bulkUnpublishPages,
 } from '@/services/api/pages';
 import {
   getChangeChain,
@@ -199,6 +201,43 @@ export default function PageStudio() {
     },
     [loadDrafts, message],
   );
+
+  // F：一键发布全部（ready/basic 提案走真实 accept-and-publish 链路）
+  const [bulkLoading, setBulkLoading] = useState<'publish' | 'unpublish' | null>(null);
+  const handleBulkPublish = useCallback(async () => {
+    setBulkLoading('publish');
+    try {
+      const res = await bulkPublishPages();
+      const published = res.published?.length ?? 0;
+      const failed = res.failed?.length ?? 0;
+      if (failed > 0) {
+        message.warning(`已发布 ${published} 个页面，${failed} 个失败`);
+      } else {
+        message.success(`已发布 ${published} 个页面`);
+      }
+      requestConsoleMenuRefresh();
+      loadDrafts();
+    } catch {
+      message.error('一键发布失败');
+    } finally {
+      setBulkLoading(null);
+    }
+  }, [loadDrafts]);
+
+  const handleBulkUnpublish = useCallback(async () => {
+    setBulkLoading('unpublish');
+    try {
+      const res = await bulkUnpublishPages();
+      const unpublished = res.unpublished?.length ?? 0;
+      message.success(`已下架 ${unpublished} 个页面`);
+      requestConsoleMenuRefresh();
+      loadDrafts();
+    } catch {
+      message.error('一键下架失败');
+    } finally {
+      setBulkLoading(null);
+    }
+  }, [loadDrafts]);
 
   const handleUnpublish = useCallback(
     async (pageKey: string) => {
@@ -671,7 +710,40 @@ export default function PageStudio() {
                 pagination={false}
                 toolBarRender={() => [
                   <Button key="refresh" icon={<ReloadOutlined />} onClick={loadDrafts}>
-                    刷新草稿
+                    刷新
+                  </Button>,
+                  <Button
+                    key="bulk-publish"
+                    icon={<RocketOutlined />}
+                    loading={bulkLoading === 'publish'}
+                    onClick={() => {
+                      Modal.confirm({
+                        title: '一键发布全部',
+                        content:
+                          '将重算提案并把所有 ready/basic 提案按真实链路发布（同 scope）。确认执行？',
+                        okText: '发布',
+                        onOk: handleBulkPublish,
+                      });
+                    }}
+                  >
+                    一键发布全部
+                  </Button>,
+                  <Button
+                    key="bulk-unpublish"
+                    danger
+                    loading={bulkLoading === 'unpublish'}
+                    onClick={() => {
+                      Modal.confirm({
+                        title: '一键下架全部',
+                        content:
+                          '将下线当前 scope 内全部已发布页面（运行控制台菜单随之清空）。确认执行？',
+                        okText: '下架',
+                        okButtonProps: { danger: true },
+                        onOk: handleBulkUnpublish,
+                      });
+                    }}
+                  >
+                    一键下架全部
                   </Button>,
                 ]}
               />

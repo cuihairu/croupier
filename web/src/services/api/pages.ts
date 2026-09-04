@@ -176,3 +176,20 @@ export async function rollbackPageDraft(
     data: { versionId: String(version), expectedDraftRevision },
   });
 }
+
+// F：一键发布全部（ready/basic 提案走真实 accept-and-publish 链路）
+export type PageBulkResult = {
+  total: number;
+  published?: string[];
+  unpublished?: string[];
+  skipped?: string[];
+  failed?: { pageKey: string; error: string }[];
+};
+
+export async function bulkPublishPages(): Promise<PageBulkResult> {
+  return request<PageBulkResult>('/api/v1/pages/bulk-publish', { method: 'POST' });
+}
+
+export async function bulkUnpublishPages(): Promise<PageBulkResult> {
+  return request<PageBulkResult>('/api/v1/pages/bulk-unpublish', { method: 'POST' });
+}
