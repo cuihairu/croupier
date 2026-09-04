@@ -8,6 +8,7 @@
 #include "croupier/sdk/logger.h"
 #include "croupier/sdk/tcp_transport.h"
 #include "croupier/sdk/utils/json_utils.h"
+#include "croupier/sdk/file_push.h"
 #include "croupier/sdk/v1/invocation.pb.h"
 #include "croupier/sdk/v1/provider.pb.h"
 
@@ -28,6 +29,7 @@
 #include <optional>
 #include <unordered_map>
 
+#include <cctype>
 #include <nlohmann/json.hpp>
 #include <zlib.h>
 
@@ -473,6 +475,51 @@ public:
                 }
                 ::croupier::sdk::v1::ProviderDrainResponse resp;
                 return SerializeMessage(resp);
+            }
+            if (msg_id == protocol::MSG_PROVIDER_FILE_PUSH_REQ) {
+                // F：文件下发接收（校验链在 file_push.h/Impl 内）
+                auto req = DecodeFilePushRequest(body);
+                FilePushResponse resp;
+                resp.transfer_id = req.transfer_id;
+                std::string staging =
+                    config_.file_staging_dir.empty() ? std::string("./croupier-staging")
+                                                     : config_.file_staging_dir;
+                int max_size =
+                    config_.max_file_size > 0 ? config_.max_file_size : 10 * 1024 * 1024;
+                std::string target;
+                if (!config_.enable_file_transfer) {
+                    resp.error = "file transfer is disabled on this provider";
+                } else if (req.transfer_id.empty()) {
+                    resp.error = "transferId is required";
+                } else if (!SafeStagingPath(staging, req.file_name, target)) {
+                    resp.error =
+                        "file name must be a bare basename: \"" + req.file_name + "\"";
+                } else if (req.data.empty()) {
+                    resp.error = "file payload is empty";
+                } else if (static_cast<int>(req.data.size()) > max_size) {
+                    resp.error = "file size " + std::to_string(req.data.size()) +
+                                 " exceeds max " + std::to_string(max_size);
+                } else if (req.content_sha256.empty()) {
+                    resp.error = "contentSha256 is required";
+                } else if (Sha256Hex(req.data) != req.content_sha256) {
+                    // 大小写不敏感比对
+                    std::string actual = Sha256Hex(req.data);
+                    std::string expected = req.content_sha256;
+                    for (auto& c : expected) c = static_cast<char>(std::tolower(c));
+                    for (auto& c : actual) c = static_cast<char>(std::tolower(c));
+                    if (actual != expected) {
+                        resp.error = "checksum mismatch";
+                    }
+                }
+                if (resp.error.empty()) {
+                    if (!AtomicWriteFile(target, req.data)) {
+                        resp.error = "write staging file failed";
+                    } else {
+                        resp.ok = true;
+                        resp.stored_path = target;
+                    }
+                }
+                return EncodeFilePushResponse(resp);
             }
             if (msg_id == protocol::MSG_INVOKE_REQUEST) {
                 // drain 期间拒绝新调用，等待 Agent 停止投递。

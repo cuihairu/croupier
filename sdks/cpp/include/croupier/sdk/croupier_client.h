@@ -85,6 +85,14 @@ struct ClientConfig {
     // handler. Server remains the authoritative validator.
     bool validate_input_payloads = false;
 
+    // ========== File Push (hotpatch P1 transport) ==========
+    // When true, accepts provider-side file pushes into the staging dir
+    // ONLY (never applied automatically). Checksum + size + basename
+    // enforced; server remains authoritative.
+    bool enable_file_transfer = false;
+    int max_file_size = 10 * 1024 * 1024;  // bytes (default 10MB)
+    std::string file_staging_dir = "./croupier-staging";
+
 
     // ========== Optional TLS Configuration ==========
     std::string cert_file;    // Client certificate file path
