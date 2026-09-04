@@ -1,9 +1,29 @@
 import React, { useCallback, useEffect, useState } from 'react';
+// App.useApp 在组件内取
 import { PageContainer } from '@ant-design/pro-components';
-import { Alert, Button, Card, Form, Input, InputNumber, Space, Table, Tag } from 'antd';
+import {
+  Alert,
+  App,
+  Button,
+  Card,
+  Form,
+  Input,
+  InputNumber,
+  Popconfirm,
+  Space,
+  Table,
+  Tag,
+} from 'antd';
 import { ReloadOutlined, SearchOutlined } from '@ant-design/icons';
 import { history, useLocation } from '@umijs/max';
-import { listFunctionWarnings, type FunctionRegistrationWarning } from '@/services/api/functions';
+import {
+  deleteAllFunctionWarnings,
+  deleteFunctionWarning,
+  listFunctionWarnings,
+  markAllFunctionWarningsRead,
+  markFunctionWarningRead,
+  type FunctionRegistrationWarning,
+} from '@/services/api/functions';
 
 type FilterValues = {
   functionId?: string;
@@ -27,6 +47,8 @@ export default function FunctionWarningsPage() {
     const query = search.toString();
     history.replace(`${location.pathname}${query ? `?${query}` : ''}`);
   };
+
+  const { message } = App.useApp();
 
   const loadData = useCallback(async (values: FilterValues) => {
     setLoading(true);
@@ -99,6 +121,25 @@ export default function FunctionWarningsPage() {
               >
                 刷新
               </Button>
+              <Button
+                onClick={async () => {
+                  await markAllFunctionWarningsRead();
+                  message.success('已全部标为已读');
+                  await loadData(form.getFieldsValue());
+                }}
+              >
+                全部已读
+              </Button>
+              <Popconfirm
+                title="确认清空全部注册警告？"
+                onConfirm={async () => {
+                  await deleteAllFunctionWarnings();
+                  message.success('已清空');
+                  await loadData(form.getFieldsValue());
+                }}
+              >
+                <Button danger>清空</Button>
+              </Popconfirm>
             </Space>
           </Form.Item>
         </Form>
@@ -116,6 +157,40 @@ export default function FunctionWarningsPage() {
             width: 260,
             ellipsis: true,
             render: (text: string) => text || '-',
+          },
+          {
+            title: '操作',
+            key: 'actions',
+            width: 150,
+            render: (_: unknown, record: FunctionRegistrationWarning) => (
+              <Space size={4}>
+                {!record.read && (
+                  <Button
+                    type="link"
+                    size="small"
+                    onClick={async () => {
+                      await markFunctionWarningRead(record.key);
+                      setRows((prev) =>
+                        prev.map((r) => (r.key === record.key ? { ...r, read: true } : r)),
+                      );
+                    }}
+                  >
+                    标为已读
+                  </Button>
+                )}
+                <Popconfirm
+                  title="确认删除该条警告？"
+                  onConfirm={async () => {
+                    await deleteFunctionWarning(record.key);
+                    setRows((prev) => prev.filter((r) => r.key !== record.key));
+                  }}
+                >
+                  <Button type="link" size="small" danger>
+                    删除
+                  </Button>
+                </Popconfirm>
+              </Space>
+            ),
           },
           {
             title: '告警码',

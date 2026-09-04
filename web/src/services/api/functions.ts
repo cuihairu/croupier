@@ -81,6 +81,7 @@ export type FunctionRegistrationWarning = {
   count: number;
   firstSeen: string;
   lastSeen: string;
+  read?: boolean; // F：已读状态
 };
 
 // Frontend call options mapped onto backend FunctionInvokeRequest.
@@ -510,4 +511,8 @@ export async function getFunctionOpenAPI(functionId: string) {
     `/api/v1/functions/${encodeURIComponent(functionId)}/openapi`,
   );
   return normalizeFunctionOpenAPIResponse(resp);
+}
+
+export async function deleteAllFunctionWarnings(): Promise<{ deleted: number }> {
+  return request<{ deleted: number }>('/api/v1/functions/warnings', { method: 'DELETE' });
 }
