@@ -20,7 +20,7 @@ func newTestDB(t *testing.T) *gorm.DB {
 	t.Helper()
 	db, err := gorm.Open(gsqlite.Open(":memory:"), &gorm.Config{})
 	require.NoError(t, err)
-	require.NoError(t, db.AutoMigrate(&model.ExecutionLog{}))
+	require.NoError(t, db.AutoMigrate(&model.ExecutionLog{}, &model.TaskRun{}, &model.TaskEvent{}))
 	return db
 }
 

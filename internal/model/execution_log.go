@@ -95,22 +95,7 @@ func (m *ExecutionLogModel) List(ctx context.Context, opts ExecutionLogListOptio
 
 // DeleteBefore 删除创建时间早于 cutoff 的记录，返回删除行数（R3 保留期清理）。
 func (m *ExecutionLogModel) DeleteBefore(ctx context.Context, cutoff time.Time, batch int) (int64, error) {
-	db := dbctx.Resolve(ctx, m.db).WithContext(ctx)
-	var total int64
-	if batch <= 0 {
-		batch = 1000
-	}
-	for {
-		res := db.Where("created_at < ?", cutoff).Limit(batch).Delete(&ExecutionLog{})
-		if res.Error != nil {
-			return total, res.Error
-		}
-		total += res.RowsAffected
-		if res.RowsAffected < int64(batch) {
-			break
-		}
-	}
-	return total, nil
+	return deleteBatch(ctx, m.db, &ExecutionLog{}, cutoff, batch)
 }
 
 type ExecutionLogListOptions struct {
@@ -133,4 +118,24 @@ func (m *ExecutionLogModel) CreateBatch(ctx context.Context, items []ExecutionLo
 		return nil
 	}
 	return dbctx.Resolve(ctx, m.db).WithContext(ctx).Create(&items).Error
+}
+
+// deleteBatch 分批删除 created_at 早于 cutoff 的记录，返回总删除行数。
+func deleteBatch(ctx context.Context, db *gorm.DB, dest interface{}, cutoff time.Time, batch int) (int64, error) {
+	if batch <= 0 {
+		batch = 1000
+	}
+	resolved := dbctx.Resolve(ctx, db).WithContext(ctx)
+	var total int64
+	for {
+		res := resolved.Where("created_at < ?", cutoff).Limit(batch).Delete(dest)
+		if res.Error != nil {
+			return total, res.Error
+		}
+		total += res.RowsAffected
+		if res.RowsAffected < int64(batch) {
+			break
+		}
+	}
+	return total, nil
 }

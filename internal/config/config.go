@@ -18,6 +18,7 @@ type Config struct {
 	Auth          AuthConfig               `json:"auth" yaml:"auth"`
 	Approval      ApprovalConfig           `json:"approval" yaml:"approval"`
 	ExecutionLog  ExecutionLogConfig       `json:"executionLog" yaml:"executionLog"`
+	TaskLog       TaskLogConfig            `json:"taskLog" yaml:"taskLog"`
 	BootstrapData BootstrapDataConfig      `json:"bootstrapData" yaml:"bootstrapData"`
 	Descriptors   DescriptorConfig         `json:"descriptors" yaml:"descriptors"`
 	Schemas       SchemasConfig            `json:"schemas" yaml:"schemas"`
@@ -603,13 +604,35 @@ type ExecutionLogConfig struct {
 	Enabled *bool `json:"enabled,omitempty" yaml:"enabled,omitempty"`
 	// MaxPayloadBytes 单条请求/响应载荷上限，超出截断（默认 64KB）。
 	MaxPayloadBytes int `json:"maxPayloadBytes,omitempty" yaml:"maxPayloadBytes,omitempty"`
-	// RetentionDays 保留天数，默认 7；0=永久保留（R3 清理循环消费）。
-	RetentionDays int `json:"retentionDays,omitempty" yaml:"retentionDays,omitempty"`
+	// RetentionDays 保留天数，未配置默认 7；显式置 0=永久保留（R3 清理循环消费）。
+	RetentionDays *int `json:"retentionDays,omitempty" yaml:"retentionDays,omitempty"`
 }
 
 // IsEnabled 未配置时默认开启。
 func (c ExecutionLogConfig) IsEnabled() bool {
 	return c.Enabled == nil || *c.Enabled
+}
+
+// EffectiveRetentionDays 未配置时默认 7 天；0=永久。
+func (c ExecutionLogConfig) EffectiveRetentionDays() int {
+	if c.RetentionDays == nil {
+		return 7
+	}
+	return *c.RetentionDays
+}
+
+// TaskLogConfig 异步任务留痕（task_runs/task_events）保留策略。
+type TaskLogConfig struct {
+	// RetentionDays 保留天数，未配置默认 7；显式置 0=永久保留。
+	RetentionDays *int `json:"retentionDays,omitempty" yaml:"retentionDays,omitempty"`
+}
+
+// EffectiveRetentionDays 未配置时默认 7 天；0=永久。
+func (c TaskLogConfig) EffectiveRetentionDays() int {
+	if c.RetentionDays == nil {
+		return 7
+	}
+	return *c.RetentionDays
 }
 
 // ApprovalConfig 审批流行为配置。

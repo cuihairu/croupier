@@ -295,6 +295,16 @@ func NewServiceContext(c config.Config, opts ...Option) *ServiceContext {
 		})
 		execLogWriter.Run(context.Background())
 		slog.Default().Info("ExecutionLog writer started")
+
+		// 保留期清理（R3）：默认 7 天，0=永久；audit_records 不参与清理
+		retention := executionlog.NewRetention(db, executionlog.RetentionConfig{
+			ExecutionLogDays: c.ExecutionLog.EffectiveRetentionDays(),
+			TaskLogDays:      c.TaskLog.EffectiveRetentionDays(),
+		})
+		retention.Run(context.Background())
+		slog.Default().Info("Retention sweep loop started",
+			"executionLogDays", c.ExecutionLog.EffectiveRetentionDays(),
+			"taskLogDays", c.TaskLog.EffectiveRetentionDays())
 	}
 
 	// 初始化策略管理器

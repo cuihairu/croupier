@@ -172,3 +172,14 @@ func MustJSON(v interface{}) []byte {
 	}
 	return b
 }
+
+// DeleteBefore 删除创建时间早于 cutoff 的任务运行记录，返回删除行数
+// （R3 保留期清理，分批删除防长事务）。
+func (m *TaskRunModel) DeleteBefore(ctx context.Context, cutoff time.Time, batch int) (int64, error) {
+	return deleteBatch(ctx, m.db, &TaskRun{}, cutoff, batch)
+}
+
+// DeleteBefore 删除创建时间早于 cutoff 的任务事件，返回删除行数。
+func (m *TaskEventModel) DeleteBefore(ctx context.Context, cutoff time.Time, batch int) (int64, error) {
+	return deleteBatch(ctx, m.db, &TaskEvent{}, cutoff, batch)
+}
