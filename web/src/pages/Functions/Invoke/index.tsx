@@ -2,7 +2,12 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { PageContainer } from '@ant-design/pro-components';
 import { Alert, App, Button, Card, Col, Row, Select, Space, Tag, Typography } from 'antd';
-import { HistoryOutlined, ReloadOutlined, SendOutlined } from '@ant-design/icons';
+import {
+  CloudServerOutlined,
+  HistoryOutlined,
+  ReloadOutlined,
+  SendOutlined,
+} from '@ant-design/icons';
 import { getLocale, history, useLocation } from '@umijs/max';
 import { type SchemaFormRendererHandle } from '@/components/SchemaFormRenderer';
 import {
@@ -23,6 +28,7 @@ import InvocationResponse from './InvocationResponse';
 import TaskProgressPanel from './TaskProgressPanel';
 import RequestBodyEditor from './RequestBodyEditor';
 import RequestHistory from './RequestHistory';
+import ServerHistory from './ServerHistory';
 import { startApprovalPolling } from './approvalPolling';
 import type { FormSchemaState, RequestHistoryItem } from './types';
 import { localizedText } from '@/utils/localizedText';
@@ -99,6 +105,7 @@ export default function FunctionInvokePage() {
   const [errorDetails, setErrorDetails] = useState<ApiErrorDetail[]>([]);
   const [activeTaskId, setActiveTaskId] = useState('');
   const [pendingApproval, setPendingApproval] = useState<PendingApproval | null>(null);
+  const [showServerHistory, setShowServerHistory] = useState(false);
   const [duration, setDuration] = useState(0);
   const [historyItems, setHistoryItems] = useState<RequestHistoryItem[]>(loadHistory);
   const [showHistory, setShowHistory] = useState(false);
@@ -316,6 +323,13 @@ export default function FunctionInvokePage() {
         >
           历史记录
         </Button>,
+        <Button
+          key="server-history"
+          icon={<CloudServerOutlined />}
+          onClick={() => setShowServerHistory(true)}
+        >
+          服务端记录
+        </Button>,
       ]}
     >
       <Row gutter={16}>
@@ -489,6 +503,7 @@ export default function FunctionInvokePage() {
           </Col>
         ) : null}
       </Row>
+      <ServerHistory open={showServerHistory} onClose={() => setShowServerHistory(false)} />
     </PageContainer>
   );
 }
