@@ -16,6 +16,7 @@ import (
 	"github.com/cuihairu/croupier/internal/model"
 	"github.com/cuihairu/croupier/internal/platform/approvals"
 	"github.com/cuihairu/croupier/internal/platform/dispatch"
+	"github.com/cuihairu/croupier/internal/platform/executionlog"
 	reg "github.com/cuihairu/croupier/internal/platform/registry"
 	"github.com/cuihairu/croupier/internal/policy"
 	notify "github.com/cuihairu/croupier/internal/service/notify"
@@ -420,6 +421,37 @@ func functionInvoke(ctx context.Context, svcCtx *svc.ServiceContext, req *Functi
 	if svcCtx.AuditService != nil && functionPolicy != nil && functionPolicy.RequireAudit {
 		invokeDurationMs := time.Since(startedAt).Milliseconds()
 		auditFunctionInvoke(ctx, svcCtx, req.ID, admin, utils.RoleNamesFromModels(roles), functionPolicy, invokeErr, invokeDurationMs)
+	}
+
+	// 执行留痕（R1）：payload 级请求/响应异步落库（与 require_audit 解耦）
+	if svcCtx.ExecutionLogWriter != nil {
+		invokeDurationMs := time.Since(startedAt).Milliseconds()
+		var actor string
+		if admin != nil {
+			actor = admin.Username
+		}
+		status := executionlog.StatusOK
+		var responseBody interface{}
+		if invokeErr != nil {
+			status = executionlog.StatusFail
+			responseBody = map[string]string{"error": invokeErr.Error()}
+		} else if result != nil && len(result.Result) > 0 {
+			responseBody = json.RawMessage(result.Result)
+		}
+		scope := svc.GameScopeFromContext(ctx)
+		svcCtx.ExecutionLogWriter.Log(executionlog.Entry{
+			GameID:     scope.GameID,
+			Env:        scope.Env,
+			Source:     executionlog.SourceInvoke,
+			FunctionID: req.ID,
+			Actor:      actor,
+			Route:      strings.TrimSpace(req.Route),
+			Status:     status,
+			DurationMs: invokeDurationMs,
+			TraceID:    telemetry.TraceIDFromContext(ctx),
+			Request:    json.RawMessage(payload),
+			Response:   responseBody,
+		})
 	}
 
 	if invokeErr != nil {

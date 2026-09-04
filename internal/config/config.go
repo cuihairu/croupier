@@ -17,6 +17,7 @@ type Config struct {
 	AgentDispatch AgentDispatchConfig      `json:"agentDispatch" yaml:"agentDispatch"`
 	Auth          AuthConfig               `json:"auth" yaml:"auth"`
 	Approval      ApprovalConfig           `json:"approval" yaml:"approval"`
+	ExecutionLog  ExecutionLogConfig       `json:"executionLog" yaml:"executionLog"`
 	BootstrapData BootstrapDataConfig      `json:"bootstrapData" yaml:"bootstrapData"`
 	Descriptors   DescriptorConfig         `json:"descriptors" yaml:"descriptors"`
 	Schemas       SchemasConfig            `json:"schemas" yaml:"schemas"`
@@ -594,6 +595,21 @@ func (c *ReconnectionConfig) UnmarshalYAML(value *yaml.Node) error {
 	}
 	*c = ReconnectionConfig(decoded)
 	return nil
+}
+
+// ExecutionLogConfig 执行留痕（R1）：payload 级请求/响应落库 execution_logs。
+type ExecutionLogConfig struct {
+	// Enabled 默认开启；显式置 false 后同步执行不写留痕。
+	Enabled *bool `json:"enabled,omitempty" yaml:"enabled,omitempty"`
+	// MaxPayloadBytes 单条请求/响应载荷上限，超出截断（默认 64KB）。
+	MaxPayloadBytes int `json:"maxPayloadBytes,omitempty" yaml:"maxPayloadBytes,omitempty"`
+	// RetentionDays 保留天数，默认 7；0=永久保留（R3 清理循环消费）。
+	RetentionDays int `json:"retentionDays,omitempty" yaml:"retentionDays,omitempty"`
+}
+
+// IsEnabled 未配置时默认开启。
+func (c ExecutionLogConfig) IsEnabled() bool {
+	return c.Enabled == nil || *c.Enabled
 }
 
 // ApprovalConfig 审批流行为配置。

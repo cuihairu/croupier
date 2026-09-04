@@ -289,12 +289,9 @@ type AuditService struct {
 // NewAuditService creates a new audit service
 func NewAuditService(store AuditStore, signer AuditSigner) *AuditService {
 	return &AuditService{
-		store:  store,
-		signer: signer,
-		sensitiveFields: []string{
-			"password", "secret", "token", "key", "credential",
-			"api_key", "private_key", "access_token",
-		},
+		store:           store,
+		signer:          signer,
+		sensitiveFields: defaultSensitiveFields,
 	}
 }
 
@@ -542,6 +539,29 @@ func (s *AuditService) maskSensitiveData(record *AuditRecord) {
 		if record.Changes.After != nil {
 			record.Changes.After = maskMap(record.Changes.After, s.sensitiveFields)
 		}
+	}
+}
+
+// defaultSensitiveFields 是平台统一的敏感字段清单（精确匹配）。
+var defaultSensitiveFields = []string{
+	"password", "secret", "token", "key", "credential",
+	"api_key", "private_key", "access_token",
+}
+
+// MaskSensitiveValue 递归掩码任意 JSON 值中的敏感字段（与审计记录同一
+// 敏感字段清单）。供执行留痕等需要同口径脱敏的场景复用。
+func MaskSensitiveValue(value interface{}) interface{} {
+	switch v := value.(type) {
+	case map[string]interface{}:
+		return maskMap(v, defaultSensitiveFields)
+	case []interface{}:
+		out := make([]interface{}, len(v))
+		for i, item := range v {
+			out[i] = MaskSensitiveValue(item)
+		}
+		return out
+	default:
+		return value
 	}
 }
 

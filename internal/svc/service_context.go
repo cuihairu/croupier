@@ -29,6 +29,7 @@ import (
 	"github.com/cuihairu/croupier/internal/platform/approvals"
 	"github.com/cuihairu/croupier/internal/platform/configsource"
 	dispatch "github.com/cuihairu/croupier/internal/platform/dispatch"
+	"github.com/cuihairu/croupier/internal/platform/executionlog"
 	objstore "github.com/cuihairu/croupier/internal/platform/objstore"
 	reg "github.com/cuihairu/croupier/internal/platform/registry"
 	"github.com/cuihairu/croupier/internal/platform/tlsutil"
@@ -112,6 +113,9 @@ type ServiceContext struct {
 	// NotifyService 分发审批/告警事件到已配置渠道（站内信/钉钉/webhook/邮件）。
 	// 在 handler 装配时注入（依赖 settings.Layered 单例）。
 	NotifyService *notify.Service
+	// ExecutionLogWriter 执行留痕异步写入器（R1）；Run() 由 server 启动，
+	// enabled=false 时为 nil。
+	ExecutionLogWriter *executionlog.Writer
 	// Scheduler 是 cron 定时任务调度循环（StartScheduler 启动）。
 	Scheduler *scheduler.Manager
 	// Cluster 是多实例 HA 运行时（未启用时 nil）。
@@ -280,6 +284,17 @@ func NewServiceContext(c config.Config, opts ...Option) *ServiceContext {
 	if auditStore != nil {
 		auditSvc = audit.NewAuditService(auditStore, nil)
 		slog.Default().Info("AuditService initialized")
+	}
+
+	// 执行留痕写入器（R1）：异步批量落库，失败不影响执行主路径
+	var execLogWriter *executionlog.Writer
+	if c.ExecutionLog.IsEnabled() && db != nil {
+		execLogWriter = executionlog.NewWriter(db, executionlog.Config{
+			Enabled:         true,
+			MaxPayloadBytes: c.ExecutionLog.MaxPayloadBytes,
+		})
+		execLogWriter.Run(context.Background())
+		slog.Default().Info("ExecutionLog writer started")
 	}
 
 	// 初始化策略管理器
