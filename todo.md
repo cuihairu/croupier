@@ -421,69 +421,69 @@ F2 是汇聚点：F3-F9 的成果都通过它进入 Invoke 工作台。每个任
 
 **验收**：`go test ./internal/api/approval/... ./internal/api/function/... ./internal/api/console/...` 相关用例全绿。
 
-# R 阶段：执行留痕与保留期（P1）
+# R 阶段：执行留痕与保留期（P1）—— ✅ 全部完成（2026-09-04，R1→R5）
 
 背景：同步执行的请求体/响应体完全不落库（审计仅元数据，且 `function.invoke` 受 `require_audit` 开关默认关）；`task_runs.input_payload/result_payload` 反而完整落库却永久累积无清理；`audit_records` 的 `DeleteBefore`/`Archive` 是死代码。目标：payload 级留痕可查、保留期可配，审计链永久保留不参与清理。
 
-## R1. execution_logs 表 + REST invoke 写入
+## R1. execution_logs 表 + REST invoke 写入 ✅
 
 **目标**：同步函数调用的请求/响应落库，payload 级事后可查。
 
 **改动点**：
 
-- [ ] 迁移：`execution_logs` 表——`id/game_id/env/source/function_id/page_key/binding_id/actor/route/status/duration_ms/trace_id/request_payload/response_body/truncated/created_at`，索引 `(game_id, env, created_at)` + `(actor, created_at)` + `(function_id, created_at)`
-- [ ] 写入点：`internal/api/function/helpers.go` invoke 成功/失败后**异步**写入（带缓冲 channel，丢写只告警不阻断主路径）；响应体只存 JSON 类型结果
-- [ ] 脱敏：复用 `internal/audit` `maskSensitiveData` 清单；单条 payload 上限（默认 64KB，超出截断置 `truncated=true`）
-- [ ] 开关与上限配置 `executionLog.enabled`（默认 true）/ `maxPayloadBytes`
-- [ ] 单测：成功/失败写入、脱敏命中、截断、开关关闭不写、异步失败不影响调用
+- [x] 迁移：`execution_logs` 表——`id/game_id/env/source/function_id/page_key/binding_id/actor/route/status/duration_ms/trace_id/request_payload/response_body/truncated/created_at`，索引 `(game_id, env, created_at)` + `(actor, created_at)` + `(function_id, created_at)`
+- [x] 写入点：`internal/api/function/helpers.go` invoke 成功/失败后**异步**写入（带缓冲 channel，丢写只告警不阻断主路径）；响应体只存 JSON 类型结果
+- [x] 脱敏：复用 `internal/audit` `maskSensitiveData` 清单；单条 payload 上限（默认 64KB，超出截断置 `truncated=true`）
+- [x] 开关与上限配置 `executionLog.enabled`（默认 true）/ `maxPayloadBytes`
+- [x] 单测：成功/失败写入、脱敏命中、截断、开关关闭不写、异步失败不影响调用
 
 **验收**：`go test ./internal/api/function/...` 全绿；invoke 后表内有记录且敏感字段已掩码。
 
-## R2. 页面绑定执行写入 execution_logs
+## R2. 页面绑定执行写入 execution_logs ✅
 
 **目标**：Console 页面执行与 REST 调用同一留痕（`source=page`）。
 
 **改动点**：
 
-- [ ] `internal/api/console/service.go` execute 路径接入同一异步写入器（复用 R1 writer），记录 page_key/binding_id/publish_version
-- [ ] 单测：页面执行写入、审批类执行（kind=approval）不写（审批走 approvals 表已有 Payload）
+- [x] `internal/api/console/service.go` execute 路径接入同一异步写入器（复用 R1 writer），记录 page_key/binding_id/publish_version
+- [x] 单测：页面执行写入、审批类执行（kind=approval）不写（审批走 approvals 表已有 Payload）
 
 **验收**：`go test ./internal/api/console/...` 全绿。
 
-## R3. 保留期配置 + 清理循环（含 task_runs 纳管）
+## R3. 保留期配置 + 清理循环（含 task_runs 纳管） ✅
 
 **目标**：payload 类数据默认 7 天过期，可配置；审计链永久保留不动。
 
 **改动点**：
 
-- [ ] 配置 `executionLog.retentionDays`（默认 7，0=永久）；`taskLog.retentionDays`（默认 7，0=永久）——`internal/config/config.go` + `configs/server.yaml` 示例
-- [ ] `internal/model` 增加 `ExecutionLogModel.DeleteBefore` / `TaskRunModel.DeleteBefore`（含 task_events 级联）；`audit_records` 明确排除在清理外（哈希链完整性，代码注释 + 文档声明）
-- [ ] 清理循环：复用 `internal/server/control_handler.go:195` 指标清理的每小时模式，删除分批（防长事务）
-- [ ] 单测：过期删除、0 天不删、audit 表不受影响、分批边界
+- [x] 配置 `executionLog.retentionDays`（默认 7，0=永久）；`taskLog.retentionDays`（默认 7，0=永久）——`internal/config/config.go` + `configs/server.yaml` 示例
+- [x] `internal/model` 增加 `ExecutionLogModel.DeleteBefore` / `TaskRunModel.DeleteBefore`（含 task_events 级联）；`audit_records` 明确排除在清理外（哈希链完整性，代码注释 + 文档声明）
+- [x] 清理循环：复用 `internal/server/control_handler.go:195` 指标清理的每小时模式，删除分批（防长事务）
+- [x] 单测：过期删除、0 天不删、audit 表不受影响、分批边界
 
 **验收**：`go test ./internal/model/... ./internal/server/...` 全绿。
 
-## R4. 「我的调用记录」查询 API
+## R4. 「我的调用记录」查询 API ✅
 
 **目标**：给前端提供带权限边界的执行留痕查询。
 
 **改动点**：
 
-- [ ] `GET /api/v1/execution-logs`：分页 + 过滤（function_id/status/时间范围）+ `mine=true` 强制 actor=当前用户；非 mine 需 `audit:read` 权限（与审批中心同级）
-- [ ] 响应脱敏沿用存储时掩码（不二次处理）；`GET /:id` 详情（mine 或有权限）
-- [ ] 单测：权限边界（普通用户仅 mine）、scope 隔离（game/env）、分页
+- [x] `GET /api/v1/execution-logs`：分页 + 过滤（function_id/status/时间范围）+ `mine=true` 强制 actor=当前用户；非 mine 需 `audit:read` 权限（与审批中心同级）
+- [x] 响应脱敏沿用存储时掩码（不二次处理）；`GET /:id` 详情（mine 或有权限）
+- [x] 单测：权限边界（普通用户仅 mine）、scope 隔离（game/env）、分页
 
 **验收**：`go test ./internal/api/...` 新增模块用例全绿。
 
-## R5. 前端「我的调用记录」（依赖 A3/R4）
+## R5. 前端「我的调用记录」（依赖 A3/R4） ✅
 
 **目标**：申请人在 UI 里查自己的执行历史与请求/响应，替代仅本地的 localStorage 历史。
 
 **改动点**：
 
-- [ ] Invoke 页历史区改造：本地 50 条之外提供「服务端记录」入口（mine 视图，展示请求/响应 Drawer）
-- [ ] 审批中心「我发起的」Tab 行内可跳转对应调用记录（approvalId 关联 trace 关联的留痕，可按 trace_id 串联）
-- [ ] web tsc + test + guard
+- [x] Invoke 页历史区改造：本地 50 条之外提供「服务端记录」入口（mine 视图，展示请求/响应 Drawer）
+- [x] 审批中心「我发起的」Tab 行内可跳转对应调用记录（approvalId 关联 trace 关联的留痕，可按 trace_id 串联）
+- [x] web tsc + test + guard
 
 **验收**：交付 DoD 全项（tsc/test/guard）；涉及页面发布的按 DoD 走一次 accept-and-publish 线上验证。
 
