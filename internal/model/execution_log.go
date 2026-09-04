@@ -139,3 +139,12 @@ func deleteBatch(ctx context.Context, db *gorm.DB, dest interface{}, cutoff time
 	}
 	return total, nil
 }
+
+// Get 按主键查询单条（含载荷）。
+func (m *ExecutionLogModel) Get(ctx context.Context, id int64) (*ExecutionLog, error) {
+	var item ExecutionLog
+	if err := dbctx.Resolve(ctx, m.db).WithContext(ctx).First(&item, id).Error; err != nil {
+		return nil, err
+	}
+	return &item, nil
+}

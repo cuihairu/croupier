@@ -18,6 +18,7 @@ import (
 	"github.com/cuihairu/croupier/internal/api/configexplorer"
 	"github.com/cuihairu/croupier/internal/api/console"
 	dbmon "github.com/cuihairu/croupier/internal/api/dbmon"
+	executionlogapi "github.com/cuihairu/croupier/internal/api/executionlog"
 	"github.com/cuihairu/croupier/internal/api/extension"
 	"github.com/cuihairu/croupier/internal/api/faq"
 	"github.com/cuihairu/croupier/internal/api/feedback"
@@ -195,6 +196,7 @@ func RegisterHandlers(r *gin.Engine, serverCtx *svc.ServiceContext) {
 			registerAnalyticsRoutes(scoped.Group("/analytics", softFlags.guard(configpkg.FlagAnalytics)), serverCtx)
 		}
 		registerApprovalRoutes(scoped.Group("/approvals"), serverCtx)
+		registerExecutionLogRoutes(scoped.Group("/execution-logs"), serverCtx)
 		registerAssignmentRoutes(scoped.Group("/assignments"), serverCtx)
 		registerConfigRoutes(scoped.Group("/configs"), serverCtx)
 		// 在线配置浏览器：只读浏览各配置中心（git/redis/nacos/db/croupier）+
@@ -678,6 +680,12 @@ func registerAnalyticsRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 // ============================================================================
 // Approval 路由注册
 // ============================================================================
+func registerExecutionLogRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
+	execLogHandler := executionlogapi.NewHandler(executionlogapi.NewService(ctx))
+	g.GET("/", execLogHandler.List)
+	g.GET("/:id", execLogHandler.Get)
+}
+
 func registerApprovalRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 	approvalSvc := approval.NewService(ctx)
 	approvalHandler := approval.NewHandler(approvalSvc)

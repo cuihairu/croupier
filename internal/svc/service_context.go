@@ -116,6 +116,7 @@ type ServiceContext struct {
 	// ExecutionLogWriter 执行留痕异步写入器（R1）；Run() 由 server 启动，
 	// enabled=false 时为 nil。
 	ExecutionLogWriter *executionlog.Writer
+	ExecutionLogModel  *model.ExecutionLogModel
 	// Scheduler 是 cron 定时任务调度循环（StartScheduler 启动）。
 	Scheduler *scheduler.Manager
 	// Cluster 是多实例 HA 运行时（未启用时 nil）。
@@ -369,6 +370,7 @@ func NewServiceContext(c config.Config, opts ...Option) *ServiceContext {
 		DBSourceModel:             dbSourceModel,
 		PlatformSettingModel:      platformSettingModel,
 		MessageModel:              messageModel,
+		ExecutionLogModel:         model.NewExecutionLogModel(db),
 		NotifyService:             nil, // handler 装配时注入（依赖 Layered）
 		CertificateModel:          certificateModel,
 		ConfigVersionModel:        configVersionModel,
