@@ -45,12 +45,26 @@ func (s *Service) List(ctx context.Context, req *ApprovalsListRequest) (*Approva
 	if size <= 0 {
 		size = 20
 	}
+	actorFilter := strings.TrimSpace(req.Actor)
+	if req.Mine {
+		// mine=true 强制按当前登录用户过滤，忽略请求中的 actor（防越权枚举）；
+		// 用户名缺失时返回空集（fail-safe），退化为全量会泄露他人申请
+		actorFilter = currentApprovalActor(ctx)
+		if actorFilter == "" {
+			return &ApprovalsListResponse{
+				Approvals: []ApprovalSummary{},
+				Page:      page,
+				Size:      size,
+			}, nil
+		}
+	}
 	scope := svc.GameScopeFromContext(ctx)
 	if items, ok, err := s.loadApprovalsFromExtensionInstallation(ctx); err != nil {
 		return nil, err
 	} else if ok {
-		list, total := paginateApprovalSummaries(filterApprovalSummariesByState(
-			toApprovalSummaries(filterApprovalItemsByScope(items, scope)), strings.TrimSpace(req.Status)), page, size)
+		list, total := paginateApprovalSummaries(filterApprovalSummaries(
+			toApprovalSummaries(filterApprovalItemsByScope(items, scope)),
+			actorFilter, req.FunctionID, req.Status), page, size)
 		return &ApprovalsListResponse{
 			Approvals: list,
 			Total:     int64(total),
@@ -63,9 +77,11 @@ func (s *Service) List(ctx context.Context, req *ApprovalsListRequest) (*Approva
 	}
 
 	filter := approvals.Filter{
-		State:  strings.TrimSpace(req.Status),
-		GameID: scope.GameID,
-		Env:    scope.Env,
+		State:      strings.TrimSpace(req.Status),
+		FunctionID: strings.TrimSpace(req.FunctionID),
+		Actor:      actorFilter,
+		GameID:     scope.GameID,
+		Env:        scope.Env,
 	}
 	items, total, err := s.svcCtx.ApprovalsStore.List(filter, approvals.Page{
 		Page: page,
@@ -86,6 +102,14 @@ func (s *Service) List(ctx context.Context, req *ApprovalsListRequest) (*Approva
 		Page:      page,
 		Size:      size,
 	}, nil
+}
+
+func currentApprovalActor(ctx context.Context) string {
+	username, err := utils.CurrentUsername(ctx)
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(username)
 }
 
 // Get retrieves details of a specific approval
@@ -617,6 +641,35 @@ func filterApprovalSummariesByState(items []ApprovalSummary, state string) []App
 	out := make([]ApprovalSummary, 0, len(items))
 	for _, item := range items {
 		if strings.EqualFold(strings.TrimSpace(item.State), state) {
+			out = append(out, item)
+		}
+	}
+	return out
+}
+
+// filterApprovalSummaries 按 actor/functionId/state 过滤（extension 安装路径，
+// 与 ApprovalsStore.Filter 语义一致）。
+func filterApprovalSummaries(items []ApprovalSummary, actor, functionID, state string) []ApprovalSummary {
+	out := items
+	if actor = strings.TrimSpace(actor); actor != "" {
+		out = filterApprovalSummariesByActor(out, actor)
+	}
+	if functionID = strings.TrimSpace(functionID); functionID != "" {
+		filtered := make([]ApprovalSummary, 0, len(out))
+		for _, item := range out {
+			if strings.EqualFold(strings.TrimSpace(item.FunctionID), functionID) {
+				filtered = append(filtered, item)
+			}
+		}
+		out = filtered
+	}
+	return filterApprovalSummariesByState(out, state)
+}
+
+func filterApprovalSummariesByActor(items []ApprovalSummary, actor string) []ApprovalSummary {
+	out := make([]ApprovalSummary, 0, len(items))
+	for _, item := range items {
+		if strings.EqualFold(strings.TrimSpace(item.Actor), actor) {
 			out = append(out, item)
 		}
 	}

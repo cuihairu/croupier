@@ -124,14 +124,14 @@ export default function ApprovalsPage() {
   const list = useCallback(async () => {
     setLoading(true);
     const qs = new URLSearchParams();
-    if (state) qs.set('state', state);
+    if (state) qs.set('status', state);
     if (functionId) qs.set('functionId', functionId);
     if (gameId) qs.set('gameId', gameId);
     if (env) qs.set('env', env);
     if (actor) qs.set('actor', actor);
     if (riskFilter) qs.set('risk', riskFilter);
     qs.set('page', String(page));
-    qs.set('size', String(size));
+    qs.set('pageSize', String(size));
     qs.set('with_audit', '1');
     if (completedOnly) qs.set('completed_only', '1');
     let json: Awaited<ReturnType<typeof listApprovals>>;

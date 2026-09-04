@@ -33,9 +33,13 @@ type ApprovalDetail struct {
 
 // ApprovalsListRequest represents the request to list approvals
 type ApprovalsListRequest struct {
-	Page     int    `form:"page,optional,default=1"`
-	PageSize int    `form:"pageSize,optional,default=20"`
-	Status   string `form:"status"`
+	Page       int    `form:"page,optional,default=1"`
+	PageSize   int    `form:"pageSize,optional,default=20"`
+	Status     string `form:"status"`
+	Actor      string `form:"actor"`
+	FunctionID string `form:"functionId"`
+	// Mine 为 true 时服务端忽略 actor 参数，强制按当前登录用户过滤
+	Mine bool `form:"mine"`
 }
 
 // ApprovalsListResponse represents the response with a list of approvals
