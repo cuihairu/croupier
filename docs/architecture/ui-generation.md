@@ -14,6 +14,59 @@ tag:
 
 > **状态**：In progress -- 页面生成器（`internal/dashboard/generator/`）与唯一前端运行时（`web/src/components/PageRenderer/`、`SchemaFormRenderer`）已落地；真实浏览器 E2E 的 CI 门禁和全部场景验收仍以根目录 `todo.md` 为准。
 
+## 端到端流程总览
+
+从函数注册到用户操作页面的完整链路（括号内为关键实现位置）：
+
+```text
+① 注册
+   SDK / OpenAPI 声明函数，inputSchema 可携带 x-ui-* 呈现 hints
+   （presentation-hints.md「字段清单与映射」）
+   ├─ registrationguard 拒绝页面级字段进入注册（internal/function/registrationguard）
+   └─ FunctionContract 落库 function_contracts（internal/model/function_contract.go），
+      schema digest 供 stale 检测
+
+② 提案生成（确定性：相同输入摘要 + generator version ⇒ 相同 Proposal）
+   ├─ 路径 A：契约变更触发重算 / 手动 POST /api/v1/pages/proposals/rebuild
+   │   （internal/api/page/service.go RebuildAllProposals）
+   └─ 路径 B：组合页编辑器保存 POST /api/v1/versioning/pages/composite
+       （internal/service/versioning → CreateCompositeProposal）
+   表单派生全页型同源（internal/dashboard/generator/）：
+   ├─ operation/task/report → buildFormPresentation（generator.go）
+   ├─ resource/composite    → buildFormFromContract（resource_generator.go）
+   └─ 字段来源优先级：x-ui-* hints（form_hints.go）> 类型缺省控件
+       （enum→Select、date→DatePicker、array(enum)→MultiSelect 等）>
+       schema title > key 人性化
+
+③ 审核发布
+   ProposalInbox（web/src/components/ProposalInbox）→ accept-and-publish
+   （internal/service/proposal_service.go）
+   ├─ 质量门槛：error 级诊断拒绝发布；blocked/needs_review 需人工处理
+   └─ published_page_specs 不可变快照 + page_versions 历史 + 提案置 accepted
+
+④ 运行时渲染
+   PageRenderer 按 PageSpec.type 分发（web/src/components/PageRenderer/）
+   全部表单共用唯一运行时 SchemaFormRenderer（@rjsf/antd + ajv8）：
+   发布页 inline/弹窗表单、编辑器预览（PreviewRuntime）、Invoke 调试页
+   （web/src/pages/Functions/Invoke）——不允许第二套手写表单实现。
+   hints 在渲染端二次生效：fields → rjsf uiSchema 仅内存派生，不持久化。
+
+⑤ 受控执行
+   POST /api/v1/console/pages/:pageKey/bindings/:bindingId/execute
+   （internal/api/console/handler.go）
+   ├─ 服务端解析 functionId/权限/scope；schema stale 拒绝执行
+   └─ onSuccessRefresh / refreshOn / 事件绑定（events）完成区块间联动
+```
+
+流程约定速查：
+
+| 阶段 | 事实源                            | 变更入口                                  |
+| ---- | --------------------------------- | ----------------------------------------- |
+| 注册 | `FunctionContract`（含 hints）    | SDK/OpenAPI 重新注册                      |
+| 提案 | `PageProposal`（generator 产出）  | rebuild / 编辑器保存，人工不可直接改 spec |
+| 展示 | `PageDraft`（可选人工调整）       | Page Studio，仅限展示类字段               |
+| 运行 | `PublishedPageSpec`（不可变快照） | 只能通过新提案 → 再发布                   |
+
 ## 为什么不集成 React Admin（决策记录）
 
 React Admin 的可借鉴之处是“资源语义 -> 默认后台页面 -> 局部覆盖”，而不是它的 UI 组件或 `DataProvider` 协议。Croupier 已有 Ant Design Pro/ProComponents，表格、表单、详情、抽屉、步骤、权限和布局能力足够且更贴合现有系统。
@@ -96,7 +149,9 @@ PageSpec 节点到 ProComponents 的对应关系固定如下（renderer adapter 
 
 ## 表单渲染
 
-Function input、查询、创建、编辑和动作弹窗共用 `SchemaFormRenderer`。表单 runtime 固定为 `@rjsf/antd + @rjsf/validator-ajv8`：
+Function input、查询、创建、编辑、动作弹窗（含组合页 dialog 区块）、编辑器
+预览（`PreviewRuntime`）和 Invoke 调试页共用 `SchemaFormRenderer`。表单
+runtime 固定为 `@rjsf/antd + @rjsf/validator-ajv8`：
 
 ```text
 JSON Schema + FormPresentationSpec
@@ -106,7 +161,7 @@ JSON Schema + FormPresentationSpec
   -> typed PageBinding input assignments
 ```
 
-这层不得耦合 PageSpec 的页面布局。renderer 私有 `uiSchema` 只能由 FormPresentationSpec 在前端临时派生，不能持久化、不能进入 SDK/OpenAPI、不能成为第二套页面协议。项目内禁止保留 Formily、form-render 或自研 ProForm field factory 作为并行运行时。
+这层不得耦合 PageSpec 的页面布局。renderer 私有 `uiSchema` 只能由 FormPresentationSpec 在前端临时派生，不能持久化、不能进入 SDK/OpenAPI、不能成为第二套页面协议。项目内禁止保留 Formily、form-render 或自研 ProForm field factory 作为并行运行时；**同样禁止在渲染路径上手写原生 `<input>` 表单**（如旧版弹窗/预览实现，已于 2026-09 移除，统一走 SchemaFormRenderer）。
 
 ## 真实验收
 
