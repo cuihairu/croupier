@@ -8,7 +8,7 @@ import type { PageNode } from './model';
 import type { JSONSchema } from '@/types/dashboard';
 import ActionEditor from './ActionEditor';
 import RowActionsEditor from './RowActionsEditor';
-import StaticSchemaEditor from './StaticSchemaEditor';
+import ConstantFieldsEditor from './ConstantFieldsEditor';
 import { schemaProperties } from './types';
 
 const { Text } = Typography;
@@ -109,7 +109,7 @@ export default function PropsPanel({
                     >
                       {(props[key] as { title?: string })?.title ?? key}
                     </Typography.Text>
-                    <StaticSchemaEditor
+                    <ConstantFieldsEditor
                       value={
                         typeof node.props[key] === 'string'
                           ? (node.props[key] as string)

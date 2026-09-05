@@ -20,9 +20,11 @@ import {
   EyeOutlined,
   ReloadOutlined,
   SearchOutlined,
+  ControlOutlined,
   ThunderboltOutlined,
 } from '@ant-design/icons';
 import { PageContainer } from '@ant-design/pro-components';
+import ConstantImportModal from '../CompositeEditor/ConstantImportModal';
 import { request } from '@umijs/max';
 import { listDescriptors, type FunctionDescriptor } from '@/services/api/functions';
 import {
@@ -80,6 +82,7 @@ export default function ComponentTemplatesPage() {
   const [previewKey, setPreviewKey] = useState<string | null>(null);
   const [previewTab, setPreviewTab] = useState<'ui' | 'json'>('ui');
   const [regenerating, setRegenerating] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
   // 函数契约（fnForm/fnTable 渲染需要 schema；拉取失败按空集降级——
   // 组件结构仍可预览，仅表单缺字段提示）。
   const [fnById, setFnById] = useState<Map<string, FunctionDescriptor>>(new Map());
@@ -174,6 +177,13 @@ export default function ComponentTemplatesPage() {
       header={{
         title: '组件模板',
         extra: [
+          <Button
+            key="import-consts"
+            icon={<ControlOutlined />}
+            onClick={() => setImportOpen(true)}
+          >
+            导入常量
+          </Button>,
           <Button
             key="regen"
             icon={<ThunderboltOutlined />}
@@ -322,6 +332,15 @@ export default function ComponentTemplatesPage() {
           </div>
         )}
       </Modal>
+      <ConstantImportModal
+        open={importOpen}
+        onCancel={() => setImportOpen(false)}
+        onSaved={() => {
+          setImportOpen(false);
+          message.success('常量模板已保存——组合页编辑器组件库中可拖入使用');
+          void load();
+        }}
+      />
     </PageContainer>
   );
 }
