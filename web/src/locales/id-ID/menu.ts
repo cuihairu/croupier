@@ -1,4 +1,5 @@
 export default {
+  'menu.FunctionsAndPages.ExecutionLogs': 'Log Eksekusi',
   'menu.welcome': 'Selamat Datang',
   'menu.more-blocks': 'Blocks Lainnya',
   'menu.home': 'Halaman Awal',

@@ -77,8 +77,13 @@ export default function ServerHistoryPanel({ functionId }: { functionId?: string
           />{' '}
           仅看当前函数{functionId ? `（${functionId}）` : ''}
         </label>
-        <a href="/ops/execution-logs" target="_blank" rel="noreferrer" style={{ fontSize: 12 }}>
-          查看全部执行留痕（运维审计）→
+        <a
+          href="/functions/execution-logs"
+          target="_blank"
+          rel="noreferrer"
+          style={{ fontSize: 12 }}
+        >
+          查看全部执行留痕 →
         </a>
       </Space>
       {loadError ? (

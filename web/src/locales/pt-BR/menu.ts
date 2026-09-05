@@ -1,4 +1,5 @@
 export default {
+  'menu.FunctionsAndPages.ExecutionLogs': 'Logs de Execução',
   'menu.welcome': 'Welcome',
   'menu.more-blocks': 'More Blocks',
   'menu.home': 'Início',

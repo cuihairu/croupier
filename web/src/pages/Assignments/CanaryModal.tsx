@@ -6,18 +6,18 @@ import type { FormValues } from '@/types/dashboard';
 import { CANARY_FORM_SPEC } from './schemas';
 
 type Props = {
-  visible: boolean;
+  open: boolean;
   assignment: AssignmentItem | null;
   onClose: () => void;
   onSave: (values: FormValues) => void;
 };
 
-export default function CanaryModal({ visible, assignment, onClose, onSave }: Props) {
+export default function CanaryModal({ open, assignment, onClose, onSave }: Props) {
   const formRef = React.useRef<SchemaFormRendererHandle | null>(null);
   const [formValues, setFormValues] = React.useState<FormValues>({});
 
   React.useEffect(() => {
-    if (!visible) return;
+    if (!open) return;
     setFormValues({
       functionId: assignment?.id || '',
       enabled: assignment?.status === 'canary',
@@ -25,12 +25,12 @@ export default function CanaryModal({ visible, assignment, onClose, onSave }: Pr
       rules: assignment?.canary?.rules ? JSON.stringify(assignment.canary.rules) : '',
       duration: assignment?.canary?.duration || '7d',
     });
-  }, [visible, assignment]);
+  }, [open, assignment]);
 
   return (
     <Modal
       title="灰度配置"
-      open={visible}
+      open={open}
       onCancel={onClose}
       onOk={() => {
         if (!formRef.current?.validate()) return;

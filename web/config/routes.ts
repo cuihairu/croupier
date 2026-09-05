@@ -71,6 +71,15 @@ const functionManagementRoutes = [
     icon: 'cluster',
   },
   {
+    // 执行留痕（管理员审计视角）：全量执行记录按用户/函数/时间过滤。
+    // 属函数域观测（谁调了什么函数），故挂函数与页面菜单而非运维。
+    path: '/functions/execution-logs',
+    name: 'FunctionsAndPages.ExecutionLogs',
+    access: 'canAuditRead',
+    component: './Functions/ExecutionLogs',
+    icon: 'fileSearch',
+  },
+  {
     // SDK 版本分布：在线 provider 实例按 SDK 语言/版本聚合（F：sdk-stats）
     path: '/functions/sdk-distribution',
     name: 'SdkDistribution',
@@ -372,13 +381,6 @@ export default [
         hideInMenu: true,
       },
       { path: '/ops/nodes', name: 'Nodes', access: 'canOpsRead', component: './Ops/Nodes' },
-      {
-        // 执行留痕（管理员审计视角）：全量执行记录按用户/函数/时间过滤
-        path: '/ops/execution-logs',
-        name: 'Ops.ExecutionLogs',
-        access: 'canAuditRead',
-        component: './Ops/ExecutionLogs',
-      },
       {
         // LB 监控（管道用开源：haproxy exporter → prometheus → 平台原生渲染；
         // docs/operations/load-balancing.md「LB 监控」）

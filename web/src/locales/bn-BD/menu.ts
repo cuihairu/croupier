@@ -1,4 +1,5 @@
 export default {
+  'menu.FunctionsAndPages.ExecutionLogs': 'এক্সিকিউশন লগ',
   'menu.welcome': 'স্বাগতম',
   'menu.more-blocks': 'আরও ব্লক',
   'menu.home': 'নীড়',

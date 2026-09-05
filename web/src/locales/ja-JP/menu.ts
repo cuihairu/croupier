@@ -1,4 +1,5 @@
 export default {
+  'menu.FunctionsAndPages.ExecutionLogs': '実行履歴',
   'menu.welcome': 'ようこそ',
   'menu.more-blocks': 'その他のブロック',
   'menu.home': 'ホーム',

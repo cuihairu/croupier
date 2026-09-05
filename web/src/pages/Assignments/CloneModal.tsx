@@ -5,24 +5,24 @@ import type { FormValues } from '@/types/dashboard';
 import { CLONE_FORM_SPEC } from './schemas';
 
 type Props = {
-  visible: boolean;
+  open: boolean;
   onClose: () => void;
   onSave: (targetEnv: string) => Promise<void> | void;
 };
 
-export default function CloneModal({ visible, onClose, onSave }: Props) {
+export default function CloneModal({ open, onClose, onSave }: Props) {
   const formRef = React.useRef<SchemaFormRendererHandle | null>(null);
   const [formValues, setFormValues] = React.useState<FormValues>({});
 
   React.useEffect(() => {
-    if (!visible) return;
+    if (!open) return;
     setFormValues({});
-  }, [visible]);
+  }, [open]);
 
   return (
     <Modal
       title="克隆分配配置"
-      open={visible}
+      open={open}
       onCancel={onClose}
       onOk={() => {
         if (!formRef.current?.validate()) return;

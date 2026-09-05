@@ -6,7 +6,7 @@ import { HISTORY_ACTION_OPTIONS } from './constants';
 import { formatDateTime, renderHistoryDetail } from './utils';
 
 type Props = {
-  visible: boolean;
+  open: boolean;
   history: AssignmentHistory[];
   loading: boolean;
   page: number;
@@ -20,7 +20,7 @@ type Props = {
 };
 
 export default function HistoryModal({
-  visible,
+  open,
   history,
   loading,
   page,
@@ -35,7 +35,7 @@ export default function HistoryModal({
   return (
     <Modal
       title="分配变更历史"
-      open={visible}
+      open={open}
       onCancel={onClose}
       width={800}
       footer={[
