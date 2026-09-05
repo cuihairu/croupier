@@ -25,7 +25,7 @@ import {
   outputPatchFromResult,
   projectBindingContext,
 } from './runtime';
-import type { PageState } from './runtime';
+import type { PageState, PageStatePatch } from './runtime';
 import type {
   PageSpec,
   PageExecuteFn,
@@ -72,7 +72,9 @@ export const CompositeRenderer: React.FC<{
   bindings: PageFunctionBinding[];
   onExecute: PageExecuteFn;
   preview: boolean;
-}> = ({ sections, bindings, onExecute, preview }) => {
+  /** 常量表单/表单提交值并入 page_state（显式参数映射的数据来源）。 */
+  onPageStateMerge?: (key: string, values: Record<string, unknown>) => void;
+}> = ({ sections, bindings, onExecute, preview, onPageStateMerge }) => {
   const { message, modal } = App.useApp();
   const [results, setResults] = useState<
     Record<string, PageExecutionResult | { data: Record<string, unknown> } | null>
@@ -88,8 +90,11 @@ export const CompositeRenderer: React.FC<{
     staticTimerRef.current = setTimeout(() => {
       staticTimerRef.current = null;
       setResults((prev) => ({ ...prev, ...staticMergeRef.current }));
+      for (const [key, v] of Object.entries(staticMergeRef.current)) {
+        onPageStateMerge?.(key, v.data);
+      }
     }, 400);
-  }, []);
+  }, [onPageStateMerge]);
   useEffect(
     () => () => {
       if (staticTimerRef.current) clearTimeout(staticTimerRef.current);
@@ -401,6 +406,7 @@ export const CompositeRenderer: React.FC<{
                   initialValues={(sectionInputs[sec.key] || {}) as FormValues}
                   disabled={running[sec.key] || false}
                   onFinish={async (values) => {
+                    onPageStateMerge?.(sec.key, values as Record<string, unknown>);
                     const r = await runSection(sec, values);
                     if (r && !(r as { error?: string }).error) fireEvent(sec, 'success');
                   }}
@@ -573,6 +579,14 @@ const PageRenderer: React.FC<PageRendererProps> = ({
           bindings={bindings}
           onExecute={executeWithPageState}
           preview={preview}
+          onPageStateMerge={(key, values) => {
+            setPageState((current) => {
+              const patch: PageStatePatch = { [key]: values as never };
+              const next = mergePageState(current, patch);
+              pageStateRef.current = next;
+              return next;
+            });
+          }}
         />
       );
     }
