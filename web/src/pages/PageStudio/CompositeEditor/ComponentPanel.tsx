@@ -129,7 +129,12 @@ export default function ComponentPanel({
 
   React.useEffect(() => subscribeScope(() => setReloadKey((k) => k + 1)), []);
 
-  const basics = useMemo(() => allComponents().filter((c) => c.category === 'basic'), []);
+  // 常量表单不出现在基础组件：其创建入口统一为组件模板页「导入常量」
+  // （存为常量模板后从组件库拖选），避免诱导产生无常量定义的空表单。
+  const basics = useMemo(
+    () => allComponents().filter((c) => c.category === 'basic' && c.type !== 'staticForm'),
+    [],
+  );
 
   const treeData = useMemo<DataNode[]>(() => {
     const byResource = new Map<string, FunctionDescriptor[]>();

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Alert, Button, Form, Input, Modal, Radio, Space, Typography, Upload } from 'antd';
+import { Alert, Button, Modal, Radio, Space, Typography, Upload } from 'antd';
 import { UploadOutlined } from '@ant-design/icons';
 import { request } from '@umijs/max';
 import * as XLSX from 'xlsx';
@@ -31,7 +31,6 @@ export default function ConstantImportModal({
   /** 保存成功回调（携带模板名，用于提示/刷新列表）。 */
   onSaved: (name: string) => void;
 }) {
-  const [form] = Form.useForm<{ name: string }>();
   const [fields, setFields] = useState<ConstantField[]>([]);
   const [importMode, setImportMode] = useState<ImportMode>('long');
   const [error, setError] = useState('');
@@ -40,7 +39,6 @@ export default function ConstantImportModal({
   const reset = () => {
     setFields([]);
     setError('');
-    form.resetFields();
   };
 
   const beforeUpload = (file: File) => {
@@ -79,34 +77,36 @@ export default function ConstantImportModal({
   };
 
   const save = async () => {
-    const name = (form.getFieldValue('name') || '').trim();
-    if (!name) {
-      setError('请填写模板名称');
-      return;
-    }
     if (fields.length === 0) {
       setError('请先导入常量（Excel/JSON）或添加字段');
       return;
     }
     setSaving(true);
     try {
-      await request('/api/v1/component-templates', {
-        method: 'POST',
-        data: {
-          key: `consts--${Date.now().toString(36)}`,
-          name: { 'zh-CN': name, 'en-US': name },
-          description: {
-            'zh-CN': `常量下拉（${fields.length} 项）`,
-            'en-US': `Constant dropdowns (${fields.length})`,
+      // 一种常量一个组件：每个常量保存为独立的单下拉 staticForm 模板，
+      // 组件库按常量名展示，组合页里自由拖选数量与位置
+      const batch = Date.now().toString(36);
+      let created = 0;
+      for (const [i, f] of fields.entries()) {
+        await request('/api/v1/component-templates', {
+          method: 'POST',
+          data: {
+            key: `consts--${batch}-${i}`,
+            name: { 'zh-CN': f.title || f.key, 'en-US': f.title || f.key },
+            description: {
+              'zh-CN': `常量下拉（${f.options.length} 个选项）`,
+              'en-US': `Constant dropdown (${f.options.length} options)`,
+            },
+            category: '常量',
+            icon: 'ControlOutlined',
+            requiredFunctions: [],
+            tree: [staticFormNodeFromFields([f], f.title || f.key, 12)],
           },
-          category: '常量',
-          icon: 'ControlOutlined',
-          requiredFunctions: [],
-          tree: [staticFormNodeFromFields(fields, name, 24)],
-        },
-        skipErrorHandler: true,
-      });
-      onSaved(name);
+          skipErrorHandler: true,
+        });
+        created += 1;
+      }
+      onSaved(`${created} 个常量组件`);
       reset();
     } catch (e) {
       setError(e instanceof Error ? e.message : '保存失败');
@@ -117,7 +117,7 @@ export default function ConstantImportModal({
 
   return (
     <Modal
-      title="导入常量 → 存为组件模板"
+      title="导入常量"
       width={640}
       open={open}
       onCancel={() => {
@@ -135,22 +135,12 @@ export default function ConstantImportModal({
             取消
           </Button>
           <Button type="primary" loading={saving} onClick={() => void save()}>
-            保存为组件模板
+            全部保存（{fields.length} 个组件）
           </Button>
         </Space>
       }
     >
       <Space direction="vertical" size={10} style={{ width: '100%' }}>
-        <Form form={form} layout="vertical" preserve={false}>
-          <Form.Item
-            name="name"
-            label="模板名称"
-            rules={[{ required: true, message: '模板名称必填' }]}
-          >
-            <Input placeholder="如：游戏常量下拉" maxLength={40} />
-          </Form.Item>
-        </Form>
-
         <Space size={8} wrap>
           <Radio.Group
             size="small"
@@ -174,7 +164,7 @@ export default function ConstantImportModal({
         {fields.length > 0 && (
           <>
             <Text strong style={{ fontSize: 12 }}>
-              常量预览（{fields.length} 个，可微调后保存）
+              常量预览（{fields.length} 个，每个常量将保存为一个独立下拉组件）
             </Text>
             <ConstantFieldsEditor
               value={fieldsToSchemaJson(fields)}
