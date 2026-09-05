@@ -143,6 +143,12 @@ web/src/pages/PageStudio/CompositeEditor/
 
 V4 新增文件：`ComponentLibrary.tsx`（组件库面板——模板浏览/实例化/id 重映射/scope 检查）、`types.ts`（共享类型）。
 
+**模板拖放（2026-09）**：组件库 Tab 的模板卡片是 dnd-kit 拖拽源——可拖入画布任意落点
+（根级末尾/节点之后链式插入/容器内），落点规则与函数组件一致；拖放与点击插入共用
+`instantiateTemplate`（id 重分配 + 内部引用重映射）。落点决策抽为纯函数
+`templateDrop.ts#planTemplateDrop`（含 V1 弹窗仅 fnForm 边界），7 个单测覆盖。缺依赖
+函数的模板拖入时在落点处警告并放弃（不静默失败）。
+
 ## 8. V4 展望：组件模板与三层组合
 
 V3 之上已上线**组件模板层 V4**（组件库面板实例化 + 选中节点保存为组件 + 契约自动生成模板），详见

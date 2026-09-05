@@ -1,6 +1,7 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Empty, Input, Space, Spin, Tag, Typography } from 'antd';
 import { AppstoreOutlined, SearchOutlined } from '@ant-design/icons';
+import { useDraggable } from '@dnd-kit/core';
 import { request } from '@umijs/max';
 import { nodeId, type PageNode } from './model';
 import type { FunctionDescriptor } from '@/services/api/functions';
@@ -172,21 +173,11 @@ export default function ComponentLibrary({
             const name = (tpl.name as Record<string, string>)?.['zh-CN'] ?? tpl.key;
             const desc = (tpl.description as Record<string, string>)?.['zh-CN'] ?? '';
             return (
-              <div
+              <TemplateDraggable
                 key={tpl.key}
-                onClick={() => {
-                  if (!ok) return;
-                  onInsert(instantiateTemplate(tpl), tpl);
-                }}
-                style={{
-                  border: '1px solid #f0f0f0',
-                  borderRadius: 6,
-                  padding: '8px 10px',
-                  marginBottom: 6,
-                  cursor: ok ? 'pointer' : 'not-allowed',
-                  opacity: ok ? 1 : 0.5,
-                  background: '#fff',
-                }}
+                tpl={tpl}
+                missing={ok ? [] : missing}
+                onInsert={onInsert}
               >
                 <Space size={6}>
                   <AppstoreOutlined style={{ color: '#1677ff' }} />
@@ -209,11 +200,55 @@ export default function ComponentLibrary({
                     </Text>
                   </div>
                 )}
-              </div>
+              </TemplateDraggable>
             );
           })}
         </div>
       ))}
+    </div>
+  );
+}
+
+function TemplateDraggable({
+  tpl,
+  missing,
+  onInsert,
+  children,
+}: {
+  tpl: ComponentTemplateDTO;
+  missing: string[];
+  onInsert: (nodes: PageNode[], template: ComponentTemplateDTO) => void;
+  children: React.ReactNode;
+}) {
+  // id 必须稳定（同 PanelDraggable 注释）：isDragging 重渲染时 id 变化
+  // 会导致 onDragEnd 拿不到 data，拖入静默失败。
+  const idRef = useRef(`panel:tpl:${tpl.key}`);
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
+    id: idRef.current,
+    data: { source: 'panel', kind: 'template', tpl, missing },
+  });
+  const ok = missing.length === 0;
+  return (
+    <div
+      ref={setNodeRef}
+      {...attributes}
+      {...listeners}
+      onClick={() => {
+        if (!ok) return;
+        onInsert(instantiateTemplate(tpl), tpl);
+      }}
+      style={{
+        border: '1px solid #f0f0f0',
+        borderRadius: 6,
+        padding: '8px 10px',
+        marginBottom: 6,
+        cursor: ok ? 'grab' : 'not-allowed',
+        opacity: isDragging ? 0.4 : ok ? 1 : 0.5,
+        background: '#fff',
+        touchAction: 'none',
+      }}
+    >
+      {children}
     </div>
   );
 }

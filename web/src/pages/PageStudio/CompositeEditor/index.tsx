@@ -28,7 +28,11 @@ import { schemaProperties } from './types';
 import { extractErrorMessage } from '@/utils/errors';
 import { duplicateNode as duplicateTree, insertAfter, moveNode } from './model';
 import ComponentPanel, { type AddFnEvent } from './ComponentPanel';
-import ComponentLibrary from './ComponentLibrary';
+import { planTemplateDrop } from './templateDrop';
+import ComponentLibrary, {
+  instantiateTemplate,
+  type ComponentTemplateDTO,
+} from './ComponentLibrary';
 import PropsPanel from './PropsPanel';
 import { registerBuiltinComponents } from './components/builtin';
 import { getComponent } from './registry';
@@ -274,6 +278,7 @@ export default function CompositeEditorPage() {
     | null
     | { kind: 'basic'; basicType: string }
     | { kind: 'fn'; fn: AddFnEvent['fn']; componentType: AddFnEvent['componentType'] }
+    | { kind: 'template'; tpl: ComponentTemplateDTO; missing: string[] }
   >(null);
   const treeRef = useRef(tree);
   treeRef.current = tree;
@@ -341,13 +346,16 @@ export default function CompositeEditorPage() {
           fn: AddFnEvent['fn'];
           componentType: AddFnEvent['componentType'];
         }
+      | { source: 'panel'; kind: 'template'; tpl: ComponentTemplateDTO; missing: string[] }
       | { source: 'canvas' }
       | undefined;
     if (data?.source === 'panel') {
       setDragItem(
         data.kind === 'basic'
           ? { kind: 'basic', basicType: data.basicType }
-          : { kind: 'fn', fn: data.fn, componentType: data.componentType },
+          : data.kind === 'template'
+            ? { kind: 'template', tpl: data.tpl, missing: data.missing }
+            : { kind: 'fn', fn: data.fn, componentType: data.componentType },
       );
     } else {
       setDragItem(null);
@@ -367,9 +375,44 @@ export default function CompositeEditorPage() {
             fn: AddFnEvent['fn'];
             componentType: AddFnEvent['componentType'];
           }
+        | { source: 'panel'; kind: 'template'; tpl: ComponentTemplateDTO; missing: string[] }
         | { source: 'canvas' }
         | undefined;
       const overId = String(over.id);
+
+      if (data?.source === 'panel' && data.kind === 'template') {
+        // 模板拖入：实例化子树（id/引用重映射），按落点插入多节点
+        if (data.missing.length > 0) {
+          message.warning(`缺少依赖函数：${data.missing.join(', ')}`);
+          return;
+        }
+        const nodes = instantiateTemplate(data.tpl);
+        if (nodes.length === 0) return;
+        for (const fid of data.tpl.requiredFunctions ?? []) {
+          const fn = allFns.find((f) => f.id === fid);
+          if (fn) registerFn(fn);
+        }
+        const after = overId === 'canvas-root' ? undefined : findNode(treeRef.current, overId);
+        const plan = planTemplateDrop(nodes, overId, editingModalRef.current, after);
+        if (plan.kind === 'blocked') {
+          message.warning(plan.reason);
+          return;
+        }
+        if (plan.kind === 'modal') {
+          for (const node of nodes) addChild(plan.targetId, node);
+        } else if (plan.kind === 'container') {
+          for (const node of nodes) addChild(plan.targetId, node);
+        } else {
+          // 链式插入：每个节点插到前一个之后，保持模板顺序
+          let anchorId = plan.afterId;
+          for (const node of nodes) {
+            setTree((prev) => (anchorId ? insertAfter(prev, node, anchorId!) : [...prev, node]));
+            anchorId = node.id;
+          }
+        }
+        setSelectedId(nodes[0].id);
+        return;
+      }
 
       if (data?.source === 'panel') {
         // 构造新节点
@@ -435,7 +478,7 @@ export default function CompositeEditorPage() {
         return moved === prev ? prev : moved;
       });
     },
-    [addChild, message, registerFn],
+    [addChild, message, registerFn, allFns],
   );
 
   const duplicateNode = useCallback((id: string) => {
@@ -876,7 +919,9 @@ export default function CompositeEditorPage() {
             >
               {dragItem.kind === 'basic'
                 ? `组件：${dragItem.basicType}`
-                : `函数：${dragItem.fn.id}`}
+                : dragItem.kind === 'template'
+                  ? `模板：${(dragItem.tpl.name as Record<string, string>)?.['zh-CN'] ?? dragItem.tpl.key}`
+                  : `函数：${dragItem.fn.id}`}
             </div>
           ) : null}
         </DragOverlay>
