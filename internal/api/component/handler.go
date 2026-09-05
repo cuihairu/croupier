@@ -43,6 +43,7 @@ func (h *Handler) Register(g *gin.RouterGroup) {
 	g.PUT("/:key", h.Update)
 	g.DELETE("/:key", h.Delete)
 	g.POST("/regenerate", h.Regenerate)
+	g.POST("/seed-demo-constants", h.SeedDemoConstants)
 }
 
 // TemplateDTO is the wire shape.
