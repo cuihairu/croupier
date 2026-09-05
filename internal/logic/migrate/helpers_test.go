@@ -345,3 +345,67 @@ func TestAppendMigrateHistoryTruncatesAt500(t *testing.T) {
 		t.Errorf("second item name = %q, want new2", loaded[1].Name)
 	}
 }
+
+func TestLoadMigrateHistoryNullJSON(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+	path := filepath.Join(tmpDir, "null.json")
+	if err := os.WriteFile(path, []byte("null"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	loaded, err := loadMigrateHistory(path)
+	if err != nil {
+		t.Fatalf("loadMigrateHistory(null) error = %v", err)
+	}
+	if loaded == nil || len(loaded) != 0 {
+		t.Errorf("loadMigrateHistory(null) = %v, want empty slice", loaded)
+	}
+}
+
+func TestLoadMigrateHistoryReadError(t *testing.T) {
+	t.Parallel()
+
+	// 目标是目录：读取失败且不属于 IsNotExist → 返回错误
+	dir := t.TempDir()
+	_, err := loadMigrateHistory(dir)
+	if err == nil {
+		t.Fatal("loadMigrateHistory(directory) should error")
+	}
+}
+
+func TestSaveMigrateHistoryMkdirError(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+	blocker := filepath.Join(tmpDir, "blocker")
+	if err := os.WriteFile(blocker, []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	// 父路径是普通文件：MkdirAll 失败
+	if err := saveMigrateHistory(filepath.Join(blocker, "history.json"), nil); err == nil {
+		t.Fatal("saveMigrateHistory() should fail when parent is a file")
+	}
+}
+
+func TestAppendMigrateHistoryLoadError(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+	ctx := &svc.ServiceContext{
+		Config: config.Config{
+			BootstrapData: config.BootstrapDataConfig{BaseDir: tmpDir},
+		},
+	}
+	// 预置损坏的历史文件 → append 读取失败即返回错误
+	path := migrateHistoryPath(ctx)
+	if err := os.WriteFile(path, []byte("{broken"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := appendMigrateHistory(ctx, []MigrationResult{{Name: "n"}}); err == nil {
+		t.Fatal("appendMigrateHistory() should fail when history is corrupt")
+	}
+}

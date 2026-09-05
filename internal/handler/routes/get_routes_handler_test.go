@@ -41,3 +41,21 @@ func TestGetRoutesHandler_Success(t *testing.T) {
 	assert.Equal(t, http.StatusOK, w.Code)
 	assert.Contains(t, w.Body.String(), "player")
 }
+
+// GetRoutesHandler 失败分支：底层查询失败时经统一错误响应返回 500。
+func TestGetRoutesHandler_QueryError(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	db, err := gorm.Open(sqlite.Open("file::memory:"), &gorm.Config{
+		Logger: logger.Default.LogMode(logger.Silent),
+	})
+	require.NoError(t, err)
+	// 不迁移 function 表 → List 查询失败
+	svcCtx := &svc.ServiceContext{FunctionModel: model.NewFunctionModel(db)}
+
+	r := gin.New()
+	r.GET("/routes", GetRoutesHandler(svcCtx))
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/routes", nil))
+
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
+}

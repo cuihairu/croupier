@@ -302,3 +302,39 @@ func TestService_ListBindings_WithData(t *testing.T) {
 	require.NoError(t, err)
 	assert.Len(t, bindings, 1)
 }
+
+func TestService_Install_UnmarshalableConfig(t *testing.T) {
+	svc, _ := newInstallService(t)
+	_, err := svc.Install(context.Background(), InstallRequest{
+		ExtensionID: "ext-9",
+		Config:      map[string]any{"bad": func() {}},
+	})
+	require.Error(t, err)
+}
+
+func TestService_UpdateConfig_UnmarshalableConfig(t *testing.T) {
+	svc, db := newInstallService(t)
+	ctx := context.Background()
+	item, err := svc.Install(ctx, InstallRequest{ExtensionID: "ext-1"})
+	require.NoError(t, err)
+
+	err = svc.UpdateConfig(ctx, item.ID, map[string]any{"bad": make(chan int)}, nil, "op")
+	require.Error(t, err)
+	_ = db
+}
+
+func TestService_Uninstall_BindingClearError(t *testing.T) {
+	svc, db := newInstallService(t)
+	ctx := context.Background()
+	item, err := svc.Install(ctx, InstallRequest{ExtensionID: "ext-1"})
+	require.NoError(t, err)
+	require.NoError(t, db.Migrator().DropTable(&model.ExtensionRuntimeBinding{}))
+
+	err = svc.Uninstall(ctx, item.ID, "op")
+	require.Error(t, err)
+}
+
+func TestMarshalJSONError(t *testing.T) {
+	_, err := marshalJSON(map[string]any{"bad": make(chan int)})
+	require.Error(t, err)
+}

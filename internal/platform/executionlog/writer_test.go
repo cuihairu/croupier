@@ -13,6 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
 
+	"github.com/cuihairu/croupier/internal/db/dbctx"
 	"github.com/cuihairu/croupier/internal/model"
 )
 
@@ -21,6 +22,17 @@ func newTestDB(t *testing.T) *gorm.DB {
 	db, err := gorm.Open(gsqlite.Open(":memory:"), &gorm.Config{})
 	require.NoError(t, err)
 	require.NoError(t, db.AutoMigrate(&model.ExecutionLog{}, &model.TaskRun{}, &model.TaskEvent{}))
+	return db
+}
+
+// newTestDBSingleConn 强制单连接：:memory: 库的连接池开第二条连接会得到
+// 一个全新的空库，「边写边查」的测试必须与写入共享同一连接。
+func newTestDBSingleConn(t *testing.T) *gorm.DB {
+	t.Helper()
+	db := newTestDB(t)
+	sqlDB, err := db.DB()
+	require.NoError(t, err)
+	sqlDB.SetMaxOpenConns(1)
 	return db
 }
 
@@ -139,4 +151,144 @@ func TestWriterQueueFullDropsWithoutBlocking(t *testing.T) {
 		t.Fatal("Log() blocked when queue was full")
 	}
 	w.Stop()
+}
+
+// fakeRouter DBRouter 内存替身：badGame 返回解析失败，badDB 库缺表导致
+// 批量写入失败，其余路由到指定库。返回的 ctx 携带 per-game 库（与生产
+// router.Router 的注入方式一致——writer 只消费 ctx，丢弃返回的 *gorm.DB）。
+type fakeRouter struct {
+	badGame string
+	badDB   *gorm.DB
+	good    *gorm.DB
+}
+
+func (f *fakeRouter) Resolve(ctx context.Context, gameID, env string) (context.Context, *gorm.DB, error) {
+	switch gameID {
+	case f.badGame:
+		return ctx, nil, context.DeadlineExceeded
+	case "baddb":
+		return dbctx.WithDB(ctx, f.badDB), f.badDB, nil
+	default:
+		return dbctx.WithDB(ctx, f.good), f.good, nil
+	}
+}
+
+func TestWriterRouterGroupsByGameEnv(t *testing.T) {
+	good := newTestDB(t)
+	badDB, err := gorm.Open(gsqlite.Open(":memory:"), &gorm.Config{})
+	require.NoError(t, err) // 不迁移 → CreateBatch 失败分支
+
+	w := NewWriter(good, Config{Enabled: true, FlushInterval: 50 * time.Millisecond})
+	w.router = &fakeRouter{badGame: "gerr", badDB: badDB, good: good}
+	w.Run(context.Background())
+
+	w.Log(Entry{GameID: "g1", Env: "prod", Source: SourceInvoke, FunctionID: "f.ok", Status: StatusOK})
+	w.Log(Entry{GameID: "g1", Env: "dev", Source: SourceInvoke, FunctionID: "f.ok", Status: StatusOK})
+	w.Log(Entry{GameID: "gerr", Env: "prod", Source: SourceInvoke, FunctionID: "f.resolve-err", Status: StatusOK})
+	w.Log(Entry{GameID: "baddb", Env: "prod", Source: SourceInvoke, FunctionID: "f.write-err", Status: StatusOK})
+	w.Stop()
+
+	// g1/prod 与 g1/dev 各自落库成功；gerr/baddb 两个失败组只告警不中断。
+	var items []model.ExecutionLog
+	require.NoError(t, good.Find(&items).Error)
+	require.Len(t, items, 2)
+}
+
+func TestWriterNilReceiver(t *testing.T) {
+	var w *Writer
+	assert.NotPanics(t, func() {
+		w.Log(Entry{FunctionID: "f"})
+		assert.Equal(t, int64(0), w.Dropped())
+	})
+}
+
+func TestSkipContext(t *testing.T) {
+	assert.False(t, Skipped(nil))
+	assert.False(t, Skipped(context.Background()))
+	assert.True(t, Skipped(WithSkipContext(context.Background())))
+}
+
+func TestNormalizeJSONUnserializable(t *testing.T) {
+	out := normalizeJSON(make(chan int))
+	m, ok := out.(map[string]interface{})
+	require.True(t, ok)
+	assert.Contains(t, m, "logUnserializable")
+}
+
+func TestNewWriterDefaults(t *testing.T) {
+	// 全零配置：四个默认值分支全部生效
+	w := NewWriter(newTestDB(t), Config{})
+	assert.Equal(t, defaultQueueSize, cap(w.ch))
+	assert.Equal(t, defaultBatchSize, w.batchSize)
+	assert.Equal(t, defaultFlushInterval, w.flush)
+	assert.Equal(t, DefaultMaxPayloadBytes, w.maxBytes)
+}
+
+func TestWriterTickerFlush(t *testing.T) {
+	db := newTestDBSingleConn(t)
+	w := NewWriter(db, Config{Enabled: true, FlushInterval: 10 * time.Millisecond})
+	w.Run(context.Background())
+
+	w.Log(Entry{GameID: "g1", Env: "prod", Source: SourceInvoke, FunctionID: "f.tick", Status: StatusOK})
+	// 不调用 Stop：由 ticker 触发非空批次冲刷
+	assert.Eventually(t, func() bool {
+		var n int64
+		db.Model(&model.ExecutionLog{}).Count(&n)
+		return n == 1
+	}, 2*time.Second, 10*time.Millisecond)
+	w.Stop()
+}
+
+func TestWriterTickerFlushEmptyBatch(t *testing.T) {
+	db := newTestDB(t)
+	w := NewWriter(db, Config{Enabled: true, FlushInterval: 10 * time.Millisecond})
+	w.Run(context.Background())
+	// 无任何条目：空批次冲刷直接返回
+	time.Sleep(50 * time.Millisecond)
+	w.Stop()
+	assert.Equal(t, int64(0), w.Dropped())
+}
+
+func TestWriterMidBatchFlush(t *testing.T) {
+	db := newTestDBSingleConn(t)
+	// BatchSize=1：每条入队即触发中途冲刷
+	w := NewWriter(db, Config{Enabled: true, BatchSize: 1, FlushInterval: time.Hour})
+	w.Run(context.Background())
+	w.Log(Entry{GameID: "g1", Env: "prod", FunctionID: "f1", Status: StatusOK})
+	w.Log(Entry{GameID: "g1", Env: "prod", FunctionID: "f2", Status: StatusOK})
+	assert.Eventually(t, func() bool {
+		var n int64
+		db.Model(&model.ExecutionLog{}).Count(&n)
+		return n == 2
+	}, 2*time.Second, 10*time.Millisecond)
+	w.Stop()
+}
+
+func TestWriterMetaWriteFailureOnStopFlush(t *testing.T) {
+	// 未迁移表的库 + 单库模式：Stop 冲刷时批量写入失败只告警
+	bare, err := gorm.Open(gsqlite.Open(":memory:"), &gorm.Config{})
+	require.NoError(t, err)
+	w := NewWriter(bare, Config{Enabled: true, FlushInterval: time.Hour})
+	w.Run(context.Background())
+	w.Log(Entry{GameID: "g1", Env: "prod", FunctionID: "f.fail", Status: StatusOK})
+	assert.NotPanics(t, func() { w.Stop() })
+}
+
+func TestWriterStopDrainsQueuedEntries(t *testing.T) {
+	// Stop 冲刷路径中「队列仍有积压且凑满一批」的分支：调度竞态导致
+	// 可能一次不中，多轮尝试保证覆盖。
+	for i := 0; i < 40; i++ {
+		db := newTestDB(t)
+		w := NewWriter(db, Config{Enabled: true, BatchSize: 2, QueueSize: 4, FlushInterval: time.Hour})
+		// 先积压 3 条再启动消费
+		w.Log(Entry{FunctionID: "a", Status: StatusOK})
+		w.Log(Entry{FunctionID: "b", Status: StatusOK})
+		w.Log(Entry{FunctionID: "c", Status: StatusOK})
+		w.Run(context.Background())
+		w.Stop()
+
+		var n int64
+		require.NoError(t, db.Model(&model.ExecutionLog{}).Count(&n).Error)
+		assert.Equal(t, int64(3), n, "iteration %d: 队列必须全部冲刷落库", i)
+	}
 }

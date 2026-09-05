@@ -165,3 +165,76 @@ func TestListActorFilterRequiresPermission(t *testing.T) {
 	require.Len(t, respMine.Items, 1)
 	assert.Equal(t, "alice", respMine.Items[0].Actor)
 }
+
+func TestServiceListModelUnavailable(t *testing.T) {
+	s, _, ctx := newExecLogTestService(t, "alice")
+	s.svcCtx.ExecutionLogModel = nil
+	_, err := s.List(ctx, &ListRequest{})
+	require.Error(t, err)
+
+	_, err = s.Get(ctx, &GetRequest{ID: 1})
+	require.Error(t, err)
+}
+
+func TestServiceListNilRequest(t *testing.T) {
+	s, svcCtx, ctx := newExecLogTestService(t, "alice")
+	grantAuditRead(t, svcCtx)
+	// req=nil 走默认值分支（Mine=false → 需要审计权限，已授予）
+	resp, err := s.List(withUser(ctx, "alice"), nil)
+	require.NoError(t, err)
+	assert.Empty(t, resp.Items)
+}
+
+func withUser(ctx context.Context, username string) context.Context {
+	return context.WithValue(ctx, "username", username)
+}
+
+func TestServiceListInvalidTimeParams(t *testing.T) {
+	s, _, ctx := newExecLogTestService(t, "alice")
+	_, err := s.List(withUser(ctx, "alice"), &ListRequest{Mine: true, From: "not-a-time"})
+	require.Error(t, err)
+	_, err = s.List(withUser(ctx, "alice"), &ListRequest{Mine: true, To: "2026-13-99"})
+	require.Error(t, err)
+}
+
+func TestParseTimeParamLayouts(t *testing.T) {
+	nilTime, err := parseTimeParam("")
+	assert.NoError(t, err)
+	assert.Nil(t, nilTime)
+	nilTime, err = parseTimeParam("   ")
+	assert.NoError(t, err)
+	assert.Nil(t, nilTime)
+	cases := []string{
+		"2026-09-05T10:00:00Z",
+		"2026-09-05T10:00:00",
+		"2026-09-05 10:00:00",
+		"2026-09-05",
+	}
+	for _, raw := range cases {
+		got, err := parseTimeParam(raw)
+		require.NoError(t, err, raw)
+		require.NotNil(t, got, raw)
+	}
+	_, err = parseTimeParam("garbage")
+	require.Error(t, err)
+}
+
+func TestServiceGetValidation(t *testing.T) {
+	s, svcCtx, ctx := newExecLogTestService(t, "alice")
+	seeded := seedExecLog(t, svcCtx, "alice", "mail.send")
+
+	// 非法 ID
+	_, err := s.Get(withUser(ctx, "alice"), &GetRequest{ID: 0})
+	require.Error(t, err)
+	_, err = s.Get(withUser(ctx, "alice"), nil)
+	require.Error(t, err)
+
+	// 不存在的 ID
+	_, err = s.Get(withUser(ctx, "alice"), &GetRequest{ID: seeded.ID + 999})
+	require.Error(t, err)
+
+	// scope 隔离：记录属于 demo-game，请求 scope 是 other-game → 404
+	scoped := svc.WithGameScope(withUser(ctx, "alice"), svc.GameScope{GameID: "other-game", Env: "development"})
+	_, err = s.Get(scoped, &GetRequest{ID: seeded.ID})
+	require.Error(t, err)
+}

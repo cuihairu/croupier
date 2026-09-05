@@ -50,8 +50,11 @@ func findConfigsDir() string {
 	return ""
 }
 
+// osExecutable 便于测试注入的 os.Executable 别名。
+var osExecutable = os.Executable
+
 func executableDir() (string, error) {
-	exe, err := os.Executable()
+	exe, err := osExecutable()
 	if err != nil {
 		return "", err
 	}
