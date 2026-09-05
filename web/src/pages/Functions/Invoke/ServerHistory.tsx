@@ -11,8 +11,11 @@ const { Text } = Typography;
 
 const PAGE_SIZE = 10;
 
+type LoadedDetail = { loading?: boolean; request?: unknown; response?: unknown };
+
 /** 服务端调用记录（R5）：我的执行留痕（保留期默认 7 天，脱敏+截断）。
- * functionId 传入时默认只看当前函数（可切换），并提供运维全量审计入口。 */
+ * functionId 传入时默认只看当前函数（可切换），并提供运维全量审计入口。
+ * 展开行即自动加载参数（缓存），可点刷新重新拉取。 */
 export default function ServerHistoryPanel({ functionId }: { functionId?: string }) {
   const [items, setItems] = useState<ExecutionLogItem[]>([]);
   const [total, setTotal] = useState(0);
@@ -20,12 +23,7 @@ export default function ServerHistoryPanel({ functionId }: { functionId?: string
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState<string>('');
   const [onlyCurrent, setOnlyCurrent] = useState<boolean>(!!functionId);
-  const [detail, setDetail] = useState<null | {
-    id: number;
-    loading: boolean;
-    request?: unknown;
-    response?: unknown;
-  }>(null);
+  const [details, setDetails] = useState<Record<number, LoadedDetail>>({});
 
   const list = useCallback(async () => {
     setLoading(true);
@@ -53,14 +51,41 @@ export default function ServerHistoryPanel({ functionId }: { functionId?: string
     void list();
   }, [list]);
 
-  const viewDetail = async (id: number) => {
-    setDetail({ id, loading: true });
+  const loadDetail = useCallback(async (id: number) => {
+    setDetails((prev) => ({ ...prev, [id]: { loading: true } }));
     try {
       const json = await getExecutionLog(id);
-      setDetail({ id, loading: false, request: json.requestPayload, response: json.responseBody });
+      setDetails((prev) => ({
+        ...prev,
+        [id]: { request: json.requestPayload, response: json.responseBody },
+      }));
     } catch {
-      setDetail({ id, loading: false });
+      setDetails((prev) => ({ ...prev, [id]: {} }));
     }
+  }, []);
+
+  const renderDetail = (id: number) => {
+    const d = details[id];
+    if (d === undefined || d.loading) {
+      return <Text type="secondary">载荷加载中…</Text>;
+    }
+    return (
+      <Space direction="vertical" size={8} style={{ width: '100%' }}>
+        <div>
+          <Space size={8}>
+            <Text type="secondary">请求（已脱敏）：</Text>
+            <Button size="small" icon={<ReloadOutlined />} onClick={() => void loadDetail(id)}>
+              重新拉取
+            </Button>
+          </Space>
+          <pre style={preStyle}>{d.request ? JSON.stringify(d.request, null, 2) : '（无）'}</pre>
+        </div>
+        <div>
+          <Text type="secondary">响应（已脱敏）：</Text>
+          <pre style={preStyle}>{d.response ? JSON.stringify(d.response, null, 2) : '（无）'}</pre>
+        </div>
+      </Space>
+    );
   };
 
   return (
@@ -114,34 +139,12 @@ export default function ServerHistoryPanel({ functionId }: { functionId?: string
           showSizeChanger: false,
         }}
         expandable={{
-          expandedRowRender: (record) => (
-            <div>
-              {detail?.id === record.id ? (
-                detail.loading ? (
-                  <Text type="secondary">加载中…</Text>
-                ) : (
-                  <Space orientation="vertical" size={8} style={{ width: '100%' }}>
-                    <div>
-                      <Text type="secondary">请求：</Text>
-                      <pre style={preStyle}>
-                        {detail.request ? JSON.stringify(detail.request, null, 2) : '（无）'}
-                      </pre>
-                    </div>
-                    <div>
-                      <Text type="secondary">响应：</Text>
-                      <pre style={preStyle}>
-                        {detail.response ? JSON.stringify(detail.response, null, 2) : '（无）'}
-                      </pre>
-                    </div>
-                  </Space>
-                )
-              ) : (
-                <Button size="small" onClick={() => void viewDetail(record.id)}>
-                  查看载荷
-                </Button>
-              )}
-            </div>
-          ),
+          onExpand: (expanded, record) => {
+            if (expanded && details[record.id] === undefined) {
+              void loadDetail(record.id);
+            }
+          },
+          expandedRowRender: (record) => renderDetail(record.id),
         }}
         columns={[
           {
@@ -171,7 +174,7 @@ export default function ServerHistoryPanel({ functionId }: { functionId?: string
         ]}
       />
       <Text type="secondary" style={{ fontSize: 12 }}>
-        仅显示本人记录；载荷已脱敏，保留期默认 7 天。
+        仅显示本人记录；点击行首箭头展开查看参数；保留期默认 7 天。
       </Text>
     </Space>
   );

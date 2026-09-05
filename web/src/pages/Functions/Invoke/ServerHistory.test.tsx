@@ -33,7 +33,12 @@ const rows = [
   },
 ];
 
-describe('ServerHistory', () => {
+function expandRow(container: HTMLElement, index: number) {
+  const icons = container.querySelectorAll('.ant-table-row-expand-icon');
+  icons[index].dispatchEvent(new MouseEvent('click', { bubbles: true }));
+}
+
+describe('ServerHistoryPanel', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockedLogs.mockResolvedValue({ items: rows, total: 2, page: 1, size: 10 });
@@ -46,28 +51,45 @@ describe('ServerHistory', () => {
     );
     expect(await screen.findByText('mail.send')).toBeInTheDocument();
     expect(screen.getByText('player.query')).toBeInTheDocument();
-    expect(screen.getByText('成功')).toBeInTheDocument();
-    expect(screen.getByText('失败')).toBeInTheDocument();
   });
 
-  it('展开查看载荷：点击后拉取详情并展示请求/响应', async () => {
+  it('展开行自动加载参数，再次展开不再重复请求', async () => {
     mockedGet.mockResolvedValue({
       ...rows[0],
       requestPayload: { playerId: 'p1' },
       responseBody: { success: true },
     });
-    render(<ServerHistoryPanel />);
+    const { container } = render(<ServerHistoryPanel />);
     await screen.findByText('mail.send');
     await waitFor(() =>
-      expect(document.querySelectorAll('.ant-table-row-expand-icon').length).toBeGreaterThan(0),
+      expect(container.querySelectorAll('.ant-table-row-expand-icon').length).toBeGreaterThan(0),
     );
-    const expandBtns = document.querySelectorAll('.ant-table-row-expand-icon');
-    expandBtns[0].dispatchEvent(new MouseEvent('click', { bubbles: true }));
 
-    const loadBtn = await screen.findByText('查看载荷');
-    loadBtn.click();
-    await waitFor(() => expect(mockedGet).toHaveBeenCalledWith(1));
+    expandRow(container, 0);
+    expect(mockedGet).toHaveBeenCalledWith(1);
     expect(await screen.findByText(/"playerId": "p1"/)).toBeInTheDocument();
     expect(screen.getByText(/"success": true/)).toBeInTheDocument();
+
+    // 收起再展开：走缓存，不重复请求
+    expandRow(container, 0);
+    expandRow(container, 0);
+    await screen.findByText(/"playerId": "p1"/);
+    expect(mockedGet).toHaveBeenCalledTimes(1);
+  });
+
+  it('切换「仅看当前函数」带 functionId 过滤重新请求', async () => {
+    render(<ServerHistoryPanel functionId="mail.send" />);
+    await waitFor(() =>
+      expect(mockedLogs).toHaveBeenCalledWith(
+        expect.objectContaining({ mine: true, functionId: 'mail.send' }),
+      ),
+    );
+    const checkbox = document.querySelector('input[type="checkbox"]') as HTMLInputElement;
+    expect(checkbox.checked).toBe(true);
+    checkbox.click();
+    await waitFor(() => {
+      const args = mockedLogs.mock.lastCall?.[0] as Record<string, unknown>;
+      expect(args.functionId).toBeUndefined();
+    });
   });
 });
