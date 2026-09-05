@@ -379,6 +379,7 @@ func NewServiceContext(c config.Config, opts ...Option) *ServiceContext {
 		DBSourceModel:             dbSourceModel,
 		PlatformSettingModel:      platformSettingModel,
 		MessageModel:              messageModel,
+		ExecutionLogWriter:        execLogWriter,
 		ExecutionLogModel:         model.NewExecutionLogModel(db),
 		NotifyService:             nil, // handler 装配时注入（依赖 Layered）
 		CertificateModel:          certificateModel,
