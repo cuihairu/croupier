@@ -7,6 +7,7 @@ package component
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"strings"
@@ -167,6 +168,45 @@ func buildCRUDTree(listFn, getFn, createFn, updateFn, deleteFn *model.FunctionCo
 	return "[" + strings.Join(nodes, ",") + "]"
 }
 
+// GenerateQueryTemplate 为带必填/可选查询参数的 collection_query 函数生成
+// 「查询面板 + 结果表格」组合模板（query--<fid>）：表单填参 → refreshOn
+// 联动表格自动带参重跑。
+func (h *Handler) GenerateQueryTemplate(ctx context.Context, c *model.FunctionContract) error {
+	if c == nil || c.Capability != dbenum.CapabilityCollectionQuery {
+		return nil
+	}
+	var schema struct {
+		Properties map[string]json.RawMessage `json:"properties"`
+	}
+	if err := json.Unmarshal(c.InputSchema, &schema); err != nil || len(schema.Properties) == 0 {
+		return nil // 无查询参数：单表格模板已覆盖
+	}
+
+	fid := c.FunctionID
+	resource := c.ResourceKey
+	if resource == "" {
+		resource = lastSegment(fid)
+	}
+	// refreshOnNode 引用表单节点 id：instantiateTemplate 重映射节点 id 后，
+	// 编译期解析为表单区块 key（键位漂移安全）。
+	tree := fmt.Sprintf(`[
+	  {"id":"qform","type":"fnForm","props":{"functionId":%q,"title":"查询条件","span":24,"display":"inline","autoRun":false,"refreshOnNode":["qform"]}},
+	  {"id":"qtable","type":"fnTable","props":{"functionId":%q,"title":"查询结果","span":24,"autoRun":false,"columns":[],"rowActions":[],"refreshOnNode":["qform"]}}
+	]`, fid, fid)
+
+	tpl := &model.ComponentTemplate{
+		Key:               "query--" + sanitizeKey(fid),
+		Name:              model.JSON(fmt.Sprintf(`{"zh-CN":%q}`, resource+"·查询")),
+		Description:       model.JSON(`{"zh-CN":"查询条件 + 结果表格（条件变化自动刷新）"}`),
+		Category:          "查询组合",
+		Icon:              "SearchOutlined",
+		RequiredFunctions: model.JSON(fmt.Sprintf(`[%q]`, fid)),
+		Tree:              model.JSON(tree),
+		Builtin:           true,
+	}
+	return h.model.UpsertBuiltin(ctx, tpl)
+}
+
 // RegenerateFromContracts 扫描全部契约，生成单函数模板 + CRUD 组合模板。
 func (h *Handler) RegenerateFromContracts(ctx context.Context, contracts []*model.FunctionContract) error {
 	// 1. 单函数模板
@@ -174,7 +214,14 @@ func (h *Handler) RegenerateFromContracts(ctx context.Context, contracts []*mode
 		return fmt.Errorf("single function templates: %w", err)
 	}
 
-	// 2. 按资源分组，生成 CRUD 模板
+	// 2. 带查询参数的 collection_query → 查询组合模板
+	for _, c := range contracts {
+		if err := h.GenerateQueryTemplate(ctx, c); err != nil {
+			slog.WarnContext(ctx, "query template generate", "functionId", c.FunctionID, "err", err)
+		}
+	}
+
+	// 3. 按资源分组，生成 CRUD 模板
 	byResource := make(map[string][]*model.FunctionContract)
 	for _, c := range contracts {
 		if c.ResourceKey != "" {

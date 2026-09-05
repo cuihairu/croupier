@@ -141,6 +141,17 @@ web/src/pages/PageStudio/CompositeEditor/
 
 `__tests__/`：model 10（树操作/悬空绑定清理）、registry 3（注册/约束）、scaffold 8（实例化快照/面板声明）、compiler 11（编译快照/多实例/警告）、decompile 5（回读 round-trip/破损引用）、canvas 3（弹窗占位卡交互）、action-editor 6（动作编排）、integration 4（组合流程）。合计 50 用例，`pnpm --dir web test` 全绿。
 
+**自动生成模板清单（2026-09）**：组件模板「从契约重新生成」现产出三类内置模板——
+
+1. `fn--<fid>`：单函数组件（collection_query→表格、item_query→字段卡、其余→表单）
+2. `crud--<resource>`：资源管理组合（列表+详情+增改弹窗，onSuccess 自动刷新）
+3. `query--<fid>`：查询组合（查询条件表单 + 结果表格，经 refreshOnNode 引用在
+   实例化后解析为区块 key，键位漂移安全）——带查询参数的 collection_query 自动生成
+
+非函数类需配置生成：常量表单（staticForm，Excel/JSON 导入常量）、用户自定义组合
+（画布多选保存）。暂不可自动生成（需新组件类型，backlog）：任务监控组合
+（taskStatus 节点）、报表图表（chart 节点）、批量选择操作。
+
 **常量表单（staticForm，2026-09）**：基础组件新增「常量表单」——不绑定函数，
 字段在设计期以 JSON Schema 定义（属性面板支持在线编辑与 JSON/Excel 导入选项，
 第 1 列=值、第 2 列=标签）。画布/预览/发布均渲染真实控件（enum→下拉），

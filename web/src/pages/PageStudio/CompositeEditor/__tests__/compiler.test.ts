@@ -311,3 +311,20 @@ describe('staticForm（常量表单，无绑定）', () => {
     expect(nodes[1].type).toBe('fnTable');
   });
 });
+
+describe('refreshOn 编译（查询组合模板：refreshOnNode 节点引用 → section key）', () => {
+  it('refreshOnNode 引用解析为表单区块 key（同函数双实例键位漂移安全）', () => {
+    const { sections } = compileTree([
+      { id: 'qform', type: 'fnForm', props: { functionId: 'player.list', display: 'inline' } },
+      {
+        id: 'qtable',
+        type: 'fnTable',
+        props: { functionId: 'player.list', autoRun: false, refreshOnNode: ['qform'] },
+      },
+    ]);
+    // 表单是同函数第一个实例 → key=player.list；表格 → player.list-2
+    const table = sections.find((sec) => sec.key === 'player.list-2');
+    expect(table?.refreshOn).toEqual(['player.list']);
+    expect(sections.find((sec) => sec.key === 'player.list')?.refreshOn).toBeUndefined();
+  });
+});

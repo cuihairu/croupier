@@ -52,6 +52,10 @@ export function instantiateTemplate(tpl: ComponentTemplateDTO): PageNode[] {
           }
         }
       }
+      // refreshOnNode：模板内部节点 id 引用 → 重映射为新树节点 id
+      if (key === 'refreshOnNode' && Array.isArray(props[key])) {
+        props[key] = (props[key] as string[]).map((nid) => idMap.get(nid) ?? nid);
+      }
       if (key === 'rowActions' && Array.isArray(props[key])) {
         for (const ra of props[key] as Array<{ targetSection?: string }>) {
           if (ra.targetSection && idMap.has(ra.targetSection)) {

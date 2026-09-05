@@ -244,6 +244,23 @@ export function compileTree(tree: PageNode[]): CompileResult {
         warnings.push(`${fid} 的「${source}」含非刷新动作（V1 发布仅支持刷新），已忽略该部分`);
       }
     };
+    // refreshOn：refreshOnNode=模板内部节点 id 引用（实例化时重映射），
+    // 解析为本区块的 section key；refreshOn=字面 section key（高级）。
+    const refreshOnKeys: string[] = [];
+    for (const nid of (Array.isArray(node.props.refreshOnNode)
+      ? (node.props.refreshOnNode as unknown[])
+      : []) as string[]) {
+      const key = nodeSectionKey.get(nid);
+      if (key) refreshOnKeys.push(key);
+    }
+    if (Array.isArray(node.props.refreshOn)) {
+      for (const k of node.props.refreshOn as unknown[]) {
+        const key = String(k);
+        if (key && !refreshOnKeys.includes(key)) refreshOnKeys.push(key);
+      }
+    }
+    if (refreshOnKeys.length > 0) section.refreshOn = refreshOnKeys;
+
     if (node.props.onSuccess) collectRefresh(node.props.onSuccess, '执行成功后');
     if (node.props.onSuccessRefresh) collectRefresh(node.props.onSuccessRefresh, '成功后刷新');
 
