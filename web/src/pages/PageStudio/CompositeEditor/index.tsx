@@ -44,6 +44,7 @@ import { extractErrorMessage } from '@/utils/errors';
 import { duplicateNode as duplicateTree, insertAfter, moveNode } from './model';
 import ComponentPanel, { type AddFnEvent } from './ComponentPanel';
 import { planTemplateDrop } from './templateDrop';
+import TemplateQuickStart from './TemplateQuickStart';
 import ComponentLibrary, {
   instantiateTemplate,
   type ComponentTemplateDTO,
@@ -787,61 +788,102 @@ export default function CompositeEditorPage() {
                     </Space>
                   </div>
                 )}
-                <Canvas
-                  tree={canvasNodes}
-                  selectedId={selectedId}
-                  fnById={fnById.current}
-                  onSelect={setSelectedId}
-                  onDelete={deleteNode}
-                  onDuplicate={duplicateNode}
-                  onSpanChange={patchSpan}
-                  onEnterModal={setEditingModalId}
-                  canvasWidthRef={canvasRef}
-                >
-                  <div
-                    style={{
-                      display: 'flex',
-                      flexWrap: 'wrap',
-                      gap: 12,
-                      alignContent: 'flex-start',
+                {canvasNodes.length === 0 && !editingModalRef.current ? (
+                  <TemplateQuickStart
+                    onPick={(nodes, tpl) => {
+                      setTree((prev) => [...prev, ...nodes]);
+                      for (const fid of tpl.requiredFunctions ?? []) {
+                        const fnDesc = allFns.find((f) => f.id === fid);
+                        if (fnDesc) registerFn(fnDesc);
+                      }
+                      setSelectedId(nodes[0]?.id ?? null);
+                      message.success(
+                        `已从模板「${tpl.name ? ((tpl.name as Record<string, string>)['zh-CN'] ?? tpl.key) : ''}」创建页面骨架`,
+                      );
                     }}
+                  />
+                ) : null}
+                {canvasNodes.length > 0 ? (
+                  <Canvas
+                    tree={canvasNodes}
+                    selectedId={selectedId}
+                    fnById={fnById.current}
+                    onSelect={setSelectedId}
+                    onDelete={deleteNode}
+                    onDuplicate={duplicateNode}
+                    onSpanChange={patchSpan}
+                    onEnterModal={setEditingModalId}
+                    canvasWidthRef={canvasRef}
                   >
-                    <SortableList
-                      items={canvasNodes}
-                      getKey={(n) => n.id}
-                      onReorder={(next) => {
-                        if (editingModal) {
-                          setTree((prev) =>
-                            prev.map((n) =>
-                              n.id === editingModal.id ? { ...n, children: next } : n,
-                            ),
-                          );
-                        } else {
-                          setTree(next);
-                        }
+                    <div
+                      style={{
+                        display: 'flex',
+                        flexWrap: 'wrap',
+                        gap: 12,
+                        alignContent: 'flex-start',
                       }}
-                      externalDnd
                     >
-                      {(n, _idx, dragHandleProps) => {
-                        const spanNum = Math.min(24, Math.max(4, Number(n.props.span ?? 24) || 24));
-                        return (
-                          <div
-                            key={n.id}
-                            style={{
-                              gridColumn: `span ${spanNum}`,
-                              borderTop:
-                                dragItem && overNodeId === n.id
-                                  ? '3px solid #1677ff'
-                                  : '3px solid transparent',
-                              transition: 'border-color 0.1s',
-                            }}
-                          >
-                            {n.type === 'modal' ? (
-                              <div onClick={(e) => e.stopPropagation()}>
-                                <ModalPlaceholder
-                                  modal={n}
-                                  selected={selectedId === n.id}
-                                  fnById={fnById.current}
+                      <SortableList
+                        items={canvasNodes}
+                        getKey={(n) => n.id}
+                        onReorder={(next) => {
+                          if (editingModal) {
+                            setTree((prev) =>
+                              prev.map((n) =>
+                                n.id === editingModal.id ? { ...n, children: next } : n,
+                              ),
+                            );
+                          } else {
+                            setTree(next);
+                          }
+                        }}
+                        externalDnd
+                      >
+                        {(n, _idx, dragHandleProps) => {
+                          const spanNum = Math.min(
+                            24,
+                            Math.max(4, Number(n.props.span ?? 24) || 24),
+                          );
+                          return (
+                            <div
+                              key={n.id}
+                              style={{
+                                gridColumn: `span ${spanNum}`,
+                                borderTop:
+                                  dragItem && overNodeId === n.id
+                                    ? '3px solid #1677ff'
+                                    : '3px solid transparent',
+                                transition: 'border-color 0.1s',
+                              }}
+                            >
+                              {n.type === 'modal' ? (
+                                <div onClick={(e) => e.stopPropagation()}>
+                                  <ModalPlaceholder
+                                    modal={n}
+                                    selected={selectedId === n.id}
+                                    fnById={fnById.current}
+                                    onSelect={() => {
+                                      setSelectedId(n.id);
+                                      setMultiIds((prev) => {
+                                        const next = new Set(prev);
+                                        if (next.has(n.id)) next.delete(n.id);
+                                        else next.add(n.id);
+                                        return next;
+                                      });
+                                    }}
+                                    onEnterModal={() => setEditingModalId(n.id)}
+                                  />
+                                </div>
+                              ) : (
+                                <CanvasNode
+                                  node={n}
+                                  fn={
+                                    n.props.functionId
+                                      ? fnById.current.get(String(n.props.functionId))
+                                      : undefined
+                                  }
+                                  selected={selectedId === n.id || multiIds.has(n.id)}
+                                  depth={0}
                                   onSelect={() => {
                                     setSelectedId(n.id);
                                     setMultiIds((prev) => {
@@ -851,67 +893,46 @@ export default function CompositeEditorPage() {
                                       return next;
                                     });
                                   }}
-                                  onEnterModal={() => setEditingModalId(n.id)}
+                                  onDelete={() => deleteNode(n.id)}
+                                  onDuplicate={() => duplicateNode(n.id)}
+                                  onSpanChange={(span: number) => patchSpan(n.id, span)}
+                                  onSelectParent={
+                                    editingModal
+                                      ? () => {
+                                          setEditingModalId(null);
+                                          setSelectedId(editingModal.id);
+                                        }
+                                      : undefined
+                                  }
+                                  onMoveUp={() => moveWithin(canvasNodes, n.id, -1)}
+                                  onMoveDown={() => moveWithin(canvasNodes, n.id, 1)}
+                                  selectedChildId={selectedId}
+                                  onChildSelect={(id) => setSelectedId(id)}
+                                  onChildDelete={(id) => deleteNode(id)}
+                                  onChildMove={(id, dir) => {
+                                    const container = findNode(tree, n.id);
+                                    const kids = container?.children ?? [];
+                                    const idx = kids.findIndex((k) => k.id === id);
+                                    if (idx === -1) return;
+                                    setTree((prev) =>
+                                      prev.map((x) =>
+                                        x.id === n.id
+                                          ? { ...x, children: moveNode(kids, id, idx + dir) }
+                                          : x,
+                                      ),
+                                    );
+                                  }}
+                                  dragHandleProps={dragHandleProps}
+                                  canvasWidthRef={canvasRef}
                                 />
-                              </div>
-                            ) : (
-                              <CanvasNode
-                                node={n}
-                                fn={
-                                  n.props.functionId
-                                    ? fnById.current.get(String(n.props.functionId))
-                                    : undefined
-                                }
-                                selected={selectedId === n.id || multiIds.has(n.id)}
-                                depth={0}
-                                onSelect={() => {
-                                  setSelectedId(n.id);
-                                  setMultiIds((prev) => {
-                                    const next = new Set(prev);
-                                    if (next.has(n.id)) next.delete(n.id);
-                                    else next.add(n.id);
-                                    return next;
-                                  });
-                                }}
-                                onDelete={() => deleteNode(n.id)}
-                                onDuplicate={() => duplicateNode(n.id)}
-                                onSpanChange={(span: number) => patchSpan(n.id, span)}
-                                onSelectParent={
-                                  editingModal
-                                    ? () => {
-                                        setEditingModalId(null);
-                                        setSelectedId(editingModal.id);
-                                      }
-                                    : undefined
-                                }
-                                onMoveUp={() => moveWithin(canvasNodes, n.id, -1)}
-                                onMoveDown={() => moveWithin(canvasNodes, n.id, 1)}
-                                selectedChildId={selectedId}
-                                onChildSelect={(id) => setSelectedId(id)}
-                                onChildDelete={(id) => deleteNode(id)}
-                                onChildMove={(id, dir) => {
-                                  const container = findNode(tree, n.id);
-                                  const kids = container?.children ?? [];
-                                  const idx = kids.findIndex((k) => k.id === id);
-                                  if (idx === -1) return;
-                                  setTree((prev) =>
-                                    prev.map((x) =>
-                                      x.id === n.id
-                                        ? { ...x, children: moveNode(kids, id, idx + dir) }
-                                        : x,
-                                    ),
-                                  );
-                                }}
-                                dragHandleProps={dragHandleProps}
-                                canvasWidthRef={canvasRef}
-                              />
-                            )}
-                          </div>
-                        );
-                      }}
-                    </SortableList>
-                  </div>
-                </Canvas>
+                              )}
+                            </div>
+                          );
+                        }}
+                      </SortableList>
+                    </div>
+                  </Canvas>
+                ) : null}
               </div>
             )}
           </Col>

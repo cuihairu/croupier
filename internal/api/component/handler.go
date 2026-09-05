@@ -2,8 +2,11 @@
 package component
 
 import (
+	"context"
 	"encoding/json"
 	"strings"
+
+	"github.com/cuihairu/croupier/internal/dbenum"
 
 	"github.com/cuihairu/croupier/internal/common/response"
 	"github.com/cuihairu/croupier/internal/model"
@@ -53,6 +56,9 @@ type TemplateDTO struct {
 	Tree              json.RawMessage `json:"tree"`
 	Builtin           bool            `json:"builtin"`
 	CreatedBy         string          `json:"createdBy,omitempty"`
+	// Stale builtin 模板与其依赖契约的当前重算结果不一致（契约已变化，
+	// 需「从契约重新生成」刷新）。仅 builtin 模板会标记。
+	Stale bool `json:"stale,omitempty"`
 }
 
 func toDTO(t *model.ComponentTemplate) TemplateDTO {
@@ -84,12 +90,99 @@ func (h *Handler) List(c *gin.Context) {
 		response.Error(c, err)
 		return
 	}
+	staleSet := h.computeStaleKeys(c.GetHeader("X-Game-ID"), c.GetHeader("X-Env"), items)
 	response.Success(c, gin.H{
 		"items": mapFn(items, func(t model.ComponentTemplate) TemplateDTO {
-			return toDTO(&t)
+			dto := toDTO(&t)
+			dto.Stale = staleSet[t.Key]
+			return dto
 		}),
 		"total": total,
 	})
+}
+
+func (h *Handler) listContractsByScope(gameID, env string) ([]*model.FunctionContract, error) {
+	if h.contractMdl == nil {
+		return nil, nil
+	}
+	return h.contractMdl.ListByScope(context.Background(), gameID, env)
+}
+
+// computeStaleKeys 对 builtin 模板做 stale 检测：按当前 scope 契约在内存中
+// 重算同类模板（单函数/查询/CRUD），Tree 不一致即 stale。仅 builtin 参与；
+// 契约不可用或无契约时返回空集（不误标）。
+func (h *Handler) computeStaleKeys(gameID, env string, items []model.ComponentTemplate) map[string]bool {
+	contracts, err := h.listContractsByScope(gameID, env)
+	if err != nil || len(contracts) == 0 {
+		return nil
+	}
+	expected := map[string]string{}
+	for _, ct := range contracts {
+		if ct == nil || strings.TrimSpace(ct.FunctionID) == "" {
+			continue
+		}
+		if tpl := buildSingleFunctionTemplate(ct); tpl != nil {
+			expected[tpl.Key] = string(tpl.Tree)
+		}
+		if tpl := buildQueryTemplate(ct); tpl != nil {
+			expected[tpl.Key] = string(tpl.Tree)
+		}
+	}
+	byResource := map[string][]*model.FunctionContract{}
+	for _, ct := range contracts {
+		if ct == nil || strings.TrimSpace(ct.ResourceKey) == "" {
+			continue
+		}
+		byResource[ct.ResourceKey] = append(byResource[ct.ResourceKey], ct)
+	}
+	for resource, list := range byResource {
+		var listFn, getFn, createFn, updateFn, deleteFn *model.FunctionContract
+		for _, ct := range list {
+			switch ct.Capability {
+			case dbenum.CapabilityCollectionQuery:
+				listFn = ct
+			case dbenum.CapabilityItemQuery:
+				getFn = ct
+			case dbenum.CapabilityCreate:
+				createFn = ct
+			case dbenum.CapabilityUpdate:
+				updateFn = ct
+			case dbenum.CapabilityDelete:
+				deleteFn = ct
+			}
+		}
+		if listFn == nil || getFn == nil {
+			continue
+		}
+		var fns []string
+		fns = append(fns, listFn.FunctionID, getFn.FunctionID)
+		expected["crud--"+sanitizeKey(resource)] = buildCRUDTree(listFn, getFn, createFn, updateFn, deleteFn, &fns)
+	}
+	stale := map[string]bool{}
+	for _, item := range items {
+		if !item.Builtin {
+			continue
+		}
+		exp, ok := expected[item.Key]
+		if !ok {
+			// 生成条件已消失（函数删除/能力变更导致不再生成该类模板）
+			if isBuiltinFamily(item.Key) {
+				stale[item.Key] = true
+			}
+			continue
+		}
+		if string(item.Tree) != exp {
+			stale[item.Key] = true
+		}
+	}
+	return stale
+}
+
+// isBuiltinFamily 判断 key 是否属于自动生成家族（fn--/crud--/query--）。
+func isBuiltinFamily(key string) bool {
+	return strings.HasPrefix(key, "fn--") ||
+		strings.HasPrefix(key, "crud--") ||
+		strings.HasPrefix(key, "query--")
 }
 
 // Get serves GET /component-templates/:key.

@@ -172,6 +172,15 @@ func buildCRUDTree(listFn, getFn, createFn, updateFn, deleteFn *model.FunctionCo
 // 「查询面板 + 结果表格」组合模板（query--<fid>）：表单填参 → refreshOn
 // 联动表格自动带参重跑。
 func (h *Handler) GenerateQueryTemplate(ctx context.Context, c *model.FunctionContract) error {
+	tpl := buildQueryTemplate(c)
+	if tpl == nil {
+		return nil
+	}
+	return h.model.UpsertBuiltin(ctx, tpl)
+}
+
+// buildQueryTemplate 从契约推导「查询组合」模板；无查询参数返回 nil。
+func buildQueryTemplate(c *model.FunctionContract) *model.ComponentTemplate {
 	if c == nil || c.Capability != dbenum.CapabilityCollectionQuery {
 		return nil
 	}
@@ -194,7 +203,7 @@ func (h *Handler) GenerateQueryTemplate(ctx context.Context, c *model.FunctionCo
 	  {"id":"qtable","type":"fnTable","props":{"functionId":%q,"title":"查询结果","span":24,"autoRun":false,"columns":[],"rowActions":[],"refreshOnNode":["qform"]}}
 	]`, fid, fid)
 
-	tpl := &model.ComponentTemplate{
+	return &model.ComponentTemplate{
 		Key:               "query--" + sanitizeKey(fid),
 		Name:              model.JSON(fmt.Sprintf(`{"zh-CN":%q}`, resource+"·查询")),
 		Description:       model.JSON(`{"zh-CN":"查询条件 + 结果表格（条件变化自动刷新）"}`),
@@ -204,7 +213,6 @@ func (h *Handler) GenerateQueryTemplate(ctx context.Context, c *model.FunctionCo
 		Tree:              model.JSON(tree),
 		Builtin:           true,
 	}
-	return h.model.UpsertBuiltin(ctx, tpl)
 }
 
 // RegenerateFromContracts 扫描全部契约，生成单函数模板 + CRUD 组合模板。

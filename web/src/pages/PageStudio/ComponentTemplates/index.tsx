@@ -43,6 +43,7 @@ interface TemplateDTO {
   description?: Record<string, string> | string;
   category?: string;
   icon?: string;
+  stale?: boolean;
   requiredFunctions?: string[];
   tree: PageNode[];
   builtin: boolean;
@@ -193,6 +194,9 @@ export default function ComponentTemplatesPage() {
             从契约重新生成
           </Button>,
           <Button key="reload" icon={<ReloadOutlined />} onClick={() => void load()} />,
+          <a key="editor" href="/functions/pages/composite-editor" target="_blank" rel="noreferrer">
+            <Button icon={<AppstoreOutlined />}>在编辑器中使用</Button>
+          </a>,
         ],
       }}
     >
@@ -255,6 +259,11 @@ export default function ComponentTemplatesPage() {
                         <Space size={6}>
                           <Text strong>{nameOf(tpl)}</Text>
                           {tpl.builtin && <Tag style={{ fontSize: 10 }}>内置</Tag>}
+                          {tpl.stale && (
+                            <Tag color="orange" style={{ fontSize: 10 }}>
+                              已过期
+                            </Tag>
+                          )}
                         </Space>
                       }
                       description={

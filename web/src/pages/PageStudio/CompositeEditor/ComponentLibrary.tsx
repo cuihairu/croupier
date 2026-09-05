@@ -18,6 +18,8 @@ export interface ComponentTemplateDTO {
   requiredFunctions?: string[];
   tree: PageNode[];
   builtin: boolean;
+  /** 契约已变化，builtin 模板需「从契约重新生成」刷新。 */
+  stale?: boolean;
 }
 
 /** 拉取组件模板列表。 */
@@ -195,6 +197,11 @@ export default function ComponentLibrary({
                     {name}
                   </Text>
                   {tpl.builtin && <Tag style={{ marginRight: 0, fontSize: 10 }}>内置</Tag>}
+                  {tpl.stale && (
+                    <Tag color="orange" style={{ marginRight: 0, fontSize: 10 }}>
+                      已过期
+                    </Tag>
+                  )}
                 </Space>
                 {desc && (
                   <div>
@@ -215,6 +222,16 @@ export default function ComponentLibrary({
           })}
         </div>
       ))}
+      <div style={{ marginTop: 8, textAlign: 'center' }}>
+        <a
+          href="/functions/component-templates"
+          target="_blank"
+          rel="noreferrer"
+          style={{ fontSize: 12 }}
+        >
+          管理组件模板 →
+        </a>
+      </div>
     </div>
   );
 }
