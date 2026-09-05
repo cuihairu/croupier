@@ -56,6 +56,12 @@ export function instantiateTemplate(tpl: ComponentTemplateDTO): PageNode[] {
       if (key === 'refreshOnNode' && Array.isArray(props[key])) {
         props[key] = (props[key] as string[]).map((nid) => idMap.get(nid) ?? nid);
       }
+      // inputAssignments：sourceNodeId 同理重映射
+      if (key === 'inputAssignments' && Array.isArray(props[key])) {
+        props[key] = (props[key] as Array<{ sourceNodeId?: string } & Record<string, unknown>>).map(
+          (m) => ({ ...m, sourceNodeId: idMap.get(m.sourceNodeId ?? '') ?? m.sourceNodeId }),
+        );
+      }
       if (key === 'rowActions' && Array.isArray(props[key])) {
         for (const ra of props[key] as Array<{ targetSection?: string }>) {
           if (ra.targetSection && idMap.has(ra.targetSection)) {

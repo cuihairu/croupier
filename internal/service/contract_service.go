@@ -1550,6 +1550,22 @@ func (s *ContractService) CreateCompositeProposal(
 				Chain:         convChain(ta.Chain),
 			})
 		}
+		for _, ia := range sec.InputAssignments {
+			src := spec.ValueSource{Kind: spec.ValueSourceKind(ia.Kind)}
+			switch src.Kind {
+			case spec.SourcePageState:
+				src.Key = ia.Key
+				src.Path = ia.Path
+			case spec.SourceRow, spec.SourceForm, spec.SourceDetail:
+				src.Path = ia.Path
+			case spec.SourceLiteral:
+				src.Value = ia.Value
+			}
+			in.InputAssignments = append(in.InputAssignments, spec.InputAssignment{
+				Target: ia.Target,
+				Source: src,
+			})
+		}
 		inputs = append(inputs, in)
 	}
 
@@ -1592,6 +1608,10 @@ type CompositeSectionRequest struct {
 	// Form 静态区块的表单展示规格（Static=true 时必填；非静态区块由
 	// 服务端从契约生成，忽略该字段）。
 	Form *spec.FormPresentationSpec `json:"form,omitempty"`
+	// InputAssignments 显式参数映射（覆盖按契约自动生成的同名 target）：
+	// target=/参数路径；kind=page_state（key=上游区块 key，path=/字段）
+	// 或 literal（value=固定值）。未声明的 required 参数仍走自动映射。
+	InputAssignments []CompositeInputAssignmentRequest `json:"inputAssignments,omitempty"`
 	// Display inline（默认）| dialog（弹窗表单，按钮触发）。
 	Display string `json:"display,omitempty"`
 	// RowActions 表格行操作（view=table）。
@@ -1602,6 +1622,17 @@ type CompositeSectionRequest struct {
 	OnSuccessRefresh []string `json:"onSuccessRefresh,omitempty"`
 	// Events 通用事件绑定（发布触发点）。
 	Events []EventBindingReq `json:"events,omitempty"`
+}
+
+// CompositeInputAssignmentRequest 显式参数映射条目：
+// target=/参数路径；kind=page_state（key=上游区块 key，path=/字段）
+// 或 literal（value=固定值）。
+type CompositeInputAssignmentRequest struct {
+	Target string          `json:"target"`
+	Kind   string          `json:"kind"`
+	Key    string          `json:"key,omitempty"`
+	Path   string          `json:"path,omitempty"`
+	Value  json.RawMessage `json:"value,omitempty"`
 }
 
 // EventBindingReq 事件绑定请求。

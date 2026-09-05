@@ -195,3 +195,54 @@ func TestCreateCompositeProposalWithStaticSectionV9(t *testing.T) {
 		assert.NotContains(t, d.Code, "binding_missing", "static section must not trigger binding_missing")
 	}
 }
+
+// 显式参数映射（P0）：上游常量表单字段 → 下游表格参数（page_state），
+// 按 target 覆盖自动映射；literal 固定值。
+func TestCreateCompositeProposalWithInputMappingV9(t *testing.T) {
+	db := setupTestDBFileV9(t)
+	ctx := context.Background()
+	svc := NewContractService(db)
+	seedCompositeV9(t, svc, ctx)
+
+	proposal, err := svc.CreateCompositeProposal(ctx, "g9", "e9", "mapped", []CompositeSectionRequest{
+		{
+			Key:       "consts",
+			Static:    true,
+			Title:     "常量筛选",
+			RefreshOn: []string{},
+			Form: &spec.FormPresentationSpec{
+				JSONSchema: spec.JSONSchema(`{"type":"object","properties":{"currency":{"type":"string","title":"货币","enum":["gold","diamond"]}}}`),
+			},
+		},
+		{
+			FunctionID: "order.list",
+			View:       "table",
+			RefreshOn:  []string{"consts"},
+			InputAssignments: []CompositeInputAssignmentRequest{
+				{Target: "/playerId", Kind: "page_state", Key: "consts", Path: "/currency"},
+			},
+		},
+	})
+	require.NoError(t, err)
+
+	var pageSpec spec.PageSpec
+	require.NoError(t, jsonUnmarshalV9(proposal.PageSpec, &pageSpec))
+	require.NotNil(t, pageSpec.Bindings)
+
+	// 找 order.list 的绑定：playerId 参数来源应覆盖为 page_state(consts)/currency
+	var found bool
+	for _, b := range pageSpec.Bindings {
+		if b.FunctionID != "order.list" || b.Selectors == nil || len(b.Selectors.Input.Assignments) == 0 {
+			continue
+		}
+		for _, a := range b.Selectors.Input.Assignments {
+			if a.Target == "/playerId" {
+				found = true
+				assert.Equal(t, spec.SourcePageState, a.Source.Kind)
+				assert.Equal(t, "consts", a.Source.Key)
+				assert.Equal(t, "/currency", a.Source.Path)
+			}
+		}
+	}
+	assert.True(t, found, "playerId assignment should exist")
+}

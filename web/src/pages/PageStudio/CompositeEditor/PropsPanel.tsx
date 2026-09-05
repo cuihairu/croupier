@@ -8,6 +8,7 @@ import type { PageNode } from './model';
 import type { JSONSchema } from '@/types/dashboard';
 import ActionEditor from './ActionEditor';
 import RowActionsEditor from './RowActionsEditor';
+import ParamMappingEditor from './ParamMappingEditor';
 import ConstantFieldsEditor from './ConstantFieldsEditor';
 import { schemaProperties } from './types';
 
@@ -54,6 +55,8 @@ export default function PropsPanel({
         : undefined,
     [def, nodes, fnById, allFns, node?.props.functionId],
   );
+
+  const fn = node?.props.functionId ? fnById.get(String(node.props.functionId)) : undefined;
 
   if (!node || !def || !schema) {
     return (
@@ -119,6 +122,26 @@ export default function PropsPanel({
                     />
                   </div>
                 ))}
+                {(def.category === 'function' || node.type.startsWith('fn')) && (
+                  <div style={{ marginBottom: 12 }}>
+                    <Typography.Text
+                      type="secondary"
+                      style={{ fontSize: 11, display: 'block', marginBottom: 4 }}
+                    >
+                      参数映射
+                    </Typography.Text>
+                    <ParamMappingEditor
+                      fn={fn}
+                      nodes={nodes}
+                      selfId={node.id}
+                      fnById={fnById}
+                      value={(node.props.inputAssignments as never[]) ?? []}
+                      onChange={(v) =>
+                        onPatch({ inputAssignments: v } as unknown as Record<string, unknown>)
+                      }
+                    />
+                  </div>
+                )}
                 {plainKeys.length > 0 && (
                   <SchemaFormRenderer
                     spec={{ jsonSchema: plainSchema, layout: 'vertical' }}

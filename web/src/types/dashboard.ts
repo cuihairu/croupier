@@ -373,6 +373,15 @@ export interface CompositeSection {
   group?: string;
   /** 常量表单：不绑定函数，值仅并入页面状态供 refreshOn/动作链消费。 */
   static?: boolean;
+  /** 显式参数映射（P0）：target=/参数路径，覆盖同名自动映射。
+   * kind=page_state（key=上游区块 key，path=/字段）或 literal（value）。 */
+  inputAssignments?: Array<{
+    target: string;
+    kind: 'page_state' | 'literal';
+    key?: string;
+    path?: string;
+    value?: unknown;
+  }>;
   /** 通用事件绑定（发布触发点）：rowClick/rowSelected/success/error/click。 */
   events?: CompositeEventBinding[];
   /** 操作成功后自动重跑的区块 key 列表。 */

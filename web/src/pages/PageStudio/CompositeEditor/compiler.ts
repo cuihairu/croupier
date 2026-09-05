@@ -22,6 +22,14 @@ export type CompiledSection = {
   /** 常量表单（staticForm）：不绑定函数，form.jsonSchema 由编辑器定义。 */
   static?: boolean;
   form?: { jsonSchema: Record<string, unknown> };
+  /** 显式参数映射（sourceNodeId 编译期解析为 section key）。 */
+  inputAssignments?: Array<{
+    target: string;
+    kind: 'page_state' | 'literal';
+    key?: string;
+    path?: string;
+    value?: unknown;
+  }>;
   display?: 'inline' | 'dialog';
   rowActions?: CompiledAction[];
   toolbarActions?: CompiledAction[];
@@ -261,6 +269,44 @@ export function compileTree(tree: PageNode[]): CompileResult {
     }
     if (refreshOnKeys.length > 0) section.refreshOn = refreshOnKeys;
 
+    // 显式参数映射：sourceNodeId → section key（与 refreshOnNode 同机制）
+    const rawMappings = Array.isArray(node.props.inputAssignments)
+      ? (node.props.inputAssignments as Array<Record<string, unknown>>)
+      : [];
+    const inputAssignments = rawMappings
+      .map(
+        (
+          m,
+        ): {
+          target: string;
+          kind: 'page_state' | 'literal';
+          key?: string;
+          path?: string;
+          value?: unknown;
+        } | null => {
+          const kind: 'page_state' | 'literal' = m.kind === 'literal' ? 'literal' : 'page_state';
+          const target = String(m.param ?? '').startsWith('/')
+            ? String(m.param)
+            : `/${String(m.param ?? '')}`;
+          if (kind === 'page_state') {
+            const key = nodeSectionKey.get(String(m.sourceNodeId ?? ''));
+            if (!key) return null;
+            return {
+              target,
+              kind,
+              key,
+              path:
+                typeof m.field === 'string' && m.field
+                  ? `/${m.field.replace(/^\//, '')}`
+                  : undefined,
+            };
+          }
+          return { target, kind, value: m.value };
+        },
+      )
+      .filter((m): m is NonNullable<typeof m> => m !== null);
+    if (inputAssignments.length > 0) section.inputAssignments = inputAssignments;
+
     if (node.props.onSuccess) collectRefresh(node.props.onSuccess, '执行成功后');
     if (node.props.onSuccessRefresh) collectRefresh(node.props.onSuccessRefresh, '成功后刷新');
 
@@ -431,6 +477,14 @@ export interface SpecSectionLike {
   /** 常量表单（staticForm）：无绑定，schema 由编辑器定义。 */
   static?: boolean;
   form?: { jsonSchema?: Record<string, unknown> };
+  /** 显式参数映射。 */
+  inputAssignments?: Array<{
+    target: string;
+    kind: 'page_state' | 'literal';
+    key?: string;
+    path?: string;
+    value?: unknown;
+  }>;
   autoRun?: boolean;
   refreshOn?: string[];
   display?: string;
@@ -507,6 +561,23 @@ export function decompileToTree(sections: SpecSectionLike[]): [PageNode[], strin
       if (sec.toolbar) fnProps.toolbar = sec.toolbar; // 第二遍还原为按钮节点后移除
     }
     if (view === 'fnForm') fnProps.display = 'inline';
+    if (Array.isArray(sec.inputAssignments) && sec.inputAssignments.length > 0) {
+      // 反查：page_state key → 上游节点 id（保留源引用供再次编译）
+      const keyToUpstreamId = new Map<string, string>();
+      for (const other of sections) {
+        const oid = String(other.key ?? '');
+        if (oid) keyToUpstreamId.set(oid, oid);
+      }
+      fnProps.inputAssignments = (sec.inputAssignments as Array<Record<string, unknown>>).map(
+        (m) => ({
+          param: String(m.target ?? '').replace(/^\//, ''),
+          kind: m.kind,
+          sourceNodeId: keyToUpstreamId.get(String(m.key ?? '')) ?? String(m.key ?? ''),
+          field: typeof m.path === 'string' ? m.path.replace(/^\//, '') : undefined,
+          value: m.value,
+        }),
+      );
+    }
 
     if (sec.display === 'dialog') {
       const form: PageNode = { id: nodeId(view), type: view, props: fnProps };

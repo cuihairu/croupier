@@ -11,6 +11,15 @@ import (
 
 // CompositeSectionInput 是组合页的一个区块输入：函数 + 视图形态 +
 // 联动声明。函数契约决定 selector 骨架，视图参数可覆盖。
+// CompositeInputAssignmentInput 显式参数映射条目（wire → generator）。
+type CompositeInputAssignmentInput struct {
+	Target string
+	Kind   string
+	Key    string
+	Path   string
+	Value  json.RawMessage
+}
+
 type CompositeSectionInput struct {
 	// Key 区块唯一标识（同函数多实例区分；缺省=函数 id sanitize）。
 	Key string
@@ -28,6 +37,8 @@ type CompositeSectionInput struct {
 	OnSuccess  []string
 	// Events 通用事件绑定（发布触发点）。
 	Events []spec.CompositeEventBinding
+	// InputAssignments 显式参数映射（覆盖自动映射的同名 target）。
+	InputAssignments []spec.InputAssignment
 }
 
 // CompositeRowActionInput 表格行操作输入。
@@ -169,6 +180,21 @@ func GenerateCompositePage(
 		selectors := &spec.BindingSelectors{}
 		if len(contract.InputSchema) > 0 {
 			selectors.Input = compositeInputSelector(spec.JSONSchema(contract.InputSchema), key)
+			// 显式参数映射：按 target 覆盖自动映射（P0 数据流显式契约）
+			for _, ia := range in.InputAssignments {
+				assign := ia
+				replaced := false
+				for i := range selectors.Input.Assignments {
+					if selectors.Input.Assignments[i].Target == assign.Target {
+						selectors.Input.Assignments[i] = assign
+						replaced = true
+						break
+					}
+				}
+				if !replaced {
+					selectors.Input.Assignments = append(selectors.Input.Assignments, assign)
+				}
+			}
 		}
 		selectors.Output = compositeOutputAssignments(contract, view, key)
 		if len(selectors.Input.Assignments) > 0 || len(selectors.Output) > 0 {
