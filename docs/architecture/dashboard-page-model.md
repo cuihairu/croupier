@@ -357,13 +357,13 @@ PageSpec = (pageKey, type, resourceKey?, category, title, icon, order,
 
 四种页面类型的视图编排：
 
-| 页面类型    | 视图节点（实际 DTO）                                                                                                                                                                                            |
-| ----------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `resource`  | `ListViewSpec`（columns/filters/pagination/rowActions/batchActions/toolbarActions）、`DetailViewSpec`（fields/actions）、`CreateForm`/`UpdateForm`（FormPresentationSpec）、`DeleteAction`（ConfirmActionSpec） |
-| `operation` | `Form`（FormPresentationSpec）+ `Confirm`（ConfirmActionSpec）+ `ResultViewSpec`                                                                                                                                |
-| `task`      | `Form`（FormPresentationSpec）+ `TaskViewSpec`（status/events/result/cancel 的 bindingId 引用）+ `ResultViewSpec`                                                                                               |
-| `report`    | `QueryForm`（FormPresentationSpec）+ `DatasetSpec` + `ChartSpec[]` + 表格 `ListViewSpec`                                                                                                                        |
-| `composite` | `CompositePageSpec`：`sections[]`（每区块绑定一个函数；`display` inline/dialog、`group` 弹窗分组、`rowActions`/`toolbar` 按钮动作含 `chain` 动作链、`onSuccessRefresh`、`refreshOn` page_state 联动）           |
+| 页面类型    | 视图节点（实际 DTO）                                                                                                                                                                                                                                         |
+| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `resource`  | `ListViewSpec`（columns/filters/pagination/rowActions/batchActions/toolbarActions）、`DetailViewSpec`（fields/actions）、`CreateForm`/`UpdateForm`（FormPresentationSpec）、`DeleteAction`（ConfirmActionSpec）                                              |
+| `operation` | `Form`（FormPresentationSpec）+ `Confirm`（ConfirmActionSpec）+ `ResultViewSpec`                                                                                                                                                                             |
+| `task`      | `Form`（FormPresentationSpec）+ `TaskViewSpec`（status/events/result/cancel 的 bindingId 引用）+ `ResultViewSpec`                                                                                                                                            |
+| `report`    | `QueryForm`（FormPresentationSpec）+ `DatasetSpec` + `ChartSpec[]` + 表格 `ListViewSpec`                                                                                                                                                                     |
+| `composite` | `CompositePageSpec`：`sections[]`（每区块绑定一个函数；`display` inline/dialog、`group` 弹窗分组、`rowActions`/`toolbar` 按钮动作含 `chain` 动作链、`onSuccessRefresh`、`refreshOn` page_state 联动），另有 `static` 常量表单（不绑定函数，值进 page_state） |
 
 字段级的 wire 契约（含 FormPresentationSpec、Selector AST、Binding usage 枚举与 ABI 版本）以 [PageSpec 协议规范](./pagespec-protocol.md) 为唯一出处；其权威实现是 `internal/dashboard/spec`（Go DTO）与 `web/src/types/dashboard.ts`（前端共享类型），两侧逐项对应。
 

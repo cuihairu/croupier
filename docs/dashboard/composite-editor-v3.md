@@ -141,6 +141,12 @@ web/src/pages/PageStudio/CompositeEditor/
 
 `__tests__/`：model 10（树操作/悬空绑定清理）、registry 3（注册/约束）、scaffold 8（实例化快照/面板声明）、compiler 11（编译快照/多实例/警告）、decompile 5（回读 round-trip/破损引用）、canvas 3（弹窗占位卡交互）、action-editor 6（动作编排）、integration 4（组合流程）。合计 50 用例，`pnpm --dir web test` 全绿。
 
+**常量表单（staticForm，2026-09）**：基础组件新增「常量表单」——不绑定函数，
+字段在设计期以 JSON Schema 定义（属性面板支持在线编辑与 JSON/Excel 导入选项，
+第 1 列=值、第 2 列=标签）。画布/预览/发布均渲染真实控件（enum→下拉），
+值防抖并入页面状态驱动 refreshOn 联动下游。可保存为组件模板复用
+（「变量下拉框」场景的标准做法）。发布校验：static 区块禁带 bindingId。
+
 V4 新增文件：`ComponentLibrary.tsx`（组件库面板——模板浏览/实例化/id 重映射/scope 检查）、`types.ts`（共享类型）。
 
 **模板拖放（2026-09）**：组件库 Tab 的模板卡片是 dnd-kit 拖拽源——可拖入画布任意落点
