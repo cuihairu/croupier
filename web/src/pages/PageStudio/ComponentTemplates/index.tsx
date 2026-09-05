@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
+  Alert,
   App,
   Button,
   Card,
@@ -22,6 +23,7 @@ import {
   SearchOutlined,
   ControlOutlined,
   ThunderboltOutlined,
+  ExperimentOutlined,
 } from '@ant-design/icons';
 import { PageContainer } from '@ant-design/pro-components';
 import ConstantImportModal from '../CompositeEditor/ConstantImportModal';
@@ -33,6 +35,7 @@ import {
 } from '../CompositeEditor/ComponentLibrary';
 import PreviewRuntime from '../CompositeEditor/PreviewRuntime';
 import type { PageNode } from '../CompositeEditor/model';
+import { demoConstantTemplatePayloads, findLegacyMergedTemplates } from './constantTemplateAudit';
 
 const { Text, Title } = Typography;
 
@@ -143,6 +146,59 @@ export default function ComponentTemplatesPage() {
     [load, message],
   );
 
+  // 旧版合并常量模板（一个 staticForm 塞多个常量）检测——规范是
+  // 「一种常量一个独立模板」，旧数据需清理后重新导入。
+  const legacyMerged = useMemo(() => findLegacyMergedTemplates(templates), [templates]);
+  const [cleaningLegacy, setCleaningLegacy] = useState(false);
+  const handleCleanLegacy = useCallback(async () => {
+    setCleaningLegacy(true);
+    let removed = 0;
+    try {
+      for (const tpl of legacyMerged) {
+        try {
+          await request(`/api/v1/component-templates/${encodeURIComponent(tpl.key)}`, {
+            method: 'DELETE',
+            skipErrorHandler: true,
+          });
+          removed += 1;
+        } catch {
+          // 单条失败不阻断其余清理（如内置模板不可删）
+        }
+      }
+      message.success(`已清理 ${removed} 个旧版合并模板——请重新「导入常量」生成独立组件`);
+      await load();
+    } finally {
+      setCleaningLegacy(false);
+    }
+  }, [legacyMerged, load, message]);
+
+  // 示例常量模板（演示假数据）：固定 consts--demo-* key，已存在自动跳过（幂等）。
+  const [seedingDemo, setSeedingDemo] = useState(false);
+  const handleSeedDemo = useCallback(async () => {
+    setSeedingDemo(true);
+    try {
+      const existing = new Set(templates.map((t) => t.key));
+      const payloads = demoConstantTemplatePayloads().filter((p) => !existing.has(p.key));
+      if (payloads.length === 0) {
+        message.info('示例常量模板已存在');
+        return;
+      }
+      for (const payload of payloads) {
+        await request('/api/v1/component-templates', {
+          method: 'POST',
+          data: payload,
+          skipErrorHandler: true,
+        });
+      }
+      message.success(`已生成 ${payloads.length} 个示例常量组件——组合页编辑器中可拖入使用`);
+      await load();
+    } catch {
+      message.error('生成示例常量模板失败');
+    } finally {
+      setSeedingDemo(false);
+    }
+  }, [templates, load, message]);
+
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     if (!q) return templates;
@@ -186,6 +242,14 @@ export default function ComponentTemplatesPage() {
             导入常量
           </Button>,
           <Button
+            key="seed-demo-consts"
+            icon={<ExperimentOutlined />}
+            loading={seedingDemo}
+            onClick={() => void handleSeedDemo()}
+          >
+            生成示例常量
+          </Button>,
+          <Button
             key="regen"
             icon={<ThunderboltOutlined />}
             loading={regenerating}
@@ -209,11 +273,37 @@ export default function ComponentTemplatesPage() {
         style={{ width: 320, marginBottom: 16 }}
       />
 
+      {legacyMerged.length > 0 && (
+        <Alert
+          type="warning"
+          showIcon
+          style={{ marginBottom: 16 }}
+          message={`检测到 ${legacyMerged.length} 个旧版合并常量模板（一个模板包含多个常量）`}
+          description={
+            <Space direction="vertical" size={4}>
+              <Text type="secondary" style={{ fontSize: 12 }}>
+                现行规范是「一种常量一个独立组件」。旧模板：
+                {legacyMerged.map((t) => t.key).join('、')}
+                ——清理后请重新「导入常量」。
+              </Text>
+              <Button
+                size="small"
+                danger
+                loading={cleaningLegacy}
+                onClick={() => void handleCleanLegacy()}
+              >
+                一键清理旧模板
+              </Button>
+            </Space>
+          }
+        />
+      )}
+
       {loading ? (
         <Empty description="加载中…" image={Empty.PRESENTED_IMAGE_SIMPLE} />
       ) : filtered.length === 0 ? (
         <Empty
-          description="暂无组件模板——点击「从契约重新生成」或到编辑器选中节点保存为组件"
+          description="暂无组件模板——点击「生成示例常量」体验、导入常量或从契约重新生成"
           image={Empty.PRESENTED_IMAGE_SIMPLE}
         />
       ) : (
