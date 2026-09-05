@@ -14,6 +14,9 @@ tag:
 
 > **状态**：In progress -- 页面生成器（`internal/dashboard/generator/`）与唯一前端运行时（`web/src/components/PageRenderer/`、`SchemaFormRenderer`）已落地；真实浏览器 E2E 的 CI 门禁和全部场景验收仍以根目录 `todo.md` 为准。
 
+> **组合模型总纲**：本文聚焦生成器与运行时实现。组合方式的心智模型、
+> React 原语映射、表达力边界与路线见 [组合模型与表达力边界](./composition-model.md)。
+
 ## 端到端流程总览
 
 从函数注册到用户操作页面的完整链路（括号内为关键实现位置）：
