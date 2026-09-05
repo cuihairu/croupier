@@ -561,6 +561,10 @@ type CompositeSection struct {
 	// OnSuccessRefresh 操作成功后自动重跑的区块 key 列表
 	//（如发邮件成功后刷新玩家表格）。
 	OnSuccessRefresh []string `json:"onSuccessRefresh,omitempty"`
+	// Static 常量表单（不绑定函数）：Form.jsonSchema 由编辑器在设计期
+	// 定义（常量选项），值只写入页面状态供 refreshOn/动作链消费，
+	// 不执行任何绑定。Static=true 时 BindingID 必须为空。
+	Static bool `json:"static,omitempty"`
 	// Events 通用事件绑定（编辑器全组件事件的发布触发点）：
 	// rowClick/rowSelected（table）、success/error（form）、click（fields/text）。
 	Events []CompositeEventBinding `json:"events,omitempty"`

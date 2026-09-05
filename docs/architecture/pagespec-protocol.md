@@ -97,6 +97,12 @@ ListViewSpec | DetailViewSpec | ActionSpec | ConfirmActionSpec
 
 `type: composite` 页面的主体（权威实现 `internal/dashboard/spec/types.go`，前端 `web/src/types/dashboard.ts`）。创建入口 `POST /api/v1/versioning/pages/composite`，请求为 `CompositeSectionRequest[]`（字段与 spec 同名透传，见 [使用指南 §3](../dashboard/composite-editor-v3.md)）。
 
+**常量表单区块（static，2026-09）**：`CompositeSection` 增加 `static: true` 形态——
+不绑定 bindingId、不执行任何函数；`form.jsonSchema` 由编辑器设计期定义并经
+`CompositeSectionRequest.form` 透传（服务端校验 schema 存在性），值仅写入页面状态供
+refreshOn/动作链消费。发布校验：static 区块禁止携带 bindingId、view 必须为 form、
+必须包含 form.jsonSchema。
+
 ```json
 {
   "sections": [

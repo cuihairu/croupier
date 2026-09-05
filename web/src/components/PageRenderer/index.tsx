@@ -74,10 +74,28 @@ export const CompositeRenderer: React.FC<{
   preview: boolean;
 }> = ({ sections, bindings, onExecute, preview }) => {
   const { message, modal } = App.useApp();
-  const [results, setResults] = useState<Record<string, PageExecutionResult | null>>({});
+  const [results, setResults] = useState<
+    Record<string, PageExecutionResult | { data: Record<string, unknown> } | null>
+  >({});
   const [running, setRunning] = useState<Record<string, boolean>>({});
   const [sectionInputs, setSectionInputs] = useState<Record<string, Record<string, unknown>>>({});
   const [dialogKey, setDialogKey] = useState<string | null>(null);
+  // 常量表单（static）值缓冲：防抖后并入 results 驱动 refreshOn 联动
+  const staticMergeRef = useRef<Record<string, { data: Record<string, unknown> }>>({});
+  const staticTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const scheduleStaticFlush = useCallback(() => {
+    if (staticTimerRef.current) clearTimeout(staticTimerRef.current);
+    staticTimerRef.current = setTimeout(() => {
+      staticTimerRef.current = null;
+      setResults((prev) => ({ ...prev, ...staticMergeRef.current }));
+    }, 400);
+  }, []);
+  useEffect(
+    () => () => {
+      if (staticTimerRef.current) clearTimeout(staticTimerRef.current);
+    },
+    [],
+  );
 
   const sectionsRef = useRef(sections);
   sectionsRef.current = sections;
@@ -365,6 +383,18 @@ export const CompositeRenderer: React.FC<{
                     </Button>
                   ))}
                 </Space>
+              ) : sec.static && sectionHasForm(sec) ? (
+                // 常量表单：不执行绑定，值并入页面状态驱动 refreshOn 联动
+                //（防抖合并，避免文本输入逐键触发下游重跑）
+                <SchemaFormRenderer
+                  spec={sec.form!}
+                  initialValues={(sectionInputs[sec.key] || {}) as FormValues}
+                  hideSubmit
+                  onValuesChange={(_, values) => {
+                    staticMergeRef.current[sec.key] = { data: values as Record<string, unknown> };
+                    scheduleStaticFlush();
+                  }}
+                />
               ) : sectionHasForm(sec) ? (
                 <SchemaFormRenderer
                   spec={sec.form!}

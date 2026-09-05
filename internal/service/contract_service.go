@@ -1467,16 +1467,42 @@ func (s *ContractService) CreateCompositeProposal(
 
 	var contracts []*model.FunctionContract
 	inputs := make([]generator.CompositeSectionInput, 0, len(sections))
+	staticSections := make([]spec.CompositeSection, 0)
 	seenKey := map[string]bool{}
 	contractCache := map[string]*model.FunctionContract{}
 	for _, sec := range sections {
+		key := strings.TrimSpace(sec.Key)
+		if sec.Static {
+			// 常量表单：不查契约、不生成绑定；表单 schema 由编辑器透传
+			if key == "" {
+				return nil, fmt.Errorf("static section requires key")
+			}
+			if seenKey[key] {
+				return nil, fmt.Errorf("duplicate section key %q", key)
+			}
+			seenKey[key] = true
+			if sec.Form == nil || len(sec.Form.JSONSchema) == 0 {
+				return nil, fmt.Errorf("static section %q requires form.jsonSchema", key)
+			}
+			section := spec.CompositeSection{
+				Key:       key,
+				View:      "form",
+				Title:     spec.LocalizedText{"zh-CN": strings.TrimSpace(sec.Title)},
+				Span:      sec.Span,
+				AutoRun:   false,
+				RefreshOn: sec.RefreshOn,
+				Static:    true,
+				Form:      sec.Form,
+			}
+			staticSections = append(staticSections, section)
+			continue
+		}
 		fid := strings.TrimSpace(sec.FunctionID)
 		if fid == "" {
 			continue
 		}
 		// 同函数多实例：不再丢弃，靠区块 key 唯一区分
 		//（同一 player.list 可拖两个表格分别配列/联动）。
-		key := strings.TrimSpace(sec.Key)
 		if key == "" {
 			key = fid
 		}
@@ -1533,6 +1559,14 @@ func (s *ContractService) CreateCompositeProposal(
 	if !ok {
 		return nil, fmt.Errorf("composite page cannot be generated (see diagnostics)")
 	}
+	// 常量表单区块（static）：不经过生成器（无契约/绑定），直接追加到
+	// 组合页 sections；表单 schema 由编辑器设计期定义并透传。
+	if len(staticSections) > 0 {
+		if generated.Composite == nil {
+			generated.Composite = &spec.CompositePageSpec{}
+		}
+		generated.Composite.Sections = append(generated.Composite.Sections, staticSections...)
+	}
 	proposalKey := compositeProposalKey(pageKey)
 	if err := s.upsertGeneratedProposal(ctx, gameID, env, proposalKey, nil, contracts, generated); err != nil {
 		return nil, err
@@ -1550,6 +1584,14 @@ type CompositeSectionRequest struct {
 	Span       int      `json:"span,omitempty"`
 	AutoRun    bool     `json:"autoRun,omitempty"`
 	RefreshOn  []string `json:"refreshOn,omitempty"`
+	// Group 弹窗分组：display=dialog 且同 group 的区块渲染进同一弹窗。
+	Group string `json:"group,omitempty"`
+	// Static 常量表单：不绑定函数，Form.jsonSchema 由编辑器设计期定义，
+	// 值仅写入页面状态供 refreshOn/动作链消费（不执行、无审计面）。
+	Static bool `json:"static,omitempty"`
+	// Form 静态区块的表单展示规格（Static=true 时必填；非静态区块由
+	// 服务端从契约生成，忽略该字段）。
+	Form *spec.FormPresentationSpec `json:"form,omitempty"`
 	// Display inline（默认）| dialog（弹窗表单，按钮触发）。
 	Display string `json:"display,omitempty"`
 	// RowActions 表格行操作（view=table）。

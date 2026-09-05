@@ -251,3 +251,63 @@ describe('compileTree V3.2：分组弹窗 / 动作链 / 通用事件', () => {
     });
   });
 });
+
+describe('staticForm（常量表单，无绑定）', () => {
+  const staticSchema = JSON.stringify({
+    type: 'object',
+    properties: { env: { type: 'string', title: '环境', enum: ['prod', 'stage'] } },
+  });
+
+  it('编译为 static 区块：透传 jsonSchema、无 functionId', () => {
+    const { sections, warnings } = compileTree([
+      { id: 'sf1', type: 'staticForm', props: { title: '常量筛选', span: 12, staticSchema } },
+      fn('fnTable', 'player.list', { autoRun: true }),
+    ]);
+    expect(warnings).toEqual([]);
+    expect(sections).toHaveLength(2);
+    const staticSec = sections[0] as unknown as {
+      static?: boolean;
+      form?: { jsonSchema: Record<string, unknown> };
+      functionId: string;
+    };
+    expect(staticSec.static).toBe(true);
+    expect(staticSec.view).toBe('form');
+    expect(staticSec.functionId).toBe('');
+    expect(staticSec.form?.jsonSchema).toEqual({
+      type: 'object',
+      properties: { env: { type: 'string', title: '环境', enum: ['prod', 'stage'] } },
+    });
+  });
+
+  it('staticSchema JSON 无效 → 警告并跳过', () => {
+    const { sections, warnings } = compileTree([
+      { id: 'sf-bad', type: 'staticForm', props: { staticSchema: '{bad json' } },
+      fn('fnTable', 'player.list', {}),
+    ]);
+    expect(sections).toHaveLength(1);
+    expect(warnings.join('')).toContain('JSON 定义无效');
+  });
+
+  it('回读：static 区块还原为 staticForm 节点（round-trip）', async () => {
+    const { decompileToTree } = await import('../compiler');
+    const [nodes] = decompileToTree([
+      {
+        key: 'consts',
+        functionId: '',
+        view: 'form',
+        title: '常量筛选',
+        span: 12,
+        autoRun: false,
+        static: true,
+        form: {
+          jsonSchema: { type: 'object', properties: { env: { type: 'string', enum: ['prod'] } } },
+        },
+      } as unknown as Parameters<typeof decompileToTree>[0][number],
+      { key: 't', functionId: 'player.list', view: 'table', title: 't', span: 24, autoRun: true },
+    ]);
+    expect(nodes[0].type).toBe('staticForm');
+    const schema = JSON.parse(String(nodes[0].props.staticSchema));
+    expect(schema.properties.env.enum).toEqual(['prod']);
+    expect(nodes[1].type).toBe('fnTable');
+  });
+});

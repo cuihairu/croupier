@@ -19,6 +19,9 @@ export type CompiledSection = {
   span: number;
   autoRun: boolean;
   refreshOn?: string[];
+  /** 常量表单（staticForm）：不绑定函数，form.jsonSchema 由编辑器定义。 */
+  static?: boolean;
+  form?: { jsonSchema: Record<string, unknown> };
   display?: 'inline' | 'dialog';
   rowActions?: CompiledAction[];
   toolbarActions?: CompiledAction[];
@@ -42,6 +45,7 @@ const VIEW_MAP: Record<string, 'table' | 'fields' | 'form'> = {
   fnTable: 'table',
   fnFields: 'fields',
   fnForm: 'form',
+  staticForm: 'form',
 };
 
 /**
@@ -159,12 +163,43 @@ export function compileTree(tree: PageNode[]): CompileResult {
         continue;
       }
 
+      if (node.type === 'staticForm') {
+        emitStaticSection(node);
+        continue;
+      }
       if (VIEW_MAP[node.type]) {
         emitFnSection(node, node.props.display === 'dialog' ? 'dialog' : 'inline');
         continue;
       }
       warnings.push(`未知组件类型 ${node.type}，已忽略`);
     }
+  };
+
+  /** 常量表单（staticForm）：无契约/绑定，schema 由编辑器设计期定义。 */
+  const emitStaticSection = (node: PageNode) => {
+    const raw = node.props.staticSchema;
+    let jsonSchema: Record<string, unknown> = {};
+    if (typeof raw === 'string') {
+      try {
+        jsonSchema = JSON.parse(raw) as Record<string, unknown>;
+      } catch {
+        warnings.push(`常量表单「${String(node.props.title ?? node.id)}」的 JSON 定义无效，已跳过`);
+        return;
+      }
+    } else if (raw && typeof raw === 'object') {
+      jsonSchema = raw as Record<string, unknown>;
+    }
+    const section: CompiledSection = {
+      key: nodeSectionKey.get(node.id) ?? String(node.id),
+      functionId: '',
+      view: 'form',
+      title: String(node.props.title ?? '常量表单'),
+      span: Number(node.props.span ?? 12) || 12,
+      autoRun: false,
+      static: true,
+      form: { jsonSchema },
+    };
+    sections.push(section as unknown as (typeof sections)[number]);
   };
 
   const emitFnSection = (node: PageNode, display: 'inline' | 'dialog', group?: string) => {
@@ -376,6 +411,9 @@ export interface SpecSectionLike {
   view?: string;
   title?: unknown;
   span?: number;
+  /** 常量表单（staticForm）：无绑定，schema 由编辑器定义。 */
+  static?: boolean;
+  form?: { jsonSchema?: Record<string, unknown> };
   autoRun?: boolean;
   refreshOn?: string[];
   display?: string;
@@ -414,6 +452,24 @@ export function decompileToTree(sections: SpecSectionLike[]): [PageNode[], strin
   const dialogGroupToModalId = new Map<string, string>();
   const toolbarButtons: { tableId: string; actions: Array<Record<string, unknown>> }[] = [];
   for (const sec of sections) {
+    // 常量表单（static）：还原为 staticForm 节点（schema 从 form.jsonSchema）
+    if (sec.static === true) {
+      const key = String(sec.key ?? '');
+      const schema = (sec.form as { jsonSchema?: Record<string, unknown> } | undefined)?.jsonSchema;
+      const node: PageNode = {
+        id: nodeId('staticForm'),
+        type: 'staticForm',
+        props: {
+          title: titleOf(sec, key || '常量表单'),
+          span: Number(sec.span ?? 12) || 12,
+          staticSchema: JSON.stringify(schema ?? { type: 'object', properties: {} }, null, 2),
+          refreshOn: sec.refreshOn ?? [],
+        },
+      };
+      nodes.push(node);
+      keyToNodeId.set(key, node.id);
+      continue;
+    }
     const fid = String(sec.functionId ?? sec.bindingId ?? '');
     const key = String(sec.key ?? fid);
     if (!fid) {

@@ -44,7 +44,18 @@ func validatePublishableCompositePage(comp *CompositePageSpec) []Diagnostic {
 		if strings.TrimSpace(sec.Key) == "" {
 			diags = append(diags, publishShapeDiagnostic("composite_section_key_missing", "section key is required", field+".key"))
 		}
-		if strings.TrimSpace(sec.BindingID) == "" {
+		// 常量表单（static）：无绑定不执行，值仅进页面状态；必须有表单 schema。
+		if sec.Static {
+			if strings.TrimSpace(sec.BindingID) != "" {
+				diags = append(diags, publishShapeDiagnostic("composite_section_static_binding_conflict", "static section must not reference a binding", field+".bindingId"))
+			}
+			if sec.View != "form" {
+				diags = append(diags, publishShapeDiagnostic("composite_section_static_view_invalid", "static section view must be form", field+".view"))
+			}
+			if sec.Form == nil || len(sec.Form.JSONSchema) == 0 {
+				diags = append(diags, publishShapeDiagnostic("composite_section_static_schema_missing", "static section requires form.jsonSchema", field+".form"))
+			}
+		} else if strings.TrimSpace(sec.BindingID) == "" {
 			diags = append(diags, publishShapeDiagnostic("composite_section_binding_missing", "section bindingId is required", field+".bindingId"))
 		}
 		if !validViews[sec.View] {

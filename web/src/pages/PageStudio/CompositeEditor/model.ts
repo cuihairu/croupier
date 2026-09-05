@@ -1,7 +1,7 @@
 /** 组合页编辑器 V3：页面组件树模型（编辑视图）与纯函数树操作。 */
 
 export type ComponentType =
-  'fnTable' | 'fnForm' | 'fnFields' | 'button' | 'modal' | 'container' | 'text';
+  'fnTable' | 'fnForm' | 'fnFields' | 'staticForm' | 'button' | 'modal' | 'container' | 'text';
 
 /** 事件动作：目标一律是节点 id（openModal→modal 节点；runBinding/refreshNode→fn* 节点）。 */
 export type ActionSpec =

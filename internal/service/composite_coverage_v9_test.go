@@ -130,3 +130,68 @@ func TestCreateCompositeProposalUpsertErrorV9(t *testing.T) {
 	})
 	assert.Error(t, err)
 }
+
+// 常量表单（static）区块：无契约/绑定，编辑器透传 form.jsonSchema；
+// 与绑定区块混合创建 → 发布形状校验通过（static 无 bindingId 合法）。
+func TestCreateCompositeProposalWithStaticSectionV9(t *testing.T) {
+	db := setupTestDBFileV9(t)
+	ctx := context.Background()
+	svc := NewContractService(db)
+	seedCompositeV9(t, svc, ctx)
+
+	_, err := svc.CreateCompositeProposal(ctx, "g9", "e9", "static-missing-form", []CompositeSectionRequest{
+		{FunctionID: "player.get"},
+		{FunctionID: "order.list"},
+		{Key: "consts", Static: true, Title: "常量"},
+	})
+	assert.ErrorContains(t, err, "requires form.jsonSchema")
+
+	proposal, err := svc.CreateCompositeProposal(ctx, "g9", "e9", "static-mix", []CompositeSectionRequest{
+		{FunctionID: "player.get", View: "fields"},
+		{FunctionID: "order.list", View: "table", RefreshOn: []string{"consts"}},
+		{
+			Key:    "consts",
+			Title:  "常量筛选",
+			Static: true,
+			Form: &spec.FormPresentationSpec{
+				JSONSchema: spec.JSONSchema(`{"type":"object","properties":{"env":{"type":"string","title":"环境","enum":["prod","stage"]}}}`),
+			},
+		},
+	})
+	require.NoError(t, err)
+	require.NotNil(t, proposal)
+
+	var pageSpec spec.PageSpec
+	require.NoError(t, jsonUnmarshalV9(proposal.PageSpec, &pageSpec))
+	require.NotNil(t, pageSpec.Composite)
+
+	// static 区块：无 bindingId，schema 保留
+	var staticSec *spec.CompositeSection
+	bindingKeys := map[string]bool{}
+	for i := range pageSpec.Composite.Sections {
+		sec := &pageSpec.Composite.Sections[i]
+		if sec.Static {
+			staticSec = sec
+		} else {
+			bindingKeys[sec.BindingID] = true
+		}
+	}
+	require.NotNil(t, staticSec, "static section should be appended")
+	assert.Equal(t, "consts", staticSec.Key)
+	assert.Equal(t, "form", staticSec.View)
+	assert.Empty(t, staticSec.BindingID)
+	require.NotNil(t, staticSec.Form)
+	assert.Contains(t, string(staticSec.Form.JSONSchema), "prod")
+
+	// 每个非 static 区块都有独立 binding；static 区块不在 bindings 中
+	assert.Len(t, bindingKeys, 2)
+	for _, b := range pageSpec.Bindings {
+		assert.False(t, staticSec.Key == b.ID, "static section must not produce a binding")
+	}
+
+	// 发布形状校验：static 无 bindingId 不再报 binding_missing
+	diags := spec.ValidatePublishablePageShape(pageSpec)
+	for _, d := range diags {
+		assert.NotContains(t, d.Code, "binding_missing", "static section must not trigger binding_missing")
+	}
+}

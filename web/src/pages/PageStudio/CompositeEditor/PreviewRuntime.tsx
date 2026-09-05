@@ -310,6 +310,12 @@ function PreviewNode({
         </Descriptions>
       ) : node.type === 'fnForm' ? (
         <ModalForm fn={fn} running={running} onSubmit={onSubmit} inline />
+      ) : node.type === 'staticForm' ? (
+        (() => {
+          const def = getComponent('staticForm');
+          const Preview = def?.Preview;
+          return Preview ? <Preview node={node} /> : null;
+        })()
       ) : node.type === 'container' ? (
         <Space orientation="vertical" size={8} style={{ width: '100%' }}>
           {(node.children ?? []).map((c) => (

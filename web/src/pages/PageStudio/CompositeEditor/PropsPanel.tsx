@@ -8,6 +8,7 @@ import type { PageNode } from './model';
 import type { JSONSchema } from '@/types/dashboard';
 import ActionEditor from './ActionEditor';
 import RowActionsEditor from './RowActionsEditor';
+import StaticSchemaEditor from './StaticSchemaEditor';
 import { schemaProperties } from './types';
 
 const { Text } = Typography;
@@ -64,6 +65,7 @@ export default function PropsPanel({
 
   const props = (schema.properties ?? {}) as Record<string, JSONSchema>;
   const fmt = (k: string) => (props[k] as { format?: string })?.format;
+  const staticSchemaKeys = Object.keys(props).filter((k) => fmt(k) === 'staticSchema');
   const plainKeys = Object.keys(props).filter((k) => !fmt(k));
   const rowActionsKeys = Object.keys(props).filter((k) => fmt(k) === 'rowActions');
   const events = def.events ?? [];
@@ -99,6 +101,24 @@ export default function PropsPanel({
             forceRender: true,
             children: (
               <div style={{ maxHeight: 'calc(100vh - 300px)', overflow: 'auto', paddingRight: 4 }}>
+                {staticSchemaKeys.map((key) => (
+                  <div key={key} style={{ marginBottom: 12 }}>
+                    <Typography.Text
+                      type="secondary"
+                      style={{ fontSize: 11, display: 'block', marginBottom: 4 }}
+                    >
+                      {(props[key] as { title?: string })?.title ?? key}
+                    </Typography.Text>
+                    <StaticSchemaEditor
+                      value={
+                        typeof node.props[key] === 'string'
+                          ? (node.props[key] as string)
+                          : JSON.stringify(node.props[key] ?? {}, null, 2)
+                      }
+                      onChange={(v) => onPatch({ [key]: v })}
+                    />
+                  </div>
+                ))}
                 {plainKeys.length > 0 && (
                   <SchemaFormRenderer
                     spec={{ jsonSchema: plainSchema, layout: 'vertical' }}
@@ -107,7 +127,7 @@ export default function PropsPanel({
                     onValuesChange={(changed) => onPatch(changed as Record<string, unknown>)}
                   />
                 )}
-                {plainKeys.length === 0 && (
+                {plainKeys.length === 0 && staticSchemaKeys.length === 0 && (
                   <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="无配置字段" />
                 )}
               </div>

@@ -371,6 +371,8 @@ export interface CompositeSection {
   display?: 'inline' | 'dialog';
   /** 弹窗分组：同 group 的 dialog 区块渲染进同一弹窗；动作目标指向 group。 */
   group?: string;
+  /** 常量表单：不绑定函数，值仅并入页面状态供 refreshOn/动作链消费。 */
+  static?: boolean;
   /** 通用事件绑定（发布触发点）：rowClick/rowSelected/success/error/click。 */
   events?: CompositeEventBinding[];
   /** 操作成功后自动重跑的区块 key 列表。 */
