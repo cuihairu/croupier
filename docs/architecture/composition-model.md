@@ -15,6 +15,8 @@ tag:
 > **状态**：Current —— 本文是组合页/页面生成的**设计总纲**：定义心智模型、组合原语、
 > 表达力边界与扩展方法论。规则细节以 pagespec-protocol.md（wire）、
 > dashboard-page-model.md（模型）、presentation-hints.md（hints）为准，本文不重复。
+> 新手入门（为什么有这套设计、全流程怎么走）见
+> [界面是怎么生成的：核心思路与全链路](./descriptor-driven-ui.md)。
 
 ## 定位：为什么这是产品的关键设计
 

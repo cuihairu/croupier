@@ -208,7 +208,7 @@ server_id LowCardinality(String) -- 例如 "s1", "asia1", "us_west_1"
 当前目录同时包含当前规范、Dashboard 页面模型、决策与边界、提案与迁移设计和参考资料。阅读顺序以导航分组为准：
 
 - **当前规范**：可作为实现和评审依据。
-- **Dashboard 页面模型**：vNext 页面产品链路的权威定义，建议按术语表 → 模型 → 注册契约 → 协议 → 生成/运行时 → 菜单的顺序阅读。
+- **Dashboard 页面模型**：vNext 页面产品链路的权威定义，建议按核心思路 → 术语表 → 模型 → 注册契约 → 协议 → 生成/运行时 → 菜单的顺序阅读。
 - **决策与边界**：描述架构取舍、扩展边界和契约基线。
 - **提案与迁移设计**：描述目标设计或迁移方案，不代表代码已全部实现。
 - **参考资料**：调研、模板、历史背景，不作为规范入口。
@@ -226,6 +226,7 @@ server_id LowCardinality(String) -- 例如 "s1", "asia1", "us_west_1"
 
 ### Dashboard 页面模型
 
+- [界面是怎么生成的：核心思路与全链路](./descriptor-driven-ui.md) — 新手从这里开始：描述驱动的核心创新、从函数注册到页面执行的完整流程、每个关键决策的取舍
 - [Dashboard 术语表](./dashboard-glossary.md) — FunctionContract、CapabilitySemantics、PageProposal、PageSpec 与 freshness/merge 的统一定义，建议首先阅读
 - [Dashboard Resource/Page 模型](./dashboard-page-model.md) — 注册、语义聚合、Proposal、发布快照与执行治理的权威模型
 - [OpenAPI / SDK Descriptor v2](./openapi-sdk-descriptor-v2.md) — OpenAPI 扩展字段、SDK descriptor 与 FunctionContract 的统一注册契约
