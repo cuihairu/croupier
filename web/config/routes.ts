@@ -74,7 +74,7 @@ const functionManagementRoutes = [
     // 执行留痕（管理员审计视角）：全量执行记录按用户/函数/时间过滤。
     // 属函数域观测（谁调了什么函数），故挂函数与页面菜单而非运维。
     path: '/functions/execution-logs',
-    name: 'FunctionsAndPages.ExecutionLogs',
+    name: 'ExecutionLogs',
     access: 'canAuditRead',
     component: './Functions/ExecutionLogs',
     icon: 'fileSearch',

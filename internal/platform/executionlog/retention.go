@@ -16,6 +16,17 @@ type RetentionConfig struct {
 	ExecutionLogDays int
 	TaskLogDays      int
 	Interval         time.Duration
+	// Router 为 multiGame 模式的 per-game 库路由；nil 时仅清理 meta 库
+	// （单库模式）。多游戏模式下 execution_logs/task_runs 分散在各 game 库，
+	// 需逐库清理。
+	Router     DBRouter
+	GameScopes func(ctx context.Context) ([]GameScopeRef, error)
+}
+
+// GameScopeRef 一个 (gameID, env) 物理库引用。
+type GameScopeRef struct {
+	GameID string
+	Env    string
 }
 
 // Retention 定期清理 payload 级留痕数据。
@@ -58,7 +69,7 @@ func (r *Retention) Sweep(ctx context.Context) RetentionSummary {
 	now := time.Now().UTC()
 	if r.cfg.ExecutionLogDays > 0 {
 		cutoff := now.AddDate(0, 0, -r.cfg.ExecutionLogDays)
-		deleted, err := model.NewExecutionLogModel(r.db).DeleteBefore(ctx, cutoff, 1000)
+		deleted, err := r.sweepExecutionLogs(ctx, cutoff)
 		if err != nil {
 			slog.WarnContext(ctx, "execution_logs retention sweep failed", "error", err)
 		}
@@ -67,19 +78,62 @@ func (r *Retention) Sweep(ctx context.Context) RetentionSummary {
 	}
 	if r.cfg.TaskLogDays > 0 {
 		cutoff := now.AddDate(0, 0, -r.cfg.TaskLogDays)
-		runDeleted, err := model.NewTaskRunModel(r.db).DeleteBefore(ctx, cutoff, 1000)
+		runDeleted, eventDeleted, err := r.sweepTaskLogs(ctx, cutoff)
 		if err != nil {
-			slog.WarnContext(ctx, "task_runs retention sweep failed", "error", err)
+			slog.WarnContext(ctx, "task log retention sweep failed", "error", err)
 		}
 		summary.TaskRunsDeleted = runDeleted
-		deleted, err := model.NewTaskEventModel(r.db).DeleteBefore(ctx, cutoff, 1000)
-		if err != nil {
-			slog.WarnContext(ctx, "task_events retention sweep failed", "error", err)
-		}
-		summary.TaskEventsDeleted = deleted
+		summary.TaskEventsDeleted = eventDeleted
 		summary.TaskLogCutoff = cutoff
 	}
 	return summary
+}
+
+// sweepExecutionLogs 清理 execution_logs：单库清 meta；multiGame 清全部
+// game 库（逐 scope），meta 兜底（含历史误写残留）。
+func (r *Retention) sweepExecutionLogs(ctx context.Context, cutoff time.Time) (int64, error) {
+	logModel := model.NewExecutionLogModel(r.db)
+	var total int64
+	deleted, err := logModel.DeleteBefore(ctx, cutoff, 1000)
+	if err != nil {
+		return 0, err
+	}
+	total += deleted
+	if r.cfg.Router == nil || r.cfg.GameScopes == nil {
+		return total, nil
+	}
+	scopes, err := r.cfg.GameScopes(ctx)
+	if err != nil {
+		return total, err
+	}
+	for _, scope := range scopes {
+		gctx, _, err := r.cfg.Router.Resolve(ctx, scope.GameID, scope.Env)
+		if err != nil {
+			continue
+		}
+		deleted, err := logModel.DeleteBefore(gctx, cutoff, 1000)
+		if err != nil {
+			slog.WarnContext(ctx, "game execution_logs sweep failed",
+				"gameId", scope.GameID, "env", scope.Env, "error", err)
+			continue
+		}
+		total += deleted
+	}
+	return total, nil
+}
+
+// sweepTaskLogs 清理 task_runs/task_events（单库 meta；multiGame 的任务
+// 留痕当前落 meta 库，game 库暂无这两表）。
+func (r *Retention) sweepTaskLogs(ctx context.Context, cutoff time.Time) (int64, int64, error) {
+	runDeleted, err := model.NewTaskRunModel(r.db).DeleteBefore(ctx, cutoff, 1000)
+	if err != nil {
+		return 0, 0, err
+	}
+	eventDeleted, err := model.NewTaskEventModel(r.db).DeleteBefore(ctx, cutoff, 1000)
+	if err != nil {
+		return runDeleted, 0, err
+	}
+	return runDeleted, eventDeleted, nil
 }
 
 type RetentionSummary struct {

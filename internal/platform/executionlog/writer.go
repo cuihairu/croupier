@@ -12,6 +12,7 @@ import (
 	"encoding/json"
 	"log/slog"
 	"strconv"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -58,11 +59,21 @@ type Config struct {
 	QueueSize       int
 	BatchSize       int
 	FlushInterval   time.Duration
+	// Router 为 multiGame 模式的 per-game 库路由（按 entry 的 game+env
+	// 解析物理库）；nil 时所有留痕写入 meta 库（单库模式）。
+	Router DBRouter
+}
+
+// DBRouter 按 (gameID, env) 解析物理库的最小接口（生产实现为
+// *router.Router，测试可注入内存替身）。
+type DBRouter interface {
+	Resolve(ctx context.Context, gameID, env string) (context.Context, *gorm.DB, error)
 }
 
 // Writer 异步批量写 execution_logs。
 type Writer struct {
 	model     *model.ExecutionLogModel
+	router    DBRouter
 	ch        chan Entry
 	batchSize int
 	flush     time.Duration
@@ -88,6 +99,7 @@ func NewWriter(db *gorm.DB, cfg Config) *Writer {
 	}
 	return &Writer{
 		model:     model.NewExecutionLogModel(db),
+		router:    cfg.Router,
 		ch:        make(chan Entry, cfg.QueueSize),
 		batchSize: cfg.BatchSize,
 		flush:     cfg.FlushInterval,
@@ -126,8 +138,37 @@ func (w *Writer) Run(ctx context.Context) {
 			if len(batch) == 0 {
 				return
 			}
-			if err := w.model.CreateBatch(ctx, batch); err != nil {
-				slog.WarnContext(ctx, "execution log batch write failed", "count", len(batch), "error", err)
+			// multiGame：按 (game, env) 分组写入各自物理库；单库模式 router
+			// 为 nil，整批走 meta 库。
+			if w.router == nil {
+				if err := w.model.CreateBatch(ctx, batch); err != nil {
+					slog.WarnContext(ctx, "execution log batch write failed", "count", len(batch), "error", err)
+				}
+				batch = batch[:0]
+				return
+			}
+			groups := make(map[string][]model.ExecutionLog)
+			order := make([]string, 0)
+			for _, item := range batch {
+				key := item.GameID + "/" + item.Env
+				if _, ok := groups[key]; !ok {
+					order = append(order, key)
+				}
+				groups[key] = append(groups[key], item)
+			}
+			for _, key := range order {
+				items := groups[key]
+				parts := strings.SplitN(key, "/", 2)
+				gctx, _, err := w.router.Resolve(ctx, parts[0], parts[1])
+				if err != nil {
+					slog.WarnContext(ctx, "execution log resolve game db failed",
+						"gameId", parts[0], "env", parts[1], "count", len(items), "error", err)
+					continue
+				}
+				if err := w.model.CreateBatch(gctx, items); err != nil {
+					slog.WarnContext(ctx, "execution log batch write failed",
+						"gameId", parts[0], "env", parts[1], "count", len(items), "error", err)
+				}
 			}
 			batch = batch[:0]
 		}

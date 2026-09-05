@@ -290,9 +290,16 @@ func NewServiceContext(c config.Config, opts ...Option) *ServiceContext {
 	// 执行留痕写入器（R1）：异步批量落库，失败不影响执行主路径
 	var execLogWriter *executionlog.Writer
 	if c.ExecutionLog.IsEnabled() && db != nil {
+		// multiGame：按 entry 的 game+env 路由到对应物理库（否则读写错位）。
+		// 注意 typed-nil：仅 multiGame 启用时才传入 router 接口。
+		var execLogRouter executionlog.DBRouter
+		if dbRouter != nil {
+			execLogRouter = dbRouter
+		}
 		execLogWriter = executionlog.NewWriter(db, executionlog.Config{
 			Enabled:         true,
 			MaxPayloadBytes: c.ExecutionLog.MaxPayloadBytes,
+			Router:          execLogRouter,
 		})
 		execLogWriter.Run(context.Background())
 		slog.Default().Info("ExecutionLog writer started")
@@ -301,6 +308,8 @@ func NewServiceContext(c config.Config, opts ...Option) *ServiceContext {
 		retention := executionlog.NewRetention(db, executionlog.RetentionConfig{
 			ExecutionLogDays: c.ExecutionLog.EffectiveRetentionDays(),
 			TaskLogDays:      c.TaskLog.EffectiveRetentionDays(),
+			Router:           execLogRouter,
+			GameScopes:       listGameEnvScopes(db),
 		})
 		retention.Run(context.Background())
 		slog.Default().Info("Retention sweep loop started",
@@ -1441,4 +1450,20 @@ func (m *AuthMiddleware) shouldBypass(r *http.Request) bool {
 		}
 	}
 	return false
+}
+
+// listGameEnvScopes 枚举 game_envs 绑定的全部 (gameID, env)，供留痕
+// 保留期清理逐 game 库执行。
+func listGameEnvScopes(db *gorm.DB) func(ctx context.Context) ([]executionlog.GameScopeRef, error) {
+	return func(ctx context.Context) ([]executionlog.GameScopeRef, error) {
+		var bindings []model.GameEnvBinding
+		if err := db.WithContext(ctx).Find(&bindings).Error; err != nil {
+			return nil, err
+		}
+		scopes := make([]executionlog.GameScopeRef, 0, len(bindings))
+		for _, b := range bindings {
+			scopes = append(scopes, executionlog.GameScopeRef{GameID: b.GameID, Env: b.Env})
+		}
+		return scopes, nil
+	}
 }
