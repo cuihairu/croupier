@@ -1,5 +1,20 @@
 import React, { useCallback, useMemo, useRef, useState, type SetStateAction } from 'react';
-import { App, Button, Card, Col, Empty, Input, Row, Space, Tabs, Tag, Typography } from 'antd';
+import {
+  App,
+  Button,
+  Card,
+  Col,
+  Empty,
+  Form,
+  Input,
+  Modal,
+  Row,
+  Select,
+  Space,
+  Tabs,
+  Tag,
+  Typography,
+} from 'antd';
 import { AppstoreOutlined, ArrowLeftOutlined, EyeOutlined, SaveOutlined } from '@ant-design/icons';
 import { history, request, useSearchParams } from '@umijs/max';
 import { subscribeScope } from '@/stores/scope';
@@ -70,6 +85,11 @@ export default function CompositeEditorPage() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   /** Shift 多选集合（批量删除）。 */
   const [multiIds, setMultiIds] = useState<Set<string>>(new Set());
+  const [saveModalState, setSaveModalState] = useState<null | {
+    fnIds: string[];
+    selectedNodes: PageNode[];
+  }>(null);
+  const [saveForm] = Form.useForm<{ name: string; description?: string; category?: string }>();
   const [pageKey, setPageKey] = useState('');
   const [keyTouched, setKeyTouched] = useState(false);
   const [mode, setMode] = useState<'edit' | 'preview'>('edit');
@@ -524,13 +544,21 @@ export default function CompositeEditorPage() {
     [selectedId, registerFn, message, setTree],
   );
 
-  /** 多选节点保存为组件模板（V4：用户自定义组件）。 */
+  /** 多选节点保存为组件模板（V4：用户自定义组件）。
+   * 支持命名/描述/分类；任意层级节点（含嵌套在弹窗/容器内的子树）均可保存。 */
   const saveSelectionAsComponent = useCallback(async () => {
     if (multiIds.size < 1) {
       message.warning('请先选中至少一个组件');
       return;
     }
-    const selectedNodes = tree.filter((n) => multiIds.has(n.id));
+    // 任意层级：优先按子树查找（嵌套节点），找不到再回落根级
+    const selectedNodes = Array.from(multiIds)
+      .map((id) => findNode(tree, id))
+      .filter((n): n is PageNode => n !== null);
+    if (selectedNodes.length === 0) {
+      message.warning('选中的组件不存在');
+      return;
+    }
     const fnIds: string[] = [];
     const collectFns = (nodes: PageNode[]) => {
       for (const n of nodes) {
@@ -541,26 +569,36 @@ export default function CompositeEditorPage() {
     };
     collectFns(selectedNodes);
 
-    try {
-      const key = `custom--${Date.now().toString(36)}`;
-      await request('/api/v1/component-templates', {
-        method: 'POST',
-        data: {
-          key,
-          name: { 'zh-CN': `自定义组件 ${selectedNodes.length} 节点` },
-          description: { 'zh-CN': `${selectedNodes.length} 个组件的组合` },
-          category: '自定义',
-          icon: 'AppstoreOutlined',
-          requiredFunctions: fnIds,
-          tree: selectedNodes,
-        },
-        skipErrorHandler: true,
-      });
-      message.success(`组件已保存——在组件库中可复用`);
-    } catch {
-      message.error('保存失败');
-    }
+    setSaveModalState({ fnIds, selectedNodes });
   }, [multiIds, tree, message]);
+
+  const confirmSaveComponent = useCallback(
+    async (name: string, description: string, category: string) => {
+      const state = saveModalState;
+      if (!state) return;
+      try {
+        const key = `custom--${Date.now().toString(36)}`;
+        await request('/api/v1/component-templates', {
+          method: 'POST',
+          data: {
+            key,
+            name: { 'zh-CN': name, 'en-US': name },
+            description: { 'zh-CN': description, 'en-US': description },
+            category: category || '自定义',
+            icon: 'AppstoreOutlined',
+            requiredFunctions: state.fnIds,
+            tree: state.selectedNodes,
+          },
+          skipErrorHandler: true,
+        });
+        message.success(`「${name}」已保存——组件库中可拖入复用`);
+        setSaveModalState(null);
+      } catch {
+        message.error('保存失败');
+      }
+    },
+    [saveModalState, message],
+  );
 
   const deleteNode = useCallback((id: string) => {
     setTree((prev) => removeNode(prev, id)[0]);
@@ -926,6 +964,58 @@ export default function CompositeEditorPage() {
           ) : null}
         </DragOverlay>
       </DndContext>
+      <Modal
+        title="保存为组件模板"
+        open={saveModalState !== null}
+        onCancel={() => setSaveModalState(null)}
+        onOk={() => {
+          const name = (saveForm.getFieldValue('name') || '').trim();
+          if (!name) {
+            message.warning('请填写组件名称');
+            return;
+          }
+          void confirmSaveComponent(
+            name,
+            (saveForm.getFieldValue('description') || '').trim(),
+            saveForm.getFieldValue('category') || '自定义',
+          );
+        }}
+        okText="保存"
+        cancelText="取消"
+        destroyOnHidden
+      >
+        <Form form={saveForm} layout="vertical" preserve={false}>
+          <Form.Item
+            name="name"
+            label="组件名称"
+            rules={[{ required: true, message: '组件名称必填' }]}
+          >
+            <Input placeholder="如：玩家数值下拉查询" maxLength={40} />
+          </Form.Item>
+          <Form.Item name="category" label="分类" initialValue="自定义">
+            <Select
+              options={[
+                { label: '自定义', value: '自定义' },
+                { label: '查询表单', value: '查询表单' },
+                { label: '操作面板', value: '操作面板' },
+                { label: '监控展示', value: '监控展示' },
+              ]}
+            />
+          </Form.Item>
+          <Form.Item name="description" label="描述">
+            <Input.TextArea rows={2} placeholder="用途说明（可选）" maxLength={200} />
+          </Form.Item>
+          {saveModalState && (
+            <Text type="secondary" style={{ fontSize: 12 }}>
+              包含 {saveModalState.selectedNodes.length} 个节点
+              {saveModalState.fnIds.length > 0
+                ? `，依赖函数：${saveModalState.fnIds.join('、')}`
+                : ''}
+              。保存后在组件库 Tab 拖入任意组合页复用。
+            </Text>
+          )}
+        </Form>
+      </Modal>
     </PageContainer>
   );
 }
