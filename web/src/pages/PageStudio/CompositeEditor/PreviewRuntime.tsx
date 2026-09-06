@@ -42,11 +42,15 @@ export default function PreviewRuntime({
   const [results, setResults] = useState<Record<string, unknown>>({});
   const [running, setRunning] = useState<Record<string, boolean>>({});
   const [dialogId, setDialogId] = useState<string | null>(null);
-  // staticForm 值并入的预览页面状态（键 = 节点 id），预览内联动可消费。
-  const [staticState, setStaticState] = useState<Record<string, JSONRecord>>({});
+  // refreshOnNode 级联的同名字段合并输入（与发布运行时 sectionInputs 同语义）。
+  const cascadeInputsRef = useRef<Record<string, JSONRecord>>({});
+  const runningRef = useRef<Record<string, boolean>>({});
+  runningRef.current = running;
 
+  // staticForm 值：StaticFormLive 内防抖后并入 results（与发布运行时的
+  // 值缓冲一致），驱动 refreshOnNode 联动。
   const handleStaticChange = useCallback((nodeId: string, values: JSONRecord) => {
-    setStaticState((r) => ({ ...r, [nodeId]: values }));
+    setResults((r) => ({ ...r, [nodeId]: { data: values } }));
   }, []);
 
   const treeRef = useRef(tree);
@@ -136,6 +140,38 @@ export default function PreviewRuntime({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // refreshOnNode 级联：上游（含 staticForm 值）产出即重跑下游 + 同名字段
+  // 合并进输入——语义对齐发布运行时 CompositeRenderer。
+  const resultsRef = useRef(results);
+  resultsRef.current = results;
+  useEffect(() => {
+    const nodes = treeRef.current;
+    for (const node of nodes) {
+      const deps = Array.isArray(node.props.refreshOnNode)
+        ? (node.props.refreshOnNode as unknown[]).map(String)
+        : [];
+      if (deps.length === 0) continue;
+      const merged = { ...(cascadeInputsRef.current[node.id] ?? {}) };
+      for (const dep of deps) {
+        const depData = (resultsRef.current[dep] as { data?: JSONRecord } | undefined)?.data;
+        if (depData) Object.assign(merged, depData);
+      }
+      cascadeInputsRef.current[node.id] = merged;
+    }
+    for (const node of nodes) {
+      const deps = Array.isArray(node.props.refreshOnNode)
+        ? (node.props.refreshOnNode as unknown[]).map(String)
+        : [];
+      if (deps.length === 0) continue;
+      if (String(node.props.display ?? '') === 'dialog') continue;
+      const depChanged = deps.some((dep) => dep in resultsRef.current);
+      if (depChanged && !runningRef.current[node.id]) {
+        void runRef.current(node, cascadeInputsRef.current[node.id] ?? {});
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [Object.keys(results).join(',')]);
 
   const inline = tree.filter((n) => n.type !== 'modal');
   const modals = tree.filter((n) => n.type === 'modal');
