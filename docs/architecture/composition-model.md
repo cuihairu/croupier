@@ -53,7 +53,7 @@ JSON Schema 只管「控件与数据形状」（rjsf 已是 "Schema → React �
 | React 原语                  | PageSpec 对应物                                                                                        | 现状                                                |
 | --------------------------- | ------------------------------------------------------------------------------------------------------ | --------------------------------------------------- |
 | 嵌套 `children`             | container/modal 的 children 树                                                                         | ✅                                                  |
-| **props 传入**（父→子数据） | SelectorAST 输入赋值（form/row/detail/page_state/literal + JsonPointer）+ `refreshOn` 同名字段隐式合并 | ⚠️ 半自动：同名合并已通，**显式参数映射 UI 未暴露** |
+| **props 传入**（父→子数据） | SelectorAST 输入赋值（form/row/detail/page_state/literal + JsonPointer）+ `refreshOn` 同名字段隐式合并 + 显式参数映射（`ParamMappingEditor`，2026-09 落地） | ✅ 隐式同名合并 + 显式映射（literal 固定值/上游区块.字段） |
 | **回调传出**（子→父行为）   | events → 动作链（runBinding/refreshNode/openModal/closeModal/navigate/showMessage）                    | ✅                                                  |
 | context 共享状态            | page_state（output 赋值 stateKey）                                                                     | ✅                                                  |
 | 派生值（computed props）    | transform 白名单：仅 `pick`                                                                            | ❌ 缺 rename/default/format                         |
@@ -69,8 +69,8 @@ JSON Schema 只管「控件与数据形状」（rjsf 已是 "Schema → React �
 1. **空间**（放哪、多大）：栅格 span / 容器 / 弹窗分组——✅ 基本完整；
    已知边界：容器嵌套两层内完整交互，孙层预览简化。
 2. **数据**（值从哪来、到哪去）：refreshOn 级联 + 同名合并 + SelectorAST——
-   **P0 缺口**：显式参数映射 UI（下游参数 ← 来源区块.字段 下拉选择）；
-   区块实例命名空间（变量名前缀，通用化——常量表单已先行）。
+   显式参数映射已落地（`ParamMappingEditor`：下游参数 ← 来源区块.字段 / literal）；
+   **P0 缺口**：区块实例命名空间（变量名前缀，通用化——常量表单已先行）。
 3. **行为**（触发什么）：events + 动作链——✅ 可用；
    P1 缺口：条件动作、失败策略（上游失败时下游清空/保留/提示，未定义）。
 4. **条件**（何时显示/执行）：表单内 visibleWhen ✅；区块级条件显示 ❌。
@@ -102,9 +102,10 @@ React 的表达力是**任意代码**；PageSpec 的表达力是**白名单原�
 
 | 优先级 | 缺口                                                            | 说明                                                 |
 | ------ | --------------------------------------------------------------- | ---------------------------------------------------- |
-| P0     | 显式参数映射 UI（暴露 SelectorAST）                             | 从「同名巧合」升级为「显式契约」；后端已就绪，纯前端 |
-| P0     | 区块实例命名空间（变量名前缀/重命名）                           | 通用化常量表单的先行实践；解决同模板多实例同名覆盖   |
+| ~~P0~~ | ~~区块实例命名空间（变量名前缀/重命名）~~ ✅ 2026-09（todo U5）| `sectionKey` 声明固化 + 回读不漂移；见组合页编辑器 V4 |
+| ~~P0~~ | ~~模板级参数化（组件 props 默认值）~~ ✅ 2026-09（todo U6）    | `params` 白名单（title/span/autoRun）+ 拖入快速配置；见 V4 §3.6 |
 | P1     | 失败策略 + transform 扩展（rename/default/format）              | 数据流健壮性                                         |
+| P1     | 跨模板联动断链提示（实例化悬空引用静默清理）                    | 见 todo.md U7                                        |
 | P2     | 区块级条件显示、批量（map）组合                                 | 批量依赖 selection 语义闭环                          |
 | P3     | 新积木：任务监控组合（taskStatus 节点）、报表图表（chart 节点） | 每项 = 新节点类型 + 渲染器，属组件模型扩展           |
 

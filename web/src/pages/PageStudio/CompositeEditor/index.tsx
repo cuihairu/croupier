@@ -3,14 +3,17 @@ import {
   App,
   Button,
   Card,
+  Checkbox,
   Col,
   Empty,
   Form,
   Input,
+  InputNumber,
   Modal,
   Row,
   Select,
   Space,
+  Switch,
   Tabs,
   Tag,
   Typography,
@@ -39,7 +42,7 @@ import DataPanel from './DataPanel';
 import PreviewRuntime from './PreviewRuntime';
 import { findParent } from './model';
 import { compileTree, decompileToTree, type SpecSectionLike } from './compiler';
-import { schemaProperties } from './types';
+import { schemaProperties, scanParamCandidates, type ParamCandidate } from './types';
 import { extractErrorMessage } from '@/utils/errors';
 import { duplicateNode as duplicateTree, insertAfter, moveNode } from './model';
 import ComponentPanel, { type AddFnEvent } from './ComponentPanel';
@@ -89,8 +92,18 @@ export default function CompositeEditorPage() {
   const [saveModalState, setSaveModalState] = useState<null | {
     fnIds: string[];
     selectedNodes: PageNode[];
+    /** 参数化候选（U6）：白名单 prop 扫描结果。 */
+    paramCandidates: ParamCandidate[];
   }>(null);
-  const [saveForm] = Form.useForm<{ name: string; description?: string; category?: string }>();
+  const [saveForm] = Form.useForm<{
+    name: string;
+    description?: string;
+    category?: string;
+    paramKeys?: string[];
+  }>();
+  /** 拖入带参数模板的快速配置（U6）。 */
+  const [insertTpl, setInsertTpl] = useState<ComponentTemplateDTO | null>(null);
+  const [insertForm] = Form.useForm<Record<string, unknown>>();
   const [pageKey, setPageKey] = useState('');
   const [keyTouched, setKeyTouched] = useState(false);
   const [mode, setMode] = useState<'edit' | 'preview'>('edit');
@@ -407,6 +420,11 @@ export default function CompositeEditorPage() {
           message.warning(`缺少依赖函数：${data.missing.join(', ')}`);
           return;
         }
+        // 带参数模板（U6）：先弹参数表单再实例化（复用插入弹窗）
+        if (data.tpl.params?.length) {
+          setInsertTpl(data.tpl);
+          return;
+        }
         const nodes = instantiateTemplate(data.tpl);
         if (nodes.length === 0) return;
         for (const fid of data.tpl.requiredFunctions ?? []) {
@@ -570,7 +588,11 @@ export default function CompositeEditorPage() {
     };
     collectFns(selectedNodes);
 
-    setSaveModalState({ fnIds, selectedNodes });
+    setSaveModalState({
+      fnIds,
+      selectedNodes,
+      paramCandidates: scanParamCandidates(selectedNodes),
+    });
   }, [multiIds, tree, message]);
 
   const confirmSaveComponent = useCallback(
@@ -579,6 +601,17 @@ export default function CompositeEditorPage() {
       if (!state) return;
       try {
         const key = `custom--${Date.now().toString(36)}`;
+        // 勾选的候选 → 参数定义（default=当前值；实例化时可覆盖）
+        const picked = new Set(saveForm.getFieldValue('paramKeys') as string[] | undefined ?? []);
+        const params = state.paramCandidates
+          .filter((c) => picked.has(c.key))
+          .map((c) => ({
+            key: c.key,
+            label: { 'zh-CN': `${c.nodeTitle}·${c.propLabel}` },
+            nodeId: c.nodeId,
+            prop: c.prop,
+            default: c.current,
+          }));
         await request('/api/v1/component-templates', {
           method: 'POST',
           data: {
@@ -588,6 +621,7 @@ export default function CompositeEditorPage() {
             category: category || '自定义',
             icon: 'AppstoreOutlined',
             requiredFunctions: state.fnIds,
+            ...(params.length ? { params } : {}),
             tree: state.selectedNodes,
           },
           skipErrorHandler: true,
@@ -723,14 +757,18 @@ export default function CompositeEditorPage() {
                         <ComponentLibrary
                           availableFnIds={new Set(allFns.map((f) => f.id))}
                           onInsert={(nodes, tpl) => {
+                            // 带参数模板（U6）：空 nodes = 待参数配置，弹窗确认后插入
+                            if (tpl.params?.length && nodes.length === 0) {
+                              setInsertTpl(tpl);
+                              return;
+                            }
                             setTree((prev) => [...prev, ...nodes]);
                             for (const fid of tpl.requiredFunctions ?? []) {
                               const fn = allFns.find((f) => f.id === fid);
                               if (fn) registerFn(fn);
                             }
                             if (nodes.length > 0) setSelectedId(nodes[0].id);
-                          }}
-                        />
+                          }}                        />
                       ),
                     },
                     {
@@ -1026,6 +1064,20 @@ export default function CompositeEditorPage() {
           <Form.Item name="description" label="描述">
             <Input.TextArea rows={2} placeholder="用途说明（可选）" maxLength={200} />
           </Form.Item>
+          {saveModalState && saveModalState.paramCandidates.length > 0 && (
+            <Form.Item
+              name="paramKeys"
+              label="参数化（勾选后拖入组件时可在弹窗中快速配置）"
+              initialValue={[]}
+            >
+              <Checkbox.Group
+                options={saveModalState.paramCandidates.map((c) => ({
+                  label: `${c.nodeTitle}·${c.propLabel}`,
+                  value: c.key,
+                }))}
+              />
+            </Form.Item>
+          )}
           {saveModalState && (
             <Text type="secondary" style={{ fontSize: 12 }}>
               包含 {saveModalState.selectedNodes.length} 个节点
@@ -1035,6 +1087,52 @@ export default function CompositeEditorPage() {
               。保存后在组件库 Tab 拖入任意组合页复用。
             </Text>
           )}
+        </Form>
+      </Modal>
+      <Modal
+        title={`配置组件参数：${(insertTpl?.name as Record<string, string>)?.['zh-CN'] ?? insertTpl?.key ?? ''}`}
+        open={insertTpl !== null}
+        onCancel={() => {
+          setInsertTpl(null);
+          insertForm.resetFields();
+        }}
+        onOk={() => {
+          if (!insertTpl) return;
+          const values = insertForm.getFieldsValue() as Record<string, unknown>;
+          const nodes = instantiateTemplate(insertTpl, values);
+          setTree((prev) => [...prev, ...nodes]);
+          for (const fid of insertTpl.requiredFunctions ?? []) {
+            const fn = allFns.find((f) => f.id === fid);
+            if (fn) registerFn(fn);
+          }
+          if (nodes.length > 0) setSelectedId(nodes[0].id);
+          setInsertTpl(null);
+          insertForm.resetFields();
+        }}
+        okText="插入"
+        cancelText="取消"
+        destroyOnHidden
+      >
+        <Form form={insertForm} layout="vertical" preserve={false}>
+          {insertTpl?.params?.map((p) => (
+            <Form.Item
+              key={p.key}
+              name={p.key}
+              label={
+                ((p.label as Record<string, string>)?.['zh-CN'] as string | undefined) ?? p.key
+              }
+              initialValue={p.default}
+              valuePropName={p.prop === 'autoRun' ? 'checked' : 'value'}
+            >
+              {p.prop === 'autoRun' ? (
+                <Switch />
+              ) : p.prop === 'span' ? (
+                <InputNumber min={1} max={24} style={{ width: '100%' }} />
+              ) : (
+                <Input maxLength={60} />
+              )}
+            </Form.Item>
+          ))}
         </Form>
       </Modal>
     </PageContainer>

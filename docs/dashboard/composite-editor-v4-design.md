@@ -192,6 +192,39 @@ type ComponentTemplate struct {
 - 避免引用带来的版本管理复杂度（组件改了，已发布页面是否自动更新？）
 - 保持编辑器模型简单（只有 PageNode 树，没有引用间接层）
 
+### 3.5 区块 key 与多实例命名空间（U5，2026-09）
+
+区块 key 是联动（refreshOn）、参数映射（inputAssignments）、行操作目标在 page_state 中的引用标识（后端 `stateKey = sectionKey`）。规则：
+
+1. **声明优先**：节点声明 `sectionKey`（属性面板「区块 key」输入框，字符集 `[a-zA-Z0-9][a-zA-Z0-9._-]*`）时编译期优先固化；非法或重复自动回退 `fid`/`fid-2` 分配并警告。
+2. **回读固化**：发布 spec 回读编辑（decompileToTree）时把 `section.key` 写回 `props.sectionKey`——再次编译、删除其他实例、调整顺序均不改变既有 key（修复此前按树顺序分配导致的引用漂移/静默断链）。
+3. **实例化隔离**：`instantiateTemplate` 不复制模板内 `sectionKey`（每个实例独立分配）；同时修复前向引用不重映射与嵌套对象污染模板缓存两个缺陷。
+4. **round-trip 修复**：`inputAssignments.sourceNodeId` 反查为真实上游节点 id（原恒等映射导致显式参数映射回读后丢失）；`staticForm` 的 `refreshOn` 编译期透传。
+
+大纲树在声明 key 时显示「标题 (key)」便于多实例辨识。
+
+### 3.6 模板参数化（U6，2026-09）
+
+组件模板支持**参数定义**（props 默认值）：保存时勾选可参数化项，拖入时弹窗快速配置，免逐节点手改。
+
+```json
+{
+  "params": [
+    { "key": "table.title", "label": { "zh-CN": "表格·标题" }, "nodeId": "table", "prop": "title", "default": "玩家列表" },
+    { "key": "table.autoRun", "label": { "zh-CN": "表格·自动执行" }, "nodeId": "table", "prop": "autoRun", "default": true }
+  ]
+}
+```
+
+规则：
+
+1. **白名单 prop**：仅 `title`/`span`/`autoRun`（展示类字段）可参数化；执行类配置（functionId/rowActions/事件/参数映射）由后端 `validateTemplateParams` 拒绝（`internal/api/component/params.go` 逻辑位于 handler.go）。
+2. **校验**：`key` 非空且唯一；`nodeId` 必须存在于 `tree`（含子树）；违反返回 400。
+3. **保存**：保存为组件弹窗列出候选（选中节点子树扫描），勾选生成参数定义（`default` = 保存时当前值）。
+4. **使用**：拖入/点击带参数模板 → 弹「配置组件参数」（default 预填，title=Input / span=InputNumber / autoRun=Switch）→ 确认后 `instantiateTemplate(tpl, values)` 应用（未填项回退 default）。
+5. **存储**：`component_templates.params` JSON 列（`TemplateParam[]`），DTO 透传 `params`；builtin 模板不产参数。
+6. 已知边界：参数应用于节点 props 层（不涉及函数输入参数默认值）；拖拽落点语义在带参数模板时退化为根级追加（先配置后插入）。
+
 ## 4. API 设计
 
 ### 4.1 组件模板 CRUD

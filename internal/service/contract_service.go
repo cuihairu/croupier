@@ -1169,7 +1169,7 @@ func contractsForIssue(contract *model.FunctionContract) []*model.FunctionContra
 }
 
 func (s *ContractService) upsertBlockedIssue(ctx context.Context, gameID, env, resourceKey, functionID string, diagnostics []spec.Diagnostic, contracts []*model.FunctionContract) error {
-	issue := generator.CreateBlockedProposalIssue(gameID, env, resourceKey, functionID, diagnostics, "zh-CN")
+	issue := generator.CreateBlockedProposalIssue(gameID, env, resourceKey, functionID, diagnostics)
 	if err := s.blockedIssues.Upsert(ctx, &model.BlockedProposalIssue{
 		GameID:        issue.GameID,
 		Env:           issue.Env,

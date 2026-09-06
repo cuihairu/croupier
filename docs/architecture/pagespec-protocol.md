@@ -150,7 +150,7 @@ refreshOn/动作链消费。发布校验：static 区块禁止携带 bindingId�
 
 字段语义（详细规则见 [Dashboard 页面模型 CompositePage 节](./dashboard-page-model.md)）：
 
-- `key`：区块唯一标识；**同函数多实例**依次 `fid`/`fid-2`…，创建端点重复 key 显式报错
+- `key`：区块唯一标识；**同函数多实例**依次 `fid`/`fid-2`…，编辑器可声明固定 key（`sectionKey` 固化，round-trip 不漂移），创建端点重复 key 显式报错
 - `display`: `inline`（默认）| `dialog`（弹窗，不占栅格）
 - `group`：弹窗分组——`dialog` 区块按 group 聚合渲染进同一弹窗（表单+字段卡+表格混排）；动作目标（`targetSection`）指向 group
 - `rowActions[].params`：行字段→表单参数映射（`"player_id": "uid"` = 行的 uid 填入弹窗表单 player_id）

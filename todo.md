@@ -492,3 +492,174 @@ F2 是汇聚点：F3-F9 的成果都通过它进入 Invoke 工作台。每个任
 A1（API 契约先行）→ A2（独立可并行）→ A3（依赖 A1）→ A4（独立，可穿插）→ A5（依赖 A3 deep-link）；R1（表+writer）→ R2（复用 writer）→ R3（清理循环）→ R4（查询 API）→ R5（依赖 A3/R4）。
 
 A 系列与 R 系列互相独立可并行。每个任务独立提交；涉及 web 的按交付 DoD 跑 `pnpm --dir web run tsc` + `pnpm --dir web test` + `bash scripts/dashboard_vnext_guard.sh`，涉及文档的 `cd docs && pnpm build`。
+
+---
+
+# U 阶段：UI 生成规则与组件模型补强（2026-09-06 全链路分析）
+
+背景（2026-09-06 UI 生成规则走查结论，覆盖 descriptor→generator→PageSpec→组件模板→组合页编辑器全链路）：
+
+- **契约违规**：`generateRepairHint`（`internal/dashboard/generator/generator.go:1380`）以变量 locale 为 key 构造单语言 `LocalizedText`，违反「key 必须为 `zh-CN`/`en-US` 字面量」契约；同时 `dashboard-page-model.md` 定义 `repairHint: string` 与代码 `spec.LocalizedText`（`types.go:803`）类型漂移
+- **文档滞后**：composition-model.md 仍标「显式参数映射 UI 未暴露」，但 `ParamMappingEditor.tsx` + `compiler.ts:273` 已落地；ComponentLibrary 空态提示「右键保存」，实际唯一入口是顶栏按钮
+- **双端能力不对称**：`x-options-source` 前端已消费（`useRemoteOptions.ts`），Go spec 侧无 `RemoteOptionsSpec`，发布页退化为普通控件——违反 presentation-hints.md「调试页与发布页表现一致」自身约束
+- **组件模型缺口**（composition-model.md 已承认）：区块实例命名空间（P0）、模板级参数化（P0）、跨模板联动悬空无提示；transform 仅 `pick`、失败策略未定义
+- 已核实不是问题：builtin 模板 stale 徽标闭环完整（`computeStaleKeys` + 前端展示），不列入
+
+每个任务原子：独立实现、独立测试、独立提交，互相之间无代码依赖。
+
+## U1. generateRepairHint LocalizedText 契约修复 + 文档类型对齐 ✅
+
+**目标**：修复契约违规，消除 BlockedProposalIssue.repairHint 的文档/代码类型漂移。
+
+**改动点**：
+
+- [x] `internal/dashboard/generator/generator.go` `generateRepairHint`：改为返回双语 `spec.LocalizedText{"zh-CN": ..., "en-US": ...}` 字面量 key（中文/英文按现有文案补齐），删除 `{locale: ...}` 变量 key 写法与 locale 参数（`CreateBlockedProposalIssue` 签名同步，唯一调用方 `contract_service.go` 更新）
+- [x] `docs/architecture/dashboard-page-model.md` `BlockedProposalIssue.repairHint: string` → `repairHint: LocalizedText`（以代码 `spec/types.go` 为准）
+- [x] `generator_test.go` 断言更新：返回值同时含 `zh-CN`/`en-US` 且恰好 2 key
+- [x] `cd docs && pnpm build` 通过
+
+**验收**：`go test ./internal/dashboard/... ./internal/service/` 全绿。
+已核实：生成器其余 31 处 `spec.LocalizedText{locale: ...}` 为「系统默认语言单条目」模式（`DefaultLocale` 恒为 `"zh-CN"` 合法 BCP47，ui-generation.md「生成器只保证系统默认语言」明文承认），**不是违规**，不在本任务范围。
+
+## U2. composition-model.md 同步显式参数映射现状 ✅
+
+**目标**：文档反映 ParamMappingEditor 已落地的事实，并补入悬空联动缺口（为 U7 留锚点）。
+
+**改动点**：
+
+- [x] React 原语映射表「props 传入」行：`⚠️ 半自动：显式参数映射 UI 未暴露` → `✅ 同名隐式合并 + 显式参数映射（ParamMappingEditor）`
+- [x] 缺口表 P0 行「显式参数映射 UI（暴露 SelectorAST）」移除，替换为「模板级参数化（U6）」；补 P1「跨模板联动断链提示（U7）」
+- [x] 组合四轴「数据」轴描述同步（显式映射已落地，P0 仅剩区块实例命名空间）
+- [x] `cd docs && pnpm build` 通过
+
+**验收**：文档表格与 `ParamMappingEditor.tsx`/`compiler.ts:273` 实现一致，无「未暴露」表述残留。
+
+## U3. ComponentLibrary 空态提示文案修正 ✅
+
+**目标**：消除「右键保存为组件」的错误引导（实际唯一入口是顶栏「保存为组件(N)」按钮）。
+
+**改动点**：
+
+- [x] `web/src/pages/PageStudio/CompositeEditor/ComponentLibrary.tsx` 空态文案改为「选中画布多个节点 → 顶栏「保存为组件」可创建」（与 composite-editor-v4-design.md §3.3 一致）
+- [x] 全仓无其他「右键保存」误导文案（Canvas 右键菜单为上移/下移，语义正确）
+
+**验收**：`pnpm --dir web run tsc` + `pnpm --dir web test` 全绿 + guard PASSED。
+
+## U4. x-options-source 服务端派生补齐（RemoteOptionsSpec）
+
+**目标**：发布页表单与调试页一致地消费远程选项源，消除「调试页有下拉、发布页手输」漂移。
+
+**改动点**：
+
+- [ ] `internal/dashboard/spec/form_presentation.go`：`FormFieldSpec` 增加 `remoteOptions *RemoteOptionsSpec`（functionId/labelPath/valuePath/searchParam，lowerCamelCase 契约键）
+- [ ] `internal/dashboard/generator/form_hints.go`：解析 `x-options-source`（functionId 缺失静默忽略，与前端 `asRemoteOptions` 一致）；`buildFormFields` 下发
+- [ ] `web/src/types/dashboard.ts` 同步类型；`SchemaFormRenderer` 消费 spec 侧 `remoteOptions`（复用 `useRemoteOptions` 既有逻辑，与 hints 推导路径合流）
+- [ ] 单测：Go 侧 hint 解析/忽略分支 + golden；web 侧 spec 驱动的远程选项渲染
+- [ ] `docs/architecture/presentation-hints.md` 删除「暂不参与服务端派生」边界说明；`pagespec-protocol.md` FormFieldSpec 表补 `remoteOptions`
+- [ ] 按 DoD 走一次 accept-and-publish 线上验证（发布页含远程选项 spec 字段落库）
+
+**验收**：同一 `x-options-source` 函数在 Invoke 页与发布 OperationPage 表现一致；三层文档同步 + docs build 通过。
+
+## U5. 区块实例命名空间（P0） ✅
+
+**目标**：同一组件/函数拖入多次，实例间 page_state 输出与联动引用不互相覆盖、不随增删排序漂移。
+
+**实现说明**：实际方案优于原计划的「实例前缀」——采用 **`sectionKey` 声明固化**（节点携带稳定 key：编译声明优先、反编译写回、实例化清除）。走查中发现并修复三个连带缺陷：`inputAssignments` 回读恒等映射（显式参数映射 round-trip 丢失）、`staticForm.refreshOn` 编译不透传、`instantiateTemplate` 前向引用不重映射 + 嵌套对象污染模板缓存。
+
+**改动点**：
+
+- [x] `compiler.ts`：`compileTree` 两遍 key 分配（声明 `sectionKey` 优先，非法/重复回退 `fid`/`fid-N` + warning）；`emitStaticSection` 透传 `refreshOn`；导出 `SECTION_KEY_RE`
+- [x] `compiler.ts`：`decompileToTree` 把 `section.key` 写回 `props.sectionKey`（fn*/staticForm，round-trip 固化）；`inputAssignments` 反查移到第二遍（完整 keyToNodeId → 真实上游节点 id，悬空来源 warning）
+- [x] `ComponentLibrary.tsx`：`instantiateTemplate` 重写为两遍克隆（预分配全部新 id——修复前向引用；嵌套 action/rowActions 拷贝后重映射——修复模板缓存污染）；`sectionKey` 不随实例复制
+- [x] `PropsPanel.tsx`：fn*/staticForm 增加「区块 key」编辑框（非法字符红框提示，留空自动分配）；`OutlinePanel.tsx` 声明 key 时显示「标题 (key)」
+- [x] 单测 10 例新增：声明优先/冲突回退/非法忽略/删除首实例不漂移/round-trip key 逐项不变/inputAssignments 反查与再编译保留/staticForm key+refreshOn round-trip/悬空来源警告/实例化引用重映射/sectionKey 不复制（`compiler.test.ts`、`decompile.test.ts`、新建 `componentLibrary.test.ts`）
+- [x] 文档：`composite-editor-v4-design.md` §3.5「区块 key 与多实例命名空间」；`composition-model.md` 缺口表该 P0 关闭；`dashboard-page-model.md`/`pagespec-protocol.md` key 行同步
+
+**验收**：web tsc 0 错误 + 253 tests 全绿 + guard PASSED + docs build 通过。
+已知边界：未重命名已发布页面的既有自动分配 key（回读一次即固化）；按 DoD 的 accept-and-publish 线上验证待下次部署窗口执行。
+
+## U6. 组件模板参数化（props 默认值，P0） ✅
+
+**目标**：组件实例化后不必逐节点手改，支持模板级批量配置。
+
+**改动点**：
+
+- [x] `model/component_template.go`：`Params JSON` 字段（JSON 列，无需迁移）；`internal/api/component/handler.go`：`TemplateParam`（key/label/nodeId/prop/default，lowerCamelCase）+ `validateTemplateParams`（key 非空唯一、nodeId 存在于 tree 含子树、prop ∈ 白名单 title/span/autoRun——执行类配置拒绝）+ Create/Update 校验 + DTO `params` 投影
+- [x] `ComponentLibrary.tsx`：DTO `params` + `instantiateTemplate(tpl, paramValues?)` 参数应用（值覆盖白名单 prop，未填回退 default；与 U5 引用重映射共存）；带参数模板点击/拖入抛给父级弹窗（`onInsert([], tpl)`）
+- [x] `index.tsx`：保存弹窗「参数化」Checkbox（`scanParamCandidates` 扫描选中子树候选，勾选生成定义，default=当前值）；拖入/点击带参数模板弹「配置组件参数」（title=Input/span=InputNumber/autoRun=Switch，default 预填）
+- [x] `types.ts`：`ParamCandidate` + `scanParamCandidates` 纯函数（title 恒列出，span/autoRun 存在才列，容器/文本跳过，子树递归）
+- [x] 单测：Go `params_test.go` 6 组（合法/空规范化/key 空与重复/nodeId 悬空含子树命中/白名单外拒绝/节点 id 收集）；web `componentLibrary.test.ts` 3 例（参数覆盖+default 回退+子树参数、sectionKey 不复制、无参模板不变）+ 候选扫描
+- [x] 文档：`composite-editor-v4-design.md` §3.6「模板参数化」；`composition-model.md` 缺口表该 P0 关闭
+
+**验收**：go test（component/model 全绿）+ web tsc 0 错误 + 256 tests 全绿 + guard PASSED。
+已知边界：参数仅覆盖节点展示 props（不含函数输入参数默认值）；带参数模板拖拽落点语义退化为根级追加；accept-and-publish 线上验证待部署窗口。
+
+## U7. 组件实例化跨模板联动悬空提示
+
+**目标**：拖入组件后，与画布已有区块的联动断链可见、可接线，不再静默丢失。
+
+**改动点**：
+
+- [ ] `instantiateTemplate` 检出跨模板边界的悬空引用（`idMap.get(nid) ?? nid` 保留旧 id 的分支），返回悬空清单
+- [ ] 编辑器拖入后 message/Modal 提示「N 处联动指向模板外区块，已断开」，并提供快捷重连（悬空项 → 画布区块下拉选择）
+- [ ] composition-model.md 缺口表补「跨模板联动断链无提示」条目并在本任务关闭
+- [ ] 单测：悬空检出清单、重连后引用更新
+
+**验收**：拖入含外部联动的模板（手工构造）有明确提示；web tsc/test/guard 全绿。
+
+## U8. transform 白名单扩展：rename / default（P1）
+
+**目标**：字段名不一致的上下游不必逐参数手写显式映射。
+
+**改动点**：
+
+- [ ] `internal/dashboard/spec/selector_ast.go`：transform 增加 `rename`（映射表）与 `default`（缺省值）两种受控类型 + 校验器
+- [ ] `web/src/types/dashboard.ts` 同步；ParamMappingEditor 增加映射方式选择（直接取值/改名/缺省）
+- [ ] `compiler.ts` 编译/反编译覆盖新 transform
+- [ ] 单测：Go 校验器 + web 编译 round-trip
+- [ ] `docs/architecture/pagespec-protocol.md` Selector AST 节更新（当前仅 `pick`）
+
+**验收**：上游 `uid` 可经 rename 直连下游 `player_id`；三层文档同步 + docs build。
+
+## U9. refreshOn 级联失败策略（P1）
+
+**目标**：上游区块执行失败时下游行为确定，不再未定义。
+
+**改动点**：
+
+- [ ] 定义三种策略：`clear`（清空下游数据）/ `keep`（保留上次结果）/ `pause`（停止本次级联，默认），写入 `CompositeSection.cascadePolicy`
+- [ ] 运行时 `CompositeRenderer` 按策略执行；编辑器 DataPanel 提供策略选择
+- [ ] 单测：三策略行为 + 缺省回退 pause
+- [ ] `docs/architecture/dashboard-page-model.md` CompositeSection 字段表 + `pagespec-protocol.md` 补 `cascadePolicy`
+
+**验收**：上游查询失败时下游表格按策略处理而非残留旧数据无提示；guard + docs build。
+
+## U10. 区块级条件显示（P2，可选）
+
+**目标**：支持按 page_state 条件显隐整个区块（当前仅表单内 visibleWhen）。
+
+**改动点**：
+
+- [ ] `CompositeSection` 增加 `visibleWhen: ConditionSpec`（复用受限表达式，仅读 page_state）
+- [ ] 编辑器属性面板 + `CompositeRenderer` 渲染分支
+- [ ] 单测 + `pagespec-protocol.md`/`dashboard-page-model.md` 字段表同步
+
+**验收**：mode=批量 时隐藏单发区块；发布链 DoD。
+
+## U11. 组件模板更新提醒（P2，可选）
+
+**目标**：缓解复制语义的「快照漂移」——模板改进后，已实例化页面无从得知。
+
+**改动点**：
+
+- [ ] 保存组件时记录内容 digest；页面提案保存时记录所用模板快照 digest
+- [ ] 模板更新后，编辑器打开旧页面时提示「以下模板有新版本，可对比/重新拖入」（只提示，不自动同步——保持复制语义）
+- [ ] 单测：digest 比对 + 提示触发
+
+**验收**：更新「资源管理」模板后，旧页面编辑时有更新提示；不改变已发布页面行为。
+
+## 执行顺序建议（U 系列）
+
+U1（契约红线，最小）→ U2/U3（文档/文案，可并行热身）→ U5（P0，命名空间先于参数化避免返工）→ U6（P0）→ U7 → U4（独立，可与 U5/U6 并行）→ U8/U9（P1）→ U10/U11（P2 可选）。
+
+每个任务独立提交；涉及 web 的按交付 DoD 跑 `pnpm --dir web run tsc` + `pnpm --dir web test` + `bash scripts/dashboard_vnext_guard.sh`；涉及发布链的（U4/U5/U6/U8/U9/U10）须走 accept-and-publish 线上验证；涉及文档的 `cd docs && pnpm build`。

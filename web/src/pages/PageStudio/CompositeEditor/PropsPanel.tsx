@@ -1,11 +1,12 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Button, Card, Empty, Space, Tabs, Typography } from 'antd';
+import { Button, Card, Empty, Input, Space, Tabs, Typography } from 'antd';
 import { DeleteOutlined } from '@ant-design/icons';
 import SchemaFormRenderer from '@/components/SchemaFormRenderer';
 import type { FunctionDescriptor } from '@/services/api/functions';
 import { getComponent } from './registry';
 import type { PageNode } from './model';
 import type { JSONSchema } from '@/types/dashboard';
+import { SECTION_KEY_RE } from './compiler';
 import ActionEditor from './ActionEditor';
 import RowActionsEditor from './RowActionsEditor';
 import ParamMappingEditor from './ParamMappingEditor';
@@ -122,6 +123,31 @@ export default function PropsPanel({
                     />
                   </div>
                 ))}
+                {(def.category === 'function' || node.type.startsWith('fn') ||
+                  node.type === 'staticForm') && (
+                  <div style={{ marginBottom: 12 }}>
+                    <Typography.Text
+                      type="secondary"
+                      style={{ fontSize: 11, display: 'block', marginBottom: 4 }}
+                    >
+                      区块 key（页面内唯一；refreshOn/参数映射按此引用，留空自动分配）
+                    </Typography.Text>
+                    <Input
+                      size="small"
+                      allowClear
+                      placeholder="留空自动分配"
+                      value={typeof node.props.sectionKey === 'string' ? node.props.sectionKey : ''}
+                      onChange={(e) => onPatch({ sectionKey: e.target.value })}
+                      status={
+                        typeof node.props.sectionKey === 'string' &&
+                        node.props.sectionKey &&
+                        !SECTION_KEY_RE.test(node.props.sectionKey)
+                          ? 'error'
+                          : undefined
+                      }
+                    />
+                  </div>
+                )}
                 {(def.category === 'function' || node.type.startsWith('fn')) && (
                   <div style={{ marginBottom: 12 }}>
                     <Typography.Text

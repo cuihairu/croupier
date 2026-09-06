@@ -1352,7 +1352,6 @@ func CreateBlockedProposalIssue(
 	resourceKey string,
 	functionID string,
 	diags []spec.Diagnostic,
-	locale string,
 ) spec.BlockedProposalIssue {
 	// Filter to only error diagnostics
 	var errorDiags []spec.Diagnostic
@@ -1363,7 +1362,7 @@ func CreateBlockedProposalIssue(
 	}
 
 	// Generate repair hint based on diagnostics
-	repairHint := generateRepairHint(errorDiags, locale)
+	repairHint := generateRepairHint(errorDiags)
 
 	return spec.BlockedProposalIssue{
 		GameID:      gameID,
@@ -1376,20 +1375,29 @@ func CreateBlockedProposalIssue(
 	}
 }
 
-// generateRepairHint creates a repair hint from diagnostics.
-func generateRepairHint(diags []spec.Diagnostic, locale string) spec.LocalizedText {
+// generateRepairHint creates a bilingual repair hint from diagnostics.
+// Keys follow the LocalizedText contract (zh-CN/en-US literal keys);
+// single-language diagnostic messages expand to both locales (same
+// normalization as hintLocalized for bare strings).
+func generateRepairHint(diags []spec.Diagnostic) spec.LocalizedText {
 	if len(diags) == 0 {
-		return spec.LocalizedText{locale: "No issues found"}
+		return spec.LocalizedText{"zh-CN": "未发现问题", "en-US": "No issues found"}
 	}
 
 	// Use the first error as the primary hint
 	primaryDiag := diags[0]
 	switch primaryDiag.Code {
 	case "function_id_missing":
-		return spec.LocalizedText{locale: "Function ID is required. Please register the function first."}
+		return spec.LocalizedText{
+			"zh-CN": "缺少函数 ID，请先注册函数。",
+			"en-US": "Function ID is required. Please register the function first.",
+		}
 	case "function_disabled":
-		return spec.LocalizedText{locale: "Function is disabled. Please enable it before creating a page."}
+		return spec.LocalizedText{
+			"zh-CN": "函数已禁用，创建页面前请先启用。",
+			"en-US": "Function is disabled. Please enable it before creating a page.",
+		}
 	default:
-		return spec.LocalizedText{locale: primaryDiag.Message}
+		return spec.LocalizedText{"zh-CN": primaryDiag.Message, "en-US": primaryDiag.Message}
 	}
 }

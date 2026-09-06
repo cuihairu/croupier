@@ -298,7 +298,7 @@ interface BlockedProposalIssue {
   scope: Scope;
   sourceDigests: SourceDigest[];
   diagnostics: Diagnostic[];
-  repairHint: string;
+  repairHint: LocalizedText;
   status: "open" | "resolved" | "dismissed";
 }
 ```
@@ -399,7 +399,7 @@ ReportPage 必须使用已验证的数据集、指标和图表字段，不得只
 
 | 字段               | 类型                    | 语义                                                                                                                                                 |
 | ------------------ | ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `key`              | string                  | 区块唯一标识。**同函数多实例**时依次 `fid`、`fid-2`、`fid-3`（一个数据源可拖多个组件分别配置）；创建端点重复 key 显式报错                            |
+| `key`              | string                  | 区块唯一标识。**同函数多实例**时依次 `fid`、`fid-2`、`fid-3`（一个数据源可拖多个组件分别配置）；编辑器支持声明固定 `sectionKey`（回读固化，不随增删/排序漂移，见组合页编辑器 V4「区块 key」）；创建端点重复 key 显式报错                            |
 | `bindingId`        | string                  | 引用 `PageSpec.bindings` 的绑定                                                                                                                      |
 | `view`             | string                  | `table` / `fields` / `form`                                                                                                                          |
 | `span`             | int                     | 栅格宽度 1-24（0=整行）                                                                                                                              |

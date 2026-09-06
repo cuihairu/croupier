@@ -712,7 +712,7 @@ func TestCreateBlockedProposalIssue(t *testing.T) {
 		{Code: "function_id_missing", Severity: spec.SeverityError, Message: "Function ID is required"},
 	}
 
-	issue := CreateBlockedProposalIssue("game1", "prod", "player", "player.ban", diags, "zh-CN")
+	issue := CreateBlockedProposalIssue("game1", "prod", "player", "player.ban", diags)
 
 	assert.Equal(t, "game1", issue.GameID)
 	assert.Equal(t, "prod", issue.Env)
@@ -721,51 +721,55 @@ func TestCreateBlockedProposalIssue(t *testing.T) {
 	assert.Equal(t, "open", issue.Status)
 	assert.Len(t, issue.Diagnostics, 1)
 	assert.NotEmpty(t, issue.RepairHint)
+	assert.Equal(t, "缺少函数 ID，请先注册函数。", issue.RepairHint["zh-CN"])
+	assert.Equal(t, "Function ID is required. Please register the function first.", issue.RepairHint["en-US"])
 }
 
 func TestGenerateRepairHint(t *testing.T) {
 	tests := []struct {
-		name     string
-		diags    []spec.Diagnostic
-		locale   string
-		expected string
+		name       string
+		diags      []spec.Diagnostic
+		expectedZh string
+		expectedEn string
 	}{
 		{
-			name:     "empty diagnostics",
-			diags:    nil,
-			locale:   "zh-CN",
-			expected: "No issues found",
+			name:       "empty diagnostics",
+			diags:      nil,
+			expectedZh: "未发现问题",
+			expectedEn: "No issues found",
 		},
 		{
 			name: "function_id_missing",
 			diags: []spec.Diagnostic{
 				{Code: "function_id_missing"},
 			},
-			locale:   "zh-CN",
-			expected: "Function ID is required. Please register the function first.",
+			expectedZh: "缺少函数 ID，请先注册函数。",
+			expectedEn: "Function ID is required. Please register the function first.",
 		},
 		{
 			name: "function_disabled",
 			diags: []spec.Diagnostic{
 				{Code: "function_disabled"},
 			},
-			locale:   "zh-CN",
-			expected: "Function is disabled. Please enable it before creating a page.",
+			expectedZh: "函数已禁用，创建页面前请先启用。",
+			expectedEn: "Function is disabled. Please enable it before creating a page.",
 		},
 		{
 			name: "other error code",
 			diags: []spec.Diagnostic{
 				{Code: "other_error", Message: "Something went wrong"},
 			},
-			locale:   "zh-CN",
-			expected: "Something went wrong",
+			expectedZh: "Something went wrong",
+			expectedEn: "Something went wrong",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := generateRepairHint(tt.diags, tt.locale)
-			assert.Equal(t, tt.expected, result[tt.locale])
+			result := generateRepairHint(tt.diags)
+			assert.Equal(t, tt.expectedZh, result["zh-CN"])
+			assert.Equal(t, tt.expectedEn, result["en-US"])
+			assert.Len(t, result, 2)
 		})
 	}
 }

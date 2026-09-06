@@ -166,3 +166,92 @@ describe('decompileToTree V3.2：events 与顶部按钮还原', () => {
     expect(ta.chain).toEqual([{ kind: 'refreshNode', target: 'player.list' }]);
   });
 });
+
+describe('decompileToTree（区块 key 固化与参数映射反查，U5）', () => {
+  it('sectionKey 固化：回读→再编译 key 逐项不变（含多实例）', () => {
+    const spec: SpecSectionLike[] = [
+      { key: 'player.list', functionId: 'player.list', view: 'table', autoRun: true },
+      { key: 'player.list-2', functionId: 'player.list', view: 'table', autoRun: true },
+      { key: 'vip.rank', functionId: 'player.list', view: 'fields' },
+    ];
+    const [tree, warnings] = decompileToTree(spec);
+    expect(warnings).toEqual([]);
+    // 再编译：三个 key 原样保持（不按树顺序重新分配）
+    const { sections } = compileTree(tree);
+    expect(sections.map((s) => s.key)).toEqual(['player.list', 'player.list-2', 'vip.rank']);
+    // 删除首个实例后重编译：其余 key 不漂移
+    const [, second, third] = tree;
+    const pruned = compileTree([second, third]);
+    expect(pruned.sections.map((s) => s.key)).toEqual(['player.list-2', 'vip.rank']);
+  });
+
+  it('inputAssignments 反查为上游节点 id（round-trip 不丢显式参数映射）', () => {
+    const spec: SpecSectionLike[] = [
+      { key: 'player.list', functionId: 'player.list', view: 'table' },
+      {
+        key: 'mail.send',
+        functionId: 'mail.send',
+        view: 'form',
+        inputAssignments: [
+          { target: '/playerId', kind: 'page_state', key: 'player.list', path: '/uid' },
+          { target: '/reason', kind: 'literal', value: 'compensation' },
+        ],
+      },
+    ];
+    const [tree, warnings] = decompileToTree(spec);
+    expect(warnings).toEqual([]);
+    const upstream = tree.find((n) => n.type === 'fnTable')!;
+    const form = tree.find((n) => n.type === 'fnForm')!;
+    const assignments = form.props.inputAssignments as Array<{
+      param: string;
+      sourceNodeId?: string;
+      field?: string;
+      kind: string;
+    }>;
+    // page_state 来源反查为真实节点 id（不再是恒等 key）
+    expect(assignments[0].sourceNodeId).toBe(upstream.id);
+    expect(assignments[0].field).toBe('uid');
+    // 再编译：映射保留且 key 解析回 player.list
+    const { sections } = compileTree(tree);
+    expect(sections.find((s) => s.key === 'mail.send')!.inputAssignments).toEqual([
+      { target: '/playerId', kind: 'page_state', key: 'player.list', path: '/uid' },
+      { target: '/reason', kind: 'literal', value: 'compensation' },
+    ]);
+  });
+
+  it('staticForm 回读固化 key 与 refreshOn，再编译保持', () => {
+    const spec: SpecSectionLike[] = [
+      {
+        key: 'filter-panel',
+        static: true,
+        view: 'form',
+        title: { 'zh-CN': '筛选' },
+        refreshOn: ['player.list'],
+        form: { jsonSchema: { type: 'object', properties: { kw: { type: 'string' } } } },
+      },
+      { key: 'player.list', functionId: 'player.list', view: 'table' },
+    ];
+    const [tree, warnings] = decompileToTree(spec);
+    expect(warnings).toEqual([]);
+    const staticNode = tree.find((n) => n.type === 'staticForm')!;
+    expect(staticNode.props.sectionKey).toBe('filter-panel');
+    expect(staticNode.props.refreshOn).toEqual(['player.list']);
+    const { sections } = compileTree(tree);
+    const staticSection = sections.find((s) => s.static === true)!;
+    expect(staticSection.key).toBe('filter-panel');
+    expect(staticSection.refreshOn).toEqual(['player.list']);
+  });
+
+  it('参数映射来源 key 不存在时警告并保留字面引用', () => {
+    const spec: SpecSectionLike[] = [
+      {
+        key: 'mail.send',
+        functionId: 'mail.send',
+        view: 'form',
+        inputAssignments: [{ target: '/playerId', kind: 'page_state', key: 'ghost', path: '/id' }],
+      },
+    ];
+    const [, warnings] = decompileToTree(spec);
+    expect(warnings.some((w) => w.includes('ghost'))).toBe(true);
+  });
+});

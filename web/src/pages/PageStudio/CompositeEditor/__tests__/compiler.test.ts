@@ -5,6 +5,65 @@ function fn(type: PageNode['type'], fid: string, extra: Record<string, unknown> 
   return { id: nodeId(type), type, props: { functionId: fid, title: fid, span: 24, ...extra } };
 }
 
+describe('compileTree（区块 key 命名空间，U5）', () => {
+  it('声明 sectionKey 优先固化，不随树顺序漂移', () => {
+    const a = fn('fnTable', 'player.list', { autoRun: true, sectionKey: 'gold-rank' });
+    const b = fn('fnTable', 'player.list');
+    // b 在前：声明 key 的 a 仍拿 gold-rank，b 自动分配 player.list
+    const { sections, warnings } = compileTree([b, a]);
+    expect(warnings).toEqual([]);
+    expect(sections[0].key).toBe('player.list');
+    expect(sections[1].key).toBe('gold-rank');
+  });
+
+  it('同函数多实例删除首实例后，已固化 key 不漂移', () => {
+    // 模拟回读产物：两个实例 key 已固化
+    const first = fn('fnTable', 'player.list', { sectionKey: 'player.list' });
+    const second = fn('fnTable', 'player.list', { sectionKey: 'player.list-2' });
+    // 删除首实例后重编译：second 的 key 不变（不会顶替 player.list）
+    const { sections } = compileTree([second]);
+    expect(sections[0].key).toBe('player.list-2');
+    // 三个实例混合：声明与自动分配共存不冲突
+    const third = fn('fnTable', 'player.list');
+    const mixed = compileTree([first, second, third]);
+    expect(mixed.sections.map((s) => s.key)).toEqual([
+      'player.list',
+      'player.list-2',
+      'player.list-3',
+    ]);
+    expect(mixed.warnings).toEqual([]);
+  });
+
+  it('声明 key 非法或重复时回退自动分配并警告', () => {
+    const a = fn('fnFields', 'player.get', { sectionKey: 'bad key!' });
+    const b = fn('fnForm', 'mail.send', { sectionKey: 'dup' });
+    const c = fn('fnFields', 'player.get', { sectionKey: 'dup' });
+    const { sections, warnings } = compileTree([a, b, c]);
+    // 非法字符忽略 → 自动分配 player.get；重复 dup → 先到先得，后者自动分配
+    expect(sections.map((s) => s.key)).toEqual(['player.get', 'dup', 'player.get-2']);
+    expect(warnings.some((w) => w.includes('bad key!'))).toBe(true);
+    expect(warnings.some((w) => w.includes('dup'))).toBe(true);
+  });
+
+  it('staticForm 声明 key 优先生效且 refreshOn 透传', () => {
+    const staticForm: PageNode = {
+      id: nodeId('staticForm'),
+      type: 'staticForm',
+      props: {
+        title: '筛选',
+        staticSchema: '{"type":"object","properties":{"kw":{"type":"string"}}}',
+        refreshOn: ['player.list'],
+        sectionKey: 'filter-panel',
+      },
+    };
+    const { sections, warnings } = compileTree([staticForm]);
+    expect(warnings).toEqual([]);
+    expect(sections[0].key).toBe('filter-panel');
+    expect(sections[0].static).toBe(true);
+    expect(sections[0].refreshOn).toEqual(['player.list']);
+  });
+});
+
 describe('compileTree（树→CompositeSection，防回归快照）', () => {
   it('基础：表格+字段卡+行内表单', () => {
     const { sections, warnings } = compileTree([

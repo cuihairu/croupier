@@ -4,6 +4,7 @@ package component
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"strings"
 
 	"github.com/cuihairu/croupier/internal/dbenum"
@@ -54,9 +55,11 @@ type TemplateDTO struct {
 	Category          string          `json:"category,omitempty"`
 	Icon              string          `json:"icon,omitempty"`
 	RequiredFunctions json.RawMessage `json:"requiredFunctions,omitempty"`
-	Tree              json.RawMessage `json:"tree"`
-	Builtin           bool            `json:"builtin"`
-	CreatedBy         string          `json:"createdBy,omitempty"`
+	// Params 参数定义（U6）：实例化时按值替换对应节点 prop。
+	Params    json.RawMessage `json:"params,omitempty"`
+	Tree      json.RawMessage `json:"tree"`
+	Builtin   bool            `json:"builtin"`
+	CreatedBy string          `json:"createdBy,omitempty"`
 	// Stale builtin 模板与其依赖契约的当前重算结果不一致（契约已变化，
 	// 需「从契约重新生成」刷新）。仅 builtin 模板会标记。
 	Stale bool `json:"stale,omitempty"`
@@ -70,9 +73,83 @@ func toDTO(t *model.ComponentTemplate) TemplateDTO {
 		Category:          t.Category,
 		Icon:              t.Icon,
 		RequiredFunctions: json.RawMessage(t.RequiredFunctions),
+		Params:            json.RawMessage(t.Params),
 		Tree:              json.RawMessage(t.Tree),
 		Builtin:           t.Builtin,
 		CreatedBy:         t.CreatedBy,
+	}
+}
+
+// TemplateParam 是模板参数定义（U6）。prop 限白名单（展示类字段，
+// 不允许参数化执行类配置：functionId/联动/事件等）。
+type TemplateParam struct {
+	Key     string          `json:"key"`
+	Label   json.RawMessage `json:"label,omitempty"`
+	NodeID  string          `json:"nodeId"`
+	Prop    string          `json:"prop"`
+	Default json.RawMessage `json:"default,omitempty"`
+}
+
+// parameterizableProps 参数可替换的 prop 白名单（展示类）。
+var parameterizableProps = map[string]bool{
+	"title":   true,
+	"span":    true,
+	"autoRun": true,
+}
+
+// validateTemplateParams 校验参数定义：key 非空且唯一、nodeId 存在于 tree、
+// prop 在白名单内。返回规范化后的 JSON；空/缺省返回 nil。
+func validateTemplateParams(raw, tree json.RawMessage) (json.RawMessage, error) {
+	trimmed := strings.TrimSpace(string(raw))
+	if trimmed == "" || trimmed == "null" || trimmed == "[]" {
+		return nil, nil
+	}
+	var params []TemplateParam
+	if err := json.Unmarshal(raw, &params); err != nil {
+		return nil, fmt.Errorf("params 格式无效: %w", err)
+	}
+	// 收集 tree 节点 id 集合
+	nodeIDs := map[string]bool{}
+	collectTreeNodeIDs(tree, nodeIDs)
+	seen := map[string]bool{}
+	for i, p := range params {
+		if strings.TrimSpace(p.Key) == "" {
+			return nil, fmt.Errorf("params[%d].key 不能为空", i)
+		}
+		if seen[p.Key] {
+			return nil, fmt.Errorf("params key 重复: %s", p.Key)
+		}
+		seen[p.Key] = true
+		if !nodeIDs[p.NodeID] {
+			return nil, fmt.Errorf("params[%d].nodeId（%s）不存在于 tree", i, p.NodeID)
+		}
+		if !parameterizableProps[p.Prop] {
+			return nil, fmt.Errorf("params[%d].prop（%s）不在可参数化白名单（title/span/autoRun）", i, p.Prop)
+		}
+	}
+	out, err := json.Marshal(params)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// collectTreeNodeIDs 递归收集 tree（PageNode[]）中的节点 id。
+func collectTreeNodeIDs(tree json.RawMessage, out map[string]bool) {
+	var nodes []struct {
+		ID       string          `json:"id"`
+		Children json.RawMessage `json:"children"`
+	}
+	if err := json.Unmarshal(tree, &nodes); err != nil {
+		return
+	}
+	for _, n := range nodes {
+		if n.ID != "" {
+			out[n.ID] = true
+		}
+		if len(n.Children) > 0 {
+			collectTreeNodeIDs(n.Children, out)
+		}
 	}
 }
 
@@ -204,6 +281,7 @@ type CreateRequest struct {
 	Category          string          `json:"category,omitempty"`
 	Icon              string          `json:"icon,omitempty"`
 	RequiredFunctions json.RawMessage `json:"requiredFunctions,omitempty"`
+	Params            json.RawMessage `json:"params,omitempty"`
 	Tree              json.RawMessage `json:"tree" binding:"required"`
 }
 
@@ -218,6 +296,11 @@ func (h *Handler) Create(c *gin.Context) {
 		response.BadRequest(c, "key 不能为空")
 		return
 	}
+	params, err := validateTemplateParams(req.Params, req.Tree)
+	if err != nil {
+		response.BadRequest(c, err.Error())
+		return
+	}
 	tpl := &model.ComponentTemplate{
 		Key:               req.Key,
 		Name:              model.JSON(req.Name),
@@ -225,6 +308,7 @@ func (h *Handler) Create(c *gin.Context) {
 		Category:          req.Category,
 		Icon:              req.Icon,
 		RequiredFunctions: model.JSON(req.RequiredFunctions),
+		Params:            model.JSON(params),
 		Tree:              model.JSON(req.Tree),
 		Builtin:           false,
 		CreatedBy:         currentUser(c),
@@ -248,10 +332,18 @@ func (h *Handler) Update(c *gin.Context) {
 		response.BadRequest(c, err.Error())
 		return
 	}
+	params, err := validateTemplateParams(req.Params, req.Tree)
+	if err != nil {
+		response.BadRequest(c, err.Error())
+		return
+	}
 	updates := map[string]interface{}{
 		"name":    model.JSON(req.Name),
 		"tree":    model.JSON(req.Tree),
 		"builtin": false,
+	}
+	if params != nil {
+		updates["params"] = model.JSON(params)
 	}
 	if req.Description != nil {
 		updates["description"] = model.JSON(req.Description)

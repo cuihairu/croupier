@@ -66,12 +66,18 @@ const VIEW_MAP: Record<string, 'table' | 'fields' | 'form'> = {
  * - fnForm.onSuccessRefresh 动作 target → 目标节点 functionId
  * - text/container 不产生 section（container 子节点平铺；text 忽略并警告）
  */
+/** 区块 key 合法字符（与后端 pageKey/section key 规则一致：字母数字开头，可含 . _ -）。 */
+export const SECTION_KEY_RE = /^[a-zA-Z0-9][a-zA-Z0-9._-]*$/;
+
 export function compileTree(tree: PageNode[]): CompileResult {
   const sections: CompiledSection[] = [];
   const warnings: string[] = [];
 
-  // 区块 key 分配：同函数多实例依次 fid、fid-2、fid-3……
-  //（编辑器允许同一函数拖多个组件，发布侧按 key 唯一区分）。
+  // 区块 key 分配（实例命名空间，U5）：
+  // 1) 节点声明的 sectionKey（合法且不重复）优先固化——回读/重命名/再实例化
+  //    后 key 稳定，不随树顺序漂移；
+  // 2) 未声明者同函数多实例依次 fid、fid-2、fid-3……（编辑器允许同一函数
+  //    拖多个组件，发布侧按 key 唯一区分）。
   const nodeSectionKey = new Map<string, string>();
   const usedKeys = new Set<string>();
   const allocKey = (fid: string): string => {
@@ -81,14 +87,43 @@ export function compileTree(tree: PageNode[]): CompileResult {
     usedKeys.add(key);
     return key;
   };
+  const isSectionNode = (n: PageNode): boolean =>
+    (!!VIEW_MAP[n.type] && typeof n.props.functionId === 'string' && !!n.props.functionId) ||
+    n.type === 'staticForm';
+  // 第一遍：登记声明 key（重复/非法 → 忽略并警告，回退自动分配）
+  const collectDeclared = (nodes: PageNode[]) => {
+    for (const n of nodes) {
+      if (n.type === 'modal') {
+        collectDeclared(n.children ?? []);
+        continue;
+      }
+      if (isSectionNode(n)) {
+        const declared = typeof n.props.sectionKey === 'string' ? n.props.sectionKey.trim() : '';
+        if (declared) {
+          if (!SECTION_KEY_RE.test(declared) || usedKeys.has(declared)) {
+            warnings.push(`区块「${String(n.props.title ?? declared)}」的 key「${declared}」非法或重复，已自动分配`);
+          } else {
+            usedKeys.add(declared);
+            nodeSectionKey.set(n.id, declared);
+          }
+        }
+      }
+      if (n.children) collectDeclared(n.children);
+    }
+  };
+  collectDeclared(tree);
+  // 第二遍：未声明者按函数 id 自动分配
   const assignKeys = (nodes: PageNode[]) => {
     for (const n of nodes) {
       if (n.type === 'modal') {
         assignKeys(n.children ?? []);
         continue;
       }
-      if (VIEW_MAP[n.type] && typeof n.props.functionId === 'string' && n.props.functionId) {
-        nodeSectionKey.set(n.id, allocKey(String(n.props.functionId)));
+      if (isSectionNode(n) && !nodeSectionKey.has(n.id)) {
+        const fid = typeof n.props.functionId === 'string' && n.props.functionId
+          ? String(n.props.functionId)
+          : String(n.id);
+        nodeSectionKey.set(n.id, allocKey(fid));
       }
       if (n.children) assignKeys(n.children);
     }
@@ -207,6 +242,11 @@ export function compileTree(tree: PageNode[]): CompileResult {
       static: true,
       form: { jsonSchema },
     };
+    // refreshOn 透传（字面 section key；回读时写入 props.refreshOn）
+    const staticRefreshOn = (Array.isArray(node.props.refreshOn)
+      ? (node.props.refreshOn as unknown[]).map(String).filter(Boolean)
+      : []);
+    if (staticRefreshOn.length) section.refreshOn = staticRefreshOn;
     sections.push(section as unknown as (typeof sections)[number]);
   };
 
@@ -522,6 +562,8 @@ export function decompileToTree(sections: SpecSectionLike[]): [PageNode[], strin
   const groupToModal = new Map<string, PageNode>();
   const dialogGroupToModalId = new Map<string, string>();
   const toolbarButtons: { tableId: string; actions: Array<Record<string, unknown>> }[] = [];
+  // 参数映射反查延后（page_state key → 上游节点 id 需完整 keyToNodeId）
+  const pendingAssignments: { raw: SpecSectionLike['inputAssignments']; ownerKey: string }[] = [];
   for (const sec of sections) {
     // 常量表单（static）：还原为 staticForm 节点（schema 从 form.jsonSchema）
     if (sec.static === true) {
@@ -535,6 +577,8 @@ export function decompileToTree(sections: SpecSectionLike[]): [PageNode[], strin
           span: Number(sec.span ?? 12) || 12,
           staticSchema: JSON.stringify(schema ?? { type: 'object', properties: {} }, null, 2),
           refreshOn: sec.refreshOn ?? [],
+          // 固化区块 key（round-trip 稳定，U5）
+          sectionKey: key,
         },
       };
       nodes.push(node);
@@ -554,6 +598,8 @@ export function decompileToTree(sections: SpecSectionLike[]): [PageNode[], strin
       span: Number(sec.span ?? 24) || 24,
       autoRun: sec.autoRun === true,
       onSuccessRefresh: undefined,
+      // 固化区块 key（round-trip 稳定，U5）
+      sectionKey: key,
     };
     if (view === 'fnTable') {
       fnProps.columns = (sec.table?.columns ?? []).map((c) => String(c.key ?? '')).filter(Boolean);
@@ -562,21 +608,8 @@ export function decompileToTree(sections: SpecSectionLike[]): [PageNode[], strin
     }
     if (view === 'fnForm') fnProps.display = 'inline';
     if (Array.isArray(sec.inputAssignments) && sec.inputAssignments.length > 0) {
-      // 反查：page_state key → 上游节点 id（保留源引用供再次编译）
-      const keyToUpstreamId = new Map<string, string>();
-      for (const other of sections) {
-        const oid = String(other.key ?? '');
-        if (oid) keyToUpstreamId.set(oid, oid);
-      }
-      fnProps.inputAssignments = (sec.inputAssignments as Array<Record<string, unknown>>).map(
-        (m) => ({
-          param: String(m.target ?? '').replace(/^\//, ''),
-          kind: m.kind,
-          sourceNodeId: keyToUpstreamId.get(String(m.key ?? '')) ?? String(m.key ?? ''),
-          field: typeof m.path === 'string' ? m.path.replace(/^\//, '') : undefined,
-          value: m.value,
-        }),
-      );
+      // 第二遍统一反查 key → 上游节点 id（keyToNodeId 此时才完整）
+      pendingAssignments.push({ raw: sec.inputAssignments, ownerKey: key });
     }
 
     if (sec.display === 'dialog') {
@@ -608,6 +641,28 @@ export function decompileToTree(sections: SpecSectionLike[]): [PageNode[], strin
   const pendingEvents = new Map<string, NonNullable<SpecSectionLike['events']>>();
   for (const sec of sections) {
     if (sec.events?.length) pendingEvents.set(String(sec.key ?? sec.functionId ?? ''), sec.events);
+  }
+
+  // 第二遍前置：参数映射反查（page_state key → 上游节点 id；round-trip 不丢）
+  for (const pending of pendingAssignments) {
+    const owner = findInNodes(nodes, keyToNodeId.get(pending.ownerKey) ?? '');
+    if (!owner) continue;
+    (owner.props as Record<string, unknown>).inputAssignments = (
+      pending.raw as Array<Record<string, unknown>>
+    ).map((m) => {
+      const sourceKey = String(m.key ?? '');
+      const upstreamId = keyToNodeId.get(sourceKey) ?? '';
+      if (m.kind !== 'literal' && sourceKey && !upstreamId) {
+        warnings.push(`区块「${pending.ownerKey}」参数映射来源「${sourceKey}」不存在，已保留字面值`);
+      }
+      return {
+        param: String(m.target ?? '').replace(/^\//, ''),
+        kind: m.kind,
+        sourceNodeId: upstreamId || sourceKey,
+        field: typeof m.path === 'string' ? m.path.replace(/^\//, '') : undefined,
+        value: m.value,
+      };
+    });
   }
 
   // 第二遍：重建引用（rowActions/toolbar/onSuccessRefresh/events）

@@ -25,6 +25,9 @@ type ComponentTemplate struct {
 	Icon string `gorm:"size:64"`
 	// RequiredFunctions 依赖的函数 ID 列表（拖入时检查 scope 可用性）
 	RequiredFunctions JSON `gorm:"type:json"`
+	// Params 参数定义列表（U6 模板参数化）：每项 {key,label,nodeId,prop,default}，
+	// 实例化时按参数值替换对应节点的白名单 prop（title/span/autoRun）。
+	Params JSON `gorm:"type:json"`
 	// Tree 页面组件子树（与编辑器 PageNode 同构的 JSON 序列化）
 	Tree JSON `gorm:"type:json;not null"`
 	// Builtin 是否为内置模板（契约自动生成 vs 用户保存）

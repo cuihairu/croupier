@@ -1,5 +1,6 @@
 import type { JSONValue } from '@/types/dashboard';
 import type { FunctionDescriptor } from '@/services/api/functions';
+import type { PageNode } from './model';
 
 export type CompositeView = 'table' | 'fields' | 'form' | 'actions';
 
@@ -78,6 +79,48 @@ export function defaultView(fn: FunctionDescriptor | undefined): CompositeView {
   if (op === 'list' || op === 'query' || op === 'search') return 'table';
   if (op === 'get') return 'fields';
   return 'form';
+}
+
+/** 参数化候选（U6）：节点白名单 prop（展示类）可声明为模板参数。 */
+export type ParamCandidate = {
+  key: string;
+  nodeId: string;
+  nodeTitle: string;
+  prop: 'title' | 'span' | 'autoRun';
+  propLabel: string;
+  current: unknown;
+};
+
+const PARAM_PROPS: Array<{ prop: ParamCandidate['prop']; label: string }> = [
+  { prop: 'title', label: '标题' },
+  { prop: 'span', label: '栅格宽度' },
+  { prop: 'autoRun', label: '自动执行' },
+];
+
+/** 扫描节点子树的白名单 props 生成参数化候选（title 恒列出，其余存在才列）。 */
+export function scanParamCandidates(nodes: PageNode[]): ParamCandidate[] {
+  const out: ParamCandidate[] = [];
+  const walk = (list: PageNode[]) => {
+    for (const n of list) {
+      if (n.type !== 'modal' && n.type !== 'container' && n.type !== 'text') {
+        for (const { prop, label } of PARAM_PROPS) {
+          if (prop === 'title' || n.props[prop] !== undefined) {
+            out.push({
+              key: `${n.id}.${prop}`,
+              nodeId: n.id,
+              nodeTitle: String(n.props.title ?? n.type),
+              prop,
+              propLabel: label,
+              current: n.props[prop],
+            });
+          }
+        }
+      }
+      if (n.children) walk(n.children);
+    }
+  };
+  walk(nodes);
+  return out;
 }
 
 export function derivePageKey(functionIds: string[]): string {

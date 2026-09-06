@@ -16,10 +16,21 @@ export interface ComponentTemplateDTO {
   category?: string;
   icon?: string;
   requiredFunctions?: string[];
+  /** 参数定义（U6）：实例化时按值替换对应节点白名单 prop。 */
+  params?: ComponentTemplateParam[];
   tree: PageNode[];
   builtin: boolean;
   /** 契约已变化，builtin 模板需「从契约重新生成」刷新。 */
   stale?: boolean;
+}
+
+/** 模板参数定义（与后端 TemplateParam 对齐）。 */
+export interface ComponentTemplateParam {
+  key: string;
+  label?: { 'zh-CN'?: string; 'en-US'?: string } | Record<string, unknown>;
+  nodeId: string;
+  prop: string;
+  default?: unknown;
 }
 
 /** 拉取组件模板列表。 */
@@ -32,27 +43,56 @@ async function fetchTemplates(): Promise<ComponentTemplateDTO[]> {
 }
 
 /**
- * 实例化组件模板：复制子树 + 重分配 id + 重映射内部引用。
+ * 实例化组件模板：复制子树 + 重分配 id + 重映射内部引用 + 应用参数值（U6）。
  * 引用形态：onClick/onSuccess/onRowClick 的 target=节点 id；rowActions.targetSection=节点 id。
+ * 两遍克隆：先预分配全部新 id（引用重映射与前出现顺序无关），再复制重映射；
+ * 嵌套对象拷贝后重映射（不污染模板缓存）。参数按 nodeId→新 id 替换白名单
+ * prop（title/span/autoRun），未提供的参数回退 default。
  */
-export function instantiateTemplate(tpl: ComponentTemplateDTO): PageNode[] {
+export function instantiateTemplate(
+  tpl: ComponentTemplateDTO,
+  paramValues?: Record<string, unknown>,
+): PageNode[] {
   const idMap = new Map<string, string>();
+  const preassign = (nodes: PageNode[]) => {
+    for (const node of nodes) {
+      idMap.set(node.id, nodeId(node.type));
+      if (node.children) preassign(node.children);
+    }
+  };
+  preassign(tpl.tree ?? []);
+
+  // 参数值按新节点 id 应用（nodeId→paramValues/prop 覆盖，缺省回退 default）
+  const applyParams = (node: PageNode, props: Record<string, unknown>) => {
+    for (const param of tpl.params ?? []) {
+      if (param.nodeId !== node.id) continue;
+      if (paramValues && param.key in paramValues) {
+        props[param.prop] = paramValues[param.key];
+      } else if (param.default !== undefined) {
+        props[param.prop] = param.default;
+      }
+    }
+  };
+
   const clone = (node: PageNode): PageNode => {
-    const newId = nodeId(node.type);
-    idMap.set(node.id, newId);
     const props = { ...node.props } as Record<string, unknown>;
-    // 重映射事件引用
+    // 区块 key 不随模板复制（实例各自分配，避免多实例冲突；U5）
+    delete props.sectionKey;
+    applyParams(node, props);
     for (const key of Object.keys(props)) {
       if (key.startsWith('on') && props[key] && typeof props[key] === 'object') {
-        const action = props[key] as { target?: string; chain?: Array<{ target?: string }> };
-        if (action.target && idMap.has(action.target)) {
-          action.target = idMap.get(action.target);
+        const a = props[key] as { target?: string; chain?: Array<{ target?: string }> };
+        const copied: { target?: string; chain?: Array<{ target?: string }> } = {
+          ...a,
+          chain: a.chain?.map((s) => ({ ...s })),
+        };
+        if (copied.target && idMap.has(copied.target)) {
+          copied.target = idMap.get(copied.target);
         }
-        for (const step of action.chain ?? []) {
-          if (step.target && idMap.has(step.target)) {
-            step.target = idMap.get(step.target);
-          }
+        for (const step of copied.chain ?? []) {
+          if (step.target && idMap.has(step.target)) step.target = idMap.get(step.target);
         }
+        props[key] = copied;
       }
       // refreshOnNode：模板内部节点 id 引用 → 重映射为新树节点 id
       if (key === 'refreshOnNode' && Array.isArray(props[key])) {
@@ -65,16 +105,20 @@ export function instantiateTemplate(tpl: ComponentTemplateDTO): PageNode[] {
         );
       }
       if (key === 'rowActions' && Array.isArray(props[key])) {
-        for (const ra of props[key] as Array<{ targetSection?: string }>) {
-          if (ra.targetSection && idMap.has(ra.targetSection)) {
-            ra.targetSection = idMap.get(ra.targetSection);
-          }
-        }
+        props[key] = (props[key] as Array<{ targetSection?: string } & Record<string, unknown>>).map(
+          (ra) => ({
+            ...ra,
+            targetSection:
+              ra.targetSection && idMap.has(ra.targetSection)
+                ? idMap.get(ra.targetSection)
+                : ra.targetSection,
+          }),
+        );
       }
     }
     return {
       ...node,
-      id: newId,
+      id: idMap.get(node.id) ?? node.id,
       props,
       children: node.children?.map(clone),
     };
@@ -155,7 +199,7 @@ export default function ComponentLibrary({
               暂无组件模板
             </Text>
             <Text type="secondary" style={{ fontSize: 11 }}>
-              选中画布多个节点 → 右键「保存为组件」可创建
+              选中画布多个节点 → 顶栏「保存为组件」可创建
             </Text>
           </Space>
         }
@@ -262,7 +306,8 @@ function TemplateDraggable({
       {...listeners}
       onClick={() => {
         if (!ok) return;
-        onInsert(instantiateTemplate(tpl), tpl);
+        // 带参数模板（U6）：抛给父级弹参数表单（onInsert([], tpl)），确认后实例化
+        onInsert(tpl.params?.length ? [] : instantiateTemplate(tpl), tpl);
       }}
       style={{
         border: '1px solid #f0f0f0',
