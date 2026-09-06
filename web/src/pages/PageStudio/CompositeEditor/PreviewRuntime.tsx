@@ -1,14 +1,13 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { App, Button, Card, Col, Descriptions, Modal, Row, Space, Table, Typography } from 'antd';
 import type { FunctionDescriptor } from '@/services/api/functions';
-import type { JSONSchema } from '@/types/dashboard';
+import type { FormPresentationSpec, JSONSchema } from '@/types/dashboard';
 import { invokeFunction } from '@/services/api/functions';
-import SchemaFormRenderer from '@/components/SchemaFormRenderer';
+import SchemaFormRenderer, { type SchemaFormRendererProps } from '@/components/SchemaFormRenderer';
 import { derivePresentationSpec } from '@/utils/schemaHints';
 import { parseAction } from './actions';
 import type { PageNode } from './model';
 import { schemaProperties } from './types';
-import { getComponent } from './registry';
 import { extractErrorMessage } from '@/utils/errors';
 
 const { Text } = Typography;
@@ -43,6 +42,12 @@ export default function PreviewRuntime({
   const [results, setResults] = useState<Record<string, unknown>>({});
   const [running, setRunning] = useState<Record<string, boolean>>({});
   const [dialogId, setDialogId] = useState<string | null>(null);
+  // staticForm 值并入的预览页面状态（键 = 节点 id），预览内联动可消费。
+  const [staticState, setStaticState] = useState<Record<string, JSONRecord>>({});
+
+  const handleStaticChange = useCallback((nodeId: string, values: JSONRecord) => {
+    setStaticState((r) => ({ ...r, [nodeId]: values }));
+  }, []);
 
   const treeRef = useRef(tree);
   treeRef.current = tree;
@@ -149,6 +154,7 @@ export default function PreviewRuntime({
               running={running[node.id] || false}
               onAction={handleAction}
               onSubmit={(params) => void runNode(node, params)}
+              onStaticChange={handleStaticChange}
               renderChild={(child) => (
                 <PreviewNode
                   node={child}
@@ -159,6 +165,7 @@ export default function PreviewRuntime({
                   running={running[child.id] || false}
                   onAction={handleAction}
                   onSubmit={(params) => void runNode(child, params)}
+                  onStaticChange={handleStaticChange}
                 />
               )}
             />
@@ -220,6 +227,7 @@ function PreviewNode({
   running,
   onAction,
   onSubmit,
+  onStaticChange,
   renderChild,
 }: {
   node: PageNode;
@@ -228,6 +236,8 @@ function PreviewNode({
   running: boolean;
   onAction: (raw: unknown) => void;
   onSubmit: (params: JSONRecord) => void;
+  /** staticForm 值变化（防抖后）→ 预览页面状态。 */
+  onStaticChange?: (nodeId: string, values: JSONRecord) => void;
   /** 容器子节点渲染回调（由主组件注入执行上下文）。 */
   renderChild?: (child: PageNode) => React.ReactNode;
 }) {
@@ -311,11 +321,11 @@ function PreviewNode({
       ) : node.type === 'fnForm' ? (
         <ModalForm fn={fn} running={running} onSubmit={onSubmit} inline />
       ) : node.type === 'staticForm' ? (
-        (() => {
-          const def = getComponent('staticForm');
-          const Preview = def?.Preview;
-          return Preview ? <Preview node={node} /> : null;
-        })()
+        <StaticFormLive
+          node={node}
+          initialValues={undefined}
+          onChange={(values) => onStaticChange?.(node.id, values)}
+        />
       ) : node.type === 'container' ? (
         <Space orientation="vertical" size={8} style={{ width: '100%' }}>
           {(node.children ?? []).map((c) => (
@@ -365,5 +375,55 @@ function ModalForm({
   );
 }
 
-// 保持 registry 引用（PreviewNode 未直接用 def.Preview，预览态独立渲染真实数据）
-void getComponent;
+/** 常量表单预览态：与发布渲染同一 rjsf 运行时（真实控件可交互），
+ * 值防抖并入预览页面状态（驱动预览内 refreshOn/动作链消费）。 */
+export function StaticFormLive({
+  node,
+  initialValues,
+  onChange,
+  debounceMs = 300,
+}: {
+  node: PageNode;
+  initialValues?: JSONRecord;
+  onChange?: (values: JSONRecord) => void;
+  debounceMs?: number;
+}) {
+  const raw = node.props.staticSchema;
+  const spec = useMemo<FormPresentationSpec | null>(() => {
+    try {
+      const schema =
+        typeof raw === 'string' ? (JSON.parse(raw) as JSONSchema) : (raw as unknown as JSONSchema);
+      if (!schema || typeof schema !== 'object') return null;
+      return derivePresentationSpec(schema);
+    } catch {
+      return null;
+    }
+  }, [raw]);
+
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(
+    () => () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+    },
+    [],
+  );
+
+  if (!spec) {
+    return <Text type="warning">字段定义 JSON 无效</Text>;
+  }
+  const handleValuesChange: SchemaFormRendererProps['onValuesChange'] = (_changed, all) => {
+    if (timerRef.current) clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(() => {
+      onChange?.(all as JSONRecord);
+    }, debounceMs);
+  };
+  return (
+    <SchemaFormRenderer
+      spec={spec}
+      initialValues={initialValues as SchemaFormRendererProps['initialValues']}
+      hideSubmit
+      disabled={false}
+      onValuesChange={handleValuesChange}
+    />
+  );
+}

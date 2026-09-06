@@ -176,7 +176,15 @@ web/src/pages/PageStudio/CompositeEditor/
 - **旧版合并模板检测**：页面自动识别「一个 staticForm 塞多个常量」的历史模板
   （key `consts--<batch>` 时代的数据），提供一键清理，清理后重新导入即可
 - **生成示例常量**：一键创建 4 个示例常量组件（封禁原因/会员等级/服务器状态/
-  支付渠道，key `consts--demo-*`，重复点击幂等跳过），便于无数据环境体验
+  支付渠道，key `consts--demo-*`，重复点击幂等跳过），便于无数据环境体验；
+  后端等价接口 `POST /api/v1/component-templates/seed-demo-constants` 可直接
+  curl 灌入（无需前端重建）
+
+**预览态交互（2026-09 修订）**：编辑器预览与模板预览弹窗中的 staticForm 是
+**可交互的真实控件**（与发布渲染同一 rjsf 运行时，`StaticFormLive`）——下拉/
+输入可操作，值防抖（300ms）并入预览页面状态。已知边界：预览内 refreshOn
+对 staticForm 值的级联刷新尚未接线（画布设计态预览仍为静态渲染，避免与
+拖拽手势冲突）。
 
 V4 新增文件：`ComponentLibrary.tsx`（组件库面板——模板浏览/实例化/id 重映射/scope 检查）、`types.ts`（共享类型）。
 
