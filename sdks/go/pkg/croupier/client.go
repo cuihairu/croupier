@@ -269,8 +269,14 @@ func (c *client) reconnectWithBackoff(ctx context.Context) error {
 
 		c.logger.Infof("Reconnection attempt %d...", attempt)
 
-		// Disconnect old manager cleanly
-		c.manager.Disconnect()
+		// Disconnect old manager cleanly (read-locked snapshot: Stop() and
+		// concurrent reconnects also access c.manager)
+		c.mu.RLock()
+		prevManager := c.manager
+		c.mu.RUnlock()
+		if prevManager != nil {
+			prevManager.Disconnect()
+		}
 
 		// Create new manager and connect
 		managerConfig := ManagerConfig{
@@ -288,7 +294,7 @@ func (c *client) reconnectWithBackoff(ctx context.Context) error {
 		}
 
 		var err error
-		c.manager, err = NewManager(managerConfig, c.handlers)
+		nextManager, err := NewManager(managerConfig, c.handlers)
 		if err != nil {
 			c.logger.Warnf("Reconnect create manager failed: %v", err)
 			delay = c.nextBackoffDelay(delay, maxDelay, rc)
@@ -296,7 +302,7 @@ func (c *client) reconnectWithBackoff(ctx context.Context) error {
 		}
 
 		connectCtx, connectCancel := context.WithTimeout(ctx, 30*time.Second)
-		err = c.manager.Connect(connectCtx)
+		err = nextManager.Connect(connectCtx)
 		connectCancel()
 		if err != nil {
 			c.logger.Warnf("Reconnect dial failed: %v", err)
@@ -307,11 +313,11 @@ func (c *client) reconnectWithBackoff(ctx context.Context) error {
 		// Re-register functions
 		localFunctions := c.convertToLocalFunctions()
 		registerCtx, registerCancel := context.WithTimeout(ctx, 30*time.Second)
-		sessionID, err := c.manager.RegisterWithAgent(registerCtx, c.config.ServiceID, c.config.ServiceVersion, localFunctions)
+		sessionID, err := nextManager.RegisterWithAgent(registerCtx, c.config.ServiceID, c.config.ServiceVersion, localFunctions)
 		registerCancel()
 		if err != nil {
 			c.logger.Warnf("Reconnect register failed: %v", err)
-			c.manager.Disconnect()
+			nextManager.Disconnect()
 			delay = c.nextBackoffDelay(delay, maxDelay, rc)
 			continue
 		}
@@ -319,8 +325,14 @@ func (c *client) reconnectWithBackoff(ctx context.Context) error {
 		c.sessionID = sessionID
 		c.connected.Store(true)
 
+		// Publish the new manager under the write lock — Stop() takes a
+		// read-locked snapshot, so an unlocked assignment here is a data race.
+		c.mu.Lock()
+		c.manager = nextManager
+		c.mu.Unlock()
+
 		// Re-set disconnect callback
-		c.manager.SetOnDisconnect(func() {
+		nextManager.SetOnDisconnect(func() {
 			c.connected.Store(false)
 			select {
 			case c.disconnectCh <- struct{}{}:

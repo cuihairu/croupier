@@ -15,6 +15,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -1611,5 +1612,204 @@ func TestInvokerConnectConcurrentDoubleCheck(t *testing.T) {
 			}
 		}
 		_ = inv.Close()
+	}
+}
+
+// ---------------------------------------------------------------------------
+// fourth-round patch: proto3 string fields reject invalid UTF-8, which makes
+// the defensive proto.Marshal error branches reachable after all.
+// ---------------------------------------------------------------------------
+
+const invalidUTF8 = "\xff\xfe"
+
+func TestTCPInvokerMarshalFailureBranches(t *testing.T) {
+	agent := startFakeAgent(t, "127.0.0.1:0", defaultAgentHandler("sess-marshal"))
+	inv := newTCPInvoker(&InvokerConfig{
+		Address:   agent.addr(),
+		Insecure:  true,
+		Reconnect: &ReconnectConfig{Enabled: false},
+		Retry:     &RetryConfig{Enabled: false},
+	}).(*tcpInvoker)
+	ctx := context.Background()
+	if err := inv.connect(ctx); err != nil {
+		t.Fatalf("connect: %v", err)
+	}
+	defer inv.Close()
+
+	// Invoke: marshal failure on the request body
+	if _, err := inv.Invoke(ctx, invalidUTF8, "{}", InvokeOptions{}); err == nil ||
+		!strings.Contains(err.Error(), "marshal request") {
+		t.Fatalf("invoke err = %v", err)
+	}
+
+	// StartTask: headers copy loop + marshal failure
+	if _, err := inv.StartTask(ctx, invalidUTF8, "{}", InvokeOptions{
+		Headers: map[string]string{"h": "v"},
+	}); err == nil || !strings.Contains(err.Error(), "marshal request") {
+		t.Fatalf("startTask err = %v", err)
+	}
+
+	// CancelTask: marshal failure
+	if err := inv.CancelTask(ctx, invalidUTF8); err == nil ||
+		!strings.Contains(err.Error(), "marshal request") {
+		t.Fatalf("cancel err = %v", err)
+	}
+
+	// StreamTask: the poll goroutine reports the marshal failure as an error event
+	events, err := inv.StreamTask(ctx, invalidUTF8)
+	if err != nil {
+		t.Fatalf("stream: %v", err)
+	}
+	select {
+	case ev := <-events:
+		if !ev.Done || !strings.Contains(ev.Error, "marshal request") {
+			t.Fatalf("unexpected event: %+v", ev)
+		}
+	case <-time.After(3 * time.Second):
+		t.Fatal("no error event for invalid task ID")
+	}
+}
+
+func TestRegisterWithAgentMarshalFailure(t *testing.T) {
+	agent := startFakeAgent(t, "127.0.0.1:0", defaultAgentHandler("sess-na"))
+	mgr, _ := NewTCPManager(ClientConfig{AgentAddr: agent.addr(), Insecure: true}, nil)
+	m := mgr.(*TCPManager)
+	if err := m.Connect(context.Background()); err != nil {
+		t.Fatalf("connect: %v", err)
+	}
+	defer m.Disconnect()
+	if _, err := m.RegisterWithAgent(context.Background(), invalidUTF8, "1.0.0", nil); err == nil ||
+		!strings.Contains(err.Error(), "marshal request") {
+		t.Fatalf("register err = %v", err)
+	}
+}
+
+func TestReconnectMarshalFailure(t *testing.T) {
+	agent := startFakeAgent(t, "127.0.0.1:0", defaultAgentHandler("sess-rc"))
+	mgr, _ := NewTCPManager(ClientConfig{AgentAddr: agent.addr(), Insecure: true}, nil)
+	m := mgr.(*TCPManager)
+	m.mu.Lock()
+	m.serviceID = invalidUTF8
+	m.serviceVersion = "1.0.0"
+	m.functions = nil
+	m.mu.Unlock()
+	if err := m.Reconnect(context.Background()); err == nil ||
+		!strings.Contains(err.Error(), "marshal connect request") {
+		t.Fatalf("reconnect err = %v", err)
+	}
+}
+
+func TestSendHeartbeatMarshalFailure(t *testing.T) {
+	agent := startFakeAgent(t, "127.0.0.1:0", defaultAgentHandler("sess-hb2"))
+	mgr, _ := NewTCPManager(ClientConfig{AgentAddr: agent.addr(), Insecure: true}, nil)
+	m := mgr.(*TCPManager)
+	if err := m.Connect(context.Background()); err != nil {
+		t.Fatalf("connect: %v", err)
+	}
+	defer m.Disconnect()
+	m.mu.Lock()
+	m.sessionID = invalidUTF8
+	m.mu.Unlock()
+	if err := m.sendHeartbeat(context.Background()); err == nil ||
+		!strings.Contains(err.Error(), "marshal heartbeat") {
+		t.Fatalf("heartbeat err = %v", err)
+	}
+}
+
+func TestMaybeRegisterCapabilitiesProtoMarshalFailure(t *testing.T) {
+	agent := startFakeAgent(t, "127.0.0.1:0", func(msgID, reqID uint32, body []byte) (uint32, []byte, bool) {
+		return protocol.MsgRegisterCapabilitiesResp, nil, true
+	})
+	m := newCfgFilePushManager(t, func(c *ClientConfig) { c.ControlAddr = agent.addr() })
+	// valid manifest (marshal + gzip succeed); the ProviderMeta id comes from
+	// the manager field, so poison it to make the request marshal fail
+	m.mu.Lock()
+	m.serviceID = invalidUTF8
+	m.mu.Unlock()
+	m.maybeRegisterCapabilities(invalidUTF8, "1.0.0", []*sdkv1.ProviderFunctionDescriptor{
+		{Id: "demo.echo", InputSchema: `{"type":"object"}`},
+	})
+}
+
+// ---------------------------------------------------------------------------
+// lock-window races: connect() slow-path double-checks and Serve's
+// disconnect-while-stopped branch are scheduler-dependent; stress them with
+// start gates and signal fillers so the windows are entered reliably.
+// ---------------------------------------------------------------------------
+
+func TestInvokerConnectReconnectingDoubleCheckRace(t *testing.T) {
+	for round := 0; round < 60; round++ {
+		inv := newTCPInvoker(&InvokerConfig{
+			Address:   "127.0.0.1:1", // refuses fast → connectLocked fails quickly
+			Insecure:  true,
+			Reconnect: &ReconnectConfig{Enabled: true, MaxAttempts: 1, InitialDelayMs: 1, MaxDelayMs: 1},
+			Retry:     &RetryConfig{Enabled: false},
+		}).(*tcpInvoker)
+
+		gate := make(chan struct{})
+		var wg sync.WaitGroup
+		for j := 0; j < 6; j++ {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				<-gate
+				_ = inv.connect(context.Background())
+			}()
+		}
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			<-gate
+			inv.scheduleReconnectIfNeeded()
+		}()
+		close(gate)
+		wg.Wait()
+
+		inv.mu.Lock()
+		inv.isReconnecting = false
+		inv.reconnectAttempts = 0
+		inv.mu.Unlock()
+		_ = inv.Close()
+	}
+}
+
+func TestServeDisconnectSignalWhileStoppedFiller(t *testing.T) {
+	agent := startFakeAgent(t, "127.0.0.1:0", defaultAgentHandler("sess-serve2"))
+	for i := 0; i < 12; i++ {
+		c := newTestClient(agent.addr(), &ReconnectConfig{
+			Enabled: true, MaxAttempts: 1, InitialDelayMs: 1, MaxDelayMs: 1,
+		})
+		if err := c.Connect(context.Background()); err != nil {
+			t.Fatalf("Connect: %v", err)
+		}
+		ctx, cancel := context.WithCancel(context.Background())
+		served := make(chan error, 1)
+		go func() { served <- c.Serve(ctx) }()
+
+		// continuously refill the disconnect signal so that, once Stop()
+		// clears the running flag and closes stopCh, some select iteration
+		// observes a ready disconnectCh together with the stopped state
+		fillDone := make(chan struct{})
+		go func() {
+			defer close(fillDone)
+			for j := 0; j < 200; j++ {
+				select {
+				case c.disconnectCh <- struct{}{}:
+				default:
+				}
+				time.Sleep(200 * time.Microsecond)
+			}
+		}()
+
+		time.Sleep(5 * time.Millisecond)
+		_ = c.Stop()
+		select {
+		case <-served:
+		case <-time.After(3 * time.Second):
+			cancel()
+			t.Fatal("Serve did not return")
+		}
+		<-fillDone
+		cancel()
 	}
 }
