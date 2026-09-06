@@ -22,6 +22,18 @@ func TestDrainHandler_AcksIdempotentAndRejectsInvoke(t *testing.T) {
 		return []byte(`{}`), nil
 	}
 
+	// 占住在途计数：handleDrain 会在后台启动 drainAndRecover，在途清零后
+	// draining 被异步清除——不占住的话断言与恢复 goroutine 产生调度竞争。
+	handler.manager.inflightCalls.Add(1)
+	releaseInflight := func() {
+		handler.manager.inflightCalls.Add(-1)
+		deadline := time.Now().Add(2 * time.Second)
+		for handler.manager.draining.Load() && time.Now().Before(deadline) {
+			time.Sleep(5 * time.Millisecond)
+		}
+	}
+	defer releaseInflight()
+
 	drainReq, _ := proto.Marshal(&sdkv1.ProviderDrainRequest{SessionId: "s-1", Reason: "rolling-restart", RetryAfterMs: 1000})
 	respBody, err := handler.handleDrain(context.Background(), protocol.MsgProviderDrainRequest, 1, drainReq)
 	if err != nil {
@@ -65,6 +77,7 @@ func TestDrainHandler_AcksIdempotentAndRejectsInvoke(t *testing.T) {
 	if handler.manager.config.Reconnect != nil && handler.manager.config.Reconnect.Enabled {
 		handler.manager.config.Reconnect.Enabled = false
 	}
+	releaseInflight()
 	handler.manager.drainAndRecover()
 	if handler.manager.draining.Load() {
 		t.Fatal("draining must clear after recovery")

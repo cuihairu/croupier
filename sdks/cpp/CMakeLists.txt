@@ -710,6 +710,7 @@ if(BUILD_TESTS)
             tests/test_openapi_importer.cpp
             tests/test_coverage_boost2.cpp
             tests/test_coverage_boost3.cpp
+            tests/test_coverage_boost4.cpp
             tests/test_provider_inbound.cpp
         )
 
@@ -727,6 +728,36 @@ if(BUILD_TESTS)
                 LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/test-plugins
                 PREFIX "lib"
             )
+            add_library(croupier-empty-plugin SHARED tests/plugins/empty_plugin.cpp)
+            target_include_directories(croupier-empty-plugin PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
+            set_target_properties(croupier-empty-plugin PROPERTIES
+                LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/test-plugins
+                PREFIX "lib"
+            )
+            add_library(croupier-null-info-plugin SHARED tests/plugins/null_info_plugin.cpp)
+            target_include_directories(croupier-null-info-plugin PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
+            set_target_properties(croupier-null-info-plugin PROPERTIES
+                LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/test-plugins
+                PREFIX "lib"
+            )
+            add_library(croupier-throwing-plugin SHARED tests/plugins/throwing_plugin.cpp)
+            target_include_directories(croupier-throwing-plugin PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
+            set_target_properties(croupier-throwing-plugin PROPERTIES
+                LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/test-plugins
+                PREFIX "lib"
+            )
+            add_library(croupier-bad-name-plugin SHARED tests/plugins/bad_name_plugin.cpp)
+            target_include_directories(croupier-bad-name-plugin PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
+            set_target_properties(croupier-bad-name-plugin PROPERTIES
+                LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/test-plugins
+                PREFIX "lib"
+            )
+            add_library(croupier-bad-version-plugin SHARED tests/plugins/bad_version_plugin.cpp)
+            target_include_directories(croupier-bad-version-plugin PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
+            set_target_properties(croupier-bad-version-plugin PROPERTIES
+                LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/test-plugins
+                PREFIX "lib"
+            )
         endif()
 
         add_executable(croupier-sdk-tests
@@ -739,7 +770,9 @@ if(BUILD_TESTS)
         endif()
 
         if(UNIX)
-            add_dependencies(croupier-sdk-tests croupier-sample-plugin croupier-failing-init-plugin)
+            add_dependencies(croupier-sdk-tests croupier-sample-plugin croupier-failing-init-plugin
+                             croupier-empty-plugin croupier-null-info-plugin croupier-throwing-plugin
+                             croupier-bad-name-plugin croupier-bad-version-plugin)
             target_compile_definitions(croupier-sdk-tests PRIVATE
                 CROUPIER_TEST_PLUGIN_DIR="${CMAKE_BINARY_DIR}/test-plugins")
         endif()
