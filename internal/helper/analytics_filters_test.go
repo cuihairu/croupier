@@ -201,3 +201,19 @@ func TestLoadAndSaveAnalyticsFilters(t *testing.T) {
 		}
 	})
 }
+
+func TestAnalyticsFiltersFileIOErrors(t *testing.T) {
+	// Read：路径是目录（EISDIR，非 NotExist）→ 原样返回错误
+	if _, err := ReadAnalyticsFiltersFile(t.TempDir()); err == nil {
+		t.Fatal("expected read error for directory path")
+	}
+
+	// Write：父目录是一个已存在的普通文件 → MkdirAll 失败
+	blocker := filepath.Join(t.TempDir(), "blocker")
+	if err := os.WriteFile(blocker, []byte("x"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := WriteAnalyticsFiltersFile(filepath.Join(blocker, "sub", "f.json"), []byte("{}")); err == nil {
+		t.Fatal("expected MkdirAll failure")
+	}
+}

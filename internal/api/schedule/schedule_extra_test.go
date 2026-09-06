@@ -4,14 +4,18 @@ package schedule
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"strconv"
+	"sync/atomic"
 	"testing"
 
 	"github.com/cuihairu/croupier/internal/model"
 	"github.com/cuihairu/croupier/internal/svc"
+	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gorm.io/gorm"
 )
 
 func TestService_Methods_ModelNotInitialized(t *testing.T) {
@@ -156,4 +160,59 @@ func TestService_PauseClearsNextTrigger(t *testing.T) {
 	var sch model.TaskSchedule
 	require.NoError(t, db.Where("id = ?", id).First(&sch).Error)
 	assert.Nil(t, sch.NextTriggeredAt)
+}
+
+func TestService_SetStatus_UpdateFailures(t *testing.T) {
+	newEnvWithUpdateFailure := func(t *testing.T, failFrom int32) (*gin.Engine, *gorm.DB) {
+		r, db := newTestEnv(t, true)
+		var calls int32
+		require.NoError(t, db.Callback().Update().Before("gorm:update").
+			Register("test:sched_update_fail", func(tx *gorm.DB) {
+				if atomic.AddInt32(&calls, 1) >= failFrom {
+					_ = tx.AddError(errors.New("update boom"))
+				}
+			}))
+		t.Cleanup(func() { _ = db.Callback().Update().Remove("test:sched_update_fail") })
+		return r, db
+	}
+	id := func(t *testing.T, r *gin.Engine) string {
+		return strconv.FormatUint(uint64(mustCreate(t, r)), 10)
+	}
+
+	t.Run("active_first_update_fails", func(t *testing.T) {
+		r, _ := newEnvWithUpdateFailure(t, 1)
+		rec := doJSON(r, http.MethodPut, "/api/v1/schedules/"+id(t, r)+"/status", `{"status":"active"}`)
+		assert.Equal(t, http.StatusInternalServerError, rec.Code)
+	})
+
+	t.Run("active_second_update_fails", func(t *testing.T) {
+		r, _ := newEnvWithUpdateFailure(t, 2)
+		rec := doJSON(r, http.MethodPut, "/api/v1/schedules/"+id(t, r)+"/status", `{"status":"active"}`)
+		assert.Equal(t, http.StatusInternalServerError, rec.Code)
+	})
+
+	t.Run("paused_update_fails", func(t *testing.T) {
+		r, _ := newEnvWithUpdateFailure(t, 1)
+		rec := doJSON(r, http.MethodPut, "/api/v1/schedules/"+id(t, r)+"/status", `{"status":"paused"}`)
+		assert.Equal(t, http.StatusInternalServerError, rec.Code)
+	})
+}
+
+func TestHandler_TriggerNow_StoreError(t *testing.T) {
+	r, db := newTestEnv(t, true)
+	scheduleID := mustCreate(t, r)
+	require.NoError(t, db.Migrator().DropTable("task_schedules"))
+	rec := doReq(r, http.MethodPost, "/api/v1/schedules/"+strconv.FormatUint(uint64(scheduleID), 10)+"/trigger")
+	assert.Equal(t, http.StatusInternalServerError, rec.Code)
+}
+
+func TestService_TriggerNow_DispatchError(t *testing.T) {
+	r, db := newTestEnv(t, true)
+	scheduleID := mustCreate(t, r)
+	// 清空 schedules 表让 FindByID 命中前先坏掉函数路由：直接把 dispatcher
+	// 的 registry 置空不可行——改为让函数 ID 无法路由（dispatch 内部报错）。
+	// 做法：把函数 ID 改成不存在的值，Dispatcher 找不到函数即报错。
+	require.NoError(t, db.Exec("UPDATE task_schedules SET function_id = 'missing.fn' WHERE id = ?", scheduleID).Error)
+	rec := doReq(r, http.MethodPost, "/api/v1/schedules/"+strconv.FormatUint(uint64(scheduleID), 10)+"/trigger")
+	assert.NotEqual(t, http.StatusOK, rec.Code)
 }

@@ -2,8 +2,10 @@ package errors
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -292,4 +294,63 @@ func TestAPIResponse_JsonMarshal(t *testing.T) {
 	assert.Equal(t, response.Success, unmarshaled.Success)
 	assert.Equal(t, response.Data, unmarshaled.Data)
 	assert.Equal(t, response.RequestID, unmarshaled.RequestID)
+}
+
+func TestResponseBuilderErrorBranches(t *testing.T) {
+	// AppError 携带 RetryDelay/TraceID → 对应字段透出
+	appErr := New(ErrCodeInternal, "op", nil).WithRetry(3*time.Second, 2)
+	appErr.TraceID = "trace-1"
+	resp := NewResponseBuilder[any]().Error(appErr).Build()
+	if resp.Error.RetryDelay == nil || *resp.Error.RetryDelay != 3*time.Second {
+		t.Fatal("retry delay not propagated")
+	}
+	if resp.RequestID != "trace-1" {
+		t.Fatal("trace id not promoted to request id")
+	}
+
+	// 标准错误 → 内部错误兜底
+	resp2 := NewResponseBuilder[any]().Error(errors.New("plain")).Build()
+	if resp2.Error.Code != ErrCodeInternal {
+		t.Fatalf("code = %v", resp2.Error.Code)
+	}
+	if resp2.Error.Message != "plain" {
+		t.Fatalf("message = %q", resp2.Error.Message)
+	}
+
+	// WithRequestID / WithMetadata / WithVersion
+	rb3 := NewResponseBuilder[any]().Success(nil)
+	rb3.WithRequestID("req-9")
+	if rb3.Build().RequestID != "req-9" {
+		t.Fatal("request id not set")
+	}
+	rb3.WithMetadata(&Metadata{RequestID: "m-1"})
+	rb3.WithVersion("v2")
+	if rb3.Build().Metadata == nil || rb3.Build().Metadata.Version != "v2" {
+		t.Fatal("version not set")
+	}
+}
+
+func TestSendPaginatedWithMetadata(t *testing.T) {
+	w := httptest.NewRecorder()
+	r := httptest.NewRequest(http.MethodGet, "/x", nil)
+	SendPaginatedWithMetadata(w, r, []int{1}, &Pagination{Page: 1, PageSize: 10, Total: 1}, &Metadata{Version: "1"})
+	if w.Code != http.StatusOK {
+		t.Fatalf("code = %d", w.Code)
+	}
+	if !strings.Contains(w.Body.String(), `"success":true`) {
+		t.Fatalf("body = %s", w.Body.String())
+	}
+}
+
+func TestErrorAnalyzerTopErrorsSorted(t *testing.T) {
+	ea := NewErrorAnalyzer(100, nil)
+	// codeA×1, codeB×3：倒序插入确保排序交换分支执行
+	ea.AddError(New(ErrCodeInternal, "op", nil))
+	ea.AddError(New(ErrCodeInvalidInput, "op", nil))
+	ea.AddError(New(ErrCodeInvalidInput, "op", nil))
+	ea.AddError(New(ErrCodeInvalidInput, "op", nil))
+	top := ea.GetTopErrors(2)
+	if len(top) == 0 || top[0] != ErrCodeInvalidInput {
+		t.Fatalf("top = %v", top)
+	}
 }

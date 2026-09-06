@@ -893,3 +893,42 @@ func TestThreeWayMerge_ReportTable(t *testing.T) {
 	}
 	assert.True(t, fieldNames["report.table"], "report.table should be a default conflict")
 }
+
+func TestCompareFieldSkipBranches(t *testing.T) {
+	var r1 MergeResult
+	// base == latest（draft 不同）→ 跳过
+	compareField("", "title", toJSON("a"), toJSON("b"), toJSON("a"), &r1)
+	if len(r1.Conflicts) != 0 || len(r1.AutoMerge) != 0 {
+		t.Fatalf("base==latest must skip: %+v", r1)
+	}
+
+	var r2 MergeResult
+	// draft == latest（base 不同）→ 跳过
+	compareField("", "title", toJSON("a"), toJSON("b"), toJSON("b"), &r2)
+	if len(r2.Conflicts) != 0 || len(r2.AutoMerge) != 0 {
+		t.Fatalf("draft==latest must skip: %+v", r2)
+	}
+}
+
+func TestCompareDetailFieldsLengthMismatch(t *testing.T) {
+	one := []spec.DetailFieldSpec{{Key: "a"}}
+	two := []spec.DetailFieldSpec{{Key: "a"}, {Key: "b"}}
+
+	// draft 更长（覆盖 maxLen 取 draft 分支）
+	var r1 MergeResult
+	compareDetailFields(one, two, one, &r1)
+	// latest 更长（覆盖 maxLen 取 latest 分支）
+	var r2 MergeResult
+	compareDetailFields(one, one, two, &r2)
+	// charts 同款长度分支
+	var r3 MergeResult
+	compareCharts([]spec.ChartSpec{{Type: "line"}}, []spec.ChartSpec{{Type: "line"}, {Type: "bar"}}, nil, &r3)
+	var r4 MergeResult
+	compareCharts(nil, nil, []spec.ChartSpec{{Type: "line"}, {Type: "bar"}}, &r4)
+}
+
+func TestToJSONMarshalFailure(t *testing.T) {
+	if got := toJSON(struct{ C chan int }{}); got != nil {
+		t.Fatalf("expected nil for unmarshalable value, got %s", got)
+	}
+}

@@ -4,8 +4,14 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
+	"sync/atomic"
 	"testing"
 	"time"
+
+	gsqlite "github.com/glebarez/sqlite"
+	"github.com/stretchr/testify/require"
+	"gorm.io/gorm"
 )
 
 // --- InMemoryAuditStore uncovered methods ---
@@ -604,4 +610,151 @@ func TestAuditService_Log_WithIPAddress(t *testing.T) {
 	if r.Actor.IPAddress != "10.0.0.1" || r.Actor.UserAgent != "curl/7.0" {
 		t.Errorf("unexpected IP/UA: %s/%s", r.Actor.IPAddress, r.Actor.UserAgent)
 	}
+}
+
+func TestMaskSensitiveValueAllTypes(t *testing.T) {
+	got := MaskSensitiveValue(map[string]interface{}{
+		"password": "secret",
+		"nested":   map[string]interface{}{"api_key": "k"},
+		"list":     []interface{}{map[string]interface{}{"token": "t"}, 1},
+		"plain":    "ok",
+	})
+	m, ok := got.(map[string]interface{})
+	if !ok {
+		t.Fatalf("expected map, got %T", got)
+	}
+	if m["password"] == "secret" || m["plain"] != "ok" {
+		t.Fatalf("masking wrong: %+v", m)
+	}
+	if _, isList := m["list"].([]interface{}); !isList {
+		t.Fatalf("list not handled: %T", m["list"])
+	}
+	if MaskSensitiveValue(42) != 42 {
+		t.Fatal("scalar must pass through")
+	}
+}
+
+func TestBackfillPromotedFields_FindError(t *testing.T) {
+	db, err := gorm.Open(gsqlite.Open(":memory:"), &gorm.Config{})
+	require.NoError(t, err)
+	require.NoError(t, db.AutoMigrate(&AuditModel{}))
+	store, err := NewSQLAuditStore(db)
+	require.NoError(t, err)
+	require.NoError(t, db.Migrator().DropTable("audit_records"))
+	// 表被删后批量回填查询失败——不应 panic
+	store.backfillPromotedFields()
+}
+
+func TestSQLStore_ListFindError(t *testing.T) {
+	db, err := gorm.Open(gsqlite.Open(":memory:"), &gorm.Config{})
+	require.NoError(t, err)
+	require.NoError(t, db.AutoMigrate(&AuditModel{}))
+	store, err := NewSQLAuditStore(db)
+	require.NoError(t, err)
+	require.NoError(t, db.Migrator().DropTable("audit_records"))
+	_, _, err = store.List(AuditFilter{}, AuditPage{Page: 1, PageSize: 10})
+	require.Error(t, err)
+}
+
+func TestInMemoryListDefaultPagingAndTimeFilter(t *testing.T) {
+	store := NewInMemoryAuditStore()
+	now := time.Now()
+	rec := &AuditRecord{ID: "r1", Timestamp: now, Outcome: "success"}
+	require.NoError(t, store.Create(rec))
+
+	// PageSize/Page 非法 → 默认 50/1（806 分支）
+	items, total, err := store.List(AuditFilter{}, AuditPage{})
+	require.NoError(t, err)
+	require.EqualValues(t, 1, total)
+	require.Len(t, items, 1)
+
+	// EndTime 过滤排除（848 分支）
+	past := now.Add(-time.Hour)
+	items, _, err = store.List(AuditFilter{EndTime: &past}, AuditPage{})
+	require.NoError(t, err)
+	require.Empty(t, items)
+}
+
+type failingWriter struct{}
+
+func (failingWriter) Write(p []byte) (int, error) { return 0, errors.New("disk full") }
+
+func TestAuditWriterWriteFailure(t *testing.T) {
+	w := NewAuditWriter(failingWriter{})
+	rec := &AuditRecord{ID: "x", Timestamp: time.Now()}
+	require.Error(t, w.Write(rec))
+}
+
+func TestSQLStoreGetLatestRecordQueryError(t *testing.T) {
+	db, err := gorm.Open(gsqlite.Open(":memory:"), &gorm.Config{})
+	require.NoError(t, err)
+	require.NoError(t, db.AutoMigrate(&AuditModel{}))
+	store, err := NewSQLAuditStore(db)
+	require.NoError(t, err)
+	require.NoError(t, db.Migrator().DropTable("audit_records"))
+	_, err = store.GetLatestRecord()
+	require.Error(t, err)
+	require.NotErrorIs(t, err, ErrAuditNotFound)
+}
+
+func TestMaskSensitiveValueSliceTopLevel(t *testing.T) {
+	got := MaskSensitiveValue([]interface{}{
+		map[string]interface{}{"token": "t"},
+		"plain",
+		[]interface{}{map[string]interface{}{"password": "p"}},
+	})
+	list, ok := got.([]interface{})
+	if !ok || len(list) != 3 {
+		t.Fatalf("expected slice passthrough, got %T", got)
+	}
+	if inner, ok := list[0].(map[string]interface{}); !ok || inner["token"] == "t" {
+		t.Fatalf("nested mask missing: %+v", list[0])
+	}
+}
+
+func TestSQLStoreGetLatestRecordSuccess(t *testing.T) {
+	db, err := gorm.Open(gsqlite.Open(":memory:"), &gorm.Config{})
+	require.NoError(t, err)
+	require.NoError(t, db.AutoMigrate(&AuditModel{}))
+	store, err := NewSQLAuditStore(db)
+	require.NoError(t, err)
+	rec := &AuditRecord{ID: "r1", Timestamp: time.Now(), EventType: EventLogin, Outcome: "success"}
+	require.NoError(t, store.Create(rec))
+	got, err := store.GetLatestRecord()
+	require.NoError(t, err)
+	require.Equal(t, "r1", got.ID)
+}
+
+func TestAuditWriterWriteSuccess(t *testing.T) {
+	var buf bytes.Buffer
+	w := NewAuditWriter(&buf)
+	rec := &AuditRecord{ID: "r1", Timestamp: time.Now(), EventType: EventLogin, Outcome: "success"}
+	require.NoError(t, w.Write(rec))
+	require.NotEmpty(t, buf.String())
+	require.NoError(t, w.Write(rec)) // second record updates prev hash
+	if w.seq != 2 {
+		t.Fatalf("seq = %d", w.seq)
+	}
+}
+
+func TestSQLStore_ListFindErrorAfterCountOK(t *testing.T) {
+	db, err := gorm.Open(gsqlite.Open(":memory:"), &gorm.Config{})
+	require.NoError(t, err)
+	require.NoError(t, db.AutoMigrate(&AuditModel{}))
+	store, err := NewSQLAuditStore(db)
+	require.NoError(t, err)
+	rec := &AuditRecord{ID: "r1", Timestamp: time.Now(), EventType: EventLogin, Outcome: "success"}
+	require.NoError(t, store.Create(rec))
+
+	var queries int32
+	require.NoError(t, db.Callback().Query().Before("gorm:row;gorm:query").
+		Register("test:audit_find_fail", func(tx *gorm.DB) {
+			if atomic.AddInt32(&queries, 1) >= 2 {
+				_ = tx.AddError(errors.New("find boom"))
+			}
+		}))
+	t.Cleanup(func() { _ = db.Callback().Query().Remove("test:audit_find_fail") })
+
+	_, _, err = store.List(AuditFilter{}, AuditPage{Page: 1, PageSize: 10})
+	require.Error(t, err)
 }
