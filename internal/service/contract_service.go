@@ -1583,6 +1583,21 @@ func (s *ContractService) CreateCompositeProposal(
 		}
 		generated.Composite.Sections = append(generated.Composite.Sections, staticSections...)
 	}
+	// 统一校验规则（单一规则源）：提案创建即运行发布级 selector 校验——与
+	// AcceptAndPublishProposal 的硬门槛共用 CollectBindingSelectorIssues。
+	// 违规以 error 级诊断前置暴露（Proposal Inbox「需要处理」可见），质量
+	// 降级为 needs_review；不再出现「保存看似可发布、点发布才 422」。
+	if issues := CollectBindingSelectorIssues(FunctionSpecsFromContracts(contracts), generated.PageSpec); len(issues) > 0 {
+		for field, message := range issues {
+			generated.Diagnostics = append(generated.Diagnostics, spec.Diagnostic{
+				Code:     "publish_validation_failed",
+				Severity: spec.SeverityError,
+				Message:  message,
+				Field:    field,
+			})
+		}
+		generated.Quality = spec.GeneratedPageQualityNeedsReview
+	}
 	proposalKey := compositeProposalKey(pageKey)
 	if err := s.upsertGeneratedProposal(ctx, gameID, env, proposalKey, nil, contracts, generated); err != nil {
 		return nil, err

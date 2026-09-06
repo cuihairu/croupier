@@ -73,6 +73,13 @@ title: 组合页编辑器 V3 使用与扩展指南
 
 警告场景（保存时提示，不阻断）：空弹窗、动作目标已删、按钮不在任何表格之后、区块未绑定函数、文本组件。
 
+**保存即发布级校验（2026-09 统一）**：组合页提案创建（保存）与服务端
+accept-and-publish 共用**同一 selector 规则源**（`CollectBindingSelectorIssues`：
+必填参数映射 / output shape 匹配 / source kind 上下文合法性等）。保存时违规以
+error 级诊断写入提案并降级 `needs_review`——提案收件箱「需要处理」队列可见具体
+字段与原因；不再出现「保存看似可发布、点发布才 422」。修复映射后重新保存，
+质量恢复并由收件箱正常发布。
+
 ## 4. 发布页行为（PageRenderer/CompositeRenderer）
 
 - `autoRun` 区块进入页面自动执行；`refreshOn` 上游产出自动重跑（page_state 同名字段合并）

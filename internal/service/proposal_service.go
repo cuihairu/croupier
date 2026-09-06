@@ -957,22 +957,14 @@ func validateAcceptedPageSpec(gameID, env string, proposal *model.PageProposal, 
 	return nil
 }
 
-func (s *ProposalService) validateDirectPublishPageSpec(ctx context.Context, gameID, env string, proposal *model.PageProposal, page spec.PageSpec) error {
-	if err := validateAcceptedPageSpec(gameID, env, proposal, page); err != nil {
-		return err
-	}
+// CollectBindingSelectorIssues runs the canonical selector validators
+// (spec.ValidateSelector / ValidateOutputAssignments / ValidateRequiredOutputAssignments)
+// over every binding of the page. It is the SINGLE rule source consumed at two
+// enforcement points: composite proposal creation (issues become error-level
+// diagnostics and downgrade quality) and accept-and-publish (issues hard-fail
+// with 422 details). Adding a rule here therefore applies to both ends at once.
+func CollectBindingSelectorIssues(functions map[string]spec.FunctionSpec, page spec.PageSpec) map[string]string {
 	details := map[string]string{}
-	for _, diag := range spec.ValidatePublishablePageShape(page) {
-		field := strings.TrimSpace(diag.Field)
-		if field == "" {
-			field = strings.TrimSpace(diag.Code)
-		}
-		details[field] = diag.Message
-	}
-	functions, err := s.functionSpecsByID(ctx, gameID, env)
-	if err != nil {
-		return err
-	}
 	for i, binding := range page.Bindings {
 		field := fmt.Sprintf("bindings[%d]", i)
 		functionID := strings.TrimSpace(binding.FunctionID)
@@ -1013,6 +1005,28 @@ func (s *ProposalService) validateDirectPublishPageSpec(ctx context.Context, gam
 		for _, diag := range spec.ValidateRequiredOutputAssignments(binding, page) {
 			details[field+".selectors.output"] = diag.Message
 		}
+	}
+	return details
+}
+
+func (s *ProposalService) validateDirectPublishPageSpec(ctx context.Context, gameID, env string, proposal *model.PageProposal, page spec.PageSpec) error {
+	if err := validateAcceptedPageSpec(gameID, env, proposal, page); err != nil {
+		return err
+	}
+	details := map[string]string{}
+	for _, diag := range spec.ValidatePublishablePageShape(page) {
+		field := strings.TrimSpace(diag.Field)
+		if field == "" {
+			field = strings.TrimSpace(diag.Code)
+		}
+		details[field] = diag.Message
+	}
+	functions, err := s.functionSpecsByID(ctx, gameID, env)
+	if err != nil {
+		return err
+	}
+	for field, message := range CollectBindingSelectorIssues(functions, page) {
+		details[field] = message
 	}
 	if err := s.validateCategoryLabelConflict(ctx, gameID, env, page); err != nil {
 		return err
