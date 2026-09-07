@@ -28,7 +28,7 @@ type fakePGServer struct {
 	mu          sync.Mutex
 	closed      bool
 	pingCount   int
-	failPing    int // 前 N 个非 CREATE/probe 查询（即 Ping）回 does-not-exist 错误
+	failPing    int // 前 N 个连接在启动阶段回 FATAL 3D000（库不存在）
 	failCreate  bool
 	probeExists bool
 }
@@ -76,8 +76,26 @@ func (s *fakePGServer) handle(conn net.Conn) {
 		}
 		break // StartupMessage
 	}
-	// AuthenticationOk + ReadyForQuery
+	// 真实 PG 对不存在的库是在启动阶段拒绝连接（FATAL 3D000），
+	// 该错误会从 driver Connect 原样透传给 gorm.Open（Ping 查询阶段的
+	// 错误会被 pgx stdlib 转成 driver.ErrBadConn，丢失消息文本）。
+	s.mu.Lock()
+	reject := s.pingCount < s.failPing
+	if reject {
+		s.pingCount++
+	}
+	s.mu.Unlock()
+	if reject {
+		writePGError(conn, "3D000", fmt.Sprintf("database %q does not exist", "game_x"))
+		return
+	}
+	// AuthenticationOk + 必需的 ParameterStatus + ReadyForQuery。
+	// pgx simple protocol 强制要求 standard_conforming_strings=on 与
+	// client_encoding=UTF8，缺失时连接直接失败。
 	writePGMessage(conn, 'R', func(b *pgBuf) { b.int32(0) })
+	writePGMessage(conn, 'S', func(b *pgBuf) { b.str("server_version"); b.str("16.0") })
+	writePGMessage(conn, 'S', func(b *pgBuf) { b.str("standard_conforming_strings"); b.str("on") })
+	writePGMessage(conn, 'S', func(b *pgBuf) { b.str("client_encoding"); b.str("UTF8") })
 	writePGMessage(conn, 'Z', func(b *pgBuf) { b.byte('I') })
 
 	for {
@@ -99,11 +117,6 @@ func (s *fakePGServer) handle(conn net.Conn) {
 
 func (s *fakePGServer) answerQuery(conn net.Conn, query string) {
 	s.mu.Lock()
-	failPing := s.pingCount < s.failPing
-	if !strings.HasPrefix(strings.ToUpper(query), "CREATE DATABASE") &&
-		!strings.HasPrefix(strings.ToUpper(query), "SELECT EXISTS") {
-		s.pingCount++
-	}
 	failCreate := s.failCreate
 	probeExists := s.probeExists
 	s.mu.Unlock()
@@ -139,10 +152,6 @@ func (s *fakePGServer) answerQuery(conn net.Conn, query string) {
 			b.byte('t')
 		})
 		writePGMessage(conn, 'C', func(b *pgBuf) { b.str("SELECT 1") })
-	case failPing:
-		writePGError(conn, "3D000", fmt.Sprintf("database %q does not exist", "game_x"))
-		writePGMessage(conn, 'Z', func(b *pgBuf) { b.byte('I') })
-		return
 	default:
 		writePGMessage(conn, 'C', func(b *pgBuf) { b.str("SELECT 1") })
 	}
@@ -164,9 +173,9 @@ func writePGMessage(conn net.Conn, typ byte, build func(*pgBuf)) {
 	var body pgBuf
 	build(&body)
 	head := make([]byte, 5)
-	// PG 协议：长度字段 = 4（自身）+ payload，不含类型字节。
-	binary.BigEndian.PutUint32(head, uint32(len(body.b)+4))
-	head[4] = typ
+	// PG 协议：1 字节类型在前；长度字段 = 4（自身）+ payload，不含类型字节。
+	head[0] = typ
+	binary.BigEndian.PutUint32(head[1:], uint32(len(body.b)+4))
 	_, _ = conn.Write(head)
 	_, _ = conn.Write(body.b)
 }
@@ -190,7 +199,8 @@ func readPGMessage(conn net.Conn) (byte, []byte, error) {
 	if _, err := io.ReadFull(conn, head); err != nil {
 		return 0, nil, err
 	}
-	frameLen := int(binary.BigEndian.Uint32(head[:4])) - 4
+	// PG 常规消息：1 字节类型在前，随后 Int32 长度（含自身、不含类型字节）。
+	frameLen := int(binary.BigEndian.Uint32(head[1:5])) - 4
 	if frameLen < 0 || frameLen > 1<<20 {
 		return 0, nil, fmt.Errorf("bad frame length")
 	}
@@ -198,7 +208,7 @@ func readPGMessage(conn net.Conn) (byte, []byte, error) {
 	if _, err := io.ReadFull(conn, payload); err != nil {
 		return 0, nil, err
 	}
-	return head[4], payload, nil
+	return head[0], payload, nil
 }
 
 func fakePGDSN(addr, dbName string) string {
@@ -338,10 +348,10 @@ func (s *fakeMySQLServer) handle(conn net.Conn, connID int) {
 		return
 	}
 	if firstErr {
-		writeMySQLERR(conn, 1049, "Unknown database 'game_x'")
+		writeMySQLAuthERR(conn, 1049, "Unknown database 'game_x'")
 		return
 	}
-	writeMySQLOK(conn)
+	writeMySQLAuthOK(conn)
 
 	for {
 		payload, err := readMySQLPacket(conn)
@@ -352,15 +362,20 @@ func (s *fakeMySQLServer) handle(conn net.Conn, connID int) {
 		case 0x01: // COM_QUIT
 			return
 		case 0x03: // COM_QUERY
-			if createErr && strings.HasPrefix(strings.ToUpper(string(payload[1:])), "CREATE DATABASE") {
-				writeMySQLERR(conn, 1007, "Can't create database")
+			query := strings.ToUpper(string(payload[1:]))
+			if createErr && strings.HasPrefix(query, "CREATE DATABASE") {
+				writeMySQLCommandERR(conn, 1007, "Can't create database")
 				continue
 			}
-			writeMySQLOK(conn)
+			if strings.HasPrefix(query, "SELECT VERSION()") {
+				writeMySQLVersionResultSet(conn)
+				continue
+			}
+			writeMySQLCommandOK(conn)
 		case 0x0e: // COM_PING
-			writeMySQLOK(conn)
+			writeMySQLCommandOK(conn)
 		default:
-			writeMySQLOK(conn)
+			writeMySQLCommandOK(conn)
 		}
 	}
 }
@@ -378,7 +393,9 @@ func writeMySQLHandshake(conn net.Conn, threadID uint32) error {
 	p = binary.LittleEndian.AppendUint16(p, 0x0008)               // PLUGIN_AUTH
 	p = append(p, 21)                                             // auth data len
 	p = append(p, make([]byte, 10)...)
-	p = append(p, []byte("12345678901234\x00")...) // auth-plugin-data-part-2
+	// auth-plugin-data-part-2：必须恰为 auth_data_len-8 = 13 字节（12 + NUL），
+	// 否则客户端解析 plugin 名时错位。
+	p = append(p, []byte("123456789012\x00")...) // auth-plugin-data-part-2
 	p = append(p, "mysql_native_password\x00"...)
 	return writeMySQLPacket(conn, 0, p)
 }
@@ -413,24 +430,64 @@ func readMySQLPacket(conn net.Conn) ([]byte, error) {
 	return payload, nil
 }
 
-func writeMySQLOK(conn net.Conn) {
+func writeMySQLOK(conn net.Conn, seq byte) {
 	var p []byte
 	p = append(p, 0x00)
 	p = append(p, 0, 0, 0) // affected rows
 	p = append(p, 0, 0, 0) // last insert id
 	p = binary.LittleEndian.AppendUint16(p, 0x0002)
 	p = binary.LittleEndian.AppendUint16(p, 0x0000)
-	_ = writeMySQLPacket(conn, 1, p)
+	_ = writeMySQLPacket(conn, seq, p)
 }
 
-func writeMySQLERR(conn net.Conn, code int, message string) {
+// auth 阶段响应：客户端 HandshakeResponse41 为 seq 1，服务器应答 seq 2。
+func writeMySQLAuthOK(conn net.Conn)    { writeMySQLOK(conn, 2) }
+func writeMySQLCommandOK(conn net.Conn) { writeMySQLOK(conn, 1) }
+
+func writeMySQLERRBody(code int, message string) []byte {
 	var p []byte
 	p = append(p, 0xff)
 	p = binary.LittleEndian.AppendUint16(p, uint16(code))
 	p = append(p, '#')
 	p = append(p, "42000"...)
 	p = append(p, message...)
-	_ = writeMySQLPacket(conn, 1, p)
+	return p
+}
+
+func writeMySQLAuthERR(conn net.Conn, code int, message string) {
+	_ = writeMySQLPacket(conn, 2, writeMySQLERRBody(code, message))
+}
+
+func writeMySQLCommandERR(conn net.Conn, code int, message string) {
+	_ = writeMySQLPacket(conn, 1, writeMySQLERRBody(code, message))
+}
+
+// writeMySQLVersionResultSet 回应 SELECT VERSION()：单列单行 "8.0.36"。
+// gorm mysql dialector 在 Initialize 时执行该查询，必须返回真实结果集。
+func writeMySQLVersionResultSet(conn net.Conn) {
+	// ResultSetHeader: column count = 1
+	_ = writeMySQLPacket(conn, 1, []byte{0x01})
+	// ColumnDefinition 41: catalog/schema/table/org_table/name/org_name/
+	// filler(0x0c)/charset/colLen/type/flags/decimals/filler(2)
+	var col []byte
+	for _, s := range []string{"def", "", "", "", "VERSION()", ""} {
+		col = append(col, byte(len(s)))
+		col = append(col, s...)
+	}
+	col = append(col, 0x0c)
+	col = binary.LittleEndian.AppendUint16(col, 33) // charset utf8_general_ci
+	col = binary.LittleEndian.AppendUint32(col, 32)
+	col = append(col, 0xfd) // VAR_STRING
+	col = binary.LittleEndian.AppendUint16(col, 0)
+	col = append(col, 0)
+	col = append(col, 0, 0)
+	_ = writeMySQLPacket(conn, 2, col)
+	_ = writeMySQLPacket(conn, 3, []byte{0xfe, 0x00, 0x00, 0x02, 0x00}) // EOF
+	// DataRow: "8.0.36"
+	row := []byte{byte(len("8.0.36"))}
+	row = append(row, "8.0.36"...)
+	_ = writeMySQLPacket(conn, 4, row)
+	_ = writeMySQLPacket(conn, 5, []byte{0xfe, 0x00, 0x00, 0x02, 0x00}) // EOF
 }
 
 func fakeMySQLDSN(addr, dbName string) string {
