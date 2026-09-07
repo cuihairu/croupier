@@ -121,13 +121,18 @@ type croupierHotReloader struct {
 	httpClient *http.Client
 }
 
+// newWatcher is the watcher factory used by NewHotReloader; it exists as a
+// seam so tests can inject creation failures deterministically (fd-limit
+// based fault injection is environment-sensitive and flaky on CI runners).
+var newWatcher = fsnotify.NewWatcher
+
 // NewHotReloader 创建热更新实例
 func NewHotReloader(config *Config, logger *slog.Logger) (HotReloader, error) {
 	if config == nil {
 		config = DefaultConfig()
 	}
 
-	watcher, err := fsnotify.NewWatcher()
+	watcher, err := newWatcher()
 	if err != nil {
 		return nil, fmt.Errorf("failed to create watcher: %w", err)
 	}

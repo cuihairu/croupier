@@ -3,6 +3,7 @@ package hotreload
 import (
 	"bytes"
 	"context"
+	"errors"
 	"io"
 	"log/slog"
 	"net/http"
@@ -14,7 +15,6 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
-	"syscall"
 	"testing"
 	"time"
 
@@ -60,49 +60,26 @@ func chdirAbsolute(t *testing.T, dir string) {
 
 // --- NewHotReloader / InitGlobal: fsnotify.NewWatcher failure ---
 
-// countOpenFDs reports how many file descriptors the process currently holds.
-func countOpenFDs(t *testing.T) int {
-	t.Helper()
-	entries, err := os.ReadDir("/proc/self/fd")
-	require.NoError(t, err)
-	return len(entries)
-}
-
 func TestNewHotReloaderWatcherCreationFailure(t *testing.T) {
-	if _, err := os.Stat("/proc/self/fd"); err != nil {
-		t.Skipf("/proc/self/fd unavailable: %v", err)
+	orig := newWatcher
+	defer func() { newWatcher = orig }()
+	newWatcher = func() (*fsnotify.Watcher, error) {
+		return nil, errors.New("injected watcher failure")
 	}
+
 	cfg := &Config{WatchDirs: []string{}}
-	logger := discardLogger()
 
-	// Force netpoll initialization while the fd limit is still high so the
-	// runtime never needs another fd while the limit is lowered.
-	pr, pw, err := os.Pipe()
-	require.NoError(t, err)
-	defer pr.Close()
-	defer pw.Close()
-
-	var orig syscall.Rlimit
-	require.NoError(t, syscall.Getrlimit(syscall.RLIMIT_NOFILE, &orig))
-	low := orig
-	low.Cur = uint64(countOpenFDs(t) - 1)
-	restore := func() { _ = syscall.Setrlimit(syscall.RLIMIT_NOFILE, &orig) }
-	defer restore()
-
-	require.NoError(t, syscall.Setrlimit(syscall.RLIMIT_NOFILE, &low))
-	_, err = NewHotReloader(cfg, logger)
-	restore()
+	_, err := NewHotReloader(cfg, discardLogger())
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to create watcher")
 
 	// The same failure surfaces through the global convenience initializer.
-	require.NoError(t, syscall.Setrlimit(syscall.RLIMIT_NOFILE, &low))
-	err = InitGlobal(cfg, logger)
-	restore()
+	err = InitGlobal(cfg, discardLogger())
 	require.Error(t, err)
 
-	// With the limit restored, watcher creation works again.
-	hr, err := NewHotReloader(cfg, logger)
+	// With the factory restored, watcher creation works again.
+	newWatcher = orig
+	hr, err := NewHotReloader(cfg, discardLogger())
 	require.NoError(t, err)
 	require.NoError(t, hr.Stop())
 }
