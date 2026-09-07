@@ -2,7 +2,8 @@ allowBuilds:
   esbuild: true
   protobufjs: true
 
-onlyBuiltDependencies: '["esbuild"]'
+onlyBuiltDependencies:
+  - esbuild
 
 overrides:
   handlebars: ^4.7.9
