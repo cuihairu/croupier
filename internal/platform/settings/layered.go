@@ -369,10 +369,10 @@ func (l *Layered) FeatureEnabled(name string) bool {
 
 // ObsSnapshot 是观测集成 URL 的解析结果（含来源诊断）。
 type ObsSnapshot struct {
-	AlertmanagerURL   string
-	GrafanaExploreURL string
-	JaegerURL         string
-	Sources           map[string]string
+	AlertmanagerURL   string            `json:"alertmanagerUrl"`
+	GrafanaExploreURL string            `json:"grafanaExploreUrl"`
+	JaegerURL         string            `json:"jaegerUrl"`
+	Sources           map[string]string `json:"sources"`
 }
 
 // ObsSnapshot resolves the observability integration URLs.

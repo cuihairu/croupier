@@ -78,5 +78,16 @@ func TestRouteOrder_FeaturesReadEndpoint(t *testing.T) {
 	rec = httptest.NewRecorder()
 	r.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/api/v1/site/observability", nil))
 	assert.Equal(t, http.StatusOK, rec.Code)
-	assert.Contains(t, rec.Body.String(), "alertmanagerUrl")
+	// 契约键必须为 lowerCamelCase（前端 services/api/sites.ts 依赖）；
+	// 注意不能只断言 "alertmanagerUrl" 子串——sources 的 key 包含它，
+	// 会掩盖顶层字段缺 json tag 时输出 PascalCase 的回归。
+	body := rec.Body.String()
+	assert.Contains(t, body, `"alertmanagerUrl"`)
+	assert.Contains(t, body, `"grafanaExploreUrl"`)
+	assert.Contains(t, body, `"jaegerUrl"`)
+	assert.Contains(t, body, `"sources"`)
+	assert.NotContains(t, body, `"AlertmanagerURL"`)
+	assert.NotContains(t, body, `"GrafanaExploreURL"`)
+	assert.NotContains(t, body, `"JaegerURL"`)
+	assert.NotContains(t, body, `"Sources"`)
 }
