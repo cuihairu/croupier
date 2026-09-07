@@ -136,13 +136,18 @@ func (h *Handler) Stream(c *gin.Context) {
 	}
 }
 
+// marshalMessagesEvent 是 SSE 消息事件序列化的可注入缝隙（生产实现为
+// json.Marshal）。事件载荷来自 JSON 往返产物，marshal 失败分支仅能通过
+// 测试注入触达。
+var marshalMessagesEvent = json.Marshal
+
 func (h *Handler) sendMessagesEvent(c *gin.Context, username string) {
 	resp, err := h.service.Stream(c.Request.Context(), username, &StreamMessagesRequest{})
 	if err != nil {
 		slog.ErrorContext(c.Request.Context(), "SSE message stream error", "error", err)
 		return
 	}
-	data, err := json.Marshal(resp)
+	data, err := marshalMessagesEvent(resp)
 	if err != nil {
 		return
 	}

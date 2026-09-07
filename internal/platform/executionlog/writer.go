@@ -230,13 +230,18 @@ func (w *Writer) toModel(entry Entry) model.ExecutionLog {
 	}
 }
 
+// marshalPayload 是留痕载荷序列化的可注入缝隙（生产实现为 json.Marshal）。
+// normalizeJSON 已把任意输入降级为纯 JSON 值，其 marshal 失败分支仅能
+// 通过测试注入触达。
+var marshalPayload = json.Marshal
+
 // encodePayload 脱敏后序列化；超出上限截断为 JSON 字符串摘要（保留截断标记）。
 func encodePayload(value interface{}, maxBytes int) model.JSON {
 	if value == nil {
 		return model.JSON("null")
 	}
 	masked := audit.MaskSensitiveValue(normalizeJSON(value))
-	raw, err := json.Marshal(masked)
+	raw, err := marshalPayload(masked)
 	if err != nil {
 		return model.JSON(`{"logEncodeError":true}`)
 	}
@@ -250,7 +255,7 @@ func exceedsBytes(value interface{}, maxBytes int) bool {
 	if value == nil {
 		return false
 	}
-	raw, err := json.Marshal(audit.MaskSensitiveValue(normalizeJSON(value)))
+	raw, err := marshalPayload(audit.MaskSensitiveValue(normalizeJSON(value)))
 	if err != nil {
 		return false
 	}

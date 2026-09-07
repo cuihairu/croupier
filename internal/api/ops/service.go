@@ -15,10 +15,28 @@ func NewService(svcCtx *svc.ServiceContext) *Service {
 	return &Service{svcCtx: svcCtx}
 }
 
+// 查询类 ops 服务调用的可注入缝隙：生产实现为同名包级函数（查询链路
+// 恒返回 nil error），函数变量化使 handler 的错误分支可在测试中注入触达。
+var (
+	opsAgentsListFn       = opsAgentsList
+	opsAgentMetricsFn     = opsAgentMetrics
+	opsAgentProcessesFn   = opsAgentProcesses
+	opsNodesFn            = opsNodes
+	opsNodeCommandsFn     = opsNodeCommands
+	opsHealthGetFn        = opsHealthGet
+	opsMaintenanceGetFn   = opsMaintenanceGet
+	opsMetricsFn          = opsMetrics
+	opsConfigFn           = opsConfig
+	opsServicesFn         = opsServices
+	opsFunctionsFn        = opsFunctions
+	opsMQFn               = opsMQ
+	agentMetricsHistoryFn = agentMetricsHistory
+)
+
 // Agent operations methods
 
 func (s *Service) OpsAgentsList(ctx context.Context, req *OpsAgentsListRequest) (*OpsAgentsListResponse, error) {
-	return opsAgentsList(ctx, s.svcCtx, req)
+	return opsAgentsListFn(ctx, s.svcCtx, req)
 }
 
 func (s *Service) OpsAgentMeta(ctx context.Context, req *OpsAgentMetaRequest) (*OpsAgentMetaResponse, error) {
@@ -26,15 +44,15 @@ func (s *Service) OpsAgentMeta(ctx context.Context, req *OpsAgentMetaRequest) (*
 }
 
 func (s *Service) OpsAgentMetrics(ctx context.Context, req *OpsAgentMetricsRequest) (*OpsAgentMetricsResponse, error) {
-	return opsAgentMetrics(ctx, s.svcCtx, req)
+	return opsAgentMetricsFn(ctx, s.svcCtx, req)
 }
 
 func (s *Service) AgentMetricsHistory(ctx context.Context, req *AgentMetricsHistoryRequest) (*AgentMetricsHistoryResponse, error) {
-	return agentMetricsHistory(ctx, s.svcCtx, req)
+	return agentMetricsHistoryFn(ctx, s.svcCtx, req)
 }
 
 func (s *Service) OpsAgentProcesses(ctx context.Context, req *OpsAgentProcessesRequest) (*OpsAgentProcessesResponse, error) {
-	return opsAgentProcesses(ctx, s.svcCtx, req)
+	return opsAgentProcessesFn(ctx, s.svcCtx, req)
 }
 
 func (s *Service) OpsAgentSystemInfo(ctx context.Context, req *OpsAgentSystemInfoRequest) (*OpsAgentSystemInfoResponse, error) {
@@ -96,7 +114,7 @@ func (s *Service) OpsSilences(ctx context.Context, req *OpsSilencesRequest) (*Op
 // Node operations methods
 
 func (s *Service) OpsNodes(ctx context.Context, req *OpsNodesRequest) (*OpsNodesResponse, error) {
-	return opsNodes(ctx, s.svcCtx, req)
+	return opsNodesFn(ctx, s.svcCtx, req)
 }
 
 // LBStatsQuery 代理受限 PromQL 查询到配置的 Prometheus（LB 监控）。
@@ -108,7 +126,7 @@ func (s *Service) LBStatsQuery(ctx context.Context, query string) (interface{}, 
 }
 
 func (s *Service) OpsNodeCommands(ctx context.Context, req *OpsNodeCommandsRequest) (*OpsNodeCommandsResponse, error) {
-	return opsNodeCommands(ctx, s.svcCtx, req)
+	return opsNodeCommandsFn(ctx, s.svcCtx, req)
 }
 
 func (s *Service) OpsNodeDrain(ctx context.Context, req *OpsNodeCommandsRequest) (*OpsNodeDrainResponse, error) {
@@ -130,7 +148,7 @@ func (s *Service) OpsNodeUndrain(ctx context.Context, req *OpsNodeCommandsReques
 // Health and maintenance methods
 
 func (s *Service) OpsHealthGet(ctx context.Context, req *OpsHealthGetRequest) (*OpsHealthGetResponse, error) {
-	return opsHealthGet(ctx, s.svcCtx, req)
+	return opsHealthGetFn(ctx, s.svcCtx, req)
 }
 
 func (s *Service) OpsHealthRun(ctx context.Context, req *OpsHealthRunRequest) (*OpsHealthRunResponse, error) {
@@ -142,7 +160,7 @@ func (s *Service) OpsHealthUpdate(ctx context.Context, req *OpsHealthUpdateReque
 }
 
 func (s *Service) OpsMaintenanceGet(ctx context.Context, req *OpsMaintenanceGetRequest) (*OpsMaintenanceGetResponse, error) {
-	return opsMaintenanceGet(ctx, s.svcCtx, req)
+	return opsMaintenanceGetFn(ctx, s.svcCtx, req)
 }
 
 func (s *Service) OpsMaintenanceUpdate(ctx context.Context, req *OpsMaintenanceUpdateRequest) (*OpsMaintenanceUpdateResponse, error) {
@@ -152,13 +170,13 @@ func (s *Service) OpsMaintenanceUpdate(ctx context.Context, req *OpsMaintenanceU
 // Metrics and monitoring methods
 
 func (s *Service) OpsMetrics(ctx context.Context, req *OpsMetricsRequest) (*OpsMetricsResponse, error) {
-	return opsMetrics(ctx, s.svcCtx, req)
+	return opsMetricsFn(ctx, s.svcCtx, req)
 }
 
 // Config and notifications methods
 
 func (s *Service) OpsConfig(ctx context.Context, req *OpsConfigRequest) (*OpsConfigResponse, error) {
-	return opsConfig(ctx, s.svcCtx, req)
+	return opsConfigFn(ctx, s.svcCtx, req)
 }
 
 func (s *Service) OpsNotificationsGet(ctx context.Context, req *OpsNotificationsGetRequest) (*OpsNotificationsGetResponse, error) {
@@ -172,15 +190,15 @@ func (s *Service) OpsNotificationsUpdate(ctx context.Context, req *OpsNotificati
 // Services and functions methods
 
 func (s *Service) OpsServices(ctx context.Context, req *OpsServicesRequest) (*OpsServicesResponse, error) {
-	return opsServices(ctx, s.svcCtx, req)
+	return opsServicesFn(ctx, s.svcCtx, req)
 }
 
 func (s *Service) OpsFunctions(ctx context.Context, req *OpsFunctionsRequest) (*OpsFunctionsResponse, error) {
-	return opsFunctions(ctx, s.svcCtx, req)
+	return opsFunctionsFn(ctx, s.svcCtx, req)
 }
 
 // MQ methods
 
 func (s *Service) OpsMQ(ctx context.Context, req *OpsMQRequest) (*OpsMQResponse, error) {
-	return opsMQ(ctx, s.svcCtx, req)
+	return opsMQFn(ctx, s.svcCtx, req)
 }

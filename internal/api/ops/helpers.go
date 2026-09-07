@@ -1278,7 +1278,7 @@ func opsServices(ctx context.Context, svcCtx *svc.ServiceContext, req *OpsServic
 }
 
 func opsServicesLegacyCompatible(ctx context.Context, svcCtx *svc.ServiceContext, req *OpsServicesRequest) (*OpsServicesResponse, error) {
-	resp, err := opsServices(ctx, svcCtx, req)
+	resp, err := opsServicesFn(ctx, svcCtx, req)
 	if err != nil {
 		return nil, err
 	}
