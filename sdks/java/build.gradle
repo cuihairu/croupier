@@ -70,7 +70,12 @@ jacocoTestReport {
                 '**/CroupierClientImpl$LocalTaskState.class',
                 '**/InvokerImpl$TaskEventSubscription*.class',
                 '**/InvokerImpl$CheckedSupplier.class',
-                '**/InvokerImpl$TaskState.class'
+                '**/InvokerImpl$TaskState.class',
+                // Hand-written protobuf wire codec. Its `tag == 0` break
+                // branches are unreachable through the public API because
+                // the protobuf runtime rejects tag 0 before the check runs,
+                // mirroring why generated pb classes are excluded.
+                '**/wire/SdkWireMessages.class'
             ])
         }))
     }
