@@ -143,6 +143,8 @@ public sealed class CoverageBoost5TransportTests
         var resetTask = Task.Run(async () =>
         {
             using var client = await server.AcceptTcpClientAsync();
+            // 等待对端读循环就绪后再 RST，避免连接建立阶段即被复位导致 Connect 抛超时。
+            await Task.Delay(200);
             // Linger(true, 0) + Close 触发 RST，让对端读循环进入一般异常分支。
             client.LingerState = new LingerOption(true, 0);
             client.Close();

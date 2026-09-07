@@ -182,6 +182,12 @@ public sealed class CroupierClientLifecycleTests : IDisposable
         await client.ConnectAsync();
 
         client.IsConnected.Should().BeTrue();
+        // capabilities 上传是 fire-and-forget，等待其到达（有界轮询避免竞态偶发）。
+        var capabilityDeadline = DateTime.UtcNow.AddSeconds(5);
+        while (control.CapabilityRequests.Count == 0 && DateTime.UtcNow < capabilityDeadline)
+        {
+            await Task.Delay(50);
+        }
         control.CapabilityRequests.Should().ContainSingle();
 
         // Wire format: field1 = provider meta bytes, field2 = gzipped manifest bytes.

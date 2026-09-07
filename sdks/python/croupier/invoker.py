@@ -325,7 +325,7 @@ class Invoker:
                     raise
                 await asyncio.sleep(_retry_delay_seconds(attempt, retry))
 
-        raise last_error or RuntimeError("request failed")
+        raise last_error or RuntimeError("request failed")  # pragma: no cover - defensive
 
     def _headers(self, options: InvokeOptions) -> Dict[str, str]:
         headers = dict(options.headers or {})
