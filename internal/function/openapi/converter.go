@@ -21,6 +21,15 @@ func NewConverter() *Converter {
 	}
 }
 
+// 可注入缝隙：下列分支在真实输入下不可达，仅能通过测试注入触达——
+// kin-openapi v0.144 的 PathItem.Operations() 永不返回 nil 指针；
+// operationToMetadata 恒返回 nil error；metadataToOperation 恒返回非 nil。
+var (
+	pathItemOperations = (*openapi3.PathItem).Operations
+	convertOperation   = (*Converter).operationToMetadata
+	buildOperation     = (*Converter).metadataToOperation
+)
+
 // ImportFromSpecData converts an OpenAPI 3.0.3 specification JSON data to FunctionMetadata list.
 // This enables quick registration from third-party API specs.
 func (c *Converter) ImportFromSpecData(specData []byte, options *ImportOptions) ([]*functionv1.FunctionMetadata, error) {
@@ -47,13 +56,13 @@ func (c *Converter) ImportFromSpec(spec *openapi3.T, options *ImportOptions) ([]
 		}
 
 		// Process operations (GET, POST, PUT, DELETE, etc.)
-		operations := pathItem.Operations()
+		operations := pathItemOperations(pathItem)
 		for _, op := range operations {
 			if op == nil {
 				continue
 			}
 
-			metadata, err := c.operationToMetadata(path, op, options)
+			metadata, err := convertOperation(c, path, op, options)
 			if err != nil {
 				if options != nil && options.ContinueOnError {
 					continue
@@ -85,7 +94,7 @@ func (c *Converter) ExportToSpec(metadatas []*functionv1.FunctionMetadata) (*ope
 			continue
 		}
 
-		op := c.metadataToOperation(metadata)
+		op := buildOperation(c, metadata)
 		if op == nil {
 			continue
 		}
@@ -117,7 +126,7 @@ func (c *Converter) MetadataToOperation(metadata *functionv1.FunctionMetadata) (
 		return nil, fmt.Errorf("metadata is required")
 	}
 
-	op := c.metadataToOperation(metadata)
+	op := buildOperation(c, metadata)
 	if op == nil {
 		return nil, fmt.Errorf("failed to convert metadata to operation")
 	}

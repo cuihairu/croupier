@@ -236,7 +236,9 @@ func buildInstallationKey(req InstallRequest) string {
 	return fmt.Sprintf("%s:%s:%s:%s:%s:%s", req.ExtensionID, req.ScopeType, req.ScopeID, req.TargetType, req.TargetID, req.ReleaseVersion)
 }
 
-func marshalJSON(v any) (model.JSON, error) {
+// marshalJSON serializes install config values; it is a package-level seam
+// so tests can inject serialization failures for otherwise-always-valid types.
+var marshalJSON = func(v any) (model.JSON, error) {
 	if v == nil {
 		return model.JSON([]byte("{}")), nil
 	}

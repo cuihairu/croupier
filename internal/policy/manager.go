@@ -15,6 +15,12 @@ import (
 	"github.com/cuihairu/croupier/internal/model"
 )
 
+// marshalRoles 是角色列表序列化的可注入缝隙（生产实现为 json.Marshal）。
+// json.Marshal 对 []string 不存在失败输入，错误分支仅能通过测试注入触达。
+var marshalRoles = func(roles []string) ([]byte, error) {
+	return json.Marshal(roles)
+}
+
 // Policy represents the complete security policy for a function.
 type Policy struct {
 	FunctionID       string   `json:"functionId"`
@@ -215,7 +221,7 @@ func (m *Manager) SetOverride(ctx context.Context, functionID string, policy *Po
 	dbPolicy.ApprovalWorkflow = policy.ApprovalWorkflow
 	dbPolicy.RequireAudit = policy.RequireAudit
 
-	rolesJSON, err := json.Marshal(policy.AllowedRoles)
+	rolesJSON, err := marshalRoles(policy.AllowedRoles)
 	if err != nil {
 		return err
 	}
@@ -252,7 +258,7 @@ func (m *Manager) EnsureDefaultPolicy(ctx context.Context, functionID string, ri
 	dbPolicy.ApprovalWorkflow = defaultPolicy.ApprovalWorkflow
 	dbPolicy.RequireAudit = defaultPolicy.RequireAudit
 
-	rolesJSON, err := json.Marshal(defaultPolicy.AllowedRoles)
+	rolesJSON, err := marshalRoles(defaultPolicy.AllowedRoles)
 	if err != nil {
 		return err
 	}

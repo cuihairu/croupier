@@ -15,6 +15,16 @@ func NewOpenAPIConverter() *OpenAPIConverter {
 	return &OpenAPIConverter{}
 }
 
+// convertSubSchema delegates nested schema conversion back to ToJSONSchema;
+// it exists as an injectable seam for tests driving sub-schema failures.
+var convertSubSchema func(c *OpenAPIConverter, schema *openapi3.Schema) (map[string]interface{}, error)
+
+func init() {
+	convertSubSchema = func(c *OpenAPIConverter, schema *openapi3.Schema) (map[string]interface{}, error) {
+		return c.ToJSONSchema(schema)
+	}
+}
+
 // ToJSONSchema converts an OpenAPI 3.0.3 Schema to JSON Schema format
 func (c *OpenAPIConverter) ToJSONSchema(schema *openapi3.Schema) (map[string]interface{}, error) {
 	result := make(map[string]interface{})
@@ -97,7 +107,7 @@ func (c *OpenAPIConverter) ToJSONSchema(schema *openapi3.Schema) (map[string]int
 		properties := make(map[string]interface{})
 		for name, propRef := range schema.Properties {
 			if propRef != nil && propRef.Value != nil {
-				propSchema, err := c.ToJSONSchema(propRef.Value)
+				propSchema, err := convertSubSchema(c, propRef.Value)
 				if err != nil {
 					return nil, err
 				}
@@ -109,7 +119,7 @@ func (c *OpenAPIConverter) ToJSONSchema(schema *openapi3.Schema) (map[string]int
 
 	// Items (for arrays)
 	if schema.Items != nil && schema.Items.Value != nil {
-		itemsSchema, err := c.ToJSONSchema(schema.Items.Value)
+		itemsSchema, err := convertSubSchema(c, schema.Items.Value)
 		if err != nil {
 			return nil, err
 		}
@@ -119,7 +129,7 @@ func (c *OpenAPIConverter) ToJSONSchema(schema *openapi3.Schema) (map[string]int
 	// AdditionalProperties - check if it has a Schema
 	// AdditionalProperties is a struct, not a pointer
 	if schema.AdditionalProperties.Schema != nil {
-		additionalSchema, err := c.ToJSONSchema(schema.AdditionalProperties.Schema.Value)
+		additionalSchema, err := convertSubSchema(c, schema.AdditionalProperties.Schema.Value)
 		if err != nil {
 			return nil, err
 		}
@@ -131,7 +141,7 @@ func (c *OpenAPIConverter) ToJSONSchema(schema *openapi3.Schema) (map[string]int
 		allOf := make([]interface{}, 0, len(schema.AllOf))
 		for _, ref := range schema.AllOf {
 			if ref != nil && ref.Value != nil {
-				s, err := c.ToJSONSchema(ref.Value)
+				s, err := convertSubSchema(c, ref.Value)
 				if err != nil {
 					return nil, err
 				}
@@ -144,7 +154,7 @@ func (c *OpenAPIConverter) ToJSONSchema(schema *openapi3.Schema) (map[string]int
 		anyOf := make([]interface{}, 0, len(schema.AnyOf))
 		for _, ref := range schema.AnyOf {
 			if ref != nil && ref.Value != nil {
-				s, err := c.ToJSONSchema(ref.Value)
+				s, err := convertSubSchema(c, ref.Value)
 				if err != nil {
 					return nil, err
 				}
@@ -157,7 +167,7 @@ func (c *OpenAPIConverter) ToJSONSchema(schema *openapi3.Schema) (map[string]int
 		oneOf := make([]interface{}, 0, len(schema.OneOf))
 		for _, ref := range schema.OneOf {
 			if ref != nil && ref.Value != nil {
-				s, err := c.ToJSONSchema(ref.Value)
+				s, err := convertSubSchema(c, ref.Value)
 				if err != nil {
 					return nil, err
 				}

@@ -49,12 +49,23 @@ type Provider struct {
 	config         TelemetryConfig
 }
 
+// 可注入缝隙：OTel SDK 的 resource.New（仅 WithAttributes 时不存在失败
+// 输入）、OTLP HTTP exporter 构造（本包从不组合 WithTLSClientConfig，
+// errInsecureEndpointWithTLS 不可触达）与 NewGameMetrics（全局 noop meter
+// 创建固定合法指标名，不存在失败输入）的错误分支仅能通过测试注入触达。
+var (
+	resourceNew     = resource.New
+	newTraceExpor   = otlptracehttp.New
+	newMetricExpor  = otlpmetrichttp.New
+	providerMetrics = NewGameMetrics
+)
+
 // NewProvider 创建OpenTelemetry提供者
 func NewProvider(ctx context.Context, config TelemetryConfig, logger *slog.Logger) (*Provider, error) {
 	normalizeConfig(&config)
 
 	// 创建资源标识
-	res, err := resource.New(ctx,
+	res, err := resourceNew(ctx,
 		resource.WithAttributes(
 			semconv.ServiceNameKey.String(config.ServiceName),
 			semconv.ServiceVersionKey.String(config.ServiceVersion),
@@ -94,7 +105,7 @@ func NewProvider(ctx context.Context, config TelemetryConfig, logger *slog.Logge
 
 	// 初始化游戏指标
 	meter := otel.Meter("croupier.game")
-	provider.GameMetrics, err = NewGameMetrics(meter)
+	provider.GameMetrics, err = providerMetrics(meter)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create game metrics: %w", err)
 	}
@@ -131,7 +142,7 @@ func initTracing(ctx context.Context, res *resource.Resource, config TelemetryCo
 		opts = append(opts, otlptracehttp.WithInsecure())
 	}
 
-	traceExporter, err := otlptracehttp.New(ctx, opts...)
+	traceExporter, err := newTraceExpor(ctx, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -170,7 +181,7 @@ func initMetrics(ctx context.Context, res *resource.Resource, config TelemetryCo
 		opts = append(opts, otlpmetrichttp.WithInsecure())
 	}
 
-	metricExporter, err := otlpmetrichttp.New(ctx, opts...)
+	metricExporter, err := newMetricExpor(ctx, opts...)
 	if err != nil {
 		return nil, err
 	}

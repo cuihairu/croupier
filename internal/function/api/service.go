@@ -15,9 +15,24 @@ var (
 	ErrNotFound = errors.New("function not found")
 )
 
+// functionStore 是 Service 依赖的最小存储契约，*registry.Store 天然满足
+// （NewService 签名与生产调用方不变）。作为可注入缝隙存在：
+// registry.Store.Filter 恒返回 nil error、Register 的失败输入在 handler
+// 层已被同源校验拦截，List/Register 的错误分支需测试注入故障存储验证。
+type functionStore interface {
+	Filter(ctx context.Context, filter *functionv1.FunctionFilter) ([]*functionv1.FunctionMetadata, error)
+	Get(ctx context.Context, id string) (*functionv1.FunctionMetadata, error)
+	Register(ctx context.Context, metadata *functionv1.FunctionMetadata) error
+	RegisterBatch(ctx context.Context, metadatas []*functionv1.FunctionMetadata) error
+	Exists(ctx context.Context, id string) bool
+	Unregister(ctx context.Context, id string) error
+	GetResources(ctx context.Context) []string
+	GetTags(ctx context.Context) []string
+}
+
 // Service provides business logic for function metadata management.
 type Service struct {
-	store *registry.Store
+	store functionStore
 }
 
 // NewService creates a new function metadata service.

@@ -130,6 +130,11 @@ func sanitizeKey(key string) string {
 	return strings.TrimPrefix(cleaned, "/")
 }
 
+// sanitizeDeleteKeyFn 是 Delete 入口 key 净化的可注入缝隙（生产实现为
+// sanitizeKey）。filepath.Clean 恒去除尾部斜杠，COS/OSS Delete 的文件夹
+// 递归分支在公开 API 下不可达，测试以恒等函数触达。
+var sanitizeDeleteKeyFn = sanitizeKey
+
 // buildS3URL constructs a gocloud s3 URL with query params.
 func buildS3URL(c Config) string {
 	u := url.URL{Scheme: "s3", Host: c.Bucket}

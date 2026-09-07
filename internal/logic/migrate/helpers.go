@@ -41,11 +41,15 @@ func loadMigrateHistory(path string) ([]MigrationResult, error) {
 	return out, nil
 }
 
+// marshalIndent 是 json.MarshalIndent 的可注入缝隙（默认与生产行为一致，
+// 测试中替换以覆盖序列化失败分支）。
+var marshalIndent = json.MarshalIndent
+
 func saveMigrateHistory(path string, items []MigrationResult) error {
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return err
 	}
-	b, err := json.MarshalIndent(items, "", "  ")
+	b, err := marshalIndent(items, "", "  ")
 	if err != nil {
 		return err
 	}

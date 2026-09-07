@@ -54,8 +54,12 @@ func (l *GetRoutesLogic) GetRoutes() (*GetRoutesResponse, error) {
 	}, nil
 }
 
+// splitFunctionID 是 strings.Split 的测试缝隙：Split 恒返回至少一个元素
+// 的切片，"other" 兜底分支真实调用不可达，仅测试可注入空切片验证。
+var splitFunctionID = strings.Split
+
 func (l *GetRoutesLogic) extractObjectName(functionID string) string {
-	parts := strings.Split(functionID, ".")
+	parts := splitFunctionID(functionID, ".")
 	if len(parts) > 0 {
 		return parts[0]
 	}

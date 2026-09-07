@@ -1,10 +1,13 @@
 package function
 
 import (
+	"context"
+
 	"github.com/cuihairu/croupier/internal/common/errorx"
 	"github.com/cuihairu/croupier/internal/common/requestbind"
 	"github.com/cuihairu/croupier/internal/common/response"
 	logicfunction "github.com/cuihairu/croupier/internal/logic/function"
+	"github.com/cuihairu/croupier/internal/svc"
 	"github.com/gin-gonic/gin"
 )
 
@@ -18,8 +21,33 @@ func bindFunctionRequest(c *gin.Context, req interface{}) error {
 	return c.ShouldBindJSON(req)
 }
 
+// functionService is the minimal service surface consumed by Handler;
+// *Service satisfies it, and tests may substitute failing implementations.
+type functionService interface {
+	SvcCtx() *svc.ServiceContext
+	FunctionsList(ctx context.Context, req *FunctionsListRequest) (*FunctionsListResponse, error)
+	FunctionsPending(ctx context.Context, req *FunctionsPendingRequest) (*FunctionsPendingResponse, error)
+	FunctionDetail(ctx context.Context, req *FunctionDetailRequest) (*FunctionDetailResponse, error)
+	FunctionAnalytics(ctx context.Context, req *FunctionAnalyticsRequest) (*FunctionAnalyticsResponse, error)
+	FunctionCopy(ctx context.Context, req *FunctionCopyRequest) (*FunctionCopyResponse, error)
+	FunctionDelete(ctx context.Context, req *FunctionDeleteRequest) error
+	FunctionDisable(ctx context.Context, req *FunctionDisableRequest) error
+	FunctionEnable(ctx context.Context, req *FunctionEnableRequest) error
+	FunctionHistory(ctx context.Context, req *FunctionHistoryRequest) (*FunctionHistoryResponse, error)
+	FunctionInvoke(ctx context.Context, req *FunctionInvokeRequest) (*FunctionInvokeResponse, error)
+	FunctionPublish(ctx context.Context, req *FunctionPublishRequest) (*FunctionPublishResponse, error)
+	FunctionInstances(ctx context.Context, req *FunctionInstancesRequest) (*FunctionInstancesResponse, error)
+	FunctionInstancesAll(ctx context.Context, req *FunctionInstancesAllRequest) (*FunctionInstancesAllResponse, error)
+	FunctionPermissions(ctx context.Context, req *FunctionPermissionsRequest) (*FunctionPermissionsResponse, error)
+	FunctionPermissionsUpdate(ctx context.Context, req *FunctionPermissionsUpdateRequest) error
+	FunctionWarnings(ctx context.Context, req *FunctionWarningsRequest) (*FunctionWarningsResponse, error)
+	BatchCopyFunctions(ctx context.Context, req *BatchCopyFunctionsRequest) (*BatchCopyFunctionsResponse, error)
+	BatchDeleteFunctions(ctx context.Context, req *BatchDeleteFunctionsRequest) (*BatchDeleteFunctionsResponse, error)
+	BatchUpdateFunctions(ctx context.Context, req *BatchUpdateFunctionsRequest) (*BatchUpdateFunctionsResponse, error)
+}
+
 type Handler struct {
-	service *Service
+	service functionService
 }
 
 func NewHandler(service *Service) *Handler {
@@ -277,7 +305,7 @@ func (h *Handler) Descriptors(c *gin.Context) {
 		return
 	}
 
-	logic := logicfunction.NewDescriptorsLogic(c.Request.Context(), h.service.svcCtx)
+	logic := logicfunction.NewDescriptorsLogic(c.Request.Context(), h.service.SvcCtx())
 	resp, err := logic.DescriptorsV2(&logicfunction.DescriptorsRequest{
 		GameId: req.GameId,
 	})

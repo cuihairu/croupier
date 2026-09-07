@@ -205,6 +205,12 @@ func setFunctionEnabled(ctx context.Context, svcCtx *svc.ServiceContext, functio
 	return nil
 }
 
+// fetchFunctionHistoryPage delegates to the history logic; it is a package
+// seam letting tests exercise nil-item handling without a full logic stack.
+var fetchFunctionHistoryPage = func(ctx context.Context, svcCtx *svc.ServiceContext, req *logicfunction.FunctionHistoryRequest) ([]logicfunction.FunctionHistoryItem, int, error) {
+	return logicfunction.NewFunctionHistoryLogic(ctx, svcCtx).FunctionHistoryPaged(req)
+}
+
 func functionHistory(ctx context.Context, svcCtx *svc.ServiceContext, req *FunctionHistoryRequest) (*FunctionHistoryResponse, error) {
 	// 历史默认取最近一页；limit/offset 由 query 传入
 	limit := req.Limit
@@ -218,9 +224,7 @@ func functionHistory(ctx context.Context, svcCtx *svc.ServiceContext, req *Funct
 	if offset < 0 {
 		offset = 0
 	}
-	items, total, err := logicfunction.NewFunctionHistoryLogic(ctx, svcCtx).FunctionHistoryPaged(
-		&logicfunction.FunctionHistoryRequest{ID: req.ID, Limit: limit, Offset: offset},
-	)
+	items, total, err := fetchFunctionHistoryPage(ctx, svcCtx, &logicfunction.FunctionHistoryRequest{ID: req.ID, Limit: limit, Offset: offset})
 	if err != nil {
 		return nil, err
 	}
@@ -1227,6 +1231,10 @@ func rawJSONFromAny(value interface{}) json.RawMessage {
 	}
 }
 
+// marshalRawString encodes non-JSON bytes as a JSON string; it is a package
+// seam because json.Marshal has no failing input for strings.
+var marshalRawString = json.Marshal
+
 func rawJSONFromBytes(value []byte) json.RawMessage {
 	value = append([]byte(nil), value...)
 	if len(value) == 0 {
@@ -1235,7 +1243,7 @@ func rawJSONFromBytes(value []byte) json.RawMessage {
 	if json.Valid(value) {
 		return json.RawMessage(value)
 	}
-	encoded, err := json.Marshal(string(value))
+	encoded, err := marshalRawString(string(value))
 	if err != nil {
 		return nil
 	}

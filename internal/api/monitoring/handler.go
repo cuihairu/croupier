@@ -1,12 +1,22 @@
 package monitoring
 
 import (
+	"context"
+
 	"github.com/cuihairu/croupier/internal/common/response"
 	"github.com/gin-gonic/gin"
 )
 
+// serviceAPI 是 Handler 对 Service 的最小接口缝隙：Service 三个方法恒返回
+// nil error，err != nil 分支仅在测试注入故障实现时可触达。
+type serviceAPI interface {
+	Healthz(ctx context.Context, req *HealthzRequest) (*HealthzResponse, error)
+	Metrics(ctx context.Context, req *MetricsRequest) (*MetricsResponse, error)
+	Status(ctx context.Context, req *StatusRequest) (*StatusResponse, error)
+}
+
 type Handler struct {
-	service *Service
+	service serviceAPI
 }
 
 func NewHandler(service *Service) *Handler {

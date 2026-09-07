@@ -86,7 +86,7 @@ func (s *ossStore) SignedURL(_ context.Context, key string, method string, expir
 }
 
 func (s *ossStore) Delete(_ context.Context, key string) error {
-	key = sanitizeKey(key)
+	key = sanitizeDeleteKeyFn(key)
 
 	// 如果是文件夹（以 / 结尾），需要递归删除所有对象
 	if strings.HasSuffix(key, "/") {

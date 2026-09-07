@@ -14,12 +14,25 @@ import (
 
 type Service struct {
 	svcCtx *svc.ServiceContext
+	// discoverFn 是平台发现步骤的可注入缝隙（NewService 中绑定为
+	// discoverExternalPlatforms）。发现结果恒不含空白方法名，ListMethods
+	// 的空白跳过分支仅在注入时可触达。
+	discoverFn func(ctx context.Context) map[string][]string
 }
 
 func NewService(svcCtx *svc.ServiceContext) *Service {
-	return &Service{
-		svcCtx: svcCtx,
+	s := &Service{svcCtx: svcCtx}
+	s.discoverFn = s.discoverExternalPlatforms
+	return s
+}
+
+// discover 经缝隙路由平台发现：未注入时回退到真实发现逻辑，
+// 保证零值构造的 Service 行为不变。
+func (s *Service) discover(ctx context.Context) map[string][]string {
+	if s.discoverFn != nil {
+		return s.discoverFn(ctx)
 	}
+	return s.discoverExternalPlatforms(ctx)
 }
 
 // Call calls a platform method
@@ -75,7 +88,7 @@ func (s *Service) Call(ctx context.Context, req *CallPlatformRequest) (*CallPlat
 
 // ListPlatforms lists all available platforms
 func (s *Service) ListPlatforms(ctx context.Context) (*ListPlatformsResponse, error) {
-	discovered := s.discoverExternalPlatforms(ctx)
+	discovered := s.discover(ctx)
 	platforms := make([]PlatformInfo, 0, len(discovered))
 	seen := map[string]bool{}
 	for name, methods := range discovered {
@@ -105,7 +118,7 @@ func (s *Service) ListMethods(ctx context.Context, platform string) (*ListPlatfo
 			Methods: []string{},
 		}, nil
 	}
-	discovered := s.discoverExternalPlatforms(ctx)
+	discovered := s.discover(ctx)
 	merged := map[string]struct{}{}
 	methods := make([]string, 0)
 	addMethods := func(list []string) {

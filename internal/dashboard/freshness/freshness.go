@@ -234,6 +234,11 @@ func digestMatch(schema []byte, stored string) bool {
 // 不同字节形态（键序/空格，六语言 SDK 各自序列化）digest 恒定。
 func CanonicalDigest(raw []byte) string { return digestRaw(raw) }
 
+// marshalCanonical 是 canonical JSON 序列化的可注入缝隙（生产实现为
+// json.Marshal）。canonicalizeJSON 的产物只含 map/slice/string/bool/
+// float64/nil，json.Marshal 对其不存在失败输入，错误分支仅能通过测试注入触达。
+var marshalCanonical = func(v interface{}) ([]byte, error) { return json.Marshal(v) }
+
 // digestRaw 计算语义化（canonical）digest：JSON 解析后按字典序重排键再
 // 序列化哈希。原始字节哈希不可用——六语言 SDK 对同一 schema 的 JSON
 // 字节序不同（键序/空格），字节比较会导致"形状一致却被判 stale"。
@@ -247,7 +252,7 @@ func digestRaw(raw []byte) string {
 		sum := sha256.Sum256(raw)
 		return hex.EncodeToString(sum[:])
 	}
-	canonical, err := json.Marshal(canonicalizeJSON(v))
+	canonical, err := marshalCanonical(canonicalizeJSON(v))
 	if err != nil {
 		sum := sha256.Sum256(raw)
 		return hex.EncodeToString(sum[:])

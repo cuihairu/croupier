@@ -63,10 +63,17 @@ func (j JSON) MarshalJSON() ([]byte, error) {
 	return json.RawMessage(j).MarshalJSON()
 }
 
+// unmarshalRawMessage 是 json.RawMessage.UnmarshalJSON 的测试缝隙：
+// 非空接收者恒返回 nil error，UnmarshalJSON 的错误分支真实调用不可达，
+// 仅测试可通过替换本变量注入故障验证错误透传。
+var unmarshalRawMessage = func(m *json.RawMessage, b []byte) error {
+	return m.UnmarshalJSON(b)
+}
+
 // UnmarshalJSON implements json.Unmarshaler.
 func (j *JSON) UnmarshalJSON(b []byte) error {
 	result := json.RawMessage{}
-	if err := result.UnmarshalJSON(b); err != nil {
+	if err := unmarshalRawMessage(&result, b); err != nil {
 		return err
 	}
 	*j = JSON(result)

@@ -97,6 +97,10 @@ var parameterizableProps = map[string]bool{
 	"autoRun": true,
 }
 
+// paramsJSONMarshal 是 json.Marshal 的可注入缝隙（默认与生产行为一致，
+// 测试中替换以覆盖规范化序列化失败分支）。
+var paramsJSONMarshal = json.Marshal
+
 // validateTemplateParams 校验参数定义：key 非空且唯一、nodeId 存在于 tree、
 // prop 在白名单内。返回规范化后的 JSON；空/缺省返回 nil。
 func validateTemplateParams(raw, tree json.RawMessage) (json.RawMessage, error) {
@@ -127,7 +131,7 @@ func validateTemplateParams(raw, tree json.RawMessage) (json.RawMessage, error) 
 			return nil, fmt.Errorf("params[%d].prop（%s）不在可参数化白名单（title/span/autoRun）", i, p.Prop)
 		}
 	}
-	out, err := json.Marshal(params)
+	out, err := paramsJSONMarshal(params)
 	if err != nil {
 		return nil, err
 	}

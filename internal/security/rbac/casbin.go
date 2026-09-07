@@ -14,6 +14,18 @@ type CasbinPolicy struct {
 	enforcer *casbin.Enforcer
 }
 
+// keyMatch2Func is the wildcard path matcher registered with the enforcer;
+// kept as a package-level seam so tests can drive its arity guard directly
+// (casbin's built-in function table silently drops the registration).
+var keyMatch2Func = func(args ...interface{}) (interface{}, error) {
+	if len(args) < 2 {
+		return false, nil
+	}
+	k1, _ := args[0].(string)
+	k2, _ := args[1].(string)
+	return util.KeyMatch2(k1, k2), nil
+}
+
 // NewCasbinPolicy creates a new Casbin-based policy
 func NewCasbinPolicy(modelPath, policyPath string) (*CasbinPolicy, error) {
 	log.Printf("[RBAC] Loading Casbin policy - Model: %s, Policy: %s", modelPath, policyPath)
@@ -28,15 +40,7 @@ func NewCasbinPolicy(modelPath, policyPath string) (*CasbinPolicy, error) {
 	enforcer.EnableLog(true)
 
 	// Add path matching function for wildcard support in model (keyMatch2)
-	keyMatch2 := func(args ...interface{}) (interface{}, error) {
-		if len(args) < 2 {
-			return false, nil
-		}
-		k1, _ := args[0].(string)
-		k2, _ := args[1].(string)
-		return util.KeyMatch2(k1, k2), nil
-	}
-	enforcer.AddFunction("keyMatch2", keyMatch2)
+	enforcer.AddFunction("keyMatch2", keyMatch2Func)
 
 	log.Printf("[RBAC] Casbin enforcer created successfully")
 

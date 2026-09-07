@@ -6,6 +6,14 @@ import (
 	"os"
 )
 
+// 可注入缝隙：生产路径等价于直接调用 newRedisFromEnv / newKafkaFromEnv。
+// 两个构造函数唯一返回形态为 (非 nil Queue, nil)，下方 (err != nil) 与
+// (q == nil) 防御分支仅在注入故障时可触达。
+var (
+	newRedisFromEnvFn = newRedisFromEnv
+	newKafkaFromEnvFn = newKafkaFromEnv
+)
+
 // NewFromEnv builds a Queue based on env configuration.
 //
 // ANALYTICS_MQ_TYPE: redis|kafka|noop. Defaults to redis: the ingest
@@ -22,7 +30,7 @@ func NewFromEnv() (Queue, error) {
 	}
 	switch t {
 	case "redis":
-		q, err := newRedisFromEnv()
+		q, err := newRedisFromEnvFn()
 		if err != nil {
 			return nil, fmt.Errorf("analytics redis mq: %w", err)
 		}
@@ -31,7 +39,7 @@ func NewFromEnv() (Queue, error) {
 		}
 		return q, nil
 	case "kafka":
-		q, err := newKafkaFromEnv()
+		q, err := newKafkaFromEnvFn()
 		if err != nil {
 			return nil, fmt.Errorf("analytics kafka mq: %w", err)
 		}

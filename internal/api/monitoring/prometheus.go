@@ -46,11 +46,15 @@ func (c *platformCollector) Describe(ch chan<- *prometheus.Desc) {
 	ch <- c.funcsReg
 }
 
+// collectDBStatusFn 是 Collect 的 DB 状态来源缝隙（生产实现为
+// checkDatabaseHealth，其 latencyMs 恒为 int64；float64 分支仅在注入时可触达）。
+var collectDBStatusFn = checkDatabaseHealth
+
 func (c *platformCollector) Collect(ch chan<- prometheus.Metric) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	dbStatus := checkDatabaseHealth(ctx, c.svcCtx)
+	dbStatus := collectDBStatusFn(ctx, c.svcCtx)
 	up := 0.0
 	if ok, _ := dbStatus["ok"].(bool); ok {
 		up = 1.0

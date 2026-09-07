@@ -29,7 +29,16 @@ func (s *Service) requireStore() (objstore.Store, error) {
 	return s.svcCtx.ObjectStore, nil
 }
 
-func normalizeStoragePath(raw string) string {
+// joinStoragePath 是 path.Join 的测试缝隙：空参数切片时 Join 返回 ""，
+// normalizeStoragePath 中 clean == "." 的兜底分支真实调用不可达，
+// 仅测试可注入恒返回 "." 的实现验证。
+var joinStoragePath = path.Join
+
+// normalizeStoragePath 是路径归一化函数的测试缝隙（var 形式便于注入）：
+// 默认实现对非空结果恒保留尾部斜杠，ListObjects/DeleteObject/
+// BatchDeleteObjects 中"补回尾部斜杠"的防御分支真实调用不可达，
+// 仅测试可注入去斜杠实现验证。
+var normalizeStoragePath = func(raw string) string {
 	raw = strings.TrimSpace(raw)
 	raw = strings.ReplaceAll(raw, "\\", "/")
 	hadTrailingSlash := strings.HasSuffix(raw, "/")
@@ -43,7 +52,7 @@ func normalizeStoragePath(raw string) string {
 		}
 		cleanParts = append(cleanParts, part)
 	}
-	clean := path.Join(cleanParts...)
+	clean := joinStoragePath(cleanParts...)
 	if clean == "." {
 		clean = ""
 	}

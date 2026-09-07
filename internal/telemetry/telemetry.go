@@ -195,9 +195,14 @@ func (r *MetricsRegistry) Collect(ctx context.Context) ([]Metric, error) {
 	return metrics, nil
 }
 
+// registryCollect 是指标采集的可注入缝隙（生产实现为
+// (*MetricsRegistry).Collect，其恒返回 nil error），错误分支仅能通过
+// 测试注入触达。
+var registryCollect = (*MetricsRegistry).Collect
+
 // ExportPrometheus exports metrics in Prometheus format
 func (r *MetricsRegistry) ExportPrometheus() (string, error) {
-	metrics, err := r.Collect(context.Background())
+	metrics, err := registryCollect(r, context.Background())
 	if err != nil {
 		return "", err
 	}

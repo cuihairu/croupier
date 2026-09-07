@@ -237,7 +237,7 @@ func demonstrateInvokerInterface(ctx context.Context) error {
 		Insecure:       true,
 	}
 
-	invoker := croupier.NewInvoker(invokerConfig)
+	invoker := newInvoker(invokerConfig)
 	defer invoker.Close()
 
 	// 1. 连接
@@ -458,6 +458,17 @@ func demonstrateConfigurationVariations() error {
 
 // ==================== Utility Functions ====================
 
+// 可注入缝隙：默认实现与直接调用完全等价，仅用于测试注入故障。
+var (
+	newClient = func(config *croupier.ClientConfig) croupier.Client {
+		return croupier.NewClient(config)
+	}
+	newInvoker = func(config *croupier.InvokerConfig) croupier.Invoker {
+		return croupier.NewInvoker(config)
+	}
+	demonstrateConfigurationVariationsFn = demonstrateConfigurationVariations
+)
+
 func generateIdempotencyKey() string {
 	return fmt.Sprintf("key_%d_%d", time.Now().Unix(), time.Now().Nanosecond())
 }
@@ -503,7 +514,7 @@ func main() {
 		config.GameID, config.Env, config.ServiceID)
 
 	// 创建客户端
-	client := croupier.NewClient(config)
+	client := newClient(config)
 	defer func() {
 		if err := client.Close(); err != nil {
 			log.Printf("关闭客户端失败: %v", err)
@@ -516,7 +527,7 @@ func main() {
 	// ==== 演示所有客户端接口 ====
 
 	// 1. 配置管理演示
-	if err := demonstrateConfigurationVariations(); err != nil {
+	if err := demonstrateConfigurationVariationsFn(); err != nil {
 		log.Fatalf("配置演示失败: %v", err)
 	}
 

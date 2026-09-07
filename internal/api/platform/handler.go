@@ -1,6 +1,7 @@
 package platform
 
 import (
+	"context"
 	"net/http"
 
 	"github.com/cuihairu/croupier/internal/common/errorx"
@@ -8,8 +9,17 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+// platformServiceAPI 是 Handler 对 Service 的最小接口缝隙：Service 三个方法
+// 把错误经 resp.Code 表达、恒返回 nil error，err != nil 分支仅在测试注入
+// 故障实现时可触达。
+type platformServiceAPI interface {
+	Call(ctx context.Context, req *CallPlatformRequest) (*CallPlatformResponse, error)
+	ListPlatforms(ctx context.Context) (*ListPlatformsResponse, error)
+	ListMethods(ctx context.Context, platform string) (*ListPlatformMethodsResponse, error)
+}
+
 type Handler struct {
-	service *Service
+	service platformServiceAPI
 }
 
 func NewHandler(service *Service) *Handler {

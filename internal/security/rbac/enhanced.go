@@ -257,12 +257,19 @@ func (e *EnhancedEvaluator) containsComparisonOperator(term string) bool {
 	return false
 }
 
+// splitComparisonTerm splits a comparison term around op; it is a package
+// seam letting tests force malformed splits (the real SplitN always yields
+// two parts when the operator is contained).
+var splitComparisonTerm = func(term, op string) []string {
+	return strings.SplitN(term, op, 2)
+}
+
 func (e *EnhancedEvaluator) evaluateComparison(ctx context.Context, authCtx *AuthContext, term string) bool {
 	operators := []string{">=", "<=", "==", "!=", ">", "<"}
 
 	for _, op := range operators {
 		if strings.Contains(term, op) {
-			parts := strings.SplitN(term, op, 2)
+			parts := splitComparisonTerm(term, op)
 			if len(parts) != 2 {
 				continue
 			}

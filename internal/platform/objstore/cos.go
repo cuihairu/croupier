@@ -112,7 +112,7 @@ func (s *cosStore) SignedURL(ctx context.Context, key string, method string, exp
 }
 
 func (s *cosStore) Delete(ctx context.Context, key string) error {
-	key = sanitizeKey(key)
+	key = sanitizeDeleteKeyFn(key)
 
 	// 如果是文件夹（以 / 结尾），需要递归删除所有对象
 	if strings.HasSuffix(key, "/") {

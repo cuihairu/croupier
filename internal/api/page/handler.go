@@ -7,6 +7,14 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+// 测试注入缝隙：默认值与生产行为完全一致，仅用于在测试中注入
+// *PageNotFoundError 以覆盖 handler 的 NotFound 分支
+// （service.Versions/VersionDetail 真实路径不返回该错误类型）。
+var (
+	serviceVersionsFn      = (*Service).Versions
+	serviceVersionDetailFn = (*Service).VersionDetail
+)
+
 // Handler handles Page API requests.
 type Handler struct {
 	service *Service
@@ -210,7 +218,7 @@ func (h *Handler) Versions(c *gin.Context) {
 		return
 	}
 
-	resp, err := h.service.Versions(c.Request.Context(), &req)
+	resp, err := serviceVersionsFn(h.service, c.Request.Context(), &req)
 	if err != nil {
 		var notFound *PageNotFoundError
 		if errors.As(err, &notFound) {
@@ -231,7 +239,7 @@ func (h *Handler) VersionDetail(c *gin.Context) {
 		return
 	}
 
-	resp, err := h.service.VersionDetail(c.Request.Context(), &req)
+	resp, err := serviceVersionDetailFn(h.service, c.Request.Context(), &req)
 	if err != nil {
 		var notFound *PageNotFoundError
 		if errors.As(err, &notFound) {

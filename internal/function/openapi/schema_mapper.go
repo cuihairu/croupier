@@ -291,6 +291,11 @@ func (m *SchemaMapper) ValidateJSONSchema(jsonSchema string) error {
 	return nil
 }
 
+// marshalMergedSchema 是合并结果序列化的可注入缝隙（生产实现为 json.Marshal）。
+// merged 只含解析后的 JSON 值（map/slice/string/float64/bool/nil），序列化
+// 不存在失败输入，错误分支仅能通过测试注入触达。
+var marshalMergedSchema = func(v interface{}) ([]byte, error) { return json.Marshal(v) }
+
 // MergeSchemas merges multiple JSON Schema objects into one.
 func (m *SchemaMapper) MergeSchemas(schemas ...string) (string, error) {
 	if len(schemas) == 0 {
@@ -323,7 +328,7 @@ func (m *SchemaMapper) MergeSchemas(schemas ...string) (string, error) {
 		merged["allOf"] = append(merged["allOf"].([]interface{}), schema)
 	}
 
-	result, err := json.Marshal(merged)
+	result, err := marshalMergedSchema(merged)
 	if err != nil {
 		return "", fmt.Errorf("marshal merged schema failed: %w", err)
 	}

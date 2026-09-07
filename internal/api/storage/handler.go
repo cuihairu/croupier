@@ -11,6 +11,14 @@ type Handler struct {
 	service *Service
 }
 
+// openMultipartFileHeader 是 multipart.FileHeader.Open 的测试缝隙：
+// gin 的 c.FormFile 内部（Request.FormFile）已对同一 FileHeader 先执行
+// 一次 Open，真实请求中 handler 侧第二次 Open 失败不可达（内存态恒成功、
+// 磁盘态需临时文件在两次同步调用间消失），仅测试可注入故障验证。
+var openMultipartFileHeader = func(fh *multipart.FileHeader) (multipart.File, error) {
+	return fh.Open()
+}
+
 func NewHandler(service *Service) *Handler {
 	return &Handler{service: service}
 }
@@ -58,7 +66,7 @@ func (h *Handler) UploadObject(c *gin.Context) {
 	var file multipart.File
 	fileHeader, err := c.FormFile("file")
 	if err == nil && fileHeader != nil {
-		file, err = fileHeader.Open()
+		file, err = openMultipartFileHeader(fileHeader)
 		if err != nil {
 			response.Error(c, err)
 			return

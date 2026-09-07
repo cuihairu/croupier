@@ -13,6 +13,11 @@ import (
 	"github.com/cuihairu/croupier/sdks/go/pkg/croupier"
 )
 
+// 可注入缝隙：默认实现与直接调用完全等价，仅用于测试注入故障。
+var newClient = func(config *croupier.ClientConfig) croupier.Client {
+	return croupier.NewClient(config)
+}
+
 func main() {
 	agentAddr := getenv("CROUPIER_AGENT_ADDR", "127.0.0.1:19091")
 	gameID := getenv("CROUPIER_GAME_ID", "example-game")
@@ -30,7 +35,7 @@ func main() {
 	}
 
 	// Create client
-	client := croupier.NewClient(config)
+	client := newClient(config)
 
 	// Register game functions
 	if err := registerFunctions(client); err != nil {

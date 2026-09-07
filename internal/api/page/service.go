@@ -34,6 +34,17 @@ const (
 	pageVersionMaxLimit     = 100
 )
 
+// 测试注入缝隙：默认值与生产行为完全一致，仅用于在测试中注入故障以
+// 覆盖真实输入下不可达的防御分支（对齐 internal/policy/manager.go 惯例）。
+var (
+	currentUsername             = logicutils.CurrentUsername
+	pageJSONMarshal             = json.Marshal
+	validateSelectorFn          = spec.ValidateSelector
+	validateOutputAssignmentsFn = spec.ValidateOutputAssignments
+	buildPageSpecJSONFn         = buildPageSpecJSON
+	pageSpecFromModelFn         = pageSpecFromModel
+)
+
 type Service struct {
 	svcCtx *svc.ServiceContext
 }
@@ -112,7 +123,7 @@ func (s *Service) SaveDraft(ctx context.Context, req *PageSaveRequest) (*PageSav
 	if err != nil {
 		return nil, err
 	}
-	actor, err := logicutils.CurrentUsername(ctx)
+	actor, err := currentUsername(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -257,7 +268,7 @@ func (s *Service) RegenerateDraft(ctx context.Context, req *PageRegenerateReques
 	if err != nil {
 		return nil, err
 	}
-	actor, err := logicutils.CurrentUsername(ctx)
+	actor, err := currentUsername(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -295,7 +306,7 @@ func (s *Service) RegenerateDraft(ctx context.Context, req *PageRegenerateReques
 	p.BaseProposalKey = replacement.ProposalKey
 	p.BaseProposalVersion = replacement.ProposalVersion
 
-	specJSON, err := buildPageSpecJSON(p)
+	specJSON, err := buildPageSpecJSONFn(p)
 	if err != nil {
 		return nil, err
 	}
@@ -334,7 +345,7 @@ func (s *Service) RegenerateDraft(ctx context.Context, req *PageRegenerateReques
 		"proposal_page_key": replacement.PageKey,
 	})
 
-	pageSpec, err := pageSpecFromModel(p)
+	pageSpec, err := pageSpecFromModelFn(p)
 	if err != nil {
 		return nil, err
 	}
@@ -390,7 +401,7 @@ func (s *Service) Publish(ctx context.Context, req *PagePublishRequest) (*PagePu
 	if err != nil {
 		return nil, err
 	}
-	actor, err := logicutils.CurrentUsername(ctx)
+	actor, err := currentUsername(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -424,11 +435,11 @@ func (s *Service) Publish(ctx context.Context, req *PagePublishRequest) (*PagePu
 	if err != nil {
 		return nil, err
 	}
-	specJSON, err := json.Marshal(pageSpec)
+	specJSON, err := pageJSONMarshal(pageSpec)
 	if err != nil {
 		return nil, err
 	}
-	contractsJSON, err := json.Marshal(contracts)
+	contractsJSON, err := pageJSONMarshal(contracts)
 	if err != nil {
 		return nil, err
 	}
@@ -616,7 +627,7 @@ func (s *Service) Rollback(ctx context.Context, req *PageRollbackRequest) (*Page
 	if err != nil {
 		return nil, err
 	}
-	actor, err := logicutils.CurrentUsername(ctx)
+	actor, err := currentUsername(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -971,7 +982,7 @@ func validatePublishBindingSelectors(field string, binding spec.PageFunctionBind
 		return diags
 	}
 	if binding.Selectors != nil && requiresInputSelectors {
-		result := spec.ValidateSelector(binding.Selectors.Input, fn.InputSchema, spec.SelectorContextForBinding(page, binding))
+		result := validateSelectorFn(binding.Selectors.Input, fn.InputSchema, spec.SelectorContextForBinding(page, binding))
 		for _, item := range result.Errors {
 			fieldPath := field + ".selectors.input"
 			if strings.TrimSpace(item.Field) != "" {
@@ -991,7 +1002,7 @@ func validatePublishBindingSelectors(field string, binding spec.PageFunctionBind
 		diags = append(diags, diagnostic("binding_output_selector_missing", spec.SeverityError, "binding.selectors.output is required before publish", field+".selectors.output"))
 	}
 	if binding.Selectors != nil && len(binding.Selectors.Output) > 0 {
-		outputResult := spec.ValidateOutputAssignments(binding.Selectors.Output, fn.OutputSchema)
+		outputResult := validateOutputAssignmentsFn(binding.Selectors.Output, fn.OutputSchema)
 		for _, item := range outputResult.Errors {
 			fieldPath := field + ".selectors.output"
 			if strings.TrimSpace(item.Field) != "" {

@@ -53,9 +53,13 @@ var demoConstants = []demoConstantSpec{
 	},
 }
 
+// demoJSONMarshal 是 json.Marshal 的可注入缝隙（默认与生产行为一致，
+// 测试中替换以覆盖静态 schema / tree 序列化失败分支）。
+var demoJSONMarshal = json.Marshal
+
 // buildDemoConstantTemplate 由常量定义构造组件模板记录。
 func buildDemoConstantTemplate(spec demoConstantSpec) (*model.ComponentTemplate, error) {
-	staticSchema, err := json.Marshal(map[string]interface{}{
+	staticSchema, err := demoJSONMarshal(map[string]interface{}{
 		"type": "object",
 		"properties": map[string]interface{}{
 			spec.field: map[string]interface{}{
@@ -69,7 +73,7 @@ func buildDemoConstantTemplate(spec demoConstantSpec) (*model.ComponentTemplate,
 	if err != nil {
 		return nil, fmt.Errorf("marshal staticSchema: %w", err)
 	}
-	tree, err := json.Marshal([]map[string]interface{}{{
+	tree, err := demoJSONMarshal([]map[string]interface{}{{
 		"id":   "staticForm-demo-" + spec.key[len("consts--demo-"):],
 		"type": "staticForm",
 		"props": map[string]interface{}{

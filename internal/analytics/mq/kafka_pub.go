@@ -11,9 +11,16 @@ import (
 	kafka "github.com/segmentio/kafka-go"
 )
 
+// kafkaWriter 是 kafkaQueue 对 kafka.Writer 的最小依赖接口缝隙，
+// 便于测试注入 Close / WriteMessages 故障。
+type kafkaWriter interface {
+	WriteMessages(ctx context.Context, msgs ...kafka.Message) error
+	Close() error
+}
+
 type kafkaQueue struct {
-	wEvents   *kafka.Writer
-	wPayments *kafka.Writer
+	wEvents   kafkaWriter
+	wPayments kafkaWriter
 }
 
 func NewKafka(brokers []string, topicEvents, topicPayments string) Queue {
@@ -59,7 +66,7 @@ func (q *kafkaQueue) Close() error {
 	return err
 }
 
-func (q *kafkaQueue) write(w *kafka.Writer, m map[string]any) error {
+func (q *kafkaQueue) write(w kafkaWriter, m map[string]any) error {
 	if w == nil {
 		return nil
 	}

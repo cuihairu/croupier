@@ -22,6 +22,11 @@ type Claims struct {
 
 const tokenTTL = 24 * time.Hour
 
+// parseWithClaims 是 JWT 解析的可注入缝隙（生产实现为 jwt.ParseWithClaims）。
+// golang-jwt/v4 在校验通过（err == nil）时恒置 token.Valid = true，
+// Parse 中 "!parsed.Valid 且 err == nil" 分支仅能通过测试注入触达。
+var parseWithClaims = jwt.ParseWithClaims
+
 // Sign issues a JWT for the provided user/roles using the shared secret.
 // tokenVersion 应取签发时刻 admins.token_version 的当前值。
 func Sign(secret string, username string, roles []string, adminID uint, tokenVersion int, issuedAt time.Time) (string, error) {
@@ -53,7 +58,7 @@ func Parse(tokenStr, secret string) (*Claims, error) {
 	}
 
 	claims := &Claims{}
-	parsed, err := jwt.ParseWithClaims(tokenStr, claims, func(token *jwt.Token) (interface{}, error) {
+	parsed, err := parseWithClaims(tokenStr, claims, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, fmt.Errorf("unexpected signing method: %T", token.Method)
 		}

@@ -11,11 +11,15 @@ import (
 	"time"
 )
 
+// randRead 是 crypto/rand.Read 的可注入缝隙（默认与生产行为一致，
+// 测试中替换以覆盖熵源读取失败分支）。
+var randRead = rand.Read
+
 // GenerateSecret generates a random 160-bit TOTP secret, base32-encoded
 // without padding (the form authenticator apps expect).
 func GenerateSecret() (string, error) {
 	buf := make([]byte, 20)
-	if _, err := rand.Read(buf); err != nil {
+	if _, err := randRead(buf); err != nil {
 		return "", err
 	}
 	return base32.StdEncoding.WithPadding(base32.NoPadding).EncodeToString(buf), nil

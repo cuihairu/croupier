@@ -16,6 +16,14 @@ import (
 	"github.com/cuihairu/croupier/sdks/go/pkg/croupier"
 )
 
+// 可注入缝隙：默认实现与直接调用完全等价，仅用于测试注入故障。
+var (
+	newInvoker = func(cfg *croupier.InvokerConfig) croupier.Invoker {
+		return croupier.NewInvoker(cfg)
+	}
+	jsonMarshal = json.Marshal
+)
+
 func main() {
 	fmt.Println("=== Croupier Go SDK - HTTP Invoker Example ===")
 
@@ -36,7 +44,7 @@ func main() {
 // base URL: connect, optional schema validation, and one idempotent invoke.
 func runScenario(cfg *croupier.InvokerConfig) error {
 	// NewInvoker 是公共 L3 入口。
-	invoker := croupier.NewInvoker(cfg)
+	invoker := newInvoker(cfg)
 	defer invoker.Close()
 
 	ctx := context.Background()
@@ -64,7 +72,7 @@ func runScenario(cfg *croupier.InvokerConfig) error {
 		"reason":   "违规操作",
 		"duration": 3600,
 	}
-	payloadJSON, err := json.Marshal(payload)
+	payloadJSON, err := jsonMarshal(payload)
 	if err != nil {
 		return fmt.Errorf("marshal payload: %w", err)
 	}

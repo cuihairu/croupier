@@ -16,6 +16,16 @@ import (
 	"github.com/cuihairu/croupier/internal/model"
 )
 
+// buildSingleFunctionTemplateFn 是 buildSingleFunctionTemplate 的可注入缝隙
+// （默认与生产行为一致，测试中替换以覆盖 tpl==nil 防御分支）。
+var buildSingleFunctionTemplateFn = buildSingleFunctionTemplate
+
+// generateSingleFunctionTemplates 是 Handler.GenerateSingleFunctionTemplates 的
+// 可注入缝隙（默认与生产行为一致，测试中替换以覆盖错误传播分支）。
+var generateSingleFunctionTemplates = func(h *Handler, ctx context.Context, contracts []*model.FunctionContract) error {
+	return h.GenerateSingleFunctionTemplates(ctx, contracts)
+}
+
 // GenerateSingleFunctionTemplates 为一批函数契约生成默认组件模板。
 // 每个函数一个组件：list→表格、get→字段卡、其他→表单。
 // 已存在的 builtin 同 key 模板会被更新（幂等）。
@@ -24,7 +34,7 @@ func (h *Handler) GenerateSingleFunctionTemplates(ctx context.Context, contracts
 		if c == nil || strings.TrimSpace(c.FunctionID) == "" {
 			continue
 		}
-		tpl := buildSingleFunctionTemplate(c)
+		tpl := buildSingleFunctionTemplateFn(c)
 		if tpl == nil {
 			continue
 		}
@@ -218,7 +228,7 @@ func buildQueryTemplate(c *model.FunctionContract) *model.ComponentTemplate {
 // RegenerateFromContracts 扫描全部契约，生成单函数模板 + CRUD 组合模板。
 func (h *Handler) RegenerateFromContracts(ctx context.Context, contracts []*model.FunctionContract) error {
 	// 1. 单函数模板
-	if err := h.GenerateSingleFunctionTemplates(ctx, contracts); err != nil {
+	if err := generateSingleFunctionTemplates(h, ctx, contracts); err != nil {
 		return fmt.Errorf("single function templates: %w", err)
 	}
 
