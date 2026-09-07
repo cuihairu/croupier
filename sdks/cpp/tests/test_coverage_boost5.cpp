@@ -43,6 +43,7 @@ using raw_socket_t = SOCKET;
 #else
 #include <arpa/inet.h>
 #include <dirent.h>
+#include <fcntl.h>
 #include <netinet/in.h>
 #include <signal.h>
 #include <sys/resource.h>
@@ -525,12 +526,22 @@ TEST(CroupierClientBoost5Test, DrainDuringDisconnectionSkipsReregistration) {
     agent.RstConnection();
     agent.CloseListener();
 
-    std::this_thread::sleep_for(std::chrono::milliseconds(2500));
+    // Disconnectedness is driven by the heartbeat Call's synchronous
+    // response timeout (timeout_seconds=2s): on slow runners it lands later
+    // than a fixed sleep, so poll with a generous deadline instead.
+    auto wait_until_disconnected = [&client](int timeout_s) {
+        const auto deadline =
+            std::chrono::steady_clock::now() + std::chrono::seconds(timeout_s);
+        while (client.IsConnected() && std::chrono::steady_clock::now() < deadline) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(50));
+        }
+    };
+    wait_until_disconnected(10);
     EXPECT_FALSE(client.IsConnected());
 
     // Releasing the handler lets DrainAndRecover finish while disconnected.
     release_handler.store(true);
-    std::this_thread::sleep_for(std::chrono::milliseconds(800));
+    wait_until_disconnected(5);
 
     responder_run.store(false);
     client.Stop();
@@ -597,14 +608,20 @@ TEST(CroupierClientBoost5Test, DrainTimeoutLogsWhenStoppedWithInflightCalls) {
 }
 
 // ---------------------------------------------------------------------------
-// 9) Config loader: structurally valid JSON that explodes during typed
-//    parsing must surface as "Failed to parse client configuration JSON".
+// 9) Config loader: structurally valid JSON whose typed parse hits a
+//    non-object value. Since nlohmann 3.12, items() on a non-object no
+//    longer throws type_error.316 (it yields a single empty-key item), so
+//    {"auth":{"headers":123}} loads successfully with the numeric headers
+//    value silently skipped instead of surfacing as a parse failure.
 // ---------------------------------------------------------------------------
 
-TEST(ConfigLoaderBoost5Test, TypedParseFailureWrapsException) {
+TEST(ConfigLoaderBoost5Test, TypedParseOfNonObjectHeadersIsIgnored) {
     config::ClientConfigLoader loader;
-    // {"auth":{"headers":123}} is valid JSON, but iterating a number throws.
-    EXPECT_THROW(loader.LoadFromJson(R"({"auth":{"headers":123}})"), std::runtime_error);
+    ClientConfig config = loader.LoadFromJson(R"({"auth":{"headers":123}})");
+    EXPECT_TRUE(config.headers.empty());
+    // LoadFromJson back-fills an empty service_id with the default.
+    EXPECT_EQ(config.service_id, "cpp-service");
+    EXPECT_EQ(config.game_id, "default-game");
 }
 
 // ---------------------------------------------------------------------------
@@ -727,12 +744,33 @@ TEST(FileUtilsBoost5Test, GetCurrentDirectoryEmptyAfterCwdDeleted) {
 TEST(FdExhaustionBoost5Test, SocketCreationFailsWhenFdTableFull) {
     struct rlimit old_limit {};
     ASSERT_EQ(::getrlimit(RLIMIT_NOFILE, &old_limit), 0);
-    const int highest = HighestOpenFd();
 
+    // Tighten the soft limit to "currently open fds + 8", then fill every
+    // remaining slot with /dev/null handles until EMFILE. Lowering the limit
+    // to highest_fd+1 alone does NOT exhaust the table: holes below the
+    // highest fd remain allocatable (the root cause of the CI failure).
+    int open_count = 0;
+    DIR* d = ::opendir("/proc/self/fd");
+    ASSERT_NE(d, nullptr);
+    while (struct dirent* e = ::readdir(d)) {
+        if (e->d_name[0] >= '0' && e->d_name[0] <= '9') ++open_count;
+    }
+    ::closedir(d);
+
+    rlim_t budget = static_cast<rlim_t>(open_count) + 8;
+    if (budget > old_limit.rlim_max) budget = old_limit.rlim_max;
     struct rlimit tight {};
-    tight.rlim_cur = static_cast<rlim_t>(highest + 1);  // no fd left to allocate
+    tight.rlim_cur = budget;
     tight.rlim_max = old_limit.rlim_max;
     ASSERT_EQ(::setrlimit(RLIMIT_NOFILE, &tight), 0);
+
+    std::vector<int> filler;
+    for (;;) {
+        int fd = ::open("/dev/null", O_RDONLY);
+        if (fd < 0) break;  // EMFILE: the fd table is now truly full.
+        filler.push_back(fd);
+    }
+    ASSERT_GE(filler.size(), 1u);
 
     {
         TCPTransport transport("127.0.0.1", 19099, 1000);
@@ -743,6 +781,7 @@ TEST(FdExhaustionBoost5Test, SocketCreationFailsWhenFdTableFull) {
         EXPECT_THROW(server.Start(), std::runtime_error);
     }
 
+    for (int fd : filler) ::close(fd);
     ASSERT_EQ(::setrlimit(RLIMIT_NOFILE, &old_limit), 0);
 }
 

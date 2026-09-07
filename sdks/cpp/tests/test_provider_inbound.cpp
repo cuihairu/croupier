@@ -370,9 +370,14 @@ TEST(ProviderInboundTest, AgentDrainAcksRejectsInvokeAndRecovers) {
 
     EXPECT_FALSE(client.IsDraining());
 
-    // 在途调用先行：handler 睡 120ms，drain 必须等它完成
+    // 在途调用先行：handler 睡 120ms，drain 必须等它完成。
+    // 固定 30ms 不保证 handler 已进入（慢机上 drain 先于在途登记到达会让
+    // 恢复抢先完成、拒绝断言失效）——改为轮询确认在途已真正执行。
     agent.PushRequest(protocol::MSG_INVOKE_REQUEST, 9101, InvokeBody("test.echo", "inflight"));
-    std::this_thread::sleep_for(std::chrono::milliseconds(30));
+    for (int i = 0; i < 200 && calls.load() == 0; ++i) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    }
+    ASSERT_EQ(calls.load(), 1);
 
     // 推 drain 请求（req_id 9102）
     agent.PushRequest(protocol::MSG_PROVIDER_DRAIN_REQUEST, 9102, {});

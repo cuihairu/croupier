@@ -215,10 +215,16 @@ public sealed class CoverageBoost5TransportTests
 
         using var transport = new TCPTransport($"127.0.0.1:{port}", timeoutMs: 5000, connectTimeoutMs: 3000);
         transport.SetInboundRequestHandler((msgId, reqId, body) => Task.FromResult<byte[]>(body));
+
+        // 先占满限流器全部配额，使入站派发的 WaitAsync 必然排队等待而非立即放行。
+        // 否则快机上 handler 可能在 Dispose 之前完成并回写响应帧（历史 flaky 根因）。
+        var limiter = (SemaphoreSlim)GetField(transport, "_inboundLimiter");
+        while (limiter.Wait(0)) { }
+
         transport.Connect();
         // 释放限流器（不 cancel 令牌）：排队 lambda 的 WaitAsync 抛 ObjectDisposedException，
         // 走 DispatchInbound 的 catch (Exception) 分支。
-        ((SemaphoreSlim)GetField(transport, "_inboundLimiter")).Dispose();
+        limiter.Dispose();
 
         var noResponse = await serverTask.WaitAsync(TimeSpan.FromSeconds(5));
         noResponse.Should().BeTrue();
