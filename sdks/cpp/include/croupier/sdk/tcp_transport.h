@@ -189,7 +189,11 @@ private:
     std::atomic<bool> closing_;
     bool close_called_ = false;  // Close() 幂等：显式 Close + 析构 Close 双跑防护
     std::atomic<uint32_t> next_req_id_;
-    std::unordered_map<uint32_t, std::unique_ptr<ResponseLatch>> pending_responses_;
+    // shared_ptr 而非 unique_ptr：Call() 在锁外等待期间持有 latch 引用，
+    // Close() move 走整个 map 并 signal 后立即析构局部副本时，等待方
+    // 的引用仍保持 latch 存活——否则等待方会在已释放的 mutex/cv 上
+    // Wait()（use-after-free：表现为无限 futex 等待或堆元数据损坏）。
+    std::unordered_map<uint32_t, std::shared_ptr<ResponseLatch>> pending_responses_;
     std::mutex pending_mutex_;
     std::thread read_thread_;
     InboundHandler inbound_handler_;

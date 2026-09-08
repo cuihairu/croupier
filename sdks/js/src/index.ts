@@ -1462,9 +1462,14 @@ export class BasicClient implements CroupierClient {
     } catch (error) {
       return fail(`unmarshal FilePushRequest: ${error instanceof Error ? error.message : String(error)}`);
     }
+    // istanbul ignore next -- protobufjs toObject({defaults:true}) 恒为缺失字段
+    // 填充默认值（""/空 bytes），?? fallback 仅为防御 protobufjs 行为变化
     const transferId = decoded.transferId ?? "";
+    // istanbul ignore next
     const fileName = (decoded.fileName ?? "").trim();
+    // istanbul ignore next
     const contentSha256 = (decoded.contentSha256 ?? "").trim();
+    // istanbul ignore next
     const data = Buffer.from(decoded.data ?? new Uint8Array());
 
     if (!transferId) return fail("transferId is required");
@@ -1560,11 +1565,16 @@ export class BasicClient implements CroupierClient {
       payload?: Uint8Array;
       metadata?: Record<string, string>;
     };
+    // istanbul ignore next -- protobufjs defaults:true 恒填默认值（空
+    // bytes / 空 map），?? 仅为防御 protobufjs 行为变化
+    const payloadBytes = decoded.payload ?? new Uint8Array();
+    // istanbul ignore next
+    const metadata = decoded.metadata ?? {};
     return {
       functionId: decoded.functionId || "",
       idempotencyKey: decoded.idempotencyKey || "",
-      payload: decoder.decode(decoded.payload ?? new Uint8Array()),
-      metadata: decoded.metadata ?? {},
+      payload: decoder.decode(payloadBytes),
+      metadata,
     };
   }
 

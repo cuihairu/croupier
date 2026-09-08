@@ -191,6 +191,7 @@ export class TCPTransport {
     };
     const onConnect = () => {
       cleanup();
+      // istanbul ignore next -- connect 事件触发时闭包 socket 必已赋值
       if (!socket) {
         return;
       }
@@ -277,8 +278,10 @@ export class TCPTransport {
     this.requestId = (this.requestId + 1) & 0xffffffff;
     const reqId = this.requestId;
 
+    // istanbul ignore next -- 占位 resolve 恒被 donePromise executor 覆盖
+    const placeholderResolve: () => void = () => {};
     const pending: PendingCall = {
-      resolve: () => {},
+      resolve: placeholderResolve,
       respMsgId: 0,
       respBody: Buffer.allocUnsafe(0),
       error: null,

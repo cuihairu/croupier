@@ -300,13 +300,15 @@ void TCPTransport::Close() {
 
     // First, signal all pending responses to wake up any waiting threads
     // This must happen BEFORE clearing the map and closing the socket
-    std::unordered_map<uint32_t, std::unique_ptr<ResponseLatch>> responses_to_signal;
+    std::unordered_map<uint32_t, std::shared_ptr<ResponseLatch>> responses_to_signal;
     {
         std::lock_guard<std::mutex> lock(pending_mutex_);
         responses_to_signal = std::move(pending_responses_);
     }
 
-    // Signal all waiting responses outside the lock to avoid deadlock
+    // Signal all waiting responses outside the lock to avoid deadlock.
+    // shared_ptr：Call() 持有 latch 引用期间（锁外 Wait），此处局部
+    // map 析构不会释放仍被等待的 latch（修复 Close/Call 竞争的 UAF）。
     for (auto& [req_id, latch] : responses_to_signal) {
         if (latch) {
             latch->Signal({}, 0);  // Empty response signals closure
@@ -369,7 +371,7 @@ std::pair<uint32_t, std::vector<uint8_t>> TCPTransport::Call(
     }
 
     uint32_t req_id = next_req_id_++;
-    auto latch = std::make_unique<ResponseLatch>();
+    auto latch = std::make_shared<ResponseLatch>();
 
     {
         std::lock_guard<std::mutex> lock(pending_mutex_);
@@ -421,13 +423,15 @@ std::pair<uint32_t, std::vector<uint8_t>> TCPTransport::Call(
         throw std::runtime_error("Failed to send complete frame");
     }
 
-    // Get pointer to latch (keep it in pending_responses_ so Close() can find it)
-    ResponseLatch* latch_ptr = nullptr;
+    // Hold a shared_ptr copy (keep it in pending_responses_ so Close() can
+    // find it): the shared ownership keeps the latch alive even after Close()
+    // moves the whole map out and drops its references.
+    std::shared_ptr<ResponseLatch> latch_ptr;
     {
         std::lock_guard<std::mutex> lock(pending_mutex_);
         auto it = pending_responses_.find(req_id);
         if (it != pending_responses_.end()) {
-            latch_ptr = it->second.get();
+            latch_ptr = it->second;
         }
     }
 

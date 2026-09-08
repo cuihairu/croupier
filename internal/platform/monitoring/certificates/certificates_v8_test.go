@@ -91,6 +91,9 @@ func v8InitCA() {
 		v8CA.setUpErr = err
 		return
 	}
+	// v9：追加 RSA 签名 CA（expired 分支覆盖用）。系统根池按进程仅加载一次，
+	// 必须在首次 TLS 验证发生前进根池文件，故挂接在 TestMain 的 CA 初始化处。
+	certXAppendRSACA(caFile)
 }
 
 func v8RequireCA(t *testing.T) {

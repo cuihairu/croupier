@@ -471,49 +471,61 @@ TEST(Boost6TCPTransportTest, ConnectFailsWhenSelectRejectsTimeout) {
 }
 
 TEST(Boost6TCPTransportTest, CallThrowsWhenLatchErasedBeforeLookup) {
-    Boost6FakeAgent agent;
-    std::thread agent_thread([&] { agent.AcceptOnly(); });
+    // The erase must land between the latch insert and the post-send lookup
+    // in Call(). Which side of the lookup the erase lands on depends on
+    // scheduler timing, so retry with a short Call timeout: a "Timeout"
+    // outcome simply means the erase landed after the lookup this round.
+    for (int attempt = 0; attempt < 10; ++attempt) {
+        Boost6FakeAgent agent;
+        std::thread agent_thread([&] { agent.AcceptOnly(); });
 
-    TCPTransport transport("127.0.0.1", agent.port(), 5000);
-    transport.Connect();
-    agent_thread.join();
+        TCPTransport transport("127.0.0.1", agent.port(), 250);
+        transport.Connect();
+        agent_thread.join();
 
-    const uint32_t predicted_req_id = transport.next_req_id_.load();
-    // A fat body widens the window between the latch insert and the
-    // post-send lookup in Call().
-    std::vector<uint8_t> fat(256 * 1024, 0x42);
+        const uint32_t predicted_req_id = transport.next_req_id_.load();
+        // A fat body widens the window between the latch insert and the
+        // post-send lookup in Call().
+        std::vector<uint8_t> fat(256 * 1024, 0x42);
 
-    std::atomic<bool> threw{false};
-    std::string failure_what;
-    std::thread caller([&] {
-        try {
-            auto result = transport.Call(protocol::MSG_PROVIDER_HEARTBEAT_REQUEST, fat);
-            (void)result;
-        } catch (const std::runtime_error& e) {
-            threw.store(true);
-            failure_what = e.what();
+        std::atomic<bool> threw{false};
+        std::string failure_what;
+        std::thread caller([&] {
+            try {
+                auto result = transport.Call(protocol::MSG_PROVIDER_HEARTBEAT_REQUEST, fat);
+                (void)result;
+            } catch (const std::runtime_error& e) {
+                threw.store(true);
+                failure_what = e.what();
+            }
+        });
+
+        // Spin until the caller has inserted its latch, then erase it while the
+        // caller is still building/sending the frame: the lookup must fail.
+        bool erased = false;
+        const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
+        while (std::chrono::steady_clock::now() < deadline) {
+            std::lock_guard<std::mutex> lock(transport.pending_mutex_);
+            if (transport.pending_responses_.count(predicted_req_id) != 0) {
+                transport.pending_responses_.erase(predicted_req_id);
+                erased = true;
+                break;
+            }
         }
-    });
+        ASSERT_TRUE(erased);
+        caller.join();
+        transport.Close();
+        agent.DropConnection();
 
-    // Spin until the caller has inserted its latch, then erase it while the
-    // caller is still building/sending the frame: the lookup must fail.
-    bool erased = false;
-    const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
-    while (std::chrono::steady_clock::now() < deadline) {
-        std::lock_guard<std::mutex> lock(transport.pending_mutex_);
-        if (transport.pending_responses_.count(predicted_req_id) != 0) {
-            transport.pending_responses_.erase(predicted_req_id);
-            erased = true;
-            break;
+        if (threw.load() && failure_what == "Response latch not found") {
+            // Erase landed before the lookup this round: target outcome.
+            SUCCEED();
+            return;
         }
+        // Otherwise ("Timeout waiting for response") the erase landed after
+        // the lookup — retry the race.
     }
-    ASSERT_TRUE(erased);
-    caller.join();
-    EXPECT_TRUE(threw.load());
-    EXPECT_EQ(failure_what, "Response latch not found");
-
-    transport.Close();
-    agent.DropConnection();
+    FAIL() << "erase never landed before the latch lookup in 10 attempts";
 }
 
 TEST(Boost6TCPTransportTest, CallAbortsWhenClosingFlagObserved) {

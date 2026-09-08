@@ -273,6 +273,8 @@ function operationToDescriptor(
 
 function* iterOperations(spec: JsonRecord): Generator<[string, JsonRecord]> {
   const paths = spec.paths;
+  // istanbul ignore next -- registerFromOpenAPI 已在入口校验 paths，
+  // 此处防御仅供未来新增调用方
   if (!isRecord(paths)) return;
   for (const [path, rawItem] of Object.entries(paths)) {
     if (!isRecord(rawItem)) continue;

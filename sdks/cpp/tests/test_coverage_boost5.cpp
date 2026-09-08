@@ -309,6 +309,14 @@ TEST(TCPTransportBoost5Test, InboundHandlerExceptionAnswersEmptyResponse) {
 // ---------------------------------------------------------------------------
 
 TEST(TCPTransportBoost5Test, ConcurrentCloseRacesPendingCall) {
+    // Watchdog：本测试历史上因 Close()/Call() 对 pending latch 的
+    // use-after-free 出现无限 futex 等待/堆损坏（根因已在
+    // TCPTransport::Close 修复：latch 改 shared_ptr 所有权）。防御
+    // 回归：120s 未跑完即 SIGALRM 终止，避免 CI 挂到 job 超时。
+#ifndef _WIN32
+    ::signal(SIGALRM, SIG_DFL);
+    ::alarm(120);
+#endif
     unsigned seed = static_cast<unsigned>(
         std::chrono::steady_clock::now().time_since_epoch().count() & 0xFFFF);
     for (int i = 0; i < 120; ++i) {
@@ -338,6 +346,9 @@ TEST(TCPTransportBoost5Test, ConcurrentCloseRacesPendingCall) {
         EXPECT_TRUE(done.load());
         agent.DropConnection();
     }
+#ifndef _WIN32
+    ::alarm(0);  // 解除 watchdog
+#endif
 }
 
 // ---------------------------------------------------------------------------
