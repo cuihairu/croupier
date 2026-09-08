@@ -715,6 +715,7 @@ if(BUILD_TESTS)
             tests/test_sigpipe_guard.cpp
             tests/test_coverage_boost5.cpp
             tests/test_coverage_boost6.cpp
+            tests/test_coverage_boost7.cpp
         )
 
         # Real shared-object plugins used by the dynamic loader tests.
