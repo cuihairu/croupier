@@ -52,6 +52,10 @@ func TestWriteFileAtomicChmodError(t *testing.T) {
 	hit := false
 	deadline := time.Now().Add(15 * time.Second)
 	for !hit && time.Now().Before(deadline) {
+		// A round where the unlinker loses the race completes the full
+		// write+rename and leaves the final file behind; clear it so the
+		// end-of-test invariant only reflects the last (failed) attempt.
+		_ = os.Remove(filepath.Join(dir, base))
 		err := WriteFileAtomic(filepath.Join(dir, base), payload, 0o644)
 		var pathErr *os.PathError
 		if errors.As(err, &pathErr) && pathErr.Op == "chmod" {
