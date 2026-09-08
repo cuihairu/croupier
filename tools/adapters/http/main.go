@@ -209,6 +209,12 @@ func (s *server) Invoke(ctx context.Context, req *sdkv1.InvokeRequest) (*sdkv1.I
 }
 
 func main() {
+	if err := run(context.Background()); err != nil {
+		log.Fatalf("%v", err)
+	}
+}
+
+func run(ctx context.Context) error {
 	agent := os.Getenv("AGENT_ADDR")
 	if agent == "" {
 		agent = "127.0.0.1:19090" // TCP port
@@ -237,7 +243,7 @@ func main() {
 		SendTimeout: 10 * time.Second,
 	})
 	if err != nil {
-		log.Fatalf("Failed to create TCP client: %v", err)
+		return fmt.Errorf("Failed to create TCP client: %v", err)
 	}
 	defer tcpClient.Close()
 
@@ -383,34 +389,42 @@ func main() {
 	}
 	regData, err := proto.Marshal(regReq)
 	if err != nil {
-		log.Fatalf("Failed to marshal ProviderConnectRequest: %v", err)
+		return fmt.Errorf("Failed to marshal ProviderConnectRequest: %v", err)
 	}
 
-	ctx := context.Background()
 	_, respData, err := tcpClient.Call(ctx, protocol.MsgProviderConnectRequest, regData)
 	if err != nil {
-		log.Fatalf("Failed to register with agent: %v", err)
+		return fmt.Errorf("Failed to register with agent: %v", err)
 	}
 	regResp := &sdkv1.ProviderConnectResponse{}
 	if err := proto.Unmarshal(respData, regResp); err != nil {
-		log.Fatalf("Failed to parse ProviderConnectResponse: %v", err)
+		return fmt.Errorf("Failed to parse ProviderConnectResponse: %v", err)
 	}
 	log.Printf("Registered with agent as service %s", serviceID)
 
 	// keep heartbeating
-	ticker := time.NewTicker(30 * time.Second)
+	return keepAlive(ctx, tcpClient, serviceID, regResp.GetSessionId(), 30*time.Second)
+}
+
+func keepAlive(ctx context.Context, tcpClient *tcptr.Client, serviceID, sessionID string, interval time.Duration) error {
+	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 
 	hbReq := &sdkv1.ProviderHeartbeatRequest{
 		ServiceId: serviceID,
-		SessionId: regResp.GetSessionId(),
+		SessionId: sessionID,
 	}
-	for range ticker.C {
-		hbData, marshalErr := proto.Marshal(hbReq)
-		if marshalErr != nil {
-			log.Printf("Failed to marshal ProviderHeartbeatRequest: %v", marshalErr)
-			continue
+	for {
+		select {
+		case <-ctx.Done():
+			return nil
+		case <-ticker.C:
+			hbData, marshalErr := proto.Marshal(hbReq)
+			if marshalErr != nil {
+				log.Printf("Failed to marshal ProviderHeartbeatRequest: %v", marshalErr)
+				continue
+			}
+			_, _, _ = tcpClient.Call(ctx, protocol.MsgProviderHeartbeatRequest, hbData)
 		}
-		_, _, _ = tcpClient.Call(ctx, protocol.MsgProviderHeartbeatRequest, hbData)
 	}
 }
