@@ -351,3 +351,149 @@ func TestExtractApprovalExtension(t *testing.T) {
 		})
 	}
 }
+
+// ---------------------------------------------------------------------------
+// Additional coverage tests for openAPIToMetadata branches
+// ---------------------------------------------------------------------------
+
+func TestOpenAPIToMetadata_ContinueOnError(t *testing.T) {
+	// Test ContinueOnError option
+	spec := []byte(`{
+		"openapi": "3.0.3",
+		"info": {"title": "Test", "version": "1.0.0"},
+		"paths": {
+			"/test": {
+				"get": {
+					"operationId": "test.op",
+					"responses": {"200": {"description": "ok"}}
+				}
+			}
+		}
+	}`)
+	client := newMockClient()
+	registry := NewRegistryWithLogger(client, &NoOpLogger{})
+
+	// Handler returns nil for unknown function - should continue with ContinueOnError
+	options := &ImportOptions{ContinueOnError: true}
+	handlerFunc := func(operationID string) Handler {
+		return nil // return nil to trigger the continue path
+	}
+	err := registry.RegisterFromOpenAPI(spec, options, handlerFunc)
+	if err != nil {
+		t.Fatalf("RegisterFromOpenAPI with ContinueOnError should not fail: %v", err)
+	}
+}
+
+func TestOpenAPIToMetadata_HandlerNotFoundError(t *testing.T) {
+	// Test handler not found without ContinueOnError
+	spec := []byte(`{
+		"openapi": "3.0.3",
+		"info": {"title": "Test", "version": "1.0.0"},
+		"paths": {
+			"/test": {
+				"get": {
+					"operationId": "test.op",
+					"responses": {"200": {"description": "ok"}}
+				}
+			}
+		}
+	}`)
+	client := newMockClient()
+	registry := NewRegistryWithLogger(client, &NoOpLogger{})
+
+	handlerFunc := func(operationID string) Handler {
+		return nil // no handler
+	}
+	options := &ImportOptions{ContinueOnError: false}
+	err := registry.RegisterFromOpenAPI(spec, options, handlerFunc)
+	if err == nil {
+		t.Fatal("expected error when handler not found")
+	}
+}
+
+func TestRegisterFromOpenAPI_InvalidSpec(t *testing.T) {
+	// Test with invalid OpenAPI spec
+	client := newMockClient()
+	registry := NewRegistryWithLogger(client, &NoOpLogger{})
+	handlerFunc := func(operationID string) Handler {
+		return func(ctx context.Context, input []byte) ([]byte, error) {
+			return []byte(`{}`), nil
+		}
+	}
+	err := registry.RegisterFromOpenAPI([]byte("invalid"), nil, handlerFunc)
+	if err == nil {
+		t.Fatal("expected error for invalid spec")
+	}
+}
+
+func TestRegisterFromOpenAPI_InvalidSpec_ContinueOnError(t *testing.T) {
+	// Test with invalid OpenAPI spec and ContinueOnError
+	client := newMockClient()
+	registry := NewRegistryWithLogger(client, &NoOpLogger{})
+	options := &ImportOptions{ContinueOnError: true}
+	handlerFunc := func(operationID string) Handler {
+		return nil
+	}
+	err := registry.RegisterFromOpenAPI([]byte("invalid"), options, handlerFunc)
+	if err == nil {
+		t.Fatal("expected error for invalid spec even with ContinueOnError")
+	}
+}
+
+func TestRegisterFromOpenAPI_ValidationFails(t *testing.T) {
+	// Test with spec that fails validation
+	spec := []byte(`{
+		"openapi": "3.0.3",
+		"info": {"title": "Test", "version": "1.0.0"}
+	}`)
+	client := newMockClient()
+	registry := NewRegistryWithLogger(client, &NoOpLogger{})
+	handlerFunc := func(operationID string) Handler {
+		return func(ctx context.Context, input []byte) ([]byte, error) {
+			return []byte(`{}`), nil
+		}
+	}
+	// This should fail validation (missing paths)
+	err := registry.RegisterFromOpenAPI(spec, nil, handlerFunc)
+	if err == nil {
+		t.Fatal("expected error for spec without paths")
+	}
+}
+
+func TestRegisterFromOpenAPI_RegistraionFailed_ContinueOnError(t *testing.T) {
+	// Test when Register fails with ContinueOnError - handler returns nil
+	spec := []byte(`{
+		"openapi": "3.0.3",
+		"info": {"title": "Test", "version": "1.0.0"},
+		"paths": {
+			"/test": {
+				"get": {
+					"operationId": "test.op",
+					"responses": {"200": {"description": "ok"}}
+				}
+			}
+		}
+	}`)
+	client := newMockClient()
+	registry := NewRegistryWithLogger(client, &NoOpLogger{})
+
+	// Handler returns nil - should continue with ContinueOnError
+	options := &ImportOptions{ContinueOnError: true}
+	handlerFunc := func(operationID string) Handler {
+		return nil
+	}
+	err := registry.RegisterFromOpenAPI(spec, options, handlerFunc)
+	if err != nil {
+		t.Fatalf("RegisterFromOpenAPI with ContinueOnError should not fail: %v", err)
+	}
+}
+
+// Helper function
+func containsString(s, substr string) bool {
+	for i := 0; i <= len(s)-len(substr); i++ {
+		if s[i:i+len(substr)] == substr {
+			return true
+		}
+	}
+	return false
+}
