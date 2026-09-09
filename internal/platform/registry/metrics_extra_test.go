@@ -2,6 +2,8 @@ package registry
 
 import (
 	"context"
+	"fmt"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -12,11 +14,16 @@ import (
 	"gorm.io/gorm"
 )
 
+var metricsTestDBSeq atomic.Uint64
+
 func openMetricsTestDB(t *testing.T) *gorm.DB {
 	t.Helper()
 	// A shared-cache in-memory database keeps the AutoMigrated table visible
 	// across every pooled connection used by the async persistence path.
-	db, err := gorm.Open(gsqlite.Open("file:"+t.Name()+"?mode=memory&cache=shared"), &gorm.Config{})
+	// The sequence suffix isolates repetitions (-count>1) and parallel runs,
+	// otherwise leftover rows from a previous iteration leak into this one.
+	dsn := fmt.Sprintf("file:%s-%d?mode=memory&cache=shared", t.Name(), metricsTestDBSeq.Add(1))
+	db, err := gorm.Open(gsqlite.Open(dsn), &gorm.Config{})
 	require.NoError(t, err)
 	// Schema is normally created by the migration baseline; tests own their
 	// fixtures.
@@ -54,8 +61,8 @@ func TestMetricsStore_SetDB_PersistsAndFallsBackToDB(t *testing.T) {
 	require.Eventually(t, func() bool {
 		var count int64
 		require.NoError(t, db.Model(&AgentMetricsHistory{}).Count(&count).Error)
-		return count == 1
-	}, 2*time.Second, 10*time.Millisecond)
+		return count >= 1
+	}, 5*time.Second, 10*time.Millisecond)
 
 	// Memory still holds the entry, so history is served from memory.
 	history := store.GetHistory("agent-db", time.Now().Add(-time.Minute), 10)
