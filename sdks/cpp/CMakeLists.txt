@@ -119,6 +119,10 @@ set(tcp_ENABLED ON)
 # zlib for control-plane manifest gzip
 find_package(ZLIB REQUIRED)
 
+# OpenSSL crypto：file_push.h 的 Sha256Hex 直接调用 SHA256——Windows 静态
+# 链接下 CURL 不传递 libcrypto，必须显式链接（Linux 经 curl 传递未暴露）。
+find_package(OpenSSL REQUIRED)
+
 # Protobuf for message serialization
 find_package(Protobuf CONFIG)
 if(NOT Protobuf_FOUND)
@@ -397,6 +401,7 @@ if(BUILD_SHARED_LIBS)
         PRIVATE
             Threads::Threads
             CURL::libcurl
+            OpenSSL::Crypto
     )
 
     if(tcp_ENABLED)
@@ -492,6 +497,7 @@ if(BUILD_STATIC_LIBS)
         PUBLIC
             Threads::Threads
             CURL::libcurl
+            OpenSSL::Crypto
     )
 
     if(tcp_ENABLED)
