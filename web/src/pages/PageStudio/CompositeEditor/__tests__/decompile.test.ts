@@ -163,6 +163,7 @@ describe('decompileToTree V3.2：events 与顶部按钮还原', () => {
     expect(w2).toEqual([]);
     const ta = sections.find((x) => x.key === 'player.list')!.toolbarActions![0];
     expect(ta).toMatchObject({ label: '发邮件' });
+    // chain 仅含后续步骤（openModal 由 targetSection 隐式表达）
     expect(ta.chain).toEqual([{ kind: 'refreshNode', target: 'player.list' }]);
   });
 });

@@ -8,17 +8,6 @@ import {
   ROW_VARIABLE,
 } from '@/components/PageRenderer/expression';
 
-/** V5 运行时状态分支键（{{var.data/selectedRow/selectedRows/values.x}} 的首段）。 */
-const RUNTIME_BRANCH_KEYS = new Set(['data', 'selectedRow', 'selectedRows', 'values']);
-
-/** 表达式引用 → JSON Pointer 路径（/data/total、/selectedRow/uid、/values/kw）。 */
-function exprRefToPointer(text: string, variables: Set<string>): string | undefined {
-  if (!isSingleExpression(text)) return undefined;
-  const parsed = parseExpression(text, variables);
-  if (!parsed.ok || parsed.ref.variable === ROW_VARIABLE) return undefined;
-  return pathToPointer(parsed.ref.path);
-}
-
 /** 编译产物：与后端 CompositeSectionRequest 对齐（POST /versioning/pages/composite）。 */
 export type CompiledSection = {
   /** 区块唯一 key（同函数多实例：fid、fid-2、fid-3…）；引用一律用 key。 */
@@ -183,10 +172,19 @@ export function compileTree(tree: PageNode[]): CompileResult {
   // V5 表达式变量空间：全部区块 key（表达式 {{var.path}} 的变量必须命中区块）
   const sectionKeySet = new Set(nodeSectionKey.values());
 
-  // 弹窗分组：modal 容器 → group 名，动作目标统一指向 group
+  // 弹窗分组：modal 容器 → group 名，动作目标统一指向 group。
+  // 稳定性：优先用 modal 声明的 sectionKey（拖入时自动命名且随树持久），
+  // 避免 group 随节点 id 每次回读/再编译漂移（发布 diff 稳定性）。
   const modalGroup = new Map<string, string>();
+  const usedGroups = new Set<string>();
   for (const m of tree.filter((n) => n.type === 'modal')) {
-    modalGroup.set(m.id, `modal-${m.id.slice(-6)}`);
+    const declared = typeof m.props.sectionKey === 'string' ? m.props.sectionKey.trim() : '';
+    const group =
+      declared && SECTION_KEY_RE.test(declared) && !usedGroups.has(declared)
+        ? declared
+        : `modal-${m.id.slice(-6)}`;
+    usedGroups.add(group);
+    modalGroup.set(m.id, group);
   }
   const modalFn = modalGroup; // 兼容旧引用
 
@@ -551,6 +549,8 @@ export function compileTree(tree: PageNode[]): CompileResult {
       label: String(node.props.title ?? '操作'),
       targetSection: targetKey,
     };
+    // openModal 主动作的 params（弹窗预填初值）——wire 支持此字段，此前被丢弃
+    if (actParams) ta.params = actParams;
     if (node.props.btnStyle === 'danger') ta.danger = true;
     if (extraChain) ta.chain = extraChain;
     lastTable.toolbarActions = [...(lastTable.toolbarActions ?? []), ta];
@@ -694,7 +694,12 @@ export function decompileToTree(sections: SpecSectionLike[]): [PageNode[], strin
         const modal: PageNode = {
           id: nodeId('modal'),
           type: 'modal',
-          props: { title: titleOf(sec, fid), width: 'medium' },
+          // 回写 group 名为 modal sectionKey：再编译 group 稳定（round-trip）
+          props: {
+            title: titleOf(sec, fid),
+            width: 'medium',
+            ...(SECTION_KEY_RE.test(group) ? { sectionKey: group } : {}),
+          },
           children: [form],
         };
         groupToModal.set(group, modal);
@@ -716,6 +721,41 @@ export function decompileToTree(sections: SpecSectionLike[]): [PageNode[], strin
   const pendingEvents = new Map<string, NonNullable<SpecSectionLike['events']>>();
   for (const sec of sections) {
     if (sec.events?.length) pendingEvents.set(String(sec.key ?? sec.functionId ?? ''), sec.events);
+  }
+
+  // 第二遍前置：refreshOn 还原（spec key → 上游节点 id → props.refreshOnNode）。
+  // 缺失会导致回读→再编译丢失级联联动（round-trip 无损硬要求）。
+  // 有节点的依赖 → refreshOnNode（节点 id 引用）；无节点的陈旧依赖 →
+  // 保留在 refreshOn 字面量（不静默丢弃）。
+  for (const sec of sections) {
+    const deps = (sec.refreshOn ?? []).map(String).filter(Boolean);
+    if (!deps.length) continue;
+    const key = String(sec.key ?? sec.functionId ?? sec.bindingId ?? '');
+    const owner = findInNodes(nodes, keyToNodeId.get(key) ?? '');
+    if (!owner) continue;
+    const nodeIds: string[] = [];
+    const literals: string[] = [];
+    for (const dep of deps) {
+      const depId = keyToNodeId.get(dep);
+      if (depId) nodeIds.push(depId);
+      else literals.push(dep);
+    }
+    if (nodeIds.length) {
+      const existingNodeDeps = Array.isArray(owner.props.refreshOnNode)
+        ? (owner.props.refreshOnNode as unknown[]).map(String)
+        : [];
+      (owner.props as Record<string, unknown>).refreshOnNode = [
+        ...new Set([...existingNodeDeps, ...nodeIds]),
+      ];
+    }
+    if (literals.length) {
+      const existingLiterals = Array.isArray(owner.props.refreshOn)
+        ? (owner.props.refreshOn as unknown[]).map(String)
+        : [];
+      (owner.props as Record<string, unknown>).refreshOn = [
+        ...new Set([...existingLiterals, ...literals]),
+      ];
+    }
   }
 
   // 第二遍前置：参数映射反查（page_state key → 上游节点 id；round-trip 不丢）。
@@ -893,9 +933,27 @@ export function decompileToTree(sections: SpecSectionLike[]): [PageNode[], strin
           btnStyle: ta.danger === true ? 'danger' : 'default',
           span: 6,
           ...(modalId
-            ? { onClick: { kind: 'openModal', target: modalId, ...(chain ? { chain } : {}) } }
+            ? {
+                // 规范形态：targetSection 隐式 openModal；params=预填初值；
+                // chain 全为后续步骤
+                onClick: {
+                  kind: 'openModal',
+                  target: modalId,
+                  ...(ta.params && Object.keys(ta.params as object).length
+                    ? { params: ta.params }
+                    : {}),
+                  ...(chain ? { chain } : {}),
+                },
+              }
             : chain
-              ? { onClick: { kind: chain[0].kind, target: chain[0].target, chain: chain.slice(1) } }
+              ? {
+                  onClick: {
+                    kind: chain[0].kind,
+                    target: chain[0].target,
+                    ...(chain[0].params ? { params: chain[0].params } : {}),
+                    ...(chain.length > 1 ? { chain: chain.slice(1) } : {}),
+                  },
+                }
               : {}),
         },
       };

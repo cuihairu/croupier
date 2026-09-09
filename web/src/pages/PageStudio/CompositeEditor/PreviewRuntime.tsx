@@ -140,6 +140,10 @@ export default function PreviewRuntime({
         }
       } catch (err) {
         message.error(extractErrorMessage(err, `${String(node.props.title ?? fid)} 执行失败`));
+        // 真实调用失败（无 agent 在线/契约缺失）→ 引导开启模拟数据
+        if (!mockRef.current) {
+          message.warning('可开启顶部「模拟数据」安全体验完整流程（不触发真实操作）');
+        }
       } finally {
         setRunning((r) => ({ ...r, [node.id]: false }));
       }
@@ -317,23 +321,37 @@ export default function PreviewRuntime({
 
   return (
     <>
-      {/* 预览工具条：模拟数据开关——组装/联动验证无需真实 agent 在线 */}
+      {/* 预览工具条：模式常驻可见——模拟=安全探索（无副作用），真实=发布行为 */}
       <div style={{ marginBottom: 12, display: 'flex', alignItems: 'center', gap: 8 }}>
         <Tag color="orange" style={{ marginRight: 0 }}>
           预览
         </Tag>
         <Text type="secondary" style={{ fontSize: 12 }}>
-          模拟数据
+          数据来源
         </Text>
         <Switch
           size="small"
           checked={mock}
           onChange={(v) => {
             applyMockMode(v);
+            message.info(
+              v
+                ? '模拟数据：按 outputSchema 生成假数据，不触发真实操作'
+                : '真实调用：将实际执行函数（注意操作类函数有真实副作用）',
+            );
           }}
         />
+        <Tag
+          color={mock ? 'orange' : 'default'}
+          style={{ marginRight: 0 }}
+          data-mock-state={mock ? 'mock' : 'real'}
+        >
+          {mock ? '模拟中' : '真实调用'}
+        </Tag>
         <Text type="secondary" style={{ fontSize: 11 }}>
-          开启时按函数 outputSchema 动态生成假数据（不调用真实函数），用于验证绑定与联动
+          {mock
+            ? '假数据按函数 outputSchema 动态生成，可安全验证绑定/联动/弹窗预填'
+            : '实际执行函数——操作类函数（如发邮件）将产生真实副作用'}
         </Text>
       </div>
       <Row gutter={[12, 12]}>

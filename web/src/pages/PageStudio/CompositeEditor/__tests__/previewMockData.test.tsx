@@ -61,7 +61,7 @@ function renderPreview(nodes: PageNode[]) {
 describe('PreviewRuntime 模拟数据模式', () => {
   it('开启模拟：生成假数据且不调用真实函数', async () => {
     renderPreview(tree());
-    expect(screen.getByText('模拟数据')).toBeInTheDocument();
+    expect(screen.getByText('数据来源')).toBeInTheDocument();
 
     // 打开模拟开关 → 点执行 → 假数据渲染（radio 选择列出现），真实调用未发生
     fireEvent.click(screen.getByRole('switch'));
