@@ -98,6 +98,21 @@ TEST(TCPTransportCoverage, ConnectSelectTimeoutWhenBacklogFull) {
     EXPECT_TRUE(threw);
 }
 
+// 非阻塞 connect 立即失败分支：Linux 下向广播地址 255.255.255.255 发起
+// connect（未设置 SO_BROADCAST）会同步返回 EACCES，而非 EINPROGRESS。
+TEST(TCPTransportCoverage, ConnectFailsImmediatelyOnBroadcastAddress) {
+    bool threw = false;
+    try {
+        TCPTransport transport("255.255.255.255", 9999, 200);
+        transport.Connect();
+    } catch (const std::runtime_error& e) {
+        threw = true;
+        EXPECT_NE(std::string(e.what()).find("Failed to connect"), std::string::npos)
+            << "unexpected error: " << e.what();
+    }
+    EXPECT_TRUE(threw);
+}
+
 // headers 字段类型错误（非 object）会使 .items() 抛 type_error，
 // 应被 LoadFromJson 的 catch 包装为带上下文的 runtime_error。
 // 语法非法 / 类型异常的配置内容都会在 LoadFromJson 抛 runtime_error，
