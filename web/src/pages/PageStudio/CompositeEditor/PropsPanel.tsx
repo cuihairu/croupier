@@ -1,12 +1,12 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Button, Card, Empty, Input, Space, Tabs, Typography } from 'antd';
+import { Button, Card, Empty, Input, Space, Tabs, Tooltip, Typography } from 'antd';
 import { DeleteOutlined } from '@ant-design/icons';
 import SchemaFormRenderer from '@/components/SchemaFormRenderer';
 import type { FunctionDescriptor } from '@/services/api/functions';
 import { getComponent } from './registry';
 import type { PageNode } from './model';
 import type { JSONSchema } from '@/types/dashboard';
-import { SECTION_KEY_RE } from './compiler';
+import { collectVarNames, isValidVarName } from './varname';
 import ActionEditor from './ActionEditor';
 import RowActionsEditor from './RowActionsEditor';
 import ParamMappingEditor from './ParamMappingEditor';
@@ -23,6 +23,7 @@ export default function PropsPanel({
   allFns,
   fnById,
   onPatch,
+  onRenameVariable,
   onDelete,
   onCreateModal,
 }: {
@@ -31,6 +32,8 @@ export default function PropsPanel({
   allFns: FunctionDescriptor[];
   fnById: Map<string, FunctionDescriptor>;
   onPatch: (patch: Record<string, unknown>) => void;
+  /** V5：变量改名（同步重写树内引用）；非法/冲突由本组件先校验拦截。 */
+  onRenameVariable?: (newName: string) => void;
   onDelete: () => void;
   /** 无弹窗时按钮动作内联创建（建弹窗+装表单+绑定）。 */
   onCreateModal?: (fn: FunctionDescriptor) => void;
@@ -123,30 +126,15 @@ export default function PropsPanel({
                     />
                   </div>
                 ))}
-                {(def.category === 'function' || node.type.startsWith('fn') ||
+                {(def.category === 'function' ||
+                  node.type.startsWith('fn') ||
                   node.type === 'staticForm') && (
-                  <div style={{ marginBottom: 12 }}>
-                    <Typography.Text
-                      type="secondary"
-                      style={{ fontSize: 11, display: 'block', marginBottom: 4 }}
-                    >
-                      区块 key（页面内唯一；refreshOn/参数映射按此引用，留空自动分配）
-                    </Typography.Text>
-                    <Input
-                      size="small"
-                      allowClear
-                      placeholder="留空自动分配"
-                      value={typeof node.props.sectionKey === 'string' ? node.props.sectionKey : ''}
-                      onChange={(e) => onPatch({ sectionKey: e.target.value })}
-                      status={
-                        typeof node.props.sectionKey === 'string' &&
-                        node.props.sectionKey &&
-                        !SECTION_KEY_RE.test(node.props.sectionKey)
-                          ? 'error'
-                          : undefined
-                      }
-                    />
-                  </div>
+                  <VarNameInput
+                    node={node}
+                    nodes={nodes}
+                    onPatch={onPatch}
+                    onRename={onRenameVariable}
+                  />
                 )}
                 {(def.category === 'function' || node.type.startsWith('fn')) && (
                   <div style={{ marginBottom: 12 }}>
@@ -208,6 +196,7 @@ export default function PropsPanel({
                             value={node.props[ev.name]}
                             nodes={nodes}
                             allFns={allFns}
+                            fnById={fnById}
                             onCreateModal={onCreateModal}
                             onChange={(v) => onPatch({ [ev.name]: v ?? undefined })}
                           />
@@ -242,5 +231,93 @@ export default function PropsPanel({
         ]}
       />
     </Card>
+  );
+}
+
+/** V5 变量名输入框（§3.2）：格式 + 唯一性校验，提交改名时同步重写树内引用。
+ * 旧页面回读的遗留 key（如 player.list，非 camelCase）展示琥珀提示，不强制改写。 */
+function VarNameInput({
+  node,
+  nodes,
+  onPatch,
+  onRename,
+}: {
+  node: PageNode;
+  nodes: PageNode[];
+  onPatch: (patch: Record<string, unknown>) => void;
+  onRename?: (newName: string) => void;
+}) {
+  const declared = typeof node.props.sectionKey === 'string' ? node.props.sectionKey : '';
+  const [draft, setDraft] = useState(declared);
+  const [touched, setTouched] = useState(false);
+  useEffect(() => {
+    setDraft(declared);
+    setTouched(false);
+  }, [node.id, declared]);
+
+  const others = useMemo(() => {
+    const names = collectVarNames(nodes);
+    names.delete(declared);
+    return names;
+  }, [nodes, declared]);
+
+  const edited = touched && draft !== declared;
+  const formatError = edited && draft !== '' && !isValidVarName(draft);
+  const conflictError = edited && draft !== '' && others.has(draft);
+  const legacy = !!declared && !isValidVarName(declared);
+  const invalid = formatError || conflictError;
+
+  const commit = () => {
+    setTouched(false);
+    const next = draft.trim();
+    if (next === declared || invalid || next === '') return;
+    // 有 onRenameVariable 走引用同步重写；否则退化为直接 patch（不改引用）
+    if (onRename) onRename(next);
+    else onPatch({ sectionKey: next });
+  };
+
+  return (
+    <div style={{ marginBottom: 12 }}>
+      <Typography.Text type="secondary" style={{ fontSize: 11, display: 'block', marginBottom: 4 }}>
+        变量名（页面内唯一；表达式/refreshOn/参数映射按此引用）
+      </Typography.Text>
+      <Input
+        size="small"
+        allowClear
+        placeholder="留空自动分配"
+        value={draft}
+        onChange={(e) => {
+          setDraft(e.target.value);
+          setTouched(true);
+        }}
+        onBlur={commit}
+        onPressEnter={(e) => (e.target as HTMLInputElement).blur()}
+        status={invalid ? 'error' : undefined}
+        suffix={
+          edited && !invalid ? (
+            <Text type="secondary" style={{ fontSize: 11 }}>
+              回车确认改名（同步重写引用）
+            </Text>
+          ) : undefined
+        }
+      />
+      {formatError && (
+        <Text type="danger" style={{ fontSize: 11, display: 'block', marginTop: 2 }}>
+          格式：小写字母开头的 camelCase（仅 ASCII 字母数字）
+        </Text>
+      )}
+      {conflictError && (
+        <Text type="danger" style={{ fontSize: 11, display: 'block', marginTop: 2 }}>
+          与其他组件的变量名冲突
+        </Text>
+      )}
+      {legacy && !edited && (
+        <Tooltip title="旧页面区块 key，保留原样即可继续被引用；改名后将同步重写全部引用">
+          <Text type="warning" style={{ fontSize: 11, display: 'block', marginTop: 2 }}>
+            旧 key（非 camelCase）——表达式仍可引用
+          </Text>
+        </Tooltip>
+      )}
+    </div>
   );
 }

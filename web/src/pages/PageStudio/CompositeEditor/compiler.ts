@@ -1,5 +1,23 @@
 import { nodeId, type PageNode } from './model';
 import { parseAction } from './actions';
+import {
+  isSingleExpression,
+  parseExpression,
+  pathToPointer,
+  pointerToPath,
+  ROW_VARIABLE,
+} from '@/components/PageRenderer/expression';
+
+/** V5 运行时状态分支键（{{var.data/selectedRow/selectedRows/values.x}} 的首段）。 */
+const RUNTIME_BRANCH_KEYS = new Set(['data', 'selectedRow', 'selectedRows', 'values']);
+
+/** 表达式引用 → JSON Pointer 路径（/data/total、/selectedRow/uid、/values/kw）。 */
+function exprRefToPointer(text: string, variables: Set<string>): string | undefined {
+  if (!isSingleExpression(text)) return undefined;
+  const parsed = parseExpression(text, variables);
+  if (!parsed.ok || parsed.ref.variable === ROW_VARIABLE) return undefined;
+  return pathToPointer(parsed.ref.path);
+}
 
 /** 编译产物：与后端 CompositeSectionRequest 对齐（POST /versioning/pages/composite）。 */
 export type CompiledSection = {
@@ -69,6 +87,36 @@ const VIEW_MAP: Record<string, 'table' | 'fields' | 'form'> = {
 /** 区块 key 合法字符（与后端 pageKey/section key 规则一致：字母数字开头，可含 . _ -）。 */
 export const SECTION_KEY_RE = /^[a-zA-Z0-9][a-zA-Z0-9._-]*$/;
 
+/**
+ * 行操作参数归一（V5 §6）：{{row.字段}} → row.字段（沿用现状 row.字段 语义）；
+ * 行上下文之外的变量表达式不被运行时支持（行操作参数只读当前行）——
+ * 警告并按字面量保留，不静默丢弃。
+ */
+function normalizeRowActionParams(
+  params: Record<string, string> | undefined,
+  tableTitle: unknown,
+  sectionKeys: Set<string>,
+  warnings: string[],
+): Record<string, string> | undefined {
+  if (!params || typeof params !== 'object') return undefined;
+  const out: Record<string, string> = {};
+  for (const [param, value] of Object.entries(params)) {
+    if (typeof value === 'string' && isSingleExpression(value)) {
+      const parsed = parseExpression(value, sectionKeys);
+      if (parsed.ok && parsed.ref.variable === ROW_VARIABLE) {
+        const [head, ...rest] = parsed.ref.path;
+        out[param] = rest.length === 0 ? `row.${String(head)}` : value;
+        continue;
+      }
+      warnings.push(
+        `表格「${String(tableTitle ?? '')}」行操作参数「${param}」的表达式「${value}」仅支持 {{row.字段}}，已按字面量保存`,
+      );
+    }
+    out[param] = String(value);
+  }
+  return Object.keys(out).length ? out : undefined;
+}
+
 export function compileTree(tree: PageNode[]): CompileResult {
   const sections: CompiledSection[] = [];
   const warnings: string[] = [];
@@ -101,7 +149,9 @@ export function compileTree(tree: PageNode[]): CompileResult {
         const declared = typeof n.props.sectionKey === 'string' ? n.props.sectionKey.trim() : '';
         if (declared) {
           if (!SECTION_KEY_RE.test(declared) || usedKeys.has(declared)) {
-            warnings.push(`区块「${String(n.props.title ?? declared)}」的 key「${declared}」非法或重复，已自动分配`);
+            warnings.push(
+              `区块「${String(n.props.title ?? declared)}」的 key「${declared}」非法或重复，已自动分配`,
+            );
           } else {
             usedKeys.add(declared);
             nodeSectionKey.set(n.id, declared);
@@ -120,15 +170,18 @@ export function compileTree(tree: PageNode[]): CompileResult {
         continue;
       }
       if (isSectionNode(n) && !nodeSectionKey.has(n.id)) {
-        const fid = typeof n.props.functionId === 'string' && n.props.functionId
-          ? String(n.props.functionId)
-          : String(n.id);
+        const fid =
+          typeof n.props.functionId === 'string' && n.props.functionId
+            ? String(n.props.functionId)
+            : String(n.id);
         nodeSectionKey.set(n.id, allocKey(fid));
       }
       if (n.children) assignKeys(n.children);
     }
   };
   assignKeys(tree);
+  // V5 表达式变量空间：全部区块 key（表达式 {{var.path}} 的变量必须命中区块）
+  const sectionKeySet = new Set(nodeSectionKey.values());
 
   // 弹窗分组：modal 容器 → group 名，动作目标统一指向 group
   const modalGroup = new Map<string, string>();
@@ -243,9 +296,9 @@ export function compileTree(tree: PageNode[]): CompileResult {
       form: { jsonSchema },
     };
     // refreshOn 透传（字面 section key；回读时写入 props.refreshOn）
-    const staticRefreshOn = (Array.isArray(node.props.refreshOn)
+    const staticRefreshOn = Array.isArray(node.props.refreshOn)
       ? (node.props.refreshOn as unknown[]).map(String).filter(Boolean)
-      : []);
+      : [];
     if (staticRefreshOn.length) section.refreshOn = staticRefreshOn;
     sections.push(section as unknown as (typeof sections)[number]);
   };
@@ -341,6 +394,23 @@ export function compileTree(tree: PageNode[]): CompileResult {
                   : undefined,
             };
           }
+          // V5：字面值为单表达式 {{var.path}} → 编译为 page_state（§6 编译规则）
+          if (typeof m.value === 'string' && isSingleExpression(m.value)) {
+            const parsed = parseExpression(m.value, sectionKeySet);
+            if (parsed.ok && parsed.ref.variable !== ROW_VARIABLE) {
+              return {
+                target,
+                kind: 'page_state',
+                key: parsed.ref.variable,
+                path: pathToPointer(parsed.ref.path),
+              };
+            }
+            if (!parsed.ok || parsed.ref.variable === ROW_VARIABLE) {
+              warnings.push(
+                `区块「${String(section.title ?? node.id)}」参数「${String(m.param)}」的表达式「${m.value}」引用未知变量或行上下文，已按字面量保存`,
+              );
+            }
+          }
           return { target, kind, value: m.value };
         },
       )
@@ -394,7 +464,12 @@ export function compileTree(tree: PageNode[]): CompileResult {
         const ra: CompiledAction = {
           label: String(raw.label ?? ''),
           targetSection: sectionTarget,
-          params: (raw.params as Record<string, string>) ?? undefined,
+          params: normalizeRowActionParams(
+            raw.params as Record<string, string> | undefined,
+            section.title,
+            sectionKeySet,
+            warnings,
+          ),
         };
         if (raw.danger === true) ra.danger = true;
         const raChain = compileChainRef(raw.chain);
@@ -643,7 +718,9 @@ export function decompileToTree(sections: SpecSectionLike[]): [PageNode[], strin
     if (sec.events?.length) pendingEvents.set(String(sec.key ?? sec.functionId ?? ''), sec.events);
   }
 
-  // 第二遍前置：参数映射反查（page_state key → 上游节点 id；round-trip 不丢）
+  // 第二遍前置：参数映射反查（page_state key → 上游节点 id；round-trip 不丢）。
+  // V5：多段路径（/data/total、/values/kw、/selectedRow/uid）→ 表达式字面值
+  // {{key.路径}}；单段扁平路径维持结构化（来源区块 + 字段）。
   for (const pending of pendingAssignments) {
     const owner = findInNodes(nodes, keyToNodeId.get(pending.ownerKey) ?? '');
     if (!owner) continue;
@@ -653,13 +730,27 @@ export function decompileToTree(sections: SpecSectionLike[]): [PageNode[], strin
       const sourceKey = String(m.key ?? '');
       const upstreamId = keyToNodeId.get(sourceKey) ?? '';
       if (m.kind !== 'literal' && sourceKey && !upstreamId) {
-        warnings.push(`区块「${pending.ownerKey}」参数映射来源「${sourceKey}」不存在，已保留字面值`);
+        warnings.push(
+          `区块「${pending.ownerKey}」参数映射来源「${sourceKey}」不存在，已保留字面值`,
+        );
+      }
+      const pointer = typeof m.path === 'string' ? m.path : '';
+      const segs = pointerToPath(pointer);
+      if (m.kind !== 'literal' && segs.length >= 2) {
+        const dots = segs.map((s) => (typeof s === 'number' ? `[${s}]` : `.${s}`)).join('');
+        return {
+          param: String(m.target ?? '').replace(/^\//, ''),
+          kind: 'literal' as const,
+          value: `{{${sourceKey}${dots}}}`,
+          sourceNodeId: '',
+          field: undefined,
+        };
       }
       return {
         param: String(m.target ?? '').replace(/^\//, ''),
         kind: m.kind,
         sourceNodeId: upstreamId || sourceKey,
-        field: typeof m.path === 'string' ? m.path.replace(/^\//, '') : undefined,
+        field: pointer.replace(/^\//, '') || undefined,
         value: m.value,
       };
     });
@@ -712,7 +803,21 @@ export function decompileToTree(sections: SpecSectionLike[]): [PageNode[], strin
             warnings.push(`行操作「${String(ra.label ?? '')}」的弹窗目标 ${t} 无法还原，已丢弃`);
             return null;
           }
-          return { ...ra, targetSection: modalId };
+          // V5 round-trip：编译产物 row.字段 → 编辑器表达式 {{row.字段}}
+          const params: Record<string, unknown> = {};
+          for (const [k, v] of Object.entries(
+            (ra.params as Record<string, unknown> | undefined) ?? {},
+          )) {
+            params[k] =
+              typeof v === 'string' && v.startsWith('row.') && !v.slice(4).includes('.')
+                ? `{{${v}}}`
+                : v;
+          }
+          return {
+            ...ra,
+            ...(Object.keys(params).length ? { params } : { params: undefined }),
+            targetSection: modalId,
+          };
         })
         .filter((x) => x !== null);
       const tas =

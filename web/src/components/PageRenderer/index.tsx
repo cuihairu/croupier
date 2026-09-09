@@ -26,6 +26,8 @@ import {
   projectBindingContext,
 } from './runtime';
 import type { PageState, PageStatePatch } from './runtime';
+import { parseExpression, resolveExpression, resolveRef } from './expression';
+import type { JSONValue } from '@/types/dashboard';
 import type {
   PageSpec,
   PageExecuteFn,
@@ -72,32 +74,81 @@ export const CompositeRenderer: React.FC<{
   bindings: PageFunctionBinding[];
   onExecute: PageExecuteFn;
   preview: boolean;
-  /** 常量表单/表单提交值并入 page_state（显式参数映射的数据来源）。 */
-  onPageStateMerge?: (key: string, values: Record<string, unknown>) => void;
+  /** 常量表单/表单提交值并入 page_state（显式参数映射的数据来源）。
+   * V5 mode='merge'：按区块键浅合并（selectedRow/data 分支共存），默认 replace。 */
+  onPageStateMerge?: (
+    key: string,
+    values: Record<string, unknown>,
+    mode?: 'replace' | 'merge',
+  ) => void;
 }> = ({ sections, bindings, onExecute, preview, onPageStateMerge }) => {
   const { message, modal } = App.useApp();
+  // V5 §7.1：每区块运行时状态 = data（函数输出）+ selectedRow/selectedRows（表格
+  // 选中）+ values（表单当前值）。键为区块 key（= 变量名），表达式求值直接消费。
   const [results, setResults] = useState<
-    Record<string, PageExecutionResult | { data: Record<string, unknown> } | null>
+    Record<
+      string,
+      | PageExecutionResult
+      | {
+          data?: Record<string, unknown>;
+          selectedRow?: Record<string, unknown>;
+          selectedRows?: Record<string, unknown>[];
+          values?: Record<string, unknown>;
+        }
+      | null
+    >
   >({});
   const [running, setRunning] = useState<Record<string, boolean>>({});
   const [sectionInputs, setSectionInputs] = useState<Record<string, Record<string, unknown>>>({});
   const [dialogKey, setDialogKey] = useState<string | null>(null);
+  // 运行时状态快照 ref（事件帧内求值/执行读取，避免 setState 异步导致同帧读旧值）
+  const resultsRef = useRef(results);
   // 常量表单（static）值缓冲：防抖后并入 results 驱动 refreshOn 联动
   const staticMergeRef = useRef<Record<string, { data: Record<string, unknown> }>>({});
   const staticTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // V5 fnForm 当前值缓冲：防抖写入 results[key].values（求值用，不触发 refreshOn）
+  const valuesMergeRef = useRef<Record<string, Record<string, unknown>>>({});
+  const valuesTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const scheduleValuesFlush = useCallback(() => {
+    if (valuesTimerRef.current) clearTimeout(valuesTimerRef.current);
+    valuesTimerRef.current = setTimeout(() => {
+      valuesTimerRef.current = null;
+      setResults((prev) => {
+        let next = prev;
+        for (const [key, values] of Object.entries(valuesMergeRef.current)) {
+          const cur = (next[key] ?? {}) as Record<string, unknown>;
+          next = { ...next, [key]: { ...cur, values } };
+        }
+        return next;
+      });
+      valuesMergeRef.current = {};
+    }, 300);
+  }, []);
+  /** V5 表格选中行状态写入（selectedRow/selectedRows；不触发 refreshOn 自动重跑）。
+   * 同步刷新 resultsRef——同一事件帧内的动作链求值（runChain）立即可见；
+   * 并以 merge 模式并入 page_state（服务端 inputAssignment /selectedRow/* 求值）。 */
+  const setSelectionState = useCallback((key: string, rows: Record<string, unknown>[]) => {
+    const cur = (resultsRef.current[key] ?? {}) as Record<string, unknown>;
+    const entry = { ...cur, selectedRow: rows[0], selectedRows: rows };
+    resultsRef.current = { ...resultsRef.current, [key]: entry };
+    setResults(resultsRef.current);
+    onPageStateMerge?.(key, { selectedRow: rows[0], selectedRows: rows }, 'merge');
+  }, []);
   const scheduleStaticFlush = useCallback(() => {
     if (staticTimerRef.current) clearTimeout(staticTimerRef.current);
     staticTimerRef.current = setTimeout(() => {
       staticTimerRef.current = null;
       setResults((prev) => ({ ...prev, ...staticMergeRef.current }));
       for (const [key, v] of Object.entries(staticMergeRef.current)) {
-        onPageStateMerge?.(key, v.data);
+        // 双形态快照：扁平值兼容遗留 /字段 路径 + values 包装供 {{var.values.x}}
+        onPageStateMerge?.(key, { ...v.data, values: v.data });
       }
     }, 400);
   }, [onPageStateMerge]);
   useEffect(
     () => () => {
       if (staticTimerRef.current) clearTimeout(staticTimerRef.current);
+      if (valuesTimerRef.current) clearTimeout(valuesTimerRef.current);
     },
     [],
   );
@@ -115,6 +166,12 @@ export const CompositeRenderer: React.FC<{
       try {
         const result = await onExecute(sec.bindingId, { form: merged as never });
         setResults((prev) => ({ ...prev, [sec.key]: result || null }));
+        // V5：函数输出并入 page_state.data（{{var.data.x}} 服务端求值来源）
+        onPageStateMerge?.(
+          sec.key,
+          { data: (result as { data?: unknown })?.data ?? null },
+          'merge',
+        );
         // 操作类区块成功后刷新目标（发邮件成功 → 刷新玩家表格）
         if ((sec.view === 'form' || sec.view === 'actions') && sec.onSuccessRefresh?.length) {
           for (const target of sec.onSuccessRefresh) {
@@ -142,7 +199,6 @@ export const CompositeRenderer: React.FC<{
   }, []);
 
   // refreshOn 联动：上游产出新结果时自动重跑本区块（跨函数联动）。
-  const resultsRef = useRef(results);
   useEffect(() => {
     resultsRef.current = results;
   }, [results]);
@@ -247,14 +303,16 @@ export const CompositeRenderer: React.FC<{
     [runChain],
   );
 
-  /** 行字段映射：params 目标参数名 → 本行字段名。 */
+  /** 行字段映射：params 目标参数名 → 本行字段名。
+   * V5 兼容两种形态：纯字段名（V3 编辑器产出）与 `row.字段`（{{row.x}} 编译产物）。 */
   const mapRowParams = (
     mapping: Record<string, string> | undefined,
     row: Record<string, unknown>,
   ): Record<string, unknown> => {
     const out: Record<string, unknown> = {};
     for (const [param, rowField] of Object.entries(mapping || {})) {
-      out[param] = row[rowField];
+      const field = rowField.startsWith('row.') ? rowField.slice('row.'.length) : rowField;
+      out[param] = row[field];
     }
     return out;
   };
@@ -293,18 +351,17 @@ export const CompositeRenderer: React.FC<{
                   onRow={(record) => ({
                     onClick: () => fireEvent(sec, 'rowClick', record as Record<string, unknown>),
                   })}
-                  rowSelection={
-                    (sec.events ?? []).some((e) => e.event === 'rowSelected')
-                      ? {
-                          type: 'radio',
-                          onChange: (_keys, rows) => {
-                            if (rows[0]) {
-                              fireEvent(sec, 'rowSelected', rows[0] as Record<string, unknown>);
-                            }
-                          },
-                        }
-                      : undefined
-                  }
+                  rowSelection={{
+                    type: 'radio',
+                    onChange: (_keys, rows) => {
+                      // V5：选中行写入运行时状态（{{var.selectedRow.x}} 数据来源），
+                      // 仅在绑定 rowSelected 事件时同步触发事件。
+                      setSelectionState(sec.key, rows as Record<string, unknown>[]);
+                      if (rows[0] && (sec.events ?? []).some((e) => e.event === 'rowSelected')) {
+                        fireEvent(sec, 'rowSelected', rows[0] as Record<string, unknown>);
+                      }
+                    },
+                  }}
                   columns={[
                     ...(sec.table?.columns || []).map((c) => ({
                       title: localizedText(c.title, 'zh-CN', c.key),
@@ -405,8 +462,14 @@ export const CompositeRenderer: React.FC<{
                   spec={sec.form!}
                   initialValues={(sectionInputs[sec.key] || {}) as FormValues}
                   disabled={running[sec.key] || false}
+                  onValuesChange={(_, values) => {
+                    // V5：fnForm 当前值防抖写入 results[key].values（{{var.values.x}}）
+                    valuesMergeRef.current[sec.key] = values as Record<string, unknown>;
+                    scheduleValuesFlush();
+                  }}
                   onFinish={async (values) => {
-                    onPageStateMerge?.(sec.key, values as Record<string, unknown>);
+                    // 双形态快照（扁平兼容遗留 + values 包装），并驱动提交
+                    onPageStateMerge?.(sec.key, { ...(values as Record<string, unknown>), values });
                     const r = await runSection(sec, values);
                     if (r && !(r as { error?: string }).error) fireEvent(sec, 'success');
                   }}
@@ -445,6 +508,10 @@ export const CompositeRenderer: React.FC<{
                   section={sec}
                   running={running[sec.key] || false}
                   initialParams={sectionInputs[dialogKey] || {}}
+                  onValuesChange={(values) => {
+                    valuesMergeRef.current[sec.key] = values;
+                    scheduleValuesFlush();
+                  }}
                   onSubmit={async (values) => {
                     const r = await runSectionRef.current(sec, values);
                     setDialogKey(null);
@@ -496,8 +563,10 @@ const DialogForm: React.FC<{
   section: CompositeSection;
   running: boolean;
   initialParams: Record<string, unknown>;
+  /** V5：当前值变化（防抖写入 values 运行时状态由调用方处理）。 */
+  onValuesChange?: (values: Record<string, unknown>) => void;
   onSubmit: (values: Record<string, unknown>) => Promise<void>;
-}> = ({ section, running, initialParams, onSubmit }) => {
+}> = ({ section, running, initialParams, onValuesChange, onSubmit }) => {
   const spec = section.form;
   const properties = spec?.jsonSchema?.properties;
   const hasFields = !!properties && typeof properties === 'object';
@@ -513,6 +582,7 @@ const DialogForm: React.FC<{
       spec={spec}
       initialValues={initialParams as FormValues}
       disabled={running}
+      onValuesChange={(_, values) => onValuesChange?.(values as Record<string, unknown>)}
       onFinish={async (values) => {
         await onSubmit(values);
       }}
@@ -579,9 +649,14 @@ const PageRenderer: React.FC<PageRendererProps> = ({
           bindings={bindings}
           onExecute={executeWithPageState}
           preview={preview}
-          onPageStateMerge={(key, values) => {
+          onPageStateMerge={(key, values, mode) => {
             setPageState((current) => {
-              const patch: PageStatePatch = { [key]: values as never };
+              const prev = current[key];
+              const nextValue =
+                mode === 'merge' && prev && typeof prev === 'object' && !Array.isArray(prev)
+                  ? ({ ...(prev as Record<string, JSONValue>), ...values } as never)
+                  : (values as never);
+              const patch: PageStatePatch = { [key]: nextValue };
               const next = mergePageState(current, patch);
               pageStateRef.current = next;
               return next;
@@ -700,26 +775,50 @@ function sectionHasForm(sec: CompositeSection): boolean {
   return !!properties && typeof properties === 'object' && Object.keys(properties).length > 0;
 }
 
-/** 动作步骤参数解析："区块key.字段"取其输出、"row.字段"取事件行、其余字面量。 */
-function resolveStepParams(
+/** V5 运行时状态的顶层键（data 之外），用于区分 {{var.x}} 的遗留 data 形态。 */
+export const RUNTIME_STATE_KEYS = new Set(['data', 'selectedRow', 'selectedRows', 'values']);
+
+/** 动作步骤参数解析（V5 §7.2：resolveStepParams = 表达式求值器的薄封装）。
+ * - `{{表达式}}`：按受限路径文法求值（变量名最长前缀匹配）；
+ * - 遗留裸形态 `区块key.字段` / `row.字段`：按同语义解析——单段路径落在
+ *   区块 data 上（V3 行为兼容），`row.`/`ctx.` 取事件上下文；
+ * - 其余原样字面量。 */
+export function resolveStepParams(
   params: Record<string, string> | undefined,
   results: Record<string, unknown>,
   ctx?: Record<string, unknown>,
 ): Record<string, unknown> {
   const out: Record<string, unknown> = {};
+  const variables = new Set(Object.keys(results));
   for (const [k, src] of Object.entries(params ?? {})) {
-    const dot = src.indexOf('.');
-    if (dot > 0) {
-      const head = src.slice(0, dot);
-      const field = src.slice(dot + 1);
-      if ((head === 'row' || head === 'ctx') && ctx && ctx[field] !== undefined) {
-        out[k] = ctx[field];
+    if (src.startsWith('{{')) {
+      out[k] = resolveExpression(src, results, ctx, variables);
+      continue;
+    }
+    const parsed = parseExpression(`{{${src}}}`, variables);
+    if (parsed.ok && parsed.ref.variable !== 'row') {
+      const ref = parsed.ref;
+      const state = results[ref.variable] as Record<string, unknown> | undefined;
+      // 遗留形态：单段路径且非运行时状态键 → 落在 data 上（V3 兼容）
+      const legacyDataRef =
+        ref.path.length === 1 &&
+        typeof ref.path[0] === 'string' &&
+        !RUNTIME_STATE_KEYS.has(ref.path[0]) &&
+        state &&
+        typeof state === 'object' &&
+        'data' in state
+          ? { variable: ref.variable, path: ['data', ...ref.path] as Array<string | number> }
+          : ref;
+      const value = resolveRef(legacyDataRef, results, ctx);
+      if (value !== undefined) {
+        out[k] = value;
         continue;
       }
-      const raw = results[head] as { data?: Record<string, unknown> } | undefined;
-      const payload = raw?.data ?? (raw as Record<string, unknown> | undefined);
-      if (payload && payload[field] !== undefined) {
-        out[k] = payload[field];
+    }
+    if (parsed.ok && parsed.ref.variable === 'row') {
+      const value = resolveRef(parsed.ref, results, ctx);
+      if (value !== undefined) {
+        out[k] = value;
         continue;
       }
     }

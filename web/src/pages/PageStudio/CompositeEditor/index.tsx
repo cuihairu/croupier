@@ -65,6 +65,7 @@ import {
   updateProps,
   type PageNode,
 } from './model';
+import { assignVarNames, collectVarNames, renameVariable } from './varname';
 
 const { Text } = Typography;
 
@@ -194,9 +195,12 @@ export default function CompositeEditorPage() {
   const canvasNodes = editingModal ? (editingModal.children ?? []) : tree;
 
   /** 函数 → 组件节点（scaffold 按契约实例化，amis 式拖入即骨架）。 */
-  /** 子节点放入容器（modal children）。 */
+  /** 子节点放入容器（modal children）；V5：落树即分配语义变量名。 */
   const addChild = useCallback((parentId: string, node: PageNode) => {
-    setTree((prev) => insertNode(prev, node, parentId));
+    setTree((prev) => {
+      const [named] = assignVarNames([node], collectVarNames(prev));
+      return insertNode(prev, named, parentId);
+    });
     setSelectedId(node.id);
   }, []);
 
@@ -216,13 +220,16 @@ export default function CompositeEditorPage() {
         addChild(editingModalId, node);
         return;
       }
-      setTree((prev) => [...prev, node]);
+      setTree((prev) => {
+        const [named] = assignVarNames([node], collectVarNames(prev));
+        return [...prev, named];
+      });
       setSelectedId(node.id);
     },
     [registerFn, editingModalId, addChild, message],
   );
 
-  /** 基础组件 → 节点。 */
+  /** 基础组件 → 节点（V5：同样分配变量名——可作动作目标、进补全列表）。 */
   const addBasic = useCallback(
     (type: 'button' | 'modal' | 'container' | 'text') => {
       const node: PageNode = { id: nodeId(type), type, props: scaffoldProps(type) };
@@ -230,7 +237,10 @@ export default function CompositeEditorPage() {
         message.warning('弹窗内只能放函数表单（V1）——返回页面级再添加');
         return;
       }
-      setTree((prev) => [...prev, node]);
+      setTree((prev) => {
+        const [named] = assignVarNames([node], collectVarNames(prev));
+        return [...prev, named];
+      });
       setSelectedId(node.id);
     },
     [editingModalId, message],
@@ -334,6 +344,22 @@ export default function CompositeEditorPage() {
     treeRef.current = next;
   }, []);
 
+  /** V5 变量改名：同步重写树内全部表达式/裸引用（§3.2）。
+   * 冲突/非法由 PropsPanel 先校验；此处 renameVariable 二次防御。 */
+  const renameVarOfSelected = useCallback(
+    (newName: string) => {
+      if (!selectedId) return;
+      setTree((prev) => {
+        const node = findNode(prev, selectedId);
+        const oldName =
+          typeof node?.props.sectionKey === 'string' ? node.props.sectionKey.trim() : '';
+        if (!oldName) return prev;
+        return renameVariable(prev, oldName, newName);
+      });
+    },
+    [selectedId, setTree],
+  );
+
   const undo = useCallback(() => {
     if (past.length === 0) return;
     const prev = past[past.length - 1];
@@ -425,7 +451,10 @@ export default function CompositeEditorPage() {
           setInsertTpl(data.tpl);
           return;
         }
-        const nodes = instantiateTemplate(data.tpl);
+        const nodes = assignVarNames(
+          instantiateTemplate(data.tpl),
+          collectVarNames(treeRef.current),
+        );
         if (nodes.length === 0) return;
         for (const fid of data.tpl.requiredFunctions ?? []) {
           const fn = allFns.find((f) => f.id === fid);
@@ -491,7 +520,10 @@ export default function CompositeEditorPage() {
         if (after?.type === 'container') {
           addChild(after.id, node);
         } else {
-          setTree((prev) => (after ? insertAfter(prev, node, after.id) : [...prev, node]));
+          setTree((prev) => {
+            const [named] = assignVarNames([node], collectVarNames(prev));
+            return after ? insertAfter(prev, named, after.id) : [...prev, named];
+          });
         }
         setSelectedId(node.id);
         return;
@@ -554,7 +586,10 @@ export default function CompositeEditorPage() {
         props: { title: fn.summary?.['zh-CN'] || fn.id, width: 'medium' },
         children: [form],
       };
-      setTree((prev) => [...prev, modal]);
+      setTree((prev) => {
+        const [named] = assignVarNames([modal], collectVarNames(prev));
+        return [...prev, named];
+      });
       setTree((prev) =>
         updateProps(prev, selectedId, { onClick: { kind: 'openModal', target: modal.id } }),
       );
@@ -602,7 +637,7 @@ export default function CompositeEditorPage() {
       try {
         const key = `custom--${Date.now().toString(36)}`;
         // 勾选的候选 → 参数定义（default=当前值；实例化时可覆盖）
-        const picked = new Set(saveForm.getFieldValue('paramKeys') as string[] | undefined ?? []);
+        const picked = new Set((saveForm.getFieldValue('paramKeys') as string[] | undefined) ?? []);
         const params = state.paramCandidates
           .filter((c) => picked.has(c.key))
           .map((c) => ({
@@ -768,7 +803,8 @@ export default function CompositeEditorPage() {
                               if (fn) registerFn(fn);
                             }
                             if (nodes.length > 0) setSelectedId(nodes[0].id);
-                          }}                        />
+                          }}
+                        />
                       ),
                     },
                     {
@@ -984,6 +1020,7 @@ export default function CompositeEditorPage() {
                 allFns={allFns}
                 fnById={fnById.current}
                 onPatch={patchProps}
+                onRenameVariable={renameVarOfSelected}
                 onCreateModal={createModalForButton}
                 onDelete={() => selected && deleteNode(selected.id)}
               />
@@ -1100,7 +1137,7 @@ export default function CompositeEditorPage() {
           if (!insertTpl) return;
           const values = insertForm.getFieldsValue() as Record<string, unknown>;
           const nodes = instantiateTemplate(insertTpl, values);
-          setTree((prev) => [...prev, ...nodes]);
+          setTree((prev) => [...prev, ...assignVarNames(nodes, collectVarNames(prev))]);
           for (const fid of insertTpl.requiredFunctions ?? []) {
             const fn = allFns.find((f) => f.id === fid);
             if (fn) registerFn(fn);

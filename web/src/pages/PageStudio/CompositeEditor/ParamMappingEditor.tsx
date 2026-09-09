@@ -1,7 +1,9 @@
-import React, { useMemo } from 'react';
-import { Input, Select, Space, Typography } from 'antd';
+import React, { useCallback, useMemo } from 'react';
+import { Select, Space, Typography } from 'antd';
 import type { PageNode } from './model';
 import type { FunctionDescriptor } from '@/services/api/functions';
+import ExpressionInput from './ExpressionInput';
+import { buildExprVariables, buildPathRoots, type ExprPathNode } from './exprVariables';
 
 const { Text } = Typography;
 
@@ -82,6 +84,28 @@ export default function ParamMappingEditor({
         .map((n) => ({ node: n, fields: fieldsOf(n, fnById) }))
         .filter((s) => s.fields.length > 0),
     [nodes, fnById],
+  );
+
+  // V5：表达式补全上下文（页面变量 + 各变量路径树；排除自身防自引用）
+  const exprVariables = useMemo(
+    () => buildExprVariables(nodes.filter((n) => n.id !== selfId)),
+    [nodes, selfId],
+  );
+  const nodeByVar = useMemo(() => {
+    const map = new Map<string, PageNode>();
+    const walk = (list: PageNode[]) => {
+      for (const n of list) {
+        const name = typeof n.props.sectionKey === 'string' ? n.props.sectionKey.trim() : '';
+        if (name && !map.has(name)) map.set(name, n);
+        if (n.children) walk(n.children);
+      }
+    };
+    walk(nodes);
+    return map;
+  }, [nodes]);
+  const rootsOf = useCallback(
+    (name: string): ExprPathNode[] => buildPathRoots(nodeByVar.get(name), fnById),
+    [nodeByVar, fnById],
   );
 
   const assignmentFor = (param: string) => (value ?? []).find((a) => a.param === param);
@@ -177,18 +201,20 @@ export default function ParamMappingEditor({
               </Space>
             )}
             {kind === 'literal' && (
-              <Input
+              <ExpressionInput
                 size="small"
                 style={{ marginTop: 4 }}
-                placeholder="固定值"
-                value={a?.value === undefined ? '' : String(a.value)}
-                onChange={(e) =>
+                value={a?.value === undefined || a.value === null ? '' : String(a.value)}
+                onChange={(v) =>
                   setAssignment(p.name, {
                     param: p.name,
                     kind: 'literal',
-                    value: e.target.value,
+                    value: v,
                   })
                 }
+                variables={exprVariables}
+                rootsOf={rootsOf}
+                placeholder="固定值，或 {{ 选择变量 }}"
               />
             )}
           </div>

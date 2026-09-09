@@ -397,20 +397,20 @@ ReportPage 必须使用已验证的数据集、指标和图表字段，不得只
 
 `CompositeSection` 字段模型（权威实现 `internal/dashboard/spec/types.go`，前端 `web/src/types/dashboard.ts`）：
 
-| 字段               | 类型                    | 语义                                                                                                                                                 |
-| ------------------ | ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `key`              | string                  | 区块唯一标识。**同函数多实例**时依次 `fid`、`fid-2`、`fid-3`（一个数据源可拖多个组件分别配置）；编辑器支持声明固定 `sectionKey`（回读固化，不随增删/排序漂移，见组合页编辑器 V4「区块 key」）；创建端点重复 key 显式报错                            |
-| `bindingId`        | string                  | 引用 `PageSpec.bindings` 的绑定                                                                                                                      |
-| `view`             | string                  | `table` / `fields` / `form`                                                                                                                          |
-| `span`             | int                     | 栅格宽度 1-24（0=整行）                                                                                                                              |
-| `autoRun`          | bool                    | 进入页面自动执行（查询类区块）                                                                                                                       |
-| `display`          | string                  | `inline`（默认，栅格内）/ `dialog`（弹窗，不占栅格）                                                                                                 |
-| `group`            | string                  | 弹窗分组：`display=dialog` 且 `group` 相同的区块渲染进**同一弹窗**（表单+字段卡+表格混排）；按钮/行操作的动作目标指向 `group`                        |
-| `refreshOn`        | []string                | 依赖的 stateKey（=上游区块 key）列表——任一变化自动重跑（page_state 联动：上游输出顶层字段同名合并进下游输入）                                        |
-| `onSuccessRefresh` | []string                | 操作成功后自动重跑的区块 key（发邮件成功→刷新玩家表格）                                                                                              |
-| `events`           | []CompositeEventBinding | **通用事件绑定**（全组件事件发布触发点）：`rowClick`/`rowSelected`（table）、`success`/`error`（form）、`click`（fields）→ 动作步骤（6 种 kind）+ 链 |
-| `table`            | CompositeTableSpec      | `view=table`：columns/pagination/rowSchema/identityKey/**rowActions**                                                                                |
-| `toolbar`          | CompositeToolbarSpec    | 表格顶部按钮组（actions）                                                                                                                            |
+| 字段               | 类型                    | 语义                                                                                                                                                                                                                     |
+| ------------------ | ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `key`              | string                  | 区块唯一标识。**同函数多实例**时依次 `fid`、`fid-2`、`fid-3`（一个数据源可拖多个组件分别配置）；编辑器支持声明固定 `sectionKey`（回读固化，不随增删/排序漂移，见组合页编辑器 V4「区块 key」）；创建端点重复 key 显式报错 |
+| `bindingId`        | string                  | 引用 `PageSpec.bindings` 的绑定                                                                                                                                                                                          |
+| `view`             | string                  | `table` / `fields` / `form`                                                                                                                                                                                              |
+| `span`             | int                     | 栅格宽度 1-24（0=整行）                                                                                                                                                                                                  |
+| `autoRun`          | bool                    | 进入页面自动执行（查询类区块）                                                                                                                                                                                           |
+| `display`          | string                  | `inline`（默认，栅格内）/ `dialog`（弹窗，不占栅格）                                                                                                                                                                     |
+| `group`            | string                  | 弹窗分组：`display=dialog` 且 `group` 相同的区块渲染进**同一弹窗**（表单+字段卡+表格混排）；按钮/行操作的动作目标指向 `group`                                                                                            |
+| `refreshOn`        | []string                | 依赖的 stateKey（=上游区块 key）列表——任一变化自动重跑（page_state 联动：上游输出顶层字段同名合并进下游输入）                                                                                                            |
+| `onSuccessRefresh` | []string                | 操作成功后自动重跑的区块 key（发邮件成功→刷新玩家表格）                                                                                                                                                                  |
+| `events`           | []CompositeEventBinding | **通用事件绑定**（全组件事件发布触发点）：`rowClick`/`rowSelected`（table）、`success`/`error`（form）、`click`（fields）→ 动作步骤（6 种 kind）+ 链                                                                     |
+| `table`            | CompositeTableSpec      | `view=table`：columns/pagination/rowSchema/identityKey/**rowActions**                                                                                                                                                    |
+| `toolbar`          | CompositeToolbarSpec    | 表格顶部按钮组（actions）                                                                                                                                                                                                |
 
 **行操作与按钮动作**（rowActions / toolbar.actions）：
 
@@ -423,6 +423,13 @@ ReportPage 必须使用已验证的数据集、指标和图表字段，不得只
 | `chain`         | **动作链**：主动作后按序执行的步骤 `[{kind: runBinding                      | refreshNode, target: 区块key}]` |
 
 编辑器（`web/src/pages/PageStudio/CompositeEditor`）与发布渲染器（`PageRenderer` 的 `CompositeRenderer`）共用此模型；编译器（编辑器 → sections）与反编译器（sections → 编辑树，用于回读再编辑）保证配置 round-trip 不丢失。
+
+**变量名与运行时状态（V5）**：区块 `key` 同时是编辑器内的**组件变量名**（`props.sectionKey` 声明固化；拖入/模板实例化按语义规则自动命名去重——`player.list` 表格 → `playerListTable`）。绑定表达式（<code v-pre>{{变量名.路径}}</code>）只存在于编辑器层，保存时编译为现有 wire 字段（`inputAssignments` 的 page_state 路径 / 事件 `params` / 行操作 `row.字段`），**服务端与 PageSpec 协议零改动**。运行时每区块状态为 `{ data, selectedRow, selectedRows, values }`：
+
+- `data`：函数输出（<code v-pre>{{var.data.total}}</code>）；执行成功后以 merge 模式并入 `page_state[var]`。
+- `selectedRow`/`selectedRows`：表格选中行（<code v-pre>{{var.selectedRow.uid}}</code>）；选择变化**不触发** `refreshOn` 自动重跑。
+- `values`：表单当前值（防抖；<code v-pre>{{filterForm.values.keyword}}</code>）；常量表单/函数表单的 page_state 快照为**双形态**（扁平值兼容遗留 `/字段` 路径 + `values` 包装）。
+- 表达式→wire 映射：<code v-pre>{{var.path}}</code> → `inputAssignments: {kind: page_state, key: var, path: /分支/字段}`（JSON Pointer）；<code v-pre>{{row.x}}</code> → 行操作/事件参数 `row.x`；字面量原样。round-trip 可逆（回读还原为表达式文本）。
 
 ## 前端运行时：ProComponents 页面渲染器
 

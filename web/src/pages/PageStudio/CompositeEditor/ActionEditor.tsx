@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { Button, Input, Select, Space, Typography } from 'antd';
 import { CloseOutlined, PlusOutlined } from '@ant-design/icons';
 import {
@@ -11,6 +11,8 @@ import {
 } from './actions';
 import type { PageNode } from './model';
 import type { FunctionDescriptor } from '@/services/api/functions';
+import ExpressionInput from './ExpressionInput';
+import { buildExprVariables, buildPathRoots, type ExprPathNode } from './exprVariables';
 
 const { Text } = Typography;
 
@@ -21,6 +23,7 @@ export default function ActionEditor({
   nodes,
   allowedKinds,
   allFns,
+  fnById,
   onCreateModal,
   onChange,
 }: {
@@ -28,6 +31,8 @@ export default function ActionEditor({
   nodes: PageNode[];
   allowedKinds?: ActionKind[];
   allFns?: FunctionDescriptor[];
+  /** V5：表达式补全上下文所需的函数契约映射。 */
+  fnById?: Map<string, FunctionDescriptor>;
   /** 内联创建弹窗（无可用弹窗时一步完成：建弹窗+装表单+绑定本按钮）。 */
   onCreateModal?: (fn: FunctionDescriptor) => void;
   onChange: (v: ActionSpec | null) => void;
@@ -50,6 +55,25 @@ export default function ActionEditor({
   const effKind = action?.kind ?? rawKind;
   const targets = effKind ? ACTIONS[effKind].targetFilter(nodes) : [];
   const needModal = effKind === 'openModal' && targets.length === 0;
+
+  // V5：表达式补全上下文（页面变量 + 各变量路径树）
+  const exprVariables = useMemo(() => buildExprVariables(nodes), [nodes]);
+  const nodeByVar = useMemo(() => {
+    const map = new Map<string, PageNode>();
+    const walk = (list: PageNode[]) => {
+      for (const n of list) {
+        const name = typeof n.props.sectionKey === 'string' ? n.props.sectionKey.trim() : '';
+        if (name && !map.has(name)) map.set(name, n);
+        if (n.children) walk(n.children);
+      }
+    };
+    walk(nodes);
+    return map;
+  }, [nodes]);
+  const rootsOf = useCallback(
+    (name: string): ExprPathNode[] => buildPathRoots(nodeByVar.get(name), fnById ?? new Map()),
+    [nodeByVar, fnById],
+  );
 
   return (
     <Space orientation="vertical" size={6} style={{ width: '100%' }}>
@@ -213,29 +237,87 @@ export default function ActionEditor({
                   />
                 </Space.Compact>
                 {(step.kind === 'runBinding' || step.kind === 'refreshNode') && (
-                  <Input
-                    size="small"
-                    style={{ fontSize: 11 }}
-                    placeholder="参数来源（如 playerId=行.uid，多个逗号分隔；节点.字段/row.字段/字面量）"
-                    value={Object.entries(step.params ?? {})
-                      .map(([k, v]) => `${k}=${v}`)
-                      .join(',')}
-                    onChange={(e) => {
-                      const params: Record<string, string> = {};
-                      for (const pair of e.target.value.split(',')) {
-                        const eq = pair.indexOf('=');
-                        if (eq > 0) {
-                          params[pair.slice(0, eq).trim()] = pair.slice(eq + 1).trim();
-                        }
-                      }
-                      onChange({
-                        ...action,
-                        chain: (action.chain ?? []).map((s2, j) =>
-                          j === i ? { ...s2, params } : s2,
-                        ),
-                      });
-                    }}
-                  />
+                  <div style={{ marginTop: 4 }}>
+                    {Object.entries(step.params ?? {}).map(([pk, pv]) => (
+                      <Space key={pk} size={4} style={{ display: 'flex', marginBottom: 4 }}>
+                        <Input
+                          size="small"
+                          style={{ width: 90 }}
+                          value={pk}
+                          placeholder="参数名"
+                          onChange={(e) => {
+                            const nextName = e.target.value;
+                            const params: Record<string, string> = {};
+                            for (const [k, v] of Object.entries(step.params ?? {})) {
+                              params[k === pk ? nextName || k : k] = v;
+                            }
+                            onChange({
+                              ...action,
+                              chain: (action.chain ?? []).map((s2, j) =>
+                                j === i ? { ...s2, params } : s2,
+                              ),
+                            });
+                          }}
+                        />
+                        <Text type="secondary" style={{ fontSize: 11 }}>
+                          =
+                        </Text>
+                        <ExpressionInput
+                          size="small"
+                          style={{ flex: 1, minWidth: 140 }}
+                          value={String(pv)}
+                          onChange={(v) =>
+                            onChange({
+                              ...action,
+                              chain: (action.chain ?? []).map((s2, j) =>
+                                j === i
+                                  ? { ...s2, params: { ...(step.params ?? {}), [pk]: v } }
+                                  : s2,
+                              ),
+                            })
+                          }
+                          variables={exprVariables}
+                          rootsOf={rootsOf}
+                        />
+                        <Button
+                          size="small"
+                          type="text"
+                          danger
+                          icon={<CloseOutlined />}
+                          onClick={() => {
+                            const params = { ...(step.params ?? {}) };
+                            delete params[pk];
+                            onChange({
+                              ...action,
+                              chain: (action.chain ?? []).map((s2, j) =>
+                                j === i ? { ...s2, params } : s2,
+                              ),
+                            });
+                          }}
+                        />
+                      </Space>
+                    ))}
+                    <Button
+                      size="small"
+                      type="link"
+                      style={{ padding: 0, fontSize: 11 }}
+                      onClick={() => {
+                        const used = new Set(Object.keys(step.params ?? {}));
+                        let name = 'param';
+                        for (let n = 1; used.has(name); n += 1) name = `param${n}`;
+                        onChange({
+                          ...action,
+                          chain: (action.chain ?? []).map((s2, j) =>
+                            j === i
+                              ? { ...s2, params: { ...(step.params ?? {}), [name]: '' } }
+                              : s2,
+                          ),
+                        });
+                      }}
+                    >
+                      + 添加参数
+                    </Button>
+                  </div>
                 )}
               </div>
             );

@@ -4,6 +4,7 @@ import { DeleteOutlined, PlusOutlined } from '@ant-design/icons';
 import type { PageNode } from './model';
 import type { FunctionDescriptor } from '@/services/api/functions';
 import { schemaProperties } from './types';
+import ExpressionInput from './ExpressionInput';
 
 const { Text } = Typography;
 
@@ -173,12 +174,15 @@ function ParamMapping({
             />
           )}
           <span>←</span>
-          <Select
+          <ExpressionInput
             size="small"
-            style={{ width: 120 }}
+            style={{ width: 150 }}
             value={source}
             onChange={(v) => onChange({ ...mapping, [param]: v })}
-            options={rowFields.map((f) => ({ value: f, label: `行.${f}` }))}
+            variables={[]}
+            rootsOf={() => []}
+            rowFields={rowFields}
+            placeholder="行字段，或 {{ row. }}"
           />
           <Button
             size="small"

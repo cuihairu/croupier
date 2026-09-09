@@ -53,6 +53,15 @@ export default function PreviewRuntime({
     setResults((r) => ({ ...r, [nodeId]: { data: values } }));
   }, []);
 
+  // V5 表格选中行：写入 results[id]（selectedRow/selectedRows；与发布运行时
+  // 同一状态形态，不触发 refreshOnNode 联动——refreshOnNode 只看 data 更新）。
+  const handleSelectionChange = useCallback((nodeId: string, rows: JSONRecord[]) => {
+    setResults((r) => {
+      const cur = (r[nodeId] ?? {}) as Record<string, unknown>;
+      return { ...r, [nodeId]: { ...cur, selectedRow: rows[0], selectedRows: rows } };
+    });
+  }, []);
+
   const treeRef = useRef(tree);
   treeRef.current = tree;
   const fnRef = useRef(fnById);
@@ -191,6 +200,7 @@ export default function PreviewRuntime({
               onAction={handleAction}
               onSubmit={(params) => void runNode(node, params)}
               onStaticChange={handleStaticChange}
+              onSelectionChange={handleSelectionChange}
               renderChild={(child) => (
                 <PreviewNode
                   node={child}
@@ -202,6 +212,7 @@ export default function PreviewRuntime({
                   onAction={handleAction}
                   onSubmit={(params) => void runNode(child, params)}
                   onStaticChange={handleStaticChange}
+                  onSelectionChange={handleSelectionChange}
                 />
               )}
             />
@@ -264,6 +275,7 @@ function PreviewNode({
   onAction,
   onSubmit,
   onStaticChange,
+  onSelectionChange,
   renderChild,
 }: {
   node: PageNode;
@@ -274,6 +286,8 @@ function PreviewNode({
   onSubmit: (params: JSONRecord) => void;
   /** staticForm 值变化（防抖后）→ 预览页面状态。 */
   onStaticChange?: (nodeId: string, values: JSONRecord) => void;
+  /** V5：表格选中行变化 → 预览页面状态（selectedRow/selectedRows）。 */
+  onSelectionChange?: (nodeId: string, rows: JSONRecord[]) => void;
   /** 容器子节点渲染回调（由主组件注入执行上下文）。 */
   renderChild?: (child: PageNode) => React.ReactNode;
 }) {
@@ -331,6 +345,13 @@ function PreviewNode({
           size="small"
           rowKey={(_, i) => String(i)}
           pagination={{ pageSize: 10, showSizeChanger: false }}
+          rowSelection={{
+            type: 'radio',
+            onChange: (_keys, rows) => {
+              // V5：选中行写入预览运行时状态（与发布渲染器同一状态形态）
+              onSelectionChange?.(node.id, rows as JSONRecord[]);
+            },
+          }}
           columns={(Array.isArray(node.props.columns) && node.props.columns.length
             ? (node.props.columns as string[])
             : schemaProperties(fn?.outputSchema)

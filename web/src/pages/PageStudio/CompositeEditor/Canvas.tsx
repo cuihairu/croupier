@@ -162,6 +162,14 @@ export const CanvasNode: React.FC<CanvasNodeProps> = ({
               <Text strong style={{ fontSize: 13 }}>
                 {String(node.props.title ?? node.props.content ?? def?.name ?? node.type)}
               </Text>
+              {typeof node.props.sectionKey === 'string' && node.props.sectionKey && (
+                <Tag
+                  style={{ marginRight: 0, fontSize: 11, fontFamily: 'monospace' }}
+                  color="geekblue"
+                >
+                  ⌗{node.props.sectionKey}
+                </Tag>
+              )}
             </Space>
           }
           extra={
@@ -376,9 +384,19 @@ export function ModalPlaceholder({
         <Badge
           color="purple"
           text={
-            <Text strong style={{ fontSize: 13 }}>
-              {String(modal.props.title ?? '弹窗')}
-            </Text>
+            <Space size={6}>
+              <Text strong style={{ fontSize: 13 }}>
+                {String(modal.props.title ?? '弹窗')}
+              </Text>
+              {typeof modal.props.sectionKey === 'string' && modal.props.sectionKey && (
+                <Tag
+                  style={{ marginRight: 0, fontSize: 11, fontFamily: 'monospace' }}
+                  color="geekblue"
+                >
+                  ⌗{modal.props.sectionKey}
+                </Tag>
+              )}
+            </Space>
           }
         />
         {kids.length === 0 ? (

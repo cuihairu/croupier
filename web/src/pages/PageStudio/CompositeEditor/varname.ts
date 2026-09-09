@@ -163,3 +163,49 @@ export function renameVariable(nodes: PageNode[], oldName: string, newName: stri
     });
   return walk(nodes);
 }
+
+/**
+ * 落树命名（拖入/模板实例化时调用）：
+ * - 未命名的节点按 §3.1 生成语义变量名（含基础组件——可作动作目标，进补全列表）；
+ * - 已命名但与页面现有变量冲突的节点重新生成（模板再次实例化的去重，§9），
+ *   且子树内部对该旧名的引用一并重写（模板内部引用随树整体重写）；
+ * - 已命名且无冲突的保留（回读旧页面/复制节点场景）。
+ * existing 为页面既有变量集合（collectVarNames(tree)），函数会向其累加新名。
+ */
+export function assignVarNames(nodes: PageNode[], existing: Set<string>): PageNode[] {
+  const renames: Array<{ from: string; to: string }> = [];
+  const resolve = (list: PageNode[]): PageNode[] =>
+    list.map((n) => {
+      const declared = typeof n.props.sectionKey === 'string' ? n.props.sectionKey.trim() : '';
+      let props = n.props;
+      if (!declared || existing.has(declared)) {
+        const title =
+          typeof n.props.title === 'string'
+            ? n.props.title
+            : typeof n.props.content === 'string'
+              ? n.props.content
+              : undefined;
+        const name = generateVarName(
+          {
+            type: n.type,
+            functionId: typeof n.props.functionId === 'string' ? n.props.functionId : undefined,
+            title,
+          },
+          existing,
+        );
+        props = { ...n.props, sectionKey: name };
+        existing.add(name);
+        if (declared && declared !== name) renames.push({ from: declared, to: name });
+      } else {
+        existing.add(declared);
+      }
+      const children = n.children ? resolve(n.children) : undefined;
+      return children && children !== n.children ? { ...n, props, children } : { ...n, props };
+    });
+  let out = resolve(nodes);
+  // 模板内部引用随子树整体重写（只改新子树，不触碰页面其余部分）
+  for (const { from, to } of renames) {
+    out = renameVariable(out, from, to);
+  }
+  return out;
+}

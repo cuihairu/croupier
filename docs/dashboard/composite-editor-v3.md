@@ -87,6 +87,20 @@ error 级诊断写入提案并降级 `needs_review`——提案收件箱「需�
 - `chain` 步骤在主动作后按序执行（runBinding/refreshNode）
 - 同函数多实例按 key 独立执行互不干扰
 
+### 4.1 变量名与表达式绑定（V5，已实现）
+
+组件组装的数据层，详见 [V5 设计](./composite-editor-v5-design.md)。使用要点：
+
+- **变量名**：拖入组件自动生成语义名（`player.list` 表格 → `playerListTable`），即发布 spec 区块 key。
+  画布卡片以 `⌗varName` 徽标展示；属性面板「变量名」输入框可改名——保存时**同步重写**树内全部表达式/裸引用。
+- **表达式**：参数映射/动作链参数/行操作映射的值可填受限表达式
+  <code v-pre>{{变量名.路径.字段}}</code>（如 <code v-pre>{{playerListTable.selectedRow.uid}}</code>、<code v-pre>{{filterForm.values.keyword}}</code>、<code v-pre>{{row.uid}}</code>）。
+  输入 <code v-pre>{{</code> 弹出变量补全，选中后继续补全 schema 路径；未知变量红标（阻断保存诊断）、路径不在 schema 黄标。
+- **运行时状态**：每区块暴露 `data`（函数输出）/ `selectedRow`/`selectedRows`（表格选中）/ `values`（表单当前值，防抖）。
+  选中行/输入变化**不触发** refreshOn 自动重跑，只在动作求值时取值。
+- **编译**：保存时 <code v-pre>{{var.path}}</code> 编译为现有 wire（`inputAssignments` page_state 路径 / 事件参数 / `row.字段`），
+  服务端与发布链零改动；回读按同规则还原为表达式文本。
+
 ## 5. 组件开发指南
 
 新组件 = 在 `components/builtin.tsx` 注册 `ComponentDef`：
@@ -212,3 +226,7 @@ V3 之上已上线**组件模板层 V4**（组件库面板实例化 + 选中节�
 - 文本组件不参与发布（编译警告）；弹窗内 text 组件不进 spec
 - 回读依赖提案或 draft 至少其一存在（三者都无则提示）
 - container 的 click 事件无独立 section 挂载点（预览可用，发布忽略）
+- V5 表达式：预览运行时（编辑器内）尚未接入表达式参数求值（发布渲染器完整支持）；
+  行操作参数仅支持 <code v-pre>{{row.字段}}</code>（跨变量表达式编译警告、按字面量保留）；
+  模板混排文案（<code v-pre>"玩家 {{row.uid}} 已处理"</code>）属 V5.1 未实现
+- V5-T5.7 端到端线上验收（提案→发布→真实联动）待执行
