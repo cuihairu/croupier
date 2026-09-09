@@ -157,7 +157,6 @@ jobs:
             go.sum \
             version.go \
             pkg \
-            scripts \
             examples \
             LICENSE \
             README.md \
