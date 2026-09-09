@@ -44,7 +44,13 @@ import { findParent } from './model';
 import { compileTree, decompileToTree, type SpecSectionLike } from './compiler';
 import { schemaProperties, scanParamCandidates, type ParamCandidate } from './types';
 import { extractErrorMessage } from '@/utils/errors';
-import { duplicateNode as duplicateTree, insertAfter, moveNode } from './model';
+import {
+  duplicateNode as duplicateTree,
+  findInsertedSubtree,
+  insertAfter,
+  moveNode,
+  replaceSubtree,
+} from './model';
 import ComponentPanel, { type AddFnEvent } from './ComponentPanel';
 import { planTemplateDrop } from './templateDrop';
 import TemplateQuickStart from './TemplateQuickStart';
@@ -552,8 +558,19 @@ export default function CompositeEditorPage() {
     [addChild, message, registerFn, allFns],
   );
 
+  /** 复制节点：副本不继承变量名（clone 已剥离），落树时重新语义命名，
+   * 避免画布出现同名徽标与后续改名冲突。 */
+  /** 复制节点：副本不继承变量名（clone 已剥离），仅对副本子树重新语义命名——
+   * 不触碰原节点及其引用。 */
   const duplicateNode = useCallback((id: string) => {
-    setTree((prev) => duplicateTree(prev, id));
+    setTree((prev) => {
+      const next = duplicateTree(prev, id);
+      if (next === prev) return prev;
+      const copy = findInsertedSubtree(prev, next);
+      if (!copy) return next;
+      const [named] = assignVarNames([copy], collectVarNames(prev));
+      return replaceSubtree(next, named);
+    });
   }, []);
 
   const patchSpan = useCallback((id: string, span: number) => {

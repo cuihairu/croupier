@@ -165,12 +165,15 @@ export function renameVariable(nodes: PageNode[], oldName: string, newName: stri
 }
 
 /**
- * 落树命名（拖入/模板实例化时调用）：
+ * 落树命名（拖入/模板实例化时调用，传入**新增子树**）：
  * - 未命名的节点按 §3.1 生成语义变量名（含基础组件——可作动作目标，进补全列表）；
- * - 已命名但与页面现有变量冲突的节点重新生成（模板再次实例化的去重，§9），
- *   且子树内部对该旧名的引用一并重写（模板内部引用随树整体重写）；
- * - 已命名且无冲突的保留（回读旧页面/复制节点场景）。
- * existing 为页面既有变量集合（collectVarNames(tree)），函数会向其累加新名。
+ * - 已命名但与页面现有变量冲突的节点重新生成，且子树内部对该旧名的引用
+ *   一并重写（模板内部引用随树整体重写，§9）；
+ * - 已命名且无冲突的保留（回读旧页面场景）。
+ * 实现：冲突节点先记录（from→to）并保持旧 key，最后统一经 renameVariable
+ * 翻转——它同时重写子树内引用与节点自身 key（先改 key 会让 renameVariable
+ * 误判 newName 被占用而拒绝重写）。
+ * 注意：只对新增/冲突子树调用——不要传整棵页面树。existing 会原地累加新名。
  */
 export function assignVarNames(nodes: PageNode[], existing: Set<string>): PageNode[] {
   const renames: Array<{ from: string; to: string }> = [];
@@ -193,9 +196,14 @@ export function assignVarNames(nodes: PageNode[], existing: Set<string>): PageNo
           },
           existing,
         );
-        props = { ...n.props, sectionKey: name };
         existing.add(name);
-        if (declared && declared !== name) renames.push({ from: declared, to: name });
+        if (declared) {
+          // 冲突节点：保持旧 key，记录改名（引用重写在统一阶段执行）
+          renames.push({ from: declared, to: name });
+        } else {
+          // 全新节点：直接落新名（无旧引用需重写）
+          props = { ...n.props, sectionKey: name };
+        }
       } else {
         existing.add(declared);
       }
@@ -203,7 +211,6 @@ export function assignVarNames(nodes: PageNode[], existing: Set<string>): PageNo
       return children && children !== n.children ? { ...n, props, children } : { ...n, props };
     });
   let out = resolve(nodes);
-  // 模板内部引用随子树整体重写（只改新子树，不触碰页面其余部分）
   for (const { from, to } of renames) {
     out = renameVariable(out, from, to);
   }

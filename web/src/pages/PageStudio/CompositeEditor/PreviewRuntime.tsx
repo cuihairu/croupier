@@ -106,11 +106,13 @@ export default function PreviewRuntime({
   // 运行时状态快照 ref（事件帧内求值/执行读取，避免 setState 异步导致同帧读旧值）
   const resultsRef = useRef(results);
 
-  /** 打开弹窗（modal 节点 id）并预填其函数表单初值。 */
+  /** 打开弹窗（modal 节点 id）并预填其函数表单初值。
+   * inputs 无条件覆盖（替换语义，与发布端 openDialog 一致）——
+   * 无参动作打开同一弹窗时不得残留上一次的预填。 */
   const openDialogPrefill = useCallback((modalId: string, inputs: JSONRecord) => {
     const modalNode = findIn(treeRef.current, modalId);
     const form = modalNode?.children?.find((c) => c.type === 'fnForm');
-    if (form && Object.keys(inputs).length > 0) {
+    if (form) {
       setDialogInputs((prev) => ({ ...prev, [form.id]: inputs }));
     }
     setDialogId((cur) => (cur === modalId ? null : modalId));

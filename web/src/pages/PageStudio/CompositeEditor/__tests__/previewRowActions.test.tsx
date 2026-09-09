@@ -84,7 +84,18 @@ function tree(): PageNode[] {
     props: { title: '发邮件弹窗', width: 'medium' },
     children: [form],
   };
-  return [table, modal];
+  // 无参 openModal 按钮：打开同一弹窗但不得残留任何预填
+  const plainButton: PageNode = {
+    id: 'btn1',
+    type: 'button',
+    props: { title: '打开弹窗', onClick: { kind: 'openModal', target: 'modal1' } },
+  };
+  return [table, plainButton, modal];
+}
+
+function playerIdValue(): string {
+  const input = document.querySelector('input[id*="playerId"]') as HTMLInputElement | null;
+  return input?.value ?? '';
 }
 
 function renderPreview() {
@@ -124,6 +135,24 @@ describe('预览 V5 动作数据流', () => {
       const input = document.querySelector('input[id*="playerId"]') as HTMLInputElement | null;
       expect(input?.value).toBe('u-1001');
     });
+  });
+
+  it('无参动作打开同一弹窗：不残留上一次的预填（替换语义）', async () => {
+    renderPreview();
+    await executeTableWithMockRows();
+
+    // 行操作预填 playerId=u-1001
+    fireEvent.click(screen.getAllByText('发邮件')[0]);
+    await waitFor(() => expect(screen.getByText('发邮件弹窗')).toBeInTheDocument());
+    await waitFor(() => expect(playerIdValue()).toBe('u-1001'));
+
+    // 关闭弹窗（右上角 X）→ 无参按钮再次打开 → 输入应为空
+    const closeBtn = document.querySelector('.ant-modal-close') as HTMLButtonElement | null;
+    expect(closeBtn).not.toBeNull();
+    fireEvent.click(closeBtn!);
+    fireEvent.click(screen.getByRole('button', { name: /打开弹窗/ }));
+    await waitFor(() => expect(screen.getByText('发邮件弹窗')).toBeInTheDocument());
+    expect(playerIdValue()).toBe('');
   });
 
   it('选中事件：{{var.selectedRow.uid}} 表达式参数求值 → 弹窗预填', async () => {

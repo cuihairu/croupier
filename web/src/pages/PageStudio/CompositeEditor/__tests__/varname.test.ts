@@ -1,4 +1,5 @@
 import {
+  assignVarNames,
   baseVarName,
   camelize,
   collectVarNames,
@@ -144,5 +145,57 @@ describe('varname: 改名同步', () => {
     expect(renameVariable(tree, 'playerListTable', '中文名')).toBe(tree);
     expect(renameVariable(tree, 'playerListTable', 'mailSendForm')).toBe(tree); // 冲突
     expect(renameVariable(tree, 'playerListTable', 'playerListTable')).toBe(tree); // 同名
+  });
+});
+
+describe('assignVarNames（复制/落树语义）', () => {
+  it('复制件（未命名）生成新名，不影响原节点与其引用', () => {
+    const original: PageNode = {
+      id: 'n1',
+      type: 'fnTable',
+      props: { sectionKey: 'playerListTable', functionId: 'player.list' },
+    };
+    // clone 已剥离 sectionKey 的副本，内部引用仍指向原变量
+    const copy: PageNode = {
+      id: 'n2',
+      type: 'fnTable',
+      props: { functionId: 'player.list', onRowSelected: '{{playerListTable.selectedRow.uid}}' },
+    };
+    const existing = collectVarNames([original]);
+    const [named] = assignVarNames([copy], existing);
+    expect(named.props.sectionKey).toBe('playerListTable2');
+    // 原节点未受影响
+    expect(original.props.sectionKey).toBe('playerListTable');
+    // 副本对原变量的引用保持指向原变量（复制语义 = 镜像原行为）
+    expect(named.props.onRowSelected).toBe('{{playerListTable.selectedRow.uid}}');
+  });
+
+  it('模板子树声明 key 与页面冲突 → 重新生成并重写子树内部引用', () => {
+    const pageNode: PageNode = {
+      id: 'p1',
+      type: 'fnTable',
+      props: { sectionKey: 'playerListTable', functionId: 'player.list' },
+    };
+    const tplNode: PageNode = {
+      id: 't1',
+      type: 'fnTable',
+      props: {
+        sectionKey: 'playerListTable',
+        functionId: 'player.list',
+        onSuccess: {
+          kind: 'runBinding',
+          target: '',
+          params: { uid: '{{playerListTable.selectedRow.uid}}' },
+        },
+      },
+    };
+    const existing = collectVarNames([pageNode]);
+    const [named] = assignVarNames([tplNode], existing);
+    expect(named.props.sectionKey).toBe('playerListTable2');
+    // 子树内部引用随树整体重写
+    const params = (named.props.onSuccess as { params: Record<string, string> }).params;
+    expect(params.uid).toBe('{{playerListTable2.selectedRow.uid}}');
+    // 页面原节点引用不受影响
+    expect(pageNode.props.sectionKey).toBe('playerListTable');
   });
 });

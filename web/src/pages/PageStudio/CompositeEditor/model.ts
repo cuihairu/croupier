@@ -168,11 +168,46 @@ export function duplicateNode(nodes: PageNode[], id: string): PageNode[] {
 }
 
 function cloneWithNewIds(n: PageNode): PageNode {
+  const { sectionKey: _dropped, ...rest } = n.props as Record<string, unknown>;
+  void _dropped;
   return {
-    ...structuredCloneCompat(n),
+    // 复制件不继承声明 key（与原节点冲突；由调用方 assignVarNames 重新命名），
+    // 其余 props 原样保留——副本内对其他变量的引用保持指向原变量。
+    ...structuredCloneCompat({ ...n, props: rest as PageNode['props'] }),
     id: nodeId(n.type),
     children: n.children?.map(cloneWithNewIds),
   };
+}
+/** 定位 prev→next 之间新插入的子树根（复制/外部插入场景；先序首个新节点）。 */
+export function findInsertedSubtree(prev: PageNode[], next: PageNode[]): PageNode | undefined {
+  const ids = new Set<string>();
+  const collect = (l: PageNode[]) =>
+    l.forEach((n) => {
+      ids.add(n.id);
+      if (n.children) collect(n.children);
+    });
+  collect(prev);
+  let found: PageNode | undefined;
+  const walk = (l: PageNode[]): boolean => {
+    for (const n of l) {
+      if (!ids.has(n.id)) {
+        found = n;
+        return true;
+      }
+      if (n.children && walk(n.children)) return true;
+    }
+    return false;
+  };
+  walk(next);
+  return found;
+}
+
+/** 按 id 替换子树（引用相等即整树返回）。 */
+export function replaceSubtree(nodes: PageNode[], next: PageNode): PageNode[] {
+  const walk = (l: PageNode[]): PageNode[] =>
+    l.map((n) => (n.id === next.id ? next : n.children ? { ...n, children: walk(n.children) } : n));
+  const out = walk(nodes);
+  return out === nodes ? [...out] : out;
 }
 
 /** 同级移动（drag 重排）。 */
