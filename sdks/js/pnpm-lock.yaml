@@ -10,7 +10,7 @@ overrides:
   flatted: ^3.4.2
   picomatch: ^2.3.2
   "@babel/core": ^7.29.6
-  js-yaml: ">=4.3.0 <5.0.0"
+  js-yaml: ">=4.3.2 <5.0.0"
   fast-uri: ">=3.1.6 <4.0.0"
 
 importers:
@@ -876,16 +876,10 @@ packages:
         integrity: sha512-Ht8wIW5v165atIX1p+JvKR5ONzUyF4Ac8DZIQ5kZs9zrb6M8SJNXpx1zn04rn65VjBMygRoMXcyYwNK0fT7bEg==,
       }
 
-  "@jridgewell/sourcemap-codec@1.4.14":
+  "@jridgewell/sourcemap-codec@1.6.0":
     resolution:
       {
-        integrity: sha512-XPSJHWmi394fuUuzDnGz1wiKqWfo1yXecHQMRf2l6hztTO+nPru658AyDngaBe7isIxEkRsPR3FZh+s7iVa4Uw==,
-      }
-
-  "@jridgewell/sourcemap-codec@1.5.0":
-    resolution:
-      {
-        integrity: sha512-gv3ZRaISU3fjPAgNsriBRqGWQL6quFx04YMPW/zD8XMLsU32mhCCbfbO6KZFLjvYpCZ8zyDEgqsgf+PwPaM7GQ==,
+        integrity: sha512-T7jf+5zgsZHwNJ4lvQ7/aezbyk0nNX+zJVWpmHA7VYsEx7a7qr5Rg5IbtJFqkgze5Y2sruq1RUY8Q837Od7iFw==,
       }
 
   "@jridgewell/trace-mapping@0.3.31":
@@ -2925,10 +2919,10 @@ packages:
         integrity: sha512-RdJUflcE3cUzKiMqQgsCu06FPu9UdIJO0beYbPhHN4k6apgJtifcoCtT9bcxOpYBtpD2kCM6Sbzg4CausW/PKQ==,
       }
 
-  js-yaml@4.3.1:
+  js-yaml@4.3.2:
     resolution:
       {
-        integrity: sha512-CY6crGq313MX8GkwvB7tzgp99vjQxY1++5y10/BKN/GUfHqWaOGQMNZkBvqSzsZKWk/ijwHlWzzkLulsGHhjWQ==,
+        integrity: sha512-SFNOvSJ+Dgf/9An904Yx+CgSlIPCkIpao4qo51lpee25TIRejdH3rhR4EZMGoNx3/TP3O+wzWuiTFl4sqbltzA==,
       }
     hasBin: true
 
@@ -4531,7 +4525,7 @@ snapshots:
       globals: 14.0.0
       ignore: 5.2.0
       import-fresh: 3.2.1
-      js-yaml: 4.3.1
+      js-yaml: 4.3.2
       minimatch: 3.1.5
       strip-json-comments: 3.1.1
     transitivePeerDependencies:
@@ -4576,7 +4570,7 @@ snapshots:
       camelcase: 5.3.1
       find-up: 4.1.0
       get-package-type: 0.1.0
-      js-yaml: 4.3.1
+      js-yaml: 4.3.2
       resolve-from: 5.0.0
 
   "@istanbuljs/schema@0.1.6": {}
@@ -4762,13 +4756,13 @@ snapshots:
 
   "@jridgewell/gen-mapping@0.3.12":
     dependencies:
-      "@jridgewell/sourcemap-codec": 1.5.0
+      "@jridgewell/sourcemap-codec": 1.6.0
       "@jridgewell/trace-mapping": 0.3.31
 
   "@jridgewell/gen-mapping@0.3.5":
     dependencies:
       "@jridgewell/set-array": 1.2.1
-      "@jridgewell/sourcemap-codec": 1.4.10
+      "@jridgewell/sourcemap-codec": 1.6.0
       "@jridgewell/trace-mapping": 0.3.31
 
   "@jridgewell/remapping@2.3.5":
@@ -4782,14 +4776,12 @@ snapshots:
 
   "@jridgewell/sourcemap-codec@1.4.10": {}
 
-  "@jridgewell/sourcemap-codec@1.4.14": {}
-
-  "@jridgewell/sourcemap-codec@1.5.0": {}
+  "@jridgewell/sourcemap-codec@1.6.0": {}
 
   "@jridgewell/trace-mapping@0.3.31":
     dependencies:
       "@jridgewell/resolve-uri": 3.1.2
-      "@jridgewell/sourcemap-codec": 1.4.14
+      "@jridgewell/sourcemap-codec": 1.6.0
 
   "@jridgewell/trace-mapping@0.3.9":
     dependencies:
@@ -6379,7 +6371,7 @@ snapshots:
 
   js-tokens@4.0.0: {}
 
-  js-yaml@4.3.1:
+  js-yaml@4.3.2:
     dependencies:
       argparse: 2.0.1
 

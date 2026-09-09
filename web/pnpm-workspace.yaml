@@ -110,6 +110,11 @@ overrides:
   immutable: '>=4.3.9 <5.0.0'
   js-yaml: '>=5.2.2 <6.0.0'
   postcss@<=8.5.17: '>=8.5.18'
+  # 2026-09-09 安全补丁：multer 大小限制绕过/上传描述符泄漏（patched 2.3.0）、
+  # hono query parser 差异与 SSG 路径穿越（patched 4.13.5）、svgo removeScripts 绕过（patched 2.8.4）
+  multer: '>=2.3.0 <3.0.0'
+  hono: '>=4.13.5 <5.0.0'
+  svgo: '>=2.8.4 <3.0.0'
   svgo@>=1.0.0 <2.8.3: '>=2.8.3 <3.0.0'
   # 保留不修复（2026-08-02 评估）：
   # - react-router/react-router-dom 6.x → 已于 2026-08-19 修复：官方发布 6.30.6 安全回移，见上方 overrides
