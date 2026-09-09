@@ -83,6 +83,7 @@
     "@babel/plugin-transform-modules-commonjs": "^7.28.6",
     "@biomejs/biome": "^2.4.13",
     "@eslint/eslintrc": "^3.3.4",
+    "@faker-js/faker": "^10.6.0",
     "@playwright/test": "^1.62.0",
     "@tailwindcss/postcss": "^4.3.0",
     "@testing-library/jest-dom": "^6.9.1",

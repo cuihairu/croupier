@@ -1,5 +1,18 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { App, Button, Card, Col, Descriptions, Modal, Row, Space, Table, Typography } from 'antd';
+import {
+  App,
+  Button,
+  Card,
+  Col,
+  Descriptions,
+  Modal,
+  Row,
+  Space,
+  Switch,
+  Table,
+  Tag,
+  Typography,
+} from 'antd';
 import type { FunctionDescriptor } from '@/services/api/functions';
 import type { FormPresentationSpec, JSONSchema } from '@/types/dashboard';
 import { invokeFunction } from '@/services/api/functions';
@@ -9,6 +22,7 @@ import { parseAction } from './actions';
 import type { PageNode } from './model';
 import { schemaProperties } from './types';
 import { extractErrorMessage } from '@/utils/errors';
+import { generateMockResponse } from './mockData';
 
 const { Text } = Typography;
 
@@ -42,6 +56,11 @@ export default function PreviewRuntime({
   const [results, setResults] = useState<Record<string, unknown>>({});
   const [running, setRunning] = useState<Record<string, boolean>>({});
   const [dialogId, setDialogId] = useState<string | null>(null);
+  // 模拟数据模式（默认关）：开启后按函数 outputSchema 合成假数据，不调用真实
+  // 函数——组装/联动验证无需真实 agent 在线；默认保持真实调用（预览=发布行为）。
+  const [mock, setMock] = useState(false);
+  const mockRef = useRef(mock);
+  mockRef.current = mock;
   // refreshOnNode 级联的同名字段合并输入（与发布运行时 sectionInputs 同语义）。
   const cascadeInputsRef = useRef<Record<string, JSONRecord>>({});
   const runningRef = useRef<Record<string, boolean>>({});
@@ -73,8 +92,14 @@ export default function PreviewRuntime({
       if (!fid) return;
       setRunning((r) => ({ ...r, [node.id]: true }));
       try {
-        const resp = await invokeFunction(fid, params as never);
-        setResults((r) => ({ ...r, [node.id]: resp }));
+        // 模拟模式：按 outputSchema 合成假数据（跳过真实调用与错误提示）
+        if (mockRef.current) {
+          const mockResp = generateMockResponse(fnRef.current.get(fid));
+          setResults((r) => ({ ...r, [node.id]: mockResp ?? { data: {} } }));
+        } else {
+          const resp = await invokeFunction(fid, params as never);
+          setResults((r) => ({ ...r, [node.id]: resp }));
+        }
         // fnForm 成功 → onSuccessRefresh 动作
         if (node.type === 'fnForm') {
           const act = parseAction(node.props.onSuccessRefresh);
@@ -150,6 +175,17 @@ export default function PreviewRuntime({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  /** 模拟/真实模式切换：同步刷新 ref（同帧生效）→ 清空状态 → 重跑 autoRun 区块。 */
+  const applyMockMode = useCallback((v: boolean) => {
+    mockRef.current = v;
+    setMock(v);
+    setResults({});
+    cascadeInputsRef.current = {};
+    for (const n of treeRef.current) {
+      if (n.props.autoRun === true && n.type !== 'modal') void runRef.current(n);
+    }
+  }, []);
+
   // refreshOnNode 级联：上游（含 staticForm 值）产出即重跑下游 + 同名字段
   // 合并进输入——语义对齐发布运行时 CompositeRenderer。
   const resultsRef = useRef(results);
@@ -189,6 +225,25 @@ export default function PreviewRuntime({
 
   return (
     <>
+      {/* 预览工具条：模拟数据开关——组装/联动验证无需真实 agent 在线 */}
+      <div style={{ marginBottom: 12, display: 'flex', alignItems: 'center', gap: 8 }}>
+        <Tag color="orange" style={{ marginRight: 0 }}>
+          预览
+        </Tag>
+        <Text type="secondary" style={{ fontSize: 12 }}>
+          模拟数据
+        </Text>
+        <Switch
+          size="small"
+          checked={mock}
+          onChange={(v) => {
+            applyMockMode(v);
+          }}
+        />
+        <Text type="secondary" style={{ fontSize: 11 }}>
+          开启时按函数 outputSchema 动态生成假数据（不调用真实函数），用于验证绑定与联动
+        </Text>
+      </div>
       <Row gutter={[12, 12]}>
         {inline.map((node) => (
           <Col key={node.id} span={Number(node.props.span ?? 24) || 24}>
