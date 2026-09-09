@@ -16,6 +16,7 @@ import {
 import type { FunctionDescriptor } from '@/services/api/functions';
 import type { FormPresentationSpec, JSONSchema } from '@/types/dashboard';
 import { invokeFunction } from '@/services/api/functions';
+import { resolveStepParams } from '@/components/PageRenderer';
 import SchemaFormRenderer, { type SchemaFormRendererProps } from '@/components/SchemaFormRenderer';
 import { derivePresentationSpec } from '@/utils/schemaHints';
 import { parseAction } from './actions';
@@ -52,10 +53,12 @@ export default function PreviewRuntime({
   tree: PageNode[];
   fnById: Map<string, FunctionDescriptor>;
 }) {
-  const { message } = App.useApp();
+  const { message, modal } = App.useApp();
   const [results, setResults] = useState<Record<string, unknown>>({});
   const [running, setRunning] = useState<Record<string, boolean>>({});
   const [dialogId, setDialogId] = useState<string | null>(null);
+  // V5：弹窗表单预填初值（行操作/带参动作求值结果，按表单节点 id 键控）
+  const [dialogInputs, setDialogInputs] = useState<Record<string, JSONRecord>>({});
   // 模拟数据模式（默认关）：开启后按函数 outputSchema 合成假数据，不调用真实
   // 函数——组装/联动验证无需真实 agent 在线；默认保持真实调用（预览=发布行为）。
   const [mock, setMock] = useState(false);
@@ -80,11 +83,38 @@ export default function PreviewRuntime({
       return { ...r, [nodeId]: { ...cur, selectedRow: rows[0], selectedRows: rows } };
     });
   }, []);
-
   const treeRef = useRef(tree);
   treeRef.current = tree;
   const fnRef = useRef(fnById);
   fnRef.current = fnById;
+
+  // V5：表达式求值空间——sectionKey → 该节点运行时状态（与发布运行时同构）
+  const stateByVar = useMemo(() => {
+    const state: Record<string, unknown> = {};
+    const walk = (list: PageNode[]) => {
+      for (const n of list) {
+        const name = typeof n.props.sectionKey === 'string' ? n.props.sectionKey.trim() : '';
+        if (name) state[name] = results[n.id];
+        if (n.children) walk(n.children);
+      }
+    };
+    walk(tree);
+    return state;
+  }, [tree, results]);
+  const stateByVarRef = useRef(stateByVar);
+  stateByVarRef.current = stateByVar;
+  // 运行时状态快照 ref（事件帧内求值/执行读取，避免 setState 异步导致同帧读旧值）
+  const resultsRef = useRef(results);
+
+  /** 打开弹窗（modal 节点 id）并预填其函数表单初值。 */
+  const openDialogPrefill = useCallback((modalId: string, inputs: JSONRecord) => {
+    const modalNode = findIn(treeRef.current, modalId);
+    const form = modalNode?.children?.find((c) => c.type === 'fnForm');
+    if (form && Object.keys(inputs).length > 0) {
+      setDialogInputs((prev) => ({ ...prev, [form.id]: inputs }));
+    }
+    setDialogId((cur) => (cur === modalId ? null : modalId));
+  }, []);
 
   const runNode = useCallback(
     async (node: PageNode, params: JSONRecord = {}) => {
@@ -121,7 +151,7 @@ export default function PreviewRuntime({
   runRef.current = runNode;
 
   const handleAction = useCallback(
-    (raw: unknown) => {
+    (raw: unknown, ctx?: JSONRecord) => {
       const act = parseAction(raw);
       if (!act) return;
       switch (act.kind) {
@@ -131,8 +161,8 @@ export default function PreviewRuntime({
             message.warning('动作目标不存在（可能已删除）');
             return;
           }
-          // toggle 语义：重复点击已打开的弹窗 → 关闭（显示/隐藏直觉）
-          setDialogId((cur) => (cur === act.target ? null : act.target));
+          // V5：params 表达式求值 → 弹窗表单预填
+          openDialogPrefill(act.target, resolveStepParams(act.params, stateByVarRef.current, ctx));
           break;
         }
         case 'closeModal':
@@ -148,23 +178,84 @@ export default function PreviewRuntime({
           message.info(String(act.params?.message ?? ''));
           break;
         default: {
-          // runBinding / refreshNode → 执行目标函数组件
+          // runBinding / refreshNode → 执行目标函数组件（V5：参数表达式求值）
           const target = findIn(treeRef.current, act.target);
           if (!target) {
             message.warning('动作目标不存在（可能已删除）');
             return;
           }
-          void runRef.current(target);
+          const resolved = resolveStepParams(act.params, stateByVarRef.current, ctx);
+          void runRef.current(target, resolved);
         }
       }
-      // 动作链：后续步骤按序执行
-      const chain = (raw as { chain?: Array<{ kind: string; target: string }> })?.chain ?? [];
+      // 动作链：后续步骤按序执行（同上下文求值）
+      const chain =
+        (
+          raw as {
+            chain?: Array<{ kind: string; target: string; params?: Record<string, string> }>;
+          }
+        )?.chain ?? [];
       for (const step of chain) {
         const node = findIn(treeRef.current, step.target);
-        if (node) void runRef.current(node);
+        if (node) {
+          void runRef.current(node, resolveStepParams(step.params, stateByVarRef.current, ctx));
+        }
       }
     },
-    [message],
+    [message, openDialogPrefill],
+  );
+
+  /** 行操作点击（V5）：行字段映射（row.x / {{row.x}} / 裸字段）→ 预填弹窗。 */
+  const handleRowAction = useCallback(
+    (raw: unknown, row: JSONRecord) => {
+      const ra = raw as {
+        label?: unknown;
+        targetSection?: unknown;
+        params?: Record<string, string>;
+        danger?: boolean;
+      } | null;
+      if (!ra?.targetSection) return;
+      const modalNode = findIn(treeRef.current, String(ra.targetSection));
+      if (!modalNode) {
+        message.warning('动作目标不存在（可能已删除）');
+        return;
+      }
+      const inputs: JSONRecord = {};
+      for (const [param, src] of Object.entries(ra.params ?? {})) {
+        let field = String(src);
+        // 兼容编辑器三种形态：row.x（编译产物）/ {{row.x}}（表达式输入原文）/ 裸字段名
+        if (field.startsWith('{{row.') && field.endsWith('}}')) field = field.slice(5, -2);
+        else if (field.startsWith('row.')) field = field.slice(4);
+        inputs[param] = row[field];
+      }
+      const open = () => openDialogPrefill(String(ra.targetSection), inputs);
+      if (ra.danger) {
+        modal.confirm({
+          title: `确认执行「${String(ra.label ?? '操作')}」`,
+          onOk: open,
+        });
+        return;
+      }
+      open();
+    },
+    [message, modal, openDialogPrefill],
+  );
+
+  /** 选中行变化（V5）：同步写入 results/变量快照（同帧事件求值可见）→
+   * 触发 onRowSelected 事件动作（选中行作为 row 上下文）。 */
+  const handleSelection = useCallback(
+    (node: PageNode, rows: JSONRecord[]) => {
+      const cur = (resultsRef.current[node.id] ?? {}) as Record<string, unknown>;
+      const entry = { ...cur, selectedRow: rows[0], selectedRows: rows };
+      resultsRef.current = { ...resultsRef.current, [node.id]: entry };
+      setResults(resultsRef.current);
+      const name = typeof node.props.sectionKey === 'string' ? node.props.sectionKey.trim() : '';
+      if (name) {
+        stateByVarRef.current = { ...stateByVarRef.current, [name]: entry };
+      }
+      if (rows[0]) handleAction(node.props.onRowSelected, rows[0]);
+    },
+    [handleAction],
   );
 
   // autoRun（进入预览时一次）
@@ -188,8 +279,9 @@ export default function PreviewRuntime({
 
   // refreshOnNode 级联：上游（含 staticForm 值）产出即重跑下游 + 同名字段
   // 合并进输入——语义对齐发布运行时 CompositeRenderer。
-  const resultsRef = useRef(results);
-  resultsRef.current = results;
+  useEffect(() => {
+    resultsRef.current = results;
+  }, [results]);
   useEffect(() => {
     const nodes = treeRef.current;
     for (const node of nodes) {
@@ -253,9 +345,10 @@ export default function PreviewRuntime({
               data={results[node.id]}
               running={running[node.id] || false}
               onAction={handleAction}
+              onRowAction={handleRowAction}
               onSubmit={(params) => void runNode(node, params)}
               onStaticChange={handleStaticChange}
-              onSelectionChange={handleSelectionChange}
+              onSelectionChange={handleSelection}
               renderChild={(child) => (
                 <PreviewNode
                   node={child}
@@ -265,9 +358,10 @@ export default function PreviewRuntime({
                   data={results[child.id]}
                   running={running[child.id] || false}
                   onAction={handleAction}
+                  onRowAction={handleRowAction}
                   onSubmit={(params) => void runNode(child, params)}
                   onStaticChange={handleStaticChange}
-                  onSelectionChange={handleSelectionChange}
+                  onSelectionChange={handleSelection}
                 />
               )}
             />
@@ -293,6 +387,7 @@ export default function PreviewRuntime({
                   key={form.id}
                   fn={fnById.get(String(form.props.functionId))}
                   running={running[form.id] || false}
+                  initialValues={dialogInputs[form.id]}
                   onSubmit={async (params) => {
                     await runNode(form, params);
                     setDialogId(null);
@@ -328,6 +423,7 @@ function PreviewNode({
   data,
   running,
   onAction,
+  onRowAction,
   onSubmit,
   onStaticChange,
   onSelectionChange,
@@ -337,18 +433,57 @@ function PreviewNode({
   fn: FunctionDescriptor | undefined;
   data: unknown;
   running: boolean;
-  onAction: (raw: unknown) => void;
+  onAction: (raw: unknown, ctx?: JSONRecord) => void;
+  /** V5：行操作点击（行字段映射 → 弹窗预填），由父级处理目标与求值。 */
+  onRowAction?: (raw: unknown, row: JSONRecord) => void;
   onSubmit: (params: JSONRecord) => void;
   /** staticForm 值变化（防抖后）→ 预览页面状态。 */
   onStaticChange?: (nodeId: string, values: JSONRecord) => void;
-  /** V5：表格选中行变化 → 预览页面状态（selectedRow/selectedRows）。 */
-  onSelectionChange?: (nodeId: string, rows: JSONRecord[]) => void;
+  /** V5：表格选中行变化 → 预览页面状态（selectedRow/selectedRows）+ 选中事件。 */
+  onSelectionChange?: (node: PageNode, rows: JSONRecord[]) => void;
   /** 容器子节点渲染回调（由主组件注入执行上下文）。 */
   renderChild?: (child: PageNode) => React.ReactNode;
 }) {
   const payload = useMemo(() => payloadOf(data), [data]);
   const items = useMemo(() => itemsOf(payload), [payload]);
   const title = String(node.props.title ?? node.type);
+  // V5：列 = 声明列/schema 字段 + 行操作列（发布行为的预览等价物）
+  const rowActionDrafts = Array.isArray(node.props.rowActions)
+    ? (node.props.rowActions as Array<Record<string, unknown>>)
+    : [];
+  const previewColumns = useMemo(() => {
+    const base = (
+      Array.isArray(node.props.columns) && node.props.columns.length
+        ? (node.props.columns as string[])
+        : schemaProperties(fn?.outputSchema)
+    )
+      .slice(0, 8)
+      .map((c) => ({ title: c, dataIndex: c, ellipsis: true }));
+    if (!rowActionDrafts.length) return base;
+    return [
+      ...base,
+      {
+        title: '操作',
+        key: '__preview_row_actions',
+        render: (_: unknown, row: JSONRecord) => (
+          <Space size={4}>
+            {rowActionDrafts.map((ra, i) => (
+              <Button
+                key={i}
+                size="small"
+                type="link"
+                danger={ra.danger === true}
+                onClick={() => onRowAction?.(ra, row)}
+              >
+                {String(ra.label ?? '操作')}
+              </Button>
+            ))}
+          </Space>
+        ),
+      },
+    ];
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [node.props.columns, fn?.outputSchema, rowActionDrafts, onRowAction]);
 
   if (node.type === 'text') {
     const level = String(node.props.level ?? 'p');
@@ -403,20 +538,11 @@ function PreviewNode({
           rowSelection={{
             type: 'radio',
             onChange: (_keys, rows) => {
-              // V5：选中行写入预览运行时状态（与发布渲染器同一状态形态）
-              onSelectionChange?.(node.id, rows as JSONRecord[]);
+              // V5：选中行写状态（同步）+ 触发 onRowSelected 事件动作
+              onSelectionChange?.(node, rows as JSONRecord[]);
             },
           }}
-          columns={(Array.isArray(node.props.columns) && node.props.columns.length
-            ? (node.props.columns as string[])
-            : schemaProperties(fn?.outputSchema)
-          )
-            .slice(0, 8)
-            .map((c) => ({
-              title: c,
-              dataIndex: c,
-              ellipsis: true,
-            }))}
+          columns={previewColumns}
           dataSource={items}
         />
       ) : node.type === 'fnFields' ? (
@@ -457,11 +583,14 @@ function PreviewNode({
 function ModalForm({
   fn,
   running,
+  initialValues,
   onSubmit,
   inline,
 }: {
   fn: FunctionDescriptor | undefined;
   running: boolean;
+  /** V5：弹窗预填初值（行操作/带参 openModal 的求值结果）。 */
+  initialValues?: JSONRecord;
   onSubmit: (params: JSONRecord) => void | Promise<void>;
   inline?: boolean;
 }) {
@@ -479,6 +608,7 @@ function ModalForm({
   return (
     <SchemaFormRenderer
       spec={spec}
+      initialValues={(initialValues ?? {}) as never}
       disabled={running}
       onFinish={async (values) => {
         await onSubmit(values as JSONRecord);
