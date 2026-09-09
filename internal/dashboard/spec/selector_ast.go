@@ -183,6 +183,10 @@ func compositePageStateSchema(comp *CompositePageSpec) map[string]JSONSchema {
 		for _, dep := range sec.RefreshOn {
 			add(dep)
 		}
+		// page_state 运行时按 section key 键控（渲染层 onPageStateMerge(key)）；
+		// 显式 inputAssignment 引用任一区块（含 static 常量表单——V5 表达式
+		// {{filterForm.values.x}} 的编译产物）都必须是合法来源。
+		add(sec.Key)
 		add(sec.BindingID)
 	}
 	return out

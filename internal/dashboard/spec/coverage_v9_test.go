@@ -39,9 +39,14 @@ func TestCompositePageStateSchemaV9(t *testing.T) {
 			{Key: "s3", BindingID: "   "},
 		},
 	}
+	// page_state 合法键 = section key（含 static 区块——V5 表达式引用）∪
+	// BindingID ∪ refreshOn 依赖
 	out := compositePageStateSchema(comp)
-	assert.Len(t, out, 3)
+	assert.Len(t, out, 6)
 	assert.Contains(t, out, "sel")
+	assert.Contains(t, out, "s1")
+	assert.Contains(t, out, "s2")
+	assert.Contains(t, out, "s3")
 	assert.Contains(t, out, "b1")
 	assert.Contains(t, out, "b2")
 	assert.Equal(t, JSONSchema(`{}`), out["sel"])
