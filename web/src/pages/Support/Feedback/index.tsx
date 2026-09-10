@@ -140,8 +140,14 @@ export default function SupportFeedbackPage() {
             <Button
               type="primary"
               onClick={() => {
-                setPage(1);
-                load();
+                // page 是 load 的依赖：非第 1 页时 setPage(1) 经 effect 重拉一次
+                // 即可；再手动 load() 会用旧闭包页码发出第二个请求，竞态可能
+                // 把第 1 页数据覆盖成当前页。
+                if (page === 1) {
+                  load();
+                } else {
+                  setPage(1);
+                }
               }}
             >
               查询
