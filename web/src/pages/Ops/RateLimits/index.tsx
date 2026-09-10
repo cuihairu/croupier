@@ -153,7 +153,30 @@ export default function OpsRateLimitsPage() {
             size="small"
             onClick={() => {
               setOpen(true);
-              form.setFieldsValue(r);
+              // 表单字段是平铺的 matchGameId/matchEnv/...，而规则里的 match 是
+              // 嵌套对象：回填时映射标准四键，其余键还原为 labels JSON 文本，
+              // 否则提交侧按空输入重建 match，静默清空全部匹配条件。
+              const { match, ...rest } = r;
+              const standard: Record<string, string> = {};
+              const labels: Record<string, string> = {};
+              const keyMap: Record<string, string> = {
+                gameId: 'matchGameId',
+                env: 'matchEnv',
+                region: 'matchRegion',
+                zone: 'matchZone',
+              };
+              Object.entries(match || {}).forEach(([k, v]) => {
+                const formKey = keyMap[k];
+                if (formKey) standard[formKey] = String(v);
+                else labels[k] = String(v);
+              });
+              form.setFieldsValue({
+                ...rest,
+                ...standard,
+                matchLabels: Object.keys(labels).length
+                  ? JSON.stringify(labels, null, 2)
+                  : undefined,
+              });
             }}
           >
             {intl.formatMessage({ id: 'pages.permissions.edit.button' })}

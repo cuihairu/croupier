@@ -561,7 +561,7 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
         <Alert
           type="error"
           showIcon
-          title={listError}
+          message={listError}
           closable
           onClose={() => setListError(null)}
         />
@@ -733,7 +733,7 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
           size={640}
         >
           <Skeleton active loading={detailLoading}>
-            {detailError ? <Alert type="error" showIcon title={detailError} /> : null}
+            {detailError ? <Alert type="error" showIcon message={detailError} /> : null}
             {!detailError ? (
               <ProDescriptions column={spec.detailView.layout === 'horizontal' ? 2 : 1}>
                 {spec.detailView.fields

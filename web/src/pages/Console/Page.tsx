@@ -239,7 +239,9 @@ export default function ConsolePage() {
                 <Button
                   size="small"
                   onClick={() =>
-                    history.push(`/functions/pages?focus=${encodeURIComponent(pageKey)}`)
+                    // inbox=1：只让 ProposalInbox 定位该项（切 Tab + 行高亮），
+                    // 不自动打开编辑器——与「前往处理」区分开。
+                    history.push(`/functions/pages?focus=${encodeURIComponent(pageKey)}&inbox=1`)
                   }
                 >
                   打开 Proposal Inbox

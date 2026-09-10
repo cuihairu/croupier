@@ -220,7 +220,11 @@ export default function PageStudio() {
     const key = currentFocusPageKey();
     if (key) {
       setFocusPageKey(key);
-      handleEdit(key);
+      // inbox=1 表示来自「打开 Proposal Inbox」入口：只定位 Inbox 队列项
+      // （focusPageKey 驱动切 Tab + 行高亮），不自动打开编辑器。
+      if (new URLSearchParams(window.location.search).get('inbox') !== '1') {
+        handleEdit(key);
+      }
     }
   }, [handleEdit]);
 

@@ -261,11 +261,23 @@ export default function AlertRulesTab() {
                 <Form.Item
                   name="metric"
                   label={isCustom ? '自定义指标 key' : undefined}
-                  rules={[{ required: true }]}
+                  rules={[
+                    { required: true },
+                    // addonBefore 仅是装饰，值不带前缀提交后规则永不命中，
+                    // 改为校验拦截（值本身含前缀，避免 addon 再叠一层显示）。
+                    ...(isCustom
+                      ? [
+                          {
+                            pattern: /^custom\./,
+                            message: '自定义指标需以 custom. 开头（如 custom.queueDepth）',
+                          },
+                        ]
+                      : []),
+                  ]}
                   style={isPreset ? { display: 'none' } : undefined}
                 >
                   {isCustom ? (
-                    <Input addonBefore="custom." placeholder="queueDepth" />
+                    <Input placeholder="custom.queueDepth" />
                   ) : (
                     <Input placeholder="disk./data.usedPercent 或 custom.queueDepth" />
                   )}
