@@ -57,6 +57,14 @@ export function getComponent(type: ComponentType): ComponentDef | undefined {
   return registry.get(type);
 }
 
+/** scaffold 按契约实例化节点 props（拖入即骨架，amis 式）。 */
+export function scaffoldProps(
+  type: ComponentType,
+  fn?: FunctionDescriptor,
+): Record<string, unknown> {
+  return getComponent(type)?.scaffold(fn) ?? {};
+}
+
 export function allComponents(): ComponentDef[] {
   return Array.from(registry.values());
 }

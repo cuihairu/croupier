@@ -155,20 +155,39 @@ propSchema 字段渲染约定：
 ```
 web/src/pages/PageStudio/CompositeEditor/
 ├── model.ts          # PageNode 树模型 + 纯函数树操作（insert/remove/move/duplicate/pruneDanglingBindings…10 用例）
-├── registry.tsx      # ComponentDef 注册表（scaffold/propSchema/Preview）
-├── components/builtin.tsx   # 七个内置组件定义
+├── registry.tsx      # ComponentDef 注册表（scaffold/propSchema/Preview/scaffoldProps）
+├── compiler/         # 编译器（模块化，2026-09 拆分）
+│   ├── types.ts      #   CompiledSection/CompileResult/SpecSectionLike/SECTION_KEY_RE/VIEW_MAP
+│   ├── normalize.ts  #   normalizeRowActionParams（行操作参数归一/警告）
+│   ├── compile.ts    #   compileTree（编辑树 → sections）
+│   ├── decompile.ts  #   decompileToTree（sections → 编辑树，回读）
+│   └── index.ts      #   门面（re-export，测试与调用方导入路径不变）
+├── components/       # 内置组件定义（2026-09 由单文件拆分）
+│   ├── builtin.tsx   #   registerBuiltinComponents 引导 + viewTypeToComponent（门面）
+│   └── Fn*.tsx/Button/Modal/Container/Text/StaticForm.tsx + shared.ts（commonFnSchema）
 ├── ComponentPanel.tsx# 组件面板（函数分组+基础组件+scope 引导）
-├── Canvas.tsx        # 画布（CanvasNode 装饰+右键菜单 / ModalPlaceholder / RootDropZone）
+├── Canvas.tsx        # 画布（ModalPlaceholder / RootDropZone；CanvasNode 从 CanvasNode.tsx re-export）
+├── CanvasNode.tsx    # 画布节点装饰（选中/拖拽/右键菜单/容器子级）
 ├── OutlinePanel.tsx  # 大纲树
 ├── PropsPanel.tsx    # 属性面板（rjsf + columns/rowActions/action 分区渲染）
 ├── ActionEditor.tsx  # 动作编排（主动作+链）
 ├── RowActionsEditor.tsx      # 行操作编辑器
-├── PreviewRuntime.tsx# 预览运行时（=发布形态）
+├── previewShared.ts  # 预览共享层（payloadOf/itemsOf/findIn/JSONRecord/StepLike）
+├── PreviewRuntime.tsx# 预览运行时引擎（状态/执行/动作分派，=发布形态）
+├── PreviewNode.tsx   # 预览渲染子组件（表格/字段卡/表单/ModalForm/StaticFormLive）
 ├── DataPanel.tsx     # 底部数据试跑面板
 ├── actions.ts        # ActionSpec/动作注册表
-├── compiler.ts       # 编译（树→sections）+ 反编译（sections→树，回读）
-└── index.tsx         # 编辑器主页（四区布局/拖拽域/撤销重做/多选/保存/回读）
+├── useEditorHistory.ts      # 树历史 hook（撤销/重做 50 步 + 统一 setTree 入口 + 快捷键）
+├── useCanvasDnd.ts   # 画布拖拽 hook（面板插入/重排/modal 收纳/模板落点）
+├── SaveComponentModal.tsx   # 「保存为组件模板」弹窗（表单+参数化候选）
+├── InsertTemplateModal.tsx  # 带参模板快速配置弹窗
+└── index.tsx         # 编辑器主页（四区布局编排/回读/保存/多选/属性分发）
 ```
+
+页面工作台（`web/src/pages/PageStudio/index.tsx`）2026-09 同步拆分：`studio/` 子目录承载
+6 个抽屉/弹窗组件（PreviewDrawer/EditorModal/VersionsDrawer/ChangeChainDrawer/DiffDrawer/MergeModal）
+
+- draftColumns 列定义 + shared 工具，主页保留列表编排与全部数据回调。
 
 发布链：编译产物 `POST /api/v1/versioning/pages/composite`（请求结构含 `key/group/display/rowActions/toolbarActions/onSuccessRefresh/chain`）→ 提案 → 接受发布 → `PageRenderer/CompositeRenderer` 按 spec 渲染。
 

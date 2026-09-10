@@ -1,42 +1,19 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { history } from '@umijs/max';
-import { PageContainer, ProTable, type ProColumns } from '@ant-design/pro-components';
-import {
-  Alert,
-  App,
-  Button,
-  Card,
-  Col,
-  Collapse,
-  Drawer,
-  Dropdown,
-  Empty,
-  Modal,
-  Popconfirm,
-  Row,
-  Space,
-  Switch,
-  Tag,
-  Timeline,
-  Tooltip,
-  Typography,
-} from 'antd';
-import {
-  DiffOutlined,
-  EditOutlined,
-  EyeOutlined,
-  HistoryOutlined,
-  MergeOutlined,
-  MoreOutlined,
-  ReloadOutlined,
-  RocketOutlined,
-  StopOutlined,
-} from '@ant-design/icons';
+import { PageContainer, ProTable } from '@ant-design/pro-components';
+import { App, Button, Collapse, Modal, Space, Typography } from 'antd';
+import { ReloadOutlined, RocketOutlined } from '@ant-design/icons';
 import MergeConflictModal from '@/components/MergeConflictModal';
-import PageEditor from '@/components/PageEditor';
-import PageRenderer from '@/components/PageRenderer';
 import ProposalInbox from '@/components/ProposalInbox';
 import PageWorkflowGuide from '@/components/PageWorkflowGuide';
+import PreviewDrawer from './studio/PreviewDrawer';
+import EditorModal from './studio/EditorModal';
+import VersionsDrawer from './studio/VersionsDrawer';
+import ChangeChainDrawer from './studio/ChangeChainDrawer';
+import DiffDrawer from './studio/DiffDrawer';
+import MergeModal from './studio/MergeModal';
+import { buildDraftColumns } from './studio/draftColumns';
+import { currentFocusPageKey } from './studio/shared';
 import {
   getPageDraft,
   listPageVersions,
@@ -64,48 +41,13 @@ import type {
   PageSpec,
   PageSpecDraft,
   PageSpecDraftSummary,
-  PageType,
   PageVersionItem,
 } from '@/types/dashboard';
 import { requestConsoleMenuRefresh } from '@/utils/consoleMenu';
 import { localizedText } from '@/utils/localizedText';
 import { extractErrorDetails, extractErrorMessage } from '@/utils/errors';
 
-const { Paragraph, Text } = Typography;
-
-function statusColor(status: PageSpecDraftSummary['status']) {
-  if (status === 'published') return 'green';
-  if (status === 'archived') return 'default';
-  return 'blue';
-}
-
-function formatDate(value?: string): string {
-  if (!value) return '-';
-  const time = new Date(value);
-  return Number.isNaN(time.getTime()) ? value : time.toLocaleString();
-}
-
-function pageTypeLabel(type: PageType): string {
-  switch (type) {
-    case 'resource':
-      return '资源页面';
-    case 'operation':
-      return '操作页面';
-    case 'task':
-      return '任务页面';
-    case 'report':
-      return '报表页面';
-    default:
-      return type;
-  }
-}
-
-function currentFocusPageKey(): string {
-  if (typeof window === 'undefined') {
-    return '';
-  }
-  return new URLSearchParams(window.location.search).get('focus') || '';
-}
+const { Text } = Typography;
 
 /** 结构化错误明细列表：展示后端 details（字段路径 → 失败原因）。 */
 function ErrorDetailList({ error }: { error: unknown }) {
@@ -553,137 +495,19 @@ export default function PageStudio() {
     [loadDrafts, loadVersionHistory, message, selectedDraftRevision, selectedPageKey],
   );
 
-  const columns: ProColumns<PageSpecDraftSummary>[] = [
+  const columns = buildDraftColumns(
     {
-      title: '页面标识',
-      dataIndex: 'pageKey',
-      key: 'pageKey',
-      width: 220,
-      render: (_, record) => (
-        <Space>
-          <Text strong>{record.pageKey}</Text>
-          <Tag color="blue">{pageTypeLabel(record.type)}</Tag>
-        </Space>
-      ),
+      onEdit: handleEdit,
+      onPreview: handlePreview,
+      onPublish: handlePublish,
+      onUnpublish: handleUnpublish,
+      onRegenerate: handleRegenerate,
+      onVersions: handleVersions,
+      onChangeChain: handleChangeChain,
+      onDiff: handleDiff,
     },
-    {
-      title: '标题',
-      dataIndex: 'title',
-      key: 'title',
-      render: (_, record) => localizedText(record.title, record.pageKey),
-    },
-    {
-      title: '分类',
-      dataIndex: ['category', 'key'],
-      key: 'category',
-      width: 120,
-      render: (_, record) => localizedText(record.category?.labels, record.category?.key || '-'),
-    },
-    {
-      title: '状态',
-      dataIndex: 'status',
-      key: 'status',
-      width: 100,
-      render: (_, record) => <Tag color={statusColor(record.status)}>{record.status}</Tag>,
-    },
-    {
-      title: '版本',
-      dataIndex: 'publishedVersion',
-      key: 'version',
-      width: 80,
-      render: (_, record) => record.publishedVersion || '-',
-    },
-    {
-      title: '更新时间',
-      dataIndex: 'updatedAt',
-      key: 'updatedAt',
-      width: 180,
-      render: (_, record) => formatDate(record.updatedAt),
-    },
-    {
-      title: '操作',
-      key: 'actions',
-      width: 160,
-      fixed: 'right',
-      render: (_, record) => (
-        <Space size={4}>
-          <Tooltip title="编辑">
-            <Button
-              type="link"
-              size="small"
-              icon={<EditOutlined />}
-              onClick={() => handleEdit(record.pageKey, record.type)}
-            />
-          </Tooltip>
-          <Tooltip title="预览">
-            <Button
-              type="link"
-              size="small"
-              icon={<EyeOutlined />}
-              onClick={() => handlePreview(record.pageKey)}
-            />
-          </Tooltip>
-          {record.status === 'draft' ? (
-            <Popconfirm
-              title="确认发布此页面？"
-              onConfirm={() => handlePublish(record.pageKey, record.draftRevision)}
-            >
-              <Tooltip title="发布">
-                <Button type="link" size="small" icon={<RocketOutlined />} />
-              </Tooltip>
-            </Popconfirm>
-          ) : (
-            <Popconfirm
-              title="确认取消发布此页面？"
-              onConfirm={() => handleUnpublish(record.pageKey)}
-            >
-              <Tooltip title="取消发布">
-                <Button type="link" size="small" icon={<StopOutlined />} danger />
-              </Tooltip>
-            </Popconfirm>
-          )}
-          <Dropdown
-            menu={{
-              items: [
-                {
-                  key: 'regenerate',
-                  icon: <ReloadOutlined />,
-                  label: '重新生成',
-                  onClick: () =>
-                    modal.confirm({
-                      title: '确认按最新 Proposal 重新生成草稿？',
-                      content: '当前草稿修改将被最新 Proposal 覆盖，已发布版本不会变更。',
-                      onOk: () => handleRegenerate(record.pageKey, record.draftRevision),
-                    }),
-                },
-                {
-                  key: 'versions',
-                  icon: <HistoryOutlined />,
-                  label: '版本历史',
-                  onClick: () => handleVersions(record.pageKey),
-                },
-                {
-                  key: 'change-chain',
-                  icon: <HistoryOutlined />,
-                  label: '变更链',
-                  onClick: () => handleChangeChain(record.pageKey),
-                },
-                {
-                  key: 'diff',
-                  icon: <DiffOutlined />,
-                  label: '变更对比',
-                  onClick: () => handleDiff(record.pageKey),
-                },
-              ],
-            }}
-            trigger={['click']}
-          >
-            <Button type="link" size="small" icon={<MoreOutlined />} />
-          </Dropdown>
-        </Space>
-      ),
-    },
-  ];
+    modal,
+  );
 
   return (
     <PageContainer
@@ -752,375 +576,67 @@ export default function PageStudio() {
         ]}
       />
 
-      <Drawer
-        title="页面预览"
-        width={900}
+      <PreviewDrawer
         open={previewVisible}
+        draft={selectedDraft}
         onClose={() => setPreviewVisible(false)}
-      >
-        {selectedDraft ? (
-          <PageRenderer
-            pageSpec={selectedDraft}
-            preview
-            onExecute={async () => {
-              throw new Error('Page Studio 预览不执行函数；发布后请在运行控制台执行。');
-            }}
-          />
-        ) : (
-          <Empty description="请选择页面" />
-        )}
-      </Drawer>
+      />
 
-      <Modal
-        title={
-          <Space>
-            <span>页面编辑</span>
-            <Text type="secondary" code>
-              {selectedPageKey || '-'}
-            </Text>
-          </Space>
-        }
+      <EditorModal
         open={editorVisible}
-        onCancel={() => setEditorVisible(false)}
-        width="100%"
-        style={{ top: 16, maxWidth: 1600, paddingBottom: 0 }}
-        styles={{ body: { height: 'calc(100vh - 120px)', overflow: 'hidden', paddingTop: 12 } }}
-        footer={
-          <Space>
-            <Switch
-              checkedChildren="预览开"
-              unCheckedChildren="预览关"
-              checked={livePreview}
-              onChange={setLivePreview}
-            />
-            <Button onClick={() => setEditorVisible(false)}>取消</Button>
-            <Button loading={saving} onClick={() => handleSave()}>
-              仅保存草稿
-            </Button>
-            <Button
-              type="primary"
-              loading={saving}
-              onClick={() => handleSave({ publishAfterSave: true })}
-            >
-              保存并发布
-            </Button>
-          </Space>
-        }
-      >
-        {selectedDraft ? (
-          <Row gutter={16} style={{ height: '100%' }}>
-            <Col
-              span={livePreview ? 13 : 24}
-              style={{ height: '100%', overflow: 'auto', paddingRight: 4 }}
-            >
-              {selectedDraft.bindingFreshness && selectedDraft.bindingFreshness.length > 0 ? (
-                <Alert
-                  type="warning"
-                  showIcon
-                  style={{ marginBottom: 12 }}
-                  message="页面绑定与函数契约不一致（发布会校验失败）"
-                  description={
-                    <ul style={{ margin: 0, paddingLeft: 18 }}>
-                      {selectedDraft.bindingFreshness.slice(0, 8).map((item, i) => (
-                        <li key={i}>
-                          <code>{item.functionId || item.bindingId || '-'}</code>
-                          {item.diagnostic?.message ? `：${item.diagnostic.message}` : ''}
-                        </li>
-                      ))}
-                      {selectedDraft.bindingFreshness.length > 8 ? (
-                        <li>…以及另外 {selectedDraft.bindingFreshness.length - 8} 条</li>
-                      ) : null}
-                    </ul>
-                  }
-                />
-              ) : null}
-              <PageEditor value={selectedDraft} onChange={updateSelectedDraftSpec} />
-            </Col>
-            {livePreview ? (
-              <Col span={11} style={{ height: '100%', overflow: 'auto' }}>
-                <Card
-                  size="small"
-                  title="实时预览"
-                  extra={<Text type="secondary">预览不执行函数；发布后请在运行控制台执行</Text>}
-                >
-                  <PageRenderer
-                    pageSpec={selectedDraft}
-                    preview
-                    onExecute={async () => {
-                      throw new Error('Page Studio 预览不执行函数；发布后请在运行控制台执行。');
-                    }}
-                  />
-                </Card>
-              </Col>
-            ) : null}
-          </Row>
-        ) : (
-          <Empty description="请选择页面" />
-        )}
-      </Modal>
+        pageKey={selectedPageKey}
+        draft={selectedDraft}
+        livePreview={livePreview}
+        saving={saving}
+        onClose={() => setEditorVisible(false)}
+        onLivePreviewChange={setLivePreview}
+        onSave={(options) => void handleSave(options)}
+        onSpecChange={updateSelectedDraftSpec}
+      />
 
-      <Drawer
-        title="版本历史"
-        width={760}
+      <VersionsDrawer
         open={versionsVisible}
+        pageKey={selectedPageKey}
+        items={versionItems}
+        loading={versionsLoading}
+        page={versionPage}
+        pageSize={versionPageSize}
+        total={versionTotal}
+        currentDraftVersion={currentDraftVersion}
+        currentPublishedVersion={currentPublishedVersion}
         onClose={() => setVersionsVisible(false)}
-      >
-        <Space orientation="vertical" style={{ width: '100%' }} size="middle">
-          <Paragraph>
-            <Text strong>页面：</Text> {selectedPageKey || '-'}
-          </Paragraph>
-          <Paragraph>
-            <Text strong>当前草稿：</Text> {currentDraftVersion || '-'}，
-            <Text strong>当前发布：</Text> {currentPublishedVersion || '-'}
-          </Paragraph>
-          <ProTable<PageVersionItem>
-            columns={[
-              {
-                title: '版本',
-                dataIndex: 'version',
-                key: 'version',
-                width: 90,
-                render: (_, record) => <Text strong>v{record.version}</Text>,
-              },
-              {
-                title: '状态',
-                dataIndex: 'status',
-                key: 'status',
-                width: 100,
-                render: (_, record) => (
-                  <Tag color={record.status === 'published' ? 'green' : 'blue'}>
-                    {record.status}
-                  </Tag>
-                ),
-              },
-              {
-                title: '当前位置',
-                key: 'current',
-                width: 160,
-                render: (_, record) => (
-                  <Space>
-                    {record.isCurrentDraft ? <Tag color="blue">当前草稿</Tag> : null}
-                    {record.isCurrentPublished ? <Tag color="green">当前发布</Tag> : null}
-                  </Space>
-                ),
-              },
-              {
-                title: '说明',
-                dataIndex: 'message',
-                key: 'message',
-                render: (_, record) => record.message || '-',
-              },
-              {
-                title: '创建时间',
-                dataIndex: 'createdAt',
-                key: 'createdAt',
-                width: 180,
-                render: (_, record) => formatDate(record.createdAt),
-              },
-              {
-                title: '操作',
-                key: 'actions',
-                width: 220,
-                render: (_, record) => (
-                  <Space>
-                    {!record.isCurrentDraft ? (
-                      <Popconfirm
-                        title={`确认回滚草稿到版本 ${record.version}？`}
-                        onConfirm={() => handleRollbackDraftVersion(record.version)}
-                      >
-                        <Button type="link" size="small">
-                          回滚草稿
-                        </Button>
-                      </Popconfirm>
-                    ) : null}
-                    {record.status === 'published' && !record.isCurrentPublished ? (
-                      <Popconfirm
-                        title={`确认回滚发布到版本 ${record.version}？`}
-                        onConfirm={() => handleRollbackPublishedVersion(record.version)}
-                      >
-                        <Button type="link" size="small">
-                          回滚发布
-                        </Button>
-                      </Popconfirm>
-                    ) : null}
-                  </Space>
-                ),
-              },
-            ]}
-            dataSource={versionItems}
-            loading={versionsLoading}
-            rowKey="version"
-            search={false}
-            pagination={{
-              current: versionPage,
-              pageSize: versionPageSize,
-              total: versionTotal,
-              showSizeChanger: true,
-              pageSizeOptions: [5, 10, 20, 50],
-              showTotal: (t) => `共 ${t} 条`,
-              onChange: (page, pageSize) => {
-                if (!selectedPageKey) return;
-                setVersionPage(page);
-                setVersionPageSize(pageSize);
-                loadVersionHistory(selectedPageKey, page, pageSize);
-              },
-            }}
-            options={false}
-            locale={{ emptyText: <Empty description="暂无版本历史" /> }}
-          />
-        </Space>
-      </Drawer>
+        onPageChange={(p, ps) => {
+          if (!selectedPageKey) return;
+          setVersionPage(p);
+          setVersionPageSize(ps);
+          loadVersionHistory(selectedPageKey, p, ps);
+        }}
+        onRollbackDraft={(version) => void handleRollbackDraftVersion(version)}
+        onRollbackPublished={(version) => void handleRollbackPublishedVersion(version)}
+      />
 
-      <Drawer
-        title="变更链"
-        width={640}
+      <ChangeChainDrawer
         open={changeChainVisible}
-        onClose={() => setChangeChainVisible(false)}
+        chain={changeChain}
         loading={changeChainLoading}
-      >
-        {changeChain ? (
-          <Space orientation="vertical" style={{ width: '100%' }}>
-            <Paragraph>
-              <Text strong>页面：</Text> {changeChain.pageKey}
-            </Paragraph>
-            <Paragraph>
-              <Text strong>资源：</Text> {changeChain.resourceKey}
-            </Paragraph>
-            <Paragraph>
-              <Text strong>当前状态：</Text>
-              函数版本: {changeChain.current.functionVersion || '-'}, 语义版本:{' '}
-              {changeChain.current.semanticVersion || '-'}, 提案版本:{' '}
-              {changeChain.current.proposalVersion || '-'}, 草稿版本:{' '}
-              {changeChain.current.draftRevision || '-'}, 发布版本:{' '}
-              {changeChain.current.publishedVersion || '-'}
-            </Paragraph>
-            <Timeline
-              items={changeChain.items.map((item) => ({
-                children: (
-                  <Space orientation="vertical" size={0}>
-                    <Space>
-                      <Tag color="blue">{item.type}</Tag>
-                      <Text>{item.summary}</Text>
-                    </Space>
-                    <Text type="secondary">
-                      {formatDate(item.timestamp)}
-                      {item.actor ? ` - ${item.actor}` : ''}
-                    </Text>
-                  </Space>
-                ),
-              }))}
-            />
-          </Space>
-        ) : (
-          <Empty description="暂无变更记录" />
-        )}
-      </Drawer>
+        onClose={() => setChangeChainVisible(false)}
+      />
 
-      <Drawer
-        title="变更对比"
-        width={840}
+      <DiffDrawer
         open={diffVisible}
-        onClose={() => setDiffVisible(false)}
+        data={diffData}
         loading={diffLoading}
-        extra={
-          <Button type="primary" icon={<MergeOutlined />} onClick={() => setMergeVisible(true)}>
-            合并变更
-          </Button>
-        }
-      >
-        {diffData ? (
-          <Space orientation="vertical" style={{ width: '100%' }}>
-            <Paragraph>
-              <Text strong>{diffData.summary}</Text>
-            </Paragraph>
-            {diffData.autoMergeItems?.length ? (
-              <Card size="small" title={`可自动合并 ${diffData.autoMergeItems.length} 个展示字段`}>
-                <Space orientation="vertical" style={{ width: '100%' }}>
-                  {diffData.autoMergeItems.map((item) => (
-                    <Space key={item.field}>
-                      <Tag color="blue">auto</Tag>
-                      <Text code>{item.field}</Text>
-                      <Text type="secondary">{item.reason}</Text>
-                    </Space>
-                  ))}
-                </Space>
-              </Card>
-            ) : null}
-            {diffData.conflictItems?.length ? (
-              <Card size="small" title={`必须人工确认 ${diffData.conflictItems.length} 个冲突字段`}>
-                <Space orientation="vertical" style={{ width: '100%' }}>
-                  {diffData.conflictItems.map((item) => (
-                    <Space key={item.field}>
-                      <Tag color="red">conflict</Tag>
-                      <Text code>{item.field}</Text>
-                      <Text type="secondary">{item.reason}</Text>
-                    </Space>
-                  ))}
-                </Space>
-              </Card>
-            ) : null}
-            {diffData.changes.map((change) => (
-              <Card key={`${change.path}:${change.changeType}`} size="small">
-                <Space orientation="vertical" style={{ width: '100%' }}>
-                  <Space>
-                    <Tag
-                      color={
-                        change.changeType === 'added'
-                          ? 'green'
-                          : change.changeType === 'removed'
-                            ? 'red'
-                            : 'orange'
-                      }
-                    >
-                      {change.changeType}
-                    </Tag>
-                    <Text code>{change.path}</Text>
-                    {change.isSemantic && <Tag color="purple">语义变更</Tag>}
-                  </Space>
-                  {change.oldValue && (
-                    <pre style={{ margin: 0, padding: 8, background: '#f5f5f5' }}>
-                      {JSON.stringify(change.oldValue, null, 2)}
-                    </pre>
-                  )}
-                  {change.newValue && (
-                    <pre style={{ margin: 0, padding: 8, background: '#f5f5f5' }}>
-                      {JSON.stringify(change.newValue, null, 2)}
-                    </pre>
-                  )}
-                </Space>
-              </Card>
-            ))}
-          </Space>
-        ) : (
-          <Empty description="暂无变更" />
-        )}
-      </Drawer>
+        onClose={() => setDiffVisible(false)}
+        onMerge={() => setMergeVisible(true)}
+      />
 
-      <Modal
-        title="合并变更"
+      <MergeModal
         open={mergeVisible}
+        loading={mergeLoading}
         onCancel={() => setMergeVisible(false)}
-        footer={[
-          <Button key="cancel" onClick={() => setMergeVisible(false)}>
-            取消
-          </Button>,
-          <Button key="auto" loading={mergeLoading} onClick={() => handleMerge('auto')}>
-            自动合并
-          </Button>,
-          <Button
-            key="manual"
-            type="primary"
-            loading={mergeLoading}
-            onClick={handleOpenManualMerge}
-          >
-            手动处理冲突
-          </Button>,
-        ]}
-      >
-        <Paragraph>
-          自动合并只会写入展示字段；binding、selector、权限、风险、审批和执行模式必须人工确认后重新发布。
-        </Paragraph>
-      </Modal>
+        onAutoMerge={() => void handleMerge('auto')}
+        onManualMerge={() => void handleOpenManualMerge()}
+      />
 
       <MergeConflictModal
         open={manualMergeVisible}

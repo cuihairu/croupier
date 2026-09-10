@@ -1,23 +1,5 @@
-import React, { useCallback, useMemo, useRef, useState, type SetStateAction } from 'react';
-import {
-  App,
-  Button,
-  Card,
-  Checkbox,
-  Col,
-  Empty,
-  Form,
-  Input,
-  InputNumber,
-  Modal,
-  Row,
-  Select,
-  Space,
-  Switch,
-  Tabs,
-  Tag,
-  Typography,
-} from 'antd';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
+import { App, Button, Card, Col, Input, Row, Space, Tabs, Typography } from 'antd';
 import { AppstoreOutlined, ArrowLeftOutlined, EyeOutlined, SaveOutlined } from '@ant-design/icons';
 import { history, request, useSearchParams } from '@umijs/max';
 import { subscribeScope } from '@/stores/scope';
@@ -29,38 +11,32 @@ import {
   closestCenter,
   useSensor,
   useSensors,
-  useDroppable,
-  type DragEndEvent,
-  type DragStartEvent,
 } from '@dnd-kit/core';
 import { sortableKeyboardCoordinates } from '@dnd-kit/sortable';
 import { KeyboardSensor } from '@dnd-kit/core';
 import { SortableList } from '@/components/SortableList';
 import Canvas, { CanvasNode, ModalPlaceholder } from './Canvas';
+import SaveComponentModal from './SaveComponentModal';
+import InsertTemplateModal from './InsertTemplateModal';
 import OutlinePanel from './OutlinePanel';
 import DataPanel from './DataPanel';
 import PreviewRuntime from './PreviewRuntime';
-import { findParent } from './model';
 import { compileTree, decompileToTree, type SpecSectionLike } from './compiler';
-import { schemaProperties, scanParamCandidates, type ParamCandidate } from './types';
+import { scanParamCandidates, type ParamCandidate } from './types';
 import { extractErrorMessage } from '@/utils/errors';
 import {
   duplicateNode as duplicateTree,
   findInsertedSubtree,
-  insertAfter,
   moveNode,
   replaceSubtree,
 } from './model';
 import ComponentPanel, { type AddFnEvent } from './ComponentPanel';
-import { planTemplateDrop } from './templateDrop';
 import TemplateQuickStart from './TemplateQuickStart';
-import ComponentLibrary, {
-  instantiateTemplate,
-  type ComponentTemplateDTO,
-} from './ComponentLibrary';
+import ComponentLibrary, { type ComponentTemplateDTO } from './ComponentLibrary';
 import PropsPanel from './PropsPanel';
 import { registerBuiltinComponents } from './components/builtin';
-import { acceptsChild, getComponent } from './registry';
+import { scaffoldProps } from './registry';
+import { useCanvasDnd } from './useCanvasDnd';
 import { listDescriptors, type FunctionDescriptor } from '@/services/api/functions';
 import {
   countNodes,
@@ -73,15 +49,11 @@ import {
 } from './model';
 import { assignVarNames, collectVarNames, renameVariable } from './varname';
 import { localizedText } from '@/utils/localizedText';
+import { useEditorHistory } from './useEditorHistory';
 
 const { Text } = Typography;
 
 registerBuiltinComponents();
-
-/** scaffold 按契约实例化节点 props。 */
-function scaffoldProps(type: PageNode['type'], fn?: FunctionDescriptor): Record<string, unknown> {
-  return getComponent(type)?.scaffold(fn) ?? {};
-}
 
 /**
  * 组合页编辑器 V3（组件化）：左=组件面板/大纲 Tabs，中=画布（组件树），
@@ -90,10 +62,6 @@ function scaffoldProps(type: PageNode['type'], fn?: FunctionDescriptor): Record<
  */
 export default function CompositeEditorPage() {
   const { message, modal } = App.useApp();
-  const [tree, setTreeState] = useState<PageNode[]>([]);
-  // 撤销/重做历史（快照栈，最多 50 步）
-  const [past, setPast] = useState<PageNode[][]>([]);
-  const [future, setFuture] = useState<PageNode[][]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   /** Shift 多选集合（批量删除）。 */
   const [multiIds, setMultiIds] = useState<Set<string>>(new Set());
@@ -103,24 +71,23 @@ export default function CompositeEditorPage() {
     /** 参数化候选（U6）：白名单 prop 扫描结果。 */
     paramCandidates: ParamCandidate[];
   }>(null);
-  const [saveForm] = Form.useForm<{
-    name: string;
-    description?: string;
-    category?: string;
-    paramKeys?: string[];
-  }>();
   /** 拖入带参数模板的快速配置（U6）。 */
   // 带参模板待插入（模板 + 拖拽落点：参数确认后按落点插入，不丢失 drop 位置）
   const [insertTpl, setInsertTpl] = useState<{ tpl: ComponentTemplateDTO; overId: string } | null>(
     null,
   );
-  const [insertForm] = Form.useForm<Record<string, unknown>>();
   const [pageKey, setPageKey] = useState('');
   const [keyTouched, setKeyTouched] = useState(false);
   const [mode, setMode] = useState<'edit' | 'preview'>('edit');
   const [leftTab, setLeftTab] = useState('components');
   /** 弹窗内嵌编辑（面包屑）：当前进入的 modal 节点 id。 */
   const [editingModalId, setEditingModalId] = useState<string | null>(null);
+  // 树历史（撤销/重做 50 步 + 统一树写入入口 setTree），选择清理由 setter 注入
+  const { tree, setTree, treeRef, undo, redo, past, future } = useEditorHistory({
+    setSelectedId,
+    setMultiIds,
+    setEditingModalId,
+  });
   const [searchParams] = useSearchParams();
   const loadKey = searchParams.get('pageKey');
 
@@ -334,31 +301,25 @@ export default function CompositeEditorPage() {
   );
 
   // ---- 拖拽（T2.2/T2.3）：面板→画布插入 / 画布内重排 / modal 收纳 ----
-  const [dragItem, setDragItem] = useState<
-    | null
-    | { kind: 'basic'; basicType: string }
-    | { kind: 'fn'; fn: AddFnEvent['fn']; componentType: AddFnEvent['componentType'] }
-    | { kind: 'template'; tpl: ComponentTemplateDTO; missing: string[] }
-  >(null);
-  const treeRef = useRef(tree);
-  treeRef.current = tree;
   const editingModalRef = useRef<string | null>(null);
   editingModalRef.current = editingModalId;
-
-  /** history-aware setTree：所有树变更统一入口（撤销/重做安全网）。
-   * 函数式 action 基于 treeRef 求值（避免 setState updater 内副作用
-   * 在 StrictMode 双调用下重复入栈）。 */
-  const setTree = useCallback((action: SetStateAction<PageNode[]>) => {
-    const next =
-      typeof action === 'function'
-        ? (action as (prev: PageNode[]) => PageNode[])(treeRef.current)
-        : action;
-    if (next === treeRef.current) return;
-    setPast((p) => [...p.slice(-49), treeRef.current]);
-    setFuture(() => []);
-    setTreeState(next);
-    treeRef.current = next;
-  }, []);
+  const {
+    dragItem,
+    overNodeId,
+    setOverNodeId,
+    handleDragStart,
+    handleDragEnd,
+    applyTemplateInsert,
+  } = useCanvasDnd({
+    treeRef,
+    editingModalRef,
+    allFns,
+    addChild,
+    registerFn,
+    setTree,
+    setSelectedId,
+    setInsertTpl,
+  });
 
   /** V5 变量改名：同步重写树内全部表达式/裸引用（§3.2）。
    * 冲突/非法由 PropsPanel 先校验；此处 renameVariable 二次防御。 */
@@ -376,233 +337,9 @@ export default function CompositeEditorPage() {
     [selectedId, setTree],
   );
 
-  /** 撤销/重做后按存活节点集清理选择状态（防悬空选中/多选/弹窗编辑态）。 */
-  const pruneSelection = useCallback((nodes: PageNode[]) => {
-    const alive = new Set<string>();
-    const walkIds = (list: PageNode[]) => {
-      for (const n of list) {
-        alive.add(n.id);
-        if (n.children) walkIds(n.children);
-      }
-    };
-    walkIds(nodes);
-    setSelectedId((cur) => (cur && alive.has(cur) ? cur : null));
-    setMultiIds((prev) => {
-      const next = new Set([...prev].filter((id) => alive.has(id)));
-      return next.size === prev.size ? prev : next;
-    });
-    setEditingModalId((cur) => (cur && !alive.has(cur) ? null : cur));
-  }, []);
-
-  const undo = useCallback(() => {
-    if (past.length === 0) return;
-    const prev = past[past.length - 1];
-    setPast((p) => p.slice(0, -1));
-    setFuture((f) => [treeRef.current, ...f]);
-    setTreeState(prev);
-    treeRef.current = prev;
-    pruneSelection(prev);
-  }, [past.length, past, pruneSelection]);
-
-  const redo = useCallback(() => {
-    if (future.length === 0) return;
-    const next = future[0];
-    setFuture((f) => f.slice(1));
-    setPast((p) => [...p, treeRef.current]);
-    setTreeState(next);
-    treeRef.current = next;
-    pruneSelection(next);
-  }, [future.length, future, pruneSelection]);
-
-  // 快捷键：Ctrl/Cmd+Z 撤销、Ctrl/Cmd+Shift+Z / Ctrl+Y 重做
-  React.useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (!(e.ctrlKey || e.metaKey) || e.key.toLowerCase() !== 'z') return;
-      e.preventDefault();
-      if (e.shiftKey) redo();
-      else undo();
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [undo, redo]);
-
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
-  );
-
-  const [overNodeId, setOverNodeId] = useState<string | null>(null);
-
-  const handleDragStart = useCallback((e: DragStartEvent) => {
-    const data = e.active.data.current as
-      | { source: 'panel'; kind: 'basic'; basicType: string }
-      | {
-          source: 'panel';
-          kind: 'fn';
-          fn: AddFnEvent['fn'];
-          componentType: AddFnEvent['componentType'];
-        }
-      | { source: 'panel'; kind: 'template'; tpl: ComponentTemplateDTO; missing: string[] }
-      | { source: 'canvas' }
-      | undefined;
-    if (data?.source === 'panel') {
-      setDragItem(
-        data.kind === 'basic'
-          ? { kind: 'basic', basicType: data.basicType }
-          : data.kind === 'template'
-            ? { kind: 'template', tpl: data.tpl, missing: data.missing }
-            : { kind: 'fn', fn: data.fn, componentType: data.componentType },
-      );
-    } else {
-      setDragItem(null);
-    }
-  }, []);
-
-  /** 模板实例化并按落点插入（拖拽直接插入与带参弹窗确认后共用）：
-   * instantiateTemplate（id/引用重映射）→ assignVarNames 语义命名 →
-   * 函数契约登记 → planTemplateDrop 决定弹窗/容器/链式插入。 */
-  const applyTemplateInsert = useCallback(
-    (tpl: ComponentTemplateDTO, values: Record<string, unknown>, overId: string) => {
-      const nodes = assignVarNames(
-        instantiateTemplate(tpl, values),
-        collectVarNames(treeRef.current),
-      );
-      if (nodes.length === 0) return;
-      for (const fid of tpl.requiredFunctions ?? []) {
-        const fn = allFns.find((f) => f.id === fid);
-        if (fn) registerFn(fn);
-      }
-      const after = overId === 'canvas-root' ? undefined : findNode(treeRef.current, overId);
-      const plan = planTemplateDrop(nodes, overId, editingModalRef.current, after);
-      if (plan.kind === 'blocked') {
-        message.warning(plan.reason);
-        return;
-      }
-      if (plan.kind === 'modal' || plan.kind === 'container') {
-        for (const node of nodes) addChild(plan.targetId, node);
-      } else {
-        // 链式插入：每个节点插到前一个之后，保持模板顺序
-        let anchorId = plan.afterId;
-        for (const node of nodes) {
-          setTree((prev) => (anchorId ? insertAfter(prev, node, anchorId!) : [...prev, node]));
-          anchorId = node.id;
-        }
-      }
-      setSelectedId(nodes[0].id);
-    },
-    [addChild, message, registerFn, allFns, setTree],
-  );
-
-  const handleDragEnd = useCallback(
-    (e: DragEndEvent) => {
-      setDragItem(null);
-      const { active, over } = e;
-      if (!over) return;
-      const data = active.data.current as
-        | { source: 'panel'; kind: 'basic'; basicType: string }
-        | {
-            source: 'panel';
-            kind: 'fn';
-            fn: AddFnEvent['fn'];
-            componentType: AddFnEvent['componentType'];
-          }
-        | { source: 'panel'; kind: 'template'; tpl: ComponentTemplateDTO; missing: string[] }
-        | { source: 'canvas' }
-        | undefined;
-      const overId = String(over.id);
-
-      if (data?.source === 'panel' && data.kind === 'template') {
-        // 模板拖入：实例化子树（id/引用重映射），按落点插入多节点
-        if (data.missing.length > 0) {
-          message.warning(`缺少依赖函数：${data.missing.join(', ')}`);
-          return;
-        }
-        // 带参数模板（U6）：先弹参数表单再实例化——保留拖拽落点，确认后按落点插入
-        if (data.tpl.params?.length) {
-          setInsertTpl({ tpl: data.tpl, overId });
-          return;
-        }
-        applyTemplateInsert(data.tpl, {}, overId);
-        return;
-      }
-
-      if (data?.source === 'panel') {
-        // 构造新节点
-        let node: PageNode | null = null;
-        if (data.kind === 'basic') {
-          node = {
-            id: nodeId(data.basicType as PageNode['type']),
-            type: data.basicType as PageNode['type'],
-            props: scaffoldProps(data.basicType as PageNode['type']),
-          };
-        } else {
-          registerFn(data.fn);
-          node = {
-            id: nodeId(data.componentType),
-            type: data.componentType,
-            props: scaffoldProps(data.componentType, data.fn),
-          };
-        }
-        // 弹窗占位卡 drop：fnForm 装入 modal
-        if (overId.startsWith('modal-drop:')) {
-          const modalId = overId.slice('modal-drop:'.length);
-          if (node.type === 'fnForm') addChild(modalId, node);
-          else message.warning('弹窗内只能放函数表单（V1）');
-          return;
-        }
-        // 弹窗级编辑中：面板加入的节点落到当前弹窗 children（仅表单）
-        if (editingModalRef.current) {
-          if (node.type !== 'fnForm') {
-            message.warning('弹窗内只能放函数表单（V1）');
-            return;
-          }
-          addChild(editingModalRef.current, node);
-          return;
-        }
-        // 落点=容器节点 → 契约校验后装入 children；其余=节点之后；根=末尾
-        const after = overId === 'canvas-root' ? undefined : findNode(treeRef.current, overId);
-        if (after?.type === 'container') {
-          if (acceptsChild(after, node.type)) {
-            addChild(after.id, node);
-          } else {
-            // 容器不接受该子类型（allowedChildren 契约）→ 回退为容器之后的兄弟插入
-            message.warning(`容器不接受「${node.type}」子组件，已放到容器之后`);
-            setTree((prev) => {
-              const [named] = assignVarNames([node], collectVarNames(prev));
-              return insertAfter(prev, named, after.id);
-            });
-          }
-        } else {
-          setTree((prev) => {
-            const [named] = assignVarNames([node], collectVarNames(prev));
-            return after ? insertAfter(prev, named, after.id) : [...prev, named];
-          });
-        }
-        setSelectedId(node.id);
-        return;
-      }
-
-      // 画布内重排（active id = sortable 节点 id）
-      if (overId === 'canvas-root') return;
-      const activeId = String(active.id);
-      const dragList = editingModalRef.current
-        ? (treeRef.current.find((n) => n.id === editingModalRef.current)?.children ?? [])
-        : treeRef.current;
-      const overIdx = dragList.findIndex((n) => n.id === overId);
-      if (overIdx === -1) return;
-      setTree((prev) => {
-        if (editingModalRef.current) {
-          const m = prev.find((n) => n.id === editingModalRef.current);
-          const kids = m?.children ?? [];
-          const moved = moveNode(kids, activeId, overIdx);
-          if (moved === kids) return prev;
-          return prev.map((n) => (n.id === m?.id ? { ...n, children: moved } : n));
-        }
-        const moved = moveNode(prev, activeId, overIdx);
-        return moved === prev ? prev : moved;
-      });
-    },
-    [addChild, message, registerFn, allFns, applyTemplateInsert],
   );
 
   /** 复制节点：副本不继承变量名（clone 已剥离），落树时重新语义命名，
@@ -693,46 +430,6 @@ export default function CompositeEditorPage() {
       paramCandidates: scanParamCandidates(selectedNodes),
     });
   }, [multiIds, tree, message]);
-
-  const confirmSaveComponent = useCallback(
-    async (name: string, description: string, category: string) => {
-      const state = saveModalState;
-      if (!state) return;
-      try {
-        const key = `custom--${Date.now().toString(36)}`;
-        // 勾选的候选 → 参数定义（default=当前值；实例化时可覆盖）
-        const picked = new Set((saveForm.getFieldValue('paramKeys') as string[] | undefined) ?? []);
-        const params = state.paramCandidates
-          .filter((c) => picked.has(c.key))
-          .map((c) => ({
-            key: c.key,
-            label: { 'zh-CN': `${c.nodeTitle}·${c.propLabel}` },
-            nodeId: c.nodeId,
-            prop: c.prop,
-            default: c.current,
-          }));
-        await request('/api/v1/component-templates', {
-          method: 'POST',
-          data: {
-            key,
-            name: { 'zh-CN': name, 'en-US': name },
-            description: { 'zh-CN': description, 'en-US': description },
-            category: category || '自定义',
-            icon: 'AppstoreOutlined',
-            requiredFunctions: state.fnIds,
-            ...(params.length ? { params } : {}),
-            tree: state.selectedNodes,
-          },
-          skipErrorHandler: true,
-        });
-        message.success(`「${name}」已保存——组件库中可拖入复用`);
-        setSaveModalState(null);
-      } catch {
-        message.error('保存失败');
-      }
-    },
-    [saveModalState, message],
-  );
 
   const deleteNode = useCallback((id: string) => {
     setTree((prev) => removeNode(prev, id)[0]);
@@ -1149,113 +846,12 @@ export default function CompositeEditorPage() {
           ) : null}
         </DragOverlay>
       </DndContext>
-      <Modal
-        title="保存为组件模板"
-        open={saveModalState !== null}
-        onCancel={() => setSaveModalState(null)}
-        onOk={() => {
-          const name = (saveForm.getFieldValue('name') || '').trim();
-          if (!name) {
-            message.warning('请填写组件名称');
-            return;
-          }
-          void confirmSaveComponent(
-            name,
-            (saveForm.getFieldValue('description') || '').trim(),
-            saveForm.getFieldValue('category') || '自定义',
-          );
-        }}
-        okText="保存"
-        cancelText="取消"
-        destroyOnHidden
-      >
-        <Form form={saveForm} layout="vertical" preserve={false}>
-          <Form.Item
-            name="name"
-            label="组件名称"
-            rules={[{ required: true, message: '组件名称必填' }]}
-          >
-            <Input placeholder="如：玩家数值下拉查询" maxLength={40} />
-          </Form.Item>
-          <Form.Item name="category" label="分类" initialValue="自定义">
-            <Select
-              options={[
-                { label: '自定义', value: '自定义' },
-                { label: '查询表单', value: '查询表单' },
-                { label: '操作面板', value: '操作面板' },
-                { label: '监控展示', value: '监控展示' },
-              ]}
-            />
-          </Form.Item>
-          <Form.Item name="description" label="描述">
-            <Input.TextArea rows={2} placeholder="用途说明（可选）" maxLength={200} />
-          </Form.Item>
-          {saveModalState && saveModalState.paramCandidates.length > 0 && (
-            <Form.Item
-              name="paramKeys"
-              label="参数化（勾选后拖入组件时可在弹窗中快速配置）"
-              initialValue={[]}
-            >
-              <Checkbox.Group
-                options={saveModalState.paramCandidates.map((c) => ({
-                  label: `${c.nodeTitle}·${c.propLabel}`,
-                  value: c.key,
-                }))}
-              />
-            </Form.Item>
-          )}
-          {saveModalState && (
-            <Text type="secondary" style={{ fontSize: 12 }}>
-              包含 {saveModalState.selectedNodes.length} 个节点
-              {saveModalState.fnIds.length > 0
-                ? `，依赖函数：${saveModalState.fnIds.join('、')}`
-                : ''}
-              。保存后在组件库 Tab 拖入任意组合页复用。
-            </Text>
-          )}
-        </Form>
-      </Modal>
-      <Modal
-        title={`配置组件参数：${(insertTpl?.tpl.name as Record<string, string>)?.['zh-CN'] ?? insertTpl?.tpl.key ?? ''}`}
-        open={insertTpl !== null}
-        onCancel={() => {
-          setInsertTpl(null);
-          insertForm.resetFields();
-        }}
-        onOk={() => {
-          if (!insertTpl) return;
-          const values = insertForm.getFieldsValue() as Record<string, unknown>;
-          // 参数确认后按拖拽落点插入（容器/弹窗/链式，planTemplateDrop 决策）
-          applyTemplateInsert(insertTpl.tpl, values, insertTpl.overId);
-          setInsertTpl(null);
-          insertForm.resetFields();
-        }}
-        okText="插入"
-        cancelText="取消"
-        destroyOnHidden
-      >
-        <Form form={insertForm} layout="vertical" preserve={false}>
-          {insertTpl?.tpl.params?.map((p) => (
-            <Form.Item
-              key={p.key}
-              name={p.key}
-              label={
-                ((p.label as Record<string, string>)?.['zh-CN'] as string | undefined) ?? p.key
-              }
-              initialValue={p.default}
-              valuePropName={p.prop === 'autoRun' ? 'checked' : 'value'}
-            >
-              {p.prop === 'autoRun' ? (
-                <Switch />
-              ) : p.prop === 'span' ? (
-                <InputNumber min={1} max={24} style={{ width: '100%' }} />
-              ) : (
-                <Input maxLength={60} />
-              )}
-            </Form.Item>
-          ))}
-        </Form>
-      </Modal>
+      <SaveComponentModal state={saveModalState} onClose={() => setSaveModalState(null)} />
+      <InsertTemplateModal
+        tplState={insertTpl}
+        onClose={() => setInsertTpl(null)}
+        onConfirm={applyTemplateInsert}
+      />
     </PageContainer>
   );
 }
