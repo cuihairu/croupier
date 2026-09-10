@@ -1,6 +1,11 @@
-import React, { useCallback, useEffect, useState } from 'react';
-import { Card, Table, Space, Button, Input, Select, Modal, Form } from 'antd';
-import { PageContainer } from '@ant-design/pro-components';
+import React, { useRef, useState } from 'react';
+import { Card, Space, Button, Input, Select, Modal, Form } from 'antd';
+import {
+  PageContainer,
+  ProTable,
+  type ActionType,
+  type ProColumns,
+} from '@ant-design/pro-components';
 import {
   listFeedback,
   createFeedback,
@@ -33,11 +38,7 @@ interface AccessState {
 }
 
 export default function SupportFeedbackPage() {
-  const [list, setList] = useState<FeedbackItem[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [page, setPage] = useState(1);
-  const [size, setSize] = useState(20);
-  const [total, setTotal] = useState(0);
+  const actionRef = useRef<ActionType | undefined>(undefined);
   const [q, setQ] = useState('');
   const [category, setCategory] = useState('');
   const [status, setStatus] = useState('');
@@ -47,31 +48,6 @@ export default function SupportFeedbackPage() {
   const [editing, setEditing] = useState<FeedbackItem | null>(null);
   const [form] = Form.useForm();
   const access: AccessState = useAccess?.() || {};
-
-  const load = useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await listFeedback({
-        q,
-        category,
-        status,
-        gameId,
-        page,
-        size,
-        // 分诊队列定位：默认隐藏已转工单的反馈，避免与工单列表重复
-        excludeStatus: pendingOnly && !status ? 'triaged' : undefined,
-      });
-      setList((res.feedback || []) as unknown as FeedbackItem[]);
-      setTotal(res.total || 0);
-    } catch (error) {
-      getMessage()?.error(extractErrorMessage(error, '加载反馈失败'));
-    } finally {
-      setLoading(false);
-    }
-  }, [q, category, status, gameId, page, size, pendingOnly]);
-  useEffect(() => {
-    load();
-  }, [load]);
 
   const openAdd = () => {
     setEditing(null);
@@ -91,17 +67,73 @@ export default function SupportFeedbackPage() {
       await createFeedback(v);
     }
     setOpen(false);
-    load();
+    actionRef.current?.reload();
   };
   const onDelete = (rec: FeedbackItem) => {
     Modal.confirm({
       title: '删除反馈',
       onOk: async () => {
         await deleteFeedback(rec.id);
-        load();
+        actionRef.current?.reload();
       },
     });
   };
+
+  const columns: ProColumns<FeedbackItem>[] = [
+    { title: '玩家ID', dataIndex: 'playerId' },
+    { title: '联系方式', dataIndex: 'contact' },
+    { title: '分类', dataIndex: 'category' },
+    { title: '优先级', dataIndex: 'priority' },
+    { title: '状态', dataIndex: 'status' },
+    {
+      title: '游戏/环境',
+      render: (_: unknown, r: FeedbackItem) => `${r.gameId || ''}/${r.env || ''}`,
+    },
+    { title: '内容', dataIndex: 'content', ellipsis: true },
+    {
+      title: '更新时间',
+      dataIndex: 'updatedAt',
+      render: (_, row) => formatDateTime(row.updatedAt ?? ''),
+    },
+    {
+      title: '操作',
+      render: (_: unknown, r: FeedbackItem) => (
+        <Space>
+          <Button
+            size="small"
+            disabled={r.status === 'triaged'}
+            onClick={async () => {
+              try {
+                const res = await convertFeedbackToTicket(r.id, {
+                  note: `来源反馈#${r.id} 玩家:${r.playerId || '未知'}`,
+                });
+                getMessage()?.success(
+                  res.alreadyConverted
+                    ? `该反馈已转过工单 #${res.ticketId}`
+                    : `已转工单 #${res.ticketId}`,
+                );
+                actionRef.current?.reload();
+              } catch (e) {
+                getMessage()?.error(extractErrorMessage(e, '转工单失败'));
+              }
+            }}
+          >
+            {r.status === 'triaged' ? '已转工单' : '转工单'}
+          </Button>
+          {access.canSupportManage && (
+            <Button size="small" onClick={() => openEdit(r)}>
+              编辑
+            </Button>
+          )}
+          {access.canSupportManage && (
+            <Button size="small" danger onClick={() => onDelete(r)}>
+              删除
+            </Button>
+          )}
+        </Space>
+      ),
+    },
+  ];
 
   return (
     <PageContainer>
@@ -124,7 +156,12 @@ export default function SupportFeedbackPage() {
             <Select
               placeholder="状态"
               value={status}
-              onChange={setStatus}
+              onChange={(v) => {
+                setStatus(v);
+                // 筛选变化回第 1 页：params 变化与 setPageInfo 的双触发由
+                // ProTable 内部 debounce + abort 合并，不会出现错序数据
+                actionRef.current?.setPageInfo?.({ current: 1 });
+              }}
               allowClear
               style={{ width: 140 }}
               options={[
@@ -142,14 +179,10 @@ export default function SupportFeedbackPage() {
             <Button
               type="primary"
               onClick={() => {
-                // page 是 load 的依赖：非第 1 页时 setPage(1) 经 effect 重拉一次
-                // 即可；再手动 load() 会用旧闭包页码发出第二个请求，竞态可能
-                // 把第 1 页数据覆盖成当前页。
-                if (page === 1) {
-                  load();
-                } else {
-                  setPage(1);
-                }
+                // 回第 1 页并重查：已在第 1 页时 setPageInfo 不触发请求，
+                // 由 reload 兜底；非第 1 页时双触发经 debounce + abort 合并
+                actionRef.current?.setPageInfo?.({ current: 1 });
+                actionRef.current?.reload();
               }}
             >
               查询
@@ -158,75 +191,45 @@ export default function SupportFeedbackPage() {
           </Space>
         }
       >
-        <Table<FeedbackItem>
+        <ProTable<FeedbackItem>
+          actionRef={actionRef}
           rowKey="id"
-          loading={loading}
-          dataSource={list}
-          columns={[
-            { title: '玩家ID', dataIndex: 'playerId' },
-            { title: '联系方式', dataIndex: 'contact' },
-            { title: '分类', dataIndex: 'category' },
-            { title: '优先级', dataIndex: 'priority' },
-            { title: '状态', dataIndex: 'status' },
-            {
-              title: '游戏/环境',
-              render: (_: unknown, r: FeedbackItem) => `${r.gameId || ''}/${r.env || ''}`,
-            },
-            { title: '内容', dataIndex: 'content', ellipsis: true },
-            {
-              title: '更新时间',
-              dataIndex: 'updatedAt',
-              render: (v: string) => formatDateTime(v ?? ''),
-            },
-            {
-              title: '操作',
-              render: (_: unknown, r: FeedbackItem) => (
-                <Space>
-                  <Button
-                    size="small"
-                    disabled={r.status === 'triaged'}
-                    onClick={async () => {
-                      try {
-                        const res = await convertFeedbackToTicket(r.id, {
-                          note: `来源反馈#${r.id} 玩家:${r.playerId || '未知'}`,
-                        });
-                        getMessage()?.success(
-                          res.alreadyConverted
-                            ? `该反馈已转过工单 #${res.ticketId}`
-                            : `已转工单 #${res.ticketId}`,
-                        );
-                        load();
-                      } catch (e) {
-                        getMessage()?.error(extractErrorMessage(e, '转工单失败'));
-                      }
-                    }}
-                  >
-                    {r.status === 'triaged' ? '已转工单' : '转工单'}
-                  </Button>
-                  {access.canSupportManage && (
-                    <Button size="small" onClick={() => openEdit(r)}>
-                      编辑
-                    </Button>
-                  )}
-                  {access.canSupportManage && (
-                    <Button size="small" danger onClick={() => onDelete(r)}>
-                      删除
-                    </Button>
-                  )}
-                </Space>
-              ),
-            },
-          ]}
-          pagination={{
-            current: page,
-            pageSize: size,
-            total,
-            showSizeChanger: true,
-            onChange: (p, ps) => {
-              setPage(p);
-              setSize(ps || 20);
-            },
+          columns={columns}
+          search={false}
+          options={false}
+          toolBarRender={false}
+          params={{ q, category, status, gameId, pendingOnly }}
+          request={async ({
+            current = 1,
+            pageSize = 20,
+            q: qFilter,
+            category: categoryFilter,
+            status: statusFilter,
+            gameId: gameIdFilter,
+            pendingOnly: pendingOnlyFlag,
+          }) => {
+            try {
+              const res = await listFeedback({
+                q: qFilter ?? '',
+                category: categoryFilter ?? '',
+                status: statusFilter ?? '',
+                gameId: gameIdFilter ?? '',
+                page: current,
+                size: pageSize,
+                // 分诊队列定位：默认隐藏已转工单的反馈，避免与工单列表重复
+                excludeStatus: pendingOnlyFlag && !statusFilter ? 'triaged' : undefined,
+              });
+              return {
+                data: (res.feedback || []) as unknown as FeedbackItem[],
+                total: res.total || 0,
+                success: true,
+              };
+            } catch (error) {
+              getMessage()?.error(extractErrorMessage(error, '加载反馈失败'));
+              return { data: [], total: 0, success: false };
+            }
           }}
+          pagination={{ pageSize: 20, showSizeChanger: true }}
         />
 
         <Modal

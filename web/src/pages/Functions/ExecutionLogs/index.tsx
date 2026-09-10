@@ -1,16 +1,6 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import {
-  Card,
-  Drawer,
-  Input,
-  Select,
-  Space,
-  Table,
-  Tag,
-  DatePicker,
-  Button,
-  Typography,
-} from 'antd';
+import React, { useMemo, useRef, useState } from 'react';
+import { Card, Drawer, Input, Select, Space, Tag, DatePicker, Button, Typography } from 'antd';
+import { ProTable, type ActionType, type ProColumns } from '@ant-design/pro-components';
 import { ReloadOutlined } from '@ant-design/icons';
 import {
   getExecutionLog,
@@ -44,10 +34,7 @@ function toLocalInput(value: Date): string {
 
 /** 执行留痕（管理员审计视角）：全量执行记录按用户/函数/来源/状态/时间过滤。 */
 export default function ExecutionLogsPage() {
-  const [items, setItems] = useState<ExecutionLogItem[]>([]);
-  const [total, setTotal] = useState(0);
-  const [page, setPage] = useState(1);
-  const [loading, setLoading] = useState(false);
+  const actionRef = useRef<ActionType | undefined>(undefined);
   const [loadError, setLoadError] = useState('');
 
   const [actor, setActor] = useState('');
@@ -60,33 +47,34 @@ export default function ExecutionLogsPage() {
   const [detail, setDetail] = useState<ExecutionLogDetail | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
 
-  const list = useCallback(async () => {
-    setLoading(true);
-    setLoadError('');
-    const params: Record<string, string | number> = { page, pageSize: PAGE_SIZE };
-    if (actor.trim()) params.actor = actor.trim();
-    if (functionId.trim()) params.functionId = functionId.trim();
-    if (source) params.source = source;
-    if (status) params.status = status;
-    if (traceId.trim()) params.traceId = traceId.trim();
-    if (range?.[0]) params.from = toLocalInput(range[0]);
-    if (range?.[1]) params.to = toLocalInput(range[1]);
-    try {
-      const json = await listExecutionLogs(params);
-      setItems(json.items || []);
-      setTotal(json.total || 0);
-    } catch (e) {
-      setLoadError(e instanceof Error ? e.message : '加载失败');
-      setItems([]);
-      setTotal(0);
-    } finally {
-      setLoading(false);
-    }
-  }, [page, actor, functionId, source, status, traceId, range]);
-
-  useEffect(() => {
-    void list();
-  }, [list]);
+  const columns: ProColumns<ExecutionLogItem>[] = [
+    {
+      title: '时间',
+      dataIndex: 'createdAt',
+      width: 165,
+      render: (_, r) => formatDateTime(r.createdAt),
+    },
+    { title: '申请人', dataIndex: 'actor', width: 120 },
+    { title: '函数', dataIndex: 'functionId', ellipsis: true },
+    { title: '游戏/环境', width: 150, render: (_, r) => `${r.gameId}/${r.env}` },
+    {
+      title: '来源',
+      dataIndex: 'source',
+      width: 80,
+      render: (_, r) => (r.source === 'page' ? <Tag>页面</Tag> : <Tag>调用</Tag>),
+    },
+    {
+      title: '状态',
+      dataIndex: 'status',
+      width: 80,
+      render: (_, r) => (
+        <Tag color={r.status === 'ok' ? 'green' : 'red'} style={{ marginInlineEnd: 0 }}>
+          {r.status === 'ok' ? '成功' : '失败'}
+        </Tag>
+      ),
+    },
+    { title: '耗时(ms)', dataIndex: 'durationMs', width: 90 },
+  ];
 
   const viewDetail = useMemo(
     () => async (id: number) => {
@@ -104,7 +92,7 @@ export default function ExecutionLogsPage() {
     <Card
       title="执行留痕"
       extra={
-        <Button icon={<ReloadOutlined />} onClick={() => void list()}>
+        <Button icon={<ReloadOutlined />} onClick={() => actionRef.current?.reload()}>
           刷新
         </Button>
       }
@@ -115,7 +103,9 @@ export default function ExecutionLogsPage() {
           value={actor}
           onChange={(e) => {
             setActor(e.target.value);
-            setPage(1);
+            // 筛选变化回第 1 页：params 变化与 setPageInfo 的双触发由
+            // ProTable 内部 debounce + abort 合并，不会出现错序数据
+            actionRef.current?.setPageInfo?.({ current: 1 });
           }}
           style={{ width: 140 }}
           allowClear
@@ -125,7 +115,7 @@ export default function ExecutionLogsPage() {
           value={functionId}
           onChange={(e) => {
             setFunctionId(e.target.value);
-            setPage(1);
+            actionRef.current?.setPageInfo?.({ current: 1 });
           }}
           style={{ width: 200 }}
           allowClear
@@ -136,7 +126,7 @@ export default function ExecutionLogsPage() {
           value={source || undefined}
           onChange={(v) => {
             setSource(v || '');
-            setPage(1);
+            actionRef.current?.setPageInfo?.({ current: 1 });
           }}
           allowClear
           options={[
@@ -150,7 +140,7 @@ export default function ExecutionLogsPage() {
           value={status || undefined}
           onChange={(v) => {
             setStatus(v || '');
-            setPage(1);
+            actionRef.current?.setPageInfo?.({ current: 1 });
           }}
           allowClear
           options={[
@@ -163,7 +153,7 @@ export default function ExecutionLogsPage() {
           value={traceId}
           onChange={(e) => {
             setTraceId(e.target.value);
-            setPage(1);
+            actionRef.current?.setPageInfo?.({ current: 1 });
           }}
           style={{ width: 200 }}
           allowClear
@@ -172,64 +162,65 @@ export default function ExecutionLogsPage() {
           showTime
           onChange={(dates) => {
             setRange(dates ? [dates[0]?.toDate() ?? null, dates[1]?.toDate() ?? null] : null);
-            setPage(1);
+            actionRef.current?.setPageInfo?.({ current: 1 });
           }}
         />
-        <Button type="primary" onClick={() => void list()}>
+        <Button type="primary" onClick={() => actionRef.current?.reload()}>
           查询
         </Button>
       </Space>
 
       {loadError ? (
-        <AlertMessage message={loadError} onRetry={() => void list()} />
-      ) : (
-        <Table
-          rowKey="id"
-          size="small"
-          loading={loading}
-          dataSource={items}
-          pagination={{
-            current: page,
-            pageSize: PAGE_SIZE,
-            total,
-            onChange: setPage,
-            showSizeChanger: false,
-            showTotal: (t) => `共 ${t} 条`,
-          }}
-          onRow={(record) => ({
-            onClick: () => void viewDetail(record.id),
-            style: { cursor: 'pointer' },
-          })}
-          columns={[
-            {
-              title: '时间',
-              dataIndex: 'createdAt',
-              width: 165,
-              render: (v: string) => formatDateTime(v),
-            },
-            { title: '申请人', dataIndex: 'actor', width: 120 },
-            { title: '函数', dataIndex: 'functionId', ellipsis: true },
-            { title: '游戏/环境', width: 150, render: (_, r) => `${r.gameId}/${r.env}` },
-            {
-              title: '来源',
-              dataIndex: 'source',
-              width: 80,
-              render: (v: string) => (v === 'page' ? <Tag>页面</Tag> : <Tag>调用</Tag>),
-            },
-            {
-              title: '状态',
-              dataIndex: 'status',
-              width: 80,
-              render: (v: string) => (
-                <Tag color={v === 'ok' ? 'green' : 'red'} style={{ marginInlineEnd: 0 }}>
-                  {v === 'ok' ? '成功' : '失败'}
-                </Tag>
-              ),
-            },
-            { title: '耗时(ms)', dataIndex: 'durationMs', width: 90 },
-          ]}
-        />
-      )}
+        <div style={{ marginBottom: 16 }}>
+          <AlertMessage message={loadError} onRetry={() => actionRef.current?.reload()} />
+        </div>
+      ) : null}
+      <ProTable<ExecutionLogItem>
+        actionRef={actionRef}
+        rowKey="id"
+        size="small"
+        columns={columns}
+        search={false}
+        options={false}
+        toolBarRender={false}
+        params={{ actor, functionId, source, status, traceId, range }}
+        request={async ({
+          current = 1,
+          pageSize = PAGE_SIZE,
+          actor: actorFilter = '',
+          functionId: functionIdFilter = '',
+          source: sourceFilter = '',
+          status: statusFilter = '',
+          traceId: traceIdFilter = '',
+          range: timeRange = null,
+        }) => {
+          setLoadError('');
+          const params: Record<string, string | number> = { page: current, pageSize };
+          if (actorFilter.trim()) params.actor = actorFilter.trim();
+          if (functionIdFilter.trim()) params.functionId = functionIdFilter.trim();
+          if (sourceFilter) params.source = sourceFilter;
+          if (statusFilter) params.status = statusFilter;
+          if (traceIdFilter.trim()) params.traceId = traceIdFilter.trim();
+          if (timeRange?.[0]) params.from = toLocalInput(timeRange[0]);
+          if (timeRange?.[1]) params.to = toLocalInput(timeRange[1]);
+          try {
+            const json = await listExecutionLogs(params);
+            return { data: json.items || [], total: json.total || 0, success: true };
+          } catch (e) {
+            setLoadError(e instanceof Error ? e.message : '加载失败');
+            return { data: [], total: 0, success: false };
+          }
+        }}
+        pagination={{
+          pageSize: PAGE_SIZE,
+          showSizeChanger: true,
+          showTotal: (t) => `共 ${t} 条`,
+        }}
+        onRow={(record) => ({
+          onClick: () => void viewDetail(record.id),
+          style: { cursor: 'pointer' },
+        })}
+      />
 
       <Drawer
         title={detail ? `执行留痕 #${detail.id}` : ''}

@@ -50,41 +50,13 @@ const statusConfig: Record<string, { color: string; icon: React.ReactNode; text:
 
 export default () => {
   const { message } = App.useApp();
-  const [loading, setLoading] = useState(false);
-  const [dataSource, setDataSource] = useState<FunctionCallItem[]>([]);
-  const [total, setTotal] = useState(0);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize, setPageSize] = useState(20);
   const [detailVisible, setDetailVisible] = useState(false);
   const [selectedCall, setSelectedCall] = useState<FunctionCallItem | null>(null);
   const [stats, setStats] = useState<FunctionCallStatsResponse | null>(null);
   const [filters, setFilters] = useState<Record<string, JSONValue>>({});
-  const actionRef = useRef<ActionType>(null);
-  const timerRef = useRef<NodeJS.Timeout>(null);
-
-  // 加载数据
-  const fetchData = useCallback(
-    async (page = currentPage, size = pageSize) => {
-      setLoading(true);
-      try {
-        const params = {
-          page,
-          pageSize: size,
-          ...filters,
-        };
-        const response = await listFunctionCalls(params);
-        setDataSource(response.calls || []);
-        setTotal(response.total || 0);
-        setCurrentPage(response.page || 1);
-        setPageSize(response.pageSize || 20);
-      } catch (error) {
-        message.error(extractErrorMessage(error, '加载调用历史失败'));
-      } finally {
-        setLoading(false);
-      }
-    },
-    [currentPage, pageSize, filters, message],
-  );
+  const actionRef = useRef<ActionType | undefined>(undefined);
+  // 最近一次列表数据里是否有运行中/等待中的调用，供轮询判断是否自动刷新
+  const hasRunningRef = useRef(false);
 
   // 加载统计数据
   const fetchStats = useCallback(async () => {
@@ -96,28 +68,23 @@ export default () => {
     }
   }, [filters]);
 
-  // 初始加载
+  // 初始/筛选变化加载统计（列表由 ProTable request 驱动）
   useEffect(() => {
-    fetchData();
     fetchStats();
+  }, [fetchStats]);
 
-    // 自动刷新运行中的任务
-    timerRef.current = setInterval(() => {
-      const hasRunning = dataSource.some(
-        (call) => call.status === 'running' || call.status === 'pending',
-      );
-      if (hasRunning) {
-        fetchData();
+  // 自动刷新运行中的任务：以最近一次列表数据是否有 running/pending 为准
+  useEffect(() => {
+    const timer = setInterval(() => {
+      if (hasRunningRef.current) {
+        actionRef.current?.reload();
         fetchStats();
       }
     }, 5000);
-
     return () => {
-      if (timerRef.current) {
-        clearInterval(timerRef.current);
-      }
+      clearInterval(timer);
     };
-  }, [dataSource, fetchData, fetchStats]);
+  }, [fetchStats]);
 
   // 查看详情
   const handleViewDetail = async (record: FunctionCallItem) => {
@@ -271,7 +238,7 @@ export default () => {
           key="refresh"
           icon={<ReloadOutlined />}
           onClick={() => {
-            fetchData();
+            actionRef.current?.reload();
             fetchStats();
           }}
         >
@@ -328,17 +295,37 @@ export default () => {
         scroll={{ x: 1700 }}
         rowKey="id"
         actionRef={actionRef}
-        loading={loading}
         columns={columns}
-        dataSource={dataSource}
+        params={{ filters }}
+        request={async ({
+          current = 1,
+          pageSize = 20,
+          filters: currentFilters = {},
+          functionId,
+          status,
+          gameId,
+        }) => {
+          // 工具栏筛选与查询表单字段合并，表单显式输入优先
+          const merged: Record<string, JSONValue> = { ...currentFilters };
+          if (functionId) merged.functionId = functionId;
+          if (status) merged.status = status;
+          if (gameId) merged.gameId = gameId;
+          try {
+            const response = await listFunctionCalls({ page: current, pageSize, ...merged });
+            hasRunningRef.current = (response.calls || []).some(
+              (call) => call.status === 'running' || call.status === 'pending',
+            );
+            return { data: response.calls || [], total: response.total || 0, success: true };
+          } catch (error) {
+            message.error(extractErrorMessage(error, '加载调用历史失败'));
+            return { data: [], total: 0, success: false };
+          }
+        }}
         pagination={{
-          current: currentPage,
-          pageSize: pageSize,
-          total: total,
+          pageSize: 20,
           showSizeChanger: true,
           showQuickJumper: true,
           showTotal: (total) => `共 ${total} 条记录`,
-          onChange: (page, size) => fetchData(page, size),
         }}
         search={{
           filterType: 'light',
@@ -354,7 +341,9 @@ export default () => {
             style={{ width: 120 }}
             onChange={(value) => {
               setFilters({ ...filters, status: value });
-              setCurrentPage(1);
+              // 筛选变化回第 1 页：params 变化与 setPageInfo 的双触发由
+              // ProTable 内部 debounce + abort 合并，不会出现错序数据
+              actionRef.current?.setPageInfo?.({ current: 1 });
             }}
           >
             {Object.keys(statusConfig).map((key) => (
@@ -380,7 +369,7 @@ export default () => {
                 );
                 setFilters(rest);
               }
-              setCurrentPage(1);
+              actionRef.current?.setPageInfo?.({ current: 1 });
             }}
           />,
         ]}

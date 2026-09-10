@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useState } from 'react';
-import { Alert, Button, Drawer, Input, Select, Space, Table, Typography } from 'antd';
+import { useEffect, useRef, useState } from 'react';
+import { Alert, Button, Drawer, Input, Select, Space, Typography } from 'antd';
+import { ProTable, type ActionType } from '@ant-design/pro-components';
 import { SummaryOverview } from '@/components';
 import {
   listExtensionEvents,
@@ -10,7 +11,7 @@ import { adaptEventListResponse } from '@/services/adapters/extensions';
 import { formatUnix } from './shared';
 
 /** 扩展事件抽屉：关键词/级别筛选 + 分页事件表（筛选与拉取自包含）。
- * 打开同一安装时重置筛选；关闭态不拉取（对齐原 loadEvents guard）。 */
+ * 打开同一安装时重置筛选；关闭态不拉取（抽屉内容未挂载时不发起请求）。 */
 export default function EventsDrawer({
   open,
   installation,
@@ -20,48 +21,25 @@ export default function EventsDrawer({
   installation: ExtensionInstallationItem | null;
   onClose: () => void;
 }) {
-  const [loading, setLoading] = useState(false);
-  const [events, setEvents] = useState<ExtensionEventItem[]>([]);
+  // 事件总数副本：抽屉顶部概览依赖它，在 request 成功后同步
   const [total, setTotal] = useState(0);
   const [keyword, setKeyword] = useState('');
   const [level, setLevel] = useState<string | undefined>(undefined);
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
+  const actionRef = useRef<ActionType | undefined>(undefined);
 
   const title = installation
     ? `${installation.displayName || installation.extensionId} (#${installation.id})`
     : '';
 
-  // 打开（或切换安装实例）时重置筛选
+  // 打开（或切换安装实例）时重置筛选并重新拉取（对齐原 reset + load 行为；
+  // 首次打开时表格随抽屉挂载自动请求，reload 的双触发由内部 abort 合并）
   useEffect(() => {
     if (open && installation) {
       setKeyword('');
       setLevel(undefined);
-      setPage(1);
+      actionRef.current?.reload();
     }
   }, [open, installation]);
-
-  const loadEvents = useCallback(async () => {
-    if (!open || !installation) return;
-    setLoading(true);
-    try {
-      const resp = await listExtensionEvents(installation.id, {
-        level,
-        keyword: keyword.trim() || undefined,
-        page,
-        pageSize,
-      });
-      const vm = adaptEventListResponse(resp);
-      setEvents(vm.items);
-      setTotal(vm.total);
-    } finally {
-      setLoading(false);
-    }
-  }, [open, installation, level, keyword, page, pageSize]);
-
-  useEffect(() => {
-    loadEvents();
-  }, [loadEvents]);
 
   return (
     <Drawer open={open} onClose={onClose} width={760} title={`扩展事件: ${title}`}>
@@ -85,8 +63,10 @@ export default function EventsDrawer({
           placeholder="筛选事件/内容/操作者"
           value={keyword}
           onChange={(e) => {
-            setPage(1);
+            // 筛选变化回第 1 页：params 变化与 setPageInfo 的双触发由
+            // ProTable 内部 debounce + abort 合并，不会出现错序数据
             setKeyword(e.target.value);
+            actionRef.current?.setPageInfo?.({ current: 1 });
           }}
         />
         <Select
@@ -95,8 +75,8 @@ export default function EventsDrawer({
           placeholder="级别"
           value={level}
           onChange={(v) => {
-            setPage(1);
             setLevel(v);
+            actionRef.current?.setPageInfo?.({ current: 1 });
           }}
           options={[
             { label: 'info', value: 'info' },
@@ -109,7 +89,7 @@ export default function EventsDrawer({
           onClick={() => {
             setKeyword('');
             setLevel(undefined);
-            setPage(1);
+            actionRef.current?.setPageInfo?.({ current: 1 });
           }}
         >
           清空筛选
@@ -130,26 +110,40 @@ export default function EventsDrawer({
         />
       ) : null}
 
-      <Table<ExtensionEventItem>
+      <ProTable<ExtensionEventItem>
+        actionRef={actionRef}
         rowKey={(row, idx) => `${row.createdAt}-${row.eventType}-${idx}`}
-        loading={loading}
-        dataSource={events}
-        pagination={{
-          current: page,
-          pageSize,
-          total,
-          showSizeChanger: true,
-          onChange: (nextPage, nextPageSize) => {
-            setPage(nextPage);
-            setPageSize(nextPageSize);
-          },
+        search={false}
+        options={false}
+        toolBarRender={false}
+        params={{ installationId: installation?.id, keyword, level }}
+        request={async ({ current = 1, pageSize = 10, installationId, keyword: kw, level: lv }) => {
+          if (!installationId) {
+            // 对齐原 loadEvents guard：无安装实例时不发起请求
+            return { data: [], total: 0, success: true };
+          }
+          try {
+            const resp = await listExtensionEvents(installationId, {
+              level: lv,
+              keyword: kw?.trim() || undefined,
+              page: current,
+              pageSize,
+            });
+            const vm = adaptEventListResponse(resp);
+            setTotal(vm.total);
+            return { data: vm.items, total: vm.total, success: true };
+          } catch {
+            // 原实现不本地弹错（全局请求拦截器已 toast），保持该语义
+            return { data: [], total: 0, success: false };
+          }
         }}
+        pagination={{ pageSize: 10, showSizeChanger: true }}
         columns={[
           {
             title: '时间',
             dataIndex: 'createdAt',
             key: 'createdAt',
-            render: (v) => formatUnix(v),
+            render: (_, row) => formatUnix(row.createdAt),
           },
           { title: '级别', dataIndex: 'level', key: 'level', width: 100 },
           { title: '事件', dataIndex: 'eventType', key: 'eventType', width: 150 },
@@ -158,10 +152,10 @@ export default function EventsDrawer({
             title: 'Payload',
             dataIndex: 'payload',
             key: 'payload',
-            render: (value: string) =>
-              value ? (
-                <Typography.Text code ellipsis={{ tooltip: value }} style={{ maxWidth: 260 }}>
-                  {value}
+            render: (_, row) =>
+              row.payload ? (
+                <Typography.Text code ellipsis={{ tooltip: row.payload }} style={{ maxWidth: 260 }}>
+                  {row.payload}
                 </Typography.Text>
               ) : (
                 '-'

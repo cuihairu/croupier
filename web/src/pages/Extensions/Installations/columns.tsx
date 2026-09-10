@@ -1,6 +1,6 @@
 import { Button, Dropdown, Space, Tag, Typography } from 'antd';
 import { MoreOutlined } from '@ant-design/icons';
-import type { ColumnsType } from 'antd/es/table';
+import type { ProColumns } from '@ant-design/pro-components';
 import type { ExtensionInstallationItem } from '@/services/api/extensions';
 import { formatUnix } from './shared';
 
@@ -23,7 +23,7 @@ export function buildInstallationsColumns({
   onToggleEnabled: (row: ExtensionInstallationItem) => void;
   onReconcile: (row: ExtensionInstallationItem) => void;
   onUninstall: (row: ExtensionInstallationItem) => void;
-}): ColumnsType<ExtensionInstallationItem> {
+}): ProColumns<ExtensionInstallationItem>[] {
   return [
     {
       title: '安装实例',
@@ -60,9 +60,17 @@ export function buildInstallationsColumns({
       dataIndex: 'healthStatus',
       key: 'healthStatus',
       width: 120,
-      render: (value) => (
-        <Tag color={value === 'healthy' ? 'green' : value === 'error' ? 'red' : 'default'}>
-          {value || '-'}
+      render: (_, row) => (
+        <Tag
+          color={
+            row.healthStatus === 'healthy'
+              ? 'green'
+              : row.healthStatus === 'error'
+                ? 'red'
+                : 'default'
+          }
+        >
+          {row.healthStatus || '-'}
         </Tag>
       ),
     },
@@ -85,7 +93,7 @@ export function buildInstallationsColumns({
       dataIndex: 'updatedAt',
       key: 'updatedAt',
       width: 170,
-      render: (v) => formatUnix(v),
+      render: (_, row) => formatUnix(row.updatedAt),
     },
     {
       title: '操作',

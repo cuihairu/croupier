@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useRef, useState } from 'react';
 import {
   App,
   Button,
@@ -11,12 +11,16 @@ import {
   Select,
   Slider,
   Space,
-  Table,
   Tag,
   Typography,
   Upload,
 } from 'antd';
-import { PageContainer } from '@ant-design/pro-components';
+import {
+  PageContainer,
+  ProTable,
+  type ActionType,
+  type ProColumns,
+} from '@ant-design/pro-components';
 import { CloudUploadOutlined, PlusOutlined, ReloadOutlined } from '@ant-design/icons';
 import type { UploadProps } from 'antd';
 import { useAccess } from '@umijs/max';
@@ -39,11 +43,6 @@ export default function DevHotpatchesPage() {
   const access = useAccess();
   const canManage = Boolean(access.canDevManage);
 
-  const [rows, setRows] = useState<HotpatchItem[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [page, setPage] = useState(1);
-  const [size, setSize] = useState(20);
-  const [total, setTotal] = useState(0);
   const [status, setStatus] = useState('');
   const [framework, setFramework] = useState('');
   const [createOpen, setCreateOpen] = useState(false);
@@ -51,23 +50,11 @@ export default function DevHotpatchesPage() {
   const [form] = Form.useForm();
   const [rollTarget, setRollTarget] = useState<HotpatchItem | null>(null);
   const [rollValue, setRollValue] = useState(10);
+  const actionRef = useRef<ActionType | undefined>(undefined);
+  // 刷新按钮的 loading 转由表格加载态驱动
+  const [tableLoading, setTableLoading] = useState(false);
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await listHotpatches({ status, framework, page, pageSize: size });
-      setRows(res.items || []);
-      setTotal(res.total || 0);
-    } catch (error) {
-      message.error(extractErrorMessage(error, '加载热更单失败'));
-    } finally {
-      setLoading(false);
-    }
-  }, [message, status, framework, page, size]);
-
-  useEffect(() => {
-    load();
-  }, [load]);
+  const reload = () => actionRef.current?.reload();
 
   const submitCreate = async () => {
     const v = await form.validateFields();
@@ -76,7 +63,7 @@ export default function DevHotpatchesPage() {
       await createHotpatch(v);
       message.success('热更单已创建（草稿），请上传补丁包');
       setCreateOpen(false);
-      load();
+      reload();
     } catch (error) {
       message.error(extractErrorMessage(error, '创建失败'));
     } finally {
@@ -92,7 +79,7 @@ export default function DevHotpatchesPage() {
     try {
       await transitionHotpatch(hp.id, action, rolloutPercent);
       message.success('状态已更新');
-      load();
+      reload();
     } catch (error) {
       message.error(extractErrorMessage(error, '操作失败'));
     }
@@ -107,7 +94,7 @@ export default function DevHotpatchesPage() {
         await uploadHotpatchPackage(hp.id, file as File);
         onSuccess?.({}, new XMLHttpRequest());
         message.success('补丁包已上传（SHA-256 已登记）');
-        load();
+        reload();
       } catch (error) {
         onError?.(error as Error);
         message.error(extractErrorMessage(error, '上传失败'));
@@ -115,36 +102,44 @@ export default function DevHotpatchesPage() {
     },
   });
 
-  const columns = [
+  const columns: ProColumns<HotpatchItem>[] = [
     { title: 'ID', dataIndex: 'id', width: 60 },
     {
       title: '框架',
       dataIndex: 'framework',
       width: 130,
-      render: (v: string) => hotpatchFrameworkLabels[v] || v,
+      render: (_, hp) => hotpatchFrameworkLabels[hp.framework] || hp.framework,
     },
-    { title: '关联缺陷', dataIndex: 'bugId', width: 90, render: (v: number) => `#${v}` },
+    { title: '关联缺陷', dataIndex: 'bugId', width: 90, render: (_, hp) => `#${hp.bugId}` },
     {
       title: '状态',
       dataIndex: 'status',
       width: 100,
-      render: (v: string) => (
-        <Tag color={hotpatchStatusColors[v] || 'default'}>{hotpatchStatusLabels[v] || v}</Tag>
+      render: (_, hp) => (
+        <Tag color={hotpatchStatusColors[hp.status] || 'default'}>
+          {hotpatchStatusLabels[hp.status] || hp.status}
+        </Tag>
       ),
     },
     {
       title: '灰度',
       dataIndex: 'rolloutPercent',
       width: 80,
-      render: (v: number, hp: HotpatchItem) =>
-        hp.status === 'rolling' ? <Text strong>{v}%</Text> : v > 0 ? `${v}%` : '-',
+      render: (_, hp) =>
+        hp.status === 'rolling' ? (
+          <Text strong>{hp.rolloutPercent}%</Text>
+        ) : hp.rolloutPercent > 0 ? (
+          `${hp.rolloutPercent}%`
+        ) : (
+          '-'
+        ),
     },
     {
       title: '补丁包',
       dataIndex: 'size',
       width: 100,
-      render: (v: number, hp: HotpatchItem) =>
-        hp.packageKey ? formatSize(v) : <Text type="secondary">未上传</Text>,
+      render: (_, hp) =>
+        hp.packageKey ? formatSize(hp.size) : <Text type="secondary">未上传</Text>,
     },
     { title: '更新时间', dataIndex: 'updatedAt', width: 170 },
     {
@@ -225,7 +220,9 @@ export default function DevHotpatchesPage() {
               value={status || undefined}
               onChange={(v) => {
                 setStatus(v || '');
-                setPage(1);
+                // 筛选变化回第 1 页：params 变化与 setPageInfo 的双触发由
+                // ProTable 内部 debounce + abort 合并，不会出现错序数据
+                actionRef.current?.setPageInfo?.({ current: 1 });
               }}
               allowClear
               style={{ width: 110 }}
@@ -239,7 +236,7 @@ export default function DevHotpatchesPage() {
               value={framework || undefined}
               onChange={(v) => {
                 setFramework(v || '');
-                setPage(1);
+                actionRef.current?.setPageInfo?.({ current: 1 });
               }}
               allowClear
               style={{ width: 160 }}
@@ -248,7 +245,7 @@ export default function DevHotpatchesPage() {
                 value,
               }))}
             />
-            <Button icon={<ReloadOutlined />} onClick={load} loading={loading}>
+            <Button icon={<ReloadOutlined />} onClick={reload} loading={tableLoading}>
               刷新
             </Button>
             {canManage ? (
@@ -266,21 +263,30 @@ export default function DevHotpatchesPage() {
           </Space>
         }
       >
-        <Table
+        <ProTable<HotpatchItem>
+          actionRef={actionRef}
           rowKey="id"
-          dataSource={rows}
-          loading={loading}
           columns={columns}
-          pagination={{
-            current: page,
-            pageSize: size,
-            total,
-            showSizeChanger: true,
-            onChange: (p, s) => {
-              setPage(p);
-              setSize(s);
-            },
+          search={false}
+          options={false}
+          toolBarRender={false}
+          params={{ status, framework }}
+          request={async ({ current = 1, pageSize = 20, status: statusFilter, framework: fw }) => {
+            try {
+              const res = await listHotpatches({
+                status: statusFilter ?? '',
+                framework: fw ?? '',
+                page: current,
+                pageSize,
+              });
+              return { data: res.items || [], total: res.total || 0, success: true };
+            } catch (error) {
+              message.error(extractErrorMessage(error, '加载热更单失败'));
+              return { data: [], total: 0, success: false };
+            }
           }}
+          onLoadingChange={(loading) => setTableLoading(loading === true)}
+          pagination={{ pageSize: 20, showSizeChanger: true }}
         />
       </Card>
 

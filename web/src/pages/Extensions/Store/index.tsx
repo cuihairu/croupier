@@ -296,11 +296,13 @@ export default function ExtensionsStorePage() {
             type="primary"
             onClick={() => {
               // 提交筛选草稿并回第 1 页；params 变化与 setPageInfo 的双触发
-              // 由 ProTable 内部 debounce + abort 合并
+              // 由 ProTable 内部 debounce + abort 合并；reload 兜底「筛选值
+              // 未变时点击查询也重查」的原语义（params 不变不会触发请求）
               actionRef.current?.setPageInfo?.({ current: 1 });
               setKeyword(keywordDraft.trim());
               setKind(kindDraft);
               setStatus(statusDraft);
+              actionRef.current?.reload();
             }}
           >
             查询

@@ -1,14 +1,20 @@
-import React, { useEffect, useMemo, useState, useCallback } from 'react';
-import { Card, Table, Space, Input, Button, DatePicker, Tag } from 'antd';
+import React, { useMemo, useRef, useState } from 'react';
+import { Card, Space, Input, Button, DatePicker, Tag } from 'antd';
 import type { Dayjs } from 'dayjs';
-import { PageContainer } from '@ant-design/pro-components';
+import {
+  PageContainer,
+  ProTable,
+  type ActionType,
+  type ProColumns,
+} from '@ant-design/pro-components';
 import { listAudit, type AuditEvent } from '@/services/api';
 import { exportToCSV } from '@/utils/export';
 import { formatDateTime } from '@/utils/format';
 
 export default function OperationLogsPage() {
+  const actionRef = useRef<ActionType | undefined>(undefined);
+  // 仅为「导出 CSV」保留当前页数据，由 request 成功时更新
   const [rows, setRows] = useState<AuditEvent[]>([]);
-  const [loading, setLoading] = useState(false);
   const [actor, setActor] = useState<string>(
     () => new URLSearchParams(location.search).get('actor') || '',
   );
@@ -40,33 +46,8 @@ export default function OperationLogsPage() {
   );
   const [kinds, setKinds] = useState<string[]>(defaultKinds);
   const [timeRange, setTimeRange] = useState<[Dayjs | null, Dayjs | null] | null>(null);
-  const [page, setPage] = useState<number>(1);
-  const [size, setSize] = useState<number>(20);
   const [gameId, setGameId] = useState<string>('');
   const [env, setEnv] = useState<string>('');
-
-  const load = useCallback(async () => {
-    setLoading(true);
-    try {
-      const params: Record<string, string | number> = { page, size };
-      if (actor) params.actor = actor;
-      if (ip) params.ip = ip;
-      if (gameId) params.gameId = gameId;
-      if (env) params.env = env;
-      const want = kinds && kinds.length > 0 ? kinds : defaultKinds;
-      params.kinds = want.join(',');
-      if (timeRange && timeRange[0]) params.start = timeRange[0].toISOString();
-      if (timeRange && timeRange[1]) params.end = timeRange[1].toISOString();
-      const r = await listAudit(params);
-      setRows(r.events || []);
-    } finally {
-      setLoading(false);
-    }
-  }, [page, size, actor, ip, gameId, env, kinds, defaultKinds, timeRange]);
-
-  useEffect(() => {
-    load();
-  }, [load]);
 
   const exportCSV = () => {
     const arr = (rows || []).map((e: AuditEvent) => [
@@ -103,6 +84,27 @@ export default function OperationLogsPage() {
       </Space>
     );
   }, [kinds, defaultKinds]);
+
+  const columns: ProColumns<AuditEvent>[] = [
+    { title: '时间', dataIndex: 'time', render: (_, row) => formatDateTime(row.time ?? '') },
+    { title: '类型', dataIndex: 'kind' },
+    { title: '操作者', dataIndex: 'actor' },
+    { title: '目标', dataIndex: 'target' },
+    { title: 'IP', dataIndex: ['meta', 'ip'] },
+    {
+      title: '属地',
+      render: (_: unknown, r: AuditEvent) => {
+        const v = String(r?.meta?.ipRegion || '');
+        if (!v) return '-';
+        if (v === '本地') return <Tag color="blue">本地</Tag>;
+        if (v === '局域网') return <Tag color="geekblue">局域网</Tag>;
+        return v;
+      },
+    },
+    { title: '游戏', dataIndex: ['meta', 'game_id'] },
+    { title: '环境', dataIndex: ['meta', 'env'] },
+    { title: 'Trace', dataIndex: ['meta', 'trace_id'] },
+  ];
 
   return (
     <PageContainer>
@@ -141,47 +143,54 @@ export default function OperationLogsPage() {
           <Button
             type="primary"
             onClick={() => {
-              setPage(1);
-              load();
+              // 回第 1 页并重查：已在第 1 页时 setPageInfo 不触发请求，
+              // 由 reload 兜底；非第 1 页时双触发经 debounce + abort 合并
+              actionRef.current?.setPageInfo?.({ current: 1 });
+              actionRef.current?.reload();
             }}
           >
             查询
           </Button>
           <Button onClick={exportCSV}>导出 CSV</Button>
         </Space>
-        <Table
+        <ProTable<AuditEvent>
+          actionRef={actionRef}
           rowKey={(r) => r.hash}
-          loading={loading}
-          dataSource={rows}
-          columns={[
-            { title: '时间', dataIndex: 'time', render: (t?: string) => formatDateTime(t ?? '') },
-            { title: '类型', dataIndex: 'kind' },
-            { title: '操作者', dataIndex: 'actor' },
-            { title: '目标', dataIndex: 'target' },
-            { title: 'IP', dataIndex: ['meta', 'ip'] },
-            {
-              title: '属地',
-              render: (_: unknown, r: AuditEvent) => {
-                const v = String(r?.meta?.ipRegion || '');
-                if (!v) return '-';
-                if (v === '本地') return <Tag color="blue">本地</Tag>;
-                if (v === '局域网') return <Tag color="geekblue">局域网</Tag>;
-                return v;
-              },
-            },
-            { title: '游戏', dataIndex: ['meta', 'game_id'] },
-            { title: '环境', dataIndex: ['meta', 'env'] },
-            { title: 'Trace', dataIndex: ['meta', 'trace_id'] },
-          ]}
-          pagination={{
-            current: page,
-            pageSize: size,
-            showSizeChanger: true,
-            onChange: (p, ps) => {
-              setPage(p);
-              setSize(ps || 20);
-            },
+          columns={columns}
+          search={false}
+          options={false}
+          toolBarRender={false}
+          params={{ actor, ip, kinds, timeRange, gameId, env }}
+          request={async ({
+            current = 1,
+            pageSize = 20,
+            actor: actorFilter,
+            ip: ipFilter,
+            kinds: kindsFilter,
+            timeRange: timeRangeFilter,
+            gameId: gameIdFilter,
+            env: envFilter,
+          }) => {
+            const params: Record<string, string | number> = { page: current, size: pageSize };
+            if (actorFilter) params.actor = actorFilter;
+            if (ipFilter) params.ip = ipFilter;
+            if (gameIdFilter) params.gameId = gameIdFilter;
+            if (envFilter) params.env = envFilter;
+            const want = kindsFilter && kindsFilter.length > 0 ? kindsFilter : defaultKinds;
+            params.kinds = want.join(',');
+            const range = timeRangeFilter as [Dayjs | null, Dayjs | null] | null | undefined;
+            if (range && range[0]) params.start = range[0].toISOString();
+            if (range && range[1]) params.end = range[1].toISOString();
+            try {
+              const r = await listAudit(params);
+              setRows(r.events || []);
+              return { data: r.events || [], total: r.total || 0, success: true };
+            } catch {
+              // 原实现无本地弹错（依赖全局请求拦截器 toast），保持静默
+              return { data: [], total: 0, success: false };
+            }
           }}
+          pagination={{ pageSize: 20, showSizeChanger: true }}
         />
       </Card>
     </PageContainer>

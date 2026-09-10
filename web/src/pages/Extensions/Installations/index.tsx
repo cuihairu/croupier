@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useState } from 'react';
-import { Alert, App, Button, Input, Modal, Select, Space, Table, Tag, Typography } from 'antd';
-import { PageContainer } from '@ant-design/pro-components';
+import { useRef, useState } from 'react';
+import { Alert, App, Button, Input, Modal, Select, Space, Tag, Typography } from 'antd';
+import { PageContainer, ProTable, type ActionType } from '@ant-design/pro-components';
 import { useAccess } from '@umijs/max';
 import { StandardFilterBar, StandardListSection, SummaryOverview } from '@/components';
 import {
@@ -25,13 +25,12 @@ const { Text } = Typography;
 export default function ExtensionsInstallationsPage() {
   const access = useAccess();
   const { message } = App.useApp();
-  const [loading, setLoading] = useState(false);
+  // 当前页数据副本：概览统计与「当前结果」计数依赖它，在 request 成功后同步
   const [items, setItems] = useState<ExtensionInstallationItem[]>([]);
   const [total, setTotal] = useState(0);
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
   const [status, setStatus] = useState<string | undefined>(undefined);
   const [extensionID, setExtensionID] = useState('');
+  const actionRef = useRef<ActionType | undefined>(undefined);
 
   const [eventsOpen, setEventsOpen] = useState(false);
   const [eventsRow, setEventsRow] = useState<ExtensionInstallationItem | null>(null);
@@ -55,31 +54,12 @@ export default function ExtensionsInstallationsPage() {
     .filter(Boolean)
     .join(' / ');
 
-  const loadInstallations = useCallback(async () => {
-    setLoading(true);
-    try {
-      const resp = await listExtensionInstallations({
-        extensionId: extensionID.trim() || undefined,
-        status,
-        page,
-        pageSize,
-      });
-      const vm = adaptInstallationListResponse(resp);
-      setItems(vm.items);
-      setTotal(vm.total);
-    } finally {
-      setLoading(false);
-    }
-  }, [extensionID, status, page, pageSize]);
-
-  useEffect(() => {
-    loadInstallations();
-  }, [loadInstallations]);
+  const reload = () => actionRef.current?.reload();
 
   const withReload = async (fn: () => Promise<unknown>, successText: string) => {
     await fn();
     message.success(successText);
-    await loadInstallations();
+    reload();
   };
 
   const handleUninstall = (row: ExtensionInstallationItem) => {
@@ -91,7 +71,7 @@ export default function ExtensionsInstallationsPage() {
         try {
           await uninstallExtension(row.id);
           message.success('已卸载扩展');
-          await loadInstallations();
+          reload();
         } catch (err) {
           const uiErr = mapExtensionError(err as Error);
           const details = uiErr.details || {};
@@ -160,10 +140,7 @@ export default function ExtensionsInstallationsPage() {
           hint="推荐路径：先在列表确认实例状态，再进入详情修改配置；事件和升级属于次级动作，不应抢主流程注意力。"
         />
 
-        <StandardListSection
-          title="安装列表"
-          extra={<Button onClick={loadInstallations}>刷新</Button>}
-        >
+        <StandardListSection title="安装列表" extra={<Button onClick={reload}>刷新</Button>}>
           <StandardFilterBar
             resultText={`当前结果 ${items.length} 个安装实例`}
             controls={
@@ -174,8 +151,10 @@ export default function ExtensionsInstallationsPage() {
                   placeholder="扩展 ID"
                   value={extensionID}
                   onChange={(e) => {
-                    setPage(1);
+                    // 筛选变化回第 1 页：params 变化与 setPageInfo 的双触发由
+                    // ProTable 内部 debounce + abort 合并，不会出现错序数据
                     setExtensionID(e.target.value);
+                    actionRef.current?.setPageInfo?.({ current: 1 });
                   }}
                 />
                 <Select
@@ -184,8 +163,8 @@ export default function ExtensionsInstallationsPage() {
                   placeholder="状态"
                   value={status}
                   onChange={(v) => {
-                    setPage(1);
                     setStatus(v);
+                    actionRef.current?.setPageInfo?.({ current: 1 });
                   }}
                   options={[
                     { label: 'installing', value: 'installing' },
@@ -198,9 +177,9 @@ export default function ExtensionsInstallationsPage() {
                 {hasListFilters ? (
                   <Button
                     onClick={() => {
-                      setPage(1);
                       setExtensionID('');
                       setStatus(undefined);
+                      actionRef.current?.setPageInfo?.({ current: 1 });
                     }}
                   >
                     清空筛选
@@ -219,22 +198,38 @@ export default function ExtensionsInstallationsPage() {
             />
           ) : null}
 
-          <Table<ExtensionInstallationItem>
+          <ProTable<ExtensionInstallationItem>
+            actionRef={actionRef}
             scroll={{ x: 900 }}
             rowKey="id"
-            loading={loading}
-            dataSource={items}
             columns={columns}
-            pagination={{
-              current: page,
-              pageSize,
-              total,
-              showSizeChanger: true,
-              onChange: (nextPage, nextPageSize) => {
-                setPage(nextPage);
-                setPageSize(nextPageSize);
-              },
+            search={false}
+            options={false}
+            toolBarRender={false}
+            params={{ extensionID, status }}
+            request={async ({
+              current = 1,
+              pageSize = 10,
+              extensionID: extensionIdFilter,
+              status: statusFilter,
+            }) => {
+              try {
+                const resp = await listExtensionInstallations({
+                  extensionId: extensionIdFilter.trim() || undefined,
+                  status: statusFilter,
+                  page: current,
+                  pageSize,
+                });
+                const vm = adaptInstallationListResponse(resp);
+                setItems(vm.items);
+                setTotal(vm.total);
+                return { data: vm.items, total: vm.total, success: true };
+              } catch {
+                // 原实现不本地弹错（全局请求拦截器已 toast），保持该语义
+                return { data: [], total: 0, success: false };
+              }
             }}
+            pagination={{ pageSize: 10, showSizeChanger: true }}
           />
         </StandardListSection>
       </Space>
@@ -249,14 +244,18 @@ export default function ExtensionsInstallationsPage() {
         open={upgradeOpen}
         row={upgradeRow}
         onClose={() => setUpgradeOpen(false)}
-        onUpgraded={loadInstallations}
+        onUpgraded={async () => {
+          await actionRef.current?.reload();
+        }}
       />
 
       <InstallationDetailDrawer
         open={detailOpen}
         row={detailRow}
         onClose={() => setDetailOpen(false)}
-        onSaved={loadInstallations}
+        onSaved={async () => {
+          await actionRef.current?.reload();
+        }}
       />
     </PageContainer>
   );

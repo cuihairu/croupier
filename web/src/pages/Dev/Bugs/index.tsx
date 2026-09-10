@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   App,
   Button,
@@ -12,12 +12,16 @@ import {
   Row,
   Select,
   Space,
-  Table,
   Tag,
   Tooltip,
   Typography,
 } from 'antd';
-import { PageContainer } from '@ant-design/pro-components';
+import {
+  PageContainer,
+  ProTable,
+  type ActionType,
+  type ProColumns,
+} from '@ant-design/pro-components';
 import {
   ApiOutlined,
   BugOutlined,
@@ -76,11 +80,6 @@ export default function DevBugsPage() {
   const access = useAccess();
   const canManage = Boolean(access.canDevManage);
 
-  const [rows, setRows] = useState<BugItem[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [page, setPage] = useState(1);
-  const [size, setSize] = useState(20);
-  const [total, setTotal] = useState(0);
   const [q, setQ] = useState('');
   const [status, setStatus] = useState('');
   const [severity, setSeverity] = useState('');
@@ -97,32 +96,11 @@ export default function DevBugsPage() {
   const [linkDraft, setLinkDraft] = useState<LinkFormValue>({ url: '', kind: 'github_issue' });
   const [pendingLinks, setPendingLinks] = useState<BugLink[]>([]);
   const [currentLinks, setCurrentLinks] = useState<BugLink[]>([]);
+  const actionRef = useRef<ActionType | undefined>(undefined);
+  // 刷新按钮的 loading 转由表格加载态驱动
+  const [tableLoading, setTableLoading] = useState(false);
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await listBugs({
-        q,
-        status,
-        severity,
-        priority,
-        assignee,
-        fixVersion,
-        page,
-        pageSize: size,
-      });
-      setRows(res.items || []);
-      setTotal(res.total || 0);
-    } catch (error) {
-      message.error(extractErrorMessage(error, '加载缺陷列表失败'));
-    } finally {
-      setLoading(false);
-    }
-  }, [message, q, status, severity, priority, assignee, fixVersion, page, size]);
-
-  useEffect(() => {
-    load();
-  }, [load]);
+  const reload = () => actionRef.current?.reload();
 
   useEffect(() => {
     (async () => {
@@ -188,7 +166,7 @@ export default function DevBugsPage() {
         message.success('缺陷已提交');
       }
       setDrawerOpen(false);
-      load();
+      reload();
     } catch (error) {
       message.error(extractErrorMessage(error, editing ? '更新失败' : '提交失败'));
     } finally {
@@ -200,7 +178,7 @@ export default function DevBugsPage() {
     try {
       await deleteBug(bug.id);
       message.success('已删除');
-      load();
+      reload();
     } catch (error) {
       message.error(extractErrorMessage(error, '删除失败'));
     }
@@ -211,7 +189,7 @@ export default function DevBugsPage() {
     setCurrentLinks(bug.links || []);
   };
 
-  const columns = [
+  const columns: ProColumns<BugItem>[] = [
     {
       title: '标题',
       dataIndex: 'title',
@@ -237,45 +215,58 @@ export default function DevBugsPage() {
       title: '状态',
       dataIndex: 'status',
       width: 110,
-      render: (v: string) => (
-        <Tag color={bugStatusColors[v] || 'default'}>{bugStatusLabels[v] || v}</Tag>
+      render: (_, bug) => (
+        <Tag color={bugStatusColors[bug.status] || 'default'}>
+          {bugStatusLabels[bug.status] || bug.status}
+        </Tag>
       ),
     },
     {
       title: '严重度',
       dataIndex: 'severity',
       width: 90,
-      render: (v?: string) =>
-        v ? <Tag color={bugSeverityColors[v] || 'default'}>{bugSeverityLabels[v] || v}</Tag> : '-',
+      render: (_, bug) =>
+        bug.severity ? (
+          <Tag color={bugSeverityColors[bug.severity] || 'default'}>
+            {bugSeverityLabels[bug.severity] || bug.severity}
+          </Tag>
+        ) : (
+          '-'
+        ),
     },
     {
       title: '优先级',
       dataIndex: 'priority',
       width: 80,
-      render: (v?: string) => (v ? bugPriorityLabels[v] || v : '-'),
+      render: (_, bug) => (bug.priority ? bugPriorityLabels[bug.priority] || bug.priority : '-'),
     },
-    { title: '负责人', dataIndex: 'assignee', width: 100, render: (v?: string) => v || '-' },
+    { title: '负责人', dataIndex: 'assignee', width: 100, render: (_, bug) => bug.assignee || '-' },
     {
       title: '平台',
       dataIndex: 'platform',
       width: 90,
-      render: (v?: string) => (v ? v.toUpperCase() : '-'),
+      render: (_, bug) => (bug.platform ? bug.platform.toUpperCase() : '-'),
     },
     {
       title: '影响版本',
       dataIndex: 'affectsVersion',
       width: 110,
-      render: (v?: string) => v || '-',
+      render: (_, bug) => bug.affectsVersion || '-',
     },
-    { title: '修复版本', dataIndex: 'fixVersion', width: 110, render: (v?: string) => v || '-' },
+    {
+      title: '修复版本',
+      dataIndex: 'fixVersion',
+      width: 110,
+      render: (_, bug) => bug.fixVersion || '-',
+    },
     {
       title: '来源',
       dataIndex: 'source',
       width: 90,
-      render: (v?: string) =>
-        v === 'ticket' ? (
+      render: (_, bug) =>
+        bug.source === 'ticket' ? (
           <Tag color="geekblue">工单</Tag>
-        ) : v === 'player' ? (
+        ) : bug.source === 'player' ? (
           <Tag color="blue">玩家</Tag>
         ) : (
           <Tag>内部</Tag>
@@ -323,8 +314,9 @@ export default function DevBugsPage() {
               value={q}
               onChange={(e) => setQ(e.target.value)}
               onSearch={() => {
-                setPage(1);
-                load();
+                // 筛选变化回第 1 页：params 变化与 setPageInfo 的双触发由
+                // ProTable 内部 debounce + abort 合并，不会出现错序数据
+                actionRef.current?.setPageInfo?.({ current: 1 });
               }}
               style={{ width: 200 }}
               allowClear
@@ -334,7 +326,7 @@ export default function DevBugsPage() {
               value={status || undefined}
               onChange={(v) => {
                 setStatus(v || '');
-                setPage(1);
+                actionRef.current?.setPageInfo?.({ current: 1 });
               }}
               allowClear
               style={{ width: 120 }}
@@ -348,7 +340,7 @@ export default function DevBugsPage() {
               value={severity || undefined}
               onChange={(v) => {
                 setSeverity(v || '');
-                setPage(1);
+                actionRef.current?.setPageInfo?.({ current: 1 });
               }}
               allowClear
               style={{ width: 110 }}
@@ -362,7 +354,7 @@ export default function DevBugsPage() {
               value={priority || undefined}
               onChange={(v) => {
                 setPriority(v || '');
-                setPage(1);
+                actionRef.current?.setPageInfo?.({ current: 1 });
               }}
               allowClear
               style={{ width: 100 }}
@@ -376,7 +368,7 @@ export default function DevBugsPage() {
               value={assignee || undefined}
               onChange={(v) => {
                 setAssignee(v || '');
-                setPage(1);
+                actionRef.current?.setPageInfo?.({ current: 1 });
               }}
               allowClear
               showSearch
@@ -388,12 +380,12 @@ export default function DevBugsPage() {
               value={fixVersion}
               onChange={(e) => {
                 setFixVersion(e.target.value);
-                setPage(1);
+                actionRef.current?.setPageInfo?.({ current: 1 });
               }}
               style={{ width: 120 }}
               allowClear
             />
-            <Button icon={<ReloadOutlined />} onClick={load} loading={loading}>
+            <Button icon={<ReloadOutlined />} onClick={reload} loading={tableLoading}>
               刷新
             </Button>
             {canManage ? (
@@ -404,21 +396,43 @@ export default function DevBugsPage() {
           </Space>
         }
       >
-        <Table
+        <ProTable<BugItem>
+          actionRef={actionRef}
           rowKey="id"
-          dataSource={rows}
-          loading={loading}
           columns={columns}
-          pagination={{
-            current: page,
-            pageSize: size,
-            total,
-            showSizeChanger: true,
-            onChange: (p, s) => {
-              setPage(p);
-              setSize(s);
-            },
+          search={false}
+          options={false}
+          toolBarRender={false}
+          params={{ q, status, severity, priority, assignee, fixVersion }}
+          request={async ({
+            current = 1,
+            pageSize = 20,
+            q: keyword,
+            status: statusFilter,
+            severity: severityFilter,
+            priority: priorityFilter,
+            assignee: assigneeFilter,
+            fixVersion: fixVersionFilter,
+          }) => {
+            try {
+              const res = await listBugs({
+                q: keyword ?? '',
+                status: statusFilter ?? '',
+                severity: severityFilter ?? '',
+                priority: priorityFilter ?? '',
+                assignee: assigneeFilter ?? '',
+                fixVersion: fixVersionFilter ?? '',
+                page: current,
+                pageSize,
+              });
+              return { data: res.items || [], total: res.total || 0, success: true };
+            } catch (error) {
+              message.error(extractErrorMessage(error, '加载缺陷列表失败'));
+              return { data: [], total: 0, success: false };
+            }
           }}
+          onLoadingChange={(l) => setTableLoading(l === true)}
+          pagination={{ pageSize: 20, showSizeChanger: true }}
         />
       </Card>
 

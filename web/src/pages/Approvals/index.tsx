@@ -1,5 +1,6 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Card, Table, Tag, Space, Button, Drawer, Descriptions, Select, Input, Tabs } from 'antd';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { Card, Tag, Space, Button, Drawer, Descriptions, Select, Input, Tabs } from 'antd';
+import { ProTable, type ActionType } from '@ant-design/pro-components';
 import { getMessage } from '@/utils/antdApp';
 import {
   approveApproval,
@@ -39,11 +40,8 @@ const stateText = (state: Approval['state']) =>
   state === 'pending' ? '待审批' : state === 'approved' ? '已通过' : '已拒绝';
 
 export default function ApprovalsPage() {
+  // 当前页数据副本：审批动作按 id 在当前页定位记录，在 request 成功后同步
   const [data, setData] = useState<Approval[]>([]);
-  const [total, setTotal] = useState(0);
-  const [loading, setLoading] = useState(false);
-  const [page, setPage] = useState(1);
-  const [size, setSize] = useState(20);
   const [viewMode, setViewMode] = useState<ViewMode>('todo');
   const [state, setState] = useState<string>('pending');
   const [functionId, setFunctionId] = useState<string>('');
@@ -55,6 +53,7 @@ export default function ApprovalsPage() {
   const [current, setCurrent] = useState<Approval | undefined>();
   const [preview, setPreview] = useState<string>('');
   const [descs, setDescs] = useState<FunctionDescriptor[]>([]);
+  const actionRef = useRef<ActionType | undefined>(undefined);
   const descMap = useMemo(() => {
     const m: Record<string, FunctionDescriptor> = {};
     (descs || []).forEach((d: FunctionDescriptor) => {
@@ -62,42 +61,6 @@ export default function ApprovalsPage() {
     });
     return m;
   }, [descs]);
-
-  const list = useCallback(async () => {
-    setLoading(true);
-    const qs = new URLSearchParams();
-    // 我发起的：服务端强制按当前登录人过滤；其余视图按状态过滤
-    if (viewMode === 'mine') qs.set('mine', 'true');
-    if (state) qs.set('status', state);
-    if (functionId) qs.set('functionId', functionId);
-    if (gameId) qs.set('gameId', gameId);
-    if (env) qs.set('env', env);
-    if (viewMode !== 'mine' && actor) qs.set('actor', actor);
-    if (riskFilter) qs.set('risk', riskFilter);
-    qs.set('page', String(page));
-    qs.set('pageSize', String(size));
-    let json: Awaited<ReturnType<typeof listApprovals>>;
-    try {
-      json = await listApprovals(Object.fromEntries(qs));
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : '加载失败';
-      getMessage()?.error(msg);
-      setLoading(false);
-      return;
-    }
-    setData(json.approvals || []);
-    setTotal(json.total || 0);
-    setLoading(false);
-  }, [viewMode, state, functionId, gameId, env, actor, riskFilter, page, size]);
-
-  const filtered = useMemo(() => {
-    const wantRisk = (riskFilter || '').trim().toLowerCase();
-    if (!wantRisk) return data || [];
-    return (data || []).filter((r) => {
-      const d = descMap[r.functionId || ''];
-      return (d?.risk || '').toString().toLowerCase() === wantRisk;
-    });
-  }, [data, riskFilter, descMap]);
 
   async function view(id: string) {
     let json: Awaited<ReturnType<typeof getApproval>>;
@@ -135,7 +98,7 @@ export default function ApprovalsPage() {
       return;
     }
     getMessage()?.success('已批准');
-    await list();
+    await actionRef.current?.reload();
     await view(id);
   }
 
@@ -149,7 +112,7 @@ export default function ApprovalsPage() {
       return;
     }
     getMessage()?.success('已拒绝');
-    await list();
+    await actionRef.current?.reload();
     await view(id);
   }
 
@@ -186,9 +149,6 @@ export default function ApprovalsPage() {
   };
 
   useEffect(() => {
-    list();
-  }, [list]);
-  useEffect(() => {
     listDescriptors()
       .then((d) => setDescs(d || []))
       .catch(() => {});
@@ -208,9 +168,11 @@ export default function ApprovalsPage() {
         onChange={(key) => {
           const next = key as ViewMode;
           setViewMode(next);
-          setPage(1);
           // 待我审批聚焦 pending；我发起的/全部默认查全部状态
           setState(next === 'todo' ? 'pending' : '');
+          // 筛选变化回第 1 页：params 变化与 setPageInfo 的双触发由
+          // ProTable 内部 debounce + abort 合并，不会出现错序数据
+          actionRef.current?.setPageInfo?.({ current: 1 });
         }}
         items={[
           { key: 'todo', label: '待我审批' },
@@ -223,7 +185,10 @@ export default function ApprovalsPage() {
         <Select
           style={{ width: 160 }}
           value={state}
-          onChange={setState}
+          onChange={(v) => {
+            setState(v);
+            actionRef.current?.setPageInfo?.({ current: 1 });
+          }}
           options={[
             { label: '全部', value: '' },
             { label: '待审批', value: 'pending' },
@@ -261,7 +226,10 @@ export default function ApprovalsPage() {
           placeholder="风险"
           style={{ width: 140 }}
           value={riskFilter}
-          onChange={setRiskFilter}
+          onChange={(v) => {
+            setRiskFilter(v);
+            actionRef.current?.setPageInfo?.({ current: 1 });
+          }}
           options={[
             { label: '全部', value: '' },
             { label: '高', value: 'high' },
@@ -271,35 +239,73 @@ export default function ApprovalsPage() {
         />
         <Button
           onClick={() => {
-            setPage(1);
-            list();
+            actionRef.current?.setPageInfo?.({ current: 1 });
           }}
           type="primary"
         >
           查询
         </Button>
       </Space>
-      <Table
+      <ProTable<Approval>
+        actionRef={actionRef}
         rowKey="id"
-        loading={loading}
-        dataSource={filtered}
-        pagination={{
-          current: page,
-          pageSize: size,
-          total,
-          onChange: (p, ps) => {
-            setPage(p);
-            setSize(ps);
-          },
+        search={false}
+        options={false}
+        toolBarRender={false}
+        params={{ viewMode, state, functionId, gameId, env, actor, riskFilter, descs }}
+        request={async ({
+          current = 1,
+          pageSize = 20,
+          viewMode: vm,
+          state: stateFilter,
+          functionId: fnFilter,
+          gameId: gameFilter,
+          env: envFilter,
+          actor: actorFilter,
+          riskFilter: risk,
+        }) => {
+          const qs = new URLSearchParams();
+          // 我发起的：服务端强制按当前登录人过滤；其余视图按状态过滤
+          if (vm === 'mine') qs.set('mine', 'true');
+          if (stateFilter) qs.set('status', stateFilter);
+          if (fnFilter) qs.set('functionId', fnFilter);
+          if (gameFilter) qs.set('gameId', gameFilter);
+          if (envFilter) qs.set('env', envFilter);
+          if (vm !== 'mine' && actorFilter) qs.set('actor', actorFilter);
+          if (risk) qs.set('risk', risk);
+          qs.set('page', String(current));
+          qs.set('pageSize', String(pageSize));
+          try {
+            const json = await listApprovals(Object.fromEntries(qs));
+            const rows = json.approvals || [];
+            // 审批动作按当前页记录定位，同步一份到本地 state
+            setData(rows);
+            // 原 filtered 语义：风险条件在服务端过滤外，再按 descriptor 风险
+            // 对当前页做客户端二次过滤（descs 进入 params，descriptors 晚到时
+            // 触发一次重查以对齐原“descMap 就绪后自动重算”的行为）
+            const wantRisk = (risk || '').trim().toLowerCase();
+            const visible = wantRisk
+              ? rows.filter((r) => {
+                  const d = descMap[r.functionId || ''];
+                  return (d?.risk || '').toString().toLowerCase() === wantRisk;
+                })
+              : rows;
+            return { data: visible, total: json.total || 0, success: true };
+          } catch (e) {
+            const msg = e instanceof Error ? e.message : '加载失败';
+            getMessage()?.error(msg);
+            return { data: [], total: 0, success: false };
+          }
         }}
+        pagination={{ pageSize: 20, showSizeChanger: true }}
         columns={[
           { title: '创建时间', dataIndex: 'createdAt' },
           { title: '申请人', dataIndex: 'actor' },
           {
             title: '函数',
             dataIndex: 'functionId',
-            render: (v) => {
-              const d = descMap[v];
+            render: (_, r) => {
+              const d = descMap[r.functionId];
               const risk = (d?.risk || '').toString().toLowerCase();
               const tags: React.ReactNode[] = [];
               if (risk)
@@ -316,7 +322,7 @@ export default function ApprovalsPage() {
                 );
               return (
                 <Space size={4}>
-                  {v}
+                  {r.functionId}
                   {tags}
                 </Space>
               );
@@ -326,7 +332,7 @@ export default function ApprovalsPage() {
           {
             title: '状态',
             dataIndex: 'state',
-            render: (v) => <Tag color={stateTag(v)}>{stateText(v)}</Tag>,
+            render: (_, r) => <Tag color={stateTag(r.state)}>{stateText(r.state)}</Tag>,
           },
           {
             title: '审批信息',

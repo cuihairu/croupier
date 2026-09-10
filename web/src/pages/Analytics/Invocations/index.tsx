@@ -1,7 +1,12 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Card, Col, Input, Radio, Row, Select, Space, Statistic, Table, Tag } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
-import { PageContainer } from '@ant-design/pro-components';
+import {
+  PageContainer,
+  ProTable,
+  type ActionType,
+  type ProColumns,
+} from '@ant-design/pro-components';
 import { Column } from '@ant-design/charts';
 import { useIntl } from '@umijs/max';
 import {
@@ -31,13 +36,9 @@ const WINDOW_CONFIG: Record<WindowKey, { hours: number; interval: string; label:
 
 export default function AnalyticsInvocationsPage() {
   const intl = useIntl();
-  const [loading, setLoading] = useState(false);
+  const actionRef = useRef<ActionType | undefined>(undefined);
   const [summary, setSummary] = useState<InvocationsSummary>(DEFAULT_SUMMARY);
   const [trend, setTrend] = useState<Array<{ bucket: string; value: number; type: string }>>([]);
-  const [items, setItems] = useState<InvocationItem[]>([]);
-  const [total, setTotal] = useState(0);
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(20);
   const [outcome, setOutcome] = useState<string>('');
   const [functionId, setFunctionId] = useState<string>('');
   const [window, setWindow] = useState<WindowKey>('24h');
@@ -58,26 +59,9 @@ export default function AnalyticsInvocationsPage() {
     );
   }, [window]);
 
-  const loadList = useCallback(async () => {
-    setLoading(true);
-    try {
-      const params: Record<string, string | number> = { page, pageSize };
-      if (outcome) params.outcome = outcome;
-      if (functionId) params.functionId = functionId;
-      const r = await fetchInvocationsList(params);
-      setItems(r?.items || []);
-      setTotal(Number(r?.total || 0));
-    } finally {
-      setLoading(false);
-    }
-  }, [page, pageSize, outcome, functionId]);
-
   useEffect(() => {
     loadSummary();
   }, [loadSummary]);
-  useEffect(() => {
-    loadList();
-  }, [loadList]);
 
   const functionColumns: ColumnsType<InvocationFunctionStats> = [
     { title: '函数', dataIndex: 'functionId', key: 'functionId' },
@@ -92,13 +76,13 @@ export default function AnalyticsInvocationsPage() {
     },
   ];
 
-  const listColumns: ColumnsType<InvocationItem> = [
+  const listColumns: ProColumns<InvocationItem>[] = [
     {
       title: '时间',
       dataIndex: 'timestamp',
       key: 'timestamp',
       width: 200,
-      render: (v: string) => formatDateTime(v ?? ''),
+      render: (_, r) => formatDateTime(r.timestamp ?? ''),
     },
     { title: '函数', dataIndex: 'functionId', key: 'functionId' },
     { title: '操作者', dataIndex: 'actor', key: 'actor', width: 140 },
@@ -107,22 +91,22 @@ export default function AnalyticsInvocationsPage() {
       dataIndex: 'outcome',
       key: 'outcome',
       width: 100,
-      render: (v: string) =>
-        v === 'success' ? <Tag color="success">成功</Tag> : <Tag color="error">失败</Tag>,
+      render: (_, r) =>
+        r.outcome === 'success' ? <Tag color="success">成功</Tag> : <Tag color="error">失败</Tag>,
     },
     {
       title: '耗时 (ms)',
       dataIndex: 'durationMs',
       key: 'durationMs',
       width: 110,
-      render: (v?: number) => (v == null ? '-' : v),
+      render: (_, r) => (r.durationMs == null ? '-' : r.durationMs),
     },
     {
       title: 'Trace',
       dataIndex: 'traceId',
       key: 'traceId',
       width: 160,
-      render: (v?: string) => (v ? <code>{v.slice(0, 16)}</code> : '-'),
+      render: (_, r) => (r.traceId ? <code>{r.traceId.slice(0, 16)}</code> : '-'),
     },
     { title: '错误', dataIndex: 'error', key: 'error', ellipsis: true },
   ];
@@ -193,8 +177,10 @@ export default function AnalyticsInvocationsPage() {
               allowClear
               style={{ width: 260 }}
               onSearch={(v) => {
-                setPage(1);
                 setFunctionId(v.trim());
+                // 筛选变化回第 1 页：params 变化与 setPageInfo 的双触发由
+                // ProTable 内部 debounce + abort 合并，不会出现错序数据
+                actionRef.current?.setPageInfo?.({ current: 1 });
               }}
             />
             <Select
@@ -203,8 +189,8 @@ export default function AnalyticsInvocationsPage() {
               style={{ width: 140 }}
               value={outcome || undefined}
               onChange={(v) => {
-                setPage(1);
                 setOutcome(v || '');
+                actionRef.current?.setPageInfo?.({ current: 1 });
               }}
               options={[
                 { value: 'success', label: '成功' },
@@ -212,22 +198,33 @@ export default function AnalyticsInvocationsPage() {
               ]}
             />
           </Space>
-          <Table<InvocationItem>
+          <ProTable<InvocationItem>
+            actionRef={actionRef}
             rowKey={(r) => `${r.timestamp}-${r.functionId}-${r.actor}`}
             columns={listColumns}
-            dataSource={items}
-            loading={loading}
             size="small"
-            pagination={{
-              current: page,
-              pageSize,
-              total,
-              showSizeChanger: true,
-              onChange: (p, ps) => {
-                setPage(p);
-                setPageSize(ps);
-              },
+            search={false}
+            options={false}
+            toolBarRender={false}
+            params={{ outcome, functionId }}
+            request={async ({
+              current = 1,
+              pageSize = 20,
+              outcome: outcomeFilter = '',
+              functionId: functionIdFilter = '',
+            }) => {
+              const params: Record<string, string | number> = { page: current, pageSize };
+              if (outcomeFilter) params.outcome = outcomeFilter;
+              if (functionIdFilter) params.functionId = functionIdFilter;
+              try {
+                const r = await fetchInvocationsList(params);
+                return { data: r?.items || [], total: Number(r?.total || 0), success: true };
+              } catch {
+                // 原实现不本地弹错（try/finally 直接上抛，由全局请求拦截器 toast），保持该语义
+                return { data: [], total: 0, success: false };
+              }
             }}
+            pagination={{ pageSize: 20, showSizeChanger: true }}
           />
         </Card>
       </Space>

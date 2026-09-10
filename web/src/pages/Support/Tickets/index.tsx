@@ -1,6 +1,11 @@
-import React, { useCallback, useEffect, useState } from 'react';
-import { App, Card, Table, Space, Button, Input, Select, Tag, Modal, Form, Dropdown } from 'antd';
-import { PageContainer } from '@ant-design/pro-components';
+import React, { useEffect, useRef, useState } from 'react';
+import { App, Card, Space, Button, Input, Select, Tag, Modal, Form, Dropdown } from 'antd';
+import {
+  PageContainer,
+  ProTable,
+  type ActionType,
+  type ProColumns,
+} from '@ant-design/pro-components';
 import type { MenuProps } from 'antd';
 import { listAdmins, type AdminRecord } from '@/services/api/permissions';
 import { history } from '@umijs/max';
@@ -79,11 +84,7 @@ function isTicketStatus(value: string): value is TicketStatus {
 
 export default function SupportTicketsPage() {
   const { message } = App.useApp();
-  const [list, setList] = useState<SupportTicket[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [page, setPage] = useState(1);
-  const [size, setSize] = useState(20);
-  const [total, setTotal] = useState(0);
+  const actionRef = useRef<ActionType | undefined>(undefined);
   const [q, setQ] = useState('');
   const [status, setStatus] = useState<string>('');
   const [priority, setPriority] = useState<string>('');
@@ -97,31 +98,6 @@ export default function SupportTicketsPage() {
   const access = (useAccess?.() || {}) as SupportAccess;
   const [users, setUsers] = useState<AdminRecord[]>([]);
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await listTickets({
-        q,
-        status,
-        priority,
-        category,
-        assignee,
-        gameId,
-        env,
-        page,
-        size,
-      });
-      setList(res.tickets || []);
-      setTotal(res.total || 0);
-    } catch (error) {
-      message.error(extractErrorMessage(error, '加载工单失败'));
-    } finally {
-      setLoading(false);
-    }
-  }, [message, q, status, priority, category, assignee, gameId, env, page, size]);
-  useEffect(() => {
-    load();
-  }, [load]);
   useEffect(() => {
     (async () => {
       try {
@@ -166,7 +142,7 @@ export default function SupportTicketsPage() {
       await createTicket(v);
     }
     setOpen(false);
-    load();
+    actionRef.current?.reload();
   };
   const onDelete = (rec: SupportTicket) => {
     Modal.confirm({
@@ -174,14 +150,14 @@ export default function SupportTicketsPage() {
       content: `确定删除工单“${rec.title}”？`,
       onOk: async () => {
         await deleteTicket(rec.id);
-        load();
+        actionRef.current?.reload();
       },
     });
   };
 
   const transition = async (rec: SupportTicket, status: TicketStatus) => {
     await transitionTicket(rec.id, { status });
-    load();
+    actionRef.current?.reload();
   };
 
   const transitionMenu = (rec: SupportTicket): MenuProps['items'] =>
@@ -191,6 +167,59 @@ export default function SupportTicketsPage() {
         key: s,
         label: statusLabels[s],
       }));
+
+  const columns: ProColumns<SupportTicket>[] = [
+    { title: '标题', dataIndex: 'title' },
+    { title: '分类', dataIndex: 'category' },
+    { title: '优先级', dataIndex: 'priority', render: (_, row) => priTag(row.priority) },
+    { title: '状态', dataIndex: 'status', render: (_, row) => stTag(row.status) },
+    { title: '处理人', dataIndex: 'assignee' },
+    {
+      title: '游戏/环境',
+      render: (_, r: SupportTicket) => `${r.gameId || ''}/${r.env || ''}`,
+    },
+    {
+      title: '更新时间',
+      dataIndex: 'updatedAt',
+      render: (_, row) => formatDateTime(row.updatedAt ?? ''),
+    },
+    {
+      title: '操作',
+      render: (_, r: SupportTicket) => (
+        <Space>
+          <Button size="small" onClick={() => history.push(`/support/tickets/${r.id}`)}>
+            查看详情
+          </Button>
+          {access.canSupportManage && (
+            <Button size="small" onClick={() => openEdit(r)}>
+              编辑
+            </Button>
+          )}
+          {access.canSupportManage && (
+            <Button size="small" danger onClick={() => onDelete(r)}>
+              删除
+            </Button>
+          )}
+          {access.canSupportManage && (
+            <Dropdown
+              menu={{
+                items: transitionMenu(r),
+                onClick: ({ key }) => {
+                  const nextStatus = String(key);
+                  if (isTicketStatus(nextStatus)) {
+                    transition(r, nextStatus);
+                  }
+                },
+              }}
+              trigger={['click']}
+            >
+              <Button size="small">流转为</Button>
+            </Dropdown>
+          )}
+        </Space>
+      ),
+    },
+  ];
 
   return (
     <PageContainer>
@@ -207,7 +236,12 @@ export default function SupportTicketsPage() {
             <Select
               placeholder="状态"
               value={status}
-              onChange={setStatus}
+              onChange={(v) => {
+                setStatus(v);
+                // 筛选变化回第 1 页：params 变化与 setPageInfo 的双触发由
+                // ProTable 内部 debounce + abort 合并，不会出现错序数据
+                actionRef.current?.setPageInfo?.({ current: 1 });
+              }}
               allowClear
               style={{ width: 140 }}
               options={[
@@ -220,7 +254,10 @@ export default function SupportTicketsPage() {
             <Select
               placeholder="优先级"
               value={priority}
-              onChange={setPriority}
+              onChange={(v) => {
+                setPriority(v);
+                actionRef.current?.setPageInfo?.({ current: 1 });
+              }}
               allowClear
               style={{ width: 140 }}
               options={[
@@ -257,14 +294,10 @@ export default function SupportTicketsPage() {
             <Button
               type="primary"
               onClick={() => {
-                // page 是 load 的依赖：非第 1 页时 setPage(1) 经 effect 重拉一次
-                // 即可；再手动 load() 会用旧闭包页码发出第二个请求，竞态可能
-                // 把第 1 页数据覆盖成当前页。
-                if (page === 1) {
-                  load();
-                } else {
-                  setPage(1);
-                }
+                // 回第 1 页并重查：已在第 1 页时 setPageInfo 不触发请求，
+                // 由 reload 兜底；非第 1 页时双触发经 debounce + abort 合并
+                actionRef.current?.setPageInfo?.({ current: 1 });
+                actionRef.current?.reload();
               }}
             >
               查询
@@ -273,72 +306,44 @@ export default function SupportTicketsPage() {
           </Space>
         }
       >
-        <Table
+        <ProTable<SupportTicket>
+          actionRef={actionRef}
           rowKey="id"
-          loading={loading}
-          dataSource={list}
-          columns={[
-            { title: '标题', dataIndex: 'title' },
-            { title: '分类', dataIndex: 'category' },
-            { title: '优先级', dataIndex: 'priority', render: priTag },
-            { title: '状态', dataIndex: 'status', render: stTag },
-            { title: '处理人', dataIndex: 'assignee' },
-            {
-              title: '游戏/环境',
-              render: (_, r: SupportTicket) => `${r.gameId || ''}/${r.env || ''}`,
-            },
-            {
-              title: '更新时间',
-              dataIndex: 'updatedAt',
-              render: (v?: string) => formatDateTime(v ?? ''),
-            },
-            {
-              title: '操作',
-              render: (_, r: SupportTicket) => (
-                <Space>
-                  <Button size="small" onClick={() => history.push(`/support/tickets/${r.id}`)}>
-                    查看详情
-                  </Button>
-                  {access.canSupportManage && (
-                    <Button size="small" onClick={() => openEdit(r)}>
-                      编辑
-                    </Button>
-                  )}
-                  {access.canSupportManage && (
-                    <Button size="small" danger onClick={() => onDelete(r)}>
-                      删除
-                    </Button>
-                  )}
-                  {access.canSupportManage && (
-                    <Dropdown
-                      menu={{
-                        items: transitionMenu(r),
-                        onClick: ({ key }) => {
-                          const nextStatus = String(key);
-                          if (isTicketStatus(nextStatus)) {
-                            transition(r, nextStatus);
-                          }
-                        },
-                      }}
-                      trigger={['click']}
-                    >
-                      <Button size="small">流转为</Button>
-                    </Dropdown>
-                  )}
-                </Space>
-              ),
-            },
-          ]}
-          pagination={{
-            current: page,
-            pageSize: size,
-            total,
-            showSizeChanger: true,
-            onChange: (p, ps) => {
-              setPage(p);
-              setSize(ps || 20);
-            },
+          columns={columns}
+          search={false}
+          options={false}
+          toolBarRender={false}
+          params={{ q, status, priority, category, assignee, gameId, env }}
+          request={async ({
+            current = 1,
+            pageSize = 20,
+            q: qFilter,
+            status: statusFilter,
+            priority: priorityFilter,
+            category: categoryFilter,
+            assignee: assigneeFilter,
+            gameId: gameIdFilter,
+            env: envFilter,
+          }) => {
+            try {
+              const res = await listTickets({
+                q: qFilter ?? '',
+                status: statusFilter ?? '',
+                priority: priorityFilter ?? '',
+                category: categoryFilter ?? '',
+                assignee: assigneeFilter ?? '',
+                gameId: gameIdFilter ?? '',
+                env: envFilter ?? '',
+                page: current,
+                size: pageSize,
+              });
+              return { data: res.tickets || [], total: res.total || 0, success: true };
+            } catch (error) {
+              message.error(extractErrorMessage(error, '加载工单失败'));
+              return { data: [], total: 0, success: false };
+            }
           }}
+          pagination={{ pageSize: 20, showSizeChanger: true }}
         />
 
         <Modal

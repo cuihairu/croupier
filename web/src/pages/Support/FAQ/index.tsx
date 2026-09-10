@@ -1,6 +1,11 @@
-import React, { useCallback, useEffect, useState } from 'react';
-import { App, Card, Table, Space, Button, Input, Switch, Modal, Form } from 'antd';
-import { PageContainer } from '@ant-design/pro-components';
+import React, { useRef, useState } from 'react';
+import { App, Card, Space, Button, Input, Switch, Modal, Form } from 'antd';
+import {
+  PageContainer,
+  ProTable,
+  type ActionType,
+  type ProColumns,
+} from '@ant-design/pro-components';
 import { listFAQ, createFAQ, updateFAQ, deleteFAQ } from '@/services/api/support';
 import { useAccess } from '@umijs/max';
 import type { JSONValue } from '@/types/dashboard';
@@ -25,11 +30,7 @@ interface AccessState {
 
 export default function SupportFAQPage() {
   const { message } = App.useApp();
-  const [list, setList] = useState<FAQItem[]>([]);
-  const [total, setTotal] = useState(0);
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
-  const [loading, setLoading] = useState(false);
+  const actionRef = useRef<ActionType | undefined>(undefined);
   const [q, setQ] = useState('');
   const [category, setCategory] = useState('');
   const [visible, setVisible] = useState<string>('');
@@ -37,27 +38,6 @@ export default function SupportFAQPage() {
   const [editing, setEditing] = useState<FAQItem | null>(null);
   const [form] = Form.useForm();
   const access: AccessState = useAccess?.() || {};
-
-  const load = useCallback(
-    async (nextPage = page, nextSize = pageSize) => {
-      setLoading(true);
-      try {
-        const res = await listFAQ({ q, category, visible, page: nextPage, pageSize: nextSize });
-        setList((res.faq || res.items || []) as unknown as FAQItem[]);
-        setTotal(res.total ?? (res.faq || res.items || []).length);
-      } catch (error) {
-        message.error(extractErrorMessage(error, '加载 FAQ 失败'));
-      } finally {
-        setLoading(false);
-      }
-    },
-    [message, q, category, visible, page, pageSize],
-  );
-  useEffect(() => {
-    setPage(1);
-    load(1, pageSize);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [q, category, visible]);
 
   const openAdd = () => {
     setEditing(null);
@@ -84,17 +64,47 @@ export default function SupportFAQPage() {
       await createFAQ(v);
     }
     setOpen(false);
-    load();
+    actionRef.current?.reload();
   };
   const onDelete = (rec: FAQItem) => {
     Modal.confirm({
       title: '删除 FAQ',
       onOk: async () => {
         await deleteFAQ(rec.id);
-        load();
+        actionRef.current?.reload();
       },
     });
   };
+
+  const columns: ProColumns<FAQItem>[] = [
+    { title: '问题', dataIndex: 'question', ellipsis: true },
+    { title: '分类', dataIndex: 'category' },
+    { title: '标签', dataIndex: 'tags' },
+    { title: '可见', dataIndex: 'visible', render: (_, row) => (row.visible ? '是' : '否') },
+    { title: '排序', dataIndex: 'sort' },
+    {
+      title: '更新时间',
+      dataIndex: 'updatedAt',
+      render: (_, row) => formatDateTime(row.updatedAt ?? ''),
+    },
+    {
+      title: '操作',
+      render: (_: unknown, r: FAQItem) => (
+        <Space>
+          {access.canSupportManage && (
+            <Button size="small" onClick={() => openEdit(r)}>
+              编辑
+            </Button>
+          )}
+          {access.canSupportManage && (
+            <Button size="small" danger onClick={() => onDelete(r)}>
+              删除
+            </Button>
+          )}
+        </Space>
+      ),
+    },
+  ];
 
   return (
     <PageContainer>
@@ -105,73 +115,82 @@ export default function SupportFAQPage() {
             <Input
               placeholder="关键词"
               value={q}
-              onChange={(e) => setQ(e.target.value)}
+              onChange={(e) => {
+                setQ(e.target.value);
+                // 原实现筛选变化即回第 1 页，保持该语义；params 变化与
+                // setPageInfo 的双触发由 ProTable 内部 debounce + abort 合并
+                actionRef.current?.setPageInfo?.({ current: 1 });
+              }}
               style={{ width: 200 }}
             />
             <Input
               placeholder="分类"
               value={category}
-              onChange={(e) => setCategory(e.target.value)}
+              onChange={(e) => {
+                setCategory(e.target.value);
+                actionRef.current?.setPageInfo?.({ current: 1 });
+              }}
               style={{ width: 140 }}
             />
             <Input
               placeholder="是否可见(true/false)"
               value={visible}
-              onChange={(e) => setVisible(e.target.value)}
+              onChange={(e) => {
+                setVisible(e.target.value);
+                actionRef.current?.setPageInfo?.({ current: 1 });
+              }}
               style={{ width: 180 }}
             />
-            <Button type="primary" onClick={() => void load(1, pageSize)}>
+            <Button
+              type="primary"
+              onClick={() => {
+                // 回第 1 页并重查：已在第 1 页时 setPageInfo 不触发请求，
+                // 由 reload 兜底；非第 1 页时双触发经 debounce + abort 合并
+                actionRef.current?.setPageInfo?.({ current: 1 });
+                actionRef.current?.reload();
+              }}
+            >
               查询
             </Button>
             {access.canSupportManage && <Button onClick={openAdd}>新建 FAQ</Button>}
           </Space>
         }
       >
-        <Table<FAQItem>
+        <ProTable<FAQItem>
+          actionRef={actionRef}
           rowKey="id"
-          loading={loading}
-          dataSource={list}
-          columns={[
-            { title: '问题', dataIndex: 'question', ellipsis: true },
-            { title: '分类', dataIndex: 'category' },
-            { title: '标签', dataIndex: 'tags' },
-            { title: '可见', dataIndex: 'visible', render: (v: boolean) => (v ? '是' : '否') },
-            { title: '排序', dataIndex: 'sort' },
-            {
-              title: '更新时间',
-              dataIndex: 'updatedAt',
-              render: (v: string) => formatDateTime(v ?? ''),
-            },
-            {
-              title: '操作',
-              render: (_: unknown, r: FAQItem) => (
-                <Space>
-                  {access.canSupportManage && (
-                    <Button size="small" onClick={() => openEdit(r)}>
-                      编辑
-                    </Button>
-                  )}
-                  {access.canSupportManage && (
-                    <Button size="small" danger onClick={() => onDelete(r)}>
-                      删除
-                    </Button>
-                  )}
-                </Space>
-              ),
-            },
-          ]}
+          columns={columns}
+          search={false}
+          options={false}
+          toolBarRender={false}
+          params={{ q, category, visible }}
+          request={async ({
+            current = 1,
+            pageSize = 10,
+            q: qFilter,
+            category: categoryFilter,
+            visible: visibleFilter,
+          }) => {
+            try {
+              const res = await listFAQ({
+                q: qFilter ?? '',
+                category: categoryFilter ?? '',
+                visible: visibleFilter ?? '',
+                page: current,
+                pageSize,
+              });
+              const items = (res.faq || res.items || []) as unknown as FAQItem[];
+              return { data: items, total: res.total ?? items.length, success: true };
+            } catch (error) {
+              message.error(extractErrorMessage(error, '加载 FAQ 失败'));
+              return { data: [], total: 0, success: false };
+            }
+          }}
           pagination={{
-            current: page,
-            pageSize,
-            total,
+            pageSize: 10,
             showSizeChanger: true,
             pageSizeOptions: [10, 20, 50],
             showTotal: (t) => `共 ${t} 条`,
-            onChange: (nextPage, nextSize) => {
-              setPage(nextPage);
-              setPageSize(nextSize);
-              void load(nextPage, nextSize);
-            },
           }}
         />
         <Modal
