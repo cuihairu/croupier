@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { App, Card, Space, Button, Input, Select, Form } from 'antd';
+import { App, Card, Space, Button, Checkbox, Input, Select, Form } from 'antd';
 import {
   ModalForm,
   PageContainer,
@@ -182,6 +182,9 @@ export default function SupportFeedbackPage() {
               onChange={(e) => setGameId(e.target.value)}
               style={{ width: 120 }}
             />
+            <Checkbox checked={pendingOnly} onChange={(e) => setPendingOnly(e.target.checked)}>
+              隐藏已转工单
+            </Checkbox>
             <Button
               type="primary"
               onClick={() => {

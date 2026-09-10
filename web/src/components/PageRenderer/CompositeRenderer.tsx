@@ -504,11 +504,17 @@ export const CompositeRenderer: React.FC<{
                     scheduleValuesFlush();
                   }}
                   onSubmit={async (values) => {
-                    const r = await runSectionRef.current(sec, values);
-                    setDialogKey(null);
-                    message.success(`${localizedText(sec.title, 'zh-CN', sec.key)} 执行成功`);
-                    fireEvent(sec, 'success');
-                    void r;
+                    try {
+                      await runSectionRef.current(sec, values);
+                      setDialogKey(null);
+                      message.success(`${localizedText(sec.title, 'zh-CN', sec.key)} 执行成功`);
+                      fireEvent(sec, 'success');
+                    } catch (e) {
+                      // 失败保持弹窗开启（保留已填参数）；App 实例 toast 给出
+                      // 明确错误反馈（全局拦截器只对 request 层错误兜底）
+                      const errMsg = e instanceof Error ? e.message : '执行失败';
+                      message.error(errMsg || '执行失败');
+                    }
                   }}
                 />
               ) : sec.view === 'fields' ? (

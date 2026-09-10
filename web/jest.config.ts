@@ -2,6 +2,10 @@ export default async () => {
   return {
     rootDir: '.',
     testEnvironment: 'jsdom',
+    // 默认 babel-istanbul provider 已损坏（@babel/core 8 × minimatch 10 的
+    // CJS 互操作：instrument 阶段报 "minimatch is not a function"），
+    // 固定 v8 provider（语句/分支口径一致）
+    coverageProvider: 'v8',
     testMatch: ['**/?(*.)+(spec|test).[jt]s?(x)'],
     testPathIgnorePatterns: ['/node_modules/', '<rootDir>/e2e/'],
     transform: {

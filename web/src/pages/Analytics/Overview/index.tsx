@@ -1,6 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { Card, Space, Row, Col, Divider } from 'antd';
-import type { Dayjs } from 'dayjs';
+import { Button, Card, Space, Row, Col, Divider } from 'antd';
 import { PageContainer, StatisticCard } from '@ant-design/pro-components';
 import { useIntl } from '@umijs/max';
 import { exportToXLSX } from '@/utils/export';
@@ -30,30 +29,21 @@ interface OverviewData {
 export default function AnalyticsOverviewPage() {
   const intl = useIntl();
   const [loading, setLoading] = useState(false);
-  const [range] = useState<[Dayjs | null, Dayjs | null] | null>(null);
-  const [channel] = useState<string>('');
-  const [platform] = useState<string>('');
   const [data, setData] = useState<OverviewData>({});
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const params: Record<string, string | number> = {};
-      if (range && range[0]) params.start = range[0].toISOString();
-      if (range && range[1]) params.end = range[1].toISOString();
-      if (channel) params.channel = channel;
-      if (platform) params.platform = platform;
-      const r = await fetchAnalyticsOverview(params);
+      const r = await fetchAnalyticsOverview({});
       setData(r || {});
     } finally {
       setLoading(false);
     }
-  }, [range, channel, platform]);
+  }, []);
   useEffect(() => {
     load();
   }, [load]);
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const exportExcel = async () => {
     // Sheet 1: summary; Sheet 2: series (new_users/peak_online/revenue)
     const summary = [
@@ -115,7 +105,13 @@ export default function AnalyticsOverviewPage() {
   };
 
   return (
-    <PageContainer>
+    <PageContainer
+      extra={[
+        <Button key="export" onClick={() => void exportExcel()}>
+          导出
+        </Button>,
+      ]}
+    >
       <Card title={intl.formatMessage({ id: 'pages.analytics.overview.title' }) || '概览 KPI'}>
         <Space orientation="vertical" size={16} style={{ width: '100%' }}>
           <Row gutter={[16, 16]}>

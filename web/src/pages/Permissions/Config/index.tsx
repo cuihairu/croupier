@@ -110,13 +110,6 @@ export default function ConfigPage() {
                           onChange={(e) => setSearchText(e.target.value)}
                           prefix={<SearchOutlined />}
                         />
-                        <Button
-                          type="primary"
-                          icon={<SearchOutlined />}
-                          onClick={() => {
-                            /* filter happens on change */
-                          }}
-                        />
                       </Space.Compact>
                       <div style={{ marginLeft: 'auto' }}>
                         <Text type="secondary">
@@ -158,7 +151,6 @@ export default function ConfigPage() {
                           onChange={(e) => setSearchText(e.target.value)}
                           prefix={<SearchOutlined />}
                         />
-                        <Button type="primary" icon={<SearchOutlined />} onClick={() => {}} />
                       </Space.Compact>
                     </div>
 

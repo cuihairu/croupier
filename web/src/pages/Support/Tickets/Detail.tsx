@@ -91,6 +91,7 @@ export default function TicketDetailPage() {
   const [comments, setComments] = useState<ExtendedComment[]>([]);
   const [cmt, setCmt] = useState<string>('');
   const [files, setFiles] = useState<AntUploadFile[]>([]);
+  const [submittingCmt, setSubmittingCmt] = useState(false);
   const [transOpen, setTransOpen] = useState(false);
   const [transStatus, setTransStatus] = useState<string>('');
   const [transComment, setTransComment] = useState<string>('');
@@ -136,6 +137,11 @@ export default function TicketDetailPage() {
   }, [mid, load]);
 
   const submitComment = async () => {
+    if (!cmt.trim()) {
+      getMessage()?.warning('评论内容不能为空');
+      return;
+    }
+    setSubmittingCmt(true);
     try {
       const attach = files
         .map((f) => ({
@@ -151,6 +157,8 @@ export default function TicketDetailPage() {
     } catch (e) {
       const errMsg = e instanceof Error ? e.message : '操作失败';
       getMessage()?.error(errMsg || '评论失败');
+    } finally {
+      setSubmittingCmt(false);
     }
   };
 
@@ -378,7 +386,12 @@ export default function TicketDetailPage() {
                 <Button>上传附件</Button>
               </Upload>
               <Space>
-                <Button type="primary" onClick={submitComment}>
+                <Button
+                  type="primary"
+                  loading={submittingCmt}
+                  disabled={!cmt.trim()}
+                  onClick={() => void submitComment()}
+                >
                   提交评论
                 </Button>
                 <Button

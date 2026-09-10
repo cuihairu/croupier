@@ -36,7 +36,7 @@ function getTaskStatusMeta(state?: string) {
 }
 
 export default function OpsTasksPage() {
-  const { message } = App.useApp();
+  const { message, modal } = App.useApp();
   const [rows, setRows] = useState<OpsTask[]>([]);
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState<string>('');
@@ -85,13 +85,14 @@ export default function OpsTasksPage() {
     })();
   }, []);
 
+  // 运行中/成功/失败/函数均为当前页口径（接口按页返回），概览文案已标注；
+  // 全量任务数用分页 total（与表格「共 N 条」同源）。
   const summary = useMemo(() => {
-    const total = rows.length;
     const runningCount = rows.filter((item) => item.state === 'running').length;
     const succeededCount = rows.filter((item) => item.state === 'succeeded').length;
     const failedCount = rows.filter((item) => item.state === 'failed').length;
     const functionCount = new Set(rows.map((item) => item.functionId).filter(Boolean)).size;
-    return { total, runningCount, succeededCount, failedCount, functionCount };
+    return { runningCount, succeededCount, failedCount, functionCount };
   }, [rows]);
 
   const resultRows = useMemo(() => {
@@ -161,18 +162,28 @@ export default function OpsTasksPage() {
     };
   }, [detail, load]);
 
-  const handleCancelTask = async (task: OpsTask) => {
-    try {
-      await cancelTask(task.id);
-      message.success('已取消');
-      if (detail?.id === task.id) {
-        setDetail({ ...task, state: 'canceled' });
-      }
-      load();
-    } catch (e) {
-      const errMsg = e instanceof Error ? e.message : '操作失败';
-      message.error(errMsg || '取消失败');
-    }
+  // 取消是不可逆的中止操作：表格与抽屉两处入口统一在此确认
+  const handleCancelTask = (task: OpsTask) => {
+    modal.confirm({
+      title: '取消任务',
+      content: `确定取消任务 ${task.id} 吗？运行中的执行将被中止。`,
+      okButtonProps: { danger: true },
+      okText: '取消任务',
+      cancelText: '返回',
+      onOk: async () => {
+        try {
+          await cancelTask(task.id);
+          message.success('已取消');
+          if (detail?.id === task.id) {
+            setDetail({ ...task, state: 'canceled' });
+          }
+          load();
+        } catch (e) {
+          const errMsg = e instanceof Error ? e.message : '操作失败';
+          message.error(errMsg || '取消失败');
+        }
+      },
+    });
   };
 
   const columns: ColumnsType<OpsTask> = [
@@ -238,11 +249,11 @@ export default function OpsTasksPage() {
           title="任务概览"
           description="这个页面优先服务排查和追踪，不把所有信息一次性堆进表格。先按状态、函数或操作者收敛范围，再进详情查看。"
           items={[
-            { color: '#1677ff', text: `任务 ${summary.total}` },
-            { color: '#2f54eb', text: `运行中 ${summary.runningCount}` },
-            { color: '#52c41a', text: `成功 ${summary.succeededCount}` },
-            { color: '#ff4d4f', text: `失败 ${summary.failedCount}` },
-            { color: '#722ed1', text: `函数 ${summary.functionCount}` },
+            { color: '#1677ff', text: `任务 ${total}` },
+            { color: '#2f54eb', text: `运行中 ${summary.runningCount}（当前页）` },
+            { color: '#52c41a', text: `成功 ${summary.succeededCount}（当前页）` },
+            { color: '#ff4d4f', text: `失败 ${summary.failedCount}（当前页）` },
+            { color: '#722ed1', text: `函数 ${summary.functionCount}（当前页）` },
           ]}
           hint="推荐路径：先筛选任务，再打开详情查看事件流和结果，不必在主表里同时处理所有上下文。"
         />

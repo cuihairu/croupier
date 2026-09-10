@@ -1,5 +1,17 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { Card, Space, Button, App, Table, Tag, Form, Input, Select, InputNumber } from 'antd';
+import {
+  Card,
+  Space,
+  Button,
+  App,
+  Table,
+  Tag,
+  Form,
+  Input,
+  Popconfirm,
+  Select,
+  InputNumber,
+} from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { ModalForm } from '@ant-design/pro-components';
 import {
@@ -61,13 +73,14 @@ export default function OpsNotificationsPage() {
           <Button size="small" onClick={() => setEditCh(r)}>
             编辑
           </Button>
-          <Button
-            size="small"
-            danger
-            onClick={() => setChannels(channels.filter((c) => c.id !== r.id))}
+          <Popconfirm
+            title="确认删除该渠道？"
+            onConfirm={() => setChannels(channels.filter((c) => c.id !== r.id))}
           >
-            删除
-          </Button>
+            <Button size="small" danger>
+              删除
+            </Button>
+          </Popconfirm>
         </Space>
       ),
     },
@@ -89,9 +102,14 @@ export default function OpsNotificationsPage() {
           <Button size="small" onClick={() => setEditRule(r)}>
             编辑
           </Button>
-          <Button size="small" danger onClick={() => setRules(rules.filter((x) => x !== r))}>
-            删除
-          </Button>
+          <Popconfirm
+            title="确认删除该规则？"
+            onConfirm={() => setRules(rules.filter((x) => x !== r))}
+          >
+            <Button size="small" danger>
+              删除
+            </Button>
+          </Popconfirm>
         </Space>
       ),
     },
