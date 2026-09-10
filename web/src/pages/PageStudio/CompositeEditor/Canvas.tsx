@@ -4,7 +4,6 @@ import { CopyOutlined, DeleteOutlined, DragOutlined } from '@ant-design/icons';
 import type { FunctionDescriptor } from '@/services/api/functions';
 import { useDroppable } from '@dnd-kit/core';
 import { getComponent } from './registry';
-import { acceptsChild } from './registry';
 import { parseAction } from './actions';
 import type { PageNode } from './model';
 
@@ -20,7 +19,8 @@ export interface CanvasNodeProps {
   fn: FunctionDescriptor | undefined;
   selected: boolean;
   depth: number;
-  onSelect: () => void;
+  /** 点击选中（透传鼠标事件：Shift+点击=多选切换，普通点击=单选）。 */
+  onSelect: (e?: React.MouseEvent) => void;
   onDelete: () => void;
   onDuplicate: () => void;
   onSpanChange: (span: number) => void;
@@ -355,7 +355,8 @@ export function ModalPlaceholder({
   modal: PageNode;
   selected: boolean;
   fnById: Map<string, FunctionDescriptor>;
-  onSelect: () => void;
+  /** 点击选中（透传鼠标事件：Shift+点击=多选切换，普通点击=单选）。 */
+  onSelect: (e?: React.MouseEvent) => void;
   onEnterModal: () => void;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: `modal-drop:${modal.id}` });
@@ -365,7 +366,7 @@ export function ModalPlaceholder({
       ref={setNodeRef}
       onClick={(e) => {
         e.stopPropagation();
-        onSelect();
+        onSelect(e);
       }}
       onDoubleClick={(e) => {
         e.stopPropagation();

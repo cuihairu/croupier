@@ -1,6 +1,8 @@
 import { render, screen, fireEvent } from '@testing-library/react';
 import { App } from 'antd';
-import { ModalPlaceholder } from '../Canvas';
+import { CanvasNode, ModalPlaceholder } from '../Canvas';
+import { resetRegistryForTest } from '../registry';
+import { registerBuiltinComponents } from '../components/builtin';
 import type { PageNode } from '../model';
 
 const formNode: PageNode = {
@@ -55,5 +57,53 @@ describe('ModalPlaceholder（弹窗占位卡：D 项内嵌编辑的可测面）'
     const calls = { select: [], enter: [] };
     setup(emptyModal, calls);
     expect(screen.getByText(/拖入函数表单/)).toBeInTheDocument();
+  });
+
+  it('点击透传鼠标事件（shiftKey 可达，供 Shift 多选门控）', () => {
+    const seen: Array<boolean | undefined> = [];
+    render(
+      <App>
+        <ModalPlaceholder
+          modal={modalNode}
+          selected={false}
+          fnById={new Map()}
+          onSelect={(e) => seen.push(e?.shiftKey)}
+          onEnterModal={() => undefined}
+        />
+      </App>,
+    );
+    fireEvent.click(screen.getByText('发邮件弹窗'));
+    fireEvent.click(screen.getByText('发邮件弹窗'), { shiftKey: true });
+    expect(seen).toEqual([false, true]);
+  });
+});
+
+describe('CanvasNode 选中事件透传（Shift 门控管道）', () => {
+  beforeAll(() => {
+    resetRegistryForTest();
+    registerBuiltinComponents();
+  });
+
+  it('点击透传鼠标事件（shiftKey 可达，供 Shift 多选门控）', () => {
+    const seen: Array<boolean | undefined> = [];
+    render(
+      <App>
+        <CanvasNode
+          node={formNode}
+          fn={undefined}
+          selected={false}
+          depth={0}
+          onSelect={(e) => seen.push(e?.shiftKey)}
+          onDelete={() => undefined}
+          onDuplicate={() => undefined}
+          onSpanChange={() => undefined}
+          dragHandleProps={{}}
+          canvasWidthRef={{ current: null }}
+        />
+      </App>,
+    );
+    fireEvent.click(screen.getByText('发邮件'));
+    fireEvent.click(screen.getByText('发邮件'), { shiftKey: true });
+    expect(seen).toEqual([false, true]);
   });
 });

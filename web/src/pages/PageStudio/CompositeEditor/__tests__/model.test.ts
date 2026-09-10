@@ -142,6 +142,78 @@ describe('editor v3 model', () => {
     expect(findNode(next, 'tbl1')).toBeDefined();
   });
 
+  it('duplicateNode 重映射子树内部 id 引用，外部引用保持原样', () => {
+    const withRefs: PageNode[] = [
+      n('fnTable', 'extTbl'), // 子树外部引用目标
+      {
+        ...n('container', 'grp', [
+          {
+            ...n('fnTable', 'tbl'),
+            props: {
+              title: 'tbl',
+              sectionKey: 'tblVar',
+              refreshOnNode: ['src'],
+              rowActions: [{ label: '编辑', targetSection: 'mIn', params: {}, danger: false }],
+            },
+          },
+          n('staticForm', 'src'),
+          {
+            ...n('button', 'go'),
+            props: {
+              title: 'go',
+              onClick: {
+                kind: 'openModal',
+                target: 'mIn',
+                chain: [{ kind: 'refreshNode', target: 'tbl' }],
+              },
+            },
+          },
+          {
+            ...n('fnFields', 'det'),
+            props: {
+              title: 'det',
+              inputAssignments: [
+                { param: 'uid', kind: 'page_state', sourceNodeId: 'tbl', field: 'selectedRow/uid' },
+                { param: 'kw', kind: 'page_state', sourceNodeId: 'extTbl', field: 'data/total' },
+              ],
+            },
+          },
+        ]),
+      },
+      n('modal', 'mIn', [n('fnForm', 'ffIn')]),
+    ];
+    const next = duplicateNode(withRefs, 'grp');
+    const copyIdx = next.findIndex((x) => x.id === 'grp') + 1;
+    const copy = next[copyIdx];
+    const byType = (t: string) => copy.children!.find((c) => c.type === t)!;
+    const tblCopy = byType('fnTable');
+    const srcCopy = byType('staticForm');
+    const goCopy = byType('button');
+    const detCopy = byType('fnFields');
+
+    expect(tblCopy.id).not.toBe('tbl');
+    // 副本不继承声明 key（调用方 assignVarNames 重新命名）
+    expect(tblCopy.props.sectionKey).toBeUndefined();
+    // refreshOnNode 指向子树内节点 → 重映射到副本 id
+    expect(tblCopy.props.refreshOnNode).toEqual([srcCopy.id]);
+    // rowActions.targetSection 指向子树外弹窗 → 保持原样
+    const ra = tblCopy.props.rowActions as Array<{ targetSection: string }>;
+    expect(ra[0].targetSection).toBe('mIn');
+    // 主动作 target 外部保持；链步骤 target 内部重映射
+    const onClick = goCopy.props.onClick as {
+      target: string;
+      chain: Array<{ target: string }>;
+    };
+    expect(onClick.target).toBe('mIn');
+    expect(onClick.chain[0].target).toBe(tblCopy.id);
+    // inputAssignments.sourceNodeId：内部重映射、外部保持
+    const ia = detCopy.props.inputAssignments as Array<{ sourceNodeId: string }>;
+    expect(ia[0].sourceNodeId).toBe(tblCopy.id);
+    expect(ia[1].sourceNodeId).toBe('extTbl');
+    // 原节点引用不被改写
+    expect(findNode(withRefs, 'tbl')?.props.refreshOnNode).toEqual(['src']);
+  });
+
   it('moveNode 同级重排（根级与容器内）', () => {
     expect(moveNode(tree, 'f1', 0).map((x) => x.id)).toEqual(['f1', 't1', 'c1']);
     const inner = moveNode(tree, 'btn1', 0);

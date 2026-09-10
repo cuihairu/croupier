@@ -39,22 +39,31 @@ export function schemaToFields(value: string | undefined): ConstantField[] {
 
 /** 常量字段列表 → schema JSON（编辑器双向同步用）。 */
 export function fieldsToSchemaJson(fields: ConstantField[]): string {
+  // 防御加固：空 key 跳过；重复 key 首个生效（后续同名静默塌缩会造成值丢失）
+  const seen = new Set<string>();
   const properties = Object.fromEntries(
-    fields.map((f) => [
-      f.key,
-      {
-        type: 'string',
-        title: f.title,
-        ...(f.options.length > 0
-          ? {
-              enum: f.options.map((o) => o.value),
-              ...(f.options.some((o) => o.label && o.label !== o.value)
-                ? { enumNames: f.options.map((o) => o.label ?? o.value) }
-                : {}),
-            }
-          : {}),
-      },
-    ]),
+    fields
+      .filter((f) => {
+        const key = f.key.trim();
+        if (!key || seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      })
+      .map((f) => [
+        f.key.trim(),
+        {
+          type: 'string',
+          title: f.title,
+          ...(f.options.length > 0
+            ? {
+                enum: f.options.map((o) => o.value),
+                ...(f.options.some((o) => o.label && o.label !== o.value)
+                  ? { enumNames: f.options.map((o) => o.label ?? o.value) }
+                  : {}),
+              }
+            : {}),
+        },
+      ]),
   );
   return JSON.stringify({ type: 'object', properties }, null, 2);
 }

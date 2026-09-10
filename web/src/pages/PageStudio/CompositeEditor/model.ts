@@ -167,16 +167,59 @@ export function duplicateNode(nodes: PageNode[], id: string): PageNode[] {
   return walk(nodes);
 }
 
+/** 复制子树：深拷贝后统一重生成 id，并重映射**子树内部**引用——
+ * on* 事件动作主动作/链步骤的 target、refreshOnNode、inputAssignments.sourceNodeId、
+ * rowActions.targetSection 指向副本节点；指向子树外部的引用保持原样
+ * （idMap 未命中即保留原值）。声明 sectionKey 不继承（调用方 assignVarNames
+ * 重新命名）；对变量的引用（表达式/裸引用）也保持指向原变量。 */
 function cloneWithNewIds(n: PageNode): PageNode {
-  const { sectionKey: _dropped, ...rest } = n.props as Record<string, unknown>;
-  void _dropped;
-  return {
-    // 复制件不继承声明 key（与原节点冲突；由调用方 assignVarNames 重新命名），
-    // 其余 props 原样保留——副本内对其他变量的引用保持指向原变量。
-    ...structuredCloneCompat({ ...n, props: rest as PageNode['props'] }),
-    id: nodeId(n.type),
-    children: n.children?.map(cloneWithNewIds),
+  const copy = structuredCloneCompat(n);
+  const idMap = new Map<string, string>();
+  const preassign = (node: PageNode) => {
+    idMap.set(node.id, nodeId(node.type));
+    node.children?.forEach(preassign);
   };
+  preassign(copy);
+  /** id 引用重映射：子树内 → 副本 id；子树外 → 原样保留。 */
+  const remapId = (v: unknown): unknown => (typeof v === 'string' ? (idMap.get(v) ?? v) : v);
+  const remap = (node: PageNode) => {
+    // 剥离声明 key（副本不继承，与原节点冲突；调用方重新命名）
+    const { sectionKey: _dropped, ...rest } = node.props as Record<string, unknown>;
+    void _dropped;
+    node.props = rest as PageNode['props'];
+    node.id = idMap.get(node.id) ?? nodeId(node.type);
+    const props = node.props as Record<string, unknown>;
+    for (const key of Object.keys(props)) {
+      const val = props[key];
+      if (!val || typeof val !== 'object' || Array.isArray(val)) continue;
+      // on* 事件动作：主动作 target + 链步骤 target
+      if (key.startsWith('on')) {
+        const act = val as { target?: unknown; chain?: Array<{ target?: unknown }> };
+        if (typeof act.target === 'string') act.target = remapId(act.target);
+        for (const step of Array.isArray(act.chain) ? act.chain : []) {
+          if (typeof step.target === 'string') step.target = remapId(step.target);
+        }
+      }
+    }
+    // 数组形态引用（refreshOnNode / inputAssignments / rowActions）
+    if (Array.isArray(props.refreshOnNode)) {
+      props.refreshOnNode = (props.refreshOnNode as unknown[]).map(remapId);
+    }
+    if (Array.isArray(props.inputAssignments)) {
+      props.inputAssignments = (props.inputAssignments as Array<Record<string, unknown>>).map(
+        (m) => ({ ...m, sourceNodeId: remapId(m.sourceNodeId) }),
+      );
+    }
+    if (Array.isArray(props.rowActions)) {
+      props.rowActions = (props.rowActions as Array<Record<string, unknown>>).map((ra) => ({
+        ...ra,
+        targetSection: remapId(ra.targetSection),
+      }));
+    }
+    node.children?.forEach(remap);
+  };
+  remap(copy);
+  return copy;
 }
 /** 定位 prev→next 之间新插入的子树根（复制/外部插入场景；先序首个新节点）。 */
 export function findInsertedSubtree(prev: PageNode[], next: PageNode[]): PageNode | undefined {

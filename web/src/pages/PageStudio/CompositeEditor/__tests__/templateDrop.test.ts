@@ -1,4 +1,6 @@
 import { planTemplateDrop } from '../templateDrop';
+import { resetRegistryForTest } from '../registry';
+import { registerBuiltinComponents } from '../components/builtin';
 import type { PageNode } from './model';
 
 const fnForm = (id: string): PageNode => ({ id, type: 'fnForm', props: {} });
@@ -6,6 +8,12 @@ const fnTable = (id: string): PageNode => ({ id, type: 'fnTable', props: {} });
 const container = (id: string): PageNode => ({ id, type: 'container', props: {}, children: [] });
 
 describe('planTemplateDrop', () => {
+  // 容器落点契约校验依赖组件注册表（allowedChildren 声明）
+  beforeAll(() => {
+    resetRegistryForTest();
+    registerBuiltinComponents();
+  });
+
   const nodes = [fnForm('a'), fnTable('b'), fnForm('c')];
 
   it('空模板直接拒绝', () => {
@@ -30,10 +38,22 @@ describe('planTemplateDrop', () => {
     expect(plan.kind).toBe('blocked');
   });
 
-  it('落点是容器 → 装入 children', () => {
+  it('落点是容器且子类型均合法 → 装入 children', () => {
     const c = container('box');
-    const plan = planTemplateDrop(nodes, 'box', null, c);
+    const plan = planTemplateDrop(
+      [fnTable('b'), { id: 'x', type: 'button', props: {} }],
+      'box',
+      null,
+      c,
+    );
     expect(plan).toEqual({ kind: 'container', targetId: 'box' });
+  });
+
+  it('落点是容器但含不允许的子类型 → 拦截（allowedChildren 契约）', () => {
+    const c = container('box');
+    const plan = planTemplateDrop(nodes, 'box', null, c); // fnForm 不在容器 allowedChildren
+    expect(plan.kind).toBe('blocked');
+    if (plan.kind === 'blocked') expect(plan.reason).toContain('fnForm');
   });
 
   it('落点是节点 → 链式插入（afterId=节点）', () => {

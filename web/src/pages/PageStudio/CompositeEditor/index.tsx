@@ -60,7 +60,7 @@ import ComponentLibrary, {
 } from './ComponentLibrary';
 import PropsPanel from './PropsPanel';
 import { registerBuiltinComponents } from './components/builtin';
-import { getComponent } from './registry';
+import { acceptsChild, getComponent } from './registry';
 import { listDescriptors, type FunctionDescriptor } from '@/services/api/functions';
 import {
   countNodes,
@@ -109,7 +109,10 @@ export default function CompositeEditorPage() {
     paramKeys?: string[];
   }>();
   /** 拖入带参数模板的快速配置（U6）。 */
-  const [insertTpl, setInsertTpl] = useState<ComponentTemplateDTO | null>(null);
+  // 带参模板待插入（模板 + 拖拽落点：参数确认后按落点插入，不丢失 drop 位置）
+  const [insertTpl, setInsertTpl] = useState<{ tpl: ComponentTemplateDTO; overId: string } | null>(
+    null,
+  );
   const [insertForm] = Form.useForm<Record<string, unknown>>();
   const [pageKey, setPageKey] = useState('');
   const [keyTouched, setKeyTouched] = useState(false);
@@ -139,6 +142,7 @@ export default function CompositeEditorPage() {
   // 回读编辑：?pageKey= 已有复合页 → 反编译为树（改完保存=同 proposalKey upsert）
   React.useEffect(() => {
     if (!loadKey || tree.length > 0) return;
+    let cancelled = false;
     void (async () => {
       const fetchers: Array<() => Promise<{ sections?: SpecSectionLike[] } | undefined>> = [
         async () => {
@@ -170,6 +174,8 @@ export default function CompositeEditorPage() {
         try {
           const sections = (await fetchSpec())?.sections;
           if (!sections?.length) continue;
+          // 竞态防护：请求期间用户已开始编辑（树上已有节点/已取消）→ 放弃回读覆盖
+          if (cancelled || treeRef.current.length > 0) return;
           const [nodes, warnings] = decompileToTree(sections);
           // 函数契约登记（fnById 供画布/属性面板）
           setTree(nodes);
@@ -182,8 +188,11 @@ export default function CompositeEditorPage() {
           // 尝试下一个数据源
         }
       }
-      message.warning(`未找到页面 ${loadKey} 的提案/草稿/发布 spec`);
+      if (!cancelled) message.warning(`未找到页面 ${loadKey} 的提案/草稿/发布 spec`);
     })();
+    return () => {
+      cancelled = true;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loadKey, fnReload]);
   const [, forceFn] = useState(0);
@@ -366,6 +375,24 @@ export default function CompositeEditorPage() {
     [selectedId, setTree],
   );
 
+  /** 撤销/重做后按存活节点集清理选择状态（防悬空选中/多选/弹窗编辑态）。 */
+  const pruneSelection = useCallback((nodes: PageNode[]) => {
+    const alive = new Set<string>();
+    const walkIds = (list: PageNode[]) => {
+      for (const n of list) {
+        alive.add(n.id);
+        if (n.children) walkIds(n.children);
+      }
+    };
+    walkIds(nodes);
+    setSelectedId((cur) => (cur && alive.has(cur) ? cur : null));
+    setMultiIds((prev) => {
+      const next = new Set([...prev].filter((id) => alive.has(id)));
+      return next.size === prev.size ? prev : next;
+    });
+    setEditingModalId((cur) => (cur && !alive.has(cur) ? null : cur));
+  }, []);
+
   const undo = useCallback(() => {
     if (past.length === 0) return;
     const prev = past[past.length - 1];
@@ -373,7 +400,8 @@ export default function CompositeEditorPage() {
     setFuture((f) => [treeRef.current, ...f]);
     setTreeState(prev);
     treeRef.current = prev;
-  }, [past.length, past]);
+    pruneSelection(prev);
+  }, [past.length, past, pruneSelection]);
 
   const redo = useCallback(() => {
     if (future.length === 0) return;
@@ -382,7 +410,8 @@ export default function CompositeEditorPage() {
     setPast((p) => [...p, treeRef.current]);
     setTreeState(next);
     treeRef.current = next;
-  }, [future.length, future]);
+    pruneSelection(next);
+  }, [future.length, future, pruneSelection]);
 
   // 快捷键：Ctrl/Cmd+Z 撤销、Ctrl/Cmd+Shift+Z / Ctrl+Y 重做
   React.useEffect(() => {
@@ -428,6 +457,41 @@ export default function CompositeEditorPage() {
     }
   }, []);
 
+  /** 模板实例化并按落点插入（拖拽直接插入与带参弹窗确认后共用）：
+   * instantiateTemplate（id/引用重映射）→ assignVarNames 语义命名 →
+   * 函数契约登记 → planTemplateDrop 决定弹窗/容器/链式插入。 */
+  const applyTemplateInsert = useCallback(
+    (tpl: ComponentTemplateDTO, values: Record<string, unknown>, overId: string) => {
+      const nodes = assignVarNames(
+        instantiateTemplate(tpl, values),
+        collectVarNames(treeRef.current),
+      );
+      if (nodes.length === 0) return;
+      for (const fid of tpl.requiredFunctions ?? []) {
+        const fn = allFns.find((f) => f.id === fid);
+        if (fn) registerFn(fn);
+      }
+      const after = overId === 'canvas-root' ? undefined : findNode(treeRef.current, overId);
+      const plan = planTemplateDrop(nodes, overId, editingModalRef.current, after);
+      if (plan.kind === 'blocked') {
+        message.warning(plan.reason);
+        return;
+      }
+      if (plan.kind === 'modal' || plan.kind === 'container') {
+        for (const node of nodes) addChild(plan.targetId, node);
+      } else {
+        // 链式插入：每个节点插到前一个之后，保持模板顺序
+        let anchorId = plan.afterId;
+        for (const node of nodes) {
+          setTree((prev) => (anchorId ? insertAfter(prev, node, anchorId!) : [...prev, node]));
+          anchorId = node.id;
+        }
+      }
+      setSelectedId(nodes[0].id);
+    },
+    [addChild, message, registerFn, allFns, setTree],
+  );
+
   const handleDragEnd = useCallback(
     (e: DragEndEvent) => {
       setDragItem(null);
@@ -452,39 +516,12 @@ export default function CompositeEditorPage() {
           message.warning(`缺少依赖函数：${data.missing.join(', ')}`);
           return;
         }
-        // 带参数模板（U6）：先弹参数表单再实例化（复用插入弹窗）
+        // 带参数模板（U6）：先弹参数表单再实例化——保留拖拽落点，确认后按落点插入
         if (data.tpl.params?.length) {
-          setInsertTpl(data.tpl);
+          setInsertTpl({ tpl: data.tpl, overId });
           return;
         }
-        const nodes = assignVarNames(
-          instantiateTemplate(data.tpl),
-          collectVarNames(treeRef.current),
-        );
-        if (nodes.length === 0) return;
-        for (const fid of data.tpl.requiredFunctions ?? []) {
-          const fn = allFns.find((f) => f.id === fid);
-          if (fn) registerFn(fn);
-        }
-        const after = overId === 'canvas-root' ? undefined : findNode(treeRef.current, overId);
-        const plan = planTemplateDrop(nodes, overId, editingModalRef.current, after);
-        if (plan.kind === 'blocked') {
-          message.warning(plan.reason);
-          return;
-        }
-        if (plan.kind === 'modal') {
-          for (const node of nodes) addChild(plan.targetId, node);
-        } else if (plan.kind === 'container') {
-          for (const node of nodes) addChild(plan.targetId, node);
-        } else {
-          // 链式插入：每个节点插到前一个之后，保持模板顺序
-          let anchorId = plan.afterId;
-          for (const node of nodes) {
-            setTree((prev) => (anchorId ? insertAfter(prev, node, anchorId!) : [...prev, node]));
-            anchorId = node.id;
-          }
-        }
-        setSelectedId(nodes[0].id);
+        applyTemplateInsert(data.tpl, {}, overId);
         return;
       }
 
@@ -521,10 +558,19 @@ export default function CompositeEditorPage() {
           addChild(editingModalRef.current, node);
           return;
         }
-        // 落点=容器节点 → 装入 children；其余=节点之后；根=末尾
+        // 落点=容器节点 → 契约校验后装入 children；其余=节点之后；根=末尾
         const after = overId === 'canvas-root' ? undefined : findNode(treeRef.current, overId);
         if (after?.type === 'container') {
-          addChild(after.id, node);
+          if (acceptsChild(after, node.type)) {
+            addChild(after.id, node);
+          } else {
+            // 容器不接受该子类型（allowedChildren 契约）→ 回退为容器之后的兄弟插入
+            message.warning(`容器不接受「${node.type}」子组件，已放到容器之后`);
+            setTree((prev) => {
+              const [named] = assignVarNames([node], collectVarNames(prev));
+              return insertAfter(prev, named, after.id);
+            });
+          }
         } else {
           setTree((prev) => {
             const [named] = assignVarNames([node], collectVarNames(prev));
@@ -555,7 +601,7 @@ export default function CompositeEditorPage() {
         return moved === prev ? prev : moved;
       });
     },
-    [addChild, message, registerFn, allFns],
+    [addChild, message, registerFn, allFns, applyTemplateInsert],
   );
 
   /** 复制节点：副本不继承变量名（clone 已剥离），落树时重新语义命名，
@@ -690,6 +736,13 @@ export default function CompositeEditorPage() {
   const deleteNode = useCallback((id: string) => {
     setTree((prev) => removeNode(prev, id)[0]);
     setSelectedId((cur) => (cur === id ? null : cur));
+    // 多选集合同步摘除（防悬空 id 残留）
+    setMultiIds((prev) => {
+      if (!prev.has(id)) return prev;
+      const next = new Set(prev);
+      next.delete(id);
+      return next;
+    });
     // 正在弹窗内部编辑时删掉该弹窗 → 退出弹窗编辑态
     setEditingModalId((cur) => (cur === id ? null : cur));
   }, []);
@@ -748,6 +801,8 @@ export default function CompositeEditorPage() {
                 });
                 setMultiIds(new Set());
                 setSelectedId(null);
+                // 批量删除包含正在编辑的弹窗 → 退出弹窗编辑态（防悬空 editingModalId）
+                setEditingModalId((cur) => (cur && multiIds.has(cur) ? null : cur));
               }}
             >
               删除所选（{multiIds.size}）
@@ -810,11 +865,16 @@ export default function CompositeEditorPage() {
                           availableFnIds={new Set(allFns.map((f) => f.id))}
                           onInsert={(nodes, tpl) => {
                             // 带参数模板（U6）：空 nodes = 待参数配置，弹窗确认后插入
+                            // （点击插入无拖拽落点 → 按根级追加处理）
                             if (tpl.params?.length && nodes.length === 0) {
-                              setInsertTpl(tpl);
+                              setInsertTpl({ tpl, overId: 'canvas-root' });
                               return;
                             }
-                            setTree((prev) => [...prev, ...nodes]);
+                            // 语义命名（instantiateTemplate 剥离 sectionKey，须重新分配变量名）
+                            setTree((prev) => [
+                              ...prev,
+                              ...assignVarNames(nodes, collectVarNames(prev)),
+                            ]);
                             for (const fid of tpl.requiredFunctions ?? []) {
                               const fn = allFns.find((f) => f.id === fid);
                               if (fn) registerFn(fn);
@@ -882,7 +942,8 @@ export default function CompositeEditorPage() {
                 {canvasNodes.length === 0 && !editingModalRef.current ? (
                   <TemplateQuickStart
                     onPick={(nodes, tpl) => {
-                      setTree((prev) => [...prev, ...nodes]);
+                      // 语义命名（instantiateTemplate 剥离 sectionKey，须重新分配变量名）
+                      setTree((prev) => [...prev, ...assignVarNames(nodes, collectVarNames(prev))]);
                       for (const fid of tpl.requiredFunctions ?? []) {
                         const fnDesc = allFns.find((f) => f.id === fid);
                         if (fnDesc) registerFn(fnDesc);
@@ -953,14 +1014,19 @@ export default function CompositeEditorPage() {
                                     modal={n}
                                     selected={selectedId === n.id}
                                     fnById={fnById.current}
-                                    onSelect={() => {
+                                    onSelect={(e) => {
                                       setSelectedId(n.id);
-                                      setMultiIds((prev) => {
-                                        const next = new Set(prev);
-                                        if (next.has(n.id)) next.delete(n.id);
-                                        else next.add(n.id);
-                                        return next;
-                                      });
+                                      // Shift+点击=多选切换；普通点击=单选（清空多选）
+                                      if (e?.shiftKey) {
+                                        setMultiIds((prev) => {
+                                          const next = new Set(prev);
+                                          if (next.has(n.id)) next.delete(n.id);
+                                          else next.add(n.id);
+                                          return next;
+                                        });
+                                      } else {
+                                        setMultiIds((prev) => (prev.size === 0 ? prev : new Set()));
+                                      }
                                     }}
                                     onEnterModal={() => setEditingModalId(n.id)}
                                   />
@@ -975,14 +1041,19 @@ export default function CompositeEditorPage() {
                                   }
                                   selected={selectedId === n.id || multiIds.has(n.id)}
                                   depth={0}
-                                  onSelect={() => {
+                                  onSelect={(e) => {
                                     setSelectedId(n.id);
-                                    setMultiIds((prev) => {
-                                      const next = new Set(prev);
-                                      if (next.has(n.id)) next.delete(n.id);
-                                      else next.add(n.id);
-                                      return next;
-                                    });
+                                    // Shift+点击=多选切换；普通点击=单选（清空多选）
+                                    if (e?.shiftKey) {
+                                      setMultiIds((prev) => {
+                                        const next = new Set(prev);
+                                        if (next.has(n.id)) next.delete(n.id);
+                                        else next.add(n.id);
+                                        return next;
+                                      });
+                                    } else {
+                                      setMultiIds((prev) => (prev.size === 0 ? prev : new Set()));
+                                    }
                                   }}
                                   onDelete={() => deleteNode(n.id)}
                                   onDuplicate={() => duplicateNode(n.id)}
@@ -1144,7 +1215,7 @@ export default function CompositeEditorPage() {
         </Form>
       </Modal>
       <Modal
-        title={`配置组件参数：${(insertTpl?.name as Record<string, string>)?.['zh-CN'] ?? insertTpl?.key ?? ''}`}
+        title={`配置组件参数：${(insertTpl?.tpl.name as Record<string, string>)?.['zh-CN'] ?? insertTpl?.tpl.key ?? ''}`}
         open={insertTpl !== null}
         onCancel={() => {
           setInsertTpl(null);
@@ -1153,13 +1224,8 @@ export default function CompositeEditorPage() {
         onOk={() => {
           if (!insertTpl) return;
           const values = insertForm.getFieldsValue() as Record<string, unknown>;
-          const nodes = instantiateTemplate(insertTpl, values);
-          setTree((prev) => [...prev, ...assignVarNames(nodes, collectVarNames(prev))]);
-          for (const fid of insertTpl.requiredFunctions ?? []) {
-            const fn = allFns.find((f) => f.id === fid);
-            if (fn) registerFn(fn);
-          }
-          if (nodes.length > 0) setSelectedId(nodes[0].id);
+          // 参数确认后按拖拽落点插入（容器/弹窗/链式，planTemplateDrop 决策）
+          applyTemplateInsert(insertTpl.tpl, values, insertTpl.overId);
           setInsertTpl(null);
           insertForm.resetFields();
         }}
@@ -1168,7 +1234,7 @@ export default function CompositeEditorPage() {
         destroyOnHidden
       >
         <Form form={insertForm} layout="vertical" preserve={false}>
-          {insertTpl?.params?.map((p) => (
+          {insertTpl?.tpl.params?.map((p) => (
             <Form.Item
               key={p.key}
               name={p.key}

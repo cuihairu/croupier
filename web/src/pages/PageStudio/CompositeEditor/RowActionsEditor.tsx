@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Button, Input, Select, Space, Switch, Typography } from 'antd';
 import { DeleteOutlined, PlusOutlined } from '@ant-design/icons';
 import type { PageNode } from './model';
@@ -140,65 +140,85 @@ function ParamMapping({
   paramFields: string[];
   onChange: (m: Record<string, string>) => void;
 }) {
+  // 参数名手输草稿（按已提交参数名键控）：失焦校验（非空/防撞）后保位改名
+  const [nameDrafts, setNameDrafts] = useState<Record<string, string>>({});
   const entries = Object.entries(mapping);
+
+  /** 保位改名：trim 后非空、不与其他参数撞名才生效（条目顺序不变）。 */
+  const renameParam = (from: string, raw: string) => {
+    const to = raw.trim();
+    if (!to || to === from || mapping[to] !== undefined) return;
+    onChange(Object.fromEntries(entries.map(([k, v]) => [k === from ? to : k, v])));
+  };
+
+  const commitRename = (param: string) => {
+    const draft = nameDrafts[param];
+    if (draft === undefined) return;
+    renameParam(param, draft);
+    setNameDrafts((prev) => {
+      const next = { ...prev };
+      delete next[param];
+      return next;
+    });
+  };
+
   return (
     <div style={{ fontSize: 11 }}>
       <Text type="secondary">参数带入（表单参数 ← 行字段）</Text>
-      {entries.map(([param, source]) => (
-        <Space key={param} size={4} style={{ display: 'flex', marginBottom: 4 }}>
-          {paramFields.length ? (
-            <Select
+      {entries.map(([param, source], idx) => {
+        const draft = nameDrafts[param];
+        const draftInvalid =
+          draft !== undefined &&
+          (draft.trim() === '' || (draft.trim() !== param && mapping[draft.trim()] !== undefined));
+        return (
+          <Space key={idx} size={4} style={{ display: 'flex', marginBottom: 4 }}>
+            {paramFields.length ? (
+              <Select
+                size="small"
+                style={{ width: 110 }}
+                value={param}
+                onChange={(np) => renameParam(param, np)}
+                options={paramFields.map((f) => ({ value: f, label: f }))}
+              />
+            ) : (
+              <Input
+                size="small"
+                style={{ width: 110 }}
+                status={draftInvalid ? 'error' : undefined}
+                value={draft ?? param}
+                placeholder="参数名"
+                onChange={(e) => setNameDrafts((prev) => ({ ...prev, [param]: e.target.value }))}
+                onBlur={() => commitRename(param)}
+                onPressEnter={() => commitRename(param)}
+              />
+            )}
+            <span>←</span>
+            <ExpressionInput
               size="small"
-              style={{ width: 110 }}
-              value={param}
-              onChange={(np) => {
+              style={{ width: 150 }}
+              value={source}
+              onChange={(v) => onChange({ ...mapping, [param]: v })}
+              variables={[]}
+              rootsOf={() => []}
+              rowFields={rowFields}
+              placeholder="行字段，或 {{ row. }}"
+            />
+            <Button
+              size="small"
+              type="text"
+              danger
+              style={{ padding: 0 }}
+              onClick={() => {
                 const next = { ...mapping };
                 delete next[param];
-                next[np] = source;
                 onChange(next);
               }}
-              options={paramFields.map((f) => ({ value: f, label: f }))}
-            />
-          ) : (
-            <Input
-              size="small"
-              style={{ width: 110 }}
-              value={param}
-              placeholder="参数名"
-              onChange={(e) => {
-                const next = { ...mapping };
-                delete next[param];
-                next[e.target.value] = source;
-                onChange(next);
-              }}
-            />
-          )}
-          <span>←</span>
-          <ExpressionInput
-            size="small"
-            style={{ width: 150 }}
-            value={source}
-            onChange={(v) => onChange({ ...mapping, [param]: v })}
-            variables={[]}
-            rootsOf={() => []}
-            rowFields={rowFields}
-            placeholder="行字段，或 {{ row. }}"
-          />
-          <Button
-            size="small"
-            type="text"
-            danger
-            style={{ padding: 0 }}
-            onClick={() => {
-              const next = { ...mapping };
-              delete next[param];
-              onChange(next);
-            }}
-          >
-            ×
-          </Button>
-        </Space>
-      ))}
+            >
+              ×
+            </Button>
+          </Space>
+        );
+      })}
       <Button
         size="small"
         type="link"

@@ -38,6 +38,9 @@ export default function ActionEditor({
   onChange: (v: ActionSpec | null) => void;
 }) {
   const [newFnId, setNewFnId] = useState<string | undefined>();
+  // 链步骤参数名手输草稿（`${步骤序号}:${参数名}` 键控）：失焦校验（非空/防撞）
+  // 后保位改名——逐键提交改名会让 React key 变化丢焦点，且撞名时静默覆盖丢数据。
+  const [paramDrafts, setParamDrafts] = useState<Record<string, string>>({});
   const action = parseAction(value);
   const kinds = allowedKinds ?? (Object.keys(ACTIONS) as ActionKind[]);
 
@@ -238,65 +241,95 @@ export default function ActionEditor({
                 </Space.Compact>
                 {(step.kind === 'runBinding' || step.kind === 'refreshNode') && (
                   <div style={{ marginTop: 4 }}>
-                    {Object.entries(step.params ?? {}).map(([pk, pv]) => (
-                      <Space key={pk} size={4} style={{ display: 'flex', marginBottom: 4 }}>
-                        <Input
-                          size="small"
-                          style={{ width: 90 }}
-                          value={pk}
-                          placeholder="参数名"
-                          onChange={(e) => {
-                            const nextName = e.target.value;
-                            const params: Record<string, string> = {};
-                            for (const [k, v] of Object.entries(step.params ?? {})) {
-                              params[k === pk ? nextName || k : k] = v;
+                    {Object.entries(step.params ?? {}).map(([pk, pv], pi) => {
+                      const draftKey = `${i}:${pk}`;
+                      const draft = paramDrafts[draftKey];
+                      const params = step.params ?? {};
+                      const draftInvalid =
+                        draft !== undefined &&
+                        (draft.trim() === '' ||
+                          (draft.trim() !== pk && params[draft.trim()] !== undefined));
+                      const commitRename = () => {
+                        if (draft === undefined) return;
+                        const to = draft.trim();
+                        // 非空、防撞才保位改名
+                        if (to && to !== pk && params[to] === undefined && action) {
+                          onChange({
+                            ...action,
+                            chain: (action.chain ?? []).map((s2, j) =>
+                              j === i
+                                ? {
+                                    ...s2,
+                                    params: Object.fromEntries(
+                                      Object.entries(params).map(([k, v]) => [
+                                        k === pk ? to : k,
+                                        v,
+                                      ]),
+                                    ),
+                                  }
+                                : s2,
+                            ),
+                          });
+                        }
+                        setParamDrafts((prev) => {
+                          const next = { ...prev };
+                          delete next[draftKey];
+                          return next;
+                        });
+                      };
+                      return (
+                        <Space key={pi} size={4} style={{ display: 'flex', marginBottom: 4 }}>
+                          <Input
+                            size="small"
+                            style={{ width: 90 }}
+                            status={draftInvalid ? 'error' : undefined}
+                            value={draft ?? pk}
+                            placeholder="参数名"
+                            onChange={(e) =>
+                              setParamDrafts((prev) => ({ ...prev, [draftKey]: e.target.value }))
                             }
-                            onChange({
-                              ...action,
-                              chain: (action.chain ?? []).map((s2, j) =>
-                                j === i ? { ...s2, params } : s2,
-                              ),
-                            });
-                          }}
-                        />
-                        <Text type="secondary" style={{ fontSize: 11 }}>
-                          =
-                        </Text>
-                        <ExpressionInput
-                          size="small"
-                          style={{ flex: 1, minWidth: 140 }}
-                          value={String(pv)}
-                          onChange={(v) =>
-                            onChange({
-                              ...action,
-                              chain: (action.chain ?? []).map((s2, j) =>
-                                j === i
-                                  ? { ...s2, params: { ...(step.params ?? {}), [pk]: v } }
-                                  : s2,
-                              ),
-                            })
-                          }
-                          variables={exprVariables}
-                          rootsOf={rootsOf}
-                        />
-                        <Button
-                          size="small"
-                          type="text"
-                          danger
-                          icon={<CloseOutlined />}
-                          onClick={() => {
-                            const params = { ...(step.params ?? {}) };
-                            delete params[pk];
-                            onChange({
-                              ...action,
-                              chain: (action.chain ?? []).map((s2, j) =>
-                                j === i ? { ...s2, params } : s2,
-                              ),
-                            });
-                          }}
-                        />
-                      </Space>
-                    ))}
+                            onBlur={commitRename}
+                            onPressEnter={commitRename}
+                          />
+                          <Text type="secondary" style={{ fontSize: 11 }}>
+                            =
+                          </Text>
+                          <ExpressionInput
+                            size="small"
+                            style={{ flex: 1, minWidth: 140 }}
+                            value={String(pv)}
+                            onChange={(v) =>
+                              onChange({
+                                ...action,
+                                chain: (action.chain ?? []).map((s2, j) =>
+                                  j === i
+                                    ? { ...s2, params: { ...(step.params ?? {}), [pk]: v } }
+                                    : s2,
+                                ),
+                              })
+                            }
+                            variables={exprVariables}
+                            rootsOf={rootsOf}
+                          />
+                          <Button
+                            size="small"
+                            type="text"
+                            danger
+                            icon={<CloseOutlined />}
+                            onClick={() => {
+                              const params = { ...(step.params ?? {}) };
+                              delete params[pk];
+                              onChange({
+                                ...action,
+                                chain: (action.chain ?? []).map((s2, j) =>
+                                  j === i ? { ...s2, params } : s2,
+                                ),
+                              });
+                            }}
+                          />
+                        </Space>
+                      );
+                    })}
                     <Button
                       size="small"
                       type="link"
