@@ -11,7 +11,7 @@ import {
   ReloadOutlined,
   SaveOutlined,
 } from '@ant-design/icons';
-import { history, useLocation, useParams } from '@umijs/max';
+import { FormattedMessage, history, useLocation, useParams, useIntl } from '@umijs/max';
 import { App } from 'antd';
 import { DASHBOARD_PAGE_TOKENS, PageStatePanel } from '@/components';
 import { BasicInfoTab, PermissionsTab } from './DetailSections';
@@ -22,6 +22,7 @@ import { FUNCTION_DETAIL_SCHEMA, type DetailActionKey, type DetailTabKey } from 
 
 export default function FunctionDetailPage() {
   const { message } = App.useApp();
+  const intl = useIntl();
   const location = useLocation();
   const params = useParams<{ id: string }>();
   const searchParams = new URLSearchParams(location.search);
@@ -73,13 +74,25 @@ export default function FunctionDetailPage() {
       <PageContainer>
         <PageStatePanel
           tone="warning"
-          badgeText="未找到函数"
-          title="当前函数不存在"
-          description="请检查函数 ID 是否正确，或从函数目录重新进入。"
+          badgeText={intl.formatMessage({
+            id: 'pages.functionsDetail.notFound.badgeText',
+            defaultMessage: '未找到函数',
+          })}
+          title={intl.formatMessage({
+            id: 'pages.functionsDetail.notFound.title',
+            defaultMessage: '当前函数不存在',
+          })}
+          description={intl.formatMessage({
+            id: 'pages.functionsDetail.notFound.description',
+            defaultMessage: '请检查函数 ID 是否正确，或从函数目录重新进入。',
+          })}
           extra={params.id}
           actions={
             <Button type="primary" onClick={() => history.push('/functions/catalog')}>
-              返回函数列表
+              <FormattedMessage
+                id="pages.functionsDetail.button.backToList"
+                defaultMessage="返回函数列表"
+              />
             </Button>
           }
         />
@@ -105,8 +118,22 @@ export default function FunctionDetailPage() {
           history.replace(`${location.pathname}${buildSearch('config', key)}`);
         }}
         jsonViewData={jsonViewData}
-        onJsonCopySuccess={() => message.success('JSON 已复制')}
-        onJsonCopyError={() => message.error('复制失败')}
+        onJsonCopySuccess={() =>
+          message.success(
+            intl.formatMessage({
+              id: 'pages.functionsDetail.copy.success',
+              defaultMessage: 'JSON 已复制',
+            }),
+          )
+        }
+        onJsonCopyError={() =>
+          message.error(
+            intl.formatMessage({
+              id: 'pages.functionsDetail.copy.failed',
+              defaultMessage: '复制失败',
+            }),
+          )
+        }
         formDescriptor={formDescriptor}
         parsedInputSchema={parsedInputSchema}
         onOpenPageStudio={() => history.push(pageStudioPath)}
@@ -140,7 +167,15 @@ export default function FunctionDetailPage() {
 
   const descriptorResource = String(formDescriptor?.resource || '').trim();
   const descriptorOperation = String(formDescriptor?.operation || '').trim();
-  const functionStatusText = functionDetail?.enabled ? '已启用' : '未启用';
+  const functionStatusText = functionDetail?.enabled
+    ? intl.formatMessage({
+        id: 'pages.functionsDetail.status.enabled',
+        defaultMessage: '已启用',
+      })
+    : intl.formatMessage({
+        id: 'pages.functionsDetail.status.disabled',
+        defaultMessage: '未启用',
+      });
   const functionStatusTone = functionDetail?.enabled ? 'success' : 'default';
 
   const runAction = (key: DetailActionKey) => {
@@ -157,16 +192,25 @@ export default function FunctionDetailPage() {
       title={
         <Space>
           <Button icon={<ArrowLeftOutlined />} onClick={() => history.push('/functions/catalog')}>
-            返回
+            <FormattedMessage id="pages.functionsDetail.button.back" defaultMessage="返回" />
           </Button>
           <span>{functionDetail?.name || functionDetail?.id}</span>
           <Badge status={functionDetail?.enabled ? 'success' : 'default'} />
         </Space>
       }
-      subTitle="这里处理单个函数的能力定义与契约核对；页面、菜单和分类在 Page Studio 中确定。"
+      subTitle={intl.formatMessage({
+        id: 'pages.functionsDetail.page.subTitle',
+        defaultMessage:
+          '这里处理单个函数的能力定义与契约核对；页面、菜单和分类在 Page Studio 中确定。',
+      })}
       extra={[
         <Space key="actions">
-          <Button onClick={() => history.push(pageStudioPath)}>查看资源/页面候选</Button>
+          <Button onClick={() => history.push(pageStudioPath)}>
+            <FormattedMessage
+              id="pages.functionsDetail.button.viewCandidates"
+              defaultMessage="查看资源/页面候选"
+            />
+          </Button>
           {FUNCTION_DETAIL_SCHEMA.actions.map((action) => (
             <Button
               key={action.key}
@@ -189,7 +233,11 @@ export default function FunctionDetailPage() {
               }
               onClick={() => runAction(action.key)}
             >
-              {action.key === 'edit' && editing ? '保存' : action.label}
+              {action.key === 'edit' && editing ? (
+                <FormattedMessage id="pages.functionsDetail.button.save" defaultMessage="保存" />
+              ) : (
+                action.label
+              )}
             </Button>
           ))}
         </Space>,
@@ -208,12 +256,37 @@ export default function FunctionDetailPage() {
         >
           <Space orientation="vertical" size={18} style={{ width: '100%' }}>
             <Space wrap size={[8, 8]}>
-              <Tag color="blue">函数能力详情</Tag>
+              <Tag color="blue">
+                <FormattedMessage
+                  id="pages.functionsDetail.badge.capabilityDetail"
+                  defaultMessage="函数能力详情"
+                />
+              </Tag>
               <Badge status={functionStatusTone} text={functionStatusText} />
               {functionDetail?.version ? <Tag>{`v${functionDetail.version}`}</Tag> : null}
               {effectiveResource ? <Tag color="purple">{effectiveResource}</Tag> : null}
-              {descriptorResource ? <Tag>{`资源 ${descriptorResource}`}</Tag> : null}
-              {descriptorOperation ? <Tag>{`操作 ${descriptorOperation}`}</Tag> : null}
+              {descriptorResource ? (
+                <Tag>
+                  {intl.formatMessage(
+                    {
+                      id: 'pages.functionsDetail.tag.resource',
+                      defaultMessage: '资源 {resource}',
+                    },
+                    { resource: descriptorResource },
+                  )}
+                </Tag>
+              ) : null}
+              {descriptorOperation ? (
+                <Tag>
+                  {intl.formatMessage(
+                    {
+                      id: 'pages.functionsDetail.tag.operation',
+                      defaultMessage: '操作 {operation}',
+                    },
+                    { operation: descriptorOperation },
+                  )}
+                </Tag>
+              ) : null}
             </Space>
             <Space orientation="vertical" size={6} style={{ width: '100%' }}>
               <Typography.Title level={4} style={{ margin: 0 }}>
@@ -221,7 +294,11 @@ export default function FunctionDetailPage() {
               </Typography.Title>
               <Typography.Text type="secondary">
                 {functionDetail?.description ||
-                  '这里用于确认单个函数的能力定义、资源/操作归属和 JSON Schema 契约。最终业务页面应在 Page Studio 中完成装配。'}
+                  intl.formatMessage({
+                    id: 'pages.functionsDetail.descriptionFallback',
+                    defaultMessage:
+                      '这里用于确认单个函数的能力定义、资源/操作归属和 JSON Schema 契约。最终业务页面应在 Page Studio 中完成装配。',
+                  })}
               </Typography.Text>
             </Space>
             <Row gutter={[12, 12]}>
@@ -232,10 +309,17 @@ export default function FunctionDetailPage() {
                   styles={{ body: { padding: DASHBOARD_PAGE_TOKENS.cardPadding } }}
                 >
                   <Space orientation="vertical" size={8} style={{ width: '100%' }}>
-                    <Typography.Text strong>当前建议动作</Typography.Text>
+                    <Typography.Text strong>
+                      <FormattedMessage
+                        id="pages.functionsDetail.suggestCard.title"
+                        defaultMessage="当前建议动作"
+                      />
+                    </Typography.Text>
                     <Typography.Text type="secondary">
-                      函数能力确认无误后，下一步应该去资源/页面候选检查 PageSpec
-                      质量，而不是把这里当成最终业务界面。
+                      <FormattedMessage
+                        id="pages.functionsDetail.suggestCard.description"
+                        defaultMessage="函数能力确认无误后，下一步应该去资源/页面候选检查 PageSpec 质量，而不是把这里当成最终业务界面。"
+                      />
                     </Typography.Text>
                     <Space wrap size={[8, 8]}>
                       <Button
@@ -243,14 +327,20 @@ export default function FunctionDetailPage() {
                         icon={<ApartmentOutlined />}
                         onClick={() => history.push(pageStudioPath)}
                       >
-                        查看资源/页面候选
+                        <FormattedMessage
+                          id="pages.functionsDetail.button.viewCandidates"
+                          defaultMessage="查看资源/页面候选"
+                        />
                       </Button>
                       <Button
                         icon={<PlayCircleOutlined />}
                         disabled={!params.id}
                         onClick={() => history.push(invokePath)}
                       >
-                        测试调用
+                        <FormattedMessage
+                          id="pages.functionsDetail.button.invokeTest"
+                          defaultMessage="测试调用"
+                        />
                       </Button>
                     </Space>
                   </Space>
@@ -263,15 +353,40 @@ export default function FunctionDetailPage() {
                   styles={{ body: { padding: DASHBOARD_PAGE_TOKENS.cardPadding } }}
                 >
                   <Space orientation="vertical" size={8} style={{ width: '100%' }}>
-                    <Typography.Text strong>这里适合确认什么</Typography.Text>
+                    <Typography.Text strong>
+                      <FormattedMessage
+                        id="pages.functionsDetail.confirmCard.title"
+                        defaultMessage="这里适合确认什么"
+                      />
+                    </Typography.Text>
                     <Typography.Text type="secondary">
-                      重点检查函数摘要、入参
-                      schema、资源/操作归属、权限、调用历史和告警配置，确认它是否足够稳定地支撑后续页面装配与发布验证。
+                      <FormattedMessage
+                        id="pages.functionsDetail.confirmCard.description"
+                        defaultMessage="重点检查函数摘要、入参 schema、资源/操作归属、权限、调用历史和告警配置，确认它是否足够稳定地支撑后续页面装配与发布验证。"
+                      />
                     </Typography.Text>
                     <Space wrap size={[8, 8]}>
-                      <Badge status="processing" text="函数定义与 schema" />
-                      <Badge status="success" text="资源与调用入口" />
-                      <Badge status="default" text="权限与告警配置" />
+                      <Badge
+                        status="processing"
+                        text={intl.formatMessage({
+                          id: 'pages.functionsDetail.badge.functionDefinition',
+                          defaultMessage: '函数定义与 schema',
+                        })}
+                      />
+                      <Badge
+                        status="success"
+                        text={intl.formatMessage({
+                          id: 'pages.functionsDetail.badge.resourceAndEntries',
+                          defaultMessage: '资源与调用入口',
+                        })}
+                      />
+                      <Badge
+                        status="default"
+                        text={intl.formatMessage({
+                          id: 'pages.functionsDetail.badge.permissionAndAlerts',
+                          defaultMessage: '权限与告警配置',
+                        })}
+                      />
                     </Space>
                   </Space>
                 </Card>
@@ -286,7 +401,10 @@ export default function FunctionDetailPage() {
               type="warning"
               showIcon
               style={{ marginBottom: 16 }}
-              message="契约诊断告警"
+              message={intl.formatMessage({
+                id: 'pages.functionsDetail.alert.contractDiagnostics',
+                defaultMessage: '契约诊断告警',
+              })}
               description={
                 <ul style={{ margin: '8px 0 0', paddingLeft: 18 }}>
                   {contractDiagnostics.map((diag, index) => (
@@ -304,11 +422,21 @@ export default function FunctionDetailPage() {
             type="info"
             showIcon
             style={{ marginBottom: 16 }}
-            message="函数层负责能力定义，Page Studio 负责页面装配"
-            description="这里适合校验函数定义、JSON Schema、权限和告警；如果目标是做运营可用的实际界面，下一步应进入 Page Studio 完成页面骨架、预览和发布。"
+            message={intl.formatMessage({
+              id: 'pages.functionsDetail.alert.functionLayer.message',
+              defaultMessage: '函数层负责能力定义，Page Studio 负责页面装配',
+            })}
+            description={intl.formatMessage({
+              id: 'pages.functionsDetail.alert.functionLayer.description',
+              defaultMessage:
+                '这里适合校验函数定义、JSON Schema、权限和告警；如果目标是做运营可用的实际界面，下一步应进入 Page Studio 完成页面骨架、预览和发布。',
+            })}
             action={
               <Button type="primary" onClick={() => history.push(pageStudioPath)}>
-                查看资源/页面候选
+                <FormattedMessage
+                  id="pages.functionsDetail.button.viewCandidates"
+                  defaultMessage="查看资源/页面候选"
+                />
               </Button>
             }
           />

@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   App,
   Button,
@@ -36,21 +36,58 @@ import {
   type ConfigSourceBinding,
 } from '@/services/api/configExplorer';
 import { listGamesMeta, type Game } from '@/services/api/games';
-import { useAccess } from '@umijs/max';
+import { FormattedMessage, useAccess, useIntl } from '@umijs/max';
 import SourceManageModal from './SourceManageModal';
 
 const { Text } = Typography;
 
-// 各数据源类型的展示元信息（图标/说明/配置模板）
+// 各数据源类型的展示元信息（图标/说明）：key 是后端契约枚举不动，
+// 展示文案经 intl 解析（labelId/labelDefault、descId/descDefault 双字段）
 const SOURCE_TYPE_META: Record<
   ConfigSourceBinding['type'],
-  { label: string; icon: React.ReactNode; desc: string }
+  {
+    labelId: string;
+    labelDefault: string;
+    icon: React.ReactNode;
+    descId: string;
+    descDefault: string;
+  }
 > = {
-  git: { label: 'Git 仓库', icon: <GithubOutlined />, desc: '只读浏览分支目录' },
-  redis: { label: 'Redis', icon: <DatabaseOutlined />, desc: 'key 前缀目录（skynet 惯例）' },
-  nacos: { label: 'Nacos', icon: <DatabaseOutlined />, desc: 'dataId 即路径' },
-  db: { label: '数据库', icon: <DatabaseOutlined />, desc: '表即文件（CSV 视图）' },
-  croupier: { label: 'Croupier', icon: <DatabaseOutlined />, desc: 'ConfigVersion 版本库' },
+  git: {
+    labelId: 'pages.devConfigExplorer.sourceType.git.label',
+    labelDefault: 'Git 仓库',
+    icon: <GithubOutlined />,
+    descId: 'pages.devConfigExplorer.sourceType.git.desc',
+    descDefault: '只读浏览分支目录',
+  },
+  redis: {
+    labelId: 'pages.devConfigExplorer.sourceType.redis.label',
+    labelDefault: 'Redis',
+    icon: <DatabaseOutlined />,
+    descId: 'pages.devConfigExplorer.sourceType.redis.desc',
+    descDefault: 'key 前缀目录（skynet 惯例）',
+  },
+  nacos: {
+    labelId: 'pages.devConfigExplorer.sourceType.nacos.label',
+    labelDefault: 'Nacos',
+    icon: <DatabaseOutlined />,
+    descId: 'pages.devConfigExplorer.sourceType.nacos.desc',
+    descDefault: 'dataId 即路径',
+  },
+  db: {
+    labelId: 'pages.devConfigExplorer.sourceType.db.label',
+    labelDefault: '数据库',
+    icon: <DatabaseOutlined />,
+    descId: 'pages.devConfigExplorer.sourceType.db.desc',
+    descDefault: '表即文件（CSV 视图）',
+  },
+  croupier: {
+    labelId: 'pages.devConfigExplorer.sourceType.croupier.label',
+    labelDefault: 'Croupier',
+    icon: <DatabaseOutlined />,
+    descId: 'pages.devConfigExplorer.sourceType.croupier.desc',
+    descDefault: 'ConfigVersion 版本库',
+  },
 };
 
 // Monaco 语言映射（文本格式）
@@ -84,6 +121,11 @@ type XlsxPreviewData = { columns: string[]; rows: string[][] };
 export default function ConfigExplorer() {
   const { message } = App.useApp();
   const access = useAccess();
+  const intl = useIntl();
+  // useIntl 在测试 mock 下每次渲染返回新引用，直接进 useCallback 依赖会让请求
+  // effect 无限重建；经 ref 转发后回调依赖稳定，执行时仍读取最新实例
+  const intlRef = useRef(intl);
+  intlRef.current = intl;
   const [games, setGames] = useState<Game[]>([]);
   const [game, setGame] = useState<string>('');
   const [env, setEnv] = useState<string>('');
@@ -127,7 +169,12 @@ export default function ConfigExplorer() {
         setSources(items);
         setSourceId((prev) => (items.some((s) => s.id === prev) ? prev : items[0]?.id));
       } catch {
-        message.error('加载数据源失败');
+        message.error(
+          intlRef.current.formatMessage({
+            id: 'pages.devConfigExplorer.error.loadSourcesFailed',
+            defaultMessage: '加载数据源失败',
+          }),
+        );
       }
     },
     [message],
@@ -171,7 +218,12 @@ export default function ConfigExplorer() {
     try {
       setTreeData(await loadDir(''));
     } catch {
-      message.error('加载目录失败');
+      message.error(
+        intlRef.current.formatMessage({
+          id: 'pages.devConfigExplorer.error.loadDirFailed',
+          defaultMessage: '加载目录失败',
+        }),
+      );
     } finally {
       setTreeLoading(false);
     }
@@ -202,13 +254,26 @@ export default function ConfigExplorer() {
               header: 1,
               blankrows: false,
             });
-            const columns = (rows[0] || []).map((_, i) => `列 ${i + 1}`);
+            const columns = (rows[0] || []).map((_, i) =>
+              intlRef.current.formatMessage(
+                {
+                  id: 'pages.devConfigExplorer.column.columnNo',
+                  defaultMessage: `列 ${i + 1}`,
+                },
+                { index: i + 1 },
+              ),
+            );
             const dataRows = rows.map((r) => (r || []).map((c) => String(c ?? '')));
             setXlsx({ columns, rows: dataRows });
           }
         }
       } catch {
-        message.error('读取文件失败');
+        message.error(
+          intlRef.current.formatMessage({
+            id: 'pages.devConfigExplorer.error.readFileFailed',
+            defaultMessage: '读取文件失败',
+          }),
+        );
       } finally {
         setFileLoading(false);
       }
@@ -220,7 +285,12 @@ export default function ConfigExplorer() {
   const doSave = async () => {
     if (!sourceId || !file) return;
     if (!reason.trim()) {
-      message.warning('应急原因必填（将记入审计）');
+      message.warning(
+        intl.formatMessage({
+          id: 'pages.devConfigExplorer.saveModal.reasonRequired',
+          defaultMessage: '应急原因必填（将记入审计）',
+        }),
+      );
       return;
     }
     setSaving(true);
@@ -231,12 +301,23 @@ export default function ConfigExplorer() {
         content: editText,
         reason: reason.trim(),
       });
-      message.success('已写回');
+      message.success(
+        intl.formatMessage({
+          id: 'pages.devConfigExplorer.saveModal.writtenBack',
+          defaultMessage: '已写回',
+        }),
+      );
       setSaveOpen(false);
       setReason('');
       await openFile(file.path);
     } catch (err) {
-      const msg = err instanceof Error ? err.message : '写回失败';
+      const msg =
+        err instanceof Error
+          ? err.message
+          : intl.formatMessage({
+              id: 'pages.devConfigExplorer.error.writeFailed',
+              defaultMessage: '写回失败',
+            });
       message.error(msg);
     } finally {
       setSaving(false);
@@ -254,17 +335,23 @@ export default function ConfigExplorer() {
           disabled={!canManage || !game || !env}
           onClick={() => setManageOpen(true)}
         >
-          管理数据源
+          <FormattedMessage
+            id="pages.devConfigExplorer.action.manageSources"
+            defaultMessage="管理数据源"
+          />
         </Button>,
         <Button key="reload" icon={<ReloadOutlined />} onClick={() => void reloadTree()}>
-          刷新
+          <FormattedMessage id="pages.devConfigExplorer.action.refresh" defaultMessage="刷新" />
         </Button>,
       ]}
     >
       <Space style={{ marginBottom: 12 }} wrap>
         <Select
           style={{ width: 180 }}
-          placeholder="选择游戏"
+          placeholder={intl.formatMessage({
+            id: 'pages.devConfigExplorer.filter.game',
+            defaultMessage: '选择游戏',
+          })}
           value={game || undefined}
           onChange={setGame}
           options={games.map((g) => ({
@@ -274,14 +361,20 @@ export default function ConfigExplorer() {
         />
         <Select
           style={{ width: 120 }}
-          placeholder="环境"
+          placeholder={intl.formatMessage({
+            id: 'pages.devConfigExplorer.filter.env',
+            defaultMessage: '环境',
+          })}
           value={env || undefined}
           onChange={setEnv}
           options={envs}
         />
         <Select
           style={{ width: 240 }}
-          placeholder="数据源"
+          placeholder={intl.formatMessage({
+            id: 'pages.devConfigExplorer.filter.source',
+            defaultMessage: '数据源',
+          })}
           value={sourceId}
           onChange={setSourceId}
           options={sources.map((s) => ({
@@ -289,7 +382,17 @@ export default function ConfigExplorer() {
               <Space>
                 {SOURCE_TYPE_META[s.type].icon}
                 <span>{s.name}</span>
-                <Tag color={s.writable ? 'orange' : 'default'}>{s.writable ? '可写' : '只读'}</Tag>
+                <Tag color={s.writable ? 'orange' : 'default'}>
+                  {s.writable
+                    ? intl.formatMessage({
+                        id: 'pages.devConfigExplorer.tag.writable',
+                        defaultMessage: '可写',
+                      })
+                    : intl.formatMessage({
+                        id: 'pages.devConfigExplorer.tag.readonly',
+                        defaultMessage: '只读',
+                      })}
+                </Tag>
               </Space>
             ),
             value: s.id,
@@ -297,8 +400,15 @@ export default function ConfigExplorer() {
         />
         {currentSource && (
           <Text type="secondary">
-            {SOURCE_TYPE_META[currentSource.type].label} ·{' '}
-            {SOURCE_TYPE_META[currentSource.type].desc}
+            {intl.formatMessage({
+              id: SOURCE_TYPE_META[currentSource.type].labelId,
+              defaultMessage: SOURCE_TYPE_META[currentSource.type].labelDefault,
+            })}{' '}
+            ·{' '}
+            {intl.formatMessage({
+              id: SOURCE_TYPE_META[currentSource.type].descId,
+              defaultMessage: SOURCE_TYPE_META[currentSource.type].descDefault,
+            })}
           </Text>
         )}
       </Space>
@@ -307,7 +417,12 @@ export default function ConfigExplorer() {
         <div style={{ width: 280, flexShrink: 0, overflow: 'auto' }}>
           <Spin spinning={treeLoading}>
             {sources.length === 0 ? (
-              <Empty description="暂无数据源，请先管理数据源添加" />
+              <Empty
+                description={intl.formatMessage({
+                  id: 'pages.devConfigExplorer.empty.noSources',
+                  defaultMessage: '暂无数据源，请先管理数据源添加',
+                })}
+              />
             ) : (
               <Tree
                 treeData={treeData}
@@ -328,7 +443,13 @@ export default function ConfigExplorer() {
         <div style={{ flex: 1, minWidth: 0 }}>
           <Spin spinning={fileLoading}>
             {!file ? (
-              <Empty description="选择左侧文件查看在线配置" style={{ marginTop: 160 }} />
+              <Empty
+                description={intl.formatMessage({
+                  id: 'pages.devConfigExplorer.empty.selectFile',
+                  defaultMessage: '选择左侧文件查看在线配置',
+                })}
+                style={{ marginTop: 160 }}
+              />
             ) : xlsx ? (
               <Table
                 size="small"
@@ -352,12 +473,22 @@ export default function ConfigExplorer() {
                   <Text type="secondary">{humanSize(file.size)}</Text>
                   {file.writable && canManage && (
                     <Popconfirm
-                      title="应急编辑并写回？"
-                      description="改动会直接写回配置中心（各项目配置流程不变），原因将记入审计。"
+                      title={intl.formatMessage({
+                        id: 'pages.devConfigExplorer.popconfirm.emergencyEdit.title',
+                        defaultMessage: '应急编辑并写回？',
+                      })}
+                      description={intl.formatMessage({
+                        id: 'pages.devConfigExplorer.popconfirm.emergencyEdit.description',
+                        defaultMessage:
+                          '改动会直接写回配置中心（各项目配置流程不变），原因将记入审计。',
+                      })}
                       onConfirm={() => setSaveOpen(true)}
                     >
                       <Button type="primary" danger icon={<SaveOutlined />}>
-                        应急编辑
+                        <FormattedMessage
+                          id="pages.devConfigExplorer.action.editEmergency"
+                          defaultMessage="应急编辑"
+                        />
                       </Button>
                     </Popconfirm>
                   )}
@@ -382,8 +513,14 @@ export default function ConfigExplorer() {
 
       <Modal
         open={saveOpen}
-        title="应急写回"
-        okText="写回"
+        title={intl.formatMessage({
+          id: 'pages.devConfigExplorer.saveModal.title',
+          defaultMessage: '应急写回',
+        })}
+        okText={intl.formatMessage({
+          id: 'pages.devConfigExplorer.saveModal.okText',
+          defaultMessage: '写回',
+        })}
         okButtonProps={{ danger: true, loading: saving }}
         onCancel={() => setSaveOpen(false)}
         onOk={doSave}
@@ -391,14 +528,32 @@ export default function ConfigExplorer() {
       >
         <Space orientation="vertical" style={{ width: '100%' }}>
           <Text type="secondary">
-            将写回 <Text code>{currentSource?.name}</Text>（{currentSource?.type}
-            ）的 <Text code>{file?.path}</Text>；各项目配置流程不变，原因必填并记入审计。
+            <FormattedMessage
+              id="pages.devConfigExplorer.saveModal.noticePrefix"
+              defaultMessage="将写回 "
+            />
+            <Text code>{currentSource?.name}</Text>
+            {intl.formatMessage(
+              {
+                id: 'pages.devConfigExplorer.saveModal.noticeMiddle',
+                defaultMessage: `（${currentSource?.type}）的 `,
+              },
+              { type: currentSource?.type },
+            )}
+            <Text code>{file?.path}</Text>
+            <FormattedMessage
+              id="pages.devConfigExplorer.saveModal.noticeSuffix"
+              defaultMessage="；各项目配置流程不变，原因必填并记入审计。"
+            />
           </Text>
           <Input.TextArea
             value={reason}
             onChange={(e) => setReason(e.target.value)}
             maxLength={200}
-            placeholder="应急原因（必填，如：线上活动奖励配置错误紧急修正）"
+            placeholder={intl.formatMessage({
+              id: 'pages.devConfigExplorer.saveModal.reasonPlaceholder',
+              defaultMessage: '应急原因（必填，如：线上活动奖励配置错误紧急修正）',
+            })}
             rows={3}
           />
         </Space>

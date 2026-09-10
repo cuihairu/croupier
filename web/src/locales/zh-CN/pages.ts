@@ -356,4 +356,13 @@ export default {
   'pages.account.messages.all.button': '全部',
   'pages.account.messages.mark.all.read': '全部标记已读',
   'pages.account.messages.marked.read': '已标记为已读',
+
+  // Login page（i18n 迁移追加：SSO/LDAP/忘记密码弹窗文案；原键一律不动）
+  'pages.login.forgotPassword.adminHint':
+    '如果你是管理员：在「权限 → 用户」中选择用户，点击「设置密码」即可重置。',
+  'pages.login.forgotPassword.contactAdmin': '请联系管理员为你的账号重置密码。',
+  'pages.login.ldap.notice':
+    '支持域账号：直接输入 LDAP 用户名和密码登录（本地账号校验失败时自动尝试目录服务）',
+  'pages.login.sso.button': 'SSO 登录',
+  'pages.login.sso.divider': '其他登录方式',
 };

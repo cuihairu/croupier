@@ -14,6 +14,7 @@ import {
 } from 'antd';
 import type { Dayjs } from 'dayjs';
 import { PageContainer } from '@ant-design/pro-components';
+import { FormattedMessage, useIntl } from '@umijs/max';
 import { exportToCSV, exportToXLSX } from '@/utils/export';
 import {
   fetchAnalyticsLevels,
@@ -22,6 +23,7 @@ import {
 } from '@/services/api/analytics';
 
 export default function AnalyticsLevelsPage() {
+  const intl = useIntl();
   const [loading, setLoading] = useState(false);
   const [range, setRange] = useState<[Dayjs | null, Dayjs | null] | null>(null);
   const [episode, setEpisode] = useState<string>('');
@@ -78,20 +80,31 @@ export default function AnalyticsLevelsPage() {
     <PageContainer>
       <Space orientation="vertical" style={{ width: '100%' }}>
         <Card
-          title="关卡漏斗"
+          title={intl.formatMessage({
+            id: 'pages.analyticsLevels.section.funnel',
+            defaultMessage: '关卡漏斗',
+          })}
           extra={
             <Space>
               <Input
-                placeholder="章节/地图（可选）"
+                placeholder={intl.formatMessage({
+                  id: 'pages.analyticsLevels.filter.placeholder.episode',
+                  defaultMessage: '章节/地图（可选）',
+                })}
                 value={episode}
                 onChange={(e) => setEpisode(e.target.value)}
                 style={{ width: 200 }}
               />
               <DatePicker.RangePicker value={range} onChange={(dates) => setRange(dates)} />
               <Button type="primary" onClick={load}>
-                查询
+                <FormattedMessage id="pages.analyticsLevels.button.query" defaultMessage="查询" />
               </Button>
-              <Button onClick={exportCSV}>导出 CSV</Button>
+              <Button onClick={exportCSV}>
+                <FormattedMessage
+                  id="pages.analyticsLevels.button.exportCsv"
+                  defaultMessage="导出 CSV"
+                />
+              </Button>
             </Space>
           }
         >
@@ -104,10 +117,25 @@ export default function AnalyticsLevelsPage() {
             }}
             dataSource={data?.funnel || []}
             columns={[
-              { title: '步骤', dataIndex: 'step' },
-              { title: '玩家数', dataIndex: 'users' },
               {
-                title: '转化率',
+                title: intl.formatMessage({
+                  id: 'pages.analyticsLevels.column.step',
+                  defaultMessage: '步骤',
+                }),
+                dataIndex: 'step',
+              },
+              {
+                title: intl.formatMessage({
+                  id: 'pages.analyticsLevels.column.users',
+                  defaultMessage: '玩家数',
+                }),
+                dataIndex: 'users',
+              },
+              {
+                title: intl.formatMessage({
+                  id: 'pages.analyticsLevels.column.conversionRate',
+                  defaultMessage: '转化率',
+                }),
                 dataIndex: 'rate',
                 render: (v) => (v != null ? `${v}%` : '-'),
               },
@@ -127,22 +155,52 @@ export default function AnalyticsLevelsPage() {
                 await exportToXLSX('levels_funnel.csv', [{ sheet: 'funnel', rows }]);
               }}
             >
-              导出 CSV
+              <FormattedMessage
+                id="pages.analyticsLevels.button.exportCsv"
+                defaultMessage="导出 CSV"
+              />
             </Button>
           </div>
         </Card>
         <Card
-          title="分关卡统计（胜率/难度/时长/复试）"
+          title={intl.formatMessage({
+            id: 'pages.analyticsLevels.section.perLevelStats',
+            defaultMessage: '分关卡统计（胜率/难度/时长/复试）',
+          })}
           extra={
             <Space>
               <Select
                 value={seg}
                 onChange={(v) => setSeg(v)}
                 options={[
-                  { label: '全部', value: 'all' },
-                  { label: '新玩家', value: 'new' },
-                  { label: '回流/老玩家', value: 'returning' },
-                  { label: '付费玩家', value: 'payer' },
+                  {
+                    label: intl.formatMessage({
+                      id: 'pages.analyticsLevels.segment.all',
+                      defaultMessage: '全部',
+                    }),
+                    value: 'all',
+                  },
+                  {
+                    label: intl.formatMessage({
+                      id: 'pages.analyticsLevels.segment.new',
+                      defaultMessage: '新玩家',
+                    }),
+                    value: 'new',
+                  },
+                  {
+                    label: intl.formatMessage({
+                      id: 'pages.analyticsLevels.segment.returning',
+                      defaultMessage: '回流/老玩家',
+                    }),
+                    value: 'returning',
+                  },
+                  {
+                    label: intl.formatMessage({
+                      id: 'pages.analyticsLevels.segment.paying',
+                      defaultMessage: '付费玩家',
+                    }),
+                    value: 'payer',
+                  },
                 ]}
               />
             </Space>
@@ -156,17 +214,47 @@ export default function AnalyticsLevelsPage() {
               seg === 'all' ? data?.perLevel || [] : (data?.perLevelSegments || {})[seg] || []
             }
             columns={[
-              { title: '关卡', dataIndex: 'level' },
-              { title: '参与人数', dataIndex: 'players' },
               {
-                title: '胜率',
+                title: intl.formatMessage({
+                  id: 'pages.analyticsLevels.column.level',
+                  defaultMessage: '关卡',
+                }),
+                dataIndex: 'level',
+              },
+              {
+                title: intl.formatMessage({
+                  id: 'pages.analyticsLevels.column.players',
+                  defaultMessage: '参与人数',
+                }),
+                dataIndex: 'players',
+              },
+              {
+                title: intl.formatMessage({
+                  id: 'pages.analyticsLevels.column.winRate',
+                  defaultMessage: '胜率',
+                }),
                 dataIndex: 'winRate',
                 render: (v: number) => (v != null ? `${v.toFixed(2)}%` : '-'),
               },
-              { title: '平均通关时长(s)', dataIndex: 'avgDurationSec' },
-              { title: '平均复试次数', dataIndex: 'avgRetries' },
               {
-                title: '难度',
+                title: intl.formatMessage({
+                  id: 'pages.analyticsLevels.column.avgDuration',
+                  defaultMessage: '平均通关时长(s)',
+                }),
+                dataIndex: 'avgDurationSec',
+              },
+              {
+                title: intl.formatMessage({
+                  id: 'pages.analyticsLevels.column.avgRetries',
+                  defaultMessage: '平均复试次数',
+                }),
+                dataIndex: 'avgRetries',
+              },
+              {
+                title: intl.formatMessage({
+                  id: 'pages.analyticsLevels.column.difficulty',
+                  defaultMessage: '难度',
+                }),
                 render: (_: unknown, r: LevelData) => {
                   const v = r?.difficulty != null ? String(r.difficulty) : '-';
                   const color = v === '高' ? 'red' : v === '中' ? 'gold' : 'default';
@@ -204,7 +292,10 @@ export default function AnalyticsLevelsPage() {
                 await exportToXLSX('levels_stats.csv', sheets);
               }}
             >
-              导出 CSV
+              <FormattedMessage
+                id="pages.analyticsLevels.button.exportCsv"
+                defaultMessage="导出 CSV"
+              />
             </Button>
           </div>
         </Card>
@@ -238,6 +329,7 @@ interface LevelsData {
 }
 
 const LevelsSegmentsChart: React.FC<{ data: LevelsData | null }> = ({ data }) => {
+  const intl = useIntl();
   try {
     const all = data?.perLevel || [];
     const segs = data?.perLevelSegments || {};
@@ -272,7 +364,12 @@ const LevelsSegmentsChart: React.FC<{ data: LevelsData | null }> = ({ data }) =>
     };
     return (
       <div style={{ marginTop: 12 }}>
-        <b>分群胜率对比（Top 10 关卡）</b>
+        <b>
+          <FormattedMessage
+            id="pages.analyticsLevels.chart.segmentsTitle"
+            defaultMessage="分群胜率对比（Top 10 关卡）"
+          />
+        </b>
         <svg
           width={w}
           height={h}
@@ -288,7 +385,10 @@ const LevelsSegmentsChart: React.FC<{ data: LevelsData | null }> = ({ data }) =>
             </text>
           ))}
           <text x={4} y={topm + 10} fontSize={10}>
-            胜率(%)
+            {intl.formatMessage({
+              id: 'pages.analyticsLevels.chart.winRateAxis',
+              defaultMessage: '胜率(%)',
+            })}
           </text>
           {/* lines */}
           {pathOf('all', '#1677ff')}
@@ -300,19 +400,31 @@ const LevelsSegmentsChart: React.FC<{ data: LevelsData | null }> = ({ data }) =>
             <rect x={w - right - 260} y={topm + 6} width={250} height={20} fill="#fff" />
             <circle cx={w - right - 250} cy={topm + 16} r={3} fill="#1677ff" />
             <text x={w - right - 242} y={topm + 20} fontSize={10}>
-              全部
+              {intl.formatMessage({
+                id: 'pages.analyticsLevels.chart.legend.all',
+                defaultMessage: '全部',
+              })}
             </text>
             <circle cx={w - right - 200} cy={topm + 16} r={3} fill="#52c41a" />
             <text x={w - right - 192} y={topm + 20} fontSize={10}>
-              新
+              {intl.formatMessage({
+                id: 'pages.analyticsLevels.chart.legend.new',
+                defaultMessage: '新',
+              })}
             </text>
             <circle cx={w - right - 170} cy={topm + 16} r={3} fill="#faad14" />
             <text x={w - right - 162} y={topm + 20} fontSize={10}>
-              回流
+              {intl.formatMessage({
+                id: 'pages.analyticsLevels.chart.legend.returning',
+                defaultMessage: '回流',
+              })}
             </text>
             <circle cx={w - right - 120} cy={topm + 16} r={3} fill="#f5222d" />
             <text x={w - right - 112} y={topm + 20} fontSize={10}>
-              付费
+              {intl.formatMessage({
+                id: 'pages.analyticsLevels.chart.legend.paying',
+                defaultMessage: '付费',
+              })}
             </text>
           </g>
         </svg>
@@ -337,6 +449,7 @@ interface MapData {
 }
 
 const EpisodeFacets: React.FC<{ range: [Dayjs | null, Dayjs | null] | null }> = ({ range }) => {
+  const intl = useIntl();
   const [episodes, setEpisodes] = useState<EpisodeData[]>([]);
   const [loading, setLoading] = useState(false);
   const [limit, setLimit] = useState(6);
@@ -377,11 +490,14 @@ const EpisodeFacets: React.FC<{ range: [Dayjs | null, Dayjs | null] | null }> = 
   };
   return (
     <Card
-      title="按章节分面"
+      title={intl.formatMessage({
+        id: 'pages.analyticsLevels.section.byEpisode',
+        defaultMessage: '按章节分面',
+      })}
       extra={
         <Space>
           <Button onClick={load} loading={loading}>
-            加载
+            <FormattedMessage id="pages.analyticsLevels.button.load" defaultMessage="加载" />
           </Button>
           <Select
             value={limit}
@@ -392,7 +508,12 @@ const EpisodeFacets: React.FC<{ range: [Dayjs | null, Dayjs | null] | null }> = 
               { label: '12', value: 12 },
             ]}
           />
-          <Button onClick={exportExcel}>导出 Excel（多 Sheet）</Button>
+          <Button onClick={exportExcel}>
+            <FormattedMessage
+              id="pages.analyticsLevels.button.exportExcelMultiSheet"
+              defaultMessage="导出 Excel（多 Sheet）"
+            />
+          </Button>
         </Space>
       }
     >
@@ -412,6 +533,7 @@ const EpisodeFacets: React.FC<{ range: [Dayjs | null, Dayjs | null] | null }> = 
 };
 
 const MapFacets: React.FC<{ range: [Dayjs | null, Dayjs | null] | null }> = ({ range }) => {
+  const intl = useIntl();
   const [maps, setMaps] = useState<MapData[]>([]);
   const [loading, setLoading] = useState(false);
   const [limit, setLimit] = useState(6);
@@ -448,11 +570,14 @@ const MapFacets: React.FC<{ range: [Dayjs | null, Dayjs | null] | null }> = ({ r
   };
   return (
     <Card
-      title="按地图分面"
+      title={intl.formatMessage({
+        id: 'pages.analyticsLevels.section.byMap',
+        defaultMessage: '按地图分面',
+      })}
       extra={
         <Space>
           <Button onClick={load} loading={loading}>
-            加载
+            <FormattedMessage id="pages.analyticsLevels.button.load" defaultMessage="加载" />
           </Button>
           <Select
             value={limit}
@@ -463,7 +588,12 @@ const MapFacets: React.FC<{ range: [Dayjs | null, Dayjs | null] | null }> = ({ r
               { label: '12', value: 12 },
             ]}
           />
-          <Button onClick={exportExcel}>导出 Excel</Button>
+          <Button onClick={exportExcel}>
+            <FormattedMessage
+              id="pages.analyticsLevels.button.exportExcel"
+              defaultMessage="导出 Excel"
+            />
+          </Button>
         </Space>
       }
     >
@@ -483,14 +613,27 @@ const MapFacets: React.FC<{ range: [Dayjs | null, Dayjs | null] | null }> = ({ r
 };
 
 const MapFacet: React.FC<{ item: MapData }> = ({ item }) => {
+  const intl = useIntl();
   return (
     <Card size="small" title={item.map || '-'}>
       <Row gutter={8}>
         <Col span={12}>
-          <Statistic title="热力点" value={item.heatMap.length} />
+          <Statistic
+            title={intl.formatMessage({
+              id: 'pages.analyticsLevels.stat.heatPoints',
+              defaultMessage: '热力点',
+            })}
+            value={item.heatMap.length}
+          />
         </Col>
         <Col span={12}>
-          <Statistic title="死亡点" value={item.deathSpots.length} />
+          <Statistic
+            title={intl.formatMessage({
+              id: 'pages.analyticsLevels.stat.deathSpots',
+              defaultMessage: '死亡点',
+            })}
+            value={item.deathSpots.length}
+          />
         </Col>
       </Row>
     </Card>
@@ -498,17 +641,40 @@ const MapFacet: React.FC<{ item: MapData }> = ({ item }) => {
 };
 
 const EpisodeFacet: React.FC<{ episode: EpisodeData }> = ({ episode }) => {
+  const intl = useIntl();
   return (
     <Card size="small" title={episode.episode || '-'}>
       <Row gutter={8}>
         <Col span={8}>
-          <Statistic title="玩家" value={episode.players} />
+          <Statistic
+            title={intl.formatMessage({
+              id: 'pages.analyticsLevels.stat.players',
+              defaultMessage: '玩家',
+            })}
+            value={episode.players}
+          />
         </Col>
         <Col span={8}>
-          <Statistic title="完成率" value={episode.completionRate} suffix="%" precision={2} />
+          <Statistic
+            title={intl.formatMessage({
+              id: 'pages.analyticsLevels.stat.completionRate',
+              defaultMessage: '完成率',
+            })}
+            value={episode.completionRate}
+            suffix="%"
+            precision={2}
+          />
         </Col>
         <Col span={8}>
-          <Statistic title="平均进度" value={episode.avgProgress} suffix="%" precision={2} />
+          <Statistic
+            title={intl.formatMessage({
+              id: 'pages.analyticsLevels.stat.avgProgress',
+              defaultMessage: '平均进度',
+            })}
+            value={episode.avgProgress}
+            suffix="%"
+            precision={2}
+          />
         </Col>
       </Row>
     </Card>

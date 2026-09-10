@@ -18,6 +18,7 @@ import type { FormInstance } from 'antd/es/form';
 import { CopyOutlined } from '@ant-design/icons';
 import { CodeEditor } from '@/components/MonacoDynamic';
 import { formatDateTime } from '@/utils/format';
+import { FormattedMessage, useIntl } from '@umijs/max';
 
 const { TextArea } = Input;
 
@@ -101,7 +102,7 @@ export function JsonViewer({
         }}
       >
         <Button size="small" icon={<CopyOutlined />} onClick={copyJson}>
-          复制
+          <FormattedMessage id="pages.functionsDetail.section.json.copy" defaultMessage="复制" />
         </Button>
       </div>
       <CodeEditor
@@ -134,29 +135,82 @@ export function BasicInfoTab({
   editing: boolean;
   onStatusToggle: (enabled: boolean) => void;
 }) {
+  const intl = useIntl();
   return (
     <>
       <Descriptions bordered column={2}>
-        <Descriptions.Item label="函数ID">
+        <Descriptions.Item
+          label={intl.formatMessage({
+            id: 'pages.functionsDetail.section.basic.functionId',
+            defaultMessage: '函数ID',
+          })}
+        >
           <code>{functionDetail?.id}</code>
         </Descriptions.Item>
-        <Descriptions.Item label="版本">
+        <Descriptions.Item
+          label={intl.formatMessage({
+            id: 'pages.functionsDetail.section.basic.version',
+            defaultMessage: '版本',
+          })}
+        >
           <Tag>{functionDetail?.version || '1.0.0'}</Tag>
         </Descriptions.Item>
-        <Descriptions.Item label="资源">
-          <Tag color="blue">{effectiveResource || '未声明'}</Tag>
+        <Descriptions.Item
+          label={intl.formatMessage({
+            id: 'pages.functionsDetail.section.basic.resource',
+            defaultMessage: '资源',
+          })}
+        >
+          <Tag color="blue">
+            {effectiveResource ||
+              intl.formatMessage({
+                id: 'pages.functionsDetail.section.basic.notDeclared',
+                defaultMessage: '未声明',
+              })}
+          </Tag>
         </Descriptions.Item>
-        <Descriptions.Item label="操作">
-          <Tag color="purple">{functionDetail?.operation || '未声明'}</Tag>
+        <Descriptions.Item
+          label={intl.formatMessage({
+            id: 'pages.functionsDetail.section.basic.operation',
+            defaultMessage: '操作',
+          })}
+        >
+          <Tag color="purple">
+            {functionDetail?.operation ||
+              intl.formatMessage({
+                id: 'pages.functionsDetail.section.basic.notDeclared',
+                defaultMessage: '未声明',
+              })}
+          </Tag>
         </Descriptions.Item>
-        <Descriptions.Item label="状态">
+        <Descriptions.Item
+          label={intl.formatMessage({
+            id: 'pages.functionsDetail.section.basic.status',
+            defaultMessage: '状态',
+          })}
+        >
           <Space>
             <Switch checked={functionDetail?.enabled || false} onChange={onStatusToggle} />
-            <span>{functionDetail?.enabled ? '已启用' : '已禁用'}</span>
+            <span>
+              {functionDetail?.enabled
+                ? intl.formatMessage({
+                    id: 'pages.functionsDetail.section.basic.enabled',
+                    defaultMessage: '已启用',
+                  })
+                : intl.formatMessage({
+                    id: 'pages.functionsDetail.section.basic.disabled',
+                    defaultMessage: '已禁用',
+                  })}
+            </span>
           </Space>
         </Descriptions.Item>
         <Descriptions.Item label="Provider">{functionDetail?.provider || '-'}</Descriptions.Item>
-        <Descriptions.Item label="健康状态">
+        <Descriptions.Item
+          label={intl.formatMessage({
+            id: 'pages.functionsDetail.section.basic.health',
+            defaultMessage: '健康状态',
+          })}
+        >
           <Tag
             color={
               functionDetail?.health === 'healthy'
@@ -167,59 +221,156 @@ export function BasicInfoTab({
             }
           >
             {functionDetail?.health === 'healthy'
-              ? '健康'
+              ? intl.formatMessage({
+                  id: 'pages.functionsDetail.section.basic.healthHealthy',
+                  defaultMessage: '健康',
+                })
               : functionDetail?.health === 'unhealthy'
-                ? '异常'
-                : '未知'}
+                ? intl.formatMessage({
+                    id: 'pages.functionsDetail.section.basic.healthUnhealthy',
+                    defaultMessage: '异常',
+                  })
+                : intl.formatMessage({
+                    id: 'pages.functionsDetail.section.basic.healthUnknown',
+                    defaultMessage: '未知',
+                  })}
           </Tag>
         </Descriptions.Item>
-        <Descriptions.Item label="Agent 数量">{functionDetail?.agentCount || 0}</Descriptions.Item>
-        <Descriptions.Item label="创建时间">
+        <Descriptions.Item
+          label={intl.formatMessage({
+            id: 'pages.functionsDetail.section.basic.agentCount',
+            defaultMessage: 'Agent 数量',
+          })}
+        >
+          {functionDetail?.agentCount || 0}
+        </Descriptions.Item>
+        <Descriptions.Item
+          label={intl.formatMessage({
+            id: 'pages.functionsDetail.section.basic.createdAt',
+            defaultMessage: '创建时间',
+          })}
+        >
           {functionDetail?.createdAt ? formatDateTime(functionDetail.createdAt) : '-'}
         </Descriptions.Item>
-        <Descriptions.Item label="更新时间">
+        <Descriptions.Item
+          label={intl.formatMessage({
+            id: 'pages.functionsDetail.section.basic.updatedAt',
+            defaultMessage: '更新时间',
+          })}
+        >
           {functionDetail?.updatedAt ? formatDateTime(functionDetail.updatedAt) : '-'}
         </Descriptions.Item>
       </Descriptions>
 
       {editing && (
         <>
-          <Divider>编辑信息</Divider>
+          <Divider>
+            <FormattedMessage
+              id="pages.functionsDetail.section.edit.divider"
+              defaultMessage="编辑信息"
+            />
+          </Divider>
           <Row gutter={16}>
             <Col span={12}>
               <Form.Item
-                label="函数名称"
+                label={intl.formatMessage({
+                  id: 'pages.functionsDetail.section.edit.name.label',
+                  defaultMessage: '函数名称',
+                })}
                 name="name"
-                rules={[{ required: true, message: '请输入函数名称' }]}
+                rules={[
+                  {
+                    required: true,
+                    message: intl.formatMessage({
+                      id: 'pages.functionsDetail.section.edit.name.required',
+                      defaultMessage: '请输入函数名称',
+                    }),
+                  },
+                ]}
               >
-                <Input placeholder="请输入函数名称" />
+                <Input
+                  placeholder={intl.formatMessage({
+                    id: 'pages.functionsDetail.section.edit.name.placeholder',
+                    defaultMessage: '请输入函数名称',
+                  })}
+                />
               </Form.Item>
             </Col>
             <Col span={12}>
-              <Form.Item label="资源" name="resource">
-                <Input placeholder="例如 player / mail / economy" />
+              <Form.Item
+                label={intl.formatMessage({
+                  id: 'pages.functionsDetail.section.edit.resource.label',
+                  defaultMessage: '资源',
+                })}
+                name="resource"
+              >
+                <Input
+                  placeholder={intl.formatMessage({
+                    id: 'pages.functionsDetail.section.edit.resource.placeholder',
+                    defaultMessage: '例如 player / mail / economy',
+                  })}
+                />
               </Form.Item>
             </Col>
           </Row>
-          <Form.Item label="描述" name="description">
-            <TextArea rows={3} placeholder="请输入函数描述" />
+          <Form.Item
+            label={intl.formatMessage({
+              id: 'pages.functionsDetail.section.edit.description.label',
+              defaultMessage: '描述',
+            })}
+            name="description"
+          >
+            <TextArea
+              rows={3}
+              placeholder={intl.formatMessage({
+                id: 'pages.functionsDetail.section.edit.description.placeholder',
+                defaultMessage: '请输入函数描述',
+              })}
+            />
           </Form.Item>
-          <Form.Item label="标签" name="tags">
-            <Input placeholder="请输入标签，多个标签用逗号分隔" />
+          <Form.Item
+            label={intl.formatMessage({
+              id: 'pages.functionsDetail.section.edit.tags.label',
+              defaultMessage: '标签',
+            })}
+            name="tags"
+          >
+            <Input
+              placeholder={intl.formatMessage({
+                id: 'pages.functionsDetail.section.edit.tags.placeholder',
+                defaultMessage: '请输入标签，多个标签用逗号分隔',
+              })}
+            />
           </Form.Item>
         </>
       )}
 
       {!editing && (
         <>
-          <Divider>描述</Divider>
-          <p>{functionDetail?.description || '暂无描述'}</p>
+          <Divider>
+            <FormattedMessage
+              id="pages.functionsDetail.section.view.descriptionDivider"
+              defaultMessage="描述"
+            />
+          </Divider>
+          <p>
+            {functionDetail?.description ||
+              intl.formatMessage({
+                id: 'pages.functionsDetail.section.view.noDescription',
+                defaultMessage: '暂无描述',
+              })}
+          </p>
         </>
       )}
 
       {!editing && functionDetail?.tags && functionDetail.tags.length > 0 && (
         <>
-          <Divider>标签</Divider>
+          <Divider>
+            <FormattedMessage
+              id="pages.functionsDetail.section.view.tagsDivider"
+              defaultMessage="标签"
+            />
+          </Divider>
           <Space wrap>
             {functionDetail.tags.map((tag) => (
               <Tag key={tag} color="geekblue">
@@ -248,11 +399,19 @@ export function PermissionsTab({
   permForm: FormInstance;
   onSave: () => Promise<void>;
 }) {
+  const intl = useIntl();
   return (
     <>
       <Alert
-        message="权限配置"
-        description="用于控制哪些角色可以调用该函数（actions 建议使用 invoke/execute；roles 填角色名）。"
+        message={intl.formatMessage({
+          id: 'pages.functionsDetail.section.permissions.alertMessage',
+          defaultMessage: '权限配置',
+        })}
+        description={intl.formatMessage({
+          id: 'pages.functionsDetail.section.permissions.alertDescription',
+          defaultMessage:
+            '用于控制哪些角色可以调用该函数（actions 建议使用 invoke/execute；roles 填角色名）。',
+        })}
         type="info"
         showIcon
       />
@@ -262,12 +421,23 @@ export function PermissionsTab({
           style={{ marginTop: 16 }}
           type="error"
           showIcon
-          message="无法读取权限"
+          message={intl.formatMessage({
+            id: 'pages.functionsDetail.section.permissions.errorTitle',
+            defaultMessage: '无法读取权限',
+          })}
           description={permError}
         />
       )}
 
-      <Card style={{ marginTop: 16 }} loading={permLoading} size="small" title="函数权限规则">
+      <Card
+        style={{ marginTop: 16 }}
+        loading={permLoading}
+        size="small"
+        title={intl.formatMessage({
+          id: 'pages.functionsDetail.section.permissions.cardTitle',
+          defaultMessage: '函数权限规则',
+        })}
+      >
         <Form form={permForm} layout="vertical">
           <Form.List name="items">
             {(fields, { add, remove }) => (
@@ -277,10 +447,19 @@ export function PermissionsTab({
                     key={field.key}
                     size="small"
                     type="inner"
-                    title={`规则 #${field.name + 1}`}
+                    title={intl.formatMessage(
+                      {
+                        id: 'pages.functionsDetail.section.permissions.ruleTitle',
+                        defaultMessage: '规则 #{index}',
+                      },
+                      { index: field.name + 1 },
+                    )}
                     extra={
                       <Button danger size="small" onClick={() => remove(field.name)}>
-                        删除
+                        <FormattedMessage
+                          id="pages.functionsDetail.section.permissions.remove"
+                          defaultMessage="删除"
+                        />
                       </Button>
                     }
                   >
@@ -290,7 +469,15 @@ export function PermissionsTab({
                           {...field}
                           label="resource"
                           name={[field.name, 'resource']}
-                          rules={[{ required: true, message: 'resource 必填' }]}
+                          rules={[
+                            {
+                              required: true,
+                              message: intl.formatMessage({
+                                id: 'pages.functionsDetail.section.permissions.resourceRequired',
+                                defaultMessage: 'resource 必填',
+                              }),
+                            },
+                          ]}
                         >
                           <Input placeholder="function" />
                         </Form.Item>
@@ -300,7 +487,15 @@ export function PermissionsTab({
                           {...field}
                           label="actions"
                           name={[field.name, 'actions']}
-                          rules={[{ required: true, message: 'actions 必填' }]}
+                          rules={[
+                            {
+                              required: true,
+                              message: intl.formatMessage({
+                                id: 'pages.functionsDetail.section.permissions.actionsRequired',
+                                defaultMessage: 'actions 必填',
+                              }),
+                            },
+                          ]}
                         >
                           <Select mode="tags" placeholder="invoke / execute" />
                         </Form.Item>
@@ -310,9 +505,23 @@ export function PermissionsTab({
                           {...field}
                           label="roles"
                           name={[field.name, 'roles']}
-                          rules={[{ required: true, message: 'roles 必填（至少 1 个）' }]}
+                          rules={[
+                            {
+                              required: true,
+                              message: intl.formatMessage({
+                                id: 'pages.functionsDetail.section.permissions.rolesRequired',
+                                defaultMessage: 'roles 必填（至少 1 个）',
+                              }),
+                            },
+                          ]}
                         >
-                          <Select mode="tags" placeholder="例如：ops / admin / functions:manage" />
+                          <Select
+                            mode="tags"
+                            placeholder={intl.formatMessage({
+                              id: 'pages.functionsDetail.section.permissions.rolesPlaceholder',
+                              defaultMessage: '例如：ops / admin / functions:manage',
+                            })}
+                          />
                         </Form.Item>
                       </Col>
                       <Col span={3}>
@@ -333,7 +542,10 @@ export function PermissionsTab({
                   <Button
                     onClick={() => add({ resource: 'function', actions: ['invoke'], roles: [] })}
                   >
-                    添加规则
+                    <FormattedMessage
+                      id="pages.functionsDetail.section.permissions.addRule"
+                      defaultMessage="添加规则"
+                    />
                   </Button>
                   <Button
                     type="primary"
@@ -341,7 +553,10 @@ export function PermissionsTab({
                     disabled={!functionId}
                     onClick={onSave}
                   >
-                    保存权限
+                    <FormattedMessage
+                      id="pages.functionsDetail.section.permissions.save"
+                      defaultMessage="保存权限"
+                    />
                   </Button>
                 </Space>
               </Space>

@@ -3,7 +3,7 @@ import { PageContainer, ProTable, type ProColumns } from '@ant-design/pro-compon
 import { Alert, App, Button, Card, Space, Tag, Typography } from 'antd';
 import type { UploadFile } from 'antd/es/upload/interface';
 import { CloudUploadOutlined, EditOutlined, ReloadOutlined } from '@ant-design/icons';
-import { history, useAccess } from '@umijs/max';
+import { FormattedMessage, history, useAccess, useIntl } from '@umijs/max';
 import {
   bindOpenAPISourceProvider,
   createOpenAPISource,
@@ -35,6 +35,7 @@ import {
 
 export default function OpenAPISourcesPage() {
   const { message, modal } = App.useApp();
+  const intl = useIntl();
   const access = useAccess() as {
     canOpenAPISourcesWrite?: boolean;
   };
@@ -121,7 +122,12 @@ export default function OpenAPISourcesPage() {
 
   const openUpdateSourceModal = async (record: OpenAPISourceSummary | OpenAPISourceDetail) => {
     if (!canWrite) {
-      message.error('没有 OpenAPI Source 写权限');
+      message.error(
+        intl.formatMessage({
+          id: 'pages.openapiSources.error.noWritePermission',
+          defaultMessage: '没有 OpenAPI Source 写权限',
+        }),
+      );
       return;
     }
     setSourceDiagnostics([]);
@@ -137,7 +143,15 @@ export default function OpenAPISourcesPage() {
       setUploadFile(null);
       setSourceModalOpen(true);
     } catch (error) {
-      message.error(errorMessage(error, '加载 OpenAPI Source 失败'));
+      message.error(
+        errorMessage(
+          error,
+          intl.formatMessage({
+            id: 'pages.openapiSources.error.loadSourceFailed',
+            defaultMessage: '加载 OpenAPI Source 失败',
+          }),
+        ),
+      );
     }
   };
 
@@ -148,7 +162,12 @@ export default function OpenAPISourcesPage() {
 
   const submitSource = async () => {
     if (!canWrite) {
-      message.error('没有 OpenAPI Source 写权限');
+      message.error(
+        intl.formatMessage({
+          id: 'pages.openapiSources.error.noWritePermission',
+          defaultMessage: '没有 OpenAPI Source 写权限',
+        }),
+      );
       return;
     }
     setSourceDiagnostics([]);
@@ -156,12 +175,22 @@ export default function OpenAPISourcesPage() {
       let response;
       if (isUpdatingSource) {
         if (!editingSource) {
-          message.error('缺少要更新的 OpenAPI Source');
+          message.error(
+            intl.formatMessage({
+              id: 'pages.openapiSources.message.missingUpdateTarget',
+              defaultMessage: '缺少要更新的 OpenAPI Source',
+            }),
+          );
           return;
         }
         const text = rawSpec.trim();
         if (!text) {
-          message.warning('请粘贴新的 OpenAPI JSON');
+          message.warning(
+            intl.formatMessage({
+              id: 'pages.openapiSources.message.pasteJson',
+              defaultMessage: '请粘贴新的 OpenAPI JSON',
+            }),
+          );
           return;
         }
         response = await updateOpenAPISource(
@@ -177,12 +206,27 @@ export default function OpenAPISourcesPage() {
       } else {
         const text = rawSpec.trim();
         if (!text) {
-          message.warning('请上传文件或粘贴 OpenAPI JSON');
+          message.warning(
+            intl.formatMessage({
+              id: 'pages.openapiSources.message.uploadOrPaste',
+              defaultMessage: '请上传文件或粘贴 OpenAPI JSON',
+            }),
+          );
           return;
         }
         response = await createOpenAPISource(parseOpenAPIDocument(text), uploadName || undefined);
       }
-      message.success(isUpdatingSource ? 'OpenAPI Source 已更新' : 'OpenAPI Source 已创建');
+      message.success(
+        isUpdatingSource
+          ? intl.formatMessage({
+              id: 'pages.openapiSources.message.sourceUpdated',
+              defaultMessage: 'OpenAPI Source 已更新',
+            })
+          : intl.formatMessage({
+              id: 'pages.openapiSources.message.sourceCreated',
+              defaultMessage: 'OpenAPI Source 已创建',
+            }),
+      );
       setSourceModalOpen(false);
       resetSourceForm();
       await loadSources();
@@ -191,16 +235,34 @@ export default function OpenAPISourcesPage() {
       const diagnostics = diagnosticsFromError(error);
       if (diagnostics.length > 0) {
         setSourceDiagnostics(diagnostics);
-        message.error('OpenAPI Source 校验失败，请查看诊断');
+        message.error(
+          intl.formatMessage({
+            id: 'pages.openapiSources.message.validationFailed',
+            defaultMessage: 'OpenAPI Source 校验失败，请查看诊断',
+          }),
+        );
         return;
       }
-      message.error(errorMessage(error, '创建 OpenAPI Source 失败'));
+      message.error(
+        errorMessage(
+          error,
+          intl.formatMessage({
+            id: 'pages.openapiSources.error.createSourceFailed',
+            defaultMessage: '创建 OpenAPI Source 失败',
+          }),
+        ),
+      );
     }
   };
 
   const openBindingModal = (operation: OpenAPISourceOperation) => {
     if (!canWrite) {
-      message.error('没有 OpenAPI Source 写权限');
+      message.error(
+        intl.formatMessage({
+          id: 'pages.openapiSources.error.noWritePermission',
+          defaultMessage: '没有 OpenAPI Source 写权限',
+        }),
+      );
       return;
     }
     setBindingOperation(operation);
@@ -212,11 +274,21 @@ export default function OpenAPISourcesPage() {
 
   const submitBinding = async () => {
     if (!canWrite) {
-      message.error('没有 OpenAPI Source 写权限');
+      message.error(
+        intl.formatMessage({
+          id: 'pages.openapiSources.error.noWritePermission',
+          defaultMessage: '没有 OpenAPI Source 写权限',
+        }),
+      );
       return;
     }
     if (!detail || !bindingOperation || !bindingFunctionId) {
-      message.warning('请选择要绑定的函数');
+      message.warning(
+        intl.formatMessage({
+          id: 'pages.openapiSources.message.selectFunction',
+          defaultMessage: '请选择要绑定的函数',
+        }),
+      );
       return;
     }
     try {
@@ -231,9 +303,22 @@ export default function OpenAPISourcesPage() {
       await loadSources();
       if (result.proposal) {
         modal.success({
-          title: 'Provider binding 已保存',
-          content: `已生成默认页面 Proposal：${result.proposal.proposalKey}。请进入 Proposal 队列预览并发布，发布后才会出现在运行控制台菜单。`,
-          okText: '打开 Proposal',
+          title: intl.formatMessage({
+            id: 'pages.openapiSources.binding.savedModal.title',
+            defaultMessage: 'Provider binding 已保存',
+          }),
+          content: intl.formatMessage(
+            {
+              id: 'pages.openapiSources.binding.savedModal.content',
+              defaultMessage:
+                '已生成默认页面 Proposal：{proposalKey}。请进入 Proposal 队列预览并发布，发布后才会出现在运行控制台菜单。',
+            },
+            { proposalKey: result.proposal.proposalKey },
+          ),
+          okText: intl.formatMessage({
+            id: 'pages.openapiSources.binding.savedModal.okText',
+            defaultMessage: '打开 Proposal',
+          }),
           onOk: () =>
             history.push(
               proposalInboxPath(result.proposal!.proposalKey, result.proposal!.resourceKey),
@@ -241,22 +326,44 @@ export default function OpenAPISourcesPage() {
         });
       } else {
         message.warning(
-          'Provider binding 已保存，但未返回可发布 Proposal。请在 Proposal 队列查看诊断。',
+          intl.formatMessage({
+            id: 'pages.openapiSources.binding.savedWithoutProposal',
+            defaultMessage:
+              'Provider binding 已保存，但未返回可发布 Proposal。请在 Proposal 队列查看诊断。',
+          }),
         );
       }
     } catch (error) {
-      message.error(errorMessage(error, '保存 binding 失败'));
+      message.error(
+        errorMessage(
+          error,
+          intl.formatMessage({
+            id: 'pages.openapiSources.binding.saveFailed',
+            defaultMessage: '保存 binding 失败',
+          }),
+        ),
+      );
     }
   };
 
   const removeBinding = async (binding: OpenAPISourceBinding) => {
     if (!canWrite) {
-      message.error('没有 OpenAPI Source 写权限');
+      message.error(
+        intl.formatMessage({
+          id: 'pages.openapiSources.error.noWritePermission',
+          defaultMessage: '没有 OpenAPI Source 写权限',
+        }),
+      );
       return;
     }
     if (!detail) return;
     await deleteOpenAPISourceBinding(detail.sourceId, binding.bindingId);
-    message.success('binding 已删除');
+    message.success(
+      intl.formatMessage({
+        id: 'pages.openapiSources.binding.deleted',
+        defaultMessage: 'binding 已删除',
+      }),
+    );
     await openDetail(detail.sourceId);
     await loadSources();
   };
@@ -273,7 +380,10 @@ export default function OpenAPISourcesPage() {
       ),
     },
     {
-      title: '版本',
+      title: intl.formatMessage({
+        id: 'pages.openapiSources.column.version',
+        defaultMessage: '版本',
+      }),
       dataIndex: 'revision',
       width: 100,
       render: (_, record) => <Tag>{`rev ${record.revision}`}</Tag>,
@@ -285,12 +395,18 @@ export default function OpenAPISourcesPage() {
       render: (_, record) => <Tag>{record.openapiVersion || '-'}</Tag>,
     },
     {
-      title: '操作数',
+      title: intl.formatMessage({
+        id: 'pages.openapiSources.column.operationCount',
+        defaultMessage: '操作数',
+      }),
       dataIndex: 'operationCount',
       width: 100,
     },
     {
-      title: '诊断',
+      title: intl.formatMessage({
+        id: 'pages.openapiSources.column.diagnosticCount',
+        defaultMessage: '诊断',
+      }),
       dataIndex: 'diagnosticCount',
       width: 100,
       render: (_, record) => (
@@ -298,19 +414,25 @@ export default function OpenAPISourcesPage() {
       ),
     },
     {
-      title: '更新时间',
+      title: intl.formatMessage({
+        id: 'pages.openapiSources.column.updatedAt',
+        defaultMessage: '更新时间',
+      }),
       dataIndex: 'updatedAt',
       width: 180,
       render: (_, record) => formatDate(record.updatedAt),
     },
     {
-      title: '操作',
+      title: intl.formatMessage({
+        id: 'pages.openapiSources.column.actions',
+        defaultMessage: '操作',
+      }),
       valueType: 'option',
       width: 170,
       render: (_, record) => {
         const actions = [
           <Button key="open" type="link" size="small" onClick={() => openDetail(record.sourceId)}>
-            打开
+            <FormattedMessage id="pages.openapiSources.button.open" defaultMessage="打开" />
           </Button>,
         ];
         if (canWrite) {
@@ -322,7 +444,7 @@ export default function OpenAPISourcesPage() {
               icon={<EditOutlined />}
               onClick={() => openUpdateSourceModal(record)}
             >
-              更新
+              <FormattedMessage id="pages.openapiSources.button.update" defaultMessage="更新" />
             </Button>,
           );
         }
@@ -333,7 +455,7 @@ export default function OpenAPISourcesPage() {
 
   const pageActions = [
     <Button key="reload" icon={<ReloadOutlined />} onClick={loadSources} loading={loading}>
-      刷新
+      <FormattedMessage id="pages.openapiSources.button.refresh" defaultMessage="刷新" />
     </Button>,
   ];
   if (canWrite) {
@@ -344,7 +466,7 @@ export default function OpenAPISourcesPage() {
         icon={<CloudUploadOutlined />}
         onClick={openCreateSourceModal}
       >
-        上传 Source
+        <FormattedMessage id="pages.openapiSources.button.upload" defaultMessage="上传 Source" />
       </Button>,
     );
   }
@@ -352,26 +474,49 @@ export default function OpenAPISourcesPage() {
   return (
     <PageContainer
       title="OpenAPI Sources"
-      subTitle="上传 OpenAPI 只产生能力契约和诊断；可执行性必须显式绑定 Provider，页面 UI 仍在 Page Studio 确定。"
+      subTitle={intl.formatMessage({
+        id: 'pages.openapiSources.page.subTitle',
+        defaultMessage:
+          '上传 OpenAPI 只产生能力契约和诊断；可执行性必须显式绑定 Provider，页面 UI 仍在 Page Studio 确定。',
+      })}
       extra={pageActions}
     >
       <Space orientation="vertical" size={16} style={{ width: '100%' }}>
         <Alert
           type="info"
           showIcon
-          message="Source 不是 UI，也不是自动注册"
-          description="OpenAPI Source 用于解析 FunctionSpec / ResourceSpec / OperationSpec 和 PageCandidate 诊断；Source 未绑定 Provider 前不可执行，上传文档中的 UI、菜单、路由和 renderer 私有字段会被后端拒绝。"
+          message={intl.formatMessage({
+            id: 'pages.openapiSources.alert.notUi.message',
+            defaultMessage: 'Source 不是 UI，也不是自动注册',
+          })}
+          description={intl.formatMessage({
+            id: 'pages.openapiSources.alert.notUi.description',
+            defaultMessage:
+              'OpenAPI Source 用于解析 FunctionSpec / ResourceSpec / OperationSpec 和 PageCandidate 诊断；Source 未绑定 Provider 前不可执行，上传文档中的 UI、菜单、路由和 renderer 私有字段会被后端拒绝。',
+          })}
         />
         {!canWrite ? (
           <Alert
             type="warning"
             showIcon
-            message="当前是只读模式"
-            description="你可以查看 Source、operation、diagnostics 和现有 Provider binding；上传、绑定和解绑需要 OpenAPI Source 写权限。"
+            message={intl.formatMessage({
+              id: 'pages.openapiSources.alert.readOnly.message',
+              defaultMessage: '当前是只读模式',
+            })}
+            description={intl.formatMessage({
+              id: 'pages.openapiSources.alert.readOnly.description',
+              defaultMessage:
+                '你可以查看 Source、operation、diagnostics 和现有 Provider binding；上传、绑定和解绑需要 OpenAPI Source 写权限。',
+            })}
           />
         ) : null}
         {sourceDiagnostics.length > 0 ? (
-          <Card title="最近一次诊断">
+          <Card
+            title={intl.formatMessage({
+              id: 'pages.openapiSources.card.latestDiagnostics',
+              defaultMessage: '最近一次诊断',
+            })}
+          >
             <Space orientation="vertical" size={6}>
               {sourceDiagnostics.map((item) => (
                 <Alert

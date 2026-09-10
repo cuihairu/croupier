@@ -11,6 +11,7 @@
  */
 
 import React, { useMemo } from 'react';
+import { useIntl } from '@umijs/max';
 import { PageContainer } from '@ant-design/pro-components';
 import PageRenderer from '@/components/PageRenderer';
 import type {
@@ -516,9 +517,19 @@ export function createPlayerManageDemoExecute(): PageExecuteFn {
  * 列表 + 详情 + 封禁 + 充值 + 邮件 + 批量操作。
  */
 const PlayerManageTemplate: React.FC = () => {
+  const intl = useIntl();
   const execute = useMemo(() => createPlayerManageDemoExecute(), []);
   return (
-    <PageContainer title="玩家管理" subTitle="CRUD 模板 · 列表 / 详情 / 封禁 / 充值 / 邮件">
+    <PageContainer
+      title={intl.formatMessage({
+        id: 'component.pageRenderer.playerManage.pageTitle',
+        defaultMessage: '玩家管理',
+      })}
+      subTitle={intl.formatMessage({
+        id: 'component.pageRenderer.playerManage.pageSubtitle',
+        defaultMessage: 'CRUD 模板 · 列表 / 详情 / 封禁 / 充值 / 邮件',
+      })}
+    >
       <PageRenderer pageSpec={playerManagePageSpec} onExecute={execute} />
     </PageContainer>
   );

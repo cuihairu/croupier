@@ -1,0 +1,30 @@
+// pages.opsAnalyticsFilters.* — Ops/AnalyticsFilters 筛选器
+export default {
+  'pages.opsAnalyticsFilters.action.load': '加载',
+  'pages.opsAnalyticsFilters.action.save': '保存',
+  'pages.opsAnalyticsFilters.card.title': '采样控制（Server 下发）',
+  'pages.opsAnalyticsFilters.error.loadFailed': '加载失败',
+  'pages.opsAnalyticsFilters.error.saveFailed': '保存失败（需要 analytics:manage 权限）',
+  'pages.opsAnalyticsFilters.events.allAllowed': '全部允许',
+  'pages.opsAnalyticsFilters.events.label': '事件白名单：',
+  'pages.opsAnalyticsFilters.events.placeholder': '输入允许的事件名，留空=全部允许',
+  'pages.opsAnalyticsFilters.hint.explainTag': '说明',
+  'pages.opsAnalyticsFilters.hint.sampleRule':
+    '说明：留空事件列表=允许全部；设置为空列表（删除所有 tag）=全部丢弃。Agent 端将基于白名单与采样率丢弃事件；支付上报可独立开关。',
+  'pages.opsAnalyticsFilters.hint.sampleTooltip':
+    '按百分比随机采样，100 表示全量，0 表示全部丢弃。',
+  'pages.opsAnalyticsFilters.payments.disabled': '禁用（全部丢弃）',
+  'pages.opsAnalyticsFilters.payments.enabled': '允许上报',
+  'pages.opsAnalyticsFilters.payments.label': '支付埋点：',
+  'pages.opsAnalyticsFilters.payments.stateDisabled': '禁用',
+  'pages.opsAnalyticsFilters.payments.stateEnabled': '启用',
+  'pages.opsAnalyticsFilters.sample.label': '全局采样：',
+  'pages.opsAnalyticsFilters.select.envPlaceholder': '环境',
+  'pages.opsAnalyticsFilters.select.gamePlaceholder': '游戏',
+  'pages.opsAnalyticsFilters.success.saved': '已保存',
+  'pages.opsAnalyticsFilters.summary.current': '当前：',
+  'pages.opsAnalyticsFilters.summary.eventsCount': '· 事件数',
+  'pages.opsAnalyticsFilters.summary.payments': '· 支付',
+  'pages.opsAnalyticsFilters.summary.sample': '· 采样',
+  'pages.opsAnalyticsFilters.warning.selectGameEnv': '请选择游戏与环境',
+};

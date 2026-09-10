@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   App,
   Button,
@@ -16,6 +16,7 @@ import {
 } from 'antd';
 import { PageContainer } from '@ant-design/pro-components';
 import { PlayCircleOutlined, ReloadOutlined, SafetyOutlined } from '@ant-design/icons';
+import { FormattedMessage, useIntl } from '@umijs/max';
 import {
   getOpsHealth,
   getOpsMaintenance,
@@ -34,6 +35,11 @@ const { Text } = Typography;
 
 export default function OpsStatusPage() {
   const { message } = App.useApp();
+  const intl = useIntl();
+  // useIntl 在测试 mock 下每次渲染返回新引用，直接进 useCallback 依赖会让请求
+  // effect 无限重建；经 ref 转发后回调依赖稳定，执行时仍读取最新实例
+  const intlRef = useRef(intl);
+  intlRef.current = intl;
 
   const [checks, setChecks] = useState<HealthCheck[]>([]);
   const [running, setRunning] = useState<Record<string, HealthRunResult>>({});
@@ -51,7 +57,15 @@ export default function OpsStatusPage() {
       setServices(s);
       setMqStreams(Object.entries(mq?.lengths || {}).map(([name, length]) => ({ name, length })));
     } catch (error) {
-      message.error(extractErrorMessage(error, '加载状态失败'));
+      message.error(
+        extractErrorMessage(
+          error,
+          intlRef.current.formatMessage({
+            id: 'pages.opsStatus.error.loadFailed',
+            defaultMessage: '加载状态失败',
+          }),
+        ),
+      );
     } finally {
       setLoading(false);
     }
@@ -77,11 +91,37 @@ export default function OpsStatusPage() {
     try {
       const r = await runOpsHealthCheck(id);
       setRunning((prev) => ({ ...prev, [id]: r }));
+      const fallbackError = intl.formatMessage({
+        id: 'pages.opsStatus.check.runFallbackError',
+        defaultMessage: '失败',
+      });
       message[r.ok ? 'success' : 'error'](
-        r.ok ? `${id} 正常（${r.latencyMs}ms）` : `${id} 异常：${r.error || '失败'}`,
+        r.ok
+          ? intl.formatMessage(
+              {
+                id: 'pages.opsStatus.check.runOk',
+                defaultMessage: `${id} 正常（${r.latencyMs}ms）`,
+              },
+              { id, latencyMs: r.latencyMs },
+            )
+          : intl.formatMessage(
+              {
+                id: 'pages.opsStatus.check.runAbnormal',
+                defaultMessage: `${id} 异常：${r.error || fallbackError}`,
+              },
+              { id, error: r.error || fallbackError },
+            ),
       );
     } catch (error) {
-      message.error(extractErrorMessage(error, '执行失败'));
+      message.error(
+        extractErrorMessage(
+          error,
+          intl.formatMessage({
+            id: 'pages.opsStatus.error.executeFailed',
+            defaultMessage: '执行失败',
+          }),
+        ),
+      );
     }
   };
 
@@ -91,7 +131,15 @@ export default function OpsStatusPage() {
       await updateOpsHealth({ enabled: true, checks: next });
       setChecks(next);
     } catch (error) {
-      message.error(extractErrorMessage(error, '更新失败'));
+      message.error(
+        extractErrorMessage(
+          error,
+          intl.formatMessage({
+            id: 'pages.opsStatus.error.updateFailed',
+            defaultMessage: '更新失败',
+          }),
+        ),
+      );
     }
   };
 
@@ -100,9 +148,22 @@ export default function OpsStatusPage() {
     setMaintSaving(true);
     try {
       await updateOpsMaintenance(v);
-      message.success('维护模式已更新');
+      message.success(
+        intl.formatMessage({
+          id: 'pages.opsStatus.maintenance.updated',
+          defaultMessage: '维护模式已更新',
+        }),
+      );
     } catch (error) {
-      message.error(extractErrorMessage(error, '更新失败'));
+      message.error(
+        extractErrorMessage(
+          error,
+          intl.formatMessage({
+            id: 'pages.opsStatus.error.updateFailed',
+            defaultMessage: '更新失败',
+          }),
+        ),
+      );
     } finally {
       setMaintSaving(false);
     }
@@ -113,10 +174,13 @@ export default function OpsStatusPage() {
       <Row gutter={[16, 16]}>
         <Col xs={24} lg={14}>
           <Card
-            title="健康检查"
+            title={intl.formatMessage({
+              id: 'pages.opsStatus.check.cardTitle',
+              defaultMessage: '健康检查',
+            })}
             extra={
               <Button icon={<ReloadOutlined />} onClick={load} loading={loading}>
-                刷新
+                <FormattedMessage id="pages.opsStatus.action.refresh" defaultMessage="刷新" />
               </Button>
             }
           >
@@ -125,14 +189,42 @@ export default function OpsStatusPage() {
               size="small"
               dataSource={checks}
               pagination={false}
-              locale={{ emptyText: '未配置健康检查项' }}
+              locale={{
+                emptyText: intl.formatMessage({
+                  id: 'pages.opsStatus.check.empty',
+                  defaultMessage: '未配置健康检查项',
+                }),
+              }}
               columns={[
                 { title: 'ID', dataIndex: 'id', width: 140 },
-                { title: '名称', dataIndex: 'name' },
-                { title: '类型', dataIndex: 'kind', width: 90 },
-                { title: '目标', dataIndex: 'target', ellipsis: true },
                 {
-                  title: '启用',
+                  title: intl.formatMessage({
+                    id: 'pages.opsStatus.check.column.name',
+                    defaultMessage: '名称',
+                  }),
+                  dataIndex: 'name',
+                },
+                {
+                  title: intl.formatMessage({
+                    id: 'pages.opsStatus.check.column.kind',
+                    defaultMessage: '类型',
+                  }),
+                  dataIndex: 'kind',
+                  width: 90,
+                },
+                {
+                  title: intl.formatMessage({
+                    id: 'pages.opsStatus.check.column.target',
+                    defaultMessage: '目标',
+                  }),
+                  dataIndex: 'target',
+                  ellipsis: true,
+                },
+                {
+                  title: intl.formatMessage({
+                    id: 'pages.opsStatus.check.column.enabled',
+                    defaultMessage: '启用',
+                  }),
                   dataIndex: 'enabled',
                   width: 70,
                   render: (v: boolean, c) => (
@@ -140,7 +232,10 @@ export default function OpsStatusPage() {
                   ),
                 },
                 {
-                  title: '操作',
+                  title: intl.formatMessage({
+                    id: 'pages.opsStatus.column.actions',
+                    defaultMessage: '操作',
+                  }),
                   width: 130,
                   render: (_: unknown, c) => {
                     const r = running[c.id];
@@ -152,11 +247,19 @@ export default function OpsStatusPage() {
                           disabled={!c.enabled}
                           onClick={() => runCheck(c.id)}
                         >
-                          执行
+                          <FormattedMessage
+                            id="pages.opsStatus.action.execute"
+                            defaultMessage="执行"
+                          />
                         </Button>
                         {r ? (
                           <Tag color={r.ok ? 'green' : 'red'}>
-                            {r.ok ? `${r.latencyMs}ms` : '异常'}
+                            {r.ok
+                              ? `${r.latencyMs}ms`
+                              : intl.formatMessage({
+                                  id: 'pages.opsStatus.check.resultAbnormal',
+                                  defaultMessage: '异常',
+                                })}
                           </Tag>
                         ) : null}
                       </Space>
@@ -172,40 +275,94 @@ export default function OpsStatusPage() {
             title={
               <Space>
                 <SafetyOutlined />
-                维护模式
+                <FormattedMessage
+                  id="pages.opsStatus.maintenance.cardTitle"
+                  defaultMessage="维护模式"
+                />
               </Space>
             }
           >
             <Form form={maintForm} layout="vertical" initialValues={{ allowAdmins: true }}>
-              <Form.Item name="enabled" label="开启维护模式" valuePropName="checked">
+              <Form.Item
+                name="enabled"
+                label={intl.formatMessage({
+                  id: 'pages.opsStatus.maintenance.enabled',
+                  defaultMessage: '开启维护模式',
+                })}
+                valuePropName="checked"
+              >
                 <Switch />
               </Form.Item>
-              <Form.Item name="message" label="维护公告内容">
-                <Input.TextArea rows={2} placeholder="系统维护中，预计 30 分钟" />
+              <Form.Item
+                name="message"
+                label={intl.formatMessage({
+                  id: 'pages.opsStatus.maintenance.messageLabel',
+                  defaultMessage: '维护公告内容',
+                })}
+              >
+                <Input.TextArea
+                  rows={2}
+                  placeholder={intl.formatMessage({
+                    id: 'pages.opsStatus.maintenance.messagePlaceholder',
+                    defaultMessage: '系统维护中，预计 30 分钟',
+                  })}
+                />
               </Form.Item>
-              <Form.Item name="allowAdmins" label="管理员仍可访问" valuePropName="checked">
+              <Form.Item
+                name="allowAdmins"
+                label={intl.formatMessage({
+                  id: 'pages.opsStatus.maintenance.allowAdmins',
+                  defaultMessage: '管理员仍可访问',
+                })}
+                valuePropName="checked"
+              >
                 <Switch />
               </Form.Item>
-              <Popconfirm title="确认更新维护模式？" onConfirm={saveMaintenance}>
+              <Popconfirm
+                title={intl.formatMessage({
+                  id: 'pages.opsStatus.maintenance.confirmUpdate',
+                  defaultMessage: '确认更新维护模式？',
+                })}
+                onConfirm={saveMaintenance}
+              >
                 <Button type="primary" loading={maintSaving}>
-                  保存
+                  <FormattedMessage id="pages.opsStatus.action.save" defaultMessage="保存" />
                 </Button>
               </Popconfirm>
             </Form>
           </Card>
         </Col>
         <Col xs={24} lg={14}>
-          <Card title="服务状态">
+          <Card
+            title={intl.formatMessage({
+              id: 'pages.opsStatus.services.cardTitle',
+              defaultMessage: '服务状态',
+            })}
+          >
             <Table<OpsServiceItem>
               rowKey="name"
               size="small"
               dataSource={services}
               pagination={false}
-              locale={{ emptyText: '暂无服务数据' }}
+              locale={{
+                emptyText: intl.formatMessage({
+                  id: 'pages.opsStatus.services.empty',
+                  defaultMessage: '暂无服务数据',
+                }),
+              }}
               columns={[
-                { title: '服务', dataIndex: 'name' },
                 {
-                  title: '状态',
+                  title: intl.formatMessage({
+                    id: 'pages.opsStatus.services.name',
+                    defaultMessage: '服务',
+                  }),
+                  dataIndex: 'name',
+                },
+                {
+                  title: intl.formatMessage({
+                    id: 'pages.opsStatus.services.status',
+                    defaultMessage: '状态',
+                  }),
                   dataIndex: 'status',
                   width: 90,
                   render: (v: string) => (
@@ -214,16 +371,37 @@ export default function OpsStatusPage() {
                     </Tag>
                   ),
                 },
-                { title: '地址', dataIndex: 'addr', ellipsis: true },
-                { title: '版本', dataIndex: 'version', width: 100 },
+                {
+                  title: intl.formatMessage({
+                    id: 'pages.opsStatus.services.addr',
+                    defaultMessage: '地址',
+                  }),
+                  dataIndex: 'addr',
+                  ellipsis: true,
+                },
+                {
+                  title: intl.formatMessage({
+                    id: 'pages.opsStatus.services.version',
+                    defaultMessage: '版本',
+                  }),
+                  dataIndex: 'version',
+                  width: 100,
+                },
               ]}
             />
           </Card>
         </Col>
         <Col xs={24} lg={10}>
-          <Card title="消息队列">
+          <Card
+            title={intl.formatMessage({
+              id: 'pages.opsStatus.mq.cardTitle',
+              defaultMessage: '消息队列',
+            })}
+          >
             {mqStreams.length === 0 ? (
-              <Text type="secondary">暂无队列数据</Text>
+              <Text type="secondary">
+                <FormattedMessage id="pages.opsStatus.mq.empty" defaultMessage="暂无队列数据" />
+              </Text>
             ) : (
               <Table
                 rowKey="name"
@@ -231,9 +409,18 @@ export default function OpsStatusPage() {
                 dataSource={mqStreams}
                 pagination={false}
                 columns={[
-                  { title: '流', dataIndex: 'name' },
                   {
-                    title: '积压',
+                    title: intl.formatMessage({
+                      id: 'pages.opsStatus.mq.stream',
+                      defaultMessage: '流',
+                    }),
+                    dataIndex: 'name',
+                  },
+                  {
+                    title: intl.formatMessage({
+                      id: 'pages.opsStatus.mq.backlog',
+                      defaultMessage: '积压',
+                    }),
                     dataIndex: 'length',
                     width: 100,
                     render: (v: number) =>

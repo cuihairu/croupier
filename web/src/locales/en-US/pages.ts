@@ -378,4 +378,14 @@ export default {
   'pages.account.messages.all.button': 'All',
   'pages.account.messages.mark.all.read': 'Mark All Read',
   'pages.account.messages.marked.read': 'Marked as read',
+
+  // Login page (appended for i18n migration: SSO/LDAP/forgot-password copy; existing keys untouched)
+  'pages.login.forgotPassword.adminHint':
+    'If you are an administrator: open "Permissions → Users", select the user, and click "Set Password" to reset it.',
+  'pages.login.forgotPassword.contactAdmin':
+    'Please contact an administrator to reset your password.',
+  'pages.login.ldap.notice':
+    'Domain accounts are supported: sign in directly with your LDAP username and password (the directory service is tried automatically if local account verification fails)',
+  'pages.login.sso.button': 'Sign in with SSO',
+  'pages.login.sso.divider': 'Other sign-in methods',
 };

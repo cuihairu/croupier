@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Card, Table, Button, Form, Input, Tag, Space, Popconfirm, Select } from 'antd';
+import { FormattedMessage, useIntl } from '@umijs/max';
 import { ModalForm, PageContainer } from '@ant-design/pro-components';
 import type { ColumnsType } from 'antd/es/table';
 import { getMessage } from '@/utils/antdApp';
@@ -19,6 +20,7 @@ type RoleFormValues = { name: string; description?: string };
 type PermsFormValues = { permissions?: string[] };
 
 export default function RolesV2() {
+  const intl = useIntl();
   const [roles, setRoles] = useState<RoleRecord[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -60,14 +62,27 @@ export default function RolesV2() {
     try {
       if (editing) {
         await updateRole(editing.id, { name: v.name, description: v.description });
-        getMessage()?.success('已更新');
+        getMessage()?.success(
+          intl.formatMessage({
+            id: 'pages.permissionsRoles.toast.updated',
+            defaultMessage: '已更新',
+          }),
+        );
       } else {
         const resp = await createRole({
           name: v.name,
           description: v.description,
           permissions: [],
         });
-        getMessage()?.success(`已创建 #${resp.id}`);
+        getMessage()?.success(
+          intl.formatMessage(
+            {
+              id: 'pages.permissionsRoles.toast.created',
+              defaultMessage: `已创建 #${resp.id}`,
+            },
+            { id: resp.id },
+          ),
+        );
       }
       refresh();
       return true;
@@ -80,7 +95,12 @@ export default function RolesV2() {
     if (!editing) return false;
     try {
       await updateRolePermissions(editing.id, v.permissions || []);
-      getMessage()?.success('权限已更新');
+      getMessage()?.success(
+        intl.formatMessage({
+          id: 'pages.permissionsRoles.toast.permissionsUpdated',
+          defaultMessage: '权限已更新',
+        }),
+      );
       refresh();
       return true;
     } catch {
@@ -91,33 +111,64 @@ export default function RolesV2() {
 
   const remove = async (rec: RoleRecord) => {
     await deleteRole(rec.id);
-    getMessage()?.success('已删除');
+    getMessage()?.success(
+      intl.formatMessage({ id: 'pages.permissionsRoles.toast.deleted', defaultMessage: '已删除' }),
+    );
     refresh();
   };
 
   const columns: ColumnsType<RoleRecord> = [
-    { title: '名称', dataIndex: 'name', key: 'name' },
-    { title: '描述', dataIndex: 'description', key: 'description' },
     {
-      title: '权限',
+      title: intl.formatMessage({
+        id: 'pages.permissionsRoles.column.name',
+        defaultMessage: '名称',
+      }),
+      dataIndex: 'name',
+      key: 'name',
+    },
+    {
+      title: intl.formatMessage({
+        id: 'pages.permissionsRoles.column.description',
+        defaultMessage: '描述',
+      }),
+      dataIndex: 'description',
+      key: 'description',
+    },
+    {
+      title: intl.formatMessage({
+        id: 'pages.permissionsRoles.column.permissions',
+        defaultMessage: '权限',
+      }),
       dataIndex: 'permissions',
       key: 'permissions',
       render: (arr?: string[]) => (arr || []).slice(0, 6).map((p) => <Tag key={p}>{p}</Tag>),
     },
     {
-      title: '操作',
+      title: intl.formatMessage({
+        id: 'pages.permissionsRoles.column.actions',
+        defaultMessage: '操作',
+      }),
       key: 'ops',
       render: (_value, rec) => (
         <Space>
           <Button size="small" onClick={() => openEdit(rec)}>
-            编辑
+            <FormattedMessage id="pages.permissionsRoles.action.edit" defaultMessage="编辑" />
           </Button>
           <Button size="small" onClick={() => openPerms(rec)}>
-            权限
+            <FormattedMessage
+              id="pages.permissionsRoles.action.permissions"
+              defaultMessage="权限"
+            />
           </Button>
-          <Popconfirm title="确定删除该角色？" onConfirm={() => remove(rec)}>
+          <Popconfirm
+            title={intl.formatMessage({
+              id: 'pages.permissionsRoles.delete.confirm',
+              defaultMessage: '确定删除该角色？',
+            })}
+            onConfirm={() => remove(rec)}
+          >
             <Button size="small" danger>
-              删除
+              <FormattedMessage id="pages.permissionsRoles.action.delete" defaultMessage="删除" />
             </Button>
           </Popconfirm>
         </Space>
@@ -125,13 +176,21 @@ export default function RolesV2() {
     },
   ];
 
+  const submitText = intl.formatMessage({
+    id: 'pages.permissionsRoles.modal.submit',
+    defaultMessage: '确定',
+  });
+
   return (
     <PageContainer>
       <Card
-        title="角色管理"
+        title={intl.formatMessage({
+          id: 'pages.permissionsRoles.title',
+          defaultMessage: '角色管理',
+        })}
         extra={
           <Button type="primary" onClick={openAdd}>
-            新增角色
+            <FormattedMessage id="pages.permissionsRoles.button.create" defaultMessage="新增角色" />
           </Button>
         }
       >
@@ -146,7 +205,11 @@ export default function RolesV2() {
             total,
             showSizeChanger: true,
             pageSizeOptions: [10, 20, 50],
-            showTotal: (t) => `共 ${t} 条`,
+            showTotal: (t) =>
+              intl.formatMessage(
+                { id: 'pages.permissionsRoles.pagination.total', defaultMessage: `共 ${t} 条` },
+                { total: t },
+              ),
             onChange: (nextPage, nextSize) => {
               setPage(nextPage);
               setPageSize(nextSize);
@@ -159,39 +222,89 @@ export default function RolesV2() {
       {/* destroyOnHidden 使弹窗每次关闭即卸载表单，重开时按最新 initialValues
           重新挂载（原 useEffect setFieldsValue/resetFields 预填随之移除） */}
       <ModalForm<RoleFormValues>
-        title={editing ? '编辑角色' : '新增角色'}
+        title={
+          editing
+            ? intl.formatMessage({
+                id: 'pages.permissionsRoles.modal.editTitle',
+                defaultMessage: '编辑角色',
+              })
+            : intl.formatMessage({
+                id: 'pages.permissionsRoles.modal.createTitle',
+                defaultMessage: '新增角色',
+              })
+        }
         open={editOpen}
         onOpenChange={setEditOpen}
         modalProps={{ destroyOnHidden: true }}
         width={520}
-        submitter={{ searchConfig: { submitText: '确定' } }}
+        submitter={{ searchConfig: { submitText } }}
         initialValues={
           editing ? { name: editing.name, description: editing.description } : undefined
         }
         onFinish={submitEdit}
       >
-        <Form.Item label="名称" name="name" rules={[{ required: true, message: '请输入名称' }]}>
+        <Form.Item
+          label={intl.formatMessage({
+            id: 'pages.permissionsRoles.form.label.name',
+            defaultMessage: '名称',
+          })}
+          name="name"
+          rules={[
+            {
+              required: true,
+              message: intl.formatMessage({
+                id: 'pages.permissionsRoles.form.nameRequired',
+                defaultMessage: '请输入名称',
+              }),
+            },
+          ]}
+        >
           {' '}
           <Input />{' '}
         </Form.Item>
-        <Form.Item label="描述" name="description">
+        <Form.Item
+          label={intl.formatMessage({
+            id: 'pages.permissionsRoles.form.label.description',
+            defaultMessage: '描述',
+          })}
+          name="description"
+        >
           {' '}
           <Input />{' '}
         </Form.Item>
       </ModalForm>
 
       <ModalForm<PermsFormValues>
-        title={`编辑权限：${editing?.name || ''}`}
+        title={intl.formatMessage(
+          {
+            id: 'pages.permissionsRoles.modal.editPermissionsTitle',
+            defaultMessage: `编辑权限：${editing?.name || ''}`,
+          },
+          { name: editing?.name || '' },
+        )}
         open={permsOpen}
         onOpenChange={setPermsOpen}
         modalProps={{ destroyOnHidden: true }}
         width={520}
-        submitter={{ searchConfig: { submitText: '确定' } }}
+        submitter={{ searchConfig: { submitText } }}
         initialValues={{ permissions: editing?.permissions || [] }}
         onFinish={submitPerms}
       >
-        <Form.Item label="权限" name="permissions">
-          <Select mode="tags" tokenSeparators={[',', ' ']} placeholder="输入权限，按回车添加" />
+        <Form.Item
+          label={intl.formatMessage({
+            id: 'pages.permissionsRoles.form.label.permissions',
+            defaultMessage: '权限',
+          })}
+          name="permissions"
+        >
+          <Select
+            mode="tags"
+            tokenSeparators={[',', ' ']}
+            placeholder={intl.formatMessage({
+              id: 'pages.permissionsRoles.placeholder.permissions',
+              defaultMessage: '输入权限，按回车添加',
+            })}
+          />
         </Form.Item>
       </ModalForm>
     </PageContainer>

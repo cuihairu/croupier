@@ -16,6 +16,7 @@ import {
   ProfileOutlined,
   TableOutlined,
 } from '@ant-design/icons';
+import { FormattedMessage, useIntl } from '@umijs/max';
 import type { ChartSpec, DimensionSpec, MetricSpec, ReportPageSpec } from '@/types/dashboard';
 import FormPresentationEditor from './FormPresentationEditor';
 import LocalizedTextEditor from '@/components/LocalizedTextEditor';
@@ -61,6 +62,7 @@ export default function ReportPageEditor({
   onChange,
   readonly = false,
 }: ReportPageEditorProps) {
+  const intl = useIntl();
   const [activeKey, setActiveKey] = useState<string[]>(['dataset']);
 
   const handleDatasetChange = useCallback(
@@ -103,8 +105,19 @@ export default function ReportPageEditor({
         header={
           <Space>
             <ProfileOutlined />
-            <Text strong>查询表单</Text>
-            <Tag>{value.queryForm?.fields?.length || 0} 字段</Tag>
+            <Text strong>
+              <FormattedMessage
+                id="component.pageEditor.reportPage.queryForm.title"
+                defaultMessage="查询表单"
+              />
+            </Text>
+            <Tag>
+              <FormattedMessage
+                id="component.pageEditor.reportPage.queryForm.fieldCount"
+                defaultMessage={`${value.queryForm?.fields?.length || 0} 字段`}
+                values={{ count: value.queryForm?.fields?.length || 0 }}
+              />
+            </Tag>
           </Space>
         }
         key="queryForm"
@@ -120,9 +133,26 @@ export default function ReportPageEditor({
         header={
           <Space>
             <TableOutlined />
-            <Text strong>数据集</Text>
-            <Tag>{value.dataset.dimensions.length} 维度</Tag>
-            <Tag>{value.dataset.metrics.length} 指标</Tag>
+            <Text strong>
+              <FormattedMessage
+                id="component.pageEditor.reportPage.dataset.title"
+                defaultMessage="数据集"
+              />
+            </Text>
+            <Tag>
+              <FormattedMessage
+                id="component.pageEditor.reportPage.dataset.dimensionCount"
+                defaultMessage={`${value.dataset.dimensions.length} 维度`}
+                values={{ count: value.dataset.dimensions.length }}
+              />
+            </Tag>
+            <Tag>
+              <FormattedMessage
+                id="component.pageEditor.reportPage.dataset.metricCount"
+                defaultMessage={`${value.dataset.metrics.length} 指标`}
+                values={{ count: value.dataset.metrics.length }}
+              />
+            </Tag>
           </Space>
         }
         key="dataset"
@@ -130,9 +160,19 @@ export default function ReportPageEditor({
         <Space orientation="vertical" style={{ width: '100%' }}>
           <div>
             <Space style={{ marginBottom: 8 }}>
-              <Text strong>维度</Text>
+              <Text strong>
+                <FormattedMessage
+                  id="component.pageEditor.reportPage.dataset.dimensions"
+                  defaultMessage="维度"
+                />
+              </Text>
             </Space>
-            <Text type="secondary">维度 key 来自已审核的报表语义，页面只调整展示文本和类型。</Text>
+            <Text type="secondary">
+              <FormattedMessage
+                id="component.pageEditor.reportPage.dataset.dimensionsHint"
+                defaultMessage="维度 key 来自已审核的报表语义，页面只调整展示文本和类型。"
+              />
+            </Text>
             {value.dataset.dimensions.length > 0 ? (
               <SortableList
                 items={value.dataset.dimensions}
@@ -163,16 +203,40 @@ export default function ReportPageEditor({
                           }
                           style={{ width: 100 }}
                           options={[
-                            { value: 'string', label: '字符串' },
-                            { value: 'number', label: '数字' },
-                            { value: 'date', label: '日期' },
+                            {
+                              value: 'string',
+                              label: intl.formatMessage({
+                                id: 'component.pageEditor.reportPage.dataType.string',
+                                defaultMessage: '字符串',
+                              }),
+                            },
+                            {
+                              value: 'number',
+                              label: intl.formatMessage({
+                                id: 'component.pageEditor.reportPage.dataType.number',
+                                defaultMessage: '数字',
+                              }),
+                            },
+                            {
+                              value: 'date',
+                              label: intl.formatMessage({
+                                id: 'component.pageEditor.reportPage.dataType.date',
+                                defaultMessage: '日期',
+                              }),
+                            },
                           ]}
                         />
                       </Space>
                     }
                   >
                     <Form layout="vertical" disabled={readonly} style={{ marginBottom: 0 }}>
-                      <Form.Item label="标题" style={{ marginBottom: 0 }}>
+                      <Form.Item
+                        label={intl.formatMessage({
+                          id: 'component.pageEditor.reportPage.dataset.fieldTitle',
+                          defaultMessage: '标题',
+                        })}
+                        style={{ marginBottom: 0 }}
+                      >
                         <LocalizedTextEditor
                           value={dimension.title}
                           onChange={(title) =>
@@ -193,9 +257,19 @@ export default function ReportPageEditor({
 
           <div>
             <Space style={{ marginBottom: 8 }}>
-              <Text strong>指标</Text>
+              <Text strong>
+                <FormattedMessage
+                  id="component.pageEditor.reportPage.dataset.metrics"
+                  defaultMessage="指标"
+                />
+              </Text>
             </Space>
-            <Text type="secondary">指标 key 来自已审核的报表语义，页面只调整展示格式。</Text>
+            <Text type="secondary">
+              <FormattedMessage
+                id="component.pageEditor.reportPage.dataset.metricsHint"
+                defaultMessage="指标 key 来自已审核的报表语义，页面只调整展示格式。"
+              />
+            </Text>
             {value.dataset.metrics.length > 0 ? (
               <SortableList
                 items={value.dataset.metrics}
@@ -235,7 +309,10 @@ export default function ReportPageEditor({
                           size="small"
                           value={metric.format}
                           allowClear
-                          placeholder="格式"
+                          placeholder={intl.formatMessage({
+                            id: 'component.pageEditor.reportPage.dataset.format',
+                            defaultMessage: '格式',
+                          })}
                           onChange={(format) =>
                             handleDatasetChange({
                               metrics: updateMetric(value.dataset.metrics, index, { format }),
@@ -252,7 +329,13 @@ export default function ReportPageEditor({
                     }
                   >
                     <Form layout="vertical" disabled={readonly} style={{ marginBottom: 0 }}>
-                      <Form.Item label="标题" style={{ marginBottom: 0 }}>
+                      <Form.Item
+                        label={intl.formatMessage({
+                          id: 'component.pageEditor.reportPage.dataset.fieldTitle',
+                          defaultMessage: '标题',
+                        })}
+                        style={{ marginBottom: 0 }}
+                      >
                         <LocalizedTextEditor
                           value={metric.title}
                           onChange={(title) =>
@@ -275,8 +358,19 @@ export default function ReportPageEditor({
         header={
           <Space>
             <LineChartOutlined />
-            <Text strong>图表</Text>
-            <Tag>{value.charts?.length || 0} 个</Tag>
+            <Text strong>
+              <FormattedMessage
+                id="component.pageEditor.reportPage.charts.title"
+                defaultMessage="图表"
+              />
+            </Text>
+            <Tag>
+              <FormattedMessage
+                id="component.pageEditor.reportPage.charts.count"
+                defaultMessage={`${value.charts?.length || 0} 个`}
+                values={{ count: value.charts?.length || 0 }}
+              />
+            </Tag>
           </Space>
         }
         key="charts"
@@ -288,7 +382,10 @@ export default function ReportPageEditor({
           disabled={readonly}
           style={{ marginBottom: 16 }}
         >
-          添加图表
+          <FormattedMessage
+            id="component.pageEditor.reportPage.charts.addChart"
+            defaultMessage="添加图表"
+          />
         </Button>
 
         {value.charts?.map((chart, index) => (
@@ -318,7 +415,13 @@ export default function ReportPageEditor({
             }
           >
             <Form layout="vertical" disabled={readonly} style={{ marginBottom: 0 }}>
-              <Form.Item label="标题" style={{ marginBottom: 8 }}>
+              <Form.Item
+                label={intl.formatMessage({
+                  id: 'component.pageEditor.reportPage.chart.title',
+                  defaultMessage: '标题',
+                })}
+                style={{ marginBottom: 8 }}
+              >
                 <LocalizedTextEditor
                   value={chart.title}
                   onChange={(title) =>
@@ -326,7 +429,13 @@ export default function ReportPageEditor({
                   }
                 />
               </Form.Item>
-              <Form.Item label="图表配置" style={{ marginBottom: 0 }}>
+              <Form.Item
+                label={intl.formatMessage({
+                  id: 'component.pageEditor.reportPage.chart.config',
+                  defaultMessage: '图表配置',
+                })}
+                style={{ marginBottom: 0 }}
+              >
                 <Space size={12} wrap>
                   <Select
                     value={chart.type}
@@ -343,7 +452,12 @@ export default function ReportPageEditor({
                     ]}
                   />
                   <Space size={4}>
-                    <Text type="secondary">X 字段</Text>
+                    <Text type="secondary">
+                      <FormattedMessage
+                        id="component.pageEditor.reportPage.chart.xField"
+                        defaultMessage="X 字段"
+                      />
+                    </Text>
                     <Input
                       value={chart.xField}
                       onChange={(event) =>
@@ -357,7 +471,12 @@ export default function ReportPageEditor({
                     />
                   </Space>
                   <Space size={4}>
-                    <Text type="secondary">Y 字段</Text>
+                    <Text type="secondary">
+                      <FormattedMessage
+                        id="component.pageEditor.reportPage.chart.yField"
+                        defaultMessage="Y 字段"
+                      />
+                    </Text>
                     <Input
                       value={chart.yField}
                       onChange={(event) =>
@@ -381,21 +500,47 @@ export default function ReportPageEditor({
         header={
           <Space>
             <TableOutlined />
-            <Text strong>表格与导出</Text>
+            <Text strong>
+              <FormattedMessage
+                id="component.pageEditor.reportPage.table.title"
+                defaultMessage="表格与导出"
+              />
+            </Text>
           </Space>
         }
         key="table"
       >
         <Form layout="vertical" disabled={readonly}>
-          <Form.Item label="允许导出">
+          <Form.Item
+            label={intl.formatMessage({
+              id: 'component.pageEditor.reportPage.table.exportable',
+              defaultMessage: '允许导出',
+            })}
+          >
             <Switch
               checked={Boolean(value.exportable)}
               onChange={(exportable) => onChange({ ...value, exportable })}
             />
           </Form.Item>
-          <Form.Item label="表格">
+          <Form.Item
+            label={intl.formatMessage({
+              id: 'component.pageEditor.reportPage.table.label',
+              defaultMessage: '表格',
+            })}
+          >
             <Tag color={value.table ? 'success' : 'default'}>
-              {value.table ? `${value.table.columns.length} 列` : '未配置'}
+              {value.table ? (
+                <FormattedMessage
+                  id="component.pageEditor.reportPage.table.columnCount"
+                  defaultMessage={`${value.table.columns.length} 列`}
+                  values={{ count: value.table.columns.length }}
+                />
+              ) : (
+                intl.formatMessage({
+                  id: 'component.pageEditor.reportPage.table.notConfigured',
+                  defaultMessage: '未配置',
+                })
+              )}
             </Tag>
           </Form.Item>
         </Form>

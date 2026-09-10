@@ -11,6 +11,7 @@
  */
 
 import React, { useState, useCallback, useEffect, useRef } from 'react';
+import { FormattedMessage, useIntl } from '@umijs/max';
 import { App, Card, Button, Space, Typography, Timeline, Progress, Tag, Alert } from 'antd';
 import {
   CheckCircleOutlined,
@@ -288,6 +289,11 @@ const TaskPageRenderer: React.FC<TaskPageRendererProps> = ({
   title,
 }) => {
   const { message } = App.useApp();
+  const intl = useIntl();
+  // useIntl 在测试 mock 下每次渲染返回新引用，直接进 useCallback 依赖会让
+  // 轮询/提交回调链每渲染重建；经 ref 转发后回调依赖稳定，执行时仍读取最新实例
+  const intlRef = useRef(intl);
+  intlRef.current = intl;
   const [loading, setLoading] = useState(false);
   const [taskStatus, setTaskStatus] = useState<TaskStatusResult | null>(null);
   const [approvalId, setApprovalId] = useState<string>('');
@@ -342,7 +348,12 @@ const TaskPageRenderer: React.FC<TaskPageRendererProps> = ({
             resultData = patchValue(resultBinding, resultResponse, 'taskResult');
           }
           if (statusData === undefined) {
-            message.error('任务状态绑定未映射到 pageState.taskStatus');
+            message.error(
+              intlRef.current.formatMessage({
+                id: 'component.pageRenderer.taskPage.error.statusBindingUnmapped',
+                defaultMessage: '任务状态绑定未映射到 pageState.taskStatus',
+              }),
+            );
             setPolling(false);
             if (pollingRef.current) {
               clearInterval(pollingRef.current);
@@ -432,7 +443,12 @@ const TaskPageRenderer: React.FC<TaskPageRendererProps> = ({
   const startPolling = useCallback(
     (taskId: string) => {
       if (!canQueryTaskStatus) {
-        message.warning('任务已提交，但页面未配置状态查询绑定');
+        message.warning(
+          intlRef.current.formatMessage({
+            id: 'component.pageRenderer.taskPage.warning.noStatusBinding',
+            defaultMessage: '任务已提交，但页面未配置状态查询绑定',
+          }),
+        );
         return;
       }
       setPolling(true);
@@ -463,11 +479,21 @@ const TaskPageRenderer: React.FC<TaskPageRendererProps> = ({
   const handleSubmit = useCallback(
     async (values: FormValues) => {
       if (!mainBinding) {
-        message.error('未配置任务绑定');
+        message.error(
+          intlRef.current.formatMessage({
+            id: 'component.pageRenderer.taskPage.error.missingBinding',
+            defaultMessage: '未配置任务绑定',
+          }),
+        );
         return;
       }
       if (preview) {
-        message.info('预览模式不提交任务');
+        message.info(
+          intlRef.current.formatMessage({
+            id: 'component.pageRenderer.taskPage.preview.blocked',
+            defaultMessage: '预览模式不提交任务',
+          }),
+        );
         return;
       }
 
@@ -484,12 +510,20 @@ const TaskPageRenderer: React.FC<TaskPageRendererProps> = ({
           const next: TaskStatusResult = {
             taskId: nextApprovalId,
             status: 'pending',
-            message: '任务已提交审批，审批通过后才会启动任务',
+            message: intlRef.current.formatMessage({
+              id: 'component.pageRenderer.taskPage.approval.submitted',
+              defaultMessage: '任务已提交审批，审批通过后才会启动任务',
+            }),
           };
           setApprovalId(nextApprovalId);
           taskStatusRef.current = next;
           setTaskStatus(next);
-          message.info('任务已提交审批');
+          message.info(
+            intlRef.current.formatMessage({
+              id: 'component.pageRenderer.taskPage.approval.submittedToast',
+              defaultMessage: '任务已提交审批',
+            }),
+          );
           return;
         }
         const taskIdFromSelector = patchValue(mainBinding, response, taskIdStateKey);
@@ -499,17 +533,45 @@ const TaskPageRenderer: React.FC<TaskPageRendererProps> = ({
           const next: TaskStatusResult = {
             taskId,
             status: 'pending',
-            message: '任务已提交',
+            message: intlRef.current.formatMessage({
+              id: 'component.pageRenderer.taskPage.message.submitted',
+              defaultMessage: '任务已提交',
+            }),
           };
           taskStatusRef.current = next;
           setTaskStatus(next);
           startPolling(taskId);
-          message.success('任务已提交');
+          message.success(
+            intlRef.current.formatMessage({
+              id: 'component.pageRenderer.taskPage.message.submitted',
+              defaultMessage: '任务已提交',
+            }),
+          );
         } else {
-          message.warning('未获取到任务 ID');
+          message.warning(
+            intlRef.current.formatMessage({
+              id: 'component.pageRenderer.taskPage.warning.noTaskId',
+              defaultMessage: '未获取到任务 ID',
+            }),
+          );
         }
       } catch (error) {
-        message.error('任务提交失败: ' + extractErrorMessage(error, '未知错误'));
+        const detail = extractErrorMessage(
+          error,
+          intlRef.current.formatMessage({
+            id: 'component.pageRenderer.taskPage.error.unknown',
+            defaultMessage: '未知错误',
+          }),
+        );
+        message.error(
+          intlRef.current.formatMessage(
+            {
+              id: 'component.pageRenderer.taskPage.error.submitFailed',
+              defaultMessage: `任务提交失败: ${detail}`,
+            },
+            { detail },
+          ),
+        );
       } finally {
         setLoading(false);
       }
@@ -531,10 +593,20 @@ const TaskPageRenderer: React.FC<TaskPageRendererProps> = ({
       } else if (onCancelTask) {
         await onCancelTask(taskStatus.taskId);
       } else {
-        message.warning('未配置取消任务绑定');
+        message.warning(
+          intlRef.current.formatMessage({
+            id: 'component.pageRenderer.taskPage.warning.noCancelBinding',
+            defaultMessage: '未配置取消任务绑定',
+          }),
+        );
         return;
       }
-      message.success('任务已取消');
+      message.success(
+        intlRef.current.formatMessage({
+          id: 'component.pageRenderer.taskPage.message.cancelled',
+          defaultMessage: '任务已取消',
+        }),
+      );
       stopPolling();
       const next = taskStatusRef.current
         ? { ...taskStatusRef.current, status: 'cancelled' as const }
@@ -542,7 +614,22 @@ const TaskPageRenderer: React.FC<TaskPageRendererProps> = ({
       taskStatusRef.current = next;
       setTaskStatus(next);
     } catch (error) {
-      message.error('取消任务失败: ' + extractErrorMessage(error, '未知错误'));
+      const detail = extractErrorMessage(
+        error,
+        intlRef.current.formatMessage({
+          id: 'component.pageRenderer.taskPage.error.unknown',
+          defaultMessage: '未知错误',
+        }),
+      );
+      message.error(
+        intlRef.current.formatMessage(
+          {
+            id: 'component.pageRenderer.taskPage.error.cancelFailed',
+            defaultMessage: `取消任务失败: ${detail}`,
+          },
+          { detail },
+        ),
+      );
     }
   }, [
     message,
@@ -568,7 +655,10 @@ const TaskPageRenderer: React.FC<TaskPageRendererProps> = ({
         const next: TaskStatusResult = {
           taskId: nextStatus.taskId,
           status: 'pending',
-          message: '审批已通过，任务已启动',
+          message: intlRef.current.formatMessage({
+            id: 'component.pageRenderer.taskPage.approval.taskStarted',
+            defaultMessage: '审批已通过，任务已启动',
+          }),
         };
         setApprovalId('');
         taskStatusRef.current = next;
@@ -580,7 +670,10 @@ const TaskPageRenderer: React.FC<TaskPageRendererProps> = ({
         const next: TaskStatusResult = {
           taskId: approvalId,
           status: 'completed',
-          message: '审批已通过，执行已完成',
+          message: intlRef.current.formatMessage({
+            id: 'component.pageRenderer.taskPage.approval.completed',
+            defaultMessage: '审批已通过，执行已完成',
+          }),
           result: nextStatus.result,
         };
         setApprovalId('');
@@ -588,7 +681,15 @@ const TaskPageRenderer: React.FC<TaskPageRendererProps> = ({
         setTaskStatus(next);
       }
     } catch (error) {
-      message.error(extractErrorMessage(error, '审批状态查询失败'));
+      message.error(
+        extractErrorMessage(
+          error,
+          intlRef.current.formatMessage({
+            id: 'component.pageRenderer.taskPage.approval.queryFailed',
+            defaultMessage: '审批状态查询失败',
+          }),
+        ),
+      );
     }
   }, [message, approvalId, onQueryApprovalStatus, startPolling]);
 
@@ -599,11 +700,22 @@ const TaskPageRenderer: React.FC<TaskPageRendererProps> = ({
     }
 
     return (
-      <Card title="任务状态" style={{ marginTop: 16 }}>
+      <Card
+        title={intl.formatMessage({
+          id: 'component.pageRenderer.taskPage.status.title',
+          defaultMessage: '任务状态',
+        })}
+        style={{ marginTop: 16 }}
+      >
         <Space orientation="vertical" style={{ width: '100%' }}>
           {/* 状态标签 */}
           <Space>
-            <Text strong>状态:</Text>
+            <Text strong>
+              <FormattedMessage
+                id="component.pageRenderer.taskPage.status.label"
+                defaultMessage="状态:"
+              />
+            </Text>
             <Tag color={getStatusColor(taskStatus.status)} icon={getStatusIcon(taskStatus.status)}>
               {taskStatus.status.toUpperCase()}
             </Tag>
@@ -628,7 +740,20 @@ const TaskPageRenderer: React.FC<TaskPageRendererProps> = ({
 
           {approvalId ? (
             <Alert
-              message={approvalStatus ? `审批状态：${approvalStatus.status}` : '等待审批'}
+              message={
+                approvalStatus
+                  ? intl.formatMessage(
+                      {
+                        id: 'component.pageRenderer.taskPage.approval.statusLabel',
+                        defaultMessage: `审批状态：${approvalStatus.status}`,
+                      },
+                      { status: approvalStatus.status },
+                    )
+                  : intl.formatMessage({
+                      id: 'component.pageRenderer.taskPage.approval.pending',
+                      defaultMessage: '等待审批',
+                    })
+              }
               description={approvalStatus?.reason || approvalStatus?.updatedAt}
               type={
                 approvalStatus?.status === 'rejected'
@@ -650,7 +775,10 @@ const TaskPageRenderer: React.FC<TaskPageRendererProps> = ({
               taskStatus.status === 'running' &&
               (cancelBinding || onCancelTask) && (
                 <Button danger icon={<StopOutlined />} onClick={handleCancel}>
-                  取消
+                  <FormattedMessage
+                    id="component.pageRenderer.taskPage.button.cancel"
+                    defaultMessage="取消"
+                  />
                 </Button>
               )}
             {!approvalId && canQueryTaskStatus ? (
@@ -659,11 +787,19 @@ const TaskPageRenderer: React.FC<TaskPageRendererProps> = ({
                 onClick={() => pollTaskStatus(taskStatus.taskId)}
                 loading={polling}
               >
-                刷新
+                <FormattedMessage
+                  id="component.pageRenderer.taskPage.button.refresh"
+                  defaultMessage="刷新"
+                />
               </Button>
             ) : null}
             {approvalId && onQueryApprovalStatus ? (
-              <Button onClick={refreshApproval}>刷新审批状态</Button>
+              <Button onClick={refreshApproval}>
+                <FormattedMessage
+                  id="component.pageRenderer.taskPage.button.refreshApproval"
+                  defaultMessage="刷新审批状态"
+                />
+              </Button>
             ) : null}
           </Space>
         </Space>
@@ -678,7 +814,13 @@ const TaskPageRenderer: React.FC<TaskPageRendererProps> = ({
     }
 
     return (
-      <Card title="任务事件" style={{ marginTop: 16 }}>
+      <Card
+        title={intl.formatMessage({
+          id: 'component.pageRenderer.taskPage.events.title',
+          defaultMessage: '任务事件',
+        })}
+        style={{ marginTop: 16 }}
+      >
         <Timeline
           items={taskStatus.events.map((event) => ({
             color: event.type === 'error' ? 'red' : event.type === 'warning' ? 'orange' : 'blue',
@@ -705,11 +847,20 @@ const TaskPageRenderer: React.FC<TaskPageRendererProps> = ({
     }
 
     return (
-      <Card title="任务结果" style={{ marginTop: 16 }}>
+      <Card
+        title={intl.formatMessage({
+          id: 'component.pageRenderer.taskPage.result.title',
+          defaultMessage: '任务结果',
+        })}
+        style={{ marginTop: 16 }}
+      >
         <ResultViewRenderer
           data={taskStatus.result}
           resultView={spec.resultView}
-          emptyTitle="任务结果视图未配置"
+          emptyTitle={intl.formatMessage({
+            id: 'component.pageRenderer.taskPage.result.viewMissing',
+            defaultMessage: '任务结果视图未配置',
+          })}
         />
       </Card>
     );
@@ -718,7 +869,15 @@ const TaskPageRenderer: React.FC<TaskPageRendererProps> = ({
   return (
     <div>
       {/* 表单 */}
-      <Card title={title || '提交任务'}>
+      <Card
+        title={
+          title ||
+          intl.formatMessage({
+            id: 'component.pageRenderer.taskPage.form.title',
+            defaultMessage: '提交任务',
+          })
+        }
+      >
         <SchemaFormRenderer
           spec={spec.form}
           onFinish={handleSubmit}

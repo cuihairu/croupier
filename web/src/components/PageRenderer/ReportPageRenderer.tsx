@@ -10,7 +10,8 @@
  * @module components/PageRenderer/ReportPageRenderer
  */
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
+import { FormattedMessage, useIntl } from '@umijs/max';
 import { ProTable } from '@ant-design/pro-components';
 import { App, Card, Button, Space, Typography, Tabs, Empty, Result } from 'antd';
 import {
@@ -132,7 +133,12 @@ const ChartRenderer: React.FC<{ chart: ChartSpec; data: FormValues[] }> = ({ cha
           renderChart()
         ) : (
           <div style={{ textAlign: 'center', padding: '100px 0' }}>
-            <Text type="secondary">暂无数据</Text>
+            <Text type="secondary">
+              <FormattedMessage
+                id="component.pageRenderer.reportPage.chart.empty"
+                defaultMessage="暂无数据"
+              />
+            </Text>
           </div>
         )}
       </div>
@@ -153,6 +159,11 @@ const ReportPageRenderer: React.FC<ReportPageRendererProps> = ({
   title,
 }) => {
   const { message } = App.useApp();
+  const intl = useIntl();
+  // useIntl 在测试 mock 下每次渲染返回新引用，直接进 useCallback 依赖会让
+  // 查询/导出回调每渲染重建；经 ref 转发后回调依赖稳定，执行时仍读取最新实例
+  const intlRef = useRef(intl);
+  intlRef.current = intl;
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState<FormValues[]>([]);
   const [activeTab, setActiveTab] = useState(
@@ -171,11 +182,21 @@ const ReportPageRenderer: React.FC<ReportPageRendererProps> = ({
   const handleQuery = useCallback(
     async (values: FormValues) => {
       if (!mainBinding) {
-        message.error('未配置报表绑定');
+        message.error(
+          intlRef.current.formatMessage({
+            id: 'component.pageRenderer.reportPage.error.missingBinding',
+            defaultMessage: '未配置报表绑定',
+          }),
+        );
         return;
       }
       if (preview) {
-        message.info('预览模式不执行报表查询');
+        message.info(
+          intlRef.current.formatMessage({
+            id: 'component.pageRenderer.reportPage.preview.blocked',
+            defaultMessage: '预览模式不执行报表查询',
+          }),
+        );
         return;
       }
 
@@ -186,14 +207,39 @@ const ReportPageRenderer: React.FC<ReportPageRendererProps> = ({
         const nextState = mergePageState({}, outputPatchFromResult(mainBinding, response));
         const dataset = getPageStateArray(nextState, 'dataset');
         if (!dataset.length) {
-          message.error('报表查询结果未命中 dataset 映射');
+          message.error(
+            intlRef.current.formatMessage({
+              id: 'component.pageRenderer.reportPage.error.datasetMissed',
+              defaultMessage: '报表查询结果未命中 dataset 映射',
+            }),
+          );
           setData([]);
           return;
         }
         setData(dataset);
-        message.success('查询成功');
+        message.success(
+          intlRef.current.formatMessage({
+            id: 'component.pageRenderer.reportPage.message.querySuccess',
+            defaultMessage: '查询成功',
+          }),
+        );
       } catch (error) {
-        message.error('查询失败: ' + extractErrorMessage(error, '未知错误'));
+        const detail = extractErrorMessage(
+          error,
+          intlRef.current.formatMessage({
+            id: 'component.pageRenderer.reportPage.error.unknown',
+            defaultMessage: '未知错误',
+          }),
+        );
+        message.error(
+          intlRef.current.formatMessage(
+            {
+              id: 'component.pageRenderer.reportPage.error.queryFailed',
+              defaultMessage: `查询失败: ${detail}`,
+            },
+            { detail },
+          ),
+        );
       } finally {
         setLoading(false);
       }
@@ -205,17 +251,32 @@ const ReportPageRenderer: React.FC<ReportPageRendererProps> = ({
   const handleExport = useCallback(
     async (format: 'csv' | 'excel') => {
       if (preview) {
-        message.info('预览模式不导出数据');
+        message.info(
+          intlRef.current.formatMessage({
+            id: 'component.pageRenderer.reportPage.preview.exportBlocked',
+            defaultMessage: '预览模式不导出数据',
+          }),
+        );
         return;
       }
 
       if (!onExport) {
         if (format !== 'csv') {
-          message.warning('当前页面仅支持 CSV 导出');
+          message.warning(
+            intlRef.current.formatMessage({
+              id: 'component.pageRenderer.reportPage.export.csvOnly',
+              defaultMessage: '当前页面仅支持 CSV 导出',
+            }),
+          );
           return;
         }
         if (!data.length) {
-          message.warning('没有可导出的数据');
+          message.warning(
+            intlRef.current.formatMessage({
+              id: 'component.pageRenderer.reportPage.export.noData',
+              defaultMessage: '没有可导出的数据',
+            }),
+          );
           return;
         }
         const exportColumns = [
@@ -229,15 +290,40 @@ const ReportPageRenderer: React.FC<ReportPageRendererProps> = ({
           })),
         ];
         downloadDatasetCsv(data, exportColumns);
-        message.success('导出成功');
+        message.success(
+          intlRef.current.formatMessage({
+            id: 'component.pageRenderer.reportPage.export.success',
+            defaultMessage: '导出成功',
+          }),
+        );
         return;
       }
 
       try {
         await onExport(format);
-        message.success('导出成功');
+        message.success(
+          intlRef.current.formatMessage({
+            id: 'component.pageRenderer.reportPage.export.success',
+            defaultMessage: '导出成功',
+          }),
+        );
       } catch (error) {
-        message.error('导出失败: ' + extractErrorMessage(error, '未知错误'));
+        const detail = extractErrorMessage(
+          error,
+          intlRef.current.formatMessage({
+            id: 'component.pageRenderer.reportPage.error.unknown',
+            defaultMessage: '未知错误',
+          }),
+        );
+        message.error(
+          intlRef.current.formatMessage(
+            {
+              id: 'component.pageRenderer.reportPage.export.failed',
+              defaultMessage: `导出失败: ${detail}`,
+            },
+            { detail },
+          ),
+        );
       }
     },
     [message, data, dataset, onExport, preview],
@@ -278,8 +364,15 @@ const ReportPageRenderer: React.FC<ReportPageRendererProps> = ({
     return (
       <Result
         status="warning"
-        title="报表语义未完成"
-        subTitle="ReportPage 发布前必须配置 dataset.dimensions 和 dataset.metrics，否则无法生成可运行的图表和数据表。"
+        title={intl.formatMessage({
+          id: 'component.pageRenderer.reportPage.warning.semanticsTitle',
+          defaultMessage: '报表语义未完成',
+        })}
+        subTitle={intl.formatMessage({
+          id: 'component.pageRenderer.reportPage.warning.semanticsSubtitle',
+          defaultMessage:
+            'ReportPage 发布前必须配置 dataset.dimensions 和 dataset.metrics，否则无法生成可运行的图表和数据表。',
+        })}
       />
     );
   }
@@ -288,8 +381,15 @@ const ReportPageRenderer: React.FC<ReportPageRendererProps> = ({
     return (
       <Result
         status="warning"
-        title="报表绑定未完成"
-        subTitle="ReportPage 必须通过 output selector 将函数结果映射到 pageState.dataset。"
+        title={intl.formatMessage({
+          id: 'component.pageRenderer.reportPage.warning.bindingTitle',
+          defaultMessage: '报表绑定未完成',
+        })}
+        subTitle={intl.formatMessage({
+          id: 'component.pageRenderer.reportPage.warning.bindingSubtitle',
+          defaultMessage:
+            'ReportPage 必须通过 output selector 将函数结果映射到 pageState.dataset。',
+        })}
       />
     );
   }
@@ -297,38 +397,61 @@ const ReportPageRenderer: React.FC<ReportPageRendererProps> = ({
   return (
     <div>
       {/* 查询表单 */}
-      <Card title={title || '报表查询'}>
+      <Card
+        title={
+          title ||
+          intl.formatMessage({
+            id: 'component.pageRenderer.reportPage.form.title',
+            defaultMessage: '报表查询',
+          })
+        }
+      >
         <SchemaFormRenderer
           spec={spec.queryForm}
           onFinish={handleQuery}
           disabled={loading || preview}
         />
         <Button style={{ marginTop: 12 }} onClick={() => setData([])}>
-          清空结果
+          <FormattedMessage
+            id="component.pageRenderer.reportPage.button.clearResults"
+            defaultMessage="清空结果"
+          />
         </Button>
       </Card>
 
       {/* 数据展示 */}
       {data.length > 0 && (
         <Card
-          title="数据展示"
+          title={intl.formatMessage({
+            id: 'component.pageRenderer.reportPage.data.title',
+            defaultMessage: '数据展示',
+          })}
           style={{ marginTop: 16 }}
           extra={
             <Space>
               {spec.exportable && (
                 <>
                   <Button icon={<DownloadOutlined />} onClick={() => handleExport('csv')}>
-                    导出 CSV
+                    <FormattedMessage
+                      id="component.pageRenderer.reportPage.export.csv"
+                      defaultMessage="导出 CSV"
+                    />
                   </Button>
                   {onExport ? (
                     <Button icon={<DownloadOutlined />} onClick={() => handleExport('excel')}>
-                      导出 Excel
+                      <FormattedMessage
+                        id="component.pageRenderer.reportPage.export.excel"
+                        defaultMessage="导出 Excel"
+                      />
                     </Button>
                   ) : null}
                 </>
               )}
               <Button icon={<ReloadOutlined />} onClick={() => setData([])}>
-                清空
+                <FormattedMessage
+                  id="component.pageRenderer.reportPage.button.clear"
+                  defaultMessage="清空"
+                />
               </Button>
             </Space>
           }
@@ -344,7 +467,10 @@ const ReportPageRenderer: React.FC<ReportPageRendererProps> = ({
                       label: (
                         <span>
                           <LineChartOutlined />
-                          图表
+                          <FormattedMessage
+                            id="component.pageRenderer.reportPage.tab.chart"
+                            defaultMessage="图表"
+                          />
                         </span>
                       ),
                       children: (
@@ -362,7 +488,10 @@ const ReportPageRenderer: React.FC<ReportPageRendererProps> = ({
                 label: (
                   <span>
                     <TableOutlined />
-                    表格
+                    <FormattedMessage
+                      id="component.pageRenderer.reportPage.tab.table"
+                      defaultMessage="表格"
+                    />
                   </span>
                 ),
                 children: (
@@ -375,7 +504,14 @@ const ReportPageRenderer: React.FC<ReportPageRendererProps> = ({
                     pagination={{
                       pageSize: 20,
                       showSizeChanger: true,
-                      showTotal: (total) => `共 ${total} 条`,
+                      showTotal: (total) =>
+                        intl.formatMessage(
+                          {
+                            id: 'component.pageRenderer.reportPage.pagination.total',
+                            defaultMessage: `共 ${total} 条`,
+                          },
+                          { total },
+                        ),
                     }}
                     scroll={{ x: 'max-content' }}
                   />
@@ -389,7 +525,12 @@ const ReportPageRenderer: React.FC<ReportPageRendererProps> = ({
       {/* 空状态 */}
       {!loading && data.length === 0 && (
         <Card style={{ marginTop: 16 }}>
-          <Empty description="请先查询数据" />
+          <Empty
+            description={intl.formatMessage({
+              id: 'component.pageRenderer.reportPage.empty.queryFirst',
+              defaultMessage: '请先查询数据',
+            })}
+          />
         </Card>
       )}
     </div>

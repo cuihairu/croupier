@@ -22,7 +22,7 @@ import {
   type ProColumns,
 } from '@ant-design/pro-components';
 import { CloudUploadOutlined, PlusOutlined, ReloadOutlined } from '@ant-design/icons';
-import { useAccess } from '@umijs/max';
+import { FormattedMessage, useAccess, useIntl } from '@umijs/max';
 import type { UploadProps } from 'antd';
 import {
   createRelease,
@@ -56,6 +56,7 @@ function formatSize(bytes?: number): string {
 export default function DevReleasesPage() {
   const { message } = App.useApp();
   const access = useAccess();
+  const intl = useIntl();
   const canManage = Boolean(access.canDevManage);
 
   const [status, setStatus] = useState('');
@@ -74,11 +75,24 @@ export default function DevReleasesPage() {
       // createRelease 契约要求 gameId 必填，但实际路由依赖 X-Game-ID header；
       // 原实现 body 即不含 gameId（Go json 解析缺省同为零值 ""），显式空串等价
       await createRelease({ ...v, gameId: '' });
-      message.success('版本已创建（草稿）');
+      message.success(
+        intl.formatMessage({
+          id: 'pages.devReleases.success.created',
+          defaultMessage: '版本已创建（草稿）',
+        }),
+      );
       reload();
       return true;
     } catch (error) {
-      message.error(extractErrorMessage(error, '创建失败'));
+      message.error(
+        extractErrorMessage(
+          error,
+          intl.formatMessage({
+            id: 'pages.devReleases.error.createFailed',
+            defaultMessage: '创建失败',
+          }),
+        ),
+      );
       return false;
     }
   };
@@ -90,10 +104,23 @@ export default function DevReleasesPage() {
   ) => {
     try {
       await transitionRelease(rel.id, action, grayPercent);
-      message.success('状态已更新');
+      message.success(
+        intl.formatMessage({
+          id: 'pages.devReleases.success.statusUpdated',
+          defaultMessage: '状态已更新',
+        }),
+      );
       reload();
     } catch (error) {
-      message.error(extractErrorMessage(error, '操作失败'));
+      message.error(
+        extractErrorMessage(
+          error,
+          intl.formatMessage({
+            id: 'pages.devReleases.error.operationFailed',
+            defaultMessage: '操作失败',
+          }),
+        ),
+      );
     }
   };
 
@@ -105,19 +132,42 @@ export default function DevReleasesPage() {
       try {
         await uploadReleaseArtifact(rel.id, file as File);
         onSuccess?.({}, new XMLHttpRequest());
-        message.success('资源包已上传');
+        message.success(
+          intl.formatMessage({
+            id: 'pages.devReleases.success.artifactUploaded',
+            defaultMessage: '资源包已上传',
+          }),
+        );
         reload();
       } catch (error) {
         onError?.(error as Error);
-        message.error(extractErrorMessage(error, '上传失败'));
+        message.error(
+          extractErrorMessage(
+            error,
+            intl.formatMessage({
+              id: 'pages.devReleases.error.uploadFailed',
+              defaultMessage: '上传失败',
+            }),
+          ),
+        );
       }
     },
   });
 
   const columns: ProColumns<Release>[] = [
-    { title: '版本', dataIndex: 'version', width: 100 },
     {
-      title: '渠道/平台',
+      title: intl.formatMessage({
+        id: 'pages.devReleases.column.version',
+        defaultMessage: '版本',
+      }),
+      dataIndex: 'version',
+      width: 100,
+    },
+    {
+      title: intl.formatMessage({
+        id: 'pages.devReleases.column.channelPlatform',
+        defaultMessage: '渠道/平台',
+      }),
       width: 140,
       render: (_: unknown, rel: Release) => (
         <Space size={4}>
@@ -127,13 +177,19 @@ export default function DevReleasesPage() {
       ),
     },
     {
-      title: '类型',
+      title: intl.formatMessage({
+        id: 'pages.devReleases.column.type',
+        defaultMessage: '类型',
+      }),
       dataIndex: 'type',
       width: 70,
       render: (_, rel) => releaseTypeLabels[rel.type] || rel.type,
     },
     {
-      title: '状态',
+      title: intl.formatMessage({
+        id: 'pages.devReleases.column.status',
+        defaultMessage: '状态',
+      }),
       dataIndex: 'status',
       width: 90,
       render: (_, rel) => (
@@ -143,7 +199,10 @@ export default function DevReleasesPage() {
       ),
     },
     {
-      title: '灰度',
+      title: intl.formatMessage({
+        id: 'pages.devReleases.column.gray',
+        defaultMessage: '灰度',
+      }),
       dataIndex: 'grayPercent',
       width: 90,
       render: (_, rel) =>
@@ -156,36 +215,60 @@ export default function DevReleasesPage() {
         ),
     },
     {
-      title: '资源包',
+      title: intl.formatMessage({
+        id: 'pages.devReleases.column.artifact',
+        defaultMessage: '资源包',
+      }),
       dataIndex: 'size',
       width: 100,
       render: (_, rel) =>
         rel.objectKey ? (
           <Text title={rel.checksum}>{formatSize(rel.size)}</Text>
         ) : (
-          <Text type="secondary">未上传</Text>
+          <Text type="secondary">
+            <FormattedMessage
+              id="pages.devReleases.column.artifactNotUploaded"
+              defaultMessage="未上传"
+            />
+          </Text>
         ),
     },
-    { title: '更新时间', dataIndex: 'updatedAt', width: 170 },
     {
-      title: '操作',
+      title: intl.formatMessage({
+        id: 'pages.devReleases.column.updatedAt',
+        defaultMessage: '更新时间',
+      }),
+      dataIndex: 'updatedAt',
+      width: 170,
+    },
+    {
+      title: intl.formatMessage({
+        id: 'pages.devReleases.column.actions',
+        defaultMessage: '操作',
+      }),
       render: (_: unknown, rel: Release) =>
         canManage ? (
           <Space wrap>
             {rel.status === 'draft' ? (
               <Upload {...uploadProps(rel)}>
                 <Button size="small" icon={<CloudUploadOutlined />}>
-                  传包
+                  <FormattedMessage
+                    id="pages.devReleases.action.uploadArtifact"
+                    defaultMessage="传包"
+                  />
                 </Button>
               </Upload>
             ) : null}
             {rel.status === 'uploading' ? (
               <Popconfirm
-                title="进入内测（仅白名单设备可获取）？"
+                title={intl.formatMessage({
+                  id: 'pages.devReleases.confirm.testing',
+                  defaultMessage: '进入内测（仅白名单设备可获取）？',
+                })}
                 onConfirm={() => doTransition(rel, 'testing')}
               >
                 <Button size="small" type="primary">
-                  内测
+                  <FormattedMessage id="pages.devReleases.action.testing" defaultMessage="内测" />
                 </Button>
               </Popconfirm>
             ) : null}
@@ -198,7 +281,10 @@ export default function DevReleasesPage() {
                   setGrayValue(10);
                 }}
               >
-                开始灰度
+                <FormattedMessage
+                  id="pages.devReleases.action.startRollout"
+                  defaultMessage="开始灰度"
+                />
               </Button>
             ) : null}
             {rel.status === 'gray' ? (
@@ -210,29 +296,44 @@ export default function DevReleasesPage() {
                     setGrayValue(Math.max(rel.grayPercent, 10));
                   }}
                 >
-                  放量
+                  <FormattedMessage id="pages.devReleases.action.rollout" defaultMessage="放量" />
                 </Button>
-                <Popconfirm title="直接全量发布？" onConfirm={() => doTransition(rel, 'full')}>
+                <Popconfirm
+                  title={intl.formatMessage({
+                    id: 'pages.devReleases.confirm.full',
+                    defaultMessage: '直接全量发布？',
+                  })}
+                  onConfirm={() => doTransition(rel, 'full')}
+                >
                   <Button size="small" type="primary">
-                    全量
+                    <FormattedMessage id="pages.devReleases.action.full" defaultMessage="全量" />
                   </Button>
                 </Popconfirm>
               </>
             ) : null}
             {rel.status === 'full' ? (
               <Popconfirm
-                title="回滚后客户端将取不到该版本，确认？"
+                title={intl.formatMessage({
+                  id: 'pages.devReleases.confirm.rollback',
+                  defaultMessage: '回滚后客户端将取不到该版本，确认？',
+                })}
                 onConfirm={() => doTransition(rel, 'rollback')}
               >
                 <Button size="small" danger>
-                  回滚
+                  <FormattedMessage id="pages.devReleases.action.rollback" defaultMessage="回滚" />
                 </Button>
               </Popconfirm>
             ) : null}
             {['draft', 'uploading', 'testing', 'gray'].includes(rel.status) ? (
-              <Popconfirm title="废弃该版本？" onConfirm={() => doTransition(rel, 'archive')}>
+              <Popconfirm
+                title={intl.formatMessage({
+                  id: 'pages.devReleases.confirm.archive',
+                  defaultMessage: '废弃该版本？',
+                })}
+                onConfirm={() => doTransition(rel, 'archive')}
+              >
                 <Button size="small" type="text" danger>
-                  废弃
+                  <FormattedMessage id="pages.devReleases.action.archive" defaultMessage="废弃" />
                 </Button>
               </Popconfirm>
             ) : null}
@@ -246,11 +347,14 @@ export default function DevReleasesPage() {
   return (
     <PageContainer>
       <Card
-        title="版本发布"
+        title={<FormattedMessage id="pages.devReleases.card.title" defaultMessage="版本发布" />}
         extra={
           <Space wrap>
             <Select
-              placeholder="状态"
+              placeholder={intl.formatMessage({
+                id: 'pages.devReleases.filter.status',
+                defaultMessage: '状态',
+              })}
               value={status || undefined}
               onChange={(v) => {
                 setStatus(v || '');
@@ -266,7 +370,10 @@ export default function DevReleasesPage() {
               }))}
             />
             <Select
-              placeholder="平台"
+              placeholder={intl.formatMessage({
+                id: 'pages.devReleases.filter.platform',
+                defaultMessage: '平台',
+              })}
               value={platform || undefined}
               onChange={(v) => {
                 setPlatform(v || '');
@@ -280,11 +387,11 @@ export default function DevReleasesPage() {
               }))}
             />
             <Button icon={<ReloadOutlined />} onClick={reload} loading={tableLoading}>
-              刷新
+              <FormattedMessage id="pages.devReleases.action.refresh" defaultMessage="刷新" />
             </Button>
             {canManage ? (
               <Button type="primary" icon={<PlusOutlined />} onClick={() => setCreateOpen(true)}>
-                创建版本
+                <FormattedMessage id="pages.devReleases.action.create" defaultMessage="创建版本" />
               </Button>
             ) : null}
           </Space>
@@ -313,7 +420,15 @@ export default function DevReleasesPage() {
               });
               return { data: res.items || [], total: res.total || 0, success: true };
             } catch (error) {
-              message.error(extractErrorMessage(error, '加载版本列表失败'));
+              message.error(
+                extractErrorMessage(
+                  error,
+                  intl.formatMessage({
+                    id: 'pages.devReleases.error.loadFailed',
+                    defaultMessage: '加载版本列表失败',
+                  }),
+                ),
+              );
               return { data: [], total: 0, success: false };
             }
           }}
@@ -323,24 +438,62 @@ export default function DevReleasesPage() {
       </Card>
 
       <ModalForm<ReleaseFormValues>
-        title="创建版本"
+        title={
+          <FormattedMessage id="pages.devReleases.createForm.title" defaultMessage="创建版本" />
+        }
         open={createOpen}
         onOpenChange={setCreateOpen}
         modalProps={{ destroyOnHidden: true }}
         width={520}
         layout="vertical"
-        submitter={{ searchConfig: { submitText: '创建' } }}
+        submitter={{
+          searchConfig: {
+            submitText: intl.formatMessage({
+              id: 'pages.devReleases.createForm.submit',
+              defaultMessage: '创建',
+            }),
+          },
+        }}
         initialValues={{ type: 'full' }}
         onFinish={onFinish}
       >
-        <Form.Item name="version" label="版本号" rules={[{ required: true, message: '如 1.5.0' }]}>
+        <Form.Item
+          name="version"
+          label={intl.formatMessage({
+            id: 'pages.devReleases.field.version',
+            defaultMessage: '版本号',
+          })}
+          rules={[
+            {
+              required: true,
+              message: intl.formatMessage({
+                id: 'pages.devReleases.field.versionRequired',
+                defaultMessage: '如 1.5.0',
+              }),
+            },
+          ]}
+        >
           <Input placeholder="1.5.0" />
         </Form.Item>
         <Space>
-          <Form.Item name="channel" label="渠道" initialValue="official">
+          <Form.Item
+            name="channel"
+            label={intl.formatMessage({
+              id: 'pages.devReleases.field.channel',
+              defaultMessage: '渠道',
+            })}
+            initialValue="official"
+          >
             <Input style={{ width: 140 }} />
           </Form.Item>
-          <Form.Item name="platform" label="平台" rules={[{ required: true }]}>
+          <Form.Item
+            name="platform"
+            label={intl.formatMessage({
+              id: 'pages.devReleases.field.platform',
+              defaultMessage: '平台',
+            })}
+            rules={[{ required: true }]}
+          >
             <Select
               style={{ width: 120 }}
               options={Object.entries(releasePlatformLabels).map(([value, label]) => ({
@@ -349,7 +502,13 @@ export default function DevReleasesPage() {
               }))}
             />
           </Form.Item>
-          <Form.Item name="type" label="类型">
+          <Form.Item
+            name="type"
+            label={intl.formatMessage({
+              id: 'pages.devReleases.field.type',
+              defaultMessage: '类型',
+            })}
+          >
             <Select
               style={{ width: 100 }}
               options={Object.entries(releaseTypeLabels).map(([value, label]) => ({
@@ -363,13 +522,23 @@ export default function DevReleasesPage() {
 
       <Modal
         title={
-          grayTarget ? `灰度放量：${grayTarget.version}（当前 ${grayTarget.grayPercent}%）` : ''
+          grayTarget
+            ? intl.formatMessage(
+                {
+                  id: 'pages.devReleases.modal.rolloutTitle',
+                  defaultMessage: `灰度放量：${grayTarget.version}（当前 ${grayTarget.grayPercent}%）`,
+                },
+                { version: grayTarget.version, percent: grayTarget.grayPercent },
+              )
+            : ''
         }
         open={Boolean(grayTarget)}
         onCancel={() => setGrayTarget(null)}
         footer={
           <Space>
-            <Button onClick={() => setGrayTarget(null)}>取消</Button>
+            <Button onClick={() => setGrayTarget(null)}>
+              <FormattedMessage id="pages.devReleases.modal.cancel" defaultMessage="取消" />
+            </Button>
             <Button
               type="primary"
               onClick={async () => {
@@ -378,13 +547,21 @@ export default function DevReleasesPage() {
                 setGrayTarget(null);
               }}
             >
-              确认放量
+              <FormattedMessage
+                id="pages.devReleases.modal.confirmRollout"
+                defaultMessage="确认放量"
+              />
             </Button>
           </Space>
         }
         destroyOnHidden
       >
-        <Text>放量只增不减；减少曝光请使用回滚。设备按 hash 分桶，同一设备结果稳定。</Text>
+        <Text>
+          <FormattedMessage
+            id="pages.devReleases.modal.rolloutHint"
+            defaultMessage="放量只增不减；减少曝光请使用回滚。设备按 hash 分桶，同一设备结果稳定。"
+          />
+        </Text>
         <Slider
           min={grayTarget ? grayTarget.grayPercent : 0}
           max={100}

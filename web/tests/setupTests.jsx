@@ -133,6 +133,11 @@ jest.mock(
       useIntl: () => ({
         formatMessage: ({ defaultMessage }) => defaultMessage,
       }),
+      // 与 useIntl 同款实现：非组件上下文（requestErrorConfig/bugs/pageSchema 等模块级代码）
+      // 通过 getIntl() 取 intl，测试下同样返回 defaultMessage
+      getIntl: () => ({
+        formatMessage: ({ defaultMessage }) => defaultMessage,
+      }),
       FormattedMessage: ({ defaultMessage }) =>
         React.createElement(React.Fragment, null, defaultMessage),
       SelectLang: () => null,

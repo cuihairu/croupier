@@ -1,7 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Alert, App, Badge, Button, Descriptions, Drawer, Tabs, Tag, Typography } from 'antd';
 import { BugOutlined, HistoryOutlined } from '@ant-design/icons';
 import { getFunctionDetail, type FunctionInstance } from '@/services/api';
+import { FormattedMessage, useIntl } from '@umijs/max';
 import type { InstanceDetail } from './shared';
 
 const { Text } = Typography;
@@ -22,6 +23,11 @@ export default function InstanceDetailDrawer({
   onOpenDebug: (instance: FunctionInstance) => void;
 }) {
   const { message } = App.useApp();
+  const intl = useIntl();
+  // useIntl 在测试 mock 下每次渲染返回新引用，直接进 useEffect 依赖会让详情
+  // 拉取无限重建；经 ref 转发后依赖稳定，执行时仍读取最新实例
+  const intlRef = useRef(intl);
+  intlRef.current = intl;
   const [instanceDetail, setInstanceDetail] = useState<InstanceDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
 
@@ -41,8 +47,20 @@ export default function InstanceDetailDrawer({
           });
         }
       } catch (e) {
-        const errMsg = e instanceof Error ? e.message : '操作失败';
-        message.error(errMsg || '加载详情失败');
+        const errMsg =
+          e instanceof Error
+            ? e.message
+            : intlRef.current.formatMessage({
+                id: 'pages.functionsInstances.detail.error.operationFailed',
+                defaultMessage: '操作失败',
+              });
+        message.error(
+          errMsg ||
+            intlRef.current.formatMessage({
+              id: 'pages.functionsInstances.detail.error.loadFailed',
+              defaultMessage: '加载详情失败',
+            }),
+        );
       } finally {
         if (!cancelled) setDetailLoading(false);
       }
@@ -54,7 +72,10 @@ export default function InstanceDetailDrawer({
 
   return (
     <Drawer
-      title="实例详情"
+      title={intl.formatMessage({
+        id: 'pages.functionsInstances.detail.title',
+        defaultMessage: '实例详情',
+      })}
       placement="right"
       width="min(720px, calc(100vw - 16px))"
       open={open}
@@ -67,10 +88,21 @@ export default function InstanceDetailDrawer({
           items={[
             {
               key: 'overview',
-              label: '概览',
+              label: intl.formatMessage({
+                id: 'pages.functionsInstances.detail.tab.overview',
+                defaultMessage: '概览',
+              }),
               children: (
                 <>
-                  <Descriptions title="实例信息" bordered column={2} size="small">
+                  <Descriptions
+                    title={intl.formatMessage({
+                      id: 'pages.functionsInstances.detail.instanceInfo.title',
+                      defaultMessage: '实例信息',
+                    })}
+                    bordered
+                    column={2}
+                    size="small"
+                  >
                     <Descriptions.Item label="Agent ID" span={2}>
                       <Text code copyable>
                         {instanceDetail.instance.agentId}
@@ -81,20 +113,42 @@ export default function InstanceDetailDrawer({
                         {instanceDetail.instance.serviceId}
                       </Text>
                     </Descriptions.Item>
-                    <Descriptions.Item label="函数ID" span={2}>
+                    <Descriptions.Item
+                      label={intl.formatMessage({
+                        id: 'pages.functionsInstances.detail.label.functionId',
+                        defaultMessage: '函数ID',
+                      })}
+                      span={2}
+                    >
                       <Text code copyable>
                         {instanceDetail.instance.functionId}
                       </Text>
                     </Descriptions.Item>
-                    <Descriptions.Item label="地址" span={2}>
+                    <Descriptions.Item
+                      label={intl.formatMessage({
+                        id: 'pages.functionsInstances.detail.label.addr',
+                        defaultMessage: '地址',
+                      })}
+                      span={2}
+                    >
                       <Text code copyable>
                         {instanceDetail.instance.addr}
                       </Text>
                     </Descriptions.Item>
-                    <Descriptions.Item label="版本">
+                    <Descriptions.Item
+                      label={intl.formatMessage({
+                        id: 'pages.functionsInstances.detail.label.version',
+                        defaultMessage: '版本',
+                      })}
+                    >
                       <Tag color="blue">{instanceDetail.instance.version || '-'}</Tag>
                     </Descriptions.Item>
-                    <Descriptions.Item label="状态">
+                    <Descriptions.Item
+                      label={intl.formatMessage({
+                        id: 'pages.functionsInstances.detail.label.status',
+                        defaultMessage: '状态',
+                      })}
+                    >
                       {/* 列表层 normalize 已把后端 active 映射为 running；
                           详情与列表保持同一判定，healthy 字段后端并不返回。 */}
                       <Badge
@@ -107,10 +161,19 @@ export default function InstanceDetailDrawer({
                         }
                         text={
                           instanceDetail.instance.status === 'running'
-                            ? '运行中'
+                            ? intl.formatMessage({
+                                id: 'pages.functionsInstances.detail.status.running',
+                                defaultMessage: '运行中',
+                              })
                             : instanceDetail.instance.status === 'error'
-                              ? '错误'
-                              : '停止'
+                              ? intl.formatMessage({
+                                  id: 'pages.functionsInstances.detail.status.error',
+                                  defaultMessage: '错误',
+                                })
+                              : intl.formatMessage({
+                                  id: 'pages.functionsInstances.detail.status.stopped',
+                                  defaultMessage: '停止',
+                                })
                         }
                       />
                     </Descriptions.Item>
@@ -120,7 +183,13 @@ export default function InstanceDetailDrawer({
                     <Descriptions.Item label="Env">
                       {instanceDetail.instance.env || '-'}
                     </Descriptions.Item>
-                    <Descriptions.Item label="最后心跳" span={2}>
+                    <Descriptions.Item
+                      label={intl.formatMessage({
+                        id: 'pages.functionsInstances.detail.label.lastHeartbeat',
+                        defaultMessage: '最后心跳',
+                      })}
+                      span={2}
+                    >
                       {instanceDetail.instance.lastHeartbeat ||
                         instanceDetail.instance.lastSeen ||
                         '-'}
@@ -131,8 +200,15 @@ export default function InstanceDetailDrawer({
                     type="info"
                     showIcon
                     style={{ marginTop: 24 }}
-                    message="运行指标与最近调用尚未接入"
-                    description="后端当前只提供实例注册与函数详情，调用统计、最近调用链路仍缺少真实接口。"
+                    message={intl.formatMessage({
+                      id: 'pages.functionsInstances.detail.metricsAlert.message',
+                      defaultMessage: '运行指标与最近调用尚未接入',
+                    })}
+                    description={intl.formatMessage({
+                      id: 'pages.functionsInstances.detail.metricsAlert.description',
+                      defaultMessage:
+                        '后端当前只提供实例注册与函数详情，调用统计、最近调用链路仍缺少真实接口。',
+                    })}
                   />
                 </>
               ),
@@ -141,7 +217,11 @@ export default function InstanceDetailDrawer({
               key: 'logs',
               label: (
                 <span>
-                  <HistoryOutlined /> 日志
+                  <HistoryOutlined />{' '}
+                  <FormattedMessage
+                    id="pages.functionsInstances.detail.tab.logs"
+                    defaultMessage="日志"
+                  />
                 </span>
               ),
               children: (
@@ -149,8 +229,15 @@ export default function InstanceDetailDrawer({
                   <Alert
                     type="info"
                     showIcon
-                    message="实例日志尚未接入"
-                    description="当前没有可用的实例日志查询接口。此处保留为后续接入日志聚合系统。"
+                    message={intl.formatMessage({
+                      id: 'pages.functionsInstances.detail.logsAlert.message',
+                      defaultMessage: '实例日志尚未接入',
+                    })}
+                    description={intl.formatMessage({
+                      id: 'pages.functionsInstances.detail.logsAlert.description',
+                      defaultMessage:
+                        '当前没有可用的实例日志查询接口。此处保留为后续接入日志聚合系统。',
+                    })}
                     style={{ marginBottom: 12 }}
                   />
                   <Button
@@ -158,7 +245,10 @@ export default function InstanceDetailDrawer({
                     onClick={() => onOpenLogs(instanceDetail.instance)}
                     style={{ marginBottom: 12 }}
                   >
-                    查看完整日志
+                    <FormattedMessage
+                      id="pages.functionsInstances.detail.viewFullLogs"
+                      defaultMessage="查看完整日志"
+                    />
                   </Button>
                 </div>
               ),
@@ -167,14 +257,25 @@ export default function InstanceDetailDrawer({
               key: 'debug',
               label: (
                 <span>
-                  <BugOutlined /> 调试
+                  <BugOutlined />{' '}
+                  <FormattedMessage
+                    id="pages.functionsInstances.detail.tab.debug"
+                    defaultMessage="调试"
+                  />
                 </span>
               ),
               children: (
                 <div>
                   <Alert
-                    message="调试模式"
-                    description="调试请求会定向到该实例执行；参数模板按函数 Schema 自动生成，可先做参数预览。缺少 Service ID 时只能预览，不能执行。"
+                    message={intl.formatMessage({
+                      id: 'pages.functionsInstances.detail.debugAlert.message',
+                      defaultMessage: '调试模式',
+                    })}
+                    description={intl.formatMessage({
+                      id: 'pages.functionsInstances.detail.debugAlert.description',
+                      defaultMessage:
+                        '调试请求会定向到该实例执行；参数模板按函数 Schema 自动生成，可先做参数预览。缺少 Service ID 时只能预览，不能执行。',
+                    })}
                     type="info"
                     showIcon
                     style={{ marginBottom: 16 }}
@@ -185,7 +286,10 @@ export default function InstanceDetailDrawer({
                       if (instanceDetail?.instance) onOpenDebug(instanceDetail.instance);
                     }}
                   >
-                    打开调试面板
+                    <FormattedMessage
+                      id="pages.functionsInstances.detail.openDebugPanel"
+                      defaultMessage="打开调试面板"
+                    />
                   </Button>
                 </div>
               ),

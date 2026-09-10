@@ -14,6 +14,7 @@ import {
 } from 'antd';
 import { PageContainer } from '@ant-design/pro-components';
 import { CloudUploadOutlined, ReloadOutlined, SaveOutlined } from '@ant-design/icons';
+import { FormattedMessage, useIntl } from '@umijs/max';
 import * as XLSX from 'xlsx';
 import {
   compileExcelSnapshot,
@@ -36,6 +37,7 @@ type Sheet = {
 
 export default function ExcelConfigPage() {
   const { message } = App.useApp();
+  const intl = useIntl();
   const [sheets, setSheets] = useState<Sheet[]>([]);
   const [active, setActive] = useState(0);
   const [configKey, setConfigKey] = useState('excel.workbook');
@@ -114,15 +116,36 @@ export default function ExcelConfigPage() {
         }) as CellValue[][],
       }));
       if (parsed.length === 0) {
-        message.warning('文件没有 sheet');
+        message.warning(
+          intl.formatMessage({
+            id: 'pages.systemExcelConfig.noSheets',
+            defaultMessage: '文件没有 sheet',
+          }),
+        );
         return false;
       }
       setSheets(parsed);
       setActive(0);
       persistDraft(parsed);
-      message.success(`已导入 ${parsed.length} 个 sheet（草稿，保存后注册新版本）`);
+      message.success(
+        intl.formatMessage(
+          {
+            id: 'pages.systemExcelConfig.imported',
+            defaultMessage: `已导入 ${parsed.length} 个 sheet（草稿，保存后注册新版本）`,
+          },
+          { count: parsed.length },
+        ),
+      );
     } catch (error) {
-      message.error(extractErrorMessage(error, '解析失败'));
+      message.error(
+        extractErrorMessage(
+          error,
+          intl.formatMessage({
+            id: 'pages.systemExcelConfig.error.importParse',
+            defaultMessage: '解析失败',
+          }),
+        ),
+      );
     }
     return false;
   };
@@ -162,10 +185,26 @@ export default function ExcelConfigPage() {
         message: commitMessage || undefined,
       });
       setLastResult(result);
-      message.success(`已注册版本 v${result.version}（${result.sheets} 表 / ${result.rows} 行）`);
+      message.success(
+        intl.formatMessage(
+          {
+            id: 'pages.systemExcelConfig.registered',
+            defaultMessage: `已注册版本 v${result.version}（${result.sheets} 表 / ${result.rows} 行）`,
+          },
+          { version: result.version, sheets: result.sheets, rows: result.rows },
+        ),
+      );
       setCommitMessage('');
     } catch (error) {
-      message.error(extractErrorMessage(error, '保存失败'));
+      message.error(
+        extractErrorMessage(
+          error,
+          intl.formatMessage({
+            id: 'pages.systemExcelConfig.error.saveFailed',
+            defaultMessage: '保存失败',
+          }),
+        ),
+      );
     } finally {
       setSaving(false);
     }
@@ -175,9 +214,25 @@ export default function ExcelConfigPage() {
     try {
       const result = await importExcelFile(file, { message: commitMessage || undefined });
       setLastResult(result);
-      message.success(`服务端编译完成：v${result.version}（${result.rows} 行）`);
+      message.success(
+        intl.formatMessage(
+          {
+            id: 'pages.systemExcelConfig.serverCompiled',
+            defaultMessage: `服务端编译完成：v${result.version}（${result.rows} 行）`,
+          },
+          { version: result.version, rows: result.rows },
+        ),
+      );
     } catch (error) {
-      message.error(extractErrorMessage(error, '上传编译失败'));
+      message.error(
+        extractErrorMessage(
+          error,
+          intl.formatMessage({
+            id: 'pages.systemExcelConfig.error.uploadFailed',
+            defaultMessage: '上传编译失败',
+          }),
+        ),
+      );
     }
     return false;
   };
@@ -192,10 +247,21 @@ export default function ExcelConfigPage() {
       title:
         active === 0 && ci === 0 ? (
           <Space>
-            <Text strong>字段 / 数据</Text>
+            <Text strong>
+              <FormattedMessage
+                id="pages.systemExcelConfig.column.dataField"
+                defaultMessage="字段 / 数据"
+              />
+            </Text>
           </Space>
         ) : (
-          <Text type="secondary">列 {ci + 1}</Text>
+          <Text type="secondary">
+            <FormattedMessage
+              id="pages.systemExcelConfig.column.index"
+              defaultMessage={`列 ${ci + 1}`}
+              values={{ index: ci + 1 }}
+            />
+          </Text>
         ),
       dataIndex: ci,
       width: 160,
@@ -210,7 +276,10 @@ export default function ExcelConfigPage() {
               variant="borderless"
               value={String(row[ci] ?? '')}
               onChange={(e) => setCell(0, ci, e.target.value)}
-              placeholder="字段名"
+              placeholder={intl.formatMessage({
+                id: 'pages.systemExcelConfig.column.headerPlaceholder',
+                defaultMessage: '字段名',
+              })}
             />
           );
         }
@@ -221,7 +290,10 @@ export default function ExcelConfigPage() {
               variant="borderless"
               value={ci === 0 ? String(row[ci]) : String(row[ci] || '') || undefined}
               onChange={(v) => setCell(1, ci, v)}
-              placeholder="类型"
+              placeholder={intl.formatMessage({
+                id: 'pages.systemExcelConfig.column.typePlaceholder',
+                defaultMessage: '类型',
+              })}
               allowClear
               style={{ width: '100%' }}
               disabled={ci === 0}
@@ -244,31 +316,61 @@ export default function ExcelConfigPage() {
       },
     }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [current, active]);
+  }, [current, active, intl]);
 
   return (
     <PageContainer>
       <Card
-        title="表格配置（Excel 在线编译）"
+        title={intl.formatMessage({
+          id: 'pages.systemExcelConfig.cardTitle',
+          defaultMessage: '表格配置（Excel 在线编译）',
+        })}
         extra={
           <Space wrap>
             <Button icon={<ReloadOutlined />} onClick={loadLocalDraft}>
-              重置草稿
+              <FormattedMessage
+                id="pages.systemExcelConfig.action.resetDraft"
+                defaultMessage="重置草稿"
+              />
             </Button>
             <Upload accept=".xlsx" showUploadList={false} beforeUpload={onImportXlsx}>
-              <Button>导入 .xlsx 为草稿</Button>
+              <Button>
+                <FormattedMessage
+                  id="pages.systemExcelConfig.action.import"
+                  defaultMessage="导入 .xlsx 为草稿"
+                />
+              </Button>
             </Upload>
-            <Button onClick={exportXlsx}>导出 .xlsx</Button>
+            <Button onClick={exportXlsx}>
+              <FormattedMessage
+                id="pages.systemExcelConfig.action.export"
+                defaultMessage="导出 .xlsx"
+              />
+            </Button>
             <Upload accept=".xlsx" showUploadList={false} beforeUpload={uploadToServer}>
-              <Button icon={<CloudUploadOutlined />}>服务端编译上传</Button>
+              <Button icon={<CloudUploadOutlined />}>
+                <FormattedMessage
+                  id="pages.systemExcelConfig.action.uploadCompile"
+                  defaultMessage="服务端编译上传"
+                />
+              </Button>
             </Upload>
             <Popconfirm
-              title="注册新版本并热更下发？"
-              description="保存会生成新的 gameplay 配置版本，游戏服将收到变更通知。"
+              title={intl.formatMessage({
+                id: 'pages.systemExcelConfig.confirm.title',
+                defaultMessage: '注册新版本并热更下发？',
+              })}
+              description={intl.formatMessage({
+                id: 'pages.systemExcelConfig.confirm.description',
+                defaultMessage: '保存会生成新的 gameplay 配置版本，游戏服将收到变更通知。',
+              })}
               onConfirm={save}
             >
               <Button type="primary" icon={<SaveOutlined />} loading={saving}>
-                保存并发布
+                <FormattedMessage
+                  id="pages.systemExcelConfig.action.save"
+                  defaultMessage="保存并发布"
+                />
               </Button>
             </Popconfirm>
           </Space>
@@ -276,13 +378,19 @@ export default function ExcelConfigPage() {
       >
         <Space wrap style={{ marginBottom: 12 }}>
           <Input
-            placeholder="配置 key（如 shop.items）"
+            placeholder={intl.formatMessage({
+              id: 'pages.systemExcelConfig.keyPlaceholder',
+              defaultMessage: '配置 key（如 shop.items）',
+            })}
             value={configKey}
             onChange={(e) => setConfigKey(e.target.value)}
             style={{ width: 220 }}
           />
           <Input
-            placeholder="版本说明（可选）"
+            placeholder={intl.formatMessage({
+              id: 'pages.systemExcelConfig.commitPlaceholder',
+              defaultMessage: '版本说明（可选）',
+            })}
             value={commitMessage}
             onChange={(e) => setCommitMessage(e.target.value)}
             style={{ width: 260 }}
@@ -297,7 +405,15 @@ export default function ExcelConfigPage() {
           </Button>
           {lastResult ? (
             <Tag color="green">
-              最新版本 v{lastResult.version}（{lastResult.sheets} 表 / {lastResult.rows} 行）
+              <FormattedMessage
+                id="pages.systemExcelConfig.latestVersion"
+                defaultMessage={`最新版本 v${lastResult.version}（${lastResult.sheets} 表 / ${lastResult.rows} 行）`}
+                values={{
+                  version: lastResult.version,
+                  sheets: lastResult.sheets,
+                  rows: lastResult.rows,
+                }}
+              />
             </Tag>
           ) : null}
         </Space>
@@ -312,11 +428,14 @@ export default function ExcelConfigPage() {
           bordered
         />
         <Space style={{ marginTop: 12 }}>
-          <Button onClick={addRow}>+ 行</Button>
+          <Button onClick={addRow}>
+            <FormattedMessage id="pages.systemExcelConfig.action.addRow" defaultMessage="+ 行" />
+          </Button>
           <Text type="secondary">
-            约定：首行=字段名；可选第二行首格以 #
-            开头=类型行（int/string/float/bool，逐列对齐）；空行忽略。
-            草稿自动存本地，保存后在「配置版本」中可查看与回滚。
+            <FormattedMessage
+              id="pages.systemExcelConfig.convention"
+              defaultMessage="约定：首行=字段名；可选第二行首格以 # 开头=类型行（int/string/float/bool，逐列对齐）；空行忽略。草稿自动存本地，保存后在「配置版本」中可查看与回滚。"
+            />
           </Text>
         </Space>
       </Card>

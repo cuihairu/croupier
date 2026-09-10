@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
   App,
@@ -27,7 +27,7 @@ import {
 } from '@ant-design/icons';
 import { PageContainer } from '@ant-design/pro-components';
 import ConstantImportModal from '../CompositeEditor/ConstantImportModal';
-import { request } from '@umijs/max';
+import { FormattedMessage, request, useIntl } from '@umijs/max';
 import { listDescriptors, type FunctionDescriptor } from '@/services/api/functions';
 import {
   instantiateTemplate,
@@ -80,6 +80,11 @@ function treeSummary(tree: unknown[]): string {
 /** 组件模板管理页面。 */
 export default function ComponentTemplatesPage() {
   const { message } = App.useApp();
+  const intl = useIntl();
+  // useIntl 在测试 mock 下每次渲染返回新引用，直接进 useCallback 依赖会让请求
+  // effect 反复触发；回调内文案统一走 intlRef（渲染期同步写回）。
+  const intlRef = useRef(intl);
+  intlRef.current = intl;
   const [templates, setTemplates] = useState<TemplateDTO[]>([]);
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState('');
@@ -104,7 +109,12 @@ export default function ComponentTemplatesPage() {
       })) as { items?: TemplateDTO[] } | TemplateDTO[];
       setTemplates(Array.isArray(resp) ? resp : (resp?.items ?? []));
     } catch {
-      message.error('加载组件模板失败');
+      message.error(
+        intlRef.current.formatMessage({
+          id: 'pages.pageStudio.templates.load.failed',
+          defaultMessage: '加载组件模板失败',
+        }),
+      );
     } finally {
       setLoading(false);
     }
@@ -121,10 +131,23 @@ export default function ComponentTemplatesPage() {
         method: 'POST',
         skipErrorHandler: true,
       })) as { regenerated?: number };
-      message.success(`已从 ${resp?.regenerated ?? 0} 个契约重新生成内置组件`);
+      message.success(
+        intlRef.current.formatMessage(
+          {
+            id: 'pages.pageStudio.templates.regenerate.success',
+            defaultMessage: '已从 {count} 个契约重新生成内置组件',
+          },
+          { count: resp?.regenerated ?? 0 },
+        ),
+      );
       await load();
     } catch {
-      message.error('重新生成失败');
+      message.error(
+        intlRef.current.formatMessage({
+          id: 'pages.pageStudio.templates.regenerate.failed',
+          defaultMessage: '重新生成失败',
+        }),
+      );
     } finally {
       setRegenerating(false);
     }
@@ -137,10 +160,20 @@ export default function ComponentTemplatesPage() {
           method: 'DELETE',
           skipErrorHandler: true,
         });
-        message.success(`已删除 ${key}`);
+        message.success(
+          intlRef.current.formatMessage(
+            { id: 'pages.pageStudio.templates.delete.success', defaultMessage: '已删除 {key}' },
+            { key },
+          ),
+        );
         await load();
       } catch {
-        message.error('删除失败（内置组件不可删除）');
+        message.error(
+          intlRef.current.formatMessage({
+            id: 'pages.pageStudio.templates.delete.failed',
+            defaultMessage: '删除失败（内置组件不可删除）',
+          }),
+        );
       }
     },
     [load, message],
@@ -165,7 +198,15 @@ export default function ComponentTemplatesPage() {
           // 单条失败不阻断其余清理（如内置模板不可删）
         }
       }
-      message.success(`已清理 ${removed} 个旧版合并模板——请重新「导入常量」生成独立组件`);
+      message.success(
+        intlRef.current.formatMessage(
+          {
+            id: 'pages.pageStudio.templates.cleanLegacy.success',
+            defaultMessage: '已清理 {count} 个旧版合并模板——请重新「导入常量」生成独立组件',
+          },
+          { count: removed },
+        ),
+      );
       await load();
     } finally {
       setCleaningLegacy(false);
@@ -180,7 +221,12 @@ export default function ComponentTemplatesPage() {
       const existing = new Set(templates.map((t) => t.key));
       const payloads = demoConstantTemplatePayloads().filter((p) => !existing.has(p.key));
       if (payloads.length === 0) {
-        message.info('示例常量模板已存在');
+        message.info(
+          intlRef.current.formatMessage({
+            id: 'pages.pageStudio.templates.seedDemo.alreadyExists',
+            defaultMessage: '示例常量模板已存在',
+          }),
+        );
         return;
       }
       for (const payload of payloads) {
@@ -190,10 +236,23 @@ export default function ComponentTemplatesPage() {
           skipErrorHandler: true,
         });
       }
-      message.success(`已生成 ${payloads.length} 个示例常量组件——组合页编辑器中可拖入使用`);
+      message.success(
+        intlRef.current.formatMessage(
+          {
+            id: 'pages.pageStudio.templates.seedDemo.success',
+            defaultMessage: '已生成 {count} 个示例常量组件——组合页编辑器中可拖入使用',
+          },
+          { count: payloads.length },
+        ),
+      );
       await load();
     } catch {
-      message.error('生成示例常量模板失败');
+      message.error(
+        intlRef.current.formatMessage({
+          id: 'pages.pageStudio.templates.seedDemo.failed',
+          defaultMessage: '生成示例常量模板失败',
+        }),
+      );
     } finally {
       setSeedingDemo(false);
     }
@@ -232,14 +291,20 @@ export default function ComponentTemplatesPage() {
   return (
     <PageContainer
       header={{
-        title: '组件模板',
+        title: intl.formatMessage({
+          id: 'pages.pageStudio.templates.title',
+          defaultMessage: '组件模板',
+        }),
         extra: [
           <Button
             key="import-consts"
             icon={<ControlOutlined />}
             onClick={() => setImportOpen(true)}
           >
-            导入常量
+            <FormattedMessage
+              id="pages.pageStudio.templates.action.importConstants"
+              defaultMessage="导入常量"
+            />
           </Button>,
           <Button
             key="seed-demo-consts"
@@ -247,7 +312,10 @@ export default function ComponentTemplatesPage() {
             loading={seedingDemo}
             onClick={() => void handleSeedDemo()}
           >
-            生成示例常量
+            <FormattedMessage
+              id="pages.pageStudio.templates.action.seedDemo"
+              defaultMessage="生成示例常量"
+            />
           </Button>,
           <Button
             key="regen"
@@ -255,11 +323,19 @@ export default function ComponentTemplatesPage() {
             loading={regenerating}
             onClick={() => void handleRegenerate()}
           >
-            从契约重新生成
+            <FormattedMessage
+              id="pages.pageStudio.templates.action.regenerate"
+              defaultMessage="从契约重新生成"
+            />
           </Button>,
           <Button key="reload" icon={<ReloadOutlined />} onClick={() => void load()} />,
           <a key="editor" href="/functions/pages/composite-editor" target="_blank" rel="noreferrer">
-            <Button icon={<AppstoreOutlined />}>在编辑器中使用</Button>
+            <Button icon={<AppstoreOutlined />}>
+              <FormattedMessage
+                id="pages.pageStudio.templates.action.openEditor"
+                defaultMessage="在编辑器中使用"
+              />
+            </Button>
           </a>,
         ],
       }}
@@ -267,7 +343,10 @@ export default function ComponentTemplatesPage() {
       <Input
         allowClear
         prefix={<SearchOutlined style={{ color: '#999' }} />}
-        placeholder="搜索组件名 / key / 分类"
+        placeholder={intl.formatMessage({
+          id: 'pages.pageStudio.templates.search.placeholder',
+          defaultMessage: '搜索组件名 / key / 分类',
+        })}
         value={search}
         onChange={(e) => setSearch(e.target.value)}
         style={{ width: 320, marginBottom: 16 }}
@@ -278,13 +357,24 @@ export default function ComponentTemplatesPage() {
           type="warning"
           showIcon
           style={{ marginBottom: 16 }}
-          message={`检测到 ${legacyMerged.length} 个旧版合并常量模板（一个模板包含多个常量）`}
+          message={intl.formatMessage(
+            {
+              id: 'pages.pageStudio.templates.legacy.alertMessage',
+              defaultMessage: '检测到 {count} 个旧版合并常量模板（一个模板包含多个常量）',
+            },
+            { count: legacyMerged.length },
+          )}
           description={
             <Space direction="vertical" size={4}>
               <Text type="secondary" style={{ fontSize: 12 }}>
-                现行规范是「一种常量一个独立组件」。旧模板：
-                {legacyMerged.map((t) => t.key).join('、')}
-                ——清理后请重新「导入常量」。
+                {intl.formatMessage(
+                  {
+                    id: 'pages.pageStudio.templates.legacy.alertDescription',
+                    defaultMessage:
+                      '现行规范是「一种常量一个独立组件」。旧模板：{keys}——清理后请重新「导入常量」。',
+                  },
+                  { keys: legacyMerged.map((t) => t.key).join('、') },
+                )}
               </Text>
               <Button
                 size="small"
@@ -292,7 +382,10 @@ export default function ComponentTemplatesPage() {
                 loading={cleaningLegacy}
                 onClick={() => void handleCleanLegacy()}
               >
-                一键清理旧模板
+                <FormattedMessage
+                  id="pages.pageStudio.templates.legacy.cleanButton"
+                  defaultMessage="一键清理旧模板"
+                />
               </Button>
             </Space>
           }
@@ -300,17 +393,30 @@ export default function ComponentTemplatesPage() {
       )}
 
       {loading ? (
-        <Empty description="加载中…" image={Empty.PRESENTED_IMAGE_SIMPLE} />
+        <Empty
+          description={intl.formatMessage({
+            id: 'pages.pageStudio.templates.empty.loading',
+            defaultMessage: '加载中…',
+          })}
+          image={Empty.PRESENTED_IMAGE_SIMPLE}
+        />
       ) : filtered.length === 0 ? (
         <Empty
-          description="暂无组件模板——点击「生成示例常量」体验、导入常量或从契约重新生成"
+          description={intl.formatMessage({
+            id: 'pages.pageStudio.templates.empty.none',
+            defaultMessage: '暂无组件模板——点击「生成示例常量」体验、导入常量或从契约重新生成',
+          })}
           image={Empty.PRESENTED_IMAGE_SIMPLE}
         />
       ) : (
         grouped.map(([category, items]) => (
           <div key={category} style={{ marginBottom: 24 }}>
             <Title level={5} style={{ marginBottom: 12 }}>
-              {category}（{items.length}）
+              {category}
+              {intl.formatMessage(
+                { id: 'pages.pageStudio.templates.groupCount', defaultMessage: '（{count}）' },
+                { count: items.length },
+              )}
             </Title>
             <Row gutter={[12, 12]}>
               {items.map((tpl) => (
@@ -326,17 +432,26 @@ export default function ComponentTemplatesPage() {
                         icon={<EyeOutlined />}
                         onClick={() => setPreviewKey(tpl.key)}
                       >
-                        预览
+                        <FormattedMessage
+                          id="pages.pageStudio.templates.action.preview"
+                          defaultMessage="预览"
+                        />
                       </Button>,
                       ...(!tpl.builtin
                         ? [
                             <Popconfirm
                               key="del"
-                              title="确认删除？"
+                              title={intl.formatMessage({
+                                id: 'pages.pageStudio.templates.delete.confirm',
+                                defaultMessage: '确认删除？',
+                              })}
                               onConfirm={() => void handleDelete(tpl.key)}
                             >
                               <Button size="small" type="text" danger icon={<DeleteOutlined />}>
-                                删除
+                                <FormattedMessage
+                                  id="pages.pageStudio.templates.action.delete"
+                                  defaultMessage="删除"
+                                />
                               </Button>
                             </Popconfirm>,
                           ]
@@ -348,10 +463,20 @@ export default function ComponentTemplatesPage() {
                       title={
                         <Space size={6}>
                           <Text strong>{nameOf(tpl)}</Text>
-                          {tpl.builtin && <Tag style={{ fontSize: 10 }}>内置</Tag>}
+                          {tpl.builtin && (
+                            <Tag style={{ fontSize: 10 }}>
+                              <FormattedMessage
+                                id="pages.pageStudio.templates.tag.builtin"
+                                defaultMessage="内置"
+                              />
+                            </Tag>
+                          )}
                           {tpl.stale && (
                             <Tag color="orange" style={{ fontSize: 10 }}>
-                              已过期
+                              <FormattedMessage
+                                id="pages.pageStudio.templates.tag.stale"
+                                defaultMessage="已过期"
+                              />
                             </Tag>
                           )}
                         </Space>
@@ -364,7 +489,11 @@ export default function ComponentTemplatesPage() {
                           {tpl.requiredFunctions?.length ? (
                             <div>
                               <Text type="secondary" style={{ fontSize: 11 }}>
-                                依赖：{tpl.requiredFunctions.join(', ')}
+                                <FormattedMessage
+                                  id="pages.pageStudio.templates.requiredFunctions"
+                                  defaultMessage="依赖：{fns}"
+                                  values={{ fns: tpl.requiredFunctions.join(', ') }}
+                                />
                               </Text>
                             </div>
                           ) : null}
@@ -393,12 +522,22 @@ export default function ComponentTemplatesPage() {
                 value={previewTab}
                 onChange={(v) => setPreviewTab(v as 'ui' | 'json')}
                 options={[
-                  { label: '界面预览', value: 'ui' },
+                  {
+                    label: intl.formatMessage({
+                      id: 'pages.pageStudio.templates.previewTab.ui',
+                      defaultMessage: '界面预览',
+                    }),
+                    value: 'ui',
+                  },
                   { label: 'JSON', value: 'json' },
                 ]}
               />
               <Text type="secondary" style={{ fontSize: 12 }}>
-                结构：{treeSummary(previewTpl.tree)}
+                <FormattedMessage
+                  id="pages.pageStudio.templates.previewStructure"
+                  defaultMessage="结构：{structure}"
+                  values={{ structure: treeSummary(previewTpl.tree) }}
+                />
               </Text>
             </Space>
             {previewTab === 'ui' ? (
@@ -436,7 +575,12 @@ export default function ComponentTemplatesPage() {
         onCancel={() => setImportOpen(false)}
         onSaved={() => {
           setImportOpen(false);
-          message.success('常量模板已保存——组合页编辑器组件库中可拖入使用');
+          message.success(
+            intlRef.current.formatMessage({
+              id: 'pages.pageStudio.templates.importSaved',
+              defaultMessage: '常量模板已保存——组合页编辑器组件库中可拖入使用',
+            }),
+          );
           void load();
         }}
       />

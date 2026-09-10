@@ -213,7 +213,10 @@ const Login: React.FC = () => {
               ? [
                   <Divider plain key="sso-divider" style={{ margin: '8px 0' }}>
                     <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-                      其他登录方式
+                      <FormattedMessage
+                        id="pages.login.sso.divider"
+                        defaultMessage="其他登录方式"
+                      />
                     </Typography.Text>
                   </Divider>,
                   <Button
@@ -225,7 +228,7 @@ const Login: React.FC = () => {
                       window.location.href = '/api/v1/auth/oidc/login';
                     }}
                   >
-                    SSO 登录
+                    <FormattedMessage id="pages.login.sso.button" defaultMessage="SSO 登录" />
                   </Button>,
                 ]
               : []
@@ -332,7 +335,11 @@ const Login: React.FC = () => {
               style={{ marginBottom: 16 }}
               type="info"
               showIcon
-              message="支持域账号：直接输入 LDAP 用户名和密码登录（本地账号校验失败时自动尝试目录服务）"
+              message={intl.formatMessage({
+                id: 'pages.login.ldap.notice',
+                defaultMessage:
+                  '支持域账号：直接输入 LDAP 用户名和密码登录（本地账号校验失败时自动尝试目录服务）',
+              })}
             />
           )}
           <div
@@ -358,8 +365,18 @@ const Login: React.FC = () => {
           onOk={() => setForgotOpen(false)}
         >
           <div>
-            <p>请联系管理员为你的账号重置密码。</p>
-            <p>如果你是管理员：在「权限 → 用户」中选择用户，点击「设置密码」即可重置。</p>
+            <p>
+              <FormattedMessage
+                id="pages.login.forgotPassword.contactAdmin"
+                defaultMessage="请联系管理员为你的账号重置密码。"
+              />
+            </p>
+            <p>
+              <FormattedMessage
+                id="pages.login.forgotPassword.adminHint"
+                defaultMessage="如果你是管理员：在「权限 → 用户」中选择用户，点击「设置密码」即可重置。"
+              />
+            </p>
           </div>
         </Modal>
       </div>

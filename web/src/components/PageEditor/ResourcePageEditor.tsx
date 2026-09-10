@@ -33,6 +33,7 @@ import {
   FormOutlined,
   UnorderedListOutlined,
 } from '@ant-design/icons';
+import { FormattedMessage, useIntl } from '@umijs/max';
 import type { ResourcePageSpec, ListViewSpec, ColumnSpec, ActionSpec } from '@/types/dashboard';
 import FormPresentationEditor from './FormPresentationEditor';
 import LocalizedTextEditor from '@/components/LocalizedTextEditor';
@@ -63,6 +64,7 @@ export default function ResourcePageEditor({
   onChange,
   readonly = false,
 }: ResourcePageEditorProps) {
+  const intl = useIntl();
   const [activeKey, setActiveKey] = useState<string[]>(['navigation']);
 
   // 更新列表视图
@@ -135,7 +137,12 @@ export default function ResourcePageEditor({
         <Text type="secondary">{label}</Text>
         <div style={{ marginTop: 8 }}>
           {actions.length === 0 ? (
-            <Tag color="default">未生成</Tag>
+            <Tag color="default">
+              <FormattedMessage
+                id="component.pageEditor.resourcePage.action.notGenerated"
+                defaultMessage="未生成"
+              />
+            </Tag>
           ) : (
             <Space orientation="vertical" style={{ width: '100%' }}>
               {actions.map((action, index) => (
@@ -148,7 +155,12 @@ export default function ResourcePageEditor({
                       {action.bindingId ? (
                         <Tag color="blue">{action.bindingId}</Tag>
                       ) : (
-                        <Tag color="red">缺少 binding</Tag>
+                        <Tag color="red">
+                          <FormattedMessage
+                            id="component.pageEditor.resourcePage.action.missingBinding"
+                            defaultMessage="缺少 binding"
+                          />
+                        </Tag>
                       )}
                       <Select
                         size="small"
@@ -156,14 +168,43 @@ export default function ResourcePageEditor({
                         onChange={(type) => handleActionChange(group, index, { type })}
                         style={{ width: 100 }}
                         options={[
-                          { value: 'default', label: '默认' },
-                          { value: 'primary', label: '主按钮' },
-                          { value: 'danger', label: '危险' },
-                          { value: 'link', label: '链接' },
+                          {
+                            value: 'default',
+                            label: intl.formatMessage({
+                              id: 'component.pageEditor.resourcePage.action.type.default',
+                              defaultMessage: '默认',
+                            }),
+                          },
+                          {
+                            value: 'primary',
+                            label: intl.formatMessage({
+                              id: 'component.pageEditor.resourcePage.action.type.primary',
+                              defaultMessage: '主按钮',
+                            }),
+                          },
+                          {
+                            value: 'danger',
+                            label: intl.formatMessage({
+                              id: 'component.pageEditor.resourcePage.action.type.danger',
+                              defaultMessage: '危险',
+                            }),
+                          },
+                          {
+                            value: 'link',
+                            label: intl.formatMessage({
+                              id: 'component.pageEditor.resourcePage.action.type.link',
+                              defaultMessage: '链接',
+                            }),
+                          },
                         ]}
                       />
                       <Space size={4}>
-                        <Text type="secondary">确认</Text>
+                        <Text type="secondary">
+                          <FormattedMessage
+                            id="component.pageEditor.resourcePage.action.confirm"
+                            defaultMessage="确认"
+                          />
+                        </Text>
                         <Switch
                           size="small"
                           checked={Boolean(action.confirm)}
@@ -179,13 +220,23 @@ export default function ResourcePageEditor({
                               : 'default'
                         }
                       >
-                        {action.risk || '未声明'}
+                        {action.risk ||
+                          intl.formatMessage({
+                            id: 'component.pageEditor.resourcePage.action.riskUndeclared',
+                            defaultMessage: '未声明',
+                          })}
                       </Tag>
                     </Space>
                   }
                 >
                   <Form layout="vertical" disabled={readonly} style={{ marginBottom: 0 }}>
-                    <Form.Item label="标题" style={{ marginBottom: 0 }}>
+                    <Form.Item
+                      label={intl.formatMessage({
+                        id: 'component.pageEditor.resourcePage.action.title',
+                        defaultMessage: '标题',
+                      })}
+                      style={{ marginBottom: 0 }}
+                    >
                       <LocalizedTextEditor
                         value={action.title}
                         onChange={(title) => handleActionChange(group, index, { title })}
@@ -208,13 +259,23 @@ export default function ResourcePageEditor({
         header={
           <Space>
             <SettingOutlined />
-            <Text strong>导航配置</Text>
+            <Text strong>
+              <FormattedMessage
+                id="component.pageEditor.resourcePage.navigation.title"
+                defaultMessage="导航配置"
+              />
+            </Text>
           </Space>
         }
         key="navigation"
       >
         <div>
-          <Text type="secondary">导航配置（标题、分类）在页面级别设置，不在此编辑器中配置。</Text>
+          <Text type="secondary">
+            <FormattedMessage
+              id="component.pageEditor.resourcePage.navigation.hint"
+              defaultMessage="导航配置（标题、分类）在页面级别设置，不在此编辑器中配置。"
+            />
+          </Text>
         </div>
       </Panel>
 
@@ -223,8 +284,19 @@ export default function ResourcePageEditor({
         header={
           <Space>
             <TableOutlined />
-            <Text strong>列表视图</Text>
-            <Tag>{value.listView?.columns?.length || 0} 列</Tag>
+            <Text strong>
+              <FormattedMessage
+                id="component.pageEditor.resourcePage.listView.title"
+                defaultMessage="列表视图"
+              />
+            </Text>
+            <Tag>
+              <FormattedMessage
+                id="component.pageEditor.resourcePage.listView.columnCount"
+                defaultMessage={`${value.listView?.columns?.length || 0} 列`}
+                values={{ count: value.listView?.columns?.length || 0 }}
+              />
+            </Tag>
           </Space>
         }
         key="listView"
@@ -237,7 +309,10 @@ export default function ResourcePageEditor({
               onClick={handleAddColumn}
               disabled={readonly}
             >
-              添加列
+              <FormattedMessage
+                id="component.pageEditor.resourcePage.listView.addColumn"
+                defaultMessage="添加列"
+              />
             </Button>
           </Space>
         </div>
@@ -266,16 +341,57 @@ export default function ResourcePageEditor({
                       onChange={(dataType) => handleColumnChange(index, { dataType })}
                       style={{ width: 100 }}
                       options={[
-                        { value: 'string', label: '字符串' },
-                        { value: 'number', label: '数字' },
-                        { value: 'boolean', label: '布尔' },
-                        { value: 'date', label: '日期' },
-                        { value: 'datetime', label: '日期时间' },
-                        { value: 'enum', label: '枚举' },
+                        {
+                          value: 'string',
+                          label: intl.formatMessage({
+                            id: 'component.pageEditor.resourcePage.dataType.string',
+                            defaultMessage: '字符串',
+                          }),
+                        },
+                        {
+                          value: 'number',
+                          label: intl.formatMessage({
+                            id: 'component.pageEditor.resourcePage.dataType.number',
+                            defaultMessage: '数字',
+                          }),
+                        },
+                        {
+                          value: 'boolean',
+                          label: intl.formatMessage({
+                            id: 'component.pageEditor.resourcePage.dataType.boolean',
+                            defaultMessage: '布尔',
+                          }),
+                        },
+                        {
+                          value: 'date',
+                          label: intl.formatMessage({
+                            id: 'component.pageEditor.resourcePage.dataType.date',
+                            defaultMessage: '日期',
+                          }),
+                        },
+                        {
+                          value: 'datetime',
+                          label: intl.formatMessage({
+                            id: 'component.pageEditor.resourcePage.dataType.datetime',
+                            defaultMessage: '日期时间',
+                          }),
+                        },
+                        {
+                          value: 'enum',
+                          label: intl.formatMessage({
+                            id: 'component.pageEditor.resourcePage.dataType.enum',
+                            defaultMessage: '枚举',
+                          }),
+                        },
                       ]}
                     />
                     <Space size={4}>
-                      <Text type="secondary">宽度</Text>
+                      <Text type="secondary">
+                        <FormattedMessage
+                          id="component.pageEditor.resourcePage.listView.column.width"
+                          defaultMessage="宽度"
+                        />
+                      </Text>
                       <InputNumber
                         size="small"
                         value={column.width}
@@ -286,7 +402,12 @@ export default function ResourcePageEditor({
                       />
                     </Space>
                     <Space size={4}>
-                      <Text type="secondary">可见</Text>
+                      <Text type="secondary">
+                        <FormattedMessage
+                          id="component.pageEditor.resourcePage.listView.column.visible"
+                          defaultMessage="可见"
+                        />
+                      </Text>
                       <Switch
                         size="small"
                         checked={column.visible !== false}
@@ -307,7 +428,13 @@ export default function ResourcePageEditor({
                 }
               >
                 <Form layout="vertical" disabled={readonly} style={{ marginBottom: 0 }}>
-                  <Form.Item label="标题" style={{ marginBottom: 0 }}>
+                  <Form.Item
+                    label={intl.formatMessage({
+                      id: 'component.pageEditor.resourcePage.listView.column.title',
+                      defaultMessage: '标题',
+                    })}
+                    style={{ marginBottom: 0 }}
+                  >
                     <LocalizedTextEditor
                       value={column.title}
                       onChange={(title) => handleColumnChange(index, { title })}
@@ -325,12 +452,27 @@ export default function ResourcePageEditor({
         header={
           <Space>
             <UnorderedListOutlined />
-            <Text strong>操作配置</Text>
+            <Text strong>
+              <FormattedMessage
+                id="component.pageEditor.resourcePage.actions.title"
+                defaultMessage="操作配置"
+              />
+            </Text>
             <Tag>
-              {(value.listView?.rowActions?.length || 0) +
-                (value.listView?.batchActions?.length || 0) +
-                (value.listView?.toolbarActions?.length || 0)}{' '}
-              个
+              <FormattedMessage
+                id="component.pageEditor.resourcePage.actions.count"
+                defaultMessage={`${
+                  (value.listView?.rowActions?.length || 0) +
+                  (value.listView?.batchActions?.length || 0) +
+                  (value.listView?.toolbarActions?.length || 0)
+                } 个`}
+                values={{
+                  count:
+                    (value.listView?.rowActions?.length || 0) +
+                    (value.listView?.batchActions?.length || 0) +
+                    (value.listView?.toolbarActions?.length || 0),
+                }}
+              />
             </Tag>
           </Space>
         }
@@ -338,14 +480,34 @@ export default function ResourcePageEditor({
       >
         <Space orientation="vertical" style={{ width: '100%' }}>
           <Text type="secondary">
-            动作能力来自 Resource Catalog 的
-            ActionSemantic；这里只能调整已生成动作的展示文案、样式和确认，不创建新函数绑定。
+            <FormattedMessage
+              id="component.pageEditor.resourcePage.actions.hint"
+              defaultMessage="动作能力来自 Resource Catalog 的 ActionSemantic；这里只能调整已生成动作的展示文案、样式和确认，不创建新函数绑定。"
+            />
           </Text>
-          {renderActionGroup('行操作', 'rowActions')}
+          {renderActionGroup(
+            intl.formatMessage({
+              id: 'component.pageEditor.resourcePage.actions.rowGroup',
+              defaultMessage: '行操作',
+            }),
+            'rowActions',
+          )}
           <Divider style={{ margin: '8px 0' }} />
-          {renderActionGroup('批量操作', 'batchActions')}
+          {renderActionGroup(
+            intl.formatMessage({
+              id: 'component.pageEditor.resourcePage.actions.batchGroup',
+              defaultMessage: '批量操作',
+            }),
+            'batchActions',
+          )}
           <Divider style={{ margin: '8px 0' }} />
-          {renderActionGroup('工具栏操作', 'toolbarActions')}
+          {renderActionGroup(
+            intl.formatMessage({
+              id: 'component.pageEditor.resourcePage.actions.toolbarGroup',
+              defaultMessage: '工具栏操作',
+            }),
+            'toolbarActions',
+          )}
         </Space>
       </Panel>
 
@@ -354,9 +516,25 @@ export default function ResourcePageEditor({
         header={
           <Space>
             <FormOutlined />
-            <Text strong>表单配置</Text>
+            <Text strong>
+              <FormattedMessage
+                id="component.pageEditor.resourcePage.forms.title"
+                defaultMessage="表单配置"
+              />
+            </Text>
             <Tag>
-              {value.createForm ? '创建' : ''} {value.updateForm ? '更新' : ''}
+              {value.createForm
+                ? intl.formatMessage({
+                    id: 'component.pageEditor.resourcePage.forms.create',
+                    defaultMessage: '创建',
+                  })
+                : ''}{' '}
+              {value.updateForm
+                ? intl.formatMessage({
+                    id: 'component.pageEditor.resourcePage.forms.update',
+                    defaultMessage: '更新',
+                  })
+                : ''}
             </Tag>
           </Space>
         }
@@ -364,7 +542,12 @@ export default function ResourcePageEditor({
       >
         <Space orientation="vertical" style={{ width: '100%' }}>
           <div>
-            <Text type="secondary">创建表单</Text>
+            <Text type="secondary">
+              <FormattedMessage
+                id="component.pageEditor.resourcePage.forms.createForm"
+                defaultMessage="创建表单"
+              />
+            </Text>
             <div style={{ marginTop: 8 }}>
               {value.createForm ? (
                 <FormPresentationEditor
@@ -373,12 +556,22 @@ export default function ResourcePageEditor({
                   readonly={readonly}
                 />
               ) : (
-                <Tag color="default">未配置</Tag>
+                <Tag color="default">
+                  <FormattedMessage
+                    id="component.pageEditor.resourcePage.forms.notConfigured"
+                    defaultMessage="未配置"
+                  />
+                </Tag>
               )}
             </div>
           </div>
           <div>
-            <Text type="secondary">更新表单</Text>
+            <Text type="secondary">
+              <FormattedMessage
+                id="component.pageEditor.resourcePage.forms.updateForm"
+                defaultMessage="更新表单"
+              />
+            </Text>
             <div style={{ marginTop: 8 }}>
               {value.updateForm ? (
                 <FormPresentationEditor
@@ -387,17 +580,37 @@ export default function ResourcePageEditor({
                   readonly={readonly}
                 />
               ) : (
-                <Tag color="default">未配置</Tag>
+                <Tag color="default">
+                  <FormattedMessage
+                    id="component.pageEditor.resourcePage.forms.notConfigured"
+                    defaultMessage="未配置"
+                  />
+                </Tag>
               )}
             </div>
           </div>
           <div>
-            <Text type="secondary">删除确认</Text>
+            <Text type="secondary">
+              <FormattedMessage
+                id="component.pageEditor.resourcePage.forms.deleteConfirm"
+                defaultMessage="删除确认"
+              />
+            </Text>
             <div style={{ marginTop: 8 }}>
               {value.deleteAction ? (
-                <Tag color="warning">已配置</Tag>
+                <Tag color="warning">
+                  <FormattedMessage
+                    id="component.pageEditor.resourcePage.forms.configured"
+                    defaultMessage="已配置"
+                  />
+                </Tag>
               ) : (
-                <Tag color="default">未配置</Tag>
+                <Tag color="default">
+                  <FormattedMessage
+                    id="component.pageEditor.resourcePage.forms.notConfigured"
+                    defaultMessage="未配置"
+                  />
+                </Tag>
               )}
             </div>
           </div>

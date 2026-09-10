@@ -18,7 +18,7 @@ import {
 import { getMessage } from '@/utils/antdApp';
 import { extractErrorMessage } from '@/utils/errors';
 import { formatDateTime } from '@/utils/format';
-import { useAccess } from '@umijs/max';
+import { FormattedMessage, useAccess, useIntl } from '@umijs/max';
 import type { JSONValue } from '@/types/dashboard';
 
 interface FeedbackItem {
@@ -40,6 +40,7 @@ interface AccessState {
 }
 
 export default function SupportFeedbackPage() {
+  const intl = useIntl();
   const actionRef = useRef<ActionType | undefined>(undefined);
   const [q, setQ] = useState('');
   const [category, setCategory] = useState('');
@@ -77,7 +78,10 @@ export default function SupportFeedbackPage() {
   };
   const onDelete = (rec: FeedbackItem) => {
     modal.confirm({
-      title: '删除反馈',
+      title: intl.formatMessage({
+        id: 'pages.supportFeedback.deleteConfirm.title',
+        defaultMessage: '删除反馈',
+      }),
       onOk: async () => {
         await deleteFeedback(rec.id);
         actionRef.current?.reload();
@@ -86,23 +90,69 @@ export default function SupportFeedbackPage() {
   };
 
   const columns: ProColumns<FeedbackItem>[] = [
-    { title: '玩家ID', dataIndex: 'playerId' },
-    { title: '联系方式', dataIndex: 'contact' },
-    { title: '分类', dataIndex: 'category' },
-    { title: '优先级', dataIndex: 'priority' },
-    { title: '状态', dataIndex: 'status' },
     {
-      title: '游戏/环境',
+      title: intl.formatMessage({
+        id: 'pages.supportFeedback.field.playerId',
+        defaultMessage: '玩家ID',
+      }),
+      dataIndex: 'playerId',
+    },
+    {
+      title: intl.formatMessage({
+        id: 'pages.supportFeedback.field.contact',
+        defaultMessage: '联系方式',
+      }),
+      dataIndex: 'contact',
+    },
+    {
+      title: intl.formatMessage({
+        id: 'pages.supportFeedback.field.category',
+        defaultMessage: '分类',
+      }),
+      dataIndex: 'category',
+    },
+    {
+      title: intl.formatMessage({
+        id: 'pages.supportFeedback.field.priority',
+        defaultMessage: '优先级',
+      }),
+      dataIndex: 'priority',
+    },
+    {
+      title: intl.formatMessage({
+        id: 'pages.supportFeedback.field.status',
+        defaultMessage: '状态',
+      }),
+      dataIndex: 'status',
+    },
+    {
+      title: intl.formatMessage({
+        id: 'pages.supportFeedback.field.gameEnv',
+        defaultMessage: '游戏/环境',
+      }),
       render: (_: unknown, r: FeedbackItem) => `${r.gameId || ''}/${r.env || ''}`,
     },
-    { title: '内容', dataIndex: 'content', ellipsis: true },
     {
-      title: '更新时间',
+      title: intl.formatMessage({
+        id: 'pages.supportFeedback.field.content',
+        defaultMessage: '内容',
+      }),
+      dataIndex: 'content',
+      ellipsis: true,
+    },
+    {
+      title: intl.formatMessage({
+        id: 'pages.supportFeedback.field.updatedAt',
+        defaultMessage: '更新时间',
+      }),
       dataIndex: 'updatedAt',
       render: (_, row) => formatDateTime(row.updatedAt ?? ''),
     },
     {
-      title: '操作',
+      title: intl.formatMessage({
+        id: 'pages.supportFeedback.field.actions',
+        defaultMessage: '操作',
+      }),
       render: (_: unknown, r: FeedbackItem) => (
         <Space>
           <Button
@@ -115,25 +165,52 @@ export default function SupportFeedbackPage() {
                 });
                 getMessage()?.success(
                   res.alreadyConverted
-                    ? `该反馈已转过工单 #${res.ticketId}`
-                    : `已转工单 #${res.ticketId}`,
+                    ? intl.formatMessage(
+                        {
+                          id: 'pages.supportFeedback.message.alreadyConverted',
+                          defaultMessage: `该反馈已转过工单 #${res.ticketId}`,
+                        },
+                        { ticketId: res.ticketId },
+                      )
+                    : intl.formatMessage(
+                        {
+                          id: 'pages.supportFeedback.message.converted',
+                          defaultMessage: `已转工单 #${res.ticketId}`,
+                        },
+                        { ticketId: res.ticketId },
+                      ),
                 );
                 actionRef.current?.reload();
               } catch (e) {
-                getMessage()?.error(extractErrorMessage(e, '转工单失败'));
+                getMessage()?.error(
+                  extractErrorMessage(
+                    e,
+                    intl.formatMessage({
+                      id: 'pages.supportFeedback.message.convertFailed',
+                      defaultMessage: '转工单失败',
+                    }),
+                  ),
+                );
               }
             }}
           >
-            {r.status === 'triaged' ? '已转工单' : '转工单'}
+            {r.status === 'triaged' ? (
+              <FormattedMessage
+                id="pages.supportFeedback.action.converted"
+                defaultMessage="已转工单"
+              />
+            ) : (
+              <FormattedMessage id="pages.supportFeedback.action.convert" defaultMessage="转工单" />
+            )}
           </Button>
           {access.canSupportManage && (
             <Button size="small" onClick={() => openEdit(r)}>
-              编辑
+              <FormattedMessage id="pages.supportFeedback.action.edit" defaultMessage="编辑" />
             </Button>
           )}
           {access.canSupportManage && (
             <Button size="small" danger onClick={() => onDelete(r)}>
-              删除
+              <FormattedMessage id="pages.supportFeedback.action.delete" defaultMessage="删除" />
             </Button>
           )}
         </Space>
@@ -144,23 +221,35 @@ export default function SupportFeedbackPage() {
   return (
     <PageContainer>
       <Card
-        title="玩家反馈"
+        title={intl.formatMessage({
+          id: 'pages.supportFeedback.card.title',
+          defaultMessage: '玩家反馈',
+        })}
         extra={
           <Space>
             <Input
-              placeholder="关键词"
+              placeholder={intl.formatMessage({
+                id: 'pages.supportFeedback.search.keyword',
+                defaultMessage: '关键词',
+              })}
               value={q}
               onChange={(e) => setQ(e.target.value)}
               style={{ width: 200 }}
             />
             <Input
-              placeholder="分类"
+              placeholder={intl.formatMessage({
+                id: 'pages.supportFeedback.search.category',
+                defaultMessage: '分类',
+              })}
               value={category}
               onChange={(e) => setCategory(e.target.value)}
               style={{ width: 140 }}
             />
             <Select
-              placeholder="状态"
+              placeholder={intl.formatMessage({
+                id: 'pages.supportFeedback.search.status',
+                defaultMessage: '状态',
+              })}
               value={status}
               onChange={(v) => {
                 setStatus(v);
@@ -171,19 +260,43 @@ export default function SupportFeedbackPage() {
               allowClear
               style={{ width: 140 }}
               options={[
-                { label: '新建', value: 'new' },
-                { label: '已分流', value: 'triaged' },
-                { label: '已关闭', value: 'closed' },
+                {
+                  label: intl.formatMessage({
+                    id: 'pages.supportFeedback.status.new',
+                    defaultMessage: '新建',
+                  }),
+                  value: 'new',
+                },
+                {
+                  label: intl.formatMessage({
+                    id: 'pages.supportFeedback.status.triaged',
+                    defaultMessage: '已分流',
+                  }),
+                  value: 'triaged',
+                },
+                {
+                  label: intl.formatMessage({
+                    id: 'pages.supportFeedback.status.closed',
+                    defaultMessage: '已关闭',
+                  }),
+                  value: 'closed',
+                },
               ]}
             />
             <Input
-              placeholder="游戏"
+              placeholder={intl.formatMessage({
+                id: 'pages.supportFeedback.search.gameId',
+                defaultMessage: '游戏',
+              })}
               value={gameId}
               onChange={(e) => setGameId(e.target.value)}
               style={{ width: 120 }}
             />
             <Checkbox checked={pendingOnly} onChange={(e) => setPendingOnly(e.target.checked)}>
-              隐藏已转工单
+              <FormattedMessage
+                id="pages.supportFeedback.filter.hideConverted"
+                defaultMessage="隐藏已转工单"
+              />
             </Checkbox>
             <Button
               type="primary"
@@ -194,9 +307,16 @@ export default function SupportFeedbackPage() {
                 actionRef.current?.reload();
               }}
             >
-              查询
+              <FormattedMessage id="pages.supportFeedback.action.query" defaultMessage="查询" />
             </Button>
-            {access.canSupportManage && <Button onClick={openAdd}>新建反馈</Button>}
+            {access.canSupportManage && (
+              <Button onClick={openAdd}>
+                <FormattedMessage
+                  id="pages.supportFeedback.action.create"
+                  defaultMessage="新建反馈"
+                />
+              </Button>
+            )}
           </Space>
         }
       >
@@ -234,7 +354,15 @@ export default function SupportFeedbackPage() {
                 success: true,
               };
             } catch (error) {
-              getMessage()?.error(extractErrorMessage(error, '加载反馈失败'));
+              getMessage()?.error(
+                extractErrorMessage(
+                  error,
+                  intl.formatMessage({
+                    id: 'pages.supportFeedback.loadFailed',
+                    defaultMessage: '加载反馈失败',
+                  }),
+                ),
+              );
               return { data: [], total: 0, success: false };
             }
           }}
@@ -242,56 +370,168 @@ export default function SupportFeedbackPage() {
         />
 
         <ModalForm<FeedbackPayload>
-          title={editing ? '编辑反馈' : '新建反馈'}
+          title={
+            editing
+              ? intl.formatMessage({
+                  id: 'pages.supportFeedback.form.editTitle',
+                  defaultMessage: '编辑反馈',
+                })
+              : intl.formatMessage({
+                  id: 'pages.supportFeedback.form.createTitle',
+                  defaultMessage: '新建反馈',
+                })
+          }
           open={open}
           onOpenChange={setOpen}
           modalProps={{ destroyOnHidden: true }}
           width={520}
-          submitter={{ searchConfig: { submitText: '确定' } }}
+          submitter={{
+            searchConfig: {
+              submitText: intl.formatMessage({
+                id: 'pages.supportFeedback.form.submit',
+                defaultMessage: '确定',
+              }),
+            },
+          }}
           initialValues={editing ?? { priority: 'normal', status: 'new' }}
           onFinish={onFinish}
         >
-          <Form.Item label="玩家ID" name="playerId">
-            <Input />
-          </Form.Item>
-          <Form.Item label="联系方式" name="contact">
+          <Form.Item
+            label={intl.formatMessage({
+              id: 'pages.supportFeedback.field.playerId',
+              defaultMessage: '玩家ID',
+            })}
+            name="playerId"
+          >
             <Input />
           </Form.Item>
           <Form.Item
-            label="内容"
+            label={intl.formatMessage({
+              id: 'pages.supportFeedback.field.contact',
+              defaultMessage: '联系方式',
+            })}
+            name="contact"
+          >
+            <Input />
+          </Form.Item>
+          <Form.Item
+            label={intl.formatMessage({
+              id: 'pages.supportFeedback.field.content',
+              defaultMessage: '内容',
+            })}
             name="content"
-            rules={[{ required: true, message: '请输入内容' }]}
+            rules={[
+              {
+                required: true,
+                message: intl.formatMessage({
+                  id: 'pages.supportFeedback.form.contentRequired',
+                  defaultMessage: '请输入内容',
+                }),
+              },
+            ]}
           >
             <Input.TextArea rows={4} />
           </Form.Item>
-          <Form.Item label="分类" name="category">
+          <Form.Item
+            label={intl.formatMessage({
+              id: 'pages.supportFeedback.field.category',
+              defaultMessage: '分类',
+            })}
+            name="category"
+          >
             <Input />
           </Form.Item>
-          <Form.Item label="优先级" name="priority">
+          <Form.Item
+            label={intl.formatMessage({
+              id: 'pages.supportFeedback.field.priority',
+              defaultMessage: '优先级',
+            })}
+            name="priority"
+          >
             <Select
               options={[
-                { label: '低', value: 'low' },
-                { label: '普通', value: 'normal' },
-                { label: '高', value: 'high' },
+                {
+                  label: intl.formatMessage({
+                    id: 'pages.supportFeedback.priority.low',
+                    defaultMessage: '低',
+                  }),
+                  value: 'low',
+                },
+                {
+                  label: intl.formatMessage({
+                    id: 'pages.supportFeedback.priority.normal',
+                    defaultMessage: '普通',
+                  }),
+                  value: 'normal',
+                },
+                {
+                  label: intl.formatMessage({
+                    id: 'pages.supportFeedback.priority.high',
+                    defaultMessage: '高',
+                  }),
+                  value: 'high',
+                },
               ]}
             />
           </Form.Item>
-          <Form.Item label="状态" name="status">
+          <Form.Item
+            label={intl.formatMessage({
+              id: 'pages.supportFeedback.field.status',
+              defaultMessage: '状态',
+            })}
+            name="status"
+          >
             <Select
               options={[
-                { label: '新建', value: 'new' },
-                { label: '已分流', value: 'triaged' },
-                { label: '已关闭', value: 'closed' },
+                {
+                  label: intl.formatMessage({
+                    id: 'pages.supportFeedback.status.new',
+                    defaultMessage: '新建',
+                  }),
+                  value: 'new',
+                },
+                {
+                  label: intl.formatMessage({
+                    id: 'pages.supportFeedback.status.triaged',
+                    defaultMessage: '已分流',
+                  }),
+                  value: 'triaged',
+                },
+                {
+                  label: intl.formatMessage({
+                    id: 'pages.supportFeedback.status.closed',
+                    defaultMessage: '已关闭',
+                  }),
+                  value: 'closed',
+                },
               ]}
             />
           </Form.Item>
-          <Form.Item label="附件(JSON)" name="attach">
+          <Form.Item
+            label={intl.formatMessage({
+              id: 'pages.supportFeedback.field.attach',
+              defaultMessage: '附件(JSON)',
+            })}
+            name="attach"
+          >
             <Input.TextArea rows={2} />
           </Form.Item>
-          <Form.Item label="游戏" name="gameId">
+          <Form.Item
+            label={intl.formatMessage({
+              id: 'pages.supportFeedback.field.gameId',
+              defaultMessage: '游戏',
+            })}
+            name="gameId"
+          >
             <Input />
           </Form.Item>
-          <Form.Item label="环境" name="env">
+          <Form.Item
+            label={intl.formatMessage({
+              id: 'pages.supportFeedback.field.env',
+              defaultMessage: '环境',
+            })}
+            name="env"
+          >
             <Input />
           </Form.Item>
         </ModalForm>

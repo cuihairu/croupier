@@ -13,6 +13,7 @@ import {
 } from 'antd';
 import dayjs, { type Dayjs } from 'dayjs';
 import { PageContainer } from '@ant-design/pro-components';
+import { FormattedMessage, useIntl } from '@umijs/max';
 import { exportToXLSX } from '@/utils/export';
 import { fetchAnalyticsEvents, fetchAnalyticsFunnel } from '@/services/api/analytics';
 import type { EventRow, FunnelStep } from './types';
@@ -20,6 +21,7 @@ import PathControls from './PathControls';
 import AdoptionControls from './AdoptionControls';
 
 export default function AnalyticsBehaviorPage() {
+  const intl = useIntl();
   const [loading, setLoading] = useState(false);
   const [eventName, setEventName] = useState<string>('');
   const [propKey, setPropKey] = useState<string>('');
@@ -109,23 +111,35 @@ export default function AnalyticsBehaviorPage() {
     <PageContainer>
       <Space orientation="vertical" style={{ width: '100%' }}>
         <Card
-          title="事件探索"
+          title={intl.formatMessage({
+            id: 'pages.analyticsBehavior.card.eventExplore',
+            defaultMessage: '事件探索',
+          })}
           extra={
             <Space>
               <Input
-                placeholder="事件名"
+                placeholder={intl.formatMessage({
+                  id: 'pages.analyticsBehavior.filter.placeholder.eventName',
+                  defaultMessage: '事件名',
+                })}
                 value={eventName}
                 onChange={(e) => setEventName(e.target.value)}
                 style={{ width: 160 }}
               />
               <Input
-                placeholder="属性Key"
+                placeholder={intl.formatMessage({
+                  id: 'pages.analyticsBehavior.filter.placeholder.propKey',
+                  defaultMessage: '属性Key',
+                })}
                 value={propKey}
                 onChange={(e) => setPropKey(e.target.value)}
                 style={{ width: 140 }}
               />
               <Input
-                placeholder="属性值"
+                placeholder={intl.formatMessage({
+                  id: 'pages.analyticsBehavior.filter.placeholder.propVal',
+                  defaultMessage: '属性值',
+                })}
                 value={propVal}
                 onChange={(e) => setPropVal(e.target.value)}
                 style={{ width: 140 }}
@@ -135,7 +149,7 @@ export default function AnalyticsBehaviorPage() {
                 onChange={(dates) => setRange(dates as [Dayjs | null, Dayjs | null] | null)}
               />
               <Button type="primary" onClick={load}>
-                查询
+                <FormattedMessage id="pages.analyticsBehavior.button.query" defaultMessage="查询" />
               </Button>
             </Space>
           }
@@ -146,9 +160,27 @@ export default function AnalyticsBehaviorPage() {
             rowKey={(r: EventRow) => r.id || `${r.event || ''}-${r.time || ''}`}
             dataSource={rows}
             columns={[
-              { title: '时间', dataIndex: 'time' },
-              { title: '事件', dataIndex: 'event' },
-              { title: '用户', dataIndex: 'user_id' },
+              {
+                title: intl.formatMessage({
+                  id: 'pages.analyticsBehavior.column.time',
+                  defaultMessage: '时间',
+                }),
+                dataIndex: 'time',
+              },
+              {
+                title: intl.formatMessage({
+                  id: 'pages.analyticsBehavior.column.event',
+                  defaultMessage: '事件',
+                }),
+                dataIndex: 'event',
+              },
+              {
+                title: intl.formatMessage({
+                  id: 'pages.analyticsBehavior.column.user',
+                  defaultMessage: '用户',
+                }),
+                dataIndex: 'user_id',
+              },
             ]}
           />
           <div style={{ marginTop: 8 }}>
@@ -160,7 +192,10 @@ export default function AnalyticsBehaviorPage() {
                 await exportToXLSX('events.csv', [{ sheet: 'events', rows: rowsOut }]);
               }}
             >
-              导出 CSV
+              <FormattedMessage
+                id="pages.analyticsBehavior.button.exportCsv"
+                defaultMessage="导出 CSV"
+              />
             </Button>
           </div>
         </Card>
@@ -168,12 +203,18 @@ export default function AnalyticsBehaviorPage() {
         <div id="funnel-anchor" />
         <div id="funnel-anchor" />
         <Card
-          title="漏斗"
+          title={intl.formatMessage({
+            id: 'pages.analyticsBehavior.card.funnel',
+            defaultMessage: '漏斗',
+          })}
           extra={
             <Space>
               <Select
                 mode="tags"
-                placeholder="步骤（事件名）"
+                placeholder={intl.formatMessage({
+                  id: 'pages.analyticsBehavior.funnel.filter.placeholder.steps',
+                  defaultMessage: '步骤（事件名）',
+                })}
                 value={steps}
                 onChange={(v) => setSteps(v)}
                 style={{ minWidth: 360 }}
@@ -181,21 +222,36 @@ export default function AnalyticsBehaviorPage() {
               <Switch
                 checked={seq}
                 onChange={setSeq}
-                checkedChildren="顺序"
-                unCheckedChildren="不强制顺序"
+                checkedChildren={intl.formatMessage({
+                  id: 'pages.analyticsBehavior.funnel.option.sequential',
+                  defaultMessage: '顺序',
+                })}
+                unCheckedChildren={intl.formatMessage({
+                  id: 'pages.analyticsBehavior.funnel.option.anyOrder',
+                  defaultMessage: '不强制顺序',
+                })}
               />
               <Checkbox checked={sameSess} onChange={(e) => setSameSess(e.target.checked)}>
-                同会话
+                <FormattedMessage
+                  id="pages.analyticsBehavior.funnel.sameSession"
+                  defaultMessage="同会话"
+                />
               </Checkbox>
               <InputNumber
-                placeholder="步间最大秒数"
+                placeholder={intl.formatMessage({
+                  id: 'pages.analyticsBehavior.funnel.filter.placeholder.gapSec',
+                  defaultMessage: '步间最大秒数',
+                })}
                 value={gapSec}
                 onChange={(v) => setGapSec(Number(v || 0))}
                 min={0}
                 style={{ width: 140 }}
               />
               <Button type="primary" onClick={() => loadFunnel()}>
-                计算
+                <FormattedMessage
+                  id="pages.analyticsBehavior.button.compute"
+                  defaultMessage="计算"
+                />
               </Button>
               <Button
                 onClick={() => {
@@ -212,7 +268,10 @@ export default function AnalyticsBehaviorPage() {
                   } catch {}
                 }}
               >
-                复制链接
+                <FormattedMessage
+                  id="pages.analyticsBehavior.button.copyLink"
+                  defaultMessage="复制链接"
+                />
               </Button>
             </Space>
           }
@@ -226,10 +285,25 @@ export default function AnalyticsBehaviorPage() {
               rate: s.rate,
             }))}
             columns={[
-              { title: '步骤', dataIndex: 'step' },
-              { title: '人数', dataIndex: 'users' },
               {
-                title: '转化率',
+                title: intl.formatMessage({
+                  id: 'pages.analyticsBehavior.funnel.column.step',
+                  defaultMessage: '步骤',
+                }),
+                dataIndex: 'step',
+              },
+              {
+                title: intl.formatMessage({
+                  id: 'pages.analyticsBehavior.funnel.column.users',
+                  defaultMessage: '人数',
+                }),
+                dataIndex: 'users',
+              },
+              {
+                title: intl.formatMessage({
+                  id: 'pages.analyticsBehavior.funnel.column.conversionRate',
+                  defaultMessage: '转化率',
+                }),
                 dataIndex: 'rate',
                 render: (v: number) => (v != null ? `${v}%` : '-'),
               },
@@ -248,12 +322,20 @@ export default function AnalyticsBehaviorPage() {
                 await exportToXLSX('funnel.csv', [{ sheet: 'funnel', rows: rowsOut }]);
               }}
             >
-              导出 CSV
+              <FormattedMessage
+                id="pages.analyticsBehavior.button.exportCsv"
+                defaultMessage="导出 CSV"
+              />
             </Button>
           </div>
         </Card>
 
-        <Card title="路径分析（TopN）">
+        <Card
+          title={intl.formatMessage({
+            id: 'pages.analyticsBehavior.card.pathAnalysis',
+            defaultMessage: '路径分析（TopN）',
+          })}
+        >
           <PathControls
             range={range}
             currentSteps={steps}
@@ -266,7 +348,12 @@ export default function AnalyticsBehaviorPage() {
           />
         </Card>
 
-        <Card title="功能采用率">
+        <Card
+          title={intl.formatMessage({
+            id: 'pages.analyticsBehavior.card.adoption',
+            defaultMessage: '功能采用率',
+          })}
+        >
           <AdoptionControls range={range} />
         </Card>
       </Space>

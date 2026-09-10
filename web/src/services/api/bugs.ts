@@ -1,4 +1,4 @@
-import { request } from '@umijs/max';
+import { getIntl, request } from '@umijs/max';
 
 // Source: internal/api/bug/dto.go
 export type BugLink = {
@@ -125,14 +125,36 @@ export async function deleteBug(id: number | string): Promise<void> {
 export const BUG_STATUS_FLOW = ['triage', 'confirmed', 'fixing', 'verify', 'released'] as const;
 export const BUG_STATUS_TERMINALS = ['wontfix', 'rejected'] as const;
 
+// 展示 label 经 getIntl 解析（SelectLang 切换语言会整页刷新重新求值）；
+// Map key / options value 为后端枚举契约，保持不动
+const intl = getIntl();
+
 export const bugStatusLabels: Record<string, string> = {
-  triage: '待分诊',
-  confirmed: '已确认',
-  fixing: '修复中',
-  verify: '待验证',
-  released: '已发布',
-  wontfix: '不修复',
-  rejected: '驳回',
+  triage: intl.formatMessage({ id: 'services.bugs.statusLabel.triage', defaultMessage: '待分诊' }),
+  confirmed: intl.formatMessage({
+    id: 'services.bugs.statusLabel.confirmed',
+    defaultMessage: '已确认',
+  }),
+  fixing: intl.formatMessage({
+    id: 'services.bugs.statusLabel.fixing',
+    defaultMessage: '修复中',
+  }),
+  verify: intl.formatMessage({
+    id: 'services.bugs.statusLabel.verify',
+    defaultMessage: '待验证',
+  }),
+  released: intl.formatMessage({
+    id: 'services.bugs.statusLabel.released',
+    defaultMessage: '已发布',
+  }),
+  wontfix: intl.formatMessage({
+    id: 'services.bugs.statusLabel.wontfix',
+    defaultMessage: '不修复',
+  }),
+  rejected: intl.formatMessage({
+    id: 'services.bugs.statusLabel.rejected',
+    defaultMessage: '驳回',
+  }),
 };
 
 export const bugStatusColors: Record<string, string> = {
@@ -146,10 +168,22 @@ export const bugStatusColors: Record<string, string> = {
 };
 
 export const bugSeverityLabels: Record<string, string> = {
-  blocker: '阻断',
-  critical: '严重',
-  major: '一般',
-  minor: '轻微',
+  blocker: intl.formatMessage({
+    id: 'services.bugs.severityLabel.blocker',
+    defaultMessage: '阻断',
+  }),
+  critical: intl.formatMessage({
+    id: 'services.bugs.severityLabel.critical',
+    defaultMessage: '严重',
+  }),
+  major: intl.formatMessage({
+    id: 'services.bugs.severityLabel.major',
+    defaultMessage: '一般',
+  }),
+  minor: intl.formatMessage({
+    id: 'services.bugs.severityLabel.minor',
+    defaultMessage: '轻微',
+  }),
 };
 
 export const bugSeverityColors: Record<string, string> = {
@@ -160,17 +194,32 @@ export const bugSeverityColors: Record<string, string> = {
 };
 
 export const bugPriorityLabels: Record<string, string> = {
-  urgent: '紧急',
-  high: '高',
-  normal: '中',
-  low: '低',
+  urgent: intl.formatMessage({
+    id: 'services.bugs.priorityLabel.urgent',
+    defaultMessage: '紧急',
+  }),
+  high: intl.formatMessage({ id: 'services.bugs.priorityLabel.high', defaultMessage: '高' }),
+  normal: intl.formatMessage({ id: 'services.bugs.priorityLabel.normal', defaultMessage: '中' }),
+  low: intl.formatMessage({ id: 'services.bugs.priorityLabel.low', defaultMessage: '低' }),
 };
 
 export const bugReproducibilityLabels: Record<string, string> = {
-  always: '必现',
-  often: '经常',
-  sometimes: '偶现',
-  once: '仅一次',
+  always: intl.formatMessage({
+    id: 'services.bugs.reproducibilityLabel.always',
+    defaultMessage: '必现',
+  }),
+  often: intl.formatMessage({
+    id: 'services.bugs.reproducibilityLabel.often',
+    defaultMessage: '经常',
+  }),
+  sometimes: intl.formatMessage({
+    id: 'services.bugs.reproducibilityLabel.sometimes',
+    defaultMessage: '偶现',
+  }),
+  once: intl.formatMessage({
+    id: 'services.bugs.reproducibilityLabel.once',
+    defaultMessage: '仅一次',
+  }),
 };
 
 export const bugPlatformOptions = [
@@ -178,7 +227,13 @@ export const bugPlatformOptions = [
   { label: 'Android', value: 'android' },
   { label: 'PC', value: 'pc' },
   { label: 'WebGL', value: 'webgl' },
-  { label: '编辑器', value: 'editor' },
+  {
+    label: intl.formatMessage({
+      id: 'services.bugs.platformLabel.editor',
+      defaultMessage: '编辑器',
+    }),
+    value: 'editor',
+  },
 ];
 
 export const bugLinkKindOptions = [
@@ -187,8 +242,17 @@ export const bugLinkKindOptions = [
   { label: 'GitLab', value: 'gitlab' },
   { label: 'Jira', value: 'jira' },
   { label: 'Wiki', value: 'wiki' },
-  { label: '监控面板', value: 'monitor' },
-  { label: '其他', value: 'other' },
+  {
+    label: intl.formatMessage({
+      id: 'services.bugs.linkKindLabel.monitor',
+      defaultMessage: '监控面板',
+    }),
+    value: 'monitor',
+  },
+  {
+    label: intl.formatMessage({ id: 'services.bugs.linkKindLabel.other', defaultMessage: '其他' }),
+    value: 'other',
+  },
 ];
 
 // deriveBugLinkTitle guesses a display title from a URL, e.g.

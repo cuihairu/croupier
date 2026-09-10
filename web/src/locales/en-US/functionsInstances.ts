@@ -1,0 +1,75 @@
+// pages.functionsInstances.* — Functions/Instances 实例与详情抽屉
+export default {
+  'pages.functionsInstances.action.refresh': 'Refresh',
+  'pages.functionsInstances.alert.transitionalDescription':
+    'The main list is backed by real registration data, but detail metrics, instance logs, and live debugging do not have backend APIs yet. The entries are kept here without putting these unfinished capabilities in front of the main flow.',
+  'pages.functionsInstances.alert.transitionalTitle':
+    'Instance details, logs, and debugging are still transitional',
+  'pages.functionsInstances.detail.debugAlert.description':
+    'Debug requests are routed to this instance for execution; parameter templates are generated from the function schema, so you can preview parameters first. Without a Service ID you can only preview, not execute.',
+  'pages.functionsInstances.detail.debugAlert.message': 'Debug Mode',
+  'pages.functionsInstances.detail.error.loadFailed': 'Failed to load details',
+  'pages.functionsInstances.detail.error.operationFailed': 'Operation failed',
+  'pages.functionsInstances.detail.instanceInfo.title': 'Instance Info',
+  'pages.functionsInstances.detail.label.addr': 'Address',
+  'pages.functionsInstances.detail.label.functionId': 'Function ID',
+  'pages.functionsInstances.detail.label.lastHeartbeat': 'Last Heartbeat',
+  'pages.functionsInstances.detail.label.status': 'Status',
+  'pages.functionsInstances.detail.label.version': 'Version',
+  'pages.functionsInstances.detail.logsAlert.description':
+    'There is no instance log query API yet. This tab is reserved for a future log aggregation system.',
+  'pages.functionsInstances.detail.logsAlert.message': 'Instance logs are not available yet',
+  'pages.functionsInstances.detail.metricsAlert.description':
+    'The backend currently provides only instance registration and function details; invocation statistics and recent invocation traces still lack real APIs.',
+  'pages.functionsInstances.detail.metricsAlert.message':
+    'Runtime metrics and recent calls are not available yet',
+  'pages.functionsInstances.detail.openDebugPanel': 'Open Debug Panel',
+  'pages.functionsInstances.detail.status.error': 'Error',
+  'pages.functionsInstances.detail.status.running': 'Running',
+  'pages.functionsInstances.detail.status.stopped': 'Stopped',
+  'pages.functionsInstances.detail.tab.debug': 'Debug',
+  'pages.functionsInstances.detail.tab.logs': 'Logs',
+  'pages.functionsInstances.detail.tab.overview': 'Overview',
+  'pages.functionsInstances.detail.title': 'Instance Details',
+  'pages.functionsInstances.detail.viewFullLogs': 'View Full Logs',
+  'pages.functionsInstances.error.loadFailed': 'Failed to load',
+  'pages.functionsInstances.error.operationFailed': 'Operation failed',
+  'pages.functionsInstances.filter.activeDescription': 'Active filters: {summary}',
+  'pages.functionsInstances.filter.activeTitle': 'You are viewing a filtered instance scope',
+  'pages.functionsInstances.filter.clear': 'Clear Filters',
+  'pages.functionsInstances.filter.function': 'Function',
+  'pages.functionsInstances.filter.game': 'Game',
+  'pages.functionsInstances.filter.searchPlaceholder': 'Search agent/service/addr/function',
+  'pages.functionsInstances.filter.status': 'Status',
+  'pages.functionsInstances.filter.summaryFunction': 'Function {name}',
+  'pages.functionsInstances.filter.summaryGame': 'Game {name}',
+  'pages.functionsInstances.filter.summarySearch': 'Search {keyword}',
+  'pages.functionsInstances.filter.summaryStatus': 'Status {status}',
+  'pages.functionsInstances.list.emptyDefault':
+    'No instance data yet. Confirm that registration info has been reported first.',
+  'pages.functionsInstances.list.emptyFiltered':
+    'No instances match the current filters. Widen the filters and try again.',
+  'pages.functionsInstances.list.refreshData': 'Refresh Data',
+  'pages.functionsInstances.list.resultCount': '{count} instances in current results',
+  'pages.functionsInstances.list.title': 'Instance List',
+  'pages.functionsInstances.page.subTitle':
+    'Monitor and manage function registrations across agent instances',
+  'pages.functionsInstances.page.title': 'Function Instances',
+  'pages.functionsInstances.pagination.total': '{total} instances in total',
+  'pages.functionsInstances.status.error': 'Error',
+  'pages.functionsInstances.status.running': 'Running',
+  'pages.functionsInstances.status.stopped': 'Stopped',
+  'pages.functionsInstances.summary.description':
+    'This page should first answer which function instances are online, where they are distributed, and where anomalies are. Details, logs, and debugging are secondary actions to take after the target instance is identified.',
+  'pages.functionsInstances.summary.hintAllOnline':
+    'Function coverage {percentage}%. No offline instances found.',
+  'pages.functionsInstances.summary.hintOffline':
+    '{count} instances are offline. Filter by status and check details first.',
+  'pages.functionsInstances.summary.title': 'Instance Overview',
+  'pages.functionsInstances.summary.totalFunctions': 'Functions {count}',
+  'pages.functionsInstances.summary.totalGames': 'Games {count}',
+  'pages.functionsInstances.summary.totalInstances': 'Instances {count}',
+  'pages.functionsInstances.summary.totalOffline': 'Offline {count}',
+  'pages.functionsInstances.summary.totalOnline': 'Online {count}',
+  'pages.functionsInstances.summary.totalResourcePrefixes': 'Resource prefixes {count}',
+};

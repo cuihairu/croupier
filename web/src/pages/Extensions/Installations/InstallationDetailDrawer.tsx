@@ -14,7 +14,7 @@ import {
   Tag,
   Typography,
 } from 'antd';
-import { useAccess } from '@umijs/max';
+import { FormattedMessage, useAccess, useIntl } from '@umijs/max';
 import { SummaryOverview } from '@/components';
 import {
   getExtensionCapabilities,
@@ -46,6 +46,7 @@ export default function InstallationDetailDrawer({
   onSaved: () => Promise<void>;
 }) {
   const access = useAccess();
+  const intl = useIntl();
   const { message } = App.useApp();
   const [loading, setLoading] = useState(false);
   const [target, setTarget] = useState<ExtensionInstallationItem | undefined>(undefined);
@@ -101,7 +102,13 @@ export default function InstallationDetailDrawer({
         open={open}
         onClose={onClose}
         width={860}
-        title={`安装详情: ${target?.displayName || target?.extensionId || ''}`}
+        title={intl.formatMessage(
+          {
+            id: 'pages.extensionsInstallations.detail.drawer.title',
+            defaultMessage: `安装详情: ${target?.displayName || target?.extensionId || ''}`,
+          },
+          { name: target?.displayName || target?.extensionId || '' },
+        )}
         extra={
           <Space>
             <Button
@@ -112,13 +119,25 @@ export default function InstallationDetailDrawer({
                 setCheckingHealth(true);
                 try {
                   const resp = await runExtensionHealthCheck(target.id);
-                  message.success(`健康检查完成: ${resp?.status || 'unknown'}`);
+                  const status = String(resp?.status ?? 'unknown');
+                  message.success(
+                    intl.formatMessage(
+                      {
+                        id: 'pages.extensionsInstallations.detail.action.healthCheckDone',
+                        defaultMessage: `健康检查完成: ${status}`,
+                      },
+                      { status },
+                    ),
+                  );
                 } finally {
                   setCheckingHealth(false);
                 }
               }}
             >
-              健康检查
+              <FormattedMessage
+                id="pages.extensionsInstallations.detail.action.healthCheck"
+                defaultMessage="健康检查"
+              />
             </Button>
             <Button
               loading={capabilitiesLoading}
@@ -134,7 +153,10 @@ export default function InstallationDetailDrawer({
                 }
               }}
             >
-              查看运行能力
+              <FormattedMessage
+                id="pages.extensionsInstallations.detail.action.capabilities"
+                defaultMessage="查看运行能力"
+              />
             </Button>
             <Button
               loading={testingConnection}
@@ -144,13 +166,21 @@ export default function InstallationDetailDrawer({
                 setTestingConnection(true);
                 try {
                   await testExtensionConnection(target.id);
-                  message.success('连接测试通过');
+                  message.success(
+                    intl.formatMessage({
+                      id: 'pages.extensionsInstallations.detail.action.connectionOk',
+                      defaultMessage: '连接测试通过',
+                    }),
+                  );
                 } finally {
                   setTestingConnection(false);
                 }
               }}
             >
-              测试连接
+              <FormattedMessage
+                id="pages.extensionsInstallations.detail.action.testConnection"
+                defaultMessage="测试连接"
+              />
             </Button>
             <Button
               type="primary"
@@ -163,13 +193,23 @@ export default function InstallationDetailDrawer({
                 try {
                   parsedConfig = JSON.parse(config || '{}');
                 } catch {
-                  message.error('配置 JSON 格式错误');
+                  message.error(
+                    intl.formatMessage({
+                      id: 'pages.extensionsInstallations.detail.action.configInvalid',
+                      defaultMessage: '配置 JSON 格式错误',
+                    }),
+                  );
                   return;
                 }
                 try {
                   parsedSecretRefs = JSON.parse(secretRefs || '{}');
                 } catch {
-                  message.error('SecretRefs JSON 格式错误');
+                  message.error(
+                    intl.formatMessage({
+                      id: 'pages.extensionsInstallations.detail.action.secretRefsInvalid',
+                      defaultMessage: 'SecretRefs JSON 格式错误',
+                    }),
+                  );
                   return;
                 }
                 setSavingConfig(true);
@@ -178,47 +218,130 @@ export default function InstallationDetailDrawer({
                     config: parsedConfig,
                     secretRefs: parsedSecretRefs,
                   });
-                  message.success('配置已保存');
+                  message.success(
+                    intl.formatMessage({
+                      id: 'pages.extensionsInstallations.detail.action.configSaved',
+                      defaultMessage: '配置已保存',
+                    }),
+                  );
                   await onSaved();
                 } finally {
                   setSavingConfig(false);
                 }
               }}
             >
-              保存配置
+              <FormattedMessage
+                id="pages.extensionsInstallations.detail.action.saveConfig"
+                defaultMessage="保存配置"
+              />
             </Button>
           </Space>
         }
       >
         <Space orientation="vertical" style={{ width: '100%' }} size="large">
-          {loading && <Text type="secondary">加载中...</Text>}
+          {loading && (
+            <Text type="secondary">
+              <FormattedMessage
+                id="pages.extensionsInstallations.detail.loading"
+                defaultMessage="加载中..."
+              />
+            </Text>
+          )}
           {!loading && target && (
             <>
               <SummaryOverview
-                title="安装概览"
-                description="先确认安装实例的身份、状态和作用域，再决定是修改配置、测试连接还是查看运行绑定。"
+                title={intl.formatMessage({
+                  id: 'pages.extensionsInstallations.detail.overview.title',
+                  defaultMessage: '安装概览',
+                })}
+                description={intl.formatMessage({
+                  id: 'pages.extensionsInstallations.detail.overview.description',
+                  defaultMessage:
+                    '先确认安装实例的身份、状态和作用域，再决定是修改配置、测试连接还是查看运行绑定。',
+                })}
                 items={[
                   {
                     color: target.enabled ? '#52c41a' : '#d9d9d9',
-                    text: target.enabled ? '已启用' : '已禁用',
+                    text: target.enabled
+                      ? intl.formatMessage({
+                          id: 'pages.extensionsInstallations.detail.overview.enabled',
+                          defaultMessage: '已启用',
+                        })
+                      : intl.formatMessage({
+                          id: 'pages.extensionsInstallations.detail.overview.disabled',
+                          defaultMessage: '已禁用',
+                        }),
                   },
                   {
                     color: target.healthStatus === 'healthy' ? '#13c2c2' : '#faad14',
-                    text: `健康 ${target.healthStatus || '-'}`,
+                    text: intl.formatMessage(
+                      {
+                        id: 'pages.extensionsInstallations.detail.overview.health',
+                        defaultMessage: `健康 ${target.healthStatus || '-'}`,
+                      },
+                      { value: target.healthStatus || '-' },
+                    ),
                   },
-                  { color: '#1677ff', text: `版本 ${target.releaseVersion || '-'}` },
-                  { color: '#722ed1', text: `绑定 ${bindings.length}` },
+                  {
+                    color: '#1677ff',
+                    text: intl.formatMessage(
+                      {
+                        id: 'pages.extensionsInstallations.detail.overview.version',
+                        defaultMessage: `版本 ${target.releaseVersion || '-'}`,
+                      },
+                      { value: target.releaseVersion || '-' },
+                    ),
+                  },
+                  {
+                    color: '#722ed1',
+                    text: intl.formatMessage(
+                      {
+                        id: 'pages.extensionsInstallations.detail.overview.bindings',
+                        defaultMessage: `绑定 ${bindings.length}`,
+                      },
+                      { count: bindings.length },
+                    ),
+                  },
                 ]}
-                hint="推荐顺序：先看概览，再修改配置；只有运行异常或接入异常时，再看绑定和健康检查。"
+                hint={intl.formatMessage({
+                  id: 'pages.extensionsInstallations.detail.overview.hint',
+                  defaultMessage:
+                    '推荐顺序：先看概览，再修改配置；只有运行异常或接入异常时，再看绑定和健康检查。',
+                })}
               />
 
-              <Card size="small" title="基本信息">
+              <Card
+                size="small"
+                title={intl.formatMessage({
+                  id: 'pages.extensionsInstallations.detail.basic.title',
+                  defaultMessage: '基本信息',
+                })}
+              >
                 <Descriptions size="small" column={1} bordered>
-                  <Descriptions.Item label="安装实例">#{target.id}</Descriptions.Item>
-                  <Descriptions.Item label="扩展">
+                  <Descriptions.Item
+                    label={intl.formatMessage({
+                      id: 'pages.extensionsInstallations.detail.basic.installation',
+                      defaultMessage: '安装实例',
+                    })}
+                  >
+                    #{target.id}
+                  </Descriptions.Item>
+                  <Descriptions.Item
+                    label={intl.formatMessage({
+                      id: 'pages.extensionsInstallations.detail.basic.extension',
+                      defaultMessage: '扩展',
+                    })}
+                  >
                     {target.displayName || target.extensionId} ({target.extensionId})
                   </Descriptions.Item>
-                  <Descriptions.Item label="版本">{target.releaseVersion || '-'}</Descriptions.Item>
+                  <Descriptions.Item
+                    label={intl.formatMessage({
+                      id: 'pages.extensionsInstallations.detail.basic.version',
+                      defaultMessage: '版本',
+                    })}
+                  >
+                    {target.releaseVersion || '-'}
+                  </Descriptions.Item>
                   <Descriptions.Item label="Scope">
                     {target.scopeType}:{target.scopeId}
                   </Descriptions.Item>
@@ -228,16 +351,34 @@ export default function InstallationDetailDrawer({
                 </Descriptions>
               </Card>
 
-              <Card size="small" title="配置调整">
+              <Card
+                size="small"
+                title={intl.formatMessage({
+                  id: 'pages.extensionsInstallations.detail.config.title',
+                  defaultMessage: '配置调整',
+                })}
+              >
                 <Space orientation="vertical" size={12} style={{ width: '100%' }}>
                   <Alert
                     type="info"
                     showIcon
-                    message="这里先处理配置本身"
-                    description="优先根据 Schema 检查字段含义，再编辑配置 JSON 和 Secret Refs。运行绑定表更适合排查绑定异常时再查看。"
+                    message={intl.formatMessage({
+                      id: 'pages.extensionsInstallations.detail.config.focusMessage',
+                      defaultMessage: '这里先处理配置本身',
+                    })}
+                    description={intl.formatMessage({
+                      id: 'pages.extensionsInstallations.detail.config.focusDescription',
+                      defaultMessage:
+                        '优先根据 Schema 检查字段含义，再编辑配置 JSON 和 Secret Refs。运行绑定表更适合排查绑定异常时再查看。',
+                    })}
                   />
                   <div>
-                    <Typography.Text strong>配置 Schema 预览</Typography.Text>
+                    <Typography.Text strong>
+                      <FormattedMessage
+                        id="pages.extensionsInstallations.detail.config.schemaPreview"
+                        defaultMessage="配置 Schema 预览"
+                      />
+                    </Typography.Text>
                     <div style={{ marginTop: 8 }}>
                       {configSchema?.properties && typeof configSchema.properties === 'object' ? (
                         <Space orientation="vertical" style={{ width: '100%' }}>
@@ -263,13 +404,23 @@ export default function InstallationDetailDrawer({
                           })}
                         </Space>
                       ) : (
-                        <Text type="secondary">当前没有可参考的 schema 数据</Text>
+                        <Text type="secondary">
+                          <FormattedMessage
+                            id="pages.extensionsInstallations.detail.config.schemaEmpty"
+                            defaultMessage="当前没有可参考的 schema 数据"
+                          />
+                        </Text>
                       )}
                     </div>
                   </div>
                   <Divider style={{ margin: 0 }} />
                   <div>
-                    <Typography.Text strong>配置 JSON</Typography.Text>
+                    <Typography.Text strong>
+                      <FormattedMessage
+                        id="pages.extensionsInstallations.detail.config.jsonLabel"
+                        defaultMessage="配置 JSON"
+                      />
+                    </Typography.Text>
                     <Input.TextArea
                       rows={8}
                       value={config}
@@ -278,7 +429,12 @@ export default function InstallationDetailDrawer({
                     />
                   </div>
                   <div>
-                    <Typography.Text strong>Secret Refs JSON</Typography.Text>
+                    <Typography.Text strong>
+                      <FormattedMessage
+                        id="pages.extensionsInstallations.detail.config.secretRefsLabel"
+                        defaultMessage="Secret Refs JSON"
+                      />
+                    </Typography.Text>
                     <Input.TextArea
                       rows={6}
                       value={secretRefs}
@@ -289,13 +445,26 @@ export default function InstallationDetailDrawer({
                 </Space>
               </Card>
 
-              <Card size="small" title="运行绑定">
+              <Card
+                size="small"
+                title={intl.formatMessage({
+                  id: 'pages.extensionsInstallations.detail.bindings.title',
+                  defaultMessage: '运行绑定',
+                })}
+              >
                 <Alert
                   type="info"
                   showIcon
                   style={{ marginBottom: 12 }}
-                  message="这里主要用于排查绑定问题"
-                  description="只有在扩展启用后没有生效、目标资源异常或健康检查失败时，才需要重点查看这张表。"
+                  message={intl.formatMessage({
+                    id: 'pages.extensionsInstallations.detail.bindings.focusMessage',
+                    defaultMessage: '这里主要用于排查绑定问题',
+                  })}
+                  description={intl.formatMessage({
+                    id: 'pages.extensionsInstallations.detail.bindings.focusDescription',
+                    defaultMessage:
+                      '只有在扩展启用后没有生效、目标资源异常或健康检查失败时，才需要重点查看这张表。',
+                  })}
                 />
                 <Table<ExtensionBindingItem>
                   rowKey={(r, idx) => `${r.bindingType}-${r.bindingKey}-${idx}`}
@@ -310,7 +479,11 @@ export default function InstallationDetailDrawer({
                     { title: 'Error', dataIndex: 'lastError', key: 'lastError' },
                   ]}
                   locale={{
-                    emptyText: '当前没有运行绑定数据。如果安装未生效，先执行健康检查或重建绑定。',
+                    emptyText: intl.formatMessage({
+                      id: 'pages.extensionsInstallations.detail.bindings.empty',
+                      defaultMessage:
+                        '当前没有运行绑定数据。如果安装未生效，先执行健康检查或重建绑定。',
+                    }),
                   }}
                 />
               </Card>
@@ -321,12 +494,22 @@ export default function InstallationDetailDrawer({
 
       <Modal
         open={capabilitiesOpen}
-        title="扩展能力列表"
+        title={intl.formatMessage({
+          id: 'pages.extensionsInstallations.detail.capabilities.title',
+          defaultMessage: '扩展能力列表',
+        })}
         onCancel={() => setCapabilitiesOpen(false)}
         footer={null}
       >
         <Space wrap>
-          {capabilities.length === 0 && <Text type="secondary">暂无能力数据</Text>}
+          {capabilities.length === 0 && (
+            <Text type="secondary">
+              <FormattedMessage
+                id="pages.extensionsInstallations.detail.capabilities.empty"
+                defaultMessage="暂无能力数据"
+              />
+            </Text>
+          )}
           {capabilities.map((cap) => (
             <Tag key={cap} color="blue">
               {cap}

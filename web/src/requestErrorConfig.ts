@@ -1,6 +1,6 @@
 ﻿import type { RequestOptions } from '@@/plugin-request/request';
 import type { RequestConfig } from '@umijs/max';
-import { history } from '@umijs/max';
+import { getIntl, history } from '@umijs/max';
 import { createElement } from 'react';
 // Use App.useApp() instances (see app.tsx) to avoid AntD static message warnings
 import { getMessage, getNotification } from './utils/antdApp';
@@ -45,7 +45,16 @@ function notiError(title: string, details: Array<{ field: string; message: strin
       ),
     );
   if (details.length > 20) {
-    items.push(createElement('li', { key: 'more' }, `…以及另外 ${details.length - 20} 条`));
+    items.push(
+      createElement(
+        'li',
+        { key: 'more' },
+        getIntl().formatMessage(
+          { id: 'app.request.error.moreDetails', defaultMessage: '…以及另外 {count} 条' },
+          { count: details.length - 20 },
+        ),
+      ),
+    );
   }
   const list = createElement(
     'ul',
@@ -66,38 +75,88 @@ type RestErrorPayload = {
 };
 
 function resolveRestMessage(payload: RestErrorPayload | undefined, status?: number): string {
+  const intl = getIntl();
   const code = String(payload?.error || '')
     .trim()
     .toLowerCase();
   const rawMessage = String(payload?.message || '').trim();
-  const zh: Record<string, string> = {
-    unauthorized: '未授权',
-    forbidden: '无权限',
-    bad_request: '请求参数无效',
-    validation_failed: '请求参数无效',
-    internal_error: '服务器内部错误',
-    not_found: '资源不存在',
-    unavailable: '服务不可用',
-    conflict: '资源冲突',
-    rate_limited: '请求过于频繁',
-    method_not_allowed: '方法不被允许',
-    not_implemented: '未实现',
-    bad_gateway: '上游服务错误',
-    request_too_large: '请求体过大',
+  // key 为后端稳定错误码（枚举契约），value 为展示文案
+  const codeMessages: Record<string, string> = {
+    unauthorized: intl.formatMessage({
+      id: 'app.request.error.unauthorized',
+      defaultMessage: '未授权',
+    }),
+    forbidden: intl.formatMessage({ id: 'app.request.error.forbidden', defaultMessage: '无权限' }),
+    bad_request: intl.formatMessage({
+      id: 'app.request.error.invalidParams',
+      defaultMessage: '请求参数无效',
+    }),
+    validation_failed: intl.formatMessage({
+      id: 'app.request.error.invalidParams',
+      defaultMessage: '请求参数无效',
+    }),
+    internal_error: intl.formatMessage({
+      id: 'app.request.error.internalError',
+      defaultMessage: '服务器内部错误',
+    }),
+    not_found: intl.formatMessage({
+      id: 'app.request.error.notFound',
+      defaultMessage: '资源不存在',
+    }),
+    unavailable: intl.formatMessage({
+      id: 'app.request.error.unavailable',
+      defaultMessage: '服务不可用',
+    }),
+    conflict: intl.formatMessage({
+      id: 'app.request.error.conflict',
+      defaultMessage: '资源冲突',
+    }),
+    rate_limited: intl.formatMessage({
+      id: 'app.request.error.rateLimited',
+      defaultMessage: '请求过于频繁',
+    }),
+    method_not_allowed: intl.formatMessage({
+      id: 'app.request.error.methodNotAllowed',
+      defaultMessage: '方法不被允许',
+    }),
+    not_implemented: intl.formatMessage({
+      id: 'app.request.error.notImplemented',
+      defaultMessage: '未实现',
+    }),
+    bad_gateway: intl.formatMessage({
+      id: 'app.request.error.badGateway',
+      defaultMessage: '上游服务错误',
+    }),
+    request_too_large: intl.formatMessage({
+      id: 'app.request.error.requestTooLarge',
+      defaultMessage: '请求体过大',
+    }),
   };
   const fallbackByStatus: Record<number, string> = {
-    400: '请求参数无效',
-    401: '未授权',
-    403: '无权限',
-    404: '资源不存在',
-    409: '资源冲突',
-    422: '请求语义无效',
-    500: '服务器内部错误',
+    400: intl.formatMessage({
+      id: 'app.request.error.invalidParams',
+      defaultMessage: '请求参数无效',
+    }),
+    401: intl.formatMessage({ id: 'app.request.error.unauthorized', defaultMessage: '未授权' }),
+    403: intl.formatMessage({ id: 'app.request.error.forbidden', defaultMessage: '无权限' }),
+    404: intl.formatMessage({
+      id: 'app.request.error.notFound',
+      defaultMessage: '资源不存在',
+    }),
+    409: intl.formatMessage({ id: 'app.request.error.conflict', defaultMessage: '资源冲突' }),
+    422: intl.formatMessage({
+      id: 'app.request.error.unprocessable',
+      defaultMessage: '请求语义无效',
+    }),
+    500: intl.formatMessage({
+      id: 'app.request.error.internalError',
+      defaultMessage: '服务器内部错误',
+    }),
   };
   if (rawMessage) return rawMessage;
-  if (code && zh[code]) return zh[code];
+  if (code && codeMessages[code]) return codeMessages[code];
   if (status && fallbackByStatus[status]) return fallbackByStatus[status];
-  return '请求失败';
+  return getIntl().formatMessage({ id: 'app.request.error.default', defaultMessage: '请求失败' });
 }
 
 /**
@@ -151,7 +210,12 @@ export const errorConfig: RequestConfig = {
         ) {
           // 同时清除内存和持久化的 scope
           setScope({ gameId: undefined, env: undefined }, { persist: true, emit: true });
-          msgWarn('当前选择的游戏环境无效，请重新选择');
+          msgWarn(
+            getIntl().formatMessage({
+              id: 'app.request.error.invalidScope',
+              defaultMessage: '当前选择的游戏环境无效，请重新选择',
+            }),
+          );
           return;
         }
         msgWarn(message);
@@ -202,7 +266,13 @@ export const errorConfig: RequestConfig = {
       // 兼容极少数遗留 success/errorCode/errorMessage 格式，后续可移除
       const legacyInfo = reqError?.info;
       if (error.name === 'BizError' && legacyInfo) {
-        const legacyMessage = String(legacyInfo.errorMessage || '请求失败');
+        const legacyMessage = String(
+          legacyInfo.errorMessage ||
+            getIntl().formatMessage({
+              id: 'app.request.error.default',
+              defaultMessage: '请求失败',
+            }),
+        );
         if (legacyInfo.showType === 3) {
           notiOpen(String(legacyInfo.errorCode || ''), legacyMessage);
           return;
@@ -218,10 +288,20 @@ export const errorConfig: RequestConfig = {
         // 请求已经成功发起，但没有收到响应
         // `error.request` 在浏览器中是 XMLHttpRequest 的实例，
         // 而在node.js中是 http.ClientRequest 的实例
-        msgError('无响应，请稍后重试');
+        msgError(
+          getIntl().formatMessage({
+            id: 'app.request.error.noResponse',
+            defaultMessage: '无响应，请稍后重试',
+          }),
+        );
       } else {
         // 发送请求时出了点问题
-        msgError('请求异常，请稍后重试');
+        msgError(
+          getIntl().formatMessage({
+            id: 'app.request.error.exception',
+            defaultMessage: '请求异常，请稍后重试',
+          }),
+        );
       }
     },
   },

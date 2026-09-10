@@ -6,7 +6,7 @@ import {
   type ActionType,
   type ProColumns,
 } from '@ant-design/pro-components';
-import { useAccess } from '@umijs/max';
+import { FormattedMessage, useAccess, useIntl } from '@umijs/max';
 import {
   getExtensionCatalogDetail,
   installExtension,
@@ -31,6 +31,7 @@ const { Text } = Typography;
 
 export default function ExtensionsStorePage() {
   const access = useAccess();
+  const intl = useIntl();
   const { message } = App.useApp();
   const actionRef = useRef<ActionType | undefined>(undefined);
 
@@ -121,7 +122,12 @@ export default function ExtensionsStorePage() {
       try {
         config = { ...config, ...JSON.parse(values.configJson) };
       } catch {
-        message.error('配置 JSON 格式不正确');
+        message.error(
+          intl.formatMessage({
+            id: 'pages.extensionsStore.install.configJsonInvalid',
+            defaultMessage: '配置 JSON 格式不正确',
+          }),
+        );
         return;
       }
     }
@@ -137,7 +143,15 @@ export default function ExtensionsStorePage() {
         targetId: values.targetId,
         config,
       });
-      message.success(`已提交安装：${installItem.displayName || installItem.name}`);
+      message.success(
+        intl.formatMessage(
+          {
+            id: 'pages.extensionsStore.install.submitted',
+            defaultMessage: `已提交安装：${installItem.displayName || installItem.name}`,
+          },
+          { name: installItem.displayName || installItem.name },
+        ),
+      );
       setInstallOpen(false);
       setInstallItem(undefined);
       actionRef.current?.reload();
@@ -152,24 +166,63 @@ export default function ExtensionsStorePage() {
         const targetID = details.targetId || '-';
         const releaseVersion = details.releaseVersion || '-';
         message.error(
-          `该扩展已安装（实例 ${existedID}）。范围 ${scopeType}:${scopeID}，目标 ${targetType}:${targetID}，版本 ${releaseVersion}`,
+          intl.formatMessage(
+            {
+              id: 'pages.extensionsStore.install.error.alreadyInstalled',
+              defaultMessage: `该扩展已安装（实例 ${existedID}）。范围 ${scopeType}:${scopeID}，目标 ${targetType}:${targetID}，版本 ${releaseVersion}`,
+            },
+            {
+              installationId: String(existedID),
+              scopeType: String(scopeType),
+              scopeId: String(scopeID),
+              targetType: String(targetType),
+              targetId: String(targetID),
+              releaseVersion: String(releaseVersion),
+            },
+          ),
         );
         return;
       }
       if (uiErr.code === EXTENSION_ERROR_CODES.MISSING_DEPENDENCY) {
-        message.error(`缺少依赖扩展：${details.dependency || 'unknown'}`);
+        message.error(
+          intl.formatMessage(
+            {
+              id: 'pages.extensionsStore.install.error.missingDependency',
+              defaultMessage: `缺少依赖扩展：${details.dependency || 'unknown'}`,
+            },
+            { dependency: String(details.dependency || 'unknown') },
+          ),
+        );
         return;
       }
       if (uiErr.code === EXTENSION_ERROR_CODES.VERSION_MISMATCH) {
         message.error(
-          `依赖版本不匹配：${details.dependency || 'unknown'}，要求 ${
-            details.requiredVersion || '-'
-          }，当前 ${details.currentVersion || '-'}`,
+          intl.formatMessage(
+            {
+              id: 'pages.extensionsStore.install.error.versionMismatch',
+              defaultMessage: `依赖版本不匹配：${details.dependency || 'unknown'}，要求 ${
+                details.requiredVersion || '-'
+              }，当前 ${details.currentVersion || '-'}`,
+            },
+            {
+              dependency: String(details.dependency || 'unknown'),
+              requiredVersion: String(details.requiredVersion || '-'),
+              currentVersion: String(details.currentVersion || '-'),
+            },
+          ),
         );
         return;
       }
       if (uiErr.code === EXTENSION_ERROR_CODES.DEPENDENCY_CYCLE) {
-        message.error(`检测到循环依赖：${details.dependency || 'unknown'}`);
+        message.error(
+          intl.formatMessage(
+            {
+              id: 'pages.extensionsStore.install.error.dependencyCycle',
+              defaultMessage: `检测到循环依赖：${details.dependency || 'unknown'}`,
+            },
+            { dependency: String(details.dependency || 'unknown') },
+          ),
+        );
         return;
       }
       message.error(uiErr.message);
@@ -180,7 +233,10 @@ export default function ExtensionsStorePage() {
 
   const columns: ProColumns<ExtensionCatalogItem>[] = [
     {
-      title: '扩展',
+      title: intl.formatMessage({
+        id: 'pages.extensionsStore.column.extension',
+        defaultMessage: '扩展',
+      }),
       dataIndex: 'displayName',
       key: 'displayName',
       render: (_, row) => (
@@ -191,21 +247,30 @@ export default function ExtensionsStorePage() {
       ),
     },
     {
-      title: '类型',
+      title: intl.formatMessage({
+        id: 'pages.extensionsStore.column.kind',
+        defaultMessage: '类型',
+      }),
       dataIndex: 'kind',
       key: 'kind',
       width: 120,
       render: (_, row) => <Tag>{row.kind || '-'}</Tag>,
     },
     {
-      title: '版本',
+      title: intl.formatMessage({
+        id: 'pages.extensionsStore.column.version',
+        defaultMessage: '版本',
+      }),
       dataIndex: 'latestVersion',
       key: 'latestVersion',
       width: 130,
       render: (_, row) => row.latestVersion || '-',
     },
     {
-      title: '状态',
+      title: intl.formatMessage({
+        id: 'pages.extensionsStore.column.status',
+        defaultMessage: '状态',
+      }),
       dataIndex: 'status',
       key: 'status',
       width: 120,
@@ -214,13 +279,23 @@ export default function ExtensionsStorePage() {
       ),
     },
     {
-      title: '标签',
+      title: intl.formatMessage({
+        id: 'pages.extensionsStore.column.tags',
+        defaultMessage: '标签',
+      }),
       dataIndex: 'tags',
       key: 'tags',
       width: 220,
       render: (_, row) => (
         <Space wrap>
-          {row.defaultInstall && <Tag color="gold">默认安装</Tag>}
+          {row.defaultInstall && (
+            <Tag color="gold">
+              <FormattedMessage
+                id="pages.extensionsStore.column.tagDefaultInstall"
+                defaultMessage="默认安装"
+              />
+            </Tag>
+          )}
           {(row.tags || []).slice(0, 3).map((tag) => (
             <Tag key={tag}>{tag}</Tag>
           ))}
@@ -229,20 +304,35 @@ export default function ExtensionsStorePage() {
       ),
     },
     {
-      title: '已安装',
+      title: intl.formatMessage({
+        id: 'pages.extensionsStore.column.installed',
+        defaultMessage: '已安装',
+      }),
       dataIndex: 'installed',
       key: 'installed',
       width: 100,
-      render: (_, row) => (row.installed ? <Tag color="blue">是</Tag> : <Tag>否</Tag>),
+      render: (_, row) =>
+        row.installed ? (
+          <Tag color="blue">
+            <FormattedMessage id="pages.extensionsStore.column.installedYes" defaultMessage="是" />
+          </Tag>
+        ) : (
+          <Tag>
+            <FormattedMessage id="pages.extensionsStore.column.installedNo" defaultMessage="否" />
+          </Tag>
+        ),
     },
     {
-      title: '操作',
+      title: intl.formatMessage({
+        id: 'pages.extensionsStore.column.actions',
+        defaultMessage: '操作',
+      }),
       key: 'actions',
       width: 220,
       render: (_, row) => (
         <Space>
           <Button size="small" onClick={() => openDetail(row)}>
-            详情
+            <FormattedMessage id="pages.extensionsStore.action.detail" defaultMessage="详情" />
           </Button>
           <Button
             size="small"
@@ -250,7 +340,14 @@ export default function ExtensionsStorePage() {
             disabled={!access.canExtensionsManage || row.installed}
             onClick={() => openInstall(row)}
           >
-            {row.installed ? '已安装' : '安装'}
+            {row.installed ? (
+              <FormattedMessage
+                id="pages.extensionsStore.action.alreadyInstalled"
+                defaultMessage="已安装"
+              />
+            ) : (
+              <FormattedMessage id="pages.extensionsStore.action.install" defaultMessage="安装" />
+            )}
           </Button>
         </Space>
       ),
@@ -258,12 +355,24 @@ export default function ExtensionsStorePage() {
   ];
 
   return (
-    <PageContainer title="扩展商店" subTitle="浏览和安装可用扩展">
+    <PageContainer
+      title={intl.formatMessage({
+        id: 'pages.extensionsStore.page.title',
+        defaultMessage: '扩展商店',
+      })}
+      subTitle={intl.formatMessage({
+        id: 'pages.extensionsStore.page.subTitle',
+        defaultMessage: '浏览和安装可用扩展',
+      })}
+    >
       <Card>
         <Space style={{ marginBottom: 16 }} wrap>
           <Input
             style={{ width: 220 }}
-            placeholder="关键字"
+            placeholder={intl.formatMessage({
+              id: 'pages.extensionsStore.filter.keywordPlaceholder',
+              defaultMessage: '关键字',
+            })}
             allowClear
             value={keywordDraft}
             onChange={(e) => setKeywordDraft(e.target.value)}
@@ -271,7 +380,10 @@ export default function ExtensionsStorePage() {
           <Select
             style={{ width: 150 }}
             allowClear
-            placeholder="类型"
+            placeholder={intl.formatMessage({
+              id: 'pages.extensionsStore.filter.kindPlaceholder',
+              defaultMessage: '类型',
+            })}
             value={kindDraft}
             onChange={setKindDraft}
             options={[
@@ -284,7 +396,10 @@ export default function ExtensionsStorePage() {
           <Select
             style={{ width: 150 }}
             allowClear
-            placeholder="状态"
+            placeholder={intl.formatMessage({
+              id: 'pages.extensionsStore.filter.statusPlaceholder',
+              defaultMessage: '状态',
+            })}
             value={statusDraft}
             onChange={setStatusDraft}
             options={[
@@ -305,7 +420,7 @@ export default function ExtensionsStorePage() {
               actionRef.current?.reload();
             }}
           >
-            查询
+            <FormattedMessage id="pages.extensionsStore.filter.search" defaultMessage="查询" />
           </Button>
           <Button
             onClick={() => {
@@ -318,7 +433,7 @@ export default function ExtensionsStorePage() {
               setStatus(undefined);
             }}
           >
-            重置
+            <FormattedMessage id="pages.extensionsStore.filter.reset" defaultMessage="重置" />
           </Button>
         </Space>
 

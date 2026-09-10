@@ -8,6 +8,7 @@ import {
   upsertConfigSource,
   type ConfigSourceBinding,
 } from '@/services/api/configExplorer';
+import { FormattedMessage, useIntl } from '@umijs/max';
 
 /** 数据源表单值：id/gameId/env 不在表单中，提交时由编辑行与弹窗上下文补齐 */
 type SourceFormValues = {
@@ -51,12 +52,37 @@ const CONFIG_TEMPLATES: Record<ConfigSourceBinding['type'], string> = {
   croupier: JSON.stringify({ namespaces: [] }, null, 2),
 };
 
-const TYPE_OPTIONS = [
-  { label: 'Git 仓库（只读）', value: 'git' },
-  { label: 'Redis（skynet 配置总线）', value: 'redis' },
-  { label: 'Nacos 配置中心', value: 'nacos' },
-  { label: '数据库（表快照，只读）', value: 'db' },
-  { label: 'Croupier ConfigVersion', value: 'croupier' },
+// 类型选项：value 是后端契约枚举不动，label 文案经 intl 解析（textId/textDefault）
+const TYPE_OPTIONS: {
+  value: ConfigSourceBinding['type'];
+  textId: string;
+  textDefault: string;
+}[] = [
+  {
+    value: 'git',
+    textId: 'pages.devConfigExplorer.sourceModal.typeOption.git',
+    textDefault: 'Git 仓库（只读）',
+  },
+  {
+    value: 'redis',
+    textId: 'pages.devConfigExplorer.sourceModal.typeOption.redis',
+    textDefault: 'Redis（skynet 配置总线）',
+  },
+  {
+    value: 'nacos',
+    textId: 'pages.devConfigExplorer.sourceModal.typeOption.nacos',
+    textDefault: 'Nacos 配置中心',
+  },
+  {
+    value: 'db',
+    textId: 'pages.devConfigExplorer.sourceModal.typeOption.db',
+    textDefault: '数据库（表快照，只读）',
+  },
+  {
+    value: 'croupier',
+    textId: 'pages.devConfigExplorer.sourceModal.typeOption.croupier',
+    textDefault: 'Croupier ConfigVersion',
+  },
 ];
 
 export default function SourceManageModal({
@@ -67,6 +93,7 @@ export default function SourceManageModal({
   onChanged,
 }: SourceManageModalProps) {
   const { message } = App.useApp();
+  const intl = useIntl();
   const [rows, setRows] = useState<ConfigSourceBinding[]>([]);
   const [editing, setEditing] = useState<ConfigSourceBinding | null>(null);
   const [formOpen, setFormOpen] = useState(false);
@@ -78,7 +105,12 @@ export default function SourceManageModal({
       const { items } = await listConfigSources({ gameId, env });
       setRows(items);
     } catch {
-      message.error('加载数据源失败');
+      message.error(
+        intl.formatMessage({
+          id: 'pages.devConfigExplorer.sourceModal.error.loadFailed',
+          defaultMessage: '加载数据源失败',
+        }),
+      );
     }
   };
 
@@ -107,12 +139,23 @@ export default function SourceManageModal({
         env,
         ...values,
       });
-      message.success('已保存');
+      message.success(
+        intl.formatMessage({
+          id: 'pages.devConfigExplorer.sourceModal.success.saved',
+          defaultMessage: '已保存',
+        }),
+      );
       void load();
       onChanged();
       return true;
     } catch (err) {
-      const msg = err instanceof Error ? err.message : '保存失败';
+      const msg =
+        err instanceof Error
+          ? err.message
+          : intl.formatMessage({
+              id: 'pages.devConfigExplorer.sourceModal.error.saveFailed',
+              defaultMessage: '保存失败',
+            });
       message.error(msg);
       return false;
     }
@@ -121,18 +164,34 @@ export default function SourceManageModal({
   const doDelete = async (row: ConfigSourceBinding) => {
     try {
       await deleteConfigSource(row.id);
-      message.success('已删除');
+      message.success(
+        intl.formatMessage({
+          id: 'pages.devConfigExplorer.sourceModal.success.deleted',
+          defaultMessage: '已删除',
+        }),
+      );
       await load();
       onChanged();
     } catch {
-      message.error('删除失败');
+      message.error(
+        intl.formatMessage({
+          id: 'pages.devConfigExplorer.sourceModal.error.deleteFailed',
+          defaultMessage: '删除失败',
+        }),
+      );
     }
   };
 
   return (
     <Modal
       open={open}
-      title={`管理数据源（${gameId} / ${env}）`}
+      title={intl.formatMessage(
+        {
+          id: 'pages.devConfigExplorer.sourceModal.modal.manageTitle',
+          defaultMessage: `管理数据源（${gameId} / ${env}）`,
+        },
+        { gameId, env },
+      )}
       width={720}
       footer={null}
       onCancel={onClose}
@@ -140,7 +199,10 @@ export default function SourceManageModal({
     >
       <Space orientation="vertical" style={{ width: '100%' }}>
         <Button type="primary" onClick={openCreate}>
-          添加数据源
+          <FormattedMessage
+            id="pages.devConfigExplorer.sourceModal.action.add"
+            defaultMessage="添加数据源"
+          />
         </Button>
         <Table<ConfigSourceBinding>
           size="small"
@@ -148,26 +210,61 @@ export default function SourceManageModal({
           dataSource={rows}
           pagination={false}
           columns={[
-            { title: '名称', dataIndex: 'name' },
-            { title: '类型', dataIndex: 'type', width: 100 },
             {
-              title: '读写',
+              title: intl.formatMessage({
+                id: 'pages.devConfigExplorer.sourceModal.column.name',
+                defaultMessage: '名称',
+              }),
+              dataIndex: 'name',
+            },
+            {
+              title: intl.formatMessage({
+                id: 'pages.devConfigExplorer.sourceModal.column.type',
+                defaultMessage: '类型',
+              }),
+              dataIndex: 'type',
+              width: 100,
+            },
+            {
+              title: intl.formatMessage({
+                id: 'pages.devConfigExplorer.sourceModal.column.writable',
+                defaultMessage: '读写',
+              }),
               dataIndex: 'writable',
               width: 80,
               render: (v: boolean) => (
-                <Tag color={v ? 'orange' : 'default'}>{v ? '可写' : '只读'}</Tag>
+                <Tag color={v ? 'orange' : 'default'}>
+                  {v
+                    ? intl.formatMessage({
+                        id: 'pages.devConfigExplorer.sourceModal.tag.writable',
+                        defaultMessage: '可写',
+                      })
+                    : intl.formatMessage({
+                        id: 'pages.devConfigExplorer.sourceModal.tag.readonly',
+                        defaultMessage: '只读',
+                      })}
+                </Tag>
               ),
             },
             {
-              title: '操作',
+              title: intl.formatMessage({
+                id: 'pages.devConfigExplorer.sourceModal.column.operations',
+                defaultMessage: '操作',
+              }),
               width: 140,
               render: (_, row) => (
                 <Space>
                   <Button size="small" onClick={() => openEdit(row)}>
-                    编辑
+                    <FormattedMessage
+                      id="pages.devConfigExplorer.sourceModal.action.edit"
+                      defaultMessage="编辑"
+                    />
                   </Button>
                   <Button size="small" danger onClick={() => void doDelete(row)}>
-                    删除
+                    <FormattedMessage
+                      id="pages.devConfigExplorer.sourceModal.action.delete"
+                      defaultMessage="删除"
+                    />
                   </Button>
                 </Space>
               ),
@@ -178,14 +275,34 @@ export default function SourceManageModal({
 
       <ModalForm<SourceFormValues>
         open={formOpen}
-        title={editing ? `编辑：${editing.name}` : '添加数据源'}
+        title={
+          editing
+            ? intl.formatMessage(
+                {
+                  id: 'pages.devConfigExplorer.sourceModal.modal.editTitle',
+                  defaultMessage: `编辑：${editing.name}`,
+                },
+                { name: editing.name },
+              )
+            : intl.formatMessage({
+                id: 'pages.devConfigExplorer.sourceModal.action.add',
+                defaultMessage: '添加数据源',
+              })
+        }
         onOpenChange={(v) => {
           if (!v) setFormOpen(false);
         }}
         modalProps={{ destroyOnHidden: true }}
         width={640}
         layout="vertical"
-        submitter={{ searchConfig: { submitText: '保存' } }}
+        submitter={{
+          searchConfig: {
+            submitText: intl.formatMessage({
+              id: 'pages.devConfigExplorer.sourceModal.form.submit',
+              defaultMessage: '保存',
+            }),
+          },
+        }}
         // 编辑时展示脱敏 config；后端 Update 逻辑：config 为空则保留原值，
         // 脱敏值需用户重填或保持 ****** 原样提交沿用旧值
         initialValues={
@@ -196,12 +313,43 @@ export default function SourceManageModal({
         formRef={formRef}
         onFinish={onFinish}
       >
-        <Form.Item name="name" label="名称" rules={[{ required: true, message: '必填' }]}>
-          <Input placeholder="如：数值表仓库 / skynet 配置总线" maxLength={64} />
+        <Form.Item
+          name="name"
+          label={intl.formatMessage({
+            id: 'pages.devConfigExplorer.sourceModal.column.name',
+            defaultMessage: '名称',
+          })}
+          rules={[
+            {
+              required: true,
+              message: intl.formatMessage({
+                id: 'pages.devConfigExplorer.sourceModal.form.nameRequired',
+                defaultMessage: '必填',
+              }),
+            },
+          ]}
+        >
+          <Input
+            placeholder={intl.formatMessage({
+              id: 'pages.devConfigExplorer.sourceModal.form.namePlaceholder',
+              defaultMessage: '如：数值表仓库 / skynet 配置总线',
+            })}
+            maxLength={64}
+          />
         </Form.Item>
-        <Form.Item name="type" label="类型" rules={[{ required: true }]}>
+        <Form.Item
+          name="type"
+          label={intl.formatMessage({
+            id: 'pages.devConfigExplorer.sourceModal.column.type',
+            defaultMessage: '类型',
+          })}
+          rules={[{ required: true }]}
+        >
           <Select
-            options={TYPE_OPTIONS}
+            options={TYPE_OPTIONS.map((o) => ({
+              value: o.value,
+              label: intl.formatMessage({ id: o.textId, defaultMessage: o.textDefault }),
+            }))}
             onChange={(v: ConfigSourceBinding['type']) =>
               formRef.current?.setFieldValue('config', CONFIG_TEMPLATES[v])
             }
@@ -210,7 +358,10 @@ export default function SourceManageModal({
         </Form.Item>
         <Form.Item
           name="config"
-          label="连接配置（JSON）"
+          label={intl.formatMessage({
+            id: 'pages.devConfigExplorer.sourceModal.form.configLabel',
+            defaultMessage: '连接配置（JSON）',
+          })}
           rules={[
             { required: true },
             {
@@ -220,7 +371,14 @@ export default function SourceManageModal({
                   JSON.parse(value);
                   return Promise.resolve();
                 } catch {
-                  return Promise.reject(new Error('必须是合法 JSON'));
+                  return Promise.reject(
+                    new Error(
+                      intl.formatMessage({
+                        id: 'pages.devConfigExplorer.sourceModal.form.configValidJson',
+                        defaultMessage: '必须是合法 JSON',
+                      }),
+                    ),
+                  );
                 }
               },
             },
@@ -230,7 +388,10 @@ export default function SourceManageModal({
         </Form.Item>
         {editing && (
           <span style={{ color: '#999', fontSize: 12 }}>
-            凭据字段已脱敏显示；无需更换凭据时保持 ****** 原样提交即可沿用旧值。
+            <FormattedMessage
+              id="pages.devConfigExplorer.sourceModal.hint.maskedCredentials"
+              defaultMessage="凭据字段已脱敏显示；无需更换凭据时保持 ****** 原样提交即可沿用旧值。"
+            />
           </span>
         )}
       </ModalForm>

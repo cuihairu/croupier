@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Button, Input, Modal, Select, Space, Table } from 'antd';
 import type { Dayjs } from 'dayjs';
+import { FormattedMessage, useIntl } from '@umijs/max';
 import { formatDateTime } from '@/utils/format';
 import type { FunnelPreset, ImportRow } from './types';
 
@@ -14,6 +15,7 @@ const PresetBar: React.FC<{
   range: [Dayjs | null, Dayjs | null] | null;
   onApply: (p: Record<string, string | number | boolean>) => void;
 }> = ({ steps, seq, sameSess, gapSec, range, onApply }) => {
+  const intl = useIntl();
   const KEY = 'analytics:funnel_presets';
   const [list, setList] = useState<FunnelPreset[]>([]);
   const [sel, setSel] = useState<string>('');
@@ -49,7 +51,13 @@ const PresetBar: React.FC<{
 
   const savePreset = () => {
     try {
-      const input = prompt('预设名称', sel || '');
+      const input = prompt(
+        intl.formatMessage({
+          id: 'pages.analyticsBehavior.funnel.preset.prompt.name',
+          defaultMessage: '预设名称',
+        }),
+        sel || '',
+      );
       if (!input) return;
       const name = input.trim();
       if (!name) return;
@@ -66,7 +74,15 @@ const PresetBar: React.FC<{
       const arr = readAll();
       const exists = arr.find((x) => x.name === name);
       if (exists) {
-        const ok = confirm(`预设 "${name}" 已存在，是否覆盖？`);
+        const ok = confirm(
+          intl.formatMessage(
+            {
+              id: 'pages.analyticsBehavior.funnel.preset.confirm.overwrite',
+              defaultMessage: `预设 "${name}" 已存在，是否覆盖？`,
+            },
+            { name },
+          ),
+        );
         if (!ok) return;
       }
       const others = arr.filter((x) => x.name !== name);
@@ -100,7 +116,15 @@ const PresetBar: React.FC<{
   const delPreset = () => {
     try {
       if (!sel) return;
-      const ok = confirm(`删除预设 ${sel}？`);
+      const ok = confirm(
+        intl.formatMessage(
+          {
+            id: 'pages.analyticsBehavior.funnel.preset.confirm.delete',
+            defaultMessage: `删除预设 ${sel}？`,
+          },
+          { name: sel },
+        ),
+      );
       if (!ok) return;
       const arr = readAll();
       writeAll(arr.filter((x) => x.name !== sel));
@@ -115,12 +139,26 @@ const PresetBar: React.FC<{
       const arr = readAll();
       const found = arr.find((x) => x.name === sel);
       if (!found) return;
-      const input = prompt('重命名预设', sel || '');
+      const input = prompt(
+        intl.formatMessage({
+          id: 'pages.analyticsBehavior.funnel.preset.prompt.rename',
+          defaultMessage: '重命名预设',
+        }),
+        sel || '',
+      );
       if (!input) return;
       const newName = input.trim();
       if (!newName) return;
       if (arr.some((x) => x.name === newName && x.name !== sel)) {
-        const ok = confirm(`已存在名为 "${newName}" 的预设，确定覆盖为该名称？`);
+        const ok = confirm(
+          intl.formatMessage(
+            {
+              id: 'pages.analyticsBehavior.funnel.preset.confirm.renameOverwrite',
+              defaultMessage: `已存在名为 "${newName}" 的预设，确定覆盖为该名称？`,
+            },
+            { name: newName },
+          ),
+        );
         if (!ok) return;
         // remove target name
         for (let i = arr.length - 1; i >= 0; i--) if (arr[i].name === newName) arr.splice(i, 1);
@@ -151,7 +189,12 @@ const PresetBar: React.FC<{
 
   const clearAll = () => {
     try {
-      const ok = confirm('清空全部预设？');
+      const ok = confirm(
+        intl.formatMessage({
+          id: 'pages.analyticsBehavior.funnel.preset.confirm.clearAll',
+          defaultMessage: '清空全部预设？',
+        }),
+      );
       if (!ok) return;
       writeAll([]);
       setSel('');
@@ -186,7 +229,12 @@ const PresetBar: React.FC<{
     try {
       const arr = JSON.parse(impText);
       if (!Array.isArray(arr)) {
-        alert('JSON 需为数组');
+        alert(
+          intl.formatMessage({
+            id: 'pages.analyticsBehavior.funnel.preset.alert.invalidJson',
+            defaultMessage: 'JSON 需为数组',
+          }),
+        );
         return;
       }
       const cur = readAll();
@@ -196,13 +244,26 @@ const PresetBar: React.FC<{
         .map((x: FunnelPreset, i: number) => ({
           key: x.name || String(i),
           name: String(x.name),
-          status: names.has(x.name) ? '覆盖' : '新增',
+          status: names.has(x.name)
+            ? intl.formatMessage({
+                id: 'pages.analyticsBehavior.funnel.preset.status.overwrite',
+                defaultMessage: '覆盖',
+              })
+            : intl.formatMessage({
+                id: 'pages.analyticsBehavior.funnel.preset.status.added',
+                defaultMessage: '新增',
+              }),
           obj: x,
         }));
       setImpList(list);
       setImpSel(list.map((x) => x.key));
     } catch {
-      alert('解析失败');
+      alert(
+        intl.formatMessage({
+          id: 'pages.analyticsBehavior.funnel.preset.alert.parseFailed',
+          defaultMessage: '解析失败',
+        }),
+      );
     }
   };
   const doImport = () => {
@@ -220,7 +281,12 @@ const PresetBar: React.FC<{
       setSel('');
       loadList();
     } catch {
-      alert('导入失败');
+      alert(
+        intl.formatMessage({
+          id: 'pages.analyticsBehavior.funnel.preset.alert.importFailed',
+          defaultMessage: '导入失败',
+        }),
+      );
     }
   };
 
@@ -228,7 +294,10 @@ const PresetBar: React.FC<{
     <div style={{ marginTop: 8 }}>
       <Space>
         <Select
-          placeholder="选择预设"
+          placeholder={intl.formatMessage({
+            id: 'pages.analyticsBehavior.funnel.preset.filter.placeholder.select',
+            defaultMessage: '选择预设',
+          })}
           value={sel}
           onChange={(v) => setSel(v)}
           options={(list || []).map((x) => ({
@@ -238,42 +307,90 @@ const PresetBar: React.FC<{
           style={{ minWidth: 260 }}
         />
         <Button onClick={applyPreset} disabled={!sel}>
-          应用预设
+          <FormattedMessage
+            id="pages.analyticsBehavior.funnel.preset.button.apply"
+            defaultMessage="应用预设"
+          />
         </Button>
-        <Button onClick={savePreset}>保存为预设</Button>
+        <Button onClick={savePreset}>
+          <FormattedMessage
+            id="pages.analyticsBehavior.funnel.preset.button.save"
+            defaultMessage="保存为预设"
+          />
+        </Button>
         <Button onClick={renamePreset} disabled={!sel}>
-          重命名
+          <FormattedMessage
+            id="pages.analyticsBehavior.funnel.preset.button.rename"
+            defaultMessage="重命名"
+          />
         </Button>
         <Button danger onClick={delPreset} disabled={!sel}>
-          删除预设
+          <FormattedMessage
+            id="pages.analyticsBehavior.funnel.preset.button.delete"
+            defaultMessage="删除预设"
+          />
         </Button>
-        <Button onClick={exportPresets}>导出全部</Button>
+        <Button onClick={exportPresets}>
+          <FormattedMessage
+            id="pages.analyticsBehavior.funnel.preset.button.exportAll"
+            defaultMessage="导出全部"
+          />
+        </Button>
         <Button onClick={exportOne} disabled={!sel}>
-          导出当前
+          <FormattedMessage
+            id="pages.analyticsBehavior.funnel.preset.button.exportCurrent"
+            defaultMessage="导出当前"
+          />
         </Button>
-        <Button onClick={openImport}>导入预设</Button>
+        <Button onClick={openImport}>
+          <FormattedMessage
+            id="pages.analyticsBehavior.funnel.preset.button.import"
+            defaultMessage="导入预设"
+          />
+        </Button>
         <Button danger onClick={clearAll}>
-          清空全部
+          <FormattedMessage
+            id="pages.analyticsBehavior.funnel.preset.button.clearAll"
+            defaultMessage="清空全部"
+          />
         </Button>
       </Space>
       <Modal
         open={impOpen}
-        title="导入预设（预览）"
+        title={intl.formatMessage({
+          id: 'pages.analyticsBehavior.funnel.preset.modalTitle.import',
+          defaultMessage: '导入预设（预览）',
+        })}
         onOk={doImport}
         onCancel={() => setImpOpen(false)}
         width={720}
-        okText="合并导入"
-        cancelText="取消"
+        okText={intl.formatMessage({
+          id: 'pages.analyticsBehavior.funnel.preset.okText',
+          defaultMessage: '合并导入',
+        })}
+        cancelText={intl.formatMessage({
+          id: 'pages.analyticsBehavior.funnel.preset.cancelText',
+          defaultMessage: '取消',
+        })}
       >
         <div style={{ marginBottom: 8 }}>
           <Input.TextArea
             rows={6}
-            placeholder="粘贴 JSON 数组（[{name,steps,seq,sameSess,gapSec,start,end}, ...]）"
+            placeholder={intl.formatMessage({
+              id: 'pages.analyticsBehavior.funnel.preset.filter.placeholder.importJson',
+              defaultMessage:
+                "粘贴 JSON 数组（'{'{name,steps,seq,sameSess,gapSec,start,end}'}', ...）",
+            })}
             value={impText}
             onChange={(e) => setImpText(e.target.value)}
           />
           <div style={{ marginTop: 8 }}>
-            <Button onClick={parseImport}>解析</Button>
+            <Button onClick={parseImport}>
+              <FormattedMessage
+                id="pages.analyticsBehavior.funnel.preset.button.parse"
+                defaultMessage="解析"
+              />
+            </Button>
           </div>
         </div>
         {impList.length > 0 && (
@@ -283,8 +400,20 @@ const PresetBar: React.FC<{
             dataSource={impList}
             rowSelection={{ selectedRowKeys: impSel, onChange: (keys) => setImpSel(keys) }}
             columns={[
-              { title: '名称', dataIndex: 'name' },
-              { title: '动作', dataIndex: 'status' },
+              {
+                title: intl.formatMessage({
+                  id: 'pages.analyticsBehavior.funnel.preset.column.name',
+                  defaultMessage: '名称',
+                }),
+                dataIndex: 'name',
+              },
+              {
+                title: intl.formatMessage({
+                  id: 'pages.analyticsBehavior.funnel.preset.action',
+                  defaultMessage: '动作',
+                }),
+                dataIndex: 'status',
+              },
             ]}
             pagination={false}
           />

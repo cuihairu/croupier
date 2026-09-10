@@ -8,6 +8,7 @@ import {
   SyncOutlined,
 } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
+import { FormattedMessage, useIntl } from '@umijs/max';
 import type { ContractChangeInfo, PageType } from '@/types/dashboard';
 import MergeConflictModal from '@/components/MergeConflictModal';
 import { mergeChanges, regenerateProposal, republish } from '@/services/dashboard';
@@ -36,6 +37,7 @@ export default function ContractChangesPanel({
   onChanged: () => Promise<void>;
 }) {
   const { message, modal } = App.useApp();
+  const intl = useIntl();
   const [contractActionKey, setContractActionKey] = useState('');
   const [manualMergeVisible, setManualMergeVisible] = useState(false);
   const [manualMergeLoading, setManualMergeLoading] = useState(false);
@@ -60,37 +62,69 @@ export default function ContractChangesPanel({
       await runContractAction(`regenerate:${record.pageKey}`, async () => {
         try {
           const result = await regenerateProposal(record.pageKey);
-          modal.success({ title: '已重新生成 Proposal', content: result.message });
+          modal.success({
+            title: intl.formatMessage({
+              id: 'component.proposalInbox.contractChanges.action.regenerateSuccessTitle',
+              defaultMessage: '已重新生成 Proposal',
+            }),
+            content: result.message,
+          });
         } catch (e) {
           // 生成失败（函数禁用/schema 非法等错误级诊断）必须显式反馈，
           // 静默成功会让用户误以为报错已修复。
           modal.error({
-            title: '重新生成失败',
-            content: extractErrorMessage(e, '生成页面时出现错误级诊断，请查看页面详情'),
+            title: intl.formatMessage({
+              id: 'component.proposalInbox.contractChanges.action.regenerateFailedTitle',
+              defaultMessage: '重新生成失败',
+            }),
+            content: extractErrorMessage(
+              e,
+              intl.formatMessage({
+                id: 'component.proposalInbox.contractChanges.action.regenerateFailedFallback',
+                defaultMessage: '生成页面时出现错误级诊断，请查看页面详情',
+              }),
+            ),
           });
           throw e;
         }
       });
     },
-    [modal, runContractAction],
+    [intl, modal, runContractAction],
   );
 
   const handleDeletePage = useCallback(
     async (record: ContractChangeInfo) => {
       modal.confirm({
-        title: '删除页面',
-        content: `将删除页面 ${record.pageKey} 的草稿、已发布版本与待审提案，且不可恢复。确认删除？`,
+        title: intl.formatMessage({
+          id: 'component.proposalInbox.contractChanges.action.deleteConfirmTitle',
+          defaultMessage: '删除页面',
+        }),
+        content: intl.formatMessage(
+          {
+            id: 'component.proposalInbox.contractChanges.action.deleteConfirmContent',
+            defaultMessage: `将删除页面 ${record.pageKey} 的草稿、已发布版本与待审提案，且不可恢复。确认删除？`,
+          },
+          { pageKey: record.pageKey },
+        ),
         okType: 'danger',
-        okText: '删除',
+        okText: intl.formatMessage({
+          id: 'component.proposalInbox.contractChanges.action.deleteOkText',
+          defaultMessage: '删除',
+        }),
         onOk: async () => {
           await runContractAction(`delete:${record.pageKey}`, async () => {
             await deleteVersioningPage(record.pageKey);
-            modal.success({ title: '页面已删除' });
+            modal.success({
+              title: intl.formatMessage({
+                id: 'component.proposalInbox.contractChanges.action.deletedTitle',
+                defaultMessage: '页面已删除',
+              }),
+            });
           });
         },
       });
     },
-    [modal, runContractAction],
+    [intl, modal, runContractAction],
   );
 
   const handleAutoMerge = useCallback(
@@ -98,12 +132,21 @@ export default function ContractChangesPanel({
       await runContractAction(`merge:${record.pageKey}`, async () => {
         const result = await mergeChanges(record.pageKey, { strategy: 'auto' });
         modal.info({
-          title: '自动合并结果',
-          content: `${result.message}。安全合并 ${result.merged} 项，仍有 ${result.conflicts} 项需要人工处理。`,
+          title: intl.formatMessage({
+            id: 'component.proposalInbox.contractChanges.action.autoMergeTitle',
+            defaultMessage: '自动合并结果',
+          }),
+          content: intl.formatMessage(
+            {
+              id: 'component.proposalInbox.contractChanges.action.autoMergeContent',
+              defaultMessage: `${result.message}。安全合并 ${result.merged} 项，仍有 ${result.conflicts} 项需要人工处理。`,
+            },
+            { message: result.message, merged: result.merged, conflicts: result.conflicts },
+          ),
         });
       });
     },
-    [modal, runContractAction],
+    [intl, modal, runContractAction],
   );
 
   const handleOpenManualMerge = useCallback(
@@ -115,12 +158,17 @@ export default function ContractChangesPanel({
         setManualMergePreview(preview);
         setManualMergeVisible(true);
       } catch {
-        message.error('加载冲突预览失败');
+        message.error(
+          intl.formatMessage({
+            id: 'component.proposalInbox.contractChanges.action.mergePreviewFailed',
+            defaultMessage: '加载冲突预览失败',
+          }),
+        );
       } finally {
         setManualMergeLoading(false);
       }
     },
-    [message],
+    [intl, message],
   );
 
   const handleManualMergeSubmit = useCallback(
@@ -140,16 +188,30 @@ export default function ContractChangesPanel({
         setManualMergeRecord(null);
         await onChanged();
         modal.success({
-          title: '冲突已处理',
-          content: `页面 ${manualMergeRecord.pageKey} 的草稿已更新到版本 ${result.draftRevision || '-'}，请确认后重新发布。`,
+          title: intl.formatMessage({
+            id: 'component.proposalInbox.contractChanges.action.manualMergeSuccessTitle',
+            defaultMessage: '冲突已处理',
+          }),
+          content: intl.formatMessage(
+            {
+              id: 'component.proposalInbox.contractChanges.action.manualMergeSuccessContent',
+              defaultMessage: `页面 ${manualMergeRecord.pageKey} 的草稿已更新到版本 ${result.draftRevision || '-'}，请确认后重新发布。`,
+            },
+            { pageKey: manualMergeRecord.pageKey, draftRevision: result.draftRevision || '-' },
+          ),
         });
       } catch {
-        message.error('手动合并失败');
+        message.error(
+          intl.formatMessage({
+            id: 'component.proposalInbox.contractChanges.action.manualMergeFailed',
+            defaultMessage: '手动合并失败',
+          }),
+        );
       } finally {
         setManualMergeLoading(false);
       }
     },
-    [manualMergeRecord, message, modal, onChanged],
+    [intl, manualMergeRecord, message, modal, onChanged],
   );
 
   const handleRepublish = useCallback(
@@ -159,22 +221,40 @@ export default function ContractChangesPanel({
           const result = await publishPageDraft(record.pageKey, record.draftRevision);
           requestConsoleMenuRefresh();
           modal.success({
-            title: '已重新发布',
-            content: `页面 ${result.pageKey} 已发布，版本 ${result.publishedVersion}。`,
+            title: intl.formatMessage({
+              id: 'component.proposalInbox.contractChanges.action.republishSuccessTitle',
+              defaultMessage: '已重新发布',
+            }),
+            content: intl.formatMessage(
+              {
+                id: 'component.proposalInbox.contractChanges.action.republishSuccessContent',
+                defaultMessage: `页面 ${result.pageKey} 已发布，版本 ${result.publishedVersion}。`,
+              },
+              { pageKey: result.pageKey, publishedVersion: result.publishedVersion },
+            ),
           });
           return;
         }
         const result = await republish(record.pageKey);
         requestConsoleMenuRefresh();
-        modal.success({ title: '已重新发布', content: result.message });
+        modal.success({
+          title: intl.formatMessage({
+            id: 'component.proposalInbox.contractChanges.action.republishSuccessTitle',
+            defaultMessage: '已重新发布',
+          }),
+          content: result.message,
+        });
       });
     },
-    [modal, runContractAction],
+    [intl, modal, runContractAction],
   );
 
   const contractColumns: ColumnsType<ContractChangeInfo> = [
     {
-      title: '页面',
+      title: intl.formatMessage({
+        id: 'component.proposalInbox.contractChanges.column.page',
+        defaultMessage: '页面',
+      }),
       dataIndex: 'pageKey',
       key: 'pageKey',
       render: (_, record) => (
@@ -185,7 +265,10 @@ export default function ContractChangesPanel({
       ),
     },
     {
-      title: '类型',
+      title: intl.formatMessage({
+        id: 'component.proposalInbox.contractChanges.column.type',
+        defaultMessage: '类型',
+      }),
       dataIndex: 'pageType',
       key: 'pageType',
       width: 90,
@@ -194,25 +277,42 @@ export default function ContractChangesPanel({
       ),
     },
     {
-      title: '对象',
+      title: intl.formatMessage({
+        id: 'component.proposalInbox.contractChanges.column.resource',
+        defaultMessage: '对象',
+      }),
       dataIndex: 'resourceKey',
       key: 'resourceKey',
       width: 140,
       render: (value) => value || '-',
     },
     {
-      title: '位置',
+      title: intl.formatMessage({
+        id: 'component.proposalInbox.contractChanges.column.location',
+        defaultMessage: '位置',
+      }),
       dataIndex: 'kind',
       key: 'kind',
       width: 100,
       render: (kind: ContractChangeInfo['kind']) => (
         <Tag color={kind === 'published' ? 'error' : 'warning'}>
-          {kind === 'published' ? '已发布' : '草稿'}
+          {kind === 'published'
+            ? intl.formatMessage({
+                id: 'component.proposalInbox.contractChanges.column.kindPublished',
+                defaultMessage: '已发布',
+              })
+            : intl.formatMessage({
+                id: 'component.proposalInbox.contractChanges.column.kindDraft',
+                defaultMessage: '草稿',
+              })}
         </Tag>
       ),
     },
     {
-      title: '变更原因',
+      title: intl.formatMessage({
+        id: 'component.proposalInbox.contractChanges.column.reason',
+        defaultMessage: '变更原因',
+      }),
       dataIndex: 'bindingFreshness',
       key: 'bindingFreshness',
       render: (_, record) => {
@@ -221,27 +321,42 @@ export default function ContractChangesPanel({
       },
     },
     {
-      title: '更新时间',
+      title: intl.formatMessage({
+        id: 'component.proposalInbox.contractChanges.column.updatedAt',
+        defaultMessage: '更新时间',
+      }),
       dataIndex: 'updatedAt',
       key: 'updatedAt',
       width: 180,
       render: formatDate,
     },
     {
-      title: '操作',
+      title: intl.formatMessage({
+        id: 'component.proposalInbox.contractChanges.column.actions',
+        defaultMessage: '操作',
+      }),
       key: 'action',
       width: 208,
       fixed: 'right',
       render: (_, record) => (
         <Space size={0}>
-          <Popconfirm title="确认重新发布当前草稿快照？" onConfirm={() => handleRepublish(record)}>
+          <Popconfirm
+            title={intl.formatMessage({
+              id: 'component.proposalInbox.contractChanges.action.republishConfirm',
+              defaultMessage: '确认重新发布当前草稿快照？',
+            })}
+            onConfirm={() => handleRepublish(record)}
+          >
             <Button
               type="link"
               size="small"
               icon={<RocketOutlined />}
               loading={contractActionKey === `republish:${record.pageKey}`}
             >
-              重发布
+              <FormattedMessage
+                id="component.proposalInbox.contractChanges.action.republish"
+                defaultMessage="重发布"
+              />
             </Button>
           </Popconfirm>
           <Button
@@ -251,7 +366,10 @@ export default function ContractChangesPanel({
               navigateTo(`/functions/pages?focus=${encodeURIComponent(record.pageKey)}`)
             }
           >
-            编辑
+            <FormattedMessage
+              id="component.proposalInbox.contractChanges.action.edit"
+              defaultMessage="编辑"
+            />
           </Button>
           <Dropdown
             trigger={['click']}
@@ -260,32 +378,49 @@ export default function ContractChangesPanel({
                 {
                   key: 'regenerate',
                   icon: <ReloadOutlined />,
-                  label: '重生成',
+                  label: intl.formatMessage({
+                    id: 'component.proposalInbox.contractChanges.action.regenerate',
+                    defaultMessage: '重生成',
+                  }),
                   onClick: () => handleRegenerateProposal(record),
                 },
                 {
                   key: 'auto-merge',
                   icon: <SyncOutlined />,
-                  label: '自动合并',
+                  label: intl.formatMessage({
+                    id: 'component.proposalInbox.contractChanges.action.autoMerge',
+                    defaultMessage: '自动合并',
+                  }),
                   onClick: () => handleAutoMerge(record),
                 },
                 { type: 'divider' },
                 {
                   key: 'delete-page',
                   icon: <DeleteOutlined />,
-                  label: '删除页面',
+                  label: intl.formatMessage({
+                    id: 'component.proposalInbox.contractChanges.action.deletePage',
+                    defaultMessage: '删除页面',
+                  }),
                   danger: true,
                   onClick: () => handleDeletePage(record),
                 },
                 {
                   key: 'manual-merge',
-                  label: '处理冲突',
+                  label: intl.formatMessage({
+                    id: 'component.proposalInbox.contractChanges.action.resolveConflicts',
+                    defaultMessage: '处理冲突',
+                  }),
                   onClick: () => handleOpenManualMerge(record),
                 },
               ],
             }}
           >
-            <Tooltip title="更多">
+            <Tooltip
+              title={intl.formatMessage({
+                id: 'component.proposalInbox.contractChanges.action.more',
+                defaultMessage: '更多',
+              })}
+            >
               <Button type="link" size="small" icon={<MoreOutlined />} />
             </Tooltip>
           </Dropdown>

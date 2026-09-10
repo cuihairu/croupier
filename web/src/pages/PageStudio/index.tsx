@@ -1,5 +1,5 @@
-import React, { useCallback, useEffect, useState } from 'react';
-import { history } from '@umijs/max';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { FormattedMessage, history, useIntl } from '@umijs/max';
 import { PageContainer, ProTable } from '@ant-design/pro-components';
 import { App, Button, Collapse, Space, Typography } from 'antd';
 import { ReloadOutlined, RocketOutlined } from '@ant-design/icons';
@@ -72,6 +72,11 @@ function ErrorDetailList({ error }: { error: unknown }) {
 
 export default function PageStudio() {
   const { message, modal } = App.useApp();
+  const intl = useIntl();
+  // useIntl 在测试 mock 下每次渲染返回新引用，直接进 useCallback 依赖会让请求
+  // effect 反复触发；回调内文案统一走 intlRef（渲染期同步写回）。
+  const intlRef = useRef(intl);
+  intlRef.current = intl;
   const [drafts, setDrafts] = useState<PageSpecDraftSummary[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedDraft, setSelectedDraft] = useState<PageSpecDraft | null>(null);
@@ -107,7 +112,12 @@ export default function PageStudio() {
     try {
       setDrafts(await listPageDrafts());
     } catch {
-      message.error('加载页面列表失败');
+      message.error(
+        intlRef.current.formatMessage({
+          id: 'pages.pageStudio.load.listFailed',
+          defaultMessage: '加载页面列表失败',
+        }),
+      );
     } finally {
       setLoading(false);
     }
@@ -124,7 +134,12 @@ export default function PageStudio() {
         setSelectedDraft(draft);
         setSelectedDraftRevision(draft.draftRevision || 0);
       } catch {
-        message.error('加载页面详情失败');
+        message.error(
+          intlRef.current.formatMessage({
+            id: 'pages.pageStudio.load.detailFailed',
+            defaultMessage: '加载页面详情失败',
+          }),
+        );
       }
     },
     [message],
@@ -135,10 +150,20 @@ export default function PageStudio() {
       try {
         await publishPageDraft(pageKey, draftRevision);
         requestConsoleMenuRefresh();
-        message.success('发布成功');
+        message.success(
+          intlRef.current.formatMessage({
+            id: 'pages.pageStudio.publish.success',
+            defaultMessage: '发布成功',
+          }),
+        );
         loadDrafts();
       } catch {
-        message.error('发布失败');
+        message.error(
+          intlRef.current.formatMessage({
+            id: 'pages.pageStudio.publish.failed',
+            defaultMessage: '发布失败',
+          }),
+        );
       }
     },
     [loadDrafts, message],
@@ -153,14 +178,35 @@ export default function PageStudio() {
       const published = res.published?.length ?? 0;
       const failed = res.failed?.length ?? 0;
       if (failed > 0) {
-        message.warning(`已发布 ${published} 个页面，${failed} 个失败`);
+        message.warning(
+          intlRef.current.formatMessage(
+            {
+              id: 'pages.pageStudio.bulkPublish.partialWarning',
+              defaultMessage: '已发布 {published} 个页面，{failed} 个失败',
+            },
+            { published, failed },
+          ),
+        );
       } else {
-        message.success(`已发布 ${published} 个页面`);
+        message.success(
+          intlRef.current.formatMessage(
+            {
+              id: 'pages.pageStudio.bulkPublish.success',
+              defaultMessage: '已发布 {published} 个页面',
+            },
+            { published },
+          ),
+        );
       }
       requestConsoleMenuRefresh();
       loadDrafts();
     } catch {
-      message.error('一键发布失败');
+      message.error(
+        intlRef.current.formatMessage({
+          id: 'pages.pageStudio.bulkPublish.failed',
+          defaultMessage: '一键发布失败',
+        }),
+      );
     } finally {
       setBulkLoading(null);
     }
@@ -171,11 +217,24 @@ export default function PageStudio() {
     try {
       const res = await bulkUnpublishPages();
       const unpublished = res.unpublished?.length ?? 0;
-      message.success(`已下架 ${unpublished} 个页面`);
+      message.success(
+        intlRef.current.formatMessage(
+          {
+            id: 'pages.pageStudio.bulkUnpublish.success',
+            defaultMessage: '已下架 {unpublished} 个页面',
+          },
+          { unpublished },
+        ),
+      );
       requestConsoleMenuRefresh();
       loadDrafts();
     } catch {
-      message.error('一键下架失败');
+      message.error(
+        intlRef.current.formatMessage({
+          id: 'pages.pageStudio.bulkUnpublish.failed',
+          defaultMessage: '一键下架失败',
+        }),
+      );
     } finally {
       setBulkLoading(null);
     }
@@ -186,10 +245,20 @@ export default function PageStudio() {
       try {
         await unpublishPage(pageKey);
         requestConsoleMenuRefresh();
-        message.success('已取消发布');
+        message.success(
+          intlRef.current.formatMessage({
+            id: 'pages.pageStudio.unpublish.success',
+            defaultMessage: '已取消发布',
+          }),
+        );
         loadDrafts();
       } catch {
-        message.error('取消发布失败');
+        message.error(
+          intlRef.current.formatMessage({
+            id: 'pages.pageStudio.unpublish.failed',
+            defaultMessage: '取消发布失败',
+          }),
+        );
       }
     },
     [loadDrafts, message],
@@ -254,19 +323,44 @@ export default function PageStudio() {
           try {
             await publishPageDraft(selectedDraft.pageKey, result.draftRevision);
             requestConsoleMenuRefresh();
-            message.success('已保存并发布');
+            message.success(
+              intlRef.current.formatMessage({
+                id: 'pages.pageStudio.save.savedAndPublished',
+                defaultMessage: '已保存并发布',
+              }),
+            );
           } catch (publishError) {
             // 草稿已保存，仅发布失败：保留编辑器打开让用户决定重试或稍后发布
-            const reason = extractErrorMessage(publishError, '未知原因');
+            const reason = extractErrorMessage(
+              publishError,
+              intlRef.current.formatMessage({
+                id: 'pages.pageStudio.publish.unknownReason',
+                defaultMessage: '未知原因',
+              }),
+            );
             modal.error({
-              title: '发布失败（草稿已保存）',
+              title: intlRef.current.formatMessage({
+                id: 'pages.pageStudio.publish.failedDraftSaved',
+                defaultMessage: '发布失败（草稿已保存）',
+              }),
               width: 560,
               content: (
                 <Space orientation="vertical" size={4} style={{ width: '100%' }}>
-                  <Typography.Text type="secondary">失败原因：{reason}</Typography.Text>
+                  <Typography.Text type="secondary">
+                    {intlRef.current.formatMessage(
+                      {
+                        id: 'pages.pageStudio.publish.failureReason',
+                        defaultMessage: '失败原因：{reason}',
+                      },
+                      { reason },
+                    )}
+                  </Typography.Text>
                   <ErrorDetailList error={publishError} />
                   <Typography.Text type="warning">
-                    通常是函数契约已变化导致页面绑定失效，可点击「重新生成草稿」按最新契约重建后再发布。
+                    <FormattedMessage
+                      id="pages.pageStudio.publish.contractStaleHint"
+                      defaultMessage="通常是函数契约已变化导致页面绑定失效，可点击「重新生成草稿」按最新契约重建后再发布。"
+                    />
                   </Typography.Text>
                 </Space>
               ),
@@ -275,18 +369,32 @@ export default function PageStudio() {
             return;
           }
         } else {
-          message.success('保存成功');
+          message.success(
+            intlRef.current.formatMessage({
+              id: 'pages.pageStudio.save.success',
+              defaultMessage: '保存成功',
+            }),
+          );
         }
         setEditorVisible(false);
         loadDrafts();
       } catch (saveError) {
         modal.error({
-          title: '保存失败',
+          title: intlRef.current.formatMessage({
+            id: 'pages.pageStudio.save.failed',
+            defaultMessage: '保存失败',
+          }),
           width: 560,
           content: (
             <Space orientation="vertical" size={4} style={{ width: '100%' }}>
               <Typography.Text type="secondary">
-                {extractErrorMessage(saveError, '保存失败，请稍后重试')}
+                {extractErrorMessage(
+                  saveError,
+                  intlRef.current.formatMessage({
+                    id: 'pages.pageStudio.save.retryLater',
+                    defaultMessage: '保存失败，请稍后重试',
+                  }),
+                )}
               </Typography.Text>
               <ErrorDetailList error={saveError} />
             </Space>
@@ -307,10 +415,20 @@ export default function PageStudio() {
           setSelectedDraft(result.page);
           setSelectedDraftRevision(result.draftRevision);
         }
-        message.success('已按最新 Proposal 重新生成草稿');
+        message.success(
+          intlRef.current.formatMessage({
+            id: 'pages.pageStudio.regenerate.success',
+            defaultMessage: '已按最新 Proposal 重新生成草稿',
+          }),
+        );
         await loadDrafts();
       } catch {
-        message.error('重新生成草稿失败');
+        message.error(
+          intlRef.current.formatMessage({
+            id: 'pages.pageStudio.regenerate.failed',
+            defaultMessage: '重新生成草稿失败',
+          }),
+        );
       } finally {
       }
     },
@@ -325,7 +443,12 @@ export default function PageStudio() {
       try {
         setChangeChain(await getChangeChain(pageKey));
       } catch {
-        message.error('加载变更链失败');
+        message.error(
+          intlRef.current.formatMessage({
+            id: 'pages.pageStudio.changeChain.loadFailed',
+            defaultMessage: '加载变更链失败',
+          }),
+        );
       } finally {
         setChangeChainLoading(false);
       }
@@ -342,7 +465,12 @@ export default function PageStudio() {
         const [, diff] = await Promise.all([loadDraftDetail(pageKey), getDiff(pageKey)]);
         setDiffData(diff);
       } catch {
-        message.error('加载 Diff 失败');
+        message.error(
+          intlRef.current.formatMessage({
+            id: 'pages.pageStudio.diff.loadFailed',
+            defaultMessage: '加载 Diff 失败',
+          }),
+        );
       } finally {
         setDiffLoading(false);
       }
@@ -363,7 +491,12 @@ export default function PageStudio() {
         setCurrentDraftVersion(result.currentDraftRevision || 0);
         setCurrentPublishedVersion(result.currentPublishedVersion || 0);
       } catch {
-        message.error('加载版本历史失败');
+        message.error(
+          intlRef.current.formatMessage({
+            id: 'pages.pageStudio.versions.loadFailed',
+            defaultMessage: '加载版本历史失败',
+          }),
+        );
       } finally {
         setVersionsLoading(false);
       }
@@ -385,7 +518,12 @@ export default function PageStudio() {
   const handleMerge = useCallback(
     async (strategy: MergeStrategy) => {
       if (!selectedPageKey || selectedDraftRevision <= 0) {
-        message.error('页面草稿版本无效，请刷新后重试');
+        message.error(
+          intlRef.current.formatMessage({
+            id: 'pages.pageStudio.merge.invalidRevision',
+            defaultMessage: '页面草稿版本无效，请刷新后重试',
+          }),
+        );
         return;
       }
       setMergeLoading(true);
@@ -397,11 +535,24 @@ export default function PageStudio() {
         if (result.draftRevision) {
           setSelectedDraftRevision(result.draftRevision);
         }
-        message.success(`合并完成：${result.merged} 项自动合并，${result.conflicts} 项冲突`);
+        message.success(
+          intlRef.current.formatMessage(
+            {
+              id: 'pages.pageStudio.merge.autoSuccess',
+              defaultMessage: '合并完成：{merged} 项自动合并，{conflicts} 项冲突',
+            },
+            { merged: result.merged, conflicts: result.conflicts },
+          ),
+        );
         setMergeVisible(false);
         loadDrafts();
       } catch {
-        message.error('合并失败');
+        message.error(
+          intlRef.current.formatMessage({
+            id: 'pages.pageStudio.merge.failed',
+            defaultMessage: '合并失败',
+          }),
+        );
       } finally {
         setMergeLoading(false);
       }
@@ -411,7 +562,12 @@ export default function PageStudio() {
 
   const handleOpenManualMerge = useCallback(async () => {
     if (!selectedPageKey) {
-      message.error('请选择页面后再处理冲突');
+      message.error(
+        intlRef.current.formatMessage({
+          id: 'pages.pageStudio.merge.selectPageFirst',
+          defaultMessage: '请选择页面后再处理冲突',
+        }),
+      );
       return;
     }
     setMergeLoading(true);
@@ -421,7 +577,12 @@ export default function PageStudio() {
       setMergeVisible(false);
       setManualMergeVisible(true);
     } catch {
-      message.error('加载冲突预览失败');
+      message.error(
+        intlRef.current.formatMessage({
+          id: 'pages.pageStudio.merge.previewLoadFailed',
+          defaultMessage: '加载冲突预览失败',
+        }),
+      );
     } finally {
       setMergeLoading(false);
     }
@@ -444,12 +605,25 @@ export default function PageStudio() {
         if (result.draftRevision) {
           setSelectedDraftRevision(result.draftRevision);
         }
-        message.success(`合并完成：草稿已更新到版本 ${result.draftRevision || '-'}`);
+        message.success(
+          intlRef.current.formatMessage(
+            {
+              id: 'pages.pageStudio.merge.manualSuccess',
+              defaultMessage: '合并完成：草稿已更新到版本 {revision}',
+            },
+            { revision: result.draftRevision || '-' },
+          ),
+        );
         setManualMergeVisible(false);
         setManualMergePreview(null);
         loadDrafts();
       } catch {
-        message.error('手动合并失败');
+        message.error(
+          intlRef.current.formatMessage({
+            id: 'pages.pageStudio.merge.manualFailed',
+            defaultMessage: '手动合并失败',
+          }),
+        );
       } finally {
         setMergeLoading(false);
       }
@@ -472,7 +646,12 @@ export default function PageStudio() {
         message.success(result.message);
         await Promise.all([loadDrafts(), loadVersionHistory(selectedPageKey)]);
       } catch {
-        message.error('回滚草稿失败');
+        message.error(
+          intlRef.current.formatMessage({
+            id: 'pages.pageStudio.rollback.draftFailed',
+            defaultMessage: '回滚草稿失败',
+          }),
+        );
       }
     },
     [loadDrafts, loadVersionHistory, message, selectedDraftRevision, selectedPageKey],
@@ -493,7 +672,12 @@ export default function PageStudio() {
         message.success(result.message);
         await Promise.all([loadDrafts(), loadVersionHistory(selectedPageKey)]);
       } catch {
-        message.error('回滚发布失败');
+        message.error(
+          intlRef.current.formatMessage({
+            id: 'pages.pageStudio.rollback.publishFailed',
+            defaultMessage: '回滚发布失败',
+          }),
+        );
       }
     },
     [loadDrafts, loadVersionHistory, message, selectedDraftRevision, selectedPageKey],
@@ -515,8 +699,11 @@ export default function PageStudio() {
 
   return (
     <PageContainer
-      title="页面工作台"
-      subTitle="注册能力后自动生成默认页面；预览、发布、运行无需手工创建页面"
+      title={intl.formatMessage({ id: 'pages.pageStudio.title', defaultMessage: '页面工作台' })}
+      subTitle={intl.formatMessage({
+        id: 'pages.pageStudio.subtitle',
+        defaultMessage: '注册能力后自动生成默认页面；预览、发布、运行无需手工创建页面',
+      })}
     >
       <PageWorkflowGuide />
 
@@ -527,7 +714,10 @@ export default function PageStudio() {
         items={[
           {
             key: 'advanced-page-management',
-            label: '高级页面管理（仅在已接受草稿、处理版本或回滚时使用）',
+            label: intl.formatMessage({
+              id: 'pages.pageStudio.advancedPanel.label',
+              defaultMessage: '高级页面管理（仅在已接受草稿、处理版本或回滚时使用）',
+            }),
             children: (
               <ProTable<PageSpecDraftSummary>
                 columns={columns}
@@ -538,7 +728,7 @@ export default function PageStudio() {
                 pagination={false}
                 toolBarRender={() => [
                   <Button key="refresh" icon={<ReloadOutlined />} onClick={loadDrafts}>
-                    刷新
+                    <FormattedMessage id="pages.pageStudio.action.refresh" defaultMessage="刷新" />
                   </Button>,
                   <Button
                     key="bulk-publish"
@@ -546,15 +736,27 @@ export default function PageStudio() {
                     loading={bulkLoading === 'publish'}
                     onClick={() => {
                       modal.confirm({
-                        title: '一键发布全部',
-                        content:
-                          '将重算提案并把所有 ready/basic 提案按真实链路发布（同 scope）。确认执行？',
-                        okText: '发布',
+                        title: intl.formatMessage({
+                          id: 'pages.pageStudio.bulkPublish.confirmTitle',
+                          defaultMessage: '一键发布全部',
+                        }),
+                        content: intl.formatMessage({
+                          id: 'pages.pageStudio.bulkPublish.confirmContent',
+                          defaultMessage:
+                            '将重算提案并把所有 ready/basic 提案按真实链路发布（同 scope）。确认执行？',
+                        }),
+                        okText: intl.formatMessage({
+                          id: 'pages.pageStudio.bulkPublish.confirmOk',
+                          defaultMessage: '发布',
+                        }),
                         onOk: handleBulkPublish,
                       });
                     }}
                   >
-                    一键发布全部
+                    <FormattedMessage
+                      id="pages.pageStudio.bulkPublish.button"
+                      defaultMessage="一键发布全部"
+                    />
                   </Button>,
                   <Button
                     key="bulk-unpublish"
@@ -562,16 +764,28 @@ export default function PageStudio() {
                     loading={bulkLoading === 'unpublish'}
                     onClick={() => {
                       modal.confirm({
-                        title: '一键下架全部',
-                        content:
-                          '将下线当前 scope 内全部已发布页面（运行控制台菜单随之清空）。确认执行？',
-                        okText: '下架',
+                        title: intl.formatMessage({
+                          id: 'pages.pageStudio.bulkUnpublish.confirmTitle',
+                          defaultMessage: '一键下架全部',
+                        }),
+                        content: intl.formatMessage({
+                          id: 'pages.pageStudio.bulkUnpublish.confirmContent',
+                          defaultMessage:
+                            '将下线当前 scope 内全部已发布页面（运行控制台菜单随之清空）。确认执行？',
+                        }),
+                        okText: intl.formatMessage({
+                          id: 'pages.pageStudio.bulkUnpublish.confirmOk',
+                          defaultMessage: '下架',
+                        }),
                         okButtonProps: { danger: true },
                         onOk: handleBulkUnpublish,
                       });
                     }}
                   >
-                    一键下架全部
+                    <FormattedMessage
+                      id="pages.pageStudio.bulkUnpublish.button"
+                      defaultMessage="一键下架全部"
+                    />
                   </Button>,
                 ]}
               />

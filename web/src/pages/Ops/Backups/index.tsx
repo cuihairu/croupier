@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Card, Table, Space, Button, Tag, Form, Input, Select, App } from 'antd';
 import { ModalForm, PageContainer } from '@ant-design/pro-components';
+import { FormattedMessage, useIntl } from '@umijs/max';
 import {
   createOpsBackup,
   deleteOpsBackup,
@@ -14,6 +15,7 @@ type BackupFormValues = { kind: string; target?: string };
 
 export default function OpsBackupsPage() {
   const { message, modal } = App.useApp();
+  const intl = useIntl();
   const [rows, setRows] = useState<OpsBackup[]>([]);
   const [loading, setLoading] = useState(false);
   const load = async () => {
@@ -33,7 +35,9 @@ export default function OpsBackupsPage() {
   const onFinish = async (v: BackupFormValues) => {
     try {
       await createOpsBackup(v);
-      message.success('已创建');
+      message.success(
+        intl.formatMessage({ id: 'pages.opsBackups.success.created', defaultMessage: '已创建' }),
+      );
       setTimeout(load, 500);
       return true;
     } catch {
@@ -44,22 +48,36 @@ export default function OpsBackupsPage() {
   const del = async (r: OpsBackup) => {
     try {
       await deleteOpsBackup(r.id);
-      message.success('已删除');
+      message.success(
+        intl.formatMessage({ id: 'pages.opsBackups.success.deleted', defaultMessage: '已删除' }),
+      );
       load();
     } catch (e) {
-      const errMsg = e instanceof Error ? e.message : '操作失败';
-      message.error(errMsg || '失败');
+      const errMsg =
+        e instanceof Error
+          ? e.message
+          : intl.formatMessage({
+              id: 'pages.opsBackups.error.operationFailed',
+              defaultMessage: '操作失败',
+            });
+      message.error(
+        errMsg ||
+          intl.formatMessage({ id: 'pages.opsBackups.error.failed', defaultMessage: '失败' }),
+      );
     }
   };
 
   return (
     <PageContainer>
       <Card
-        title="数据备份"
+        title={intl.formatMessage({
+          id: 'pages.opsBackups.card.title',
+          defaultMessage: '数据备份',
+        })}
         extra={
           <Space>
             <Button onClick={load} loading={loading}>
-              刷新
+              <FormattedMessage id="pages.opsBackups.action.refresh" defaultMessage="刷新" />
             </Button>
             <Button
               type="primary"
@@ -67,7 +85,7 @@ export default function OpsBackupsPage() {
                 setOpen(true);
               }}
             >
-              创建备份
+              <FormattedMessage id="pages.opsBackups.action.create" defaultMessage="创建备份" />
             </Button>
           </Space>
         }
@@ -79,29 +97,61 @@ export default function OpsBackupsPage() {
           pagination={{ pageSize: 10 }}
           columns={[
             { title: 'ID', dataIndex: 'id' },
-            { title: '类型', dataIndex: 'type' },
-            { title: '大小', dataIndex: 'size' },
             {
-              title: '状态',
+              title: intl.formatMessage({
+                id: 'pages.opsBackups.column.type',
+                defaultMessage: '类型',
+              }),
+              dataIndex: 'type',
+            },
+            {
+              title: intl.formatMessage({
+                id: 'pages.opsBackups.column.size',
+                defaultMessage: '大小',
+              }),
+              dataIndex: 'size',
+            },
+            {
+              title: intl.formatMessage({
+                id: 'pages.opsBackups.column.status',
+                defaultMessage: '状态',
+              }),
               dataIndex: 'status',
               render: (v: string) => (
                 <Tag color={v === 'done' ? 'green' : v === 'failed' ? 'red' : 'gold'}>{v}</Tag>
               ),
             },
-            { title: '时间', dataIndex: 'createdAt' },
             {
-              title: '操作',
+              title: intl.formatMessage({
+                id: 'pages.opsBackups.column.time',
+                defaultMessage: '时间',
+              }),
+              dataIndex: 'createdAt',
+            },
+            {
+              title: intl.formatMessage({
+                id: 'pages.opsBackups.column.actions',
+                defaultMessage: '操作',
+              }),
               render: (_: unknown, r: OpsBackup) => (
                 <Space>
                   <a href={getOpsBackupDownloadUrl(r.id)} target="_blank" rel="noreferrer">
-                    下载
+                    <FormattedMessage id="pages.opsBackups.action.download" defaultMessage="下载" />
                   </a>
                   <Button
                     size="small"
                     danger
-                    onClick={() => modal.confirm({ title: '删除备份', onOk: () => del(r) })}
+                    onClick={() =>
+                      modal.confirm({
+                        title: intl.formatMessage({
+                          id: 'pages.opsBackups.confirm.deleteTitle',
+                          defaultMessage: '删除备份',
+                        }),
+                        onOk: () => del(r),
+                      })
+                    }
                   >
-                    删除
+                    <FormattedMessage id="pages.opsBackups.action.delete" defaultMessage="删除" />
                   </Button>
                 </Space>
               ),
@@ -112,15 +162,32 @@ export default function OpsBackupsPage() {
 
       <ModalForm<BackupFormValues>
         open={open}
-        title="创建备份"
+        title={intl.formatMessage({
+          id: 'pages.opsBackups.modal.createTitle',
+          defaultMessage: '创建备份',
+        })}
         onOpenChange={setOpen}
         modalProps={{ destroyOnHidden: true }}
         width={520}
-        submitter={{ searchConfig: { submitText: '确定' } }}
+        submitter={{
+          searchConfig: {
+            submitText: intl.formatMessage({
+              id: 'pages.opsBackups.modal.submit',
+              defaultMessage: '确定',
+            }),
+          },
+        }}
         layout="vertical"
         onFinish={onFinish}
       >
-        <Form.Item label="类型" name="kind" rules={[{ required: true }]}>
+        <Form.Item
+          label={intl.formatMessage({
+            id: 'pages.opsBackups.modal.typeLabel',
+            defaultMessage: '类型',
+          })}
+          name="kind"
+          rules={[{ required: true }]}
+        >
           <Select
             options={[
               { label: 'postgres', value: 'postgres' },
@@ -130,8 +197,20 @@ export default function OpsBackupsPage() {
             ]}
           />
         </Form.Item>
-        <Form.Item label="目标/连接串" name="target">
-          <Input placeholder="可选：如 postgres://user:pass@host:5432/db; redis://host:6379/0; clickhouse://host:9000/db" />
+        <Form.Item
+          label={intl.formatMessage({
+            id: 'pages.opsBackups.modal.targetLabel',
+            defaultMessage: '目标/连接串',
+          })}
+          name="target"
+        >
+          <Input
+            placeholder={intl.formatMessage({
+              id: 'pages.opsBackups.modal.targetPlaceholder',
+              defaultMessage:
+                '可选：如 postgres://user:pass@host:5432/db; redis://host:6379/0; clickhouse://host:9000/db',
+            })}
+          />
         </Form.Item>
       </ModalForm>
     </PageContainer>

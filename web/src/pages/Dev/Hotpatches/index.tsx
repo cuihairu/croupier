@@ -24,7 +24,7 @@ import {
 } from '@ant-design/pro-components';
 import { CloudUploadOutlined, PlusOutlined, ReloadOutlined } from '@ant-design/icons';
 import type { UploadProps } from 'antd';
-import { useAccess } from '@umijs/max';
+import { FormattedMessage, useAccess, useIntl } from '@umijs/max';
 import {
   createHotpatch,
   hotpatchFrameworkLabels,
@@ -49,6 +49,7 @@ type HotpatchFormValues = {
 export default function DevHotpatchesPage() {
   const { message } = App.useApp();
   const access = useAccess();
+  const intl = useIntl();
   const canManage = Boolean(access.canDevManage);
 
   const [status, setStatus] = useState('');
@@ -67,11 +68,24 @@ export default function DevHotpatchesPage() {
       // createHotpatch 契约要求 gameId 必填，但实际路由依赖 X-Game-ID header；
       // 原实现 body 即不含 gameId（Go json 解析缺省同为零值 ""），显式空串等价
       await createHotpatch({ ...v, gameId: '' });
-      message.success('热更单已创建（草稿），请上传补丁包');
+      message.success(
+        intl.formatMessage({
+          id: 'pages.devHotpatches.success.created',
+          defaultMessage: '热更单已创建（草稿），请上传补丁包',
+        }),
+      );
       reload();
       return true;
     } catch (error) {
-      message.error(extractErrorMessage(error, '创建失败'));
+      message.error(
+        extractErrorMessage(
+          error,
+          intl.formatMessage({
+            id: 'pages.devHotpatches.error.createFailed',
+            defaultMessage: '创建失败',
+          }),
+        ),
+      );
       return false;
     }
   };
@@ -83,10 +97,23 @@ export default function DevHotpatchesPage() {
   ) => {
     try {
       await transitionHotpatch(hp.id, action, rolloutPercent);
-      message.success('状态已更新');
+      message.success(
+        intl.formatMessage({
+          id: 'pages.devHotpatches.success.statusUpdated',
+          defaultMessage: '状态已更新',
+        }),
+      );
       reload();
     } catch (error) {
-      message.error(extractErrorMessage(error, '操作失败'));
+      message.error(
+        extractErrorMessage(
+          error,
+          intl.formatMessage({
+            id: 'pages.devHotpatches.error.operationFailed',
+            defaultMessage: '操作失败',
+          }),
+        ),
+      );
     }
   };
 
@@ -98,11 +125,24 @@ export default function DevHotpatchesPage() {
       try {
         await uploadHotpatchPackage(hp.id, file as File);
         onSuccess?.({}, new XMLHttpRequest());
-        message.success('补丁包已上传（SHA-256 已登记）');
+        message.success(
+          intl.formatMessage({
+            id: 'pages.devHotpatches.success.packageUploaded',
+            defaultMessage: '补丁包已上传（SHA-256 已登记）',
+          }),
+        );
         reload();
       } catch (error) {
         onError?.(error as Error);
-        message.error(extractErrorMessage(error, '上传失败'));
+        message.error(
+          extractErrorMessage(
+            error,
+            intl.formatMessage({
+              id: 'pages.devHotpatches.error.uploadFailed',
+              defaultMessage: '上传失败',
+            }),
+          ),
+        );
       }
     },
   });
@@ -110,14 +150,28 @@ export default function DevHotpatchesPage() {
   const columns: ProColumns<HotpatchItem>[] = [
     { title: 'ID', dataIndex: 'id', width: 60 },
     {
-      title: '框架',
+      title: intl.formatMessage({
+        id: 'pages.devHotpatches.column.framework',
+        defaultMessage: '框架',
+      }),
       dataIndex: 'framework',
       width: 130,
       render: (_, hp) => hotpatchFrameworkLabels[hp.framework] || hp.framework,
     },
-    { title: '关联缺陷', dataIndex: 'bugId', width: 90, render: (_, hp) => `#${hp.bugId}` },
     {
-      title: '状态',
+      title: intl.formatMessage({
+        id: 'pages.devHotpatches.column.bug',
+        defaultMessage: '关联缺陷',
+      }),
+      dataIndex: 'bugId',
+      width: 90,
+      render: (_, hp) => `#${hp.bugId}`,
+    },
+    {
+      title: intl.formatMessage({
+        id: 'pages.devHotpatches.column.status',
+        defaultMessage: '状态',
+      }),
       dataIndex: 'status',
       width: 100,
       render: (_, hp) => (
@@ -127,7 +181,10 @@ export default function DevHotpatchesPage() {
       ),
     },
     {
-      title: '灰度',
+      title: intl.formatMessage({
+        id: 'pages.devHotpatches.column.rollout',
+        defaultMessage: '灰度',
+      }),
       dataIndex: 'rolloutPercent',
       width: 80,
       render: (_, hp) =>
@@ -140,32 +197,63 @@ export default function DevHotpatchesPage() {
         ),
     },
     {
-      title: '补丁包',
+      title: intl.formatMessage({
+        id: 'pages.devHotpatches.column.package',
+        defaultMessage: '补丁包',
+      }),
       dataIndex: 'size',
       width: 100,
       render: (_, hp) =>
-        hp.packageKey ? formatSize(hp.size) : <Text type="secondary">未上传</Text>,
+        hp.packageKey ? (
+          formatSize(hp.size)
+        ) : (
+          <Text type="secondary">
+            <FormattedMessage
+              id="pages.devHotpatches.column.packageNotUploaded"
+              defaultMessage="未上传"
+            />
+          </Text>
+        ),
     },
-    { title: '更新时间', dataIndex: 'updatedAt', width: 170 },
     {
-      title: '操作',
+      title: intl.formatMessage({
+        id: 'pages.devHotpatches.column.updatedAt',
+        defaultMessage: '更新时间',
+      }),
+      dataIndex: 'updatedAt',
+      width: 170,
+    },
+    {
+      title: intl.formatMessage({
+        id: 'pages.devHotpatches.column.actions',
+        defaultMessage: '操作',
+      }),
       render: (_: unknown, hp: HotpatchItem) =>
         canManage ? (
           <Space wrap>
             {hp.status === 'draft' ? (
               <Upload {...uploadProps(hp)}>
                 <Button size="small" icon={<CloudUploadOutlined />}>
-                  传包
+                  <FormattedMessage
+                    id="pages.devHotpatches.action.uploadPackage"
+                    defaultMessage="传包"
+                  />
                 </Button>
               </Upload>
             ) : null}
             {hp.status === 'draft' && hp.packageKey ? (
               <Popconfirm
-                title="提交审批？（双人规则：需第二人复核后才能灰度）"
+                title={intl.formatMessage({
+                  id: 'pages.devHotpatches.confirm.approve',
+                  defaultMessage: '提交审批？（双人规则：需第二人复核后才能灰度）',
+                })}
                 onConfirm={() => doTransition(hp, 'approve')}
               >
                 <Button size="small" type="primary">
-                  提交审批
+                  <FormattedMessage
+                    id="pages.devHotpatches.action.approve"
+                    defaultMessage="提交审批"
+                  />
                 </Button>
               </Popconfirm>
             ) : null}
@@ -178,7 +266,10 @@ export default function DevHotpatchesPage() {
                   setRollValue(10);
                 }}
               >
-                开始灰度
+                <FormattedMessage
+                  id="pages.devHotpatches.action.startRollout"
+                  defaultMessage="开始灰度"
+                />
               </Button>
             ) : null}
             {hp.status === 'rolling' ? (
@@ -190,20 +281,29 @@ export default function DevHotpatchesPage() {
                     setRollValue(Math.max(hp.rolloutPercent, 10));
                   }}
                 >
-                  放量
+                  <FormattedMessage id="pages.devHotpatches.action.rollout" defaultMessage="放量" />
                 </Button>
                 <Button size="small" onClick={() => doTransition(hp, 'applied')}>
-                  标记生效
+                  <FormattedMessage
+                    id="pages.devHotpatches.action.markApplied"
+                    defaultMessage="标记生效"
+                  />
                 </Button>
               </>
             ) : null}
             {['rolling', 'failed'].includes(hp.status) ? (
               <Popconfirm
-                title="回滚所有已应用节点？"
+                title={intl.formatMessage({
+                  id: 'pages.devHotpatches.confirm.rollback',
+                  defaultMessage: '回滚所有已应用节点？',
+                })}
                 onConfirm={() => doTransition(hp, 'rollback')}
               >
                 <Button size="small" danger>
-                  回滚
+                  <FormattedMessage
+                    id="pages.devHotpatches.action.rollback"
+                    defaultMessage="回滚"
+                  />
                 </Button>
               </Popconfirm>
             ) : null}
@@ -217,11 +317,16 @@ export default function DevHotpatchesPage() {
   return (
     <PageContainer>
       <Card
-        title="服务端热更新"
+        title={
+          <FormattedMessage id="pages.devHotpatches.card.title" defaultMessage="服务端热更新" />
+        }
         extra={
           <Space wrap>
             <Select
-              placeholder="状态"
+              placeholder={intl.formatMessage({
+                id: 'pages.devHotpatches.filter.status',
+                defaultMessage: '状态',
+              })}
               value={status || undefined}
               onChange={(v) => {
                 setStatus(v || '');
@@ -237,7 +342,10 @@ export default function DevHotpatchesPage() {
               }))}
             />
             <Select
-              placeholder="框架"
+              placeholder={intl.formatMessage({
+                id: 'pages.devHotpatches.filter.framework',
+                defaultMessage: '框架',
+              })}
               value={framework || undefined}
               onChange={(v) => {
                 setFramework(v || '');
@@ -251,11 +359,14 @@ export default function DevHotpatchesPage() {
               }))}
             />
             <Button icon={<ReloadOutlined />} onClick={reload} loading={tableLoading}>
-              刷新
+              <FormattedMessage id="pages.devHotpatches.action.refresh" defaultMessage="刷新" />
             </Button>
             {canManage ? (
               <Button type="primary" icon={<PlusOutlined />} onClick={() => setCreateOpen(true)}>
-                创建热更单
+                <FormattedMessage
+                  id="pages.devHotpatches.action.create"
+                  defaultMessage="创建热更单"
+                />
               </Button>
             ) : null}
           </Space>
@@ -279,7 +390,15 @@ export default function DevHotpatchesPage() {
               });
               return { data: res.items || [], total: res.total || 0, success: true };
             } catch (error) {
-              message.error(extractErrorMessage(error, '加载热更单失败'));
+              message.error(
+                extractErrorMessage(
+                  error,
+                  intl.formatMessage({
+                    id: 'pages.devHotpatches.error.loadFailed',
+                    defaultMessage: '加载热更单失败',
+                  }),
+                ),
+              );
               return { data: [], total: 0, success: false };
             }
           }}
@@ -289,27 +408,81 @@ export default function DevHotpatchesPage() {
       </Card>
 
       <ModalForm<HotpatchFormValues>
-        title="创建热更单"
+        title={
+          <FormattedMessage id="pages.devHotpatches.createForm.title" defaultMessage="创建热更单" />
+        }
         open={createOpen}
         onOpenChange={setCreateOpen}
         modalProps={{ destroyOnHidden: true }}
         width={520}
         layout="vertical"
-        submitter={{ searchConfig: { submitText: '创建' } }}
+        submitter={{
+          searchConfig: {
+            submitText: intl.formatMessage({
+              id: 'pages.devHotpatches.createForm.submit',
+              defaultMessage: '创建',
+            }),
+          },
+        }}
         initialValues={{ framework: 'skynet' }}
         onFinish={onFinish}
       >
-        <Form.Item name="title" label="标题" rules={[{ required: true, message: '请输入标题' }]}>
-          <Input placeholder="如：修复背包闪退" />
+        <Form.Item
+          name="title"
+          label={intl.formatMessage({
+            id: 'pages.devHotpatches.field.title',
+            defaultMessage: '标题',
+          })}
+          rules={[
+            {
+              required: true,
+              message: intl.formatMessage({
+                id: 'pages.devHotpatches.field.titleRequired',
+                defaultMessage: '请输入标题',
+              }),
+            },
+          ]}
+        >
+          <Input
+            placeholder={intl.formatMessage({
+              id: 'pages.devHotpatches.field.titlePlaceholder',
+              defaultMessage: '如：修复背包闪退',
+            })}
+          />
         </Form.Item>
         <Form.Item
           name="bugId"
-          label="关联缺陷编号"
-          rules={[{ required: true, message: '热更必须关联缺陷（可追溯）' }]}
+          label={intl.formatMessage({
+            id: 'pages.devHotpatches.field.bugId',
+            defaultMessage: '关联缺陷编号',
+          })}
+          rules={[
+            {
+              required: true,
+              message: intl.formatMessage({
+                id: 'pages.devHotpatches.field.bugIdRequired',
+                defaultMessage: '热更必须关联缺陷（可追溯）',
+              }),
+            },
+          ]}
         >
-          <InputNumber min={1} style={{ width: '100%' }} placeholder="缺陷追踪里的 Bug ID" />
+          <InputNumber
+            min={1}
+            style={{ width: '100%' }}
+            placeholder={intl.formatMessage({
+              id: 'pages.devHotpatches.field.bugIdPlaceholder',
+              defaultMessage: '缺陷追踪里的 Bug ID',
+            })}
+          />
         </Form.Item>
-        <Form.Item name="framework" label="目标框架" rules={[{ required: true }]}>
+        <Form.Item
+          name="framework"
+          label={intl.formatMessage({
+            id: 'pages.devHotpatches.field.framework',
+            defaultMessage: '目标框架',
+          })}
+          rules={[{ required: true }]}
+        >
           <Select
             options={Object.entries(hotpatchFrameworkLabels).map(([value, label]) => ({
               label,
@@ -320,12 +493,24 @@ export default function DevHotpatchesPage() {
       </ModalForm>
 
       <Modal
-        title={rollTarget ? `节点灰度放量（当前 ${rollTarget.rolloutPercent}%）` : ''}
+        title={
+          rollTarget
+            ? intl.formatMessage(
+                {
+                  id: 'pages.devHotpatches.modal.rolloutTitle',
+                  defaultMessage: `节点灰度放量（当前 ${rollTarget.rolloutPercent}%）`,
+                },
+                { percent: rollTarget.rolloutPercent },
+              )
+            : ''
+        }
         open={Boolean(rollTarget)}
         onCancel={() => setRollTarget(null)}
         footer={
           <Space>
-            <Button onClick={() => setRollTarget(null)}>取消</Button>
+            <Button onClick={() => setRollTarget(null)}>
+              <FormattedMessage id="pages.devHotpatches.modal.cancel" defaultMessage="取消" />
+            </Button>
             <Button
               type="primary"
               onClick={async () => {
@@ -334,13 +519,21 @@ export default function DevHotpatchesPage() {
                 setRollTarget(null);
               }}
             >
-              确认放量
+              <FormattedMessage
+                id="pages.devHotpatches.modal.confirmRollout"
+                defaultMessage="确认放量"
+              />
             </Button>
           </Space>
         }
         destroyOnHidden
       >
-        <Text>按节点 hash 分桶，同一节点结果稳定；放量只增不减。</Text>
+        <Text>
+          <FormattedMessage
+            id="pages.devHotpatches.modal.rolloutHint"
+            defaultMessage="按节点 hash 分桶，同一节点结果稳定；放量只增不减。"
+          />
+        </Text>
         <Slider
           min={rollTarget ? rollTarget.rolloutPercent : 0}
           max={100}

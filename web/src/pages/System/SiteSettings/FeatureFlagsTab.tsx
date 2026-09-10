@@ -1,7 +1,7 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { App, Button, Card, Popconfirm, Space, Switch, Table, Tag, Typography } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
-import { useModel } from '@umijs/max';
+import { FormattedMessage, useIntl, useModel } from '@umijs/max';
 import {
   clearSiteSetting,
   fetchFeatureSettings,
@@ -15,31 +15,51 @@ import { extractErrorMessage } from '@/utils/errors';
 
 const { Text } = Typography;
 
-const DOMAIN_META: Record<FeatureDomain, { label: string; description: string; key: string }> = {
+// key 是 L3 设置键（行为契约）；label/description 展示文案经 textId/textDefault 走 intl
+const DOMAIN_META: Record<
+  FeatureDomain,
+  {
+    key: string;
+    labelId: string;
+    labelDefault: string;
+    descriptionId: string;
+    descriptionDefault: string;
+  }
+> = {
   dev: {
-    label: '研发协作',
-    description: '缺陷追踪、工具、版本发布、热更管理',
     key: 'features.dev',
+    labelId: 'pages.systemSiteSettings.featureFlags.domain.dev.label',
+    labelDefault: '研发协作',
+    descriptionId: 'pages.systemSiteSettings.featureFlags.domain.dev.description',
+    descriptionDefault: '缺陷追踪、工具、版本发布、热更管理',
   },
   support: {
-    label: '客服系统',
-    description: '工单、FAQ、反馈、玩家侧客服入口',
     key: 'features.support',
+    labelId: 'pages.systemSiteSettings.featureFlags.domain.support.label',
+    labelDefault: '客服系统',
+    descriptionId: 'pages.systemSiteSettings.featureFlags.domain.support.description',
+    descriptionDefault: '工单、FAQ、反馈、玩家侧客服入口',
   },
   analytics: {
-    label: '数据分析',
-    description: '实时看板、留存、行为、支付分析',
     key: 'features.analytics',
+    labelId: 'pages.systemSiteSettings.featureFlags.domain.analytics.label',
+    labelDefault: '数据分析',
+    descriptionId: 'pages.systemSiteSettings.featureFlags.domain.analytics.description',
+    descriptionDefault: '实时看板、留存、行为、支付分析',
   },
   ops: {
-    label: '运维中心',
-    description: '节点、任务、告警、限流、备份、证书、DB 监控',
     key: 'features.ops',
+    labelId: 'pages.systemSiteSettings.featureFlags.domain.ops.label',
+    labelDefault: '运维中心',
+    descriptionId: 'pages.systemSiteSettings.featureFlags.domain.ops.description',
+    descriptionDefault: '节点、任务、告警、限流、备份、证书、DB 监控',
   },
   extensions: {
-    label: '扩展中心',
-    description: '扩展商店、安装与 Agent 同步',
     key: 'features.extensions',
+    labelId: 'pages.systemSiteSettings.featureFlags.domain.extensions.label',
+    labelDefault: '扩展中心',
+    descriptionId: 'pages.systemSiteSettings.featureFlags.domain.extensions.description',
+    descriptionDefault: '扩展商店、安装与 Agent 同步',
   },
 };
 
@@ -52,6 +72,11 @@ type FeatureRow = {
 
 export default function FeatureFlagsTab() {
   const { message } = App.useApp();
+  const intl = useIntl();
+  // useIntl 在测试 mock 下每次渲染返回新引用，直接进 useCallback 依赖会让请求
+  // effect 无限重建；经 ref 转发后回调依赖稳定，执行时仍读取最新实例
+  const intlRef = useRef(intl);
+  intlRef.current = intl;
   const { setInitialState } = useModel('@@initialState');
   const [loading, setLoading] = useState(false);
   const [snapshot, setSnapshot] = useState<FeatureSnapshot | null>(null);
@@ -62,7 +87,15 @@ export default function FeatureFlagsTab() {
     try {
       setSnapshot(await fetchFeatureSettings());
     } catch (error) {
-      message.error(extractErrorMessage(error, '加载功能开关失败'));
+      message.error(
+        extractErrorMessage(
+          error,
+          intlRef.current.formatMessage({
+            id: 'pages.systemSiteSettings.featureFlags.error.loadFailed',
+            defaultMessage: '加载功能开关失败',
+          }),
+        ),
+      );
     } finally {
       setLoading(false);
     }
@@ -83,11 +116,26 @@ export default function FeatureFlagsTab() {
     setSwitching(domain);
     try {
       await setSiteSetting(meta.key, next);
-      message.success(next ? '已开启，界面菜单即时生效' : '已停用，对应菜单与接口同步隐藏');
+      message.success(
+        intl.formatMessage({
+          id: next
+            ? 'pages.systemSiteSettings.featureFlags.toggle.on'
+            : 'pages.systemSiteSettings.featureFlags.toggle.off',
+          defaultMessage: next ? '已开启，界面菜单即时生效' : '已停用，对应菜单与接口同步隐藏',
+        }),
+      );
       await load();
       await syncGlobalFeatures();
     } catch (error) {
-      message.error(extractErrorMessage(error, '操作失败'));
+      message.error(
+        extractErrorMessage(
+          error,
+          intl.formatMessage({
+            id: 'pages.systemSiteSettings.featureFlags.error.operationFailed',
+            defaultMessage: '操作失败',
+          }),
+        ),
+      );
     } finally {
       setSwitching(null);
     }
@@ -98,11 +146,24 @@ export default function FeatureFlagsTab() {
     setSwitching(domain);
     try {
       await clearSiteSetting(meta.key);
-      message.success('已恢复跟随部署配置');
+      message.success(
+        intl.formatMessage({
+          id: 'pages.systemSiteSettings.featureFlags.override.cleared',
+          defaultMessage: '已恢复跟随部署配置',
+        }),
+      );
       await load();
       await syncGlobalFeatures();
     } catch (error) {
-      message.error(extractErrorMessage(error, '操作失败'));
+      message.error(
+        extractErrorMessage(
+          error,
+          intl.formatMessage({
+            id: 'pages.systemSiteSettings.featureFlags.error.operationFailed',
+            defaultMessage: '操作失败',
+          }),
+        ),
+      );
     } finally {
       setSwitching(null);
     }
@@ -110,31 +171,72 @@ export default function FeatureFlagsTab() {
 
   const columns: ColumnsType<FeatureRow> = [
     {
-      title: '功能域',
+      title: intl.formatMessage({
+        id: 'pages.systemSiteSettings.featureFlags.column.domain',
+        defaultMessage: '功能域',
+      }),
       dataIndex: 'domain',
       width: 140,
-      render: (_, row) => <Text strong>{DOMAIN_META[row.domain].label}</Text>,
+      render: (_, row) => (
+        <Text strong>
+          {intl.formatMessage({
+            id: DOMAIN_META[row.domain].labelId,
+            defaultMessage: DOMAIN_META[row.domain].labelDefault,
+          })}
+        </Text>
+      ),
     },
     {
-      title: '说明',
+      title: intl.formatMessage({
+        id: 'pages.systemSiteSettings.featureFlags.column.description',
+        defaultMessage: '说明',
+      }),
       dataIndex: 'description',
-      render: (_, row) => <Text type="secondary">{DOMAIN_META[row.domain].description}</Text>,
+      render: (_, row) => (
+        <Text type="secondary">
+          {intl.formatMessage({
+            id: DOMAIN_META[row.domain].descriptionId,
+            defaultMessage: DOMAIN_META[row.domain].descriptionDefault,
+          })}
+        </Text>
+      ),
     },
     {
-      title: '来源',
+      title: intl.formatMessage({
+        id: 'pages.systemSiteSettings.featureFlags.column.source',
+        defaultMessage: '来源',
+      }),
       dataIndex: 'overridden',
       width: 140,
       render: (_, row) =>
         row.state?.trimmedByConfig ? (
-          <Tag color="red">部署已裁剪（重启生效）</Tag>
+          <Tag color="red">
+            <FormattedMessage
+              id="pages.systemSiteSettings.featureFlags.source.trimmed"
+              defaultMessage="部署已裁剪（重启生效）"
+            />
+          </Tag>
         ) : row.state?.overridden ? (
-          <Tag color="orange">数据库覆盖</Tag>
+          <Tag color="orange">
+            <FormattedMessage
+              id="pages.systemSiteSettings.featureFlags.source.dbOverride"
+              defaultMessage="数据库覆盖"
+            />
+          </Tag>
         ) : (
-          <Tag color="blue">跟随部署配置</Tag>
+          <Tag color="blue">
+            <FormattedMessage
+              id="pages.systemSiteSettings.featureFlags.source.deployConfig"
+              defaultMessage="跟随部署配置"
+            />
+          </Tag>
         ),
     },
     {
-      title: '状态',
+      title: intl.formatMessage({
+        id: 'pages.systemSiteSettings.featureFlags.column.status',
+        defaultMessage: '状态',
+      }),
       dataIndex: 'enabled',
       width: 160,
       render: (_, row) => (
@@ -147,11 +249,22 @@ export default function FeatureFlagsTab() {
           />
           {row.state?.overridden ? (
             <Popconfirm
-              title="删除数据库覆盖？"
-              description="该域将恢复跟随部署配置文件的默认状态"
+              title={intl.formatMessage({
+                id: 'pages.systemSiteSettings.featureFlags.override.clearConfirm',
+                defaultMessage: '删除数据库覆盖？',
+              })}
+              description={intl.formatMessage({
+                id: 'pages.systemSiteSettings.featureFlags.override.clearDescription',
+                defaultMessage: '该域将恢复跟随部署配置文件的默认状态',
+              })}
               onConfirm={() => clearOverride(row.domain)}
             >
-              <Button size="small">恢复</Button>
+              <Button size="small">
+                <FormattedMessage
+                  id="pages.systemSiteSettings.featureFlags.override.restore"
+                  defaultMessage="恢复"
+                />
+              </Button>
             </Popconfirm>
           ) : null}
         </Space>
@@ -167,9 +280,10 @@ export default function FeatureFlagsTab() {
   return (
     <Card loading={loading}>
       <Text type="secondary">
-        运行时软开关：保存后立即生效（菜单与接口同步隐藏），无需重启。 「部署已裁剪」表示
-        server.yaml 中 featureFlags 显式关闭了该域——那是物理裁剪，
-        只能修改配置文件并重启后在此开启。
+        <FormattedMessage
+          id="pages.systemSiteSettings.featureFlags.hint"
+          defaultMessage="运行时软开关：保存后立即生效（菜单与接口同步隐藏），无需重启。「部署已裁剪」表示 server.yaml 中 featureFlags 显式关闭了该域——那是物理裁剪，只能修改配置文件并重启后在此开启。"
+        />
       </Text>
       <Table<FeatureRow>
         style={{ marginTop: 16 }}

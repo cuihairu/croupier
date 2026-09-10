@@ -13,6 +13,7 @@ import {
   ProfileOutlined,
   ScheduleOutlined,
 } from '@ant-design/icons';
+import { FormattedMessage, useIntl } from '@umijs/max';
 import type { ResultViewSpec, TaskPageSpec, TaskViewSpec } from '@/types/dashboard';
 import FormPresentationEditor from './FormPresentationEditor';
 import LocalizedTextEditor from '@/components/LocalizedTextEditor';
@@ -28,6 +29,7 @@ export interface TaskPageEditorProps {
 }
 
 export default function TaskPageEditor({ value, onChange, readonly = false }: TaskPageEditorProps) {
+  const intl = useIntl();
   const [activeKey, setActiveKey] = useState<string[]>(['taskView']);
 
   const handleTaskViewChange = useCallback(
@@ -62,25 +64,45 @@ export default function TaskPageEditor({ value, onChange, readonly = false }: Ta
         header={
           <Space>
             <ScheduleOutlined />
-            <Text strong>任务视图</Text>
+            <Text strong>
+              <FormattedMessage
+                id="component.pageEditor.taskPage.taskView.title"
+                defaultMessage="任务视图"
+              />
+            </Text>
           </Space>
         }
         key="taskView"
       >
         <Form layout="vertical" disabled={readonly}>
-          <Form.Item label="显示时间线">
+          <Form.Item
+            label={intl.formatMessage({
+              id: 'component.pageEditor.taskPage.taskView.showTimeline',
+              defaultMessage: '显示时间线',
+            })}
+          >
             <Switch
               checked={value.taskView.showTimeline}
               onChange={(showTimeline) => handleTaskViewChange({ showTimeline })}
             />
           </Form.Item>
-          <Form.Item label="显示进度">
+          <Form.Item
+            label={intl.formatMessage({
+              id: 'component.pageEditor.taskPage.taskView.showProgress',
+              defaultMessage: '显示进度',
+            })}
+          >
             <Switch
               checked={value.taskView.showProgress}
               onChange={(showProgress) => handleTaskViewChange({ showProgress })}
             />
           </Form.Item>
-          <Form.Item label="显示事件">
+          <Form.Item
+            label={intl.formatMessage({
+              id: 'component.pageEditor.taskPage.taskView.showEvents',
+              defaultMessage: '显示事件',
+            })}
+          >
             <Switch
               checked={value.taskView.showEvents}
               disabled={readonly || !value.taskView.eventsBindingId}
@@ -88,11 +110,19 @@ export default function TaskPageEditor({ value, onChange, readonly = false }: Ta
             />
             {!value.taskView.eventsBindingId ? (
               <Text type="secondary" style={{ marginLeft: 8 }}>
-                未生成 events binding，不能开启事件展示。
+                <FormattedMessage
+                  id="component.pageEditor.taskPage.taskView.eventsMissingHint"
+                  defaultMessage="未生成 events binding，不能开启事件展示。"
+                />
               </Text>
             ) : null}
           </Form.Item>
-          <Form.Item label="允许取消">
+          <Form.Item
+            label={intl.formatMessage({
+              id: 'component.pageEditor.taskPage.taskView.cancelable',
+              defaultMessage: '允许取消',
+            })}
+          >
             <Switch
               checked={value.taskView.cancelable}
               disabled={readonly || !value.taskView.cancelBindingId}
@@ -100,14 +130,25 @@ export default function TaskPageEditor({ value, onChange, readonly = false }: Ta
             />
             {!value.taskView.cancelBindingId ? (
               <Text type="secondary" style={{ marginLeft: 8 }}>
-                未生成 cancel binding，不能开启取消入口。
+                <FormattedMessage
+                  id="component.pageEditor.taskPage.taskView.cancelMissingHint"
+                  defaultMessage="未生成 cancel binding，不能开启取消入口。"
+                />
               </Text>
             ) : null}
           </Form.Item>
-          <Form.Item label="允许重试">
+          <Form.Item
+            label={intl.formatMessage({
+              id: 'component.pageEditor.taskPage.taskView.retryable',
+              defaultMessage: '允许重试',
+            })}
+          >
             <Switch checked={false} disabled />
             <Text type="secondary" style={{ marginLeft: 8 }}>
-              当前未配置真实 retry function，不能生成重试入口。
+              <FormattedMessage
+                id="component.pageEditor.taskPage.taskView.retryUnavailableHint"
+                defaultMessage="当前未配置真实 retry function，不能生成重试入口。"
+              />
             </Text>
           </Form.Item>
           <Form.Item label="Lifecycle bindings">
@@ -116,19 +157,54 @@ export default function TaskPageEditor({ value, onChange, readonly = false }: Ta
                 taskId state: <Text code>{value.taskView.taskIdStateKey || 'taskId'}</Text>
               </Text>
               <Text type="secondary">
-                status: <Text code>{value.taskView.statusBindingId || '未配置'}</Text>
+                status:{' '}
+                <Text code>
+                  {value.taskView.statusBindingId ||
+                    intl.formatMessage({
+                      id: 'component.pageEditor.taskPage.bindingNotConfigured',
+                      defaultMessage: '未配置',
+                    })}
+                </Text>
               </Text>
               <Text type="secondary">
-                status path: <Text code>{value.taskView.statusStatePath || '未配置'}</Text>
+                status path:{' '}
+                <Text code>
+                  {value.taskView.statusStatePath ||
+                    intl.formatMessage({
+                      id: 'component.pageEditor.taskPage.bindingNotConfigured',
+                      defaultMessage: '未配置',
+                    })}
+                </Text>
               </Text>
               <Text type="secondary">
-                events: <Text code>{value.taskView.eventsBindingId || '未配置'}</Text>
+                events:{' '}
+                <Text code>
+                  {value.taskView.eventsBindingId ||
+                    intl.formatMessage({
+                      id: 'component.pageEditor.taskPage.bindingNotConfigured',
+                      defaultMessage: '未配置',
+                    })}
+                </Text>
               </Text>
               <Text type="secondary">
-                result: <Text code>{value.taskView.resultBindingId || '未配置'}</Text>
+                result:{' '}
+                <Text code>
+                  {value.taskView.resultBindingId ||
+                    intl.formatMessage({
+                      id: 'component.pageEditor.taskPage.bindingNotConfigured',
+                      defaultMessage: '未配置',
+                    })}
+                </Text>
               </Text>
               <Text type="secondary">
-                cancel: <Text code>{value.taskView.cancelBindingId || '未配置'}</Text>
+                cancel:{' '}
+                <Text code>
+                  {value.taskView.cancelBindingId ||
+                    intl.formatMessage({
+                      id: 'component.pageEditor.taskPage.bindingNotConfigured',
+                      defaultMessage: '未配置',
+                    })}
+                </Text>
               </Text>
             </Space>
           </Form.Item>
@@ -139,8 +215,19 @@ export default function TaskPageEditor({ value, onChange, readonly = false }: Ta
         header={
           <Space>
             <ProfileOutlined />
-            <Text strong>启动表单</Text>
-            <Tag>{value.form?.fields?.length || 0} 字段</Tag>
+            <Text strong>
+              <FormattedMessage
+                id="component.pageEditor.taskPage.form.title"
+                defaultMessage="启动表单"
+              />
+            </Text>
+            <Tag>
+              <FormattedMessage
+                id="component.pageEditor.taskPage.form.fieldCount"
+                defaultMessage={`${value.form?.fields?.length || 0} 字段`}
+                values={{ count: value.form?.fields?.length || 0 }}
+              />
+            </Tag>
           </Space>
         }
         key="form"
@@ -156,13 +243,29 @@ export default function TaskPageEditor({ value, onChange, readonly = false }: Ta
         header={
           <Space>
             <FileTextOutlined />
-            <Text strong>结果视图</Text>
-            <Tag>{value.resultView?.fields?.length || 0} 字段</Tag>
+            <Text strong>
+              <FormattedMessage
+                id="component.pageEditor.taskPage.resultView.title"
+                defaultMessage="结果视图"
+              />
+            </Text>
+            <Tag>
+              <FormattedMessage
+                id="component.pageEditor.taskPage.resultView.fieldCount"
+                defaultMessage={`${value.resultView?.fields?.length || 0} 字段`}
+                values={{ count: value.resultView?.fields?.length || 0 }}
+              />
+            </Tag>
           </Space>
         }
         key="resultView"
       >
-        <Text type="secondary">结果字段来自已发布输出映射；这里只调整展示标题和格式。</Text>
+        <Text type="secondary">
+          <FormattedMessage
+            id="component.pageEditor.taskPage.resultView.hint"
+            defaultMessage="结果字段来自已发布输出映射；这里只调整展示标题和格式。"
+          />
+        </Text>
 
         {value.resultView && (value.resultView.fields?.length || 0) > 0 ? (
           <SortableList
@@ -194,17 +297,47 @@ export default function TaskPageEditor({ value, onChange, readonly = false }: Ta
                       }}
                       style={{ width: 110 }}
                       options={[
-                        { value: 'string', label: '字符串' },
-                        { value: 'number', label: '数字' },
-                        { value: 'boolean', label: '布尔' },
-                        { value: 'datetime', label: '日期时间' },
+                        {
+                          value: 'string',
+                          label: intl.formatMessage({
+                            id: 'component.pageEditor.taskPage.dataType.string',
+                            defaultMessage: '字符串',
+                          }),
+                        },
+                        {
+                          value: 'number',
+                          label: intl.formatMessage({
+                            id: 'component.pageEditor.taskPage.dataType.number',
+                            defaultMessage: '数字',
+                          }),
+                        },
+                        {
+                          value: 'boolean',
+                          label: intl.formatMessage({
+                            id: 'component.pageEditor.taskPage.dataType.boolean',
+                            defaultMessage: '布尔',
+                          }),
+                        },
+                        {
+                          value: 'datetime',
+                          label: intl.formatMessage({
+                            id: 'component.pageEditor.taskPage.dataType.datetime',
+                            defaultMessage: '日期时间',
+                          }),
+                        },
                       ]}
                     />
                   </Space>
                 }
               >
                 <Form layout="vertical" disabled={readonly} style={{ marginBottom: 0 }}>
-                  <Form.Item label="标题" style={{ marginBottom: 0 }}>
+                  <Form.Item
+                    label={intl.formatMessage({
+                      id: 'component.pageEditor.taskPage.resultView.fieldTitle',
+                      defaultMessage: '标题',
+                    })}
+                    style={{ marginBottom: 0 }}
+                  >
                     <LocalizedTextEditor
                       value={field.title}
                       onChange={(title) => {

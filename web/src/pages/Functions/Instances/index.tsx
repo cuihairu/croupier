@@ -1,9 +1,10 @@
-import React, { useCallback, useEffect, useState, useMemo } from 'react';
+import React, { useCallback, useEffect, useState, useMemo, useRef } from 'react';
 import { PageContainer, ProTable } from '@ant-design/pro-components';
 import { App, Alert, Button, Input, Select, Space } from 'antd';
 import { ReloadOutlined } from '@ant-design/icons';
 import { getFunctionInstances, type FunctionInstance } from '@/services/api';
 import { StandardFilterBar, StandardListSection, SummaryOverview } from '@/components';
+import { FormattedMessage, useIntl } from '@umijs/max';
 import { buildInstanceColumns } from './columns';
 import { buildInstanceRowKey, type CoverageData, type FunctionInstanceRow } from './shared';
 import InstanceDetailDrawer from './InstanceDetailDrawer';
@@ -12,6 +13,11 @@ import DebugModal from './DebugModal';
 
 export default () => {
   const { message } = App.useApp();
+  const intl = useIntl();
+  // useIntl 在测试 mock 下每次渲染返回新引用，直接进 useCallback 依赖会让请求
+  // effect 无限重建；经 ref 转发后回调依赖稳定，执行时仍读取最新实例
+  const intlRef = useRef(intl);
+  intlRef.current = intl;
   const [instances, setInstances] = useState<FunctionInstanceRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [coverage, setCoverage] = useState<CoverageData | null>(null);
@@ -93,8 +99,20 @@ export default () => {
         instancesByGame: instancesByGame,
       });
     } catch (e) {
-      const errMsg = e instanceof Error ? e.message : '操作失败';
-      message.error(errMsg || '加载失败');
+      const errMsg =
+        e instanceof Error
+          ? e.message
+          : intlRef.current.formatMessage({
+              id: 'pages.functionsInstances.error.operationFailed',
+              defaultMessage: '操作失败',
+            });
+      message.error(
+        errMsg ||
+          intlRef.current.formatMessage({
+            id: 'pages.functionsInstances.error.loadFailed',
+            defaultMessage: '加载失败',
+          }),
+      );
     } finally {
       setLoading(false);
     }
@@ -179,13 +197,59 @@ export default () => {
   }, [functionFilter, gameFilter, keyword, processedData, statusFilter]);
 
   const hasFilters = Boolean(keyword.trim() || statusFilter || gameFilter || functionFilter);
+  // 状态筛选的展示标签：running→运行中 / error→错误 / 其余→停止（与迁移前 ternary 一致）
+  const filterStatusText =
+    statusFilter === 'running'
+      ? intl.formatMessage({
+          id: 'pages.functionsInstances.status.running',
+          defaultMessage: '运行中',
+        })
+      : statusFilter === 'error'
+        ? intl.formatMessage({
+            id: 'pages.functionsInstances.status.error',
+            defaultMessage: '错误',
+          })
+        : intl.formatMessage({
+            id: 'pages.functionsInstances.status.stopped',
+            defaultMessage: '停止',
+          });
   const filterSummary = [
-    keyword.trim() ? `搜索 ${keyword.trim()}` : null,
-    statusFilter
-      ? `状态 ${statusFilter === 'running' ? '运行中' : statusFilter === 'error' ? '错误' : '停止'}`
+    keyword.trim()
+      ? intl.formatMessage(
+          {
+            id: 'pages.functionsInstances.filter.summarySearch',
+            defaultMessage: `搜索 ${keyword.trim()}`,
+          },
+          { keyword: keyword.trim() },
+        )
       : null,
-    gameFilter ? `游戏 ${gameFilter}` : null,
-    functionFilter ? `函数 ${functionFilter}` : null,
+    statusFilter
+      ? intl.formatMessage(
+          {
+            id: 'pages.functionsInstances.filter.summaryStatus',
+            defaultMessage: `状态 ${filterStatusText}`,
+          },
+          { status: filterStatusText },
+        )
+      : null,
+    gameFilter
+      ? intl.formatMessage(
+          {
+            id: 'pages.functionsInstances.filter.summaryGame',
+            defaultMessage: `游戏 ${gameFilter}`,
+          },
+          { name: gameFilter },
+        )
+      : null,
+    functionFilter
+      ? intl.formatMessage(
+          {
+            id: 'pages.functionsInstances.filter.summaryFunction',
+            defaultMessage: `函数 ${functionFilter}`,
+          },
+          { name: functionFilter },
+        )
+      : null,
   ]
     .filter(Boolean)
     .join(' / ');
@@ -224,76 +288,201 @@ export default () => {
 
   return (
     <PageContainer
-      title="函数实例管理"
-      subTitle="监控和管理各个Agent实例上的函数注册情况"
+      title={intl.formatMessage({
+        id: 'pages.functionsInstances.page.title',
+        defaultMessage: '函数实例管理',
+      })}
+      subTitle={intl.formatMessage({
+        id: 'pages.functionsInstances.page.subTitle',
+        defaultMessage: '监控和管理各个Agent实例上的函数注册情况',
+      })}
       extra={[
         <Button key="refresh" icon={<ReloadOutlined />} onClick={fetchData}>
-          刷新
+          <FormattedMessage id="pages.functionsInstances.action.refresh" defaultMessage="刷新" />
         </Button>,
       ]}
     >
       <Space orientation="vertical" size={16} style={{ width: '100%' }}>
         <SummaryOverview
-          title="实例概览"
-          description="这里应该优先回答哪些函数实例在线、分布在哪、哪里有异常。详情、日志和调试属于次级动作，应该在确认目标实例后再进入。"
+          title={intl.formatMessage({
+            id: 'pages.functionsInstances.summary.title',
+            defaultMessage: '实例概览',
+          })}
+          description={intl.formatMessage({
+            id: 'pages.functionsInstances.summary.description',
+            defaultMessage:
+              '这里应该优先回答哪些函数实例在线、分布在哪、哪里有异常。详情、日志和调试属于次级动作，应该在确认目标实例后再进入。',
+          })}
           items={[
-            { color: '#1677ff', text: `实例 ${summary.totalInstances}` },
-            { color: '#52c41a', text: `在线 ${summary.activeInstances}` },
-            { color: '#ff4d4f', text: `离线 ${summary.inactiveInstances}` },
-            { color: '#2f54eb', text: `函数 ${summary.totalFunctions}` },
-            { color: '#722ed1', text: `资源前缀 ${summary.resourcePrefixCount}` },
-            { color: '#13c2c2', text: `游戏 ${summary.gameCount}` },
+            {
+              color: '#1677ff',
+              text: intl.formatMessage(
+                {
+                  id: 'pages.functionsInstances.summary.totalInstances',
+                  defaultMessage: `实例 ${summary.totalInstances}`,
+                },
+                { count: summary.totalInstances },
+              ),
+            },
+            {
+              color: '#52c41a',
+              text: intl.formatMessage(
+                {
+                  id: 'pages.functionsInstances.summary.totalOnline',
+                  defaultMessage: `在线 ${summary.activeInstances}`,
+                },
+                { count: summary.activeInstances },
+              ),
+            },
+            {
+              color: '#ff4d4f',
+              text: intl.formatMessage(
+                {
+                  id: 'pages.functionsInstances.summary.totalOffline',
+                  defaultMessage: `离线 ${summary.inactiveInstances}`,
+                },
+                { count: summary.inactiveInstances },
+              ),
+            },
+            {
+              color: '#2f54eb',
+              text: intl.formatMessage(
+                {
+                  id: 'pages.functionsInstances.summary.totalFunctions',
+                  defaultMessage: `函数 ${summary.totalFunctions}`,
+                },
+                { count: summary.totalFunctions },
+              ),
+            },
+            {
+              color: '#722ed1',
+              text: intl.formatMessage(
+                {
+                  id: 'pages.functionsInstances.summary.totalResourcePrefixes',
+                  defaultMessage: `资源前缀 ${summary.resourcePrefixCount}`,
+                },
+                { count: summary.resourcePrefixCount },
+              ),
+            },
+            {
+              color: '#13c2c2',
+              text: intl.formatMessage(
+                {
+                  id: 'pages.functionsInstances.summary.totalGames',
+                  defaultMessage: `游戏 ${summary.gameCount}`,
+                },
+                { count: summary.gameCount },
+              ),
+            },
           ]}
           hint={
             summary.inactiveInstances > 0
-              ? `当前有 ${summary.inactiveInstances} 个离线实例，建议先按状态过滤并查看详情。`
-              : `函数覆盖率 ${summary.coveragePercentage}%，当前没有发现离线实例。`
+              ? intl.formatMessage(
+                  {
+                    id: 'pages.functionsInstances.summary.hintOffline',
+                    defaultMessage: `当前有 ${summary.inactiveInstances} 个离线实例，建议先按状态过滤并查看详情。`,
+                  },
+                  { count: summary.inactiveInstances },
+                )
+              : intl.formatMessage(
+                  {
+                    id: 'pages.functionsInstances.summary.hintAllOnline',
+                    defaultMessage: `函数覆盖率 ${summary.coveragePercentage}%，当前没有发现离线实例。`,
+                  },
+                  { percentage: summary.coveragePercentage },
+                )
           }
           hintType={summary.inactiveInstances > 0 ? 'warning' : 'info'}
         />
 
         <Alert
-          message="实例详情、日志和调试仍是过渡态"
-          description="主列表已经接入真实注册数据，但详情指标、实例日志和在线调试还没有后端接口。这里保留入口，但不再把这些未完成能力放到主流程前面。"
+          message={intl.formatMessage({
+            id: 'pages.functionsInstances.alert.transitionalTitle',
+            defaultMessage: '实例详情、日志和调试仍是过渡态',
+          })}
+          description={intl.formatMessage({
+            id: 'pages.functionsInstances.alert.transitionalDescription',
+            defaultMessage:
+              '主列表已经接入真实注册数据，但详情指标、实例日志和在线调试还没有后端接口。这里保留入口，但不再把这些未完成能力放到主流程前面。',
+          })}
           type="warning"
           showIcon
         />
 
         <StandardListSection
-          title="实例列表"
+          title={intl.formatMessage({
+            id: 'pages.functionsInstances.list.title',
+            defaultMessage: '实例列表',
+          })}
           extra={
             <Button icon={<ReloadOutlined />} onClick={fetchData}>
-              刷新数据
+              <FormattedMessage
+                id="pages.functionsInstances.list.refreshData"
+                defaultMessage="刷新数据"
+              />
             </Button>
           }
         >
           <StandardFilterBar
-            resultText={`当前结果 ${filteredData.length} 个实例`}
+            resultText={intl.formatMessage(
+              {
+                id: 'pages.functionsInstances.list.resultCount',
+                defaultMessage: `当前结果 ${filteredData.length} 个实例`,
+              },
+              { count: filteredData.length },
+            )}
             controls={
               <>
                 <Input
                   allowClear
-                  placeholder="搜索 agent/service/addr/function"
+                  placeholder={intl.formatMessage({
+                    id: 'pages.functionsInstances.filter.searchPlaceholder',
+                    defaultMessage: '搜索 agent/service/addr/function',
+                  })}
                   style={{ width: 280 }}
                   value={keyword}
                   onChange={(e) => setKeyword(e.target.value)}
                 />
                 <Select
                   allowClear
-                  placeholder="状态"
+                  placeholder={intl.formatMessage({
+                    id: 'pages.functionsInstances.filter.status',
+                    defaultMessage: '状态',
+                  })}
                   style={{ width: 120 }}
                   value={statusFilter || undefined}
                   onChange={(value) => setStatusFilter(value || '')}
                   options={[
-                    { label: '运行中', value: 'running' },
-                    { label: '错误', value: 'error' },
-                    { label: '停止', value: 'stopped' },
+                    {
+                      label: intl.formatMessage({
+                        id: 'pages.functionsInstances.status.running',
+                        defaultMessage: '运行中',
+                      }),
+                      value: 'running',
+                    },
+                    {
+                      label: intl.formatMessage({
+                        id: 'pages.functionsInstances.status.error',
+                        defaultMessage: '错误',
+                      }),
+                      value: 'error',
+                    },
+                    {
+                      label: intl.formatMessage({
+                        id: 'pages.functionsInstances.status.stopped',
+                        defaultMessage: '停止',
+                      }),
+                      value: 'stopped',
+                    },
                   ]}
                 />
                 <Select
                   showSearch
                   allowClear
-                  placeholder="游戏"
+                  placeholder={intl.formatMessage({
+                    id: 'pages.functionsInstances.filter.game',
+                    defaultMessage: '游戏',
+                  })}
                   style={{ width: 160 }}
                   value={gameFilter || undefined}
                   onChange={(value) => setGameFilter(value || '')}
@@ -302,7 +491,10 @@ export default () => {
                 <Select
                   showSearch
                   allowClear
-                  placeholder="函数"
+                  placeholder={intl.formatMessage({
+                    id: 'pages.functionsInstances.filter.function',
+                    defaultMessage: '函数',
+                  })}
                   style={{ width: 260 }}
                   value={functionFilter || undefined}
                   onChange={(value) => setFunctionFilter(value || '')}
@@ -317,7 +509,10 @@ export default () => {
                       setFunctionFilter('');
                     }}
                   >
-                    清空筛选
+                    <FormattedMessage
+                      id="pages.functionsInstances.filter.clear"
+                      defaultMessage="清空筛选"
+                    />
                   </Button>
                 ) : null}
               </>
@@ -328,8 +523,17 @@ export default () => {
               style={{ marginBottom: 12 }}
               type="info"
               showIcon
-              message="当前正在查看筛选后的实例范围"
-              description={`已生效条件：${filterSummary}`}
+              message={intl.formatMessage({
+                id: 'pages.functionsInstances.filter.activeTitle',
+                defaultMessage: '当前正在查看筛选后的实例范围',
+              })}
+              description={intl.formatMessage(
+                {
+                  id: 'pages.functionsInstances.filter.activeDescription',
+                  defaultMessage: `已生效条件：${filterSummary}`,
+                },
+                { summary: filterSummary },
+              )}
             />
           ) : null}
 
@@ -343,7 +547,14 @@ export default () => {
               pageSize: 10,
               showSizeChanger: true,
               showQuickJumper: true,
-              showTotal: (total) => `共 ${total} 个实例`,
+              showTotal: (total) =>
+                intl.formatMessage(
+                  {
+                    id: 'pages.functionsInstances.pagination.total',
+                    defaultMessage: `共 ${total} 个实例`,
+                  },
+                  { total },
+                ),
             }}
             dateFormatter="string"
             headerTitle={false}
@@ -352,8 +563,14 @@ export default () => {
             toolBarRender={false}
             locale={{
               emptyText: hasFilters
-                ? '当前筛选条件下没有匹配实例，请放宽条件后重试。'
-                : '暂时没有实例数据，请先确认注册信息是否已经上报。',
+                ? intl.formatMessage({
+                    id: 'pages.functionsInstances.list.emptyFiltered',
+                    defaultMessage: '当前筛选条件下没有匹配实例，请放宽条件后重试。',
+                  })
+                : intl.formatMessage({
+                    id: 'pages.functionsInstances.list.emptyDefault',
+                    defaultMessage: '暂时没有实例数据，请先确认注册信息是否已经上报。',
+                  }),
             }}
           />
         </StandardListSection>

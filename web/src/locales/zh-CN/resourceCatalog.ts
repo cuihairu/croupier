@@ -1,5 +1,6 @@
 // pages.resourceCatalog.detail.* — ResourceCatalog 资源详情弹窗
 // pages.resourceCatalog.editSemantics.* — ResourceCatalog 编辑语义弹窗
+// pages.resourceCatalog.list.* — ResourceCatalog 资源能力目录列表页
 export default {
   // detail
   'pages.resourceCatalog.detail.alert.description':
@@ -151,4 +152,33 @@ export default {
   'pages.resourceCatalog.editSemantics.taskList.taskIdType.required': '请选择 taskId 类型',
   'pages.resourceCatalog.editSemantics.taskList.title': '任务语义',
   'pages.resourceCatalog.editSemantics.title': '编辑语义',
+  // list
+  'pages.resourceCatalog.list.button.refresh': '刷新',
+  'pages.resourceCatalog.list.button.search': '搜索',
+  'pages.resourceCatalog.list.card.title': '资源能力目录',
+  'pages.resourceCatalog.list.column.actions': '操作',
+  'pages.resourceCatalog.list.column.category': '分类',
+  'pages.resourceCatalog.list.column.diagnostics': '诊断',
+  'pages.resourceCatalog.list.column.functionCount': '函数数量',
+  'pages.resourceCatalog.list.column.labels': '名称',
+  'pages.resourceCatalog.list.column.resourceKey': '资源标识',
+  'pages.resourceCatalog.list.column.semanticsVersion': '语义版本',
+  'pages.resourceCatalog.list.column.status': '状态',
+  'pages.resourceCatalog.list.diagnostics.errorCount': '{count} 错误',
+  'pages.resourceCatalog.list.diagnostics.none': '无',
+  'pages.resourceCatalog.list.diagnostics.warningCount': '{count} 警告',
+  'pages.resourceCatalog.list.error.fetchDetailFailed': '获取详情失败: {message}',
+  'pages.resourceCatalog.list.error.fetchVersionsFailed': '获取语义版本失败: {message}',
+  'pages.resourceCatalog.list.error.operationFailed': '操作失败',
+  'pages.resourceCatalog.list.error.resolveConflictFailed': '解决冲突失败: {message}',
+  'pages.resourceCatalog.list.error.unknown': '未知错误',
+  'pages.resourceCatalog.list.error.updateFailed': '更新失败: {message}',
+  'pages.resourceCatalog.list.message.conflictResolved': '冲突已解决，相关 Proposal 已触发重算',
+  'pages.resourceCatalog.list.message.semanticsSaved': '语义更新成功',
+  'pages.resourceCatalog.list.pagination.total': '共 {total} 条',
+  'pages.resourceCatalog.list.search.categoryPlaceholder': '选择分类',
+  'pages.resourceCatalog.list.search.placeholder': '搜索资源',
+  'pages.resourceCatalog.list.tooltip.editSemantics': '编辑语义',
+  'pages.resourceCatalog.list.tooltip.proposals': '提案',
+  'pages.resourceCatalog.list.tooltip.viewDetail': '查看详情',
 };

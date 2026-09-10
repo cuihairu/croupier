@@ -1,7 +1,7 @@
 import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { App, Button, Card, Col, Input, Row, Space, Tabs, Typography } from 'antd';
 import { AppstoreOutlined, ArrowLeftOutlined, EyeOutlined, SaveOutlined } from '@ant-design/icons';
-import { history, request, useSearchParams } from '@umijs/max';
+import { FormattedMessage, history, request, useIntl, useSearchParams } from '@umijs/max';
 import { subscribeScope } from '@/stores/scope';
 import { PageContainer } from '@ant-design/pro-components';
 import {
@@ -62,6 +62,11 @@ registerBuiltinComponents();
  */
 export default function CompositeEditorPage() {
   const { message, modal } = App.useApp();
+  const intl = useIntl();
+  // useIntl 在测试 mock 下每次渲染返回新引用，进 useCallback/effect 依赖会让回读
+  // effect 反复触发；回调内文案统一走 intlRef（渲染期同步写回）。
+  const intlRef = useRef(intl);
+  intlRef.current = intl;
   const [selectedId, setSelectedId] = useState<string | null>(null);
   /** Shift 多选集合（批量删除）。 */
   const [multiIds, setMultiIds] = useState<Set<string>>(new Set());
@@ -149,14 +154,40 @@ export default function CompositeEditorPage() {
           setTree(nodes);
           setPageKey(loadKey);
           setKeyTouched(true);
-          if (warnings.length) message.warning(`回读警告：${warnings.join('；')}`);
-          message.success(`已载入页面 ${loadKey}（${sections.length} 个区块）`);
+          if (warnings.length)
+            message.warning(
+              intlRef.current.formatMessage(
+                {
+                  id: 'pages.pageStudio.editor.loadback.warnings',
+                  defaultMessage: '回读警告：{warnings}',
+                },
+                { warnings: warnings.join('；') },
+              ),
+            );
+          message.success(
+            intlRef.current.formatMessage(
+              {
+                id: 'pages.pageStudio.editor.loadback.success',
+                defaultMessage: '已载入页面 {pageKey}（{sections} 个区块）',
+              },
+              { pageKey: loadKey, sections: sections.length },
+            ),
+          );
           return;
         } catch {
           // 尝试下一个数据源
         }
       }
-      if (!cancelled) message.warning(`未找到页面 ${loadKey} 的提案/草稿/发布 spec`);
+      if (!cancelled)
+        message.warning(
+          intlRef.current.formatMessage(
+            {
+              id: 'pages.pageStudio.editor.loadback.notFound',
+              defaultMessage: '未找到页面 {pageKey} 的提案/草稿/发布 spec',
+            },
+            { pageKey: loadKey },
+          ),
+        );
     })();
     return () => {
       cancelled = true;
@@ -197,7 +228,12 @@ export default function CompositeEditorPage() {
       };
       if (editingModalId) {
         if (node.type !== 'fnForm') {
-          message.warning('弹窗内只能放函数表单（V1）');
+          message.warning(
+            intlRef.current.formatMessage({
+              id: 'pages.pageStudio.editor.modal.fnFormOnly',
+              defaultMessage: '弹窗内只能放函数表单（V1）',
+            }),
+          );
           return;
         }
         addChild(editingModalId, node);
@@ -217,7 +253,12 @@ export default function CompositeEditorPage() {
     (type: 'button' | 'modal' | 'container' | 'text') => {
       const node: PageNode = { id: nodeId(type), type, props: scaffoldProps(type) };
       if (editingModalId) {
-        message.warning('弹窗内只能放函数表单（V1）——返回页面级再添加');
+        message.warning(
+          intlRef.current.formatMessage({
+            id: 'pages.pageStudio.editor.modal.basicNotSupported',
+            defaultMessage: '弹窗内只能放函数表单（V1）——返回页面级再添加',
+          }),
+        );
         return;
       }
       setTree((prev) => {
@@ -249,12 +290,25 @@ export default function CompositeEditorPage() {
   const save = useCallback(async () => {
     const key = pageKey.trim();
     if (!key) {
-      message.warning('请填写页面 Key');
+      message.warning(
+        intlRef.current.formatMessage({
+          id: 'pages.pageStudio.editor.save.keyRequired',
+          defaultMessage: '请填写页面 Key',
+        }),
+      );
       return;
     }
     const { sections, warnings } = compileTree(tree);
     if (sections.length < 2) {
-      message.warning('组合页至少需要 2 个函数区块（当前有效的 ' + sections.length + ' 个）');
+      message.warning(
+        intlRef.current.formatMessage(
+          {
+            id: 'pages.pageStudio.editor.save.minSections',
+            defaultMessage: '组合页至少需要 2 个函数区块（当前有效的 {count} 个）',
+          },
+          { count: sections.length },
+        ),
+      );
       return;
     }
     setSaving(true);
@@ -264,15 +318,39 @@ export default function CompositeEditorPage() {
         data: { pageKey: key, sections },
       })) as { proposalKey?: unknown };
       modal.success({
-        title: '提案已创建',
+        title: intlRef.current.formatMessage({
+          id: 'pages.pageStudio.editor.save.proposalCreated',
+          defaultMessage: '提案已创建',
+        }),
         content:
-          (warnings.length ? `编译警告：${warnings.join('；')}。提案 ` : '提案 ') +
-          String(resp?.proposalKey ?? '') +
-          ' 已进入提案收件箱，接受并发布后生效。',
+          (warnings.length
+            ? intlRef.current.formatMessage(
+                {
+                  id: 'pages.pageStudio.editor.save.compileWarnings',
+                  defaultMessage: '编译警告：{warnings}。',
+                },
+                { warnings: warnings.join('；') },
+              )
+            : '') +
+          intlRef.current.formatMessage(
+            {
+              id: 'pages.pageStudio.editor.save.proposalCreatedContent',
+              defaultMessage: '提案 {proposalKey} 已进入提案收件箱，接受并发布后生效。',
+            },
+            { proposalKey: String(resp?.proposalKey ?? '') },
+          ),
         onOk: () => history.push('/functions/pages'),
       });
     } catch (err) {
-      message.error(extractErrorMessage(err, '创建提案失败'));
+      message.error(
+        extractErrorMessage(
+          err,
+          intlRef.current.formatMessage({
+            id: 'pages.pageStudio.editor.save.failed',
+            defaultMessage: '创建提案失败',
+          }),
+        ),
+      );
     } finally {
       setSaving(false);
     }
@@ -394,7 +472,15 @@ export default function CompositeEditorPage() {
       setTree((prev) =>
         updateProps(prev, selectedId, { onClick: { kind: 'openModal', target: modal.id } }),
       );
-      message.success(`弹窗已创建并绑定（${fn.id}）——可双击弹窗卡片编辑内部`);
+      message.success(
+        intlRef.current.formatMessage(
+          {
+            id: 'pages.pageStudio.editor.action.modalCreated',
+            defaultMessage: '弹窗已创建并绑定（{fnId}）——可双击弹窗卡片编辑内部',
+          },
+          { fnId: fn.id },
+        ),
+      );
     },
     [selectedId, registerFn, message, setTree],
   );
@@ -403,7 +489,12 @@ export default function CompositeEditorPage() {
    * 支持命名/描述/分类；任意层级节点（含嵌套在弹窗/容器内的子树）均可保存。 */
   const saveSelectionAsComponent = useCallback(async () => {
     if (multiIds.size < 1) {
-      message.warning('请先选中至少一个组件');
+      message.warning(
+        intlRef.current.formatMessage({
+          id: 'pages.pageStudio.editor.component.selectionRequired',
+          defaultMessage: '请先选中至少一个组件',
+        }),
+      );
       return;
     }
     // 任意层级：优先按子树查找（嵌套节点），找不到再回落根级
@@ -411,7 +502,12 @@ export default function CompositeEditorPage() {
       .map((id) => findNode(tree, id))
       .filter((n): n is PageNode => n !== null);
     if (selectedNodes.length === 0) {
-      message.warning('选中的组件不存在');
+      message.warning(
+        intlRef.current.formatMessage({
+          id: 'pages.pageStudio.editor.component.selectionMissing',
+          defaultMessage: '选中的组件不存在',
+        }),
+      );
       return;
     }
     const fnIds: string[] = [];
@@ -450,7 +546,10 @@ export default function CompositeEditorPage() {
   return (
     <PageContainer
       header={{
-        title: '组合页编辑器',
+        title: intl.formatMessage({
+          id: 'pages.pageStudio.editor.title',
+          defaultMessage: '组合页编辑器',
+        }),
         onBack: () => history.push('/functions/pages'),
         backIcon: <ArrowLeftOutlined />,
         extra: [
@@ -458,7 +557,10 @@ export default function CompositeEditorPage() {
             key="undo"
             disabled={preview || past.length === 0}
             onClick={undo}
-            title="撤销 (Ctrl+Z)"
+            title={intl.formatMessage({
+              id: 'pages.pageStudio.editor.undo.tooltip',
+              defaultMessage: '撤销 (Ctrl+Z)',
+            })}
           >
             ↩
           </Button>,
@@ -466,7 +568,10 @@ export default function CompositeEditorPage() {
             key="redo"
             disabled={preview || future.length === 0}
             onClick={redo}
-            title="重做 (Ctrl+Shift+Z)"
+            title={intl.formatMessage({
+              id: 'pages.pageStudio.editor.redo.tooltip',
+              defaultMessage: '重做 (Ctrl+Shift+Z)',
+            })}
           >
             ↪
           </Button>,
@@ -476,7 +581,15 @@ export default function CompositeEditorPage() {
             icon={<EyeOutlined />}
             onClick={() => setMode(preview ? 'edit' : 'preview')}
           >
-            {preview ? '退出预览' : '预览'}
+            {preview
+              ? intl.formatMessage({
+                  id: 'pages.pageStudio.editor.preview.exit',
+                  defaultMessage: '退出预览',
+                })
+              : intl.formatMessage({
+                  id: 'pages.pageStudio.editor.preview.enter',
+                  defaultMessage: '预览',
+                })}
           </Button>,
           multiIds.size > 0 && (
             <Button
@@ -484,7 +597,11 @@ export default function CompositeEditorPage() {
               icon={<AppstoreOutlined />}
               onClick={() => void saveSelectionAsComponent()}
             >
-              保存为组件（{multiIds.size}）
+              <FormattedMessage
+                id="pages.pageStudio.editor.saveComponent.button"
+                defaultMessage="保存为组件（{count}）"
+                values={{ count: multiIds.size }}
+              />
             </Button>
           ),
           multiIds.size > 1 && (
@@ -503,7 +620,11 @@ export default function CompositeEditorPage() {
                 setEditingModalId((cur) => (cur && multiIds.has(cur) ? null : cur));
               }}
             >
-              删除所选（{multiIds.size}）
+              <FormattedMessage
+                id="pages.pageStudio.editor.deleteSelected.button"
+                defaultMessage="删除所选（{count}）"
+                values={{ count: multiIds.size }}
+              />
             </Button>
           ),
           <Button
@@ -514,7 +635,10 @@ export default function CompositeEditorPage() {
             disabled={preview}
             onClick={() => void save()}
           >
-            保存为提案
+            <FormattedMessage
+              id="pages.pageStudio.editor.save.button"
+              defaultMessage="保存为提案"
+            />
           </Button>,
         ],
       }}
@@ -523,9 +647,14 @@ export default function CompositeEditorPage() {
         <Text type="secondary" style={{ fontSize: 10 }}>
           v3.2.1
         </Text>
-        <Text strong>页面 Key</Text>
+        <Text strong>
+          <FormattedMessage id="pages.pageStudio.editor.pageKey.label" defaultMessage="页面 Key" />
+        </Text>
         <Input
-          placeholder="按组件自动生成，可修改"
+          placeholder={intl.formatMessage({
+            id: 'pages.pageStudio.editor.pageKey.placeholder',
+            defaultMessage: '按组件自动生成，可修改',
+          })}
           value={pageKey}
           onChange={(e) => {
             setKeyTouched(true);
@@ -533,7 +662,12 @@ export default function CompositeEditorPage() {
           }}
           style={{ width: 320 }}
         />
-        <Text type="secondary">{countNodes(tree)} 个组件</Text>
+        <Text type="secondary">
+          {intl.formatMessage(
+            { id: 'pages.pageStudio.editor.nodeCount', defaultMessage: '{count} 个组件' },
+            { count: countNodes(tree) },
+          )}
+        </Text>
       </Space>
 
       <DndContext
@@ -557,7 +691,10 @@ export default function CompositeEditorPage() {
                   items={[
                     {
                       key: 'library',
-                      label: '组件库',
+                      label: intl.formatMessage({
+                        id: 'pages.pageStudio.editor.tab.library',
+                        defaultMessage: '组件库',
+                      }),
                       children: (
                         <ComponentLibrary
                           availableFnIds={new Set(allFns.map((f) => f.id))}
@@ -584,14 +721,20 @@ export default function CompositeEditorPage() {
                     },
                     {
                       key: 'components',
-                      label: '函数',
+                      label: intl.formatMessage({
+                        id: 'pages.pageStudio.editor.tab.functions',
+                        defaultMessage: '函数',
+                      }),
                       children: (
                         <ComponentPanel onAddBasic={addBasic} onAddFunction={addFunction} />
                       ),
                     },
                     {
                       key: 'outline',
-                      label: '大纲',
+                      label: intl.formatMessage({
+                        id: 'pages.pageStudio.editor.tab.outline',
+                        defaultMessage: '大纲',
+                      }),
                       children: (
                         <OutlinePanel
                           tree={tree}
@@ -625,14 +768,30 @@ export default function CompositeEditorPage() {
                   <div style={{ marginBottom: 8 }}>
                     <Space size={8}>
                       <a onClick={() => setEditingModalId(null)} style={{ fontSize: 12 }}>
-                        页面
+                        <FormattedMessage
+                          id="pages.pageStudio.editor.breadcrumb.page"
+                          defaultMessage="页面"
+                        />
                       </a>
                       <span style={{ fontSize: 12 }}>/</span>
                       <Text strong style={{ fontSize: 12 }}>
-                        {String(editingModal.props.title ?? '弹窗')}（内部编辑）
+                        {String(
+                          editingModal.props.title ??
+                            intl.formatMessage({
+                              id: 'pages.pageStudio.editor.breadcrumb.modalFallback',
+                              defaultMessage: '弹窗',
+                            }),
+                        )}
+                        {intl.formatMessage({
+                          id: 'pages.pageStudio.editor.breadcrumb.editingInside',
+                          defaultMessage: '（内部编辑）',
+                        })}
                       </Text>
                       <Text type="secondary" style={{ fontSize: 11 }}>
-                        从左栏拖入/点击添加表单；拖拽排序
+                        <FormattedMessage
+                          id="pages.pageStudio.editor.modal.editHint"
+                          defaultMessage="从左栏拖入/点击添加表单；拖拽排序"
+                        />
                       </Text>
                     </Space>
                   </div>
@@ -648,7 +807,17 @@ export default function CompositeEditorPage() {
                       }
                       setSelectedId(nodes[0]?.id ?? null);
                       message.success(
-                        `已从模板「${tpl.name ? ((tpl.name as Record<string, string>)['zh-CN'] ?? tpl.key) : ''}」创建页面骨架`,
+                        intlRef.current.formatMessage(
+                          {
+                            id: 'pages.pageStudio.editor.template.applied',
+                            defaultMessage: '已从模板「{name}」创建页面骨架',
+                          },
+                          {
+                            name: tpl.name
+                              ? ((tpl.name as Record<string, string>)['zh-CN'] ?? tpl.key)
+                              : '',
+                          },
+                        ),
                       );
                     }}
                   />
@@ -838,10 +1007,25 @@ export default function CompositeEditorPage() {
               }}
             >
               {dragItem.kind === 'basic'
-                ? `组件：${dragItem.basicType}`
+                ? intl.formatMessage(
+                    { id: 'pages.pageStudio.editor.drag.basic', defaultMessage: '组件：{type}' },
+                    { type: dragItem.basicType },
+                  )
                 : dragItem.kind === 'template'
-                  ? `模板：${localizedText(dragItem.tpl.name, 'zh-CN', dragItem.tpl.key)}`
-                  : `函数：${dragItem.fn.id}`}
+                  ? intl.formatMessage(
+                      {
+                        id: 'pages.pageStudio.editor.drag.template',
+                        defaultMessage: '模板：{name}',
+                      },
+                      { name: localizedText(dragItem.tpl.name, 'zh-CN', dragItem.tpl.key) },
+                    )
+                  : intl.formatMessage(
+                      {
+                        id: 'pages.pageStudio.editor.drag.function',
+                        defaultMessage: '函数：{fnId}',
+                      },
+                      { fnId: dragItem.fn.id },
+                    )}
             </div>
           ) : null}
         </DragOverlay>

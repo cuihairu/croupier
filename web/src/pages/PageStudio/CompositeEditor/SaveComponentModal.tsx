@@ -1,5 +1,5 @@
 import { App, Checkbox, Form, Input, Modal, Select, Typography } from 'antd';
-import { request } from '@umijs/max';
+import { request, useIntl } from '@umijs/max';
 import type { PageNode } from './model';
 import type { ParamCandidate } from './types';
 
@@ -20,6 +20,7 @@ export default function SaveComponentModal({
   onClose: () => void;
 }) {
   const { message } = App.useApp();
+  const intl = useIntl();
   const [form] = Form.useForm<{
     name: string;
     description?: string;
@@ -31,7 +32,12 @@ export default function SaveComponentModal({
     if (!state) return;
     const name = (form.getFieldValue('name') || '').trim();
     if (!name) {
-      message.warning('请填写组件名称');
+      message.warning(
+        intl.formatMessage({
+          id: 'pages.pageStudio.saveModal.nameRequired',
+          defaultMessage: '请填写组件名称',
+        }),
+      );
       return;
     }
     try {
@@ -64,32 +70,78 @@ export default function SaveComponentModal({
         },
         skipErrorHandler: true,
       });
-      message.success(`「${name}」已保存——组件库中可拖入复用`);
+      message.success(
+        intl.formatMessage(
+          {
+            id: 'pages.pageStudio.saveModal.saveSuccess',
+            defaultMessage: '「{name}」已保存——组件库中可拖入复用',
+          },
+          { name },
+        ),
+      );
       onClose();
     } catch {
-      message.error('保存失败');
+      message.error(
+        intl.formatMessage({
+          id: 'pages.pageStudio.saveModal.saveFailed',
+          defaultMessage: '保存失败',
+        }),
+      );
     }
   };
 
   return (
     <Modal
-      title="保存为组件模板"
+      title={intl.formatMessage({
+        id: 'pages.pageStudio.saveModal.title',
+        defaultMessage: '保存为组件模板',
+      })}
       open={state !== null}
       onCancel={onClose}
       onOk={() => void confirmSave()}
-      okText="保存"
-      cancelText="取消"
+      okText={intl.formatMessage({
+        id: 'pages.pageStudio.saveModal.okText',
+        defaultMessage: '保存',
+      })}
+      cancelText={intl.formatMessage({
+        id: 'pages.pageStudio.saveModal.cancelText',
+        defaultMessage: '取消',
+      })}
       destroyOnHidden
     >
       <Form form={form} layout="vertical" preserve={false}>
         <Form.Item
           name="name"
-          label="组件名称"
-          rules={[{ required: true, message: '组件名称必填' }]}
+          label={intl.formatMessage({
+            id: 'pages.pageStudio.saveModal.nameLabel',
+            defaultMessage: '组件名称',
+          })}
+          rules={[
+            {
+              required: true,
+              message: intl.formatMessage({
+                id: 'pages.pageStudio.saveModal.nameRequiredRule',
+                defaultMessage: '组件名称必填',
+              }),
+            },
+          ]}
         >
-          <Input placeholder="如：玩家数值下拉查询" maxLength={40} />
+          <Input
+            placeholder={intl.formatMessage({
+              id: 'pages.pageStudio.saveModal.namePlaceholder',
+              defaultMessage: '如：玩家数值下拉查询',
+            })}
+            maxLength={40}
+          />
         </Form.Item>
-        <Form.Item name="category" label="分类" initialValue="自定义">
+        <Form.Item
+          name="category"
+          label={intl.formatMessage({
+            id: 'pages.pageStudio.saveModal.categoryLabel',
+            defaultMessage: '分类',
+          })}
+          initialValue="自定义"
+        >
           <Select
             options={[
               { label: '自定义', value: '自定义' },
@@ -99,13 +151,29 @@ export default function SaveComponentModal({
             ]}
           />
         </Form.Item>
-        <Form.Item name="description" label="描述">
-          <Input.TextArea rows={2} placeholder="用途说明（可选）" maxLength={200} />
+        <Form.Item
+          name="description"
+          label={intl.formatMessage({
+            id: 'pages.pageStudio.saveModal.descriptionLabel',
+            defaultMessage: '描述',
+          })}
+        >
+          <Input.TextArea
+            rows={2}
+            placeholder={intl.formatMessage({
+              id: 'pages.pageStudio.saveModal.descriptionPlaceholder',
+              defaultMessage: '用途说明（可选）',
+            })}
+            maxLength={200}
+          />
         </Form.Item>
         {state && state.paramCandidates.length > 0 && (
           <Form.Item
             name="paramKeys"
-            label="参数化（勾选后拖入组件时可在弹窗中快速配置）"
+            label={intl.formatMessage({
+              id: 'pages.pageStudio.saveModal.paramKeysLabel',
+              defaultMessage: '参数化（勾选后拖入组件时可在弹窗中快速配置）',
+            })}
             initialValue={[]}
           >
             <Checkbox.Group
@@ -118,9 +186,25 @@ export default function SaveComponentModal({
         )}
         {state && (
           <Text type="secondary" style={{ fontSize: 12 }}>
-            包含 {state.selectedNodes.length} 个节点
-            {state.fnIds.length > 0 ? `，依赖函数：${state.fnIds.join('、')}` : ''}。保存后在组件库
-            Tab 拖入任意组合页复用。
+            {intl.formatMessage(
+              {
+                id: 'pages.pageStudio.saveModal.summary',
+                defaultMessage: '包含 {count} 个节点{fns}。保存后在组件库 Tab 拖入任意组合页复用。',
+              },
+              {
+                count: state.selectedNodes.length,
+                fns:
+                  state.fnIds.length > 0
+                    ? intl.formatMessage(
+                        {
+                          id: 'pages.pageStudio.saveModal.summaryFunctions',
+                          defaultMessage: '，依赖函数：{fns}',
+                        },
+                        { fns: state.fnIds.join('、') },
+                      )
+                    : '',
+              },
+            )}
           </Text>
         )}
       </Form>

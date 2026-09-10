@@ -1,0 +1,28 @@
+// pages.profileMfa.* — Profile/MfaSettings（两步验证 TOTP 区块）
+export default {
+  'pages.profileMfa.cancel.button': '取消',
+  'pages.profileMfa.code.placeholder': '6 位验证码',
+  'pages.profileMfa.confirm.button': '确认开启',
+  'pages.profileMfa.description':
+    '开启后登录需要输入验证器 App（Google Authenticator 等）的 6 位动态码。',
+  'pages.profileMfa.disable.button': '关闭两步验证',
+  'pages.profileMfa.enable.button': '开启两步验证',
+  'pages.profileMfa.error.confirm': '确认失败，请核对验证码',
+  'pages.profileMfa.error.disable': '关闭失败，请核对验证码与密码',
+  'pages.profileMfa.error.generateSecret': '生成密钥失败',
+  'pages.profileMfa.error.loadStatus': '加载两步验证状态失败',
+  'pages.profileMfa.external.description': '当前账号来自外部身份源，二次验证由身份提供方管理。',
+  'pages.profileMfa.external.tag': '由 IdP 管理',
+  'pages.profileMfa.password.placeholder': '登录密码',
+  'pages.profileMfa.setup.secretWarning': '密钥仅此次展示，请妥善保存；确认后登录必须携带动态码。',
+  'pages.profileMfa.setup.step1Bold': '手动录入密钥',
+  'pages.profileMfa.setup.step1Prefix': '1. 在验证器 App 中',
+  'pages.profileMfa.setup.step1Suffix': '，或使用',
+  'pages.profileMfa.status.disabled': '未开启',
+  'pages.profileMfa.status.enabled': '已开启',
+  'pages.profileMfa.success.disabled': '两步验证已关闭',
+  'pages.profileMfa.success.enabled': '两步验证已开启，下次登录需要输入验证码',
+  'pages.profileMfa.title': '两步验证（TOTP）',
+  'pages.profileMfa.warning.codeAndPasswordRequired': '请输入验证码与登录密码',
+  'pages.profileMfa.warning.codeRequired': '请输入验证器 App 中的 6 位验证码',
+};

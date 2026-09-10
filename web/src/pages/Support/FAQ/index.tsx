@@ -8,7 +8,7 @@ import {
   type ProColumns,
 } from '@ant-design/pro-components';
 import { listFAQ, createFAQ, updateFAQ, deleteFAQ, type FAQPayload } from '@/services/api/support';
-import { useAccess } from '@umijs/max';
+import { FormattedMessage, useAccess, useIntl } from '@umijs/max';
 import type { JSONValue } from '@/types/dashboard';
 import { extractErrorMessage } from '@/utils/errors';
 import { formatDateTime } from '@/utils/format';
@@ -31,6 +31,7 @@ interface AccessState {
 
 export default function SupportFAQPage() {
   const { message, modal } = App.useApp();
+  const intl = useIntl();
   const actionRef = useRef<ActionType | undefined>(undefined);
   const [q, setQ] = useState('');
   const [category, setCategory] = useState('');
@@ -65,7 +66,10 @@ export default function SupportFAQPage() {
   };
   const onDelete = (rec: FAQItem) => {
     modal.confirm({
-      title: '删除 FAQ',
+      title: intl.formatMessage({
+        id: 'pages.supportFaq.deleteConfirm.title',
+        defaultMessage: '删除 FAQ',
+      }),
       onOk: async () => {
         await deleteFAQ(rec.id);
         actionRef.current?.reload();
@@ -74,28 +78,69 @@ export default function SupportFAQPage() {
   };
 
   const columns: ProColumns<FAQItem>[] = [
-    { title: '问题', dataIndex: 'question', ellipsis: true },
-    { title: '分类', dataIndex: 'category' },
-    { title: '标签', dataIndex: 'tags' },
-    { title: '可见', dataIndex: 'visible', render: (_, row) => (row.visible ? '是' : '否') },
-    { title: '排序', dataIndex: 'sort' },
     {
-      title: '更新时间',
+      title: intl.formatMessage({
+        id: 'pages.supportFaq.field.question',
+        defaultMessage: '问题',
+      }),
+      dataIndex: 'question',
+      ellipsis: true,
+    },
+    {
+      title: intl.formatMessage({
+        id: 'pages.supportFaq.field.category',
+        defaultMessage: '分类',
+      }),
+      dataIndex: 'category',
+    },
+    {
+      title: intl.formatMessage({
+        id: 'pages.supportFaq.field.tags',
+        defaultMessage: '标签',
+      }),
+      dataIndex: 'tags',
+    },
+    {
+      title: intl.formatMessage({
+        id: 'pages.supportFaq.field.visible',
+        defaultMessage: '可见',
+      }),
+      dataIndex: 'visible',
+      render: (_, row) =>
+        row.visible
+          ? intl.formatMessage({ id: 'pages.supportFaq.visible.yes', defaultMessage: '是' })
+          : intl.formatMessage({ id: 'pages.supportFaq.visible.no', defaultMessage: '否' }),
+    },
+    {
+      title: intl.formatMessage({
+        id: 'pages.supportFaq.field.sort',
+        defaultMessage: '排序',
+      }),
+      dataIndex: 'sort',
+    },
+    {
+      title: intl.formatMessage({
+        id: 'pages.supportFaq.field.updatedAt',
+        defaultMessage: '更新时间',
+      }),
       dataIndex: 'updatedAt',
       render: (_, row) => formatDateTime(row.updatedAt ?? ''),
     },
     {
-      title: '操作',
+      title: intl.formatMessage({
+        id: 'pages.supportFaq.field.actions',
+        defaultMessage: '操作',
+      }),
       render: (_: unknown, r: FAQItem) => (
         <Space>
           {access.canSupportManage && (
             <Button size="small" onClick={() => openEdit(r)}>
-              编辑
+              <FormattedMessage id="pages.supportFaq.action.edit" defaultMessage="编辑" />
             </Button>
           )}
           {access.canSupportManage && (
             <Button size="small" danger onClick={() => onDelete(r)}>
-              删除
+              <FormattedMessage id="pages.supportFaq.action.delete" defaultMessage="删除" />
             </Button>
           )}
         </Space>
@@ -106,11 +151,17 @@ export default function SupportFAQPage() {
   return (
     <PageContainer>
       <Card
-        title="常见问题（FAQ）"
+        title={intl.formatMessage({
+          id: 'pages.supportFaq.card.title',
+          defaultMessage: '常见问题（FAQ）',
+        })}
         extra={
           <Space>
             <Input
-              placeholder="关键词"
+              placeholder={intl.formatMessage({
+                id: 'pages.supportFaq.search.keyword',
+                defaultMessage: '关键词',
+              })}
               value={q}
               onChange={(e) => {
                 setQ(e.target.value);
@@ -121,7 +172,10 @@ export default function SupportFAQPage() {
               style={{ width: 200 }}
             />
             <Input
-              placeholder="分类"
+              placeholder={intl.formatMessage({
+                id: 'pages.supportFaq.search.category',
+                defaultMessage: '分类',
+              })}
               value={category}
               onChange={(e) => {
                 setCategory(e.target.value);
@@ -130,7 +184,10 @@ export default function SupportFAQPage() {
               style={{ width: 140 }}
             />
             <Input
-              placeholder="是否可见(true/false)"
+              placeholder={intl.formatMessage({
+                id: 'pages.supportFaq.search.visible',
+                defaultMessage: '是否可见(true/false)',
+              })}
               value={visible}
               onChange={(e) => {
                 setVisible(e.target.value);
@@ -147,9 +204,13 @@ export default function SupportFAQPage() {
                 actionRef.current?.reload();
               }}
             >
-              查询
+              <FormattedMessage id="pages.supportFaq.action.query" defaultMessage="查询" />
             </Button>
-            {access.canSupportManage && <Button onClick={openAdd}>新建 FAQ</Button>}
+            {access.canSupportManage && (
+              <Button onClick={openAdd}>
+                <FormattedMessage id="pages.supportFaq.action.create" defaultMessage="新建 FAQ" />
+              </Button>
+            )}
           </Space>
         }
       >
@@ -179,7 +240,15 @@ export default function SupportFAQPage() {
               const items = (res.faq || res.items || []) as unknown as FAQItem[];
               return { data: items, total: res.total ?? items.length, success: true };
             } catch (error) {
-              message.error(extractErrorMessage(error, '加载 FAQ 失败'));
+              message.error(
+                extractErrorMessage(
+                  error,
+                  intl.formatMessage({
+                    id: 'pages.supportFaq.loadFailed',
+                    defaultMessage: '加载 FAQ 失败',
+                  }),
+                ),
+              );
               return { data: [], total: 0, success: false };
             }
           }}
@@ -187,44 +256,116 @@ export default function SupportFAQPage() {
             pageSize: 10,
             showSizeChanger: true,
             pageSizeOptions: [10, 20, 50],
-            showTotal: (t) => `共 ${t} 条`,
+            showTotal: (t) =>
+              intl.formatMessage(
+                { id: 'pages.supportFaq.pagination.total', defaultMessage: `共 ${t} 条` },
+                { total: t },
+              ),
           }}
         />
         <ModalForm<FAQPayload>
-          title={editing ? '编辑 FAQ' : '新建 FAQ'}
+          title={
+            editing
+              ? intl.formatMessage({
+                  id: 'pages.supportFaq.form.editTitle',
+                  defaultMessage: '编辑 FAQ',
+                })
+              : intl.formatMessage({
+                  id: 'pages.supportFaq.form.createTitle',
+                  defaultMessage: '新建 FAQ',
+                })
+          }
           open={open}
           onOpenChange={setOpen}
           modalProps={{ destroyOnHidden: true }}
           width={520}
-          submitter={{ searchConfig: { submitText: '确定' } }}
+          submitter={{
+            searchConfig: {
+              submitText: intl.formatMessage({
+                id: 'pages.supportFaq.form.submit',
+                defaultMessage: '确定',
+              }),
+            },
+          }}
           initialValues={editing ?? { visible: true, sort: 0 }}
           onFinish={onFinish}
         >
           <Form.Item
-            label="问题"
+            label={intl.formatMessage({
+              id: 'pages.supportFaq.field.question',
+              defaultMessage: '问题',
+            })}
             name="question"
-            rules={[{ required: true, message: '请输入问题' }]}
+            rules={[
+              {
+                required: true,
+                message: intl.formatMessage({
+                  id: 'pages.supportFaq.form.questionRequired',
+                  defaultMessage: '请输入问题',
+                }),
+              },
+            ]}
           >
             {' '}
             <Input.TextArea rows={3} />{' '}
           </Form.Item>
-          <Form.Item label="答案" name="answer" rules={[{ required: true, message: '请输入答案' }]}>
+          <Form.Item
+            label={intl.formatMessage({
+              id: 'pages.supportFaq.field.answer',
+              defaultMessage: '答案',
+            })}
+            name="answer"
+            rules={[
+              {
+                required: true,
+                message: intl.formatMessage({
+                  id: 'pages.supportFaq.form.answerRequired',
+                  defaultMessage: '请输入答案',
+                }),
+              },
+            ]}
+          >
             {' '}
             <Input.TextArea rows={6} />{' '}
           </Form.Item>
-          <Form.Item label="分类" name="category">
+          <Form.Item
+            label={intl.formatMessage({
+              id: 'pages.supportFaq.field.category',
+              defaultMessage: '分类',
+            })}
+            name="category"
+          >
             {' '}
             <Input />{' '}
           </Form.Item>
-          <Form.Item label="标签" name="tags">
+          <Form.Item
+            label={intl.formatMessage({
+              id: 'pages.supportFaq.field.tags',
+              defaultMessage: '标签',
+            })}
+            name="tags"
+          >
             {' '}
             <Input placeholder="," />{' '}
           </Form.Item>
-          <Form.Item label="可见" name="visible" valuePropName="checked">
+          <Form.Item
+            label={intl.formatMessage({
+              id: 'pages.supportFaq.field.visible',
+              defaultMessage: '可见',
+            })}
+            name="visible"
+            valuePropName="checked"
+          >
             {' '}
             <Switch />{' '}
           </Form.Item>
-          <Form.Item label="排序" name="sort">
+          <Form.Item
+            label={intl.formatMessage({
+              id: 'pages.supportFaq.field.sort',
+              defaultMessage: '排序',
+            })}
+            name="sort"
+          >
             {' '}
             <Input type="number" />{' '}
           </Form.Item>

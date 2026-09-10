@@ -22,7 +22,7 @@ import {
   rejectProposal,
 } from '@/services/dashboard';
 import { buildConsolePagePath, requestConsoleMenuRefresh } from '@/utils/consoleMenu';
-import { history } from '@umijs/max';
+import { history, useIntl } from '@umijs/max';
 import { emptyInbox, matchesQuery } from './shared';
 import { buildBlockedColumns, buildProposalColumns } from './ProposalColumns';
 import ContractChangesPanel from './ContractChangesPanel';
@@ -43,6 +43,7 @@ export interface ProposalInboxProps {
 
 export default function ProposalInbox({ focusPageKey = '' }: ProposalInboxProps) {
   const { message, modal } = App.useApp();
+  const intl = useIntl();
   const [loading, setLoading] = useState(false);
   const [inbox, setInbox] = useState<ProposalInboxData>(emptyInbox);
   const [query, setQuery] = useState('');
@@ -163,6 +164,7 @@ export default function ProposalInbox({ focusPageKey = '' }: ProposalInboxProps)
   );
 
   const proposalColumns = buildProposalColumns({
+    intl,
     modal,
     onViewDetail: handleViewDetail,
     onPreview: handlePreview,
@@ -171,7 +173,7 @@ export default function ProposalInbox({ focusPageKey = '' }: ProposalInboxProps)
     onReview: handleReviewProposal,
     onReject: handleReject,
   });
-  const blockedColumns = buildBlockedColumns();
+  const blockedColumns = buildBlockedColumns({ intl });
 
   const publishable = inbox.publishable.filter((item) => matchesQuery(item, query));
   const needsReview = inbox.needsReview.filter((item) => matchesQuery(item, query));

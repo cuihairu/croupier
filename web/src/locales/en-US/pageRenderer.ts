@@ -1,0 +1,97 @@
+// component.pageRenderer.* — Operation/Task/Report 渲染器与模板
+export default {
+  'component.pageRenderer.operationPage.approval.incompleteDescription':
+    'This returns an approvalId only and does not indicate a successful business execution.',
+  'component.pageRenderer.operationPage.approval.incompleteTitle': 'Operation not completed yet',
+  'component.pageRenderer.operationPage.approval.pendingSubtitle':
+    'Execution continues after the approval is granted. Check the status in the Approval Center.',
+  'component.pageRenderer.operationPage.approval.pendingTitle': 'Waiting for approval',
+  'component.pageRenderer.operationPage.approval.queryFailed': 'Failed to query approval status',
+  'component.pageRenderer.operationPage.approval.resultViewMissing':
+    'Result view for post-approval execution is not configured',
+  'component.pageRenderer.operationPage.approval.statusLabel': 'Approval status: {status}',
+  'component.pageRenderer.operationPage.approval.taskStarted': 'Approval granted, task started',
+  'component.pageRenderer.operationPage.button.refreshApproval': 'Refresh approval status',
+  'component.pageRenderer.operationPage.button.resetResult': 'Reset result',
+  'component.pageRenderer.operationPage.confirm.cancel': 'Cancel',
+  'component.pageRenderer.operationPage.confirm.ok': 'OK',
+  'component.pageRenderer.operationPage.confirm.title': 'Confirm operation',
+  'component.pageRenderer.operationPage.error.missingBinding': 'No operation binding configured',
+  'component.pageRenderer.operationPage.form.title': 'Run operation',
+  'component.pageRenderer.operationPage.message.failed': 'Operation failed',
+  'component.pageRenderer.operationPage.message.submittedApproval':
+    'Operation submitted for approval',
+  'component.pageRenderer.operationPage.message.success': 'Operation succeeded',
+  'component.pageRenderer.operationPage.message.taskSubmitted': 'Task submitted',
+  'component.pageRenderer.operationPage.preview.blocked':
+    'Operations are not executed in preview mode',
+  'component.pageRenderer.operationPage.result.title': 'Execution result',
+  'component.pageRenderer.operationPage.result.viewMissing': 'Result view is not configured',
+  'component.pageRenderer.operationPage.task.runningSubtitle':
+    'The async task is still running. Check its progress in the Task Center or on the task page.',
+  'component.pageRenderer.playerManage.pageSubtitle':
+    'CRUD template · List / Detail / Ban / Recharge / Mail',
+  'component.pageRenderer.playerManage.pageTitle': 'Player Management',
+  'component.pageRenderer.reportPage.button.clear': 'Clear',
+  'component.pageRenderer.reportPage.button.clearResults': 'Clear results',
+  'component.pageRenderer.reportPage.chart.empty': 'No data',
+  'component.pageRenderer.reportPage.data.title': 'Data view',
+  'component.pageRenderer.reportPage.empty.queryFirst': 'Query data first',
+  'component.pageRenderer.reportPage.error.datasetMissed':
+    'Report query result missed the dataset mapping',
+  'component.pageRenderer.reportPage.error.missingBinding': 'No report binding configured',
+  'component.pageRenderer.reportPage.error.queryFailed': 'Query failed: {detail}',
+  'component.pageRenderer.reportPage.error.unknown': 'Unknown error',
+  'component.pageRenderer.reportPage.export.csv': 'Export CSV',
+  'component.pageRenderer.reportPage.export.csvOnly': 'Only CSV export is supported on this page',
+  'component.pageRenderer.reportPage.export.excel': 'Export Excel',
+  'component.pageRenderer.reportPage.export.failed': 'Export failed: {detail}',
+  'component.pageRenderer.reportPage.export.noData': 'No data to export',
+  'component.pageRenderer.reportPage.export.success': 'Export succeeded',
+  'component.pageRenderer.reportPage.form.title': 'Report query',
+  'component.pageRenderer.reportPage.message.querySuccess': 'Query succeeded',
+  'component.pageRenderer.reportPage.pagination.total': '{total} items in total',
+  'component.pageRenderer.reportPage.preview.blocked':
+    'Report queries are not executed in preview mode',
+  'component.pageRenderer.reportPage.preview.exportBlocked':
+    'Data export is disabled in preview mode',
+  'component.pageRenderer.reportPage.tab.chart': 'Chart',
+  'component.pageRenderer.reportPage.tab.table': 'Table',
+  'component.pageRenderer.reportPage.warning.bindingSubtitle':
+    'ReportPage must map function results to pageState.dataset via an output selector.',
+  'component.pageRenderer.reportPage.warning.bindingTitle': 'Report binding incomplete',
+  'component.pageRenderer.reportPage.warning.semanticsSubtitle':
+    'dataset.dimensions and dataset.metrics must be configured before publishing a ReportPage, otherwise no runnable chart or table can be generated.',
+  'component.pageRenderer.reportPage.warning.semanticsTitle': 'Report semantics incomplete',
+  'component.pageRenderer.taskPage.approval.completed': 'Approval granted, execution completed',
+  'component.pageRenderer.taskPage.approval.pending': 'Waiting for approval',
+  'component.pageRenderer.taskPage.approval.queryFailed': 'Failed to query approval status',
+  'component.pageRenderer.taskPage.approval.statusLabel': 'Approval status: {status}',
+  'component.pageRenderer.taskPage.approval.submitted':
+    'Task submitted for approval; it starts after the approval is granted',
+  'component.pageRenderer.taskPage.approval.submittedToast': 'Task submitted for approval',
+  'component.pageRenderer.taskPage.approval.taskStarted': 'Approval granted, task started',
+  'component.pageRenderer.taskPage.button.cancel': 'Cancel',
+  'component.pageRenderer.taskPage.button.refresh': 'Refresh',
+  'component.pageRenderer.taskPage.button.refreshApproval': 'Refresh approval status',
+  'component.pageRenderer.taskPage.error.cancelFailed': 'Failed to cancel task: {detail}',
+  'component.pageRenderer.taskPage.error.missingBinding': 'No task binding configured',
+  'component.pageRenderer.taskPage.error.statusBindingUnmapped':
+    'Task status binding is not mapped to pageState.taskStatus',
+  'component.pageRenderer.taskPage.error.submitFailed': 'Task submission failed: {detail}',
+  'component.pageRenderer.taskPage.error.unknown': 'Unknown error',
+  'component.pageRenderer.taskPage.events.title': 'Task events',
+  'component.pageRenderer.taskPage.form.title': 'Submit task',
+  'component.pageRenderer.taskPage.message.cancelled': 'Task cancelled',
+  'component.pageRenderer.taskPage.message.submitted': 'Task submitted',
+  'component.pageRenderer.taskPage.preview.blocked': 'Tasks are not submitted in preview mode',
+  'component.pageRenderer.taskPage.result.title': 'Task result',
+  'component.pageRenderer.taskPage.result.viewMissing': 'Task result view is not configured',
+  'component.pageRenderer.taskPage.status.label': 'Status:',
+  'component.pageRenderer.taskPage.status.title': 'Task status',
+  'component.pageRenderer.taskPage.warning.noCancelBinding':
+    'No task cancellation binding configured',
+  'component.pageRenderer.taskPage.warning.noStatusBinding':
+    'Task submitted, but no status query binding is configured on this page',
+  'component.pageRenderer.taskPage.warning.noTaskId': 'No task ID returned',
+};

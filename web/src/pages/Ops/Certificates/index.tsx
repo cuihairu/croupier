@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { ModalForm } from '@ant-design/pro-components';
 import {
   Card,
@@ -14,6 +14,7 @@ import {
   Tooltip,
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
+import { FormattedMessage, useIntl } from '@umijs/max';
 import {
   listCertificates,
   addCertificate,
@@ -29,6 +30,11 @@ type AddDomainFormValues = { domain: string; port?: number; alertDays?: number }
 
 export default function OpsCertificatesPage() {
   const { message } = App.useApp();
+  const intl = useIntl();
+  // useIntl 在测试 mock 下每次渲染返回新引用，直接进 useCallback 依赖会让请求
+  // effect 无限重建；经 ref 转发后回调依赖稳定，执行时仍读取最新实例
+  const intlRef = useRef(intl);
+  intlRef.current = intl;
   const [loading, setLoading] = useState(false);
   const [rows, setRows] = useState<Certificate[]>([]);
   const [total, setTotal] = useState(0);
@@ -47,7 +53,12 @@ export default function OpsCertificatesPage() {
         setPage(r.page || p);
         setSize(r.size || s);
       } catch {
-        message.error('加载失败');
+        message.error(
+          intlRef.current.formatMessage({
+            id: 'pages.opsCertificates.error.loadFailed',
+            defaultMessage: '加载失败',
+          }),
+        );
       } finally {
         setLoading(false);
       }
@@ -61,9 +72,37 @@ export default function OpsCertificatesPage() {
   const daysTag = (d?: number, st?: string) => {
     const v = typeof d === 'number' ? d : undefined;
     if (st === 'expired' || (v != null && v < 0))
-      return <Tag color="red">{v != null ? v : '-'} 天</Tag>;
-    if (st === 'expiring' || (v != null && v <= 30)) return <Tag color="gold">{v} 天</Tag>;
-    return <Tag color="green">{v != null ? v : '-'} 天</Tag>;
+      return (
+        <Tag color="red">
+          {intl.formatMessage(
+            {
+              id: 'pages.opsCertificates.daysRemaining',
+              defaultMessage: `${v != null ? v : '-'} 天`,
+            },
+            { days: v != null ? v : '-' },
+          )}
+        </Tag>
+      );
+    if (st === 'expiring' || (v != null && v <= 30))
+      return (
+        <Tag color="gold">
+          {intl.formatMessage(
+            { id: 'pages.opsCertificates.daysRemaining', defaultMessage: `${v ?? ''} 天` },
+            { days: v ?? '' },
+          )}
+        </Tag>
+      );
+    return (
+      <Tag color="green">
+        {intl.formatMessage(
+          {
+            id: 'pages.opsCertificates.daysRemaining',
+            defaultMessage: `${v != null ? v : '-'} 天`,
+          },
+          { days: v != null ? v : '-' },
+        )}
+      </Tag>
+    );
   };
 
   const fmt = (v?: string) => (v ? formatDateTime(v) : '');
@@ -80,24 +119,65 @@ export default function OpsCertificatesPage() {
   };
   const columns: ColumnsType<Certificate> = [
     {
-      title: '域名',
+      title: intl.formatMessage({
+        id: 'pages.opsCertificates.column.domain',
+        defaultMessage: '域名',
+      }),
       dataIndex: 'domain',
       width: 180,
       ellipsis: true,
       render: (v, r) => `${r.domain}:${r.port || 443}`,
     },
-    { title: '颁发者', dataIndex: 'issuer', width: 160, ellipsis: true },
-    { title: '主体', dataIndex: 'subject', width: 160, ellipsis: true },
-    { title: '有效期自', dataIndex: 'validFrom', width: 160, render: (v) => fmt(v) },
-    { title: '有效期至', dataIndex: 'validTo', width: 160, render: (v) => fmt(v) },
     {
-      title: '剩余',
+      title: intl.formatMessage({
+        id: 'pages.opsCertificates.column.issuer',
+        defaultMessage: '颁发者',
+      }),
+      dataIndex: 'issuer',
+      width: 160,
+      ellipsis: true,
+    },
+    {
+      title: intl.formatMessage({
+        id: 'pages.opsCertificates.column.subject',
+        defaultMessage: '主体',
+      }),
+      dataIndex: 'subject',
+      width: 160,
+      ellipsis: true,
+    },
+    {
+      title: intl.formatMessage({
+        id: 'pages.opsCertificates.column.validFrom',
+        defaultMessage: '有效期自',
+      }),
+      dataIndex: 'validFrom',
+      width: 160,
+      render: (v) => fmt(v),
+    },
+    {
+      title: intl.formatMessage({
+        id: 'pages.opsCertificates.column.validTo',
+        defaultMessage: '有效期至',
+      }),
+      dataIndex: 'validTo',
+      width: 160,
+      render: (v) => fmt(v),
+    },
+    {
+      title: intl.formatMessage({
+        id: 'pages.opsCertificates.column.daysLeft',
+        defaultMessage: '剩余',
+      }),
       dataIndex: 'daysLeft',
       width: 100,
       render: (_: unknown, r: Certificate) => daysTag(r.daysLeft, r.status),
     },
     {
-      title: '状态',
+      title: intl.formatMessage({
+        id: 'pages.opsCertificates.column.status',
+        defaultMessage: '状态',
+      }),
       dataIndex: 'status',
       width: 100,
       render: (_: unknown, r: Certificate) => {
@@ -107,9 +187,20 @@ export default function OpsCertificatesPage() {
         return <Tag color={c}>{v}</Tag>;
       },
     },
-    { title: '最后检查', dataIndex: 'lastChecked', width: 160, render: (v) => fmt(v) },
     {
-      title: '操作',
+      title: intl.formatMessage({
+        id: 'pages.opsCertificates.column.lastChecked',
+        defaultMessage: '最后检查',
+      }),
+      dataIndex: 'lastChecked',
+      width: 160,
+      render: (v) => fmt(v),
+    },
+    {
+      title: intl.formatMessage({
+        id: 'pages.opsCertificates.column.actions',
+        defaultMessage: '操作',
+      }),
       key: 'act',
       width: 200,
       render: (_: unknown, r: Certificate) => (
@@ -119,34 +210,68 @@ export default function OpsCertificatesPage() {
             onClick={async () => {
               try {
                 await checkCertificate(r.id);
-                message.success('已触发重新检查');
+                message.success(
+                  intl.formatMessage({
+                    id: 'pages.opsCertificates.check.success',
+                    defaultMessage: '已触发重新检查',
+                  }),
+                );
                 load();
               } catch {
-                message.error('操作失败');
+                message.error(
+                  intl.formatMessage({
+                    id: 'pages.opsCertificates.error.operationFailed',
+                    defaultMessage: '操作失败',
+                  }),
+                );
               }
             }}
           >
-            重新检查
+            <FormattedMessage id="pages.opsCertificates.action.recheck" defaultMessage="重新检查" />
           </Button>
           <Button
             size="small"
             danger
             onClick={async () => {
               try {
-                const ok = confirm('确认移除该域名的监控？');
+                const ok = confirm(
+                  intl.formatMessage({
+                    id: 'pages.opsCertificates.delete.confirm',
+                    defaultMessage: '确认移除该域名的监控？',
+                  }),
+                );
                 if (!ok) return;
                 await deleteCertificate(r.id);
-                message.success('已移除');
+                message.success(
+                  intl.formatMessage({
+                    id: 'pages.opsCertificates.delete.success',
+                    defaultMessage: '已移除',
+                  }),
+                );
                 load();
               } catch {
-                message.error('移除失败');
+                message.error(
+                  intl.formatMessage({
+                    id: 'pages.opsCertificates.delete.failed',
+                    defaultMessage: '移除失败',
+                  }),
+                );
               }
             }}
           >
-            移除监听
+            <FormattedMessage id="pages.opsCertificates.action.remove" defaultMessage="移除监听" />
           </Button>
           <Tooltip title={r.errorMessage || ''}>
-            <span>{r.errorMessage ? <Tag color="red">错误</Tag> : null}</span>
+            <span>
+              {r.errorMessage ? (
+                <Tag color="red">
+                  <FormattedMessage
+                    id="pages.opsCertificates.action.errorTag"
+                    defaultMessage="错误"
+                  />
+                </Tag>
+              ) : null}
+            </span>
           </Tooltip>
         </Space>
       ),
@@ -156,11 +281,17 @@ export default function OpsCertificatesPage() {
   return (
     <div style={{ padding: 24 }}>
       <Card
-        title="HTTPS 证书监控"
+        title={intl.formatMessage({
+          id: 'pages.opsCertificates.title.main',
+          defaultMessage: 'HTTPS 证书监控',
+        })}
         extra={
           <Space>
             <Select
-              placeholder="状态"
+              placeholder={intl.formatMessage({
+                id: 'pages.opsCertificates.filter.statusPlaceholder',
+                defaultMessage: '状态',
+              })}
               allowClear
               style={{ width: 140 }}
               value={status || undefined}
@@ -173,22 +304,37 @@ export default function OpsCertificatesPage() {
                 { label: 'unknown', value: 'unknown' },
               ]}
             />
-            <Button onClick={() => load()}>刷新</Button>
+            <Button onClick={() => load()}>
+              <FormattedMessage id="pages.opsCertificates.action.refresh" defaultMessage="刷新" />
+            </Button>
             <Button onClick={() => setAddOpen(true)} type="primary">
-              新增域名
+              <FormattedMessage id="pages.opsCertificates.add.button" defaultMessage="新增域名" />
             </Button>
             <Button
               onClick={async () => {
                 try {
                   await checkAllCertificates();
-                  message.success('已触发全量检查');
+                  message.success(
+                    intl.formatMessage({
+                      id: 'pages.opsCertificates.checkAll.success',
+                      defaultMessage: '已触发全量检查',
+                    }),
+                  );
                   load();
                 } catch {
-                  message.error('操作失败');
+                  message.error(
+                    intl.formatMessage({
+                      id: 'pages.opsCertificates.error.operationFailed',
+                      defaultMessage: '操作失败',
+                    }),
+                  );
                 }
               }}
             >
-              检查全部
+              <FormattedMessage
+                id="pages.opsCertificates.action.checkAll"
+                defaultMessage="检查全部"
+              />
             </Button>
           </Space>
         }
@@ -216,12 +362,22 @@ export default function OpsCertificatesPage() {
         onOk={async (v) => {
           try {
             await addCertificate(v);
-            message.success('已添加');
+            message.success(
+              intl.formatMessage({
+                id: 'pages.opsCertificates.add.success',
+                defaultMessage: '已添加',
+              }),
+            );
             load(1, size, status);
             return true;
           } catch {
             // 原语义：添加失败本地 toast，弹窗保持开启
-            message.error('添加失败');
+            message.error(
+              intl.formatMessage({
+                id: 'pages.opsCertificates.add.failed',
+                defaultMessage: '添加失败',
+              }),
+            );
             return false;
           }
         }}
@@ -237,28 +393,68 @@ const AddDomainModal: React.FC<{
   onClose: () => void;
   /** 返回 true 表示提交成功（关闭弹窗），false 保持打开 */
   onOk: (v: AddDomainFormValues) => Promise<boolean>;
-}> = ({ open, onClose, onOk }) => (
-  <ModalForm<AddDomainFormValues>
-    open={open}
-    title="新增域名"
-    onOpenChange={(v) => {
-      if (!v) onClose();
-    }}
-    modalProps={{ destroyOnHidden: true }}
-    width={520}
-    submitter={{ searchConfig: { submitText: '确定' } }}
-    layout="vertical"
-    initialValues={{ port: 443, alertDays: 30 }}
-    onFinish={(v) => onOk(v)}
-  >
-    <Form.Item name="domain" label="域名" rules={[{ required: true, message: '请输入域名' }]}>
-      <Input placeholder="example.com" />
-    </Form.Item>
-    <Form.Item name="port" label="端口">
-      <InputNumber min={1} max={65535} style={{ width: 160 }} />
-    </Form.Item>
-    <Form.Item name="alertDays" label="告警阈值(天)">
-      <InputNumber min={1} max={365} style={{ width: 160 }} />
-    </Form.Item>
-  </ModalForm>
-);
+}> = ({ open, onClose, onOk }) => {
+  const intl = useIntl();
+  return (
+    <ModalForm<AddDomainFormValues>
+      open={open}
+      title={intl.formatMessage({
+        id: 'pages.opsCertificates.add.title',
+        defaultMessage: '新增域名',
+      })}
+      onOpenChange={(v) => {
+        if (!v) onClose();
+      }}
+      modalProps={{ destroyOnHidden: true }}
+      width={520}
+      submitter={{
+        searchConfig: {
+          submitText: intl.formatMessage({
+            id: 'pages.opsCertificates.form.submit',
+            defaultMessage: '确定',
+          }),
+        },
+      }}
+      layout="vertical"
+      initialValues={{ port: 443, alertDays: 30 }}
+      onFinish={(v) => onOk(v)}
+    >
+      <Form.Item
+        name="domain"
+        label={intl.formatMessage({
+          id: 'pages.opsCertificates.form.domain',
+          defaultMessage: '域名',
+        })}
+        rules={[
+          {
+            required: true,
+            message: intl.formatMessage({
+              id: 'pages.opsCertificates.form.domainRequired',
+              defaultMessage: '请输入域名',
+            }),
+          },
+        ]}
+      >
+        <Input placeholder="example.com" />
+      </Form.Item>
+      <Form.Item
+        name="port"
+        label={intl.formatMessage({
+          id: 'pages.opsCertificates.form.port',
+          defaultMessage: '端口',
+        })}
+      >
+        <InputNumber min={1} max={65535} style={{ width: 160 }} />
+      </Form.Item>
+      <Form.Item
+        name="alertDays"
+        label={intl.formatMessage({
+          id: 'pages.opsCertificates.form.alertDays',
+          defaultMessage: '告警阈值(天)',
+        })}
+      >
+        <InputNumber min={1} max={365} style={{ width: 160 }} />
+      </Form.Item>
+    </ModalForm>
+  );
+};

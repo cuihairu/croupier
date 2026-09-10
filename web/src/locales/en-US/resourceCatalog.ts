@@ -1,5 +1,6 @@
 // pages.resourceCatalog.detail.* — ResourceCatalog resource details modal
 // pages.resourceCatalog.editSemantics.* — ResourceCatalog edit semantics modal
+// pages.resourceCatalog.list.* — ResourceCatalog resource capability catalog list page
 export default {
   // detail
   'pages.resourceCatalog.detail.alert.description':
@@ -175,4 +176,35 @@ export default {
     'Please select the taskId type',
   'pages.resourceCatalog.editSemantics.taskList.title': 'Task Semantics',
   'pages.resourceCatalog.editSemantics.title': 'Edit Semantics',
+  // list
+  'pages.resourceCatalog.list.button.refresh': 'Refresh',
+  'pages.resourceCatalog.list.button.search': 'Search',
+  'pages.resourceCatalog.list.card.title': 'Resource Capability Catalog',
+  'pages.resourceCatalog.list.column.actions': 'Actions',
+  'pages.resourceCatalog.list.column.category': 'Category',
+  'pages.resourceCatalog.list.column.diagnostics': 'Diagnostics',
+  'pages.resourceCatalog.list.column.functionCount': 'Functions',
+  'pages.resourceCatalog.list.column.labels': 'Name',
+  'pages.resourceCatalog.list.column.resourceKey': 'Resource Key',
+  'pages.resourceCatalog.list.column.semanticsVersion': 'Semantics Version',
+  'pages.resourceCatalog.list.column.status': 'Status',
+  'pages.resourceCatalog.list.diagnostics.errorCount': '{count} errors',
+  'pages.resourceCatalog.list.diagnostics.none': 'None',
+  'pages.resourceCatalog.list.diagnostics.warningCount': '{count} warnings',
+  'pages.resourceCatalog.list.error.fetchDetailFailed': 'Failed to load details: {message}',
+  'pages.resourceCatalog.list.error.fetchVersionsFailed':
+    'Failed to load semantic versions: {message}',
+  'pages.resourceCatalog.list.error.operationFailed': 'Operation failed',
+  'pages.resourceCatalog.list.error.resolveConflictFailed': 'Failed to resolve conflict: {message}',
+  'pages.resourceCatalog.list.error.unknown': 'Unknown error',
+  'pages.resourceCatalog.list.error.updateFailed': 'Update failed: {message}',
+  'pages.resourceCatalog.list.message.conflictResolved':
+    'Conflict resolved; related proposals have been recalculated',
+  'pages.resourceCatalog.list.message.semanticsSaved': 'Semantics updated',
+  'pages.resourceCatalog.list.pagination.total': 'Total {total} items',
+  'pages.resourceCatalog.list.search.categoryPlaceholder': 'Select a category',
+  'pages.resourceCatalog.list.search.placeholder': 'Search resources',
+  'pages.resourceCatalog.list.tooltip.editSemantics': 'Edit semantics',
+  'pages.resourceCatalog.list.tooltip.proposals': 'Proposals',
+  'pages.resourceCatalog.list.tooltip.viewDetail': 'View details',
 };

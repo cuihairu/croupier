@@ -1,0 +1,21 @@
+// app.request.* — 全局请求错误文案（requestErrorConfig）
+export default {
+  'app.request.error.badGateway': '上游服务错误',
+  'app.request.error.conflict': '资源冲突',
+  'app.request.error.default': '请求失败',
+  'app.request.error.exception': '请求异常，请稍后重试',
+  'app.request.error.forbidden': '无权限',
+  'app.request.error.internalError': '服务器内部错误',
+  'app.request.error.invalidParams': '请求参数无效',
+  'app.request.error.invalidScope': '当前选择的游戏环境无效，请重新选择',
+  'app.request.error.methodNotAllowed': '方法不被允许',
+  'app.request.error.moreDetails': '…以及另外 {count} 条',
+  'app.request.error.noResponse': '无响应，请稍后重试',
+  'app.request.error.notFound': '资源不存在',
+  'app.request.error.notImplemented': '未实现',
+  'app.request.error.rateLimited': '请求过于频繁',
+  'app.request.error.requestTooLarge': '请求体过大',
+  'app.request.error.unauthorized': '未授权',
+  'app.request.error.unavailable': '服务不可用',
+  'app.request.error.unprocessable': '请求语义无效',
+};

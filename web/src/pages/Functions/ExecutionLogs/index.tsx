@@ -8,6 +8,7 @@ import {
   type ExecutionLogDetail,
   type ExecutionLogItem,
 } from '@/services/api/executionLogs';
+import { FormattedMessage, useIntl } from '@umijs/max';
 import { formatDateTime } from '@/utils/format';
 
 const { Text } = Typography;
@@ -34,6 +35,7 @@ function toLocalInput(value: Date): string {
 
 /** 执行留痕（管理员审计视角）：全量执行记录按用户/函数/来源/状态/时间过滤。 */
 export default function ExecutionLogsPage() {
+  const intl = useIntl();
   const actionRef = useRef<ActionType | undefined>(undefined);
   const [loadError, setLoadError] = useState('');
 
@@ -49,31 +51,91 @@ export default function ExecutionLogsPage() {
 
   const columns: ProColumns<ExecutionLogItem>[] = [
     {
-      title: '时间',
+      title: intl.formatMessage({
+        id: 'pages.functionsExecutionLogs.column.time',
+        defaultMessage: '时间',
+      }),
       dataIndex: 'createdAt',
       width: 165,
       render: (_, r) => formatDateTime(r.createdAt),
     },
-    { title: '申请人', dataIndex: 'actor', width: 120 },
-    { title: '函数', dataIndex: 'functionId', ellipsis: true },
-    { title: '游戏/环境', width: 150, render: (_, r) => `${r.gameId}/${r.env}` },
     {
-      title: '来源',
-      dataIndex: 'source',
-      width: 80,
-      render: (_, r) => (r.source === 'page' ? <Tag>页面</Tag> : <Tag>调用</Tag>),
+      title: intl.formatMessage({
+        id: 'pages.functionsExecutionLogs.column.actor',
+        defaultMessage: '申请人',
+      }),
+      dataIndex: 'actor',
+      width: 120,
     },
     {
-      title: '状态',
+      title: intl.formatMessage({
+        id: 'pages.functionsExecutionLogs.column.function',
+        defaultMessage: '函数',
+      }),
+      dataIndex: 'functionId',
+      ellipsis: true,
+    },
+    {
+      title: intl.formatMessage({
+        id: 'pages.functionsExecutionLogs.column.gameEnv',
+        defaultMessage: '游戏/环境',
+      }),
+      width: 150,
+      render: (_, r) => `${r.gameId}/${r.env}`,
+    },
+    {
+      title: intl.formatMessage({
+        id: 'pages.functionsExecutionLogs.column.source',
+        defaultMessage: '来源',
+      }),
+      dataIndex: 'source',
+      width: 80,
+      render: (_, r) =>
+        r.source === 'page' ? (
+          <Tag>
+            <FormattedMessage
+              id="pages.functionsExecutionLogs.sourceLabel.page"
+              defaultMessage="页面"
+            />
+          </Tag>
+        ) : (
+          <Tag>
+            <FormattedMessage
+              id="pages.functionsExecutionLogs.sourceLabel.invoke"
+              defaultMessage="调用"
+            />
+          </Tag>
+        ),
+    },
+    {
+      title: intl.formatMessage({
+        id: 'pages.functionsExecutionLogs.column.status',
+        defaultMessage: '状态',
+      }),
       dataIndex: 'status',
       width: 80,
       render: (_, r) => (
         <Tag color={r.status === 'ok' ? 'green' : 'red'} style={{ marginInlineEnd: 0 }}>
-          {r.status === 'ok' ? '成功' : '失败'}
+          {r.status === 'ok'
+            ? intl.formatMessage({
+                id: 'pages.functionsExecutionLogs.statusLabel.ok',
+                defaultMessage: '成功',
+              })
+            : intl.formatMessage({
+                id: 'pages.functionsExecutionLogs.statusLabel.error',
+                defaultMessage: '失败',
+              })}
         </Tag>
       ),
     },
-    { title: '耗时(ms)', dataIndex: 'durationMs', width: 90 },
+    {
+      title: intl.formatMessage({
+        id: 'pages.functionsExecutionLogs.column.duration',
+        defaultMessage: '耗时(ms)',
+      }),
+      dataIndex: 'durationMs',
+      width: 90,
+    },
   ];
 
   const viewDetail = useMemo(
@@ -90,16 +152,25 @@ export default function ExecutionLogsPage() {
 
   return (
     <Card
-      title="执行留痕"
+      title={intl.formatMessage({
+        id: 'pages.functionsExecutionLogs.page.title',
+        defaultMessage: '执行留痕',
+      })}
       extra={
         <Button icon={<ReloadOutlined />} onClick={() => actionRef.current?.reload()}>
-          刷新
+          <FormattedMessage
+            id="pages.functionsExecutionLogs.action.refresh"
+            defaultMessage="刷新"
+          />
         </Button>
       }
     >
       <Space style={{ marginBottom: 16 }} wrap>
         <Input
-          placeholder="申请人"
+          placeholder={intl.formatMessage({
+            id: 'pages.functionsExecutionLogs.filter.actor',
+            defaultMessage: '申请人',
+          })}
           value={actor}
           onChange={(e) => {
             setActor(e.target.value);
@@ -111,7 +182,10 @@ export default function ExecutionLogsPage() {
           allowClear
         />
         <Input
-          placeholder="函数ID"
+          placeholder={intl.formatMessage({
+            id: 'pages.functionsExecutionLogs.filter.functionId',
+            defaultMessage: '函数ID',
+          })}
           value={functionId}
           onChange={(e) => {
             setFunctionId(e.target.value);
@@ -121,7 +195,10 @@ export default function ExecutionLogsPage() {
           allowClear
         />
         <Select
-          placeholder="来源"
+          placeholder={intl.formatMessage({
+            id: 'pages.functionsExecutionLogs.filter.source',
+            defaultMessage: '来源',
+          })}
           style={{ width: 110 }}
           value={source || undefined}
           onChange={(v) => {
@@ -130,12 +207,27 @@ export default function ExecutionLogsPage() {
           }}
           allowClear
           options={[
-            { label: '调用', value: 'invoke' },
-            { label: '页面', value: 'page' },
+            {
+              label: intl.formatMessage({
+                id: 'pages.functionsExecutionLogs.sourceLabel.invoke',
+                defaultMessage: '调用',
+              }),
+              value: 'invoke',
+            },
+            {
+              label: intl.formatMessage({
+                id: 'pages.functionsExecutionLogs.sourceLabel.page',
+                defaultMessage: '页面',
+              }),
+              value: 'page',
+            },
           ]}
         />
         <Select
-          placeholder="状态"
+          placeholder={intl.formatMessage({
+            id: 'pages.functionsExecutionLogs.filter.status',
+            defaultMessage: '状态',
+          })}
           style={{ width: 110 }}
           value={status || undefined}
           onChange={(v) => {
@@ -144,8 +236,20 @@ export default function ExecutionLogsPage() {
           }}
           allowClear
           options={[
-            { label: '成功', value: 'ok' },
-            { label: '失败', value: 'error' },
+            {
+              label: intl.formatMessage({
+                id: 'pages.functionsExecutionLogs.statusLabel.ok',
+                defaultMessage: '成功',
+              }),
+              value: 'ok',
+            },
+            {
+              label: intl.formatMessage({
+                id: 'pages.functionsExecutionLogs.statusLabel.error',
+                defaultMessage: '失败',
+              }),
+              value: 'error',
+            },
           ]}
         />
         <Input
@@ -166,7 +270,7 @@ export default function ExecutionLogsPage() {
           }}
         />
         <Button type="primary" onClick={() => actionRef.current?.reload()}>
-          查询
+          <FormattedMessage id="pages.functionsExecutionLogs.action.search" defaultMessage="查询" />
         </Button>
       </Space>
 
@@ -207,14 +311,25 @@ export default function ExecutionLogsPage() {
             const json = await listExecutionLogs(params);
             return { data: json.items || [], total: json.total || 0, success: true };
           } catch (e) {
-            setLoadError(e instanceof Error ? e.message : '加载失败');
+            setLoadError(
+              e instanceof Error
+                ? e.message
+                : intl.formatMessage({
+                    id: 'pages.functionsExecutionLogs.error.loadFailed',
+                    defaultMessage: '加载失败',
+                  }),
+            );
             return { data: [], total: 0, success: false };
           }
         }}
         pagination={{
           pageSize: PAGE_SIZE,
           showSizeChanger: true,
-          showTotal: (t) => `共 ${t} 条`,
+          showTotal: (t) =>
+            intl.formatMessage(
+              { id: 'pages.functionsExecutionLogs.pagination.total', defaultMessage: `共 ${t} 条` },
+              { total: t },
+            ),
         }}
         onRow={(record) => ({
           onClick: () => void viewDetail(record.id),
@@ -223,7 +338,17 @@ export default function ExecutionLogsPage() {
       />
 
       <Drawer
-        title={detail ? `执行留痕 #${detail.id}` : ''}
+        title={
+          detail
+            ? intl.formatMessage(
+                {
+                  id: 'pages.functionsExecutionLogs.detail.title',
+                  defaultMessage: `执行留痕 #${detail.id}`,
+                },
+                { id: detail.id },
+              )
+            : ''
+        }
         width={720}
         open={detailOpen}
         onClose={() => setDetailOpen(false)}
@@ -232,26 +357,73 @@ export default function ExecutionLogsPage() {
           <>
             <Space orientation="vertical" size={4} style={{ width: '100%', marginBottom: 12 }}>
               <Text>
-                <Text type="secondary">申请人：</Text>
+                <Text type="secondary">
+                  <FormattedMessage
+                    id="pages.functionsExecutionLogs.detail.label.actor"
+                    defaultMessage="申请人："
+                  />
+                </Text>
                 {detail.actor}
               </Text>
               <Text>
-                <Text type="secondary">函数：</Text>
+                <Text type="secondary">
+                  <FormattedMessage
+                    id="pages.functionsExecutionLogs.detail.label.function"
+                    defaultMessage="函数："
+                  />
+                </Text>
                 {detail.functionId}
               </Text>
               <Text>
-                <Text type="secondary">来源：</Text>
+                <Text type="secondary">
+                  <FormattedMessage
+                    id="pages.functionsExecutionLogs.detail.label.source"
+                    defaultMessage="来源："
+                  />
+                </Text>
                 {detail.source === 'page'
-                  ? `页面（${detail.pageKey} / ${detail.bindingId}）`
-                  : '调用'}
+                  ? intl.formatMessage(
+                      {
+                        id: 'pages.functionsExecutionLogs.detail.sourcePage',
+                        defaultMessage: `页面（${detail.pageKey} / ${detail.bindingId}）`,
+                      },
+                      { pageKey: detail.pageKey, bindingId: detail.bindingId },
+                    )
+                  : intl.formatMessage({
+                      id: 'pages.functionsExecutionLogs.sourceLabel.invoke',
+                      defaultMessage: '调用',
+                    })}
               </Text>
               <Text>
-                <Text type="secondary">状态：</Text>
-                {detail.status === 'ok' ? '成功' : '失败'}
-                {detail.truncated ? '（载荷已截断）' : ''}
+                <Text type="secondary">
+                  <FormattedMessage
+                    id="pages.functionsExecutionLogs.detail.label.status"
+                    defaultMessage="状态："
+                  />
+                </Text>
+                {detail.status === 'ok'
+                  ? intl.formatMessage({
+                      id: 'pages.functionsExecutionLogs.statusLabel.ok',
+                      defaultMessage: '成功',
+                    })
+                  : intl.formatMessage({
+                      id: 'pages.functionsExecutionLogs.statusLabel.error',
+                      defaultMessage: '失败',
+                    })}
+                {detail.truncated
+                  ? intl.formatMessage({
+                      id: 'pages.functionsExecutionLogs.detail.truncated',
+                      defaultMessage: '（载荷已截断）',
+                    })
+                  : ''}
               </Text>
               <Text>
-                <Text type="secondary">时间：</Text>
+                <Text type="secondary">
+                  <FormattedMessage
+                    id="pages.functionsExecutionLogs.detail.label.time"
+                    defaultMessage="时间："
+                  />
+                </Text>
                 {formatDateTime(detail.createdAt)} · {detail.durationMs}ms
               </Text>
               {detail.traceId && (
@@ -261,13 +433,33 @@ export default function ExecutionLogsPage() {
                 </Text>
               )}
             </Space>
-            <Text type="secondary">请求（已脱敏）：</Text>
+            <Text type="secondary">
+              <FormattedMessage
+                id="pages.functionsExecutionLogs.detail.requestTitle"
+                defaultMessage="请求（已脱敏）："
+              />
+            </Text>
             <pre style={preStyle}>
-              {detail.requestPayload ? JSON.stringify(detail.requestPayload, null, 2) : '（无）'}
+              {detail.requestPayload
+                ? JSON.stringify(detail.requestPayload, null, 2)
+                : intl.formatMessage({
+                    id: 'pages.functionsExecutionLogs.detail.emptyPayload',
+                    defaultMessage: '（无）',
+                  })}
             </pre>
-            <Text type="secondary">响应（已脱敏）：</Text>
+            <Text type="secondary">
+              <FormattedMessage
+                id="pages.functionsExecutionLogs.detail.responseTitle"
+                defaultMessage="响应（已脱敏）："
+              />
+            </Text>
             <pre style={preStyle}>
-              {detail.responseBody ? JSON.stringify(detail.responseBody, null, 2) : '（无）'}
+              {detail.responseBody
+                ? JSON.stringify(detail.responseBody, null, 2)
+                : intl.formatMessage({
+                    id: 'pages.functionsExecutionLogs.detail.emptyPayload',
+                    defaultMessage: '（无）',
+                  })}
             </pre>
           </>
         )}
@@ -281,7 +473,7 @@ function AlertMessage({ message, onRetry }: { message: string; onRetry: () => vo
     <div role="alert">
       <Text type="danger">{message}</Text>
       <Button size="small" icon={<ReloadOutlined />} onClick={onRetry} style={{ marginLeft: 8 }}>
-        重试
+        <FormattedMessage id="pages.functionsExecutionLogs.action.retry" defaultMessage="重试" />
       </Button>
     </div>
   );

@@ -10,7 +10,8 @@ import { localizedText } from '@/utils/localizedText';
  * @module components/PageRenderer/OperationPageRenderer
  */
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
+import { FormattedMessage, useIntl } from '@umijs/max';
 import { App, Card, Button, Modal, Result, Alert, Space, Typography, Descriptions } from 'antd';
 import {
   CheckCircleOutlined,
@@ -57,6 +58,11 @@ const OperationPageRenderer: React.FC<OperationPageRendererProps> = ({
   title,
 }) => {
   const { message } = App.useApp();
+  const intl = useIntl();
+  // useIntl 在测试 mock 下每次渲染返回新引用，直接进 useCallback 依赖会让
+  // 回调链每渲染重建；经 ref 转发后回调依赖稳定，执行时仍读取最新实例
+  const intlRef = useRef(intl);
+  intlRef.current = intl;
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<PageExecutionResult | null>(null);
   const [approvalStatus, setApprovalStatus] = useState<ApprovalStatusResult | null>(null);
@@ -72,11 +78,21 @@ const OperationPageRenderer: React.FC<OperationPageRendererProps> = ({
   const handleSubmit = useCallback(
     async (values: FormValues) => {
       if (!mainBinding) {
-        message.error('未配置操作绑定');
+        message.error(
+          intlRef.current.formatMessage({
+            id: 'component.pageRenderer.operationPage.error.missingBinding',
+            defaultMessage: '未配置操作绑定',
+          }),
+        );
         return;
       }
       if (preview) {
-        message.info('预览模式不执行操作');
+        message.info(
+          intlRef.current.formatMessage({
+            id: 'component.pageRenderer.operationPage.preview.blocked',
+            defaultMessage: '预览模式不执行操作',
+          }),
+        );
         return;
       }
 
@@ -98,22 +114,66 @@ const OperationPageRenderer: React.FC<OperationPageRendererProps> = ({
         setResult(response);
 
         if (response.kind === 'approval') {
-          message.info('操作已提交审批');
+          message.info(
+            intlRef.current.formatMessage({
+              id: 'component.pageRenderer.operationPage.message.submittedApproval',
+              defaultMessage: '操作已提交审批',
+            }),
+          );
         } else if (response.kind === 'task') {
-          message.success('任务已提交');
+          message.success(
+            intlRef.current.formatMessage({
+              id: 'component.pageRenderer.operationPage.message.taskSubmitted',
+              defaultMessage: '任务已提交',
+            }),
+          );
         } else if (spec.resultView?.successMessage) {
-          message.success(localizedText(spec.resultView.successMessage, 'zh-CN', '操作成功'));
+          message.success(
+            localizedText(
+              spec.resultView.successMessage,
+              'zh-CN',
+              intlRef.current.formatMessage({
+                id: 'component.pageRenderer.operationPage.message.success',
+                defaultMessage: '操作成功',
+              }),
+            ),
+          );
         } else {
-          message.success('操作成功');
+          message.success(
+            intlRef.current.formatMessage({
+              id: 'component.pageRenderer.operationPage.message.success',
+              defaultMessage: '操作成功',
+            }),
+          );
         }
       } catch (err) {
-        const msg = err instanceof Error ? err.message : '操作失败';
+        const msg =
+          err instanceof Error
+            ? err.message
+            : intlRef.current.formatMessage({
+                id: 'component.pageRenderer.operationPage.message.failed',
+                defaultMessage: '操作失败',
+              });
         setError(msg);
 
         if (spec.resultView?.errorMessage) {
-          message.error(localizedText(spec.resultView.errorMessage, 'zh-CN', '操作失败'));
+          message.error(
+            localizedText(
+              spec.resultView.errorMessage,
+              'zh-CN',
+              intlRef.current.formatMessage({
+                id: 'component.pageRenderer.operationPage.message.failed',
+                defaultMessage: '操作失败',
+              }),
+            ),
+          );
         } else {
-          message.error('操作失败');
+          message.error(
+            intlRef.current.formatMessage({
+              id: 'component.pageRenderer.operationPage.message.failed',
+              defaultMessage: '操作失败',
+            }),
+          );
         }
       } finally {
         setLoading(false);
@@ -128,7 +188,12 @@ const OperationPageRenderer: React.FC<OperationPageRendererProps> = ({
       return;
     }
     if (preview) {
-      message.info('预览模式不执行操作');
+      message.info(
+        intlRef.current.formatMessage({
+          id: 'component.pageRenderer.operationPage.preview.blocked',
+          defaultMessage: '预览模式不执行操作',
+        }),
+      );
       return;
     }
 
@@ -142,16 +207,42 @@ const OperationPageRenderer: React.FC<OperationPageRendererProps> = ({
       const response = await onExecute(mainBinding.id, { form: pendingValues });
       setResult(response);
       if (response.kind === 'approval') {
-        message.info('操作已提交审批');
+        message.info(
+          intlRef.current.formatMessage({
+            id: 'component.pageRenderer.operationPage.message.submittedApproval',
+            defaultMessage: '操作已提交审批',
+          }),
+        );
       } else if (response.kind === 'task') {
-        message.success('任务已提交');
+        message.success(
+          intlRef.current.formatMessage({
+            id: 'component.pageRenderer.operationPage.message.taskSubmitted',
+            defaultMessage: '任务已提交',
+          }),
+        );
       } else {
-        message.success('操作成功');
+        message.success(
+          intlRef.current.formatMessage({
+            id: 'component.pageRenderer.operationPage.message.success',
+            defaultMessage: '操作成功',
+          }),
+        );
       }
     } catch (err) {
-      const msg = err instanceof Error ? err.message : '操作失败';
+      const msg =
+        err instanceof Error
+          ? err.message
+          : intlRef.current.formatMessage({
+              id: 'component.pageRenderer.operationPage.message.failed',
+              defaultMessage: '操作失败',
+            });
       setError(msg);
-      message.error('操作失败');
+      message.error(
+        intlRef.current.formatMessage({
+          id: 'component.pageRenderer.operationPage.message.failed',
+          defaultMessage: '操作失败',
+        }),
+      );
     } finally {
       setLoading(false);
       setPendingValues(null);
@@ -173,7 +264,13 @@ const OperationPageRenderer: React.FC<OperationPageRendererProps> = ({
     try {
       setApprovalStatus(await onQueryApprovalStatus(approvalId));
     } catch (err) {
-      const msg = err instanceof Error ? err.message : '审批状态查询失败';
+      const msg =
+        err instanceof Error
+          ? err.message
+          : intlRef.current.formatMessage({
+              id: 'component.pageRenderer.operationPage.approval.queryFailed',
+              defaultMessage: '审批状态查询失败',
+            });
       message.error(msg);
     }
   }, [message, onQueryApprovalStatus, result?.approvalId]);
@@ -187,7 +284,10 @@ const OperationPageRenderer: React.FC<OperationPageRendererProps> = ({
         <Alert
           type="info"
           showIcon
-          message="审批已通过，任务已启动"
+          message={intl.formatMessage({
+            id: 'component.pageRenderer.operationPage.approval.taskStarted',
+            defaultMessage: '审批已通过，任务已启动',
+          })}
           description={<Typography.Text code>{approvalStatus.taskId}</Typography.Text>}
         />
       );
@@ -197,7 +297,10 @@ const OperationPageRenderer: React.FC<OperationPageRendererProps> = ({
         <ResultViewRenderer
           data={approvalStatus.result}
           resultView={spec.resultView}
-          emptyTitle="审批后执行结果视图未配置"
+          emptyTitle={intl.formatMessage({
+            id: 'component.pageRenderer.operationPage.approval.resultViewMissing',
+            defaultMessage: '审批后执行结果视图未配置',
+          })}
         />
       );
     }
@@ -207,7 +310,15 @@ const OperationPageRenderer: React.FC<OperationPageRendererProps> = ({
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16, maxWidth: 880 }}>
       {/* 表单 */}
-      <Card title={title || '执行操作'}>
+      <Card
+        title={
+          title ||
+          intl.formatMessage({
+            id: 'component.pageRenderer.operationPage.form.title',
+            defaultMessage: '执行操作',
+          })
+        }
+      >
         <SchemaFormRenderer
           spec={spec.form}
           onFinish={handleSubmit}
@@ -215,7 +326,10 @@ const OperationPageRenderer: React.FC<OperationPageRendererProps> = ({
         />
         {(result || error) && (
           <Button style={{ marginTop: 16 }} onClick={handleReset}>
-            重置结果
+            <FormattedMessage
+              id="component.pageRenderer.operationPage.button.resetResult"
+              defaultMessage="重置结果"
+            />
           </Button>
         )}
       </Card>
@@ -223,15 +337,36 @@ const OperationPageRenderer: React.FC<OperationPageRendererProps> = ({
       {/* 确认对话框 */}
       {requiresConfirm && (
         <Modal
-          title={localizedText(spec.confirm?.title, 'zh-CN', '确认操作')}
+          title={localizedText(
+            spec.confirm?.title,
+            'zh-CN',
+            intl.formatMessage({
+              id: 'component.pageRenderer.operationPage.confirm.title',
+              defaultMessage: '确认操作',
+            }),
+          )}
           open={confirmVisible}
           onOk={handleConfirm}
           onCancel={() => {
             setConfirmVisible(false);
             setPendingValues(null);
           }}
-          okText={localizedText(spec.confirm?.confirmText, 'zh-CN', '确定')}
-          cancelText={localizedText(spec.confirm?.cancelText, 'zh-CN', '取消')}
+          okText={localizedText(
+            spec.confirm?.confirmText,
+            'zh-CN',
+            intl.formatMessage({
+              id: 'component.pageRenderer.operationPage.confirm.ok',
+              defaultMessage: '确定',
+            }),
+          )}
+          cancelText={localizedText(
+            spec.confirm?.cancelText,
+            'zh-CN',
+            intl.formatMessage({
+              id: 'component.pageRenderer.operationPage.confirm.cancel',
+              defaultMessage: '取消',
+            }),
+          )}
           confirmLoading={loading}
         >
           {spec.confirm?.description && (
@@ -255,27 +390,47 @@ const OperationPageRenderer: React.FC<OperationPageRendererProps> = ({
 
       {/* 结果展示 */}
       {(result || error) && (
-        <Card title="执行结果">
+        <Card
+          title={intl.formatMessage({
+            id: 'component.pageRenderer.operationPage.result.title',
+            defaultMessage: '执行结果',
+          })}
+        >
           {error ? (
             <Result
               status="error"
-              title="操作失败"
+              title={intl.formatMessage({
+                id: 'component.pageRenderer.operationPage.message.failed',
+                defaultMessage: '操作失败',
+              })}
               subTitle={error}
               icon={<CloseCircleOutlined />}
             />
           ) : result?.kind === 'approval' ? (
             <Result
               status="info"
-              title="等待审批"
-              subTitle="审批通过后才会继续执行，请在审批中心查看状态。"
+              title={intl.formatMessage({
+                id: 'component.pageRenderer.operationPage.approval.pendingTitle',
+                defaultMessage: '等待审批',
+              })}
+              subTitle={intl.formatMessage({
+                id: 'component.pageRenderer.operationPage.approval.pendingSubtitle',
+                defaultMessage: '审批通过后才会继续执行，请在审批中心查看状态。',
+              })}
               icon={<ClockCircleOutlined />}
               extra={
                 <Space orientation="vertical">
                   <Alert
                     type="info"
                     showIcon
-                    message="操作尚未完成"
-                    description="当前返回的是 approvalId，不代表业务执行成功。"
+                    message={intl.formatMessage({
+                      id: 'component.pageRenderer.operationPage.approval.incompleteTitle',
+                      defaultMessage: '操作尚未完成',
+                    })}
+                    description={intl.formatMessage({
+                      id: 'component.pageRenderer.operationPage.approval.incompleteDescription',
+                      defaultMessage: '当前返回的是 approvalId，不代表业务执行成功。',
+                    })}
                   />
                   <Typography.Text code>{result.approvalId || result.requestId}</Typography.Text>
                   {approvalStatus ? (
@@ -289,14 +444,25 @@ const OperationPageRenderer: React.FC<OperationPageRendererProps> = ({
                               : 'info'
                         }
                         showIcon
-                        message={`审批状态：${approvalStatus.status}`}
+                        message={intl.formatMessage(
+                          {
+                            id: 'component.pageRenderer.operationPage.approval.statusLabel',
+                            defaultMessage: `审批状态：${approvalStatus.status}`,
+                          },
+                          { status: approvalStatus.status },
+                        )}
                         description={approvalStatus.reason || approvalStatus.updatedAt || undefined}
                       />
                       {renderApprovedContinuation()}
                     </>
                   ) : null}
                   {result.approvalId && onQueryApprovalStatus ? (
-                    <Button onClick={refreshApproval}>刷新审批状态</Button>
+                    <Button onClick={refreshApproval}>
+                      <FormattedMessage
+                        id="component.pageRenderer.operationPage.button.refreshApproval"
+                        defaultMessage="刷新审批状态"
+                      />
+                    </Button>
                   ) : null}
                 </Space>
               }
@@ -304,21 +470,33 @@ const OperationPageRenderer: React.FC<OperationPageRendererProps> = ({
           ) : result?.kind === 'task' ? (
             <Result
               status="info"
-              title="任务已提交"
-              subTitle="异步任务仍在执行，请在任务中心或任务页面查看进度。"
+              title={intl.formatMessage({
+                id: 'component.pageRenderer.operationPage.message.taskSubmitted',
+                defaultMessage: '任务已提交',
+              })}
+              subTitle={intl.formatMessage({
+                id: 'component.pageRenderer.operationPage.task.runningSubtitle',
+                defaultMessage: '异步任务仍在执行，请在任务中心或任务页面查看进度。',
+              })}
               icon={<SyncOutlined spin />}
               extra={<Typography.Text code>{result.taskId || result.requestId}</Typography.Text>}
             />
           ) : (
             <Result
               status="success"
-              title="操作成功"
+              title={intl.formatMessage({
+                id: 'component.pageRenderer.operationPage.message.success',
+                defaultMessage: '操作成功',
+              })}
               icon={<CheckCircleOutlined />}
               extra={
                 <ResultViewRenderer
                   data={result?.data}
                   resultView={spec.resultView}
-                  emptyTitle="操作结果视图未配置"
+                  emptyTitle={intl.formatMessage({
+                    id: 'component.pageRenderer.operationPage.result.viewMissing',
+                    defaultMessage: '操作结果视图未配置',
+                  })}
                 />
               }
             />

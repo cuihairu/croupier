@@ -1,5 +1,5 @@
 import { PageContainer } from '@ant-design/pro-components';
-import { history } from '@umijs/max';
+import { FormattedMessage, history, useIntl } from '@umijs/max';
 import {
   AppstoreOutlined,
   ArrowRightOutlined,
@@ -66,23 +66,51 @@ function EntryCard({ title, description, hint, icon, actionLabel, path, tone }: 
 
 const Welcome: React.FC = () => {
   const { token } = theme.useToken();
+  const intl = useIntl();
   const journey = [
     {
-      title: '能力确认',
-      description: '先在函数目录确认 descriptor、schema 和实例质量，确保供给可靠。',
-      actionLabel: '查看函数目录',
+      title: intl.formatMessage({
+        id: 'pages.welcome.journey.capabilityConfirm.title',
+        defaultMessage: '能力确认',
+      }),
+      description: intl.formatMessage({
+        id: 'pages.welcome.journey.capabilityConfirm.description',
+        defaultMessage: '先在函数目录确认 descriptor、schema 和实例质量，确保供给可靠。',
+      }),
+      actionLabel: intl.formatMessage({
+        id: 'pages.welcome.journey.capabilityConfirm.action',
+        defaultMessage: '查看函数目录',
+      }),
       path: '/functions/catalog',
     },
     {
-      title: '页面装配',
-      description: '在资源/页面候选中确认 PageSpec 生成质量，再进入 Page Studio 修改与发布。',
-      actionLabel: '查看资源/页面候选',
+      title: intl.formatMessage({
+        id: 'pages.welcome.journey.pageAssembly.title',
+        defaultMessage: '页面装配',
+      }),
+      description: intl.formatMessage({
+        id: 'pages.welcome.journey.pageAssembly.description',
+        defaultMessage: '在资源/页面候选中确认 PageSpec 生成质量，再进入 Page Studio 修改与发布。',
+      }),
+      actionLabel: intl.formatMessage({
+        id: 'pages.welcome.journey.pageAssembly.action',
+        defaultMessage: '查看资源/页面候选',
+      }),
       path: '/functions/resource-catalog',
     },
     {
-      title: '运行验证',
-      description: '在控制台检查发布结果、入口可见性与页面可读性，确认是否达到交付标准。',
-      actionLabel: '打开运行控制台',
+      title: intl.formatMessage({
+        id: 'pages.welcome.journey.runVerification.title',
+        defaultMessage: '运行验证',
+      }),
+      description: intl.formatMessage({
+        id: 'pages.welcome.journey.runVerification.description',
+        defaultMessage: '在控制台检查发布结果、入口可见性与页面可读性，确认是否达到交付标准。',
+      }),
+      actionLabel: intl.formatMessage({
+        id: 'pages.welcome.journey.runVerification.action',
+        defaultMessage: '打开运行控制台',
+      }),
       path: '/console/home',
     },
   ];
@@ -106,19 +134,39 @@ const Welcome: React.FC = () => {
             <Col xs={24} xl={16}>
               <Space orientation="vertical" size={18} style={{ width: '100%' }}>
                 <Space wrap>
-                  <Tag color="blue">能力供给</Tag>
-                  <Tag color="cyan">页面装配</Tag>
-                  <Tag color="gold">运行交付</Tag>
+                  <Tag color="blue">
+                    <FormattedMessage
+                      id="pages.welcome.hero.tag.capabilitySupply"
+                      defaultMessage="能力供给"
+                    />
+                  </Tag>
+                  <Tag color="cyan">
+                    <FormattedMessage
+                      id="pages.welcome.hero.tag.pageAssembly"
+                      defaultMessage="页面装配"
+                    />
+                  </Tag>
+                  <Tag color="gold">
+                    <FormattedMessage
+                      id="pages.welcome.hero.tag.runDelivery"
+                      defaultMessage="运行交付"
+                    />
+                  </Tag>
                 </Space>
                 <Typography.Title level={2} style={{ margin: 0, maxWidth: 820 }}>
-                  Croupier 把函数能力收敛成可发布、可治理、可运行的业务工作台。
+                  <FormattedMessage
+                    id="pages.welcome.hero.title"
+                    defaultMessage="Croupier 把函数能力收敛成可发布、可治理、可运行的业务工作台。"
+                  />
                 </Typography.Title>
                 <Typography.Paragraph
                   type="secondary"
                   style={{ margin: 0, fontSize: 16, lineHeight: 1.8, maxWidth: 860 }}
                 >
-                  函数目录负责沉淀原子能力，资源/页面候选负责暴露可编排能力，Page Studio
-                  负责最终页面，控制台负责把已发布页面交付给运营和管理用户。
+                  <FormattedMessage
+                    id="pages.welcome.hero.description"
+                    defaultMessage="函数目录负责沉淀原子能力，资源/页面候选负责暴露可编排能力，Page Studio 负责最终页面，控制台负责把已发布页面交付给运营和管理用户。"
+                  />
                 </Typography.Paragraph>
                 <Space wrap size={[12, 12]}>
                   <Button
@@ -127,21 +175,30 @@ const Welcome: React.FC = () => {
                     size="large"
                     onClick={() => history.push('/functions/resource-catalog')}
                   >
-                    查看资源/页面候选
+                    <FormattedMessage
+                      id="pages.welcome.hero.action.resourceCatalog"
+                      defaultMessage="查看资源/页面候选"
+                    />
                   </Button>
                   <Button
                     size="large"
                     icon={<DesktopOutlined />}
                     onClick={() => history.push('/console/home')}
                   >
-                    查看运行控制台
+                    <FormattedMessage
+                      id="pages.welcome.hero.action.console"
+                      defaultMessage="查看运行控制台"
+                    />
                   </Button>
                   <Button
                     size="large"
                     icon={<FunctionOutlined />}
                     onClick={() => history.push('/functions/catalog')}
                   >
-                    浏览函数目录
+                    <FormattedMessage
+                      id="pages.welcome.hero.action.functionCatalog"
+                      defaultMessage="浏览函数目录"
+                    />
                   </Button>
                 </Space>
               </Space>
@@ -152,19 +209,45 @@ const Welcome: React.FC = () => {
                 style={{ background: 'rgba(255,255,255,0.65)', borderColor: token.colorBorder }}
               >
                 <Space orientation="vertical" size={10} style={{ width: '100%' }}>
-                  <Typography.Text strong>当前产品重心</Typography.Text>
+                  <Typography.Text strong>
+                    <FormattedMessage
+                      id="pages.welcome.hero.focus.title"
+                      defaultMessage="当前产品重心"
+                    />
+                  </Typography.Text>
                   <Space wrap size={[8, 8]}>
-                    <Tag color="processing">正式能力：tabs + list/form/detail/form-detail</Tag>
-                    <Tag color="default">Beta / 实验能力不占主路径</Tag>
+                    <Tag color="processing">
+                      <FormattedMessage
+                        id="pages.welcome.hero.focus.tag.gaCapability"
+                        defaultMessage="正式能力：tabs + list/form/detail/form-detail"
+                      />
+                    </Tag>
+                    <Tag color="default">
+                      <FormattedMessage
+                        id="pages.welcome.hero.focus.tag.beta"
+                        defaultMessage="Beta / 实验能力不占主路径"
+                      />
+                    </Tag>
                   </Space>
                   <Typography.Text type="secondary">
-                    当前重点是把“函数确认、页面装配、发布验证”这条主链路打磨到上线标准，而不是继续堆更多布局类型。
+                    <FormattedMessage
+                      id="pages.welcome.hero.focus.description"
+                      defaultMessage="当前重点是把“函数确认、页面装配、发布验证”这条主链路打磨到上线标准，而不是继续堆更多布局类型。"
+                    />
                   </Typography.Text>
                   <Space wrap size={[8, 8]}>
                     <Tag icon={<CheckCircleOutlined />} color="success">
-                      主路径已成型
+                      <FormattedMessage
+                        id="pages.welcome.hero.focus.tag.mainPathReady"
+                        defaultMessage="主路径已成型"
+                      />
                     </Tag>
-                    <Tag color="orange">正在继续提升产品表达与可交付感</Tag>
+                    <Tag color="orange">
+                      <FormattedMessage
+                        id="pages.welcome.hero.focus.tag.improving"
+                        defaultMessage="正在继续提升产品表达与可交付感"
+                      />
+                    </Tag>
                   </Space>
                 </Space>
               </Card>
@@ -188,9 +271,19 @@ const Welcome: React.FC = () => {
                 <Space orientation="vertical" size={10} style={{ width: '100%' }}>
                   <Space wrap size={[8, 8]}>
                     <Tag color={index === 0 ? 'green' : index === 1 ? 'blue' : 'gold'}>
-                      {`步骤 ${index + 1}`}
+                      {intl.formatMessage(
+                        { id: 'pages.welcome.journey.step', defaultMessage: '步骤 {step}' },
+                        { step: index + 1 },
+                      )}
                     </Tag>
-                    {index === 1 ? <Tag color="processing">当前核心入口</Tag> : null}
+                    {index === 1 ? (
+                      <Tag color="processing">
+                        <FormattedMessage
+                          id="pages.welcome.journey.coreEntryTag"
+                          defaultMessage="当前核心入口"
+                        />
+                      </Tag>
+                    ) : null}
                   </Space>
                   <Typography.Title level={5} style={{ margin: 0 }}>
                     {step.title}
@@ -211,10 +304,23 @@ const Welcome: React.FC = () => {
         <Row gutter={[16, 16]}>
           <Col xs={24} md={8}>
             <EntryCard
-              title="资源/操作"
-              hint="Page Studio 页面装配"
-              description="从资源/操作候选进入 Page Studio，创建页面骨架、绑定函数、校验映射并发布到运行控制台。"
-              actionLabel="查看页面候选"
+              title={intl.formatMessage({
+                id: 'pages.welcome.entry.resources.title',
+                defaultMessage: '资源/操作',
+              })}
+              hint={intl.formatMessage({
+                id: 'pages.welcome.entry.resources.hint',
+                defaultMessage: 'Page Studio 页面装配',
+              })}
+              description={intl.formatMessage({
+                id: 'pages.welcome.entry.resources.description',
+                defaultMessage:
+                  '从资源/操作候选进入 Page Studio，创建页面骨架、绑定函数、校验映射并发布到运行控制台。',
+              })}
+              actionLabel={intl.formatMessage({
+                id: 'pages.welcome.entry.resources.action',
+                defaultMessage: '查看页面候选',
+              })}
               path="/functions/resource-catalog"
               icon={<SettingOutlined />}
               tone="linear-gradient(135deg, #1668dc 0%, #69b1ff 100%)"
@@ -222,10 +328,23 @@ const Welcome: React.FC = () => {
           </Col>
           <Col xs={24} md={8}>
             <EntryCard
-              title="函数目录"
-              hint="管理原子能力"
-              description="查看 descriptor、参数 schema、实例和告警。这里负责能力供给，不负责最终页面装配。"
-              actionLabel="浏览函数能力"
+              title={intl.formatMessage({
+                id: 'pages.welcome.entry.functions.title',
+                defaultMessage: '函数目录',
+              })}
+              hint={intl.formatMessage({
+                id: 'pages.welcome.entry.functions.hint',
+                defaultMessage: '管理原子能力',
+              })}
+              description={intl.formatMessage({
+                id: 'pages.welcome.entry.functions.description',
+                defaultMessage:
+                  '查看 descriptor、参数 schema、实例和告警。这里负责能力供给，不负责最终页面装配。',
+              })}
+              actionLabel={intl.formatMessage({
+                id: 'pages.welcome.entry.functions.action',
+                defaultMessage: '浏览函数能力',
+              })}
               path="/functions/catalog"
               icon={<FunctionOutlined />}
               tone="linear-gradient(135deg, #0f766e 0%, #34d399 100%)"
@@ -233,10 +352,23 @@ const Welcome: React.FC = () => {
           </Col>
           <Col xs={24} md={8}>
             <EntryCard
-              title="运行控制台"
-              hint="验证发布结果"
-              description="查看已经发布的 PageSpec，确认运营入口、页面可读性和运行态反馈是否已经达到可交付标准。"
-              actionLabel="进入运行入口"
+              title={intl.formatMessage({
+                id: 'pages.welcome.entry.console.title',
+                defaultMessage: '运行控制台',
+              })}
+              hint={intl.formatMessage({
+                id: 'pages.welcome.entry.console.hint',
+                defaultMessage: '验证发布结果',
+              })}
+              description={intl.formatMessage({
+                id: 'pages.welcome.entry.console.description',
+                defaultMessage:
+                  '查看已经发布的 PageSpec，确认运营入口、页面可读性和运行态反馈是否已经达到可交付标准。',
+              })}
+              actionLabel={intl.formatMessage({
+                id: 'pages.welcome.entry.console.action',
+                defaultMessage: '进入运行入口',
+              })}
               path="/console/home"
               icon={<AppstoreOutlined />}
               tone="linear-gradient(135deg, #ad6800 0%, #ffd666 100%)"

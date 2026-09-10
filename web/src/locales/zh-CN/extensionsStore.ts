@@ -1,0 +1,31 @@
+// pages.extensionsStore.* — Extensions/Store
+export default {
+  'pages.extensionsStore.action.alreadyInstalled': '已安装',
+  'pages.extensionsStore.action.detail': '详情',
+  'pages.extensionsStore.action.install': '安装',
+  'pages.extensionsStore.column.actions': '操作',
+  'pages.extensionsStore.column.extension': '扩展',
+  'pages.extensionsStore.column.installed': '已安装',
+  'pages.extensionsStore.column.installedNo': '否',
+  'pages.extensionsStore.column.installedYes': '是',
+  'pages.extensionsStore.column.kind': '类型',
+  'pages.extensionsStore.column.status': '状态',
+  'pages.extensionsStore.column.tagDefaultInstall': '默认安装',
+  'pages.extensionsStore.column.tags': '标签',
+  'pages.extensionsStore.column.version': '版本',
+  'pages.extensionsStore.filter.keywordPlaceholder': '关键字',
+  'pages.extensionsStore.filter.kindPlaceholder': '类型',
+  'pages.extensionsStore.filter.reset': '重置',
+  'pages.extensionsStore.filter.search': '查询',
+  'pages.extensionsStore.filter.statusPlaceholder': '状态',
+  'pages.extensionsStore.install.configJsonInvalid': '配置 JSON 格式不正确',
+  'pages.extensionsStore.install.error.alreadyInstalled':
+    '该扩展已安装（实例 {installationId}）。范围 {scopeType}:{scopeId}，目标 {targetType}:{targetId}，版本 {releaseVersion}',
+  'pages.extensionsStore.install.error.dependencyCycle': '检测到循环依赖：{dependency}',
+  'pages.extensionsStore.install.error.missingDependency': '缺少依赖扩展：{dependency}',
+  'pages.extensionsStore.install.error.versionMismatch':
+    '依赖版本不匹配：{dependency}，要求 {requiredVersion}，当前 {currentVersion}',
+  'pages.extensionsStore.install.submitted': '已提交安装：{name}',
+  'pages.extensionsStore.page.subTitle': '浏览和安装可用扩展',
+  'pages.extensionsStore.page.title': '扩展商店',
+};

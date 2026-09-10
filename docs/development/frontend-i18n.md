@@ -15,12 +15,16 @@ title: 前端 i18n 规范
 
 命名空间用点分隔的 camelCase 段，镜像模块路径，语义命名（描述含义而非文案）：
 
-| 场景     | 模式                                    | 示例                                        |
-| -------- | --------------------------------------- | ------------------------------------------- |
-| 页面     | `pages.<module>[.<subPage>].<语义路径>` | `pages.opsJobs.column.status`               |
-| 页面子件 | `pages.<module>.<subPage>.<语义路径>`   | `pages.ticketsDetail.comment.submit`        |
-| 公共组件 | `component.<component>.<语义路径>`      | `component.resourceRenderer.column.actions` |
-| 模板继承 | antd-pro 既有键（`pages.login.*` 等）   | 直接复用，禁止重复定义                      |
+| 场景          | 模式                                    | 示例                                        |
+| ------------- | --------------------------------------- | ------------------------------------------- |
+| 页面          | `pages.<module>[.<subPage>].<语义路径>` | `pages.opsJobs.column.status`               |
+| 页面子件      | `pages.<module>.<subPage>.<语义路径>`   | `pages.ticketsDetail.comment.submit`        |
+| 公共组件      | `component.<component>.<语义路径>`      | `component.resourceRenderer.column.actions` |
+| services 层   | `services.<module>.<语义路径>`          | `services.bugs.statusLabel.open`            |
+| 全局配置/拦截 | `app.<module>.<语义路径>`               | `app.request.error.network`                 |
+| 模板继承      | antd-pro 既有键（`pages.login.*` 等）   | 直接复用，禁止重复定义                      |
+
+> services 层（如 `services/api/bugs.ts` 的状态标签 Map）只迁移**展示 value**（label 文案）；Map 的 key 是枚举契约不动。新增层模式按 `<layer>.<module>.*` 同规则扩展，locale 文件命名对应（`services.ts` / `app.ts`）。
 
 规则：
 

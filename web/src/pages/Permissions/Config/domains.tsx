@@ -3,7 +3,9 @@ import { SecurityScanOutlined, SettingOutlined } from '@ant-design/icons';
 
 export interface PermissionDomain {
   domain: string;
-  description: string;
+  /** 描述文案经 intl 解析（descriptionId/descriptionDefault，domain 为契约枚举） */
+  descriptionId: string;
+  descriptionDefault: string;
   permissions: string[];
   color: string;
   icon: React.ReactNode;
@@ -13,7 +15,8 @@ export interface PermissionDomain {
 export const permissionDomains: PermissionDomain[] = [
   {
     domain: 'system',
-    description: '系统级操作权限',
+    descriptionId: 'pages.permissionsConfig.domain.system',
+    descriptionDefault: '系统级操作权限',
     permissions: [
       'system:config',
       'system:restart',
@@ -27,7 +30,8 @@ export const permissionDomains: PermissionDomain[] = [
   },
   {
     domain: 'user',
-    description: '用户管理权限',
+    descriptionId: 'pages.permissionsConfig.domain.user',
+    descriptionDefault: '用户管理权限',
     permissions: [
       'user:create',
       'user:update',
@@ -41,7 +45,8 @@ export const permissionDomains: PermissionDomain[] = [
   },
   {
     domain: 'game',
-    description: '游戏配置管理权限',
+    descriptionId: 'pages.permissionsConfig.domain.game',
+    descriptionDefault: '游戏配置管理权限',
     permissions: [
       'game:config',
       'game:deploy',
@@ -55,7 +60,8 @@ export const permissionDomains: PermissionDomain[] = [
   },
   {
     domain: 'player',
-    description: '玩家管理权限',
+    descriptionId: 'pages.permissionsConfig.domain.player',
+    descriptionDefault: '玩家管理权限',
     permissions: [
       'player:query',
       'player:update',
@@ -75,7 +81,8 @@ export const permissionDomains: PermissionDomain[] = [
   },
   {
     domain: 'function',
-    description: '函数管理权限',
+    descriptionId: 'pages.permissionsConfig.domain.function',
+    descriptionDefault: '函数管理权限',
     permissions: [
       'function:register',
       'function:update',
@@ -88,14 +95,16 @@ export const permissionDomains: PermissionDomain[] = [
   },
   {
     domain: 'job',
-    description: '任务管理权限',
+    descriptionId: 'pages.permissionsConfig.domain.job',
+    descriptionDefault: '任务管理权限',
     permissions: ['job:create', 'job:view', 'job:cancel', 'job:retry', 'job:create:readonly'],
     color: '#13c2c2',
     icon: <SettingOutlined />,
   },
   {
     domain: 'audit',
-    description: '审计查看权限',
+    descriptionId: 'pages.permissionsConfig.domain.audit',
+    descriptionDefault: '审计查看权限',
     permissions: [
       'audit:view',
       'audit:export',
@@ -111,14 +120,16 @@ export const permissionDomains: PermissionDomain[] = [
   },
   {
     domain: 'monitor',
-    description: '监控数据权限',
+    descriptionId: 'pages.permissionsConfig.domain.monitor',
+    descriptionDefault: '监控数据权限',
     permissions: ['monitor:view', 'monitor:alert', 'monitor:bot', 'monitor:security'],
     color: '#722ed1',
     icon: <SettingOutlined />,
   },
   {
     domain: 'data',
-    description: '数据分析权限',
+    descriptionId: 'pages.permissionsConfig.domain.data',
+    descriptionDefault: '数据分析权限',
     permissions: [
       'data:query',
       'data:export',
@@ -137,7 +148,8 @@ export const permissionDomains: PermissionDomain[] = [
   },
   {
     domain: 'design',
-    description: '游戏设计/策划权限',
+    descriptionId: 'pages.permissionsConfig.domain.design',
+    descriptionDefault: '游戏设计/策划权限',
     permissions: [
       'design:level',
       'design:system',
@@ -152,21 +164,24 @@ export const permissionDomains: PermissionDomain[] = [
   },
   {
     domain: 'numerical',
-    description: '数值配置权限',
+    descriptionId: 'pages.permissionsConfig.domain.numerical',
+    descriptionDefault: '数值配置权限',
     permissions: ['numerical:balance', 'numerical:economy'],
     color: '#ff85c0',
     icon: <SettingOutlined />,
   },
   {
     domain: 'level',
-    description: '关卡管理权限',
+    descriptionId: 'pages.permissionsConfig.domain.level',
+    descriptionDefault: '关卡管理权限',
     permissions: ['level:create', 'level:edit', 'level:publish'],
     color: '#b37feb',
     icon: <SettingOutlined />,
   },
   {
     domain: 'content',
-    description: '内容管理权限',
+    descriptionId: 'pages.permissionsConfig.domain.content',
+    descriptionDefault: '内容管理权限',
     permissions: [
       'content:create',
       'content:edit',
@@ -183,21 +198,24 @@ export const permissionDomains: PermissionDomain[] = [
   },
   {
     domain: 'marketing',
-    description: '市场营销权限',
+    descriptionId: 'pages.permissionsConfig.domain.marketing',
+    descriptionDefault: '市场营销权限',
     permissions: ['marketing:campaign', 'marketing:analytics'],
     color: '#73d13d',
     icon: <SettingOutlined />,
   },
   {
     domain: 'community',
-    description: '社区管理权限',
+    descriptionId: 'pages.permissionsConfig.domain.community',
+    descriptionDefault: '社区管理权限',
     permissions: ['community:moderate', 'community:event'],
     color: '#95de64',
     icon: <SettingOutlined />,
   },
   {
     domain: 'event',
-    description: '活动管理权限',
+    descriptionId: 'pages.permissionsConfig.domain.event',
+    descriptionDefault: '活动管理权限',
     permissions: [
       'event:create',
       'event:config',
@@ -213,7 +231,8 @@ export const permissionDomains: PermissionDomain[] = [
   },
   {
     domain: 'announcement',
-    description: '公告系统权限',
+    descriptionId: 'pages.permissionsConfig.domain.announcement',
+    descriptionDefault: '公告系统权限',
     permissions: [
       'announcement:create',
       'announcement:publish',
@@ -226,7 +245,8 @@ export const permissionDomains: PermissionDomain[] = [
   },
   {
     domain: 'mail',
-    description: '邮件系统权限',
+    descriptionId: 'pages.permissionsConfig.domain.mail',
+    descriptionDefault: '邮件系统权限',
     permissions: [
       'mail:send',
       'mail:template',
@@ -239,14 +259,16 @@ export const permissionDomains: PermissionDomain[] = [
   },
   {
     domain: 'ban',
-    description: '封禁管理权限',
+    descriptionId: 'pages.permissionsConfig.domain.ban',
+    descriptionDefault: '封禁管理权限',
     permissions: ['ban:player', 'ban:temporary', 'ban:permanent'],
     color: '#ffc069',
     icon: <SecurityScanOutlined />,
   },
   {
     domain: 'reward',
-    description: '奖励发放权限',
+    descriptionId: 'pages.permissionsConfig.domain.reward',
+    descriptionDefault: '奖励发放权限',
     permissions: [
       'reward:send',
       'reward:config',
@@ -258,35 +280,40 @@ export const permissionDomains: PermissionDomain[] = [
   },
   {
     domain: 'gm',
-    description: 'GM工具权限',
+    descriptionId: 'pages.permissionsConfig.domain.gm',
+    descriptionDefault: 'GM工具权限',
     permissions: ['gm:teleport', 'gm:spawn', 'gm:modify'],
     color: '#fff566',
     icon: <SecurityScanOutlined />,
   },
   {
     domain: 'bot',
-    description: '机器人/托管理权限',
+    descriptionId: 'pages.permissionsConfig.domain.bot',
+    descriptionDefault: '机器人/托管理权限',
     permissions: ['bot:create', 'bot:config', 'bot:control'],
     color: '#d3adf7',
     icon: <SettingOutlined />,
   },
   {
     domain: 'security',
-    description: '安全管理权限',
+    descriptionId: 'pages.permissionsConfig.domain.security',
+    descriptionDefault: '安全管理权限',
     permissions: ['security:monitor', 'security:investigate'],
     color: '#efdbff',
     icon: <SecurityScanOutlined />,
   },
   {
     domain: 'economy',
-    description: '游戏经济系统权限',
+    descriptionId: 'pages.permissionsConfig.domain.economy',
+    descriptionDefault: '游戏经济系统权限',
     permissions: ['economy:balance', 'economy:report', 'economy:analyze'],
     color: '#f9f0ff',
     icon: <SettingOutlined />,
   },
   {
     domain: 'support',
-    description: '客服功能权限',
+    descriptionId: 'pages.permissionsConfig.domain.support',
+    descriptionDefault: '客服功能权限',
     permissions: ['support:ticket', 'support:chat'],
     color: '#ff7875',
     icon: <SecurityScanOutlined />,

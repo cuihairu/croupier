@@ -1,5 +1,6 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { App, Button, Card, Form, Input, InputNumber, Space, Switch, Tag, Typography } from 'antd';
+import { FormattedMessage, useIntl } from '@umijs/max';
 import {
   clearSiteSetting,
   fetchNotificationSettings,
@@ -10,27 +11,59 @@ import { extractErrorMessage } from '@/utils/errors';
 
 const { Text } = Typography;
 
+/** 展示文案经 intl 解析（key 是 L3 设置键，行为契约不迁移） */
+type FieldMsg = { id: string; defaultMessage: string };
+
 type FieldDef = {
   key: string;
-  label: string;
-  placeholder: string;
-  help?: string;
+  label: FieldMsg;
+  placeholder?: string;
+  placeholderMsg?: FieldMsg;
+  help?: FieldMsg;
   secret?: boolean;
 };
 
 const SMTP_FIELDS: FieldDef[] = [
-  { key: 'notification.smtpHost', label: 'SMTP 服务器', placeholder: 'smtp.example.com' },
-  { key: 'notification.smtpPort', label: 'SMTP 端口', placeholder: '465', kind: 'int' },
-  { key: 'notification.smtpUser', label: 'SMTP 用户名', placeholder: 'noreply@example.com' },
+  {
+    key: 'notification.smtpHost',
+    label: {
+      id: 'pages.systemSiteSettings.notification.field.smtpHostLabel',
+      defaultMessage: 'SMTP 服务器',
+    },
+    placeholder: 'smtp.example.com',
+  },
+  {
+    key: 'notification.smtpPort',
+    label: {
+      id: 'pages.systemSiteSettings.notification.field.smtpPortLabel',
+      defaultMessage: 'SMTP 端口',
+    },
+    placeholder: '465',
+    kind: 'int',
+  },
+  {
+    key: 'notification.smtpUser',
+    label: {
+      id: 'pages.systemSiteSettings.notification.field.smtpUserLabel',
+      defaultMessage: 'SMTP 用户名',
+    },
+    placeholder: 'noreply@example.com',
+  },
   {
     key: 'notification.smtpPassword',
-    label: 'SMTP 密码',
+    label: {
+      id: 'pages.systemSiteSettings.notification.field.smtpPasswordLabel',
+      defaultMessage: 'SMTP 密码',
+    },
     placeholder: '••••••••',
     secret: true,
   },
   {
     key: 'notification.smtpFrom',
-    label: '发件人地址',
+    label: {
+      id: 'pages.systemSiteSettings.notification.field.fromAddressLabel',
+      defaultMessage: '发件人地址',
+    },
     placeholder: 'Croupier <noreply@example.com>',
   },
 ] as FieldDef[];
@@ -38,61 +71,111 @@ const SMTP_FIELDS: FieldDef[] = [
 const DINGTALK_FIELDS: FieldDef[] = [
   {
     key: 'notification.dingtalkUrl',
-    label: '群机器人 Webhook',
+    label: {
+      id: 'pages.systemSiteSettings.notification.field.groupWebhookLabel',
+      defaultMessage: '群机器人 Webhook',
+    },
     placeholder: 'https://oapi.dingtalk.com/robot/send?access_token=…',
-    help: '钉钉群 → 群设置 → 机器人 → 添加"自定义"机器人',
+    help: {
+      id: 'pages.systemSiteSettings.notification.field.dingtalkUrlHelp',
+      defaultMessage: '钉钉群 → 群设置 → 机器人 → 添加"自定义"机器人',
+    },
   },
   {
     key: 'notification.dingtalkSecret',
-    label: '加签密钥（SEC…）',
+    label: {
+      id: 'pages.systemSiteSettings.notification.field.dingtalkSecretLabel',
+      defaultMessage: '加签密钥（SEC…）',
+    },
     placeholder: 'SEC…',
     secret: true,
-    help: '机器人安全设置选择"加签"时必填',
+    help: {
+      id: 'pages.systemSiteSettings.notification.field.dingtalkSecretHelp',
+      defaultMessage: '机器人安全设置选择"加签"时必填',
+    },
   },
 ];
 
 const WECOM_FIELDS: FieldDef[] = [
   {
     key: 'notification.wecomUrl',
-    label: '群机器人 Webhook',
+    label: {
+      id: 'pages.systemSiteSettings.notification.field.groupWebhookLabel',
+      defaultMessage: '群机器人 Webhook',
+    },
     placeholder: 'https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=…',
-    help: '企业微信群 → 群设置 → 群机器人 → 添加机器人（key 由 URL 携带，无加签）',
+    help: {
+      id: 'pages.systemSiteSettings.notification.field.wecomUrlHelp',
+      defaultMessage: '企业微信群 → 群设置 → 群机器人 → 添加机器人（key 由 URL 携带，无加签）',
+    },
   },
 ];
 
 const FEISHU_FIELDS: FieldDef[] = [
   {
     key: 'notification.feishuUrl',
-    label: '群机器人 Webhook',
+    label: {
+      id: 'pages.systemSiteSettings.notification.field.groupWebhookLabel',
+      defaultMessage: '群机器人 Webhook',
+    },
     placeholder: 'https://open.feishu.cn/open-apis/bot/v2/hook/…',
-    help: '飞书群 → 设置 → 群机器人 → 添加"自定义机器人"',
+    help: {
+      id: 'pages.systemSiteSettings.notification.field.feishuUrlHelp',
+      defaultMessage: '飞书群 → 设置 → 群机器人 → 添加"自定义机器人"',
+    },
   },
   {
     key: 'notification.feishuSecret',
-    label: '加签密钥',
-    placeholder: '签名校验密钥',
+    label: {
+      id: 'pages.systemSiteSettings.notification.field.feishuSecretLabel',
+      defaultMessage: '加签密钥',
+    },
+    placeholderMsg: {
+      id: 'pages.systemSiteSettings.notification.field.feishuSecretPlaceholder',
+      defaultMessage: '签名校验密钥',
+    },
     secret: true,
-    help: '机器人安全设置开启"签名校验"时必填',
+    help: {
+      id: 'pages.systemSiteSettings.notification.field.feishuSecretHelp',
+      defaultMessage: '机器人安全设置开启"签名校验"时必填',
+    },
   },
 ];
 
 const WEBHOOK_FIELDS: FieldDef[] = [
   {
     key: 'notification.webhookUrl',
-    label: 'Webhook 地址',
+    label: {
+      id: 'pages.systemSiteSettings.notification.field.webhookUrlLabel',
+      defaultMessage: 'Webhook 地址',
+    },
     placeholder: 'https://your-receiver.example.com/hook',
   },
   {
     key: 'notification.webhookSecret',
-    label: '签名密钥',
-    placeholder: 'HMAC-SHA256 密钥',
+    label: {
+      id: 'pages.systemSiteSettings.notification.field.webhookSecretLabel',
+      defaultMessage: '签名密钥',
+    },
+    placeholderMsg: {
+      id: 'pages.systemSiteSettings.notification.field.webhookSecretPlaceholder',
+      defaultMessage: 'HMAC-SHA256 密钥',
+    },
     secret: true,
-    help: '请求头 X-Croupier-Signature: sha256=…（对 body 的 HMAC）',
+    help: {
+      id: 'pages.systemSiteSettings.notification.field.webhookSecretHelp',
+      defaultMessage: '请求头 X-Croupier-Signature: sha256=…（对 body 的 HMAC）',
+    },
   },
 ];
 
 export default function NotificationTab() {
   const { message } = App.useApp();
+  const intl = useIntl();
+  // useIntl 在测试 mock 下每次渲染返回新引用，直接进 useCallback 依赖会让请求
+  // effect 无限重建；经 ref 转发后回调依赖稳定，执行时仍读取最新实例
+  const intlRef = useRef(intl);
+  intlRef.current = intl;
   const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
   const [savingKey, setSavingKey] = useState<string | null>(null);
@@ -117,7 +200,15 @@ export default function NotificationTab() {
         'notification.feishuSecret': undefined,
       });
     } catch (error) {
-      message.error(extractErrorMessage(error, '加载通知配置失败'));
+      message.error(
+        extractErrorMessage(
+          error,
+          intlRef.current.formatMessage({
+            id: 'pages.systemSiteSettings.notification.error.loadFailed',
+            defaultMessage: '加载通知配置失败',
+          }),
+        ),
+      );
     } finally {
       setLoading(false);
     }
@@ -138,10 +229,23 @@ export default function NotificationTab() {
       } else {
         await setSiteSetting(key, trimmed);
       }
-      message.success('已保存');
+      message.success(
+        intl.formatMessage({
+          id: 'pages.systemSiteSettings.notification.saved',
+          defaultMessage: '已保存',
+        }),
+      );
       load();
     } catch (error) {
-      message.error(extractErrorMessage(error, '保存失败'));
+      message.error(
+        extractErrorMessage(
+          error,
+          intl.formatMessage({
+            id: 'pages.systemSiteSettings.notification.error.saveFailed',
+            defaultMessage: '保存失败',
+          }),
+        ),
+      );
     } finally {
       setSavingKey(null);
     }
@@ -151,24 +255,54 @@ export default function NotificationTab() {
     setSavingKey(key);
     try {
       await setSiteSetting(key, next);
-      message.success(next ? '已开启' : '已关闭');
+      message.success(
+        intl.formatMessage({
+          id: next
+            ? 'pages.systemSiteSettings.notification.toggle.on'
+            : 'pages.systemSiteSettings.notification.toggle.off',
+          defaultMessage: next ? '已开启' : '已关闭',
+        }),
+      );
       load();
     } catch (error) {
-      message.error(extractErrorMessage(error, '操作失败'));
+      message.error(
+        extractErrorMessage(
+          error,
+          intl.formatMessage({
+            id: 'pages.systemSiteSettings.notification.error.operationFailed',
+            defaultMessage: '操作失败',
+          }),
+        ),
+      );
     } finally {
       setSavingKey(null);
     }
   };
 
   const secretState = (set: boolean, masked?: string) =>
-    set ? <Tag color="orange">已配置 {masked}</Tag> : <Tag>未配置</Tag>;
+    set ? (
+      <Tag color="orange">
+        <FormattedMessage
+          id="pages.systemSiteSettings.notification.secret.configured"
+          defaultMessage={`已配置 ${masked ?? ''}`}
+          values={{ masked: masked ?? '' }}
+        />
+      </Tag>
+    ) : (
+      <Tag>
+        <FormattedMessage
+          id="pages.systemSiteSettings.notification.secret.unconfigured"
+          defaultMessage="未配置"
+        />
+      </Tag>
+    );
 
   const renderField = (f: FieldDef) => (
     <Form.Item
       key={f.key}
       label={
         <Space>
-          {f.label}
+          {intl.formatMessage(f.label)}
           {f.secret && settings
             ? secretState(
                 f.key === 'notification.smtpPassword'
@@ -185,26 +319,36 @@ export default function NotificationTab() {
             : null}
         </Space>
       }
-      help={f.help}
+      help={f.help ? intl.formatMessage(f.help) : undefined}
       required={false}
     >
       <Space.Compact style={{ width: '100%' }}>
         <Form.Item name={f.key} noStyle>
           <Input.Password
-            placeholder={f.placeholder}
+            placeholder={f.placeholderMsg ? intl.formatMessage(f.placeholderMsg) : f.placeholder}
             visibilityToggle={f.secret}
             autoComplete="new-password"
           />
         </Form.Item>
         <Button type="primary" loading={savingKey === f.key} onClick={() => saveKey(f.key)}>
-          保存
+          <FormattedMessage
+            id="pages.systemSiteSettings.notification.action.save"
+            defaultMessage="保存"
+          />
         </Button>
       </Space.Compact>
     </Form.Item>
   );
 
   const smtpPortField = (
-    <Form.Item key="notification.smtpPort" label="SMTP 端口" required={false}>
+    <Form.Item
+      key="notification.smtpPort"
+      label={intl.formatMessage({
+        id: 'pages.systemSiteSettings.notification.field.smtpPortLabel',
+        defaultMessage: 'SMTP 端口',
+      })}
+      required={false}
+    >
       <Space.Compact>
         <Form.Item name="notification.smtpPort" noStyle>
           <InputNumber min={1} max={65535} placeholder="465" style={{ width: 120 }} />
@@ -214,7 +358,10 @@ export default function NotificationTab() {
           loading={savingKey === 'notification.smtpPort'}
           onClick={() => saveKey('notification.smtpPort')}
         >
-          保存
+          <FormattedMessage
+            id="pages.systemSiteSettings.notification.action.save"
+            defaultMessage="保存"
+          />
         </Button>
       </Space.Compact>
     </Form.Item>
@@ -223,14 +370,21 @@ export default function NotificationTab() {
   return (
     <Card loading={loading}>
       <Text type="secondary">
-        审批与告警事件的通知渠道。站内信默认开启（零配置）；钉钉/通用 Webhook/邮件按需配置，
-        保存即生效。密钥只回显尾 4 位，留空保存即清除。
+        <FormattedMessage
+          id="pages.systemSiteSettings.notification.hint"
+          defaultMessage="审批与告警事件的通知渠道。站内信默认开启（零配置）；钉钉/通用 Webhook/邮件按需配置，保存即生效。密钥只回显尾 4 位，留空保存即清除。"
+        />
       </Text>
 
       <Form form={form} layout="vertical" style={{ maxWidth: 640, marginTop: 16 }}>
         <Space size="large" style={{ marginBottom: 8 }}>
           <Space>
-            <Text strong>站内信</Text>
+            <Text strong>
+              <FormattedMessage
+                id="pages.systemSiteSettings.notification.toggle.inApp"
+                defaultMessage="站内信"
+              />
+            </Text>
             <Switch
               checked={settings?.inAppEnabled ?? true}
               loading={savingKey === 'notification.inAppEnabled'}
@@ -238,7 +392,12 @@ export default function NotificationTab() {
             />
           </Space>
           <Space>
-            <Text strong>邮件通知</Text>
+            <Text strong>
+              <FormattedMessage
+                id="pages.systemSiteSettings.notification.toggle.email"
+                defaultMessage="邮件通知"
+              />
+            </Text>
             <Switch
               checked={settings?.emailEnabled ?? false}
               loading={savingKey === 'notification.emailEnabled'}
@@ -255,22 +414,34 @@ export default function NotificationTab() {
         ) : null}
 
         <Typography.Title level={5} style={{ marginTop: 16 }}>
-          钉钉群机器人
+          <FormattedMessage
+            id="pages.systemSiteSettings.notification.channel.dingtalk"
+            defaultMessage="钉钉群机器人"
+          />
         </Typography.Title>
         {DINGTALK_FIELDS.map(renderField)}
 
         <Typography.Title level={5} style={{ marginTop: 16 }}>
-          企业微信群机器人
+          <FormattedMessage
+            id="pages.systemSiteSettings.notification.channel.wecom"
+            defaultMessage="企业微信群机器人"
+          />
         </Typography.Title>
         {WECOM_FIELDS.map(renderField)}
 
         <Typography.Title level={5} style={{ marginTop: 16 }}>
-          飞书群机器人
+          <FormattedMessage
+            id="pages.systemSiteSettings.notification.channel.feishu"
+            defaultMessage="飞书群机器人"
+          />
         </Typography.Title>
         {FEISHU_FIELDS.map(renderField)}
 
         <Typography.Title level={5} style={{ marginTop: 16 }}>
-          通用 Webhook
+          <FormattedMessage
+            id="pages.systemSiteSettings.notification.channel.webhook"
+            defaultMessage="通用 Webhook"
+          />
         </Typography.Title>
         {WEBHOOK_FIELDS.map(renderField)}
       </Form>

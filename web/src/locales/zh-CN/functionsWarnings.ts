@@ -1,0 +1,28 @@
+// pages.functionsWarnings.* — Functions/Warnings 告警
+export default {
+  'pages.functionsWarnings.button.clear': '清空',
+  'pages.functionsWarnings.button.delete': '删除',
+  'pages.functionsWarnings.button.markAllRead': '全部已读',
+  'pages.functionsWarnings.button.markRead': '标为已读',
+  'pages.functionsWarnings.button.query': '查询',
+  'pages.functionsWarnings.button.refresh': '刷新',
+  'pages.functionsWarnings.column.actions': '操作',
+  'pages.functionsWarnings.column.code': '告警码',
+  'pages.functionsWarnings.column.count': '次数',
+  'pages.functionsWarnings.column.detail': '详情',
+  'pages.functionsWarnings.column.functionId': '函数ID',
+  'pages.functionsWarnings.column.lastSeen': '最近时间',
+  'pages.functionsWarnings.column.version': '版本',
+  'pages.functionsWarnings.filter.code': '告警码',
+  'pages.functionsWarnings.filter.functionId': '函数ID',
+  'pages.functionsWarnings.filter.limit': '条数',
+  'pages.functionsWarnings.message.cleared': '已清空',
+  'pages.functionsWarnings.message.markedAllRead': '已全部标为已读',
+  'pages.functionsWarnings.page.subTitle': '集中查看 function_id/version 校验与去重告警',
+  'pages.functionsWarnings.page.title': '函数注册告警',
+  'pages.functionsWarnings.popconfirm.clearAll': '确认清空全部注册警告？',
+  'pages.functionsWarnings.popconfirm.deleteOne': '确认删除该条警告？',
+  'pages.functionsWarnings.rules.description':
+    '注册会强制校验 function_id 格式、版本 SemVer，并对重复 function_id 进行版本去重；所有告警在此处可检索。',
+  'pages.functionsWarnings.rules.title': '规则说明',
+};

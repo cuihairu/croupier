@@ -8,7 +8,7 @@ import {
   ReloadOutlined,
   SendOutlined,
 } from '@ant-design/icons';
-import { getLocale, history, useLocation } from '@umijs/max';
+import { FormattedMessage, getLocale, history, useIntl, useLocation } from '@umijs/max';
 import { type SchemaFormRendererHandle } from '@/components/SchemaFormRenderer';
 import {
   invokeFunction,
@@ -85,6 +85,12 @@ function loadHistory(): RequestHistoryItem[] {
 
 export default function FunctionInvokePage() {
   const { message } = App.useApp();
+  const intl = useIntl();
+  // useIntl 在测试 mock 下每次渲染返回新引用，直接进 useCallback 依赖会让
+  // refresh/execute 每渲染重建，进而触发依赖它们的 useEffect（列表加载、
+  // 快捷键）无限重跑；经 ref 转发后回调依赖稳定，执行时仍读取最新实例
+  const intlRef = useRef(intl);
+  intlRef.current = intl;
   const locale = getLocale();
   const fid = new URLSearchParams(useLocation().search).get('fid') || '';
   const formRef = useRef<SchemaFormRendererHandle | null>(null);
@@ -126,7 +132,15 @@ export default function FunctionInvokePage() {
     try {
       setDescriptors(await listDescriptors());
     } catch (err) {
-      message.error(extractErrorMessage(err, '加载函数列表失败'));
+      message.error(
+        extractErrorMessage(
+          err,
+          intlRef.current.formatMessage({
+            id: 'pages.functionsInvoke.error.loadFailed',
+            defaultMessage: '加载函数列表失败',
+          }),
+        ),
+      );
     } finally {
       setLoading(false);
     }
@@ -140,7 +154,13 @@ export default function FunctionInvokePage() {
     setFormState(
       schema
         ? { status: 'ready', spec: derivePresentationSpec(schema as JSONSchema) }
-        : { status: 'unavailable', error: '该函数未声明输入 Schema；请使用原始 JSON 调用。' },
+        : {
+            status: 'unavailable',
+            error: intlRef.current.formatMessage({
+              id: 'pages.functionsInvoke.form.schemaUnavailable',
+              defaultMessage: '该函数未声明输入 Schema；请使用原始 JSON 调用。',
+            }),
+          },
     );
     // 按 Schema 类型派生默认值：default > example > enum 首项 > 类型占位值，
     // 让表单/JSON 编辑器开箱即得完整参数骨架。
@@ -164,11 +184,21 @@ export default function FunctionInvokePage() {
   const execute = useCallback(async () => {
     if (!selected) return;
     if (route === 'targeted' && !targetServiceId.trim()) {
-      setError('指定实例路由需要填写 service_id');
+      setError(
+        intlRef.current.formatMessage({
+          id: 'pages.functionsInvoke.validation.targetedServiceId',
+          defaultMessage: '指定实例路由需要填写 service_id',
+        }),
+      );
       return;
     }
     if (route === 'hash' && !hashKey.trim()) {
-      setError('哈希路由需要填写 hash key');
+      setError(
+        intlRef.current.formatMessage({
+          id: 'pages.functionsInvoke.validation.hashKey',
+          defaultMessage: '哈希路由需要填写 hash key',
+        }),
+      );
       return;
     }
     let payload: JSONValue;
@@ -178,9 +208,23 @@ export default function FunctionInvokePage() {
           ? (JSON.parse(JSON.stringify(formRef.current?.getValues() || formValues)) as JSONValue)
           : (JSON.parse(rawJson) as JSONValue);
       if (inputMode === 'form' && formState.status === 'ready' && !formRef.current?.validate())
-        throw new Error('表单校验失败');
+        throw new Error(
+          intlRef.current.formatMessage({
+            id: 'pages.functionsInvoke.error.formValidation',
+            defaultMessage: '表单校验失败',
+          }),
+        );
     } catch (err) {
-      setError(`请求体不是有效 JSON：${err instanceof Error ? err.message : String(err)}`);
+      const detail = err instanceof Error ? err.message : String(err);
+      setError(
+        intlRef.current.formatMessage(
+          {
+            id: 'pages.functionsInvoke.error.invalidJson',
+            defaultMessage: `请求体不是有效 JSON：${detail}`,
+          },
+          { detail },
+        ),
+      );
       return;
     }
     const options: InvokeFunctionOptions = {
@@ -207,7 +251,12 @@ export default function FunctionInvokePage() {
           functionId: selected.id,
           status: 'pending',
         });
-        message.info('该操作需要审批，已提交审批流程');
+        message.info(
+          intlRef.current.formatMessage({
+            id: 'pages.functionsInvoke.approval.submitted',
+            defaultMessage: '该操作需要审批，已提交审批流程',
+          }),
+        );
         return;
       }
       setPendingApproval(null);
@@ -226,12 +275,31 @@ export default function FunctionInvokePage() {
       setHistoryItems((items) => [item, ...items].slice(0, 50));
       if (asyncMode && result.taskId) {
         setActiveTaskId(result.taskId);
-        message.success(`任务已创建：${result.taskId}`);
+        message.success(
+          intlRef.current.formatMessage(
+            {
+              id: 'pages.functionsInvoke.message.taskCreated',
+              defaultMessage: `任务已创建：${result.taskId}`,
+            },
+            { taskId: result.taskId },
+          ),
+        );
       } else {
-        message.success('调用成功');
+        message.success(
+          intlRef.current.formatMessage({
+            id: 'pages.functionsInvoke.message.success',
+            defaultMessage: '调用成功',
+          }),
+        );
       }
     } catch (err) {
-      const detail = extractErrorMessage(err, '调用失败');
+      const detail = extractErrorMessage(
+        err,
+        intlRef.current.formatMessage({
+          id: 'pages.functionsInvoke.error.invokeFailed',
+          defaultMessage: '调用失败',
+        }),
+      );
       const elapsed = Date.now() - startedAt;
       const item: RequestHistoryItem = {
         id: `${startedAt}`,
@@ -309,18 +377,24 @@ export default function FunctionInvokePage() {
   const responseRaw = response === undefined ? '' : JSON.stringify(response, null, 2);
   return (
     <PageContainer
-      title="函数调用工作台"
-      subTitle="构造请求、选择路由并直接查看真实执行结果"
+      title={intl.formatMessage({
+        id: 'pages.functionsInvoke.pageTitle',
+        defaultMessage: '函数调用工作台',
+      })}
+      subTitle={intl.formatMessage({
+        id: 'pages.functionsInvoke.pageSubtitle',
+        defaultMessage: '构造请求、选择路由并直接查看真实执行结果',
+      })}
       extra={[
         <Button key="refresh" icon={<ReloadOutlined />} onClick={refresh} loading={loading}>
-          刷新函数
+          <FormattedMessage id="pages.functionsInvoke.button.refresh" defaultMessage="刷新函数" />
         </Button>,
         <Button
           key="history"
           icon={<HistoryOutlined />}
           onClick={() => setShowHistory((value) => !value)}
         >
-          历史记录
+          <FormattedMessage id="pages.functionsInvoke.button.history" defaultMessage="历史记录" />
         </Button>,
       ]}
     >
@@ -336,7 +410,10 @@ export default function FunctionInvokePage() {
                   showSearch
                   loading={loading}
                   value={selected?.id}
-                  placeholder="选择已注册函数"
+                  placeholder={intl.formatMessage({
+                    id: 'pages.functionsInvoke.select.placeholder',
+                    defaultMessage: '选择已注册函数',
+                  })}
                   style={{ width: '100%' }}
                   optionFilterProp="label"
                   onChange={(id) => history.push(`/functions/invoke?fid=${encodeURIComponent(id)}`)}
@@ -356,7 +433,7 @@ export default function FunctionInvokePage() {
                   }
                   onClick={execute}
                 >
-                  发送
+                  <FormattedMessage id="pages.functionsInvoke.button.send" defaultMessage="发送" />
                 </Button>
               </Space.Compact>
               {selected ? (
@@ -370,11 +447,20 @@ export default function FunctionInvokePage() {
                   style={{ marginTop: 12 }}
                   type="info"
                   showIcon
-                  message="请选择一个已注册函数后再发送请求"
+                  message={intl.formatMessage({
+                    id: 'pages.functionsInvoke.alert.selectFirst',
+                    defaultMessage: '请选择一个已注册函数后再发送请求',
+                  })}
                 />
               ) : null}
             </Card>
-            <Card size="small" title="执行选项">
+            <Card
+              size="small"
+              title={intl.formatMessage({
+                id: 'pages.functionsInvoke.card.executionOptions',
+                defaultMessage: '执行选项',
+              })}
+            >
               <ExecutionOptions
                 route={route}
                 targetServiceId={targetServiceId}
@@ -416,7 +502,12 @@ export default function FunctionInvokePage() {
                 try {
                   setRawJson(JSON.stringify(JSON.parse(rawJson), null, 2));
                 } catch {
-                  message.error('请求体不是有效 JSON');
+                  message.error(
+                    intl.formatMessage({
+                      id: 'pages.functionsInvoke.error.invalidJsonShort',
+                      defaultMessage: '请求体不是有效 JSON',
+                    }),
+                  );
                 }
               }}
             />
@@ -432,17 +523,41 @@ export default function FunctionInvokePage() {
                 showIcon
                 message={
                   pendingApproval.status === 'pending'
-                    ? '审批中：该操作需要审批通过后才会执行'
+                    ? intl.formatMessage({
+                        id: 'pages.functionsInvoke.approval.statusPending',
+                        defaultMessage: '审批中：该操作需要审批通过后才会执行',
+                      })
                     : pendingApproval.status === 'approved'
-                      ? '审批已通过：可重新发起调用'
+                      ? intl.formatMessage({
+                          id: 'pages.functionsInvoke.approval.statusApproved',
+                          defaultMessage: '审批已通过：可重新发起调用',
+                        })
                       : pendingApproval.status === 'rejected'
-                        ? `审批已拒绝${pendingApproval.reason ? `：${pendingApproval.reason}` : ''}`
-                        : '审批已过期'
+                        ? pendingApproval.reason
+                          ? intl.formatMessage(
+                              {
+                                id: 'pages.functionsInvoke.approval.statusRejectedReason',
+                                defaultMessage: `审批已拒绝：${pendingApproval.reason}`,
+                              },
+                              { reason: pendingApproval.reason },
+                            )
+                          : intl.formatMessage({
+                              id: 'pages.functionsInvoke.approval.statusRejected',
+                              defaultMessage: '审批已拒绝',
+                            })
+                        : intl.formatMessage({
+                            id: 'pages.functionsInvoke.approval.statusExpired',
+                            defaultMessage: '审批已过期',
+                          })
                 }
                 description={
                   <Space orientation="vertical" size={4}>
                     <Text type="secondary">
-                      审批单号：{pendingApproval.approvalId}（自动刷新中）
+                      <FormattedMessage
+                        id="pages.functionsInvoke.approval.ticketLabel"
+                        defaultMessage={`审批单号：${pendingApproval.approvalId}（自动刷新中）`}
+                        values={{ approvalId: pendingApproval.approvalId }}
+                      />
                     </Text>
                     <Space size={8}>
                       <a
@@ -450,11 +565,17 @@ export default function FunctionInvokePage() {
                         target="_blank"
                         rel="noreferrer"
                       >
-                        前往审批中心查看
+                        <FormattedMessage
+                          id="pages.functionsInvoke.approval.viewCenter"
+                          defaultMessage="前往审批中心查看"
+                        />
                       </a>
                       {pendingApproval.status === 'approved' && (
                         <Button size="small" type="primary" onClick={() => void execute()}>
-                          重新调用
+                          <FormattedMessage
+                            id="pages.functionsInvoke.button.reinvoke"
+                            defaultMessage="重新调用"
+                          />
                         </Button>
                       )}
                     </Space>
@@ -480,19 +601,35 @@ export default function FunctionInvokePage() {
               duration={duration}
               traceId={traceId}
               onCopy={(value) =>
-                navigator.clipboard.writeText(value).then(() => message.success('已复制'))
+                navigator.clipboard.writeText(value).then(() =>
+                  message.success(
+                    intl.formatMessage({
+                      id: 'pages.functionsInvoke.message.copied',
+                      defaultMessage: '已复制',
+                    }),
+                  ),
+                )
               }
             />
           </Space>
         </Col>
         {showHistory ? (
           <Col xs={24} xl={7}>
-            <Card size="small" title="历史记录">
+            <Card
+              size="small"
+              title={intl.formatMessage({
+                id: 'pages.functionsInvoke.history.title',
+                defaultMessage: '历史记录',
+              })}
+            >
               <Tabs
                 items={[
                   {
                     key: 'local',
-                    label: '本地草稿',
+                    label: intl.formatMessage({
+                      id: 'pages.functionsInvoke.history.localTab',
+                      defaultMessage: '本地草稿',
+                    }),
                     children: (
                       <RequestHistory
                         items={historyItems}
@@ -503,7 +640,10 @@ export default function FunctionInvokePage() {
                   },
                   {
                     key: 'server',
-                    label: '服务端记录',
+                    label: intl.formatMessage({
+                      id: 'pages.functionsInvoke.history.serverTab',
+                      defaultMessage: '服务端记录',
+                    }),
                     children: <ServerHistoryPanel functionId={selected?.id} />,
                   },
                 ]}

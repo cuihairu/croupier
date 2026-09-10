@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Alert, Button, Drawer, Input, Select, Space, Typography } from 'antd';
 import { ProTable, type ActionType } from '@ant-design/pro-components';
+import { FormattedMessage, useIntl } from '@umijs/max';
 import { SummaryOverview } from '@/components';
 import {
   listExtensionEvents,
@@ -22,6 +23,7 @@ export default function EventsDrawer({
   onClose: () => void;
 }) {
   // 事件总数副本：抽屉顶部概览依赖它，在 request 成功后同步
+  const intl = useIntl();
   const [total, setTotal] = useState(0);
   const [keyword, setKeyword] = useState('');
   const [level, setLevel] = useState<string | undefined>(undefined);
@@ -30,6 +32,35 @@ export default function EventsDrawer({
   const title = installation
     ? `${installation.displayName || installation.extensionId} (#${installation.id})`
     : '';
+
+  // 关键词/级别筛选的展示文案：概览 chips 与「已生效条件」拼接共用
+  const keywordText = keyword.trim()
+    ? intl.formatMessage(
+        {
+          id: 'pages.extensionsInstallations.events.overview.keyword',
+          defaultMessage: `关键词 ${keyword.trim()}`,
+        },
+        { value: keyword.trim() },
+      )
+    : intl.formatMessage({
+        id: 'pages.extensionsInstallations.events.overview.keywordUnset',
+        defaultMessage: '未设置关键词',
+      });
+  const levelText = level
+    ? intl.formatMessage(
+        {
+          id: 'pages.extensionsInstallations.events.overview.level',
+          defaultMessage: `级别 ${level}`,
+        },
+        { value: level },
+      )
+    : intl.formatMessage({
+        id: 'pages.extensionsInstallations.events.overview.levelAll',
+        defaultMessage: '全部级别',
+      });
+  const activeConditions = [keyword.trim() ? keywordText : null, level ? levelText : null]
+    .filter(Boolean)
+    .join(' / ');
 
   // 打开（或切换安装实例）时重置筛选并重新拉取（对齐原 reset + load 行为；
   // 首次打开时表格随抽屉挂载自动请求，reload 的双触发由内部 abort 合并）
@@ -42,25 +73,55 @@ export default function EventsDrawer({
   }, [open, installation]);
 
   return (
-    <Drawer open={open} onClose={onClose} width={760} title={`扩展事件: ${title}`}>
+    <Drawer
+      open={open}
+      onClose={onClose}
+      width={760}
+      title={intl.formatMessage(
+        {
+          id: 'pages.extensionsInstallations.events.drawer.title',
+          defaultMessage: `扩展事件: ${title}`,
+        },
+        { title },
+      )}
+    >
       <SummaryOverview
-        title="事件筛选"
-        description="事件列表主要用于排查安装变更、报错和操作者动作。先按关键词或级别缩小范围，再逐条查看。"
+        title={intl.formatMessage({
+          id: 'pages.extensionsInstallations.events.overview.title',
+          defaultMessage: '事件筛选',
+        })}
+        description={intl.formatMessage({
+          id: 'pages.extensionsInstallations.events.overview.description',
+          defaultMessage:
+            '事件列表主要用于排查安装变更、报错和操作者动作。先按关键词或级别缩小范围，再逐条查看。',
+        })}
         items={[
-          { color: '#1677ff', text: `事件 ${total}` },
-          { color: '#722ed1', text: level ? `级别 ${level}` : '全部级别' },
           {
-            color: '#13c2c2',
-            text: keyword.trim() ? `关键词 ${keyword.trim()}` : '未设置关键词',
+            color: '#1677ff',
+            text: intl.formatMessage(
+              {
+                id: 'pages.extensionsInstallations.events.overview.total',
+                defaultMessage: `事件 ${total}`,
+              },
+              { count: total },
+            ),
           },
+          { color: '#722ed1', text: levelText },
+          { color: '#13c2c2', text: keywordText },
         ]}
-        hint="推荐路径：先看最近报错和升级事件，再结合安装详情判断是否需要修改配置。"
+        hint={intl.formatMessage({
+          id: 'pages.extensionsInstallations.events.overview.hint',
+          defaultMessage: '推荐路径：先看最近报错和升级事件，再结合安装详情判断是否需要修改配置。',
+        })}
       />
       <Space style={{ marginBottom: 12 }} wrap>
         <Input
           allowClear
           style={{ width: 260 }}
-          placeholder="筛选事件/内容/操作者"
+          placeholder={intl.formatMessage({
+            id: 'pages.extensionsInstallations.events.filter.placeholder',
+            defaultMessage: '筛选事件/内容/操作者',
+          })}
           value={keyword}
           onChange={(e) => {
             // 筛选变化回第 1 页：params 变化与 setPageInfo 的双触发由
@@ -72,7 +133,10 @@ export default function EventsDrawer({
         <Select
           allowClear
           style={{ width: 140 }}
-          placeholder="级别"
+          placeholder={intl.formatMessage({
+            id: 'pages.extensionsInstallations.events.filter.levelPlaceholder',
+            defaultMessage: '级别',
+          })}
           value={level}
           onChange={(v) => {
             setLevel(v);
@@ -92,7 +156,10 @@ export default function EventsDrawer({
             actionRef.current?.setPageInfo?.({ current: 1 });
           }}
         >
-          清空筛选
+          <FormattedMessage
+            id="pages.extensionsInstallations.events.filter.clear"
+            defaultMessage="清空筛选"
+          />
         </Button>
       </Space>
       {keyword.trim() || level ? (
@@ -100,13 +167,17 @@ export default function EventsDrawer({
           style={{ marginBottom: 12 }}
           type="info"
           showIcon
-          message="当前正在查看筛选后的事件范围"
-          description={`已生效条件：${[
-            keyword.trim() ? `关键词 ${keyword.trim()}` : null,
-            level ? `级别 ${level}` : null,
-          ]
-            .filter(Boolean)
-            .join(' / ')}`}
+          message={intl.formatMessage({
+            id: 'pages.extensionsInstallations.events.filter.activeMessage',
+            defaultMessage: '当前正在查看筛选后的事件范围',
+          })}
+          description={intl.formatMessage(
+            {
+              id: 'pages.extensionsInstallations.events.filter.activeDescription',
+              defaultMessage: `已生效条件：${activeConditions}`,
+            },
+            { conditions: activeConditions },
+          )}
         />
       ) : null}
 
@@ -140,14 +211,40 @@ export default function EventsDrawer({
         pagination={{ pageSize: 10, showSizeChanger: true }}
         columns={[
           {
-            title: '时间',
+            title: intl.formatMessage({
+              id: 'pages.extensionsInstallations.events.column.createdAt',
+              defaultMessage: '时间',
+            }),
             dataIndex: 'createdAt',
             key: 'createdAt',
             render: (_, row) => formatUnix(row.createdAt),
           },
-          { title: '级别', dataIndex: 'level', key: 'level', width: 100 },
-          { title: '事件', dataIndex: 'eventType', key: 'eventType', width: 150 },
-          { title: '内容', dataIndex: 'message', key: 'message' },
+          {
+            title: intl.formatMessage({
+              id: 'pages.extensionsInstallations.events.column.level',
+              defaultMessage: '级别',
+            }),
+            dataIndex: 'level',
+            key: 'level',
+            width: 100,
+          },
+          {
+            title: intl.formatMessage({
+              id: 'pages.extensionsInstallations.events.column.eventType',
+              defaultMessage: '事件',
+            }),
+            dataIndex: 'eventType',
+            key: 'eventType',
+            width: 150,
+          },
+          {
+            title: intl.formatMessage({
+              id: 'pages.extensionsInstallations.events.column.message',
+              defaultMessage: '内容',
+            }),
+            dataIndex: 'message',
+            key: 'message',
+          },
           {
             title: 'Payload',
             dataIndex: 'payload',
@@ -161,13 +258,27 @@ export default function EventsDrawer({
                 '-'
               ),
           },
-          { title: '操作者', dataIndex: 'createdBy', key: 'createdBy', width: 120 },
+          {
+            title: intl.formatMessage({
+              id: 'pages.extensionsInstallations.events.column.createdBy',
+              defaultMessage: '操作者',
+            }),
+            dataIndex: 'createdBy',
+            key: 'createdBy',
+            width: 120,
+          },
         ]}
         locale={{
           emptyText:
             keyword.trim() || level
-              ? '当前筛选条件下没有匹配事件，请调整筛选后重试。'
-              : '暂时没有事件数据，后续有安装动作后会显示在这里。',
+              ? intl.formatMessage({
+                  id: 'pages.extensionsInstallations.events.empty.filtered',
+                  defaultMessage: '当前筛选条件下没有匹配事件，请调整筛选后重试。',
+                })
+              : intl.formatMessage({
+                  id: 'pages.extensionsInstallations.events.empty.default',
+                  defaultMessage: '暂时没有事件数据，后续有安装动作后会显示在这里。',
+                }),
         }}
       />
     </Drawer>

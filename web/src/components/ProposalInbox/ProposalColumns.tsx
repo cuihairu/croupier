@@ -9,6 +9,7 @@ import {
   RocketOutlined,
 } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
+import { FormattedMessage } from '@umijs/max';
 import type {
   BlockedProposalIssue,
   PageProposal,
@@ -31,9 +32,18 @@ import {
 
 const { Text } = Typography;
 
+/** 模块级文案助手接收 intl 的最小结构（@umijs/max 未导出 IntlShape 类型） */
+type IntlFormatter = {
+  formatMessage: (
+    descriptor: { id: string; defaultMessage: string },
+    values?: Record<string, string | number>,
+  ) => string;
+};
+
 /** 提案/阻断项列定义：操作回调由页面注入（modal 实例用于接受/拒绝二次确认）。 */
 
 export function buildProposalColumns({
+  intl,
   modal,
   onViewDetail,
   onPreview,
@@ -42,6 +52,7 @@ export function buildProposalColumns({
   onReview,
   onReject,
 }: {
+  intl: IntlFormatter;
   modal: ReturnType<typeof App.useApp>['modal'];
   onViewDetail: (proposalKey: string) => void;
   onPreview: (proposalKey: string) => void;
@@ -52,7 +63,10 @@ export function buildProposalColumns({
 }): ColumnsType<PageProposal> {
   return [
     {
-      title: '提案',
+      title: intl.formatMessage({
+        id: 'component.proposalInbox.column.proposal',
+        defaultMessage: '提案',
+      }),
       dataIndex: 'proposalKey',
       key: 'proposalKey',
       render: (_, record) => {
@@ -70,13 +84,19 @@ export function buildProposalColumns({
       },
     },
     {
-      title: '标题',
+      title: intl.formatMessage({
+        id: 'component.proposalInbox.column.title',
+        defaultMessage: '标题',
+      }),
       dataIndex: 'title',
       key: 'title',
       render: (_, record) => localizedText(record.title, record.pageKey),
     },
     {
-      title: '类型',
+      title: intl.formatMessage({
+        id: 'component.proposalInbox.column.type',
+        defaultMessage: '类型',
+      }),
       dataIndex: 'pageType',
       key: 'pageType',
       width: 90,
@@ -85,14 +105,20 @@ export function buildProposalColumns({
       ),
     },
     {
-      title: '资源',
+      title: intl.formatMessage({
+        id: 'component.proposalInbox.column.resource',
+        defaultMessage: '资源',
+      }),
       dataIndex: 'resourceKey',
       key: 'resourceKey',
       width: 140,
       render: (value) => value || '-',
     },
     {
-      title: '质量',
+      title: intl.formatMessage({
+        id: 'component.proposalInbox.column.quality',
+        defaultMessage: '质量',
+      }),
       dataIndex: 'quality',
       key: 'quality',
       width: 120,
@@ -101,7 +127,10 @@ export function buildProposalColumns({
       ),
     },
     {
-      title: '状态',
+      title: intl.formatMessage({
+        id: 'component.proposalInbox.column.status',
+        defaultMessage: '状态',
+      }),
       dataIndex: 'status',
       key: 'status',
       width: 100,
@@ -110,21 +139,30 @@ export function buildProposalColumns({
       ),
     },
     {
-      title: '诊断',
+      title: intl.formatMessage({
+        id: 'component.proposalInbox.column.diagnostics',
+        defaultMessage: '诊断',
+      }),
       dataIndex: 'diagnostics',
       key: 'diagnostics',
       width: 160,
       render: diagnosticSummary,
     },
     {
-      title: '更新时间',
+      title: intl.formatMessage({
+        id: 'component.proposalInbox.column.updatedAt',
+        defaultMessage: '更新时间',
+      }),
       dataIndex: 'updatedAt',
       key: 'updatedAt',
       width: 180,
       render: formatDate,
     },
     {
-      title: '操作',
+      title: intl.formatMessage({
+        id: 'component.proposalInbox.column.actions',
+        defaultMessage: '操作',
+      }),
       key: 'action',
       width: 168,
       fixed: 'right',
@@ -135,10 +173,16 @@ export function buildProposalColumns({
           moreItems.push({
             key: 'customize',
             icon: <CheckOutlined />,
-            label: '自定义编辑',
+            label: intl.formatMessage({
+              id: 'component.proposalInbox.column.action.customize',
+              defaultMessage: '自定义编辑',
+            }),
             onClick: () =>
               modal.confirm({
-                title: '接受为草稿并自定义页面？',
+                title: intl.formatMessage({
+                  id: 'component.proposalInbox.column.action.customizeConfirm',
+                  defaultMessage: '接受为草稿并自定义页面？',
+                }),
                 onOk: () => onAccept(record),
               }),
           });
@@ -146,18 +190,27 @@ export function buildProposalColumns({
             moreItems.push({
               key: 'review',
               icon: <ExclamationCircleOutlined />,
-              label: '处理',
+              label: intl.formatMessage({
+                id: 'component.proposalInbox.column.action.review',
+                defaultMessage: '处理',
+              }),
               onClick: () => onReview(record),
             });
           }
           moreItems.push({
             key: 'reject',
             icon: <CloseOutlined />,
-            label: '拒绝',
+            label: intl.formatMessage({
+              id: 'component.proposalInbox.column.action.reject',
+              defaultMessage: '拒绝',
+            }),
             danger: true,
             onClick: () =>
               modal.confirm({
-                title: '拒绝此提案？',
+                title: intl.formatMessage({
+                  id: 'component.proposalInbox.column.action.rejectConfirm',
+                  defaultMessage: '拒绝此提案？',
+                }),
                 onOk: () => onReject(record.proposalKey),
               }),
           });
@@ -165,21 +218,36 @@ export function buildProposalColumns({
         return (
           <Space size={0}>
             <Button type="link" size="small" onClick={() => onViewDetail(record.proposalKey)}>
-              查看
+              <FormattedMessage
+                id="component.proposalInbox.column.action.view"
+                defaultMessage="查看"
+              />
             </Button>
             <Button type="link" size="small" onClick={() => onPreview(record.proposalKey)}>
-              预览
+              <FormattedMessage
+                id="component.proposalInbox.column.action.preview"
+                defaultMessage="预览"
+              />
             </Button>
             {record.status === 'pending' &&
               (record.quality === 'ready' || record.quality === 'basic') &&
               !record.pageExists && (
                 <Popconfirm
-                  title="发布默认页面？"
-                  description="会创建草稿并发布到运行控制台左侧动态菜单。"
+                  title={intl.formatMessage({
+                    id: 'component.proposalInbox.column.action.publishConfirmTitle',
+                    defaultMessage: '发布默认页面？',
+                  })}
+                  description={intl.formatMessage({
+                    id: 'component.proposalInbox.column.action.publishConfirmDescription',
+                    defaultMessage: '会创建草稿并发布到运行控制台左侧动态菜单。',
+                  })}
                   onConfirm={() => onAcceptAndPublish(record)}
                 >
                   <Button type="link" size="small" icon={<RocketOutlined />}>
-                    发布
+                    <FormattedMessage
+                      id="component.proposalInbox.column.action.publish"
+                      defaultMessage="发布"
+                    />
                   </Button>
                 </Popconfirm>
               )}
@@ -192,12 +260,20 @@ export function buildProposalColumns({
                   navigateTo(`/functions/pages?focus=${encodeURIComponent(record.pageKey)}`)
                 }
               >
-                去编辑
+                <FormattedMessage
+                  id="component.proposalInbox.column.action.edit"
+                  defaultMessage="去编辑"
+                />
               </Button>
             )}
             {moreItems.length > 0 && (
               <Dropdown menu={{ items: moreItems }} trigger={['click']}>
-                <Tooltip title="更多">
+                <Tooltip
+                  title={intl.formatMessage({
+                    id: 'component.proposalInbox.column.action.more',
+                    defaultMessage: '更多',
+                  })}
+                >
                   <Button type="link" size="small" icon={<MoreOutlined />} />
                 </Tooltip>
               </Dropdown>
@@ -209,10 +285,17 @@ export function buildProposalColumns({
   ];
 }
 
-export function buildBlockedColumns(): ColumnsType<BlockedProposalIssue> {
+export function buildBlockedColumns({
+  intl,
+}: {
+  intl: IntlFormatter;
+}): ColumnsType<BlockedProposalIssue> {
   return [
     {
-      title: '阻断项',
+      title: intl.formatMessage({
+        id: 'component.proposalInbox.column.blocked.item',
+        defaultMessage: '阻断项',
+      }),
       dataIndex: 'id',
       key: 'id',
       render: (_, record) => (
@@ -223,27 +306,39 @@ export function buildBlockedColumns(): ColumnsType<BlockedProposalIssue> {
       ),
     },
     {
-      title: '修复提示',
+      title: intl.formatMessage({
+        id: 'component.proposalInbox.column.blocked.repairHint',
+        defaultMessage: '修复提示',
+      }),
       dataIndex: 'repairHint',
       key: 'repairHint',
       render: (_, record) => localizedText(record.repairHint, 'zh-CN', '-'),
     },
     {
-      title: '诊断',
+      title: intl.formatMessage({
+        id: 'component.proposalInbox.column.blocked.diagnostics',
+        defaultMessage: '诊断',
+      }),
       dataIndex: 'diagnostics',
       key: 'diagnostics',
       width: 160,
       render: diagnosticSummary,
     },
     {
-      title: '更新时间',
+      title: intl.formatMessage({
+        id: 'component.proposalInbox.column.blocked.updatedAt',
+        defaultMessage: '更新时间',
+      }),
       dataIndex: 'updatedAt',
       key: 'updatedAt',
       width: 180,
       render: formatDate,
     },
     {
-      title: '操作',
+      title: intl.formatMessage({
+        id: 'component.proposalInbox.column.blocked.actions',
+        defaultMessage: '操作',
+      }),
       key: 'action',
       width: 120,
       render: (_, record) =>
@@ -257,7 +352,10 @@ export function buildBlockedColumns(): ColumnsType<BlockedProposalIssue> {
               )
             }
           >
-            修复语义
+            <FormattedMessage
+              id="component.proposalInbox.column.blocked.action.repairSemantics"
+              defaultMessage="修复语义"
+            />
           </Button>
         ) : (
           <Button
@@ -265,7 +363,10 @@ export function buildBlockedColumns(): ColumnsType<BlockedProposalIssue> {
             icon={<ExclamationCircleOutlined />}
             onClick={() => navigateTo('/functions/resource-catalog')}
           >
-            查看目录
+            <FormattedMessage
+              id="component.proposalInbox.column.blocked.action.viewCatalog"
+              defaultMessage="查看目录"
+            />
           </Button>
         ),
     },

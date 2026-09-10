@@ -8,7 +8,7 @@ import {
   type ProColumns,
 } from '@ant-design/pro-components';
 import { Column } from '@ant-design/charts';
-import { useIntl } from '@umijs/max';
+import { FormattedMessage, useIntl } from '@umijs/max';
 import {
   fetchInvocationsList,
   fetchInvocationsSummary,
@@ -29,9 +29,23 @@ const DEFAULT_SUMMARY: InvocationsSummary = {
 };
 
 type WindowKey = '24h' | '30d';
-const WINDOW_CONFIG: Record<WindowKey, { hours: number; interval: string; label: string }> = {
-  '24h': { hours: 24, interval: 'hour', label: '近 24 小时' },
-  '30d': { hours: 24 * 30, interval: 'day', label: '近 30 天' },
+// key/hours/interval 是请求契约；label 是展示文案，经 textId/textDefault 由 intl 解析
+const WINDOW_CONFIG: Record<
+  WindowKey,
+  { hours: number; interval: string; labelId: string; labelDefault: string }
+> = {
+  '24h': {
+    hours: 24,
+    interval: 'hour',
+    labelId: 'pages.analyticsInvocations.window.last24h',
+    labelDefault: '近 24 小时',
+  },
+  '30d': {
+    hours: 24 * 30,
+    interval: 'day',
+    labelId: 'pages.analyticsInvocations.window.last30d',
+    labelDefault: '近 30 天',
+  },
 };
 
 export default function AnalyticsInvocationsPage() {
@@ -63,12 +77,44 @@ export default function AnalyticsInvocationsPage() {
     loadSummary();
   }, [loadSummary]);
 
+  const windowLabel = (key: WindowKey) =>
+    intl.formatMessage({
+      id: WINDOW_CONFIG[key].labelId,
+      defaultMessage: WINDOW_CONFIG[key].labelDefault,
+    });
+
   const functionColumns: ColumnsType<InvocationFunctionStats> = [
-    { title: '函数', dataIndex: 'functionId', key: 'functionId' },
-    { title: '调用次数', dataIndex: 'total', key: 'total', width: 120 },
-    { title: '失败次数', dataIndex: 'failed', key: 'failed', width: 120 },
     {
-      title: '平均耗时 (ms)',
+      title: intl.formatMessage({
+        id: 'pages.analyticsInvocations.column.function',
+        defaultMessage: '函数',
+      }),
+      dataIndex: 'functionId',
+      key: 'functionId',
+    },
+    {
+      title: intl.formatMessage({
+        id: 'pages.analyticsInvocations.column.callCount',
+        defaultMessage: '调用次数',
+      }),
+      dataIndex: 'total',
+      key: 'total',
+      width: 120,
+    },
+    {
+      title: intl.formatMessage({
+        id: 'pages.analyticsInvocations.column.failedCount',
+        defaultMessage: '失败次数',
+      }),
+      dataIndex: 'failed',
+      key: 'failed',
+      width: 120,
+    },
+    {
+      title: intl.formatMessage({
+        id: 'pages.analyticsInvocations.column.avgDuration',
+        defaultMessage: '平均耗时 (ms)',
+      }),
       dataIndex: 'avgDurationMs',
       key: 'avgDurationMs',
       width: 140,
@@ -78,24 +124,62 @@ export default function AnalyticsInvocationsPage() {
 
   const listColumns: ProColumns<InvocationItem>[] = [
     {
-      title: '时间',
+      title: intl.formatMessage({
+        id: 'pages.analyticsInvocations.column.time',
+        defaultMessage: '时间',
+      }),
       dataIndex: 'timestamp',
       key: 'timestamp',
       width: 200,
       render: (_, r) => formatDateTime(r.timestamp ?? ''),
     },
-    { title: '函数', dataIndex: 'functionId', key: 'functionId' },
-    { title: '操作者', dataIndex: 'actor', key: 'actor', width: 140 },
     {
-      title: '结果',
+      title: intl.formatMessage({
+        id: 'pages.analyticsInvocations.column.function',
+        defaultMessage: '函数',
+      }),
+      dataIndex: 'functionId',
+      key: 'functionId',
+    },
+    {
+      title: intl.formatMessage({
+        id: 'pages.analyticsInvocations.column.actor',
+        defaultMessage: '操作者',
+      }),
+      dataIndex: 'actor',
+      key: 'actor',
+      width: 140,
+    },
+    {
+      title: intl.formatMessage({
+        id: 'pages.analyticsInvocations.column.outcome',
+        defaultMessage: '结果',
+      }),
       dataIndex: 'outcome',
       key: 'outcome',
       width: 100,
       render: (_, r) =>
-        r.outcome === 'success' ? <Tag color="success">成功</Tag> : <Tag color="error">失败</Tag>,
+        r.outcome === 'success' ? (
+          <Tag color="success">
+            <FormattedMessage
+              id="pages.analyticsInvocations.outcome.success"
+              defaultMessage="成功"
+            />
+          </Tag>
+        ) : (
+          <Tag color="error">
+            <FormattedMessage
+              id="pages.analyticsInvocations.outcome.failure"
+              defaultMessage="失败"
+            />
+          </Tag>
+        ),
     },
     {
-      title: '耗时 (ms)',
+      title: intl.formatMessage({
+        id: 'pages.analyticsInvocations.column.duration',
+        defaultMessage: '耗时 (ms)',
+      }),
       dataIndex: 'durationMs',
       key: 'durationMs',
       width: 110,
@@ -108,7 +192,15 @@ export default function AnalyticsInvocationsPage() {
       width: 160,
       render: (_, r) => (r.traceId ? <code>{r.traceId.slice(0, 16)}</code> : '-'),
     },
-    { title: '错误', dataIndex: 'error', key: 'error', ellipsis: true },
+    {
+      title: intl.formatMessage({
+        id: 'pages.analyticsInvocations.column.error',
+        defaultMessage: '错误',
+      }),
+      dataIndex: 'error',
+      key: 'error',
+      ellipsis: true,
+    },
   ];
 
   return (
@@ -124,32 +216,73 @@ export default function AnalyticsInvocationsPage() {
               buttonStyle="solid"
               size="small"
               options={[
-                { value: '24h', label: WINDOW_CONFIG['24h'].label },
-                { value: '30d', label: WINDOW_CONFIG['30d'].label },
+                { value: '24h', label: windowLabel('24h') },
+                { value: '30d', label: windowLabel('30d') },
               ]}
             />
           }
         >
           <Row gutter={[16, 16]}>
             <Col span={4}>
-              <Statistic title="总调用" value={summary.total} />
+              <Statistic
+                title={intl.formatMessage({
+                  id: 'pages.analyticsInvocations.summary.total',
+                  defaultMessage: '总调用',
+                })}
+                value={summary.total}
+              />
             </Col>
             <Col span={4}>
-              <Statistic title="失败" value={summary.failed} valueStyle={{ color: '#cf1322' }} />
+              <Statistic
+                title={intl.formatMessage({
+                  id: 'pages.analyticsInvocations.summary.failed',
+                  defaultMessage: '失败',
+                })}
+                value={summary.failed}
+                valueStyle={{ color: '#cf1322' }}
+              />
             </Col>
             <Col span={4}>
-              <Statistic title="成功率" value={(summary.successRate * 100).toFixed(1)} suffix="%" />
+              <Statistic
+                title={intl.formatMessage({
+                  id: 'pages.analyticsInvocations.summary.successRate',
+                  defaultMessage: '成功率',
+                })}
+                value={(summary.successRate * 100).toFixed(1)}
+                suffix="%"
+              />
             </Col>
             <Col span={4}>
-              <Statistic title="平均耗时 (ms)" value={summary.avgDurationMs.toFixed(1)} />
+              <Statistic
+                title={intl.formatMessage({
+                  id: 'pages.analyticsInvocations.summary.avgDuration',
+                  defaultMessage: '平均耗时 (ms)',
+                })}
+                value={summary.avgDurationMs.toFixed(1)}
+              />
             </Col>
             <Col span={4}>
-              <Statistic title="P95 耗时 (ms)" value={summary.p95DurationMs.toFixed(1)} />
+              <Statistic
+                title={intl.formatMessage({
+                  id: 'pages.analyticsInvocations.summary.p95Duration',
+                  defaultMessage: 'P95 耗时 (ms)',
+                })}
+                value={summary.p95DurationMs.toFixed(1)}
+              />
             </Col>
           </Row>
         </Card>
 
-        <Card title={`调用趋势（${WINDOW_CONFIG[window].label}）`} size="small">
+        <Card
+          title={intl.formatMessage(
+            {
+              id: 'pages.analyticsInvocations.card.trend',
+              defaultMessage: `调用趋势（${windowLabel(window)}）`,
+            },
+            { window: windowLabel(window) },
+          )}
+          size="small"
+        >
           <Column
             data={trend}
             xField="bucket"
@@ -160,7 +293,13 @@ export default function AnalyticsInvocationsPage() {
           />
         </Card>
 
-        <Card title="Top 函数" size="small">
+        <Card
+          title={intl.formatMessage({
+            id: 'pages.analyticsInvocations.card.topFunctions',
+            defaultMessage: 'Top 函数',
+          })}
+          size="small"
+        >
           <Table<InvocationFunctionStats>
             rowKey="functionId"
             columns={functionColumns}
@@ -170,10 +309,19 @@ export default function AnalyticsInvocationsPage() {
           />
         </Card>
 
-        <Card title="调用明细" size="small">
+        <Card
+          title={intl.formatMessage({
+            id: 'pages.analyticsInvocations.card.invocationDetail',
+            defaultMessage: '调用明细',
+          })}
+          size="small"
+        >
           <Space style={{ marginBottom: 16 }} wrap>
             <Input.Search
-              placeholder="按函数 ID 过滤"
+              placeholder={intl.formatMessage({
+                id: 'pages.analyticsInvocations.filter.placeholder.functionId',
+                defaultMessage: '按函数 ID 过滤',
+              })}
               allowClear
               style={{ width: 260 }}
               onSearch={(v) => {
@@ -184,7 +332,10 @@ export default function AnalyticsInvocationsPage() {
               }}
             />
             <Select
-              placeholder="结果"
+              placeholder={intl.formatMessage({
+                id: 'pages.analyticsInvocations.filter.placeholder.outcome',
+                defaultMessage: '结果',
+              })}
               allowClear
               style={{ width: 140 }}
               value={outcome || undefined}
@@ -193,8 +344,20 @@ export default function AnalyticsInvocationsPage() {
                 actionRef.current?.setPageInfo?.({ current: 1 });
               }}
               options={[
-                { value: 'success', label: '成功' },
-                { value: 'failure', label: '失败' },
+                {
+                  value: 'success',
+                  label: intl.formatMessage({
+                    id: 'pages.analyticsInvocations.outcome.success',
+                    defaultMessage: '成功',
+                  }),
+                },
+                {
+                  value: 'failure',
+                  label: intl.formatMessage({
+                    id: 'pages.analyticsInvocations.outcome.failure',
+                    defaultMessage: '失败',
+                  }),
+                },
               ]}
             />
           </Space>
