@@ -4,6 +4,7 @@ import { AppstoreOutlined, ThunderboltOutlined } from '@ant-design/icons';
 import { request } from '@umijs/max';
 import { instantiateTemplate, type ComponentTemplateDTO } from './ComponentLibrary';
 import { schemaProperties } from './types';
+import { localizedText } from '@/utils/localizedText';
 import type { PageNode } from './model';
 
 const { Text, Title } = Typography;
@@ -68,8 +69,8 @@ export default function TemplateQuickStart({
           }}
         >
           {combos.map((tpl) => {
-            const name = (tpl.name as Record<string, string>)?.['zh-CN'] ?? tpl.key;
-            const desc = (tpl.description as Record<string, string>)?.['zh-CN'] ?? '';
+            const name = localizedText(tpl.name, 'zh-CN', tpl.key);
+            const desc = localizedText(tpl.description, 'zh-CN');
             const fns = tpl.requiredFunctions ?? [];
             return (
               <Card

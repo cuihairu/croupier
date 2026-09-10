@@ -36,14 +36,17 @@ import {
 import PreviewRuntime from '../CompositeEditor/PreviewRuntime';
 import type { PageNode } from '../CompositeEditor/model';
 import { demoConstantTemplatePayloads, findLegacyMergedTemplates } from './constantTemplateAudit';
+import { localizedText } from '@/utils/localizedText';
+import type { LocalizedText } from '@/types/dashboard';
 
 const { Text, Title } = Typography;
 
 /** 组件模板 DTO。 */
 interface TemplateDTO {
   key: string;
-  name: Record<string, string> | string;
-  description?: Record<string, string> | string;
+  /** 裸 string 为遗留形态（normalize 前的历史数据），localizedText 内建兼容 */
+  name: LocalizedText | string;
+  description?: LocalizedText | string;
   category?: string;
   icon?: string;
   stale?: boolean;
@@ -54,14 +57,11 @@ interface TemplateDTO {
 }
 
 function nameOf(t: TemplateDTO): string {
-  if (typeof t.name === 'string') return t.name;
-  return t.name?.['zh-CN'] ?? t.name?.['en-US'] ?? t.key;
+  return localizedText(t.name, 'zh-CN', t.key);
 }
 
 function descOf(t: TemplateDTO): string {
-  if (!t.description) return '';
-  if (typeof t.description === 'string') return t.description;
-  return t.description?.['zh-CN'] ?? t.description?.['en-US'] ?? '';
+  return localizedText(t.description, 'zh-CN');
 }
 
 /** 树节点摘要（预览用）。 */

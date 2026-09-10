@@ -840,7 +840,7 @@ export default function CompositeEditorPage() {
               {dragItem.kind === 'basic'
                 ? `组件：${dragItem.basicType}`
                 : dragItem.kind === 'template'
-                  ? `模板：${(dragItem.tpl.name as Record<string, string>)?.['zh-CN'] ?? dragItem.tpl.key}`
+                  ? `模板：${localizedText(dragItem.tpl.name, 'zh-CN', dragItem.tpl.key)}`
                   : `函数：${dragItem.fn.id}`}
             </div>
           ) : null}

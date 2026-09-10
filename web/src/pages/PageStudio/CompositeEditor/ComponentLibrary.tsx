@@ -5,14 +5,16 @@ import { useDraggable } from '@dnd-kit/core';
 import { request } from '@umijs/max';
 import { nodeId, type PageNode } from './model';
 import type { FunctionDescriptor } from '@/services/api/functions';
+import { localizedText } from '@/utils/localizedText';
+import type { LocalizedText } from '@/types/dashboard';
 
 const { Text, Title } = Typography;
 
 /** 组件模板 DTO（后端 /api/v1/component-templates）。 */
 export interface ComponentTemplateDTO {
   key: string;
-  name: { 'zh-CN'?: string; 'en-US'?: string } | Record<string, unknown>;
-  description?: { 'zh-CN'?: string } | Record<string, unknown>;
+  name: LocalizedText;
+  description?: LocalizedText;
   category?: string;
   icon?: string;
   requiredFunctions?: string[];
@@ -27,7 +29,7 @@ export interface ComponentTemplateDTO {
 /** 模板参数定义（与后端 TemplateParam 对齐）。 */
 export interface ComponentTemplateParam {
   key: string;
-  label?: { 'zh-CN'?: string; 'en-US'?: string } | Record<string, unknown>;
+  label?: LocalizedText;
   nodeId: string;
   prop: string;
   default?: unknown;
@@ -105,15 +107,15 @@ export function instantiateTemplate(
         );
       }
       if (key === 'rowActions' && Array.isArray(props[key])) {
-        props[key] = (props[key] as Array<{ targetSection?: string } & Record<string, unknown>>).map(
-          (ra) => ({
-            ...ra,
-            targetSection:
-              ra.targetSection && idMap.has(ra.targetSection)
-                ? idMap.get(ra.targetSection)
-                : ra.targetSection,
-          }),
-        );
+        props[key] = (
+          props[key] as Array<{ targetSection?: string } & Record<string, unknown>>
+        ).map((ra) => ({
+          ...ra,
+          targetSection:
+            ra.targetSection && idMap.has(ra.targetSection)
+              ? idMap.get(ra.targetSection)
+              : ra.targetSection,
+        }));
       }
     }
     return {
@@ -151,7 +153,8 @@ export default function ComponentLibrary({
     const q = search.trim().toLowerCase();
     if (!q) return templates;
     return templates.filter((t) => {
-      const name = (t.name as Record<string, string>)?.['zh-CN'] ?? t.key;
+      // 搜索匹配与展示同源：走 localizedText 统一回退
+      const name = localizedText(t.name, 'zh-CN', t.key);
       return (
         name.toLowerCase().includes(q) ||
         (t.category ?? '').toLowerCase().includes(q) ||
@@ -226,8 +229,8 @@ export default function ComponentLibrary({
           </Title>
           {items.map((tpl) => {
             const { ok, missing } = checkAvailable(tpl);
-            const name = (tpl.name as Record<string, string>)?.['zh-CN'] ?? tpl.key;
-            const desc = (tpl.description as Record<string, string>)?.['zh-CN'] ?? '';
+            const name = localizedText(tpl.name, 'zh-CN', tpl.key);
+            const desc = localizedText(tpl.description, 'zh-CN');
             return (
               <TemplateDraggable
                 key={tpl.key}

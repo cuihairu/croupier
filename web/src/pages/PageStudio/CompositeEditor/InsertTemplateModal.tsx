@@ -1,5 +1,6 @@
 import { Form, Input, InputNumber, Modal, Switch } from 'antd';
 import type { ComponentTemplateDTO } from './ComponentLibrary';
+import { localizedText } from '@/utils/localizedText';
 
 /** 带参数模板拖入的快速配置弹窗（U6）：参数确认后再按拖拽落点插入
  * （不丢失 drop 位置）。插入决策（planTemplateDrop）在编辑器主页。 */
@@ -21,7 +22,7 @@ export default function InsertTemplateModal({
 
   return (
     <Modal
-      title={`配置组件参数：${(tplState?.tpl.name as Record<string, string>)?.['zh-CN'] ?? tplState?.tpl.key ?? ''}`}
+      title={`配置组件参数：${localizedText(tplState?.tpl.name, 'zh-CN', tplState?.tpl.key ?? '')}`}
       open={tplState !== null}
       onCancel={close}
       onOk={() => {
@@ -40,7 +41,7 @@ export default function InsertTemplateModal({
           <Form.Item
             key={p.key}
             name={p.key}
-            label={((p.label as Record<string, string>)?.['zh-CN'] as string | undefined) ?? p.key}
+            label={localizedText(p.label, 'zh-CN', p.key)}
             initialValue={p.default}
             valuePropName={p.prop === 'autoRun' ? 'checked' : 'value'}
           >
