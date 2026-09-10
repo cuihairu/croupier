@@ -317,32 +317,34 @@ export function compileTree(tree: PageNode[]): CompileResult {
       autoRun: node.props.autoRun === true,
       display,
     };
-    // 成功后刷新：fnForm.onSuccess 事件（refresh 步骤）+ 旧 onSuccessRefresh 兼容
-    const collectRefresh = (raw: unknown, source: string) => {
+    // 成功后刷新：events.success 为唯一规范路径（渲染端 runChain 支持
+    // refreshNode/runBinding/navigate/showMessage/closeModal，非刷新动作
+    // 由事件链编译，不再被忽略）。section.onSuccessRefresh 仅承载遗留
+    // prop 中未被 success 事件覆盖的刷新目标——同一目标双写会导致发布端
+    // 一次提交触发两次重跑，且回读→再编译数组膨胀（无去重累积）。
+    const refreshTargetsOf = (raw: unknown): string[] => {
       const a = parseAction(raw);
-      if (!a) return;
+      if (!a) return [];
       const targets: string[] = [];
-      if (a.kind === 'refreshNode') {
-        const t = findNode(tree, a.target);
+      const push = (target: unknown) => {
+        const t = findNode(tree, target as string);
         const k = t && sectionKeyOf(t);
         if (k) targets.push(k);
-      }
+      };
+      if (a.kind === 'refreshNode') push(a.target);
       for (const step of (raw as { chain?: Array<{ kind: string; target: string }> })?.chain ??
         []) {
-        if (step.kind !== 'refreshNode') continue;
-        const t = findNode(tree, step.target);
-        const k = t && sectionKeyOf(t);
-        if (k) targets.push(k);
+        if (step.kind === 'refreshNode') push(step.target);
       }
-      if (targets.length)
-        section.onSuccessRefresh = [...(section.onSuccessRefresh ?? []), ...targets];
-      const hasNonRefresh = (raw as { chain?: Array<{ kind: string }> })?.chain?.some(
-        (st) => st.kind !== 'refreshNode',
-      );
-      if (hasNonRefresh) {
-        warnings.push(`${fid} 的「${source}」含非刷新动作（V1 发布仅支持刷新），已忽略该部分`);
-      }
+      return targets;
     };
+    const successTargets = new Set(refreshTargetsOf(node.props.onSuccess));
+    const legacyTargets = refreshTargetsOf(node.props.onSuccessRefresh).filter(
+      (k) => !successTargets.has(k),
+    );
+    if (legacyTargets.length > 0) {
+      section.onSuccessRefresh = [...new Set(legacyTargets)];
+    }
     // refreshOn：refreshOnNode=模板内部节点 id 引用（实例化时重映射），
     // 解析为本区块的 section key；refreshOn=字面 section key（高级）。
     const refreshOnKeys: string[] = [];
@@ -414,9 +416,6 @@ export function compileTree(tree: PageNode[]): CompileResult {
       )
       .filter((m): m is NonNullable<typeof m> => m !== null);
     if (inputAssignments.length > 0) section.inputAssignments = inputAssignments;
-
-    if (node.props.onSuccess) collectRefresh(node.props.onSuccess, '执行成功后');
-    if (node.props.onSuccessRefresh) collectRefresh(node.props.onSuccessRefresh, '成功后刷新');
 
     // 通用事件编译：→ section.events（发布触发点）
     // 事件名映射：onRowClick→rowClick；onRowSelected→rowSelected；onClick→click；onSuccess/onError→success/error
@@ -796,43 +795,59 @@ export function decompileToTree(sections: SpecSectionLike[]): [PageNode[], strin
     });
   }
 
-  // 第二遍：重建引用（rowActions/toolbar/onSuccessRefresh/events）
-  for (const node of nodes) {
-    // 事件还原：spec.event 名 → 编辑器事件 prop 名；target=section key → 节点 id
-    const evProp: Record<string, string> = {
-      rowClick: 'onRowClick',
-      rowSelected: 'onRowSelected',
-      click: 'onClick',
-      success: 'onSuccess',
-      error: 'onError',
-    };
-    for (const [secKey, evs] of pendingEvents) {
-      const owner = findInNodes(nodes, keyToNodeId.get(secKey) ?? '');
-      if (owner !== node) continue;
-      for (const ev of evs) {
-        const propName = evProp[ev.event];
-        if (!propName) continue;
-        const mapTarget = (t: string) => {
-          if (!t) return '';
-          const nid = keyToNodeId.get(t) ?? dialogGroupToModalId.get(t) ?? '';
-          return nid;
-        };
-        (node.props as Record<string, unknown>)[propName] = {
-          kind: ev.action.kind,
-          target: mapTarget(ev.action.target),
-          ...(ev.action.params ? { params: ev.action.params } : {}),
-          ...(ev.chain?.length
-            ? {
-                chain: ev.chain.map((st) => ({
-                  kind: st.kind,
-                  target: mapTarget(st.target),
-                  ...(st.params ? { params: st.params } : {}),
-                })),
-              }
-            : {}),
-        };
-      }
+  // 第二遍：重建引用（events/rowActions/toolbar/onSuccessRefresh）。
+  // 事件还原直接按 owner 赋值、rowActions/toolbar 递归遍历整树——
+  // dialog 区块的节点在 modal.children 内，只扫根级会让弹窗表单的事件
+  // 绑定静默丢失（fnForm 是 modal 唯一合法子节点，即所有弹窗表单事件必丢）。
+  const evProp: Record<string, string> = {
+    rowClick: 'onRowClick',
+    rowSelected: 'onRowSelected',
+    click: 'onClick',
+    success: 'onSuccess',
+    error: 'onError',
+  };
+  // 事件还原：spec.event 名 → 编辑器事件 prop 名；target=section key → 节点 id
+  for (const [secKey, evs] of pendingEvents) {
+    const owner = findInNodes(nodes, keyToNodeId.get(secKey) ?? '');
+    if (!owner) continue;
+    for (const ev of evs) {
+      const propName = evProp[ev.event];
+      if (!propName) continue;
+      const mapTarget = (t: string) => {
+        if (!t) return '';
+        const nid = keyToNodeId.get(t) ?? dialogGroupToModalId.get(t) ?? '';
+        return nid;
+      };
+      (owner.props as Record<string, unknown>)[propName] = {
+        kind: ev.action.kind,
+        target: mapTarget(ev.action.target),
+        ...(ev.action.params ? { params: ev.action.params } : {}),
+        ...(ev.chain?.length
+          ? {
+              chain: ev.chain.map((st) => ({
+                kind: st.kind,
+                target: mapTarget(st.target),
+                ...(st.params ? { params: st.params } : {}),
+              })),
+            }
+          : {}),
+      };
     }
+  }
+  // label 提取：后端把 rowActions/toolbar 的 label 包装为 LocalizedText
+  // （{"zh-CN": ...}），回读必须提取字符串——原样透传会让再编译
+  // String(label) 变 "[object Object]"（数据毁坏）。
+  const labelOf = (raw: unknown, fallback: string): string => {
+    if (typeof raw === 'string') return raw;
+    if (raw && typeof raw === 'object') {
+      const lt = raw as Record<string, unknown>;
+      const v = lt['zh-CN'] ?? lt['en-US'];
+      if (typeof v === 'string' && v) return v;
+    }
+    return fallback;
+  };
+  // rowActions/toolbar 还原（递归：含 dialog 内的 fnTable）
+  const restoreTableNode = (node: PageNode): void => {
     if (node.type === 'fnTable') {
       const ras = (node.props.rowActions as Array<Record<string, unknown>>) ?? [];
       node.props.rowActions = ras
@@ -840,7 +855,7 @@ export function decompileToTree(sections: SpecSectionLike[]): [PageNode[], strin
           const t = String(ra.targetSection ?? '');
           const modalId = dialogKeyToModalId.get(t) ?? dialogGroupToModalId.get(t);
           if (!modalId) {
-            warnings.push(`行操作「${String(ra.label ?? '')}」的弹窗目标 ${t} 无法还原，已丢弃`);
+            warnings.push(`行操作「${labelOf(ra.label, '')}」的弹窗目标 ${t} 无法还原，已丢弃`);
             return null;
           }
           // V5 round-trip：编译产物 row.字段 → 编辑器表达式 {{row.字段}}
@@ -855,6 +870,7 @@ export function decompileToTree(sections: SpecSectionLike[]): [PageNode[], strin
           }
           return {
             ...ra,
+            label: labelOf(ra.label, '操作'),
             ...(Object.keys(params).length ? { params } : { params: undefined }),
             targetSection: modalId,
           };
@@ -866,23 +882,14 @@ export function decompileToTree(sections: SpecSectionLike[]): [PageNode[], strin
       delete node.props.toolbar;
       if (tas.length) toolbarButtons.push({ tableId: node.id, actions: tas });
     }
-    if (node.type === 'fnForm' && node.props.display === 'inline') {
-      void node;
-    }
-  }
-  // onSuccessRefresh：按 keyToNodeId（dialog 表单或 inline 节点）
-  let i = 0;
+    for (const child of node.children ?? []) restoreTableNode(child);
+  };
+  for (const node of nodes) restoreTableNode(node);
+  // onSuccessRefresh（遗留字段）：按 keyToNodeId（dialog 表单或 inline 节点）
   for (const sec of sections) {
     const key = String(sec.key ?? sec.functionId ?? sec.bindingId ?? '');
     const target = sec.onSuccessRefresh?.[0];
-    if (!target) {
-      i++;
-      continue;
-    }
-    const nodeIdOfSource = nodes.find((n) =>
-      n.type === 'modal' ? n.children?.[0] && dialogFormKey(n) === undefined : false,
-    );
-    void nodeIdOfSource;
+    if (!target) continue;
     // 找到 key 对应的 fnForm/inline 节点
     const srcId = keyToNodeId.get(key);
     const tgtId = keyToNodeId.get(target);
@@ -892,9 +899,7 @@ export function decompileToTree(sections: SpecSectionLike[]): [PageNode[], strin
     } else {
       warnings.push(`「成功后刷新」引用 ${target} 无法还原，已丢弃`);
     }
-    i++;
   }
-  void i;
   // 顶部按钮还原为独立 button 节点（插到对应表格后——round-trip 等价）
   for (const { tableId, actions } of toolbarButtons) {
     let insertAt = nodes.findIndex((n) => n.id === tableId);
@@ -903,15 +908,7 @@ export function decompileToTree(sections: SpecSectionLike[]): [PageNode[], strin
       insertAt += 1;
       const t = String(ta.targetSection ?? '');
       const modalId = t ? (dialogGroupToModalId.get(t) ?? dialogKeyToModalId.get(t)) : undefined;
-      const rawLabel = ta.label as unknown;
-      const label =
-        typeof rawLabel === 'string'
-          ? rawLabel
-          : String(
-              ((rawLabel as Record<string, unknown>)?.['zh-CN'] as string | undefined) ??
-                (rawLabel as Record<string, unknown>)?.['en-US'] ??
-                '操作',
-            );
+      const label = labelOf(ta.label, '操作');
       const chain = Array.isArray(ta.chain)
         ? (
             ta.chain as Array<{ kind: string; target: string; params?: Record<string, string> }>
@@ -961,11 +958,6 @@ export function decompileToTree(sections: SpecSectionLike[]): [PageNode[], strin
     }
   }
   return [nodes, warnings];
-}
-
-function dialogFormKey(n: PageNode): string | undefined {
-  void n;
-  return undefined;
 }
 
 function findInNodes(nodes: PageNode[], id: string): PageNode | undefined {

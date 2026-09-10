@@ -273,7 +273,7 @@ describe('compileTree V3.2：分组弹窗 / 动作链 / 通用事件', () => {
     });
   });
 
-  it('fnForm.onSuccess 事件：refresh 步骤→onSuccessRefresh；非刷新步骤警告', () => {
+  it('fnForm.onSuccess 事件：只走 events.success（不再双写 onSuccessRefresh）；非刷新步骤如实编译', () => {
     const table = fn('fnTable', 'player.list');
     const form = fn('fnForm', 'mail.send', {
       onSuccess: {
@@ -283,8 +283,18 @@ describe('compileTree V3.2：分组弹窗 / 动作链 / 通用事件', () => {
       },
     });
     const { sections, warnings } = compileTree([table, form]);
-    expect(sections[1].onSuccessRefresh).toEqual(['player.list']);
-    expect(warnings.some((w) => w.includes('非刷新动作'))).toBe(true);
+    // 批次B：events.success 为唯一规范路径——onSuccessRefresh 不再同步双写
+    // （此前双写导致发布端一次提交触发两次重跑、round-trip 膨胀）
+    expect(sections[1].onSuccessRefresh).toBeUndefined();
+    const success = sections[1].events?.find((e) => e.event === 'success');
+    expect(success?.action).toMatchObject({ kind: 'refreshNode', target: 'player.list' });
+    // 非刷新步骤由事件链编译（渲染端 runChain 支持），不再忽略/警告
+    expect(success?.chain?.[0]).toEqual({
+      kind: 'showMessage',
+      target: '',
+      params: { message: 'ok' },
+    });
+    expect(warnings.some((w) => w.includes('非刷新动作'))).toBe(false);
   });
 
   it('通用事件编译：表格行点击/行选中 → section.events', () => {

@@ -132,13 +132,21 @@ export default function PreviewRuntime({
           const resp = await invokeFunction(fid, params as never);
           setResults((r) => ({ ...r, [node.id]: resp }));
         }
-        // fnForm 成功 → onSuccessRefresh 动作
+        // fnForm 成功 → 刷新下游。两条来源（编译产物已去重，预览侧再
+        // 防御性去重）：events.success 还原的 props.onSuccess（规范路径）
+        // + 遗留 props.onSuccessRefresh。
         if (node.type === 'fnForm') {
-          const act = parseAction(node.props.onSuccessRefresh);
-          if (act?.kind === 'refreshNode') {
-            const target = findIn(treeRef.current, act.target);
-            if (target) void runNode(target, {});
-          }
+          const fired = new Set<string>();
+          const fireRefresh = (raw: unknown) => {
+            const act = parseAction(raw);
+            if (act?.kind === 'refreshNode' && !fired.has(act.target)) {
+              fired.add(act.target);
+              const target = findIn(treeRef.current, act.target);
+              if (target) void runNode(target, {});
+            }
+          };
+          fireRefresh(node.props.onSuccess);
+          fireRefresh(node.props.onSuccessRefresh);
         }
       } catch (err) {
         message.error(extractErrorMessage(err, `${String(node.props.title ?? fid)} 执行失败`));

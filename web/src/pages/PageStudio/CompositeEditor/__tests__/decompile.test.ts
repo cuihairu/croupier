@@ -256,3 +256,158 @@ describe('decompileToTree（区块 key 固化与参数映射反查，U5）', () 
     expect(warnings.some((w) => w.includes('ghost'))).toBe(true);
   });
 });
+
+/** 批次B回归：镜像后端 generator 真实变换（LocalizedText 包装 + 字段落位）
+ * 的 round-trip——此前测试镜像只搬字段不包装，掩盖了三处数据毁坏：
+ * 1) rowActions.label 回读→再编译变 "[object Object]"；
+ * 2) dialog 区块（弹窗内 fnForm）events 回读静默丢失；
+ * 3) onSuccess 双写为 events.success + onSuccessRefresh（发布端重复执行、
+ *    round-trip 数组膨胀）。 */
+describe('批次B：后端形态 round-trip（LocalizedText/dialog events/onSuccess 单一路径）', () => {
+  const table: PageNode = {
+    id: 'btbl',
+    type: 'fnTable',
+    props: {
+      sectionKey: 'playerListTable',
+      functionId: 'player.list',
+      title: '玩家列表',
+      span: 24,
+      rowActions: [{ label: '发邮件', targetSection: 'bmodal', params: { playerId: 'row.uid' } }],
+    },
+  };
+  const table2: PageNode = {
+    id: 'btbl2',
+    type: 'fnTable',
+    props: {
+      sectionKey: 'backupTable',
+      functionId: 'player.list',
+      title: '备份表',
+      span: 24,
+    },
+  };
+  const buildTree = (formExtra: Record<string, unknown>): PageNode[] => {
+    const form: PageNode = {
+      id: 'bform',
+      type: 'fnForm',
+      props: {
+        sectionKey: 'mailSendForm',
+        functionId: 'mail.send',
+        title: '发邮件',
+        display: 'dialog',
+        ...formExtra,
+      },
+    };
+    const modal: PageNode = {
+      id: 'bmodal',
+      type: 'modal',
+      props: { sectionKey: 'mailSendModal', title: '发邮件弹窗', width: 'medium' },
+      children: [form],
+    };
+    return [table, table2, modal];
+  };
+
+  /** 镜像后端变换：title/label 包装 LocalizedText（DefaultLocale=zh-CN）、
+   * 请求顶层 rowActions/toolbarActions 落位 spec 的 table.rowActions /
+   * toolbar.actions（generator 落库形态）。 */
+  function mirrorBackend(sections: Array<Record<string, unknown>>): SpecSectionLike[] {
+    return sections.map((s) => {
+      const { rowActions, toolbarActions, ...rest } = s;
+      const next: Record<string, unknown> = { ...rest };
+      if (typeof next.title === 'string') next.title = { 'zh-CN': next.title };
+      if (Array.isArray(rowActions) && rowActions.length) {
+        next.table = {
+          ...((next.table as Record<string, unknown>) ?? {}),
+          rowActions: rowActions.map((ra) => ({
+            ...(ra as Record<string, unknown>),
+            label: { 'zh-CN': (ra as { label?: string }).label },
+          })),
+        };
+      }
+      if (Array.isArray(toolbarActions) && toolbarActions.length) {
+        next.toolbar = {
+          actions: toolbarActions.map((ta) => ({
+            ...(ta as Record<string, unknown>),
+            label: { 'zh-CN': (ta as { label?: string }).label },
+          })),
+        };
+      }
+      return next;
+    }) as never;
+  }
+
+  it('rowActions.label 经 LocalizedText 包装后回读→再编译不变形（非 "[object Object]"）', () => {
+    const { sections } = compileTree(buildTree({}));
+    const stored = mirrorBackend(sections as unknown as Array<Record<string, unknown>>);
+    const [tree] = decompileToTree(stored);
+    const tbl = tree.find((n) => n.type === 'fnTable' && n.props.sectionKey === 'playerListTable')!;
+    expect((tbl.props.rowActions as Array<{ label: unknown }>)[0].label).toBe('发邮件');
+    const { sections: again } = compileTree(tree);
+    const sec = again.find((s) => s.key === 'playerListTable')!;
+    expect(sec.rowActions?.[0].label).toBe('发邮件');
+  });
+
+  it('dialog 内 fnForm 的 events 回读不丢（onSuccess 还原为深层节点 props）', () => {
+    const { sections } = compileTree(
+      buildTree({ onSuccess: { kind: 'refreshNode', target: 'btbl' } }),
+    );
+    const formSec = sections.find((s) => s.key === 'mailSendForm')!;
+    expect(formSec.events?.some((e) => e.event === 'success')).toBe(true);
+    const stored = mirrorBackend(sections as unknown as Array<Record<string, unknown>>);
+    const [tree] = decompileToTree(stored);
+    const modal = tree.find((n) => n.type === 'modal')!;
+    const form = modal.children?.[0]!;
+    const onSuccess = form.props.onSuccess as { kind: string; target: string } | undefined;
+    expect(onSuccess?.kind).toBe('refreshNode');
+    expect(onSuccess?.target).toBe(tree.find((n) => n.props.sectionKey === 'playerListTable')!.id);
+  });
+
+  it('onSuccess 只走 events——产物无双写，round-trip 不膨胀', () => {
+    const tree = buildTree({ onSuccess: { kind: 'refreshNode', target: 'btbl' } });
+    const { sections } = compileTree(tree);
+    const formSec = sections.find((s) => s.key === 'mailSendForm')!;
+    expect(formSec.onSuccessRefresh).toBeUndefined();
+    expect(formSec.events?.filter((e) => e.event === 'success')).toHaveLength(1);
+    // round-trip ×2 不膨胀
+    let cur = tree;
+    for (let i = 0; i < 2; i += 1) {
+      const compiled = compileTree(cur);
+      const mirrored = mirrorBackend(
+        compiled.sections as unknown as Array<Record<string, unknown>>,
+      );
+      const sec = compiled.sections.find((s) => s.key === 'mailSendForm')!;
+      expect(sec.onSuccessRefresh).toBeUndefined();
+      expect(sec.events?.filter((e) => e.event === 'success')).toHaveLength(1);
+      [cur] = decompileToTree(mirrored);
+    }
+  });
+
+  it('遗留 onSuccessRefresh：未被 success 事件覆盖的目标保留、覆盖的去重', () => {
+    // 无 onSuccess（纯遗留）：保留
+    const legacyOnly = compileTree(
+      buildTree({ onSuccessRefresh: { kind: 'refreshNode', target: 'btbl' } }),
+    );
+    expect(legacyOnly.sections.find((s) => s.key === 'mailSendForm')!.onSuccessRefresh).toEqual([
+      'playerListTable',
+    ]);
+    // 与 success 事件同目标：去重（不再双写）
+    const sameTarget = compileTree(
+      buildTree({
+        onSuccess: { kind: 'refreshNode', target: 'btbl' },
+        onSuccessRefresh: { kind: 'refreshNode', target: 'btbl' },
+      }),
+    );
+    expect(
+      sameTarget.sections.find((s) => s.key === 'mailSendForm')!.onSuccessRefresh,
+    ).toBeUndefined();
+    // 不同目标：未覆盖者保留
+    const diffTarget = compileTree(
+      buildTree({
+        onSuccess: { kind: 'refreshNode', target: 'btbl' },
+        onSuccessRefresh: { kind: 'refreshNode', target: 'btbl2' },
+      }),
+    );
+    expect(diffTarget.sections.find((s) => s.key === 'mailSendForm')!.onSuccessRefresh).toEqual([
+      'backupTable',
+    ]);
+  });
+});
