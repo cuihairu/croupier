@@ -13,13 +13,11 @@ import {
   Button,
 } from 'antd';
 import { PageContainer } from '@ant-design/pro-components';
-import { getMessage } from '@/utils/antdApp';
 import {
   SettingOutlined,
   SecurityScanOutlined,
   InfoCircleOutlined,
   SearchOutlined,
-  SaveOutlined,
 } from '@ant-design/icons';
 import { permissionDomains, type PermissionDomain } from './domains';
 
@@ -73,9 +71,8 @@ export default function ConfigPage() {
     },
   ];
 
-  const handleSaveConfig = () => {
-    getMessage()?.success('权限配置保存成功');
-  };
+  // 本页为权限域目录只读展示（权限域为系统定义，无用户可编辑状态，
+  // 后端亦无"保存权限配置"API），故不提供保存动作。
 
   return (
     <PageContainer>
@@ -121,9 +118,6 @@ export default function ConfigPage() {
                           }}
                         />
                       </Space.Compact>
-                      <Button type="primary" icon={<SaveOutlined />} onClick={handleSaveConfig}>
-                        保存配置
-                      </Button>
                       <div style={{ marginLeft: 'auto' }}>
                         <Text type="secondary">
                           总计 {filteredDomains.length} 个权限域，

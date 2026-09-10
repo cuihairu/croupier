@@ -144,8 +144,8 @@ export default function Profile() {
   const passwordModalEl = (
     <PasswordModal open={passwordModalVisible} onClose={() => setPasswordModalVisible(false)} />
   );
-  // 广播弹窗当前仅在 profile 未加载分支渲染（历史行为，广播弹窗可达性缺陷
-  // 由独立修复批次处理——拆分批次保持行为等价）。
+  // 广播弹窗在两个分支（加载中/已加载）都渲染：打开入口在 NotificationsTab，
+  // 仅 profile 加载完成后可见，若只渲染在 !profile 分支则弹窗不可达。
   const broadcastModalEl = (
     <BroadcastModal
       open={sendOpen}
@@ -439,6 +439,7 @@ export default function Profile() {
         </Space>
       </PageContainer>
       {passwordModalEl}
+      {broadcastModalEl}
       <AvatarModal
         open={avatarModalVisible}
         avatar={profile?.avatar}

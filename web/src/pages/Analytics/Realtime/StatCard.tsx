@@ -2,8 +2,8 @@ import React from 'react';
 import { Card, Statistic } from 'antd';
 import Spark from './Spark';
 
-/** 实时指标卡：Statistic + 底部 sparkline。无趋势序列的指标
- * 传 spark 省略（保持空 sparkline 占位）。 */
+/** 实时指标卡：Statistic + 底部 sparkline。仅快照指标（无趋势
+ * 序列数据源）不传 spark，此时不渲染图表占位，避免死 sparkline。 */
 export default function StatCard({
   loading,
   title,
@@ -33,9 +33,11 @@ export default function StatCard({
         suffix={suffix}
         valueStyle={valueStyle}
       />
-      <div style={{ marginTop: 6 }}>
-        <Spark data={spark || []} />
-      </div>
+      {spark ? (
+        <div style={{ marginTop: 6 }}>
+          <Spark data={spark} />
+        </div>
+      ) : null}
     </Card>
   );
 }
