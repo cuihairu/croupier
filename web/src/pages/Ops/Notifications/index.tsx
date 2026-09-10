@@ -201,7 +201,15 @@ const ChannelModal: React.FC<{
 }> = ({ open, value, onClose, onOk }) => {
   const [form] = Form.useForm();
   useEffect(() => {
-    if (open) form.setFieldsValue(value || { type: 'dingtalk' });
+    if (!open) return;
+    if (value) {
+      form.setFieldsValue(value);
+    } else {
+      // 新增模式先清空：上一条编辑渠道时填入的 secret/name 等残留
+      // 在 form 实例中，会悄悄带进新渠道
+      form.resetFields();
+      form.setFieldsValue({ type: 'dingtalk' });
+    }
   }, [open, value, form]);
   return (
     <Modal

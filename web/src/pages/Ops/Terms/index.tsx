@@ -125,6 +125,8 @@ export default function TermsPage() {
           type="primary"
           onClick={() => {
             setEditing(null);
+            // 先清空：上次编辑的 termKey/alias/display 残留会带进新增弹窗，极易重复建键
+            form.resetFields();
             form.setFieldsValue({ domain, order: 100 });
             setOpen(true);
           }}

@@ -272,6 +272,9 @@ export default function OpsRateLimitsPage() {
             type="primary"
             onClick={() => {
               setOpen(true);
+              // 先清空：上次编辑的 key 与 match 字段残留在 form 实例中，
+              // 会对错误函数/agent 建立限速规则
+              form.resetFields();
               form.setFieldsValue({ scope: 'function', limitQps: 10, percent: 100 });
             }}
           >
