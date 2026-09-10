@@ -1,430 +1,54 @@
-import React, { useEffect, useRef, useState, useCallback } from 'react';
-import { Alert, Card, Space, Button, Row, Col, Statistic, DatePicker, Tag } from 'antd';
-import type { Dayjs } from 'dayjs';
+import React from 'react';
+import { Alert, Card, Row, Col } from 'antd';
 import { PageContainer } from '@ant-design/pro-components';
 import { useIntl } from '@umijs/max';
-import { fetchRealtimeSeries, openAnalyticsRealtimeEventSource } from '@/services/api/analytics';
-
-type SeriesPoint = [number | string, number];
-type RealtimeSeriesResponse = {
-  online?: SeriesPoint[];
-  active5MSum?: SeriesPoint[];
-  active15MSum?: SeriesPoint[];
-  revenueCents?: SeriesPoint[];
-};
-type ExportRow = Array<string | number>;
-
-interface RealtimeData {
-  online?: number;
-  active1M?: number;
-  active5M?: number;
-  active15M?: number;
-  qps?: number;
-  avgLatency?: number;
-  errorRate?: number;
-  topEvents?: { event: string; count: number }[];
-  rev5M?: number;
-  onlinePeakToday?: number;
-  onlinePeakAllTime?: number;
-  dauToday?: number;
-  newToday?: number;
-  registeredTotal?: number;
-  paySuccRate?: number;
-  revToday?: number;
-  realtimeMetrics?: {
-    onlineUsers?: number;
-    activeSessions?: number;
-    qps?: number;
-    avgLatency?: number;
-    errorRate?: number;
-    topEvents?: { event: string; count: number }[];
-  };
-}
-
-// Server pushes one frame per sse.updateInterval (default 60s); allow two
-// missed frames plus the 30s keep-alive margin before showing "stale".
-const STALE_AFTER_MS = 150_000;
+import { useRealtimeStream } from './useRealtimeStream';
+import Toolbar from './Toolbar';
+import StatCard from './StatCard';
 
 export default function AnalyticsRealtimePage() {
   const intl = useIntl();
-  const [data, setData] = useState<RealtimeData>({});
-  const [loading, setLoading] = useState(false);
-  const [auto, setAuto] = useState(true);
-  const [streamStatus, setStreamStatus] = useState<'connecting' | 'connected' | 'stale' | 'error'>(
-    'connecting',
-  );
-  const [lastMessageAt, setLastMessageAt] = useState<number | null>(null);
-  const [ptsOnline, setPtsOnline] = useState<[number, number][]>([]);
-  const [ptsA5, setPtsA5] = useState<[number, number][]>([]);
-  const [ptsA15, setPtsA15] = useState<[number, number][]>([]);
-  const [ptsRev5, setPtsRev5] = useState<[number, number][]>([]);
-  const [thrOnline, setThrOnline] = useState<number>(0);
-  const [thrA5, setThrA5] = useState<number>(0);
-  const [expRange, setExpRange] = useState<[Dayjs | null, Dayjs | null] | null>(null);
-  const esRef = useRef<EventSource | null>(null);
-  const staleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const normalizeRealtime = (payload: RealtimeData): RealtimeData => {
-    const metrics = payload?.realtimeMetrics || {};
-    return {
-      ...payload,
-      online: payload?.online ?? metrics.onlineUsers ?? 0,
-      active1M: payload?.active1M ?? metrics.activeSessions ?? 0,
-      active5M: payload?.active5M ?? metrics.activeSessions ?? 0,
-      active15M: payload?.active15M ?? metrics.activeSessions ?? 0,
-      qps: payload?.qps ?? metrics.qps ?? 0,
-      avgLatency: payload?.avgLatency ?? metrics.avgLatency ?? 0,
-      errorRate: payload?.errorRate ?? metrics.errorRate ?? 0,
-      topEvents: payload?.topEvents ?? metrics.topEvents ?? [],
-    };
-  };
-
-  const tryPersist = useCallback(
-    (
-      online?: [number, number][],
-      a5?: [number, number][],
-      a15?: [number, number][],
-      rev5?: [number, number][],
-    ) => {
-      try {
-        const current = sessionStorage.getItem('realtime:series');
-        const parsed = current ? JSON.parse(current) : {};
-        sessionStorage.setItem(
-          'realtime:series',
-          JSON.stringify({
-            online: online ?? parsed.online ?? ptsOnline,
-            a5: a5 ?? parsed.a5 ?? ptsA5,
-            a15: a15 ?? parsed.a15 ?? ptsA15,
-            rev5: rev5 ?? parsed.rev5 ?? ptsRev5,
-          }),
-        );
-      } catch {}
-    },
-    [ptsOnline, ptsA5, ptsA15, ptsRev5],
-  );
-
-  const pushRealtime = useCallback(
-    (r: RealtimeData) => {
-      const normalized = normalizeRealtime(r || {});
-      setData(normalized);
-      setLastMessageAt(Date.now());
-      setStreamStatus('connected');
-      const now = Date.now();
-      const online = Number(normalized.online || 0);
-      const a5 = Number(normalized.active5M || 0);
-      const a15 = Number(normalized.active15M || 0);
-      const rev5 = Number(normalized.rev5M || 0);
-      const keep = (arr: [number, number][]) =>
-        arr.length > 120 ? arr.slice(arr.length - 120) : arr;
-      setPtsOnline((prev) => {
-        const next = keep(prev.concat([[now, online]]));
-        tryPersist(next, undefined, undefined, undefined);
-        return next;
-      });
-      setPtsA5((prev) => {
-        const next = keep(prev.concat([[now, a5]]));
-        tryPersist(undefined, next, undefined, undefined);
-        return next;
-      });
-      setPtsA15((prev) => {
-        const next = keep(prev.concat([[now, a15]]));
-        tryPersist(undefined, undefined, next, undefined);
-        return next;
-      });
-      setPtsRev5((prev) => {
-        const next = keep(prev.concat([[now, rev5 / 100]]));
-        tryPersist(undefined, undefined, undefined, next);
-        return next;
-      });
-    },
-    [tryPersist],
-  );
-
-  // Frame cadence comes from the server SSE config (sse.updateInterval,
-  // default 60s). Mark the stream stale only after missing ~2 frames plus
-  // the keep-alive margin, instead of a hardcoded 15s that would flag a
-  // healthy 60s stream as stale.
-  const resetStaleTimer = () => {
-    if (staleTimerRef.current) {
-      clearTimeout(staleTimerRef.current);
-    }
-    staleTimerRef.current = setTimeout(() => {
-      setStreamStatus((prev) => (prev === 'error' ? prev : 'stale'));
-    }, STALE_AFTER_MS);
-  };
-
-  const closeStream = () => {
-    esRef.current?.close();
-    esRef.current = null;
-    if (staleTimerRef.current) {
-      clearTimeout(staleTimerRef.current);
-      staleTimerRef.current = null;
-    }
-  };
-
-  const connect = useCallback(
-    (singleShot = false) => {
-      closeStream();
-      setLoading(true);
-      setStreamStatus('connecting');
-      const es = openAnalyticsRealtimeEventSource();
-      esRef.current = es;
-      es.onopen = () => {
-        setLoading(false);
-        setStreamStatus('connected');
-        resetStaleTimer();
-      };
-      es.addEventListener('connected', () => {
-        setLoading(false);
-        setStreamStatus('connected');
-        resetStaleTimer();
-      });
-      es.addEventListener('message', (event: MessageEvent) => {
-        try {
-          const payload = JSON.parse(event.data || '{}');
-          pushRealtime(payload);
-          resetStaleTimer();
-          if (singleShot) {
-            closeStream();
-            if (esRef.current === es) {
-              esRef.current = null;
-            }
-          }
-        } finally {
-          setLoading(false);
-        }
-      });
-      es.addEventListener('error', () => {
-        setLoading(false);
-        setStreamStatus('error');
-      });
-    },
-    [pushRealtime],
-  );
-
-  const load = async () => {
-    connect(!auto);
-  };
-
-  useEffect(() => {
-    connect();
-    return () => {
-      closeStream();
-    };
-  }, [connect]);
-  // load thresholds from localStorage
-  useEffect(() => {
-    try {
-      const a = localStorage.getItem('realtime:thrOnline');
-      if (a) setThrOnline(Number(a) || 0);
-      const b = localStorage.getItem('realtime:thrA5');
-      if (b) setThrA5(Number(b) || 0);
-    } catch {}
-  }, []);
-  useEffect(() => {
-    try {
-      localStorage.setItem('realtime:thrOnline', String(thrOnline || 0));
-    } catch {}
-  }, [thrOnline]);
-  useEffect(() => {
-    try {
-      localStorage.setItem('realtime:thrA5', String(thrA5 || 0));
-    } catch {}
-  }, [thrA5]);
-  // restore series from sessionStorage once
-  useEffect(() => {
-    try {
-      const txt = sessionStorage.getItem('realtime:series');
-      if (txt) {
-        const obj = JSON.parse(txt);
-        if (Array.isArray(obj?.online)) setPtsOnline(obj.online);
-        if (Array.isArray(obj?.a5)) setPtsA5(obj.a5);
-        if (Array.isArray(obj?.a15)) setPtsA15(obj.a15);
-        if (Array.isArray(obj?.rev5)) setPtsRev5(obj.rev5);
-      }
-    } catch {}
-  }, []);
-  useEffect(() => {
-    if (!auto) {
-      closeStream();
-      return;
-    }
-    connect();
-    return () => {
-      closeStream();
-    };
-  }, [auto, connect]);
-
-  const statusTag =
-    streamStatus === 'connected' ? (
-      <Tag color="green">已连接</Tag>
-    ) : streamStatus === 'connecting' ? (
-      <Tag color="blue">连接中</Tag>
-    ) : streamStatus === 'stale' ? (
-      <Tag color="gold">暂未收到新帧</Tag>
-    ) : (
-      <Tag color="red">连接异常</Tag>
-    );
+  const {
+    data,
+    loading,
+    auto,
+    setAuto,
+    streamStatus,
+    lastMessageAt,
+    ptsOnline,
+    ptsA5,
+    ptsA15,
+    ptsRev5,
+    thrOnline,
+    setThrOnline,
+    thrA5,
+    setThrA5,
+    refresh,
+    clearTrend,
+  } = useRealtimeStream();
 
   return (
     <PageContainer>
       <Card
         title={intl.formatMessage({ id: 'pages.analytics.realtime.title' }) || '实时大屏'}
         extra={
-          <Space>
-            {statusTag}
-            <span style={{ color: '#666' }}>
-              最后更新:
-              {lastMessageAt ? ` ${new Date(lastMessageAt).toLocaleTimeString()}` : ' -'}
-            </span>
-            <Button onClick={load} loading={loading}>
-              {intl.formatMessage({ id: 'pages.analytics.realtime.refresh' }) || '刷新'}
-            </Button>
-            <Button type={auto ? 'primary' : 'default'} onClick={() => setAuto((x) => !x)}>
-              {auto
-                ? intl.formatMessage({ id: 'pages.analytics.realtime.auto.refresh.on' }) ||
-                  '自动刷新:开'
-                : intl.formatMessage({ id: 'pages.analytics.realtime.auto.refresh.off' }) ||
-                  '自动刷新:关'}
-            </Button>
-            <Button
-              onClick={() => {
-                setPtsOnline([]);
-                setPtsA5([]);
-                setPtsA15([]);
-                setPtsRev5([]);
-                try {
-                  sessionStorage.removeItem('realtime:series');
-                } catch {}
-              }}
-            >
-              {intl.formatMessage({ id: 'pages.analytics.realtime.clear.trend' }) || '清空趋势'}
-            </Button>
-            <span>
-              {intl.formatMessage({ id: 'pages.analytics.realtime.threshold' }) ||
-                '阈值(在线/5m活跃):'}
-            </span>
-            <input
-              type="number"
-              value={thrOnline}
-              onChange={(e) => setThrOnline(Number(e.target.value || 0))}
-              style={{ width: 80 }}
-            />
-            <input
-              type="number"
-              value={thrA5}
-              onChange={(e) => setThrA5(Number(e.target.value || 0))}
-              style={{ width: 80 }}
-            />
-            <DatePicker.RangePicker
-              showTime
-              value={expRange as [Dayjs, Dayjs]}
-              onChange={(dates) => setExpRange(dates as [Dayjs | null, Dayjs | null] | null)}
-            />
-            <Button
-              onClick={async () => {
-                try {
-                  const params: Record<string, string> = {};
-                  if (expRange && expRange[0]) params.start = expRange[0].toISOString();
-                  if (expRange && expRange[1]) params.end = expRange[1].toISOString();
-                  const s = (await fetchRealtimeSeries(params)) as RealtimeSeriesResponse;
-                  const rows: ExportRow[] = [
-                    ['ts', 'online', 'active_5m_sum', 'active_15m_sum', 'revenue_cents'],
-                  ];
-                  const idx: Record<
-                    string,
-                    {
-                      ts: string | number;
-                      online?: number;
-                      a5?: number;
-                      a15?: number;
-                      rev?: number;
-                    }
-                  > = {};
-                  (s?.online || []).forEach((x) => {
-                    idx[String(x[0])] = { ts: x[0], online: x[1] };
-                  });
-                  (s?.active5MSum || []).forEach((x) => {
-                    const k = String(x[0]);
-                    idx[k] = idx[k] || { ts: x[0] };
-                    idx[k].a5 = x[1];
-                  });
-                  (s?.active15MSum || []).forEach((x) => {
-                    const k = String(x[0]);
-                    idx[k] = idx[k] || { ts: x[0] };
-                    idx[k].a15 = x[1];
-                  });
-                  (s?.revenueCents || []).forEach((x) => {
-                    const k = String(x[0]);
-                    idx[k] = idx[k] || { ts: x[0] };
-                    idx[k].rev = x[1];
-                  });
-                  const times = Object.keys(idx).sort();
-                  for (const t of times) {
-                    const it = idx[t];
-                    rows.push([it.ts, it.online ?? '', it.a5 ?? '', it.a15 ?? '', it.rev ?? '']);
-                  }
-                  const csv = rows.map((r) => r.map((x) => String(x ?? '')).join(',')).join('\n');
-                  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-                  const url = URL.createObjectURL(blob);
-                  const a = document.createElement('a');
-                  a.href = url;
-                  a.download = 'realtime_window.csv';
-                  a.click();
-                  URL.revokeObjectURL(url);
-                } catch {}
-              }}
-            >
-              {intl.formatMessage({ id: 'pages.analytics.realtime.export.window.csv' }) ||
-                '导出窗口 CSV'}
-            </Button>
-            <Button
-              onClick={() => {
-                try {
-                  const last10 = (arr: [number, number][]) => {
-                    const t = Date.now() - 10 * 60 * 1000;
-                    return (arr || []).filter((p) => p[0] >= t);
-                  };
-                  // revenue column exported in Yuan (to match UI/spark)
-                  const csvRows: string[][] = [
-                    ['ts', 'online', 'active_5m', 'active_15m', 'rev_5m_yuan'],
-                  ];
-                  const o = last10(ptsOnline),
-                    a5 = last10(ptsA5),
-                    a15 = last10(ptsA15),
-                    rv = last10(ptsRev5);
-                  const idx = new Set<number>([...o, ...a5, ...a15, ...rv].map((p) => p[0]));
-                  const times = Array.from(idx).sort((a, b) => a - b);
-                  const at = (arr: [number, number][], t: number): string => {
-                    const f = arr.find((p) => p[0] === t);
-                    return f ? String(f[1]) : '';
-                  };
-                  for (const t of times) {
-                    csvRows.push([
-                      new Date(t).toISOString(),
-                      at(o, t),
-                      at(a5, t),
-                      at(a15, t),
-                      at(rv, t),
-                    ]);
-                  }
-                  const csv = csvRows
-                    .map((r) => r.map((x) => String(x ?? '')).join(','))
-                    .join('\n');
-                  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-                  const url = URL.createObjectURL(blob);
-                  const a = document.createElement('a');
-                  a.href = url;
-                  a.download = 'realtime_last10m.csv';
-                  a.click();
-                  URL.revokeObjectURL(url);
-                } catch {}
-              }}
-            >
-              {intl.formatMessage({ id: 'pages.analytics.realtime.export.10min.csv' }) ||
-                '导出10分钟CSV'}
-            </Button>
-          </Space>
+          <Toolbar
+            streamStatus={streamStatus}
+            lastMessageAt={lastMessageAt}
+            loading={loading}
+            auto={auto}
+            onToggleAuto={() => setAuto((x) => !x)}
+            onRefresh={refresh}
+            onClearTrend={clearTrend}
+            thrOnline={thrOnline}
+            onThrOnlineChange={(value) => setThrOnline(value)}
+            thrA5={thrA5}
+            onThrA5Change={(value) => setThrA5(value)}
+            ptsOnline={ptsOnline}
+            ptsA5={ptsA5}
+            ptsA15={ptsA15}
+            ptsRev5={ptsRev5}
+          />
         }
       >
         <Alert
@@ -441,172 +65,89 @@ export default function AnalyticsRealtimePage() {
         />
         <Row gutter={[16, 16]}>
           <Col span={6}>
-            <Card loading={loading}>
-              <Statistic
-                title="实时在线"
-                value={data?.online || 0}
-                valueStyle={
-                  thrOnline > 0 && Number(data?.online || 0) < thrOnline
-                    ? { color: '#cf1322' }
-                    : undefined
-                }
-              />
-              <div style={{ marginTop: 6 }}>
-                <Spark data={ptsOnline} />
-              </div>
-            </Card>
+            <StatCard
+              loading={loading}
+              title="实时在线"
+              value={data?.online || 0}
+              valueStyle={
+                thrOnline > 0 && Number(data?.online || 0) < thrOnline
+                  ? { color: '#cf1322' }
+                  : undefined
+              }
+              spark={ptsOnline}
+            />
           </Col>
           <Col span={6}>
-            <Card loading={loading}>
-              <Statistic title="1分钟活跃" value={data?.active1M || 0} />
-              <div style={{ marginTop: 6 }}>
-                <Spark data={[]} />
-              </div>
-            </Card>
+            <StatCard loading={loading} title="1分钟活跃" value={data?.active1M || 0} />
           </Col>
           <Col span={6}>
-            <Card loading={loading}>
-              <Statistic
-                title="5分钟活跃"
-                value={data?.active5M || 0}
-                valueStyle={
-                  thrA5 > 0 && Number(data?.active5M || 0) < thrA5
-                    ? { color: '#cf1322' }
-                    : undefined
-                }
-              />
-              <div style={{ marginTop: 6 }}>
-                <Spark data={ptsA5} />
-              </div>
-            </Card>
+            <StatCard
+              loading={loading}
+              title="5分钟活跃"
+              value={data?.active5M || 0}
+              valueStyle={
+                thrA5 > 0 && Number(data?.active5M || 0) < thrA5 ? { color: '#cf1322' } : undefined
+              }
+              spark={ptsA5}
+            />
           </Col>
           <Col span={6}>
-            <Card loading={loading}>
-              <Statistic title="15分钟活跃" value={data?.active15M || 0} />
-              <div style={{ marginTop: 6 }}>
-                <Spark data={ptsA15} />
-              </div>
-            </Card>
+            <StatCard
+              loading={loading}
+              title="15分钟活跃"
+              value={data?.active15M || 0}
+              spark={ptsA15}
+            />
           </Col>
         </Row>
         <Row gutter={[16, 16]} style={{ marginTop: 12 }}>
           <Col span={6}>
-            <Card loading={loading}>
-              <Statistic title="今日峰值在线" value={data?.onlinePeakToday || 0} />
-              <div style={{ marginTop: 6 }}>
-                <Spark data={[]} />
-              </div>
-            </Card>
+            <StatCard loading={loading} title="今日峰值在线" value={data?.onlinePeakToday || 0} />
           </Col>
           <Col span={6}>
-            <Card loading={loading}>
-              <Statistic title="历史峰值在线" value={data?.onlinePeakAllTime || 0} />
-              <div style={{ marginTop: 6 }}>
-                <Spark data={[]} />
-              </div>
-            </Card>
+            <StatCard loading={loading} title="历史峰值在线" value={data?.onlinePeakAllTime || 0} />
           </Col>
           <Col span={6}>
-            <Card loading={loading}>
-              <Statistic title="今日DAU" value={data?.dauToday || 0} />
-              <div style={{ marginTop: 6 }}>
-                <Spark data={[]} />
-              </div>
-            </Card>
+            <StatCard loading={loading} title="今日DAU" value={data?.dauToday || 0} />
           </Col>
           <Col span={6}>
-            <Card loading={loading}>
-              <Statistic title="今日新增" value={data?.newToday || 0} />
-              <div style={{ marginTop: 6 }}>
-                <Spark data={[]} />
-              </div>
-            </Card>
+            <StatCard loading={loading} title="今日新增" value={data?.newToday || 0} />
           </Col>
         </Row>
         <Row gutter={[16, 16]} style={{ marginTop: 12 }}>
           <Col span={6}>
-            <Card loading={loading}>
-              <Statistic title="注册用户总数" value={data?.registeredTotal || 0} />
-              <div style={{ marginTop: 6 }}>
-                <Spark data={[]} />
-              </div>
-            </Card>
+            <StatCard loading={loading} title="注册用户总数" value={data?.registeredTotal || 0} />
           </Col>
           <Col span={6}>
-            <Card loading={loading}>
-              <Statistic
-                title="5分钟订单额(元)"
-                value={Number(data?.rev5M || 0) / 100}
-                precision={2}
-                prefix="¥"
-              />
-              <div style={{ marginTop: 6 }}>
-                <Spark data={ptsRev5} />
-              </div>
-            </Card>
+            <StatCard
+              loading={loading}
+              title="5分钟订单额(元)"
+              value={Number(data?.rev5M || 0) / 100}
+              precision={2}
+              prefix="¥"
+              spark={ptsRev5}
+            />
           </Col>
           <Col span={6}>
-            <Card loading={loading}>
-              <Statistic
-                title="支付成功率"
-                value={data?.paySuccRate || 0}
-                precision={2}
-                suffix="%"
-              />
-              <div style={{ marginTop: 6 }}>
-                <Spark data={[]} />
-              </div>
-            </Card>
+            <StatCard
+              loading={loading}
+              title="支付成功率"
+              value={data?.paySuccRate || 0}
+              precision={2}
+              suffix="%"
+            />
           </Col>
           <Col span={6}>
-            <Card loading={loading}>
-              <Statistic
-                title="今日充值(元)"
-                value={Number(data?.revToday || 0) / 100}
-                precision={2}
-                prefix="¥"
-              />
-              <div style={{ marginTop: 6 }}>
-                <Spark data={[]} />
-              </div>
-            </Card>
+            <StatCard
+              loading={loading}
+              title="今日充值(元)"
+              value={Number(data?.revToday || 0) / 100}
+              precision={2}
+              prefix="¥"
+            />
           </Col>
         </Row>
       </Card>
     </PageContainer>
   );
 }
-
-const Spark: React.FC<{ data: [number, number][] }> = ({ data }) => {
-  // viewBox + 100% 宽度：折线随卡片自适应，不再以固定 240px 溢出窄卡片。
-  const w = 240,
-    h = 40,
-    p = 3;
-  if (!data || data.length < 2) return <div style={{ height: h }} />;
-  const xs = data.map((d) => d[0]);
-  const ys = data.map((d) => d[1]);
-  const x0 = Math.min(...xs),
-    x1 = Math.max(...xs),
-    y0 = Math.min(...ys),
-    y1 = Math.max(...ys);
-  const sx = (x: number) => (x1 === x0 ? p : p + ((w - 2 * p) * (x - x0)) / (x1 - x0));
-  const sy = (y: number) => (y1 === y0 ? h - p : h - (p + ((h - 2 * p) * (y - y0)) / (y1 - y0)));
-  const dstr = data.map((pt, i) => `${i ? 'L' : 'M'}${sx(pt[0])},${sy(pt[1])}`).join(' ');
-  return (
-    <svg
-      viewBox={`0 0 ${w} ${h}`}
-      width="100%"
-      height={h}
-      preserveAspectRatio="none"
-      style={{ display: 'block' }}
-    >
-      <path
-        d={dstr}
-        fill="none"
-        stroke="#1677ff"
-        strokeWidth={1.8}
-        vectorEffect="non-scaling-stroke"
-      />
-    </svg>
-  );
-};
