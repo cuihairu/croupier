@@ -19,6 +19,19 @@ export function useRealtimeStream() {
   const [thrA5, setThrA5] = useState<number>(0);
   const esRef = useRef<EventSource | null>(null);
   const staleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // 最新序列快照：tryPersist 的回退值读 ref 而非闭包 state，避免
+  // state 变化→tryPersist→pushRealtime→connect 引用链每帧重建，
+  // 导致 useEffect [connect] 每收到一帧就断开重连 SSE。
+  const ptsRef = useRef<{
+    online: [number, number][];
+    a5: [number, number][];
+    a15: [number, number][];
+    rev5: [number, number][];
+  }>({ online: [], a5: [], a15: [], rev5: [] });
+
+  useEffect(() => {
+    ptsRef.current = { online: ptsOnline, a5: ptsA5, a15: ptsA15, rev5: ptsRev5 };
+  });
 
   const normalizeRealtime = (payload: RealtimeData): RealtimeData => {
     const metrics = payload?.realtimeMetrics || {};
@@ -45,18 +58,20 @@ export function useRealtimeStream() {
       try {
         const current = sessionStorage.getItem('realtime:series');
         const parsed = current ? JSON.parse(current) : {};
+        const cur = ptsRef.current;
         sessionStorage.setItem(
           'realtime:series',
           JSON.stringify({
-            online: online ?? parsed.online ?? ptsOnline,
-            a5: a5 ?? parsed.a5 ?? ptsA5,
-            a15: a15 ?? parsed.a15 ?? ptsA15,
-            rev5: rev5 ?? parsed.rev5 ?? ptsRev5,
+            online: online ?? parsed.online ?? cur.online,
+            a5: a5 ?? parsed.a5 ?? cur.a5,
+            a15: a15 ?? parsed.a15 ?? cur.a15,
+            rev5: rev5 ?? parsed.rev5 ?? cur.rev5,
           }),
         );
       } catch {}
     },
-    [ptsOnline, ptsA5, ptsA15, ptsRev5],
+    // 空依赖保持引用稳定（回退值经 ptsRef 读取），connect 不随数据帧重建。
+    [],
   );
 
   const pushRealtime = useCallback(
