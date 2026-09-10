@@ -1,0 +1,68 @@
+import React from 'react';
+import { Modal, Space, Tag, Typography } from 'antd';
+import type { ExtensionCatalogItem, ExtensionReleaseItem } from '@/services/api/extensions';
+
+const { Text } = Typography;
+
+/** 扩展目录详情弹窗：ID/描述/能力/可用版本。数据由页面拉取注入。 */
+export default function CatalogDetailModal({
+  open,
+  loading,
+  item,
+  capabilities,
+  releases,
+  onClose,
+}: {
+  open: boolean;
+  loading: boolean;
+  item: ExtensionCatalogItem | undefined;
+  capabilities: string[];
+  releases: ExtensionReleaseItem[];
+  onClose: () => void;
+}) {
+  return (
+    <Modal
+      open={open}
+      onCancel={onClose}
+      footer={null}
+      title={item?.displayName || item?.name || '扩展详情'}
+      width={840}
+    >
+      <Space orientation="vertical" style={{ width: '100%' }}>
+        {loading && <Text type="secondary">加载中...</Text>}
+        <div>
+          <Text strong>ID: </Text>
+          <Text>{item?.id || '-'}</Text>
+        </div>
+        <div>
+          <Text strong>描述: </Text>
+          <Text>{item?.summary || '-'}</Text>
+        </div>
+        <div>
+          <Text strong>能力: </Text>
+          <Space wrap>
+            {(capabilities || []).map((cap) => (
+              <Tag key={cap} color="blue">
+                {cap}
+              </Tag>
+            ))}
+            {!capabilities?.length && <Text type="secondary">无</Text>}
+          </Space>
+        </div>
+        <div>
+          <Text strong>可用版本:</Text>
+          <div style={{ marginTop: 8 }}>
+            <Space wrap>
+              {(releases || []).map((release) => (
+                <Tag key={release.version} color="processing">
+                  {release.version}
+                </Tag>
+              ))}
+              {!releases?.length && <Text type="secondary">无</Text>}
+            </Space>
+          </div>
+        </div>
+      </Space>
+    </Modal>
+  );
+}

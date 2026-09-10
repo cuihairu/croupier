@@ -1,18 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import {
-  App,
-  Button,
-  Card,
-  Form,
-  Input,
-  InputNumber,
-  Modal,
-  Select,
-  Space,
-  Table,
-  Tag,
-  Typography,
-} from 'antd';
+import { App, Button, Card, Form, Input, Select, Space, Table, Tag, Typography } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { PageContainer } from '@ant-design/pro-components';
 import { useAccess } from '@umijs/max';
@@ -32,71 +19,11 @@ import {
 import { EXTENSION_ERROR_CODES } from '@/services/errors/codes';
 import { mapExtensionError } from '@/services/errors/mapper';
 import type { JSONValue } from '@/types/dashboard';
+import CatalogDetailModal from './CatalogDetailModal';
+import InstallModal from './InstallModal';
+import { buildSchemaDefaults, normalizeConfigBySchema, type InstallFormValues } from './shared';
 
 const { Text } = Typography;
-
-type InstallFormValues = {
-  releaseVersion: string;
-  scopeType: string;
-  scopeId: string;
-  targetType: string;
-  targetId?: string;
-  config?: Record<string, JSONValue>;
-  configJson?: string;
-};
-
-function buildSchemaDefaults(schema?: Record<string, JSONValue>): Record<string, JSONValue> {
-  if (!schema || typeof schema !== 'object') return {};
-  const properties = schema?.properties;
-  if (!properties || typeof properties !== 'object') return {};
-  const defaults: Record<string, JSONValue> = {};
-  Object.entries(properties).forEach(([key, raw]) => {
-    const prop = (raw || {}) as Record<string, JSONValue>;
-    if (Object.prototype.hasOwnProperty.call(prop, 'default')) {
-      defaults[key] = prop.default;
-    }
-  });
-  return defaults;
-}
-
-function normalizeConfigBySchema(
-  rawConfig: Record<string, JSONValue>,
-  schema?: Record<string, JSONValue>,
-): Record<string, JSONValue> {
-  if (!schema || typeof schema !== 'object') return rawConfig || {};
-  const properties = schema?.properties;
-  if (!properties || typeof properties !== 'object') return rawConfig || {};
-
-  const out: Record<string, JSONValue> = { ...(rawConfig || {}) };
-  Object.entries(properties).forEach(([key, raw]) => {
-    const field = (raw || {}) as Record<string, JSONValue>;
-    const fieldType = String(field.type || '');
-    const value = out[key];
-    if (value === undefined || value === null) return;
-
-    if ((fieldType === 'number' || fieldType === 'integer') && typeof value === 'string') {
-      const n = Number(value);
-      if (!Number.isNaN(n)) {
-        out[key] = fieldType === 'integer' ? Math.trunc(n) : n;
-      }
-      return;
-    }
-    if (fieldType === 'boolean' && typeof value === 'string') {
-      const v = value.trim().toLowerCase();
-      if (v === 'true' || v === '1') out[key] = true;
-      if (v === 'false' || v === '0') out[key] = false;
-      return;
-    }
-    if ((fieldType === 'array' || fieldType === 'object') && typeof value === 'string') {
-      try {
-        out[key] = JSON.parse(value);
-      } catch {
-        // keep raw text, backend validation will reject if invalid
-      }
-    }
-  });
-  return out;
-}
 
 export default function ExtensionsStorePage() {
   const access = useAccess();
@@ -430,202 +357,25 @@ export default function ExtensionsStorePage() {
         />
       </Card>
 
-      <Modal
+      <CatalogDetailModal
         open={detailOpen}
-        onCancel={() => setDetailOpen(false)}
-        footer={null}
-        title={detailItem?.displayName || detailItem?.name || '扩展详情'}
-        width={840}
-      >
-        <Space orientation="vertical" style={{ width: '100%' }}>
-          {detailLoading && <Text type="secondary">加载中...</Text>}
-          <div>
-            <Text strong>ID: </Text>
-            <Text>{detailItem?.id || '-'}</Text>
-          </div>
-          <div>
-            <Text strong>描述: </Text>
-            <Text>{detailItem?.summary || '-'}</Text>
-          </div>
-          <div>
-            <Text strong>能力: </Text>
-            <Space wrap>
-              {(detailCapabilities || []).map((cap) => (
-                <Tag key={cap} color="blue">
-                  {cap}
-                </Tag>
-              ))}
-              {!detailCapabilities?.length && <Text type="secondary">无</Text>}
-            </Space>
-          </div>
-          <div>
-            <Text strong>可用版本:</Text>
-            <div style={{ marginTop: 8 }}>
-              <Space wrap>
-                {(detailReleases || []).map((release) => (
-                  <Tag key={release.version} color="processing">
-                    {release.version}
-                  </Tag>
-                ))}
-                {!detailReleases?.length && <Text type="secondary">无</Text>}
-              </Space>
-            </div>
-          </div>
-        </Space>
-      </Modal>
+        loading={detailLoading}
+        item={detailItem}
+        capabilities={detailCapabilities}
+        releases={detailReleases}
+        onClose={() => setDetailOpen(false)}
+      />
 
-      <Modal
+      <InstallModal
         open={installOpen}
+        form={installForm}
+        item={installItem}
+        releases={detailReleases}
+        configSchema={installConfigSchema}
+        installing={installing}
         onCancel={() => setInstallOpen(false)}
         onOk={handleInstall}
-        okButtonProps={{ loading: installing }}
-        title={`安装扩展: ${installItem?.displayName || installItem?.name || ''}`}
-        width={720}
-      >
-        <Form form={installForm} layout="vertical">
-          <Form.Item
-            name="releaseVersion"
-            label="版本"
-            rules={[{ required: true, message: '请选择版本' }]}
-          >
-            <Select
-              placeholder="选择版本"
-              options={(detailReleases || []).map((r) => ({ label: r.version, value: r.version }))}
-            />
-          </Form.Item>
-          {detailReleases.length === 0 && (
-            <Typography.Text type="warning">当前扩展没有可用发布版本，暂不可安装。</Typography.Text>
-          )}
-          <Space style={{ width: '100%' }} size="middle">
-            <Form.Item
-              name="scopeType"
-              label="Scope Type"
-              style={{ flex: 1 }}
-              rules={[{ required: true, message: '请输入 scopeType' }]}
-            >
-              <Input placeholder="system" />
-            </Form.Item>
-            <Form.Item
-              name="scopeId"
-              label="Scope ID"
-              style={{ flex: 1 }}
-              rules={[{ required: true, message: '请输入 scopeId' }]}
-            >
-              <Input placeholder="global" />
-            </Form.Item>
-          </Space>
-          <Space style={{ width: '100%' }} size="middle">
-            <Form.Item
-              name="targetType"
-              label="Target Type"
-              style={{ flex: 1 }}
-              rules={[{ required: true, message: '请输入 targetType' }]}
-            >
-              <Input placeholder="agent_group" />
-            </Form.Item>
-            <Form.Item name="targetId" label="Target ID" style={{ flex: 1 }}>
-              <Input placeholder="default" />
-            </Form.Item>
-          </Space>
-          <Form.Item name="configJson" label="配置 JSON">
-            <Input.TextArea rows={5} placeholder='{"enabled": true}' />
-          </Form.Item>
-          {installConfigSchema?.properties &&
-            typeof installConfigSchema.properties === 'object' && (
-              <Card size="small" title="配置字段（来自 manifest.configSchema）">
-                <Space orientation="vertical" style={{ width: '100%' }}>
-                  {Object.entries(installConfigSchema.properties).map(([key, raw]) => {
-                    const field = (raw || {}) as Record<string, JSONValue>;
-                    const type = String(field.type || 'string');
-                    const enums = Array.isArray(field.enum) ? (field.enum as JSONValue[]) : [];
-                    const label = String(field.title || key);
-                    const help = String(field.description || '');
-                    const requiredKeys = Array.isArray(installConfigSchema.required)
-                      ? installConfigSchema.required
-                      : [];
-                    const required = requiredKeys.includes(key);
-
-                    if (enums.length > 0) {
-                      return (
-                        <Form.Item
-                          key={key}
-                          name={['config', key]}
-                          label={label}
-                          extra={help}
-                          rules={[{ required, message: `请选择 ${label}` }]}
-                        >
-                          <Select options={enums.map((v) => ({ label: String(v), value: v }))} />
-                        </Form.Item>
-                      );
-                    }
-
-                    if (type === 'boolean') {
-                      return (
-                        <Form.Item
-                          key={key}
-                          name={['config', key]}
-                          label={label}
-                          extra={help}
-                          rules={[{ required, message: `请设置 ${label}` }]}
-                        >
-                          <Select
-                            options={[
-                              { label: 'true', value: true },
-                              { label: 'false', value: false },
-                            ]}
-                          />
-                        </Form.Item>
-                      );
-                    }
-
-                    if (type === 'number' || type === 'integer') {
-                      return (
-                        <Form.Item
-                          key={key}
-                          name={['config', key]}
-                          label={label}
-                          extra={help}
-                          rules={[{ required, message: `请填写 ${label}` }]}
-                        >
-                          <InputNumber
-                            style={{ width: '100%' }}
-                            precision={type === 'integer' ? 0 : undefined}
-                          />
-                        </Form.Item>
-                      );
-                    }
-
-                    if (type === 'array' || type === 'object') {
-                      return (
-                        <Form.Item
-                          key={key}
-                          name={['config', key]}
-                          label={label}
-                          extra={help || `${type} 类型，支持 JSON 文本`}
-                          rules={[{ required, message: `请填写 ${label}` }]}
-                        >
-                          <Input.TextArea rows={3} placeholder={type === 'array' ? '[]' : '{}'} />
-                        </Form.Item>
-                      );
-                    }
-
-                    return (
-                      <Form.Item
-                        key={key}
-                        name={['config', key]}
-                        label={label}
-                        extra={help}
-                        rules={[{ required, message: `请填写 ${label}` }]}
-                      >
-                        <Input placeholder={type === 'number' || type === 'integer' ? '0' : ''} />
-                      </Form.Item>
-                    );
-                  })}
-                </Space>
-              </Card>
-            )}
-        </Form>
-      </Modal>
+      />
     </PageContainer>
   );
 }
