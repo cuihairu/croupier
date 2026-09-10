@@ -1,28 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { PageContainer, ProTable, type ProColumns } from '@ant-design/pro-components';
-import {
-  Alert,
-  App,
-  Button,
-  Card,
-  Drawer,
-  Input,
-  Modal,
-  Popconfirm,
-  Select,
-  Space,
-  Tag,
-  Typography,
-  Upload,
-} from 'antd';
+import { Alert, App, Button, Card, Modal, Space, Tag, Typography } from 'antd';
 import type { UploadFile } from 'antd/es/upload/interface';
-import {
-  CloudUploadOutlined,
-  DeleteOutlined,
-  EditOutlined,
-  LinkOutlined,
-  ReloadOutlined,
-} from '@ant-design/icons';
+import { CloudUploadOutlined, EditOutlined, ReloadOutlined } from '@ant-design/icons';
 import { history, useAccess } from '@umijs/max';
 import {
   bindOpenAPISourceProvider,
@@ -31,114 +11,27 @@ import {
   getOpenAPISource,
   listOpenAPISources,
   updateOpenAPISource,
+  uploadOpenAPISourceFile,
   type OpenAPISourceBinding,
   type OpenAPISourceDetail,
-  type OpenAPIDocument,
   type OpenAPISourceOperation,
   type OpenAPISourceSummary,
-  uploadOpenAPISourceFile,
 } from '@/services/api/openapi';
 import { listDescriptors, type FunctionDescriptor } from '@/services/api/functions';
 import { isScopeReady, subscribeScope } from '@/stores/scope';
 import type { Diagnostic } from '@/types/dashboard';
-import { localizedText } from '@/utils/localizedText';
-
-type ApiErrorLike = {
-  response?: {
-    data?: {
-      message?: string;
-      details?: Record<string, unknown>;
-    };
-  };
-  message?: string;
-};
-
-function errorMessage(error: unknown, fallback: string): string {
-  if (error instanceof Error && error.message) return error.message;
-  const apiError = error as ApiErrorLike;
-  if (apiError?.response?.data?.message) return apiError.response.data.message;
-  return fallback;
-}
-
-function diagnosticsFromError(error: unknown): Diagnostic[] {
-  const apiError = error as ApiErrorLike;
-  const details = apiError?.response?.data?.details;
-  const raw = details?.diagnostics;
-  return Array.isArray(raw) ? raw.filter(isDiagnostic) : [];
-}
-
-function isDiagnostic(value: unknown): value is Diagnostic {
-  if (!value || typeof value !== 'object') return false;
-  const item = value as Partial<Diagnostic>;
-  return typeof item.code === 'string' && typeof item.message === 'string';
-}
-
-function diagnosticColor(severity?: Diagnostic['severity']) {
-  if (severity === 'error') return 'red';
-  if (severity === 'warning') return 'orange';
-  return 'blue';
-}
-
-function riskColor(risk?: string) {
-  if (risk === 'danger') return 'red';
-  if (risk === 'high') return 'volcano';
-  if (risk === 'warning') return 'orange';
-  return 'green';
-}
-
-function capabilityColor(capability?: string) {
-  if (capability === 'task') return 'purple';
-  if (capability === 'report') return 'geekblue';
-  if (capability === 'collection_query' || capability === 'item_query') return 'cyan';
-  if (capability === 'create' || capability === 'update' || capability === 'delete')
-    return 'volcano';
-  return 'blue';
-}
-
-function executionColor(execution?: string) {
-  if (execution === 'task') return 'purple';
-  return 'green';
-}
-
-function formatDate(value?: string): string {
-  if (!value) return '-';
-  const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? value : date.toLocaleString();
-}
-
-function functionLabel(fn: FunctionDescriptor): string {
-  const title =
-    localizedText(fn.summary, 'zh-CN', '') || localizedText(fn.displayName, 'zh-CN', '') || fn.id;
-  return `${title} (${fn.id})`;
-}
-
-function operationLabel(operation: OpenAPISourceOperation): string {
-  return operation.summary || operation.operation || operation.operationId;
-}
-
-function proposalInboxPath(proposalKey: string, resourceKey?: string): string {
-  const params = new URLSearchParams();
-  if (resourceKey) params.set('resourceKey', resourceKey);
-  params.set('proposalKey', proposalKey);
-  return `/functions/pages?${params.toString()}`;
-}
-
-function parseOpenAPIDocument(text: string): OpenAPIDocument {
-  const value: unknown = JSON.parse(text);
-  if (!value || typeof value !== 'object' || Array.isArray(value)) {
-    throw new Error('OpenAPI JSON 必须是对象');
-  }
-  const record = value as Record<string, unknown>;
-  if (typeof record.openapi !== 'string' || record.openapi.trim() === '') {
-    throw new Error('OpenAPI JSON 缺少 openapi 字段');
-  }
-  if (!record.info || typeof record.info !== 'object' || Array.isArray(record.info)) {
-    throw new Error('OpenAPI JSON 缺少 info 对象');
-  }
-  return value as OpenAPIDocument;
-}
-
-type SourceModalMode = 'create' | 'update';
+import SourceDetailDrawer from './SourceDetailDrawer';
+import SourceModal from './SourceModal';
+import BindingModal from './BindingModal';
+import {
+  diagnosticsFromError,
+  errorMessage,
+  formatDate,
+  functionLabel,
+  parseOpenAPIDocument,
+  proposalInboxPath,
+  type SourceModalMode,
+} from './shared';
 
 export default function OpenAPISourcesPage() {
   const { message } = App.useApp();
@@ -438,116 +331,6 @@ export default function OpenAPISourcesPage() {
     },
   ];
 
-  const operationColumns: ProColumns<OpenAPISourceOperation>[] = [
-    {
-      title: 'Operation',
-      dataIndex: 'operationId',
-      render: (_, record) => (
-        <Space orientation="vertical" size={0}>
-          <Typography.Text strong>{operationLabel(record)}</Typography.Text>
-          <Typography.Text code>{record.operationId}</Typography.Text>
-          <Typography.Text type="secondary">{`${record.method} ${record.path}`}</Typography.Text>
-        </Space>
-      ),
-    },
-    {
-      title: '能力契约',
-      dataIndex: 'resource',
-      width: 320,
-      render: (_, record) => (
-        <Space orientation="vertical" size={4}>
-          <Space size={4} wrap>
-            <Tag color={record.resource ? 'blue' : undefined}>
-              {record.resource || '无 resource'}
-            </Tag>
-            <Tag color={record.operation ? undefined : 'default'}>
-              {record.operation || '无 operation'}
-            </Tag>
-            <Tag color={capabilityColor(record.capability)}>
-              {record.capability || '无 capability'}
-            </Tag>
-            <Tag color={executionColor(record.execution)}>{record.execution || '无 execution'}</Tag>
-            <Tag color={record.approval?.required ? 'orange' : 'default'}>
-              {record.approval?.required
-                ? `approval:${record.approval.policyKey || 'required'}`
-                : '无 approval'}
-            </Tag>
-            <Tag color={riskColor(record.risk)}>{record.risk || '无 risk'}</Tag>
-          </Space>
-          <Typography.Text code>{record.permission || '无 permission'}</Typography.Text>
-        </Space>
-      ),
-    },
-    {
-      title: 'Provider Binding',
-      dataIndex: 'bound',
-      width: 260,
-      render: (_, record) => (
-        <Space orientation="vertical" size={2}>
-          <Tag color={record.bound ? 'green' : 'orange'}>{record.bound ? 'bound' : 'unbound'}</Tag>
-          {record.bindingId ? <Typography.Text code>{record.bindingId}</Typography.Text> : null}
-          {record.functionId ? <Typography.Text>{record.functionId}</Typography.Text> : null}
-        </Space>
-      ),
-    },
-    {
-      title: '操作',
-      valueType: 'option',
-      width: 110,
-      render: (_, record) => [
-        canWrite ? (
-          <Button
-            key="bind"
-            type="link"
-            size="small"
-            icon={<LinkOutlined />}
-            onClick={() => openBindingModal(record)}
-          >
-            绑定
-          </Button>
-        ) : (
-          <Typography.Text key="readonly" type="secondary">
-            只读
-          </Typography.Text>
-        ),
-      ],
-    },
-  ];
-
-  const bindingColumns: ProColumns<OpenAPISourceBinding>[] = [
-    {
-      title: 'bindingId',
-      dataIndex: 'bindingId',
-      render: (_, record) => <Typography.Text code>{record.bindingId}</Typography.Text>,
-    },
-    { title: 'operationId', dataIndex: 'operationId' },
-    { title: 'functionId', dataIndex: 'functionId' },
-    {
-      title: 'kind',
-      dataIndex: 'kind',
-      width: 100,
-      render: (_, record) => <Tag>{record.kind}</Tag>,
-    },
-    {
-      title: '操作',
-      valueType: 'option',
-      width: 110,
-      render: (_, record) => [
-        canWrite ? (
-          <Popconfirm key="delete" title="删除此 binding？" onConfirm={() => removeBinding(record)}>
-            <Button type="link" danger size="small" icon={<DeleteOutlined />}>
-              删除
-            </Button>
-          </Popconfirm>
-        ) : (
-          <Typography.Text key="readonly" type="secondary">
-            只读
-          </Typography.Text>
-        ),
-      ],
-    },
-  ];
-
   const pageActions = [
     <Button key="reload" icon={<ReloadOutlined />} onClick={loadSources} loading={loading}>
       刷新
@@ -622,183 +405,42 @@ export default function OpenAPISourcesPage() {
         </Card>
       </Space>
 
-      <Drawer
-        title={detail ? detail.name : 'OpenAPI Source'}
-        open={!!detail}
+      <SourceDetailDrawer
+        detail={detail}
+        detailLoading={detailLoading}
+        canWrite={canWrite}
         onClose={() => setDetail(null)}
-        extra={
-          detail && canWrite ? (
-            <Button icon={<EditOutlined />} onClick={() => openUpdateSourceModal(detail)}>
-              更新 Source
-            </Button>
-          ) : null
-        }
-        width="86vw"
-        destroyOnClose
-      >
-        {detail ? (
-          <Space orientation="vertical" size={16} style={{ width: '100%' }}>
-            <Card loading={detailLoading}>
-              <Space wrap>
-                <Tag>{`rev ${detail.revision}`}</Tag>
-                <Tag>{detail.format}</Tag>
-                <Tag>{detail.openapiVersion}</Tag>
-                <Tag
-                  color={detail.diagnosticCount > 0 ? 'orange' : 'green'}
-                >{`diagnostics ${detail.diagnosticCount}`}</Tag>
-                <Typography.Text code>{detail.contentHash}</Typography.Text>
-              </Space>
-            </Card>
-            <Card title="Diagnostics" loading={detailLoading}>
-              {(detail.diagnostics || []).length === 0 ? (
-                <Typography.Text type="secondary">无诊断</Typography.Text>
-              ) : (
-                <Space orientation="vertical" size={8} style={{ width: '100%' }}>
-                  {(detail.diagnostics || []).map((item) => (
-                    <Alert
-                      key={`${item.code}:${item.field || ''}:${item.message}`}
-                      type={
-                        item.severity === 'error'
-                          ? 'error'
-                          : item.severity === 'warning'
-                            ? 'warning'
-                            : 'info'
-                      }
-                      showIcon
-                      message={
-                        <Space>
-                          <Tag color={diagnosticColor(item.severity)}>{item.severity}</Tag>
-                          <Typography.Text code>{item.code}</Typography.Text>
-                          {item.field ? <Typography.Text>{item.field}</Typography.Text> : null}
-                        </Space>
-                      }
-                      description={item.message}
-                    />
-                  ))}
-                </Space>
-              )}
-            </Card>
-            <Card title="Operations" loading={detailLoading}>
-              <ProTable<OpenAPISourceOperation>
-                scroll={{ x: 'max-content' }}
-                rowKey="operationId"
-                dataSource={detail.operations || []}
-                columns={operationColumns}
-                search={false}
-                pagination={{ pageSize: 10 }}
-                options={false}
-              />
-            </Card>
-            <Card title="Provider Bindings" loading={detailLoading}>
-              <ProTable<OpenAPISourceBinding>
-                scroll={{ x: 'max-content' }}
-                rowKey="bindingId"
-                dataSource={detail.bindings || []}
-                columns={bindingColumns}
-                search={false}
-                pagination={false}
-                options={false}
-              />
-            </Card>
-            <Card title="原始 OpenAPI JSON">
-              <Typography.Paragraph copyable>
-                <Typography.Text code>{JSON.stringify(detail.spec || {}, null, 2)}</Typography.Text>
-              </Typography.Paragraph>
-            </Card>
-          </Space>
-        ) : null}
-      </Drawer>
+        onUpdateSource={openUpdateSourceModal}
+        onBindOperation={openBindingModal}
+        onRemoveBinding={removeBinding}
+      />
 
-      <Modal
-        title={isUpdatingSource ? '更新 OpenAPI Source' : '上传 OpenAPI Source'}
+      <SourceModal
         open={sourceModalOpen}
+        mode={sourceModalMode}
+        name={uploadName}
+        onNameChange={setUploadName}
+        specText={rawSpec}
+        onSpecChange={setRawSpec}
+        file={uploadFile}
+        onFileChange={setUploadFile}
         onCancel={closeSourceModal}
         onOk={submitSource}
-        okText={isUpdatingSource ? '更新 revision' : '创建'}
-        width={760}
-      >
-        <Space orientation="vertical" size={12} style={{ width: '100%' }}>
-          <Alert
-            type={isUpdatingSource ? 'info' : 'warning'}
-            showIcon
-            message={isUpdatingSource ? '更新只产生新的 Source revision' : '不要在 OpenAPI 中写 UI'}
-            description={
-              isUpdatingSource
-                ? '更新会刷新 Source 的 operations 和 diagnostics，保留现有 Provider binding；OpenAPI 不能写 UI，只允许 x-resource/x-operation/x-capability/x-execution/x-risk/x-enabled/x-permission。'
-                : 'OpenAPI 不能写 UI，只允许 x-resource/x-operation/x-capability/x-execution/x-risk/x-enabled/x-permission。'
-            }
-          />
-          <Input
-            addonBefore="name"
-            placeholder="可选，默认使用 info.title"
-            value={uploadName}
-            onChange={(event) => setUploadName(event.target.value)}
-          />
-          {isUpdatingSource ? null : (
-            <Upload
-              beforeUpload={(file) => {
-                setUploadFile(file);
-                return false;
-              }}
-              maxCount={1}
-              fileList={uploadFile ? [uploadFile] : []}
-              onRemove={() => {
-                setUploadFile(null);
-                return true;
-              }}
-            >
-              <Button icon={<CloudUploadOutlined />}>选择 JSON/YAML 文件</Button>
-            </Upload>
-          )}
-          <Input.TextArea
-            rows={12}
-            placeholder={
-              isUpdatingSource
-                ? '粘贴新的 OpenAPI JSON。YAML 更新请走 API raw PUT。'
-                : '或粘贴 OpenAPI JSON。YAML 请使用文件上传。'
-            }
-            value={rawSpec}
-            onChange={(event) => setRawSpec(event.target.value)}
-          />
-        </Space>
-      </Modal>
+      />
 
-      <Modal
-        title={bindingOperation ? `绑定 ${bindingOperation.operationId}` : '绑定 Provider'}
+      <BindingModal
         open={bindOpen}
+        operation={bindingOperation}
+        bindingId={bindingId}
+        onBindingIdChange={setBindingId}
+        functionId={bindingFunctionId}
+        onFunctionIdChange={setBindingFunctionId}
+        providerId={bindingProviderId}
+        onProviderIdChange={setBindingProviderId}
+        functionOptions={functionOptions}
         onCancel={() => setBindOpen(false)}
         onOk={submitBinding}
-        okText="保存 binding"
-      >
-        <Space orientation="vertical" size={12} style={{ width: '100%' }}>
-          <Alert
-            type="info"
-            showIcon
-            message="当前只启用 Provider binding"
-            description="httpConnector 需要 allowlist、SecretRef、超时/重试和审计策略后才能开放。"
-          />
-          <Input
-            addonBefore="bindingId"
-            value={bindingId}
-            onChange={(event) => setBindingId(event.target.value)}
-          />
-          <Select
-            showSearch
-            placeholder="选择已注册函数"
-            value={bindingFunctionId}
-            onChange={setBindingFunctionId}
-            options={functionOptions}
-            optionFilterProp="label"
-            style={{ width: '100%' }}
-          />
-          <Input
-            addonBefore="providerId"
-            placeholder="可选；留空由运行时按函数路由"
-            value={bindingProviderId}
-            onChange={(event) => setBindingProviderId(event.target.value)}
-          />
-        </Space>
-      </Modal>
+      />
     </PageContainer>
   );
 }
