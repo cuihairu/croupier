@@ -351,6 +351,7 @@ const config = defineConfig({
             { text: '仓库布局', link: '/development/repository-layout' },
             { text: '发布约定', link: '/development/release-conventions' },
             { text: '业务扩展策略', link: '/development/new-business-extension-policy' },
+            { text: '前端库分层与复用', link: '/development/frontend-library-usage' },
             { text: '文档治理', link: '/development/documentation-governance' },
           ],
         },
