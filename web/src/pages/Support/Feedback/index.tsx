@@ -1,6 +1,7 @@
 import React, { useRef, useState } from 'react';
 import { Card, Space, Button, Input, Select, Modal, Form } from 'antd';
 import {
+  ModalForm,
   PageContainer,
   ProTable,
   type ActionType,
@@ -12,6 +13,7 @@ import {
   convertFeedbackToTicket,
   updateFeedback,
   deleteFeedback,
+  type FeedbackPayload,
 } from '@/services/api/support';
 import { getMessage } from '@/utils/antdApp';
 import { extractErrorMessage } from '@/utils/errors';
@@ -46,28 +48,31 @@ export default function SupportFeedbackPage() {
   const [pendingOnly, setPendingOnly] = useState(true);
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<FeedbackItem | null>(null);
-  const [form] = Form.useForm();
   const access: AccessState = useAccess?.() || {};
 
+  // destroyOnHidden 使弹窗每次关闭即卸载表单，重开时按最新 initialValues
+  // 重新挂载，新增/编辑切换不会残留上一次的预填值
   const openAdd = () => {
     setEditing(null);
-    form.resetFields();
     setOpen(true);
   };
   const openEdit = (rec: FeedbackItem) => {
     setEditing(rec);
-    form.setFieldsValue(rec);
     setOpen(true);
   };
-  const onSubmit = async () => {
-    const v = await form.validateFields();
-    if (editing) {
-      await updateFeedback(editing.id, v);
-    } else {
-      await createFeedback(v);
+  const onFinish = async (v: FeedbackPayload) => {
+    try {
+      if (editing) {
+        await updateFeedback(editing.id, v);
+      } else {
+        await createFeedback(v);
+      }
+      actionRef.current?.reload();
+      return true;
+    } catch {
+      // 原实现无本地弹错（全局请求拦截器已 toast），失败时弹窗保持开启
+      return false;
     }
-    setOpen(false);
-    actionRef.current?.reload();
   };
   const onDelete = (rec: FeedbackItem) => {
     Modal.confirm({
@@ -232,68 +237,60 @@ export default function SupportFeedbackPage() {
           pagination={{ pageSize: 20, showSizeChanger: true }}
         />
 
-        <Modal
+        <ModalForm<FeedbackPayload>
           title={editing ? '编辑反馈' : '新建反馈'}
           open={open}
-          onOk={onSubmit}
-          onCancel={() => setOpen(false)}
-          destroyOnHidden
+          onOpenChange={setOpen}
+          modalProps={{ destroyOnHidden: true }}
+          width={520}
+          submitter={{ searchConfig: { submitText: '确定' } }}
+          initialValues={editing ?? { priority: 'normal', status: 'new' }}
+          onFinish={onFinish}
         >
-          <Form form={form} layout="vertical" initialValues={{ priority: 'normal', status: 'new' }}>
-            <Form.Item label="玩家ID" name="playerId">
-              {' '}
-              <Input />{' '}
-            </Form.Item>
-            <Form.Item label="联系方式" name="contact">
-              {' '}
-              <Input />{' '}
-            </Form.Item>
-            <Form.Item
-              label="内容"
-              name="content"
-              rules={[{ required: true, message: '请输入内容' }]}
-            >
-              {' '}
-              <Input.TextArea rows={4} />{' '}
-            </Form.Item>
-            <Form.Item label="分类" name="category">
-              {' '}
-              <Input />{' '}
-            </Form.Item>
-            <Form.Item label="优先级" name="priority">
-              {' '}
-              <Select
-                options={[
-                  { label: '低', value: 'low' },
-                  { label: '普通', value: 'normal' },
-                  { label: '高', value: 'high' },
-                ]}
-              />{' '}
-            </Form.Item>
-            <Form.Item label="状态" name="status">
-              {' '}
-              <Select
-                options={[
-                  { label: '新建', value: 'new' },
-                  { label: '已分流', value: 'triaged' },
-                  { label: '已关闭', value: 'closed' },
-                ]}
-              />{' '}
-            </Form.Item>
-            <Form.Item label="附件(JSON)" name="attach">
-              {' '}
-              <Input.TextArea rows={2} />{' '}
-            </Form.Item>
-            <Form.Item label="游戏" name="gameId">
-              {' '}
-              <Input />{' '}
-            </Form.Item>
-            <Form.Item label="环境" name="env">
-              {' '}
-              <Input />{' '}
-            </Form.Item>
-          </Form>
-        </Modal>
+          <Form.Item label="玩家ID" name="playerId">
+            <Input />
+          </Form.Item>
+          <Form.Item label="联系方式" name="contact">
+            <Input />
+          </Form.Item>
+          <Form.Item
+            label="内容"
+            name="content"
+            rules={[{ required: true, message: '请输入内容' }]}
+          >
+            <Input.TextArea rows={4} />
+          </Form.Item>
+          <Form.Item label="分类" name="category">
+            <Input />
+          </Form.Item>
+          <Form.Item label="优先级" name="priority">
+            <Select
+              options={[
+                { label: '低', value: 'low' },
+                { label: '普通', value: 'normal' },
+                { label: '高', value: 'high' },
+              ]}
+            />
+          </Form.Item>
+          <Form.Item label="状态" name="status">
+            <Select
+              options={[
+                { label: '新建', value: 'new' },
+                { label: '已分流', value: 'triaged' },
+                { label: '已关闭', value: 'closed' },
+              ]}
+            />
+          </Form.Item>
+          <Form.Item label="附件(JSON)" name="attach">
+            <Input.TextArea rows={2} />
+          </Form.Item>
+          <Form.Item label="游戏" name="gameId">
+            <Input />
+          </Form.Item>
+          <Form.Item label="环境" name="env">
+            <Input />
+          </Form.Item>
+        </ModalForm>
       </Card>
     </PageContainer>
   );

@@ -1,18 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import {
-  Card,
-  Space,
-  Button,
-  App,
-  Table,
-  Tag,
-  Modal,
-  Form,
-  Input,
-  Select,
-  InputNumber,
-} from 'antd';
+import { Card, Space, Button, App, Table, Tag, Form, Input, Select, InputNumber } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
+import { ModalForm } from '@ant-design/pro-components';
 import {
   fetchOpsNotifications,
   saveOpsNotifications,
@@ -159,13 +148,8 @@ export default function OpsNotificationsPage() {
         value={editCh || undefined}
         onClose={() => setEditCh(null)}
         onOk={(v) => {
-          if (!v) return;
-          const id = (v.id || '').trim();
-          if (!id) {
-            message.warning('ID 必填');
-            return;
-          }
-          const exists = channels.findIndex((c) => c.id === id);
+          // ID 必填由表单 required rule 拦截，走到这里的一定是通过校验的值
+          const exists = channels.findIndex((c) => c.id === v.id);
           const next = [...channels];
           if (exists >= 0) next[exists] = v;
           else next.push(v);
@@ -180,7 +164,6 @@ export default function OpsNotificationsPage() {
         channels={channels}
         onClose={() => setEditRule(null)}
         onOk={(v) => {
-          if (!v) return;
           const idx = rules.findIndex((r) => r.event === v.event);
           const next = [...rules];
           if (idx >= 0) next[idx] = v;
@@ -193,99 +176,94 @@ export default function OpsNotificationsPage() {
   );
 }
 
+// 渠道/规则编辑弹窗：ModalForm + destroyOnHidden，弹窗每次关闭即卸载表单，
+// 重开按最新 initialValues 重挂载——新增/编辑切换不会残留上一条的 secret 等字段
+// （原 RuleModal 仅 setFieldsValue 无 reset，新增规则会预填上次编辑的值，此缺陷随之修复）
 const ChannelModal: React.FC<{
   open: boolean;
   value?: Channel;
   onClose: () => void;
-  onOk: (v?: Channel) => void;
-}> = ({ open, value, onClose, onOk }) => {
-  const [form] = Form.useForm();
-  useEffect(() => {
-    if (!open) return;
-    if (value) {
-      form.setFieldsValue(value);
-    } else {
-      // 新增模式先清空：上一条编辑渠道时填入的 secret/name 等残留
-      // 在 form 实例中，会悄悄带进新渠道
-      form.resetFields();
-      form.setFieldsValue({ type: 'dingtalk' });
-    }
-  }, [open, value, form]);
-  return (
-    <Modal
-      open={open}
-      title="通知渠道"
-      onCancel={onClose}
-      onOk={() => form.submit()}
-      destroyOnHidden
+  onOk: (v: Channel) => void;
+}> = ({ open, value, onClose, onOk }) => (
+  <ModalForm<Channel>
+    open={open}
+    title="通知渠道"
+    onOpenChange={(v) => {
+      if (!v) onClose();
+    }}
+    modalProps={{ destroyOnHidden: true }}
+    width={520}
+    submitter={{ searchConfig: { submitText: '确定' } }}
+    initialValues={value ?? { type: 'dingtalk' }}
+    onFinish={async (v) => {
+      onOk(v);
+      return true;
+    }}
+  >
+    <Form.Item
+      name="id"
+      label="ID"
+      rules={[{ required: true, message: '请输入渠道ID（用于规则引用）' }]}
     >
-      <Form form={form} layout="vertical" onFinish={(v) => onOk(v)}>
-        <Form.Item
-          name="id"
-          label="ID"
-          rules={[{ required: true, message: '请输入渠道ID（用于规则引用）' }]}
-        >
-          <Input placeholder="如 ding_main" />
-        </Form.Item>
-        <Form.Item name="type" label="类型" rules={[{ required: true }]}>
-          <Select
-            options={[
-              { label: 'DingTalk', value: 'dingtalk' },
-              { label: 'Feishu', value: 'feishu' },
-              { label: 'WeCom', value: 'wechat' },
-              { label: 'Webhook', value: 'webhook' },
-            ]}
-          />
-        </Form.Item>
-        <Form.Item name="url" label="Webhook URL">
-          <Input placeholder="https://..." />
-        </Form.Item>
-        <Form.Item name="secret" label="Secret">
-          <Input placeholder="可选" />
-        </Form.Item>
-      </Form>
-    </Modal>
-  );
-};
+      <Input placeholder="如 ding_main" />
+    </Form.Item>
+    <Form.Item name="type" label="类型" rules={[{ required: true }]}>
+      <Select
+        options={[
+          { label: 'DingTalk', value: 'dingtalk' },
+          { label: 'Feishu', value: 'feishu' },
+          { label: 'WeCom', value: 'wechat' },
+          { label: 'Webhook', value: 'webhook' },
+        ]}
+      />
+    </Form.Item>
+    <Form.Item name="url" label="Webhook URL">
+      <Input placeholder="https://..." />
+    </Form.Item>
+    <Form.Item name="secret" label="Secret">
+      <Input placeholder="可选" />
+    </Form.Item>
+  </ModalForm>
+);
 
 const RuleModal: React.FC<{
   open: boolean;
   value?: Rule;
   channels: Channel[];
   onClose: () => void;
-  onOk: (v?: Rule) => void;
-}> = ({ open, value, channels, onClose, onOk }) => {
-  const [form] = Form.useForm();
-  useEffect(() => {
-    if (open) form.setFieldsValue(value || {});
-  }, [open, value, form]);
-  return (
-    <Modal
-      open={open}
-      title="通知规则"
-      onCancel={onClose}
-      onOk={() => form.submit()}
-      destroyOnHidden
-    >
-      <Form form={form} layout="vertical" onFinish={(v) => onOk(v)}>
-        <Form.Item name="event" label="事件" rules={[{ required: true }]}>
-          <Select
-            options={[
-              { label: '证书即将过期', value: 'certificate_expiring' },
-              { label: '证书已过期', value: 'certificate_expired' },
-            ]}
-          />
-        </Form.Item>
-        <Form.Item name="thresholdDays" label="阈值(天)">
-          <InputNumber min={1} max={365} style={{ width: 160 }} />
-        </Form.Item>
-        <Form.Item name="channels" label="渠道" rules={[{ required: true }]}>
-          <Select
-            mode="multiple"
-            options={(channels || []).map((c) => ({ label: `${c.id} (${c.type})`, value: c.id }))}
-          />
-        </Form.Item>
-      </Form>
-    </Modal>
-  );
-};
+  onOk: (v: Rule) => void;
+}> = ({ open, value, channels, onClose, onOk }) => (
+  <ModalForm<Rule>
+    open={open}
+    title="通知规则"
+    onOpenChange={(v) => {
+      if (!v) onClose();
+    }}
+    modalProps={{ destroyOnHidden: true }}
+    width={520}
+    submitter={{ searchConfig: { submitText: '确定' } }}
+    initialValues={value ?? { event: 'certificate_expiring', channels: [], thresholdDays: 30 }}
+    onFinish={async (v) => {
+      onOk(v);
+      return true;
+    }}
+  >
+    <Form.Item name="event" label="事件" rules={[{ required: true }]}>
+      <Select
+        options={[
+          { label: '证书即将过期', value: 'certificate_expiring' },
+          { label: '证书已过期', value: 'certificate_expired' },
+        ]}
+      />
+    </Form.Item>
+    <Form.Item name="thresholdDays" label="阈值(天)">
+      <InputNumber min={1} max={365} style={{ width: 160 }} />
+    </Form.Item>
+    <Form.Item name="channels" label="渠道" rules={[{ required: true }]}>
+      <Select
+        mode="multiple"
+        options={(channels || []).map((c) => ({ label: `${c.id} (${c.type})`, value: c.id }))}
+      />
+    </Form.Item>
+  </ModalForm>
+);

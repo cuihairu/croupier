@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { PageContainer, ProTable, type ProColumns } from '@ant-design/pro-components';
-import { App, Button, Form, Input, InputNumber, Modal, Popconfirm, Select, Tag } from 'antd';
+import { ModalForm, PageContainer, ProTable, type ProColumns } from '@ant-design/pro-components';
+import { App, Button, Form, Input, InputNumber, Popconfirm, Select, Tag } from 'antd';
 import { useIntl } from '@umijs/max';
 import { deleteTerm, listTerms, type TermItem, upsertTerm } from '@/services/api/terms';
 import LocalizedTextEditor from '@/components/LocalizedTextEditor';
@@ -8,6 +8,9 @@ import { extractErrorMessage } from '@/utils/errors';
 import { localizedText } from '@/utils/localizedText';
 
 type DomainType = TermItem['domain'];
+
+/** 弹窗表单值：upsertTerm 按 domain+alias 定位，id 可选不参与提交 */
+type TermFormValues = Omit<TermItem, 'id'>;
 
 const domainOptions: { label: string; value: DomainType }[] = [
   { label: 'Resource', value: 'resource' },
@@ -24,7 +27,6 @@ export default function TermsPage() {
   const [domain, setDomain] = useState<DomainType>('resource');
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<TermItem | null>(null);
-  const [form] = Form.useForm();
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -79,13 +81,6 @@ export default function TermsPage() {
             key="edit"
             onClick={() => {
               setEditing(row);
-              form.setFieldsValue({
-                domain: row.domain,
-                termKey: row.termKey,
-                alias: row.alias,
-                display: row.display,
-                order: row.order ?? 100,
-              });
               setOpen(true);
             }}
           >
@@ -105,7 +100,7 @@ export default function TermsPage() {
         ],
       },
     ],
-    [form, load, locale, message],
+    [load, locale, message],
   );
 
   return (
@@ -125,9 +120,6 @@ export default function TermsPage() {
           type="primary"
           onClick={() => {
             setEditing(null);
-            // 先清空：上次编辑的 termKey/alias/display 残留会带进新增弹窗，极易重复建键
-            form.resetFields();
-            form.setFieldsValue({ domain, order: 100 });
             setOpen(true);
           }}
         >
@@ -145,36 +137,44 @@ export default function TermsPage() {
         toolBarRender={false}
       />
 
-      <Modal
+      <ModalForm<TermFormValues>
         title={editing ? '编辑术语' : '新增术语'}
         open={open}
-        onCancel={() => setOpen(false)}
-        onOk={async () => {
-          const values = await form.validateFields();
-          await upsertTerm(values);
-          message.success('保存成功');
-          setOpen(false);
-          load();
+        onOpenChange={setOpen}
+        modalProps={{ destroyOnHidden: true }}
+        width={520}
+        submitter={{ searchConfig: { submitText: '确定' } }}
+        // 新增时以当前筛选 domain 为默认值；destroyOnHidden 保证重开按最新
+        // initialValues 重挂载，上次编辑的 termKey/alias/display 不会残留进新增
+        initialValues={editing ?? { domain, order: 100 }}
+        onFinish={async (values) => {
+          try {
+            await upsertTerm(values);
+            message.success('保存成功');
+            load();
+            return true;
+          } catch {
+            // 原实现无本地弹错（全局拦截器已 toast），失败时弹窗保持开启
+            return false;
+          }
         }}
       >
-        <Form form={form} layout="vertical">
-          <Form.Item name="domain" label="Domain" rules={[{ required: true }]}>
-            <Select options={domainOptions} />
-          </Form.Item>
-          <Form.Item name="termKey" label="Key" rules={[{ required: true }]}>
-            <Input placeholder="player / read" />
-          </Form.Item>
-          <Form.Item name="alias" label="Alias" rules={[{ required: true }]}>
-            <Input placeholder="players / list" />
-          </Form.Item>
-          <Form.Item name="display" label="显示文本（多语言，key 为 BCP47 locale）">
-            <LocalizedTextEditor />
-          </Form.Item>
-          <Form.Item name="order" label="排序">
-            <InputNumber min={1} max={999} style={{ width: '100%' }} />
-          </Form.Item>
-        </Form>
-      </Modal>
+        <Form.Item name="domain" label="Domain" rules={[{ required: true }]}>
+          <Select options={domainOptions} />
+        </Form.Item>
+        <Form.Item name="termKey" label="Key" rules={[{ required: true }]}>
+          <Input placeholder="player / read" />
+        </Form.Item>
+        <Form.Item name="alias" label="Alias" rules={[{ required: true }]}>
+          <Input placeholder="players / list" />
+        </Form.Item>
+        <Form.Item name="display" label="显示文本（多语言，key 为 BCP47 locale）">
+          <LocalizedTextEditor />
+        </Form.Item>
+        <Form.Item name="order" label="排序">
+          <InputNumber min={1} max={999} style={{ width: '100%' }} />
+        </Form.Item>
+      </ModalForm>
     </PageContainer>
   );
 }
