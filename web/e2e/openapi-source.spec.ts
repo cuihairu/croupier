@@ -39,7 +39,7 @@ test.describe('OpenAPI Source', () => {
     await expectModalVisible(page);
     await expect(page.getByRole('dialog').getByText('不要在 OpenAPI 中写 UI')).toBeVisible();
 
-    const cancelBtn = page.getByRole('dialog').getByRole('button', { name: /取消|Cancel/i });
+    const cancelBtn = page.getByRole('dialog').getByRole('button', { name: /取\s*消|Cancel/i });
     await expect(cancelBtn).toBeVisible();
     await cancelBtn.click();
     await expect(page.getByRole('dialog')).toBeHidden();
@@ -68,7 +68,7 @@ test.describe('OpenAPI Source', () => {
     const bindModal = page
       .getByRole('dialog', { name: /player\.create/ })
       .filter({ hasText: '当前只启用 Provider binding' });
-    const cancelBtn = bindModal.getByRole('button', { name: /取消|Cancel/i }).last();
+    const cancelBtn = bindModal.getByRole('button', { name: /取\s*消|Cancel/i }).last();
     await expect(cancelBtn).toBeVisible();
     await cancelBtn.click();
     await expect(bindModal).toBeHidden();

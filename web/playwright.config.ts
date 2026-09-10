@@ -108,6 +108,11 @@ export default defineConfig({
       grepInvert: realDashboardScenarios,
       use: {
         ...devices['Desktop Chrome'],
+        // devices['Desktop Chrome'] 自带 locale: 'en-US'，而 umi baseNavigator
+        // 会让 navigator.language 盖过 default zh-CN——i18n 迁移后的页面将渲染
+        // 英文词典，中文文本定位器全部失效。显式 pin zh-CN（用例断言的语义源
+        // 语言）；en-US 路径由 locale-switch.spec.ts 单独覆盖。
+        locale: 'zh-CN',
         baseURL: mockWebBaseURL,
         // globalSetup 登录一次并持久化 token，用例直接以认证态启动
         storageState: mockAuthStateFile(),
@@ -118,7 +123,12 @@ export default defineConfig({
       // for this project is added separately and owns the Server/Agent data.
       name: 'real-dashboard',
       grep: realDashboardScenarios,
-      use: { ...devices['Desktop Chrome'], baseURL: realWebBaseURL },
+      use: {
+        ...devices['Desktop Chrome'],
+        // 同 mock-dashboard：pin zh-CN，理由见上
+        locale: 'zh-CN',
+        baseURL: realWebBaseURL,
+      },
     },
   ],
   webServer: webServers,
