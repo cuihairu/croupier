@@ -4,14 +4,15 @@
 //  1. 叶子证书 NotAfter 为确定的未来整秒（Go x509 序列化截断到整秒，见 PoC）；
 //  2. 服务器证书链附带 80 张与签发 CA 同 Subject 的 RSA-8192「干扰」中间证书：
 //     客户端链验证在叶子有效期检查之后、对每个候选中间执行一次完整 RSA
-//     模幂验签（约 0.7ms/张，受 sigChecks=100 上限约束），把「验证通过」到
-//     「Dial 返回」的时间拉长约 55ms；
-//  3. 在目标秒界前 55ms 相位对齐后发起 CheckCertificate：验证时刻仍 < 目标秒
+//     模幂验签（约 0.5ms/张，受 sigChecks=100 与 TLS 256KB 握手消息上限约束），
+//     把「验证通过」到「Dial 返回」的时间拉长约 40-55ms（随 CPU 速度浮动）；
+//  3. 在目标秒界前 15ms 相位对齐后发起 CheckCertificate：验证时刻仍 < 目标秒
 //     （证书有效），检查时刻 > 目标秒（证书过期）→ status=expired。
 //
 // 干扰证书的模数为构造值（非素数乘积）：其自身签名从不被链验证，只需 Subject
 // 匹配、SPKI 互异（避免 CertPool 去重）、IsCA+KeyUsageCertSign（避免快速拒绝）。
-// 稳定性经 20/20 轮实测；仍保留至多 3 次尝试防御极端调度离群。
+// 参数 2026-09 重校准（快速 CPU 验签提速）后 -count=10 实测稳定；仍保留至多
+// 3 次尝试防御极端调度离群。
 package certificates
 
 import (
@@ -162,8 +163,15 @@ func TestStore_CheckCertificate_ExpiredBranch_V9(t *testing.T) {
 	require.NotNil(t, certXRSACA.cert)
 
 	const (
+		// 发射提前量必须落在 (发射→Verify 取 now 的延迟, 干扰链验签总耗时)
+		// 区间内：太小则 Verify 起步已过秒界（握手失败走 error 分支），太大
+		// 则验证在秒界前完成（判定未过期走 expiring 分支）。2026-09 实测快速
+		// CPU 上 80 张 8192 位模幂验签总耗时约 40ms（原 55ms 提前量因此闭合，
+		// 判定未过期）、本地发射→Verify 取时延迟 1-3ms；取 15ms 两端各留
+		// 5 倍以上余量。张数不可加大：受 x509 sigChecks=100 与 TLS 256KB
+		// 握手消息上限双重约束。
 		certXDecayCount = 80
-		certXLaunch     = 55 * time.Millisecond // 目标秒界前的发射提前量
+		certXLaunch     = 15 * time.Millisecond // 目标秒界前的发射提前量
 	)
 
 	decayDERs, _, _, err := certXBuildDecays(certXRSACA.cert.Subject, certXDecayCount)
