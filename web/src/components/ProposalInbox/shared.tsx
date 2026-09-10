@@ -9,6 +9,7 @@ import type {
   ProposalStatus,
 } from '@/types/dashboard';
 import { localizedText } from '@/utils/localizedText';
+import { formatDateTime } from '@/utils/format';
 
 /** ProposalInbox 共享常量与纯函数。 */
 
@@ -69,8 +70,7 @@ export const pageTypeColors: Record<PageType, string> = {
 
 export function formatDate(value?: string): string {
   if (!value) return '-';
-  const time = new Date(value);
-  return Number.isNaN(time.getTime()) ? value : time.toLocaleString();
+  return Number.isNaN(new Date(value).getTime()) ? value : formatDateTime(value);
 }
 
 export function diagnosticSummary(diagnostics?: DiagnosticInfo[]): React.ReactNode {

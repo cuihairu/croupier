@@ -18,6 +18,7 @@ import type { UploadFile as AntUploadFile } from 'antd/es/upload/interface';
 import { useParams, history, useModel } from '@umijs/max';
 import { uploadAsset } from '@/services/api/storage';
 import { getMessage } from '@/utils/antdApp';
+import { formatDateTime } from '@/utils/format';
 import {
   updateTicket,
   deleteTicket,
@@ -280,10 +281,10 @@ export default function TicketDetailPage() {
               </Descriptions.Item>
               <Descriptions.Item label="来源">{ticket.source || '-'}</Descriptions.Item>
               <Descriptions.Item label="创建时间">
-                {ticket.createdAt ? new Date(ticket.createdAt).toLocaleString() : '-'}
+                {ticket.createdAt ? formatDateTime(ticket.createdAt) : '-'}
               </Descriptions.Item>
               <Descriptions.Item label="更新时间">
-                {ticket.updatedAt ? new Date(ticket.updatedAt).toLocaleString() : '-'}
+                {ticket.updatedAt ? formatDateTime(ticket.updatedAt) : '-'}
               </Descriptions.Item>
               <Descriptions.Item label="内容" span={2}>
                 <div style={{ whiteSpace: 'pre-wrap' }}>{ticket.content || '-'}</div>
@@ -323,7 +324,7 @@ export default function TicketDetailPage() {
                       title={
                         <Space>
                           <strong>{it.author || '-'}</strong>
-                          <span>{it.createdAt ? new Date(it.createdAt).toLocaleString() : ''}</span>
+                          <span>{it.createdAt ? formatDateTime(it.createdAt) : ''}</span>
                         </Space>
                       }
                       description={<div style={{ whiteSpace: 'pre-wrap' }}>{it.content || ''}</div>}

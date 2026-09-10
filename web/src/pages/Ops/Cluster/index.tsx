@@ -17,6 +17,7 @@ import type { ColumnsType } from 'antd/es/table';
 import { ReloadOutlined, ClusterOutlined } from '@ant-design/icons';
 import { fetchClusterInfo, type ClusterInfo, type ClusterInstanceItem } from '@/services/api/ops';
 import { extractErrorMessage } from '@/utils/errors';
+import { formatDateTime } from '@/utils/format';
 
 const { Text } = Typography;
 
@@ -66,7 +67,7 @@ export default function ClusterPage() {
       title: '启动时间',
       dataIndex: 'startedAt',
       width: 180,
-      render: (v: string) => (v ? new Date(v).toLocaleString() : '-'),
+      render: (v: string) => formatDateTime(v ?? ''),
     },
     {
       title: 'Agent 连接',

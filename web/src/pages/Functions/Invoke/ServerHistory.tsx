@@ -6,6 +6,7 @@ import {
   listExecutionLogs,
   type ExecutionLogItem,
 } from '@/services/api/executionLogs';
+import { formatDateTime } from '@/utils/format';
 
 const { Text } = Typography;
 
@@ -151,7 +152,7 @@ export default function ServerHistoryPanel({ functionId }: { functionId?: string
             title: '时间',
             dataIndex: 'createdAt',
             width: 150,
-            render: (v: string) => new Date(v).toLocaleString(),
+            render: (v: string) => formatDateTime(v),
           },
           { title: '函数', dataIndex: 'functionId', ellipsis: true },
           {

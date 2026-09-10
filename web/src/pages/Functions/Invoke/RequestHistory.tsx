@@ -1,5 +1,6 @@
 import { Button, Card, Empty, Space, Tag, Typography } from 'antd';
 import { DeleteOutlined } from '@ant-design/icons';
+import { formatDateTime } from '@/utils/format';
 import { formatDuration, type RequestHistoryItem } from './types';
 
 const { Text } = Typography;
@@ -43,7 +44,7 @@ export default function RequestHistory({ items, onClear, onSelect }: RequestHist
                 <Text type="secondary">{formatDuration(item.duration)}</Text>
               </Space>
               <Text type="secondary" style={{ display: 'block', fontSize: 12, marginTop: 4 }}>
-                {new Date(item.timestamp).toLocaleString()}
+                {formatDateTime(item.timestamp)}
               </Text>
             </Card>
           ))}

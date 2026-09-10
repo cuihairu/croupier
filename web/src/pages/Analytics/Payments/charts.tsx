@@ -1,5 +1,6 @@
 import React from 'react';
 import { Button } from 'antd';
+import { exportToCSV } from '@/utils/export';
 import type { DimData, ProductData, TrendData, TrendPoint } from './types';
 
 /** 支付分析页 SVG 图表组件：Top 榜（收入/成功率/组合/转化）、维度 CSV 导出、SKU 趋势双面板。 */
@@ -325,14 +326,7 @@ export const ExportDimCSV: React.FC<{
           ]);
         });
         if (includeConv) rows.push([]);
-        const csv = rows.map((r) => r.map((x) => String(x ?? '')).join(',')).join('\n');
-        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `payments_${name}.csv`;
-        a.click();
-        URL.revokeObjectURL(url);
+        exportToCSV(`payments_${name}.csv`, rows);
       } catch {}
     }}
   >

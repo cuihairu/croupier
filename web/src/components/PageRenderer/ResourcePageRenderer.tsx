@@ -52,6 +52,7 @@ import type { ProColumns, ActionType } from '@ant-design/pro-components';
 
 const { Text } = Typography;
 import { localizedText } from '@/utils/localizedText';
+import { formatDateTime } from '@/utils/format';
 
 type TableRequestParams = FormValues & {
   current?: number;
@@ -106,7 +107,7 @@ function columnSpecToProColumn(col: ColumnSpec): ProColumns<FormValues> {
       column.valueType = 'date';
       column.render = (_, record) => {
         const value = record[col.key];
-        return value ? new Date(String(value)).toLocaleString() : '-';
+        return value ? formatDateTime(String(value)) : '-';
       };
       break;
     case 'enum':

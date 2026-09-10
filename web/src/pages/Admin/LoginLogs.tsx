@@ -3,6 +3,8 @@ import { Card, Table, Space, Input, Button, DatePicker, Tag } from 'antd';
 import type { Dayjs } from 'dayjs';
 import { PageContainer } from '@ant-design/pro-components';
 import { listAudit, type AuditEvent } from '@/services/api';
+import { exportToCSV } from '@/utils/export';
+import { formatDateTime } from '@/utils/format';
 
 export default function LoginLogsPage() {
   const [rows, setRows] = useState<AuditEvent[]>([]);
@@ -68,28 +70,15 @@ export default function LoginLogsPage() {
         new Date(e.time).toISOString(),
         e.kind,
         e.actor,
-        e.meta?.ip || '',
-        e.meta?.ipRegion || '',
+        String(e.meta?.ip || ''),
+        String(e.meta?.ipRegion || ''),
         ua,
         detectOS(ua),
         detectBrowser(ua),
       ];
     });
     arr.unshift(['time', 'kind', 'actor', 'ip', 'region', 'ua', 'os', 'browser']);
-    const csv = arr
-      .map((r) =>
-        r
-          .map((x) => (/[",\n]/.test(String(x)) ? `"${String(x).replace(/"/g, '""')}"` : String(x)))
-          .join(','),
-      )
-      .join('\n');
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'login_logs.csv';
-    a.click();
-    URL.revokeObjectURL(url);
+    exportToCSV('login_logs.csv', arr);
   };
 
   function detectOS(ua: string): string {
@@ -200,7 +189,7 @@ export default function LoginLogsPage() {
           rowKey={(r) => r.hash}
           loading={loading}
           columns={[
-            { title: '时间', dataIndex: 'time', render: (t) => new Date(t).toLocaleString() },
+            { title: '时间', dataIndex: 'time', render: (t?: string) => formatDateTime(t ?? '') },
             {
               title: '类型',
               dataIndex: 'kind',

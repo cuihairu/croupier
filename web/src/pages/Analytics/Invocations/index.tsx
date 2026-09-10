@@ -12,6 +12,7 @@ import {
   type InvocationItem,
   type InvocationsSummary,
 } from '@/services/api/analytics';
+import { formatDateTime } from '@/utils/format';
 
 const DEFAULT_SUMMARY: InvocationsSummary = {
   total: 0,
@@ -97,7 +98,7 @@ export default function AnalyticsInvocationsPage() {
       dataIndex: 'timestamp',
       key: 'timestamp',
       width: 200,
-      render: (v: string) => (v ? new Date(v).toLocaleString() : '-'),
+      render: (v: string) => formatDateTime(v ?? ''),
     },
     { title: '函数', dataIndex: 'functionId', key: 'functionId' },
     { title: '操作者', dataIndex: 'actor', key: 'actor', width: 140 },

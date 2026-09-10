@@ -30,33 +30,25 @@ import type {
   FormValues,
 } from '@/types/dashboard';
 import type { ProColumns } from '@ant-design/pro-components';
+import { extractErrorMessage } from '@/utils/errors';
 import { localizedText } from '@/utils/localizedText';
+import { exportToCSV } from '@/utils/export';
 
 const { Text } = Typography;
-
-function formatCsvCell(value: FormValues[string] | undefined): string {
-  if (value === undefined || value === null) {
-    return '';
-  }
-  const text = typeof value === 'object' ? JSON.stringify(value) : String(value);
-  return `"${text.replace(/"/g, '""')}"`;
-}
 
 function downloadDatasetCsv(
   rows: FormValues[],
   columns: Array<{ key: string; title: string }>,
 ): void {
-  const header = columns.map((column) => formatCsvCell(column.title)).join(',');
-  const body = rows
-    .map((row) => columns.map((column) => formatCsvCell(row[column.key])).join(','))
-    .join('\n');
-  const blob = new Blob([`\uFEFF${header}\n${body}`], { type: 'text/csv;charset=utf-8' });
-  const href = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = href;
-  link.download = 'report.csv';
-  link.click();
-  URL.revokeObjectURL(href);
+  const toCell = (value: FormValues[string] | undefined): string | number | boolean | null => {
+    if (value === null || value === undefined) return '';
+    if (typeof value === 'object') return JSON.stringify(value);
+    return value;
+  };
+  exportToCSV('report.csv', [
+    columns.map((column) => column.title),
+    ...rows.map((row) => columns.map((column) => toCell(row[column.key]))),
+  ]);
 }
 
 // ---------------------------------------------------------------------------
@@ -200,8 +192,7 @@ const ReportPageRenderer: React.FC<ReportPageRendererProps> = ({
         setData(dataset);
         message.success('查询成功');
       } catch (error) {
-        const msg = error instanceof Error ? error.message : '未知错误';
-        message.error('查询失败: ' + msg);
+        message.error('查询失败: ' + extractErrorMessage(error, '未知错误'));
       } finally {
         setLoading(false);
       }
@@ -245,8 +236,7 @@ const ReportPageRenderer: React.FC<ReportPageRendererProps> = ({
         await onExport(format);
         message.success('导出成功');
       } catch (error) {
-        const msg = error instanceof Error ? error.message : '未知错误';
-        message.error('导出失败: ' + msg);
+        message.error('导出失败: ' + extractErrorMessage(error, '未知错误'));
       }
     },
     [data, dataset, onExport, preview],

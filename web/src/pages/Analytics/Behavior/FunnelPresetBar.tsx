@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Button, Input, Modal, Select, Space, Table } from 'antd';
 import type { Dayjs } from 'dayjs';
+import { formatDateTime } from '@/utils/format';
 import type { FunnelPreset, ImportRow } from './types';
 
 /** 漏斗预设条：localStorage 持久化的漏斗条件预设（保存/应用/重命名/
@@ -231,7 +232,7 @@ const PresetBar: React.FC<{
           value={sel}
           onChange={(v) => setSel(v)}
           options={(list || []).map((x) => ({
-            label: `${x.name}${x.lastUsed ? ' · ' + new Date(x.lastUsed).toLocaleString() : ''}`,
+            label: `${x.name}${x.lastUsed ? ' · ' + formatDateTime(x.lastUsed) : ''}`,
             value: x.name,
           }))}
           style={{ minWidth: 260 }}

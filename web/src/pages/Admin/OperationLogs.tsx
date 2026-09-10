@@ -3,6 +3,8 @@ import { Card, Table, Space, Input, Button, DatePicker, Tag } from 'antd';
 import type { Dayjs } from 'dayjs';
 import { PageContainer } from '@ant-design/pro-components';
 import { listAudit, type AuditEvent } from '@/services/api';
+import { exportToCSV } from '@/utils/export';
+import { formatDateTime } from '@/utils/format';
 
 export default function OperationLogsPage() {
   const [rows, setRows] = useState<AuditEvent[]>([]);
@@ -72,27 +74,14 @@ export default function OperationLogsPage() {
       e.kind,
       e.actor,
       e.target,
-      e.meta?.ip || '',
-      e.meta?.ipRegion || '',
-      e.meta?.gameId || '',
-      e.meta?.env || '',
-      e.meta?.traceId || '',
+      String(e.meta?.ip || ''),
+      String(e.meta?.ipRegion || ''),
+      String(e.meta?.gameId || ''),
+      String(e.meta?.env || ''),
+      String(e.meta?.traceId || ''),
     ]);
     arr.unshift(['time', 'kind', 'actor', 'target', 'ip', 'region', 'game_id', 'env', 'trace_id']);
-    const csv = arr
-      .map((r) =>
-        r
-          .map((x) => (/[",\n]/.test(String(x)) ? `"${String(x).replace(/"/g, '""')}"` : String(x)))
-          .join(','),
-      )
-      .join('\n');
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'operation_logs.csv';
-    a.click();
-    URL.revokeObjectURL(url);
+    exportToCSV('operation_logs.csv', arr);
   };
 
   const kindTags = useMemo(() => {
@@ -165,7 +154,7 @@ export default function OperationLogsPage() {
           loading={loading}
           dataSource={rows}
           columns={[
-            { title: '时间', dataIndex: 'time', render: (t) => new Date(t).toLocaleString() },
+            { title: '时间', dataIndex: 'time', render: (t?: string) => formatDateTime(t ?? '') },
             { title: '类型', dataIndex: 'kind' },
             { title: '操作者', dataIndex: 'actor' },
             { title: '目标', dataIndex: 'target' },

@@ -4,6 +4,7 @@ import { App, Button, Form, Input, InputNumber, Modal, Popconfirm, Select, Tag }
 import { useIntl } from '@umijs/max';
 import { deleteTerm, listTerms, type TermItem, upsertTerm } from '@/services/api/terms';
 import LocalizedTextEditor from '@/components/LocalizedTextEditor';
+import { extractErrorMessage } from '@/utils/errors';
 import { localizedText } from '@/utils/localizedText';
 
 type DomainType = TermItem['domain'];
@@ -13,8 +14,7 @@ const domainOptions: { label: string; value: DomainType }[] = [
   { label: 'Operation', value: 'operation' },
 ];
 
-const getErrorMessage = (error: unknown) =>
-  error instanceof Error ? error.message : '加载术语失败';
+const getErrorMessage = (error: unknown) => extractErrorMessage(error, '加载术语失败');
 
 export default function TermsPage() {
   const { message } = App.useApp();

@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { AutoComplete, Card, Space, DatePicker, Select, Button, Table, Tag } from 'antd';
 import type { Dayjs } from 'dayjs';
 import { PageContainer } from '@ant-design/pro-components';
-import { exportToXLSX } from '@/utils/export';
+import { exportToCSV, exportToXLSX } from '@/utils/export';
 import {
   fetchAnalyticsPaymentsSummary,
   fetchAnalyticsTransactions,
@@ -530,16 +530,7 @@ export default function AnalyticsPaymentsPage() {
                         rows.push([ts, p.productId, succ, tot, rev, rate]);
                       });
                     });
-                    const csv = rows
-                      .map((r) => r.map((x: string | number) => String(x ?? '')).join(','))
-                      .join('\n');
-                    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-                    const url = URL.createObjectURL(blob);
-                    const a = document.createElement('a');
-                    a.href = url;
-                    a.download = 'product_trend.csv';
-                    a.click();
-                    URL.revokeObjectURL(url);
+                    exportToCSV('product_trend.csv', rows);
                   } catch {}
                 }}
               >

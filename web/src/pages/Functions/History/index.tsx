@@ -33,6 +33,7 @@ import {
   type FunctionCallStatsResponse,
 } from '@/services/api/function-calls';
 import type { JSONValue } from '@/types/dashboard';
+import { extractErrorMessage } from '@/utils/errors';
 
 const { RangePicker } = DatePicker;
 const { Option } = Select;
@@ -77,8 +78,7 @@ export default () => {
         setCurrentPage(response.page || 1);
         setPageSize(response.pageSize || 20);
       } catch (error) {
-        const errMsg = error instanceof Error ? error.message : '加载调用历史失败';
-        message.error(errMsg);
+        message.error(extractErrorMessage(error, '加载调用历史失败'));
       } finally {
         setLoading(false);
       }
@@ -126,8 +126,7 @@ export default () => {
       setSelectedCall(response || record);
       setDetailVisible(true);
     } catch (error) {
-      const errMsg = error instanceof Error ? error.message : '获取详情失败';
-      message.error(errMsg);
+      message.error(extractErrorMessage(error, '获取详情失败'));
     }
   };
 

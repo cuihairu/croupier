@@ -22,6 +22,7 @@ import {
   deleteCertificate,
   type Certificate,
 } from '@/services/api/ops';
+import { formatDateTime } from '@/utils/format';
 
 export default function OpsCertificatesPage() {
   const { message } = App.useApp();
@@ -62,14 +63,7 @@ export default function OpsCertificatesPage() {
     return <Tag color="green">{v != null ? v : '-'} 天</Tag>;
   };
 
-  const fmt = (v?: string) => {
-    if (!v) return '';
-    try {
-      return new Date(v).toLocaleString();
-    } catch {
-      return String(v);
-    }
-  };
+  const fmt = (v?: string) => (v ? formatDateTime(v) : '');
   const getStatus = (r: Certificate): string => {
     const s = (r.status || '').toString().toLowerCase();
     if (s) return s;

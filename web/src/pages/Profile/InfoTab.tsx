@@ -10,6 +10,7 @@ import {
 } from '@ant-design/icons';
 import { useIntl } from '@umijs/max';
 import type { FormInstance } from 'antd';
+import { formatDateTime } from '@/utils/format';
 import type { ProfileData } from './shared';
 
 /** 基本资料 Tab：查看态 Descriptions / 编辑态表单（表单实例由主页持有——hero
@@ -59,12 +60,12 @@ export default function InfoTab({
     },
     {
       title: formatMessage('profile.info.joined'),
-      value: profile?.createdAt ? new Date(String(profile.createdAt)).toLocaleString() : notSet,
+      value: profile?.createdAt ? formatDateTime(String(profile.createdAt)) : notSet,
       icon: <RocketOutlined />,
     },
     {
       title: formatMessage('profile.info.last.login'),
-      value: profile?.lastLoginAt ? new Date(String(profile.lastLoginAt)).toLocaleString() : notSet,
+      value: profile?.lastLoginAt ? formatDateTime(String(profile.lastLoginAt)) : notSet,
       icon: <HistoryOutlined />,
     },
     {

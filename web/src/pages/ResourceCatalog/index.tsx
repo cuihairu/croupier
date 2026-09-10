@@ -48,6 +48,7 @@ import {
   resolveResourceSemanticConflict,
   updateResourceSemantics,
 } from '@/services/dashboard';
+import { extractErrorMessage } from '@/utils/errors';
 import { localizedText } from '@/utils/localizedText';
 import {
   compactSemanticsPayload,
@@ -95,8 +96,7 @@ const ResourceCatalogPage: React.FC = () => {
       setData(result.items);
       setTotal(result.total);
     } catch (error) {
-      const errMsg = error instanceof Error ? error.message : '操作失败';
-      message.error(errMsg);
+      message.error(extractErrorMessage(error, '操作失败'));
     } finally {
       setLoading(false);
     }
@@ -115,8 +115,7 @@ const ResourceCatalogPage: React.FC = () => {
         });
         setSemanticVersions(versions);
       } catch (error) {
-        const errMsg = error instanceof Error ? error.message : '未知错误';
-        message.error('获取语义版本失败: ' + errMsg);
+        message.error('获取语义版本失败: ' + extractErrorMessage(error, '未知错误'));
       }
     },
     [],
@@ -135,8 +134,7 @@ const ResourceCatalogPage: React.FC = () => {
         await fetchSemanticVersions(resourceKey, versionPage, versionPageSize);
         return detail;
       } catch (error) {
-        const errMsg = error instanceof Error ? error.message : '未知错误';
-        message.error('获取详情失败: ' + errMsg);
+        message.error('获取详情失败: ' + extractErrorMessage(error, '未知错误'));
         return null;
       } finally {
         setDetailLoading(false);
@@ -180,8 +178,7 @@ const ResourceCatalogPage: React.FC = () => {
       await loadResourceDetail(selectedResource.resourceKey);
       fetchData();
     } catch (error) {
-      const errMsg = error instanceof Error ? error.message : '未知错误';
-      message.error('更新失败: ' + errMsg);
+      message.error('更新失败: ' + extractErrorMessage(error, '未知错误'));
     }
   }, [editForm, fetchData, loadResourceDetail, selectedResource]);
 
@@ -215,8 +212,7 @@ const ResourceCatalogPage: React.FC = () => {
       await loadResourceDetail(selectedResource.resourceKey);
       fetchData();
     } catch (error) {
-      const errMsg = error instanceof Error ? error.message : '未知错误';
-      message.error('解决冲突失败: ' + errMsg);
+      message.error('解决冲突失败: ' + extractErrorMessage(error, '未知错误'));
     }
   }, [fetchData, loadResourceDetail, resolveForm, selectedConflict, selectedResource]);
 

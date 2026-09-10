@@ -26,6 +26,7 @@ import {
   previewRateLimit,
   listOpsNodes,
 } from '@/services/api/ops';
+import { exportToCSV } from '@/utils/export';
 
 type RateLimitFormValues = {
   scope: 'function' | 'service';
@@ -422,23 +423,7 @@ export default function OpsRateLimitsPage() {
                       'qpsLimit',
                       'qps1m',
                     ]);
-                    const csv = rows
-                      .map((r) =>
-                        r
-                          .map((x) => {
-                            const s = String(x == null ? '' : x);
-                            return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
-                          })
-                          .join(','),
-                      )
-                      .join('\n');
-                    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-                    const url = URL.createObjectURL(blob);
-                    const a = document.createElement('a');
-                    a.href = url;
-                    a.download = 'rate_limit_preview.csv';
-                    a.click();
-                    URL.revokeObjectURL(url);
+                    exportToCSV('rate_limit_preview.csv', rows);
                   } catch {}
                 }}
               >

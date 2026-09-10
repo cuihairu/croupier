@@ -18,6 +18,7 @@ import {
   type ExecutionLogDetail,
   type ExecutionLogItem,
 } from '@/services/api/executionLogs';
+import { formatDateTime } from '@/utils/format';
 
 const { Text } = Typography;
 const { RangePicker } = DatePicker;
@@ -204,7 +205,7 @@ export default function ExecutionLogsPage() {
               title: '时间',
               dataIndex: 'createdAt',
               width: 165,
-              render: (v: string) => new Date(v).toLocaleString(),
+              render: (v: string) => formatDateTime(v),
             },
             { title: '申请人', dataIndex: 'actor', width: 120 },
             { title: '函数', dataIndex: 'functionId', ellipsis: true },
@@ -260,7 +261,7 @@ export default function ExecutionLogsPage() {
               </Text>
               <Text>
                 <Text type="secondary">时间：</Text>
-                {new Date(detail.createdAt).toLocaleString()} · {detail.durationMs}ms
+                {formatDateTime(detail.createdAt)} · {detail.durationMs}ms
               </Text>
               {detail.traceId && (
                 <Text>

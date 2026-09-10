@@ -1,6 +1,7 @@
 import { useCallback } from 'react';
 import { Button, Card, Divider, Table, Tag, Typography } from 'antd';
 import { useIntl } from '@umijs/max';
+import { formatDateTime } from '@/utils/format';
 
 const { Text } = Typography;
 
@@ -48,7 +49,7 @@ export default function SessionsTab({
             title: formatMessage('profile.sessions.col.time'),
             dataIndex: 'time',
             width: 180,
-            render: (value: string) => (value ? new Date(value).toLocaleString() : '-'),
+            render: (value: string) => formatDateTime(value ?? ''),
           },
           {
             title: formatMessage('profile.sessions.col.result'),

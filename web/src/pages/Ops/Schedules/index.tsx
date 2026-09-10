@@ -26,6 +26,7 @@ import {
   type ScheduleItem,
 } from '@/services/api/schedules';
 import { extractErrorMessage } from '@/utils/errors';
+import { formatDateTime } from '@/utils/format';
 
 const STATUS_TAG: Record<ScheduleItem['status'], { color: string; label: string }> = {
   active: { color: 'green', label: '运行中' },
@@ -141,8 +142,7 @@ export default function SchedulesPage() {
       title: '下次触发',
       dataIndex: 'nextTriggerAt',
       width: 170,
-      render: (_: unknown, r: ScheduleItem) =>
-        r.nextTriggerAt ? new Date(r.nextTriggerAt).toLocaleString() : '-',
+      render: (_: unknown, r: ScheduleItem) => formatDateTime(r.nextTriggerAt ?? ''),
     },
     {
       title: '操作',
@@ -299,7 +299,7 @@ export default function SchedulesPage() {
             {
               title: '触发时间',
               dataIndex: 'slot',
-              render: (v: string) => new Date(v).toLocaleString(),
+              render: (v: string) => formatDateTime(v),
             },
             {
               title: '结果',

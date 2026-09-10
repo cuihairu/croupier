@@ -17,6 +17,7 @@ import {
 import type { FormInstance } from 'antd/es/form';
 import { CopyOutlined } from '@ant-design/icons';
 import { CodeEditor } from '@/components/MonacoDynamic';
+import { formatDateTime } from '@/utils/format';
 
 const { TextArea } = Input;
 
@@ -174,10 +175,10 @@ export function BasicInfoTab({
         </Descriptions.Item>
         <Descriptions.Item label="Agent 数量">{functionDetail?.agentCount || 0}</Descriptions.Item>
         <Descriptions.Item label="创建时间">
-          {functionDetail?.createdAt ? new Date(functionDetail.createdAt).toLocaleString() : '-'}
+          {functionDetail?.createdAt ? formatDateTime(functionDetail.createdAt) : '-'}
         </Descriptions.Item>
         <Descriptions.Item label="更新时间">
-          {functionDetail?.updatedAt ? new Date(functionDetail.updatedAt).toLocaleString() : '-'}
+          {functionDetail?.updatedAt ? formatDateTime(functionDetail.updatedAt) : '-'}
         </Descriptions.Item>
       </Descriptions>
 

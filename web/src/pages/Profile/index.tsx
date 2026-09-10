@@ -27,6 +27,7 @@ import {
 } from '@ant-design/icons';
 import { useIntl, useLocation, useModel, useNavigate } from '@umijs/max';
 import { updateMyProfile } from '@/services/api/me';
+import { formatDateTime } from '@/utils/format';
 import { TAB_KEYS, type ProfileData } from './shared';
 import { useProfileData } from './useProfileData';
 import InfoTab from './InfoTab';
@@ -226,14 +227,14 @@ export default function Profile() {
                       </Descriptions.Item>
                       <Descriptions.Item label={formatMessage('profile.info.joined')}>
                         {profile?.createdAt ? (
-                          <Text>{new Date(String(profile.createdAt)).toLocaleString()}</Text>
+                          <Text>{formatDateTime(String(profile.createdAt))}</Text>
                         ) : (
                           <Text type="secondary">{formatMessage('profile.info.notSet')}</Text>
                         )}
                       </Descriptions.Item>
                       <Descriptions.Item label={formatMessage('profile.info.last.login')}>
                         {profile?.lastLoginAt ? (
-                          <Text>{new Date(String(profile.lastLoginAt)).toLocaleString()}</Text>
+                          <Text>{formatDateTime(String(profile.lastLoginAt))}</Text>
                         ) : (
                           <Text type="secondary">{formatMessage('profile.info.notSet')}</Text>
                         )}

@@ -1,5 +1,6 @@
 import { List, Space, Tag, Typography } from 'antd';
 import type { AuditEvent } from '@/services/api/audit';
+import { formatDateTime } from '@/utils/format';
 
 const { Text } = Typography;
 
@@ -20,9 +21,7 @@ export default function AuditList({ data, emptyText }: { data: AuditEvent[]; emp
             }
             description={
               <Space orientation="vertical" size={0}>
-                <Text type="secondary">
-                  {item.time ? new Date(item.time).toLocaleString() : '-'}
-                </Text>
+                <Text type="secondary">{item.time ? formatDateTime(item.time) : '-'}</Text>
                 {item.meta && (
                   <Text type="secondary">
                     {Object.entries(item.meta)

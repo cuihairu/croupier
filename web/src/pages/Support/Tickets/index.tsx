@@ -12,6 +12,8 @@ import {
   transitionTicket,
 } from '@/services/api/support';
 import { useAccess } from '@umijs/max';
+import { extractErrorMessage } from '@/utils/errors';
+import { formatDateTime } from '@/utils/format';
 
 type TicketPriority = 'urgent' | 'high' | 'normal' | 'low';
 type TicketStatus = 'open' | 'in_progress' | 'resolved' | 'closed';
@@ -112,7 +114,7 @@ export default function SupportTicketsPage() {
       setList(res.tickets || []);
       setTotal(res.total || 0);
     } catch (error) {
-      message.error(error instanceof Error ? error.message : '加载工单失败');
+      message.error(extractErrorMessage(error, '加载工单失败'));
     } finally {
       setLoading(false);
     }
@@ -288,7 +290,7 @@ export default function SupportTicketsPage() {
             {
               title: '更新时间',
               dataIndex: 'updatedAt',
-              render: (v?: string) => (v ? new Date(v).toLocaleString() : '-'),
+              render: (v?: string) => formatDateTime(v ?? ''),
             },
             {
               title: '操作',

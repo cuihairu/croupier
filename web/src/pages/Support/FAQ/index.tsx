@@ -4,6 +4,8 @@ import { PageContainer } from '@ant-design/pro-components';
 import { listFAQ, createFAQ, updateFAQ, deleteFAQ } from '@/services/api/support';
 import { useAccess } from '@umijs/max';
 import type { JSONValue } from '@/types/dashboard';
+import { extractErrorMessage } from '@/utils/errors';
+import { formatDateTime } from '@/utils/format';
 
 interface FAQItem {
   id: number;
@@ -44,7 +46,7 @@ export default function SupportFAQPage() {
         setList((res.faq || res.items || []) as unknown as FAQItem[]);
         setTotal(res.total ?? (res.faq || res.items || []).length);
       } catch (error) {
-        message.error(error instanceof Error ? error.message : '加载 FAQ 失败');
+        message.error(extractErrorMessage(error, '加载 FAQ 失败'));
       } finally {
         setLoading(false);
       }
@@ -138,7 +140,7 @@ export default function SupportFAQPage() {
             {
               title: '更新时间',
               dataIndex: 'updatedAt',
-              render: (v: string) => (v ? new Date(v).toLocaleString() : '-'),
+              render: (v: string) => formatDateTime(v ?? ''),
             },
             {
               title: '操作',

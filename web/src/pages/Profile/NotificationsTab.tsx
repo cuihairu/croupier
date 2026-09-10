@@ -2,6 +2,7 @@ import { useCallback } from 'react';
 import { Badge, Button, Card, List, Modal, Space, Tag, Typography } from 'antd';
 import { useIntl } from '@umijs/max';
 import type { MessageItem } from '@/services/api/messages';
+import { formatDateTime } from '@/utils/format';
 
 const { Text, Paragraph } = Typography;
 
@@ -91,7 +92,7 @@ export default function NotificationsTab({
                     {item.content}
                   </Text>
                   <Text type="secondary" style={{ fontSize: 12 }}>
-                    {item.createdAt ? new Date(item.createdAt).toLocaleString() : ''}
+                    {item.createdAt ? formatDateTime(item.createdAt) : ''}
                     {item.status !== 'read' ? ' · 未读' : ''}
                   </Text>
                 </Space>
@@ -112,7 +113,7 @@ export default function NotificationsTab({
             <Space style={{ marginBottom: 12 }}>
               <Tag>{detailMessage.type}</Tag>
               <Text type="secondary" style={{ fontSize: 12 }}>
-                {detailMessage.createdAt ? new Date(detailMessage.createdAt).toLocaleString() : ''}
+                {detailMessage.createdAt ? formatDateTime(detailMessage.createdAt) : ''}
               </Text>
               <Text type="secondary" style={{ fontSize: 12 }}>
                 {detailMessage.status === 'read' ? '已读' : '未读'}

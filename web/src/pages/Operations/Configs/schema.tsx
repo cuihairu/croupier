@@ -2,6 +2,7 @@ import React from 'react';
 import { Button, Space, Tag } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import type { ConfigItem, ConfigVersion } from '@/services/api/configs';
+import { formatDateTime } from '@/utils/format';
 
 export const CONFIG_FORMAT_OPTIONS = [
   { label: 'json', value: 'json' },
@@ -60,7 +61,7 @@ export function buildVersionColumns(
     {
       title: '时间',
       dataIndex: 'createdAt',
-      render: (v: string) => (v ? new Date(v).toLocaleString() : ''),
+      render: (v: string) => (v ? formatDateTime(v) : ''),
     },
     { title: '编辑者', dataIndex: 'createdBy', width: 120 },
     { title: '说明', dataIndex: 'message', ellipsis: true },

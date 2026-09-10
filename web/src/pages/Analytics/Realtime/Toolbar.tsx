@@ -3,6 +3,7 @@ import { Button, DatePicker, Space, Tag } from 'antd';
 import type { Dayjs } from 'dayjs';
 import { useIntl } from '@umijs/max';
 import { fetchRealtimeSeries } from '@/services/api/analytics';
+import { exportToCSV } from '@/utils/export';
 import type { ExportRow, RealtimeSeriesResponse, StreamStatus } from './types';
 
 /** 实时大屏工具栏：连接状态/最后更新/刷新/自动刷新/清空趋势/
@@ -136,14 +137,7 @@ export default function Toolbar({
               const it = idx[t];
               rows.push([it.ts, it.online ?? '', it.a5 ?? '', it.a15 ?? '', it.rev ?? '']);
             }
-            const csv = rows.map((r) => r.map((x) => String(x ?? '')).join(',')).join('\n');
-            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = 'realtime_window.csv';
-            a.click();
-            URL.revokeObjectURL(url);
+            exportToCSV('realtime_window.csv', rows);
           } catch {}
         }}
       >
@@ -173,14 +167,7 @@ export default function Toolbar({
             for (const t of times) {
               csvRows.push([new Date(t).toISOString(), at(o, t), at(a5, t), at(a15, t), at(rv, t)]);
             }
-            const csv = csvRows.map((r) => r.map((x) => String(x ?? '')).join(',')).join('\n');
-            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = 'realtime_last10m.csv';
-            a.click();
-            URL.revokeObjectURL(url);
+            exportToCSV('realtime_last10m.csv', csvRows);
           } catch {}
         }}
       >

@@ -3,6 +3,7 @@ import { Button, Card, Select, Space, Table } from 'antd';
 import type { Dayjs } from 'dayjs';
 import { fetchAnalyticsPaymentsSummary } from '@/services/api/analytics';
 import type { JSONValue } from '@/types/dashboard';
+import { exportToCSV } from '@/utils/export';
 import type { CompareItem, DeltaDim, DeltaMode, DeltaRows, DimData } from './types';
 
 // 环比分析：对比同等长度的上一个时间窗口，展示收入与成功率涨幅 Top/Bottom
@@ -179,16 +180,7 @@ const DeltaSection: React.FC<{
                     Number(it.rateDelta || 0),
                   ]);
                 });
-                const csv = rowsOut
-                  .map((r) => r.map((x: string | number) => String(x ?? '')).join(','))
-                  .join('\n');
-                const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = 'payments_delta.csv';
-                a.click();
-                URL.revokeObjectURL(url);
+                exportToCSV('payments_delta.csv', rowsOut);
               } catch {}
             }}
           >

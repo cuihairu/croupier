@@ -24,6 +24,7 @@ import {
 } from '@/services/api/functions';
 import { StandardFilterBar, StandardListSection, SummaryOverview } from '@/components';
 import type { JSONValue } from '@/types/dashboard';
+import { formatDateTime } from '@/utils/format';
 const { Paragraph, Text } = Typography;
 
 function getTaskStatusMeta(state?: string) {
@@ -203,13 +204,13 @@ export default function OpsTasksPage() {
       title: '开始时间',
       dataIndex: 'startedAt',
       width: 180,
-      render: (v) => (v ? new Date(v).toLocaleString() : '-'),
+      render: (v) => formatDateTime(v ?? ''),
     },
     {
       title: '结束时间',
       dataIndex: 'endedAt',
       width: 180,
-      render: (v) => (v ? new Date(v).toLocaleString() : '-'),
+      render: (v) => formatDateTime(v ?? ''),
     },
     { title: '服务地址', dataIndex: 'addr', ellipsis: true },
     {
@@ -425,10 +426,10 @@ export default function OpsTasksPage() {
               <Descriptions.Item label="服务地址">{detail.addr || '-'}</Descriptions.Item>
               <Descriptions.Item label="Trace">{detail.traceId || '-'}</Descriptions.Item>
               <Descriptions.Item label="开始时间">
-                {detail.startedAt ? new Date(detail.startedAt).toLocaleString() : '-'}
+                {detail.startedAt ? formatDateTime(detail.startedAt) : '-'}
               </Descriptions.Item>
               <Descriptions.Item label="结束时间">
-                {detail.endedAt ? new Date(detail.endedAt).toLocaleString() : '-'}
+                {detail.endedAt ? formatDateTime(detail.endedAt) : '-'}
               </Descriptions.Item>
               <Descriptions.Item label="耗时">
                 {typeof detail.durationMs === 'number' && detail.durationMs > 0

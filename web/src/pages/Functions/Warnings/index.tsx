@@ -24,6 +24,7 @@ import {
   markFunctionWarningRead,
   type FunctionRegistrationWarning,
 } from '@/services/api/functions';
+import { formatDateTime } from '@/utils/format';
 
 type FilterValues = {
   functionId?: string;
@@ -209,7 +210,7 @@ export default function FunctionWarningsPage() {
             title: '最近时间',
             dataIndex: 'lastSeen',
             width: 180,
-            render: (text: string) => (text ? new Date(text).toLocaleString() : '-'),
+            render: (text: string) => formatDateTime(text ?? ''),
           },
           {
             title: 'Agent',

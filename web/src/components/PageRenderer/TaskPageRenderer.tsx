@@ -32,6 +32,8 @@ import type {
   ApprovalStatusResult,
   FormValues,
 } from '@/types/dashboard';
+import { extractErrorMessage } from '@/utils/errors';
+import { formatDateTime } from '@/utils/format';
 
 const { Text } = Typography;
 
@@ -505,8 +507,7 @@ const TaskPageRenderer: React.FC<TaskPageRendererProps> = ({
           message.warning('未获取到任务 ID');
         }
       } catch (error) {
-        const msg = error instanceof Error ? error.message : '未知错误';
-        message.error('任务提交失败: ' + msg);
+        message.error('任务提交失败: ' + extractErrorMessage(error, '未知错误'));
       } finally {
         setLoading(false);
       }
@@ -539,8 +540,7 @@ const TaskPageRenderer: React.FC<TaskPageRendererProps> = ({
       taskStatusRef.current = next;
       setTaskStatus(next);
     } catch (error) {
-      const msg = error instanceof Error ? error.message : '未知错误';
-      message.error('取消任务失败: ' + msg);
+      message.error('取消任务失败: ' + extractErrorMessage(error, '未知错误'));
     }
   }, [cancelBinding, onCancelTask, onExecute, stopPolling, taskIdStateKey, taskStatus?.taskId]);
 
@@ -578,8 +578,7 @@ const TaskPageRenderer: React.FC<TaskPageRendererProps> = ({
         setTaskStatus(next);
       }
     } catch (error) {
-      const msg = error instanceof Error ? error.message : '审批状态查询失败';
-      message.error(msg);
+      message.error(extractErrorMessage(error, '审批状态查询失败'));
     }
   }, [approvalId, onQueryApprovalStatus, startPolling]);
 
@@ -675,7 +674,7 @@ const TaskPageRenderer: React.FC<TaskPageRendererProps> = ({
             color: event.type === 'error' ? 'red' : event.type === 'warning' ? 'orange' : 'blue',
             children: (
               <div>
-                <Text type="secondary">{new Date(event.timestamp).toLocaleString()}</Text>
+                <Text type="secondary">{formatDateTime(event.timestamp)}</Text>
                 <br />
                 <Text>{event.message}</Text>
                 {event.data ? (

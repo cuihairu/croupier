@@ -21,6 +21,7 @@ import {
   type AlertRuleItem,
 } from '@/services/api/ops';
 import { extractErrorMessage } from '@/utils/errors';
+import { formatDateTime } from '@/utils/format';
 
 const METRIC_OPTIONS = [
   { label: 'CPU 使用率 (%)', value: 'cpu.usagePercent' },
@@ -181,7 +182,7 @@ export default function AlertRulesTab() {
       title: '最近触发',
       dataIndex: 'lastFiredAt',
       width: 160,
-      render: (v?: string) => (v ? new Date(v).toLocaleString() : '-'),
+      render: (v?: string) => formatDateTime(v ?? ''),
     },
     {
       title: '启用',

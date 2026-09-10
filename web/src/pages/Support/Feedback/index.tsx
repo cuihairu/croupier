@@ -9,6 +9,8 @@ import {
   deleteFeedback,
 } from '@/services/api/support';
 import { getMessage } from '@/utils/antdApp';
+import { extractErrorMessage } from '@/utils/errors';
+import { formatDateTime } from '@/utils/format';
 import { useAccess } from '@umijs/max';
 import type { JSONValue } from '@/types/dashboard';
 
@@ -62,7 +64,7 @@ export default function SupportFeedbackPage() {
       setList((res.feedback || []) as unknown as FeedbackItem[]);
       setTotal(res.total || 0);
     } catch (error) {
-      getMessage()?.error(error instanceof Error ? error.message : '加载反馈失败');
+      getMessage()?.error(extractErrorMessage(error, '加载反馈失败'));
     } finally {
       setLoading(false);
     }
@@ -174,7 +176,7 @@ export default function SupportFeedbackPage() {
             {
               title: '更新时间',
               dataIndex: 'updatedAt',
-              render: (v: string) => (v ? new Date(v).toLocaleString() : '-'),
+              render: (v: string) => formatDateTime(v ?? ''),
             },
             {
               title: '操作',
@@ -195,8 +197,7 @@ export default function SupportFeedbackPage() {
                         );
                         load();
                       } catch (e) {
-                        const errMsg = e instanceof Error ? e.message : '操作失败';
-                        getMessage()?.error(errMsg || '转工单失败');
+                        getMessage()?.error(extractErrorMessage(e, '转工单失败'));
                       }
                     }}
                   >

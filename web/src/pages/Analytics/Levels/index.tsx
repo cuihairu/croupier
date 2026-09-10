@@ -14,7 +14,7 @@ import {
 } from 'antd';
 import type { Dayjs } from 'dayjs';
 import { PageContainer } from '@ant-design/pro-components';
-import { exportToXLSX } from '@/utils/export';
+import { exportToCSV, exportToXLSX } from '@/utils/export';
 import {
   fetchAnalyticsLevels,
   fetchAnalyticsLevelsEpisodes,
@@ -70,14 +70,7 @@ export default function AnalyticsLevelsPage() {
           String(x.avgRetries || ''),
         ]),
       );
-      const csv = rows.map((r) => r.map((x) => String(x ?? '')).join(',')).join('\n');
-      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'levels.csv';
-      a.click();
-      URL.revokeObjectURL(url);
+      exportToCSV('levels.csv', rows);
     } catch {}
   };
 

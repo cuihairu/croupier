@@ -21,6 +21,7 @@ import type {
   SemanticSource,
 } from '@/types/dashboard';
 import { localizedText } from '@/utils/localizedText';
+import { formatDateTime } from '@/utils/format';
 import {
   affectedKindColors,
   affectedKindLabels,
@@ -209,7 +210,7 @@ const ResourceDetailModal: React.FC<{
               title: '更新时间',
               dataIndex: 'updatedAt',
               key: 'updatedAt',
-              render: (value?: string) => (value ? new Date(value).toLocaleString() : '-'),
+              render: (value?: string) => formatDateTime(value ?? ''),
             },
           ]}
         />
@@ -370,7 +371,7 @@ const ResourceDetailModal: React.FC<{
               title: '创建时间',
               dataIndex: 'createdAt',
               key: 'createdAt',
-              render: (value: string) => (value ? new Date(value).toLocaleString() : '-'),
+              render: (value: string) => formatDateTime(value ?? ''),
             },
             { title: '创建人', dataIndex: 'createdBy', key: 'createdBy' },
           ]}
