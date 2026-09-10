@@ -206,24 +206,48 @@ test.describe('真实契约变化链路', () => {
     const headers = await authenticatedHeaders(request);
     await restoreFixtureFunctions(request);
 
-    // 等待默认 proposal 重建完成。
+    // 等待默认 proposal 重建完成：必须同时满足「含默认 title」且「无任何测试引入的
+    // 污染标记」。只判 title 会在 schema-only 变化（title 未变）时瞬间通过，导致
+    // diff 为空、脏 selectors 残留到下一轮；只判标记缺失则在 summary-only 变化时
+    // 同样瞬间通过。两个方向必须同时成立才证明合约已重新生成。
     await expect
       .poll(
         async () => {
           const response = await request.get(`${state.serverBaseURL}/api/v1/proposals`, {
             headers,
           });
-          if (response.status() !== 200) return '';
+          if (response.status() !== 200) return false;
           const proposals = (await response.json()) as Array<{ proposalKey?: string }>;
           const ops = proposals.find((item) => item.proposalKey === 'operation:ops.restart');
-          return ops ? JSON.stringify(ops) : '';
+          if (!ops) return false;
+          const json = JSON.stringify(ops);
+          return (
+            json.includes('Restart game server') &&
+            !json.includes('premium') &&
+            !json.includes('priority')
+          );
         },
         { timeout: 30000 },
       )
-      .not.toContain('priority');
+      .toBe(true);
 
-    // 同步 draft 到最新 proposal。
-    const diff = await fetchOpsDiff(request, headers);
+    // 同步 draft 到最新 proposal：先 auto-merge 展示类差异，再 manual-merge 冲突项。
+    let diff = await fetchOpsDiff(request, headers);
+    if ((diff.autoMergeItems ?? []).length > 0) {
+      const draft = await fetchOpsDraft(request, headers);
+      const autoMerge = await request.post(
+        `${state.serverBaseURL}/api/v1/versioning/pages/operation--ops.restart/merge`,
+        {
+          headers,
+          data: {
+            expectedDraftRevision: draft.draftRevision ?? 0,
+            strategy: 'auto',
+          },
+        },
+      );
+      expect(autoMerge.status()).toBe(200);
+      diff = await fetchOpsDiff(request, headers);
+    }
     if ((diff.conflictItems ?? []).length > 0) {
       const draft = await fetchOpsDraft(request, headers);
       const merge = await request.post(
@@ -244,9 +268,13 @@ test.describe('真实契约变化链路', () => {
       expect(merge.status()).toBe(200);
     }
 
-    // 已发布快照若仍 stale，重发布恢复 fresh。
+    // 已发布快照若仍 stale 或 draft 有变更，重发布恢复 fresh。
     const consolePage = await fetchOpsConsolePage(request, headers);
-    if ((consolePage.page?.bindingFreshness ?? []).length > 0) {
+    const needsRepublish =
+      (consolePage.page?.bindingFreshness ?? []).length > 0 ||
+      (diff.autoMergeItems ?? []).length > 0 ||
+      (diff.conflictItems ?? []).length > 0;
+    if (needsRepublish) {
       const draft = await fetchOpsDraft(request, headers);
       const publish = await request.post(
         `${state.serverBaseURL}/api/v1/pages/operation--ops.restart/publish`,
@@ -718,6 +746,9 @@ test.describe('真实契约变化链路', () => {
         },
       },
     );
+    if (manualMerge.status() !== 200) {
+      console.log('manual merge error body:', await manualMerge.text());
+    }
     expect(manualMerge.status()).toBe(200);
     const manualBody = (await manualMerge.json()) as {
       conflicts: number;
@@ -783,16 +814,9 @@ test.describe('真实契约变化链路', () => {
     expect(audit.details.publish_version).toBe(publishBody.publishedVersion);
     expect(Number(audit.details.base_proposal_version)).toBeGreaterThan(0);
 
-    // 恢复默认 schema 并回到 fresh。
+    // 恢复默认 schema。本测试结束时 published 快照与修改后合约一致（freshness
+    // 为 0），任何「等 fresh」的轮询都会瞬间通过——确定性清理（等待合约再生、
+    // merge、republish）统一由 afterEach 的组合谓词完成。
     await restoreFixtureFunctions(request);
-    await expect
-      .poll(
-        async () => {
-          const current = await fetchOpsConsolePage(request, headers);
-          return (current.page?.bindingFreshness ?? []).length;
-        },
-        { timeout: 30000 },
-      )
-      .toBe(0);
   });
 });
