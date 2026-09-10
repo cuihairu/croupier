@@ -161,7 +161,19 @@ export default function PropsPanel({
                     spec={{ jsonSchema: plainSchema, layout: 'vertical' }}
                     initialValues={node.props as Record<string, never>}
                     hideSubmit
-                    onValuesChange={(changed) => onPatch(changed as Record<string, unknown>)}
+                    onValuesChange={(_, all) => {
+                      // SchemaFormRenderer 契约：(changedValues, allValues) 且第一参
+                      // 恒为 {}（见其 handleChangeEvent）——必须取第二参，否则编辑
+                      // 从不落树。只发与现值不同的键，避免每次击键把整个 props
+                      // 全量写入（换绑分支按 functionId 变化判断，全量回写无碍，
+                      // 但 diff 后语义更精确）。
+                      const next = all as Record<string, unknown>;
+                      const patch: Record<string, unknown> = {};
+                      for (const k of plainKeys) {
+                        if (!Object.is(node.props[k], next[k])) patch[k] = next[k];
+                      }
+                      if (Object.keys(patch).length > 0) onPatch(patch);
+                    }}
                   />
                 )}
                 {plainKeys.length === 0 && staticSchemaKeys.length === 0 && (

@@ -226,17 +226,41 @@ export function moveNode(nodes: PageNode[], id: string, toIndex: number): PageNo
   return walk(nodes);
 }
 
-/** 更新节点 props（浅合并）。 */
+/** 更新节点 props（浅合并）。无实际变更时返回原引用——setTree 以引用相等
+ * 短路 no-op，避免空 patch 污染撤销栈（历史快照被挤出）。 */
 export function updateProps(
   nodes: PageNode[],
   id: string,
   patch: Record<string, unknown>,
 ): PageNode[] {
-  return nodes.map((n) => {
-    if (n.id === id) return { ...n, props: { ...n.props, ...patch } };
-    if (n.children) return { ...n, children: updateProps(n.children, id, patch) };
-    return n;
-  });
+  const walk = (list: PageNode[]): PageNode[] => {
+    let changed = false;
+    const next = list.map((n) => {
+      if (n.id === id) {
+        let hit = false;
+        const props = { ...(n.props as Record<string, unknown>) };
+        for (const [k, v] of Object.entries(patch)) {
+          if (!Object.is(props[k], v)) {
+            props[k] = v;
+            hit = true;
+          }
+        }
+        if (!hit) return n;
+        changed = true;
+        return { ...n, props: props as PageNode['props'] };
+      }
+      if (n.children) {
+        const children = walk(n.children);
+        if (children !== n.children) {
+          changed = true;
+          return { ...n, children };
+        }
+      }
+      return n;
+    });
+    return changed ? next : list;
+  };
+  return walk(nodes);
 }
 
 export function countNodes(nodes: PageNode[]): number {

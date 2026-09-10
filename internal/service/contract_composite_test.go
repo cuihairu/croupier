@@ -122,6 +122,52 @@ func TestConvChainAndEvents(t *testing.T) {
 	}
 }
 
+// Group 弹窗分组必须透传到生成 spec：渲染端 openDialog 按 group 聚合
+// dialog 区块（PageRenderer groupOf），service 转换层漏传会让弹窗永远打不开。
+func TestCreateCompositeProposal_GroupPassthrough(t *testing.T) {
+	db, err := gorm.Open(sqlite.Open(t.TempDir()+"/group.db"), &gorm.Config{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := db.AutoMigrate(
+		&model.FunctionContract{},
+		&model.CapabilitySemantics{},
+		&model.PageProposal{},
+		&model.PageProposalVersion{},
+		&model.TermDictionary{},
+		&model.ResourceCapability{},
+		&model.CapabilitySemanticVersion{},
+		&model.BlockedProposalIssue{},
+	); err != nil {
+		t.Fatal(err)
+	}
+	svc := NewContractService(db)
+
+	ctx := context.Background()
+	if err := svc.RebuildContractFromFunctionMeta(ctx, "demo_game", "development", "agent-1", spec.FunctionContractInput{ID: "player.get", Resource: "player", Capability: "item_query", Execution: "sync", Enabled: true, InputSchema: `{"type":"object","properties":{"id":{"type":"string"}},"required":["id"]}`, OutputSchema: `{"type":"object","properties":{"player":{"type":"object"}}}`}); err != nil {
+		t.Fatal(err)
+	}
+
+	proposal, err := svc.CreateCompositeProposal(ctx, "demo_game", "development", "composite--group-pass", []CompositeSectionRequest{
+		{FunctionID: "player.get", View: "fields", Display: "dialog", Group: "mailModal"},
+		{FunctionID: "player.get", View: "fields", Key: "playerDetail", Title: "玩家"},
+	})
+	if err != nil {
+		t.Fatalf("create failed: %v", err)
+	}
+
+	var page spec.PageSpec
+	if err := jsonUnmarshalV9(proposal.PageSpec, &page); err != nil {
+		t.Fatalf("unmarshal pageSpec: %v", err)
+	}
+	if len(page.Composite.Sections) != 2 {
+		t.Fatalf("sections = %+v", page.Composite.Sections)
+	}
+	if got := page.Composite.Sections[0].Group; got != "mailModal" {
+		t.Fatalf("group lost in generated spec: got %q, want %q", got, "mailModal")
+	}
+}
+
 // 声明式超时契约往返：输入 TimeoutMs → 契约列落库可读（执行层接线依赖）。
 func TestContractTimeoutMsRoundTrip(t *testing.T) {
 	db, err := gorm.Open(sqlite.Open(t.TempDir()+"/meta.db"), &gorm.Config{})

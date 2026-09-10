@@ -156,6 +156,25 @@ describe('editor v3 model', () => {
     expect(findNode(next, 'btn1')?.props).toEqual({ title: 'btn1' });
   });
 
+  it('updateProps 无实际变更返回原引用（no-op 不污染撤销栈）', () => {
+    // 空 patch
+    expect(updateProps(tree, 'tbl1', {})).toBe(tree);
+    // 值与现值相同
+    expect(updateProps(tree, 'tbl1', { title: 'tbl1' })).toBe(tree);
+    // 深层子节点命中但值不变 → 整树引用不变
+    expect(updateProps(tree, 'btn1', { title: 'btn1' })).toBe(tree);
+    // 目标 id 不存在
+    expect(updateProps(tree, 'nope', { span: 12 })).toBe(tree);
+  });
+
+  it('updateProps 深层子节点真实变更返回新树', () => {
+    const next = updateProps(tree, 'btn1', { title: 'btn1-x' });
+    expect(next).not.toBe(tree);
+    expect(findNode(next, 'btn1')?.props).toEqual({ title: 'btn1-x' });
+    // 命中节点不变时其余层级保持引用（结构共享）
+    expect(next[0]).toBe(tree[0]);
+  });
+
   it('nodeId 唯一', () => {
     const ids = new Set(Array.from({ length: 100 }, () => nodeId('a')));
     expect(ids.size).toBe(100);

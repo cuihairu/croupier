@@ -1521,7 +1521,10 @@ func (s *ContractService) CreateCompositeProposal(
 		}
 		contracts = append(contracts, contract)
 		in := generator.CompositeSectionInput{
-			Key:        key,
+			Key: key,
+			// Group 弹窗分组必须透传：渲染端 openDialog 按 group 聚合同弹窗
+			// 区块（PageRenderer groupOf），丢失后弹窗永远无法打开。
+			Group:      sec.Group,
 			FunctionID: fid,
 			View:       sec.View,
 			Title:      sec.Title,

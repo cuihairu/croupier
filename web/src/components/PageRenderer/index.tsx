@@ -327,6 +327,31 @@ export const CompositeRenderer: React.FC<{
       )
     : [];
 
+  /** 表格区块的工具栏按钮：编辑器把按钮编译到 table section 的 toolbar
+   * （compiler compileButton），渲染端必须在表格卡片头部消费——否则按钮
+   * 发布后消失。行为与 view=toolbar 独立区块分支一致。 */
+  const toolbarButtonsOf = (sec: CompositeSection): React.ReactNode =>
+    (sec.toolbar?.actions || []).map((act, i) => (
+      <Button
+        key={i}
+        size="small"
+        danger={act.danger}
+        onClick={() => {
+          if (act.targetSection) {
+            openDialog(
+              act.targetSection,
+              { ...(act.params || {}) },
+              act.danger,
+              localizedText(act.label, 'zh-CN'),
+            );
+          }
+          runChain(act.chain);
+        }}
+      >
+        {localizedText(act.label, 'zh-CN')}
+      </Button>
+    ));
+
   return (
     <>
       <Row gutter={[12, 12]}>
@@ -337,7 +362,16 @@ export const CompositeRenderer: React.FC<{
               title={localizedText(sec.title, 'zh-CN', sec.key)}
               loading={running[sec.key] || false}
               extra={
-                sec.view !== 'actions' && sec.view !== 'toolbar' && !sec.autoRun ? (
+                sec.view === 'table' && (sec.toolbar?.actions?.length ?? 0) > 0 ? (
+                  <Space size={4}>
+                    {toolbarButtonsOf(sec)}
+                    {!sec.autoRun ? (
+                      <Button size="small" onClick={() => void runSection(sec)}>
+                        执行
+                      </Button>
+                    ) : null}
+                  </Space>
+                ) : sec.view !== 'actions' && sec.view !== 'toolbar' && !sec.autoRun ? (
                   <Button size="small" onClick={() => void runSection(sec)}>
                     执行
                   </Button>
