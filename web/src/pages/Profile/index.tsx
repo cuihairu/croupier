@@ -7,308 +7,86 @@ import {
   Card,
   Col,
   Descriptions,
-  Divider,
   Form,
-  Input,
-  List,
-  Modal,
   Row,
   Space,
   Statistic,
-  Table,
   Tabs,
   Tag,
   Typography,
-  Upload,
   message,
-  Select,
 } from 'antd';
+import { PageContainer } from '@ant-design/pro-components';
 import {
   BellOutlined,
-  InboxOutlined,
-  EditOutlined,
   HistoryOutlined,
-  LockOutlined,
-  MailOutlined,
-  PhoneOutlined,
   RocketOutlined,
   SafetyOutlined,
   SettingOutlined,
-  CopyOutlined,
   UserOutlined,
 } from '@ant-design/icons';
-import { PageContainer } from '@ant-design/pro-components';
 import { useIntl, useLocation, useModel, useNavigate } from '@umijs/max';
-import {
-  changeMyPassword,
-  getMyGames,
-  getMyPermissions,
-  getMyProfile,
-  updateMyProfile,
-  ProfileGame,
-  ProfilePermission,
-} from '@/services/api/me';
-import MfaSettings from './MfaSettings';
-import { broadcastMessage } from '@/services/api/messages';
-import { extractErrorMessage } from '@/utils/errors';
-import { listAudit, AuditEvent } from '@/services/api/audit';
-import { listMessages, markMessagesRead, MessageItem } from '@/services/api/messages';
-import { listPermissions, type PermissionRecord } from '@/services/api/permissions';
-import { createFeedback } from '@/services/api/support';
-import { buildAvatarObjectKey, uploadAsset } from '@/services/api/storage';
-import type { JSONValue } from '@/types/dashboard';
-import type { UploadProps } from 'antd/es/upload/interface';
+import { updateMyProfile } from '@/services/api/me';
+import { TAB_KEYS, type ProfileData } from './shared';
+import { useProfileData } from './useProfileData';
+import InfoTab from './InfoTab';
+import SecurityTab from './SecurityTab';
+import GamesTab from './GamesTab';
+import PermissionsTab from './PermissionsTab';
+import ActivityTab from './ActivityTab';
+import SessionsTab from './SessionsTab';
+import NotificationsTab from './NotificationsTab';
+import PasswordModal from './PasswordModal';
+import AvatarModal from './AvatarModal';
+import BroadcastModal from './BroadcastModal';
 import './index.less';
 
-const { Title, Text, Paragraph } = Typography;
+const { Title, Text } = Typography;
 
-const TAB_KEYS = {
-  PROFILE: 'profile',
-  SECURITY: 'security',
-  GAMES: 'games',
-  PERMISSIONS: 'permissions',
-  ACTIVITY: 'activity',
-  SESSIONS: 'sessions',
-  NOTIFICATIONS: 'notifications',
-} as const;
-
-type PermissionApplyItem = {
-  id: string;
-  name: string;
-  description?: string;
-  resource: string;
-  action: string;
-  category?: string;
-};
-
-type PermissionApplyTemplate = Omit<PermissionApplyItem, 'name' | 'description'> & {
-  nameId: string;
-  descriptionId: string;
-};
-
-const FALLBACK_APPLY_PERMISSION_TEMPLATES: PermissionApplyTemplate[] = [
-  {
-    id: 'pages:edit',
-    nameId: 'profile.permissions.fallback.pages.edit.name',
-    descriptionId: 'profile.permissions.fallback.pages.edit.description',
-    resource: 'pages',
-    action: 'edit',
-    category: 'page',
-  },
-  {
-    id: 'pages:publish',
-    nameId: 'profile.permissions.fallback.pages.publish.name',
-    descriptionId: 'profile.permissions.fallback.pages.publish.description',
-    resource: 'pages',
-    action: 'publish',
-    category: 'page',
-  },
-  {
-    id: 'pages:rollback',
-    nameId: 'profile.permissions.fallback.pages.rollback.name',
-    descriptionId: 'profile.permissions.fallback.pages.rollback.description',
-    resource: 'pages',
-    action: 'rollback',
-    category: 'page',
-  },
-  {
-    id: 'functions:manage',
-    nameId: 'profile.permissions.fallback.functions.manage.name',
-    descriptionId: 'profile.permissions.fallback.functions.manage.description',
-    resource: 'functions',
-    action: 'manage',
-    category: 'functions',
-  },
-  {
-    id: 'audit:read',
-    nameId: 'profile.permissions.fallback.audit.read.name',
-    descriptionId: 'profile.permissions.fallback.audit.read.description',
-    resource: 'audit',
-    action: 'read',
-    category: 'audit',
-  },
-  {
-    id: 'ops:manage',
-    nameId: 'profile.permissions.fallback.ops.manage.name',
-    descriptionId: 'profile.permissions.fallback.ops.manage.description',
-    resource: 'ops',
-    action: 'manage',
-    category: 'ops',
-  },
-];
-
-function pickAuditMetaValue(meta: Record<string, JSONValue> | undefined, keys: string[]): string {
-  if (!meta) return '';
-  for (const key of keys) {
-    const value = meta[key];
-    if (value !== undefined && value !== null && String(value).trim() !== '') {
-      return String(value);
-    }
-  }
-  return '';
-}
-
-interface ProfileData {
-  displayName?: string;
-  email?: string;
-  phone?: string;
-  avatar?: string;
-  name?: string;
-  roles?: string[];
-  [key: string]: string | number | boolean | string[] | undefined;
-}
-
-interface PasswordValues {
-  current: string;
-  password: string;
-  confirm?: string;
-}
-
+/** 个人中心：hero 概览 + 七 Tab（资料/安全/项目/权限/活动/会话/通知）。
+ * 数据层在 useProfileData，各 Tab 与弹窗为独立组件；主页只做编排与 URL 同步。 */
 export default function Profile() {
   const intl = useIntl();
   const location = useLocation();
   const navigate = useNavigate();
   const formatMessage = useCallback((id: string) => intl.formatMessage({ id }), [intl]);
   const [form] = Form.useForm();
-  const [passwordForm] = Form.useForm();
-  const [profile, setProfile] = useState<ProfileData | null>(null);
   const [loading, setLoading] = useState(false);
   const [profileEditing, setProfileEditing] = useState(false);
-  const [passwordLoading, setPasswordLoading] = useState(false);
   const [passwordModalVisible, setPasswordModalVisible] = useState(false);
   const [avatarModalVisible, setAvatarModalVisible] = useState(false);
-  const [avatarUploading, setAvatarUploading] = useState(false);
-  const [games, setGames] = useState<ProfileGame[]>([]);
-  const [permissions, setPermissions] = useState<ProfilePermission[]>([]);
-  const [permissionIds, setPermissionIds] = useState<string[]>([]);
-  const [permissionCatalog, setPermissionCatalog] = useState<PermissionRecord[]>([]);
-  const [permissionCatalogAvailable, setPermissionCatalogAvailable] = useState(true);
-  const [applyPermissionModalVisible, setApplyPermissionModalVisible] = useState(false);
-  const [applySubmitting, setApplySubmitting] = useState(false);
-  const [selectedApplyPermission, setSelectedApplyPermission] =
-    useState<PermissionApplyItem | null>(null);
-  const [activities, setActivities] = useState<AuditEvent[]>([]);
-  const [loginRecords, setLoginRecords] = useState<AuditEvent[]>([]);
-  const [notifications, setNotifications] = useState<MessageItem[]>([]);
-  const [detailMessage, setDetailMessage] = useState<MessageItem | null>(null);
-  const [extrasLoading, setExtrasLoading] = useState(false);
-  const [applyForm] = Form.useForm();
-  const [avatarForm] = Form.useForm();
+  const [sendOpen, setSendOpen] = useState(false);
+
+  const {
+    profile,
+    games,
+    permissions,
+    permissionCatalogAvailable,
+    activities,
+    notifications,
+    detailMessage,
+    extrasLoading,
+    permissionGroups,
+    applyPermissionCandidates,
+    loginSessionRows,
+    latestLoginIP,
+    loadProfile,
+    loadExtras,
+    openMessage,
+    markAllRead,
+    setDetailMessage,
+  } = useProfileData(form);
+
   const infoSectionRef = useRef<HTMLDivElement>(null);
   const initialTab = useMemo(
     () => new URLSearchParams(location.search).get('tab') || TAB_KEYS.PROFILE,
     [location.search],
   );
   const [activeTab, setActiveTab] = useState(initialTab);
-  const fallbackApplyPermissions = useMemo<PermissionApplyItem[]>(
-    () =>
-      FALLBACK_APPLY_PERMISSION_TEMPLATES.map((item) => ({
-        id: item.id,
-        name: formatMessage(item.nameId),
-        description: formatMessage(item.descriptionId),
-        resource: item.resource,
-        action: item.action,
-        category: item.category,
-      })),
-    [formatMessage],
-  );
 
   useEffect(() => {
     setActiveTab(initialTab);
   }, [initialTab]);
-
-  // 消息详情：打开未读消息即标记已读并刷新列表状态
-  const openMessage = useCallback((item: MessageItem) => {
-    setDetailMessage(item);
-    if (item.status !== 'read') {
-      markMessagesRead([item.id])
-        .then(() => {
-          setNotifications((prev) =>
-            prev.map((m) => (m.id === item.id ? { ...m, status: 'read' } : m)),
-          );
-          setDetailMessage((prev) =>
-            prev && prev.id === item.id ? { ...prev, status: 'read' } : prev,
-          );
-        })
-        .catch(() => undefined);
-    }
-  }, []);
-
-  const markAllRead = useCallback(() => {
-    const unread = notifications.filter((m) => m.status !== 'read');
-    if (unread.length === 0) return;
-    markMessagesRead(unread.map((m) => m.id))
-      .then(() => {
-        setNotifications((prev) => prev.map((m) => ({ ...m, status: 'read' })));
-      })
-      .catch(() => undefined);
-  }, [notifications]);
-
-  const loadExtras = useCallback(
-    async (username?: string) => {
-      setExtrasLoading(true);
-      try {
-        const [gamesRes, permsRes, auditsRes, loginRes, notificationsRes, permissionCatalogRes] =
-          await Promise.allSettled([
-            getMyGames(),
-            getMyPermissions({}),
-            listAudit({ actor: username, size: 8 }),
-            username
-              ? listAudit({
-                  actor: username,
-                  kinds: 'login,auth_login,login_fail,login_rate_limited',
-                  size: 20,
-                })
-              : Promise.resolve({ events: [] }),
-            listMessages({ status: 'all', pageSize: 8 }),
-            listPermissions({ page: 1, pageSize: 500 }),
-          ]);
-
-        setGames(gamesRes.status === 'fulfilled' ? gamesRes.value?.games || [] : []);
-        if (permsRes.status === 'fulfilled') {
-          const payload = permsRes.value || {};
-          const ids = payload.permissionIDs || [];
-          setPermissions(payload.permissions || []);
-          setPermissionIds(Array.isArray(ids) ? ids : []);
-        } else {
-          setPermissions([]);
-          setPermissionIds([]);
-        }
-        setActivities(auditsRes.status === 'fulfilled' ? auditsRes.value?.events || [] : []);
-        setLoginRecords(loginRes.status === 'fulfilled' ? loginRes.value?.events || [] : []);
-        setNotifications(
-          notificationsRes.status === 'fulfilled' ? notificationsRes.value?.items || [] : [],
-        );
-        if (permissionCatalogRes.status === 'fulfilled') {
-          setPermissionCatalog(permissionCatalogRes.value?.items || []);
-          setPermissionCatalogAvailable(true);
-        } else {
-          setPermissionCatalog([]);
-          setPermissionCatalogAvailable(false);
-        }
-      } catch {
-        message.error(formatMessage('profile.extras.error'));
-      } finally {
-        setExtrasLoading(false);
-      }
-    },
-    [formatMessage],
-  );
-
-  const loadProfile = useCallback(async () => {
-    try {
-      const p = await getMyProfile();
-      setProfile(p);
-      form.setFieldsValue({
-        displayName: p.displayName || p.nickname,
-        email: p.email,
-        phone: p.phone,
-      });
-      loadExtras(p.username);
-    } catch {
-      message.error(formatMessage('profile.load.error'));
-    }
-  }, [form, formatMessage, loadExtras]);
 
   useEffect(() => {
     loadProfile();
@@ -332,69 +110,8 @@ export default function Profile() {
     }
   };
 
-  const handlePasswordFinish = async (values: PasswordValues) => {
-    setPasswordLoading(true);
-    try {
-      await changeMyPassword({
-        current: values.current,
-        password: values.password,
-      });
-      message.success(formatMessage('profile.password.success'));
-      setPasswordModalVisible(false);
-      passwordForm.resetFields();
-    } catch (error) {
-      message.error(formatMessage('profile.password.error'));
-      throw error;
-    } finally {
-      setPasswordLoading(false);
-    }
-  };
-
-  const showPasswordModal = () => {
-    passwordForm.resetFields();
-    setPasswordModalVisible(true);
-  };
-
-  const persistAvatar = async (avatar: string, closeModal = true) => {
-    await updateMyProfile({ avatar });
-    message.success(formatMessage('profile.avatar.success'));
-    if (closeModal) {
-      setAvatarModalVisible(false);
-    }
-    await loadProfile();
-  };
-
-  const handleAvatarSubmit = async () => {
-    const values = await avatarForm.validateFields();
-    try {
-      await persistAvatar(values.avatar);
-    } catch {
-      message.error(formatMessage('profile.update.error'));
-    }
-  };
-
-  const handleAvatarUpload: UploadProps['customRequest'] = async (options) => {
-    const { file, onSuccess, onError } = options;
-
-    setAvatarUploading(true);
-    try {
-      const uploaded = await uploadAsset(file as File, {
-        path: buildAvatarObjectKey(file as File),
-      });
-      const avatarUrl = uploaded?.URL || '';
-      if (!avatarUrl) {
-        throw new Error('missing avatar url');
-      }
-      avatarForm.setFieldsValue({ avatar: avatarUrl });
-      await persistAvatar(avatarUrl);
-      onSuccess?.(uploaded);
-    } catch (error) {
-      message.error(formatMessage('profile.update.error'));
-      onError?.(error instanceof Error ? error : new Error(String(error)));
-    } finally {
-      setAvatarUploading(false);
-    }
-  };
+  const { initialState } = useModel('@@initialState');
+  const isAdminUser = (initialState?.currentUser?.roles || []).includes('admin');
 
   const getStatusBadge = (status?: boolean) => (
     <Badge
@@ -424,754 +141,17 @@ export default function Profile() {
     },
   ];
 
-  const permissionGroups = useMemo(() => {
-    const map = new Map<string, { resource: string; actions: Set<string>; scope?: string }>();
-    permissions.forEach((perm) => {
-      const gameId = perm.gameId;
-      const env = perm.env;
-      const scope = gameId || env ? `${gameId || ''} ${env || ''}`.trim() : '';
-      const key = `${perm.resource}-${scope}`;
-      if (!map.has(key)) {
-        map.set(key, {
-          resource: perm.resource,
-          actions: new Set(Array.isArray(perm.actions) ? perm.actions : []),
-          scope,
-        });
-      } else {
-        (Array.isArray(perm.actions) ? perm.actions : []).forEach((action) =>
-          map.get(key)!.actions.add(action),
-        );
-      }
-    });
-    return Array.from(map.values()).map((item) => ({
-      resource: item.resource,
-      actions: Array.from(item.actions),
-      scope: item.scope,
-    }));
-  }, [permissions]);
-
-  const ownedPermissionKeySet = useMemo(() => {
-    const keys = new Set<string>();
-    permissions.forEach((perm) => {
-      (perm.actions || []).forEach((action) => {
-        keys.add(`${perm.resource}:${action}`.toLowerCase());
-      });
-    });
-    permissionIds.forEach((id) => keys.add(String(id).toLowerCase()));
-    return keys;
-  }, [permissions, permissionIds]);
-
-  const applyPermissionCandidates = useMemo(() => {
-    const source: PermissionApplyItem[] =
-      permissionCatalog.length > 0
-        ? permissionCatalog.map((item) => ({
-            id: item.id,
-            name: item.name,
-            description: item.description,
-            resource: item.resource,
-            action: item.action,
-            category: item.category,
-          }))
-        : fallbackApplyPermissions;
-
-    return source
-      .filter((item) => {
-        const key = `${item.resource}:${item.action}`.toLowerCase();
-        return (
-          !ownedPermissionKeySet.has(key) &&
-          !ownedPermissionKeySet.has(String(item.id).toLowerCase())
-        );
-      })
-      .slice(0, 20);
-  }, [fallbackApplyPermissions, permissionCatalog, ownedPermissionKeySet]);
-
-  const loginSessionRows = useMemo(() => {
-    return (loginRecords || []).map((item, idx) => {
-      const meta = (item.meta || {}) as Record<string, JSONValue>;
-      const ip = pickAuditMetaValue(meta, ['ip', 'client_ip', 'remote_ip', 'x_forwarded_for']);
-      const region = pickAuditMetaValue(meta, ['ipRegion', 'region', 'geo']);
-      const userAgent = pickAuditMetaValue(meta, ['userAgent', 'ua', 'agent']);
-      const success =
-        !String(item.kind || '').includes('fail') &&
-        !String(item.kind || '').includes('rate_limited');
-      return {
-        key: `${item.hash || item.time || idx}`,
-        time: item.time,
-        kind: item.kind,
-        ip,
-        region,
-        userAgent,
-        success,
-        target: item.target,
-      };
-    });
-  }, [loginRecords]);
-
-  const latestLoginIP = useMemo(() => {
-    const first = loginSessionRows.find((row) => row.ip);
-    return first?.ip || formatMessage('profile.info.notSet');
-  }, [formatMessage, loginSessionRows]);
-
-  const handleOpenApplyPermission = (item: PermissionApplyItem) => {
-    setSelectedApplyPermission(item);
-    applyForm.resetFields();
-    setApplyPermissionModalVisible(true);
-  };
-
-  const buildApplyPermissionContent = (reason: string) => {
-    if (!selectedApplyPermission) return '';
-    return [
-      `${formatMessage('profile.permissions.apply.content.applicant')}: ${
-        profile?.username || '-'
-      }`,
-      `${formatMessage('profile.permissions.apply.content.permission')}: ${
-        selectedApplyPermission.name
-      }`,
-      `${formatMessage('profile.permissions.apply.content.permission.key')}: ${
-        selectedApplyPermission.resource
-      }:${selectedApplyPermission.action}`,
-      `${formatMessage('profile.permissions.apply.content.permission.id')}: ${
-        selectedApplyPermission.id
-      }`,
-      `${formatMessage('profile.permissions.apply.content.reason')}: ${reason || '-'}`,
-    ].join('\n');
-  };
-
-  const handleCopyPermissionApplyContent = async () => {
-    const values = await applyForm.validateFields();
-    const content = buildApplyPermissionContent(values.reason);
-    await navigator.clipboard.writeText(content);
-    message.success(formatMessage('profile.permissions.apply.copy.success'));
-  };
-
-  const handleSubmitPermissionApply = async () => {
-    const values = await applyForm.validateFields();
-    const content = buildApplyPermissionContent(values.reason);
-    setApplySubmitting(true);
-    try {
-      await createFeedback({
-        category: 'permission_request',
-        content,
-        priority: 'normal',
-        source: 'profile_permission_apply',
-      });
-      message.success(formatMessage('profile.permissions.apply.submit.success'));
-      setApplyPermissionModalVisible(false);
-    } catch {
-      // 部分环境可能未开放反馈写入，降级为复制文案+人工提交流程
-      await navigator.clipboard.writeText(content);
-      message.warning(formatMessage('profile.permissions.apply.submit.fallback'));
-    } finally {
-      setApplySubmitting(false);
-    }
-  };
-
-  const notSet = formatMessage('profile.info.notSet');
-  const infoItems = [
-    {
-      title: formatMessage('profile.info.user.id'),
-      value: profile?.id ?? notSet,
-      icon: <UserOutlined />,
-    },
-    {
-      title: formatMessage('profile.info.username'),
-      value: profile?.username ?? notSet,
-      icon: <UserOutlined />,
-    },
-    {
-      title: formatMessage('profile.info.email'),
-      value: profile?.email ?? notSet,
-      icon: <MailOutlined />,
-    },
-    {
-      title: formatMessage('profile.info.phone'),
-      value: profile?.phone || notSet,
-      icon: <PhoneOutlined />,
-    },
-    {
-      title: formatMessage('profile.info.joined'),
-      value: profile?.createdAt ? new Date(String(profile.createdAt)).toLocaleString() : notSet,
-      icon: <RocketOutlined />,
-    },
-    {
-      title: formatMessage('profile.info.last.login'),
-      value: profile?.lastLoginAt ? new Date(String(profile.lastLoginAt)).toLocaleString() : notSet,
-      icon: <HistoryOutlined />,
-    },
-    {
-      title: formatMessage('profile.info.last.login.ip'),
-      value: latestLoginIP,
-      icon: <HistoryOutlined />,
-    },
-  ];
-
-  const renderGames = () => (
-    <Card loading={extrasLoading}>
-      <List
-        dataSource={games}
-        locale={{ emptyText: formatMessage('profile.games.empty') }}
-        renderItem={(game) => (
-          <List.Item>
-            <List.Item.Meta
-              title={
-                <Space>
-                  <Text strong>{game.gameName || game.gameId}</Text>
-                  <Tag>{game.gameId}</Tag>
-                </Space>
-              }
-              description={
-                <Space orientation="vertical" size="small">
-                  <div>
-                    <Text type="secondary">{formatMessage('profile.games.envs')}</Text>
-                    <Space wrap>
-                      {(game.envs || []).map((env) => (
-                        <Tag key={env} color="geekblue">
-                          {env}
-                        </Tag>
-                      ))}
-                    </Space>
-                  </div>
-                  <div>
-                    <Text type="secondary">{formatMessage('profile.games.permissions')}</Text>
-                    <Space wrap>
-                      {(game.permissions || []).map((perm) => (
-                        <Tag key={perm}>{perm}</Tag>
-                      ))}
-                    </Space>
-                  </div>
-                </Space>
-              }
-            />
-          </List.Item>
-        )}
-      />
-    </Card>
+  const passwordModalEl = (
+    <PasswordModal open={passwordModalVisible} onClose={() => setPasswordModalVisible(false)} />
   );
-
-  const renderPermissions = () => (
-    <Space orientation="vertical" size={16} style={{ width: '100%' }}>
-      <Card loading={extrasLoading} title={formatMessage('profile.permissions.summary.title')}>
-        <List
-          dataSource={permissionGroups}
-          locale={{ emptyText: formatMessage('profile.permissions.empty') }}
-          renderItem={(item) => (
-            <List.Item>
-              <div style={{ width: '100%' }}>
-                <Space>
-                  <Text strong>{item.resource}</Text>
-                  {item.scope && <Tag color="purple">{item.scope}</Tag>}
-                </Space>
-                <div style={{ marginTop: 8 }}>
-                  <Space wrap>
-                    {item.actions.map((action) => (
-                      <Tag key={action} color="cyan">
-                        {action}
-                      </Tag>
-                    ))}
-                  </Space>
-                </div>
-              </div>
-            </List.Item>
-          )}
-        />
-      </Card>
-      <Card
-        title={formatMessage('profile.permissions.apply.title')}
-        extra={
-          !permissionCatalogAvailable ? (
-            <Tag color="gold">{formatMessage('profile.permissions.apply.catalog.fallback')}</Tag>
-          ) : (
-            <Tag color="green">{formatMessage('profile.permissions.apply.catalog.live')}</Tag>
-          )
-        }
-      >
-        <List
-          dataSource={applyPermissionCandidates}
-          locale={{ emptyText: formatMessage('profile.permissions.apply.empty') }}
-          renderItem={(item) => (
-            <List.Item
-              actions={[
-                <Button key="apply" type="link" onClick={() => handleOpenApplyPermission(item)}>
-                  {formatMessage('profile.permissions.apply.action')}
-                </Button>,
-              ]}
-            >
-              <List.Item.Meta
-                title={
-                  <Space>
-                    <Text strong>{item.name}</Text>
-                    <Tag>
-                      {item.resource}:{item.action}
-                    </Tag>
-                    {item.category && <Tag color="blue">{item.category}</Tag>}
-                  </Space>
-                }
-                description={
-                  item.description || formatMessage('profile.permissions.apply.no.description')
-                }
-              />
-            </List.Item>
-          )}
-        />
-      </Card>
-    </Space>
-  );
-
-  const renderAuditList = (data: AuditEvent[], emptyText: string) => (
-    <List
-      dataSource={data}
-      locale={{ emptyText }}
-      renderItem={(item) => (
-        <List.Item>
-          <List.Item.Meta
-            title={
-              <Space>
-                <Tag color="blue">{item.kind}</Tag>
-                <Text>{item.target || '-'}</Text>
-              </Space>
-            }
-            description={
-              <Space orientation="vertical" size={0}>
-                <Text type="secondary">
-                  {item.time ? new Date(item.time).toLocaleString() : '-'}
-                </Text>
-                {item.meta && (
-                  <Text type="secondary">
-                    {Object.entries(item.meta)
-                      .slice(0, 2)
-                      .map(([key, value]) => `${key}: ${value}`)
-                      .join(' · ')}
-                  </Text>
-                )}
-              </Space>
-            }
-          />
-        </List.Item>
-      )}
+  // 广播弹窗当前仅在 profile 未加载分支渲染（历史行为，广播弹窗可达性缺陷
+  // 由独立修复批次处理——拆分批次保持行为等价）。
+  const broadcastModalEl = (
+    <BroadcastModal
+      open={sendOpen}
+      onClose={() => setSendOpen(false)}
+      onSent={() => loadExtras(String(profile?.username || ''))}
     />
-  );
-
-  // F：管理员群发消息（仅 admin 角色可见入口）
-  const [sendOpen, setSendOpen] = useState(false);
-  const [sendForm] = Form.useForm();
-  const { initialState } = useModel('@@initialState');
-  const isAdminUser = (initialState?.currentUser?.roles || []).includes('admin');
-  const [sending, setSending] = useState(false);
-  const handleSendBroadcast = async (values: {
-    title: string;
-    content: string;
-    audience: 'all' | 'users';
-    toUser?: string;
-  }) => {
-    setSending(true);
-    try {
-      const isAll = values.audience === 'all';
-      const res = await broadcastMessage({
-        audience: isAll ? 'all' : 'users',
-        usernames: isAll ? undefined : [values.toUser || ''].filter(Boolean),
-        type: 'system',
-        title: values.title,
-        content: values.content,
-      });
-      message.success(`已发送给 ${res.sent} 位用户`);
-      setSendOpen(false);
-      sendForm.resetFields();
-      loadExtras?.();
-    } catch (error) {
-      message.error(extractErrorMessage(error, '发送失败'));
-    } finally {
-      setSending(false);
-    }
-  };
-
-  const renderNotifications = () => (
-    <Card
-      loading={extrasLoading}
-      extra={
-        <Space>
-          {isAdminUser && (
-            <Button size="small" type="primary" onClick={() => setSendOpen(true)}>
-              发送消息
-            </Button>
-          )}
-          {notifications.some((m) => m.status !== 'read') && (
-            <Button size="small" onClick={markAllRead}>
-              全部标为已读
-            </Button>
-          )}
-        </Space>
-      }
-    >
-      <List
-        dataSource={notifications}
-        locale={{ emptyText: formatMessage('profile.notifications.empty') }}
-        renderItem={(item) => (
-          <List.Item
-            style={{ cursor: 'pointer', borderRadius: 6, padding: '10px 8px' }}
-            onClick={() => openMessage(item)}
-          >
-            <List.Item.Meta
-              title={
-                <Space>
-                  <Badge status={item.status === 'read' ? 'default' : 'processing'} />
-                  <Text strong={item.status !== 'read'}>
-                    {item.title || formatMessage('profile.notifications.untitled')}
-                  </Text>
-                  <Tag style={{ fontSize: 10 }}>{item.type}</Tag>
-                  {item.data != null && (
-                    <Tag style={{ fontSize: 10 }} color="blue">
-                      含数据
-                    </Tag>
-                  )}
-                  {typeof item.data === 'object' &&
-                    item.data !== null &&
-                    'approvalId' in item.data && (
-                      <a
-                        style={{ fontSize: 12 }}
-                        href={`/approvals?approvalId=${encodeURIComponent(
-                          String((item.data as Record<string, unknown>).approvalId),
-                        )}`}
-                      >
-                        查看审批
-                      </a>
-                    )}
-                </Space>
-              }
-              description={
-                <Space orientation="vertical" size={0}>
-                  <Text
-                    type="secondary"
-                    ellipsis
-                    style={{ maxWidth: 560, color: item.status !== 'read' ? undefined : undefined }}
-                  >
-                    {item.content}
-                  </Text>
-                  <Text type="secondary" style={{ fontSize: 12 }}>
-                    {item.createdAt ? new Date(item.createdAt).toLocaleString() : ''}
-                    {item.status !== 'read' ? ' · 未读' : ''}
-                  </Text>
-                </Space>
-              }
-            />
-          </List.Item>
-        )}
-      />
-      <Modal
-        open={!!detailMessage}
-        title={detailMessage?.title || formatMessage('profile.notifications.untitled')}
-        footer={null}
-        onCancel={() => setDetailMessage(null)}
-        width={560}
-      >
-        {detailMessage && (
-          <div>
-            <Space style={{ marginBottom: 12 }}>
-              <Tag>{detailMessage.type}</Tag>
-              <Text type="secondary" style={{ fontSize: 12 }}>
-                {detailMessage.createdAt ? new Date(detailMessage.createdAt).toLocaleString() : ''}
-              </Text>
-              <Text type="secondary" style={{ fontSize: 12 }}>
-                {detailMessage.status === 'read' ? '已读' : '未读'}
-              </Text>
-            </Space>
-            <Paragraph style={{ whiteSpace: 'pre-wrap' }}>
-              {detailMessage.content || '（无正文）'}
-            </Paragraph>
-            {typeof detailMessage.data === 'object' &&
-              detailMessage.data !== null &&
-              'approvalId' in detailMessage.data && (
-                <p>
-                  <a
-                    href={`/approvals?approvalId=${encodeURIComponent(
-                      String((detailMessage.data as Record<string, unknown>).approvalId),
-                    )}`}
-                  >
-                    查看审批详情
-                  </a>
-                </p>
-              )}
-            {detailMessage.data != null && (
-              <>
-                <Text type="secondary" style={{ fontSize: 12 }}>
-                  结构化数据：
-                </Text>
-                <pre
-                  style={{
-                    background: '#fafafa',
-                    padding: 12,
-                    borderRadius: 6,
-                    fontSize: 12,
-                    maxHeight: 260,
-                    overflow: 'auto',
-                  }}
-                >
-                  {JSON.stringify(detailMessage.data, null, 2)}
-                </pre>
-              </>
-            )}
-          </div>
-        )}
-      </Modal>
-    </Card>
-  );
-
-  const renderUnavailableState = (messageId: string) => (
-    <Alert showIcon type="info" message={formatMessage(messageId)} style={{ marginBottom: 16 }} />
-  );
-
-  const renderLoginSessions = () => (
-    <Card
-      loading={extrasLoading}
-      extra={
-        <Button type="link" onClick={() => loadExtras(String(profile?.username || ''))}>
-          {formatMessage('profile.activities.refresh')}
-        </Button>
-      }
-    >
-      <Table
-        rowKey="key"
-        size="small"
-        pagination={{ pageSize: 8, showSizeChanger: false }}
-        dataSource={loginSessionRows}
-        locale={{ emptyText: formatMessage('profile.sessions.empty') }}
-        scroll={{ x: 900 }}
-        columns={[
-          {
-            title: formatMessage('profile.sessions.col.time'),
-            dataIndex: 'time',
-            width: 180,
-            render: (value: string) => (value ? new Date(value).toLocaleString() : '-'),
-          },
-          {
-            title: formatMessage('profile.sessions.col.result'),
-            dataIndex: 'success',
-            width: 100,
-            render: (success: boolean) =>
-              success ? (
-                <Tag color="green">{formatMessage('profile.sessions.result.success')}</Tag>
-              ) : (
-                <Tag color="red">{formatMessage('profile.sessions.result.failed')}</Tag>
-              ),
-          },
-          {
-            title: 'IP',
-            dataIndex: 'ip',
-            width: 160,
-            render: (value: string) => value || '-',
-          },
-          {
-            title: formatMessage('profile.sessions.col.region'),
-            dataIndex: 'region',
-            width: 160,
-            render: (value: string) => value || '-',
-          },
-          {
-            title: formatMessage('profile.sessions.col.kind'),
-            dataIndex: 'kind',
-            width: 140,
-            render: (value: string) => <Tag>{value || '-'}</Tag>,
-          },
-          {
-            title: formatMessage('profile.sessions.col.ua'),
-            dataIndex: 'userAgent',
-            ellipsis: true,
-            render: (value: string) => value || '-',
-          },
-        ]}
-      />
-      <Divider style={{ margin: '12px 0' }} />
-      <Text type="secondary">{formatMessage('profile.sessions.hint')}</Text>
-    </Card>
-  );
-
-  const passwordModal = (
-    <Modal
-      open={passwordModalVisible}
-      forceRender
-      title={formatMessage('profile.password.modal.title')}
-      onCancel={() => {
-        setPasswordModalVisible(false);
-        passwordForm.resetFields();
-      }}
-      onOk={() => passwordForm.submit()}
-      okText={formatMessage('profile.password.modal.submit')}
-      confirmLoading={passwordLoading}
-    >
-      <Alert
-        message={formatMessage('profile.password.modal.warning')}
-        type="warning"
-        showIcon
-        style={{ marginBottom: 16 }}
-      />
-      <Form layout="vertical" form={passwordForm} onFinish={handlePasswordFinish}>
-        <Form.Item
-          name="current"
-          label={formatMessage('profile.password.current')}
-          rules={[{ required: true }]}
-        >
-          <Input.Password placeholder={formatMessage('profile.password.current.placeholder')} />
-        </Form.Item>
-        <Form.Item
-          name="password"
-          label={formatMessage('profile.password.new')}
-          rules={[
-            { required: true },
-            { min: 6, message: formatMessage('profile.password.min.length') },
-          ]}
-        >
-          <Input.Password placeholder={formatMessage('profile.password.new.placeholder')} />
-        </Form.Item>
-        <Form.Item
-          name="confirm"
-          label={formatMessage('profile.password.confirm')}
-          rules={[
-            { required: true },
-            ({ getFieldValue }) => ({
-              validator(_, value) {
-                if (!value || getFieldValue('password') === value) {
-                  return Promise.resolve();
-                }
-                return Promise.reject(new Error(formatMessage('profile.password.mismatch')));
-              },
-            }),
-          ]}
-        >
-          <Input.Password placeholder={formatMessage('profile.password.confirm.placeholder')} />
-        </Form.Item>
-      </Form>
-    </Modal>
-  );
-
-  const avatarModal = (
-    <Modal
-      open={avatarModalVisible}
-      forceRender
-      title={formatMessage('profile.avatar.modal.title')}
-      onCancel={() => setAvatarModalVisible(false)}
-      onOk={() => handleAvatarSubmit().catch(() => {})}
-      okText={formatMessage('profile.avatar.modal.submit')}
-      confirmLoading={avatarUploading}
-    >
-      <Form form={avatarForm} layout="vertical" initialValues={{ avatar: profile?.avatar }}>
-        <Form.Item noStyle dependencies={['avatar']}>
-          {({ getFieldValue }) => {
-            const avatarValue = getFieldValue('avatar') || profile?.avatar;
-            return (
-              <div className="avatar-upload-preview">
-                <Avatar
-                  size={72}
-                  src={avatarValue}
-                  icon={!avatarValue ? <UserOutlined /> : undefined}
-                />
-                <div>
-                  <div className="avatar-upload-preview__title">
-                    {formatMessage('profile.avatar.modal.title')}
-                  </div>
-                  <div className="avatar-upload-preview__hint">
-                    支持拖拽图片、点击上传，也支持直接输入图片 URL。
-                  </div>
-                </div>
-              </div>
-            );
-          }}
-        </Form.Item>
-        <Form.Item label="上传头像">
-          <Upload.Dragger
-            accept="image/*"
-            maxCount={1}
-            showUploadList={false}
-            customRequest={handleAvatarUpload}
-            disabled={avatarUploading}
-          >
-            <p className="ant-upload-drag-icon">
-              <InboxOutlined />
-            </p>
-            <p className="ant-upload-text">拖拽图片到这里，或点击上传</p>
-            <p className="ant-upload-hint">上传后会自动回填到头像地址</p>
-          </Upload.Dragger>
-        </Form.Item>
-        <Form.Item
-          name="avatar"
-          label={formatMessage('profile.avatar.modal.label')}
-          rules={[
-            { required: true, message: formatMessage('profile.avatar.modal.required') },
-            {
-              validator(_, value) {
-                if (!value) {
-                  return Promise.reject(new Error(formatMessage('profile.avatar.modal.required')));
-                }
-                try {
-                  new URL(value);
-                  return Promise.resolve();
-                } catch {
-                  return Promise.reject(new Error(formatMessage('profile.avatar.modal.invalid')));
-                }
-              },
-            },
-          ]}
-        >
-          <Input placeholder={formatMessage('profile.avatar.modal.placeholder')} />
-        </Form.Item>
-      </Form>
-    </Modal>
-  );
-
-  const permissionApplyModal = (
-    <Modal
-      open={applyPermissionModalVisible}
-      forceRender
-      title={formatMessage('profile.permissions.apply.modal.title')}
-      onCancel={() => {
-        setApplyPermissionModalVisible(false);
-        applyForm.resetFields();
-      }}
-      onOk={() => handleSubmitPermissionApply().catch(() => {})}
-      okText={formatMessage('profile.permissions.apply.modal.submit')}
-      confirmLoading={applySubmitting}
-    >
-      <Space orientation="vertical" style={{ width: '100%' }} size={12}>
-        {selectedApplyPermission && (
-          <Alert
-            showIcon
-            type="info"
-            message={selectedApplyPermission.name}
-            description={`${selectedApplyPermission.resource}:${selectedApplyPermission.action}`}
-          />
-        )}
-        <Form form={applyForm} layout="vertical">
-          <Form.Item
-            name="reason"
-            label={formatMessage('profile.permissions.apply.reason')}
-            rules={[
-              {
-                required: true,
-                message: formatMessage('profile.permissions.apply.reason.required'),
-              },
-            ]}
-          >
-            <Input.TextArea
-              rows={4}
-              placeholder={formatMessage('profile.permissions.apply.reason.placeholder')}
-            />
-          </Form.Item>
-        </Form>
-        <Space>
-          <Button
-            icon={<CopyOutlined />}
-            onClick={() => handleCopyPermissionApplyContent().catch(() => {})}
-          >
-            {formatMessage('profile.permissions.apply.copy')}
-          </Button>
-          <Button
-            onClick={() => {
-              navigate('/support/feedback');
-            }}
-          >
-            {formatMessage('profile.permissions.apply.goto.feedback')}
-          </Button>
-        </Space>
-      </Space>
-    </Modal>
   );
 
   if (!profile) {
@@ -1185,64 +165,13 @@ export default function Profile() {
             </Space>
           </Card>
         </PageContainer>
-        {passwordModal}
-        <Modal
-          title="发送站内消息"
-          open={sendOpen}
-          confirmLoading={sending}
-          onCancel={() => setSendOpen(false)}
-          onOk={() => {
-            sendForm.validateFields().then(async (values) => {
-              await handleSendBroadcast(values);
-            });
-          }}
-          destroyOnClose
-        >
-          <Form form={sendForm} layout="vertical">
-            <Form.Item
-              name="audience"
-              label="接收范围"
-              initialValue="all"
-              rules={[{ required: true }]}
-            >
-              <Select
-                options={[
-                  { value: 'all', label: '全部管理员/用户（广播）' },
-                  { value: 'users', label: '指定用户' },
-                ]}
-                onChange={(value) => {
-                  if (value === 'all') sendForm.setFieldsValue({ toUser: undefined });
-                }}
-              />
-            </Form.Item>
-            {sendForm.getFieldValue('audience') === 'users' && (
-              <Form.Item
-                name="toUser"
-                label="接收用户名"
-                rules={[{ required: true, message: '请输入接收用户名' }]}
-              >
-                <Input placeholder="用户名" />
-              </Form.Item>
-            )}
-            <Form.Item
-              name="title"
-              label="标题"
-              rules={[{ required: true, message: '请输入标题' }]}
-            >
-              <Input placeholder="消息标题" maxLength={100} />
-            </Form.Item>
-            <Form.Item
-              name="content"
-              label="内容"
-              rules={[{ required: true, message: '请输入内容' }]}
-            >
-              <Input.TextArea rows={4} placeholder="消息内容" maxLength={2000} showCount />
-            </Form.Item>
-          </Form>
-        </Modal>
+        {passwordModalEl}
+        {broadcastModalEl}
       </>
     );
   }
+
+  const username = String(profile?.username || '');
 
   return (
     <>
@@ -1327,12 +256,7 @@ export default function Profile() {
                       >
                         {formatMessage('profile.hero.edit')}
                       </Button>
-                      <Button
-                        onClick={() => {
-                          avatarForm.setFieldsValue({ avatar: profile?.avatar || '' });
-                          setAvatarModalVisible(true);
-                        }}
-                      >
+                      <Button onClick={() => setAvatarModalVisible(true)}>
                         {formatMessage('profile.avatar.change')}
                       </Button>
                     </Space>
@@ -1371,108 +295,25 @@ export default function Profile() {
                   </Space>
                 ),
                 children: (
-                  <Row gutter={[24, 24]} ref={infoSectionRef}>
-                    <Col xs={24}>
-                      <Card
-                        title={
-                          profileEditing
-                            ? formatMessage('profile.section.profileForm')
-                            : formatMessage('profile.account.info')
-                        }
-                        extra={
-                          profileEditing ? (
-                            <Space>
-                              <Button
-                                onClick={() => {
-                                  form.setFieldsValue({
-                                    displayName: profile?.displayName || profile?.nickname,
-                                    email: profile?.email,
-                                    phone: profile?.phone,
-                                  });
-                                  setProfileEditing(false);
-                                }}
-                              >
-                                {formatMessage('profile.edit.cancel')}
-                              </Button>
-                              <Button
-                                type="primary"
-                                loading={loading}
-                                onClick={() => form.submit()}
-                              >
-                                {formatMessage('profile.save')}
-                              </Button>
-                            </Space>
-                          ) : (
-                            <Button
-                              type="primary"
-                              icon={<EditOutlined />}
-                              onClick={() => setProfileEditing(true)}
-                            >
-                              {formatMessage('profile.hero.edit')}
-                            </Button>
-                          )
-                        }
-                      >
-                        {!profileEditing ? (
-                          <Descriptions column={1} size="middle">
-                            {infoItems.map((item) => (
-                              <Descriptions.Item key={item.title} label={item.title}>
-                                <Space>
-                                  {item.icon}
-                                  <span>{item.value || formatMessage('profile.info.notSet')}</span>
-                                </Space>
-                              </Descriptions.Item>
-                            ))}
-                          </Descriptions>
-                        ) : (
-                          <Form form={form} layout="vertical" onFinish={handleProfileSubmit}>
-                            <Form.Item
-                              name="displayName"
-                              label={formatMessage('profile.info.display.name')}
-                              rules={[
-                                {
-                                  required: true,
-                                  message: formatMessage('profile.display.name.required'),
-                                },
-                                {
-                                  max: 50,
-                                  message: formatMessage('profile.display.name.max.length'),
-                                },
-                              ]}
-                            >
-                              <Input
-                                placeholder={formatMessage('profile.display.name.placeholder')}
-                              />
-                            </Form.Item>
-
-                            <Form.Item
-                              name="email"
-                              label={formatMessage('profile.info.email')}
-                              rules={[
-                                { type: 'email', message: formatMessage('profile.email.invalid') },
-                              ]}
-                            >
-                              <Input placeholder={formatMessage('profile.email.placeholder')} />
-                            </Form.Item>
-
-                            <Form.Item
-                              name="phone"
-                              label={formatMessage('profile.info.phone')}
-                              rules={[
-                                { max: 20, message: formatMessage('profile.phone.max.length') },
-                                {
-                                  pattern: /^1[3-9]\d{9}$/,
-                                  message: formatMessage('profile.phone.invalid'),
-                                },
-                              ]}
-                            >
-                              <Input placeholder={formatMessage('profile.phone.placeholder')} />
-                            </Form.Item>
-                          </Form>
-                        )}
-                      </Card>
-                    </Col>
-                  </Row>
+                  <div ref={infoSectionRef}>
+                    <InfoTab
+                      profile={profile}
+                      editing={profileEditing}
+                      form={form}
+                      loading={loading}
+                      latestLoginIP={latestLoginIP}
+                      onEdit={() => setProfileEditing(true)}
+                      onCancelEdit={() => {
+                        form.setFieldsValue({
+                          displayName: profile?.displayName || profile?.nickname,
+                          email: profile?.email,
+                          phone: profile?.phone,
+                        });
+                        setProfileEditing(false);
+                      }}
+                      onSubmit={handleProfileSubmit}
+                    />
+                  </div>
                 ),
               },
               {
@@ -1484,64 +325,11 @@ export default function Profile() {
                   </Space>
                 ),
                 children: (
-                  <Row gutter={[24, 24]}>
-                    <Col xs={24}>
-                      <Card title={formatMessage('profile.security.center')}>
-                        <Space orientation="vertical" size="large" style={{ width: '100%' }}>
-                          <div className="security-item">
-                            <Space>
-                              <LockOutlined />
-                              <div>
-                                <Text strong>{formatMessage('profile.password.change.title')}</Text>
-                                <br />
-                                <Text type="secondary">
-                                  {formatMessage('profile.password.description')}
-                                </Text>
-                              </div>
-                            </Space>
-                            <Button type="primary" onClick={showPasswordModal}>
-                              {formatMessage('profile.password.change.btn')}
-                            </Button>
-                          </div>
-                          <div className="security-item">
-                            <Space>
-                              <PhoneOutlined />
-                              <div>
-                                <Text strong>{formatMessage('profile.login.notification')}</Text>
-                                <br />
-                                <Text type="secondary">
-                                  {formatMessage('profile.security.phone.helper')}
-                                </Text>
-                              </div>
-                            </Space>
-                            {profile?.phone ? (
-                              <Tag color="success">{formatMessage('profile.enabled')}</Tag>
-                            ) : (
-                              <Tag>{formatMessage('profile.not.enabled')}</Tag>
-                            )}
-                          </div>
-                          <div className="security-item">
-                            <Space>
-                              <HistoryOutlined />
-                              <div>
-                                <Text strong>{formatMessage('profile.sessions.title')}</Text>
-                                <br />
-                                <Text type="secondary">
-                                  {formatMessage('profile.security.audit.helper')}
-                                </Text>
-                              </div>
-                            </Space>
-                            <Tag color={loginSessionRows.length > 0 ? 'success' : 'default'}>
-                              {loginSessionRows.length > 0
-                                ? formatMessage('profile.security.audit.available')
-                                : formatMessage('profile.security.audit.empty')}
-                            </Tag>
-                          </div>
-                          <MfaSettings />
-                        </Space>
-                      </Card>
-                    </Col>
-                  </Row>
+                  <SecurityTab
+                    hasPhone={!!profile?.phone}
+                    hasSessions={loginSessionRows.length > 0}
+                    onShowPasswordModal={() => setPasswordModalVisible(true)}
+                  />
                 ),
               },
               {
@@ -1552,7 +340,7 @@ export default function Profile() {
                     {formatMessage('profile.games.title')}
                   </Space>
                 ),
-                children: renderGames(),
+                children: <GamesTab games={games} loading={extrasLoading} />,
               },
               {
                 key: TAB_KEYS.PERMISSIONS,
@@ -1562,7 +350,14 @@ export default function Profile() {
                     {formatMessage('profile.permissions.summary.title')}
                   </Space>
                 ),
-                children: renderPermissions(),
+                children: (
+                  <PermissionsTab
+                    groups={permissionGroups}
+                    candidates={applyPermissionCandidates}
+                    catalogAvailable={permissionCatalogAvailable}
+                    username={profile?.username ? String(profile.username) : undefined}
+                  />
+                ),
               },
               {
                 key: TAB_KEYS.ACTIVITY,
@@ -1573,24 +368,12 @@ export default function Profile() {
                   </Space>
                 ),
                 children: (
-                  <Space orientation="vertical" size={16} style={{ width: '100%' }}>
-                    {activities.length === 0 && !extrasLoading
-                      ? renderUnavailableState('profile.activities.unavailable')
-                      : null}
-                    <Card
-                      loading={extrasLoading}
-                      extra={
-                        <Button
-                          type="link"
-                          onClick={() => loadExtras(String(profile?.username || ''))}
-                        >
-                          {formatMessage('profile.activities.refresh')}
-                        </Button>
-                      }
-                    >
-                      {renderAuditList(activities, formatMessage('profile.activities.empty'))}
-                    </Card>
-                  </Space>
+                  <ActivityTab
+                    activities={activities}
+                    loading={extrasLoading}
+                    username={username}
+                    onRefresh={loadExtras}
+                  />
                 ),
               },
               {
@@ -1603,10 +386,20 @@ export default function Profile() {
                 ),
                 children: (
                   <Space orientation="vertical" size={16} style={{ width: '100%' }}>
-                    {loginSessionRows.length === 0 && !extrasLoading
-                      ? renderUnavailableState('profile.sessions.unavailable')
-                      : null}
-                    {renderLoginSessions()}
+                    {loginSessionRows.length === 0 && !extrasLoading ? (
+                      <Alert
+                        showIcon
+                        type="info"
+                        message={formatMessage('profile.sessions.unavailable')}
+                        style={{ marginBottom: 16 }}
+                      />
+                    ) : null}
+                    <SessionsTab
+                      rows={loginSessionRows}
+                      loading={extrasLoading}
+                      username={username}
+                      onRefresh={loadExtras}
+                    />
                   </Space>
                 ),
               },
@@ -1620,10 +413,24 @@ export default function Profile() {
                 ),
                 children: (
                   <Space orientation="vertical" size={16} style={{ width: '100%' }}>
-                    {notifications.length === 0 && !extrasLoading
-                      ? renderUnavailableState('profile.notifications.unavailable')
-                      : null}
-                    {renderNotifications()}
+                    {notifications.length === 0 && !extrasLoading ? (
+                      <Alert
+                        showIcon
+                        type="info"
+                        message={formatMessage('profile.notifications.unavailable')}
+                        style={{ marginBottom: 16 }}
+                      />
+                    ) : null}
+                    <NotificationsTab
+                      items={notifications}
+                      loading={extrasLoading}
+                      detailMessage={detailMessage}
+                      isAdminUser={isAdminUser}
+                      onOpenMessage={openMessage}
+                      onMarkAllRead={markAllRead}
+                      onSendClick={() => setSendOpen(true)}
+                      onDetailClose={() => setDetailMessage(null)}
+                    />
                   </Space>
                 ),
               },
@@ -1631,9 +438,13 @@ export default function Profile() {
           />
         </Space>
       </PageContainer>
-      {passwordModal}
-      {avatarModal}
-      {permissionApplyModal}
+      {passwordModalEl}
+      <AvatarModal
+        open={avatarModalVisible}
+        avatar={profile?.avatar}
+        onClose={() => setAvatarModalVisible(false)}
+        onPersisted={loadProfile}
+      />
     </>
   );
 }
