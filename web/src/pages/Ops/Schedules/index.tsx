@@ -6,14 +6,13 @@ import {
   Form,
   Input,
   InputNumber,
-  Modal,
   Popconfirm,
   Select,
   Space,
   Table,
   Tag,
 } from 'antd';
-import { PageContainer } from '@ant-design/pro-components';
+import { ModalForm, PageContainer } from '@ant-design/pro-components';
 import type { ColumnsType } from 'antd/es/table';
 import {
   createSchedule,
@@ -34,17 +33,24 @@ const STATUS_TAG: Record<ScheduleItem['status'], { color: string; label: string 
   dead_letter: { color: 'red', label: '死信' },
 };
 
+/** 调度表单值：payload 在表单中为 JSON 文本，提交前解析为对象 */
+type ScheduleFormValues = {
+  name: string;
+  cronExpr: string;
+  functionId: string;
+  payload?: string;
+  maxFailedRuns?: number;
+};
+
 export default function SchedulesPage() {
   const { message, modal } = App.useApp();
   const [loading, setLoading] = useState(false);
   const [rows, setRows] = useState<ScheduleItem[]>([]);
   const [statusFilter, setStatusFilter] = useState<string | undefined>();
   const [open, setOpen] = useState(false);
-  const [saving, setSaving] = useState(false);
   const [runsTarget, setRunsTarget] = useState<ScheduleItem | null>(null);
   const [runLogs, setRunLogs] = useState<RunLogItem[]>([]);
   const [runsLoading, setRunsLoading] = useState(false);
-  const [form] = Form.useForm();
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -75,9 +81,7 @@ export default function SchedulesPage() {
     }
   };
 
-  const submit = async () => {
-    const values = await form.validateFields();
-    setSaving(true);
+  const onFinish = async (values: ScheduleFormValues) => {
     try {
       await createSchedule({
         name: values.name,
@@ -87,13 +91,12 @@ export default function SchedulesPage() {
         maxFailedRuns: values.maxFailedRuns || 5,
       });
       message.success('已创建，调度器将在下次到期自动触发');
-      setOpen(false);
-      form.resetFields();
       load();
+      return true;
     } catch (error) {
+      // 原语义：payload JSON 解析失败与请求失败统一本地 toast，弹窗保持开启
       message.error(extractErrorMessage(error, '创建失败'));
-    } finally {
-      setSaving(false);
+      return false;
     }
   };
 
@@ -244,44 +247,44 @@ export default function SchedulesPage() {
         size="middle"
       />
 
-      <Modal
+      <ModalForm<ScheduleFormValues>
         title="新建定时调度"
         open={open}
-        onCancel={() => setOpen(false)}
-        onOk={submit}
-        confirmLoading={saving}
-        destroyOnClose
+        onOpenChange={setOpen}
+        modalProps={{ destroyOnHidden: true }}
+        width={520}
+        submitter={{ searchConfig: { submitText: '确定' } }}
+        layout="vertical"
+        onFinish={onFinish}
       >
-        <Form form={form} layout="vertical" preserve={false}>
-          <Form.Item name="name" label="名称" rules={[{ required: true }]}>
-            <Input placeholder="每日凌晨清理过期数据" />
-          </Form.Item>
-          <Form.Item
-            name="cronExpr"
-            label="Cron 表达式（分 时 日 月 周）"
-            rules={[
-              { required: true },
-              {
-                validator: (_, v: string) =>
-                  !v || v.trim().split(/\s+/).length === 5
-                    ? Promise.resolve()
-                    : Promise.reject(new Error('需要 5 个字段，如 "30 2 * * *"')),
-              },
-            ]}
-          >
-            <Input placeholder="30 2 * * *（每天 02:30）" />
-          </Form.Item>
-          <Form.Item name="functionId" label="函数" rules={[{ required: true }]}>
-            <Input placeholder="player.cleanup" />
-          </Form.Item>
-          <Form.Item name="payload" label="参数（JSON，可空）">
-            <Input.TextArea rows={3} placeholder='{"days": 30}' />
-          </Form.Item>
-          <Form.Item name="maxFailedRuns" label="连续失败上限（默认 5）" initialValue={5}>
-            <InputNumber min={1} max={100} style={{ width: '100%' }} />
-          </Form.Item>
-        </Form>
-      </Modal>
+        <Form.Item name="name" label="名称" rules={[{ required: true }]}>
+          <Input placeholder="每日凌晨清理过期数据" />
+        </Form.Item>
+        <Form.Item
+          name="cronExpr"
+          label="Cron 表达式（分 时 日 月 周）"
+          rules={[
+            { required: true },
+            {
+              validator: (_, v: string) =>
+                !v || v.trim().split(/\s+/).length === 5
+                  ? Promise.resolve()
+                  : Promise.reject(new Error('需要 5 个字段，如 "30 2 * * *"')),
+            },
+          ]}
+        >
+          <Input placeholder="30 2 * * *（每天 02:30）" />
+        </Form.Item>
+        <Form.Item name="functionId" label="函数" rules={[{ required: true }]}>
+          <Input placeholder="player.cleanup" />
+        </Form.Item>
+        <Form.Item name="payload" label="参数（JSON，可空）">
+          <Input.TextArea rows={3} placeholder='{"days": 30}' />
+        </Form.Item>
+        <Form.Item name="maxFailedRuns" label="连续失败上限（默认 5）" initialValue={5}>
+          <InputNumber min={1} max={100} style={{ width: '100%' }} />
+        </Form.Item>
+      </ModalForm>
 
       <Drawer
         title={`触发历史：${runsTarget?.name || ''}`}

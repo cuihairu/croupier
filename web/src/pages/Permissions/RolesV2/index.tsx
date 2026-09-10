@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { Card, Table, Button, Modal, Form, Input, Tag, Space, Popconfirm, Select } from 'antd';
-import { PageContainer } from '@ant-design/pro-components';
+import { Card, Table, Button, Form, Input, Tag, Space, Popconfirm, Select } from 'antd';
+import { ModalForm, PageContainer } from '@ant-design/pro-components';
 import type { ColumnsType } from 'antd/es/table';
 import { getMessage } from '@/utils/antdApp';
 import {
@@ -12,6 +12,12 @@ import {
   type RoleRecord,
 } from '@/services/api/permissions';
 
+/** 角色编辑表单值（upsert 按 id 定位，id 不参与提交） */
+type RoleFormValues = { name: string; description?: string };
+
+/** 权限编辑表单值 */
+type PermsFormValues = { permissions?: string[] };
+
 export default function RolesV2() {
   const [roles, setRoles] = useState<RoleRecord[]>([]);
   const [total, setTotal] = useState(0);
@@ -21,8 +27,6 @@ export default function RolesV2() {
   const [editOpen, setEditOpen] = useState(false);
   const [permsOpen, setPermsOpen] = useState(false);
   const [editing, setEditing] = useState<RoleRecord | null>(null);
-  const [form] = Form.useForm();
-  const [permsForm] = Form.useForm();
 
   const refresh = async (nextPage = page, nextSize = pageSize) => {
     setLoading(true);
@@ -52,42 +56,38 @@ export default function RolesV2() {
     setPermsOpen(true);
   };
 
-  const submitEdit = async () => {
-    const v = await form.validateFields();
-    if (editing) {
-      await updateRole(editing.id, { name: v.name, description: v.description });
-      getMessage()?.success('已更新');
-    } else {
-      const resp = await createRole({ name: v.name, description: v.description, permissions: [] });
-      getMessage()?.success(`已创建 #${resp.id}`);
+  const submitEdit = async (v: RoleFormValues) => {
+    try {
+      if (editing) {
+        await updateRole(editing.id, { name: v.name, description: v.description });
+        getMessage()?.success('已更新');
+      } else {
+        const resp = await createRole({
+          name: v.name,
+          description: v.description,
+          permissions: [],
+        });
+        getMessage()?.success(`已创建 #${resp.id}`);
+      }
+      refresh();
+      return true;
+    } catch {
+      // 原实现无本地弹错（全局拦截器已 toast），失败时弹窗保持开启
+      return false;
     }
-    setEditOpen(false);
-    refresh();
   };
-  const submitPerms = async () => {
-    const v = await permsForm.validateFields();
-    if (!editing) return;
-    await updateRolePermissions(editing.id, v.permissions || []);
-    getMessage()?.success('权限已更新');
-    setPermsOpen(false);
-    refresh();
+  const submitPerms = async (v: PermsFormValues) => {
+    if (!editing) return false;
+    try {
+      await updateRolePermissions(editing.id, v.permissions || []);
+      getMessage()?.success('权限已更新');
+      refresh();
+      return true;
+    } catch {
+      // 原实现无本地弹错（全局拦截器已 toast），失败时弹窗保持开启
+      return false;
+    }
   };
-
-  // Avoid using form instances before their Form mounts
-  useEffect(() => {
-    if (!editOpen) return;
-    if (editing) {
-      form.setFieldsValue({ name: editing.name, description: editing.description });
-    } else {
-      form.resetFields();
-    }
-  }, [editOpen, editing, form]);
-
-  useEffect(() => {
-    if (permsOpen) {
-      permsForm.setFieldsValue({ permissions: editing?.permissions || [] });
-    }
-  }, [permsOpen, editing, permsForm]);
 
   const remove = async (rec: RoleRecord) => {
     await deleteRole(rec.id);
@@ -156,38 +156,44 @@ export default function RolesV2() {
         />
       </Card>
 
-      <Modal
+      {/* destroyOnHidden 使弹窗每次关闭即卸载表单，重开时按最新 initialValues
+          重新挂载（原 useEffect setFieldsValue/resetFields 预填随之移除） */}
+      <ModalForm<RoleFormValues>
         title={editing ? '编辑角色' : '新增角色'}
         open={editOpen}
-        onOk={submitEdit}
-        onCancel={() => setEditOpen(false)}
-        destroyOnHidden
+        onOpenChange={setEditOpen}
+        modalProps={{ destroyOnHidden: true }}
+        width={520}
+        submitter={{ searchConfig: { submitText: '确定' } }}
+        initialValues={
+          editing ? { name: editing.name, description: editing.description } : undefined
+        }
+        onFinish={submitEdit}
       >
-        <Form form={form} layout="vertical">
-          <Form.Item label="名称" name="name" rules={[{ required: true, message: '请输入名称' }]}>
-            {' '}
-            <Input />{' '}
-          </Form.Item>
-          <Form.Item label="描述" name="description">
-            {' '}
-            <Input />{' '}
-          </Form.Item>
-        </Form>
-      </Modal>
+        <Form.Item label="名称" name="name" rules={[{ required: true, message: '请输入名称' }]}>
+          {' '}
+          <Input />{' '}
+        </Form.Item>
+        <Form.Item label="描述" name="description">
+          {' '}
+          <Input />{' '}
+        </Form.Item>
+      </ModalForm>
 
-      <Modal
+      <ModalForm<PermsFormValues>
         title={`编辑权限：${editing?.name || ''}`}
         open={permsOpen}
-        onOk={submitPerms}
-        onCancel={() => setPermsOpen(false)}
-        destroyOnHidden
+        onOpenChange={setPermsOpen}
+        modalProps={{ destroyOnHidden: true }}
+        width={520}
+        submitter={{ searchConfig: { submitText: '确定' } }}
+        initialValues={{ permissions: editing?.permissions || [] }}
+        onFinish={submitPerms}
       >
-        <Form form={permsForm} layout="vertical">
-          <Form.Item label="权限" name="permissions">
-            <Select mode="tags" tokenSeparators={[',', ' ']} placeholder="输入权限，按回车添加" />
-          </Form.Item>
-        </Form>
-      </Modal>
+        <Form.Item label="权限" name="permissions">
+          <Select mode="tags" tokenSeparators={[',', ' ']} placeholder="输入权限，按回车添加" />
+        </Form.Item>
+      </ModalForm>
     </PageContainer>
   );
 }

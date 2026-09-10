@@ -1,11 +1,20 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { App, Button, Form, Input, Modal, Select, Space, Table, Tag } from 'antd';
+import type { FormInstance } from 'antd';
+import { ModalForm } from '@ant-design/pro-components';
 import {
   deleteConfigSource,
   listConfigSources,
   upsertConfigSource,
   type ConfigSourceBinding,
 } from '@/services/api/configExplorer';
+
+/** 数据源表单值：id/gameId/env 不在表单中，提交时由编辑行与弹窗上下文补齐 */
+type SourceFormValues = {
+  name: string;
+  type: ConfigSourceBinding['type'];
+  config: string;
+};
 
 export type SourceManageModalProps = {
   open: boolean;
@@ -61,7 +70,8 @@ export default function SourceManageModal({
   const [rows, setRows] = useState<ConfigSourceBinding[]>([]);
   const [editing, setEditing] = useState<ConfigSourceBinding | null>(null);
   const [formOpen, setFormOpen] = useState(false);
-  const [form] = Form.useForm();
+  // 类型切换 → 刷新 config 模板的字段联动需要写回表单实例，经 formRef 拿 ModalForm 托管实例
+  const formRef = useRef<FormInstance<SourceFormValues>>(undefined);
 
   const load = async () => {
     try {
@@ -77,44 +87,34 @@ export default function SourceManageModal({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, gameId, env]);
 
+  // destroyOnHidden 使弹窗每次关闭即卸载表单，重开时按最新 initialValues
+  // 重新挂载，新增/编辑切换不会残留上一次的预填值
   const openCreate = () => {
-    form.resetFields();
-    form.setFieldsValue({
-      name: '',
-      type: 'git',
-      config: CONFIG_TEMPLATES.git,
-    });
     setEditing(null);
     setFormOpen(true);
   };
 
   const openEdit = (row: ConfigSourceBinding) => {
-    form.resetFields();
-    // 编辑时展示脱敏 config；保存时空值字段会被后端忽略已有凭据？
-    // —— 后端 Update 逻辑：config 为空则保留原值；脱敏值需用户重填或清空保留
-    form.setFieldsValue({ name: row.name, type: row.type, config: row.config });
     setEditing(row);
     setFormOpen(true);
   };
 
-  const doSave = async () => {
-    const values = await form.validateFields();
+  const onFinish = async (values: SourceFormValues) => {
     try {
       await upsertConfigSource({
         id: editing?.id,
         gameId,
         env,
-        name: values.name,
-        type: values.type,
-        config: values.config,
+        ...values,
       });
       message.success('已保存');
-      setFormOpen(false);
-      await load();
+      void load();
       onChanged();
+      return true;
     } catch (err) {
       const msg = err instanceof Error ? err.message : '保存失败';
       message.error(msg);
+      return false;
     }
   };
 
@@ -176,55 +176,64 @@ export default function SourceManageModal({
         />
       </Space>
 
-      <Modal
+      <ModalForm<SourceFormValues>
         open={formOpen}
         title={editing ? `编辑：${editing.name}` : '添加数据源'}
-        okText="保存"
-        onOk={doSave}
-        onCancel={() => setFormOpen(false)}
-        destroyOnHidden
+        onOpenChange={(v) => {
+          if (!v) setFormOpen(false);
+        }}
+        modalProps={{ destroyOnHidden: true }}
         width={640}
+        layout="vertical"
+        submitter={{ searchConfig: { submitText: '保存' } }}
+        // 编辑时展示脱敏 config；后端 Update 逻辑：config 为空则保留原值，
+        // 脱敏值需用户重填或保持 ****** 原样提交沿用旧值
+        initialValues={
+          editing
+            ? { name: editing.name, type: editing.type, config: editing.config }
+            : { name: '', type: 'git', config: CONFIG_TEMPLATES.git }
+        }
+        formRef={formRef}
+        onFinish={onFinish}
       >
-        <Form form={form} layout="vertical">
-          <Form.Item name="name" label="名称" rules={[{ required: true, message: '必填' }]}>
-            <Input placeholder="如：数值表仓库 / skynet 配置总线" maxLength={64} />
-          </Form.Item>
-          <Form.Item name="type" label="类型" rules={[{ required: true }]}>
-            <Select
-              options={TYPE_OPTIONS}
-              onChange={(v: ConfigSourceBinding['type']) =>
-                form.setFieldValue('config', CONFIG_TEMPLATES[v])
-              }
-              disabled={!!editing}
-            />
-          </Form.Item>
-          <Form.Item
-            name="config"
-            label="连接配置（JSON）"
-            rules={[
-              { required: true },
-              {
-                validator: (_, value) => {
-                  if (!value) return Promise.resolve();
-                  try {
-                    JSON.parse(value);
-                    return Promise.resolve();
-                  } catch {
-                    return Promise.reject(new Error('必须是合法 JSON'));
-                  }
-                },
+        <Form.Item name="name" label="名称" rules={[{ required: true, message: '必填' }]}>
+          <Input placeholder="如：数值表仓库 / skynet 配置总线" maxLength={64} />
+        </Form.Item>
+        <Form.Item name="type" label="类型" rules={[{ required: true }]}>
+          <Select
+            options={TYPE_OPTIONS}
+            onChange={(v: ConfigSourceBinding['type']) =>
+              formRef.current?.setFieldValue('config', CONFIG_TEMPLATES[v])
+            }
+            disabled={!!editing}
+          />
+        </Form.Item>
+        <Form.Item
+          name="config"
+          label="连接配置（JSON）"
+          rules={[
+            { required: true },
+            {
+              validator: (_, value) => {
+                if (!value) return Promise.resolve();
+                try {
+                  JSON.parse(value);
+                  return Promise.resolve();
+                } catch {
+                  return Promise.reject(new Error('必须是合法 JSON'));
+                }
               },
-            ]}
-          >
-            <Input.TextArea rows={10} style={{ fontFamily: 'monospace' }} />
-          </Form.Item>
-        </Form>
+            },
+          ]}
+        >
+          <Input.TextArea rows={10} style={{ fontFamily: 'monospace' }} />
+        </Form.Item>
         {editing && (
           <span style={{ color: '#999', fontSize: 12 }}>
             凭据字段已脱敏显示；无需更换凭据时保持 ****** 原样提交即可沿用旧值。
           </span>
         )}
-      </Modal>
+      </ModalForm>
     </Modal>
   );
 }

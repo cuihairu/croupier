@@ -15,6 +15,7 @@ import {
   Rate,
 } from 'antd';
 import type { UploadFile as AntUploadFile } from 'antd/es/upload/interface';
+import { ModalForm } from '@ant-design/pro-components';
 import { useParams, history, useModel } from '@umijs/max';
 import { uploadAsset } from '@/services/api/storage';
 import { getMessage } from '@/utils/antdApp';
@@ -30,6 +31,7 @@ import {
   transitionTicket,
   type Ticket,
   type TicketComment,
+  type TicketPayload,
 } from '@/services/api/support';
 
 interface ExtendedTicket extends Ticket {
@@ -91,7 +93,6 @@ export default function TicketDetailPage() {
   const [transStatus, setTransStatus] = useState<string>('');
   const [transComment, setTransComment] = useState<string>('');
   const [editOpen, setEditOpen] = useState(false);
-  const [form] = Form.useForm();
   const { initialState } = useModel('@@initialState');
 
   // 处理文件上传
@@ -167,33 +168,21 @@ export default function TicketDetailPage() {
     }
   };
 
+  // destroyOnHidden 使弹窗每次关闭即卸载表单，重开时按最新 ticket 记录
+  // 重新挂载（openEdit 的守卫保证打开时 ticket 已加载）
   const openEdit = () => {
     if (!ticket) return;
-    form.setFieldsValue({
-      title: ticket.title,
-      content: ticket.content,
-      category: ticket.category,
-      priority: ticket.priority,
-      status: ticket.status,
-      assignee: ticket.assignee,
-      tags: ticket.tags,
-      playerId: ticket.playerId,
-      contact: ticket.contact,
-      gameId: ticket.gameId,
-      env: ticket.env,
-      source: ticket.source,
-    });
     setEditOpen(true);
   };
-  const submitEdit = async () => {
-    const v = await form.validateFields();
+  const onFinish = async (v: TicketPayload) => {
     try {
       await updateTicket(Number(mid), v);
-      setEditOpen(false);
       load();
+      return true;
     } catch (e) {
       const errMsg = e instanceof Error ? e.message : '操作失败';
       getMessage()?.error(errMsg || '更新失败');
+      return false;
     }
   };
   const doDelete = async () => {
@@ -431,78 +420,82 @@ export default function TicketDetailPage() {
           </Space>
         </Modal>
       </Card>
-      <Modal
+      <ModalForm<TicketPayload>
         title="编辑工单"
         open={editOpen}
-        onOk={submitEdit}
-        onCancel={() => setEditOpen(false)}
-        destroyOnHidden
+        onOpenChange={setEditOpen}
+        modalProps={{ destroyOnHidden: true }}
+        width={520}
+        layout="vertical"
+        submitter={{ searchConfig: { submitText: '确定' } }}
+        // 预填收敛为打开时同步确定的 initialValues：表单只消费已注册字段，
+        // ticket 携带的 id/createdAt 等多余键不会进入提交值
+        initialValues={ticket ?? undefined}
+        onFinish={onFinish}
       >
-        <Form form={form} layout="vertical">
-          <Form.Item label="标题" name="title" rules={[{ required: true, message: '请输入标题' }]}>
-            {' '}
-            <Input />{' '}
-          </Form.Item>
-          <Form.Item label="内容" name="content">
-            {' '}
-            <Input.TextArea rows={4} />{' '}
-          </Form.Item>
-          <Form.Item label="分类" name="category">
-            {' '}
-            <Input />{' '}
-          </Form.Item>
-          <Form.Item label="优先级" name="priority">
-            {' '}
-            <Select
-              options={[
-                { label: '低', value: 'low' },
-                { label: '普通', value: 'normal' },
-                { label: '高', value: 'high' },
-                { label: '紧急', value: 'urgent' },
-              ]}
-            />{' '}
-          </Form.Item>
-          <Form.Item label="状态" name="status">
-            {' '}
-            <Select
-              options={[
-                { label: '打开', value: 'open' },
-                { label: '处理中', value: 'in_progress' },
-                { label: '已解决', value: 'resolved' },
-                { label: '已关闭', value: 'closed' },
-              ]}
-            />{' '}
-          </Form.Item>
-          <Form.Item label="处理人" name="assignee">
-            {' '}
-            <Input />{' '}
-          </Form.Item>
-          <Form.Item label="标签" name="tags">
-            {' '}
-            <Input />{' '}
-          </Form.Item>
-          <Form.Item label="玩家ID" name="playerId">
-            {' '}
-            <Input />{' '}
-          </Form.Item>
-          <Form.Item label="联系方式" name="contact">
-            {' '}
-            <Input />{' '}
-          </Form.Item>
-          <Form.Item label="游戏" name="gameId">
-            {' '}
-            <Input />{' '}
-          </Form.Item>
-          <Form.Item label="环境" name="env">
-            {' '}
-            <Input />{' '}
-          </Form.Item>
-          <Form.Item label="来源" name="source">
-            {' '}
-            <Input />{' '}
-          </Form.Item>
-        </Form>
-      </Modal>
+        <Form.Item label="标题" name="title" rules={[{ required: true, message: '请输入标题' }]}>
+          {' '}
+          <Input />{' '}
+        </Form.Item>
+        <Form.Item label="内容" name="content">
+          {' '}
+          <Input.TextArea rows={4} />{' '}
+        </Form.Item>
+        <Form.Item label="分类" name="category">
+          {' '}
+          <Input />{' '}
+        </Form.Item>
+        <Form.Item label="优先级" name="priority">
+          {' '}
+          <Select
+            options={[
+              { label: '低', value: 'low' },
+              { label: '普通', value: 'normal' },
+              { label: '高', value: 'high' },
+              { label: '紧急', value: 'urgent' },
+            ]}
+          />{' '}
+        </Form.Item>
+        <Form.Item label="状态" name="status">
+          {' '}
+          <Select
+            options={[
+              { label: '打开', value: 'open' },
+              { label: '处理中', value: 'in_progress' },
+              { label: '已解决', value: 'resolved' },
+              { label: '已关闭', value: 'closed' },
+            ]}
+          />{' '}
+        </Form.Item>
+        <Form.Item label="处理人" name="assignee">
+          {' '}
+          <Input />{' '}
+        </Form.Item>
+        <Form.Item label="标签" name="tags">
+          {' '}
+          <Input />{' '}
+        </Form.Item>
+        <Form.Item label="玩家ID" name="playerId">
+          {' '}
+          <Input />{' '}
+        </Form.Item>
+        <Form.Item label="联系方式" name="contact">
+          {' '}
+          <Input />{' '}
+        </Form.Item>
+        <Form.Item label="游戏" name="gameId">
+          {' '}
+          <Input />{' '}
+        </Form.Item>
+        <Form.Item label="环境" name="env">
+          {' '}
+          <Input />{' '}
+        </Form.Item>
+        <Form.Item label="来源" name="source">
+          {' '}
+          <Input />{' '}
+        </Form.Item>
+      </ModalForm>
     </>
   );
 }

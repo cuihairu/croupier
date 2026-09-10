@@ -16,6 +16,7 @@ import {
   Upload,
 } from 'antd';
 import {
+  ModalForm,
   PageContainer,
   ProTable,
   type ActionType,
@@ -38,6 +39,13 @@ import { extractErrorMessage } from '@/utils/errors';
 
 const { Text } = Typography;
 
+/** 热更单表单值：gameId 由请求拦截器 X-Game-ID header 注入，表单不产生该字段 */
+type HotpatchFormValues = {
+  title: string;
+  bugId: number;
+  framework: string;
+};
+
 export default function DevHotpatchesPage() {
   const { message } = App.useApp();
   const access = useAccess();
@@ -46,8 +54,6 @@ export default function DevHotpatchesPage() {
   const [status, setStatus] = useState('');
   const [framework, setFramework] = useState('');
   const [createOpen, setCreateOpen] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [form] = Form.useForm();
   const [rollTarget, setRollTarget] = useState<HotpatchItem | null>(null);
   const [rollValue, setRollValue] = useState(10);
   const actionRef = useRef<ActionType | undefined>(undefined);
@@ -56,18 +62,17 @@ export default function DevHotpatchesPage() {
 
   const reload = () => actionRef.current?.reload();
 
-  const submitCreate = async () => {
-    const v = await form.validateFields();
-    setSaving(true);
+  const onFinish = async (v: HotpatchFormValues) => {
     try {
-      await createHotpatch(v);
+      // createHotpatch 契约要求 gameId 必填，但实际路由依赖 X-Game-ID header；
+      // 原实现 body 即不含 gameId（Go json 解析缺省同为零值 ""），显式空串等价
+      await createHotpatch({ ...v, gameId: '' });
       message.success('热更单已创建（草稿），请上传补丁包');
-      setCreateOpen(false);
       reload();
+      return true;
     } catch (error) {
       message.error(extractErrorMessage(error, '创建失败'));
-    } finally {
-      setSaving(false);
+      return false;
     }
   };
 
@@ -249,14 +254,7 @@ export default function DevHotpatchesPage() {
               刷新
             </Button>
             {canManage ? (
-              <Button
-                type="primary"
-                icon={<PlusOutlined />}
-                onClick={() => {
-                  form.resetFields();
-                  setCreateOpen(true);
-                }}
-              >
+              <Button type="primary" icon={<PlusOutlined />} onClick={() => setCreateOpen(true)}>
                 创建热更单
               </Button>
             ) : null}
@@ -290,41 +288,36 @@ export default function DevHotpatchesPage() {
         />
       </Card>
 
-      <Modal
+      <ModalForm<HotpatchFormValues>
         title="创建热更单"
         open={createOpen}
-        onCancel={() => setCreateOpen(false)}
-        footer={
-          <Space>
-            <Button onClick={() => setCreateOpen(false)}>取消</Button>
-            <Button type="primary" loading={saving} onClick={submitCreate}>
-              创建
-            </Button>
-          </Space>
-        }
-        destroyOnHidden
+        onOpenChange={setCreateOpen}
+        modalProps={{ destroyOnHidden: true }}
+        width={520}
+        layout="vertical"
+        submitter={{ searchConfig: { submitText: '创建' } }}
+        initialValues={{ framework: 'skynet' }}
+        onFinish={onFinish}
       >
-        <Form form={form} layout="vertical" initialValues={{ framework: 'skynet' }}>
-          <Form.Item name="title" label="标题" rules={[{ required: true, message: '请输入标题' }]}>
-            <Input placeholder="如：修复背包闪退" />
-          </Form.Item>
-          <Form.Item
-            name="bugId"
-            label="关联缺陷编号"
-            rules={[{ required: true, message: '热更必须关联缺陷（可追溯）' }]}
-          >
-            <InputNumber min={1} style={{ width: '100%' }} placeholder="缺陷追踪里的 Bug ID" />
-          </Form.Item>
-          <Form.Item name="framework" label="目标框架" rules={[{ required: true }]}>
-            <Select
-              options={Object.entries(hotpatchFrameworkLabels).map(([value, label]) => ({
-                label,
-                value,
-              }))}
-            />
-          </Form.Item>
-        </Form>
-      </Modal>
+        <Form.Item name="title" label="标题" rules={[{ required: true, message: '请输入标题' }]}>
+          <Input placeholder="如：修复背包闪退" />
+        </Form.Item>
+        <Form.Item
+          name="bugId"
+          label="关联缺陷编号"
+          rules={[{ required: true, message: '热更必须关联缺陷（可追溯）' }]}
+        >
+          <InputNumber min={1} style={{ width: '100%' }} placeholder="缺陷追踪里的 Bug ID" />
+        </Form.Item>
+        <Form.Item name="framework" label="目标框架" rules={[{ required: true }]}>
+          <Select
+            options={Object.entries(hotpatchFrameworkLabels).map(([value, label]) => ({
+              label,
+              value,
+            }))}
+          />
+        </Form.Item>
+      </ModalForm>
 
       <Modal
         title={rollTarget ? `节点灰度放量（当前 ${rollTarget.rolloutPercent}%）` : ''}

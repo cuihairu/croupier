@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Card, Space, Select, Button, Table, Modal, Form, Input, App, Tag } from 'antd';
-import { PageContainer } from '@ant-design/pro-components';
+import { ModalForm, PageContainer } from '@ant-design/pro-components';
 import type { ColumnsType } from 'antd/es/table';
 import { listGamesMeta, listMyGames, type Game as GameMeta } from '@/services/api';
 import {
@@ -22,8 +22,6 @@ export default function GamesEnvsPage() {
   const [envs, setEnvs] = useState<GameEnv[]>([]);
   const [loading, setLoading] = useState(false);
 
-  const [form] = Form.useForm();
-  const [editForm] = Form.useForm();
   const [addOpen, setAddOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [editing, setEditing] = useState<GameEnv | null>(null);
@@ -148,34 +146,29 @@ export default function GamesEnvsPage() {
     [gameId, loadEnvs, message],
   );
 
-  const onAdd = async () => {
-    const v = await form.validateFields();
-    await addGameEnv(gameId!, v.env, v.description, v.color);
-    setAddOpen(false);
-    form.resetFields();
-    message.success('Added');
-    loadEnvs(gameId);
-  };
-  const onEdit = async () => {
-    const v = await editForm.validateFields();
-    if (!editing) return;
-    await updateGameEnv(gameId!, editing.env, v.env, v.description, v.color);
-    setEditOpen(false);
-    setEditing(null);
-    message.success('Updated');
-    loadEnvs(gameId);
-  };
-
-  // Avoid calling editForm API before the form is mounted
-  useEffect(() => {
-    if (editOpen && editing) {
-      editForm.setFieldsValue({
-        env: editing.env,
-        description: editing.description,
-        color: editing.color,
-      });
+  const onAdd = async (v: GameEnv) => {
+    try {
+      await addGameEnv(gameId!, v.env, v.description, v.color);
+      message.success('Added');
+      loadEnvs(gameId);
+      return true;
+    } catch {
+      // 原实现无本地弹错（全局拦截器已 toast），失败时弹窗保持开启
+      return false;
     }
-  }, [editOpen, editing, editForm]);
+  };
+  const onEdit = async (v: GameEnv) => {
+    if (!editing) return false;
+    try {
+      await updateGameEnv(gameId!, editing.env, v.env, v.description, v.color);
+      message.success('Updated');
+      loadEnvs(gameId);
+      return true;
+    } catch {
+      // 原实现无本地弹错（全局拦截器已 toast），失败时弹窗保持开启
+      return false;
+    }
+  };
 
   return (
     <PageContainer>
@@ -212,45 +205,50 @@ export default function GamesEnvsPage() {
         />
       </Card>
 
-      <Modal
+      <ModalForm<GameEnv>
         title="新增环境"
         open={addOpen}
-        onOk={onAdd}
-        onCancel={() => setAddOpen(false)}
-        destroyOnHidden
+        onOpenChange={setAddOpen}
+        modalProps={{ destroyOnHidden: true }}
+        width={520}
+        submitter={{ searchConfig: { submitText: '确定' } }}
+        layout="vertical"
+        onFinish={onAdd}
       >
-        <Form form={form} layout="vertical">
-          <Form.Item name="env" label="Env" rules={[{ required: true, message: '请输入环境名' }]}>
-            <Input placeholder="e.g. dev / test / stage / prod" />
-          </Form.Item>
-          <Form.Item name="description" label="描述">
-            <Input.TextArea rows={3} placeholder="简单描述" />
-          </Form.Item>
-          <Form.Item name="color" label="颜色 (Tag)" tooltip="AntD Tag 颜色，如 #1677ff 或 green">
-            <Input placeholder="#1677ff / blue / green / gold" />
-          </Form.Item>
-        </Form>
-      </Modal>
+        <Form.Item name="env" label="Env" rules={[{ required: true, message: '请输入环境名' }]}>
+          <Input placeholder="e.g. dev / test / stage / prod" />
+        </Form.Item>
+        <Form.Item name="description" label="描述">
+          <Input.TextArea rows={3} placeholder="简单描述" />
+        </Form.Item>
+        <Form.Item name="color" label="颜色 (Tag)" tooltip="AntD Tag 颜色，如 #1677ff 或 green">
+          <Input placeholder="#1677ff / blue / green / gold" />
+        </Form.Item>
+      </ModalForm>
 
-      <Modal
+      <ModalForm<GameEnv>
         title="编辑环境"
         open={editOpen}
-        onOk={onEdit}
-        onCancel={() => setEditOpen(false)}
-        destroyOnHidden
+        onOpenChange={setEditOpen}
+        modalProps={{ destroyOnHidden: true }}
+        width={520}
+        submitter={{ searchConfig: { submitText: '确定' } }}
+        layout="vertical"
+        // destroyOnHidden 使弹窗每次关闭即卸载表单，重开时按最新 editing
+        // 重新挂载，取代原「挂载后 setFieldsValue 回填」的 useEffect 预填
+        initialValues={editing ?? undefined}
+        onFinish={onEdit}
       >
-        <Form form={editForm} layout="vertical">
-          <Form.Item name="env" label="Env" rules={[{ required: true, message: '请输入环境名' }]}>
-            <Input />
-          </Form.Item>
-          <Form.Item name="description" label="描述">
-            <Input.TextArea rows={3} />
-          </Form.Item>
-          <Form.Item name="color" label="颜色 (Tag)">
-            <Input placeholder="#1677ff / blue / green / gold" />
-          </Form.Item>
-        </Form>
-      </Modal>
+        <Form.Item name="env" label="Env" rules={[{ required: true, message: '请输入环境名' }]}>
+          <Input />
+        </Form.Item>
+        <Form.Item name="description" label="描述">
+          <Input.TextArea rows={3} />
+        </Form.Item>
+        <Form.Item name="color" label="颜色 (Tag)">
+          <Input placeholder="#1677ff / blue / green / gold" />
+        </Form.Item>
+      </ModalForm>
     </PageContainer>
   );
 }

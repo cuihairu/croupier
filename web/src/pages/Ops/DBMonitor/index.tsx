@@ -9,7 +9,6 @@ import {
   Form,
   Input,
   InputNumber,
-  Modal,
   Popconfirm,
   Row,
   Select,
@@ -20,7 +19,7 @@ import {
   Tag,
   Typography,
 } from 'antd';
-import { PageContainer } from '@ant-design/pro-components';
+import { ModalForm, PageContainer } from '@ant-design/pro-components';
 import {
   DatabaseOutlined,
   PlusOutlined,
@@ -43,6 +42,32 @@ import { extractErrorMessage } from '@/utils/errors';
 
 const { Text } = Typography;
 
+/** 数据源表单值：对齐 createDBSource/updateDBSource 的 payload 形状；
+ * dsn 掩码存储，编辑回填时留空表示不修改 */
+type DBSourceFormValues = {
+  name: string;
+  driver: string;
+  kind: string;
+  dsn?: string;
+  gameId?: string;
+  env?: string;
+  enabled?: boolean;
+  lockWaitWarn?: number;
+  connWarnRatio?: number;
+};
+
+/** 编辑回填：DSN 不回填（掩码存储），留空表示不修改 */
+const toDBSourceFormValues = (src: DBSource): DBSourceFormValues => ({
+  name: src.name,
+  driver: src.driver,
+  kind: src.kind,
+  gameId: src.gameId,
+  env: src.env,
+  lockWaitWarn: src.lockWaitWarn || undefined,
+  connWarnRatio: src.connWarnRatio || undefined,
+  enabled: src.enabled,
+});
+
 export default function DBMonitorPage() {
   const { message } = App.useApp();
   const access = useAccess();
@@ -54,8 +79,6 @@ export default function DBMonitorPage() {
   const [loading, setLoading] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<DBSource | null>(null);
-  const [saving, setSaving] = useState(false);
-  const [form] = Form.useForm();
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -90,43 +113,30 @@ export default function DBMonitorPage() {
 
   const openCreate = () => {
     setEditing(null);
-    form.resetFields();
     setModalOpen(true);
   };
 
   const openEdit = (src: DBSource) => {
     setEditing(src);
-    form.setFieldsValue({
-      name: src.name,
-      driver: src.driver,
-      kind: src.kind,
-      gameId: src.gameId,
-      env: src.env,
-      lockWaitWarn: src.lockWaitWarn || undefined,
-      connWarnRatio: src.connWarnRatio || undefined,
-      enabled: src.enabled,
-      // DSN 不回填（掩码存储），留空表示不修改
-    });
     setModalOpen(true);
   };
 
-  const submit = async () => {
-    const v = await form.validateFields();
-    setSaving(true);
+  const onFinish = async (v: DBSourceFormValues) => {
     try {
       if (editing) {
         await updateDBSource(editing.id, v);
         message.success('数据源已更新');
       } else {
-        await createDBSource(v);
+        // 新增时 DSN 必填校验已保证非空，`|| ''` 仅满足 payload 的类型收窄
+        await createDBSource({ ...v, dsn: v.dsn || '' });
         message.success('数据源已登记');
       }
-      setModalOpen(false);
       load();
+      return true;
     } catch (error) {
+      // 原语义：提交失败本地 toast（校验失败由 ModalForm 内置拦截，不走到这里）
       message.error(extractErrorMessage(error, '保存失败'));
-    } finally {
-      setSaving(false);
+      return false;
     }
   };
 
@@ -292,81 +302,79 @@ export default function DBMonitorPage() {
         )}
       </Card>
 
-      <Modal
+      <ModalForm<DBSourceFormValues>
         title={editing ? `编辑数据源：${editing.name}` : '登记游戏数据库'}
         open={modalOpen}
-        onCancel={() => setModalOpen(false)}
-        footer={
-          <Space>
-            <Button onClick={() => setModalOpen(false)}>取消</Button>
-            <Button type="primary" loading={saving} onClick={submit}>
-              保存
-            </Button>
-          </Space>
-        }
-        destroyOnHidden
+        onOpenChange={setModalOpen}
+        modalProps={{ destroyOnHidden: true }}
+        width={520}
+        // 原 footer 自定义按钮文案为「保存」，保持不变
+        submitter={{ searchConfig: { submitText: '保存' } }}
+        layout="vertical"
+        // destroyOnHidden 使弹窗每次关闭即卸载表单，重开时按最新 initialValues
+        // 重新挂载：编辑回填 DSN 留空，新增回到 Form.Item 默认值（self/启用）
+        initialValues={editing ? toDBSourceFormValues(editing) : undefined}
+        onFinish={onFinish}
       >
-        <Form form={form} layout="vertical">
-          <Form.Item name="name" label="名称" rules={[{ required: true, message: '请输入名称' }]}>
-            <Input placeholder="如 游戏主库-prod" />
+        <Form.Item name="name" label="名称" rules={[{ required: true, message: '请输入名称' }]}>
+          <Input placeholder="如 游戏主库-prod" />
+        </Form.Item>
+        <Space>
+          <Form.Item name="driver" label="驱动" rules={[{ required: true }]}>
+            <Select
+              style={{ width: 120 }}
+              options={[
+                { label: 'MySQL', value: 'mysql' },
+                { label: 'PostgreSQL', value: 'postgres' },
+              ]}
+            />
           </Form.Item>
-          <Space>
-            <Form.Item name="driver" label="驱动" rules={[{ required: true }]}>
-              <Select
-                style={{ width: 120 }}
-                options={[
-                  { label: 'MySQL', value: 'mysql' },
-                  { label: 'PostgreSQL', value: 'postgres' },
-                ]}
-              />
-            </Form.Item>
-            <Form.Item name="kind" label="部署类型" initialValue="self">
-              <Select
-                style={{ width: 130 }}
-                options={Object.entries(dbKindLabels).map(([value, label]) => ({
-                  label,
-                  value,
-                }))}
-              />
-            </Form.Item>
-            <Form.Item name="enabled" label="启用" valuePropName="checked" initialValue={true}>
-              <Switch />
-            </Form.Item>
-          </Space>
-          <Form.Item
-            name="dsn"
-            label="只读账号 DSN"
-            extra={
-              editing
-                ? '编辑时留空表示不修改。务必使用只读监控账号，禁止 root/superuser'
-                : '务必使用只读监控账号，禁止 root/superuser'
-            }
-            rules={editing ? [] : [{ required: true, message: '请输入 DSN' }]}
-          >
-            <Input placeholder="readonly:pass@tcp(10.0.0.1:3306)/game 或 postgres://ro:pass@10.0.0.2/game" />
+          <Form.Item name="kind" label="部署类型" initialValue="self">
+            <Select
+              style={{ width: 130 }}
+              options={Object.entries(dbKindLabels).map(([value, label]) => ({
+                label,
+                value,
+              }))}
+            />
           </Form.Item>
-          <Space>
-            <Form.Item name="gameId" label="gameId(可选)">
-              <Input style={{ width: 140 }} placeholder="归属游戏" />
+          <Form.Item name="enabled" label="启用" valuePropName="checked" initialValue={true}>
+            <Switch />
+          </Form.Item>
+        </Space>
+        <Form.Item
+          name="dsn"
+          label="只读账号 DSN"
+          extra={
+            editing
+              ? '编辑时留空表示不修改。务必使用只读监控账号，禁止 root/superuser'
+              : '务必使用只读监控账号，禁止 root/superuser'
+          }
+          rules={editing ? [] : [{ required: true, message: '请输入 DSN' }]}
+        >
+          <Input placeholder="readonly:pass@tcp(10.0.0.1:3306)/game 或 postgres://ro:pass@10.0.0.2/game" />
+        </Form.Item>
+        <Space>
+          <Form.Item name="gameId" label="gameId(可选)">
+            <Input style={{ width: 140 }} placeholder="归属游戏" />
+          </Form.Item>
+          <Form.Item name="env" label="env(可选)">
+            <Input style={{ width: 120 }} placeholder="prod" />
+          </Form.Item>
+        </Space>
+        <Row gutter={12}>
+          <Col span={12}>
+            <Form.Item name="lockWaitWarn" label="锁等待告警阈值" extra="条数，默认 5">
+              <InputNumber min={1} max={1000} style={{ width: '100%' }} placeholder="5" />
             </Form.Item>
-            <Form.Item name="env" label="env(可选)">
-              <Input style={{ width: 120 }} placeholder="prod" />
+          </Col>
+          <Col span={12}>
+            <Form.Item name="connWarnRatio" label="连接水位告警" extra="百分比，默认 80">
+              <InputNumber min={10} max={100} style={{ width: '100%' }} placeholder="80" />
             </Form.Item>
-          </Space>
-          <Row gutter={12}>
-            <Col span={12}>
-              <Form.Item name="lockWaitWarn" label="锁等待告警阈值" extra="条数，默认 5">
-                <InputNumber min={1} max={1000} style={{ width: '100%' }} placeholder="5" />
-              </Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item name="connWarnRatio" label="连接水位告警" extra="百分比，默认 80">
-                <InputNumber min={10} max={100} style={{ width: '100%' }} placeholder="80" />
-              </Form.Item>
-            </Col>
-          </Row>
-        </Form>
-      </Modal>
+          </Col>
+        </Row>
+      </ModalForm>
     </PageContainer>
   );
 }

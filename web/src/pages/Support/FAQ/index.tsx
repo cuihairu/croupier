@@ -1,12 +1,13 @@
 import React, { useRef, useState } from 'react';
 import { App, Card, Space, Button, Input, Switch, Modal, Form } from 'antd';
 import {
+  ModalForm,
   PageContainer,
   ProTable,
   type ActionType,
   type ProColumns,
 } from '@ant-design/pro-components';
-import { listFAQ, createFAQ, updateFAQ, deleteFAQ } from '@/services/api/support';
+import { listFAQ, createFAQ, updateFAQ, deleteFAQ, type FAQPayload } from '@/services/api/support';
 import { useAccess } from '@umijs/max';
 import type { JSONValue } from '@/types/dashboard';
 import { extractErrorMessage } from '@/utils/errors';
@@ -36,35 +37,31 @@ export default function SupportFAQPage() {
   const [visible, setVisible] = useState<string>('');
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<FAQItem | null>(null);
-  const [form] = Form.useForm();
   const access: AccessState = useAccess?.() || {};
 
+  // destroyOnHidden 使弹窗每次关闭即卸载表单，重开时按最新 initialValues
+  // 重新挂载，新增/编辑切换不会残留上一次的预填值
   const openAdd = () => {
     setEditing(null);
-    form.resetFields();
     setOpen(true);
   };
   const openEdit = (rec: FAQItem) => {
     setEditing(rec);
-    form.setFieldsValue({
-      question: rec.question,
-      answer: rec.answer,
-      category: rec.category,
-      tags: rec.tags,
-      visible: rec.visible,
-      sort: rec.sort,
-    });
     setOpen(true);
   };
-  const onSubmit = async () => {
-    const v = await form.validateFields();
-    if (editing) {
-      await updateFAQ(editing.id, v);
-    } else {
-      await createFAQ(v);
+  const onFinish = async (v: FAQPayload) => {
+    try {
+      if (editing) {
+        await updateFAQ(editing.id, v);
+      } else {
+        await createFAQ(v);
+      }
+      actionRef.current?.reload();
+      return true;
+    } catch {
+      // 原实现无本地弹错（全局拦截器已 toast），失败时弹窗保持开启
+      return false;
     }
-    setOpen(false);
-    actionRef.current?.reload();
   };
   const onDelete = (rec: FAQItem) => {
     Modal.confirm({
@@ -193,48 +190,45 @@ export default function SupportFAQPage() {
             showTotal: (t) => `共 ${t} 条`,
           }}
         />
-        <Modal
+        <ModalForm<FAQPayload>
           title={editing ? '编辑 FAQ' : '新建 FAQ'}
           open={open}
-          onOk={onSubmit}
-          onCancel={() => setOpen(false)}
-          destroyOnHidden
+          onOpenChange={setOpen}
+          modalProps={{ destroyOnHidden: true }}
+          width={520}
+          submitter={{ searchConfig: { submitText: '确定' } }}
+          initialValues={editing ?? { visible: true, sort: 0 }}
+          onFinish={onFinish}
         >
-          <Form form={form} layout="vertical" initialValues={{ visible: true, sort: 0 }}>
-            <Form.Item
-              label="问题"
-              name="question"
-              rules={[{ required: true, message: '请输入问题' }]}
-            >
-              {' '}
-              <Input.TextArea rows={3} />{' '}
-            </Form.Item>
-            <Form.Item
-              label="答案"
-              name="answer"
-              rules={[{ required: true, message: '请输入答案' }]}
-            >
-              {' '}
-              <Input.TextArea rows={6} />{' '}
-            </Form.Item>
-            <Form.Item label="分类" name="category">
-              {' '}
-              <Input />{' '}
-            </Form.Item>
-            <Form.Item label="标签" name="tags">
-              {' '}
-              <Input placeholder="," />{' '}
-            </Form.Item>
-            <Form.Item label="可见" name="visible" valuePropName="checked">
-              {' '}
-              <Switch />{' '}
-            </Form.Item>
-            <Form.Item label="排序" name="sort">
-              {' '}
-              <Input type="number" />{' '}
-            </Form.Item>
-          </Form>
-        </Modal>
+          <Form.Item
+            label="问题"
+            name="question"
+            rules={[{ required: true, message: '请输入问题' }]}
+          >
+            {' '}
+            <Input.TextArea rows={3} />{' '}
+          </Form.Item>
+          <Form.Item label="答案" name="answer" rules={[{ required: true, message: '请输入答案' }]}>
+            {' '}
+            <Input.TextArea rows={6} />{' '}
+          </Form.Item>
+          <Form.Item label="分类" name="category">
+            {' '}
+            <Input />{' '}
+          </Form.Item>
+          <Form.Item label="标签" name="tags">
+            {' '}
+            <Input placeholder="," />{' '}
+          </Form.Item>
+          <Form.Item label="可见" name="visible" valuePropName="checked">
+            {' '}
+            <Switch />{' '}
+          </Form.Item>
+          <Form.Item label="排序" name="sort">
+            {' '}
+            <Input type="number" />{' '}
+          </Form.Item>
+        </ModalForm>
       </Card>
     </PageContainer>
   );

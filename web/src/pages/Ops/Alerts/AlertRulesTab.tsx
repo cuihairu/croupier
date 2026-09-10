@@ -1,11 +1,11 @@
 import React, { useCallback, useEffect, useState } from 'react';
+import { ModalForm } from '@ant-design/pro-components';
 import {
   App,
   Button,
   Form,
   Input,
   InputNumber,
-  Modal,
   Popconfirm,
   Select,
   Switch,
@@ -44,14 +44,25 @@ const LEVEL_COLOR: Record<AlertRuleItem['level'], string> = {
   critical: 'red',
 };
 
+/** 规则表单值：编辑回填自 AlertRuleItem（operator/level 为具体字面量），新增取弹窗默认值 */
+type AlertRuleFormValues = {
+  name: string;
+  description?: string;
+  metric: string;
+  operator: AlertRuleItem['operator'];
+  threshold: number;
+  forCount: number;
+  cooldownSeconds: number;
+  level: AlertRuleItem['level'];
+  agentFilter?: string;
+};
+
 export default function AlertRulesTab() {
   const { message } = App.useApp();
   const [loading, setLoading] = useState(false);
   const [rows, setRows] = useState<AlertRuleItem[]>([]);
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<AlertRuleItem | null>(null);
-  const [saving, setSaving] = useState(false);
-  const [form] = Form.useForm();
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -71,49 +82,27 @@ export default function AlertRulesTab() {
 
   const openCreate = () => {
     setEditing(null);
-    form.resetFields();
-    form.setFieldsValue({
-      operator: 'gt',
-      forCount: 1,
-      cooldownSeconds: 300,
-      level: 'warning',
-      metric: 'cpu.usagePercent',
-      threshold: 90,
-    });
     setOpen(true);
   };
 
   const openEdit = (row: AlertRuleItem) => {
     setEditing(row);
-    form.setFieldsValue({
-      name: row.name,
-      description: row.description,
-      metric: row.metric,
-      operator: row.operator,
-      threshold: row.threshold,
-      forCount: row.forCount,
-      cooldownSeconds: row.cooldownSeconds,
-      level: row.level,
-      agentFilter: row.agentFilter,
-    });
     setOpen(true);
   };
 
-  const submit = async () => {
-    const values = await form.validateFields();
-    setSaving(true);
+  const onFinish = async (values: AlertRuleFormValues) => {
+    const payload = {
+      name: values.name,
+      description: values.description,
+      metric: values.metric,
+      operator: values.operator,
+      threshold: values.threshold,
+      forCount: values.forCount,
+      cooldownSeconds: values.cooldownSeconds,
+      level: values.level,
+      agentFilter: values.agentFilter || '',
+    };
     try {
-      const payload = {
-        name: values.name,
-        description: values.description,
-        metric: values.metric,
-        operator: values.operator,
-        threshold: values.threshold,
-        forCount: values.forCount,
-        cooldownSeconds: values.cooldownSeconds,
-        level: values.level,
-        agentFilter: values.agentFilter || '',
-      };
       if (editing) {
         await updateAlertRule(editing.id, payload);
         message.success('已更新');
@@ -121,12 +110,12 @@ export default function AlertRulesTab() {
         await createAlertRule(payload);
         message.success('已创建，下次指标上报即生效');
       }
-      setOpen(false);
       load();
+      return true;
     } catch (error) {
+      // 原语义：提交失败本地 toast（校验失败由 ModalForm 内置拦截，不走到这里）
       message.error(extractErrorMessage(error, '保存失败'));
-    } finally {
-      setSaving(false);
+      return false;
     }
   };
 
@@ -235,84 +224,96 @@ export default function AlertRulesTab() {
         size="small"
       />
 
-      <Modal
+      <ModalForm<AlertRuleFormValues>
         title={editing ? '编辑规则' : '新建规则'}
         open={open}
-        onCancel={() => setOpen(false)}
-        onOk={submit}
-        confirmLoading={saving}
-        destroyOnClose
+        onOpenChange={setOpen}
+        modalProps={{ destroyOnHidden: true }}
+        width={520}
+        submitter={{ searchConfig: { submitText: '确定' } }}
+        layout="vertical"
+        // destroyOnHidden 使弹窗每次关闭即卸载表单，重开时按最新 initialValues
+        // 重新挂载，新增/编辑切换不会残留上一次的预填值
+        initialValues={
+          editing ?? {
+            operator: 'gt',
+            forCount: 1,
+            cooldownSeconds: 300,
+            level: 'warning',
+            metric: 'cpu.usagePercent',
+            threshold: 90,
+          }
+        }
+        onFinish={onFinish}
       >
-        <Form form={form} layout="vertical" preserve={false}>
-          <Form.Item name="name" label="名称" rules={[{ required: true }]}>
-            <Input placeholder="CPU 持续高负载" />
-          </Form.Item>
-          <Form.Item name="description" label="说明">
-            <Input placeholder="用于…（可选）" />
-          </Form.Item>
-          <Form.Item name="metric" label="指标" rules={[{ required: true }]}>
-            <Select options={METRIC_OPTIONS} />
-          </Form.Item>
-          <Form.Item noStyle shouldUpdate={(p, c) => p.metric !== c.metric}>
-            {({ getFieldValue }) => {
-              const metric: string = getFieldValue('metric') || '';
-              const isCustom = metric.startsWith('custom.');
-              const isPreset = !isCustom && METRIC_OPTIONS.some((o) => o.value === metric);
-              return (
-                <Form.Item
-                  name="metric"
-                  label={isCustom ? '自定义指标 key' : undefined}
-                  rules={[
-                    { required: true },
-                    // addonBefore 仅是装饰，值不带前缀提交后规则永不命中，
-                    // 改为校验拦截（值本身含前缀，避免 addon 再叠一层显示）。
-                    ...(isCustom
-                      ? [
-                          {
-                            pattern: /^custom\./,
-                            message: '自定义指标需以 custom. 开头（如 custom.queueDepth）',
-                          },
-                        ]
-                      : []),
-                  ]}
-                  style={isPreset ? { display: 'none' } : undefined}
-                >
-                  {isCustom ? (
-                    <Input placeholder="custom.queueDepth" />
-                  ) : (
-                    <Input placeholder="disk./data.usedPercent 或 custom.queueDepth" />
-                  )}
-                </Form.Item>
-              );
-            }}
-          </Form.Item>
-          <Form.Item name="operator" label="比较" rules={[{ required: true }]}>
-            <Select options={OPERATOR_OPTIONS} style={{ width: 160 }} />
-          </Form.Item>
-          <Form.Item name="threshold" label="阈值" rules={[{ required: true }]}>
-            <InputNumber style={{ width: '100%' }} placeholder="90" />
-          </Form.Item>
-          <Form.Item name="forCount" label="连续命中次数（>1 表示持续窗口）" initialValue={1}>
-            <InputNumber min={1} max={60} style={{ width: '100%' }} />
-          </Form.Item>
-          <Form.Item name="cooldownSeconds" label="冷却（秒）" initialValue={300}>
-            <InputNumber min={60} max={86400} style={{ width: '100%' }} />
-          </Form.Item>
-          <Form.Item name="level" label="级别" initialValue="warning">
-            <Select
-              options={[
-                { label: '提示 info', value: 'info' },
-                { label: '警告 warning', value: 'warning' },
-                { label: '严重 critical', value: 'critical' },
-              ]}
-              style={{ width: 200 }}
-            />
-          </Form.Item>
-          <Form.Item name="agentFilter" label="限定 Agent（空 = 全部）">
-            <Input placeholder="agent-1" />
-          </Form.Item>
-        </Form>
-      </Modal>
+        <Form.Item name="name" label="名称" rules={[{ required: true }]}>
+          <Input placeholder="CPU 持续高负载" />
+        </Form.Item>
+        <Form.Item name="description" label="说明">
+          <Input placeholder="用于…（可选）" />
+        </Form.Item>
+        <Form.Item name="metric" label="指标" rules={[{ required: true }]}>
+          <Select options={METRIC_OPTIONS} />
+        </Form.Item>
+        <Form.Item noStyle shouldUpdate={(p, c) => p.metric !== c.metric}>
+          {({ getFieldValue }) => {
+            const metric: string = getFieldValue('metric') || '';
+            const isCustom = metric.startsWith('custom.');
+            const isPreset = !isCustom && METRIC_OPTIONS.some((o) => o.value === metric);
+            return (
+              <Form.Item
+                name="metric"
+                label={isCustom ? '自定义指标 key' : undefined}
+                rules={[
+                  { required: true },
+                  // addonBefore 仅是装饰，值不带前缀提交后规则永不命中，
+                  // 改为校验拦截（值本身含前缀，避免 addon 再叠一层显示）。
+                  ...(isCustom
+                    ? [
+                        {
+                          pattern: /^custom\./,
+                          message: '自定义指标需以 custom. 开头（如 custom.queueDepth）',
+                        },
+                      ]
+                    : []),
+                ]}
+                style={isPreset ? { display: 'none' } : undefined}
+              >
+                {isCustom ? (
+                  <Input placeholder="custom.queueDepth" />
+                ) : (
+                  <Input placeholder="disk./data.usedPercent 或 custom.queueDepth" />
+                )}
+              </Form.Item>
+            );
+          }}
+        </Form.Item>
+        <Form.Item name="operator" label="比较" rules={[{ required: true }]}>
+          <Select options={OPERATOR_OPTIONS} style={{ width: 160 }} />
+        </Form.Item>
+        <Form.Item name="threshold" label="阈值" rules={[{ required: true }]}>
+          <InputNumber style={{ width: '100%' }} placeholder="90" />
+        </Form.Item>
+        <Form.Item name="forCount" label="连续命中次数（>1 表示持续窗口）" initialValue={1}>
+          <InputNumber min={1} max={60} style={{ width: '100%' }} />
+        </Form.Item>
+        <Form.Item name="cooldownSeconds" label="冷却（秒）" initialValue={300}>
+          <InputNumber min={60} max={86400} style={{ width: '100%' }} />
+        </Form.Item>
+        <Form.Item name="level" label="级别" initialValue="warning">
+          <Select
+            options={[
+              { label: '提示 info', value: 'info' },
+              { label: '警告 warning', value: 'warning' },
+              { label: '严重 critical', value: 'critical' },
+            ]}
+            style={{ width: 200 }}
+          />
+        </Form.Item>
+        <Form.Item name="agentFilter" label="限定 Agent（空 = 全部）">
+          <Input placeholder="agent-1" />
+        </Form.Item>
+      </ModalForm>
     </>
   );
 }

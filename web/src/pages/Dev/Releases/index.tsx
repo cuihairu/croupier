@@ -15,6 +15,7 @@ import {
   Upload,
 } from 'antd';
 import {
+  ModalForm,
   PageContainer,
   ProTable,
   type ActionType,
@@ -38,6 +39,14 @@ import { extractErrorMessage } from '@/utils/errors';
 
 const { Text } = Typography;
 
+/** 版本表单值：gameId 由请求拦截器 X-Game-ID header 注入，表单不产生该字段 */
+type ReleaseFormValues = {
+  version: string;
+  channel: string;
+  platform: string;
+  type?: string;
+};
+
 function formatSize(bytes?: number): string {
   if (!bytes) return '-';
   if (bytes > 1024 * 1024) return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
@@ -52,8 +61,6 @@ export default function DevReleasesPage() {
   const [status, setStatus] = useState('');
   const [platform, setPlatform] = useState('');
   const [createOpen, setCreateOpen] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [form] = Form.useForm();
   const [grayTarget, setGrayTarget] = useState<Release | null>(null);
   const [grayValue, setGrayValue] = useState(10);
   const actionRef = useRef<ActionType | undefined>(undefined);
@@ -62,18 +69,17 @@ export default function DevReleasesPage() {
 
   const reload = () => actionRef.current?.reload();
 
-  const submitCreate = async () => {
-    const v = await form.validateFields();
-    setSaving(true);
+  const onFinish = async (v: ReleaseFormValues) => {
     try {
-      await createRelease(v);
+      // createRelease 契约要求 gameId 必填，但实际路由依赖 X-Game-ID header；
+      // 原实现 body 即不含 gameId（Go json 解析缺省同为零值 ""），显式空串等价
+      await createRelease({ ...v, gameId: '' });
       message.success('版本已创建（草稿）');
-      setCreateOpen(false);
       reload();
+      return true;
     } catch (error) {
       message.error(extractErrorMessage(error, '创建失败'));
-    } finally {
-      setSaving(false);
+      return false;
     }
   };
 
@@ -277,14 +283,7 @@ export default function DevReleasesPage() {
               刷新
             </Button>
             {canManage ? (
-              <Button
-                type="primary"
-                icon={<PlusOutlined />}
-                onClick={() => {
-                  form.resetFields();
-                  setCreateOpen(true);
-                }}
-              >
+              <Button type="primary" icon={<PlusOutlined />} onClick={() => setCreateOpen(true)}>
                 创建版本
               </Button>
             ) : null}
@@ -323,53 +322,44 @@ export default function DevReleasesPage() {
         />
       </Card>
 
-      <Modal
+      <ModalForm<ReleaseFormValues>
         title="创建版本"
         open={createOpen}
-        onCancel={() => setCreateOpen(false)}
-        footer={
-          <Space>
-            <Button onClick={() => setCreateOpen(false)}>取消</Button>
-            <Button type="primary" loading={saving} onClick={submitCreate}>
-              创建
-            </Button>
-          </Space>
-        }
-        destroyOnHidden
+        onOpenChange={setCreateOpen}
+        modalProps={{ destroyOnHidden: true }}
+        width={520}
+        layout="vertical"
+        submitter={{ searchConfig: { submitText: '创建' } }}
+        initialValues={{ type: 'full' }}
+        onFinish={onFinish}
       >
-        <Form form={form} layout="vertical" initialValues={{ type: 'full' }}>
-          <Form.Item
-            name="version"
-            label="版本号"
-            rules={[{ required: true, message: '如 1.5.0' }]}
-          >
-            <Input placeholder="1.5.0" />
+        <Form.Item name="version" label="版本号" rules={[{ required: true, message: '如 1.5.0' }]}>
+          <Input placeholder="1.5.0" />
+        </Form.Item>
+        <Space>
+          <Form.Item name="channel" label="渠道" initialValue="official">
+            <Input style={{ width: 140 }} />
           </Form.Item>
-          <Space>
-            <Form.Item name="channel" label="渠道" initialValue="official">
-              <Input style={{ width: 140 }} />
-            </Form.Item>
-            <Form.Item name="platform" label="平台" rules={[{ required: true }]}>
-              <Select
-                style={{ width: 120 }}
-                options={Object.entries(releasePlatformLabels).map(([value, label]) => ({
-                  label,
-                  value,
-                }))}
-              />
-            </Form.Item>
-            <Form.Item name="type" label="类型">
-              <Select
-                style={{ width: 100 }}
-                options={Object.entries(releaseTypeLabels).map(([value, label]) => ({
-                  label,
-                  value,
-                }))}
-              />
-            </Form.Item>
-          </Space>
-        </Form>
-      </Modal>
+          <Form.Item name="platform" label="平台" rules={[{ required: true }]}>
+            <Select
+              style={{ width: 120 }}
+              options={Object.entries(releasePlatformLabels).map(([value, label]) => ({
+                label,
+                value,
+              }))}
+            />
+          </Form.Item>
+          <Form.Item name="type" label="类型">
+            <Select
+              style={{ width: 100 }}
+              options={Object.entries(releaseTypeLabels).map(([value, label]) => ({
+                label,
+                value,
+              }))}
+            />
+          </Form.Item>
+        </Space>
+      </ModalForm>
 
       <Modal
         title={

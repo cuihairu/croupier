@@ -8,7 +8,6 @@ import {
   Empty,
   Form,
   Input,
-  Modal,
   Popconfirm,
   Row,
   Select,
@@ -17,7 +16,7 @@ import {
   Tag,
   Typography,
 } from 'antd';
-import { PageContainer } from '@ant-design/pro-components';
+import { ModalForm, PageContainer } from '@ant-design/pro-components';
 import {
   AppstoreOutlined,
   BookOutlined,
@@ -43,9 +42,57 @@ import {
   type ToolItem,
 } from '@/services/api/tools';
 import { extractErrorMessage } from '@/utils/errors';
-import { getScope } from '@/stores/scope';
+import { getScope, type Scope } from '@/stores/scope';
 
 const { Paragraph, Text } = Typography;
+
+/** 工具表单值：scopeMode 为前端作用域选择器专用字段，随表单原样提交（后端忽略） */
+type ToolFormValues = {
+  name: string;
+  url: string;
+  description?: string;
+  category?: string;
+  scopeMode?: string;
+  gameId?: string;
+  env?: string;
+  sort?: number;
+  enabled?: boolean;
+};
+
+/** 作用域切换联动：经 useFormInstance 取 ModalForm 托管的表单实例，切换时回填/清空 gameId/env */
+function ScopeModeSelect({ scope }: { scope: Scope }) {
+  const form = Form.useFormInstance<ToolFormValues>();
+  return (
+    <Select
+      options={[
+        { label: '全局（所有游戏可见）', value: 'global' },
+        { label: `当前游戏环境（${scope.gameId || '-'}/${scope.env || '-'})`, value: 'scoped' },
+      ]}
+      onChange={(mode) => {
+        if (mode === 'global') {
+          form.setFieldsValue({ gameId: '', env: '' });
+        } else {
+          form.setFieldsValue({ gameId: scope.gameId, env: scope.env });
+        }
+      }}
+    />
+  );
+}
+
+/** 作用域为「当前游戏环境」时才展示 gameId/env 输入（读表单当前值联动渲染） */
+function ScopedEnvFields() {
+  const form = Form.useFormInstance<ToolFormValues>();
+  return form.getFieldValue('scopeMode') === 'scoped' ? (
+    <Space>
+      <Form.Item name="gameId" label="gameId" style={{ marginBottom: 12 }}>
+        <Input style={{ width: 160 }} />
+      </Form.Item>
+      <Form.Item name="env" label="env" style={{ marginBottom: 12 }}>
+        <Input style={{ width: 120 }} />
+      </Form.Item>
+    </Space>
+  ) : null;
+}
 
 function categoryIcon(category: string): React.ReactNode {
   switch (category) {
@@ -74,8 +121,6 @@ export default function DevToolsPage() {
   const [loading, setLoading] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<ToolItem | null>(null);
-  const [saving, setSaving] = useState(false);
-  const [form] = Form.useForm();
 
   const scope = getScope();
 
@@ -110,30 +155,19 @@ export default function DevToolsPage() {
       .map((c) => ({ category: c as ToolCategory, items: map.get(c)! }));
   }, [tools]);
 
+  // destroyOnHidden 使弹窗每次关闭即卸载表单，重开时按最新 initialValues
+  // 重新挂载，新增/编辑切换不会残留上一次的预填值
   const openCreate = () => {
     setEditing(null);
-    form.resetFields();
     setModalOpen(true);
   };
 
   const openEdit = (tool: ToolItem) => {
     setEditing(tool);
-    form.setFieldsValue({
-      name: tool.name,
-      url: tool.url,
-      description: tool.description,
-      category: tool.category,
-      gameId: tool.gameId,
-      env: tool.env,
-      sort: tool.sort,
-      enabled: tool.enabled,
-    });
     setModalOpen(true);
   };
 
-  const submit = async () => {
-    const v = await form.validateFields();
-    setSaving(true);
+  const onFinish = async (v: ToolFormValues) => {
     try {
       if (editing) {
         await updateTool(editing.id, v);
@@ -142,12 +176,11 @@ export default function DevToolsPage() {
         await createTool(v);
         message.success('工具已登记');
       }
-      setModalOpen(false);
       load();
+      return true;
     } catch (error) {
       message.error(extractErrorMessage(error, '保存失败'));
-    } finally {
-      setSaving(false);
+      return false;
     }
   };
 
@@ -273,88 +306,59 @@ export default function DevToolsPage() {
         )}
       </Card>
 
-      <Modal
+      <ModalForm<ToolFormValues>
         title={editing ? `编辑工具：${editing.name}` : '登记内部工具'}
         open={modalOpen}
-        onCancel={() => setModalOpen(false)}
-        footer={
-          <Space>
-            <Button onClick={() => setModalOpen(false)}>取消</Button>
-            <Button type="primary" loading={saving} onClick={submit}>
-              保存
-            </Button>
-          </Space>
+        onOpenChange={setModalOpen}
+        modalProps={{ destroyOnHidden: true }}
+        width={520}
+        layout="vertical"
+        submitter={{ searchConfig: { submitText: '保存' } }}
+        // scopeMode 原挂在 Form.Item initialValue（依赖挂载时 editing 状态求值），
+        // 收敛到这里随新增/编辑一次性确定；gameId/env 由 ScopeModeSelect 联动回填
+        initialValues={
+          editing
+            ? { ...editing, scopeMode: editing.gameId ? 'scoped' : 'global' }
+            : { category: 'ci', sort: 0, scopeMode: 'global' }
         }
-        destroyOnHidden
+        onFinish={onFinish}
       >
-        <Form form={form} layout="vertical" initialValues={{ category: 'ci', sort: 0 }}>
-          <Form.Item name="name" label="名称" rules={[{ required: true, message: '请输入名称' }]}>
-            <Input placeholder="如 Jenkins / GitLab / Grafana" />
+        <Form.Item name="name" label="名称" rules={[{ required: true, message: '请输入名称' }]}>
+          <Input placeholder="如 Jenkins / GitLab / Grafana" />
+        </Form.Item>
+        <Form.Item
+          name="url"
+          label="地址"
+          rules={[
+            { required: true, message: '请输入地址' },
+            {
+              pattern: /^https?:\/\//,
+              message: '必须以 http:// 或 https:// 开头',
+            },
+          ]}
+        >
+          <Input placeholder="https://ci.example.com" />
+        </Form.Item>
+        <Form.Item name="category" label="分类">
+          <Select
+            options={toolCategoryOrder.map((c) => ({ label: toolCategoryLabels[c], value: c }))}
+          />
+        </Form.Item>
+        <Form.Item name="description" label="描述">
+          <Input placeholder="可选" />
+        </Form.Item>
+        <Form.Item name="scopeMode" label="作用域">
+          <ScopeModeSelect scope={scope} />
+        </Form.Item>
+        <Form.Item noStyle shouldUpdate>
+          {() => <ScopedEnvFields />}
+        </Form.Item>
+        {editing ? (
+          <Form.Item name="enabled" label="启用" valuePropName="checked">
+            <Switch />
           </Form.Item>
-          <Form.Item
-            name="url"
-            label="地址"
-            rules={[
-              { required: true, message: '请输入地址' },
-              {
-                pattern: /^https?:\/\//,
-                message: '必须以 http:// 或 https:// 开头',
-              },
-            ]}
-          >
-            <Input placeholder="https://ci.example.com" />
-          </Form.Item>
-          <Form.Item name="category" label="分类">
-            <Select
-              options={toolCategoryOrder.map((c) => ({ label: toolCategoryLabels[c], value: c }))}
-            />
-          </Form.Item>
-          <Form.Item name="description" label="描述">
-            <Input placeholder="可选" />
-          </Form.Item>
-          <Form.Item
-            name="scopeMode"
-            label="作用域"
-            initialValue={editing?.gameId ? 'scoped' : 'global'}
-          >
-            <Select
-              options={[
-                { label: '全局（所有游戏可见）', value: 'global' },
-                {
-                  label: `当前游戏环境（${scope?.gameId || '-'}/${scope?.env || '-'}）`,
-                  value: 'scoped',
-                },
-              ]}
-              onChange={(mode) => {
-                if (mode === 'global') {
-                  form.setFieldsValue({ gameId: '', env: '' });
-                } else {
-                  form.setFieldsValue({ gameId: scope?.gameId, env: scope?.env });
-                }
-              }}
-            />
-          </Form.Item>
-          <Form.Item noStyle shouldUpdate>
-            {() =>
-              form.getFieldValue('scopeMode') === 'scoped' ? (
-                <Space>
-                  <Form.Item name="gameId" label="gameId" style={{ marginBottom: 12 }}>
-                    <Input style={{ width: 160 }} />
-                  </Form.Item>
-                  <Form.Item name="env" label="env" style={{ marginBottom: 12 }}>
-                    <Input style={{ width: 120 }} />
-                  </Form.Item>
-                </Space>
-              ) : null
-            }
-          </Form.Item>
-          {editing ? (
-            <Form.Item name="enabled" label="启用" valuePropName="checked">
-              <Switch />
-            </Form.Item>
-          ) : null}
-        </Form>
-      </Modal>
+        ) : null}
+      </ModalForm>
     </PageContainer>
   );
 }

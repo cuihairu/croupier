@@ -17,6 +17,7 @@ import {
   Typography,
 } from 'antd';
 import {
+  ModalForm,
   PageContainer,
   ProTable,
   type ActionType,
@@ -59,6 +60,21 @@ const { Paragraph, Text } = Typography;
 
 type LinkFormValue = { url: string; kind: BugLink['kind'] };
 
+/** 缺陷表单值：title 由 required rule 保证非空；links 由弹窗外部的链接编辑器 state 拼装 */
+type BugFormValues = {
+  title: string;
+  content?: string;
+  status?: string;
+  severity?: string;
+  priority?: string;
+  assignee?: string;
+  platform?: string;
+  steps?: string;
+  reproducibility?: string;
+  affectsVersion?: string;
+  fixVersion?: string;
+};
+
 function linkIcon(kind: string): React.ReactNode {
   switch (kind) {
     case 'github_issue':
@@ -91,8 +107,6 @@ export default function DevBugsPage() {
   const [detail, setDetail] = useState<BugItem | null>(null);
   const [editing, setEditing] = useState<BugItem | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [form] = Form.useForm();
   const [linkDraft, setLinkDraft] = useState<LinkFormValue>({ url: '', kind: 'github_issue' });
   const [pendingLinks, setPendingLinks] = useState<BugLink[]>([]);
   const [currentLinks, setCurrentLinks] = useState<BugLink[]>([]);
@@ -118,29 +132,17 @@ export default function DevBugsPage() {
     [users],
   );
 
+  // destroyOnHidden 使弹窗每次关闭即卸载表单，重开时按最新 initialValues
+  // 重新挂载，新增/编辑切换不会残留上一次的预填值
   const openCreate = () => {
     setEditing(null);
     setPendingLinks([]);
-    form.resetFields();
     setDrawerOpen(true);
   };
 
   const openEdit = (bug: BugItem) => {
     setEditing(bug);
     setPendingLinks(bug.links || []);
-    form.setFieldsValue({
-      title: bug.title,
-      content: bug.content,
-      status: bug.status,
-      severity: bug.severity,
-      priority: bug.priority,
-      assignee: bug.assignee,
-      platform: bug.platform,
-      steps: bug.steps,
-      reproducibility: bug.reproducibility,
-      affectsVersion: bug.affectsVersion,
-      fixVersion: bug.fixVersion,
-    });
     setDrawerOpen(true);
   };
 
@@ -154,9 +156,7 @@ export default function DevBugsPage() {
     setLinkDraft({ url: '', kind: 'github_issue' });
   };
 
-  const submit = async () => {
-    const v = await form.validateFields();
-    setSaving(true);
+  const onFinish = async (v: BugFormValues) => {
     try {
       if (editing) {
         await updateBug(editing.id, { ...v, links: pendingLinks });
@@ -165,12 +165,11 @@ export default function DevBugsPage() {
         await createBug({ ...v, links: pendingLinks, source: 'internal' });
         message.success('缺陷已提交');
       }
-      setDrawerOpen(false);
       reload();
+      return true;
     } catch (error) {
       message.error(extractErrorMessage(error, editing ? '更新失败' : '提交失败'));
-    } finally {
-      setSaving(false);
+      return false;
     }
   };
 
@@ -436,148 +435,144 @@ export default function DevBugsPage() {
         />
       </Card>
 
-      <Modal
+      <ModalForm<BugFormValues>
         title={editing ? `编辑缺陷 #${editing.id}` : '提交缺陷'}
         width={720}
         open={drawerOpen}
-        onCancel={() => setDrawerOpen(false)}
-        footer={
-          <Space>
-            <Button onClick={() => setDrawerOpen(false)}>取消</Button>
-            <Button type="primary" loading={saving} onClick={submit}>
-              保存
-            </Button>
-          </Space>
-        }
-        destroyOnHidden
+        onOpenChange={setDrawerOpen}
+        modalProps={{ destroyOnHidden: true }}
+        layout="vertical"
+        submitter={{ searchConfig: { submitText: '保存' } }}
+        // status 默认 triage 原挂在 Form.Item initialValue 上，收敛到这里统一
+        // 预填来源，避免与编辑记录的 status 产生初始值优先级歧义
+        initialValues={editing ?? { status: 'triage' }}
+        onFinish={onFinish}
       >
-        <Form form={form} layout="vertical">
-          <Row gutter={12}>
-            <Col span={12}>
-              <Form.Item
-                name="title"
-                label="标题"
-                rules={[{ required: true, message: '请输入标题' }]}
-              >
-                <Input placeholder="一句话描述缺陷" />
-              </Form.Item>
-            </Col>
-            <Col span={6}>
-              <Form.Item name="severity" label="严重度">
-                <Select
-                  allowClear
-                  placeholder="严重度"
-                  options={Object.entries(bugSeverityLabels).map(([value, label]) => ({
-                    label,
-                    value,
-                  }))}
-                />
-              </Form.Item>
-            </Col>
-            <Col span={6}>
-              <Form.Item name="priority" label="优先级">
-                <Select
-                  allowClear
-                  placeholder="优先级"
-                  options={Object.entries(bugPriorityLabels).map(([value, label]) => ({
-                    label,
-                    value,
-                  }))}
-                />
-              </Form.Item>
-            </Col>
-          </Row>
-          <Form.Item name="content" label="详细描述">
-            <Input.TextArea rows={3} placeholder="现象、期望行为、实际行为" />
-          </Form.Item>
-          <Form.Item name="steps" label="复现步骤">
-            <Input.TextArea
-              rows={3}
-              placeholder="1. ...&#10;2. ...&#10;3. ..."
-            />
-          </Form.Item>
-          <Row gutter={12}>
-            <Col span={8}>
-              <Form.Item name="reproducibility" label="复现率">
-                <Select
-                  allowClear
-                  placeholder="复现率"
-                  options={Object.entries(bugReproducibilityLabels).map(([value, label]) => ({
-                    label,
-                    value,
-                  }))}
-                />
-              </Form.Item>
-            </Col>
-            <Col span={8}>
-              <Form.Item name="affectsVersion" label="影响版本">
-                <Input placeholder="如 1.4.2" />
-              </Form.Item>
-            </Col>
-            <Col span={8}>
-              <Form.Item name="fixVersion" label="修复版本">
-                <Input placeholder="如 1.4.3" />
-              </Form.Item>
-            </Col>
-          </Row>
-          <Row gutter={12}>
-            <Col span={8}>
-              <Form.Item name="platform" label="平台">
-                <Select allowClear placeholder="平台" options={bugPlatformOptions} />
-              </Form.Item>
-            </Col>
-            <Col span={8}>
-              <Form.Item name="assignee" label="负责人">
-                <Select allowClear showSearch placeholder="负责人" options={adminOptions} />
-              </Form.Item>
-            </Col>
-            <Col span={8}>
-              <Form.Item name="status" label="状态" initialValue="triage">
-                <Select
-                  placeholder="状态"
-                  options={[...BUG_STATUS_FLOW, ...BUG_STATUS_TERMINALS].map((s) => ({
-                    label: bugStatusLabels[s],
-                    value: s,
-                  }))}
-                />
-              </Form.Item>
-            </Col>
-          </Row>
-          <Form.Item label="外部链接（GitHub Issue/PR、Wiki、监控面板…）" required={false}>
-            <Space.Compact style={{ width: '100%', marginBottom: 8 }}>
+        <Row gutter={12}>
+          <Col span={12}>
+            <Form.Item
+              name="title"
+              label="标题"
+              rules={[{ required: true, message: '请输入标题' }]}
+            >
+              <Input placeholder="一句话描述缺陷" />
+            </Form.Item>
+          </Col>
+          <Col span={6}>
+            <Form.Item name="severity" label="严重度">
               <Select
-                value={linkDraft.kind}
-                onChange={(kind) => setLinkDraft((prev) => ({ ...prev, kind }))}
-                style={{ width: 160 }}
-                options={bugLinkKindOptions}
+                allowClear
+                placeholder="严重度"
+                options={Object.entries(bugSeverityLabels).map(([value, label]) => ({
+                  label,
+                  value,
+                }))}
               />
-              <Input
-                placeholder="https://github.com/owner/repo/issues/1"
-                value={linkDraft.url}
-                onChange={(e) => setLinkDraft((prev) => ({ ...prev, url: e.target.value }))}
-                onPressEnter={addLink}
+            </Form.Item>
+          </Col>
+          <Col span={6}>
+            <Form.Item name="priority" label="优先级">
+              <Select
+                allowClear
+                placeholder="优先级"
+                options={Object.entries(bugPriorityLabels).map(([value, label]) => ({
+                  label,
+                  value,
+                }))}
               />
-              <Button onClick={addLink}>添加</Button>
-            </Space.Compact>
-            {pendingLinks.length > 0 ? (
-              <Space wrap>
-                {pendingLinks.map((l, i) => (
-                  <Tag
-                    key={`${l.url}-${i}`}
-                    closable
-                    onClose={() => setPendingLinks((prev) => prev.filter((_, idx) => idx !== i))}
-                    icon={linkIcon(l.kind)}
-                  >
-                    {l.title || l.url}
-                  </Tag>
-                ))}
-              </Space>
-            ) : (
-              <Text type="secondary">暂无链接；GitHub 链接会自动生成「owner/repo#编号」标题</Text>
-            )}
-          </Form.Item>
-        </Form>
-      </Modal>
+            </Form.Item>
+          </Col>
+        </Row>
+        <Form.Item name="content" label="详细描述">
+          <Input.TextArea rows={3} placeholder="现象、期望行为、实际行为" />
+        </Form.Item>
+        <Form.Item name="steps" label="复现步骤">
+          <Input.TextArea
+            rows={3}
+            placeholder="1. ...&#10;2. ...&#10;3. ..."
+          />
+        </Form.Item>
+        <Row gutter={12}>
+          <Col span={8}>
+            <Form.Item name="reproducibility" label="复现率">
+              <Select
+                allowClear
+                placeholder="复现率"
+                options={Object.entries(bugReproducibilityLabels).map(([value, label]) => ({
+                  label,
+                  value,
+                }))}
+              />
+            </Form.Item>
+          </Col>
+          <Col span={8}>
+            <Form.Item name="affectsVersion" label="影响版本">
+              <Input placeholder="如 1.4.2" />
+            </Form.Item>
+          </Col>
+          <Col span={8}>
+            <Form.Item name="fixVersion" label="修复版本">
+              <Input placeholder="如 1.4.3" />
+            </Form.Item>
+          </Col>
+        </Row>
+        <Row gutter={12}>
+          <Col span={8}>
+            <Form.Item name="platform" label="平台">
+              <Select allowClear placeholder="平台" options={bugPlatformOptions} />
+            </Form.Item>
+          </Col>
+          <Col span={8}>
+            <Form.Item name="assignee" label="负责人">
+              <Select allowClear showSearch placeholder="负责人" options={adminOptions} />
+            </Form.Item>
+          </Col>
+          <Col span={8}>
+            <Form.Item name="status" label="状态">
+              <Select
+                placeholder="状态"
+                options={[...BUG_STATUS_FLOW, ...BUG_STATUS_TERMINALS].map((s) => ({
+                  label: bugStatusLabels[s],
+                  value: s,
+                }))}
+              />
+            </Form.Item>
+          </Col>
+        </Row>
+        <Form.Item label="外部链接（GitHub Issue/PR、Wiki、监控面板…）" required={false}>
+          <Space.Compact style={{ width: '100%', marginBottom: 8 }}>
+            <Select
+              value={linkDraft.kind}
+              onChange={(kind) => setLinkDraft((prev) => ({ ...prev, kind }))}
+              style={{ width: 160 }}
+              options={bugLinkKindOptions}
+            />
+            <Input
+              placeholder="https://github.com/owner/repo/issues/1"
+              value={linkDraft.url}
+              onChange={(e) => setLinkDraft((prev) => ({ ...prev, url: e.target.value }))}
+              onPressEnter={addLink}
+            />
+            <Button onClick={addLink}>添加</Button>
+          </Space.Compact>
+          {pendingLinks.length > 0 ? (
+            <Space wrap>
+              {pendingLinks.map((l, i) => (
+                <Tag
+                  key={`${l.url}-${i}`}
+                  closable
+                  onClose={() => setPendingLinks((prev) => prev.filter((_, idx) => idx !== i))}
+                  icon={linkIcon(l.kind)}
+                >
+                  {l.title || l.url}
+                </Tag>
+              ))}
+            </Space>
+          ) : (
+            <Text type="secondary">暂无链接；GitHub 链接会自动生成「owner/repo#编号」标题</Text>
+          )}
+        </Form.Item>
+      </ModalForm>
 
       <Modal
         title={detail ? `#${detail.id} ${detail.title}` : ''}

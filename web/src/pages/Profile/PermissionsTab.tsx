@@ -1,23 +1,15 @@
-import { useCallback, useState } from 'react';
-import {
-  Alert,
-  Button,
-  Card,
-  Form,
-  Input,
-  List,
-  Modal,
-  Space,
-  Tag,
-  Typography,
-  message,
-} from 'antd';
+import { useCallback, useRef, useState } from 'react';
+import { Alert, Button, Card, Form, Input, List, Space, Tag, Typography, message } from 'antd';
+import type { FormInstance } from 'antd';
+import { ModalForm } from '@ant-design/pro-components';
 import { CopyOutlined } from '@ant-design/icons';
 import { useIntl, useNavigate } from '@umijs/max';
 import { createFeedback } from '@/services/api/support';
 import type { PermissionApplyItem } from './shared';
 
 const { Text } = Typography;
+
+type ApplyFormValues = { reason: string };
 
 /** 权限 Tab：已有权限汇总 + 可申请权限列表 + 申请弹窗（复制申请文案/提交反馈工单）。 */
 export default function PermissionsTab({
@@ -34,14 +26,14 @@ export default function PermissionsTab({
   const intl = useIntl();
   const navigate = useNavigate();
   const formatMessage = useCallback((id: string) => intl.formatMessage({ id }), [intl]);
-  const [applyForm] = Form.useForm();
+  // 「复制申请文案」按钮在弹窗外定义、只做校验+取值不提交；formRef 指向当前
+  // 挂载的表单实例（destroyOnHidden 下每次打开都是新实例）
+  const formRef = useRef<FormInstance<ApplyFormValues> | undefined>(undefined);
   const [modalVisible, setModalVisible] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
   const [selected, setSelected] = useState<PermissionApplyItem | null>(null);
 
   const handleOpenApply = (item: PermissionApplyItem) => {
     setSelected(item);
-    applyForm.resetFields();
     setModalVisible(true);
   };
 
@@ -57,16 +49,16 @@ export default function PermissionsTab({
   };
 
   const handleCopyApplyContent = async () => {
-    const values = await applyForm.validateFields();
+    const form = formRef.current;
+    if (!form) return;
+    const values = await form.validateFields();
     const content = buildApplyContent(String(values.reason ?? ''));
     await navigator.clipboard.writeText(content);
     message.success(formatMessage('profile.permissions.apply.copy.success'));
   };
 
-  const handleSubmitApply = async () => {
-    const values = await applyForm.validateFields();
+  const handleFinishApply = async (values: ApplyFormValues) => {
     const content = buildApplyContent(String(values.reason ?? ''));
-    setSubmitting(true);
     try {
       await createFeedback({
         category: 'permission_request',
@@ -75,13 +67,12 @@ export default function PermissionsTab({
         source: 'profile_permission_apply',
       });
       message.success(formatMessage('profile.permissions.apply.submit.success'));
-      setModalVisible(false);
+      return true;
     } catch {
       // 部分环境可能未开放反馈写入，降级为复制文案+人工提交流程
       await navigator.clipboard.writeText(content);
       message.warning(formatMessage('profile.permissions.apply.submit.fallback'));
-    } finally {
-      setSubmitting(false);
+      return false;
     }
   };
 
@@ -153,17 +144,17 @@ export default function PermissionsTab({
           />
         </Card>
       </Space>
-      <Modal
+      <ModalForm<ApplyFormValues>
         open={modalVisible}
-        forceRender
+        onOpenChange={setModalVisible}
+        formRef={formRef}
         title={formatMessage('profile.permissions.apply.modal.title')}
-        onCancel={() => {
-          setModalVisible(false);
-          applyForm.resetFields();
+        modalProps={{ destroyOnHidden: true }}
+        width={520}
+        submitter={{
+          searchConfig: { submitText: formatMessage('profile.permissions.apply.modal.submit') },
         }}
-        onOk={() => handleSubmitApply().catch(() => {})}
-        okText={formatMessage('profile.permissions.apply.modal.submit')}
-        confirmLoading={submitting}
+        onFinish={handleFinishApply}
       >
         <Space orientation="vertical" style={{ width: '100%' }} size={12}>
           {selected && (
@@ -174,23 +165,21 @@ export default function PermissionsTab({
               description={`${selected.resource}:${selected.action}`}
             />
           )}
-          <Form form={applyForm} layout="vertical">
-            <Form.Item
-              name="reason"
-              label={formatMessage('profile.permissions.apply.reason')}
-              rules={[
-                {
-                  required: true,
-                  message: formatMessage('profile.permissions.apply.reason.required'),
-                },
-              ]}
-            >
-              <Input.TextArea
-                rows={4}
-                placeholder={formatMessage('profile.permissions.apply.reason.placeholder')}
-              />
-            </Form.Item>
-          </Form>
+          <Form.Item
+            name="reason"
+            label={formatMessage('profile.permissions.apply.reason')}
+            rules={[
+              {
+                required: true,
+                message: formatMessage('profile.permissions.apply.reason.required'),
+              },
+            ]}
+          >
+            <Input.TextArea
+              rows={4}
+              placeholder={formatMessage('profile.permissions.apply.reason.placeholder')}
+            />
+          </Form.Item>
           <Space>
             <Button
               icon={<CopyOutlined />}
@@ -207,7 +196,7 @@ export default function PermissionsTab({
             </Button>
           </Space>
         </Space>
-      </Modal>
+      </ModalForm>
     </>
   );
 }

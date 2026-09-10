@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Card, Table, Space, Button, Tag, Modal, Form, Input, Select, App } from 'antd';
-import { PageContainer } from '@ant-design/pro-components';
+import { ModalForm, PageContainer } from '@ant-design/pro-components';
 import {
   createOpsBackup,
   deleteOpsBackup,
@@ -8,6 +8,9 @@ import {
   listOpsBackups,
   type OpsBackup,
 } from '@/services/api/ops';
+
+/** 备份表单值：类型必选，目标连接串可选 */
+type BackupFormValues = { kind: string; target?: string };
 
 export default function OpsBackupsPage() {
   const { message } = App.useApp();
@@ -27,15 +30,16 @@ export default function OpsBackupsPage() {
   }, []);
 
   const [open, setOpen] = useState(false);
-  const [form] = Form.useForm<{ kind: string; target?: string }>();
-  const create = async () => {
+  const onFinish = async (v: BackupFormValues) => {
     try {
-      const v = await form.validateFields();
       await createOpsBackup(v);
       message.success('已创建');
-      setOpen(false);
       setTimeout(load, 500);
-    } catch {}
+      return true;
+    } catch {
+      // 原实现无本地弹错（静默 catch，全局拦截器已 toast），失败时弹窗保持开启
+      return false;
+    }
   };
   const del = async (r: OpsBackup) => {
     try {
@@ -60,7 +64,6 @@ export default function OpsBackupsPage() {
             <Button
               type="primary"
               onClick={() => {
-                form.resetFields();
                 setOpen(true);
               }}
             >
@@ -107,29 +110,30 @@ export default function OpsBackupsPage() {
         />
       </Card>
 
-      <Modal
+      <ModalForm<BackupFormValues>
         open={open}
         title="创建备份"
-        onOk={create}
-        onCancel={() => setOpen(false)}
-        destroyOnHidden
+        onOpenChange={setOpen}
+        modalProps={{ destroyOnHidden: true }}
+        width={520}
+        submitter={{ searchConfig: { submitText: '确定' } }}
+        layout="vertical"
+        onFinish={onFinish}
       >
-        <Form form={form} layout="vertical">
-          <Form.Item label="类型" name="kind" rules={[{ required: true }]}>
-            <Select
-              options={[
-                { label: 'postgres', value: 'postgres' },
-                { label: 'clickhouse', value: 'clickhouse' },
-                { label: 'redis', value: 'redis' },
-                { label: 'packs', value: 'packs' },
-              ]}
-            />
-          </Form.Item>
-          <Form.Item label="目标/连接串" name="target">
-            <Input placeholder="可选：如 postgres://user:pass@host:5432/db; redis://host:6379/0; clickhouse://host:9000/db" />
-          </Form.Item>
-        </Form>
-      </Modal>
+        <Form.Item label="类型" name="kind" rules={[{ required: true }]}>
+          <Select
+            options={[
+              { label: 'postgres', value: 'postgres' },
+              { label: 'clickhouse', value: 'clickhouse' },
+              { label: 'redis', value: 'redis' },
+              { label: 'packs', value: 'packs' },
+            ]}
+          />
+        </Form.Item>
+        <Form.Item label="目标/连接串" name="target">
+          <Input placeholder="可选：如 postgres://user:pass@host:5432/db; redis://host:6379/0; clickhouse://host:9000/db" />
+        </Form.Item>
+      </ModalForm>
     </PageContainer>
   );
 }

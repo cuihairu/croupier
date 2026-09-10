@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
+import { ModalForm } from '@ant-design/pro-components';
 import {
   Card,
   Table,
@@ -7,7 +8,6 @@ import {
   Tag,
   App,
   Select,
-  Modal,
   Form,
   Input,
   InputNumber,
@@ -23,6 +23,9 @@ import {
   type Certificate,
 } from '@/services/api/ops';
 import { formatDateTime } from '@/utils/format';
+
+/** 新增域名表单值：与 addCertificate payload 一致 */
+type AddDomainFormValues = { domain: string; port?: number; alertDays?: number };
 
 export default function OpsCertificatesPage() {
   const { message } = App.useApp();
@@ -214,10 +217,12 @@ export default function OpsCertificatesPage() {
           try {
             await addCertificate(v);
             message.success('已添加');
-            setAddOpen(false);
             load(1, size, status);
+            return true;
           } catch {
+            // 原语义：添加失败本地 toast，弹窗保持开启
             message.error('添加失败');
+            return false;
           }
         }}
       />
@@ -225,34 +230,35 @@ export default function OpsCertificatesPage() {
   );
 }
 
+// 新增域名弹窗：ModalForm + destroyOnHidden，每次打开按 initialValues 重挂载，
+// 端口/告警阈值默认值（443/30）取代原「打开时 setFieldsValue」的异步预填
 const AddDomainModal: React.FC<{
   open: boolean;
   onClose: () => void;
-  onOk: (v: { domain: string; port?: number; alertDays?: number }) => void;
-}> = ({ open, onClose, onOk }) => {
-  const [form] = Form.useForm();
-  useEffect(() => {
-    if (open) form.setFieldsValue({ port: 443, alertDays: 30 });
-  }, [open, form]);
-  return (
-    <Modal
-      open={open}
-      title="新增域名"
-      onCancel={onClose}
-      onOk={() => form.submit()}
-      destroyOnHidden
-    >
-      <Form form={form} layout="vertical" onFinish={(v) => onOk(v)}>
-        <Form.Item name="domain" label="域名" rules={[{ required: true, message: '请输入域名' }]}>
-          <Input placeholder="example.com" />
-        </Form.Item>
-        <Form.Item name="port" label="端口">
-          <InputNumber min={1} max={65535} style={{ width: 160 }} />
-        </Form.Item>
-        <Form.Item name="alertDays" label="告警阈值(天)">
-          <InputNumber min={1} max={365} style={{ width: 160 }} />
-        </Form.Item>
-      </Form>
-    </Modal>
-  );
-};
+  /** 返回 true 表示提交成功（关闭弹窗），false 保持打开 */
+  onOk: (v: AddDomainFormValues) => Promise<boolean>;
+}> = ({ open, onClose, onOk }) => (
+  <ModalForm<AddDomainFormValues>
+    open={open}
+    title="新增域名"
+    onOpenChange={(v) => {
+      if (!v) onClose();
+    }}
+    modalProps={{ destroyOnHidden: true }}
+    width={520}
+    submitter={{ searchConfig: { submitText: '确定' } }}
+    layout="vertical"
+    initialValues={{ port: 443, alertDays: 30 }}
+    onFinish={(v) => onOk(v)}
+  >
+    <Form.Item name="domain" label="域名" rules={[{ required: true, message: '请输入域名' }]}>
+      <Input placeholder="example.com" />
+    </Form.Item>
+    <Form.Item name="port" label="端口">
+      <InputNumber min={1} max={65535} style={{ width: 160 }} />
+    </Form.Item>
+    <Form.Item name="alertDays" label="告警阈值(天)">
+      <InputNumber min={1} max={365} style={{ width: 160 }} />
+    </Form.Item>
+  </ModalForm>
+);
