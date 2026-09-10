@@ -41,7 +41,7 @@ type RateLimitFormValues = {
 };
 
 export default function OpsRateLimitsPage() {
-  const { message } = App.useApp();
+  const { message, modal } = App.useApp();
   const intl = useIntl();
   const [loading, setLoading] = useState(false);
   const [rules, setRules] = useState<RateLimitRule[]>([]);
@@ -186,7 +186,7 @@ export default function OpsRateLimitsPage() {
             size="small"
             danger
             onClick={() =>
-              Modal.confirm({
+              modal.confirm({
                 title: intl
                   .formatMessage({ id: 'pages.rate.limits.management' })
                   .replace('限速管理', '删除限速'),

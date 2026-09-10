@@ -73,7 +73,7 @@ title: 前端库分层与复用规范
 | message/Modal 弹层 | `App.useApp()` 或 `getMessage()`（`utils/antdApp`）                                            | `import { message, Modal } from 'antd'` 静态调用（不消费 App 上下文主题） |
 | 字节数/百分比/时长 | `formatBytes` / `formatPercent` / `formatDuration`（`utils/format`）                           | 手写除法与单位拼接                                                        |
 
-> 存量债务：静态 `message`/`Modal` 调用约 20 个文件、历史内联日期渲染与 CSV 下载正在按批次清理（见任务 #27/#28）；**新代码零容忍**。
+> 存量债务：静态 `message`/`Modal` 调用已于 2026-09 清零（26 文件 105 处：组件/hook 内改 `App.useApp()` 解构，`useCallback`/`useMemo` 依赖同步补实例；`utils/antdApp` 补 `getModal()` 供非组件上下文）。历史内联日期渲染与 CSV 下载已清理（任务 #27/#28）；**新代码零容忍**。
 
 ## ModalForm 迁移配方（2026-09 批次定型）
 

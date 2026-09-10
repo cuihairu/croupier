@@ -1,5 +1,5 @@
 import { useCallback } from 'react';
-import { Alert, Form, Input, message } from 'antd';
+import { App, Alert, Form, Input } from 'antd';
 import { ModalForm } from '@ant-design/pro-components';
 import { useIntl } from '@umijs/max';
 import { changeMyPassword } from '@/services/api/me';
@@ -7,6 +7,7 @@ import type { PasswordValues } from './shared';
 
 /** 修改密码弹窗（表单/提交/重置自包含；open 受控）。 */
 export default function PasswordModal({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const { message } = App.useApp();
   const intl = useIntl();
   const formatMessage = useCallback((id: string) => intl.formatMessage({ id }), [intl]);
 

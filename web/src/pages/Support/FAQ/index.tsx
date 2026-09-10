@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { App, Card, Space, Button, Input, Switch, Modal, Form } from 'antd';
+import { App, Card, Space, Button, Input, Switch, Form } from 'antd';
 import {
   ModalForm,
   PageContainer,
@@ -30,7 +30,7 @@ interface AccessState {
 }
 
 export default function SupportFAQPage() {
-  const { message } = App.useApp();
+  const { message, modal } = App.useApp();
   const actionRef = useRef<ActionType | undefined>(undefined);
   const [q, setQ] = useState('');
   const [category, setCategory] = useState('');
@@ -64,7 +64,7 @@ export default function SupportFAQPage() {
     }
   };
   const onDelete = (rec: FAQItem) => {
-    Modal.confirm({
+    modal.confirm({
       title: '删除 FAQ',
       onOk: async () => {
         await deleteFAQ(rec.id);

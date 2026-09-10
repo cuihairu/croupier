@@ -1,5 +1,5 @@
 import { useRef } from 'react';
-import { Form, Input, Select, message } from 'antd';
+import { App, Form, Input, Select } from 'antd';
 import type { FormInstance } from 'antd';
 import { ModalForm } from '@ant-design/pro-components';
 import { broadcastMessage } from '@/services/api/messages';
@@ -22,6 +22,7 @@ export default function BroadcastModal({
   onClose: () => void;
   onSent: () => void;
 }) {
+  const { message } = App.useApp();
   // 切回「广播」时清空 toUser 需要命令式写回；formRef 指向当前挂载的表单实例
   // （destroyOnHidden 下每次打开都是新实例，不会持有陈旧 store）
   const formRef = useRef<FormInstance<BroadcastFormValues> | undefined>(undefined);

@@ -11,7 +11,7 @@
  */
 
 import React, { useState, useCallback, useEffect, useRef } from 'react';
-import { Card, Button, Space, message, Typography, Timeline, Progress, Tag, Alert } from 'antd';
+import { App, Card, Button, Space, Typography, Timeline, Progress, Tag, Alert } from 'antd';
 import {
   CheckCircleOutlined,
   CloseCircleOutlined,
@@ -287,6 +287,7 @@ const TaskPageRenderer: React.FC<TaskPageRendererProps> = ({
   onQueryApprovalStatus,
   title,
 }) => {
+  const { message } = App.useApp();
   const [loading, setLoading] = useState(false);
   const [taskStatus, setTaskStatus] = useState<TaskStatusResult | null>(null);
   const [approvalId, setApprovalId] = useState<string>('');
@@ -416,6 +417,7 @@ const TaskPageRenderer: React.FC<TaskPageRendererProps> = ({
       }
     },
     [
+      message,
       eventsBinding,
       onExecute,
       onQueryStatus,
@@ -438,7 +440,7 @@ const TaskPageRenderer: React.FC<TaskPageRendererProps> = ({
       // 立即查询一次
       pollTaskStatus(taskId);
     },
-    [canQueryTaskStatus, pollTaskStatus],
+    [message, canQueryTaskStatus, pollTaskStatus],
   );
 
   // 停止轮询
@@ -512,7 +514,7 @@ const TaskPageRenderer: React.FC<TaskPageRendererProps> = ({
         setLoading(false);
       }
     },
-    [mainBinding, onExecute, preview, startPolling, taskIdStateKey],
+    [message, mainBinding, onExecute, preview, startPolling, taskIdStateKey],
   );
 
   // 取消任务
@@ -542,7 +544,15 @@ const TaskPageRenderer: React.FC<TaskPageRendererProps> = ({
     } catch (error) {
       message.error('取消任务失败: ' + extractErrorMessage(error, '未知错误'));
     }
-  }, [cancelBinding, onCancelTask, onExecute, stopPolling, taskIdStateKey, taskStatus?.taskId]);
+  }, [
+    message,
+    cancelBinding,
+    onCancelTask,
+    onExecute,
+    stopPolling,
+    taskIdStateKey,
+    taskStatus?.taskId,
+  ]);
 
   const refreshApproval = useCallback(async () => {
     if (!approvalId || !onQueryApprovalStatus) {
@@ -580,7 +590,7 @@ const TaskPageRenderer: React.FC<TaskPageRendererProps> = ({
     } catch (error) {
       message.error(extractErrorMessage(error, '审批状态查询失败'));
     }
-  }, [approvalId, onQueryApprovalStatus, startPolling]);
+  }, [message, approvalId, onQueryApprovalStatus, startPolling]);
 
   // 渲染任务进度
   const renderTaskProgress = () => {

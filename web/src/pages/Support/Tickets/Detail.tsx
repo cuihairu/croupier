@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import {
+  App,
   Card,
   Space,
   Tag,
@@ -82,6 +83,7 @@ const stTextMap: Record<string, string> = {
 };
 
 export default function TicketDetailPage() {
+  const { modal } = App.useApp();
   const { id } = useParams();
   const mid = String(id || '');
   const [loading, setLoading] = useState(false);
@@ -186,7 +188,7 @@ export default function TicketDetailPage() {
     }
   };
   const doDelete = async () => {
-    Modal.confirm({
+    modal.confirm({
       title: '删除工单',
       content: '确定删除该工单？',
       onOk: async () => {

@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { PageContainer, ProTable, type ProColumns } from '@ant-design/pro-components';
-import { Alert, App, Button, Card, Modal, Space, Tag, Typography } from 'antd';
+import { Alert, App, Button, Card, Space, Tag, Typography } from 'antd';
 import type { UploadFile } from 'antd/es/upload/interface';
 import { CloudUploadOutlined, EditOutlined, ReloadOutlined } from '@ant-design/icons';
 import { history, useAccess } from '@umijs/max';
@@ -34,7 +34,7 @@ import {
 } from './shared';
 
 export default function OpenAPISourcesPage() {
-  const { message } = App.useApp();
+  const { message, modal } = App.useApp();
   const access = useAccess() as {
     canOpenAPISourcesWrite?: boolean;
   };
@@ -230,7 +230,7 @@ export default function OpenAPISourcesPage() {
       await openDetail(detail.sourceId);
       await loadSources();
       if (result.proposal) {
-        Modal.success({
+        modal.success({
           title: 'Provider binding 已保存',
           content: `已生成默认页面 Proposal：${result.proposal.proposalKey}。请进入 Proposal 队列预览并发布，发布后才会出现在运行控制台菜单。`,
           okText: '打开 Proposal',

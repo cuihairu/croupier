@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Card, Space, Select, Button, Table, Modal, Form, Input, App, Tag } from 'antd';
+import { Card, Space, Select, Button, Table, Form, Input, App, Tag } from 'antd';
 import { ModalForm, PageContainer } from '@ant-design/pro-components';
 import type { ColumnsType } from 'antd/es/table';
 import { listGamesMeta, listMyGames, type Game as GameMeta } from '@/services/api';
@@ -13,7 +13,7 @@ import {
 import { getScope, subscribeScope } from '@/stores/scope';
 
 export default function GamesEnvsPage() {
-  const { message } = App.useApp();
+  const { message, modal } = App.useApp();
   const [games, setGames] = useState<GameMeta[]>([]);
   const [gameId, setGameId] = useState<number | undefined>(undefined);
   const [scopeGameId, setScopeGameId] = useState<string | undefined>(
@@ -126,7 +126,7 @@ export default function GamesEnvsPage() {
               size="small"
               danger
               onClick={async () => {
-                Modal.confirm({
+                modal.confirm({
                   title: 'Delete Env',
                   content: `Delete env "${rec.env}"?`,
                   onOk: async () => {
@@ -143,7 +143,7 @@ export default function GamesEnvsPage() {
         ),
       },
     ],
-    [gameId, loadEnvs, message],
+    [gameId, loadEnvs, message, modal],
   );
 
   const onAdd = async (v: GameEnv) => {

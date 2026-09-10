@@ -13,10 +13,10 @@
 import React, { useState, useCallback, useRef } from 'react';
 import { ProTable, ProDescriptions } from '@ant-design/pro-components';
 import {
+  App,
   Button,
   Space,
   Modal,
-  message,
   Alert,
   Drawer,
   Tag,
@@ -165,6 +165,7 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
   preview = false,
   title,
 }) => {
+  const { message, modal } = App.useApp();
   const actionRef = useRef<ActionType>(null);
   const createFormRef = useRef<SchemaFormRendererHandle | null>(null);
   const updateFormRef = useRef<SchemaFormRendererHandle | null>(null);
@@ -245,7 +246,7 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
         return { data: [], total: 0 };
       }
     },
-    [listBinding, onExecute, preview],
+    [listBinding, message, onExecute, preview],
   );
 
   // 处理创建
@@ -271,7 +272,7 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
         return false;
       }
     },
-    [createBinding, onExecute, preview],
+    [createBinding, message, onExecute, preview],
   );
 
   // 处理编辑
@@ -298,7 +299,7 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
         return false;
       }
     },
-    [updateBinding, currentRecord, onExecute, preview],
+    [message, updateBinding, currentRecord, onExecute, preview],
   );
 
   // 提交带表单的行操作：form 值 + 行 identity 一起交给 selector 组装
@@ -327,7 +328,7 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
         return false;
       }
     },
-    [actionFormState, bindings, onExecute, preview],
+    [actionFormState, bindings, message, onExecute, preview],
   );
 
   const submitCreateForm = useCallback(async () => {
@@ -370,7 +371,7 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
         message.error('删除失败');
       }
     },
-    [deleteBinding, onExecute, preview],
+    [deleteBinding, message, onExecute, preview],
   );
 
   // 处理行操作
@@ -391,7 +392,7 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
         return;
       }
       if (action.confirm || binding.execution.requireConfirm) {
-        Modal.confirm({
+        modal.confirm({
           title: localizedText(action.confirmTitle, 'zh-CN', '确认操作'),
           content: localizedText(action.confirmDescription, 'zh-CN', '确定要执行此操作吗？'),
           onOk: async () => {
@@ -416,7 +417,7 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
         }
       }
     },
-    [bindings, onExecute, preview],
+    [bindings, message, modal, onExecute, preview],
   );
 
   const executeListAction = useCallback(
@@ -441,7 +442,7 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
         }
       };
       if (action.confirm || binding.execution.requireConfirm) {
-        Modal.confirm({
+        modal.confirm({
           title: localizedText(action.confirmTitle, 'zh-CN', '确认操作'),
           content: localizedText(action.confirmDescription, 'zh-CN', '确定要执行此操作吗？'),
           onOk: run,
@@ -450,7 +451,7 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
       }
       await run();
     },
-    [bindings, onExecute, preview],
+    [bindings, message, modal, onExecute, preview],
   );
 
   const openDetail = useCallback(

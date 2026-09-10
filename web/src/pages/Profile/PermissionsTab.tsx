@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState } from 'react';
-import { Alert, Button, Card, Form, Input, List, Space, Tag, Typography, message } from 'antd';
+import { App, Alert, Button, Card, Form, Input, List, Space, Tag, Typography } from 'antd';
 import type { FormInstance } from 'antd';
 import { ModalForm } from '@ant-design/pro-components';
 import { CopyOutlined } from '@ant-design/icons';
@@ -23,6 +23,7 @@ export default function PermissionsTab({
   catalogAvailable: boolean;
   username?: string;
 }) {
+  const { message } = App.useApp();
   const intl = useIntl();
   const navigate = useNavigate();
   const formatMessage = useCallback((id: string) => intl.formatMessage({ id }), [intl]);

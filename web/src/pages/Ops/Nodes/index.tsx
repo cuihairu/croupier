@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Alert, App, Button, Input, Modal, Select, Space, Table } from 'antd';
+import { Alert, App, Button, Input, Select, Space, Table } from 'antd';
 import { PageContainer } from '@ant-design/pro-components';
 import { listOpsNodes, drainOpsNode, restartOpsNode, undrainOpsNode } from '@/services/api/ops';
 import { fetchRegistry } from '@/services/api/registry';
@@ -10,7 +10,7 @@ import NodeDetailDrawer from './NodeDetailDrawer';
 import CronJobsDrawer from './CronJobsDrawer';
 
 export default function OpsNodesPage() {
-  const { message } = App.useApp();
+  const { message, modal } = App.useApp();
   const [loading, setLoading] = useState(false);
   const [rows, setRows] = useState<NodeRow[]>([]);
   const [q, setQ] = useState('');
@@ -73,7 +73,7 @@ export default function OpsNodesPage() {
     action: () => Promise<void>;
     refreshAfter?: boolean;
   }) => {
-    Modal.confirm({
+    modal.confirm({
       title: options.title,
       content: options.content,
       okButtonProps: options.danger ? { danger: true } : undefined,

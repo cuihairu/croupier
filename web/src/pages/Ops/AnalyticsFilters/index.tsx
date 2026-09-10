@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Card, Space, Select, Button, Switch, Tag, message, InputNumber, Tooltip } from 'antd';
+import { App, Card, Space, Select, Button, Switch, Tag, InputNumber, Tooltip } from 'antd';
 import { fetchAnalyticsFilters, saveAnalyticsFilters } from '@/services/api/analytics';
 import { listGamesMeta } from '@/services/api/games';
 
@@ -10,6 +10,7 @@ type GameOption = {
 };
 
 export default function AnalyticsFiltersPage() {
+  const { message } = App.useApp();
   const [games, setGames] = useState<GameOption[]>([]);
   const [gameId, setGameId] = useState<string>('');
   const [envs, setEnvs] = useState<string[]>([]);

@@ -5,7 +5,7 @@
  */
 
 import React, { useCallback, useEffect, useState } from 'react';
-import { Alert, App, Button, Card, Empty, Input, Modal, Space, Table, Tabs, Tag } from 'antd';
+import { Alert, App, Button, Card, Empty, Input, Space, Table, Tabs, Tag } from 'antd';
 import {
   ExclamationCircleOutlined,
   ReloadOutlined,
@@ -125,7 +125,7 @@ export default function ProposalInbox({ focusPageKey = '' }: ProposalInboxProps)
       await fetchData();
       requestConsoleMenuRefresh();
       const categoryKey = proposal.pageSpec?.category?.key?.trim() || '';
-      Modal.success({
+      modal.success({
         title: '已直接发布',
         content: `页面 ${result.pageKey} 已发布，版本 ${result.publishedVersion}。运行控制台菜单会从已发布快照生成。`,
         okText: categoryKey ? '打开运行页' : '打开运行控制台',
@@ -133,7 +133,7 @@ export default function ProposalInbox({ focusPageKey = '' }: ProposalInboxProps)
           navigateTo(categoryKey ? buildConsolePagePath(categoryKey, result.pageKey) : '/console'),
       });
     },
-    [fetchData],
+    [fetchData, modal],
   );
 
   const handleReject = useCallback(

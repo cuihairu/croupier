@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { Alert, App, Button, Input, Modal, Select, Space, Tag, Typography } from 'antd';
+import { Alert, App, Button, Input, Select, Space, Tag, Typography } from 'antd';
 import { PageContainer, ProTable, type ActionType } from '@ant-design/pro-components';
 import { useAccess } from '@umijs/max';
 import { StandardFilterBar, StandardListSection, SummaryOverview } from '@/components';
@@ -24,7 +24,7 @@ const { Text } = Typography;
 /** 扩展安装页：列表 + 筛选 + 概览，详情/事件/升级三个 overlay 以受控组件组合。 */
 export default function ExtensionsInstallationsPage() {
   const access = useAccess();
-  const { message } = App.useApp();
+  const { message, modal } = App.useApp();
   // 当前页数据副本：概览统计与「当前结果」计数依赖它，在 request 成功后同步
   const [items, setItems] = useState<ExtensionInstallationItem[]>([]);
   const [total, setTotal] = useState(0);
@@ -63,7 +63,7 @@ export default function ExtensionsInstallationsPage() {
   };
 
   const handleUninstall = (row: ExtensionInstallationItem) => {
-    Modal.confirm({
+    modal.confirm({
       title: '确认卸载扩展',
       content: `安装实例 #${row.id} 将被卸载，是否继续？`,
       okButtonProps: { danger: true },
@@ -77,7 +77,7 @@ export default function ExtensionsInstallationsPage() {
           const details = uiErr.details || {};
           const blockers = Array.isArray(details.blockers) ? details.blockers : [];
           if (uiErr.code === EXTENSION_ERROR_CODES.DEPENDENCY_BLOCKED && blockers.length > 0) {
-            Modal.warning({
+            modal.warning({
               title: '无法卸载：存在依赖',
               content: (
                 <Space orientation="vertical">

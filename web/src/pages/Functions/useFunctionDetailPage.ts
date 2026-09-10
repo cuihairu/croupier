@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { App, Form, Modal } from 'antd';
+import { App, Form } from 'antd';
 import { history } from '@umijs/max';
 import {
   getFunctionDetail,
@@ -83,7 +83,7 @@ function toDescriptorArray(input: DescriptorListResponse): FunctionDescriptor[] 
 }
 
 export default function useFunctionDetailPage(functionId?: string) {
-  const { message } = App.useApp();
+  const { message, modal } = App.useApp();
   const [loading, setLoading] = useState(false);
   const [functionDetail, setFunctionDetail] = useState<FunctionDetail | null>(null);
   const [editing, setEditing] = useState(false);
@@ -339,7 +339,7 @@ export default function useFunctionDetailPage(functionId?: string) {
 
   const handleDelete = () => {
     if (!functionId) return;
-    Modal.confirm({
+    modal.confirm({
       title: '确认删除',
       content: '确定要删除这个函数吗？此操作不可恢复！',
       okType: 'danger',

@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState } from 'react';
-import { Avatar, Form, Input, Upload, message } from 'antd';
+import { App, Avatar, Form, Input, Upload } from 'antd';
 import type { FormInstance } from 'antd';
 import { ModalForm } from '@ant-design/pro-components';
 import { InboxOutlined, UserOutlined } from '@ant-design/icons';
@@ -22,6 +22,7 @@ export default function AvatarModal({
   onClose: () => void;
   onPersisted: () => Promise<void>;
 }) {
+  const { message } = App.useApp();
   const intl = useIntl();
   const formatMessage = useCallback((id: string) => intl.formatMessage({ id }), [intl]);
   // 上传成功后需要命令式把 URL 回填进 avatar 字段；formRef 指向当前挂载的表单

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Card, Table, Space, Button, Tag, Modal, Form, Input, Select, App } from 'antd';
+import { Card, Table, Space, Button, Tag, Form, Input, Select, App } from 'antd';
 import { ModalForm, PageContainer } from '@ant-design/pro-components';
 import {
   createOpsBackup,
@@ -13,7 +13,7 @@ import {
 type BackupFormValues = { kind: string; target?: string };
 
 export default function OpsBackupsPage() {
-  const { message } = App.useApp();
+  const { message, modal } = App.useApp();
   const [rows, setRows] = useState<OpsBackup[]>([]);
   const [loading, setLoading] = useState(false);
   const load = async () => {
@@ -99,7 +99,7 @@ export default function OpsBackupsPage() {
                   <Button
                     size="small"
                     danger
-                    onClick={() => Modal.confirm({ title: '删除备份', onOk: () => del(r) })}
+                    onClick={() => modal.confirm({ title: '删除备份', onOk: () => del(r) })}
                   >
                     删除
                   </Button>

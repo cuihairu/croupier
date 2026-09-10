@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { history } from '@umijs/max';
 import { PageContainer, ProTable } from '@ant-design/pro-components';
-import { App, Button, Collapse, Modal, Space, Typography } from 'antd';
+import { App, Button, Collapse, Space, Typography } from 'antd';
 import { ReloadOutlined, RocketOutlined } from '@ant-design/icons';
 import MergeConflictModal from '@/components/MergeConflictModal';
 import ProposalInbox from '@/components/ProposalInbox';
@@ -545,7 +545,7 @@ export default function PageStudio() {
                     icon={<RocketOutlined />}
                     loading={bulkLoading === 'publish'}
                     onClick={() => {
-                      Modal.confirm({
+                      modal.confirm({
                         title: '一键发布全部',
                         content:
                           '将重算提案并把所有 ready/basic 提案按真实链路发布（同 scope）。确认执行？',
@@ -561,7 +561,7 @@ export default function PageStudio() {
                     danger
                     loading={bulkLoading === 'unpublish'}
                     onClick={() => {
-                      Modal.confirm({
+                      modal.confirm({
                         title: '一键下架全部',
                         content:
                           '将下线当前 scope 内全部已发布页面（运行控制台菜单随之清空）。确认执行？',

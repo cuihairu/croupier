@@ -1,16 +1,5 @@
 import React, { useCallback, useState } from 'react';
-import {
-  App,
-  Button,
-  Dropdown,
-  Modal,
-  Popconfirm,
-  Space,
-  Table,
-  Tag,
-  Tooltip,
-  Typography,
-} from 'antd';
+import { App, Button, Dropdown, Popconfirm, Space, Table, Tag, Tooltip, Typography } from 'antd';
 import {
   DeleteOutlined,
   MoreOutlined,
@@ -46,7 +35,7 @@ export default function ContractChangesPanel({
   focusPageKey?: string;
   onChanged: () => Promise<void>;
 }) {
-  const { message } = App.useApp();
+  const { message, modal } = App.useApp();
   const [contractActionKey, setContractActionKey] = useState('');
   const [manualMergeVisible, setManualMergeVisible] = useState(false);
   const [manualMergeLoading, setManualMergeLoading] = useState(false);
@@ -71,11 +60,11 @@ export default function ContractChangesPanel({
       await runContractAction(`regenerate:${record.pageKey}`, async () => {
         try {
           const result = await regenerateProposal(record.pageKey);
-          Modal.success({ title: '已重新生成 Proposal', content: result.message });
+          modal.success({ title: '已重新生成 Proposal', content: result.message });
         } catch (e) {
           // 生成失败（函数禁用/schema 非法等错误级诊断）必须显式反馈，
           // 静默成功会让用户误以为报错已修复。
-          Modal.error({
+          modal.error({
             title: '重新生成失败',
             content: extractErrorMessage(e, '生成页面时出现错误级诊断，请查看页面详情'),
           });
@@ -83,12 +72,12 @@ export default function ContractChangesPanel({
         }
       });
     },
-    [runContractAction],
+    [modal, runContractAction],
   );
 
   const handleDeletePage = useCallback(
     async (record: ContractChangeInfo) => {
-      Modal.confirm({
+      modal.confirm({
         title: '删除页面',
         content: `将删除页面 ${record.pageKey} 的草稿、已发布版本与待审提案，且不可恢复。确认删除？`,
         okType: 'danger',
@@ -96,25 +85,25 @@ export default function ContractChangesPanel({
         onOk: async () => {
           await runContractAction(`delete:${record.pageKey}`, async () => {
             await deleteVersioningPage(record.pageKey);
-            Modal.success({ title: '页面已删除' });
+            modal.success({ title: '页面已删除' });
           });
         },
       });
     },
-    [runContractAction],
+    [modal, runContractAction],
   );
 
   const handleAutoMerge = useCallback(
     async (record: ContractChangeInfo) => {
       await runContractAction(`merge:${record.pageKey}`, async () => {
         const result = await mergeChanges(record.pageKey, { strategy: 'auto' });
-        Modal.info({
+        modal.info({
           title: '自动合并结果',
           content: `${result.message}。安全合并 ${result.merged} 项，仍有 ${result.conflicts} 项需要人工处理。`,
         });
       });
     },
-    [runContractAction],
+    [modal, runContractAction],
   );
 
   const handleOpenManualMerge = useCallback(
@@ -150,7 +139,7 @@ export default function ContractChangesPanel({
         setManualMergePreview(null);
         setManualMergeRecord(null);
         await onChanged();
-        Modal.success({
+        modal.success({
           title: '冲突已处理',
           content: `页面 ${manualMergeRecord.pageKey} 的草稿已更新到版本 ${result.draftRevision || '-'}，请确认后重新发布。`,
         });
@@ -160,7 +149,7 @@ export default function ContractChangesPanel({
         setManualMergeLoading(false);
       }
     },
-    [manualMergeRecord, message, onChanged],
+    [manualMergeRecord, message, modal, onChanged],
   );
 
   const handleRepublish = useCallback(
@@ -169,7 +158,7 @@ export default function ContractChangesPanel({
         if (record.draftRevision && record.draftRevision > 0) {
           const result = await publishPageDraft(record.pageKey, record.draftRevision);
           requestConsoleMenuRefresh();
-          Modal.success({
+          modal.success({
             title: '已重新发布',
             content: `页面 ${result.pageKey} 已发布，版本 ${result.publishedVersion}。`,
           });
@@ -177,10 +166,10 @@ export default function ContractChangesPanel({
         }
         const result = await republish(record.pageKey);
         requestConsoleMenuRefresh();
-        Modal.success({ title: '已重新发布', content: result.message });
+        modal.success({ title: '已重新发布', content: result.message });
       });
     },
-    [runContractAction],
+    [modal, runContractAction],
   );
 
   const contractColumns: ColumnsType<ContractChangeInfo> = [

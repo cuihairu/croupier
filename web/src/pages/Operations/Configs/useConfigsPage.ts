@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { App, Modal } from 'antd';
+import { App } from 'antd';
 import {
   listConfigs,
   getConfig,
@@ -13,7 +13,7 @@ import {
 } from '@/services/api/configs';
 
 export default function useConfigsPage() {
-  const { message } = App.useApp();
+  const { message, modal } = App.useApp();
   const [loading, setLoading] = useState(false);
   const [rows, setRows] = useState<ConfigItem[]>([]);
   const [game, setGame] = useState<string>('');
@@ -136,7 +136,7 @@ export default function useConfigsPage() {
   const rollbackTo = async (ver: number) => {
     if (!cur) return;
     const r = await getVersion(cur.id, ver);
-    Modal.confirm({
+    modal.confirm({
       title: '确认回滚',
       content: `确认回滚到版本 ${ver} 吗？此操作将创建一个新版本。`,
       onOk: async () => {

@@ -12,7 +12,7 @@
 
 import React, { useState, useCallback } from 'react';
 import { ProTable } from '@ant-design/pro-components';
-import { Card, Button, Space, message, Typography, Tabs, Empty, Result } from 'antd';
+import { App, Card, Button, Space, Typography, Tabs, Empty, Result } from 'antd';
 import {
   LineChartOutlined,
   TableOutlined,
@@ -152,6 +152,7 @@ const ReportPageRenderer: React.FC<ReportPageRendererProps> = ({
   onExport,
   title,
 }) => {
+  const { message } = App.useApp();
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState<FormValues[]>([]);
   const [activeTab, setActiveTab] = useState(
@@ -197,7 +198,7 @@ const ReportPageRenderer: React.FC<ReportPageRendererProps> = ({
         setLoading(false);
       }
     },
-    [mainBinding, onExecute, preview],
+    [message, mainBinding, onExecute, preview],
   );
 
   // 处理导出
@@ -239,7 +240,7 @@ const ReportPageRenderer: React.FC<ReportPageRendererProps> = ({
         message.error('导出失败: ' + extractErrorMessage(error, '未知错误'));
       }
     },
-    [data, dataset, onExport, preview],
+    [message, data, dataset, onExport, preview],
   );
 
   // 构建表格列

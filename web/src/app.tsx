@@ -155,7 +155,7 @@ export const layout: RunTimeLayoutConfig = ({ initialState, setInitialState }) =
   const AppApiRegistrar: React.FC = () => {
     const inst = AntdApp.useApp();
     useEffect(() => {
-      setAppApi({ message: inst.message, notification: inst.notification });
+      setAppApi({ message: inst.message, notification: inst.notification, modal: inst.modal });
     }, [inst]);
     return null;
   };

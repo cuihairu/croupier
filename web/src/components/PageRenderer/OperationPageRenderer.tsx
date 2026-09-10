@@ -11,7 +11,7 @@ import { localizedText } from '@/utils/localizedText';
  */
 
 import React, { useState, useCallback } from 'react';
-import { Card, Button, Modal, message, Result, Alert, Space, Typography, Descriptions } from 'antd';
+import { App, Card, Button, Modal, Result, Alert, Space, Typography, Descriptions } from 'antd';
 import {
   CheckCircleOutlined,
   ClockCircleOutlined,
@@ -56,6 +56,7 @@ const OperationPageRenderer: React.FC<OperationPageRendererProps> = ({
   onQueryApprovalStatus,
   title,
 }) => {
+  const { message } = App.useApp();
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<PageExecutionResult | null>(null);
   const [approvalStatus, setApprovalStatus] = useState<ApprovalStatusResult | null>(null);
@@ -118,7 +119,7 @@ const OperationPageRenderer: React.FC<OperationPageRendererProps> = ({
         setLoading(false);
       }
     },
-    [mainBinding, requiresConfirm, spec.resultView, onExecute, preview],
+    [message, mainBinding, requiresConfirm, spec.resultView, onExecute, preview],
   );
 
   // 处理确认后执行
@@ -155,7 +156,7 @@ const OperationPageRenderer: React.FC<OperationPageRendererProps> = ({
       setLoading(false);
       setPendingValues(null);
     }
-  }, [mainBinding, pendingValues, onExecute, preview]);
+  }, [message, mainBinding, pendingValues, onExecute, preview]);
 
   // 重置
   const handleReset = useCallback(() => {
@@ -175,7 +176,7 @@ const OperationPageRenderer: React.FC<OperationPageRendererProps> = ({
       const msg = err instanceof Error ? err.message : '审批状态查询失败';
       message.error(msg);
     }
-  }, [onQueryApprovalStatus, result?.approvalId]);
+  }, [message, onQueryApprovalStatus, result?.approvalId]);
 
   const renderApprovedContinuation = () => {
     if (!approvalStatus || approvalStatus.status !== 'approved' || !approvalStatus.continuation) {

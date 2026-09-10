@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { App, Card, Space, Button, Input, Select, Tag, Modal, Form, Dropdown } from 'antd';
+import { App, Card, Space, Button, Input, Select, Tag, Form, Dropdown } from 'antd';
 import {
   ModalForm,
   PageContainer,
@@ -85,7 +85,7 @@ function isTicketStatus(value: string): value is TicketStatus {
 }
 
 export default function SupportTicketsPage() {
-  const { message } = App.useApp();
+  const { message, modal } = App.useApp();
   const actionRef = useRef<ActionType | undefined>(undefined);
   const [q, setQ] = useState('');
   const [status, setStatus] = useState<string>('');
@@ -150,7 +150,7 @@ export default function SupportTicketsPage() {
     }
   };
   const onDelete = (rec: SupportTicket) => {
-    Modal.confirm({
+    modal.confirm({
       title: '删除工单',
       content: `确定删除工单“${rec.title}”？`,
       onOk: async () => {

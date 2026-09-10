@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Card, Table, Space, Tag, Button, Select, Input, App, Modal, Drawer, Tabs } from 'antd';
+import { Card, Table, Space, Tag, Button, Select, Input, App, Drawer, Tabs } from 'antd';
 import { PageContainer } from '@ant-design/pro-components';
 import type { ColumnsType } from 'antd/es/table';
 import {
@@ -15,7 +15,7 @@ import {
 import AlertRulesTab from './AlertRulesTab';
 
 export default function OpsAlertsPage() {
-  const { message } = App.useApp();
+  const { message, modal } = App.useApp();
   const [rows, setRows] = useState<OpsAlert[]>([]);
   const [loading, setLoading] = useState(false);
   const [sev, setSev] = useState<string>('');
@@ -117,7 +117,7 @@ export default function OpsAlertsPage() {
             <Button
               size="small"
               onClick={() => {
-                Modal.confirm({
+                modal.confirm({
                   title: '静默告警',
                   content: '静默 1 小时？',
                   onOk: async () => {
@@ -144,7 +144,7 @@ export default function OpsAlertsPage() {
             <Button
               size="small"
               onClick={() => {
-                Modal.confirm({
+                modal.confirm({
                   title: '静默告警',
                   content: '静默 24 小时？',
                   onOk: async () => {
@@ -312,7 +312,7 @@ export default function OpsAlertsPage() {
                               size="small"
                               danger
                               onClick={() =>
-                                Modal.confirm({
+                                modal.confirm({
                                   title: '解除静默',
                                   content: `确定解除静默 ${r.id}?`,
                                   onOk: async () => {
@@ -398,7 +398,7 @@ export default function OpsAlertsPage() {
               {!detail.silenced && (
                 <Button
                   onClick={() =>
-                    Modal.confirm({
+                    modal.confirm({
                       title: '静默 1 小时',
                       onOk: async () => {
                         try {
@@ -424,7 +424,7 @@ export default function OpsAlertsPage() {
               {!detail.silenced && (
                 <Button
                   onClick={() =>
-                    Modal.confirm({
+                    modal.confirm({
                       title: '静默 6 小时',
                       onOk: async () => {
                         try {
@@ -450,7 +450,7 @@ export default function OpsAlertsPage() {
               {!detail.silenced && (
                 <Button
                   onClick={() =>
-                    Modal.confirm({
+                    modal.confirm({
                       title: '静默 24 小时',
                       onOk: async () => {
                         try {

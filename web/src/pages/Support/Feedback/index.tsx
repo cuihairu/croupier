@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { Card, Space, Button, Input, Select, Modal, Form } from 'antd';
+import { App, Card, Space, Button, Input, Select, Form } from 'antd';
 import {
   ModalForm,
   PageContainer,
@@ -48,6 +48,7 @@ export default function SupportFeedbackPage() {
   const [pendingOnly, setPendingOnly] = useState(true);
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<FeedbackItem | null>(null);
+  const { modal } = App.useApp();
   const access: AccessState = useAccess?.() || {};
 
   // destroyOnHidden 使弹窗每次关闭即卸载表单，重开时按最新 initialValues
@@ -75,7 +76,7 @@ export default function SupportFeedbackPage() {
     }
   };
   const onDelete = (rec: FeedbackItem) => {
-    Modal.confirm({
+    modal.confirm({
       title: '删除反馈',
       onOk: async () => {
         await deleteFeedback(rec.id);

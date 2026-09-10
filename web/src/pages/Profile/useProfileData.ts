@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from 'react';
-import { message } from 'antd';
+import { App } from 'antd';
 import type { FormInstance } from 'antd';
 import { useIntl } from '@umijs/max';
 import {
@@ -23,6 +23,7 @@ import {
 /** Profile 页数据层：profile + 五类扩展数据（games/permissions/audit/login/messages）
  * 的一次性并行拉取与派生 memo。UI 编排状态（Tab/编辑态/弹窗）留在主页。 */
 export function useProfileData(form: FormInstance) {
+  const { message } = App.useApp();
   const intl = useIntl();
   const formatMessage = useCallback((id: string) => intl.formatMessage({ id }), [intl]);
 
@@ -86,7 +87,7 @@ export function useProfileData(form: FormInstance) {
         setExtrasLoading(false);
       }
     },
-    [formatMessage],
+    [message, formatMessage],
   );
 
   const loadProfile = useCallback(async () => {
@@ -102,7 +103,7 @@ export function useProfileData(form: FormInstance) {
     } catch {
       message.error(formatMessage('profile.load.error'));
     }
-  }, [form, formatMessage, loadExtras]);
+  }, [message, form, formatMessage, loadExtras]);
 
   // 消息详情：打开未读消息即标记已读并刷新列表状态
   const openMessage = useCallback((item: MessageItem) => {
