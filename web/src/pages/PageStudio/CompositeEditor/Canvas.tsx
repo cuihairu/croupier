@@ -5,6 +5,7 @@ import type { FunctionDescriptor } from '@/services/api/functions';
 import { useDroppable } from '@dnd-kit/core';
 import { getComponent } from './registry';
 import { parseAction } from './actions';
+import { localizedText } from '@/utils/localizedText';
 import type { PageNode } from './model';
 
 const { Text } = Typography;
@@ -425,7 +426,7 @@ export function ModalPlaceholder({
                     {String(c.props.functionId ?? '')}
                   </Text>
                   <Text type="secondary" style={{ fontSize: 11 }}>
-                    {fn?.summary?.['zh-CN'] ?? ''}
+                    {localizedText(fn?.summary, 'zh-CN')}
                   </Text>
                 </Space>
               </div>

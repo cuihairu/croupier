@@ -72,6 +72,7 @@ import {
   type PageNode,
 } from './model';
 import { assignVarNames, collectVarNames, renameVariable } from './varname';
+import { localizedText } from '@/utils/localizedText';
 
 const { Text } = Typography;
 
@@ -646,7 +647,7 @@ export default function CompositeEditorPage() {
       const modal: PageNode = {
         id: nodeId('modal'),
         type: 'modal',
-        props: { title: fn.summary?.['zh-CN'] || fn.id, width: 'medium' },
+        props: { title: localizedText(fn.summary, 'zh-CN', fn.id), width: 'medium' },
         children: [form],
       };
       setTree((prev) => {

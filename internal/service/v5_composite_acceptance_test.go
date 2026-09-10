@@ -174,4 +174,13 @@ func TestV5CompositeProposalRoundTrip(t *testing.T) {
 	assert.Equal(t, "rowSelected", ev.Event)
 	assert.Equal(t, "{{playerListTable.selectedRow.nickname}}", ev.Action.Params["nickname"],
 		"event params preserve expression string verbatim")
+
+	// ---- sections 顺序：static 区块（filterForm 输入在中间）按输入位置保留，
+	// accept-and-publish 全链路后发布快照顺序与请求一致 ----
+	order := make([]string, 0, len(pageSpec.Composite.Sections))
+	for _, s := range pageSpec.Composite.Sections {
+		order = append(order, s.Key)
+	}
+	assert.Equal(t, []string{"playerListTable", "filterForm", "mailSendForm"}, order,
+		"static section must stay at its input position after accept-and-publish")
 }

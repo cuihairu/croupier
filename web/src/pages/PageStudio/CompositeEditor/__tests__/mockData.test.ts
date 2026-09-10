@@ -59,6 +59,11 @@ describe('generateMockOutput', () => {
     expect(asRows(out)).toHaveLength(5);
   });
 
+  it('顶层非 object schema（array）返回 undefined——预览侧诚实空态，不伪造顶层结构', () => {
+    expect(generateMockOutput({ type: 'array' } as JSONValue)).toBeUndefined();
+    expect(generateMockOutput({ type: 'string' } as JSONValue)).toBeUndefined();
+  });
+
   it('enum 生成值在候选集内', () => {
     const out = generateMockOutput(playerListSchema) as Record<string, JSONValue>;
     expect(['all', 'gold', 'silver']).toContain(out.keyword);

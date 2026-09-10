@@ -101,7 +101,9 @@ ListViewSpec | DetailViewSpec | ActionSpec | ConfirmActionSpec
 不绑定 bindingId、不执行任何函数；`form.jsonSchema` 由编辑器设计期定义并经
 `CompositeSectionRequest.form` 透传（服务端校验 schema 存在性），值仅写入页面状态供
 refreshOn/动作链消费。发布校验：static 区块禁止携带 bindingId、view 必须为 form、
-必须包含 form.jsonSchema。
+必须包含 form.jsonSchema。区块顺序：static 区块**按请求输入位置交错落库**（2026-09
+修订，此前服务端把 static 统一追加到 sections 末尾，导致"常量筛选放在页首"的页面
+发布后顺序漂移）；accept-and-publish 后发布快照与请求 sections 顺序一致。
 
 ```json
 {

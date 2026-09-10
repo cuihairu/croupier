@@ -9,7 +9,7 @@ import type { JSONSchema } from '@/types/dashboard';
 import { collectVarNames, isValidVarName } from './varname';
 import ActionEditor from './ActionEditor';
 import RowActionsEditor from './RowActionsEditor';
-import ParamMappingEditor from './ParamMappingEditor';
+import ParamMappingEditor, { type InputAssignment } from './ParamMappingEditor';
 import ConstantFieldsEditor from './ConstantFieldsEditor';
 import { schemaProperties } from './types';
 
@@ -149,7 +149,7 @@ export default function PropsPanel({
                       nodes={nodes}
                       selfId={node.id}
                       fnById={fnById}
-                      value={(node.props.inputAssignments as never[]) ?? []}
+                      value={(node.props.inputAssignments as InputAssignment[] | undefined) ?? []}
                       onChange={(v) =>
                         onPatch({ inputAssignments: v } as unknown as Record<string, unknown>)
                       }

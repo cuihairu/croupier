@@ -397,3 +397,44 @@ describe('refreshOn 编译（查询组合模板：refreshOnNode 节点引用 →
     expect(sections.find((sec) => sec.key === 'player.list')?.refreshOn).toBeUndefined();
   });
 });
+
+describe('编译警告：行操作嵌套行路径 / 参数映射失效（不再静默）', () => {
+  it('{{row.a.b}} 多段行路径发布后无法求值 → 警告并按字面量保留；单段仍编译为 row.字段', () => {
+    const table = fn('fnTable', 'player.list', {
+      autoRun: true,
+      rowActions: [
+        {
+          label: '详情',
+          targetSection: 'MODAL_ID',
+          params: { nested: '{{row.a.b}}', plain: '{{row.uid}}' },
+        },
+      ],
+    });
+    const modal: PageNode = {
+      id: 'MODAL_ID',
+      type: 'modal',
+      props: { title: '详情' },
+      children: [fn('fnForm', 'mail.send')],
+    };
+    const { sections, warnings } = compileTree([table, modal]);
+    expect(warnings.some((w) => w.includes('嵌套字段') && w.includes('a.b'))).toBe(true);
+    const params = sections[0].rowActions![0].params!;
+    expect(params.nested).toBe('{{row.a.b}}');
+    expect(params.plain).toBe('row.uid');
+  });
+
+  it('inputAssignments 未知 kind → 警告并跳过（不静默归 page_state）；sourceNodeId 失效 → 警告并跳过', () => {
+    const table = fn('fnTable', 'player.list', {
+      inputAssignments: [
+        { param: 'a', kind: 'weird', value: 'x' },
+        { param: 'b', kind: 'page_state', sourceNodeId: 'GONE', field: 'env' },
+        { param: 'c', kind: 'literal', value: 'ok' },
+      ] as unknown as Array<Record<string, unknown>>,
+    });
+    const { sections, warnings } = compileTree([table, fn('fnForm', 'player.save')]);
+    expect(warnings.some((w) => w.includes('映射类型') && w.includes('weird'))).toBe(true);
+    expect(warnings.some((w) => w.includes('来源节点已失效'))).toBe(true);
+    // 仅 literal 存活
+    expect(sections[0].inputAssignments).toEqual([{ target: '/c', kind: 'literal', value: 'ok' }]);
+  });
+});

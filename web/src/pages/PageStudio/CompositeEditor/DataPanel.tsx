@@ -37,8 +37,8 @@ export default function DataPanel({
     setRunning(true);
     setError('');
     try {
-      const resp = (await invokeFunction(fn.id, {} as never)) as JSONRecord | null;
-      setData(resp ?? {});
+      const resp = (await invokeFunction(fn.id, {})) as JSONRecord;
+      setData(resp);
     } catch (err) {
       setError(extractErrorMessage(err, '执行失败'));
     } finally {

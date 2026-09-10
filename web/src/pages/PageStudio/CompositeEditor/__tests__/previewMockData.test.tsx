@@ -95,3 +95,25 @@ describe('PreviewRuntime 模拟数据模式', () => {
     await waitFor(() => expect(mockedInvoke).toHaveBeenCalledTimes(2));
   });
 });
+
+describe('PreviewRuntime 模拟数据空态提示', () => {
+  it('无 outputSchema：模拟执行提示「模拟数据为空」且每节点只提示一次', async () => {
+    const bare = { id: 'player.list' } as unknown as FunctionDescriptor;
+    render(
+      <App>
+        <PreviewRuntime tree={tree()} fnById={new Map([['player.list', bare]])} />
+      </App>,
+    );
+    fireEvent.click(screen.getByRole('switch'));
+    fireEvent.click(screen.getByRole('button', { name: /执\s*行/ }));
+    await waitFor(() => {
+      expect(screen.getByText(/「玩家列表」无可用 outputSchema.*模拟数据为空/)).toBeInTheDocument();
+    });
+    // 再次执行：同节点不重复弹（mockWarnedRef 每节点一次）
+    fireEvent.click(screen.getByRole('button', { name: /执\s*行/ }));
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /执\s*行/ })).toBeEnabled();
+    });
+    expect(screen.getAllByText(/模拟数据为空/)).toHaveLength(1);
+  });
+});

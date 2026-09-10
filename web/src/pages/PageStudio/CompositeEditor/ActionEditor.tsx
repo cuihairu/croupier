@@ -13,6 +13,7 @@ import type { PageNode } from './model';
 import type { FunctionDescriptor } from '@/services/api/functions';
 import ExpressionInput from './ExpressionInput';
 import { buildExprVariables, buildPathRoots, type ExprPathNode } from './exprVariables';
+import { localizedText } from '@/utils/localizedText';
 
 const { Text } = Typography;
 
@@ -152,10 +153,10 @@ export default function ActionEditor({
               placeholder="选操作函数（如 mail.send）"
               value={newFnId}
               onChange={setNewFnId}
-              options={(allFns ?? []).map((f) => ({
-                value: f.id,
-                label: f.summary?.['zh-CN'] ? `${f.id}（${f.summary['zh-CN']}）` : f.id,
-              }))}
+              options={(allFns ?? []).map((f) => {
+                const summary = localizedText(f.summary, 'zh-CN');
+                return { value: f.id, label: summary ? `${f.id}（${summary}）` : f.id };
+              })}
             />
             <Button
               size="small"

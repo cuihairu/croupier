@@ -1468,6 +1468,10 @@ func (s *ContractService) CreateCompositeProposal(
 	var contracts []*model.FunctionContract
 	inputs := make([]generator.CompositeSectionInput, 0, len(sections))
 	staticSections := make([]spec.CompositeSection, 0)
+	// 每个 static 区块在输入流中的位置（其前面的非 static 输入数）——
+	// 生成后按此位置交错合并，保持「常量表单在前」等输入顺序。
+	staticPos := make([]int, 0)
+	genCount := 0
 	seenKey := map[string]bool{}
 	contractCache := map[string]*model.FunctionContract{}
 	for _, sec := range sections {
@@ -1495,6 +1499,7 @@ func (s *ContractService) CreateCompositeProposal(
 				Form:      sec.Form,
 			}
 			staticSections = append(staticSections, section)
+			staticPos = append(staticPos, genCount)
 			continue
 		}
 		fid := strings.TrimSpace(sec.FunctionID)
@@ -1570,6 +1575,7 @@ func (s *ContractService) CreateCompositeProposal(
 			})
 		}
 		inputs = append(inputs, in)
+		genCount++
 	}
 
 	opts := generator.DefaultGenerateOptions()
@@ -1578,13 +1584,27 @@ func (s *ContractService) CreateCompositeProposal(
 	if !ok {
 		return nil, fmt.Errorf("composite page cannot be generated (see diagnostics)")
 	}
-	// 常量表单区块（static）：不经过生成器（无契约/绑定），直接追加到
-	// 组合页 sections；表单 schema 由编辑器设计期定义并透传。
+	// 常量表单区块（static）：不经过生成器（无契约/绑定），按输入流原位置
+	// 交错合并进生成 sections——static 在前的输入不应被追加到页尾；
+	// 表单 schema 由编辑器设计期定义并透传。
 	if len(staticSections) > 0 {
 		if generated.Composite == nil {
 			generated.Composite = &spec.CompositePageSpec{}
 		}
-		generated.Composite.Sections = append(generated.Composite.Sections, staticSections...)
+		gen := generated.Composite.Sections
+		merged := make([]spec.CompositeSection, 0, len(gen)+len(staticSections))
+		gi := 0
+		for i, s := range staticSections {
+			// 先取该 static 位置之前的生成区块（生成器与输入同序；
+			// function_missing 跳项时 gi 边界自然收敛）
+			for gi < staticPos[i] && gi < len(gen) {
+				merged = append(merged, gen[gi])
+				gi++
+			}
+			merged = append(merged, s)
+		}
+		merged = append(merged, gen[gi:]...)
+		generated.Composite.Sections = merged
 	}
 	// 统一校验规则（单一规则源）：提案创建即运行发布级 selector 校验——与
 	// AcceptAndPublishProposal 的硬门槛共用 CollectBindingSelectorIssues。

@@ -1,5 +1,6 @@
 import { nodeId, type PageNode } from './model';
 import { parseAction } from './actions';
+import { localizedText } from '@/utils/localizedText';
 import {
   isSingleExpression,
   parseExpression,
@@ -94,7 +95,15 @@ function normalizeRowActionParams(
       const parsed = parseExpression(value, sectionKeys);
       if (parsed.ok && parsed.ref.variable === ROW_VARIABLE) {
         const [head, ...rest] = parsed.ref.path;
-        out[param] = rest.length === 0 ? `row.${String(head)}` : value;
+        if (rest.length === 0) {
+          out[param] = `row.${String(head)}`;
+        } else {
+          // 嵌套行路径（{{row.a.b}}）：发布端只支持单段 row.字段，多段求值恒 undefined
+          warnings.push(
+            `表格「${String(tableTitle ?? '')}」行操作参数「${param}」的嵌套字段「${parsed.ref.path.map(String).join('.')}」发布后无法求值，已按字面量保存`,
+          );
+          out[param] = value;
+        }
         continue;
       }
       warnings.push(
@@ -377,13 +386,26 @@ export function compileTree(tree: PageNode[]): CompileResult {
           path?: string;
           value?: unknown;
         } | null => {
-          const kind: 'page_state' | 'literal' = m.kind === 'literal' ? 'literal' : 'page_state';
+          if (m.kind !== 'literal' && m.kind !== 'page_state') {
+            // 未知映射类型：静默归 page_state 会在发布后求值失败，显式警告并跳过
+            warnings.push(
+              `区块「${String(section.title ?? node.id)}」参数「${String(m.param)}」的映射类型「${String(m.kind)}」未知，已跳过`,
+            );
+            return null;
+          }
+          const kind: 'page_state' | 'literal' = m.kind;
           const target = String(m.param ?? '').startsWith('/')
             ? String(m.param)
             : `/${String(m.param ?? '')}`;
           if (kind === 'page_state') {
             const key = nodeSectionKey.get(String(m.sourceNodeId ?? ''));
-            if (!key) return null;
+            if (!key) {
+              // 来源节点已删/失效：静默 null 会让映射悄悄丢失，显式警告
+              warnings.push(
+                `区块「${String(section.title ?? node.id)}」参数「${String(m.param)}」的来源节点已失效，已跳过`,
+              );
+              return null;
+            }
             return {
               target,
               kind,
@@ -619,16 +641,8 @@ export function decompileToTree(sections: SpecSectionLike[]): [PageNode[], strin
   const warnings: string[] = [];
   const keyToNodeId = new Map<string, string>();
   const dialogKeyToModalId = new Map<string, string>();
-  const titleOf = (sec: SpecSectionLike, fallback: string): string => {
-    const t = sec.title;
-    if (t && typeof t === 'object') {
-      const lt = t as Record<string, unknown>;
-      const v = lt['zh-CN'] ?? lt['en-US'];
-      if (typeof v === 'string' && v) return v;
-    }
-    if (typeof t === 'string' && t) return t;
-    return fallback;
-  };
+  const titleOf = (sec: SpecSectionLike, fallback: string): string =>
+    localizedText(sec.title as Record<string, string> | string | undefined, 'zh-CN', fallback);
 
   // 第一遍：创建节点并登记映射
   const nodes: PageNode[] = [];
@@ -837,15 +851,8 @@ export function decompileToTree(sections: SpecSectionLike[]): [PageNode[], strin
   // label 提取：后端把 rowActions/toolbar 的 label 包装为 LocalizedText
   // （{"zh-CN": ...}），回读必须提取字符串——原样透传会让再编译
   // String(label) 变 "[object Object]"（数据毁坏）。
-  const labelOf = (raw: unknown, fallback: string): string => {
-    if (typeof raw === 'string') return raw;
-    if (raw && typeof raw === 'object') {
-      const lt = raw as Record<string, unknown>;
-      const v = lt['zh-CN'] ?? lt['en-US'];
-      if (typeof v === 'string' && v) return v;
-    }
-    return fallback;
-  };
+  const labelOf = (raw: unknown, fallback: string): string =>
+    localizedText(raw as Record<string, string> | string | undefined, 'zh-CN', fallback);
   // rowActions/toolbar 还原（递归：含 dialog 内的 fnTable）
   const restoreTableNode = (node: PageNode): void => {
     if (node.type === 'fnTable') {

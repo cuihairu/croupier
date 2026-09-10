@@ -6,6 +6,7 @@ import { getComponent, registerComponent, type ComponentDef } from '../registry'
 import type { PageNode } from '../model';
 import { schemaProperties, schemaRequired, type CompositeView } from '../types';
 import { EVENTS } from '../actions';
+import { localizedText } from '@/utils/localizedText';
 import type { JSONSchema } from '@/types/dashboard';
 
 const { Text } = Typography;
@@ -18,10 +19,10 @@ function commonFnSchema(
   extra: Record<string, unknown> = {},
 ): JSONSchema {
   const pool = allFns ?? [];
-  const options = (pool.length ? pool : fn ? [fn] : []).map((f) => ({
-    value: f.id,
-    label: f.summary?.['zh-CN'] ? `${f.id}（${f.summary['zh-CN']}）` : f.id,
-  }));
+  const options = (pool.length ? pool : fn ? [fn] : []).map((f) => {
+    const summary = localizedText(f.summary, 'zh-CN');
+    return { value: f.id, label: summary ? `${f.id}（${summary}）` : f.id };
+  });
   return {
     type: 'object',
     properties: {
@@ -70,7 +71,7 @@ const fnTable: ComponentDef = {
   },
   scaffold: (fn) => ({
     functionId: fn?.id ?? '',
-    title: fn?.summary?.['zh-CN'] || fn?.id || '表格',
+    title: localizedText(fn?.summary, 'zh-CN', fn?.id ?? '表格') || '表格',
     span: 24,
     autoRun: true,
     columns: schemaProperties(fn?.outputSchema),
@@ -120,7 +121,7 @@ const fnForm: ComponentDef = {
   },
   scaffold: (fn) => ({
     functionId: fn?.id ?? '',
-    title: fn?.summary?.['zh-CN'] || fn?.id || '操作',
+    title: localizedText(fn?.summary, 'zh-CN', fn?.id ?? '操作') || '操作',
     span: 24,
     display: 'inline',
   }),
@@ -170,7 +171,7 @@ const fnFields: ComponentDef = {
   },
   scaffold: (fn) => ({
     functionId: fn?.id ?? '',
-    title: fn?.summary?.['zh-CN'] || fn?.id || '详情',
+    title: localizedText(fn?.summary, 'zh-CN', fn?.id ?? '详情') || '详情',
     span: 12,
     autoRun: true,
   }),

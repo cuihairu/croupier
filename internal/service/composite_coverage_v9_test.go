@@ -196,6 +196,39 @@ func TestCreateCompositeProposalWithStaticSectionV9(t *testing.T) {
 	}
 }
 
+// static 区块按输入流位置交错合并：在首位/中间时不被追加到页尾，
+// 发布 sections 顺序与请求顺序一致（编辑器画布顺序=发布渲染顺序）。
+func TestCreateCompositeProposalStaticOrderV9(t *testing.T) {
+	db := setupTestDBFileV9(t)
+	ctx := context.Background()
+	svc := NewContractService(db)
+	seedCompositeV9(t, svc, ctx)
+
+	staticForm := &spec.FormPresentationSpec{
+		JSONSchema: spec.JSONSchema(`{"type":"object","properties":{"env":{"type":"string","enum":["prod","stage"]}}}`),
+	}
+	proposal, err := svc.CreateCompositeProposal(ctx, "g9", "e9", "static-order", []CompositeSectionRequest{
+		{Key: "consts", Title: "常量筛选", Static: true, Form: staticForm},
+		{FunctionID: "player.get", View: "fields"},
+		{Key: "consts2", Title: "常量二", Static: true, Form: staticForm},
+		{FunctionID: "order.list", View: "table", RefreshOn: []string{"consts"}},
+	})
+	require.NoError(t, err)
+	require.NotNil(t, proposal)
+
+	var pageSpec spec.PageSpec
+	require.NoError(t, jsonUnmarshalV9(proposal.PageSpec, &pageSpec))
+	require.NotNil(t, pageSpec.Composite)
+	require.Len(t, pageSpec.Composite.Sections, 4)
+
+	// 顺序断言：static 在首位、第二个 static 夹在两个生成区块之间
+	keys := make([]string, 0, len(pageSpec.Composite.Sections))
+	for _, sec := range pageSpec.Composite.Sections {
+		keys = append(keys, sec.Key)
+	}
+	assert.Equal(t, []string{"consts", "player.get", "consts2", "order.list"}, keys)
+}
+
 // 显式参数映射（P0）：上游常量表单字段 → 下游表格参数（page_state），
 // 按 target 覆盖自动映射；literal 固定值。
 func TestCreateCompositeProposalWithInputMappingV9(t *testing.T) {

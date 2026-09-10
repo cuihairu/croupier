@@ -14,7 +14,7 @@ import {
   Typography,
 } from 'antd';
 import type { FunctionDescriptor } from '@/services/api/functions';
-import type { FormPresentationSpec, JSONSchema } from '@/types/dashboard';
+import type { FormPresentationSpec, FormValues, JSONSchema, JSONValue } from '@/types/dashboard';
 import { invokeFunction } from '@/services/api/functions';
 import { resolveStepParams } from '@/components/PageRenderer';
 import SchemaFormRenderer, { type SchemaFormRendererProps } from '@/components/SchemaFormRenderer';
@@ -69,6 +69,8 @@ export default function PreviewRuntime({
   const [mock, setMock] = useState(false);
   const mockRef = useRef(mock);
   mockRef.current = mock;
+  // 模拟数据空态已警示的节点（每节点一次，避免 autoRun 反复弹提示）
+  const mockWarnedRef = useRef(new Set<string>());
   // refreshOnNode 级联的同名字段合并输入（与发布运行时 sectionInputs 同语义）。
   const cascadeInputsRef = useRef<Record<string, JSONRecord>>({});
   const runningRef = useRef<Record<string, boolean>>({});
@@ -177,12 +179,20 @@ export default function PreviewRuntime({
         if (mockRef.current) {
           // 模拟模式：按 outputSchema 合成假数据（跳过真实调用与错误提示）
           const mockResp = generateMockResponse(fnRef.current.get(fid));
+          // 无 schema/顶层结构不支持 → 模拟数据为空（发布端真实调用同样为空，
+          // 不伪造数据造成预览/发布分叉）——每节点提示一次即可
+          if (!mockResp && !mockWarnedRef.current.has(node.id)) {
+            mockWarnedRef.current.add(node.id);
+            message.warning(
+              `「${String(node.props.title ?? fid)}」无可用 outputSchema（或顶层结构不支持），模拟数据为空`,
+            );
+          }
           setResults((r) => ({ ...r, [node.id]: mockResp ?? { data: {} } }));
         } else {
           // 真实响应归一为 {data: payload}：FunctionInvokeResponse.result 才是
           // 函数输出——与发布端 {{var.data.x}} / 级联 .data 的读取形态同构
           // （直接存原始响应会让两者恒 undefined）。
-          const resp = (await invokeFunction(fid, merged as never)) as JSONRecord;
+          const resp = (await invokeFunction(fid, merged as JSONValue)) as JSONRecord;
           if (typeof resp?.error === 'string' && resp.error) return false;
           setResults((r) => ({ ...r, [node.id]: { data: payloadOf(resp) } }));
         }
@@ -755,7 +765,7 @@ function ModalForm({
   return (
     <SchemaFormRenderer
       spec={spec}
-      initialValues={(initialValues ?? {}) as never}
+      initialValues={(initialValues ?? {}) as FormValues}
       disabled={running}
       onValuesChange={(_, all) => onValuesChange?.(all as JSONRecord)}
       onFinish={async (values) => {
