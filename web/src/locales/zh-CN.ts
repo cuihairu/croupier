@@ -1,10 +1,19 @@
+import analyticsPayments from './zh-CN/analyticsPayments';
+import approvals from './zh-CN/approvals';
 import component from './zh-CN/component';
+import devBugs from './zh-CN/devBugs';
+import functionsDirectory from './zh-CN/functionsDirectory';
 import globalHeader from './zh-CN/globalHeader';
 import menu from './zh-CN/menu';
+import opsAlerts from './zh-CN/opsAlerts';
+import opsJobs from './zh-CN/opsJobs';
 import pages from './zh-CN/pages';
 import pwa from './zh-CN/pwa';
+import resourceCatalog from './zh-CN/resourceCatalog';
+import resourceRenderer from './zh-CN/resourceRenderer';
 import settingDrawer from './zh-CN/settingDrawer';
 import settings from './zh-CN/settings';
+import tickets from './zh-CN/tickets';
 
 export default {
   'navBar.lang': '语言',
@@ -21,4 +30,13 @@ export default {
   ...settings,
   ...pwa,
   ...component,
+  ...opsJobs,
+  ...tickets,
+  ...resourceCatalog,
+  ...opsAlerts,
+  ...devBugs,
+  ...analyticsPayments,
+  ...approvals,
+  ...functionsDirectory,
+  ...resourceRenderer,
 };

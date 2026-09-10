@@ -31,6 +31,7 @@ import {
   ReloadOutlined,
   EyeOutlined,
 } from '@ant-design/icons';
+import { FormattedMessage, useIntl } from '@umijs/max';
 import SchemaFormRenderer, { type SchemaFormRendererHandle } from '@/components/SchemaFormRenderer';
 import { renderJSONValueSummary } from './ResultViewRenderer';
 import {
@@ -80,7 +81,12 @@ export interface ResourcePageRendererProps {
 // 列规格转换
 // ---------------------------------------------------------------------------
 
-function columnSpecToProColumn(col: ColumnSpec): ProColumns<FormValues> {
+/** 模块级文案助手接收 intl 的最小结构（@umijs/max 未导出 IntlShape 类型） */
+type IntlFormatter = {
+  formatMessage: (descriptor: { id: string; defaultMessage: string }) => string;
+};
+
+function columnSpecToProColumn(col: ColumnSpec, intl: IntlFormatter): ProColumns<FormValues> {
   const column: ProColumns<FormValues> = {
     title: localizedText(col.title, 'zh-CN', col.key),
     dataIndex: col.key,
@@ -99,7 +105,21 @@ function columnSpecToProColumn(col: ColumnSpec): ProColumns<FormValues> {
       column.valueType = 'switch';
       column.render = (_, record) => {
         const value = record[col.key];
-        return value ? <Tag color="success">是</Tag> : <Tag color="default">否</Tag>;
+        return value ? (
+          <Tag color="success">
+            {intl.formatMessage({
+              id: 'component.resourceRenderer.boolean.yes',
+              defaultMessage: '是',
+            })}
+          </Tag>
+        ) : (
+          <Tag color="default">
+            {intl.formatMessage({
+              id: 'component.resourceRenderer.boolean.no',
+              defaultMessage: '否',
+            })}
+          </Tag>
+        );
       };
       break;
     case 'date':
@@ -166,6 +186,11 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
   title,
 }) => {
   const { message, modal } = App.useApp();
+  const intl = useIntl();
+  // useIntl 在测试 mock 下每次渲染返回新引用，直接进 useCallback 依赖会让
+  // ProTable 请求链无限重建；经 ref 转发后回调依赖稳定，执行时仍读取最新实例
+  const intlRef = useRef(intl);
+  intlRef.current = intl;
   const actionRef = useRef<ActionType>(null);
   const createFormRef = useRef<SchemaFormRendererHandle | null>(null);
   const updateFormRef = useRef<SchemaFormRendererHandle | null>(null);
@@ -207,8 +232,14 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
   // 处理列表数据请求
   const handleRequest = useCallback(
     async (params: TableRequestParams) => {
+      const intl = intlRef.current;
       if (!listBinding) {
-        setListError('资源页面缺少列表查询绑定');
+        setListError(
+          intl.formatMessage({
+            id: 'component.resourceRenderer.list.missingBinding',
+            defaultMessage: '资源页面缺少列表查询绑定',
+          }),
+        );
         return { data: [], total: 0 };
       }
       if (preview) {
@@ -222,16 +253,34 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
           (assignment) => assignment.stateKey === 'items',
         );
         if (!itemsAssignment) {
-          setListError('列表绑定缺少 pageState.items 输出 selector，无法渲染查询结果');
+          setListError(
+            intl.formatMessage({
+              id: 'component.resourceRenderer.list.missingItemsSelector',
+              defaultMessage: '列表绑定缺少 pageState.items 输出 selector，无法渲染查询结果',
+            }),
+          );
           return { data: [], total: 0 };
         }
         if (!Object.prototype.hasOwnProperty.call(nextState, 'items')) {
-          setListError(`列表结果未命中 items selector：${itemsAssignment.source}`);
+          setListError(
+            intl.formatMessage(
+              {
+                id: 'component.resourceRenderer.list.selectorMissed',
+                defaultMessage: `列表结果未命中 items selector：${itemsAssignment.source}`,
+              },
+              { source: itemsAssignment.source },
+            ),
+          );
           return { data: [], total: 0 };
         }
         const rows = getPageStateArray(nextState, 'items');
         if (!Array.isArray(nextState.items)) {
-          setListError('列表 items selector 的结果不是数组，无法渲染资源行');
+          setListError(
+            intl.formatMessage({
+              id: 'component.resourceRenderer.list.invalidShape',
+              defaultMessage: '列表 items selector 的结果不是数组，无法渲染资源行',
+            }),
+          );
           return { data: [], total: 0 };
         }
         setListError(null);
@@ -241,8 +290,18 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
           total: total ?? rows.length,
         };
       } catch {
-        setListError('获取资源列表失败，请检查查询绑定或稍后重试');
-        message.error('获取数据失败');
+        setListError(
+          intl.formatMessage({
+            id: 'component.resourceRenderer.list.loadFailed',
+            defaultMessage: '获取资源列表失败，请检查查询绑定或稍后重试',
+          }),
+        );
+        message.error(
+          intl.formatMessage({
+            id: 'component.resourceRenderer.list.fetchError',
+            defaultMessage: '获取数据失败',
+          }),
+        );
         return { data: [], total: 0 };
       }
     },
@@ -252,23 +311,44 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
   // 处理创建
   const handleCreate = useCallback(
     async (values: FormValues) => {
+      const intl = intlRef.current;
       if (!createBinding) {
-        message.error('未配置创建操作');
+        message.error(
+          intl.formatMessage({
+            id: 'component.resourceRenderer.create.missingBinding',
+            defaultMessage: '未配置创建操作',
+          }),
+        );
         return false;
       }
       if (preview) {
-        message.info('预览模式不执行创建操作');
+        message.info(
+          intl.formatMessage({
+            id: 'component.resourceRenderer.create.previewBlocked',
+            defaultMessage: '预览模式不执行创建操作',
+          }),
+        );
         return false;
       }
       try {
         await onExecute(createBinding.id, { form: values });
-        message.success('创建成功');
+        message.success(
+          intl.formatMessage({
+            id: 'component.resourceRenderer.create.success',
+            defaultMessage: '创建成功',
+          }),
+        );
         setCreateModalVisible(false);
         setSelectedRows([]);
         actionRef.current?.reload();
         return true;
       } catch {
-        message.error('创建失败');
+        message.error(
+          intl.formatMessage({
+            id: 'component.resourceRenderer.create.failed',
+            defaultMessage: '创建失败',
+          }),
+        );
         return false;
       }
     },
@@ -278,24 +358,45 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
   // 处理编辑
   const handleEdit = useCallback(
     async (values: FormValues) => {
+      const intl = intlRef.current;
       if (!updateBinding || !currentRecord) {
-        message.error('未配置编辑操作');
+        message.error(
+          intl.formatMessage({
+            id: 'component.resourceRenderer.edit.missingBinding',
+            defaultMessage: '未配置编辑操作',
+          }),
+        );
         return false;
       }
       if (preview) {
-        message.info('预览模式不执行编辑操作');
+        message.info(
+          intl.formatMessage({
+            id: 'component.resourceRenderer.edit.previewBlocked',
+            defaultMessage: '预览模式不执行编辑操作',
+          }),
+        );
         return false;
       }
       try {
         await onExecute(updateBinding.id, { form: values, row: currentRecord });
-        message.success('更新成功');
+        message.success(
+          intl.formatMessage({
+            id: 'component.resourceRenderer.edit.success',
+            defaultMessage: '更新成功',
+          }),
+        );
         setEditModalVisible(false);
         setCurrentRecord(null);
         setSelectedRows([]);
         actionRef.current?.reload();
         return true;
       } catch {
-        message.error('更新失败');
+        message.error(
+          intl.formatMessage({
+            id: 'component.resourceRenderer.edit.failed',
+            defaultMessage: '更新失败',
+          }),
+        );
         return false;
       }
     },
@@ -305,26 +406,47 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
   // 提交带表单的行操作：form 值 + 行 identity 一起交给 selector 组装
   const submitActionForm = useCallback(
     async (values: FormValues) => {
+      const intl = intlRef.current;
       if (!actionFormState) return false;
       const { action, record } = actionFormState;
       const binding = bindings.find((item) => item.id === action.bindingId);
       if (!binding) {
-        message.error('未配置操作绑定');
+        message.error(
+          intl.formatMessage({
+            id: 'component.resourceRenderer.rowAction.missingBinding',
+            defaultMessage: '未配置操作绑定',
+          }),
+        );
         return false;
       }
       if (preview) {
-        message.info('预览模式不执行资源动作');
+        message.info(
+          intl.formatMessage({
+            id: 'component.resourceRenderer.action.previewBlocked',
+            defaultMessage: '预览模式不执行资源动作',
+          }),
+        );
         return false;
       }
       try {
         await onExecute(binding.id, { form: values, row: record });
-        message.success('操作成功');
+        message.success(
+          intl.formatMessage({
+            id: 'component.resourceRenderer.action.success',
+            defaultMessage: '操作成功',
+          }),
+        );
         setActionFormState(null);
         setSelectedRows([]);
         actionRef.current?.reload();
         return true;
       } catch {
-        message.error('操作失败');
+        message.error(
+          intl.formatMessage({
+            id: 'component.resourceRenderer.action.failed',
+            defaultMessage: '操作失败',
+          }),
+        );
         return false;
       }
     },
@@ -354,21 +476,42 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
   // 处理删除
   const handleDelete = useCallback(
     async (record: FormValues) => {
+      const intl = intlRef.current;
       if (!deleteBinding) {
-        message.error('未配置删除操作');
+        message.error(
+          intl.formatMessage({
+            id: 'component.resourceRenderer.delete.missingBinding',
+            defaultMessage: '未配置删除操作',
+          }),
+        );
         return;
       }
       if (preview) {
-        message.info('预览模式不执行删除操作');
+        message.info(
+          intl.formatMessage({
+            id: 'component.resourceRenderer.delete.previewBlocked',
+            defaultMessage: '预览模式不执行删除操作',
+          }),
+        );
         return;
       }
       try {
         await onExecute(deleteBinding.id, { row: record });
-        message.success('删除成功');
+        message.success(
+          intl.formatMessage({
+            id: 'component.resourceRenderer.delete.success',
+            defaultMessage: '删除成功',
+          }),
+        );
         setSelectedRows([]);
         actionRef.current?.reload();
       } catch {
-        message.error('删除失败');
+        message.error(
+          intl.formatMessage({
+            id: 'component.resourceRenderer.delete.failed',
+            defaultMessage: '删除失败',
+          }),
+        );
       }
     },
     [deleteBinding, message, onExecute, preview],
@@ -377,13 +520,24 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
   // 处理行操作
   const handleRowAction = useCallback(
     async (action: ActionSpec, record: FormValues) => {
+      const intl = intlRef.current;
       const binding = bindings.find((item) => item.id === action.bindingId);
       if (!binding) {
-        message.error('未配置操作绑定');
+        message.error(
+          intl.formatMessage({
+            id: 'component.resourceRenderer.rowAction.missingBinding',
+            defaultMessage: '未配置操作绑定',
+          }),
+        );
         return;
       }
       if (preview) {
-        message.info('预览模式不执行资源动作');
+        message.info(
+          intl.formatMessage({
+            id: 'component.resourceRenderer.action.previewBlocked',
+            defaultMessage: '预览模式不执行资源动作',
+          }),
+        );
         return;
       }
       // 带表单的操作：先弹 SchemaFormRenderer，提交时合并 row identity
@@ -393,27 +547,61 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
       }
       if (action.confirm || binding.execution.requireConfirm) {
         modal.confirm({
-          title: localizedText(action.confirmTitle, 'zh-CN', '确认操作'),
-          content: localizedText(action.confirmDescription, 'zh-CN', '确定要执行此操作吗？'),
+          title: localizedText(
+            action.confirmTitle,
+            'zh-CN',
+            intl.formatMessage({
+              id: 'component.resourceRenderer.confirm.title',
+              defaultMessage: '确认操作',
+            }),
+          ),
+          content: localizedText(
+            action.confirmDescription,
+            'zh-CN',
+            intl.formatMessage({
+              id: 'component.resourceRenderer.confirm.content',
+              defaultMessage: '确定要执行此操作吗？',
+            }),
+          ),
           onOk: async () => {
             try {
               await onExecute(binding.id, { row: record });
-              message.success('操作成功');
+              message.success(
+                intl.formatMessage({
+                  id: 'component.resourceRenderer.action.success',
+                  defaultMessage: '操作成功',
+                }),
+              );
               setSelectedRows([]);
               actionRef.current?.reload();
             } catch {
-              message.error('操作失败');
+              message.error(
+                intl.formatMessage({
+                  id: 'component.resourceRenderer.action.failed',
+                  defaultMessage: '操作失败',
+                }),
+              );
             }
           },
         });
       } else {
         try {
           await onExecute(binding.id, { row: record });
-          message.success('操作成功');
+          message.success(
+            intl.formatMessage({
+              id: 'component.resourceRenderer.action.success',
+              defaultMessage: '操作成功',
+            }),
+          );
           setSelectedRows([]);
           actionRef.current?.reload();
         } catch {
-          message.error('操作失败');
+          message.error(
+            intl.formatMessage({
+              id: 'component.resourceRenderer.action.failed',
+              defaultMessage: '操作失败',
+            }),
+          );
         }
       }
     },
@@ -422,29 +610,64 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
 
   const executeListAction = useCallback(
     async (action: ActionSpec, context: { row?: FormValues; selection?: FormValues[] }) => {
+      const intl = intlRef.current;
       const binding = bindings.find((item) => item.id === action.bindingId);
       if (!binding) {
-        message.error('未配置操作绑定');
+        message.error(
+          intl.formatMessage({
+            id: 'component.resourceRenderer.rowAction.missingBinding',
+            defaultMessage: '未配置操作绑定',
+          }),
+        );
         return;
       }
       if (preview) {
-        message.info('预览模式不执行资源动作');
+        message.info(
+          intl.formatMessage({
+            id: 'component.resourceRenderer.action.previewBlocked',
+            defaultMessage: '预览模式不执行资源动作',
+          }),
+        );
         return;
       }
       const run = async () => {
         try {
           await onExecute(binding.id, context);
-          message.success('操作成功');
+          message.success(
+            intl.formatMessage({
+              id: 'component.resourceRenderer.action.success',
+              defaultMessage: '操作成功',
+            }),
+          );
           setSelectedRows([]);
           actionRef.current?.reload();
         } catch {
-          message.error('操作失败');
+          message.error(
+            intl.formatMessage({
+              id: 'component.resourceRenderer.action.failed',
+              defaultMessage: '操作失败',
+            }),
+          );
         }
       };
       if (action.confirm || binding.execution.requireConfirm) {
         modal.confirm({
-          title: localizedText(action.confirmTitle, 'zh-CN', '确认操作'),
-          content: localizedText(action.confirmDescription, 'zh-CN', '确定要执行此操作吗？'),
+          title: localizedText(
+            action.confirmTitle,
+            'zh-CN',
+            intl.formatMessage({
+              id: 'component.resourceRenderer.confirm.title',
+              defaultMessage: '确认操作',
+            }),
+          ),
+          content: localizedText(
+            action.confirmDescription,
+            'zh-CN',
+            intl.formatMessage({
+              id: 'component.resourceRenderer.confirm.content',
+              defaultMessage: '确定要执行此操作吗？',
+            }),
+          ),
           onOk: run,
         });
         return;
@@ -456,6 +679,7 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
 
   const openDetail = useCallback(
     async (record: FormValues) => {
+      const intl = intlRef.current;
       setCurrentRecord(record);
       setDetailRecord(record);
       setDetailError(null);
@@ -471,21 +695,44 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
           (assignment) => assignment.stateKey === 'detail',
         );
         if (!detailAssignment) {
-          setDetailError('详情绑定缺少 pageState.detail 输出 selector，无法渲染详情结果');
+          setDetailError(
+            intl.formatMessage({
+              id: 'component.resourceRenderer.detail.missingSelector',
+              defaultMessage: '详情绑定缺少 pageState.detail 输出 selector，无法渲染详情结果',
+            }),
+          );
           return;
         }
         if (!Object.prototype.hasOwnProperty.call(patch, 'detail')) {
-          setDetailError(`详情结果未命中 detail selector：${detailAssignment.source}`);
+          setDetailError(
+            intl.formatMessage(
+              {
+                id: 'component.resourceRenderer.detail.selectorMissed',
+                defaultMessage: `详情结果未命中 detail selector：${detailAssignment.source}`,
+              },
+              { source: detailAssignment.source },
+            ),
+          );
           return;
         }
         const detail = getPageStateObject(patch, 'detail');
         if (!detail) {
-          setDetailError('详情 detail selector 的结果不是对象，无法渲染详情字段');
+          setDetailError(
+            intl.formatMessage({
+              id: 'component.resourceRenderer.detail.invalidShape',
+              defaultMessage: '详情 detail selector 的结果不是对象，无法渲染详情字段',
+            }),
+          );
           return;
         }
         setDetailRecord(detail);
       } catch {
-        setDetailError('加载详情失败，请稍后重试');
+        setDetailError(
+          intl.formatMessage({
+            id: 'component.resourceRenderer.detail.failed',
+            defaultMessage: '加载详情失败，请稍后重试',
+          }),
+        );
       } finally {
         setDetailLoading(false);
       }
@@ -494,12 +741,16 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
   );
 
   // 构建表格列
-  const columns: ProColumns<FormValues>[] = spec.listView?.columns.map(columnSpecToProColumn) || [];
+  const columns: ProColumns<FormValues>[] =
+    spec.listView?.columns.map((col) => columnSpecToProColumn(col, intl)) || [];
 
   // 添加操作列（固定右侧：窄屏横向滚动时操作始终可见，与平台其他 ProTable 一致）
   if (spec.detailView || rowActions.length > 0 || deleteBinding) {
     columns.push({
-      title: '操作',
+      title: intl.formatMessage({
+        id: 'component.resourceRenderer.column.actions',
+        defaultMessage: '操作',
+      }),
       valueType: 'option',
       key: 'action',
       fixed: 'right',
@@ -513,7 +764,7 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
               icon={<EyeOutlined />}
               onClick={() => void openDetail(record)}
             >
-              查看
+              <FormattedMessage id="component.resourceRenderer.action.view" defaultMessage="查看" />
             </Button>
           ) : null}
           {rowActions.map((action) => (
@@ -537,18 +788,45 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
           ))}
           {deleteBinding && spec.deleteAction ? (
             <Popconfirm
-              title={localizedText(spec.deleteAction.title, 'zh-CN', '确认删除')}
+              title={localizedText(
+                spec.deleteAction.title,
+                'zh-CN',
+                intl.formatMessage({
+                  id: 'component.resourceRenderer.confirm.deleteTitle',
+                  defaultMessage: '确认删除',
+                }),
+              )}
               description={localizedText(
                 spec.deleteAction.description,
                 'zh-CN',
-                '确认删除此记录？',
+                intl.formatMessage({
+                  id: 'component.resourceRenderer.confirm.deleteDescription',
+                  defaultMessage: '确认删除此记录？',
+                }),
               )}
-              okText={localizedText(spec.deleteAction.confirmText, 'zh-CN', '确认')}
-              cancelText={localizedText(spec.deleteAction.cancelText, 'zh-CN', '取消')}
+              okText={localizedText(
+                spec.deleteAction.confirmText,
+                'zh-CN',
+                intl.formatMessage({
+                  id: 'component.resourceRenderer.confirm.okText',
+                  defaultMessage: '确认',
+                }),
+              )}
+              cancelText={localizedText(
+                spec.deleteAction.cancelText,
+                'zh-CN',
+                intl.formatMessage({
+                  id: 'component.resourceRenderer.confirm.cancelText',
+                  defaultMessage: '取消',
+                }),
+              )}
               onConfirm={() => void handleDelete(record)}
             >
               <Button type="link" size="small" danger icon={<DeleteOutlined />}>
-                删除
+                <FormattedMessage
+                  id="component.resourceRenderer.delete.button"
+                  defaultMessage="删除"
+                />
               </Button>
             </Popconfirm>
           ) : null}
@@ -570,7 +848,17 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
       ) : null}
       {/* 列表视图 */}
       <ProTable<FormValues, TableRequestParams>
-        headerTitle={title || localizedText(spec.listView?.columns[0]?.title, 'zh-CN', '资源列表')}
+        headerTitle={
+          title ||
+          localizedText(
+            spec.listView?.columns[0]?.title,
+            'zh-CN',
+            intl.formatMessage({
+              id: 'component.resourceRenderer.list.fallbackTitle',
+              defaultMessage: '资源列表',
+            }),
+          )
+        }
         actionRef={actionRef}
         rowKey={(record) => String(record[rowIdentityKey] ?? record.id ?? record.key ?? '')}
         columns={columns}
@@ -595,7 +883,10 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
               disabled={preview}
               onClick={() => setCreateModalVisible(true)}
             >
-              新建
+              <FormattedMessage
+                id="component.resourceRenderer.create.button"
+                defaultMessage="新建"
+              />
             </Button>
           ) : null,
           ...toolbarActions.map((action) => (
@@ -614,7 +905,7 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
             icon={<ReloadOutlined />}
             onClick={() => actionRef.current?.reload()}
           >
-            刷新
+            <FormattedMessage id="component.resourceRenderer.refresh" defaultMessage="刷新" />
           </Button>,
         ]}
         rowSelection={
@@ -631,9 +922,20 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
           batchActions.length > 0
             ? ({ selectedRowKeys, onCleanSelected }) => (
                 <Space size={16}>
-                  <span>已选择 {selectedRowKeys.length} 项</span>
+                  <span>
+                    {intl.formatMessage(
+                      {
+                        id: 'component.resourceRenderer.selection.count',
+                        defaultMessage: `已选择 ${selectedRowKeys.length} 项`,
+                      },
+                      { count: selectedRowKeys.length },
+                    )}
+                  </span>
                   <Button type="link" size="small" onClick={onCleanSelected}>
-                    取消选择
+                    <FormattedMessage
+                      id="component.resourceRenderer.selection.clear"
+                      defaultMessage="取消选择"
+                    />
                   </Button>
                 </Space>
               )
@@ -665,7 +967,14 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
                 defaultPageSize: spec.listView.pagination.defaultSize || 20,
                 showSizeChanger: true,
                 showQuickJumper: true,
-                showTotal: (total) => `共 ${total} 条`,
+                showTotal: (total) =>
+                  intl.formatMessage(
+                    {
+                      id: 'component.resourceRenderer.pagination.total',
+                      defaultMessage: `共 ${total} 条`,
+                    },
+                    { total },
+                  ),
                 pageSizeOptions: spec.listView.pagination.pageSizes?.map(String) || [
                   '10',
                   '20',
@@ -680,7 +989,10 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
       {/* 创建表单 */}
       {spec.createForm && (
         <Modal
-          title="新建"
+          title={intl.formatMessage({
+            id: 'component.resourceRenderer.create.modalTitle',
+            defaultMessage: '新建',
+          })}
           open={createModalVisible}
           onOk={submitCreateForm}
           onCancel={() => setCreateModalVisible(false)}
@@ -695,7 +1007,14 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
       {/* 带表单的行操作（封禁/充值等）：identity 行注入 + 用户填写附加字段 */}
       {actionFormState?.action.form && (
         <ActionFormModal
-          title={localizedText(actionFormState.action.title, 'zh-CN', '执行操作')}
+          title={localizedText(
+            actionFormState.action.title,
+            'zh-CN',
+            intl.formatMessage({
+              id: 'component.resourceRenderer.actionForm.title',
+              defaultMessage: '执行操作',
+            }),
+          )}
           formSpec={actionFormState.action.form}
           submitting={formSubmitting}
           onCancel={() => setActionFormState(null)}
@@ -706,7 +1025,10 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
       {/* 编辑表单 */}
       {spec.updateForm && (
         <Modal
-          title="编辑"
+          title={intl.formatMessage({
+            id: 'component.resourceRenderer.edit.modalTitle',
+            defaultMessage: '编辑',
+          })}
           open={editModalVisible}
           onOk={submitUpdateForm}
           onCancel={() => setEditModalVisible(false)}
@@ -726,7 +1048,10 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
       {/* 详情抽屉 */}
       {spec.detailView && currentRecord && (
         <Drawer
-          title="详情"
+          title={intl.formatMessage({
+            id: 'component.resourceRenderer.detail.title',
+            defaultMessage: '详情',
+          })}
           open={detailDrawerVisible}
           onClose={() => {
             setDetailDrawerVisible(false);

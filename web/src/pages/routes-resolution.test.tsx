@@ -22,6 +22,16 @@ jest.mock('@umijs/max', () => ({
   history: { push: jest.fn() },
   useParams: () => ({ id: 'ticket-1' }),
   useModel: () => ({ initialState: { currentUser: { name: 'tester' } } }),
+  // 与 tests/setupTests.jsx 的全局 mock 同契约：返回 defaultMessage，
+  // 并做 {placeholder} 插值（真实 intl 行为），供「工单详情 #{id}」等 ICU 模板串断言
+  useIntl: () => ({
+    formatMessage: ({ defaultMessage }, values) =>
+      Object.entries(values || {}).reduce(
+        (msg: string, [key, val]) => msg.split(`{${key}}`).join(String(val)),
+        defaultMessage,
+      ),
+  }),
+  FormattedMessage: ({ defaultMessage }) => defaultMessage,
 }));
 
 describe('configured page route modules', () => {

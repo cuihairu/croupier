@@ -9,7 +9,7 @@ import {
 } from '@ant-design/pro-components';
 import type { MenuProps } from 'antd';
 import { listAdmins, type AdminRecord } from '@/services/api/permissions';
-import { history } from '@umijs/max';
+import { FormattedMessage, history, useIntl } from '@umijs/max';
 import {
   listTickets,
   createTicket,
@@ -46,6 +46,8 @@ type SupportAccess = {
   canSupportManage?: boolean;
 };
 
+type IntlMessage = { id: string; defaultMessage: string };
+
 const ticketStatuses: TicketStatus[] = ['open', 'in_progress', 'resolved', 'closed'];
 
 const priorityColors: Record<TicketPriority, string> = {
@@ -55,11 +57,11 @@ const priorityColors: Record<TicketPriority, string> = {
   low: 'default',
 };
 
-const priorityLabels: Record<TicketPriority, string> = {
-  urgent: '紧急',
-  high: '高',
-  normal: '普通',
-  low: '低',
+const priorityLabels: Record<TicketPriority, IntlMessage> = {
+  urgent: { id: 'pages.tickets.priority.urgent', defaultMessage: '紧急' },
+  high: { id: 'pages.tickets.priority.high', defaultMessage: '高' },
+  normal: { id: 'pages.tickets.priority.normal', defaultMessage: '普通' },
+  low: { id: 'pages.tickets.priority.low', defaultMessage: '低' },
 };
 
 const statusColors: Record<TicketStatus, string> = {
@@ -69,11 +71,11 @@ const statusColors: Record<TicketStatus, string> = {
   closed: 'default',
 };
 
-const statusLabels: Record<TicketStatus, string> = {
-  open: '打开',
-  in_progress: '处理中',
-  resolved: '已解决',
-  closed: '已关闭',
+const statusLabels: Record<TicketStatus, IntlMessage> = {
+  open: { id: 'pages.tickets.status.open', defaultMessage: '打开' },
+  in_progress: { id: 'pages.tickets.status.inProgress', defaultMessage: '处理中' },
+  resolved: { id: 'pages.tickets.status.resolved', defaultMessage: '已解决' },
+  closed: { id: 'pages.tickets.status.closed', defaultMessage: '已关闭' },
 };
 
 function isTicketPriority(value: string): value is TicketPriority {
@@ -86,6 +88,7 @@ function isTicketStatus(value: string): value is TicketStatus {
 
 export default function SupportTicketsPage() {
   const { message, modal } = App.useApp();
+  const intl = useIntl();
   const actionRef = useRef<ActionType | undefined>(undefined);
   const [q, setQ] = useState('');
   const [status, setStatus] = useState<string>('');
@@ -110,17 +113,19 @@ export default function SupportTicketsPage() {
 
   const priTag = (v?: string) => {
     if (!v) return '-';
+    const known = isTicketPriority(v);
     return (
-      <Tag color={isTicketPriority(v) ? priorityColors[v] : 'default'}>
-        {isTicketPriority(v) ? priorityLabels[v] : v}
+      <Tag color={known ? priorityColors[v] : 'default'}>
+        {known ? intl.formatMessage(priorityLabels[v]) : v}
       </Tag>
     );
   };
   const stTag = (v?: string) => {
     if (!v) return '-';
+    const known = isTicketStatus(v);
     return (
-      <Tag color={isTicketStatus(v) ? statusColors[v] : 'default'}>
-        {isTicketStatus(v) ? statusLabels[v] : v}
+      <Tag color={known ? statusColors[v] : 'default'}>
+        {known ? intl.formatMessage(statusLabels[v]) : v}
       </Tag>
     );
   };
@@ -151,8 +156,14 @@ export default function SupportTicketsPage() {
   };
   const onDelete = (rec: SupportTicket) => {
     modal.confirm({
-      title: '删除工单',
-      content: `确定删除工单“${rec.title}”？`,
+      title: intl.formatMessage({
+        id: 'pages.tickets.deleteConfirm.title',
+        defaultMessage: '删除工单',
+      }),
+      content: intl.formatMessage(
+        { id: 'pages.tickets.deleteConfirm.content', defaultMessage: '确定删除工单“{title}”？' },
+        { title: rec.title },
+      ),
       onOk: async () => {
         await deleteTicket(rec.id);
         actionRef.current?.reload();
@@ -170,39 +181,59 @@ export default function SupportTicketsPage() {
       .filter((s) => s !== rec.status)
       .map((s) => ({
         key: s,
-        label: statusLabels[s],
+        label: intl.formatMessage(statusLabels[s]),
       }));
 
   const columns: ProColumns<SupportTicket>[] = [
-    { title: '标题', dataIndex: 'title' },
-    { title: '分类', dataIndex: 'category' },
-    { title: '优先级', dataIndex: 'priority', render: (_, row) => priTag(row.priority) },
-    { title: '状态', dataIndex: 'status', render: (_, row) => stTag(row.status) },
-    { title: '处理人', dataIndex: 'assignee' },
     {
-      title: '游戏/环境',
+      title: intl.formatMessage({ id: 'pages.tickets.field.title', defaultMessage: '标题' }),
+      dataIndex: 'title',
+    },
+    {
+      title: intl.formatMessage({ id: 'pages.tickets.field.category', defaultMessage: '分类' }),
+      dataIndex: 'category',
+    },
+    {
+      title: intl.formatMessage({ id: 'pages.tickets.field.priority', defaultMessage: '优先级' }),
+      dataIndex: 'priority',
+      render: (_, row) => priTag(row.priority),
+    },
+    {
+      title: intl.formatMessage({ id: 'pages.tickets.field.status', defaultMessage: '状态' }),
+      dataIndex: 'status',
+      render: (_, row) => stTag(row.status),
+    },
+    {
+      title: intl.formatMessage({ id: 'pages.tickets.field.assignee', defaultMessage: '处理人' }),
+      dataIndex: 'assignee',
+    },
+    {
+      title: intl.formatMessage({ id: 'pages.tickets.field.gameEnv', defaultMessage: '游戏/环境' }),
       render: (_, r: SupportTicket) => `${r.gameId || ''}/${r.env || ''}`,
     },
     {
-      title: '更新时间',
+      title: intl.formatMessage({
+        id: 'pages.tickets.field.updatedAt',
+        defaultMessage: '更新时间',
+      }),
       dataIndex: 'updatedAt',
       render: (_, row) => formatDateTime(row.updatedAt ?? ''),
     },
     {
-      title: '操作',
+      title: intl.formatMessage({ id: 'pages.tickets.field.actions', defaultMessage: '操作' }),
       render: (_, r: SupportTicket) => (
         <Space>
           <Button size="small" onClick={() => history.push(`/support/tickets/${r.id}`)}>
-            查看详情
+            <FormattedMessage id="pages.tickets.action.viewDetail" defaultMessage="查看详情" />
           </Button>
           {access.canSupportManage && (
             <Button size="small" onClick={() => openEdit(r)}>
-              编辑
+              <FormattedMessage id="pages.tickets.action.edit" defaultMessage="编辑" />
             </Button>
           )}
           {access.canSupportManage && (
             <Button size="small" danger onClick={() => onDelete(r)}>
-              删除
+              <FormattedMessage id="pages.tickets.action.delete" defaultMessage="删除" />
             </Button>
           )}
           {access.canSupportManage && (
@@ -218,7 +249,9 @@ export default function SupportTicketsPage() {
               }}
               trigger={['click']}
             >
-              <Button size="small">流转为</Button>
+              <Button size="small">
+                <FormattedMessage id="pages.tickets.action.transitionTo" defaultMessage="流转为" />
+              </Button>
             </Dropdown>
           )}
         </Space>
@@ -229,17 +262,23 @@ export default function SupportTicketsPage() {
   return (
     <PageContainer>
       <Card
-        title="工单系统"
+        title={intl.formatMessage({ id: 'pages.tickets.card.title', defaultMessage: '工单系统' })}
         extra={
           <Space>
             <Input
-              placeholder="关键词"
+              placeholder={intl.formatMessage({
+                id: 'pages.tickets.search.keyword',
+                defaultMessage: '关键词',
+              })}
               value={q}
               onChange={(e) => setQ(e.target.value)}
               style={{ width: 180 }}
             />
             <Select
-              placeholder="状态"
+              placeholder={intl.formatMessage({
+                id: 'pages.tickets.field.status',
+                defaultMessage: '状态',
+              })}
               value={status}
               onChange={(v) => {
                 setStatus(v);
@@ -250,14 +289,17 @@ export default function SupportTicketsPage() {
               allowClear
               style={{ width: 140 }}
               options={[
-                { label: '打开', value: 'open' },
-                { label: '处理中', value: 'in_progress' },
-                { label: '已解决', value: 'resolved' },
-                { label: '已关闭', value: 'closed' },
+                { label: intl.formatMessage(statusLabels.open), value: 'open' },
+                { label: intl.formatMessage(statusLabels.in_progress), value: 'in_progress' },
+                { label: intl.formatMessage(statusLabels.resolved), value: 'resolved' },
+                { label: intl.formatMessage(statusLabels.closed), value: 'closed' },
               ]}
             />
             <Select
-              placeholder="优先级"
+              placeholder={intl.formatMessage({
+                id: 'pages.tickets.field.priority',
+                defaultMessage: '优先级',
+              })}
               value={priority}
               onChange={(v) => {
                 setPriority(v);
@@ -266,32 +308,44 @@ export default function SupportTicketsPage() {
               allowClear
               style={{ width: 140 }}
               options={[
-                { label: '低', value: 'low' },
-                { label: '普通', value: 'normal' },
-                { label: '高', value: 'high' },
-                { label: '紧急', value: 'urgent' },
+                { label: intl.formatMessage(priorityLabels.low), value: 'low' },
+                { label: intl.formatMessage(priorityLabels.normal), value: 'normal' },
+                { label: intl.formatMessage(priorityLabels.high), value: 'high' },
+                { label: intl.formatMessage(priorityLabels.urgent), value: 'urgent' },
               ]}
             />
             <Input
-              placeholder="分类"
+              placeholder={intl.formatMessage({
+                id: 'pages.tickets.field.category',
+                defaultMessage: '分类',
+              })}
               value={category}
               onChange={(e) => setCategory(e.target.value)}
               style={{ width: 120 }}
             />
             <Input
-              placeholder="处理人"
+              placeholder={intl.formatMessage({
+                id: 'pages.tickets.field.assignee',
+                defaultMessage: '处理人',
+              })}
               value={assignee}
               onChange={(e) => setAssignee(e.target.value)}
               style={{ width: 120 }}
             />
             <Input
-              placeholder="游戏"
+              placeholder={intl.formatMessage({
+                id: 'pages.tickets.field.gameId',
+                defaultMessage: '游戏',
+              })}
               value={gameId}
               onChange={(e) => setGameId(e.target.value)}
               style={{ width: 120 }}
             />
             <Input
-              placeholder="环境"
+              placeholder={intl.formatMessage({
+                id: 'pages.tickets.field.env',
+                defaultMessage: '环境',
+              })}
               value={env}
               onChange={(e) => setEnv(e.target.value)}
               style={{ width: 120 }}
@@ -305,9 +359,13 @@ export default function SupportTicketsPage() {
                 actionRef.current?.reload();
               }}
             >
-              查询
+              <FormattedMessage id="pages.tickets.search.submit" defaultMessage="查询" />
             </Button>
-            {access.canSupportManage && <Button onClick={openAdd}>新建工单</Button>}
+            {access.canSupportManage && (
+              <Button onClick={openAdd}>
+                <FormattedMessage id="pages.tickets.action.create" defaultMessage="新建工单" />
+              </Button>
+            )}
           </Space>
         }
       >
@@ -344,7 +402,15 @@ export default function SupportTicketsPage() {
               });
               return { data: res.tickets || [], total: res.total || 0, success: true };
             } catch (error) {
-              message.error(extractErrorMessage(error, '加载工单失败'));
+              message.error(
+                extractErrorMessage(
+                  error,
+                  intl.formatMessage({
+                    id: 'pages.tickets.loadFailed',
+                    defaultMessage: '加载工单失败',
+                  }),
+                ),
+              );
               return { data: [], total: 0, success: false };
             }
           }}
@@ -352,51 +418,107 @@ export default function SupportTicketsPage() {
         />
 
         <ModalForm<TicketPayload>
-          title={editing ? '编辑工单' : '新建工单'}
+          title={
+            editing
+              ? intl.formatMessage({
+                  id: 'pages.tickets.modal.editTitle',
+                  defaultMessage: '编辑工单',
+                })
+              : intl.formatMessage({
+                  id: 'pages.tickets.modal.createTitle',
+                  defaultMessage: '新建工单',
+                })
+          }
           open={open}
           onOpenChange={setOpen}
           modalProps={{ destroyOnHidden: true }}
           width={520}
           layout="vertical"
-          submitter={{ searchConfig: { submitText: '确定' } }}
+          submitter={{
+            searchConfig: {
+              submitText: intl.formatMessage({
+                id: 'pages.tickets.modal.submit',
+                defaultMessage: '确定',
+              }),
+            },
+          }}
           initialValues={editing ?? { priority: 'normal', status: 'open' }}
           onFinish={onFinish}
         >
-          <Form.Item label="标题" name="title" rules={[{ required: true, message: '请输入标题' }]}>
+          <Form.Item
+            label={intl.formatMessage({ id: 'pages.tickets.field.title', defaultMessage: '标题' })}
+            name="title"
+            rules={[
+              {
+                required: true,
+                message: intl.formatMessage({
+                  id: 'pages.tickets.form.titleRequired',
+                  defaultMessage: '请输入标题',
+                }),
+              },
+            ]}
+          >
             {' '}
             <Input />{' '}
           </Form.Item>
-          <Form.Item label="内容" name="content">
+          <Form.Item
+            label={intl.formatMessage({
+              id: 'pages.tickets.field.content',
+              defaultMessage: '内容',
+            })}
+            name="content"
+          >
             {' '}
             <Input.TextArea rows={4} />{' '}
           </Form.Item>
-          <Form.Item label="分类" name="category">
+          <Form.Item
+            label={intl.formatMessage({
+              id: 'pages.tickets.field.category',
+              defaultMessage: '分类',
+            })}
+            name="category"
+          >
             {' '}
             <Input />{' '}
           </Form.Item>
-          <Form.Item label="优先级" name="priority">
+          <Form.Item
+            label={intl.formatMessage({
+              id: 'pages.tickets.field.priority',
+              defaultMessage: '优先级',
+            })}
+            name="priority"
+          >
             {' '}
             <Select
               options={[
-                { label: '低', value: 'low' },
-                { label: '普通', value: 'normal' },
-                { label: '高', value: 'high' },
-                { label: '紧急', value: 'urgent' },
+                { label: intl.formatMessage(priorityLabels.low), value: 'low' },
+                { label: intl.formatMessage(priorityLabels.normal), value: 'normal' },
+                { label: intl.formatMessage(priorityLabels.high), value: 'high' },
+                { label: intl.formatMessage(priorityLabels.urgent), value: 'urgent' },
               ]}
             />{' '}
           </Form.Item>
-          <Form.Item label="状态" name="status">
+          <Form.Item
+            label={intl.formatMessage({ id: 'pages.tickets.field.status', defaultMessage: '状态' })}
+            name="status"
+          >
             {' '}
             <Select
               options={[
-                { label: '打开', value: 'open' },
-                { label: '处理中', value: 'in_progress' },
-                { label: '已解决', value: 'resolved' },
-                { label: '已关闭', value: 'closed' },
+                { label: intl.formatMessage(statusLabels.open), value: 'open' },
+                { label: intl.formatMessage(statusLabels.in_progress), value: 'in_progress' },
+                { label: intl.formatMessage(statusLabels.resolved), value: 'resolved' },
+                { label: intl.formatMessage(statusLabels.closed), value: 'closed' },
               ]}
             />{' '}
           </Form.Item>
-          <Form.Item label="处理人" name="assignee">
+          <Form.Item
+            label={intl.formatMessage({
+              id: 'pages.tickets.field.assignee',
+              defaultMessage: '处理人',
+            })}
+            name="assignee"
+          >
             {' '}
             <Select
               allowClear
@@ -404,27 +526,51 @@ export default function SupportTicketsPage() {
               options={users.map((u) => ({ label: u.username, value: u.username }))}
             />{' '}
           </Form.Item>
-          <Form.Item label="标签" name="tags">
+          <Form.Item
+            label={intl.formatMessage({ id: 'pages.tickets.field.tags', defaultMessage: '标签' })}
+            name="tags"
+          >
             {' '}
             <Input placeholder="," />{' '}
           </Form.Item>
-          <Form.Item label="玩家ID" name="playerId">
+          <Form.Item
+            label={intl.formatMessage({
+              id: 'pages.tickets.field.playerId',
+              defaultMessage: '玩家ID',
+            })}
+            name="playerId"
+          >
             {' '}
             <Input />{' '}
           </Form.Item>
-          <Form.Item label="联系方式" name="contact">
+          <Form.Item
+            label={intl.formatMessage({
+              id: 'pages.tickets.field.contact',
+              defaultMessage: '联系方式',
+            })}
+            name="contact"
+          >
             {' '}
             <Input />{' '}
           </Form.Item>
-          <Form.Item label="游戏" name="gameId">
+          <Form.Item
+            label={intl.formatMessage({ id: 'pages.tickets.field.gameId', defaultMessage: '游戏' })}
+            name="gameId"
+          >
             {' '}
             <Input />{' '}
           </Form.Item>
-          <Form.Item label="环境" name="env">
+          <Form.Item
+            label={intl.formatMessage({ id: 'pages.tickets.field.env', defaultMessage: '环境' })}
+            name="env"
+          >
             {' '}
             <Input />{' '}
           </Form.Item>
-          <Form.Item label="来源" name="source">
+          <Form.Item
+            label={intl.formatMessage({ id: 'pages.tickets.field.source', defaultMessage: '来源' })}
+            name="source"
+          >
             {' '}
             <Input />{' '}
           </Form.Item>

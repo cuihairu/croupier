@@ -1,0 +1,58 @@
+// pages.functionsDirectory.* — Functions/Directory 函数目录
+export default {
+  'pages.functionsDirectory.alert.description':
+    '如果目标是做运营人员真正访问的页面，不要在函数层配置菜单或页面布局；请到资源/页面候选中进入 Page Studio。',
+  'pages.functionsDirectory.alert.title': '函数目录只展示能力供给，不承载页面 UI',
+  'pages.functionsDirectory.button.testInvoke': '测试调用',
+  'pages.functionsDirectory.button.viewResourceCandidates': '查看资源/页面候选',
+  'pages.functionsDirectory.button.viewResources': '查看资源',
+  'pages.functionsDirectory.checklist.description':
+    '重点检查函数是否启用、是否有可调用实例、资源和操作声明是否清晰，以及是否有足够 schema 支撑后续 PageSpec 编排。',
+  'pages.functionsDirectory.checklist.item.contract': '资源与操作契约',
+  'pages.functionsDirectory.checklist.item.definition': '函数定义与摘要',
+  'pages.functionsDirectory.checklist.item.instances': '实例与调用入口',
+  'pages.functionsDirectory.checklist.title': '这里适合确认什么',
+  'pages.functionsDirectory.desc.functionId': '函数ID',
+  'pages.functionsDirectory.desc.instances': '覆盖实例',
+  'pages.functionsDirectory.desc.instancesCount': '{count} 个实例',
+  'pages.functionsDirectory.desc.operation': '操作',
+  'pages.functionsDirectory.desc.resource': '资源',
+  'pages.functionsDirectory.desc.state': '状态',
+  'pages.functionsDirectory.desc.undeclared': '未声明',
+  'pages.functionsDirectory.desc.unknown': '未知',
+  'pages.functionsDirectory.desc.unspecified': '未指定',
+  'pages.functionsDirectory.desc.version': '版本',
+  'pages.functionsDirectory.drawer.basicInfo': '基本信息',
+  'pages.functionsDirectory.drawer.description': '函数描述',
+  'pages.functionsDirectory.drawer.displayName': '显示名称',
+  'pages.functionsDirectory.drawer.tags': '标签',
+  'pages.functionsDirectory.drawer.title': '函数详情',
+  'pages.functionsDirectory.intro.description':
+    '函数目录负责 descriptor、入参表单、实例覆盖和调用校验，不决定菜单、页面分类、表格、分页或多函数组合。页面发布后的菜单只来自 PublishedPageSpec。',
+  'pages.functionsDirectory.intro.title': '先确认函数能力，再进入 Page Studio 编排页面',
+  'pages.functionsDirectory.list.resultText': '当前结果 {count} 个函数',
+  'pages.functionsDirectory.list.title': '函数列表',
+  'pages.functionsDirectory.list.total': '共 {total} 个函数',
+  'pages.functionsDirectory.state.disabled': '禁用',
+  'pages.functionsDirectory.state.enabled': '启用',
+  'pages.functionsDirectory.subTitle':
+    '函数目录只管理原子能力契约；页面、菜单和分类在 Page Studio 中确定',
+  'pages.functionsDirectory.suggestedAction.description':
+    '如果函数能力已经可用，下一步应到资源/页面候选中检查 PageSpec 生成质量，再进入 Page Studio 修改并发布。',
+  'pages.functionsDirectory.suggestedAction.testInvoke': '测试函数调用',
+  'pages.functionsDirectory.suggestedAction.title': '当前建议动作',
+  'pages.functionsDirectory.summary.description':
+    '这里是能力供给层。函数注册不负责页面显示，页面编排只在 PageSpec/Page Studio 中完成。',
+  'pages.functionsDirectory.summary.hint':
+    '函数层负责供给，Page Studio 负责装配，运行控制台只展示已发布 PageSpec。',
+  'pages.functionsDirectory.summary.item.disabled': '禁用 {count}',
+  'pages.functionsDirectory.summary.item.enabled': '启用 {count}',
+  'pages.functionsDirectory.summary.item.resources': '资源 {count}',
+  'pages.functionsDirectory.summary.item.total': '总数 {count}',
+  'pages.functionsDirectory.summary.title': '函数概览',
+  'pages.functionsDirectory.tag.assemblableFunctions': '可装配函数 {count}',
+  'pages.functionsDirectory.tag.capabilityLayer': '能力供给层',
+  'pages.functionsDirectory.tag.declaredOperations': '已声明操作 {count}',
+  'pages.functionsDirectory.tag.topResource': '当前最大资源 {label} · {count}',
+  'pages.functionsDirectory.title': '函数目录',
+};

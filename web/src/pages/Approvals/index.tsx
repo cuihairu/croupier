@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Card, Tag, Space, Button, Drawer, Descriptions, Select, Input, Tabs } from 'antd';
 import { ProTable, type ActionType } from '@ant-design/pro-components';
+import { FormattedMessage, useIntl } from '@umijs/max';
 import { getMessage } from '@/utils/antdApp';
 import {
   approveApproval,
@@ -36,10 +37,15 @@ type ViewMode = 'todo' | 'mine' | 'all';
 
 const stateTag = (state: Approval['state']) =>
   state === 'pending' ? 'gold' : state === 'approved' ? 'green' : 'red';
-const stateText = (state: Approval['state']) =>
-  state === 'pending' ? '待审批' : state === 'approved' ? '已通过' : '已拒绝';
+const stateText = (state: Approval['state'], intl: ReturnType<typeof useIntl>) =>
+  state === 'pending'
+    ? intl.formatMessage({ id: 'pages.approvals.state.pending', defaultMessage: '待审批' })
+    : state === 'approved'
+      ? intl.formatMessage({ id: 'pages.approvals.state.approved', defaultMessage: '已通过' })
+      : intl.formatMessage({ id: 'pages.approvals.state.rejected', defaultMessage: '已拒绝' });
 
 export default function ApprovalsPage() {
+  const intl = useIntl();
   // 当前页数据副本：审批动作按 id 在当前页定位记录，在 request 成功后同步
   const [data, setData] = useState<Approval[]>([]);
   const [viewMode, setViewMode] = useState<ViewMode>('todo');
@@ -67,7 +73,13 @@ export default function ApprovalsPage() {
     try {
       json = await getApproval(id);
     } catch (e) {
-      const msg = e instanceof Error ? e.message : '加载失败';
+      const msg =
+        e instanceof Error
+          ? e.message
+          : intl.formatMessage({
+              id: 'pages.approvals.error.loadFailed',
+              defaultMessage: '加载失败',
+            });
       getMessage()?.error(msg);
       return;
     }
@@ -83,35 +95,77 @@ export default function ApprovalsPage() {
     const risk = (desc?.risk || '').toString().toLowerCase();
     if (risk === 'high') {
       // Require typing the function id as a simple safeguard
-      const text = window.prompt(`高风险函数，请输入函数ID确认：${funcId}`) || '';
+      const text =
+        window.prompt(
+          intl.formatMessage(
+            {
+              id: 'pages.approvals.prompt.highRiskConfirm',
+              defaultMessage: '高风险函数，请输入函数ID确认：{functionId}',
+            },
+            { functionId: funcId },
+          ),
+        ) || '';
       if (funcId && text.trim() !== funcId) {
-        getMessage()?.warning('确认文本不匹配');
+        getMessage()?.warning(
+          intl.formatMessage({
+            id: 'pages.approvals.warning.confirmMismatch',
+            defaultMessage: '确认文本不匹配',
+          }),
+        );
         return;
       }
     }
-    const otp = window.prompt('动态验证码（若未开启可留空）') || '';
+    const otp =
+      window.prompt(
+        intl.formatMessage({
+          id: 'pages.approvals.prompt.otp',
+          defaultMessage: '动态验证码（若未开启可留空）',
+        }),
+      ) || '';
     try {
       await approveApproval({ id, otp });
     } catch (e) {
-      const msg = e instanceof Error ? e.message : '批准失败';
+      const msg =
+        e instanceof Error
+          ? e.message
+          : intl.formatMessage({
+              id: 'pages.approvals.error.approveFailed',
+              defaultMessage: '批准失败',
+            });
       getMessage()?.error(msg);
       return;
     }
-    getMessage()?.success('已批准');
+    getMessage()?.success(
+      intl.formatMessage({ id: 'pages.approvals.message.approved', defaultMessage: '已批准' }),
+    );
     await actionRef.current?.reload();
     await view(id);
   }
 
   async function reject(id: string) {
-    const reason = window.prompt('请输入拒绝原因') || '';
+    const reason =
+      window.prompt(
+        intl.formatMessage({
+          id: 'pages.approvals.prompt.rejectReason',
+          defaultMessage: '请输入拒绝原因',
+        }),
+      ) || '';
     try {
       await rejectApproval({ id, reason });
     } catch (e) {
-      const msg = e instanceof Error ? e.message : '拒绝失败';
+      const msg =
+        e instanceof Error
+          ? e.message
+          : intl.formatMessage({
+              id: 'pages.approvals.error.rejectFailed',
+              defaultMessage: '拒绝失败',
+            });
       getMessage()?.error(msg);
       return;
     }
-    getMessage()?.success('已拒绝');
+    getMessage()?.success(
+      intl.formatMessage({ id: 'pages.approvals.message.rejected', defaultMessage: '已拒绝' }),
+    );
     await actionRef.current?.reload();
     await view(id);
   }
@@ -162,7 +216,7 @@ export default function ApprovalsPage() {
   }, []);
 
   return (
-    <Card title="审批中心">
+    <Card title={intl.formatMessage({ id: 'pages.approvals.title', defaultMessage: '审批中心' })}>
       <Tabs
         activeKey={viewMode}
         onChange={(key) => {
@@ -175,13 +229,33 @@ export default function ApprovalsPage() {
           actionRef.current?.setPageInfo?.({ current: 1 });
         }}
         items={[
-          { key: 'todo', label: '待我审批' },
-          { key: 'mine', label: '我发起的' },
-          { key: 'all', label: '全部' },
+          {
+            key: 'todo',
+            label: intl.formatMessage({
+              id: 'pages.approvals.tab.todo',
+              defaultMessage: '待我审批',
+            }),
+          },
+          {
+            key: 'mine',
+            label: intl.formatMessage({
+              id: 'pages.approvals.tab.mine',
+              defaultMessage: '我发起的',
+            }),
+          },
+          {
+            key: 'all',
+            label: intl.formatMessage({ id: 'pages.approvals.tab.all', defaultMessage: '全部' }),
+          },
         ]}
       />
       <Space style={{ marginBottom: 16 }} wrap>
-        <span>状态:</span>
+        <span>
+          {intl.formatMessage({
+            id: 'pages.approvals.filter.stateLabel',
+            defaultMessage: '状态:',
+          })}
+        </span>
         <Select
           style={{ width: 160 }}
           value={state}
@@ -190,40 +264,79 @@ export default function ApprovalsPage() {
             actionRef.current?.setPageInfo?.({ current: 1 });
           }}
           options={[
-            { label: '全部', value: '' },
-            { label: '待审批', value: 'pending' },
-            { label: '已通过', value: 'approved' },
-            { label: '已拒绝', value: 'rejected' },
+            {
+              label: intl.formatMessage({
+                id: 'pages.approvals.option.all',
+                defaultMessage: '全部',
+              }),
+              value: '',
+            },
+            {
+              label: intl.formatMessage({
+                id: 'pages.approvals.state.pending',
+                defaultMessage: '待审批',
+              }),
+              value: 'pending',
+            },
+            {
+              label: intl.formatMessage({
+                id: 'pages.approvals.state.approved',
+                defaultMessage: '已通过',
+              }),
+              value: 'approved',
+            },
+            {
+              label: intl.formatMessage({
+                id: 'pages.approvals.state.rejected',
+                defaultMessage: '已拒绝',
+              }),
+              value: 'rejected',
+            },
           ]}
         />
         <Input
-          placeholder="函数ID"
+          placeholder={intl.formatMessage({
+            id: 'pages.approvals.filter.placeholder.functionId',
+            defaultMessage: '函数ID',
+          })}
           value={functionId}
           onChange={(e) => setFunctionId(e.target.value)}
           style={{ width: 240 }}
         />
         <Input
-          placeholder="游戏"
+          placeholder={intl.formatMessage({
+            id: 'pages.approvals.filter.placeholder.gameId',
+            defaultMessage: '游戏',
+          })}
           value={gameId}
           onChange={(e) => setGameId(e.target.value)}
           style={{ width: 160 }}
         />
         <Input
-          placeholder="环境"
+          placeholder={intl.formatMessage({
+            id: 'pages.approvals.filter.placeholder.env',
+            defaultMessage: '环境',
+          })}
           value={env}
           onChange={(e) => setEnv(e.target.value)}
           style={{ width: 120 }}
         />
         {viewMode !== 'mine' && (
           <Input
-            placeholder="申请人"
+            placeholder={intl.formatMessage({
+              id: 'pages.approvals.filter.placeholder.actor',
+              defaultMessage: '申请人',
+            })}
             value={actor}
             onChange={(e) => setActor(e.target.value)}
             style={{ width: 160 }}
           />
         )}
         <Select
-          placeholder="风险"
+          placeholder={intl.formatMessage({
+            id: 'pages.approvals.filter.placeholder.risk',
+            defaultMessage: '风险',
+          })}
           style={{ width: 140 }}
           value={riskFilter}
           onChange={(v) => {
@@ -231,10 +344,28 @@ export default function ApprovalsPage() {
             actionRef.current?.setPageInfo?.({ current: 1 });
           }}
           options={[
-            { label: '全部', value: '' },
-            { label: '高', value: 'high' },
-            { label: '中', value: 'medium' },
-            { label: '低', value: 'low' },
+            {
+              label: intl.formatMessage({
+                id: 'pages.approvals.option.all',
+                defaultMessage: '全部',
+              }),
+              value: '',
+            },
+            {
+              label: intl.formatMessage({ id: 'pages.approvals.risk.high', defaultMessage: '高' }),
+              value: 'high',
+            },
+            {
+              label: intl.formatMessage({
+                id: 'pages.approvals.risk.medium',
+                defaultMessage: '中',
+              }),
+              value: 'medium',
+            },
+            {
+              label: intl.formatMessage({ id: 'pages.approvals.risk.low', defaultMessage: '低' }),
+              value: 'low',
+            },
           ]}
         />
         <Button
@@ -243,7 +374,7 @@ export default function ApprovalsPage() {
           }}
           type="primary"
         >
-          查询
+          <FormattedMessage id="pages.approvals.button.query" defaultMessage="查询" />
         </Button>
       </Space>
       <ProTable<Approval>
@@ -292,17 +423,38 @@ export default function ApprovalsPage() {
               : rows;
             return { data: visible, total: json.total || 0, success: true };
           } catch (e) {
-            const msg = e instanceof Error ? e.message : '加载失败';
+            const msg =
+              e instanceof Error
+                ? e.message
+                : intl.formatMessage({
+                    id: 'pages.approvals.error.loadFailed',
+                    defaultMessage: '加载失败',
+                  });
             getMessage()?.error(msg);
             return { data: [], total: 0, success: false };
           }
         }}
         pagination={{ pageSize: 20, showSizeChanger: true }}
         columns={[
-          { title: '创建时间', dataIndex: 'createdAt' },
-          { title: '申请人', dataIndex: 'actor' },
           {
-            title: '函数',
+            title: intl.formatMessage({
+              id: 'pages.approvals.column.createdAt',
+              defaultMessage: '创建时间',
+            }),
+            dataIndex: 'createdAt',
+          },
+          {
+            title: intl.formatMessage({
+              id: 'pages.approvals.column.actor',
+              defaultMessage: '申请人',
+            }),
+            dataIndex: 'actor',
+          },
+          {
+            title: intl.formatMessage({
+              id: 'pages.approvals.column.function',
+              defaultMessage: '函数',
+            }),
             dataIndex: 'functionId',
             render: (_, r) => {
               const d = descMap[r.functionId];
@@ -328,14 +480,26 @@ export default function ApprovalsPage() {
               );
             },
           },
-          { title: '游戏/环境', render: (_, r) => `${r.gameId || ''}/${r.env || ''}` },
           {
-            title: '状态',
-            dataIndex: 'state',
-            render: (_, r) => <Tag color={stateTag(r.state)}>{stateText(r.state)}</Tag>,
+            title: intl.formatMessage({
+              id: 'pages.approvals.column.gameEnv',
+              defaultMessage: '游戏/环境',
+            }),
+            render: (_, r) => `${r.gameId || ''}/${r.env || ''}`,
           },
           {
-            title: '审批信息',
+            title: intl.formatMessage({
+              id: 'pages.approvals.column.state',
+              defaultMessage: '状态',
+            }),
+            dataIndex: 'state',
+            render: (_, r) => <Tag color={stateTag(r.state)}>{stateText(r.state, intl)}</Tag>,
+          },
+          {
+            title: intl.formatMessage({
+              id: 'pages.approvals.column.reviewInfo',
+              defaultMessage: '审批信息',
+            }),
             render: (_, r) => {
               if (!r.approver) return '-';
               return (
@@ -346,30 +510,42 @@ export default function ApprovalsPage() {
                   </span>
                   {r.reviewedByOther && (
                     <Tag color="green" style={{ marginInlineEnd: 0 }}>
-                      两人复核
+                      <FormattedMessage
+                        id="pages.approvals.tag.twoPersonReview"
+                        defaultMessage="两人复核"
+                      />
                     </Tag>
                   )}
                 </Space>
               );
             },
           },
-          { title: '模式', dataIndex: 'mode' },
           {
-            title: '操作',
+            title: intl.formatMessage({
+              id: 'pages.approvals.column.mode',
+              defaultMessage: '模式',
+            }),
+            dataIndex: 'mode',
+          },
+          {
+            title: intl.formatMessage({
+              id: 'pages.approvals.column.actions',
+              defaultMessage: '操作',
+            }),
             render: (_, r) => (
               <Space>
                 <Button size="small" onClick={() => view(r.id)}>
-                  查看
+                  <FormattedMessage id="pages.approvals.button.view" defaultMessage="查看" />
                 </Button>
                 {/* 我发起的视图只读：两人规则下申请人无权审批自己的申请 */}
                 {viewMode !== 'mine' && r.state === 'pending' && (
                   <Button size="small" type="primary" onClick={() => approve(r.id)}>
-                    通过
+                    <FormattedMessage id="pages.approvals.button.approve" defaultMessage="通过" />
                   </Button>
                 )}
                 {viewMode !== 'mine' && r.state === 'pending' && (
                   <Button size="small" danger onClick={() => reject(r.id)}>
-                    拒绝
+                    <FormattedMessage id="pages.approvals.button.reject" defaultMessage="拒绝" />
                   </Button>
                 )}
               </Space>
@@ -378,7 +554,10 @@ export default function ApprovalsPage() {
         ]}
       />
       <Drawer
-        title={`审批详情 ${current?.id || ''}`}
+        title={intl.formatMessage(
+          { id: 'pages.approvals.drawer.title', defaultMessage: '审批详情 {id}' },
+          { id: current?.id || '' },
+        )}
         width={720}
         open={open}
         onClose={() => setOpen(false)}
@@ -396,7 +575,10 @@ export default function ApprovalsPage() {
                     )
                   }
                 >
-                  查看审计（申请人）
+                  <FormattedMessage
+                    id="pages.approvals.button.auditActor"
+                    defaultMessage="查看审计（申请人）"
+                  />
                 </Button>
               )}
               {current.state === 'approved' && (
@@ -409,7 +591,10 @@ export default function ApprovalsPage() {
                     )
                   }
                 >
-                  查看审计（批准）
+                  <FormattedMessage
+                    id="pages.approvals.button.auditApprove"
+                    defaultMessage="查看审计（批准）"
+                  />
                 </Button>
               )}
               {current.state === 'rejected' && (
@@ -422,11 +607,17 @@ export default function ApprovalsPage() {
                     )
                   }
                 >
-                  查看审计（拒绝）
+                  <FormattedMessage
+                    id="pages.approvals.button.auditReject"
+                    defaultMessage="查看审计（拒绝）"
+                  />
                 </Button>
               )}
               <Button size="small" onClick={exportDetailJSON}>
-                导出 JSON
+                <FormattedMessage
+                  id="pages.approvals.button.exportJson"
+                  defaultMessage="导出 JSON"
+                />
               </Button>
               <Button
                 size="small"
@@ -440,22 +631,68 @@ export default function ApprovalsPage() {
                   URL.revokeObjectURL(url);
                 }}
               >
-                导出预览文本
+                <FormattedMessage
+                  id="pages.approvals.button.exportPreview"
+                  defaultMessage="导出预览文本"
+                />
               </Button>
             </Space>
             <Descriptions size="small" column={1} bordered>
-              <Descriptions.Item label="申请人">{current.actor}</Descriptions.Item>
-              <Descriptions.Item label="函数">{current.functionId}</Descriptions.Item>
-              <Descriptions.Item label="游戏/环境">
+              <Descriptions.Item
+                label={intl.formatMessage({
+                  id: 'pages.approvals.desc.actor',
+                  defaultMessage: '申请人',
+                })}
+              >
+                {current.actor}
+              </Descriptions.Item>
+              <Descriptions.Item
+                label={intl.formatMessage({
+                  id: 'pages.approvals.desc.function',
+                  defaultMessage: '函数',
+                })}
+              >
+                {current.functionId}
+              </Descriptions.Item>
+              <Descriptions.Item
+                label={intl.formatMessage({
+                  id: 'pages.approvals.desc.gameEnv',
+                  defaultMessage: '游戏/环境',
+                })}
+              >
                 {current.gameId || ''}/{current.env || ''}
               </Descriptions.Item>
-              <Descriptions.Item label="状态">
-                <Tag color={stateTag(current.state)}>{stateText(current.state)}</Tag>
+              <Descriptions.Item
+                label={intl.formatMessage({
+                  id: 'pages.approvals.desc.state',
+                  defaultMessage: '状态',
+                })}
+              >
+                <Tag color={stateTag(current.state)}>{stateText(current.state, intl)}</Tag>
               </Descriptions.Item>
-              <Descriptions.Item label="模式">{current.mode}</Descriptions.Item>
-              <Descriptions.Item label="创建时间">{current.createdAt}</Descriptions.Item>
+              <Descriptions.Item
+                label={intl.formatMessage({
+                  id: 'pages.approvals.desc.mode',
+                  defaultMessage: '模式',
+                })}
+              >
+                {current.mode}
+              </Descriptions.Item>
+              <Descriptions.Item
+                label={intl.formatMessage({
+                  id: 'pages.approvals.desc.createdAt',
+                  defaultMessage: '创建时间',
+                })}
+              >
+                {current.createdAt}
+              </Descriptions.Item>
               {current.approver && (
-                <Descriptions.Item label="审批人">
+                <Descriptions.Item
+                  label={intl.formatMessage({
+                    id: 'pages.approvals.desc.approver',
+                    defaultMessage: '审批人',
+                  })}
+                >
                   <Space size={4}>
                     <span>
                       {current.approver}
@@ -463,21 +700,57 @@ export default function ApprovalsPage() {
                     </span>
                     {current.reviewedByOther && (
                       <Tag color="green" style={{ marginInlineEnd: 0 }}>
-                        两人复核
+                        <FormattedMessage
+                          id="pages.approvals.tag.twoPersonReview"
+                          defaultMessage="两人复核"
+                        />
                       </Tag>
                     )}
                   </Space>
                 </Descriptions.Item>
               )}
-              <Descriptions.Item label="幂等键">{current.idempotencyKey}</Descriptions.Item>
-              <Descriptions.Item label="路由">{current.route}</Descriptions.Item>
-              <Descriptions.Item label="目标服务">{current.targetServiceId}</Descriptions.Item>
+              <Descriptions.Item
+                label={intl.formatMessage({
+                  id: 'pages.approvals.desc.idempotencyKey',
+                  defaultMessage: '幂等键',
+                })}
+              >
+                {current.idempotencyKey}
+              </Descriptions.Item>
+              <Descriptions.Item
+                label={intl.formatMessage({
+                  id: 'pages.approvals.desc.route',
+                  defaultMessage: '路由',
+                })}
+              >
+                {current.route}
+              </Descriptions.Item>
+              <Descriptions.Item
+                label={intl.formatMessage({
+                  id: 'pages.approvals.desc.targetService',
+                  defaultMessage: '目标服务',
+                })}
+              >
+                {current.targetServiceId}
+              </Descriptions.Item>
               <Descriptions.Item label="Hash Key">{current.hashKey}</Descriptions.Item>
               {current.reason && (
-                <Descriptions.Item label="原因">{current.reason}</Descriptions.Item>
+                <Descriptions.Item
+                  label={intl.formatMessage({
+                    id: 'pages.approvals.desc.reason',
+                    defaultMessage: '原因',
+                  })}
+                >
+                  {current.reason}
+                </Descriptions.Item>
               )}
             </Descriptions>
-            <h4 style={{ marginTop: 16 }}>载荷预览</h4>
+            <h4 style={{ marginTop: 16 }}>
+              <FormattedMessage
+                id="pages.approvals.drawer.payloadPreview"
+                defaultMessage="载荷预览"
+              />
+            </h4>
             <pre
               style={{
                 whiteSpace: 'pre-wrap',

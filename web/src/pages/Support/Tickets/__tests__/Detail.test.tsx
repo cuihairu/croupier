@@ -29,6 +29,17 @@ jest.mock('@umijs/max', () => ({
   useParams: jest.fn(),
   history: { push: jest.fn(), back: jest.fn() },
   useModel: jest.fn(),
+  // 与 tests/setupTests.jsx 同语义：返回 defaultMessage；
+  // 额外做 {placeholder} 插值（真实 intl 行为），供「工单详情 #{id}」
+  // 「已升级为缺陷 #{bugId}…」两条 ICU 模板串断言
+  useIntl: () => ({
+    formatMessage: ({ defaultMessage }, values) =>
+      Object.entries(values || {}).reduce(
+        (msg: string, [key, val]) => msg.split(`{${key}}`).join(String(val)),
+        defaultMessage,
+      ),
+  }),
+  FormattedMessage: ({ defaultMessage }) => defaultMessage,
 }));
 
 const mockMessageApi = {

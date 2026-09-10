@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { AutoComplete, Card, Space, DatePicker, Select, Button, Table, Tag } from 'antd';
 import type { Dayjs } from 'dayjs';
 import { PageContainer } from '@ant-design/pro-components';
+import { FormattedMessage, useIntl } from '@umijs/max';
 import { exportToCSV, exportToXLSX } from '@/utils/export';
 import {
   fetchAnalyticsPaymentsSummary,
@@ -64,6 +65,7 @@ function buildUniqueOptions<T>(
 }
 
 export default function AnalyticsPaymentsPage() {
+  const intl = useIntl();
   const [loading, setLoading] = useState(false);
   const [range, setRange] = useState<[Dayjs | null, Dayjs | null] | null>(null);
   const [channel, setChannel] = useState<string>('');
@@ -154,12 +156,23 @@ export default function AnalyticsPaymentsPage() {
       : geoDim === 'region'
         ? summary?.byRegion || []
         : summary?.byCity || [];
-  const geoLabel = geoDim === 'country' ? '国家' : geoDim === 'region' ? '省/区域' : '城市';
+  const geoLabel =
+    geoDim === 'country'
+      ? intl.formatMessage({ id: 'pages.analyticsPayments.geo.country', defaultMessage: '国家' })
+      : geoDim === 'region'
+        ? intl.formatMessage({
+            id: 'pages.analyticsPayments.geo.region',
+            defaultMessage: '省/区域',
+          })
+        : intl.formatMessage({ id: 'pages.analyticsPayments.geo.city', defaultMessage: '城市' });
 
   return (
     <PageContainer>
       <Card
-        title="支付分析"
+        title={intl.formatMessage({
+          id: 'pages.analyticsPayments.title',
+          defaultMessage: '支付分析',
+        })}
         extra={
           <Space>
             <DatePicker.RangePicker
@@ -168,7 +181,10 @@ export default function AnalyticsPaymentsPage() {
             />
             <AutoComplete
               allowClear
-              placeholder="渠道"
+              placeholder={intl.formatMessage({
+                id: 'pages.analyticsPayments.filter.placeholder.channel',
+                defaultMessage: '渠道',
+              })}
               value={channel}
               onChange={setChannel}
               style={{ width: 140 }}
@@ -177,7 +193,10 @@ export default function AnalyticsPaymentsPage() {
             />
             <AutoComplete
               allowClear
-              placeholder="平台"
+              placeholder={intl.formatMessage({
+                id: 'pages.analyticsPayments.filter.placeholder.platform',
+                defaultMessage: '平台',
+              })}
               value={platform}
               onChange={setPlatform}
               style={{ width: 140 }}
@@ -186,7 +205,10 @@ export default function AnalyticsPaymentsPage() {
             />
             <AutoComplete
               allowClear
-              placeholder="国家"
+              placeholder={intl.formatMessage({
+                id: 'pages.analyticsPayments.filter.placeholder.country',
+                defaultMessage: '国家',
+              })}
               value={country}
               onChange={setCountry}
               style={{ width: 120 }}
@@ -195,7 +217,10 @@ export default function AnalyticsPaymentsPage() {
             />
             <AutoComplete
               allowClear
-              placeholder="省/区域"
+              placeholder={intl.formatMessage({
+                id: 'pages.analyticsPayments.filter.placeholder.region',
+                defaultMessage: '省/区域',
+              })}
               value={region}
               onChange={setRegion}
               style={{ width: 140 }}
@@ -204,7 +229,10 @@ export default function AnalyticsPaymentsPage() {
             />
             <AutoComplete
               allowClear
-              placeholder="城市"
+              placeholder={intl.formatMessage({
+                id: 'pages.analyticsPayments.filter.placeholder.city',
+                defaultMessage: '城市',
+              })}
               value={city}
               onChange={setCity}
               style={{ width: 140 }}
@@ -216,9 +244,27 @@ export default function AnalyticsPaymentsPage() {
               onChange={(v) => setGeoDim(v)}
               style={{ width: 120 }}
               options={[
-                { label: '按国家', value: 'country' },
-                { label: '按省/区域', value: 'region' },
-                { label: '按城市', value: 'city' },
+                {
+                  label: intl.formatMessage({
+                    id: 'pages.analyticsPayments.geo.option.byCountry',
+                    defaultMessage: '按国家',
+                  }),
+                  value: 'country',
+                },
+                {
+                  label: intl.formatMessage({
+                    id: 'pages.analyticsPayments.geo.option.byRegion',
+                    defaultMessage: '按省/区域',
+                  }),
+                  value: 'region',
+                },
+                {
+                  label: intl.formatMessage({
+                    id: 'pages.analyticsPayments.geo.option.byCity',
+                    defaultMessage: '按城市',
+                  }),
+                  value: 'city',
+                },
               ]}
             />
             <Button
@@ -228,7 +274,7 @@ export default function AnalyticsPaymentsPage() {
                 load();
               }}
             >
-              查询
+              <FormattedMessage id="pages.analyticsPayments.button.query" defaultMessage="查询" />
             </Button>
             <Button
               onClick={async () => {
@@ -308,45 +354,135 @@ export default function AnalyticsPaymentsPage() {
                 ]);
               }}
             >
-              导出汇总 CSV
+              <FormattedMessage
+                id="pages.analyticsPayments.button.exportSummaryCsv"
+                defaultMessage="导出汇总 CSV"
+              />
             </Button>
           </Space>
         }
       >
         <Space size={16} wrap>
-          <Tag color="blue">收入: {summary?.totals?.revenue || 0}</Tag>
-          <Tag color="gold">交易数: {summary?.totals?.transactions || 0}</Tag>
-          <Tag color="green">付费用户: {summary?.totals?.users || 0}</Tag>
+          <Tag color="blue">
+            {intl.formatMessage(
+              {
+                id: 'pages.analyticsPayments.summaryTag.revenue',
+                defaultMessage: '收入: {revenue}',
+              },
+              { revenue: summary?.totals?.revenue || 0 },
+            )}
+          </Tag>
+          <Tag color="gold">
+            {intl.formatMessage(
+              {
+                id: 'pages.analyticsPayments.summaryTag.transactions',
+                defaultMessage: '交易数: {count}',
+              },
+              { count: summary?.totals?.transactions || 0 },
+            )}
+          </Tag>
+          <Tag color="green">
+            {intl.formatMessage(
+              {
+                id: 'pages.analyticsPayments.summaryTag.payingUsers',
+                defaultMessage: '付费用户: {count}',
+              },
+              { count: summary?.totals?.users || 0 },
+            )}
+          </Tag>
         </Space>
-        <Card size="small" title="按日汇总" style={{ marginTop: 12 }}>
+        <Card
+          size="small"
+          title={intl.formatMessage({
+            id: 'pages.analyticsPayments.section.dailySummary',
+            defaultMessage: '按日汇总',
+          })}
+          style={{ marginTop: 12 }}
+        >
           <Table
             size="small"
             rowKey={(row) => row.date}
             dataSource={summary.items}
             pagination={false}
             columns={[
-              { title: '日期', dataIndex: 'date' },
-              { title: '收入', dataIndex: 'revenue' },
-              { title: '交易数', dataIndex: 'transactions' },
-              { title: '付费用户', dataIndex: 'users' },
+              {
+                title: intl.formatMessage({
+                  id: 'pages.analyticsPayments.column.date',
+                  defaultMessage: '日期',
+                }),
+                dataIndex: 'date',
+              },
+              {
+                title: intl.formatMessage({
+                  id: 'pages.analyticsPayments.column.revenue',
+                  defaultMessage: '收入',
+                }),
+                dataIndex: 'revenue',
+              },
+              {
+                title: intl.formatMessage({
+                  id: 'pages.analyticsPayments.column.transactions',
+                  defaultMessage: '交易数',
+                }),
+                dataIndex: 'transactions',
+              },
+              {
+                title: intl.formatMessage({
+                  id: 'pages.analyticsPayments.column.payingUsers',
+                  defaultMessage: '付费用户',
+                }),
+                dataIndex: 'users',
+              },
             ]}
           />
         </Card>
         {hasBreakdowns ? (
           <>
             <div style={{ marginTop: 12 }}>
-              <b>按渠道</b>
+              <b>
+                <FormattedMessage
+                  id="pages.analyticsPayments.section.byChannel"
+                  defaultMessage="按渠道"
+                />
+              </b>
               <Table<ChannelData>
                 size="small"
                 rowKey={(r: ChannelData) => String(r.channel || '')}
                 dataSource={summary?.byChannel || []}
                 columns={[
-                  { title: '渠道', dataIndex: 'channel' },
-                  { title: '收入(分)', dataIndex: 'revenue_cents' },
-                  { title: '成功数', dataIndex: 'success' },
-                  { title: '总数', dataIndex: 'total' },
                   {
-                    title: '成功率',
+                    title: intl.formatMessage({
+                      id: 'pages.analyticsPayments.column.channel',
+                      defaultMessage: '渠道',
+                    }),
+                    dataIndex: 'channel',
+                  },
+                  {
+                    title: intl.formatMessage({
+                      id: 'pages.analyticsPayments.column.revenueCents',
+                      defaultMessage: '收入(分)',
+                    }),
+                    dataIndex: 'revenue_cents',
+                  },
+                  {
+                    title: intl.formatMessage({
+                      id: 'pages.analyticsPayments.column.success',
+                      defaultMessage: '成功数',
+                    }),
+                    dataIndex: 'success',
+                  },
+                  {
+                    title: intl.formatMessage({
+                      id: 'pages.analyticsPayments.column.total',
+                      defaultMessage: '总数',
+                    }),
+                    dataIndex: 'total',
+                  },
+                  {
+                    title: intl.formatMessage({
+                      id: 'pages.analyticsPayments.column.successRate',
+                      defaultMessage: '成功率',
+                    }),
                     dataIndex: 'success_rate',
                     render: (v: number) => (v != null ? `${v}%` : '-'),
                   },
@@ -356,28 +492,66 @@ export default function AnalyticsPaymentsPage() {
               <TopDimBar
                 data={summary?.byChannel || []}
                 dimKey="channel"
-                title="Top 渠道（按收入）"
+                title={intl.formatMessage({
+                  id: 'pages.analyticsPayments.chart.topChannelByRevenue',
+                  defaultMessage: 'Top 渠道（按收入）',
+                })}
               />
               <TopDimCombo
                 data={summary?.byChannel || []}
                 dimKey="channel"
-                title="Top 渠道（收入 & 成功率）"
+                title={intl.formatMessage({
+                  id: 'pages.analyticsPayments.chart.topChannelRevenueRate',
+                  defaultMessage: 'Top 渠道（收入 & 成功率）',
+                })}
               />
               <ExportDimCSV data={summary?.byChannel || []} dimKey="channel" name="channels" />
             </div>
             <div style={{ marginTop: 12 }}>
-              <b>按平台</b>
+              <b>
+                <FormattedMessage
+                  id="pages.analyticsPayments.section.byPlatform"
+                  defaultMessage="按平台"
+                />
+              </b>
               <Table<PlatformData>
                 size="small"
                 rowKey={(r: PlatformData) => String(r.platform || '')}
                 dataSource={summary?.byPlatform || []}
                 columns={[
-                  { title: '平台', dataIndex: 'platform' },
-                  { title: '收入(分)', dataIndex: 'revenue_cents' },
-                  { title: '成功数', dataIndex: 'success' },
-                  { title: '总数', dataIndex: 'total' },
                   {
-                    title: '成功率',
+                    title: intl.formatMessage({
+                      id: 'pages.analyticsPayments.column.platform',
+                      defaultMessage: '平台',
+                    }),
+                    dataIndex: 'platform',
+                  },
+                  {
+                    title: intl.formatMessage({
+                      id: 'pages.analyticsPayments.column.revenueCents',
+                      defaultMessage: '收入(分)',
+                    }),
+                    dataIndex: 'revenue_cents',
+                  },
+                  {
+                    title: intl.formatMessage({
+                      id: 'pages.analyticsPayments.column.success',
+                      defaultMessage: '成功数',
+                    }),
+                    dataIndex: 'success',
+                  },
+                  {
+                    title: intl.formatMessage({
+                      id: 'pages.analyticsPayments.column.total',
+                      defaultMessage: '总数',
+                    }),
+                    dataIndex: 'total',
+                  },
+                  {
+                    title: intl.formatMessage({
+                      id: 'pages.analyticsPayments.column.successRate',
+                      defaultMessage: '成功率',
+                    }),
                     dataIndex: 'success_rate',
                     render: (v: number) => (v != null ? `${v}%` : '-'),
                   },
@@ -387,22 +561,39 @@ export default function AnalyticsPaymentsPage() {
               <TopDimBar
                 data={summary?.byPlatform || []}
                 dimKey="platform"
-                title="Top 平台（按收入）"
+                title={intl.formatMessage({
+                  id: 'pages.analyticsPayments.chart.topPlatformByRevenue',
+                  defaultMessage: 'Top 平台（按收入）',
+                })}
               />
               <TopDimRate
                 data={summary?.byPlatform || []}
                 dimKey="platform"
-                title="Top 平台（按成功率）"
+                title={intl.formatMessage({
+                  id: 'pages.analyticsPayments.chart.topPlatformByRate',
+                  defaultMessage: 'Top 平台（按成功率）',
+                })}
               />
               <TopDimCombo
                 data={summary?.byPlatform || []}
                 dimKey="platform"
-                title="Top 平台（收入 & 成功率）"
+                title={intl.formatMessage({
+                  id: 'pages.analyticsPayments.chart.topPlatformRevenueRate',
+                  defaultMessage: 'Top 平台（收入 & 成功率）',
+                })}
               />
               <ExportDimCSV data={summary?.byPlatform || []} dimKey="platform" name="platforms" />
             </div>
             <div style={{ marginTop: 12 }}>
-              <b>按地区（{geoLabel}）</b>
+              <b>
+                {intl.formatMessage(
+                  {
+                    id: 'pages.analyticsPayments.section.byGeo',
+                    defaultMessage: '按地区（{dim}）',
+                  },
+                  { dim: geoLabel },
+                )}
+              </b>
               <Table<CountryData | RegionData | CityData>
                 size="small"
                 rowKey={(r) => {
@@ -414,23 +605,70 @@ export default function AnalyticsPaymentsPage() {
                 dataSource={geoRows}
                 columns={[
                   { title: geoLabel, dataIndex: geoDim },
-                  { title: '收入(分)', dataIndex: 'revenue_cents' },
-                  { title: '成功数', dataIndex: 'success' },
-                  { title: '总数', dataIndex: 'total' },
                   {
-                    title: '成功率',
+                    title: intl.formatMessage({
+                      id: 'pages.analyticsPayments.column.revenueCents',
+                      defaultMessage: '收入(分)',
+                    }),
+                    dataIndex: 'revenue_cents',
+                  },
+                  {
+                    title: intl.formatMessage({
+                      id: 'pages.analyticsPayments.column.success',
+                      defaultMessage: '成功数',
+                    }),
+                    dataIndex: 'success',
+                  },
+                  {
+                    title: intl.formatMessage({
+                      id: 'pages.analyticsPayments.column.total',
+                      defaultMessage: '总数',
+                    }),
+                    dataIndex: 'total',
+                  },
+                  {
+                    title: intl.formatMessage({
+                      id: 'pages.analyticsPayments.column.successRate',
+                      defaultMessage: '成功率',
+                    }),
                     dataIndex: 'success_rate',
                     render: (v: number) => (v != null ? `${v}%` : '-'),
                   },
                 ]}
                 pagination={false}
               />
-              <TopDimBar data={geoRows} dimKey={geoDim} title={`Top ${geoLabel}（按收入）`} />
-              <TopDimRate data={geoRows} dimKey={geoDim} title={`Top ${geoLabel}（按成功率）`} />
+              <TopDimBar
+                data={geoRows}
+                dimKey={geoDim}
+                title={intl.formatMessage(
+                  {
+                    id: 'pages.analyticsPayments.chart.topGeoByRevenue',
+                    defaultMessage: 'Top {dim}（按收入）',
+                  },
+                  { dim: geoLabel },
+                )}
+              />
+              <TopDimRate
+                data={geoRows}
+                dimKey={geoDim}
+                title={intl.formatMessage(
+                  {
+                    id: 'pages.analyticsPayments.chart.topGeoByRate',
+                    defaultMessage: 'Top {dim}（按成功率）',
+                  },
+                  { dim: geoLabel },
+                )}
+              />
               <TopDimCombo
                 data={geoRows}
                 dimKey={geoDim}
-                title={`Top ${geoLabel}（收入 & 成功率）`}
+                title={intl.formatMessage(
+                  {
+                    id: 'pages.analyticsPayments.chart.topGeoRevenueRate',
+                    defaultMessage: 'Top {dim}（收入 & 成功率）',
+                  },
+                  { dim: geoLabel },
+                )}
               />
               <ExportDimCSV
                 data={geoRows}
@@ -441,18 +679,50 @@ export default function AnalyticsPaymentsPage() {
               />
             </div>
             <div style={{ marginTop: 12 }}>
-              <b>按商品</b>
+              <b>
+                <FormattedMessage
+                  id="pages.analyticsPayments.section.byProduct"
+                  defaultMessage="按商品"
+                />
+              </b>
               <Table<ProductData>
                 size="small"
                 rowKey={(r: ProductData) => String(r.productId || '')}
                 dataSource={summary?.byProduct || []}
                 columns={[
-                  { title: '商品', dataIndex: 'product_id' },
-                  { title: '收入(分)', dataIndex: 'revenue_cents' },
-                  { title: '成功数', dataIndex: 'success' },
-                  { title: '总数', dataIndex: 'total' },
                   {
-                    title: '成功率',
+                    title: intl.formatMessage({
+                      id: 'pages.analyticsPayments.column.product',
+                      defaultMessage: '商品',
+                    }),
+                    dataIndex: 'product_id',
+                  },
+                  {
+                    title: intl.formatMessage({
+                      id: 'pages.analyticsPayments.column.revenueCents',
+                      defaultMessage: '收入(分)',
+                    }),
+                    dataIndex: 'revenue_cents',
+                  },
+                  {
+                    title: intl.formatMessage({
+                      id: 'pages.analyticsPayments.column.success',
+                      defaultMessage: '成功数',
+                    }),
+                    dataIndex: 'success',
+                  },
+                  {
+                    title: intl.formatMessage({
+                      id: 'pages.analyticsPayments.column.total',
+                      defaultMessage: '总数',
+                    }),
+                    dataIndex: 'total',
+                  },
+                  {
+                    title: intl.formatMessage({
+                      id: 'pages.analyticsPayments.column.successRate',
+                      defaultMessage: '成功率',
+                    }),
                     dataIndex: 'success_rate',
                     render: (v: number) => (v != null ? `${v}%` : '-'),
                   },
@@ -471,16 +741,28 @@ export default function AnalyticsPaymentsPage() {
           </>
         ) : (
           <Tag color="blue" style={{ marginTop: 12 }}>
-            当前后端仅提供按日支付汇总；渠道、地区和商品维度暂无可用数据。
+            <FormattedMessage
+              id="pages.analyticsPayments.empty.breakdowns"
+              defaultMessage="当前后端仅提供按日支付汇总；渠道、地区和商品维度暂无可用数据。"
+            />
           </Tag>
         )}
         <div style={{ marginTop: 16 }}>
-          <Card size="small" title="SKU 转化趋势">
+          <Card
+            size="small"
+            title={intl.formatMessage({
+              id: 'pages.analyticsPayments.section.skuTrend',
+              defaultMessage: 'SKU 转化趋势',
+            })}
+          >
             <Space style={{ marginBottom: 8 }}>
               <Select<string[]>
                 mode="tags"
                 allowClear
-                placeholder="product_id（支持多选）"
+                placeholder={intl.formatMessage({
+                  id: 'pages.analyticsPayments.filter.placeholder.productIds',
+                  defaultMessage: 'product_id（支持多选）',
+                })}
                 value={prodIds}
                 onChange={(v) => setProdIds(v)}
                 style={{ minWidth: 360 }}
@@ -489,8 +771,20 @@ export default function AnalyticsPaymentsPage() {
                 value={gran}
                 onChange={(v) => setGran(v)}
                 options={[
-                  { label: '小时', value: 'hour' },
-                  { label: '分钟', value: 'minute' },
+                  {
+                    label: intl.formatMessage({
+                      id: 'pages.analyticsPayments.granularity.hour',
+                      defaultMessage: '小时',
+                    }),
+                    value: 'hour',
+                  },
+                  {
+                    label: intl.formatMessage({
+                      id: 'pages.analyticsPayments.granularity.minute',
+                      defaultMessage: '分钟',
+                    }),
+                    value: 'minute',
+                  },
                 ]}
               />
               <Button
@@ -512,7 +806,7 @@ export default function AnalyticsPaymentsPage() {
                   } catch {}
                 }}
               >
-                查询
+                <FormattedMessage id="pages.analyticsPayments.button.query" defaultMessage="查询" />
               </Button>
               <Button
                 onClick={async () => {
@@ -534,7 +828,10 @@ export default function AnalyticsPaymentsPage() {
                   } catch {}
                 }}
               >
-                导出 CSV
+                <FormattedMessage
+                  id="pages.analyticsPayments.button.exportCsv"
+                  defaultMessage="导出 CSV"
+                />
               </Button>
             </Space>
             <TrendChart data={trend} />
@@ -547,13 +844,55 @@ export default function AnalyticsPaymentsPage() {
           rowKey={(r: Transaction) => String(r.orderId || `${r.userId || ''}|${r.time || ''}`)}
           dataSource={tx?.transactions || []}
           columns={[
-            { title: '时间', dataIndex: 'time' },
-            { title: '订单', dataIndex: 'order_id' },
-            { title: '用户', dataIndex: 'user_id' },
-            { title: '金额(分)', dataIndex: 'amount_cents' },
-            { title: '状态', dataIndex: 'status' },
-            { title: '渠道', dataIndex: 'channel' },
-            { title: '原因', dataIndex: 'reason' },
+            {
+              title: intl.formatMessage({
+                id: 'pages.analyticsPayments.column.time',
+                defaultMessage: '时间',
+              }),
+              dataIndex: 'time',
+            },
+            {
+              title: intl.formatMessage({
+                id: 'pages.analyticsPayments.column.order',
+                defaultMessage: '订单',
+              }),
+              dataIndex: 'order_id',
+            },
+            {
+              title: intl.formatMessage({
+                id: 'pages.analyticsPayments.column.user',
+                defaultMessage: '用户',
+              }),
+              dataIndex: 'user_id',
+            },
+            {
+              title: intl.formatMessage({
+                id: 'pages.analyticsPayments.column.amountCents',
+                defaultMessage: '金额(分)',
+              }),
+              dataIndex: 'amount_cents',
+            },
+            {
+              title: intl.formatMessage({
+                id: 'pages.analyticsPayments.column.status',
+                defaultMessage: '状态',
+              }),
+              dataIndex: 'status',
+            },
+            {
+              title: intl.formatMessage({
+                id: 'pages.analyticsPayments.column.channel',
+                defaultMessage: '渠道',
+              }),
+              dataIndex: 'channel',
+            },
+            {
+              title: intl.formatMessage({
+                id: 'pages.analyticsPayments.column.reason',
+                defaultMessage: '原因',
+              }),
+              dataIndex: 'reason',
+            },
           ]}
           pagination={{
             current: page,
@@ -585,7 +924,10 @@ export default function AnalyticsPaymentsPage() {
               await exportToXLSX('payments.csv', [{ sheet: 'transactions', rows }]);
             }}
           >
-            导出 CSV
+            <FormattedMessage
+              id="pages.analyticsPayments.button.exportCsv"
+              defaultMessage="导出 CSV"
+            />
           </Button>
         </div>
         <DeltaSection
