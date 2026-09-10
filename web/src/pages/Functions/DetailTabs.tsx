@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { Alert, Button, Card, Col, Row, Statistic, Table, Tag } from 'antd';
+import { Alert, Button, Col, Row, Table, Tag } from 'antd';
+import { StatisticCard } from '@ant-design/pro-components';
 import { BarChartOutlined } from '@ant-design/icons';
 import { history } from '@umijs/max';
 import {
@@ -111,39 +112,47 @@ export function AnalyticsTab({ functionId }: { functionId: string }) {
   return (
     <Row gutter={16}>
       <Col span={6}>
-        <Card loading={analyticsLoading}>
-          <Statistic
-            title="总调用次数"
-            value={analyticsData?.totalCalls || 0}
-            prefix={<BarChartOutlined />}
-          />
-        </Card>
+        <StatisticCard
+          loading={analyticsLoading}
+          statistic={{
+            title: '总调用次数',
+            value: analyticsData?.totalCalls || 0,
+            prefix: <BarChartOutlined />,
+          }}
+        />
       </Col>
       <Col span={6}>
-        <Card loading={analyticsLoading}>
-          <Statistic
-            title="成功率"
-            value={analyticsData?.successRate || 0}
-            suffix="%"
-            precision={2}
-            valueStyle={{ color: (analyticsData?.successRate || 0) >= 95 ? '#3f8600' : '#cf1322' }}
-          />
-        </Card>
+        <StatisticCard
+          loading={analyticsLoading}
+          statistic={{
+            title: '成功率',
+            value: analyticsData?.successRate || 0,
+            suffix: '%',
+            precision: 2,
+            styles: {
+              content: {
+                color: (analyticsData?.successRate || 0) >= 95 ? '#3f8600' : '#cf1322',
+              },
+            },
+          }}
+        />
       </Col>
       <Col span={6}>
-        <Card loading={analyticsLoading}>
-          <Statistic
-            title="平均延迟"
-            value={analyticsData?.avgLatency || 0}
-            suffix="ms"
-            precision={0}
-          />
-        </Card>
+        <StatisticCard
+          loading={analyticsLoading}
+          statistic={{
+            title: '平均延迟',
+            value: analyticsData?.avgLatency || 0,
+            suffix: 'ms',
+            precision: 0,
+          }}
+        />
       </Col>
       <Col span={6}>
-        <Card loading={analyticsLoading}>
-          <Statistic title="今日调用" value={analyticsData?.callsToday || 0} />
-        </Card>
+        <StatisticCard
+          loading={analyticsLoading}
+          statistic={{ title: '今日调用', value: analyticsData?.callsToday || 0 }}
+        />
       </Col>
     </Row>
   );

@@ -1,5 +1,11 @@
 import React, { useCallback, useEffect, useState, useRef } from 'react';
-import { PageContainer, ProTable, ProColumns, type ActionType } from '@ant-design/pro-components';
+import {
+  PageContainer,
+  ProTable,
+  ProColumns,
+  StatisticCard,
+  type ActionType,
+} from '@ant-design/pro-components';
 import {
   App,
   Button,
@@ -10,7 +16,6 @@ import {
   Descriptions,
   Tooltip,
   Card,
-  Statistic,
   Row,
   Col,
   Select,
@@ -250,43 +255,49 @@ export default () => {
       {stats && (
         <Row gutter={16} style={{ marginBottom: 16 }}>
           <Col span={4}>
-            <Card>
-              <Statistic title="总调用" value={stats.total} />
-            </Card>
+            <StatisticCard statistic={{ title: '总调用', value: stats.total }} />
           </Col>
           <Col span={4}>
-            <Card>
-              <Statistic
-                title="成功"
-                value={stats.succeeded}
-                valueStyle={{ color: '#52c41a' }}
-                suffix={`/ ${stats.total}`}
-              />
-            </Card>
+            <StatisticCard
+              statistic={{
+                title: '成功',
+                value: stats.succeeded,
+                styles: { content: { color: '#52c41a' } },
+                suffix: `/ ${stats.total}`,
+              }}
+            />
           </Col>
           <Col span={4}>
-            <Card>
-              <Statistic title="失败" value={stats.failed} valueStyle={{ color: '#ff4d4f' }} />
-            </Card>
+            <StatisticCard
+              statistic={{
+                title: '失败',
+                value: stats.failed,
+                styles: { content: { color: '#ff4d4f' } },
+              }}
+            />
           </Col>
           <Col span={4}>
-            <Card>
-              <Statistic title="运行中" value={stats.running} valueStyle={{ color: '#1890ff' }} />
-            </Card>
+            <StatisticCard
+              statistic={{
+                title: '运行中',
+                value: stats.running,
+                styles: { content: { color: '#1890ff' } },
+              }}
+            />
           </Col>
           <Col span={4}>
-            <Card>
-              <Statistic title="平均耗时" value={formatDuration(stats.avgDurationMs)} />
-            </Card>
+            <StatisticCard
+              statistic={{ title: '平均耗时', value: formatDuration(stats.avgDurationMs) }}
+            />
           </Col>
           <Col span={4}>
-            <Card>
-              <Statistic
-                title="成功率"
-                value={stats.total > 0 ? ((stats.succeeded / stats.total) * 100).toFixed(1) : 0}
-                suffix="%"
-              />
-            </Card>
+            <StatisticCard
+              statistic={{
+                title: '成功率',
+                value: stats.total > 0 ? ((stats.succeeded / stats.total) * 100).toFixed(1) : 0,
+                suffix: '%',
+              }}
+            />
           </Col>
         </Row>
       )}

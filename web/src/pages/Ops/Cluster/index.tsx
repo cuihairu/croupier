@@ -1,18 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import {
-  App,
-  Badge,
-  Button,
-  Card,
-  Col,
-  Row,
-  Statistic,
-  Table,
-  Tag,
-  Tooltip,
-  Typography,
-} from 'antd';
-import { PageContainer } from '@ant-design/pro-components';
+import { App, Badge, Button, Card, Col, Row, Table, Tag, Tooltip, Typography } from 'antd';
+import { PageContainer, StatisticCard } from '@ant-design/pro-components';
 import type { ColumnsType } from 'antd/es/table';
 import { ReloadOutlined, ClusterOutlined } from '@ant-design/icons';
 import { fetchClusterInfo, type ClusterInfo, type ClusterInstanceItem } from '@/services/api/ops';
@@ -110,30 +98,30 @@ export default function ClusterPage() {
       {info?.enabled && (
         <Row gutter={16} style={{ marginBottom: 16 }}>
           <Col span={8}>
-            <Card>
-              <Statistic title="实例总数" value={info.total} />
-            </Card>
+            <StatisticCard statistic={{ title: '实例总数', value: info.total }} />
           </Col>
           <Col span={8}>
-            <Card>
-              <Statistic
-                title="在线实例"
-                value={info.aliveCount}
-                valueStyle={{ color: info.aliveCount === info.total ? '#3f8600' : '#cf1322' }}
-              />
-            </Card>
+            <StatisticCard
+              statistic={{
+                title: '在线实例',
+                value: info.aliveCount,
+                styles: {
+                  content: { color: info.aliveCount === info.total ? '#3f8600' : '#cf1322' },
+                },
+              }}
+            />
           </Col>
           <Col span={8}>
-            <Card>
-              <Statistic
-                title="Agent 连接分布"
-                value={items.reduce(
+            <StatisticCard
+              statistic={{
+                title: 'Agent 连接分布',
+                value: items.reduce(
                   (sum: number, it: ClusterInstanceItem) => sum + (it.agentCount || 0),
                   0,
-                )}
-                suffix="个"
-              />
-            </Card>
+                ),
+                suffix: '个',
+              }}
+            />
           </Col>
         </Row>
       )}

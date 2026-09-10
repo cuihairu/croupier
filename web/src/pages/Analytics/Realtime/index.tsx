@@ -69,7 +69,7 @@ export default function AnalyticsRealtimePage() {
               loading={loading}
               title="实时在线"
               value={data?.online || 0}
-              valueStyle={
+              contentStyle={
                 thrOnline > 0 && Number(data?.online || 0) < thrOnline
                   ? { color: '#cf1322' }
                   : undefined
@@ -85,7 +85,7 @@ export default function AnalyticsRealtimePage() {
               loading={loading}
               title="5分钟活跃"
               value={data?.active5M || 0}
-              valueStyle={
+              contentStyle={
                 thrA5 > 0 && Number(data?.active5M || 0) < thrA5 ? { color: '#cf1322' } : undefined
               }
               spark={ptsA5}

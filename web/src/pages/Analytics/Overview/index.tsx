@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { Card, Space, Row, Col, Statistic, Divider } from 'antd';
+import { Card, Space, Row, Col, Divider } from 'antd';
 import type { Dayjs } from 'dayjs';
-import { PageContainer } from '@ant-design/pro-components';
+import { PageContainer, StatisticCard } from '@ant-design/pro-components';
 import { useIntl } from '@umijs/max';
 import { exportToXLSX } from '@/utils/export';
 import { fetchAnalyticsOverview } from '@/services/api/analytics';
@@ -120,81 +120,93 @@ export default function AnalyticsOverviewPage() {
         <Space orientation="vertical" size={16} style={{ width: '100%' }}>
           <Row gutter={[16, 16]}>
             <Col span={4}>
-              <Card loading={loading}>
-                <Statistic title="DAU" value={data?.dau || 0} />
-              </Card>
+              <StatisticCard
+                loading={loading}
+                statistic={{ title: 'DAU', value: data?.dau || 0 }}
+              />
             </Col>
             <Col span={4}>
-              <Card loading={loading}>
-                <Statistic title="WAU" value={data?.wau ?? '-'} />
-              </Card>
+              <StatisticCard
+                loading={loading}
+                statistic={{ title: 'WAU', value: data?.wau ?? '-' }}
+              />
             </Col>
             <Col span={4}>
-              <Card loading={loading}>
-                <Statistic title="MAU" value={data?.mau || 0} />
-              </Card>
+              <StatisticCard
+                loading={loading}
+                statistic={{ title: 'MAU', value: data?.mau || 0 }}
+              />
             </Col>
             <Col span={4}>
-              <Card loading={loading}>
-                <Statistic title="新增" value={data?.newUsers || 0} />
-              </Card>
+              <StatisticCard
+                loading={loading}
+                statistic={{ title: '新增', value: data?.newUsers || 0 }}
+              />
             </Col>
             <Col span={4}>
-              <Card loading={loading}>
-                <Statistic title="注册用户总数" value={data?.registeredTotal ?? '-'} />
-              </Card>
+              <StatisticCard
+                loading={loading}
+                statistic={{ title: '注册用户总数', value: data?.registeredTotal ?? '-' }}
+              />
             </Col>
             <Col span={4}>
-              <Card loading={loading}>
-                <Statistic title="收入" value={data?.revenue || 0} />
-              </Card>
+              <StatisticCard
+                loading={loading}
+                statistic={{ title: '收入', value: data?.revenue || 0 }}
+              />
             </Col>
           </Row>
           <Row gutter={[16, 16]}>
             <Col span={8}>
-              <Card loading={loading}>
-                <Statistic title="付费率" suffix="%" value={data?.payRate ?? '-'} />
-              </Card>
+              <StatisticCard
+                loading={loading}
+                statistic={{ title: '付费率', suffix: '%', value: data?.payRate ?? '-' }}
+              />
             </Col>
             <Col span={8}>
-              <Card loading={loading}>
-                <Statistic title="ARPU" value={data?.arpu || 0} />
-              </Card>
+              <StatisticCard
+                loading={loading}
+                statistic={{ title: 'ARPU', value: data?.arpu || 0 }}
+              />
             </Col>
             <Col span={8}>
-              <Card loading={loading}>
-                <Statistic title="ARPPU" value={data?.arppu || 0} />
-              </Card>
+              <StatisticCard
+                loading={loading}
+                statistic={{ title: 'ARPPU', value: data?.arppu || 0 }}
+              />
             </Col>
           </Row>
           <Divider />
           <Row gutter={[16, 16]}>
             <Col span={8}>
-              <Card loading={loading}>
-                <Statistic
-                  title="D1 留存"
-                  value={data?.d1 ?? '-'}
-                  suffix={data?.d1 == null ? '' : '%'}
-                />
-              </Card>
+              <StatisticCard
+                loading={loading}
+                statistic={{
+                  title: 'D1 留存',
+                  value: data?.d1 ?? '-',
+                  suffix: data?.d1 == null ? '' : '%',
+                }}
+              />
             </Col>
             <Col span={8}>
-              <Card loading={loading}>
-                <Statistic
-                  title="D7 留存"
-                  value={data?.d7 ?? '-'}
-                  suffix={data?.d7 == null ? '' : '%'}
-                />
-              </Card>
+              <StatisticCard
+                loading={loading}
+                statistic={{
+                  title: 'D7 留存',
+                  value: data?.d7 ?? '-',
+                  suffix: data?.d7 == null ? '' : '%',
+                }}
+              />
             </Col>
             <Col span={8}>
-              <Card loading={loading}>
-                <Statistic
-                  title="D30 留存"
-                  value={data?.d30 ?? '-'}
-                  suffix={data?.d30 == null ? '' : '%'}
-                />
-              </Card>
+              <StatisticCard
+                loading={loading}
+                statistic={{
+                  title: 'D30 留存',
+                  value: data?.d30 ?? '-',
+                  suffix: data?.d30 == null ? '' : '%',
+                }}
+              />
             </Col>
           </Row>
           <Divider />
