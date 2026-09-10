@@ -19,7 +19,7 @@ import { invokeFunction } from '@/services/api/functions';
 import { resolveStepParams } from '@/components/PageRenderer';
 import SchemaFormRenderer, { type SchemaFormRendererProps } from '@/components/SchemaFormRenderer';
 import { derivePresentationSpec } from '@/utils/schemaHints';
-import { parseAction } from './actions';
+import { parseAction, type ActionSpec, type ActionStep } from './actions';
 import type { PageNode } from './model';
 import { schemaProperties } from './types';
 import { extractErrorMessage } from '@/utils/errors';
@@ -41,10 +41,15 @@ function itemsOf(payload: JSONRecord): JSONRecord[] {
   return Array.isArray(items) ? (items as JSONRecord[]) : [];
 }
 
+/** 动作步骤的宽松形态（主动作 ActionSpec 与链步骤 ActionStep 共用）。 */
+type StepLike = { kind?: string; target?: string; params?: Record<string, string> };
+
 /**
  * 预览运行时（= 发布后行为的编辑器内等价物）：
  * autoRun 自动执行；button.onClick 动作（打开弹窗/执行/刷新）；
  * fnForm 提交（行内或弹窗）成功后触发 onSuccessRefresh；表格渲染真实数据。
+ * 数据流对齐发布端 CompositeRenderer：函数输出归一为 {data} 页面状态、
+ * 表单当前值写入 values、inputAssignments 显式映射求值、失败保持弹窗打开。
  */
 export default function PreviewRuntime({
   tree,
@@ -108,33 +113,81 @@ export default function PreviewRuntime({
 
   /** 打开弹窗（modal 节点 id）并预填其函数表单初值。
    * inputs 无条件覆盖（替换语义，与发布端 openDialog 一致）——
-   * 无参动作打开同一弹窗时不得残留上一次的预填。 */
+   * 无参动作打开同一弹窗时不得残留上一次的预填；
+   * 且必须无条件打开（toggle 语义会让「弹窗开着时再触发动作」误关闭弹窗）。 */
   const openDialogPrefill = useCallback((modalId: string, inputs: JSONRecord) => {
     const modalNode = findIn(treeRef.current, modalId);
     const form = modalNode?.children?.find((c) => c.type === 'fnForm');
     if (form) {
       setDialogInputs((prev) => ({ ...prev, [form.id]: inputs }));
     }
-    setDialogId((cur) => (cur === modalId ? null : modalId));
+    setDialogId(modalId);
+  }, []);
+
+  /** 显式参数映射求值（对齐发布端服务端 inputAssignment 语义）：
+   * page_state → 页面状态 var[key] 按字段路径取值（编译产物 /a/b JSON Pointer
+   * 的前端等价物）；literal → 原值（单表达式 {{var.path}} 在预览内就地求值，
+   * 与编译端「表达式字面量编译为 page_state」规则呼应）。 */
+  const evalInputAssignments = useCallback((node: PageNode): JSONRecord => {
+    const raw = Array.isArray(node.props.inputAssignments)
+      ? (node.props.inputAssignments as Array<Record<string, unknown>>)
+      : [];
+    const out: JSONRecord = {};
+    for (const m of raw) {
+      const param = String(m.param ?? '').replace(/^\//, '');
+      if (!param) continue;
+      if (m.kind === 'page_state') {
+        const srcNode = findIn(treeRef.current, String(m.sourceNodeId ?? ''));
+        const varName =
+          typeof srcNode?.props.sectionKey === 'string' && srcNode.props.sectionKey.trim()
+            ? srcNode.props.sectionKey.trim()
+            : String(m.sourceNodeId ?? '');
+        let cur: unknown = stateByVarRef.current[varName];
+        for (const seg of String(m.field ?? '')
+          .split('/')
+          .filter(Boolean)) {
+          cur = cur && typeof cur === 'object' ? (cur as JSONRecord)[seg] : undefined;
+          if (cur === undefined) break;
+        }
+        out[param] = cur;
+      } else {
+        const v = m.value;
+        out[param] =
+          typeof v === 'string' && v.startsWith('{{')
+            ? resolveStepParams({ [param]: v }, stateByVarRef.current)?.[param]
+            : v;
+      }
+    }
+    return out;
   }, []);
 
   const runNode = useCallback(
-    async (node: PageNode, params: JSONRecord = {}) => {
+    async (node: PageNode, params: JSONRecord = {}): Promise<boolean> => {
       const fid = String(node.props.functionId ?? '');
-      if (!fid) return;
+      if (!fid) return false;
       setRunning((r) => ({ ...r, [node.id]: true }));
       try {
-        // 模拟模式：按 outputSchema 合成假数据（跳过真实调用与错误提示）
+        // 输入合并（对齐发布端 runSection 的 {...sectionInputs, ...overrides}）：
+        // refreshOn 级联同名字段 < inputAssignments 显式映射 < 动作显式参数。
+        const merged: JSONRecord = {
+          ...(cascadeInputsRef.current[node.id] ?? {}),
+          ...evalInputAssignments(node),
+          ...params,
+        };
         if (mockRef.current) {
+          // 模拟模式：按 outputSchema 合成假数据（跳过真实调用与错误提示）
           const mockResp = generateMockResponse(fnRef.current.get(fid));
           setResults((r) => ({ ...r, [node.id]: mockResp ?? { data: {} } }));
         } else {
-          const resp = await invokeFunction(fid, params as never);
-          setResults((r) => ({ ...r, [node.id]: resp }));
+          // 真实响应归一为 {data: payload}：FunctionInvokeResponse.result 才是
+          // 函数输出——与发布端 {{var.data.x}} / 级联 .data 的读取形态同构
+          // （直接存原始响应会让两者恒 undefined）。
+          const resp = (await invokeFunction(fid, merged as never)) as JSONRecord;
+          if (typeof resp?.error === 'string' && resp.error) return false;
+          setResults((r) => ({ ...r, [node.id]: { data: payloadOf(resp) } }));
         }
-        // fnForm 成功 → 刷新下游。两条来源（编译产物已去重，预览侧再
-        // 防御性去重）：events.success 还原的 props.onSuccess（规范路径）
-        // + 遗留 props.onSuccessRefresh。
+        // fnForm 成功 → 刷新下游（失败路径不触发）。两条来源（编译产物已去重，
+        // 预览侧再防御性去重）：props.onSuccess（规范路径）+ 遗留 props.onSuccessRefresh。
         if (node.type === 'fnForm') {
           const fired = new Set<string>();
           const fireRefresh = (raw: unknown) => {
@@ -148,70 +201,62 @@ export default function PreviewRuntime({
           fireRefresh(node.props.onSuccess);
           fireRefresh(node.props.onSuccessRefresh);
         }
+        return true;
       } catch (err) {
         message.error(extractErrorMessage(err, `${String(node.props.title ?? fid)} 执行失败`));
         // 真实调用失败（无 agent 在线/契约缺失）→ 引导开启模拟数据
         if (!mockRef.current) {
           message.warning('可开启顶部「模拟数据」安全体验完整流程（不触发真实操作）');
         }
+        return false;
       } finally {
         setRunning((r) => ({ ...r, [node.id]: false }));
       }
     },
-    [message],
+    [message, evalInputAssignments],
   );
 
   const runRef = useRef(runNode);
   runRef.current = runNode;
 
-  const handleAction = useCallback(
-    (raw: unknown, ctx?: JSONRecord) => {
-      const act = parseAction(raw);
-      if (!act) return;
-      switch (act.kind) {
+  /** 单步动作执行（主动作与链步骤共用）：按 kind 分派——
+   * openModal/closeModal/navigate/showMessage 立即生效；
+   * runBinding/refreshNode 执行目标函数组件（参数表达式求值）。
+   * 链步骤不再只找节点执行——否则 openModal/navigate 等无目标步骤静默丢弃。 */
+  const runStep = useCallback(
+    (step: StepLike, ctx?: JSONRecord) => {
+      const kind = String(step.kind ?? 'refreshNode');
+      const target = String(step.target ?? '');
+      switch (kind) {
         case 'openModal': {
-          const target = findIn(treeRef.current, act.target);
-          if (!target) {
+          const node = findIn(treeRef.current, target);
+          if (!node) {
             message.warning('动作目标不存在（可能已删除）');
             return;
           }
           // V5：params 表达式求值 → 弹窗表单预填
-          openDialogPrefill(act.target, resolveStepParams(act.params, stateByVarRef.current, ctx));
-          break;
+          openDialogPrefill(target, resolveStepParams(step.params, stateByVarRef.current, ctx));
+          return;
         }
         case 'closeModal':
           // 无目标=关当前打开的弹窗；有目标=仅当前打开的是它才关
-          setDialogId((cur) => (cur && (!act.target || cur === act.target) ? null : cur));
-          break;
+          setDialogId((cur) => (cur && (!target || cur === target) ? null : cur));
+          return;
         case 'navigate': {
-          const url = String(act.params?.url ?? '');
+          const url = String(step.params?.url ?? '');
           if (url) window.open(url, '_blank', 'noopener');
-          break;
+          return;
         }
         case 'showMessage':
-          message.info(String(act.params?.message ?? ''));
-          break;
+          message.info(String(step.params?.message ?? ''));
+          return;
         default: {
           // runBinding / refreshNode → 执行目标函数组件（V5：参数表达式求值）
-          const target = findIn(treeRef.current, act.target);
-          if (!target) {
+          const node = findIn(treeRef.current, target);
+          if (!node) {
             message.warning('动作目标不存在（可能已删除）');
             return;
           }
-          const resolved = resolveStepParams(act.params, stateByVarRef.current, ctx);
-          void runRef.current(target, resolved);
-        }
-      }
-      // 动作链：后续步骤按序执行（同上下文求值）
-      const chain =
-        (
-          raw as {
-            chain?: Array<{ kind: string; target: string; params?: Record<string, string> }>;
-          }
-        )?.chain ?? [];
-      for (const step of chain) {
-        const node = findIn(treeRef.current, step.target);
-        if (node) {
           void runRef.current(node, resolveStepParams(step.params, stateByVarRef.current, ctx));
         }
       }
@@ -219,7 +264,23 @@ export default function PreviewRuntime({
     [message, openDialogPrefill],
   );
 
-  /** 行操作点击（V5）：行字段映射（row.x / {{row.x}} / 裸字段）→ 预填弹窗。 */
+  const runStepRef = useRef(runStep);
+  runStepRef.current = runStep;
+
+  const handleAction = useCallback(
+    (raw: unknown, ctx?: JSONRecord) => {
+      const act = parseAction(raw) as (ActionSpec & StepLike) | null;
+      if (!act) return;
+      runStep(act, ctx);
+      // 动作链：后续步骤按 kind 分派（同上下文求值，对齐发布端 runChain）
+      const chain = (raw as { chain?: ActionStep[] | undefined })?.chain ?? [];
+      for (const step of chain) runStep(step, ctx);
+    },
+    [runStep],
+  );
+
+  /** 行操作点击（V5）：行字段映射（row.x / {{row.x}} / 裸字段）→ 预填弹窗，
+   * 再执行行操作链（对齐发布端 openDialog 后 runChain，行数据作求值上下文）。 */
   const handleRowAction = useCallback(
     (raw: unknown, row: JSONRecord) => {
       const ra = raw as {
@@ -227,6 +288,7 @@ export default function PreviewRuntime({
         targetSection?: unknown;
         params?: Record<string, string>;
         danger?: boolean;
+        chain?: ActionStep[];
       } | null;
       if (!ra?.targetSection) return;
       const modalNode = findIn(treeRef.current, String(ra.targetSection));
@@ -238,19 +300,22 @@ export default function PreviewRuntime({
       for (const [param, src] of Object.entries(ra.params ?? {})) {
         let field = String(src);
         // 兼容编辑器三种形态：row.x（编译产物）/ {{row.x}}（表达式输入原文）/ 裸字段名
-        if (field.startsWith('{{row.') && field.endsWith('}}')) field = field.slice(5, -2);
+        if (field.startsWith('{{row.') && field.endsWith('}}')) field = field.slice(6, -2);
         else if (field.startsWith('row.')) field = field.slice(4);
         inputs[param] = row[field];
       }
-      const open = () => openDialogPrefill(String(ra.targetSection), inputs);
+      const openWithChain = () => {
+        openDialogPrefill(String(ra.targetSection), inputs);
+        for (const step of ra.chain ?? []) runStepRef.current(step, row);
+      };
       if (ra.danger) {
         modal.confirm({
           title: `确认执行「${String(ra.label ?? '操作')}」`,
-          onOk: open,
+          onOk: openWithChain,
         });
         return;
       }
-      open();
+      openWithChain();
     },
     [message, modal, openDialogPrefill],
   );
@@ -271,6 +336,15 @@ export default function PreviewRuntime({
     },
     [handleAction],
   );
+
+  /** 表单当前值写入页面状态 results[id].values（{{var.values.x}} 求值来源）——
+   * 对齐发布端 valuesMergeRef 防抖合并（预览规模小，直写即可）。 */
+  const handleFormValues = useCallback((formNodeId: string, values: JSONRecord) => {
+    setResults((r) => {
+      const cur = (r[formNodeId] ?? {}) as JSONRecord;
+      return { ...r, [formNodeId]: { ...cur, values } };
+    });
+  }, []);
 
   // autoRun（进入预览时一次）
   useEffect(() => {
@@ -372,9 +446,11 @@ export default function PreviewRuntime({
               fn={node.props.functionId ? fnById.get(String(node.props.functionId)) : undefined}
               data={results[node.id]}
               running={running[node.id] || false}
+              cascadeInputs={cascadeInputsRef.current[node.id]}
               onAction={handleAction}
               onRowAction={handleRowAction}
               onSubmit={(params) => void runNode(node, params)}
+              onFormValues={handleFormValues}
               onStaticChange={handleStaticChange}
               onSelectionChange={handleSelection}
               renderChild={(child) => (
@@ -385,9 +461,11 @@ export default function PreviewRuntime({
                   }
                   data={results[child.id]}
                   running={running[child.id] || false}
+                  cascadeInputs={cascadeInputsRef.current[child.id]}
                   onAction={handleAction}
                   onRowAction={handleRowAction}
                   onSubmit={(params) => void runNode(child, params)}
+                  onFormValues={handleFormValues}
                   onStaticChange={handleStaticChange}
                   onSelectionChange={handleSelection}
                 />
@@ -416,8 +494,12 @@ export default function PreviewRuntime({
                   fn={fnById.get(String(form.props.functionId))}
                   running={running[form.id] || false}
                   initialValues={dialogInputs[form.id]}
+                  onValuesChange={(values) => handleFormValues(form.id, values)}
                   onSubmit={async (params) => {
-                    await runNode(form, params);
+                    // 失败：保持弹窗打开（可改参数重试），无成功提示——
+                    // 对齐发布端「runSection 异常时不关弹窗」的行为。
+                    const ok = await runNode(form, params);
+                    if (!ok) return;
                     setDialogId(null);
                     message.success(`${String(openModal.props.title ?? '操作')} 执行成功`);
                   }}
@@ -450,9 +532,11 @@ function PreviewNode({
   fn,
   data,
   running,
+  cascadeInputs,
   onAction,
   onRowAction,
   onSubmit,
+  onFormValues,
   onStaticChange,
   onSelectionChange,
   renderChild,
@@ -461,10 +545,14 @@ function PreviewNode({
   fn: FunctionDescriptor | undefined;
   data: unknown;
   running: boolean;
+  /** refreshOn 级联合并输入（行内表单初值，对齐发布端 sectionInputs）。 */
+  cascadeInputs?: JSONRecord;
   onAction: (raw: unknown, ctx?: JSONRecord) => void;
   /** V5：行操作点击（行字段映射 → 弹窗预填），由父级处理目标与求值。 */
   onRowAction?: (raw: unknown, row: JSONRecord) => void;
   onSubmit: (params: JSONRecord) => void;
+  /** 表单当前值 → 页面状态（{{var.values.x}} 求值来源）。 */
+  onFormValues?: (nodeId: string, values: JSONRecord) => void;
   /** staticForm 值变化（防抖后）→ 预览页面状态。 */
   onStaticChange?: (nodeId: string, values: JSONRecord) => void;
   /** V5：表格选中行变化 → 预览页面状态（selectedRow/selectedRows）+ 选中事件。 */
@@ -545,6 +633,20 @@ function PreviewNode({
     );
   }
 
+  // fnFields 点击事件（对齐发布端 fireEvent(sec,'click')）：整卡可点击
+  const fieldsEl = (
+    <Descriptions size="small" column={2} bordered>
+      {Object.entries(payload)
+        .filter(([k]) => k !== 'items' && k !== 'total')
+        .slice(0, 10)
+        .map(([k, v]) => (
+          <Descriptions.Item key={k} label={k}>
+            {typeof v === 'object' ? JSON.stringify(v) : String(v ?? '-')}
+          </Descriptions.Item>
+        ))}
+    </Descriptions>
+  );
+
   return (
     <Card
       size="small"
@@ -563,6 +665,14 @@ function PreviewNode({
           size="small"
           rowKey={(_, i) => String(i)}
           pagination={{ pageSize: 10, showSizeChanger: false }}
+          // 行点击事件（对齐发布端 onRow → rowClick）：row 作为求值上下文
+          onRow={
+            node.props.onRowClick
+              ? (record) => ({
+                  onClick: () => onAction(node.props.onRowClick, record as JSONRecord),
+                })
+              : undefined
+          }
           rowSelection={{
             type: 'radio',
             onChange: (_keys, rows) => {
@@ -574,18 +684,24 @@ function PreviewNode({
           dataSource={items}
         />
       ) : node.type === 'fnFields' ? (
-        <Descriptions size="small" column={2} bordered>
-          {Object.entries(payload)
-            .filter(([k]) => k !== 'items' && k !== 'total')
-            .slice(0, 10)
-            .map(([k, v]) => (
-              <Descriptions.Item key={k} label={k}>
-                {typeof v === 'object' ? JSON.stringify(v) : String(v ?? '-')}
-              </Descriptions.Item>
-            ))}
-        </Descriptions>
+        node.props.onClick ? (
+          <div style={{ cursor: 'pointer' }} onClick={() => onAction(node.props.onClick)}>
+            {fieldsEl}
+          </div>
+        ) : (
+          fieldsEl
+        )
       ) : node.type === 'fnForm' ? (
-        <ModalForm fn={fn} running={running} onSubmit={onSubmit} inline />
+        // 行内表单：级联输入作初值（对齐发布端 initialValues=sectionInputs），
+        // 提交走 runNode（内部合并 cascade < assignments < params）
+        <ModalForm
+          fn={fn}
+          running={running}
+          initialValues={cascadeInputs}
+          onValuesChange={(values) => onFormValues?.(node.id, values)}
+          onSubmit={onSubmit}
+          inline
+        />
       ) : node.type === 'staticForm' ? (
         <StaticFormLive
           node={node}
@@ -612,13 +728,16 @@ function ModalForm({
   fn,
   running,
   initialValues,
+  onValuesChange,
   onSubmit,
   inline,
 }: {
   fn: FunctionDescriptor | undefined;
   running: boolean;
-  /** V5：弹窗预填初值（行操作/带参 openModal 的求值结果）。 */
+  /** V5：弹窗预填初值（行操作/带参 openModal 的求值结果）/ 行内级联输入。 */
   initialValues?: JSONRecord;
+  /** 当前值变化（{{var.values.x}} 求值来源），由父级写入页面状态。 */
+  onValuesChange?: (values: JSONRecord) => void;
   onSubmit: (params: JSONRecord) => void | Promise<void>;
   inline?: boolean;
 }) {
@@ -638,6 +757,7 @@ function ModalForm({
       spec={spec}
       initialValues={(initialValues ?? {}) as never}
       disabled={running}
+      onValuesChange={(_, all) => onValuesChange?.(all as JSONRecord)}
       onFinish={async (values) => {
         await onSubmit(values as JSONRecord);
       }}

@@ -256,8 +256,7 @@ export const CompositeRenderer: React.FC<{
     [modal],
   );
 
-  /** 动作链执行：runBinding/refreshNode 按序触发。 */
-  /** 动作链执行：run/refresh（params 来源解析）/closeModal/navigate/showMessage。 */
+  /** 动作链执行：run/refresh（params 来源解析）/openModal/closeModal/navigate/showMessage。 */
   const runChain = useCallback(
     (
       chain: Array<{ kind: string; target: string; params?: Record<string, string> }> | undefined,
@@ -277,6 +276,18 @@ export const CompositeRenderer: React.FC<{
           message.info(step.params?.message ?? '');
           continue;
         }
+        if (step.kind === 'openModal' && step.target) {
+          // 链内打开弹窗（如「关闭当前 → 打开下一个」多步向导）：params 按表达式
+          // 求值为弹窗预填初值——缺失此分支会让 openModal 链步骤发布后静默丢弃。
+          openDialog(
+            step.target,
+            (resolveStepParams(step.params, resultsRef.current, ctx) ?? {}) as Record<
+              string,
+              unknown
+            >,
+          );
+          continue;
+        }
         if (step.kind === 'runBinding' || step.kind === 'refreshNode') {
           const target = sectionsRef.current.find(
             (x) => x.key === step.target || x.group === step.target,
@@ -290,7 +301,7 @@ export const CompositeRenderer: React.FC<{
         }
       }
     },
-    [message],
+    [message, openDialog],
   );
 
   /** 区块事件执行：events 里找事件名 → 主动作 + 链。 */

@@ -8,7 +8,7 @@ import type { FunctionDescriptor } from '@/services/api/functions';
 import type { PageNode } from '../model';
 
 jest.mock('@/services/api/functions', () => ({
-  invokeFunction: jest.fn(async () => ({ data: { items: [] } })),
+  invokeFunction: jest.fn(async () => ({ result: { items: [] } })),
   listDescriptors: jest.fn(async () => []),
 }));
 
