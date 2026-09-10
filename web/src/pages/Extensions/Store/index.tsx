@@ -1,7 +1,11 @@
-import React, { useCallback, useEffect, useState } from 'react';
-import { App, Button, Card, Form, Input, Select, Space, Table, Tag, Typography } from 'antd';
-import type { ColumnsType } from 'antd/es/table';
-import { PageContainer } from '@ant-design/pro-components';
+import React, { useRef, useState } from 'react';
+import { App, Button, Card, Form, Input, Select, Space, Tag, Typography } from 'antd';
+import {
+  PageContainer,
+  ProTable,
+  type ActionType,
+  type ProColumns,
+} from '@ant-design/pro-components';
 import { useAccess } from '@umijs/max';
 import {
   getExtensionCatalogDetail,
@@ -28,11 +32,7 @@ const { Text } = Typography;
 export default function ExtensionsStorePage() {
   const access = useAccess();
   const { message } = App.useApp();
-  const [loading, setLoading] = useState(false);
-  const [items, setItems] = useState<ExtensionCatalogItem[]>([]);
-  const [total, setTotal] = useState(0);
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
+  const actionRef = useRef<ActionType | undefined>(undefined);
 
   const [keywordDraft, setKeywordDraft] = useState('');
   const [kindDraft, setKindDraft] = useState<string | undefined>(undefined);
@@ -54,28 +54,6 @@ export default function ExtensionsStorePage() {
     Record<string, JSONValue> | undefined
   >(undefined);
   const [installForm] = Form.useForm<InstallFormValues>();
-
-  const loadCatalog = useCallback(async () => {
-    setLoading(true);
-    try {
-      const resp = await listExtensionCatalog({
-        keyword,
-        kind,
-        status,
-        page,
-        pageSize,
-      });
-      const vm = adaptCatalogListResponse(resp);
-      setItems(vm.items);
-      setTotal(vm.total);
-    } finally {
-      setLoading(false);
-    }
-  }, [keyword, kind, status, page, pageSize]);
-
-  useEffect(() => {
-    loadCatalog();
-  }, [loadCatalog]);
 
   const openDetail = async (item: ExtensionCatalogItem) => {
     setDetailOpen(true);
@@ -162,7 +140,7 @@ export default function ExtensionsStorePage() {
       message.success(`已提交安装：${installItem.displayName || installItem.name}`);
       setInstallOpen(false);
       setInstallItem(undefined);
-      await loadCatalog();
+      actionRef.current?.reload();
     } catch (err) {
       const uiErr = mapExtensionError(err as Error);
       const details = uiErr.details || {};
@@ -200,7 +178,7 @@ export default function ExtensionsStorePage() {
     }
   };
 
-  const columns: ColumnsType<ExtensionCatalogItem> = [
+  const columns: ProColumns<ExtensionCatalogItem>[] = [
     {
       title: '扩展',
       dataIndex: 'displayName',
@@ -217,34 +195,36 @@ export default function ExtensionsStorePage() {
       dataIndex: 'kind',
       key: 'kind',
       width: 120,
-      render: (value) => <Tag>{value || '-'}</Tag>,
+      render: (_, row) => <Tag>{row.kind || '-'}</Tag>,
     },
     {
       title: '版本',
       dataIndex: 'latestVersion',
       key: 'latestVersion',
       width: 130,
-      render: (value) => value || '-',
+      render: (_, row) => row.latestVersion || '-',
     },
     {
       title: '状态',
       dataIndex: 'status',
       key: 'status',
       width: 120,
-      render: (value) => <Tag color={value === 'active' ? 'green' : 'default'}>{value}</Tag>,
+      render: (_, row) => (
+        <Tag color={row.status === 'active' ? 'green' : 'default'}>{row.status}</Tag>
+      ),
     },
     {
       title: '标签',
       dataIndex: 'tags',
       key: 'tags',
       width: 220,
-      render: (value: string[], row) => (
+      render: (_, row) => (
         <Space wrap>
           {row.defaultInstall && <Tag color="gold">默认安装</Tag>}
-          {(value || []).slice(0, 3).map((tag) => (
+          {(row.tags || []).slice(0, 3).map((tag) => (
             <Tag key={tag}>{tag}</Tag>
           ))}
-          {(!value || value.length === 0) && !row.defaultInstall && <Text type="secondary">-</Text>}
+          {(row.tags || []).length === 0 && !row.defaultInstall && <Text type="secondary">-</Text>}
         </Space>
       ),
     },
@@ -253,7 +233,7 @@ export default function ExtensionsStorePage() {
       dataIndex: 'installed',
       key: 'installed',
       width: 100,
-      render: (value) => (value ? <Tag color="blue">是</Tag> : <Tag>否</Tag>),
+      render: (_, row) => (row.installed ? <Tag color="blue">是</Tag> : <Tag>否</Tag>),
     },
     {
       title: '操作',
@@ -315,7 +295,9 @@ export default function ExtensionsStorePage() {
           <Button
             type="primary"
             onClick={() => {
-              setPage(1);
+              // 提交筛选草稿并回第 1 页；params 变化与 setPageInfo 的双触发
+              // 由 ProTable 内部 debounce + abort 合并
+              actionRef.current?.setPageInfo?.({ current: 1 });
               setKeyword(keywordDraft.trim());
               setKind(kindDraft);
               setStatus(statusDraft);
@@ -328,7 +310,7 @@ export default function ExtensionsStorePage() {
               setKeywordDraft('');
               setKindDraft(undefined);
               setStatusDraft(undefined);
-              setPage(1);
+              actionRef.current?.setPageInfo?.({ current: 1 });
               setKeyword('');
               setKind(undefined);
               setStatus(undefined);
@@ -338,22 +320,32 @@ export default function ExtensionsStorePage() {
           </Button>
         </Space>
 
-        <Table<ExtensionCatalogItem>
+        <ProTable<ExtensionCatalogItem>
+          actionRef={actionRef}
           scroll={{ x: 1000 }}
           rowKey="id"
-          loading={loading}
-          dataSource={items}
           columns={columns}
-          pagination={{
-            current: page,
-            pageSize,
-            total,
-            showSizeChanger: true,
-            onChange: (nextPage, nextPageSize) => {
-              setPage(nextPage);
-              setPageSize(nextPageSize);
-            },
+          search={false}
+          options={false}
+          toolBarRender={false}
+          params={{ keyword, kind, status }}
+          request={async ({ current = 1, pageSize = 10, keyword: kw, kind: kd, status: st }) => {
+            try {
+              const resp = await listExtensionCatalog({
+                keyword: kw ?? '',
+                kind: kd,
+                status: st,
+                page: current,
+                pageSize,
+              });
+              const vm = adaptCatalogListResponse(resp);
+              return { data: vm.items, total: vm.total, success: true };
+            } catch {
+              // 原实现不本地弹错（全局请求拦截器已 toast），保持该语义
+              return { data: [], total: 0, success: false };
+            }
           }}
+          pagination={{ pageSize: 10, showSizeChanger: true }}
         />
       </Card>
 

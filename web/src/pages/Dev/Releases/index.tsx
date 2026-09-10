@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useRef, useState } from 'react';
 import {
   App,
   Button,
@@ -10,12 +10,16 @@ import {
   Select,
   Slider,
   Space,
-  Table,
   Tag,
   Typography,
   Upload,
 } from 'antd';
-import { PageContainer } from '@ant-design/pro-components';
+import {
+  PageContainer,
+  ProTable,
+  type ActionType,
+  type ProColumns,
+} from '@ant-design/pro-components';
 import { CloudUploadOutlined, PlusOutlined, ReloadOutlined } from '@ant-design/icons';
 import { useAccess } from '@umijs/max';
 import type { UploadProps } from 'antd';
@@ -45,11 +49,6 @@ export default function DevReleasesPage() {
   const access = useAccess();
   const canManage = Boolean(access.canDevManage);
 
-  const [rows, setRows] = useState<Release[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [page, setPage] = useState(1);
-  const [size, setSize] = useState(20);
-  const [total, setTotal] = useState(0);
   const [status, setStatus] = useState('');
   const [platform, setPlatform] = useState('');
   const [createOpen, setCreateOpen] = useState(false);
@@ -57,23 +56,11 @@ export default function DevReleasesPage() {
   const [form] = Form.useForm();
   const [grayTarget, setGrayTarget] = useState<Release | null>(null);
   const [grayValue, setGrayValue] = useState(10);
+  const actionRef = useRef<ActionType | undefined>(undefined);
+  // 刷新按钮的 loading 转由表格加载态驱动
+  const [tableLoading, setTableLoading] = useState(false);
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await listReleases({ status, platform, page, pageSize: size });
-      setRows(res.items || []);
-      setTotal(res.total || 0);
-    } catch (error) {
-      message.error(extractErrorMessage(error, '加载版本列表失败'));
-    } finally {
-      setLoading(false);
-    }
-  }, [message, status, platform, page, size]);
-
-  useEffect(() => {
-    load();
-  }, [load]);
+  const reload = () => actionRef.current?.reload();
 
   const submitCreate = async () => {
     const v = await form.validateFields();
@@ -82,7 +69,7 @@ export default function DevReleasesPage() {
       await createRelease(v);
       message.success('版本已创建（草稿）');
       setCreateOpen(false);
-      load();
+      reload();
     } catch (error) {
       message.error(extractErrorMessage(error, '创建失败'));
     } finally {
@@ -98,7 +85,7 @@ export default function DevReleasesPage() {
     try {
       await transitionRelease(rel.id, action, grayPercent);
       message.success('状态已更新');
-      load();
+      reload();
     } catch (error) {
       message.error(extractErrorMessage(error, '操作失败'));
     }
@@ -113,7 +100,7 @@ export default function DevReleasesPage() {
         await uploadReleaseArtifact(rel.id, file as File);
         onSuccess?.({}, new XMLHttpRequest());
         message.success('资源包已上传');
-        load();
+        reload();
       } catch (error) {
         onError?.(error as Error);
         message.error(extractErrorMessage(error, '上传失败'));
@@ -121,7 +108,7 @@ export default function DevReleasesPage() {
     },
   });
 
-  const columns = [
+  const columns: ProColumns<Release>[] = [
     { title: '版本', dataIndex: 'version', width: 100 },
     {
       title: '渠道/平台',
@@ -137,30 +124,38 @@ export default function DevReleasesPage() {
       title: '类型',
       dataIndex: 'type',
       width: 70,
-      render: (v: string) => releaseTypeLabels[v] || v,
+      render: (_, rel) => releaseTypeLabels[rel.type] || rel.type,
     },
     {
       title: '状态',
       dataIndex: 'status',
       width: 90,
-      render: (v: string) => (
-        <Tag color={releaseStatusColors[v] || 'default'}>{releaseStatusLabels[v] || v}</Tag>
+      render: (_, rel) => (
+        <Tag color={releaseStatusColors[rel.status] || 'default'}>
+          {releaseStatusLabels[rel.status] || rel.status}
+        </Tag>
       ),
     },
     {
       title: '灰度',
       dataIndex: 'grayPercent',
       width: 90,
-      render: (v: number, rel: Release) =>
-        rel.status === 'gray' ? <Text strong>{v}%</Text> : v > 0 ? `${v}%` : '-',
+      render: (_, rel) =>
+        rel.status === 'gray' ? (
+          <Text strong>{rel.grayPercent}%</Text>
+        ) : rel.grayPercent > 0 ? (
+          `${rel.grayPercent}%`
+        ) : (
+          '-'
+        ),
     },
     {
       title: '资源包',
       dataIndex: 'size',
       width: 100,
-      render: (v: number, rel: Release) =>
+      render: (_, rel) =>
         rel.objectKey ? (
-          <Text title={rel.checksum}>{formatSize(v)}</Text>
+          <Text title={rel.checksum}>{formatSize(rel.size)}</Text>
         ) : (
           <Text type="secondary">未上传</Text>
         ),
@@ -253,7 +248,9 @@ export default function DevReleasesPage() {
               value={status || undefined}
               onChange={(v) => {
                 setStatus(v || '');
-                setPage(1);
+                // 筛选变化回第 1 页：params 变化与 setPageInfo 的双触发由
+                // ProTable 内部 debounce + abort 合并，不会出现错序数据
+                actionRef.current?.setPageInfo?.({ current: 1 });
               }}
               allowClear
               style={{ width: 110 }}
@@ -267,7 +264,7 @@ export default function DevReleasesPage() {
               value={platform || undefined}
               onChange={(v) => {
                 setPlatform(v || '');
-                setPage(1);
+                actionRef.current?.setPageInfo?.({ current: 1 });
               }}
               allowClear
               style={{ width: 110 }}
@@ -276,7 +273,7 @@ export default function DevReleasesPage() {
                 value,
               }))}
             />
-            <Button icon={<ReloadOutlined />} onClick={load} loading={loading}>
+            <Button icon={<ReloadOutlined />} onClick={reload} loading={tableLoading}>
               刷新
             </Button>
             {canManage ? (
@@ -294,21 +291,35 @@ export default function DevReleasesPage() {
           </Space>
         }
       >
-        <Table
+        <ProTable<Release>
+          actionRef={actionRef}
           rowKey="id"
-          dataSource={rows}
-          loading={loading}
           columns={columns}
-          pagination={{
-            current: page,
-            pageSize: size,
-            total,
-            showSizeChanger: true,
-            onChange: (p, s) => {
-              setPage(p);
-              setSize(s);
-            },
+          search={false}
+          options={false}
+          toolBarRender={false}
+          params={{ status, platform }}
+          request={async ({
+            current = 1,
+            pageSize = 20,
+            status: statusFilter,
+            platform: platformFilter,
+          }) => {
+            try {
+              const res = await listReleases({
+                status: statusFilter ?? '',
+                platform: platformFilter ?? '',
+                page: current,
+                pageSize,
+              });
+              return { data: res.items || [], total: res.total || 0, success: true };
+            } catch (error) {
+              message.error(extractErrorMessage(error, '加载版本列表失败'));
+              return { data: [], total: 0, success: false };
+            }
           }}
+          onLoadingChange={(loading) => setTableLoading(loading === true)}
+          pagination={{ pageSize: 20, showSizeChanger: true }}
         />
       </Card>
 
