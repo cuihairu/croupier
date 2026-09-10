@@ -5,6 +5,7 @@ import type {
   PageFunctionBinding,
   ValueSourceKind,
 } from '@/types/dashboard';
+import { parseExpression, resolveExpression, resolveRef } from './expression';
 
 export type PageState = Record<string, JSONValue>;
 
@@ -218,4 +219,56 @@ function isJsonRecord(value: unknown): value is Record<string, JSONValue> {
 
 function isJsonObject(value: JSONValue): value is Record<string, JSONValue> {
   return isJsonRecord(value);
+}
+
+/** V5 运行时状态的顶层键（data 之外），用于区分 {{var.x}} 的遗留 data 形态。 */
+export const RUNTIME_STATE_KEYS = new Set(['data', 'selectedRow', 'selectedRows', 'values']);
+
+/** 动作步骤参数解析（V5 §7.2：resolveStepParams = 表达式求值器的薄封装）。
+ * - `{{表达式}}`：按受限路径文法求值（变量名最长前缀匹配）；
+ * - 遗留裸形态 `区块key.字段` / `row.字段`：按同语义解析——单段路径落在
+ *   区块 data 上（V3 行为兼容），`row.`/`ctx.` 取事件上下文；
+ * - 其余原样字面量。 */
+export function resolveStepParams(
+  params: Record<string, string> | undefined,
+  results: Record<string, unknown>,
+  ctx?: Record<string, unknown>,
+): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  const variables = new Set(Object.keys(results));
+  for (const [k, src] of Object.entries(params ?? {})) {
+    if (src.startsWith('{{')) {
+      out[k] = resolveExpression(src, results, ctx, variables);
+      continue;
+    }
+    const parsed = parseExpression(`{{${src}}}`, variables);
+    if (parsed.ok && parsed.ref.variable !== 'row') {
+      const ref = parsed.ref;
+      const state = results[ref.variable] as Record<string, unknown> | undefined;
+      // 遗留形态：单段路径且非运行时状态键 → 落在 data 上（V3 兼容）
+      const legacyDataRef =
+        ref.path.length === 1 &&
+        typeof ref.path[0] === 'string' &&
+        !RUNTIME_STATE_KEYS.has(ref.path[0]) &&
+        state &&
+        typeof state === 'object' &&
+        'data' in state
+          ? { variable: ref.variable, path: ['data', ...ref.path] as Array<string | number> }
+          : ref;
+      const value = resolveRef(legacyDataRef, results, ctx);
+      if (value !== undefined) {
+        out[k] = value;
+        continue;
+      }
+    }
+    if (parsed.ok && parsed.ref.variable === 'row') {
+      const value = resolveRef(parsed.ref, results, ctx);
+      if (value !== undefined) {
+        out[k] = value;
+        continue;
+      }
+    }
+    out[k] = src;
+  }
+  return out;
 }
