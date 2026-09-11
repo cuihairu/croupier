@@ -98,6 +98,11 @@ type Dispatcher struct {
 	// 实例（HA 多实例 owner 转发）；单实例为 nil，本地 miss 即报错。
 	remoteForwarder RemoteForwarder
 
+	// remoteAgentSource 提供归属表视角的远端候选 agent（对端实例持有）。
+	// 候选集扩展用：本地候选为空时同步查询，选中后经 remoteForwarder
+	// 转发执行。单实例为 nil，路由行为与本地 registry 完全一致。
+	remoteAgentSource RemoteAgentSource
+
 	// HA features
 	healthTracker *HealthTracker
 	loadBalancer  *LoadBalancer
@@ -110,6 +115,20 @@ type Dispatcher struct {
 type RemoteForwarder interface {
 	ForwardInvoke(ctx context.Context, agentID, functionID string, payload []byte, metadata map[string]string, idempotencyKey string) ([]byte, error)
 }
+
+// RemoteAgentSource 供应归属表视角的远端候选 agent：归属表 TTL 内活跃、
+// 由对端实例持有（不含本实例自有 agent）的会话快照，scope 匹配已滤。
+// 契约边界：函数注册/enabled 的判断由 dispatcher 统一做（与本地候选
+// 同一 agentCanInvoke），source 只负责「哪些远端 agent 活着」。
+// 实现方（cmd/server ownerAgentSource）读共享归属表 + agent_sessions
+// 快照表；出错时 dispatcher 降级回 noLiveAgent 语义，不放大故障。
+type RemoteAgentSource interface {
+	RemoteAgentSessions(ctx context.Context, gameID, env string, scoped bool) ([]*reg.AgentSession, error)
+}
+
+// remoteSourceBudget 限制候选集远端查询的同步开销：归属表 + 快照表两次
+// 共享库查询，超预算即放弃（回落 no live agent），避免热路径被 DB 拖垮。
+const remoteSourceBudget = time.Second
 
 // errAgentUnreachable 标记「该 agent 当前不可达」（本地无 session 且
 // 转发失败/无路由）——可换下一候选重试的错误类。
@@ -242,6 +261,11 @@ func (d *Dispatcher) SetSessionResolver(resolver AgentSessionResolver) {
 // falls back to forwarding the invoke to the instance owning the agent.
 func (d *Dispatcher) SetRemoteForwarder(f RemoteForwarder) {
 	d.remoteForwarder = f
+}
+
+// SetRemoteAgentSource wires the remote candidate source (cluster mode only).
+func (d *Dispatcher) SetRemoteAgentSource(s RemoteAgentSource) {
+	d.remoteAgentSource = s
 }
 
 // SetTaskEventQuery sets the task event query for persistent storage access.
@@ -944,6 +968,15 @@ func (d *Dispatcher) pickAgentWithRouting(ctx context.Context, functionID string
 		}
 		candidates = filtered
 	}
+	// 候选集扩展：exclude 后为空（本地无候选或 failover 已耗尽本地候选）
+	// 且装配了远端目录时，同步查归属表补远端候选——30s
+	// refreshRemoteSnapshots 回灌窗口内的新注册、回灌失败或快照缺失场景
+	// 由此兜底；远端候选被选中后经 callAgentRouted 转发到 owner 执行。
+	// 注意触发条件是「过滤后为空」而非「本地列表为空」，否则 failover
+	// 的第 2、3 轮永远不会尝试远端。
+	if len(candidates) == 0 {
+		candidates = d.expandRemoteCandidates(ctx, functionID, gameID, env, scoped)
+	}
 	if len(candidates) == 0 {
 		return nil, noLiveAgentError(functionID, gameID, env, scoped)
 	}
@@ -978,6 +1011,32 @@ func (d *Dispatcher) pickAgentWithRouting(ctx context.Context, functionID string
 	}
 
 	return d.selectAgent(functionID, candidates, gameID, env, scoped)
+}
+
+// expandRemoteCandidates 从归属表目录拉对端持有的候选 agent 并按本地
+// 同款 agentCanInvoke 过滤（函数注册/enabled/scope/过期）。远端查询带
+// 预算，出错或超时返回空（调用方回落 noLiveAgentError 语义，不放大
+// 故障）。单实例（source 未装配）恒返回空。
+func (d *Dispatcher) expandRemoteCandidates(ctx context.Context, functionID, gameID, env string, scoped bool) []*reg.AgentSession {
+	source := d.remoteAgentSource
+	if source == nil {
+		return nil
+	}
+	qCtx, cancel := context.WithTimeout(ctx, remoteSourceBudget)
+	defer cancel()
+	sessions, err := source.RemoteAgentSessions(qCtx, gameID, env, scoped)
+	if err != nil {
+		log.Printf("[dispatch] remote agent source unavailable (game=%s env=%s): %v", gameID, env, err)
+		return nil
+	}
+	now := time.Now()
+	out := make([]*reg.AgentSession, 0, len(sessions))
+	for _, agent := range sessions {
+		if agentCanInvoke(agent, functionID, now, gameID, env, scoped) {
+			out = append(out, agent)
+		}
+	}
+	return out
 }
 
 func routingScopeFromMetadata(metadata map[string]string) (gameID, env string, scoped bool, err error) {

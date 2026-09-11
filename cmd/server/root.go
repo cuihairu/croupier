@@ -278,6 +278,17 @@ func runServer() error {
 		svcCtx.Dispatcher.SetRemoteForwarder(newMeshForwarder(svcCtx.Cluster.Mesh))
 	}
 
+	// 远端候选目录注入：本地候选集为空时按共享归属表 + agent_sessions
+	// 快照表同步兜底（双活下 30s 回灌窗口内的新注册/快照缺失不再误报
+	// no live agent），选中的远端候选经上面的转发器到 owner 执行。
+	if svcCtx.Dispatcher != nil && svcCtx.Cluster != nil && svcCtx.Cluster.ListAgentOwners != nil && svcCtx.DB != nil {
+		svcCtx.Dispatcher.SetRemoteAgentSource(&ownerAgentSource{
+			owners: svcCtx.Cluster.ListAgentOwners,
+			db:     svcCtx.DB,
+			selfID: svcCtx.Cluster.InstanceID,
+		})
+	}
+
 	// 启动 Registry 清理任务（定期删除过期的 AgentSession）
 	go startRegistryCleanup(rootCtx, svcCtx)
 
