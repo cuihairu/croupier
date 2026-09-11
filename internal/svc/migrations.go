@@ -44,6 +44,12 @@ import (
 //   0018 (Go)   admins.otp_enabled 列（T3：MFA 按 provider 接线，local 账号
 //               可启用 TOTP；ldap/oidc 登录跳过平台 MFA）
 //   0020 (Go)   execution_logs 表（R1 执行留痕：payload 级请求/响应落库）
+//   0021 (Go)   function_contracts.prev_input/output_schema 列（selector
+//               一键同步的 prev schema 存储；sync-selectors 上线时漏配
+//               存量库迁移，agent 注册 upsert 直接 SQL 报错）
+//   0022 (Go)   term_dictionary.display JSON 列（57fac95df 双列→JSON 重构
+//               只改了模型，存量库从未跑过 AutoMigrate，seed 持续报
+//               column "display" does not exist）
 
 func init() {
 	if err := goose.SetGlobalMigrations(
@@ -66,6 +72,8 @@ func init() {
 		adminLoginSecurityMigration(),
 		adminMfaMigration(),
 		executionLogsTableMigration(),
+		contractPrevSchemaMigration(),
+		termDictionaryDisplayMigration(),
 	); err != nil {
 		panic(fmt.Sprintf("svc: register goose go migrations: %v", err))
 	}
@@ -337,6 +345,66 @@ func executionLogsTableMigration() *goose.Migration {
 		}},
 		nil,
 	)
+}
+
+// contractPrevSchemaMigration 为存量库补 function_contracts 的 prev
+// schema 两列（0021）：sync-selectors 用 prev→new 的字段 diff 做 rename
+// 精确推断。新库由 baseline AutoMigrate 带出。幂等：列已存在则跳过。
+func contractPrevSchemaMigration() *goose.Migration {
+	return goose.NewGoMigration(21,
+		&goose.GoFunc{RunDB: addContractPrevSchemaColumns},
+		nil,
+	)
+}
+
+// addContractPrevSchemaColumns 是 0021 的迁移体（抽出便于直测）：
+// 存量库补 prev_input_schema/prev_output_schema；幂等；缺表跳过。
+func addContractPrevSchemaColumns(ctx context.Context, sqlDB *sql.DB) error {
+	db, err := wrapGorm(sqlDB)
+	if err != nil {
+		return err
+	}
+	if !db.Migrator().HasTable(&model.FunctionContract{}) {
+		return nil
+	}
+	for _, col := range []string{"PrevInputSchema", "PrevOutputSchema"} {
+		if db.Migrator().HasColumn(&model.FunctionContract{}, col) {
+			continue
+		}
+		if err := db.Migrator().AddColumn(&model.FunctionContract{}, col); err != nil {
+			return fmt.Errorf("migrate: 0021 add function_contracts.%s: %w", col, err)
+		}
+	}
+	return nil
+}
+
+// termDictionaryDisplayMigration 为存量库补 term_dictionary.display JSON
+// 列并回填旧双列（0022）。MigrateTermDictionaryDisplay 不建 display 列
+// （假设 AutoMigrate 已带出），存量库过 baseline 后不再跑 AutoMigrate，
+// 因此先 AddColumn 再复用同一回填实现——与 baseline 路径共享实现，两个
+// 路径不会漂移。幂等；缺表跳过。
+func termDictionaryDisplayMigration() *goose.Migration {
+	return goose.NewGoMigration(22,
+		&goose.GoFunc{RunDB: migrateTermDictionaryDisplayColumn},
+		nil,
+	)
+}
+
+// migrateTermDictionaryDisplayColumn 是 0022 的迁移体（抽出便于直测）。
+func migrateTermDictionaryDisplayColumn(ctx context.Context, sqlDB *sql.DB) error {
+	db, err := wrapGorm(sqlDB)
+	if err != nil {
+		return err
+	}
+	if !db.Migrator().HasTable(&model.TermDictionary{}) {
+		return nil
+	}
+	if !db.Migrator().HasColumn(&model.TermDictionary{}, "Display") {
+		if err := db.Migrator().AddColumn(&model.TermDictionary{}, "Display"); err != nil {
+			return fmt.Errorf("migrate: 0022 add term_dictionary.display: %w", err)
+		}
+	}
+	return model.MigrateTermDictionaryDisplay(db)
 }
 
 // taskSchedulesMigration creates the cron scheduling tables (0014):

@@ -156,6 +156,78 @@ func TestContractTimeoutMigration(t *testing.T) {
 	require.False(t, db2.Migrator().HasTable(&model.FunctionContract{}))
 }
 
+// 0021：function_contracts.prev_input/output_schema 列迁移（幂等 + 缺表
+// 跳过）。sync-selectors 上线时漏配存量库迁移导致线上 agent 注册 upsert
+// 报 column not exist——本用例锁死该路径。
+func TestContractPrevSchemaMigration(t *testing.T) {
+	db, err := gorm.Open(gsqlite.Open(t.TempDir()+"/m21.db"), &gorm.Config{})
+	require.NoError(t, err)
+	require.NoError(t, db.AutoMigrate(&model.FunctionContract{}))
+	// 模拟存量库：删列后跑迁移补列
+	require.NoError(t, db.Migrator().DropColumn(&model.FunctionContract{}, "PrevInputSchema"))
+	require.NoError(t, db.Migrator().DropColumn(&model.FunctionContract{}, "PrevOutputSchema"))
+
+	sqlDB, err := db.DB()
+	require.NoError(t, err)
+	require.NoError(t, addContractPrevSchemaColumns(context.Background(), sqlDB))
+	require.True(t, db.Migrator().HasColumn(&model.FunctionContract{}, "PrevInputSchema"))
+	require.True(t, db.Migrator().HasColumn(&model.FunctionContract{}, "PrevOutputSchema"))
+
+	// 幂等：重复执行不报错
+	require.NoError(t, addContractPrevSchemaColumns(context.Background(), sqlDB))
+
+	// 缺表库（fanout 重放到无该表的 game 库）：跳过不建空壳表
+	db2, err := gorm.Open(gsqlite.Open(t.TempDir()+"/m21b.db"), &gorm.Config{})
+	require.NoError(t, err)
+	sqlDB2, err := db2.DB()
+	require.NoError(t, err)
+	require.NoError(t, addContractPrevSchemaColumns(context.Background(), sqlDB2))
+	require.False(t, db2.Migrator().HasTable(&model.FunctionContract{}))
+}
+
+// 0022：term_dictionary.display 列迁移——旧双列存量库补 display 列并回填；
+// 已是 JSON 列形态的库幂等；缺表库跳过。
+func TestTermDictionaryDisplayMigration(t *testing.T) {
+	db, err := gorm.Open(gsqlite.Open(t.TempDir()+"/m22.db"), &gorm.Config{})
+	require.NoError(t, err)
+	// 模拟 57fac95df 之前的存量形态：旧双列建表、无 display 列。
+	require.NoError(t, db.Exec(`CREATE TABLE term_dictionary (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		domain TEXT NOT NULL,
+		term_key TEXT NOT NULL,
+		alias TEXT NOT NULL,
+		display_zh TEXT,
+		display_en TEXT,
+		sort_order INTEGER DEFAULT 100,
+		created_at DATETIME,
+		updated_at DATETIME,
+		deleted_at DATETIME
+	)`).Error)
+	require.NoError(t, db.Exec(`INSERT INTO term_dictionary
+		(domain, term_key, alias, display_zh, display_en, sort_order)
+		VALUES ('resource', 'player', 'player', '玩家', 'Player', 10)`).Error)
+
+	sqlDB, err := db.DB()
+	require.NoError(t, err)
+	require.NoError(t, migrateTermDictionaryDisplayColumn(context.Background(), sqlDB))
+
+	items, err := model.NewTermDictionaryModel(db).List(t.Context(), "resource")
+	require.NoError(t, err)
+	require.Len(t, items, 1)
+	assert.Equal(t, map[string]string{"zh-CN": "玩家", "en-US": "Player"}, items[0].Display)
+
+	// 幂等：重复执行不报错
+	require.NoError(t, migrateTermDictionaryDisplayColumn(context.Background(), sqlDB))
+
+	// 缺表库：跳过不建空壳表
+	db2, err := gorm.Open(gsqlite.Open(t.TempDir()+"/m22b.db"), &gorm.Config{})
+	require.NoError(t, err)
+	sqlDB2, err := db2.DB()
+	require.NoError(t, err)
+	require.NoError(t, migrateTermDictionaryDisplayColumn(context.Background(), sqlDB2))
+	require.False(t, db2.Migrator().HasTable(&model.TermDictionary{}))
+}
+
 // dispatcherAdapter.StartTask 委托覆盖（此前 0%：调度触发仅在真实 cron 命中时执行）。
 func TestDispatcherAdapter_StartTask_Delegates(t *testing.T) {
 	called := false
