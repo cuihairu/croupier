@@ -630,15 +630,25 @@ func (f *DashboardFixture) ready() bool {
 	if f.svcCtx == nil || f.svcCtx.RegistryStore == nil {
 		return false
 	}
-	agents := f.svcCtx.RegistryStore.AgentsUnsafe()
-	agent, ok := agents["real-dashboard-agent"]
+	// AgentsUnsafe 契约是调用方自持锁：注册/心跳路径在 store 锁内写
+	// session 字段（含 Functions map 引用替换），这里轮询读必须持 RLock，
+	// 否则 data race。
+	f.svcCtx.RegistryStore.Mu().RLock()
+	agent, ok := f.svcCtx.RegistryStore.AgentsUnsafe()["real-dashboard-agent"]
 	if !ok || agent == nil {
+		f.svcCtx.RegistryStore.Mu().RUnlock()
 		return false
 	}
+	functionsReady := true
 	for _, desc := range f.SDKFunctions() {
 		if _, ok := agent.Functions[desc.ID]; !ok {
-			return false
+			functionsReady = false
+			break
 		}
+	}
+	f.svcCtx.RegistryStore.Mu().RUnlock()
+	if !functionsReady {
+		return false
 	}
 	db := f.DB()
 	if db == nil {

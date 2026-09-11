@@ -701,7 +701,10 @@ func (s *ControlService) handleHeartbeatRequest(ctx context.Context, req *agentv
 		}
 		s.registry.Mu().Lock()
 		if s.agentSessionLoader != nil && s.shouldPersistSession(req.AgentId) {
-			agentToUpdate := agent
+			// 快照后再异步落盘：agent 指针仍挂在 registry 上，后续心跳会在
+			// registry 锁内继续写 ExpireAt/LastSeen 与 Labels["reportedOwner"]，
+			// 异步 Upsert 直接读活动指针构成 data race。
+			agentToUpdate := snapshotAgentSession(agent)
 			go func() {
 				if err := s.agentSessionLoader.Upsert(context.Background(), agentToUpdate); err != nil {
 					s.logger.Error("failed to update agent session in database", "agent_id", req.AgentId, "error", err)
@@ -712,6 +715,24 @@ func (s *ControlService) handleHeartbeatRequest(ctx context.Context, req *agentv
 	s.registry.Mu().Unlock()
 
 	return &agentv1.HeartbeatResponse{}, nil
+}
+
+// snapshotAgentSession 在 registry 锁内拷贝会话快照（异步落盘用）。
+// 值拷贝覆盖标量与 map 引用：Functions/Providers 是替换语义（重新注册
+// 换新 map，旧 map 不再被写），引用拷贝即安全；Labels 是原地 merge
+// 语义（心跳写 reportedOwner、注册 merge 标签），必须深拷贝。
+func snapshotAgentSession(a *reg.AgentSession) *reg.AgentSession {
+	if a == nil {
+		return nil
+	}
+	snap := *a
+	if a.Labels != nil {
+		snap.Labels = make(map[string]string, len(a.Labels))
+		for k, v := range a.Labels {
+			snap.Labels[k] = v
+		}
+	}
+	return &snap
 }
 
 // shouldPersistSession 心跳落盘节流：间隔内只落一次（注册路径不受限）。
