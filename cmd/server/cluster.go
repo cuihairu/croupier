@@ -9,6 +9,7 @@ import (
 
 	"github.com/redis/go-redis/v9"
 
+	"github.com/cuihairu/croupier/internal/audit"
 	"github.com/cuihairu/croupier/internal/cluster"
 	"github.com/cuihairu/croupier/internal/config"
 	"github.com/cuihairu/croupier/internal/platform/lbstats"
@@ -190,7 +191,7 @@ func startCluster(ctx context.Context, c *config.Config, svcCtx *svc.ServiceCont
 
 	var invoker cluster.LocalInvoker
 	if svcCtx.Dispatcher != nil {
-		invoker = localInvoker{dispatcher: svcCtx.Dispatcher}
+		invoker = localInvoker{dispatcher: svcCtx.Dispatcher, audit: svcCtx.AuditService}
 	}
 	handler := newInterconnectHandler(lifecycle, invoker)
 	srv, err := tcp.NewServer(icCfg, handler)
@@ -260,12 +261,21 @@ type localInvoker struct {
 		StartTaskOnAgent(ctx context.Context, agentID string, req *sdkv1.InvokeRequest) ([]byte, error)
 		CancelTaskOnAgent(ctx context.Context, agentID, taskID string) ([]byte, error)
 	}
+	// audit 为 nil（AuditService 未初始化，如 DB 不可用）时跳过 owner 侧
+	// 审计——转发执行不受影响。
+	audit *audit.AuditService
 }
 
 func (li localInvoker) InvokeLocal(ctx context.Context, req *cluster.ForwardedInvoke) (*cluster.ForwardedResult, error) {
 	if li.dispatcher == nil {
 		return nil, fmt.Errorf("dispatcher unavailable")
 	}
+	res, err := li.dispatch(ctx, req)
+	li.auditForward(ctx, req, res, err)
+	return res, err
+}
+
+func (li localInvoker) dispatch(ctx context.Context, req *cluster.ForwardedInvoke) (*cluster.ForwardedResult, error) {
 	switch req.Kind {
 	case cluster.ForwardKindCancel:
 		// 取消：TaskID 随帧；路由清理是 caller 职责（task routing 在
@@ -293,6 +303,59 @@ func (li localInvoker) InvokeLocal(ctx context.Context, req *cluster.ForwardedIn
 		}
 		return &cluster.ForwardedResult{OK: true, Payload: respBytes}, nil
 	}
+}
+
+// auditForward 落 owner 侧转发执行审计（成功与失败各一条语义，本方法
+// 每次投递调用一次）。
+//
+// 信任边界：互联 mesh 是内网明文 TCP、hello 仅校验角色字符串，Caller
+// 身份由 caller 实例注入，owner **不重查** policy/approval——caller 已
+// 走完完整鉴权链（policy+审批），重查会卡审批续跑。此设计的前提是
+// 互联端口仅集群内网可达，接 mTLS 前不得暴露公网
+// （docs/architecture/server-ha-multi-instance.md §5.3）。
+func (li localInvoker) auditForward(ctx context.Context, req *cluster.ForwardedInvoke, res *cluster.ForwardedResult, err error) {
+	if li.audit == nil {
+		return
+	}
+	// ForwardKindInvoke 常量本身是空串（wire 兼容旧 caller），审计
+	// details 里落显式字面便于检索。
+	kind := req.Kind
+	if kind == "" {
+		kind = "invoke"
+	}
+	// actor 与 caller 侧审计（internal/api/function）同键：username 作
+	// id，后台派发（scheduler，无身份）回落 system。
+	actor := req.Caller.Username
+	if actor == "" {
+		actor = "system"
+	}
+	outcome, errMsg := "success", ""
+	if err != nil {
+		outcome, errMsg = "failure", err.Error()
+	} else if res != nil && !res.OK {
+		outcome, errMsg = "failure", res.Error
+	}
+	details := map[string]interface{}{
+		"agent_id":  req.AgentID,
+		"kind":      kind,
+		"forwarded": true,
+		"gameId":    req.Caller.GameID,
+		"env":       req.Caller.Env,
+		"traceId":   req.Caller.TraceID,
+	}
+	if req.Caller.AdminID != 0 {
+		details["admin_id"] = req.Caller.AdminID
+	}
+	if req.TaskID != "" {
+		details["task_id"] = req.TaskID
+	}
+	// 审计失败不影响转发主路径（与 caller 侧审计同策略）。
+	_, _ = li.audit.Log(ctx, audit.EventFunctionInvoke,
+		audit.WithActorID(actor, "user", actor),
+		audit.WithResourceID("function", req.FunctionID),
+		audit.WithDetails(details),
+		audit.WithOutcome(outcome, errMsg),
+	)
 }
 
 // forwardInvokeRequest 从转发帧重建 InvokeRequest（invoke/start_task 共用）：
