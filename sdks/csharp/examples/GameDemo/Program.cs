@@ -430,9 +430,9 @@ class Program
 
     static (string Input, string Output) SchemasFor(string id) => id switch
     {
-        "player.create" => (BuildObj("{" + PlayerFields + "}"), BuildObj("{\"player\":" + SchemaObj + "}")),
+        "player.create" => (BuildObj(PlayerFields), BuildObj("{\"player\":" + SchemaObj + "}")),
         "player.get" => (BuildObj("{\"id\":" + SchemaStr + "}", new[] { "id" }), BuildObj("{\"player\":" + SchemaObj + "}")),
-        "player.update" => (BuildObj("{" + PlayerFields + "}", new[] { "id" }), BuildObj("{\"player\":" + SchemaObj + "}")),
+        "player.update" => (BuildObj(PlayerFields, new[] { "id" }), BuildObj("{\"player\":" + SchemaObj + "}")),
         "player.delete" => (BuildObj("{\"id\":" + SchemaStr + "}", new[] { "id" }), BuildObj("{\"playerId\":" + SchemaStr + "}")),
         "player.list" => (BuildObj("{\"page\":" + SchemaInt + ",\"pageSize\":" + SchemaInt + "}"),
                           BuildObj("{\"items\":{\"type\":\"array\",\"items\":" + SchemaObj + "},\"total\":" + SchemaInt + "}")),
