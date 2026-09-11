@@ -10,6 +10,7 @@ import { Alert, Button, Result, Space, Spin, Tag, Typography } from 'antd';
 import { PageContainer } from '@ant-design/pro-components';
 import { useEffect, useState } from 'react';
 import PageRenderer from '@/components/PageRenderer';
+import SelectorSyncReportModal from '@/components/SelectorSync/SelectorSyncReportModal';
 import {
   cancelTask,
   executePageBinding,
@@ -31,6 +32,7 @@ export default function ConsolePage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string>('');
   const [errorCode, setErrorCode] = useState<string>('');
+  const [syncOpen, setSyncOpen] = useState(false);
   const { canonicalPath, shouldRedirect } = resolveConsolePageRoute(page, categoryKey);
 
   useEffect(() => {
@@ -310,11 +312,22 @@ export default function ConsolePage() {
                     defaultMessage="打开 Proposal Inbox"
                   />
                 </Button>
+                <Button size="small" onClick={() => setSyncOpen(true)}>
+                  <FormattedMessage
+                    id="pages.console.page.staleAlert.syncSelectors"
+                    defaultMessage="一键同步 Selector"
+                  />
+                </Button>
               </Space>
             </Space>
           }
         />
       ) : null}
+      <SelectorSyncReportModal
+        open={syncOpen}
+        pageKey={pageKey}
+        onClose={() => setSyncOpen(false)}
+      />
       {page && (
         <PageRenderer
           pageSpec={page}

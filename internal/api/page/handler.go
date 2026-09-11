@@ -107,6 +107,31 @@ func (h *Handler) RegenerateDraft(c *gin.Context) {
 	response.Success(c, resp)
 }
 
+// SyncSelectors handles POST /api/v1/pages/:pageKey/sync-selectors
+func (h *Handler) SyncSelectors(c *gin.Context) {
+	var req PageSyncSelectorsRequest
+	if err := c.ShouldBindUri(&req); err != nil {
+		response.Error(c, err)
+		return
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, err)
+		return
+	}
+
+	resp, err := h.service.SyncSelectors(c.Request.Context(), &req)
+	if err != nil {
+		var notFound *PageNotFoundError
+		if errors.As(err, &notFound) {
+			response.NotFound(c, err.Error())
+			return
+		}
+		response.Error(c, err)
+		return
+	}
+	response.Success(c, resp)
+}
+
 // RebuildProposals handles POST /api/v1/pages/proposals/rebuild
 func (h *Handler) RebuildProposals(c *gin.Context) {
 	resp, err := h.service.RebuildAllProposals(c.Request.Context())

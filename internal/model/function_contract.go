@@ -30,14 +30,21 @@ type FunctionContract struct {
 	Permission   string            `gorm:"size:128"`
 	InputSchema  JSON              `gorm:"type:json"`
 	OutputSchema JSON              `gorm:"type:json"`
-	Summary      datatypes.JSONMap `gorm:"type:json"` // LocalizedText map
-	Description  datatypes.JSONMap `gorm:"type:json"` // LocalizedText map
-	Tags         JSON              `gorm:"type:json"` // string array
-	Source       string            `gorm:"size:32"`   // sdk|openapi|catalog
-	SourceDigest string            `gorm:"size:64"`   // SHA256 of source descriptor
-	Diagnostics  JSON              `gorm:"type:json"` // Diagnostic array
-	UpdatedAt    time.Time
-	UpdatedBy    string `gorm:"size:64"` // user or system
+	// PrevInputSchema/PrevOutputSchema 保存上一次注册时的 schema（本次
+	// 更新前的 existing 行内容）。页面绑定一键同步（sync-selectors）用它做
+	// 字段 rename 精确推断：prev→new 的 diff 能唯一命中时 confidence=high。
+	// 只存一版（无完整版本表）；schema 未变的重注册被 UpsertContract 跳过
+	// 写入，prev 不会被无意义刷新。
+	PrevInputSchema  JSON              `gorm:"type:json"`
+	PrevOutputSchema JSON              `gorm:"type:json"`
+	Summary          datatypes.JSONMap `gorm:"type:json"` // LocalizedText map
+	Description      datatypes.JSONMap `gorm:"type:json"` // LocalizedText map
+	Tags             JSON              `gorm:"type:json"` // string array
+	Source           string            `gorm:"size:32"`   // sdk|openapi|catalog
+	SourceDigest     string            `gorm:"size:64"`   // SHA256 of source descriptor
+	Diagnostics      JSON              `gorm:"type:json"` // Diagnostic array
+	UpdatedAt        time.Time
+	UpdatedBy        string `gorm:"size:64"` // user or system
 }
 
 // ResourceCapability aggregates function capabilities around a business resource.

@@ -65,6 +65,7 @@ import profile from './zh-CN/profile';
 import profileMfa from './zh-CN/profileMfa';
 import proposalInbox from './zh-CN/proposalInbox';
 import pwa from './zh-CN/pwa';
+import selectorSync from './zh-CN/selectorSync';
 import resourceCatalog from './zh-CN/resourceCatalog';
 import resourceRenderer from './zh-CN/resourceRenderer';
 import schemaFormRenderer from './zh-CN/schemaFormRenderer';
@@ -154,6 +155,7 @@ export default {
   ...profileMfa,
   ...proposalInbox,
   ...pwa,
+  ...selectorSync,
   ...resourceCatalog,
   ...resourceRenderer,
   ...schemaFormRenderer,

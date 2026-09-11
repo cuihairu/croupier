@@ -419,6 +419,13 @@ type FunctionSpec struct {
 	InputSchema  JSONSchema `json:"inputSchema,omitempty"`
 	OutputSchema JSONSchema `json:"outputSchema,omitempty"`
 
+	// PreviousInputSchema/PreviousOutputSchema 是上一次注册时的 schema
+	// （FunctionContract 的 prev 列投影）。selector 同步用 prev→new 的
+	// 字段 diff 做精确 rename 推断（confidence=high）；为空表示无历史
+	// （首次注册或功能上线前的存量行），同步降级启发式。
+	PreviousInputSchema  JSONSchema `json:"previousInputSchema,omitempty"`
+	PreviousOutputSchema JSONSchema `json:"previousOutputSchema,omitempty"`
+
 	// Catalog/search text. These fields are not runtime menu labels.
 	Summary     LocalizedText `json:"summary,omitempty"`
 	Description LocalizedText `json:"description,omitempty"`

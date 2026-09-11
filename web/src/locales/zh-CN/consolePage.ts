@@ -32,4 +32,5 @@ export default {
   'pages.console.page.staleAlert.message': '页面绑定的函数契约已变化，执行已被阻断',
   'pages.console.page.staleAlert.openInbox': '打开 Proposal Inbox',
   'pages.console.page.staleAlert.resolve': '前往处理（diff / 合并 / 重新发布）',
+  'pages.console.page.staleAlert.syncSelectors': '一键同步 Selector',
 };

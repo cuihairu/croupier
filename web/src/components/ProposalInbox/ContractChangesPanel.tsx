@@ -6,11 +6,13 @@ import {
   ReloadOutlined,
   RocketOutlined,
   SyncOutlined,
+  ThunderboltOutlined,
 } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import { FormattedMessage, useIntl } from '@umijs/max';
 import type { ContractChangeInfo, PageType } from '@/types/dashboard';
 import MergeConflictModal from '@/components/MergeConflictModal';
+import SelectorSyncReportModal from '@/components/SelectorSync/SelectorSyncReportModal';
 import { mergeChanges, regenerateProposal, republish } from '@/services/dashboard';
 import { deleteVersioningPage } from '@/services/api/versioning';
 import type { ConflictResolution, MergeResponse } from '@/services/api/versioning';
@@ -43,6 +45,7 @@ export default function ContractChangesPanel({
   const [manualMergeLoading, setManualMergeLoading] = useState(false);
   const [manualMergePreview, setManualMergePreview] = useState<MergeResponse | null>(null);
   const [manualMergeRecord, setManualMergeRecord] = useState<ContractChangeInfo | null>(null);
+  const [syncPageKeyValue, setSyncPageKeyValue] = useState('');
 
   const runContractAction = useCallback(
     async (key: string, action: () => Promise<void>) => {
@@ -387,6 +390,15 @@ export default function ContractChangesPanel({
                   onClick: () => handleRegenerateProposal(record),
                 },
                 {
+                  key: 'sync-selectors',
+                  icon: <ThunderboltOutlined />,
+                  label: intl.formatMessage({
+                    id: 'component.proposalInbox.contractChanges.action.syncSelectors',
+                    defaultMessage: '一键同步 Selector',
+                  }),
+                  onClick: () => setSyncPageKeyValue(record.pageKey),
+                },
+                {
                   key: 'auto-merge',
                   icon: <SyncOutlined />,
                   label: intl.formatMessage({
@@ -449,6 +461,15 @@ export default function ContractChangesPanel({
         preview={manualMergePreview}
         onCancel={() => setManualMergeVisible(false)}
         onSubmit={handleManualMergeSubmit}
+      />
+      <SelectorSyncReportModal
+        open={syncPageKeyValue !== ''}
+        pageKey={syncPageKeyValue}
+        onClose={() => setSyncPageKeyValue('')}
+        // 同步落草稿后队列的 stale 依据（草稿校验）可能变化，刷新队列
+        onApplied={() => {
+          onChanged();
+        }}
       />
     </>
   );

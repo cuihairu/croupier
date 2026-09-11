@@ -1,5 +1,6 @@
 import { request } from '@umijs/max';
 import type {
+  BindingSelectorSyncReport,
   Diagnostic,
   PageSpec,
   PageSpecDraft,
@@ -78,6 +79,21 @@ type PageRegenerateResponse = {
   quality: 'ready' | 'basic' | 'needs_review';
 };
 
+export type PageSyncSelectorsPayload = {
+  draftRevision: number;
+  dryRun: boolean;
+  bindingIds?: string[];
+};
+
+type PageSyncSelectorsResponse = {
+  pageKey: string;
+  dryRun: boolean;
+  applied: boolean;
+  draftRevision: number;
+  syncedBindings: BindingSelectorSyncReport[];
+  remainingDiagnostics?: Diagnostic[];
+};
+
 export async function listPageDrafts(
   params?: PageDraftListParams,
 ): Promise<PageSpecDraftSummary[]> {
@@ -109,6 +125,19 @@ export async function regeneratePageDraft(
     method: 'POST',
     data: { draftRevision },
   });
+}
+
+export async function syncPageSelectors(
+  pageKey: string,
+  payload: PageSyncSelectorsPayload,
+): Promise<PageSyncSelectorsResponse> {
+  return request<PageSyncSelectorsResponse>(
+    `${BASE}/${encodeURIComponent(pageKey)}/sync-selectors`,
+    {
+      method: 'POST',
+      data: payload,
+    },
+  );
 }
 
 export async function validatePageDraft(pageKey: string): Promise<PageValidateResponse> {

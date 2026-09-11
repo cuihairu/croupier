@@ -16,6 +16,7 @@ func RegisterDraftRoutes(group *gin.RouterGroup, svcCtx *svc.ServiceContext) {
 	group.PUT("/:pageKey", handler.SaveDraft)
 	group.POST("/proposals/rebuild", handler.RebuildProposals)
 	group.POST("/:pageKey/regenerate", handler.RegenerateDraft)
+	group.POST("/:pageKey/sync-selectors", handler.SyncSelectors)
 	group.POST("/:pageKey/validate", handler.Validate)
 	group.POST("/:pageKey/preview", handler.Preview)
 	group.POST("/:pageKey/publish", handler.Publish)

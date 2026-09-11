@@ -64,6 +64,28 @@ type PageRegenerateResponse struct {
 	Quality       spec.GeneratedPageQuality `json:"quality"`
 }
 
+// PageSyncSelectorsRequest 一键同步 stale selector：dryRun=true 只出报告
+// 不落库；bindingIds 非空时只同步指定 binding（默认全量）。draftRevision
+// 是乐观锁——草稿被并发修改时 409，防止冲掉他人定制。
+type PageSyncSelectorsRequest struct {
+	PageKey       string   `uri:"pageKey" binding:"required"`
+	DraftRevision *int     `json:"draftRevision"`
+	DryRun        bool     `json:"dryRun"`
+	BindingIDs    []string `json:"bindingIds,omitempty"`
+}
+
+type PageSyncSelectorsResponse struct {
+	PageKey        string                           `json:"pageKey"`
+	DryRun         bool                             `json:"dryRun"`
+	Applied        bool                             `json:"applied"`
+	DraftRevision  int                              `json:"draftRevision"`
+	SyncedBindings []spec.BindingSelectorSyncReport `json:"syncedBindings"`
+	// RemainingDiagnostics 是同步草稿的发布级校验结果。同步不保证可
+	// 发布（manual_required 项仍需人工处理），错误留在这里由调用方
+	// 呈现，不阻断保存。
+	RemainingDiagnostics []spec.Diagnostic `json:"remainingDiagnostics,omitempty"`
+}
+
 // PageProposalsRebuildResponse reports the scope covered by a bulk proposal
 // rebuild. Per-page results are observable through the proposal list API.
 type PageProposalsRebuildResponse struct {

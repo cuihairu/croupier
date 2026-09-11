@@ -253,6 +253,31 @@ V4 新增文件：`ComponentLibrary.tsx`（组件库面板——模板浏览/实
 V3 之上已上线**组件模板层 V4**（组件库面板实例化 + 选中节点保存为组件 + 契约自动生成模板），详见
 [组合页编辑器 V4 设计](./composite-editor-v4-design.md)。
 
+## 8.5 Selector 一键同步（契约漂移修复，2026-09）
+
+函数契约 schema 变化后页面绑定 stale（发布 422 阻断 / console 409 拒绝执行）时，
+除「重生成」（整页替换、定制冲掉）与手动逐 binding 重选外，第三条路径是
+**一键同步 Selector**：只修受影响的 assignment，保留全部未受影响定制
+（form/row/selection/page_state/literal 来源与 Transform）。
+
+**三个入口**（共用 `SelectorSyncReportModal`，打开即 dry-run 展示计划）：
+
+- 契约变更收件箱（Proposal Inbox → 契约变更队列）行操作「更多 → 一键同步 Selector」
+- 运行控制台 stale 提示条上的「同步 Selector」按钮（发布页被 409 阻断时）
+- Page Studio 编辑器 stale 警告条上的「同步 Selector」按钮
+
+报告按 binding 分组，逐条标注动作（kept 保留 / renamed 重映射 / removed 摘除 /
+added 补齐 / type_changed 类型变化 / shape_updated 形状更新 / manual_required
+需人工处理）与置信度（精确匹配=prev schema 命中 / 启发式）。确认后「应用同步
+到草稿」生成新版本（revision+1 + 版本记录 + 审计），**不自动发布**——报告底部
+提示剩余错误级诊断，处理完 manual_required 项后手动发布。
+
+composite 页边界：新增 required 输入一律 `manual_required`（composite 输入只应
+来自 page_state/literal，不自动补 form），需在编辑器里手动加参数映射。策略阶梯、
+prev schema 语义与 wire 契约见
+[Dashboard Resource/Page 模型](../architecture/dashboard-page-model.md)与
+[PageSpec 协议规范](../architecture/pagespec-protocol.md)。
+
 ## 9. 已知边界
 
 - 容器子级两层内完整交互（孙层为简化预览）
@@ -275,3 +300,9 @@ V3 之上已上线**组件模板层 V4**（组件库面板实例化 + 选中节�
   行操作参数仅支持 <code v-pre>{{row.字段}}</code>（跨变量表达式编译警告、按字面量保留）；
   模板混排文案（<code v-pre>"玩家 {{row.uid}} 已处理"</code>）属 V5.1 未实现
 - V5-T5.7 端到端线上验收（提案→发布→真实联动）待执行
+- Selector 一键同步（8.5 节）边界：prev schema 只存一版且仅在本功能上线后的下一次
+  契约更新才写入，存量漂移页首次同步走启发式（confidence=low）；多跳漂移
+  （发布后又改契约）digest 判定不符时同样降级；composite 页新增 required 输入
+  一律 manual_required；新 required 字段补 form 要求页面表单有同名字段，且
+  resource 语义盲区（新 required 恰为 identity 字段时应来自 row 源）只在 reason
+  里提示核对、不自动推断；同步不自动 publish

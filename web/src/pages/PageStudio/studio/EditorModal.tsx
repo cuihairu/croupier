@@ -18,6 +18,7 @@ export default function EditorModal({
   onLivePreviewChange,
   onSave,
   onSpecChange,
+  onSyncSelectors,
 }: {
   open: boolean;
   pageKey: string;
@@ -28,6 +29,7 @@ export default function EditorModal({
   onLivePreviewChange: (v: boolean) => void;
   onSave: (options?: { publishAfterSave?: boolean }) => void;
   onSpecChange: (value: PageSpec) => void;
+  onSyncSelectors: () => void;
 }) {
   const intl = useIntl();
   return (
@@ -99,25 +101,33 @@ export default function EditorModal({
                   defaultMessage: '页面绑定与函数契约不一致（发布会校验失败）',
                 })}
                 description={
-                  <ul style={{ margin: 0, paddingLeft: 18 }}>
-                    {draft.bindingFreshness.slice(0, 8).map((item, i) => (
-                      <li key={i}>
-                        <code>{item.functionId || item.bindingId || '-'}</code>
-                        {item.diagnostic?.message ? `：${item.diagnostic.message}` : ''}
-                      </li>
-                    ))}
-                    {draft.bindingFreshness.length > 8 ? (
-                      <li>
-                        {intl.formatMessage(
-                          {
-                            id: 'pages.pageStudio.studio.editor.bindingStaleMore',
-                            defaultMessage: '…以及另外 {count} 条',
-                          },
-                          { count: draft.bindingFreshness.length - 8 },
-                        )}
-                      </li>
-                    ) : null}
-                  </ul>
+                  <>
+                    <ul style={{ margin: 0, paddingLeft: 18 }}>
+                      {draft.bindingFreshness.slice(0, 8).map((item, i) => (
+                        <li key={i}>
+                          <code>{item.functionId || item.bindingId || '-'}</code>
+                          {item.diagnostic?.message ? `：${item.diagnostic.message}` : ''}
+                        </li>
+                      ))}
+                      {draft.bindingFreshness.length > 8 ? (
+                        <li>
+                          {intl.formatMessage(
+                            {
+                              id: 'pages.pageStudio.studio.editor.bindingStaleMore',
+                              defaultMessage: '…以及另外 {count} 条',
+                            },
+                            { count: draft.bindingFreshness.length - 8 },
+                          )}
+                        </li>
+                      ) : null}
+                    </ul>
+                    <Button size="small" style={{ marginTop: 8 }} onClick={onSyncSelectors}>
+                      <FormattedMessage
+                        id="pages.pageStudio.studio.editor.syncSelectors"
+                        defaultMessage="一键同步 Selector"
+                      />
+                    </Button>
+                  </>
                 }
               />
             ) : null}

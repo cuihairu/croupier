@@ -47,6 +47,7 @@ export default {
   'component.proposalInbox.contractChanges.action.mergePreviewFailed': '加载冲突预览失败',
   'component.proposalInbox.contractChanges.action.more': '更多',
   'component.proposalInbox.contractChanges.action.regenerate': '重生成',
+  'component.proposalInbox.contractChanges.action.syncSelectors': '一键同步 Selector',
   'component.proposalInbox.contractChanges.action.regenerateFailedFallback':
     '生成页面时出现错误级诊断，请查看页面详情',
   'component.proposalInbox.contractChanges.action.regenerateFailedTitle': '重新生成失败',

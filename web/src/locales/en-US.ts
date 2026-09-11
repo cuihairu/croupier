@@ -65,6 +65,7 @@ import profile from './en-US/profile';
 import profileMfa from './en-US/profileMfa';
 import proposalInbox from './en-US/proposalInbox';
 import pwa from './en-US/pwa';
+import selectorSync from './en-US/selectorSync';
 import resourceCatalog from './en-US/resourceCatalog';
 import resourceRenderer from './en-US/resourceRenderer';
 import schemaFormRenderer from './en-US/schemaFormRenderer';
@@ -154,6 +155,7 @@ export default {
   ...profileMfa,
   ...proposalInbox,
   ...pwa,
+  ...selectorSync,
   ...resourceCatalog,
   ...resourceRenderer,
   ...schemaFormRenderer,

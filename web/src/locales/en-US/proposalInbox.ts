@@ -49,6 +49,7 @@ export default {
     'Failed to load the conflict preview',
   'component.proposalInbox.contractChanges.action.more': 'More',
   'component.proposalInbox.contractChanges.action.regenerate': 'Regenerate',
+  'component.proposalInbox.contractChanges.action.syncSelectors': 'Sync Selectors',
   'component.proposalInbox.contractChanges.action.regenerateFailedFallback':
     'Error-level diagnostics occurred while generating the page. Check the page details.',
   'component.proposalInbox.contractChanges.action.regenerateFailedTitle': 'Regeneration failed',

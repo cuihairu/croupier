@@ -16,6 +16,7 @@ import (
 	"github.com/cuihairu/croupier/internal/audit"
 	"github.com/cuihairu/croupier/internal/common/errorx"
 	"github.com/cuihairu/croupier/internal/dashboard/freshness"
+	"github.com/cuihairu/croupier/internal/dashboard/generator"
 	"github.com/cuihairu/croupier/internal/dashboard/spec"
 	"github.com/cuihairu/croupier/internal/db/dbctx"
 	"github.com/cuihairu/croupier/internal/dbenum"
@@ -356,6 +357,233 @@ func (s *Service) RegenerateDraft(ctx context.Context, req *PageRegenerateReques
 		Diagnostics:   replacement.Diagnostics,
 		Quality:       replacement.Quality,
 	}, nil
+}
+
+// SyncSelectors 一键同步 stale selector：对草稿逐 binding 跑
+// spec.PlanBindingSelectorSync（dry-run 与 apply 共用同一 planner），
+// 只修受影响的 assignment、保留全部未受影响定制。dryRun=true 只出报告
+// 不落库；apply 走 SaveDraft 同款乐观锁（事务内 revision 重查）+ PageVersion。
+// 同步不自动 publish（pages:publish 权限与审批语义分离），同步后的发布级
+// 校验结果放在 remainingDiagnostics 由调用方呈现。
+func (s *Service) SyncSelectors(ctx context.Context, req *PageSyncSelectorsRequest) (*PageSyncSelectorsResponse, error) {
+	if err := s.requirePageEdit(ctx); err != nil {
+		return nil, err
+	}
+	gameID, env, err := requireScope(ctx)
+	if err != nil {
+		return nil, err
+	}
+	actor, err := currentUsername(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if req.DraftRevision == nil {
+		return nil, errorx.NewBadRequest("draftRevision is required")
+	}
+
+	p, err := s.findDraft(ctx, req.PageKey)
+	if err != nil {
+		return nil, err
+	}
+	if p.DraftRevision != *req.DraftRevision {
+		return nil, errorx.NewConflictWithDetails("草稿版本冲突：页面已被其他修改更新，请刷新草稿后重试", map[string]any{
+			"expected": p.DraftRevision,
+			"current":  p.DraftRevision,
+			"provided": *req.DraftRevision,
+		})
+	}
+
+	pageSpec, err := pageSpecFromModel(p)
+	if err != nil {
+		return nil, err
+	}
+	functions := s.normalizedFunctions(ctx)
+	contracts := s.publishedContractsForSync(ctx, p)
+	onlyBindings := map[string]struct{}{}
+	for _, id := range req.BindingIDs {
+		if id = strings.TrimSpace(id); id != "" {
+			onlyBindings[id] = struct{}{}
+		}
+	}
+
+	synced := pageSpec
+	reports := make([]spec.BindingSelectorSyncReport, 0, len(pageSpec.Bindings))
+	syncOpts := spec.SelectorSyncOptions{RecomputeDefaults: generator.RecomputeDefaultOutputs}
+	for i, binding := range pageSpec.Bindings {
+		if len(onlyBindings) > 0 {
+			if _, ok := onlyBindings[strings.TrimSpace(binding.ID)]; !ok {
+				continue
+			}
+		}
+		fn, ok := functions[strings.TrimSpace(binding.FunctionID)]
+		if !ok {
+			// 函数缺失：selector 同步无法修复，报告透传而非整体失败
+			reports = append(reports, spec.BindingSelectorSyncReport{
+				BindingID:  binding.ID,
+				FunctionID: binding.FunctionID,
+				Manual: []spec.Diagnostic{diagnostic(
+					"binding_function_missing",
+					spec.SeverityError,
+					"bound function no longer exists; remove or rebind it before publishing",
+					"bindings."+binding.ID,
+				)},
+			})
+			continue
+		}
+		contract, hasContract := contracts[strings.TrimSpace(binding.ID)]
+		if hasContract {
+			// prev 与发布时点 digest 双双一致（快照 digest 非空）时
+			// prev diff 的 rename 候选才标 high；digest 缺失（旧快照）
+			// 或多跳漂移一律降级启发式。
+			syncOpts.PrevTrusted = contract.InputSchemaDigest != "" &&
+				contract.OutputSchemaDigest != "" &&
+				freshness.MatchesDigest(fn.PreviousInputSchema, contract.InputSchemaDigest) &&
+				freshness.MatchesDigest(fn.PreviousOutputSchema, contract.OutputSchemaDigest)
+		} else {
+			syncOpts.PrevTrusted = false
+		}
+		report, syncedBinding := spec.PlanBindingSelectorSync(pageSpec, binding, fn, syncOpts)
+		// governance/version/approval 漂移不可由 selector 同步修复——
+		// 同步后重跑 freshness，剩余的非 selector 诊断透传进 Manual。
+		if hasContract {
+			for _, stale := range freshness.EvaluateBinding(syncedBinding, contract, functions) {
+				switch stale.Status {
+				case spec.BindingFreshnessGovernanceStale, spec.BindingFreshnessFunctionVersionStale:
+					stale.Diagnostic.Field = "bindings." + binding.ID
+					report.Manual = append(report.Manual, stale.Diagnostic)
+				}
+			}
+		}
+		reports = append(reports, report)
+		synced.Bindings[i] = syncedBinding
+	}
+
+	remaining := s.validatePageSpec(ctx, synced, true)
+
+	if req.DryRun {
+		return &PageSyncSelectorsResponse{
+			PageKey:              p.PageKey,
+			DryRun:               true,
+			Applied:              false,
+			DraftRevision:        p.DraftRevision,
+			SyncedBindings:       reports,
+			RemainingDiagnostics: remaining,
+		}, nil
+	}
+
+	now := time.Now()
+	if err := applyPageSpecToModel(p, synced); err != nil {
+		return nil, err
+	}
+	p.GameID = gameID
+	p.Env = env
+	p.Status = "draft"
+	p.UpdatedBy = actor
+	p.UpdatedAt = now
+	p.DraftRevision++
+	specJSON, err := buildPageSpecJSONFn(p)
+	if err != nil {
+		return nil, err
+	}
+	providedRevision := *req.DraftRevision
+	err = s.withPageTransaction(ctx, func(txCtx context.Context, pageModel *model.PageSpecModel, _ *model.PublishedPageSpecModel, versionModel *model.PageVersionModel) error {
+		// 事务内重查 revision（SaveDraft 同款乐观锁）：planner 运行期间
+		// 草稿可能被并发保存，直接落库会静默冲掉他人定制。
+		current, err := pageModel.FindByScopeAndPageKey(txCtx, gameID, env, req.PageKey)
+		if err != nil {
+			return err
+		}
+		if current.DraftRevision != providedRevision {
+			return errorx.NewConflictWithDetails("草稿版本冲突：页面已被其他修改更新，请刷新草稿后重试", map[string]any{
+				"expected": current.DraftRevision,
+				"current":  current.DraftRevision,
+				"provided": providedRevision,
+			})
+		}
+		if err := pageModel.Upsert(txCtx, p); err != nil {
+			return err
+		}
+		return versionModel.UpsertByScopePageKeyVersion(txCtx, &model.PageVersion{
+			GameID:    gameID,
+			Env:       env,
+			PageKey:   p.PageKey,
+			Version:   p.DraftRevision,
+			SpecJSON:  specJSON,
+			Status:    "draft",
+			Message:   "sync selectors from latest function contracts",
+			CreatedBy: actor,
+			CreatedAt: now,
+		})
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	s.auditPageEvent(ctx, audit.EventPageDraftSave, gameID, env, req.PageKey, map[string]interface{}{
+		"action":            "sync_selectors",
+		"draft_revision":    p.DraftRevision,
+		"previous_revision": providedRevision,
+		"binding_count":     len(reports),
+		"changed_bindings":  countChangedBindings(reports),
+		"manual_count":      countManualEntries(reports),
+	})
+
+	return &PageSyncSelectorsResponse{
+		PageKey:              p.PageKey,
+		DryRun:               false,
+		Applied:              true,
+		DraftRevision:        p.DraftRevision,
+		SyncedBindings:       reports,
+		RemainingDiagnostics: remaining,
+	}, nil
+}
+
+// publishedContractsForSync 取最新发布快照的 binding contract（prev
+// 精确性判定与不可修项透传都需要）；无发布历史的页返回空 map。
+func (s *Service) publishedContractsForSync(ctx context.Context, p *model.PageSpec) map[string]spec.BindingContractSnapshot {
+	out := map[string]spec.BindingContractSnapshot{}
+	if s == nil || s.svcCtx == nil || s.svcCtx.PublishedPageSpecModel == nil || p == nil || p.PublishedVersion == 0 {
+		return out
+	}
+	published, err := s.svcCtx.PublishedPageSpecModel.FindLatestByScopeAndPageKey(ctx, p.GameID, p.Env, p.PageKey)
+	if err != nil {
+		return out
+	}
+	_, contracts := parsePublishedPageForFreshness(*published)
+	for _, contract := range contracts {
+		if id := strings.TrimSpace(contract.BindingID); id != "" {
+			out[id] = contract
+		}
+	}
+	return out
+}
+
+func countChangedBindings(reports []spec.BindingSelectorSyncReport) int {
+	n := 0
+	for _, report := range reports {
+		if report.Changed {
+			n++
+		}
+	}
+	return n
+}
+
+func countManualEntries(reports []spec.BindingSelectorSyncReport) int {
+	n := 0
+	for _, report := range reports {
+		for _, entry := range report.Input {
+			if entry.Action == spec.SelectorSyncManual {
+				n++
+			}
+		}
+		for _, entry := range report.Output {
+			if entry.Action == spec.SelectorSyncManual {
+				n++
+			}
+		}
+		n += len(report.Manual)
+	}
+	return n
 }
 
 func (s *Service) Validate(ctx context.Context, req *PageValidateRequest) (*PageValidateResponse, error) {

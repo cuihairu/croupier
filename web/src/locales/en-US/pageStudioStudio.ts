@@ -42,6 +42,7 @@ export default {
   'pages.pageStudio.studio.editor.bindingStaleMore': '…and {count} more',
   'pages.pageStudio.studio.editor.bindingStaleTitle':
     'Page bindings do not match the function contract (publish validation will fail)',
+  'pages.pageStudio.studio.editor.syncSelectors': 'Sync Selectors',
   'pages.pageStudio.studio.editor.cancel': 'Cancel',
   'pages.pageStudio.studio.editor.empty': 'Select a page',
   'pages.pageStudio.studio.editor.livePreview': 'Live preview',

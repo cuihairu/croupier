@@ -897,6 +897,16 @@ func defaultOutputAssignments(usage spec.PageBindingUsage, outputSchema spec.JSO
 	}
 }
 
+// RecomputeDefaultOutputs 是 defaultOutputAssignments 的导出包装，供
+// sync-selectors planner 注入（spec.OutputRechooser）：必需输出
+// （items/dataset 等）的重推导与生成期共用同一默认推导，避免两处
+// 规则漂移。task 类辅助绑定（status/events/result）生成期由
+// TaskSemantic 指定路径，不经此函数，推导返回 nil 由 planner 走
+// rename/根对象 fallback。
+func RecomputeDefaultOutputs(usage spec.PageBindingUsage, outputSchema spec.JSONSchema) []spec.OutputAssignment {
+	return defaultOutputAssignments(usage, outputSchema)
+}
+
 func applyReportSemantic(binding *spec.PageFunctionBinding, reportSemantic spec.ReportSemantic) {
 	if binding == nil || strings.TrimSpace(reportSemantic.Query.FunctionID) == "" {
 		return

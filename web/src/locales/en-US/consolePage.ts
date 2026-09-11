@@ -34,4 +34,5 @@ export default {
     'The function contracts bound to this page have changed; execution is blocked',
   'pages.console.page.staleAlert.openInbox': 'Open Proposal Inbox',
   'pages.console.page.staleAlert.resolve': 'Resolve (diff / merge / republish)',
+  'pages.console.page.staleAlert.syncSelectors': 'Sync Selectors',
 };

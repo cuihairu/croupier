@@ -90,6 +90,8 @@ interface FunctionContract {
   description?: LocalizedText;
   inputSchema?: JSONSchema;
   outputSchema?: JSONSchema;
+  previousInputSchema?: JSONSchema; // 上一次注册的 inputSchema（prev 列，只存一版）
+  previousOutputSchema?: JSONSchema; // 上一次注册的 outputSchema
   risk: RiskLevel;
   permission?: string;
   execution: "sync" | "task";
@@ -98,6 +100,14 @@ interface FunctionContract {
   operationKey?: string;
   capability?: CapabilityKind;
 }
+```
+
+`previousInputSchema`/`previousOutputSchema`（数据库 `prev_input_schema`/`prev_output_schema` 列）保存本次注册前的上一版 schema，**只存一版，无版本表**：
+
+- 写入时机：注册路径发现 existing 行即拷贝其 schema 进 prev 列；schema 未变的重注册被 upsert 的语义等价检查跳过，prev 不会被无意义刷新。
+- 消费方：selector 一键同步（sync-selectors）用 prev→new 的字段 diff 做精确 rename 推断；freshness 的 selector 级 stale 诊断同样消费它产出 rename 候选提示。
+- 精确性判定：prev 与页面发布快照的 schema digest 双双一致（freshness 双算法 digestMatch）时 rename 候选标 `confidence=high`；digest 缺失（旧快照）或多跳漂移（发布后又改过契约）一律降级启发式 `low`。
+- 存量行无 prev（功能上线前注册的契约）：首次同步走启发式；软删后复活的契约不设 prev。
 
 type LocaleCode = string;
 type LocalizedText = Readonly<Record<LocaleCode, string>>;
@@ -108,45 +118,46 @@ type JSONSchema = boolean | { [key: string]: JSONValue };
 type RiskLevel = "safe" | "warning" | "high" | "danger";
 
 interface Scope {
-  gameId: string;
-  env: string;
+gameId: string;
+env: string;
 }
 
 interface FunctionRef {
-  functionId: string;
-  contractVersion: string;
-  inputSchemaDigest: string;
-  outputSchemaDigest: string;
+functionId: string;
+contractVersion: string;
+inputSchemaDigest: string;
+outputSchemaDigest: string;
 }
 
 interface SourceDigest {
-  kind: "function_contract" | "capability_semantics";
-  id: string;
-  digest: string;
+kind: "function_contract" | "capability_semantics";
+id: string;
+digest: string;
 }
 
 interface Diagnostic {
-  code: string;
-  severity: "info" | "warning" | "error";
-  message: LocalizedText;
-  path?: JsonPointer;
+code: string;
+severity: "info" | "warning" | "error";
+message: LocalizedText;
+path?: JsonPointer;
 }
 
 interface ApprovalPolicy {
-  required: boolean;
-  policyKey?: string;
+required: boolean;
+policyKey?: string;
 }
 
 type CapabilityKind =
-  | "collection_query"
-  | "item_query"
-  | "create"
-  | "update"
-  | "delete"
-  | "action"
-  | "task"
-  | "report";
-```
+| "collection_query"
+| "item_query"
+| "create"
+| "update"
+| "delete"
+| "action"
+| "task"
+| "report";
+
+````
 
 `execution` 与 `approval` 正交：`execution: 'task'` 且 `approval.required: true` 表示审批通过后才启动异步任务；同步操作也可以要求审批。`approval.policyKey` 只引用平台已配置的治理策略，缺失时由 Server 按风险策略解析默认值；它不是页面 UI，不能由浏览器覆盖。
 
@@ -256,7 +267,7 @@ interface SemanticProvenance {
   confidence: "high" | "low";
   status: "effective" | "overridden" | "conflict";
 }
-```
+````
 
 `IdentitySemantic.itemPath` 必须在 collection item 或 item query 的输出 schema 中唯一存在；item/update/delete/action 的 identity input 由 typed selector 显式映射并校验，不得要求 collection query 的 input 包含 identity。`CollectionSemantic.pagination` 必须同时声明请求参数和响应元数据的 JSON Pointer；offset 分页必须至少提供 `total` 或 `hasMore`，cursor 分页必须提供 `nextCursor`；缺失时只生成不带分页控件的列表，不得猜测 offset/cursor 协议。
 
@@ -472,6 +483,26 @@ active PublishedPageSpec[] -> ConsoleMenuSpec -> ProLayout
 函数或 CapabilitySemantics 变化后，Server 生成新的 Proposal 并计算 diff。已发布页标记 stale 且拒绝执行；Page Studio 必须提供“查看差异、自动合并安全字段、解决冲突、重新发布”。绝不静默更新 Draft 或 PublishedPageSpec。
 
 自动合并的安全集只包含展示类字段：列顺序与显隐、字段 label/help、order、group、widget hint、导航标题、分类 labels、图标和排序。`visibleWhen` 只有经校验证明不影响 required 输入、binding payload 和 selector 引用时才允许自动合并，否则归入冲突集。执行类字段——bindings、functionId、input/output assignment、confirmation、permissions、risk、approval——出现任何差异都必须人工确认，不得自动合并。
+
+### Selector 一键同步（sync-selectors）
+
+展示字段的自动合并之外，schema 漂移还会让 selector 失效（`input_schema_stale`/`output_schema_stale`/target 消失），发布被校验阻断、运行期 console 拒绝执行。整页 regenerate 会用默认 selector 重建，把 row/selection/page_state/literal 定制冲掉；手动逐 binding 重选低效且易漏。sync-selectors 是第三条路径：**只修受影响的 assignment，保留全部未受影响定制**（含 Source/Kind/Path/Value/Transform）。planner（`spec/selector_sync.go`）是纯函数，dry-run 与 apply 共用同一实现；作用对象是草稿（发布校验的就是草稿），已发布快照不可变。
+
+策略阶梯（输入，逐 assignment 保序）：
+
+1. target 存在、类型未变、源可赋值 → kept。
+2. target 存在但类型漂移 → 保留 assignment，报告 `type_changed`（不摘——required 摘掉会让发布校验失败）。
+3. target 消失 → prev schema diff 的 rename 候选唯一命中（`confidence=high|low`，见 prev 列语义）；无 prev 或不命中时启发式（同父 × 未占用 × 源可赋值，唯一命中才用，`low`）；零或多候选 → removed。
+4. required 差集补齐：非 composite 页补 form 同名映射（门禁：页面表单 schema 必须含该 path，否则 `manual_required`）；composite 页一律 `manual_required`（composite 输入只应来自 page_state/literal）。
+
+策略阶梯（输出）：
+
+1. source 存在且 shape 匹配 → kept。
+2. source 存在但 shape 不符：必需 stateKey 重推导；非必需按新类型修正 shape（`shape_updated`），task/dataset 语义不自动猜。
+3. source 消失：必需 stateKey（resource query→items、detail→detail、report→dataset、task→taskStatus/taskEvents/taskResult 六类矩阵，与发布校验同步）经 rename 候选 / generator 默认推导 / 根对象（`source=""`）三阶梯重推导，全部失败保留原 assignment + `manual_required`——**必需输出绝不摘成缺失**；非必需无候选 → removed。
+4. 必需输出整体缺失 → 同三阶梯补一条（`added`），推导不出 → `manual_required`。
+
+写路径与权限：`POST /api/v1/pages/:pageKey/sync-selectors`（wire 契约见 [PageSpec 协议规范](./pagespec-protocol.md)）走 SaveDraft 同款乐观锁（事务内 revision 重查）+ PageVersion + 审计（action=sync_selectors）；权限是 `pages:edit`。**同步不自动 publish**——发布是 `pages:publish` 权限与审批/审计语义，同步后的发布级校验结果放在 `remainingDiagnostics` 由用户自查后手动发布。execution mode 对齐是附带修复：task 函数绑成 sync（或反之）时按 freshness 同规则修正，不造非法组合；governance/version 漂移不可由 selector 同步修复，重跑 freshness 后透传进报告的 manual 区。
 
 ## 模型边界
 

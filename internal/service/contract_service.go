@@ -155,7 +155,14 @@ func (s *ContractService) RebuildContractFromFunctionMeta(ctx context.Context, g
 
 	// 4. Schema 兼容性 diff（F12）：与库中现有契约对比，破坏性变更
 	// 写入 Diagnostics 告警（不阻断注册，由告警/可视化层消费）。
-	diagnostics, diffFindings, isUpdate := mergeSchemaDiffDiagnostics(ctx, s.contractModel, gameID, env, input.ID, contract, toJSON(result.Diagnostics))
+	diagnostics, diffFindings, isUpdate, existing := mergeSchemaDiffDiagnostics(ctx, s.contractModel, gameID, env, input.ID, contract, toJSON(result.Diagnostics))
+	// 契约更新时把上一版 schema 存入 prev 列——sync-selectors 的 rename
+	// 精确推断依赖它；schema 未变的重注册在 UpsertContract 内被跳过，
+	// prev 不会被无意义刷新。
+	if existing != nil {
+		contract.PrevInputSchema = existing.InputSchema
+		contract.PrevOutputSchema = existing.OutputSchema
+	}
 
 	// 5. Upsert contract
 	contract.Diagnostics = diagnostics
@@ -815,14 +822,15 @@ func toJSON(v interface{}) model.JSON {
 // mergeSchemaDiffDiagnostics 在契约 upsert 前对比库中现有契约的
 // input/output schema：破坏性变更（F12）作为 Diagnostic 追加到现有
 // diagnostics 之后；无现有契约（首次注册）或非破坏性差异时原样返回。
-// 同时返回全部 findings 与是否为更新（供 F13 审计消费）。
+// 同时返回全部 findings、是否为更新（供 F13 审计消费）与 existing 行
+// （供调用方拷贝 prev schema；首次注册为 nil）。
 func mergeSchemaDiffDiagnostics(
 	ctx context.Context,
 	contractModel *model.FunctionContractModel,
 	gameID, env, functionID string,
 	contract *model.FunctionContract,
 	base model.JSON,
-) (model.JSON, []schemadiff.Finding, bool) {
+) (model.JSON, []schemadiff.Finding, bool, *model.FunctionContract) {
 	existing, err := contractModel.FindByScopeAndFunctionID(ctx, gameID, env, functionID)
 	if err != nil {
 		// 首次注册（not found）或查询失败都不阻断；查询异常记录后跳过
@@ -830,14 +838,14 @@ func mergeSchemaDiffDiagnostics(
 			slog.Warn("schema diff: failed to load existing contract",
 				"game_id", gameID, "env", env, "function_id", functionID, "error", err)
 		}
-		return base, nil, false
+		return base, nil, false, nil
 	}
 
 	findings := schemadiff.DiffSchemas("inputSchema", json.RawMessage(existing.InputSchema), json.RawMessage(contract.InputSchema))
 	findings = append(findings,
 		schemadiff.DiffSchemas("outputSchema", json.RawMessage(existing.OutputSchema), json.RawMessage(contract.OutputSchema))...)
 	if !schemadiff.HasBreaking(findings) {
-		return base, findings, true
+		return base, findings, true, existing
 	}
 
 	// 现有 diagnostics（数组）之上追加 schema diff 条目
@@ -856,7 +864,7 @@ func mergeSchemaDiffDiagnostics(
 			"field":    finding.Source,
 		})
 	}
-	return toJSON(diags), findings, true
+	return toJSON(diags), findings, true, existing
 }
 
 func toJSONMap(m spec.LocalizedText) datatypes.JSONMap {

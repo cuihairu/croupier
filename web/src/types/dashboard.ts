@@ -181,6 +181,50 @@ export interface BindingFreshnessDiagnostic {
   diagnostic: Diagnostic;
 }
 
+// ---------------------------------------------------------------------------
+// Selector 一键同步（sync-selectors）
+// ---------------------------------------------------------------------------
+
+/** 同步报告条目动作：kept 保留 / renamed 重映射 / removed 摘除 / added 补齐 */
+export type SelectorSyncAction =
+  'kept' | 'renamed' | 'removed' | 'added' | 'type_changed' | 'shape_updated' | 'manual_required';
+
+/** 重映射置信度：high = prev schema 精确命中；low = 启发式 */
+export type SelectorSyncConfidence = 'high' | 'low';
+
+/** 输入 assignment 的同步决策 */
+export interface SelectorSyncInputEntry {
+  target: string;
+  action: SelectorSyncAction;
+  newTarget?: string;
+  sourceKind?: string;
+  confidence?: SelectorSyncConfidence;
+  reason: string;
+}
+
+/** 输出 assignment 的同步决策 */
+export interface SelectorSyncOutputEntry {
+  stateKey: string;
+  source: string;
+  action: SelectorSyncAction;
+  newSource?: string;
+  newShape?: string;
+  required: boolean;
+  confidence?: SelectorSyncConfidence;
+  reason: string;
+}
+
+/** 单个 binding 的 selector 同步报告 */
+export interface BindingSelectorSyncReport {
+  bindingId: string;
+  functionId?: string;
+  changed: boolean;
+  executionModeFixed?: boolean;
+  input?: SelectorSyncInputEntry[];
+  output?: SelectorSyncOutputEntry[];
+  manual?: Diagnostic[];
+}
+
 /** 函数审批策略，独立于 sync/task 执行模式 */
 export interface ApprovalPolicy {
   required: boolean;

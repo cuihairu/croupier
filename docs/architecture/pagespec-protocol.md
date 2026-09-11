@@ -230,6 +230,66 @@ task 生命周期能力拆分为独立 usage（`task_status`/`task_events`/`task
 
 Schema 节点和页面动作只能引用 `bindingId`。运行时由服务端根据 active PublishedPageSpec 找到 functionId、权限、风险、scope 和 dispatch target；浏览器无权选择这些信息。
 
+### Selector 一键同步（sync-selectors wire 契约）
+
+schema 漂移后对**草稿**做精准修复，只改受影响的 assignment：
+
+```ts
+// POST /api/v1/pages/:pageKey/sync-selectors   （权限 pages:edit）
+interface PageSyncSelectorsRequest {
+  draftRevision: number; // 必填；乐观锁（409 冲突与 SaveDraft 同语义）
+  dryRun: boolean; // true 只出报告不落库
+  bindingIds?: string[]; // 省略 = 全部 binding
+}
+
+interface PageSyncSelectorsResponse {
+  pageKey: string;
+  dryRun: boolean;
+  applied: boolean;
+  draftRevision: number; // dryRun=原值；apply=+1
+  syncedBindings: BindingSelectorSyncReport[];
+  remainingDiagnostics?: Diagnostic[]; // 同步后发布级校验（不因错误拒绝保存）
+}
+
+interface BindingSelectorSyncReport {
+  bindingId: string;
+  functionId: string;
+  changed: boolean;
+  executionModeFixed?: boolean; // task/sync 模式按最新契约修正
+  input?: SelectorSyncInputEntry[];
+  output?: SelectorSyncOutputEntry[];
+  manual?: Diagnostic[]; // 不可自动修复项（函数缺失/governance 漂移等）
+}
+
+interface SelectorSyncInputEntry {
+  target: JsonPointer;
+  action:
+    | "kept" // 未受影响，原样保留（含 Transform/literal 定制）
+    | "renamed" // 消失 target 重映射（newTarget）
+    | "removed" // 摘除（无唯一候选且非必需）
+    | "added" // required 差集补 form 同名映射
+    | "type_changed" // 类型漂移，保留待人工核对
+    | "manual_required"; // 无法安全自动处理
+  newTarget?: JsonPointer;
+  sourceKind?: ValueSource["kind"];
+  confidence?: "high" | "low"; // high=prev schema 精确命中；low=启发式
+  reason: string;
+}
+
+interface SelectorSyncOutputEntry {
+  stateKey: string;
+  source: JsonPointer;
+  action: SelectorSyncAction;
+  newSource?: JsonPointer;
+  newShape?: OutputAssignment["shape"];
+  required: boolean; // 必需输出（items/detail/dataset/taskStatus/…矩阵）
+  confidence?: "high" | "low";
+  reason: string;
+}
+```
+
+语义要点：dry-run 与 apply 共用同一 planner（`spec/selector_sync.go`），预览与落库不会漂移；apply 不自动 publish，`remainingDiagnostics` 有 error 时发布会继续被阻断，须先处理 `manual_required` 项；必需输出在任何路径上都不被摘成缺失（推导失败保留原 assignment + `manual_required`）。prev schema 的来源与精确性判定（`previousInputSchema`/`previousOutputSchema`、digest 双算法匹配降级策略）见 [Dashboard Resource/Page 模型](./dashboard-page-model.md)。
+
 ## 导航与多语言
 
 分类、标题、图标与排序是 PageSpec 顶层字段（`category{key,labels,order}`、`title`、`icon`、`order`）。`NavigationSpec` 仅承载返回导航行为：

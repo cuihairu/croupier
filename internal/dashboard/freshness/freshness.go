@@ -156,12 +156,15 @@ func selectorFreshnessDiagnostics(
 	if binding.Selectors == nil {
 		return nil
 	}
+	// 旧 schema 传 prev 列（上一次注册的 schema）：SelectorStaleDiagnostics
+	// 据此产出字段 rename 候选诊断（FieldRenameCandidate）；prev 为空
+	// （首次注册/功能上线前的存量行）时 diff 为空集，行为与传 nil 一致。
 	rawDiags := spec.SelectorStaleDiagnostics(
 		binding.Selectors.Input,
 		binding.Selectors.Output,
-		nil,
+		fn.PreviousInputSchema,
 		fn.InputSchema,
-		nil,
+		fn.PreviousOutputSchema,
 		fn.OutputSchema,
 	)
 	out := make([]spec.BindingFreshnessDiagnostic, 0, len(rawDiags))
@@ -228,6 +231,11 @@ func digestMatch(schema []byte, stored string) bool {
 	}
 	return digestRawBytes(schema) == stored
 }
+
+// MatchesDigest 是 digestMatch 的导出包装：sync-selectors 用它验证
+// FunctionSpec 的 previous schema 是否与 binding 发布时点的快照一致
+// （一致时 prev diff 的 rename 候选才标 confidence=high）。
+func MatchesDigest(schema []byte, stored string) bool { return digestMatch(schema, stored) }
 
 // CanonicalDigest 计算语义化（canonical）JSON digest，供发布端与
 // 校验端共用：JSON 解析后按字典序重排键再序列化哈希——同一 schema 的

@@ -38,6 +38,7 @@ export default {
   'pages.pageStudio.studio.diff.title': '变更对比',
   'pages.pageStudio.studio.editor.bindingStaleMore': '…以及另外 {count} 条',
   'pages.pageStudio.studio.editor.bindingStaleTitle': '页面绑定与函数契约不一致（发布会校验失败）',
+  'pages.pageStudio.studio.editor.syncSelectors': '一键同步 Selector',
   'pages.pageStudio.studio.editor.cancel': '取消',
   'pages.pageStudio.studio.editor.empty': '请选择页面',
   'pages.pageStudio.studio.editor.livePreview': '实时预览',

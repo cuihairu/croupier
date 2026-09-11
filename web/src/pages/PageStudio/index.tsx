@@ -8,6 +8,7 @@ import ProposalInbox from '@/components/ProposalInbox';
 import PageWorkflowGuide from '@/components/PageWorkflowGuide';
 import PreviewDrawer from './studio/PreviewDrawer';
 import EditorModal from './studio/EditorModal';
+import SelectorSyncReportModal from '@/components/SelectorSync/SelectorSyncReportModal';
 import VersionsDrawer from './studio/VersionsDrawer';
 import ChangeChainDrawer from './studio/ChangeChainDrawer';
 import DiffDrawer from './studio/DiffDrawer';
@@ -83,6 +84,7 @@ export default function PageStudio() {
   const [selectedDraftRevision, setSelectedDraftRevision] = useState(0);
   const [previewVisible, setPreviewVisible] = useState(false);
   const [editorVisible, setEditorVisible] = useState(false);
+  const [syncSelectorsVisible, setSyncSelectorsVisible] = useState(false);
   const [livePreview, setLivePreview] = useState(true);
   const [saving, setSaving] = useState(false);
   const [changeChainVisible, setChangeChainVisible] = useState(false);
@@ -433,6 +435,19 @@ export default function PageStudio() {
       }
     },
     [loadDrafts, message, selectedDraft?.pageKey],
+  );
+
+  // 同步 Selector 已落草稿：重载草稿让 EditorModal 的 spec 与
+  // bindingFreshness 立即反映同步结果（与 handleRegenerate 同构）。
+  const handleSyncSelectorsApplied = useCallback(
+    async (revision: number) => {
+      if (selectedPageKey) {
+        await loadDraftDetail(selectedPageKey);
+        setSelectedDraftRevision(revision);
+      }
+      await loadDrafts();
+    },
+    [loadDraftDetail, loadDrafts, selectedPageKey],
   );
 
   const handleChangeChain = useCallback(
@@ -811,6 +826,16 @@ export default function PageStudio() {
         onLivePreviewChange={setLivePreview}
         onSave={(options) => void handleSave(options)}
         onSpecChange={updateSelectedDraftSpec}
+        onSyncSelectors={() => setSyncSelectorsVisible(true)}
+      />
+
+      <SelectorSyncReportModal
+        open={syncSelectorsVisible && !!selectedPageKey}
+        pageKey={selectedPageKey}
+        onClose={() => setSyncSelectorsVisible(false)}
+        onApplied={(revision) => {
+          void handleSyncSelectorsApplied(revision);
+        }}
       />
 
       <VersionsDrawer
