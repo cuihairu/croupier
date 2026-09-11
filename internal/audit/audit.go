@@ -358,9 +358,22 @@ func (s *AuditService) Log(ctx context.Context, eventType AuditEventType, opts .
 		return nil, fmt.Errorf("failed to build chain info: %w", err)
 	}
 
-	// Store the record
-	if err := s.store.Create(record); err != nil {
-		return nil, fmt.Errorf("failed to store audit record: %w", err)
+	// Store the record。多实例部署下链 sequence 由各实例独立分配，并发
+	// 窗口内会撞唯一约束（ErrChainSequenceConflict）——重查 DB 真实链尾
+	// 重算 sequence/prev/hash 后重试。唯一约束兜底 + 重试保证只有与链尾
+	// 正确衔接的行能落库，链完整性不因多实例并发分叉。
+	const maxChainRetries = 3
+	for attempt := 0; ; attempt++ {
+		err := s.store.Create(record)
+		if err == nil {
+			break
+		}
+		if !errors.Is(err, ErrChainSequenceConflict) || attempt >= maxChainRetries-1 {
+			return nil, fmt.Errorf("failed to store audit record: %w", err)
+		}
+		if err := s.buildChainInfo(record); err != nil {
+			return nil, fmt.Errorf("failed to rebuild chain info: %w", err)
+		}
 	}
 
 	// Notify for critical events

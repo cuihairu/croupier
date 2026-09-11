@@ -15,6 +15,25 @@ import (
 	"gorm.io/gorm"
 )
 
+// ErrChainSequenceConflict 标记 hash 链 sequence 分配与库内已有行冲突
+// （chain_sequence 唯一约束拒绝）。多实例部署下 sequence 由各实例
+// read-modify-write 分配（memCache 视角），并发窗口内会撞号；调用方
+// （AuditService.Log）据此重查真实链尾重算后重试。
+var ErrChainSequenceConflict = errors.New("audit chain sequence conflict")
+
+// isChainSequenceConflict 跨方言识别 chain_sequence 唯一约束冲突：
+// postgres 报约束名（idx_audit_records_chain_sequence），sqlite 报
+// "UNIQUE constraint failed: audit_records.chain_sequence"。其他唯一
+// 约束（audit_id）误判无害——重算链后重试仍失败则原样返回。
+func isChainSequenceConflict(err error) bool {
+	if err == nil {
+		return false
+	}
+	msg := err.Error()
+	return strings.Contains(msg, "idx_audit_records_chain_sequence") ||
+		strings.Contains(msg, "audit_records.chain_sequence")
+}
+
 // AuditModel is the GORM model for audit records
 type AuditModel struct {
 	ID             uint        `gorm:"primaryKey;autoIncrement" json:"id"`
@@ -320,6 +339,15 @@ func (s *SQLAuditStore) Create(record *AuditRecord) error {
 	}
 
 	if err := s.db.Create(model).Error; err != nil {
+		if isChainSequenceConflict(err) {
+			// 本实例 memCache 视角的链尾已过期（对端实例已写入更高
+			// sequence）。失效缓存，让调用方的重试经 GetLatestRecord
+			// 重查 DB 拿真实链尾重算——否则重试永远用同一旧值。
+			s.memCache.mu.Lock()
+			s.memCache.latest = nil
+			s.memCache.mu.Unlock()
+			return fmt.Errorf("%w: %v", ErrChainSequenceConflict, err)
+		}
 		return err
 	}
 

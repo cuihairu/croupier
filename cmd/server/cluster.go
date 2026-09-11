@@ -349,13 +349,18 @@ func (li localInvoker) auditForward(ctx context.Context, req *cluster.ForwardedI
 	if req.TaskID != "" {
 		details["task_id"] = req.TaskID
 	}
-	// 审计失败不影响转发主路径（与 caller 侧审计同策略）。
-	_, _ = li.audit.Log(ctx, audit.EventFunctionInvoke,
+	// 审计失败不影响转发主路径（与 caller 侧审计同策略），但必须留痕：
+	// 双实例链 sequence 撞号重试耗尽等写库失败若静默吞掉，排障时只能靠
+	// postgres 日志抓现场（2026-09-11 线上即此路径）。
+	if _, err := li.audit.Log(ctx, audit.EventFunctionInvoke,
 		audit.WithActorID(actor, "user", actor),
 		audit.WithResourceID("function", req.FunctionID),
 		audit.WithDetails(details),
 		audit.WithOutcome(outcome, errMsg),
-	)
+	); err != nil {
+		slog.Default().Warn("cluster: owner-side forward audit failed",
+			"function", req.FunctionID, "agent", req.AgentID, "kind", kind, "error", err)
+	}
 }
 
 // forwardInvokeRequest 从转发帧重建 InvokeRequest（invoke/start_task 共用）：
