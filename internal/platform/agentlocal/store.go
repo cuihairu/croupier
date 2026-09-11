@@ -64,6 +64,10 @@ type LocalStore struct {
 	funcVersions map[string]map[string]string
 	// function_id -> FunctionMeta (stores the latest metadata for each function)
 	funcMeta map[string]*FunctionMeta
+	// function_id -> 最后写入 funcMeta 的 providerID。展示层字段的空值
+	// 合并只对「不同 provider 的注册」生效：同一 provider 重新注册仍
+	// 全量生效（可自行清空自己的展示字段）。
+	metaOwner map[string]string
 	// task_id -> task result
 	taskResults map[string]*TaskResult
 	// callback for updates
@@ -85,6 +89,7 @@ func NewLocalStore() *LocalStore {
 		data:         map[string]map[string][]Instance{},
 		funcVersions: map[string]map[string]string{},
 		funcMeta:     map[string]*FunctionMeta{},
+		metaOwner:    map[string]string{},
 		taskResults:  map[string]*TaskResult{},
 	}
 }
@@ -157,6 +162,27 @@ func (s *LocalStore) Register(providerID, serviceID, addr, version string, funcs
 			Risk:              fn.GetRisk(),
 			Permission:        fn.GetPermission(),
 		}
+		// 展示层字段空值不覆盖（防互抹加固）：多语言 SDK 共享注册同一
+		// function_id 空间时，无展示元数据的注册者不得抹掉其他 provider
+		// 已有的 tags/summary/description/operationId（2026-09-11 线上
+		// node demo 循环重注册把 go/cpp 的 tags 全部抹成 null 的根因）。
+		// 其余字段（schema/审批/风险等契约字段）仍最后注册者胜——空
+		// schema 是合法注册形态，不能拿旧值顶替。
+		if prev, ok := s.funcMeta[fid]; ok && s.metaOwner[fid] != providerID {
+			if len(meta.Tags) == 0 {
+				meta.Tags = prev.Tags
+			}
+			if meta.Summary == "" {
+				meta.Summary = prev.Summary
+			}
+			if meta.Description == "" {
+				meta.Description = prev.Description
+			}
+			if meta.OperationID == "" {
+				meta.OperationID = prev.OperationID
+			}
+		}
+		s.metaOwner[fid] = providerID
 		if op, err := converter.ToOpenAPIOperation(converter.ProviderFunctionDescriptorDesc{
 			ID:           meta.ID,
 			Version:      meta.Version,
@@ -218,6 +244,10 @@ func (s *LocalStore) removeProviderLocked(providerID string) {
 			delete(s.funcVersions, fid)
 		}
 	}
+	// 注意：metaOwner 不在此清理。Register 复用本函数摘旧实例，若清掉
+	// 署名会把「同一 provider 重注册（最后者胜）」误变成跨 provider 合并；
+	// provider 真正下线后残留的署名让后续无展示元数据的注册者继承展示
+	// 字段（其余仍在线的 provider 继续提供该函数，展示连续性优先）。
 }
 
 // RemoveProvider explicitly removes all functions registered by providerID.
