@@ -38,6 +38,12 @@ OpenAPIImporter.registerFromOpenAPIWithHandlers(
 - `defaultTimeoutMs` 为 Go 契约对齐项，当前 Java descriptor 尚无超时字段，仅记录不生效
 - `continueOnError` 开启后单个 operation 缺 handler 或注册失败会跳过并继续
 
+## Agent 入站请求与探针
+
+Agent 会周期性向 provider 下发 `ProviderHeartbeatRequest` 探针（provider keepalive）。SDK 已内置处理：回空 `ProviderHeartbeatResponse`（pong），无需业务代码参与。不响应探针会被 agent 判定为死会话并摘除注册。
+
+遇到无法识别的入站消息类型时，SDK 抛出的 `CroupierException` 会携带消息类型名（如 `Unsupported local request type: RegisterRequest (0x...)`），便于日志定位。
+
 ## 继续阅读
 
 - [线程与并发](./threading)
