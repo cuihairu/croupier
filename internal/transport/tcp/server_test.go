@@ -12,6 +12,22 @@ import (
 	"github.com/cuihairu/croupier/pkg/protocol"
 )
 
+// serveAndStop 在独立 goroutine 启动 srv.Serve，返回的 stop 依次 cancel →
+// join → Close。直接 `defer srv.Close()` + `go srv.Serve(ctx)` 会让 Serve
+// goroutine（启动瞬间的方法装载读）与 Close 的 once.Do 写并发且无
+// happens-before 边——race detector 在测试体极短时（TestClient_IsClosed
+// 等）稳定报 DATA RACE；先 join 再 Close 才彻底串行。
+func serveAndStop(srv *Server) func() {
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan error, 1)
+	go func() { done <- srv.Serve(ctx) }()
+	return func() {
+		cancel() // Serve 在下一个 Accept 周期（≤1s）内自然退出
+		<-done
+		_ = srv.Close()
+	}
+}
+
 func TestNewServer_NilHandler(t *testing.T) {
 	_, err := NewServer(&Config{Address: "127.0.0.1:0", Insecure: true}, nil)
 	if err == nil {
@@ -142,11 +158,7 @@ func TestClient_MultipleClose(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	defer srv.Close()
-
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	go srv.Serve(ctx)
+	defer serveAndStop(srv)()
 
 	client, err := NewClient(&Config{
 		Address:        srv.Addr(),
@@ -171,11 +183,7 @@ func TestClient_IsClosed(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	defer srv.Close()
-
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	go srv.Serve(ctx)
+	defer serveAndStop(srv)()
 
 	client, err := NewClient(&Config{
 		Address:        srv.Addr(),
@@ -205,11 +213,7 @@ func TestClient_Call_AfterClose(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	defer srv.Close()
-
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	go srv.Serve(ctx)
+	defer serveAndStop(srv)()
 
 	client, err := NewClient(&Config{
 		Address:        srv.Addr(),
@@ -419,11 +423,7 @@ func TestClient_NilConfig(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	defer srv.Close()
-
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	go srv.Serve(ctx)
+	defer serveAndStop(srv)()
 
 	// Nil config should use defaults
 	client, err := NewClient(&Config{
@@ -460,11 +460,7 @@ func TestServer_RecvSendTimeouts(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	defer srv.Close()
-
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	go srv.Serve(ctx)
+	defer serveAndStop(srv)()
 
 	client, err := NewClient(&Config{
 		Address:        srv.Addr(),
