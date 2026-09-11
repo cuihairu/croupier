@@ -266,6 +266,18 @@ type FunctionInvokeResponse struct {
   - `single_admin`: 单个管理员审批即可
   - `two_person`: 需要双人审批
 
+**路由参数校验（2026-09-11 行为变更）**：以下情形在 policy 检查之前直接返回 `400 validation_failed`，**不再静默回落默认路由**：
+
+- `route: "targeted"` 未提供 `targetServiceId`
+- `route: "hash"` 未提供 `hashKey`
+- `route: "broadcast"` 搭配 `mode: "async"`（广播无异步语义）
+- `route` 非法值（合法：`lb`（默认）/`targeted`/`hash`/`broadcast`）
+
+**错误语义**：
+
+- `503 service_unavailable`：无可用 agent（本地与共享归属表均无候选）或 failover 耗尽全部候选——可重试（agent 重新注册/归属表 TTL 过期后自愈）；多实例部署下选中远端候选时经 mesh 转发到 owner 实例执行，对调用方透明
+- `400 validation_failed`：路由参数缺失/冲突（见上），`details` 携具体字段
+
 ### 9. "获取函数权限"
 
 1. route definition

@@ -291,42 +291,78 @@ cluster:
 
 ### 5.3 互联安全
 
-- 复用既有 mTLS CA（devcert/tlsutil/证书监控）
-- 互联端口只接受 `role = server` 的对端证书，Agent 证书连接直接拒绝
-- 转发请求必须携带原始调用者上下文（adminID/roles/trace ID），**owner 实例重新执行权限校验**——内部通道不得绕过鉴权
+设计目标（mTLS）与当前实现的差距：
+
+- **设计**：复用既有 mTLS CA（devcert/tlsutil/证书监控），互联端口只接受 `role = server` 的对端证书，Agent 证书连接直接拒绝
+- **现状**：互联是**内网明文 TCP**（`Insecure: true`，ClusterConfig 尚无证书配置面），握手仅校验 hello 的 role 字符串，**无对端认证**。信任边界完全依赖网络隔离——互联端口（interconnectAddr）只允许集群内网可达，接 mTLS 前不得暴露公网
+- **owner 不重查 policy/approval（实现决策，偏离早期设计）**：转发请求携带原始调用者上下文（username/roles/adminId/traceId），但 owner 只落审计、不重新执行权限校验。理由：caller 已走完完整鉴权链（policy 命中 + 审批通过后审批续跑的二次调用经转发到达 owner），owner 重查会因审批上下文不在本实例而卡死审批续跑。该决策的前提同样是「互联端口仅集群内网可达」——内网实例被视作可信方
+- owner 侧审计：每次转发投递（成功/失败）落一条 `function.invoke` 审计（actor 与 caller 侧审计同键，details 携 `forwarded: true` / `kind` / `agent_id`）
 
 ### 5.4 转发协议与两条铁律
 
-新增内部消息（复用 protobuf 信封）：
+新增内部消息 `MsgForwardInvokeReq (0x060103)`。**实现偏差**：帧 body 是 `ForwardedInvoke` 的 JSON（非 protobuf 信封；内部协议，字段名 lowerCamelCase）；`forwarded`/`callerEpoch` 由 `Interconnect.Forward` 统一盖戳、`ServeForwardHandler` 统一校验，调用方不填。
 
-```protobuf
-message ForwardInvoke {
-  string agentId = 1;
-  string functionId = 2;
-  bytes payload = 3;
-  string idempotencyKey = 4;
-  int64 timeoutMs = 5;
-  CallerContext caller = 6;   // adminID / roles / gameId / env / traceId
-  bool forwarded = 7;         // 铁律一标记
+```json
+{
+  "agentId": "…",
+  "functionId": "…",
+  "payload": "<proto 字节，base64>",
+  "metadata": { "gameId": "…", "env": "…", "taskId": "…" },
+  "idempotencyKey": "…",
+  "kind": "",
+  "taskId": "…",
+  "forwarded": false,
+  "callerEpoch": 42,
+  "caller": {
+    "adminId": 1,
+    "username": "…",
+    "roles": ["…"],
+    "gameId": "…",
+    "env": "…",
+    "traceId": "…"
+  },
+  "timeoutMs": 0
 }
 ```
+
+- `kind` 区分三类转发调用：`""`（同步 invoke，首个使用者，向后兼容）/ `start_task`（异步任务投递）/ `cancel_task`（任务取消）。防环/fencing/盖戳三类共用
+- `taskId` 仅 `cancel_task` 使用（目标任务）；`start_task` 的服务端任务 ID 在 `metadata.taskId` 里随 InvokeRequest 语义透传（agent 侧同解析路径）
+- `timeoutMs` 字段保留但未启用（沿用 caller ctx deadline）
 
 **铁律一：最多一跳。** `forwarded: true` 的请求若 owner 发现自己也不是 owner（目录过期），**不得再次转发**，返回 `not_owner` 错误，由调用方重新解析目录重试。杜绝转发环路。
 
 **铁律二：fencing 校验。** owner 执行前对比目录中的 epoch 与本地 epoch；若目录显示更新的实例已接管该 Agent，说明自身是网络分区恢复后的"僵尸 owner"，必须拒绝执行。防脑裂双写。
 
-### 5.5 完整调用路径
+### 5.5 完整调用路径与职责拆分
 
 ```text
 1. 运营人员请求落到任意 Server B
 2. B 查共享目录: function X → agent-1 → owner = A, epoch = 42
 3. B 懒建立/复用到 A 的互联连接，发 ForwardInvoke（携带 caller 上下文）
-4. A 校验: 我是 owner 吗？epoch 匹配吗？caller 有权限吗？
+4. A 校验: 我是 owner 吗？epoch 匹配吗？
 5. A 走本地既有 dispatch 路径，通过隧道发给 agent-1
-6. 结果/事件流经 A → 互联连接 → B → SSE 回运营人员浏览器
+6. 结果经 A → 互联连接 → B 回运营人员；异步任务事件经 A 落共享库
+  （task_events），B 的 HTTP 轮询/SSE 从共享库读取——事件不走 mesh
 ```
 
 对调用方完全透明。
+
+三类调用路径的 caller/owner 职责拆分：
+
+| 职责             | caller 实例（HTTP 入口）                | owner 实例（持有 agent 连接）              |
+| ---------------- | --------------------------------------- | ------------------------------------------ |
+| 候选集           | 本地 registry，空则查归属表兜底         | —（转发请求已指定 agent）                  |
+| policy / 审批    | 完整鉴权链（policy 命中 + 审批创建）    | **不重查**，只审计                         |
+| 同步 invoke      | 失败可换候选重试（failover）            | `InvokeRequestOnAgent` 定向投递            |
+| async start_task | 生成服务端 task ID + 写 task_runs 行 +  | `StartTaskOnAgent` 只投递（metadata.taskId |
+|                  | registerTask + 成功后回 task ID         | 沿用 caller 的 ID，不建行不注册路由）      |
+| broadcast        | 候选集 local ∪ remote（去重本地优先）， | 逐 agent 同 invoke 转发投递                |
+|                  | 半失败落 Failures（HTTP 200）           |                                            |
+| cancel_task      | task routing miss 时从共享 task_runs    | `CancelTaskOnAgent` 只投递；取消成功后的   |
+|                  | 解析 agent；成功后 unregisterTask       | 路由清理在 caller                          |
+| 任务事件         | HTTP 轮询/SSE 读共享库                  | agent 事件落共享库（task_events）          |
+
+候选集兜底（RemoteAgentSource）：本地候选为空（或 failover 耗尽本地候选）时，同步查共享归属表 + `agent_sessions` 快照表（1s 预算，出错降级不放大故障）补远端候选，选中的远端候选经转发执行。`refreshRemoteSnapshots` 的 30s 周期回灌因此从正确性依赖降级为性能优化层。
 
 ## 6. 故障语义
 

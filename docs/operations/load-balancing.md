@@ -18,21 +18,33 @@ Croupier HA 多实例架构（[Server 多实例 HA](../architecture/server-ha-mu
 
 **为什么 Agent 必须经 L4 LB 而不是直连**：直连会导致实例故障时该实例名下所有 Agent 失联需人工干预；经 LB 打散后，断连重连自动分发到存活实例 + 重新注册更新 owner（架构文档 §6 故障转移时间线，全程无人工干预）。
 
-## 部署模式约束：单活 + 冷备（当前推荐）
+## 部署模式约束：单活 + 冷备（当前推荐，双活前置已补齐待切换验证）
 
-**前提认知**：Agent 会话表与函数注册 registry 是 Server 实例的**进程内存态**，跨实例同步仅覆盖部分路径（`/ops/nodes`、agent 列表、`/functions/instances` 走共享归属表聚合——instances 已于 2026-09-11 补齐）；**invoke 的 agent 在线判定（dispatcher 候选集）仍只查本实例内存**，候选集为空直接报 `no live agent` 不触发转发。在 invoke 判定接归属表之前，双实例**双活**的调用路径仍会误报：
+**前提认知**：Agent 会话表与函数注册 registry 是 Server 实例的**进程内存态**，跨实例同步仅覆盖部分路径（`/ops/nodes`、agent 列表、`/functions/instances` 走共享归属表聚合——instances 已于 2026-09-11 补齐）。invoke 执行路径已在 2026-09-11 完成归属表接入与转发补全，双活下的调用正确性不再依赖「请求恰好落到持有 agent 的实例」：
 
-- Agent 长连接被 L4 LB 打散到两个实例后，各实例只持有「连到自己的」agent
-- Dashboard L7 分流到未持有该 agent 的实例时，invoke 报 `no live agent`（2026-09-11 线上事故根因；agent 重连漂移实例后旧实例还会留 24h TTL 悬尸 session）
+- **候选集兜底（RemoteAgentSource）**：本地候选为空或 failover 耗尽本地候选时，同步查共享归属表 + `agent_sessions` 快照表（1s 预算，出错降级回 `no live agent` 语义不放大故障）补远端候选，选中的远端候选经 mesh 转发到 owner 实例执行
+- **三分支转发**：同步 invoke、异步任务（start_task）、任务取消（cancel_task，task routing miss 时从共享 `task_runs` 解析 agent）、广播（候选集 local ∪ remote，按 AgentID 去重本地优先）都走同一帧格式（`kind` 区分），owner 侧定向投递并落审计（不重查 policy，信任边界见 `docs/architecture/server-ha-multi-instance.md` §5.3）
+- `refreshRemoteSnapshots` 的 30s 周期回灌从正确性依赖降级为性能优化层（减少热路径同步查库）
 
-因此当前部署形态是**单活 + 冷备**：
+已知边界（切双活前须知）：
+
+- mesh 互联为内网明文 TCP、无对端认证——互联端口必须仅集群内网可达
+- 哈希路由（`route: hash`）跨实例不保证稳定落点：仅本地候选耗尽才扩远端
+- 异步任务事件不走 mesh 回传：事件经 owner 落共享库（`task_events`），caller 的 HTTP 轮询/SSE 从共享库读取（既有链路不变）
+
+因此当前部署形态仍是**单活 + 冷备**（双活切换是独立操作，前置条件已凑齐）：
 
 | 层                    | 配置                                       | 故障语义                                                                 |
 | --------------------- | ------------------------------------------ | ------------------------------------------------------------------------ |
 | L4（haproxy.cfg）     | `server croupier-server2 ... check backup` | agent 全部连主实例；主实例摘除后 agent 重连自动落 backup 并重新注册      |
 | L7（nginx-main.conf） | `split_clients ... 100% croupier-server`   | API 全量指向主实例；主实例故障时人工提升此处切到 server2（换一处分流值） |
 
-双活的前置条件（补齐后可切回）：`/functions/instances` 聚合 ✅（2026-09-11 已落地，远端条目带 `ownerInstance`）；invoke 路径的 agent 在线判定接入 owner 转发或共享归属表聚合仍待办（dispatcher 候选集为空时不转发直接误报，异步任务/广播亦无转发）。
+**切换双活**（前置已补齐，操作时点自定）：
+
+1. L7 分流值从 `100% croupier-server` 改为按比例（如 `50%`/`50%`），`nginx -s reload`
+2. L4 去掉 server2 的 `backup` 标记（agent 连接开始打散）
+3. 观察：`/ops/nodes` 两实例都有 agent 归属；dashboard 发起 invoke/async/broadcast 三类调用混合落在两实例均成功（owner 侧审计记录出现在对端实例）；`server2` 日志出现 `cluster: refreshed remote agent snapshot` / owner 侧审计
+4. 回滚即恢复 `100%` + `backup`（agent 会随重连自然回归主实例，期间跨实例调用经转发兜底）
 
 ## 背景概念：L4 / L7 / VRRP
 
