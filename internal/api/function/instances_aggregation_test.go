@@ -165,6 +165,41 @@ func TestFunctionInstancesAll_LocalAgentInOwnerTable_NotDuplicated(t *testing.T)
 	assert.Equal(t, 1, counts["agent-remote"])
 }
 
+// 本地 registry 里的 DB 快照（refreshRemoteSnapshots 回灌）实为对端持有：
+// 条目必须标真归属，否则前端把远端快照渲染成「本实例」误导排障。
+func TestFunctionInstancesAll_LocalSnapshotOwnedByPeer_Annotated(t *testing.T) {
+	f := newInvokeFixture(t)
+	f.registerAgent(t, "agent-snap", "demo.fn")
+	f.svcCtx.Cluster = &svc.ClusterRuntime{
+		InstanceID: "self",
+		ListAgentOwners: ownersFake(
+			cluster.AgentOwnerRecord{AgentID: "agent-snap", InstanceID: "server2", GameID: "demo", Env: "prod"},
+		),
+	}
+
+	resp, err := NewService(f.svcCtx).FunctionInstancesAll(f.ctxFor("opuser"), &FunctionInstancesAllRequest{})
+	require.NoError(t, err)
+	require.Len(t, resp.Instances, 1)
+	assert.Equal(t, "server2", resp.Instances[0].OwnerInstance, "对端持有的本地快照要标注归属实例")
+}
+
+// 自持 agent（owner=本实例）保持空标注（前端渲染「本实例」）。
+func TestFunctionInstancesAll_SelfOwnedLocal_EmptyAnnotation(t *testing.T) {
+	f := newInvokeFixture(t)
+	f.registerAgent(t, "agent-local", "demo.fn")
+	f.svcCtx.Cluster = &svc.ClusterRuntime{
+		InstanceID: "self",
+		ListAgentOwners: ownersFake(
+			cluster.AgentOwnerRecord{AgentID: "agent-local", InstanceID: "self", GameID: "demo", Env: "prod"},
+		),
+	}
+
+	resp, err := NewService(f.svcCtx).FunctionInstancesAll(f.ctxFor("opuser"), &FunctionInstancesAllRequest{})
+	require.NoError(t, err)
+	require.Len(t, resp.Instances, 1)
+	assert.Empty(t, resp.Instances[0].OwnerInstance)
+}
+
 func TestFunctionInstances_RemoteOwnerIncluded(t *testing.T) {
 	f := newInvokeFixture(t)
 	seedRemoteSession(t, f, remoteSession("agent-remote"), "server2")

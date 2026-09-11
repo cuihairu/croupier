@@ -213,10 +213,12 @@ type FunctionInstancesResponse struct {
 
 **跨实例聚合**（集群模式）：本端点与 `GET /api/v1/functions/instances`
 均以共享归属表（`cluster_agent_owners`）为在线全集——对端 server 实例
-持有的 agent 也计入，明细从共享 `agent_sessions` 快照表读取。远端条目
-带 `ownerInstance` 字段标注归属实例（本地连接的 agent 该字段缺省）；
-归属表不可达时静默回落本实例视图。单实例部署（`cluster.enabled=false`）
-行为不变（纯本实例）。
+持有的 agent 也计入，明细从共享 `agent_sessions` 快照表读取。归属对端
+实例的条目带 `ownerInstance` 字段标注（含两类：本地 registry 没有经快照
+表兜底拉出的，与本地存在的对端持有 DB 快照——后者是 30s 周期
+`refreshRemoteSnapshots` 回灌的，并非本实例直连）；本实例自持/直连的
+agent 该字段缺省。归属表不可达时静默回落本实例视图（全部按本实例渲染）。
+单实例部署（`cluster.enabled=false`）行为不变（纯本实例）。
 
 ### 8. "调用函数"
 

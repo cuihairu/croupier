@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/cuihairu/croupier/internal/audit"
+	"github.com/cuihairu/croupier/internal/cluster"
 	"github.com/cuihairu/croupier/internal/common/errorx"
 	logicfunction "github.com/cuihairu/croupier/internal/logic/function"
 	"github.com/cuihairu/croupier/internal/logic/utils"
@@ -844,6 +845,45 @@ type remoteAgentSnapshot struct {
 	ownerInstance string
 }
 
+// clusterOwnerRecords 读归属表全集。集群未启用（Cluster/ListAgentOwners
+// 未装配）或读失败返回 nil，instances 视图回落本地语义。
+func clusterOwnerRecords(ctx context.Context, svcCtx *svc.ServiceContext) []cluster.AgentOwnerRecord {
+	if svcCtx.Cluster == nil || svcCtx.Cluster.ListAgentOwners == nil {
+		return nil
+	}
+	recs, err := svcCtx.Cluster.ListAgentOwners(ctx)
+	if err != nil {
+		return nil
+	}
+	return recs
+}
+
+// clusterSelfInstanceID 返回本实例的集群身份（未装配返回空）。
+func clusterSelfInstanceID(svcCtx *svc.ServiceContext) string {
+	if svcCtx.Cluster == nil {
+		return ""
+	}
+	return svcCtx.Cluster.InstanceID
+}
+
+// remoteOwnerMap 从归属表构建 agentID → 对端实例标注：本地 registry 里
+// 由对端持有的 DB 快照（refreshRemoteSnapshots 回灌的）标真归属，本实例
+// 自持的排除（前端渲染「本实例」）。selfInstanceID 为空（未装配集群身份）
+// 时无法区分自持，整体不标注。
+func remoteOwnerMap(owners []cluster.AgentOwnerRecord, selfInstanceID string) map[string]string {
+	if len(owners) == 0 || selfInstanceID == "" {
+		return nil
+	}
+	out := make(map[string]string, len(owners))
+	for _, rec := range owners {
+		if rec.InstanceID == selfInstanceID {
+			continue
+		}
+		out[rec.AgentID] = rec.InstanceID
+	}
+	return out
+}
+
 // remoteAgentSnapshots 返回「归属表活跃但本地 registry 未持有」的 agent
 // 会话快照——集群模式下 instances 视图的跨实例兜底来源：本地 registry 只
 // 含连到本实例的 agent，对端实例持有的 agent 以共享归属表
@@ -851,12 +891,9 @@ type remoteAgentSnapshot struct {
 // agent_sessions 快照表读取（Providers/Functions 已 JSON 落库）。归属表
 // 不可达或快照行缺失（owner 已 Release 的竞态）时静默回落本地视图，
 // 读路径不升级成 5xx。非集群部署（Cluster/DB 未装配）恒返回空。
-func remoteAgentSnapshots(ctx context.Context, svcCtx *svc.ServiceContext, scope svc.GameScope, localAgentIDs map[string]struct{}) []remoteAgentSnapshot {
+// owners 由调用方一次读出共用（本地条目标注也要用，避免双查归属表）。
+func remoteAgentSnapshots(ctx context.Context, svcCtx *svc.ServiceContext, scope svc.GameScope, localAgentIDs map[string]struct{}, owners []cluster.AgentOwnerRecord) []remoteAgentSnapshot {
 	if svcCtx.Cluster == nil || svcCtx.Cluster.ListAgentOwners == nil || svcCtx.DB == nil {
-		return nil
-	}
-	owners, err := svcCtx.Cluster.ListAgentOwners(ctx)
-	if err != nil {
 		return nil
 	}
 	missing := make([]string, 0, len(owners))
@@ -971,7 +1008,11 @@ func functionInstances(ctx context.Context, svcCtx *svc.ServiceContext, req *Fun
 	}
 
 	// 本地条目在读锁内构建（会话对象与 registry 并发写共享，不能锁外
-	// 访问）；集群兜底 IO（归属表/快照表）在锁外。
+	// 访问）；归属表在锁前一次读出——本地快照中被对端持有的条目也按
+	// 归属表标注（refreshRemoteSnapshots 回灌的 DB 快照不是本实例直连），
+	// 集群兜底 IO（归属表/快照表）在锁外。
+	owners := clusterOwnerRecords(ctx, svcCtx)
+	ownerOf := remoteOwnerMap(owners, clusterSelfInstanceID(svcCtx))
 	items := []FunctionInstance{}
 	localAgentIDs := map[string]struct{}{}
 	store.Mu().RLock()
@@ -980,13 +1021,13 @@ func functionInstances(ctx context.Context, svcCtx *svc.ServiceContext, req *Fun
 			continue
 		}
 		localAgentIDs[sess.AgentID] = struct{}{}
-		if item, ok := instanceItemForFunction(sess, scope, req.ID, ""); ok {
+		if item, ok := instanceItemForFunction(sess, scope, req.ID, ownerOf[sess.AgentID]); ok {
 			items = append(items, item)
 		}
 	}
 	store.Mu().RUnlock()
 
-	for _, snap := range remoteAgentSnapshots(ctx, svcCtx, scope, localAgentIDs) {
+	for _, snap := range remoteAgentSnapshots(ctx, svcCtx, scope, localAgentIDs, owners) {
 		if item, ok := instanceItemForFunction(snap.sess, scope, req.ID, snap.ownerInstance); ok {
 			items = append(items, item)
 		}
@@ -1004,7 +1045,10 @@ func functionInstancesAll(ctx context.Context, svcCtx *svc.ServiceContext, req *
 		return &FunctionInstancesAllResponse{Instances: []FunctionInstanceSummary{}, Total: 0}, nil
 	}
 
-	// 同 functionInstances：本地条目持读锁构建，集群兜底 IO 在锁外。
+	// 同 functionInstances：本地条目持读锁构建（对端持有的 DB 快照按
+	// 归属表标注），集群兜底 IO 在锁外。
+	owners := clusterOwnerRecords(ctx, svcCtx)
+	ownerOf := remoteOwnerMap(owners, clusterSelfInstanceID(svcCtx))
 	instances := []FunctionInstanceSummary{}
 	localAgentIDs := map[string]struct{}{}
 	store.Mu().RLock()
@@ -1013,11 +1057,11 @@ func functionInstancesAll(ctx context.Context, svcCtx *svc.ServiceContext, req *
 			continue
 		}
 		localAgentIDs[sess.AgentID] = struct{}{}
-		instances = appendInstanceSummaries(instances, sess, scope, "")
+		instances = appendInstanceSummaries(instances, sess, scope, ownerOf[sess.AgentID])
 	}
 	store.Mu().RUnlock()
 
-	for _, snap := range remoteAgentSnapshots(ctx, svcCtx, scope, localAgentIDs) {
+	for _, snap := range remoteAgentSnapshots(ctx, svcCtx, scope, localAgentIDs, owners) {
 		instances = appendInstanceSummaries(instances, snap.sess, scope, snap.ownerInstance)
 	}
 
