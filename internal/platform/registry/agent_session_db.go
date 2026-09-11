@@ -126,6 +126,38 @@ func (m *AgentSessionModel) LoadActiveSessions(ctx context.Context) ([]*AgentSes
 	return sessions, nil
 }
 
+// LoadActiveSessionsByAgentIDs loads active sessions filtered by agent IDs.
+// Used by cross-instance read aggregation: the owner table says an agent is
+// alive on a peer instance, and this fetches its persisted snapshot (with
+// Providers detail) without pulling the whole table.
+func (m *AgentSessionModel) LoadActiveSessionsByAgentIDs(ctx context.Context, agentIDs []string) ([]*AgentSession, error) {
+	if len(agentIDs) == 0 {
+		return nil, nil
+	}
+	var dbSessions []AgentSessionDB
+
+	err := m.db.WithContext(ctx).
+		Where("expire_at > ?", time.Now()).
+		Where("deleted_at IS NULL").
+		Where("agent_id IN ?", agentIDs).
+		Find(&dbSessions).Error
+
+	if err != nil {
+		return nil, err
+	}
+
+	sessions := make([]*AgentSession, 0, len(dbSessions))
+	for _, dbSess := range dbSessions {
+		sess, err := toDomainSession(&dbSess)
+		if err != nil {
+			continue
+		}
+		sessions = append(sessions, sess)
+	}
+
+	return sessions, nil
+}
+
 // DeleteExpired soft-deletes all expired sessions.
 func (m *AgentSessionModel) DeleteExpired(ctx context.Context) (int64, error) {
 	result := m.db.WithContext(ctx).

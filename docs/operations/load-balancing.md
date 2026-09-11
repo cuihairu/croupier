@@ -20,10 +20,10 @@ Croupier HA 多实例架构（[Server 多实例 HA](../architecture/server-ha-mu
 
 ## 部署模式约束：单活 + 冷备（当前推荐）
 
-**前提认知**：Agent 会话表与函数注册 registry 是 Server 实例的**进程内存态**，跨实例同步仅覆盖部分读路径（`/ops/nodes`、agent 列表走共享归属表聚合）；**函数实例列表（`/functions/instances`）与 invoke 的 agent 在线判定仍只查本实例内存**。在 registry 读路径全部接入跨实例聚合之前，双实例**双活**会产生视图分裂：
+**前提认知**：Agent 会话表与函数注册 registry 是 Server 实例的**进程内存态**，跨实例同步仅覆盖部分路径（`/ops/nodes`、agent 列表、`/functions/instances` 走共享归属表聚合——instances 已于 2026-09-11 补齐）；**invoke 的 agent 在线判定（dispatcher 候选集）仍只查本实例内存**，候选集为空直接报 `no live agent` 不触发转发。在 invoke 判定接归属表之前，双实例**双活**的调用路径仍会误报：
 
 - Agent 长连接被 L4 LB 打散到两个实例后，各实例只持有「连到自己的」agent
-- Dashboard L7 分流到未持有该 agent 的实例时，函数实例列表为空、invoke 报 `no live agent`（2026-09-11 线上事故根因；agent 重连漂移实例后旧实例还会留 24h TTL 悬尸 session）
+- Dashboard L7 分流到未持有该 agent 的实例时，invoke 报 `no live agent`（2026-09-11 线上事故根因；agent 重连漂移实例后旧实例还会留 24h TTL 悬尸 session）
 
 因此当前部署形态是**单活 + 冷备**：
 
@@ -32,7 +32,7 @@ Croupier HA 多实例架构（[Server 多实例 HA](../architecture/server-ha-mu
 | L4（haproxy.cfg）     | `server croupier-server2 ... check backup` | agent 全部连主实例；主实例摘除后 agent 重连自动落 backup 并重新注册      |
 | L7（nginx-main.conf） | `split_clients ... 100% croupier-server`   | API 全量指向主实例；主实例故障时人工提升此处切到 server2（换一处分流值） |
 
-双活的前置条件（补齐后可切回）：`/functions/instances` 与 invoke 路径的 agent 在线判定接入 owner 转发或共享归属表聚合（架构文档已有 owner 转发机制，读路径接线是缺口）。
+双活的前置条件（补齐后可切回）：`/functions/instances` 聚合 ✅（2026-09-11 已落地，远端条目带 `ownerInstance`）；invoke 路径的 agent 在线判定接入 owner 转发或共享归属表聚合仍待办（dispatcher 候选集为空时不转发直接误报，异步任务/广播亦无转发）。
 
 ## 背景概念：L4 / L7 / VRRP
 

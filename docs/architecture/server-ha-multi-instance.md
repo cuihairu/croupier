@@ -15,7 +15,7 @@ tag:
 
 > **状态**：已实现 — 成员表（复用 RegistryStore 自注册 + 租约）、实例互联与 owner 转发（含 fencing epoch / 一跳防环）、`cluster.enabled` 接线与集群拓扑页均已落地；测试见 `internal/cluster/`。部署形态（L4 LB / 多宿主 / K8s）参见[负载均衡指南](../operations/load-balancing.md)。
 >
-> **已知边界（读路径聚合缺口，2026-09-11 线上事故确认）**：owner 转发目前只覆盖写/调用侧部分链路；**HTTP 读路径中 `/functions/instances`（函数实例列表）与 invoke 前的 agent 在线判定仍只查本实例内存 registry**（`functionInstancesAll` 遍历 `store.AgentsUnsafe()`，无跨实例聚合）。在共享 registry store（`registry.store` 非 memory）未启用、或读路径未接入 owner 转发/归属表聚合之前，**双实例双活会视图分裂**（API 分流到非 owner 实例 → 实例列表为空 / `no live agent`）。当前推荐部署形态是**单活 + 冷备**（见负载均衡指南「部署模式约束」）。
+> **已知边界（读路径聚合缺口，2026-09-11 线上事故确认；instances 已于同日补齐）**：owner 转发目前只覆盖写/调用侧部分链路。读路径中 **`/functions/instances` 与 `/functions/:id/instances` 已接入跨实例聚合**（共享归属表为在线全集 + `agent_sessions` 快照表补远端明细，远端条目带 `ownerInstance`；归属表不可达回落本地）；**invoke 前的 agent 在线判定（dispatcher 候选集）仍只查本实例内存 registry**——候选集为空时直接报 `no live agent`，不触发转发（`refreshRemoteSnapshots` 30s 回灌之外存在误报窗口），异步任务与广播也无转发。在 invoke 判定接归属表之前，**双实例双活调用路径仍会误报**，当前部署形态维持**单活 + 冷备**（见负载均衡指南「部署模式约束」）。
 
 本文档定义 Croupier Server 控制面从单实例演进为多实例高可用（HA）部署的目标设计，覆盖问题分析、方案选型、共享目录、实例互联、转发协议、故障语义与实施拆解。
 

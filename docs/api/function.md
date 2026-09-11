@@ -211,6 +211,13 @@ type FunctionInstancesResponse struct {
 }
 ```
 
+**跨实例聚合**（集群模式）：本端点与 `GET /api/v1/functions/instances`
+均以共享归属表（`cluster_agent_owners`）为在线全集——对端 server 实例
+持有的 agent 也计入，明细从共享 `agent_sessions` 快照表读取。远端条目
+带 `ownerInstance` 字段标注归属实例（本地连接的 agent 该字段缺省）；
+归属表不可达时静默回落本实例视图。单实例部署（`cluster.enabled=false`）
+行为不变（纯本实例）。
+
 ### 8. "调用函数"
 
 1. route definition

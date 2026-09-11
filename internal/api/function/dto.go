@@ -108,6 +108,9 @@ type FunctionInstance struct {
 	AgentName string `json:"agentName"`
 	Status    string `json:"status"`
 	UpdatedAt string `json:"updatedAt"`
+	// OwnerInstance 非空表示该 agent 连接在另一个 server 实例上（跨实例
+	// 聚合条目）；本地连接的 agent 为空。
+	OwnerInstance string `json:"ownerInstance,omitempty"`
 }
 
 // FunctionInstancesAllRequest represents a request to get all function instances
@@ -117,6 +120,7 @@ type FunctionInstancesAllRequest struct {
 // FunctionInstancesAllResponse represents the response containing all function instances
 type FunctionInstancesAllResponse struct {
 	Instances []FunctionInstanceSummary `json:"instances"`
+	Total     int                       `json:"total"`
 }
 
 // FunctionInstanceSummary represents one function registration on an agent.
@@ -137,6 +141,9 @@ type FunctionInstanceSummary struct {
 	Env        string `json:"env"`
 	Status     string `json:"status"`
 	UpdatedAt  string `json:"updatedAt"`
+	// OwnerInstance 非空表示该 agent 连接在另一个 server 实例上（跨实例
+	// 聚合条目）；本地连接的 agent 为空。
+	OwnerInstance string `json:"ownerInstance,omitempty"`
 }
 
 // FunctionInstancesRequest represents a request for function instances

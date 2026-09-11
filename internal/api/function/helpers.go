@@ -829,6 +829,140 @@ func functionPublish(ctx context.Context, svcCtx *svc.ServiceContext, req *Funct
 
 // Instance management implementations
 
+// sessionMatchesScope 判断会话是否落入 scope（空 scope 全通过）。
+func sessionMatchesScope(scope svc.GameScope, gameID, env string) bool {
+	if scope.GameID == "" {
+		return true
+	}
+	return strings.EqualFold(strings.TrimSpace(gameID), scope.GameID) &&
+		strings.EqualFold(strings.TrimSpace(env), scope.Env)
+}
+
+// remoteAgentSnapshot 是归属表兜底出的远端 agent 会话快照及其 owner 实例。
+type remoteAgentSnapshot struct {
+	sess          *reg.AgentSession
+	ownerInstance string
+}
+
+// remoteAgentSnapshots 返回「归属表活跃但本地 registry 未持有」的 agent
+// 会话快照——集群模式下 instances 视图的跨实例兜底来源：本地 registry 只
+// 含连到本实例的 agent，对端实例持有的 agent 以共享归属表
+// （cluster_agent_owners，TTL 内即活跃）为在线全集，明细从共享
+// agent_sessions 快照表读取（Providers/Functions 已 JSON 落库）。归属表
+// 不可达或快照行缺失（owner 已 Release 的竞态）时静默回落本地视图，
+// 读路径不升级成 5xx。非集群部署（Cluster/DB 未装配）恒返回空。
+func remoteAgentSnapshots(ctx context.Context, svcCtx *svc.ServiceContext, scope svc.GameScope, localAgentIDs map[string]struct{}) []remoteAgentSnapshot {
+	if svcCtx.Cluster == nil || svcCtx.Cluster.ListAgentOwners == nil || svcCtx.DB == nil {
+		return nil
+	}
+	owners, err := svcCtx.Cluster.ListAgentOwners(ctx)
+	if err != nil {
+		return nil
+	}
+	missing := make([]string, 0, len(owners))
+	for _, rec := range owners {
+		if _, ok := localAgentIDs[rec.AgentID]; ok {
+			continue
+		}
+		if !sessionMatchesScope(scope, rec.GameID, rec.Env) {
+			continue
+		}
+		missing = append(missing, rec.AgentID)
+	}
+	if len(missing) == 0 {
+		return nil
+	}
+	sessions, err := reg.NewAgentSessionModel(svcCtx.DB).LoadActiveSessionsByAgentIDs(ctx, missing)
+	if err != nil {
+		return nil
+	}
+	ownerByAgent := make(map[string]string, len(owners))
+	for _, rec := range owners {
+		ownerByAgent[rec.AgentID] = rec.InstanceID
+	}
+	out := make([]remoteAgentSnapshot, 0, len(sessions))
+	for _, sess := range sessions {
+		if sess == nil {
+			continue
+		}
+		out = append(out, remoteAgentSnapshot{sess: sess, ownerInstance: ownerByAgent[sess.AgentID]})
+	}
+	return out
+}
+
+// instanceItemForFunction 判断会话是否注册了目标函数并产出条目。
+func instanceItemForFunction(sess *reg.AgentSession, scope svc.GameScope, functionID, ownerInstance string) (FunctionInstance, bool) {
+	if sess == nil || !sessionMatchesScope(scope, sess.GameID, sess.Env) {
+		return FunctionInstance{}, false
+	}
+	if _, ok := sess.Functions[functionID]; ok {
+		return FunctionInstance{
+			AgentId:       sess.AgentID,
+			AgentName:     sess.AgentID, // Use AgentID as name since AgentName doesn't exist
+			Status:        "active",
+			UpdatedAt:     utils.FormatTimestamp(sess.LastSeen),
+			OwnerInstance: ownerInstance,
+		}, true
+	}
+	return FunctionInstance{}, false
+}
+
+// appendInstanceSummaries 把单个 agent 会话的函数注册展开为实例条目：
+// provider 会话优先（携带 ServiceID/SDK/addr 明细），未被任何 provider
+// 声明的函数仍以 agent 级条目兜底。scope 不匹配的会话/provider 跳过。
+func appendInstanceSummaries(instances []FunctionInstanceSummary, sess *reg.AgentSession, scope svc.GameScope, ownerInstance string) []FunctionInstanceSummary {
+	if sess == nil || !sessionMatchesScope(scope, sess.GameID, sess.Env) {
+		return instances
+	}
+	claimed := map[string]struct{}{}
+	for i := range sess.Providers {
+		prov := sess.Providers[i]
+		seen := map[string]struct{}{}
+		for _, fid := range prov.FunctionIDs {
+			if _, ok := seen[fid]; ok {
+				continue
+			}
+			seen[fid] = struct{}{}
+			if scope.GameID != "" && !strings.EqualFold(strings.TrimSpace(prov.GameID), scope.GameID) {
+				continue
+			}
+			instances = append(instances, FunctionInstanceSummary{
+				FunctionID:    fid,
+				AgentID:       sess.AgentID,
+				AgentName:     sess.AgentID,
+				ServiceID:     prov.ProviderID,
+				Addr:          prov.Addr,
+				Version:       prov.Version,
+				SDKName:       prov.SDKName,
+				SDKLang:       prov.SDKLanguage,
+				SDKVersion:    prov.SDKVersion,
+				GameID:        sess.GameID,
+				Env:           sess.Env,
+				Status:        "active",
+				UpdatedAt:     utils.FormatTimestamp(sess.LastSeen),
+				OwnerInstance: ownerInstance,
+			})
+			claimed[fid] = struct{}{}
+		}
+	}
+	for fid := range sess.Functions {
+		if _, ok := claimed[fid]; ok {
+			continue
+		}
+		instances = append(instances, FunctionInstanceSummary{
+			FunctionID:    fid,
+			AgentID:       sess.AgentID,
+			AgentName:     sess.AgentID,
+			GameID:        sess.GameID,
+			Env:           sess.Env,
+			Status:        "active",
+			UpdatedAt:     utils.FormatTimestamp(sess.LastSeen),
+			OwnerInstance: ownerInstance,
+		})
+	}
+	return instances
+}
+
 func functionInstances(ctx context.Context, svcCtx *svc.ServiceContext, req *FunctionInstancesRequest) (*FunctionInstancesResponse, error) {
 	scope := currentFunctionScope(ctx)
 	store := svcCtx.RegistryStore
@@ -836,30 +970,30 @@ func functionInstances(ctx context.Context, svcCtx *svc.ServiceContext, req *Fun
 		return &FunctionInstancesResponse{Items: []FunctionInstance{}}, nil
 	}
 
+	// 本地条目在读锁内构建（会话对象与 registry 并发写共享，不能锁外
+	// 访问）；集群兜底 IO（归属表/快照表）在锁外。
+	items := []FunctionInstance{}
+	localAgentIDs := map[string]struct{}{}
 	store.Mu().RLock()
-	defer store.Mu().RUnlock()
-
-	instances := []FunctionInstance{}
 	for _, sess := range store.AgentsUnsafe() {
 		if sess == nil {
 			continue
 		}
-		if scope.GameID != "" && (!strings.EqualFold(strings.TrimSpace(sess.GameID), scope.GameID) ||
-			!strings.EqualFold(strings.TrimSpace(sess.Env), scope.Env)) {
-			continue
+		localAgentIDs[sess.AgentID] = struct{}{}
+		if item, ok := instanceItemForFunction(sess, scope, req.ID, ""); ok {
+			items = append(items, item)
 		}
-		if _, ok := sess.Functions[req.ID]; ok {
-			instances = append(instances, FunctionInstance{
-				AgentId:   sess.AgentID,
-				AgentName: sess.AgentID, // Use AgentID as name since AgentName doesn't exist
-				Status:    "active",
-				UpdatedAt: utils.FormatTimestamp(sess.LastSeen),
-			})
+	}
+	store.Mu().RUnlock()
+
+	for _, snap := range remoteAgentSnapshots(ctx, svcCtx, scope, localAgentIDs) {
+		if item, ok := instanceItemForFunction(snap.sess, scope, req.ID, snap.ownerInstance); ok {
+			items = append(items, item)
 		}
 	}
 
 	return &FunctionInstancesResponse{
-		Items: instances,
+		Items: items,
 	}, nil
 }
 
@@ -867,67 +1001,24 @@ func functionInstancesAll(ctx context.Context, svcCtx *svc.ServiceContext, req *
 	scope := currentFunctionScope(ctx)
 	store := svcCtx.RegistryStore
 	if store == nil {
-		return &FunctionInstancesAllResponse{Instances: []FunctionInstanceSummary{}}, nil
+		return &FunctionInstancesAllResponse{Instances: []FunctionInstanceSummary{}, Total: 0}, nil
 	}
 
-	store.Mu().RLock()
-	defer store.Mu().RUnlock()
-
+	// 同 functionInstances：本地条目持读锁构建，集群兜底 IO 在锁外。
 	instances := []FunctionInstanceSummary{}
+	localAgentIDs := map[string]struct{}{}
+	store.Mu().RLock()
 	for _, sess := range store.AgentsUnsafe() {
 		if sess == nil {
 			continue
 		}
-		if scope.GameID != "" && (!strings.EqualFold(strings.TrimSpace(sess.GameID), scope.GameID) ||
-			!strings.EqualFold(strings.TrimSpace(sess.Env), scope.Env)) {
-			continue
-		}
-		// Provider 会话优先（携带 ServiceID/SDK/addr 明细）；未被任何
-		// provider 声明的函数仍以 agent 级条目兜底。
-		claimed := map[string]struct{}{}
-		for i := range sess.Providers {
-			prov := sess.Providers[i]
-			seen := map[string]struct{}{}
-			for _, fid := range prov.FunctionIDs {
-				if _, ok := seen[fid]; ok {
-					continue
-				}
-				seen[fid] = struct{}{}
-				if scope.GameID != "" && !strings.EqualFold(strings.TrimSpace(prov.GameID), scope.GameID) {
-					continue
-				}
-				instances = append(instances, FunctionInstanceSummary{
-					FunctionID: fid,
-					AgentID:    sess.AgentID,
-					AgentName:  sess.AgentID,
-					ServiceID:  prov.ProviderID,
-					Addr:       prov.Addr,
-					Version:    prov.Version,
-					SDKName:    prov.SDKName,
-					SDKLang:    prov.SDKLanguage,
-					SDKVersion: prov.SDKVersion,
-					GameID:     sess.GameID,
-					Env:        sess.Env,
-					Status:     "active",
-					UpdatedAt:  utils.FormatTimestamp(sess.LastSeen),
-				})
-				claimed[fid] = struct{}{}
-			}
-		}
-		for fid := range sess.Functions {
-			if _, ok := claimed[fid]; ok {
-				continue
-			}
-			instances = append(instances, FunctionInstanceSummary{
-				FunctionID: fid,
-				AgentID:    sess.AgentID,
-				AgentName:  sess.AgentID,
-				GameID:     sess.GameID,
-				Env:        sess.Env,
-				Status:     "active",
-				UpdatedAt:  utils.FormatTimestamp(sess.LastSeen),
-			})
-		}
+		localAgentIDs[sess.AgentID] = struct{}{}
+		instances = appendInstanceSummaries(instances, sess, scope, "")
+	}
+	store.Mu().RUnlock()
+
+	for _, snap := range remoteAgentSnapshots(ctx, svcCtx, scope, localAgentIDs) {
+		instances = appendInstanceSummaries(instances, snap.sess, scope, snap.ownerInstance)
 	}
 
 	sort.Slice(instances, func(i, j int) bool {
@@ -939,6 +1030,7 @@ func functionInstancesAll(ctx context.Context, svcCtx *svc.ServiceContext, req *
 
 	return &FunctionInstancesAllResponse{
 		Instances: instances,
+		Total:     len(instances),
 	}, nil
 }
 
