@@ -1804,8 +1804,11 @@ export class BasicClient implements CroupierClient {
       functions: request.functions.map((fn) => ({
         id: fn.id,
         version: fn.version,
+        tags: fn.tags,
         summary: fn.summary,
         description: fn.description,
+        operationId: fn.operationId,
+        deprecated: fn.deprecated,
         inputSchema: fn.inputSchema,
         outputSchema: fn.outputSchema,
         resource: fn.resource,
