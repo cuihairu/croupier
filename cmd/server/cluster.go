@@ -328,10 +328,12 @@ func refreshRemoteSnapshots(ctx context.Context, svcCtx *svc.ServiceContext, res
 			continue
 		}
 		cur, ok := local[sess.AgentID]
-		// 本地无快照（被清理）或快照临期/函数表落后：刷回。持有连接的
-		// 实例永远走本地实时会话，这里的 Upsert 不会覆盖活跃本地视图
-		//（need 集合已排除本实例持有的 agent）。
-		if !ok || cur == nil || len(sess.Functions) > len(cur.Functions) || time.Until(cur.ExpireAt) < 10*time.Minute {
+		// 本地无快照（被清理）或快照临期/函数表/Provider 表落后：刷回。
+		// 持有连接的实例永远走本地实时会话，这里的 Upsert 不会覆盖活跃
+		// 本地视图（need 集合已排除本实例持有的 agent）。Functions 与
+		// Providers 都是「只升不降」：收缩（provider 断开）不在此回灌，
+		// 等 ExpireAt 临期条件兜底，避免 DB 写节流窗口内来回抖动。
+		if !ok || cur == nil || len(sess.Functions) > len(cur.Functions) || len(sess.Providers) > len(cur.Providers) || time.Until(cur.ExpireAt) < 10*time.Minute {
 			if err := store.UpsertAgent(sess); err == nil && (!ok || cur == nil) {
 				slog.Info("cluster: refreshed remote agent snapshot", "agent_id", sess.AgentID, "owner", ownerInstance(owners, sess.AgentID))
 			}
