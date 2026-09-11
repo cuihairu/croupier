@@ -96,8 +96,8 @@ type flakyForwarder struct {
 	failed int
 }
 
-func (f *flakyForwarder) ForwardInvoke(_ context.Context, agentID, _ string, _ []byte, _ map[string]string, _ string) ([]byte, error) {
-	f.calls = append(f.calls, agentID)
+func (f *flakyForwarder) Forward(_ context.Context, call *RemoteCall) ([]byte, error) {
+	f.calls = append(f.calls, call.AgentID)
 	if f.failed < f.failN {
 		f.failed++
 		return nil, errors.New("no route")

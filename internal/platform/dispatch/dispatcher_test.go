@@ -832,7 +832,7 @@ func TestDispatcher_taskAgentID_LoadsFromStore(t *testing.T) {
 	store.Set(taskID, agentID)
 
 	// 通过 taskAgentID 获取
-	retrievedAgentID, err := d.taskAgentID(taskID)
+	retrievedAgentID, err := d.taskAgentID(context.Background(), taskID)
 
 	if err != nil {
 		t.Fatalf("taskAgentID() error = %v", err)

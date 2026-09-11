@@ -17,12 +17,14 @@ import (
 
 type stubRemoteForwarder struct {
 	calls    []string
+	last     *RemoteCall
 	response []byte
 	err      error
 }
 
-func (s *stubRemoteForwarder) ForwardInvoke(_ context.Context, agentID, _ string, _ []byte, _ map[string]string, _ string) ([]byte, error) {
-	s.calls = append(s.calls, agentID)
+func (s *stubRemoteForwarder) Forward(_ context.Context, call *RemoteCall) ([]byte, error) {
+	s.calls = append(s.calls, call.AgentID)
+	s.last = call
 	if s.err != nil {
 		return nil, s.err
 	}

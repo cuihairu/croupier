@@ -103,17 +103,36 @@ type Dispatcher struct {
 	// 转发执行。单实例为 nil，路由行为与本地 registry 完全一致。
 	remoteAgentSource RemoteAgentSource
 
+	// taskAgentLookup 从共享 task_runs 兜底解析 task → agent。task
+	// routing 是 per-instance 内存 map，取消请求落到非发起实例时内存
+	// miss，由此查共享库（task_runs 行由发起实例 dispatch 时写入）。
+	taskAgentLookup TaskAgentLookup
+
 	// HA features
 	healthTracker *HealthTracker
 	loadBalancer  *LoadBalancer
 	haEnabled     bool
 }
 
+// RemoteCall 描述一次经转发执行的 agent 调用。MsgID 是 agent 侧消息类型
+// （invoke/start_task/cancel_task），kind 映射由 mesh 层据此翻译——dispatch
+// 层不依赖 cluster 包。返回字节是 agent 响应原样（proto 编码）。
+type RemoteCall struct {
+	MsgID          uint32
+	AgentID        string
+	FunctionID     string
+	Payload        []byte
+	Metadata       map[string]string
+	IdempotencyKey string
+	// TaskID 仅 cancel_task 使用（目标任务的 ID）。
+	TaskID string
+}
+
 // RemoteForwarder forwards an invoke for an agent whose session lives on
 // another server instance. The cluster mesh wiring implements this; the
 // dispatcher treats a non-nil implementation as "forward on local miss".
 type RemoteForwarder interface {
-	ForwardInvoke(ctx context.Context, agentID, functionID string, payload []byte, metadata map[string]string, idempotencyKey string) ([]byte, error)
+	Forward(ctx context.Context, call *RemoteCall) ([]byte, error)
 }
 
 // RemoteAgentSource 供应归属表视角的远端候选 agent：归属表 TTL 内活跃、
@@ -124,6 +143,15 @@ type RemoteForwarder interface {
 // 快照表；出错时 dispatcher 降级回 noLiveAgent 语义，不放大故障。
 type RemoteAgentSource interface {
 	RemoteAgentSessions(ctx context.Context, gameID, env string, scoped bool) ([]*reg.AgentSession, error)
+}
+
+// TaskAgentLookup 从共享 task_runs 行解析任务所在 agent（跨实例取消兜底）。
+// task routing（内存 map + 本地 taskStore）都是 per-instance 的；取消请求
+// 落到非发起实例时两者都 miss，唯一可靠来源是共享库的 task_runs 行
+// （发起实例 dispatch 时写入 AgentID）。返回错误或不存在的任务由调用方
+// 报 "task not tracked"。
+type TaskAgentLookup interface {
+	AgentForTask(ctx context.Context, taskID string) (string, error)
 }
 
 // remoteSourceBudget 限制候选集远端查询的同步开销：归属表 + 快照表两次
@@ -266,6 +294,12 @@ func (d *Dispatcher) SetRemoteForwarder(f RemoteForwarder) {
 // SetRemoteAgentSource wires the remote candidate source (cluster mode only).
 func (d *Dispatcher) SetRemoteAgentSource(s RemoteAgentSource) {
 	d.remoteAgentSource = s
+}
+
+// SetTaskAgentLookup wires the shared task_runs lookup used to resolve a
+// task's agent when local routing misses (cross-instance cancel).
+func (d *Dispatcher) SetTaskAgentLookup(l TaskAgentLookup) {
+	d.taskAgentLookup = l
 }
 
 // SetTaskEventQuery sets the task event query for persistent storage access.
@@ -455,6 +489,9 @@ func (d *Dispatcher) InvokeBroadcast(ctx context.Context, req *sdkv1.InvokeReque
 		return nil, err
 	}
 	agents := d.listAgentsForFunctionInScope(req.GetFunctionId(), gameID, env, scoped)
+	// broadcast 候选集取 local ∪ remote：语义是投给所有活跃 agent，「本地
+	// 空才查远端」会静默漏投对端实例持有的一半（与 pick 的兜底语义不同）。
+	agents = d.withRemoteBroadcastCandidates(ctx, agents, req.GetFunctionId(), gameID, env, scoped)
 	if len(agents) == 0 {
 		err := noLiveAgentError(req.GetFunctionId(), gameID, env, scoped)
 		span.RecordError(err)
@@ -494,7 +531,9 @@ func (d *Dispatcher) InvokeBroadcast(ctx context.Context, req *sdkv1.InvokeReque
 			if err != nil {
 				out.Err = fmt.Errorf("marshal request: %w", err)
 			} else {
-				respBytes, callErr := d.callAgent(ctx, agent.AgentID, protocol.MsgInvokeRequest, reqBytes)
+				// 远端候选（session 在对端实例）经 callAgentRouted 转发执行；
+				// 转发失败与其他 agent 失败同语义落 Failures（半失败不整单报错）。
+				respBytes, callErr := d.callAgentRouted(ctx, agent.AgentID, protocol.MsgInvokeRequest, localReq, reqBytes)
 				if callErr != nil {
 					out.Err = callErr
 				} else {
@@ -556,6 +595,32 @@ func (d *Dispatcher) listAgentsForFunctionInScope(functionID, gameID, env string
 			continue
 		}
 		out = append(out, agent)
+	}
+	return out
+}
+
+// withRemoteBroadcastCandidates 把远端候选并入 broadcast 候选集（按
+// AgentID 去重、本地优先）。远端目录不可用/为空时返回原列表——broadcast
+// 的远端并集是尽力而为，不因归属表故障放大成整单失败。单实例
+// （source 未装配）恒返回原列表。
+func (d *Dispatcher) withRemoteBroadcastCandidates(ctx context.Context, local []*reg.AgentSession, functionID, gameID, env string, scoped bool) []*reg.AgentSession {
+	remote := d.expandRemoteCandidates(ctx, functionID, gameID, env, scoped)
+	if len(remote) == 0 {
+		return local
+	}
+	seen := make(map[string]bool, len(local)+len(remote))
+	for _, a := range local {
+		if a != nil {
+			seen[a.AgentID] = true
+		}
+	}
+	out := local
+	for _, a := range remote {
+		if a == nil || seen[a.AgentID] {
+			continue
+		}
+		seen[a.AgentID] = true
+		out = append(out, a)
 	}
 	return out
 }
@@ -634,7 +699,7 @@ func (d *Dispatcher) StartTaskRequest(ctx context.Context, req *sdkv1.InvokeRequ
 		return nil, err
 	}
 
-	respBytes, err := d.callAgent(ctx, agent.AgentID, protocol.MsgStartTaskRequest, reqBytes)
+	respBytes, err := d.callAgentRouted(ctx, agent.AgentID, protocol.MsgStartTaskRequest, req, reqBytes)
 	if err != nil {
 		if d.healthTracker != nil {
 			d.healthTracker.RecordFailure(agent.AgentID)
@@ -669,7 +734,7 @@ func (d *Dispatcher) StartTaskRequest(ctx context.Context, req *sdkv1.InvokeRequ
 }
 
 func (d *Dispatcher) CancelTask(ctx context.Context, taskID string) error {
-	agentID, err := d.taskAgentID(taskID)
+	agentID, err := d.taskAgentID(ctx, taskID)
 	if err != nil {
 		return err
 	}
@@ -680,7 +745,7 @@ func (d *Dispatcher) CancelTask(ctx context.Context, taskID string) error {
 		return fmt.Errorf("marshal request: %w", err)
 	}
 
-	_, err = d.callAgent(ctx, agentID, protocol.MsgCancelTaskRequest, reqBytes)
+	_, err = d.callAgentRoutedCancel(ctx, agentID, taskID, reqBytes)
 	if err == nil {
 		d.unregisterTask(taskID)
 	}
@@ -1131,7 +1196,8 @@ func requestTimeoutBudget(meta map[string]string) time.Duration {
 
 // callAgentRouted 在本地调用之上叠加 HA 转发：本地无该 agent 的 session
 // 时，经 remoteForwarder 转发到持有连接的实例（一跳限制在 mesh 侧保证，
-// owner 侧 InvokeRequestOnAgent 不走本方法避免环路）。
+// owner 侧 InvokeRequestOnAgent 不走本方法避免环路）。invoke 与 start_task
+// 共用（按 msgID 区分，req 里携带 function/payload/metadata 全量语义）。
 func (d *Dispatcher) callAgentRouted(ctx context.Context, agentID string, msgID uint32, req *sdkv1.InvokeRequest, reqBytes []byte) ([]byte, error) {
 	respBytes, err := d.callAgent(ctx, agentID, msgID, reqBytes)
 	if err == nil || !errors.Is(err, errAgentUnreachable) {
@@ -1148,8 +1214,43 @@ func (d *Dispatcher) callAgentRouted(ctx context.Context, agentID string, msgID 
 		fwdMeta[k] = v
 	}
 	// 转发链路自己重建路由/追踪上下文，本地注入的标记不带过去。
+	// taskId 保留在 metadata 里随帧到 owner——caller 已创建 task_runs 行，
+	// owner 侧 StartTaskOnAgent 重建 InvokeRequest 时沿用同一 ID。
 	delete(fwdMeta, "agentId")
-	respBytes, ferr := fwd.ForwardInvoke(ctx, agentID, req.GetFunctionId(), req.GetPayload(), fwdMeta, req.GetIdempotencyKey())
+	respBytes, ferr := fwd.Forward(ctx, &RemoteCall{
+		MsgID:          msgID,
+		AgentID:        agentID,
+		FunctionID:     req.GetFunctionId(),
+		Payload:        req.GetPayload(),
+		Metadata:       fwdMeta,
+		IdempotencyKey: req.GetIdempotencyKey(),
+	})
+	if ferr != nil {
+		return nil, fmt.Errorf("forward to owner of %s: %v: %w", agentID, ferr, errAgentUnreachable)
+	}
+	return respBytes, nil
+}
+
+// callAgentRoutedCancel 对 CancelTask 叠加 HA 转发：目标 agent 的 session
+// 在对端实例时经 remoteForwarder 转发（kind=cancel_task，TaskID 随帧）。
+// owner 侧只投递取消给 agent；路由清理（unregisterTask）留在 caller——
+// task routing 是 caller 实例的内存态。
+func (d *Dispatcher) callAgentRoutedCancel(ctx context.Context, agentID, taskID string, reqBytes []byte) ([]byte, error) {
+	respBytes, err := d.callAgent(ctx, agentID, protocol.MsgCancelTaskRequest, reqBytes)
+	if err == nil || !errors.Is(err, errAgentUnreachable) {
+		return respBytes, err
+	}
+	d.mu.RLock()
+	fwd := d.remoteForwarder
+	d.mu.RUnlock()
+	if fwd == nil {
+		return nil, err
+	}
+	respBytes, ferr := fwd.Forward(ctx, &RemoteCall{
+		MsgID:   protocol.MsgCancelTaskRequest,
+		AgentID: agentID,
+		TaskID:  taskID,
+	})
 	if ferr != nil {
 		return nil, fmt.Errorf("forward to owner of %s: %v: %w", agentID, ferr, errAgentUnreachable)
 	}
@@ -1174,7 +1275,7 @@ func (d *Dispatcher) UnregisterTask(taskID string) {
 	d.unregisterTask(taskID)
 }
 
-func (d *Dispatcher) taskAgentID(taskID string) (string, error) {
+func (d *Dispatcher) taskAgentID(ctx context.Context, taskID string) (string, error) {
 	d.mu.RLock()
 	agentID, ok := d.taskRouting[taskID]
 	d.mu.RUnlock()
@@ -1186,6 +1287,18 @@ func (d *Dispatcher) taskAgentID(taskID string) (string, error) {
 				d.taskRouting[taskID] = routing.AgentID
 				d.mu.Unlock()
 				return routing.AgentID, nil
+			}
+		}
+		// 跨实例兜底：task routing 与本地 taskStore 都是 per-instance 的，
+		// 取消请求落到非发起实例时在此 miss——task_runs 落共享库，从行内
+		// AgentID 解析（发起实例 dispatch 时写入）。不回填内存 map：归属
+		// 可能随任务终态失效，每次现查共享库更稳。
+		d.mu.RLock()
+		lookup := d.taskAgentLookup
+		d.mu.RUnlock()
+		if lookup != nil {
+			if remoteAgentID, err := lookup.AgentForTask(ctx, taskID); err == nil && remoteAgentID != "" {
+				return remoteAgentID, nil
 			}
 		}
 		return "", fmt.Errorf("task %s not tracked", taskID)
@@ -1304,4 +1417,53 @@ func (d *Dispatcher) InvokeRequestOnAgent(ctx context.Context, agentID string, r
 		d.healthTracker.RecordSuccess(agentID)
 	}
 	return respBytes, nil
+}
+
+// StartTaskOnAgent 定向把异步任务投递给指定 Agent（集群转发 owner 路径
+// 使用）。与 StartTaskRequest 的差异：跳过 agent 选择，也**不**写
+// task_runs、**不** registerTask——run 行与服务端 task ID 都由 caller 在
+// dispatch 前创建（ID 在 metadata.taskId 里随帧带到，owner 原样透传给
+// agent），owner 只负责本地投递。返回原始响应字节（转发协议原样回传）。
+func (d *Dispatcher) StartTaskOnAgent(ctx context.Context, agentID string, req *sdkv1.InvokeRequest) ([]byte, error) {
+	if req == nil || strings.TrimSpace(agentID) == "" {
+		return nil, fmt.Errorf("agent id is required")
+	}
+	if req.Metadata == nil {
+		req.Metadata = map[string]string{}
+	}
+	// 与本地 StartTaskRequest 对齐：定向投递也注入 agentId 标记。
+	req.Metadata["agentId"] = agentID
+	reqBytes, err := proto.Marshal(req)
+	if err != nil {
+		return nil, fmt.Errorf("marshal request: %w", err)
+	}
+	if d.healthTracker != nil {
+		d.healthTracker.IncrementConnections(agentID)
+		defer d.healthTracker.DecrementConnections(agentID)
+	}
+	respBytes, err := d.callAgent(ctx, agentID, protocol.MsgStartTaskRequest, reqBytes)
+	if err != nil {
+		if d.healthTracker != nil {
+			d.healthTracker.RecordFailure(agentID)
+		}
+		return nil, err
+	}
+	if d.healthTracker != nil {
+		d.healthTracker.RecordSuccess(agentID)
+	}
+	return respBytes, nil
+}
+
+// CancelTaskOnAgent 定向取消指定 Agent 上的任务（集群转发 owner 路径）。
+// 与 CancelTask 的差异：**不**查/不删本地 task routing——routing 在 caller
+// 实例的内存态里，取消成功后由 caller unregisterTask；owner 只投递。
+func (d *Dispatcher) CancelTaskOnAgent(ctx context.Context, agentID, taskID string) ([]byte, error) {
+	if strings.TrimSpace(agentID) == "" || strings.TrimSpace(taskID) == "" {
+		return nil, fmt.Errorf("agent id and task id are required")
+	}
+	reqBytes, err := proto.Marshal(&sdkv1.CancelTaskRequest{TaskId: taskID})
+	if err != nil {
+		return nil, fmt.Errorf("marshal request: %w", err)
+	}
+	return d.callAgent(ctx, agentID, protocol.MsgCancelTaskRequest, reqBytes)
 }

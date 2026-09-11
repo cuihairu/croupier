@@ -289,6 +289,12 @@ func runServer() error {
 		})
 	}
 
+	// 跨实例任务取消兜底：task routing 是 per-instance 内存 map，取消请求
+	// 落到非发起实例时从共享 task_runs 行解析 agent（dispatch 时写入）。
+	if svcCtx.Dispatcher != nil && svcCtx.DB != nil {
+		svcCtx.Dispatcher.SetTaskAgentLookup(&taskRunAgentLookup{m: model.NewTaskRunModel(svcCtx.DB)})
+	}
+
 	// 启动 Registry 清理任务（定期删除过期的 AgentSession）
 	go startRegistryCleanup(rootCtx, svcCtx)
 

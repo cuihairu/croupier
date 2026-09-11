@@ -6,11 +6,13 @@ import (
 
 	"github.com/cuihairu/croupier/internal/cluster"
 	"github.com/cuihairu/croupier/internal/platform/dispatch"
+	"github.com/cuihairu/croupier/pkg/protocol"
 )
 
 // meshForwarder 适配 Dispatcher 的 HA 转发：把对远端实例持有 agent 的
 // 调用翻译成 ForwardedInvoke 经互联 mesh 发给 owner。调用方上下文
-// （username/game/env）透传给 owner 侧审计。
+// （username/game/env）透传给 owner 侧审计。三类调用（invoke/start_task/
+// cancel_task）共用同一帧格式，按 MsgID 映射 Kind。
 type meshForwarder struct {
 	mesh *cluster.MeshInterconnect
 }
@@ -19,23 +21,30 @@ func newMeshForwarder(mesh *cluster.MeshInterconnect) *meshForwarder {
 	return &meshForwarder{mesh: mesh}
 }
 
-func (f *meshForwarder) ForwardInvoke(ctx context.Context, agentID, functionID string, payload []byte, metadata map[string]string, idempotencyKey string) ([]byte, error) {
+func (f *meshForwarder) Forward(ctx context.Context, call *dispatch.RemoteCall) ([]byte, error) {
 	caller := cluster.CallerContext{
-		GameID: metadata["gameId"],
-		Env:    metadata["env"],
+		GameID: call.Metadata["gameId"],
+		Env:    call.Metadata["env"],
 	}
 	if v, ok := ctx.Value("username").(string); ok {
 		caller.Username = v
 	}
 	req := &cluster.ForwardedInvoke{
-		AgentID:        agentID,
-		FunctionID:     functionID,
-		Payload:        payload,
-		Metadata:       metadata,
-		IdempotencyKey: idempotencyKey,
+		AgentID:        call.AgentID,
+		FunctionID:     call.FunctionID,
+		Payload:        call.Payload,
+		Metadata:       call.Metadata,
+		IdempotencyKey: call.IdempotencyKey,
+		TaskID:         call.TaskID,
 		Caller:         caller,
 	}
-	res, err := f.mesh.Forward(ctx, agentID, req)
+	switch call.MsgID {
+	case protocol.MsgStartTaskRequest:
+		req.Kind = cluster.ForwardKindStartTask
+	case protocol.MsgCancelTaskRequest:
+		req.Kind = cluster.ForwardKindCancel
+	}
+	res, err := f.mesh.Forward(ctx, call.AgentID, req)
 	if err != nil {
 		// 不可达类错误（无路由/拨号失败/一跳超限）标记为可换候选重试。
 		return nil, fmt.Errorf("mesh forward: %w", err)

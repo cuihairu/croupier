@@ -253,9 +253,12 @@ func wireClusterHooks(svcCtx *svc.ServiceContext, resources *controlRuntime) {
 }
 
 // localInvoker 适配 dispatcher 为集群本地执行器：转发请求 → 本地 Agent 连接。
+// 按 ForwardedInvoke.Kind 分发三类调用（invoke/start_task/cancel_task）。
 type localInvoker struct {
 	dispatcher interface {
 		InvokeRequestOnAgent(ctx context.Context, agentID string, req *sdkv1.InvokeRequest) ([]byte, error)
+		StartTaskOnAgent(ctx context.Context, agentID string, req *sdkv1.InvokeRequest) ([]byte, error)
+		CancelTaskOnAgent(ctx context.Context, agentID, taskID string) ([]byte, error)
 	}
 }
 
@@ -263,6 +266,38 @@ func (li localInvoker) InvokeLocal(ctx context.Context, req *cluster.ForwardedIn
 	if li.dispatcher == nil {
 		return nil, fmt.Errorf("dispatcher unavailable")
 	}
+	switch req.Kind {
+	case cluster.ForwardKindCancel:
+		// 取消：TaskID 随帧；路由清理是 caller 职责（task routing 在
+		// caller 实例内存态），owner 只投递给本地 agent 连接。
+		if strings.TrimSpace(req.TaskID) == "" {
+			return &cluster.ForwardedResult{OK: false, Error: "cancel_task forward missing taskId"}, nil
+		}
+		if _, err := li.dispatcher.CancelTaskOnAgent(ctx, req.AgentID, req.TaskID); err != nil {
+			return &cluster.ForwardedResult{OK: false, Error: err.Error()}, nil
+		}
+		return &cluster.ForwardedResult{OK: true}, nil
+	case cluster.ForwardKindStartTask:
+		// 异步任务：task_runs 行与服务端 task ID 均为 caller 职责（ID 在
+		// metadata.taskId 里随帧带到），owner 只做本地投递。
+		respBytes, err := li.dispatcher.StartTaskOnAgent(ctx, req.AgentID, forwardInvokeRequest(req))
+		if err != nil {
+			return &cluster.ForwardedResult{OK: false, Error: err.Error()}, nil
+		}
+		return &cluster.ForwardedResult{OK: true, Payload: respBytes}, nil
+	default:
+		// Kind 为空 = invoke（转发链路首个使用者，旧 caller 兼容）。
+		respBytes, err := li.dispatcher.InvokeRequestOnAgent(ctx, req.AgentID, forwardInvokeRequest(req))
+		if err != nil {
+			return &cluster.ForwardedResult{OK: false, Error: err.Error()}, nil
+		}
+		return &cluster.ForwardedResult{OK: true, Payload: respBytes}, nil
+	}
+}
+
+// forwardInvokeRequest 从转发帧重建 InvokeRequest（invoke/start_task 共用）：
+// 转发标记不透传 Agent；调用者信息进 metadata 供审计与 scope 路由。
+func forwardInvokeRequest(req *cluster.ForwardedInvoke) *sdkv1.InvokeRequest {
 	invokeReq := &sdkv1.InvokeRequest{
 		FunctionId:     req.FunctionID,
 		Payload:        req.Payload,
@@ -272,7 +307,6 @@ func (li localInvoker) InvokeLocal(ctx context.Context, req *cluster.ForwardedIn
 	if invokeReq.Metadata == nil {
 		invokeReq.Metadata = map[string]string{}
 	}
-	// 转发标记不透传 Agent；调用者信息进 metadata 供审计。
 	invokeReq.Metadata["forwarded_by"] = req.Caller.Username
 	if req.Caller.GameID != "" {
 		invokeReq.Metadata["gameId"] = req.Caller.GameID
@@ -280,11 +314,7 @@ func (li localInvoker) InvokeLocal(ctx context.Context, req *cluster.ForwardedIn
 	if req.Caller.Env != "" {
 		invokeReq.Metadata["env"] = req.Caller.Env
 	}
-	respBytes, err := li.dispatcher.InvokeRequestOnAgent(ctx, req.AgentID, invokeReq)
-	if err != nil {
-		return &cluster.ForwardedResult{OK: false, Error: err.Error()}, nil
-	}
-	return &cluster.ForwardedResult{OK: true, Payload: respBytes}, nil
+	return invokeReq
 }
 
 // refreshRemoteSnapshots 把归属表活跃、连接在对端实例的 agent 的 DB

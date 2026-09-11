@@ -40,6 +40,14 @@ type CallerContext struct {
 	TraceID  string   `json:"traceId"`
 }
 
+// 转发 kind：同一帧格式承载三类调用（防环/fencing/盖戳共用），Kind 为空
+// 视为 invoke（旧 caller 不填，owner 按 invoke 处理）。
+const (
+	ForwardKindInvoke    = ""
+	ForwardKindStartTask = "start_task"
+	ForwardKindCancel    = "cancel_task"
+)
+
 // ForwardedInvoke 是转发到 owner 实例的调用请求。
 type ForwardedInvoke struct {
 	AgentID    string `json:"agentId"`
@@ -49,6 +57,12 @@ type ForwardedInvoke struct {
 	Metadata map[string]string `json:"metadata,omitempty"`
 	// IdempotencyKey 可选幂等键，透传执行路径。
 	IdempotencyKey string `json:"idempotencyKey,omitempty"`
+	// Kind 区分转发调用类型（invoke/start_task/cancel_task）；
+	// 空值 = invoke（同步调用是转发链路的首个使用者，向后兼容）。
+	Kind string `json:"kind,omitempty"`
+	// TaskID 是 cancel_task 的目标任务 ID。start_task 的任务 ID 在
+	// Metadata.taskId 里随 InvokeRequest 语义透传（agent 侧同解析路径）。
+	TaskID string `json:"taskId,omitempty"`
 	// Forwarded 必须为 false；owner 收到 true 时拒绝（一跳限制）。
 	Forwarded bool `json:"forwarded"`
 	// CallerEpoch 发起转发方解析目录时看到的 owner epoch，
