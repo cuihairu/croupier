@@ -77,6 +77,9 @@ export interface FunctionInstance {
   lastSeen?: string;
   gameId?: string;
   env?: string;
+  // 集群聚合标注：该实例条目归属的对端 server 实例（跨实例聚合时远端
+  // 条目携带）；本实例直连的 agent 为空。
+  ownerInstance?: string;
   metadata?: Record<string, unknown>;
 }
 
@@ -102,6 +105,7 @@ export interface RawFunctionInstance {
   sdkVersion?: string;
   gameId?: string;
   env?: string;
+  ownerInstance?: string;
   metadata?: Record<string, unknown>;
 }
 
@@ -131,6 +135,7 @@ export function normalizeFunctionInstance(raw: RawFunctionInstance): FunctionIns
     lastSeen: raw.lastSeen || raw.updatedAt || '',
     gameId: raw.gameId || '',
     env: raw.env || '',
+    ownerInstance: raw.ownerInstance || '',
     metadata: raw.metadata,
   };
 }

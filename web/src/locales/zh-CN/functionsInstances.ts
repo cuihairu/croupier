@@ -7,6 +7,8 @@ export default {
   'pages.functionsInstances.column.actions': '操作',
   'pages.functionsInstances.column.env': '环境',
   'pages.functionsInstances.column.functionId': '函数ID',
+  'pages.functionsInstances.column.ownerInstance': '归属实例',
+  'pages.functionsInstances.column.ownerSelf': '本实例',
   'pages.functionsInstances.column.rowAction.debug': '调试',
   'pages.functionsInstances.column.rowAction.detail': '查看详情',
   'pages.functionsInstances.column.rowAction.logs': '查看日志',
@@ -41,6 +43,7 @@ export default {
   'pages.functionsInstances.detail.label.addr': '地址',
   'pages.functionsInstances.detail.label.functionId': '函数ID',
   'pages.functionsInstances.detail.label.lastHeartbeat': '最后心跳',
+  'pages.functionsInstances.detail.label.ownerInstance': '归属实例',
   'pages.functionsInstances.detail.label.status': '状态',
   'pages.functionsInstances.detail.label.version': '版本',
   'pages.functionsInstances.detail.logsAlert.description':

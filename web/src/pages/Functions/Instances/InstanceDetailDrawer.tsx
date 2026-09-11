@@ -145,6 +145,23 @@ export default function InstanceDetailDrawer({
                     </Descriptions.Item>
                     <Descriptions.Item
                       label={intl.formatMessage({
+                        id: 'pages.functionsInstances.detail.label.ownerInstance',
+                        defaultMessage: '归属实例',
+                      })}
+                    >
+                      {instanceDetail.instance.ownerInstance ? (
+                        <Tag color="geekblue">{instanceDetail.instance.ownerInstance}</Tag>
+                      ) : (
+                        <span style={{ color: '#999' }}>
+                          {intl.formatMessage({
+                            id: 'pages.functionsInstances.column.ownerSelf',
+                            defaultMessage: '本实例',
+                          })}
+                        </span>
+                      )}
+                    </Descriptions.Item>
+                    <Descriptions.Item
+                      label={intl.formatMessage({
                         id: 'pages.functionsInstances.detail.label.status',
                         defaultMessage: '状态',
                       })}

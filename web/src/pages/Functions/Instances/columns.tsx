@@ -81,6 +81,28 @@ export function buildInstanceColumns({
       ),
     },
     {
+      // 跨实例聚合标注：远端条目显示归属的对端实例，本地直连显示「本实例」
+      //（单实例部署 cluster=nil 时全部为本地）。语义与 /ops/nodes 归属列一致。
+      title: intl.formatMessage({
+        id: 'pages.functionsInstances.column.ownerInstance',
+        defaultMessage: '归属实例',
+      }),
+      dataIndex: 'ownerInstance',
+      width: 120,
+      ellipsis: true,
+      render: (_, record) =>
+        record.ownerInstance ? (
+          <Tag color="geekblue">{record.ownerInstance}</Tag>
+        ) : (
+          <span style={{ color: '#999' }}>
+            {intl.formatMessage({
+              id: 'pages.functionsInstances.column.ownerSelf',
+              defaultMessage: '本实例',
+            })}
+          </span>
+        ),
+    },
+    {
       title: intl.formatMessage({
         id: 'pages.functionsInstances.column.status',
         defaultMessage: '状态',

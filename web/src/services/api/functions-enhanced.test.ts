@@ -51,6 +51,7 @@ describe('getFunctionInstances', () => {
           agentId: 'agent-1',
           serviceId: 'service-1',
           status: 'running',
+          ownerInstance: '',
         }),
       ],
       total: 1,
@@ -58,6 +59,25 @@ describe('getFunctionInstances', () => {
     expect(mockedRequest).toHaveBeenCalledWith('/api/v1/functions/player%2Fread/instances', {
       params: { gameId: undefined },
     });
+  });
+
+  it('passes through the cross-instance owner annotation for remote entries', async () => {
+    mockedRequest.mockResolvedValue({
+      instances: [
+        {
+          functionId: 'player/read',
+          agentId: 'agent-remote',
+          serviceId: 'service-remote',
+          status: 'active',
+          ownerInstance: 'server2',
+        },
+      ],
+      total: 1,
+    });
+
+    const { instances } = await getFunctionInstances();
+    // 远端条目的归属标注不得在 normalize 层被剥掉（跨实例聚合的 UI 呈现依据）。
+    expect(instances[0].ownerInstance).toBe('server2');
   });
 
   it('propagates scope or permission errors instead of returning fake empty data', async () => {

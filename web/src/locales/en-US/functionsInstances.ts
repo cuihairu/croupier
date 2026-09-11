@@ -8,6 +8,8 @@ export default {
   'pages.functionsInstances.column.actions': 'Actions',
   'pages.functionsInstances.column.env': 'Environment',
   'pages.functionsInstances.column.functionId': 'Function ID',
+  'pages.functionsInstances.column.ownerInstance': 'Owner Instance',
+  'pages.functionsInstances.column.ownerSelf': 'This instance',
   'pages.functionsInstances.column.rowAction.debug': 'Debug',
   'pages.functionsInstances.column.rowAction.detail': 'View Details',
   'pages.functionsInstances.column.rowAction.logs': 'View Logs',
@@ -42,6 +44,7 @@ export default {
   'pages.functionsInstances.detail.label.addr': 'Address',
   'pages.functionsInstances.detail.label.functionId': 'Function ID',
   'pages.functionsInstances.detail.label.lastHeartbeat': 'Last Heartbeat',
+  'pages.functionsInstances.detail.label.ownerInstance': 'Owner Instance',
   'pages.functionsInstances.detail.label.status': 'Status',
   'pages.functionsInstances.detail.label.version': 'Version',
   'pages.functionsInstances.detail.logsAlert.description':
