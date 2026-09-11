@@ -560,7 +560,12 @@ public class CroupierClientImpl implements CroupierClient {
             case Protocol.MSG_STREAM_TASK_REQUEST -> handleStreamTaskRequest(body);
             case Protocol.MSG_CANCEL_TASK_REQUEST -> handleCancelTaskRequest(body);
             case Protocol.MSG_PROVIDER_FILE_PUSH_REQ -> handleFilePushRequest(body);
-            default -> throw new CroupierException("Unsupported local request type: " + requestId);
+            // agent keepalive 探针：回空 ProviderHeartbeatResponse（pong），
+            // 与 Go/C++ SDK 对齐——不响应会被 agent 判死会话并摘除。
+            case Protocol.MSG_PROVIDER_HEARTBEAT_REQUEST -> new byte[0];
+            default -> throw new CroupierException(
+                "Unsupported local request type: " + Protocol.msgIdString(msgType) + " (0x"
+                    + Integer.toHexString(msgType) + ")");
         };
     }
 

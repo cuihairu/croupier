@@ -95,7 +95,22 @@ class CroupierClientImplLocalTaskTest {
         CroupierClientImpl client = new CroupierClientImpl(createConfig(), (address, timeout) -> new FakeTransportClient(null));
         CroupierException error = assertThrows(CroupierException.class, () ->
             localRequest(client, Protocol.MSG_REGISTER_REQUEST, new byte[0]));
+        // 错误消息必须带消息类型名（此前误打 requestId 数字，日志无法定位）
         assertTrue(error.getMessage().contains("Unsupported local request type"));
+        assertTrue(error.getMessage().contains("RegisterRequest"));
+    }
+
+    @Test
+    @DisplayName("handleLocalRequest answers keepalive probes with an empty pong")
+    @Timeout(5)
+    void localKeepaliveProbeReturnsEmptyPong() throws Exception {
+        // agent 每 5s 发 ProviderHeartbeatRequest 探针（provider_keepalive），
+        // 不回 pong 会被判死会话并摘除——2026-09-11 线上 java demo 每 5s
+        // 刷 "Unsupported local request type" 的根因。
+        CroupierClientImpl client = new CroupierClientImpl(createConfig(), (address, timeout) -> new FakeTransportClient(null));
+        byte[] pong = localRequest(client, Protocol.MSG_PROVIDER_HEARTBEAT_REQUEST, new byte[0]);
+        assertNotNull(pong);
+        assertEquals(0, pong.length);
     }
 
     @Test
