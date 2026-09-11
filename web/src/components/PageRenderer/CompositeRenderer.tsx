@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { App, Button, Card, Col, Descriptions, Modal, Row, Space, Table } from 'antd';
+import { FormattedMessage, useIntl } from '@umijs/max';
 import { ExclamationCircleOutlined } from '@ant-design/icons';
 import SchemaFormRenderer from '@/components/SchemaFormRenderer';
 import { localizedText } from '@/utils/localizedText';
@@ -29,6 +30,7 @@ export const CompositeRenderer: React.FC<{
   ) => void;
 }> = ({ sections, bindings, onExecute, preview, onPageStateMerge }) => {
   const { message, modal } = App.useApp();
+  const intl = useIntl();
   // V5 §7.1：每区块运行时状态 = data（函数输出）+ selectedRow/selectedRows（表格
   // 选中）+ values（表单当前值）。键为区块 key（= 变量名），表达式求值直接消费。
   const [results, setResults] = useState<
@@ -191,7 +193,13 @@ export const CompositeRenderer: React.FC<{
       setSectionInputs((prev) => ({ ...prev, [targetSection]: params }));
       if (danger && label) {
         modal.confirm({
-          title: `确认执行「${label}」`,
+          title: intl.formatMessage(
+            {
+              id: 'component.pageRenderer.composite.confirmDangerTitle',
+              defaultMessage: `确认执行「${label}」`,
+            },
+            { label },
+          ),
           icon: <ExclamationCircleOutlined />,
           onOk: () => setDialogKey(targetSection),
         });
@@ -199,7 +207,7 @@ export const CompositeRenderer: React.FC<{
       }
       setDialogKey(targetSection);
     },
-    [modal],
+    [modal, intl],
   );
 
   /** 动作链执行：run/refresh（params 来源解析）/openModal/closeModal/navigate/showMessage。 */
@@ -324,13 +332,19 @@ export const CompositeRenderer: React.FC<{
                     {toolbarButtonsOf(sec)}
                     {!sec.autoRun ? (
                       <Button size="small" onClick={() => void runSection(sec)}>
-                        执行
+                        <FormattedMessage
+                          id="component.pageRenderer.composite.executeButton"
+                          defaultMessage="执行"
+                        />
                       </Button>
                     ) : null}
                   </Space>
                 ) : sec.view !== 'actions' && sec.view !== 'toolbar' && !sec.autoRun ? (
                   <Button size="small" onClick={() => void runSection(sec)}>
-                    执行
+                    <FormattedMessage
+                      id="component.pageRenderer.composite.executeButton"
+                      defaultMessage="执行"
+                    />
                   </Button>
                 ) : null
               }
@@ -362,7 +376,10 @@ export const CompositeRenderer: React.FC<{
                     ...(sec.table?.rowActions?.length
                       ? [
                           {
-                            title: '操作',
+                            title: intl.formatMessage({
+                              id: 'component.pageRenderer.composite.rowActionsColumn',
+                              defaultMessage: '操作',
+                            }),
                             key: '__row_actions',
                             render: (_: unknown, row: Record<string, unknown>) => (
                               <Space size={4}>
@@ -507,13 +524,27 @@ export const CompositeRenderer: React.FC<{
                     try {
                       await runSectionRef.current(sec, values);
                       setDialogKey(null);
-                      message.success(`${localizedText(sec.title, 'zh-CN', sec.key)} 执行成功`);
+                      message.success(
+                        intl.formatMessage(
+                          {
+                            id: 'component.pageRenderer.composite.executeSuccess',
+                            defaultMessage: `${localizedText(sec.title, 'zh-CN', sec.key)} 执行成功`,
+                          },
+                          { title: localizedText(sec.title, 'zh-CN', sec.key) },
+                        ),
+                      );
                       fireEvent(sec, 'success');
                     } catch (e) {
                       // 失败保持弹窗开启（保留已填参数）；App 实例 toast 给出
                       // 明确错误反馈（全局拦截器只对 request 层错误兜底）
-                      const errMsg = e instanceof Error ? e.message : '执行失败';
-                      message.error(errMsg || '执行失败');
+                      const errMsg = e instanceof Error ? e.message : '';
+                      message.error(
+                        errMsg ||
+                          intl.formatMessage({
+                            id: 'component.pageRenderer.composite.executeFailed',
+                            defaultMessage: '执行失败',
+                          }),
+                      );
                     }
                   }}
                 />
@@ -570,7 +601,10 @@ const DialogForm: React.FC<{
   if (!spec || !hasFields) {
     return (
       <Button type="primary" block loading={running} onClick={() => void onSubmit({})}>
-        确认执行
+        <FormattedMessage
+          id="component.pageRenderer.composite.confirmExecute"
+          defaultMessage="确认执行"
+        />
       </Button>
     );
   }

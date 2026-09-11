@@ -1,4 +1,5 @@
 import { Alert, Button, Card, Col, Empty, Modal, Row, Space, Switch, Typography } from 'antd';
+import { FormattedMessage, useIntl } from '@umijs/max';
 import PageEditor from '@/components/PageEditor';
 import PageRenderer from '@/components/PageRenderer';
 import type { PageSpec, PageSpecDraft } from '@/types/dashboard';
@@ -28,11 +29,14 @@ export default function EditorModal({
   onSave: (options?: { publishAfterSave?: boolean }) => void;
   onSpecChange: (value: PageSpec) => void;
 }) {
+  const intl = useIntl();
   return (
     <Modal
       title={
         <Space>
-          <span>页面编辑</span>
+          <span>
+            <FormattedMessage id="pages.pageStudio.studio.editor.title" defaultMessage="页面编辑" />
+          </span>
           <Text type="secondary" code>
             {pageKey || '-'}
           </Text>
@@ -46,21 +50,35 @@ export default function EditorModal({
       footer={
         <Space>
           <Switch
-            checkedChildren="预览开"
-            unCheckedChildren="预览关"
+            checkedChildren={intl.formatMessage({
+              id: 'pages.pageStudio.studio.editor.previewOn',
+              defaultMessage: '预览开',
+            })}
+            unCheckedChildren={intl.formatMessage({
+              id: 'pages.pageStudio.studio.editor.previewOff',
+              defaultMessage: '预览关',
+            })}
             checked={livePreview}
             onChange={onLivePreviewChange}
           />
-          <Button onClick={onClose}>取消</Button>
+          <Button onClick={onClose}>
+            <FormattedMessage id="pages.pageStudio.studio.editor.cancel" defaultMessage="取消" />
+          </Button>
           <Button loading={saving} onClick={() => onSave()}>
-            仅保存草稿
+            <FormattedMessage
+              id="pages.pageStudio.studio.editor.saveDraft"
+              defaultMessage="仅保存草稿"
+            />
           </Button>
           <Button
             type="primary"
             loading={saving}
             onClick={() => onSave({ publishAfterSave: true })}
           >
-            保存并发布
+            <FormattedMessage
+              id="pages.pageStudio.studio.editor.saveAndPublish"
+              defaultMessage="保存并发布"
+            />
           </Button>
         </Space>
       }
@@ -76,7 +94,10 @@ export default function EditorModal({
                 type="warning"
                 showIcon
                 style={{ marginBottom: 12 }}
-                message="页面绑定与函数契约不一致（发布会校验失败）"
+                message={intl.formatMessage({
+                  id: 'pages.pageStudio.studio.editor.bindingStaleTitle',
+                  defaultMessage: '页面绑定与函数契约不一致（发布会校验失败）',
+                })}
                 description={
                   <ul style={{ margin: 0, paddingLeft: 18 }}>
                     {draft.bindingFreshness.slice(0, 8).map((item, i) => (
@@ -86,7 +107,15 @@ export default function EditorModal({
                       </li>
                     ))}
                     {draft.bindingFreshness.length > 8 ? (
-                      <li>…以及另外 {draft.bindingFreshness.length - 8} 条</li>
+                      <li>
+                        {intl.formatMessage(
+                          {
+                            id: 'pages.pageStudio.studio.editor.bindingStaleMore',
+                            defaultMessage: '…以及另外 {count} 条',
+                          },
+                          { count: draft.bindingFreshness.length - 8 },
+                        )}
+                      </li>
                     ) : null}
                   </ul>
                 }
@@ -98,14 +127,29 @@ export default function EditorModal({
             <Col span={11} style={{ height: '100%', overflow: 'auto' }}>
               <Card
                 size="small"
-                title="实时预览"
-                extra={<Text type="secondary">预览不执行函数；发布后请在运行控制台执行</Text>}
+                title={intl.formatMessage({
+                  id: 'pages.pageStudio.studio.editor.livePreview',
+                  defaultMessage: '实时预览',
+                })}
+                extra={
+                  <Text type="secondary">
+                    <FormattedMessage
+                      id="pages.pageStudio.studio.editor.previewHint"
+                      defaultMessage="预览不执行函数；发布后请在运行控制台执行"
+                    />
+                  </Text>
+                }
               >
                 <PageRenderer
                   pageSpec={draft}
                   preview
                   onExecute={async () => {
-                    throw new Error('Page Studio 预览不执行函数；发布后请在运行控制台执行。');
+                    throw new Error(
+                      intl.formatMessage({
+                        id: 'pages.pageStudio.studio.editor.previewExecuteError',
+                        defaultMessage: 'Page Studio 预览不执行函数；发布后请在运行控制台执行。',
+                      }),
+                    );
                   }}
                 />
               </Card>
@@ -113,7 +157,12 @@ export default function EditorModal({
           ) : null}
         </Row>
       ) : (
-        <Empty description="请选择页面" />
+        <Empty
+          description={intl.formatMessage({
+            id: 'pages.pageStudio.studio.editor.empty',
+            defaultMessage: '请选择页面',
+          })}
+        />
       )}
     </Modal>
   );

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Button, Input, Select, Space, Switch, Typography } from 'antd';
 import { DeleteOutlined, PlusOutlined } from '@ant-design/icons';
+import { useIntl } from '@umijs/max';
 import type { PageNode } from './model';
 import type { FunctionDescriptor } from '@/services/api/functions';
 import { schemaProperties } from './types';
@@ -29,6 +30,7 @@ export default function RowActionsEditor({
   rowFields: string[];
   onChange: (v: RowActionDraft[] | null) => void;
 }) {
+  const intl = useIntl();
   const actions = (Array.isArray(value) ? value : []) as unknown as RowActionDraft[];
   const modals = nodes.filter(
     (n) => n.type === 'modal' && n.children?.some((c) => c.type === 'fnForm'),
@@ -37,7 +39,13 @@ export default function RowActionsEditor({
     const form = m.children!.find((c) => c.type === 'fnForm')!;
     return {
       value: m.id,
-      label: `${String(m.props.title ?? '弹窗')}（${String(form.props.functionId ?? '')}）`,
+      label: `${String(
+        m.props.title ??
+          intl.formatMessage({
+            id: 'pages.pageStudio.editor.breadcrumb.modalFallback',
+            defaultMessage: '弹窗',
+          }),
+      )}（${String(form.props.functionId ?? '')}）`,
     };
   });
 
@@ -57,14 +65,20 @@ export default function RowActionsEditor({
             <Space orientation="vertical" size={6} style={{ width: '100%' }}>
               <Input
                 size="small"
-                placeholder="按钮文案（如：发邮件）"
+                placeholder={intl.formatMessage({
+                  id: 'pages.pageStudio.editor.rowActions.buttonLabelPlaceholder',
+                  defaultMessage: '按钮文案（如：发邮件）',
+                })}
                 value={a.label}
                 onChange={(e) => patch(i, { label: e.target.value })}
               />
               <Select
                 size="small"
                 style={{ width: '100%' }}
-                placeholder="打开弹窗"
+                placeholder={intl.formatMessage({
+                  id: 'pages.pageStudio.editor.rowActions.targetPlaceholder',
+                  defaultMessage: '打开弹窗',
+                })}
                 value={a.targetSection || undefined}
                 onChange={(v) => patch(i, { targetSection: v, params: {} })}
                 options={modalOptions}
@@ -82,11 +96,20 @@ export default function RowActionsEditor({
                   size="small"
                   checked={a.danger}
                   onChange={(v) => patch(i, { danger: v })}
-                  checkedChildren="危险"
-                  unCheckedChildren="普通"
+                  checkedChildren={intl.formatMessage({
+                    id: 'pages.pageStudio.editor.rowActions.dangerSwitch',
+                    defaultMessage: '危险',
+                  })}
+                  unCheckedChildren={intl.formatMessage({
+                    id: 'pages.pageStudio.editor.rowActions.normalSwitch',
+                    defaultMessage: '普通',
+                  })}
                 />
                 <Text type="secondary" style={{ fontSize: 11 }}>
-                  危险=红字+二次确认
+                  {intl.formatMessage({
+                    id: 'pages.pageStudio.editor.rowActions.dangerHint',
+                    defaultMessage: '危险=红字+二次确认',
+                  })}
                 </Text>
                 <Button
                   size="small"
@@ -95,7 +118,10 @@ export default function RowActionsEditor({
                   icon={<DeleteOutlined />}
                   onClick={() => onChange(actions.filter((_, idx) => idx !== i))}
                 >
-                  删除
+                  {intl.formatMessage({
+                    id: 'pages.pageStudio.editor.rowActions.delete',
+                    defaultMessage: '删除',
+                  })}
                 </Button>
               </Space>
             </Space>
@@ -112,7 +138,16 @@ export default function RowActionsEditor({
           onChange([...actions, { label: '', targetSection: '', params: {}, danger: false }])
         }
       >
-        添加行操作{modalOptions.length === 0 ? '（先创建含表单的弹窗）' : ''}
+        {intl.formatMessage({
+          id: 'pages.pageStudio.editor.rowActions.add',
+          defaultMessage: '添加行操作',
+        })}
+        {modalOptions.length === 0
+          ? intl.formatMessage({
+              id: 'pages.pageStudio.editor.rowActions.addNoModalHint',
+              defaultMessage: '（先创建含表单的弹窗）',
+            })
+          : ''}
       </Button>
     </Space>
   );
@@ -140,6 +175,7 @@ function ParamMapping({
   paramFields: string[];
   onChange: (m: Record<string, string>) => void;
 }) {
+  const intl = useIntl();
   // 参数名手输草稿（按已提交参数名键控）：失焦校验（非空/防撞）后保位改名
   const [nameDrafts, setNameDrafts] = useState<Record<string, string>>({});
   const entries = Object.entries(mapping);
@@ -164,7 +200,12 @@ function ParamMapping({
 
   return (
     <div style={{ fontSize: 11 }}>
-      <Text type="secondary">参数带入（表单参数 ← 行字段）</Text>
+      <Text type="secondary">
+        {intl.formatMessage({
+          id: 'pages.pageStudio.editor.rowActions.paramMappingTitle',
+          defaultMessage: '参数带入（表单参数 ← 行字段）',
+        })}
+      </Text>
       {entries.map(([param, source], idx) => {
         const draft = nameDrafts[param];
         const draftInvalid =
@@ -186,7 +227,10 @@ function ParamMapping({
                 style={{ width: 110 }}
                 status={draftInvalid ? 'error' : undefined}
                 value={draft ?? param}
-                placeholder="参数名"
+                placeholder={intl.formatMessage({
+                  id: 'pages.pageStudio.editor.rowActions.paramNamePlaceholder',
+                  defaultMessage: '参数名',
+                })}
                 onChange={(e) => setNameDrafts((prev) => ({ ...prev, [param]: e.target.value }))}
                 onBlur={() => commitRename(param)}
                 onPressEnter={() => commitRename(param)}
@@ -201,7 +245,10 @@ function ParamMapping({
               variables={[]}
               rootsOf={() => []}
               rowFields={rowFields}
-              placeholder="行字段，或 {{ row. }}"
+              placeholder={intl.formatMessage({
+                id: 'pages.pageStudio.editor.rowActions.fieldPlaceholder',
+                defaultMessage: "行字段，或 '{{' row. '}}'",
+              })}
             />
             <Button
               size="small"
@@ -230,7 +277,10 @@ function ParamMapping({
           if (free) onChange({ ...mapping, [free]: free });
         }}
       >
-        + 添加映射
+        {intl.formatMessage({
+          id: 'pages.pageStudio.editor.rowActions.addMapping',
+          defaultMessage: '+ 添加映射',
+        })}
       </Button>
     </div>
   );

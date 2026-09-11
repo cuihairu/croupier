@@ -2,11 +2,13 @@ import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import { Card, Table, Space, Input, Button, DatePicker, Tag } from 'antd';
 import type { Dayjs } from 'dayjs';
 import { PageContainer } from '@ant-design/pro-components';
+import { FormattedMessage, useIntl } from '@umijs/max';
 import { listAudit, type AuditEvent } from '@/services/api';
 import { exportToCSV } from '@/utils/export';
 import { formatDateTime } from '@/utils/format';
 
 export default function LoginLogsPage() {
+  const intl = useIntl();
   const [rows, setRows] = useState<AuditEvent[]>([]);
   const [loading, setLoading] = useState(false);
   const [actor, setActor] = useState<string>(
@@ -101,10 +103,18 @@ export default function LoginLogsPage() {
 
   return (
     <PageContainer>
-      <Card title="登录日志">
+      <Card
+        title={intl.formatMessage({
+          id: 'pages.adminLogs.loginLog.title',
+          defaultMessage: '登录日志',
+        })}
+      >
         <Space style={{ marginBottom: 12 }} wrap>
           <Input
-            placeholder="操作者"
+            placeholder={intl.formatMessage({
+              id: 'pages.adminLogs.loginLog.search.actor',
+              defaultMessage: '操作者',
+            })}
             value={actor}
             onChange={(e) => setActor(e.target.value)}
             style={{ width: 160 }}
@@ -137,12 +147,19 @@ export default function LoginLogsPage() {
             onChange={(dates) => setTimeRange(dates as [Dayjs | null, Dayjs | null] | null)}
           />
           <Button type="primary" onClick={load}>
-            查询
+            <FormattedMessage id="pages.adminLogs.loginLog.action.query" defaultMessage="查询" />
           </Button>
-          <Button onClick={exportCSV}>导出 CSV</Button>
+          <Button onClick={exportCSV}>
+            <FormattedMessage
+              id="pages.adminLogs.loginLog.action.exportCsv"
+              defaultMessage="导出 CSV"
+            />
+          </Button>
         </Space>
         <Space style={{ marginBottom: 12 }} wrap>
-          <span>设备:</span>
+          <span>
+            <FormattedMessage id="pages.adminLogs.loginLog.filter.device" defaultMessage="设备:" />
+          </span>
           <Space size={4}>
             {['Windows', 'macOS', 'Linux', 'Android', 'iOS', 'Other'].map((os) => (
               <Tag
@@ -159,7 +176,12 @@ export default function LoginLogsPage() {
               </Tag>
             ))}
           </Space>
-          <span>浏览器:</span>
+          <span>
+            <FormattedMessage
+              id="pages.adminLogs.loginLog.filter.browser"
+              defaultMessage="浏览器:"
+            />
+          </span>
           <Space size={4}>
             {['Edge', 'Chrome', 'Safari', 'Firefox', 'Other'].map((br) => (
               <Tag
@@ -182,36 +204,83 @@ export default function LoginLogsPage() {
               setBrSel([]);
             }}
           >
-            清空设备/浏览器筛选
+            <FormattedMessage
+              id="pages.adminLogs.loginLog.action.clearDeviceFilter"
+              defaultMessage="清空设备/浏览器筛选"
+            />
           </Button>
         </Space>
         <Table
           rowKey={(r) => r.hash}
           loading={loading}
           columns={[
-            { title: '时间', dataIndex: 'time', render: (t?: string) => formatDateTime(t ?? '') },
             {
-              title: '类型',
+              title: intl.formatMessage({
+                id: 'pages.adminLogs.loginLog.column.time',
+                defaultMessage: '时间',
+              }),
+              dataIndex: 'time',
+              render: (t?: string) => formatDateTime(t ?? ''),
+            },
+            {
+              title: intl.formatMessage({
+                id: 'pages.adminLogs.loginLog.column.kind',
+                defaultMessage: '类型',
+              }),
               dataIndex: 'kind',
               render: (v) => (
                 <Tag color={v === 'login' ? 'green' : v === 'login_fail' ? 'red' : 'gold'}>{v}</Tag>
               ),
             },
-            { title: '操作者', dataIndex: 'actor' },
+            {
+              title: intl.formatMessage({
+                id: 'pages.adminLogs.loginLog.column.actor',
+                defaultMessage: '操作者',
+              }),
+              dataIndex: 'actor',
+            },
             { title: 'IP', dataIndex: ['meta', 'ip'] },
             {
-              title: '属地',
+              title: intl.formatMessage({
+                id: 'pages.adminLogs.loginLog.column.region',
+                defaultMessage: '属地',
+              }),
               render: (_, r) => {
                 const v = String(r?.meta?.ipRegion || '');
                 if (!v) return '-';
-                if (v === '本地') return <Tag color="blue">本地</Tag>;
-                if (v === '局域网') return <Tag color="geekblue">局域网</Tag>;
+                if (v === '本地')
+                  return (
+                    <Tag color="blue">
+                      <FormattedMessage
+                        id="pages.adminLogs.loginLog.region.local"
+                        defaultMessage="本地"
+                      />
+                    </Tag>
+                  );
+                if (v === '局域网')
+                  return (
+                    <Tag color="geekblue">
+                      <FormattedMessage
+                        id="pages.adminLogs.loginLog.region.lan"
+                        defaultMessage="局域网"
+                      />
+                    </Tag>
+                  );
                 return v;
               },
             },
-            { title: '设备', render: (_, r) => detectOS(String(r.meta?.ua || '')) },
             {
-              title: '浏览器',
+              title: intl.formatMessage({
+                id: 'pages.adminLogs.loginLog.column.device',
+                defaultMessage: '设备',
+              }),
+              render: (_, r) => detectOS(String(r.meta?.ua || '')),
+            },
+            {
+              title: intl.formatMessage({
+                id: 'pages.adminLogs.loginLog.column.browser',
+                defaultMessage: '浏览器',
+              }),
               render: (_, r) => detectBrowser(String(r.meta?.ua || '')),
             },
           ]}
@@ -221,7 +290,11 @@ export default function LoginLogsPage() {
               const ua = String(r?.meta?.ua || '');
               return (
                 <div style={{ fontFamily: 'monospace', whiteSpace: 'pre-wrap' }}>
-                  浏览器: {detectBrowser(ua) || '-'}\nUA: {ua || '-'}
+                  <FormattedMessage
+                    id="pages.adminLogs.loginLog.expanded.ua"
+                    defaultMessage={'浏览器: {browser}\\nUA: {ua}'}
+                    values={{ browser: detectBrowser(ua) || '-', ua: ua || '-' }}
+                  />
                 </div>
               );
             },

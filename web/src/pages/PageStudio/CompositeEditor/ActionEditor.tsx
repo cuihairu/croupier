@@ -1,6 +1,7 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import { Button, Input, Select, Space, Typography } from 'antd';
 import { CloseOutlined, PlusOutlined } from '@ant-design/icons';
+import { useIntl } from '@umijs/max';
 import {
   ACTIONS,
   nodeSummary,
@@ -38,6 +39,7 @@ export default function ActionEditor({
   onCreateModal?: (fn: FunctionDescriptor) => void;
   onChange: (v: ActionSpec | null) => void;
 }) {
+  const intl = useIntl();
   const [newFnId, setNewFnId] = useState<string | undefined>();
   // 链步骤参数名手输草稿（`${步骤序号}:${参数名}` 键控）：失焦校验（非空/防撞）
   // 后保位改名——逐键提交改名会让 React key 变化丢焦点，且撞名时静默覆盖丢数据。
@@ -84,7 +86,10 @@ export default function ActionEditor({
       <Select
         size="small"
         style={{ width: '100%' }}
-        placeholder="选择动作"
+        placeholder={intl.formatMessage({
+          id: 'pages.pageStudio.editor.action.placeholder.kind',
+          defaultMessage: '选择动作',
+        })}
         value={effKind}
         onChange={(kind) => {
           const def = ACTIONS[kind];
@@ -124,10 +129,20 @@ export default function ActionEditor({
             size="small"
             style={{ width: '100%' }}
             value={targets.some((t) => t.id === action?.target) ? action?.target : undefined}
-            placeholder="选择目标"
+            placeholder={intl.formatMessage({
+              id: 'pages.pageStudio.editor.action.placeholder.target',
+              defaultMessage: '选择目标',
+            })}
             onChange={(target) => onChange({ kind: effKind, target })}
             options={targets.map((t) => ({ value: t.id, label: nodeSummary(t) }))}
-            notFoundContent={<Text type="secondary">无可用目标</Text>}
+            notFoundContent={
+              <Text type="secondary">
+                {intl.formatMessage({
+                  id: 'pages.pageStudio.editor.action.target.empty',
+                  defaultMessage: '无可用目标',
+                })}
+              </Text>
+            }
           />
           <Button size="small" icon={<CloseOutlined />} onClick={() => onChange(null)} />
         </Space.Compact>
@@ -142,7 +157,10 @@ export default function ActionEditor({
           }}
         >
           <Text strong style={{ fontSize: 12, display: 'block', marginBottom: 6 }}>
-            页面上还没有弹窗——选一个操作函数，一步创建并绑定：
+            {intl.formatMessage({
+              id: 'pages.pageStudio.editor.action.modalGuide.title',
+              defaultMessage: '页面上还没有弹窗——选一个操作函数，一步创建并绑定：',
+            })}
           </Text>
           <Space.Compact style={{ width: '100%' }}>
             <Select
@@ -150,7 +168,10 @@ export default function ActionEditor({
               style={{ width: '100%' }}
               showSearch
               optionFilterProp="label"
-              placeholder="选操作函数（如 mail.send）"
+              placeholder={intl.formatMessage({
+                id: 'pages.pageStudio.editor.action.modalGuide.fnPlaceholder',
+                defaultMessage: '选操作函数（如 mail.send）',
+              })}
               value={newFnId}
               onChange={setNewFnId}
               options={(allFns ?? []).map((f) => {
@@ -168,11 +189,17 @@ export default function ActionEditor({
                 if (fn) onCreateModal?.(fn);
               }}
             >
-              创建弹窗并绑定
+              {intl.formatMessage({
+                id: 'pages.pageStudio.editor.action.modalGuide.createButton',
+                defaultMessage: '创建弹窗并绑定',
+              })}
             </Button>
           </Space.Compact>
           <Text type="secondary" style={{ fontSize: 11 }}>
-            自动完成：新建弹窗 → 装入该函数表单 → 绑定到本按钮
+            {intl.formatMessage({
+              id: 'pages.pageStudio.editor.action.modalGuide.autoHint',
+              defaultMessage: '自动完成：新建弹窗 → 装入该函数表单 → 绑定到本按钮',
+            })}
           </Text>
         </div>
       )}
@@ -180,13 +207,19 @@ export default function ActionEditor({
         ACTIONS[action.kind].needsTarget &&
         !targets.some((t) => t.id === action.target) && (
           <Text type="danger" style={{ fontSize: 11 }}>
-            目标节点已被删除——请重新选择
+            {intl.formatMessage({
+              id: 'pages.pageStudio.editor.action.targetDeleted',
+              defaultMessage: '目标节点已被删除——请重新选择',
+            })}
           </Text>
         )}
       {action && (
         <div style={{ borderTop: '1px dashed #e8e8e8', paddingTop: 6 }}>
           <Text type="secondary" style={{ fontSize: 11, display: 'block', marginBottom: 4 }}>
-            后续动作（主动作完成后按序执行）
+            {intl.formatMessage({
+              id: 'pages.pageStudio.editor.chain.title',
+              defaultMessage: '后续动作（主动作完成后按序执行）',
+            })}
           </Text>
           {(action.chain ?? []).map((step: ActionStep, i: number) => {
             const stepTargets = ACTIONS[step.kind]?.targetFilter(nodes) ?? [];
@@ -209,18 +242,51 @@ export default function ActionEditor({
                       });
                     }}
                     options={[
-                      { value: 'runBinding', label: '执行' },
-                      { value: 'refreshNode', label: '刷新' },
-                      { value: 'closeModal', label: '关弹窗' },
-                      { value: 'navigate', label: '跳转' },
-                      { value: 'showMessage', label: '提示' },
+                      {
+                        value: 'runBinding',
+                        label: intl.formatMessage({
+                          id: 'pages.pageStudio.editor.action.kind.runBinding',
+                          defaultMessage: '执行',
+                        }),
+                      },
+                      {
+                        value: 'refreshNode',
+                        label: intl.formatMessage({
+                          id: 'pages.pageStudio.editor.action.kind.refreshNode',
+                          defaultMessage: '刷新',
+                        }),
+                      },
+                      {
+                        value: 'closeModal',
+                        label: intl.formatMessage({
+                          id: 'pages.pageStudio.editor.chain.step.closeModal',
+                          defaultMessage: '关弹窗',
+                        }),
+                      },
+                      {
+                        value: 'navigate',
+                        label: intl.formatMessage({
+                          id: 'pages.pageStudio.editor.chain.step.navigate',
+                          defaultMessage: '跳转',
+                        }),
+                      },
+                      {
+                        value: 'showMessage',
+                        label: intl.formatMessage({
+                          id: 'pages.pageStudio.editor.chain.step.showMessage',
+                          defaultMessage: '提示',
+                        }),
+                      },
                     ]}
                   />
                   <Select
                     size="small"
                     style={{ width: 150 }}
                     value={stepTargets.some((t) => t.id === step.target) ? step.target : undefined}
-                    placeholder="目标"
+                    placeholder={intl.formatMessage({
+                      id: 'pages.pageStudio.editor.chain.placeholder.target',
+                      defaultMessage: '目标',
+                    })}
                     onChange={(t) =>
                       onChange({
                         ...action,
@@ -230,7 +296,14 @@ export default function ActionEditor({
                       })
                     }
                     options={stepTargets.map((t) => ({ value: t.id, label: nodeSummary(t) }))}
-                    notFoundContent={<Text type="secondary">无</Text>}
+                    notFoundContent={
+                      <Text type="secondary">
+                        {intl.formatMessage({
+                          id: 'pages.pageStudio.editor.chain.targetEmpty',
+                          defaultMessage: '无',
+                        })}
+                      </Text>
+                    }
                   />
                   <Button
                     size="small"
@@ -285,7 +358,10 @@ export default function ActionEditor({
                             style={{ width: 90 }}
                             status={draftInvalid ? 'error' : undefined}
                             value={draft ?? pk}
-                            placeholder="参数名"
+                            placeholder={intl.formatMessage({
+                              id: 'pages.pageStudio.editor.chain.paramNamePlaceholder',
+                              defaultMessage: '参数名',
+                            })}
                             onChange={(e) =>
                               setParamDrafts((prev) => ({ ...prev, [draftKey]: e.target.value }))
                             }
@@ -349,7 +425,10 @@ export default function ActionEditor({
                         });
                       }}
                     >
-                      + 添加参数
+                      {intl.formatMessage({
+                        id: 'pages.pageStudio.editor.chain.addParam',
+                        defaultMessage: '+ 添加参数',
+                      })}
                     </Button>
                   </div>
                 )}
@@ -371,7 +450,10 @@ export default function ActionEditor({
               });
             }}
           >
-            + 添加后续动作
+            {intl.formatMessage({
+              id: 'pages.pageStudio.editor.chain.addStep',
+              defaultMessage: '+ 添加后续动作',
+            })}
           </Button>
         </div>
       )}

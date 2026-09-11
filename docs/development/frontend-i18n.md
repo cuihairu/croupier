@@ -74,13 +74,25 @@ intl.formatMessage(
 **defaultMessage 必填**，两个原因：
 
 1. 6 个非全量翻译语言（见下）缺失键时以 defaultMessage 回退，行为不劣于迁移前的硬编码
-2. 测试契约：`tests/setupTests.jsx` 的 `@umijs/max` mock 将 `formatMessage` 实现为返回 `defaultMessage`——现有用例断言中文文案正是依赖这一点
+2. 测试契约：`tests/setupTests.jsx` 的 `@umijs/max` mock 将 `formatMessage` 实现为返回 `defaultMessage` 并做 `{placeholder}` 插值——现有用例断言中文文案正是依赖这一点
 
 注意：
 
-- defaultMessage 里字面量 `{` `}` 需转义为 `'{'`
+- defaultMessage 里字面量 `{` `}` 需转义为 `'{'`；若字面花括号本身是给用户看的示例（如 JSON 格式提示），可改为 ICU value 传入（`{example}` 占位 + values 传字面串）
 - `useCallback`/`useMemo` 内使用 `intl` 时依赖数组补 `intl`
 - 一个组件多次取值先 `const intl = useIntl()` 一次，不在行内重复调用 hook
+
+### 非组件上下文（services 层 Map / 模块级 schema 常量）
+
+不能调 hooks 的模块（状态标签 Map、schema 常量数组）用 `getIntl` from `'@umijs/max'` 在模块级求值——Map 结构与 key 不变，消费方零改动（先例 `web/src/services/api/bugs.ts`、`web/src/pages/Assignments/constants.ts`）。umi SelectLang 切语言是整页刷新，模块重新求值，无脏值问题。
+
+### Map 展示标签的双字段模式
+
+`Record<K, string>` 的展示 Map 改为 `Record<K, { textId: string; textDefault: string }>` 双字段（或 meta 函数注入 intl），渲染处经 `intl.formatMessage(entry)` 解包（先例 `Functions/History` statusConfig、`ResourceCatalog/shared.ts` 的 `LabelText` + `formatLabelText`）。
+
+### intlRef 防无限请求循环
+
+测试 mock 的 `useIntl` 每次渲染返回新实例——`intl` 进 `useCallback` 依赖后与拉数据的 `useEffect` 构成无限请求循环（jest 卡死）。改用 intlRef：渲染期同步 `intlRef.current = intl`，回调内走 `intlRef.current.formatMessage`，依赖数组不含 `intl`（先例 `Ops/Jobs`）。
 
 ## 语言覆盖策略
 

@@ -7,6 +7,7 @@ import {
   listExecutionLogs,
   type ExecutionLogItem,
 } from '@/services/api/executionLogs';
+import { FormattedMessage, useIntl } from '@umijs/max';
 import { formatDateTime } from '@/utils/format';
 
 const { Text } = Typography;
@@ -19,6 +20,7 @@ type LoadedDetail = { loading?: boolean; request?: unknown; response?: unknown }
  * functionId 传入时默认只看当前函数（可切换），并提供运维全量审计入口。
  * 展开行即自动加载参数（缓存），可点刷新重新拉取。 */
 export default function ServerHistoryPanel({ functionId }: { functionId?: string }) {
+  const intl = useIntl();
   const actionRef = useRef<ActionType | undefined>(undefined);
   const [loadError, setLoadError] = useState<string>('');
   const [onlyCurrent, setOnlyCurrent] = useState<boolean>(!!functionId);
@@ -26,29 +28,77 @@ export default function ServerHistoryPanel({ functionId }: { functionId?: string
 
   const columns: ProColumns<ExecutionLogItem>[] = [
     {
-      title: '时间',
+      title: intl.formatMessage({
+        id: 'pages.functionsInvoke.serverHistory.column.time',
+        defaultMessage: '时间',
+      }),
       dataIndex: 'createdAt',
       width: 150,
       render: (_, r) => formatDateTime(r.createdAt),
     },
-    { title: '函数', dataIndex: 'functionId', ellipsis: true },
     {
-      title: '来源',
-      dataIndex: 'source',
-      width: 70,
-      render: (_, r) => (r.source === 'page' ? <Tag>页面</Tag> : <Tag>调用</Tag>),
+      title: intl.formatMessage({
+        id: 'pages.functionsInvoke.serverHistory.column.function',
+        defaultMessage: '函数',
+      }),
+      dataIndex: 'functionId',
+      ellipsis: true,
     },
     {
-      title: '状态',
+      title: intl.formatMessage({
+        id: 'pages.functionsInvoke.serverHistory.column.source',
+        defaultMessage: '来源',
+      }),
+      dataIndex: 'source',
+      width: 70,
+      render: (_, r) =>
+        r.source === 'page' ? (
+          <Tag>
+            <FormattedMessage
+              id="pages.functionsInvoke.serverHistory.source.page"
+              defaultMessage="页面"
+            />
+          </Tag>
+        ) : (
+          <Tag>
+            <FormattedMessage
+              id="pages.functionsInvoke.serverHistory.source.invoke"
+              defaultMessage="调用"
+            />
+          </Tag>
+        ),
+    },
+    {
+      title: intl.formatMessage({
+        id: 'pages.functionsInvoke.serverHistory.column.status',
+        defaultMessage: '状态',
+      }),
       dataIndex: 'status',
       width: 70,
       render: (_, r) => (
         <Tag color={r.status === 'ok' ? 'green' : 'red'} style={{ marginInlineEnd: 0 }}>
-          {r.status === 'ok' ? '成功' : '失败'}
+          {r.status === 'ok' ? (
+            <FormattedMessage
+              id="pages.functionsInvoke.serverHistory.status.success"
+              defaultMessage="成功"
+            />
+          ) : (
+            <FormattedMessage
+              id="pages.functionsInvoke.serverHistory.status.failed"
+              defaultMessage="失败"
+            />
+          )}
         </Tag>
       ),
     },
-    { title: '耗时(ms)', dataIndex: 'durationMs', width: 90 },
+    {
+      title: intl.formatMessage({
+        id: 'pages.functionsInvoke.serverHistory.column.duration',
+        defaultMessage: '耗时(ms)',
+      }),
+      dataIndex: 'durationMs',
+      width: 90,
+    },
   ];
 
   const loadDetail = useCallback(async (id: number) => {
@@ -67,22 +117,56 @@ export default function ServerHistoryPanel({ functionId }: { functionId?: string
   const renderDetail = (id: number) => {
     const d = details[id];
     if (d === undefined || d.loading) {
-      return <Text type="secondary">载荷加载中…</Text>;
+      return (
+        <Text type="secondary">
+          <FormattedMessage
+            id="pages.functionsInvoke.serverHistory.detail.loading"
+            defaultMessage="载荷加载中…"
+          />
+        </Text>
+      );
     }
     return (
       <Space direction="vertical" size={8} style={{ width: '100%' }}>
         <div>
           <Space size={8}>
-            <Text type="secondary">请求（已脱敏）：</Text>
+            <Text type="secondary">
+              <FormattedMessage
+                id="pages.functionsInvoke.serverHistory.detail.requestLabel"
+                defaultMessage="请求（已脱敏）："
+              />
+            </Text>
             <Button size="small" icon={<ReloadOutlined />} onClick={() => void loadDetail(id)}>
-              重新拉取
+              <FormattedMessage
+                id="pages.functionsInvoke.serverHistory.detail.refresh"
+                defaultMessage="重新拉取"
+              />
             </Button>
           </Space>
-          <pre style={preStyle}>{d.request ? JSON.stringify(d.request, null, 2) : '（无）'}</pre>
+          <pre style={preStyle}>
+            {d.request
+              ? JSON.stringify(d.request, null, 2)
+              : intl.formatMessage({
+                  id: 'pages.functionsInvoke.serverHistory.detail.emptyPayload',
+                  defaultMessage: '（无）',
+                })}
+          </pre>
         </div>
         <div>
-          <Text type="secondary">响应（已脱敏）：</Text>
-          <pre style={preStyle}>{d.response ? JSON.stringify(d.response, null, 2) : '（无）'}</pre>
+          <Text type="secondary">
+            <FormattedMessage
+              id="pages.functionsInvoke.serverHistory.detail.responseLabel"
+              defaultMessage="响应（已脱敏）："
+            />
+          </Text>
+          <pre style={preStyle}>
+            {d.response
+              ? JSON.stringify(d.response, null, 2)
+              : intl.formatMessage({
+                  id: 'pages.functionsInvoke.serverHistory.detail.emptyPayload',
+                  defaultMessage: '（无）',
+                })}
+          </pre>
         </div>
       </Space>
     );
@@ -102,7 +186,18 @@ export default function ServerHistoryPanel({ functionId }: { functionId?: string
               actionRef.current?.setPageInfo?.({ current: 1 });
             }}
           />{' '}
-          仅看当前函数{functionId ? `（${functionId}）` : ''}
+          {functionId
+            ? intl.formatMessage(
+                {
+                  id: 'pages.functionsInvoke.serverHistory.onlyCurrentWithFunction',
+                  defaultMessage: `仅看当前函数（${functionId}）`,
+                },
+                { functionId },
+              )
+            : intl.formatMessage({
+                id: 'pages.functionsInvoke.serverHistory.onlyCurrent',
+                defaultMessage: '仅看当前函数',
+              })}
         </label>
         <a
           href="/functions/execution-logs"
@@ -110,14 +205,20 @@ export default function ServerHistoryPanel({ functionId }: { functionId?: string
           rel="noreferrer"
           style={{ fontSize: 12 }}
         >
-          查看全部执行留痕 →
+          <FormattedMessage
+            id="pages.functionsInvoke.serverHistory.link.viewAll"
+            defaultMessage="查看全部执行留痕 →"
+          />
         </a>
       </Space>
       {loadError ? (
         <Alert
           type="error"
           showIcon
-          message="服务端记录加载失败"
+          message={intl.formatMessage({
+            id: 'pages.functionsInvoke.serverHistory.error.loadFailed',
+            defaultMessage: '服务端记录加载失败',
+          })}
           description={
             <Space orientation="vertical" size={4}>
               <Text type="secondary">{loadError}</Text>
@@ -126,7 +227,10 @@ export default function ServerHistoryPanel({ functionId }: { functionId?: string
                 icon={<ReloadOutlined />}
                 onClick={() => actionRef.current?.reload()}
               >
-                重试
+                <FormattedMessage
+                  id="pages.functionsInvoke.serverHistory.retry"
+                  defaultMessage="重试"
+                />
               </Button>
             </Space>
           }
@@ -158,7 +262,14 @@ export default function ServerHistoryPanel({ functionId }: { functionId?: string
             const json = await listExecutionLogs(params);
             return { data: json.items || [], total: json.total || 0, success: true };
           } catch (e) {
-            setLoadError(e instanceof Error ? e.message : '加载失败');
+            setLoadError(
+              e instanceof Error
+                ? e.message
+                : intl.formatMessage({
+                    id: 'pages.functionsInvoke.serverHistory.error.fallback',
+                    defaultMessage: '加载失败',
+                  }),
+            );
             return { data: [], total: 0, success: false };
           }
         }}
@@ -173,7 +284,10 @@ export default function ServerHistoryPanel({ functionId }: { functionId?: string
         }}
       />
       <Text type="secondary" style={{ fontSize: 12 }}>
-        仅显示本人记录；点击行首箭头展开查看参数；保留期默认 7 天。
+        <FormattedMessage
+          id="pages.functionsInvoke.serverHistory.scopeNote"
+          defaultMessage="仅显示本人记录；点击行首箭头展开查看参数；保留期默认 7 天。"
+        />
       </Text>
     </Space>
   );

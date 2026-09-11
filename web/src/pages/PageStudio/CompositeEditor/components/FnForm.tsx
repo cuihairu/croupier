@@ -1,4 +1,5 @@
 import { Space, Tag, Typography } from 'antd';
+import { FormattedMessage, getIntl, useIntl } from '@umijs/max';
 import { registerComponent } from '../registry';
 import type { ComponentDef } from '../registry';
 import { EVENTS } from '../actions';
@@ -8,20 +9,43 @@ import { commonFnSchema, spanSchema } from './shared';
 
 const { Text } = Typography;
 
+// 展示 name/icon/propSchema 标题经 getIntl 解析（模块级求值，先例 services/api/bugs.ts）；
+// scaffold 标题为落库 payload（按函数契约生成的默认标题），保持不动。
+const intl = getIntl();
+
 export const fnForm: ComponentDef = {
   type: 'fnForm',
-  name: '函数表单',
+  name: intl.formatMessage({
+    id: 'pages.pageStudio.editor.component.fnForm.name',
+    defaultMessage: '函数表单',
+  }),
   events: [EVENTS.onSuccess, EVENTS.onError],
-  icon: <Tag color="green">表单</Tag>,
+  icon: (
+    <Tag color="green">
+      <FormattedMessage id="pages.pageStudio.editor.component.fnForm.icon" defaultMessage="表单" />
+    </Tag>
+  ),
   category: 'function',
   propSchema: ({ fn, allFns }) => {
     return commonFnSchema(fn, allFns, {
       span: spanSchema(),
       display: {
         type: 'string',
-        title: '展示方式',
+        title: intl.formatMessage({
+          id: 'pages.pageStudio.editor.component.fnForm.prop.display',
+          defaultMessage: '展示方式',
+        }),
         enum: ['inline', 'dialog'],
-        enumNames: ['行内 — 嵌在页面中', '弹窗 — 由按钮触发'],
+        enumNames: [
+          intl.formatMessage({
+            id: 'pages.pageStudio.editor.component.fnForm.display.inline',
+            defaultMessage: '行内 — 嵌在页面中',
+          }),
+          intl.formatMessage({
+            id: 'pages.pageStudio.editor.component.fnForm.display.dialog',
+            defaultMessage: '弹窗 — 由按钮触发',
+          }),
+        ],
         default: 'inline',
       },
     });
@@ -33,12 +57,16 @@ export const fnForm: ComponentDef = {
     display: 'inline',
   }),
   Preview: ({ node, fn }) => {
+    const intlPreview = useIntl();
     const req = schemaRequired(fn?.inputSchema);
     const params = schemaProperties(fn?.inputSchema);
     if (params.length === 0) {
       return (
         <Text type="secondary" style={{ fontSize: 11 }}>
-          该函数无输入参数
+          {intlPreview.formatMessage({
+            id: 'pages.pageStudio.editor.component.fnForm.preview.noParams',
+            defaultMessage: '该函数无输入参数',
+          })}
         </Text>
       );
     }
@@ -56,7 +84,15 @@ export const fnForm: ComponentDef = {
           </Text>
         )}
         <Text type="secondary" style={{ fontSize: 10, marginLeft: 4 }}>
-          {node.props.display === 'dialog' ? '弹窗形态' : '行内表单'}
+          {node.props.display === 'dialog'
+            ? intlPreview.formatMessage({
+                id: 'pages.pageStudio.editor.component.fnForm.preview.dialog',
+                defaultMessage: '弹窗形态',
+              })
+            : intlPreview.formatMessage({
+                id: 'pages.pageStudio.editor.component.fnForm.preview.inline',
+                defaultMessage: '行内表单',
+              })}
         </Text>
       </Space>
     );

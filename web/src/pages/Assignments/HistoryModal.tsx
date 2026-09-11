@@ -1,6 +1,7 @@
 import React from 'react';
 import { Button, Descriptions, List, Modal, Select, Space, Tag } from 'antd';
 import { ReloadOutlined } from '@ant-design/icons';
+import { FormattedMessage, useIntl } from '@umijs/max';
 import type { AssignmentHistory, HistoryAction } from './types';
 import { HISTORY_ACTION_OPTIONS } from './constants';
 import { formatDateTime, renderHistoryDetail } from './utils';
@@ -32,20 +33,29 @@ export default function HistoryModal({
   onReload,
   onPageChange,
 }: Props) {
+  const intl = useIntl();
   return (
     <Modal
-      title="分配变更历史"
+      title={intl.formatMessage({
+        id: 'pages.assignments.history.title',
+        defaultMessage: '分配变更历史',
+      })}
       open={open}
       onCancel={onClose}
       width={800}
       footer={[
         <Button key="close" onClick={onClose}>
-          关闭
+          <FormattedMessage id="pages.assignments.history.close" defaultMessage="关闭" />
         </Button>,
       ]}
     >
       <Space style={{ marginBottom: 12 }}>
-        <span>动作筛选:</span>
+        <span>
+          <FormattedMessage
+            id="pages.assignments.history.actionFilter"
+            defaultMessage="动作筛选:"
+          />
+        </span>
         <Select
           value={actionFilter}
           style={{ width: 160 }}
@@ -53,7 +63,7 @@ export default function HistoryModal({
           options={HISTORY_ACTION_OPTIONS}
         />
         <Button icon={<ReloadOutlined />} onClick={onReload}>
-          刷新
+          <FormattedMessage id="pages.assignments.history.reload" defaultMessage="刷新" />
         </Button>
       </Space>
       <List
@@ -76,16 +86,43 @@ export default function HistoryModal({
                       item.action === 'assign' ? 'green' : item.action === 'clone' ? 'blue' : 'red'
                     }
                   >
-                    {item.action === 'assign' ? '分配' : item.action === 'clone' ? '克隆' : '移除'}
+                    {item.action === 'assign'
+                      ? intl.formatMessage({
+                          id: 'pages.assignments.history.action.assign',
+                          defaultMessage: '分配',
+                        })
+                      : item.action === 'clone'
+                        ? intl.formatMessage({
+                            id: 'pages.assignments.history.action.clone',
+                            defaultMessage: '克隆',
+                          })
+                        : intl.formatMessage({
+                            id: 'pages.assignments.history.action.remove',
+                            defaultMessage: '移除',
+                          })}
                   </Tag>
                   <span>{item.functionId}</span>
-                  <span>({item.count} 个函数)</span>
+                  <span>
+                    {intl.formatMessage(
+                      {
+                        id: 'pages.assignments.history.functionCount',
+                        defaultMessage: `(${item.count} 个函数)`,
+                      },
+                      { count: item.count },
+                    )}
+                  </span>
                 </Space>
               }
               description={
                 <Space orientation="vertical" style={{ width: '100%' }}>
                   <span>
-                    操作人: {item.operatedBy} | 时间: {formatDateTime(item.operatedAt)}
+                    {intl.formatMessage(
+                      {
+                        id: 'pages.assignments.history.operatedMeta',
+                        defaultMessage: `操作人: ${item.operatedBy} | 时间: ${formatDateTime(item.operatedAt)}`,
+                      },
+                      { operator: item.operatedBy, time: formatDateTime(item.operatedAt) },
+                    )}
                   </span>
                   {item.details && (
                     <Descriptions size="small" column={1} bordered>

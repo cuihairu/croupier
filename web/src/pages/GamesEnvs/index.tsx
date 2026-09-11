@@ -1,6 +1,7 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Card, Space, Select, Button, Table, Form, Input, App, Tag } from 'antd';
 import { ModalForm, PageContainer } from '@ant-design/pro-components';
+import { FormattedMessage, useIntl } from '@umijs/max';
 import type { ColumnsType } from 'antd/es/table';
 import { listGamesMeta, listMyGames, type Game as GameMeta } from '@/services/api';
 import {
@@ -14,6 +15,10 @@ import { getScope, subscribeScope } from '@/stores/scope';
 
 export default function GamesEnvsPage() {
   const { message, modal } = App.useApp();
+  const intl = useIntl();
+  // useIntl 的 mock 每渲染返回新实例；回调内取文案走 ref，避免 intl 进 loadEnvs 依赖触发重复请求
+  const intlRef = useRef(intl);
+  intlRef.current = intl;
   const [games, setGames] = useState<GameMeta[]>([]);
   const [gameId, setGameId] = useState<number | undefined>(undefined);
   const [scopeGameId, setScopeGameId] = useState<string | undefined>(
@@ -54,7 +59,13 @@ export default function GamesEnvsPage() {
         const res = await listGameEnvs(gid);
         setEnvs(res.envs || []);
       } catch (e) {
-        const errMsg = e instanceof Error ? e.message : '操作失败';
+        const errMsg =
+          e instanceof Error
+            ? e.message
+            : intlRef.current.formatMessage({
+                id: 'pages.gamesEnvs.error.operationFailed',
+                defaultMessage: '操作失败',
+              });
         message.error(errMsg || 'Load failed');
       } finally {
         setLoading(false);
@@ -173,7 +184,7 @@ export default function GamesEnvsPage() {
   return (
     <PageContainer>
       <Card
-        title="游戏环境"
+        title={intl.formatMessage({ id: 'pages.gamesEnvs.title', defaultMessage: '游戏环境' })}
         extra={
           <Space>
             <Select
@@ -191,7 +202,7 @@ export default function GamesEnvsPage() {
               }
             />
             <Button type="primary" onClick={() => setAddOpen(true)} disabled={!gameId}>
-              新增环境
+              <FormattedMessage id="pages.gamesEnvs.action.add" defaultMessage="新增环境" />
             </Button>
           </Space>
         }
@@ -206,46 +217,124 @@ export default function GamesEnvsPage() {
       </Card>
 
       <ModalForm<GameEnv>
-        title="新增环境"
+        title={intl.formatMessage({
+          id: 'pages.gamesEnvs.modal.addTitle',
+          defaultMessage: '新增环境',
+        })}
         open={addOpen}
         onOpenChange={setAddOpen}
         modalProps={{ destroyOnHidden: true }}
         width={520}
-        submitter={{ searchConfig: { submitText: '确定' } }}
+        submitter={{
+          searchConfig: {
+            submitText: intl.formatMessage({
+              id: 'pages.gamesEnvs.modal.submit',
+              defaultMessage: '确定',
+            }),
+          },
+        }}
         layout="vertical"
         onFinish={onAdd}
       >
-        <Form.Item name="env" label="Env" rules={[{ required: true, message: '请输入环境名' }]}>
+        <Form.Item
+          name="env"
+          label="Env"
+          rules={[
+            {
+              required: true,
+              message: intl.formatMessage({
+                id: 'pages.gamesEnvs.form.envRequired',
+                defaultMessage: '请输入环境名',
+              }),
+            },
+          ]}
+        >
           <Input placeholder="e.g. dev / test / stage / prod" />
         </Form.Item>
-        <Form.Item name="description" label="描述">
-          <Input.TextArea rows={3} placeholder="简单描述" />
+        <Form.Item
+          name="description"
+          label={intl.formatMessage({
+            id: 'pages.gamesEnvs.form.description',
+            defaultMessage: '描述',
+          })}
+        >
+          <Input.TextArea
+            rows={3}
+            placeholder={intl.formatMessage({
+              id: 'pages.gamesEnvs.form.descriptionPlaceholder',
+              defaultMessage: '简单描述',
+            })}
+          />
         </Form.Item>
-        <Form.Item name="color" label="颜色 (Tag)" tooltip="AntD Tag 颜色，如 #1677ff 或 green">
+        <Form.Item
+          name="color"
+          label={intl.formatMessage({
+            id: 'pages.gamesEnvs.form.color',
+            defaultMessage: '颜色 (Tag)',
+          })}
+          tooltip={intl.formatMessage({
+            id: 'pages.gamesEnvs.form.colorTooltip',
+            defaultMessage: 'AntD Tag 颜色，如 #1677ff 或 green',
+          })}
+        >
           <Input placeholder="#1677ff / blue / green / gold" />
         </Form.Item>
       </ModalForm>
 
       <ModalForm<GameEnv>
-        title="编辑环境"
+        title={intl.formatMessage({
+          id: 'pages.gamesEnvs.modal.editTitle',
+          defaultMessage: '编辑环境',
+        })}
         open={editOpen}
         onOpenChange={setEditOpen}
         modalProps={{ destroyOnHidden: true }}
         width={520}
-        submitter={{ searchConfig: { submitText: '确定' } }}
+        submitter={{
+          searchConfig: {
+            submitText: intl.formatMessage({
+              id: 'pages.gamesEnvs.modal.submit',
+              defaultMessage: '确定',
+            }),
+          },
+        }}
         layout="vertical"
         // destroyOnHidden 使弹窗每次关闭即卸载表单，重开时按最新 editing
         // 重新挂载，取代原「挂载后 setFieldsValue 回填」的 useEffect 预填
         initialValues={editing ?? undefined}
         onFinish={onEdit}
       >
-        <Form.Item name="env" label="Env" rules={[{ required: true, message: '请输入环境名' }]}>
+        <Form.Item
+          name="env"
+          label="Env"
+          rules={[
+            {
+              required: true,
+              message: intl.formatMessage({
+                id: 'pages.gamesEnvs.form.envRequired',
+                defaultMessage: '请输入环境名',
+              }),
+            },
+          ]}
+        >
           <Input />
         </Form.Item>
-        <Form.Item name="description" label="描述">
+        <Form.Item
+          name="description"
+          label={intl.formatMessage({
+            id: 'pages.gamesEnvs.form.description',
+            defaultMessage: '描述',
+          })}
+        >
           <Input.TextArea rows={3} />
         </Form.Item>
-        <Form.Item name="color" label="颜色 (Tag)">
+        <Form.Item
+          name="color"
+          label={intl.formatMessage({
+            id: 'pages.gamesEnvs.form.color',
+            defaultMessage: '颜色 (Tag)',
+          })}
+        >
           <Input placeholder="#1677ff / blue / green / gold" />
         </Form.Item>
       </ModalForm>

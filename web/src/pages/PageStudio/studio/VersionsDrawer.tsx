@@ -1,5 +1,6 @@
 import { Button, Drawer, Empty, Popconfirm, Space, Tag, Typography } from 'antd';
 import { ProTable } from '@ant-design/pro-components';
+import { FormattedMessage, useIntl } from '@umijs/max';
 import type { PageVersionItem } from '@/types/dashboard';
 import { formatDate } from './shared';
 
@@ -36,27 +37,57 @@ export default function VersionsDrawer({
   onRollbackDraft: (version: number) => void;
   onRollbackPublished: (version: number) => void;
 }) {
+  const intl = useIntl();
   return (
-    <Drawer title="版本历史" width={760} open={open} onClose={onClose}>
+    <Drawer
+      title={intl.formatMessage({
+        id: 'pages.pageStudio.studio.versions.title',
+        defaultMessage: '版本历史',
+      })}
+      width={760}
+      open={open}
+      onClose={onClose}
+    >
       <Space orientation="vertical" style={{ width: '100%' }} size="middle">
         <Paragraph>
-          <Text strong>页面：</Text> {pageKey || '-'}
+          <Text strong>
+            <FormattedMessage id="pages.pageStudio.studio.versions.page" defaultMessage="页面：" />
+          </Text>{' '}
+          {pageKey || '-'}
         </Paragraph>
         <Paragraph>
-          <Text strong>当前草稿：</Text> {currentDraftVersion || '-'},<Text strong>当前发布：</Text>{' '}
+          <Text strong>
+            <FormattedMessage
+              id="pages.pageStudio.studio.versions.currentDraft"
+              defaultMessage="当前草稿："
+            />
+          </Text>{' '}
+          {currentDraftVersion || '-'},
+          <Text strong>
+            <FormattedMessage
+              id="pages.pageStudio.studio.versions.currentPublished"
+              defaultMessage="当前发布："
+            />
+          </Text>{' '}
           {currentPublishedVersion || '-'}
         </Paragraph>
         <ProTable<PageVersionItem>
           columns={[
             {
-              title: '版本',
+              title: intl.formatMessage({
+                id: 'pages.pageStudio.studio.versions.column.version',
+                defaultMessage: '版本',
+              }),
               dataIndex: 'version',
               key: 'version',
               width: 90,
               render: (_, record) => <Text strong>v{record.version}</Text>,
             },
             {
-              title: '状态',
+              title: intl.formatMessage({
+                id: 'pages.pageStudio.studio.versions.column.status',
+                defaultMessage: '状态',
+              }),
               dataIndex: 'status',
               key: 'status',
               width: 100,
@@ -65,52 +96,96 @@ export default function VersionsDrawer({
               ),
             },
             {
-              title: '当前位置',
+              title: intl.formatMessage({
+                id: 'pages.pageStudio.studio.versions.column.current',
+                defaultMessage: '当前位置',
+              }),
               key: 'current',
               width: 160,
               render: (_, record) => (
                 <Space>
-                  {record.isCurrentDraft ? <Tag color="blue">当前草稿</Tag> : null}
-                  {record.isCurrentPublished ? <Tag color="green">当前发布</Tag> : null}
+                  {record.isCurrentDraft ? (
+                    <Tag color="blue">
+                      <FormattedMessage
+                        id="pages.pageStudio.studio.versions.tag.currentDraft"
+                        defaultMessage="当前草稿"
+                      />
+                    </Tag>
+                  ) : null}
+                  {record.isCurrentPublished ? (
+                    <Tag color="green">
+                      <FormattedMessage
+                        id="pages.pageStudio.studio.versions.tag.currentPublished"
+                        defaultMessage="当前发布"
+                      />
+                    </Tag>
+                  ) : null}
                 </Space>
               ),
             },
             {
-              title: '说明',
+              title: intl.formatMessage({
+                id: 'pages.pageStudio.studio.versions.column.message',
+                defaultMessage: '说明',
+              }),
               dataIndex: 'message',
               key: 'message',
               render: (_, record) => record.message || '-',
             },
             {
-              title: '创建时间',
+              title: intl.formatMessage({
+                id: 'pages.pageStudio.studio.versions.column.createdAt',
+                defaultMessage: '创建时间',
+              }),
               dataIndex: 'createdAt',
               key: 'createdAt',
               width: 180,
               render: (_, record) => formatDate(record.createdAt),
             },
             {
-              title: '操作',
+              title: intl.formatMessage({
+                id: 'pages.pageStudio.studio.versions.column.actions',
+                defaultMessage: '操作',
+              }),
               key: 'actions',
               width: 220,
               render: (_, record) => (
                 <Space>
                   {!record.isCurrentDraft ? (
                     <Popconfirm
-                      title={`确认回滚草稿到版本 ${record.version}？`}
+                      title={intl.formatMessage(
+                        {
+                          id: 'pages.pageStudio.studio.versions.rollbackDraftConfirm',
+                          defaultMessage: '确认回滚草稿到版本 {version}？',
+                        },
+                        { version: record.version },
+                      )}
                       onConfirm={() => onRollbackDraft(record.version)}
                     >
                       <Button type="link" size="small">
-                        回滚草稿
+                        <FormattedMessage
+                          id="pages.pageStudio.studio.versions.rollbackDraft"
+                          defaultMessage="回滚草稿"
+                        />
                       </Button>
                     </Popconfirm>
                   ) : null}
                   {record.status === 'published' && !record.isCurrentPublished ? (
                     <Popconfirm
-                      title={`确认回滚发布到版本 ${record.version}？`}
+                      title={intl.formatMessage(
+                        {
+                          id: 'pages.pageStudio.studio.versions.rollbackPublishedConfirm',
+                          defaultMessage: '确认回滚发布到版本 {version}？',
+                        },
+                        { version: record.version },
+                      )}
                       onConfirm={() => onRollbackPublished(record.version)}
                     >
                       <Button type="link" size="small">
-                        回滚发布
+                        <FormattedMessage
+                          id="pages.pageStudio.studio.versions.rollbackPublished"
+                          defaultMessage="回滚发布"
+                        />
                       </Button>
                     </Popconfirm>
                   ) : null}
@@ -128,11 +203,24 @@ export default function VersionsDrawer({
             total,
             showSizeChanger: true,
             pageSizeOptions: [5, 10, 20, 50],
-            showTotal: (t) => `共 ${t} 条`,
+            showTotal: (t) =>
+              intl.formatMessage(
+                { id: 'pages.pageStudio.studio.versions.total', defaultMessage: '共 {total} 条' },
+                { total: t },
+              ),
             onChange: (p, ps) => onPageChange(p, ps),
           }}
           options={false}
-          locale={{ emptyText: <Empty description="暂无版本历史" /> }}
+          locale={{
+            emptyText: (
+              <Empty
+                description={intl.formatMessage({
+                  id: 'pages.pageStudio.studio.versions.empty',
+                  defaultMessage: '暂无版本历史',
+                })}
+              />
+            ),
+          }}
         />
       </Space>
     </Drawer>

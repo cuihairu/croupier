@@ -1,5 +1,8 @@
 // pages.functionsDirectory.* — Functions/Directory 函数目录
 export default {
+  'pages.functionsDirectory.action.detailPage': 'Detail Page',
+  'pages.functionsDirectory.action.invoke': 'Invoke Function',
+  'pages.functionsDirectory.action.refresh': 'Refresh',
   'pages.functionsDirectory.alert.description':
     'If the goal is a page that operators actually visit, do not configure menus or page layouts in the function layer; open Page Studio from resource/page candidates instead.',
   'pages.functionsDirectory.alert.title':
@@ -13,6 +16,13 @@ export default {
   'pages.functionsDirectory.checklist.item.definition': 'Function definition & summary',
   'pages.functionsDirectory.checklist.item.instances': 'Instances & invocation entry',
   'pages.functionsDirectory.checklist.title': 'What to Confirm Here',
+  'pages.functionsDirectory.column.actions': 'Actions',
+  'pages.functionsDirectory.column.displayName': 'Function Name',
+  'pages.functionsDirectory.column.enabled': 'Status',
+  'pages.functionsDirectory.column.id': 'Function ID',
+  'pages.functionsDirectory.column.resource': 'Resource',
+  'pages.functionsDirectory.column.summary': 'Function Summary',
+  'pages.functionsDirectory.column.tags': 'Tags',
   'pages.functionsDirectory.desc.functionId': 'Function ID',
   'pages.functionsDirectory.desc.instances': 'Override Instances',
   'pages.functionsDirectory.desc.instancesCount': '{count} instances',
@@ -28,6 +38,8 @@ export default {
   'pages.functionsDirectory.drawer.displayName': 'Display Name',
   'pages.functionsDirectory.drawer.tags': 'Tags',
   'pages.functionsDirectory.drawer.title': 'Function Detail',
+  'pages.functionsDirectory.error.detailLoadFailed': 'Failed to load details',
+  'pages.functionsDirectory.error.loadFailed': 'Failed to load',
   'pages.functionsDirectory.intro.description':
     'The function directory owns descriptors, parameter forms, instance overrides, and invocation validation. It does not decide menus, page categories, tables, pagination, or multi-function composition. Once a page is published, its menu comes only from PublishedPageSpec.',
   'pages.functionsDirectory.intro.title':
@@ -35,6 +47,8 @@ export default {
   'pages.functionsDirectory.list.resultText': '{count} functions in current results',
   'pages.functionsDirectory.list.title': 'Function List',
   'pages.functionsDirectory.list.total': '{total} functions in total',
+  'pages.functionsDirectory.rowAction.detail': 'View Details',
+  'pages.functionsDirectory.rowAction.schema': 'Contract Schema',
   'pages.functionsDirectory.state.disabled': 'Disabled',
   'pages.functionsDirectory.state.enabled': 'Enabled',
   'pages.functionsDirectory.subTitle':

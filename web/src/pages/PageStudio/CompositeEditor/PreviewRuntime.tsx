@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { App, Col, Modal, Row, Space, Switch, Tag, Typography } from 'antd';
+import { FormattedMessage, useIntl } from '@umijs/max';
 import type { FunctionDescriptor } from '@/services/api/functions';
 import type { JSONValue } from '@/types/dashboard';
 import { invokeFunction } from '@/services/api/functions';
@@ -28,6 +29,7 @@ export default function PreviewRuntime({
   fnById: Map<string, FunctionDescriptor>;
 }) {
   const { message, modal } = App.useApp();
+  const intl = useIntl();
   const [results, setResults] = useState<Record<string, unknown>>({});
   const [running, setRunning] = useState<Record<string, boolean>>({});
   const [dialogId, setDialogId] = useState<string | null>(null);
@@ -152,8 +154,15 @@ export default function PreviewRuntime({
           // 不伪造数据造成预览/发布分叉）——每节点提示一次即可
           if (!mockResp && !mockWarnedRef.current.has(node.id)) {
             mockWarnedRef.current.add(node.id);
+            const nodeTitle = String(node.props.title ?? fid);
             message.warning(
-              `「${String(node.props.title ?? fid)}」无可用 outputSchema（或顶层结构不支持），模拟数据为空`,
+              intl.formatMessage(
+                {
+                  id: 'pages.pageStudio.editor.preview.mockNoSchema',
+                  defaultMessage: `「${nodeTitle}」无可用 outputSchema（或顶层结构不支持），模拟数据为空`,
+                },
+                { title: nodeTitle },
+              ),
             );
           }
           setResults((r) => ({ ...r, [node.id]: mockResp ?? { data: {} } }));
@@ -182,17 +191,34 @@ export default function PreviewRuntime({
         }
         return true;
       } catch (err) {
-        message.error(extractErrorMessage(err, `${String(node.props.title ?? fid)} 执行失败`));
+        const failedTitle = String(node.props.title ?? fid);
+        message.error(
+          extractErrorMessage(
+            err,
+            intl.formatMessage(
+              {
+                id: 'pages.pageStudio.editor.preview.invokeFailed',
+                defaultMessage: `${failedTitle} 执行失败`,
+              },
+              { title: failedTitle },
+            ),
+          ),
+        );
         // 真实调用失败（无 agent 在线/契约缺失）→ 引导开启模拟数据
         if (!mockRef.current) {
-          message.warning('可开启顶部「模拟数据」安全体验完整流程（不触发真实操作）');
+          message.warning(
+            intl.formatMessage({
+              id: 'pages.pageStudio.editor.preview.mockSuggest',
+              defaultMessage: '可开启顶部「模拟数据」安全体验完整流程（不触发真实操作）',
+            }),
+          );
         }
         return false;
       } finally {
         setRunning((r) => ({ ...r, [node.id]: false }));
       }
     },
-    [message, evalInputAssignments],
+    [message, intl, evalInputAssignments],
   );
 
   const runRef = useRef(runNode);
@@ -210,7 +236,12 @@ export default function PreviewRuntime({
         case 'openModal': {
           const node = findIn(treeRef.current, target);
           if (!node) {
-            message.warning('动作目标不存在（可能已删除）');
+            message.warning(
+              intl.formatMessage({
+                id: 'pages.pageStudio.editor.preview.targetMissing',
+                defaultMessage: '动作目标不存在（可能已删除）',
+              }),
+            );
             return;
           }
           // V5：params 表达式求值 → 弹窗表单预填
@@ -233,14 +264,19 @@ export default function PreviewRuntime({
           // runBinding / refreshNode → 执行目标函数组件（V5：参数表达式求值）
           const node = findIn(treeRef.current, target);
           if (!node) {
-            message.warning('动作目标不存在（可能已删除）');
+            message.warning(
+              intl.formatMessage({
+                id: 'pages.pageStudio.editor.preview.targetMissing',
+                defaultMessage: '动作目标不存在（可能已删除）',
+              }),
+            );
             return;
           }
           void runRef.current(node, resolveStepParams(step.params, stateByVarRef.current, ctx));
         }
       }
     },
-    [message, openDialogPrefill],
+    [message, intl, openDialogPrefill],
   );
 
   const runStepRef = useRef(runStep);
@@ -272,7 +308,12 @@ export default function PreviewRuntime({
       if (!ra?.targetSection) return;
       const modalNode = findIn(treeRef.current, String(ra.targetSection));
       if (!modalNode) {
-        message.warning('动作目标不存在（可能已删除）');
+        message.warning(
+          intl.formatMessage({
+            id: 'pages.pageStudio.editor.preview.targetMissing',
+            defaultMessage: '动作目标不存在（可能已删除）',
+          }),
+        );
         return;
       }
       const inputs: JSONRecord = {};
@@ -288,15 +329,29 @@ export default function PreviewRuntime({
         for (const step of ra.chain ?? []) runStepRef.current(step, row);
       };
       if (ra.danger) {
+        // ra.label 为 spec 数据回显；缺失时的兜底「操作」是 UI 兜底文案（intl）
+        const label = String(
+          ra.label ??
+            intl.formatMessage({
+              id: 'pages.pageStudio.editor.preview.rowActionFallback',
+              defaultMessage: '操作',
+            }),
+        );
         modal.confirm({
-          title: `确认执行「${String(ra.label ?? '操作')}」`,
+          title: intl.formatMessage(
+            {
+              id: 'pages.pageStudio.editor.preview.rowActionConfirm',
+              defaultMessage: `确认执行「${label}」`,
+            },
+            { label },
+          ),
           onOk: openWithChain,
         });
         return;
       }
       openWithChain();
     },
-    [message, modal, openDialogPrefill],
+    [message, modal, intl, openDialogPrefill],
   );
 
   /** 选中行变化（V5）：同步写入 results/变量快照（同帧事件求值可见）→
@@ -387,10 +442,13 @@ export default function PreviewRuntime({
       {/* 预览工具条：模式常驻可见——模拟=安全探索（无副作用），真实=发布行为 */}
       <div style={{ marginBottom: 12, display: 'flex', alignItems: 'center', gap: 8 }}>
         <Tag color="orange" style={{ marginRight: 0 }}>
-          预览
+          <FormattedMessage id="pages.pageStudio.editor.preview.modeTag" defaultMessage="预览" />
         </Tag>
         <Text type="secondary" style={{ fontSize: 12 }}>
-          数据来源
+          <FormattedMessage
+            id="pages.pageStudio.editor.preview.dataSource"
+            defaultMessage="数据来源"
+          />
         </Text>
         <Switch
           size="small"
@@ -399,8 +457,14 @@ export default function PreviewRuntime({
             applyMockMode(v);
             message.info(
               v
-                ? '模拟数据：按 outputSchema 生成假数据，不触发真实操作'
-                : '真实调用：将实际执行函数（注意操作类函数有真实副作用）',
+                ? intl.formatMessage({
+                    id: 'pages.pageStudio.editor.preview.mockEnabledHint',
+                    defaultMessage: '模拟数据：按 outputSchema 生成假数据，不触发真实操作',
+                  })
+                : intl.formatMessage({
+                    id: 'pages.pageStudio.editor.preview.realEnabledHint',
+                    defaultMessage: '真实调用：将实际执行函数（注意操作类函数有真实副作用）',
+                  }),
             );
           }}
         />
@@ -409,12 +473,30 @@ export default function PreviewRuntime({
           style={{ marginRight: 0 }}
           data-mock-state={mock ? 'mock' : 'real'}
         >
-          {mock ? '模拟中' : '真实调用'}
+          {mock ? (
+            <FormattedMessage
+              id="pages.pageStudio.editor.preview.mockTag"
+              defaultMessage="模拟中"
+            />
+          ) : (
+            <FormattedMessage
+              id="pages.pageStudio.editor.preview.realTag"
+              defaultMessage="真实调用"
+            />
+          )}
         </Tag>
         <Text type="secondary" style={{ fontSize: 11 }}>
-          {mock
-            ? '假数据按函数 outputSchema 动态生成，可安全验证绑定/联动/弹窗预填'
-            : '实际执行函数——操作类函数（如发邮件）将产生真实副作用'}
+          {mock ? (
+            <FormattedMessage
+              id="pages.pageStudio.editor.preview.mockHint"
+              defaultMessage="假数据按函数 outputSchema 动态生成，可安全验证绑定/联动/弹窗预填"
+            />
+          ) : (
+            <FormattedMessage
+              id="pages.pageStudio.editor.preview.realHint"
+              defaultMessage="实际执行函数——操作类函数（如发邮件）将产生真实副作用"
+            />
+          )}
         </Text>
       </div>
       <Row gutter={[12, 12]}>
@@ -456,7 +538,13 @@ export default function PreviewRuntime({
 
       {openModal && (
         <Modal
-          title={String(openModal.props.title ?? '弹窗')}
+          title={String(
+            openModal.props.title ??
+              intl.formatMessage({
+                id: 'pages.pageStudio.editor.preview.modalTitleFallback',
+                defaultMessage: '弹窗',
+              }),
+          )}
           open
           onCancel={() => setDialogId(null)}
           footer={null}
@@ -480,13 +568,35 @@ export default function PreviewRuntime({
                     const ok = await runNode(form, params);
                     if (!ok) return;
                     setDialogId(null);
-                    message.success(`${String(openModal.props.title ?? '操作')} 执行成功`);
+                    // openModal.props.title 为 spec 数据回显；缺失时兜底「操作」
+                    // 复用组件默认标题键（component.modal.defaultTitle，画布预览同语义）
+                    const doneTitle = String(
+                      openModal.props.title ??
+                        intl.formatMessage({
+                          id: 'pages.pageStudio.editor.component.modal.defaultTitle',
+                          defaultMessage: '操作',
+                        }),
+                    );
+                    message.success(
+                      intl.formatMessage(
+                        {
+                          id: 'pages.pageStudio.editor.preview.dialogExecuted',
+                          defaultMessage: `${doneTitle} 执行成功`,
+                        },
+                        { title: doneTitle },
+                      ),
+                    );
                   }}
                 />
               ))}
             </Space>
           ) : (
-            <Text type="secondary">弹窗没有内容——编辑态拖入函数表单</Text>
+            <Text type="secondary">
+              <FormattedMessage
+                id="pages.pageStudio.editor.preview.dialogEmpty"
+                defaultMessage="弹窗没有内容——编辑态拖入函数表单"
+              />
+            </Text>
           )}
         </Modal>
       )}

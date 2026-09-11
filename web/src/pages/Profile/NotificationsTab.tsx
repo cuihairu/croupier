@@ -1,6 +1,6 @@
 import { useCallback } from 'react';
 import { Badge, Button, Card, List, Modal, Space, Tag, Typography } from 'antd';
-import { useIntl } from '@umijs/max';
+import { FormattedMessage, useIntl } from '@umijs/max';
 import type { MessageItem } from '@/services/api/messages';
 import { formatDateTime } from '@/utils/format';
 
@@ -36,12 +36,18 @@ export default function NotificationsTab({
         <Space>
           {isAdminUser && (
             <Button size="small" type="primary" onClick={onSendClick}>
-              发送消息
+              <FormattedMessage
+                id="pages.profile.notifications.action.send"
+                defaultMessage="发送消息"
+              />
             </Button>
           )}
           {items.some((m) => m.status !== 'read') && (
             <Button size="small" onClick={onMarkAllRead}>
-              全部标为已读
+              <FormattedMessage
+                id="pages.profile.notifications.action.markAllRead"
+                defaultMessage="全部标为已读"
+              />
             </Button>
           )}
         </Space>
@@ -65,7 +71,10 @@ export default function NotificationsTab({
                   <Tag style={{ fontSize: 10 }}>{item.type}</Tag>
                   {item.data != null && (
                     <Tag style={{ fontSize: 10 }} color="blue">
-                      含数据
+                      <FormattedMessage
+                        id="pages.profile.notifications.tag.withData"
+                        defaultMessage="含数据"
+                      />
                     </Tag>
                   )}
                   {typeof item.data === 'object' &&
@@ -77,7 +86,10 @@ export default function NotificationsTab({
                           String((item.data as Record<string, unknown>).approvalId),
                         )}`}
                       >
-                        查看审批
+                        <FormattedMessage
+                          id="pages.profile.notifications.link.viewApproval"
+                          defaultMessage="查看审批"
+                        />
                       </a>
                     )}
                 </Space>
@@ -93,7 +105,15 @@ export default function NotificationsTab({
                   </Text>
                   <Text type="secondary" style={{ fontSize: 12 }}>
                     {item.createdAt ? formatDateTime(item.createdAt) : ''}
-                    {item.status !== 'read' ? ' · 未读' : ''}
+                    {item.status !== 'read' ? (
+                      <>
+                        {' · '}
+                        <FormattedMessage
+                          id="pages.profile.notifications.status.unread"
+                          defaultMessage="未读"
+                        />
+                      </>
+                    ) : null}
                   </Text>
                 </Space>
               }
@@ -116,11 +136,25 @@ export default function NotificationsTab({
                 {detailMessage.createdAt ? formatDateTime(detailMessage.createdAt) : ''}
               </Text>
               <Text type="secondary" style={{ fontSize: 12 }}>
-                {detailMessage.status === 'read' ? '已读' : '未读'}
+                {detailMessage.status === 'read' ? (
+                  <FormattedMessage
+                    id="pages.profile.notifications.status.read"
+                    defaultMessage="已读"
+                  />
+                ) : (
+                  <FormattedMessage
+                    id="pages.profile.notifications.status.unread"
+                    defaultMessage="未读"
+                  />
+                )}
               </Text>
             </Space>
             <Paragraph style={{ whiteSpace: 'pre-wrap' }}>
-              {detailMessage.content || '（无正文）'}
+              {detailMessage.content ||
+                intl.formatMessage({
+                  id: 'pages.profile.notifications.content.empty',
+                  defaultMessage: '（无正文）',
+                })}
             </Paragraph>
             {typeof detailMessage.data === 'object' &&
               detailMessage.data !== null &&
@@ -131,14 +165,20 @@ export default function NotificationsTab({
                       String((detailMessage.data as Record<string, unknown>).approvalId),
                     )}`}
                   >
-                    查看审批详情
+                    <FormattedMessage
+                      id="pages.profile.notifications.link.viewApprovalDetail"
+                      defaultMessage="查看审批详情"
+                    />
                   </a>
                 </p>
               )}
             {detailMessage.data != null && (
               <>
                 <Text type="secondary" style={{ fontSize: 12 }}>
-                  结构化数据：
+                  <FormattedMessage
+                    id="pages.profile.notifications.data.label"
+                    defaultMessage="结构化数据："
+                  />
                 </Text>
                 <pre
                   style={{

@@ -37,14 +37,21 @@ export default function DirectoryPage() {
   } = useDirectoryPage();
 
   const summary = React.useMemo(() => {
+    // 哨兵兜底值经 intl 求值：47/58 行的分组 key 会作为 topResourceLabel 直接
+    // 展示（tag.topResource 的 {label} 插值），43 行仅用于 distinct 计数
+    const undeclaredLabel = intl.formatMessage({
+      id: 'pages.functionsDirectory.desc.undeclared',
+      defaultMessage: '未声明',
+    });
     const total = processedData.length;
     const enabledCount = processedData.filter((item) => item.enabled).length;
     const disabledCount = total - enabledCount;
-    const resourceCount = new Set(processedData.map((item) => item.resource || '未声明')).size;
+    const resourceCount = new Set(processedData.map((item) => item.resource || undeclaredLabel))
+      .size;
     const operationCount = processedData.filter((item) => Boolean(item.operation)).length;
     const topResource = Object.entries(
       processedData.reduce<Record<string, number>>((acc, item) => {
-        const key = item.resource || '未声明';
+        const key = item.resource || undeclaredLabel;
         acc[key] = (acc[key] || 0) + 1;
         return acc;
       }, {}),
@@ -55,10 +62,10 @@ export default function DirectoryPage() {
       disabledCount,
       resourceCount,
       operationCount,
-      topResourceLabel: topResource?.[0] || '未声明',
+      topResourceLabel: topResource?.[0] || undeclaredLabel,
       topResourceCount: topResource?.[1] || 0,
     };
-  }, [processedData]);
+  }, [intl, processedData]);
 
   return (
     <PageContainer

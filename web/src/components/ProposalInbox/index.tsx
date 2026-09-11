@@ -22,7 +22,7 @@ import {
   rejectProposal,
 } from '@/services/dashboard';
 import { buildConsolePagePath, requestConsoleMenuRefresh } from '@/utils/consoleMenu';
-import { history, useIntl } from '@umijs/max';
+import { FormattedMessage, history, useIntl } from '@umijs/max';
 import { emptyInbox, matchesQuery } from './shared';
 import { buildBlockedColumns, buildProposalColumns } from './ProposalColumns';
 import ContractChangesPanel from './ContractChangesPanel';
@@ -94,10 +94,18 @@ export default function ProposalInbox({ focusPageKey = '' }: ProposalInboxProps)
         setPreviewVisible(true);
       })
       .catch(() => {
-        message.warning(`未找到 Proposal：${initialProposalKey}`);
+        message.warning(
+          intl.formatMessage(
+            {
+              id: 'component.proposalInbox.inbox.proposalNotFound',
+              defaultMessage: '未找到 Proposal：{key}',
+            },
+            { key: initialProposalKey },
+          ),
+        );
       })
       .finally(clearProposalKeyParam);
-  }, [initialProposalKey, message]);
+  }, [initialProposalKey, intl, message]);
 
   const handleViewDetail = useCallback(async (proposalKey: string) => {
     const detail = await getProposal(proposalKey);
@@ -127,14 +135,32 @@ export default function ProposalInbox({ focusPageKey = '' }: ProposalInboxProps)
       requestConsoleMenuRefresh();
       const categoryKey = proposal.pageSpec?.category?.key?.trim() || '';
       modal.success({
-        title: '已直接发布',
-        content: `页面 ${result.pageKey} 已发布，版本 ${result.publishedVersion}。运行控制台菜单会从已发布快照生成。`,
-        okText: categoryKey ? '打开运行页' : '打开运行控制台',
+        title: intl.formatMessage({
+          id: 'component.proposalInbox.inbox.acceptAndPublishTitle',
+          defaultMessage: '已直接发布',
+        }),
+        content: intl.formatMessage(
+          {
+            id: 'component.proposalInbox.inbox.acceptAndPublishContent',
+            defaultMessage:
+              '页面 {pageKey} 已发布，版本 {publishedVersion}。运行控制台菜单会从已发布快照生成。',
+          },
+          { pageKey: result.pageKey, publishedVersion: result.publishedVersion },
+        ),
+        okText: categoryKey
+          ? intl.formatMessage({
+              id: 'component.proposalInbox.inbox.openRuntimePage',
+              defaultMessage: '打开运行页',
+            })
+          : intl.formatMessage({
+              id: 'component.proposalInbox.inbox.openRuntimeConsole',
+              defaultMessage: '打开运行控制台',
+            }),
         onOk: () =>
           navigateTo(categoryKey ? buildConsolePagePath(categoryKey, result.pageKey) : '/console'),
       });
     },
-    [fetchData, modal],
+    [fetchData, intl, modal],
   );
 
   const handleReject = useCallback(
@@ -155,12 +181,17 @@ export default function ProposalInbox({ focusPageKey = '' }: ProposalInboxProps)
       }
       if (proposal.diagnostics?.some((item) => item.severity === 'error')) {
         await handlePreview(proposal.proposalKey);
-        message.warning('该提案包含阻断诊断，请先查看诊断后再处理。');
+        message.warning(
+          intl.formatMessage({
+            id: 'component.proposalInbox.inbox.blockedDiagnosticsWarning',
+            defaultMessage: '该提案包含阻断诊断，请先查看诊断后再处理。',
+          }),
+        );
         return;
       }
       await handleAccept(proposal);
     },
-    [handleAccept, handlePreview, message],
+    [handleAccept, handlePreview, intl, message],
   );
 
   const proposalColumns = buildProposalColumns({
@@ -185,30 +216,53 @@ export default function ProposalInbox({ focusPageKey = '' }: ProposalInboxProps)
       <Alert
         type="info"
         showIcon
-        message="默认页面先生成 Proposal，用户确认后才发布到运行控制台"
-        description="函数注册只描述能力；页面分类、标题和表单展示由平台生成默认 PageSpec。ready/basic 可以直接发布，不满意再进入编辑。"
+        message={intl.formatMessage({
+          id: 'component.proposalInbox.inbox.alertMessage',
+          defaultMessage: '默认页面先生成 Proposal，用户确认后才发布到运行控制台',
+        })}
+        description={intl.formatMessage({
+          id: 'component.proposalInbox.inbox.alertDescription',
+          defaultMessage:
+            '函数注册只描述能力；页面分类、标题和表单展示由平台生成默认 PageSpec。ready/basic 可以直接发布，不满意再进入编辑。',
+        })}
       />
 
       <Card>
         <Space wrap>
           <Input
-            placeholder="搜索提案、页面或资源"
+            placeholder={intl.formatMessage({
+              id: 'component.proposalInbox.inbox.searchPlaceholder',
+              defaultMessage: '搜索提案、页面或资源',
+            })}
             prefix={<SearchOutlined />}
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             style={{ width: 260 }}
           />
           <Button icon={<ReloadOutlined />} onClick={fetchData}>
-            刷新
+            <FormattedMessage id="component.proposalInbox.inbox.refresh" defaultMessage="刷新" />
           </Button>
           <Button
             type="primary"
             ghost
             onClick={() => history.push('/functions/pages/composite-editor')}
           >
-            创建组合页
+            <FormattedMessage
+              id="component.proposalInbox.inbox.createComposite"
+              defaultMessage="创建组合页"
+            />
           </Button>
-          {resourceKey && <Tag color="blue">当前资源：{resourceKey}</Tag>}
+          {resourceKey && (
+            <Tag color="blue">
+              {intl.formatMessage(
+                {
+                  id: 'component.proposalInbox.inbox.currentResourceTag',
+                  defaultMessage: '当前资源：{resourceKey}',
+                },
+                { resourceKey },
+              )}
+            </Tag>
+          )}
         </Space>
       </Card>
 
@@ -221,7 +275,10 @@ export default function ProposalInbox({ focusPageKey = '' }: ProposalInboxProps)
             label: (
               <Space>
                 <RocketOutlined />
-                可直接发布
+                <FormattedMessage
+                  id="component.proposalInbox.inbox.tabPublishable"
+                  defaultMessage="可直接发布"
+                />
                 <Tag color="success">{inbox.summary.publishable}</Tag>
               </Space>
             ),
@@ -235,7 +292,16 @@ export default function ProposalInbox({ focusPageKey = '' }: ProposalInboxProps)
                 }
                 loading={loading}
                 scroll={{ x: 'max-content' }}
-                locale={{ emptyText: <Empty description="暂无可直接发布的默认页面" /> }}
+                locale={{
+                  emptyText: (
+                    <Empty
+                      description={intl.formatMessage({
+                        id: 'component.proposalInbox.inbox.emptyPublishable',
+                        defaultMessage: '暂无可直接发布的默认页面',
+                      })}
+                    />
+                  ),
+                }}
               />
             ),
           },
@@ -244,7 +310,10 @@ export default function ProposalInbox({ focusPageKey = '' }: ProposalInboxProps)
             label: (
               <Space>
                 <ExclamationCircleOutlined />
-                需要处理
+                <FormattedMessage
+                  id="component.proposalInbox.inbox.tabNeedsReview"
+                  defaultMessage="需要处理"
+                />
                 <Tag color="warning">{inbox.summary.needsReview + inbox.summary.blockedIssues}</Tag>
               </Space>
             ),
@@ -259,14 +328,32 @@ export default function ProposalInbox({ focusPageKey = '' }: ProposalInboxProps)
                   }
                   loading={loading}
                   scroll={{ x: 'max-content' }}
-                  locale={{ emptyText: <Empty description="暂无需要处理的 Proposal" /> }}
+                  locale={{
+                    emptyText: (
+                      <Empty
+                        description={intl.formatMessage({
+                          id: 'component.proposalInbox.inbox.emptyNeedsReview',
+                          defaultMessage: '暂无需要处理的 Proposal',
+                        })}
+                      />
+                    ),
+                  }}
                 />
                 <Table
                   columns={blockedColumns}
                   dataSource={blockedIssues}
                   rowKey="id"
                   loading={loading}
-                  locale={{ emptyText: <Empty description="暂无阻断项" /> }}
+                  locale={{
+                    emptyText: (
+                      <Empty
+                        description={intl.formatMessage({
+                          id: 'component.proposalInbox.inbox.emptyBlocked',
+                          defaultMessage: '暂无阻断项',
+                        })}
+                      />
+                    ),
+                  }}
                 />
               </Space>
             ),
@@ -276,7 +363,10 @@ export default function ProposalInbox({ focusPageKey = '' }: ProposalInboxProps)
             label: (
               <Space>
                 <SyncOutlined />
-                契约变更
+                <FormattedMessage
+                  id="component.proposalInbox.inbox.tabContractChanges"
+                  defaultMessage="契约变更"
+                />
                 <Tag color="error">{inbox.summary.contractChanges}</Tag>
               </Space>
             ),

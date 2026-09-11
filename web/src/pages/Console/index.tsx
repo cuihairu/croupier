@@ -5,9 +5,9 @@
  * 路由：/console/home 或 /console/:categoryKey
  */
 
-import { history, useAccess, useIntl, useParams } from '@umijs/max';
+import { FormattedMessage, history, useAccess, useIntl, useParams } from '@umijs/max';
 import { Alert, Card, Empty, Space, Spin, Tag, Typography } from 'antd';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { AppstoreOutlined, CheckCircleOutlined } from '@ant-design/icons';
 import { getConsoleMenu, listPublishedPages } from '@/services/console';
 import type { ConsoleMenuItem, ConsoleMenuSpec, PublishedPageSpec } from '@/types/dashboard';
@@ -20,6 +20,9 @@ type ConsoleAccess = {
 export default function ConsoleIndex() {
   const access = useAccess() as ConsoleAccess;
   const intl = useIntl();
+  // useIntl 的 mock 每渲染返回新实例；effect 内取文案走 ref，避免 intl 进依赖引发重复加载
+  const intlRef = useRef(intl);
+  intlRef.current = intl;
   const params = useParams<{ categoryKey?: string }>();
   const categoryKey = decodeURIComponent(params?.categoryKey || '');
 
@@ -44,7 +47,14 @@ export default function ConsoleIndex() {
         setPages(Array.isArray(pagesData) ? pagesData : []);
       } catch (err: unknown) {
         if (!mounted) return;
-        setError(err instanceof Error ? err.message : '加载控制台失败');
+        setError(
+          err instanceof Error
+            ? err.message
+            : intlRef.current.formatMessage({
+                id: 'pages.console.home.error.loadConsoleFailed',
+                defaultMessage: '加载控制台失败',
+              }),
+        );
       } finally {
         if (mounted) setLoading(false);
       }
@@ -109,10 +119,16 @@ export default function ConsoleIndex() {
                 {localizedText(item.title, intl.locale, item.key)}
               </Typography.Text>
               {staleCount > 0 ? (
-                <Tag color="error">契约失效 {staleCount}</Tag>
+                <Tag color="error">
+                  <FormattedMessage
+                    id="pages.console.home.tag.stale"
+                    defaultMessage="契约失效 {count}"
+                    values={{ count: staleCount }}
+                  />
+                </Tag>
               ) : (
                 <Tag color="success" icon={<CheckCircleOutlined />}>
-                  已发布
+                  <FormattedMessage id="pages.console.home.tag.published" defaultMessage="已发布" />
                 </Tag>
               )}
             </Space>
@@ -131,8 +147,18 @@ export default function ConsoleIndex() {
   if (!access?.canConsoleRead) {
     return (
       <Card>
-        <Typography.Title level={4}>权限受限</Typography.Title>
-        <Typography.Text>你没有查看运行控制台的权限。</Typography.Text>
+        <Typography.Title level={4}>
+          {intl.formatMessage({
+            id: 'pages.console.home.permission.title',
+            defaultMessage: '权限受限',
+          })}
+        </Typography.Title>
+        <Typography.Text>
+          {intl.formatMessage({
+            id: 'pages.console.home.permission.deniedText',
+            defaultMessage: '你没有查看运行控制台的权限。',
+          })}
+        </Typography.Text>
       </Card>
     );
   }
@@ -141,7 +167,13 @@ export default function ConsoleIndex() {
   if (loading) {
     return (
       <div style={{ textAlign: 'center', padding: '100px 0' }}>
-        <Spin size="large" tip="加载控制台..." />
+        <Spin
+          size="large"
+          tip={intl.formatMessage({
+            id: 'pages.console.home.loading',
+            defaultMessage: '加载控制台...',
+          })}
+        />
       </div>
     );
   }
@@ -150,15 +182,29 @@ export default function ConsoleIndex() {
   if (error) {
     return (
       <Card>
-        <Alert type="error" message="加载失败" description={error} showIcon />
+        <Alert
+          type="error"
+          message={intl.formatMessage({
+            id: 'pages.console.home.error.load',
+            defaultMessage: '加载失败',
+          })}
+          description={error}
+          showIcon
+        />
       </Card>
     );
   }
 
   // 页面标题
   const pageTitle = categoryKey
-    ? `运行控制台 / ${activeCategory ? getCategoryTitle(activeCategory) : categoryKey}`
-    : '运行控制台';
+    ? intl.formatMessage(
+        {
+          id: 'pages.console.home.title.category',
+          defaultMessage: '运行控制台 / {category}',
+        },
+        { category: activeCategory ? getCategoryTitle(activeCategory) : categoryKey },
+      )
+    : intl.formatMessage({ id: 'pages.console.home.title.root', defaultMessage: '运行控制台' });
 
   return (
     <Space orientation="vertical" size={16} style={{ width: '100%' }}>
@@ -169,11 +215,29 @@ export default function ConsoleIndex() {
             {pageTitle}
           </Typography.Title>
           <Typography.Text type="secondary">
-            运行控制台展示已发布的页面。页面由 PageSpec 定义，通过统一 JSON Schema 表单渲染器执行。
+            {intl.formatMessage({
+              id: 'pages.console.home.description',
+              defaultMessage:
+                '运行控制台展示已发布的页面。页面由 PageSpec 定义，通过统一 JSON Schema 表单渲染器执行。',
+            })}
           </Typography.Text>
           <Space wrap size={[8, 8]}>
-            <Tag color="blue">{`已发布 ${pages.length} 个页面`}</Tag>
-            {menu?.items && <Tag color="green">{`${menu.items.length} 个分类`}</Tag>}
+            <Tag color="blue">
+              <FormattedMessage
+                id="pages.console.home.tag.pages"
+                defaultMessage="已发布 {count} 个页面"
+                values={{ count: pages.length }}
+              />
+            </Tag>
+            {menu?.items && (
+              <Tag color="green">
+                <FormattedMessage
+                  id="pages.console.home.tag.categories"
+                  defaultMessage="{count} 个分类"
+                  values={{ count: menu.items.length }}
+                />
+              </Tag>
+            )}
           </Space>
         </Space>
       </Card>
@@ -197,21 +261,42 @@ export default function ConsoleIndex() {
                   {category.children.map(renderPageCard)}
                 </Space>
               ) : (
-                <Typography.Text type="secondary">该分类下暂无页面</Typography.Text>
+                <Typography.Text type="secondary">
+                  <FormattedMessage
+                    id="pages.console.home.empty.category"
+                    defaultMessage="该分类下暂无页面"
+                  />
+                </Typography.Text>
               )}
             </Card>
           ))}
           {categoryKey && visibleCategories.length === 0 ? (
             <Card>
-              <Empty description={`分类 "${categoryKey}" 下暂无已发布页面`} />
+              <Empty
+                description={intl.formatMessage(
+                  {
+                    id: 'pages.console.home.empty.categoryKey',
+                    defaultMessage: '分类 "{categoryKey}" 下暂无已发布页面',
+                  },
+                  { categoryKey },
+                )}
+              />
             </Card>
           ) : null}
         </Space>
       ) : (
         <Card>
-          <Empty description="暂无已发布页面">
+          <Empty
+            description={intl.formatMessage({
+              id: 'pages.console.home.empty.pages',
+              defaultMessage: '暂无已发布页面',
+            })}
+          >
             <Typography.Text type="secondary">
-              请先在 Page 工作台发布页面，然后在这里查看。
+              <FormattedMessage
+                id="pages.console.home.empty.hint"
+                defaultMessage="请先在 Page 工作台发布页面，然后在这里查看。"
+              />
             </Typography.Text>
           </Empty>
         </Card>

@@ -55,6 +55,7 @@ import {
   conflictSources,
   emptySemanticMeta,
   emptySemanticVersions,
+  formatLabelText,
   semanticsToFormValues,
   statusColors,
   statusLabels,
@@ -349,7 +350,7 @@ const ResourceCatalogPage: React.FC = () => {
       dataIndex: 'status',
       key: 'status',
       render: (status: ResourceCatalogItem['status']) => (
-        <Tag color={statusColors[status]}>{statusLabels[status]}</Tag>
+        <Tag color={statusColors[status]}>{formatLabelText(intl, statusLabels[status])}</Tag>
       ),
     },
     {

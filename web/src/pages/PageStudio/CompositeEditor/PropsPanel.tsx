@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Button, Card, Empty, Input, Space, Tabs, Tooltip, Typography } from 'antd';
 import { DeleteOutlined } from '@ant-design/icons';
+import { useIntl } from '@umijs/max';
 import SchemaFormRenderer from '@/components/SchemaFormRenderer';
 import type { FunctionDescriptor } from '@/services/api/functions';
 import { getComponent } from './registry';
@@ -38,6 +39,7 @@ export default function PropsPanel({
   /** 无弹窗时按钮动作内联创建（建弹窗+装表单+绑定）。 */
   onCreateModal?: (fn: FunctionDescriptor) => void;
 }) {
+  const intl = useIntl();
   const def = node ? getComponent(node.type) : undefined;
   const [activeTab, setActiveTab] = useState<string>('config');
 
@@ -64,8 +66,25 @@ export default function PropsPanel({
 
   if (!node || !def || !schema) {
     return (
-      <Card size="small" title={<Text strong>属性</Text>} styles={{ body: { padding: 16 } }}>
-        <Empty description="点击画布组件进行配置" image={Empty.PRESENTED_IMAGE_SIMPLE} />
+      <Card
+        size="small"
+        title={
+          <Text strong>
+            {intl.formatMessage({
+              id: 'pages.pageStudio.editor.props.title',
+              defaultMessage: '属性',
+            })}
+          </Text>
+        }
+        styles={{ body: { padding: 16 } }}
+      >
+        <Empty
+          description={intl.formatMessage({
+            id: 'pages.pageStudio.editor.props.emptyHint',
+            defaultMessage: '点击画布组件进行配置',
+          })}
+          image={Empty.PRESENTED_IMAGE_SIMPLE}
+        />
       </Card>
     );
   }
@@ -104,7 +123,10 @@ export default function PropsPanel({
         items={[
           {
             key: 'config',
-            label: '配置',
+            label: intl.formatMessage({
+              id: 'pages.pageStudio.editor.props.tab.config',
+              defaultMessage: '配置',
+            }),
             forceRender: true,
             children: (
               <div style={{ maxHeight: 'calc(100vh - 300px)', overflow: 'auto', paddingRight: 4 }}>
@@ -142,7 +164,10 @@ export default function PropsPanel({
                       type="secondary"
                       style={{ fontSize: 11, display: 'block', marginBottom: 4 }}
                     >
-                      参数映射
+                      {intl.formatMessage({
+                        id: 'pages.pageStudio.editor.props.paramMappingLabel',
+                        defaultMessage: '参数映射',
+                      })}
                     </Typography.Text>
                     <ParamMappingEditor
                       fn={fn}
@@ -177,7 +202,13 @@ export default function PropsPanel({
                   />
                 )}
                 {plainKeys.length === 0 && staticSchemaKeys.length === 0 && (
-                  <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="无配置字段" />
+                  <Empty
+                    image={Empty.PRESENTED_IMAGE_SIMPLE}
+                    description={intl.formatMessage({
+                      id: 'pages.pageStudio.editor.props.noFields',
+                      defaultMessage: '无配置字段',
+                    })}
+                  />
                 )}
               </div>
             ),
@@ -186,7 +217,10 @@ export default function PropsPanel({
             ? [
                 {
                   key: 'actions',
-                  label: '动作',
+                  label: intl.formatMessage({
+                    id: 'pages.pageStudio.editor.props.tab.actions',
+                    defaultMessage: '动作',
+                  }),
                   forceRender: true,
                   children: (
                     <div
@@ -220,7 +254,10 @@ export default function PropsPanel({
                             type="secondary"
                             style={{ fontSize: 11, display: 'block', marginBottom: 4 }}
                           >
-                            行操作（行尾按钮打开弹窗表单）
+                            {intl.formatMessage({
+                              id: 'pages.pageStudio.editor.props.rowActionsTitle',
+                              defaultMessage: '行操作（行尾按钮打开弹窗表单）',
+                            })}
                           </Typography.Text>
                           <RowActionsEditor
                             value={node.props[key]}
@@ -259,6 +296,7 @@ function VarNameInput({
   onPatch: (patch: Record<string, unknown>) => void;
   onRename?: (newName: string) => void;
 }) {
+  const intl = useIntl();
   const declared = typeof node.props.sectionKey === 'string' ? node.props.sectionKey : '';
   const [draft, setDraft] = useState(declared);
   const [touched, setTouched] = useState(false);
@@ -291,12 +329,18 @@ function VarNameInput({
   return (
     <div style={{ marginBottom: 12 }}>
       <Typography.Text type="secondary" style={{ fontSize: 11, display: 'block', marginBottom: 4 }}>
-        变量名（页面内唯一；表达式/refreshOn/参数映射按此引用）
+        {intl.formatMessage({
+          id: 'pages.pageStudio.editor.props.varName.label',
+          defaultMessage: '变量名（页面内唯一；表达式/refreshOn/参数映射按此引用）',
+        })}
       </Typography.Text>
       <Input
         size="small"
         allowClear
-        placeholder="留空自动分配"
+        placeholder={intl.formatMessage({
+          id: 'pages.pageStudio.editor.props.varName.placeholder',
+          defaultMessage: '留空自动分配',
+        })}
         value={draft}
         onChange={(e) => {
           setDraft(e.target.value);
@@ -308,25 +352,42 @@ function VarNameInput({
         suffix={
           edited && !invalid ? (
             <Text type="secondary" style={{ fontSize: 11 }}>
-              回车确认改名（同步重写引用）
+              {intl.formatMessage({
+                id: 'pages.pageStudio.editor.props.varName.renameHint',
+                defaultMessage: '回车确认改名（同步重写引用）',
+              })}
             </Text>
           ) : undefined
         }
       />
       {formatError && (
         <Text type="danger" style={{ fontSize: 11, display: 'block', marginTop: 2 }}>
-          格式：小写字母开头的 camelCase（仅 ASCII 字母数字）
+          {intl.formatMessage({
+            id: 'pages.pageStudio.editor.props.varName.formatError',
+            defaultMessage: '格式：小写字母开头的 camelCase（仅 ASCII 字母数字）',
+          })}
         </Text>
       )}
       {conflictError && (
         <Text type="danger" style={{ fontSize: 11, display: 'block', marginTop: 2 }}>
-          与其他组件的变量名冲突
+          {intl.formatMessage({
+            id: 'pages.pageStudio.editor.props.varName.conflictError',
+            defaultMessage: '与其他组件的变量名冲突',
+          })}
         </Text>
       )}
       {legacy && !edited && (
-        <Tooltip title="旧页面区块 key，保留原样即可继续被引用；改名后将同步重写全部引用">
+        <Tooltip
+          title={intl.formatMessage({
+            id: 'pages.pageStudio.editor.props.varName.legacyTooltip',
+            defaultMessage: '旧页面区块 key，保留原样即可继续被引用；改名后将同步重写全部引用',
+          })}
+        >
           <Text type="warning" style={{ fontSize: 11, display: 'block', marginTop: 2 }}>
-            旧 key（非 camelCase）——表达式仍可引用
+            {intl.formatMessage({
+              id: 'pages.pageStudio.editor.props.varName.legacyHint',
+              defaultMessage: '旧 key（非 camelCase）——表达式仍可引用',
+            })}
           </Text>
         </Tooltip>
       )}

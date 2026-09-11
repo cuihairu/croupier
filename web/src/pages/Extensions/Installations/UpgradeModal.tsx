@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { App, Modal, Select } from 'antd';
+import { useIntl } from '@umijs/max';
 import {
   listExtensionCatalogReleases,
   upgradeExtension,
@@ -22,6 +23,7 @@ export default function UpgradeModal({
   onUpgraded: () => Promise<void>;
 }) {
   const { message: msg } = App.useApp();
+  const intl = useIntl();
   const [upgrading, setUpgrading] = useState(false);
   const [loading, setLoading] = useState(false);
   const [version, setVersion] = useState('');
@@ -51,32 +53,68 @@ export default function UpgradeModal({
   const handleOk = async () => {
     if (!row) return;
     if (!version.trim()) {
-      msg.warning('请输入目标版本');
+      msg.warning(
+        intl.formatMessage({
+          id: 'pages.extensionsInstallations.upgrade.missingVersionWarning',
+          defaultMessage: '请输入目标版本',
+        }),
+      );
       return;
     }
     setUpgrading(true);
     try {
       await upgradeExtension(row.id, version.trim());
-      msg.success('升级请求已提交');
+      msg.success(
+        intl.formatMessage({
+          id: 'pages.extensionsInstallations.upgrade.submitted',
+          defaultMessage: '升级请求已提交',
+        }),
+      );
       onClose();
       await onUpgraded();
     } catch (err) {
       const uiErr = mapExtensionError(err as Error);
       const details = uiErr.details || {};
       if (uiErr.code === EXTENSION_ERROR_CODES.MISSING_DEPENDENCY) {
-        msg.error(`升级失败，缺少依赖扩展：${details.dependency || 'unknown'}`);
+        msg.error(
+          intl.formatMessage(
+            {
+              id: 'pages.extensionsInstallations.upgrade.missingDependency',
+              defaultMessage: `升级失败，缺少依赖扩展：${details.dependency || 'unknown'}`,
+            },
+            { dependency: String(details.dependency ?? 'unknown') },
+          ),
+        );
         return;
       }
       if (uiErr.code === EXTENSION_ERROR_CODES.VERSION_MISMATCH) {
         msg.error(
-          `升级失败，依赖版本不匹配：${details.dependency || 'unknown'}，要求 ${
-            details.requiredVersion || '-'
-          }，当前 ${details.currentVersion || '-'}`,
+          intl.formatMessage(
+            {
+              id: 'pages.extensionsInstallations.upgrade.versionMismatch',
+              defaultMessage: `升级失败，依赖版本不匹配：${details.dependency || 'unknown'}，要求 ${
+                details.requiredVersion || '-'
+              }，当前 ${details.currentVersion || '-'}`,
+            },
+            {
+              dependency: String(details.dependency ?? 'unknown'),
+              requiredVersion: String(details.requiredVersion ?? '-'),
+              currentVersion: String(details.currentVersion ?? '-'),
+            },
+          ),
         );
         return;
       }
       if (uiErr.code === EXTENSION_ERROR_CODES.DEPENDENCY_CYCLE) {
-        msg.error(`升级失败，检测到循环依赖：${details.dependency || 'unknown'}`);
+        msg.error(
+          intl.formatMessage(
+            {
+              id: 'pages.extensionsInstallations.upgrade.dependencyCycle',
+              defaultMessage: `升级失败，检测到循环依赖：${details.dependency || 'unknown'}`,
+            },
+            { dependency: String(details.dependency ?? 'unknown') },
+          ),
+        );
         return;
       }
       msg.error(uiErr.message);
@@ -88,7 +126,10 @@ export default function UpgradeModal({
   return (
     <Modal
       open={open}
-      title="升级扩展"
+      title={intl.formatMessage({
+        id: 'pages.extensionsInstallations.upgrade.title',
+        defaultMessage: '升级扩展',
+      })}
       onCancel={onClose}
       onOk={() => void handleOk()}
       okButtonProps={{ loading: upgrading }}
@@ -99,7 +140,10 @@ export default function UpgradeModal({
         options={options}
         value={version}
         onChange={(value) => setVersion(value)}
-        placeholder="选择目标版本"
+        placeholder={intl.formatMessage({
+          id: 'pages.extensionsInstallations.upgrade.versionPlaceholder',
+          defaultMessage: '选择目标版本',
+        })}
         style={{ width: '100%' }}
       />
     </Modal>

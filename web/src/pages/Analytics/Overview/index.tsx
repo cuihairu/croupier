@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { Button, Card, Space, Row, Col, Divider } from 'antd';
 import { PageContainer, StatisticCard } from '@ant-design/pro-components';
-import { useIntl } from '@umijs/max';
+import { FormattedMessage, useIntl } from '@umijs/max';
 import { exportToXLSX } from '@/utils/export';
 import { fetchAnalyticsOverview } from '@/services/api/analytics';
 
@@ -108,11 +108,16 @@ export default function AnalyticsOverviewPage() {
     <PageContainer
       extra={[
         <Button key="export" onClick={() => void exportExcel()}>
-          导出
+          <FormattedMessage id="pages.analyticsOverview.button.export" defaultMessage="导出" />
         </Button>,
       ]}
     >
-      <Card title={intl.formatMessage({ id: 'pages.analytics.overview.title' }) || '概览 KPI'}>
+      <Card
+        title={intl.formatMessage({
+          id: 'pages.analyticsOverview.title',
+          defaultMessage: '概览 KPI',
+        })}
+      >
         <Space orientation="vertical" size={16} style={{ width: '100%' }}>
           <Row gutter={[16, 16]}>
             <Col span={4}>
@@ -136,19 +141,37 @@ export default function AnalyticsOverviewPage() {
             <Col span={4}>
               <StatisticCard
                 loading={loading}
-                statistic={{ title: '新增', value: data?.newUsers || 0 }}
+                statistic={{
+                  title: intl.formatMessage({
+                    id: 'pages.analyticsOverview.stat.newUsers',
+                    defaultMessage: '新增',
+                  }),
+                  value: data?.newUsers || 0,
+                }}
               />
             </Col>
             <Col span={4}>
               <StatisticCard
                 loading={loading}
-                statistic={{ title: '注册用户总数', value: data?.registeredTotal ?? '-' }}
+                statistic={{
+                  title: intl.formatMessage({
+                    id: 'pages.analyticsOverview.stat.registeredTotal',
+                    defaultMessage: '注册用户总数',
+                  }),
+                  value: data?.registeredTotal ?? '-',
+                }}
               />
             </Col>
             <Col span={4}>
               <StatisticCard
                 loading={loading}
-                statistic={{ title: '收入', value: data?.revenue || 0 }}
+                statistic={{
+                  title: intl.formatMessage({
+                    id: 'pages.analyticsOverview.stat.revenue',
+                    defaultMessage: '收入',
+                  }),
+                  value: data?.revenue || 0,
+                }}
               />
             </Col>
           </Row>
@@ -156,7 +179,14 @@ export default function AnalyticsOverviewPage() {
             <Col span={8}>
               <StatisticCard
                 loading={loading}
-                statistic={{ title: '付费率', suffix: '%', value: data?.payRate ?? '-' }}
+                statistic={{
+                  title: intl.formatMessage({
+                    id: 'pages.analyticsOverview.stat.payRate',
+                    defaultMessage: '付费率',
+                  }),
+                  suffix: '%',
+                  value: data?.payRate ?? '-',
+                }}
               />
             </Col>
             <Col span={8}>
@@ -178,7 +208,10 @@ export default function AnalyticsOverviewPage() {
               <StatisticCard
                 loading={loading}
                 statistic={{
-                  title: 'D1 留存',
+                  title: intl.formatMessage({
+                    id: 'pages.analyticsOverview.stat.retentionD1',
+                    defaultMessage: 'D1 留存',
+                  }),
                   value: data?.d1 ?? '-',
                   suffix: data?.d1 == null ? '' : '%',
                 }}
@@ -188,7 +221,10 @@ export default function AnalyticsOverviewPage() {
               <StatisticCard
                 loading={loading}
                 statistic={{
-                  title: 'D7 留存',
+                  title: intl.formatMessage({
+                    id: 'pages.analyticsOverview.stat.retentionD7',
+                    defaultMessage: 'D7 留存',
+                  }),
                   value: data?.d7 ?? '-',
                   suffix: data?.d7 == null ? '' : '%',
                 }}
@@ -198,7 +234,10 @@ export default function AnalyticsOverviewPage() {
               <StatisticCard
                 loading={loading}
                 statistic={{
-                  title: 'D30 留存',
+                  title: intl.formatMessage({
+                    id: 'pages.analyticsOverview.stat.retentionD30',
+                    defaultMessage: 'D30 留存',
+                  }),
                   value: data?.d30 ?? '-',
                   suffix: data?.d30 == null ? '' : '%',
                 }}
@@ -208,17 +247,35 @@ export default function AnalyticsOverviewPage() {
           <Divider />
           <Row gutter={[16, 16]}>
             <Col span={8}>
-              <Card size="small" title="每日新增（曲线）">
+              <Card
+                size="small"
+                title={intl.formatMessage({
+                  id: 'pages.analyticsOverview.spark.dailyNewUsers',
+                  defaultMessage: '每日新增（曲线）',
+                })}
+              >
                 <Spark data={data?.series?.newUsers || []} />
               </Card>
             </Col>
             <Col span={8}>
-              <Card size="small" title="每日峰值在线（曲线）">
+              <Card
+                size="small"
+                title={intl.formatMessage({
+                  id: 'pages.analyticsOverview.spark.dailyPeakOnline',
+                  defaultMessage: '每日峰值在线（曲线）',
+                })}
+              >
                 <Spark data={data?.series?.peakOnline || []} />
               </Card>
             </Col>
             <Col span={8}>
-              <Card size="small" title="每日收入（曲线）">
+              <Card
+                size="small"
+                title={intl.formatMessage({
+                  id: 'pages.analyticsOverview.spark.dailyRevenue',
+                  defaultMessage: '每日收入（曲线）',
+                })}
+              >
                 <Spark data={data?.series?.revenue || []} />
               </Card>
             </Col>

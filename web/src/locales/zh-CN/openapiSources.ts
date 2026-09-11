@@ -14,6 +14,14 @@ export default {
   'pages.openapiSources.binding.savedModal.title': 'Provider binding 已保存',
   'pages.openapiSources.binding.savedWithoutProposal':
     'Provider binding 已保存，但未返回可发布 Proposal。请在 Proposal 队列查看诊断。',
+  'pages.openapiSources.bindingModal.alert.description':
+    'httpConnector 需要 allowlist、SecretRef、超时/重试和审计策略后才能开放。',
+  'pages.openapiSources.bindingModal.alert.message': '当前只启用 Provider binding',
+  'pages.openapiSources.bindingModal.button.save': '保存 binding',
+  'pages.openapiSources.bindingModal.function.placeholder': '选择已注册函数',
+  'pages.openapiSources.bindingModal.providerId.placeholder': '可选；留空由运行时按函数路由',
+  'pages.openapiSources.bindingModal.title.bindProvider': '绑定 Provider',
+  'pages.openapiSources.bindingModal.title.withOperation': '绑定 {operationId}',
   'pages.openapiSources.button.open': '打开',
   'pages.openapiSources.button.refresh': '刷新',
   'pages.openapiSources.button.update': '更新',
@@ -24,6 +32,21 @@ export default {
   'pages.openapiSources.column.operationCount': '操作数',
   'pages.openapiSources.column.updatedAt': '更新时间',
   'pages.openapiSources.column.version': '版本',
+  'pages.openapiSources.drawer.button.bind': '绑定',
+  'pages.openapiSources.drawer.button.delete': '删除',
+  'pages.openapiSources.drawer.button.updateSource': '更新 Source',
+  'pages.openapiSources.drawer.card.rawJson': '原始 OpenAPI JSON',
+  'pages.openapiSources.drawer.column.capabilityContract': '能力契约',
+  'pages.openapiSources.drawer.empty.diagnostics': '无诊断',
+  'pages.openapiSources.drawer.popconfirm.deleteBinding': '删除此 binding？',
+  'pages.openapiSources.drawer.tag.noApproval': '无 approval',
+  'pages.openapiSources.drawer.tag.noCapability': '无 capability',
+  'pages.openapiSources.drawer.tag.noExecution': '无 execution',
+  'pages.openapiSources.drawer.tag.noOperation': '无 operation',
+  'pages.openapiSources.drawer.tag.noPermission': '无 permission',
+  'pages.openapiSources.drawer.tag.noResource': '无 resource',
+  'pages.openapiSources.drawer.tag.noRisk': '无 risk',
+  'pages.openapiSources.drawer.text.readonly': '只读',
   'pages.openapiSources.error.createSourceFailed': '创建 OpenAPI Source 失败',
   'pages.openapiSources.error.loadSourceFailed': '加载 OpenAPI Source 失败',
   'pages.openapiSources.error.noWritePermission': '没有 OpenAPI Source 写权限',
@@ -36,4 +59,20 @@ export default {
   'pages.openapiSources.message.validationFailed': 'OpenAPI Source 校验失败，请查看诊断',
   'pages.openapiSources.page.subTitle':
     '上传 OpenAPI 只产生能力契约和诊断；可执行性必须显式绑定 Provider，页面 UI 仍在 Page Studio 确定。',
+  'pages.openapiSources.sourceModal.alert.description.update':
+    '更新会刷新 Source 的 operations 和 diagnostics，保留现有 Provider binding；OpenAPI 不能写 UI，只允许 x-resource/x-operation/x-capability/x-execution/x-risk/x-enabled/x-permission。',
+  'pages.openapiSources.sourceModal.alert.description.upload':
+    'OpenAPI 不能写 UI，只允许 x-resource/x-operation/x-capability/x-execution/x-risk/x-enabled/x-permission。',
+  'pages.openapiSources.sourceModal.alert.message.update': '更新只产生新的 Source revision',
+  'pages.openapiSources.sourceModal.alert.message.upload': '不要在 OpenAPI 中写 UI',
+  'pages.openapiSources.sourceModal.button.selectFile': '选择 JSON/YAML 文件',
+  'pages.openapiSources.sourceModal.name.placeholder': '可选，默认使用 info.title',
+  'pages.openapiSources.sourceModal.okText.create': '创建',
+  'pages.openapiSources.sourceModal.okText.update': '更新 revision',
+  'pages.openapiSources.sourceModal.spec.placeholder.create':
+    '或粘贴 OpenAPI JSON。YAML 请使用文件上传。',
+  'pages.openapiSources.sourceModal.spec.placeholder.update':
+    '粘贴新的 OpenAPI JSON。YAML 更新请走 API raw PUT。',
+  'pages.openapiSources.sourceModal.title.update': '更新 OpenAPI Source',
+  'pages.openapiSources.sourceModal.title.upload': '上传 OpenAPI Source',
 };

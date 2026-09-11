@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { App } from 'antd';
+import { useIntl } from '@umijs/max';
 import {
   listConfigs,
   getConfig,
@@ -14,6 +15,11 @@ import {
 
 export default function useConfigsPage() {
   const { message, modal } = App.useApp();
+  const intl = useIntl();
+  // useIntl 在测试 mock 下每次渲染返回新引用，直接进 useCallback 依赖会让请求
+  // effect 无限重建；经 ref 转发后回调依赖稳定，执行时仍读取最新实例
+  const intlRef = useRef(intl);
+  intlRef.current = intl;
   const [loading, setLoading] = useState(false);
   const [rows, setRows] = useState<ConfigItem[]>([]);
   const [game, setGame] = useState<string>('');
@@ -41,7 +47,12 @@ export default function useConfigsPage() {
       const r = await listConfigs(params);
       setRows(r?.items || []);
     } catch {
-      message.error('加载失败');
+      message.error(
+        intlRef.current.formatMessage({
+          id: 'pages.operationsConfigs.error.loadFailed',
+          defaultMessage: '加载失败',
+        }),
+      );
     } finally {
       setLoading(false);
     }
@@ -63,7 +74,12 @@ export default function useConfigsPage() {
         env: r?.env || '',
       });
     } catch {
-      message.error('获取配置失败');
+      message.error(
+        intl.formatMessage({
+          id: 'pages.operationsConfigs.error.getConfigFailed',
+          defaultMessage: '获取配置失败',
+        }),
+      );
     }
   };
 
@@ -87,8 +103,21 @@ export default function useConfigsPage() {
   const validate = async () => {
     if (!cur) return;
     const res = await validateConfig(cur.id, { format: cur.format, content: cur.content });
-    if (res?.valid) message.success('校验通过');
-    else message.error(res?.errors?.join('\n') || '校验失败');
+    if (res?.valid)
+      message.success(
+        intl.formatMessage({
+          id: 'pages.operationsConfigs.validate.success',
+          defaultMessage: '校验通过',
+        }),
+      );
+    else
+      message.error(
+        res?.errors?.join('\n') ||
+          intl.formatMessage({
+            id: 'pages.operationsConfigs.validate.failed',
+            defaultMessage: '校验失败',
+          }),
+      );
   };
 
   const doSave = async () => {
@@ -102,12 +131,25 @@ export default function useConfigsPage() {
         message: saveMsg,
         baseVersion: cur.version || 0,
       });
-      message.success('已保存版本 ' + r?.version);
+      message.success(
+        intl.formatMessage(
+          {
+            id: 'pages.operationsConfigs.save.success',
+            defaultMessage: `已保存版本 ${r?.version}`,
+          },
+          { version: String(r?.version) },
+        ),
+      );
       setSaveOpen(false);
       setSaveMsg('');
       load();
     } catch {
-      message.error('保存失败');
+      message.error(
+        intl.formatMessage({
+          id: 'pages.operationsConfigs.error.saveFailed',
+          defaultMessage: '保存失败',
+        }),
+      );
     }
   };
 
@@ -137,8 +179,17 @@ export default function useConfigsPage() {
     if (!cur) return;
     const r = await getVersion(cur.id, ver);
     modal.confirm({
-      title: '确认回滚',
-      content: `确认回滚到版本 ${ver} 吗？此操作将创建一个新版本。`,
+      title: intl.formatMessage({
+        id: 'pages.operationsConfigs.rollback.confirmTitle',
+        defaultMessage: '确认回滚',
+      }),
+      content: intl.formatMessage(
+        {
+          id: 'pages.operationsConfigs.rollback.confirmContent',
+          defaultMessage: `确认回滚到版本 ${ver} 吗？此操作将创建一个新版本。`,
+        },
+        { version: ver },
+      ),
       onOk: async () => {
         try {
           await saveConfig(cur.id, {
@@ -149,11 +200,21 @@ export default function useConfigsPage() {
             message: `rollback to v${ver}`,
             baseVersion: cur.version || 0,
           });
-          message.success('已回滚');
+          message.success(
+            intl.formatMessage({
+              id: 'pages.operationsConfigs.rollback.success',
+              defaultMessage: '已回滚',
+            }),
+          );
           setVerOpen(false);
           load();
         } catch {
-          message.error('回滚失败');
+          message.error(
+            intl.formatMessage({
+              id: 'pages.operationsConfigs.rollback.failed',
+              defaultMessage: '回滚失败',
+            }),
+          );
         }
       },
     });

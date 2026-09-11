@@ -1,3 +1,4 @@
+import { getIntl } from '@umijs/max';
 import { nodeId, type PageNode } from '../model';
 import { parseAction } from '../actions';
 import { localizedText } from '@/utils/localizedText';
@@ -8,6 +9,10 @@ import {
 } from '@/components/PageRenderer/expression';
 import type { SpecSectionLike } from './types';
 import { SECTION_KEY_RE } from './types';
+
+// 纯函数模块无法 useIntl：经 getIntl 求值诊断文案（先例 services/api/bugs.ts）；
+// 回读节点的 title/label 兜底（'常量表单'/'操作'）是编辑树数据，不属于 UI 文案
+const intl = getIntl();
 // ---------------------------------------------------------------------------
 // 回读编辑：CompositeSection → PageNode 树（编译的逆变换）
 // ---------------------------------------------------------------------------
@@ -59,7 +64,12 @@ export function decompileToTree(sections: SpecSectionLike[]): [PageNode[], strin
     const fid = String(sec.functionId ?? sec.bindingId ?? '');
     const key = String(sec.key ?? fid);
     if (!fid) {
-      warnings.push('区块缺少函数绑定，已跳过');
+      warnings.push(
+        intl.formatMessage({
+          id: 'pages.pageStudio.compiler.warning.sectionMissingFunction',
+          defaultMessage: '区块缺少函数绑定，已跳过',
+        }),
+      );
       continue;
     }
     const view = sec.view === 'table' ? 'fnTable' : sec.view === 'fields' ? 'fnFields' : 'fnForm';
@@ -167,7 +177,13 @@ export function decompileToTree(sections: SpecSectionLike[]): [PageNode[], strin
       const upstreamId = keyToNodeId.get(sourceKey) ?? '';
       if (m.kind !== 'literal' && sourceKey && !upstreamId) {
         warnings.push(
-          `区块「${pending.ownerKey}」参数映射来源「${sourceKey}」不存在，已保留字面值`,
+          intl.formatMessage(
+            {
+              id: 'pages.pageStudio.compiler.warning.mappingSourceMissing',
+              defaultMessage: '区块「{ownerKey}」参数映射来源「{sourceKey}」不存在，已保留字面值',
+            },
+            { ownerKey: pending.ownerKey, sourceKey },
+          ),
         );
       }
       const pointer = typeof m.path === 'string' ? m.path : '';
@@ -245,7 +261,15 @@ export function decompileToTree(sections: SpecSectionLike[]): [PageNode[], strin
           const t = String(ra.targetSection ?? '');
           const modalId = dialogKeyToModalId.get(t) ?? dialogGroupToModalId.get(t);
           if (!modalId) {
-            warnings.push(`行操作「${labelOf(ra.label, '')}」的弹窗目标 ${t} 无法还原，已丢弃`);
+            warnings.push(
+              intl.formatMessage(
+                {
+                  id: 'pages.pageStudio.compiler.warning.rowActionTargetLost',
+                  defaultMessage: '行操作「{label}」的弹窗目标 {target} 无法还原，已丢弃',
+                },
+                { label: labelOf(ra.label, ''), target: t },
+              ),
+            );
             return null;
           }
           // V5 round-trip：编译产物 row.字段 → 编辑器表达式 {{row.字段}}
@@ -287,7 +311,15 @@ export function decompileToTree(sections: SpecSectionLike[]): [PageNode[], strin
       const srcNode = findInNodes(nodes, srcId);
       if (srcNode) srcNode.props.onSuccessRefresh = { kind: 'refreshNode', target: tgtId };
     } else {
-      warnings.push(`「成功后刷新」引用 ${target} 无法还原，已丢弃`);
+      warnings.push(
+        intl.formatMessage(
+          {
+            id: 'pages.pageStudio.compiler.warning.successRefreshLost',
+            defaultMessage: '「成功后刷新」引用 {target} 无法还原，已丢弃',
+          },
+          { target },
+        ),
+      );
     }
   }
   // 顶部按钮还原为独立 button 节点（插到对应表格后——round-trip 等价）
@@ -309,7 +341,15 @@ export function decompileToTree(sections: SpecSectionLike[]): [PageNode[], strin
           }))
         : undefined;
       if (t && !modalId) {
-        warnings.push(`按钮「${label}」的弹窗目标 ${t} 无法还原，已丢弃`);
+        warnings.push(
+          intl.formatMessage(
+            {
+              id: 'pages.pageStudio.compiler.warning.buttonTargetLost',
+              defaultMessage: '按钮「{label}」的弹窗目标 {target} 无法还原，已丢弃',
+            },
+            { label, target: t },
+          ),
+        );
         continue;
       }
       const btn: PageNode = {

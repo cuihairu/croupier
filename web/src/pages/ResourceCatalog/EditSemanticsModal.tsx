@@ -7,7 +7,7 @@ import type {
   FunctionInfo,
   UpdateResourceSemanticsRequest,
 } from '@/types/dashboard';
-import { capabilityLabels } from './shared';
+import { capabilityLabels, formatLabelText } from './shared';
 
 /** 编辑语义弹窗：identity/collection/lifecycle 绑定 + 动作/任务/报表三组 Form.List。
  * Form 实例由主页持有（预填在主页完成），函数选项来自当前资源的 functions。 */
@@ -51,7 +51,9 @@ const EditSemanticsModal: React.FC<{
         .filter((fn) => !capability || fn.capability === capability)
         .map((fn) => ({
           value: fn.functionId,
-          label: `${fn.functionId} #${fn.id} / ${capabilityLabels[fn.capability] || fn.capability}`,
+          label: `${fn.functionId} #${fn.id} / ${
+            formatLabelText(intl, capabilityLabels[fn.capability]) || fn.capability
+          }`,
           disabled: !fn.enabled,
         }))}
     />

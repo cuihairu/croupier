@@ -695,6 +695,7 @@ export default function PageStudio() {
       onDiff: handleDiff,
     },
     modal,
+    intl,
   );
 
   return (

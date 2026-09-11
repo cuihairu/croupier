@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Alert, Button, Modal, Radio, Space, Typography, Upload } from 'antd';
 import { UploadOutlined } from '@ant-design/icons';
-import { request } from '@umijs/max';
+import { FormattedMessage, request, useIntl } from '@umijs/max';
 import * as XLSX from 'xlsx';
 import {
   fieldsToSchemaJson,
@@ -35,6 +35,7 @@ export default function ConstantImportModal({
   const [importMode, setImportMode] = useState<ImportMode>('long');
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
+  const intl = useIntl();
 
   const reset = () => {
     setFields([]);
@@ -52,7 +53,14 @@ export default function ConstantImportModal({
           setFields(rowsToFields(rows, importMode));
           setError('');
         } catch (e) {
-          setError(e instanceof Error ? e.message : 'Excel 解析失败');
+          setError(
+            e instanceof Error
+              ? e.message
+              : intl.formatMessage({
+                  id: 'pages.pageStudio.editor.constantImport.excelParseFailed',
+                  defaultMessage: 'Excel 解析失败',
+                }),
+          );
         }
       };
       reader.readAsArrayBuffer(file);
@@ -62,13 +70,31 @@ export default function ConstantImportModal({
           const parsed: unknown = JSON.parse(String(reader.result));
           const imported = jsonToFields(parsed);
           if (imported.length === 0) {
-            setError('JSON 需为 {"常量名":[选项…]} 或 [{"name":"…","options":[…]}]');
+            setError(
+              intl.formatMessage(
+                {
+                  id: 'pages.pageStudio.editor.constantImport.jsonFormatHint',
+                  // 字面 JSON 示例经 ICU value 传入（defaultMessage 直嵌花括号会破坏 ICU 解析）
+                  defaultMessage: 'JSON 需为 {example}',
+                },
+                {
+                  example: '{"常量名":[选项…]} 或 [{"name":"…","options":[…]}]',
+                },
+              ),
+            );
             return;
           }
           setFields(imported);
           setError('');
         } catch (e) {
-          setError(e instanceof Error ? e.message : 'JSON 解析失败');
+          setError(
+            e instanceof Error
+              ? e.message
+              : intl.formatMessage({
+                  id: 'pages.pageStudio.editor.constantImport.jsonParseFailed',
+                  defaultMessage: 'JSON 解析失败',
+                }),
+          );
         }
       };
       reader.readAsText(file);
@@ -78,7 +104,12 @@ export default function ConstantImportModal({
 
   const save = async () => {
     if (fields.length === 0) {
-      setError('请先导入常量（Excel/JSON）或添加字段');
+      setError(
+        intl.formatMessage({
+          id: 'pages.pageStudio.editor.constantImport.emptyFields',
+          defaultMessage: '请先导入常量（Excel/JSON）或添加字段',
+        }),
+      );
       return;
     }
     setSaving(true);
@@ -106,10 +137,25 @@ export default function ConstantImportModal({
         });
         created += 1;
       }
-      onSaved(`${created} 个常量组件`);
+      onSaved(
+        intl.formatMessage(
+          {
+            id: 'pages.pageStudio.editor.constantImport.savedCount',
+            defaultMessage: `${created} 个常量组件`,
+          },
+          { count: created },
+        ),
+      );
       reset();
     } catch (e) {
-      setError(e instanceof Error ? e.message : '保存失败');
+      setError(
+        e instanceof Error
+          ? e.message
+          : intl.formatMessage({
+              id: 'pages.pageStudio.editor.constantImport.saveFailed',
+              defaultMessage: '保存失败',
+            }),
+      );
     } finally {
       setSaving(false);
     }
@@ -117,7 +163,10 @@ export default function ConstantImportModal({
 
   return (
     <Modal
-      title="导入常量"
+      title={intl.formatMessage({
+        id: 'pages.pageStudio.editor.constantImport.title',
+        defaultMessage: '导入常量',
+      })}
       width={640}
       open={open}
       onCancel={() => {
@@ -132,10 +181,19 @@ export default function ConstantImportModal({
               onCancel();
             }}
           >
-            取消
+            <FormattedMessage
+              id="pages.pageStudio.editor.constantImport.cancel"
+              defaultMessage="取消"
+            />
           </Button>
           <Button type="primary" loading={saving} onClick={() => void save()}>
-            全部保存（{fields.length} 个组件）
+            {intl.formatMessage(
+              {
+                id: 'pages.pageStudio.editor.constantImport.saveAll',
+                defaultMessage: `全部保存（${fields.length} 个组件）`,
+              },
+              { count: fields.length },
+            )}
           </Button>
         </Space>
       }
@@ -147,16 +205,38 @@ export default function ConstantImportModal({
             value={importMode}
             onChange={(e) => setImportMode(e.target.value as ImportMode)}
           >
-            <Radio.Button value="long">长表：名称|值|标签</Radio.Button>
-            <Radio.Button value="wide">宽表：名称|选项…</Radio.Button>
+            <Radio.Button value="long">
+              <FormattedMessage
+                id="pages.pageStudio.editor.constantImport.modeLong"
+                defaultMessage="长表：名称|值|标签"
+              />
+            </Radio.Button>
+            <Radio.Button value="wide">
+              <FormattedMessage
+                id="pages.pageStudio.editor.constantImport.modeWide"
+                defaultMessage="宽表：名称|选项…"
+              />
+            </Radio.Button>
           </Radio.Group>
           <Upload accept=".xlsx,.xls,.csv,.json" showUploadList={false} beforeUpload={beforeUpload}>
-            <Button icon={<UploadOutlined />}>上传 Excel / JSON</Button>
+            <Button icon={<UploadOutlined />}>
+              <FormattedMessage
+                id="pages.pageStudio.editor.constantImport.uploadButton"
+                defaultMessage="上传 Excel / JSON"
+              />
+            </Button>
           </Upload>
         </Space>
         <Text type="secondary" style={{ fontSize: 12 }}>
-          Excel 长表：名称|值|标签（同名称多行聚合）；宽表：名称|选项…；JSON：
-          {'{"常量名":[选项…]}'}
+          {intl.formatMessage(
+            {
+              id: 'pages.pageStudio.editor.constantImport.formatHint',
+              // 字面 JSON 示例经 ICU value 传入（defaultMessage 直嵌花括号会破坏 ICU 解析）
+              defaultMessage:
+                'Excel 长表：名称|值|标签（同名称多行聚合）；宽表：名称|选项…；JSON：{example}',
+            },
+            { example: '{"常量名":[选项…]}' },
+          )}
         </Text>
 
         {error && <Alert type="error" showIcon message={error} />}
@@ -164,7 +244,13 @@ export default function ConstantImportModal({
         {fields.length > 0 && (
           <>
             <Text strong style={{ fontSize: 12 }}>
-              常量预览（{fields.length} 个，每个常量将保存为一个独立下拉组件）
+              {intl.formatMessage(
+                {
+                  id: 'pages.pageStudio.editor.constantImport.previewTitle',
+                  defaultMessage: `常量预览（${fields.length} 个，每个常量将保存为一个独立下拉组件）`,
+                },
+                { count: fields.length },
+              )}
             </Text>
             <ConstantFieldsEditor
               value={fieldsToSchemaJson(fields)}

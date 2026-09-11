@@ -9,6 +9,7 @@
 
 import React, { useState, useCallback } from 'react';
 import { Card, Collapse, Form, Select, Space, Tag, Typography } from 'antd';
+import { FormattedMessage, useIntl } from '@umijs/max';
 import {
   FormOutlined,
   CheckCircleOutlined,
@@ -45,6 +46,7 @@ export default function OperationPageEditor({
   onChange,
   readonly = false,
 }: OperationPageEditorProps) {
+  const intl = useIntl();
   const [activeKey, setActiveKey] = useState<string[]>(['form']);
 
   // 更新确认配置
@@ -82,8 +84,23 @@ export default function OperationPageEditor({
         header={
           <Space>
             <FormOutlined />
-            <Text strong>表单配置</Text>
-            <Tag>{value.form ? '已配置' : '未配置'}</Tag>
+            <Text strong>
+              <FormattedMessage
+                id="component.pageEditor.operationPage.formPanelTitle"
+                defaultMessage="表单配置"
+              />
+            </Text>
+            <Tag>
+              {value.form
+                ? intl.formatMessage({
+                    id: 'component.pageEditor.operationPage.statusConfigured',
+                    defaultMessage: '已配置',
+                  })
+                : intl.formatMessage({
+                    id: 'component.pageEditor.operationPage.statusNotConfigured',
+                    defaultMessage: '未配置',
+                  })}
+            </Tag>
           </Space>
         }
         key="form"
@@ -100,8 +117,23 @@ export default function OperationPageEditor({
         header={
           <Space>
             <CheckCircleOutlined />
-            <Text strong>确认配置</Text>
-            <Tag>{value.confirm ? '已配置' : '未配置'}</Tag>
+            <Text strong>
+              <FormattedMessage
+                id="component.pageEditor.operationPage.confirmPanelTitle"
+                defaultMessage="确认配置"
+              />
+            </Text>
+            <Tag>
+              {value.confirm
+                ? intl.formatMessage({
+                    id: 'component.pageEditor.operationPage.statusConfigured',
+                    defaultMessage: '已配置',
+                  })
+                : intl.formatMessage({
+                    id: 'component.pageEditor.operationPage.statusNotConfigured',
+                    defaultMessage: '未配置',
+                  })}
+            </Tag>
           </Space>
         }
         key="confirm"
@@ -109,13 +141,23 @@ export default function OperationPageEditor({
         <Form layout="vertical" disabled={readonly}>
           {value.confirm && (
             <>
-              <Form.Item label="确认标题（多语言）">
+              <Form.Item
+                label={intl.formatMessage({
+                  id: 'component.pageEditor.operationPage.confirmTitleLabel',
+                  defaultMessage: '确认标题（多语言）',
+                })}
+              >
                 <LocalizedTextEditor
                   value={value.confirm.title}
                   onChange={(title) => handleConfirmChange({ title })}
                 />
               </Form.Item>
-              <Form.Item label="确认描述（多语言）">
+              <Form.Item
+                label={intl.formatMessage({
+                  id: 'component.pageEditor.operationPage.confirmDescriptionLabel',
+                  defaultMessage: '确认描述（多语言）',
+                })}
+              >
                 <LocalizedTextEditor
                   value={value.confirm.description}
                   onChange={(description) => handleConfirmChange({ description })}
@@ -125,7 +167,10 @@ export default function OperationPageEditor({
           )}
           {!value.confirm && (
             <Text type="secondary">
-              确认要求由已发布 binding 的风险与审批策略决定，不能在页面编辑器中新增或移除。
+              <FormattedMessage
+                id="component.pageEditor.operationPage.confirmHint"
+                defaultMessage="确认要求由已发布 binding 的风险与审批策略决定，不能在页面编辑器中新增或移除。"
+              />
             </Text>
           )}
         </Form>
@@ -136,14 +181,30 @@ export default function OperationPageEditor({
         header={
           <Space>
             <FileTextOutlined />
-            <Text strong>结果视图</Text>
-            <Tag>{value.resultView?.fields?.length || 0} 字段</Tag>
+            <Text strong>
+              <FormattedMessage
+                id="component.pageEditor.operationPage.resultViewPanelTitle"
+                defaultMessage="结果视图"
+              />
+            </Text>
+            <Tag>
+              {intl.formatMessage(
+                {
+                  id: 'component.pageEditor.operationPage.resultFieldCount',
+                  defaultMessage: `${value.resultView?.fields?.length || 0} 字段`,
+                },
+                { count: value.resultView?.fields?.length || 0 },
+              )}
+            </Tag>
           </Space>
         }
         key="resultView"
       >
         <Text type="secondary">
-          结果字段来自已发布输出映射；这里只调整展示标题、格式和顺序（拖动 ⠿）。
+          <FormattedMessage
+            id="component.pageEditor.operationPage.resultViewHint"
+            defaultMessage="结果字段来自已发布输出映射；这里只调整展示标题、格式和顺序（拖动 ⠿）。"
+          />
         </Text>
         {value.resultView && (value.resultView.fields?.length || 0) > 0 ? (
           <SortableList
@@ -173,16 +234,40 @@ export default function OperationPageEditor({
                       }}
                       style={{ width: 100 }}
                       options={[
-                        { value: 'string', label: '字符串' },
-                        { value: 'number', label: '数字' },
-                        { value: 'boolean', label: '布尔' },
+                        {
+                          value: 'string',
+                          label: intl.formatMessage({
+                            id: 'component.pageEditor.operationPage.dataType.string',
+                            defaultMessage: '字符串',
+                          }),
+                        },
+                        {
+                          value: 'number',
+                          label: intl.formatMessage({
+                            id: 'component.pageEditor.operationPage.dataType.number',
+                            defaultMessage: '数字',
+                          }),
+                        },
+                        {
+                          value: 'boolean',
+                          label: intl.formatMessage({
+                            id: 'component.pageEditor.operationPage.dataType.boolean',
+                            defaultMessage: '布尔',
+                          }),
+                        },
                       ]}
                     />
                   </Space>
                 }
               >
                 <Form layout="vertical" disabled={readonly} style={{ marginBottom: 0 }}>
-                  <Form.Item label="标题" style={{ marginBottom: 0 }}>
+                  <Form.Item
+                    label={intl.formatMessage({
+                      id: 'component.pageEditor.operationPage.fieldTitleLabel',
+                      defaultMessage: '标题',
+                    })}
+                    style={{ marginBottom: 0 }}
+                  >
                     <LocalizedTextEditor
                       value={field.title}
                       onChange={(title) => {
@@ -199,13 +284,23 @@ export default function OperationPageEditor({
         ) : null}
 
         <Form layout="vertical" disabled={readonly} style={{ marginTop: 16 }}>
-          <Form.Item label="成功消息（多语言）">
+          <Form.Item
+            label={intl.formatMessage({
+              id: 'component.pageEditor.operationPage.successMessageLabel',
+              defaultMessage: '成功消息（多语言）',
+            })}
+          >
             <LocalizedTextEditor
               value={value.resultView?.successMessage}
               onChange={(successMessage) => handleResultViewChange({ successMessage })}
             />
           </Form.Item>
-          <Form.Item label="错误消息（多语言）">
+          <Form.Item
+            label={intl.formatMessage({
+              id: 'component.pageEditor.operationPage.errorMessageLabel',
+              defaultMessage: '错误消息（多语言）',
+            })}
+          >
             <LocalizedTextEditor
               value={value.resultView?.errorMessage}
               onChange={(errorMessage) => handleResultViewChange({ errorMessage })}

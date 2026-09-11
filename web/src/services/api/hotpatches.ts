@@ -1,4 +1,4 @@
-import { request } from '@umijs/max';
+import { getIntl, request } from '@umijs/max';
 
 // Source: internal/api/hotpatch/dto.go
 export type HotpatchResult = {
@@ -74,13 +74,35 @@ export async function transitionHotpatch(
   });
 }
 
+// 展示 label 经 getIntl 解析（SelectLang 切换语言会整页刷新重新求值）；
+// Map key / options value 为后端枚举契约，保持不动
+const intl = getIntl();
+
 export const hotpatchStatusLabels: Record<string, string> = {
-  draft: '草稿',
-  approved: '已审批',
-  rolling: '灰度中',
-  applied: '已生效',
-  failed: '失败',
-  rolled_back: '已回滚',
+  draft: intl.formatMessage({
+    id: 'services.hotpatches.statusLabel.draft',
+    defaultMessage: '草稿',
+  }),
+  approved: intl.formatMessage({
+    id: 'services.hotpatches.statusLabel.approved',
+    defaultMessage: '已审批',
+  }),
+  rolling: intl.formatMessage({
+    id: 'services.hotpatches.statusLabel.rolling',
+    defaultMessage: '灰度中',
+  }),
+  applied: intl.formatMessage({
+    id: 'services.hotpatches.statusLabel.applied',
+    defaultMessage: '已生效',
+  }),
+  failed: intl.formatMessage({
+    id: 'services.hotpatches.statusLabel.failed',
+    defaultMessage: '失败',
+  }),
+  rolled_back: intl.formatMessage({
+    id: 'services.hotpatches.statusLabel.rolledBack',
+    defaultMessage: '已回滚',
+  }),
 };
 
 export const hotpatchStatusColors: Record<string, string> = {
@@ -97,5 +119,8 @@ export const hotpatchFrameworkLabels: Record<string, string> = {
   kbengine: 'KBEngine (Python)',
   jvm: 'JVM (Java)',
   nodejs: 'Node.js (JS/TS)',
-  custom: '自定义',
+  custom: intl.formatMessage({
+    id: 'services.hotpatches.frameworkLabel.custom',
+    defaultMessage: '自定义',
+  }),
 };

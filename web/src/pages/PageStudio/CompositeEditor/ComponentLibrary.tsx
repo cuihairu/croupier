@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Empty, Input, Space, Spin, Tag, Typography } from 'antd';
 import { AppstoreOutlined, SearchOutlined } from '@ant-design/icons';
 import { useDraggable } from '@dnd-kit/core';
-import { request } from '@umijs/max';
+import { request, useIntl } from '@umijs/max';
 import { nodeId, type PageNode } from './model';
 import type { FunctionDescriptor } from '@/services/api/functions';
 import { localizedText } from '@/utils/localizedText';
@@ -137,6 +137,7 @@ export default function ComponentLibrary({
   availableFnIds: Set<string>;
   onInsert: (nodes: PageNode[], template: ComponentTemplateDTO) => void;
 }) {
+  const intl = useIntl();
   const [templates, setTemplates] = useState<ComponentTemplateDTO[]>([]);
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState('');
@@ -165,13 +166,22 @@ export default function ComponentLibrary({
 
   const grouped = useMemo(() => {
     const byCat = new Map<string, ComponentTemplateDTO[]>();
+    // 分类缺失时的展示兜底：内置/自定义（与 templates.tag.builtin 同语义的分组名）
+    const builtinCat = intl.formatMessage({
+      id: 'pages.pageStudio.editor.library.category.builtin',
+      defaultMessage: '内置',
+    });
+    const customCat = intl.formatMessage({
+      id: 'pages.pageStudio.editor.library.category.custom',
+      defaultMessage: '自定义',
+    });
     for (const t of filtered) {
-      const cat = t.category || (t.builtin ? '内置' : '自定义');
+      const cat = t.category || (t.builtin ? builtinCat : customCat);
       if (!byCat.has(cat)) byCat.set(cat, []);
       byCat.get(cat)!.push(t);
     }
     return Array.from(byCat.entries()).sort(([a], [b]) => a.localeCompare(b));
-  }, [filtered]);
+  }, [filtered, intl]);
 
   const checkAvailable = useCallback(
     (tpl: ComponentTemplateDTO): { ok: boolean; missing: string[] } => {
@@ -186,7 +196,10 @@ export default function ComponentLibrary({
       <div style={{ textAlign: 'center', padding: 40 }}>
         <Spin size="small" />
         <Text type="secondary" style={{ marginLeft: 8, fontSize: 12 }}>
-          加载组件库…
+          {intl.formatMessage({
+            id: 'pages.pageStudio.editor.library.loading',
+            defaultMessage: '加载组件库…',
+          })}
         </Text>
       </div>
     );
@@ -199,10 +212,16 @@ export default function ComponentLibrary({
         description={
           <Space orientation="vertical" size={4}>
             <Text type="secondary" style={{ fontSize: 12 }}>
-              暂无组件模板
+              {intl.formatMessage({
+                id: 'pages.pageStudio.editor.library.empty',
+                defaultMessage: '暂无组件模板',
+              })}
             </Text>
             <Text type="secondary" style={{ fontSize: 11 }}>
-              选中画布多个节点 → 顶栏「保存为组件」可创建
+              {intl.formatMessage({
+                id: 'pages.pageStudio.editor.library.emptyHint',
+                defaultMessage: '选中画布多个节点 → 顶栏「保存为组件」可创建',
+              })}
             </Text>
           </Space>
         }
@@ -217,7 +236,10 @@ export default function ComponentLibrary({
         size="small"
         allowClear
         prefix={<SearchOutlined style={{ color: '#999' }} />}
-        placeholder="搜索组件"
+        placeholder={intl.formatMessage({
+          id: 'pages.pageStudio.editor.library.searchPlaceholder',
+          defaultMessage: '搜索组件',
+        })}
         value={search}
         onChange={(e) => setSearch(e.target.value)}
         style={{ marginBottom: 8 }}
@@ -243,10 +265,20 @@ export default function ComponentLibrary({
                   <Text strong style={{ fontSize: 12 }}>
                     {name}
                   </Text>
-                  {tpl.builtin && <Tag style={{ marginRight: 0, fontSize: 10 }}>内置</Tag>}
+                  {tpl.builtin && (
+                    <Tag style={{ marginRight: 0, fontSize: 10 }}>
+                      {intl.formatMessage({
+                        id: 'pages.pageStudio.templates.tag.builtin',
+                        defaultMessage: '内置',
+                      })}
+                    </Tag>
+                  )}
                   {tpl.stale && (
                     <Tag color="orange" style={{ marginRight: 0, fontSize: 10 }}>
-                      已过期
+                      {intl.formatMessage({
+                        id: 'pages.pageStudio.templates.tag.stale',
+                        defaultMessage: '已过期',
+                      })}
                     </Tag>
                   )}
                 </Space>
@@ -260,7 +292,13 @@ export default function ComponentLibrary({
                 {!ok && (
                   <div>
                     <Text type="danger" style={{ fontSize: 11 }}>
-                      缺少函数：{missing.join(', ')}
+                      {intl.formatMessage(
+                        {
+                          id: 'pages.pageStudio.editor.library.missingFunctions',
+                          defaultMessage: '缺少函数：{fns}',
+                        },
+                        { fns: missing.join(', ') },
+                      )}
                     </Text>
                   </div>
                 )}
@@ -276,7 +314,10 @@ export default function ComponentLibrary({
           rel="noreferrer"
           style={{ fontSize: 12 }}
         >
-          管理组件模板 →
+          {intl.formatMessage({
+            id: 'pages.pageStudio.editor.library.manageLink',
+            defaultMessage: '管理组件模板 →',
+          })}
         </a>
       </div>
     </div>

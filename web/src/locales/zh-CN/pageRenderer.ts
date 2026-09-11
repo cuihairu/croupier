@@ -1,5 +1,19 @@
 // component.pageRenderer.* — Operation/Task/Report 渲染器与模板
 export default {
+  'component.pageRenderer.composite.confirmDangerTitle': '确认执行「{label}」',
+  'component.pageRenderer.composite.confirmExecute': '确认执行',
+  'component.pageRenderer.composite.executeButton': '执行',
+  'component.pageRenderer.composite.executeFailed': '执行失败',
+  'component.pageRenderer.composite.executeSuccess': '{title} 执行成功',
+  'component.pageRenderer.composite.rowActionsColumn': '操作',
+  'component.pageRenderer.expression.error.arrayIndexUnterminated': '数组下标缺少 ]',
+  'component.pageRenderer.expression.error.empty': '表达式为空',
+  'component.pageRenderer.expression.error.illegalCharacter': '非法字符「{char}」',
+  'component.pageRenderer.expression.error.illegalIndex': '非法数组下标「{index}」',
+  'component.pageRenderer.expression.error.illegalSegment': '非法路径段「{segment}」',
+  'component.pageRenderer.expression.error.notExpression':
+    "不是表达式（应以 '{{' 开头、'}}' 结尾）",
+  'component.pageRenderer.expression.error.unknownVariable': '未知变量：{variable}',
   'component.pageRenderer.operationPage.approval.incompleteDescription':
     '当前返回的是 approvalId，不代表业务执行成功。',
   'component.pageRenderer.operationPage.approval.incompleteTitle': '操作尚未完成',
@@ -57,6 +71,27 @@ export default {
   'component.pageRenderer.reportPage.warning.semanticsSubtitle':
     'ReportPage 发布前必须配置 dataset.dimensions 和 dataset.metrics，否则无法生成可运行的图表和数据表。',
   'component.pageRenderer.reportPage.warning.semanticsTitle': '报表语义未完成',
+  'component.pageRenderer.resultView.booleanFalse': '否',
+  'component.pageRenderer.resultView.booleanTrue': '是',
+  'component.pageRenderer.resultView.emptyObject': '空对象',
+  'component.pageRenderer.resultView.emptyTitleFallback': '结果视图未配置',
+  'component.pageRenderer.resultView.fieldsMissingDescription':
+    'PageSpec.resultView.fields 未声明展示字段，运行控制台不会把原始 JSON 当作正式界面展示。',
+  'component.pageRenderer.resultView.noStructuredResult': '执行已完成，无结构化返回结果',
+  'component.pageRenderer.resultView.objectTag': '对象',
+  'component.pageRenderer.resultView.structureMismatchDescription':
+    'ResultViewSpec.fields 只能展示对象字段；请在 Page Studio 调整结果视图。',
+  'component.pageRenderer.resultView.structureMismatchTitle': '结果结构与 ResultViewSpec 不匹配',
+  'component.pageRenderer.resultView.summaryArrayCount': '数组 {count} 项',
+  'component.pageRenderer.resultView.titleFallback': '结果',
+  'component.pageRenderer.shell.configErrorTitle': '配置错误',
+  'component.pageRenderer.shell.missingComposite': '组合页面缺少 composite 配置',
+  'component.pageRenderer.shell.missingOperation': '操作页面缺少 operation 配置',
+  'component.pageRenderer.shell.missingReport': '报表页面缺少 report 配置',
+  'component.pageRenderer.shell.missingResource': '资源页面缺少 resource 配置',
+  'component.pageRenderer.shell.missingTask': '任务页面缺少 task 配置',
+  'component.pageRenderer.shell.unknownType': '未知页面类型',
+  'component.pageRenderer.shell.unsupportedType': '不支持的页面类型: {type}',
   'component.pageRenderer.taskPage.approval.completed': '审批已通过，执行已完成',
   'component.pageRenderer.taskPage.approval.pending': '等待审批',
   'component.pageRenderer.taskPage.approval.queryFailed': '审批状态查询失败',

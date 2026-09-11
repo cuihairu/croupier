@@ -14,6 +14,21 @@ import type { AffectedPageInfo } from '@/types/dashboard';
 
 /** 资源目录页共享常量与纯函数（状态/能力/来源映射、语义表单转换与提交载荷压缩）。 */
 
+/** 标签 Map 的展示文案以 textId/textDefault 双字段承载，渲染处经 intl 解析（先例 Functions/History statusConfig） */
+export type LabelText = { textId: string; textDefault: string };
+
+/** 纯函数接收 intl 的最小结构（@umijs/max 未导出 IntlShape 类型，先例 ProposalInbox/shared.tsx） */
+export type IntlFormatter = {
+  formatMessage: (
+    descriptor: { id: string; defaultMessage: string },
+    values?: Record<string, string | number>,
+  ) => string;
+};
+
+/** 解析标签 Map 条目为展示文案；未知键（entry 缺失）回退空串，由调用方自行兜底 raw 值 */
+export const formatLabelText = (intl: IntlFormatter, entry?: LabelText): string =>
+  entry ? intl.formatMessage({ id: entry.textId, defaultMessage: entry.textDefault }) : '';
+
 export const statusColors: Record<ResourceCatalogItem['status'], string> = {
   identified: 'success',
   pending: 'warning',
@@ -21,22 +36,31 @@ export const statusColors: Record<ResourceCatalogItem['status'], string> = {
   not_executable: 'default',
 };
 
-export const statusLabels: Record<ResourceCatalogItem['status'], string> = {
-  identified: '已识别',
-  pending: '待确认',
-  conflict: '冲突',
-  not_executable: '不可执行',
+export const statusLabels: Record<ResourceCatalogItem['status'], LabelText> = {
+  identified: { textId: 'pages.resourceCatalog.shared.status.identified', textDefault: '已识别' },
+  pending: { textId: 'pages.resourceCatalog.shared.status.pending', textDefault: '待确认' },
+  conflict: { textId: 'pages.resourceCatalog.shared.status.conflict', textDefault: '冲突' },
+  not_executable: {
+    textId: 'pages.resourceCatalog.shared.status.notExecutable',
+    textDefault: '不可执行',
+  },
 };
 
-export const capabilityLabels: Record<CapabilityKind, string> = {
-  collection_query: '列表查询',
-  item_query: '详情查询',
-  create: '创建',
-  update: '更新',
-  delete: '删除',
-  action: '动作',
-  task: '任务',
-  report: '报表',
+export const capabilityLabels: Record<CapabilityKind, LabelText> = {
+  collection_query: {
+    textId: 'pages.resourceCatalog.shared.capability.collectionQuery',
+    textDefault: '列表查询',
+  },
+  item_query: {
+    textId: 'pages.resourceCatalog.shared.capability.itemQuery',
+    textDefault: '详情查询',
+  },
+  create: { textId: 'pages.resourceCatalog.shared.capability.create', textDefault: '创建' },
+  update: { textId: 'pages.resourceCatalog.shared.capability.update', textDefault: '更新' },
+  delete: { textId: 'pages.resourceCatalog.shared.capability.delete', textDefault: '删除' },
+  action: { textId: 'pages.resourceCatalog.shared.capability.action', textDefault: '动作' },
+  task: { textId: 'pages.resourceCatalog.shared.capability.task', textDefault: '任务' },
+  report: { textId: 'pages.resourceCatalog.shared.capability.report', textDefault: '报表' },
 };
 
 export const semanticSources: SemanticSource[] = [
@@ -45,10 +69,19 @@ export const semanticSources: SemanticSource[] = [
   'openapi_rest',
 ];
 
-export const sourceLabels: Record<SemanticSource, string> = {
-  platform_review: '平台确认',
-  sdk_explicit: 'SDK 显式',
-  openapi_rest: 'OpenAPI REST',
+export const sourceLabels: Record<SemanticSource, LabelText> = {
+  platform_review: {
+    textId: 'pages.resourceCatalog.shared.source.platformReview',
+    textDefault: '平台确认',
+  },
+  sdk_explicit: {
+    textId: 'pages.resourceCatalog.shared.source.sdkExplicit',
+    textDefault: 'SDK 显式',
+  },
+  openapi_rest: {
+    textId: 'pages.resourceCatalog.shared.source.openapiRest',
+    textDefault: 'OpenAPI REST',
+  },
 };
 
 export const sourceColors: Record<SemanticSource, string> = {
@@ -64,10 +97,13 @@ export const riskColors: Record<string, string> = {
   safe: 'green',
 };
 
-export const affectedKindLabels: Record<'draft' | 'published' | 'proposal', string> = {
-  draft: '草稿',
-  published: '已发布',
-  proposal: '提案',
+export const affectedKindLabels: Record<'draft' | 'published' | 'proposal', LabelText> = {
+  draft: { textId: 'pages.resourceCatalog.shared.affectedKind.draft', textDefault: '草稿' },
+  published: {
+    textId: 'pages.resourceCatalog.shared.affectedKind.published',
+    textDefault: '已发布',
+  },
+  proposal: { textId: 'pages.resourceCatalog.shared.affectedKind.proposal', textDefault: '提案' },
 };
 
 export const affectedKindColors: Record<'draft' | 'published' | 'proposal', string> = {
@@ -101,9 +137,12 @@ export const displaySemanticValue = (value?: string): string => {
 export const pageTitleText = (page?: AffectedPageInfo): string =>
   localizedText(page?.title, 'zh-CN', '-') || page?.pageKey || '-';
 
-export const bindingFreshnessSummary = (page?: AffectedPageInfo): string => {
+export const bindingFreshnessSummary = (intl: IntlFormatter, page?: AffectedPageInfo): string => {
   if (!page?.bindingFreshness || page.bindingFreshness.length === 0) {
-    return '无';
+    return intl.formatMessage({
+      id: 'pages.resourceCatalog.shared.freshnessNone',
+      defaultMessage: '无',
+    });
   }
   return page.bindingFreshness.map((item) => item.status).join(', ');
 };

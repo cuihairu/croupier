@@ -1,3 +1,4 @@
+import { getIntl } from '@umijs/max';
 import type { PageNode } from '../model';
 import { parseAction } from '../actions';
 import {
@@ -10,6 +11,11 @@ import type { CompiledSection, CompileResult } from './types';
 import { SECTION_KEY_RE, VIEW_MAP } from './types';
 import type { CompiledAction } from './types';
 import { normalizeRowActionParams } from './normalize';
+
+// 纯函数模块无法 useIntl：经 getIntl 求值诊断文案（SelectLang 切语言整页刷新后
+// 重新求值，先例 services/api/bugs.ts）；区块/动作的 title、label 兜底是编译
+// 产物 payload 数据，不属于 UI 文案，保持字面量
+const intl = getIntl();
 /**
  * 编辑树 → 平铺 CompositeSection 列表。
  * 编译规则（V1）：
@@ -54,7 +60,13 @@ export function compileTree(tree: PageNode[]): CompileResult {
         if (declared) {
           if (!SECTION_KEY_RE.test(declared) || usedKeys.has(declared)) {
             warnings.push(
-              `区块「${String(n.props.title ?? declared)}」的 key「${declared}」非法或重复，已自动分配`,
+              intl.formatMessage(
+                {
+                  id: 'pages.pageStudio.compiler.warning.sectionKeyInvalid',
+                  defaultMessage: '区块「{title}」的 key「{key}」非法或重复，已自动分配',
+                },
+                { title: String(n.props.title ?? declared), key: declared },
+              ),
             );
           } else {
             usedKeys.add(declared);
@@ -147,7 +159,15 @@ export function compileTree(tree: PageNode[]): CompileResult {
   const walk = (nodes: PageNode[]) => {
     for (const node of nodes) {
       if (node.type === 'text') {
-        warnings.push(`文本「${String(node.props.content ?? '')}」不参与发布（V1）`);
+        warnings.push(
+          intl.formatMessage(
+            {
+              id: 'pages.pageStudio.compiler.warning.textSkipped',
+              defaultMessage: '文本「{content}」不参与发布（V1）',
+            },
+            { content: String(node.props.content ?? '') },
+          ),
+        );
         continue;
       }
       if (node.type === 'container') {
@@ -158,7 +178,15 @@ export function compileTree(tree: PageNode[]): CompileResult {
         const group = modalGroup.get(node.id) ?? '';
         const kids = node.children ?? [];
         if (kids.length === 0) {
-          warnings.push(`弹窗「${String(node.props.title ?? node.id)}」为空，已忽略`);
+          warnings.push(
+            intl.formatMessage(
+              {
+                id: 'pages.pageStudio.compiler.warning.emptyModal',
+                defaultMessage: '弹窗「{title}」为空，已忽略',
+              },
+              { title: String(node.props.title ?? node.id) },
+            ),
+          );
           continue;
         }
         for (const kid of kids) {
@@ -180,7 +208,15 @@ export function compileTree(tree: PageNode[]): CompileResult {
         emitFnSection(node, node.props.display === 'dialog' ? 'dialog' : 'inline');
         continue;
       }
-      warnings.push(`未知组件类型 ${node.type}，已忽略`);
+      warnings.push(
+        intl.formatMessage(
+          {
+            id: 'pages.pageStudio.compiler.warning.unknownNodeType',
+            defaultMessage: '未知组件类型 {type}，已忽略',
+          },
+          { type: node.type },
+        ),
+      );
     }
   };
 
@@ -192,7 +228,15 @@ export function compileTree(tree: PageNode[]): CompileResult {
       try {
         jsonSchema = JSON.parse(raw) as Record<string, unknown>;
       } catch {
-        warnings.push(`常量表单「${String(node.props.title ?? node.id)}」的 JSON 定义无效，已跳过`);
+        warnings.push(
+          intl.formatMessage(
+            {
+              id: 'pages.pageStudio.compiler.warning.invalidStaticSchema',
+              defaultMessage: '常量表单「{title}」的 JSON 定义无效，已跳过',
+            },
+            { title: String(node.props.title ?? node.id) },
+          ),
+        );
         return;
       }
     } else if (raw && typeof raw === 'object') {
@@ -219,7 +263,15 @@ export function compileTree(tree: PageNode[]): CompileResult {
   const emitFnSection = (node: PageNode, display: 'inline' | 'dialog', group?: string) => {
     const fid = String(node.props.functionId ?? '');
     if (!fid) {
-      warnings.push(`组件「${String(node.props.title ?? node.id)}」没有绑定函数，已忽略`);
+      warnings.push(
+        intl.formatMessage(
+          {
+            id: 'pages.pageStudio.compiler.warning.missingFunctionBinding',
+            defaultMessage: '组件「{title}」没有绑定函数，已忽略',
+          },
+          { title: String(node.props.title ?? node.id) },
+        ),
+      );
       return;
     }
     const section: CompiledSection = {
@@ -295,7 +347,17 @@ export function compileTree(tree: PageNode[]): CompileResult {
           if (m.kind !== 'literal' && m.kind !== 'page_state') {
             // 未知映射类型：静默归 page_state 会在发布后求值失败，显式警告并跳过
             warnings.push(
-              `区块「${String(section.title ?? node.id)}」参数「${String(m.param)}」的映射类型「${String(m.kind)}」未知，已跳过`,
+              intl.formatMessage(
+                {
+                  id: 'pages.pageStudio.compiler.warning.unknownMappingKind',
+                  defaultMessage: '区块「{title}」参数「{param}」的映射类型「{kind}」未知，已跳过',
+                },
+                {
+                  title: String(section.title ?? node.id),
+                  param: String(m.param),
+                  kind: String(m.kind),
+                },
+              ),
             );
             return null;
           }
@@ -308,7 +370,13 @@ export function compileTree(tree: PageNode[]): CompileResult {
             if (!key) {
               // 来源节点已删/失效：静默 null 会让映射悄悄丢失，显式警告
               warnings.push(
-                `区块「${String(section.title ?? node.id)}」参数「${String(m.param)}」的来源节点已失效，已跳过`,
+                intl.formatMessage(
+                  {
+                    id: 'pages.pageStudio.compiler.warning.mappingSourceInvalid',
+                    defaultMessage: '区块「{title}」参数「{param}」的来源节点已失效，已跳过',
+                  },
+                  { title: String(section.title ?? node.id), param: String(m.param) },
+                ),
               );
               return null;
             }
@@ -335,7 +403,18 @@ export function compileTree(tree: PageNode[]): CompileResult {
             }
             if (!parsed.ok || parsed.ref.variable === ROW_VARIABLE) {
               warnings.push(
-                `区块「${String(section.title ?? node.id)}」参数「${String(m.param)}」的表达式「${m.value}」引用未知变量或行上下文，已按字面量保存`,
+                intl.formatMessage(
+                  {
+                    id: 'pages.pageStudio.compiler.warning.expressionUnknownVariable',
+                    defaultMessage:
+                      '区块「{title}」参数「{param}」的表达式「{value}」引用未知变量或行上下文，已按字面量保存',
+                  },
+                  {
+                    title: String(section.title ?? node.id),
+                    param: String(m.param),
+                    value: String(m.value),
+                  },
+                ),
               );
             }
           }
@@ -383,7 +462,15 @@ export function compileTree(tree: PageNode[]): CompileResult {
         const targetNode = findNode(tree, target);
         const sectionTarget = (targetNode && sectionKeyOf(targetNode)) ?? '';
         if (!sectionTarget) {
-          warnings.push(`表格「${section.title}」有未配置目标的行操作，已忽略`);
+          warnings.push(
+            intl.formatMessage(
+              {
+                id: 'pages.pageStudio.compiler.warning.rowActionMissingTarget',
+                defaultMessage: '表格「{title}」有未配置目标的行操作，已忽略',
+              },
+              { title: section.title },
+            ),
+          );
           continue;
         }
         const ra: CompiledAction = {
@@ -410,19 +497,41 @@ export function compileTree(tree: PageNode[]): CompileResult {
     const act = parseAction(node.props.onClick);
     const extraChain = compileChainRef((node.props.onClick as { chain?: unknown })?.chain);
     if (!act && !extraChain) {
-      warnings.push(`按钮「${String(node.props.title ?? '')}」没有配置动作，已忽略`);
+      warnings.push(
+        intl.formatMessage(
+          {
+            id: 'pages.pageStudio.compiler.warning.buttonNoAction',
+            defaultMessage: '按钮「{title}」没有配置动作，已忽略',
+          },
+          { title: String(node.props.title ?? '') },
+        ),
+      );
       return;
     }
     const targetNode = act?.target ? findNode(tree, act.target) : undefined;
     if (targetNode?.type === 'modal' && !(targetNode.children ?? []).length) {
-      warnings.push(`按钮「${String(node.props.title ?? '')}」的弹窗目标无效（空弹窗），已忽略`);
+      warnings.push(
+        intl.formatMessage(
+          {
+            id: 'pages.pageStudio.compiler.warning.buttonEmptyModalTarget',
+            defaultMessage: '按钮「{title}」的弹窗目标无效（空弹窗），已忽略',
+          },
+          { title: String(node.props.title ?? '') },
+        ),
+      );
       return;
     }
     // 挂到最近一个表格 section 的 toolbarActions
     const lastTable = [...sections].reverse().find((s) => s.view === 'table');
     if (!lastTable) {
       warnings.push(
-        `按钮「${String(node.props.title ?? '')}」需放置在表格之后（编译为表格顶部按钮），已忽略`,
+        intl.formatMessage(
+          {
+            id: 'pages.pageStudio.compiler.warning.buttonAfterTable',
+            defaultMessage: '按钮「{title}」需放置在表格之后（编译为表格顶部按钮），已忽略',
+          },
+          { title: String(node.props.title ?? '') },
+        ),
       );
       return;
     }
@@ -453,7 +562,15 @@ export function compileTree(tree: PageNode[]): CompileResult {
     }
     if (act && act.kind !== 'openModal') {
       if (!targetKey) {
-        warnings.push(`按钮「${String(node.props.title ?? '')}」动作目标无效，已忽略`);
+        warnings.push(
+          intl.formatMessage(
+            {
+              id: 'pages.pageStudio.compiler.warning.buttonTargetInvalid',
+              defaultMessage: '按钮「{title}」动作目标无效，已忽略',
+            },
+            { title: String(node.props.title ?? '') },
+          ),
+        );
         return;
       }
       const step = act.kind === 'runBinding' ? 'runBinding' : 'refreshNode';
@@ -469,7 +586,15 @@ export function compileTree(tree: PageNode[]): CompileResult {
       return;
     }
     if (!targetKey) {
-      warnings.push(`按钮「${String(node.props.title ?? '')}」的弹窗目标无效，已忽略`);
+      warnings.push(
+        intl.formatMessage(
+          {
+            id: 'pages.pageStudio.compiler.warning.buttonModalTargetInvalid',
+            defaultMessage: '按钮「{title}」的弹窗目标无效，已忽略',
+          },
+          { title: String(node.props.title ?? '') },
+        ),
+      );
       return;
     }
     const ta: CompiledAction = {

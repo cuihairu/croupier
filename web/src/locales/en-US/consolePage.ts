@@ -1,0 +1,37 @@
+// Console 工作台（避开保留字 console）
+export default {
+  'pages.console.home.description':
+    'The Runtime Console shows published pages. Pages are defined by PageSpec and rendered through the unified JSON Schema form renderer.',
+  'pages.console.home.empty.category': 'No pages in this category yet',
+  'pages.console.home.empty.categoryKey': 'No published pages in category "{categoryKey}"',
+  'pages.console.home.empty.hint': 'Publish a page in the Page workspace first, then view it here.',
+  'pages.console.home.empty.pages': 'No published pages yet',
+  'pages.console.home.error.load': 'Load Failed',
+  'pages.console.home.error.loadConsoleFailed': 'Failed to load the console',
+  'pages.console.home.loading': 'Loading console...',
+  'pages.console.home.permission.deniedText':
+    'You do not have permission to view the Runtime Console.',
+  'pages.console.home.permission.title': 'Permission Restricted',
+  'pages.console.home.tag.categories': '{count} categories',
+  'pages.console.home.tag.pages': '{count} pages published',
+  'pages.console.home.tag.published': 'Published',
+  'pages.console.home.tag.stale': 'Contract stale: {count}',
+  'pages.console.home.title.category': 'Runtime Console / {category}',
+  'pages.console.home.title.root': 'Runtime Console',
+  'pages.console.page.backToConsole': 'Back to Console',
+  'pages.console.page.error.retry': 'Retry',
+  'pages.console.page.error.title': 'Load Failed',
+  'pages.console.page.forbidden.resultTitle': 'Access Denied',
+  'pages.console.page.forbidden.subtitle': 'You do not have permission to access this page',
+  'pages.console.page.forbidden.title': 'No Permission',
+  'pages.console.page.loading.spin': 'Loading page...',
+  'pages.console.page.loading.title': 'Loading...',
+  'pages.console.page.notFound.subtitle': 'Published page "{pageKey}" not found',
+  'pages.console.page.notFound.title': 'Page Not Found',
+  'pages.console.page.redirecting.spin': 'Redirecting to the page publishing category...',
+  'pages.console.page.redirecting.title': 'Redirecting...',
+  'pages.console.page.staleAlert.message':
+    'The function contracts bound to this page have changed; execution is blocked',
+  'pages.console.page.staleAlert.openInbox': 'Open Proposal Inbox',
+  'pages.console.page.staleAlert.resolve': 'Resolve (diff / merge / republish)',
+};

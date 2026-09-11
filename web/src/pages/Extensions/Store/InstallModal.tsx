@@ -1,6 +1,7 @@
 import React from 'react';
 import type { FormInstance } from 'antd';
 import { Form, Input, Modal, Select, Space, Typography } from 'antd';
+import { FormattedMessage, useIntl } from '@umijs/max';
 import type { ExtensionCatalogItem, ExtensionReleaseItem } from '@/services/api/extensions';
 import type { JSONValue } from '@/types/dashboard';
 import type { InstallFormValues } from './shared';
@@ -27,35 +28,69 @@ export default function InstallModal({
   onCancel: () => void;
   onOk: () => void;
 }) {
+  const intl = useIntl();
   return (
     <Modal
       open={open}
       onCancel={onCancel}
       onOk={onOk}
       okButtonProps={{ loading: installing }}
-      title={`安装扩展: ${item?.displayName || item?.name || ''}`}
+      title={intl.formatMessage(
+        {
+          id: 'pages.extensionsStore.install.modal.title',
+          defaultMessage: `安装扩展: ${item?.displayName || item?.name || ''}`,
+        },
+        { name: item?.displayName || item?.name || '' },
+      )}
       width={720}
     >
       <Form form={form} layout="vertical">
         <Form.Item
           name="releaseVersion"
-          label="版本"
-          rules={[{ required: true, message: '请选择版本' }]}
+          label={intl.formatMessage({
+            id: 'pages.extensionsStore.install.modal.releaseVersionLabel',
+            defaultMessage: '版本',
+          })}
+          rules={[
+            {
+              required: true,
+              message: intl.formatMessage({
+                id: 'pages.extensionsStore.install.modal.releaseVersionRequired',
+                defaultMessage: '请选择版本',
+              }),
+            },
+          ]}
         >
           <Select
-            placeholder="选择版本"
+            placeholder={intl.formatMessage({
+              id: 'pages.extensionsStore.install.modal.releaseVersionPlaceholder',
+              defaultMessage: '选择版本',
+            })}
             options={(releases || []).map((r) => ({ label: r.version, value: r.version }))}
           />
         </Form.Item>
         {releases.length === 0 && (
-          <Typography.Text type="warning">当前扩展没有可用发布版本，暂不可安装。</Typography.Text>
+          <Typography.Text type="warning">
+            <FormattedMessage
+              id="pages.extensionsStore.install.modal.noReleases"
+              defaultMessage="当前扩展没有可用发布版本，暂不可安装。"
+            />
+          </Typography.Text>
         )}
         <Space style={{ width: '100%' }} size="middle">
           <Form.Item
             name="scopeType"
             label="Scope Type"
             style={{ flex: 1 }}
-            rules={[{ required: true, message: '请输入 scopeType' }]}
+            rules={[
+              {
+                required: true,
+                message: intl.formatMessage({
+                  id: 'pages.extensionsStore.install.modal.scopeTypeRequired',
+                  defaultMessage: '请输入 scopeType',
+                }),
+              },
+            ]}
           >
             <Input placeholder="system" />
           </Form.Item>
@@ -63,7 +98,15 @@ export default function InstallModal({
             name="scopeId"
             label="Scope ID"
             style={{ flex: 1 }}
-            rules={[{ required: true, message: '请输入 scopeId' }]}
+            rules={[
+              {
+                required: true,
+                message: intl.formatMessage({
+                  id: 'pages.extensionsStore.install.modal.scopeIdRequired',
+                  defaultMessage: '请输入 scopeId',
+                }),
+              },
+            ]}
           >
             <Input placeholder="global" />
           </Form.Item>
@@ -73,7 +116,15 @@ export default function InstallModal({
             name="targetType"
             label="Target Type"
             style={{ flex: 1 }}
-            rules={[{ required: true, message: '请输入 targetType' }]}
+            rules={[
+              {
+                required: true,
+                message: intl.formatMessage({
+                  id: 'pages.extensionsStore.install.modal.targetTypeRequired',
+                  defaultMessage: '请输入 targetType',
+                }),
+              },
+            ]}
           >
             <Input placeholder="agent_group" />
           </Form.Item>
@@ -81,7 +132,13 @@ export default function InstallModal({
             <Input placeholder="default" />
           </Form.Item>
         </Space>
-        <Form.Item name="configJson" label="配置 JSON">
+        <Form.Item
+          name="configJson"
+          label={intl.formatMessage({
+            id: 'pages.extensionsStore.install.modal.configJsonLabel',
+            defaultMessage: '配置 JSON',
+          })}
+        >
           <Input.TextArea rows={5} placeholder='{"enabled": true}' />
         </Form.Item>
         {configSchema?.properties && typeof configSchema.properties === 'object' && (

@@ -1,5 +1,10 @@
+import { getIntl } from '@umijs/max';
 import type { FormPresentationSpec } from '@/types/dashboard';
 import { TARGET_ENV_OPTIONS } from './constants';
+
+// jsonSchema 的 title 为 UI 文案，经 getIntl 在模块加载时解析（SelectLang 切换语言会整页刷新重新求值）；
+// placeholder / enumOptions label 是 spec.LocalizedText spec 数据，不迁
+const intl = getIntl();
 
 export const CANARY_FORM_SPEC: FormPresentationSpec = {
   jsonSchema: {
@@ -8,26 +13,41 @@ export const CANARY_FORM_SPEC: FormPresentationSpec = {
     properties: {
       functionId: {
         type: 'string',
-        title: '函数ID',
+        title: intl.formatMessage({
+          id: 'pages.assignments.schema.form.canary.functionId',
+          defaultMessage: '函数ID',
+        }),
       },
       enabled: {
         type: 'boolean',
-        title: '启用灰度发布',
+        title: intl.formatMessage({
+          id: 'pages.assignments.schema.form.canary.enabled',
+          defaultMessage: '启用灰度发布',
+        }),
       },
       percentage: {
         type: 'number',
-        title: '灰度比例 (%)',
+        title: intl.formatMessage({
+          id: 'pages.assignments.schema.form.canary.percentage',
+          defaultMessage: '灰度比例 (%)',
+        }),
         minimum: 1,
         maximum: 100,
         default: 10,
       },
       rules: {
         type: 'string',
-        title: '灰度规则',
+        title: intl.formatMessage({
+          id: 'pages.assignments.schema.form.canary.rules',
+          defaultMessage: '灰度规则',
+        }),
       },
       duration: {
         type: 'string',
-        title: '灰度时长',
+        title: intl.formatMessage({
+          id: 'pages.assignments.schema.form.canary.duration',
+          defaultMessage: '灰度时长',
+        }),
         default: '7d',
         enum: ['1d', '3d', '7d', '14d', '30d'],
       },
@@ -65,7 +85,10 @@ export const CLONE_FORM_SPEC: FormPresentationSpec = {
     properties: {
       targetEnv: {
         type: 'string',
-        title: '目标环境',
+        title: intl.formatMessage({
+          id: 'pages.assignments.schema.form.clone.targetEnv',
+          defaultMessage: '目标环境',
+        }),
         enum: TARGET_ENV_OPTIONS.map((option) => option.value),
       },
     },

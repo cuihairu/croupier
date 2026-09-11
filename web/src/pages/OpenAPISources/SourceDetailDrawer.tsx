@@ -2,6 +2,7 @@ import React from 'react';
 import { ProTable, type ProColumns } from '@ant-design/pro-components';
 import { Button, Card, Drawer, Popconfirm, Space, Tag, Typography } from 'antd';
 import { DeleteOutlined, EditOutlined, LinkOutlined } from '@ant-design/icons';
+import { FormattedMessage, useIntl } from '@umijs/max';
 import type {
   OpenAPISourceBinding,
   OpenAPISourceDetail,
@@ -31,6 +32,8 @@ export default function SourceDetailDrawer({
   onBindOperation: (operation: OpenAPISourceOperation) => void;
   onRemoveBinding: (binding: OpenAPISourceBinding) => void;
 }) {
+  const intl = useIntl();
+
   const operationColumns: ProColumns<OpenAPISourceOperation>[] = [
     {
       title: 'Operation',
@@ -44,30 +47,66 @@ export default function SourceDetailDrawer({
       ),
     },
     {
-      title: '能力契约',
+      title: intl.formatMessage({
+        id: 'pages.openapiSources.drawer.column.capabilityContract',
+        defaultMessage: '能力契约',
+      }),
       dataIndex: 'resource',
       width: 320,
       render: (_, record) => (
         <Space orientation="vertical" size={4}>
           <Space size={4} wrap>
             <Tag color={record.resource ? 'blue' : undefined}>
-              {record.resource || '无 resource'}
+              {record.resource ||
+                intl.formatMessage({
+                  id: 'pages.openapiSources.drawer.tag.noResource',
+                  defaultMessage: '无 resource',
+                })}
             </Tag>
             <Tag color={record.operation ? undefined : 'default'}>
-              {record.operation || '无 operation'}
+              {record.operation ||
+                intl.formatMessage({
+                  id: 'pages.openapiSources.drawer.tag.noOperation',
+                  defaultMessage: '无 operation',
+                })}
             </Tag>
             <Tag color={capabilityColor(record.capability)}>
-              {record.capability || '无 capability'}
+              {record.capability ||
+                intl.formatMessage({
+                  id: 'pages.openapiSources.drawer.tag.noCapability',
+                  defaultMessage: '无 capability',
+                })}
             </Tag>
-            <Tag color={executionColor(record.execution)}>{record.execution || '无 execution'}</Tag>
+            <Tag color={executionColor(record.execution)}>
+              {record.execution ||
+                intl.formatMessage({
+                  id: 'pages.openapiSources.drawer.tag.noExecution',
+                  defaultMessage: '无 execution',
+                })}
+            </Tag>
             <Tag color={record.approval?.required ? 'orange' : 'default'}>
               {record.approval?.required
                 ? `approval:${record.approval.policyKey || 'required'}`
-                : '无 approval'}
+                : intl.formatMessage({
+                    id: 'pages.openapiSources.drawer.tag.noApproval',
+                    defaultMessage: '无 approval',
+                  })}
             </Tag>
-            <Tag color={riskColor(record.risk)}>{record.risk || '无 risk'}</Tag>
+            <Tag color={riskColor(record.risk)}>
+              {record.risk ||
+                intl.formatMessage({
+                  id: 'pages.openapiSources.drawer.tag.noRisk',
+                  defaultMessage: '无 risk',
+                })}
+            </Tag>
           </Space>
-          <Text code>{record.permission || '无 permission'}</Text>
+          <Text code>
+            {record.permission ||
+              intl.formatMessage({
+                id: 'pages.openapiSources.drawer.tag.noPermission',
+                defaultMessage: '无 permission',
+              })}
+          </Text>
         </Space>
       ),
     },
@@ -84,7 +123,10 @@ export default function SourceDetailDrawer({
       ),
     },
     {
-      title: '操作',
+      title: intl.formatMessage({
+        id: 'pages.openapiSources.column.actions',
+        defaultMessage: '操作',
+      }),
       valueType: 'option',
       width: 110,
       render: (_, record) => [
@@ -96,11 +138,14 @@ export default function SourceDetailDrawer({
             icon={<LinkOutlined />}
             onClick={() => onBindOperation(record)}
           >
-            绑定
+            <FormattedMessage id="pages.openapiSources.drawer.button.bind" defaultMessage="绑定" />
           </Button>
         ) : (
           <Text key="readonly" type="secondary">
-            只读
+            <FormattedMessage
+              id="pages.openapiSources.drawer.text.readonly"
+              defaultMessage="只读"
+            />
           </Text>
         ),
       ],
@@ -122,23 +167,35 @@ export default function SourceDetailDrawer({
       render: (_, record) => <Tag>{record.kind}</Tag>,
     },
     {
-      title: '操作',
+      title: intl.formatMessage({
+        id: 'pages.openapiSources.column.actions',
+        defaultMessage: '操作',
+      }),
       valueType: 'option',
       width: 110,
       render: (_, record) => [
         canWrite ? (
           <Popconfirm
             key="delete"
-            title="删除此 binding？"
+            title={intl.formatMessage({
+              id: 'pages.openapiSources.drawer.popconfirm.deleteBinding',
+              defaultMessage: '删除此 binding？',
+            })}
             onConfirm={() => onRemoveBinding(record)}
           >
             <Button type="link" danger size="small" icon={<DeleteOutlined />}>
-              删除
+              <FormattedMessage
+                id="pages.openapiSources.drawer.button.delete"
+                defaultMessage="删除"
+              />
             </Button>
           </Popconfirm>
         ) : (
           <Text key="readonly" type="secondary">
-            只读
+            <FormattedMessage
+              id="pages.openapiSources.drawer.text.readonly"
+              defaultMessage="只读"
+            />
           </Text>
         ),
       ],
@@ -153,7 +210,10 @@ export default function SourceDetailDrawer({
       extra={
         detail && canWrite ? (
           <Button icon={<EditOutlined />} onClick={() => onUpdateSource(detail)}>
-            更新 Source
+            <FormattedMessage
+              id="pages.openapiSources.drawer.button.updateSource"
+              defaultMessage="更新 Source"
+            />
           </Button>
         ) : null
       }
@@ -175,7 +235,12 @@ export default function SourceDetailDrawer({
           </Card>
           <Card title="Diagnostics" loading={detailLoading}>
             {(detail.diagnostics || []).length === 0 ? (
-              <Text type="secondary">无诊断</Text>
+              <Text type="secondary">
+                <FormattedMessage
+                  id="pages.openapiSources.drawer.empty.diagnostics"
+                  defaultMessage="无诊断"
+                />
+              </Text>
             ) : (
               <DiagnosticsList items={detail.diagnostics || []} />
             )}
@@ -202,7 +267,12 @@ export default function SourceDetailDrawer({
               options={false}
             />
           </Card>
-          <Card title="原始 OpenAPI JSON">
+          <Card
+            title={intl.formatMessage({
+              id: 'pages.openapiSources.drawer.card.rawJson',
+              defaultMessage: '原始 OpenAPI JSON',
+            })}
+          >
             <Typography.Paragraph copyable>
               <Text code>{JSON.stringify(detail.spec || {}, null, 2)}</Text>
             </Typography.Paragraph>

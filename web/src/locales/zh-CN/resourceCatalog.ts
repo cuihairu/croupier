@@ -1,6 +1,8 @@
 // pages.resourceCatalog.detail.* — ResourceCatalog 资源详情弹窗
 // pages.resourceCatalog.editSemantics.* — ResourceCatalog 编辑语义弹窗
 // pages.resourceCatalog.list.* — ResourceCatalog 资源能力目录列表页
+// pages.resourceCatalog.resolveConflict.* — ResourceCatalog 解决语义冲突弹窗
+// pages.resourceCatalog.shared.* — ResourceCatalog shared.ts 标签 Map 展示文案
 export default {
   // detail
   'pages.resourceCatalog.detail.alert.description':
@@ -181,4 +183,32 @@ export default {
   'pages.resourceCatalog.list.tooltip.editSemantics': '编辑语义',
   'pages.resourceCatalog.list.tooltip.proposals': '提案',
   'pages.resourceCatalog.list.tooltip.viewDetail': '查看详情',
+  // resolveConflict
+  'pages.resourceCatalog.resolveConflict.button.cancel': '取消',
+  'pages.resourceCatalog.resolveConflict.button.ok': '确认选择',
+  'pages.resourceCatalog.resolveConflict.form.chosenSource.label': '采用来源',
+  'pages.resourceCatalog.resolveConflict.form.chosenSource.required': '请选择采用的语义来源',
+  'pages.resourceCatalog.resolveConflict.form.reason.label': '决议原因',
+  'pages.resourceCatalog.resolveConflict.form.reason.placeholder': '说明为什么采用该来源',
+  'pages.resourceCatalog.resolveConflict.title': '解决语义冲突',
+  // shared
+  'pages.resourceCatalog.shared.affectedKind.draft': '草稿',
+  'pages.resourceCatalog.shared.affectedKind.proposal': '提案',
+  'pages.resourceCatalog.shared.affectedKind.published': '已发布',
+  'pages.resourceCatalog.shared.capability.action': '动作',
+  'pages.resourceCatalog.shared.capability.collectionQuery': '列表查询',
+  'pages.resourceCatalog.shared.capability.create': '创建',
+  'pages.resourceCatalog.shared.capability.delete': '删除',
+  'pages.resourceCatalog.shared.capability.itemQuery': '详情查询',
+  'pages.resourceCatalog.shared.capability.report': '报表',
+  'pages.resourceCatalog.shared.capability.task': '任务',
+  'pages.resourceCatalog.shared.capability.update': '更新',
+  'pages.resourceCatalog.shared.freshnessNone': '无',
+  'pages.resourceCatalog.shared.source.openapiRest': 'OpenAPI REST',
+  'pages.resourceCatalog.shared.source.platformReview': '平台确认',
+  'pages.resourceCatalog.shared.source.sdkExplicit': 'SDK 显式',
+  'pages.resourceCatalog.shared.status.conflict': '冲突',
+  'pages.resourceCatalog.shared.status.identified': '已识别',
+  'pages.resourceCatalog.shared.status.notExecutable': '不可执行',
+  'pages.resourceCatalog.shared.status.pending': '待确认',
 };

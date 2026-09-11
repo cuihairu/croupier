@@ -273,7 +273,9 @@ export default function ContractChangesPanel({
       key: 'pageType',
       width: 90,
       render: (type: PageType) => (
-        <Tag color={pageTypeColors[type]}>{pageTypeLabels[type] || type}</Tag>
+        <Tag color={pageTypeColors[type]}>
+          {pageTypeLabels[type] ? intl.formatMessage(pageTypeLabels[type]) : type}
+        </Tag>
       ),
     },
     {
@@ -317,7 +319,7 @@ export default function ContractChangesPanel({
       key: 'bindingFreshness',
       render: (_, record) => {
         const diagnostics = record.bindingFreshness?.map((item) => item.diagnostic) || [];
-        return diagnosticSummary(diagnostics);
+        return diagnosticSummary(intl, diagnostics);
       },
     },
     {

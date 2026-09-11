@@ -1,4 +1,4 @@
-import { request } from '@umijs/max';
+import { getIntl, request } from '@umijs/max';
 
 // Source: internal/api/release/dto.go
 export type Release = {
@@ -75,14 +75,33 @@ export async function transitionRelease(
   });
 }
 
+// 展示 label 经 getIntl 解析（SelectLang 切换语言会整页刷新重新求值）；
+// Map key / options value 为后端枚举契约，保持不动
+const intl = getIntl();
+
 export const releaseStatusLabels: Record<string, string> = {
-  draft: '草稿',
-  uploading: '待验证', // artifact uploaded, awaiting testing promotion
-  testing: '内测',
-  gray: '灰度',
-  full: '全量',
-  archived: '已归档',
-  rolled_back: '已回滚',
+  draft: intl.formatMessage({
+    id: 'services.releases.statusLabel.draft',
+    defaultMessage: '草稿',
+  }),
+  uploading: intl.formatMessage(
+    // artifact uploaded, awaiting testing promotion
+    { id: 'services.releases.statusLabel.uploading', defaultMessage: '待验证' },
+  ),
+  testing: intl.formatMessage({
+    id: 'services.releases.statusLabel.testing',
+    defaultMessage: '内测',
+  }),
+  gray: intl.formatMessage({ id: 'services.releases.statusLabel.gray', defaultMessage: '灰度' }),
+  full: intl.formatMessage({ id: 'services.releases.statusLabel.full', defaultMessage: '全量' }),
+  archived: intl.formatMessage({
+    id: 'services.releases.statusLabel.archived',
+    defaultMessage: '已归档',
+  }),
+  rolled_back: intl.formatMessage({
+    id: 'services.releases.statusLabel.rolledBack',
+    defaultMessage: '已回滚',
+  }),
 };
 
 export const releaseStatusColors: Record<string, string> = {
@@ -96,9 +115,15 @@ export const releaseStatusColors: Record<string, string> = {
 };
 
 export const releaseTypeLabels: Record<string, string> = {
-  hotfix: '热更',
-  full: '整包',
-  forced: '强更',
+  hotfix: intl.formatMessage({
+    id: 'services.releases.typeLabel.hotfix',
+    defaultMessage: '热更',
+  }),
+  full: intl.formatMessage({ id: 'services.releases.typeLabel.full', defaultMessage: '整包' }),
+  forced: intl.formatMessage({
+    id: 'services.releases.typeLabel.forced',
+    defaultMessage: '强更',
+  }),
 };
 
 export const releasePlatformLabels: Record<string, string> = {

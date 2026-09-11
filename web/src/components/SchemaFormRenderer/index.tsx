@@ -18,7 +18,7 @@ import Form from '@rjsf/antd';
 import type CoreForm from '@rjsf/core';
 import type { IChangeEvent } from '@rjsf/core';
 import validator from '@rjsf/validator-ajv8';
-import { getLocale } from '@umijs/max';
+import { getLocale, getIntl } from '@umijs/max';
 import type { RJSFValidationError, RJSFSchema, UiSchema } from '@rjsf/utils';
 import type {
   FormFieldSpec,
@@ -350,7 +350,15 @@ export function deriveRuntimeSchema(
   const schema = cloneSchema(spec.jsonSchema);
   const uiSchema: UiSchema = {
     'ui:submitButtonOptions': {
-      submitText: localizedText(spec.submitButton?.text, 'zh-CN', '提交'),
+      // 纯函数无法 useIntl：getIntl 调用点求值（测试 mock 返回 defaultMessage）
+      submitText: localizedText(
+        spec.submitButton?.text,
+        'zh-CN',
+        getIntl().formatMessage({
+          id: 'component.schemaFormRenderer.submitFallback',
+          defaultMessage: '提交',
+        }),
+      ),
       norender: false,
     },
   };

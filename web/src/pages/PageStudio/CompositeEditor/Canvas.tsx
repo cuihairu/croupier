@@ -2,6 +2,7 @@ import type React from 'react';
 import { Badge, Button, Empty, Space, Tag, Typography } from 'antd';
 import type { FunctionDescriptor } from '@/services/api/functions';
 import { useDroppable } from '@dnd-kit/core';
+import { useIntl } from '@umijs/max';
 import { localizedText } from '@/utils/localizedText';
 import type { PageNode } from './model';
 
@@ -60,6 +61,7 @@ export function ModalPlaceholder({
   onSelect: (e?: React.MouseEvent) => void;
   onEnterModal: () => void;
 }) {
+  const intl = useIntl();
   const { setNodeRef, isOver } = useDroppable({ id: `modal-drop:${modal.id}` });
   const kids = modal.children ?? [];
   return (
@@ -88,7 +90,13 @@ export function ModalPlaceholder({
           text={
             <Space size={6}>
               <Text strong style={{ fontSize: 13 }}>
-                {String(modal.props.title ?? '弹窗')}
+                {String(
+                  modal.props.title ??
+                    intl.formatMessage({
+                      id: 'pages.pageStudio.editor.breadcrumb.modalFallback',
+                      defaultMessage: '弹窗',
+                    }),
+                )}
               </Text>
               {typeof modal.props.sectionKey === 'string' && modal.props.sectionKey && (
                 <Tag
@@ -103,7 +111,10 @@ export function ModalPlaceholder({
         />
         {kids.length === 0 ? (
           <Text type="secondary" style={{ fontSize: 11 }}>
-            空弹窗——拖入函数表单，或双击进入内部编辑
+            {intl.formatMessage({
+              id: 'pages.pageStudio.editor.modal.emptyHint',
+              defaultMessage: '空弹窗——拖入函数表单，或双击进入内部编辑',
+            })}
           </Text>
         ) : (
           kids.map((c) => {
@@ -120,7 +131,12 @@ export function ModalPlaceholder({
               >
                 <Space size={6}>
                   <Tag color="green" style={{ marginRight: 0, fontSize: 11 }}>
-                    {c.type === 'fnForm' ? '表单' : c.type}
+                    {c.type === 'fnForm'
+                      ? intl.formatMessage({
+                          id: 'pages.pageStudio.editor.component.fnForm.icon',
+                          defaultMessage: '表单',
+                        })
+                      : c.type}
                   </Tag>
                   <Text code style={{ fontSize: 11 }}>
                     {String(c.props.functionId ?? '')}
@@ -142,7 +158,10 @@ export function ModalPlaceholder({
             onEnterModal();
           }}
         >
-          进入弹窗编辑 →
+          {intl.formatMessage({
+            id: 'pages.pageStudio.editor.modal.enterEdit',
+            defaultMessage: '进入弹窗编辑 →',
+          })}
         </Button>
       </Space>
     </div>
@@ -151,6 +170,7 @@ export function ModalPlaceholder({
 
 /** 空画布根落区：droppable('canvas-root')。 */
 function RootDropZone() {
+  const intl = useIntl();
   const { setNodeRef, isOver } = useDroppable({ id: 'canvas-root' });
   return (
     <div
@@ -164,7 +184,10 @@ function RootDropZone() {
         background: isOver ? '#f0f7ff' : 'transparent',
       }}
     >
-      从左侧点击或拖入组件，开始搭建页面
+      {intl.formatMessage({
+        id: 'pages.pageStudio.editor.canvas.emptyHint',
+        defaultMessage: '从左侧点击或拖入组件，开始搭建页面',
+      })}
     </div>
   );
 }

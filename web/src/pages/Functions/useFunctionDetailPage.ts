@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { App, Form } from 'antd';
-import { history } from '@umijs/max';
+import { history, useIntl } from '@umijs/max';
 import {
   getFunctionDetail,
   getFunctionOpenAPI,
@@ -84,6 +84,11 @@ function toDescriptorArray(input: DescriptorListResponse): FunctionDescriptor[] 
 
 export default function useFunctionDetailPage(functionId?: string) {
   const { message, modal } = App.useApp();
+  const intl = useIntl();
+  // useIntl 在测试 mock 下每次渲染返回新引用，直接进 loadDetail 依赖会让
+  // 请求 effect 无限重建；经 ref 转发后依赖稳定，执行时仍读取最新实例
+  const intlRef = useRef(intl);
+  intlRef.current = intl;
   const [loading, setLoading] = useState(false);
   const [functionDetail, setFunctionDetail] = useState<FunctionDetail | null>(null);
   const [editing, setEditing] = useState(false);
@@ -231,7 +236,13 @@ export default function useFunctionDetailPage(functionId?: string) {
             : [{ resource: 'function', actions: ['invoke'], roles: [] } as FunctionPermission],
         });
       } catch (e) {
-        const errMsg = e instanceof Error ? e.message : '加载函数权限失败';
+        const errMsg =
+          e instanceof Error
+            ? e.message
+            : intlRef.current.formatMessage({
+                id: 'pages.functionsDetail.permission.loadFailed',
+                defaultMessage: '加载函数权限失败',
+              });
         permForm.setFieldsValue({ items: [] });
         setPermError(errMsg);
       } finally {
@@ -273,15 +284,35 @@ export default function useFunctionDetailPage(functionId?: string) {
               tags: detailFromDesc.tags?.join(', '),
             });
             permForm.setFieldsValue({ items: [] });
-            setPermError('运行时注册的函数不支持权限管理');
+            setPermError(
+              intlRef.current.formatMessage({
+                id: 'pages.functionsDetail.permission.runtimeNotSupported',
+                defaultMessage: '运行时注册的函数不支持权限管理',
+              }),
+            );
           } else {
-            message.error('函数不存在');
+            message.error(
+              intlRef.current.formatMessage({
+                id: 'pages.functionsDetail.detailError.notFound',
+                defaultMessage: '函数不存在',
+              }),
+            );
           }
         } catch {
-          message.error('加载函数详情失败');
+          message.error(
+            intlRef.current.formatMessage({
+              id: 'pages.functionsDetail.detailError.loadFailed',
+              defaultMessage: '加载函数详情失败',
+            }),
+          );
         }
       } else {
-        message.error('加载函数详情失败');
+        message.error(
+          intlRef.current.formatMessage({
+            id: 'pages.functionsDetail.detailError.loadFailed',
+            defaultMessage: '加载函数详情失败',
+          }),
+        );
       }
     } finally {
       setLoading(false);
@@ -306,11 +337,21 @@ export default function useFunctionDetailPage(functionId?: string) {
               .filter(Boolean)
           : [],
       });
-      message.success('保存成功');
+      message.success(
+        intl.formatMessage({
+          id: 'pages.functionsDetail.edit.saveSuccess',
+          defaultMessage: '保存成功',
+        }),
+      );
       setEditing(false);
       loadDetail();
     } catch {
-      message.error('保存失败');
+      message.error(
+        intl.formatMessage({
+          id: 'pages.functionsDetail.edit.saveFailed',
+          defaultMessage: '保存失败',
+        }),
+      );
     }
   };
 
@@ -319,10 +360,25 @@ export default function useFunctionDetailPage(functionId?: string) {
     try {
       if (enabled) await enableFunction(functionId);
       else await disableFunction(functionId);
-      message.success(enabled ? '函数已启用' : '函数已禁用');
+      message.success(
+        enabled
+          ? intl.formatMessage({
+              id: 'pages.functionsDetail.statusToggle.successEnabled',
+              defaultMessage: '函数已启用',
+            })
+          : intl.formatMessage({
+              id: 'pages.functionsDetail.statusToggle.successDisabled',
+              defaultMessage: '函数已禁用',
+            }),
+      );
       loadDetail();
     } catch {
-      message.error('状态更新失败');
+      message.error(
+        intl.formatMessage({
+          id: 'pages.functionsDetail.statusToggle.failed',
+          defaultMessage: '状态更新失败',
+        }),
+      );
     }
   };
 
@@ -330,26 +386,55 @@ export default function useFunctionDetailPage(functionId?: string) {
     if (!functionId) return;
     try {
       const next = await copyFunction(functionId);
-      message.success(`复制成功，新函数ID: ${next.functionId}`);
+      message.success(
+        intl.formatMessage(
+          {
+            id: 'pages.functionsDetail.copyFunction.success',
+            defaultMessage: '复制成功，新函数ID: {functionId}',
+          },
+          { functionId: next.functionId },
+        ),
+      );
       history.push(`/functions/${next.functionId}`);
     } catch {
-      message.error('复制失败');
+      message.error(
+        intl.formatMessage({
+          id: 'pages.functionsDetail.copyFunction.failed',
+          defaultMessage: '复制失败',
+        }),
+      );
     }
   };
 
   const handleDelete = () => {
     if (!functionId) return;
     modal.confirm({
-      title: '确认删除',
-      content: '确定要删除这个函数吗？此操作不可恢复！',
+      title: intl.formatMessage({
+        id: 'pages.functionsDetail.deleteFunction.confirmTitle',
+        defaultMessage: '确认删除',
+      }),
+      content: intl.formatMessage({
+        id: 'pages.functionsDetail.deleteFunction.confirmContent',
+        defaultMessage: '确定要删除这个函数吗？此操作不可恢复！',
+      }),
       okType: 'danger',
       onOk: async () => {
         try {
           await deleteFunction(functionId);
-          message.success('删除成功');
+          message.success(
+            intl.formatMessage({
+              id: 'pages.functionsDetail.deleteFunction.success',
+              defaultMessage: '删除成功',
+            }),
+          );
           history.push('/functions/catalog');
         } catch {
-          message.error('删除失败');
+          message.error(
+            intl.formatMessage({
+              id: 'pages.functionsDetail.deleteFunction.failed',
+              defaultMessage: '删除失败',
+            }),
+          );
         }
       },
     });
@@ -362,9 +447,20 @@ export default function useFunctionDetailPage(functionId?: string) {
       const values = await permForm.validateFields();
       const items = (values?.items || []) as FunctionPermission[];
       await updateFunctionPermissions(functionId, items);
-      message.success('权限已更新');
+      message.success(
+        intl.formatMessage({
+          id: 'pages.functionsDetail.permission.updateSuccess',
+          defaultMessage: '权限已更新',
+        }),
+      );
     } catch (e) {
-      const errMsg = e instanceof Error ? e.message : '更新失败';
+      const errMsg =
+        e instanceof Error
+          ? e.message
+          : intl.formatMessage({
+              id: 'pages.functionsDetail.permission.updateFailed',
+              defaultMessage: '更新失败',
+            });
       message.error(errMsg);
     } finally {
       setPermSaving(false);

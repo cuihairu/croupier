@@ -2,6 +2,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { Card, Space, DatePicker, Select, Button, Table } from 'antd';
 import type { Dayjs } from 'dayjs';
 import { PageContainer } from '@ant-design/pro-components';
+import { FormattedMessage, useIntl } from '@umijs/max';
 import { exportToXLSX } from '@/utils/export';
 import { fetchAnalyticsRetention } from '@/services/api/analytics';
 
@@ -29,6 +30,7 @@ type RetentionResponse = {
 };
 
 export default function AnalyticsRetentionPage() {
+  const intl = useIntl();
   const [loading, setLoading] = useState(false);
   const [range, setRange] = useState<[Dayjs | null, Dayjs | null] | null>(null);
   const [cohort, setCohort] = useState<'signup' | 'first_active'>('signup');
@@ -69,15 +71,30 @@ export default function AnalyticsRetentionPage() {
   return (
     <PageContainer>
       <Card
-        title="留存分析"
+        title={intl.formatMessage({
+          id: 'pages.analyticsRetention.title',
+          defaultMessage: '留存分析',
+        })}
         extra={
           <Space>
             <Select
               value={cohort}
               onChange={(val) => setCohort(val)}
               options={[
-                { label: '按注册', value: 'signup' },
-                { label: '按首次活跃', value: 'first_active' },
+                {
+                  label: intl.formatMessage({
+                    id: 'pages.analyticsRetention.cohort.option.signup',
+                    defaultMessage: '按注册',
+                  }),
+                  value: 'signup',
+                },
+                {
+                  label: intl.formatMessage({
+                    id: 'pages.analyticsRetention.cohort.option.firstActive',
+                    defaultMessage: '按首次活跃',
+                  }),
+                  value: 'first_active',
+                },
               ]}
             />
             <DatePicker.RangePicker
@@ -85,7 +102,7 @@ export default function AnalyticsRetentionPage() {
               onChange={(dates) => setRange(dates as [Dayjs | null, Dayjs | null])}
             />
             <Button type="primary" onClick={load}>
-              查询
+              <FormattedMessage id="pages.analyticsRetention.button.query" defaultMessage="查询" />
             </Button>
             <Button
               onClick={async () => {
@@ -96,7 +113,10 @@ export default function AnalyticsRetentionPage() {
                 await exportToXLSX('retention.csv', [{ sheet: 'retention', rows }]);
               }}
             >
-              导出 CSV
+              <FormattedMessage
+                id="pages.analyticsRetention.button.exportCsv"
+                defaultMessage="导出 CSV"
+              />
             </Button>
           </Space>
         }
@@ -108,7 +128,10 @@ export default function AnalyticsRetentionPage() {
           columns={[
             { title: 'Cohort', dataIndex: 'cohort', key: 'cohort' },
             {
-              title: '用户数',
+              title: intl.formatMessage({
+                id: 'pages.analyticsRetention.column.users',
+                defaultMessage: '用户数',
+              }),
               dataIndex: 'users',
               key: 'users',
               render: (v: number) => v?.toLocaleString() || 0,

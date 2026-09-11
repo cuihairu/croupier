@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Button, DatePicker, Space, Tag } from 'antd';
 import type { Dayjs } from 'dayjs';
-import { useIntl } from '@umijs/max';
+import { FormattedMessage, useIntl } from '@umijs/max';
 import { fetchRealtimeSeries } from '@/services/api/analytics';
 import { exportToCSV } from '@/utils/export';
 import type { ExportRow, RealtimeSeriesResponse, StreamStatus } from './types';
@@ -46,36 +46,73 @@ export default function Toolbar({
 
   const statusTag =
     streamStatus === 'connected' ? (
-      <Tag color="green">已连接</Tag>
+      <Tag color="green">
+        {intl.formatMessage({
+          id: 'pages.analyticsRealtime.toolbar.status.connected',
+          defaultMessage: '已连接',
+        })}
+      </Tag>
     ) : streamStatus === 'connecting' ? (
-      <Tag color="blue">连接中</Tag>
+      <Tag color="blue">
+        {intl.formatMessage({
+          id: 'pages.analyticsRealtime.toolbar.status.connecting',
+          defaultMessage: '连接中',
+        })}
+      </Tag>
     ) : streamStatus === 'stale' ? (
-      <Tag color="gold">暂未收到新帧</Tag>
+      <Tag color="gold">
+        {intl.formatMessage({
+          id: 'pages.analyticsRealtime.toolbar.status.stale',
+          defaultMessage: '暂未收到新帧',
+        })}
+      </Tag>
     ) : (
-      <Tag color="red">连接异常</Tag>
+      <Tag color="red">
+        {intl.formatMessage({
+          id: 'pages.analyticsRealtime.toolbar.status.error',
+          defaultMessage: '连接异常',
+        })}
+      </Tag>
     );
 
   return (
     <Space>
       {statusTag}
       <span style={{ color: '#666' }}>
-        最后更新:
+        <FormattedMessage
+          id="pages.analyticsRealtime.toolbar.lastUpdated"
+          defaultMessage="最后更新:"
+        />
         {lastMessageAt ? ` ${new Date(lastMessageAt).toLocaleTimeString()}` : ' -'}
       </span>
       <Button onClick={onRefresh} loading={loading}>
-        {intl.formatMessage({ id: 'pages.analytics.realtime.refresh' }) || '刷新'}
+        {intl.formatMessage({
+          id: 'pages.analyticsRealtime.toolbar.refresh',
+          defaultMessage: '刷新',
+        })}
       </Button>
       <Button type={auto ? 'primary' : 'default'} onClick={onToggleAuto}>
         {auto
-          ? intl.formatMessage({ id: 'pages.analytics.realtime.auto.refresh.on' }) || '自动刷新:开'
-          : intl.formatMessage({ id: 'pages.analytics.realtime.auto.refresh.off' }) ||
-            '自动刷新:关'}
+          ? intl.formatMessage({
+              id: 'pages.analyticsRealtime.toolbar.autoRefreshOn',
+              defaultMessage: '自动刷新:开',
+            })
+          : intl.formatMessage({
+              id: 'pages.analyticsRealtime.toolbar.autoRefreshOff',
+              defaultMessage: '自动刷新:关',
+            })}
       </Button>
       <Button onClick={onClearTrend}>
-        {intl.formatMessage({ id: 'pages.analytics.realtime.clear.trend' }) || '清空趋势'}
+        {intl.formatMessage({
+          id: 'pages.analyticsRealtime.toolbar.clearTrend',
+          defaultMessage: '清空趋势',
+        })}
       </Button>
       <span>
-        {intl.formatMessage({ id: 'pages.analytics.realtime.threshold' }) || '阈值(在线/5m活跃):'}
+        {intl.formatMessage({
+          id: 'pages.analyticsRealtime.toolbar.threshold',
+          defaultMessage: '阈值(在线/5m活跃):',
+        })}
       </span>
       <input
         type="number"
@@ -141,7 +178,10 @@ export default function Toolbar({
           } catch {}
         }}
       >
-        {intl.formatMessage({ id: 'pages.analytics.realtime.export.window.csv' }) || '导出窗口 CSV'}
+        {intl.formatMessage({
+          id: 'pages.analyticsRealtime.toolbar.exportWindowCsv',
+          defaultMessage: '导出窗口 CSV',
+        })}
       </Button>
       <Button
         onClick={() => {
@@ -171,7 +211,10 @@ export default function Toolbar({
           } catch {}
         }}
       >
-        {intl.formatMessage({ id: 'pages.analytics.realtime.export.10min.csv' }) || '导出10分钟CSV'}
+        {intl.formatMessage({
+          id: 'pages.analyticsRealtime.toolbar.exportLast10mCsv',
+          defaultMessage: '导出10分钟CSV',
+        })}
       </Button>
     </Space>
   );

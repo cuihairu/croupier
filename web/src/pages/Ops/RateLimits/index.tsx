@@ -14,7 +14,7 @@ import {
   Checkbox,
 } from 'antd';
 import { PageContainer } from '@ant-design/pro-components';
-import { useIntl } from '@umijs/max';
+import { FormattedMessage, useIntl } from '@umijs/max';
 import type { ColumnsType } from 'antd/es/table';
 import {
   listRateLimits,
@@ -233,17 +233,29 @@ export default function OpsRateLimitsPage() {
         }
       }
     } catch {
-      message.warning('标签JSON解析失败，已忽略');
+      message.warning(
+        intl.formatMessage({
+          id: 'pages.opsRateLimits.message.labelsIgnored',
+          defaultMessage: '标签JSON解析失败，已忽略',
+        }),
+      );
     }
     await putRateLimits([rule]);
     setOpen(false);
-    message.success('已保存');
+    message.success(
+      intl.formatMessage({ id: 'pages.opsRateLimits.message.saved', defaultMessage: '已保存' }),
+    );
     load();
   };
   const onPreview = async () => {
     const v = await form.validateFields();
     if (v.scope !== 'service') {
-      message.info('仅支持服务级预览');
+      message.info(
+        intl.formatMessage({
+          id: 'pages.opsRateLimits.message.servicePreviewOnly',
+          defaultMessage: '仅支持服务级预览',
+        }),
+      );
       return;
     }
     try {
@@ -259,8 +271,20 @@ export default function OpsRateLimitsPage() {
       });
       setPreview(res);
     } catch (e) {
-      const errMsg = e instanceof Error ? e.message : '操作失败';
-      message.error(errMsg || '预览失败');
+      const errMsg =
+        e instanceof Error
+          ? e.message
+          : intl.formatMessage({
+              id: 'pages.opsRateLimits.error.operationFailed',
+              defaultMessage: '操作失败',
+            });
+      message.error(
+        errMsg ||
+          intl.formatMessage({
+            id: 'pages.opsRateLimits.error.previewFailed',
+            defaultMessage: '预览失败',
+          }),
+      );
     }
   };
 
@@ -364,7 +388,10 @@ export default function OpsRateLimitsPage() {
           <Form.Item
             label={intl.formatMessage({ id: 'pages.rate.limits.percentage' })}
             name="percent"
-            tooltip="按比例生效（函数灰度为按 trace 采样；服务灰度折算 QPS）"
+            tooltip={intl.formatMessage({
+              id: 'pages.opsRateLimits.form.percentTooltip',
+              defaultMessage: '按比例生效（函数灰度为按 trace 采样；服务灰度折算 QPS）',
+            })}
           >
             {' '}
             <InputNumber min={1} max={100} />{' '}
@@ -393,10 +420,23 @@ export default function OpsRateLimitsPage() {
             <Button onClick={onPreview}>
               {intl.formatMessage({ id: 'pages.rate.limits.preview' })}
             </Button>
-            {preview && <span>命中实例：{preview.matched}</span>}
+            {preview && (
+              <span>
+                {intl.formatMessage(
+                  {
+                    id: 'pages.opsRateLimits.preview.matched',
+                    defaultMessage: '命中实例：{count}',
+                  },
+                  { count: preview.matched },
+                )}
+              </span>
+            )}
             {preview && (
               <Checkbox checked={onlyOver} onChange={(e) => setOnlyOver(e.target.checked)}>
-                仅显示超限（当前QPS&gt;限速）
+                <FormattedMessage
+                  id="pages.opsRateLimits.preview.onlyOverCheckbox"
+                  defaultMessage="仅显示超限（当前QPS>限速）"
+                />
               </Checkbox>
             )}
             {preview && (
@@ -450,7 +490,17 @@ export default function OpsRateLimitsPage() {
                   <div key={a.agentId}>
                     <Tag>{a.agentId}</Tag> {a.gameId || ''}/{a.env || ''}{' '}
                     {a.region ? `/${a.region}` : ''} {a.zone ? `/${a.zone}` : ''}
-                    &nbsp;当前QPS: <b>{a.qps1m.toFixed(2)}</b> / 限速: <b>{a.qps}</b>
+                    {' '}
+                    <FormattedMessage
+                      id="pages.opsRateLimits.preview.currentQpsLabel"
+                      defaultMessage="当前QPS: "
+                    />
+                    <b>{a.qps1m.toFixed(2)}</b> {' / '}
+                    <FormattedMessage
+                      id="pages.opsRateLimits.preview.limitLabel"
+                      defaultMessage="限速: "
+                    />
+                    <b>{a.qps}</b>
                   </div>
                 ));
               })()}

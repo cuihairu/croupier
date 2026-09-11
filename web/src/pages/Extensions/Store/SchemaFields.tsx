@@ -1,15 +1,23 @@
 import React from 'react';
 import { Card, Form, Input, InputNumber, Select, Space } from 'antd';
+import { useIntl } from '@umijs/max';
 import type { JSONValue } from '@/types/dashboard';
 
 /** manifest.configSchema 渲染器：enum/boolean/number/array/object/string
  * 按字段类型分派到对应表单控件，Form.Item name 挂在 ['config', key]。 */
 export default function SchemaFields({ schema }: { schema: Record<string, JSONValue> }) {
+  const intl = useIntl();
   if (!schema?.properties || typeof schema.properties !== 'object') {
     return null;
   }
   return (
-    <Card size="small" title="配置字段（来自 manifest.configSchema）">
+    <Card
+      size="small"
+      title={intl.formatMessage({
+        id: 'pages.extensionsStore.schema.cardTitle',
+        defaultMessage: '配置字段（来自 manifest.configSchema）',
+      })}
+    >
       <Space orientation="vertical" style={{ width: '100%' }}>
         {Object.entries(schema.properties).map(([key, raw]) => {
           const field = (raw || {}) as Record<string, JSONValue>;
@@ -27,7 +35,18 @@ export default function SchemaFields({ schema }: { schema: Record<string, JSONVa
                 name={['config', key]}
                 label={label}
                 extra={help}
-                rules={[{ required, message: `请选择 ${label}` }]}
+                rules={[
+                  {
+                    required,
+                    message: intl.formatMessage(
+                      {
+                        id: 'pages.extensionsStore.schema.selectRequired',
+                        defaultMessage: `请选择 ${label}`,
+                      },
+                      { label },
+                    ),
+                  },
+                ]}
               >
                 <Select options={enums.map((v) => ({ label: String(v), value: v }))} />
               </Form.Item>
@@ -41,7 +60,18 @@ export default function SchemaFields({ schema }: { schema: Record<string, JSONVa
                 name={['config', key]}
                 label={label}
                 extra={help}
-                rules={[{ required, message: `请设置 ${label}` }]}
+                rules={[
+                  {
+                    required,
+                    message: intl.formatMessage(
+                      {
+                        id: 'pages.extensionsStore.schema.setRequired',
+                        defaultMessage: `请设置 ${label}`,
+                      },
+                      { label },
+                    ),
+                  },
+                ]}
               >
                 <Select
                   options={[
@@ -60,7 +90,18 @@ export default function SchemaFields({ schema }: { schema: Record<string, JSONVa
                 name={['config', key]}
                 label={label}
                 extra={help}
-                rules={[{ required, message: `请填写 ${label}` }]}
+                rules={[
+                  {
+                    required,
+                    message: intl.formatMessage(
+                      {
+                        id: 'pages.extensionsStore.schema.fillRequired',
+                        defaultMessage: `请填写 ${label}`,
+                      },
+                      { label },
+                    ),
+                  },
+                ]}
               >
                 <InputNumber
                   style={{ width: '100%' }}
@@ -76,8 +117,28 @@ export default function SchemaFields({ schema }: { schema: Record<string, JSONVa
                 key={key}
                 name={['config', key]}
                 label={label}
-                extra={help || `${type} 类型，支持 JSON 文本`}
-                rules={[{ required, message: `请填写 ${label}` }]}
+                extra={
+                  help ||
+                  intl.formatMessage(
+                    {
+                      id: 'pages.extensionsStore.schema.jsonTypeHint',
+                      defaultMessage: `${type} 类型，支持 JSON 文本`,
+                    },
+                    { type },
+                  )
+                }
+                rules={[
+                  {
+                    required,
+                    message: intl.formatMessage(
+                      {
+                        id: 'pages.extensionsStore.schema.fillRequired',
+                        defaultMessage: `请填写 ${label}`,
+                      },
+                      { label },
+                    ),
+                  },
+                ]}
               >
                 <Input.TextArea rows={3} placeholder={type === 'array' ? '[]' : '{}'} />
               </Form.Item>
@@ -90,7 +151,18 @@ export default function SchemaFields({ schema }: { schema: Record<string, JSONVa
               name={['config', key]}
               label={label}
               extra={help}
-              rules={[{ required, message: `请填写 ${label}` }]}
+              rules={[
+                {
+                  required,
+                  message: intl.formatMessage(
+                    {
+                      id: 'pages.extensionsStore.schema.fillRequired',
+                      defaultMessage: `请填写 ${label}`,
+                    },
+                    { label },
+                  ),
+                },
+              ]}
             >
               <Input placeholder={type === 'number' || type === 'integer' ? '0' : ''} />
             </Form.Item>

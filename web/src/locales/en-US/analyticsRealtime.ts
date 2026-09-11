@@ -1,0 +1,33 @@
+// pages.analyticsRealtime.* — Analytics/Realtime 实时看板
+export default {
+  'pages.analyticsRealtime.alert.streamError': 'Realtime stream connection error',
+  'pages.analyticsRealtime.alert.streamInfo':
+    'Realtime stream connected; metrics showing 0 is expected when there are no business events',
+  'pages.analyticsRealtime.alert.streamStale':
+    'Realtime stream connected, but no new data frames received yet',
+  'pages.analyticsRealtime.stat.active15M': 'Active (15 min)',
+  'pages.analyticsRealtime.stat.active1M': 'Active (1 min)',
+  'pages.analyticsRealtime.stat.active5M': 'Active (5 min)',
+  'pages.analyticsRealtime.stat.dauToday': 'DAU Today',
+  'pages.analyticsRealtime.stat.newToday': 'New Users Today',
+  'pages.analyticsRealtime.stat.online': 'Online Now',
+  'pages.analyticsRealtime.stat.onlinePeakAllTime': 'All-Time Peak Online',
+  'pages.analyticsRealtime.stat.onlinePeakToday': 'Today Peak Online',
+  'pages.analyticsRealtime.stat.paySuccRate': 'Payment Success Rate',
+  'pages.analyticsRealtime.stat.registeredTotal': 'Total Registered Users',
+  'pages.analyticsRealtime.stat.rev5M': 'Order Amount (5 min, CNY)',
+  'pages.analyticsRealtime.stat.revToday': 'Recharge Today (CNY)',
+  'pages.analyticsRealtime.title': 'Realtime Dashboard',
+  'pages.analyticsRealtime.toolbar.autoRefreshOff': 'Auto Refresh: Off',
+  'pages.analyticsRealtime.toolbar.autoRefreshOn': 'Auto Refresh: On',
+  'pages.analyticsRealtime.toolbar.clearTrend': 'Clear Trend',
+  'pages.analyticsRealtime.toolbar.exportLast10mCsv': 'Export Last 10 Min CSV',
+  'pages.analyticsRealtime.toolbar.exportWindowCsv': 'Export Window CSV',
+  'pages.analyticsRealtime.toolbar.lastUpdated': 'Last Updated:',
+  'pages.analyticsRealtime.toolbar.refresh': 'Refresh',
+  'pages.analyticsRealtime.toolbar.status.connected': 'Connected',
+  'pages.analyticsRealtime.toolbar.status.connecting': 'Connecting',
+  'pages.analyticsRealtime.toolbar.status.error': 'Connection Error',
+  'pages.analyticsRealtime.toolbar.status.stale': 'No New Frames',
+  'pages.analyticsRealtime.toolbar.threshold': 'Thresholds (online / 5m active):',
+};

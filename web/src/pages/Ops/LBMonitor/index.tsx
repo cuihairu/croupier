@@ -1,6 +1,7 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { App, Card, Empty, Select, Space, Spin, Statistic, Typography } from 'antd';
 import { PageContainer } from '@ant-design/pro-components';
+import { useIntl } from '@umijs/max';
 import { Line, Gauge } from '@ant-design/charts';
 import {
   fetchClusterInfo,
@@ -39,6 +40,11 @@ function toSeries(
 
 export default function LBMonitor() {
   const { message } = App.useApp();
+  const intl = useIntl();
+  // useIntl 在测试 mock 下每次渲染返回新引用，直接进 useCallback 依赖会让请求
+  // effect 无限重建；经 ref 转发后回调依赖稳定，执行时仍读取最新实例
+  const intlRef = useRef(intl);
+  intlRef.current = intl;
   const [loading, setLoading] = useState(true);
   const [lbStats, setLbStats] = useState<ClusterLbStatsInfo | null>(null);
   // 未配置 Prometheus 时置位：轮询完全停止（后台零请求），只留空态说明
@@ -72,7 +78,15 @@ export default function LBMonitor() {
         .map((r) => (r.metric.server || r.metric.instance || 'unknown').replace(/^.*\//, ''));
       setUnhealthy(down);
     } catch (error) {
-      message.error(extractErrorMessage(error, '加载 LB 监控失败'));
+      message.error(
+        extractErrorMessage(
+          error,
+          intlRef.current.formatMessage({
+            id: 'pages.opsLBMonitor.error.loadFailed',
+            defaultMessage: '加载 LB 监控失败',
+          }),
+        ),
+      );
     } finally {
       setLoading(false);
     }
@@ -121,7 +135,12 @@ export default function LBMonitor() {
     return (
       <PageContainer>
         <Card>
-          <Empty description="未配置 Prometheus（ops.lbPrometheusUrl），LB 监控不可用" />
+          <Empty
+            description={intl.formatMessage({
+              id: 'pages.opsLBMonitor.empty.noPrometheus',
+              defaultMessage: '未配置 Prometheus（ops.lbPrometheusUrl），LB 监控不可用',
+            })}
+          />
         </Card>
       </PageContainer>
     );
@@ -131,7 +150,11 @@ export default function LBMonitor() {
     <PageContainer
       extra={
         <Text type="secondary">
-          LB 监控（Prometheus 管道：haproxy exporter → prometheus → 平台代理） · 30s 自动刷新
+          {intl.formatMessage({
+            id: 'pages.opsLBMonitor.header.pipeline',
+            defaultMessage:
+              'LB 监控（Prometheus 管道：haproxy exporter → prometheus → 平台代理） · 30s 自动刷新',
+          })}
         </Text>
       }
     >
@@ -139,15 +162,33 @@ export default function LBMonitor() {
         <Space orientation="vertical" style={{ width: '100%' }} size={12}>
           <Card size="small">
             <Space size={32} wrap>
-              <Statistic title="后端总数" value={backends.length} />
               <Statistic
-                title="不健康后端"
+                title={intl.formatMessage({
+                  id: 'pages.opsLBMonitor.statistic.backendTotal',
+                  defaultMessage: '后端总数',
+                })}
+                value={backends.length}
+              />
+              <Statistic
+                title={intl.formatMessage({
+                  id: 'pages.opsLBMonitor.statistic.unhealthyBackends',
+                  defaultMessage: '不健康后端',
+                })}
                 value={unhealthy.length}
                 valueStyle={{ color: unhealthy.length ? '#cf1322' : '#3f8600' }}
               />
-              <Statistic title="agent 节点（归属表）" value={nodes.length} />
               <Statistic
-                title="LB 会话总数"
+                title={intl.formatMessage({
+                  id: 'pages.opsLBMonitor.statistic.agentNodes',
+                  defaultMessage: 'agent 节点（归属表）',
+                })}
+                value={nodes.length}
+              />
+              <Statistic
+                title={intl.formatMessage({
+                  id: 'pages.opsLBMonitor.statistic.totalSessions',
+                  defaultMessage: 'LB 会话总数',
+                })}
                 value={sessionsData.reduce((s, p) => s + p.value, 0)}
               />
             </Space>
@@ -156,15 +197,24 @@ export default function LBMonitor() {
           {unhealthy.length > 0 && (
             <Card size="small" style={{ borderColor: '#ffa39e' }}>
               <Paragraph type="danger" style={{ margin: 0 }}>
-                不健康后端：{unhealthy.join('、')}——TCP 会话可能仍在（半开），注意与 /ops/nodes
-                的归属状态对账。
+                {intl.formatMessage(
+                  {
+                    id: 'pages.opsLBMonitor.alert.unhealthyBackends',
+                    defaultMessage:
+                      '不健康后端：{backends}——TCP 会话可能仍在（半开），注意与 /ops/nodes 的归属状态对账。',
+                  },
+                  { backends: unhealthy.join('、') },
+                )}
               </Paragraph>
             </Card>
           )}
 
           <Card
             size="small"
-            title="各后端会话分布（current_sessions）"
+            title={intl.formatMessage({
+              id: 'pages.opsLBMonitor.card.sessionsByBackend',
+              defaultMessage: '各后端会话分布（current_sessions）',
+            })}
             extra={
               <Select
                 size="small"
@@ -172,14 +222,25 @@ export default function LBMonitor() {
                 value={backend}
                 onChange={setBackend}
                 options={[
-                  { label: '全部后端', value: 'all' },
+                  {
+                    label: intl.formatMessage({
+                      id: 'pages.opsLBMonitor.filter.allBackends',
+                      defaultMessage: '全部后端',
+                    }),
+                    value: 'all',
+                  },
                   ...backends.map((b) => ({ label: b, value: b })),
                 ]}
               />
             }
           >
             {filteredSeries.length === 0 ? (
-              <Empty description="暂无数据（确认 prometheus 已抓取 haproxy /metrics）" />
+              <Empty
+                description={intl.formatMessage({
+                  id: 'pages.opsLBMonitor.empty.noSeriesData',
+                  defaultMessage: '暂无数据（确认 prometheus 已抓取 haproxy /metrics）',
+                })}
+              />
             ) : (
               <Line
                 height={280}
@@ -192,10 +253,19 @@ export default function LBMonitor() {
             )}
           </Card>
 
-          <Card size="small" title="归属 vs LB 对账（僵尸探测）">
+          <Card
+            size="small"
+            title={intl.formatMessage({
+              id: 'pages.opsLBMonitor.card.reconciliation',
+              defaultMessage: '归属 vs LB 对账（僵尸探测）',
+            })}
+          >
             <Text type="secondary">
-              归属表 agent 数与 LB 会话数长期不一致（连接在、心跳停）= 半开连接信号， 结合
-              /ops/nodes 的「agent 自报」列定位。
+              {intl.formatMessage({
+                id: 'pages.opsLBMonitor.card.reconciliationHint',
+                defaultMessage:
+                  '归属表 agent 数与 LB 会话数长期不一致（连接在、心跳停）= 半开连接信号， 结合 /ops/nodes 的「agent 自报」列定位。',
+              })}
             </Text>
             <div style={{ marginTop: 12 }}>
               <Gauge
@@ -206,7 +276,15 @@ export default function LBMonitor() {
                 innerRadius={0.7}
                 annotations={{
                   0.5: {
-                    content: { content: `归属 ${nodes.length} / LB 后端 ${backends.length}` },
+                    content: {
+                      content: intl.formatMessage(
+                        {
+                          id: 'pages.opsLBMonitor.gauge.ownershipRatio',
+                          defaultMessage: '归属 {nodes} / LB 后端 {backends}',
+                        },
+                        { nodes: nodes.length, backends: backends.length },
+                      ),
+                    },
                   },
                 }}
               />

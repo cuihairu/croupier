@@ -1,12 +1,14 @@
 import React, { useState } from 'react';
 import { Button, Select, Space, Table } from 'antd';
 import type { Dayjs } from 'dayjs';
+import { FormattedMessage, useIntl } from '@umijs/max';
 import { exportToXLSX } from '@/utils/export';
 import { fetchAnalyticsAdoption, fetchAnalyticsAdoptionBreakdown } from '@/services/api/analytics';
 import type { AdoptionBreakdownRow, AdoptionRow } from './types';
 
 /** 功能采用率控件：总体采用率 + 按渠道/平台/国家分层采用率。 */
 const AdoptionControls: React.FC<{ range: [Dayjs | null, Dayjs | null] | null }> = ({ range }) => {
+  const intl = useIntl();
   const [features, setFeatures] = useState<string[]>([]);
   const [per, setPer] = useState<'user' | 'session'>('user');
   const [rows, setRows] = useState<AdoptionRow[]>([]);
@@ -46,19 +48,37 @@ const AdoptionControls: React.FC<{ range: [Dayjs | null, Dayjs | null] | null }>
           mode="tags"
           value={features}
           onChange={(v) => setFeatures(v)}
-          placeholder="功能事件（如：first_pay, open_store）"
+          placeholder={intl.formatMessage({
+            id: 'pages.analyticsBehavior.adoption.filter.placeholder.features',
+            defaultMessage: '功能事件（如：first_pay, open_store）',
+          })}
           style={{ minWidth: 360 }}
         />
         <Select
           value={per}
           onChange={(v) => setPer(v)}
           options={[
-            { label: '按用户', value: 'user' },
-            { label: '按会话', value: 'session' },
+            {
+              label: intl.formatMessage({
+                id: 'pages.analyticsBehavior.option.byUser',
+                defaultMessage: '按用户',
+              }),
+              value: 'user',
+            },
+            {
+              label: intl.formatMessage({
+                id: 'pages.analyticsBehavior.option.bySession',
+                defaultMessage: '按会话',
+              }),
+              value: 'session',
+            },
           ]}
         />
         <Button type="primary" onClick={load} loading={loading}>
-          计算采用率
+          <FormattedMessage
+            id="pages.analyticsBehavior.adoption.button.compute"
+            defaultMessage="计算采用率"
+          />
         </Button>
         <Button
           onClick={async () => {
@@ -73,11 +93,32 @@ const AdoptionControls: React.FC<{ range: [Dayjs | null, Dayjs | null] | null }>
             await exportToXLSX('adoption.csv', [{ sheet: 'adoption', rows: rowsOut }]);
           }}
         >
-          导出 CSV
+          <FormattedMessage
+            id="pages.analyticsBehavior.button.exportCsv"
+            defaultMessage="导出 CSV"
+          />
         </Button>
       </Space>
       <div>
-        基数（{per === 'user' ? '用户' : '会话'}）：{baseline}
+        {intl.formatMessage(
+          {
+            id: 'pages.analyticsBehavior.adoption.baseline',
+            defaultMessage: '基数（{per}）：{baseline}',
+          },
+          {
+            per:
+              per === 'user'
+                ? intl.formatMessage({
+                    id: 'pages.analyticsBehavior.adoption.perLabel.user',
+                    defaultMessage: '用户',
+                  })
+                : intl.formatMessage({
+                    id: 'pages.analyticsBehavior.adoption.perLabel.session',
+                    defaultMessage: '会话',
+                  }),
+            baseline,
+          },
+        )}
       </div>
       <Table<AdoptionRow>
         size="small"
@@ -85,10 +126,25 @@ const AdoptionControls: React.FC<{ range: [Dayjs | null, Dayjs | null] | null }>
         rowKey={(r: AdoptionRow) => r.feature}
         dataSource={rows}
         columns={[
-          { title: '功能事件', dataIndex: 'feature' },
-          { title: '分组数', dataIndex: 'groups' },
           {
-            title: '采用率',
+            title: intl.formatMessage({
+              id: 'pages.analyticsBehavior.adoption.column.feature',
+              defaultMessage: '功能事件',
+            }),
+            dataIndex: 'feature',
+          },
+          {
+            title: intl.formatMessage({
+              id: 'pages.analyticsBehavior.column.groups',
+              defaultMessage: '分组数',
+            }),
+            dataIndex: 'groups',
+          },
+          {
+            title: intl.formatMessage({
+              id: 'pages.analyticsBehavior.adoption.column.rate',
+              defaultMessage: '采用率',
+            }),
             dataIndex: 'rate',
             render: (v: number) => (v != null ? `${v}%` : '-'),
           },
@@ -100,13 +156,34 @@ const AdoptionControls: React.FC<{ range: [Dayjs | null, Dayjs | null] | null }>
           value={by}
           onChange={(v) => setBy(v)}
           options={[
-            { label: '按渠道', value: 'channel' },
-            { label: '按平台', value: 'platform' },
-            { label: '按国家', value: 'country' },
+            {
+              label: intl.formatMessage({
+                id: 'pages.analyticsBehavior.adoption.breakdown.option.byChannel',
+                defaultMessage: '按渠道',
+              }),
+              value: 'channel',
+            },
+            {
+              label: intl.formatMessage({
+                id: 'pages.analyticsBehavior.adoption.breakdown.option.byPlatform',
+                defaultMessage: '按平台',
+              }),
+              value: 'platform',
+            },
+            {
+              label: intl.formatMessage({
+                id: 'pages.analyticsBehavior.adoption.breakdown.option.byCountry',
+                defaultMessage: '按国家',
+              }),
+              value: 'country',
+            },
           ]}
         />
         <Button onClick={loadDim} loading={loading}>
-          分层采用率
+          <FormattedMessage
+            id="pages.analyticsBehavior.adoption.button.breakdown"
+            defaultMessage="分层采用率"
+          />
         </Button>
         <Button
           onClick={async () => {
@@ -123,7 +200,10 @@ const AdoptionControls: React.FC<{ range: [Dayjs | null, Dayjs | null] | null }>
             ]);
           }}
         >
-          导出 CSV
+          <FormattedMessage
+            id="pages.analyticsBehavior.button.exportCsv"
+            defaultMessage="导出 CSV"
+          />
         </Button>
       </Space>
       <Table<AdoptionBreakdownRow>
@@ -132,11 +212,32 @@ const AdoptionControls: React.FC<{ range: [Dayjs | null, Dayjs | null] | null }>
         rowKey={(r: AdoptionBreakdownRow) => `${r.dim || ''}|${r.baseline || ''}|${r.groups || ''}`}
         dataSource={rowsDim}
         columns={[
-          { title: '分层', dataIndex: 'dim' },
-          { title: '基数', dataIndex: 'baseline' },
-          { title: '分组数', dataIndex: 'groups' },
           {
-            title: '采用率',
+            title: intl.formatMessage({
+              id: 'pages.analyticsBehavior.adoption.breakdown.column.dim',
+              defaultMessage: '分层',
+            }),
+            dataIndex: 'dim',
+          },
+          {
+            title: intl.formatMessage({
+              id: 'pages.analyticsBehavior.adoption.breakdown.column.baseline',
+              defaultMessage: '基数',
+            }),
+            dataIndex: 'baseline',
+          },
+          {
+            title: intl.formatMessage({
+              id: 'pages.analyticsBehavior.column.groups',
+              defaultMessage: '分组数',
+            }),
+            dataIndex: 'groups',
+          },
+          {
+            title: intl.formatMessage({
+              id: 'pages.analyticsBehavior.adoption.column.rate',
+              defaultMessage: '采用率',
+            }),
             dataIndex: 'rate',
             render: (v: number) => (v != null ? `${v}%` : '-'),
           },

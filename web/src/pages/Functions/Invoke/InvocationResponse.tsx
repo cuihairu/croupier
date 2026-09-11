@@ -21,7 +21,7 @@ import {
 } from '@ant-design/icons';
 import { CodeEditor } from '@/components/MonacoDynamic';
 import { fetchOpsConfig, type OpsConfig } from '@/services/api/ops';
-import { history } from '@umijs/max';
+import { FormattedMessage, history, useIntl } from '@umijs/max';
 import { formatDuration } from './types';
 import { deriveResultSpec, isArrayOfObjects } from '@/utils/resultSpec';
 import { renderJSONValueSummary } from '@/components/PageRenderer/ResultViewRenderer';
@@ -57,6 +57,7 @@ export default function InvocationResponse({
   response,
   onCopy,
 }: InvocationResponseProps) {
+  const intl = useIntl();
   const [opsConfig, setOpsConfig] = useState<OpsConfig>({});
 
   useEffect(() => {
@@ -78,7 +79,10 @@ export default function InvocationResponse({
       title={
         jaegerUrl ? (
           <span>
-            OTel Trace ID，点击在 Jaeger 中查看完整链路
+            <FormattedMessage
+              id="pages.functionsInvoke.response.trace.jaegerHint"
+              defaultMessage="OTel Trace ID，点击在 Jaeger 中查看完整链路"
+            />
             <br />
             <Text code style={{ color: '#fff' }}>
               {traceId}
@@ -86,7 +90,10 @@ export default function InvocationResponse({
           </span>
         ) : (
           <span>
-            OTel Trace ID（未配置 Jaeger 地址，复制后可在 链路追踪 页面查询）
+            <FormattedMessage
+              id="pages.functionsInvoke.response.trace.noJaegerHint"
+              defaultMessage="OTel Trace ID（未配置 Jaeger 地址，复制后可在 链路追踪 页面查询）"
+            />
             <br />
             <Text code style={{ color: '#fff' }}>
               {traceId}
@@ -156,7 +163,12 @@ export default function InvocationResponse({
       {errorDetails.map((detail, index) => (
         <li key={`${detail.field}-${index}`}>
           {detail.field ? <Text code>{detail.field}</Text> : null}
-          {detail.field ? '：' : ''}
+          {detail.field
+            ? intl.formatMessage({
+                id: 'pages.functionsInvoke.response.errorDetailSeparator',
+                defaultMessage: '：',
+              })
+            : ''}
           {detail.message}
         </li>
       ))}
@@ -165,7 +177,10 @@ export default function InvocationResponse({
 
   const jsonTab = {
     key: 'pretty',
-    label: '格式化',
+    label: intl.formatMessage({
+      id: 'pages.functionsInvoke.response.tab.formatted',
+      defaultMessage: '格式化',
+    }),
     children: (
       <CodeEditor
         value={responseRaw || 'null'}
@@ -179,7 +194,10 @@ export default function InvocationResponse({
   };
   const rawTab = {
     key: 'raw',
-    label: '原始数据',
+    label: intl.formatMessage({
+      id: 'pages.functionsInvoke.response.tab.raw',
+      defaultMessage: '原始数据',
+    }),
     children: (
       <TextArea
         readOnly
@@ -193,14 +211,36 @@ export default function InvocationResponse({
   return (
     <Card
       size="small"
-      title="响应"
+      title={intl.formatMessage({
+        id: 'pages.functionsInvoke.response.title',
+        defaultMessage: '响应',
+      })}
       extra={
         hasResponse ? (
           <Space>
-            {error ? <Tag color="red">失败</Tag> : <Tag color="green">成功</Tag>}
+            {error ? (
+              <Tag color="red">
+                <FormattedMessage
+                  id="pages.functionsInvoke.response.tag.failed"
+                  defaultMessage="失败"
+                />
+              </Tag>
+            ) : (
+              <Tag color="green">
+                <FormattedMessage
+                  id="pages.functionsInvoke.response.tag.success"
+                  defaultMessage="成功"
+                />
+              </Tag>
+            )}
             {duration ? <Tag icon={<ClockCircleOutlined />}>{formatDuration(duration)}</Tag> : null}
             {traceTag}
-            <Tooltip title="复制响应">
+            <Tooltip
+              title={intl.formatMessage({
+                id: 'pages.functionsInvoke.response.copyTooltip',
+                defaultMessage: '复制响应',
+              })}
+            >
               <Button
                 size="small"
                 icon={<CopyOutlined />}
@@ -215,7 +255,10 @@ export default function InvocationResponse({
         <Alert
           type="error"
           showIcon
-          message="调用失败"
+          message={intl.formatMessage({
+            id: 'pages.functionsInvoke.error.invokeFailed',
+            defaultMessage: '调用失败',
+          })}
           description={
             <>
               {error}
@@ -231,7 +274,10 @@ export default function InvocationResponse({
               ? [
                   {
                     key: 'structured',
-                    label: '结构化',
+                    label: intl.formatMessage({
+                      id: 'pages.functionsInvoke.response.tab.structured',
+                      defaultMessage: '结构化',
+                    }),
                     children: structuredBody,
                   },
                 ]
@@ -243,14 +289,22 @@ export default function InvocationResponse({
       ) : (
         <Empty
           image={Empty.PRESENTED_IMAGE_SIMPLE}
-          description="发送请求后，响应结果将显示在这里"
+          description={intl.formatMessage({
+            id: 'pages.functionsInvoke.response.empty',
+            defaultMessage: '发送请求后，响应结果将显示在这里',
+          })}
           style={{ padding: '40px 0' }}
         />
       )}
       {traceId ? (
         <div style={{ marginTop: 8 }}>
           <Space size={4}>
-            <Text type="secondary">链路追踪：</Text>
+            <Text type="secondary">
+              <FormattedMessage
+                id="pages.functionsInvoke.response.trace.label"
+                defaultMessage="链路追踪："
+              />
+            </Text>
             <Text code copyable={{ text: traceId }}>
               {traceId}
             </Text>
@@ -260,7 +314,10 @@ export default function InvocationResponse({
               icon={<LinkOutlined />}
               onClick={() => history.push(`/dev/traces?traceId=${encodeURIComponent(traceId)}`)}
             >
-              链路追踪页
+              <FormattedMessage
+                id="pages.functionsInvoke.response.trace.button"
+                defaultMessage="链路追踪页"
+              />
             </Button>
           </Space>
         </div>

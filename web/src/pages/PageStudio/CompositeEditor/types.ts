@@ -1,14 +1,55 @@
+import { getIntl } from '@umijs/max';
 import type { JSONValue } from '@/types/dashboard';
 import type { FunctionDescriptor } from '@/services/api/functions';
 import type { PageNode } from './model';
 
+// 展示元数据经 getIntl 求值（纯常量模块无法 useIntl，SelectLang 切语言整页
+// 刷新后重新求值，先例 services/api/bugs.ts）；CompositeView 枚举值是逻辑契约不动
+const intl = getIntl();
+
 export type CompositeView = 'table' | 'fields' | 'form' | 'actions';
 
 export const VIEW_META: Record<CompositeView, { label: string; hint: string }> = {
-  table: { label: '表格', hint: '列表查询，展示多行数据' },
-  fields: { label: '字段卡', hint: '键值详情，单对象展示' },
-  form: { label: '操作表单', hint: '输入参数执行操作' },
-  actions: { label: '按钮组', hint: '无参动作，点击即执行' },
+  table: {
+    label: intl.formatMessage({
+      id: 'pages.pageStudio.compiler.view.table.label',
+      defaultMessage: '表格',
+    }),
+    hint: intl.formatMessage({
+      id: 'pages.pageStudio.compiler.view.table.hint',
+      defaultMessage: '列表查询，展示多行数据',
+    }),
+  },
+  fields: {
+    label: intl.formatMessage({
+      id: 'pages.pageStudio.compiler.view.fields.label',
+      defaultMessage: '字段卡',
+    }),
+    hint: intl.formatMessage({
+      id: 'pages.pageStudio.compiler.view.fields.hint',
+      defaultMessage: '键值详情，单对象展示',
+    }),
+  },
+  form: {
+    label: intl.formatMessage({
+      id: 'pages.pageStudio.compiler.view.form.label',
+      defaultMessage: '操作表单',
+    }),
+    hint: intl.formatMessage({
+      id: 'pages.pageStudio.compiler.view.form.hint',
+      defaultMessage: '输入参数执行操作',
+    }),
+  },
+  actions: {
+    label: intl.formatMessage({
+      id: 'pages.pageStudio.compiler.view.actions.label',
+      defaultMessage: '按钮组',
+    }),
+    hint: intl.formatMessage({
+      id: 'pages.pageStudio.compiler.view.actions.hint',
+      defaultMessage: '无参动作，点击即执行',
+    }),
+  },
 };
 
 /** 从 JSONValue 提取 object 形态（不满足返回 null）。 */
@@ -92,9 +133,27 @@ export type ParamCandidate = {
 };
 
 const PARAM_PROPS: Array<{ prop: ParamCandidate['prop']; label: string }> = [
-  { prop: 'title', label: '标题' },
-  { prop: 'span', label: '栅格宽度' },
-  { prop: 'autoRun', label: '自动执行' },
+  {
+    prop: 'title',
+    label: intl.formatMessage({
+      id: 'pages.pageStudio.compiler.paramProp.title',
+      defaultMessage: '标题',
+    }),
+  },
+  {
+    prop: 'span',
+    label: intl.formatMessage({
+      id: 'pages.pageStudio.compiler.paramProp.span',
+      defaultMessage: '栅格宽度',
+    }),
+  },
+  {
+    prop: 'autoRun',
+    label: intl.formatMessage({
+      id: 'pages.pageStudio.compiler.paramProp.autoRun',
+      defaultMessage: '自动执行',
+    }),
+  },
 ];
 
 /** 扫描节点子树的白名单 props 生成参数化候选（title 恒列出，其余存在才列）。 */

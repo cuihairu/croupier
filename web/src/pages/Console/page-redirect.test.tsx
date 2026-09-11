@@ -10,6 +10,7 @@ import ConsolePage from './Page';
 jest.mock('@umijs/max', () => ({
   useParams: jest.fn(),
   useIntl: () => ({ locale: 'zh-CN', formatMessage: (o: { id: string }) => o.id }),
+  FormattedMessage: ({ defaultMessage }) => defaultMessage,
   history: { replace: jest.fn(), push: jest.fn() },
   useModel: () => ({}),
 }));

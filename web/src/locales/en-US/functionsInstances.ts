@@ -5,6 +5,34 @@ export default {
     'The main list is backed by real registration data, but detail metrics, instance logs, and live debugging do not have backend APIs yet. The entries are kept here without putting these unfinished capabilities in front of the main flow.',
   'pages.functionsInstances.alert.transitionalTitle':
     'Instance details, logs, and debugging are still transitional',
+  'pages.functionsInstances.column.actions': 'Actions',
+  'pages.functionsInstances.column.env': 'Environment',
+  'pages.functionsInstances.column.functionId': 'Function ID',
+  'pages.functionsInstances.column.rowAction.debug': 'Debug',
+  'pages.functionsInstances.column.rowAction.detail': 'View Details',
+  'pages.functionsInstances.column.rowAction.logs': 'View Logs',
+  'pages.functionsInstances.column.status': 'Status',
+  'pages.functionsInstances.column.version': 'Version',
+  'pages.functionsInstances.debug.alert.descriptionWithServiceId':
+    'Parameter preview only validates the JSON Schema locally in the browser and never calls the service; execution is routed to the current Service ID.',
+  'pages.functionsInstances.debug.alert.descriptionWithoutServiceId':
+    'This instance has no Service ID, so real execution is disabled; parameter preview is still available for checking the JSON against the schema.',
+  'pages.functionsInstances.debug.alert.message': 'Debug requests will execute for real',
+  'pages.functionsInstances.debug.button.cancel': 'Cancel',
+  'pages.functionsInstances.debug.button.execute': 'Execute',
+  'pages.functionsInstances.debug.button.preview': 'Preview Params',
+  'pages.functionsInstances.debug.error.executeFailed': 'Debug execution failed',
+  'pages.functionsInstances.debug.error.invalidJson': 'Invalid JSON format',
+  'pages.functionsInstances.debug.error.missingServiceId':
+    'This instance has no Service ID, so targeted execution is unavailable; use parameter preview instead.',
+  'pages.functionsInstances.debug.error.missingServiceIdBlocked':
+    'This instance has no Service ID; load-balanced invocation has been blocked.',
+  'pages.functionsInstances.debug.label.requestParams': 'Request Params (JSON):',
+  'pages.functionsInstances.debug.label.result': 'Debug Result:',
+  'pages.functionsInstances.debug.label.targetInstance': 'Target Instance:',
+  'pages.functionsInstances.debug.title': 'Debug - {functionId}',
+  'pages.functionsInstances.debug.validation.paramFallback': 'Parameter',
+  'pages.functionsInstances.debug.validation.schemaMismatch': 'does not match the schema',
   'pages.functionsInstances.detail.debugAlert.description':
     'Debug requests are routed to this instance for execution; parameter templates are generated from the function schema, so you can preview parameters first. Without a Service ID you can only preview, not execute.',
   'pages.functionsInstances.detail.debugAlert.message': 'Debug Mode',
@@ -52,6 +80,13 @@ export default {
   'pages.functionsInstances.list.refreshData': 'Refresh Data',
   'pages.functionsInstances.list.resultCount': '{count} instances in current results',
   'pages.functionsInstances.list.title': 'Instance List',
+  'pages.functionsInstances.logs.close': 'Close',
+  'pages.functionsInstances.logs.empty': 'No log data yet',
+  'pages.functionsInstances.logs.emptyDescription':
+    'The instance log query API is not available yet; no fabricated logs will be shown.',
+  'pages.functionsInstances.logs.export': 'Export Logs',
+  'pages.functionsInstances.logs.exported': 'Logs exported',
+  'pages.functionsInstances.logs.title': 'Logs - {agentId}',
   'pages.functionsInstances.page.subTitle':
     'Monitor and manage function registrations across agent instances',
   'pages.functionsInstances.page.title': 'Function Instances',

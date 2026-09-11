@@ -1,4 +1,4 @@
-import { request } from '@umijs/max';
+import { getIntl, request } from '@umijs/max';
 
 // Source: internal/api/dbmon/dto.go
 export type DBSource = {
@@ -100,17 +100,42 @@ export type DBSourceKind =
   | 'oceanbase'
   | 'other';
 
+// 展示 label 经 getIntl 解析（SelectLang 切换语言会整页刷新重新求值）；
+// Map key / options value 为后端枚举契约，保持不动
+const intl = getIntl();
+
 export const dbKindLabels: Record<DBSourceKind, string> = {
-  self: '自建',
-  aliyun: '阿里云',
-  tencent: '腾讯云',
-  huawei: '华为云',
-  baidu: '百度智能云',
-  volc: '火山引擎',
-  jdcloud: '京东云',
+  self: intl.formatMessage({ id: 'services.dbmon.kindLabel.self', defaultMessage: '自建' }),
+  aliyun: intl.formatMessage({
+    id: 'services.dbmon.kindLabel.aliyun',
+    defaultMessage: '阿里云',
+  }),
+  tencent: intl.formatMessage({
+    id: 'services.dbmon.kindLabel.tencent',
+    defaultMessage: '腾讯云',
+  }),
+  huawei: intl.formatMessage({
+    id: 'services.dbmon.kindLabel.huawei',
+    defaultMessage: '华为云',
+  }),
+  baidu: intl.formatMessage({
+    id: 'services.dbmon.kindLabel.baidu',
+    defaultMessage: '百度智能云',
+  }),
+  volc: intl.formatMessage({
+    id: 'services.dbmon.kindLabel.volc',
+    defaultMessage: '火山引擎',
+  }),
+  jdcloud: intl.formatMessage({
+    id: 'services.dbmon.kindLabel.jdcloud',
+    defaultMessage: '京东云',
+  }),
   ucloud: 'UCloud',
-  qingcloud: '青云',
+  qingcloud: intl.formatMessage({
+    id: 'services.dbmon.kindLabel.qingcloud',
+    defaultMessage: '青云',
+  }),
   tidb: 'TiDB',
   oceanbase: 'OceanBase',
-  other: '其他',
+  other: intl.formatMessage({ id: 'services.dbmon.kindLabel.other', defaultMessage: '其他' }),
 };

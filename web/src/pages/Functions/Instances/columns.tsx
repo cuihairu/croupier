@@ -2,9 +2,14 @@ import React from 'react';
 import type { ProColumns } from '@ant-design/pro-components';
 import { Badge, Button, Space, Tag, Tooltip, Typography } from 'antd';
 import { BugOutlined, ClusterOutlined, EyeOutlined, HistoryOutlined } from '@ant-design/icons';
+import { getIntl } from '@umijs/max';
 import type { FunctionInstance } from '@/services/api';
 
 const { Text } = Typography;
+
+// 展示文案经 getIntl 求值（SelectLang 切换语言会整页刷新重新求值，先例
+// services/api/bugs.ts；调用方 index.tsx 按任务约束不改，无法走 intl 参数注入）
+const intl = getIntl();
 
 type BuildInstanceColumnsOptions = {
   onDetail: (record: FunctionInstance) => void;
@@ -21,7 +26,10 @@ export function buildInstanceColumns({
 }: BuildInstanceColumnsOptions): ProColumns<FunctionInstance>[] {
   return [
     {
-      title: '函数ID',
+      title: intl.formatMessage({
+        id: 'pages.functionsInstances.column.functionId',
+        defaultMessage: '函数ID',
+      }),
       dataIndex: 'functionId',
       width: 260,
       ellipsis: true,
@@ -49,13 +57,19 @@ export function buildInstanceColumns({
         ),
     },
     {
-      title: '版本',
+      title: intl.formatMessage({
+        id: 'pages.functionsInstances.column.version',
+        defaultMessage: '版本',
+      }),
       dataIndex: 'version',
       width: 90,
       render: (_, record) => <Tag color="blue">{record.version || '-'}</Tag>,
     },
     {
-      title: '环境',
+      title: intl.formatMessage({
+        id: 'pages.functionsInstances.column.env',
+        defaultMessage: '环境',
+      }),
       dataIndex: 'env',
       width: 150,
       ellipsis: true,
@@ -67,13 +81,34 @@ export function buildInstanceColumns({
       ),
     },
     {
-      title: '状态',
+      title: intl.formatMessage({
+        id: 'pages.functionsInstances.column.status',
+        defaultMessage: '状态',
+      }),
       dataIndex: 'status',
       width: 100,
       filters: [
-        { text: '运行中', value: 'running' },
-        { text: '停止', value: 'stopped' },
-        { text: '错误', value: 'error' },
+        {
+          text: intl.formatMessage({
+            id: 'pages.functionsInstances.status.running',
+            defaultMessage: '运行中',
+          }),
+          value: 'running',
+        },
+        {
+          text: intl.formatMessage({
+            id: 'pages.functionsInstances.status.stopped',
+            defaultMessage: '停止',
+          }),
+          value: 'stopped',
+        },
+        {
+          text: intl.formatMessage({
+            id: 'pages.functionsInstances.status.error',
+            defaultMessage: '错误',
+          }),
+          value: 'error',
+        },
       ],
       onFilter: (value, record) => record.status === value,
       render: (_, record) => (
@@ -87,21 +122,38 @@ export function buildInstanceColumns({
           }
           text={
             record.healthy || record.status === 'running'
-              ? '运行中'
+              ? intl.formatMessage({
+                  id: 'pages.functionsInstances.status.running',
+                  defaultMessage: '运行中',
+                })
               : record.status === 'error'
-                ? '错误'
-                : '停止'
+                ? intl.formatMessage({
+                    id: 'pages.functionsInstances.status.error',
+                    defaultMessage: '错误',
+                  })
+                : intl.formatMessage({
+                    id: 'pages.functionsInstances.status.stopped',
+                    defaultMessage: '停止',
+                  })
           }
         />
       ),
     },
     {
-      title: '操作',
+      title: intl.formatMessage({
+        id: 'pages.functionsInstances.column.actions',
+        defaultMessage: '操作',
+      }),
       width: 120,
       fixed: 'right',
       render: (_, record) => (
         <Space>
-          <Tooltip title="查看详情">
+          <Tooltip
+            title={intl.formatMessage({
+              id: 'pages.functionsInstances.column.rowAction.detail',
+              defaultMessage: '查看详情',
+            })}
+          >
             <Button
               type="link"
               size="small"
@@ -109,7 +161,12 @@ export function buildInstanceColumns({
               onClick={() => onDetail(record)}
             />
           </Tooltip>
-          <Tooltip title="查看日志">
+          <Tooltip
+            title={intl.formatMessage({
+              id: 'pages.functionsInstances.column.rowAction.logs',
+              defaultMessage: '查看日志',
+            })}
+          >
             <Button
               type="link"
               size="small"
@@ -117,7 +174,12 @@ export function buildInstanceColumns({
               onClick={() => onLogs(record)}
             />
           </Tooltip>
-          <Tooltip title="调试">
+          <Tooltip
+            title={intl.formatMessage({
+              id: 'pages.functionsInstances.column.rowAction.debug',
+              defaultMessage: '调试',
+            })}
+          >
             <Button
               type="link"
               size="small"

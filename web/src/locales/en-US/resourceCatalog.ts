@@ -1,6 +1,8 @@
 // pages.resourceCatalog.detail.* — ResourceCatalog resource details modal
 // pages.resourceCatalog.editSemantics.* — ResourceCatalog edit semantics modal
 // pages.resourceCatalog.list.* — ResourceCatalog resource capability catalog list page
+// pages.resourceCatalog.resolveConflict.* — ResourceCatalog resolve semantic conflict modal
+// pages.resourceCatalog.shared.* — ResourceCatalog shared.ts label map display text
 export default {
   // detail
   'pages.resourceCatalog.detail.alert.description':
@@ -207,4 +209,34 @@ export default {
   'pages.resourceCatalog.list.tooltip.editSemantics': 'Edit semantics',
   'pages.resourceCatalog.list.tooltip.proposals': 'Proposals',
   'pages.resourceCatalog.list.tooltip.viewDetail': 'View details',
+  // resolveConflict
+  'pages.resourceCatalog.resolveConflict.button.cancel': 'Cancel',
+  'pages.resourceCatalog.resolveConflict.button.ok': 'Confirm Choice',
+  'pages.resourceCatalog.resolveConflict.form.chosenSource.label': 'Adopted Source',
+  'pages.resourceCatalog.resolveConflict.form.chosenSource.required':
+    'Please select the semantic source to adopt',
+  'pages.resourceCatalog.resolveConflict.form.reason.label': 'Resolution Reason',
+  'pages.resourceCatalog.resolveConflict.form.reason.placeholder':
+    'Explain why this source is adopted',
+  'pages.resourceCatalog.resolveConflict.title': 'Resolve Semantic Conflict',
+  // shared
+  'pages.resourceCatalog.shared.affectedKind.draft': 'Draft',
+  'pages.resourceCatalog.shared.affectedKind.proposal': 'Proposal',
+  'pages.resourceCatalog.shared.affectedKind.published': 'Published',
+  'pages.resourceCatalog.shared.capability.action': 'Action',
+  'pages.resourceCatalog.shared.capability.collectionQuery': 'Collection Query',
+  'pages.resourceCatalog.shared.capability.create': 'Create',
+  'pages.resourceCatalog.shared.capability.delete': 'Delete',
+  'pages.resourceCatalog.shared.capability.itemQuery': 'Item Query',
+  'pages.resourceCatalog.shared.capability.report': 'Report',
+  'pages.resourceCatalog.shared.capability.task': 'Task',
+  'pages.resourceCatalog.shared.capability.update': 'Update',
+  'pages.resourceCatalog.shared.freshnessNone': 'None',
+  'pages.resourceCatalog.shared.source.openapiRest': 'OpenAPI REST',
+  'pages.resourceCatalog.shared.source.platformReview': 'Platform Review',
+  'pages.resourceCatalog.shared.source.sdkExplicit': 'SDK Explicit',
+  'pages.resourceCatalog.shared.status.conflict': 'Conflict',
+  'pages.resourceCatalog.shared.status.identified': 'Identified',
+  'pages.resourceCatalog.shared.status.notExecutable': 'Not Executable',
+  'pages.resourceCatalog.shared.status.pending': 'Pending Confirmation',
 };

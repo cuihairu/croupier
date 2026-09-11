@@ -137,6 +137,27 @@ export default {
   'pages.systemSiteSettings.notification.toggle.inApp': 'In-App',
   'pages.systemSiteSettings.notification.toggle.off': 'Disabled',
   'pages.systemSiteSettings.notification.toggle.on': 'Enabled',
+  'pages.systemSiteSettings.observability.action.restore': 'Restore',
+  'pages.systemSiteSettings.observability.action.save': 'Save',
+  'pages.systemSiteSettings.observability.error.loadFailed':
+    'Failed to load observability settings',
+  'pages.systemSiteSettings.observability.error.saveFailed': 'Save failed',
+  'pages.systemSiteSettings.observability.field.alertmanagerUrlHelp':
+    'Alertmanager source used by the Operations Center alert page redirect',
+  'pages.systemSiteSettings.observability.field.alertmanagerUrlLabel': 'Alertmanager URL',
+  'pages.systemSiteSettings.observability.field.grafanaExploreUrlHelp':
+    'Grafana entry used for metric drill-downs',
+  'pages.systemSiteSettings.observability.field.grafanaExploreUrlLabel': 'Grafana Explore URL',
+  'pages.systemSiteSettings.observability.field.jaegerUrlHelp': 'Trace lookup entry',
+  'pages.systemSiteSettings.observability.field.jaegerUrlLabel': 'Jaeger URL',
+  'pages.systemSiteSettings.observability.hint':
+    'Observability platform integration endpoints: once configured, the alert/metrics/tracing pages in the Operations Center use these URLs for redirects. Values stored in the database survive restarts; clear a field and save to revert to the environment variable default.',
+  'pages.systemSiteSettings.observability.resetTooltip':
+    'Remove the database override and restore the environment variable/default value',
+  'pages.systemSiteSettings.observability.saved': 'Saved and effective immediately',
+  'pages.systemSiteSettings.observability.source.dbOverride': 'Database Override',
+  'pages.systemSiteSettings.observability.source.envVar': 'Environment Variable',
+  'pages.systemSiteSettings.observability.source.unconfigured': 'Not Configured',
   'pages.systemSiteSettings.resetSuccess': 'Reverted to config file',
   'pages.systemSiteSettings.resetTooltip':
     'Remove the database override and restore the value from the config file',

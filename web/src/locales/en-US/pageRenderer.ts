@@ -1,5 +1,19 @@
 // component.pageRenderer.* — Operation/Task/Report 渲染器与模板
 export default {
+  'component.pageRenderer.composite.confirmDangerTitle': 'Confirm "{label}"',
+  'component.pageRenderer.composite.confirmExecute': 'Confirm',
+  'component.pageRenderer.composite.executeButton': 'Run',
+  'component.pageRenderer.composite.executeFailed': 'Execution failed',
+  'component.pageRenderer.composite.executeSuccess': '{title} completed successfully',
+  'component.pageRenderer.composite.rowActionsColumn': 'Actions',
+  'component.pageRenderer.expression.error.arrayIndexUnterminated': 'Array index is missing ]',
+  'component.pageRenderer.expression.error.empty': 'Expression is empty',
+  'component.pageRenderer.expression.error.illegalCharacter': 'Invalid character "{char}"',
+  'component.pageRenderer.expression.error.illegalIndex': 'Invalid array index "{index}"',
+  'component.pageRenderer.expression.error.illegalSegment': 'Invalid path segment "{segment}"',
+  'component.pageRenderer.expression.error.notExpression':
+    "Not an expression (should start with '{{' and end with '}}')",
+  'component.pageRenderer.expression.error.unknownVariable': 'Unknown variable: {variable}',
   'component.pageRenderer.operationPage.approval.incompleteDescription':
     'This returns an approvalId only and does not indicate a successful business execution.',
   'component.pageRenderer.operationPage.approval.incompleteTitle': 'Operation not completed yet',
@@ -63,6 +77,31 @@ export default {
   'component.pageRenderer.reportPage.warning.semanticsSubtitle':
     'dataset.dimensions and dataset.metrics must be configured before publishing a ReportPage, otherwise no runnable chart or table can be generated.',
   'component.pageRenderer.reportPage.warning.semanticsTitle': 'Report semantics incomplete',
+  'component.pageRenderer.resultView.booleanFalse': 'No',
+  'component.pageRenderer.resultView.booleanTrue': 'Yes',
+  'component.pageRenderer.resultView.emptyObject': 'Empty object',
+  'component.pageRenderer.resultView.emptyTitleFallback': 'Result view not configured',
+  'component.pageRenderer.resultView.fieldsMissingDescription':
+    'PageSpec.resultView.fields declares no display fields; the operations console will not present raw JSON as a formal interface.',
+  'component.pageRenderer.resultView.noStructuredResult':
+    'Execution completed with no structured result',
+  'component.pageRenderer.resultView.objectTag': 'Object',
+  'component.pageRenderer.resultView.structureMismatchDescription':
+    'ResultViewSpec.fields can only display object fields; adjust the result view in Page Studio.',
+  'component.pageRenderer.resultView.structureMismatchTitle':
+    'Result structure does not match ResultViewSpec',
+  'component.pageRenderer.resultView.summaryArrayCount': 'Array of {count} items',
+  'component.pageRenderer.resultView.titleFallback': 'Result',
+  'component.pageRenderer.shell.configErrorTitle': 'Configuration error',
+  'component.pageRenderer.shell.missingComposite':
+    'Composite page is missing composite configuration',
+  'component.pageRenderer.shell.missingOperation':
+    'Operation page is missing operation configuration',
+  'component.pageRenderer.shell.missingReport': 'Report page is missing report configuration',
+  'component.pageRenderer.shell.missingResource': 'Resource page is missing resource configuration',
+  'component.pageRenderer.shell.missingTask': 'Task page is missing task configuration',
+  'component.pageRenderer.shell.unknownType': 'Unknown page type',
+  'component.pageRenderer.shell.unsupportedType': 'Unsupported page type: {type}',
   'component.pageRenderer.taskPage.approval.completed': 'Approval granted, execution completed',
   'component.pageRenderer.taskPage.approval.pending': 'Waiting for approval',
   'component.pageRenderer.taskPage.approval.queryFailed': 'Failed to query approval status',

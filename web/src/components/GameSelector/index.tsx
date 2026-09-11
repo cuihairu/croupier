@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import { AppstoreOutlined, ThunderboltOutlined } from '@ant-design/icons';
 import { Button, Drawer, Empty, Select, Spin } from 'antd';
+import { FormattedMessage, useIntl } from '@umijs/max';
 import classNames from 'classnames';
 import { listMyGames, type Game, type GameEnvMeta } from '@/services/api';
 import { persistMyScope } from '@/services/api/me';
@@ -70,6 +71,7 @@ const GameSelector: React.FC<GameSelectorProps> = ({
 }) => {
   const canListGames =
     typeof window !== 'undefined' && Boolean(localStorage.getItem('token') || '');
+  const intl = useIntl();
 
   const [games, setGames] = useState<Game[]>([]);
   const [loading, setLoading] = useState(false);
@@ -275,7 +277,13 @@ const GameSelector: React.FC<GameSelectorProps> = ({
   }));
 
   const activeAlias =
-    activeGame?.aliasName || activeGame?.displayName || activeGame?.name || '未选择游戏';
+    activeGame?.aliasName ||
+    activeGame?.displayName ||
+    activeGame?.name ||
+    intl.formatMessage({
+      id: 'component.gameSelector.activeAliasFallback',
+      defaultMessage: '未选择游戏',
+    });
   const activeEnvLabel =
     envOptions.find((item) => item.value === currentEnv)?.label ||
     currentEnv?.toUpperCase() ||
@@ -291,16 +299,20 @@ const GameSelector: React.FC<GameSelectorProps> = ({
       <div className={styles.inlineGroup}>
         <span className={styles.inlineLabel}>
           <AppstoreOutlined className={styles.inlineLabelIcon} />
-          游戏
+          <FormattedMessage id="component.gameSelector.gameLabel" defaultMessage="游戏" />
         </span>
         {loading ? (
           <span className={styles.spinner}>
-            <Spin size="small" /> 加载中
+            <Spin size="small" />{' '}
+            <FormattedMessage id="component.gameSelector.loading" defaultMessage="加载中" />
           </span>
         ) : games.length === 0 ? (
           <Empty
             image={Empty.PRESENTED_IMAGE_SIMPLE}
-            description="暂无游戏"
+            description={intl.formatMessage({
+              id: 'component.gameSelector.noGames',
+              defaultMessage: '暂无游戏',
+            })}
             style={{ margin: 0 }}
           />
         ) : (
@@ -308,7 +320,10 @@ const GameSelector: React.FC<GameSelectorProps> = ({
             data-testid="game-selector"
             className={styles.gameSelect}
             value={gameState}
-            placeholder="选择游戏"
+            placeholder={intl.formatMessage({
+              id: 'component.gameSelector.gamePlaceholder',
+              defaultMessage: '选择游戏',
+            })}
             onChange={(val) => handleGameChange(val as string)}
             options={selectOptions}
             showSearch
@@ -322,16 +337,24 @@ const GameSelector: React.FC<GameSelectorProps> = ({
       <div className={styles.inlineGroup}>
         <span className={styles.inlineLabel}>
           <ThunderboltOutlined className={styles.inlineLabelIcon} />
-          环境
+          <FormattedMessage id="component.gameSelector.envLabel" defaultMessage="环境" />
         </span>
         {envOptions.length === 0 ? (
-          <span className={styles.emptyHint}>未配置可用环境</span>
+          <span className={styles.emptyHint}>
+            <FormattedMessage
+              id="component.gameSelector.envEmptyHint"
+              defaultMessage="未配置可用环境"
+            />
+          </span>
         ) : (
           <Select
             data-testid="env-selector"
             className={styles.envSelect}
             value={currentEnv}
-            placeholder="选择环境"
+            placeholder={intl.formatMessage({
+              id: 'component.gameSelector.envPlaceholder',
+              defaultMessage: '选择环境',
+            })}
             onChange={(val) => handleEnvChange(val as string)}
             options={envSelectOptions}
             showSearch
@@ -363,7 +386,10 @@ const GameSelector: React.FC<GameSelectorProps> = ({
           </span>
         </Button>
         <Drawer
-          title="选择作用域"
+          title={intl.formatMessage({
+            id: 'component.gameSelector.mobileDrawerTitle',
+            defaultMessage: '选择作用域',
+          })}
           placement="bottom"
           height="auto"
           open={drawerOpen}
@@ -371,7 +397,12 @@ const GameSelector: React.FC<GameSelectorProps> = ({
           className={styles.mobileDrawer}
         >
           <div className={styles.mobileDrawerSummary}>
-            <div className={styles.mobileSummaryLabel}>当前游戏</div>
+            <div className={styles.mobileSummaryLabel}>
+              <FormattedMessage
+                id="component.gameSelector.mobileSummaryLabel"
+                defaultMessage="当前游戏"
+              />
+            </div>
             <div className={styles.mobileSummaryValue}>{activeAlias}</div>
             <div className={styles.mobileSummaryMeta}>{activeEnvLabel}</div>
           </div>

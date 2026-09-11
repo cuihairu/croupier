@@ -10,6 +10,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { Button, Input, Space, Upload as AntdUpload } from 'antd';
+import { FormattedMessage, useIntl } from '@umijs/max';
 import type { UploadFile } from 'antd';
 import type { FieldProps, GenericObjectType, UiSchema, WidgetProps } from '@rjsf/utils';
 import { getUiOptions } from '@rjsf/utils';
@@ -75,6 +76,7 @@ export function UploadWidget({
   value,
   schema,
 }: WidgetPropsAlias) {
+  const intl = useIntl();
   const props = (options ?? {}) as GenericObjectType;
   const multiple = props.multiple === true || schema.type === 'array';
   const action = typeof props.action === 'string' ? props.action : undefined;
@@ -101,7 +103,11 @@ export function UploadWidget({
       data-testid={id}
     >
       <Button disabled={disabled || readonly} type="default">
-        {placeholder || '上传'}
+        {placeholder ||
+          intl.formatMessage({
+            id: 'component.schemaFormRenderer.uploadButtonFallback',
+            defaultMessage: '上传',
+          })}
       </Button>
     </AntdUpload>
   );
@@ -131,6 +137,7 @@ export function KeyValueField({
   uiSchema,
   formData,
 }: FieldProps) {
+  const intl = useIntl();
   const id = idSchema?.$id ?? 'keyValue';
   const uiOptions = getUiOptions(uiSchema as UiSchema) as GenericObjectType;
   const placeholder = typeof uiOptions.placeholder === 'string' ? uiOptions.placeholder : '';
@@ -169,14 +176,23 @@ export function KeyValueField({
         <Space.Compact key={index} style={{ width: '100%' }} data-testid={`${id}-row-${index}`}>
           <Input
             style={{ width: '40%' }}
-            placeholder="键"
+            placeholder={intl.formatMessage({
+              id: 'component.schemaFormRenderer.keyValue.keyPlaceholder',
+              defaultMessage: '键',
+            })}
             value={row.key}
             disabled={disabled || readonly}
             onChange={(e) => updateRow(index, { key: e.target.value })}
           />
           <Input
             style={{ width: '60%' }}
-            placeholder={placeholder || '值'}
+            placeholder={
+              placeholder ||
+              intl.formatMessage({
+                id: 'component.schemaFormRenderer.keyValue.valuePlaceholder',
+                defaultMessage: '值',
+              })
+            }
             value={row.value}
             disabled={disabled || readonly}
             onChange={(e) => updateRow(index, { value: e.target.value })}
@@ -185,7 +201,10 @@ export function KeyValueField({
             disabled={disabled || readonly}
             onClick={() => commit(rows.filter((_, i) => i !== index))}
           >
-            删除
+            <FormattedMessage
+              id="component.schemaFormRenderer.keyValue.deleteRow"
+              defaultMessage="删除"
+            />
           </Button>
         </Space.Compact>
       ))}
@@ -194,7 +213,7 @@ export function KeyValueField({
         onClick={() => commit([...rows, { key: '', value: '' }])}
         data-testid={`${id}-add`}
       >
-        添加
+        <FormattedMessage id="component.schemaFormRenderer.keyValue.addRow" defaultMessage="添加" />
       </Button>
     </Space>
   );

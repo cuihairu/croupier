@@ -8,7 +8,16 @@ import { localizedText } from '@/utils/localizedText';
 
 const { Text } = Typography;
 
+/** 模块级文案助手接收 intl 的最小结构（@umijs/max 未导出 IntlShape 类型） */
+type IntlFormatter = {
+  formatMessage: (
+    descriptor: { id: string; defaultMessage: string },
+    values?: Record<string, string | number>,
+  ) => string;
+};
+
 type BuildColumnsOptions = {
+  intl: IntlFormatter;
   columns: DirectoryPageSchema['columns'];
   rowActions: DirectoryPageSchema['rowActions'];
   onOpenDetail: (record: SummaryRow) => void;
@@ -23,6 +32,7 @@ const rowActionIcon = {
 } as const;
 
 export const buildDirectoryColumns = ({
+  intl,
   columns,
   rowActions,
   onOpenDetail,
@@ -81,7 +91,13 @@ export const buildDirectoryColumns = ({
         filters: true,
         onFilter: (value, record) => record.resource === value,
         render: (_, record) => (
-          <Tag color={record.resource ? 'geekblue' : 'default'}>{record.resource || '未声明'}</Tag>
+          <Tag color={record.resource ? 'geekblue' : 'default'}>
+            {record.resource ||
+              intl.formatMessage({
+                id: 'pages.functionsDirectory.desc.undeclared',
+                defaultMessage: '未声明',
+              })}
+          </Tag>
         ),
       } as ProColumns<SummaryRow>;
     }
@@ -91,7 +107,13 @@ export const buildDirectoryColumns = ({
         dataIndex: 'operation',
         width: col.width,
         render: (_, record) => (
-          <Tag color={record.operation ? 'purple' : 'default'}>{record.operation || '未声明'}</Tag>
+          <Tag color={record.operation ? 'purple' : 'default'}>
+            {record.operation ||
+              intl.formatMessage({
+                id: 'pages.functionsDirectory.desc.undeclared',
+                defaultMessage: '未声明',
+              })}
+          </Tag>
         ),
       } as ProColumns<SummaryRow>;
     }
@@ -116,14 +138,36 @@ export const buildDirectoryColumns = ({
         dataIndex: 'enabled',
         width: col.width,
         filters: [
-          { text: '启用', value: true },
-          { text: '禁用', value: false },
+          {
+            text: intl.formatMessage({
+              id: 'pages.functionsDirectory.state.enabled',
+              defaultMessage: '启用',
+            }),
+            value: true,
+          },
+          {
+            text: intl.formatMessage({
+              id: 'pages.functionsDirectory.state.disabled',
+              defaultMessage: '禁用',
+            }),
+            value: false,
+          },
         ],
         onFilter: (value, record) => record.enabled === value,
         render: (_, record) => (
           <Badge
             status={record.enabled ? 'success' : 'default'}
-            text={record.enabled ? '启用' : '禁用'}
+            text={
+              record.enabled
+                ? intl.formatMessage({
+                    id: 'pages.functionsDirectory.state.enabled',
+                    defaultMessage: '启用',
+                  })
+                : intl.formatMessage({
+                    id: 'pages.functionsDirectory.state.disabled',
+                    defaultMessage: '禁用',
+                  })
+            }
           />
         ),
       } as ProColumns<SummaryRow>;

@@ -30,6 +30,7 @@ import {
   capabilityLabels,
   conflictSources,
   displaySemanticValue,
+  formatLabelText,
   pageTitleText,
   riskColors,
   sourceColors,
@@ -128,7 +129,9 @@ const ResourceDetailModal: React.FC<{
                 defaultMessage: '状态',
               })}
             >
-              <Tag color={statusColors[resource.status]}>{statusLabels[resource.status]}</Tag>
+              <Tag color={statusColors[resource.status]}>
+                {formatLabelText(intl, statusLabels[resource.status])}
+              </Tag>
             </Descriptions.Item>
             <Descriptions.Item
               label={intl.formatMessage({
@@ -193,7 +196,9 @@ const ResourceDetailModal: React.FC<{
                 }),
                 dataIndex: 'capability',
                 key: 'capability',
-                render: (text: CapabilityKind) => <Tag>{capabilityLabels[text] || text}</Tag>,
+                render: (text: CapabilityKind) => (
+                  <Tag>{formatLabelText(intl, capabilityLabels[text]) || text}</Tag>
+                ),
               },
               {
                 title: intl.formatMessage({
@@ -265,7 +270,9 @@ const ResourceDetailModal: React.FC<{
                 key: 'kind',
                 width: 100,
                 render: (kind: AffectedPageInfo['kind']) => (
-                  <Tag color={affectedKindColors[kind]}>{affectedKindLabels[kind]}</Tag>
+                  <Tag color={affectedKindColors[kind]}>
+                    {formatLabelText(intl, affectedKindLabels[kind])}
+                  </Tag>
                 ),
               },
               {
@@ -320,7 +327,7 @@ const ResourceDetailModal: React.FC<{
               {
                 title: 'Freshness',
                 key: 'freshness',
-                render: (_, record) => bindingFreshnessSummary(record),
+                render: (_, record) => bindingFreshnessSummary(intl, record),
               },
               {
                 title: intl.formatMessage({
@@ -545,7 +552,9 @@ const ResourceDetailModal: React.FC<{
                 dataIndex: 'source',
                 key: 'source',
                 render: (source: SemanticSource) => (
-                  <Tag color={sourceColors[source]}>{sourceLabels[source]}</Tag>
+                  <Tag color={sourceColors[source]}>
+                    {formatLabelText(intl, sourceLabels[source])}
+                  </Tag>
                 ),
               },
               {
@@ -711,7 +720,8 @@ const ResourceDetailModal: React.FC<{
                   <Space wrap>
                     {conflictSources(record).map((source) => (
                       <Tag key={source} color={sourceColors[source]}>
-                        {sourceLabels[source]}: {displaySemanticValue(record.values[source])}
+                        {formatLabelText(intl, sourceLabels[source])}:{' '}
+                        {displaySemanticValue(record.values[source])}
                       </Tag>
                     ))}
                   </Space>
@@ -726,7 +736,9 @@ const ResourceDetailModal: React.FC<{
                 key: 'resolution',
                 render: (source?: SemanticSource) =>
                   source ? (
-                    <Tag color={sourceColors[source]}>{sourceLabels[source]}</Tag>
+                    <Tag color={sourceColors[source]}>
+                      {formatLabelText(intl, sourceLabels[source])}
+                    </Tag>
                   ) : (
                     <Tag color="error">
                       <FormattedMessage

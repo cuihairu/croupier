@@ -1,4 +1,4 @@
-import { request } from '@umijs/max';
+import { getIntl, request } from '@umijs/max';
 
 // Source: internal/api/tool/dto.go
 export type ToolItem = {
@@ -18,13 +18,26 @@ export type ToolItem = {
 
 export type ToolCategory = 'ci' | 'repo' | 'monitor' | 'docs' | 'artifact' | 'other';
 
+// 展示 label 经 getIntl 解析（SelectLang 切换语言会整页刷新重新求值）；
+// Map key / options value 为后端枚举契约，保持不动
+const intl = getIntl();
+
 export const toolCategoryLabels: Record<ToolCategory, string> = {
   ci: 'CI/CD',
-  repo: '代码仓库',
-  monitor: '监控',
-  docs: '文档',
-  artifact: '制品库',
-  other: '其他',
+  repo: intl.formatMessage({
+    id: 'services.tools.categoryLabel.repo',
+    defaultMessage: '代码仓库',
+  }),
+  monitor: intl.formatMessage({
+    id: 'services.tools.categoryLabel.monitor',
+    defaultMessage: '监控',
+  }),
+  docs: intl.formatMessage({ id: 'services.tools.categoryLabel.docs', defaultMessage: '文档' }),
+  artifact: intl.formatMessage({
+    id: 'services.tools.categoryLabel.artifact',
+    defaultMessage: '制品库',
+  }),
+  other: intl.formatMessage({ id: 'services.tools.categoryLabel.other', defaultMessage: '其他' }),
 };
 
 export const toolCategoryOrder: ToolCategory[] = [

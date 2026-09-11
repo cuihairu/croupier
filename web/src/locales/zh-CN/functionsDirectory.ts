@@ -1,5 +1,8 @@
 // pages.functionsDirectory.* — Functions/Directory 函数目录
 export default {
+  'pages.functionsDirectory.action.detailPage': '详情页',
+  'pages.functionsDirectory.action.invoke': '调用函数',
+  'pages.functionsDirectory.action.refresh': '刷新',
   'pages.functionsDirectory.alert.description':
     '如果目标是做运营人员真正访问的页面，不要在函数层配置菜单或页面布局；请到资源/页面候选中进入 Page Studio。',
   'pages.functionsDirectory.alert.title': '函数目录只展示能力供给，不承载页面 UI',
@@ -12,6 +15,13 @@ export default {
   'pages.functionsDirectory.checklist.item.definition': '函数定义与摘要',
   'pages.functionsDirectory.checklist.item.instances': '实例与调用入口',
   'pages.functionsDirectory.checklist.title': '这里适合确认什么',
+  'pages.functionsDirectory.column.actions': '操作',
+  'pages.functionsDirectory.column.displayName': '函数名称',
+  'pages.functionsDirectory.column.enabled': '状态',
+  'pages.functionsDirectory.column.id': '函数ID',
+  'pages.functionsDirectory.column.resource': '资源',
+  'pages.functionsDirectory.column.summary': '函数摘要',
+  'pages.functionsDirectory.column.tags': '标签',
   'pages.functionsDirectory.desc.functionId': '函数ID',
   'pages.functionsDirectory.desc.instances': '覆盖实例',
   'pages.functionsDirectory.desc.instancesCount': '{count} 个实例',
@@ -27,12 +37,16 @@ export default {
   'pages.functionsDirectory.drawer.displayName': '显示名称',
   'pages.functionsDirectory.drawer.tags': '标签',
   'pages.functionsDirectory.drawer.title': '函数详情',
+  'pages.functionsDirectory.error.detailLoadFailed': '获取详细信息失败',
+  'pages.functionsDirectory.error.loadFailed': '加载失败',
   'pages.functionsDirectory.intro.description':
     '函数目录负责 descriptor、入参表单、实例覆盖和调用校验，不决定菜单、页面分类、表格、分页或多函数组合。页面发布后的菜单只来自 PublishedPageSpec。',
   'pages.functionsDirectory.intro.title': '先确认函数能力，再进入 Page Studio 编排页面',
   'pages.functionsDirectory.list.resultText': '当前结果 {count} 个函数',
   'pages.functionsDirectory.list.title': '函数列表',
   'pages.functionsDirectory.list.total': '共 {total} 个函数',
+  'pages.functionsDirectory.rowAction.detail': '查看详情',
+  'pages.functionsDirectory.rowAction.schema': '契约 Schema',
   'pages.functionsDirectory.state.disabled': '禁用',
   'pages.functionsDirectory.state.enabled': '启用',
   'pages.functionsDirectory.subTitle':

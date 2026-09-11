@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { App, Card, Empty, Input, Modal, Radio, Space, Tag, Typography } from 'antd';
+import { FormattedMessage, useIntl } from '@umijs/max';
 import type {
   ConflictResolution,
   MergeConflictInfo,
@@ -56,6 +57,7 @@ function defaultResolutionState(
 export default function MergeConflictModal(props: MergeConflictModalProps) {
   const { open, loading = false, preview, onCancel, onSubmit } = props;
   const { message } = App.useApp();
+  const intl = useIntl();
   const [reason, setReason] = useState('');
   const [resolutions, setResolutions] = useState<Record<string, ManualResolutionState>>({});
 
@@ -102,7 +104,15 @@ export default function MergeConflictModal(props: MergeConflictModalProps) {
         try {
           resolution.value = JSON.parse(current.customValue) as JSONValue;
         } catch {
-          message.error(`字段 ${item.field} 的自定义 JSON 非法`);
+          message.error(
+            intl.formatMessage(
+              {
+                id: 'component.mergeConflictModal.customJsonInvalid',
+                defaultMessage: `字段 ${item.field} 的自定义 JSON 非法`,
+              },
+              { field: item.field },
+            ),
+          );
           return;
         }
       }
@@ -116,12 +126,18 @@ export default function MergeConflictModal(props: MergeConflictModalProps) {
 
   return (
     <Modal
-      title="手动解决冲突"
+      title={intl.formatMessage({
+        id: 'component.mergeConflictModal.modalTitle',
+        defaultMessage: '手动解决冲突',
+      })}
       width={960}
       open={open}
       onCancel={onCancel}
       onOk={handleSubmit}
-      okText="应用合并结果"
+      okText={intl.formatMessage({
+        id: 'component.mergeConflictModal.okText',
+        defaultMessage: '应用合并结果',
+      })}
       okButtonProps={{ disabled: conflictItems.length > 0 && !canSubmit }}
       confirmLoading={loading}
       destroyOnClose
@@ -133,7 +149,16 @@ export default function MergeConflictModal(props: MergeConflictModalProps) {
           </Paragraph>
 
           {autoMergeItems.length > 0 ? (
-            <Card size="small" title={`将自动合并 ${autoMergeItems.length} 个展示字段`}>
+            <Card
+              size="small"
+              title={intl.formatMessage(
+                {
+                  id: 'component.mergeConflictModal.sectionAutoMerge',
+                  defaultMessage: `将自动合并 ${autoMergeItems.length} 个展示字段`,
+                },
+                { count: autoMergeItems.length },
+              )}
+            >
               <Space orientation="vertical" style={{ width: '100%' }}>
                 {autoMergeItems.map((item) => (
                   <Space key={item.field} align="start">
@@ -170,9 +195,24 @@ export default function MergeConflictModal(props: MergeConflictModalProps) {
                       }}
                     >
                       <Space orientation="vertical">
-                        <Radio value="draft">保留当前草稿值</Radio>
-                        <Radio value="latest">接受最新 Proposal 值</Radio>
-                        <Radio value="custom">自定义 JSON</Radio>
+                        <Radio value="draft">
+                          <FormattedMessage
+                            id="component.mergeConflictModal.optionKeepDraft"
+                            defaultMessage="保留当前草稿值"
+                          />
+                        </Radio>
+                        <Radio value="latest">
+                          <FormattedMessage
+                            id="component.mergeConflictModal.optionUseLatest"
+                            defaultMessage="接受最新 Proposal 值"
+                          />
+                        </Radio>
+                        <Radio value="custom">
+                          <FormattedMessage
+                            id="component.mergeConflictModal.optionCustomJson"
+                            defaultMessage="自定义 JSON"
+                          />
+                        </Radio>
                       </Space>
                     </Radio.Group>
 
@@ -183,12 +223,24 @@ export default function MergeConflictModal(props: MergeConflictModalProps) {
                         gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
                       }}
                     >
-                      <Card size="small" title="当前草稿值">
+                      <Card
+                        size="small"
+                        title={intl.formatMessage({
+                          id: 'component.mergeConflictModal.sectionDraftValue',
+                          defaultMessage: '当前草稿值',
+                        })}
+                      >
                         <pre style={{ margin: 0, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
                           {formatJSONValue(item.draftValue)}
                         </pre>
                       </Card>
-                      <Card size="small" title="最新 Proposal 值">
+                      <Card
+                        size="small"
+                        title={intl.formatMessage({
+                          id: 'component.mergeConflictModal.sectionLatestValue',
+                          defaultMessage: '最新 Proposal 值',
+                        })}
+                      >
                         <pre style={{ margin: 0, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
                           {formatJSONValue(item.latestValue)}
                         </pre>
@@ -206,7 +258,10 @@ export default function MergeConflictModal(props: MergeConflictModalProps) {
                             customValue: nextValue,
                           }));
                         }}
-                        placeholder="请输入合法 JSON"
+                        placeholder={intl.formatMessage({
+                          id: 'component.mergeConflictModal.customJsonPlaceholder',
+                          defaultMessage: '请输入合法 JSON',
+                        })}
                       />
                     ) : null}
                   </Space>
@@ -214,18 +269,31 @@ export default function MergeConflictModal(props: MergeConflictModalProps) {
               );
             })
           ) : (
-            <Empty description="当前没有冲突。可以直接接受最新 Proposal 快照。" />
+            <Empty
+              description={intl.formatMessage({
+                id: 'component.mergeConflictModal.noConflicts',
+                defaultMessage: '当前没有冲突。可以直接接受最新 Proposal 快照。',
+              })}
+            />
           )}
 
           <TextArea
             rows={3}
             value={reason}
             onChange={(event) => setReason(event.target.value)}
-            placeholder="可选：记录本次人工合并原因"
+            placeholder={intl.formatMessage({
+              id: 'component.mergeConflictModal.reasonPlaceholder',
+              defaultMessage: '可选：记录本次人工合并原因',
+            })}
           />
         </Space>
       ) : (
-        <Empty description="暂无冲突预览" />
+        <Empty
+          description={intl.formatMessage({
+            id: 'component.mergeConflictModal.emptyPreview',
+            defaultMessage: '暂无冲突预览',
+          })}
+        />
       )}
     </Modal>
   );

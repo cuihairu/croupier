@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Button, Card, Select, Space, Table } from 'antd';
 import type { Dayjs } from 'dayjs';
+import { FormattedMessage, useIntl } from '@umijs/max';
 import { fetchAnalyticsPaymentsSummary } from '@/services/api/analytics';
 import type { JSONValue } from '@/types/dashboard';
 import { exportToCSV } from '@/utils/export';
@@ -15,6 +16,7 @@ const DeltaSection: React.FC<{
   region?: string;
   city?: string;
 }> = ({ range, channel, platform, country, region, city }) => {
+  const intl = useIntl();
   const [loading, setLoading] = useState(false);
   const [dim, setDim] = useState<DeltaDim>('channel');
   const [mode, setMode] = useState<DeltaMode>('prev');
@@ -128,7 +130,10 @@ const DeltaSection: React.FC<{
   return (
     <Card
       size="small"
-      title="环比分析（上一等长窗口）"
+      title={intl.formatMessage({
+        id: 'pages.analyticsPayments.delta.title',
+        defaultMessage: '环比分析（上一等长窗口）',
+      })}
       style={{ marginTop: 16 }}
       extra={
         <Space>
@@ -136,24 +141,75 @@ const DeltaSection: React.FC<{
             value={dim}
             onChange={(v) => setDim(v)}
             options={[
-              { label: '渠道', value: 'channel' },
-              { label: '平台', value: 'platform' },
-              { label: '国家', value: 'country' },
-              { label: '商品', value: 'product' },
+              {
+                label: intl.formatMessage({
+                  id: 'pages.analyticsPayments.delta.dim.option.channel',
+                  defaultMessage: '渠道',
+                }),
+                value: 'channel',
+              },
+              {
+                label: intl.formatMessage({
+                  id: 'pages.analyticsPayments.delta.dim.option.platform',
+                  defaultMessage: '平台',
+                }),
+                value: 'platform',
+              },
+              {
+                label: intl.formatMessage({
+                  id: 'pages.analyticsPayments.delta.dim.option.country',
+                  defaultMessage: '国家',
+                }),
+                value: 'country',
+              },
+              {
+                label: intl.formatMessage({
+                  id: 'pages.analyticsPayments.delta.dim.option.product',
+                  defaultMessage: '商品',
+                }),
+                value: 'product',
+              },
             ]}
           />
           <Select<DeltaMode>
             value={mode}
             onChange={(v) => setMode(v)}
             options={[
-              { label: '上一等长窗口', value: 'prev' },
-              { label: '上一周', value: 'prev_week' },
-              { label: '上一月(30日)', value: 'prev_month' },
-              { label: '上一年(365日)', value: 'prev_year' },
+              {
+                label: intl.formatMessage({
+                  id: 'pages.analyticsPayments.delta.mode.option.prev',
+                  defaultMessage: '上一等长窗口',
+                }),
+                value: 'prev',
+              },
+              {
+                label: intl.formatMessage({
+                  id: 'pages.analyticsPayments.delta.mode.option.prevWeek',
+                  defaultMessage: '上一周',
+                }),
+                value: 'prev_week',
+              },
+              {
+                label: intl.formatMessage({
+                  id: 'pages.analyticsPayments.delta.mode.option.prevMonth',
+                  defaultMessage: '上一月(30日)',
+                }),
+                value: 'prev_month',
+              },
+              {
+                label: intl.formatMessage({
+                  id: 'pages.analyticsPayments.delta.mode.option.prevYear',
+                  defaultMessage: '上一年(365日)',
+                }),
+                value: 'prev_year',
+              },
             ]}
           />
           <Button onClick={calc} loading={loading}>
-            计算
+            <FormattedMessage
+              id="pages.analyticsPayments.delta.button.compute"
+              defaultMessage="计算"
+            />
           </Button>
           <Button
             onClick={() => {
@@ -184,60 +240,107 @@ const DeltaSection: React.FC<{
               } catch {}
             }}
           >
-            导出环比报告
+            <FormattedMessage
+              id="pages.analyticsPayments.delta.button.exportReport"
+              defaultMessage="导出环比报告"
+            />
           </Button>
         </Space>
       }
     >
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
         <div>
-          <b>收入涨幅 Top5</b>
+          <b>
+            {intl.formatMessage({
+              id: 'pages.analyticsPayments.delta.section.upRev',
+              defaultMessage: '收入涨幅 Top5',
+            })}
+          </b>
           <Table<CompareItem>
             size="small"
             rowKey={(r: CompareItem) => String(r.key || '')}
             dataSource={rows.upRev}
             columns={[
               { title: dim, dataIndex: 'key' },
-              { title: '涨幅(分)', dataIndex: 'revDelta' },
+              {
+                title: intl.formatMessage({
+                  id: 'pages.analyticsPayments.delta.column.revDelta',
+                  defaultMessage: '涨幅(分)',
+                }),
+                dataIndex: 'revDelta',
+              },
             ]}
             pagination={false}
           />
         </div>
         <div>
-          <b>收入降幅 Top5</b>
+          <b>
+            {intl.formatMessage({
+              id: 'pages.analyticsPayments.delta.section.downRev',
+              defaultMessage: '收入降幅 Top5',
+            })}
+          </b>
           <Table<CompareItem>
             size="small"
             rowKey={(r: CompareItem) => String(r.key || '')}
             dataSource={rows.downRev}
             columns={[
               { title: dim, dataIndex: 'key' },
-              { title: '跌幅(分)', dataIndex: 'revDelta' },
+              {
+                title: intl.formatMessage({
+                  id: 'pages.analyticsPayments.delta.column.revDrop',
+                  defaultMessage: '跌幅(分)',
+                }),
+                dataIndex: 'revDelta',
+              },
             ]}
             pagination={false}
           />
         </div>
         <div>
-          <b>成功率涨幅 Top5</b>
+          <b>
+            {intl.formatMessage({
+              id: 'pages.analyticsPayments.delta.section.upRate',
+              defaultMessage: '成功率涨幅 Top5',
+            })}
+          </b>
           <Table<CompareItem>
             size="small"
             rowKey={(r: CompareItem) => String(r.key || '')}
             dataSource={rows.upRate}
             columns={[
               { title: dim, dataIndex: 'key' },
-              { title: '涨幅(%)', dataIndex: 'rateDelta' },
+              {
+                title: intl.formatMessage({
+                  id: 'pages.analyticsPayments.delta.column.rateDelta',
+                  defaultMessage: '涨幅(%)',
+                }),
+                dataIndex: 'rateDelta',
+              },
             ]}
             pagination={false}
           />
         </div>
         <div>
-          <b>成功率降幅 Top5</b>
+          <b>
+            {intl.formatMessage({
+              id: 'pages.analyticsPayments.delta.section.downRate',
+              defaultMessage: '成功率降幅 Top5',
+            })}
+          </b>
           <Table<CompareItem>
             size="small"
             rowKey={(r: CompareItem) => String(r.key || '')}
             dataSource={rows.downRate}
             columns={[
               { title: dim, dataIndex: 'key' },
-              { title: '跌幅(%)', dataIndex: 'rateDelta' },
+              {
+                title: intl.formatMessage({
+                  id: 'pages.analyticsPayments.delta.column.rateDrop',
+                  defaultMessage: '跌幅(%)',
+                }),
+                dataIndex: 'rateDelta',
+              },
             ]}
             pagination={false}
           />

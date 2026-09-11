@@ -1,6 +1,11 @@
+import { getIntl } from '@umijs/max';
 import type { PageSpecDraftSummary, PageType } from '@/types/dashboard';
 
 /** 页面工作台共享工具（列表列 / 版本历史 / 变更链共用）。 */
+
+// 展示 label 经 getIntl 求值（工具函数无组件上下文；SelectLang 切语言整页
+// 刷新后重新求值，先例 services/api/bugs.ts）；PageType 枚举值是逻辑契约不动
+const intl = getIntl();
 
 export function statusColor(status: PageSpecDraftSummary['status']) {
   if (status === 'published') return 'green';
@@ -17,13 +22,25 @@ export function formatDate(value?: string): string {
 export function pageTypeLabel(type: PageType): string {
   switch (type) {
     case 'resource':
-      return '资源页面';
+      return intl.formatMessage({
+        id: 'pages.pageStudio.studio.pageType.resource',
+        defaultMessage: '资源页面',
+      });
     case 'operation':
-      return '操作页面';
+      return intl.formatMessage({
+        id: 'pages.pageStudio.studio.pageType.operation',
+        defaultMessage: '操作页面',
+      });
     case 'task':
-      return '任务页面';
+      return intl.formatMessage({
+        id: 'pages.pageStudio.studio.pageType.task',
+        defaultMessage: '任务页面',
+      });
     case 'report':
-      return '报表页面';
+      return intl.formatMessage({
+        id: 'pages.pageStudio.studio.pageType.report',
+        defaultMessage: '报表页面',
+      });
     default:
       return type;
   }

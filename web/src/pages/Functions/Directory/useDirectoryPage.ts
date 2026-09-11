@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { App } from 'antd';
-import { history } from '@umijs/max';
+import { history, useIntl } from '@umijs/max';
 import { listDescriptors, listFunctionInstances, type FunctionDescriptor } from '@/services/api';
 import { getFunctionSummary } from '@/services/api/functions-enhanced';
 import type { FunctionSummary } from '@/services/api/functions-enhanced';
@@ -61,6 +61,7 @@ async function fetchSummary(): Promise<SummaryRow[]> {
 
 export default function useDirectoryPage() {
   const { message } = App.useApp();
+  const intl = useIntl();
   const [rows, setRows] = useState<SummaryRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [detailVisible, setDetailVisible] = useState(false);
@@ -75,12 +76,18 @@ export default function useDirectoryPage() {
     try {
       setRows(await fetchSummary());
     } catch (e) {
-      const errMsg = e instanceof Error ? e.message : '加载失败';
+      const errMsg =
+        e instanceof Error
+          ? e.message
+          : intl.formatMessage({
+              id: 'pages.functionsDirectory.error.loadFailed',
+              defaultMessage: '加载失败',
+            });
       message.error(errMsg);
     } finally {
       setLoading(false);
     }
-  }, [message]);
+  }, [intl, message]);
 
   useEffect(() => {
     reload();
@@ -101,15 +108,21 @@ export default function useDirectoryPage() {
         setSelectedFunction(detailInfo);
         setDetailVisible(true);
       } catch {
-        message.error('获取详细信息失败');
+        message.error(
+          intl.formatMessage({
+            id: 'pages.functionsDirectory.error.detailLoadFailed',
+            defaultMessage: '获取详细信息失败',
+          }),
+        );
       }
     },
-    [message],
+    [intl, message],
   );
 
   const columns = useMemo(
     () =>
       buildDirectoryColumns({
+        intl,
         columns: DIRECTORY_PAGE_SCHEMA.columns,
         rowActions: DIRECTORY_PAGE_SCHEMA.rowActions,
         onOpenDetail: (record) => handleViewDetail(record),
@@ -119,7 +132,7 @@ export default function useDirectoryPage() {
           history.push(buildInvokePath(record.id));
         },
       }),
-    [buildInvokePath, handleViewDetail],
+    [buildInvokePath, handleViewDetail, intl],
   );
 
   const headerActions = useMemo(

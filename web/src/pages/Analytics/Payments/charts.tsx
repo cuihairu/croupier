@@ -1,11 +1,13 @@
 import React from 'react';
 import { Button } from 'antd';
+import { useIntl } from '@umijs/max';
 import { exportToCSV } from '@/utils/export';
 import type { DimData, ProductData, TrendData, TrendPoint } from './types';
 
 /** 支付分析页 SVG 图表组件：Top 榜（收入/成功率/组合/转化）、维度 CSV 导出、SKU 趋势双面板。 */
 
 export const TopProducts: React.FC<{ data: ProductData[] }> = ({ data }) => {
+  const intl = useIntl();
   try {
     const items = (data || [])
       .slice(0)
@@ -25,7 +27,12 @@ export const TopProducts: React.FC<{ data: ProductData[] }> = ({ data }) => {
     const scale = (v: number) => ((w - left - right) * v) / max;
     return (
       <div style={{ marginTop: 12 }}>
-        <b>Top 商品（按收入）</b>
+        <b>
+          {intl.formatMessage({
+            id: 'pages.analyticsPayments.chart.topProductsByRevenue',
+            defaultMessage: 'Top 商品（按收入）',
+          })}
+        </b>
         <svg
           width={w}
           height={h}
@@ -248,6 +255,7 @@ export const TopDimCombo: React.FC<{ data: DimData[]; dimKey: string; title: str
 
 // Product conversion compare (success vs total)
 export const TopProductConv: React.FC<{ data: ProductData[] }> = ({ data }) => {
+  const intl = useIntl();
   try {
     const items = (data || [])
       .slice(0)
@@ -265,7 +273,12 @@ export const TopProductConv: React.FC<{ data: ProductData[] }> = ({ data }) => {
     const s = (v: number) => ((w - left - right) * v) / max;
     return (
       <div style={{ marginTop: 12 }}>
-        <b>Top 商品（转化：成功 vs 总数）</b>
+        <b>
+          {intl.formatMessage({
+            id: 'pages.analyticsPayments.chart.topProductsConversion',
+            defaultMessage: 'Top 商品（转化：成功 vs 总数）',
+          })}
+        </b>
         <svg
           width={w}
           height={h}
@@ -309,33 +322,42 @@ export const ExportDimCSV: React.FC<{
   dimKey: string;
   name: string;
   includeConv?: boolean;
-}> = ({ data, dimKey, name, includeConv }) => (
-  <Button
-    style={{ marginTop: 8 }}
-    onClick={() => {
-      try {
-        const rows: string[][] = [['dim', 'revenue_cents', 'success', 'total', 'success_rate(%)']];
-        (data || []).forEach((r) => {
-          const record = r as Record<string, string | number>;
-          rows.push([
-            String(record[dimKey] ?? ''),
-            String(record.revenueCents ?? 0),
-            String(record.success ?? 0),
-            String(record.total ?? 0),
-            String(record.successRate ?? 0),
-          ]);
-        });
-        if (includeConv) rows.push([]);
-        exportToCSV(`payments_${name}.csv`, rows);
-      } catch {}
-    }}
-  >
-    导出 {name} CSV
-  </Button>
-);
+}> = ({ data, dimKey, name, includeConv }) => {
+  const intl = useIntl();
+  return (
+    <Button
+      style={{ marginTop: 8 }}
+      onClick={() => {
+        try {
+          const rows: string[][] = [
+            ['dim', 'revenue_cents', 'success', 'total', 'success_rate(%)'],
+          ];
+          (data || []).forEach((r) => {
+            const record = r as Record<string, string | number>;
+            rows.push([
+              String(record[dimKey] ?? ''),
+              String(record.revenueCents ?? 0),
+              String(record.success ?? 0),
+              String(record.total ?? 0),
+              String(record.successRate ?? 0),
+            ]);
+          });
+          if (includeConv) rows.push([]);
+          exportToCSV(`payments_${name}.csv`, rows);
+        } catch {}
+      }}
+    >
+      {intl.formatMessage(
+        { id: 'pages.analyticsPayments.button.exportDimCsv', defaultMessage: '导出 {name} CSV' },
+        { name },
+      )}
+    </Button>
+  );
+};
 
 // TrendChart: two panels (revenue & success_rate) for multiple products
 export const TrendChart: React.FC<{ data: TrendData[] }> = ({ data }) => {
+  const intl = useIntl();
   try {
     const prods = (data || []) as TrendData[];
     if (!prods.length) return null;
@@ -399,7 +421,12 @@ export const TrendChart: React.FC<{ data: TrendData[] }> = ({ data }) => {
     return (
       <div>
         <div style={{ marginTop: 8 }}>
-          <b>收入趋势</b>
+          <b>
+            {intl.formatMessage({
+              id: 'pages.analyticsPayments.chart.revenueTrend',
+              defaultMessage: '收入趋势',
+            })}
+          </b>
           <svg
             width={w}
             height={h}
@@ -418,7 +445,12 @@ export const TrendChart: React.FC<{ data: TrendData[] }> = ({ data }) => {
           </svg>
         </div>
         <div style={{ marginTop: 8 }}>
-          <b>成功率趋势</b>
+          <b>
+            {intl.formatMessage({
+              id: 'pages.analyticsPayments.chart.successRateTrend',
+              defaultMessage: '成功率趋势',
+            })}
+          </b>
           <svg
             width={w}
             height={h}
@@ -442,7 +474,12 @@ export const TrendChart: React.FC<{ data: TrendData[] }> = ({ data }) => {
           </svg>
         </div>
         <div style={{ marginTop: 4 }}>
-          <b>图例：</b>
+          <b>
+            {intl.formatMessage({
+              id: 'pages.analyticsPayments.chart.legend',
+              defaultMessage: '图例：',
+            })}
+          </b>
           {prods.map((p: TrendData, i: number) => (
             <span key={p.productId || i} style={{ marginRight: 12 }}>
               <span

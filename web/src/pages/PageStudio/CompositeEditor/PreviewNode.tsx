@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef } from 'react';
 import { Button, Card, Descriptions, Space, Table, Typography } from 'antd';
+import { FormattedMessage, useIntl } from '@umijs/max';
 import type { FunctionDescriptor } from '@/services/api/functions';
 import type { FormPresentationSpec, FormValues, JSONSchema } from '@/types/dashboard';
 import SchemaFormRenderer, { type SchemaFormRendererProps } from '@/components/SchemaFormRenderer';
@@ -49,6 +50,7 @@ export default function PreviewNode({
 }) {
   const payload = useMemo(() => payloadOf(data), [data]);
   const items = useMemo(() => itemsOf(payload), [payload]);
+  const intl = useIntl();
   const title = String(node.props.title ?? node.type);
   // V5：列 = 声明列/schema 字段 + 行操作列（发布行为的预览等价物）
   const rowActionDrafts = Array.isArray(node.props.rowActions)
@@ -66,7 +68,10 @@ export default function PreviewNode({
     return [
       ...base,
       {
-        title: '操作',
+        title: intl.formatMessage({
+          id: 'pages.pageStudio.editor.previewNode.rowActionColumn',
+          defaultMessage: '操作',
+        }),
         key: '__preview_row_actions',
         render: (_: unknown, row: JSONRecord) => (
           <Space size={4}>
@@ -78,7 +83,14 @@ export default function PreviewNode({
                 danger={ra.danger === true}
                 onClick={() => onRowAction?.(ra, row)}
               >
-                {String(ra.label ?? '操作')}
+                {/* ra.label 为 spec 数据回显；缺失兜底「操作」与 PreviewRuntime 同键 */}
+                {String(
+                  ra.label ??
+                    intl.formatMessage({
+                      id: 'pages.pageStudio.editor.preview.rowActionFallback',
+                      defaultMessage: '操作',
+                    }),
+                )}
               </Button>
             ))}
           </Space>
@@ -86,7 +98,7 @@ export default function PreviewNode({
       },
     ];
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [node.props.columns, fn?.outputSchema, rowActionDrafts, onRowAction]);
+  }, [node.props.columns, fn?.outputSchema, rowActionDrafts, onRowAction, intl]);
 
   if (node.type === 'text') {
     const level = String(node.props.level ?? 'p');
@@ -142,7 +154,10 @@ export default function PreviewNode({
       extra={
         (node.type === 'fnTable' || node.type === 'fnFields') && node.props.autoRun !== true ? (
           <Button size="small" onClick={() => onSubmit({})}>
-            执行
+            <FormattedMessage
+              id="pages.pageStudio.editor.previewNode.executeButton"
+              defaultMessage="执行"
+            />
           </Button>
         ) : null
       }
@@ -202,7 +217,14 @@ export default function PreviewNode({
               {renderChild?.(c) ?? <Text type="secondary">{c.type}</Text>}
             </React.Fragment>
           ))}
-          {(node.children ?? []).length === 0 && <Text type="secondary">空容器</Text>}
+          {(node.children ?? []).length === 0 && (
+            <Text type="secondary">
+              <FormattedMessage
+                id="pages.pageStudio.editor.previewNode.emptyContainer"
+                defaultMessage="空容器"
+              />
+            </Text>
+          )}
         </Space>
       ) : null}
     </Card>
@@ -235,7 +257,10 @@ export function ModalForm({
   if (!fn || !properties || typeof properties !== 'object') {
     return (
       <Button type="primary" block loading={running} onClick={() => void onSubmit({})}>
-        确认执行
+        <FormattedMessage
+          id="pages.pageStudio.editor.previewNode.confirmButton"
+          defaultMessage="确认执行"
+        />
       </Button>
     );
   }
@@ -286,7 +311,15 @@ export function StaticFormLive({
   );
 
   if (!spec) {
-    return <Text type="warning">字段定义 JSON 无效</Text>;
+    return (
+      <Text type="warning">
+        {/* 与画布 staticForm 预览同义（字段定义 JSON 无效），复用同一键 */}
+        <FormattedMessage
+          id="pages.pageStudio.editor.component.staticForm.preview.invalid"
+          defaultMessage="字段定义 JSON 无效"
+        />
+      </Text>
+    );
   }
   const handleValuesChange: SchemaFormRendererProps['onValuesChange'] = (_changed, all) => {
     if (timerRef.current) clearTimeout(timerRef.current);

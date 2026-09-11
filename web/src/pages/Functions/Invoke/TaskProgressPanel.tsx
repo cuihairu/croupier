@@ -9,6 +9,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Alert, Button, Space, Tag, Typography } from 'antd';
 import { ReloadOutlined } from '@ant-design/icons';
+import { FormattedMessage, useIntl } from '@umijs/max';
 import { cancelTask, fetchTaskResult } from '@/services/api/functions';
 import type { JSONValue } from '@/types/dashboard';
 
@@ -16,15 +17,48 @@ const POLL_INTERVAL_MS = 2000;
 
 const TERMINAL_STATUSES = new Set(['succeeded', 'failed', 'cancelled', 'timed_out']);
 
-const STATUS_META: Record<string, { label: string; color: string }> = {
-  queued: { label: '排队中', color: 'default' },
-  dispatching: { label: '派发中', color: 'processing' },
-  running: { label: '执行中', color: 'processing' },
-  succeeded: { label: '已完成', color: 'success' },
-  failed: { label: '失败', color: 'error' },
-  cancel_requested: { label: '取消中', color: 'warning' },
-  cancelled: { label: '已取消', color: 'default' },
-  timed_out: { label: '已超时', color: 'error' },
+/** 双字段模式：Map 的 key 是任务状态枚举契约，label 文案随 locale 解析 */
+const STATUS_META: Record<string, { id: string; defaultMessage: string; color: string }> = {
+  queued: {
+    id: 'pages.functionsInvoke.taskPanel.status.queued',
+    defaultMessage: '排队中',
+    color: 'default',
+  },
+  dispatching: {
+    id: 'pages.functionsInvoke.taskPanel.status.dispatching',
+    defaultMessage: '派发中',
+    color: 'processing',
+  },
+  running: {
+    id: 'pages.functionsInvoke.taskPanel.status.running',
+    defaultMessage: '执行中',
+    color: 'processing',
+  },
+  succeeded: {
+    id: 'pages.functionsInvoke.taskPanel.status.succeeded',
+    defaultMessage: '已完成',
+    color: 'success',
+  },
+  failed: {
+    id: 'pages.functionsInvoke.taskPanel.status.failed',
+    defaultMessage: '失败',
+    color: 'error',
+  },
+  cancel_requested: {
+    id: 'pages.functionsInvoke.taskPanel.status.cancelRequested',
+    defaultMessage: '取消中',
+    color: 'warning',
+  },
+  cancelled: {
+    id: 'pages.functionsInvoke.taskPanel.status.cancelled',
+    defaultMessage: '已取消',
+    color: 'default',
+  },
+  timed_out: {
+    id: 'pages.functionsInvoke.taskPanel.status.timedOut',
+    defaultMessage: '已超时',
+    color: 'error',
+  },
 };
 
 export interface TaskProgressPanelProps {
@@ -36,6 +70,7 @@ export interface TaskProgressPanelProps {
 const { Text } = Typography;
 
 export default function TaskProgressPanel({ taskId, onCompleted }: TaskProgressPanelProps) {
+  const intl = useIntl();
   const [status, setStatus] = useState<string>('');
   const [error, setError] = useState<string>('');
   const [cancelling, setCancelling] = useState(false);
@@ -85,7 +120,15 @@ export default function TaskProgressPanel({ taskId, onCompleted }: TaskProgressP
   }, [taskId, refreshTick]);
 
   const terminal = TERMINAL_STATUSES.has(status);
-  const meta = STATUS_META[status] ?? { label: status || '查询中', color: 'default' };
+  const meta = STATUS_META[status];
+  // 未知状态透传原始 state 字符串；空状态（首轮查询前）显示查询中
+  const statusLabel = meta
+    ? intl.formatMessage(meta)
+    : status ||
+      intl.formatMessage({
+        id: 'pages.functionsInvoke.taskPanel.status.querying',
+        defaultMessage: '查询中',
+      });
 
   const handleCancel = async () => {
     setCancelling(true);
@@ -101,12 +144,14 @@ export default function TaskProgressPanel({ taskId, onCompleted }: TaskProgressP
   return (
     <div data-testid="task-progress-panel">
       <Space wrap>
-        <Text strong>任务</Text>
+        <Text strong>
+          <FormattedMessage id="pages.functionsInvoke.taskPanel.label.task" defaultMessage="任务" />
+        </Text>
         <Text code copyable={{ text: taskId }}>
           {taskId}
         </Text>
-        <Tag color={meta.color} data-testid="task-status">
-          {meta.label}
+        <Tag color={meta?.color ?? 'default'} data-testid="task-status">
+          {statusLabel}
         </Tag>
         {!terminal ? (
           <>
@@ -115,7 +160,10 @@ export default function TaskProgressPanel({ taskId, onCompleted }: TaskProgressP
               icon={<ReloadOutlined />}
               onClick={() => setRefreshTick((tick) => tick + 1)}
             >
-              刷新
+              <FormattedMessage
+                id="pages.functionsInvoke.taskPanel.button.refresh"
+                defaultMessage="刷新"
+              />
             </Button>
             <Button
               size="small"
@@ -125,7 +173,10 @@ export default function TaskProgressPanel({ taskId, onCompleted }: TaskProgressP
               onClick={handleCancel}
               data-testid="task-cancel"
             >
-              取消任务
+              <FormattedMessage
+                id="pages.functionsInvoke.taskPanel.button.cancel"
+                defaultMessage="取消任务"
+              />
             </Button>
           </>
         ) : null}
@@ -134,13 +185,24 @@ export default function TaskProgressPanel({ taskId, onCompleted }: TaskProgressP
         <Alert
           type="error"
           showIcon
-          message="任务执行失败"
+          message={intl.formatMessage({
+            id: 'pages.functionsInvoke.taskPanel.alert.failed',
+            defaultMessage: '任务执行失败',
+          })}
           description={error}
           style={{ marginTop: 8 }}
         />
       ) : null}
       {status === 'timed_out' ? (
-        <Alert type="warning" showIcon message="任务已超时" style={{ marginTop: 8 }} />
+        <Alert
+          type="warning"
+          showIcon
+          message={intl.formatMessage({
+            id: 'pages.functionsInvoke.taskPanel.alert.timedOut',
+            defaultMessage: '任务已超时',
+          })}
+          style={{ marginTop: 8 }}
+        />
       ) : null}
     </div>
   );

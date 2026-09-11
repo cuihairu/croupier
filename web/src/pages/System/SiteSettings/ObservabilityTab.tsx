@@ -1,5 +1,6 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { App, Button, Card, Form, Input, Space, Tag, Tooltip, Typography } from 'antd';
+import { FormattedMessage, useIntl } from '@umijs/max';
 import {
   clearSiteSetting,
   fetchObservabilitySettings,
@@ -11,29 +12,58 @@ import { extractErrorMessage } from '@/utils/errors';
 
 const { Text } = Typography;
 
-const FIELDS: Record<string, { key: string; label: string; placeholder: string; help: string }> = {
+/** 展示文案经 intl 解析（key 是 L3 设置键，行为契约不迁移） */
+type FieldMsg = { id: string; defaultMessage: string };
+
+const FIELDS: Record<
+  string,
+  { key: string; label: FieldMsg; placeholder: string; help: FieldMsg }
+> = {
   alertmanagerUrl: {
     key: 'obs.alertmanagerUrl',
-    label: 'Alertmanager 地址',
+    label: {
+      id: 'pages.systemSiteSettings.observability.field.alertmanagerUrlLabel',
+      defaultMessage: 'Alertmanager 地址',
+    },
     placeholder: 'http://alertmanager:9093',
-    help: '运维中心告警页跳转用的 Alertpush 源',
+    help: {
+      id: 'pages.systemSiteSettings.observability.field.alertmanagerUrlHelp',
+      defaultMessage: '运维中心告警页跳转用的 Alertpush 源',
+    },
   },
   grafanaExploreUrl: {
     key: 'obs.grafanaExploreUrl',
-    label: 'Grafana Explore 地址',
+    label: {
+      id: 'pages.systemSiteSettings.observability.field.grafanaExploreUrlLabel',
+      defaultMessage: 'Grafana Explore 地址',
+    },
     placeholder: 'http://grafana:3000/explore',
-    help: '指标下钻跳转的 Grafana 入口',
+    help: {
+      id: 'pages.systemSiteSettings.observability.field.grafanaExploreUrlHelp',
+      defaultMessage: '指标下钻跳转的 Grafana 入口',
+    },
   },
   jaegerUrl: {
     key: 'obs.jaegerUrl',
-    label: 'Jaeger 地址',
+    label: {
+      id: 'pages.systemSiteSettings.observability.field.jaegerUrlLabel',
+      defaultMessage: 'Jaeger 地址',
+    },
     placeholder: 'http://jaeger:16686',
-    help: '链路追踪查询入口',
+    help: {
+      id: 'pages.systemSiteSettings.observability.field.jaegerUrlHelp',
+      defaultMessage: '链路追踪查询入口',
+    },
   },
 };
 
 export default function ObservabilityTab() {
   const { message } = App.useApp();
+  const intl = useIntl();
+  // useIntl 在测试 mock 下每次渲染返回新引用，直接进 useCallback 依赖会让请求
+  // effect 无限重建；经 ref 转发后回调依赖稳定，执行时仍读取最新实例
+  const intlRef = useRef(intl);
+  intlRef.current = intl;
   const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
   const [savingKey, setSavingKey] = useState<string | null>(null);
@@ -50,7 +80,15 @@ export default function ObservabilityTab() {
         jaegerUrl: cfg.jaegerUrl,
       });
     } catch (error) {
-      message.error(extractErrorMessage(error, '加载观测配置失败'));
+      message.error(
+        extractErrorMessage(
+          error,
+          intlRef.current.formatMessage({
+            id: 'pages.systemSiteSettings.observability.error.loadFailed',
+            defaultMessage: '加载观测配置失败',
+          }),
+        ),
+      );
     } finally {
       setLoading(false);
     }
@@ -72,10 +110,23 @@ export default function ObservabilityTab() {
         // 空值 = 清除覆盖，恢复跟随环境变量/默认。
         await clearSiteSetting(meta.key);
       }
-      message.success('已保存并即时生效');
+      message.success(
+        intl.formatMessage({
+          id: 'pages.systemSiteSettings.observability.saved',
+          defaultMessage: '已保存并即时生效',
+        }),
+      );
       load();
     } catch (error) {
-      message.error(extractErrorMessage(error, '保存失败'));
+      message.error(
+        extractErrorMessage(
+          error,
+          intl.formatMessage({
+            id: 'pages.systemSiteSettings.observability.error.saveFailed',
+            defaultMessage: '保存失败',
+          }),
+        ),
+      );
     } finally {
       setSavingKey(null);
     }
@@ -83,16 +134,41 @@ export default function ObservabilityTab() {
 
   const sourceBadge = (field: string) => {
     const src: SettingSource | undefined = settings?.sources?.[FIELDS[field].key];
-    if (src === 'database') return <Tag color="orange">数据库覆盖</Tag>;
-    if (src === 'config') return <Tag color="blue">环境变量</Tag>;
-    return <Tag>未配置</Tag>;
+    if (src === 'database')
+      return (
+        <Tag color="orange">
+          <FormattedMessage
+            id="pages.systemSiteSettings.observability.source.dbOverride"
+            defaultMessage="数据库覆盖"
+          />
+        </Tag>
+      );
+    if (src === 'config')
+      return (
+        <Tag color="blue">
+          <FormattedMessage
+            id="pages.systemSiteSettings.observability.source.envVar"
+            defaultMessage="环境变量"
+          />
+        </Tag>
+      );
+    return (
+      <Tag>
+        <FormattedMessage
+          id="pages.systemSiteSettings.observability.source.unconfigured"
+          defaultMessage="未配置"
+        />
+      </Tag>
+    );
   };
 
   return (
     <Card loading={loading}>
       <Text type="secondary">
-        观测平台集成入口：配置后运维中心的告警/指标/链路页会携带这些地址做跳转。
-        存入数据库后重启不丢失；清空输入保存即恢复跟随环境变量默认。
+        <FormattedMessage
+          id="pages.systemSiteSettings.observability.hint"
+          defaultMessage="观测平台集成入口：配置后运维中心的告警/指标/链路页会携带这些地址做跳转。 存入数据库后重启不丢失；清空输入保存即恢复跟随环境变量默认。"
+        />
       </Text>
       <Form form={form} layout="vertical" style={{ maxWidth: 640, marginTop: 16 }}>
         {Object.entries(FIELDS).map(([field, meta]) => (
@@ -100,11 +176,11 @@ export default function ObservabilityTab() {
             key={field}
             label={
               <Space>
-                {meta.label}
+                {intl.formatMessage(meta.label)}
                 {sourceBadge(field)}
               </Space>
             }
-            help={meta.help}
+            help={intl.formatMessage(meta.help)}
             required={false}
           >
             <Space.Compact style={{ width: '100%' }}>
@@ -112,10 +188,18 @@ export default function ObservabilityTab() {
                 <Input placeholder={meta.placeholder} />
               </Form.Item>
               <Button type="primary" loading={savingKey === field} onClick={() => saveField(field)}>
-                保存
+                <FormattedMessage
+                  id="pages.systemSiteSettings.observability.action.save"
+                  defaultMessage="保存"
+                />
               </Button>
               {settings?.sources?.[meta.key] === 'database' ? (
-                <Tooltip title="删除数据库覆盖，恢复为环境变量/默认值">
+                <Tooltip
+                  title={intl.formatMessage({
+                    id: 'pages.systemSiteSettings.observability.resetTooltip',
+                    defaultMessage: '删除数据库覆盖，恢复为环境变量/默认值',
+                  })}
+                >
                   <Button
                     loading={savingKey === field}
                     onClick={() => {
@@ -123,7 +207,10 @@ export default function ObservabilityTab() {
                       saveField(field);
                     }}
                   >
-                    恢复
+                    <FormattedMessage
+                      id="pages.systemSiteSettings.observability.action.restore"
+                      defaultMessage="恢复"
+                    />
                   </Button>
                 </Tooltip>
               ) : null}

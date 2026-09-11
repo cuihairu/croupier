@@ -1,5 +1,6 @@
 import React, { useCallback, useMemo } from 'react';
 import { Select, Space, Typography } from 'antd';
+import { useIntl } from '@umijs/max';
 import type { PageNode } from './model';
 import type { FunctionDescriptor } from '@/services/api/functions';
 import ExpressionInput from './ExpressionInput';
@@ -57,6 +58,7 @@ export default function ParamMappingEditor({
   value?: InputAssignment[];
   onChange: (v: InputAssignment[]) => void;
 }) {
+  const intl = useIntl();
   const params = useMemo<ParamInfo[]>(() => {
     const raw = fn?.inputSchema;
     let props: Record<string, unknown> = {};
@@ -120,7 +122,11 @@ export default function ParamMappingEditor({
   return (
     <Space direction="vertical" size={8} style={{ width: '100%' }}>
       <Text type="secondary" style={{ fontSize: 11, display: 'block' }}>
-        参数映射：默认取本区块表单值；跨区块取数在此显式声明（未列出的参数保持自动）。
+        {intl.formatMessage({
+          id: 'pages.pageStudio.editor.paramMapping.hint',
+          defaultMessage:
+            '参数映射：默认取本区块表单值；跨区块取数在此显式声明（未列出的参数保持自动）。',
+        })}
       </Text>
       {params.map((p) => {
         const a = assignmentFor(p.name);
@@ -156,9 +162,27 @@ export default function ParamMappingEditor({
                   }
                 }}
                 options={[
-                  { label: '自动', value: 'auto' },
-                  { label: '上游区块', value: 'page_state' },
-                  { label: '固定值', value: 'literal' },
+                  {
+                    label: intl.formatMessage({
+                      id: 'pages.pageStudio.editor.paramMapping.kind.auto',
+                      defaultMessage: '自动',
+                    }),
+                    value: 'auto',
+                  },
+                  {
+                    label: intl.formatMessage({
+                      id: 'pages.pageStudio.editor.paramMapping.kind.upstream',
+                      defaultMessage: '上游区块',
+                    }),
+                    value: 'page_state',
+                  },
+                  {
+                    label: intl.formatMessage({
+                      id: 'pages.pageStudio.editor.paramMapping.kind.literal',
+                      defaultMessage: '固定值',
+                    }),
+                    value: 'literal',
+                  },
                 ]}
               />
             </Space>
@@ -167,7 +191,10 @@ export default function ParamMappingEditor({
                 <Select
                   size="small"
                   style={{ width: 150 }}
-                  placeholder="来源区块"
+                  placeholder={intl.formatMessage({
+                    id: 'pages.pageStudio.editor.paramMapping.sourcePlaceholder',
+                    defaultMessage: '来源区块',
+                  })}
                   value={a?.sourceNodeId || undefined}
                   onChange={(v) => {
                     const src = sources.find((s) => s.node.id === v);
@@ -186,7 +213,10 @@ export default function ParamMappingEditor({
                 <Select
                   size="small"
                   style={{ width: 130 }}
-                  placeholder="字段"
+                  placeholder={intl.formatMessage({
+                    id: 'pages.pageStudio.editor.paramMapping.fieldPlaceholder',
+                    defaultMessage: '字段',
+                  })}
                   value={a?.field || undefined}
                   onChange={(v) =>
                     setAssignment(p.name, {
@@ -214,7 +244,10 @@ export default function ParamMappingEditor({
                 }
                 variables={exprVariables}
                 rootsOf={rootsOf}
-                placeholder="固定值，或 {{ 选择变量 }}"
+                placeholder={intl.formatMessage({
+                  id: 'pages.pageStudio.editor.paramMapping.literalPlaceholder',
+                  defaultMessage: "固定值，或 '{{' 选择变量 '}}'",
+                })}
               />
             )}
           </div>

@@ -1,8 +1,24 @@
 // pages.extensionsInstallations.* — Extensions/Installations 与抽屉
 export default {
+  'pages.extensionsInstallations.action.detail': '查看详情',
+  'pages.extensionsInstallations.action.disableCurrent': '禁用当前安装',
+  'pages.extensionsInstallations.action.enableCurrent': '启用当前安装',
+  'pages.extensionsInstallations.action.events': '查看事件',
+  'pages.extensionsInstallations.action.more': '更多',
+  'pages.extensionsInstallations.action.reconcileCurrent': '重建当前绑定',
   'pages.extensionsInstallations.action.reconcileToast': '已触发重建绑定',
   'pages.extensionsInstallations.action.toggleDisabledToast': '已禁用扩展',
   'pages.extensionsInstallations.action.toggleEnabledToast': '已启用扩展',
+  'pages.extensionsInstallations.action.uninstallCurrent': '卸载当前安装',
+  'pages.extensionsInstallations.action.upgradeCurrent': '升级当前安装',
+  'pages.extensionsInstallations.column.actions': '操作',
+  'pages.extensionsInstallations.column.disabledTag': '禁用',
+  'pages.extensionsInstallations.column.displayName': '安装实例',
+  'pages.extensionsInstallations.column.enabledTag': '启用',
+  'pages.extensionsInstallations.column.health': '健康',
+  'pages.extensionsInstallations.column.releaseVersion': '版本',
+  'pages.extensionsInstallations.column.status': '状态',
+  'pages.extensionsInstallations.column.updatedAt': '更新时间',
   'pages.extensionsInstallations.confirmUninstall.content': '安装实例 #{id} 将被卸载，是否继续？',
   'pages.extensionsInstallations.confirmUninstall.title': '确认卸载扩展',
   'pages.extensionsInstallations.detail.action.capabilities': '查看运行能力',
@@ -97,4 +113,12 @@ export default {
   'pages.extensionsInstallations.uninstallBlocked.blockersHint':
     '以下扩展仍依赖当前扩展，请先处理它们：',
   'pages.extensionsInstallations.uninstallBlocked.title': '无法卸载：存在依赖',
+  'pages.extensionsInstallations.upgrade.dependencyCycle': '升级失败，检测到循环依赖：{dependency}',
+  'pages.extensionsInstallations.upgrade.missingDependency': '升级失败，缺少依赖扩展：{dependency}',
+  'pages.extensionsInstallations.upgrade.missingVersionWarning': '请输入目标版本',
+  'pages.extensionsInstallations.upgrade.submitted': '升级请求已提交',
+  'pages.extensionsInstallations.upgrade.title': '升级扩展',
+  'pages.extensionsInstallations.upgrade.versionMismatch':
+    '升级失败，依赖版本不匹配：{dependency}，要求 {requiredVersion}，当前 {currentVersion}',
+  'pages.extensionsInstallations.upgrade.versionPlaceholder': '选择目标版本',
 };

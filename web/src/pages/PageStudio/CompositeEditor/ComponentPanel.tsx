@@ -8,7 +8,7 @@ import type { FunctionDescriptor } from '@/services/api/functions';
 import { allComponents } from './registry';
 import { getScope, setScope, subscribeScope } from '@/stores/scope';
 import { getMyGames } from '@/services/api/me';
-import { request } from '@umijs/max';
+import { request, useIntl } from '@umijs/max';
 import { listDescriptors } from '@/services/api/functions';
 import { defaultView } from './types';
 import { viewTypeToComponent } from './components/builtin';
@@ -35,6 +35,7 @@ async function probeDescriptorCount(gameId: string, env: string): Promise<number
 
 /** 空态 scope 引导（T0.1 行为迁移至此）。 */
 function ScopeGuide({ onReload }: { onReload: () => void }) {
+  const intl = useIntl();
   const [scopes, setScopes] = useState<{ gameId: string; env: string; count: number }[]>([]);
   const [probing, setProbing] = useState(true);
   const current = getScope();
@@ -68,16 +69,28 @@ function ScopeGuide({ onReload }: { onReload: () => void }) {
     <div style={{ padding: 8 }}>
       <Empty
         image={Empty.PRESENTED_IMAGE_SIMPLE}
-        description={`当前 scope（${current.gameId ?? '?'}/${current.env ?? '?'}）没有函数契约`}
+        description={intl.formatMessage(
+          {
+            id: 'pages.pageStudio.editor.panel.scopeEmpty',
+            defaultMessage: '当前 scope（{gameId}/{env}）没有函数契约',
+          },
+          { gameId: current.gameId ?? '?', env: current.env ?? '?' },
+        )}
       />
       {probing ? (
         <Text type="secondary" style={{ fontSize: 11 }}>
-          正在探测各 scope 函数分布…
+          {intl.formatMessage({
+            id: 'pages.pageStudio.editor.panel.probing',
+            defaultMessage: '正在探测各 scope 函数分布…',
+          })}
         </Text>
       ) : scopes.filter((s) => s.gameId !== current.gameId || s.env !== current.env).length ===
         0 ? (
         <Text type="secondary" style={{ fontSize: 11 }}>
-          其他 scope 也没有函数——请先通过 SDK/OpenAPI 注册函数
+          {intl.formatMessage({
+            id: 'pages.pageStudio.editor.panel.scopeEmptyOtherHint',
+            defaultMessage: '其他 scope 也没有函数——请先通过 SDK/OpenAPI 注册函数',
+          })}
         </Text>
       ) : (
         <Space orientation="vertical" size={4} style={{ width: '100%', marginTop: 8 }}>
@@ -92,7 +105,13 @@ function ScopeGuide({ onReload }: { onReload: () => void }) {
                 }}
                 style={{ fontSize: 12 }}
               >
-                切换到 {s.gameId}/{s.env}（{s.count} 函数）
+                {intl.formatMessage(
+                  {
+                    id: 'pages.pageStudio.editor.panel.switchScope',
+                    defaultMessage: '切换到 {gameId}/{env}（{count} 函数）',
+                  },
+                  { gameId: s.gameId, env: s.env, count: s.count },
+                )}
               </a>
             ))}
         </Space>
@@ -109,6 +128,7 @@ export default function ComponentPanel({
   onAddBasic: (type: 'button' | 'modal' | 'container' | 'text') => void;
   onAddFunction: (e: AddFnEvent) => void;
 }) {
+  const intl = useIntl();
   const [descriptors, setDescriptors] = useState<FunctionDescriptor[]>([]);
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState('');
@@ -138,8 +158,13 @@ export default function ComponentPanel({
 
   const treeData = useMemo<DataNode[]>(() => {
     const byResource = new Map<string, FunctionDescriptor[]>();
+    // resource 缺失时的展示分组名（「其他」）
+    const otherCat = intl.formatMessage({
+      id: 'pages.pageStudio.editor.panel.categoryOther',
+      defaultMessage: '其他',
+    });
     for (const d of descriptors) {
-      const rk = (d.resource || '').trim() || '其他';
+      const rk = (d.resource || '').trim() || otherCat;
       if (!byResource.has(rk)) byResource.set(rk, []);
       byResource.get(rk)!.push(d);
     }
@@ -174,7 +199,7 @@ export default function ComponentPanel({
           })),
       }))
       .filter((n) => n.children.length > 0);
-  }, [descriptors, search]);
+  }, [descriptors, search, intl]);
 
   const fnMap = useMemo(() => {
     const m = new Map<string, FunctionDescriptor>();
@@ -185,7 +210,10 @@ export default function ComponentPanel({
   return (
     <div>
       <Title level={5} style={{ marginTop: 0, marginBottom: 8 }}>
-        基础组件
+        {intl.formatMessage({
+          id: 'pages.pageStudio.editor.panel.basicsTitle',
+          defaultMessage: '基础组件',
+        })}
       </Title>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, marginBottom: 16 }}>
         {basics.map((c) => (
@@ -207,7 +235,10 @@ export default function ComponentPanel({
       </div>
 
       <Title level={5} style={{ marginBottom: 8 }}>
-        函数组件{' '}
+        {intl.formatMessage({
+          id: 'pages.pageStudio.editor.panel.fnTitle',
+          defaultMessage: '函数组件',
+        })}{' '}
         <Text type="secondary" style={{ fontSize: 11 }}>
           {descriptors.length}
         </Text>
@@ -216,19 +247,31 @@ export default function ComponentPanel({
         size="small"
         allowClear
         prefix={<SearchOutlined style={{ color: '#999' }} />}
-        placeholder="搜索函数 / 资源"
+        placeholder={intl.formatMessage({
+          id: 'pages.pageStudio.editor.panel.searchPlaceholder',
+          defaultMessage: '搜索函数 / 资源',
+        })}
         value={search}
         onChange={(e) => setSearch(e.target.value)}
         style={{ marginBottom: 8 }}
       />
       {loading ? (
         <Text type="secondary" style={{ fontSize: 11 }}>
-          加载中…
+          {intl.formatMessage({
+            id: 'pages.pageStudio.editor.panel.loading',
+            defaultMessage: '加载中…',
+          })}
         </Text>
       ) : descriptors.length === 0 ? (
         <ScopeGuide onReload={() => setReloadKey((k) => k + 1)} />
       ) : treeData.length === 0 ? (
-        <Empty description="无匹配函数" image={Empty.PRESENTED_IMAGE_SIMPLE} />
+        <Empty
+          description={intl.formatMessage({
+            id: 'pages.pageStudio.editor.panel.noMatch',
+            defaultMessage: '无匹配函数',
+          })}
+          image={Empty.PRESENTED_IMAGE_SIMPLE}
+        />
       ) : (
         <Tree
           treeData={treeData}

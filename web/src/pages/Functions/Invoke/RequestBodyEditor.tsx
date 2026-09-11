@@ -1,4 +1,5 @@
 import { Alert, Button, Card, Tabs, Tooltip } from 'antd';
+import { FormattedMessage, useIntl } from '@umijs/max';
 import SchemaFormRenderer, { type SchemaFormRendererHandle } from '@/components/SchemaFormRenderer';
 import { CodeEditor } from '@/components/MonacoDynamic';
 import type { FormValues } from '@/types/dashboard';
@@ -17,14 +18,26 @@ interface RequestBodyEditorProps {
 }
 
 export default function RequestBodyEditor(props: RequestBodyEditorProps) {
+  const intl = useIntl();
   return (
     <Card
       size="small"
-      title="请求体"
+      title={intl.formatMessage({
+        id: 'pages.functionsInvoke.requestBody.title',
+        defaultMessage: '请求体',
+      })}
       extra={
-        <Tooltip title="将当前请求体格式化">
+        <Tooltip
+          title={intl.formatMessage({
+            id: 'pages.functionsInvoke.requestBody.formatTooltip',
+            defaultMessage: '将当前请求体格式化',
+          })}
+        >
           <Button size="small" onClick={props.onFormat}>
-            格式化 JSON
+            <FormattedMessage
+              id="pages.functionsInvoke.requestBody.formatButton"
+              defaultMessage="格式化 JSON"
+            />
           </Button>
         </Tooltip>
       }
@@ -35,7 +48,10 @@ export default function RequestBodyEditor(props: RequestBodyEditorProps) {
         items={[
           {
             key: 'json',
-            label: '原始 JSON',
+            label: intl.formatMessage({
+              id: 'pages.functionsInvoke.requestBody.tab.json',
+              defaultMessage: '原始 JSON',
+            }),
             children: (
               <CodeEditor
                 value={props.rawJson}
@@ -56,7 +72,10 @@ export default function RequestBodyEditor(props: RequestBodyEditorProps) {
           },
           {
             key: 'form',
-            label: 'Schema 表单',
+            label: intl.formatMessage({
+              id: 'pages.functionsInvoke.requestBody.tab.form',
+              defaultMessage: 'Schema 表单',
+            }),
             children:
               props.formState.status === 'ready' ? (
                 <SchemaFormRenderer
@@ -71,9 +90,17 @@ export default function RequestBodyEditor(props: RequestBodyEditorProps) {
                   type="info"
                   showIcon
                   message={
-                    props.formState.status === 'unavailable' ? props.formState.error : '请选择函数'
+                    props.formState.status === 'unavailable'
+                      ? props.formState.error
+                      : intl.formatMessage({
+                          id: 'pages.functionsInvoke.requestBody.selectFunctionFirst',
+                          defaultMessage: '请选择函数',
+                        })
                   }
-                  description="原始 JSON 模式始终可用，不依赖 Schema。"
+                  description={intl.formatMessage({
+                    id: 'pages.functionsInvoke.requestBody.schemaFallbackDescription',
+                    defaultMessage: '原始 JSON 模式始终可用，不依赖 Schema。',
+                  })}
                 />
               ),
           },

@@ -5,7 +5,7 @@
  * 路由：/console/:categoryKey/:pageKey
  */
 
-import { useParams, history, useIntl } from '@umijs/max';
+import { FormattedMessage, useParams, history, useIntl } from '@umijs/max';
 import { Alert, Button, Result, Space, Spin, Tag, Typography } from 'antd';
 import { PageContainer } from '@ant-design/pro-components';
 import { useEffect, useState } from 'react';
@@ -111,14 +111,28 @@ export default function ConsolePage() {
   // 404 状态
   if (!loading && errorCode === 'not_found') {
     return (
-      <PageContainer title="页面不存在">
+      <PageContainer
+        title={intl.formatMessage({
+          id: 'pages.console.page.notFound.title',
+          defaultMessage: '页面不存在',
+        })}
+      >
         <Result
           status="404"
-          title="页面不存在"
-          subTitle={`已发布页面 "${pageKey}" 未找到`}
+          title={intl.formatMessage({
+            id: 'pages.console.page.notFound.title',
+            defaultMessage: '页面不存在',
+          })}
+          subTitle={intl.formatMessage(
+            {
+              id: 'pages.console.page.notFound.subtitle',
+              defaultMessage: '已发布页面 "{pageKey}" 未找到',
+            },
+            { pageKey },
+          )}
           extra={
             <Button type="primary" onClick={() => history.push('/console')}>
-              返回控制台
+              <FormattedMessage id="pages.console.page.backToConsole" defaultMessage="返回控制台" />
             </Button>
           }
         />
@@ -129,14 +143,25 @@ export default function ConsolePage() {
   // 403 状态
   if (!loading && errorCode === 'forbidden') {
     return (
-      <PageContainer title="无权限">
+      <PageContainer
+        title={intl.formatMessage({
+          id: 'pages.console.page.forbidden.title',
+          defaultMessage: '无权限',
+        })}
+      >
         <Result
           status="403"
-          title="无访问权限"
-          subTitle="您没有权限访问此页面"
+          title={intl.formatMessage({
+            id: 'pages.console.page.forbidden.resultTitle',
+            defaultMessage: '无访问权限',
+          })}
+          subTitle={intl.formatMessage({
+            id: 'pages.console.page.forbidden.subtitle',
+            defaultMessage: '您没有权限访问此页面',
+          })}
           extra={
             <Button type="primary" onClick={() => history.push('/console')}>
-              返回控制台
+              <FormattedMessage id="pages.console.page.backToConsole" defaultMessage="返回控制台" />
             </Button>
           }
         />
@@ -147,9 +172,20 @@ export default function ConsolePage() {
   // 加载中状态
   if (loading) {
     return (
-      <PageContainer title="加载中...">
+      <PageContainer
+        title={intl.formatMessage({
+          id: 'pages.console.page.loading.title',
+          defaultMessage: '加载中...',
+        })}
+      >
         <div style={{ textAlign: 'center', padding: '100px 0' }}>
-          <Spin size="large" tip="加载页面中..." />
+          <Spin
+            size="large"
+            tip={intl.formatMessage({
+              id: 'pages.console.page.loading.spin',
+              defaultMessage: '加载页面中...',
+            })}
+          />
         </div>
       </PageContainer>
     );
@@ -158,17 +194,25 @@ export default function ConsolePage() {
   // 错误状态
   if (error) {
     return (
-      <PageContainer title="加载失败">
+      <PageContainer
+        title={intl.formatMessage({
+          id: 'pages.console.page.error.title',
+          defaultMessage: '加载失败',
+        })}
+      >
         <Result
           status="error"
-          title="加载失败"
+          title={intl.formatMessage({
+            id: 'pages.console.page.error.title',
+            defaultMessage: '加载失败',
+          })}
           subTitle={error}
           extra={[
             <Button key="retry" type="primary" onClick={() => window.location.reload()}>
-              重试
+              <FormattedMessage id="pages.console.page.error.retry" defaultMessage="重试" />
             </Button>,
             <Button key="back" onClick={() => history.push('/console')}>
-              返回控制台
+              <FormattedMessage id="pages.console.page.backToConsole" defaultMessage="返回控制台" />
             </Button>,
           ]}
         />
@@ -178,9 +222,20 @@ export default function ConsolePage() {
 
   if (shouldRedirect) {
     return (
-      <PageContainer title="正在跳转...">
+      <PageContainer
+        title={intl.formatMessage({
+          id: 'pages.console.page.redirecting.title',
+          defaultMessage: '正在跳转...',
+        })}
+      >
         <div style={{ textAlign: 'center', padding: '100px 0' }}>
-          <Spin size="large" tip="正在跳转到页面发布分类..." />
+          <Spin
+            size="large"
+            tip={intl.formatMessage({
+              id: 'pages.console.page.redirecting.spin',
+              defaultMessage: '正在跳转到页面发布分类...',
+            })}
+          />
         </div>
       </PageContainer>
     );
@@ -213,7 +268,10 @@ export default function ConsolePage() {
           type="error"
           showIcon
           style={{ marginBottom: 16 }}
-          message="页面绑定的函数契约已变化，执行已被阻断"
+          message={intl.formatMessage({
+            id: 'pages.console.page.staleAlert.message',
+            defaultMessage: '页面绑定的函数契约已变化，执行已被阻断',
+          })}
           description={
             <Space orientation="vertical" size={4}>
               {bindingFreshness.map((item) => (
@@ -234,7 +292,10 @@ export default function ConsolePage() {
                     history.push(`/functions/pages?focus=${encodeURIComponent(pageKey)}`)
                   }
                 >
-                  前往处理（diff / 合并 / 重新发布）
+                  <FormattedMessage
+                    id="pages.console.page.staleAlert.resolve"
+                    defaultMessage="前往处理（diff / 合并 / 重新发布）"
+                  />
                 </Button>
                 <Button
                   size="small"
@@ -244,7 +305,10 @@ export default function ConsolePage() {
                     history.push(`/functions/pages?focus=${encodeURIComponent(pageKey)}&inbox=1`)
                   }
                 >
-                  打开 Proposal Inbox
+                  <FormattedMessage
+                    id="pages.console.page.staleAlert.openInbox"
+                    defaultMessage="打开 Proposal Inbox"
+                  />
                 </Button>
               </Space>
             </Space>

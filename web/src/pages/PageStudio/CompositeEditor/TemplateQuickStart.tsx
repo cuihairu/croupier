@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Card, Space, Spin, Tag, Typography } from 'antd';
 import { AppstoreOutlined, ThunderboltOutlined } from '@ant-design/icons';
-import { request } from '@umijs/max';
+import { request, useIntl } from '@umijs/max';
 import { instantiateTemplate, type ComponentTemplateDTO } from './ComponentLibrary';
 import { schemaProperties } from './types';
 import { localizedText } from '@/utils/localizedText';
@@ -23,6 +23,7 @@ export default function TemplateQuickStart({
   templates?: QuickStartTemplate[];
   onPick: (nodes: PageNode[], tpl: QuickStartTemplate) => void;
 }) {
+  const intl = useIntl();
   const [fetched, setFetched] = useState<QuickStartTemplate[] | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -48,17 +49,27 @@ export default function TemplateQuickStart({
       <Space size={6} style={{ marginBottom: 8 }}>
         <ThunderboltOutlined style={{ color: '#1677ff' }} />
         <Title level={5} style={{ margin: 0 }}>
-          从模板开始
+          {intl.formatMessage({
+            id: 'pages.pageStudio.editor.quickStart.title',
+            defaultMessage: '从模板开始',
+          })}
         </Title>
         <Text type="secondary" style={{ fontSize: 12 }}>
-          选择一个组合模板作为页面起点，之后可继续拖入积木微调
+          {intl.formatMessage({
+            id: 'pages.pageStudio.editor.quickStart.subtitle',
+            defaultMessage: '选择一个组合模板作为页面起点，之后可继续拖入积木微调',
+          })}
         </Text>
       </Space>
       {loading ? (
         <Spin size="small" />
       ) : combos.length === 0 ? (
         <Text type="secondary" style={{ fontSize: 12 }}>
-          暂无组合模板——可先到「组件模板」页从契约重新生成，或直接从左侧面板拖入组件
+          {intl.formatMessage({
+            id: 'pages.pageStudio.editor.quickStart.empty',
+            defaultMessage:
+              '暂无组合模板——可先到「组件模板」页从契约重新生成，或直接从左侧面板拖入组件',
+          })}
         </Text>
       ) : (
         <div
@@ -85,11 +96,25 @@ export default function TemplateQuickStart({
                   <Text strong style={{ fontSize: 12 }}>
                     {name}
                   </Text>
-                  {tpl.builtin && <Tag style={{ marginRight: 0, fontSize: 10 }}>内置</Tag>}
+                  {tpl.builtin && (
+                    <Tag style={{ marginRight: 0, fontSize: 10 }}>
+                      {intl.formatMessage({
+                        id: 'pages.pageStudio.templates.tag.builtin',
+                        defaultMessage: '内置',
+                      })}
+                    </Tag>
+                  )}
                 </Space>
                 <div>
                   <Text type="secondary" style={{ fontSize: 11 }}>
-                    {desc || `${tpl.tree?.length ?? 0} 个区块`}
+                    {desc ||
+                      intl.formatMessage(
+                        {
+                          id: 'pages.pageStudio.editor.quickStart.sectionCount',
+                          defaultMessage: '{count} 个区块',
+                        },
+                        { count: tpl.tree?.length ?? 0 },
+                      )}
                   </Text>
                 </div>
                 {fns.length > 0 && (

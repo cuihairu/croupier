@@ -1,6 +1,7 @@
 import React from 'react';
 import { Card, Table, Space, Select, Input, Button, Modal, Form, Input as AntInput } from 'antd';
 import { PageContainer } from '@ant-design/pro-components';
+import { FormattedMessage, useIntl } from '@umijs/max';
 import { CodeEditor, DiffEditor as MonacoDiff } from '@/components/MonacoDynamic';
 import useConfigsPage from './useConfigsPage';
 import { DiffView, hasMonaco, langOf } from './diff';
@@ -13,6 +14,7 @@ import {
 } from './schema';
 
 export default function OperationsConfigsPage() {
+  const intl = useIntl();
   const {
     loading,
     rows,
@@ -89,7 +91,10 @@ export default function OperationsConfigsPage() {
   return (
     <PageContainer>
       <Card
-        title="配置管理"
+        title={intl.formatMessage({
+          id: 'pages.operationsConfigs.page.title',
+          defaultMessage: '配置管理',
+        })}
         extra={
           <Space>
             <Select
@@ -163,10 +168,23 @@ export default function OperationsConfigsPage() {
                 onChange={(v) => setCur({ ...cur, format: v })}
                 options={CONFIG_FORMAT_OPTIONS}
               />
-              <Button onClick={validate}>校验</Button>
-              <Button onClick={openVersions}>历史版本</Button>
+              <Button onClick={validate}>
+                <FormattedMessage
+                  id="pages.operationsConfigs.action.validate"
+                  defaultMessage="校验"
+                />
+              </Button>
+              <Button onClick={openVersions}>
+                <FormattedMessage
+                  id="pages.operationsConfigs.action.versions"
+                  defaultMessage="历史版本"
+                />
+              </Button>
               <Button type="primary" onClick={() => setSaveOpen(true)}>
-                保存新版本
+                <FormattedMessage
+                  id="pages.operationsConfigs.action.saveNewVersion"
+                  defaultMessage="保存新版本"
+                />
               </Button>
             </Space>
             {cur.format === 'csv' && csvPreview(cur.content)}
@@ -182,18 +200,29 @@ export default function OperationsConfigsPage() {
 
       <Modal
         open={saveOpen}
-        title="保存版本"
+        title={intl.formatMessage({
+          id: 'pages.operationsConfigs.modal.saveTitle',
+          defaultMessage: '保存版本',
+        })}
         onCancel={() => setSaveOpen(false)}
         onOk={doSave}
         destroyOnHidden
       >
         <Form layout="vertical">
-          <Form.Item label="版本说明">
+          <Form.Item
+            label={intl.formatMessage({
+              id: 'pages.operationsConfigs.saveForm.messageLabel',
+              defaultMessage: '版本说明',
+            })}
+          >
             <AntInput
               value={saveMsg}
               onChange={(e) => setSaveMsg(e.target.value)}
               maxLength={200}
-              placeholder="本次修改原因（必填）"
+              placeholder={intl.formatMessage({
+                id: 'pages.operationsConfigs.saveForm.messagePlaceholder',
+                defaultMessage: '本次修改原因（必填）',
+              })}
             />
           </Form.Item>
         </Form>
@@ -201,7 +230,10 @@ export default function OperationsConfigsPage() {
 
       <Modal
         open={verOpen}
-        title="历史版本"
+        title={intl.formatMessage({
+          id: 'pages.operationsConfigs.modal.versionsTitle',
+          defaultMessage: '历史版本',
+        })}
         onCancel={() => setVerOpen(false)}
         footer={null}
         destroyOnHidden
@@ -216,7 +248,10 @@ export default function OperationsConfigsPage() {
 
       <Modal
         open={diffOpen}
-        title="版本对比"
+        title={intl.formatMessage({
+          id: 'pages.operationsConfigs.modal.diffTitle',
+          defaultMessage: '版本对比',
+        })}
         onCancel={() => setDiffOpen(false)}
         footer={null}
         width={980}

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Button, Checkbox, Input, InputNumber, Select, Space, Table, Tag } from 'antd';
 import type { Dayjs } from 'dayjs';
+import { FormattedMessage, useIntl } from '@umijs/max';
 import { exportToXLSX } from '@/utils/export';
 import { fetchAnalyticsPaths } from '@/services/api/analytics';
 import type { PathRow } from './types';
@@ -12,6 +13,7 @@ const PathControls: React.FC<{
   currentSteps?: string[];
   onUsePath?: (steps: string[]) => void;
 }> = ({ range, currentSteps, onUsePath }) => {
+  const intl = useIntl();
   const [per, setPer] = useState<'session' | 'user'>('session');
   const [steps, setSteps] = useState<number>(5);
   const [limit, setLimit] = useState<number>(50);
@@ -48,8 +50,20 @@ const PathControls: React.FC<{
           value={per}
           onChange={(v) => setPer(v)}
           options={[
-            { label: '按会话', value: 'session' },
-            { label: '按用户', value: 'user' },
+            {
+              label: intl.formatMessage({
+                id: 'pages.analyticsBehavior.option.bySession',
+                defaultMessage: '按会话',
+              }),
+              value: 'session',
+            },
+            {
+              label: intl.formatMessage({
+                id: 'pages.analyticsBehavior.option.byUser',
+                defaultMessage: '按用户',
+              }),
+              value: 'user',
+            },
           ]}
         />
         <InputNumber
@@ -57,7 +71,10 @@ const PathControls: React.FC<{
           onChange={(v) => setSteps(Number(v || 5))}
           min={1}
           max={10}
-          addonBefore="步数"
+          addonBefore={intl.formatMessage({
+            id: 'pages.analyticsBehavior.path.filter.addonBefore.steps',
+            defaultMessage: '步数',
+          })}
         />
         <InputNumber
           value={limit}
@@ -70,39 +87,60 @@ const PathControls: React.FC<{
           mode="tags"
           value={include}
           onChange={(v) => setInclude(v)}
-          placeholder="包含事件"
+          placeholder={intl.formatMessage({
+            id: 'pages.analyticsBehavior.path.filter.placeholder.include',
+            defaultMessage: '包含事件',
+          })}
           style={{ minWidth: 200 }}
         />
         <Select
           mode="tags"
           value={exclude}
           onChange={(v) => setExclude(v)}
-          placeholder="排除事件"
+          placeholder={intl.formatMessage({
+            id: 'pages.analyticsBehavior.path.filter.placeholder.exclude',
+            defaultMessage: '排除事件',
+          })}
           style={{ minWidth: 200 }}
         />
         <Checkbox checked={sameSess} onChange={(e) => setSameSess(e.target.checked)}>
-          同会话
+          <FormattedMessage
+            id="pages.analyticsBehavior.funnel.sameSession"
+            defaultMessage="同会话"
+          />
         </Checkbox>
         <InputNumber
           value={gapSec}
           onChange={(v) => setGapSec(Number(v || 0))}
           min={0}
-          addonBefore="步间秒数"
+          addonBefore={intl.formatMessage({
+            id: 'pages.analyticsBehavior.path.filter.addonBefore.gapSec',
+            defaultMessage: '步间秒数',
+          })}
         />
         <Input
-          placeholder="路径包含正则"
+          placeholder={intl.formatMessage({
+            id: 'pages.analyticsBehavior.path.filter.placeholder.pathRe',
+            defaultMessage: '路径包含正则',
+          })}
           value={pathRe}
           onChange={(e) => setPathRe(e.target.value)}
           style={{ width: 200 }}
         />
         <Input
-          placeholder="路径排除正则"
+          placeholder={intl.formatMessage({
+            id: 'pages.analyticsBehavior.path.filter.placeholder.pathNotRe',
+            defaultMessage: '路径排除正则',
+          })}
           value={pathNotRe}
           onChange={(e) => setPathNotRe(e.target.value)}
           style={{ width: 200 }}
         />
         <Button type="primary" onClick={load} loading={loading}>
-          计算路径
+          <FormattedMessage
+            id="pages.analyticsBehavior.path.button.compute"
+            defaultMessage="计算路径"
+          />
         </Button>
         <Button
           onClick={async () => {
@@ -112,7 +150,10 @@ const PathControls: React.FC<{
             await exportToXLSX('paths.csv', [{ sheet: 'paths', rows: rowsOut }]);
           }}
         >
-          导出 CSV
+          <FormattedMessage
+            id="pages.analyticsBehavior.button.exportCsv"
+            defaultMessage="导出 CSV"
+          />
         </Button>
       </Space>
       {(() => {
@@ -122,7 +163,21 @@ const PathControls: React.FC<{
           const ok = new RegExp(pathRe).test(p);
           return (
             <div>
-              与当前漏斗步骤匹配：<Tag color={ok ? 'green' : 'red'}>{ok ? '是' : '否'}</Tag>
+              <FormattedMessage
+                id="pages.analyticsBehavior.path.matchFunnel.label"
+                defaultMessage="与当前漏斗步骤匹配："
+              />
+              <Tag color={ok ? 'green' : 'red'}>
+                {ok
+                  ? intl.formatMessage({
+                      id: 'pages.analyticsBehavior.path.matchFunnel.yes',
+                      defaultMessage: '是',
+                    })
+                  : intl.formatMessage({
+                      id: 'pages.analyticsBehavior.path.matchFunnel.no',
+                      defaultMessage: '否',
+                    })}
+              </Tag>
             </div>
           );
         } catch {
@@ -135,17 +190,35 @@ const PathControls: React.FC<{
         rowKey={(r: PathRow) => `${r.path || ''}|${r.groups || ''}`}
         dataSource={rows}
         columns={[
-          { title: '路径', dataIndex: 'path' },
-          { title: '分组数', dataIndex: 'groups' },
           {
-            title: '操作',
+            title: intl.formatMessage({
+              id: 'pages.analyticsBehavior.path.column.path',
+              defaultMessage: '路径',
+            }),
+            dataIndex: 'path',
+          },
+          {
+            title: intl.formatMessage({
+              id: 'pages.analyticsBehavior.column.groups',
+              defaultMessage: '分组数',
+            }),
+            dataIndex: 'groups',
+          },
+          {
+            title: intl.formatMessage({
+              id: 'pages.analyticsBehavior.path.column.actions',
+              defaultMessage: '操作',
+            }),
             render: (_: unknown, r: PathRow) => (
               <Space>
                 <Button
                   size="small"
                   onClick={() => onUsePath && onUsePath(String(r.path || '').split('>'))}
                 >
-                  填充漏斗
+                  <FormattedMessage
+                    id="pages.analyticsBehavior.path.button.fillFunnel"
+                    defaultMessage="填充漏斗"
+                  />
                 </Button>
                 <Button
                   size="small"
@@ -155,7 +228,10 @@ const PathControls: React.FC<{
                     } catch {}
                   }}
                 >
-                  复制步骤
+                  <FormattedMessage
+                    id="pages.analyticsBehavior.path.button.copySteps"
+                    defaultMessage="复制步骤"
+                  />
                 </Button>
               </Space>
             ),

@@ -1,6 +1,7 @@
 import React, { useCallback, useRef } from 'react';
 import { Button, Card, Col, Dropdown, Row, Space, Tag, Typography } from 'antd';
 import { CopyOutlined, DeleteOutlined, DragOutlined } from '@ant-design/icons';
+import { useIntl } from '@umijs/max';
 import type { FunctionDescriptor } from '@/services/api/functions';
 import { getComponent } from './registry';
 import { parseAction } from './actions';
@@ -58,6 +59,7 @@ export const CanvasNode: React.FC<CanvasNodeProps> = ({
   dragHandleProps,
   canvasWidthRef,
 }) => {
+  const intl = useIntl();
   const def = getComponent(node.type);
   const Comp = def?.Preview;
 
@@ -95,7 +97,10 @@ export const CanvasNode: React.FC<CanvasNodeProps> = ({
         items: [
           {
             key: 'up',
-            label: '上移',
+            label: intl.formatMessage({
+              id: 'pages.pageStudio.editor.node.moveUp',
+              defaultMessage: '上移',
+            }),
             onClick: ({ domEvent }) => {
               domEvent.stopPropagation();
               onMoveUp?.();
@@ -104,7 +109,10 @@ export const CanvasNode: React.FC<CanvasNodeProps> = ({
           },
           {
             key: 'down',
-            label: '下移',
+            label: intl.formatMessage({
+              id: 'pages.pageStudio.editor.node.moveDown',
+              defaultMessage: '下移',
+            }),
             onClick: ({ domEvent }) => {
               domEvent.stopPropagation();
               onMoveDown?.();
@@ -113,7 +121,10 @@ export const CanvasNode: React.FC<CanvasNodeProps> = ({
           },
           {
             key: 'parent',
-            label: '选择父容器',
+            label: intl.formatMessage({
+              id: 'pages.pageStudio.editor.node.selectParent',
+              defaultMessage: '选择父容器',
+            }),
             onClick: ({ domEvent }) => {
               domEvent.stopPropagation();
               onSelectParent?.();
@@ -123,7 +134,10 @@ export const CanvasNode: React.FC<CanvasNodeProps> = ({
           { type: 'divider' as const },
           {
             key: 'dup',
-            label: '复制',
+            label: intl.formatMessage({
+              id: 'pages.pageStudio.editor.node.duplicate',
+              defaultMessage: '复制',
+            }),
             onClick: ({ domEvent }) => {
               domEvent.stopPropagation();
               onDuplicate();
@@ -131,7 +145,10 @@ export const CanvasNode: React.FC<CanvasNodeProps> = ({
           },
           {
             key: 'del',
-            label: '删除',
+            label: intl.formatMessage({
+              id: 'pages.pageStudio.editor.node.delete',
+              defaultMessage: '删除',
+            }),
             danger: true,
             onClick: ({ domEvent }) => {
               domEvent.stopPropagation();
@@ -183,17 +200,31 @@ export const CanvasNode: React.FC<CanvasNodeProps> = ({
                     onSelect();
                   }}
                 >
-                  {parseAction(node.props.onClick) ? '已绑定动作' : '点击绑定动作 →'}
+                  {parseAction(node.props.onClick)
+                    ? intl.formatMessage({
+                        id: 'pages.pageStudio.editor.node.actionBound',
+                        defaultMessage: '已绑定动作',
+                      })
+                    : intl.formatMessage({
+                        id: 'pages.pageStudio.editor.node.bindActionHint',
+                        defaultMessage: '点击绑定动作 →',
+                      })}
                 </Tag>
               )}
               {node.props.autoRun === true && (
                 <Tag color="green" style={{ marginRight: 0 }}>
-                  自动
+                  {intl.formatMessage({
+                    id: 'pages.pageStudio.editor.node.autoRunTag',
+                    defaultMessage: '自动',
+                  })}
                 </Tag>
               )}
               {node.type === 'fnForm' && node.props.display === 'dialog' && (
                 <Tag color="purple" style={{ marginRight: 0 }}>
-                  弹窗
+                  {intl.formatMessage({
+                    id: 'pages.pageStudio.editor.node.dialogTag',
+                    defaultMessage: '弹窗',
+                  })}
                 </Tag>
               )}
               <Button size="small" type="text" icon={<CopyOutlined />} onClick={onDuplicate} />
@@ -221,7 +252,10 @@ export const CanvasNode: React.FC<CanvasNodeProps> = ({
                         items: [
                           {
                             key: 'up',
-                            label: '上移',
+                            label: intl.formatMessage({
+                              id: 'pages.pageStudio.editor.node.moveUp',
+                              defaultMessage: '上移',
+                            }),
                             disabled: ci === 0,
                             onClick: ({ domEvent }) => {
                               domEvent.stopPropagation();
@@ -230,7 +264,10 @@ export const CanvasNode: React.FC<CanvasNodeProps> = ({
                           },
                           {
                             key: 'down',
-                            label: '下移',
+                            label: intl.formatMessage({
+                              id: 'pages.pageStudio.editor.node.moveDown',
+                              defaultMessage: '下移',
+                            }),
                             disabled: ci === node.children!.length - 1,
                             onClick: ({ domEvent }) => {
                               domEvent.stopPropagation();
@@ -240,7 +277,10 @@ export const CanvasNode: React.FC<CanvasNodeProps> = ({
                           { type: 'divider' as const },
                           {
                             key: 'del',
-                            label: '删除',
+                            label: intl.formatMessage({
+                              id: 'pages.pageStudio.editor.node.delete',
+                              defaultMessage: '删除',
+                            }),
                             danger: true,
                             onClick: ({ domEvent }) => {
                               domEvent.stopPropagation();
@@ -275,7 +315,10 @@ export const CanvasNode: React.FC<CanvasNodeProps> = ({
                               onChildDelete?.(c.id);
                             }}
                           >
-                            删除
+                            {intl.formatMessage({
+                              id: 'pages.pageStudio.editor.node.delete',
+                              defaultMessage: '删除',
+                            })}
                           </Button>
                         </div>
                       </div>
@@ -287,7 +330,10 @@ export const CanvasNode: React.FC<CanvasNodeProps> = ({
           )}
           {depth === 0 && node.type !== 'modal' && node.type !== 'text' && (
             <Text type="secondary" style={{ fontSize: 10 }}>
-              拖手柄排序 · 拖右缘调宽 · 点击配置
+              {intl.formatMessage({
+                id: 'pages.pageStudio.editor.node.editHint',
+                defaultMessage: '拖手柄排序 · 拖右缘调宽 · 点击配置',
+              })}
             </Text>
           )}
         </Card>

@@ -9,11 +9,21 @@ import {
   ExperimentOutlined,
   SettingOutlined,
 } from '@ant-design/icons';
+import { FormattedMessage } from '@umijs/max';
 import type { AssignmentPageSchema } from './pageSchema';
 import type { AssignmentGroup, AssignmentItem } from './types';
 import { formatDateTime } from './utils';
 
+/** 模块级文案助手接收 intl 的最小结构（@umijs/max 未导出 IntlShape 类型） */
+type IntlFormatter = {
+  formatMessage: (
+    descriptor: { id: string; defaultMessage: string },
+    values?: Record<string, string | number>,
+  ) => string;
+};
+
 type BuildColumnsOptions = {
+  intl: IntlFormatter;
   canWrite: boolean;
   selected: string[];
   setSelected: Dispatch<SetStateAction<string[]>>;
@@ -25,6 +35,7 @@ type BuildColumnsOptions = {
 };
 
 export const buildAssignmentColumns = ({
+  intl,
   canWrite,
   selected,
   setSelected,
@@ -80,9 +91,27 @@ export const buildAssignmentColumns = ({
         width: col.width,
         render: (text) => {
           const config = {
-            active: { color: 'success', text: '已启用' },
-            canary: { color: 'processing', text: '灰度中' },
-            disabled: { color: 'default', text: '未启用' },
+            active: {
+              color: 'success',
+              text: intl.formatMessage({
+                id: 'pages.assignments.column.status.active',
+                defaultMessage: '已启用',
+              }),
+            },
+            canary: {
+              color: 'processing',
+              text: intl.formatMessage({
+                id: 'pages.assignments.column.status.canary',
+                defaultMessage: '灰度中',
+              }),
+            },
+            disabled: {
+              color: 'default',
+              text: intl.formatMessage({
+                id: 'pages.assignments.column.status.disabled',
+                defaultMessage: '未启用',
+              }),
+            },
           } as const;
           const c = config[text as keyof typeof config] || config.disabled;
           return <Tag color={c.color}>{c.text}</Tag>;
@@ -96,7 +125,13 @@ export const buildAssignmentColumns = ({
         render: (_, record) => {
           return (
             <Space wrap size={[4, 6]}>
-              <Tag color={record.resource ? 'blue' : 'default'}>{record.resource || '未声明'}</Tag>
+              <Tag color={record.resource ? 'blue' : 'default'}>
+                {record.resource ||
+                  intl.formatMessage({
+                    id: 'pages.assignments.column.resourceUnset',
+                    defaultMessage: '未声明',
+                  })}
+              </Tag>
               {record.operation ? <Tag color="purple">{record.operation}</Tag> : null}
             </Space>
           );
@@ -234,10 +269,10 @@ export const buildCategoryColumns = ({
             ghost
             onClick={() => onBatchAssign(record.resource, true)}
           >
-            全部启用
+            <FormattedMessage id="pages.assignments.column.enableAll" defaultMessage="全部启用" />
           </Button>
           <Button size="small" danger onClick={() => onBatchAssign(record.resource, false)}>
-            全部禁用
+            <FormattedMessage id="pages.assignments.column.disableAll" defaultMessage="全部禁用" />
           </Button>
         </Space>
       ),
@@ -245,11 +280,13 @@ export const buildCategoryColumns = ({
   });
 
 type BuildRouteColumnsOptions = {
+  intl: IntlFormatter;
   capabilityColumns: AssignmentPageSchema['capabilityColumns'];
   onOpenDetail: (id: string) => void;
 };
 
 export const buildRouteColumns = ({
+  intl,
   capabilityColumns,
   onOpenDetail,
 }: BuildRouteColumnsOptions): ProColumns<AssignmentItem>[] =>
@@ -276,7 +313,13 @@ export const buildRouteColumns = ({
         width: col.width,
         render: (_, record) => (
           <Space wrap size={[4, 6]}>
-            <Tag color={record.resource ? 'blue' : 'default'}>{record.resource || '未声明'}</Tag>
+            <Tag color={record.resource ? 'blue' : 'default'}>
+              {record.resource ||
+                intl.formatMessage({
+                  id: 'pages.assignments.column.resourceUnset',
+                  defaultMessage: '未声明',
+                })}
+            </Tag>
             {record.operation ? <Tag color="purple">{record.operation}</Tag> : null}
           </Space>
         ),
@@ -292,7 +335,7 @@ export const buildRouteColumns = ({
           icon={<SettingOutlined />}
           onClick={() => onOpenDetail(record.id)}
         >
-          查看函数
+          <FormattedMessage id="pages.assignments.column.viewFunction" defaultMessage="查看函数" />
         </Button>
       ),
     } as ProColumns<AssignmentItem>;

@@ -1,0 +1,90 @@
+// pages.pageStudio.studio.* — PageStudio workbench drawers/modals/draft columns
+// （ChangeChainDrawer/DiffDrawer/draftColumns/EditorModal/MergeModal/VersionsDrawer/
+//   PreviewDrawer + shared.ts pageTypeLabel；ComponentTemplates group fallbacks
+//   live here as pages.pageStudio.templates.category.*）
+export default {
+  'pages.pageStudio.studio.action.changeChain': 'Change chain',
+  'pages.pageStudio.studio.action.diff': 'Change diff',
+  'pages.pageStudio.studio.action.edit': 'Edit',
+  'pages.pageStudio.studio.action.preview': 'Preview',
+  'pages.pageStudio.studio.action.publish': 'Publish',
+  'pages.pageStudio.studio.action.publishConfirm': 'Publish this page?',
+  'pages.pageStudio.studio.action.regenerate': 'Regenerate',
+  'pages.pageStudio.studio.action.regenerateConfirmContent':
+    'Current draft changes will be overwritten by the latest proposal; published versions will not change.',
+  'pages.pageStudio.studio.action.regenerateConfirmTitle':
+    'Regenerate the draft from the latest proposal?',
+  'pages.pageStudio.studio.action.unpublish': 'Unpublish',
+  'pages.pageStudio.studio.action.unpublishConfirm': 'Unpublish this page?',
+  'pages.pageStudio.studio.action.versions': 'Version history',
+  'pages.pageStudio.studio.changeChain.currentStatus': 'Current status:',
+  'pages.pageStudio.studio.changeChain.empty': 'No change records',
+  'pages.pageStudio.studio.changeChain.page': 'Page:',
+  'pages.pageStudio.studio.changeChain.resource': 'Resource:',
+  'pages.pageStudio.studio.changeChain.statusDetail':
+    'Function version: {functionVersion}, semantic version: {semanticVersion}, proposal version: {proposalVersion}, draft revision: {draftRevision}, published version: {publishedVersion}',
+  'pages.pageStudio.studio.changeChain.title': 'Change chain',
+  'pages.pageStudio.studio.column.actions': 'Actions',
+  'pages.pageStudio.studio.column.category': 'Category',
+  'pages.pageStudio.studio.column.pageKey': 'Page key',
+  'pages.pageStudio.studio.column.status': 'Status',
+  'pages.pageStudio.studio.column.title': 'Title',
+  'pages.pageStudio.studio.column.updatedAt': 'Updated at',
+  'pages.pageStudio.studio.column.version': 'Version',
+  'pages.pageStudio.studio.diff.autoMergeCard':
+    '{count} display fields can be merged automatically',
+  'pages.pageStudio.studio.diff.conflictCard':
+    '{count} conflicting fields require manual confirmation',
+  'pages.pageStudio.studio.diff.empty': 'No changes',
+  'pages.pageStudio.studio.diff.mergeButton': 'Merge changes',
+  'pages.pageStudio.studio.diff.semanticChangeTag': 'Semantic change',
+  'pages.pageStudio.studio.diff.title': 'Change diff',
+  'pages.pageStudio.studio.editor.bindingStaleMore': '…and {count} more',
+  'pages.pageStudio.studio.editor.bindingStaleTitle':
+    'Page bindings do not match the function contract (publish validation will fail)',
+  'pages.pageStudio.studio.editor.cancel': 'Cancel',
+  'pages.pageStudio.studio.editor.empty': 'Select a page',
+  'pages.pageStudio.studio.editor.livePreview': 'Live preview',
+  'pages.pageStudio.studio.editor.previewExecuteError':
+    'Page Studio preview does not execute functions; run them in the operations console after publishing.',
+  'pages.pageStudio.studio.editor.previewHint':
+    'Preview does not execute functions; run them in the operations console after publishing',
+  'pages.pageStudio.studio.editor.previewOff': 'Preview off',
+  'pages.pageStudio.studio.editor.previewOn': 'Preview on',
+  'pages.pageStudio.studio.editor.saveAndPublish': 'Save and publish',
+  'pages.pageStudio.studio.editor.saveDraft': 'Save draft only',
+  'pages.pageStudio.studio.editor.title': 'Edit page',
+  'pages.pageStudio.studio.merge.auto': 'Auto merge',
+  'pages.pageStudio.studio.merge.cancel': 'Cancel',
+  'pages.pageStudio.studio.merge.hint':
+    'Auto merge only writes display fields; bindings, selectors, permissions, risks, approvals, and execution modes must be confirmed manually and republished.',
+  'pages.pageStudio.studio.merge.manual': 'Resolve conflicts manually',
+  'pages.pageStudio.studio.merge.title': 'Merge changes',
+  'pages.pageStudio.studio.pageType.operation': 'Operation page',
+  'pages.pageStudio.studio.pageType.report': 'Report page',
+  'pages.pageStudio.studio.pageType.resource': 'Resource page',
+  'pages.pageStudio.studio.pageType.task': 'Task page',
+  'pages.pageStudio.studio.preview.title': 'Page preview',
+  'pages.pageStudio.studio.versions.column.actions': 'Actions',
+  'pages.pageStudio.studio.versions.column.createdAt': 'Created at',
+  'pages.pageStudio.studio.versions.column.current': 'Current position',
+  'pages.pageStudio.studio.versions.column.message': 'Notes',
+  'pages.pageStudio.studio.versions.column.status': 'Status',
+  'pages.pageStudio.studio.versions.column.version': 'Version',
+  'pages.pageStudio.studio.versions.currentDraft': 'Current draft:',
+  'pages.pageStudio.studio.versions.currentPublished': 'Current published:',
+  'pages.pageStudio.studio.versions.empty': 'No version history',
+  'pages.pageStudio.studio.versions.page': 'Page:',
+  'pages.pageStudio.studio.versions.rollbackDraft': 'Roll back draft',
+  'pages.pageStudio.studio.versions.rollbackDraftConfirm':
+    'Roll back the draft to version {version}?',
+  'pages.pageStudio.studio.versions.rollbackPublished': 'Roll back published',
+  'pages.pageStudio.studio.versions.rollbackPublishedConfirm':
+    'Roll back the published version to {version}?',
+  'pages.pageStudio.studio.versions.tag.currentDraft': 'Current draft',
+  'pages.pageStudio.studio.versions.tag.currentPublished': 'Current published',
+  'pages.pageStudio.studio.versions.title': 'Version history',
+  'pages.pageStudio.studio.versions.total': '{total} in total',
+  'pages.pageStudio.templates.category.builtin': 'Builtin',
+  'pages.pageStudio.templates.category.custom': 'Custom',
+};

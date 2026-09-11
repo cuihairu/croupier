@@ -1,3 +1,4 @@
+import { getIntl } from '@umijs/max';
 import type { PageNode } from './model';
 
 /** 事件动作：目标一律是节点 id。 */
@@ -27,6 +28,10 @@ export interface ActionDef {
   targetFilter: (nodes: PageNode[]) => PageNode[];
 }
 
+// 展示 label/placeholder 经 getIntl 模块级解析（先例 services/api/bugs.ts；
+// SelectLang 切换语言整页刷新重新求值）；kind/Map key 为动作契约标识不动。
+const intl = getIntl();
+
 /** 动作注册表：label/目标过滤/参数字段声明/是否需要目标。 */
 export const ACTIONS: Record<
   ActionKind,
@@ -38,41 +43,83 @@ export const ACTIONS: Record<
 > = {
   openModal: {
     kind: 'openModal',
-    label: '打开弹窗',
+    label: intl.formatMessage({
+      id: 'pages.pageStudio.editor.action.kind.openModal',
+      defaultMessage: '打开弹窗',
+    }),
     targetFilter: (nodes) => nodes.filter((n) => n.type === 'modal'),
     needsTarget: true,
   },
   closeModal: {
     kind: 'closeModal',
-    label: '关闭弹窗',
+    label: intl.formatMessage({
+      id: 'pages.pageStudio.editor.action.kind.closeModal',
+      defaultMessage: '关闭弹窗',
+    }),
     targetFilter: () => [],
     needsTarget: false,
   },
   runBinding: {
     kind: 'runBinding',
-    label: '执行',
+    label: intl.formatMessage({
+      id: 'pages.pageStudio.editor.action.kind.runBinding',
+      defaultMessage: '执行',
+    }),
     targetFilter: (nodes) => nodes.filter((n) => n.type.startsWith('fn')),
     needsTarget: true,
   },
   refreshNode: {
     kind: 'refreshNode',
-    label: '刷新',
+    label: intl.formatMessage({
+      id: 'pages.pageStudio.editor.action.kind.refreshNode',
+      defaultMessage: '刷新',
+    }),
     targetFilter: (nodes) => nodes.filter((n) => n.type.startsWith('fn')),
     needsTarget: true,
   },
   navigate: {
     kind: 'navigate',
-    label: '跳转链接',
+    label: intl.formatMessage({
+      id: 'pages.pageStudio.editor.action.kind.navigate',
+      defaultMessage: '跳转链接',
+    }),
     targetFilter: () => [],
     needsTarget: false,
-    paramFields: [{ key: 'url', label: '地址', placeholder: 'https://… 或 /页面路径' }],
+    paramFields: [
+      {
+        key: 'url',
+        label: intl.formatMessage({
+          id: 'pages.pageStudio.editor.action.param.url.label',
+          defaultMessage: '地址',
+        }),
+        placeholder: intl.formatMessage({
+          id: 'pages.pageStudio.editor.action.param.url.placeholder',
+          defaultMessage: 'https://… 或 /页面路径',
+        }),
+      },
+    ],
   },
   showMessage: {
     kind: 'showMessage',
-    label: '提示消息',
+    label: intl.formatMessage({
+      id: 'pages.pageStudio.editor.action.kind.showMessage',
+      defaultMessage: '提示消息',
+    }),
     targetFilter: () => [],
     needsTarget: false,
-    paramFields: [{ key: 'message', label: '文案', placeholder: '提示内容' }],
+    paramFields: [
+      {
+        key: 'message',
+        label: intl.formatMessage({
+          id: 'pages.pageStudio.editor.action.param.message.label',
+          defaultMessage: '文案',
+        }),
+        placeholder: intl.formatMessage({
+          id: 'pages.pageStudio.editor.action.param.message.placeholder',
+          defaultMessage: '提示内容',
+        }),
+      },
+    ],
   },
 };
 
@@ -83,13 +130,43 @@ export interface ComponentEvent {
   label: string;
 }
 
-/** 内置事件 → 各组件声明（builtin 注册处引用）。 */
+/** 内置事件 → 各组件声明（builtin 注册处引用）。name 为 props 键契约不动。 */
 export const EVENTS = {
-  onClick: { name: 'onClick', label: '点击' },
-  onRowClick: { name: 'onRowClick', label: '行点击' },
-  onRowSelected: { name: 'onRowSelected', label: '行选中' },
-  onSuccess: { name: 'onSuccess', label: '执行成功后' },
-  onError: { name: 'onError', label: '执行失败时' },
+  onClick: {
+    name: 'onClick',
+    label: intl.formatMessage({
+      id: 'pages.pageStudio.editor.action.event.onClick',
+      defaultMessage: '点击',
+    }),
+  },
+  onRowClick: {
+    name: 'onRowClick',
+    label: intl.formatMessage({
+      id: 'pages.pageStudio.editor.action.event.onRowClick',
+      defaultMessage: '行点击',
+    }),
+  },
+  onRowSelected: {
+    name: 'onRowSelected',
+    label: intl.formatMessage({
+      id: 'pages.pageStudio.editor.action.event.onRowSelected',
+      defaultMessage: '行选中',
+    }),
+  },
+  onSuccess: {
+    name: 'onSuccess',
+    label: intl.formatMessage({
+      id: 'pages.pageStudio.editor.action.event.onSuccess',
+      defaultMessage: '执行成功后',
+    }),
+  },
+  onError: {
+    name: 'onError',
+    label: intl.formatMessage({
+      id: 'pages.pageStudio.editor.action.event.onError',
+      defaultMessage: '执行失败时',
+    }),
+  },
 } satisfies Record<string, ComponentEvent>;
 
 /** 解析 props 中的动作字段（非法/需目标动作的目标丢失返回 null）。 */

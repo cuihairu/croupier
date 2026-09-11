@@ -1,5 +1,6 @@
 import { Button, Card, Drawer, Empty, Space, Tag, Typography } from 'antd';
 import { MergeOutlined } from '@ant-design/icons';
+import { FormattedMessage, useIntl } from '@umijs/max';
 import type { DiffResponse } from '@/services/api/versioning';
 
 const { Paragraph, Text } = Typography;
@@ -19,16 +20,23 @@ export default function DiffDrawer({
   onClose: () => void;
   onMerge: () => void;
 }) {
+  const intl = useIntl();
   return (
     <Drawer
-      title="变更对比"
+      title={intl.formatMessage({
+        id: 'pages.pageStudio.studio.diff.title',
+        defaultMessage: '变更对比',
+      })}
       width={840}
       open={open}
       onClose={onClose}
       loading={loading}
       extra={
         <Button type="primary" icon={<MergeOutlined />} onClick={onMerge}>
-          合并变更
+          <FormattedMessage
+            id="pages.pageStudio.studio.diff.mergeButton"
+            defaultMessage="合并变更"
+          />
         </Button>
       }
     >
@@ -38,7 +46,16 @@ export default function DiffDrawer({
             <Text strong>{data.summary}</Text>
           </Paragraph>
           {data.autoMergeItems?.length ? (
-            <Card size="small" title={`可自动合并 ${data.autoMergeItems.length} 个展示字段`}>
+            <Card
+              size="small"
+              title={intl.formatMessage(
+                {
+                  id: 'pages.pageStudio.studio.diff.autoMergeCard',
+                  defaultMessage: '可自动合并 {count} 个展示字段',
+                },
+                { count: data.autoMergeItems.length },
+              )}
+            >
               <Space orientation="vertical" style={{ width: '100%' }}>
                 {data.autoMergeItems.map((item) => (
                   <Space key={item.field}>
@@ -51,7 +68,16 @@ export default function DiffDrawer({
             </Card>
           ) : null}
           {data.conflictItems?.length ? (
-            <Card size="small" title={`必须人工确认 ${data.conflictItems.length} 个冲突字段`}>
+            <Card
+              size="small"
+              title={intl.formatMessage(
+                {
+                  id: 'pages.pageStudio.studio.diff.conflictCard',
+                  defaultMessage: '必须人工确认 {count} 个冲突字段',
+                },
+                { count: data.conflictItems.length },
+              )}
+            >
               <Space orientation="vertical" style={{ width: '100%' }}>
                 {data.conflictItems.map((item) => (
                   <Space key={item.field}>
@@ -79,7 +105,14 @@ export default function DiffDrawer({
                     {change.changeType}
                   </Tag>
                   <Text code>{change.path}</Text>
-                  {change.isSemantic && <Tag color="purple">语义变更</Tag>}
+                  {change.isSemantic && (
+                    <Tag color="purple">
+                      <FormattedMessage
+                        id="pages.pageStudio.studio.diff.semanticChangeTag"
+                        defaultMessage="语义变更"
+                      />
+                    </Tag>
+                  )}
                 </Space>
                 {change.oldValue && (
                   <pre style={{ margin: 0, padding: 8, background: '#f5f5f5' }}>
@@ -96,7 +129,12 @@ export default function DiffDrawer({
           ))}
         </Space>
       ) : (
-        <Empty description="暂无变更" />
+        <Empty
+          description={intl.formatMessage({
+            id: 'pages.pageStudio.studio.diff.empty',
+            defaultMessage: '暂无变更',
+          })}
+        />
       )}
     </Drawer>
   );

@@ -16,6 +16,14 @@ import { formatDate, pageTypeLabel, statusColor } from './shared';
 
 const { Text } = Typography;
 
+/** 模块级文案助手接收 intl 的最小结构（@umijs/max 未导出 IntlShape 类型） */
+type IntlFormatter = {
+  formatMessage: (
+    descriptor: { id: string; defaultMessage: string },
+    values?: Record<string, string | number>,
+  ) => string;
+};
+
 /** 草稿列表列定义：操作列回调（发布/编辑/预览/重生成/版本/变更链/对比）
  * 由工作台主页注入；modal（regenerate 二次确认）随回调一起传入。 */
 export function buildDraftColumns(
@@ -30,10 +38,14 @@ export function buildDraftColumns(
     onDiff: (pageKey: string) => void;
   },
   modal: { confirm: (config: { title: string; content: string; onOk: () => void }) => void },
+  intl: IntlFormatter,
 ): ProColumns<PageSpecDraftSummary>[] {
   return [
     {
-      title: '页面标识',
+      title: intl.formatMessage({
+        id: 'pages.pageStudio.studio.column.pageKey',
+        defaultMessage: '页面标识',
+      }),
       dataIndex: 'pageKey',
       key: 'pageKey',
       width: 220,
@@ -45,47 +57,70 @@ export function buildDraftColumns(
       ),
     },
     {
-      title: '标题',
+      title: intl.formatMessage({
+        id: 'pages.pageStudio.studio.column.title',
+        defaultMessage: '标题',
+      }),
       dataIndex: 'title',
       key: 'title',
       render: (_, record) => localizedText(record.title, record.pageKey),
     },
     {
-      title: '分类',
+      title: intl.formatMessage({
+        id: 'pages.pageStudio.studio.column.category',
+        defaultMessage: '分类',
+      }),
       dataIndex: ['category', 'key'],
       key: 'category',
       width: 120,
       render: (_, record) => localizedText(record.category?.labels, record.category?.key || '-'),
     },
     {
-      title: '状态',
+      title: intl.formatMessage({
+        id: 'pages.pageStudio.studio.column.status',
+        defaultMessage: '状态',
+      }),
       dataIndex: 'status',
       key: 'status',
       width: 100,
       render: (_, record) => <Tag color={statusColor(record.status)}>{record.status}</Tag>,
     },
     {
-      title: '版本',
+      title: intl.formatMessage({
+        id: 'pages.pageStudio.studio.column.version',
+        defaultMessage: '版本',
+      }),
       dataIndex: 'publishedVersion',
       key: 'version',
       width: 80,
       render: (_, record) => record.publishedVersion || '-',
     },
     {
-      title: '更新时间',
+      title: intl.formatMessage({
+        id: 'pages.pageStudio.studio.column.updatedAt',
+        defaultMessage: '更新时间',
+      }),
       dataIndex: 'updatedAt',
       key: 'updatedAt',
       width: 180,
       render: (_, record) => formatDate(record.updatedAt),
     },
     {
-      title: '操作',
+      title: intl.formatMessage({
+        id: 'pages.pageStudio.studio.column.actions',
+        defaultMessage: '操作',
+      }),
       key: 'actions',
       width: 160,
       fixed: 'right',
       render: (_, record) => (
         <Space size={4}>
-          <Tooltip title="编辑">
+          <Tooltip
+            title={intl.formatMessage({
+              id: 'pages.pageStudio.studio.action.edit',
+              defaultMessage: '编辑',
+            })}
+          >
             <Button
               type="link"
               size="small"
@@ -93,7 +128,12 @@ export function buildDraftColumns(
               onClick={() => handlers.onEdit(record.pageKey, record.type)}
             />
           </Tooltip>
-          <Tooltip title="预览">
+          <Tooltip
+            title={intl.formatMessage({
+              id: 'pages.pageStudio.studio.action.preview',
+              defaultMessage: '预览',
+            })}
+          >
             <Button
               type="link"
               size="small"
@@ -103,19 +143,35 @@ export function buildDraftColumns(
           </Tooltip>
           {record.status === 'draft' ? (
             <Popconfirm
-              title="确认发布此页面？"
+              title={intl.formatMessage({
+                id: 'pages.pageStudio.studio.action.publishConfirm',
+                defaultMessage: '确认发布此页面？',
+              })}
               onConfirm={() => handlers.onPublish(record.pageKey, record.draftRevision)}
             >
-              <Tooltip title="发布">
+              <Tooltip
+                title={intl.formatMessage({
+                  id: 'pages.pageStudio.studio.action.publish',
+                  defaultMessage: '发布',
+                })}
+              >
                 <Button type="link" size="small" icon={<RocketOutlined />} />
               </Tooltip>
             </Popconfirm>
           ) : (
             <Popconfirm
-              title="确认取消发布此页面？"
+              title={intl.formatMessage({
+                id: 'pages.pageStudio.studio.action.unpublishConfirm',
+                defaultMessage: '确认取消发布此页面？',
+              })}
               onConfirm={() => handlers.onUnpublish(record.pageKey)}
             >
-              <Tooltip title="取消发布">
+              <Tooltip
+                title={intl.formatMessage({
+                  id: 'pages.pageStudio.studio.action.unpublish',
+                  defaultMessage: '取消发布',
+                })}
+              >
                 <Button type="link" size="small" icon={<StopOutlined />} danger />
               </Tooltip>
             </Popconfirm>
@@ -126,30 +182,48 @@ export function buildDraftColumns(
                 {
                   key: 'regenerate',
                   icon: <ReloadOutlined />,
-                  label: '重新生成',
+                  label: intl.formatMessage({
+                    id: 'pages.pageStudio.studio.action.regenerate',
+                    defaultMessage: '重新生成',
+                  }),
                   onClick: () =>
                     modal.confirm({
-                      title: '确认按最新 Proposal 重新生成草稿？',
-                      content: '当前草稿修改将被最新 Proposal 覆盖，已发布版本不会变更。',
+                      title: intl.formatMessage({
+                        id: 'pages.pageStudio.studio.action.regenerateConfirmTitle',
+                        defaultMessage: '确认按最新 Proposal 重新生成草稿？',
+                      }),
+                      content: intl.formatMessage({
+                        id: 'pages.pageStudio.studio.action.regenerateConfirmContent',
+                        defaultMessage: '当前草稿修改将被最新 Proposal 覆盖，已发布版本不会变更。',
+                      }),
                       onOk: () => handlers.onRegenerate(record.pageKey, record.draftRevision),
                     }),
                 },
                 {
                   key: 'versions',
                   icon: <HistoryOutlined />,
-                  label: '版本历史',
+                  label: intl.formatMessage({
+                    id: 'pages.pageStudio.studio.action.versions',
+                    defaultMessage: '版本历史',
+                  }),
                   onClick: () => handlers.onVersions(record.pageKey),
                 },
                 {
                   key: 'change-chain',
                   icon: <HistoryOutlined />,
-                  label: '变更链',
+                  label: intl.formatMessage({
+                    id: 'pages.pageStudio.studio.action.changeChain',
+                    defaultMessage: '变更链',
+                  }),
                   onClick: () => handlers.onChangeChain(record.pageKey),
                 },
                 {
                   key: 'diff',
                   icon: <DiffOutlined />,
-                  label: '变更对比',
+                  label: intl.formatMessage({
+                    id: 'pages.pageStudio.studio.action.diff',
+                    defaultMessage: '变更对比',
+                  }),
                   onClick: () => handlers.onDiff(record.pageKey),
                 },
               ],

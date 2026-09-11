@@ -58,6 +58,7 @@ export default {
   'menu.Ops.Schedules': '定时调度',
   'menu.Ops.Alerts': '告警中心',
   'menu.Ops.RateLimits': '限速管理',
+  'menu.Ops.Traces': '链路追踪',
   'menu.SystemConfig.SystemFoundation.SiteSettings': '网站配置',
   'menu.Dev.ExcelConfig': '表格配置',
   'menu.Dev.Configs': '业务配置',

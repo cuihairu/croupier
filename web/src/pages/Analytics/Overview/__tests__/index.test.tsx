@@ -18,10 +18,18 @@ configure({ asyncUtilTimeout: 5000 });
 jest.setTimeout(20000);
 
 jest.mock('@umijs/max', () => {
-  const formatMessage = jest.fn(({ id }: { id: string }) => id);
+  // 与 tests/setupTests.jsx 同语义：返回 defaultMessage；额外做 {placeholder} 插值
+  const formatMessage = jest.fn(
+    ({ defaultMessage }: { defaultMessage: string }, values?: Record<string, unknown>) =>
+      Object.entries(values || {}).reduce(
+        (msg: string, [key, val]) => msg.split(`{${key}}`).join(String(val)),
+        defaultMessage,
+      ),
+  );
   return {
     __esModule: true,
     useIntl: () => ({ formatMessage }),
+    FormattedMessage: ({ defaultMessage }: { defaultMessage: string }) => defaultMessage,
     __formatMessageMock: formatMessage,
   };
 });
@@ -78,7 +86,9 @@ describe('AnalyticsOverviewPage', () => {
     mockExportToXLSX.mockReset();
     mockExportToXLSX.mockResolvedValue(undefined);
     formatMessageMock.mockReset();
-    formatMessageMock.mockImplementation(({ id }: { id: string }) => id);
+    formatMessageMock.mockImplementation(
+      ({ defaultMessage }: { defaultMessage: string }) => defaultMessage,
+    );
   });
 
   it('渲染 KPI 卡与趋势曲线，fetchAnalyticsOverview 无筛选参数调用', async () => {
@@ -216,10 +226,8 @@ describe('AnalyticsOverviewPage', () => {
     ]);
   });
 
-  it('接口返回空：数据降级为 {}；文案缺失时标题回退默认值', async () => {
-    // formatMessage 返回空串：Card 标题走 || '概览 KPI' 回退
-    // （title 表达式随多次渲染反复求值，须整体替换实现而非 mockReturnValueOnce）
-    formatMessageMock.mockImplementation(() => '');
+  it('接口返回空：数据降级为 {}；标题与文案走 defaultMessage', async () => {
+    // defaultMessage 必填：mock 返回 defaultMessage，Card 标题即中文默认文案
     mockFetchOverview.mockResolvedValue(undefined as unknown as OverviewResponse);
 
     const { container } = render(<AnalyticsOverviewPage />);

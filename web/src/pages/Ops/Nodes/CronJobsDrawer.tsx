@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Drawer, Table } from 'antd';
+import { useIntl } from '@umijs/max';
 import { fetchNodeCronJobs, type NodeCronJob } from '@/services/api/ops';
 import type { NodeRow } from './shared';
 
@@ -11,6 +12,7 @@ export default function CronJobsDrawer({
   node: NodeRow | null;
   onClose: () => void;
 }) {
+  const intl = useIntl();
   const [cronJobs, setCronJobs] = useState<NodeCronJob[]>([]);
   const [cronLoading, setCronLoading] = useState(false);
 
@@ -36,7 +38,20 @@ export default function CronJobsDrawer({
 
   return (
     <Drawer
-      title={`主机定时任务${node ? ` · ${node.agentId}` : ''}`}
+      title={
+        node
+          ? intl.formatMessage(
+              {
+                id: 'pages.opsNodes.cronJobs.titleWithAgent',
+                defaultMessage: '主机定时任务 · {agentId}',
+              },
+              { agentId: node.agentId },
+            )
+          : intl.formatMessage({
+              id: 'pages.opsNodes.cronJobs.title',
+              defaultMessage: '主机定时任务',
+            })
+      }
       width={720}
       open={Boolean(node)}
       onClose={onClose}
@@ -48,18 +63,64 @@ export default function CronJobsDrawer({
         dataSource={cronJobs}
         pagination={false}
         columns={[
-          { title: '计划', dataIndex: 'schedule', width: 120 },
-          { title: '命令', dataIndex: 'command', ellipsis: true },
-          { title: '用户', dataIndex: 'user', width: 90 },
-          { title: '来源', dataIndex: 'sourceFile', ellipsis: true, width: 160 },
           {
-            title: '状态',
+            title: intl.formatMessage({
+              id: 'pages.opsNodes.cronJobs.column.schedule',
+              defaultMessage: '计划',
+            }),
+            dataIndex: 'schedule',
+            width: 120,
+          },
+          {
+            title: intl.formatMessage({
+              id: 'pages.opsNodes.cronJobs.column.command',
+              defaultMessage: '命令',
+            }),
+            dataIndex: 'command',
+            ellipsis: true,
+          },
+          {
+            title: intl.formatMessage({
+              id: 'pages.opsNodes.cronJobs.column.user',
+              defaultMessage: '用户',
+            }),
+            dataIndex: 'user',
+            width: 90,
+          },
+          {
+            title: intl.formatMessage({
+              id: 'pages.opsNodes.cronJobs.column.source',
+              defaultMessage: '来源',
+            }),
+            dataIndex: 'sourceFile',
+            ellipsis: true,
+            width: 160,
+          },
+          {
+            title: intl.formatMessage({
+              id: 'pages.opsNodes.cronJobs.column.status',
+              defaultMessage: '状态',
+            }),
             dataIndex: 'enabled',
             width: 70,
-            render: (v: boolean) => (v ? '启用' : '停用'),
+            render: (v: boolean) =>
+              v
+                ? intl.formatMessage({
+                    id: 'pages.opsNodes.cronJobs.status.enabled',
+                    defaultMessage: '启用',
+                  })
+                : intl.formatMessage({
+                    id: 'pages.opsNodes.cronJobs.status.disabled',
+                    defaultMessage: '停用',
+                  }),
           },
         ]}
-        locale={{ emptyText: '未读取到定时任务（或节点离线）' }}
+        locale={{
+          emptyText: intl.formatMessage({
+            id: 'pages.opsNodes.cronJobs.empty',
+            defaultMessage: '未读取到定时任务（或节点离线）',
+          }),
+        }}
       />
     </Drawer>
   );

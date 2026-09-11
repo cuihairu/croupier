@@ -4,6 +4,34 @@ export default {
   'pages.functionsInstances.alert.transitionalDescription':
     '主列表已经接入真实注册数据，但详情指标、实例日志和在线调试还没有后端接口。这里保留入口，但不再把这些未完成能力放到主流程前面。',
   'pages.functionsInstances.alert.transitionalTitle': '实例详情、日志和调试仍是过渡态',
+  'pages.functionsInstances.column.actions': '操作',
+  'pages.functionsInstances.column.env': '环境',
+  'pages.functionsInstances.column.functionId': '函数ID',
+  'pages.functionsInstances.column.rowAction.debug': '调试',
+  'pages.functionsInstances.column.rowAction.detail': '查看详情',
+  'pages.functionsInstances.column.rowAction.logs': '查看日志',
+  'pages.functionsInstances.column.status': '状态',
+  'pages.functionsInstances.column.version': '版本',
+  'pages.functionsInstances.debug.alert.descriptionWithServiceId':
+    '参数预览只在浏览器本地校验 JSON Schema，不会调用服务；执行会定向发送到当前 Service ID。',
+  'pages.functionsInstances.debug.alert.descriptionWithoutServiceId':
+    '当前实例没有 Service ID，已禁用真实执行；参数预览仍可用于检查 JSON 和 Schema。',
+  'pages.functionsInstances.debug.alert.message': '调试请求将真实执行',
+  'pages.functionsInstances.debug.button.cancel': '取消',
+  'pages.functionsInstances.debug.button.execute': '执行',
+  'pages.functionsInstances.debug.button.preview': '参数预览',
+  'pages.functionsInstances.debug.error.executeFailed': '调试执行失败',
+  'pages.functionsInstances.debug.error.invalidJson': '无效的 JSON 格式',
+  'pages.functionsInstances.debug.error.missingServiceId':
+    '当前实例缺少 Service ID，无法定向执行；可使用参数预览。',
+  'pages.functionsInstances.debug.error.missingServiceIdBlocked':
+    '当前实例缺少 Service ID，已阻止负载均衡调用。',
+  'pages.functionsInstances.debug.label.requestParams': '请求参数 (JSON):',
+  'pages.functionsInstances.debug.label.result': '调试结果:',
+  'pages.functionsInstances.debug.label.targetInstance': '目标实例:',
+  'pages.functionsInstances.debug.title': '调试 - {functionId}',
+  'pages.functionsInstances.debug.validation.paramFallback': '参数',
+  'pages.functionsInstances.debug.validation.schemaMismatch': '不符合 Schema',
   'pages.functionsInstances.detail.debugAlert.description':
     '调试请求会定向到该实例执行；参数模板按函数 Schema 自动生成，可先做参数预览。缺少 Service ID 时只能预览，不能执行。',
   'pages.functionsInstances.detail.debugAlert.message': '调试模式',
@@ -48,6 +76,13 @@ export default {
   'pages.functionsInstances.list.refreshData': '刷新数据',
   'pages.functionsInstances.list.resultCount': '当前结果 {count} 个实例',
   'pages.functionsInstances.list.title': '实例列表',
+  'pages.functionsInstances.logs.close': '关闭',
+  'pages.functionsInstances.logs.empty': '暂无日志数据',
+  'pages.functionsInstances.logs.emptyDescription':
+    '实例日志查询接口尚未接入，当前不会展示伪造日志。',
+  'pages.functionsInstances.logs.export': '导出日志',
+  'pages.functionsInstances.logs.exported': '日志已导出',
+  'pages.functionsInstances.logs.title': '日志 - {agentId}',
   'pages.functionsInstances.page.subTitle': '监控和管理各个Agent实例上的函数注册情况',
   'pages.functionsInstances.page.title': '函数实例管理',
   'pages.functionsInstances.pagination.total': '共 {total} 个实例',

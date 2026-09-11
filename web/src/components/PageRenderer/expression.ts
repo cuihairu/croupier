@@ -8,6 +8,25 @@
  * 不做 JS eval / 运算符 / 函数调用（V5 边界）。
  */
 
+import { getIntl } from '@umijs/max';
+
+/**
+ * 错误消息本地化：纯函数模块无法 useIntl，在错误产生时经 getIntl 求值
+ * （消费方 ExpressionInput 将 error 直接渲染为编辑器诊断）。umi 运行时外
+ * （单测/异常）回退 defaultMessage，与 currentLocale() 的防御先例一致。
+ */
+function exprError(
+  id: string,
+  defaultMessage: string,
+  values?: Record<string, string | number>,
+): string {
+  try {
+    return getIntl().formatMessage({ id, defaultMessage }, values);
+  } catch {
+    return defaultMessage;
+  }
+}
+
 /** 表达式引用：变量名 + 路径段（字符串属性 / 数字下标）。 */
 export type ExprRef = {
   /** 变量名：页面区块变量（== 发布 spec 区块 key）或保留字 row（行上下文）。 */
@@ -49,9 +68,23 @@ export function matchVariable(inner: string, variables: Set<string>): string | u
 export function parseExpression(text: string, variables: Set<string>): ParseResult {
   const trimmed = text.trim();
   const m = EXPR_RE.exec(trimmed);
-  if (!m) return { ok: false, error: '不是表达式（应以 {{ 开头、}} 结尾）' };
+  if (!m) {
+    // defaultMessage 含字面量 {{ }}，按 ICU 语法转义（与 locale 键值一致）
+    return {
+      ok: false,
+      error: exprError(
+        'component.pageRenderer.expression.error.notExpression',
+        "不是表达式（应以 '{{' 开头、'}}' 结尾）",
+      ),
+    };
+  }
   const inner = m[1].trim();
-  if (!inner) return { ok: false, error: '表达式为空' };
+  if (!inner) {
+    return {
+      ok: false,
+      error: exprError('component.pageRenderer.expression.error.empty', '表达式为空'),
+    };
+  }
 
   let variable = matchVariable(inner, variables);
   if (
@@ -63,7 +96,15 @@ export function parseExpression(text: string, variables: Set<string>): ParseResu
     variable = ROW_VARIABLE;
   }
   if (!variable) {
-    return { ok: false, error: `未知变量：${inner.split(/[.[\]]/)[0]}` };
+    const unknown = inner.split(/[.[\]]/)[0];
+    return {
+      ok: false,
+      error: exprError(
+        'component.pageRenderer.expression.error.unknownVariable',
+        `未知变量：${unknown}`,
+        { variable: unknown },
+      ),
+    };
   }
 
   const path: Array<string | number> = [];
@@ -75,21 +116,54 @@ export function parseExpression(text: string, variables: Set<string>): ParseResu
       let j = start;
       while (j < inner.length && inner[j] !== '.' && inner[j] !== '[') j += 1;
       const seg = inner.slice(start, j);
-      if (!IDENT_RE.test(seg)) return { ok: false, error: `非法路径段「${seg}」` };
+      if (!IDENT_RE.test(seg)) {
+        return {
+          ok: false,
+          error: exprError(
+            'component.pageRenderer.expression.error.illegalSegment',
+            `非法路径段「${seg}」`,
+            { segment: seg },
+          ),
+        };
+      }
       path.push(seg);
       i = j;
       continue;
     }
     if (ch === '[') {
       const end = inner.indexOf(']', i);
-      if (end < 0) return { ok: false, error: '数组下标缺少 ]' };
+      if (end < 0) {
+        return {
+          ok: false,
+          error: exprError(
+            'component.pageRenderer.expression.error.arrayIndexUnterminated',
+            '数组下标缺少 ]',
+          ),
+        };
+      }
       const raw = inner.slice(i + 1, end);
-      if (!/^\d+$/.test(raw)) return { ok: false, error: `非法数组下标「${raw}」` };
+      if (!/^\d+$/.test(raw)) {
+        return {
+          ok: false,
+          error: exprError(
+            'component.pageRenderer.expression.error.illegalIndex',
+            `非法数组下标「${raw}」`,
+            { index: raw },
+          ),
+        };
+      }
       path.push(Number(raw));
       i = end + 1;
       continue;
     }
-    return { ok: false, error: `非法字符「${ch}」` };
+    return {
+      ok: false,
+      error: exprError(
+        'component.pageRenderer.expression.error.illegalCharacter',
+        `非法字符「${ch}」`,
+        { char: ch },
+      ),
+    };
   }
   return { ok: true, ref: { variable, path } };
 }

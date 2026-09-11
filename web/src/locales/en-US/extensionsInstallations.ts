@@ -1,8 +1,24 @@
 // pages.extensionsInstallations.* — Extensions/Installations 与抽屉
 export default {
+  'pages.extensionsInstallations.action.detail': 'View Details',
+  'pages.extensionsInstallations.action.disableCurrent': 'Disable Installation',
+  'pages.extensionsInstallations.action.enableCurrent': 'Enable Installation',
+  'pages.extensionsInstallations.action.events': 'View Events',
+  'pages.extensionsInstallations.action.more': 'More',
+  'pages.extensionsInstallations.action.reconcileCurrent': 'Rebuild Binding',
   'pages.extensionsInstallations.action.reconcileToast': 'Binding rebuild triggered',
   'pages.extensionsInstallations.action.toggleDisabledToast': 'Extension disabled',
   'pages.extensionsInstallations.action.toggleEnabledToast': 'Extension enabled',
+  'pages.extensionsInstallations.action.uninstallCurrent': 'Uninstall',
+  'pages.extensionsInstallations.action.upgradeCurrent': 'Upgrade Installation',
+  'pages.extensionsInstallations.column.actions': 'Actions',
+  'pages.extensionsInstallations.column.disabledTag': 'Disabled',
+  'pages.extensionsInstallations.column.displayName': 'Installation',
+  'pages.extensionsInstallations.column.enabledTag': 'Enabled',
+  'pages.extensionsInstallations.column.health': 'Health',
+  'pages.extensionsInstallations.column.releaseVersion': 'Version',
+  'pages.extensionsInstallations.column.status': 'Status',
+  'pages.extensionsInstallations.column.updatedAt': 'Updated At',
   'pages.extensionsInstallations.confirmUninstall.content':
     'Installation #{id} will be uninstalled. Continue?',
   'pages.extensionsInstallations.confirmUninstall.title': 'Uninstall Extension',
@@ -101,4 +117,14 @@ export default {
   'pages.extensionsInstallations.uninstallBlocked.blockersHint':
     'The following extensions still depend on this one. Resolve them first:',
   'pages.extensionsInstallations.uninstallBlocked.title': 'Cannot uninstall: dependencies exist',
+  'pages.extensionsInstallations.upgrade.dependencyCycle':
+    'Upgrade failed, circular dependency detected: {dependency}',
+  'pages.extensionsInstallations.upgrade.missingDependency':
+    'Upgrade failed, missing dependency extension: {dependency}',
+  'pages.extensionsInstallations.upgrade.missingVersionWarning': 'Enter a target version',
+  'pages.extensionsInstallations.upgrade.submitted': 'Upgrade request submitted',
+  'pages.extensionsInstallations.upgrade.title': 'Upgrade Extension',
+  'pages.extensionsInstallations.upgrade.versionMismatch':
+    'Upgrade failed, dependency version mismatch: {dependency}, required {requiredVersion}, current {currentVersion}',
+  'pages.extensionsInstallations.upgrade.versionPlaceholder': 'Select a target version',
 };

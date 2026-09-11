@@ -1,5 +1,6 @@
 import React from 'react';
 import { Alert, Button, Card, Descriptions, Space, Tabs, Typography } from 'antd';
+import { FormattedMessage, useIntl } from '@umijs/max';
 import type { FunctionDescriptor } from '@/services/api/functions';
 import type { JSONSchema } from '@/types/dashboard';
 import { JsonViewer } from './DetailSections';
@@ -33,6 +34,7 @@ export default function DetailConfigTab({
   parsedInputSchema,
   onOpenPageStudio,
 }: ConfigTabProps) {
+  const intl = useIntl();
   const outputSchema =
     typeof formDescriptor.outputSchema === 'string'
       ? formDescriptor.outputSchema
@@ -91,12 +93,22 @@ export default function DetailConfigTab({
   const configTabItems = [
     {
       key: 'json',
-      label: '元数据只读',
+      label: intl.formatMessage({
+        id: 'pages.functionsDetail.configTab.subTab.json',
+        defaultMessage: '元数据只读',
+      }),
       children: (
         <>
           <Alert
-            message="函数元数据"
-            description="按来源拆分查看：详情接口、描述符索引和 OpenAPI。这一页只用于核对能力契约，不用于搭页面。"
+            message={intl.formatMessage({
+              id: 'pages.functionsDetail.configTab.jsonAlert.message',
+              defaultMessage: '函数元数据',
+            })}
+            description={intl.formatMessage({
+              id: 'pages.functionsDetail.configTab.jsonAlert.description',
+              defaultMessage:
+                '按来源拆分查看：详情接口、描述符索引和 OpenAPI。这一页只用于核对能力契约，不用于搭页面。',
+            })}
             type="info"
             showIcon
           />
@@ -106,17 +118,30 @@ export default function DetailConfigTab({
     },
     {
       key: 'schema',
-      label: '契约 Schema',
+      label: intl.formatMessage({
+        id: 'pages.functionsDetail.configTab.subTab.schema',
+        defaultMessage: '契约 Schema',
+      }),
       children: (
         <Space orientation="vertical" size={16} style={{ width: '100%' }}>
           <Alert
-            message="函数注册只提供契约，不保存页面 UI"
-            description="这里展示 input/output JSON Schema，用于核对调用参数和返回结构。默认业务页面由 PageProposal 生成，接受后进入 Page Studio 编辑和发布。"
+            message={intl.formatMessage({
+              id: 'pages.functionsDetail.configTab.schemaAlert.message',
+              defaultMessage: '函数注册只提供契约，不保存页面 UI',
+            })}
+            description={intl.formatMessage({
+              id: 'pages.functionsDetail.configTab.schemaAlert.description',
+              defaultMessage:
+                '这里展示 input/output JSON Schema，用于核对调用参数和返回结构。默认业务页面由 PageProposal 生成，接受后进入 Page Studio 编辑和发布。',
+            })}
             type="info"
             showIcon
             action={
               <Button type="primary" size="small" onClick={onOpenPageStudio}>
-                查看页面候选
+                <FormattedMessage
+                  id="pages.functionsDetail.configTab.button.viewPageCandidates"
+                  defaultMessage="查看页面候选"
+                />
               </Button>
             }
           />
@@ -156,15 +181,23 @@ export default function DetailConfigTab({
         type="warning"
         showIcon
         style={{ marginBottom: 16 }}
-        message="这里配置的是单个函数，不是整个业务页面"
+        message={intl.formatMessage({
+          id: 'pages.functionsDetail.configTab.warningAlert.message',
+          defaultMessage: '这里配置的是单个函数，不是整个业务页面',
+        })}
         description={
           <Space wrap>
             <span>
-              函数层只确认能力契约；分类、菜单、列表、详情、动作位置和表单展示都由
-              PageProposal/PageSpec 决定。
+              <FormattedMessage
+                id="pages.functionsDetail.configTab.warningAlert.description"
+                defaultMessage="函数层只确认能力契约；分类、菜单、列表、详情、动作位置和表单展示都由 PageProposal/PageSpec 决定。"
+              />
             </span>
             <Button type="primary" size="small" onClick={onOpenPageStudio}>
-              查看资源/页面候选
+              <FormattedMessage
+                id="pages.functionsDetail.button.viewCandidates"
+                defaultMessage="查看资源/页面候选"
+              />
             </Button>
           </Space>
         }

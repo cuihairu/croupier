@@ -14,6 +14,7 @@ import { localizedText } from '@/utils/localizedText';
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Result } from 'antd';
+import { useIntl } from '@umijs/max';
 import { WarningOutlined } from '@ant-design/icons';
 import { CompositeRenderer } from './CompositeRenderer';
 import ResourcePageRenderer from './ResourcePageRenderer';
@@ -72,6 +73,7 @@ const PageRenderer: React.FC<PageRendererProps> = ({
   onExport,
 }) => {
   const { type, bindings } = pageSpec;
+  const intl = useIntl();
   const [pageState, setPageState] = useState<PageState>({});
   const pageStateRef = useRef<PageState>({});
 
@@ -109,8 +111,14 @@ const PageRenderer: React.FC<PageRendererProps> = ({
         return (
           <Result
             status="warning"
-            title="配置错误"
-            subTitle="组合页面缺少 composite 配置"
+            title={intl.formatMessage({
+              id: 'component.pageRenderer.shell.configErrorTitle',
+              defaultMessage: '配置错误',
+            })}
+            subTitle={intl.formatMessage({
+              id: 'component.pageRenderer.shell.missingComposite',
+              defaultMessage: '组合页面缺少 composite 配置',
+            })}
             icon={<WarningOutlined />}
           />
         );
@@ -143,8 +151,14 @@ const PageRenderer: React.FC<PageRendererProps> = ({
         return (
           <Result
             status="warning"
-            title="配置错误"
-            subTitle="资源页面缺少 resource 配置"
+            title={intl.formatMessage({
+              id: 'component.pageRenderer.shell.configErrorTitle',
+              defaultMessage: '配置错误',
+            })}
+            subTitle={intl.formatMessage({
+              id: 'component.pageRenderer.shell.missingResource',
+              defaultMessage: '资源页面缺少 resource 配置',
+            })}
             icon={<WarningOutlined />}
           />
         );
@@ -164,8 +178,14 @@ const PageRenderer: React.FC<PageRendererProps> = ({
         return (
           <Result
             status="warning"
-            title="配置错误"
-            subTitle="操作页面缺少 operation 配置"
+            title={intl.formatMessage({
+              id: 'component.pageRenderer.shell.configErrorTitle',
+              defaultMessage: '配置错误',
+            })}
+            subTitle={intl.formatMessage({
+              id: 'component.pageRenderer.shell.missingOperation',
+              defaultMessage: '操作页面缺少 operation 配置',
+            })}
             icon={<WarningOutlined />}
           />
         );
@@ -186,8 +206,14 @@ const PageRenderer: React.FC<PageRendererProps> = ({
         return (
           <Result
             status="warning"
-            title="配置错误"
-            subTitle="任务页面缺少 task 配置"
+            title={intl.formatMessage({
+              id: 'component.pageRenderer.shell.configErrorTitle',
+              defaultMessage: '配置错误',
+            })}
+            subTitle={intl.formatMessage({
+              id: 'component.pageRenderer.shell.missingTask',
+              defaultMessage: '任务页面缺少 task 配置',
+            })}
             icon={<WarningOutlined />}
           />
         );
@@ -210,8 +236,14 @@ const PageRenderer: React.FC<PageRendererProps> = ({
         return (
           <Result
             status="warning"
-            title="配置错误"
-            subTitle="报表页面缺少 report 配置"
+            title={intl.formatMessage({
+              id: 'component.pageRenderer.shell.configErrorTitle',
+              defaultMessage: '配置错误',
+            })}
+            subTitle={intl.formatMessage({
+              id: 'component.pageRenderer.shell.missingReport',
+              defaultMessage: '报表页面缺少 report 配置',
+            })}
             icon={<WarningOutlined />}
           />
         );
@@ -231,8 +263,17 @@ const PageRenderer: React.FC<PageRendererProps> = ({
       return (
         <Result
           status="error"
-          title="未知页面类型"
-          subTitle={`不支持的页面类型: ${type}`}
+          title={intl.formatMessage({
+            id: 'component.pageRenderer.shell.unknownType',
+            defaultMessage: '未知页面类型',
+          })}
+          subTitle={intl.formatMessage(
+            {
+              id: 'component.pageRenderer.shell.unsupportedType',
+              defaultMessage: `不支持的页面类型: ${String(type)}`,
+            },
+            { type: String(type) },
+          )}
           icon={<WarningOutlined />}
         />
       );

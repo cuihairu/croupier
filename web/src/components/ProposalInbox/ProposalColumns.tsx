@@ -12,6 +12,7 @@ import type { ColumnsType } from 'antd/es/table';
 import { FormattedMessage } from '@umijs/max';
 import type {
   BlockedProposalIssue,
+  DiagnosticInfo,
   PageProposal,
   PageType,
   ProposalQuality,
@@ -101,7 +102,9 @@ export function buildProposalColumns({
       key: 'pageType',
       width: 90,
       render: (type: PageType) => (
-        <Tag color={pageTypeColors[type]}>{pageTypeLabels[type] || type}</Tag>
+        <Tag color={pageTypeColors[type]}>
+          {pageTypeLabels[type] ? intl.formatMessage(pageTypeLabels[type]) : type}
+        </Tag>
       ),
     },
     {
@@ -123,7 +126,7 @@ export function buildProposalColumns({
       key: 'quality',
       width: 120,
       render: (quality: ProposalQuality) => (
-        <Tag color={qualityColors[quality]}>{qualityLabels[quality]}</Tag>
+        <Tag color={qualityColors[quality]}>{intl.formatMessage(qualityLabels[quality])}</Tag>
       ),
     },
     {
@@ -135,7 +138,7 @@ export function buildProposalColumns({
       key: 'status',
       width: 100,
       render: (status: ProposalStatus) => (
-        <Tag color={statusColors[status]}>{statusLabels[status]}</Tag>
+        <Tag color={statusColors[status]}>{intl.formatMessage(statusLabels[status])}</Tag>
       ),
     },
     {
@@ -146,7 +149,7 @@ export function buildProposalColumns({
       dataIndex: 'diagnostics',
       key: 'diagnostics',
       width: 160,
-      render: diagnosticSummary,
+      render: (diagnostics?: DiagnosticInfo[]) => diagnosticSummary(intl, diagnostics),
     },
     {
       title: intl.formatMessage({
@@ -322,7 +325,7 @@ export function buildBlockedColumns({
       dataIndex: 'diagnostics',
       key: 'diagnostics',
       width: 160,
-      render: diagnosticSummary,
+      render: (diagnostics?: DiagnosticInfo[]) => diagnosticSummary(intl, diagnostics),
     },
     {
       title: intl.formatMessage({

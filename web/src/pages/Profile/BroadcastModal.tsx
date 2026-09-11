@@ -2,6 +2,7 @@ import { useRef } from 'react';
 import { App, Form, Input, Select } from 'antd';
 import type { FormInstance } from 'antd';
 import { ModalForm } from '@ant-design/pro-components';
+import { useIntl } from '@umijs/max';
 import { broadcastMessage } from '@/services/api/messages';
 import { extractErrorMessage } from '@/utils/errors';
 
@@ -23,13 +24,17 @@ export default function BroadcastModal({
   onSent: () => void;
 }) {
   const { message } = App.useApp();
+  const intl = useIntl();
   // 切回「广播」时清空 toUser 需要命令式写回；formRef 指向当前挂载的表单实例
   // （destroyOnHidden 下每次打开都是新实例，不会持有陈旧 store）
   const formRef = useRef<FormInstance<BroadcastFormValues> | undefined>(undefined);
 
   return (
     <ModalForm<BroadcastFormValues>
-      title="发送站内消息"
+      title={intl.formatMessage({
+        id: 'pages.profile.broadcast.title',
+        defaultMessage: '发送站内消息',
+      })}
       open={open}
       onOpenChange={(v) => {
         if (!v) onClose();
@@ -37,7 +42,14 @@ export default function BroadcastModal({
       formRef={formRef}
       modalProps={{ destroyOnHidden: true }}
       width={520}
-      submitter={{ searchConfig: { submitText: '确定' } }}
+      submitter={{
+        searchConfig: {
+          submitText: intl.formatMessage({
+            id: 'pages.profile.broadcast.action.submit',
+            defaultMessage: '确定',
+          }),
+        },
+      }}
       initialValues={{ audience: 'all' }}
       onFinish={async (values) => {
         try {
@@ -49,20 +61,55 @@ export default function BroadcastModal({
             title: values.title,
             content: values.content,
           });
-          message.success(`已发送给 ${res.sent} 位用户`);
+          message.success(
+            intl.formatMessage(
+              {
+                id: 'pages.profile.broadcast.sent',
+                defaultMessage: `已发送给 ${res.sent} 位用户`,
+              },
+              { count: res.sent },
+            ),
+          );
           onSent();
           return true;
         } catch (error) {
-          message.error(extractErrorMessage(error, '发送失败'));
+          message.error(
+            extractErrorMessage(
+              error,
+              intl.formatMessage({
+                id: 'pages.profile.broadcast.error.sendFailed',
+                defaultMessage: '发送失败',
+              }),
+            ),
+          );
           return false;
         }
       }}
     >
-      <Form.Item name="audience" label="接收范围" rules={[{ required: true }]}>
+      <Form.Item
+        name="audience"
+        label={intl.formatMessage({
+          id: 'pages.profile.broadcast.audience.label',
+          defaultMessage: '接收范围',
+        })}
+        rules={[{ required: true }]}
+      >
         <Select
           options={[
-            { value: 'all', label: '全部管理员/用户（广播）' },
-            { value: 'users', label: '指定用户' },
+            {
+              value: 'all',
+              label: intl.formatMessage({
+                id: 'pages.profile.broadcast.audience.all',
+                defaultMessage: '全部管理员/用户（广播）',
+              }),
+            },
+            {
+              value: 'users',
+              label: intl.formatMessage({
+                id: 'pages.profile.broadcast.audience.users',
+                defaultMessage: '指定用户',
+              }),
+            },
           ]}
           onChange={(value) => {
             if (value === 'all') formRef.current?.setFieldsValue({ toUser: undefined });
@@ -77,19 +124,79 @@ export default function BroadcastModal({
           getFieldValue('audience') === 'users' ? (
             <Form.Item
               name="toUser"
-              label="接收用户名"
-              rules={[{ required: true, message: '请输入接收用户名' }]}
+              label={intl.formatMessage({
+                id: 'pages.profile.broadcast.field.toUserLabel',
+                defaultMessage: '接收用户名',
+              })}
+              rules={[
+                {
+                  required: true,
+                  message: intl.formatMessage({
+                    id: 'pages.profile.broadcast.field.toUserRequired',
+                    defaultMessage: '请输入接收用户名',
+                  }),
+                },
+              ]}
             >
-              <Input placeholder="用户名" />
+              <Input
+                placeholder={intl.formatMessage({
+                  id: 'pages.profile.broadcast.field.toUserPlaceholder',
+                  defaultMessage: '用户名',
+                })}
+              />
             </Form.Item>
           ) : null
         }
       </Form.Item>
-      <Form.Item name="title" label="标题" rules={[{ required: true, message: '请输入标题' }]}>
-        <Input placeholder="消息标题" maxLength={100} />
+      <Form.Item
+        name="title"
+        label={intl.formatMessage({
+          id: 'pages.profile.broadcast.field.titleLabel',
+          defaultMessage: '标题',
+        })}
+        rules={[
+          {
+            required: true,
+            message: intl.formatMessage({
+              id: 'pages.profile.broadcast.field.titleRequired',
+              defaultMessage: '请输入标题',
+            }),
+          },
+        ]}
+      >
+        <Input
+          placeholder={intl.formatMessage({
+            id: 'pages.profile.broadcast.field.titlePlaceholder',
+            defaultMessage: '消息标题',
+          })}
+          maxLength={100}
+        />
       </Form.Item>
-      <Form.Item name="content" label="内容" rules={[{ required: true, message: '请输入内容' }]}>
-        <Input.TextArea rows={4} placeholder="消息内容" maxLength={2000} showCount />
+      <Form.Item
+        name="content"
+        label={intl.formatMessage({
+          id: 'pages.profile.broadcast.field.contentLabel',
+          defaultMessage: '内容',
+        })}
+        rules={[
+          {
+            required: true,
+            message: intl.formatMessage({
+              id: 'pages.profile.broadcast.field.contentRequired',
+              defaultMessage: '请输入内容',
+            }),
+          },
+        ]}
+      >
+        <Input.TextArea
+          rows={4}
+          placeholder={intl.formatMessage({
+            id: 'pages.profile.broadcast.field.contentPlaceholder',
+            defaultMessage: '消息内容',
+          })}
+          maxLength={2000}
+          showCount
+        />
       </Form.Item>
     </ModalForm>
   );

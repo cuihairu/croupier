@@ -216,6 +216,7 @@ export default function useAssignmentsPage() {
   const columns = useMemo(
     () =>
       buildAssignmentColumns({
+        intl,
         canWrite,
         selected,
         setSelected,
@@ -227,7 +228,7 @@ export default function useAssignmentsPage() {
           routerHistory.push(`/functions/${encodeURIComponent(id)}?tab=config&subTab=schema`);
         },
       }),
-    [canWrite, selected],
+    [canWrite, intl, selected],
   );
 
   const resourceColumns = useMemo(
@@ -242,12 +243,13 @@ export default function useAssignmentsPage() {
   const capabilityColumns = useMemo(
     () =>
       buildRouteColumns({
+        intl,
         capabilityColumns: ASSIGNMENTS_PAGE_SCHEMA.capabilityColumns,
         onOpenDetail: (id) => {
           routerHistory.push(`/functions/${encodeURIComponent(id)}`);
         },
       }),
-    [],
+    [intl],
   );
 
   const pageCtx = useMemo(

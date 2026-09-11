@@ -1,4 +1,5 @@
 import { Drawer, Empty } from 'antd';
+import { useIntl } from '@umijs/max';
 import PageRenderer from '@/components/PageRenderer';
 import type { PageSpecDraft } from '@/types/dashboard';
 
@@ -12,18 +13,38 @@ export default function PreviewDrawer({
   draft: PageSpecDraft | null;
   onClose: () => void;
 }) {
+  const intl = useIntl();
   return (
-    <Drawer title="页面预览" width={900} open={open} onClose={onClose}>
+    <Drawer
+      title={intl.formatMessage({
+        id: 'pages.pageStudio.studio.preview.title',
+        defaultMessage: '页面预览',
+      })}
+      width={900}
+      open={open}
+      onClose={onClose}
+    >
       {draft ? (
         <PageRenderer
           pageSpec={draft}
           preview
           onExecute={async () => {
-            throw new Error('Page Studio 预览不执行函数；发布后请在运行控制台执行。');
+            // 与 EditorModal 预览同文案，共用 editor.* 键
+            throw new Error(
+              intl.formatMessage({
+                id: 'pages.pageStudio.studio.editor.previewExecuteError',
+                defaultMessage: 'Page Studio 预览不执行函数；发布后请在运行控制台执行。',
+              }),
+            );
           }}
         />
       ) : (
-        <Empty description="请选择页面" />
+        <Empty
+          description={intl.formatMessage({
+            id: 'pages.pageStudio.studio.editor.empty',
+            defaultMessage: '请选择页面',
+          })}
+        />
       )}
     </Drawer>
   );

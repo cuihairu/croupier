@@ -123,6 +123,15 @@ jest.mock(
     });
     global.__UMI_SET_INITIAL_STATE__ = setInitialState;
 
+    // formatMessage 返回 defaultMessage，并做 {placeholder} 插值（真实 intl 行为，
+    // 同 Support/Tickets Detail.test.tsx 先例）——PageStudio 编译器警告等 ICU 模板串
+    // 的插值片段（key/变量名/路径）被测试断言，不插值会丢
+    const formatMessage = (descriptor, values) =>
+      Object.entries(values || {}).reduce(
+        (msg, [key, val]) => msg.split(`{${key}}`).join(String(val)),
+        descriptor.defaultMessage,
+      );
+
     return {
       __esModule: true,
       history: {
@@ -130,14 +139,10 @@ jest.mock(
         location: { pathname: '/user/login' },
       },
       request,
-      useIntl: () => ({
-        formatMessage: ({ defaultMessage }) => defaultMessage,
-      }),
+      useIntl: () => ({ formatMessage }),
       // 与 useIntl 同款实现：非组件上下文（requestErrorConfig/bugs/pageSchema 等模块级代码）
       // 通过 getIntl() 取 intl，测试下同样返回 defaultMessage
-      getIntl: () => ({
-        formatMessage: ({ defaultMessage }) => defaultMessage,
-      }),
+      getIntl: () => ({ formatMessage }),
       FormattedMessage: ({ defaultMessage }) =>
         React.createElement(React.Fragment, null, defaultMessage),
       SelectLang: () => null,

@@ -1,4 +1,5 @@
 import { Drawer, Empty, Space, Tag, Timeline, Typography } from 'antd';
+import { FormattedMessage, useIntl } from '@umijs/max';
 import type { ChangeChain } from '@/services/api/versioning';
 import { formatDate } from './shared';
 
@@ -16,22 +17,59 @@ export default function ChangeChainDrawer({
   loading: boolean;
   onClose: () => void;
 }) {
+  const intl = useIntl();
   return (
-    <Drawer title="变更链" width={640} open={open} onClose={onClose} loading={loading}>
+    <Drawer
+      title={intl.formatMessage({
+        id: 'pages.pageStudio.studio.changeChain.title',
+        defaultMessage: '变更链',
+      })}
+      width={640}
+      open={open}
+      onClose={onClose}
+      loading={loading}
+    >
       {chain ? (
         <Space orientation="vertical" style={{ width: '100%' }}>
           <Paragraph>
-            <Text strong>页面：</Text> {chain.pageKey}
+            <Text strong>
+              <FormattedMessage
+                id="pages.pageStudio.studio.changeChain.page"
+                defaultMessage="页面："
+              />
+            </Text>{' '}
+            {chain.pageKey}
           </Paragraph>
           <Paragraph>
-            <Text strong>资源：</Text> {chain.resourceKey}
+            <Text strong>
+              <FormattedMessage
+                id="pages.pageStudio.studio.changeChain.resource"
+                defaultMessage="资源："
+              />
+            </Text>{' '}
+            {chain.resourceKey}
           </Paragraph>
           <Paragraph>
-            <Text strong>当前状态：</Text>
-            函数版本: {chain.current.functionVersion || '-'}, 语义版本:{' '}
-            {chain.current.semanticVersion || '-'}, 提案版本: {chain.current.proposalVersion || '-'}
-            , 草稿版本: {chain.current.draftRevision || '-'}, 发布版本:{' '}
-            {chain.current.publishedVersion || '-'}
+            <Text strong>
+              <FormattedMessage
+                id="pages.pageStudio.studio.changeChain.currentStatus"
+                defaultMessage="当前状态："
+              />
+            </Text>
+            {intl.formatMessage(
+              {
+                id: 'pages.pageStudio.studio.changeChain.statusDetail',
+                defaultMessage:
+                  '函数版本: {functionVersion}, 语义版本: {semanticVersion}, 提案版本: {proposalVersion}, 草稿版本: {draftRevision}, 发布版本: {publishedVersion}',
+              },
+              {
+                functionVersion: chain.current.functionVersion || '-',
+                semanticVersion: chain.current.semanticVersion || '-',
+                proposalVersion: chain.current.proposalVersion || '-',
+                draftRevision: chain.current.draftRevision || '-',
+                publishedVersion: chain.current.publishedVersion || '-',
+              },
+            )}
           </Paragraph>
           <Timeline
             items={chain.items.map((item) => ({
@@ -51,7 +89,12 @@ export default function ChangeChainDrawer({
           />
         </Space>
       ) : (
-        <Empty description="暂无变更记录" />
+        <Empty
+          description={intl.formatMessage({
+            id: 'pages.pageStudio.studio.changeChain.empty',
+            defaultMessage: '暂无变更记录',
+          })}
+        />
       )}
     </Drawer>
   );

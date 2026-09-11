@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { Alert, Button, Input, Space, Typography } from 'antd';
 import { DeleteOutlined, PlusOutlined } from '@ant-design/icons';
+import { FormattedMessage, useIntl } from '@umijs/max';
 import { fieldsToSchemaJson, schemaToFields, type ConstantField } from './constants';
 
 const { Text } = Typography;
@@ -19,6 +20,7 @@ export default function ConstantFieldsEditor({
   onChange: (v: string) => void;
 }) {
   const fields: ConstantField[] = useMemo(() => schemaToFields(value), [value]);
+  const intl = useIntl();
   const [advanced, setAdvanced] = useState(false);
   // 变量名编辑草稿（按已提交 key 键控）：输入不逐键提交，失焦时校验（非空/查重）
   // 后提交——逐键 trim+提交会让重复/空 key 在 schema 往返中塌缩成回跳。
@@ -62,16 +64,32 @@ export default function ConstantFieldsEditor({
     <div>
       <div style={{ marginBottom: 8 }}>
         <Button size="small" icon={<PlusOutlined />} onClick={addField}>
-          添加常量
+          <FormattedMessage
+            id="pages.pageStudio.editor.constantFields.addField"
+            defaultMessage="添加常量"
+          />
         </Button>
         <Button size="small" style={{ marginLeft: 8 }} onClick={() => setAdvanced((v) => !v)}>
-          {advanced ? '收起 JSON' : 'JSON'}
+          {advanced ? (
+            <FormattedMessage
+              id="pages.pageStudio.editor.constantFields.advancedJsonCollapse"
+              defaultMessage="收起 JSON"
+            />
+          ) : (
+            <FormattedMessage
+              id="pages.pageStudio.editor.constantFields.advancedJson"
+              defaultMessage="JSON"
+            />
+          )}
         </Button>
       </div>
 
       {fields.length === 0 && (
         <Text type="secondary" style={{ fontSize: 12 }}>
-          暂无常量。导入常量请到组件库 Tab 的「导入常量」。
+          <FormattedMessage
+            id="pages.pageStudio.editor.constantFields.emptyHint"
+            defaultMessage="暂无常量。导入常量请到组件库 Tab 的「导入常量」。"
+          />
         </Text>
       )}
 
@@ -81,6 +99,13 @@ export default function ConstantFieldsEditor({
         const draftInvalid =
           draft !== undefined &&
           (draft.trim() === '' || fields.some((o, oi) => oi !== i && o.key === draft.trim()));
+        // f.key 为已提交变量名（数据）；未提交时的「（未设置）」是 UI 兜底文案
+        const refName =
+          f.key ||
+          intl.formatMessage({
+            id: 'pages.pageStudio.editor.constantFields.varRefUnset',
+            defaultMessage: '（未设置）',
+          });
         return (
           <div
             key={i}
@@ -89,14 +114,20 @@ export default function ConstantFieldsEditor({
             <Space size={6} style={{ width: '100%' }} wrap>
               <Input
                 size="small"
-                addonBefore="显示名"
+                addonBefore={intl.formatMessage({
+                  id: 'pages.pageStudio.editor.constantFields.titleAddon',
+                  defaultMessage: '显示名',
+                })}
                 value={f.title}
                 onChange={(e) => updateField(i, { title: e.target.value })}
                 style={{ width: 150 }}
               />
               <Input
                 size="small"
-                addonBefore="变量名"
+                addonBefore={intl.formatMessage({
+                  id: 'pages.pageStudio.editor.constantFields.varNameAddon',
+                  defaultMessage: '变量名',
+                })}
                 status={draftInvalid ? 'error' : undefined}
                 value={draft ?? f.key}
                 onChange={(e) => setKeyDrafts((prev) => ({ ...prev, [f.key]: e.target.value }))}
@@ -132,15 +163,27 @@ export default function ConstantFieldsEditor({
                   });
                 updateField(i, { options });
               }}
-              placeholder={'每行一个选项：值 或 值|标签'}
+              placeholder={intl.formatMessage({
+                id: 'pages.pageStudio.editor.constantFields.optionEditorPlaceholder',
+                defaultMessage: '每行一个选项：值 或 值|标签',
+              })}
             />
             {draftInvalid ? (
               <Text type="danger" style={{ fontSize: 11, marginTop: 4 }}>
-                变量名不能为空、且不能与其他常量重复
+                <FormattedMessage
+                  id="pages.pageStudio.editor.constantFields.varInvalid"
+                  defaultMessage="变量名不能为空、且不能与其他常量重复"
+                />
               </Text>
             ) : (
               <Text type="secondary" style={{ fontSize: 11 }}>
-                下游引用变量名：{f.key || '（未设置）'}
+                {intl.formatMessage(
+                  {
+                    id: 'pages.pageStudio.editor.constantFields.varRefHint',
+                    defaultMessage: `下游引用变量名：${refName}`,
+                  },
+                  { name: refName },
+                )}
               </Text>
             )}
           </div>
@@ -150,7 +193,10 @@ export default function ConstantFieldsEditor({
       {advanced && (
         <>
           <Text type="secondary" style={{ fontSize: 11, display: 'block', marginBottom: 4 }}>
-            JSON Schema（高级，双向同步）
+            <FormattedMessage
+              id="pages.pageStudio.editor.constantFields.jsonSchemaLabel"
+              defaultMessage="JSON Schema（高级，双向同步）"
+            />
           </Text>
           <TextArea
             rows={8}

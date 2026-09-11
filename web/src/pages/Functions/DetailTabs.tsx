@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Alert, Button, Col, Row, Table, Tag } from 'antd';
 import { StatisticCard } from '@ant-design/pro-components';
 import { BarChartOutlined } from '@ant-design/icons';
-import { history } from '@umijs/max';
+import { FormattedMessage, history, useIntl } from '@umijs/max';
 import {
   getFunctionAnalytics,
   getFunctionHistory,
@@ -32,6 +32,7 @@ const formatDateTime = (value?: string) => {
 };
 
 export function HistoryTab({ functionId }: { functionId: string }) {
+  const intl = useIntl();
   const [historyData, setHistoryData] = useState<HistoryRecord[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [page, setPage] = useState(1);
@@ -64,15 +65,39 @@ export function HistoryTab({ functionId }: { functionId: string }) {
       dataSource={historyData}
       rowKey="id"
       columns={[
-        { title: '操作', dataIndex: 'action', width: 150 },
-        { title: '操作人', dataIndex: 'operator', width: 120 },
         {
-          title: '时间',
+          title: intl.formatMessage({
+            id: 'pages.functionsDetail.history.column.action',
+            defaultMessage: '操作',
+          }),
+          dataIndex: 'action',
+          width: 150,
+        },
+        {
+          title: intl.formatMessage({
+            id: 'pages.functionsDetail.history.column.operator',
+            defaultMessage: '操作人',
+          }),
+          dataIndex: 'operator',
+          width: 120,
+        },
+        {
+          title: intl.formatMessage({
+            id: 'pages.functionsDetail.history.column.time',
+            defaultMessage: '时间',
+          }),
           dataIndex: 'timestamp',
           width: 180,
           render: (text: string) => formatDateTime(text),
         },
-        { title: '详情', dataIndex: 'details', ellipsis: true },
+        {
+          title: intl.formatMessage({
+            id: 'pages.functionsDetail.history.column.details',
+            defaultMessage: '详情',
+          }),
+          dataIndex: 'details',
+          ellipsis: true,
+        },
       ]}
       pagination={{
         current: page,
@@ -80,7 +105,14 @@ export function HistoryTab({ functionId }: { functionId: string }) {
         total,
         showSizeChanger: true,
         pageSizeOptions: [5, 10, 20, 50],
-        showTotal: (t) => `共 ${t} 条`,
+        showTotal: (t) =>
+          intl.formatMessage(
+            {
+              id: 'pages.functionsDetail.history.paginationTotal',
+              defaultMessage: '共 {total} 条',
+            },
+            { total: t },
+          ),
         onChange: (nextPage, nextSize) => {
           setPage(nextPage);
           setPageSize(nextSize);
@@ -91,6 +123,7 @@ export function HistoryTab({ functionId }: { functionId: string }) {
 }
 
 export function AnalyticsTab({ functionId }: { functionId: string }) {
+  const intl = useIntl();
   const [analyticsData, setAnalyticsData] = useState<AnalyticsData | null>(null);
   const [analyticsLoading, setAnalyticsLoading] = useState(false);
 
@@ -115,7 +148,10 @@ export function AnalyticsTab({ functionId }: { functionId: string }) {
         <StatisticCard
           loading={analyticsLoading}
           statistic={{
-            title: '总调用次数',
+            title: intl.formatMessage({
+              id: 'pages.functionsDetail.analytics.totalCalls',
+              defaultMessage: '总调用次数',
+            }),
             value: analyticsData?.totalCalls || 0,
             prefix: <BarChartOutlined />,
           }}
@@ -125,7 +161,10 @@ export function AnalyticsTab({ functionId }: { functionId: string }) {
         <StatisticCard
           loading={analyticsLoading}
           statistic={{
-            title: '成功率',
+            title: intl.formatMessage({
+              id: 'pages.functionsDetail.analytics.successRate',
+              defaultMessage: '成功率',
+            }),
             value: analyticsData?.successRate || 0,
             suffix: '%',
             precision: 2,
@@ -141,7 +180,10 @@ export function AnalyticsTab({ functionId }: { functionId: string }) {
         <StatisticCard
           loading={analyticsLoading}
           statistic={{
-            title: '平均延迟',
+            title: intl.formatMessage({
+              id: 'pages.functionsDetail.analytics.avgLatency',
+              defaultMessage: '平均延迟',
+            }),
             value: analyticsData?.avgLatency || 0,
             suffix: 'ms',
             precision: 0,
@@ -151,7 +193,13 @@ export function AnalyticsTab({ functionId }: { functionId: string }) {
       <Col span={6}>
         <StatisticCard
           loading={analyticsLoading}
-          statistic={{ title: '今日调用', value: analyticsData?.callsToday || 0 }}
+          statistic={{
+            title: intl.formatMessage({
+              id: 'pages.functionsDetail.analytics.callsToday',
+              defaultMessage: '今日调用',
+            }),
+            value: analyticsData?.callsToday || 0,
+          }}
         />
       </Col>
     </Row>
@@ -159,6 +207,7 @@ export function AnalyticsTab({ functionId }: { functionId: string }) {
 }
 
 export function WarningsTab({ functionId }: { functionId: string }) {
+  const intl = useIntl();
   const [warningsData, setWarningsData] = useState<
     Array<{
       key: string;
@@ -192,8 +241,15 @@ export function WarningsTab({ functionId }: { functionId: string }) {
   return (
     <>
       <Alert
-        message="注册告警"
-        description="这里显示函数注册校验告警（例如 function_id 格式错误、版本号不合法、重复注册去重）。"
+        message={intl.formatMessage({
+          id: 'pages.functionsDetail.warnings.alertMessage',
+          defaultMessage: '注册告警',
+        })}
+        description={intl.formatMessage({
+          id: 'pages.functionsDetail.warnings.alertDescription',
+          defaultMessage:
+            '这里显示函数注册校验告警（例如 function_id 格式错误、版本号不合法、重复注册去重）。',
+        })}
         type="warning"
         showIcon
         style={{ marginBottom: 16 }}
@@ -204,7 +260,10 @@ export function WarningsTab({ functionId }: { functionId: string }) {
               history.push(`/functions/warnings?function_id=${encodeURIComponent(functionId)}`)
             }
           >
-            查看全部
+            <FormattedMessage
+              id="pages.functionsDetail.warnings.viewAll"
+              defaultMessage="查看全部"
+            />
           </Button>
         }
       />
@@ -215,21 +274,49 @@ export function WarningsTab({ functionId }: { functionId: string }) {
         rowKey="key"
         columns={[
           {
-            title: '代码',
+            title: intl.formatMessage({
+              id: 'pages.functionsDetail.warnings.column.code',
+              defaultMessage: '代码',
+            }),
             dataIndex: 'code',
             width: 180,
             render: (code: string) => <Tag color="orange">{code || '-'}</Tag>,
           },
-          { title: '版本', dataIndex: 'version', width: 120, render: (v: string) => v || '-' },
-          { title: '次数', dataIndex: 'count', width: 90 },
           {
-            title: '最近时间',
+            title: intl.formatMessage({
+              id: 'pages.functionsDetail.warnings.column.version',
+              defaultMessage: '版本',
+            }),
+            dataIndex: 'version',
+            width: 120,
+            render: (v: string) => v || '-',
+          },
+          {
+            title: intl.formatMessage({
+              id: 'pages.functionsDetail.warnings.column.count',
+              defaultMessage: '次数',
+            }),
+            dataIndex: 'count',
+            width: 90,
+          },
+          {
+            title: intl.formatMessage({
+              id: 'pages.functionsDetail.warnings.column.lastSeen',
+              defaultMessage: '最近时间',
+            }),
             dataIndex: 'lastSeen',
             width: 180,
             render: (text: string) => formatDateTime(text),
           },
           { title: 'Agent', dataIndex: 'agentId', width: 220, ellipsis: true },
-          { title: '详情', dataIndex: 'message', ellipsis: true },
+          {
+            title: intl.formatMessage({
+              id: 'pages.functionsDetail.warnings.column.details',
+              defaultMessage: '详情',
+            }),
+            dataIndex: 'message',
+            ellipsis: true,
+          },
         ]}
         pagination={{ pageSize: 10 }}
       />

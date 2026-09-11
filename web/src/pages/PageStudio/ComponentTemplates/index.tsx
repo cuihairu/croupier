@@ -272,7 +272,18 @@ export default function ComponentTemplatesPage() {
   const grouped = useMemo(() => {
     const byCat = new Map<string, TemplateDTO[]>();
     for (const t of filtered) {
-      const cat = t.category || (t.builtin ? '内置' : '自定义');
+      // 分组展示兜底：模板自带 category 为数据原样展示；缺失时按内置/自定义补默认组名
+      const cat =
+        t.category ||
+        (t.builtin
+          ? intlRef.current.formatMessage({
+              id: 'pages.pageStudio.templates.category.builtin',
+              defaultMessage: '内置',
+            })
+          : intlRef.current.formatMessage({
+              id: 'pages.pageStudio.templates.category.custom',
+              defaultMessage: '自定义',
+            }));
       if (!byCat.has(cat)) byCat.set(cat, []);
       byCat.get(cat)!.push(t);
     }

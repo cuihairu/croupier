@@ -19,6 +19,7 @@ import {
   type SdkLanguageStats,
   type SdkStatsResponse,
 } from '@/services/api/sdkStats';
+import { FormattedMessage, useIntl } from '@umijs/max';
 
 const { Text } = Typography;
 
@@ -42,6 +43,7 @@ function languageColor(language: string): string {
 
 /** 单语言版本分布卡片 */
 function LanguageCard({ stats }: { stats: SdkLanguageStats }) {
+  const intl = useIntl();
   const maxCount = Math.max(...stats.versions.map((item) => item.count), 1);
   return (
     <Card
@@ -49,7 +51,15 @@ function LanguageCard({ stats }: { stats: SdkLanguageStats }) {
       title={
         <Space>
           <Tag color={languageColor(stats.language)}>{stats.language}</Tag>
-          <Text type="secondary">{`${stats.count} 实例`}</Text>
+          <Text type="secondary">
+            {intl.formatMessage(
+              {
+                id: 'pages.functionsSdk.languageCard.instanceCount',
+                defaultMessage: `${stats.count} 实例`,
+              },
+              { count: stats.count },
+            )}
+          </Text>
         </Space>
       }
       style={{ height: '100%' }}
@@ -88,6 +98,7 @@ function LanguageCard({ stats }: { stats: SdkLanguageStats }) {
 }
 
 export default function SdkDistributionPage() {
+  const intl = useIntl();
   const [loading, setLoading] = useState(false);
   const [stats, setStats] = useState<SdkStatsResponse | null>(null);
   const [keyword, setKeyword] = useState('');
@@ -137,14 +148,27 @@ export default function SdkDistributionPage() {
     { title: 'Provider', dataIndex: 'providerId', key: 'providerId', copyable: true },
     { title: 'Agent', dataIndex: 'agentId', key: 'agentId' },
     {
-      title: '语言',
+      title: intl.formatMessage({
+        id: 'pages.functionsSdk.column.language',
+        defaultMessage: '语言',
+      }),
       dataIndex: 'sdkLanguage',
       key: 'sdkLanguage',
       render: (value: string) => <Tag color={languageColor(value)}>{value}</Tag>,
     },
-    { title: 'SDK 版本', dataIndex: 'sdkVersion', key: 'sdkVersion' },
     {
-      title: 'SDK 名称',
+      title: intl.formatMessage({
+        id: 'pages.functionsSdk.column.sdkVersion',
+        defaultMessage: 'SDK 版本',
+      }),
+      dataIndex: 'sdkVersion',
+      key: 'sdkVersion',
+    },
+    {
+      title: intl.formatMessage({
+        id: 'pages.functionsSdk.column.sdkName',
+        defaultMessage: 'SDK 名称',
+      }),
       dataIndex: 'sdkName',
       key: 'sdkName',
       render: (value: string) => value || '-',
@@ -152,7 +176,10 @@ export default function SdkDistributionPage() {
     { title: 'Game', dataIndex: 'gameId', key: 'gameId' },
     { title: 'Env', dataIndex: 'env', key: 'env' },
     {
-      title: '最后活跃',
+      title: intl.formatMessage({
+        id: 'pages.functionsSdk.column.lastSeen',
+        defaultMessage: '最后活跃',
+      }),
       dataIndex: 'lastSeenUnix',
       key: 'lastSeenUnix',
       render: (value: number) =>
@@ -168,20 +195,44 @@ export default function SdkDistributionPage() {
 
   return (
     <PageContainer
-      title="SDK 版本分布"
-      subTitle="当前在线 provider 实例的 SDK 语言与版本聚合（30s 自动刷新）"
+      title={intl.formatMessage({
+        id: 'pages.functionsSdk.pageTitle',
+        defaultMessage: 'SDK 版本分布',
+      })}
+      subTitle={intl.formatMessage({
+        id: 'pages.functionsSdk.pageSubtitle',
+        defaultMessage: '当前在线 provider 实例的 SDK 语言与版本聚合（30s 自动刷新）',
+      })}
       extra={[
         <Button key="refresh" icon={<ReloadOutlined />} loading={loading} onClick={refresh}>
-          刷新
+          <FormattedMessage id="pages.functionsSdk.button.refresh" defaultMessage="刷新" />
         </Button>,
       ]}
     >
       <Space orientation="vertical" size={16} style={{ width: '100%' }}>
         <Card size="small">
           <Space size={48} wrap>
-            <Statistic title="在线实例" value={stats?.totalInstances ?? 0} />
-            <Statistic title="SDK 语言" value={stats?.languages?.length ?? 0} />
-            <Statistic title="活跃 Agent" value={agentCount} />
+            <Statistic
+              title={intl.formatMessage({
+                id: 'pages.functionsSdk.stat.onlineInstances',
+                defaultMessage: '在线实例',
+              })}
+              value={stats?.totalInstances ?? 0}
+            />
+            <Statistic
+              title={intl.formatMessage({
+                id: 'pages.functionsSdk.stat.sdkLanguages',
+                defaultMessage: 'SDK 语言',
+              })}
+              value={stats?.languages?.length ?? 0}
+            />
+            <Statistic
+              title={intl.formatMessage({
+                id: 'pages.functionsSdk.stat.activeAgents',
+                defaultMessage: '活跃 Agent',
+              })}
+              value={agentCount}
+            />
           </Space>
         </Card>
 
@@ -200,18 +251,30 @@ export default function SdkDistributionPage() {
         ) : (
           !loading && (
             <Card size="small">
-              <Empty description="当前没有在线的 provider 实例" style={{ padding: '24px 0' }} />
+              <Empty
+                description={intl.formatMessage({
+                  id: 'pages.functionsSdk.empty',
+                  defaultMessage: '当前没有在线的 provider 实例',
+                })}
+                style={{ padding: '24px 0' }}
+              />
             </Card>
           )
         )}
 
         <Card
           size="small"
-          title="实例明细"
+          title={intl.formatMessage({
+            id: 'pages.functionsSdk.instances.title',
+            defaultMessage: '实例明细',
+          })}
           extra={
             <Input.Search
               allowClear
-              placeholder="搜索 provider / agent / 版本…"
+              placeholder={intl.formatMessage({
+                id: 'pages.functionsSdk.instances.searchPlaceholder',
+                defaultMessage: '搜索 provider / agent / 版本…',
+              })}
               style={{ width: 260 }}
               onSearch={setKeyword}
               onChange={(event) => {

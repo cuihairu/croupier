@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Alert, App, Button, Modal } from 'antd';
+import { FormattedMessage, useIntl } from '@umijs/max';
 import type { FunctionInstance } from '@/services/api';
 
 type LogEntry = {
@@ -20,6 +21,7 @@ export default function LogsModal({
   onClose: () => void;
 }) {
   const { message } = App.useApp();
+  const intl = useIntl();
   const [logsData, setLogsData] = useState<LogEntry[]>([]);
 
   useEffect(() => {
@@ -29,13 +31,16 @@ export default function LogsModal({
 
   return (
     <Modal
-      title={`日志 - ${instance?.agentId}`}
+      title={intl.formatMessage(
+        { id: 'pages.functionsInstances.logs.title', defaultMessage: '日志 - {agentId}' },
+        { agentId: instance?.agentId ?? '' },
+      )}
       open={open}
       onCancel={onClose}
       width="min(800px, calc(100vw - 16px))"
       footer={[
         <Button key="close" onClick={onClose}>
-          关闭
+          <FormattedMessage id="pages.functionsInstances.logs.close" defaultMessage="关闭" />
         </Button>,
         <Button
           key="export"
@@ -50,10 +55,15 @@ export default function LogsModal({
             a.download = `instance-logs-${instance?.agentId}-${Date.now()}.log`;
             a.click();
             URL.revokeObjectURL(url);
-            message.success('日志已导出');
+            message.success(
+              intl.formatMessage({
+                id: 'pages.functionsInstances.logs.exported',
+                defaultMessage: '日志已导出',
+              }),
+            );
           }}
         >
-          导出日志
+          <FormattedMessage id="pages.functionsInstances.logs.export" defaultMessage="导出日志" />
         </Button>,
       ]}
     >
@@ -61,8 +71,14 @@ export default function LogsModal({
         <Alert
           type="info"
           showIcon
-          message="暂无日志数据"
-          description="实例日志查询接口尚未接入，当前不会展示伪造日志。"
+          message={intl.formatMessage({
+            id: 'pages.functionsInstances.logs.empty',
+            defaultMessage: '暂无日志数据',
+          })}
+          description={intl.formatMessage({
+            id: 'pages.functionsInstances.logs.emptyDescription',
+            defaultMessage: '实例日志查询接口尚未接入，当前不会展示伪造日志。',
+          })}
         />
       ) : (
         <div

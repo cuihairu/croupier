@@ -7,11 +7,13 @@ import {
   type ActionType,
   type ProColumns,
 } from '@ant-design/pro-components';
+import { FormattedMessage, useIntl } from '@umijs/max';
 import { listAudit, type AuditEvent } from '@/services/api';
 import { exportToCSV } from '@/utils/export';
 import { formatDateTime } from '@/utils/format';
 
 export default function OperationLogsPage() {
+  const intl = useIntl();
   const actionRef = useRef<ActionType | undefined>(undefined);
   // 仅为「导出 CSV」保留当前页数据，由 request 成功时更新
   const [rows, setRows] = useState<AuditEvent[]>([]);
@@ -86,32 +88,96 @@ export default function OperationLogsPage() {
   }, [kinds, defaultKinds]);
 
   const columns: ProColumns<AuditEvent>[] = [
-    { title: '时间', dataIndex: 'time', render: (_, row) => formatDateTime(row.time ?? '') },
-    { title: '类型', dataIndex: 'kind' },
-    { title: '操作者', dataIndex: 'actor' },
-    { title: '目标', dataIndex: 'target' },
+    {
+      title: intl.formatMessage({
+        id: 'pages.adminLogs.operationLog.column.time',
+        defaultMessage: '时间',
+      }),
+      dataIndex: 'time',
+      render: (_, row) => formatDateTime(row.time ?? ''),
+    },
+    {
+      title: intl.formatMessage({
+        id: 'pages.adminLogs.operationLog.column.kind',
+        defaultMessage: '类型',
+      }),
+      dataIndex: 'kind',
+    },
+    {
+      title: intl.formatMessage({
+        id: 'pages.adminLogs.operationLog.column.actor',
+        defaultMessage: '操作者',
+      }),
+      dataIndex: 'actor',
+    },
+    {
+      title: intl.formatMessage({
+        id: 'pages.adminLogs.operationLog.column.target',
+        defaultMessage: '目标',
+      }),
+      dataIndex: 'target',
+    },
     { title: 'IP', dataIndex: ['meta', 'ip'] },
     {
-      title: '属地',
+      title: intl.formatMessage({
+        id: 'pages.adminLogs.operationLog.column.region',
+        defaultMessage: '属地',
+      }),
       render: (_: unknown, r: AuditEvent) => {
         const v = String(r?.meta?.ipRegion || '');
         if (!v) return '-';
-        if (v === '本地') return <Tag color="blue">本地</Tag>;
-        if (v === '局域网') return <Tag color="geekblue">局域网</Tag>;
+        if (v === '本地')
+          return (
+            <Tag color="blue">
+              <FormattedMessage
+                id="pages.adminLogs.operationLog.region.local"
+                defaultMessage="本地"
+              />
+            </Tag>
+          );
+        if (v === '局域网')
+          return (
+            <Tag color="geekblue">
+              <FormattedMessage
+                id="pages.adminLogs.operationLog.region.lan"
+                defaultMessage="局域网"
+              />
+            </Tag>
+          );
         return v;
       },
     },
-    { title: '游戏', dataIndex: ['meta', 'game_id'] },
-    { title: '环境', dataIndex: ['meta', 'env'] },
+    {
+      title: intl.formatMessage({
+        id: 'pages.adminLogs.operationLog.column.game',
+        defaultMessage: '游戏',
+      }),
+      dataIndex: ['meta', 'game_id'],
+    },
+    {
+      title: intl.formatMessage({
+        id: 'pages.adminLogs.operationLog.column.env',
+        defaultMessage: '环境',
+      }),
+      dataIndex: ['meta', 'env'],
+    },
     { title: 'Trace', dataIndex: ['meta', 'trace_id'] },
   ];
 
   return (
     <PageContainer>
-      <Card title="操作日志">
+      <Card
+        title={intl.formatMessage({
+          id: 'pages.adminLogs.operationLog.title',
+          defaultMessage: '操作日志',
+        })}
+      >
         <Space style={{ marginBottom: 12 }} wrap>
           <Input
-            placeholder="操作者"
+            placeholder={intl.formatMessage({
+              id: 'pages.adminLogs.operationLog.search.actor',
+              defaultMessage: '操作者',
+            })}
             value={actor}
             onChange={(e) => setActor(e.target.value)}
             style={{ width: 160 }}
@@ -123,13 +189,19 @@ export default function OperationLogsPage() {
             style={{ width: 160 }}
           />
           <Input
-            placeholder="游戏"
+            placeholder={intl.formatMessage({
+              id: 'pages.adminLogs.operationLog.search.game',
+              defaultMessage: '游戏',
+            })}
             value={gameId}
             onChange={(e) => setGameId(e.target.value)}
             style={{ width: 140 }}
           />
           <Input
-            placeholder="环境"
+            placeholder={intl.formatMessage({
+              id: 'pages.adminLogs.operationLog.search.env',
+              defaultMessage: '环境',
+            })}
             value={env}
             onChange={(e) => setEnv(e.target.value)}
             style={{ width: 120 }}
@@ -149,9 +221,17 @@ export default function OperationLogsPage() {
               actionRef.current?.reload();
             }}
           >
-            查询
+            <FormattedMessage
+              id="pages.adminLogs.operationLog.action.query"
+              defaultMessage="查询"
+            />
           </Button>
-          <Button onClick={exportCSV}>导出 CSV</Button>
+          <Button onClick={exportCSV}>
+            <FormattedMessage
+              id="pages.adminLogs.operationLog.action.exportCsv"
+              defaultMessage="导出 CSV"
+            />
+          </Button>
         </Space>
         <ProTable<AuditEvent>
           actionRef={actionRef}

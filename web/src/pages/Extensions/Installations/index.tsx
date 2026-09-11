@@ -138,6 +138,7 @@ export default function ExtensionsInstallationsPage() {
   };
 
   const columns = buildInstallationsColumns({
+    intl,
     canManage: access.canExtensionsManage,
     onDetail: (row) => {
       setDetailRow(row);
