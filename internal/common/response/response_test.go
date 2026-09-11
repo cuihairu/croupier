@@ -3,6 +3,7 @@ package response
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -11,6 +12,7 @@ import (
 	"testing"
 
 	"github.com/cuihairu/croupier/internal/common/errorx"
+	apperrors "github.com/cuihairu/croupier/internal/errors"
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
 	"github.com/stretchr/testify/assert"
@@ -336,4 +338,42 @@ func TestError_StrconvNumError_BadRequest(t *testing.T) {
 
 	assert.Equal(t, http.StatusBadRequest, w.Code)
 	assert.Contains(t, w.Body.String(), "bad_request")
+}
+
+// AppError（平台层 typed error）应按码表 HTTPStatusCode 透出（如
+// SERVICE_UNAVAILABLE→503）而非落 500 internal_error 兜底；error 码转 snake_case。
+func TestError_AppError_StatusCodeMapping(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	router := gin.New()
+	router.GET("/test", func(c *gin.Context) {
+		err := apperrors.Newf(apperrors.ErrCodeServiceUnavailable, "invoke", nil,
+			"no live agent for function %s in game_id %s env %s", "order.list", "default", "dev")
+		Error(c, err)
+	})
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest("GET", "/test", nil)
+	router.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusServiceUnavailable, w.Code)
+	body := w.Body.String()
+	assert.Contains(t, body, `"error":"service_unavailable"`)
+	assert.Contains(t, body, "no live agent for function order.list")
+	assert.Contains(t, body, `"operation":"invoke"`)
+}
+
+// 包装过的 AppError（fmt.Errorf %w）也必须命中映射：invoke 链路多处包装后上抛。
+func TestError_WrappedAppError_StatusCodeMapping(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	router := gin.New()
+	router.GET("/test", func(c *gin.Context) {
+		inner := apperrors.Newf(apperrors.ErrCodeNotFound, "registry", nil,
+			"function %s not found", "order.list")
+		Error(c, fmt.Errorf("invoke: %w", inner))
+	})
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest("GET", "/test", nil)
+	router.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusNotFound, w.Code)
+	assert.Contains(t, w.Body.String(), `"error":"not_found"`)
 }

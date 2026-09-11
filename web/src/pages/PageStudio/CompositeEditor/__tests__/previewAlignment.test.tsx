@@ -115,11 +115,15 @@ function buttonNode(title: string, onClick: Record<string, unknown>): PageNode {
 }
 
 function renderPreview(nodes: PageNode[]) {
-  return render(
+  const utils = render(
     <App>
       <PreviewRuntime tree={nodes} fnById={new Map(descriptors.map((d) => [d.id, d]))} />
     </App>,
   );
+  // 本文件锁定真实调用路径的数据流：预览默认模拟模式，显式切到真实
+  // （applyMockMode 清状态并按真实模式重跑 autoRun）
+  fireEvent.click(screen.getByRole('switch')); // 关
+  return utils;
 }
 
 /** 默认 mock：player.list 返回两行 + total=2（真实响应 {result} 形态）。 */

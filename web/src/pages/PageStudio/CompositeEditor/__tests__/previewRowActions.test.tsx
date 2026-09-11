@@ -110,7 +110,7 @@ function renderPreview() {
 const mockedInvoke = invokeFunction as unknown as jest.Mock;
 
 async function executeTableWithMockRows() {
-  fireEvent.click(screen.getByRole('switch')); // 开模拟
+  // 预览默认即模拟模式（无需切开关）——mock 行 uid 固定 u-1001 起步
   fireEvent.click(screen.getByRole('button', { name: /执\s*行/ }));
   await waitFor(() => {
     expect(document.querySelectorAll('input[type="radio"]').length).toBeGreaterThan(0);

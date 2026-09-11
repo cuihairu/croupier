@@ -1,6 +1,7 @@
 package function
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -312,6 +313,13 @@ func functionInvoke(ctx context.Context, svcCtx *svc.ServiceContext, req *Functi
 
 	payload := invokePayload(req)
 
+	// 输入契约前置校验：缺 required 参数属客户端错误，应在 dispatch 前
+	// 400 并指明缺失字段，而不是透传 agent 后以 5xx 路由错误收场。
+	if err := validateInvokeInput(ctx, svcCtx, req, payload); err != nil {
+		spanErr = err
+		return nil, err
+	}
+
 	// Check if approval is required
 	if functionPolicy != nil && functionPolicy.RequireApproval && svcCtx.ApprovalsStore != nil {
 		// Create approval request instead of executing directly
@@ -469,6 +477,62 @@ func functionInvoke(ctx context.Context, svcCtx *svc.ServiceContext, req *Functi
 	}
 
 	return result, nil
+}
+
+// validateInvokeInput 在 dispatch 前按函数 descriptor 的 inputSchema 校验
+// payload 必填参数：缺失时返回 400 并在 details 中指明字段（前端表单级
+// 渲染契约）。无 descriptor / 无 inputSchema.required / 查询失败时均不拦
+// 截——输入契约的完整校验（类型/枚举/嵌套）仍由游戏服侧兜底，此处只做
+// 平台可判定的「缺哪个参数」这一层。
+func validateInvokeInput(ctx context.Context, svcCtx *svc.ServiceContext, req *FunctionInvokeRequest, payload []byte) error {
+	if svcCtx == nil || svcCtx.FunctionModel == nil {
+		return nil
+	}
+	functionID := strings.TrimSpace(req.ID)
+	if functionID == "" {
+		return nil
+	}
+	descs, err := svcCtx.FunctionModel.ListDescriptors(ctx, functionID)
+	if err != nil || len(descs) == 0 {
+		return nil
+	}
+	input := descs[0].Input // ListDescriptors 按版本倒序，取最新契约
+	if len(input) == 0 {
+		return nil
+	}
+	required, _ := input["required"].([]interface{})
+	if len(required) == 0 {
+		return nil
+	}
+	// payload 非对象（数组/标量/非法 JSON）不在本层拦截，交由下游处理。
+	var body map[string]json.RawMessage
+	if err := json.Unmarshal(payload, &body); err != nil {
+		return nil
+	}
+	missing := make([]string, 0, len(required))
+	details := make(map[string]any, len(required))
+	for _, r := range required {
+		name, ok := r.(string)
+		if !ok || name == "" {
+			continue
+		}
+		// 存在且非 null 即满足 JSON Schema required 语义（空串/false 是
+		// 合法值，是否为空由游戏服业务判断）。
+		raw, present := body[name]
+		if present && !bytes.Equal(bytes.TrimSpace(raw), []byte("null")) {
+			continue
+		}
+		missing = append(missing, name)
+		details[name] = "required"
+	}
+	if len(missing) == 0 {
+		return nil
+	}
+	sort.Strings(missing)
+	return errorx.NewBadRequestWithDetails(
+		"缺少必填参数: "+strings.Join(missing, ", "),
+		details,
+	)
 }
 
 // validateInvokeRoute enforces routing semantics at the HTTP API boundary.

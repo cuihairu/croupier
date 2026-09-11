@@ -6,8 +6,10 @@ import (
 	"io"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/cuihairu/croupier/internal/common/errorx"
+	apperrors "github.com/cuihairu/croupier/internal/errors"
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
 	"gorm.io/gorm"
@@ -72,6 +74,28 @@ func Error(c *gin.Context, err error) {
 		c.JSON(http.StatusNotFound, gin.H{
 			"error":   "not_found",
 			"message": "资源不存在",
+		})
+		return
+	}
+	// 平台层 AppError（dispatcher/registry 等）：码表自带 HTTPStatusCode
+	// （SERVICE_UNAVAILABLE→503、NOT_FOUND→404…），按契约透出而非落 500 兜底。
+	var appErr *apperrors.AppError
+	if errors.As(err, &appErr) {
+		message := appErr.Message
+		if message == "" {
+			message = err.Error()
+		}
+		details := gin.H{}
+		if appErr.Operation != "" {
+			details["operation"] = appErr.Operation
+		}
+		if appErr.Details != "" {
+			details["detail"] = appErr.Details
+		}
+		c.JSON(appErr.HTTPStatusCode, gin.H{
+			"error":   strings.ToLower(string(appErr.Code)),
+			"message": message,
+			"details": details,
 		})
 		return
 	}

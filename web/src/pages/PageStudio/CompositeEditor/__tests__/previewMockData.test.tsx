@@ -59,12 +59,11 @@ function renderPreview(nodes: PageNode[]) {
 }
 
 describe('PreviewRuntime 模拟数据模式', () => {
-  it('开启模拟：生成假数据且不调用真实函数', async () => {
+  it('默认即模拟模式：生成假数据且不调用真实函数', async () => {
     renderPreview(tree());
     expect(screen.getByText('数据来源')).toBeInTheDocument();
 
-    // 打开模拟开关 → 点执行 → 假数据渲染（radio 选择列出现），真实调用未发生
-    fireEvent.click(screen.getByRole('switch'));
+    // 默认开（安全预览）→ 点执行 → 假数据渲染（radio 选择列出现），真实调用未发生
     fireEvent.click(screen.getByRole('button', { name: /执\s*行/ }));
     await waitFor(() => {
       expect(document.querySelectorAll('input[type="radio"]').length).toBeGreaterThan(0);
@@ -76,7 +75,8 @@ describe('PreviewRuntime 模拟数据模式', () => {
     mockedInvoke.mockResolvedValue({ data: { items: [{ uid: 'real-1' }], total: 1 } });
     renderPreview(tree());
 
-    // 真实调用路径（模拟关）
+    // 默认模拟开 → 先关，走真实调用路径
+    fireEvent.click(screen.getByRole('switch')); // 关
     fireEvent.click(screen.getByRole('button', { name: /执\s*行/ }));
     await waitFor(() => expect(screen.getByText('real-1')).toBeInTheDocument());
     expect(mockedInvoke).toHaveBeenCalledTimes(1);
@@ -104,7 +104,6 @@ describe('PreviewRuntime 模拟数据空态提示', () => {
         <PreviewRuntime tree={tree()} fnById={new Map([['player.list', bare]])} />
       </App>,
     );
-    fireEvent.click(screen.getByRole('switch'));
     fireEvent.click(screen.getByRole('button', { name: /执\s*行/ }));
     await waitFor(() => {
       expect(screen.getByText(/「玩家列表」无可用 outputSchema.*模拟数据为空/)).toBeInTheDocument();

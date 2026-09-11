@@ -97,6 +97,16 @@ POST /api/v1/functions/{function_id}/invoke
 }
 ```
 
+**错误行为**：
+
+- payload 缺少函数 inputSchema 声明的 `required` 参数 → `400`，
+  `error: "bad_request"`，`message` 指明缺失字段，`details` 按字段标
+  `"required"`（如 `{"playerId": "required"}`）。平台只前置校验顶层
+  required 缺失；类型/枚举/嵌套校验由游戏服兜底（无 inputSchema 契约的函数不拦截）
+- 当前 scope 下无在线 agent（函数未注册到该 game/env 或 agent 离线）→
+  `503`，`error: "service_unavailable"`，`message` 形如
+  `no live agent for function order.list in game_id demo_game env dev`
+
 运营页面的受控执行主路径是 `POST /api/v1/console/pages/:pageKey/bindings/:bindingId/execute`（见 [页面与控制台 API](./page.md)），浏览器不得直接调用函数目录。
 
 ### 启动任务
@@ -141,9 +151,10 @@ GET /api/v1/functions/descriptors?type={type}&gameId={gameId}
 ```
 
 **查询参数**：
-| 参数 | 类型 | 说明 |
-|------|------|------|
-| `type` | string | 可选，按类型过滤 |
+
+| 参数     | 类型   | 说明             |
+| -------- | ------ | ---------------- |
+| `type`   | string | 可选，按类型过滤 |
 | `gameId` | string | 可选，按游戏过滤 |
 
 ### 获取/删除函数

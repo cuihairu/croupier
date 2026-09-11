@@ -35,9 +35,10 @@ export default function PreviewRuntime({
   const [dialogId, setDialogId] = useState<string | null>(null);
   // V5：弹窗表单预填初值（行操作/带参动作求值结果，按表单节点 id 键控）
   const [dialogInputs, setDialogInputs] = useState<Record<string, JSONRecord>>({});
-  // 模拟数据模式（默认关）：开启后按函数 outputSchema 合成假数据，不调用真实
-  // 函数——组装/联动验证无需真实 agent 在线；默认保持真实调用（预览=发布行为）。
-  const [mock, setMock] = useState(false);
+  // 模拟数据模式（默认开）：按函数 outputSchema 合成假数据，不调用真实函数——
+  // 预览是编辑器内安全环境，默认不得对 agent 发起真实调用（scope 不匹配时会
+  // 得到 no live agent 之类的真实路由错误）；切到「真实数据」才走发布运行时。
+  const [mock, setMock] = useState(true);
   const mockRef = useRef(mock);
   mockRef.current = mock;
   // 模拟数据空态已警示的节点（每节点一次，避免 autoRun 反复弹提示）

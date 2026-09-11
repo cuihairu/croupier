@@ -62,6 +62,9 @@ describe('PreviewRuntime refreshOnNode 级联（对齐发布运行时）', () =>
       </App>,
     );
 
+    // 本文件锁定真实调用路径：预览默认模拟模式，显式切到真实
+    fireEvent.click(screen.getByRole('switch')); // 关
+
     // autoRun=false：初始不执行
     expect(mockedInvoke).not.toHaveBeenCalled();
 
@@ -93,6 +96,7 @@ describe('PreviewRuntime refreshOnNode 级联（对齐发布运行时）', () =>
         <PreviewRuntime tree={nodes} fnById={new Map([['player.list', playerListDescriptor]])} />
       </App>,
     );
+    fireEvent.click(screen.getByRole('switch')); // 关（真实路径下验证不重跑）
     fireEvent.change(screen.getByLabelText(/关键词/), { target: { value: '李四' } });
     await waitFor(
       () => {
