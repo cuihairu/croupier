@@ -25,13 +25,46 @@ import { getResponseMsgId, isControlRequest } from "./protocol";
 const FRAME_HEADER_BYTES = 4; // 4-byte big-endian length prefix
 const MAX_FRAME_BYTES = 32 * 1024 * 1024; // 32 MB
 
-/** Read exactly n bytes from socket */
+/**
+ * Read exactly n bytes from socket.
+ *
+ * 挂起的读必须可被连接关闭/错误唤醒（reject），否则 close() 后读协程
+ * 永久悬挂；resolve/reject 路径都要清掉挂着的 readable/error/close/end
+ * 监听，防止每帧泄漏 2+ 个 listener（MaxListenersExceededWarning）。
+ */
 function readExact(socket: Socket, n: number): Promise<Buffer> {
   return new Promise((resolve, reject) => {
     const data = Buffer.allocUnsafe(n);
     let offset = 0;
+    let settled = false;
+
+    const cleanup = () => {
+      socket.removeListener("readable", readMore);
+      socket.removeListener("error", onError);
+      socket.removeListener("close", onClosed);
+      socket.removeListener("end", onClosed);
+    };
+
+    const finish = (err: Error | null) => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      cleanup();
+      if (err) {
+        reject(err);
+      } else {
+        resolve(data);
+      }
+    };
+
+    const onError = (err: Error) => finish(err);
+    const onClosed = () => finish(new Error("connection closed"));
 
     const readMore = () => {
+      if (settled) {
+        return;
+      }
       const chunk = socket.read(n - offset);
       if (chunk === null) {
         socket.once("readable", readMore);
@@ -40,13 +73,15 @@ function readExact(socket: Socket, n: number): Promise<Buffer> {
       chunk.copy(data, offset);
       offset += chunk.length;
       if (offset >= n) {
-        resolve(data);
+        finish(null);
       } else {
         readMore();
       }
     };
 
-    socket.once("error", reject);
+    socket.once("error", onError);
+    socket.once("close", onClosed);
+    socket.once("end", onClosed);
     readMore();
   });
 }
@@ -129,7 +164,6 @@ export class TCPTransport {
   // pending request_id -> PendingCall
   private pending: Map<number, PendingCall> = new Map();
 
-  private readerTimer: NodeJS.Timeout | null = null;
   private running = false;
 
   // inbound request handler
@@ -239,13 +273,11 @@ export class TCPTransport {
     this.running = false;
     this.connected = false;
 
-    if (this.readerTimer) {
-      clearTimeout(this.readerTimer);
-      this.readerTimer = null;
-    }
-
     if (this.socket) {
       try {
+        // destroy 可能异步触发 error 事件；读循环的 error 监听已随读退出
+        // 清理，挂一个空监听避免 uncaught exception。
+        this.socket.once("error", () => {});
         this.socket.destroy();
       } catch {
         // ignore
@@ -333,11 +365,17 @@ export class TCPTransport {
 
   /** Start background reader loop */
   private startReader(): void {
+    // 读循环直接阻塞在 readFrame 上（单读者），空闲连接不产生任何并发
+    // 读——此前 readFrameWithTimeout 用 1s 空转超时退出等待，但挂起的
+    // readFrame→readExact 不可取消，空闲每秒多挂一个并发读；数据帧到达
+    // 时多个 readMore 竞争 socket.read(n)，一个读走 4 字节长度前缀、其余
+    // 把 payload 前 4 字节当长度前缀，帧解析彻底错乱（探针/心跳响应丢失、
+    // agent keepalive 判死会话的根因）。
     const readLoop = async () => {
-      while (this.running && this.socket) {
-        try {
-          const frame = await this.readFrameWithTimeout();
-          if (!frame || frame.length < 8) {
+      try {
+        while (this.running && this.socket) {
+          const frame = await readFrame(this.socket);
+          if (frame.length < 8) {
             continue;
           }
 
@@ -353,40 +391,26 @@ export class TCPTransport {
           } else if (isRequest(msgId)) {
             this.dispatchInbound(msgId, reqId, body);
           }
-        } catch (err) {
-          if (this.running) {
-            // error, continue
+        }
+      } catch {
+        // 读失败（对端关闭/网络错误/超限帧）：退出读循环，交给 finally 善后。
+      } finally {
+        // 非主动 close 的退出（对端断开/读异常）：连接已不可用。置断开
+        // 并唤醒所有挂起调用，让上层心跳失败触发重连——否则 pending
+        // 只能等各自的请求超时才发现连接已死。
+        if (this.running) {
+          this.connected = false;
+          this.running = false;
+          for (const p of this.pending.values()) {
+            p.error = new Error("connection closed");
+            p.resolve();
           }
+          this.pending.clear();
         }
       }
     };
 
     readLoop().catch(() => {});
-    this.readerTimer = setInterval(() => {}, 1000);
-  }
-
-  private async readFrameWithTimeout(): Promise<Buffer> {
-    return new Promise((resolve) => {
-      if (!this.socket) {
-        resolve(Buffer.allocUnsafe(0));
-        return;
-      }
-
-      const timeout = setTimeout(() => {
-        resolve(Buffer.allocUnsafe(0));
-      }, 1000);
-
-      setImmediate(async () => {
-        try {
-          const frame = await readFrame(this.socket!);
-          clearTimeout(timeout);
-          resolve(frame);
-        } catch {
-          clearTimeout(timeout);
-          resolve(Buffer.allocUnsafe(0));
-        }
-      });
-    });
   }
 
   /** 读循环只投递：双车道派发（对齐 Go MuxConn）。

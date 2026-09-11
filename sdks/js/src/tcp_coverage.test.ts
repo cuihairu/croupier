@@ -195,28 +195,20 @@ describe("TCPTransport coverage corners", () => {
       peer.send(MSG_INVOKE_REQUEST, 100 + i, Buffer.from("x"));
     }
     await new Promise((r) => setTimeout(r, 100));
-    // The reader loop swallowed the error and kept running.
-    expect(t.isConnected()).toBe(true);
+    // 写失败意味着连接已坏：读循环退出、连接显式断开（旧实现吞掉错误
+    // 假装存活，响应实际再也发不出去）。
+    expect(t.isConnected()).toBe(false);
 
-    // Restore writes, drain the gated handler and verify responses flow again.
+    // 恢复写并放行 gated handler：进程不崩溃、worker 车道正常收尾。
     socket.write = originalWrite;
     release();
-    const first = await peer.waitFrame(
-      (f) => f.msgId === MSG_INVOKE_RESPONSE && f.reqId === 100,
-    );
-    expect(first.body.toString()).toBe("late");
-    for (let i = 1; i < 5; i++) {
-      const next = await peer.waitFrame(
-        (f) => f.msgId === MSG_INVOKE_RESPONSE && f.reqId === 100 + i,
-      );
-      expect(next.body.toString()).toBe("late");
-    }
+    await new Promise((r) => setTimeout(r, 50));
   }, 10000);
 
-  it("handles a truncated frame at EOF without crashing the reader", async () => {
+  it("fails pending calls when a truncated frame hits EOF", async () => {
     // Peer sends a partial length prefix (2 bytes) then half-closes: at EOF
-    // socket.read(n) returns the short remaining chunk, forcing readExact
-    // to recurse (offset < n) before parking forever.
+    // the pending read is woken by the end event, the reader exits and the
+    // in-flight call fails immediately instead of parking until timeout.
     const server = createServer((socket) => {
       socket.once("data", () => {
         socket.write(Buffer.from([0x00, 0x00]));
@@ -230,17 +222,14 @@ describe("TCPTransport coverage corners", () => {
       });
     });
 
-    const t = new TCPTransport({ address, timeoutMs: 2000 });
+    const t = new TCPTransport({ address, timeoutMs: 5000 });
     transports.push(t);
     await t.connect();
     // Trigger a request so the peer's connection handler fires; the reply
-    // never arrives as a complete frame, so the call times out.
+    // never arrives as a complete frame.
     const pending = t.call(MSG_INVOKE_REQUEST, Buffer.from("x"));
-    await expect(pending).rejects.toThrow("timeout");
-
-    // Give the 1s read-frame wrapper time to cycle past the parked reader.
-    await new Promise((r) => setTimeout(r, 1200));
-    expect(t.isConnected()).toBe(true);
+    await expect(pending).rejects.toThrow(/connection closed/);
+    expect(t.isConnected()).toBe(false);
 
     t.close();
     await new Promise<void>((resolve) => {
@@ -248,12 +237,12 @@ describe("TCPTransport coverage corners", () => {
     });
   }, 10000);
 
-  it("resolves idle reads with an empty frame and keeps the connection up", async () => {
+  it("keeps the connection up through an idle period", async () => {
     const t = makeTransport();
     await t.connect();
 
-    // Stay silent for longer than the 1s read timeout: the reader resolves
-    // an empty frame and loops instead of stalling forever.
+    // Stay silent: the reader blocks on a single pending read (no polling
+    // timeout) and the connection must stay healthy across the idle window.
     await new Promise((r) => setTimeout(r, 1200));
     expect(t.isConnected()).toBe(true);
   }, 10000);

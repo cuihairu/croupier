@@ -370,14 +370,6 @@ describe("MainThreadDispatcher queue edges", () => {
 // ---------------------------------------------------------------------------
 
 describe("TCPTransport guards", () => {
-  it("readFrameWithTimeout resolves an empty buffer without a socket", async () => {
-    const t = new TCPTransport({ address: "127.0.0.1:1" });
-    const frame = await (t as any).readFrameWithTimeout();
-    expect(Buffer.isBuffer(frame)).toBe(true);
-    expect(frame.length).toBe(0);
-    await t.close();
-  });
-
   it("connect rejects an unparsable address", async () => {
     const t = new TCPTransport({ address: "not a host:port!" });
     await expect(t.connect()).rejects.toThrow();

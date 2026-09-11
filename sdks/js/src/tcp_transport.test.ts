@@ -227,14 +227,14 @@ describe("TCPTransport", () => {
       expect(() => t.close()).not.toThrow();
     });
 
-    it("still reports connected after remote disconnect (documented behavior)", async () => {
+    it("detects remote disconnect and drops connected state", async () => {
       const t = makeTransport();
       await t.connect();
       agent.destroySockets();
       await new Promise((r) => setTimeout(r, 100));
-      // Current implementation has no disconnect detection; it keeps
-      // reporting connected until close() is called explicitly.
-      expect(t.isConnected()).toBe(true);
+      // 读循环被 close/end 唤醒退出并置断开——上层心跳能立刻发现连接
+      // 死亡并触发重连（旧实现无断连检测，一直假报 connected）。
+      expect(t.isConnected()).toBe(false);
     });
   });
 
@@ -346,8 +346,8 @@ describe("TCPTransport", () => {
       expect(body.toString()).toBe("ok");
     });
 
-    it("swallows oversized frame headers without crashing the reader", async () => {
-      const t = makeTransport({ timeoutMs: 300 });
+    it("drops the connection on oversized frame headers (stream desync)", async () => {
+      const t = makeTransport({ timeoutMs: 5000 });
       await t.connect();
 
       const pending = t.call(MSG_INVOKE_REQUEST, Buffer.from("x"));
@@ -358,10 +358,10 @@ describe("TCPTransport", () => {
       agent.writeRaw(oversized);
       agent.writeRaw(Buffer.from("garbage-that-is-not-a-frame"));
 
-      // The reader discards the error; the call eventually times out
-      // and the transport stays usable from the caller's perspective.
-      await expect(pending).rejects.toThrow("timeout");
-      expect(t.isConnected()).toBe(true);
+      // 超限帧意味着流已失步，无法重新对齐：读循环退出、挂起调用立即
+      // 失败（不再干等到请求超时），连接显式断开。
+      await expect(pending).rejects.toThrow(/frame too large|connection closed/);
+      expect(t.isConnected()).toBe(false);
     });
 
     it("reassembles frames delivered byte by byte", async () => {
