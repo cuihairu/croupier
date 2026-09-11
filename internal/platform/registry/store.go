@@ -1092,8 +1092,34 @@ type AgentSessionLoader interface {
 	LoadActiveSessions(ctx context.Context) ([]*AgentSession, error)
 }
 
+// RemoveAgentIfStale 删除 agent 的注册会话（断连/对账清理）。notAfter
+// 之后的新注册或心跳（两者都刷新 LastSeen）会中止删除——断连清理与
+// 瞬间重连注册的竞态里不能删掉新会话。返回是否实际删除。
+func (s *Store) RemoveAgentIfStale(agentID string, notAfter time.Time) bool {
+	if agentID == "" {
+		return false
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	cur := s.agents[agentID]
+	if cur == nil {
+		return false
+	}
+	if cur.LastSeen.After(notAfter) {
+		return false
+	}
+	delete(s.agents, agentID)
+	return true
+}
+
 // LoadFromDB loads active agent sessions from the database and populates the in-memory store.
 func (s *Store) LoadFromDB(ctx context.Context, loader AgentSessionLoader) error {
+	return s.LoadFromDBFiltered(ctx, loader, nil)
+}
+
+// LoadFromDBFiltered 按 keep 过滤灌回快照行；keep == nil 等价全量恢复
+// （单实例/归属目录不可用时的语义）。
+func (s *Store) LoadFromDBFiltered(ctx context.Context, loader AgentSessionLoader, keep func(*AgentSession) bool) error {
 	if s.db == nil {
 		return fmt.Errorf("database not enabled")
 	}
@@ -1108,6 +1134,9 @@ func (s *Store) LoadFromDB(ctx context.Context, loader AgentSessionLoader) error
 
 	s.mu.Lock()
 	for _, sess := range sessions {
+		if keep != nil && !keep(sess) {
+			continue
+		}
 		s.agents[sess.AgentID] = sess
 	}
 	s.mu.Unlock()

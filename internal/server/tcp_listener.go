@@ -161,16 +161,29 @@ func (l *TCPListener) serveConn(ctx context.Context, conn net.Conn) {
 	if err := mux.Run(ctx); err != nil {
 		l.logger.Debug("Agent MuxConn ended", "remote", remoteAddr, "error", err)
 	}
+	// Join lane workers before reading handler state: registration runs on a
+	// worker goroutine, and without this wait its writes to handler fields
+	// race the disconnect cleanup below.
+	mux.Wait()
 
 	// Clean up session on disconnect.
 	// Use RemoveSession (not Remove) so that an old connection's cleanup
 	// does not delete a newer session that replaced it during a reconnect.
 	if handler.agentID != "" {
+		disconnectedAt := time.Now()
 		removed := l.sessionStore.RemoveSession(handler.agentID, handler.sessionID)
 		if removed {
 			l.logger.Info("Agent session removed on disconnect",
 				"agent_id", handler.agentID,
 				"session_id", handler.sessionID)
+			// 同步清 registry 内存条目（函数视图/lb/broadcast 候选即时
+			// 真实化——此前僵尸滞留到 ExpireAt 24h）。notAfter 校验挡住
+			// 「断连瞬间重连注册已覆盖 registry」的竞态：新注册的
+			// LastSeen 必然晚于断连时刻。
+			if l.registry != nil && l.registry.RemoveAgentIfStale(handler.agentID, disconnectedAt) {
+				l.logger.Info("Removed registry session on disconnect",
+					"agent_id", handler.agentID)
+			}
 			if l.clusterHooks != nil {
 				l.clusterHooks.OnAgentDisconnected(context.Background(), handler.agentID)
 			}

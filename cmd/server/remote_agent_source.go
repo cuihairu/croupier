@@ -50,3 +50,31 @@ func (s *ownerAgentSource) RemoteAgentSessions(ctx context.Context, gameID, env 
 }
 
 var _ dispatch.RemoteAgentSource = (*ownerAgentSource)(nil)
+
+// activeAgentIDDirectory 适配 ControlService.SetActiveAgentDirectory：共享
+// 归属表（TTL 内即活跃）的 agent 全集，不限实例——本实例与对端持有连接
+// 的 agent 都有 ClaimOwner 行，无行 = 无任何实例持有 = 快照行是僵尸。
+type activeAgentIDDirectory struct {
+	resolver cluster.OwnerStore
+}
+
+// ActiveAgentIDs 返回归属表活跃 agent ID 去重集合。
+func (d activeAgentIDDirectory) ActiveAgentIDs(ctx context.Context) ([]string, error) {
+	if d.resolver == nil {
+		return nil, nil
+	}
+	recs, err := d.resolver.ListAliveOwners(ctx)
+	if err != nil {
+		return nil, err
+	}
+	ids := make([]string, 0, len(recs))
+	seen := make(map[string]bool, len(recs))
+	for _, rec := range recs {
+		if seen[rec.AgentID] {
+			continue
+		}
+		seen[rec.AgentID] = true
+		ids = append(ids, rec.AgentID)
+	}
+	return ids, nil
+}

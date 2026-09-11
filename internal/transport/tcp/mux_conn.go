@@ -380,6 +380,16 @@ func (c *MuxConn) Close() error {
 	return closeErr
 }
 
+// Wait blocks until all lane workers have exited. Run's deferred Close
+// guarantees termination, so calling Wait after Run returns is bounded by
+// the current in-flight handler. It establishes happens-before with handler
+// field writes performed on worker goroutines — the caller's post-Run
+// cleanup (session teardown reading handler state) is race-free only after
+// Wait.
+func (c *MuxConn) Wait() {
+	c.workersWg.Wait()
+}
+
 // IsClosed reports whether the mux connection has been closed.
 func (c *MuxConn) IsClosed() bool {
 	if c == nil || c.closed == nil {

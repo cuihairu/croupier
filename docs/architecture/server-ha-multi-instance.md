@@ -366,6 +366,8 @@ cluster:
 
 候选集兜底（RemoteAgentSource）：本地候选为空（或 failover 耗尽本地候选）时，同步查共享归属表 + `agent_sessions` 快照表（1s 预算，出错降级不放大故障）补远端候选，选中的远端候选经转发执行。`refreshRemoteSnapshots` 的 30s 周期回灌因此从正确性依赖降级为性能优化层。
 
+registry 内存会话的生命周期与归属表对齐（无行即清）：本实例连接断开即删（`RemoveAgentIfStale` 的 notAfter 校验挡住断连瞬间重连注册的竞态）、重启恢复按归属表活跃全集过滤快照行、30s 对账周期清理「归属表无行且 LastSeen 超 5min 宽限（> ownerTTL 3min，防 Touch 抖动误删）」的孤儿副本——归属表无行 = 无任何实例持有连接，内存条目随之消亡。DB `agent_sessions` 快照行不删不改、自然过期，避免与重连注册的 Upsert 写竞态。
+
 ## 6. 故障语义
 
 ### 6.1 连接分布

@@ -430,6 +430,9 @@ func startControlServer(ctx context.Context, c *config.Config, svcCtx *svc.Servi
 	// 共享归属表回读本实例持有的 scope 重建会话——僵尸连接不再静默。
 	if svcCtx.Cluster != nil && svcCtx.Cluster.Resolver != nil {
 		controlService.SetHeartbeatOwnerLookup(svcCtx.Cluster.Resolver)
+		// 启动恢复过滤：只恢复归属表活跃（任一实例持有连接）的快照行，
+		// 断连 agent 的残留行不再作为僵尸复活（单实例不注入，全量恢复）。
+		controlService.SetActiveAgentDirectory(activeAgentIDDirectory{resolver: svcCtx.Cluster.Resolver})
 	}
 	// 集群身份（注册响应回传 agent 三方对账；单实例为空）
 	if svcCtx.Cluster != nil {

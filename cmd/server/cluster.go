@@ -386,10 +386,17 @@ func forwardInvokeRequest(req *cluster.ForwardedInvoke) *sdkv1.InvokeRequest {
 }
 
 // refreshRemoteSnapshots 把归属表活跃、连接在对端实例的 agent 的 DB
-// 会话刷回本地 registry（函数表 + ExpireAt），维持跨实例调用候选集。
+// 会话刷回本地 registry（函数表 + ExpireAt），维持跨实例调用候选集；
+// 同时反向对账——归属表无行的本地条目（对端断连后的回灌快照副本、
+// 本实例断连残留）按宽限窗口清理，不再僵尸到 ExpireAt（24h）。
 func refreshRemoteSnapshots(ctx context.Context, svcCtx *svc.ServiceContext, resolver cluster.OwnerStore, selfID string) {
 	owners, err := resolver.ListAliveOwners(ctx)
-	if err != nil || len(owners) == 0 {
+	if err != nil {
+		// 归属表不可达：既不回灌也不对账（无法判断存活）。
+		return
+	}
+	pruneOrphanSnapshots(svcCtx, owners)
+	if len(owners) == 0 {
 		return
 	}
 	remoteIDs := make([]string, 0, len(owners))
@@ -434,6 +441,42 @@ func refreshRemoteSnapshots(ctx context.Context, svcCtx *svc.ServiceContext, res
 			if err := store.UpsertAgent(sess); err == nil && (!ok || cur == nil) {
 				slog.Info("cluster: refreshed remote agent snapshot", "agent_id", sess.AgentID, "owner", ownerInstance(owners, sess.AgentID))
 			}
+		}
+	}
+}
+
+// orphanSnapshotGrace 对账清理宽限窗口：大于归属 lease TTL（3min），
+// 防 Touch 失败/DB 抖动导致归属行瞬时缺失但连接活着的误删——活连接的
+// 心跳直接刷新内存 LastSeen，必然新鲜；归属表真无行 + LastSeen 陈旧 =
+// 全实例视角都已死亡，清理安全。
+const orphanSnapshotGrace = 5 * time.Minute
+
+// pruneOrphanSnapshots 清理「归属表无行且 LastSeen 超过宽限窗口」的本地
+// registry 条目。筛选在读锁内完成、删除逐条走 RemoveAgentIfStale（写锁
+// 内复核 LastSeen），筛选与删除之间发生的新注册不会误删。
+func pruneOrphanSnapshots(svcCtx *svc.ServiceContext, owners []cluster.AgentOwnerRecord) {
+	store := svcCtx.RegistryStore
+	if store == nil {
+		return
+	}
+	alive := make(map[string]bool, len(owners))
+	for _, rec := range owners {
+		alive[rec.AgentID] = true
+	}
+	staleBefore := time.Now().Add(-orphanSnapshotGrace)
+	store.Mu().RLock()
+	local := store.AgentsUnsafe()
+	stale := make([]string, 0, len(local))
+	for agentID, sess := range local {
+		if sess == nil || alive[agentID] || !sess.LastSeen.Before(staleBefore) {
+			continue
+		}
+		stale = append(stale, agentID)
+	}
+	store.Mu().RUnlock()
+	for _, agentID := range stale {
+		if store.RemoveAgentIfStale(agentID, staleBefore) {
+			slog.Info("cluster: pruned orphan agent snapshot", "agent_id", agentID)
 		}
 	}
 }

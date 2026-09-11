@@ -25,6 +25,7 @@ Croupier HA 多实例架构（[Server 多实例 HA](../architecture/server-ha-mu
 - **候选集兜底（RemoteAgentSource）**：本地候选为空或 failover 耗尽本地候选时，同步查共享归属表 + `agent_sessions` 快照表（1s 预算，出错降级回 `no live agent` 语义不放大故障）补远端候选，选中的远端候选经 mesh 转发到 owner 实例执行
 - **三分支转发**：同步 invoke、异步任务（start_task，与 invoke 同款 failover——lb 路由失败换候选重试、失败尝试的 task_runs 行标 failed、耗尽映射 503）、任务取消（cancel_task，task routing miss 时从共享 `task_runs` 解析 agent）、广播（候选集 local ∪ remote，按 AgentID 去重本地优先）都走同一帧格式（`kind` 区分），owner 侧定向投递并落审计（不重查 policy，信任边界见 `docs/architecture/server-ha-multi-instance.md` §5.3）
 - `refreshRemoteSnapshots` 的 30s 周期回灌从正确性依赖降级为性能优化层（减少热路径同步查库）
+- **registry 内存会话生命周期与归属表对齐**（2026-09-11 补齐，三级清理）：本实例断连即时清（`RemoveAgentIfStale` 的 notAfter 校验挡住断连瞬间重连注册的竞态）、重启恢复按归属表活跃全集过滤快照行、30s 对账周期清理「归属表无行且 5min 无心跳」的孤儿副本——断连 agent 不再以僵尸候选滞留函数视图/lb/broadcast 候选至 ExpireAt（24h）。DB `agent_sessions` 快照行不删不改、自然过期（归属表是跨实例查询的唯一入口，无归属行的快照行无消费者）；单实例（cluster 未启用）行为不变：断连即时清生效，重启恢复仍全量
 
 已知边界（切双活前须知）：
 

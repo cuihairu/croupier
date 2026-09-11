@@ -140,6 +140,12 @@ type ControlService struct {
 		SelfOwnerScope(ctx context.Context, agentID string) (gameID, env string, ok bool)
 	}
 
+	// activeAgentDirectory 启动恢复过滤用：共享归属表的活跃 agent 全集
+	// （任一实例持有连接即活跃；装配期注入；nil = 单实例，全量恢复不变）。
+	activeAgentDirectory interface {
+		ActiveAgentIDs(ctx context.Context) ([]string, error)
+	}
+
 	// clusterInstanceID 本实例的集群身份（注册响应回传给 agent 做三方
 	// 对账；单实例/未启用时为空）。
 	clusterInstanceID string
@@ -253,6 +259,15 @@ func (s *ControlService) SetHeartbeatOwnerLookup(l interface {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.heartbeatOwnerLookup = l
+}
+
+// SetActiveAgentDirectory 注入共享归属表活跃全集查询（启动恢复过滤用）。
+func (s *ControlService) SetActiveAgentDirectory(d interface {
+	ActiveAgentIDs(ctx context.Context) ([]string, error)
+}) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.activeAgentDirectory = d
 }
 
 func (s *ControlService) StartBackgroundTasks() {
@@ -869,13 +884,32 @@ func (s *ControlService) cleanupLoop() {
 }
 
 // LoadAgentSessions loads active agent sessions from the database into memory.
+// 多实例时按共享归属表活跃全集过滤——断连 agent 的残留快照行不再作为
+// 僵尸复活（归属表无行 = 无任何实例持有连接）。
 func (s *ControlService) LoadAgentSessions() error {
 	if s.agentSessionLoader == nil {
 		return nil
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-	if err := s.registry.LoadFromDB(ctx, s.agentSessionLoader); err != nil {
+	var keep func(*reg.AgentSession) bool
+	s.mu.RLock()
+	directory := s.activeAgentDirectory
+	s.mu.RUnlock()
+	if directory != nil {
+		ids, err := directory.ActiveAgentIDs(ctx)
+		if err != nil {
+			// 查询失败降级全量恢复：启动路径不放大归属表故障。
+			s.logger.Warn("active agent directory unavailable, restoring all snapshots", "error", err)
+		} else {
+			alive := make(map[string]bool, len(ids))
+			for _, id := range ids {
+				alive[id] = true
+			}
+			keep = func(sess *reg.AgentSession) bool { return alive[sess.AgentID] }
+		}
+	}
+	if err := s.registry.LoadFromDBFiltered(ctx, s.agentSessionLoader, keep); err != nil {
 		return fmt.Errorf("failed to load agent sessions: %w", err)
 	}
 	return nil
