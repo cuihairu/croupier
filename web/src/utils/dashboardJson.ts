@@ -1,3 +1,4 @@
+import { getIntl } from '@umijs/max';
 import type { JSONValue } from '@/types/dashboard';
 
 export type JSONRecord = { [key: string]: JSONValue };
@@ -39,7 +40,16 @@ export function parseOptionalJSON(raw: string): JSONValue | undefined {
 export function parseJSONObject(raw: string, label: string): JSONRecord {
   const parsed = parseOptionalJSON(raw);
   if (!isJSONRecord(parsed)) {
-    throw new Error(`${label} 必须是 JSON object`);
+    // label 由调用方传入（可能已 intl 化），仅错误框架文案走 getIntl（调用时求值）
+    throw new Error(
+      getIntl().formatMessage(
+        {
+          id: 'utils.dashboardJson.mustBeJSONObject',
+          defaultMessage: `${label} 必须是 JSON object`,
+        },
+        { label },
+      ),
+    );
   }
   return parsed;
 }

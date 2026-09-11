@@ -28,8 +28,16 @@ export default {
   'pages.pageStudio.editor.action.target.empty': 'No available targets',
   'pages.pageStudio.editor.action.targetDeleted':
     'The target node has been deleted — please choose another',
+  'pages.pageStudio.editor.canvas.containerFallback':
+    'The container does not accept "{type}" children; placed after the container instead',
+  'pages.pageStudio.editor.canvas.containerNotAllowed':
+    'The container does not accept "{type}" children (only tables, field cards, buttons and text are allowed)',
   'pages.pageStudio.editor.canvas.emptyHint':
     'Click or drag a component from the left panel to start building the page',
+  'pages.pageStudio.editor.canvas.missingDeps': 'Missing dependent functions: {fns}',
+  'pages.pageStudio.editor.canvas.modalFormOnly':
+    'Only function forms can be placed inside a modal (V1)',
+  'pages.pageStudio.editor.canvas.templateEmpty': 'The template is empty',
   'pages.pageStudio.editor.chain.addParam': '+ Add parameter',
   'pages.pageStudio.editor.chain.addStep': '+ Add follow-up action',
   'pages.pageStudio.editor.chain.paramNamePlaceholder': 'Parameter name',
@@ -47,6 +55,9 @@ export default {
   'pages.pageStudio.editor.component.button.style.default': 'Default',
   'pages.pageStudio.editor.component.button.style.primary': 'Primary',
   'pages.pageStudio.editor.component.fn.autoRun': 'Run automatically on page load',
+  'pages.pageStudio.editor.component.fn.prop.functionId': 'Function (rebindable)',
+  'pages.pageStudio.editor.component.fn.prop.span': 'Width (1-24 grid)',
+  'pages.pageStudio.editor.component.fn.prop.title': 'Title',
   'pages.pageStudio.editor.component.fnFields.icon': 'Fields',
   'pages.pageStudio.editor.component.fnFields.name': 'Field card',
   'pages.pageStudio.editor.component.fnFields.preview.empty': 'No output schema',
@@ -120,6 +131,19 @@ export default {
   'pages.pageStudio.editor.constantImport.savedCount': '{count} constant components',
   'pages.pageStudio.editor.constantImport.title': 'Import constants',
   'pages.pageStudio.editor.constantImport.uploadButton': 'Upload Excel / JSON',
+  'pages.pageStudio.editor.dataPanel.runFailed': 'Run failed',
+  'pages.pageStudio.editor.dataPanel.runHint':
+    'Test-run {fnId} ({paramCount} params, empty input by default)',
+  'pages.pageStudio.editor.dataPanel.title': 'Data',
+  'pages.pageStudio.editor.expression.pathSegmentMissing':
+    'Path segment "{name}" is not among the schema candidates for {variable}',
+  'pages.pageStudio.editor.expression.placeholder':
+    "Literal value, or '{{' to pick a variable '}}'",
+  'pages.pageStudio.editor.expression.rowFieldMissing':
+    'Row field "{field}" is not in the current table output schema',
+  'pages.pageStudio.editor.expression.rowVariableHint': 'Current row (row action context)',
+  'pages.pageStudio.editor.insertTpl.ok': 'Insert',
+  'pages.pageStudio.editor.insertTpl.title': 'Configure component parameters: {name}',
   'pages.pageStudio.editor.library.category.builtin': 'Built-in',
   'pages.pageStudio.editor.library.category.custom': 'Custom',
   'pages.pageStudio.editor.library.empty': 'No component templates',
@@ -143,6 +167,7 @@ export default {
   'pages.pageStudio.editor.node.moveDown': 'Move down',
   'pages.pageStudio.editor.node.moveUp': 'Move up',
   'pages.pageStudio.editor.node.selectParent': 'Select parent container',
+  'pages.pageStudio.editor.outline.empty': 'The page is empty',
   'pages.pageStudio.editor.panel.basicsTitle': 'Basic components',
   'pages.pageStudio.editor.panel.categoryOther': 'Other',
   'pages.pageStudio.editor.panel.fnTitle': 'Function components',

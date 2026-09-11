@@ -1,5 +1,6 @@
 import React from 'react';
 import { Modal } from 'antd';
+import { useIntl } from '@umijs/max';
 import SchemaFormRenderer, { type SchemaFormRendererHandle } from '@/components/SchemaFormRenderer';
 import type { FormValues } from '@/types/dashboard';
 import { CLONE_FORM_SPEC } from './schemas';
@@ -11,6 +12,7 @@ type Props = {
 };
 
 export default function CloneModal({ open, onClose, onSave }: Props) {
+  const intl = useIntl();
   const formRef = React.useRef<SchemaFormRendererHandle | null>(null);
   const [formValues, setFormValues] = React.useState<FormValues>({});
 
@@ -21,7 +23,10 @@ export default function CloneModal({ open, onClose, onSave }: Props) {
 
   return (
     <Modal
-      title="克隆分配配置"
+      title={intl.formatMessage({
+        id: 'pages.assignments.clone.modalTitle',
+        defaultMessage: '克隆分配配置',
+      })}
       open={open}
       onCancel={onClose}
       onOk={() => {

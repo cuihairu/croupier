@@ -38,6 +38,7 @@ export default {
   'pages.functionsHistory.pagination.total': '{total} records in total',
   'pages.functionsHistory.stats.avgDuration': 'Avg. Duration',
   'pages.functionsHistory.stats.failed': 'Failed',
+  'pages.functionsHistory.stats.loadFailed': 'Failed to load statistics',
   'pages.functionsHistory.stats.running': 'Running',
   'pages.functionsHistory.stats.succeeded': 'Succeeded',
   'pages.functionsHistory.stats.successRate': 'Success Rate',

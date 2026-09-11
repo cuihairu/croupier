@@ -1,4 +1,4 @@
-import { request } from '@umijs/max';
+import { getIntl, request } from '@umijs/max';
 
 type StorageObjectsPayload = {
   objects?: Array<{
@@ -56,7 +56,15 @@ function uploadObjectMultipart(file: File, path?: string): Promise<{ path?: stri
           ? (JSON.parse(xhr.responseText) as { path?: string; message?: string })
           : null;
       } catch {
-        reject(new Error('上传响应解析失败'));
+        // xhr 回调时点求值当前语言（不在模块级缓存 intl）
+        reject(
+          new Error(
+            getIntl().formatMessage({
+              id: 'services.storage.upload.parseFailed',
+              defaultMessage: '上传响应解析失败',
+            }),
+          ),
+        );
         return;
       }
 
@@ -69,10 +77,26 @@ function uploadObjectMultipart(file: File, path?: string): Promise<{ path?: stri
         return;
       }
 
-      reject(new Error(payload?.message || '上传失败'));
+      reject(
+        new Error(
+          payload?.message ||
+            getIntl().formatMessage({
+              id: 'services.storage.upload.failed',
+              defaultMessage: '上传失败',
+            }),
+        ),
+      );
     };
 
-    xhr.onerror = () => reject(new Error('上传失败'));
+    xhr.onerror = () =>
+      reject(
+        new Error(
+          getIntl().formatMessage({
+            id: 'services.storage.upload.failed',
+            defaultMessage: '上传失败',
+          }),
+        ),
+      );
     xhr.send(form);
   });
 }

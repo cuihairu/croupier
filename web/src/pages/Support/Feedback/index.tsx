@@ -160,8 +160,20 @@ export default function SupportFeedbackPage() {
             disabled={r.status === 'triaged'}
             onClick={async () => {
               try {
+                const player = r.playerId
+                  ? r.playerId
+                  : intl.formatMessage({
+                      id: 'pages.supportFeedback.convert.unknownPlayer',
+                      defaultMessage: '未知',
+                    });
                 const res = await convertFeedbackToTicket(r.id, {
-                  note: `来源反馈#${r.id} 玩家:${r.playerId || '未知'}`,
+                  note: intl.formatMessage(
+                    {
+                      id: 'pages.supportFeedback.convert.note',
+                      defaultMessage: `来源反馈#${r.id} 玩家:${player}`,
+                    },
+                    { feedbackId: r.id, player },
+                  ),
                 });
                 getMessage()?.success(
                   res.alreadyConverted

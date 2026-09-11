@@ -1,5 +1,6 @@
 import React from 'react';
 import { Alert, Badge, Card, Space, theme as antdTheme, Typography } from 'antd';
+import { useIntl } from '@umijs/max';
 
 // 圆角统一引用 antd token（config.ts borderRadius=8 / borderRadiusLG=12），
 // 不再自造独立数值，避免同屏多套圆角。
@@ -147,34 +148,37 @@ const PAGE_STATE_THEME: Record<
   {
     accent: string;
     badgeStatus: 'success' | 'processing' | 'warning' | 'error';
-    label: string;
     background: string;
   }
 > = {
   success: {
     accent: '#52c41a',
     badgeStatus: 'success',
-    label: '状态正常',
     background: 'linear-gradient(135deg, rgba(82,196,26,0.12) 0%, rgba(22,119,255,0.03) 100%)',
   },
   info: {
     accent: '#1677ff',
     badgeStatus: 'processing',
-    label: '状态说明',
     background: 'linear-gradient(135deg, rgba(22,119,255,0.1) 0%, rgba(114,46,209,0.03) 100%)',
   },
   warning: {
     accent: '#faad14',
     badgeStatus: 'warning',
-    label: '需要处理',
     background: 'linear-gradient(135deg, rgba(250,173,20,0.12) 0%, rgba(22,119,255,0.03) 100%)',
   },
   error: {
     accent: '#ff4d4f',
     badgeStatus: 'error',
-    label: '当前不可用',
     background: 'linear-gradient(135deg, rgba(255,77,79,0.12) 0%, rgba(22,119,255,0.03) 100%)',
   },
+};
+
+// badgeText 未传时的兜底徽标文案（defaultMessage 与原硬编码逐字一致）
+const PAGE_STATE_LABELS: Record<'success' | 'info' | 'warning' | 'error', string> = {
+  success: '状态正常',
+  info: '状态说明',
+  warning: '需要处理',
+  error: '当前不可用',
 };
 
 export function PageStatePanel({
@@ -193,6 +197,11 @@ export function PageStatePanel({
   actions?: React.ReactNode;
 }) {
   const theme = PAGE_STATE_THEME[tone];
+  const intl = useIntl();
+  const stateLabel = intl.formatMessage({
+    id: `component.standardPage.stateLabel.${tone}`,
+    defaultMessage: PAGE_STATE_LABELS[tone],
+  });
 
   return (
     <Card
@@ -209,7 +218,7 @@ export function PageStatePanel({
         style={{ width: '100%' }}
       >
         <Space wrap size={[8, 8]}>
-          <Badge status={theme.badgeStatus} text={badgeText || theme.label} />
+          <Badge status={theme.badgeStatus} text={badgeText || stateLabel} />
           {extra}
         </Space>
         <Space orientation="vertical" size={6} style={{ width: '100%' }}>

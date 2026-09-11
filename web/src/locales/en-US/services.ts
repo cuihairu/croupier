@@ -31,6 +31,9 @@ export default {
   'services.dbmon.kindLabel.self': 'Self-hosted',
   'services.dbmon.kindLabel.tencent': 'Tencent Cloud',
   'services.dbmon.kindLabel.volc': 'Volcengine',
+  'services.functionInvoke.aborted': 'Function invocation cancelled',
+  'services.functions.summaryUnrecognizedFormat':
+    'The function summary API returned an unrecognized data format',
   'services.hotpatches.frameworkLabel.custom': 'Custom',
   'services.hotpatches.statusLabel.applied': 'Applied',
   'services.hotpatches.statusLabel.approved': 'Approved',
@@ -48,6 +51,8 @@ export default {
   'services.releases.typeLabel.forced': 'Forced Update',
   'services.releases.typeLabel.full': 'Full Package',
   'services.releases.typeLabel.hotfix': 'Hotfix',
+  'services.storage.upload.failed': 'Upload failed',
+  'services.storage.upload.parseFailed': 'Failed to parse the upload response',
   'services.tools.categoryLabel.artifact': 'Artifact Registry',
   'services.tools.categoryLabel.docs': 'Documentation',
   'services.tools.categoryLabel.monitor': 'Monitoring',

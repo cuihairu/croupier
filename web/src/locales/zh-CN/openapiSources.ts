@@ -59,6 +59,9 @@ export default {
   'pages.openapiSources.message.validationFailed': 'OpenAPI Source 校验失败，请查看诊断',
   'pages.openapiSources.page.subTitle':
     '上传 OpenAPI 只产生能力契约和诊断；可执行性必须显式绑定 Provider，页面 UI 仍在 Page Studio 确定。',
+  'pages.openapiSources.parse.missingInfoObject': 'OpenAPI JSON 缺少 info 对象',
+  'pages.openapiSources.parse.missingOpenapiField': 'OpenAPI JSON 缺少 openapi 字段',
+  'pages.openapiSources.parse.mustBeObject': 'OpenAPI JSON 必须是对象',
   'pages.openapiSources.sourceModal.alert.description.update':
     '更新会刷新 Source 的 operations 和 diagnostics，保留现有 Provider binding；OpenAPI 不能写 UI，只允许 x-resource/x-operation/x-capability/x-execution/x-risk/x-enabled/x-permission。',
   'pages.openapiSources.sourceModal.alert.description.upload':

@@ -7,6 +7,8 @@ export default {
   'pages.supportFeedback.action.edit': '编辑',
   'pages.supportFeedback.action.query': '查询',
   'pages.supportFeedback.card.title': '玩家反馈',
+  'pages.supportFeedback.convert.note': '来源反馈#{feedbackId} 玩家:{player}',
+  'pages.supportFeedback.convert.unknownPlayer': '未知',
   'pages.supportFeedback.deleteConfirm.title': '删除反馈',
   'pages.supportFeedback.field.actions': '操作',
   'pages.supportFeedback.field.attach': '附件(JSON)',

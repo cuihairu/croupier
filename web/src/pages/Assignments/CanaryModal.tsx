@@ -1,5 +1,6 @@
 import React from 'react';
 import { Modal } from 'antd';
+import { useIntl } from '@umijs/max';
 import type { AssignmentItem } from './types';
 import SchemaFormRenderer, { type SchemaFormRendererHandle } from '@/components/SchemaFormRenderer';
 import type { FormValues } from '@/types/dashboard';
@@ -13,6 +14,7 @@ type Props = {
 };
 
 export default function CanaryModal({ open, assignment, onClose, onSave }: Props) {
+  const intl = useIntl();
   const formRef = React.useRef<SchemaFormRendererHandle | null>(null);
   const [formValues, setFormValues] = React.useState<FormValues>({});
 
@@ -29,7 +31,10 @@ export default function CanaryModal({ open, assignment, onClose, onSave }: Props
 
   return (
     <Modal
-      title="灰度配置"
+      title={intl.formatMessage({
+        id: 'pages.assignments.canary.modalTitle',
+        defaultMessage: '灰度配置',
+      })}
       open={open}
       onCancel={onClose}
       onOk={() => {

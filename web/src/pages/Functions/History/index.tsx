@@ -104,9 +104,9 @@ export default () => {
       const response = await getFunctionCallStats(filters);
       setStats(response);
     } catch (error) {
-      console.warn('加载统计数据失败', error);
+      console.warn(intl.formatMessage({ id: 'pages.functionsHistory.stats.loadFailed' }), error);
     }
-  }, [filters]);
+  }, [filters, intl]);
 
   // 初始/筛选变化加载统计（列表由 ProTable request 驱动）
   useEffect(() => {

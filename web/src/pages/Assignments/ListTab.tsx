@@ -1,6 +1,7 @@
 import React from 'react';
 import { Card, Divider, Space, Tag } from 'antd';
 import { ProTable, type ProColumns } from '@ant-design/pro-components';
+import { FormattedMessage } from '@umijs/max';
 import type { AssignmentGroup, AssignmentItem } from './types';
 
 type Props = {
@@ -40,9 +41,27 @@ export default function ListTab({
           title={
             <Space>
               <span>{group.resource}</span>
-              <Tag color="blue">{group.items.length} 个函数</Tag>
-              <Tag color="green">{group.activeCount} 已启用</Tag>
-              <Tag color="orange">{group.canaryCount} 灰度中</Tag>
+              <Tag color="blue">
+                <FormattedMessage
+                  id="pages.assignments.group.functionCount"
+                  defaultMessage={`${group.items.length} 个函数`}
+                  values={{ count: group.items.length }}
+                />
+              </Tag>
+              <Tag color="green">
+                <FormattedMessage
+                  id="pages.assignments.group.activeCount"
+                  defaultMessage={`${group.activeCount} 已启用`}
+                  values={{ count: group.activeCount }}
+                />
+              </Tag>
+              <Tag color="orange">
+                <FormattedMessage
+                  id="pages.assignments.group.canaryCount"
+                  defaultMessage={`${group.canaryCount} 灰度中`}
+                  values={{ count: group.canaryCount }}
+                />
+              </Tag>
             </Space>
           }
           style={{ marginBottom: 16 }}

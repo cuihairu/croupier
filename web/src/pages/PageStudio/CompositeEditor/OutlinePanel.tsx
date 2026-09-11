@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
 import { Empty, Tree } from 'antd';
+import { FormattedMessage } from '@umijs/max';
 import type { DataNode } from 'antd/es/tree';
 import { getComponent } from './registry';
 import type { PageNode } from './model';
@@ -40,7 +41,9 @@ export default function OutlinePanel({
     return (
       <Empty
         image={Empty.PRESENTED_IMAGE_SIMPLE}
-        description="页面为空"
+        description={
+          <FormattedMessage id="pages.pageStudio.editor.outline.empty" defaultMessage="页面为空" />
+        }
         style={{ marginTop: 40 }}
       />
     );

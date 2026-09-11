@@ -1,3 +1,4 @@
+import { getIntl } from '@umijs/max';
 import type { OpenAPIDocument, OpenAPISourceOperation } from '@/services/api/openapi';
 import type { FunctionDescriptor } from '@/services/api/functions';
 import type { Diagnostic } from '@/types/dashboard';
@@ -91,17 +92,33 @@ export function proposalInboxPath(proposalKey: string, resourceKey?: string): st
   return `/functions/pages?${params.toString()}`;
 }
 
+// 校验错误文案经 getIntl() 在调用时解析（模块级函数无组件上下文，先例 Ops/Terms）
 export function parseOpenAPIDocument(text: string): OpenAPIDocument {
   const value: unknown = JSON.parse(text);
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
-    throw new Error('OpenAPI JSON 必须是对象');
+    throw new Error(
+      getIntl().formatMessage({
+        id: 'pages.openapiSources.parse.mustBeObject',
+        defaultMessage: 'OpenAPI JSON 必须是对象',
+      }),
+    );
   }
   const record = value as Record<string, unknown>;
   if (typeof record.openapi !== 'string' || record.openapi.trim() === '') {
-    throw new Error('OpenAPI JSON 缺少 openapi 字段');
+    throw new Error(
+      getIntl().formatMessage({
+        id: 'pages.openapiSources.parse.missingOpenapiField',
+        defaultMessage: 'OpenAPI JSON 缺少 openapi 字段',
+      }),
+    );
   }
   if (!record.info || typeof record.info !== 'object' || Array.isArray(record.info)) {
-    throw new Error('OpenAPI JSON 缺少 info 对象');
+    throw new Error(
+      getIntl().formatMessage({
+        id: 'pages.openapiSources.parse.missingInfoObject',
+        defaultMessage: 'OpenAPI JSON 缺少 info 对象',
+      }),
+    );
   }
   return value as OpenAPIDocument;
 }

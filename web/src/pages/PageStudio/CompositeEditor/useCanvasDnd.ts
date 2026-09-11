@@ -1,5 +1,6 @@
 import { useCallback, useState, type Dispatch, type RefObject, type SetStateAction } from 'react';
 import { App } from 'antd';
+import { useIntl } from '@umijs/max';
 import type { DragEndEvent, DragStartEvent } from '@dnd-kit/core';
 import type { FunctionDescriptor } from '@/services/api/functions';
 import { acceptsChild, scaffoldProps } from './registry';
@@ -41,6 +42,7 @@ export function useCanvasDnd({
   setInsertTpl: Dispatch<SetStateAction<{ tpl: ComponentTemplateDTO; overId: string } | null>>;
 }) {
   const { message } = App.useApp();
+  const intl = useIntl();
   const [dragItem, setDragItem] = useState<CanvasDragItem>(null);
   const [overNodeId, setOverNodeId] = useState<string | null>(null);
 
@@ -125,7 +127,15 @@ export function useCanvasDnd({
       if (data?.source === 'panel' && data.kind === 'template') {
         // 模板拖入：实例化子树（id/引用重映射），按落点插入多节点
         if (data.missing.length > 0) {
-          message.warning(`缺少依赖函数：${data.missing.join(', ')}`);
+          message.warning(
+            intl.formatMessage(
+              {
+                id: 'pages.pageStudio.editor.canvas.missingDeps',
+                defaultMessage: '缺少依赖函数：{fns}',
+              },
+              { fns: data.missing.join(', ') },
+            ),
+          );
           return;
         }
         // 带参数模板（U6）：先弹参数表单再实例化——保留拖拽落点，确认后按落点插入
@@ -158,13 +168,24 @@ export function useCanvasDnd({
         if (overId.startsWith('modal-drop:')) {
           const modalId = overId.slice('modal-drop:'.length);
           if (node.type === 'fnForm') addChild(modalId, node);
-          else message.warning('弹窗内只能放函数表单（V1）');
+          else
+            message.warning(
+              intl.formatMessage({
+                id: 'pages.pageStudio.editor.canvas.modalFormOnly',
+                defaultMessage: '弹窗内只能放函数表单（V1）',
+              }),
+            );
           return;
         }
         // 弹窗级编辑中：面板加入的节点落到当前弹窗 children（仅表单）
         if (editingModalRef.current) {
           if (node.type !== 'fnForm') {
-            message.warning('弹窗内只能放函数表单（V1）');
+            message.warning(
+              intl.formatMessage({
+                id: 'pages.pageStudio.editor.canvas.modalFormOnly',
+                defaultMessage: '弹窗内只能放函数表单（V1）',
+              }),
+            );
             return;
           }
           addChild(editingModalRef.current, node);
@@ -177,7 +198,15 @@ export function useCanvasDnd({
             addChild(after.id, node);
           } else {
             // 容器不接受该子类型（allowedChildren 契约）→ 回退为容器之后的兄弟插入
-            message.warning(`容器不接受「${node.type}」子组件，已放到容器之后`);
+            message.warning(
+              intl.formatMessage(
+                {
+                  id: 'pages.pageStudio.editor.canvas.containerFallback',
+                  defaultMessage: '容器不接受「{type}」子组件，已放到容器之后',
+                },
+                { type: node.type },
+              ),
+            );
             setTree((prev) => {
               const [named] = assignVarNames([node], collectVarNames(prev));
               return insertAfter(prev, named, after.id);
@@ -213,7 +242,7 @@ export function useCanvasDnd({
         return moved === prev ? prev : moved;
       });
     },
-    [addChild, message, registerFn, allFns, applyTemplateInsert],
+    [addChild, intl, message, registerFn, allFns, applyTemplateInsert],
   );
 
   return {

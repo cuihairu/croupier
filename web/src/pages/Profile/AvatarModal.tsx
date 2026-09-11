@@ -105,14 +105,14 @@ export default function AvatarModal({
                   {formatMessage('profile.avatar.modal.title')}
                 </div>
                 <div className="avatar-upload-preview__hint">
-                  支持拖拽图片、点击上传，也支持直接输入图片 URL。
+                  {formatMessage('profile.avatar.modal.uploadHint')}
                 </div>
               </div>
             </div>
           );
         }}
       </Form.Item>
-      <Form.Item label="上传头像">
+      <Form.Item label={formatMessage('profile.avatar.modal.uploadLabel')}>
         <Upload.Dragger
           accept="image/*"
           maxCount={1}
@@ -123,8 +123,8 @@ export default function AvatarModal({
           <p className="ant-upload-drag-icon">
             <InboxOutlined />
           </p>
-          <p className="ant-upload-text">拖拽图片到这里，或点击上传</p>
-          <p className="ant-upload-hint">上传后会自动回填到头像地址</p>
+          <p className="ant-upload-text">{formatMessage('profile.avatar.modal.dragText')}</p>
+          <p className="ant-upload-hint">{formatMessage('profile.avatar.modal.dragHint')}</p>
         </Upload.Dragger>
       </Form.Item>
       <Form.Item

@@ -1,5 +1,6 @@
 import React from 'react';
 import { Space, Tag } from 'antd';
+import { getIntl } from '@umijs/max';
 
 export const formatDateTime = (value?: string | number | Date) => {
   if (value === null || value === undefined || value === '') return '-';
@@ -37,7 +38,15 @@ export const renderHistoryDetail = (key: string, value: unknown) => {
         </Space>
       );
     }
-    return <Tag>{value.length} 项</Tag>;
+    // 展示文案经 getIntl() 在调用时解析（非组件模块无 intl 上下文，先例 Ops/Terms）
+    return (
+      <Tag>
+        {getIntl().formatMessage(
+          { id: 'pages.assignments.history.itemCount', defaultMessage: `${value.length} 项` },
+          { count: value.length },
+        )}
+      </Tag>
+    );
   }
   if (value && typeof value === 'object') {
     return <pre style={{ margin: 0 }}>{JSON.stringify(value, null, 2)}</pre>;

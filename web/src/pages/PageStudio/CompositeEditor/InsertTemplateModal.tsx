@@ -1,4 +1,5 @@
 import { Form, Input, InputNumber, Modal, Switch } from 'antd';
+import { useIntl } from '@umijs/max';
 import type { ComponentTemplateDTO } from './ComponentLibrary';
 import { localizedText } from '@/utils/localizedText';
 
@@ -14,6 +15,7 @@ export default function InsertTemplateModal({
   onConfirm: (tpl: ComponentTemplateDTO, values: Record<string, unknown>, overId: string) => void;
 }) {
   const [form] = Form.useForm<Record<string, unknown>>();
+  const intl = useIntl();
 
   const close = () => {
     onClose();
@@ -22,7 +24,15 @@ export default function InsertTemplateModal({
 
   return (
     <Modal
-      title={`配置组件参数：${localizedText(tplState?.tpl.name, 'zh-CN', tplState?.tpl.key ?? '')}`}
+      title={intl.formatMessage(
+        {
+          id: 'pages.pageStudio.editor.insertTpl.title',
+          defaultMessage: '配置组件参数：{name}',
+        },
+        {
+          name: localizedText(tplState?.tpl.name, 'zh-CN', tplState?.tpl.key ?? ''),
+        },
+      )}
       open={tplState !== null}
       onCancel={close}
       onOk={() => {
@@ -32,8 +42,14 @@ export default function InsertTemplateModal({
         onConfirm(tplState.tpl, values, tplState.overId);
         close();
       }}
-      okText="插入"
-      cancelText="取消"
+      okText={intl.formatMessage({
+        id: 'pages.pageStudio.editor.insertTpl.ok',
+        defaultMessage: '插入',
+      })}
+      cancelText={intl.formatMessage({
+        id: 'pages.pageStudio.editor.constantImport.cancel',
+        defaultMessage: '取消',
+      })}
       destroyOnHidden
     >
       <Form form={form} layout="vertical" preserve={false}>

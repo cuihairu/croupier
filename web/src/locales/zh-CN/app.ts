@@ -1,5 +1,8 @@
-// app.request.* — 全局请求错误文案（requestErrorConfig）
+// app.layout.* — 布局装饰文案（src/app.tsx 运行时配置）
 export default {
+  'app.layout.openapiDocs': 'OpenAPI 文档',
+
+  // app.request.* — 全局请求错误文案（requestErrorConfig）
   'app.request.error.badGateway': '上游服务错误',
   'app.request.error.conflict': '资源冲突',
   'app.request.error.default': '请求失败',

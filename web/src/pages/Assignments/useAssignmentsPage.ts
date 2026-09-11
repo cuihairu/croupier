@@ -165,22 +165,50 @@ export default function useAssignmentsPage() {
     async (targetEnv: string) => {
       if (!gameId) return false;
       if (!targetEnv) {
-        message.warning('请选择目标环境');
+        message.warning(
+          intl.formatMessage({
+            id: 'pages.assignments.clone.targetEnvRequired',
+            defaultMessage: '请选择目标环境',
+          }),
+        );
         return false;
       }
       setLoading(true);
       try {
         await setAssignments({ action: 'clone', targetEnv, functions: selected });
-        message.success(`已克隆分配到 ${targetEnv} 环境`);
+        message.success(
+          intl.formatMessage(
+            {
+              id: 'pages.assignments.clone.success',
+              defaultMessage: `已克隆分配到 ${targetEnv} 环境`,
+            },
+            { env: targetEnv },
+          ),
+        );
         return true;
       } catch (e: unknown) {
-        message.error(`克隆失败: ${e instanceof Error ? e.message : '未知错误'}`);
+        const reason =
+          e instanceof Error
+            ? e.message
+            : intl.formatMessage({
+                id: 'pages.assignments.clone.unknownError',
+                defaultMessage: '未知错误',
+              });
+        message.error(
+          intl.formatMessage(
+            {
+              id: 'pages.assignments.clone.failed',
+              defaultMessage: `克隆失败: ${reason}`,
+            },
+            { reason },
+          ),
+        );
         return false;
       } finally {
         setLoading(false);
       }
     },
-    [gameId, message, selected],
+    [gameId, intl, message, selected],
   );
 
   const loadHistory = useCallback(

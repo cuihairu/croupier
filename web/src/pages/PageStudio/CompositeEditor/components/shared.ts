@@ -1,3 +1,4 @@
+import { getIntl } from '@umijs/max';
 import type { FunctionDescriptor } from '@/services/api/functions';
 import { localizedText } from '@/utils/localizedText';
 import type { JSONSchema } from '@/types/dashboard';
@@ -19,17 +20,35 @@ export function commonFnSchema(
     properties: {
       functionId: {
         type: 'string',
-        title: '函数（可换绑）',
+        title: getIntl().formatMessage({
+          id: 'pages.pageStudio.editor.component.fn.prop.functionId',
+          defaultMessage: '函数（可换绑）',
+        }),
         enum: options.map((o) => o.value),
         enumNames: options.map((o) => o.label),
         ...(fn ? { default: fn.id } : {}),
       },
-      title: { type: 'string', title: '标题' },
+      title: {
+        type: 'string',
+        title: getIntl().formatMessage({
+          id: 'pages.pageStudio.editor.component.fn.prop.title',
+          defaultMessage: '标题',
+        }),
+      },
       ...extra,
     },
   };
 }
 
 export function spanSchema() {
-  return { type: 'integer', title: '宽度（1-24 栅格）', minimum: 4, maximum: 24, default: 24 };
+  return {
+    type: 'integer',
+    title: getIntl().formatMessage({
+      id: 'pages.pageStudio.editor.component.fn.prop.span',
+      defaultMessage: '宽度（1-24 栅格）',
+    }),
+    minimum: 4,
+    maximum: 24,
+    default: 24,
+  };
 }

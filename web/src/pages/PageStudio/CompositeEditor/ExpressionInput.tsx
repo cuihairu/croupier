@@ -10,6 +10,7 @@
  */
 import React, { useMemo, useState } from 'react';
 import { AutoComplete, Input, Typography } from 'antd';
+import { getIntl, useIntl } from '@umijs/max';
 import {
   isSingleExpression,
   matchVariable,
@@ -53,7 +54,16 @@ export function computeSuggestions(
       .slice(0, 12)
       .concat(
         rowFields?.length && ROW_VARIABLE.startsWith(prefix)
-          ? [{ name: ROW_VARIABLE, kind: 'row' as const, title: '当前行（行操作上下文）' }]
+          ? [
+              {
+                name: ROW_VARIABLE,
+                kind: 'row' as const,
+                title: getIntl().formatMessage({
+                  id: 'pages.pageStudio.editor.expression.rowVariableHint',
+                  defaultMessage: '当前行（行操作上下文）',
+                }),
+              },
+            ]
           : [],
       )
       .map((v) => ({
@@ -106,7 +116,16 @@ export function validateExpressionInput(
     if (!rowFields?.length) return undefined;
     const field = String(path[0] ?? '');
     if (path.length === 1 && field && !rowFields.includes(field)) {
-      return { level: 'warning', message: `行字段「${field}」不在当前表格输出 schema 中` };
+      return {
+        level: 'warning',
+        message: getIntl().formatMessage(
+          {
+            id: 'pages.pageStudio.editor.expression.rowFieldMissing',
+            defaultMessage: '行字段「{field}」不在当前表格输出 schema 中',
+          },
+          { field },
+        ),
+      };
     }
     return undefined;
   }
@@ -117,7 +136,16 @@ export function validateExpressionInput(
     const hit = nodes.find((n) => n.segment === name);
     if (!hit) {
       return nodes.length
-        ? { level: 'warning', message: `路径段「${name}」不在 ${variable} 的 schema 候选中` }
+        ? {
+            level: 'warning',
+            message: getIntl().formatMessage(
+              {
+                id: 'pages.pageStudio.editor.expression.pathSegmentMissing',
+                defaultMessage: '路径段「{name}」不在 {variable} 的 schema 候选中',
+              },
+              { name, variable },
+            ),
+          }
         : undefined;
     }
     nodes = hit.children ?? [];
@@ -138,6 +166,7 @@ const ExpressionInput: React.FC<{
   style?: React.CSSProperties;
   size?: 'small' | 'middle';
 }> = ({ value, onChange, variables, rootsOf, rowFields, placeholder, style, size }) => {
+  const intl = useIntl();
   const [focused, setFocused] = useState(false);
   const nameSet = useMemo(() => new Set(variables.map((v) => v.name)), [variables]);
   const suggestions = useMemo(
@@ -178,7 +207,13 @@ const ExpressionInput: React.FC<{
       >
         <Input
           size={size}
-          placeholder={placeholder ?? '字面量，或 {{ 选择变量 }}'}
+          placeholder={
+            placeholder ??
+            intl.formatMessage({
+              id: 'pages.pageStudio.editor.expression.placeholder',
+              defaultMessage: "字面量，或 '{{' 选择变量 '}}'",
+            })
+          }
           allowClear
           status={diagnostic?.level === 'error' ? 'error' : undefined}
           suffix={

@@ -4,6 +4,8 @@
  * 提供对人友好的数据格式化
  */
 
+import { getIntl } from '@umijs/max';
+
 /**
  * 格式化字节数为人类可读的字符串
  * @example formatBytes(1024) => "1 KB"
@@ -41,10 +43,32 @@ export function formatPercent(value: number): string {
  * @example formatDuration(3600) => "1小时"
  */
 export function formatDuration(seconds: number): string {
-  if (seconds < 60) return `${seconds}秒`;
-  if (seconds < 3600) return `${Math.floor(seconds / 60)}分钟`;
-  if (seconds < 86400) return `${Math.floor(seconds / 3600)}小时`;
-  return `${Math.floor(seconds / 86400)}天`;
+  // 单位词经 getIntl 在调用时求值（SelectLang 切换语言会整页刷新重新求值）
+  if (seconds < 60) {
+    return getIntl().formatMessage(
+      { id: 'utils.format.duration.second', defaultMessage: `${seconds}秒` },
+      { value: seconds },
+    );
+  }
+  if (seconds < 3600) {
+    const minutes = Math.floor(seconds / 60);
+    return getIntl().formatMessage(
+      { id: 'utils.format.duration.minute', defaultMessage: `${minutes}分钟` },
+      { value: minutes },
+    );
+  }
+  if (seconds < 86400) {
+    const hours = Math.floor(seconds / 3600);
+    return getIntl().formatMessage(
+      { id: 'utils.format.duration.hour', defaultMessage: `${hours}小时` },
+      { value: hours },
+    );
+  }
+  const days = Math.floor(seconds / 86400);
+  return getIntl().formatMessage(
+    { id: 'utils.format.duration.day', defaultMessage: `${days}天` },
+    { value: days },
+  );
 }
 
 /**

@@ -38,6 +38,7 @@ export default {
   'pages.functionsHistory.pagination.total': '共 {total} 条记录',
   'pages.functionsHistory.stats.avgDuration': '平均耗时',
   'pages.functionsHistory.stats.failed': '失败',
+  'pages.functionsHistory.stats.loadFailed': '加载统计数据失败',
   'pages.functionsHistory.stats.running': '运行中',
   'pages.functionsHistory.stats.succeeded': '成功',
   'pages.functionsHistory.stats.successRate': '成功率',

@@ -1,6 +1,7 @@
 import React from 'react';
 import { Alert } from 'antd';
 import { ProTable, type ProColumns } from '@ant-design/pro-components';
+import { useIntl } from '@umijs/max';
 import type { AssignmentItem } from './types';
 
 type Props = {
@@ -9,6 +10,7 @@ type Props = {
 };
 
 export default function RouteTab({ data, columns }: Props) {
+  const intl = useIntl();
   return (
     <ProTable<AssignmentItem>
       scroll={{ x: 1000 }}
@@ -20,8 +22,15 @@ export default function RouteTab({ data, columns }: Props) {
       toolBarRender={() => [
         <Alert
           key="hint"
-          message="函数能力归属说明"
-          description="这里只展示已分配函数的 resource/operation 能力归属。菜单、分类和页面标题必须在 PageSpec/Page Studio 中确定。"
+          message={intl.formatMessage({
+            id: 'pages.assignments.route.hint.title',
+            defaultMessage: '函数能力归属说明',
+          })}
+          description={intl.formatMessage({
+            id: 'pages.assignments.route.hint.description',
+            defaultMessage:
+              '这里只展示已分配函数的 resource/operation 能力归属。菜单、分类和页面标题必须在 PageSpec/Page Studio 中确定。',
+          })}
           type="info"
           showIcon
         />,

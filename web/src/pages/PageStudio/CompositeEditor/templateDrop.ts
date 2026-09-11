@@ -1,3 +1,4 @@
+import { getIntl } from '@umijs/max';
 import { acceptsChild } from './registry';
 import type { PageNode } from './model';
 
@@ -21,7 +22,13 @@ export function planTemplateDrop(
   afterNode?: PageNode,
 ): TemplateDropPlan {
   if (nodes.length === 0) {
-    return { kind: 'blocked', reason: '模板为空' };
+    return {
+      kind: 'blocked',
+      reason: getIntl().formatMessage({
+        id: 'pages.pageStudio.editor.canvas.templateEmpty',
+        defaultMessage: '模板为空',
+      }),
+    };
   }
 
   const modalTarget = overId.startsWith('modal-drop:')
@@ -29,7 +36,13 @@ export function planTemplateDrop(
     : editingModalId;
   if (modalTarget) {
     if (!nodes.every((n) => n.type === 'fnForm')) {
-      return { kind: 'blocked', reason: '弹窗内只能放函数表单（V1）' };
+      return {
+        kind: 'blocked',
+        reason: getIntl().formatMessage({
+          id: 'pages.pageStudio.editor.canvas.modalFormOnly',
+          defaultMessage: '弹窗内只能放函数表单（V1）',
+        }),
+      };
     }
     return { kind: 'modal', targetId: modalTarget };
   }
@@ -40,7 +53,13 @@ export function planTemplateDrop(
     if (bad) {
       return {
         kind: 'blocked',
-        reason: `容器不接受「${bad.type}」子组件（容器仅允许表格/字段卡/按钮/文本）`,
+        reason: getIntl().formatMessage(
+          {
+            id: 'pages.pageStudio.editor.canvas.containerNotAllowed',
+            defaultMessage: '容器不接受「{type}」子组件（容器仅允许表格/字段卡/按钮/文本）',
+          },
+          { type: bad.type },
+        ),
       };
     }
     return { kind: 'container', targetId: afterNode.id };

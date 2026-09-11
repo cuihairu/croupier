@@ -28,8 +28,12 @@ export default {
   'pages.login.registerAccount': '注册账户',
   'pages.welcome.link': '欢迎使用',
   'pages.welcome.alertMessage': '更快更强的重型组件，已经发布。',
+  'pages.403.buttonText': '返回首页',
+  'pages.403.subTitle': '抱歉，您没有权限访问此页面。请返回首页或切换到具备权限的入口。',
+  'pages.403.title': '当前页面无访问权限',
   'pages.404.subTitle': '抱歉，您访问的页面不存在。',
   'pages.404.buttonText': '返回首页',
+  'pages.404.title': '当前页面不存在',
   'pages.admin.subPage.title': ' 这个页面只有 admin 权限才能查看',
   'pages.admin.subPage.alertMessage': 'umi ui 现已发布，欢迎使用 npm run ui 启动体验。',
   'pages.searchTable.createForm.newRule': '新建规则',
@@ -137,11 +141,15 @@ export default {
 
   // Analytics Warehouse page
   'pages.analytics.warehouse.title': '数据仓库',
+  'pages.analytics.warehouse.chart.dau': 'DAU / 新增用户（近 14 天）',
+  'pages.analytics.warehouse.chart.online': '分钟在线（近 60 分钟）',
+  'pages.analytics.warehouse.chart.revenue': '日收入（近 14 天，单位：分）',
   'pages.analytics.warehouse.disabled.title': '分析仓库未启用',
   'pages.analytics.warehouse.disabled.description':
     '当前部署未配置 ClickHouse 分析管道（CLICKHOUSE_DSN）。请为 Server 设置 CLICKHOUSE_DSN 并启用 analytics profile 后重试。',
   'pages.analytics.warehouse.error.title': '数据仓库查询失败',
   'pages.analytics.warehouse.retry': '重试',
+  'pages.analytics.warehouse.series.newUsers': '新增',
 
   // Analytics pages
 
@@ -295,6 +303,10 @@ export default {
   'profile.avatar.modal.required': '请输入头像 URL',
   'profile.avatar.modal.invalid': '请输入合法 URL',
   'profile.avatar.modal.placeholder': 'https://example.com/avatar.png',
+  'profile.avatar.modal.uploadLabel': '上传头像',
+  'profile.avatar.modal.uploadHint': '支持拖拽图片、点击上传，也支持直接输入图片 URL。',
+  'profile.avatar.modal.dragText': '拖拽图片到这里，或点击上传',
+  'profile.avatar.modal.dragHint': '上传后会自动回填到头像地址',
 
   // Account Settings page
   'pages.account.settings.password': '密码',
@@ -344,4 +356,7 @@ export default {
     '支持域账号：直接输入 LDAP 用户名和密码登录（本地账号校验失败时自动尝试目录服务）',
   'pages.login.sso.button': 'SSO 登录',
   'pages.login.sso.divider': '其他登录方式',
+
+  // Placeholder page
+  'pages.placeholder.description': '功能开发中，敬请期待。',
 };

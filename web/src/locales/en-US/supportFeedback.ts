@@ -7,6 +7,8 @@ export default {
   'pages.supportFeedback.action.edit': 'Edit',
   'pages.supportFeedback.action.query': 'Query',
   'pages.supportFeedback.card.title': 'Player Feedback',
+  'pages.supportFeedback.convert.note': 'From feedback #{feedbackId} player: {player}',
+  'pages.supportFeedback.convert.unknownPlayer': 'unknown',
   'pages.supportFeedback.deleteConfirm.title': 'Delete Feedback',
   'pages.supportFeedback.field.actions': 'Actions',
   'pages.supportFeedback.field.attach': 'Attachment (JSON)',

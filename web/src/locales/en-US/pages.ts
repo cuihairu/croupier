@@ -31,8 +31,13 @@ export default {
   'pages.login.registerAccount': 'Register Account',
   'pages.welcome.link': 'Welcome',
   'pages.welcome.alertMessage': 'Faster and stronger heavy-duty components have been released.',
+  'pages.403.buttonText': 'Back Home',
+  'pages.403.subTitle':
+    'Sorry, you do not have permission to access this page. Please go back to the home page or switch to an authorized entry.',
+  'pages.403.title': 'No access to this page',
   'pages.404.subTitle': 'Sorry, the page you visited does not exist.',
   'pages.404.buttonText': 'Back Home',
+  'pages.404.title': 'Page Not Found',
   'pages.admin.subPage.title': 'This page can only be viewed by Admin',
   'pages.admin.subPage.alertMessage':
     'Umi ui is now released, welcome to use npm run ui to start the experience.',
@@ -144,11 +149,15 @@ export default {
 
   // Analytics Warehouse page
   'pages.analytics.warehouse.title': 'Analytics Warehouse',
+  'pages.analytics.warehouse.chart.dau': 'DAU / new users (last 14 days)',
+  'pages.analytics.warehouse.chart.online': 'Online by minute (last 60 minutes)',
+  'pages.analytics.warehouse.chart.revenue': 'Daily revenue (last 14 days, in cents)',
   'pages.analytics.warehouse.disabled.title': 'Analytics warehouse not enabled',
   'pages.analytics.warehouse.disabled.description':
     'This deployment has no ClickHouse analytics pipeline configured (CLICKHOUSE_DSN). Set CLICKHOUSE_DSN on the server and enable the analytics profile, then retry.',
   'pages.analytics.warehouse.error.title': 'Warehouse query failed',
   'pages.analytics.warehouse.retry': 'Retry',
+  'pages.analytics.warehouse.series.newUsers': 'New users',
 
   // Analytics pages
 
@@ -317,6 +326,11 @@ export default {
   'profile.avatar.modal.required': 'Please enter avatar URL',
   'profile.avatar.modal.invalid': 'Please enter a valid URL',
   'profile.avatar.modal.placeholder': 'https://example.com/avatar.png',
+  'profile.avatar.modal.uploadLabel': 'Upload avatar',
+  'profile.avatar.modal.uploadHint':
+    'Drag and drop an image, click to upload, or enter an image URL directly.',
+  'profile.avatar.modal.dragText': 'Drag an image here, or click to upload',
+  'profile.avatar.modal.dragHint': 'The uploaded image URL is filled in automatically',
 
   // Account Settings page
   'pages.account.settings.password': 'Password',
@@ -367,4 +381,7 @@ export default {
     'Domain accounts are supported: sign in directly with your LDAP username and password (the directory service is tried automatically if local account verification fails)',
   'pages.login.sso.button': 'Sign in with SSO',
   'pages.login.sso.divider': 'Other sign-in methods',
+
+  // Placeholder page
+  'pages.placeholder.description': 'This feature is under development. Stay tuned.',
 };

@@ -51,6 +51,11 @@ export default {
   'pages.functionsInvoke.requestBody.tab.form': 'Schema form',
   'pages.functionsInvoke.requestBody.tab.json': 'Raw JSON',
   'pages.functionsInvoke.requestBody.title': 'Request body',
+  'pages.functionsInvoke.requestHistory.clear': 'Clear',
+  'pages.functionsInvoke.requestHistory.empty': 'No local history yet',
+  'pages.functionsInvoke.requestHistory.status.error': 'Failed',
+  'pages.functionsInvoke.requestHistory.status.success': 'Success',
+  'pages.functionsInvoke.requestHistory.title': 'Request history',
   'pages.functionsInvoke.response.copyTooltip': 'Copy response',
   'pages.functionsInvoke.response.empty':
     'The response will appear here after you send the request',

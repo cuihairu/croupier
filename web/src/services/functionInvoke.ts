@@ -2,6 +2,7 @@
  * 函数调用服务
  */
 
+import { getIntl } from '@umijs/max';
 import { invokeFunction as apiInvokeFunction } from './api/functions';
 import type { JSONValue } from '@/types/dashboard';
 
@@ -30,7 +31,14 @@ export async function invokeFunction<T = unknown>(
 ): Promise<T> {
   try {
     if (options?.signal?.aborted) {
-      throw new DOMException('函数调用已取消', 'AbortError');
+      // name 'AbortError' 是调用方判断取消的逻辑契约，保持不动；仅 message 走 intl
+      throw new DOMException(
+        getIntl().formatMessage({
+          id: 'services.functionInvoke.aborted',
+          defaultMessage: '函数调用已取消',
+        }),
+        'AbortError',
+      );
     }
     const result = await apiInvokeFunction(functionId, params);
     return result as T;

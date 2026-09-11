@@ -77,6 +77,7 @@ import systemExcelConfig from './zh-CN/systemExcelConfig';
 import systemSiteSettings from './zh-CN/systemSiteSettings';
 import telemetry from './zh-CN/telemetry';
 import tickets from './zh-CN/tickets';
+import utils from './zh-CN/utils';
 import welcome from './zh-CN/welcome';
 
 export default {
@@ -165,5 +166,6 @@ export default {
   ...systemSiteSettings,
   ...telemetry,
   ...tickets,
+  ...utils,
   ...welcome,
 };

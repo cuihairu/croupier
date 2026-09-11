@@ -10,7 +10,7 @@ const NoFoundPage: React.FC = () => {
       <PageStatePanel
         tone="warning"
         badgeText="404"
-        title="当前页面不存在"
+        title={intl.formatMessage({ id: 'pages.404.title' })}
         description={intl.formatMessage({ id: 'pages.404.subTitle' })}
         actions={
           <Button type="primary" onClick={() => history.push('/')}>

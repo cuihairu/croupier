@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Button, Space, Table, Typography } from 'antd';
 import { CaretDownOutlined, CaretRightOutlined, PlayCircleOutlined } from '@ant-design/icons';
+import { FormattedMessage, useIntl } from '@umijs/max';
 import { invokeFunction, type FunctionDescriptor } from '@/services/api/functions';
 import { extractErrorMessage } from '@/utils/errors';
 import { sectionParams } from './types';
@@ -23,6 +24,7 @@ export default function DataPanel({
   const [running, setRunning] = useState(false);
   const [error, setError] = useState('');
   const [data, setData] = useState<JSONRecord | null>(null);
+  const intl = useIntl();
 
   if (
     !node ||
@@ -40,7 +42,15 @@ export default function DataPanel({
       const resp = (await invokeFunction(fn.id, {})) as JSONRecord;
       setData(resp);
     } catch (err) {
-      setError(extractErrorMessage(err, '执行失败'));
+      setError(
+        extractErrorMessage(
+          err,
+          intl.formatMessage({
+            id: 'pages.pageStudio.editor.dataPanel.runFailed',
+            defaultMessage: '执行失败',
+          }),
+        ),
+      );
     } finally {
       setRunning(false);
     }
@@ -67,10 +77,14 @@ export default function DataPanel({
       >
         {open ? <CaretDownOutlined /> : <CaretRightOutlined />}
         <Text strong style={{ fontSize: 12 }}>
-          数据
+          <FormattedMessage id="pages.pageStudio.editor.dataPanel.title" defaultMessage="数据" />
         </Text>
         <Text type="secondary" style={{ fontSize: 11 }}>
-          试跑 {fn.id}（{params.length} 个参数，默认空跑）
+          <FormattedMessage
+            id="pages.pageStudio.editor.dataPanel.runHint"
+            defaultMessage="试跑 {fnId}（{paramCount} 个参数，默认空跑）"
+            values={{ fnId: fn.id, paramCount: params.length }}
+          />
         </Text>
         <Button
           size="small"
@@ -84,7 +98,10 @@ export default function DataPanel({
             void run();
           }}
         >
-          执行
+          <FormattedMessage
+            id="pages.pageStudio.editor.previewNode.executeButton"
+            defaultMessage="执行"
+          />
         </Button>
       </div>
       {open && (

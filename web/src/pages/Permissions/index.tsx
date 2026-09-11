@@ -118,7 +118,7 @@ const PermissionsPage: React.FC = () => {
   );
 
   return (
-    <PageContainer title="权限管理">
+    <PageContainer title={intl.formatMessage({ id: 'pages.permissions.title' })}>
       <ProTable<FuncRow>
         rowKey="id"
         search={{ filterType: 'light' }}

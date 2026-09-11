@@ -61,6 +61,9 @@ export default {
     'OpenAPI Source validation failed; check the diagnostics',
   'pages.openapiSources.page.subTitle':
     'Uploading OpenAPI only produces capability contracts and diagnostics; executability requires an explicitly bound Provider, and page UI is still decided in Page Studio.',
+  'pages.openapiSources.parse.missingInfoObject': 'OpenAPI JSON is missing the info object',
+  'pages.openapiSources.parse.missingOpenapiField': 'OpenAPI JSON is missing the openapi field',
+  'pages.openapiSources.parse.mustBeObject': 'OpenAPI JSON must be an object',
   'pages.openapiSources.sourceModal.alert.description.update':
     'Updating refreshes the Source operations and diagnostics and keeps existing provider bindings; OpenAPI must not describe UI—only x-resource/x-operation/x-capability/x-execution/x-risk/x-enabled/x-permission are allowed.',
   'pages.openapiSources.sourceModal.alert.description.upload':

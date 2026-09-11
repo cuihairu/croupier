@@ -1,5 +1,6 @@
 import { Button, Card, Empty, Space, Tag, Typography } from 'antd';
 import { DeleteOutlined } from '@ant-design/icons';
+import { FormattedMessage, useIntl } from '@umijs/max';
 import { formatDateTime } from '@/utils/format';
 import { formatDuration, type RequestHistoryItem } from './types';
 
@@ -12,18 +13,28 @@ interface RequestHistoryProps {
 }
 
 export default function RequestHistory({ items, onClear, onSelect }: RequestHistoryProps) {
+  const intl = useIntl();
   return (
     <Card
       size="small"
-      title="请求历史"
+      title={intl.formatMessage({
+        id: 'pages.functionsInvoke.requestHistory.title',
+        defaultMessage: '请求历史',
+      })}
       extra={
         <Button size="small" icon={<DeleteOutlined />} onClick={onClear}>
-          清空
+          <FormattedMessage id="pages.functionsInvoke.requestHistory.clear" defaultMessage="清空" />
         </Button>
       }
     >
       {items.length === 0 ? (
-        <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="暂无本地历史记录" />
+        <Empty
+          image={Empty.PRESENTED_IMAGE_SIMPLE}
+          description={intl.formatMessage({
+            id: 'pages.functionsInvoke.requestHistory.empty',
+            defaultMessage: '暂无本地历史记录',
+          })}
+        />
       ) : (
         <Space orientation="vertical" size={8} style={{ width: '100%' }}>
           {items.map((item) => (
@@ -36,7 +47,17 @@ export default function RequestHistory({ items, onClear, onSelect }: RequestHist
             >
               <Space wrap>
                 <Tag color={item.status === 'success' ? 'green' : 'red'}>
-                  {item.status === 'success' ? '成功' : '失败'}
+                  {item.status === 'success' ? (
+                    <FormattedMessage
+                      id="pages.functionsInvoke.requestHistory.status.success"
+                      defaultMessage="成功"
+                    />
+                  ) : (
+                    <FormattedMessage
+                      id="pages.functionsInvoke.requestHistory.status.error"
+                      defaultMessage="失败"
+                    />
+                  )}
                 </Tag>
                 <Text code ellipsis style={{ maxWidth: 180 }}>
                   {item.functionId}

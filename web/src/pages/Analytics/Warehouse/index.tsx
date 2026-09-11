@@ -33,7 +33,14 @@ export default function AnalyticsWarehousePage() {
       setDau(
         (d?.points || []).flatMap((p) => [
           { date: p.date, value: Number(p.dau || 0), type: 'DAU' },
-          { date: p.date, value: Number(p.newUsers || 0), type: '新增' },
+          {
+            date: p.date,
+            value: Number(p.newUsers || 0),
+            type: intl.formatMessage({
+              id: 'pages.analytics.warehouse.series.newUsers',
+              defaultMessage: '新增',
+            }),
+          },
         ]),
       );
       setOnline(
@@ -54,7 +61,7 @@ export default function AnalyticsWarehousePage() {
         setStatus('error');
       }
     }
-  }, []);
+  }, [intl]);
 
   useEffect(() => {
     load();
@@ -101,7 +108,13 @@ export default function AnalyticsWarehousePage() {
         >
           <Row gutter={[16, 16]}>
             <Col span={12}>
-              <Card size="small" title="DAU / 新增用户（近 14 天）">
+              <Card
+                size="small"
+                title={intl.formatMessage({
+                  id: 'pages.analytics.warehouse.chart.dau',
+                  defaultMessage: 'DAU / 新增用户（近 14 天）',
+                })}
+              >
                 <Line
                   data={dau}
                   xField="date"
@@ -114,7 +127,13 @@ export default function AnalyticsWarehousePage() {
               </Card>
             </Col>
             <Col span={12}>
-              <Card size="small" title="分钟在线（近 60 分钟）">
+              <Card
+                size="small"
+                title={intl.formatMessage({
+                  id: 'pages.analytics.warehouse.chart.online',
+                  defaultMessage: '分钟在线（近 60 分钟）',
+                })}
+              >
                 <Line
                   data={online}
                   xField="minute"
@@ -128,7 +147,13 @@ export default function AnalyticsWarehousePage() {
           </Row>
           <Row gutter={[16, 16]} style={{ marginTop: 16 }}>
             <Col span={24}>
-              <Card size="small" title="日收入（近 14 天，单位：分）">
+              <Card
+                size="small"
+                title={intl.formatMessage({
+                  id: 'pages.analytics.warehouse.chart.revenue',
+                  defaultMessage: '日收入（近 14 天，单位：分）',
+                })}
+              >
                 <Column data={revenue} xField="date" yField="value" height={260} />
               </Card>
             </Col>

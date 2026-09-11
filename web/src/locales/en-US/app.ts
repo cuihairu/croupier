@@ -1,5 +1,8 @@
-// app.request.* — global request error messages (requestErrorConfig)
+// app.layout.* — layout chrome copy (runtime config in src/app.tsx)
 export default {
+  'app.layout.openapiDocs': 'OpenAPI Docs',
+
+  // app.request.* — global request error messages (requestErrorConfig)
   'app.request.error.badGateway': 'Upstream service error',
   'app.request.error.conflict': 'Resource conflict',
   'app.request.error.default': 'Request failed',

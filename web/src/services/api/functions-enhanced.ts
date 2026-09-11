@@ -1,4 +1,4 @@
-import { request } from '@umijs/max';
+import { getIntl, request } from '@umijs/max';
 import type { JSONValue, LocalizedText } from '@/types/dashboard';
 import type { FunctionDescriptor } from './functions';
 
@@ -284,7 +284,12 @@ export async function getFunctionSummary(params?: {
   if (Array.isArray(res)) return res.map(normalizeFunctionSummary);
   if (Array.isArray(res?.functions)) return res.functions.map(normalizeFunctionSummary);
   if (Array.isArray(res?.items)) return res.items.map(normalizeFunctionSummary);
-  throw new Error('函数摘要接口返回了无法识别的数据格式');
+  throw new Error(
+    getIntl().formatMessage({
+      id: 'services.functions.summaryUnrecognizedFormat',
+      defaultMessage: '函数摘要接口返回了无法识别的数据格式',
+    }),
+  );
 }
 
 /**

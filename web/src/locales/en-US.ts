@@ -77,6 +77,7 @@ import systemExcelConfig from './en-US/systemExcelConfig';
 import systemSiteSettings from './en-US/systemSiteSettings';
 import telemetry from './en-US/telemetry';
 import tickets from './en-US/tickets';
+import utils from './en-US/utils';
 import welcome from './en-US/welcome';
 
 export default {
@@ -165,5 +166,6 @@ export default {
   ...systemSiteSettings,
   ...telemetry,
   ...tickets,
+  ...utils,
   ...welcome,
 };

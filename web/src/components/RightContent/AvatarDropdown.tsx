@@ -1,6 +1,6 @@
 // Logout does not require backend; clear token locally and redirect
 import { LogoutOutlined, UserOutlined } from '@ant-design/icons';
-import { history, useModel } from '@umijs/max';
+import { FormattedMessage, history, useModel } from '@umijs/max';
 import { Spin } from 'antd';
 import { createStyles } from 'antd-style';
 import type { MenuProps } from 'antd';
@@ -102,7 +102,9 @@ export const AvatarDropdown: React.FC<GlobalHeaderRightProps> = ({ menu, childre
           {
             key: 'center',
             icon: <UserOutlined />,
-            label: '个人中心',
+            label: (
+              <FormattedMessage id="component.avatarDropdown.center" defaultMessage="个人中心" />
+            ),
           },
           {
             type: 'divider' as const,
@@ -112,7 +114,7 @@ export const AvatarDropdown: React.FC<GlobalHeaderRightProps> = ({ menu, childre
     {
       key: 'logout',
       icon: <LogoutOutlined />,
-      label: '退出登录',
+      label: <FormattedMessage id="component.avatarDropdown.logout" defaultMessage="退出登录" />,
     },
   ];
 

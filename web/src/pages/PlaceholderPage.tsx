@@ -1,3 +1,4 @@
+import { FormattedMessage } from '@umijs/max';
 import React from 'react';
 import { PageContainer } from '@ant-design/pro-components';
 import { Card, Typography } from 'antd';
@@ -12,7 +13,12 @@ const PlaceholderPage: React.FC<PlaceholderPageProps> = ({ title, description })
     <Card>
       <Typography.Title level={3}>{title}</Typography.Title>
       <Typography.Paragraph type="secondary">
-        {description || '功能开发中，敬请期待。'}
+        {description || (
+          <FormattedMessage
+            id="pages.placeholder.description"
+            defaultMessage="功能开发中，敬请期待。"
+          />
+        )}
       </Typography.Paragraph>
     </Card>
   </PageContainer>

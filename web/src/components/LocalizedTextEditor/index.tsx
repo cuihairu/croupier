@@ -16,7 +16,7 @@
 import React, { useMemo, useState } from 'react';
 import { Button, Input, Popover, Select, Space, Typography } from 'antd';
 import { GlobalOutlined } from '@ant-design/icons';
-import { useIntl } from '@umijs/max';
+import { FormattedMessage, useIntl } from '@umijs/max';
 import type { LocalizedText } from '@/types/dashboard';
 import { localizedText } from '@/utils/localizedText';
 import { REQUIRED_LOCALE, SUPPORTED_LOCALES, SUPPORTED_LOCALE_LABELS } from '@/locales/supported';
@@ -48,7 +48,8 @@ export default function LocalizedTextEditor({
   defaultLocale,
   style,
 }: LocalizedTextEditorProps) {
-  const { locale: uiLocale } = useIntl();
+  const intl = useIntl();
+  const uiLocale = intl.locale;
 
   const present = useMemo(
     () => Object.keys(value || {}).filter((k) => (value || {})[k] !== undefined),
@@ -86,13 +87,19 @@ export default function LocalizedTextEditor({
     <div style={{ width: 280 }}>
       <Space orientation="vertical" size={4} style={{ width: '100%' }}>
         <Text type="secondary" style={{ fontSize: 12 }}>
-          下方列出平台界面支持的全部 {SUPPORTED_LOCALES.length} 种语言。需要界面之外的语言 （如
-          ru-RU、ko-KR）时，在此输入自定义 BCP47 locale：
+          <FormattedMessage
+            id="component.localizedTextEditor.customLocaleHint"
+            defaultMessage={`下方列出平台界面支持的全部 ${SUPPORTED_LOCALES.length} 种语言。需要界面之外的语言 （如 ru-RU、ko-KR）时，在此输入自定义 BCP47 locale：`}
+            values={{ count: SUPPORTED_LOCALES.length }}
+          />
         </Text>
         <Space.Compact style={{ width: '100%', marginTop: 4 }}>
           <Input
             size="small"
-            placeholder="自定义 BCP47，如 ko-KR"
+            placeholder={intl.formatMessage({
+              id: 'component.localizedTextEditor.customLocalePlaceholder',
+              defaultMessage: '自定义 BCP47，如 ko-KR',
+            })}
             value={customLocale}
             onChange={(e) => setCustomLocale(e.target.value)}
             onPressEnter={() => {
@@ -112,11 +119,18 @@ export default function LocalizedTextEditor({
               setPopoverOpen(false);
             }}
           >
-            添加
+            <FormattedMessage
+              id="component.localizedTextEditor.addCustomLocale"
+              defaultMessage="添加"
+            />
           </Button>
         </Space.Compact>
         <Text type="secondary" style={{ fontSize: 12 }}>
-          后端契约为 BCP47 locale 键；{REQUIRED_LOCALE} 为必选基线。清除输入框内容即删除该语言文案。
+          <FormattedMessage
+            id="component.localizedTextEditor.contractHint"
+            defaultMessage={`后端契约为 BCP47 locale 键；${REQUIRED_LOCALE} 为必选基线。清除输入框内容即删除该语言文案。`}
+            values={{ requiredLocale: REQUIRED_LOCALE }}
+          />
         </Text>
       </Space>
     </div>
