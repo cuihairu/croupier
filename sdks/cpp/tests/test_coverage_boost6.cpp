@@ -347,13 +347,13 @@ TEST(Boost6ClientStateTest, RegisterAllFunctionsSkipsWhenDisconnected) {
     EXPECT_TRUE(impl->last_error_.empty());
 }
 
-TEST(Boost6ClientStateTest, StopJoinsInjectedReconnectThread) {
+TEST(Boost6ClientStateTest, StopJoinsHeartbeatThread) {
     CroupierClient client(Boost6ProviderConfig("127.0.0.1:19091"));
     auto* impl = client.impl_.get();
-    impl->reconnect_thread_ = std::thread([] {});
-    ASSERT_TRUE(impl->reconnect_thread_.joinable());
-    client.Stop();
-    EXPECT_FALSE(impl->reconnect_thread_.joinable());
+    impl->running_ = true;
+    impl->startHeartbeatLoop();  // 心跳线程在 100ms 粒度睡眠循环中
+    client.Stop();               // 置位 + join；死锁即测试挂起（=失败信号）
+    EXPECT_FALSE(client.IsConnected());
 }
 
 TEST(Boost6ClientStateTest, SendHeartbeatThrowsWhenTransportMissing) {
@@ -374,13 +374,16 @@ TEST(Boost6ClientStateTest, StopHeartbeatLoopSelfStopDoesNotJoinItself) {
     impl->should_stop_heartbeat_ = false;
     impl->heartbeat_thread_id_.reset();
     // The heartbeat thread stops itself: the self-guard must return instead
-    // of joining (a self-join would terminate the process).
+    // of joining (a self-join would terminate the process). Self-stop must
+    // NOT set should_stop_heartbeat_: the reconnectLoop running on the same
+    // thread would give up after its first failed attempt (2026-09-11
+    // production hang).
     impl->heartbeat_thread_ = std::thread([impl] {
         impl->heartbeat_thread_id_ = std::this_thread::get_id();
         impl->stopHeartbeatLoop();
     });
     impl->heartbeat_thread_.join();
-    EXPECT_TRUE(impl->should_stop_heartbeat_.load());
+    EXPECT_FALSE(impl->should_stop_heartbeat_.load());
     impl->heartbeat_thread_id_.reset();
     impl->should_stop_heartbeat_ = false;
 }

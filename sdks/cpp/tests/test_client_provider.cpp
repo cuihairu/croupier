@@ -216,10 +216,7 @@ TEST(ProviderLifecycleTest, ReconnectsAfterAgentRestart) {
     // Kill and immediately restart the agent on the same port. The client's
     // existing TCP session dies, so the next heartbeat fails and triggers a
     // reconnect, which can succeed because the listener is already back.
-    // NOTE (recorded bug): after one failed reconnect attempt the client
-    // stops retrying (Connect() failure sets should_stop_heartbeat_, which
-    // terminates reconnectLoop), so a slower agent restart would never
-    // recover.
+    // （快重启场景：第一次重连即成功，不经过 Connect() 失败路径。）
     agent.stop();
     agent.restart();
 
@@ -229,6 +226,38 @@ TEST(ProviderLifecycleTest, ReconnectsAfterAgentRestart) {
         reconnected = client.IsConnected() && agent.connect_requests() >= 2;
     }
     EXPECT_TRUE(reconnected);
+    EXPECT_GE(agent.connect_requests(), 2);
+
+    client.Stop();
+    std::this_thread::sleep_for(std::chrono::milliseconds(200));
+}
+
+// 慢重启自愈回归（2026-09-11 线上 cpp demo 挂起）：agent 停机窗口跨过至少
+// 一次失败的重连尝试后恢复，client 必须继续重试而不是放弃。修复前
+// stopHeartbeatLoop 的 self-stop 分支置位 should_stop_heartbeat_，
+// reconnectLoop 在第一次 Connect() 失败后即静默退出、永不恢复。
+TEST(ProviderLifecycleTest, ReconnectsAfterSlowAgentRestart) {
+    FakeAgent agent;
+    ClientConfig config = ProviderConfig(agent.address(), /*heartbeat_interval=*/1);
+    config.timeout_seconds = 1;  // fail fast so heartbeat errors surface quickly
+    CroupierClient client(config);
+    RegisterSampleFunction(client);
+    ASSERT_TRUE(client.Connect());
+    EXPECT_EQ(1, agent.connect_requests());
+
+    // agent 停机 8s：心跳失败触发重连，第一次尝试撞上无 listener 的端口
+    // 失败（connection refused），此后进入 5s 重试等待。
+    agent.stop();
+    std::this_thread::sleep_for(std::chrono::seconds(8));
+
+    agent.restart();
+
+    bool reconnected = false;
+    for (int i = 0; i < 400 && !reconnected; ++i) {  // bounded ~20s
+        std::this_thread::sleep_for(std::chrono::milliseconds(50));
+        reconnected = client.IsConnected() && agent.connect_requests() >= 2;
+    }
+    EXPECT_TRUE(reconnected) << "client gave up reconnecting after failed attempts";
     EXPECT_GE(agent.connect_requests(), 2);
 
     client.Stop();

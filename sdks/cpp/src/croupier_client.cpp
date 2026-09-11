@@ -352,11 +352,9 @@ public:
     std::atomic<bool> draining_{false};
     std::atomic<int64_t> inflight_calls_{0};
 
-    // Reconnection state
+    // Reconnection state：重连跑在心跳线程上（reconnectLoop），无独立
+    // 重连线程；is_reconnecting_ 防外部并发触发重入。
     std::atomic<bool> is_reconnecting_{false};
-    std::atomic<bool> should_stop_reconnecting_{false};
-    std::thread reconnect_thread_;
-    std::mutex reconnect_mutex_;  // Protects reconnect_thread_ access
 
     explicit Impl(const ClientConfig& config) : config_(config) {
         // ========== Initialize Logger Configuration ==========
@@ -651,17 +649,10 @@ public:
 
         SDK_LOG_INFO("Stopping Croupier client...");
 
-        // Always stop heartbeat loop to avoid std::terminate on thread destruction
+        // Always stop heartbeat loop to avoid std::terminate on thread destruction.
+        // 重连跑在心跳线程上，置位 + join 已覆盖其退出。
         stopHeartbeatLoop();
 
-        // Signal reconnection thread to stop
-        should_stop_reconnecting_ = true;
-
-        // Wait for reconnection thread to finish
-        is_reconnecting_ = false;
-        if (reconnect_thread_.joinable()) {
-            reconnect_thread_.join();
-        }
         closeTransport();
         session_id_.clear();
 
@@ -905,14 +896,18 @@ public:
     }
 
     void stopHeartbeatLoop() {
+        // Self-stop（心跳线程经 Connect() 失败路径进入）：直接返回，绝不
+        // 置位 should_stop_heartbeat_ —— 置位会让同线程上 reconnectLoop()
+        // 的循环条件立即失效，重连在第一次失败后永久放弃（2026-09-11
+        // 线上 cpp demo 挂起根因）。心跳线程的退出由 reconnectLoop 返回后
+        // 的 break 完成。注意不能以 joinable() 作前提：线程已 detach，
+        // joinable() 恒为 false，只能比较线程 id。
+        if (heartbeat_thread_id_.has_value() &&
+            *heartbeat_thread_id_ == std::this_thread::get_id()) {
+            return;
+        }
         should_stop_heartbeat_ = true;
-        // Cannot join from the heartbeat thread itself (reconnect path calls
-        // Connect() -> startHeartbeatLoop() -> stopHeartbeatLoop()).
         if (heartbeat_thread_.joinable()) {
-            if (heartbeat_thread_id_.has_value() &&
-                *heartbeat_thread_id_ == std::this_thread::get_id()) {
-                return;  // self-stop: thread will exit via should_stop_heartbeat_
-            }
             heartbeat_thread_.join();
         }
     }
@@ -921,7 +916,6 @@ public:
     // Retries with a fixed interval until Stop() is called or the
     // connection is re-established. Runs on the heartbeat thread.
     void reconnectLoop() {
-        std::lock_guard<std::mutex> lock(reconnect_mutex_);
         if (is_reconnecting_.exchange(true)) {
             return;  // another thread is already reconnecting
         }
