@@ -275,7 +275,7 @@ type FunctionInvokeResponse struct {
 
 **错误语义**：
 
-- `503 service_unavailable`：无可用 agent（本地与共享归属表均无候选）或 failover 耗尽全部候选——可重试（agent 重新注册/归属表 TTL 过期后自愈）；多实例部署下选中远端候选时经 mesh 转发到 owner 实例执行，对调用方透明
+- `503 service_unavailable`：无可用 agent（本地与共享归属表均无候选）或 failover 耗尽全部候选（同步与 `mode: async` 同语义，lb 路由最多 3 次换候选重试，targeted/hash 语义指定唯一目标不重试）——可重试（agent 重新注册/归属表 TTL 过期后自愈）；多实例部署下选中远端候选时经 mesh 转发到 owner 实例执行，对调用方透明
 - `400 validation_failed`：路由参数缺失/冲突（见上），`details` 携具体字段
 
 ### 9. "获取函数权限"

@@ -355,7 +355,9 @@ cluster:
 | policy / 审批    | 完整鉴权链（policy 命中 + 审批创建）    | **不重查**，只审计                         |
 | 同步 invoke      | 失败可换候选重试（failover）            | `InvokeRequestOnAgent` 定向投递            |
 | async start_task | 生成服务端 task ID + 写 task_runs 行 +  | `StartTaskOnAgent` 只投递（metadata.taskId |
-|                  | registerTask + 成功后回 task ID         | 沿用 caller 的 ID，不建行不注册路由）      |
+|                  | registerTask + 成功后回 task ID；与     | 沿用 caller 的 ID，不建行不注册路由）      |
+|                  | invoke 同款 failover（失败尝试行标      |                                            |
+|                  | failed，耗尽映射 503）                  |                                            |
 | broadcast        | 候选集 local ∪ remote（去重本地优先）， | 逐 agent 同 invoke 转发投递                |
 |                  | 半失败落 Failures（HTTP 200）           |                                            |
 | cancel_task      | task routing miss 时从共享 task_runs    | `CancelTaskOnAgent` 只投递；取消成功后的   |

@@ -153,6 +153,10 @@ func (w *recordingRunWriter) CreateRunWithMeta(ctx context.Context, taskID, func
 	return w.errToFail
 }
 
+func (w *recordingRunWriter) MarkRunFailed(ctx context.Context, taskID, errMsg string) error {
+	return nil
+}
+
 func (w *recordingRunWriter) createdIDs() []string {
 	w.mu.Lock()
 	defer w.mu.Unlock()

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"strings"
+	"time"
 
 	"github.com/cuihairu/croupier/internal/model"
 	"github.com/cuihairu/croupier/internal/telemetry"
@@ -137,4 +138,17 @@ func (w *TaskRunWriterAdapter) CreateRunWithMeta(ctx context.Context, taskID, fu
 		TraceID:      traceID,
 	}
 	return w.runs.Create(ctx, run)
+}
+
+// MarkRunFailed marks a task_runs row as failed（failover 的失败尝试轮：
+// 投递未到 agent，不会有事件回流推进状态，不标记会永远停在 dispatching）。
+func (w *TaskRunWriterAdapter) MarkRunFailed(ctx context.Context, taskID, errMsg string) error {
+	if w.runs == nil {
+		return nil
+	}
+	return w.runs.UpdateByTaskID(ctx, taskID, map[string]interface{}{
+		"status":        "failed",
+		"error_message": errMsg,
+		"finished_at":   time.Now(),
+	})
 }

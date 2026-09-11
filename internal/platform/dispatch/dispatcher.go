@@ -73,6 +73,9 @@ type TaskEventQuery interface {
 type TaskRunWriter interface {
 	CreateRun(ctx context.Context, taskID, functionID, agentID, gameID, env, status string, inputPayload []byte) error
 	CreateRunWithMeta(ctx context.Context, taskID, functionID, agentID, gameID, env, status, actor, addr, traceID string, inputPayload []byte) error
+	// MarkRunFailed 把 failover 失败尝试的行标记为 failed：该轮投递未到
+	// agent，不会有事件回流推进状态，不标记会永远停在 dispatching。
+	MarkRunFailed(ctx context.Context, taskID, errMsg string) error
 }
 
 // TaskRoutingInfo is a minimal DTO for task routing records.
@@ -648,89 +651,146 @@ func (d *Dispatcher) StartTaskRequest(ctx context.Context, req *sdkv1.InvokeRequ
 	)
 	defer span.End()
 
-	agent, err := d.pickAgentWithRouting(ctx, req.GetFunctionId(), req.Metadata)
-	if err != nil {
-		span.RecordError(err)
-		span.SetStatus(codes.Error, err.Error())
-		return nil, err
+	// 原始 metadata：每轮重试克隆重注入（与 InvokeRequest 同款），避免
+	// 上一轮的 agentId/taskId/trace 泄漏到下一候选（转发链路按原始面重建）。
+	origMeta := map[string]string{}
+	for k, v := range req.GetMetadata() {
+		origMeta[k] = v
 	}
-	span.SetAttributes(attribute.String("agent.id", agent.AgentID))
+	// targeted/hash 路由语义上指定了唯一目标，失败换候选会破坏粘性——
+	// 只有默认 lb 路径才有 failover。键名与 API 层写方一致。
+	routePinned := strings.TrimSpace(origMeta["targetServiceId"]) != "" ||
+		strings.TrimSpace(origMeta["hashKey"]) != ""
 
-	if d.healthTracker != nil {
-		d.healthTracker.IncrementConnections(agent.AgentID)
-		defer d.healthTracker.DecrementConnections(agent.AgentID)
+	tried := map[string]bool{}
+	maxAttempts := 1
+	if !routePinned {
+		maxAttempts = 3
 	}
-
-	if req.Metadata == nil {
-		req.Metadata = map[string]string{}
-	}
-	req.Metadata["agentId"] = agent.AgentID
-	req.Metadata = telemetry.InjectContext(ctx, req.Metadata)
-
-	// Generate a server-side task ID so events flowing back from the agent
-	// can be matched to a task_runs row. This closes the feedback loop.
 	d.mu.RLock()
 	writer := d.taskRunWriter
 	d.mu.RUnlock()
 
+	var lastErr error
+	for attempt := 0; attempt < maxAttempts; attempt++ {
+		agent, err := d.pickAgentWithRouting(ctx, req.GetFunctionId(), origMeta, tried)
+		if err != nil {
+			if lastErr != nil {
+				// failover 耗尽 = 无可用 agent 的可重试状态 → 503
+				// （与 InvokeRequest 语义一致）；cause 链保留
+				// errAgentUnreachable 可换候选语义。
+				return nil, apperrors.Newf(apperrors.ErrCodeServiceUnavailable, "start_task",
+					fmt.Errorf("%w: failover exhausted", lastErr),
+					"failover exhausted: %v (last error: %v)", err, lastErr)
+			}
+			span.RecordError(err)
+			span.SetStatus(codes.Error, err.Error())
+			return nil, err
+		}
+		tried[agent.AgentID] = true
+		span.SetAttributes(attribute.String("agent.id", agent.AgentID))
+
+		if d.healthTracker != nil {
+			d.healthTracker.IncrementConnections(agent.AgentID)
+		}
+		resp, taskID, err := d.startTaskOnPickedAgent(ctx, span, agent, req, origMeta, writer)
+		if d.healthTracker != nil {
+			d.healthTracker.DecrementConnections(agent.AgentID)
+		}
+		if err == nil {
+			if d.healthTracker != nil {
+				d.healthTracker.RecordSuccess(agent.AgentID)
+			}
+			if rt := resp.GetTaskId(); rt != "" {
+				span.SetAttributes(attribute.String("task.id", rt))
+				d.registerTask(rt, agent.AgentID)
+			}
+			span.SetStatus(codes.Ok, "")
+			return resp, nil
+		}
+		lastErr = err
+		if d.healthTracker != nil {
+			d.healthTracker.RecordFailure(agent.AgentID)
+		}
+		if !errors.Is(err, errAgentUnreachable) {
+			span.RecordError(err)
+			span.SetStatus(codes.Error, err.Error())
+			return nil, err
+		}
+		// 该 agent 不可达（本地无连接且转发失败/无归属）→ 换下一候选。
+		// 失败尝试的 task_runs 行标 failed：投递未到 agent，不会有事件
+		// 回流推进状态（best-effort，标记失败不放大故障）。
+		if writer != nil && taskID != "" {
+			_ = writer.MarkRunFailed(ctx, taskID, err.Error())
+		}
+	}
+	span.RecordError(lastErr)
+	span.SetStatus(codes.Error, lastErr.Error())
+	return nil, lastErr
+}
+
+// startTaskOnPickedAgent executes one async dispatch attempt against the
+// selected agent. Returns the response plus the server-side task ID of this
+// attempt (empty when the run row could not be created), so the caller can
+// mark the failed attempt's row.
+func (d *Dispatcher) startTaskOnPickedAgent(ctx context.Context, span trace.Span, agent *reg.AgentSession, req *sdkv1.InvokeRequest, origMeta map[string]string, writer TaskRunWriter) (*sdkv1.StartTaskResponse, string, error) {
+	// 原地重置再注入：保持 req.Metadata 的 map 身份不变——调用方
+	// （console/审计）在调用后仍读同一 map 拿 agent_id/task_id，换新实例
+	// 会让它们读到空值。
+	if req.Metadata == nil {
+		req.Metadata = map[string]string{}
+	}
+	meta := req.Metadata
+	for k := range meta {
+		delete(meta, k)
+	}
+	for k, v := range origMeta {
+		meta[k] = v
+	}
+	meta["agentId"] = agent.AgentID
+	meta = telemetry.InjectContext(ctx, meta)
+
+	// Generate a server-side task ID so events flowing back from the agent
+	// can be matched to a task_runs row. This closes the feedback loop.
+	// 每轮尝试独立 ID：失败轮的行由调用方标 failed，成功轮的 ID 随帧
+	// 到 owner 沿用（caller/owner 共用同一 ID，事件才能匹配）。
+	taskID := ""
 	if writer != nil {
-		taskID := generateTaskID()
-		req.Metadata["taskId"] = taskID
+		taskID = generateTaskID()
+		meta["taskId"] = taskID
 		span.SetAttributes(attribute.String("task.id", taskID))
-		gameID := req.Metadata["gameId"]
-		env := req.Metadata["env"]
-		actor := req.Metadata["actor"]
+		gameID := origMeta["gameId"]
+		env := origMeta["env"]
+		actor := origMeta["actor"]
 		addr := agent.Addr
-		traceID := telemetry.TraceIDFromMetadata(req.Metadata)
+		traceID := telemetry.TraceIDFromMetadata(origMeta)
 		// Best-effort: create the run row. If this fails the task still
 		// dispatches — the agent will use the provided task_id and events
 		// will be orphaned but not lost (they land in task_events).
 		_ = writer.CreateRunWithMeta(ctx, taskID, req.GetFunctionId(), agent.AgentID, gameID, env, "dispatching", actor, addr, traceID, req.GetPayload())
 	}
+	req.Metadata = meta
 
 	reqBytes, err := proto.Marshal(req)
 	if err != nil {
-		if d.healthTracker != nil {
-			d.healthTracker.RecordFailure(agent.AgentID)
-		}
 		err = fmt.Errorf("marshal request: %w", err)
 		span.RecordError(err)
-		span.SetStatus(codes.Error, err.Error())
-		return nil, err
+		return nil, taskID, err
 	}
 
 	respBytes, err := d.callAgentRouted(ctx, agent.AgentID, protocol.MsgStartTaskRequest, req, reqBytes)
 	if err != nil {
-		if d.healthTracker != nil {
-			d.healthTracker.RecordFailure(agent.AgentID)
-		}
 		span.RecordError(err)
-		span.SetStatus(codes.Error, err.Error())
-		return nil, err
+		return nil, taskID, err
 	}
 
 	resp := &sdkv1.StartTaskResponse{}
 	if err := proto.Unmarshal(respBytes, resp); err != nil {
-		if d.healthTracker != nil {
-			d.healthTracker.RecordFailure(agent.AgentID)
-		}
 		err = fmt.Errorf("unmarshal response: %w", err)
 		span.RecordError(err)
-		span.SetStatus(codes.Error, err.Error())
-		return nil, err
+		return nil, taskID, err
 	}
-
-	if d.healthTracker != nil {
-		d.healthTracker.RecordSuccess(agent.AgentID)
-	}
-
-	if taskID := resp.GetTaskId(); taskID != "" {
-		span.SetAttributes(attribute.String("task.id", taskID))
-		d.registerTask(taskID, agent.AgentID)
-	}
-
-	span.SetStatus(codes.Ok, "")
-	return resp, nil
+	return resp, taskID, nil
 }
 
 func (d *Dispatcher) CancelTask(ctx context.Context, taskID string) error {
@@ -1038,9 +1098,20 @@ func (d *Dispatcher) pickAgentWithRouting(ctx context.Context, functionID string
 	// refreshRemoteSnapshots 回灌窗口内的新注册、回灌失败或快照缺失场景
 	// 由此兜底；远端候选被选中后经 callAgentRouted 转发到 owner 执行。
 	// 注意触发条件是「过滤后为空」而非「本地列表为空」，否则 failover
-	// 的第 2、3 轮永远不会尝试远端。
+	// 的第 2、3 轮永远不会尝试远端。扩展结果同样按 exclude 过滤——已
+	// 试失败的远端候选不重复供应，全部耗尽后由 noLiveAgentError 收口
+	// （failover exhausted → 503 语义依赖这里返回空）。
 	if len(candidates) == 0 {
-		candidates = d.expandRemoteCandidates(ctx, functionID, gameID, env, scoped)
+		var excluded map[string]bool
+		if len(exclude) > 0 {
+			excluded = exclude[0]
+		}
+		for _, a := range d.expandRemoteCandidates(ctx, functionID, gameID, env, scoped) {
+			if a == nil || (excluded != nil && excluded[a.AgentID]) {
+				continue
+			}
+			candidates = append(candidates, a)
+		}
 	}
 	if len(candidates) == 0 {
 		return nil, noLiveAgentError(functionID, gameID, env, scoped)

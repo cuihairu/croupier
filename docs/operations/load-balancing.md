@@ -23,7 +23,7 @@ Croupier HA 多实例架构（[Server 多实例 HA](../architecture/server-ha-mu
 **前提认知**：Agent 会话表与函数注册 registry 是 Server 实例的**进程内存态**，跨实例同步仅覆盖部分路径（`/ops/nodes`、agent 列表、`/functions/instances` 走共享归属表聚合——instances 已于 2026-09-11 补齐）。invoke 执行路径已在 2026-09-11 完成归属表接入与转发补全，双活下的调用正确性不再依赖「请求恰好落到持有 agent 的实例」：
 
 - **候选集兜底（RemoteAgentSource）**：本地候选为空或 failover 耗尽本地候选时，同步查共享归属表 + `agent_sessions` 快照表（1s 预算，出错降级回 `no live agent` 语义不放大故障）补远端候选，选中的远端候选经 mesh 转发到 owner 实例执行
-- **三分支转发**：同步 invoke、异步任务（start_task）、任务取消（cancel_task，task routing miss 时从共享 `task_runs` 解析 agent）、广播（候选集 local ∪ remote，按 AgentID 去重本地优先）都走同一帧格式（`kind` 区分），owner 侧定向投递并落审计（不重查 policy，信任边界见 `docs/architecture/server-ha-multi-instance.md` §5.3）
+- **三分支转发**：同步 invoke、异步任务（start_task，与 invoke 同款 failover——lb 路由失败换候选重试、失败尝试的 task_runs 行标 failed、耗尽映射 503）、任务取消（cancel_task，task routing miss 时从共享 `task_runs` 解析 agent）、广播（候选集 local ∪ remote，按 AgentID 去重本地优先）都走同一帧格式（`kind` 区分），owner 侧定向投递并落审计（不重查 policy，信任边界见 `docs/architecture/server-ha-multi-instance.md` §5.3）
 - `refreshRemoteSnapshots` 的 30s 周期回灌从正确性依赖降级为性能优化层（减少热路径同步查库）
 
 已知边界（切双活前须知）：

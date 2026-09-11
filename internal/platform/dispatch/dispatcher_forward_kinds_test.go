@@ -3,9 +3,11 @@ package dispatch
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
 
+	apperrors "github.com/cuihairu/croupier/internal/errors"
 	reg "github.com/cuihairu/croupier/internal/platform/registry"
 	"github.com/cuihairu/croupier/internal/transport"
 	sdkv1 "github.com/cuihairu/croupier/pkg/pb/croupier/sdk/v1"
@@ -16,7 +18,10 @@ import (
 // ---- C3 转发泛化（async/cancel/broadcast 三分支）基件 ----
 
 // stubTaskRunWriter 记录 caller 侧 task_runs 写入（断言 caller/owner 职责切分）。
-type stubTaskRunWriter struct{ runs []string }
+type stubTaskRunWriter struct {
+	runs   []string
+	failed []string
+}
 
 func (w *stubTaskRunWriter) CreateRun(ctx context.Context, taskID, functionID, agentID, gameID, env, status string, inputPayload []byte) error {
 	w.runs = append(w.runs, taskID)
@@ -25,6 +30,11 @@ func (w *stubTaskRunWriter) CreateRun(ctx context.Context, taskID, functionID, a
 
 func (w *stubTaskRunWriter) CreateRunWithMeta(ctx context.Context, taskID, functionID, agentID, gameID, env, status, actor, addr, traceID string, inputPayload []byte) error {
 	w.runs = append(w.runs, taskID)
+	return nil
+}
+
+func (w *stubTaskRunWriter) MarkRunFailed(ctx context.Context, taskID, errMsg string) error {
+	w.failed = append(w.failed, taskID)
 	return nil
 }
 
@@ -103,6 +113,88 @@ func TestStartTaskOnAgent_NoRunRowNoRouting(t *testing.T) {
 	}
 	if routings, _ := d.ListTaskRoutings(); len(routings) != 0 {
 		t.Fatalf("owner path must not register task routing, got %v", routings)
+	}
+}
+
+// selectiveForwarder 对指定 agent 的转发失败（模拟僵尸候选：归属表行已
+// 释放 → mesh no live owner），其余成功。
+type selectiveForwarder struct {
+	failFor  map[string]bool
+	response []byte
+	calls    []string
+}
+
+func (s *selectiveForwarder) Forward(_ context.Context, call *RemoteCall) ([]byte, error) {
+	s.calls = append(s.calls, call.AgentID)
+	if s.failFor[call.AgentID] {
+		return nil, fmt.Errorf("cluster: no live owner for agent: %w", errAgentUnreachable)
+	}
+	return s.response, nil
+}
+
+// 线上场景回归（2026-09-11 双实例 async 验证暴露）：agent 断连后 registry
+// 条目仍在 ExpireAt 窗口内（僵尸本地候选），归属表行已释放 → 转发 no
+// live owner。StartTaskRequest 必须 failover 换远端候选重投（对齐
+// InvokeRequest 语义），且失败尝试的 task_runs 行标 failed（否则永远
+// dispatching）——修复前该场景一次选中僵尸即 500。
+func TestStartTask_FailoverOnZombieLocalCandidate(t *testing.T) {
+	d := newFailoverDispatcher(t, "agent-1") // 本地僵尸候选：registry 未过期、本地无连接
+	writer := &stubTaskRunWriter{}
+	d.SetTaskRunWriter(writer)
+	fwd := &selectiveForwarder{
+		failFor:  map[string]bool{"agent-1": true},
+		response: mustMarshal(t, &sdkv1.StartTaskResponse{TaskId: "resp-task"}),
+	}
+	d.SetRemoteForwarder(fwd)
+	// 远端目录供应活跃候选 agent-2（exclude 僵尸后本地为空时触发）。
+	d.SetRemoteAgentSource(&stubRemoteAgentSource{sessions: []*reg.AgentSession{
+		remoteSession("agent-2", "", "", "test-func"),
+	}})
+
+	resp, err := d.StartTaskRequest(context.Background(), &sdkv1.InvokeRequest{FunctionId: "test-func"})
+	if err != nil {
+		t.Fatalf("StartTaskRequest: %v", err)
+	}
+	if resp.GetTaskId() != "resp-task" {
+		t.Fatalf("task id = %q", resp.GetTaskId())
+	}
+	if len(fwd.calls) != 2 || fwd.calls[0] != "agent-1" || fwd.calls[1] != "agent-2" {
+		t.Fatalf("forward calls = %v, want [agent-1 agent-2]", fwd.calls)
+	}
+	// 每轮尝试一行 task_runs；失败轮（僵尸）必须标 failed。
+	if len(writer.runs) != 2 {
+		t.Fatalf("task run rows = %v, want 2 attempts", writer.runs)
+	}
+	if len(writer.failed) != 1 || writer.failed[0] != writer.runs[0] {
+		t.Fatalf("failed rows = %v (runs=%v), want first attempt only", writer.failed, writer.runs)
+	}
+	// registerTask 落在成功轮的 agent 上。
+	if got, ok := d.TaskAgentID("resp-task"); !ok || got != "agent-2" {
+		t.Fatalf("TaskAgentID(resp-task) = %q, %v; want agent-2", got, ok)
+	}
+}
+
+// 全部候选（本地僵尸 + 远端）都不可达 → failover 耗尽映射 503
+// service_unavailable（与 InvokeRequest 语义一致），不再落 500。
+func TestStartTask_FailoverExhaustedMapsTo503(t *testing.T) {
+	d := newFailoverDispatcher(t, "agent-1")
+	d.SetTaskRunWriter(&stubTaskRunWriter{})
+	fwd := &selectiveForwarder{failFor: map[string]bool{"agent-1": true, "agent-2": true}}
+	d.SetRemoteForwarder(fwd)
+	d.SetRemoteAgentSource(&stubRemoteAgentSource{sessions: []*reg.AgentSession{
+		remoteSession("agent-2", "", "", "test-func"),
+	}})
+
+	_, err := d.StartTaskRequest(context.Background(), &sdkv1.InvokeRequest{FunctionId: "test-func"})
+	if err == nil {
+		t.Fatal("want error on exhausted failover")
+	}
+	var appErr *apperrors.AppError
+	if !errors.As(err, &appErr) || appErr.Code != apperrors.ErrCodeServiceUnavailable {
+		t.Fatalf("error = %v, want AppError service_unavailable", err)
+	}
+	if !errors.Is(err, errAgentUnreachable) {
+		t.Fatalf("error chain must keep errAgentUnreachable: %v", err)
 	}
 }
 
