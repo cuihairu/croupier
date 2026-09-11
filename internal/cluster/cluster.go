@@ -16,13 +16,6 @@ import (
 	"time"
 )
 
-// ErrNotOwner 表示转发目标实例已不是该 Agent 的 owner（目录过期）。
-// 调用方应重新解析目录后重试一次。
-var ErrNotOwner = errors.New("cluster: peer is not the owner")
-
-// ErrStaleEpoch 表示目标实例是僵尸 owner（fencing 校验失败）。
-var ErrStaleEpoch = errors.New("cluster: stale owner epoch")
-
 // ErrNoRoute 表示目录中找不到持有该 Agent 的存活实例（如 Agent 已离线）。
 var ErrNoRoute = errors.New("cluster: no live owner for agent")
 

@@ -662,7 +662,7 @@ func TestDispatcher_pickAgentWithRouting_TargetServiceID(t *testing.T) {
 	})
 
 	metadata := map[string]string{"targetServiceId": "service-1"}
-	agent, err := d.pickAgentWithRouting("test-func", metadata)
+	agent, err := d.pickAgentWithRouting(context.Background(), "test-func", metadata)
 
 	if err != nil {
 		t.Fatalf("pickAgentWithRouting() error = %v", err)
@@ -688,7 +688,7 @@ func TestDispatcher_pickAgentWithRouting_TargetServiceIDNotFound(t *testing.T) {
 	})
 
 	metadata := map[string]string{"targetServiceId": "non-existent"}
-	_, err := d.pickAgentWithRouting("test-func", metadata)
+	_, err := d.pickAgentWithRouting(context.Background(), "test-func", metadata)
 
 	if err == nil {
 		t.Error("pickAgentWithRouting() should return error when target service not found")
@@ -718,8 +718,8 @@ func TestDispatcher_pickAgentWithRouting_HashKey(t *testing.T) {
 	})
 
 	metadata := map[string]string{"hashKey": "user-123"}
-	agent1, _ := d.pickAgentWithRouting("test-func", metadata)
-	agent2, _ := d.pickAgentWithRouting("test-func", metadata)
+	agent1, _ := d.pickAgentWithRouting(context.Background(), "test-func", metadata)
+	agent2, _ := d.pickAgentWithRouting(context.Background(), "test-func", metadata)
 
 	// 相同的哈希键应该选择相同的代理
 	if agent1.AgentID != agent2.AgentID {
@@ -745,7 +745,7 @@ func TestDispatcher_pickAgentWithRouting_EmptyHashKey(t *testing.T) {
 	})
 
 	metadata := map[string]string{"hashKey": "  "} // 只有空格
-	agent, err := d.pickAgentWithRouting("test-func", metadata)
+	agent, err := d.pickAgentWithRouting(context.Background(), "test-func", metadata)
 
 	if err != nil {
 		t.Fatalf("pickAgentWithRouting() error = %v", err)
@@ -770,7 +770,7 @@ func TestDispatcher_pickAgentWithRouting_NilMetadata(t *testing.T) {
 		},
 	})
 
-	agent, err := d.pickAgentWithRouting("test-func", nil)
+	agent, err := d.pickAgentWithRouting(context.Background(), "test-func", nil)
 
 	if err != nil {
 		t.Fatalf("pickAgentWithRouting() error = %v", err)
@@ -792,7 +792,7 @@ func TestDispatcher_pickAgentWithRouting_FiltersGameEnvironment(t *testing.T) {
 		d.store.UpsertAgent(agent)
 	}
 
-	selected, err := d.pickAgentWithRouting("test-func", map[string]string{"gameId": "game-a", "env": "prod"})
+	selected, err := d.pickAgentWithRouting(context.Background(), "test-func", map[string]string{"gameId": "game-a", "env": "prod"})
 	if err != nil {
 		t.Fatalf("pickAgentWithRouting() error = %v", err)
 	}
@@ -803,7 +803,7 @@ func TestDispatcher_pickAgentWithRouting_FiltersGameEnvironment(t *testing.T) {
 
 func TestDispatcher_pickAgentWithRouting_RejectsPartialScope(t *testing.T) {
 	d := NewDispatcher(nil)
-	_, err := d.pickAgentWithRouting("test-func", map[string]string{"gameId": "game-a"})
+	_, err := d.pickAgentWithRouting(context.Background(), "test-func", map[string]string{"gameId": "game-a"})
 	if err == nil {
 		t.Fatal("expected partial game scope to be rejected")
 	}

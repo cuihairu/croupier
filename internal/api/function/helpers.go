@@ -252,6 +252,12 @@ func functionInvoke(ctx context.Context, svcCtx *svc.ServiceContext, req *Functi
 	// ignored so they can never redirect an invocation to another agent scope.
 	req.GameID = scope.GameID
 	req.Env = scope.Env
+	// 路由语义前置校验（400 级）：targeted 缺 targetServiceId / hash 缺
+	// hashKey / broadcast 配 async 属客户端错误，应在 policy 与 dispatch
+	// 之前拦截，而不是静默回落 lb 或静默走 async。
+	if err := validateInvokeRoute(req); err != nil {
+		return nil, err
+	}
 	startedAt := time.Now()
 	var spanErr error
 	if svcCtx != nil && svcCtx.Telemetry != nil {
@@ -1245,31 +1251,6 @@ func batchUpdateFunctions(ctx context.Context, svcCtx *svc.ServiceContext, req *
 }
 
 // Helper functions
-
-func enforceInvokePermission(svcCtx *svc.ServiceContext, roleNames []string, permIDs []string, functionID string, gameID string, env string) error {
-	if utils.HasAdminRole(roleNames) {
-		return nil
-	}
-
-	if svcCtx.FunctionModel == nil {
-		return errorx.NewForbidden("无权调用该函数（函数权限模型未初始化）")
-	}
-	perms, err := svcCtx.FunctionModel.ListPermissions(nil, functionID)
-	if err != nil {
-		return err
-	}
-	if allowed, hasRule := utils.FunctionActionAllowed(roleNames, perms, "invoke", gameID, env); hasRule {
-		if allowed {
-			return nil
-		}
-		return errorx.NewForbidden("无权调用该函数")
-	}
-
-	if utils.HasPermissionID(permIDs, "*") || utils.HasPermissionID(permIDs, "function:invoke") {
-		return nil
-	}
-	return errorx.NewForbidden("无权调用该函数（需要 function:invoke 或配置函数权限）")
-}
 
 // getStringFromMetadata gets a string value from metadata map
 func getStringFromMetadata(metadata map[string]interface{}, key string) string {

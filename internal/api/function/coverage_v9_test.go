@@ -656,19 +656,6 @@ func TestBatchDeleteFunctions_FailureBranch_V9(t *testing.T) {
 	assert.Equal(t, []string{"a", "b"}, resp.Failed)
 }
 
-func TestEnforceInvokePermission_ErrorBranches_V9(t *testing.T) {
-	// FunctionModel 未初始化 → 明确 forbidden
-	err := enforceInvokePermission(&svc.ServiceContext{}, []string{"viewer"}, nil, "f", "", "")
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "函数权限模型未初始化")
-
-	// ListPermissions 数据库错误 → 透传
-	f := newInvokeFixture(t)
-	require.NoError(t, f.db.Migrator().DropTable("function_permissions"))
-	err = enforceInvokePermission(f.svcCtx, []string{"viewer"}, nil, "f", "", "")
-	require.Error(t, err)
-}
-
 // --- enforceFunctionPolicy branches ---
 
 func TestEnforceFunctionPolicy_RiskFromOpenAPI_V9(t *testing.T) {

@@ -293,9 +293,10 @@ func (d *Dispatcher) InvokeRequest(ctx context.Context, req *sdkv1.InvokeRequest
 		origMeta[k] = v
 	}
 	// targeted/hash 路由语义上指定了唯一目标，失败换候选会破坏粘性——
-	// 只有默认 lb 路径才有 failover。
-	routePinned := strings.TrimSpace(origMeta["target_service_id"]) != "" ||
-		strings.TrimSpace(origMeta["hash_key"]) != ""
+	// 只有默认 lb 路径才有 failover。键名与写方一致（API 层注入
+	// targetServiceId/hashKey；pickAgentWithRouting 读同一对键）。
+	routePinned := strings.TrimSpace(origMeta["targetServiceId"]) != "" ||
+		strings.TrimSpace(origMeta["hashKey"]) != ""
 
 	tried := map[string]bool{}
 	maxAttempts := 1
@@ -304,10 +305,17 @@ func (d *Dispatcher) InvokeRequest(ctx context.Context, req *sdkv1.InvokeRequest
 	}
 	var lastErr error
 	for attempt := 0; attempt < maxAttempts; attempt++ {
-		agent, err := d.pickAgentWithRouting(req.GetFunctionId(), origMeta, tried)
+		agent, err := d.pickAgentWithRouting(ctx, req.GetFunctionId(), origMeta, tried)
 		if err != nil {
 			if lastErr != nil {
-				return nil, fmt.Errorf("failover exhausted: %w (last error: %v)", lastErr, err)
+				// failover 耗尽本质是「无可用 agent」的可重试状态，应映射
+				// 503 service_unavailable（与首轮 noLiveAgentError 一致），
+				// 而非普通 error 落 500。cause 链保留 errAgentUnreachable
+				// 可换候选的语义；message 同时带 lastErr 保住排障信息
+				// （session not found / 转发失败原因）。
+				return nil, apperrors.Newf(apperrors.ErrCodeServiceUnavailable, "invoke",
+					fmt.Errorf("%w: failover exhausted", lastErr),
+					"failover exhausted: %v (last error: %v)", err, lastErr)
 			}
 			span.RecordError(err)
 			span.SetStatus(codes.Error, err.Error())
@@ -551,7 +559,7 @@ func (d *Dispatcher) StartTaskRequest(ctx context.Context, req *sdkv1.InvokeRequ
 	)
 	defer span.End()
 
-	agent, err := d.pickAgentWithRouting(req.GetFunctionId(), req.Metadata)
+	agent, err := d.pickAgentWithRouting(ctx, req.GetFunctionId(), req.Metadata)
 	if err != nil {
 		span.RecordError(err)
 		span.SetStatus(codes.Error, err.Error())
@@ -918,7 +926,7 @@ func (d *Dispatcher) selectAgent(functionID string, candidates []*reg.AgentSessi
 	return chosen, nil
 }
 
-func (d *Dispatcher) pickAgentWithRouting(functionID string, metadata map[string]string, exclude ...map[string]bool) (*reg.AgentSession, error) {
+func (d *Dispatcher) pickAgentWithRouting(ctx context.Context, functionID string, metadata map[string]string, exclude ...map[string]bool) (*reg.AgentSession, error) {
 	gameID, env, scoped, err := routingScopeFromMetadata(metadata)
 	if err != nil {
 		return nil, err

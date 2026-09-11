@@ -1507,51 +1507,6 @@ func TestFunctionPermissionsUpdate_Empty(t *testing.T) {
 	assert.Empty(t, perms)
 }
 
-// Test enforceInvokePermission with different scenarios
-
-func TestEnforceInvokePermission_AdditionalScenarios(t *testing.T) {
-	t.Parallel()
-
-	db, err := gorm.Open(gsqlite.Open(":memory:"), &gorm.Config{})
-	require.NoError(t, err)
-	require.NoError(t, model.AutoMigrate(db))
-
-	functionModel := model.NewFunctionModel(db)
-	ctx := context.Background()
-
-	// Create test function
-	fn := &model.Function{FunctionID: "f1", Name: "demo"}
-	require.NoError(t, db.WithContext(ctx).Create(fn).Error)
-
-	// Create permission with game and env specific rules
-	require.NoError(t, db.WithContext(ctx).Create(&model.FunctionPermission{
-		FunctionID: "f1",
-		GameID:     "game1",
-		Env:        "prod",
-		Resource:   "function",
-		Actions:    model.JSON([]byte(`["invoke"]`)),
-		Roles:      model.JSON([]byte(`["viewer"]`)),
-	}).Error)
-
-	svcCtx := &svc.ServiceContext{FunctionModel: functionModel}
-
-	// Test 1: Non-admin user without matching role - should fail
-	err = enforceInvokePermission(svcCtx, []string{"guest"}, nil, "f1", "", "")
-	assert.Error(t, err)
-
-	// Test 2: User with matching game/env and role - should pass
-	err = enforceInvokePermission(svcCtx, []string{"viewer"}, nil, "f1", "game1", "prod")
-	assert.NoError(t, err)
-
-	// Test 3: User with wildcard permission ID - should pass
-	err = enforceInvokePermission(svcCtx, []string{"guest"}, []string{"*"}, "f1", "", "")
-	assert.NoError(t, err)
-
-	// Test 4: User with specific permission ID - should pass
-	err = enforceInvokePermission(svcCtx, []string{"guest"}, []string{"function:invoke"}, "f1", "", "")
-	assert.NoError(t, err)
-}
-
 // Test functionInvoke with mode async
 
 func TestFunctionInvoke_AsyncMode(t *testing.T) {
@@ -1753,29 +1708,6 @@ func TestFunctionPermissions_MalformedJSON(t *testing.T) {
 	// Malformed JSON should return empty arrays
 	assert.Empty(t, resp.Items[0].Actions)
 	assert.Empty(t, resp.Items[0].Roles)
-}
-
-// Test enforceInvokePermission with no permissions configured
-
-func TestEnforceInvokePermission_NoPermissionsConfigured(t *testing.T) {
-	t.Parallel()
-
-	db, err := gorm.Open(gsqlite.Open(":memory:"), &gorm.Config{})
-	require.NoError(t, err)
-	require.NoError(t, model.AutoMigrate(db))
-
-	functionModel := model.NewFunctionModel(db)
-	ctx := context.Background()
-
-	// Create test function without permissions
-	fn := &model.Function{FunctionID: "f2", Name: "demo"}
-	require.NoError(t, db.WithContext(ctx).Create(fn).Error)
-
-	svcCtx := &svc.ServiceContext{FunctionModel: functionModel}
-
-	// User with no role and no permission ID - should fail
-	err = enforceInvokePermission(svcCtx, []string{"guest"}, nil, "f2", "", "")
-	assert.Error(t, err)
 }
 
 // Test functionsList with resource filter

@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cuihairu/croupier/internal/common/errorx"
 	"github.com/cuihairu/croupier/internal/model"
 	"github.com/cuihairu/croupier/internal/platform/approvals"
 	"github.com/cuihairu/croupier/internal/platform/executionlog"
@@ -290,6 +291,33 @@ func TestFinalCreateFunctionApproval_RoutePassthrough(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "broadcast", stored.Route)
 	assert.WithinDuration(t, time.Now(), stored.CreatedAt, time.Minute)
+}
+
+// 路由语义接线（400 级）：targeted 缺 targetServiceId 不再静默回落 lb，
+// broadcast 配 async 不再静默走 async——都在 policy/dispatch 之前拦截。
+func TestFinalFunctionInvoke_RouteValidationWired(t *testing.T) {
+	f := newInvokeFixture(t)
+	f.createOperator(t, "opuser", "admin")
+	f.registerAgent(t, "agent-1", "demo.echo")
+
+	_, err := NewService(f.svcCtx).FunctionInvoke(f.ctxFor("opuser"), &FunctionInvokeRequest{
+		ID: "demo.echo", Payload: []byte(`{}`), Route: "targeted",
+	})
+	require.Error(t, err)
+	var badReq *errorx.CodeError
+	if !errors.As(err, &badReq) {
+		t.Fatalf("targeted without targetServiceId should be 400 CodeError, got %T: %v", err, err)
+	}
+	assert.Equal(t, http.StatusBadRequest, badReq.Code)
+
+	_, err = NewService(f.svcCtx).FunctionInvoke(f.ctxFor("opuser"), &FunctionInvokeRequest{
+		ID: "demo.echo", Payload: []byte(`{}`), Route: "broadcast", Mode: "async",
+	})
+	require.Error(t, err)
+	if !errors.As(err, &badReq) {
+		t.Fatalf("broadcast+async should be 400 CodeError, got %T: %v", err, err)
+	}
+	assert.Equal(t, http.StatusBadRequest, badReq.Code)
 }
 
 // functionsList：DB 函数 resource 为空 → metadata 回落。

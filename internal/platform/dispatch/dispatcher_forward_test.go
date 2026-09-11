@@ -3,9 +3,12 @@ package dispatch
 import (
 	"context"
 	"errors"
+	"net/http"
+	"strings"
 	"testing"
 	"time"
 
+	apperrors "github.com/cuihairu/croupier/internal/errors"
 	reg "github.com/cuihairu/croupier/internal/platform/registry"
 	sdkv1 "github.com/cuihairu/croupier/pkg/pb/croupier/sdk/v1"
 )
@@ -137,6 +140,56 @@ func TestInvokeRequest_TargetedRoutingNoFailover(t *testing.T) {
 	}
 	if len(fwd.calls) != 1 {
 		t.Fatalf("targeted routing should not failover, forward calls = %d", len(fwd.calls))
+	}
+	// pinned 生效的回归锚：错误是单次尝试的原始错误（含 forward 失败原因），
+	// 不是「换候选后无 agent」的 failover exhausted 包装。键名 bug
+	// （routePinned 读 target_service_id 旧键）会让本断言翻车。
+	if !strings.Contains(err.Error(), "no route") || strings.Contains(err.Error(), "failover exhausted") {
+		t.Fatalf("pinned routing should surface single-attempt error, got: %v", err)
+	}
+}
+
+// hash 路由同样粘性：hashKey 选中的 agent 失败直接返回，不进入 failover。
+func TestInvokeRequest_RoutePinnedByHashKey_SingleAttempt(t *testing.T) {
+	d := newFailoverDispatcher(t, "agent-1", "agent-2")
+	fwd := &stubRemoteForwarder{err: errors.New("no route")}
+	d.SetRemoteForwarder(fwd)
+
+	_, err := d.InvokeRequest(context.Background(), &sdkv1.InvokeRequest{
+		FunctionId: "test-func",
+		Metadata:   map[string]string{"hashKey": "player-42"},
+	})
+	if err == nil {
+		t.Fatal("expected error for unreachable hash-pinned agent")
+	}
+	if len(fwd.calls) != 1 {
+		t.Fatalf("hash routing should not failover, forward calls = %d", len(fwd.calls))
+	}
+	if strings.Contains(err.Error(), "failover exhausted") {
+		t.Fatalf("hash pinned should be single attempt, got failover: %v", err)
+	}
+}
+
+// failover 耗尽映射 503 service_unavailable（与首轮 noLiveAgent 同语义），
+// 而不是普通 error 落 500；cause 链保留 errAgentUnreachable。
+func TestInvokeRequest_FailoverExhausted_ReturnsServiceUnavailable(t *testing.T) {
+	d := newFailoverDispatcher(t, "agent-1", "agent-2")
+	fwd := &stubRemoteForwarder{err: errors.New("no route")}
+	d.SetRemoteForwarder(fwd)
+
+	_, err := d.InvokeRequest(context.Background(), &sdkv1.InvokeRequest{FunctionId: "test-func"})
+	if err == nil {
+		t.Fatal("expected error after failover exhausted")
+	}
+	var appErr *apperrors.AppError
+	if !errors.As(err, &appErr) {
+		t.Fatalf("failover exhausted should be AppError, got %T: %v", err, err)
+	}
+	if appErr.HTTPStatusCode != http.StatusServiceUnavailable {
+		t.Fatalf("failover exhausted should map to 503, got %d", appErr.HTTPStatusCode)
+	}
+	if !errors.Is(err, errAgentUnreachable) {
+		t.Fatalf("error should carry errAgentUnreachable: %v", err)
 	}
 }
 

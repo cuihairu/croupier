@@ -23,9 +23,8 @@ import (
 // 返回 (nil, nil) 表示未启用（单实例默认）。
 //
 // 互联消息处理复用 ControlService 的 TCP 基座；owner 侧本地执行
-// （ForwardedInvoke → Agent session）由 dispatch 接线提供，当前阶段
-// 落地为成员表 + 互联通道 + fencing 校验（转发执行接线随 RegistryStore
-// 共享化启用，见 HA 文档 §7 拆解）。
+// （ForwardedInvoke → Agent session）与 caller 侧转发均已接线
+// （cmd/server/root.go 的 SetRemoteForwarder + 本文件 localInvoker）。
 func startCluster(ctx context.Context, c *config.Config, svcCtx *svc.ServiceContext) (*cluster.Lifecycle, *tcp.Server) {
 	cfg := c.Cluster
 	if !cfg.Enabled {

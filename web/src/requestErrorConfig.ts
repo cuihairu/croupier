@@ -103,7 +103,9 @@ function resolveRestMessage(payload: RestErrorPayload | undefined, status?: numb
       id: 'app.request.error.notFound',
       defaultMessage: '资源不存在',
     }),
-    unavailable: intl.formatMessage({
+    // 后端稳定码为 service_unavailable（HTTP 503），无 agent 可达/转发
+    // 耗尽都归此类——保持键与后端码一致，否则 503 永远落到 default 文案
+    service_unavailable: intl.formatMessage({
       id: 'app.request.error.unavailable',
       defaultMessage: '服务不可用',
     }),
@@ -151,6 +153,10 @@ function resolveRestMessage(payload: RestErrorPayload | undefined, status?: numb
     500: intl.formatMessage({
       id: 'app.request.error.internalError',
       defaultMessage: '服务器内部错误',
+    }),
+    503: intl.formatMessage({
+      id: 'app.request.error.unavailable',
+      defaultMessage: '服务不可用',
     }),
   };
   if (rawMessage) return rawMessage;
