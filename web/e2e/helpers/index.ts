@@ -68,8 +68,10 @@ export async function login(page: Page): Promise<void> {
   await page.locator('input[type="password"]').fill('admin123');
 
   // 点击登录按钮
+  // antd zh 下两字按钮自动插空格（「登 录」），hasText 正则容忍空格（先例 locale-switch.spec）
   const loginBtn = page
-    .locator('button[type="submit"], button:has-text("Login"), button:has-text("登录")')
+    .locator('button[type="submit"], button:has-text("Login")')
+    .or(page.locator('button', { hasText: /登\s*录/ }))
     .first();
   await loginBtn.click();
 

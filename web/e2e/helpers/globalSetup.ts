@@ -56,8 +56,10 @@ async function prepareMockAuthState(config: FullConfig): Promise<void> {
     await username.waitFor({ state: 'visible', timeout: 60000 });
     await username.fill('admin');
     await page.locator('input[type="password"]').fill('admin123');
+    // antd zh 下两字按钮自动插空格（「登 录」），hasText 正则容忍空格（先例 locale-switch.spec）
     await page
-      .locator('button[type="submit"], button:has-text("Login"), button:has-text("登录")')
+      .locator('button[type="submit"], button:has-text("Login")')
+      .or(page.locator('button', { hasText: /登\s*录/ }))
       .first()
       .click();
     // Login completes when the app navigates away and stores the token.
