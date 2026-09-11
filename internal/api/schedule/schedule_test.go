@@ -204,9 +204,11 @@ func TestTriggerNow(t *testing.T) {
 	r, _ := newTestEnv(t, true)
 	id := mustCreate(t, r)
 
-	// 空注册表 dispatcher：无可用 agent，派发失败。
+	// 空注册表 dispatcher：无可用 agent，派发失败是服务侧 503（AppError
+	// SERVICE_UNAVAILABLE），不是 500 内部错误。
 	rec := doReq(r, http.MethodPost, fmt.Sprintf("/api/v1/schedules/%d/trigger", id))
-	assert.Equal(t, http.StatusInternalServerError, rec.Code)
+	assert.Equal(t, http.StatusServiceUnavailable, rec.Code)
+	assert.Contains(t, rec.Body.String(), "service_unavailable")
 	assert.Contains(t, rec.Body.String(), "no live agent")
 
 	// 不存在的调度。

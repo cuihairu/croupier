@@ -18,6 +18,22 @@ Croupier HA 多实例架构（[Server 多实例 HA](../architecture/server-ha-mu
 
 **为什么 Agent 必须经 L4 LB 而不是直连**：直连会导致实例故障时该实例名下所有 Agent 失联需人工干预；经 LB 打散后，断连重连自动分发到存活实例 + 重新注册更新 owner（架构文档 §6 故障转移时间线，全程无人工干预）。
 
+## 部署模式约束：单活 + 冷备（当前推荐）
+
+**前提认知**：Agent 会话表与函数注册 registry 是 Server 实例的**进程内存态**，跨实例同步仅覆盖部分读路径（`/ops/nodes`、agent 列表走共享归属表聚合）；**函数实例列表（`/functions/instances`）与 invoke 的 agent 在线判定仍只查本实例内存**。在 registry 读路径全部接入跨实例聚合之前，双实例**双活**会产生视图分裂：
+
+- Agent 长连接被 L4 LB 打散到两个实例后，各实例只持有「连到自己的」agent
+- Dashboard L7 分流到未持有该 agent 的实例时，函数实例列表为空、invoke 报 `no live agent`（2026-09-11 线上事故根因；agent 重连漂移实例后旧实例还会留 24h TTL 悬尸 session）
+
+因此当前部署形态是**单活 + 冷备**：
+
+| 层                    | 配置                                       | 故障语义                                                                 |
+| --------------------- | ------------------------------------------ | ------------------------------------------------------------------------ |
+| L4（haproxy.cfg）     | `server croupier-server2 ... check backup` | agent 全部连主实例；主实例摘除后 agent 重连自动落 backup 并重新注册      |
+| L7（nginx-main.conf） | `split_clients ... 100% croupier-server`   | API 全量指向主实例；主实例故障时人工提升此处切到 server2（换一处分流值） |
+
+双活的前置条件（补齐后可切回）：`/functions/instances` 与 invoke 路径的 agent 在线判定接入 owner 转发或共享归属表聚合（架构文档已有 owner 转发机制，读路径接线是缺口）。
+
 ## 背景概念：L4 / L7 / VRRP
 
 ### L4 / L7 按协议分层定义
@@ -93,8 +109,8 @@ L4/L7 指的是 OSI 模型中的协议层次——负载均衡器**工作在哪�
 stream {
     upstream croupier_agent_lb {
         least_conn;                          # 按活跃会话数，贴合长连接
-        server croupier-server:19090;
-        server croupier-server2:19090;
+        server croupier-server:19090;        # 单活 + 冷备（见「部署模式约束」）：
+        server croupier-server2:19090 backup; # 主实例故障后 agent 重连落 backup
     }
     server {
         listen 19090;
@@ -132,8 +148,9 @@ listen croupier_agent_lb
     # 主动健康检查：TCP 建连探活（server 的 control listener）
     option tcp-check
     default-server inter 2s fall 3 rise 2 resolvers docker_dns init-addr libc,none
+    # 单活 + 冷备（见「部署模式约束」）：server2 仅在主实例摘除后承接重连
     server server1 croupier-server:19090 check
-    server server2 croupier-server2:19090 check
+    server server2 croupier-server2:19090 check backup
 
 listen stats                        # 排查连接分布
     bind *:8404
