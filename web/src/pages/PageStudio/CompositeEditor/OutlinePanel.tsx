@@ -22,20 +22,17 @@ export default function OutlinePanel({
   selectedId: string | null;
   onSelect: (id: string) => void;
 }) {
-  const data = useMemo<DataNode[]>(
-    () =>
-      tree.map((n) => ({
-        key: n.id,
-        title: labelOf(n, String(n.props.content ?? getComponent(n.type)?.name ?? n.type)),
-        children: n.children?.length
-          ? n.children.map((c) => ({
-              key: c.id,
-              title: labelOf(c, String(c.props.functionId ?? c.type)),
-            }))
-          : undefined,
-      })),
-    [tree],
-  );
+  // 递归全深（V2：tabs 页 container 内组件也需在大纲可见/可选——页签内
+  // 细粒度画布交互受限，大纲是页内节点的主要操作入口）。
+  const toData = (n: PageNode): DataNode => ({
+    key: n.id,
+    title: labelOf(
+      n,
+      String(n.props.content ?? n.props.functionId ?? getComponent(n.type)?.name ?? n.type),
+    ),
+    children: n.children?.length ? n.children.map(toData) : undefined,
+  });
+  const data = useMemo<DataNode[]>(() => tree.map(toData), [tree]);
 
   if (tree.length === 0) {
     return (

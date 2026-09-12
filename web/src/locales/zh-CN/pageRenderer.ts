@@ -6,6 +6,7 @@ export default {
   'component.pageRenderer.composite.executeFailed': '执行失败',
   'component.pageRenderer.composite.executeSuccess': '{title} 执行成功',
   'component.pageRenderer.composite.rowActionsColumn': '操作',
+  'component.pageRenderer.composite.tabFallback': '页签 {n}',
   'component.pageRenderer.expression.error.arrayIndexUnterminated': '数组下标缺少 ]',
   'component.pageRenderer.expression.error.empty': '表达式为空',
   'component.pageRenderer.expression.error.illegalCharacter': '非法字符「{char}」',

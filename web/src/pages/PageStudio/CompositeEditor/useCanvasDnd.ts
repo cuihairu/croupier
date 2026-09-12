@@ -4,7 +4,7 @@ import { useIntl } from '@umijs/max';
 import type { DragEndEvent, DragStartEvent } from '@dnd-kit/core';
 import type { FunctionDescriptor } from '@/services/api/functions';
 import { acceptsChild, scaffoldProps } from './registry';
-import { findNode, insertAfter, moveNode, nodeId, type PageNode } from './model';
+import { findNode, insertAfter, moveNode, nodeId, scaffoldTabsNode, type PageNode } from './model';
 import { assignVarNames, collectVarNames } from './varname';
 import { instantiateTemplate, type ComponentTemplateDTO } from './ComponentLibrary';
 import { planTemplateDrop } from './templateDrop';
@@ -151,11 +151,15 @@ export function useCanvasDnd({
         // 构造新节点
         let node: PageNode | null = null;
         if (data.kind === 'basic') {
-          node = {
-            id: nodeId(data.basicType as PageNode['type']),
-            type: data.basicType as PageNode['type'],
-            props: scaffoldProps(data.basicType as PageNode['type']),
-          };
+          // tabs 拖入自带 2 空页签（scaffoldProps 只产 props，子树构造层补齐）
+          node =
+            data.basicType === 'tabs'
+              ? scaffoldTabsNode()
+              : {
+                  id: nodeId(data.basicType as PageNode['type']),
+                  type: data.basicType as PageNode['type'],
+                  props: scaffoldProps(data.basicType as PageNode['type']),
+                };
         } else {
           registerFn(data.fn);
           node = {
@@ -193,7 +197,31 @@ export function useCanvasDnd({
         }
         // 落点=容器节点 → 契约校验后装入 children；其余=节点之后；根=末尾
         const after = overId === 'canvas-root' ? undefined : findNode(treeRef.current, overId);
-        if (after?.type === 'container') {
+        if (after?.type === 'tabs') {
+          // 页签容器：组件装入当前激活页（props.activeTab UI 态，缺省首页）；
+          // 页即 container，沿用其 allowedChildren 契约校验。无页/不接受 →
+          // 回退为页签容器之后的兄弟插入（与容器回退一致）。
+          const pages = (after.children ?? []).filter((p) => p.type === 'container');
+          const activeProp = typeof after.props.activeTab === 'string' ? after.props.activeTab : '';
+          const page = pages.find((p) => p.id === activeProp) ?? pages[0];
+          if (page && acceptsChild(page, node.type)) {
+            addChild(page.id, node);
+          } else {
+            message.warning(
+              intl.formatMessage(
+                {
+                  id: 'pages.pageStudio.editor.canvas.tabsFallback',
+                  defaultMessage: '页签内不接受「{type}」子组件，已放到页签容器之后',
+                },
+                { type: node.type },
+              ),
+            );
+            setTree((prev) => {
+              const [named] = assignVarNames([node], collectVarNames(prev));
+              return insertAfter(prev, named, after.id);
+            });
+          }
+        } else if (after?.type === 'container') {
           if (acceptsChild(after, node.type)) {
             addChild(after.id, node);
           } else {

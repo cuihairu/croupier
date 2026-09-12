@@ -25,6 +25,10 @@ const intl = getIntl();
  *   页面无表格时警告忽略（V1 独立按钮依赖表格顶部）
  * - fnForm.onSuccessRefresh 动作 target → 目标节点 functionId
  * - text/container 不产生 section（container 子节点平铺；text 忽略并警告）
+ * V2 追加：
+ * - tabs 容器 → 页（container）内区块平铺为 display='tab' + group（同组
+ *   渲染进同一 Tabs；优先 tabs.props.sectionKey，否则 tabs-<id尾6> 去重）
+ *   + tab（页 title=页签标签）；页内 button 仍编译到最近表格 toolbar
  */
 
 export function compileTree(tree: PageNode[]): CompileResult {
@@ -115,6 +119,19 @@ export function compileTree(tree: PageNode[]): CompileResult {
   }
   const modalFn = modalGroup; // 兼容旧引用
 
+  // 页签分组（V2）：tabs 容器 → group 名。同 modal 机制——优先声明
+  // sectionKey（round-trip 回写，稳定），否则 tabs-<id尾6> 去重兜底。
+  const tabsGroup = new Map<string, string>();
+  for (const t of tree.filter((n) => n.type === 'tabs')) {
+    const declared = typeof t.props.sectionKey === 'string' ? t.props.sectionKey.trim() : '';
+    const group =
+      declared && SECTION_KEY_RE.test(declared) && !usedGroups.has(declared)
+        ? declared
+        : `tabs-${t.id.slice(-6)}`;
+    usedGroups.add(group);
+    tabsGroup.set(t.id, group);
+  }
+
   /** 节点 → 引用目标（modal=group 名；其余=区块 key）。 */
   const sectionKeyOf = (n: PageNode): string | undefined => {
     if (n.type === 'modal') return modalGroup.get(n.id);
@@ -195,6 +212,38 @@ export function compileTree(tree: PageNode[]): CompileResult {
         }
         continue;
       }
+      if (node.type === 'tabs') {
+        // 页签容器（V2）：children=container（每页 title=页签标签）；页内
+        // 区块平铺为 display='tab' + group（同组渲染进同一 Tabs）+ tab（页签）。
+        const group = tabsGroup.get(node.id) ?? '';
+        const pages = (node.children ?? []).filter((p) => p.type === 'container');
+        const emitted = pages.some((p) => (p.children ?? []).some((k) => k.type !== 'text'));
+        if (!emitted) {
+          warnings.push(
+            intl.formatMessage(
+              {
+                id: 'pages.pageStudio.compiler.warning.emptyTabs',
+                defaultMessage: '页签容器「{title}」为空，已忽略',
+              },
+              { title: String(node.props.sectionKey ?? node.id) },
+            ),
+          );
+          continue;
+        }
+        pages.forEach((page, pi) => {
+          const tabLabel =
+            typeof page.props.title === 'string' && page.props.title.trim()
+              ? page.props.title
+              : `页签 ${pi + 1}`;
+          for (const kid of page.children ?? []) {
+            if (kid.type === 'text') continue; // 文本暂不进页签 spec（同弹窗）
+            if (kid.type === 'staticForm') emitStaticSection(kid, 'tab', group, tabLabel);
+            else if (kid.type === 'button') compileButton(kid);
+            else emitFnSection(kid, 'tab', group, tabLabel);
+          }
+        });
+        continue;
+      }
       if (node.type === 'button') {
         compileButton(node);
         continue;
@@ -220,8 +269,14 @@ export function compileTree(tree: PageNode[]): CompileResult {
     }
   };
 
-  /** 常量表单（staticForm）：无契约/绑定，schema 由编辑器设计期定义。 */
-  const emitStaticSection = (node: PageNode) => {
+  /** 常量表单（staticForm）：无契约/绑定，schema 由编辑器设计期定义。
+   * V2：可落在页签页内（display='tab' + group/tab 标注聚合位置）。 */
+  const emitStaticSection = (
+    node: PageNode,
+    display: 'inline' | 'tab' = 'inline',
+    group?: string,
+    tab?: string,
+  ) => {
     const raw = node.props.staticSchema;
     let jsonSchema: Record<string, unknown> = {};
     if (typeof raw === 'string') {
@@ -251,6 +306,9 @@ export function compileTree(tree: PageNode[]): CompileResult {
       autoRun: false,
       static: true,
       form: { jsonSchema },
+      ...(display === 'tab'
+        ? { display, ...(group ? { group } : {}), ...(tab ? { tab } : {}) }
+        : {}),
     };
     // refreshOn 透传（字面 section key；回读时写入 props.refreshOn）
     const staticRefreshOn = Array.isArray(node.props.refreshOn)
@@ -260,7 +318,12 @@ export function compileTree(tree: PageNode[]): CompileResult {
     sections.push(section as unknown as (typeof sections)[number]);
   };
 
-  const emitFnSection = (node: PageNode, display: 'inline' | 'dialog', group?: string) => {
+  const emitFnSection = (
+    node: PageNode,
+    display: 'inline' | 'dialog' | 'tab',
+    group?: string,
+    tab?: string,
+  ) => {
     const fid = String(node.props.functionId ?? '');
     if (!fid) {
       warnings.push(
@@ -283,6 +346,8 @@ export function compileTree(tree: PageNode[]): CompileResult {
       span: Number(node.props.span ?? 24) || 24,
       autoRun: node.props.autoRun === true,
       display,
+      // 页签标签（display=tab）：渲染端同 group 内按此聚合到 Tabs 对应页
+      ...(display === 'tab' && tab ? { tab } : {}),
     };
     // 成功后刷新：events.success 为唯一规范路径（渲染端 runChain 支持
     // refreshNode/runBinding/navigate/showMessage/closeModal，非刷新动作

@@ -398,6 +398,123 @@ describe('refreshOn 编译（查询组合模板：refreshOnNode 节点引用 →
   });
 });
 
+describe('compileTree V2：页签容器（tabs）', () => {
+  const page = (title: string, kids: PageNode[]): PageNode => ({
+    id: nodeId('container'),
+    type: 'container',
+    props: { title, span: 24 },
+    children: kids,
+  });
+
+  it('页内区块平铺为 display=tab + group + tab；声明 sectionKey 固化组名', () => {
+    const tabs: PageNode = {
+      id: 'TAB1',
+      type: 'tabs',
+      props: { sectionKey: 'main-tabs', span: 24 },
+      children: [
+        page('列表', [fn('fnTable', 'player.list', { autoRun: true })]),
+        page('操作', [fn('fnForm', 'mail.send')]),
+      ],
+    };
+    const { sections, warnings } = compileTree([tabs]);
+    expect(warnings).toEqual([]);
+    expect(sections).toHaveLength(2);
+    expect(sections[0]).toMatchObject({
+      key: 'player.list',
+      display: 'tab',
+      group: 'main-tabs',
+      tab: '列表',
+    });
+    expect(sections[1]).toMatchObject({
+      key: 'mail.send',
+      display: 'tab',
+      group: 'main-tabs',
+      tab: '操作',
+    });
+  });
+
+  it('未声明 sectionKey → 自动组名 tabs-<id尾6>；两个 tabs 组名不冲突', () => {
+    const t1: PageNode = {
+      id: 'node-aaaa11',
+      type: 'tabs',
+      props: { span: 24 },
+      children: [page('页1', [fn('fnForm', 'a.fn')])],
+    };
+    const t2: PageNode = {
+      id: 'node-aaaa22',
+      type: 'tabs',
+      props: { span: 24 },
+      children: [page('页1', [fn('fnForm', 'b.fn')])],
+    };
+    const { sections, warnings } = compileTree([t1, t2]);
+    expect(warnings).toEqual([]);
+    const groups = new Set(sections.map((s) => s.group));
+    expect(groups.size).toBe(2);
+    expect(sections[0].group).toBe('tabs-aaaa11');
+    expect(sections[1].group).toBe('tabs-aaaa22');
+  });
+
+  it('页无 title → 默认「页签 N」；页内 text 静默跳过', () => {
+    const tabs: PageNode = {
+      id: 'TAB2',
+      type: 'tabs',
+      props: { sectionKey: 't2' },
+      children: [
+        {
+          id: nodeId('container'),
+          type: 'container',
+          props: { span: 24 },
+          children: [fn('fnFields', 'player.get'), fn('text', '', { content: '说明' })],
+        },
+      ],
+    };
+    const { sections, warnings } = compileTree([tabs]);
+    // 页内 text 静默跳过（同弹窗），不产生「文本」警告
+    expect(warnings).toEqual([]);
+    expect(sections).toHaveLength(1);
+    expect(sections[0].tab).toBe('页签 1');
+  });
+
+  it('页内 button 挂最近表格 toolbar；staticForm 落为 tab 区块', () => {
+    const staticSchema = '{"type":"object","properties":{"kw":{"type":"string"}}}';
+    const table = fn('fnTable', 'player.list', { autoRun: true });
+    const tabs: PageNode = {
+      id: 'TAB3',
+      type: 'tabs',
+      props: { sectionKey: 't3' },
+      children: [
+        page('查询', [
+          table,
+          fn('button', '', { title: '刷新', onClick: { kind: 'refreshNode', target: table.id } }),
+        ]),
+        page('筛选', [{ id: 'sf-x', type: 'staticForm', props: { title: '筛选', staticSchema } }]),
+      ],
+    };
+    const { sections, warnings } = compileTree([tabs]);
+    expect(warnings).toEqual([]);
+    const tableSec = sections.find((s) => s.key === 'player.list')!;
+    expect(tableSec.toolbarActions).toHaveLength(1);
+    expect(tableSec.toolbarActions![0].label).toBe('刷新');
+    const staticSec = sections.find((s) => s.static === true)!;
+    expect(staticSec.display).toBe('tab');
+    expect(staticSec.group).toBe('t3');
+    expect(staticSec.tab).toBe('筛选');
+  });
+
+  it('空 tabs（无页/全 text）→ 警告并整体忽略', () => {
+    const empty: PageNode = { id: 'TAB4', type: 'tabs', props: {}, children: [] };
+    const onlyText: PageNode = {
+      id: 'TAB5',
+      type: 'tabs',
+      props: { sectionKey: 't5' },
+      children: [page('页1', [fn('text', '', { content: 'x' })])],
+    };
+    const { sections, warnings } = compileTree([empty, onlyText, fn('fnTable', 'a.list')]);
+    expect(sections).toHaveLength(1); // 仅根级表格
+    expect(warnings.filter((w) => w.includes('为空'))).toHaveLength(2);
+  });
+});
+
 describe('编译警告：行操作嵌套行路径 / 参数映射失效（不再静默）', () => {
   it('{{row.a.b}} 多段行路径发布后无法求值 → 警告并按字面量保留；单段仍编译为 row.字段', () => {
     const table = fn('fnTable', 'player.list', {

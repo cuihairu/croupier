@@ -3,8 +3,10 @@
 export type CompiledSection = {
   /** 区块唯一 key（同函数多实例：fid、fid-2、fid-3…）；引用一律用 key。 */
   key: string;
-  /** 弹窗分组名（modal 容器派生）；dialog 区块按 group 聚合渲染。 */
+  /** 分组名：dialog 区块按 group 聚合渲染弹窗；tab 区块按 group 聚合渲染 Tabs。 */
   group?: string;
+  /** 页签标签（display='tab'）：同 group 内按标签聚合到 Tabs 对应页。 */
+  tab?: string;
   /** 通用事件绑定（发布触发点）。 */
   events?: Array<{
     event: string;
@@ -28,7 +30,7 @@ export type CompiledSection = {
     path?: string;
     value?: unknown;
   }>;
-  display?: 'inline' | 'dialog';
+  display?: 'inline' | 'dialog' | 'tab';
   rowActions?: CompiledAction[];
   toolbarActions?: CompiledAction[];
   onSuccessRefresh?: string[];
@@ -61,6 +63,8 @@ export const SECTION_KEY_RE = /^[a-zA-Z0-9][a-zA-Z0-9._-]*$/;
 export interface SpecSectionLike {
   key?: string;
   group?: string;
+  /** 页签标签（display=tab；LocalizedText 或遗留 string）。 */
+  tab?: unknown;
   events?: Array<{
     event: string;
     action: { kind: string; target: string; params?: Record<string, string> };

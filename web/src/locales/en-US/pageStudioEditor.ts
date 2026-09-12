@@ -39,6 +39,12 @@ export default {
     'Only function forms can be placed inside a modal (V1)',
   'pages.pageStudio.editor.canvas.showTemplates': 'View composite templates',
   'pages.pageStudio.editor.canvas.templateEmpty': 'The template is empty',
+  'pages.pageStudio.editor.canvas.tabsFallback':
+    'Tabs pages do not accept "{type}" children; placed after the tabs container',
+  'pages.pageStudio.editor.canvas.tabsNoPage':
+    'The tabs container has no page to place the template',
+  'pages.pageStudio.editor.canvas.tabsNotAllowed':
+    'Tabs pages only accept tables/field cards/buttons/text; "{type}" is not allowed',
   'pages.pageStudio.editor.chain.addParam': '+ Add parameter',
   'pages.pageStudio.editor.chain.addStep': '+ Add follow-up action',
   'pages.pageStudio.editor.chain.paramNamePlaceholder': 'Parameter name',
@@ -93,6 +99,13 @@ export default {
   'pages.pageStudio.editor.component.staticForm.prop.staticSchema':
     'Field definitions (JSON Schema)',
   'pages.pageStudio.editor.component.staticForm.prop.title': 'Title',
+  'pages.pageStudio.editor.component.tabs.emptyTab': 'Empty tab — drop components here',
+  'pages.pageStudio.editor.component.tabs.name': 'Tabs container',
+  'pages.pageStudio.editor.component.tabs.previewHint':
+    'Empty tabs container — drop tables/field cards/buttons/text (they go to the active tab)',
+  'pages.pageStudio.editor.component.tabs.prop.sectionKey':
+    'Tab group name (optional, auto by default)',
+  'pages.pageStudio.editor.component.tabs.tabFallback': 'Tab {n}',
   'pages.pageStudio.editor.component.text.level.h2': 'Heading',
   'pages.pageStudio.editor.component.text.level.h3': 'Subheading',
   'pages.pageStudio.editor.component.text.level.p': 'Body',

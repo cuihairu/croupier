@@ -557,11 +557,17 @@ type CompositeSection struct {
 	// Form 视图参数（view=form）。
 	Form *FormPresentationSpec `json:"form,omitempty"`
 	// Display 展示位置：inline（默认，栅格内）/ dialog（弹窗，不占
-	// 栅格，由行操作/工具栏按钮触发——「按钮 → 弹窗执行操作」组合）。
+	// 栅格，由行操作/工具栏按钮触发——「按钮 → 弹窗执行操作」组合）/
+	// tab（页签，不占外层栅格，同 Group 区块按 Tab 标签聚合渲染进
+	// Tabs 的对应页——「页面区块收纳」组合）。
 	Display string `json:"display,omitempty"`
 	// Group 弹窗分组：display=dialog 且 Group 相同的区块渲染进同一弹窗
 	//（弹窗内可含表单+字段卡+文本等多组件）；动作目标指向 Group。
+	// display=tab 时 Group 为页签组名——同组区块渲染进同一个 Tabs。
 	Group string `json:"group,omitempty"`
+	// Tab 页签标签（display=tab）：同 Group 内按 Tab 聚合到 Tabs 的
+	// 对应页（页内区块整行堆叠）。
+	Tab LocalizedText `json:"tab,omitempty"`
 	// Toolbar 视图参数（view=toolbar）：页面级按钮组，动作打开弹窗
 	// 或直接执行。
 	Toolbar *CompositeToolbarSpec `json:"toolbar,omitempty"`

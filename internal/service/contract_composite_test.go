@@ -168,6 +168,78 @@ func TestCreateCompositeProposal_GroupPassthrough(t *testing.T) {
 	}
 }
 
+// TestCreateCompositeProposal_TabPassthrough V2 页签容器：display=tab 与
+// group/tab 必须透传到生成 spec（fn 区块经生成器、static 区块在 service
+// 手动落位）——渲染端按 group→Tabs、tab→页聚合，漏传会让页签页散落平铺。
+func TestCreateCompositeProposal_TabPassthrough(t *testing.T) {
+	db, err := gorm.Open(sqlite.Open(t.TempDir()+"/tab.db"), &gorm.Config{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := db.AutoMigrate(
+		&model.FunctionContract{},
+		&model.CapabilitySemantics{},
+		&model.PageProposal{},
+		&model.PageProposalVersion{},
+		&model.TermDictionary{},
+		&model.ResourceCapability{},
+		&model.CapabilitySemanticVersion{},
+		&model.BlockedProposalIssue{},
+	); err != nil {
+		t.Fatal(err)
+	}
+	svc := NewContractService(db)
+
+	ctx := context.Background()
+	if err := svc.RebuildContractFromFunctionMeta(ctx, "demo_game", "development", "agent-1", spec.FunctionContractInput{ID: "player.get", Resource: "player", Capability: "item_query", Execution: "sync", Enabled: true, InputSchema: `{"type":"object","properties":{"id":{"type":"string"}},"required":["id"]}`, OutputSchema: `{"type":"object","properties":{"player":{"type":"object"}}}`}); err != nil {
+		t.Fatal(err)
+	}
+
+	proposal, err := svc.CreateCompositeProposal(ctx, "demo_game", "development", "composite--tab-pass", []CompositeSectionRequest{
+		{FunctionID: "player.get", View: "fields", Display: "tab", Group: "mainTabs", Tab: "详情页"},
+		{
+			Key: "filter-panel", Static: true, View: "form", Title: "筛选",
+			Display: "tab", Group: "mainTabs", Tab: "筛选页",
+			Form: &spec.FormPresentationSpec{JSONSchema: spec.JSONSchema(`{"type":"object","properties":{"kw":{"type":"string"}}}`)},
+		},
+	})
+	if err != nil {
+		t.Fatalf("create failed: %v", err)
+	}
+
+	var page spec.PageSpec
+	if err := jsonUnmarshalV9(proposal.PageSpec, &page); err != nil {
+		t.Fatalf("unmarshal pageSpec: %v", err)
+	}
+	if len(page.Composite.Sections) != 2 {
+		t.Fatalf("sections = %+v", page.Composite.Sections)
+	}
+	byKey := map[string]spec.CompositeSection{}
+	for _, s := range page.Composite.Sections {
+		byKey[s.Key] = s
+	}
+	fnSec := byKey["player.get"]
+	if fnSec.Display != "tab" {
+		t.Fatalf("fn section display = %q, want tab", fnSec.Display)
+	}
+	if fnSec.Group != "mainTabs" {
+		t.Fatalf("fn section group = %q, want mainTabs", fnSec.Group)
+	}
+	if got := fnSec.Tab["zh-CN"]; got != "详情页" {
+		t.Fatalf("fn section tab = %q, want 详情页", got)
+	}
+	staticSec := byKey["filter-panel"]
+	if staticSec.Display != "tab" {
+		t.Fatalf("static section display = %q, want tab", staticSec.Display)
+	}
+	if staticSec.Group != "mainTabs" {
+		t.Fatalf("static section group = %q, want mainTabs", staticSec.Group)
+	}
+	if got := staticSec.Tab["zh-CN"]; got != "筛选页" {
+		t.Fatalf("static section tab = %q, want 筛选页", got)
+	}
+}
+
 // 声明式超时契约往返：输入 TimeoutMs → 契约列落库可读（执行层接线依赖）。
 func TestContractTimeoutMsRoundTrip(t *testing.T) {
 	db, err := gorm.Open(sqlite.Open(t.TempDir()+"/meta.db"), &gorm.Config{})

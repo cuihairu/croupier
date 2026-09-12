@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { App, Button, Card, Col, Descriptions, Modal, Row, Space, Table } from 'antd';
+import { App, Button, Card, Col, Descriptions, Modal, Row, Space, Table, Tabs } from 'antd';
 import { FormattedMessage, useIntl } from '@umijs/max';
 import { ExclamationCircleOutlined } from '@ant-design/icons';
 import SchemaFormRenderer from '@/components/SchemaFormRenderer';
@@ -282,7 +282,8 @@ export const CompositeRenderer: React.FC<{
     return out;
   };
 
-  const inline = sections.filter((s) => s.display !== 'dialog');
+  const inline = sections.filter((s) => s.display !== 'dialog' && s.display !== 'tab');
+  const tabbed = sections.filter((s) => s.display === 'tab');
   const dialogs = sections.filter((s) => s.display === 'dialog');
   /** dialogKey 命中的弹窗分组（target 可为 group 名或区块 key）。 */
   const groupOf = (sec: CompositeSection): string => sec.group ?? sec.key ?? sec.bindingId;
@@ -317,184 +318,234 @@ export const CompositeRenderer: React.FC<{
       </Button>
     ));
 
+  /** 单区块渲染（V2 从 inline.map 抽出复用：栅格区块与页签页内整行堆叠
+   * 共用同一卡片渲染——span 由调用方决定）。 */
+  const renderSection = (sec: CompositeSection): React.ReactNode => (
+    <Card
+      size="small"
+      title={localizedText(sec.title, 'zh-CN', sec.key)}
+      loading={running[sec.key] || false}
+      extra={
+        sec.view === 'table' && (sec.toolbar?.actions?.length ?? 0) > 0 ? (
+          <Space size={4}>
+            {toolbarButtonsOf(sec)}
+            {!sec.autoRun ? (
+              <Button size="small" onClick={() => void runSection(sec)}>
+                <FormattedMessage
+                  id="component.pageRenderer.composite.executeButton"
+                  defaultMessage="执行"
+                />
+              </Button>
+            ) : null}
+          </Space>
+        ) : sec.view !== 'actions' && sec.view !== 'toolbar' && !sec.autoRun ? (
+          <Button size="small" onClick={() => void runSection(sec)}>
+            <FormattedMessage
+              id="component.pageRenderer.composite.executeButton"
+              defaultMessage="执行"
+            />
+          </Button>
+        ) : null
+      }
+    >
+      {sec.view === 'table' ? (
+        <Table
+          size="small"
+          rowKey={(_, i) => String(i)}
+          onRow={(record) => ({
+            onClick: () => fireEvent(sec, 'rowClick', record as Record<string, unknown>),
+          })}
+          rowSelection={{
+            type: 'radio',
+            onChange: (_keys, rows) => {
+              // V5：选中行写入运行时状态（{{var.selectedRow.x}} 数据来源），
+              // 仅在绑定 rowSelected 事件时同步触发事件。
+              setSelectionState(sec.key, rows as Record<string, unknown>[]);
+              if (rows[0] && (sec.events ?? []).some((e) => e.event === 'rowSelected')) {
+                fireEvent(sec, 'rowSelected', rows[0] as Record<string, unknown>);
+              }
+            },
+          }}
+          columns={[
+            ...(sec.table?.columns || []).map((c) => ({
+              title: localizedText(c.title, 'zh-CN', c.key),
+              dataIndex: c.key,
+              ellipsis: true,
+            })),
+            ...(sec.table?.rowActions?.length
+              ? [
+                  {
+                    title: intl.formatMessage({
+                      id: 'component.pageRenderer.composite.rowActionsColumn',
+                      defaultMessage: '操作',
+                    }),
+                    key: '__row_actions',
+                    render: (_: unknown, row: Record<string, unknown>) => (
+                      <Space size={4}>
+                        {sec.table!.rowActions!.map((ra, i) => (
+                          <Button
+                            key={i}
+                            size="small"
+                            type="link"
+                            danger={ra.danger}
+                            onClick={() => {
+                              if (ra.targetSection) {
+                                openDialog(
+                                  ra.targetSection,
+                                  mapRowParams(ra.params, row),
+                                  ra.danger,
+                                  localizedText(ra.label, 'zh-CN'),
+                                );
+                              }
+                              runChain(ra.chain);
+                            }}
+                          >
+                            {localizedText(ra.label, 'zh-CN')}
+                          </Button>
+                        ))}
+                      </Space>
+                    ),
+                  },
+                ]
+              : []),
+          ]}
+          dataSource={
+            Array.isArray(resultFor(sec)?.items)
+              ? (resultFor(sec)?.items as Record<string, unknown>[])
+              : []
+          }
+          pagination={{ pageSize: 10, showSizeChanger: false }}
+        />
+      ) : sec.view === 'fields' ? (
+        <div onClick={() => fireEvent(sec, 'click')}>
+          <Descriptions size="small" column={2}>
+            {(resultFor(sec) ? Object.entries(resultFor(sec) as Record<string, unknown>) : []).map(
+              ([k, v]) => (
+                <Descriptions.Item key={k} label={k}>
+                  {String(v ?? '-')}
+                </Descriptions.Item>
+              ),
+            )}
+          </Descriptions>
+        </div>
+      ) : sec.view === 'toolbar' ? (
+        <Space wrap>
+          {(sec.toolbar?.actions || []).map((act, i) => (
+            <Button
+              key={i}
+              size="small"
+              danger={act.danger}
+              onClick={() => {
+                if (act.targetSection) {
+                  openDialog(
+                    act.targetSection,
+                    { ...(act.params || {}) },
+                    act.danger,
+                    localizedText(act.label, 'zh-CN'),
+                  );
+                }
+                runChain(act.chain);
+              }}
+            >
+              {localizedText(act.label, 'zh-CN')}
+            </Button>
+          ))}
+        </Space>
+      ) : sec.static && sectionHasForm(sec) ? (
+        // 常量表单：不执行绑定，值并入页面状态驱动 refreshOn 联动
+        //（防抖合并，避免文本输入逐键触发下游重跑）
+        <SchemaFormRenderer
+          spec={sec.form!}
+          initialValues={(sectionInputs[sec.key] || {}) as FormValues}
+          hideSubmit
+          onValuesChange={(_, values) => {
+            staticMergeRef.current[sec.key] = { data: values as Record<string, unknown> };
+            scheduleStaticFlush();
+          }}
+        />
+      ) : sectionHasForm(sec) ? (
+        <SchemaFormRenderer
+          spec={sec.form!}
+          initialValues={(sectionInputs[sec.key] || {}) as FormValues}
+          disabled={running[sec.key] || false}
+          onValuesChange={(_, values) => {
+            // V5：fnForm 当前值防抖写入 results[key].values（{{var.values.x}}）
+            valuesMergeRef.current[sec.key] = values as Record<string, unknown>;
+            scheduleValuesFlush();
+          }}
+          onFinish={async (values) => {
+            // 双形态快照（扁平兼容遗留 + values 包装），并驱动提交
+            onPageStateMerge?.(sec.key, { ...(values as Record<string, unknown>), values });
+            const r = await runSection(sec, values);
+            if (r && !(r as { error?: string }).error) fireEvent(sec, 'success');
+          }}
+        />
+      ) : (
+        <Button
+          type="primary"
+          onClick={() =>
+            void runSection(sec).then((r) => {
+              if (r && !(r as { error?: string }).error) fireEvent(sec, 'success');
+            })
+          }
+        >
+          {localizedText(sec.title, 'zh-CN', sec.key)}
+        </Button>
+      )}
+    </Card>
+  );
+
+  /** 页签聚合（V2）：同 group → 一个 Tabs（整行）；组内按 tab 标签 → 页，
+   * 页内区块整行堆叠（编辑器页签页的发布形态）。 */
+  const tabGroups: Array<{
+    group: string;
+    pages: Array<{ label: string; sections: CompositeSection[] }>;
+  }> = [];
+  for (const sec of tabbed) {
+    const group = sec.group ?? sec.key ?? sec.bindingId;
+    let g = tabGroups.find((x) => x.group === group);
+    if (!g) {
+      g = { group, pages: [] };
+      tabGroups.push(g);
+    }
+    const label =
+      localizedText(sec.tab, 'zh-CN', '') ||
+      intl.formatMessage(
+        { id: 'component.pageRenderer.composite.tabFallback', defaultMessage: '页签 {n}' },
+        { n: g.pages.length + 1 },
+      );
+    let page = g.pages.find((p) => p.label === label);
+    if (!page) {
+      page = { label, sections: [] };
+      g.pages.push(page);
+    }
+    page.sections.push(sec);
+  }
+
   return (
     <>
       <Row gutter={[12, 12]}>
         {inline.map((sec) => (
           <Col key={sec.key} span={sec.span && sec.span > 0 && sec.span <= 24 ? sec.span : 24}>
-            <Card
+            {renderSection(sec)}
+          </Col>
+        ))}
+        {tabGroups.map((g) => (
+          <Col key={`tabs-${g.group}`} span={24}>
+            <Tabs
               size="small"
-              title={localizedText(sec.title, 'zh-CN', sec.key)}
-              loading={running[sec.key] || false}
-              extra={
-                sec.view === 'table' && (sec.toolbar?.actions?.length ?? 0) > 0 ? (
-                  <Space size={4}>
-                    {toolbarButtonsOf(sec)}
-                    {!sec.autoRun ? (
-                      <Button size="small" onClick={() => void runSection(sec)}>
-                        <FormattedMessage
-                          id="component.pageRenderer.composite.executeButton"
-                          defaultMessage="执行"
-                        />
-                      </Button>
-                    ) : null}
-                  </Space>
-                ) : sec.view !== 'actions' && sec.view !== 'toolbar' && !sec.autoRun ? (
-                  <Button size="small" onClick={() => void runSection(sec)}>
-                    <FormattedMessage
-                      id="component.pageRenderer.composite.executeButton"
-                      defaultMessage="执行"
-                    />
-                  </Button>
-                ) : null
-              }
-            >
-              {sec.view === 'table' ? (
-                <Table
-                  size="small"
-                  rowKey={(_, i) => String(i)}
-                  onRow={(record) => ({
-                    onClick: () => fireEvent(sec, 'rowClick', record as Record<string, unknown>),
-                  })}
-                  rowSelection={{
-                    type: 'radio',
-                    onChange: (_keys, rows) => {
-                      // V5：选中行写入运行时状态（{{var.selectedRow.x}} 数据来源），
-                      // 仅在绑定 rowSelected 事件时同步触发事件。
-                      setSelectionState(sec.key, rows as Record<string, unknown>[]);
-                      if (rows[0] && (sec.events ?? []).some((e) => e.event === 'rowSelected')) {
-                        fireEvent(sec, 'rowSelected', rows[0] as Record<string, unknown>);
-                      }
-                    },
-                  }}
-                  columns={[
-                    ...(sec.table?.columns || []).map((c) => ({
-                      title: localizedText(c.title, 'zh-CN', c.key),
-                      dataIndex: c.key,
-                      ellipsis: true,
-                    })),
-                    ...(sec.table?.rowActions?.length
-                      ? [
-                          {
-                            title: intl.formatMessage({
-                              id: 'component.pageRenderer.composite.rowActionsColumn',
-                              defaultMessage: '操作',
-                            }),
-                            key: '__row_actions',
-                            render: (_: unknown, row: Record<string, unknown>) => (
-                              <Space size={4}>
-                                {sec.table!.rowActions!.map((ra, i) => (
-                                  <Button
-                                    key={i}
-                                    size="small"
-                                    type="link"
-                                    danger={ra.danger}
-                                    onClick={() => {
-                                      if (ra.targetSection) {
-                                        openDialog(
-                                          ra.targetSection,
-                                          mapRowParams(ra.params, row),
-                                          ra.danger,
-                                          localizedText(ra.label, 'zh-CN'),
-                                        );
-                                      }
-                                      runChain(ra.chain);
-                                    }}
-                                  >
-                                    {localizedText(ra.label, 'zh-CN')}
-                                  </Button>
-                                ))}
-                              </Space>
-                            ),
-                          },
-                        ]
-                      : []),
-                  ]}
-                  dataSource={
-                    Array.isArray(resultFor(sec)?.items)
-                      ? (resultFor(sec)?.items as Record<string, unknown>[])
-                      : []
-                  }
-                  pagination={{ pageSize: 10, showSizeChanger: false }}
-                />
-              ) : sec.view === 'fields' ? (
-                <div onClick={() => fireEvent(sec, 'click')}>
-                  <Descriptions size="small" column={2}>
-                    {(resultFor(sec)
-                      ? Object.entries(resultFor(sec) as Record<string, unknown>)
-                      : []
-                    ).map(([k, v]) => (
-                      <Descriptions.Item key={k} label={k}>
-                        {String(v ?? '-')}
-                      </Descriptions.Item>
+              items={g.pages.map((page) => ({
+                key: page.label,
+                label: page.label,
+                children: (
+                  <Space orientation="vertical" size={12} style={{ width: '100%' }}>
+                    {page.sections.map((sec) => (
+                      <React.Fragment key={sec.key}>{renderSection(sec)}</React.Fragment>
                     ))}
-                  </Descriptions>
-                </div>
-              ) : sec.view === 'toolbar' ? (
-                <Space wrap>
-                  {(sec.toolbar?.actions || []).map((act, i) => (
-                    <Button
-                      key={i}
-                      size="small"
-                      danger={act.danger}
-                      onClick={() => {
-                        if (act.targetSection) {
-                          openDialog(
-                            act.targetSection,
-                            { ...(act.params || {}) },
-                            act.danger,
-                            localizedText(act.label, 'zh-CN'),
-                          );
-                        }
-                        runChain(act.chain);
-                      }}
-                    >
-                      {localizedText(act.label, 'zh-CN')}
-                    </Button>
-                  ))}
-                </Space>
-              ) : sec.static && sectionHasForm(sec) ? (
-                // 常量表单：不执行绑定，值并入页面状态驱动 refreshOn 联动
-                //（防抖合并，避免文本输入逐键触发下游重跑）
-                <SchemaFormRenderer
-                  spec={sec.form!}
-                  initialValues={(sectionInputs[sec.key] || {}) as FormValues}
-                  hideSubmit
-                  onValuesChange={(_, values) => {
-                    staticMergeRef.current[sec.key] = { data: values as Record<string, unknown> };
-                    scheduleStaticFlush();
-                  }}
-                />
-              ) : sectionHasForm(sec) ? (
-                <SchemaFormRenderer
-                  spec={sec.form!}
-                  initialValues={(sectionInputs[sec.key] || {}) as FormValues}
-                  disabled={running[sec.key] || false}
-                  onValuesChange={(_, values) => {
-                    // V5：fnForm 当前值防抖写入 results[key].values（{{var.values.x}}）
-                    valuesMergeRef.current[sec.key] = values as Record<string, unknown>;
-                    scheduleValuesFlush();
-                  }}
-                  onFinish={async (values) => {
-                    // 双形态快照（扁平兼容遗留 + values 包装），并驱动提交
-                    onPageStateMerge?.(sec.key, { ...(values as Record<string, unknown>), values });
-                    const r = await runSection(sec, values);
-                    if (r && !(r as { error?: string }).error) fireEvent(sec, 'success');
-                  }}
-                />
-              ) : (
-                <Button
-                  type="primary"
-                  onClick={() =>
-                    void runSection(sec).then((r) => {
-                      if (r && !(r as { error?: string }).error) fireEvent(sec, 'success');
-                    })
-                  }
-                >
-                  {localizedText(sec.title, 'zh-CN', sec.key)}
-                </Button>
-              )}
-            </Card>
+                  </Space>
+                ),
+              }))}
+            />
           </Col>
         ))}
       </Row>

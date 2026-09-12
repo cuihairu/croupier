@@ -257,6 +257,175 @@ describe('decompileToTree（区块 key 固化与参数映射反查，U5）', () 
   });
 });
 
+describe('decompileToTree V2：display=tab 双层聚合（group→tabs，标签→页）', () => {
+  const tabSpec: SpecSectionLike[] = [
+    {
+      key: 'player.list',
+      functionId: 'player.list',
+      view: 'table',
+      title: { 'zh-CN': '玩家列表' },
+      display: 'tab',
+      group: 'main-tabs',
+      tab: { 'zh-CN': '列表' },
+      autoRun: true,
+    },
+    {
+      key: 'mail.send',
+      functionId: 'mail.send',
+      view: 'form',
+      title: { 'zh-CN': '发邮件' },
+      display: 'tab',
+      group: 'main-tabs',
+      tab: { 'zh-CN': '操作' },
+    },
+    {
+      key: 'player.get',
+      functionId: 'player.get',
+      view: 'fields',
+      display: 'tab',
+      group: 'other-tabs',
+      tab: { 'zh-CN': '详情' },
+    },
+  ];
+
+  it('按 group 聚 tabs 节点（sectionKey 回写组名）、按 tab 标签聚页 container', () => {
+    const [tree, warnings] = decompileToTree(tabSpec);
+    expect(warnings).toEqual([]);
+    const main = tree.find((n) => n.type === 'tabs' && n.props.sectionKey === 'main-tabs')!;
+    expect(main).toBeDefined();
+    expect((main.children ?? []).map((p) => p.props.title)).toEqual(['列表', '操作']);
+    expect(main.children![0].children![0].type).toBe('fnTable');
+    expect(main.children![1].children![0].type).toBe('fnForm');
+    const other = tree.find((n) => n.type === 'tabs' && n.props.sectionKey === 'other-tabs')!;
+    expect(other.children![0].children![0].type).toBe('fnFields');
+    expect(tree).toHaveLength(2); // 两个组 → 两个 tabs 节点，无根级散块
+  });
+
+  it('同标签区块聚进同一页、无标签兜底 section key', () => {
+    const spec: SpecSectionLike[] = [
+      {
+        key: 'a.fn',
+        functionId: 'a.fn',
+        view: 'form',
+        display: 'tab',
+        group: 'g1',
+        tab: { 'zh-CN': '同页' },
+      },
+      {
+        key: 'b.fn',
+        functionId: 'b.fn',
+        view: 'fields',
+        display: 'tab',
+        group: 'g1',
+        tab: { 'zh-CN': '同页' },
+      },
+      {
+        key: 'c.fn',
+        functionId: 'c.fn',
+        view: 'form',
+        display: 'tab',
+        group: 'g1',
+        // 无 tab：兜底用 section key 作页标签
+      },
+    ];
+    const [tree, warnings] = decompileToTree(spec);
+    expect(warnings).toEqual([]);
+    const tabs = tree.find((n) => n.type === 'tabs')!;
+    expect(tabs.children).toHaveLength(2);
+    expect(tabs.children![0].children).toHaveLength(2);
+    expect(tabs.children![1].props.title).toBe('c.fn');
+  });
+
+  it('static tab 区块回读为 staticForm 并路由进页（round-trip：组名/标签/schema 保持）', () => {
+    const spec: SpecSectionLike[] = [
+      {
+        key: 'filter-panel',
+        static: true,
+        view: 'form',
+        title: { 'zh-CN': '筛选' },
+        display: 'tab',
+        group: 'main-tabs',
+        tab: { 'zh-CN': '筛选页' },
+        form: { jsonSchema: { type: 'object', properties: { kw: { type: 'string' } } } },
+      },
+    ];
+    const [tree, warnings] = decompileToTree(spec);
+    expect(warnings).toEqual([]);
+    const tabs = tree.find((n) => n.type === 'tabs')!;
+    const page = tabs.children![0];
+    expect(page.props.title).toBe('筛选页');
+    expect(page.children![0].type).toBe('staticForm');
+    expect(page.children![0].props.sectionKey).toBe('filter-panel');
+    // 再编译：static tab 区块组名/标签稳定
+    const { sections } = compileTree(tree);
+    const sec = sections.find((s) => s.key === 'filter-panel')!;
+    expect(sec.display).toBe('tab');
+    expect(sec.group).toBe('main-tabs');
+    expect(sec.tab).toBe('筛选页');
+  });
+
+  it('tab 页内表格的 toolbar 按钮还原插回页内（不漂移到根级）', () => {
+    const spec: SpecSectionLike[] = [
+      {
+        key: 'player.list',
+        functionId: 'player.list',
+        view: 'table',
+        title: { 'zh-CN': '玩家列表' },
+        display: 'tab',
+        group: 'main-tabs',
+        tab: { 'zh-CN': '列表' },
+        toolbar: { actions: [{ label: { 'zh-CN': '刷新' } }] },
+      },
+    ];
+    const [tree, warnings] = decompileToTree(spec);
+    expect(warnings).toEqual([]);
+    const tabs = tree.find((n) => n.type === 'tabs')!;
+    const page = tabs.children![0];
+    // 按钮在页内表格之后（owningList 修复前会漂移到根级末尾）
+    expect(page.children!.map((c) => c.type)).toEqual(['fnTable', 'button']);
+    expect(String(page.children![1].props.title)).toBe('刷新');
+  });
+
+  it('round-trip：编译→镜像 LocalizedText→回读→再编译 group/tab 稳定', () => {
+    const tabs: PageNode = {
+      id: 'rt-tabs',
+      type: 'tabs',
+      props: { sectionKey: 'rt-group' },
+      children: [
+        {
+          id: nodeId('container'),
+          type: 'container',
+          props: { title: '页A', span: 24 },
+          children: [fn('fnTable', 'player.list', { autoRun: true })],
+        },
+        {
+          id: nodeId('container'),
+          type: 'container',
+          props: { title: '页B', span: 24 },
+          children: [fn('fnFields', 'player.get')],
+        },
+      ],
+    };
+    const { sections: first } = compileTree([tabs]);
+    // 镜像后端：title/tab 包装 LocalizedText（generator 落库形态）
+    const stored = first.map((s) => ({
+      ...s,
+      ...(typeof s.title === 'string' ? { title: { 'zh-CN': s.title } } : {}),
+      ...(s.tab ? { tab: { 'zh-CN': s.tab } } : {}),
+    })) as unknown as SpecSectionLike[];
+    const [tree, warnings] = decompileToTree(stored);
+    expect(warnings).toEqual([]);
+    const rt = tree.find((n) => n.type === 'tabs')!;
+    expect(rt.props.sectionKey).toBe('rt-group');
+    expect((rt.children ?? []).map((p) => p.props.title)).toEqual(['页A', '页B']);
+    const { sections: again } = compileTree(tree);
+    expect(again.map((s) => [s.key, s.group, s.tab, s.display])).toEqual([
+      ['player.list', 'rt-group', '页A', 'tab'],
+      ['player.get', 'rt-group', '页B', 'tab'],
+    ]);
+  });
+});
+
 /** 批次B回归：镜像后端 generator 真实变换（LocalizedText 包装 + 字段落位）
  * 的 round-trip——此前测试镜像只搬字段不包装，掩盖了三处数据毁坏：
  * 1) rowActions.label 回读→再编译变 "[object Object]"；

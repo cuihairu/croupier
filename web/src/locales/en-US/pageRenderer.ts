@@ -6,6 +6,7 @@ export default {
   'component.pageRenderer.composite.executeFailed': 'Execution failed',
   'component.pageRenderer.composite.executeSuccess': '{title} completed successfully',
   'component.pageRenderer.composite.rowActionsColumn': 'Actions',
+  'component.pageRenderer.composite.tabFallback': 'Tab {n}',
   'component.pageRenderer.expression.error.arrayIndexUnterminated': 'Array index is missing ]',
   'component.pageRenderer.expression.error.empty': 'Expression is empty',
   'component.pageRenderer.expression.error.illegalCharacter': 'Invalid character "{char}"',

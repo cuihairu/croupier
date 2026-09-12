@@ -21,6 +21,7 @@ const SECTION_ALLOWED_KEYS = [
   'form',
   'inputAssignments',
   'display',
+  'tab',
   'rowActions',
   'toolbarActions',
   'onSuccessRefresh',
@@ -164,7 +165,54 @@ function buildFullTree(): PageNode[] {
     type: 'fnTable',
     props: { functionId: 'player.list', title: '玩家列表副本', span: 24 },
   };
-  return [table, staticForm, button1, button2, button3, modal, fields, table2];
+  // V2 页签容器：两页（列表页=表格+按钮；筛选页=常量表单）
+  const tabsNode: PageNode = {
+    id: 'tabs1',
+    type: 'tabs',
+    props: { sectionKey: 'mainTabs' },
+    children: [
+      {
+        id: 'tab-page-1',
+        type: 'container',
+        props: { title: '列表页', span: 24 },
+        children: [
+          {
+            id: 'tbl3',
+            type: 'fnTable',
+            props: {
+              sectionKey: 'vipListTable',
+              functionId: 'vip.rank',
+              title: 'VIP 榜',
+              span: 24,
+            },
+          },
+          {
+            id: 'btn4',
+            type: 'button',
+            props: { title: '刷新榜单', onClick: { kind: 'refreshNode', target: 'tbl3' } },
+          },
+        ],
+      },
+      {
+        id: 'tab-page-2',
+        type: 'container',
+        props: { title: '筛选页', span: 24 },
+        children: [
+          {
+            id: 'sf2',
+            type: 'staticForm',
+            props: {
+              sectionKey: 'vipFilterForm',
+              title: 'VIP 筛选',
+              span: 12,
+              staticSchema: '{"type":"object","properties":{"level":{"type":"string"}}}',
+            },
+          },
+        ],
+      },
+    ],
+  };
+  return [table, staticForm, button1, button2, button3, modal, fields, table2, tabsNode];
 }
 
 describe('compileTree ↔ CompositeSectionRequest 字段面对齐', () => {
@@ -278,6 +326,19 @@ describe('compileTree ↔ CompositeSectionRequest 字段面对齐', () => {
       'playerListTable',
       'player.list',
     ]);
+
+    // V2 页签容器：页内区块平铺 display=tab + group + tab；页内按钮挂
+    // 页内表格 toolbar；staticForm 落为 tab 区块
+    const vipTable = byKey['vipListTable'];
+    expect(vipTable.display).toBe('tab');
+    expect(vipTable.group).toBe('mainTabs');
+    expect(vipTable.tab).toBe('列表页');
+    expect(vipTable.toolbarActions?.map((t) => t.label)).toEqual(['刷新榜单']);
+    const vipFilter = byKey['vipFilterForm'];
+    expect(vipFilter.static).toBe(true);
+    expect(vipFilter.display).toBe('tab');
+    expect(vipFilter.group).toBe('mainTabs');
+    expect(vipFilter.tab).toBe('筛选页');
   });
 
   it('回读→再编译：字段面与值稳定（round-trip 无损）', () => {

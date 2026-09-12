@@ -25,6 +25,7 @@ export default {
   'pages.pageStudio.compiler.warning.buttonTargetLost':
     'Modal target {target} of button "{label}" could not be restored; dropped',
   'pages.pageStudio.compiler.warning.emptyModal': 'Modal "{title}" is empty; ignored',
+  'pages.pageStudio.compiler.warning.emptyTabs': 'Tabs container "{title}" is empty; ignored',
   'pages.pageStudio.compiler.warning.expressionUnknownVariable':
     'Expression "{value}" of param "{param}" on section "{title}" references an unknown variable or row context; saved as literal',
   'pages.pageStudio.compiler.warning.invalidStaticSchema':

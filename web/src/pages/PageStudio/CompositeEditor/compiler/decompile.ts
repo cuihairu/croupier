@@ -20,6 +20,8 @@ const intl = getIntl();
 /**
  * 反编译：sections → 编辑树。
  * - dialog sections → 各自一个 modal（含 fnForm 子节点）
+ * - tab sections（V2）→ 按 group 聚合 tabs 容器（sectionKey 回写组名保
+ *   round-trip）、按 tab 标签聚合页 container、区块节点入页 children
  * - inline sections → fnTable/fnFields/fnForm
  * - rowActions/toolbarActions.targetSection（dialog key）→ 映射回 modal 节点 id
  * - onSuccessRefresh（inline key）→ 映射回对应节点 id
@@ -31,15 +33,46 @@ export function decompileToTree(sections: SpecSectionLike[]): [PageNode[], strin
   const dialogKeyToModalId = new Map<string, string>();
   const titleOf = (sec: SpecSectionLike, fallback: string): string =>
     localizedText(sec.title as Record<string, string> | string | undefined, 'zh-CN', fallback);
+  const tabLabelOf = (sec: SpecSectionLike, fallback: string): string =>
+    localizedText(sec.tab as Record<string, string> | string | undefined, 'zh-CN', fallback);
 
   // 第一遍：创建节点并登记映射
   const nodes: PageNode[] = [];
   const pendingDialogs: { sec: SpecSectionLike; modal: PageNode }[] = [];
   const groupToModal = new Map<string, PageNode>();
   const dialogGroupToModalId = new Map<string, string>();
+  // V2：tab 聚合（group → tabs 节点；组内按 tab 标签 → 页 container）
+  const groupToTabs = new Map<string, PageNode>();
   const toolbarButtons: { tableId: string; actions: Array<Record<string, unknown>> }[] = [];
   // 参数映射反查延后（page_state key → 上游节点 id 需完整 keyToNodeId）
   const pendingAssignments: { raw: SpecSectionLike['inputAssignments']; ownerKey: string }[] = [];
+
+  /** tab 区块归位：组无 tabs 则建（sectionKey 回写组名），页无则建
+   * （props.title=页签标签），节点入页 children。 */
+  const placeIntoTab = (node: PageNode, group: string, tabLabel: string): void => {
+    if (!groupToTabs.has(group)) {
+      const tabsNode: PageNode = {
+        id: nodeId('tabs'),
+        type: 'tabs',
+        props: SECTION_KEY_RE.test(group) ? { sectionKey: group } : {},
+        children: [],
+      };
+      groupToTabs.set(group, tabsNode);
+      nodes.push(tabsNode);
+    }
+    const tabsNode = groupToTabs.get(group)!;
+    let page = (tabsNode.children ?? []).find(
+      (p) => String(p.props.title ?? '') === tabLabel && p.type === 'container',
+    );
+    if (!page) {
+      page = { id: nodeId('container'), type: 'container', props: { title: tabLabel, span: 24 } };
+      page.children = [node];
+      tabsNode.children = [...(tabsNode.children ?? []), page];
+      return;
+    }
+    page.children = [...(page.children ?? []), node];
+  };
+
   for (const sec of sections) {
     // 常量表单（static）：还原为 staticForm 节点（schema 从 form.jsonSchema）
     if (sec.static === true) {
@@ -57,7 +90,11 @@ export function decompileToTree(sections: SpecSectionLike[]): [PageNode[], strin
           sectionKey: key,
         },
       };
-      nodes.push(node);
+      if (sec.display === 'tab') {
+        placeIntoTab(node, String(sec.group ?? ''), tabLabelOf(sec, key));
+      } else {
+        nodes.push(node);
+      }
       keyToNodeId.set(key, node.id);
       continue;
     }
@@ -116,6 +153,11 @@ export function decompileToTree(sections: SpecSectionLike[]): [PageNode[], strin
       }
       keyToNodeId.set(key, form.id);
       dialogKeyToModalId.set(key, groupToModal.get(group)!.id);
+    } else if (sec.display === 'tab') {
+      // V2：页签区块 → tabs 容器（组）→ 页 container（标签）→ 区块节点
+      const node: PageNode = { id: nodeId(view), type: view, props: fnProps };
+      placeIntoTab(node, String(sec.group ?? ''), tabLabelOf(sec, key));
+      keyToNodeId.set(key, node.id);
     } else {
       const node: PageNode = { id: nodeId(view), type: view, props: fnProps };
       keyToNodeId.set(key, node.id);
@@ -322,10 +364,26 @@ export function decompileToTree(sections: SpecSectionLike[]): [PageNode[], strin
       );
     }
   }
-  // 顶部按钮还原为独立 button 节点（插到对应表格后——round-trip 等价）
+  // 顶部按钮还原为独立 button 节点（插到对应表格之后——round-trip 等价）。
+  // V2：表格可能在 container/tabs 页内，须插回其所在 children 列表（此前
+  // 只扫根级，容器内表格的按钮会漂移到页面末尾）。
+  const owningList = (id: string): PageNode[] => {
+    const walk = (list: PageNode[]): PageNode[] | undefined => {
+      for (const n of list) {
+        if (n.id === id) return list;
+        if (n.children) {
+          const hit = walk(n.children);
+          if (hit) return hit;
+        }
+      }
+      return undefined;
+    };
+    return walk(nodes) ?? nodes;
+  };
   for (const { tableId, actions } of toolbarButtons) {
-    let insertAt = nodes.findIndex((n) => n.id === tableId);
-    if (insertAt === -1) insertAt = nodes.length - 1;
+    const list = owningList(tableId);
+    let insertAt = list.findIndex((n) => n.id === tableId);
+    if (insertAt === -1) insertAt = list.length - 1;
     for (const ta of actions) {
       insertAt += 1;
       const t = String(ta.targetSection ?? '');
@@ -384,7 +442,7 @@ export function decompileToTree(sections: SpecSectionLike[]): [PageNode[], strin
               : {}),
         },
       };
-      nodes.splice(insertAt, 0, btn);
+      list.splice(insertAt, 0, btn);
     }
   }
   return [nodes, warnings];

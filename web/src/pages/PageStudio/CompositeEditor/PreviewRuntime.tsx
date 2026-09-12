@@ -14,6 +14,13 @@ import { findIn, payloadOf, type JSONRecord, type StepLike } from './previewShar
 
 const { Text } = Typography;
 
+/** 平铺到可自动执行的节点集（含 container/tabs 页内子节点；modal 子树
+ * 除外——弹窗表单由触发执行）。autoRun/refreshOn 预览联动按此遍历，
+ * 与发布端「页内区块照常跑数据」对齐）。 */
+function flattenInline(nodes: PageNode[]): PageNode[] {
+  return nodes.flatMap((n) => (n.type === 'modal' ? [] : [n, ...flattenInline(n.children ?? [])]));
+}
+
 /**
  * 预览运行时（= 发布后行为的编辑器内等价物）：
  * autoRun 自动执行；button.onClick 动作（打开弹窗/执行/刷新）；
@@ -383,8 +390,8 @@ export default function PreviewRuntime({
 
   // autoRun（进入预览时一次）
   useEffect(() => {
-    for (const n of tree) {
-      if (n.props.autoRun === true && n.type !== 'modal') void runNode(n);
+    for (const n of flattenInline(tree)) {
+      if (n.props.autoRun === true) void runNode(n);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -395,18 +402,19 @@ export default function PreviewRuntime({
     setMock(v);
     setResults({});
     cascadeInputsRef.current = {};
-    for (const n of treeRef.current) {
-      if (n.props.autoRun === true && n.type !== 'modal') void runRef.current(n);
+    for (const n of flattenInline(treeRef.current)) {
+      if (n.props.autoRun === true) void runRef.current(n);
     }
   }, []);
 
   // refreshOnNode 级联：上游（含 staticForm 值）产出即重跑下游 + 同名字段
   // 合并进输入——语义对齐发布运行时 CompositeRenderer。
+  //（节点集平铺到 container/tabs 页内——发布端同级 sections 均参与联动。）
   useEffect(() => {
     resultsRef.current = results;
   }, [results]);
   useEffect(() => {
-    const nodes = treeRef.current;
+    const nodes = flattenInline(treeRef.current);
     for (const node of nodes) {
       const deps = Array.isArray(node.props.refreshOnNode)
         ? (node.props.refreshOnNode as unknown[]).map(String)

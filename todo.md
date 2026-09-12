@@ -720,3 +720,37 @@ U1（契约红线，最小）→ U2/U3（文档/文案，可并行热身）→ U
 **验收**：web tsc 0 错误 + 全量 jest 全绿 + guard PASSED + docs build 通过。
 
 **已知边界**：缩略图为结构线框（非真实组件迷你渲染——数十张卡片实时实例化 antd 组件代价过高）；右键保存仅覆盖 CanvasNode（fnTable/fnForm/按钮/容器等），modal 节点的占位卡（ModalPlaceholder）无右键菜单——弹窗节点请用顶栏按钮（Shift+多选含弹窗卡片）保存。
+
+## V3. 组件模板更新通道（P1）✅
+
+**背景**：保存为组件只能另存新 key（`custom--${Date.now()}`），模板改版（页签结构/参数调整/文案修正）无回写通道——同类模板无限增殖。后端 `PUT /api/v1/component-templates/:key` 已存在（name/tree/params/description/category/requiredFunctions 均可更新），纯前端缺口。
+
+**改动点**：
+
+- [x] SaveComponentModal 加模式选择：「另存新模板」（默认，现状）/「更新已有模板」——更新模式拉取当前 scope 自定义模板下拉（builtin 不列：内置模板更新走「从契约重新生成」，且后端 Update 会强置 builtin=false）
+- [x] 更新模式提交走 PUT `/component-templates/{key}`（tree/params/requiredFunctions 用当前画布选择覆盖；名称/描述/分类表单值随表单）
+- [x] i18n key 双语言包登记
+- [x] 测试：另存/更新两模式提交方法与 URL、builtin 模板不出现在更新下拉
+
+**验收**：tsc + jest 全绿 + guard。
+
+## V2. tabs 组合容器（P1，发布形态保留）
+
+**背景**：组合容器只有 container（编辑期分组、发布平铺）——页面超 5 个区块后无处收纳，成熟产品（Retool/amis）均有 Tabs 容器。本项补齐 tabs 且**发布形态保留**（不是编辑期花瓶）。
+
+**设计**：编辑器 tabs 容器（children=container，每 container=一页签，title=页签标签）→ 编译为 `display:'tab' + group:tabs 组名 + tab:页签标签` 的平铺 sections（wire additive：新枚举值+新字段 `tab`）→ 发布端 CompositeRenderer 按 group 聚合渲染 antd Tabs（每组整行 Card 内）。回读按 group→tabs 节点、tab 标签→container 页节点重建（round-trip 稳定：组名回写 tabs.props.sectionKey）。
+
+**改动点**：
+
+- [x] wire：`spec.CompositeSection` 加 `Tab string`（页签标签）+ Display 注释补 'tab'；web CompiledSection/SpecSectionLike 同步 `tab` 字段
+- [x] 编辑器：model ComponentType 加 'tabs'；components/Tabs.tsx（allowedChildren=['container']，scaffold 自动带 2 个空页签，Preview=antd Tabs+页内 container Preview 递归）；CanvasNode 子节点交互渲染门控为 container（tabs 页由 Preview 内部渲染）
+- [x] drop：useCanvasDnd 单节点与模板两路径落 tabs 卡片 → 装入激活页（props.activeTab，Preview onChange 轻量 mutate——编辑期 UI 态不进编译产物、不进 undo）；无页签 blocked 提示
+- [x] compiler：walk 遇 tabs → 按页编译子组件为 display='tab'+group（优先 sectionKey，否则 tabs-<id尾>）+tab 标签的 sections；页内按钮仍挂最近表格 toolbar
+- [x] decompile：display='tab' 按 group 聚合为 tabs 节点（组名回写 sectionKey）、按 tab 标签聚合为页 container、组件节点入页 children
+- [x] 预览：PreviewNode 支持 tabs（Tabs+renderChild 递归页内组件）；发布端 CompositeRenderer 抽 renderSection 复用，tabbed 按 group→Tabs 渲染
+- [x] 测试：compiler tabs 编译+round-trip、decompile 聚合、CompositeRenderer tabs 聚合渲染、Tabs Preview、useCanvasDnd 落 tabs 装入激活页
+- [x] 文档：pagespec-protocol.md（display=tab/tab 字段）、composite-editor-v3.md（用法+边界）
+
+**验收**：tsc + jest + go build/test + guard + docs build + 发布链闭环（含 tabs 页面 accept-and-publish 后 spec 落库核对 display=tab/tab 字段）。
+
+**已知边界**：页签内组件的画布细粒度交互（点击选中/行内删除）不生效——用大纲面板选中后属性面板配置/删除；页签嵌套页签不支持（allowedChildren 仅 container）；tab 页内布局为整行堆叠（V1 不做页内栅格 span 混排）；container 仍为编辑期分组（发布平铺，卡片分组形态列 P2）。

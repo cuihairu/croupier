@@ -23,7 +23,7 @@ type CompositeInputAssignmentInput struct {
 type CompositeSectionInput struct {
 	// Key 区块唯一标识（同函数多实例区分；缺省=函数 id sanitize）。
 	Key string
-	// Group 弹窗分组（dialog 区块渲染进同一弹窗）。
+	// Group 弹窗分组（dialog 区块渲染进同一弹窗；tab 区块渲染进同一 Tabs）。
 	Group      string
 	FunctionID string
 	View       string // table|fields|form|actions|toolbar
@@ -31,7 +31,9 @@ type CompositeSectionInput struct {
 	Span       int
 	AutoRun    bool
 	RefreshOn  []string
-	Display    string                        // ""(inline) | dialog
+	Display    string // ""(inline) | dialog | tab
+	// Tab 页签标签（display=tab 时按标签聚合到 Tabs 对应页）。
+	Tab        string
 	RowActions []CompositeRowActionInput     // view=table
 	Toolbar    []CompositeToolbarActionInput // view=toolbar
 	OnSuccess  []string
@@ -122,6 +124,10 @@ func GenerateCompositePage(
 			Group:            in.Group,
 			OnSuccessRefresh: in.OnSuccess,
 			Events:           in.Events,
+		}
+		// 页签标签（display=tab）：系统默认语言单条目（同 Title 模式）
+		if t := strings.TrimSpace(in.Tab); t != "" {
+			section.Tab = spec.LocalizedText{locale: t}
 		}
 		if len(in.Toolbar) > 0 {
 			tb := &spec.CompositeToolbarSpec{}

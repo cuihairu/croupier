@@ -121,6 +121,44 @@ func TestCompositeRowActionsSurviveListView(t *testing.T) {
 	}
 }
 
+// TestCompositeTabPassthrough V2 页签容器：display=tab 与 group/tab 从
+// Input 透传到发布 spec（Tab 包装系统默认语言 LocalizedText，同 Title 模式）。
+func TestCompositeTabPassthrough(t *testing.T) {
+	contracts := []*model.FunctionContract{
+		{
+			FunctionID:   "player.list",
+			ResourceKey:  "player",
+			Capability:   dbenum.CapabilityCollectionQuery,
+			Execution:    string(spec.FunctionExecutionSync),
+			InputSchema:  model.JSON(`{"type":"object","properties":{"playerId":{"type":"string"}}}`),
+			OutputSchema: model.JSON(`{"type":"object","properties":{"items":{"type":"array","items":{"type":"object"}},"total":{"type":"integer"}}}`),
+		},
+	}
+	inputs := []CompositeSectionInput{
+		{FunctionID: "player.list", View: "table", Display: "tab", Group: "mainTabs", Tab: "列表页"},
+		{FunctionID: "player.list", View: "table", Key: "vip.rank", Display: "tab", Group: "mainTabs", Tab: "VIP 页"},
+	}
+	generated, ok := GenerateCompositePage("k", inputs, contracts, DefaultGenerateOptions())
+	if !ok {
+		t.Fatal("generate failed")
+	}
+	for _, sec := range generated.PageSpec.Composite.Sections {
+		if sec.Display != "tab" {
+			t.Fatalf("display = %q, want tab (section %s)", sec.Display, sec.Key)
+		}
+		if sec.Group != "mainTabs" {
+			t.Fatalf("group = %q, want mainTabs (section %s)", sec.Group, sec.Key)
+		}
+		want := "列表页"
+		if sec.Key == "vip.rank" {
+			want = "VIP 页"
+		}
+		if got := sec.Tab["zh-CN"]; got != want {
+			t.Fatalf("tab = %q, want %q (section %s)", got, want, sec.Key)
+		}
+	}
+}
+
 // TestCompositeEventsChainPassthrough V3.2：事件绑定与动作链（含 params）
 // 从 Input 透传到发布 spec。
 func TestCompositeEventsChainPassthrough(t *testing.T) {

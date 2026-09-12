@@ -1,7 +1,15 @@
 /** 组合页编辑器 V3：页面组件树模型（编辑视图）与纯函数树操作。 */
 
 export type ComponentType =
-  'fnTable' | 'fnForm' | 'fnFields' | 'staticForm' | 'button' | 'modal' | 'container' | 'text';
+  | 'fnTable'
+  | 'fnForm'
+  | 'fnFields'
+  | 'staticForm'
+  | 'button'
+  | 'modal'
+  | 'container'
+  | 'tabs'
+  | 'text';
 
 /** 事件动作：目标一律是节点 id（openModal→modal 节点；runBinding/refreshNode→fn* 节点）。 */
 export type ActionSpec =
@@ -13,7 +21,8 @@ export type PageNode = {
   id: string;
   type: ComponentType;
   props: Record<string, unknown>;
-  /** 仅 container/modal 有 children（V1：container 一层、modal 只装一个 fnForm）。 */
+  /** 仅 container/tabs/modal 有 children（V1：container 一层、modal 只装
+   * fnForm、tabs 只装 container=页签）。 */
   children?: PageNode[];
 };
 
@@ -22,6 +31,24 @@ let counter = 0;
 export function nodeId(prefix = 'n'): string {
   counter += 1;
   return `${prefix}-${Date.now().toString(36)}${counter.toString(36)}`;
+}
+
+/** 构造 tabs 容器节点（V2）：自带 2 个空页签（children=container，每页
+ * title=页签标签）。点击/拖入两入口共用——scaffoldProps 只产 props，
+ * 页签子树在节点构造层补齐。 */
+export function scaffoldTabsNode(): PageNode {
+  const page = (title: string): PageNode => ({
+    id: nodeId('container'),
+    type: 'container',
+    props: { title, span: 24 },
+    children: [],
+  });
+  return {
+    id: nodeId('tabs'),
+    type: 'tabs',
+    props: { span: 24 },
+    children: [page('页签 1'), page('页签 2')],
+  };
 }
 
 export function findNode(nodes: PageNode[], id: string): PageNode | undefined {

@@ -64,5 +64,36 @@ export function planTemplateDrop(
     }
     return { kind: 'container', targetId: afterNode.id };
   }
+  if (afterNode?.type === 'tabs') {
+    // 页签容器：模板整体装入当前激活页（页即 container，同契约校验）；
+    // 无页 → 拦截（页签容器构造时自带 2 空页签，此分支兜底异常形态）。
+    const pages = (afterNode.children ?? []).filter((p) => p.type === 'container');
+    const activeProp =
+      typeof afterNode.props.activeTab === 'string' ? afterNode.props.activeTab : '';
+    const page = pages.find((p) => p.id === activeProp) ?? pages[0];
+    if (!page) {
+      return {
+        kind: 'blocked',
+        reason: getIntl().formatMessage({
+          id: 'pages.pageStudio.editor.canvas.tabsNoPage',
+          defaultMessage: '页签容器没有可用的页，无法放入模板',
+        }),
+      };
+    }
+    const bad = nodes.find((n) => !acceptsChild(page, n.type));
+    if (bad) {
+      return {
+        kind: 'blocked',
+        reason: getIntl().formatMessage(
+          {
+            id: 'pages.pageStudio.editor.canvas.tabsNotAllowed',
+            defaultMessage: '页签内不接受「{type}」子组件（页签页仅允许表格/字段卡/按钮/文本）',
+          },
+          { type: bad.type },
+        ),
+      };
+    }
+    return { kind: 'container', targetId: page.id };
+  }
   return { kind: 'after', afterId: overId === 'canvas-root' ? undefined : overId };
 }

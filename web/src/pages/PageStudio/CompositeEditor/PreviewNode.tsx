@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef } from 'react';
-import { Button, Card, Descriptions, Space, Table, Typography } from 'antd';
+import { Button, Card, Descriptions, Space, Table, Tabs, Typography } from 'antd';
 import { FormattedMessage, useIntl } from '@umijs/max';
 import type { FunctionDescriptor } from '@/services/api/functions';
 import type { FormPresentationSpec, FormValues, JSONSchema } from '@/types/dashboard';
@@ -129,6 +129,49 @@ export default function PreviewNode({
       >
         {title}
       </Button>
+    );
+  }
+
+  // 页签容器（V2）：非受控 Tabs（预览态切换不回写树）；页内 container 子节点
+  // 经 renderChild 递归渲染（与发布端「tab 组 → Tabs → 页内区块堆叠」同构）。
+  if (node.type === 'tabs') {
+    const pages = (node.children ?? []).filter((c) => c.type === 'container');
+    if (pages.length === 0) return null;
+    return (
+      <Tabs
+        size="small"
+        items={pages.map((page, i) => ({
+          key: page.id,
+          label: String(
+            typeof page.props.title === 'string' && page.props.title.trim()
+              ? page.props.title
+              : intl.formatMessage(
+                  {
+                    id: 'pages.pageStudio.editor.component.tabs.tabFallback',
+                    defaultMessage: '页签 {n}',
+                  },
+                  { n: i + 1 },
+                ),
+          ),
+          children:
+            page.children && page.children.length > 0 ? (
+              <Space orientation="vertical" size={8} style={{ width: '100%' }}>
+                {page.children.map((c) => (
+                  <React.Fragment key={c.id}>
+                    {renderChild?.(c) ?? <Text type="secondary">{c.type}</Text>}
+                  </React.Fragment>
+                ))}
+              </Space>
+            ) : (
+              <Text type="secondary">
+                <FormattedMessage
+                  id="pages.pageStudio.editor.component.tabs.emptyTab"
+                  defaultMessage="空页签——拖入组件"
+                />
+              </Text>
+            ),
+        }))}
+      />
     );
   }
 

@@ -125,7 +125,7 @@ export default function ComponentPanel({
   onAddBasic,
   onAddFunction,
 }: {
-  onAddBasic: (type: 'button' | 'modal' | 'container' | 'text') => void;
+  onAddBasic: (type: 'button' | 'modal' | 'container' | 'tabs' | 'text') => void;
   onAddFunction: (e: AddFnEvent) => void;
 }) {
   const intl = useIntl();
@@ -219,7 +219,7 @@ export default function ComponentPanel({
         {basics.map((c) => (
           <a
             key={c.type}
-            onClick={() => onAddBasic(c.type as 'button' | 'modal' | 'container' | 'text')}
+            onClick={() => onAddBasic(c.type as 'button' | 'modal' | 'container' | 'tabs' | 'text')}
             style={{
               border: '1px solid #f0f0f0',
               borderRadius: 6,

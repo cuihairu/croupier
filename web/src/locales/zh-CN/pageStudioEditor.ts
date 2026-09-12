@@ -33,6 +33,10 @@ export default {
   'pages.pageStudio.editor.canvas.missingDeps': '缺少依赖函数：{fns}',
   'pages.pageStudio.editor.canvas.modalFormOnly': '弹窗内只能放函数表单（V1）',
   'pages.pageStudio.editor.canvas.showTemplates': '查看组合模板',
+  'pages.pageStudio.editor.canvas.tabsFallback': '页签内不接受「{type}」子组件，已放到页签容器之后',
+  'pages.pageStudio.editor.canvas.tabsNoPage': '页签容器没有可用的页，无法放入模板',
+  'pages.pageStudio.editor.canvas.tabsNotAllowed':
+    '页签内不接受「{type}」子组件（页签页仅允许表格/字段卡/按钮/文本）',
   'pages.pageStudio.editor.canvas.templateEmpty': '模板为空',
   'pages.pageStudio.editor.chain.addParam': '+ 添加参数',
   'pages.pageStudio.editor.chain.addStep': '+ 添加后续动作',
@@ -84,6 +88,12 @@ export default {
   'pages.pageStudio.editor.component.staticForm.preview.invalid': '字段定义 JSON 无效',
   'pages.pageStudio.editor.component.staticForm.prop.staticSchema': '字段定义（JSON Schema）',
   'pages.pageStudio.editor.component.staticForm.prop.title': '标题',
+  'pages.pageStudio.editor.component.tabs.emptyTab': '空页签——拖入组件',
+  'pages.pageStudio.editor.component.tabs.name': '页签容器',
+  'pages.pageStudio.editor.component.tabs.previewHint':
+    '空页签容器——拖入表格/字段卡/按钮/文本（自动进当前页签）',
+  'pages.pageStudio.editor.component.tabs.prop.sectionKey': '页签组名（可选，缺省自动）',
+  'pages.pageStudio.editor.component.tabs.tabFallback': '页签 {n}',
   'pages.pageStudio.editor.component.text.level.h2': '标题',
   'pages.pageStudio.editor.component.text.level.h3': '小标题',
   'pages.pageStudio.editor.component.text.level.p': '正文',

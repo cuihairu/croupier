@@ -44,6 +44,7 @@ import {
   insertNode,
   nodeId,
   removeNode,
+  scaffoldTabsNode,
   updateProps,
   type PageNode,
 } from './model';
@@ -250,10 +251,14 @@ export default function CompositeEditorPage() {
     [registerFn, editingModalId, addChild, message],
   );
 
-  /** 基础组件 → 节点（V5：同样分配变量名——可作动作目标、进补全列表）。 */
+  /** 基础组件 → 节点（V5：同样分配变量名——可作动作目标、进补全列表）。
+   * tabs 自带 2 个空页签（scaffoldProps 只产 props，页签子树在节点构造层补齐）。 */
   const addBasic = useCallback(
-    (type: 'button' | 'modal' | 'container' | 'text') => {
-      const node: PageNode = { id: nodeId(type), type, props: scaffoldProps(type) };
+    (type: 'button' | 'modal' | 'container' | 'tabs' | 'text') => {
+      const node: PageNode =
+        type === 'tabs'
+          ? scaffoldTabsNode()
+          : { id: nodeId(type), type, props: scaffoldProps(type) };
       if (editingModalId) {
         message.warning(
           intlRef.current.formatMessage({

@@ -1505,6 +1505,11 @@ func (s *ContractService) CreateCompositeProposal(
 				RefreshOn: sec.RefreshOn,
 				Static:    true,
 				Form:      sec.Form,
+				// 弹窗/页签标注透传（display=tab 时同 group 渲染进同一 Tabs、
+				// tab 标签聚合到对应页）——static 区块不经过生成器，须在此落位。
+				Display: sec.Display,
+				Group:   sec.Group,
+				Tab:     localizedTextOf(sec.Tab),
 			}
 			staticSections = append(staticSections, section)
 			staticPos = append(staticPos, genCount)
@@ -1536,7 +1541,8 @@ func (s *ContractService) CreateCompositeProposal(
 		in := generator.CompositeSectionInput{
 			Key: key,
 			// Group 弹窗分组必须透传：渲染端 openDialog 按 group 聚合同弹窗
-			// 区块（PageRenderer groupOf），丢失后弹窗永远无法打开。
+			// 区块（PageRenderer groupOf），丢失后弹窗永远无法打开；
+			// tab 组名同理由渲染端按 group 聚合 Tabs。
 			Group:      sec.Group,
 			FunctionID: fid,
 			View:       sec.View,
@@ -1545,6 +1551,7 @@ func (s *ContractService) CreateCompositeProposal(
 			AutoRun:    sec.AutoRun,
 			RefreshOn:  sec.RefreshOn,
 			Display:    sec.Display,
+			Tab:        sec.Tab,
 			OnSuccess:  sec.OnSuccessRefresh,
 			Events:     convEvents(sec.Events),
 		}
@@ -1646,8 +1653,11 @@ type CompositeSectionRequest struct {
 	Span       int      `json:"span,omitempty"`
 	AutoRun    bool     `json:"autoRun,omitempty"`
 	RefreshOn  []string `json:"refreshOn,omitempty"`
-	// Group 弹窗分组：display=dialog 且同 group 的区块渲染进同一弹窗。
+	// Group 弹窗分组：display=dialog 且同 group 的区块渲染进同一弹窗；
+	// display=tab 时为页签组名（同组渲染进同一 Tabs）。
 	Group string `json:"group,omitempty"`
+	// Tab 页签标签（display=tab）：同 group 内按标签聚合到 Tabs 对应页。
+	Tab string `json:"tab,omitempty"`
 	// Static 常量表单：不绑定函数，Form.jsonSchema 由编辑器设计期定义，
 	// 值仅写入页面状态供 refreshOn/动作链消费（不执行、无审计面）。
 	Static bool `json:"static,omitempty"`
@@ -1723,6 +1733,14 @@ func convChain(steps []ActionStepReq) []spec.CompositeActionStep {
 		out = append(out, spec.CompositeActionStep{Kind: st.Kind, Target: st.Target, Params: st.Params})
 	}
 	return out
+}
+
+// localizedTextOf 页签标签 string → 系统默认语言单条目（同 Title 模式）。
+func localizedTextOf(v string) spec.LocalizedText {
+	if t := strings.TrimSpace(v); t != "" {
+		return spec.LocalizedText{"zh-CN": t}
+	}
+	return nil
 }
 
 // convEvents 事件绑定请求 → generator 输入。

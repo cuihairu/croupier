@@ -9,11 +9,12 @@ import { staticFormDef } from './StaticForm';
 import { button } from './Button';
 import { modal } from './Modal';
 import { container } from './Container';
+import { tabs } from './Tabs';
 import { text } from './Text';
 
 /** 内置组件注册入口（显式引导，无 import 副作用——registry 引导时序见 index.tsx）。
  * 各组件定义拆分在 ./FnTable ./FnForm ./FnFields ./StaticForm ./Button ./Modal
- * ./Container ./Text 八文件；共享 schema 片段在 ./shared。 */
+ * ./Container ./Tabs ./Text 九文件；共享 schema 片段在 ./shared。 */
 export function registerBuiltinComponents(): void {
   registerComponent(fnTable);
   registerComponent(fnForm);
@@ -22,6 +23,7 @@ export function registerBuiltinComponents(): void {
   registerComponent(button);
   registerComponent(modal);
   registerComponent(container);
+  registerComponent(tabs);
   registerComponent(text);
 }
 

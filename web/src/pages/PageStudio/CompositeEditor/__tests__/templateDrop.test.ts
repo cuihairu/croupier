@@ -6,6 +6,13 @@ import type { PageNode } from './model';
 const fnForm = (id: string): PageNode => ({ id, type: 'fnForm', props: {} });
 const fnTable = (id: string): PageNode => ({ id, type: 'fnTable', props: {} });
 const container = (id: string): PageNode => ({ id, type: 'container', props: {}, children: [] });
+/** V2：页签容器（children=页 container，props.activeTab=编辑期激活页）。 */
+const tabs = (id: string, pageIds: string[], activeTab?: string): PageNode => ({
+  id,
+  type: 'tabs',
+  props: activeTab ? { activeTab } : {},
+  children: pageIds.map((pid) => ({ id: pid, type: 'container', props: {}, children: [] })),
+});
 
 describe('planTemplateDrop', () => {
   // 容器落点契约校验依赖组件注册表（allowedChildren 声明）
@@ -65,5 +72,39 @@ describe('planTemplateDrop', () => {
   it('根级（canvas-root）→ 顺序追加', () => {
     const plan = planTemplateDrop(nodes, 'canvas-root', null);
     expect(plan).toEqual({ kind: 'after', afterId: undefined });
+  });
+});
+
+describe('planTemplateDrop V2：页签容器（tabs）落激活页', () => {
+  beforeAll(() => {
+    resetRegistryForTest();
+    registerBuiltinComponents();
+  });
+
+  const tpl = [fnTable('t'), { id: 'x', type: 'button', props: {} }];
+
+  it('合法子类型 → 装入激活页（activeTab 命中）', () => {
+    const t = tabs('tb1', ['p1', 'p2'], 'p2');
+    const plan = planTemplateDrop(tpl, 'tb1', null, t);
+    expect(plan).toEqual({ kind: 'container', targetId: 'p2' });
+  });
+
+  it('activeTab 未命中/未设 → 首页兜底', () => {
+    const t = tabs('tb2', ['p1', 'p2']);
+    const plan = planTemplateDrop(tpl, 'tb2', null, t);
+    expect(plan).toEqual({ kind: 'container', targetId: 'p1' });
+  });
+
+  it('含页签页不允许的子类型 → 拦截并点名类型（契约同容器）', () => {
+    const t = tabs('tb3', ['p1']);
+    const plan = planTemplateDrop([fnTable('t'), fnForm('f')], 'tb3', null, t);
+    expect(plan.kind).toBe('blocked');
+    if (plan.kind === 'blocked') expect(plan.reason).toContain('fnForm');
+  });
+
+  it('无页 → 拦截（异常形态兜底）', () => {
+    const t = tabs('tb4', []);
+    const plan = planTemplateDrop(tpl, 'tb4', null, t);
+    expect(plan.kind).toBe('blocked');
   });
 });

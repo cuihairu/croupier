@@ -254,7 +254,9 @@ export const CanvasNode: React.FC<CanvasNodeProps> = ({
           }
         >
           <Comp node={node} fn={fn} />
-          {node.children && node.children.length > 0 && (
+          {/* 子节点交互渲染仅 container（V1 单层容器）；tabs 的页 container 由
+              Tabs Preview 内部渲染（页签交互），modal 不经 CanvasNode 渲染。 */}
+          {node.type === 'container' && node.children && node.children.length > 0 && (
             <Row gutter={[8, 8]} style={{ marginTop: 8 }}>
               {node.children.map((c, ci) => {
                 const cdef = getComponent(c.type);
@@ -343,7 +345,7 @@ export const CanvasNode: React.FC<CanvasNodeProps> = ({
               })}
             </Row>
           )}
-          {depth === 0 && node.type !== 'modal' && node.type !== 'text' && (
+          {depth === 0 && node.type !== 'modal' && node.type !== 'text' && node.type !== 'tabs' && (
             <Text type="secondary" style={{ fontSize: 10 }}>
               {intl.formatMessage({
                 id: 'pages.pageStudio.editor.node.editHint',
@@ -352,20 +354,22 @@ export const CanvasNode: React.FC<CanvasNodeProps> = ({
             </Text>
           )}
         </Card>
-        {/* 右缘宽度手柄 */}
-        <div
-          onPointerDown={onResizeDown}
-          onClick={(e) => e.stopPropagation()}
-          style={{
-            position: 'absolute',
-            top: 0,
-            right: -5,
-            width: 8,
-            height: '100%',
-            cursor: 'col-resize',
-            zIndex: 2,
-          }}
-        />
+        {/* 右缘宽度手柄（tabs 编译为整行页签组，无栅格语义，不提供调宽） */}
+        {node.type !== 'tabs' && (
+          <div
+            onPointerDown={onResizeDown}
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              position: 'absolute',
+              top: 0,
+              right: -5,
+              width: 8,
+              height: '100%',
+              cursor: 'col-resize',
+              zIndex: 2,
+            }}
+          />
+        )}
       </div>
     </Dropdown>
   );

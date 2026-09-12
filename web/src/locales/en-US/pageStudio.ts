@@ -95,10 +95,16 @@ export default {
   'pages.pageStudio.saveModal.categoryLabel': 'Category',
   'pages.pageStudio.saveModal.descriptionLabel': 'Description',
   'pages.pageStudio.saveModal.descriptionPlaceholder': 'What it is used for (optional)',
+  'pages.pageStudio.saveModal.loadFailed': 'Failed to load custom templates',
+  'pages.pageStudio.saveModal.modeCreate': 'Save as new',
+  'pages.pageStudio.saveModal.modeLabel': 'Save mode',
+  'pages.pageStudio.saveModal.modeUpdate': 'Update existing',
   'pages.pageStudio.saveModal.nameLabel': 'Component name',
   'pages.pageStudio.saveModal.namePlaceholder': 'e.g. player stats lookup',
   'pages.pageStudio.saveModal.nameRequired': 'Please fill in the component name',
   'pages.pageStudio.saveModal.nameRequiredRule': 'Component name is required',
+  'pages.pageStudio.saveModal.noCustomTemplates':
+    'No updatable custom templates yet (for builtin templates, use "Regenerate from contract" in template management)',
   'pages.pageStudio.saveModal.okText': 'Save',
   'pages.pageStudio.saveModal.paramKeysLabel':
     'Parameterize (checked props can be quickly configured in a dialog when dragging the component in)',
@@ -108,7 +114,14 @@ export default {
   'pages.pageStudio.saveModal.summary':
     'Contains {count} nodes{fns}. After saving, drag it into any composite page from the Library tab.',
   'pages.pageStudio.saveModal.summaryFunctions': ', depends on functions: {fns}',
+  'pages.pageStudio.saveModal.targetLabel': 'Template',
+  'pages.pageStudio.saveModal.targetPlaceholder': 'Select the custom template to overwrite',
+  'pages.pageStudio.saveModal.targetRequired': 'Please select a template to update',
   'pages.pageStudio.saveModal.title': 'Save as component template',
+  'pages.pageStudio.saveModal.updateHint':
+    'Updating overwrites the template structure, params and required functions with the current canvas selection.',
+  'pages.pageStudio.saveModal.updateSuccess':
+    '"{name}" updated — template content overwritten with the current canvas selection',
   'pages.pageStudio.subtitle':
     'Default pages are generated automatically once capabilities are registered; preview, publish, and run without creating pages manually',
   'pages.pageStudio.templates.action.delete': 'Delete',

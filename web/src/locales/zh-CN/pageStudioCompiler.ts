@@ -23,6 +23,7 @@ export default {
   'pages.pageStudio.compiler.warning.buttonTargetLost':
     '按钮「{label}」的弹窗目标 {target} 无法还原，已丢弃',
   'pages.pageStudio.compiler.warning.emptyModal': '弹窗「{title}」为空，已忽略',
+  'pages.pageStudio.compiler.warning.emptyTabs': '页签容器「{title}」为空，已忽略',
   'pages.pageStudio.compiler.warning.expressionUnknownVariable':
     '区块「{title}」参数「{param}」的表达式「{value}」引用未知变量或行上下文，已按字面量保存',
   'pages.pageStudio.compiler.warning.invalidStaticSchema':
