@@ -24,13 +24,7 @@ import {
   Skeleton,
   Typography,
 } from 'antd';
-import {
-  PlusOutlined,
-  EditOutlined,
-  DeleteOutlined,
-  ReloadOutlined,
-  EyeOutlined,
-} from '@ant-design/icons';
+import { PlusOutlined, EditOutlined, DeleteOutlined, EyeOutlined } from '@ant-design/icons';
 import { FormattedMessage, useIntl } from '@umijs/max';
 import SchemaFormRenderer, { type SchemaFormRendererHandle } from '@/components/SchemaFormRenderer';
 import { renderJSONValueSummary } from './ResultViewRenderer';
@@ -900,13 +894,6 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
               {localizedText(action.title, 'zh-CN', action.key)}
             </Button>
           )),
-          <Button
-            key="refresh"
-            icon={<ReloadOutlined />}
-            onClick={() => actionRef.current?.reload()}
-          >
-            <FormattedMessage id="component.resourceRenderer.refresh" defaultMessage="刷新" />
-          </Button>,
         ]}
         rowSelection={
           batchActions.length > 0

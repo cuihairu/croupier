@@ -55,7 +55,6 @@ export default {
   'component.resourceRenderer.list.selectorMissed':
     'List result missed the items selector: {source}',
   'component.resourceRenderer.pagination.total': '{total} items in total',
-  'component.resourceRenderer.refresh': 'Refresh',
   'component.resourceRenderer.rowAction.missingBinding': 'Action binding is not configured',
   'component.resourceRenderer.selection.clear': 'Clear Selection',
   'component.resourceRenderer.selection.count': '{count} items selected',

@@ -47,7 +47,6 @@ export default {
     '列表绑定缺少 pageState.items 输出 selector，无法渲染查询结果',
   'component.resourceRenderer.list.selectorMissed': '列表结果未命中 items selector：{source}',
   'component.resourceRenderer.pagination.total': '共 {total} 条',
-  'component.resourceRenderer.refresh': '刷新',
   'component.resourceRenderer.rowAction.missingBinding': '未配置操作绑定',
   'component.resourceRenderer.selection.clear': '取消选择',
   'component.resourceRenderer.selection.count': '已选择 {count} 项',
