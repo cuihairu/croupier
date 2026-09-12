@@ -182,12 +182,22 @@ digest 比对提示「所用模板有新版本」。**不参与发布校验、�
 输入输出 mapping 必须是可校验的 AST（对应 `spec/selector_ast.go`）：
 
 ```ts
+type TransformSpec =
+  | { type: "pick" }
+  | { type: "rename"; params: Record<string, string> }
+  | { type: "default"; params: { value: JSONValue } };
+
 type ValueSource =
-  | { kind: "form"; path: JsonPointer }
-  | { kind: "row"; path: JsonPointer }
-  | { kind: "selection"; path: JsonPointer; transform?: { type: "pick" } }
-  | { kind: "detail"; path: JsonPointer }
-  | { kind: "page_state"; key: string; path?: JsonPointer }
+  | { kind: "form"; path: JsonPointer; transform?: TransformSpec }
+  | { kind: "row"; path: JsonPointer; transform?: TransformSpec }
+  | { kind: "selection"; path: JsonPointer; transform?: TransformSpec }
+  | { kind: "detail"; path: JsonPointer; transform?: TransformSpec }
+  | {
+      kind: "page_state";
+      key: string;
+      path?: JsonPointer;
+      transform?: TransformSpec;
+    }
   | { kind: "literal"; value: JSONValue };
 
 interface InputAssignment {
@@ -202,7 +212,19 @@ interface OutputAssignment {
 }
 ```
 
-`transform` 是白名单受控变换，当前仅 `pick`（selection 提取行 identity 数组）；新增变换必须扩展 spec 包并同步校验器。
+`transform` 是白名单受控变换，新增变换必须扩展 spec 包并同步校验器。当前三项：
+
+- **`pick`**（仅 selection）：从每个选中行提取 path 指定字段，输出 identity 数组。
+- **`rename`**（row / selection / page_state，且 path 必须为空——变换作用于整对象）：
+  `params` 是「源字段名 → 目标字段名」映射表（值必须是字符串）。输出对象**只包含
+  映射表命中的字段**（受控白名单，与 pick 同理）；selection 源逐元素应用。上游字段
+  名与函数参数名对不齐时用它改名，映射表未覆盖的字段被丢弃。非对象（且非数组的
+  selection）源在执行期报 422。
+- **`default`**（任意 kind）：`params: { value: <JSON 字面量> }`。源值缺失（上游区块
+  未产出该字段）或为 `null` 时兜底为 `value`；有值时不覆盖。用于参数映射的「缺省值」。
+
+组合页编辑器的参数映射会编译产出这些变换：跨区块字段改名 → `rename` 映射；
+「缺省值」输入 → `default`（编辑器输入是字符串，纯数字/布尔/null 保持 JSON 类型）。
 
 校验器必须确认：
 

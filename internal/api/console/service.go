@@ -413,9 +413,33 @@ func buildBindingPayloadFromSelectors(binding spec.PageFunctionBinding, execCtx 
 }
 
 func resolveSelectorValue(source spec.ValueSource, execCtx ConsoleBindingExecutionContext) (json.RawMessage, bool, error) {
-	if source.Transform != nil && source.Transform.Type != spec.TransformPick {
-		return nil, false, errorx.NewValidationError("binding selector transform is not supported: " + string(source.Transform.Type))
+	if t := source.Transform; t != nil {
+		switch t.Type {
+		case spec.TransformPick, spec.TransformRename, spec.TransformDefault:
+		default:
+			return nil, false, errorx.NewValidationError("binding selector transform is not supported: " + string(t.Type))
+		}
 	}
+	resolved, found, err := resolveSourceValue(source, execCtx)
+	if err != nil {
+		return nil, false, err
+	}
+	if t := source.Transform; t != nil {
+		switch t.Type {
+		case spec.TransformRename:
+			return applyRenameTransform(resolved, found, t)
+		case spec.TransformDefault:
+			if !found || isNullRawJSON(resolved) {
+				return t.Params["value"], true, nil
+			}
+		}
+	}
+	return resolved, found, nil
+}
+
+// resolveSourceValue is the transform-free half of resolveSelectorValue: the
+// raw value for the source kind (U8 split so transforms can wrap it).
+func resolveSourceValue(source spec.ValueSource, execCtx ConsoleBindingExecutionContext) (json.RawMessage, bool, error) {
 	switch source.Kind {
 	case spec.SourceLiteral:
 		if len(source.Value) == 0 {
@@ -449,6 +473,65 @@ func resolveSelectorValue(source spec.ValueSource, execCtx ConsoleBindingExecuti
 	default:
 		return nil, false, errorx.NewValidationError("unsupported binding selector source: " + string(source.Kind))
 	}
+}
+
+// applyRenameTransform maps field names of the source object (or every element
+// of a selection array) onto the target vocabulary. The output keeps only
+// mapped fields — a controlled whitelist (U8).
+func applyRenameTransform(resolved json.RawMessage, found bool, t *spec.TransformSpec) (json.RawMessage, bool, error) {
+	if !found || len(resolved) == 0 {
+		return nil, false, nil
+	}
+	raw, ok, err := validRawJSON(resolved, "rename source")
+	if err != nil || !ok {
+		return nil, false, err
+	}
+	var value any
+	if err := json.Unmarshal(raw, &value); err != nil {
+		return nil, false, errorx.NewBadRequest("rename transform source must be valid JSON")
+	}
+	renameOne := func(obj map[string]any) map[string]any {
+		out := make(map[string]any, len(t.Params))
+		for from, rawTo := range t.Params {
+			var to string
+			if err := json.Unmarshal(rawTo, &to); err != nil {
+				continue
+			}
+			if v, exists := obj[from]; exists {
+				out[to] = v
+			}
+		}
+		return out
+	}
+	switch typed := value.(type) {
+	case map[string]any:
+		out, err := json.Marshal(renameOne(typed))
+		if err != nil {
+			return nil, false, err
+		}
+		return out, true, nil
+	case []any:
+		mapped := make([]any, 0, len(typed))
+		for _, item := range typed {
+			obj, isObj := item.(map[string]any)
+			if !isObj {
+				return nil, false, errorx.NewValidationError("rename transform requires object rows in selection")
+			}
+			mapped = append(mapped, renameOne(obj))
+		}
+		out, err := json.Marshal(mapped)
+		if err != nil {
+			return nil, false, err
+		}
+		return out, true, nil
+	default:
+		return nil, false, errorx.NewValidationError("rename transform requires an object or selection source")
+	}
+}
+
+// isNullRawJSON reports whether the raw JSON is a literal null.
+func isNullRawJSON(raw json.RawMessage) bool {
+	return len(raw) == 0 || string(bytes.TrimSpace(raw)) == "null"
 }
 
 func pickSelectionValues(raw json.RawMessage, path string) (json.RawMessage, bool, error) {

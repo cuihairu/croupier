@@ -451,6 +451,7 @@ ReportPage 必须使用已验证的数据集、指标和图表字段，不得只
 - `selectedRow`/`selectedRows`：表格选中行（<code v-pre>{{var.selectedRow.uid}}</code>）；选择变化**不触发** `refreshOn` 自动重跑。
 - `values`：表单当前值（防抖；<code v-pre>{{filterForm.values.keyword}}</code>）；常量表单/函数表单的 page_state 快照为**双形态**（扁平值兼容遗留 `/字段` 路径 + `values` 包装）。
 - 表达式→wire 映射：<code v-pre>{{var.path}}</code> → `inputAssignments: {kind: page_state, key: var, path: /分支/字段}`（JSON Pointer）；<code v-pre>{{row.x}}</code> → 行操作/事件参数 `row.x`；字面量原样。round-trip 可逆（回读还原为表达式文本）。
+- **参数映射变换（U8）**：结构化映射（来源区块+字段）可附 `transform`——来源字段名 ≠ 参数名时编译为 `rename`（映射表改名，未覆盖字段丢弃，输出即受控白名单）；填了**缺省值**时编译为 `default`（上游字段缺失/null 兜底该字面量，有值不覆盖）。两项均 round-trip（回读还原为字段选择与缺省值输入），语义详见 [PageSpec 协议规范](./pagespec-protocol.md) 的 transform 白名单。
 
 ## 前端运行时：ProComponents 页面渲染器
 

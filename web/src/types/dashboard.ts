@@ -374,8 +374,12 @@ export type ValueSourceKind = 'form' | 'row' | 'selection' | 'detail' | 'page_st
 
 /** 选择器转换 */
 export interface TransformSpec {
-  /** 执行边界唯一实现的受控转换：从选择行中提取指定字段。 */
-  type: 'pick';
+  /** 受控转换白名单：pick=从选择行提取字段 / rename=整对象字段改名（U8）/
+   * default=值缺失或 null 时兜底（U8）。 */
+  type: 'pick' | 'rename' | 'default';
+  /** rename：源字段名→目标字段名映射表（输出仅含映射字段，受控白名单）；
+   * default：{ value: 兜底字面量 }。 */
+  params?: Record<string, JSONValue>;
 }
 
 /** 页面 binding 执行策略 */

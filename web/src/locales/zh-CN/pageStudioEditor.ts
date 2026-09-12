@@ -182,6 +182,8 @@ export default {
   'pages.pageStudio.editor.panel.searchPlaceholder': '搜索函数 / 资源',
   'pages.pageStudio.editor.panel.switchScope': '切换到 {gameId}/{env}（{count} 函数）',
   'pages.pageStudio.editor.paramMapping.fieldPlaceholder': '字段',
+  'pages.pageStudio.editor.paramMapping.renameHint': '改名 {field} → {param}',
+  'pages.pageStudio.editor.paramMapping.defaultPlaceholder': '缺省值（可选）',
   'pages.pageStudio.editor.paramMapping.hint':
     '参数映射：默认取本区块表单值；跨区块取数在此显式声明（未列出的参数保持自动）。',
   'pages.pageStudio.editor.paramMapping.kind.auto': '自动',

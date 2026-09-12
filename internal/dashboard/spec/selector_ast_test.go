@@ -400,3 +400,106 @@ func TestValidateSelectorSemantics(t *testing.T) {
 		assert.NotEmpty(t, result.Warnings)
 	})
 }
+
+// U8：rename/default transform 白名单扩展——组合门禁与 params 校验。
+func TestValidateSelectorRenameTransform(t *testing.T) {
+	rowSchema := JSONSchema(`{"type":"object","properties":{"uid":{"type":"string"},"cnt":{"type":"number"}}}`)
+	objectTarget := JSONSchema(`{"type":"object","properties":{"payload":{"type":"object"},"required":["payload"]`)
+	objectTarget = JSONSchema(`{"type":"object","properties":{"payload":{"type":"object"}},"required":["payload"]}`)
+
+	t.Run("row rename valid", func(t *testing.T) {
+		result := ValidateSelector(SelectorAST{Assignments: []InputAssignment{{
+			Target: "/payload",
+			Source: ValueSource{Kind: SourceRow, Transform: &TransformSpec{
+				Type:   TransformRename,
+				Params: map[string]json.RawMessage{"uid": json.RawMessage(`"player_id"`)},
+			}},
+		}}}, objectTarget, SelectorContext{RowSchema: rowSchema, IsRowAction: true})
+		require.True(t, result.Valid, "%+v", result.Errors)
+	})
+
+	t.Run("rename with path rejected", func(t *testing.T) {
+		result := ValidateSelector(SelectorAST{Assignments: []InputAssignment{{
+			Target: "/payload",
+			Source: ValueSource{Kind: SourceRow, Path: "/uid", Transform: &TransformSpec{
+				Type:   TransformRename,
+				Params: map[string]json.RawMessage{"uid": json.RawMessage(`"player_id"`)},
+			}},
+		}}}, objectTarget, SelectorContext{RowSchema: rowSchema, IsRowAction: true})
+		require.False(t, result.Valid)
+		assert.Equal(t, ErrCodeInvalidSource, result.Errors[0].Code)
+	})
+
+	t.Run("rename empty mapping rejected", func(t *testing.T) {
+		result := ValidateSelector(SelectorAST{Assignments: []InputAssignment{{
+			Target: "/payload",
+			Source: ValueSource{Kind: SourceRow, Transform: &TransformSpec{Type: TransformRename}},
+		}}}, objectTarget, SelectorContext{RowSchema: rowSchema, IsRowAction: true})
+		require.False(t, result.Valid)
+		assert.Equal(t, ErrCodeInvalidSource, result.Errors[0].Code)
+	})
+
+	t.Run("rename non-string target rejected", func(t *testing.T) {
+		result := ValidateSelector(SelectorAST{Assignments: []InputAssignment{{
+			Target: "/payload",
+			Source: ValueSource{Kind: SourceRow, Transform: &TransformSpec{
+				Type:   TransformRename,
+				Params: map[string]json.RawMessage{"uid": json.RawMessage(`42`)},
+			}},
+		}}}, objectTarget, SelectorContext{RowSchema: rowSchema, IsRowAction: true})
+		require.False(t, result.Valid)
+		assert.Equal(t, ErrCodeInvalidSource, result.Errors[0].Code)
+	})
+
+	t.Run("selection rename maps to array target", func(t *testing.T) {
+		arrayTarget := JSONSchema(`{"type":"object","properties":{"rows":{"type":"array"}},"required":["rows"]}`)
+		result := ValidateSelector(SelectorAST{Assignments: []InputAssignment{{
+			Target: "/rows",
+			Source: ValueSource{Kind: SourceSelection, Transform: &TransformSpec{
+				Type:   TransformRename,
+				Params: map[string]json.RawMessage{"uid": json.RawMessage(`"player_id"`)},
+			}},
+		}}}, arrayTarget, SelectorContext{RowSchema: rowSchema, IsBatchAction: true})
+		require.True(t, result.Valid, "%+v", result.Errors)
+
+		mismatch := ValidateSelector(SelectorAST{Assignments: []InputAssignment{{
+			Target: "/payload",
+			Source: ValueSource{Kind: SourceSelection, Transform: &TransformSpec{
+				Type:   TransformRename,
+				Params: map[string]json.RawMessage{"uid": json.RawMessage(`"player_id"`)},
+			}},
+		}}}, objectTarget, SelectorContext{RowSchema: rowSchema, IsBatchAction: true})
+		require.False(t, mismatch.Valid)
+		assert.Equal(t, ErrCodeTypeMismatch, mismatch.Errors[0].Code)
+	})
+}
+
+func TestValidateSelectorDefaultTransform(t *testing.T) {
+	target := JSONSchema(`{"type":"object","properties":{"count":{"type":"number"}},"required":["count"]}`)
+	formCtx := SelectorContext{
+		FormSchema: JSONSchema(`{"type":"object","properties":{"count":{"type":"number"}}}`),
+	}
+
+	t.Run("default with value param valid", func(t *testing.T) {
+		result := ValidateSelector(SelectorAST{Assignments: []InputAssignment{{
+			Target: "/count",
+			Source: ValueSource{Kind: SourceForm, Path: "/count", Transform: &TransformSpec{
+				Type:   TransformDefault,
+				Params: map[string]json.RawMessage{"value": json.RawMessage(`0`)},
+			}},
+		}}}, target, formCtx)
+		require.True(t, result.Valid, "%+v", result.Errors)
+	})
+
+	t.Run("default without value param rejected", func(t *testing.T) {
+		result := ValidateSelector(SelectorAST{Assignments: []InputAssignment{{
+			Target: "/count",
+			Source: ValueSource{Kind: SourceForm, Path: "/count", Transform: &TransformSpec{
+				Type:   TransformDefault,
+				Params: map[string]json.RawMessage{"other": json.RawMessage(`0`)},
+			}},
+		}}}, target, formCtx)
+		require.False(t, result.Valid)
+		assert.Equal(t, ErrCodeInvalidSource, result.Errors[0].Code)
+	})
+}

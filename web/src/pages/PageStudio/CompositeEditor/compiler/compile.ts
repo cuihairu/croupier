@@ -496,6 +496,7 @@ export function compileTree(tree: PageNode[]): CompileResult {
           key?: string;
           path?: string;
           value?: unknown;
+          transform?: { type: 'default'; params?: { value?: unknown } };
         } | null => {
           if (m.kind !== 'literal' && m.kind !== 'page_state') {
             // 未知映射类型：静默归 page_state 会在发布后求值失败，显式警告并跳过
@@ -541,6 +542,16 @@ export function compileTree(tree: PageNode[]): CompileResult {
                 typeof m.field === 'string' && m.field
                   ? `/${m.field.replace(/^\//, '')}`
                   : undefined,
+              // U8 缺省兜底：上游字段缺失/null 时使用的字面量。
+              // 编辑器输入是字符串——数字/布尔保持 JSON 类型（"0"→0），其余原样。
+              ...(m.defaultValue !== undefined && m.defaultValue !== null
+                ? {
+                    transform: {
+                      type: 'default' as const,
+                      params: { value: parseDefaultValue(m.defaultValue) },
+                    },
+                  }
+                : {}),
             };
           }
           // V5：字面值为单表达式 {{var.path}} → 编译为 page_state（§6 编译规则）
@@ -774,4 +785,16 @@ function findNode(nodes: PageNode[], id: string): PageNode | undefined {
     }
   }
   return undefined;
+}
+
+/** U8 缺省值解析：编辑器输入是字符串——纯数字/布尔/null 保持 JSON 类型，
+ * 其余（含表达式样文本）按原字符串保存。 */
+function parseDefaultValue(raw: unknown): unknown {
+  if (typeof raw !== 'string') return raw;
+  const t = raw.trim();
+  if (t === 'true') return true;
+  if (t === 'false') return false;
+  if (t === 'null') return null;
+  if (/^-?\d+(\.\d+)?$/.test(t)) return Number(t);
+  return raw;
 }

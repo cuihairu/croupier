@@ -124,6 +124,10 @@ error 级诊断写入提案并降级 `needs_review`——提案收件箱「需�
 - **表达式**：参数映射/动作链参数/行操作映射的值可填受限表达式
   <code v-pre>{{变量名.路径.字段}}</code>（如 <code v-pre>{{playerListTable.selectedRow.uid}}</code>、<code v-pre>{{filterForm.values.keyword}}</code>、<code v-pre>{{row.uid}}</code>）。
   输入 <code v-pre>{{</code> 弹出变量补全，选中后继续补全 schema 路径；未知变量红标（阻断保存诊断）、路径不在 schema 黄标。
+- **上游区块映射**（U8）：参数映射选「上游区块」时，来源字段名与参数名不一致会显示
+  「改名 字段 → 参数」徽标（发布端编译为 `transform: rename` 映射，映射表未覆盖的
+  字段被丢弃）；可填**缺省值**——上游字段缺失或为 null 时兜底（编译为
+  `transform: default`，纯数字/布尔/null 输入保持 JSON 类型，如 `0` → 数字 0）。
 - **运行时状态**：每区块暴露 `data`（函数输出）/ `selectedRow`/`selectedRows`（表格选中）/ `values`（表单当前值，防抖）。
   选中行/输入变化**不触发** refreshOn 自动重跑，只在动作求值时取值。
 - **编译**：保存时 <code v-pre>{{var.path}}</code> 编译为现有 wire（`inputAssignments` page_state 路径 / 事件参数 / `row.字段`），

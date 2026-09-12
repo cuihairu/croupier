@@ -1068,3 +1068,105 @@ func TestServiceMenuMultipleCategoriesV2(t *testing.T) {
 	assert.Equal(t, "player", resp.Items[0].Key)
 	assert.Equal(t, "mail", resp.Items[1].Key)
 }
+
+// U8：rename/default transform 执行语义（受控执行边界）。
+func TestResolveSelectorValueRenameAndDefaultTransforms(t *testing.T) {
+	// rename + row：整对象按映射表改名，未映射字段丢弃（受控白名单）
+	val, found, err := resolveSelectorValue(spec.ValueSource{
+		Kind: spec.SourceRow,
+		Transform: &spec.TransformSpec{
+			Type:   spec.TransformRename,
+			Params: map[string]json.RawMessage{"uid": json.RawMessage(`"player_id"`), "cnt": json.RawMessage(`"count"`)},
+		},
+	}, ConsoleBindingExecutionContext{
+		Row: json.RawMessage(`{"uid":"p1","cnt":3,"extra":"dropped"}`),
+	})
+	require.NoError(t, err)
+	assert.True(t, found)
+	assert.JSONEq(t, `{"player_id":"p1","count":3}`, string(val))
+
+	// rename + selection：逐元素应用
+	val, found, err = resolveSelectorValue(spec.ValueSource{
+		Kind: spec.SourceSelection,
+		Transform: &spec.TransformSpec{
+			Type:   spec.TransformRename,
+			Params: map[string]json.RawMessage{"uid": json.RawMessage(`"player_id"`)},
+		},
+	}, ConsoleBindingExecutionContext{
+		Selection: json.RawMessage(`[{"uid":"a","x":1},{"uid":"b"}]`),
+	})
+	require.NoError(t, err)
+	assert.True(t, found)
+	assert.JSONEq(t, `[{"player_id":"a"},{"player_id":"b"}]`, string(val))
+
+	// rename：映射键在源对象缺失 → 输出省略该键（不造 null）
+	val, found, err = resolveSelectorValue(spec.ValueSource{
+		Kind: spec.SourceRow,
+		Transform: &spec.TransformSpec{
+			Type:   spec.TransformRename,
+			Params: map[string]json.RawMessage{"uid": json.RawMessage(`"player_id"`), "gone": json.RawMessage(`"kept"`)},
+		},
+	}, ConsoleBindingExecutionContext{
+		Row: json.RawMessage(`{"uid":"p1"}`),
+	})
+	require.NoError(t, err)
+	assert.True(t, found)
+	assert.JSONEq(t, `{"player_id":"p1"}`, string(val))
+
+	// rename：非对象源 → 显式 422（不静默造空对象）
+	_, _, err = resolveSelectorValue(spec.ValueSource{
+		Kind: spec.SourceRow,
+		Transform: &spec.TransformSpec{
+			Type:   spec.TransformRename,
+			Params: map[string]json.RawMessage{"uid": json.RawMessage(`"player_id"`)},
+		},
+	}, ConsoleBindingExecutionContext{
+		Row: json.RawMessage(`"scalar"`),
+	})
+	require.Error(t, err)
+
+	// default：源值缺失 → 兜底
+	val, found, err = resolveSelectorValue(spec.ValueSource{
+		Kind: spec.SourcePageState,
+		Key:  "filter",
+		Transform: &spec.TransformSpec{
+			Type:   spec.TransformDefault,
+			Params: map[string]json.RawMessage{"value": json.RawMessage(`{"page":1}`)},
+		},
+	}, ConsoleBindingExecutionContext{
+		PageState: map[string]json.RawMessage{},
+	})
+	require.NoError(t, err)
+	assert.True(t, found)
+	assert.JSONEq(t, `{"page":1}`, string(val))
+
+	// default：源值为 null → 兜底
+	val, found, err = resolveSelectorValue(spec.ValueSource{
+		Kind: spec.SourceForm,
+		Path: "/count",
+		Transform: &spec.TransformSpec{
+			Type:   spec.TransformDefault,
+			Params: map[string]json.RawMessage{"value": json.RawMessage(`0`)},
+		},
+	}, ConsoleBindingExecutionContext{
+		Form: json.RawMessage(`{"count":null}`),
+	})
+	require.NoError(t, err)
+	assert.True(t, found)
+	assert.JSONEq(t, `0`, string(val))
+
+	// default：源有值 → 不覆盖
+	val, found, err = resolveSelectorValue(spec.ValueSource{
+		Kind: spec.SourceForm,
+		Path: "/count",
+		Transform: &spec.TransformSpec{
+			Type:   spec.TransformDefault,
+			Params: map[string]json.RawMessage{"value": json.RawMessage(`0`)},
+		},
+	}, ConsoleBindingExecutionContext{
+		Form: json.RawMessage(`{"count":7}`),
+	})
+	require.NoError(t, err)
+	assert.True(t, found)
+	assert.JSONEq(t, `7`, string(val))
+}

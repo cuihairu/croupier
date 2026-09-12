@@ -206,6 +206,8 @@ export default {
   'pages.pageStudio.editor.panel.searchPlaceholder': 'Search functions / resources',
   'pages.pageStudio.editor.panel.switchScope': 'Switch to {gameId}/{env} ({count} functions)',
   'pages.pageStudio.editor.paramMapping.fieldPlaceholder': 'Field',
+  'pages.pageStudio.editor.paramMapping.renameHint': 'Rename {field} → {param}',
+  'pages.pageStudio.editor.paramMapping.defaultPlaceholder': 'Default (optional)',
   'pages.pageStudio.editor.paramMapping.hint':
     'Parameter mapping: defaults to this section’s form values; declare cross-section inputs explicitly here (unlisted parameters stay automatic).',
   'pages.pageStudio.editor.paramMapping.kind.auto': 'Auto',

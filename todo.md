@@ -607,17 +607,17 @@ A 系列与 R 系列互相独立可并行。每个任务独立提交；涉及 we
 
 **验收**：拖入含外部联动的模板（手工构造）有明确提示；web tsc/test/guard 全绿。
 
-## U8. transform 白名单扩展：rename / default（P1）
+## U8. transform 白名单扩展：rename / default（P1）✅（2026-09 交付）
 
 **目标**：字段名不一致的上下游不必逐参数手写显式映射。
 
 **改动点**：
 
-- [ ] `internal/dashboard/spec/selector_ast.go`：transform 增加 `rename`（映射表）与 `default`（缺省值）两种受控类型 + 校验器
-- [ ] `web/src/types/dashboard.ts` 同步；ParamMappingEditor 增加映射方式选择（直接取值/改名/缺省）
-- [ ] `compiler.ts` 编译/反编译覆盖新 transform
-- [ ] 单测：Go 校验器 + web 编译 round-trip
-- [ ] `docs/architecture/pagespec-protocol.md` Selector AST 节更新（当前仅 `pick`）
+- [x] `internal/dashboard/spec/selector_ast.go`：transform 增加 `rename`（映射表）与 `default`（缺省值）两种受控类型 + 校验器
+- [x] `web/src/types/dashboard.ts` 同步；ParamMappingEditor 增加映射方式选择（直接取值/改名/缺省）
+- [x] `compiler.ts` 编译/反编译覆盖新 transform
+- [x] 单测：Go 校验器 + web 编译 round-trip
+- [x] `docs/architecture/pagespec-protocol.md` Selector AST 节更新（当前仅 `pick`）
 
 **验收**：上游 `uid` 可经 rename 直连下游 `player_id`；三层文档同步 + docs build。
 

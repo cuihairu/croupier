@@ -66,9 +66,16 @@ type TransformSpec struct {
 type TransformType string
 
 const (
-	// TransformPick extracts one declared field from every selected row. It is
-	// the only transform implemented by the controlled execute boundary.
+	// TransformPick extracts one declared field from every selected row.
 	TransformPick TransformType = "pick"
+	// TransformRename maps the source object's field names onto the target
+	// vocabulary via an explicit mapping table (U8). The output object contains
+	// only mapped fields — a controlled whitelist, mirroring pick. For
+	// selection sources the mapping applies to every selected row.
+	TransformRename TransformType = "rename"
+	// TransformDefault provides a fallback literal when the source resolves to
+	// a missing value or null (U8). params must carry a "value" key.
+	TransformDefault TransformType = "default"
 )
 
 // SelectorValidationResult holds validation results for a selector.
@@ -241,6 +248,16 @@ func ValidateSelector(selector SelectorAST, schema JSONSchema, context SelectorC
 			result.addError(assignment.Target, ErrCodeInvalidSource, "selector transform is not supported for this source")
 			continue
 		}
+		if t := assignment.Source.Transform; t != nil {
+			if t.Type == TransformRename && !validRenameParams(t) {
+				result.addError(assignment.Target, ErrCodeInvalidSource, "rename transform requires a non-empty field mapping of non-empty names")
+				continue
+			}
+			if t.Type == TransformDefault && !validDefaultParams(t) {
+				result.addError(assignment.Target, ErrCodeInvalidSource, "default transform requires a \"value\" param")
+				continue
+			}
+		}
 		validateInputSource(assignment, context, &result)
 		if !isAssignable(schema, assignment.Target, assignment.Source, context) {
 			result.addError(assignment.Target, ErrCodeTypeMismatch, "source type is not assignable to target")
@@ -253,11 +270,60 @@ func ValidateSelector(selector SelectorAST, schema JSONSchema, context SelectorC
 	return result
 }
 
+// isSupportedTransform gates transform/source combinations (U8):
+//   - pick:      selection only (existing batch extraction)
+//   - rename:    row/selection/page_state with empty path — the transform maps
+//     the whole object's field names; a path would narrow the value to a
+//     scalar and leave nothing to rename
+//   - default:   any kind; it only wraps the resolved value with a fallback
 func isSupportedTransform(source ValueSource) bool {
 	if source.Transform == nil {
 		return true
 	}
-	return source.Kind == SourceSelection && source.Transform.Type == TransformPick
+	switch source.Transform.Type {
+	case TransformPick:
+		return source.Kind == SourceSelection
+	case TransformRename:
+		return (source.Kind == SourceRow || source.Kind == SourceSelection || source.Kind == SourcePageState) &&
+			strings.TrimSpace(source.Path) == ""
+	case TransformDefault:
+		return true
+	default:
+		return false
+	}
+}
+
+// isWholeObjectTransform reports whether the transform consumes the entire
+// source object (path must stay empty for these).
+func isWholeObjectTransform(t *TransformSpec) bool {
+	return t != nil && t.Type == TransformRename
+}
+
+// validRenameParams requires a non-empty mapping of non-empty identifier-ish
+// strings — empty tables or blank keys would silently produce empty objects.
+func validRenameParams(t *TransformSpec) bool {
+	if t == nil || len(t.Params) == 0 {
+		return false
+	}
+	for from, raw := range t.Params {
+		if strings.TrimSpace(from) == "" {
+			return false
+		}
+		var to string
+		if err := json.Unmarshal(raw, &to); err != nil || strings.TrimSpace(to) == "" {
+			return false
+		}
+	}
+	return true
+}
+
+// validDefaultParams requires the literal fallback under the "value" key.
+func validDefaultParams(t *TransformSpec) bool {
+	if t == nil {
+		return false
+	}
+	_, ok := t.Params["value"]
+	return ok
 }
 
 func bindingUsesRowSource(binding PageFunctionBinding) bool {
@@ -371,8 +437,13 @@ func validateInputSource(assignment InputAssignment, ctx SelectorContext, result
 			result.addError(assignment.Target, ErrCodeInvalidPath, "page_state source path does not exist")
 		}
 	default:
-		if strings.TrimSpace(source.Path) == "" {
+		// rename consumes the whole source object (or every selected row);
+		// an empty path is its contract, not a missing one (U8).
+		if strings.TrimSpace(source.Path) == "" && !isWholeObjectTransform(source.Transform) {
 			result.addError(assignment.Target, ErrCodeMissingRequired, "source path is required")
+			return
+		}
+		if isWholeObjectTransform(source.Transform) {
 			return
 		}
 		if !isJSONPointer(source.Path) {
@@ -473,6 +544,14 @@ func isAssignable(targetSchema JSONSchema, targetPath string, source ValueSource
 	}
 	if source.Kind == SourceSelection && source.Transform != nil && source.Transform.Type == TransformPick {
 		return targetType == "array"
+	}
+	// rename reshapes the whole source object (selection → array of objects);
+	// default wraps the resolved value without changing its shape.
+	if source.Transform != nil && source.Transform.Type == TransformRename {
+		if source.Kind == SourceSelection {
+			return targetType == "array"
+		}
+		return targetType == "object"
 	}
 	if source.Transform != nil {
 		return true

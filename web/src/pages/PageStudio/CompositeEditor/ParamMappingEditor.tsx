@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo } from 'react';
-import { Select, Space, Typography } from 'antd';
+import { Input, Select, Space, Typography } from 'antd';
 import { useIntl } from '@umijs/max';
 import type { PageNode } from './model';
 import type { FunctionDescriptor } from '@/services/api/functions';
@@ -14,6 +14,8 @@ export type InputAssignment = {
   sourceNodeId?: string;
   field?: string;
   value?: unknown;
+  /** 缺省兜底（U8）：上游字段缺失/null 时使用的字面量（编译为 transform default）。 */
+  defaultValue?: unknown;
 };
 
 type ParamInfo = { name: string; required: boolean };
@@ -224,9 +226,43 @@ export default function ParamMappingEditor({
                       kind: 'page_state',
                       sourceNodeId: a?.sourceNodeId ?? '',
                       field: String(v),
+                      defaultValue: a?.defaultValue,
                     })
                   }
                   options={fieldOptions}
+                />
+                {a?.field && a.field !== p.name && (
+                  <Text type="secondary" style={{ fontSize: 11 }}>
+                    {intl.formatMessage(
+                      {
+                        id: 'pages.pageStudio.editor.paramMapping.renameHint',
+                        defaultMessage: '改名 {field} → {param}',
+                      },
+                      { field: a.field, param: p.name },
+                    )}
+                  </Text>
+                )}
+                <Input
+                  size="small"
+                  style={{ width: 110 }}
+                  placeholder={intl.formatMessage({
+                    id: 'pages.pageStudio.editor.paramMapping.defaultPlaceholder',
+                    defaultMessage: '缺省值（可选）',
+                  })}
+                  value={
+                    a?.defaultValue === undefined || a.defaultValue === null
+                      ? ''
+                      : String(a.defaultValue)
+                  }
+                  onChange={(e) =>
+                    setAssignment(p.name, {
+                      param: p.name,
+                      kind: 'page_state',
+                      sourceNodeId: a?.sourceNodeId ?? '',
+                      field: a?.field,
+                      defaultValue: e.target.value === '' ? undefined : e.target.value,
+                    })
+                  }
                 />
               </Space>
             )}

@@ -311,6 +311,12 @@ export function decompileToTree(sections: SpecSectionLike[]): [PageNode[], strin
         sourceNodeId: upstreamId || sourceKey,
         field: pointer.replace(/^\//, '') || undefined,
         value: m.value,
+        // U8 缺省兜底：wire transform default → 编辑态 defaultValue（round-trip）
+        defaultValue:
+          (m.transform as { type?: string; params?: { value?: unknown } } | undefined)?.type ===
+          'default'
+            ? (m.transform as { params?: { value?: unknown } }).params?.value
+            : undefined,
       };
     });
   }

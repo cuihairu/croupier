@@ -29,6 +29,8 @@ export type CompiledSection = {
     key?: string;
     path?: string;
     value?: unknown;
+    /** 缺省兜底（U8）：page_state 源值缺失/null 时使用的字面量。 */
+    transform?: { type: 'default'; params?: { value?: unknown } };
   }>;
   display?: 'inline' | 'dialog' | 'tab' | 'card';
   /** 卡片分组标题（display='card'）：同 group 区块渲染进同一卡片。 */
@@ -100,6 +102,8 @@ export interface SpecSectionLike {
     key?: string;
     path?: string;
     value?: unknown;
+    /** 缺省兜底（U8）：page_state 源值缺失/null 时使用的字面量。 */
+    transform?: { type: 'default'; params?: { value?: unknown } };
   }>;
   autoRun?: boolean;
   refreshOn?: string[];

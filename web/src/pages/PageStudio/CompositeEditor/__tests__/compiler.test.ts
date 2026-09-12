@@ -796,3 +796,71 @@ describe('编译警告：行操作嵌套行路径 / 参数映射失效（不再�
     expect(sections[0].inputAssignments).toEqual([{ target: '/c', kind: 'literal', value: 'ok' }]);
   });
 });
+
+describe('U8 参数映射缺省值（transform default）编译 round-trip', () => {
+  it('defaultValue 编译为 wire transform default（数字保持 JSON 类型），decompile 回读不丢', async () => {
+    const table = fn('fnTable', 'player.list', { autoRun: true });
+    const form = fn('fnForm', 'mail.send', {
+      inputAssignments: [
+        {
+          param: 'player_id',
+          kind: 'page_state',
+          sourceNodeId: table.id,
+          field: 'uid',
+          defaultValue: 'fallback-pid',
+        },
+        {
+          param: 'count',
+          kind: 'page_state',
+          sourceNodeId: table.id,
+          field: 'cnt',
+          defaultValue: '0',
+        },
+      ],
+    });
+    const { sections, warnings } = compileTree([table, form]);
+    expect(warnings).toHaveLength(0);
+    const mail = sections.find((s) => s.key === 'mail.send')!;
+    expect(mail.inputAssignments).toEqual([
+      {
+        target: '/player_id',
+        kind: 'page_state',
+        key: 'player.list',
+        path: '/uid',
+        transform: { type: 'default', params: { value: 'fallback-pid' } },
+      },
+      {
+        target: '/count',
+        kind: 'page_state',
+        key: 'player.list',
+        path: '/cnt',
+        transform: { type: 'default', params: { value: 0 } },
+      },
+    ]);
+
+    // round-trip：decompile 回读 defaultValue
+    const { decompileToTree } = await import('../compiler');
+    const nodes = decompileToTree(sections as unknown as Parameters<typeof decompileToTree>[0])[0];
+    const back = nodes.find((n) => n.props.functionId === 'mail.send')!;
+    const assignments = back.props.inputAssignments as Array<{
+      param: string;
+      defaultValue?: unknown;
+    }>;
+    expect(assignments.find((a) => a.param === 'player_id')?.defaultValue).toBe('fallback-pid');
+    expect(assignments.find((a) => a.param === 'count')?.defaultValue).toBe(0);
+  });
+
+  it('无 defaultValue 不产 transform（wire 向后兼容）', () => {
+    const table = fn('fnTable', 'player.list', { autoRun: true });
+    const form = fn('fnForm', 'mail.send', {
+      inputAssignments: [
+        { param: 'player_id', kind: 'page_state', sourceNodeId: table.id, field: 'uid' },
+      ],
+    });
+    const { sections } = compileTree([table, form]);
+    const mail = sections.find((s) => s.key === 'mail.send')!;
+    expect(mail.inputAssignments).toEqual([
+      { target: '/player_id', kind: 'page_state', key: 'player.list', path: '/uid' },
+    ]);
+  });
+});
