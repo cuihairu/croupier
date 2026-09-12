@@ -1595,6 +1595,9 @@ func (s *ContractService) CreateCompositeProposal(
 			case spec.SourceLiteral:
 				src.Value = ia.Value
 			}
+			// U8 transform 透传：缺此处会让编辑器编译产出的 default/rename
+			// wire 在提案入口被静默丢弃（执行端永远收不到变换）。
+			src.Transform = ia.Transform
 			in.InputAssignments = append(in.InputAssignments, spec.InputAssignment{
 				Target: ia.Target,
 				Source: src,
@@ -1726,6 +1729,10 @@ type CompositeInputAssignmentRequest struct {
 	Key    string          `json:"key,omitempty"`
 	Path   string          `json:"path,omitempty"`
 	Value  json.RawMessage `json:"value,omitempty"`
+	// Transform 受控值变换（U8）：编辑器编译产 default（缺省兜底）/
+	// rename（整对象改名）wire；透传到 spec 的 InputAssignments，
+	// 执行端（console resolveSelectorValue）按 TransformSpec 应用。
+	Transform *spec.TransformSpec `json:"transform,omitempty"`
 }
 
 // EventBindingReq 事件绑定请求。

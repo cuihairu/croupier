@@ -388,6 +388,97 @@ func TestCreateCompositeProposal_VisibleWhenPassthrough(t *testing.T) {
 	}
 }
 
+// U8 transform 透传：inputAssignments[].transform（default 缺省兜底 /
+// rename 整对象改名）必须落进 binding.Selectors.Input.Assignments 的
+// Source.Transform——漏传会让编辑器编译产出的变换在提案入口被静默丢弃，
+// 执行端（console resolveSelectorValue）永远收不到。
+func TestCreateCompositeProposal_InputAssignmentTransformPassthrough(t *testing.T) {
+	db, err := gorm.Open(sqlite.Open(t.TempDir()+"/ia-transform.db"), &gorm.Config{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := db.AutoMigrate(
+		&model.FunctionContract{},
+		&model.CapabilitySemantics{},
+		&model.PageProposal{},
+		&model.PageProposalVersion{},
+		&model.TermDictionary{},
+		&model.ResourceCapability{},
+		&model.CapabilitySemanticVersion{},
+		&model.BlockedProposalIssue{},
+	); err != nil {
+		t.Fatal(err)
+	}
+	svc := NewContractService(db)
+
+	ctx := context.Background()
+	if err := svc.RebuildContractFromFunctionMeta(ctx, "demo_game", "development", "agent-1", spec.FunctionContractInput{ID: "player.get", Resource: "player", Capability: "item_query", Execution: "sync", Enabled: true, InputSchema: `{"type":"object","properties":{"id":{"type":"string"}},"required":["id"]}`, OutputSchema: `{"type":"object","properties":{"player":{"type":"object"}}}`}); err != nil {
+		t.Fatal(err)
+	}
+
+	proposal, err := svc.CreateCompositeProposal(ctx, "demo_game", "development", "composite--ia-transform", []CompositeSectionRequest{
+		{Key: "players", FunctionID: "player.get", View: "fields"},
+		{
+			Key: "detail", FunctionID: "player.get", View: "form",
+			InputAssignments: []CompositeInputAssignmentRequest{
+				{
+					Target: "/id", Kind: "page_state", Key: "players", Path: "/data/player/id",
+					Transform: &spec.TransformSpec{
+						Type:   spec.TransformDefault,
+						Params: map[string]json.RawMessage{"value": json.RawMessage(`"unknown"`)},
+					},
+				},
+				{
+					Target: "/extra", Kind: "literal",
+					Value:     json.RawMessage(`{"a":1}`),
+					Transform: &spec.TransformSpec{Type: spec.TransformPick, Params: map[string]json.RawMessage{"field": json.RawMessage(`"a"`)}},
+				},
+			},
+		},
+	}, nil)
+	if err != nil {
+		t.Fatalf("create failed: %v", err)
+	}
+
+	var page spec.PageSpec
+	if err := jsonUnmarshalV9(proposal.PageSpec, &page); err != nil {
+		t.Fatalf("unmarshal pageSpec: %v", err)
+	}
+	// 找 detail 绑定的 selector assignments（按 target 覆盖自动映射）；
+	// 只看 detail——players 的自动映射 /id 无 transform 属正常
+	var found int
+	for _, b := range page.Bindings {
+		if b.ID != "detail" || b.Selectors == nil {
+			continue
+		}
+		for _, a := range b.Selectors.Input.Assignments {
+			if a.Target == "/id" {
+				found++
+				tr := a.Source.Transform
+				if tr == nil {
+					t.Fatal("page_state assignment transform lost (default)")
+				}
+				if tr.Type != spec.TransformDefault || string(tr.Params["value"]) != `"unknown"` {
+					t.Fatalf("default transform wrong: %+v", tr)
+				}
+			}
+			if a.Target == "/extra" {
+				found++
+				tr := a.Source.Transform
+				if tr == nil {
+					t.Fatal("literal assignment transform lost (pick)")
+				}
+				if tr.Type != spec.TransformPick || string(tr.Params["field"]) != `"a"` {
+					t.Fatalf("pick transform wrong: %+v", tr)
+				}
+			}
+		}
+	}
+	if found != 2 {
+		t.Fatalf("assignments with target /id,/extra not both present (found %d)", found)
+	}
+}
+
 // U11 模板快照透传：componentTemplates（key+digest）原样落进 PageSpec
 // （去重/trim 规范化），空 key 条目被丢弃；nil 不产生字段。
 func TestCreateCompositeProposal_ComponentTemplatesSnapshot(t *testing.T) {
