@@ -50,6 +50,10 @@ import (
 //   0022 (Go)   term_dictionary.display JSON 列（57fac95df 双列→JSON 重构
 //               只改了模型，存量库从未跑过 AutoMigrate，seed 持续报
 //               column "display" does not exist）
+//   0023 (Go)   component_templates.params/digest 列（U6 模板参数化加 Params、
+//               U11 更新提醒加 Digest 时均只改了模型，存量 game 库过 baseline
+//               后不再跑 AutoMigrate，创建/更新模板持续报 column "params"
+//               does not exist）
 
 func init() {
 	if err := goose.SetGlobalMigrations(
@@ -74,6 +78,7 @@ func init() {
 		executionLogsTableMigration(),
 		contractPrevSchemaMigration(),
 		termDictionaryDisplayMigration(),
+		componentTemplateColumnsMigration(),
 	); err != nil {
 		panic(fmt.Sprintf("svc: register goose go migrations: %v", err))
 	}
@@ -405,6 +410,33 @@ func migrateTermDictionaryDisplayColumn(ctx context.Context, sqlDB *sql.DB) erro
 		}
 	}
 	return model.MigrateTermDictionaryDisplay(db)
+}
+
+// componentTemplateColumnsMigration 为存量 game 库补 component_templates 的
+// params（U6 模板参数化）与 digest（U11 更新提醒）列（0023）。两列加入模型时
+// 均未随版本化迁移发布，存量库过 baseline 后不再跑 AutoMigrate——模板创建/
+// 更新持续报 column "params" does not exist。直接对单模型 AutoMigrate：幂等、
+// 自动带出模型上全部缺列（含后续同表新列），不再逐列枚举。缺表跳过。
+func componentTemplateColumnsMigration() *goose.Migration {
+	return goose.NewGoMigration(23,
+		&goose.GoFunc{RunDB: migrateComponentTemplateColumns},
+		nil,
+	)
+}
+
+// migrateComponentTemplateColumns 是 0023 的迁移体（抽出便于直测）。
+func migrateComponentTemplateColumns(ctx context.Context, sqlDB *sql.DB) error {
+	db, err := wrapGorm(sqlDB)
+	if err != nil {
+		return err
+	}
+	if !db.Migrator().HasTable(&model.ComponentTemplate{}) {
+		return nil
+	}
+	if err := db.AutoMigrate(&model.ComponentTemplate{}); err != nil {
+		return fmt.Errorf("migrate: 0023 component_templates columns: %w", err)
+	}
+	return nil
 }
 
 // taskSchedulesMigration creates the cron scheduling tables (0014):

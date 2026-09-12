@@ -246,3 +246,33 @@ func (f *fakeDispatcher) StartTaskRequest(ctx context.Context, req *sdkv1.Invoke
 	f.onStart()
 	return &sdkv1.StartTaskResponse{TaskId: "t-1"}, nil
 }
+
+// 0023：component_templates.params/digest 列迁移（幂等 + 缺表跳过）。
+// U6 加 Params、U11 加 Digest 时均只改了模型，存量 game 库过 baseline 后
+// 不再跑 AutoMigrate——线上创建/更新模板报 column "params" does not
+// exist。本用例锁死补列路径。
+func TestComponentTemplateColumnsMigration(t *testing.T) {
+	db, err := gorm.Open(gsqlite.Open(t.TempDir()+"/m23.db"), &gorm.Config{})
+	require.NoError(t, err)
+	require.NoError(t, db.AutoMigrate(&model.ComponentTemplate{}))
+	// 模拟存量库：删掉两列后跑迁移补列
+	require.NoError(t, db.Migrator().DropColumn(&model.ComponentTemplate{}, "Params"))
+	require.NoError(t, db.Migrator().DropColumn(&model.ComponentTemplate{}, "Digest"))
+
+	sqlDB, err := db.DB()
+	require.NoError(t, err)
+	require.NoError(t, migrateComponentTemplateColumns(context.Background(), sqlDB))
+	require.True(t, db.Migrator().HasColumn(&model.ComponentTemplate{}, "Params"))
+	require.True(t, db.Migrator().HasColumn(&model.ComponentTemplate{}, "Digest"))
+
+	// 幂等：重复执行不报错
+	require.NoError(t, migrateComponentTemplateColumns(context.Background(), sqlDB))
+
+	// 缺表库（fanout 重放到无该表的 game 库）：跳过不建空壳表
+	db2, err := gorm.Open(gsqlite.Open(t.TempDir()+"/m23b.db"), &gorm.Config{})
+	require.NoError(t, err)
+	sqlDB2, err := db2.DB()
+	require.NoError(t, err)
+	require.NoError(t, migrateComponentTemplateColumns(context.Background(), sqlDB2))
+	require.False(t, db2.Migrator().HasTable(&model.ComponentTemplate{}))
+}
