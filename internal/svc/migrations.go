@@ -54,6 +54,10 @@ import (
 //               U11 更新提醒加 Digest 时均只改了模型，存量 game 库过 baseline
 //               后不再跑 AutoMigrate，创建/更新模板持续报 column "params"
 //               does not exist）
+//   0024 (Go)   软删除残留行清理（删除路径改硬删后，把 page_specs/
+//               page_proposals/component_templates/openapi_source_bindings/
+//               registration_warnings 里已软删的存量行物理清除——它们占着
+//               物理唯一索引，同 key 重建 500）
 
 func init() {
 	if err := goose.SetGlobalMigrations(
@@ -79,6 +83,7 @@ func init() {
 		contractPrevSchemaMigration(),
 		termDictionaryDisplayMigration(),
 		componentTemplateColumnsMigration(),
+		softDeleteResidueCleanupMigration(),
 	); err != nil {
 		panic(fmt.Sprintf("svc: register goose go migrations: %v", err))
 	}
@@ -443,6 +448,53 @@ func migrateComponentTemplateColumns(ctx context.Context, sqlDB *sql.DB) error {
 		}
 		if err := db.Migrator().AddColumn(&model.ComponentTemplate{}, col); err != nil {
 			return fmt.Errorf("migrate: 0023 add component_templates.%s: %w", col, err)
+		}
+	}
+	return nil
+}
+
+// softDeleteResidueCleanupMigration 为 0024：把删除路径改硬删（Unscoped）之前
+// 遗留的软删行物理清除。这些表的唯一索引是物理索引，软删行占着索引位会导致
+// 同 key 重建直接 duplicate-key 500（线上实证：page_specs id=60、
+// component_templates 5 行）。纯 DELETE，不动表结构，幂等；缺表跳过。
+// 注意 published_page_specs / page_versions 无 DeletedAt 列（一直就是硬删），
+// 不在本清单内。
+func softDeleteResidueCleanupMigration() *goose.Migration {
+	return goose.NewGoMigration(24,
+		&goose.GoFunc{RunDB: migrateSoftDeleteResidue},
+		nil,
+	)
+}
+
+// migrateSoftDeleteResidue 是 0024 的迁移体（抽出便于直测）：
+// 逐表 DELETE deleted_at IS NOT NULL 的残留行。
+func migrateSoftDeleteResidue(ctx context.Context, sqlDB *sql.DB) error {
+	db, err := wrapGorm(sqlDB)
+	if err != nil {
+		return err
+	}
+	// 迁移只允许逐操作 DELETE（同 0023 的教训：整模型 AutoMigrate 在存量
+	// postgres 上因约束名漂移 panic）。表或 deleted_at 列缺失说明该库不含
+	// 此模型的软删形态，跳过。
+	targets := []struct {
+		table string
+		model interface{}
+	}{
+		{"page_specs", &model.PageSpec{}},
+		{"page_proposals", &model.PageProposal{}},
+		{"component_templates", &model.ComponentTemplate{}},
+		{"openapi_source_bindings", &model.OpenAPISourceBinding{}},
+		{"registration_warnings", &model.RegistrationWarningDB{}},
+	}
+	for _, target := range targets {
+		if !db.Migrator().HasTable(target.model) {
+			continue
+		}
+		if !db.Migrator().HasColumn(target.model, "DeletedAt") {
+			continue
+		}
+		if err := db.Exec(fmt.Sprintf("DELETE FROM %s WHERE deleted_at IS NOT NULL", target.table)).Error; err != nil {
+			return fmt.Errorf("migrate: 0024 purge soft-deleted rows from %s: %w", target.table, err)
 		}
 	}
 	return nil

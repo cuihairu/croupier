@@ -147,9 +147,11 @@ func (m *ComponentTemplateModel) Update(ctx context.Context, id uint, updates ma
 	return m.db.WithContext(ctx).Model(&ComponentTemplate{}).Where("id = ?", id).Updates(updates).Error
 }
 
-// Delete removes a non-builtin template.
+// Delete removes a non-builtin template. Hard delete: the key unique index is
+// physical, so a soft-deleted row would block recreating the same key with a
+// duplicate-key 500.
 func (m *ComponentTemplateModel) Delete(ctx context.Context, id uint) error {
-	res := m.db.WithContext(ctx).Where("id = ? AND builtin = ?", id, false).Delete(&ComponentTemplate{})
+	res := m.db.WithContext(ctx).Unscoped().Where("id = ? AND builtin = ?", id, false).Delete(&ComponentTemplate{})
 	if res.RowsAffected == 0 {
 		return ErrComponentTemplateBuiltinDelete
 	}

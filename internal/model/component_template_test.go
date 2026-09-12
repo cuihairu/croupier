@@ -125,6 +125,32 @@ func TestComputeTemplateDigest(t *testing.T) {
 	assert.Empty(t, ComputeTemplateDigest(JSON(`not json`)))
 }
 
+// TestComponentTemplateDeleteHardDeleteRecreateSameKey 删除后同 key 重建：
+// Delete 必须是硬删除——key 列的物理唯一索引会被软删行占位，重建 Create
+// 直接 duplicate-key 500（线上实证过）。重建成功且库内不留残留行。
+func TestComponentTemplateDeleteHardDeleteRecreateSameKey(t *testing.T) {
+	db := setupCompTplDB(t)
+	m := NewComponentTemplateModel(db)
+	ctx := context.Background()
+
+	tpl := sampleTemplate("recreate-me", false)
+	require.NoError(t, m.Create(ctx, tpl))
+	require.NoError(t, m.Delete(ctx, tpl.ID))
+
+	// 同 key 重建必须成功（软删残留会让这条 Create 撞唯一索引）。
+	reborn := sampleTemplate("recreate-me", false)
+	reborn.Category = "复盘"
+	require.NoError(t, m.Create(ctx, reborn))
+	got, err := m.FindByKey(ctx, "recreate-me")
+	require.NoError(t, err)
+	assert.Equal(t, "复盘", got.Category)
+
+	// 硬删除不留残留：全表（含软删行）只有重建后的这一行。
+	var rawCount int64
+	require.NoError(t, db.Unscoped().Model(&ComponentTemplate{}).Where("key = ?", "recreate-me").Count(&rawCount).Error)
+	assert.Equal(t, int64(1), rawCount, "soft-deleted residue must not linger")
+}
+
 // TestComponentTemplateDigestWritePaths U11 三写路径全覆盖：Create /
 // UpsertBuiltin（新建 + 更新）都自动落 digest；内容不变重写 digest 不变，
 // 内容变化 digest 跟随。

@@ -123,19 +123,23 @@ func (m *RegistrationWarningModel) UpdateStatus(ctx context.Context, key string,
 		Updates(updates).Error
 }
 
-// DeleteResolved deletes all resolved warnings.
+// DeleteResolved deletes all resolved warnings. Hard delete: the key unique
+// index is physical and Upsert's OnConflict does not clear deleted_at, so a
+// soft-deleted row would swallow every future occurrence of the same warning
+// (updated in place, forever invisible to List).
 func (m *RegistrationWarningModel) DeleteResolved(ctx context.Context) (int64, error) {
 	db := dbctx.Resolve(ctx, m.db).WithContext(ctx)
 
-	result := db.Where("status = ?", "resolved").Delete(&RegistrationWarningDB{})
+	result := db.Unscoped().Where("status = ?", "resolved").Delete(&RegistrationWarningDB{})
 	return result.RowsAffected, result.Error
 }
 
-// ClearByAgent clears all warnings for a specific agent.
+// ClearByAgent clears all warnings for a specific agent. Hard delete — same
+// rationale as DeleteResolved.
 func (m *RegistrationWarningModel) ClearByAgent(ctx context.Context, agentID string) (int64, error) {
 	db := dbctx.Resolve(ctx, m.db).WithContext(ctx)
 
-	result := db.Where("agent_id = ?", agentID).Delete(&RegistrationWarningDB{})
+	result := db.Unscoped().Where("agent_id = ?", agentID).Delete(&RegistrationWarningDB{})
 	return result.RowsAffected, result.Error
 }
 

@@ -196,8 +196,13 @@ func (m *OpenAPISourceBindingModel) ListByScopeAndFunctionID(ctx context.Context
 	return bindings, nil
 }
 
+// Delete removes one binding. Hard delete: the scope+binding unique index is
+// physical, so a soft-deleted row would block re-adding the same binding
+// (Upsert's First filters deleted rows and falls through to Create →
+// duplicate-key 500).
 func (m *OpenAPISourceBindingModel) Delete(ctx context.Context, gameID, env, sourceID, bindingID string) error {
 	return dbctx.Resolve(ctx, m.db).WithContext(ctx).
+		Unscoped().
 		Where("game_id = ? AND env = ? AND source_id = ? AND binding_id = ?", gameID, env, sourceID, bindingID).
 		Delete(&OpenAPISourceBinding{}).Error
 }

@@ -109,9 +109,12 @@ func (m *PageProposalModel) ListByScopeStatusAndResourceKey(ctx context.Context,
 	return proposals, nil
 }
 
-// DeleteByScopeAndKey removes a proposal.
+// DeleteByScopeAndKey removes a proposal. Hard delete: proposals are derived
+// page data — soft-deleted residue rows would otherwise accumulate forever
+// (recreation goes through First + Create, not resurrection of the dead row).
 func (m *PageProposalModel) DeleteByScopeAndKey(ctx context.Context, gameID, env, proposalKey string) error {
 	return dbctx.Resolve(ctx, m.db).WithContext(ctx).
+		Unscoped().
 		Where("game_id = ? AND env = ? AND proposal_key = ?", gameID, env, proposalKey).
 		Delete(&PageProposal{}).Error
 }
@@ -178,8 +181,10 @@ func (m *PageProposalVersionModel) GetNextVersion(ctx context.Context, proposalI
 }
 
 // DeleteByScopeAndPageKey removes all proposals for a page (page cleanup).
+// Hard delete — same rationale as DeleteByScopeAndKey.
 func (m *PageProposalModel) DeleteByScopeAndPageKey(ctx context.Context, gameID, env, pageKey string) error {
 	return dbctx.Resolve(ctx, m.db).WithContext(ctx).
+		Unscoped().
 		Where("game_id = ? AND env = ? AND page_key = ?", gameID, env, pageKey).
 		Delete(&PageProposal{}).Error
 }

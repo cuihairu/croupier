@@ -198,9 +198,12 @@ func (m *PageSpecModel) Upsert(ctx context.Context, ps *PageSpec) error {
 	return db.Save(ps).Error
 }
 
-// Delete removes a page spec by PageIdentity.
+// Delete removes a page spec by PageIdentity. Hard delete: the scope+key
+// unique index is physical, so a soft-deleted row would block recreating the
+// same pageKey with a duplicate-key 500.
 func (m *PageSpecModel) Delete(ctx context.Context, gameID, env, pageKey string) error {
 	return dbctx.Resolve(ctx, m.db).WithContext(ctx).
+		Unscoped().
 		Where("game_id = ? AND env = ? AND page_key = ?", gameID, env, pageKey).
 		Delete(&PageSpec{}).Error
 }
@@ -353,6 +356,8 @@ func (m *PageVersionModel) GetNextVersion(ctx context.Context, gameID, env, page
 
 // DeleteByScopeAndPageKey deletes all published versions of a page
 // (cleanup of obsolete page schemas, e.g. the legacy tab-composite).
+// Hard delete by design: PublishedPageSpec carries no DeletedAt, so the
+// scope+key+version unique index is never occupied by soft-deleted rows.
 func (m *PublishedPageSpecModel) DeleteByScopeAndPageKey(ctx context.Context, gameID, env, pageKey string) error {
 	return dbctx.Resolve(ctx, m.db).WithContext(ctx).
 		Where("game_id = ? AND env = ? AND page_key = ?", gameID, env, pageKey).

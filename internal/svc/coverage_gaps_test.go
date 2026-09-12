@@ -2,6 +2,7 @@ package svc
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	"github.com/DATA-DOG/go-sqlmock"
@@ -311,4 +312,61 @@ func TestComponentTemplateColumnsMigration_LegacyTableShape(t *testing.T) {
 		 VALUES (datetime(), datetime(), 'smoke', '{"zh-CN":"冒烟"}', '[]', 0)`).Error)
 	// 幂等
 	require.NoError(t, migrateComponentTemplateColumns(context.Background(), sqlDB))
+}
+
+// 0024：软删除残留行清理迁移（幂等 + 缺表跳过）。删除路径改硬删后，
+// 存量库里历史软删行仍占着物理唯一索引（同 key 重建 duplicate-key 500，
+// 线上实证 page_specs id=60 / component_templates 5 行）。本用例锁死
+// 五张表的残留清除路径。
+func TestSoftDeleteResidueCleanupMigration(t *testing.T) {
+	db, err := gorm.Open(gsqlite.Open(t.TempDir()+"/m24.db"), &gorm.Config{})
+	require.NoError(t, err)
+	require.NoError(t, db.AutoMigrate(
+		&model.PageSpec{}, &model.PageProposal{},
+		&model.ComponentTemplate{}, &model.OpenAPISourceBinding{}, &model.RegistrationWarningDB{},
+	))
+
+	// 各表塞一行软删残留 + 一行活跃行。
+	require.NoError(t, db.Exec(`INSERT INTO page_specs (created_at, updated_at, deleted_at, game_id, env, page_key, type, spec_json)
+		VALUES (datetime(), datetime(), datetime(), 'demo', 'dev', 'legacy', 'composite', '{}'),
+		(datetime(), datetime(), NULL, 'demo', 'dev', 'live', 'composite', '{}')`).Error)
+	require.NoError(t, db.Exec(`INSERT INTO page_proposals (created_at, updated_at, deleted_at, game_id, env, proposal_key, page_key)
+		VALUES (datetime(), datetime(), datetime(), 'demo', 'dev', 'legacy', 'legacy'),
+		(datetime(), datetime(), NULL, 'demo', 'dev', 'live', 'live')`).Error)
+	require.NoError(t, db.Exec(`INSERT INTO component_templates (created_at, updated_at, deleted_at, key, name, tree, builtin)
+		VALUES (datetime(), datetime(), datetime(), 'legacy', '{}', '[]', 0),
+		(datetime(), datetime(), NULL, 'live', '{}', '[]', 0)`).Error)
+	require.NoError(t, db.Exec(`INSERT INTO openapi_source_bindings (created_at, updated_at, deleted_at, game_id, env, source_id, binding_id, operation_id, kind)
+		VALUES (datetime(), datetime(), datetime(), 'demo', 'dev', 'src', 'legacy', 'op', 'operation'),
+		(datetime(), datetime(), NULL, 'demo', 'dev', 'src', 'live', 'op', 'operation')`).Error)
+	require.NoError(t, db.Exec(`INSERT INTO registration_warnings (created_at, updated_at, deleted_at, key, game_id, env, agent_id, function_id, code, message, status, count, first_seen, last_seen)
+		VALUES (datetime(), datetime(), datetime(), 'legacy', 'demo', 'dev', 'a1', 'f1', 'schema_mismatch', 'm', 'resolved', 1, datetime(), datetime()),
+		(datetime(), datetime(), NULL, 'live', 'demo', 'dev', 'a1', 'f1', 'schema_mismatch', 'm', 'active', 1, datetime(), datetime())`).Error)
+
+	sqlDB, err := db.DB()
+	require.NoError(t, err)
+	require.NoError(t, migrateSoftDeleteResidue(context.Background(), sqlDB))
+
+	// 残留行被物理清除，活跃行保留。
+	for _, table := range []string{
+		"page_specs", "page_proposals",
+		"component_templates", "openapi_source_bindings", "registration_warnings",
+	} {
+		var dead, alive int64
+		require.NoError(t, db.Raw(fmt.Sprintf("SELECT COUNT(*) FROM %s WHERE deleted_at IS NOT NULL", table)).Scan(&dead).Error)
+		require.NoError(t, db.Raw(fmt.Sprintf("SELECT COUNT(*) FROM %s WHERE deleted_at IS NULL", table)).Scan(&alive).Error)
+		assert.Zero(t, dead, table+" 的软删残留应被清除")
+		assert.Equal(t, int64(1), alive, table+" 的活跃行应保留")
+	}
+
+	// 幂等：重复执行不报错。
+	require.NoError(t, migrateSoftDeleteResidue(context.Background(), sqlDB))
+
+	// 缺表库（不含这些模型的库）：跳过不建空壳表。
+	db2, err := gorm.Open(gsqlite.Open(t.TempDir()+"/m24b.db"), &gorm.Config{})
+	require.NoError(t, err)
+	sqlDB2, err := db2.DB()
+	require.NoError(t, err)
+	require.NoError(t, migrateSoftDeleteResidue(context.Background(), sqlDB2))
+	require.False(t, db2.Migrator().HasTable(&model.PageSpec{}))
 }
