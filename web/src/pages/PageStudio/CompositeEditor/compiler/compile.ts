@@ -9,7 +9,7 @@ import {
 } from '@/components/PageRenderer/expression';
 import type { CompiledSection, CompileResult } from './types';
 import { SECTION_KEY_RE, VIEW_MAP } from './types';
-import type { CompiledAction } from './types';
+import type { CompiledAction, CompiledCondition } from './types';
 import { normalizeRowActionParams } from './normalize';
 
 // 纯函数模块无法 useIntl：经 getIntl 求值诊断文案（SelectLang 切语言整页刷新后
@@ -136,6 +136,38 @@ export function compileTree(tree: PageNode[]): CompileResult {
   const sectionKeyOf = (n: PageNode): string | undefined => {
     if (n.type === 'modal') return modalGroup.get(n.id);
     return nodeSectionKey.get(n.id);
+  };
+
+  /** U10 区块级条件显示编译：编辑态 prop visibleWhen {expr,op,value} →
+   * wire 叶子条件 {kind,key,path,value}。表达式拆变量/路径（V5 §6 同款
+   * 解析）；未知变量/行上下文 → 警告并忽略（不产出半残条件）。 */
+  const compileVisibleWhen = (node: PageNode): CompiledCondition | undefined => {
+    const raw = node.props.visibleWhen as
+      { expr?: unknown; op?: unknown; value?: unknown } | undefined;
+    const expr = typeof raw?.expr === 'string' ? raw.expr.trim() : '';
+    if (!raw || !expr) return undefined;
+    const op = raw.op === 'notEquals' || raw.op === 'exists' ? raw.op : 'equals';
+    const parsed = parseExpression(expr, sectionKeySet);
+    if (!parsed.ok || parsed.ref.variable === ROW_VARIABLE) {
+      warnings.push(
+        intl.formatMessage(
+          {
+            id: 'pages.pageStudio.compiler.warning.visibleWhenInvalid',
+            defaultMessage:
+              '区块「{title}」的显示条件表达式「{expr}」引用未知变量或行上下文，已忽略',
+          },
+          { title: String(node.props.title ?? node.id), expr },
+        ),
+      );
+      return undefined;
+    }
+    const cond: CompiledCondition = {
+      kind: op,
+      key: parsed.ref.variable,
+      path: pathToPointer(parsed.ref.path),
+      ...(op !== 'exists' ? { value: typeof raw.value === 'string' ? raw.value : '' } : {}),
+    };
+    return cond;
   };
 
   /** 动作链编译：节点 id 引用 → section key/group 引用；params 透传。 */
@@ -315,6 +347,9 @@ export function compileTree(tree: PageNode[]): CompileResult {
       ? (node.props.refreshOn as unknown[]).map(String).filter(Boolean)
       : [];
     if (staticRefreshOn.length) section.refreshOn = staticRefreshOn;
+    // U10 条件显示（inline/tab；static 不会是 dialog）
+    const cond = compileVisibleWhen(node);
+    if (cond) section.visibleWhen = cond;
     sections.push(section as unknown as (typeof sections)[number]);
   };
 
@@ -393,6 +428,12 @@ export function compileTree(tree: PageNode[]): CompileResult {
       }
     }
     if (refreshOnKeys.length > 0) section.refreshOn = refreshOnKeys;
+
+    // U10 区块级条件显示：dialog 区块不参与（弹窗由动作显式触发）
+    if (display !== 'dialog') {
+      const cond = compileVisibleWhen(node);
+      if (cond) section.visibleWhen = cond;
+    }
 
     // 显式参数映射：sourceNodeId → section key（与 refreshOnNode 同机制）
     const rawMappings = Array.isArray(node.props.inputAssignments)

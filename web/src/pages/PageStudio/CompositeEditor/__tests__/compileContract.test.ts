@@ -22,6 +22,7 @@ const SECTION_ALLOWED_KEYS = [
   'inputAssignments',
   'display',
   'tab',
+  'visibleWhen',
   'rowActions',
   'toolbarActions',
   'onSuccessRefresh',
@@ -158,7 +159,14 @@ function buildFullTree(): PageNode[] {
   const fields: PageNode = {
     id: 'fld1',
     type: 'fnFields',
-    props: { sectionKey: 'playerGetFields', functionId: 'player.get', title: '玩家详情', span: 24 },
+    props: {
+      sectionKey: 'playerGetFields',
+      functionId: 'player.get',
+      title: '玩家详情',
+      span: 24,
+      // U10 区块级条件显示：编辑态 {expr,op,value} 编译为 wire 叶子条件
+      visibleWhen: { expr: '{{filterForm.values.mode}}', op: 'equals', value: 'advanced' },
+    },
   };
   const table2: PageNode = {
     id: 'tbl2',
@@ -327,6 +335,14 @@ describe('compileTree ↔ CompositeSectionRequest 字段面对齐', () => {
       'player.list',
     ]);
 
+    // U10 显示条件：表达式拆 key/path + 运算符/值如实编译
+    expect(byKey['playerGetFields'].visibleWhen).toEqual({
+      kind: 'equals',
+      key: 'filterForm',
+      path: '/values/mode',
+      value: 'advanced',
+    });
+
     // V2 页签容器：页内区块平铺 display=tab + group + tab；页内按钮挂
     // 页内表格 toolbar；staticForm 落为 tab 区块
     const vipTable = byKey['vipListTable'];
@@ -369,5 +385,9 @@ describe('compileTree ↔ CompositeSectionRequest 字段面对齐', () => {
     expect(tAfter?.events).toEqual(tBefore?.events);
     expect(tAfter?.toolbarActions).toEqual(tBefore?.toolbarActions);
     expect(tAfter?.refreshOn).toEqual(tBefore?.refreshOn);
+    // U10 显示条件 round-trip 稳定
+    const fBefore = sections.find((s) => s.key === 'playerGetFields');
+    const fAfter = again.find((s) => s.key === 'playerGetFields');
+    expect(fAfter?.visibleWhen).toEqual(fBefore?.visibleWhen);
   });
 });

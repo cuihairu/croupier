@@ -73,6 +73,35 @@ export function decompileToTree(sections: SpecSectionLike[]): [PageNode[], strin
     page.children = [...(page.children ?? []), node];
   };
 
+  /** U10 回读：spec 叶子条件 → 编辑态 prop {expr,op,value}（key+path 还原
+   * 为表达式字面值，同参数映射 V5 多段路径模式）。嵌套组合条件编辑器不
+   * 产出——降级为警告丢弃（不静默）。 */
+  const conditionPropOf = (sec: SpecSectionLike): Record<string, unknown> | undefined => {
+    const c = sec.visibleWhen;
+    if (!c) return undefined;
+    const key = String(c.key ?? '');
+    const path = typeof c.path === 'string' ? c.path : '';
+    if ((c.kind !== 'equals' && c.kind !== 'notEquals' && c.kind !== 'exists') || !key || !path) {
+      warnings.push(
+        intl.formatMessage(
+          {
+            id: 'pages.pageStudio.compiler.warning.visibleWhenUnmappable',
+            defaultMessage: '区块「{key}」的显示条件无法还原为编辑器形态，已丢弃',
+          },
+          { key: String(sec.key ?? '') },
+        ),
+      );
+      return undefined;
+    }
+    const segs = pointerToPath(path);
+    const dots = segs.map((s) => (typeof s === 'number' ? `[${s}]` : `.${s}`)).join('');
+    return {
+      expr: `{{${key}${dots}}}`,
+      op: c.kind,
+      ...(c.kind !== 'exists' ? { value: String(c.value ?? '') } : {}),
+    };
+  };
+
   for (const sec of sections) {
     // 常量表单（static）：还原为 staticForm 节点（schema 从 form.jsonSchema）
     if (sec.static === true) {
@@ -86,6 +115,8 @@ export function decompileToTree(sections: SpecSectionLike[]): [PageNode[], strin
           span: Number(sec.span ?? 12) || 12,
           staticSchema: JSON.stringify(schema ?? { type: 'object', properties: {} }, null, 2),
           refreshOn: sec.refreshOn ?? [],
+          // U10 条件显示回读（inline/tab staticForm）
+          ...(conditionPropOf(sec) ? { visibleWhen: conditionPropOf(sec) } : {}),
           // 固化区块 key（round-trip 稳定，U5）
           sectionKey: key,
         },
@@ -116,6 +147,8 @@ export function decompileToTree(sections: SpecSectionLike[]): [PageNode[], strin
       span: Number(sec.span ?? 24) || 24,
       autoRun: sec.autoRun === true,
       onSuccessRefresh: undefined,
+      // U10 条件显示回读（仅 inline/tab 语义；dialog 区块 spec 不带该字段）
+      ...(conditionPropOf(sec) ? { visibleWhen: conditionPropOf(sec) } : {}),
       // 固化区块 key（round-trip 稳定，U5）
       sectionKey: key,
     };

@@ -146,8 +146,14 @@ type ValidationRule struct {
 // ConditionSpec is a restricted expression for presentation visibility. It
 // cannot read row/detail data or invoke functions.
 type ConditionSpec struct {
-	Kind       string          `json:"kind"` // equals|notEquals|exists|all|any
-	Path       string          `json:"path,omitempty"`
+	Kind string `json:"kind"` // equals|notEquals|exists|all|any
+	// Path 求值路径：表单字段级条件（Form.Hints）为表单内相对路径；
+	// 区块级条件（CompositeSection.VisibleWhen）须配合 Key 使用。
+	Path string `json:"path,omitempty"`
+	// Key 来源区块标识（区块级条件专用）：非空时从页面状态 results[key]
+	// 按 Path 取值求值（key=区块 key，同 page_state 联动寻址）；空=表单
+	// 内相对路径（字段级 visibleWhen 原语义，additive 不影响既有数据）。
+	Key        string          `json:"key,omitempty"`
 	Value      json.RawMessage `json:"value,omitempty"`
 	Conditions []ConditionSpec `json:"conditions,omitempty"`
 }

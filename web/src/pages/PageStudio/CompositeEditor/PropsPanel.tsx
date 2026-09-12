@@ -12,6 +12,7 @@ import ActionEditor from './ActionEditor';
 import RowActionsEditor from './RowActionsEditor';
 import ParamMappingEditor, { type InputAssignment } from './ParamMappingEditor';
 import ConstantFieldsEditor from './ConstantFieldsEditor';
+import ConditionEditor, { type VisibleWhenProp } from './ConditionEditor';
 import { schemaProperties } from './types';
 
 const { Text } = Typography;
@@ -92,6 +93,7 @@ export default function PropsPanel({
   const props = (schema.properties ?? {}) as Record<string, JSONSchema>;
   const fmt = (k: string) => (props[k] as { format?: string })?.format;
   const staticSchemaKeys = Object.keys(props).filter((k) => fmt(k) === 'staticSchema');
+  const conditionKeys = Object.keys(props).filter((k) => fmt(k) === 'condition');
   const plainKeys = Object.keys(props).filter((k) => !fmt(k));
   const rowActionsKeys = Object.keys(props).filter((k) => fmt(k) === 'rowActions');
   const events = def.events ?? [];
@@ -181,6 +183,23 @@ export default function PropsPanel({
                     />
                   </div>
                 )}
+                {conditionKeys.map((key) => (
+                  <div key={key} style={{ marginBottom: 12 }}>
+                    <Typography.Text
+                      type="secondary"
+                      style={{ fontSize: 11, display: 'block', marginBottom: 4 }}
+                    >
+                      {(props[key] as { title?: string })?.title ?? key}
+                    </Typography.Text>
+                    <ConditionEditor
+                      value={node.props[key] as VisibleWhenProp | undefined}
+                      onChange={(v) => onPatch({ [key]: v })}
+                      nodes={nodes}
+                      selfId={node.id}
+                      fnById={fnById}
+                    />
+                  </div>
+                ))}
                 {plainKeys.length > 0 && (
                   <SchemaFormRenderer
                     spec={{ jsonSchema: plainSchema, layout: 'vertical' }}

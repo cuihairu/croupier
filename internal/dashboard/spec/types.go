@@ -581,6 +581,10 @@ type CompositeSection struct {
 	// Events 通用事件绑定（编辑器全组件事件的发布触发点）：
 	// rowClick/rowSelected（table）、success/error（form）、click（fields/text）。
 	Events []CompositeEventBinding `json:"events,omitempty"`
+	// VisibleWhen 区块级条件显示（可选）：按页面状态（区块 key 寻址）
+	// 求值，false 时区块不渲染（执行不变——autoRun/refreshOn 照常）。
+	// 仅 inline/tab 区块参与；dialog 区块忽略。
+	VisibleWhen *ConditionSpec `json:"visibleWhen,omitempty"`
 }
 
 // CompositeEventBinding 事件绑定：事件名 → 动作步骤（含参数来源）。

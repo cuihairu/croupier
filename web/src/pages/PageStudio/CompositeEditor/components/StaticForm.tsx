@@ -4,7 +4,7 @@ import { getIntl, useIntl } from '@umijs/max';
 import { registerComponent } from '../registry';
 import type { ComponentDef } from '../registry';
 import type { PageNode } from '../model';
-import { spanSchema } from './shared';
+import { spanSchema, visibleWhenSchema } from './shared';
 
 const { Text } = Typography;
 
@@ -54,6 +54,7 @@ export const staticFormDef: ComponentDef = {
         }),
         default: DEFAULT_STATIC_SCHEMA,
       },
+      visibleWhen: visibleWhenSchema(),
     },
   }),
   scaffold: () => ({ title: '常量表单', span: 12, staticSchema: DEFAULT_STATIC_SCHEMA }),

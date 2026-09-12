@@ -1,6 +1,7 @@
 package generator
 
 import (
+	"encoding/json"
 	"strings"
 	"testing"
 
@@ -213,5 +214,48 @@ func TestCompositeEventsChainPassthrough(t *testing.T) {
 	ra := sec.Table.RowActions[0]
 	if len(ra.Chain) != 1 || ra.Chain[0].Params["playerId"] != "row.uid" {
 		t.Fatalf("rowAction chain params lost: %+v", ra.Chain)
+	}
+}
+
+// TestCompositeVisibleWhenPassthrough U10 区块级条件显示：visibleWhen
+// 从 Input 透传到发布 spec（渲染端 sectionVisible 消费；漏传=条件失效）。
+func TestCompositeVisibleWhenPassthrough(t *testing.T) {
+	contracts := []*model.FunctionContract{
+		{
+			FunctionID:   "player.list",
+			ResourceKey:  "player",
+			Capability:   dbenum.CapabilityCollectionQuery,
+			Execution:    string(spec.FunctionExecutionSync),
+			InputSchema:  model.JSON(`{"type":"object","properties":{"playerId":{"type":"string"}}}`),
+			OutputSchema: model.JSON(`{"type":"object","properties":{"items":{"type":"array","items":{"type":"object"}},"total":{"type":"integer"}}}`),
+		},
+	}
+	cond := &spec.ConditionSpec{
+		Kind:  "equals",
+		Key:   "filter-panel",
+		Path:  "/values/mode",
+		Value: json.RawMessage(`"advanced"`),
+	}
+	inputs := []CompositeSectionInput{
+		{FunctionID: "player.list", View: "table", VisibleWhen: cond},
+		{FunctionID: "player.list", View: "table", Key: "vip.rank"},
+	}
+	generated, ok := GenerateCompositePage("k", inputs, contracts, DefaultGenerateOptions())
+	if !ok {
+		t.Fatal("generate failed")
+	}
+	byKey := map[string]spec.CompositeSection{}
+	for _, sec := range generated.PageSpec.Composite.Sections {
+		byKey[sec.Key] = sec
+	}
+	got := byKey["player.list"].VisibleWhen
+	if got == nil {
+		t.Fatal("visibleWhen lost")
+	}
+	if got.Kind != "equals" || got.Key != "filter-panel" || got.Path != "/values/mode" || string(got.Value) != `"advanced"` {
+		t.Fatalf("visibleWhen wrong: %+v", got)
+	}
+	if byKey["vip.rank"].VisibleWhen != nil {
+		t.Fatalf("unconditional section should not carry visibleWhen: %+v", byKey["vip.rank"].VisibleWhen)
 	}
 }

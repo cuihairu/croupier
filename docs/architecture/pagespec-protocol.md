@@ -64,6 +64,9 @@ interface FormFieldSpec {
 interface ConditionSpec {
   kind: "equals" | "notEquals" | "exists" | "all" | "any";
   path?: string; // 当前表单或 page state 的指针
+  key?: string; // 区块级条件专用：来源区块 key（非空时从页面状态
+  // results[key] 按 path 取值，如 /values/mode、/data/total；
+  // 空 = 表单内相对路径，字段级 visibleWhen 原语义）
   value?: JSONValue; // equals/notEquals 的比较值
   conditions?: ConditionSpec[]; // all/any 的子条件
 }
@@ -161,6 +164,7 @@ refreshOn/动作链消费。发布校验：static 区块禁止携带 bindingId�
 - `onSuccessRefresh`：表单提交成功后自动重跑的区块 key
 - `events`：通用事件绑定（`rowClick`/`rowSelected`/`success`/`error`/`click` → 动作 + 链）；动作 kind：`runBinding`/`refreshNode`/`openModal`/`closeModal`/`navigate`/`showMessage`；步骤 `params` 支持来源引用（`"区块key.字段"`、`"row.字段"`、字面量）
 - `refreshOn`：page_state 联动——上游区块 key 变化自动重跑，上游输出顶层字段同名合并进本区块输入
+- `visibleWhen`：**区块级条件显示**（U10）——`ConditionSpec` 叶子必填 `key`（来源区块），从页面状态 `results[key]` 按 `path`（`/values/字段`、`/data/字段`、`/selectedRow/字段`）取值求值；false 的 inline/tab 区块不渲染但执行照常（autoRun/refreshOn 不受影响）；支持嵌套 `all`/`any`（深度 ≤4）；发布校验 key ∈ 页面区块、path 为 JSON Pointer、equals/notEquals 带 value；dialog 区块不参与（弹窗由动作显式触发）
 
 ## 数据引用和 mapping（Selector AST）
 
@@ -304,7 +308,7 @@ interface NavigationSpec {
 }
 ```
 
-PageProposal 根据 resource/page key 提供默认值；PageDraft 保存最终值；PublishedPageSpec 是 Console 动态菜单的唯一来源。静态 locale 与字典都不得成为动态页面事实源。`ConditionSpec` 只读取当前表单或 page state，禁止通过可见性条件访问 row、详情、外部函数或任意 JSONPath，以保证保存、发布和运行时具有一致语义。
+PageProposal 根据 resource/page key 提供默认值；PageDraft 保存最终值；PublishedPageSpec 是 Console 动态菜单的唯一来源。静态 locale 与字典都不得成为动态页面事实源。`ConditionSpec` 只读取当前表单或 page state（区块级经 `key` 读页面状态 `results[key]`——表单当前值/函数输出/表格选中，同属 page state 投影），禁止通过可见性条件访问 row、详情、外部函数或任意 JSONPath，以保证保存、发布和运行时具有一致语义。
 
 ## 组件模板 API（相关 wire 契约）
 

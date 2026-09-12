@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"math"
 	"testing"
 
@@ -237,6 +238,85 @@ func TestCreateCompositeProposal_TabPassthrough(t *testing.T) {
 	}
 	if got := staticSec.Tab["zh-CN"]; got != "筛选页" {
 		t.Fatalf("static section tab = %q, want 筛选页", got)
+	}
+}
+
+// TestCreateCompositeProposal_VisibleWhenPassthrough U10 区块级条件显示：
+// visibleWhen 必须透传到生成 spec（fn 区块经生成器、static 区块在 service
+// 手动落位）——渲染端 sectionVisible 按叶子 key+path 求值，漏传会让条件
+// 区块恒显/恒隐。
+func TestCreateCompositeProposal_VisibleWhenPassthrough(t *testing.T) {
+	db, err := gorm.Open(sqlite.Open(t.TempDir()+"/visible-when.db"), &gorm.Config{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := db.AutoMigrate(
+		&model.FunctionContract{},
+		&model.CapabilitySemantics{},
+		&model.PageProposal{},
+		&model.PageProposalVersion{},
+		&model.TermDictionary{},
+		&model.ResourceCapability{},
+		&model.CapabilitySemanticVersion{},
+		&model.BlockedProposalIssue{},
+	); err != nil {
+		t.Fatal(err)
+	}
+	svc := NewContractService(db)
+
+	ctx := context.Background()
+	if err := svc.RebuildContractFromFunctionMeta(ctx, "demo_game", "development", "agent-1", spec.FunctionContractInput{ID: "player.get", Resource: "player", Capability: "item_query", Execution: "sync", Enabled: true, InputSchema: `{"type":"object","properties":{"id":{"type":"string"}}}`, OutputSchema: `{"type":"object","properties":{"player":{"type":"object"}}}`}); err != nil {
+		t.Fatal(err)
+	}
+
+	cond := &spec.ConditionSpec{
+		Kind:  "equals",
+		Key:   "filter-panel",
+		Path:  "/values/mode",
+		Value: json.RawMessage(`"advanced"`),
+	}
+	proposal, err := svc.CreateCompositeProposal(ctx, "demo_game", "development", "composite--visible-when", []CompositeSectionRequest{
+		{
+			Key: "player.get", FunctionID: "player.get", View: "fields",
+			VisibleWhen: cond,
+		},
+		{
+			Key: "filter-panel", Static: true, View: "form", Title: "筛选",
+			Form:        &spec.FormPresentationSpec{JSONSchema: spec.JSONSchema(`{"type":"object","properties":{"mode":{"type":"string"}}}`)},
+			VisibleWhen: &spec.ConditionSpec{Kind: "exists", Key: "player.get", Path: "/data/player"},
+		},
+	})
+	if err != nil {
+		t.Fatalf("create failed: %v", err)
+	}
+
+	var page spec.PageSpec
+	if err := jsonUnmarshalV9(proposal.PageSpec, &page); err != nil {
+		t.Fatalf("unmarshal pageSpec: %v", err)
+	}
+	if len(page.Composite.Sections) != 2 {
+		t.Fatalf("sections = %+v", page.Composite.Sections)
+	}
+	byKey := map[string]spec.CompositeSection{}
+	for _, s := range page.Composite.Sections {
+		byKey[s.Key] = s
+	}
+	fnCond := byKey["player.get"].VisibleWhen
+	if fnCond == nil {
+		t.Fatal("fn section visibleWhen lost")
+	}
+	if fnCond.Kind != "equals" || fnCond.Key != "filter-panel" || fnCond.Path != "/values/mode" {
+		t.Fatalf("fn section condition wrong: %+v", fnCond)
+	}
+	if string(fnCond.Value) != `"advanced"` {
+		t.Fatalf("fn section condition value = %s", fnCond.Value)
+	}
+	staticCond := byKey["filter-panel"].VisibleWhen
+	if staticCond == nil {
+		t.Fatal("static section visibleWhen lost")
+	}
+	if staticCond.Kind != "exists" || staticCond.Key != "player.get" || staticCond.Path != "/data/player" {
+		t.Fatalf("static section condition wrong: %+v", staticCond)
 	}
 }
 

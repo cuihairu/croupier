@@ -515,6 +515,134 @@ describe('compileTree V2：页签容器（tabs）', () => {
   });
 });
 
+describe('compileTree U10：区块级条件显示（visibleWhen）', () => {
+  it('inline 区块：表达式+运算符+值编译为叶子条件（key/path 拆分）', () => {
+    const filter = fn('fnForm', 'query.filter', {
+      sectionKey: 'filterPanel',
+      display: 'inline',
+    });
+    const table = fn('fnTable', 'player.list', {
+      sectionKey: 'vipTable',
+      visibleWhen: { expr: '{{filterPanel.values.mode}}', op: 'equals', value: 'advanced' },
+    });
+    const { sections, warnings } = compileTree([filter, table]);
+    expect(warnings).toEqual([]);
+    expect(sections.find((s) => s.key === 'vipTable')?.visibleWhen).toEqual({
+      kind: 'equals',
+      key: 'filterPanel',
+      path: '/values/mode',
+      value: 'advanced',
+    });
+    // 无条件区块不带字段
+    expect(sections.find((s) => s.key === 'filterPanel')?.visibleWhen).toBeUndefined();
+  });
+
+  it('exists 不带 value；notEquals 如实保留', () => {
+    const t1 = fn('fnFields', 'player.get', {
+      visibleWhen: { expr: '{{q.values.kw}}', op: 'exists' },
+    });
+    const t2 = fn('fnFields', 'order.list', {
+      visibleWhen: { expr: '{{q.values.env}}', op: 'notEquals', value: 'prod' },
+    });
+    const q = fn('fnForm', 'q.x', { sectionKey: 'q' });
+    const { sections, warnings } = compileTree([q, t1, t2]);
+    expect(warnings).toEqual([]);
+    expect(sections.find((s) => s.key === 'player.get')?.visibleWhen).toEqual({
+      kind: 'exists',
+      key: 'q',
+      path: '/values/kw',
+    });
+    expect(sections.find((s) => s.key === 'order.list')?.visibleWhen).toEqual({
+      kind: 'notEquals',
+      key: 'q',
+      path: '/values/env',
+      value: 'prod',
+    });
+  });
+
+  it('未知变量或行上下文表达式 → 警告并忽略（不产出半残条件）', () => {
+    const a = fn('fnTable', 'player.list', {
+      visibleWhen: { expr: '{{ghost.values.mode}}', op: 'equals', value: 'x' },
+    });
+    const b = fn('fnTable', 'order.list', {
+      visibleWhen: { expr: '{{row.uid}}', op: 'equals', value: 'x' },
+    });
+    const { sections, warnings } = compileTree([a, b]);
+    expect(warnings.some((w) => w.includes('ghost'))).toBe(true);
+    expect(warnings.some((w) => w.includes('row.uid'))).toBe(true);
+    expect(sections.every((s) => s.visibleWhen === undefined)).toBe(true);
+  });
+
+  it('dialog 区块不携带条件（弹窗由动作显式触发，不参与显隐）', () => {
+    const table = fn('fnTable', 'player.list', { autoRun: true });
+    const modal: PageNode = {
+      id: 'M-VW',
+      type: 'modal',
+      props: { title: '操作' },
+      children: [
+        fn('fnForm', 'mail.send', {
+          visibleWhen: { expr: '{{player.list.values.x}}', op: 'equals', value: '1' },
+        }),
+      ],
+    };
+    const { sections } = compileTree([table, modal]);
+    expect(sections.find((s) => s.display === 'dialog')?.visibleWhen).toBeUndefined();
+  });
+
+  it('回读：spec 叶子条件还原为编辑态表达式（round-trip 无损）', async () => {
+    const { decompileToTree } = await import('../compiler');
+    const [nodes] = decompileToTree([
+      { key: 'filterPanel', functionId: 'query.filter', view: 'form', title: 'f', span: 12 },
+      {
+        key: 'vipTable',
+        functionId: 'player.list',
+        view: 'table',
+        title: 't',
+        span: 24,
+        visibleWhen: { kind: 'equals', key: 'filterPanel', path: '/values/mode', value: 'adv' },
+      },
+    ] as unknown as Parameters<typeof decompileToTree>[0][number]);
+    const restored = nodes.find((n) => n.type === 'fnTable')?.props.visibleWhen as {
+      expr: string;
+      op: string;
+      value: string;
+    };
+    expect(restored).toEqual({ expr: '{{filterPanel.values.mode}}', op: 'equals', value: 'adv' });
+    // 再编译 → 与原 spec 条件等价
+    const { sections } = compileTree(nodes);
+    expect(sections.find((s) => s.key === 'vipTable')?.visibleWhen).toEqual({
+      kind: 'equals',
+      key: 'filterPanel',
+      path: '/values/mode',
+      value: 'adv',
+    });
+  });
+
+  it('回读：嵌套组合或残缺条件 → 警告丢弃（不静默）', async () => {
+    const { decompileToTree } = await import('../compiler');
+    const [nodes, warnings] = decompileToTree([
+      {
+        key: 't1',
+        functionId: 'a.list',
+        view: 'table',
+        title: 't1',
+        span: 24,
+        visibleWhen: { kind: 'all' },
+      },
+      {
+        key: 't2',
+        functionId: 'b.list',
+        view: 'table',
+        title: 't2',
+        span: 24,
+        visibleWhen: { kind: 'equals', path: '/values/mode' },
+      },
+    ] as unknown as Parameters<typeof decompileToTree>[0][number]);
+    expect(warnings.some((w) => w.includes('显示条件无法还原'))).toBe(true);
+    expect(nodes.every((n) => n.props.visibleWhen === undefined)).toBe(true);
+  });
+});
+
 describe('编译警告：行操作嵌套行路径 / 参数映射失效（不再静默）', () => {
   it('{{row.a.b}} 多段行路径发布后无法求值 → 警告并按字面量保留；单段仍编译为 row.字段', () => {
     const table = fn('fnTable', 'player.list', {

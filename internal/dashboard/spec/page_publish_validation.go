@@ -39,11 +39,16 @@ func validatePublishableCompositePage(comp *CompositePageSpec) []Diagnostic {
 		return []Diagnostic{publishShapeDiagnostic("composite_empty", "composite page must contain at least one section", "composite.sections")}
 	}
 	validViews := map[string]bool{"table": true, "fields": true, "form": true, "actions": true}
+	sectionKeys := make(map[string]bool, len(comp.Sections))
+	for _, sec := range comp.Sections {
+		sectionKeys[strings.TrimSpace(sec.Key)] = true
+	}
 	for i, sec := range comp.Sections {
 		field := fmt.Sprintf("composite.sections[%d]", i)
 		if strings.TrimSpace(sec.Key) == "" {
 			diags = append(diags, publishShapeDiagnostic("composite_section_key_missing", "section key is required", field+".key"))
 		}
+		diags = append(diags, validateSectionCondition(sec.VisibleWhen, sectionKeys, field+".visibleWhen")...)
 		// 常量表单（static）：无绑定不执行，值仅进页面状态；必须有表单 schema。
 		if sec.Static {
 			if strings.TrimSpace(sec.BindingID) != "" {
@@ -356,6 +361,53 @@ func validateOutputStateKeyAnyShape(binding PageFunctionBinding, stateKey string
 
 func publishShapeDiagnostic(code string, message string, field string) Diagnostic {
 	return Diagnostic{Code: code, Severity: SeverityError, Message: message, Field: field}
+}
+
+// validateSectionCondition 校验区块级条件显示（CompositeSection.VisibleWhen）：
+// kind 合法、叶子条件 path 为 JSON Pointer 且 key 引用页面内存在的区块、
+// equals/notEquals 必带 value、嵌套深度上限 4（与前端编辑器一致）。
+func validateSectionCondition(cond *ConditionSpec, sectionKeys map[string]bool, field string) []Diagnostic {
+	return validateConditionNode(cond, sectionKeys, field, 0)
+}
+
+func validateConditionNode(cond *ConditionSpec, sectionKeys map[string]bool, field string, depth int) []Diagnostic {
+	if cond == nil || depth > 4 {
+		return nil
+	}
+	switch cond.Kind {
+	case "equals", "notEquals":
+		if len(cond.Value) == 0 {
+			return []Diagnostic{publishShapeDiagnostic("section_condition_value_missing", "equals/notEquals condition requires value", field)}
+		}
+		return validateConditionLeaf(cond, sectionKeys, field)
+	case "exists":
+		return validateConditionLeaf(cond, sectionKeys, field)
+	case "all", "any":
+		if len(cond.Conditions) == 0 {
+			return []Diagnostic{publishShapeDiagnostic("section_condition_children_missing", "all/any condition requires non-empty conditions", field)}
+		}
+		var diags []Diagnostic
+		for i, child := range cond.Conditions {
+			diags = append(diags, validateConditionNode(&child, sectionKeys, field+".conditions["+strconv.Itoa(i)+"]", depth+1)...)
+		}
+		return diags
+	default:
+		return []Diagnostic{publishShapeDiagnostic("section_condition_kind_invalid", "condition kind must be equals|notEquals|exists|all|any", field)}
+	}
+}
+
+func validateConditionLeaf(cond *ConditionSpec, sectionKeys map[string]bool, field string) []Diagnostic {
+	if !isJSONPointer(cond.Path) {
+		return []Diagnostic{publishShapeDiagnostic("section_condition_path_invalid", "condition path must be a JSON Pointer", field+".path")}
+	}
+	key := strings.TrimSpace(cond.Key)
+	if key == "" {
+		return []Diagnostic{publishShapeDiagnostic("section_condition_key_missing", "section-level condition requires key referencing the source section", field+".key")}
+	}
+	if !sectionKeys[key] {
+		return []Diagnostic{publishShapeDiagnostic("section_condition_key_invalid", "condition key must reference a section on the page", field+".key")}
+	}
+	return nil
 }
 
 func hasDefaultLocale(labels LocalizedText) bool {

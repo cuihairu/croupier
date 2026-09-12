@@ -67,6 +67,76 @@ func TestValidatePublishableCompositePage(t *testing.T) {
 	assert.True(t, codes2["composite_section_table_missing"])
 }
 
+// U10 区块级条件显示：validateSectionCondition 的叶子/嵌套/key 引用校验。
+func TestValidatePublishableCompositePageSectionCondition(t *testing.T) {
+	// 两个区块：条件引用同页另一区块 key → 合法
+	valid := &CompositePageSpec{
+		Sections: []CompositeSection{
+			{Key: "filter", BindingID: "bf", View: "form"},
+			{
+				Key:       "vipTable",
+				BindingID: "bt",
+				View:      "table",
+				Table:     &CompositeTableSpec{Columns: []ColumnSpec{{Key: "id", DataType: "string"}}},
+				VisibleWhen: &ConditionSpec{
+					Kind:  "equals",
+					Key:   "filter",
+					Path:  "/values/mode",
+					Value: json.RawMessage(`"advanced"`),
+				},
+			},
+		},
+	}
+	assert.Empty(t, validatePublishableCompositePage(valid))
+
+	// exists 不需要 value；嵌套 all/any 递归校验
+	nested := &CompositePageSpec{
+		Sections: []CompositeSection{
+			{Key: "filter", BindingID: "bf", View: "form"},
+			{Key: "t2", BindingID: "bt", View: "form", VisibleWhen: &ConditionSpec{
+				Kind: "all",
+				Conditions: []ConditionSpec{
+					{Kind: "exists", Key: "filter", Path: "/values/mode"},
+					{Kind: "any", Conditions: []ConditionSpec{
+						{Kind: "notEquals", Key: "filter", Path: "/values/env", Value: json.RawMessage(`"prod"`)},
+					}},
+				},
+			}},
+		},
+	}
+	assert.Empty(t, validatePublishableCompositePage(nested))
+
+	// 违规矩阵：kind 非法 / equals 缺 value / path 非 Pointer / key 缺失 / key 不在页面
+	bad := &CompositePageSpec{
+		Sections: []CompositeSection{
+			{Key: "filter", BindingID: "bf", View: "form"},
+			{Key: "s1", BindingID: "b1", View: "form", VisibleWhen: &ConditionSpec{Kind: "bogus"}},
+			{Key: "s2", BindingID: "b2", View: "form", VisibleWhen: &ConditionSpec{Kind: "equals", Key: "filter", Path: "/values/mode"}},
+			{Key: "s3", BindingID: "b3", View: "form", VisibleWhen: &ConditionSpec{Kind: "exists", Key: "filter", Path: "values/mode"}},
+			{Key: "s4", BindingID: "b4", View: "form", VisibleWhen: &ConditionSpec{Kind: "exists", Path: "/values/mode"}},
+			{Key: "s5", BindingID: "b5", View: "form", VisibleWhen: &ConditionSpec{Kind: "exists", Key: "ghost", Path: "/values/mode"}},
+		},
+	}
+	diags := validatePublishableCompositePage(bad)
+	codes := map[string]bool{}
+	for _, d := range diags {
+		codes[d.Code] = true
+	}
+	assert.True(t, codes["section_condition_kind_invalid"])
+	assert.True(t, codes["section_condition_value_missing"])
+	assert.True(t, codes["section_condition_path_invalid"])
+	assert.True(t, codes["section_condition_key_missing"])
+	assert.True(t, codes["section_condition_key_invalid"])
+
+	// all 空子条件 → children_missing
+	emptyAll := &CompositePageSpec{
+		Sections: []CompositeSection{{Key: "s", BindingID: "b", View: "form", VisibleWhen: &ConditionSpec{Kind: "all"}}},
+	}
+	diags2 := validatePublishableCompositePage(emptyAll)
+	require.NotEmpty(t, diags2)
+	assert.Equal(t, "section_condition_children_missing", diags2[0].Code)
+}
+
 func TestLocalizedTextJSONRoundTrip(t *testing.T) {
 	lt := LocalizedText{"zh-CN": "你好", "en-US": "hello"}
 

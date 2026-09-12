@@ -39,6 +39,8 @@ type CompositeSectionInput struct {
 	OnSuccess  []string
 	// Events 通用事件绑定（发布触发点）。
 	Events []spec.CompositeEventBinding
+	// VisibleWhen 区块级条件显示（按页面状态求值，false 时不渲染）。
+	VisibleWhen *spec.ConditionSpec
 	// InputAssignments 显式参数映射（覆盖自动映射的同名 target）。
 	InputAssignments []spec.InputAssignment
 }
@@ -129,6 +131,9 @@ func GenerateCompositePage(
 		if t := strings.TrimSpace(in.Tab); t != "" {
 			section.Tab = spec.LocalizedText{locale: t}
 		}
+		// 区块级条件显示（编辑器透传，生成器不做语义校验——发布校验统一
+		// 在 validatePublishableCompositePage）。
+		section.VisibleWhen = in.VisibleWhen
 		if len(in.Toolbar) > 0 {
 			tb := &spec.CompositeToolbarSpec{}
 			for _, ta := range in.Toolbar {

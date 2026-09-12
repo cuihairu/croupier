@@ -432,6 +432,10 @@ export interface CompositeSection {
   }>;
   /** 通用事件绑定（发布触发点）：rowClick/rowSelected/success/error/click。 */
   events?: CompositeEventBinding[];
+  /** 区块级条件显示（U10）：按页面状态（ConditionSpec.key=来源区块 key）
+   * 求值，false 时不渲染该区块（执行不变——autoRun/refreshOn 照常）。
+   * 仅 inline/tab 区块参与；dialog 区块忽略。 */
+  visibleWhen?: ConditionSpec;
   /** 操作成功后自动重跑的区块 key 列表。 */
   onSuccessRefresh?: string[];
   table?: {
@@ -780,11 +784,12 @@ export interface FormFieldSpec {
   validationRules?: ValidationRule[];
 }
 
-/** 字段显示条件 */
+/** 字段显示条件（key=区块级条件来源区块标识：非空时按页面状态
+ * results[key] 寻址求值；空=表单内相对路径——字段级原语义） */
 export type ConditionSpec =
-  | { kind: 'equals'; path: JsonPointer; value: JSONValue }
-  | { kind: 'notEquals'; path: JsonPointer; value: JSONValue }
-  | { kind: 'exists'; path: JsonPointer }
+  | { kind: 'equals'; path: JsonPointer; key?: string; value: JSONValue }
+  | { kind: 'notEquals'; path: JsonPointer; key?: string; value: JSONValue }
+  | { kind: 'exists'; path: JsonPointer; key?: string }
   | { kind: 'all'; conditions: ConditionSpec[] }
   | { kind: 'any'; conditions: ConditionSpec[] };
 

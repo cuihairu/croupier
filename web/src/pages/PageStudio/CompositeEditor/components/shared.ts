@@ -52,3 +52,16 @@ export function spanSchema() {
     default: 24,
   };
 }
+
+/** U10 区块级条件显示（format:'condition' → PropsPanel 分桶渲染
+ * ConditionEditor，不走 rjsf 默认对象表单）。 */
+export function visibleWhenSchema() {
+  return {
+    type: 'object',
+    format: 'condition',
+    title: getIntl().formatMessage({
+      id: 'pages.pageStudio.editor.component.visibleWhen.title',
+      defaultMessage: '显示条件（按页面状态显隐本区块）',
+    }),
+  };
+}

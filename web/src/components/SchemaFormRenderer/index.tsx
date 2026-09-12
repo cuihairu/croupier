@@ -25,12 +25,12 @@ import type {
   FormPresentationSpec,
   FormValues,
   FormWidget,
-  ConditionSpec,
   JSONSchema,
   JSONValue,
 } from '@/types/dashboard';
 import { localizedText } from '@/utils/localizedText';
 import { humanizeFieldKey } from '@/utils/humanize';
+import { matchesCondition } from '@/components/PageRenderer/sectionCondition';
 import { customWidgets } from './widgets';
 import { uploadFields, uploadWidgets } from './widgets-upload';
 import { customTemplates } from './templates';
@@ -86,43 +86,6 @@ function getFieldSchema(schema: JSONSchema, key: string): JSONSchema {
   if (!isObject(properties)) return {};
   const child = properties[key];
   return isObject(child) ? child : {};
-}
-
-function valueAtPointer(value: JSONValue | undefined, pointer: string): JSONValue | undefined {
-  if (value === undefined || !pointer.startsWith('/')) return undefined;
-  let current = value;
-  for (const token of pointer.slice(1).split('/')) {
-    const key = token.replace(/~1/g, '/').replace(/~0/g, '~');
-    if (Array.isArray(current)) {
-      const index = Number(key);
-      if (!Number.isInteger(index) || index < 0 || index >= current.length) return undefined;
-      current = current[index];
-      continue;
-    }
-    if (!isObject(current) || !Object.prototype.hasOwnProperty.call(current, key)) return undefined;
-    current = current[key];
-  }
-  return current;
-}
-
-function sameJsonValue(left: JSONValue | undefined, right: JSONValue): boolean {
-  return JSON.stringify(left) === JSON.stringify(right);
-}
-
-function matchesCondition(condition: ConditionSpec | undefined, values: FormValues): boolean {
-  if (!condition) return true;
-  switch (condition.kind) {
-    case 'equals':
-      return sameJsonValue(valueAtPointer(values, condition.path), condition.value);
-    case 'notEquals':
-      return !sameJsonValue(valueAtPointer(values, condition.path), condition.value);
-    case 'exists':
-      return valueAtPointer(values, condition.path) !== undefined;
-    case 'all':
-      return condition.conditions.every((item) => matchesCondition(item, values));
-    case 'any':
-      return condition.conditions.some((item) => matchesCondition(item, values));
-  }
 }
 
 function getEnumNames(field: FormFieldSpec | undefined): string[] | undefined {

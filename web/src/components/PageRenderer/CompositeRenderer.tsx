@@ -5,6 +5,7 @@ import { ExclamationCircleOutlined } from '@ant-design/icons';
 import SchemaFormRenderer from '@/components/SchemaFormRenderer';
 import { localizedText } from '@/utils/localizedText';
 import { resolveStepParams } from './runtime';
+import { sectionVisible } from './sectionCondition';
 import type {
   PageExecuteFn,
   PageExecutionResult,
@@ -51,8 +52,12 @@ export const CompositeRenderer: React.FC<{
   const [dialogKey, setDialogKey] = useState<string | null>(null);
   // 运行时状态快照 ref（事件帧内求值/执行读取，避免 setState 异步导致同帧读旧值）
   const resultsRef = useRef(results);
-  // 常量表单（static）值缓冲：防抖后并入 results 驱动 refreshOn 联动
-  const staticMergeRef = useRef<Record<string, { data: Record<string, unknown> }>>({});
+  // 常量表单（static）值缓冲：防抖后并入 results 驱动 refreshOn 联动。
+  // data+values 双形态：data 供 refreshOn 联动上游合并（既有读取），
+  // values 对齐表达式语言（{{sf.values.x}} / 区块级 visibleWhen 的寻址段）。
+  const staticMergeRef = useRef<
+    Record<string, { data: Record<string, unknown>; values: Record<string, unknown> }>
+  >({});
   const staticTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // V5 fnForm 当前值缓冲：防抖写入 results[key].values（求值用，不触发 refreshOn）
   const valuesMergeRef = useRef<Record<string, Record<string, unknown>>>({});
@@ -459,7 +464,8 @@ export const CompositeRenderer: React.FC<{
           initialValues={(sectionInputs[sec.key] || {}) as FormValues}
           hideSubmit
           onValuesChange={(_, values) => {
-            staticMergeRef.current[sec.key] = { data: values as Record<string, unknown> };
+            const v = values as Record<string, unknown>;
+            staticMergeRef.current[sec.key] = { data: v, values: v };
             scheduleStaticFlush();
           }}
         />
@@ -522,10 +528,15 @@ export const CompositeRenderer: React.FC<{
     page.sections.push(sec);
   }
 
+  /** U10 区块级条件显示：visibleWhen 按页面状态（results）求值，false
+   * 的 inline/tab 区块不渲染（执行不变——autoRun/refreshOn 照常跑）。
+   * dialog 区块不参与条件显隐（弹窗由动作显式触发）。 */
+  const isVisible = (sec: CompositeSection): boolean => sectionVisible(sec.visibleWhen, results);
+
   return (
     <>
       <Row gutter={[12, 12]}>
-        {inline.map((sec) => (
+        {inline.filter(isVisible).map((sec) => (
           <Col key={sec.key} span={sec.span && sec.span > 0 && sec.span <= 24 ? sec.span : 24}>
             {renderSection(sec)}
           </Col>
@@ -539,7 +550,7 @@ export const CompositeRenderer: React.FC<{
                 label: page.label,
                 children: (
                   <Space orientation="vertical" size={12} style={{ width: '100%' }}>
-                    {page.sections.map((sec) => (
+                    {page.sections.filter(isVisible).map((sec) => (
                       <React.Fragment key={sec.key}>{renderSection(sec)}</React.Fragment>
                     ))}
                   </Space>

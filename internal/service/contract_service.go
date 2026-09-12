@@ -1507,9 +1507,10 @@ func (s *ContractService) CreateCompositeProposal(
 				Form:      sec.Form,
 				// 弹窗/页签标注透传（display=tab 时同 group 渲染进同一 Tabs、
 				// tab 标签聚合到对应页）——static 区块不经过生成器，须在此落位。
-				Display: sec.Display,
-				Group:   sec.Group,
-				Tab:     localizedTextOf(sec.Tab),
+				Display:     sec.Display,
+				Group:       sec.Group,
+				Tab:         localizedTextOf(sec.Tab),
+				VisibleWhen: sec.VisibleWhen,
 			}
 			staticSections = append(staticSections, section)
 			staticPos = append(staticPos, genCount)
@@ -1543,17 +1544,18 @@ func (s *ContractService) CreateCompositeProposal(
 			// Group 弹窗分组必须透传：渲染端 openDialog 按 group 聚合同弹窗
 			// 区块（PageRenderer groupOf），丢失后弹窗永远无法打开；
 			// tab 组名同理由渲染端按 group 聚合 Tabs。
-			Group:      sec.Group,
-			FunctionID: fid,
-			View:       sec.View,
-			Title:      sec.Title,
-			Span:       sec.Span,
-			AutoRun:    sec.AutoRun,
-			RefreshOn:  sec.RefreshOn,
-			Display:    sec.Display,
-			Tab:        sec.Tab,
-			OnSuccess:  sec.OnSuccessRefresh,
-			Events:     convEvents(sec.Events),
+			Group:       sec.Group,
+			FunctionID:  fid,
+			View:        sec.View,
+			Title:       sec.Title,
+			Span:        sec.Span,
+			AutoRun:     sec.AutoRun,
+			RefreshOn:   sec.RefreshOn,
+			Display:     sec.Display,
+			Tab:         sec.Tab,
+			OnSuccess:   sec.OnSuccessRefresh,
+			Events:      convEvents(sec.Events),
+			VisibleWhen: sec.VisibleWhen,
 		}
 		for _, ra := range sec.RowActions {
 			in.RowActions = append(in.RowActions, generator.CompositeRowActionInput{
@@ -1678,6 +1680,9 @@ type CompositeSectionRequest struct {
 	OnSuccessRefresh []string `json:"onSuccessRefresh,omitempty"`
 	// Events 通用事件绑定（发布触发点）。
 	Events []EventBindingReq `json:"events,omitempty"`
+	// VisibleWhen 区块级条件显示：按页面状态（ConditionSpec.Key=来源
+	// 区块 key）求值，false 时不渲染该区块（执行不变）。
+	VisibleWhen *spec.ConditionSpec `json:"visibleWhen,omitempty"`
 }
 
 // CompositeInputAssignmentRequest 显式参数映射条目：

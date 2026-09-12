@@ -50,17 +50,17 @@ JSON Schema 只管「控件与数据形状」（rjsf 已是 "Schema → React �
 
 ### React 组合原语 ↔ PageSpec 映射
 
-| React 原语                  | PageSpec 对应物                                                                                        | 现状                                                |
-| --------------------------- | ------------------------------------------------------------------------------------------------------ | --------------------------------------------------- |
-| 嵌套 `children`             | container/modal 的 children 树                                                                         | ✅                                                  |
+| React 原语                  | PageSpec 对应物                                                                                                                                             | 现状                                                       |
+| --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------- |
+| 嵌套 `children`             | container/modal 的 children 树                                                                                                                              | ✅                                                         |
 | **props 传入**（父→子数据） | SelectorAST 输入赋值（form/row/detail/page_state/literal + JsonPointer）+ `refreshOn` 同名字段隐式合并 + 显式参数映射（`ParamMappingEditor`，2026-09 落地） | ✅ 隐式同名合并 + 显式映射（literal 固定值/上游区块.字段） |
-| **回调传出**（子→父行为）   | events → 动作链（runBinding/refreshNode/openModal/closeModal/navigate/showMessage）                    | ✅                                                  |
-| context 共享状态            | page_state（output 赋值 stateKey）                                                                     | ✅                                                  |
-| 派生值（computed props）    | transform 白名单：仅 `pick`                                                                            | ❌ 缺 rename/default/format                         |
-| 条件渲染                    | 表单内 `visibleWhen`（只读 form/page_state）                                                           | ⚠️ 缺区块级                                         |
-| 列表 `map`（每行执行）      | fnTable 内置渲染；跨区块批量无                                                                         | ❌ 缺（selection 语义未闭环）                       |
-| 生命周期                    | autoRun / refreshOn 级联 / events                                                                      | ✅（缺失败策略）                                    |
-| 组件参数化（props 默认值）  | 模板 scaffold + 属性面板                                                                               | ⚠️ 缺模板级批量配置                                 |
+| **回调传出**（子→父行为）   | events → 动作链（runBinding/refreshNode/openModal/closeModal/navigate/showMessage）                                                                         | ✅                                                         |
+| context 共享状态            | page_state（output 赋值 stateKey）                                                                                                                          | ✅                                                         |
+| 派生值（computed props）    | transform 白名单：仅 `pick`                                                                                                                                 | ❌ 缺 rename/default/format                                |
+| 条件渲染                    | 表单内 `visibleWhen` + 区块级 `visibleWhen`（叶子 `key`+`path` 读页面状态，U10）                                                                            | ✅（dialog 区块不参与）                                    |
+| 列表 `map`（每行执行）      | fnTable 内置渲染；跨区块批量无                                                                                                                              | ❌ 缺（selection 语义未闭环）                              |
+| 生命周期                    | autoRun / refreshOn 级联 / events                                                                                                                           | ✅（缺失败策略）                                           |
+| 组件参数化（props 默认值）  | 模板 scaffold + 属性面板                                                                                                                                    | ⚠️ 缺模板级批量配置                                        |
 
 ### 组合四轴与缺口
 
@@ -73,7 +73,9 @@ JSON Schema 只管「控件与数据形状」（rjsf 已是 "Schema → React �
    **P0 缺口**：区块实例命名空间（变量名前缀，通用化——常量表单已先行）。
 3. **行为**（触发什么）：events + 动作链——✅ 可用；
    P1 缺口：条件动作、失败策略（上游失败时下游清空/保留/提示，未定义）。
-4. **条件**（何时显示/执行）：表单内 visibleWhen ✅；区块级条件显示 ❌。
+4. **条件**（何时显示/执行）：表单内 visibleWhen ✅；区块级条件显示 ✅（U10：
+   `CompositeSection.visibleWhen`，叶子 `key`+`path` 读页面状态，false 不渲染
+   但执行照常；dialog 区块不参与，嵌套 all/any 深度 ≤4）。
 
 ## 表达力边界：刻意取舍
 
@@ -100,14 +102,14 @@ React 的表达力是**任意代码**；PageSpec 的表达力是**白名单原�
 
 ## 缺口与路线
 
-| 优先级 | 缺口                                                            | 说明                                                 |
-| ------ | --------------------------------------------------------------- | ---------------------------------------------------- |
-| ~~P0~~ | ~~区块实例命名空间（变量名前缀/重命名）~~ ✅ 2026-09（todo U5）| `sectionKey` 声明固化 + 回读不漂移；见组合页编辑器 V4 |
-| ~~P0~~ | ~~模板级参数化（组件 props 默认值）~~ ✅ 2026-09（todo U6）    | `params` 白名单（title/span/autoRun）+ 拖入快速配置；见 V4 §3.6 |
-| P1     | 失败策略 + transform 扩展（rename/default/format）              | 数据流健壮性                                         |
-| P1     | 跨模板联动断链提示（实例化悬空引用静默清理）                    | 见 todo.md U7                                        |
-| P2     | 区块级条件显示、批量（map）组合                                 | 批量依赖 selection 语义闭环                          |
-| P3     | 新积木：任务监控组合（taskStatus 节点）、报表图表（chart 节点） | 每项 = 新节点类型 + 渲染器，属组件模型扩展           |
+| 优先级 | 缺口                                                            | 说明                                                            |
+| ------ | --------------------------------------------------------------- | --------------------------------------------------------------- |
+| ~~P0~~ | ~~区块实例命名空间（变量名前缀/重命名）~~ ✅ 2026-09（todo U5） | `sectionKey` 声明固化 + 回读不漂移；见组合页编辑器 V4           |
+| ~~P0~~ | ~~模板级参数化（组件 props 默认值）~~ ✅ 2026-09（todo U6）     | `params` 白名单（title/span/autoRun）+ 拖入快速配置；见 V4 §3.6 |
+| P1     | 失败策略 + transform 扩展（rename/default/format）              | 数据流健壮性                                                    |
+| P1     | 跨模板联动断链提示（实例化悬空引用静默清理）                    | 见 todo.md U7                                                   |
+| P2     | 区块级条件显示、批量（map）组合                                 | 批量依赖 selection 语义闭环                                     |
+| P3     | 新积木：任务监控组合（taskStatus 节点）、报表图表（chart 节点） | 每项 = 新节点类型 + 渲染器，属组件模型扩展                      |
 
 ## 与其他文档的关系
 
