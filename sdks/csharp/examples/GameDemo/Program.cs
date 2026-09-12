@@ -94,10 +94,19 @@ static class H
         catch { return new(); }
     }
 
+    // 响应序列化统一 camelCase：record 属性名（Id/Name/...）按命名策略
+    // 输出为 id/name，与注册契约的 outputSchema（camelCase properties）对齐；
+    // 字典 key 已是 camelCase 字面量，策略不影响。此前无策略时输出 PascalCase，
+    // 多语言 demo 共享同一函数 ID 轮询下会导致前端列 key 全部失配（整行 -）。
+    private static readonly JsonSerializerOptions RespJsonOptions = new()
+    {
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+    };
+
     public static string Resp(Dictionary<string, object> data)
     {
         data["timestamp"] = Now();
-        return JsonSerializer.Serialize(data);
+        return JsonSerializer.Serialize(data, RespJsonOptions);
     }
 
     public static string Str(Dictionary<string, object> m, params string[] keys)

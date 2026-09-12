@@ -854,7 +854,14 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
           )
         }
         actionRef={actionRef}
-        rowKey={(record) => String(record[rowIdentityKey] ?? record.id ?? record.key ?? '')}
+        rowKey={(record) => {
+          // identity 缺失时兜底数据本身：多条空串 key 在 React diff 下会
+          // 产生幻影残留行（连点刷新行数递增），数据串保证行内唯一
+          const identity = record[rowIdentityKey] ?? record.id ?? record.key;
+          return identity === undefined || identity === null
+            ? JSON.stringify(record)
+            : String(identity);
+        }}
         columns={columns}
         request={handleRequest}
         search={{

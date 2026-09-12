@@ -63,6 +63,43 @@ describe('ResourcePageRenderer', () => {
     expect(screen.getByText('p-1')).toBeInTheDocument();
   });
 
+  // 回归：identity 字段缺失的行（数据与契约列 key 失配等场景）rowKey 兜底
+  // 数据串——旧行为全空串 key，React 重复 key 在 diff 下产生幻影残留行
+  // （连点刷新行数递增）。
+  test('identity 缺失的行不产生重复 rowKey', async () => {
+    const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+    render(
+      <ResourcePageRenderer
+        spec={{
+          ...resource,
+          listView: {
+            ...resource.listView,
+            columns: [
+              { key: 'id', title: { 'zh-CN': 'ID' }, dataType: 'string' },
+              { key: 'name', title: { 'zh-CN': 'Name' }, dataType: 'string' },
+            ],
+          },
+        }}
+        bindings={[
+          listBinding([{ stateKey: 'items', source: '/payload/items', shape: 'collection' }]),
+        ]}
+        onExecute={async () => ({
+          kind: 'sync',
+          requestId: 'request-1',
+          data: { payload: { items: [{ name: 'row-a' }, { name: 'row-b' }] } },
+        })}
+      />,
+    );
+
+    await screen.findByText('row-a');
+    expect(screen.getByText('row-b')).toBeInTheDocument();
+    const duplicateKeyWarnings = errorSpy.mock.calls.filter((call) =>
+      String(call[0]).includes('same key'),
+    );
+    expect(duplicateKeyWarnings).toHaveLength(0);
+    errorSpy.mockRestore();
+  });
+
   test('详情结果缺少 detail selector 时显示可定位错误', async () => {
     render(
       <ResourcePageRenderer
