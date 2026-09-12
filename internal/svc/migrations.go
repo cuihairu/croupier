@@ -415,8 +415,11 @@ func migrateTermDictionaryDisplayColumn(ctx context.Context, sqlDB *sql.DB) erro
 // componentTemplateColumnsMigration 为存量 game 库补 component_templates 的
 // params（U6 模板参数化）与 digest（U11 更新提醒）列（0023）。两列加入模型时
 // 均未随版本化迁移发布，存量库过 baseline 后不再跑 AutoMigrate——模板创建/
-// 更新持续报 column "params" does not exist。直接对单模型 AutoMigrate：幂等、
-// 自动带出模型上全部缺列（含后续同表新列），不再逐列枚举。缺表跳过。
+// 更新持续报 column "params" does not exist。逐列 AddColumn（同 0015/0016/
+// 0021 模式），**不可**对整模型 AutoMigrate：存量库 key 列的唯一约束名是建表
+// 期老写法（component_templates_key_key），与模型 uniqueIndex 默认名
+// （uni_component_templates_key）不一致，AutoMigrate 的索引对齐在 postgres
+// 上报 constraint "uni_component_templates_key" does not exist 直接 panic。
 func componentTemplateColumnsMigration() *goose.Migration {
 	return goose.NewGoMigration(23,
 		&goose.GoFunc{RunDB: migrateComponentTemplateColumns},
@@ -424,7 +427,8 @@ func componentTemplateColumnsMigration() *goose.Migration {
 	)
 }
 
-// migrateComponentTemplateColumns 是 0023 的迁移体（抽出便于直测）。
+// migrateComponentTemplateColumns 是 0023 的迁移体（抽出便于直测）：
+// 存量库补 params/digest 两列；幂等；缺表跳过。
 func migrateComponentTemplateColumns(ctx context.Context, sqlDB *sql.DB) error {
 	db, err := wrapGorm(sqlDB)
 	if err != nil {
@@ -433,8 +437,13 @@ func migrateComponentTemplateColumns(ctx context.Context, sqlDB *sql.DB) error {
 	if !db.Migrator().HasTable(&model.ComponentTemplate{}) {
 		return nil
 	}
-	if err := db.AutoMigrate(&model.ComponentTemplate{}); err != nil {
-		return fmt.Errorf("migrate: 0023 component_templates columns: %w", err)
+	for _, col := range []string{"Params", "Digest"} {
+		if db.Migrator().HasColumn(&model.ComponentTemplate{}, col) {
+			continue
+		}
+		if err := db.Migrator().AddColumn(&model.ComponentTemplate{}, col); err != nil {
+			return fmt.Errorf("migrate: 0023 add component_templates.%s: %w", col, err)
+		}
 	}
 	return nil
 }

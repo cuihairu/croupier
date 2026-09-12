@@ -276,3 +276,39 @@ func TestComponentTemplateColumnsMigration(t *testing.T) {
 	require.NoError(t, migrateComponentTemplateColumns(context.Background(), sqlDB2))
 	require.False(t, db2.Migrator().HasTable(&model.ComponentTemplate{}))
 }
+
+// TestComponentTemplateColumnsMigration_LegacyTableShape 复刻线上存量表形
+// （2026-09-12 部署事故根因）：key 列唯一约束是建表期老写法（约束名
+// component_templates_key_key），与模型 uniqueIndex 默认名不一致；且无
+// params/digest 列。迁移必须逐列 AddColumn 补列且不动既有约束——若实现
+// 退化为整模型 AutoMigrate，索引对齐会在 postgres 上报 constraint does
+// not exist 直接 panic（sqlite 不报但行为同源）。
+func TestComponentTemplateColumnsMigration_LegacyTableShape(t *testing.T) {
+	db, err := gorm.Open(gsqlite.Open(t.TempDir()+"/m23c.db"), &gorm.Config{})
+	require.NoError(t, err)
+	require.NoError(t, db.Exec(`CREATE TABLE component_templates (
+		id integer primary key autoincrement,
+		created_at datetime, updated_at datetime, deleted_at datetime,
+		key text NOT NULL,
+		name json NOT NULL,
+		description json, category text, icon text, required_functions json,
+		tree json NOT NULL, builtin numeric DEFAULT 0, created_by text,
+		CONSTRAINT component_templates_key_key UNIQUE (key))`).Error)
+	sqlDB, err := db.DB()
+	require.NoError(t, err)
+	require.NoError(t, migrateComponentTemplateColumns(context.Background(), sqlDB))
+	require.True(t, db.Migrator().HasColumn(&model.ComponentTemplate{}, "Params"))
+	require.True(t, db.Migrator().HasColumn(&model.ComponentTemplate{}, "Digest"))
+	// 既有唯一约束（origin='u' 的自动索引）原样保留（不触发索引改名/删除）
+	var uniIdx []struct {
+		Origin string
+	}
+	require.NoError(t, db.Raw("PRAGMA index_list(component_templates)").Scan(&uniIdx).Error)
+	require.NotEmpty(t, uniIdx, "legacy unique constraint must be untouched")
+	// 补列后表可正常写入（迁移未破坏表结构）
+	require.NoError(t, db.Exec(
+		`INSERT INTO component_templates (created_at, updated_at, key, name, tree, builtin)
+		 VALUES (datetime(), datetime(), 'smoke', '{"zh-CN":"冒烟"}', '[]', 0)`).Error)
+	// 幂等
+	require.NoError(t, migrateComponentTemplateColumns(context.Background(), sqlDB))
+}
