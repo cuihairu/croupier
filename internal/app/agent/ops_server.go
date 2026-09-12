@@ -404,7 +404,9 @@ func (s *OpsServer) Stop() {
 		p.mu.Lock()
 		s.stopProcess(p)
 		p.state = opsv1.ProcessState_PROCESS_STATE_STOPPED
-		p.mu.RUnlock()
+		// 此前误用 RUnlock：写锁配读解锁，processes 非空时 Go 运行时
+		// 直接 fatal "sync: RUnlock of unlocked RWMutex" 崩溃整个 agent。
+		p.mu.Unlock()
 	}
 }
 

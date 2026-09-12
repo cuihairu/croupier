@@ -556,7 +556,7 @@ A 系列与 R 系列互相独立可并行。每个任务独立提交；涉及 we
 - [x] `web/src/types/dashboard.ts` 同步类型；`SchemaFormRenderer` 消费 spec 侧 `remoteOptions`（复用 `useRemoteOptions` 既有逻辑，与 hints 推导路径合流）——web 消费链路本已就绪（index.tsx 注入 ui:options + widgets 消费），本次仅补 spec 驱动直测
 - [x] 单测：Go 侧 hint 解析/忽略分支 + golden；web 侧 spec 驱动的远程选项渲染
 - [x] `docs/architecture/presentation-hints.md` 删除「暂不参与服务端派生」边界说明；`pagespec-protocol.md` FormFieldSpec 表补 `remoteOptions`
-- [ ] 按 DoD 走一次 accept-and-publish 线上验证（发布页含远程选项 spec 字段落库）
+- [x] 按 DoD 走一次 accept-and-publish 线上验证（发布页含远程选项 spec 字段落库）
 
 **验收**：同一 `x-options-source` 函数在 Invoke 页与发布 OperationPage 表现一致；三层文档同步 + docs build 通过。
 
@@ -640,9 +640,9 @@ A 系列与 R 系列互相独立可并行。每个任务独立提交；涉及 we
 
 **改动点**：
 
-- [ ] `CompositeSection` 增加 `visibleWhen: ConditionSpec`（复用受限表达式，仅读 page_state）
-- [ ] 编辑器属性面板 + `CompositeRenderer` 渲染分支
-- [ ] 单测 + `pagespec-protocol.md`/`dashboard-page-model.md` 字段表同步
+- [x] `CompositeSection` 增加 `visibleWhen: ConditionSpec`（复用受限表达式，仅读 page_state）
+- [x] 编辑器属性面板 + `CompositeRenderer` 渲染分支
+- [x] 单测 + `pagespec-protocol.md`/`dashboard-page-model.md` 字段表同步
 
 **验收**：mode=批量 时隐藏单发区块；发布链 DoD。
 
@@ -652,9 +652,9 @@ A 系列与 R 系列互相独立可并行。每个任务独立提交；涉及 we
 
 **改动点**：
 
-- [ ] 保存组件时记录内容 digest；页面提案保存时记录所用模板快照 digest
-- [ ] 模板更新后，编辑器打开旧页面时提示「以下模板有新版本，可对比/重新拖入」（只提示，不自动同步——保持复制语义）
-- [ ] 单测：digest 比对 + 提示触发
+- [x] 保存组件时记录内容 digest；页面提案保存时记录所用模板快照 digest
+- [x] 模板更新后，编辑器打开旧页面时提示「以下模板有新版本，可对比/重新拖入」（只提示，不自动同步——保持复制语义）
+- [x] 单测：digest 比对 + 提示触发
 
 **验收**：更新「资源管理」模板后，旧页面编辑时有更新提示；不改变已发布页面行为。
 
@@ -693,9 +693,9 @@ U1（契约红线，最小）→ U2/U3（文档/文案，可并行热身）→ U
 
 **改动点**：
 
-- [ ] planner 补 required 字段时消费 CapabilitySemantics：identity 类字段优先映射 row 源（grid/table 上下文）
-- [ ] 报告区分 `added` 的来源（form 同名补齐 / identity row 源补齐），confidence 标注语义命中
-- [ ] 单测：identity 字段命中语义表 → row 源；未命中 → 回落 form 门禁；非列表上下文 → manual_required
+- [x] planner 补 required 字段时消费 CapabilitySemantics：identity 类字段优先映射 row 源（grid/table 上下文）
+- [x] 报告区分 `added` 的来源（form 同名补齐 / identity row 源补齐），confidence 标注语义命中
+- [x] 单测：identity 字段命中语义表 → row 源；未命中 → 回落 form 门禁；非列表上下文 → manual_required
 
 **验收**：grid 页契约新增 identity 必填后一键同步直接接 row 源；web tsc/test/guard 全绿 + 发布链 DoD。
 

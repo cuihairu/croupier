@@ -434,6 +434,9 @@ func syncOutputAssignments(
 					entry.NewSource = updated.Source
 					entry.Confidence = SelectorSyncConfidenceHigh
 					entry.Reason = "required output source re-derived to match the new schema shape"
+					// 重推导改写了 source（apply 会落库），必须置位——
+					// 否则 dry-run 报告"无变更"而 apply 实际写入了变更。
+					changed = true
 				} else if !entry.Required {
 					if newShape, ok2 := scalarizedOutputShape(newSchema, assignment.Source); ok2 && newShape != "" {
 						updated := assignment

@@ -135,10 +135,13 @@ func (h *Handler) CheckAll(c *gin.Context) {
 	response.Success(c, resp)
 }
 
-// GetDomainInfo handles the request to get domain certificate info
+// GetDomainInfo handles the request to get domain certificate info.
+// 路由注册为 query 风格（GET /domain-info?domain=xxx，routes.go 无 :domain
+// 路径参数），必须走 query 绑定；此前误用 ShouldBindUri 且 DTO 无 uri tag，
+// 导致 Domain 恒空、端点恒 400。
 func (h *Handler) GetDomainInfo(c *gin.Context) {
 	var req DomainInfoRequest
-	if err := c.ShouldBindUri(&req); err != nil {
+	if err := c.ShouldBindQuery(&req); err != nil {
 		response.Error(c, err)
 		return
 	}
