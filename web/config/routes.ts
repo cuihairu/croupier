@@ -175,6 +175,8 @@ export default [
         path: '/system/extensions',
         name: 'Extensions',
         access: 'canExtensionsRead',
+        // 半成品：菜单入口先隐藏（直达 URL 仍可用），功能完善后再开放
+        hideInMenu: true,
         routes: [
           {
             path: '/system/extensions/store',
