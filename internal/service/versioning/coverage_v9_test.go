@@ -730,6 +730,6 @@ func TestV9_DeletePage_Success(t *testing.T) {
 func TestV9_CreateCompositePage_ValidationError(t *testing.T) {
 	db := setupTestDB(t)
 	_, err := NewService(db).CreateCompositePage(context.Background(),
-		"demo-game", "development", "composite--one", nil)
+		"demo-game", "development", "composite--one", nil, nil)
 	require.Error(t, err)
 }

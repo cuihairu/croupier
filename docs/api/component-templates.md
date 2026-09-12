@@ -38,9 +38,21 @@ TemplateDTO（lowerCamelCase；`name`/`description` 为 `LocalizedText` JSON，
   ],
   "tree": [{ "type": "fnTable", "props": {} }],
   "builtin": false,
-  "createdBy": "admin"
+  "createdBy": "admin",
+  "digest": "sha256-hex-64",
+  "updatedAt": "2026-09-12T08:00:00Z"
 }
 ```
+
+`digest`（模板内容指纹，U11 更新提醒）= sha256(canonical Tree JSON)：
+写入时对 `tree` 反序列化再序列化（键序稳定化）后取哈希。三个写路径全覆盖——
+Create、Update（`internal/api/component/handler.go`）与 regenerate 落到的
+`UpsertBuiltin`（`internal/model/component_template.go`）；服务端自动计算，
+客户端不提交。消费方：组合页编辑器保存页面时把所用模板的 `{key, digest}`
+快照进 `PageSpec.componentTemplates`，再次打开页面时与本列表当前 digest 比对，
+不一致提示「所用模板有新版本」（只提示不自动同步，见
+[组合页编辑器 V3 §8.6](../dashboard/composite-editor-v3.md)）。`updatedAt`
+为最近一次内容更新时间。
 
 ### 列表
 

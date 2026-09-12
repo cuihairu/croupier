@@ -39,6 +39,9 @@ export default {
     'Only function forms can be placed inside a modal (V1)',
   'pages.pageStudio.editor.canvas.showTemplates': 'View composite templates',
   'pages.pageStudio.editor.canvas.templateEmpty': 'The template is empty',
+  'pages.pageStudio.editor.templateStale.title': 'Used templates have newer versions',
+  'pages.pageStudio.editor.templateStale.desc':
+    'These templates were updated after this page was created: {names}. The page keeps its current configuration; drag the template in again for the new content (no automatic sync).',
   'pages.pageStudio.editor.canvas.tabsFallback':
     'Tabs pages do not accept "{type}" children; placed after the tabs container',
   'pages.pageStudio.editor.canvas.tabsNoPage':

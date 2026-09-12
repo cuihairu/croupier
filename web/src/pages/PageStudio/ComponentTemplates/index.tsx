@@ -54,6 +54,10 @@ interface TemplateDTO {
   tree: PageNode[];
   builtin: boolean;
   createdBy?: string;
+  /** 模板内容指纹（U11 更新提醒）。 */
+  digest?: string;
+  /** 最近一次内容更新时间（U11）。 */
+  updatedAt?: string;
 }
 
 function nameOf(t: TemplateDTO): string {

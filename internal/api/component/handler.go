@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/cuihairu/croupier/internal/dbenum"
 
@@ -60,6 +61,10 @@ type TemplateDTO struct {
 	Tree      json.RawMessage `json:"tree"`
 	Builtin   bool            `json:"builtin"`
 	CreatedBy string          `json:"createdBy,omitempty"`
+	// Digest 模板内容指纹（U11 更新提醒）：页面快照与之比对得出「有新版本」。
+	Digest string `json:"digest,omitempty"`
+	// UpdatedAt 最近一次内容更新时间（提示「模板已改版」的辅助信息）。
+	UpdatedAt time.Time `json:"updatedAt"`
 	// Stale builtin 模板与其依赖契约的当前重算结果不一致（契约已变化，
 	// 需「从契约重新生成」刷新）。仅 builtin 模板会标记。
 	Stale bool `json:"stale,omitempty"`
@@ -77,6 +82,8 @@ func toDTO(t *model.ComponentTemplate) TemplateDTO {
 		Tree:              json.RawMessage(t.Tree),
 		Builtin:           t.Builtin,
 		CreatedBy:         t.CreatedBy,
+		Digest:            t.Digest,
+		UpdatedAt:         t.UpdatedAt,
 	}
 }
 
@@ -345,6 +352,7 @@ func (h *Handler) Update(c *gin.Context) {
 		"name":    model.JSON(req.Name),
 		"tree":    model.JSON(req.Tree),
 		"builtin": false,
+		"digest":  model.ComputeTemplateDigest(model.JSON(req.Tree)),
 	}
 	if params != nil {
 		updates["params"] = model.JSON(params)

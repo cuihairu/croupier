@@ -40,12 +40,12 @@ func TestCreateCompositeProposalValidationBranchesV9(t *testing.T) {
 
 	_, err := svc.CreateCompositeProposal(ctx, "g9", "e9", "  ", []CompositeSectionRequest{
 		{FunctionID: "player.get"}, {FunctionID: "order.list"},
-	})
+	}, nil)
 	assert.ErrorContains(t, err, "pageKey and 2+ sections are required")
 
 	_, err = svc.CreateCompositeProposal(ctx, "g9", "e9", "composite--one", []CompositeSectionRequest{
 		{FunctionID: "player.get"},
-	})
+	}, nil)
 	assert.ErrorContains(t, err, "pageKey and 2+ sections are required")
 
 	// 空 FunctionID 区块被跳过：仍剩两个有效区块，可正常生成。
@@ -53,7 +53,7 @@ func TestCreateCompositeProposalValidationBranchesV9(t *testing.T) {
 		{FunctionID: "   "},
 		{FunctionID: "player.get", View: "fields", Title: "玩家信息"},
 		{FunctionID: "order.list", View: "table", Title: "订单"},
-	})
+	}, nil)
 	require.NoError(t, err)
 	require.NotNil(t, proposal)
 	assert.NotEmpty(t, proposal.ProposalKey)
@@ -62,20 +62,20 @@ func TestCreateCompositeProposalValidationBranchesV9(t *testing.T) {
 	_, err = svc.CreateCompositeProposal(ctx, "g9", "e9", "composite--dup", []CompositeSectionRequest{
 		{Key: "k", FunctionID: "player.get"},
 		{Key: "k", FunctionID: "order.list"},
-	})
+	}, nil)
 	assert.ErrorContains(t, err, "duplicate section key")
 
 	// 契约不存在。
 	_, err = svc.CreateCompositeProposal(ctx, "g9", "e9", "composite--ghost", []CompositeSectionRequest{
 		{FunctionID: "player.get"},
 		{FunctionID: "ghost.fn"},
-	})
+	}, nil)
 	assert.ErrorContains(t, err, "ghost.fn contract not found")
 
 	// 全空 FunctionID → 无有效区块 → 无法生成。
 	_, err = svc.CreateCompositeProposal(ctx, "g9", "e9", "composite--empty", []CompositeSectionRequest{
 		{FunctionID: " "}, {FunctionID: "  "},
-	})
+	}, nil)
 	assert.ErrorContains(t, err, "composite page cannot be generated")
 }
 
@@ -106,7 +106,7 @@ func TestCreateCompositeProposalWithActionsV9(t *testing.T) {
 				Action: ActionStepReq{Kind: "openModal", Target: "detail"},
 			}},
 		},
-	})
+	}, nil)
 	require.NoError(t, err)
 	require.NotNil(t, proposal)
 
@@ -127,7 +127,7 @@ func TestCreateCompositeProposalUpsertErrorV9(t *testing.T) {
 	_, err := svc.CreateCompositeProposal(ctx, "g9", "e9", "composite--fail", []CompositeSectionRequest{
 		{FunctionID: "player.get", View: "fields"},
 		{FunctionID: "order.list", View: "table"},
-	})
+	}, nil)
 	assert.Error(t, err)
 }
 
@@ -143,7 +143,7 @@ func TestCreateCompositeProposalWithStaticSectionV9(t *testing.T) {
 		{FunctionID: "player.get"},
 		{FunctionID: "order.list"},
 		{Key: "consts", Static: true, Title: "常量"},
-	})
+	}, nil)
 	assert.ErrorContains(t, err, "requires form.jsonSchema")
 
 	proposal, err := svc.CreateCompositeProposal(ctx, "g9", "e9", "static-mix", []CompositeSectionRequest{
@@ -157,7 +157,7 @@ func TestCreateCompositeProposalWithStaticSectionV9(t *testing.T) {
 				JSONSchema: spec.JSONSchema(`{"type":"object","properties":{"env":{"type":"string","title":"环境","enum":["prod","stage"]}}}`),
 			},
 		},
-	})
+	}, nil)
 	require.NoError(t, err)
 	require.NotNil(t, proposal)
 
@@ -212,7 +212,7 @@ func TestCreateCompositeProposalStaticOrderV9(t *testing.T) {
 		{FunctionID: "player.get", View: "fields"},
 		{Key: "consts2", Title: "常量二", Static: true, Form: staticForm},
 		{FunctionID: "order.list", View: "table", RefreshOn: []string{"consts"}},
-	})
+	}, nil)
 	require.NoError(t, err)
 	require.NotNil(t, proposal)
 
@@ -255,7 +255,7 @@ func TestCreateCompositeProposalWithInputMappingV9(t *testing.T) {
 				{Target: "/playerId", Kind: "page_state", Key: "consts", Path: "/currency"},
 			},
 		},
-	})
+	}, nil)
 	require.NoError(t, err)
 
 	var pageSpec spec.PageSpec

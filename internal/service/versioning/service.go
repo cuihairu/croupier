@@ -2175,9 +2175,10 @@ func firstNonEmpty(values ...string) string {
 }
 
 // CreateCompositePage 聚合多资源生成组合页提案（委托 ContractService，
-// 复用提案/接受/发布既有工作流）。
-func (s *Service) CreateCompositePage(ctx context.Context, gameID, env, pageKey string, sections []service.CompositeSectionRequest) (*model.PageProposal, error) {
-	return service.NewContractService(s.db).CreateCompositeProposal(ctx, gameID, env, pageKey, sections)
+// 复用提案/接受/发布既有工作流）。componentTemplates 为页面级模板快照
+// （U11 更新提醒），原样透传进 PageSpec。
+func (s *Service) CreateCompositePage(ctx context.Context, gameID, env, pageKey string, sections []service.CompositeSectionRequest, componentTemplates []spec.ComponentTemplateUsage) (*model.PageProposal, error) {
+	return service.NewContractService(s.db).CreateCompositeProposal(ctx, gameID, env, pageKey, sections, componentTemplates)
 }
 
 // DeletePage deletes a page's draft, published versions and pending proposals

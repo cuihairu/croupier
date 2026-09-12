@@ -167,6 +167,16 @@ refreshOn/动作链消费。发布校验：static 区块禁止携带 bindingId�
 - `refreshOn`：page_state 联动——上游区块 key 变化自动重跑，上游输出顶层字段同名合并进本区块输入
 - `visibleWhen`：**区块级条件显示**（U10）——`ConditionSpec` 叶子必填 `key`（来源区块），从页面状态 `results[key]` 按 `path`（`/values/字段`、`/data/字段`、`/selectedRow/字段`）取值求值；false 的 inline/tab 区块不渲染但执行照常（autoRun/refreshOn 不受影响）；支持嵌套 `all`/`any`（深度 ≤4）；发布校验 key ∈ 页面区块、path 为 JSON Pointer、equals/notEquals 带 value；dialog 区块不参与（弹窗由动作显式触发）
 
+**页面级可选字段 `componentTemplates`**（U11 模板使用快照，位于 PageSpec 根而非
+section 内）：`componentTemplates?: Array<{ key: string; digest: string }>`——
+创建端点 `POST /api/v1/versioning/pages/composite` 请求体可携带，服务端规范化
+（trim / 同 key 去重保留首个 / 空白 key 丢弃）后随 `PageSpec.componentTemplates`
+落库，proposal→draft→published 全程 JSON 透传。语义：记录页面创建/编辑时所用
+组件模板的内容指纹（digest 算法与模板 API 透出见
+[组件模板 API](../api/component-templates.md)），编辑器打开页面时与模板库当前
+digest 比对提示「所用模板有新版本」。**不参与发布校验、不参与渲染**——实例化是
+复制语义，页面内容始终是保存时的副本（提醒不自动同步）。
+
 ## 数据引用和 mapping（Selector AST）
 
 输入输出 mapping 必须是可校验的 AST（对应 `spec/selector_ast.go`）：

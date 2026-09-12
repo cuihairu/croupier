@@ -111,7 +111,7 @@ func TestV5CompositeProposalRoundTrip(t *testing.T) {
 		},
 	}
 
-	proposal, err := svc.CreateCompositeProposal(ctx, "demo", "prod", "composite--v5-player", v5Sections)
+	proposal, err := svc.CreateCompositeProposal(ctx, "demo", "prod", "composite--v5-player", v5Sections, nil)
 	require.NoError(t, err, "CreateCompositeProposal must accept V5 wire format")
 	require.NotNil(t, proposal)
 

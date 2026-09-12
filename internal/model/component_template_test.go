@@ -109,3 +109,48 @@ func TestComponentTemplateValidation(t *testing.T) {
 	err := m.Create(context.Background(), &ComponentTemplate{Key: "  "})
 	assert.ErrorIs(t, err, ErrComponentTemplateKeyRequired)
 }
+
+// TestComputeTemplateDigest canonical 稳定性：同一逻辑内容不受原始 JSON
+// 字节序（键序/空格）影响；内容变化 digest 变化；空/非法输入容错空串。
+func TestComputeTemplateDigest(t *testing.T) {
+	a := ComputeTemplateDigest(JSON(`[{"type":"fnTable","props":{"functionId":"player.list","span":12}}]`))
+	b := ComputeTemplateDigest(JSON(`[ {"props": {"span": 12, "functionId": "player.list"}, "type": "fnTable"} ]`))
+	assert.NotEmpty(t, a)
+	assert.Equal(t, a, b, "same logical content must share one digest")
+
+	c := ComputeTemplateDigest(JSON(`[{"type":"fnTable","props":{"functionId":"order.list"}}]`))
+	assert.NotEqual(t, a, c, "content change must alter the digest")
+
+	assert.Empty(t, ComputeTemplateDigest(JSON(``)))
+	assert.Empty(t, ComputeTemplateDigest(JSON(`not json`)))
+}
+
+// TestComponentTemplateDigestWritePaths U11 三写路径全覆盖：Create /
+// UpsertBuiltin（新建 + 更新）都自动落 digest；内容不变重写 digest 不变，
+// 内容变化 digest 跟随。
+func TestComponentTemplateDigestWritePaths(t *testing.T) {
+	db := setupCompTplDB(t)
+	m := NewComponentTemplateModel(db)
+	ctx := context.Background()
+
+	tpl := sampleTemplate("digest-create", false)
+	require.NoError(t, m.Create(ctx, tpl))
+	got, err := m.FindByKey(ctx, "digest-create")
+	require.NoError(t, err)
+	assert.NotEmpty(t, got.Digest, "Create must persist the digest")
+	assert.Equal(t, ComputeTemplateDigest(tpl.Tree), got.Digest)
+
+	v1 := sampleTemplate("digest-builtin", true)
+	require.NoError(t, m.UpsertBuiltin(ctx, v1))
+	got1, err := m.FindByKey(ctx, "digest-builtin")
+	require.NoError(t, err)
+	assert.Equal(t, ComputeTemplateDigest(v1.Tree), got1.Digest, "UpsertBuiltin create must persist the digest")
+
+	v2 := sampleTemplate("digest-builtin", true)
+	v2.Tree = JSON(`[{"type":"fnForm","props":{"functionId":"mail.send"}}]`)
+	require.NoError(t, m.UpsertBuiltin(ctx, v2))
+	got2, err := m.FindByKey(ctx, "digest-builtin")
+	require.NoError(t, err)
+	assert.Equal(t, ComputeTemplateDigest(v2.Tree), got2.Digest, "UpsertBuiltin update must refresh the digest")
+	assert.NotEqual(t, got1.Digest, got2.Digest)
+}

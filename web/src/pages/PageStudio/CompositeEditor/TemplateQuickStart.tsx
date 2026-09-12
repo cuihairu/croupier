@@ -107,7 +107,7 @@ export default function TemplateQuickStart({
                 size="small"
                 hoverable
                 style={{ borderColor: '#f0f0f0' }}
-                onClick={() => onPick(nodesOf(tpl), tpl)}
+                onClick={() => onPick(instantiateTemplate(tpl), tpl)}
               >
                 <Space size={6}>
                   <AppstoreOutlined style={{ color: '#1677ff' }} />
@@ -157,8 +157,4 @@ export default function TemplateQuickStart({
       )}
     </Card>
   );
-}
-
-function nodesOf(tpl: QuickStartTemplate): PageNode[] {
-  return (tpl.tree ?? []) as PageNode[];
 }

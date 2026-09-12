@@ -31,6 +31,7 @@ export function useCanvasDnd({
   setTree,
   setSelectedId,
   setInsertTpl,
+  onTemplateUsed,
 }: {
   treeRef: RefObject<PageNode[]>;
   editingModalRef: RefObject<string | null>;
@@ -40,6 +41,8 @@ export function useCanvasDnd({
   setTree: (action: SetStateAction<PageNode[]>) => void;
   setSelectedId: Dispatch<SetStateAction<string | null>>;
   setInsertTpl: Dispatch<SetStateAction<{ tpl: ComponentTemplateDTO; overId: string } | null>>;
+  /** 模板实例化成功后登记快照（U11：key+digest 进页面级保存体）。 */
+  onTemplateUsed?: (tpl: ComponentTemplateDTO) => void;
 }) {
   const { message } = App.useApp();
   const intl = useIntl();
@@ -102,8 +105,9 @@ export function useCanvasDnd({
         }
       }
       setSelectedId(nodes[0].id);
+      onTemplateUsed?.(tpl);
     },
-    [addChild, message, registerFn, allFns, setTree],
+    [addChild, message, registerFn, allFns, setTree, onTemplateUsed],
   );
 
   const handleDragEnd = useCallback(

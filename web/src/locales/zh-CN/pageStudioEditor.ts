@@ -38,6 +38,9 @@ export default {
   'pages.pageStudio.editor.canvas.tabsNotAllowed':
     '页签内不接受「{type}」子组件（页签页仅允许表格/字段卡/按钮/文本）',
   'pages.pageStudio.editor.canvas.templateEmpty': '模板为空',
+  'pages.pageStudio.editor.templateStale.title': '所用模板有新版本',
+  'pages.pageStudio.editor.templateStale.desc':
+    '以下模板在本页面创建后已更新：{names}。页面保持当前配置不受影响；如需新版内容，请重新拖入模板（不会自动同步）。',
   'pages.pageStudio.editor.chain.addParam': '+ 添加参数',
   'pages.pageStudio.editor.chain.addStep': '+ 添加后续动作',
   'pages.pageStudio.editor.chain.paramNamePlaceholder': '参数名',

@@ -2,6 +2,9 @@ package model
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
 	"strings"
 	"time"
 
@@ -32,6 +35,9 @@ type ComponentTemplate struct {
 	Tree JSON `gorm:"type:json;not null"`
 	// Builtin 是否为内置模板（契约自动生成 vs 用户保存）
 	Builtin bool `gorm:"default:false;index"`
+	// Digest 模板内容指纹（sha256(canonical Tree JSON)，U11 更新提醒）：
+	// 页面级快照记录实例化时的 digest，编辑器打开时与当前值比对提示新版本。
+	Digest string `gorm:"size:64"`
 	// CreatedBy 创建者
 	CreatedBy string `gorm:"size:64"`
 	CreatedAt time.Time
@@ -48,12 +54,32 @@ func NewComponentTemplateModel(db *gorm.DB) *ComponentTemplateModel {
 	return &ComponentTemplateModel{db: db}
 }
 
+// ComputeTemplateDigest 返回模板 Tree 的 canonical 内容指纹：
+// unmarshal → marshal（map 键序稳定）后 sha256——同一逻辑内容不受
+// 原始 JSON 字节序（空格/键序）影响。解析失败返回空串。
+func ComputeTemplateDigest(tree JSON) string {
+	if len(tree) == 0 {
+		return ""
+	}
+	var value interface{}
+	if err := json.Unmarshal(tree, &value); err != nil {
+		return ""
+	}
+	raw, err := json.Marshal(value)
+	if err != nil {
+		return ""
+	}
+	sum := sha256.Sum256(raw)
+	return hex.EncodeToString(sum[:])
+}
+
 // Create inserts a new template.
 func (m *ComponentTemplateModel) Create(ctx context.Context, t *ComponentTemplate) error {
 	t.Key = strings.TrimSpace(t.Key)
 	if t.Key == "" {
 		return ErrComponentTemplateKeyRequired
 	}
+	t.Digest = ComputeTemplateDigest(t.Tree)
 	return m.db.WithContext(ctx).Create(t).Error
 }
 
@@ -64,6 +90,7 @@ func (m *ComponentTemplateModel) UpsertBuiltin(ctx context.Context, t *Component
 		return ErrComponentTemplateKeyRequired
 	}
 	t.Builtin = true
+	t.Digest = ComputeTemplateDigest(t.Tree)
 	var existing ComponentTemplate
 	err := m.db.WithContext(ctx).Where("key = ?", t.Key).First(&existing).Error
 	if err == gorm.ErrRecordNotFound {
@@ -78,6 +105,7 @@ func (m *ComponentTemplateModel) UpsertBuiltin(ctx context.Context, t *Component
 	existing.Icon = t.Icon
 	existing.RequiredFunctions = t.RequiredFunctions
 	existing.Tree = t.Tree
+	existing.Digest = t.Digest
 	return m.db.WithContext(ctx).Save(&existing).Error
 }
 

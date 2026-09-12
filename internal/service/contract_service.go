@@ -1457,6 +1457,7 @@ func (s *ContractService) CreateCompositeProposal(
 	ctx context.Context,
 	gameID, env, pageKey string,
 	sections []CompositeSectionRequest,
+	componentTemplates []spec.ComponentTemplateUsage,
 ) (proposal *model.PageProposal, err error) {
 	// 组合页创建链路新近重构——panic 显式转为错误（含栈）返回前端，
 	// 避免 500 空响应无诊断。
@@ -1625,6 +1626,23 @@ func (s *ContractService) CreateCompositeProposal(
 		}
 		merged = append(merged, gen[gi:]...)
 		generated.Composite.Sections = merged
+	}
+	// 页面级模板快照（U11 更新提醒）：编辑器登记的 key+digest 原样透传进
+	// PageSpec，随提案→草稿→发布全程 JSON 持久（回读比对用，不参与校验）。
+	if len(componentTemplates) > 0 {
+		seenTpl := map[string]bool{}
+		normalized := make([]spec.ComponentTemplateUsage, 0, len(componentTemplates))
+		for _, usage := range componentTemplates {
+			key := strings.TrimSpace(usage.Key)
+			if key == "" || seenTpl[key] {
+				continue
+			}
+			seenTpl[key] = true
+			normalized = append(normalized, spec.ComponentTemplateUsage{Key: key, Digest: strings.TrimSpace(usage.Digest)})
+		}
+		if len(normalized) > 0 {
+			generated.PageSpec.ComponentTemplates = normalized
+		}
 	}
 	// 统一校验规则（单一规则源）：提案创建即运行发布级 selector 校验——与
 	// AcceptAndPublishProposal 的硬门槛共用 CollectBindingSelectorIssues。

@@ -23,6 +23,11 @@ export interface ComponentTemplateDTO {
   params?: ComponentTemplateParam[];
   tree: PageNode[];
   builtin: boolean;
+  /** 模板内容指纹（U11 更新提醒）：页面快照与之比对得出「有新版本」。
+   * 旧后端/未迁移行可能缺失。 */
+  digest?: string;
+  /** 最近一次内容更新时间（U11）。 */
+  updatedAt?: string;
   /** 契约已变化，builtin 模板需「从契约重新生成」刷新。 */
   stale?: boolean;
 }

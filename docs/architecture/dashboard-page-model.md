@@ -339,6 +339,7 @@ interface ComponentTemplate {
   tree: PageNode[]; // 组合页编辑器 PageNode 子树（含引用关系）
   builtin: boolean; // 内置模板（由 regenerate 维护）vs 用户保存
   createdBy?: string;
+  digest: string; // 内容指纹 sha256(canonical Tree JSON)，U11 更新提醒
 }
 ```
 
@@ -352,6 +353,12 @@ interface ComponentTemplate {
   序列化 PageNode 子树存为 `builtin=false` 模板
 - **实例化**：组件库面板点击模板 → tree 复制 + id 重分配 + 函数引用重映射进画布；
   可用性检查在前端本地完成（`requiredFunctions` 与 scope 函数集比对，缺失置灰）
+- **digest 与更新提醒（U11）**：`digest` = sha256(canonical Tree JSON)，三个写路径
+  全覆盖（Create / Update handler + regenerate 落到的 `UpsertBuiltin`）。实例化是
+  **复制语义**——页面保存的是当时内容的副本；编辑器把所用模板的 `{key, digest}`
+  快照进 `PageSpec.componentTemplates`（页面级可选字段，随 proposal→draft→published
+  JSON 透传，不参与发布校验），再次打开页面时与模板库当前 digest 比对，不一致提示
+  「所用模板有新版本」（只提示不自动同步）
 
 REST：`/api/v1/component-templates`（List/Get/Create/Update/Delete/Regenerate），
 wire 契约见 [API 文档](../api/component-templates.md)。使用层文档见
@@ -368,13 +375,13 @@ PageSpec = (pageKey, type, resourceKey?, category, title, icon, order,
 
 四种页面类型的视图编排：
 
-| 页面类型    | 视图节点（实际 DTO）                                                                                                                                                                                                                                                                                                                                                                             |
-| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `resource`  | `ListViewSpec`（columns/filters/pagination/rowActions/batchActions/toolbarActions）、`DetailViewSpec`（fields/actions）、`CreateForm`/`UpdateForm`（FormPresentationSpec）、`DeleteAction`（ConfirmActionSpec）                                                                                                                                                                                  |
-| `operation` | `Form`（FormPresentationSpec）+ `Confirm`（ConfirmActionSpec）+ `ResultViewSpec`                                                                                                                                                                                                                                                                                                                 |
-| `task`      | `Form`（FormPresentationSpec）+ `TaskViewSpec`（status/events/result/cancel 的 bindingId 引用）+ `ResultViewSpec`                                                                                                                                                                                                                                                                                |
-| `report`    | `QueryForm`（FormPresentationSpec）+ `DatasetSpec` + `ChartSpec[]` + 表格 `ListViewSpec`                                                                                                                                                                                                                                                                                                         |
-| `composite` | `CompositePageSpec`：`sections[]`（每区块绑定一个函数；`display` inline/dialog/tab/card、`group` 弹窗/页签/卡片分组、`tab` 页签标签、`cardTitle` 卡片标题、`rowActions`/`toolbar` 按钮动作含 `chain` 动作链、`onSuccessRefresh`、`refreshOn` page_state 联动），另有 `static` 常量表单（不绑定函数，值进 page_state；sections 顺序=请求输入顺序，static 与函数区块按输入位置交错，不重排到末尾） |
+| 页面类型    | 视图节点（实际 DTO）                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| ----------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `resource`  | `ListViewSpec`（columns/filters/pagination/rowActions/batchActions/toolbarActions）、`DetailViewSpec`（fields/actions）、`CreateForm`/`UpdateForm`（FormPresentationSpec）、`DeleteAction`（ConfirmActionSpec）                                                                                                                                                                                                                                                                                                   |
+| `operation` | `Form`（FormPresentationSpec）+ `Confirm`（ConfirmActionSpec）+ `ResultViewSpec`                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| `task`      | `Form`（FormPresentationSpec）+ `TaskViewSpec`（status/events/result/cancel 的 bindingId 引用）+ `ResultViewSpec`                                                                                                                                                                                                                                                                                                                                                                                                 |
+| `report`    | `QueryForm`（FormPresentationSpec）+ `DatasetSpec` + `ChartSpec[]` + 表格 `ListViewSpec`                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| `composite` | `CompositePageSpec`：`sections[]`（每区块绑定一个函数；`display` inline/dialog/tab/card、`group` 弹窗/页签/卡片分组、`tab` 页签标签、`cardTitle` 卡片标题、`rowActions`/`toolbar` 按钮动作含 `chain` 动作链、`onSuccessRefresh`、`refreshOn` page_state 联动），另有 `static` 常量表单（不绑定函数，值进 page_state；sections 顺序=请求输入顺序，static 与函数区块按输入位置交错，不重排到末尾）；页面级可选 `componentTemplates[]`（U11 模板使用快照 `{key, digest}`，仅编辑器更新提醒用，不参与发布校验与渲染） |
 
 字段级的 wire 契约（含 FormPresentationSpec、Selector AST、Binding usage 枚举与 ABI 版本）以 [PageSpec 协议规范](./pagespec-protocol.md) 为唯一出处；其权威实现是 `internal/dashboard/spec`（Go DTO）与 `web/src/types/dashboard.ts`（前端共享类型），两侧逐项对应。
 

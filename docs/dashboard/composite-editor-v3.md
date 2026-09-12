@@ -307,8 +307,36 @@ prev schema 语义与 wire 契约见
 [Dashboard Resource/Page 模型](../architecture/dashboard-page-model.md)与
 [PageSpec 协议规范](../architecture/pagespec-protocol.md)。
 
+## 8.6 模板更新提醒（U11，2026-09）
+
+模板实例化是**复制语义**——页面保存的是拖入时刻的模板内容副本，模板之后改版
+页面不会变。U11 在此语义上补一条**提醒通道**（不改变复制语义）：
+
+- **模板侧**：每个模板带 `digest`（sha256 canonical Tree JSON，创建/更新/
+  regenerate 三个写路径全覆盖）与 `updatedAt`，随模板列表透出
+  （[组件模板 API](../api/component-templates.md)）
+- **页面侧快照**：编辑器实例化模板（组件库点击/拖入/带参弹窗确认/「从模板开始」
+  四入口）时登记 `{key, digest}`，保存时随 POST body 的 `componentTemplates`
+  并入 `PageSpec.componentTemplates`（页面级字段，随 proposal→draft→published
+  全程透传；同 key 去重）
+- **打开比对**：带 `?pageKey=` 打开旧页面时，回读快照并拉当前模板库比对——
+  **双方都有 digest 且不一致**才在顶部提示「所用模板有新版本：xxx」；旧快照
+  无 digest、模板未迁移（无 digest）、模板已删除、digest 一致均不提示（宁可漏报
+  不误报）；模板库拉取失败静默（提醒是增值信息，不阻断编辑）
+- **提醒文案明示行为**：页面保持当前配置不受影响；如需新版内容请重新拖入模板
+  （不会自动同步）
+
+注意与 builtin 模板 `stale` 标记（契约漂移，需 regenerate）的区别：`stale` 指
+模板与**函数契约**脱节，digest 提醒指模板**内容改版**与页面快照不一致——两者
+并存、语义不同。
+
 ## 9. 已知边界
 
+- **模板更新提醒（U11）只提示不自动同步**：实例化保持复制语义，提醒不提供一键
+  更新（需手动重新拖入模板）；快照按 key 去重——同模板多次拖入只登记一次 digest，
+  页面内删除模板节点也不摘除快照条目（快照描述「创建页面时用过哪些模板」，
+  不追踪后续增删）；digest 提示在编辑器打开时一次性比对（编辑会话中模板再改版
+  不实时刷新提示）
 - **页签容器（V2）**：页签内组件的细粒度画布交互（拖拽排序/调宽/右键菜单）不生效，
   请用左侧大纲面板选中与删除（大纲树已递归全深，页签页内组件可见可选）；页签嵌套
   （tabs 进 tabs/页内再放 tabs）不支持；页内区块发布为整行堆叠（span 不生效）；

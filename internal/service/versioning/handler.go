@@ -5,6 +5,7 @@ import (
 
 	"github.com/cuihairu/croupier/internal/common/requestbind"
 	"github.com/cuihairu/croupier/internal/common/response"
+	"github.com/cuihairu/croupier/internal/dashboard/spec"
 	"github.com/cuihairu/croupier/internal/service"
 	"github.com/cuihairu/croupier/internal/svc"
 	"github.com/gin-gonic/gin"
@@ -215,6 +216,9 @@ func getScope(c *gin.Context) (string, string) {
 type CreateCompositePageRequest struct {
 	PageKey  string                            `json:"pageKey"`
 	Sections []service.CompositeSectionRequest `json:"sections"`
+	// ComponentTemplates 页面级模板快照（U11 更新提醒）：编辑器实例化时
+	// 登记的 key+digest，原样透传进 PageSpec 供回读比对。
+	ComponentTemplates []spec.ComponentTemplateUsage `json:"componentTemplates,omitempty"`
 }
 
 // CreateCompositePage handles POST /versioning/pages/composite：聚合 2+
@@ -226,7 +230,7 @@ func (h *Handler) CreateCompositePage(c *gin.Context) {
 		return
 	}
 	gameID, env := getScope(c)
-	proposal, err := h.service.CreateCompositePage(c.Request.Context(), gameID, env, req.PageKey, req.Sections)
+	proposal, err := h.service.CreateCompositePage(c.Request.Context(), gameID, env, req.PageKey, req.Sections, req.ComponentTemplates)
 	if err != nil {
 		response.Error(c, err)
 		return

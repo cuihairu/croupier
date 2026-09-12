@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"math"
+	"strings"
 	"testing"
 
 	"github.com/glebarez/sqlite"
@@ -42,7 +43,7 @@ func TestCreateCompositeProposal_Repro(t *testing.T) {
 	proposal, err := svc.CreateCompositeProposal(ctx, "demo_game", "development", "composite--player-overview", []CompositeSectionRequest{
 		{FunctionID: "player.get", View: "fields", Title: "玩家信息"},
 		{FunctionID: "order.list", View: "table", Title: "订单", RefreshOn: []string{"player.get"}},
-	})
+	}, nil)
 	if err != nil {
 		t.Fatalf("create failed: %v", err)
 	}
@@ -82,7 +83,7 @@ func TestCreateCompositeProposal_ScopedCtxRepro(t *testing.T) {
 	proposal, err := svc.CreateCompositeProposal(ctx, "demo_game", "development", "composite--scoped", []CompositeSectionRequest{
 		{FunctionID: "player.get", View: "fields"},
 		{FunctionID: "order.list", View: "table", RefreshOn: []string{"player.get"}},
-	})
+	}, nil)
 	if err != nil {
 		t.Fatalf("scoped create failed: %v", err)
 	}
@@ -152,7 +153,7 @@ func TestCreateCompositeProposal_GroupPassthrough(t *testing.T) {
 	proposal, err := svc.CreateCompositeProposal(ctx, "demo_game", "development", "composite--group-pass", []CompositeSectionRequest{
 		{FunctionID: "player.get", View: "fields", Display: "dialog", Group: "mailModal"},
 		{FunctionID: "player.get", View: "fields", Key: "playerDetail", Title: "玩家"},
-	})
+	}, nil)
 	if err != nil {
 		t.Fatalf("create failed: %v", err)
 	}
@@ -203,7 +204,7 @@ func TestCreateCompositeProposal_TabPassthrough(t *testing.T) {
 			Display: "tab", Group: "mainTabs", Tab: "筛选页",
 			Form: &spec.FormPresentationSpec{JSONSchema: spec.JSONSchema(`{"type":"object","properties":{"kw":{"type":"string"}}}`)},
 		},
-	})
+	}, nil)
 	if err != nil {
 		t.Fatalf("create failed: %v", err)
 	}
@@ -276,7 +277,7 @@ func TestCreateCompositeProposal_CardTitlePassthrough(t *testing.T) {
 			Display: "card", Group: "vip-zone", CardTitle: "VIP 专区",
 			Form: &spec.FormPresentationSpec{JSONSchema: spec.JSONSchema(`{"type":"object","properties":{"kw":{"type":"string"}}}`)},
 		},
-	})
+	}, nil)
 	if err != nil {
 		t.Fatalf("create failed: %v", err)
 	}
@@ -352,7 +353,7 @@ func TestCreateCompositeProposal_VisibleWhenPassthrough(t *testing.T) {
 			Form:        &spec.FormPresentationSpec{JSONSchema: spec.JSONSchema(`{"type":"object","properties":{"mode":{"type":"string"}}}`)},
 			VisibleWhen: &spec.ConditionSpec{Kind: "exists", Key: "player.get", Path: "/data/player"},
 		},
-	})
+	}, nil)
 	if err != nil {
 		t.Fatalf("create failed: %v", err)
 	}
@@ -384,6 +385,72 @@ func TestCreateCompositeProposal_VisibleWhenPassthrough(t *testing.T) {
 	}
 	if staticCond.Kind != "exists" || staticCond.Key != "player.get" || staticCond.Path != "/data/player" {
 		t.Fatalf("static section condition wrong: %+v", staticCond)
+	}
+}
+
+// U11 模板快照透传：componentTemplates（key+digest）原样落进 PageSpec
+// （去重/trim 规范化），空 key 条目被丢弃；nil 不产生字段。
+func TestCreateCompositeProposal_ComponentTemplatesSnapshot(t *testing.T) {
+	db, err := gorm.Open(sqlite.Open(t.TempDir()+"/ctpl-snap.db"), &gorm.Config{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := db.AutoMigrate(&model.FunctionContract{}, &model.PageProposal{}, &model.PageProposalVersion{}); err != nil {
+		t.Fatal(err)
+	}
+	svc := NewContractService(db)
+	ctx := context.Background()
+	if err := svc.RebuildContractFromFunctionMeta(ctx, "demo_game", "development", "agent-1", spec.FunctionContractInput{ID: "player.get", Resource: "player", Capability: "item_query", Enabled: true, InputSchema: `{"type":"object","properties":{"id":{"type":"string"}}}`}); err != nil {
+		t.Fatal(err)
+	}
+	if err := svc.RebuildContractFromFunctionMeta(ctx, "demo_game", "development", "agent-1", spec.FunctionContractInput{ID: "order.list", Resource: "order", Capability: "collection_query", Enabled: true}); err != nil {
+		t.Fatal(err)
+	}
+
+	proposal, err := svc.CreateCompositeProposal(ctx, "demo_game", "development", "composite--tpl-snap", []CompositeSectionRequest{
+		{FunctionID: "player.get", View: "fields"},
+		{FunctionID: "order.list", View: "table"},
+	}, []spec.ComponentTemplateUsage{
+		{Key: "player.crud", Digest: "d1"},
+		{Key: "  player.crud  ", Digest: "dup"}, // 同 key 去重（保留首个）
+		{Key: "   ", Digest: "x"},               // 空白 key 丢弃
+		{Key: "mail.quick", Digest: "  d2  "},   // digest trim
+	})
+	if err != nil {
+		t.Fatalf("create failed: %v", err)
+	}
+
+	var page spec.PageSpec
+	if err := jsonUnmarshalV9(proposal.PageSpec, &page); err != nil {
+		t.Fatalf("unmarshal pageSpec: %v", err)
+	}
+	if len(page.ComponentTemplates) != 2 {
+		t.Fatalf("componentTemplates = %+v", page.ComponentTemplates)
+	}
+	if page.ComponentTemplates[0] != (spec.ComponentTemplateUsage{Key: "player.crud", Digest: "d1"}) {
+		t.Fatalf("first usage = %+v", page.ComponentTemplates[0])
+	}
+	if page.ComponentTemplates[1] != (spec.ComponentTemplateUsage{Key: "mail.quick", Digest: "d2"}) {
+		t.Fatalf("second usage = %+v", page.ComponentTemplates[1])
+	}
+
+	// nil/空快照不产生字段（存量请求零影响）
+	proposal2, err := svc.CreateCompositeProposal(ctx, "demo_game", "development", "composite--tpl-none", []CompositeSectionRequest{
+		{FunctionID: "player.get", View: "fields"},
+		{FunctionID: "order.list", View: "table"},
+	}, nil)
+	if err != nil {
+		t.Fatalf("create without templates failed: %v", err)
+	}
+	var page2 spec.PageSpec
+	if err := jsonUnmarshalV9(proposal2.PageSpec, &page2); err != nil {
+		t.Fatalf("unmarshal pageSpec: %v", err)
+	}
+	if len(page2.ComponentTemplates) != 0 {
+		t.Fatalf("componentTemplates should be empty, got %+v", page2.ComponentTemplates)
+	}
+	if strings.Contains(string(proposal2.PageSpec), "componentTemplates") {
+		t.Fatal("nil snapshots must not emit the componentTemplates field")
 	}
 }
 

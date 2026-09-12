@@ -186,6 +186,38 @@ func TestDeleteHandler_NotFound(t *testing.T) {
 	assert.Equal(t, http.StatusNotFound, w.Code)
 }
 
+// TestTemplateDigestHandlerSurface U11 wire 面：Update 后 digest 跟随新
+// tree 刷新；List/Get 响应透出 digest 与 updatedAt（前端快照比对面）。
+func TestTemplateDigestHandlerSurface(t *testing.T) {
+	db := setupV4DB(t)
+	h := NewHandler(model.NewComponentTemplateModel(db), nil)
+	r := newV4Router(h)
+
+	require.Equal(t, http.StatusOK, doReq(r, http.MethodPost, "/api/v1/component-templates",
+		`{"key":"dg--1","name":{"zh-CN":"x"},"tree":[{"type":"fnForm","props":{"functionId":"mail.send"}}]}`).Code)
+
+	// Update 换 tree → digest 刷新为新内容指纹
+	require.Equal(t, http.StatusOK, doReq(r, http.MethodPut, "/api/v1/component-templates/dg--1",
+		`{"key":"dg--1","name":{"zh-CN":"x"},"tree":[{"type":"fnTable","props":{"functionId":"player.list"}}]}`).Code)
+	tpl, err := h.model.FindByKey(context.Background(), "dg--1")
+	require.NoError(t, err)
+	require.NotEmpty(t, tpl.Digest, "Update must persist the digest")
+	assert.Equal(t, model.ComputeTemplateDigest(model.JSON(`[{"type":"fnTable","props":{"functionId":"player.list"}}]`)), tpl.Digest)
+
+	// Get 透出 digest + updatedAt
+	w := doReq(r, http.MethodGet, "/api/v1/component-templates/dg--1", "")
+	require.Equal(t, http.StatusOK, w.Code)
+	body := w.Body.String()
+	assert.Contains(t, body, `"digest":"`+tpl.Digest+`"`)
+	assert.Contains(t, body, `"updatedAt":`)
+
+	// List 同样透出
+	w = doReq(r, http.MethodGet, "/api/v1/component-templates", "")
+	require.Equal(t, http.StatusOK, w.Code)
+	assert.Contains(t, w.Body.String(), `"digest":"`+tpl.Digest+`"`)
+	assert.Contains(t, w.Body.String(), `"updatedAt":`)
+}
+
 func TestListHandler_PaginationAndDbError(t *testing.T) {
 	db := setupV4DB(t)
 	h := NewHandler(model.NewComponentTemplateModel(db), nil)

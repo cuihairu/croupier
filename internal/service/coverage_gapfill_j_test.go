@@ -301,14 +301,14 @@ func TestCreateCompositeProposal_StaticSectionKeyErrors(t *testing.T) {
 	_, err := svc.CreateCompositeProposal(ctx, "demo-game", "development", "composite--x", []CompositeSectionRequest{
 		{Static: true, Form: &spec.FormPresentationSpec{JSONSchema: spec.JSONSchema(`{"type":"object"}`)}},
 		{Static: true, Key: "b", Form: &spec.FormPresentationSpec{JSONSchema: spec.JSONSchema(`{"type":"object"}`)}},
-	})
+	}, nil)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "static section requires key")
 
 	_, err = svc.CreateCompositeProposal(ctx, "demo-game", "development", "composite--x", []CompositeSectionRequest{
 		{Static: true, Key: "a", Form: &spec.FormPresentationSpec{JSONSchema: spec.JSONSchema(`{"type":"object"}`)}},
 		{Static: true, Key: "a", Form: &spec.FormPresentationSpec{JSONSchema: spec.JSONSchema(`{"type":"object"}`)}},
-	})
+	}, nil)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "duplicate section key")
 }

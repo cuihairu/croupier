@@ -45,7 +45,7 @@ func TestCreateCompositeProposalPublishValidationDowngradesQuality(t *testing.T)
 				Target: "/playerId", Kind: "row", Path: "/playerId",
 			}},
 		},
-	})
+	}, nil)
 	require.NoError(t, err)
 	require.NotNil(t, proposal)
 
@@ -77,7 +77,7 @@ func TestCreateCompositeProposalExplicitAssignmentPassesUnifiedCheck(t *testing.
 				Target: "/playerId", Kind: "literal", Value: []byte(`"demo-player"`),
 			}},
 		},
-	})
+	}, nil)
 	require.NoError(t, err)
 	require.NotNil(t, proposal)
 

@@ -395,6 +395,16 @@ interface PageSpecBase {
   icon?: string;
   navigation?: NavigationSpec;
   bindings: PageFunctionBinding[];
+  /** 页面级组件模板快照（U11 更新提醒）：实例化时登记 key + 当时模板
+   * digest，编辑器打开页面时与模板库当前值比对，不一致提示「所用模板
+   * 有新版本」。仅提示，不自动同步（复制语义）；不参与发布校验。 */
+  componentTemplates?: ComponentTemplateUsage[];
+}
+
+/** 页面使用的组件模板来源标记（key + 实例化时的模板内容 digest）。 */
+export interface ComponentTemplateUsage {
+  key: string;
+  digest: string;
 }
 
 /** 组合页：区块布局，每区块绑一个函数，区块间 page_state 联动。 */

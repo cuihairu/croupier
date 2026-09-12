@@ -524,6 +524,19 @@ type PageSpec struct {
 	// bindings by bindingId; direct functionId references are invalid in
 	// published PageSpec.
 	Bindings []PageFunctionBinding `json:"bindings"`
+
+	// ComponentTemplates 页面级组件模板快照（U11 更新提醒）：实例化时登记
+	// key + 当时模板 digest，编辑器打开页面时与模板库当前 digest 比对，
+	// 不一致提示「所用模板有新版本」。仅提示，不自动同步（复制语义）。
+	// 不参与发布校验——页面配置以 sections 为准，快照只做来源标记。
+	ComponentTemplates []ComponentTemplateUsage `json:"componentTemplates,omitempty"`
+}
+
+// ComponentTemplateUsage 记录页面使用的组件模板来源（key + 实例化时的
+// 模板内容 digest）。
+type ComponentTemplateUsage struct {
+	Key    string `json:"key"`
+	Digest string `json:"digest"`
 }
 
 // CompositePageSpec 是自由组合页：区块（section）布局，每区块绑定

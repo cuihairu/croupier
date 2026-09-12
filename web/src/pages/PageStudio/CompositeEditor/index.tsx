@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo, useRef, useState } from 'react';
-import { App, Button, Card, Col, Input, Row, Space, Tabs, Tooltip, Typography } from 'antd';
+import { Alert, App, Button, Card, Col, Input, Row, Space, Tabs, Tooltip, Typography } from 'antd';
 import { AppstoreOutlined, ArrowLeftOutlined, EyeOutlined, SaveOutlined } from '@ant-design/icons';
 import { FormattedMessage, history, request, useIntl, useSearchParams } from '@umijs/max';
 import { subscribeScope } from '@/stores/scope';
@@ -50,6 +50,8 @@ import {
 } from './model';
 import { assignVarNames, collectVarNames, renameVariable } from './varname';
 import { localizedText } from '@/utils/localizedText';
+import { computeStaleTemplateNames } from './templateFreshness';
+import type { ComponentTemplateUsage } from '@/types/dashboard';
 import { useEditorHistory } from './useEditorHistory';
 
 const { Text } = Typography;
@@ -90,6 +92,33 @@ export default function CompositeEditorPage() {
   const [editingModalId, setEditingModalId] = useState<string | null>(null);
   /** 空画布起步模式：false=模板引导（默认），true=空白白板（根落区拖入）。 */
   const [startBlank, setStartBlank] = useState(false);
+  /** 页面级模板快照（U11）：实例化登记 key+digest，保存随 sections 提交；
+   * 打开旧页面时与模板库当前 digest 比对，不一致提示有新版本（不自动同步）。 */
+  const [tplUsage, setTplUsage] = useState<ComponentTemplateUsage[]>([]);
+  /** 与快照 digest 不一致的模板显示名（打开页面时比对得出）。 */
+  const [staleTplNames, setStaleTplNames] = useState<string[]>([]);
+  const recordTemplateUse = useCallback((tpl: ComponentTemplateDTO) => {
+    if (!tpl.key) return;
+    setTplUsage((prev) =>
+      prev.some((u) => u.key === tpl.key)
+        ? prev
+        : [...prev, { key: tpl.key, digest: tpl.digest ?? '' }],
+    );
+  }, []);
+  /** 比对页面快照与模板库当前 digest（门禁见 computeStaleTemplateNames）；
+   * 拉取失败静默——提醒是增值信息，不阻断编辑。 */
+  const checkTemplateFreshness = useCallback(async (usage: ComponentTemplateUsage[]) => {
+    if (usage.length === 0) return;
+    try {
+      const resp = (await request('/api/v1/component-templates', {
+        skipErrorHandler: true,
+      })) as { items?: ComponentTemplateDTO[] } | ComponentTemplateDTO[];
+      const items = Array.isArray(resp) ? resp : (resp?.items ?? []);
+      setStaleTplNames(computeStaleTemplateNames(usage, items));
+    } catch {
+      // 提醒是增值信息，不阻断编辑
+    }
+  }, []);
   // 树历史（撤销/重做 50 步 + 统一树写入入口 setTree），选择清理由 setter 注入
   const { tree, setTree, treeRef, undo, redo, past, future } = useEditorHistory({
     setSelectedId,
@@ -120,21 +149,46 @@ export default function CompositeEditorPage() {
     if (!loadKey || tree.length > 0) return;
     let cancelled = false;
     void (async () => {
-      const fetchers: Array<() => Promise<{ sections?: SpecSectionLike[] } | undefined>> = [
+      const fetchers: Array<
+        () => Promise<
+          | { sections?: SpecSectionLike[]; componentTemplates?: ComponentTemplateUsage[] }
+          | undefined
+        >
+      > = [
         async () => {
           const resp = (await request(
             `/api/v1/proposals/${encodeURIComponent(`composite--${loadKey}`)}`,
             {
               skipErrorHandler: true,
             },
-          )) as { pageSpec?: { composite?: { sections?: SpecSectionLike[] } } };
-          return resp?.pageSpec?.composite;
+          )) as {
+            pageSpec?: {
+              composite?: { sections?: SpecSectionLike[] };
+              componentTemplates?: ComponentTemplateUsage[];
+            };
+          };
+          return resp?.pageSpec?.composite
+            ? {
+                sections: resp.pageSpec.composite.sections,
+                componentTemplates: resp.pageSpec.componentTemplates,
+              }
+            : undefined;
         },
         async () => {
           const resp = (await request(`/api/v1/proposals/${encodeURIComponent(loadKey)}`, {
             skipErrorHandler: true,
-          })) as { pageSpec?: { composite?: { sections?: SpecSectionLike[] } } };
-          return resp?.pageSpec?.composite;
+          })) as {
+            pageSpec?: {
+              composite?: { sections?: SpecSectionLike[] };
+              componentTemplates?: ComponentTemplateUsage[];
+            };
+          };
+          return resp?.pageSpec?.composite
+            ? {
+                sections: resp.pageSpec.composite.sections,
+                componentTemplates: resp.pageSpec.componentTemplates,
+              }
+            : undefined;
         },
         async () => {
           // draft/已发布页（无提案时）：GET /versioning/pages/:pageKey
@@ -142,13 +196,20 @@ export default function CompositeEditorPage() {
             skipErrorHandler: true,
           })) as Record<string, unknown>;
           const spec = (resp?.pageSpec ?? resp?.spec ?? resp) as
-            { composite?: { sections?: SpecSectionLike[] } } | undefined;
-          return spec?.composite;
+            | {
+                composite?: { sections?: SpecSectionLike[] };
+                componentTemplates?: ComponentTemplateUsage[];
+              }
+            | undefined;
+          return spec?.composite
+            ? { sections: spec.composite.sections, componentTemplates: spec.componentTemplates }
+            : undefined;
         },
       ];
       for (const fetchSpec of fetchers) {
         try {
-          const sections = (await fetchSpec())?.sections;
+          const loaded = await fetchSpec();
+          const sections = loaded?.sections;
           if (!sections?.length) continue;
           // 竞态防护：请求期间用户已开始编辑（树上已有节点/已取消）→ 放弃回读覆盖
           if (cancelled || treeRef.current.length > 0) return;
@@ -157,6 +218,10 @@ export default function CompositeEditorPage() {
           setTree(nodes);
           setPageKey(loadKey);
           setKeyTouched(true);
+          // U11：恢复模板快照并比对模板库当前 digest（不一致提示新版本）
+          const usage = loaded?.componentTemplates ?? [];
+          setTplUsage(usage);
+          if (!cancelled) void checkTemplateFreshness(usage);
           if (warnings.length)
             message.warning(
               intlRef.current.formatMessage(
@@ -322,7 +387,12 @@ export default function CompositeEditorPage() {
     try {
       const resp = (await request('/api/v1/versioning/pages/composite', {
         method: 'POST',
-        data: { pageKey: key, sections },
+        data: {
+          pageKey: key,
+          sections,
+          // U11 模板快照：随保存并入（回读比对「所用模板有新版本」的依据）
+          ...(tplUsage.length > 0 ? { componentTemplates: tplUsage } : {}),
+        },
       })) as { proposalKey?: unknown };
       modal.success({
         title: intlRef.current.formatMessage({
@@ -361,7 +431,7 @@ export default function CompositeEditorPage() {
     } finally {
       setSaving(false);
     }
-  }, [pageKey, tree, message, modal]);
+  }, [pageKey, tree, tplUsage, message, modal]);
 
   const patchProps = useCallback(
     (patch: Record<string, unknown>) => {
@@ -404,6 +474,7 @@ export default function CompositeEditorPage() {
     setTree,
     setSelectedId,
     setInsertTpl,
+    onTemplateUsed: recordTemplateUse,
   });
 
   /** V5 变量改名：同步重写树内全部表达式/裸引用（§3.2）。
@@ -699,6 +770,25 @@ export default function CompositeEditorPage() {
         ],
       }}
     >
+      {staleTplNames.length > 0 && (
+        <Alert
+          type="warning"
+          showIcon
+          style={{ marginBottom: 8 }}
+          message={intl.formatMessage({
+            id: 'pages.pageStudio.editor.templateStale.title',
+            defaultMessage: '所用模板有新版本',
+          })}
+          description={intl.formatMessage(
+            {
+              id: 'pages.pageStudio.editor.templateStale.desc',
+              defaultMessage:
+                '以下模板在本页面创建后已更新：{names}。页面保持当前配置不受影响；如需新版内容，请重新拖入模板（不会自动同步）。',
+            },
+            { names: staleTplNames.join('、') },
+          )}
+        />
+      )}
       <Space wrap style={{ marginBottom: 12 }}>
         <Text type="secondary" style={{ fontSize: 10 }}>
           v3.2.1
@@ -762,6 +852,7 @@ export default function CompositeEditorPage() {
                               setInsertTpl({ tpl, overId: 'canvas-root' });
                               return;
                             }
+                            recordTemplateUse(tpl);
                             // 语义命名（instantiateTemplate 剥离 sectionKey，须重新分配变量名）
                             setTree((prev) => [
                               ...prev,
@@ -858,6 +949,7 @@ export default function CompositeEditorPage() {
                     onPick={(nodes, tpl) => {
                       // 语义命名（instantiateTemplate 剥离 sectionKey，须重新分配变量名）
                       setTree((prev) => [...prev, ...assignVarNames(nodes, collectVarNames(prev))]);
+                      recordTemplateUse(tpl);
                       for (const fid of tpl.requiredFunctions ?? []) {
                         const fnDesc = allFns.find((f) => f.id === fid);
                         if (fnDesc) registerFn(fnDesc);
