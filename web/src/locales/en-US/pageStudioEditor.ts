@@ -37,6 +37,7 @@ export default {
   'pages.pageStudio.editor.canvas.missingDeps': 'Missing dependent functions: {fns}',
   'pages.pageStudio.editor.canvas.modalFormOnly':
     'Only function forms can be placed inside a modal (V1)',
+  'pages.pageStudio.editor.canvas.showTemplates': 'View composite templates',
   'pages.pageStudio.editor.canvas.templateEmpty': 'The template is empty',
   'pages.pageStudio.editor.chain.addParam': '+ Add parameter',
   'pages.pageStudio.editor.chain.addStep': '+ Add follow-up action',
@@ -242,6 +243,7 @@ export default {
   'pages.pageStudio.editor.quickStart.empty':
     'No composite templates yet — regenerate from contracts on the "Component Templates" page, or drag components in from the left panel',
   'pages.pageStudio.editor.quickStart.sectionCount': '{count} sections',
+  'pages.pageStudio.editor.quickStart.startBlank': 'Start from blank',
   'pages.pageStudio.editor.quickStart.subtitle':
     'Pick a composite template as the page starting point, then keep dragging blocks to fine-tune',
   'pages.pageStudio.editor.quickStart.title': 'Start from a template',

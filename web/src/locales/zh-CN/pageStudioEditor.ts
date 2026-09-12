@@ -32,6 +32,7 @@ export default {
   'pages.pageStudio.editor.canvas.emptyHint': '从左侧点击或拖入组件，开始搭建页面',
   'pages.pageStudio.editor.canvas.missingDeps': '缺少依赖函数：{fns}',
   'pages.pageStudio.editor.canvas.modalFormOnly': '弹窗内只能放函数表单（V1）',
+  'pages.pageStudio.editor.canvas.showTemplates': '查看组合模板',
   'pages.pageStudio.editor.canvas.templateEmpty': '模板为空',
   'pages.pageStudio.editor.chain.addParam': '+ 添加参数',
   'pages.pageStudio.editor.chain.addStep': '+ 添加后续动作',
@@ -215,6 +216,7 @@ export default {
   'pages.pageStudio.editor.quickStart.empty':
     '暂无组合模板——可先到「组件模板」页从契约重新生成，或直接从左侧面板拖入组件',
   'pages.pageStudio.editor.quickStart.sectionCount': '{count} 个区块',
+  'pages.pageStudio.editor.quickStart.startBlank': '从空白开始',
   'pages.pageStudio.editor.quickStart.subtitle':
     '选择一个组合模板作为页面起点，之后可继续拖入积木微调',
   'pages.pageStudio.editor.quickStart.title': '从模板开始',
