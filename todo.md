@@ -663,3 +663,38 @@ A 系列与 R 系列互相独立可并行。每个任务独立提交；涉及 we
 U1（契约红线，最小）→ U2/U3（文档/文案，可并行热身）→ U5（P0，命名空间先于参数化避免返工）→ U6（P0）→ U7 → U4（独立，可与 U5/U6 并行）→ U8/U9（P1）→ U10/U11（P2 可选）。
 
 每个任务独立提交；涉及 web 的按交付 DoD 跑 `pnpm --dir web run tsc` + `pnpm --dir web test` + `bash scripts/dashboard_vnext_guard.sh`；涉及发布链的（U4/U5/U6/U8/U9/U10）须走 accept-and-publish 线上验证；涉及文档的 `cd docs && pnpm build`。
+
+# S 阶段：stale selector 一键同步（2026-09-12 已交付）
+
+背景：函数契约 schema 变化后，页面绑定出现 `input_schema_stale` / `selector target no longer exists` 诊断，发布被 422 阻断、运行期 console 被 409（`binding_stale`）阻断。此前唯一修复入口是 PageStudio 逐 binding 手动重选（低效易漏）或整页 regenerate（从 contract 重建 DefaultSelector 会把 row/selection/page_state/literal 自定义来源全部冲掉，定制全丢）。
+
+## S1. 一键同步 stale selector（dry-run/apply 共用 planner） ✅
+
+- [x] prev schema 持久化：`function_contracts.prev_input/output_schema` 两列（0021 迁移），注册路径 upsert 时从 existing 行拷贝——rename 精确推断的数据源
+- [x] freshness rename 缺口修复：`SelectorStaleDiagnostics` 接入 prev schema（`FieldRenameCandidate` 此前因传 `nil` 永不触发的死代码激活）
+- [x] 同步 planner `internal/dashboard/spec/selector_sync.go`：输入策略阶梯（kept / renamed high|low / removed / type_changed / added / manual_required）+ 输出策略阶梯（必需输出绝不摘成缺失，推导不出进 manual）；digest 判定一律用 freshness 双算法 `digestMatch`
+- [x] `POST /api/v1/pages/:pageKey/sync-selectors`：dryRun/apply 两段式共用 planner，`pages:edit` 权限，事务内 revision 重查 + PageVersion + 审计；不自动 publish（权限/审批语义分离）
+- [x] 前端 `SelectorSyncReportModal` + 三入口（ContractChangesPanel / Console 运行页 stale Alert / EditorModal warning）
+- [x] 测试矩阵：planner 纯函数用例 + service/handler 层 + 发布链闭环集成测试（契约升级→诊断→同步→Publish 成功→console 不再 409）
+- [x] 三层文档同步（dashboard-page-model / pagespec-protocol / composite-editor-v3）
+- [x] 线上闭环：294bda60c 上线暴露存量库缺列（agent 注册 upsert SQL 报错，止血 ALTER 后补 4261e934b 的 0021/0022 编号迁移）→ 最终部署 goose 22、agent 注册零报错
+
+交付过程中连带修复（均已单独提交上线）：
+
+- csharp demo `BuildObj` 双大括号拼接致 `player.create` input_schema 非法 JSON（dbd4ee869；六语言 demo 共享契约槽位，坏 schema 会覆盖其他语言的正确版本）
+- web jest 三个重 suite 全量并行负载下超时 flaky（00c33825f，`jest.setTimeout(20000)` 对齐既有先例）
+- HA 文档补全 agent 重连切换端到端机制 §6.2.1（36c68a635）
+
+事故教训：GORM 模型加列**必须**同步配编号 goose 迁移——存量库过了 baseline 后永不跑 AutoMigrate（database-migration-strategy.md 既有规则，0021 是违反该规则的回归）。
+
+## S2. CapabilitySemantics 感知的 identity 字段 row 源推断（P2，后续增强）
+
+**目标**：新 required 字段恰为资源 identity 字段（如 `playerId`）时，当前 planner 补 form 同名映射合法但语义上多应来自 row 源——现在只在报告 reason 里提示人工核对，应升级为自动推断。
+
+**改动点**：
+
+- [ ] planner 补 required 字段时消费 CapabilitySemantics：identity 类字段优先映射 row 源（grid/table 上下文）
+- [ ] 报告区分 `added` 的来源（form 同名补齐 / identity row 源补齐），confidence 标注语义命中
+- [ ] 单测：identity 字段命中语义表 → row 源；未命中 → 回落 form 门禁；非列表上下文 → manual_required
+
+**验收**：grid 页契约新增 identity 必填后一键同步直接接 row 源；web tsc/test/guard 全绿 + 发布链 DoD。
