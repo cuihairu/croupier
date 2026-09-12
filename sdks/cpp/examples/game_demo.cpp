@@ -66,10 +66,14 @@ static std::pair<std::string, std::string> demo_schema_for(const std::string& id
     const std::string list_out = "{\"type\":\"object\",\"properties\":{\"items\":{\"type\":\"array\",\"items\":" + std::string(SCHEMA_OBJ) + "},\"total\":" + SCHEMA_INT + "}}";
     const std::string pagination_in = "{\"type\":\"object\",\"properties\":{\"page\":" + std::string(SCHEMA_INT) + ",\"pageSize\":" + SCHEMA_INT + "}}";
     const std::string id_required_in = "{\"type\":\"object\",\"properties\":{\"id\":" + std::string(SCHEMA_STR) + "},\"required\":[\"id\"]}";
+    // delete 类输出与 Go/Python/Java demo 对齐：{id, deleted}（required）。
+    // 此前 player.delete 声明 {playerId}、order.delete 声明 {deleted}，
+    // 六语言共享契约槽位下 schema 互相覆盖。
+    const std::string delete_out = "{\"type\":\"object\",\"properties\":{\"id\":" + std::string(SCHEMA_STR) + ",\"deleted\":{\"type\":\"boolean\"}},\"required\":[\"id\",\"deleted\"]}";
     if (id == "player.create") return {player_fields_schema(false), player_out};
     if (id == "player.get") return {id_required_in, player_out};
     if (id == "player.update") return {player_fields_schema(true), player_out};
-    if (id == "player.delete") return {id_required_in, "{\"type\":\"object\",\"properties\":{\"playerId\":" + std::string(SCHEMA_STR) + "}}"};
+    if (id == "player.delete") return {id_required_in, delete_out};
     if (id == "player.list") return {pagination_in, list_out};
     // 与 Go demo 契约逐一对齐。此前未列出的函数落到 action fallback
     //（{status,action}），六语言 demo 共享同一契约槽位，fallback 注册
@@ -88,7 +92,7 @@ static std::pair<std::string, std::string> demo_schema_for(const std::string& id
     if (id == "order.update") return {"{\"type\":\"object\",\"properties\":{\"id\":" + std::string(SCHEMA_STR) + ",\"status\":" + std::string(SCHEMA_STR) + ",\"channel\":" + std::string(SCHEMA_STR) + ",\"amount\":" + SCHEMA_INT + "},\"required\":[\"id\"]}",
                                       "{\"type\":\"object\",\"properties\":{\"order\":" + std::string(SCHEMA_OBJ) + "}}"};
     if (id == "order.delete") return {"{\"type\":\"object\",\"properties\":{\"id\":" + std::string(SCHEMA_STR) + "},\"required\":[\"id\"]}",
-                                      "{\"type\":\"object\",\"properties\":{\"deleted\":{\"type\":\"boolean\"}}}"};
+                                      delete_out};
     if (id == "leaderboard.upsert") return {"{\"type\":\"object\",\"properties\":{\"playerId\":" + std::string(SCHEMA_STR) + ",\"score\":" + SCHEMA_INT + "},\"required\":[\"playerId\"]}",
                                             "{\"type\":\"object\",\"properties\":{\"entry\":" + std::string(SCHEMA_OBJ) + "}}"};
     if (id == "inventory.grant" || id == "inventory.consume") return {"{\"type\":\"object\",\"properties\":{\"playerId\":" + std::string(SCHEMA_STR) + ",\"templateId\":" + std::string(SCHEMA_STR) + ",\"quantity\":" + SCHEMA_INT + "},\"required\":[\"playerId\",\"templateId\"]}",
@@ -185,7 +189,7 @@ static std::string resp(std::initializer_list<std::string> fields) {
 // ==================== Data Models ====================
 
 struct PlayerRecord {
-    std::string id, name, status, server, createdAt, updatedAt, last_login_at;
+    std::string id, name, status, server, createdAt, updatedAt, lastLoginAt;
     int level = 1, vip = 0;
     long long gold = 0;
     std::string profile; // raw JSON
@@ -195,7 +199,7 @@ struct PlayerRecord {
                "," + json_int("level", level) + "," + json_int("vip", vip) +
                "," + json_int("gold", gold) + "," + json_str("status", status) +
                "," + json_str("server", server) + "," + json_str("createdAt", createdAt) +
-               "," + json_str("updatedAt", updatedAt) + "," + json_str("last_login_at", last_login_at) +
+               "," + json_str("updatedAt", updatedAt) + "," + json_str("lastLoginAt", lastLoginAt) +
                (profile.empty() ? "" : ",\"profile\":" + profile) + "}";
     }
 };
@@ -382,8 +386,7 @@ static void registerAll(CroupierClient& client, DemoStore& store) {
             if (id.empty()) id = extract_str(payload, "id");
             store.players.erase(id); store.inventories.erase(id);
             store.mails.erase(id); store.leaderboard.erase(id);
-            return resp({json_str("status", "success"), json_str("action", "player.delete"),
-                         json_str("playerId", id)});
+            return resp({json_str("id", id), "\"deleted\":true"});
         },
         "player.delete.double_check");
 
@@ -453,8 +456,7 @@ static void registerAll(CroupierClient& client, DemoStore& store) {
             std::string id = extract_str(payload, "order_id");
             if (id.empty()) id = extract_str(payload, "id");
             store.orders.erase(id);
-            return resp({json_str("status", "success"), json_str("action", "order.delete"),
-                         json_str("order_id", id)});
+            return resp({json_str("id", id), "\"deleted\":true"});
         },
         "order.delete.double_check");
 
@@ -515,7 +517,7 @@ static void registerAll(CroupierClient& client, DemoStore& store) {
         [&store](const std::string&, const std::string&) -> std::string {
             std::lock_guard<std::mutex> lk(store.mu);
             store.leaderboard.clear();
-            return resp({json_str("status", "success"), json_str("action", "leaderboard.reset")});
+            return resp({"\"reset\":true"});
         },
         "leaderboard.reset.double_check");
 
