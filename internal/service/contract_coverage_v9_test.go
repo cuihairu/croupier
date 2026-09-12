@@ -67,13 +67,14 @@ func abortWritesV9(t *testing.T, db *gorm.DB, mdl interface{}, events ...string)
 	}
 }
 
-// abortUpdatesWhenV9 创建带 WHEN 条件的 UPDATE 阻断触发器，
-// 用于只让特定行的更新失败（如仅 standalone 提案的软删除）。
-func abortUpdatesWhenV9(t *testing.T, db *gorm.DB, mdl interface{}, when string) {
+// abortDeletesWhenV9 创建带 WHEN 条件的 DELETE 阻断触发器，
+// 用于只让特定行的硬删除失败（standalone 提案删除路径是 Unscoped DELETE，
+// 只能拦 DELETE 语句；条件里用 OLD 引用被删行）。
+func abortDeletesWhenV9(t *testing.T, db *gorm.DB, mdl interface{}, when string) {
 	t.Helper()
 	table := tableNameV9(t, db, mdl)
-	sql := "CREATE TRIGGER abort_" + table + "_update_when BEFORE UPDATE ON " + table +
-		" WHEN " + when + " BEGIN SELECT RAISE(ABORT, 'UPDATE blocked'); END"
+	sql := "CREATE TRIGGER abort_" + table + "_delete_when BEFORE DELETE ON " + table +
+		" WHEN " + when + " BEGIN SELECT RAISE(ABORT, 'DELETE blocked'); END"
 	require.NoError(t, db.Exec(sql).Error)
 }
 
@@ -390,8 +391,9 @@ func TestRebuildProposalsErrorBranchesV9(t *testing.T) {
 			Quality: "basic", Status: dbenum.ProposalStatusPending,
 			PageSpec: model.JSON(`{"pageKey":"operation--player.list","type":"operation"}`),
 		}))
-		// 仅阻断 standalone 提案行的软删除，资源页提案的 upsert 不受影响。
-		abortUpdatesWhenV9(t, db, &model.PageProposal{}, "NEW.proposal_key = 'operation:player.list'")
+		// 仅阻断 standalone 提案行的删除（删除路径已改硬删 DELETE），
+		// 资源页提案的 upsert 不受影响。
+		abortDeletesWhenV9(t, db, &model.PageProposal{}, "OLD.proposal_key = 'operation:player.list'")
 		err := svc.RebuildProposalsForResource(ctx, gameID, env, "player")
 		assert.ErrorContains(t, err, "delete standalone proposal")
 	})
@@ -460,14 +462,14 @@ func TestRemoveFunctionContractErrorBranchesV9(t *testing.T) {
 
 	t.Run("standalone delete error", func(t *testing.T) {
 		db, svc := seed(t)
-		// 预置 standalone 提案：软删除 UPDATE 需命中行才触发 RAISE。
+		// 预置 standalone 提案：硬删 DELETE 需命中行才触发 RAISE。
 		require.NoError(t, svc.proposalModel.UpsertProposal(ctx, &model.PageProposal{
 			GameID: gameID, Env: env, ProposalKey: "operation:player.list",
 			PageKey: "operation--player.list", PageType: "operation", ResourceKey: "player",
 			Quality: "basic", Status: dbenum.ProposalStatusPending,
 			PageSpec: model.JSON(`{"pageKey":"operation--player.list","type":"operation"}`),
 		}))
-		abortWritesV9(t, db, &model.PageProposal{}, "UPDATE")
+		abortWritesV9(t, db, &model.PageProposal{}, "DELETE")
 		_, err := svc.RemoveFunctionContract(ctx, gameID, env, "player.list")
 		assert.ErrorContains(t, err, "delete standalone proposal")
 	})
