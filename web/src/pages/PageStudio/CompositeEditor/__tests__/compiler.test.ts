@@ -643,6 +643,119 @@ describe('compileTree U10：区块级条件显示（visibleWhen）', () => {
   });
 });
 
+describe('compileTree #94：container 卡片分组（publishAs=card）', () => {
+  it('publishAs=card：子区块平铺为 display=card + group + cardTitle；声明 sectionKey 固化组名', () => {
+    const card: PageNode = {
+      id: 'CARD1',
+      type: 'container',
+      props: { sectionKey: 'vip-zone', title: 'VIP 专区', publishAs: 'card', span: 24 },
+      children: [fn('fnTable', 'vip.rank', { autoRun: true }), fn('fnFields', 'vip.detail')],
+    };
+    const { sections, warnings } = compileTree([card]);
+    expect(warnings).toEqual([]);
+    expect(sections).toHaveLength(2);
+    expect(sections[0]).toMatchObject({
+      key: 'vip.rank',
+      display: 'card',
+      group: 'vip-zone',
+      cardTitle: 'VIP 专区',
+    });
+    expect(sections[1]).toMatchObject({ display: 'card', group: 'vip-zone' });
+    // cardTitle 只落首块？——两块都带（渲染端按组取标题，字段冗余无害）
+    expect(sections[1].cardTitle).toBe('VIP 专区');
+  });
+
+  it('未声明 sectionKey → card-<id尾6> 兜底；card 组名与 modal/tabs 不冲突', () => {
+    const card: PageNode = {
+      id: 'node-cafe99',
+      type: 'container',
+      props: { publishAs: 'card' },
+      children: [fn('fnFields', 'a.get')],
+    };
+    const modal: PageNode = {
+      id: 'M-CARD',
+      type: 'modal',
+      props: {},
+      children: [fn('fnForm', 'b.do')],
+    };
+    const { sections, warnings } = compileTree([card, modal]);
+    expect(warnings).toEqual([]);
+    expect(sections.find((s) => s.key === 'a.get')?.group).toBe('card-cafe99');
+    expect(sections.find((s) => s.key === 'b.do')?.group).toMatch(/^modal-/);
+  });
+
+  it('publishAs 缺省（flat）：容器子节点平铺为 inline（现状不变）', () => {
+    const box: PageNode = {
+      id: 'BOX1',
+      type: 'container',
+      props: { title: '普通分组', span: 24 },
+      children: [fn('fnFields', 'a.get', { autoRun: true })],
+    };
+    const { sections, warnings } = compileTree([box]);
+    expect(warnings).toEqual([]);
+    expect(sections[0]).toMatchObject({ key: 'a.get', display: 'inline' });
+    expect(sections[0].group).toBeUndefined();
+    expect(sections[0].cardTitle).toBeUndefined();
+  });
+
+  it('卡内 staticForm 落为 card 区块；卡内 text 静默跳过', () => {
+    const staticSchema = '{"type":"object","properties":{"kw":{"type":"string"}}}';
+    const card: PageNode = {
+      id: 'CARD2',
+      type: 'container',
+      props: { sectionKey: 'filters', title: '筛选区', publishAs: 'card' },
+      children: [
+        { id: 'sf-c', type: 'staticForm', props: { title: '筛选', staticSchema } },
+        fn('text', '', { content: '说明' }),
+      ],
+    };
+    const { sections, warnings } = compileTree([card]);
+    expect(warnings).toEqual([]); // 卡内 text 同弹窗/页签静默跳过
+    const staticSec = sections.find((s) => s.static === true)!;
+    expect(staticSec.display).toBe('card');
+    expect(staticSec.group).toBe('filters');
+    expect(staticSec.cardTitle).toBe('筛选区');
+  });
+
+  it('回读：display=card 区块按 group 聚合回卡片容器（publishAs/title/sectionKey 还原）', async () => {
+    const { decompileToTree } = await import('../compiler');
+    const [nodes] = decompileToTree([
+      {
+        key: 'vip.rank',
+        functionId: 'vip.rank',
+        view: 'table',
+        title: 't1',
+        span: 24,
+        display: 'card',
+        group: 'vip-zone',
+        cardTitle: 'VIP 专区',
+      },
+      {
+        key: 'vip.detail',
+        functionId: 'vip.detail',
+        view: 'fields',
+        title: 't2',
+        span: 24,
+        display: 'card',
+        group: 'vip-zone',
+        cardTitle: 'VIP 专区',
+      },
+    ] as unknown as Parameters<typeof decompileToTree>[0][number]);
+    expect(nodes).toHaveLength(1);
+    const card = nodes[0];
+    expect(card.type).toBe('container');
+    expect(card.props.publishAs).toBe('card');
+    expect(card.props.title).toBe('VIP 专区');
+    expect(card.props.sectionKey).toBe('vip-zone');
+    expect(card.children).toHaveLength(2);
+    // 再编译 → display/group/cardTitle round-trip 稳定
+    const { sections } = compileTree([card]);
+    expect(sections.map((s) => s.key)).toEqual(['vip.rank', 'vip.detail']);
+    expect(sections.every((s) => s.display === 'card' && s.group === 'vip-zone')).toBe(true);
+    expect(sections[0].cardTitle).toBe('VIP 专区');
+  });
+});
+
 describe('编译警告：行操作嵌套行路径 / 参数映射失效（不再静默）', () => {
   it('{{row.a.b}} 多段行路径发布后无法求值 → 警告并按字面量保留；单段仍编译为 row.字段', () => {
     const table = fn('fnTable', 'player.list', {

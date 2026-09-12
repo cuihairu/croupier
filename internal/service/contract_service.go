@@ -1505,11 +1505,13 @@ func (s *ContractService) CreateCompositeProposal(
 				RefreshOn: sec.RefreshOn,
 				Static:    true,
 				Form:      sec.Form,
-				// 弹窗/页签标注透传（display=tab 时同 group 渲染进同一 Tabs、
-				// tab 标签聚合到对应页）——static 区块不经过生成器，须在此落位。
+				// 弹窗/页签/卡片标注透传（display=tab 同 group 渲染进同一
+				// Tabs、tab 聚合对应页；display=card 同 group 渲染进同一卡片）
+				// ——static 区块不经过生成器，须在此落位。
 				Display:     sec.Display,
 				Group:       sec.Group,
 				Tab:         localizedTextOf(sec.Tab),
+				CardTitle:   localizedTextOf(sec.CardTitle),
 				VisibleWhen: sec.VisibleWhen,
 			}
 			staticSections = append(staticSections, section)
@@ -1553,6 +1555,7 @@ func (s *ContractService) CreateCompositeProposal(
 			RefreshOn:   sec.RefreshOn,
 			Display:     sec.Display,
 			Tab:         sec.Tab,
+			CardTitle:   sec.CardTitle,
 			OnSuccess:   sec.OnSuccessRefresh,
 			Events:      convEvents(sec.Events),
 			VisibleWhen: sec.VisibleWhen,
@@ -1660,6 +1663,9 @@ type CompositeSectionRequest struct {
 	Group string `json:"group,omitempty"`
 	// Tab 页签标签（display=tab）：同 group 内按标签聚合到 Tabs 对应页。
 	Tab string `json:"tab,omitempty"`
+	// CardTitle 卡片分组标题（display=card）：同 group 区块渲染进同一
+	// 卡片时的组标题；缺省回退组名。
+	CardTitle string `json:"cardTitle,omitempty"`
 	// Static 常量表单：不绑定函数，Form.jsonSchema 由编辑器设计期定义，
 	// 值仅写入页面状态供 refreshOn/动作链消费（不执行、无审计面）。
 	Static bool `json:"static,omitempty"`

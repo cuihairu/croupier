@@ -30,7 +30,9 @@ export type CompiledSection = {
     path?: string;
     value?: unknown;
   }>;
-  display?: 'inline' | 'dialog' | 'tab';
+  display?: 'inline' | 'dialog' | 'tab' | 'card';
+  /** 卡片分组标题（display='card'）：同 group 区块渲染进同一卡片。 */
+  cardTitle?: string;
   /** 区块级条件显示（U10）：按页面状态求值，false 时不渲染（执行不变）。
    * 编辑态 props.visibleWhen {expr,op,value} 编译期拆 key/path。 */
   visibleWhen?: CompiledCondition;
@@ -76,6 +78,8 @@ export interface SpecSectionLike {
   group?: string;
   /** 页签标签（display=tab；LocalizedText 或遗留 string）。 */
   tab?: unknown;
+  /** 卡片分组标题（display=card；LocalizedText 或遗留 string）。 */
+  cardTitle?: unknown;
   events?: Array<{
     event: string;
     action: { kind: string; target: string; params?: Record<string, string> };

@@ -241,6 +241,73 @@ func TestCreateCompositeProposal_TabPassthrough(t *testing.T) {
 	}
 }
 
+// TestCreateCompositeProposal_CardTitlePassthrough #94 卡片分组：display=card
+// 与 cardTitle 必须透传到生成 spec（fn 区块经生成器、static 区块在 service
+// 手动落位）——渲染端按 group 聚合进 Card、cardTitle 作卡片标题，漏传会让
+// 卡片组散落平铺或标题回退组名。
+func TestCreateCompositeProposal_CardTitlePassthrough(t *testing.T) {
+	db, err := gorm.Open(sqlite.Open(t.TempDir()+"/card-title.db"), &gorm.Config{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := db.AutoMigrate(
+		&model.FunctionContract{},
+		&model.CapabilitySemantics{},
+		&model.PageProposal{},
+		&model.PageProposalVersion{},
+		&model.TermDictionary{},
+		&model.ResourceCapability{},
+		&model.CapabilitySemanticVersion{},
+		&model.BlockedProposalIssue{},
+	); err != nil {
+		t.Fatal(err)
+	}
+	svc := NewContractService(db)
+
+	ctx := context.Background()
+	if err := svc.RebuildContractFromFunctionMeta(ctx, "demo_game", "development", "agent-1", spec.FunctionContractInput{ID: "player.get", Resource: "player", Capability: "item_query", Execution: "sync", Enabled: true, InputSchema: `{"type":"object","properties":{"id":{"type":"string"}}}`, OutputSchema: `{"type":"object","properties":{"player":{"type":"object"}}}`}); err != nil {
+		t.Fatal(err)
+	}
+
+	proposal, err := svc.CreateCompositeProposal(ctx, "demo_game", "development", "composite--card-pass", []CompositeSectionRequest{
+		{FunctionID: "player.get", View: "fields", Display: "card", Group: "vip-zone", CardTitle: "VIP 专区"},
+		{
+			Key: "filter-panel", Static: true, View: "form", Title: "筛选",
+			Display: "card", Group: "vip-zone", CardTitle: "VIP 专区",
+			Form: &spec.FormPresentationSpec{JSONSchema: spec.JSONSchema(`{"type":"object","properties":{"kw":{"type":"string"}}}`)},
+		},
+	})
+	if err != nil {
+		t.Fatalf("create failed: %v", err)
+	}
+
+	var page spec.PageSpec
+	if err := jsonUnmarshalV9(proposal.PageSpec, &page); err != nil {
+		t.Fatalf("unmarshal pageSpec: %v", err)
+	}
+	if len(page.Composite.Sections) != 2 {
+		t.Fatalf("sections = %+v", page.Composite.Sections)
+	}
+	byKey := map[string]spec.CompositeSection{}
+	for _, s := range page.Composite.Sections {
+		byKey[s.Key] = s
+	}
+	for name, sec := range map[string]spec.CompositeSection{
+		"fn":     byKey["player.get"],
+		"static": byKey["filter-panel"],
+	} {
+		if sec.Display != "card" {
+			t.Fatalf("%s section display = %q, want card", name, sec.Display)
+		}
+		if sec.Group != "vip-zone" {
+			t.Fatalf("%s section group = %q, want vip-zone", name, sec.Group)
+		}
+		if got := sec.CardTitle["zh-CN"]; got != "VIP 专区" {
+			t.Fatalf("%s section cardTitle = %q, want VIP 专区", name, got)
+		}
+	}
+}
+
 // TestCreateCompositeProposal_VisibleWhenPassthrough U10 区块级条件显示：
 // visibleWhen 必须透传到生成 spec（fn 区块经生成器、static 区块在 service
 // 手动落位）——渲染端 sectionVisible 按叶子 key+path 求值，漏传会让条件

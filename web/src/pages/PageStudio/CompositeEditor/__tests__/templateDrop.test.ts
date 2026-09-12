@@ -58,9 +58,22 @@ describe('planTemplateDrop', () => {
 
   it('落点是容器但含不允许的子类型 → 拦截（allowedChildren 契约）', () => {
     const c = container('box');
-    const plan = planTemplateDrop(nodes, 'box', null, c); // fnForm 不在容器 allowedChildren
+    // #94 起容器 allowedChildren 含 fnForm/staticForm——用 modal 仍被拦（保住契约校验路径）
+    const withModal = [fnTable('b'), { id: 'm', type: 'modal', props: {}, children: [] }];
+    const plan = planTemplateDrop(withModal, 'box', null, c);
     expect(plan.kind).toBe('blocked');
-    if (plan.kind === 'blocked') expect(plan.reason).toContain('fnForm');
+    if (plan.kind === 'blocked') expect(plan.reason).toContain('modal');
+  });
+
+  it('落点是容器且含 fnForm/staticForm → 装入（#94 卡片分组放行）', () => {
+    const c = container('box');
+    const plan = planTemplateDrop(
+      [fnForm('a'), { id: 'sf', type: 'staticForm', props: {} }],
+      'box',
+      null,
+      c,
+    );
+    expect(plan).toEqual({ kind: 'container', targetId: 'box' });
   });
 
   it('落点是节点 → 链式插入（afterId=节点）', () => {
@@ -97,9 +110,17 @@ describe('planTemplateDrop V2：页签容器（tabs）落激活页', () => {
 
   it('含页签页不允许的子类型 → 拦截并点名类型（契约同容器）', () => {
     const t = tabs('tb3', ['p1']);
-    const plan = planTemplateDrop([fnTable('t'), fnForm('f')], 'tb3', null, t);
+    // #94 起页容器（container）allowedChildren 含 fnForm/staticForm——用 modal 仍被拦
+    const withModal = [fnTable('t'), { id: 'm', type: 'modal', props: {}, children: [] }];
+    const plan = planTemplateDrop(withModal, 'tb3', null, t);
     expect(plan.kind).toBe('blocked');
-    if (plan.kind === 'blocked') expect(plan.reason).toContain('fnForm');
+    if (plan.kind === 'blocked') expect(plan.reason).toContain('modal');
+  });
+
+  it('页内含 fnForm → 装入激活页（#94 容器 allowedChildren 放行）', () => {
+    const t = tabs('tb5', ['p1'], 'p1');
+    const plan = planTemplateDrop([fnTable('t'), fnForm('f')], 'tb5', null, t);
+    expect(plan).toEqual({ kind: 'container', targetId: 'p1' });
   });
 
   it('无页 → 拦截（异常形态兜底）', () => {

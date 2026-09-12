@@ -287,8 +287,12 @@ export const CompositeRenderer: React.FC<{
     return out;
   };
 
-  const inline = sections.filter((s) => s.display !== 'dialog' && s.display !== 'tab');
+  const inline = sections.filter(
+    (s) => s.display !== 'dialog' && s.display !== 'tab' && s.display !== 'card',
+  );
   const tabbed = sections.filter((s) => s.display === 'tab');
+  // #94 卡片分组：display='card' 区块按 group 聚合渲染进同一 Card（整行）
+  const carded = sections.filter((s) => s.display === 'card');
   const dialogs = sections.filter((s) => s.display === 'dialog');
   /** dialogKey 命中的弹窗分组（target 可为 group 名或区块 key）。 */
   const groupOf = (sec: CompositeSection): string => sec.group ?? sec.key ?? sec.bindingId;
@@ -533,6 +537,23 @@ export const CompositeRenderer: React.FC<{
    * dialog 区块不参与条件显隐（弹窗由动作显式触发）。 */
   const isVisible = (sec: CompositeSection): boolean => sectionVisible(sec.visibleWhen, results);
 
+  /** #94 卡片分组聚合：同 group 的 card 区块 → 一个 Card（整行），
+   * 组内区块垂直堆叠（标题缺省回退组名）。 */
+  const cardGroups: Array<{ group: string; title: string; sections: CompositeSection[] }> = [];
+  for (const sec of carded) {
+    const group = sec.group ?? sec.key ?? sec.bindingId;
+    let g = cardGroups.find((x) => x.group === group);
+    if (!g) {
+      g = {
+        group,
+        title: localizedText(sec.cardTitle, 'zh-CN', group),
+        sections: [],
+      };
+      cardGroups.push(g);
+    }
+    g.sections.push(sec);
+  }
+
   return (
     <>
       <Row gutter={[12, 12]}>
@@ -557,6 +578,17 @@ export const CompositeRenderer: React.FC<{
                 ),
               }))}
             />
+          </Col>
+        ))}
+        {cardGroups.map((g) => (
+          <Col key={`card-${g.group}`} span={24}>
+            <Card size="small" title={g.title}>
+              <Space orientation="vertical" size={12} style={{ width: '100%' }}>
+                {g.sections.filter(isVisible).map((sec) => (
+                  <React.Fragment key={sec.key}>{renderSection(sec)}</React.Fragment>
+                ))}
+              </Space>
+            </Card>
           </Col>
         ))}
       </Row>

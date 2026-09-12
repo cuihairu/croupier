@@ -33,7 +33,10 @@ type CompositeSectionInput struct {
 	RefreshOn  []string
 	Display    string // ""(inline) | dialog | tab
 	// Tab 页签标签（display=tab 时按标签聚合到 Tabs 对应页）。
-	Tab        string
+	Tab string
+	// CardTitle 卡片分组标题（display=card：同 group 区块渲染进同一
+	// 卡片时的组标题；缺省回退组名）。
+	CardTitle  string
 	RowActions []CompositeRowActionInput     // view=table
 	Toolbar    []CompositeToolbarActionInput // view=toolbar
 	OnSuccess  []string
@@ -130,6 +133,10 @@ func GenerateCompositePage(
 		// 页签标签（display=tab）：系统默认语言单条目（同 Title 模式）
 		if t := strings.TrimSpace(in.Tab); t != "" {
 			section.Tab = spec.LocalizedText{locale: t}
+		}
+		// 卡片分组标题（display=card）：同 Tab 模式单条目
+		if ct := strings.TrimSpace(in.CardTitle); ct != "" {
+			section.CardTitle = spec.LocalizedText{locale: ct}
 		}
 		// 区块级条件显示（编辑器透传，生成器不做语义校验——发布校验统一
 		// 在 validatePublishableCompositePage）。

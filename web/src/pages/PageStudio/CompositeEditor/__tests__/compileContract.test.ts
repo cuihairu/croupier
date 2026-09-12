@@ -22,6 +22,7 @@ const SECTION_ALLOWED_KEYS = [
   'inputAssignments',
   'display',
   'tab',
+  'cardTitle',
   'visibleWhen',
   'rowActions',
   'toolbarActions',

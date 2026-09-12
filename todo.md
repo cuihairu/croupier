@@ -753,4 +753,18 @@ U1（契约红线，最小）→ U2/U3（文档/文案，可并行热身）→ U
 
 **验收**：tsc + jest + go build/test + guard + docs build + 发布链闭环（含 tabs 页面 accept-and-publish 后 spec 落库核对 display=tab/tab 字段）。
 
-**已知边界**：页签内组件的画布细粒度交互（点击选中/行内删除）不生效——用大纲面板选中后属性面板配置/删除；页签嵌套页签不支持（allowedChildren 仅 container）；tab 页内布局为整行堆叠（V1 不做页内栅格 span 混排）；container 仍为编辑期分组（发布平铺，卡片分组形态列 P2）。
+**已知边界**：页签内组件的画布细粒度交互（点击选中/行内删除）不生效——用大纲面板选中后属性面板配置/删除；页签嵌套页签不支持（allowedChildren 仅 container）；tab 页内布局为整行堆叠（V1 不做页内栅格 span 混排）；container 卡片分组已交付（#94：publishAs=card 发布 display=card+cardTitle，2026-09）。
+
+## container 卡片分组（#94，P2 已交付 2026-09）
+
+- [x] wire：spec.CompositeSection 加 `CardTitle LocalizedText`；request/透传/generator 三处照 Tab 同构（contract_service.go request + static 落位 + 函数区块经 generator）
+- [x] 编辑器：Container.props `publishAs: 'flat' | 'card'`（默认 flat=平铺现状）；title 即卡片标题；allowedChildren 放宽补 fnForm/staticForm
+- [x] compile：container 分支按 publishAs 分流——card=子节点编译 display='card'+group（优先 sectionKey，兜底 card-<id尾6>）+cardTitle；flat=现状平铺；卡内 text 静默跳过（同弹窗/页签）
+- [x] decompile：display='card' 按 group 聚合回 container（props: publishAs='card'、title=cardTitle、sectionKey=group）
+- [x] 渲染：CompositeRenderer 第四桶 carded——cardGroups 聚合 → Card（整行）+ 垂直堆叠 + visibleWhen 过滤（标题缺省回退组名）
+- [x] 测试：compiler card 编译+round-trip+flat 现状不变、compileContract 白名单加 cardTitle、CompositeRenderer card 聚合渲染（compositeCards.test.tsx 3 用例）、Go contract_composite_test CardTitlePassthrough（fn+static）+ generator CardTitlePassthrough
+- [x] 文档：pagespec-protocol.md/dashboard-page-model.md（display 枚举 + cardTitle 字段）、composite-editor-v3.md（用法+编译规则+发布行为+边界）
+
+**验收**：tsc + jest + go build/test + guard + docs build + 发布链闭环（含 display=card 页面 accept-and-publish 后 spec 落库核对 cardTitle）。
+
+**已知边界**：卡内区块发布为整行堆叠（span 不生效，同页签页）；卡片嵌套（tabs 页内再放卡片容器/卡片进卡片）不支持——编译时嵌套层级折叠为单层 card；卡组名与 modal/tabs 共享 group 命名空间（编译器兜底前缀 card- 区分）；预览不渲染 Card 外壳（编辑态仍为虚线容器，发布端才聚合）。

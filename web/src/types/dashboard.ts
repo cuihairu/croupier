@@ -413,12 +413,16 @@ export interface CompositeSection {
   refreshOn?: string[];
   /** inline（默认，栅格内）| dialog（弹窗，按钮/行操作触发）| tab（页签，
    * 同 group 区块按 tab 标签聚合渲染进 Tabs 对应页）。 */
-  display?: 'inline' | 'dialog' | 'tab';
+  display?: 'inline' | 'dialog' | 'tab' | 'card';
   /** 弹窗分组：同 group 的 dialog 区块渲染进同一弹窗；动作目标指向 group。
-   * display=tab 时为页签组名（同组渲染进同一 Tabs）。 */
+   * display=tab 时为页签组名（同组渲染进同一 Tabs）；display=card 时为
+   * 卡片组名（同组渲染进同一 Card）。 */
   group?: string;
   /** 页签标签（display=tab）：同 group 内按标签聚合到 Tabs 对应页。 */
   tab?: LocalizedText;
+  /** 卡片分组标题（display=card）：同 group 区块渲染进同一卡片时的组
+   * 标题；缺省回退组名。 */
+  cardTitle?: LocalizedText;
   /** 常量表单：不绑定函数，值仅并入页面状态供 refreshOn/动作链消费。 */
   static?: boolean;
   /** 显式参数映射（P0）：target=/参数路径，覆盖同名自动映射。

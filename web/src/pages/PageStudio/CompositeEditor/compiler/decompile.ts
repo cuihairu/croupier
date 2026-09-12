@@ -73,6 +73,31 @@ export function decompileToTree(sections: SpecSectionLike[]): [PageNode[], strin
     page.children = [...(page.children ?? []), node];
   };
 
+  /** #94 card 区块归位：组无卡片容器则建（publishAs='card'、
+   * sectionKey=group 回写组名、title=cardTitle），节点入 children。 */
+  const cardTitleOf = (sec: SpecSectionLike, fallback: string): string =>
+    localizedText(sec.cardTitle as Record<string, string> | string | undefined, 'zh-CN', fallback);
+  const groupToCard = new Map<string, PageNode>();
+  const placeIntoCard = (node: PageNode, group: string, sec: SpecSectionLike): void => {
+    if (!groupToCard.has(group)) {
+      const cardNode: PageNode = {
+        id: nodeId('container'),
+        type: 'container',
+        props: {
+          publishAs: 'card',
+          title: cardTitleOf(sec, group),
+          span: 24,
+          ...(SECTION_KEY_RE.test(group) ? { sectionKey: group } : {}),
+        },
+        children: [],
+      };
+      groupToCard.set(group, cardNode);
+      nodes.push(cardNode);
+    }
+    const cardNode = groupToCard.get(group)!;
+    cardNode.children = [...(cardNode.children ?? []), node];
+  };
+
   /** U10 回读：spec 叶子条件 → 编辑态 prop {expr,op,value}（key+path 还原
    * 为表达式字面值，同参数映射 V5 多段路径模式）。嵌套组合条件编辑器不
    * 产出——降级为警告丢弃（不静默）。 */
@@ -123,6 +148,8 @@ export function decompileToTree(sections: SpecSectionLike[]): [PageNode[], strin
       };
       if (sec.display === 'tab') {
         placeIntoTab(node, String(sec.group ?? ''), tabLabelOf(sec, key));
+      } else if (sec.display === 'card') {
+        placeIntoCard(node, String(sec.group ?? ''), sec);
       } else {
         nodes.push(node);
       }
@@ -190,6 +217,11 @@ export function decompileToTree(sections: SpecSectionLike[]): [PageNode[], strin
       // V2：页签区块 → tabs 容器（组）→ 页 container（标签）→ 区块节点
       const node: PageNode = { id: nodeId(view), type: view, props: fnProps };
       placeIntoTab(node, String(sec.group ?? ''), tabLabelOf(sec, key));
+      keyToNodeId.set(key, node.id);
+    } else if (sec.display === 'card') {
+      // #94：卡片区块 → 卡片容器（publishAs='card'）→ 区块节点
+      const node: PageNode = { id: nodeId(view), type: view, props: fnProps };
+      placeIntoCard(node, String(sec.group ?? key), sec);
       keyToNodeId.set(key, node.id);
     } else {
       const node: PageNode = { id: nodeId(view), type: view, props: fnProps };

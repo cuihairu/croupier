@@ -156,9 +156,10 @@ refreshOn/动作链消费。发布校验：static 区块禁止携带 bindingId�
 字段语义（详细规则见 [Dashboard 页面模型 CompositePage 节](./dashboard-page-model.md)）：
 
 - `key`：区块唯一标识；**同函数多实例**依次 `fid`/`fid-2`…，编辑器可声明固定 key（`sectionKey` 固化，round-trip 不漂移），创建端点重复 key 显式报错
-- `display`: `inline`（默认）| `dialog`（弹窗，不占栅格）| `tab`（页签，渲染端聚合进 Tabs）
-- `group`：弹窗/页签分组——`dialog` 区块按 group 聚合渲染进同一弹窗（表单+字段卡+表格混排）；动作目标（`targetSection`）指向 group；`tab` 区块按 group 聚合渲染进同一 Tabs
+- `display`: `inline`（默认）| `dialog`（弹窗，不占栅格）| `tab`（页签，渲染端聚合进 Tabs）| `card`（卡片分组，渲染端聚合进 Card）
+- `group`：弹窗/页签/卡片分组——`dialog` 区块按 group 聚合渲染进同一弹窗（表单+字段卡+表格混排）；动作目标（`targetSection`）指向 group；`tab` 区块按 group 聚合渲染进同一 Tabs；`card` 区块按 group 聚合渲染进同一 Card
 - `tab`：页签标签（LocalizedText；`display=tab` 时有效）——同 group 内按标签聚合到 Tabs 对应页，页内区块整行堆叠；缺省时渲染端兜底「页签 N」
+- `cardTitle`：卡片标题（LocalizedText；`display=card` 时有效）——同 group 区块渲染进同一 Card（整行）时的组标题；缺省回退组名。回读时还原为卡片容器的 `props.title`
 - `rowActions[].params`：行字段→表单参数映射（`"player_id": "uid"` = 行的 uid 填入弹窗表单 player_id）
 - `chain`：动作链，主动作后按序执行 `runBinding|refreshNode`
 - `onSuccessRefresh`：表单提交成功后自动重跑的区块 key

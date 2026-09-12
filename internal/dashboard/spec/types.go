@@ -568,6 +568,9 @@ type CompositeSection struct {
 	// Tab 页签标签（display=tab）：同 Group 内按 Tab 聚合到 Tabs 的
 	// 对应页（页内区块整行堆叠）。
 	Tab LocalizedText `json:"tab,omitempty"`
+	// CardTitle 卡片分组标题（display=card）：同 Group 区块渲染进
+	// 同一卡片（Card 组件）时的组标题；缺省回退组名。
+	CardTitle LocalizedText `json:"cardTitle,omitempty"`
 	// Toolbar 视图参数（view=toolbar）：页面级按钮组，动作打开弹窗
 	// 或直接执行。
 	Toolbar *CompositeToolbarSpec `json:"toolbar,omitempty"`

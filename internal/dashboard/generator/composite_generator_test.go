@@ -160,6 +160,47 @@ func TestCompositeTabPassthrough(t *testing.T) {
 	}
 }
 
+// TestCompositeCardTitlePassthrough #94 卡片分组：display=card 与
+// group/cardTitle 从 Input 透传到发布 spec（CardTitle 包装系统默认语言
+// LocalizedText，同 Tab 模式）；未声明 cardTitle 的区块不携带该字段。
+func TestCompositeCardTitlePassthrough(t *testing.T) {
+	contracts := []*model.FunctionContract{
+		{
+			FunctionID:   "player.list",
+			ResourceKey:  "player",
+			Capability:   dbenum.CapabilityCollectionQuery,
+			Execution:    string(spec.FunctionExecutionSync),
+			InputSchema:  model.JSON(`{"type":"object","properties":{"playerId":{"type":"string"}}}`),
+			OutputSchema: model.JSON(`{"type":"object","properties":{"items":{"type":"array","items":{"type":"object"}},"total":{"type":"integer"}}}`),
+		},
+	}
+	inputs := []CompositeSectionInput{
+		{FunctionID: "player.list", View: "table", Display: "card", Group: "vip-zone", CardTitle: "VIP 专区"},
+		{FunctionID: "player.list", View: "table", Key: "vip.detail", Display: "card", Group: "vip-zone"},
+	}
+	generated, ok := GenerateCompositePage("k", inputs, contracts, DefaultGenerateOptions())
+	if !ok {
+		t.Fatal("generate failed")
+	}
+	for _, sec := range generated.PageSpec.Composite.Sections {
+		if sec.Display != "card" {
+			t.Fatalf("display = %q, want card (section %s)", sec.Display, sec.Key)
+		}
+		if sec.Group != "vip-zone" {
+			t.Fatalf("group = %q, want vip-zone (section %s)", sec.Group, sec.Key)
+		}
+		if sec.Key == "vip.detail" {
+			if len(sec.CardTitle) != 0 {
+				t.Fatalf("cardTitle should be absent, got %q (section %s)", sec.CardTitle["zh-CN"], sec.Key)
+			}
+			continue
+		}
+		if got := sec.CardTitle["zh-CN"]; got != "VIP 专区" {
+			t.Fatalf("cardTitle = %q, want VIP 专区 (section %s)", got, sec.Key)
+		}
+	}
+}
+
 // TestCompositeEventsChainPassthrough V3.2：事件绑定与动作链（含 params）
 // 从 Input 透传到发布 spec。
 func TestCompositeEventsChainPassthrough(t *testing.T) {

@@ -1,4 +1,5 @@
 import { Space, Tag, Typography } from 'antd';
+import { getIntl } from '@umijs/max';
 import { registerComponent } from '../registry';
 import { getComponent } from '../registry';
 import type { ComponentDef } from '../registry';
@@ -13,15 +14,40 @@ export const container: ComponentDef = {
   events: [EVENTS.onClick],
   icon: <Tag color="geekblue">容器</Tag>,
   category: 'basic',
-  allowedChildren: ['fnTable', 'fnFields', 'button', 'text'],
+  allowedChildren: ['fnTable', 'fnFields', 'fnForm', 'staticForm', 'button', 'text'],
   propSchema: () => ({
     type: 'object',
     properties: {
-      title: { type: 'string', title: '分组标题（可选）' },
+      title: {
+        type: 'string',
+        title: getIntl().formatMessage({
+          id: 'pages.pageStudio.editor.component.container.prop.title',
+          defaultMessage: '分组标题（卡片形态即卡片标题）',
+        }),
+      },
+      publishAs: {
+        type: 'string',
+        title: getIntl().formatMessage({
+          id: 'pages.pageStudio.editor.component.container.prop.publishAs',
+          defaultMessage: '发布形态',
+        }),
+        enum: ['flat', 'card'],
+        enumNames: [
+          getIntl().formatMessage({
+            id: 'pages.pageStudio.editor.component.container.prop.publishAsFlat',
+            defaultMessage: '平铺（默认）',
+          }),
+          getIntl().formatMessage({
+            id: 'pages.pageStudio.editor.component.container.prop.publishAsCard',
+            defaultMessage: '卡片分组',
+          }),
+        ],
+        default: 'flat',
+      },
       span: { ...spanSchema(), default: 24 },
     },
   }),
-  scaffold: () => ({ title: '', span: 24 }),
+  scaffold: () => ({ title: '', publishAs: 'flat', span: 24 }),
   Preview: ({ node }) => (
     <div style={{ border: '1px dashed #bbb', borderRadius: 6, padding: 8, minHeight: 60 }}>
       {node.props.title ? (

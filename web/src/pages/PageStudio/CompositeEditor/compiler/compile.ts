@@ -132,6 +132,26 @@ export function compileTree(tree: PageNode[]): CompileResult {
     tabsGroup.set(t.id, group);
   }
 
+  // 卡片分组（container 卡片形态，#94）：publishAs='card' 的容器 → group
+  // 名（与 modal/tabs 共享命名空间，card- 前缀兜底区分）。递归收集——
+  // 容器可嵌套（分组/页签页内的卡片容器同样生效）。
+  const cardGroup = new Map<string, string>();
+  const collectCardGroups = (nodes: PageNode[]): void => {
+    for (const c of nodes) {
+      if (c.type === 'container' && c.props.publishAs === 'card') {
+        const declared = typeof c.props.sectionKey === 'string' ? c.props.sectionKey.trim() : '';
+        const group =
+          declared && SECTION_KEY_RE.test(declared) && !usedGroups.has(declared)
+            ? declared
+            : `card-${c.id.slice(-6)}`;
+        usedGroups.add(group);
+        cardGroup.set(c.id, group);
+      }
+      collectCardGroups(c.children ?? []);
+    }
+  };
+  collectCardGroups(tree);
+
   /** 节点 → 引用目标（modal=group 名；其余=区块 key）。 */
   const sectionKeyOf = (n: PageNode): string | undefined => {
     if (n.type === 'modal') return modalGroup.get(n.id);
@@ -220,6 +240,19 @@ export function compileTree(tree: PageNode[]): CompileResult {
         continue;
       }
       if (node.type === 'container') {
+        // 卡片容器（#94）：子区块平铺为 display='card' + group + cardTitle
+        // （同 group 渲染进同一卡片；flat=现状平铺）。
+        const cg = cardGroup.get(node.id);
+        if (cg) {
+          for (const kid of node.children ?? []) {
+            if (kid.type === 'text') continue; // 文本不进 spec（同弹窗/页签）
+            if (kid.type === 'staticForm')
+              emitStaticSection(kid, 'card', cg, undefined, cardTitleOf(node));
+            else if (kid.type === 'button') compileButton(kid);
+            else emitFnSection(kid, 'card', cg, undefined, cardTitleOf(node));
+          }
+          continue;
+        }
         walk(node.children ?? []);
         continue;
       }
@@ -301,13 +334,21 @@ export function compileTree(tree: PageNode[]): CompileResult {
     }
   };
 
+  /** 卡片容器标题（#94）：props.title 即卡片标题；缺省回退组名（渲染端兜底）。 */
+  const cardTitleOf = (node: PageNode): string | undefined => {
+    const t = typeof node.props.title === 'string' ? node.props.title.trim() : '';
+    return t || undefined;
+  };
+
   /** 常量表单（staticForm）：无契约/绑定，schema 由编辑器设计期定义。
-   * V2：可落在页签页内（display='tab' + group/tab 标注聚合位置）。 */
+   * V2：可落在页签页内（display='tab' + group/tab 标注聚合位置）；
+   * #94：可落在卡片容器内（display='card' + group/cardTitle）。 */
   const emitStaticSection = (
     node: PageNode,
-    display: 'inline' | 'tab' = 'inline',
+    display: 'inline' | 'tab' | 'card' = 'inline',
     group?: string,
     tab?: string,
+    cardTitle?: string,
   ) => {
     const raw = node.props.staticSchema;
     let jsonSchema: Record<string, unknown> = {};
@@ -341,6 +382,9 @@ export function compileTree(tree: PageNode[]): CompileResult {
       ...(display === 'tab'
         ? { display, ...(group ? { group } : {}), ...(tab ? { tab } : {}) }
         : {}),
+      ...(display === 'card'
+        ? { display, ...(group ? { group } : {}), ...(cardTitle ? { cardTitle } : {}) }
+        : {}),
     };
     // refreshOn 透传（字面 section key；回读时写入 props.refreshOn）
     const staticRefreshOn = Array.isArray(node.props.refreshOn)
@@ -355,9 +399,10 @@ export function compileTree(tree: PageNode[]): CompileResult {
 
   const emitFnSection = (
     node: PageNode,
-    display: 'inline' | 'dialog' | 'tab',
+    display: 'inline' | 'dialog' | 'tab' | 'card',
     group?: string,
     tab?: string,
+    cardTitle?: string,
   ) => {
     const fid = String(node.props.functionId ?? '');
     if (!fid) {
@@ -383,6 +428,8 @@ export function compileTree(tree: PageNode[]): CompileResult {
       display,
       // 页签标签（display=tab）：渲染端同 group 内按此聚合到 Tabs 对应页
       ...(display === 'tab' && tab ? { tab } : {}),
+      // 卡片标题（display=card）：渲染端同 group 渲染进同一 Card
+      ...(display === 'card' && cardTitle ? { cardTitle } : {}),
     };
     // 成功后刷新：events.success 为唯一规范路径（渲染端 runChain 支持
     // refreshNode/runBinding/navigate/showMessage/closeModal，非刷新动作
