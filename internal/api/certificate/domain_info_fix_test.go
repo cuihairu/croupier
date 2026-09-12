@@ -51,4 +51,21 @@ func TestHandlerGetDomainInfoQueryContract(t *testing.T) {
 
 		assert.Equal(t, http.StatusBadRequest, rec.Code)
 	})
+
+	t.Run("unknown domain maps to 404 not 500", func(t *testing.T) {
+		// FindByDomain 此前用 fmt.Errorf 断链，"证书不存在"落 500 兜底；
+		// wrap ErrRecordNotFound 后 response.Error 应映射 404。
+		service, _ := setupTestService(t)
+		h := NewHandler(service)
+
+		r := gin.New()
+		r.GET("/certificates/domain-info", h.GetDomainInfo)
+
+		rec := httptest.NewRecorder()
+		req := httptest.NewRequest(http.MethodGet, "/certificates/domain-info?domain=absent.example.com", nil)
+		r.ServeHTTP(rec, req)
+
+		assert.Equal(t, http.StatusNotFound, rec.Code)
+		assert.Contains(t, rec.Body.String(), "not_found")
+	})
 }

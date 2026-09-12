@@ -97,7 +97,10 @@ func (m *CertificateModel) FindByDomain(ctx context.Context, domain string) (*Ce
 	var cert Certificate
 	if err := m.db.WithContext(ctx).Where("domain = ?", domain).First(&cert).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, fmt.Errorf("证书不存在")
+			// 保留错误链（%w）：handler 的 response.Error 对
+			// gorm.ErrRecordNotFound 映射 404；此前 fmt.Errorf 断链
+			// 导致 domain-info 的"证书不存在"泄漏为 500 internal_error。
+			return nil, fmt.Errorf("证书不存在: %w", err)
 		}
 		return nil, err
 	}
