@@ -377,12 +377,16 @@ registry 内存会话的生命周期与归属表对齐（无行即清）：本�
 ### 6.2 故障转移时间线
 
 ```text
-t=0s     Server A 宕机
-t=0s     A 名下 Agent 心跳超时，检测到断连
-t=1~3s   Agent 按退避策略重连 → LB 分发至存活的 B/C
-t=3~5s   Agent 自动重新注册（机制已存在）→ 共享目录更新 owner
-t≈5s     平台完全恢复，全程无人工干预
+t=0s      Server A 宕机，A 名下 Agent 的 TCP 断开
+t≤1 周期  Agent 心跳循环发现断连（Connected()=false）→ 立即重新拨号；
+          网络半开（无 RST）时需连续 2 次心跳失败 ≈2 个周期才判死
+t+拨号    经 L4 LB 重连，分发到存活实例 B（落在哪台由 LB 决定）
+t+ε       全量重注册（函数 descriptor + providers 全量重发，非增量）：
+          B 写内存会话 + ClaimOwner 覆盖归属行
+秒级      归属表指向 B，后续调用直达 B 或经转发到 B，平台恢复
 ```
+
+心跳周期按 Agent 配置（`configs/agent.yaml` 示例为 30s，未配置时代码回退 3s，`internal/app/agent/upstream.go`）；ownerTTL 默认 3 分钟 = 30s × 6 容忍。
 
 期间：
 
@@ -390,10 +394,48 @@ t≈5s     平台完全恢复，全程无人工干预
 - B/C 名下 Agent 的调用路径全程无感
 - 仅 A 名下 Agent 有秒级调用中断；在途任务按既有状态机标记 `timed_out` / 失败
 
+### 6.2.1 Agent 重连切换的端到端机制
+
+§6.2 时间线背后是一组明确的触发、裁决与防竞态规则（均为实现事实，代码入口 `internal/app/agent/upstream.go`、`internal/server/control_handler.go`、`internal/server/tcp_listener.go`、`internal/cluster/`）。
+
+**断连检测的三个入口**（Agent 侧）：
+
+| 入口                         | 触发条件                            | 延迟          |
+| ---------------------------- | ----------------------------------- | ------------- |
+| 心跳循环发现连接断开         | `Connected()=false`（RST/FIN 即断） | ≤1 个心跳周期 |
+| 心跳连续失败 2 次            | 网络半开、server 无响应             | ≈2 个心跳周期 |
+| 启动时连接失败的后台重连循环 | 进程启动时 server 不可达            | 每 5s 重试    |
+
+保险丝：心跳从失败中恢复后**主动重新注册一次**，确保会话信息最新（不依赖断连事件本身）。
+
+**归属裁决：last-claim-wins，无实例间协商。** Agent 只配置单一 `serverAddr`（双活下即 L4 LB 的 VIP），重连落到哪台由 LB 决定；新 owner 在 Register 成功时**覆盖写**归属行（`ClaimOwner`：`instance_id` 指向自己、`owner_epoch` 取本实例任期）。归属表永远以最后一次成功注册为准，两台 server 之间不需要任何协商协议。Agent 从 Register 响应得知当前 owner 实例（`reportedOwnerInstance`）并随每次心跳上报，服务端存入会话 `labels["reportedOwner"]`——agent 视角 / 归属表 / 实际连接**三方对账**，供集群拓扑页做归属漂移探测。
+
+**切换瞬间的四层防竞态**（新旧两条路径并发收尾）：
+
+| 竞态                                     | 防线                                                                           | 实现                            |
+| ---------------------------------------- | ------------------------------------------------------------------------------ | ------------------------------- |
+| 旧实例 A 断连清理误删 B 的新归属行       | `Release` 带 `instance_id = self` 条件删除                                     | 行已被 B 覆盖时匹配 0 行，no-op |
+| Agent 重连回同一实例：旧连接清理删新会话 | 断连清理按 `(agentID, sessionID)` 精确删除                                     | `RemoveSession`                 |
+| 断连清理删掉刚被重连注册覆盖的内存条目   | notAfter 时间戳校验（新注册的 LastSeen 必晚于断连时刻）                        | `RemoveAgentIfStale`            |
+| 分区恢复的僵尸 owner 继续接受转发        | fencing：帧内 `callerEpoch` ≠ owner 本地 epoch → `not_owner`，调用方重解析重试 | `ServeForwardHandler`           |
+
+**自愈兜底**：
+
+- **心跳自愈**：owner 收到心跳但本地 registry 会话丢失（过期清理/替换竞态，TCP 仍活）→ 从归属表回读 scope，**仅当归属行确属本实例**时重建最小会话并重新 Claim；不是自己的 claim 则拒绝（不得抢他人归属）
+- **候选集恢复**：其他实例的本地函数候选由 RemoteAgentSource 同步兜底（本地候选为空时查共享归属表 + `agent_sessions` 快照，1s 预算，§5.5）+ `refreshRemoteSnapshots` 30s 回灌（性能优化层）
+
+**切换窗口内的调用方语义**：
+
+| 场景                             | 表现                                                  | 恢复时点                 |
+| -------------------------------- | ----------------------------------------------------- | ------------------------ |
+| 归属行仍指 A、A 已死             | `ResolveOwner` 与成员租约交叉验证失败 → no live agent | B Claim 后立即           |
+| 归属行仍指 A、A 活着但连接已断   | 转发到 A → A 本地无 session → agent unreachable       | B Claim 后立即           |
+| B 已 Claim、其他实例候选集未刷新 | 本地候选缺失（RemoteAgentSource 同步兜底可即时补）    | 同步兜底即时 / 回灌 ≤30s |
+
 ### 6.3 必须做对的工程细节
 
 1. **重注册幂等**：Agent 重连重注册不得产生重复/过期目录条目（现有注册去重可复用）
-2. **僵尸条目清理**：目录中 owner 记录依赖租约 TTL 过期 + 后台清扫协程，否则请求被转发到死实例
+2. **僵尸条目清理**：归属解析双重判活（owner 记录 ownerTTL + 实例成员租约交叉验证，`ResolveOwner`），请求不会被转发到死实例；本地内存副本按「归属表无行 + LastSeen 超 5min 宽限」由 30s 对账周期清理（§5.5）
 3. **在途任务对账**：实例死亡时其名下 running 任务需启动 reconciliation，标记失败/超时
 4. **防脑裂**：fencing token（epoch）保证分区恢复的实例不再下发调用
 
