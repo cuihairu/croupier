@@ -23,6 +23,7 @@ export default function Canvas({
   onSpanChange,
   onEnterModal,
   canvasWidthRef,
+  onShowTemplates,
   children,
 }: {
   tree: PageNode[];
@@ -35,6 +36,8 @@ export default function Canvas({
   /** 点击弹窗占位卡进入内部编辑（面包屑模式）。 */
   onEnterModal: (id: string) => void;
   canvasWidthRef: React.RefObject<HTMLDivElement | null>;
+  /** 空画布落区「查看组合模板」链接（页面级空态提供，弹窗级不显示）。 */
+  onShowTemplates?: () => void;
   /** SortableList 渲染的根级节点（含拖拽手柄 props 注入）。 */
   children: React.ReactNode;
 }) {
@@ -43,7 +46,7 @@ export default function Canvas({
   void onDuplicate;
   void onSpanChange;
 
-  return <>{tree.length === 0 ? <RootDropZone /> : children}</>;
+  return <>{tree.length === 0 ? <RootDropZone onShowTemplates={onShowTemplates} /> : children}</>;
 }
 
 /** 弹窗占位卡（栅格内）：droppable 拖入表单 + 双击/按钮进入内部编辑。 */
@@ -169,7 +172,7 @@ export function ModalPlaceholder({
 }
 
 /** 空画布根落区：droppable('canvas-root')。 */
-function RootDropZone() {
+function RootDropZone({ onShowTemplates }: { onShowTemplates?: () => void }) {
   const intl = useIntl();
   const { setNodeRef, isOver } = useDroppable({ id: 'canvas-root' });
   return (
@@ -184,10 +187,25 @@ function RootDropZone() {
         background: isOver ? '#f0f7ff' : 'transparent',
       }}
     >
-      {intl.formatMessage({
-        id: 'pages.pageStudio.editor.canvas.emptyHint',
-        defaultMessage: '从左侧点击或拖入组件，开始搭建页面',
-      })}
+      <div>
+        {intl.formatMessage({
+          id: 'pages.pageStudio.editor.canvas.emptyHint',
+          defaultMessage: '从左侧点击或拖入组件，开始搭建页面',
+        })}
+      </div>
+      {onShowTemplates && (
+        <Button
+          type="link"
+          size="small"
+          style={{ padding: 0, marginTop: 8 }}
+          onClick={onShowTemplates}
+        >
+          {intl.formatMessage({
+            id: 'pages.pageStudio.editor.canvas.showTemplates',
+            defaultMessage: '查看组合模板',
+          })}
+        </Button>
+      )}
     </div>
   );
 }

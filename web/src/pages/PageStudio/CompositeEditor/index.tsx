@@ -87,6 +87,8 @@ export default function CompositeEditorPage() {
   const [leftTab, setLeftTab] = useState('components');
   /** 弹窗内嵌编辑（面包屑）：当前进入的 modal 节点 id。 */
   const [editingModalId, setEditingModalId] = useState<string | null>(null);
+  /** 空画布起步模式：false=模板引导（默认），true=空白白板（根落区拖入）。 */
+  const [startBlank, setStartBlank] = useState(false);
   // 树历史（撤销/重做 50 步 + 统一树写入入口 setTree），选择清理由 setter 注入
   const { tree, setTree, treeRef, undo, redo, past, future } = useEditorHistory({
     setSelectedId,
@@ -796,7 +798,7 @@ export default function CompositeEditorPage() {
                     </Space>
                   </div>
                 )}
-                {canvasNodes.length === 0 && !editingModalRef.current ? (
+                {canvasNodes.length === 0 && !editingModal && !startBlank ? (
                   <TemplateQuickStart
                     onPick={(nodes, tpl) => {
                       // 语义命名（instantiateTemplate 剥离 sectionKey，须重新分配变量名）
@@ -820,9 +822,9 @@ export default function CompositeEditorPage() {
                         ),
                       );
                     }}
+                    onStartBlank={() => setStartBlank(true)}
                   />
-                ) : null}
-                {canvasNodes.length > 0 ? (
+                ) : (
                   <Canvas
                     tree={canvasNodes}
                     selectedId={selectedId}
@@ -833,6 +835,11 @@ export default function CompositeEditorPage() {
                     onSpanChange={patchSpan}
                     onEnterModal={setEditingModalId}
                     canvasWidthRef={canvasRef}
+                    onShowTemplates={
+                      canvasNodes.length === 0 && !editingModal
+                        ? () => setStartBlank(false)
+                        : undefined
+                    }
                   >
                     <div
                       style={{
@@ -961,7 +968,7 @@ export default function CompositeEditorPage() {
                       </SortableList>
                     </div>
                   </Canvas>
-                ) : null}
+                )}
               </div>
             )}
           </Col>

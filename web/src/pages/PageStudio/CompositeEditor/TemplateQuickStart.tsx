@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Card, Space, Spin, Tag, Typography } from 'antd';
+import { Button, Card, Space, Spin, Tag, Typography } from 'antd';
 import { AppstoreOutlined, ThunderboltOutlined } from '@ant-design/icons';
 import { request, useIntl } from '@umijs/max';
 import { instantiateTemplate, type ComponentTemplateDTO } from './ComponentLibrary';
@@ -13,15 +13,19 @@ type QuickStartTemplate = ComponentTemplateDTO & { tree?: PageNode[] };
 
 /**
  * 从模板开始（空白画布引导）：列出多节点组合模板，点击即实例化为
- * 初始页面（替代空白起步）。单节点模板不出现（组合页需 ≥2 区块）。
+ * 初始页面；「从空白开始」切换到空画布自主搭建（可再返回）。
+ * 单节点模板不出现（组合页需 ≥2 区块）。
  */
 export default function TemplateQuickStart({
   templates,
   onPick,
+  onStartBlank,
 }: {
   /** 外部已加载的模板（测试/复用）；未提供则自行拉取。 */
   templates?: QuickStartTemplate[];
   onPick: (nodes: PageNode[], tpl: QuickStartTemplate) => void;
+  /** 「从空白开始」：切换到空白画布（根落区拖入/左栏点击自主搭建）。 */
+  onStartBlank?: () => void;
 }) {
   const intl = useIntl();
   const [fetched, setFetched] = useState<QuickStartTemplate[] | null>(null);
@@ -60,6 +64,19 @@ export default function TemplateQuickStart({
             defaultMessage: '选择一个组合模板作为页面起点，之后可继续拖入积木微调',
           })}
         </Text>
+        {onStartBlank && (
+          <Button
+            type="link"
+            size="small"
+            style={{ marginLeft: 'auto', padding: 0 }}
+            onClick={onStartBlank}
+          >
+            {intl.formatMessage({
+              id: 'pages.pageStudio.editor.quickStart.startBlank',
+              defaultMessage: '从空白开始',
+            })}
+          </Button>
+        )}
       </Space>
       {loading ? (
         <Spin size="small" />
