@@ -388,13 +388,15 @@ test.describe('真实 OpenAPI players Proposal 链路', () => {
     await expect(page.locator('.ant-pagination-item-1')).toHaveClass(/ant-pagination-item-active/);
 
     // 刷新按钮触发新的 published list binding execute 与 provider 调用。
+    // 资源表格的刷新是 options.reload 图标按钮（span+Tooltip，非 button 无
+    // aria-label），按 reload 图标类定位。
     const callsBefore = await providerListCalls();
     expect(callsBefore).toBeGreaterThanOrEqual(1);
     const refreshExecute = page.waitForResponse(
       (response) =>
         response.url().includes('/bindings/list/execute') && response.request().method() === 'POST',
     );
-    await page.getByRole('button', { name: '刷新' }).click();
+    await page.locator('.ant-pro-table-list-toolbar .anticon-reload').click();
     expect((await refreshExecute).status()).toBe(200);
     await expect.poll(providerListCalls, { timeout: 10000 }).toBeGreaterThan(callsBefore);
   });
