@@ -108,7 +108,7 @@ React 的表达力是**任意代码**；PageSpec 的表达力是**白名单原�
 | ~~P0~~ | ~~模板级参数化（组件 props 默认值）~~ ✅ 2026-09（todo U6）     | `params` 白名单（title/span/autoRun）+ 拖入快速配置；见 V4 §3.6 |
 | P1     | 失败策略 + transform 扩展（rename/default/format）              | 数据流健壮性                                                    |
 | P1     | 跨模板联动断链提示（实例化悬空引用静默清理）                    | 见 todo.md U7                                                   |
-| P2     | 区块级条件显示、批量（map）组合                                 | 批量依赖 selection 语义闭环                                     |
+| ~~P2~~ | ~~区块级条件显示~~ ✅ 2026-09（todo U10）；批量（map）组合     | `visibleWhen` 叶子 key+path 读页面状态；批量依赖 selection 闭环 |
 | P3     | 新积木：任务监控组合（taskStatus 节点）、报表图表（chart 节点） | 每项 = 新节点类型 + 渲染器，属组件模型扩展                      |
 
 ## 与其他文档的关系
