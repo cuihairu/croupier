@@ -359,6 +359,30 @@ func (s *Service) RegenerateDraft(ctx context.Context, req *PageRegenerateReques
 	}, nil
 }
 
+// identityFieldLookup 返回 resourceKey → identity 字段名的查询闭包
+// （S2：sync-selectors required 补齐的语义命中数据源，页面级缓存一次）。
+// 查询失败/记录缺失一律容错为未命中——语义缺失只意味着回落 form 同名
+// 路径（现状），不应阻断同步。
+func (s *Service) identityFieldLookup(ctx context.Context, gameID, env string) func(string) (string, bool) {
+	cache := map[string]string{}
+	return func(resourceKey string) (string, bool) {
+		resourceKey = strings.TrimSpace(resourceKey)
+		if resourceKey == "" {
+			return "", false
+		}
+		if field, cached := cache[resourceKey]; cached {
+			return field, field != ""
+		}
+		field := ""
+		if sem, err := model.NewCapabilitySemanticsModel(s.svcCtx.DB).
+			FindByScopeAndResourceKey(ctx, gameID, env, resourceKey); err == nil && sem != nil {
+			field = strings.TrimSpace(sem.IdentityField)
+		}
+		cache[resourceKey] = field
+		return field, field != ""
+	}
+}
+
 // SyncSelectors 一键同步 stale selector：对草稿逐 binding 跑
 // spec.PlanBindingSelectorSync（dry-run 与 apply 共用同一 planner），
 // 只修受影响的 assignment、保留全部未受影响定制。dryRun=true 只出报告
@@ -408,7 +432,10 @@ func (s *Service) SyncSelectors(ctx context.Context, req *PageSyncSelectorsReque
 
 	synced := pageSpec
 	reports := make([]spec.BindingSelectorSyncReport, 0, len(pageSpec.Bindings))
-	syncOpts := spec.SelectorSyncOptions{RecomputeDefaults: generator.RecomputeDefaultOutputs}
+	syncOpts := spec.SelectorSyncOptions{
+		RecomputeDefaults: generator.RecomputeDefaultOutputs,
+		IdentityOf:        s.identityFieldLookup(ctx, gameID, env),
+	}
 	for i, binding := range pageSpec.Bindings {
 		if len(onlyBindings) > 0 {
 			if _, ok := onlyBindings[strings.TrimSpace(binding.ID)]; !ok {

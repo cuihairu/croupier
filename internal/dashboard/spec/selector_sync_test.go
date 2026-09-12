@@ -271,6 +271,156 @@ func TestPlanBindingSelectorSyncRequiredMissingFormManual(t *testing.T) {
 	require.Len(t, synced.Selectors.Input.Assignments, 1)
 }
 
+// S2 identity 语义命中：required 补齐时资源 identity 字段自动接 row 源
+// （IdentityOf 注入 CapabilitySemantics.IdentityField）。门禁三关=
+// isSourceAllowed（HasDetailView/IsRowAction）+ RowSchema 含该字段 + 类型
+// 可赋值，全部通过才接 row；任一不满足回落 form 同名路径（见后续回落用例）。
+func TestPlanBindingSelectorSyncIdentityRowSource(t *testing.T) {
+	page := syncTestResourcePage(FilterSpec{Key: "keyword", Title: LocalizedText{"zh-CN": "关键字"}, Type: "text"})
+	page.ResourceKey = "player"
+	page.Resource.DetailView = &DetailViewSpec{}
+	newSchema := JSONSchema(`{
+		"type":"object",
+		"properties":{"uid":{"type":"string"},"keyword":{"type":"string"}},
+		"required":["uid","keyword"]
+	}`)
+	binding := syncTestBinding(
+		[]InputAssignment{{Target: "/keyword", Source: ValueSource{Kind: SourceForm, Path: "/keyword"}}},
+		nil,
+	)
+	fn := FunctionSpec{ID: "player.detail", InputSchema: newSchema}
+
+	identityOf := func(resourceKey string) (string, bool) {
+		assert.Equal(t, "player", resourceKey, "identity lookup key must be the page resourceKey")
+		return "uid", true
+	}
+	report, synced := PlanBindingSelectorSync(page, binding, fn, SelectorSyncOptions{IdentityOf: identityOf})
+
+	entry, ok := findSyncInputEntry(report, "/uid")
+	require.True(t, ok)
+	assert.Equal(t, SelectorSyncAdded, entry.Action)
+	assert.Equal(t, SourceRow, entry.SourceKind)
+	assert.Equal(t, SelectorSyncConfidenceHigh, entry.Confidence)
+	assert.Contains(t, entry.Reason, "identity")
+	require.Len(t, synced.Selectors.Input.Assignments, 2)
+	added := synced.Selectors.Input.Assignments[1]
+	assert.Equal(t, "/uid", added.Target)
+	assert.Equal(t, SourceRow, added.Source.Kind)
+	assert.Equal(t, "/uid", added.Source.Path)
+}
+
+// S2 未注入（IdentityOf=nil）：required identity 字段回落现状——表单缺
+// 同名字段 → manual_required（不静默造 row 源）。
+func TestPlanBindingSelectorSyncIdentityNotInjectedFallsBack(t *testing.T) {
+	page := syncTestResourcePage(FilterSpec{Key: "keyword", Title: LocalizedText{"zh-CN": "关键字"}, Type: "text"})
+	page.Resource.DetailView = &DetailViewSpec{}
+	newSchema := JSONSchema(`{
+		"type":"object",
+		"properties":{"uid":{"type":"string"}},
+		"required":["uid"]
+	}`)
+	binding := syncTestBinding(nil, nil)
+	fn := FunctionSpec{ID: "player.detail", InputSchema: newSchema}
+
+	report, synced := PlanBindingSelectorSync(page, binding, fn, SelectorSyncOptions{})
+
+	entry, ok := findSyncInputEntry(report, "/uid")
+	require.True(t, ok)
+	assert.Equal(t, SelectorSyncManual, entry.Action)
+	assert.Empty(t, syncAssignmentTargets(synced))
+}
+
+// S2 门禁一：无 DetailView 的 query 页不接 row 源（补 row 会被发布级
+// 校验 422）——回落 form 同名路径。
+func TestPlanBindingSelectorSyncIdentityWithoutDetailViewFallsBack(t *testing.T) {
+	page := syncTestResourcePage(
+		FilterSpec{Key: "uid", Title: LocalizedText{"zh-CN": "玩家"}, Type: "text"},
+	)
+	newSchema := JSONSchema(`{
+		"type":"object",
+		"properties":{"uid":{"type":"string"}},
+		"required":["uid"]
+	}`)
+	binding := syncTestBinding(nil, nil)
+	fn := FunctionSpec{ID: "player.list", InputSchema: newSchema}
+
+	report, synced := PlanBindingSelectorSync(page, binding, fn, SelectorSyncOptions{
+		IdentityOf: func(string) (string, bool) { return "uid", true },
+	})
+
+	entry, ok := findSyncInputEntry(report, "/uid")
+	require.True(t, ok)
+	assert.Equal(t, SelectorSyncAdded, entry.Action)
+	assert.Equal(t, SourceForm, entry.SourceKind, "must fall back to the same-name form source")
+	require.Len(t, synced.Selectors.Input.Assignments, 1)
+	assert.Equal(t, SourceForm, synced.Selectors.Input.Assignments[0].Source.Kind)
+}
+
+// S2 门禁二：RowSchema 缺 identity 字段（行上下文取不到值）——回落
+// form 同名路径。
+func TestPlanBindingSelectorSyncIdentityRowSchemaMissingFallsBack(t *testing.T) {
+	page := PageSpec{
+		PageKey:     "players",
+		Type:        PageTypeResource,
+		ResourceKey: "player",
+		Title:       LocalizedText{"zh-CN": "玩家"},
+		Resource: &ResourcePageSpec{
+			ListView: &ListViewSpec{
+				// RowSchema 只有 name——没有 uid
+				RowSchema: JSONSchema(`{"type":"object","properties":{"name":{"type":"string"}}}`),
+				Filters: []FilterSpec{
+					{Key: "uid", Title: LocalizedText{"zh-CN": "玩家"}, Type: "text"},
+				},
+			},
+			DetailView: &DetailViewSpec{},
+		},
+	}
+	newSchema := JSONSchema(`{
+		"type":"object",
+		"properties":{"uid":{"type":"string"}},
+		"required":["uid"]
+	}`)
+	binding := syncTestBinding(nil, nil)
+	fn := FunctionSpec{ID: "player.detail", InputSchema: newSchema}
+
+	report, _ := PlanBindingSelectorSync(page, binding, fn, SelectorSyncOptions{
+		IdentityOf: func(string) (string, bool) { return "uid", true },
+	})
+
+	entry, ok := findSyncInputEntry(report, "/uid")
+	require.True(t, ok)
+	assert.Equal(t, SelectorSyncAdded, entry.Action)
+	assert.Equal(t, SourceForm, entry.SourceKind, "row schema lacks the identity field; must fall back to form")
+}
+
+// S2 非 identity 的 required 字段不受影响（语义只命中 identity 字段）。
+func TestPlanBindingSelectorSyncNonIdentityRequiredStaysForm(t *testing.T) {
+	page := syncTestResourcePage(FilterSpec{Key: "token", Title: LocalizedText{"zh-CN": "令牌"}, Type: "text"})
+	page.Resource.DetailView = &DetailViewSpec{}
+	newSchema := JSONSchema(`{
+		"type":"object",
+		"properties":{"uid":{"type":"string"},"token":{"type":"string"}},
+		"required":["uid","token"]
+	}`)
+	binding := syncTestBinding(
+		[]InputAssignment{{Target: "/uid", Source: ValueSource{Kind: SourceForm, Path: "/uid"}}},
+		nil,
+	)
+	fn := FunctionSpec{ID: "player.detail", InputSchema: newSchema}
+
+	report, synced := PlanBindingSelectorSync(page, binding, fn, SelectorSyncOptions{
+		IdentityOf: func(string) (string, bool) { return "uid", true },
+	})
+
+	// /uid 已 occupied（kept）；/token 非 identity → form 同名 added
+	entry, ok := findSyncInputEntry(report, "/token")
+	require.True(t, ok)
+	assert.Equal(t, SelectorSyncAdded, entry.Action)
+	assert.Equal(t, SourceForm, entry.SourceKind)
+	require.Len(t, synced.Selectors.Input.Assignments, 2)
+	assert.Equal(t, SourceForm, synced.Selectors.Input.Assignments[1].Source.Kind)
+}
+
 // composite 页：required 输入一律 manual_required（输入只应来自
 // page_state/literal，不自动补 form）。
 func TestPlanBindingSelectorSyncCompositeRequiredManual(t *testing.T) {

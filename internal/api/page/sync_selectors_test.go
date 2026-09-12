@@ -190,6 +190,31 @@ func TestSyncSelectors_MissingFunctionManualReport(t *testing.T) {
 	assert.True(t, found, "missing-function binding must appear in report")
 }
 
+// S2 identityFieldLookup：真 DB 查询 CapabilitySemantics——命中返回
+// IdentityField；缺行/空白 resourceKey 容错为未命中（planner 回落 form
+// 路径），查询失败不 panic。
+func TestSyncSelectors_IdentityFieldLookup(t *testing.T) {
+	service, ctx, _ := newPageTestService(t, "pages:edit", "pages:read")
+	require.NoError(t, service.svcCtx.DB.Create(&model.CapabilitySemantics{
+		GameID:        "demo-game",
+		Env:           "development",
+		ResourceKey:   "player",
+		IdentityField: "uid",
+	}).Error)
+
+	lookup := service.identityFieldLookup(ctx, "demo-game", "development")
+
+	field, ok := lookup("player")
+	assert.True(t, ok)
+	assert.Equal(t, "uid", field)
+
+	_, ok = lookup("missing-resource")
+	assert.False(t, ok, "row absent must be tolerated as a miss")
+
+	_, ok = lookup("  ")
+	assert.False(t, ok, "blank resourceKey must be a miss")
+}
+
 // 发布链闭环：契约 v1 → 提案 → publish → 契约 v2（字段 rename）→ 发布被
 // 阻断 → sync dryRun 报告（renamed/high）→ apply（revision+1 + PageVersion
 // + 审计）→ Publish 成功 → freshness 干净（console binding_stale 409 的

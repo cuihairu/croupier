@@ -273,12 +273,12 @@ interface SelectorSyncInputEntry {
     | "kept" // 未受影响，原样保留（含 Transform/literal 定制）
     | "renamed" // 消失 target 重映射（newTarget）
     | "removed" // 摘除（无唯一候选且非必需）
-    | "added" // required 差集补 form 同名映射
+    | "added" // required 差集补齐：identity 字段语义命中接 row 源，否则 form 同名映射
     | "type_changed" // 类型漂移，保留待人工核对
     | "manual_required"; // 无法安全自动处理
   newTarget?: JsonPointer;
-  sourceKind?: ValueSource["kind"];
-  confidence?: "high" | "low"; // high=prev schema 精确命中；low=启发式
+  sourceKind?: ValueSource["kind"]; // added 时：row（identity 语义命中）| form（同名回落）
+  confidence?: "high" | "low"; // high=prev schema 精确命中或 identity 语义命中；low=启发式
   reason: string;
 }
 

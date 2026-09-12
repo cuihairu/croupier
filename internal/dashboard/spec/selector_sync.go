@@ -88,6 +88,10 @@ type SelectorSyncOptions struct {
 	// RecomputeDefaults 是 generator 注入的默认输出推导，用于必需输出
 	// （items/detail/dataset 等）的重推导。可为 nil（推导降级）。
 	RecomputeDefaults OutputRechooser
+	// IdentityOf 返回资源身份字段名（CapabilitySemantics.IdentityField）。
+	// service 层按页面 resourceKey 查一次注入；nil 或未命中时 required
+	// 差集补齐回落 form 同名路径（现状）。
+	IdentityOf func(resourceKey string) (field string, ok bool)
 }
 
 // PlanBindingSelectorSync 计算并应用单个 binding 的 selector 同步。
@@ -173,9 +177,10 @@ type inputSyncResult struct {
 //  3. target 消失 → prev diff rename 候选（prevTrusted 时 high）；
 //     否则启发式（同父指针 × 类型一致 × 未占用 × 源可赋值，唯一命中）；
 //     零或多候选 → removed
-//  4. required 差集补齐：非 composite 页补 form 同名映射（门禁：页面
-//     表单 schema 必须含该 path）；composite 页一律 manual_required
-//     （composite 输入只应来自 page_state/literal）。
+//  4. required 差集补齐：S2 语义命中（required 字段 = 资源 identity 字段，
+//     且 row 源三关门禁通过）→ 自动接 row 源；否则非 composite 页补
+//     form 同名映射（门禁：页面表单 schema 必须含该 path）；composite 页
+//     一律 manual_required（composite 输入只应来自 page_state/literal）。
 func syncInputAssignments(
 	page PageSpec,
 	binding PageFunctionBinding,
@@ -233,17 +238,36 @@ func syncInputAssignments(
 		out.entries = append(out.entries, entry)
 	}
 
-	// 4. required 差集补齐
+	// 4. required 差集补齐（S2：identity 字段语义命中时自动接 row 源，
+	// 三关门禁不满足则回落 form 同名路径——不比现状差）
 	if required, err := requiredPointers(newSchema); err == nil {
+		identityTarget := identityTargetForPage(page, fn, opts)
 		for _, path := range sortedMapKeys(required) {
 			if _, done := occupied[path]; done {
 				continue
 			}
 			entry := SelectorSyncInputEntry{Target: path}
+			rowSource := ValueSource{Kind: SourceRow, Path: path}
 			switch {
 			case page.Type == PageTypeComposite:
 				entry.Action = SelectorSyncManual
 				entry.Reason = "composite page inputs must come from page_state or literal; add the mapping manually"
+			case identityTarget != "" && path == identityTarget &&
+				isSourceAllowed(SourceRow, ctx) &&
+				validateSourcePath(SourceRow, path, ctx) &&
+				isAssignable(newSchema, path, rowSource, ctx):
+				// S2 语义命中：identity 字段按资源语义从行上下文取值
+				//（同 generator applyIdentityRowSelector 的构造）。
+				out.assignments = append(out.assignments, InputAssignment{
+					Target: path,
+					Source: rowSource,
+				})
+				occupied[path] = struct{}{}
+				entry.Action = SelectorSyncAdded
+				entry.SourceKind = SourceRow
+				entry.Confidence = SelectorSyncConfidenceHigh
+				entry.Reason = "identity field matched capability semantics; mapped from the row source"
+				changed = true
 			default:
 				formSchema := FormSchemaForBinding(page, binding)
 				if !schemaHasPath(formSchema, path) {
@@ -266,6 +290,29 @@ func syncInputAssignments(
 		}
 	}
 	return changed, out
+}
+
+// identityTargetForPage 解析当前 binding 语境下的资源 identity 指针
+// （/<identityField>，JSON Pointer 转义同 generator applyIdentityRowSelector）。
+// resourceKey 取 pageSpec.ResourceKey，回退函数声明的 Resource；语义未注入
+// 或未命中返回空串（调用方回落 form 路径）。
+func identityTargetForPage(page PageSpec, fn FunctionSpec, opts SelectorSyncOptions) string {
+	if opts.IdentityOf == nil {
+		return ""
+	}
+	resourceKey := strings.TrimSpace(page.ResourceKey)
+	if resourceKey == "" {
+		resourceKey = strings.TrimSpace(fn.Resource)
+	}
+	if resourceKey == "" {
+		return ""
+	}
+	field, ok := opts.IdentityOf(resourceKey)
+	field = strings.TrimSpace(field)
+	if !ok || field == "" {
+		return ""
+	}
+	return "/" + escapeJSONPointerToken(field)
 }
 
 // rechooseInputTarget 为消失的 target 找重映射目标。优先 prev diff 的

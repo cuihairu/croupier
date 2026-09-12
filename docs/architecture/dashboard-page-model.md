@@ -496,7 +496,7 @@ active PublishedPageSpec[] -> ConsoleMenuSpec -> ProLayout
 1. target 存在、类型未变、源可赋值 → kept。
 2. target 存在但类型漂移 → 保留 assignment，报告 `type_changed`（不摘——required 摘掉会让发布校验失败）。
 3. target 消失 → prev schema diff 的 rename 候选唯一命中（`confidence=high|low`，见 prev 列语义）；无 prev 或不命中时启发式（同父 × 未占用 × 源可赋值，唯一命中才用，`low`）；零或多候选 → removed。
-4. required 差集补齐：非 composite 页补 form 同名映射（门禁：页面表单 schema 必须含该 path，否则 `manual_required`）；composite 页一律 `manual_required`（composite 输入只应来自 page_state/literal）。
+4. required 差集补齐（S2 语义命中）：required 字段 = 资源 identity 字段（`CapabilitySemantics.IdentityField`，service 层按页面 resourceKey 查一次注入 planner）且 row 源三关门禁（`isSourceAllowed`：HasDetailView/IsRowAction；RowSchema 含该 path；类型可赋值）全通过 → 自动接 row 源（`added`+`row`+`high`，同 generator `applyIdentityRowSelector` 构造）；未注入/未命中/门禁不满足 → 回落：非 composite 页补 form 同名映射（门禁：页面表单 schema 必须含该 path，否则 `manual_required`）；composite 页一律 `manual_required`（composite 输入只应来自 page_state/literal）。
 
 策略阶梯（输出）：
 
