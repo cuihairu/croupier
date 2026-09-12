@@ -161,4 +161,32 @@ describe('F9: Select 集成渲染', () => {
     // 缓存后仅一次调用
     expect(invokeFunction).toHaveBeenCalledTimes(1);
   });
+
+  // U4：服务端派生产物（spec 侧 field.remoteOptions，Go buildFormFields 从
+  // x-options-source 派生）→ 渲染器直接消费——不走前端 derivePresentationSpec。
+  test('spec 侧 remoteOptions（服务端派生）→ Select 渲染远程选项', async () => {
+    invokeFunction.mockResolvedValue(PLAYER_RESULT);
+    const remote: RemoteOptionsSpec = {
+      functionId: 'player.list',
+      labelPath: '/items/*/name',
+      valuePath: '/items/*/id',
+    };
+    const spec: FormPresentationSpec = {
+      jsonSchema: schemaOf({
+        type: 'object',
+        properties: { playerId: { type: 'string', title: '玩家' } },
+      }),
+      layout: 'vertical',
+      fields: [
+        { key: 'playerId', widget: 'Select', label: { 'zh-CN': '玩家' }, remoteOptions: remote },
+      ],
+    };
+    const onFinish = jest.fn();
+    render(<SchemaFormRenderer spec={spec} onFinish={onFinish} />);
+    const selector = screen.getByLabelText('玩家').closest('.ant-select') as HTMLElement;
+    await act(async () => {});
+    fireEvent.mouseDown(selector);
+    await waitFor(() => expect(screen.getByText('Bob')).toBeTruthy());
+    expect(invokeFunction).toHaveBeenCalledWith('player.list', {});
+  });
 });

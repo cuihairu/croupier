@@ -130,6 +130,35 @@ func hintWidgetProps(raw json.RawMessage) map[string]json.RawMessage {
 	return props
 }
 
+// hintRemoteOptions 解析 x-options-source（F9 远程选项源）：functionId 必填
+// （缺失/空白静默忽略，与前端 asRemoteOptions 一致——发布页回退普通控件）；
+// labelPath/valuePath/searchParam 可选非空字符串。指针由渲染端消费
+// （支持 * 通配数组段），此处不校验函数存在性（运行时 RBAC 兜底降级）。
+func hintRemoteOptions(raw json.RawMessage) *spec.RemoteOptionsSpec {
+	if len(raw) == 0 {
+		return nil
+	}
+	obj := parseJSONObject(raw)
+	if obj == nil {
+		return nil
+	}
+	functionID := strings.TrimSpace(rawString(obj["functionId"]))
+	if functionID == "" {
+		return nil
+	}
+	out := &spec.RemoteOptionsSpec{FunctionID: functionID}
+	if labelPath := rawString(obj["labelPath"]); labelPath != "" {
+		out.LabelPath = labelPath
+	}
+	if valuePath := rawString(obj["valuePath"]); valuePath != "" {
+		out.ValuePath = valuePath
+	}
+	if searchParam := rawString(obj["searchParam"]); searchParam != "" {
+		out.SearchParam = searchParam
+	}
+	return out
+}
+
 // hintCondition 解析受限可见性表达式（equals/notEquals/exists/all/any），
 // 仅允许表单内 JSON Pointer（/ 开头），深度上限与前端一致。
 func hintCondition(raw json.RawMessage) *spec.ConditionSpec {

@@ -545,17 +545,17 @@ A 系列与 R 系列互相独立可并行。每个任务独立提交；涉及 we
 
 **验收**：`pnpm --dir web run tsc` + `pnpm --dir web test` 全绿 + guard PASSED。
 
-## U4. x-options-source 服务端派生补齐（RemoteOptionsSpec）
+## U4. x-options-source 服务端派生补齐（RemoteOptionsSpec）✅（2026-09 交付）
 
 **目标**：发布页表单与调试页一致地消费远程选项源，消除「调试页有下拉、发布页手输」漂移。
 
 **改动点**：
 
-- [ ] `internal/dashboard/spec/form_presentation.go`：`FormFieldSpec` 增加 `remoteOptions *RemoteOptionsSpec`（functionId/labelPath/valuePath/searchParam，lowerCamelCase 契约键）
-- [ ] `internal/dashboard/generator/form_hints.go`：解析 `x-options-source`（functionId 缺失静默忽略，与前端 `asRemoteOptions` 一致）；`buildFormFields` 下发
-- [ ] `web/src/types/dashboard.ts` 同步类型；`SchemaFormRenderer` 消费 spec 侧 `remoteOptions`（复用 `useRemoteOptions` 既有逻辑，与 hints 推导路径合流）
-- [ ] 单测：Go 侧 hint 解析/忽略分支 + golden；web 侧 spec 驱动的远程选项渲染
-- [ ] `docs/architecture/presentation-hints.md` 删除「暂不参与服务端派生」边界说明；`pagespec-protocol.md` FormFieldSpec 表补 `remoteOptions`
+- [x] `internal/dashboard/spec/form_presentation.go`：`FormFieldSpec` 增加 `remoteOptions *RemoteOptionsSpec`（functionId/labelPath/valuePath/searchParam，lowerCamelCase 契约键）
+- [x] `internal/dashboard/generator/form_hints.go`：解析 `x-options-source`（functionId 缺失静默忽略，与前端 `asRemoteOptions` 一致）；`buildFormFields` 下发
+- [x] `web/src/types/dashboard.ts` 同步类型；`SchemaFormRenderer` 消费 spec 侧 `remoteOptions`（复用 `useRemoteOptions` 既有逻辑，与 hints 推导路径合流）——web 消费链路本已就绪（index.tsx 注入 ui:options + widgets 消费），本次仅补 spec 驱动直测
+- [x] 单测：Go 侧 hint 解析/忽略分支 + golden；web 侧 spec 驱动的远程选项渲染
+- [x] `docs/architecture/presentation-hints.md` 删除「暂不参与服务端派生」边界说明；`pagespec-protocol.md` FormFieldSpec 表补 `remoteOptions`
 - [ ] 按 DoD 走一次 accept-and-publish 线上验证（发布页含远程选项 spec 字段落库）
 
 **验收**：同一 `x-options-source` 函数在 Invoke 页与发布 OperationPage 表现一致；三层文档同步 + docs build 通过。

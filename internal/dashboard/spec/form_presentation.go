@@ -84,6 +84,11 @@ type FormFieldSpec struct {
 	// EnumOptions for select/radio widgets
 	EnumOptions []EnumOption `json:"enumOptions,omitempty"`
 
+	// RemoteOptions points to a registered collection_query function as the
+	// option source (x-options-source hint, F9). Mutually exclusive with
+	// EnumOptions — remoteOptions wins on the renderer side.
+	RemoteOptions *RemoteOptionsSpec `json:"remoteOptions,omitempty"`
+
 	// WidgetProps passes extra props to the widget
 	WidgetProps map[string]json.RawMessage `json:"widgetProps,omitempty"`
 
@@ -141,6 +146,26 @@ type ValidationRule struct {
 	Type    string          `json:"type"` // required|min|max|pattern|custom
 	Value   json.RawMessage `json:"value,omitempty"`
 	Message LocalizedText   `json:"message"`
+}
+
+// RemoteOptionsSpec defines a remote option source (F9): points to a
+// collection_query function registered in the same scope. Invocation goes
+// through the existing RBAC pipeline.
+type RemoteOptionsSpec struct {
+	// FunctionID is the data source function id (e.g. "player.list").
+	FunctionID string `json:"functionId"`
+
+	// LabelPath selects option labels from the invocation result as a JSON
+	// Pointer with `*` wildcard array segments (e.g. "/items/*/name").
+	LabelPath string `json:"labelPath,omitempty"`
+
+	// ValuePath selects option values (e.g. "/items/*/id"); empty = reuse
+	// LabelPath (renderer-side default).
+	ValuePath string `json:"valuePath,omitempty"`
+
+	// SearchParam is the search keyword parameter name; when set, dropdown
+	// search re-invokes the function with it.
+	SearchParam string `json:"searchParam,omitempty"`
 }
 
 // ConditionSpec is a restricted expression for presentation visibility. It

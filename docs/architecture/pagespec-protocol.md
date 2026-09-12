@@ -51,8 +51,18 @@ interface FormFieldSpec {
   required?: boolean; // 覆盖 schema required
   defaultValue?: JSONValue;
   enumOptions?: EnumOption[]; // select/radio 选项
+  remoteOptions?: RemoteOptionsSpec; // 远程选项源（x-options-source 派生）；
+  // 与 enumOptions 互斥，优先 remoteOptions
   widgetProps?: Record<string, JSONValue>;
   validationRules?: ValidationRule[];
+}
+
+interface RemoteOptionsSpec {
+  functionId: string; // 数据源函数 ID（同 scope 已注册的 collection_query）；
+  // 调用走既有 RBAC，失败静默降级为普通输入
+  labelPath?: string; // 选项标签取值路径（JSON Pointer，支持 * 通配数组段）
+  valuePath?: string; // 选项取值路径；缺省复用 labelPath
+  searchParam?: string; // 搜索关键词参数名；声明后下拉搜索以该参数重新调用
 }
 ```
 
@@ -79,8 +89,9 @@ Server 从 input JSON Schema 生成默认 FormPresentationSpec；管理员只能
 ### Descriptor 呈现 hints（x-ui-\*）
 
 SDK/游戏方可在 `input_schema` 的字段 schema 上声明 `x-ui-*` 扩展字段（widget/label/
-分组/联动/远程选项源等），前端经 `derivePresentationSpec` 推导为本协议的
-`FormPresentationSpec`。字段清单、推导规则与治理边界见
+分组/联动/远程选项源等），前端经 `derivePresentationSpec`（调试路径）与服务端
+`buildFormFields`（发布路径，U4 起含 `x-options-source` → `remoteOptions`）推导为本
+协议的 `FormPresentationSpec`，两端表现一致。字段清单、推导规则与治理边界见
 [呈现 Hints 契约](./presentation-hints.md)。hints 不进入页面编排（PageSpec），wire
 契约零改动。
 

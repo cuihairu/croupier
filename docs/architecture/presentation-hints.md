@@ -24,7 +24,9 @@ tag:
 - 游戏方最了解自己参数的呈现意图（"这个字段是玩家选择器"、"这两个参数是一组"），却没有任何表达通道。
 
 本契约定义 **JSON Schema `x-ui-*` 扩展字段**作为呈现意图的载体：游戏方在 schema 内声明，
-前端推导为 `FormPresentationSpec`。wire 层零改动（`input_schema` 本就是字符串透传）。
+前端（`derivePresentationSpec`）与服务端（`buildFormFields`，U4 起含
+`x-options-source`）分别推导为 `FormPresentationSpec`。wire 层零改动
+（`input_schema` 本就是字符串透传）。
 
 ## 分层与原则
 
@@ -123,8 +125,9 @@ hints 放置在 **字段 schema 对象**上（支持嵌套，推导为点路径 
 
 1. **hints 优先**：`x-widget`（受控枚举校验，非法忽略）、`x-label`、`x-placeholder`、
    `x-description`、`x-width`（1-12）、`x-order`、`x-disabled`、`x-visible-when`、
-   `x-enum-options`、`x-widget-props`；`x-options-source` 暂不参与服务端派生
-   （Go spec 侧尚无 RemoteOptionsSpec 字段，发布页回退为普通控件）。
+   `x-enum-options`、`x-widget-props`、`x-options-source`（U4：派生为
+   `FormFieldSpec.remoteOptions`——`functionId` 必填缺失静默忽略，与前端
+   `asRemoteOptions` 一致；widget 名仍由 `x-widget` 决定，不强制 Select）。
 2. **类型缺省控件**（`x-widget` 缺省时）：integer/number→`InputNumber`、
    boolean→`Switch`、enum→`Select`、array(enum items)→`MultiSelect`、
    format `date`/`date-time`→`DatePicker`、`time`→`TimePicker`、

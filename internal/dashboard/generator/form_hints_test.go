@@ -109,3 +109,54 @@ func TestHintConditionDepthAndValidation(t *testing.T) {
 	assert.Equal(t, "all", got.Kind)
 	require.Len(t, got.Conditions, 2)
 }
+
+// U4：x-options-source 服务端派生（与前端 asRemoteOptions 行为对齐）。
+func TestBuildFormFieldsRemoteOptions(t *testing.T) {
+	fields := buildFormFields(spec.JSONSchema(`{
+		"type":"object",
+		"properties":{
+			"playerId":{"type":"string","x-widget":"Select",
+				"x-options-source":{
+					"functionId":"player.list",
+					"labelPath":"/items/*/name",
+					"valuePath":"/items/*/id",
+					"searchParam":"keyword"
+				}},
+			"serverId":{"type":"string","x-widget":"Select",
+				"x-options-source":{"functionId":"  server.list  ","labelPath":""}},
+			"broken":{"type":"string","x-options-source":{"labelPath":"/items/*/id"}},
+			"notObject":{"type":"string","x-options-source":"oops"}
+		}
+	}`), "zh-CN")
+
+	byKey := map[string]spec.FormFieldSpec{}
+	for _, f := range fields {
+		byKey[f.Key] = f
+	}
+
+	// 完整四字段派生
+	playerID := byKey["playerId"]
+	require.NotNil(t, playerID.RemoteOptions)
+	assert.Equal(t, "player.list", playerID.RemoteOptions.FunctionID)
+	assert.Equal(t, "/items/*/name", playerID.RemoteOptions.LabelPath)
+	assert.Equal(t, "/items/*/id", playerID.RemoteOptions.ValuePath)
+	assert.Equal(t, "keyword", playerID.RemoteOptions.SearchParam)
+	assert.Equal(t, spec.FormWidgetSelect, playerID.Widget, "widget 名仍由 x-widget 决定")
+
+	// functionId trim；空白可选字段忽略（不落 omitempty 空 key）
+	serverID := byKey["serverId"]
+	require.NotNil(t, serverID.RemoteOptions)
+	assert.Equal(t, "server.list", serverID.RemoteOptions.FunctionID)
+	assert.Empty(t, serverID.RemoteOptions.LabelPath)
+
+	// functionId 缺失 / 非对象 → 静默忽略（发布页回退普通控件）
+	assert.Nil(t, byKey["broken"].RemoteOptions)
+	assert.Nil(t, byKey["notObject"].RemoteOptions)
+}
+
+func TestHintRemoteOptionsBranches(t *testing.T) {
+	require.Nil(t, hintRemoteOptions(nil))
+	require.Nil(t, hintRemoteOptions([]byte(`"oops"`)))
+	require.Nil(t, hintRemoteOptions([]byte(`{}`)))
+	require.Nil(t, hintRemoteOptions([]byte(`{"functionId":"   "}`)))
+}

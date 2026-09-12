@@ -655,6 +655,11 @@ func buildFormFields(schema spec.JSONSchema, locale string) []spec.FormFieldSpec
 		if enumOptions := hintEnumOptions(prop["x-enum-options"]); len(enumOptions) > 0 {
 			field.EnumOptions = enumOptions
 		}
+		// F9：远程选项源派生（发布页与调试页一致消费；widget 名仍由
+		// x-widget 决定，不在此强制 Select——与前端推导路径对齐）
+		if remote := hintRemoteOptions(prop["x-options-source"]); remote != nil {
+			field.RemoteOptions = remote
+		}
 		if widgetProps := hintWidgetProps(prop["x-widget-props"]); len(widgetProps) > 0 {
 			field.WidgetProps = widgetProps
 		}
