@@ -25,6 +25,10 @@ import {
 } from '@/services/api/support';
 import Detail from '../Detail';
 
+// 27 个用例共享重量级 ModalForm/Descriptions 渲染，全量并行负载下曾撞
+// 默认 5s 超时（隔离跑恒绿）——放宽用例级预算，与 Ops/Jobs 等重 suite 同法。
+jest.setTimeout(20000);
+
 jest.mock('@umijs/max', () => ({
   useParams: jest.fn(),
   history: { push: jest.fn(), back: jest.fn() },

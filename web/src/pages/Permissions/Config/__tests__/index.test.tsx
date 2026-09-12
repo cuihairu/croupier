@@ -10,6 +10,10 @@ import React from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import ConfigPage from '../index';
 
+// 25 个权限域全量渲染 + 权限详情折叠面板，全量并行负载下曾撞默认 5s
+// 超时（隔离跑恒绿）——放宽用例级预算，与 Ops/Jobs 等重 suite 同法。
+jest.setTimeout(20000);
+
 const ALL_DOMAINS = 25;
 const PAGE_SIZE = 10;
 
