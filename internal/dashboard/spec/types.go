@@ -601,6 +601,32 @@ type CompositeSection struct {
 	// 求值，false 时区块不渲染（执行不变——autoRun/refreshOn 照常）。
 	// 仅 inline/tab 区块参与；dialog 区块忽略。
 	VisibleWhen *ConditionSpec `json:"visibleWhen,omitempty"`
+	// CascadePolicy refreshOn 级联失败策略（U9）：任一上游依赖的最新
+	// 结果为失败时本区块的行为——clear（清空本区块数据）/ keep（保留
+	// 上次结果，静默）/ pause（本次不重跑、数据保持并提示）。空值按
+	// pause 处理（渲染端缺省回退）。
+	CascadePolicy string `json:"cascadePolicy,omitempty"`
+}
+
+// refreshOn 级联失败策略取值（CompositeSection.CascadePolicy）。
+const (
+	// CascadePolicyClear 上游失败时清空本区块数据（表格变空，明确失效）。
+	CascadePolicyClear = "clear"
+	// CascadePolicyKeep 上游失败时保留上次结果（旧数据可读，静默容忍）。
+	CascadePolicyKeep = "keep"
+	// CascadePolicyPause 上游失败时停止本次级联（不重跑、数据保持并提示；
+	// 缺省策略）。
+	CascadePolicyPause = "pause"
+)
+
+// IsCascadePolicy 报告 v 是否为合法级联失败策略取值（空值合法=缺省 pause）。
+func IsCascadePolicy(v string) bool {
+	switch v {
+	case "", CascadePolicyClear, CascadePolicyKeep, CascadePolicyPause:
+		return true
+	default:
+		return false
+	}
 }
 
 // CompositeEventBinding 事件绑定：事件名 → 动作步骤（含参数来源）。

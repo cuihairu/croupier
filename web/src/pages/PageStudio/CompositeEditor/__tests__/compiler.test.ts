@@ -864,3 +864,29 @@ describe('U8 参数映射缺省值（transform default）编译 round-trip', () 
     ]);
   });
 });
+
+describe('compileTree U9：refreshOn 级联失败策略（cascadePolicy）', () => {
+  it('cascadePolicy 白名单值编译透传 + decompile 回读 round-trip', async () => {
+    const table = fn('fnTable', 'player.list', {
+      autoRun: true,
+      cascadePolicy: 'clear',
+    });
+    const { sections } = compileTree([table]);
+    expect(sections.find((s) => s.key === 'player.list')?.cascadePolicy).toBe('clear');
+
+    const { decompileToTree } = await import('../compiler');
+    const nodes = decompileToTree(sections as unknown as Parameters<typeof decompileToTree>[0])[0];
+    expect(nodes.find((n) => n.props.functionId === 'player.list')?.props.cascadePolicy).toBe(
+      'clear',
+    );
+  });
+
+  it('非白名单值不编译（wire 向后兼容：空=缺省 pause）', () => {
+    const table = fn('fnTable', 'player.list', {
+      autoRun: true,
+      cascadePolicy: 'bogus',
+    });
+    const { sections } = compileTree([table]);
+    expect(sections.find((s) => s.key === 'player.list')?.cascadePolicy).toBeUndefined();
+  });
+});

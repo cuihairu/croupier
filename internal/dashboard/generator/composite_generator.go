@@ -44,6 +44,8 @@ type CompositeSectionInput struct {
 	Events []spec.CompositeEventBinding
 	// VisibleWhen 区块级条件显示（按页面状态求值，false 时不渲染）。
 	VisibleWhen *spec.ConditionSpec
+	// CascadePolicy refreshOn 级联失败策略（clear|keep|pause；空=pause）。
+	CascadePolicy string
 	// InputAssignments 显式参数映射（覆盖自动映射的同名 target）。
 	InputAssignments []spec.InputAssignment
 }
@@ -141,6 +143,8 @@ func GenerateCompositePage(
 		// 区块级条件显示（编辑器透传，生成器不做语义校验——发布校验统一
 		// 在 validatePublishableCompositePage）。
 		section.VisibleWhen = in.VisibleWhen
+		// 级联失败策略（U9）：编辑器透传，渲染端按策略处理上游失败。
+		section.CascadePolicy = in.CascadePolicy
 		if len(in.Toolbar) > 0 {
 			tb := &spec.CompositeToolbarSpec{}
 			for _, ta := range in.Toolbar {

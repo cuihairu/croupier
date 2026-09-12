@@ -176,6 +176,12 @@ export function decompileToTree(sections: SpecSectionLike[]): [PageNode[], strin
       onSuccessRefresh: undefined,
       // U10 条件显示回读（仅 inline/tab 语义；dialog 区块 spec 不带该字段）
       ...(conditionPropOf(sec) ? { visibleWhen: conditionPropOf(sec) } : {}),
+      // U9 级联失败策略回读（宽松形态：非白名单值不还原）
+      ...(sec.cascadePolicy === 'clear' ||
+      sec.cascadePolicy === 'keep' ||
+      sec.cascadePolicy === 'pause'
+        ? { cascadePolicy: sec.cascadePolicy }
+        : {}),
       // 固化区块 key（round-trip 稳定，U5）
       sectionKey: key,
     };

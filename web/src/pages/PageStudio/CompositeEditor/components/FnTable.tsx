@@ -5,7 +5,7 @@ import type { ComponentDef } from '../registry';
 import { EVENTS } from '../actions';
 import { localizedText } from '@/utils/localizedText';
 import { schemaProperties } from '../types';
-import { commonFnSchema, spanSchema, visibleWhenSchema } from './shared';
+import { cascadePolicySchema, commonFnSchema, spanSchema, visibleWhenSchema } from './shared';
 
 const { Text } = Typography;
 
@@ -61,6 +61,7 @@ export const fnTable: ComponentDef = {
         format: 'rowActions',
       },
       visibleWhen: visibleWhenSchema(),
+      cascadePolicy: cascadePolicySchema(),
     });
   },
   scaffold: (fn) => ({

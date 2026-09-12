@@ -38,6 +38,8 @@ export type CompiledSection = {
   /** 区块级条件显示（U10）：按页面状态求值，false 时不渲染（执行不变）。
    * 编辑态 props.visibleWhen {expr,op,value} 编译期拆 key/path。 */
   visibleWhen?: CompiledCondition;
+  /** refreshOn 级联失败策略（U9）：clear/keep/pause（空=pause 缺省）。 */
+  cascadePolicy?: 'clear' | 'keep' | 'pause';
   rowActions?: CompiledAction[];
   toolbarActions?: CompiledAction[];
   onSuccessRefresh?: string[];
@@ -111,6 +113,8 @@ export interface SpecSectionLike {
   /** 区块级条件显示（宽松形态：kind/key/path/value；嵌套组合条件编辑器
    * 不产出，decompile 遇到时丢弃并警告）。 */
   visibleWhen?: { kind?: string; key?: string; path?: string; value?: unknown };
+  /** refreshOn 级联失败策略（U9）：clear/keep/pause（宽松形态）。 */
+  cascadePolicy?: string;
   onSuccessRefresh?: string[];
   table?: { columns?: Array<{ key?: string }>; rowActions?: Array<Record<string, unknown>> };
   toolbar?: { actions?: Array<Record<string, unknown>> };

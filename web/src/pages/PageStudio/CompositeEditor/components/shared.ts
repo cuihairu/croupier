@@ -65,3 +65,31 @@ export function visibleWhenSchema() {
     }),
   };
 }
+
+/** U9 refreshOn 级联失败策略：上游依赖执行失败时本区块的行为
+ * （clear 清空数据 / keep 保留旧数据 / pause 停止级联并提示，缺省）。 */
+export function cascadePolicySchema() {
+  const t = getIntl().formatMessage;
+  return {
+    type: 'string',
+    title: t({
+      id: 'pages.pageStudio.editor.component.cascadePolicy.title',
+      defaultMessage: '级联失败策略（上游失败时本区块）',
+    }),
+    enum: ['pause', 'clear', 'keep'],
+    enumNames: [
+      t({
+        id: 'pages.pageStudio.editor.component.cascadePolicy.pause',
+        defaultMessage: '暂停级联（默认，提示）',
+      }),
+      t({
+        id: 'pages.pageStudio.editor.component.cascadePolicy.clear',
+        defaultMessage: '清空数据',
+      }),
+      t({
+        id: 'pages.pageStudio.editor.component.cascadePolicy.keep',
+        defaultMessage: '保留旧数据',
+      }),
+    ],
+  };
+}

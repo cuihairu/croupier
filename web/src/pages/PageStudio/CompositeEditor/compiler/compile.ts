@@ -482,6 +482,15 @@ export function compileTree(tree: PageNode[]): CompileResult {
       if (cond) section.visibleWhen = cond;
     }
 
+    // U9 refreshOn 级联失败策略：编辑态 prop 直接透传（空=缺省 pause）
+    if (
+      node.props.cascadePolicy === 'clear' ||
+      node.props.cascadePolicy === 'keep' ||
+      node.props.cascadePolicy === 'pause'
+    ) {
+      section.cascadePolicy = node.props.cascadePolicy;
+    }
+
     // 显式参数映射：sourceNodeId → section key（与 refreshOnNode 同机制）
     const rawMappings = Array.isArray(node.props.inputAssignments)
       ? (node.props.inputAssignments as Array<Record<string, unknown>>)

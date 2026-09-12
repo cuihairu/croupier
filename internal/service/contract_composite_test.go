@@ -523,3 +523,62 @@ func TestTimeoutMsToInt32Bounds(t *testing.T) {
 		t.Fatalf("overflow = %d, want MaxInt32", got)
 	}
 }
+
+// TestCreateCompositeProposal_CascadePolicyPassthrough U9 级联失败策略：
+// cascadePolicy 必须透传到生成 spec（fn 区块经生成器、static 区块在
+// service 落位）——渲染端按策略处理上游 refreshOn 失败，漏传会让下游
+// 回落缺省 pause 且编辑器 round-trip 丢配置。
+func TestCreateCompositeProposal_CascadePolicyPassthrough(t *testing.T) {
+	db, err := gorm.Open(sqlite.Open(t.TempDir()+"/cascade-policy.db"), &gorm.Config{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := db.AutoMigrate(
+		&model.FunctionContract{},
+		&model.CapabilitySemantics{},
+		&model.PageProposal{},
+		&model.PageProposalVersion{},
+		&model.TermDictionary{},
+		&model.ResourceCapability{},
+		&model.CapabilitySemanticVersion{},
+		&model.BlockedProposalIssue{},
+	); err != nil {
+		t.Fatal(err)
+	}
+	svc := NewContractService(db)
+
+	ctx := context.Background()
+	if err := svc.RebuildContractFromFunctionMeta(ctx, "demo_game", "development", "agent-1", spec.FunctionContractInput{ID: "player.get", Resource: "player", Capability: "item_query", Execution: "sync", Enabled: true, InputSchema: `{"type":"object","properties":{"id":{"type":"string"}}}`, OutputSchema: `{"type":"object","properties":{"player":{"type":"object"}}}`}); err != nil {
+		t.Fatal(err)
+	}
+
+	proposal, err := svc.CreateCompositeProposal(ctx, "demo_game", "development", "composite--cascade-policy", []CompositeSectionRequest{
+		{
+			Key: "player.get", FunctionID: "player.get", View: "fields",
+			CascadePolicy: spec.CascadePolicyKeep,
+		},
+		{
+			Key: "filter-panel", Static: true, View: "form", Title: "筛选",
+			Form: &spec.FormPresentationSpec{JSONSchema: spec.JSONSchema(`{"type":"object","properties":{"mode":{"type":"string"}}}`)},
+		},
+	}, nil)
+	if err != nil {
+		t.Fatalf("create failed: %v", err)
+	}
+
+	var page spec.PageSpec
+	if err := jsonUnmarshalV9(proposal.PageSpec, &page); err != nil {
+		t.Fatalf("unmarshal pageSpec: %v", err)
+	}
+	byKey := map[string]spec.CompositeSection{}
+	for _, s := range page.Composite.Sections {
+		byKey[s.Key] = s
+	}
+	if got := byKey["player.get"].CascadePolicy; got != spec.CascadePolicyKeep {
+		t.Fatalf("fn section cascadePolicy = %q, want keep", got)
+	}
+	// 未声明 → 空（渲染端缺省回退 pause）
+	if got := byKey["filter-panel"].CascadePolicy; got != "" {
+		t.Fatalf("static section cascadePolicy = %q, want empty (default pause)", got)
+	}
+}

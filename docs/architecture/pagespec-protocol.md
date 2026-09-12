@@ -166,6 +166,7 @@ refreshOn/动作链消费。发布校验：static 区块禁止携带 bindingId�
 - `events`：通用事件绑定（`rowClick`/`rowSelected`/`success`/`error`/`click` → 动作 + 链）；动作 kind：`runBinding`/`refreshNode`/`openModal`/`closeModal`/`navigate`/`showMessage`；步骤 `params` 支持来源引用（`"区块key.字段"`、`"row.字段"`、字面量）
 - `refreshOn`：page_state 联动——上游区块 key 变化自动重跑，上游输出顶层字段同名合并进本区块输入
 - `visibleWhen`：**区块级条件显示**（U10）——`ConditionSpec` 叶子必填 `key`（来源区块），从页面状态 `results[key]` 按 `path`（`/values/字段`、`/data/字段`、`/selectedRow/字段`）取值求值；false 的 inline/tab 区块不渲染但执行照常（autoRun/refreshOn 不受影响）；支持嵌套 `all`/`any`（深度 ≤4）；发布校验 key ∈ 页面区块、path 为 JSON Pointer、equals/notEquals 带 value；dialog 区块不参与（弹窗由动作显式触发）
+- `cascadePolicy`：**refreshOn 级联失败策略**（U9，`"pause" | "clear" | "keep"`，空 = 缺省 `pause`）——任一上游依赖最新结果为失败时本区块的行为。三策略均不重跑：`pause` 数据保持 + message.warning 提示（联动已暂停）；`keep` 静默保留上次结果；`clear` 清空本区块数据。渲染端实现：区块执行异常时向 `results[key]` 写入 `{error}` 失败标记，级联信号按「key 集合 + 各区块失败标记（o/e）」计算——失败↔成功翻转触发下游重跑（上游恢复后暂停的级联自动续跑），同态新值不重复触发。发布校验枚举合法（`composite_section_cascade_policy_invalid`）。static 区块不执行绑定（自身不会失败），该字段无实际作用但允许透传
 
 **页面级可选字段 `componentTemplates`**（U11 模板使用快照，位于 PageSpec 根而非
 section 内）：`componentTemplates?: Array<{ key: string; digest: string }>`——

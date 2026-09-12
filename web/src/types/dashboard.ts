@@ -454,6 +454,10 @@ export interface CompositeSection {
    * 求值，false 时不渲染该区块（执行不变——autoRun/refreshOn 照常）。
    * 仅 inline/tab 区块参与；dialog 区块忽略。 */
   visibleWhen?: ConditionSpec;
+  /** refreshOn 级联失败策略（U9）：任一上游依赖最新结果为失败时本区块的
+   * 行为——clear=清空本区块数据 / keep=保留上次结果（静默）/ pause=本次
+   * 不重跑、数据保持并提示。缺省 pause。 */
+  cascadePolicy?: 'clear' | 'keep' | 'pause';
   /** 操作成功后自动重跑的区块 key 列表。 */
   onSuccessRefresh?: string[];
   table?: {

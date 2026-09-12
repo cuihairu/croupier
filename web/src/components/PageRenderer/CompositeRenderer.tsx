@@ -44,6 +44,8 @@ export const CompositeRenderer: React.FC<{
           selectedRows?: Record<string, unknown>[];
           values?: Record<string, unknown>;
         }
+      // U9 失败标记：runSection catch 写入，下游 cascadePolicy 判定依据
+      | { error: string }
       | null
     >
   >({});
@@ -129,10 +131,18 @@ export const CompositeRenderer: React.FC<{
         if ((sec.view === 'form' || sec.view === 'actions') && sec.onSuccessRefresh?.length) {
           for (const target of sec.onSuccessRefresh) {
             const t = sectionsRef.current.find((x) => x.key === target);
-            if (t) void runSection(t);
+            if (t) runSection(t).catch(() => undefined);
           }
         }
         return result;
+      } catch (e) {
+        // U9：失败也写入 results（error 标记）——下游 cascadePolicy 据此判定
+        // 级联行为；错误继续上抛（弹窗提交路径靠 catch 保持弹窗开启并 toast）
+        setResults((prev) => ({
+          ...prev,
+          [sec.key]: { error: e instanceof Error ? e.message : String(e) },
+        }));
+        throw e;
       } finally {
         setRunning((prev) => ({ ...prev, [sec.key]: false }));
       }
@@ -146,7 +156,9 @@ export const CompositeRenderer: React.FC<{
   // autoRun：加载即执行（inline 区块）
   useEffect(() => {
     for (const sec of sections) {
-      if (sec.autoRun && sec.display !== 'dialog') void runSection(sec);
+      if (sec.autoRun && sec.display !== 'dialog') {
+        runSection(sec).catch(() => undefined);
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -155,14 +167,55 @@ export const CompositeRenderer: React.FC<{
   useEffect(() => {
     resultsRef.current = results;
   }, [results]);
+
+  /** U9 refreshOn 级联失败策略：上游依赖最新结果为失败时本区块的行为——
+   * pause（默认）= 本次不重跑、数据保持并提示；keep = 不重跑、静默保留
+   * 上次结果；clear = 不重跑、清空本区块数据（明确失效）。 */
+  const applyCascadePolicy = useCallback(
+    (sec: CompositeSection, failedDep: string) => {
+      const policy = sec.cascadePolicy ?? 'pause';
+      if (policy === 'clear') {
+        setResults((prev) => ({ ...prev, [sec.key]: null }));
+        return;
+      }
+      if (policy === 'pause') {
+        message.warning(
+          intl.formatMessage(
+            {
+              id: 'component.pageRenderer.composite.cascadePaused',
+              defaultMessage: '区块「{upstream}」执行失败，「{section}」联动已暂停',
+            },
+            { upstream: failedDep, section: localizedText(sec.title, 'zh-CN', sec.key) },
+          ),
+        );
+      }
+      // keep：静默保留上次结果
+    },
+    [message, intl],
+  );
+
+  // U9：级联信号 = 区块 key 集合 + 各区块失败标记（o/e）。失败↔成功翻转
+  // 触发下游重跑——暂停的级联在上游恢复后自动续跑；同态新值不重复触发
+  // （既有 key 集合语义保持）。
+  const cascadeSignal = Object.keys(results)
+    .sort()
+    .map((k) => `${k}:${isFailedResult(results[k]) ? 'e' : 'o'}`)
+    .join(',');
   useEffect(() => {
     for (const sec of sections) {
       if (!sec.refreshOn?.length || sec.display === 'dialog') continue;
       const depChanged = sec.refreshOn.some((dep) => dep in results);
-      if (depChanged && !running[sec.key]) void runSection(sec);
+      if (!depChanged || running[sec.key]) continue;
+      // U9：任一上游依赖失败 → 本区块按 cascadePolicy 处理（不重跑）
+      const failedDep = sec.refreshOn.find((dep) => isFailedResult(results[dep]));
+      if (failedDep) {
+        applyCascadePolicy(sec, failedDep);
+        continue;
+      }
+      runSection(sec).catch(() => undefined);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [Object.keys(results).join(',')]);
+  }, [cascadeSignal]);
 
   // 上游输出同名字段合并进下游输入
   useEffect(() => {
@@ -185,7 +238,7 @@ export const CompositeRenderer: React.FC<{
       return changed ? next : prev;
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [Object.keys(results).join(',')]);
+  }, [cascadeSignal]);
 
   const resultFor = (sec: CompositeSection): Record<string, unknown> | undefined => {
     const r = results[sec.key];
@@ -252,10 +305,9 @@ export const CompositeRenderer: React.FC<{
             (x) => x.key === step.target || x.group === step.target,
           );
           if (target) {
-            void runSectionRef.current(
-              target,
-              resolveStepParams(step.params, resultsRef.current, ctx) as never,
-            );
+            runSectionRef
+              .current(target, resolveStepParams(step.params, resultsRef.current, ctx) as never)
+              .catch(() => undefined);
           }
         }
       }
@@ -339,7 +391,7 @@ export const CompositeRenderer: React.FC<{
           <Space size={4}>
             {toolbarButtonsOf(sec)}
             {!sec.autoRun ? (
-              <Button size="small" onClick={() => void runSection(sec)}>
+              <Button size="small" onClick={() => runSection(sec).catch(() => undefined)}>
                 <FormattedMessage
                   id="component.pageRenderer.composite.executeButton"
                   defaultMessage="执行"
@@ -348,7 +400,7 @@ export const CompositeRenderer: React.FC<{
             ) : null}
           </Space>
         ) : sec.view !== 'actions' && sec.view !== 'toolbar' && !sec.autoRun ? (
-          <Button size="small" onClick={() => void runSection(sec)}>
+          <Button size="small" onClick={() => runSection(sec).catch(() => undefined)}>
             <FormattedMessage
               id="component.pageRenderer.composite.executeButton"
               defaultMessage="执行"
@@ -494,9 +546,11 @@ export const CompositeRenderer: React.FC<{
         <Button
           type="primary"
           onClick={() =>
-            void runSection(sec).then((r) => {
-              if (r && !(r as { error?: string }).error) fireEvent(sec, 'success');
-            })
+            runSection(sec)
+              .then((r) => {
+                if (r && !(r as { error?: string }).error) fireEvent(sec, 'success');
+              })
+              .catch(() => undefined)
           }
         >
           {localizedText(sec.title, 'zh-CN', sec.key)}
@@ -719,4 +773,11 @@ const DialogForm: React.FC<{
 function sectionHasForm(sec: CompositeSection): boolean {
   const properties = sec.form?.jsonSchema?.properties;
   return !!properties && typeof properties === 'object' && Object.keys(properties).length > 0;
+}
+
+/** U9：失败结果判定——runSection catch 写入的 {error} 标记，或执行结果
+ * 自带顶层 error 字段的防御形态（kind/data 之外不含 error 的正常结果、
+ * null 占位、undefined 均不算失败）。 */
+function isFailedResult(r: unknown): boolean {
+  return !!r && typeof r === 'object' && !!(r as { error?: unknown }).error;
 }

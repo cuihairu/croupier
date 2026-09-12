@@ -5,7 +5,7 @@ import type { ComponentDef } from '../registry';
 import { EVENTS } from '../actions';
 import { localizedText } from '@/utils/localizedText';
 import { schemaProperties, schemaRequired } from '../types';
-import { commonFnSchema, spanSchema, visibleWhenSchema } from './shared';
+import { cascadePolicySchema, commonFnSchema, spanSchema, visibleWhenSchema } from './shared';
 
 const { Text } = Typography;
 
@@ -49,6 +49,7 @@ export const fnForm: ComponentDef = {
         default: 'inline',
       },
       visibleWhen: visibleWhenSchema(),
+      cascadePolicy: cascadePolicySchema(),
     });
   },
   scaffold: (fn) => ({

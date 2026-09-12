@@ -621,16 +621,16 @@ A 系列与 R 系列互相独立可并行。每个任务独立提交；涉及 we
 
 **验收**：上游 `uid` 可经 rename 直连下游 `player_id`；三层文档同步 + docs build。
 
-## U9. refreshOn 级联失败策略（P1）
+## U9. refreshOn 级联失败策略（P1）✅（2026-09 交付）
 
 **目标**：上游区块执行失败时下游行为确定，不再未定义。
 
 **改动点**：
 
-- [ ] 定义三种策略：`clear`（清空下游数据）/ `keep`（保留上次结果）/ `pause`（停止本次级联，默认），写入 `CompositeSection.cascadePolicy`
-- [ ] 运行时 `CompositeRenderer` 按策略执行；编辑器 DataPanel 提供策略选择
-- [ ] 单测：三策略行为 + 缺省回退 pause
-- [ ] `docs/architecture/dashboard-page-model.md` CompositeSection 字段表 + `pagespec-protocol.md` 补 `cascadePolicy`
+- [x] 定义三种策略：`clear`（清空下游数据）/ `keep`（保留上次结果）/ `pause`（停止本次级联，默认），写入 `CompositeSection.cascadePolicy`
+- [x] 运行时 `CompositeRenderer` 按策略执行；编辑器属性面板（Fn 组件 propSchema）提供策略选择
+- [x] 单测：三策略行为 + 缺省回退 pause
+- [x] `docs/architecture/dashboard-page-model.md` CompositeSection 字段表 + `pagespec-protocol.md` 补 `cascadePolicy`
 
 **验收**：上游查询失败时下游表格按策略处理而非残留旧数据无提示；guard + docs build。
 

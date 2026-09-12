@@ -65,6 +65,11 @@ export default {
   'pages.pageStudio.editor.component.button.style.default': 'Default',
   'pages.pageStudio.editor.component.button.style.primary': 'Primary',
   'pages.pageStudio.editor.component.container.prop.publishAs': 'Publish as',
+  'pages.pageStudio.editor.component.cascadePolicy.clear': 'Clear data',
+  'pages.pageStudio.editor.component.cascadePolicy.keep': 'Keep last data',
+  'pages.pageStudio.editor.component.cascadePolicy.pause': 'Pause cascade (default, notice)',
+  'pages.pageStudio.editor.component.cascadePolicy.title':
+    'Cascade failure policy (on upstream failure)',
   'pages.pageStudio.editor.component.container.prop.publishAsCard': 'Card group',
   'pages.pageStudio.editor.component.container.prop.publishAsFlat': 'Flat (default)',
   'pages.pageStudio.editor.component.container.prop.title': 'Group title (card title in card mode)',

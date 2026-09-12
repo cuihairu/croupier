@@ -1,5 +1,7 @@
 // component.pageRenderer.* — Operation/Task/Report 渲染器与模板
 export default {
+  'component.pageRenderer.composite.cascadePaused':
+    '区块「{upstream}」执行失败，「{section}」联动已暂停',
   'component.pageRenderer.composite.confirmDangerTitle': '确认执行「{label}」',
   'component.pageRenderer.composite.confirmExecute': '确认执行',
   'component.pageRenderer.composite.executeButton': '执行',

@@ -72,6 +72,9 @@ func validatePublishableCompositePage(comp *CompositePageSpec) []Diagnostic {
 		if sec.View == "table" && sec.Table == nil {
 			diags = append(diags, publishShapeDiagnostic("composite_section_table_missing", "table section requires table config", field+".table"))
 		}
+		if !IsCascadePolicy(sec.CascadePolicy) {
+			diags = append(diags, publishShapeDiagnostic("composite_section_cascade_policy_invalid", "section cascadePolicy must be clear|keep|pause", field+".cascadePolicy"))
+		}
 	}
 	return diags
 }

@@ -1514,6 +1514,9 @@ func (s *ContractService) CreateCompositeProposal(
 				Tab:         localizedTextOf(sec.Tab),
 				CardTitle:   localizedTextOf(sec.CardTitle),
 				VisibleWhen: sec.VisibleWhen,
+				// 级联失败策略（U9）：static 区块不执行但可被下游 refreshOn
+				// 引用，字段同样透传保 round-trip。
+				CascadePolicy: sec.CascadePolicy,
 			}
 			staticSections = append(staticSections, section)
 			staticPos = append(staticPos, genCount)
@@ -1560,6 +1563,8 @@ func (s *ContractService) CreateCompositeProposal(
 			OnSuccess:   sec.OnSuccessRefresh,
 			Events:      convEvents(sec.Events),
 			VisibleWhen: sec.VisibleWhen,
+			// 级联失败策略（U9）：编辑器透传，渲染端按策略处理上游失败。
+			CascadePolicy: sec.CascadePolicy,
 		}
 		for _, ra := range sec.RowActions {
 			in.RowActions = append(in.RowActions, generator.CompositeRowActionInput{
@@ -1707,6 +1712,9 @@ type CompositeSectionRequest struct {
 	// VisibleWhen 区块级条件显示：按页面状态（ConditionSpec.Key=来源
 	// 区块 key）求值，false 时不渲染该区块（执行不变）。
 	VisibleWhen *spec.ConditionSpec `json:"visibleWhen,omitempty"`
+	// CascadePolicy refreshOn 级联失败策略：上游依赖执行失败时本区块
+	// 行为（clear|keep|pause；空=pause 缺省）。
+	CascadePolicy string `json:"cascadePolicy,omitempty"`
 }
 
 // CompositeInputAssignmentRequest 显式参数映射条目：

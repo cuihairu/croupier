@@ -1,5 +1,7 @@
 // component.pageRenderer.* — Operation/Task/Report 渲染器与模板
 export default {
+  'component.pageRenderer.composite.cascadePaused':
+    'Section "{upstream}" failed; cascade to "{section}" is paused',
   'component.pageRenderer.composite.confirmDangerTitle': 'Confirm "{label}"',
   'component.pageRenderer.composite.confirmExecute': 'Confirm',
   'component.pageRenderer.composite.executeButton': 'Run',

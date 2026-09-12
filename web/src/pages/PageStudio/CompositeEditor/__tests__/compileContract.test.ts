@@ -24,6 +24,7 @@ const SECTION_ALLOWED_KEYS = [
   'tab',
   'cardTitle',
   'visibleWhen',
+  'cascadePolicy',
   'rowActions',
   'toolbarActions',
   'onSuccessRefresh',

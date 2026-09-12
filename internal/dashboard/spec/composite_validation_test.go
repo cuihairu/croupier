@@ -152,3 +152,30 @@ func TestLocalizedTextJSONRoundTrip(t *testing.T) {
 	lt2 := LocalizedText(m)
 	assert.Equal(t, "值", lt2["zh-CN"])
 }
+
+// TestValidatePublishableCompositePageCascadePolicy U9 级联失败策略：
+// clear/keep/pause/空 均合法（空=缺省 pause），其余取值发布校验拒绝。
+func TestValidatePublishableCompositePageCascadePolicy(t *testing.T) {
+	tableSection := func(policy string) CompositeSection {
+		return CompositeSection{
+			Key:           "t1",
+			BindingID:     "b1",
+			View:          "table",
+			CascadePolicy: policy,
+			Table:         &CompositeTableSpec{Columns: []ColumnSpec{{Key: "id", DataType: "string"}}},
+		}
+	}
+	for _, policy := range []string{"", CascadePolicyClear, CascadePolicyKeep, CascadePolicyPause} {
+		diags := validatePublishableCompositePage(&CompositePageSpec{
+			Sections: []CompositeSection{tableSection(policy)},
+		})
+		assert.Empty(t, diags, "policy %q should be valid", policy)
+	}
+
+	diags := validatePublishableCompositePage(&CompositePageSpec{
+		Sections: []CompositeSection{tableSection("bogus")},
+	})
+	require.Len(t, diags, 1)
+	assert.Equal(t, "composite_section_cascade_policy_invalid", diags[0].Code)
+	assert.Equal(t, "composite.sections[0].cascadePolicy", diags[0].Field)
+}
