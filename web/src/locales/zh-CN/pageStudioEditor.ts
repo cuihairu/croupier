@@ -38,6 +38,19 @@ export default {
   'pages.pageStudio.editor.canvas.tabsNotAllowed':
     '页签内不接受「{type}」子组件（页签页仅允许表格/字段卡/按钮/文本）',
   'pages.pageStudio.editor.canvas.templateEmpty': '模板为空',
+  'pages.pageStudio.editor.dangling.title': '模板联动断链提示',
+  'pages.pageStudio.editor.dangling.intro':
+    '以下 {count} 处联动指向模板外区块（模板保存时画布上的其他节点），实例化后已断开。可选择画布区块重连，或保持断开（保存时仍会警告）。',
+  'pages.pageStudio.editor.dangling.apply': '应用重连',
+  'pages.pageStudio.editor.dangling.keep': '保持断开',
+  'pages.pageStudio.editor.dangling.kind.action': '动作目标',
+  'pages.pageStudio.editor.dangling.kind.refresh': '联动依赖',
+  'pages.pageStudio.editor.dangling.kind.assignment': '参数映射来源',
+  'pages.pageStudio.editor.dangling.kind.rowAction': '行操作弹窗',
+  'pages.pageStudio.editor.dangling.detail.main': '主动作目标',
+  'pages.pageStudio.editor.dangling.detail.chain': '链第 {n} 步',
+  'pages.pageStudio.editor.dangling.detail.assignment': '第 {n} 个映射',
+  'pages.pageStudio.editor.dangling.detail.rowAction': '第 {n} 个行操作',
   'pages.pageStudio.editor.templateStale.title': '所用模板有新版本',
   'pages.pageStudio.editor.templateStale.desc':
     '以下模板在本页面创建后已更新：{names}。页面保持当前配置不受影响；如需新版内容，请重新拖入模板（不会自动同步）。',

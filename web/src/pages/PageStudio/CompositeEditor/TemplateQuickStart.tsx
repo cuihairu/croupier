@@ -2,7 +2,11 @@ import React, { useEffect, useState } from 'react';
 import { Button, Card, Space, Spin, Tag, Typography } from 'antd';
 import { AppstoreOutlined, ThunderboltOutlined } from '@ant-design/icons';
 import { request, useIntl } from '@umijs/max';
-import { instantiateTemplate, type ComponentTemplateDTO } from './ComponentLibrary';
+import {
+  instantiateTemplateDetailed,
+  type ComponentTemplateDTO,
+  type DanglingTemplateRef,
+} from './ComponentLibrary';
 import TemplateThumb from './TemplateThumb';
 import { schemaProperties } from './types';
 import { localizedText } from '@/utils/localizedText';
@@ -24,7 +28,7 @@ export default function TemplateQuickStart({
 }: {
   /** 外部已加载的模板（测试/复用）；未提供则自行拉取。 */
   templates?: QuickStartTemplate[];
-  onPick: (nodes: PageNode[], tpl: QuickStartTemplate) => void;
+  onPick: (nodes: PageNode[], tpl: QuickStartTemplate, dangling?: DanglingTemplateRef[]) => void;
   /** 「从空白开始」：切换到空白画布（根落区拖入/左栏点击自主搭建）。 */
   onStartBlank?: () => void;
 }) {
@@ -107,7 +111,10 @@ export default function TemplateQuickStart({
                 size="small"
                 hoverable
                 style={{ borderColor: '#f0f0f0' }}
-                onClick={() => onPick(instantiateTemplate(tpl), tpl)}
+                onClick={() => {
+                  const { nodes, dangling } = instantiateTemplateDetailed(tpl);
+                  onPick(nodes, tpl, dangling);
+                }}
               >
                 <Space size={6}>
                   <AppstoreOutlined style={{ color: '#1677ff' }} />

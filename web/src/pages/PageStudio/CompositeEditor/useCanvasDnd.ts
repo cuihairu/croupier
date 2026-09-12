@@ -6,7 +6,11 @@ import type { FunctionDescriptor } from '@/services/api/functions';
 import { acceptsChild, scaffoldProps } from './registry';
 import { findNode, insertAfter, moveNode, nodeId, scaffoldTabsNode, type PageNode } from './model';
 import { assignVarNames, collectVarNames } from './varname';
-import { instantiateTemplate, type ComponentTemplateDTO } from './ComponentLibrary';
+import {
+  instantiateTemplateDetailed,
+  type ComponentTemplateDTO,
+  type DanglingTemplateRef,
+} from './ComponentLibrary';
 import { planTemplateDrop } from './templateDrop';
 import type { AddFnEvent } from './ComponentPanel';
 
@@ -32,6 +36,7 @@ export function useCanvasDnd({
   setSelectedId,
   setInsertTpl,
   onTemplateUsed,
+  onDanglingRefs,
 }: {
   treeRef: RefObject<PageNode[]>;
   editingModalRef: RefObject<string | null>;
@@ -43,6 +48,8 @@ export function useCanvasDnd({
   setInsertTpl: Dispatch<SetStateAction<{ tpl: ComponentTemplateDTO; overId: string } | null>>;
   /** 模板实例化成功后登记快照（U11：key+digest 进页面级保存体）。 */
   onTemplateUsed?: (tpl: ComponentTemplateDTO) => void;
+  /** U7：实例化检出跨模板边界悬空引用（编辑器提示/重连）。 */
+  onDanglingRefs?: (refs: DanglingTemplateRef[]) => void;
 }) {
   const { message } = App.useApp();
   const intl = useIntl();
@@ -79,10 +86,8 @@ export function useCanvasDnd({
    * 函数契约登记 → planTemplateDrop 决定弹窗/容器/链式插入。 */
   const applyTemplateInsert = useCallback(
     (tpl: ComponentTemplateDTO, values: Record<string, unknown>, overId: string) => {
-      const nodes = assignVarNames(
-        instantiateTemplate(tpl, values),
-        collectVarNames(treeRef.current),
-      );
+      const instantiated = instantiateTemplateDetailed(tpl, values);
+      const nodes = assignVarNames(instantiated.nodes, collectVarNames(treeRef.current));
       if (nodes.length === 0) return;
       for (const fid of tpl.requiredFunctions ?? []) {
         const fn = allFns.find((f) => f.id === fid);
@@ -106,8 +111,10 @@ export function useCanvasDnd({
       }
       setSelectedId(nodes[0].id);
       onTemplateUsed?.(tpl);
+      // U7：跨模板边界悬空引用提示（插入完成后上报，编辑器弹重连 Modal）
+      if (instantiated.dangling.length) onDanglingRefs?.(instantiated.dangling);
     },
-    [addChild, message, registerFn, allFns, setTree, onTemplateUsed],
+    [addChild, message, registerFn, allFns, setTree, onTemplateUsed, onDanglingRefs],
   );
 
   const handleDragEnd = useCallback(

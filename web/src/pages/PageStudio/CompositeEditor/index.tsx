@@ -32,7 +32,13 @@ import {
 } from './model';
 import ComponentPanel, { type AddFnEvent } from './ComponentPanel';
 import TemplateQuickStart from './TemplateQuickStart';
-import ComponentLibrary, { type ComponentTemplateDTO } from './ComponentLibrary';
+import ComponentLibrary, {
+  reconnectTemplateRefs,
+  type ComponentTemplateDTO,
+  type DanglingTemplateRef,
+  type TemplateRefFix,
+} from './ComponentLibrary';
+import DanglingRefsModal from './DanglingRefsModal';
 import PropsPanel from './PropsPanel';
 import { registerBuiltinComponents } from './components/builtin';
 import { scaffoldProps } from './registry';
@@ -84,6 +90,8 @@ export default function CompositeEditorPage() {
   const [insertTpl, setInsertTpl] = useState<{ tpl: ComponentTemplateDTO; overId: string } | null>(
     null,
   );
+  /** U7：模板实例化检出的跨模板边界悬空引用（重连 Modal 数据源）。 */
+  const [danglingRefs, setDanglingRefs] = useState<DanglingTemplateRef[]>([]);
   const [pageKey, setPageKey] = useState('');
   const [keyTouched, setKeyTouched] = useState(false);
   const [mode, setMode] = useState<'edit' | 'preview'>('edit');
@@ -475,6 +483,7 @@ export default function CompositeEditorPage() {
     setSelectedId,
     setInsertTpl,
     onTemplateUsed: recordTemplateUse,
+    onDanglingRefs: setDanglingRefs,
   });
 
   /** V5 变量改名：同步重写树内全部表达式/裸引用（§3.2）。
@@ -845,7 +854,7 @@ export default function CompositeEditorPage() {
                         <ComponentLibrary
                           availableFnIds={new Set(allFns.map((f) => f.id))}
                           onCreateFromCanvas={handleCreateFromCanvas}
-                          onInsert={(nodes, tpl) => {
+                          onInsert={(nodes, tpl, dangling) => {
                             // 带参数模板（U6）：空 nodes = 待参数配置，弹窗确认后插入
                             // （点击插入无拖拽落点 → 按根级追加处理）
                             if (tpl.params?.length && nodes.length === 0) {
@@ -863,6 +872,8 @@ export default function CompositeEditorPage() {
                               if (fn) registerFn(fn);
                             }
                             if (nodes.length > 0) setSelectedId(nodes[0].id);
+                            // U7：悬空引用提示（重连 Modal）
+                            if (dangling?.length) setDanglingRefs(dangling);
                           }}
                         />
                       ),
@@ -946,7 +957,7 @@ export default function CompositeEditorPage() {
                 )}
                 {canvasNodes.length === 0 && !editingModal && !startBlank ? (
                   <TemplateQuickStart
-                    onPick={(nodes, tpl) => {
+                    onPick={(nodes, tpl, dangling) => {
                       // 语义命名（instantiateTemplate 剥离 sectionKey，须重新分配变量名）
                       setTree((prev) => [...prev, ...assignVarNames(nodes, collectVarNames(prev))]);
                       recordTemplateUse(tpl);
@@ -955,6 +966,8 @@ export default function CompositeEditorPage() {
                         if (fnDesc) registerFn(fnDesc);
                       }
                       setSelectedId(nodes[0]?.id ?? null);
+                      // U7：悬空引用提示（重连 Modal）
+                      if (dangling?.length) setDanglingRefs(dangling);
                       message.success(
                         intlRef.current.formatMessage(
                           {
@@ -1191,6 +1204,35 @@ export default function CompositeEditorPage() {
         onClose={() => setInsertTpl(null)}
         onConfirm={applyTemplateInsert}
       />
+      <DanglingRefsModal
+        open={danglingRefs.length > 0}
+        refs={danglingRefs}
+        candidateNodes={flattenForCandidates(tree)}
+        onClose={() => setDanglingRefs([])}
+        onApply={(fixes) => {
+          if (fixes.length) setTree((prev) => reconnectTemplateRefs(prev, fixes));
+          setDanglingRefs([]);
+        }}
+      />
     </PageContainer>
   );
+}
+
+/** U7：重连候选 = 画布全部节点（含容器/弹窗内），标题兜底组件类型。 */
+function flattenForCandidates(
+  nodes: PageNode[],
+): Array<{ id: string; title: string; type: string }> {
+  const out: Array<{ id: string; title: string; type: string }> = [];
+  const walk = (list: PageNode[]) => {
+    for (const node of list) {
+      out.push({
+        id: node.id,
+        title: String(node.props.title ?? node.type),
+        type: node.type,
+      });
+      if (node.children) walk(node.children);
+    }
+  };
+  walk(nodes);
+  return out;
 }

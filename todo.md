@@ -594,16 +594,16 @@ A 系列与 R 系列互相独立可并行。每个任务独立提交；涉及 we
 **验收**：go test（component/model 全绿）+ web tsc 0 错误 + 256 tests 全绿 + guard PASSED。
 已知边界：参数仅覆盖节点展示 props（不含函数输入参数默认值）；带参数模板拖拽落点语义退化为根级追加；accept-and-publish 线上验证待部署窗口。
 
-## U7. 组件实例化跨模板联动悬空提示
+## U7. 组件实例化跨模板联动悬空提示 ✅（2026-09 交付）
 
 **目标**：拖入组件后，与画布已有区块的联动断链可见、可接线，不再静默丢失。
 
 **改动点**：
 
-- [ ] `instantiateTemplate` 检出跨模板边界的悬空引用（`idMap.get(nid) ?? nid` 保留旧 id 的分支），返回悬空清单
-- [ ] 编辑器拖入后 message/Modal 提示「N 处联动指向模板外区块，已断开」，并提供快捷重连（悬空项 → 画布区块下拉选择）
-- [ ] composition-model.md 缺口表补「跨模板联动断链无提示」条目并在本任务关闭
-- [ ] 单测：悬空检出清单、重连后引用更新
+- [x] `instantiateTemplate` 检出跨模板边界的悬空引用（`idMap.get(nid) ?? nid` 保留旧 id 的分支），返回悬空清单——`instantiateTemplateDetailed` 四类检出（动作目标/联动依赖/参数映射来源/行操作弹窗），原函数变薄壳
+- [x] 编辑器拖入后 message/Modal 提示「N 处联动指向模板外区块，已断开」，并提供快捷重连（悬空项 → 画布区块下拉选择）——`DanglingRefsModal` + `reconnectTemplateRefs` 纯函数，三入口（拖拽/带参弹窗、点击插入、quick-start）全接线
+- [x] composition-model.md 缺口表补「跨模板联动断链无提示」条目并在本任务关闭
+- [x] 单测：悬空检出清单、重连后引用更新（4 用例）
 
 **验收**：拖入含外部联动的模板（手工构造）有明确提示；web tsc/test/guard 全绿。
 

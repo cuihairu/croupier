@@ -50,6 +50,22 @@ async function fetchTemplates(): Promise<ComponentTemplateDTO[]> {
   return items;
 }
 
+/** U7：实例化后仍指向模板外的悬空引用（重映射保留旧 id 的分支）。 */
+export interface DanglingTemplateRef {
+  /** 携带悬空引用的新节点 id */
+  nodeId: string;
+  /** 节点标题（提示定位；兜底组件类型名） */
+  nodeTitle: string;
+  /** 引用所在 prop（onClick / refreshOnNode / inputAssignments / rowActions） */
+  prop: string;
+  /** 引用种类：动作目标 / 联动依赖 / 参数映射来源 / 行操作弹窗目标 */
+  kind: 'action' | 'refresh' | 'assignment' | 'rowAction';
+  /** 悬空的原始引用值（模板外节点 id，实例化后保留） */
+  ref: string;
+  /** 落点描述（主动作 / 链第 N 步 / 第 N 个映射 / 第 N 个行操作） */
+  detail?: string;
+}
+
 /**
  * 实例化组件模板：复制子树 + 重分配 id + 重映射内部引用 + 应用参数值（U6）。
  * 引用形态：onClick/onSuccess/onRowClick 的 target=节点 id；rowActions.targetSection=节点 id。
@@ -61,6 +77,19 @@ export function instantiateTemplate(
   tpl: ComponentTemplateDTO,
   paramValues?: Record<string, unknown>,
 ): PageNode[] {
+  return instantiateTemplateDetailed(tpl, paramValues).nodes;
+}
+
+/**
+ * 实例化（含悬空引用检出，U7）：模板内部引用经 idMap 重映射；指向模板外
+ * 节点的引用（保存模板时画布上的其他区块）无法重映射，保留旧 id 并登记
+ * 进 dangling 清单——编辑器据此提示「联动已断开」并提供快捷重连，
+ * 不再静默丢失（此前仅保存时编译警告兜底）。
+ */
+export function instantiateTemplateDetailed(
+  tpl: ComponentTemplateDTO,
+  paramValues?: Record<string, unknown>,
+): { nodes: PageNode[]; dangling: DanglingTemplateRef[] } {
   const idMap = new Map<string, string>();
   const preassign = (nodes: PageNode[]) => {
     for (const node of nodes) {
@@ -82,6 +111,24 @@ export function instantiateTemplate(
     }
   };
 
+  const dangling: DanglingTemplateRef[] = [];
+  const report = (
+    node: PageNode,
+    prop: string,
+    kind: DanglingTemplateRef['kind'],
+    ref: string,
+    detail?: string,
+  ) => {
+    dangling.push({
+      nodeId: idMap.get(node.id) ?? node.id,
+      nodeTitle: String(node.props.title ?? node.type),
+      prop,
+      kind,
+      ref,
+      detail,
+    });
+  };
+
   const clone = (node: PageNode): PageNode => {
     const props = { ...node.props } as Record<string, unknown>;
     // 区块 key 不随模板复制（实例各自分配，避免多实例冲突；U5）
@@ -94,34 +141,60 @@ export function instantiateTemplate(
           ...a,
           chain: a.chain?.map((s) => ({ ...s })),
         };
-        if (copied.target && idMap.has(copied.target)) {
-          copied.target = idMap.get(copied.target);
+        if (copied.target) {
+          if (idMap.has(copied.target)) {
+            copied.target = idMap.get(copied.target);
+          } else {
+            report(node, key, 'action', copied.target);
+          }
         }
-        for (const step of copied.chain ?? []) {
-          if (step.target && idMap.has(step.target)) step.target = idMap.get(step.target);
+        for (const [i, step] of (copied.chain ?? []).entries()) {
+          if (!step.target) continue;
+          if (idMap.has(step.target)) {
+            step.target = idMap.get(step.target);
+          } else {
+            report(node, key, 'action', step.target, `chain ${i + 1}`);
+          }
         }
         props[key] = copied;
       }
       // refreshOnNode：模板内部节点 id 引用 → 重映射为新树节点 id
       if (key === 'refreshOnNode' && Array.isArray(props[key])) {
-        props[key] = (props[key] as string[]).map((nid) => idMap.get(nid) ?? nid);
+        props[key] = (props[key] as string[]).map((nid) => {
+          const mapped = idMap.get(nid);
+          if (mapped) return mapped;
+          report(node, key, 'refresh', nid);
+          return nid;
+        });
       }
       // inputAssignments：sourceNodeId 同理重映射
       if (key === 'inputAssignments' && Array.isArray(props[key])) {
         props[key] = (props[key] as Array<{ sourceNodeId?: string } & Record<string, unknown>>).map(
-          (m) => ({ ...m, sourceNodeId: idMap.get(m.sourceNodeId ?? '') ?? m.sourceNodeId }),
+          (m, i) => {
+            if (!m.sourceNodeId) return { ...m };
+            const mapped = idMap.get(m.sourceNodeId);
+            if (mapped) return { ...m, sourceNodeId: mapped };
+            report(node, key, 'assignment', m.sourceNodeId, `assignment ${i + 1}`);
+            return { ...m };
+          },
         );
       }
       if (key === 'rowActions' && Array.isArray(props[key])) {
         props[key] = (
           props[key] as Array<{ targetSection?: string } & Record<string, unknown>>
-        ).map((ra) => ({
-          ...ra,
-          targetSection:
-            ra.targetSection && idMap.has(ra.targetSection)
-              ? idMap.get(ra.targetSection)
-              : ra.targetSection,
-        }));
+        ).map((ra, i) => {
+          if (!ra.targetSection || idMap.has(ra.targetSection)) {
+            return {
+              ...ra,
+              targetSection:
+                ra.targetSection && idMap.has(ra.targetSection)
+                  ? idMap.get(ra.targetSection)
+                  : ra.targetSection,
+            };
+          }
+          report(node, key, 'rowAction', ra.targetSection, `rowAction ${i + 1}`);
+          return { ...ra };
+        });
       }
     }
     return {
@@ -131,7 +204,66 @@ export function instantiateTemplate(
       children: node.children?.map(clone),
     };
   };
-  return (tpl.tree ?? []).map(clone);
+  return { nodes: (tpl.tree ?? []).map(clone), dangling };
+}
+
+/** 一条重连修复（U7）：把携带悬空引用节点里的旧引用值替换为目标节点 id。 */
+export interface TemplateRefFix {
+  nodeId: string;
+  kind: DanglingTemplateRef['kind'];
+  prop: string;
+  /** 旧引用值（按值匹配替换；未命中的引用不动） */
+  ref: string;
+  /** 重连目标节点 id */
+  target: string;
+}
+
+/** 把悬空引用重接到画布节点：按 nodeId 定位节点、按 prop/kind 找引用位、
+ * 按旧值（ref）匹配替换。纯函数（不修改入参）；无命中返回原数组。 */
+export function reconnectTemplateRefs(nodes: PageNode[], fixes: TemplateRefFix[]): PageNode[] {
+  if (fixes.length === 0) return nodes;
+  const applyFix = (value: unknown, fix: TemplateRefFix): unknown => {
+    switch (fix.kind) {
+      case 'action': {
+        const a = value as { target?: string; chain?: Array<{ target?: string }> };
+        const copied: { target?: string; chain?: Array<{ target?: string }> } = {
+          ...a,
+          chain: a.chain?.map((s) => ({ ...s })),
+        };
+        if (copied.target === fix.ref) copied.target = fix.target;
+        for (const step of copied.chain ?? []) {
+          if (step.target === fix.ref) step.target = fix.target;
+        }
+        return copied;
+      }
+      case 'refresh':
+        return (value as string[]).map((v) => (v === fix.ref ? fix.target : v));
+      case 'assignment':
+        return (value as Array<{ sourceNodeId?: string }>).map((m) =>
+          m.sourceNodeId === fix.ref ? { ...m, sourceNodeId: fix.target } : m,
+        );
+      case 'rowAction':
+        return (value as Array<{ targetSection?: string }>).map((ra) =>
+          ra.targetSection === fix.ref ? { ...ra, targetSection: fix.target } : ra,
+        );
+      default:
+        return value;
+    }
+  };
+  const walk = (list: PageNode[]): PageNode[] =>
+    list.map((node) => {
+      const mine = fixes.filter((f) => f.nodeId === node.id);
+      const props = mine.length > 0 ? { ...(node.props as Record<string, unknown>) } : node.props;
+      for (const fix of mine) {
+        if (fix.prop in props) props[fix.prop] = applyFix(props[fix.prop], fix);
+      }
+      return node.children
+        ? { ...node, props, children: walk(node.children) }
+        : mine.length > 0
+          ? { ...node, props }
+          : node;
+    });
+  return walk(nodes);
 }
 
 /** 组件库面板：浏览/搜索/点击拖入组件模板。 */
@@ -142,7 +274,11 @@ export default function ComponentLibrary({
 }: {
   /** 当前 scope 可用的函数 id 集合（检查组件依赖）。 */
   availableFnIds: Set<string>;
-  onInsert: (nodes: PageNode[], template: ComponentTemplateDTO) => void;
+  onInsert: (
+    nodes: PageNode[],
+    template: ComponentTemplateDTO,
+    dangling?: DanglingTemplateRef[],
+  ) => void;
   /** 「从画布选中创建」入口（发现性 V1）：编辑器接线保存流程。 */
   onCreateFromCanvas?: () => void;
 }) {
@@ -356,7 +492,11 @@ function TemplateDraggable({
 }: {
   tpl: ComponentTemplateDTO;
   missing: string[];
-  onInsert: (nodes: PageNode[], template: ComponentTemplateDTO) => void;
+  onInsert: (
+    nodes: PageNode[],
+    template: ComponentTemplateDTO,
+    dangling?: DanglingTemplateRef[],
+  ) => void;
   children: React.ReactNode;
 }) {
   // id 必须稳定（同 PanelDraggable 注释）：isDragging 重渲染时 id 变化
@@ -375,7 +515,12 @@ function TemplateDraggable({
       onClick={() => {
         if (!ok) return;
         // 带参数模板（U6）：抛给父级弹参数表单（onInsert([], tpl)），确认后实例化
-        onInsert(tpl.params?.length ? [] : instantiateTemplate(tpl), tpl);
+        if (tpl.params?.length) {
+          onInsert([], tpl);
+          return;
+        }
+        const { nodes, dangling } = instantiateTemplateDetailed(tpl);
+        onInsert(nodes, tpl, dangling);
       }}
       style={{
         border: '1px solid #f0f0f0',
