@@ -9,7 +9,7 @@
  */
 
 import { test, expect } from '@playwright/test';
-import type { APIRequestContext } from '@playwright/test';
+import type { APIRequestContext, Page } from '@playwright/test';
 import { readRealFixtureState } from './helpers/realFixture';
 import {
   ensurePlayersSourceBound,
@@ -191,6 +191,21 @@ test.describe('OpenAPI CRUD', () => {
     await expect(page.locator('.ant-message-success')).toBeVisible();
   });
 });
+
+/** 导航到 players 资源页并等待 list binding 首次执行完成。
+ * 慢 runner 上 execute 响应可超过行断言的默认轮询窗（CI 实测同套件 22s+），
+ * 而 waitForTable 只等 tbody 可见——空态「暂无数据」也满足；必须先等到
+ * execute 200 再断言数据行（与 @openapi-list-pagination 同款顺序）。 */
+async function navigateToPlayersListLoaded(page: Page): Promise<void> {
+  const listExecute = page.waitForResponse(
+    (response) =>
+      response.url().includes('/bindings/list/execute') && response.request().method() === 'POST',
+  );
+  await navigateToConsole(page, 'players', 'resource--players');
+  await waitForPageReady(page);
+  expect((await listExecute).status()).toBe(200);
+  await waitForTable(page);
+}
 
 type ProposalDTO = {
   proposalKey: string;
@@ -394,9 +409,7 @@ test.describe('真实 OpenAPI players Proposal 链路', () => {
     expect(reset.status()).toBe(200);
 
     await login(page);
-    await navigateToConsole(page, 'players', 'resource--players');
-    await waitForPageReady(page);
-    await waitForTable(page);
+    await navigateToPlayersListLoaded(page);
 
     const row2 = page.locator('tbody tr').filter({ hasText: 'p-002' });
     await expect(row2).toHaveCount(1);
@@ -442,9 +455,7 @@ test.describe('真实 OpenAPI players Proposal 链路', () => {
     expect(reset.status()).toBe(200);
 
     await login(page);
-    await navigateToConsole(page, 'players', 'resource--players');
-    await waitForPageReady(page);
-    await waitForTable(page);
+    await navigateToPlayersListLoaded(page);
 
     // 使用生成表单（SchemaFormRenderer）创建，不允许第二套表单。
     const createBtn = page
@@ -502,9 +513,7 @@ test.describe('真实 OpenAPI players Proposal 链路', () => {
     expect(reset.status()).toBe(200);
 
     await login(page);
-    await navigateToConsole(page, 'players', 'resource--players');
-    await waitForPageReady(page);
-    await waitForTable(page);
+    await navigateToPlayersListLoaded(page);
 
     const row1 = page.locator('tbody tr').filter({ hasText: 'p-001' });
     await expect(row1).toHaveCount(1);
@@ -560,9 +569,7 @@ test.describe('真实 OpenAPI players Proposal 链路', () => {
     expect(reset.status()).toBe(200);
 
     await login(page);
-    await navigateToConsole(page, 'players', 'resource--players');
-    await waitForPageReady(page);
-    await waitForTable(page);
+    await navigateToPlayersListLoaded(page);
 
     const row2 = page.locator('tbody tr').filter({ hasText: 'p-002' });
     await expect(row2).toHaveCount(1);
@@ -605,9 +612,7 @@ test.describe('真实 OpenAPI players Proposal 链路', () => {
     expect(reset.status()).toBe(200);
 
     await login(page);
-    await navigateToConsole(page, 'players', 'resource--players');
-    await waitForPageReady(page);
-    await waitForTable(page);
+    await navigateToPlayersListLoaded(page);
 
     // kick 是 row action：按钮位于行内而非工具栏。
     const row1 = page.locator('tbody tr').filter({ hasText: 'p-001' });
