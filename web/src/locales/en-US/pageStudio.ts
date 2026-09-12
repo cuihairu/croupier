@@ -57,6 +57,9 @@ export default {
   'pages.pageStudio.editor.save.proposalCreatedContent':
     'Proposal {proposalKey} has entered the proposal inbox and takes effect after accept-and-publish.',
   'pages.pageStudio.editor.saveComponent.button': 'Save as component ({count})',
+  'pages.pageStudio.editor.saveComponent.buttonIdle': 'Save as component',
+  'pages.pageStudio.editor.saveComponent.hint':
+    'Shift+click canvas nodes to multi-select, then save as a reusable component template',
   'pages.pageStudio.editor.tab.functions': 'Functions',
   'pages.pageStudio.editor.tab.library': 'Library',
   'pages.pageStudio.editor.tab.outline': 'Outline',

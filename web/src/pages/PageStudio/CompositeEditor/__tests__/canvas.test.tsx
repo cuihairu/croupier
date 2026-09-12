@@ -107,3 +107,57 @@ describe('CanvasNode 选中事件透传（Shift 门控管道）', () => {
     expect(seen).toEqual([false, true]);
   });
 });
+
+describe('CanvasNode 右键菜单「保存为组件」（V1 发现性）', () => {
+  beforeAll(() => {
+    resetRegistryForTest();
+    registerBuiltinComponents();
+  });
+
+  it('提供 onSaveAsComponent 时菜单项可点击并触发回调', async () => {
+    const onSave = jest.fn();
+    render(
+      <App>
+        <CanvasNode
+          node={formNode}
+          fn={undefined}
+          selected={false}
+          depth={0}
+          onSelect={() => undefined}
+          onDelete={() => undefined}
+          onDuplicate={() => undefined}
+          onSpanChange={() => undefined}
+          onSaveAsComponent={onSave}
+          dragHandleProps={{}}
+          canvasWidthRef={{ current: null }}
+        />
+      </App>,
+    );
+    fireEvent.contextMenu(screen.getByText('发邮件'));
+    const item = await screen.findByText('保存为组件');
+    fireEvent.click(item);
+    expect(onSave).toHaveBeenCalledTimes(1);
+  });
+
+  it('未提供 onSaveAsComponent 时菜单项禁用（不可误触发）', async () => {
+    render(
+      <App>
+        <CanvasNode
+          node={formNode}
+          fn={undefined}
+          selected={false}
+          depth={0}
+          onSelect={() => undefined}
+          onDelete={() => undefined}
+          onDuplicate={() => undefined}
+          onSpanChange={() => undefined}
+          dragHandleProps={{}}
+          canvasWidthRef={{ current: null }}
+        />
+      </App>,
+    );
+    fireEvent.contextMenu(screen.getByText('发邮件'));
+    const item = await screen.findByText('保存为组件');
+    expect(item.closest('.ant-dropdown-menu-item')).toHaveClass('ant-dropdown-menu-item-disabled');
+  });
+});

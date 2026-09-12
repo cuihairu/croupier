@@ -30,6 +30,8 @@ export interface CanvasNodeProps {
   /** 上移/下移（右键菜单）。 */
   onMoveUp?: () => void;
   onMoveDown?: () => void;
+  /** 保存为组件（右键菜单）：多选集合含本节点时保存集合，否则保存本节点子树。 */
+  onSaveAsComponent?: () => void;
   /** 容器子节点交互：选中/删除/同级移动。 */
   selectedChildId?: string | null;
   onChildSelect?: (id: string) => void;
@@ -52,6 +54,7 @@ export const CanvasNode: React.FC<CanvasNodeProps> = ({
   onSelectParent,
   onMoveUp,
   onMoveDown,
+  onSaveAsComponent,
   selectedChildId,
   onChildSelect,
   onChildDelete,
@@ -132,6 +135,18 @@ export const CanvasNode: React.FC<CanvasNodeProps> = ({
             disabled: !onSelectParent,
           },
           { type: 'divider' as const },
+          {
+            key: 'save-component',
+            label: intl.formatMessage({
+              id: 'pages.pageStudio.editor.node.saveAsComponent',
+              defaultMessage: '保存为组件',
+            }),
+            onClick: ({ domEvent }) => {
+              domEvent.stopPropagation();
+              onSaveAsComponent?.();
+            },
+            disabled: !onSaveAsComponent,
+          },
           {
             key: 'dup',
             label: intl.formatMessage({

@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo, useRef, useState } from 'react';
-import { App, Button, Card, Col, Input, Row, Space, Tabs, Typography } from 'antd';
+import { App, Button, Card, Col, Input, Row, Space, Tabs, Tooltip, Typography } from 'antd';
 import { AppstoreOutlined, ArrowLeftOutlined, EyeOutlined, SaveOutlined } from '@ant-design/icons';
 import { FormattedMessage, history, request, useIntl, useSearchParams } from '@umijs/max';
 import { subscribeScope } from '@/stores/scope';
@@ -488,46 +488,74 @@ export default function CompositeEditorPage() {
   );
 
   /** 多选节点保存为组件模板（V4：用户自定义组件）。
-   * 支持命名/描述/分类；任意层级节点（含嵌套在弹窗/容器内的子树）均可保存。 */
-  const saveSelectionAsComponent = useCallback(async () => {
-    if (multiIds.size < 1) {
-      message.warning(
-        intlRef.current.formatMessage({
-          id: 'pages.pageStudio.editor.component.selectionRequired',
-          defaultMessage: '请先选中至少一个组件',
-        }),
-      );
-      return;
-    }
-    // 任意层级：优先按子树查找（嵌套节点），找不到再回落根级
-    const selectedNodes = Array.from(multiIds)
-      .map((id) => findNode(tree, id))
-      .filter((n): n is PageNode => n !== null);
-    if (selectedNodes.length === 0) {
-      message.warning(
-        intlRef.current.formatMessage({
-          id: 'pages.pageStudio.editor.component.selectionMissing',
-          defaultMessage: '选中的组件不存在',
-        }),
-      );
-      return;
-    }
-    const fnIds: string[] = [];
-    const collectFns = (nodes: PageNode[]) => {
-      for (const n of nodes) {
-        const fid = String(n.props.functionId ?? '');
-        if (fid && !fnIds.includes(fid)) fnIds.push(fid);
-        if (n.children) collectFns(n.children);
+   * 支持命名/描述/分类；任意层级节点（含嵌套在弹窗/容器内的子树）均可保存。
+   * ids 可显式传入（右键单节点保存/面板入口），默认取当前多选集合。 */
+  const saveSelectionAsComponent = useCallback(
+    async (ids?: Set<string>) => {
+      const selection = ids ?? multiIds;
+      if (selection.size < 1) {
+        message.warning(
+          intlRef.current.formatMessage({
+            id: 'pages.pageStudio.editor.component.selectionRequired',
+            defaultMessage: '请先选中至少一个组件',
+          }),
+        );
+        return;
       }
-    };
-    collectFns(selectedNodes);
+      // 任意层级：优先按子树查找（嵌套节点），找不到再回落根级
+      const selectedNodes = Array.from(selection)
+        .map((id) => findNode(tree, id))
+        .filter((n): n is PageNode => n !== null);
+      if (selectedNodes.length === 0) {
+        message.warning(
+          intlRef.current.formatMessage({
+            id: 'pages.pageStudio.editor.component.selectionMissing',
+            defaultMessage: '选中的组件不存在',
+          }),
+        );
+        return;
+      }
+      const fnIds: string[] = [];
+      const collectFns = (nodes: PageNode[]) => {
+        for (const n of nodes) {
+          const fid = String(n.props.functionId ?? '');
+          if (fid && !fnIds.includes(fid)) fnIds.push(fid);
+          if (n.children) collectFns(n.children);
+        }
+      };
+      collectFns(selectedNodes);
 
-    setSaveModalState({
-      fnIds,
-      selectedNodes,
-      paramCandidates: scanParamCandidates(selectedNodes),
-    });
-  }, [multiIds, tree, message]);
+      setSaveModalState({
+        fnIds,
+        selectedNodes,
+        paramCandidates: scanParamCandidates(selectedNodes),
+      });
+    },
+    [multiIds, tree, message],
+  );
+
+  /** 右键「保存为组件」：多选集合含本节点→保存整个集合；否则保存单节点子树。 */
+  const saveNodeAsComponent = useCallback(
+    (id: string) => {
+      const ids = multiIds.size > 1 && multiIds.has(id) ? multiIds : new Set([id]);
+      void saveSelectionAsComponent(ids);
+    },
+    [multiIds, saveSelectionAsComponent],
+  );
+
+  /** 组件库面板「从画布选中创建」：无选中先教学提示，有选中直接弹保存弹窗。 */
+  const handleCreateFromCanvas = useCallback(() => {
+    if (multiIds.size === 0) {
+      message.info(
+        intlRef.current.formatMessage({
+          id: 'pages.pageStudio.editor.library.createHint',
+          defaultMessage: '先在画布 Shift+点击 多选节点，再保存为组件',
+        }),
+      );
+      return;
+    }
+    void saveSelectionAsComponent();
+  }, [multiIds, message, saveSelectionAsComponent]);
 
   const deleteNode = useCallback((id: string) => {
     setTree((prev) => removeNode(prev, id)[0]);
@@ -605,6 +633,27 @@ export default function CompositeEditorPage() {
                 values={{ count: multiIds.size }}
               />
             </Button>
+          ),
+          multiIds.size === 0 && (
+            <Tooltip
+              key="save-component-idle"
+              title={
+                <FormattedMessage
+                  id="pages.pageStudio.editor.saveComponent.hint"
+                  defaultMessage="Shift+点击 多选画布节点后，可保存为可复用组件模板"
+                />
+              }
+            >
+              {/* 原生 disabled button 不派发鼠标事件，外包 span 承接 hover（antd 官方模式） */}
+              <span>
+                <Button icon={<AppstoreOutlined />} disabled>
+                  <FormattedMessage
+                    id="pages.pageStudio.editor.saveComponent.buttonIdle"
+                    defaultMessage="保存为组件"
+                  />
+                </Button>
+              </span>
+            </Tooltip>
           ),
           multiIds.size > 1 && (
             <Button
@@ -700,6 +749,7 @@ export default function CompositeEditorPage() {
                       children: (
                         <ComponentLibrary
                           availableFnIds={new Set(allFns.map((f) => f.id))}
+                          onCreateFromCanvas={handleCreateFromCanvas}
                           onInsert={(nodes, tpl) => {
                             // 带参数模板（U6）：空 nodes = 待参数配置，弹窗确认后插入
                             // （点击插入无拖拽落点 → 按根级追加处理）
@@ -942,6 +992,7 @@ export default function CompositeEditorPage() {
                                   }
                                   onMoveUp={() => moveWithin(canvasNodes, n.id, -1)}
                                   onMoveDown={() => moveWithin(canvasNodes, n.id, 1)}
+                                  onSaveAsComponent={() => saveNodeAsComponent(n.id)}
                                   selectedChildId={selectedId}
                                   onChildSelect={(id) => setSelectedId(id)}
                                   onChildDelete={(id) => deleteNode(id)}

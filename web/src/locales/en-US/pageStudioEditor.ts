@@ -147,6 +147,9 @@ export default {
   'pages.pageStudio.editor.insertTpl.title': 'Configure component parameters: {name}',
   'pages.pageStudio.editor.library.category.builtin': 'Built-in',
   'pages.pageStudio.editor.library.category.custom': 'Custom',
+  'pages.pageStudio.editor.library.createHint':
+    'First multi-select nodes on the canvas (Shift+click), then save as a component',
+  'pages.pageStudio.editor.library.createFromCanvas': 'Create from canvas selection',
   'pages.pageStudio.editor.library.empty': 'No component templates',
   'pages.pageStudio.editor.library.emptyHint':
     'Select multiple nodes on the canvas → use "Save as component" in the top bar to create one',
@@ -167,6 +170,7 @@ export default {
     'Drag handle to reorder · drag right edge to resize · click to configure',
   'pages.pageStudio.editor.node.moveDown': 'Move down',
   'pages.pageStudio.editor.node.moveUp': 'Move up',
+  'pages.pageStudio.editor.node.saveAsComponent': 'Save as component',
   'pages.pageStudio.editor.node.selectParent': 'Select parent container',
   'pages.pageStudio.editor.outline.empty': 'The page is empty',
   'pages.pageStudio.editor.panel.basicsTitle': 'Basic components',

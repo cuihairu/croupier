@@ -1,9 +1,10 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Empty, Input, Space, Spin, Tag, Typography } from 'antd';
-import { AppstoreOutlined, SearchOutlined } from '@ant-design/icons';
+import { Button, Empty, Input, Space, Spin, Tag, Typography } from 'antd';
+import { AppstoreOutlined, PlusOutlined, SearchOutlined } from '@ant-design/icons';
 import { useDraggable } from '@dnd-kit/core';
 import { request, useIntl } from '@umijs/max';
 import { nodeId, type PageNode } from './model';
+import TemplateThumb from './TemplateThumb';
 import type { FunctionDescriptor } from '@/services/api/functions';
 import { localizedText } from '@/utils/localizedText';
 import type { LocalizedText } from '@/types/dashboard';
@@ -132,10 +133,13 @@ export function instantiateTemplate(
 export default function ComponentLibrary({
   availableFnIds,
   onInsert,
+  onCreateFromCanvas,
 }: {
   /** 当前 scope 可用的函数 id 集合（检查组件依赖）。 */
   availableFnIds: Set<string>;
   onInsert: (nodes: PageNode[], template: ComponentTemplateDTO) => void;
+  /** 「从画布选中创建」入口（发现性 V1）：编辑器接线保存流程。 */
+  onCreateFromCanvas?: () => void;
 }) {
   const intl = useIntl();
   const [templates, setTemplates] = useState<ComponentTemplateDTO[]>([]);
@@ -232,6 +236,20 @@ export default function ComponentLibrary({
 
   return (
     <div>
+      {onCreateFromCanvas && (
+        <Button
+          size="small"
+          block
+          icon={<PlusOutlined />}
+          onClick={onCreateFromCanvas}
+          style={{ marginBottom: 8 }}
+        >
+          {intl.formatMessage({
+            id: 'pages.pageStudio.editor.library.createFromCanvas',
+            defaultMessage: '从画布选中创建',
+          })}
+        </Button>
+      )}
       <Input
         size="small"
         allowClear
@@ -289,6 +307,7 @@ export default function ComponentLibrary({
                     </Text>
                   </div>
                 )}
+                <TemplateThumb tree={tpl.tree ?? []} />
                 {!ok && (
                   <div>
                     <Text type="danger" style={{ fontSize: 11 }}>

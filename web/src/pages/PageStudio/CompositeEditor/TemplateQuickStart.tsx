@@ -3,6 +3,7 @@ import { Button, Card, Space, Spin, Tag, Typography } from 'antd';
 import { AppstoreOutlined, ThunderboltOutlined } from '@ant-design/icons';
 import { request, useIntl } from '@umijs/max';
 import { instantiateTemplate, type ComponentTemplateDTO } from './ComponentLibrary';
+import TemplateThumb from './TemplateThumb';
 import { schemaProperties } from './types';
 import { localizedText } from '@/utils/localizedText';
 import type { PageNode } from './model';
@@ -122,6 +123,7 @@ export default function TemplateQuickStart({
                     </Tag>
                   )}
                 </Space>
+                <TemplateThumb tree={tpl.tree ?? []} />
                 <div>
                   <Text type="secondary" style={{ fontSize: 11 }}>
                     {desc ||

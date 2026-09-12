@@ -140,6 +140,8 @@ jest.mock(
       },
       request,
       useIntl: () => ({ formatMessage }),
+      // 组合页编辑器（CompositeEditor）读 ?pageKey= 回读；测试默认无参
+      useSearchParams: () => [new URLSearchParams(), jest.fn()],
       // 与 useIntl 同款实现：非组件上下文（requestErrorConfig/bugs/pageSchema 等模块级代码）
       // 通过 getIntl() 取 intl，测试下同样返回 defaultMessage
       getIntl: () => ({ formatMessage }),

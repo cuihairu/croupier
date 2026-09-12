@@ -52,6 +52,8 @@ export default {
   'pages.pageStudio.editor.save.proposalCreatedContent':
     '提案 {proposalKey} 已进入提案收件箱，接受并发布后生效。',
   'pages.pageStudio.editor.saveComponent.button': '保存为组件（{count}）',
+  'pages.pageStudio.editor.saveComponent.buttonIdle': '保存为组件',
+  'pages.pageStudio.editor.saveComponent.hint': 'Shift+点击 多选画布节点后，可保存为可复用组件模板',
   'pages.pageStudio.editor.tab.functions': '函数',
   'pages.pageStudio.editor.tab.library': '组件库',
   'pages.pageStudio.editor.tab.outline': '大纲',
