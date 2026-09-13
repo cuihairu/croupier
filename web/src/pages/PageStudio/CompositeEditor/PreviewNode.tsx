@@ -183,7 +183,9 @@ export default function PreviewNode({
         .slice(0, 10)
         .map(([k, v]) => (
           <Descriptions.Item key={k} label={k}>
-            {typeof v === 'object' ? JSON.stringify(v) : String(v ?? '-')}
+            {/* v == null 前置：typeof null === 'object' 会被 stringify 渲染成
+                字符串「null」，空值占位符「-」永远不可达 */}
+            {v == null ? '-' : typeof v === 'object' ? JSON.stringify(v) : String(v)}
           </Descriptions.Item>
         ))}
     </Descriptions>
