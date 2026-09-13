@@ -1,103 +1,107 @@
-/** 模板结构缩略图（V1 发现性）：PageNode[] → 轻量线框。
- * 回归点：
- * 1. 按节点类型出对应形态（表格=表头+行线 / 表单=2 行 / 按钮=圆角块 /
- *    弹窗=紫框 / 容器=嵌套递归），类名 tpl-thumb-* 供测试定位；
- * 2. 根级超过 4 个节点显示 +N 溢出标记（不无限铺开）；
- * 3. 宽度按 span/24 占比（半宽节点 50%）。 */
-import { render } from '@testing-library/react';
+/** TemplateThumb（模板结构缩略图）覆盖：空树 null、各节点形态线框
+ * （button/text/modal/container 有无 children/fnTable 表头+行线/
+ * fnFields/fnForm·staticForm 兜底 form）、span 宽度换算（合法区间/
+ * 缺省·非法·越界回退 24）、子节点截前 3、根级截前 4 + 溢出 +N。 */
+import React from 'react';
+import { render, screen } from '@testing-library/react';
 import TemplateThumb from '../TemplateThumb';
 import type { PageNode } from '../model';
 
-function node(partial: Partial<PageNode> & { id: string; type: PageNode['type'] }): PageNode {
-  return { props: {}, ...partial } as PageNode;
-}
+const n = (
+  id: string,
+  type: PageNode['type'],
+  props: Record<string, unknown> = {},
+  children?: PageNode[],
+): PageNode => ({
+  id,
+  type,
+  props,
+  children,
+});
 
-describe('TemplateThumb（模板结构缩略图）', () => {
-  it('空树不渲染任何缩略元素', () => {
+describe('TemplateThumb', () => {
+  it('空树：null', () => {
     const { container } = render(<TemplateThumb tree={[]} />);
-    expect(container.querySelector('.tpl-thumb')).not.toBeInTheDocument();
+    expect(container).toBeEmptyDOMElement();
   });
 
-  it('表格节点：表头 + 3 行行线', () => {
+  it('button/text：特征类名', () => {
+    const { container } = render(<TemplateThumb tree={[n('b', 'button'), n('t', 'text')]} />);
+    expect(container.querySelector('.tpl-thumb__btn')).not.toBeNull();
+    expect(container.querySelector('.tpl-thumb__text')).not.toBeNull();
+  });
+
+  it('modal：紫色框线 + span 宽度换算', () => {
+    const { container } = render(<TemplateThumb tree={[n('m', 'modal', { span: 12 })]} />);
+    const modal = container.querySelector('.tpl-thumb__modal') as HTMLElement;
+    expect(modal.style.width).toBe('50%');
+    expect(modal.style.border).toContain('rgb(179, 127, 235)');
+  });
+
+  it('span 缺省/非法/越界：回退满宽', () => {
     const { container } = render(
       <TemplateThumb
-        tree={[node({ id: 't1', type: 'fnTable', props: { functionId: 'x.list' } })]}
+        tree={[
+          n('a', 'fnForm'),
+          n('b', 'fnForm', { span: 'abc' }),
+          n('c', 'fnForm', { span: 3 }),
+          n('d', 'fnForm', { span: 25 }),
+        ]}
       />,
     );
-    expect(container.querySelector('.tpl-thumb__table')).toBeInTheDocument();
+    const widths = [...container.querySelectorAll('.tpl-thumb__form')].map(
+      (el) => (el as HTMLElement).style.width,
+    );
+    expect(widths).toEqual(['100%', '100%', '100%', '100%']);
+  });
+
+  it('fnTable：表头线 + 3 行；fnFields：特征类名', () => {
+    const { container } = render(
+      <TemplateThumb tree={[n('tb', 'fnTable'), n('ff', 'fnFields')]} />,
+    );
     expect(container.querySelectorAll('.tpl-thumb__trow')).toHaveLength(3);
+    expect(container.querySelector('.tpl-thumb__table')).not.toBeNull();
+    expect(container.querySelector('.tpl-thumb__fields')).not.toBeNull();
+    // 非表格无表头线（rows=2）
+    expect(container.querySelectorAll('.tpl-thumb__frow')).toHaveLength(2);
   });
 
-  it('表单/字段卡：2 行标签线（fnForm/fnFields 分别出形态类名）', () => {
+  it('staticForm/fnForm：兜底 form 形态（2 行）', () => {
+    const { container } = render(
+      <TemplateThumb tree={[n('sf', 'staticForm'), n('ff', 'fnForm')]} />,
+    );
+    expect(container.querySelectorAll('.tpl-thumb__form')).toHaveLength(2);
+  });
+
+  it('container：children 截前 3；无 children 走 form 兜底', () => {
     const { container } = render(
       <TemplateThumb
         tree={[
-          node({ id: 'f1', type: 'fnForm', props: { functionId: 'mail.send' } }),
-          node({ id: 'f2', type: 'fnFields', props: { functionId: 'player.get' } }),
+          n('c1', 'container', {}, [
+            n('k1', 'button'),
+            n('k2', 'text'),
+            n('k3', 'fnTable'),
+            n('k4', 'modal'),
+          ]),
+          n('c2', 'container'),
         ]}
       />,
     );
-    expect(container.querySelector('.tpl-thumb__form')).toBeInTheDocument();
-    expect(container.querySelector('.tpl-thumb__fields')).toBeInTheDocument();
-    expect(container.querySelectorAll('.tpl-thumb__frow')).toHaveLength(4);
+    // 有 children 的渲染 container 线框；无 children 的走 form 兜底
+    const boxes = container.querySelectorAll('.tpl-thumb__container');
+    expect(boxes).toHaveLength(1);
+    // 只渲染前 3 个子节点（第 4 个 modal 不出现）
+    expect(boxes[0].querySelector('.tpl-thumb__btn')).not.toBeNull();
+    expect(boxes[0].querySelector('.tpl-thumb__modal')).toBeNull();
+    const forms = container.querySelectorAll('.tpl-thumb__form');
+    expect(forms).toHaveLength(1);
+    expect(forms[0].querySelectorAll('.tpl-thumb__frow')).toHaveLength(2);
   });
 
-  it('按钮=圆角小块、文本=灰条、弹窗=紫色框', () => {
-    const { container } = render(
-      <TemplateThumb
-        tree={[
-          node({ id: 'b1', type: 'button', props: { title: '发邮件' } }),
-          node({ id: 'x1', type: 'text', props: { content: '说明' } }),
-          node({
-            id: 'm1',
-            type: 'modal',
-            props: { title: '弹窗' },
-            children: [node({ id: 'mf', type: 'fnForm', props: {} })],
-          }),
-        ]}
-      />,
-    );
-    expect(container.querySelector('.tpl-thumb__btn')).toBeInTheDocument();
-    expect(container.querySelector('.tpl-thumb__text')).toBeInTheDocument();
-    expect(container.querySelector('.tpl-thumb__modal')).toBeInTheDocument();
-  });
-
-  it('容器嵌套：内部递归渲染子节点缩略形态', () => {
-    const { container } = render(
-      <TemplateThumb
-        tree={[
-          node({
-            id: 'c1',
-            type: 'container',
-            props: { title: '分组' },
-            children: [
-              node({ id: 'b1', type: 'button', props: {} }),
-              node({ id: 't1', type: 'fnTable', props: {} }),
-            ],
-          }),
-        ]}
-      />,
-    );
-    const box = container.querySelector('.tpl-thumb__container');
-    expect(box).toBeInTheDocument();
-    // 子节点形态在容器内递归出现
-    expect(box!.querySelector('.tpl-thumb__btn')).toBeInTheDocument();
-    expect(box!.querySelector('.tpl-thumb__table')).toBeInTheDocument();
-  });
-
-  it('根级超过 4 个节点显示 +N 溢出标记', () => {
-    const tree = Array.from({ length: 6 }, (_, i) =>
-      node({ id: `x${i}`, type: 'text', props: { content: String(i) } }),
-    );
+  it('根级截前 4 + 溢出 +N', () => {
+    const tree = ['a', 'b', 'c', 'd', 'e', 'f'].map((id) => n(id, 'text'));
     const { container } = render(<TemplateThumb tree={tree} />);
     expect(container.querySelectorAll('.tpl-thumb__text')).toHaveLength(4);
-    expect(container.querySelector('.tpl-thumb__more')).toHaveTextContent('+2');
-  });
-
-  it('宽度按 span 占比：半宽节点 50%', () => {
-    const { container } = render(
-      <TemplateThumb tree={[node({ id: 't1', type: 'fnTable', props: { span: 12 } })]} />,
-    );
-    expect(container.querySelector<HTMLElement>('.tpl-thumb__table')?.style.width).toBe('50%');
+    expect(screen.getByText('+2')).toBeInTheDocument();
   });
 });
