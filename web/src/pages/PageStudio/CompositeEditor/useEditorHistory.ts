@@ -33,14 +33,16 @@ export function useEditorHistory({
 
   /** history-aware setTree：所有树变更统一入口（撤销/重做安全网）。
    * 函数式 action 基于 treeRef 求值（避免 setState updater 内副作用
-   * 在 StrictMode 双调用下重复入栈）。 */
+   * 在 StrictMode 双调用下重复入栈）。updater 是惰性求值——引用外部可变
+   * ref 前必须先捕获局部常量，否则 render flush 时读到的已是新树。 */
   const setTree = useCallback((action: SetStateAction<PageNode[]>) => {
     const next =
       typeof action === 'function'
         ? (action as (prev: PageNode[]) => PageNode[])(treeRef.current)
         : action;
     if (next === treeRef.current) return;
-    setPast((p) => [...p.slice(-49), treeRef.current]);
+    const prevTree = treeRef.current;
+    setPast((p) => [...p.slice(-49), prevTree]);
     setFuture(() => []);
     setTreeState(next);
     treeRef.current = next;
@@ -67,8 +69,9 @@ export function useEditorHistory({
   const undo = useCallback(() => {
     if (past.length === 0) return;
     const prev = past[past.length - 1];
+    const cur = treeRef.current;
     setPast((p) => p.slice(0, -1));
-    setFuture((f) => [treeRef.current, ...f]);
+    setFuture((f) => [cur, ...f]);
     setTreeState(prev);
     treeRef.current = prev;
     pruneSelection(prev);
@@ -77,8 +80,9 @@ export function useEditorHistory({
   const redo = useCallback(() => {
     if (future.length === 0) return;
     const next = future[0];
+    const cur = treeRef.current;
     setFuture((f) => f.slice(1));
-    setPast((p) => [...p, treeRef.current]);
+    setPast((p) => [...p, cur]);
     setTreeState(next);
     treeRef.current = next;
     pruneSelection(next);
@@ -87,7 +91,14 @@ export function useEditorHistory({
   // 快捷键：Ctrl/Cmd+Z 撤销、Ctrl/Cmd+Shift+Z / Ctrl+Y 重做
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (!(e.ctrlKey || e.metaKey) || e.key.toLowerCase() !== 'z') return;
+      if (!(e.ctrlKey || e.metaKey)) return;
+      const k = e.key.toLowerCase();
+      if (k === 'y') {
+        e.preventDefault();
+        redo();
+        return;
+      }
+      if (k !== 'z') return;
       e.preventDefault();
       if (e.shiftKey) redo();
       else undo();
