@@ -246,7 +246,7 @@ func (s *Service) Stats(ctx context.Context, req *FeedbackStatsRequest) (*Feedba
 		},
 	}
 	if stats.Total > 0 {
-		response.FeedbackStats.ResponseRate = float64(stats.Responded) / float64(stats.Total)
+		response.ResponseRate = float64(stats.Responded) / float64(stats.Total)
 	}
 
 	return &response, nil

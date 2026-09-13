@@ -147,7 +147,7 @@ func (m *PipelineMonitor) Run(ctx context.Context) {
 		case <-tk.C:
 			// Check 实现恒返回 nil（各子检查的失败均在内部以告警事件
 			// 记录），err 分支不可达，已删除。
-			m.Check(ctx)
+			_ = m.Check(ctx)
 		}
 	}
 }
@@ -213,7 +213,7 @@ GROUP BY game_id, env`,
 			"管道监控查询 analytics.events 失败", map[string]any{"error": err.Error()})
 		return
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	scoped := map[string]pipelineScopeRow{}
 	for rows.Next() {

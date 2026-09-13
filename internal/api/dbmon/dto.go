@@ -50,27 +50,27 @@ type SourceListResponse struct {
 type SourceUpsertRequest struct {
 	Name          string `json:"name"`
 	Driver        string `json:"driver"`
-	Kind          string `json:"kind,optional,default=self"`
+	Kind          string `json:"kind"`
 	DSN           string `json:"dsn"`
-	GameID        string `json:"gameId,optional"`
-	Env           string `json:"env,optional"`
-	Sort          int    `json:"sort,optional"`
-	LockWaitWarn  int    `json:"lockWaitWarn,optional"`
-	ConnWarnRatio int    `json:"connWarnRatio,optional"`
+	GameID        string `json:"gameId"`
+	Env           string `json:"env"`
+	Sort          int    `json:"sort"`
+	LockWaitWarn  int    `json:"lockWaitWarn"`
+	ConnWarnRatio int    `json:"connWarnRatio"`
 }
 
 type SourceUpdateRequest struct {
 	ID            string  `uri:"id"`
-	Name          string  `json:"name,optional"`
-	Driver        string  `json:"driver,optional"`
-	Kind          string  `json:"kind,optional"`
-	DSN           *string `json:"dsn,optional"`
-	GameID        *string `json:"gameId,optional"`
-	Env           *string `json:"env,optional"`
-	Sort          *int    `json:"sort,optional"`
-	Enabled       *bool   `json:"enabled,optional"`
-	LockWaitWarn  *int    `json:"lockWaitWarn,optional"`
-	ConnWarnRatio *int    `json:"connWarnRatio,optional"`
+	Name          string  `json:"name"`
+	Driver        string  `json:"driver"`
+	Kind          string  `json:"kind"`
+	DSN           *string `json:"dsn"`
+	GameID        *string `json:"gameId"`
+	Env           *string `json:"env"`
+	Sort          *int    `json:"sort"`
+	Enabled       *bool   `json:"enabled"`
+	LockWaitWarn  *int    `json:"lockWaitWarn"`
+	ConnWarnRatio *int    `json:"connWarnRatio"`
 }
 
 type SourceResponse struct {

@@ -79,7 +79,7 @@ func (m *BackupModel) DeleteByBackupID(ctx context.Context, backupID string) err
 
 // List returns paginated backups.
 func (m *BackupModel) List(ctx context.Context, opts ListBackupsOptions) ([]Backup, int64, error) {
-	opts.PaginationOptions.Normalize()
+	opts.Normalize()
 
 	var (
 		backups []Backup

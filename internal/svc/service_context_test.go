@@ -428,7 +428,7 @@ func TestCacheAdminAliases(t *testing.T) {
 	ctx.cacheAdminAliases(bg, nil)
 
 	// Test with nil context
-	ctx.cacheAdminAliases(nil, admin)
+	ctx.cacheAdminAliases(context.TODO(), admin)
 }
 
 func TestGetRoleCached(t *testing.T) {
@@ -632,8 +632,8 @@ func TestDeleteCacheKey(t *testing.T) {
 	// Should not panic with various inputs
 	ctx.deleteCacheKey(bg, "test:key")
 	ctx.deleteCacheKey(bg, "")
-	ctx.deleteCacheKey(nil, "test:key")
-	ctx.deleteCacheKey(nil, "")
+	ctx.deleteCacheKey(context.TODO(), "test:key")
+	ctx.deleteCacheKey(context.TODO(), "")
 
 	// Test with nil cache
 	ctx2 := &ServiceContext{Cache: nil}

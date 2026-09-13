@@ -83,15 +83,15 @@ func (h *PlayerHandler) ListFAQs(c *gin.Context) {
 type CreateTicketRequest struct {
 	Title    string `json:"title"`
 	Content  string `json:"content"`
-	Category string `json:"category,optional"`
+	Category string `json:"category"`
 	// Player context (game-support P1 vocabulary).
 	PlayerID    string `json:"playerId"`
-	ServerID    string `json:"serverId,optional"`
-	PlayerLevel int    `json:"playerLevel,optional"`
-	DeviceOS    string `json:"deviceOs,optional"`
-	DeviceModel string `json:"deviceModel,optional"`
-	Language    string `json:"language,optional"`
-	Contact     string `json:"contact,optional"`
+	ServerID    string `json:"serverId"`
+	PlayerLevel int    `json:"playerLevel"`
+	DeviceOS    string `json:"deviceOs"`
+	DeviceModel string `json:"deviceModel"`
+	Language    string `json:"language"`
+	Contact     string `json:"contact"`
 }
 
 // CreateTicket serves POST /public/support/tickets.

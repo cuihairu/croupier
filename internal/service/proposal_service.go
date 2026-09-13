@@ -309,8 +309,8 @@ func (s *ProposalService) AcceptProposal(ctx context.Context, gameID, env, propo
 		// SetTitle/SetCategoryLabels 恒返回 nil（model 层实现为
 		// `b, _ := json.Marshal(map[string]string)`，无出错路径；SetCategoryLabels
 		// 的注释已论证），原 err 检查为死分支，已删。
-		draft.SetTitle(normalizeLocalizedText(pageSpec.Title))
-		draft.SetCategoryLabels(normalizeLocalizedText(pageSpec.Category.Labels))
+		_ = draft.SetTitle(normalizeLocalizedText(pageSpec.Title))
+		_ = draft.SetCategoryLabels(normalizeLocalizedText(pageSpec.Category.Labels))
 		if err := pageModel.Upsert(txCtx, draft); err != nil {
 			return fmt.Errorf("create page draft from proposal: %w", err)
 		}
@@ -424,8 +424,8 @@ func (s *ProposalService) AcceptAndPublishProposal(ctx context.Context, gameID, 
 		}
 		// 同 AcceptProposal：SetTitle/SetCategoryLabels 恒返回 nil，err 检查
 		// 为死分支，已删。
-		draft.SetTitle(normalizeLocalizedText(pageSpec.Title))
-		draft.SetCategoryLabels(normalizeLocalizedText(pageSpec.Category.Labels))
+		_ = draft.SetTitle(normalizeLocalizedText(pageSpec.Title))
+		_ = draft.SetCategoryLabels(normalizeLocalizedText(pageSpec.Category.Labels))
 		if err := publishedModel.DeactivatePage(txCtx, gameID, env, pageSpec.PageKey, now); err != nil {
 			return err
 		}

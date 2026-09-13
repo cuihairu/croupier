@@ -427,7 +427,7 @@ func isStableKey(value string) bool {
 		if !valid {
 			return false
 		}
-		if i == 0 && !((r >= 'a' && r <= 'z') || (r >= '0' && r <= '9')) {
+		if i == 0 && (r < 'a' || r > 'z') && (r < '0' || r > '9') {
 			return false
 		}
 	}

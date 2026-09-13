@@ -46,7 +46,7 @@ func (s *ossStore) Put(_ context.Context, key string, r ReadSeeker, _ int64, con
 			for i := range parts {
 				prefix := strings.Join(parts[:i+1], "/") + "/"
 				// 尝试创建目录标记（如果已存在会忽略错误）
-				s.bk.PutObject(prefix, strings.NewReader(""))
+				_ = s.bk.PutObject(prefix, strings.NewReader(""))
 			}
 		}
 	}

@@ -66,7 +66,7 @@ func (s *nacosSource) accessToken(ctx context.Context) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("nacos login: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	body, _ := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
 	if resp.StatusCode != http.StatusOK {
 		return "", fmt.Errorf("nacos login failed: status %d", resp.StatusCode)
@@ -124,7 +124,7 @@ func (s *nacosSource) listAll(ctx context.Context) ([]nacosConfigItem, error) {
 			return nil, fmt.Errorf("nacos list: %w", err)
 		}
 		body, _ := io.ReadAll(io.LimitReader(resp.Body, 8<<20))
-		resp.Body.Close()
+		_ = resp.Body.Close()
 		if resp.StatusCode != http.StatusOK {
 			return nil, fmt.Errorf("nacos list failed: status %d", resp.StatusCode)
 		}
@@ -208,7 +208,7 @@ func (s *nacosSource) Read(ctx context.Context, path string) ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("nacos get: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	body, _ := io.ReadAll(io.LimitReader(resp.Body, 8<<20))
 	if resp.StatusCode == http.StatusNotFound {
 		return nil, fmt.Errorf("config not found: %s", path)
@@ -249,7 +249,7 @@ func (s *nacosSource) Write(ctx context.Context, path string, content []byte, _ 
 	if err != nil {
 		return fmt.Errorf("nacos publish: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	body, _ := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
 	if resp.StatusCode != http.StatusOK || strings.TrimSpace(string(body)) != "true" {
 		return fmt.Errorf("nacos publish failed: status %d body %s", resp.StatusCode, strings.TrimSpace(string(body)))

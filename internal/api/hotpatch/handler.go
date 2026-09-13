@@ -61,7 +61,7 @@ func (h *Handler) UploadPackage(c *gin.Context) {
 		response.Error(c, errorx.NewBadRequest("缺少 file 字段"))
 		return
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 	req := &UploadRequest{
 		ID:          uriReq.ID,
 		Data:        file,

@@ -66,7 +66,7 @@ func (m *FAQModel) FindOne(ctx context.Context, id uint) (*FAQ, error) {
 
 // List returns paginated FAQs.
 func (m *FAQModel) List(ctx context.Context, opts ListFAQOptions) ([]FAQ, int64, error) {
-	opts.PaginationOptions.Normalize()
+	opts.Normalize()
 
 	var (
 		items []FAQ

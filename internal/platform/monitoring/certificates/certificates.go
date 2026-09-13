@@ -178,7 +178,7 @@ func (s *Store) fetchCertificateInfo(domain string, port int) (*x509.Certificate
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to %s: %w", address, err)
 	}
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 
 	certs := conn.ConnectionState().PeerCertificates
 	// 不可达论证（C 类）：tls.DialWithDialer 握手成功即保证 PeerCertificates

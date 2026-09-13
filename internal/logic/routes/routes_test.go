@@ -251,7 +251,7 @@ func TestBuildRoute_EmptyResource(t *testing.T) {
 }
 
 func TestNewGetRoutesLogic(t *testing.T) {
-	logic := NewGetRoutesLogic(nil, nil)
+	logic := NewGetRoutesLogic(nil, nil) //nolint:staticcheck // 刻意 nil context：验证不依赖 ctx 的健壮性
 	assert.NotNil(t, logic)
 }
 

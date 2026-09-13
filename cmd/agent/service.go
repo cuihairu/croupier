@@ -134,7 +134,7 @@ func (s *croupierAgentService) Start(svc service.Service) error {
 		if err := runAgent(); err != nil {
 			s.logger("error", fmt.Sprintf("Agent 启动失败: %v", err))
 			// 启动失败，停止服务
-			svc.Stop()
+			_ = svc.Stop()
 		} else {
 			s.logger("info", "Croupier Agent 服务已启动")
 		}
@@ -143,7 +143,7 @@ func (s *croupierAgentService) Start(svc service.Service) error {
 	// 等待上下文取消
 	go func() {
 		<-s.ctx.Done()
-		svc.Stop()
+		_ = svc.Stop()
 	}()
 
 	return nil

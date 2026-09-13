@@ -32,7 +32,6 @@ type fullFallbackDTO struct {
 	Nums    []int    `json:"nums"`
 	Missing string   `json:"absent"`
 	Ignored string   `json:"-"`
-	hidden  string
 }
 
 func TestBindQueryCompat_FallbackCoversAllFieldKinds(t *testing.T) {

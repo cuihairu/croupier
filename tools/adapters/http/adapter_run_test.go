@@ -135,7 +135,7 @@ func TestInvokeGenericMetadataGameEnvHeaders(t *testing.T) {
 
 func TestRunUnreachableAgentReturnsClientError(t *testing.T) {
 	t.Setenv("AGENT_ADDR", "127.0.0.1:1")
-	if err := run(context.Background()); err == nil || !strings.Contains(err.Error(), "Failed to create TCP client") {
+	if err := run(context.Background()); err == nil || !strings.Contains(err.Error(), "failed to create TCP client") {
 		t.Fatalf("run err = %v, want TCP client failure", err)
 	}
 }
@@ -149,7 +149,7 @@ func TestRunAgentAddrDefaultIsUsed(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	err := run(ctx)
-	if err != nil && !strings.Contains(err.Error(), "Failed to create TCP client") {
+	if err != nil && !strings.Contains(err.Error(), "failed to create TCP client") {
 		t.Fatalf("run err = %v, want client failure or nil", err)
 	}
 }
@@ -168,7 +168,7 @@ func TestMainFatalsWhenRunFails(t *testing.T) {
 	if !errors.As(err, &exitErr) || exitErr.ExitCode() != 1 {
 		t.Fatalf("child exit err = %v, want exit status 1", err)
 	}
-	if !strings.Contains(stderr.String(), "Failed to create TCP client") {
+	if !strings.Contains(stderr.String(), "failed to create TCP client") {
 		t.Fatalf("child stderr = %q, want TCP client failure", stderr.String())
 	}
 }
@@ -216,7 +216,7 @@ func TestRunRegisterCallFailure(t *testing.T) {
 	}()
 
 	t.Setenv("AGENT_ADDR", ln.Addr().String())
-	if err := run(context.Background()); err == nil || !strings.Contains(err.Error(), "Failed to register with agent") {
+	if err := run(context.Background()); err == nil || !strings.Contains(err.Error(), "failed to register with agent") {
 		t.Fatalf("run err = %v, want register failure", err)
 	}
 }
@@ -231,7 +231,7 @@ func TestRunGarbageConnectResponseFailsUnmarshal(t *testing.T) {
 	defer stop()
 
 	t.Setenv("AGENT_ADDR", addr)
-	if err := run(context.Background()); err == nil || !strings.Contains(err.Error(), "Failed to parse ProviderConnectResponse") {
+	if err := run(context.Background()); err == nil || !strings.Contains(err.Error(), "failed to parse ProviderConnectResponse") {
 		t.Fatalf("run err = %v, want unmarshal failure", err)
 	}
 }

@@ -1,7 +1,6 @@
 import { Card, Space, Tag, Typography } from 'antd';
 import { PlusOutlined } from '@ant-design/icons';
 import { FormattedMessage, getIntl, useIntl } from '@umijs/max';
-import { registerComponent } from '../registry';
 import { getComponent } from '../registry';
 import type { ComponentDef } from '../registry';
 

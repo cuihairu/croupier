@@ -734,7 +734,7 @@ func TestListNodesClusterAndDBBranchesV9(t *testing.T) {
 	}
 
 	// nil ctx + game/env 过滤
-	nodes := listNodes(nil, svcCtx, "g1", "prod", "")
+	nodes := listNodes(context.TODO(), svcCtx, "g1", "prod", "")
 	byID := map[string]Node{}
 	for _, n := range nodes {
 		byID[n.Id] = n

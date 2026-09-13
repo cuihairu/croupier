@@ -1,6 +1,5 @@
 import { Tag, Typography } from 'antd';
 import { FormattedMessage, getIntl } from '@umijs/max';
-import { registerComponent } from '../registry';
 import type { ComponentDef } from '../registry';
 import { EVENTS } from '../actions';
 import { spanSchema } from './shared';

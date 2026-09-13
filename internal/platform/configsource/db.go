@@ -149,7 +149,7 @@ func (s *dbSource) Read(ctx context.Context, path string) ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("read table: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	// sql.Rows.Columns() 仅在 rows 已关闭时返回错误；此处 rows 刚由
 	// Rows() 打开且未 Close，时序上恒成功，err 分支为死代码已删。
@@ -158,7 +158,7 @@ func (s *dbSource) Read(ctx context.Context, path string) ([]byte, error) {
 	// csv.Writer 的唯一错误源是底层 io.Writer；strings.Builder.Write 永不
 	// 返回错误，故下方 Write/w.Error() 的 err 分支均为死代码已删。
 	w := csv.NewWriter(&buf)
-	w.Write(cols)
+	_ = w.Write(cols)
 	vals := make([]interface{}, len(cols))
 	ptrs := make([]interface{}, len(cols))
 	for i := range vals {
@@ -179,7 +179,7 @@ func (s *dbSource) Read(ctx context.Context, path string) ([]byte, error) {
 				record[i] = fmt.Sprintf("%v", tv)
 			}
 		}
-		w.Write(record)
+		_ = w.Write(record)
 	}
 	w.Flush()
 	return []byte(buf.String()), nil

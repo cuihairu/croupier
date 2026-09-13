@@ -20,7 +20,7 @@ func LoadWithIncludes(base string, includes []string) (*viper.Viper, error) {
 		if err := iv.ReadInConfig(); err != nil {
 			return nil, fmt.Errorf("include %s: %w", inc, err)
 		}
-		v.MergeConfigMap(iv.AllSettings())
+		_ = v.MergeConfigMap(iv.AllSettings())
 	}
 	return v, nil
 }
@@ -59,7 +59,7 @@ func ApplySectionAndProfile(v *viper.Viper, section, profile string) (*viper.Vip
 		}
 		merged := mergeMaps(v.AllSettings(), p.AllSettings())
 		nv := viper.New()
-		nv.MergeConfigMap(merged)
+		_ = nv.MergeConfigMap(merged)
 		v = nv
 	}
 	return v, nil

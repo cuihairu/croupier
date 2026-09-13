@@ -2038,8 +2038,8 @@ func applyPageSpecToModel(page *model.PageSpec, pageSpec spec.PageSpec) error {
 	// `b, _ := json.Marshal(map[string]string)`，无出错路径），原 err 检查
 	// 为死分支，已删。下方 marshalPageSpec 的 err 真实可达（手工构造的非法
 	// JSONSchema，见 TestV9_ApplyPageSpecToModel_Error），保留。
-	page.SetTitle(pageSpec.Title)
-	page.SetCategoryLabels(pageSpec.Category.Labels)
+	_ = page.SetTitle(pageSpec.Title)
+	_ = page.SetCategoryLabels(pageSpec.Category.Labels)
 	specJSON, err := marshalPageSpec(pageSpec)
 	if err != nil {
 		return err

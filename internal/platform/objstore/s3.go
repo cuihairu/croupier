@@ -47,7 +47,7 @@ func (s *s3Store) Put(ctx context.Context, key string, r ReadSeeker, _ int64, co
 				// 尝试创建目录标记，忽略错误（可能已存在）
 				w, err := s.bk.NewWriter(ctx, prefix, &blob.WriterOptions{})
 				if err == nil {
-					w.Close()
+					_ = w.Close()
 				}
 			}
 		}
@@ -57,7 +57,7 @@ func (s *s3Store) Put(ctx context.Context, key string, r ReadSeeker, _ int64, co
 	if err != nil {
 		return err
 	}
-	defer w.Close()
+	defer func() { _ = w.Close() }()
 	if _, err := io.Copy(w, r); err != nil {
 		return err
 	}
@@ -225,14 +225,14 @@ func (s *s3Store) RenamePrefix(ctx context.Context, oldPrefix, newPrefix string)
 			ContentType: r.ContentType(),
 		})
 		if err != nil {
-			r.Close()
+			_ = r.Close()
 			return fmt.Errorf("failed to create writer for %s: %w", newKey, err)
 		}
 
 		_, err = io.Copy(w, r)
-		r.Close()
+		_ = r.Close()
 		if err != nil {
-			w.Close()
+			_ = w.Close()
 			return fmt.Errorf("failed to copy object %s to %s: %w", oldKey, newKey, err)
 		}
 

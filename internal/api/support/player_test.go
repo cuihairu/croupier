@@ -1,6 +1,7 @@
 package support
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -43,13 +44,13 @@ func playerReq(method, target, body string) (*gin.Context, *httptest.ResponseRec
 
 func TestPlayerFAQs_OnlyVisible(t *testing.T) {
 	h := newPlayerHandler(t)
-	require.NoError(t, h.svcCtx.FAQModel.Create(nil, &model.FAQ{
+	require.NoError(t, h.svcCtx.FAQModel.Create(nil, &model.FAQ{ //nolint:staticcheck // 刻意 nil context：model 层不消费 ctx
 		Question: "怎么充值", Answer: "商店页", Category: "pay", Visible: true, Slug: "pay-how",
 	}))
 	hidden := &model.FAQ{Question: "隐藏条目", Answer: "内部", Category: "pay", Visible: false}
-	require.NoError(t, h.svcCtx.FAQModel.Create(nil, hidden))
+	require.NoError(t, h.svcCtx.FAQModel.Create(nil, hidden)) //nolint:staticcheck // 刻意 nil context：model 层不消费 ctx
 	// gorm default:true 会把 Create 时的零值 false 变 true，用 Update 显式隐藏
-	require.NoError(t, h.svcCtx.FAQModel.Update(nil, hidden.ID, map[string]interface{}{"visible": false}))
+	require.NoError(t, h.svcCtx.FAQModel.Update(context.TODO(), hidden.ID, map[string]interface{}{"visible": false}))
 
 	c, w := playerReq(http.MethodGet, "/public/support/faqs", "")
 	h.ListFAQs(c)

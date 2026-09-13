@@ -56,9 +56,6 @@ export default function RowActionsEditor({
     <Space orientation="vertical" size={8} style={{ width: '100%' }}>
       {actions.map((a, i) => {
         const targetModal = modals.find((m) => m.id === a.targetSection);
-        const formFnId = String(
-          targetModal?.children?.find((c) => c.type === 'fnForm')?.props.functionId ?? '',
-        );
         const targetParamFields = getParamFields(targetModal, fnById);
         return (
           <div key={i} style={{ border: '1px solid #f0f0f0', borderRadius: 6, padding: 8 }}>

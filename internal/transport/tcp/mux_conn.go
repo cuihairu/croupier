@@ -224,7 +224,7 @@ func (c *MuxConn) Run(ctx context.Context) error {
 	if ctx == nil {
 		ctx = context.Background()
 	}
-	defer c.Close()
+	defer func() { _ = c.Close() }()
 
 	// Wake a blocking read when the caller cancels the run context.
 	done := make(chan struct{})

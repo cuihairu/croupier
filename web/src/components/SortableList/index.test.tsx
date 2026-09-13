@@ -12,7 +12,7 @@ import React from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { DndContext, KeyboardSensor, closestCenter, useSensor, useSensors } from '@dnd-kit/core';
 import type { DragEndEvent } from '@dnd-kit/core';
-import { SortableContext, sortableKeyboardCoordinates } from '@dnd-kit/sortable';
+import { sortableKeyboardCoordinates } from '@dnd-kit/sortable';
 import { DragHandle, SortableItem, SortableList } from './index';
 
 jest.mock('@dnd-kit/core', () => {

@@ -378,7 +378,7 @@ func (s *AuditService) Log(ctx context.Context, eventType AuditEventType, opts .
 
 	// Notify for critical events
 	if record.Severity == SeverityCritical && s.notifier != nil {
-		s.notifier.NotifyAudit(ctx, record)
+		_ = s.notifier.NotifyAudit(ctx, record)
 	}
 
 	return record, nil
@@ -506,22 +506,21 @@ func (s *AuditService) setDefaults(record *AuditRecord) {
 
 // inferCategory infers category from event type
 func (s *AuditService) inferCategory(eventType AuditEventType) AuditCategory {
-	switch {
-	case eventType == EventLogin || eventType == EventLogout || eventType == EventLoginFailed ||
-		eventType == EventAccessGranted || eventType == EventAccessDenied:
+	switch eventType {
+	case EventLogin, EventLogout, EventLoginFailed, EventAccessGranted, EventAccessDenied:
 		return CategorySecurity
-	case eventType == EventUserCreate || eventType == EventUserUpdate || eventType == EventUserDelete:
+	case EventUserCreate, EventUserUpdate, EventUserDelete:
 		return CategoryAdmin
-	case eventType == EventFunctionInvoke || eventType == EventFunctionRegister || eventType == EventFunctionUnregister ||
-		eventType == EventFunctionUpdate || eventType == EventFunctionContractUpdated ||
-		eventType == EventPageDraftSave || eventType == EventPagePublish ||
-		eventType == EventPageUnpublish || eventType == EventPageRollback || eventType == EventPageExecute ||
-		eventType == EventOpenAPISourceCreate || eventType == EventOpenAPISourceBindingCreate ||
-		eventType == EventOpenAPISourceUpdate || eventType == EventOpenAPISourceBindingDelete ||
-		eventType == EventConfigUpdate || eventType == EventConfigEmergencyEdit ||
-		eventType == EventConfigSourceChange:
+	case EventFunctionInvoke, EventFunctionRegister, EventFunctionUnregister,
+		EventFunctionUpdate, EventFunctionContractUpdated,
+		EventPageDraftSave, EventPagePublish,
+		EventPageUnpublish, EventPageRollback, EventPageExecute,
+		EventOpenAPISourceCreate, EventOpenAPISourceBindingCreate,
+		EventOpenAPISourceUpdate, EventOpenAPISourceBindingDelete,
+		EventConfigUpdate, EventConfigEmergencyEdit,
+		EventConfigSourceChange:
 		return CategoryOperational
-	case eventType == EventDataAccess || eventType == EventDataExport || eventType == EventDataDelete:
+	case EventDataAccess, EventDataExport, EventDataDelete:
 		return CategoryData
 	default:
 		return CategoryCompliance
@@ -530,10 +529,10 @@ func (s *AuditService) inferCategory(eventType AuditEventType) AuditCategory {
 
 // inferSeverity infers severity from event type
 func (s *AuditService) inferSeverity(eventType AuditEventType) AuditSeverity {
-	switch {
-	case eventType == EventLoginFailed || eventType == EventAccessDenied:
+	switch eventType {
+	case EventLoginFailed, EventAccessDenied:
 		return SeverityWarning
-	case eventType == EventUserDelete || eventType == EventBackupRestore:
+	case EventUserDelete, EventBackupRestore:
 		return SeverityCritical
 	default:
 		return SeverityInfo
@@ -785,14 +784,14 @@ type AuditNotifier interface {
 func generateAuditID() string {
 	// Use crypto/rand for more unique IDs
 	b := make([]byte, 8)
-	rand.Read(b)
+	_, _ = rand.Read(b)
 	return fmt.Sprintf("audit_%d_%x", time.Now().UnixNano(), b)
 }
 
 func randomString(n int) string {
 	const letters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 	b := make([]byte, n)
-	rand.Read(b)
+	_, _ = rand.Read(b)
 	for i := range b {
 		b[i] = letters[int(b[i])%len(letters)]
 	}

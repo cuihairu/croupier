@@ -169,7 +169,7 @@ func (h *Handler) ImportExcel(c *gin.Context) {
 		response.Error(c, errorx.NewBadRequest("缺少 file 字段"))
 		return
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 	if header.Size > 4*1024*1024 {
 		response.Error(c, errorx.NewBadRequest("文件超过 4MB 上限"))
 		return

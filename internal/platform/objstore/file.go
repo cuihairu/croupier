@@ -56,7 +56,7 @@ func (s *fileStore) Put(_ context.Context, key string, r ReadSeeker, _ int64, _ 
 	if err != nil {
 		return err
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	if _, err := io.Copy(f, r); err != nil {
 		return err
 	}

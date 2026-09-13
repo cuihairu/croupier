@@ -1639,7 +1639,7 @@ func (s *Service) ResolveConflict(ctx context.Context, req *ResolveConflictReque
 			// Update provenance
 			var provenance map[string]*spec.SemanticProvenance
 			if len(semantics.Provenance) > 0 {
-				json.Unmarshal(semantics.Provenance, &provenance)
+				_ = json.Unmarshal(semantics.Provenance, &provenance)
 			}
 			if provenance == nil {
 				provenance = make(map[string]*spec.SemanticProvenance)

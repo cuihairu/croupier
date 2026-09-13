@@ -13,9 +13,10 @@ func TestRuntime_TaskID(t *testing.T) {
 }
 
 func TestRuntime_Context(t *testing.T) {
-	ctx := context.WithValue(context.Background(), "key", "val")
+	type ctxKey struct{}
+	ctx := context.WithValue(context.Background(), ctxKey{}, "val")
 	r := &Runtime{ctx: ctx}
-	if r.Context().Value("key") != "val" {
+	if r.Context().Value(ctxKey{}) != "val" {
 		t.Error("Context should return the stored context")
 	}
 }

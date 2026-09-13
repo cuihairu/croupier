@@ -944,7 +944,7 @@ func TestExtractAdminID_NilContext(t *testing.T) {
 	svc := NewPermissionService(setupTestDB(t))
 	req := httptest.NewRequest("GET", "/", nil)
 	req.Header.Set("X-Admin-ID", "5")
-	id, err := extractAdminID(nil, req, nil, svc)
+	id, err := extractAdminID(nil, req, nil, svc) //nolint:staticcheck // 刻意 nil context：验证不依赖 ctx 的健壮性
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

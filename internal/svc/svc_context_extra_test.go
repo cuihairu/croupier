@@ -160,9 +160,9 @@ func TestResolveFirstAuthorizedGame_Branches(t *testing.T) {
 }
 
 func TestGameScopeHelpers_EdgeCases(t *testing.T) {
-	assert.Equal(t, GameScope{}, GameScopeFromContext(nil))
+	assert.Equal(t, GameScope{}, GameScopeFromContext(context.TODO()))
 
-	ctx := WithGameScope(nil, GameScope{})
+	ctx := WithGameScope(context.TODO(), GameScope{})
 	assert.Empty(t, GameScopeFromContext(ctx).GameID)
 
 	_, err := CurrentScope(ctx)

@@ -271,13 +271,13 @@ func writeJSONError(w http.ResponseWriter, err error) {
 		statusCode, data := codeErr.Data()
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(statusCode)
-		json.NewEncoder(w).Encode(data)
+		_ = json.NewEncoder(w).Encode(data)
 		return
 	}
 	// Fallback for non-CodeError
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusInternalServerError)
-	json.NewEncoder(w).Encode(map[string]interface{}{
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
 		"error":   "internal_error",
 		"message": err.Error(),
 	})

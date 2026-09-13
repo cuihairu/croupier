@@ -40,7 +40,7 @@ func (m *SupportModel) DeleteTicket(ctx context.Context, id uint) error {
 
 // ListTickets returns paginated tickets.
 func (m *SupportModel) ListTickets(ctx context.Context, opts ListTicketsOptions) ([]SupportTicket, int64, error) {
-	opts.PaginationOptions.Normalize()
+	opts.Normalize()
 
 	var (
 		items []SupportTicket

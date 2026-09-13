@@ -229,7 +229,7 @@ func validatePack(packPath string, verbose bool) error {
 	if err != nil {
 		return fmt.Errorf("failed to create temp directory: %w", err)
 	}
-	defer os.RemoveAll(tempDir)
+	defer func() { _ = os.RemoveAll(tempDir) }()
 
 	if err := extractTarGz(packPath, tempDir); err != nil {
 		return fmt.Errorf("failed to extract pack: %w", err)

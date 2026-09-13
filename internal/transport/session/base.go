@@ -199,8 +199,6 @@ func (m *HeartbeatManager) run() {
 }
 
 func (m *HeartbeatManager) pruneStale() {
-	pruned := m.store.PruneStale(m.ttl)
-	if pruned > 0 && m.handler != nil {
-		// Handler is called per-session in the store implementation
-	}
+	// Handler is called per-session in the store implementation
+	_ = m.store.PruneStale(m.ttl)
 }

@@ -81,10 +81,6 @@ func TestListMarksStaleBuiltinTemplates(t *testing.T) {
 	require.NoError(t, db.Create(contract).Error)
 
 	h := NewHandler(model.NewComponentTemplateModel(db), contractMdlFromDB(t, db))
-	ctx := context.WithValue(context.Background(), "X-Game-ID", "demo")
-	ctx = context.WithValue(ctx, "X-Env", "dev")
-	_ = ctx
-
 	// 生成（存储与当前契约一致）
 	require.NoError(t, h.GenerateSingleFunctionTemplates(context.Background(), []*model.FunctionContract{contract}))
 	require.NoError(t, h.GenerateQueryTemplate(context.Background(), contract))

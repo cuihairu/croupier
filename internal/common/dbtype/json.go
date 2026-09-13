@@ -51,7 +51,7 @@ func (j *JSON) Scan(value interface{}) error {
 		case string:
 			bytes = []byte(v)
 		default:
-			return fmt.Errorf("Failed to unmarshal JSONB value: %v", value)
+			return fmt.Errorf("failed to unmarshal JSONB value: %v", value)
 		}
 	}
 	*j = JSON(json.RawMessage(bytes))
@@ -94,7 +94,7 @@ func (JSON) GormDataType() string {
 // default branch is populated: sqlserver (and any unknown dialect) gets
 // nvarchar(max) instead of the unsupported literal `json`.
 func (JSON) GormDBDataType(db *gorm.DB, _ *schema.Field) string {
-	switch db.Dialector.Name() {
+	switch db.Name() {
 	case "sqlite", "mysql":
 		return "JSON"
 	case "postgres":
@@ -111,7 +111,7 @@ func (j JSON) GormValue(_ context.Context, db *gorm.DB) clause.Expr {
 		return gorm.Expr("NULL")
 	}
 	data, _ := j.MarshalJSON()
-	if v, ok := db.Dialector.(*gmysql.Dialector); ok && db.Dialector.Name() == "mysql" && !strings.Contains(v.ServerVersion, "MariaDB") {
+	if v, ok := db.Dialector.(*gmysql.Dialector); ok && db.Name() == "mysql" && !strings.Contains(v.ServerVersion, "MariaDB") {
 		return gorm.Expr("CAST(? AS JSON)", string(data))
 	}
 	return gorm.Expr("?", string(data))

@@ -94,7 +94,7 @@ func TestService_GetRegistry_WithAgentLabels(t *testing.T) {
 		},
 	})
 
-	resp, err := service.GetRegistry(nil, &RegistryRequest{})
+	resp, err := service.GetRegistry(nil, &RegistryRequest{}) //nolint:staticcheck // 刻意 nil context：验证不依赖 ctx 的健壮性
 	require.NoError(t, err)
 	assert.Len(t, resp.Agents, 1)
 }
@@ -116,7 +116,7 @@ func TestService_GetRegistry_AgentAboutToExpire(t *testing.T) {
 		Functions: map[string]registry.FunctionMeta{"test.func": {Enabled: true}},
 	})
 
-	resp, err := service.GetRegistry(nil, &RegistryRequest{})
+	resp, err := service.GetRegistry(nil, &RegistryRequest{}) //nolint:staticcheck // 刻意 nil context：验证不依赖 ctx 的健壮性
 	require.NoError(t, err)
 	assert.Len(t, resp.Agents, 1)
 	assert.True(t, resp.Agents[0].ExpiresInSec > 0 && resp.Agents[0].ExpiresInSec <= 60)
@@ -143,7 +143,7 @@ func TestService_GetRegistry_FunctionWithMultipleAgents(t *testing.T) {
 		})
 	}
 
-	resp, err := service.GetRegistry(nil, &RegistryRequest{})
+	resp, err := service.GetRegistry(nil, &RegistryRequest{}) //nolint:staticcheck // 刻意 nil context：验证不依赖 ctx 的健壮性
 	require.NoError(t, err)
 	assert.Len(t, resp.Functions, 1)
 	assert.Len(t, resp.Functions[0].Agents, 3)
@@ -166,7 +166,7 @@ func TestService_GetRegistry_EmptyFunctions(t *testing.T) {
 		Functions: map[string]registry.FunctionMeta{},
 	})
 
-	resp, err := service.GetRegistry(nil, &RegistryRequest{})
+	resp, err := service.GetRegistry(nil, &RegistryRequest{}) //nolint:staticcheck // 刻意 nil context：验证不依赖 ctx 的健壮性
 	require.NoError(t, err)
 	assert.Len(t, resp.Agents, 1)
 	assert.Empty(t, resp.Functions)
@@ -198,7 +198,7 @@ func TestService_GetRegistry_FilteredResponse(t *testing.T) {
 	})
 
 	// Request all agents (no filtering)
-	resp, err := service.GetRegistry(nil, &RegistryRequest{})
+	resp, err := service.GetRegistry(nil, &RegistryRequest{}) //nolint:staticcheck // 刻意 nil context：验证不依赖 ctx 的健壮性
 	require.NoError(t, err)
 	assert.Len(t, resp.Agents, 2)
 }
@@ -276,7 +276,7 @@ func TestService_GetRegistry_WithAssignments(t *testing.T) {
 		Functions: map[string]registry.FunctionMeta{"test.func": {Enabled: true}},
 	})
 
-	resp, err := service.GetRegistry(nil, &RegistryRequest{})
+	resp, err := service.GetRegistry(nil, &RegistryRequest{}) //nolint:staticcheck // 刻意 nil context：验证不依赖 ctx 的健壮性
 	require.NoError(t, err)
 	// Should have assignments in response
 	assert.NotNil(t, resp.Assignments)
@@ -298,7 +298,7 @@ func TestService_GetRegistry_Sorting(t *testing.T) {
 		_ = svcCtx.RegistryStore.UpsertAgent(agent)
 	}
 
-	resp, err := service.GetRegistry(nil, &RegistryRequest{})
+	resp, err := service.GetRegistry(nil, &RegistryRequest{}) //nolint:staticcheck // 刻意 nil context：验证不依赖 ctx 的健壮性
 	require.NoError(t, err)
 
 	// Check agents are sorted by GameID then AgentID
@@ -339,7 +339,7 @@ func TestService_GetRegistry_FunctionSorting(t *testing.T) {
 		},
 	})
 
-	resp, err := service.GetRegistry(nil, &RegistryRequest{})
+	resp, err := service.GetRegistry(nil, &RegistryRequest{}) //nolint:staticcheck // 刻意 nil context：验证不依赖 ctx 的健壮性
 	require.NoError(t, err)
 
 	// Check functions are sorted
@@ -381,7 +381,7 @@ func TestService_GetRegistry_CoverageSorting(t *testing.T) {
 		Functions: map[string]registry.FunctionMeta{"test.func": {Enabled: true}},
 	})
 
-	resp, err := service.GetRegistry(nil, &RegistryRequest{})
+	resp, err := service.GetRegistry(nil, &RegistryRequest{}) //nolint:staticcheck // 刻意 nil context：验证不依赖 ctx 的健壮性
 	require.NoError(t, err)
 
 	// Check coverage is sorted by GameEnv
@@ -409,7 +409,7 @@ func TestService_GetRegistry_DisabledFunctions(t *testing.T) {
 		},
 	})
 
-	resp, err := service.GetRegistry(nil, &RegistryRequest{})
+	resp, err := service.GetRegistry(nil, &RegistryRequest{}) //nolint:staticcheck // 刻意 nil context：验证不依赖 ctx 的健壮性
 	require.NoError(t, err)
 
 	// Only enabled functions should appear
@@ -436,7 +436,7 @@ func TestService_GetRegistry_EmptyAgentID(t *testing.T) {
 		Functions: map[string]registry.FunctionMeta{"test.func": {Enabled: true}},
 	})
 
-	resp, err := service.GetRegistry(nil, &RegistryRequest{})
+	resp, err := service.GetRegistry(nil, &RegistryRequest{}) //nolint:staticcheck // 刻意 nil context：验证不依赖 ctx 的健壮性
 	require.NoError(t, err)
 	// Agent with empty ID should be skipped
 	for _, agent := range resp.Agents {
@@ -500,7 +500,7 @@ func TestService_GetRegistry_WhitespacedAgentID(t *testing.T) {
 		Functions: map[string]registry.FunctionMeta{"test.func": {Enabled: true}},
 	})
 
-	resp, err := service.GetRegistry(nil, &RegistryRequest{})
+	resp, err := service.GetRegistry(nil, &RegistryRequest{}) //nolint:staticcheck // 刻意 nil context：验证不依赖 ctx 的健壮性
 	require.NoError(t, err)
 	// Agent with whitespace should be included (after trim in ShouldBindUri)
 	assert.Greater(t, len(resp.Agents), 0)
@@ -534,7 +534,7 @@ func TestService_GetRegistry_FunctionsKeyGeneration(t *testing.T) {
 		},
 	})
 
-	resp, err := service.GetRegistry(nil, &RegistryRequest{})
+	resp, err := service.GetRegistry(nil, &RegistryRequest{}) //nolint:staticcheck // 刻意 nil context：验证不依赖 ctx 的健壮性
 	require.NoError(t, err)
 
 	// Should have one function with two agents
@@ -558,7 +558,7 @@ func TestService_GetRegistry_AssignmentIntegration(t *testing.T) {
 		Functions: map[string]registry.FunctionMeta{"assigned.func": {Enabled: true}},
 	})
 
-	resp, err := service.GetRegistry(nil, &RegistryRequest{})
+	resp, err := service.GetRegistry(nil, &RegistryRequest{}) //nolint:staticcheck // 刻意 nil context：验证不依赖 ctx 的健壮性
 	require.NoError(t, err)
 
 	// Assignments should be included in response
@@ -584,7 +584,7 @@ func TestService_GetRegistry_CoverageUncovered(t *testing.T) {
 		},
 	})
 
-	resp, err := service.GetRegistry(nil, &RegistryRequest{})
+	resp, err := service.GetRegistry(nil, &RegistryRequest{}) //nolint:staticcheck // 刻意 nil context：验证不依赖 ctx 的健壮性
 	require.NoError(t, err)
 
 	// Only enabled functions should be in response
@@ -619,7 +619,7 @@ func TestService_GetRegistry_NilRegistryStore(t *testing.T) {
 	}
 	service := NewService(svcCtx)
 
-	resp, err := service.GetRegistry(nil, &RegistryRequest{})
+	resp, err := service.GetRegistry(nil, &RegistryRequest{}) //nolint:staticcheck // 刻意 nil context：验证不依赖 ctx 的健壮性
 	require.NoError(t, err)
 	assert.NotNil(t, resp)
 	assert.Empty(t, resp.Agents)
@@ -634,7 +634,7 @@ func TestService_GetRegistry_NilAgentSession(t *testing.T) {
 
 	// Manually add nil to agents slice (if possible through internal access)
 	// Since we can't directly add nil to AgentsUnsafe, we test with empty store
-	resp, err := service.GetRegistry(nil, &RegistryRequest{})
+	resp, err := service.GetRegistry(nil, &RegistryRequest{}) //nolint:staticcheck // 刻意 nil context：验证不依赖 ctx 的健壮性
 	require.NoError(t, err)
 	assert.NotNil(t, resp)
 }
@@ -647,7 +647,7 @@ func TestService_GetRegistry_WhitespaceAgentID(t *testing.T) {
 
 	// Add agent with whitespace-only AgentID (should be filtered out)
 	// Note: The registry store may not allow empty AgentIDs, so we test the filter logic
-	resp, err := service.GetRegistry(nil, &RegistryRequest{})
+	resp, err := service.GetRegistry(nil, &RegistryRequest{}) //nolint:staticcheck // 刻意 nil context：验证不依赖 ctx 的健壮性
 	require.NoError(t, err)
 	assert.NotNil(t, resp)
 }
@@ -672,7 +672,7 @@ func TestService_GetRegistry_CoverageStats(t *testing.T) {
 		},
 	})
 
-	resp, err := service.GetRegistry(nil, &RegistryRequest{})
+	resp, err := service.GetRegistry(nil, &RegistryRequest{}) //nolint:staticcheck // 刻意 nil context：验证不依赖 ctx 的健壮性
 	require.NoError(t, err)
 
 	// Check coverage is calculated
@@ -702,7 +702,7 @@ func TestService_GetRegistry_DisabledFunctionsNotCounted(t *testing.T) {
 		},
 	})
 
-	resp, err := service.GetRegistry(nil, &RegistryRequest{})
+	resp, err := service.GetRegistry(nil, &RegistryRequest{}) //nolint:staticcheck // 刻意 nil context：验证不依赖 ctx 的健壮性
 	require.NoError(t, err)
 
 	// Only enabled functions should appear
@@ -741,7 +741,7 @@ func TestService_GetRegistry_SameFunctionMultipleAgents(t *testing.T) {
 		})
 	}
 
-	resp, err := service.GetRegistry(nil, &RegistryRequest{})
+	resp, err := service.GetRegistry(nil, &RegistryRequest{}) //nolint:staticcheck // 刻意 nil context：验证不依赖 ctx 的健壮性
 	require.NoError(t, err)
 
 	// Should have one function entry with multiple agents
@@ -772,7 +772,7 @@ func TestService_GetRegistry_WithEmptyAgentID(t *testing.T) {
 		Functions: map[string]registry.FunctionMeta{"test.func": {Enabled: true}},
 	})
 
-	resp, err := service.GetRegistry(nil, &RegistryRequest{})
+	resp, err := service.GetRegistry(nil, &RegistryRequest{}) //nolint:staticcheck // 刻意 nil context：验证不依赖 ctx 的健壮性
 	require.NoError(t, err)
 	assert.Empty(t, resp.Agents)
 }
@@ -783,7 +783,7 @@ func TestService_GetRegistry_WithNilAgent(t *testing.T) {
 	}
 	service := NewService(svcCtx)
 
-	resp, err := service.GetRegistry(nil, &RegistryRequest{})
+	resp, err := service.GetRegistry(nil, &RegistryRequest{}) //nolint:staticcheck // 刻意 nil context：验证不依赖 ctx 的健壮性
 	require.NoError(t, err)
 	assert.NotNil(t, resp)
 	assert.Empty(t, resp.Agents)
@@ -873,7 +873,7 @@ func TestService_GetRegistry_WithAssignmentsFile(t *testing.T) {
 		Functions: map[string]registry.FunctionMeta{"func1": {Enabled: true}},
 	})
 
-	resp, err := service.GetRegistry(nil, &RegistryRequest{})
+	resp, err := service.GetRegistry(nil, &RegistryRequest{}) //nolint:staticcheck // 刻意 nil context：验证不依赖 ctx 的健壮性
 	require.NoError(t, err)
 	assert.NotNil(t, resp)
 
@@ -916,7 +916,7 @@ func TestService_GetRegistry_AssignmentWithEmptyFunctions(t *testing.T) {
 	}
 	service := NewService(svcCtx)
 
-	resp, err := service.GetRegistry(nil, &RegistryRequest{})
+	resp, err := service.GetRegistry(nil, &RegistryRequest{}) //nolint:staticcheck // 刻意 nil context：验证不依赖 ctx 的健壮性
 	require.NoError(t, err)
 	assert.NotNil(t, resp)
 
@@ -959,7 +959,7 @@ func TestService_GetRegistry_AssignmentCoverageWithAgent(t *testing.T) {
 		},
 	})
 
-	resp, err := service.GetRegistry(nil, &RegistryRequest{})
+	resp, err := service.GetRegistry(nil, &RegistryRequest{}) //nolint:staticcheck // 刻意 nil context：验证不依赖 ctx 的健壮性
 	require.NoError(t, err)
 	assert.NotNil(t, resp)
 

@@ -216,7 +216,7 @@ func TestOpsStateStore_UpdateSaveFailure(t *testing.T) {
 // --- 杂项小函数 ---
 
 func TestWithGameScope_NilContext(t *testing.T) {
-	out := WithGameScope(nil, GameScope{GameID: "g", Env: "e"})
+	out := WithGameScope(context.TODO(), GameScope{GameID: "g", Env: "e"})
 	assert.Equal(t, "g", GameScopeFromContext(out).GameID)
 }
 

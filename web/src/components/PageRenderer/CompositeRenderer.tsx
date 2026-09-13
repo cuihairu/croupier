@@ -29,7 +29,7 @@ export const CompositeRenderer: React.FC<{
     values: Record<string, unknown>,
     mode?: 'replace' | 'merge',
   ) => void;
-}> = ({ sections, bindings, onExecute, preview, onPageStateMerge }) => {
+}> = ({ sections, bindings: _bindings, onExecute, preview, onPageStateMerge }) => {
   const { message, modal } = App.useApp();
   const intl = useIntl();
   // V5 §7.1：每区块运行时状态 = data（函数输出）+ selectedRow/selectedRows（表格

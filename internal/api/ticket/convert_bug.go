@@ -15,10 +15,10 @@ import (
 type ConvertToBugRequest struct {
 	ID string `uri:"id"`
 	// Optional overrides; defaults derive from the ticket.
-	Severity   *string `json:"severity,optional"`
-	Platform   *string `json:"platform,optional"`
-	Steps      *string `json:"steps,optional"`
-	FixVersion *string `json:"fixVersion,optional"`
+	Severity   *string `json:"severity"`
+	Platform   *string `json:"platform"`
+	Steps      *string `json:"steps"`
+	FixVersion *string `json:"fixVersion"`
 }
 
 // ConvertToBugResponse returns the created bug id.

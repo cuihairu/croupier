@@ -3,6 +3,7 @@
 package functioncall
 
 import (
+	"context"
 	"net/http"
 	"testing"
 
@@ -93,17 +94,17 @@ func TestHandler_Rerun_URIbindError(t *testing.T) {
 
 func TestService_List_DatabaseClosed(t *testing.T) {
 	s := newClosedDBService(t)
-	resp, err := s.List(nil, &ListRequest{Page: 1, PageSize: 10})
+	resp, err := s.List(context.TODO(), &ListRequest{Page: 1, PageSize: 10})
 	require.Error(t, err)
 	assert.Nil(t, resp)
 
-	stats, err := s.Stats(nil, &ListRequest{})
+	stats, err := s.Stats(context.TODO(), &ListRequest{})
 	require.Error(t, err)
 	assert.Nil(t, stats)
 }
 
 func TestService_Cancel_DatabaseClosed(t *testing.T) {
 	s := newClosedDBService(t)
-	err := s.Cancel(nil, &DetailRequest{ID: "t-1"})
+	err := s.Cancel(context.TODO(), &DetailRequest{ID: "t-1"})
 	require.Error(t, err)
 }

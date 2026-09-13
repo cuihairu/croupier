@@ -164,7 +164,7 @@ func (s *gitSource) Read(ctx context.Context, path string) ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("open %q: %w", path, err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	buf := make([]byte, 0, 64*1024)
 	tmp := make([]byte, 32*1024)
 	for {

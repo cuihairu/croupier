@@ -150,7 +150,7 @@ func (s *croupierServerService) Start(svc service.Service) error {
 		defer func() {
 			if r := recover(); r != nil {
 				slog.Error("Server panic", "error", r)
-				svc.Stop()
+				_ = svc.Stop()
 			}
 		}()
 
@@ -158,7 +158,7 @@ func (s *croupierServerService) Start(svc service.Service) error {
 		if err := runServer(); err != nil {
 			slog.Error("Server 启动失败", "error", err)
 			// 启动失败，停止服务
-			svc.Stop()
+			_ = svc.Stop()
 		} else {
 			slog.Info("Croupier Server 服务已启动")
 		}
@@ -168,7 +168,7 @@ func (s *croupierServerService) Start(svc service.Service) error {
 	go func() {
 		<-s.ctx.Done()
 		slog.Info("收到停止信号")
-		svc.Stop()
+		_ = svc.Stop()
 	}()
 
 	return nil

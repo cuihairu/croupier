@@ -1,12 +1,7 @@
 import { getIntl } from '@umijs/max';
 import { nodeId, type PageNode } from '../model';
-import { parseAction } from '../actions';
 import { localizedText } from '@/utils/localizedText';
-import {
-  isSingleExpression,
-  parseExpression,
-  pointerToPath,
-} from '@/components/PageRenderer/expression';
+import { pointerToPath } from '@/components/PageRenderer/expression';
 import type { SpecSectionLike } from './types';
 import { SECTION_KEY_RE } from './types';
 
@@ -38,7 +33,6 @@ export function decompileToTree(sections: SpecSectionLike[]): [PageNode[], strin
 
   // 第一遍：创建节点并登记映射
   const nodes: PageNode[] = [];
-  const pendingDialogs: { sec: SpecSectionLike; modal: PageNode }[] = [];
   const groupToModal = new Map<string, PageNode>();
   const dialogGroupToModalId = new Map<string, string>();
   // V2：tab 聚合（group → tabs 节点；组内按 tab 标签 → 页 container）

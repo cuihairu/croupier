@@ -151,7 +151,7 @@ func (h *Handler) sendMessagesEvent(c *gin.Context, username string) {
 	if err != nil {
 		return
 	}
-	fmt.Fprintf(c.Writer, "event: messages\ndata: %s\n\n", data)
+	_, _ = fmt.Fprintf(c.Writer, "event: messages\ndata: %s\n\n", data)
 	c.Writer.Flush()
 }
 

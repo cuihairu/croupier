@@ -8,7 +8,6 @@ import {
   type DanglingTemplateRef,
 } from './ComponentLibrary';
 import TemplateThumb from './TemplateThumb';
-import { schemaProperties } from './types';
 import { localizedText } from '@/utils/localizedText';
 import type { PageNode } from './model';
 

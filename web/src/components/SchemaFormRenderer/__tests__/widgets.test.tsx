@@ -10,8 +10,8 @@
  * （widgets.tsx 只透传 props 给它们，不依赖其内部交互），Rate 用真实组件。
  */
 import React from 'react';
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
-import type { GenericObjectType, RJSFSchema, WidgetProps } from '@rjsf/utils';
+import { act, fireEvent, render, waitFor } from '@testing-library/react';
+import type { RJSFSchema, WidgetProps } from '@rjsf/utils';
 import {
   CascaderWidget,
   RateWidget,

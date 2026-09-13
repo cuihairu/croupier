@@ -1,5 +1,5 @@
 import { FormattedMessage, useIntl } from '@umijs/max';
-import { App, Button, Input, Modal, Space, Tag, Typography, theme } from 'antd';
+import { App, Button, Input, Space, Tag, Typography, theme } from 'antd';
 import React, { useCallback, useRef, useState } from 'react';
 import {
   confirmMfa,

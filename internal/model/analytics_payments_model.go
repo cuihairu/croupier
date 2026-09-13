@@ -39,7 +39,7 @@ func (m *PaymentsModel) CreateTransaction(ctx context.Context, tx *PaymentTransa
 
 // ListTransactions returns paginated transactions.
 func (m *PaymentsModel) ListTransactions(ctx context.Context, opts PaymentQueryOptions) ([]PaymentTransaction, int64, error) {
-	opts.PaginationOptions.Normalize()
+	opts.Normalize()
 
 	var (
 		items []PaymentTransaction

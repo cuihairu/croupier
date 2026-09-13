@@ -393,7 +393,7 @@ func (p *Provider) discoverMethodsFromSpec(ctx context.Context, specURL string) 
 		if err != nil {
 			return err
 		}
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 
 		if resp.StatusCode != http.StatusOK {
 			return fmt.Errorf("failed to fetch OpenAPI spec: %s", resp.Status)
@@ -814,7 +814,7 @@ func (p *Provider) Call(ctx context.Context, method string, request []byte) ([]b
 			break
 		}
 		if resp != nil {
-			resp.Body.Close()
+			_ = resp.Body.Close()
 		}
 		if i < p.openapiConfig.RetryCount {
 			select {
@@ -828,7 +828,7 @@ func (p *Provider) Call(ctx context.Context, method string, request []byte) ([]b
 	if err != nil {
 		return nil, fmt.Errorf("request failed: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	// Read response
 	body, err := io.ReadAll(resp.Body)

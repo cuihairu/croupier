@@ -67,7 +67,7 @@ func (s *cosStore) Put(ctx context.Context, key string, r ReadSeeker, _ int64, c
 			for i := range parts {
 				prefix := strings.Join(parts[:i+1], "/") + "/"
 				// 尝试创建目录标记（如果已存在会忽略错误）
-				s.cli.Object.Put(ctx, prefix, strings.NewReader(""), nil)
+				_, _ = s.cli.Object.Put(ctx, prefix, strings.NewReader(""), nil)
 			}
 		}
 	}

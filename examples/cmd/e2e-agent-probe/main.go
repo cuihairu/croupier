@@ -176,7 +176,7 @@ servedLoop:
 
 	runCancel()
 	<-runErrCh
-	mux.Close()
+	_ = mux.Close()
 
 	handler.mu.Lock()
 	tasks := handler.tasksHandled

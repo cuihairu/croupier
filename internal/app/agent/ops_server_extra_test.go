@@ -340,9 +340,8 @@ func TestOpsServer_SystemServiceMethods(t *testing.T) {
 	if resp, err := s.ListServices(ctx, &ListServicesRequest{Limit: 5}); err == nil {
 		assert.LessOrEqual(t, len(resp.Services), 5)
 	}
-	if _, err := s.GetServiceStatus(ctx, &GetServiceStatusRequest{Name: "nonexistent-service-xyz"}); err == nil {
-		// 部分实现找不到服务时返回零值而非错误
-	}
+	// 部分实现找不到服务时返回零值而非错误，此处仅覆盖调用路径
+	_, _ = s.GetServiceStatus(ctx, &GetServiceStatusRequest{Name: "nonexistent-service-xyz"})
 	_, _ = s.ListCronJobs(ctx)
 }
 

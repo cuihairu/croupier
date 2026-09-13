@@ -137,11 +137,11 @@ func checkType(t string, v any) error {
 		}
 		return typeErr("boolean", v)
 	case "number":
-		switch v.(type) {
+		switch tv := v.(type) {
 		case float64:
 			return nil
 		case json.Number:
-			if _, err := strconv.ParseFloat(string(v.(json.Number)), 64); err == nil {
+			if _, err := strconv.ParseFloat(string(tv), 64); err == nil {
 				return nil
 			}
 		}

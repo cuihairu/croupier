@@ -1,6 +1,7 @@
 package routes
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -29,7 +30,7 @@ func setupHandlerSvc(t *testing.T) *svc.ServiceContext {
 func TestGetRoutesHandler_Success(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	svcCtx := setupHandlerSvc(t)
-	require.NoError(t, svcCtx.FunctionModel.Create(nil, &model.Function{
+	require.NoError(t, svcCtx.FunctionModel.Create(context.TODO(), &model.Function{
 		FunctionID: "player.getList", Resource: "player", Status: 1,
 	}))
 

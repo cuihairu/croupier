@@ -80,7 +80,7 @@ func (s *server) Invoke(ctx context.Context, req *sdkv1.InvokeRequest) (*sdkv1.I
 		if err != nil {
 			return nil, err
 		}
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 		b, _ := io.ReadAll(resp.Body)
 		if resp.StatusCode/100 != 2 {
 			if json.Valid(b) {
@@ -143,7 +143,7 @@ func (s *server) Invoke(ctx context.Context, req *sdkv1.InvokeRequest) (*sdkv1.I
 		if err != nil {
 			return nil, err
 		}
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 		b, _ := io.ReadAll(resp.Body)
 		if resp.StatusCode/100 != 2 {
 			if json.Valid(b) {
@@ -198,7 +198,7 @@ func (s *server) Invoke(ctx context.Context, req *sdkv1.InvokeRequest) (*sdkv1.I
 		if err != nil {
 			return nil, err
 		}
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 		b, _ := io.ReadAll(resp.Body)
 		if json.Valid(b) {
 			return &sdkv1.InvokeResponse{Payload: b}, nil
@@ -243,9 +243,9 @@ func run(ctx context.Context) error {
 		SendTimeout: 10 * time.Second,
 	})
 	if err != nil {
-		return fmt.Errorf("Failed to create TCP client: %v", err)
+		return fmt.Errorf("failed to create TCP client: %v", err)
 	}
-	defer tcpClient.Close()
+	defer func() { _ = tcpClient.Close() }()
 
 	// Define JSON Schemas for function parameters
 	genericInvokeInputSchema := `{
@@ -389,16 +389,16 @@ func run(ctx context.Context) error {
 	}
 	regData, err := proto.Marshal(regReq)
 	if err != nil {
-		return fmt.Errorf("Failed to marshal ProviderConnectRequest: %v", err)
+		return fmt.Errorf("failed to marshal ProviderConnectRequest: %v", err)
 	}
 
 	_, respData, err := tcpClient.Call(ctx, protocol.MsgProviderConnectRequest, regData)
 	if err != nil {
-		return fmt.Errorf("Failed to register with agent: %v", err)
+		return fmt.Errorf("failed to register with agent: %v", err)
 	}
 	regResp := &sdkv1.ProviderConnectResponse{}
 	if err := proto.Unmarshal(respData, regResp); err != nil {
-		return fmt.Errorf("Failed to parse ProviderConnectResponse: %v", err)
+		return fmt.Errorf("failed to parse ProviderConnectResponse: %v", err)
 	}
 	log.Printf("Registered with agent as service %s", serviceID)
 

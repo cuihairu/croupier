@@ -109,8 +109,8 @@ func (s *Service) CreateSource(ctx context.Context, req *OpenAPISourceCreateRequ
 	// parsed.Diagnostics（[]spec.Diagnostic）均为纯 string/bool 字段的
 	// JSON 可序列化结构，SetOperations/SetDiagnostics 内部的 json.Marshal
 	// 恒成功，原 err 分支不可达已删除（UpdateSource 同）。
-	modelSource.SetOperations(parsed.Operations)
-	modelSource.SetDiagnostics(parsed.Diagnostics)
+	_ = modelSource.SetOperations(parsed.Operations)
+	_ = modelSource.SetDiagnostics(parsed.Diagnostics)
 	if err := s.svcCtx.OpenAPISourceModel.Create(ctx, modelSource); err != nil {
 		spanErr = err
 		return nil, err
@@ -171,8 +171,8 @@ func (s *Service) UpdateSource(ctx context.Context, req *OpenAPISourceUpdateRequ
 	source.ContentHash = sha256Hex(parsed.Spec)
 	source.SetSpec(parsed.Spec)
 	// 设计债清理：见 CreateSource 同注，Marshal 恒成功。
-	source.SetOperations(parsed.Operations)
-	source.SetDiagnostics(parsed.Diagnostics)
+	_ = source.SetOperations(parsed.Operations)
+	_ = source.SetDiagnostics(parsed.Diagnostics)
 	if err := s.svcCtx.OpenAPISourceModel.Update(ctx, source); err != nil {
 		spanErr = err
 		return nil, err
@@ -996,7 +996,7 @@ func isStableSourceKey(value string) bool {
 		if !valid {
 			return false
 		}
-		if i == 0 && !((r >= 'a' && r <= 'z') || (r >= '0' && r <= '9')) {
+		if i == 0 && (r < 'a' || r > 'z') && (r < '0' || r > '9') {
 			return false
 		}
 	}

@@ -109,10 +109,10 @@ type FeatureAdoption struct {
 // (game-support P2). All fields optional: defaults derive from the feedback.
 type ConvertRequest struct {
 	ID       string `uri:"id"`
-	Title    string `json:"title,optional"`
-	Category string `json:"category,optional"`
-	Priority string `json:"priority,optional"`
-	Note     string `json:"note,optional"`
+	Title    string `json:"title"`
+	Category string `json:"category"`
+	Priority string `json:"priority"`
+	Note     string `json:"note"`
 }
 
 // ConvertResponse returns the created (or existing) ticket id.

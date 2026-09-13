@@ -28,10 +28,7 @@ func NewFunctionsListLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Fun
 func (l *FunctionsListLogic) FunctionsList(req *FunctionsListRequest) (*FunctionsListResponse, error) {
 	// 获取当前用户角色，判断是否为管理员
 	admin, roles, err := utils.LoadCurrentAdmin(l.ctx, l.svcCtx)
-	isAdmin := false
-	if err == nil && utils.HasAdminRole(ExtractRoleNames(roles)) {
-		isAdmin = true
-	}
+	isAdmin := err == nil && utils.HasAdminRole(ExtractRoleNames(roles))
 
 	// 调试日志：记录当前用户和管理员状态
 	if admin != nil {
@@ -105,7 +102,7 @@ func (l *FunctionsListLogic) FunctionsList(req *FunctionsListRequest) (*Function
 	}
 	sort.Slice(items, func(i, j int) bool { return items[i].ID < items[j].ID })
 
-	opts.PaginationOptions.Normalize()
+	opts.Normalize()
 	total := int64(len(items))
 	start := opts.Offset()
 	if start > len(items) {

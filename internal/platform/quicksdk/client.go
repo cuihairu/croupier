@@ -199,7 +199,7 @@ func (c *Client) Do(ctx context.Context, endpoint string, params map[string]inte
 	if err != nil {
 		return nil, fmt.Errorf("HTTP request failed after retries: %w", lastErr)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	// Read response
 	body, err := io.ReadAll(resp.Body)

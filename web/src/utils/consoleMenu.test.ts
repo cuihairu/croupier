@@ -1,4 +1,4 @@
-import type { ConsoleMenuSpec, PublishedPageSpec } from '@/types/dashboard';
+import type { ConsoleMenuSpec } from '@/types/dashboard';
 import {
   CONSOLE_MENU_REFRESH_EVENT,
   buildConsolePagePath,

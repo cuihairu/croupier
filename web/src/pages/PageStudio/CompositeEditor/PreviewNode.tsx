@@ -287,7 +287,6 @@ export function ModalForm({
   initialValues,
   onValuesChange,
   onSubmit,
-  inline,
 }: {
   fn: FunctionDescriptor | undefined;
   running: boolean;

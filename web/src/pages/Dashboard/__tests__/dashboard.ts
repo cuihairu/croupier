@@ -16,12 +16,6 @@ const mockPlayers = [
   { id: '1003', name: '玩家C', level: 15, status: 'banned', createdAt: '2024-01-03T00:00:00Z' },
 ];
 
-const mockInventory = [
-  { itemId: 'item-001', name: '金币', quantity: 1000, type: 'currency' },
-  { itemId: 'item-002', name: '钻石', quantity: 50, type: 'currency' },
-  { itemId: 'item-003', name: '铁剑', quantity: 1, type: 'equipment' },
-];
-
 // ---------------------------------------------------------------------------
 // Helper: build mock page specs
 // ---------------------------------------------------------------------------

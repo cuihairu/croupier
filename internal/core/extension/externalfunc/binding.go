@@ -169,7 +169,7 @@ func boolValue(m map[string]any, key string) (bool, bool) {
 		if s == "" {
 			return false, false
 		}
-		return !(s == "false" || s == "0" || s == "no" || s == "off"), true
+		return s != "false" && s != "0" && s != "no" && s != "off", true
 	case int:
 		return val != 0, true
 	case int64:

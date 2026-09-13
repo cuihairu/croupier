@@ -151,7 +151,7 @@ func TestServiceSdkStatsAggregatesV9(t *testing.T) {
 
 func TestServiceSdkStatsEmptyStoreV9(t *testing.T) {
 	s := NewService(&svc.ServiceContext{RegistryStore: reg.NewStore()})
-	resp, err := s.SdkStats(nil, nil)
+	resp, err := s.SdkStats(context.TODO(), nil)
 	if err != nil {
 		t.Fatalf("SdkStats error = %v", err)
 	}

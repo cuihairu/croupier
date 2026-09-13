@@ -56,7 +56,7 @@ export function uploadValueFromFileList(
   return urls;
 }
 
-function valueToFileList(value: unknown, multiple: boolean): UploadFile[] {
+function valueToFileList(value: unknown, _multiple: boolean): UploadFile[] {
   return toValueArray(value).map((url, index) => ({
     uid: `${index}-${url}`,
     name: urlToName(url),

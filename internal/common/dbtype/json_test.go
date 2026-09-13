@@ -65,7 +65,7 @@ func TestJSONScan(t *testing.T) {
 
 	err := j.Scan(12345)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "Failed to unmarshal JSONB value")
+	assert.Contains(t, err.Error(), "failed to unmarshal JSONB value")
 }
 
 func TestJSONMarshalJSON(t *testing.T) {

@@ -303,12 +303,8 @@ func normalizeConfig(config *TelemetryConfig) {
 
 func trimOTLPEndpoint(endpoint string, defaultPath string) string {
 	endpoint = strings.TrimRight(strings.TrimSpace(endpoint), "/")
-	if strings.HasSuffix(endpoint, "/v1/traces") {
-		endpoint = strings.TrimSuffix(endpoint, "/v1/traces")
-	}
-	if strings.HasSuffix(endpoint, "/v1/metrics") {
-		endpoint = strings.TrimSuffix(endpoint, "/v1/metrics")
-	}
+	endpoint = strings.TrimSuffix(endpoint, "/v1/traces")
+	endpoint = strings.TrimSuffix(endpoint, "/v1/metrics")
 	return endpoint + defaultPath
 }
 

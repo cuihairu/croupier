@@ -409,9 +409,8 @@ func (e *WorkflowEngine) ApproveStep(ctx context.Context, instanceID, approver, 
 			instance.ExpiresAt = nil
 
 			// Approve the original approval record
-			if _, err := e.approvalStore.Approve(instance.ApprovalID, approver); err != nil {
-				// Log error but don't fail
-			}
+			// 同步审批记录为 best-effort：失败不阻断工作流完成
+			_, _ = e.approvalStore.Approve(instance.ApprovalID, approver)
 
 			instance.History = append(instance.History, WorkflowHistoryEntry{
 				Timestamp: now,
@@ -422,10 +421,10 @@ func (e *WorkflowEngine) ApproveStep(ctx context.Context, instanceID, approver, 
 
 			// Notify initiator
 			if e.notifier != nil {
-				e.notifier.Notify(ctx, []string{instance.Initiator}, NotificationEvent{
+				_ = e.notifier.Notify(ctx, []string{instance.Initiator}, NotificationEvent{
 					Type:       "workflow_approved",
 					Title:      "Workflow Approved",
-					Message:    fmt.Sprintf("Your approval request has been approved"),
+					Message:    "Your approval request has been approved",
 					InstanceID: instance.ID,
 					ApprovalID: instance.ApprovalID,
 				})
@@ -492,13 +491,12 @@ func (e *WorkflowEngine) RejectStep(ctx context.Context, instanceID, approver, r
 	})
 
 	// Reject the original approval record
-	if _, err := e.approvalStore.Reject(instance.ApprovalID, reason, approver); err != nil {
-		// Log error but don't fail
-	}
+	// 同步审批记录为 best-effort：失败不阻断工作流拒绝
+	_, _ = e.approvalStore.Reject(instance.ApprovalID, reason, approver)
 
 	// Notify initiator
 	if e.notifier != nil {
-		e.notifier.Notify(ctx, []string{instance.Initiator}, NotificationEvent{
+		_ = e.notifier.Notify(ctx, []string{instance.Initiator}, NotificationEvent{
 			Type:       "workflow_rejected",
 			Title:      "Workflow Rejected",
 			Message:    fmt.Sprintf("Your approval request has been rejected: %s", reason),
@@ -534,9 +532,8 @@ func (e *WorkflowEngine) CancelWorkflow(ctx context.Context, instanceID, actor, 
 	})
 
 	// Reject the original approval record
-	if _, err := e.approvalStore.Reject(instance.ApprovalID, "Cancelled: "+reason, actor); err != nil {
-		// Log error but don't fail
-	}
+	// 同步审批记录为 best-effort：失败不阻断工作流取消
+	_, _ = e.approvalStore.Reject(instance.ApprovalID, "Cancelled: "+reason, actor)
 
 	return e.store.UpdateInstance(instance)
 }
@@ -598,9 +595,8 @@ func (e *WorkflowEngine) timeoutApprove(ctx context.Context, instance *WorkflowI
 		Details:   "Auto-approved due to timeout",
 	})
 
-	if _, err := e.approvalStore.Approve(instance.ApprovalID, "system"); err != nil {
-		// Log error
-	}
+	// 同步审批记录为 best-effort：失败不阻断超时自动通过
+	_, _ = e.approvalStore.Approve(instance.ApprovalID, "system")
 
 	return e.store.UpdateInstance(instance)
 }
@@ -618,9 +614,8 @@ func (e *WorkflowEngine) timeoutReject(ctx context.Context, instance *WorkflowIn
 		Details:   "Rejected due to timeout",
 	})
 
-	if _, err := e.approvalStore.Reject(instance.ApprovalID, "Expired due to timeout", "system"); err != nil {
-		// Log error
-	}
+	// 同步审批记录为 best-effort：失败不阻断超时拒绝
+	_, _ = e.approvalStore.Reject(instance.ApprovalID, "Expired due to timeout", "system")
 
 	return e.store.UpdateInstance(instance)
 }
@@ -821,7 +816,7 @@ func (e *WorkflowEngine) notifyApprovers(ctx context.Context, instance *Workflow
 		event.Message = fmt.Sprintf("Reminder: Approval pending for step: %s", step.Name)
 	}
 
-	e.notifier.Notify(ctx, step.Approvers, event)
+	_ = e.notifier.Notify(ctx, step.Approvers, event)
 }
 
 // Helper functions

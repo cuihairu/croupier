@@ -114,7 +114,7 @@ func migrateEnumColumns(db *gorm.DB) error {
 			ELSE capability END
 			WHERE capability = 1`).Error; err != nil {
 			// Non-fatal: inference is best-effort.
-			db.Logger.Warn(nil, "enum capability backfill failed: %v", err)
+			db.Logger.Warn(context.TODO(), "enum capability backfill failed: %v", err)
 		}
 	}
 	return nil
@@ -182,7 +182,7 @@ func migrateOneEnumColumn(db *gorm.DB, m enumColumnMigration) error {
 
 // columnIsInteger reports whether the column already stores integers.
 func columnIsInteger(db *gorm.DB, table, column string) bool {
-	switch db.Dialector.Name() {
+	switch db.Name() {
 	case "postgres":
 		var dataType string
 		if err := db.Raw("SELECT data_type FROM information_schema.columns WHERE table_name = ? AND column_name = ?", table, column).Scan(&dataType).Error; err != nil {
@@ -199,7 +199,7 @@ func columnIsInteger(db *gorm.DB, table, column string) bool {
 		if err != nil {
 			return true
 		}
-		defer rows.Close()
+		defer func() { _ = rows.Close() }()
 		if rows.Next() {
 			_ = rows.Scan(&declared)
 		}

@@ -1,6 +1,5 @@
 import { Space, Tag, Typography } from 'antd';
 import { getIntl } from '@umijs/max';
-import { registerComponent } from '../registry';
 import { getComponent } from '../registry';
 import type { ComponentDef } from '../registry';
 import { EVENTS } from '../actions';

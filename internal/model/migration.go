@@ -29,7 +29,7 @@ func AutoMigrate(db *gorm.DB) error {
 
 	// For postgres, auto-migration can get stuck on legacy unique constraint names.
 	// Attempt a few self-healing iterations before giving up.
-	if db != nil && db.Dialector != nil && db.Dialector.Name() == "postgres" {
+	if db != nil && db.Dialector != nil && db.Name() == "postgres" {
 		var lastErr error
 		for range 5 {
 			if err := autoMigrateAllModels(db); err == nil {
@@ -207,7 +207,7 @@ func GameModels() []interface{} {
 // migrateModels runs AutoMigrate for a specific list of models, applying the
 // postgres self-healing loop when relevant.
 func migrateModels(db *gorm.DB, models []interface{}) error {
-	if db != nil && db.Dialector != nil && db.Dialector.Name() == "postgres" {
+	if db != nil && db.Dialector != nil && db.Name() == "postgres" {
 		var lastErr error
 		for range 5 {
 			if err := db.AutoMigrate(models...); err == nil {
@@ -383,7 +383,7 @@ func dropLegacyPageUniqueIndexes(db *gorm.DB) error {
 	if db == nil || db.Dialector == nil {
 		return nil
 	}
-	switch db.Dialector.Name() {
+	switch db.Name() {
 	case "postgres":
 		migrator := db.Migrator()
 		for _, name := range []string{"uni_page_specs_page_key", "page_specs_page_key_key"} {

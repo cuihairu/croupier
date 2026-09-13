@@ -20,11 +20,11 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to create task routing store: %v", err)
 	}
-	defer taskStore.Close()
+	defer func() { _ = taskStore.Close() }()
 
 	// Create dispatcher with persistent task store
 	dispatcher := dispatch.NewDispatcherWithTaskStore(registryStore, taskStore, nil)
-	defer dispatcher.Close()
+	defer func() { _ = dispatcher.Close() }()
 
 	// Simulate task routing
 	fmt.Println("\n1. Registering task routes...")

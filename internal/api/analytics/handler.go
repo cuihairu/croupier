@@ -174,8 +174,8 @@ func (h *Handler) Realtime(c *gin.Context) {
 	defer ticker.Stop()
 
 	// 发送初始连接成功消息
-	fmt.Fprintf(c.Writer, "event: connected\n")
-	fmt.Fprintf(c.Writer, "data: {\"status\":\"connected\"}\n\n")
+	_, _ = fmt.Fprintf(c.Writer, "event: connected\n")
+	_, _ = fmt.Fprintf(c.Writer, "data: {\"status\":\"connected\"}\n\n")
 	c.Writer.Flush()
 
 	for {
@@ -189,9 +189,9 @@ func (h *Handler) Realtime(c *gin.Context) {
 			if err != nil {
 				slog.ErrorContext(ctx, "Failed to get realtime data", "error", err)
 				// 发送错误事件，但不关闭连接
-				fmt.Fprintf(c.Writer, "event: error\n")
+				_, _ = fmt.Fprintf(c.Writer, "event: error\n")
 				errorData, _ := json.Marshal(map[string]string{"error": err.Error()})
-				fmt.Fprintf(c.Writer, "data: %s\n\n", errorData)
+				_, _ = fmt.Fprintf(c.Writer, "data: %s\n\n", errorData)
 				c.Writer.Flush()
 				continue
 			}
@@ -203,8 +203,8 @@ func (h *Handler) Realtime(c *gin.Context) {
 			// error 分支不可达，已删除。
 			data, _ := json.Marshal(resp)
 
-			fmt.Fprintf(c.Writer, "event: message\n")
-			fmt.Fprintf(c.Writer, "data: %s\n\n", data)
+			_, _ = fmt.Fprintf(c.Writer, "event: message\n")
+			_, _ = fmt.Fprintf(c.Writer, "data: %s\n\n", data)
 			c.Writer.Flush()
 		}
 	}

@@ -70,7 +70,7 @@ func (m *FunctionModel) FindByFunctionID(ctx context.Context, functionID string)
 
 // List returns paginated functions.
 func (m *FunctionModel) List(ctx context.Context, opts ListFunctionsOptions) ([]Function, int64, error) {
-	opts.PaginationOptions.Normalize()
+	opts.Normalize()
 
 	var (
 		items []Function

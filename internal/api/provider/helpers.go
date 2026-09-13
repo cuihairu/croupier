@@ -199,5 +199,6 @@ func refreshProviderTimestamp(store *reg.Store, caps reg.OpenAPIProviderCaps) {
 		return
 	}
 	caps.UpdatedAt = time.Now()
-	store.UpsertOpenAPIProvider(caps)
+	// 与 control_handler 同款：注册失败不阻断契约聚合主流程
+	_ = store.UpsertOpenAPIProvider(caps)
 }

@@ -47,7 +47,7 @@ func (PageSpec) TableName() string {
 func (p *PageSpec) GetTitle() map[string]string {
 	var title map[string]string
 	if p.TitleJSON != "" {
-		json.Unmarshal([]byte(p.TitleJSON), &title)
+		_ = json.Unmarshal([]byte(p.TitleJSON), &title)
 	}
 	return title
 }
@@ -65,7 +65,7 @@ func (p *PageSpec) SetTitle(title map[string]string) error {
 func (p *PageSpec) GetCategoryLabels() map[string]string {
 	var labels map[string]string
 	if p.CategoryLabelsJSON != "" {
-		json.Unmarshal([]byte(p.CategoryLabelsJSON), &labels)
+		_ = json.Unmarshal([]byte(p.CategoryLabelsJSON), &labels)
 	}
 	return labels
 }

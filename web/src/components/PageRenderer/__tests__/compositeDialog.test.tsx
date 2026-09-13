@@ -9,7 +9,7 @@
  * （裸字段名与 row. 前缀两种形态）、rowClick openModal 表达式参数、
  * bindingId 命中、弹窗 fields/table 区块聚合渲染、onCancel、closeModal 链。 */
 import React from 'react';
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { App } from 'antd';
 import { CompositeRenderer } from '../CompositeRenderer';
 import type { CompositeSection } from '@/types/dashboard';

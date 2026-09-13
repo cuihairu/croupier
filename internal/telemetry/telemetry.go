@@ -606,7 +606,7 @@ func (p *TracerProvider) EndSpan(span *Span) {
 
 	for _, exporter := range exporters {
 		go func(e SpanExporter) {
-			e.ExportSpans(context.Background(), []*Span{span})
+			_ = e.ExportSpans(context.Background(), []*Span{span})
 		}(exporter)
 	}
 }

@@ -170,7 +170,7 @@ func TestContextUsername(t *testing.T) {
 	t.Parallel()
 
 	t.Run("nil_context", func(t *testing.T) {
-		assert.Equal(t, "", contextUsername(nil))
+		assert.Equal(t, "", contextUsername(nil)) //nolint:staticcheck // 刻意 nil context：验证 nil ctx 回退空串
 	})
 
 	t.Run("no_username_key", func(t *testing.T) {
@@ -207,7 +207,7 @@ func TestCommentAuthor(t *testing.T) {
 	})
 
 	t.Run("nil_context", func(t *testing.T) {
-		assert.Equal(t, "system", commentAuthor(nil))
+		assert.Equal(t, "system", commentAuthor(nil)) //nolint:staticcheck // 刻意 nil context：验证 nil ctx 回退 system
 	})
 }
 

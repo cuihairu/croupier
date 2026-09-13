@@ -479,17 +479,17 @@ func setupAdminHandlerTest(t *testing.T) (*Handler, *gorm.DB) {
 
 	// Create admin
 	admin := &model.Admin{Username: "testadmin", Nickname: "Test Admin", Status: 1}
-	err = adminModel.Create(nil, admin, "password123")
+	err = adminModel.Create(nil, admin, "password123") //nolint:staticcheck // 刻意 nil context：model 层不消费 ctx
 	require.NoError(t, err)
 
 	role := &model.Role{Name: "admin"}
-	err = roleModel.Create(nil, role)
+	err = roleModel.Create(nil, role) //nolint:staticcheck // 刻意 nil context：model 层不消费 ctx
 	require.NoError(t, err)
 
-	err = adminModel.AssignRole(nil, admin.ID, role.ID)
+	err = adminModel.AssignRole(context.TODO(), admin.ID, role.ID)
 	require.NoError(t, err)
 
-	err = roleModel.ReplacePermissions(nil, role.ID, []string{"admin:all", "user:read", "user:write"})
+	err = roleModel.ReplacePermissions(context.TODO(), role.ID, []string{"admin:all", "user:read", "user:write"})
 	require.NoError(t, err)
 
 	permissions := []*model.Permission{
@@ -555,7 +555,7 @@ func TestHandler_Get_Integration(t *testing.T) {
 	handler, db := setupAdminHandlerTest(t)
 
 	adminModel := model.NewAdminModel(db)
-	admin, err := adminModel.FindByUsername(nil, "testadmin")
+	admin, err := adminModel.FindByUsername(context.TODO(), "testadmin")
 	require.NoError(t, err)
 
 	router := gin.New()
@@ -595,7 +595,7 @@ func TestHandler_Delete_Integration(t *testing.T) {
 	// Create an admin to delete
 	adminModel := model.NewAdminModel(db)
 	admin := &model.Admin{Username: "todelete", Nickname: "To Delete", Status: 1}
-	err := adminModel.Create(nil, admin, "password123")
+	err := adminModel.Create(context.TODO(), admin, "password123")
 	require.NoError(t, err)
 
 	router := gin.New()
@@ -615,7 +615,7 @@ func TestHandler_PasswordReset_Integration(t *testing.T) {
 	handler, db := setupAdminHandlerTest(t)
 
 	adminModel := model.NewAdminModel(db)
-	admin, err := adminModel.FindByUsername(nil, "testadmin")
+	admin, err := adminModel.FindByUsername(context.TODO(), "testadmin")
 	require.NoError(t, err)
 
 	router := gin.New()
@@ -637,7 +637,7 @@ func TestHandler_GetGames_Integration(t *testing.T) {
 	handler, db := setupAdminHandlerTest(t)
 
 	adminModel := model.NewAdminModel(db)
-	admin, err := adminModel.FindByUsername(nil, "testadmin")
+	admin, err := adminModel.FindByUsername(context.TODO(), "testadmin")
 	require.NoError(t, err)
 
 	router := gin.New()
@@ -657,7 +657,7 @@ func TestHandler_UpdateGames_Integration(t *testing.T) {
 	handler, db := setupAdminHandlerTest(t)
 
 	adminModel := model.NewAdminModel(db)
-	admin, err := adminModel.FindByUsername(nil, "testadmin")
+	admin, err := adminModel.FindByUsername(context.TODO(), "testadmin")
 	require.NoError(t, err)
 
 	router := gin.New()
@@ -679,7 +679,7 @@ func TestHandler_Update_Integration(t *testing.T) {
 	handler, db := setupAdminHandlerTest(t)
 
 	adminModel := model.NewAdminModel(db)
-	admin, err := adminModel.FindByUsername(nil, "testadmin")
+	admin, err := adminModel.FindByUsername(context.TODO(), "testadmin")
 	require.NoError(t, err)
 
 	router := gin.New()
@@ -788,7 +788,7 @@ func TestHandler_Update_InvalidJSON_Integration(t *testing.T) {
 	handler, db := setupAdminHandlerTest(t)
 
 	adminModel := model.NewAdminModel(db)
-	admin, err := adminModel.FindByUsername(nil, "testadmin")
+	admin, err := adminModel.FindByUsername(context.TODO(), "testadmin")
 	require.NoError(t, err)
 
 	router := gin.New()
@@ -809,7 +809,7 @@ func TestHandler_PasswordReset_InvalidJSON_Integration(t *testing.T) {
 	handler, db := setupAdminHandlerTest(t)
 
 	adminModel := model.NewAdminModel(db)
-	admin, err := adminModel.FindByUsername(nil, "testadmin")
+	admin, err := adminModel.FindByUsername(context.TODO(), "testadmin")
 	require.NoError(t, err)
 
 	router := gin.New()
@@ -830,7 +830,7 @@ func TestHandler_UpdateGames_InvalidJSON_Integration(t *testing.T) {
 	handler, db := setupAdminHandlerTest(t)
 
 	adminModel := model.NewAdminModel(db)
-	admin, err := adminModel.FindByUsername(nil, "testadmin")
+	admin, err := adminModel.FindByUsername(context.TODO(), "testadmin")
 	require.NoError(t, err)
 
 	router := gin.New()

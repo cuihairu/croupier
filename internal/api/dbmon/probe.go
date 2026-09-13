@@ -74,7 +74,7 @@ func Probe(ctx context.Context, src *model.DBSource, dsn string) (*ProbeResult, 
 		res.Error = fmt.Sprintf("open: %v", err)
 		return res, nil
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 	res.LatencyMS = time.Since(start).Milliseconds()
 
 	pctx, cancel := context.WithTimeout(ctx, 5*time.Second)
@@ -117,7 +117,7 @@ func probeMySQL(ctx context.Context, db *sql.DB, res *ProbeResult) {
 			_ = rows.Scan(&variable, &value)
 			statuses[variable] = value
 		}
-		rows.Close()
+		_ = rows.Close()
 		res.Connections.Current = atoi(statuses["Threads_connected"])
 		res.Connections.Active = atoi(statuses["Threads_running"])
 		if v := atoi(statuses["Innodb_deadlocks"]); v > 0 || statuses["Innodb_deadlocks"] != "" {
@@ -140,7 +140,7 @@ func probeMySQL(ctx context.Context, db *sql.DB, res *ProbeResult) {
 
 	lockRows, err := db.QueryContext(ctx, lockWaitsSQL)
 	if err == nil {
-		defer lockRows.Close()
+		defer func() { _ = lockRows.Close() }()
 		for lockRows.Next() {
 			var lw LockWait
 			var query sql.NullString
@@ -205,7 +205,7 @@ JOIN pg_locks kl ON kl.locktype = bl.locktype AND kl.relation IS NOT DISTINCT FR
 JOIN pg_stat_activity blocking ON blocking.pid = kl.pid
 WHERE NOT bl.granted`)
 	if err == nil {
-		defer lockRows.Close()
+		defer func() { _ = lockRows.Close() }()
 		for lockRows.Next() {
 			var lw LockWait
 			var secs float64

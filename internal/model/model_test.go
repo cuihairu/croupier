@@ -4343,8 +4343,9 @@ func TestBackupModel_List(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	// List all
-	items, total, err := model.List(ctx, ListBackupsOptions{})
+	// List all（首次声明即消费 total；items 在分页断言处才需要）
+	var items []Backup
+	_, total, err := model.List(ctx, ListBackupsOptions{})
 	require.NoError(t, err)
 	assert.GreaterOrEqual(t, total, int64(3))
 

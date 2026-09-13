@@ -134,7 +134,7 @@ type HotpatchQueryOptions struct {
 
 // List returns hotpatches matching filters.
 func (m *HotpatchModel) List(ctx context.Context, opts HotpatchQueryOptions) ([]Hotpatch, int64, error) {
-	opts.PaginationOptions.Normalize()
+	opts.Normalize()
 	var (
 		items []Hotpatch
 		total int64

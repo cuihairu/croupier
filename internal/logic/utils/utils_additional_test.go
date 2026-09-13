@@ -544,7 +544,7 @@ func TestEnsurePermissionIDs(t *testing.T) {
 
 func TestCurrentUsernameErrors(t *testing.T) {
 	t.Run("nil context", func(t *testing.T) {
-		_, err := CurrentUsername(nil)
+		_, err := CurrentUsername(nil) //nolint:staticcheck // 刻意 nil context：验证 CurrentUsername 的 nil 容错
 		assert.Error(t, err)
 	})
 

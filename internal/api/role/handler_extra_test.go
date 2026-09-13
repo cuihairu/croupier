@@ -36,17 +36,17 @@ func setupRoleHandlerTestExtra(t *testing.T) (*Handler, *gorm.DB) {
 		Nickname: "Test Admin",
 		Status:   1,
 	}
-	err = adminModel.Create(nil, admin, "password123")
+	err = adminModel.Create(context.TODO(), admin, "password123")
 	require.NoError(t, err)
 
 	role := &model.Role{Name: "admin"}
-	err = roleModel.Create(nil, role)
+	err = roleModel.Create(context.TODO(), role)
 	require.NoError(t, err)
 
-	err = adminModel.AssignRole(nil, admin.ID, role.ID)
+	err = adminModel.AssignRole(context.TODO(), admin.ID, role.ID)
 	require.NoError(t, err)
 
-	err = roleModel.ReplacePermissions(nil, role.ID, []string{
+	err = roleModel.ReplacePermissions(context.TODO(), role.ID, []string{
 		"admin:all", "roles:manage", "role:write",
 	})
 	require.NoError(t, err)
@@ -131,7 +131,7 @@ func TestHandler_RoleDetail_Success_Extra(t *testing.T) {
 		Description: "Test Role",
 		Category:    "test",
 	}
-	err := roleModel.Create(nil, role)
+	err := roleModel.Create(context.TODO(), role)
 	require.NoError(t, err)
 
 	router := gin.New()
@@ -158,7 +158,7 @@ func TestHandler_RoleDelete_Success_Extra(t *testing.T) {
 
 	// Create a role to delete
 	role := &model.Role{Name: "todelete"}
-	err := roleModel.Create(nil, role)
+	err := roleModel.Create(context.TODO(), role)
 	require.NoError(t, err)
 
 	router := gin.New()
@@ -212,7 +212,7 @@ func TestHandler_RoleUpdate_Success_Extra(t *testing.T) {
 
 	// Create a role to update
 	role := &model.Role{Name: "toupdate"}
-	err := roleModel.Create(nil, role)
+	err := roleModel.Create(context.TODO(), role)
 	require.NoError(t, err)
 
 	router := gin.New()
@@ -290,7 +290,7 @@ func TestHandler_RoleUpdate_WithPermissions_Extra(t *testing.T) {
 
 	// Create a role to update
 	role := &model.Role{Name: "toupdateperms"}
-	err := roleModel.Create(nil, role)
+	err := roleModel.Create(context.TODO(), role)
 	require.NoError(t, err)
 
 	router := gin.New()
@@ -319,7 +319,7 @@ func TestHandler_RoleUpdate_EmptyBody_Extra(t *testing.T) {
 
 	// Create a role to update
 	role := &model.Role{Name: "toupdateempty"}
-	err := roleModel.Create(nil, role)
+	err := roleModel.Create(context.TODO(), role)
 	require.NoError(t, err)
 
 	router := gin.New()
@@ -482,18 +482,18 @@ func TestHandler_EnsurePermissionIDs_NilRoleModel(t *testing.T) {
 		Nickname: "Test Admin",
 		Status:   1,
 	}
-	err = adminModel.Create(nil, admin, "password123")
+	err = adminModel.Create(context.TODO(), admin, "password123")
 	require.NoError(t, err)
 
 	roleModel := model.NewRoleModel(db)
 	role := &model.Role{Name: "admin"}
-	err = roleModel.Create(nil, role)
+	err = roleModel.Create(context.TODO(), role)
 	require.NoError(t, err)
 
-	err = adminModel.AssignRole(nil, admin.ID, role.ID)
+	err = adminModel.AssignRole(context.TODO(), admin.ID, role.ID)
 	require.NoError(t, err)
 
-	err = roleModel.ReplacePermissions(nil, role.ID, []string{"admin:all"})
+	err = roleModel.ReplacePermissions(context.TODO(), role.ID, []string{"admin:all"})
 	require.NoError(t, err)
 
 	svcCtx := &svc.ServiceContext{
@@ -539,7 +539,7 @@ func TestHandler_RoleDetail_PermissionDenied(t *testing.T) {
 		Nickname: "No Perm",
 		Status:   1,
 	}
-	err := adminModel.Create(nil, admin, "password123")
+	err := adminModel.Create(context.TODO(), admin, "password123")
 	require.NoError(t, err)
 
 	router := gin.New()
@@ -570,7 +570,7 @@ func TestHandler_RoleDelete_PermissionDenied_Extra(t *testing.T) {
 		Nickname: "No Perm",
 		Status:   1,
 	}
-	err := adminModel.Create(nil, admin, "password123")
+	err := adminModel.Create(context.TODO(), admin, "password123")
 	require.NoError(t, err)
 
 	router := gin.New()
@@ -601,7 +601,7 @@ func TestHandler_RoleUpdate_PermissionDenied_Extra(t *testing.T) {
 		Nickname: "No Perm",
 		Status:   1,
 	}
-	err := adminModel.Create(nil, admin, "password123")
+	err := adminModel.Create(context.TODO(), admin, "password123")
 	require.NoError(t, err)
 
 	router := gin.New()
@@ -638,7 +638,7 @@ func TestHandler_RoleCreate_PermissionDenied_Extra(t *testing.T) {
 		Nickname: "No Perm",
 		Status:   1,
 	}
-	err := adminModel.Create(nil, admin, "password123")
+	err := adminModel.Create(context.TODO(), admin, "password123")
 	require.NoError(t, err)
 
 	router := gin.New()
@@ -675,7 +675,7 @@ func TestHandler_RolesList_PermissionDenied_Extra(t *testing.T) {
 		Nickname: "No Perm",
 		Status:   1,
 	}
-	err := adminModel.Create(nil, admin, "password123")
+	err := adminModel.Create(context.TODO(), admin, "password123")
 	require.NoError(t, err)
 
 	router := gin.New()

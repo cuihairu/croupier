@@ -142,7 +142,7 @@ func (l *TCPLocalListener) serveConn(ctx context.Context, conn net.Conn) {
 	remoteAddr := conn.RemoteAddr().String()
 	l.logger.Info("Provider TCP connection accepted", "remote", remoteAddr)
 	defer func() {
-		conn.Close()
+		_ = conn.Close()
 		l.logger.Info("Provider TCP connection closed", "remote", remoteAddr)
 	}()
 

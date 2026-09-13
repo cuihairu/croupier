@@ -60,7 +60,7 @@ func (m *AlertModel) UpdateStatus(ctx context.Context, id uint, status string) e
 
 // List returns paginated alerts.
 func (m *AlertModel) List(ctx context.Context, opts ListAlertsOptions) ([]Alert, int64, error) {
-	opts.PaginationOptions.Normalize()
+	opts.Normalize()
 
 	var (
 		items []Alert

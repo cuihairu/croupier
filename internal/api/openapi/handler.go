@@ -58,7 +58,7 @@ func (h *Handler) CreateSource(c *gin.Context) {
 			response.Error(c, err)
 			return
 		}
-		defer file.Close()
+		defer func() { _ = file.Close() }()
 		name := strings.TrimSpace(c.PostForm("name"))
 		if name == "" && header != nil {
 			name = header.Filename

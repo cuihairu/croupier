@@ -50,14 +50,14 @@ func CleanupLegacyPageTables(db *gorm.DB) error {
 // unlike GORM's HasColumn which has issues with columns not in the Go struct.
 func tableHasColumn(db *gorm.DB, tableName, columnName string) bool {
 	var count int64
-	switch db.Dialector.Name() {
+	switch db.Name() {
 	case "sqlite":
 		// SQLite PRAGMA returns column info for a table.
 		rows, err := db.Raw("PRAGMA table_info(" + tableName + ")").Rows()
 		if err != nil {
 			return false
 		}
-		defer rows.Close()
+		defer func() { _ = rows.Close() }()
 		for rows.Next() {
 			var cid int
 			var name, ctype string
@@ -93,7 +93,7 @@ func tableHasColumn(db *gorm.DB, tableName, columnName string) bool {
 // dropColumnFromTable drops a column from a table using raw SQL.
 // Handles the dialect differences for DROP COLUMN.
 func dropColumnFromTable(db *gorm.DB, tableName, columnName string) error {
-	switch db.Dialector.Name() {
+	switch db.Name() {
 	case "sqlite":
 		// SQLite >= 3.35.0 supports ALTER TABLE DROP COLUMN.
 		return db.Exec("ALTER TABLE " + tableName + " DROP COLUMN " + columnName).Error

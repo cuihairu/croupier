@@ -278,7 +278,7 @@ func (m *Manager) EnsureDefaultPolicy(ctx context.Context, functionID string, ri
 func (m *Manager) dbPolicyToPolicy(dbPolicy *model.FunctionPolicy, isOverride bool, defaultRiskLevel string) *Policy {
 	var allowedRoles []string
 	if dbPolicy.AllowedRoles != nil {
-		json.Unmarshal(dbPolicy.AllowedRoles, &allowedRoles)
+		_ = json.Unmarshal(dbPolicy.AllowedRoles, &allowedRoles)
 	}
 
 	return &Policy{

@@ -76,7 +76,7 @@ func TestNormalizeConfig_Errors(t *testing.T) {
 
 func TestLifecycleStartStop(t *testing.T) {
 	// nil membership → Start 返回 nil（防御分支）
-	lc := Start(nil, Config{}, nil, nil, nil)
+	lc := Start(nil, Config{}, nil, nil, nil) //nolint:staticcheck // 刻意 nil membership：验证防御分支
 	assert.Nil(t, lc)
 
 	// 最小可测生命周期：内存 Membership（不需要 Redis/网络）

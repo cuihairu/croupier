@@ -2,12 +2,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { PageContainer } from '@ant-design/pro-components';
 import { Alert, App, Button, Card, Col, Row, Select, Space, Tabs, Tag, Typography } from 'antd';
-import {
-  CloudServerOutlined,
-  HistoryOutlined,
-  ReloadOutlined,
-  SendOutlined,
-} from '@ant-design/icons';
+import { HistoryOutlined, ReloadOutlined, SendOutlined } from '@ant-design/icons';
 import { FormattedMessage, getLocale, history, useIntl, useLocation } from '@umijs/max';
 import { type SchemaFormRendererHandle } from '@/components/SchemaFormRenderer';
 import {

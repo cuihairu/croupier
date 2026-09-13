@@ -60,12 +60,12 @@ type TicketCreateRequest struct {
 	Env      string   `json:"env"`
 	Assignee string   `json:"assignee"`
 	// 玩家上下文（game-support P1）
-	ServerId    string                 `json:"serverId,optional"`
-	PlayerLevel int                    `json:"playerLevel,optional"`
-	DeviceOS    string                 `json:"deviceOs,optional"`
-	DeviceModel string                 `json:"deviceModel,optional"`
-	Language    string                 `json:"language,optional"`
-	Extra       map[string]interface{} `json:"extra,optional"`
+	ServerId    string                 `json:"serverId"`
+	PlayerLevel int                    `json:"playerLevel"`
+	DeviceOS    string                 `json:"deviceOs"`
+	DeviceModel string                 `json:"deviceModel"`
+	Language    string                 `json:"language"`
+	Extra       map[string]interface{} `json:"extra"`
 }
 
 type TicketDeleteRequest struct {

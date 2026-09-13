@@ -7,7 +7,6 @@
 import React from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { App } from 'antd';
-import SchemaFormRenderer from '@/components/SchemaFormRenderer';
 import OperationPageRenderer from '../OperationPageRenderer';
 import type {
   ApprovalStatusResult,

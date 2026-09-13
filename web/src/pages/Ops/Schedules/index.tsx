@@ -8,7 +8,6 @@ import {
   InputNumber,
   Popconfirm,
   Select,
-  Space,
   Table,
   Tag,
 } from 'antd';

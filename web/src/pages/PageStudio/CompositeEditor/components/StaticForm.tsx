@@ -1,7 +1,6 @@
 import React from 'react';
-import { Input, Space, Typography } from 'antd';
+import { Space, Typography } from 'antd';
 import { getIntl, useIntl } from '@umijs/max';
-import { registerComponent } from '../registry';
 import type { ComponentDef } from '../registry';
 import type { PageNode } from '../model';
 import { spanSchema, visibleWhenSchema } from './shared';

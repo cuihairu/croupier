@@ -839,7 +839,8 @@ func (s *ControlService) handleRegisterCapabilitiesRequest(ctx context.Context, 
 		OpenAPIDoc: manifestData,
 		UpdatedAt:  time.Now(),
 	}
-	s.registry.UpsertOpenAPIProvider(providerCaps)
+	// Upsert 仅在 ID 为空时报错；ID 已由上游 provider 注册校验保证非空。
+	_ = s.registry.UpsertOpenAPIProvider(providerCaps)
 
 	s.logger.Info("Provider capabilities registered", "provider_id", req.Provider.Id)
 
@@ -1041,7 +1042,7 @@ func decompressManifest(data []byte) ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to create gzip reader: %w", err)
 	}
-	defer reader.Close()
+	defer func() { _ = reader.Close() }()
 	return io.ReadAll(reader)
 }
 

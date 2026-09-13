@@ -155,7 +155,7 @@ type BugQueryOptions struct {
 
 // List returns bugs matching the options.
 func (m *BugModel) List(ctx context.Context, opts BugQueryOptions) ([]Bug, int64, error) {
-	opts.PaginationOptions.Normalize()
+	opts.Normalize()
 
 	var (
 		items []Bug

@@ -342,7 +342,7 @@ func (h *LocalHandler) callLocalProvider(ctx context.Context, addr string, msgID
 	if err != nil {
 		return nil, err
 	}
-	defer client.Close()
+	defer func() { _ = client.Close() }()
 	_, respBody, err := client.Call(ctx, msgID, data)
 	return respBody, err
 }

@@ -230,7 +230,7 @@ func TestMuxConn_Send_NilContext(t *testing.T) {
 
 	done := make(chan error, 1)
 	go func() {
-		done <- mc.Send(nil, protocol.MsgTaskEvent, []byte("test"))
+		done <- mc.Send(nil, protocol.MsgTaskEvent, []byte("test")) //nolint:staticcheck // 刻意 nil context：验证不依赖 ctx 的健壮性
 	}()
 
 	select {
@@ -289,7 +289,7 @@ func TestMuxConn_Call_NilContext(t *testing.T) {
 
 	done := make(chan struct{})
 	go func() {
-		_, _, _ = mc.Call(nil, protocol.MsgInvokeRequest, []byte("test"))
+		_, _, _ = mc.Call(nil, protocol.MsgInvokeRequest, []byte("test")) //nolint:staticcheck // 刻意 nil context：验证不依赖 ctx 的健壮性
 		close(done)
 	}()
 
@@ -338,7 +338,7 @@ func TestMuxConn_Run_NilContext(t *testing.T) {
 
 	done := make(chan error, 1)
 	go func() {
-		done <- mc.Run(nil)
+		done <- mc.Run(nil) //nolint:staticcheck // 刻意 nil context：验证不依赖 ctx 的健壮性
 	}()
 
 	// Close the connection to unblock Run

@@ -884,7 +884,7 @@ func toJSONMap(m spec.LocalizedText) datatypes.JSONMap {
 	}
 	b, _ := json.Marshal(m)
 	var result datatypes.JSONMap
-	json.Unmarshal(b, &result)
+	_ = json.Unmarshal(b, &result)
 	return result
 }
 
@@ -1669,7 +1669,7 @@ func (s *ContractService) CreateCompositeProposal(
 			normalized = append(normalized, spec.ComponentTemplateUsage{Key: key, Digest: strings.TrimSpace(usage.Digest)})
 		}
 		if len(normalized) > 0 {
-			generated.PageSpec.ComponentTemplates = normalized
+			generated.ComponentTemplates = normalized
 		}
 	}
 	// 统一校验规则（单一规则源）：提案创建即运行发布级 selector 校验——与

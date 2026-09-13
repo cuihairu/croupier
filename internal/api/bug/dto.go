@@ -62,26 +62,26 @@ type BugListResponse struct {
 
 type BugCreateRequest struct {
 	Title           string                 `json:"title"`
-	Content         string                 `json:"content,optional"`
-	Status          string                 `json:"status,optional"`
-	Severity        string                 `json:"severity,optional"`
-	Priority        string                 `json:"priority,optional"`
-	Assignee        string                 `json:"assignee,optional"`
-	GameID          string                 `json:"gameId,optional"`
-	Env             string                 `json:"env,optional"`
-	ServerID        string                 `json:"serverId,optional"`
-	Platform        string                 `json:"platform,optional"`
-	Device          string                 `json:"device,optional"`
-	OS              string                 `json:"os,optional"`
-	Steps           string                 `json:"steps,optional"`
-	Reproducibility string                 `json:"reproducibility,optional"`
-	AffectsVersion  string                 `json:"affectsVersion,optional"`
-	FixVersion      string                 `json:"fixVersion,optional"`
-	Source          string                 `json:"source,optional"`
-	SourceTicketID  uint                   `json:"sourceTicketId,optional"`
-	PlayerID        string                 `json:"playerId,optional"`
-	Links           json.RawMessage        `json:"links,optional"`
-	Extra           map[string]interface{} `json:"extra,optional"`
+	Content         string                 `json:"content"`
+	Status          string                 `json:"status"`
+	Severity        string                 `json:"severity"`
+	Priority        string                 `json:"priority"`
+	Assignee        string                 `json:"assignee"`
+	GameID          string                 `json:"gameId"`
+	Env             string                 `json:"env"`
+	ServerID        string                 `json:"serverId"`
+	Platform        string                 `json:"platform"`
+	Device          string                 `json:"device"`
+	OS              string                 `json:"os"`
+	Steps           string                 `json:"steps"`
+	Reproducibility string                 `json:"reproducibility"`
+	AffectsVersion  string                 `json:"affectsVersion"`
+	FixVersion      string                 `json:"fixVersion"`
+	Source          string                 `json:"source"`
+	SourceTicketID  uint                   `json:"sourceTicketId"`
+	PlayerID        string                 `json:"playerId"`
+	Links           json.RawMessage        `json:"links"`
+	Extra           map[string]interface{} `json:"extra"`
 }
 
 type BugCreateResponse struct {
@@ -98,18 +98,18 @@ type BugGetResponse struct {
 
 type BugUpdateRequest struct {
 	ID              string          `uri:"id"`
-	Title           string          `json:"title,optional"`
-	Content         *string         `json:"content,optional"`
-	Status          *string         `json:"status,optional"`
-	Severity        *string         `json:"severity,optional"`
-	Priority        *string         `json:"priority,optional"`
-	Assignee        *string         `json:"assignee,optional"`
-	Steps           *string         `json:"steps,optional"`
-	Reproducibility *string         `json:"reproducibility,optional"`
-	AffectsVersion  *string         `json:"affectsVersion,optional"`
-	FixVersion      *string         `json:"fixVersion,optional"`
-	Platform        *string         `json:"platform,optional"`
-	Links           json.RawMessage `json:"links,optional"`
+	Title           string          `json:"title"`
+	Content         *string         `json:"content"`
+	Status          *string         `json:"status"`
+	Severity        *string         `json:"severity"`
+	Priority        *string         `json:"priority"`
+	Assignee        *string         `json:"assignee"`
+	Steps           *string         `json:"steps"`
+	Reproducibility *string         `json:"reproducibility"`
+	AffectsVersion  *string         `json:"affectsVersion"`
+	FixVersion      *string         `json:"fixVersion"`
+	Platform        *string         `json:"platform"`
+	Links           json.RawMessage `json:"links"`
 }
 
 type BugUpdateResponse struct {

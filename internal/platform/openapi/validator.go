@@ -119,9 +119,7 @@ func (v *Validator) validateSchema(schema *openapi3.Schema) error {
 	if schema.Type != nil {
 		switch (*schema.Type)[0] {
 		case "object":
-			if len(schema.Properties) == 0 && schema.AdditionalProperties.Schema == nil {
-				// Empty object is allowed, but warn
-			}
+			// 空对象（无 Properties 且无 AdditionalProperties.Schema）是合法的
 		case "array":
 			if schema.Items == nil || schema.Items.Value == nil {
 				return errors.New("array type must have items defined")

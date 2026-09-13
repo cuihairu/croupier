@@ -1,6 +1,7 @@
 package feedback
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -176,6 +177,6 @@ func TestHandler_Stats_Success(t *testing.T) {
 func TestService_NilModel_Error(t *testing.T) {
 	// A ServiceContext without a FeedbackModel must surface a clean error.
 	svc := NewService(&svc.ServiceContext{})
-	_, err := svc.List(nil, &FeedbackListRequest{})
+	_, err := svc.List(context.TODO(), &FeedbackListRequest{})
 	assert.Error(t, err)
 }

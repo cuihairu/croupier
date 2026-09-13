@@ -22,7 +22,7 @@ func WriteFileAtomic(path string, data []byte, perm os.FileMode) error {
 	tmpName := tmp.Name()
 	defer os.Remove(tmpName) //nolint:errcheck // rename 成功后清理失败无影响
 	if _, err := tmp.Write(data); err != nil {
-		tmp.Close()
+		_ = tmp.Close()
 		return err
 	}
 	if err := tmp.Close(); err != nil {

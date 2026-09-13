@@ -71,7 +71,7 @@ func testLDAPConnect(cfg config.LDAPProviderConfig) error {
 	if err != nil {
 		return fmt.Errorf("连接 %s 失败: %w", addr, err)
 	}
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 	// TCP 可达即视为目录服务在线（完整 bind 校验走 go-ldap，
 	// 这里轻量探测避免引入完整 LDAP 会话依赖；build 侧已有完整实现）
 	return nil
@@ -96,7 +96,7 @@ func testOIDCDiscovery(cfg config.OIDCProviderConfig) error {
 		}
 		return fmt.Errorf("发现端点不可达: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("发现端点返回 %d", resp.StatusCode)
 	}

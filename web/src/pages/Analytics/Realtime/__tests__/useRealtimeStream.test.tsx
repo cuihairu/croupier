@@ -1,7 +1,6 @@
 /** 回归：SSE 数据帧不得触发重连。
  * 原缺陷：tryPersist 闭包依赖四条 pts state → pushRealtime→connect 引用
  * 每帧重建 → useEffect [connect] 每帧 closeStream+重连。 */
-import React from 'react';
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { openAnalyticsRealtimeEventSource } from '@/services/api/analytics';
 import { STALE_AFTER_MS } from '../types';

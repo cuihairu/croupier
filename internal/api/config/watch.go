@@ -74,12 +74,12 @@ func (h *WatchHandler) Watch(c *gin.Context) {
 			changed := diffVersions(lastVersions, now)
 			if len(changed) > 0 {
 				lastVersions = now
-				fmt.Fprintf(c.Writer, "event: changed\n")
-				fmt.Fprintf(c.Writer, "data: %s\n\n", string(mustJSON(changed)))
+				_, _ = fmt.Fprintf(c.Writer, "event: changed\n")
+				_, _ = fmt.Fprintf(c.Writer, "data: %s\n\n", string(mustJSON(changed)))
 				c.Writer.Flush()
 			} else {
 				// Comment-frame heartbeat keeps proxies from idling out.
-				fmt.Fprintf(c.Writer, ": ping\n\n")
+				_, _ = fmt.Fprintf(c.Writer, ": ping\n\n")
 				c.Writer.Flush()
 			}
 		}
@@ -91,8 +91,8 @@ func (h *WatchHandler) writeSnapshot(c *gin.Context, versions map[string]int) {
 	for k, v := range versions {
 		payload[k] = v
 	}
-	fmt.Fprintf(c.Writer, "event: snapshot\n")
-	fmt.Fprintf(c.Writer, "data: %s\n\n", mustJSON(payload))
+	_, _ = fmt.Fprintf(c.Writer, "event: snapshot\n")
+	_, _ = fmt.Fprintf(c.Writer, "data: %s\n\n", mustJSON(payload))
 	c.Writer.Flush()
 }
 

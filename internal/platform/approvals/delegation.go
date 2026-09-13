@@ -202,7 +202,7 @@ func (s *DelegationService) CreateDelegation(ctx context.Context, req *Delegatio
 
 	// Notify the delegate
 	if s.notifier != nil {
-		s.notifier.Notify(ctx, []string{req.Delegate}, NotificationEvent{
+		_ = s.notifier.Notify(ctx, []string{req.Delegate}, NotificationEvent{
 			Type:    "delegation_created",
 			Title:   "Approval Delegation Received",
 			Message: fmt.Sprintf("You have received approval delegation from %s", req.Delegator),
@@ -301,7 +301,7 @@ func (s *DelegationService) RevokeDelegation(ctx context.Context, id, revokedBy,
 
 	// Notify the delegate
 	if s.notifier != nil {
-		s.notifier.Notify(ctx, []string{delegation.Delegate}, NotificationEvent{
+		_ = s.notifier.Notify(ctx, []string{delegation.Delegate}, NotificationEvent{
 			Type:    "delegation_revoked",
 			Title:   "Approval Delegation Revoked",
 			Message: fmt.Sprintf("Your delegation from %s has been revoked", delegation.Delegator),

@@ -64,7 +64,7 @@ func TestService_GetRegistry_SkipsBlankAndNilSessions(t *testing.T) {
 	}
 	store.Mu().Unlock()
 
-	resp, err := service.GetRegistry(nil, &RegistryRequest{})
+	resp, err := service.GetRegistry(context.TODO(), &RegistryRequest{})
 	require.NoError(t, err)
 	require.Len(t, resp.Agents, 1)
 	assert.Equal(t, "agent-ok", resp.Agents[0].AgentID)

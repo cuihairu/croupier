@@ -38,17 +38,17 @@ func setupGameHandlerTest(t *testing.T) (*Handler, *gorm.DB) {
 		Nickname: "Test Admin",
 		Status:   1,
 	}
-	err = adminModel.Create(nil, admin, "password123")
+	err = adminModel.Create(nil, admin, "password123") //nolint:staticcheck // 刻意 nil context：model 层不消费 ctx
 	require.NoError(t, err)
 
 	role := &model.Role{Name: "admin"}
-	err = roleModel.Create(nil, role)
+	err = roleModel.Create(nil, role) //nolint:staticcheck // 刻意 nil context：model 层不消费 ctx
 	require.NoError(t, err)
 
-	err = adminModel.AssignRole(nil, admin.ID, role.ID)
+	err = adminModel.AssignRole(nil, admin.ID, role.ID) //nolint:staticcheck // 刻意 nil context：model 层不消费 ctx
 	require.NoError(t, err)
 
-	err = roleModel.ReplacePermissions(nil, role.ID, []string{
+	err = roleModel.ReplacePermissions(context.TODO(), role.ID, []string{
 		"admin:all", "games:manage",
 	})
 	require.NoError(t, err)
@@ -106,7 +106,7 @@ func TestHandler_List_Success_Extra(t *testing.T) {
 		AliasName: "Test Game",
 		Status:    "dev",
 	}
-	err := gameModel.Create(nil, game)
+	err := gameModel.Create(context.TODO(), game)
 	require.NoError(t, err)
 
 	router := gin.New()
@@ -156,7 +156,7 @@ func TestHandler_Detail_Success_Extra(t *testing.T) {
 		AliasName: "Detail Game",
 		Status:    "dev",
 	}
-	err := gameModel.Create(nil, game)
+	err := gameModel.Create(context.TODO(), game)
 	require.NoError(t, err)
 
 	router := gin.New()
@@ -214,7 +214,7 @@ func TestHandler_Update_Success_Extra(t *testing.T) {
 		AliasName: "Update Game",
 		Status:    "dev",
 	}
-	err := gameModel.Create(nil, game)
+	err := gameModel.Create(context.TODO(), game)
 	require.NoError(t, err)
 
 	router := gin.New()
@@ -268,7 +268,7 @@ func TestHandler_Delete_Success_Extra(t *testing.T) {
 		AliasName: "Delete Game",
 		Status:    "dev",
 	}
-	err := gameModel.Create(nil, game)
+	err := gameModel.Create(context.TODO(), game)
 	require.NoError(t, err)
 
 	router := gin.New()
@@ -311,7 +311,7 @@ func TestHandler_EnvsList_Success_Extra(t *testing.T) {
 		AliasName: "Env Game",
 		Status:    "dev",
 	}
-	err := gameModel.Create(nil, game)
+	err := gameModel.Create(context.TODO(), game)
 	require.NoError(t, err)
 
 	// Add envs via SetEnvs
@@ -320,7 +320,7 @@ func TestHandler_EnvsList_Success_Extra(t *testing.T) {
 	}
 	err = game.SetEnvs(envs)
 	require.NoError(t, err)
-	err = gameModel.Update(nil, game.ID, map[string]interface{}{"envs": game.Envs})
+	err = gameModel.Update(context.TODO(), game.ID, map[string]interface{}{"envs": game.Envs})
 	require.NoError(t, err)
 
 	router := gin.New()
@@ -346,7 +346,7 @@ func TestHandler_EnvAdd_Success_Extra(t *testing.T) {
 		AliasName: "Env Add Game",
 		Status:    "dev",
 	}
-	err := gameModel.Create(nil, game)
+	err := gameModel.Create(context.TODO(), game)
 	require.NoError(t, err)
 
 	router := gin.New()
@@ -379,7 +379,7 @@ func TestHandler_EnvUpdate_Success_Extra(t *testing.T) {
 		AliasName: "Env Update Game",
 		Status:    "dev",
 	}
-	err := gameModel.Create(nil, game)
+	err := gameModel.Create(context.TODO(), game)
 	require.NoError(t, err)
 
 	// Add envs via SetEnvs
@@ -388,7 +388,7 @@ func TestHandler_EnvUpdate_Success_Extra(t *testing.T) {
 	}
 	err = game.SetEnvs(envs)
 	require.NoError(t, err)
-	err = gameModel.Update(nil, game.ID, map[string]interface{}{"envs": game.Envs})
+	err = gameModel.Update(context.TODO(), game.ID, map[string]interface{}{"envs": game.Envs})
 	require.NoError(t, err)
 
 	router := gin.New()
@@ -421,7 +421,7 @@ func TestHandler_EnvDelete_Success_Extra(t *testing.T) {
 		AliasName: "Env Delete Game",
 		Status:    "dev",
 	}
-	err := gameModel.Create(nil, game)
+	err := gameModel.Create(context.TODO(), game)
 	require.NoError(t, err)
 
 	// Add envs via SetEnvs
@@ -430,7 +430,7 @@ func TestHandler_EnvDelete_Success_Extra(t *testing.T) {
 	}
 	err = game.SetEnvs(envs)
 	require.NoError(t, err)
-	err = gameModel.Update(nil, game.ID, map[string]interface{}{"envs": game.Envs})
+	err = gameModel.Update(context.TODO(), game.ID, map[string]interface{}{"envs": game.Envs})
 	require.NoError(t, err)
 
 	router := gin.New()
@@ -456,7 +456,7 @@ func TestHandler_EnvDelete_NotFound_Extra(t *testing.T) {
 		AliasName: "Env Delete Game 2",
 		Status:    "dev",
 	}
-	err := gameModel.Create(nil, game)
+	err := gameModel.Create(context.TODO(), game)
 	require.NoError(t, err)
 
 	router := gin.New()
@@ -498,7 +498,7 @@ func TestHandler_EnvAdd_Duplicate_Extra(t *testing.T) {
 		AliasName: "Env Dup Game",
 		Status:    "dev",
 	}
-	err := gameModel.Create(nil, game)
+	err := gameModel.Create(context.TODO(), game)
 	require.NoError(t, err)
 
 	// Add envs via SetEnvs
@@ -507,7 +507,7 @@ func TestHandler_EnvAdd_Duplicate_Extra(t *testing.T) {
 	}
 	err = game.SetEnvs(envs)
 	require.NoError(t, err)
-	err = gameModel.Update(nil, game.ID, map[string]interface{}{"envs": game.Envs})
+	err = gameModel.Update(context.TODO(), game.ID, map[string]interface{}{"envs": game.Envs})
 	require.NoError(t, err)
 
 	router := gin.New()
@@ -539,7 +539,7 @@ func TestHandler_Create_DuplicateName_Extra(t *testing.T) {
 		AliasName: "Dup Game",
 		Status:    "dev",
 	}
-	err := gameModel.Create(nil, game)
+	err := gameModel.Create(context.TODO(), game)
 	require.NoError(t, err)
 
 	router := gin.New()
@@ -584,7 +584,7 @@ func TestHandler_Update_InvalidJSON_Extra(t *testing.T) {
 
 	gameModel := model.NewGameModel(db)
 	game := &model.Game{Name: "invjsongame", AliasName: "InvJSON", Status: "dev"}
-	err := gameModel.Create(nil, game)
+	err := gameModel.Create(context.TODO(), game)
 	require.NoError(t, err)
 
 	router := gin.New()
@@ -606,7 +606,7 @@ func TestHandler_EnvAdd_InvalidJSON_Extra(t *testing.T) {
 
 	gameModel := model.NewGameModel(db)
 	game := &model.Game{Name: "envaddinvjson", AliasName: "EnvAddInvJSON", Status: "dev"}
-	err := gameModel.Create(nil, game)
+	err := gameModel.Create(context.TODO(), game)
 	require.NoError(t, err)
 
 	router := gin.New()
@@ -628,13 +628,13 @@ func TestHandler_EnvUpdate_InvalidJSON_Extra(t *testing.T) {
 
 	gameModel := model.NewGameModel(db)
 	game := &model.Game{Name: "envupinvjson", AliasName: "EnvUpInvJSON", Status: "dev"}
-	err := gameModel.Create(nil, game)
+	err := gameModel.Create(context.TODO(), game)
 	require.NoError(t, err)
 
 	envs := []model.GameEnv{{Env: "prod", Description: "Production"}}
 	err = game.SetEnvs(envs)
 	require.NoError(t, err)
-	err = gameModel.Update(nil, game.ID, map[string]interface{}{"envs": game.Envs})
+	err = gameModel.Update(context.TODO(), game.ID, map[string]interface{}{"envs": game.Envs})
 	require.NoError(t, err)
 
 	router := gin.New()

@@ -13,7 +13,7 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	// Check all tables
 	fmt.Println("=== TABLES ===")
@@ -21,7 +21,7 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	count := 0
 	for rows.Next() {
@@ -43,7 +43,7 @@ func main() {
 		fmt.Printf("Error querying admins: %v\n", err2)
 		return
 	}
-	defer rows2.Close()
+	defer func() { _ = rows2.Close() }()
 
 	fmt.Println("ID | Username | Nickname | Status")
 	fmt.Println("---|----------|----------|-------")
@@ -69,7 +69,7 @@ func main() {
 		fmt.Printf("Error querying admin_roles: %v\n", err3)
 		return
 	}
-	defer rows3.Close()
+	defer func() { _ = rows3.Close() }()
 
 	fmt.Println("AdminID | RoleID")
 	fmt.Println("--------|-------")
@@ -93,7 +93,7 @@ func main() {
 		fmt.Printf("Error querying roles: %v\n", err4)
 		return
 	}
-	defer rows4.Close()
+	defer func() { _ = rows4.Close() }()
 
 	fmt.Println("ID | Name")
 	fmt.Println("---|----")

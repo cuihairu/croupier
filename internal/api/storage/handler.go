@@ -71,7 +71,7 @@ func (h *Handler) UploadObject(c *gin.Context) {
 			response.Error(c, err)
 			return
 		}
-		defer file.Close()
+		defer func() { _ = file.Close() }()
 
 		req.File = file
 		req.Size = fileHeader.Size

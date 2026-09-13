@@ -3,7 +3,6 @@
  * 选择态清理三路——悬空 selectedId 清 null·multiIds 过滤·editingModalId
  * 悬空清存活留）、redo（空栈静默/恢复/past 追加）、快捷键（Ctrl+Z 撤销·
  * Ctrl+Shift+Z 与 Ctrl+Y 重做·无修饰键或非 z 忽略）。 */
-import React from 'react';
 import { act, fireEvent, renderHook } from '@testing-library/react';
 import { useEditorHistory } from '../useEditorHistory';
 import type { PageNode } from '../model';

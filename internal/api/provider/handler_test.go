@@ -78,7 +78,7 @@ func TestService_List_NilContext(t *testing.T) {
 
 	service := NewService(&svc.ServiceContext{})
 
-	resp, err := service.List(nil, &ProvidersListRequest{
+	resp, err := service.List(context.TODO(), &ProvidersListRequest{
 		Page:     1,
 		PageSize: 10,
 	})
@@ -98,7 +98,7 @@ func TestService_Capabilities_NilContext(t *testing.T) {
 
 	service := NewService(&svc.ServiceContext{})
 
-	resp, err := service.Capabilities(nil, &ProvidersCapabilitiesRequest{})
+	resp, err := service.Capabilities(context.TODO(), &ProvidersCapabilitiesRequest{})
 
 	// Should handle nil context gracefully
 	if err != nil {
@@ -115,7 +115,7 @@ func TestService_Descriptors_NilContext(t *testing.T) {
 
 	service := NewService(&svc.ServiceContext{})
 
-	resp, err := service.Descriptors(nil, &ProvidersDescriptorsRequest{})
+	resp, err := service.Descriptors(context.TODO(), &ProvidersDescriptorsRequest{})
 
 	// Should handle nil context gracefully
 	if err != nil {
@@ -132,7 +132,7 @@ func TestService_Detail_NilContext(t *testing.T) {
 
 	service := NewService(&svc.ServiceContext{})
 
-	resp, err := service.Detail(nil, &ProviderDetailRequest{
+	resp, err := service.Detail(context.TODO(), &ProviderDetailRequest{
 		ID: "test",
 	})
 
@@ -151,7 +151,7 @@ func TestService_Resources_NilContext(t *testing.T) {
 
 	service := NewService(&svc.ServiceContext{})
 
-	resp, err := service.Resources(nil, &ProvidersResourcesRequest{
+	resp, err := service.Resources(context.TODO(), &ProvidersResourcesRequest{
 		ID: "test",
 	})
 

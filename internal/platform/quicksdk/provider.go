@@ -370,7 +370,7 @@ func getInt(m map[string]interface{}, key string) int {
 			return int(val)
 		case string:
 			var i int
-			fmt.Sscanf(val, "%d", &i)
+			_, _ = fmt.Sscanf(val, "%d", &i)
 			return i
 		}
 	}
@@ -388,7 +388,7 @@ func getInt64(m map[string]interface{}, key string) int64 {
 			return int64(val)
 		case string:
 			var i int64
-			fmt.Sscanf(val, "%d", &i)
+			_, _ = fmt.Sscanf(val, "%d", &i)
 			return i
 		}
 	}

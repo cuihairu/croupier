@@ -429,9 +429,11 @@ func TestService_Download_FileURI(t *testing.T) {
 
 	payload, err := env.service.Download(context.Background(), &BackupDownloadRequest{ID: "bkp-uri"})
 	require.NoError(t, err)
-	defer payload.Reader.(interface {
-		Close() error
-	}).Close()
+	defer func() {
+		_ = payload.Reader.(interface {
+			Close() error
+		}).Close()
+	}()
 	assert.Equal(t, int64(4), payload.Size)
 }
 
@@ -450,9 +452,11 @@ func TestService_Download_RelativePath(t *testing.T) {
 
 	payload, err := env.service.Download(context.Background(), &BackupDownloadRequest{ID: "bkp-rel"})
 	require.NoError(t, err)
-	defer payload.Reader.(interface {
-		Close() error
-	}).Close()
+	defer func() {
+		_ = payload.Reader.(interface {
+			Close() error
+		}).Close()
+	}()
 	assert.Equal(t, int64(3), payload.Size)
 }
 

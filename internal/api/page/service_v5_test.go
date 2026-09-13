@@ -1,6 +1,7 @@
 package page
 
 import (
+	"context"
 	"testing"
 
 	"github.com/cuihairu/croupier/internal/dashboard/spec"
@@ -408,7 +409,7 @@ func TestErrPageNotFoundV5(t *testing.T) {
 func TestPagePublishSourceV5_NilCases(t *testing.T) {
 	svc := &Service{}
 	// nil page
-	result := svc.pagePublishSource(nil, "g", "e", nil)
+	result := svc.pagePublishSource(context.TODO(), "g", "e", nil)
 	assert.Empty(t, result.BaseProposalKey)
 }
 
@@ -432,6 +433,6 @@ func TestPagePublishSourceV5_AllBranches(t *testing.T) {
 
 func TestPagePublishSourceV5_NilService(t *testing.T) {
 	svc := (*Service)(nil)
-	result := svc.pagePublishSource(nil, "g", "e", &model.PageSpec{})
+	result := svc.pagePublishSource(context.TODO(), "g", "e", &model.PageSpec{})
 	assert.Empty(t, result.BaseProposalKey)
 }

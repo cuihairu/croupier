@@ -4,7 +4,7 @@
  * 本测试用一棵「全特性树」逐区块断言字段白名单与值形态。
  */
 import { compileTree, decompileToTree } from '../compiler';
-import { nodeId, type PageNode } from '../model';
+import { type PageNode } from '../model';
 
 /** 后端允许的字段白名单（CompositeSectionRequest json tag 对照）。 */
 const SECTION_ALLOWED_KEYS = [

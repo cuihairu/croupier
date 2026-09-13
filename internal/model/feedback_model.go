@@ -57,7 +57,7 @@ func (m *FeedbackModel) FindByID(ctx context.Context, id uint) (*Feedback, error
 
 // List fetches paginated feedback entries.
 func (m *FeedbackModel) List(ctx context.Context, opts ListFeedbackOptions) ([]Feedback, int64, error) {
-	opts.PaginationOptions.Normalize()
+	opts.Normalize()
 
 	var (
 		items []Feedback

@@ -43,7 +43,7 @@ func CompileXLSX(data []byte) (*ExcelWorkbook, error) {
 	if err != nil {
 		return nil, fmt.Errorf("解析 xlsx 失败: %w", err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	sheets := f.GetSheetList()
 	if len(sheets) == 0 {

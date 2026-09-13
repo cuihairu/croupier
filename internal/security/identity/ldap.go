@@ -88,7 +88,7 @@ func (p *LDAPProvider) Authenticate(ctx context.Context, username, password stri
 	if err != nil {
 		return nil, fmt.Errorf("ldap dial: %w", err)
 	}
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 
 	if p.cfg.StartTLS && !strings.HasPrefix(strings.ToLower(p.cfg.Addr), "ldaps://") {
 		if err := conn.StartTLS(p.tlsCfg); err != nil {

@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Alert, Button, Input, Space, Typography } from 'antd';
+import { Button, Input, Space, Typography } from 'antd';
 import { DeleteOutlined, PlusOutlined } from '@ant-design/icons';
 import { FormattedMessage, useIntl } from '@umijs/max';
 import { fieldsToSchemaJson, schemaToFields, type ConstantField } from './constants';

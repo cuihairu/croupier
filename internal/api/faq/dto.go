@@ -51,10 +51,10 @@ type FAQCreateRequest struct {
 	Answer   string   `json:"answer"`
 	Category string   `json:"category"`
 	Tags     []string `json:"tags"`
-	Visible  bool     `json:"visible,optional,default=true"`
-	Sort     int      `json:"sort,optional,default=0"`
-	Slug     string   `json:"slug,optional"`
-	Summary  string   `json:"summary,optional"`
+	Visible  bool     `json:"visible"`
+	Sort     int      `json:"sort"`
+	Slug     string   `json:"slug"`
+	Summary  string   `json:"summary"`
 }
 
 // FAQCreateResponse represents the response after creating an FAQ

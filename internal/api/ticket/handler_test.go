@@ -87,7 +87,7 @@ func TestHandler_CreateAndGet_RoundTrip(t *testing.T) {
 	require.Equal(t, http.StatusOK, getRec.Code, getRec.Body.String())
 	var detail GetResponse
 	require.NoError(t, json.Unmarshal(getRec.Body.Bytes(), &detail))
-	assert.Equal(t, created.Id, detail.Ticket.Id)
+	assert.Equal(t, created.Id, detail.Id)
 
 	// List reflects the new ticket.
 	listCtx, listRec := newTicketRequest(http.MethodGet, "/api/v1/tickets?page=1&pageSize=10", "")

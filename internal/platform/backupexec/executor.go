@@ -64,7 +64,7 @@ func (e *Executor) RunBackup(ctx context.Context, backupID, name, backupType str
 		e.finish(ctx, backup, "failed", "", 0, "", derr.Error())
 		return derr
 	}
-	defer os.Remove(dumpPath)
+	defer func() { _ = os.Remove(dumpPath) }()
 
 	// 上传对象存储。
 	key := e.objectKey(backupID, backupType)
@@ -79,7 +79,7 @@ func (e *Executor) RunBackup(ctx context.Context, backupID, name, backupType str
 		e.finish(ctx, backup, "failed", "", 0, "", err.Error())
 		return err
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	if err := e.store.Put(ctx, key, f, size, "application/octet-stream"); err != nil {
 		e.finish(ctx, backup, "failed", "", 0, "", err.Error())
 		return err
@@ -115,7 +115,7 @@ func (e *Executor) dump(ctx context.Context, backupID string) (string, int64, st
 	if err != nil {
 		return "", 0, "", err
 	}
-	defer tmp.Close()
+	defer func() { _ = tmp.Close() }()
 	path := tmp.Name()
 
 	var cmdErr error
@@ -130,7 +130,7 @@ func (e *Executor) dump(ctx context.Context, backupID string) (string, int64, st
 		cmdErr = fmt.Errorf("unsupported backup driver %q (supported: mysql/postgres/sqlite)", e.driver)
 	}
 	if cmdErr != nil {
-		os.Remove(path)
+		_ = os.Remove(path)
 		return "", 0, "", fmt.Errorf("dump failed: %w", cmdErr)
 	}
 
@@ -140,7 +140,7 @@ func (e *Executor) dump(ctx context.Context, backupID string) (string, int64, st
 	}
 	sum, err := fileSHA256(path)
 	if err != nil {
-		os.Remove(path)
+		_ = os.Remove(path)
 		return "", 0, "", err
 	}
 	return path, st.Size(), sum, nil
@@ -172,7 +172,7 @@ func (e *Executor) dumpPostgres(ctx context.Context, out string) error {
 	if err != nil {
 		return err
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	args := []string{
 		"--host=" + host, "--port=" + port, "--username=" + user,
 		"--format=plain", "--no-owner", "--no-privileges", database,
@@ -201,12 +201,12 @@ func (e *Executor) dumpSQLite(ctx context.Context, out string) error {
 	if err != nil {
 		return err
 	}
-	defer src.Close()
+	defer func() { _ = src.Close() }()
 	dst, err := os.Create(out) // #nosec G304 -- 输出路径为函数内生成的临时文件
 	if err != nil {
 		return err
 	}
-	defer dst.Close()
+	defer func() { _ = dst.Close() }()
 	if _, err := dst.ReadFrom(src); err != nil {
 		return err
 	}
@@ -245,7 +245,7 @@ func fileSHA256(path string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	h := sha256.New()
 	if _, err := f.WriteTo(h); err != nil {
 		return "", err

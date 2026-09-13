@@ -8,7 +8,6 @@
 import React from 'react';
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import ActionEditor from '../ActionEditor';
-import ExpressionInput from '../ExpressionInput';
 import type { PageNode } from '../model';
 import type { FunctionDescriptor } from '@/services/api/functions';
 

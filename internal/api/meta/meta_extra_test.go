@@ -1,6 +1,7 @@
 package meta
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -28,7 +29,7 @@ func TestService_Root_WithProfiles(t *testing.T) {
 	}
 	svc := NewService(svcCtx)
 
-	resp, err := svc.Root(nil)
+	resp, err := svc.Root(context.TODO())
 	require.NoError(t, err)
 	assert.Equal(t, "croupier-server", resp.Service)
 	assert.Equal(t, "test", resp.Environment)
@@ -47,7 +48,7 @@ func TestService_Root_EmptyProfiles(t *testing.T) {
 	}
 	svc := NewService(svcCtx)
 
-	resp, err := svc.Root(nil)
+	resp, err := svc.Root(context.TODO())
 	require.NoError(t, err)
 	assert.Empty(t, resp.Profiles)
 	assert.Equal(t, "prod", resp.Environment)

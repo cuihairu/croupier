@@ -8,7 +8,6 @@
 import React from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { App } from 'antd';
-import SchemaFormRenderer from '@/components/SchemaFormRenderer';
 import TaskPageRenderer from '../TaskPageRenderer';
 import type {
   ApprovalStatusResult,

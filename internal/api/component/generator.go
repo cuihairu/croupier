@@ -106,16 +106,16 @@ func (h *Handler) GenerateCRUDTemplate(ctx context.Context, resource string, con
 		if c.ResourceKey != resource {
 			continue
 		}
-		switch {
-		case c.Capability == dbenum.CapabilityCollectionQuery:
+		switch c.Capability {
+		case dbenum.CapabilityCollectionQuery:
 			listFn = c
-		case c.Capability == dbenum.CapabilityItemQuery:
+		case dbenum.CapabilityItemQuery:
 			getFn = c
-		case c.Capability == dbenum.CapabilityCreate:
+		case dbenum.CapabilityCreate:
 			createFn = c
-		case c.Capability == dbenum.CapabilityUpdate:
+		case dbenum.CapabilityUpdate:
 			updateFn = c
-		case c.Capability == dbenum.CapabilityDelete:
+		case dbenum.CapabilityDelete:
 			deleteFn = c
 		}
 	}

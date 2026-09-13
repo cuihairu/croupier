@@ -98,7 +98,7 @@ func (s *Server) Serve(ctx context.Context) error {
 }
 
 func (s *Server) serveConn(ctx context.Context, conn net.Conn) {
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 
 	for {
 		select {

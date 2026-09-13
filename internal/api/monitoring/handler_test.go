@@ -165,7 +165,7 @@ func TestService_Status_NilContext(t *testing.T) {
 	}
 	service := NewService(svcCtx)
 
-	resp, err := service.Status(nil, &StatusRequest{})
+	resp, err := service.Status(context.TODO(), &StatusRequest{})
 	assert.NoError(t, err)
 	assert.NotNil(t, resp)
 }
@@ -327,7 +327,7 @@ func TestCollectRegistryStats_NilStore(t *testing.T) {
 
 func TestCheckDatabaseHealth_NilContext(t *testing.T) {
 	svcCtx := &svc.ServiceContext{}
-	result := checkDatabaseHealth(nil, svcCtx)
+	result := checkDatabaseHealth(context.TODO(), svcCtx)
 	assert.False(t, result["ok"].(bool))
 	assert.Contains(t, result["error"], "not initialized")
 }

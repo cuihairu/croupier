@@ -8,7 +8,7 @@
  * Cascader 值取最后一级 string；Rate 为 number。
  */
 
-import { useState, type FocusEvent } from 'react';
+import { useState } from 'react';
 import { Cascader, Rate, Select as AntdSelect, TreeSelect as AntdTreeSelect } from 'antd';
 import { Widgets as AntdWidgets } from '@rjsf/antd';
 import type { GenericObjectType, RJSFSchema, WidgetProps } from '@rjsf/utils';
@@ -105,8 +105,8 @@ function TreeSelectBody({
       treeNodeFilterProp="title"
       allowClear
       onChange={handleChange}
-      onBlur={(event: FocusEvent<HTMLInputElement>) => onBlur(id, value)}
-      onFocus={(event: FocusEvent<HTMLInputElement>) => onFocus(id, value)}
+      onBlur={() => onBlur(id, value)}
+      onFocus={() => onFocus(id, value)}
       data-testid={id}
     />
   );
@@ -149,8 +149,8 @@ function RemoteTreeSelectBody({
       onChange={(next) => {
         onChange(multiple ? toValueArray(next) : typeof next === 'string' ? next : '');
       }}
-      onBlur={(event: FocusEvent<HTMLInputElement>) => onBlur(id, value)}
-      onFocus={(event: FocusEvent<HTMLInputElement>) => onFocus(id, value)}
+      onBlur={() => onBlur(id, value)}
+      onFocus={() => onFocus(id, value)}
       data-testid={id}
     />
   );

@@ -59,9 +59,10 @@ func GetPlatformInfo() map[string]interface{} {
 	// Add platform-specific info
 	// 覆盖边界说明：windows 分支由 runtime.GOOS 编译期常量决定，linux 测试
 	// 构建下不可达（windows 构建由 sysinfo_windows_test.go 覆盖其余路径）。
-	if runtime.GOOS == "windows" {
+	switch runtime.GOOS {
+	case "windows":
 		info["service_manager"] = "Windows Service Manager (SCM)"
-	} else if runtime.GOOS == "linux" {
+	case "linux":
 		info["service_manager"] = detectLinuxServiceManager()
 	}
 

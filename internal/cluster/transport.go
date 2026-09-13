@@ -45,7 +45,7 @@ func NewTCPDialer(cfg *tcp.Config) dialFunc {
 				_, respBody, err := client.Call(ctx, msgID, body)
 				return respBody, err
 			},
-			close: func() { client.Close() },
+			close: func() { _ = client.Close() },
 		}
 
 		// 握手：声明 server 角色 + 自身身份。
@@ -54,7 +54,7 @@ func NewTCPDialer(cfg *tcp.Config) dialFunc {
 		})
 		_, respBody, err := client.Call(ctx, protocol.MsgServerHelloRequest, hello)
 		if err != nil {
-			client.Close()
+			_ = client.Close()
 			return nil, fmt.Errorf("peer hello: %w", err)
 		}
 		var resp helloResponse

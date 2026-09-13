@@ -449,7 +449,7 @@ describe('创建', () => {
   it('失败：toast「创建失败」', async () => {
     formMockState.validate = true;
     formMockState.values = {};
-    const { onExecute } = await openCreateModal({
+    await openCreateModal({
       executeImpl: async (id: string) => {
         if (id === 'create') throw new Error('dup');
         return defaultImpl(id);
@@ -507,7 +507,7 @@ describe('编辑', () => {
   it('失败：toast「更新失败」', async () => {
     formMockState.validate = true;
     formMockState.values = {};
-    const { onExecute } = await openEditModal({
+    await openEditModal({
       executeImpl: async (id: string) => {
         if (id === 'update') throw new Error('x');
         return id === 'b-list' ? ok({ data: rows, total: 2 }) : ok({});

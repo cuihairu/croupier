@@ -149,7 +149,7 @@ func (s *Service) WarehouseDAU(ctx context.Context, req *WarehouseDAURequest) (*
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	points := []WarehouseDAUPoint{}
 	for rows.Next() {
@@ -179,7 +179,7 @@ func (s *Service) WarehouseOnline(ctx context.Context, req *WarehouseOnlineReque
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	points := []WarehouseOnlinePoint{}
 	for rows.Next() {
@@ -204,7 +204,7 @@ func (s *Service) WarehouseRevenue(ctx context.Context, req *WarehouseRevenueReq
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	points := []WarehouseRevenuePoint{}
 	for rows.Next() {

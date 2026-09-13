@@ -9,7 +9,7 @@
  * 流转弹窗、编辑弹窗（ModalForm）、删除确认、指派给我、升级为缺陷、
  * 满意度评价、附件上传与移除。 */
 import React from 'react';
-import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { App } from 'antd';
 import { useParams, history, useModel } from '@umijs/max';
 import { uploadAsset } from '@/services/api/storage';

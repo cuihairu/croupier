@@ -1,8 +1,7 @@
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import { App } from 'antd';
 import PropsPanel from '../PropsPanel';
 import { registerBuiltinComponents } from '../components/builtin';
-import { getComponent } from '../registry';
 import type { PageNode } from '../model';
 
 beforeAll(() => registerBuiltinComponents());

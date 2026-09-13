@@ -282,12 +282,8 @@ func ensureSQLiteDir(dsn string) error {
 	// - file:data/croupier.db?cache=shared
 	// - sqlite:///abs/path/to.db
 	// - :memory:
-	if strings.HasPrefix(dsn, "sqlite:///") {
-		dsn = strings.TrimPrefix(dsn, "sqlite:///")
-	}
-	if strings.HasPrefix(dsn, "file:") {
-		dsn = strings.TrimPrefix(dsn, "file:")
-	}
+	dsn = strings.TrimPrefix(dsn, "sqlite:///")
+	dsn = strings.TrimPrefix(dsn, "file:")
 	if idx := strings.IndexByte(dsn, '?'); idx >= 0 {
 		dsn = dsn[:idx]
 	}
@@ -321,12 +317,8 @@ func sqliteFilePath(dsn string) string {
 		return "data/croupier.db"
 	}
 
-	if strings.HasPrefix(dsn, "sqlite:///") {
-		dsn = strings.TrimPrefix(dsn, "sqlite:///")
-	}
-	if strings.HasPrefix(dsn, "file:") {
-		dsn = strings.TrimPrefix(dsn, "file:")
-	}
+	dsn = strings.TrimPrefix(dsn, "sqlite:///")
+	dsn = strings.TrimPrefix(dsn, "file:")
 	if idx := strings.IndexByte(dsn, '?'); idx >= 0 {
 		dsn = dsn[:idx]
 	}
@@ -360,7 +352,7 @@ func createMySQLDatabase(dsn, dbName string) error {
 	if err != nil {
 		return err
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	// 创建数据库（如果不存在）
 	_, err = db.Exec(fmt.Sprintf("CREATE DATABASE IF NOT EXISTS `%s` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci", dbName))
@@ -419,7 +411,7 @@ func createPostgresDatabase(dsn, dbName string) error {
 		// database/sql 签名契约，保留透传。
 		return err
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	// 创建数据库（如果不存在），禁用连接池以避免空闲连接问题
 	db.SetMaxOpenConns(1)
@@ -481,7 +473,7 @@ func createSQLServerDatabase(dsn, dbName string) error {
 	if err != nil {
 		return err
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	db.SetMaxOpenConns(1)
 	db.SetMaxIdleConns(1)

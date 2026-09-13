@@ -12,7 +12,6 @@ import { App } from 'antd';
 import { Area, Column, Line, Pie } from '@ant-design/charts';
 import { ProTable } from '@ant-design/pro-components';
 import { exportToCSV } from '@/utils/export';
-import SchemaFormRenderer from '@/components/SchemaFormRenderer';
 import ReportPageRenderer from '../ReportPageRenderer';
 import type { PageExecutionResult, PageFunctionBinding, ReportPageSpec } from '@/types/dashboard';
 

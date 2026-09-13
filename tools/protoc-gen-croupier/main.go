@@ -668,9 +668,10 @@ func parseAggregateKV(s string) map[string]string {
 			depth := 1
 			i++
 			for i < len(src) && depth > 0 {
-				if src[i] == '{' {
+				switch src[i] {
+				case '{':
 					depth++
-				} else if src[i] == '}' {
+				case '}':
 					depth--
 				}
 				i++
@@ -734,9 +735,10 @@ func parseOptionObjectMap(s, fieldName string) map[string]string {
 		depth := 1
 		start := j
 		for j < len(s) && depth > 0 {
-			if s[j] == '{' {
+			switch s[j] {
+			case '{':
 				depth++
-			} else if s[j] == '}' {
+			case '}':
 				depth--
 			}
 			j++

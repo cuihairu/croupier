@@ -5,6 +5,7 @@
 package provider
 
 import (
+	"context"
 	"net/http"
 	"strings"
 	"testing"
@@ -71,7 +72,7 @@ func TestHandler_Descriptors_InvalidJSON(t *testing.T) {
 
 func TestService_List_NilRequestDefaults(t *testing.T) {
 	s := newProviderRegistryService()
-	resp, err := s.List(nil, nil)
+	resp, err := s.List(context.TODO(), nil)
 	if err != nil {
 		t.Fatalf("List(nil req) error = %v", err)
 	}
@@ -94,7 +95,7 @@ func TestService_InvalidOpenAPIDocPaths(t *testing.T) {
 	s := NewService(&svc.ServiceContext{RegistryStore: store})
 
 	// Descriptors：decode 失败 → continue，manifests 为空。
-	resp, err := s.Descriptors(nil, &ProvidersDescriptorsRequest{})
+	resp, err := s.Descriptors(context.TODO(), &ProvidersDescriptorsRequest{})
 	if err != nil {
 		t.Fatalf("Descriptors error = %v", err)
 	}
@@ -103,7 +104,7 @@ func TestService_InvalidOpenAPIDocPaths(t *testing.T) {
 	}
 
 	// Resources（聚合）：decode 失败 → continue。
-	res, err := s.Resources(nil, &ProvidersResourcesRequest{})
+	res, err := s.Resources(context.TODO(), &ProvidersResourcesRequest{})
 	if err != nil {
 		t.Fatalf("Resources(*) error = %v", err)
 	}
@@ -112,19 +113,19 @@ func TestService_InvalidOpenAPIDocPaths(t *testing.T) {
 	}
 
 	// Resources 指定非法文档 provider → decode 失败返回错误。
-	if _, err := s.Resources(nil, &ProvidersResourcesRequest{ID: "broken"}); err == nil {
+	if _, err := s.Resources(context.TODO(), &ProvidersResourcesRequest{ID: "broken"}); err == nil {
 		t.Fatal("expected error for provider with invalid doc")
 	}
 
 	// Reload：非法文档 → 返回错误。
-	if _, err := s.Reload(nil, &ProviderActionRequest{ID: "broken"}); err == nil {
+	if _, err := s.Reload(context.TODO(), &ProviderActionRequest{ID: "broken"}); err == nil {
 		t.Fatal("expected Reload error for invalid doc")
 	}
 }
 
 func TestService_Resources_UnknownProvider(t *testing.T) {
 	s := newProviderRegistryService()
-	if _, err := s.Resources(nil, &ProvidersResourcesRequest{ID: "ghost"}); err == nil {
+	if _, err := s.Resources(context.TODO(), &ProvidersResourcesRequest{ID: "ghost"}); err == nil {
 		t.Fatal("expected error for unknown provider id")
 	}
 }
@@ -142,7 +143,7 @@ func TestService_Resources_ExtractsXResource(t *testing.T) {
 	}
 	s := NewService(&svc.ServiceContext{RegistryStore: store})
 
-	all, err := s.Resources(nil, &ProvidersResourcesRequest{})
+	all, err := s.Resources(context.TODO(), &ProvidersResourcesRequest{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -150,7 +151,7 @@ func TestService_Resources_ExtractsXResource(t *testing.T) {
 		t.Fatalf("aggregate total = %d, want 1", all.Total)
 	}
 
-	one, err := s.Resources(nil, &ProvidersResourcesRequest{ID: "ok"})
+	one, err := s.Resources(context.TODO(), &ProvidersResourcesRequest{ID: "ok"})
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -243,7 +243,7 @@ func buildGameFromSeed(entry bootstrapGameSeedEntry, defaults []model.GameEnv, i
 	// 忽略 json.Marshal 的错误并恒返 nil，且 []GameEnv 字段全为 string/
 	// 数值基础类型，无可构造的失败输入（同 internal/api/game/service.go
 	// 三处裸调用的先例）。
-	game.SetEnvs(envRecords)
+	_ = game.SetEnvs(envRecords)
 	return game, nil
 }
 

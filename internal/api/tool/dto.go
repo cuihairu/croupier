@@ -27,12 +27,12 @@ type ToolListResponse struct {
 type ToolCreateRequest struct {
 	Name        string `json:"name"`
 	URL         string `json:"url"`
-	Description string `json:"description,optional"`
-	Category    string `json:"category,optional"`
-	Icon        string `json:"icon,optional"`
-	GameID      string `json:"gameId,optional"`
-	Env         string `json:"env,optional"`
-	Sort        int    `json:"sort,optional"`
+	Description string `json:"description"`
+	Category    string `json:"category"`
+	Icon        string `json:"icon"`
+	GameID      string `json:"gameId"`
+	Env         string `json:"env"`
+	Sort        int    `json:"sort"`
 }
 
 type ToolCreateResponse struct {
@@ -41,15 +41,15 @@ type ToolCreateResponse struct {
 
 type ToolUpdateRequest struct {
 	ID          string  `uri:"id"`
-	Name        string  `json:"name,optional"`
-	URL         *string `json:"url,optional"`
-	Description *string `json:"description,optional"`
-	Category    *string `json:"category,optional"`
-	Icon        *string `json:"icon,optional"`
-	Sort        *int    `json:"sort,optional"`
-	Enabled     *bool   `json:"enabled,optional"`
-	GameID      *string `json:"gameId,optional"`
-	Env         *string `json:"env,optional"`
+	Name        string  `json:"name"`
+	URL         *string `json:"url"`
+	Description *string `json:"description"`
+	Category    *string `json:"category"`
+	Icon        *string `json:"icon"`
+	Sort        *int    `json:"sort"`
+	Enabled     *bool   `json:"enabled"`
+	GameID      *string `json:"gameId"`
+	Env         *string `json:"env"`
 }
 
 type ToolUpdateResponse struct {

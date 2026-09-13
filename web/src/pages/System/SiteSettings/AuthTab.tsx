@@ -741,7 +741,7 @@ export default function AuthTab() {
   // effect 无限重建；经 ref 转发后回调依赖稳定，执行时仍读取最新实例
   const intlRef = useRef(intl);
   intlRef.current = intl;
-  const [loading, setLoading] = useState(false);
+  const [, setLoading] = useState(false);
   const [snapshot, setSnapshot] = useState<AuthSnapshot | null>(null);
 
   const load = useCallback(async () => {

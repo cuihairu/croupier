@@ -117,7 +117,6 @@ export function compileTree(tree: PageNode[]): CompileResult {
     usedGroups.add(group);
     modalGroup.set(m.id, group);
   }
-  const modalFn = modalGroup; // 兼容旧引用
 
   // 页签分组（V2）：tabs 容器 → group 名。同 modal 机制——优先声明
   // sectionKey（round-trip 回写，稳定），否则 tabs-<id尾6> 去重兜底。

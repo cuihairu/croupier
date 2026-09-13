@@ -41,7 +41,7 @@ func TestMiddlewareInjectsClientIdentity(t *testing.T) {
 }
 
 func TestFromContextAbsent(t *testing.T) {
-	if _, ok := FromContext(nil); ok {
+	if _, ok := FromContext(nil); ok { //nolint:staticcheck // 刻意 nil context：验证 FromContext 的 nil 容错
 		t.Fatal("nil context must not carry info")
 	}
 }

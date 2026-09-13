@@ -272,17 +272,17 @@ func (s *MetricsStore) getFromDB(agentID string, since time.Time, limit int) []M
 		}
 		if len(record.CPUJSON) > 0 {
 			cpu := &opsv1.CpuMetrics{}
-			json.Unmarshal(record.CPUJSON, cpu)
+			_ = json.Unmarshal(record.CPUJSON, cpu)
 			report.Cpu = cpu
 		}
 		if len(record.MemoryJSON) > 0 {
 			mem := &opsv1.MemoryMetrics{}
-			json.Unmarshal(record.MemoryJSON, mem)
+			_ = json.Unmarshal(record.MemoryJSON, mem)
 			report.Memory = mem
 		}
 		if len(record.DisksJSON) > 0 {
 			disks := []*opsv1.DiskMetrics{}
-			json.Unmarshal(record.DisksJSON, &disks)
+			_ = json.Unmarshal(record.DisksJSON, &disks)
 			report.Disks = disks
 		}
 		result[i] = MetricsEntry{

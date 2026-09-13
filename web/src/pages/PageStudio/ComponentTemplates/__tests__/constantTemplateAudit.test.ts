@@ -5,7 +5,6 @@ import {
   maxConstantsInTree,
 } from '../constantTemplateAudit';
 import type { PageNode } from '../../../CompositeEditor/model';
-import { staticFormNodeFromFields } from '../../../CompositeEditor/constants';
 
 function staticFormNode(schema: Record<string, unknown>): PageNode {
   return {

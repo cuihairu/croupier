@@ -32,17 +32,17 @@ func setupGameTestDB(t *testing.T) (*gorm.DB, *svc.ServiceContext) {
 		Nickname: "Test Admin",
 		Status:   1,
 	}
-	err = adminModel.Create(nil, admin, "password123")
+	err = adminModel.Create(context.TODO(), admin, "password123")
 	require.NoError(t, err)
 
 	role := &model.Role{Name: "admin"}
-	err = roleModel.Create(nil, role)
+	err = roleModel.Create(context.TODO(), role)
 	require.NoError(t, err)
 
-	err = adminModel.AssignRole(nil, admin.ID, role.ID)
+	err = adminModel.AssignRole(context.TODO(), admin.ID, role.ID)
 	require.NoError(t, err)
 
-	err = roleModel.ReplacePermissions(nil, role.ID, []string{
+	err = roleModel.ReplacePermissions(context.TODO(), role.ID, []string{
 		"admin:all", "games:read", "games:manage",
 	})
 	require.NoError(t, err)
@@ -77,7 +77,7 @@ func setupGameTestDB(t *testing.T) (*gorm.DB, *svc.ServiceContext) {
 
 func createGameTestContext(t *testing.T, db *gorm.DB) context.Context {
 	adminModel := model.NewAdminModel(db)
-	admin, err := adminModel.FindByUsername(nil, "testadmin")
+	admin, err := adminModel.FindByUsername(context.TODO(), "testadmin")
 	require.NoError(t, err)
 
 	ctx := context.WithValue(context.Background(), "username", "testadmin")

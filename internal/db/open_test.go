@@ -321,10 +321,7 @@ func BenchmarkOpen_PostgreSQLString(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		// 只测试字符串解析，不实际连接
-		_ = dsn
-		if len(dsn) > 10 && (dsn[:10] == "postgres://" || dsn[:13] == "postgresql://") {
-			// 模拟解析逻辑
-		}
+		_ = len(dsn) > 10 && (dsn[:10] == "postgres://" || dsn[:13] == "postgresql://")
 	}
 }
 

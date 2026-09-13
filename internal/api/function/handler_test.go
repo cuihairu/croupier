@@ -126,14 +126,17 @@ func TestHandler_FunctionDetail_ValidRequest(t *testing.T) {
 	t.Parallel()
 	gin.SetMode(gin.TestMode)
 
-	h := NewHandler(NewService(&svc.ServiceContext{}))
-	ctx, rec := newFunctionTestContext(http.MethodGet, "/api/v1/functions/detail?id=test", "")
+	svcCtx := setupTestServiceContext(t)
+	createTestFunction(t, svcCtx.DB, "test", "Test Function")
+	h := NewHandler(NewService(svcCtx))
+	// 生产路由为 /functions/:id（uri 参数），单测手动注入路由参数
+	ctx, rec := newFunctionTestContext(http.MethodGet, "/api/v1/functions/test", "")
+	ctx.Params = gin.Params{{Key: "id", Value: "test"}}
 
 	h.FunctionDetail(ctx)
 
-	// Should process the request
-	if rec.Code != http.StatusOK && rec.Code != http.StatusInternalServerError {
-		// Accept both since we're not mocking the full service
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected status=200, got %d body=%s", rec.Code, rec.Body.String())
 	}
 }
 
@@ -142,14 +145,16 @@ func TestHandler_FunctionAnalytics_ValidRequest(t *testing.T) {
 	t.Parallel()
 	gin.SetMode(gin.TestMode)
 
-	h := NewHandler(NewService(&svc.ServiceContext{}))
-	ctx, rec := newFunctionTestContext(http.MethodGet, "/api/v1/functions/analytics?id=test", "")
+	svcCtx := setupTestServiceContext(t)
+	h := NewHandler(NewService(svcCtx))
+	// 生产路由为 /functions/:id/analytics（uri 参数），单测手动注入路由参数
+	ctx, rec := newFunctionTestContext(http.MethodGet, "/api/v1/functions/test/analytics", "")
+	ctx.Params = gin.Params{{Key: "id", Value: "test"}}
 
 	h.FunctionAnalytics(ctx)
 
-	// Should process the request
-	if rec.Code != http.StatusOK && rec.Code != http.StatusInternalServerError {
-		// Accept both since we're not mocking the full service
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected status=200, got %d body=%s", rec.Code, rec.Body.String())
 	}
 }
 
@@ -170,8 +175,9 @@ func TestHandler_FunctionCopy_ValidRequest(t *testing.T) {
 	h.FunctionCopy(ctx)
 
 	// Should process the request
+	// 未 mock 完整 service：200 与 500 均可接受
 	if rec.Code != http.StatusOK && rec.Code != http.StatusInternalServerError {
-		// Accept both since we're not mocking the full service
+		t.Fatalf("expected status=200 or 500, got %d body=%s", rec.Code, rec.Body.String())
 	}
 }
 
@@ -186,11 +192,15 @@ func TestHandler_FunctionInvoke_ValidRequest(t *testing.T) {
 		"payload": {"key": "value"},
 		"mode": "sync"
 	}`)
+	// functionInvoke 前置校验 game scope（中间件职责，单测手动注入）
+	ctx.Request = ctx.Request.WithContext(
+		svc.WithGameScope(ctx.Request.Context(), svc.GameScope{GameID: "demo", Env: "dev"}))
 
 	h.FunctionInvoke(ctx)
 
 	// Should process the request
+	// 未 mock 完整 service：200 与 500 均可接受
 	if rec.Code != http.StatusOK && rec.Code != http.StatusInternalServerError {
-		// Accept both since we're not mocking the full service
+		t.Fatalf("expected status=200 or 500, got %d body=%s", rec.Code, rec.Body.String())
 	}
 }

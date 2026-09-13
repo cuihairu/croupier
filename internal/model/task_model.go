@@ -70,7 +70,7 @@ func (m *TaskRunModel) UpdateByTaskIDIfStatusNotIn(ctx context.Context, taskID s
 }
 
 func (m *TaskRunModel) List(ctx context.Context, opts ListTasksOptions) ([]TaskRun, int64, error) {
-	opts.PaginationOptions.Normalize()
+	opts.Normalize()
 
 	var (
 		items []TaskRun

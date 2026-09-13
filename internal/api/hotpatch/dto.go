@@ -45,10 +45,10 @@ type ListResponse struct {
 
 type CreateRequest struct {
 	GameID    string                 `json:"gameId"`
-	Env       string                 `json:"env,optional"`
+	Env       string                 `json:"env"`
 	Framework string                 `json:"framework"`
-	Targets   []string               `json:"targets,optional"`
-	EntrySpec map[string]interface{} `json:"entrySpec,optional"`
+	Targets   []string               `json:"targets"`
+	EntrySpec map[string]interface{} `json:"entrySpec"`
 	// BugID is mandatory: every hotpatch must trace to a defect
 	// (design §3.4 safety rules).
 	BugID uint   `json:"bugId"`
@@ -75,7 +75,7 @@ type UploadResponse struct {
 type TransitionRequest struct {
 	ID             string `uri:"id"`
 	Action         string `json:"action"`
-	RolloutPercent *int   `json:"rolloutPercent,optional"`
+	RolloutPercent *int   `json:"rolloutPercent"`
 }
 
 type TransitionResponse struct {
@@ -86,9 +86,9 @@ type TransitionResponse struct {
 type ResultRequest struct {
 	ID      string `uri:"id"`
 	AgentID string `json:"agentId"`
-	Node    string `json:"node,optional"`
+	Node    string `json:"node"`
 	Status  string `json:"status"` // ok | failed | rolled_back
-	Log     string `json:"log,optional"`
+	Log     string `json:"log"`
 }
 
 func formatTime(t time.Time) string { return utils.FormatTimestamp(t) }

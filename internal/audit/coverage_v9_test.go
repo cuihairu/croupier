@@ -125,7 +125,7 @@ func TestAuditServiceLogRequestInfoV9(t *testing.T) {
 	assert.Equal(t, "10.1.2.3", record.Actor.IPAddress)
 	assert.Equal(t, "v9-agent", record.Actor.UserAgent)
 
-	nilCtxRecord, err := service.Log(nil, EventLogin)
+	nilCtxRecord, err := service.Log(nil, EventLogin) //nolint:staticcheck // 刻意 nil context：验证不依赖 ctx 的健壮性
 	require.NoError(t, err)
 	assert.Empty(t, nilCtxRecord.Actor.IPAddress)
 }
@@ -221,7 +221,7 @@ func TestFromRecordMarshalErrorsV9(t *testing.T) {
 }
 
 func TestDerivePromotedFieldsV9(t *testing.T) {
-	gameID, env, functionID, durationMs := derivePromotedFields(nil)
+	gameID, env, functionID, durationMs := derivePromotedFields(nil) //nolint:staticcheck // 刻意 nil context：验证不依赖 ctx 的健壮性
 	assert.Equal(t, "", gameID)
 	assert.Equal(t, "", env)
 	assert.Equal(t, "", functionID)

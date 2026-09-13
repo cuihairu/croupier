@@ -62,7 +62,7 @@ func (m *TicketModel) FindOne(ctx context.Context, id uint) (*Ticket, error) {
 
 // List returns paginated tickets.
 func (m *TicketModel) List(ctx context.Context, opts TicketQueryOptions) ([]Ticket, int64, error) {
-	opts.PaginationOptions.Normalize()
+	opts.Normalize()
 	var (
 		items []Ticket
 		total int64

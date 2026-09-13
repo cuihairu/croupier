@@ -214,8 +214,8 @@ func (s *Service) SaveDraft(ctx context.Context, req *PageSaveRequest) (*PageSav
 		}
 		// SetTitle/SetCategoryLabels 恒返回 nil（model 层实现为
 		// `b, _ := json.Marshal(map[string]string)`，无出错路径），err 检查已删。
-		ps.SetTitle(title)
-		ps.SetCategoryLabels(categoryLabels)
+		_ = ps.SetTitle(title)
+		_ = ps.SetCategoryLabels(categoryLabels)
 
 		if existing != nil {
 			ps.ID = existing.ID
@@ -1484,8 +1484,8 @@ func applyPageSpecToModel(p *model.PageSpec, ps spec.PageSpec) error {
 	p.Icon = strings.TrimSpace(ps.Icon)
 	// SetTitle/SetCategoryLabels 恒返回 nil（model 层实现为
 	// `b, _ := json.Marshal(map[string]string)`，无出错路径），err 检查已删。
-	p.SetTitle(normalizeLocaleKeys(ps.Title))
-	p.SetCategoryLabels(normalizeLocaleKeys(ps.Category.Labels))
+	_ = p.SetTitle(normalizeLocaleKeys(ps.Title))
+	_ = p.SetCategoryLabels(normalizeLocaleKeys(ps.Category.Labels))
 	raw, err := marshalPageSpec(ps)
 	if err != nil {
 		return err

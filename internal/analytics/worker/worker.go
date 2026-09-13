@@ -164,7 +164,7 @@ func (w *Worker) Run(ctx context.Context) error {
 			case <-tk.C:
 				// flush 实现恒返回 nil（内部各失败路径均以 slog.Warn
 				// 记录后继续），err 分支不可达，已删除。
-				w.flush(ctx)
+				_ = w.flush(ctx)
 			}
 		}
 	}()
@@ -642,11 +642,12 @@ func (w *Worker) processMessage(ctx context.Context, stream string, msg redis.XM
 	}
 
 	var err error
-	if stream == w.streamEvents {
+	switch stream {
+	case w.streamEvents:
 		// Update Redis HLL for minute online, DAU/new_users
 		w.touchAgg(ctx, m)
 		err = w.insertEvent(ctx, m)
-	} else if stream == w.streamPayments {
+	case w.streamPayments:
 		w.touchRevenue(ctx, m)
 		err = w.insertPayment(ctx, m)
 	}

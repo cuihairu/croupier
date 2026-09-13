@@ -79,7 +79,7 @@ func TestService_Root_Deterministic(t *testing.T) {
 		},
 	})
 
-	resp, err := svc.Root(nil)
+	resp, err := svc.Root(nil) //nolint:staticcheck // 刻意 nil context：验证不依赖 ctx 的健壮性
 	require.NoError(t, err)
 	require.NotNil(t, resp)
 	assert.Equal(t, []string{"a", "b", "c"}, resp.Profiles)

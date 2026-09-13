@@ -5,7 +5,6 @@ import { useIntl } from '@umijs/max';
 import type { FunctionDescriptor } from '@/services/api/functions';
 import { getComponent } from './registry';
 import { parseAction } from './actions';
-import { localizedText } from '@/utils/localizedText';
 import type { PageNode } from './model';
 
 const { Text } = Typography;

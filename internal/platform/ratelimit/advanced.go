@@ -318,7 +318,7 @@ func (d *DistributedRateLimiter) AllowN(ctx context.Context, key string, n int) 
 
 	// Then check distributed store
 	fullKey := d.keyPrefix + key
-	count, err := d.store.Increment(ctx, fullKey, localResult.ResetAt.Sub(time.Now()))
+	count, err := d.store.Increment(ctx, fullKey, time.Until(localResult.ResetAt))
 	if err != nil {
 		// If store fails, fall back to local decision
 		return localResult, nil
@@ -333,7 +333,7 @@ func (d *DistributedRateLimiter) AllowN(ctx context.Context, key string, n int) 
 	}
 
 	if !result.Allowed {
-		result.RetryAfter = localResult.ResetAt.Sub(time.Now())
+		result.RetryAfter = time.Until(localResult.ResetAt)
 	}
 
 	return result, nil

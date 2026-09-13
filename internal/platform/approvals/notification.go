@@ -155,7 +155,7 @@ func (n *MultiChannelNotifier) NotifyWithChannels(ctx context.Context, recipient
 
 			// Record notification
 			if n.store != nil {
-				n.store.RecordNotification(recipient, channel, event)
+				_ = n.store.RecordNotification(recipient, channel, event)
 			}
 		}
 	}
@@ -426,7 +426,7 @@ func (e *EmailSender) defaultSendMail(ctx context.Context, msg *emailMessage) er
 	if err != nil {
 		return fmt.Errorf("dial smtp %s: %w", addr, err)
 	}
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 
 	client, err := smtp.NewClient(conn, e.smtpHost)
 	if err != nil {
@@ -635,7 +635,7 @@ func (d *DingTalkSender) signedURL() string {
 	}
 	ts := time.Now().UnixMilli()
 	mac := hmac.New(sha256.New, []byte(d.secret))
-	mac.Write([]byte(fmt.Sprintf("%d", ts)))
+	_, _ = fmt.Fprintf(mac, "%d", ts)
 	sign := base64.StdEncoding.EncodeToString(mac.Sum(nil))
 	sep := "&"
 	if !strings.Contains(d.webhookURL, "?") {
@@ -720,7 +720,7 @@ func defaultPostJSONWithHeaders(ctx context.Context, u string, payload []byte, h
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode >= 300 {
 		body, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
 		return fmt.Errorf("webhook responded %d: %s", resp.StatusCode, string(body))

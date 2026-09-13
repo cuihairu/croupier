@@ -77,7 +77,7 @@ func (h *Handler) UploadArtifact(c *gin.Context) {
 		response.Error(c, errorx.NewBadRequest("缺少 file 字段"))
 		return
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	manifest := []byte(c.PostForm("manifest"))
 	req := &UploadArtifactRequest{

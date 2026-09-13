@@ -2,6 +2,7 @@ package registry
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -83,7 +84,7 @@ func TestService_GetRegistry_NilStore(t *testing.T) {
 	}
 	service := NewService(svcCtx)
 
-	resp, err := service.GetRegistry(nil, &RegistryRequest{})
+	resp, err := service.GetRegistry(context.TODO(), &RegistryRequest{})
 	assert.NoError(t, err)
 	assert.NotNil(t, resp)
 	assert.Empty(t, resp.Agents)
@@ -96,7 +97,7 @@ func TestService_GetRegistry_EmptyStore(t *testing.T) {
 	}
 	service := NewService(svcCtx)
 
-	resp, err := service.GetRegistry(nil, &RegistryRequest{})
+	resp, err := service.GetRegistry(context.TODO(), &RegistryRequest{})
 	assert.NoError(t, err)
 	assert.NotNil(t, resp)
 	assert.Empty(t, resp.Agents)
@@ -133,7 +134,7 @@ func TestService_GetRegistry_MultipleAgents(t *testing.T) {
 		},
 	})
 
-	resp, err := service.GetRegistry(nil, &RegistryRequest{})
+	resp, err := service.GetRegistry(context.TODO(), &RegistryRequest{})
 	assert.NoError(t, err)
 	assert.Len(t, resp.Agents, 2)
 	// Should be sorted by gameID then agentID
@@ -160,7 +161,7 @@ func TestService_GetRegistry_ExpiredAgent(t *testing.T) {
 		},
 	})
 
-	resp, err := service.GetRegistry(nil, &RegistryRequest{})
+	resp, err := service.GetRegistry(context.TODO(), &RegistryRequest{})
 	assert.NoError(t, err)
 	assert.Len(t, resp.Agents, 1)
 	// Agent should be present but unhealthy
@@ -187,7 +188,7 @@ func TestService_GetRegistry_AgentWithNilExpireAt(t *testing.T) {
 		},
 	})
 
-	resp, err := service.GetRegistry(nil, &RegistryRequest{})
+	resp, err := service.GetRegistry(context.TODO(), &RegistryRequest{})
 	assert.NoError(t, err)
 	assert.Len(t, resp.Agents, 1)
 	assert.Equal(t, false, resp.Agents[0].Healthy)
@@ -213,7 +214,7 @@ func TestService_GetRegistry_AgentWithZeroID(t *testing.T) {
 		},
 	})
 
-	resp, err := service.GetRegistry(nil, &RegistryRequest{})
+	resp, err := service.GetRegistry(context.TODO(), &RegistryRequest{})
 	assert.NoError(t, err)
 	assert.Len(t, resp.Agents, 0)
 }
@@ -247,7 +248,7 @@ func TestService_GetRegistry_MultipleAgentsSameFunction(t *testing.T) {
 		},
 	})
 
-	resp, err := service.GetRegistry(nil, &RegistryRequest{})
+	resp, err := service.GetRegistry(context.TODO(), &RegistryRequest{})
 	assert.NoError(t, err)
 	assert.Len(t, resp.Agents, 2)
 	assert.Len(t, resp.Functions, 1)
@@ -274,7 +275,7 @@ func TestService_GetRegistry_DisabledFunctionNotIncluded(t *testing.T) {
 		},
 	})
 
-	resp, err := service.GetRegistry(nil, &RegistryRequest{})
+	resp, err := service.GetRegistry(context.TODO(), &RegistryRequest{})
 	assert.NoError(t, err)
 	assert.Len(t, resp.Agents, 1)
 	assert.Len(t, resp.Functions, 0)

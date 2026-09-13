@@ -139,19 +139,19 @@ func acquireSessionLock(ctx context.Context, sqlDB *sql.DB, gooseDialect string)
 	for {
 		ok, err := acquire()
 		if err != nil {
-			conn.Close()
+			_ = conn.Close()
 			return nil, fmt.Errorf("migrate: acquire session lock: %w", err)
 		}
 		if ok {
 			break
 		}
 		if time.Now().After(deadline) {
-			conn.Close()
+			_ = conn.Close()
 			return nil, errors.New("migrate: could not acquire migration lock (another process may be migrating)")
 		}
 		select {
 		case <-ctx.Done():
-			conn.Close()
+			_ = conn.Close()
 			return nil, ctx.Err()
 		case <-time.After(500 * time.Millisecond):
 		}
@@ -168,7 +168,7 @@ func acquireSessionLock(ctx context.Context, sqlDB *sql.DB, gooseDialect string)
 			query := fmt.Sprintf("EXEC sp_releaseapplock @Resource = N'%s', @LockOwner = 'Session'", sqlServerMigrationLockName)
 			_, _ = conn.ExecContext(context.Background(), query)
 		}
-		conn.Close()
+		_ = conn.Close()
 	}
 	return release, nil
 }
@@ -183,7 +183,7 @@ func EnsureUpToDate(ctx context.Context, db *gorm.DB, scope Scope, baseline func
 	}
 	gormDialect := ""
 	if db.Dialector != nil {
-		gormDialect = db.Dialector.Name()
+		gormDialect = db.Name()
 	}
 	gooseDialect := dialectOf(gormDialect)
 	if gooseDialect == "" {
@@ -202,7 +202,7 @@ func ensureUpToDate(ctx context.Context, db *gorm.DB, fsys fs.FS, scope Scope, b
 	}
 	gormDialect := ""
 	if db.Dialector != nil {
-		gormDialect = db.Dialector.Name()
+		gormDialect = db.Name()
 	}
 	gooseDialect := dialectOf(gormDialect)
 

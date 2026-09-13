@@ -153,7 +153,7 @@ func (s *Service) fetchRemoteCertificate(domain string, port int) (*x509.Certifi
 	if err != nil {
 		return nil, "", errorx.NewBadRequest(fmt.Sprintf("连接 %s 获取证书失败: %v", address, err))
 	}
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 
 	// Go crypto/tls 客户端不支持任何匿名（无证书）套件：服务端返回空证书列表时
 	// 握手在 verifyServerCertificate 阶段即报 "server didn't provide a

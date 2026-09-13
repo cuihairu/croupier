@@ -1,6 +1,5 @@
 import { Space, Tag, Typography } from 'antd';
 import { FormattedMessage, getIntl, useIntl } from '@umijs/max';
-import { registerComponent } from '../registry';
 import type { ComponentDef } from '../registry';
 import { EVENTS } from '../actions';
 import { localizedText } from '@/utils/localizedText';

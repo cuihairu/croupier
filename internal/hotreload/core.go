@@ -456,7 +456,7 @@ func (hr *croupierHotReloader) checkRemoteUpdates(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("server returned status %d", resp.StatusCode)
@@ -519,7 +519,7 @@ func (hr *croupierHotReloader) Stop() error {
 
 	// 关闭文件监听器
 	if hr.watcher != nil {
-		hr.watcher.Close()
+		_ = hr.watcher.Close()
 	}
 
 	hr.logger.Info("Hot reloader stopped")

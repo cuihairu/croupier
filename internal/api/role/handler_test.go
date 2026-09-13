@@ -36,17 +36,17 @@ func setupRoleHandlerTest(t *testing.T) (*Handler, *gorm.DB) {
 		Nickname: "Test Admin",
 		Status:   1,
 	}
-	err = adminModel.Create(nil, admin, "password123")
+	err = adminModel.Create(context.TODO(), admin, "password123")
 	require.NoError(t, err)
 
 	role := &model.Role{Name: "admin"}
-	err = roleModel.Create(nil, role)
+	err = roleModel.Create(context.TODO(), role)
 	require.NoError(t, err)
 
-	err = adminModel.AssignRole(nil, admin.ID, role.ID)
+	err = adminModel.AssignRole(context.TODO(), admin.ID, role.ID)
 	require.NoError(t, err)
 
-	err = roleModel.ReplacePermissions(nil, role.ID, []string{
+	err = roleModel.ReplacePermissions(context.TODO(), role.ID, []string{
 		"admin:all", "roles:manage", "role:write",
 	})
 	require.NoError(t, err)
@@ -186,7 +186,7 @@ func TestHandler_RoleDelete_Success(t *testing.T) {
 
 	// Create a role to delete
 	role := &model.Role{Name: "todelete"}
-	err := roleModel.Create(nil, role)
+	err := roleModel.Create(context.TODO(), role)
 	require.NoError(t, err)
 
 	router := gin.New()
@@ -258,7 +258,7 @@ func TestHandler_RoleDetail_Success(t *testing.T) {
 		Description: "Moderator role",
 		Category:    "custom",
 	}
-	err := roleModel.Create(nil, role)
+	err := roleModel.Create(context.TODO(), role)
 	require.NoError(t, err)
 
 	router := gin.New()
@@ -302,7 +302,7 @@ func TestHandler_RoleUpdate_Success(t *testing.T) {
 
 	// Create a role to update
 	role := &model.Role{Name: "toupdate"}
-	err := roleModel.Create(nil, role)
+	err := roleModel.Create(context.TODO(), role)
 	require.NoError(t, err)
 
 	router := gin.New()
@@ -496,7 +496,7 @@ func TestHandler_RoleUpdate_WithPermissions(t *testing.T) {
 
 	// Create a role to update
 	role := &model.Role{Name: "toupdateperms"}
-	err := roleModel.Create(nil, role)
+	err := roleModel.Create(context.TODO(), role)
 	require.NoError(t, err)
 
 	router := gin.New()

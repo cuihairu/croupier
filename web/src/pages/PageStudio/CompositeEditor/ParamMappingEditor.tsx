@@ -72,8 +72,7 @@ export default function ParamMappingEditor({
     } catch {
       props = {};
     }
-    return Object.entries(props).map(([name, p]) => {
-      const meta = p as Record<string, unknown>;
+    return Object.entries(props).map(([name]) => {
       return {
         name,
         required: required.includes(name),

@@ -36,7 +36,6 @@ import ComponentLibrary, {
   reconnectTemplateRefs,
   type ComponentTemplateDTO,
   type DanglingTemplateRef,
-  type TemplateRefFix,
 } from './ComponentLibrary';
 import DanglingRefsModal from './DanglingRefsModal';
 import PropsPanel from './PropsPanel';

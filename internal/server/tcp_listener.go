@@ -135,7 +135,7 @@ func (l *TCPListener) serveConn(ctx context.Context, conn net.Conn) {
 	remoteAddr := conn.RemoteAddr().String()
 	l.logger.Info("Agent TCP connection accepted", "remote", remoteAddr)
 	defer func() {
-		conn.Close()
+		_ = conn.Close()
 		l.logger.Info("Agent TCP connection closed", "remote", remoteAddr)
 	}()
 

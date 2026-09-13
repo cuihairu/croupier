@@ -5,7 +5,6 @@ import { useDraggable } from '@dnd-kit/core';
 import { request, useIntl } from '@umijs/max';
 import { nodeId, type PageNode } from './model';
 import TemplateThumb from './TemplateThumb';
-import type { FunctionDescriptor } from '@/services/api/functions';
 import { localizedText } from '@/utils/localizedText';
 import type { LocalizedText } from '@/types/dashboard';
 

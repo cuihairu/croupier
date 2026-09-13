@@ -11,7 +11,6 @@
  *   pageSpec 与可用的 demo 执行器 */
 import React from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
-import { PageContainer } from '@ant-design/pro-components';
 import PageRenderer from '@/components/PageRenderer';
 import PlayerManageTemplate, {
   createPlayerManageDemoExecute,

@@ -185,10 +185,5 @@ func (c *ProtoConverter) protoFieldToSchema(field *descriptorpb.FieldDescriptorP
 		schema.Items = &openapi3.SchemaRef{Value: itemSchema}
 	}
 
-	// Set description from proto comments (if available)
-	if field.Options != nil && field.Options.UninterpretedOption != nil {
-		// Could parse comments from uninterpreted options
-	}
-
 	return schema
 }

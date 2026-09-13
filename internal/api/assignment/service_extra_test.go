@@ -33,17 +33,17 @@ func setupAssignmentTestDB(t *testing.T) (*gorm.DB, *svc.ServiceContext) {
 		Nickname: "Test Admin",
 		Status:   1,
 	}
-	err = adminModel.Create(nil, admin, "password123")
+	err = adminModel.Create(nil, admin, "password123") //nolint:staticcheck // 刻意 nil context：model 层不消费 ctx
 	require.NoError(t, err)
 
 	role := &model.Role{Name: "admin"}
-	err = roleModel.Create(nil, role)
+	err = roleModel.Create(nil, role) //nolint:staticcheck // 刻意 nil context：model 层不消费 ctx
 	require.NoError(t, err)
 
-	err = adminModel.AssignRole(nil, admin.ID, role.ID)
+	err = adminModel.AssignRole(context.TODO(), admin.ID, role.ID)
 	require.NoError(t, err)
 
-	err = roleModel.ReplacePermissions(nil, role.ID, []string{
+	err = roleModel.ReplacePermissions(context.TODO(), role.ID, []string{
 		"admin:all", "assignments:read", "assignments:write",
 	})
 	require.NoError(t, err)
@@ -113,7 +113,7 @@ func TestService_Update_CloneUsesScopedSourceAndExplicitTarget(t *testing.T) {
 
 func createAssignmentTestContext(t *testing.T, db *gorm.DB) context.Context {
 	adminModel := model.NewAdminModel(db)
-	admin, err := adminModel.FindByUsername(nil, "testadmin")
+	admin, err := adminModel.FindByUsername(context.TODO(), "testadmin")
 	require.NoError(t, err)
 
 	ctx := context.WithValue(context.Background(), "username", "testadmin")

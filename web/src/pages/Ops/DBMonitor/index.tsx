@@ -4,7 +4,6 @@ import {
   Button,
   Card,
   Col,
-  Drawer,
   Empty,
   Form,
   Input,
@@ -20,12 +19,7 @@ import {
   Typography,
 } from 'antd';
 import { ModalForm, PageContainer } from '@ant-design/pro-components';
-import {
-  DatabaseOutlined,
-  PlusOutlined,
-  ReloadOutlined,
-  ThunderboltOutlined,
-} from '@ant-design/icons';
+import { DatabaseOutlined, ReloadOutlined, ThunderboltOutlined } from '@ant-design/icons';
 import { FormattedMessage, useAccess, useIntl } from '@umijs/max';
 import {
   type DBSourceKind,

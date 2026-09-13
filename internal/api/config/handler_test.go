@@ -343,7 +343,7 @@ func TestService_GetVersion_NegativeVersion(t *testing.T) {
 func TestConfigAuthor_NilContext(t *testing.T) {
 	t.Parallel()
 
-	result := configAuthor(nil)
+	result := configAuthor(context.TODO())
 
 	if result != "system" {
 		t.Fatalf("expected 'system' for nil context, got %q", result)

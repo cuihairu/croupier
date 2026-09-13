@@ -122,7 +122,7 @@ func TestServer_Serve_NilContext(t *testing.T) {
 
 	done := make(chan error, 1)
 	go func() {
-		done <- srv.Serve(nil)
+		done <- srv.Serve(nil) //nolint:staticcheck // 刻意 nil context：验证不依赖 ctx 的健壮性
 	}()
 
 	select {

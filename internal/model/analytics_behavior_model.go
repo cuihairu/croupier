@@ -39,7 +39,7 @@ func (m *BehaviorModel) RecordEvent(ctx context.Context, event *BehaviorEvent) e
 
 // ListEvents returns paginated behavior events.
 func (m *BehaviorModel) ListEvents(ctx context.Context, opts BehaviorEventOptions) ([]BehaviorEvent, int64, error) {
-	opts.PaginationOptions.Normalize()
+	opts.Normalize()
 
 	var (
 		items []BehaviorEvent

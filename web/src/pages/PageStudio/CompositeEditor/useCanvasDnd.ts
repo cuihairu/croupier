@@ -297,7 +297,6 @@ export function useCanvasDnd({
       intl,
       message,
       registerFn,
-      allFns,
       applyTemplateInsert,
       editingModalRef,
       setInsertTpl,

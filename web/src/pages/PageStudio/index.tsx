@@ -45,10 +45,7 @@ import type {
   PageVersionItem,
 } from '@/types/dashboard';
 import { requestConsoleMenuRefresh } from '@/utils/consoleMenu';
-import { localizedText } from '@/utils/localizedText';
 import { extractErrorDetails, extractErrorMessage } from '@/utils/errors';
-
-const { Text } = Typography;
 
 /** 结构化错误明细列表：展示后端 details（字段路径 → 失败原因）。 */
 function ErrorDetailList({ error }: { error: unknown }) {
@@ -212,7 +209,8 @@ export default function PageStudio() {
     } finally {
       setBulkLoading(null);
     }
-  }, [loadDrafts]);
+    // message 为 App.useApp() 稳定实例，列入依赖零额外重建
+  }, [loadDrafts, message]);
 
   const handleBulkUnpublish = useCallback(async () => {
     setBulkLoading('unpublish');
@@ -240,7 +238,7 @@ export default function PageStudio() {
     } finally {
       setBulkLoading(null);
     }
-  }, [loadDrafts]);
+  }, [loadDrafts, message]);
 
   const handleUnpublish = useCallback(
     async (pageKey: string) => {

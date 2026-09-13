@@ -1,6 +1,6 @@
 import { Footer } from '@/components';
 import { createSession, fetchCurrentUserGames } from '@/services/api';
-import { extractErrorCode, isMfaRequiredError } from '@/utils/errors';
+import { isMfaRequiredError } from '@/utils/errors';
 import { fetchLoginProviders, type LoginProviders } from '@/services/api/sites';
 import { setScope } from '@/stores/scope';
 import { LockOutlined, SafetyCertificateOutlined, UserOutlined } from '@ant-design/icons';

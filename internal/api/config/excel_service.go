@@ -33,10 +33,10 @@ type ImportXLSXRequest struct {
 // CompileSnapshotRequest carries the Univer snapshot from the web editor.
 type CompileSnapshotRequest struct {
 	Snapshot json.RawMessage `json:"snapshot"`
-	GameID   string          `json:"gameId,optional"`
-	Env      string          `json:"env,optional"`
-	Key      string          `json:"key,optional"`
-	Message  string          `json:"message,optional"`
+	GameID   string          `json:"gameId"`
+	Env      string          `json:"env"`
+	Key      string          `json:"key"`
+	Message  string          `json:"message"`
 }
 
 // ExcelCompileResponse is the registered version.

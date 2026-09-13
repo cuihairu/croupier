@@ -612,7 +612,7 @@ func TestRequireGameEnvScopeCheckErrorV9(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestCurrentUsernameNilCtxV9(t *testing.T) {
-	name, err := CurrentUsername(nil)
+	name, err := CurrentUsername(nil) //nolint:staticcheck // 刻意 nil context：验证 CurrentUsername 的 nil 容错
 	assert.Error(t, err)
 	assert.Empty(t, name)
 }

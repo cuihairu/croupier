@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { Space, Tabs as AntTabs, Tag, Typography } from 'antd';
 import { FormattedMessage, getIntl } from '@umijs/max';
-import { registerComponent } from '../registry';
 import { getComponent } from '../registry';
 import type { ComponentDef } from '../registry';
 import type { PageNode } from '../model';

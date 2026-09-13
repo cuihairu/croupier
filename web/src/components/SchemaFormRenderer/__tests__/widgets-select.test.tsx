@@ -6,9 +6,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { deriveRuntimeSchema } from '@/components/SchemaFormRenderer';
 import SchemaFormRenderer from '@/components/SchemaFormRenderer';
 import { RateWidget } from '@/components/SchemaFormRenderer/widgets';
-import type { FormPresentationSpec, JSONSchema } from '@/types/dashboard';
-
-const schemaOf = (value: Record<string, unknown>): JSONSchema => value as unknown as JSONSchema;
+import type { FormPresentationSpec } from '@/types/dashboard';
 
 describe('F3: uiSchema widget 映射', () => {
   test('Select → 内置 select', () => {

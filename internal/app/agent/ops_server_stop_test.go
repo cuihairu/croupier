@@ -32,7 +32,7 @@ func TestOpsServerStopUnlocksWriteLock_K(t *testing.T) {
 
 	// 锁确实已释放：可再次加锁（若 Stop 泄漏写锁，此处死锁超时失败）。
 	p.mu.Lock()
-	p.mu.Unlock()
+	p.mu.Unlock() //nolint:staticcheck // 空临界区即断言本体：Stop 若泄漏写锁此处死锁超时
 
 	// 幂等：Stop 不清空 map，二次调用对已停止进程（stopCh 已关、cmd nil）
 	// 重复走早退路径，不 fatal 不 panic。

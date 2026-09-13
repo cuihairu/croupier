@@ -135,7 +135,7 @@ type ReleaseQueryOptions struct {
 
 // List returns releases matching the filters, newest version activity first.
 func (m *GameReleaseModel) List(ctx context.Context, opts ReleaseQueryOptions) ([]GameRelease, int64, error) {
-	opts.PaginationOptions.Normalize()
+	opts.Normalize()
 	var (
 		items []GameRelease
 		total int64

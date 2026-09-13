@@ -49,12 +49,12 @@ type ReleaseListResponse struct {
 
 type ReleaseCreateRequest struct {
 	GameID   string                 `json:"gameId"`
-	Env      string                 `json:"env,optional"`
+	Env      string                 `json:"env"`
 	Channel  string                 `json:"channel"`
 	Platform string                 `json:"platform"`
 	Version  string                 `json:"version"`
-	Type     string                 `json:"type,optional"`
-	Notes    map[string]interface{} `json:"notes,optional"`
+	Type     string                 `json:"type"`
+	Notes    map[string]interface{} `json:"notes"`
 }
 
 type ReleaseCreateResponse struct {
@@ -66,7 +66,7 @@ type ReleaseCreateResponse struct {
 type ReleaseTransitionRequest struct {
 	ID          string `uri:"id"`
 	Action      string `json:"action"`
-	GrayPercent *int   `json:"grayPercent,optional"`
+	GrayPercent *int   `json:"grayPercent"`
 }
 
 type ReleaseTransitionResponse struct {
@@ -89,11 +89,11 @@ type UploadArtifactResponse struct {
 // CheckUpdateRequest is the client-facing check payload.
 type CheckUpdateRequest struct {
 	GameID         string `json:"gameId"`
-	Env            string `json:"env,optional"`
-	Channel        string `json:"channel,optional"`
+	Env            string `json:"env"`
+	Channel        string `json:"channel"`
 	Platform       string `json:"platform"`
 	DeviceID       string `json:"deviceId"`
-	CurrentVersion string `json:"currentVersion,optional"`
+	CurrentVersion string `json:"currentVersion"`
 }
 
 // CheckUpdateResponse tells the client whether a newer eligible release

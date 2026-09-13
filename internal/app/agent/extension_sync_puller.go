@@ -72,7 +72,7 @@ func (p *ExtensionSyncPuller) PullOnce(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		body, _ := io.ReadAll(io.LimitReader(resp.Body, 1024))
 		return fmt.Errorf("extension sync pull failed: status=%d body=%s", resp.StatusCode, strings.TrimSpace(string(body)))

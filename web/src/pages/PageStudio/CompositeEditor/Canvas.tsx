@@ -1,5 +1,5 @@
 import type React from 'react';
-import { Badge, Button, Empty, Space, Tag, Typography } from 'antd';
+import { Badge, Button, Space, Tag, Typography } from 'antd';
 import type { FunctionDescriptor } from '@/services/api/functions';
 import { useDroppable } from '@dnd-kit/core';
 import { useIntl } from '@umijs/max';
@@ -15,14 +15,10 @@ const { Text } = Typography;
 /** 画布：根级栅格渲染 + 弹窗收纳区。拖拽上下文由父级提供（T2.2/T2.3）。 */
 export default function Canvas({
   tree,
-  selectedId,
   fnById,
-  onSelect,
-  onDelete,
   onDuplicate,
   onSpanChange,
   onEnterModal,
-  canvasWidthRef,
   onShowTemplates,
   children,
 }: {

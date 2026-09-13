@@ -164,7 +164,7 @@ describe('快照登记三入口 + 保存并入（U11）', () => {
 });
 
 describe('拖拽/带参弹窗共用入口（useCanvasDnd.onTemplateUsed）', () => {
-  function setupHook(tplDto: ComponentTemplateDTO) {
+  function setupHook(_tplDto: ComponentTemplateDTO) {
     const onTemplateUsed = jest.fn();
     const setTree = jest.fn();
     const utils = {

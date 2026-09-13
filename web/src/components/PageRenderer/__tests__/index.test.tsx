@@ -5,7 +5,7 @@
  * 下一次执行的注入、onPageStateMerge 的 merge/replace 两模式、
  * pageKey 切换时重置 page_state。子渲染器 mock 为标识 stub 以聚焦路由编排。 */
 import React from 'react';
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen } from '@testing-library/react';
 import PageRenderer from '../index';
 import { CompositeRenderer } from '../CompositeRenderer';
 import ResourcePageRenderer from '../ResourcePageRenderer';

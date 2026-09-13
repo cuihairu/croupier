@@ -50,7 +50,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to create TCP client: %v", err)
 	}
-	defer tcpClient.Close()
+	defer func() { _ = tcpClient.Close() }()
 
 	// Define JSON Schemas for function parameters
 	queryInputSchema := `{

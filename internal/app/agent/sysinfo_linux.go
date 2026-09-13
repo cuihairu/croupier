@@ -113,7 +113,7 @@ func parseCronFile(filePath, user string) []CronJob {
 	if err != nil {
 		return jobs
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {

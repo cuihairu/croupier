@@ -216,7 +216,7 @@ func (c *UpstreamClient) OnDisconnected(callback func(error)) {
 // On successful connection, it automatically calls register.
 func (c *UpstreamClient) dialServer(ctx context.Context) error {
 	if old := c.currentClient(); old != nil {
-		old.Close()
+		_ = old.Close()
 		c.setClient(nil)
 	}
 
@@ -239,7 +239,7 @@ func (c *UpstreamClient) dialServer(ctx context.Context) error {
 
 	// 连接成功后立即注册
 	if err := c.syncOnce(ctx); err != nil {
-		client.Close()
+		_ = client.Close()
 		c.setClient(nil)
 		return fmt.Errorf("failed to register after connection: %w", err)
 	}
@@ -666,7 +666,7 @@ func (c *UpstreamClient) Heartbeat(ctx context.Context) error {
 
 func (c *UpstreamClient) Stop() {
 	if cl := c.currentClient(); cl != nil {
-		cl.Close()
+		_ = cl.Close()
 	}
 }
 

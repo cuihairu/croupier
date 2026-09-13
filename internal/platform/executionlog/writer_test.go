@@ -203,7 +203,7 @@ func TestWriterNilReceiver(t *testing.T) {
 }
 
 func TestSkipContext(t *testing.T) {
-	assert.False(t, Skipped(nil))
+	assert.False(t, Skipped(nil)) //nolint:staticcheck // 刻意传 nil Context：验证不 panic
 	assert.False(t, Skipped(context.Background()))
 	assert.True(t, Skipped(WithSkipContext(context.Background())))
 }

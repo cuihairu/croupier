@@ -1,6 +1,7 @@
 package errors
 
 import (
+	stdctx "context"
 	"encoding/json"
 	"fmt"
 	"log/slog"
@@ -92,11 +93,9 @@ func (el *ErrorLogger) LogError(err *AppError, context map[string]interface{}) {
 		}
 	}
 
-	// 添加额外上下文
-	if context != nil {
-		for key, value := range context {
-			attrs = append(attrs, slog.Any(key, value))
-		}
+	// 添加额外上下文（range nil map 为安全空遍历）
+	for key, value := range context {
+		attrs = append(attrs, slog.Any(key, value))
 	}
 
 	// 添加原始错误
@@ -117,7 +116,7 @@ func (el *ErrorLogger) LogError(err *AppError, context map[string]interface{}) {
 		logLevel = slog.LevelError
 	}
 
-	el.logger.LogAttrs(nil, logLevel, "Application error occurred", attrs...)
+	el.logger.LogAttrs(stdctx.TODO(), logLevel, "Application error occurred", attrs...)
 }
 
 // LogErrorWithMetrics 记录错误并更新指标
@@ -148,14 +147,12 @@ func (el *ErrorLogger) LogPanic(recovered interface{}, context map[string]interf
 		attrs = append(attrs, slog.Any("panic", recovered))
 	}
 
-	// 添加上下文信息
-	if context != nil {
-		for key, value := range context {
-			attrs = append(attrs, slog.Any(key, value))
-		}
+	// 添加上下文信息（range nil map 为安全空遍历）
+	for key, value := range context {
+		attrs = append(attrs, slog.Any(key, value))
 	}
 
-	el.logger.LogAttrs(nil, slog.LevelError, "Application panic occurred", attrs...)
+	el.logger.LogAttrs(stdctx.TODO(), slog.LevelError, "Application panic occurred", attrs...)
 }
 
 // MetricsCollector 指标收集器接口
