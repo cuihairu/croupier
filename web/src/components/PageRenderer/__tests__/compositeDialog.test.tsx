@@ -158,6 +158,23 @@ describe('CompositeRenderer 弹窗表单（DialogForm 回归）', () => {
     expect(((await screen.findByLabelText('收件人')) as HTMLInputElement).value).toBe('bob@test');
   });
 
+  it('执行失败为非 Error：兜底文案「执行失败」', async () => {
+    // 第 1 次 = autoRun 表格，第 2 次 = 弹窗提交 reject 非 Error（无 message 可取）
+    const onExecute = jest.fn();
+    onExecute
+      .mockImplementationOnce(() =>
+        Promise.resolve({ data: { items: [{ uid: 'u1', nickname: 'bob' }], total: 1 } }),
+      )
+      .mockImplementationOnce(() => Promise.reject('plain-failure'));
+    const { app } = await openMailModal(onExecute);
+    const errorSpy = jest.spyOn(app.current!.message, 'error');
+
+    fireEvent.click(screen.getByRole('button', { name: /提\s*交/ }));
+    await waitFor(() => expect(errorSpy).toHaveBeenCalledWith('执行失败'));
+    // 弹窗保持开启
+    expect(screen.getByText('发邮件表单', { selector: '.ant-modal-title' })).toBeInTheDocument();
+  });
+
   it('无字段弹窗降级为「确认执行」按钮：点击执行 onSubmit({})', async () => {
     const sections: CompositeSection[] = [
       {
