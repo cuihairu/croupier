@@ -231,3 +231,282 @@ describe('humanizeFieldKey', () => {
     expect(humanizeFieldKey('')).toBe('');
   });
 });
+
+describe('derivePresentationSpec hints 边界（追加）', () => {
+  it('x-widget-props 只保留已定义键；空对象不产生 hint', () => {
+    const spec = derivePresentationSpec(
+      schema({
+        type: 'object',
+        properties: {
+          a: { type: 'string', 'x-widget-props': { size: 'large', clear: undefined, prefix: 'p' } },
+        },
+      }),
+    );
+    expect(spec.fields![0].widgetProps).toEqual({ size: 'large', prefix: 'p' });
+
+    const noHint = derivePresentationSpec(
+      schema({
+        type: 'object',
+        properties: { b: { type: 'string', 'x-widget-props': {} } },
+      }),
+    );
+    expect(noHint.fields).toBeUndefined();
+  });
+
+  it('x-ui-layout 合法值生效并触发 fields；非法回退 vertical', () => {
+    const horizontal = derivePresentationSpec(
+      schema({
+        type: 'object',
+        'x-ui-layout': 'horizontal',
+        properties: { a: { type: 'string' }, b: { type: 'integer' } },
+      }),
+    );
+    expect(horizontal.layout).toBe('horizontal');
+    expect(horizontal.fields!.map((f) => f.key)).toEqual(['a', 'b']);
+    expect(horizontal.groups).toBeUndefined();
+
+    const bad = derivePresentationSpec(
+      schema({
+        type: 'object',
+        'x-ui-layout': 'diagonal',
+        properties: { a: { type: 'string' } },
+      }),
+    );
+    expect(bad.layout).toBe('vertical');
+    expect(bad.fields).toBeUndefined();
+  });
+
+  it('x-visible-when：exists / notEquals / all / any 组合条件', () => {
+    const spec = derivePresentationSpec(
+      schema({
+        type: 'object',
+        properties: {
+          a: { type: 'string', 'x-visible-when': { kind: 'exists', path: '/b' } },
+          b: { type: 'string', 'x-visible-when': { kind: 'notEquals', path: '/a', value: 'x' } },
+          c: {
+            type: 'string',
+            'x-visible-when': {
+              kind: 'any',
+              conditions: [
+                { kind: 'equals', path: '/a', value: 1 },
+                { kind: 'equals', path: 'bad', value: 2 },
+              ],
+            },
+          },
+          d: {
+            type: 'string',
+            'x-visible-when': {
+              kind: 'all',
+              conditions: [
+                { kind: 'exists', path: '/a' },
+                { kind: 'notEquals', path: '/b', value: false },
+              ],
+            },
+          },
+        },
+      }),
+    );
+    expect(spec.fields!.find((f) => f.key === 'a')!.visibleWhen).toEqual({
+      kind: 'exists',
+      path: '/b',
+    });
+    expect(spec.fields!.find((f) => f.key === 'b')!.visibleWhen).toEqual({
+      kind: 'notEquals',
+      path: '/a',
+      value: 'x',
+    });
+    // 无效子条件被过滤，仅保留合法分支
+    expect(spec.fields!.find((f) => f.key === 'c')!.visibleWhen).toEqual({
+      kind: 'any',
+      conditions: [{ kind: 'equals', path: '/a', value: 1 }],
+    });
+    expect(spec.fields!.find((f) => f.key === 'd')!.visibleWhen).toEqual({
+      kind: 'all',
+      conditions: [
+        { kind: 'exists', path: '/a' },
+        { kind: 'notEquals', path: '/b', value: false },
+      ],
+    });
+  });
+
+  it('x-visible-when 非法形状全部忽略（未知 kind / 缺值 / 空组合 / 全无效 / 超深）', () => {
+    const deep = (): Record<string, unknown> => {
+      let node: Record<string, unknown> = { kind: 'exists', path: '/a' };
+      for (let i = 0; i < 6; i += 1) node = { kind: 'all', conditions: [node] };
+      return node;
+    };
+    const spec = derivePresentationSpec(
+      schema({
+        type: 'object',
+        properties: {
+          a: { type: 'string', 'x-visible-when': { kind: 'mystery', path: '/x', value: 1 } },
+          b: { type: 'string', 'x-visible-when': { kind: 'notEquals', path: '/x' } },
+          c: { type: 'string', 'x-visible-when': { kind: 'all', conditions: [] } },
+          d: {
+            type: 'string',
+            'x-visible-when': {
+              kind: 'any',
+              conditions: [{ kind: 'equals', path: 'no-slash', value: 1 }],
+            },
+          },
+          e: { type: 'string', 'x-visible-when': deep() },
+          f: { type: 'string', 'x-visible-when': { kind: 'exists', path: 'nope' } },
+          g: { type: 'string', 'x-visible-when': { kind: 42 } },
+        },
+      }),
+    );
+    expect(spec.fields).toBeUndefined();
+  });
+
+  it('x-enum-options：空数组 / 全部无效条目 → 不产生 hint', () => {
+    const spec = derivePresentationSpec(
+      schema({
+        type: 'object',
+        properties: {
+          a: { type: 'string', 'x-enum-options': [] },
+          b: {
+            type: 'string',
+            'x-enum-options': [{ value: 1 }, 'x', null, { value: 'v' }, { value: 'w', label: 42 }],
+          },
+        },
+      }),
+    );
+    expect(spec.fields).toBeUndefined();
+  });
+
+  it('x-options-source：trim functionId、searchParam 透传；空串 labelPath 忽略', () => {
+    const spec = derivePresentationSpec(
+      schema({
+        type: 'object',
+        properties: {
+          a: {
+            type: 'string',
+            'x-options-source': {
+              functionId: '  f1  ',
+              searchParam: 'kw',
+              labelPath: '',
+              valuePath: '/v',
+            },
+          },
+        },
+      }),
+    );
+    expect(spec.fields![0].remoteOptions).toEqual({
+      functionId: 'f1',
+      searchParam: 'kw',
+      valuePath: '/v',
+    });
+  });
+
+  it('x-options-source：functionId 空白 / 非对象 → 忽略', () => {
+    const spec = derivePresentationSpec(
+      schema({
+        type: 'object',
+        properties: {
+          a: { type: 'string', 'x-options-source': { functionId: '   ' } },
+          b: { type: 'string', 'x-options-source': 'nope' },
+        },
+      }),
+    );
+    expect(spec.fields).toBeUndefined();
+  });
+
+  it('数值 hints 边界：Infinity order / 越界与小数 width / 非布尔 disabled', () => {
+    const spec = derivePresentationSpec(
+      schema({
+        type: 'object',
+        properties: {
+          drop: {
+            type: 'string',
+            'x-order': Infinity,
+            'x-width': 0,
+            'x-disabled': 'yes',
+          },
+          lo: { type: 'string', 'x-order': 1.5, 'x-width': 1 },
+          hi: { type: 'string', 'x-width': 12, 'x-description': '说明文案' },
+          frac: { type: 'string', 'x-width': 1.5 },
+        },
+      }),
+    );
+    // 存在任一 hint 时 fields 收录全部顶层字段（含无 hint 字段），按 order 升序
+    expect(spec.fields!.map((f) => f.key)).toEqual(['lo', 'drop', 'hi', 'frac']);
+    const drop = spec.fields!.find((f) => f.key === 'drop')!;
+    expect(drop.order).toBeUndefined();
+    expect(drop.width).toBeUndefined();
+    expect(drop.disabled).toBeUndefined();
+    expect(spec.fields!.find((f) => f.key === 'lo')!.width).toBe(1);
+    expect(spec.fields!.find((f) => f.key === 'lo')!.order).toBe(1.5);
+    const hi = spec.fields!.find((f) => f.key === 'hi')!;
+    expect(hi.width).toBe(12);
+    expect(hi.description).toEqual({ 'zh-CN': '说明文案', 'en-US': '说明文案' });
+    expect(spec.fields!.find((f) => f.key === 'frac')!.width).toBeUndefined();
+  });
+
+  it('文本 hints 非法类型（数字 / 布尔 / 数组）被忽略', () => {
+    const spec = derivePresentationSpec(
+      schema({
+        type: 'object',
+        properties: {
+          a: { type: 'string', 'x-label': 42, 'x-description': true, 'x-placeholder': [] },
+        },
+      }),
+    );
+    expect(spec.fields).toBeUndefined();
+  });
+
+  it('properties 非对象安全回退；标量属性值跳过', () => {
+    const badProps = derivePresentationSpec(schema({ properties: 'nope' }));
+    expect(badProps.jsonSchema).toEqual({ properties: 'nope' });
+    expect(badProps.fields).toBeUndefined();
+
+    const spec = derivePresentationSpec(
+      schema({
+        type: 'object',
+        'x-ui-layout': 'inline',
+        properties: { a: 'scalar', b: 5, c: { type: 'string' } },
+      }),
+    );
+    expect(spec.fields!.map((f) => f.key)).toEqual(['c']);
+  });
+
+  it('x-ui-groups：非法条目跳过；collapsible/collapsed/title 透传', () => {
+    const spec = derivePresentationSpec(
+      schema({
+        type: 'object',
+        'x-ui-groups': [
+          'not-object',
+          42,
+          { key: 7 },
+          { key: '   ' },
+          { key: 'g1', title: '标题', collapsible: true, collapsed: true },
+          { key: 'g2', collapsed: 'yes' },
+        ],
+        properties: {
+          a: { type: 'string', 'x-group': 'g1' },
+          b: { type: 'string', 'x-widget': 'Input', 'x-group': 'g2' },
+        },
+      }),
+    );
+    expect(spec.groups).toHaveLength(2);
+    const g1 = spec.groups!.find((g) => g.key === 'g1')!;
+    expect(g1.title).toEqual({ 'zh-CN': '标题', 'en-US': '标题' });
+    expect(g1.collapsible).toBe(true);
+    expect(g1.collapsed).toBe(true);
+    expect(g1.fields).toEqual(['a']);
+    // collapsed 非布尔 → 忽略；已声明组未给 title → 不自动人性化
+    const g2 = spec.groups!.find((g) => g.key === 'g2')!;
+    expect(g2.collapsed).toBeUndefined();
+    expect(g2.title).toBeUndefined();
+    expect(g2.fields).toEqual(['b']);
+  });
+
+  it('x-group 空白字符串不产生 hint', () => {
+    const spec = derivePresentationSpec(
+      schema({
+        type: 'object',
+        properties: { a: { type: 'string', 'x-group': '   ' } },
+      }),
+    );
+    expect(spec.fields).toBeUndefined();
+  });
+});

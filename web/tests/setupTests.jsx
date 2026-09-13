@@ -5,10 +5,14 @@ const localStorageMock = {
   clear: jest.fn(),
 };
 
-Object.defineProperty(window, 'localStorage', {
-  value: localStorageMock,
-  writable: true,
-});
+// @jest-environment node 的用例（如 stores/scope.node.test.ts）没有 window，
+// DOM 相关 setup 全部加守卫，jsdom 行为不变
+if (typeof window !== 'undefined') {
+  Object.defineProperty(window, 'localStorage', {
+    value: localStorageMock,
+    writable: true,
+  });
+}
 global.localStorage = localStorageMock;
 
 Object.defineProperty(URL, 'createObjectURL', {
@@ -26,7 +30,9 @@ class Worker {
     this.onmessage(msg);
   }
 }
-window.Worker = Worker;
+if (typeof window !== 'undefined') {
+  window.Worker = Worker;
+}
 
 if (!global.ResizeObserver) {
   global.ResizeObserver = class ResizeObserver {
@@ -55,9 +61,11 @@ if (!global.MessageChannel) {
   };
 }
 
-const getComputedStyle = window.getComputedStyle;
-window.getComputedStyle = (element, pseudoElement) =>
-  pseudoElement ? getComputedStyle(element) : getComputedStyle(element);
+if (typeof window !== 'undefined') {
+  const getComputedStyle = window.getComputedStyle;
+  window.getComputedStyle = (element, pseudoElement) =>
+    pseudoElement ? getComputedStyle(element) : getComputedStyle(element);
+}
 
 if (typeof window !== 'undefined') {
   // ref: https://github.com/ant-design/ant-design/issues/18774
@@ -84,21 +92,23 @@ if (typeof window !== 'undefined') {
     });
   }
 }
-const errorLog = console.error;
-Object.defineProperty(global.window.console, 'error', {
-  writable: true,
-  configurable: true,
-  value: (...rest) => {
-    const logStr = rest.join('');
-    if (logStr.includes('Warning: An update to %s inside a test was not wrapped in act(...)')) {
-      return;
-    }
-    if (logStr.includes('ReactDOMTestUtils.act')) {
-      return;
-    }
-    errorLog(...rest);
-  },
-});
+if (typeof window !== 'undefined') {
+  const errorLog = console.error;
+  Object.defineProperty(global.window.console, 'error', {
+    writable: true,
+    configurable: true,
+    value: (...rest) => {
+      const logStr = rest.join('');
+      if (logStr.includes('Warning: An update to %s inside a test was not wrapped in act(...)')) {
+        return;
+      }
+      if (logStr.includes('ReactDOMTestUtils.act')) {
+        return;
+      }
+      errorLog(...rest);
+    },
+  });
+}
 
 jest.mock(
   '@umijs/max',

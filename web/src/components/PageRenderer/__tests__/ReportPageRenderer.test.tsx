@@ -38,13 +38,15 @@ jest.mock('@ant-design/charts', () => {
   return { Line: stub('line'), Column: stub('column'), Area: stub('area'), Pie: stub('pie') };
 });
 
-// ProTable 替身：渲染各列 render 输出与分页 total 文案，columns 经 mock.calls 捕获
+// ProTable 替身：渲染各列 render 输出与分页 total 文案，columns 经 mock.calls 捕获；
+// rowKey 按行调用（含一次 index 缺省调用，覆盖其 '0' 兜底分支）
 jest.mock('@ant-design/pro-components', () => ({
   ProTable: jest.fn(
     ({
       columns,
       dataSource,
       pagination,
+      rowKey,
     }: {
       columns: Array<{
         key?: string;
@@ -54,11 +56,12 @@ jest.mock('@ant-design/pro-components', () => ({
       }>;
       dataSource: Array<Record<string, unknown>>;
       pagination?: { showTotal?: (total: number) => React.ReactNode };
+      rowKey?: (record: Record<string, unknown>, index?: number) => string;
     }) => (
-      <table>
+      <table data-fallback-key={rowKey ? rowKey(dataSource[0] ?? {}, undefined) : ''}>
         <tbody>
           {dataSource.map((row, index) => (
-            <tr key={String(index)}>
+            <tr key={rowKey ? rowKey(row, index) : String(index)}>
               {columns.map((column) => (
                 <td key={column.key ?? ''} data-key={column.key ?? ''}>
                   {column.render
@@ -360,5 +363,64 @@ describe('渲染细节', () => {
       </App>,
     );
     expect(screen.getByText('营收日报')).toBeInTheDocument();
+  });
+});
+
+describe('防御分支补充', () => {
+  it('维度齐备但指标为空：同样判定语义未完成', () => {
+    renderReport({
+      spec: spec({ dataset: { dimensions: spec().dataset.dimensions, metrics: [] } }),
+    });
+    expect(screen.getByText('报表语义未完成')).toBeInTheDocument();
+  });
+
+  it('绑定 output 选择器存在但未映射 dataset：渲染「报表绑定未完成」', () => {
+    const wrongSelector: PageFunctionBinding = {
+      ...reportBinding,
+      selectors: {
+        input: { assignments: [] },
+        output: [{ stateKey: 'dataset', source: '/items', shape: 'collection' }],
+      },
+    };
+    renderReport({ bindings: [wrongSelector] });
+    expect(screen.getByText('报表绑定未完成')).toBeInTheDocument();
+  });
+
+  it('绑定 selectors 无 output：渲染「报表绑定未完成」', () => {
+    const noOutput: PageFunctionBinding = {
+      ...reportBinding,
+      selectors: { input: { assignments: [] }, output: undefined },
+    };
+    renderReport({ bindings: [noOutput] });
+    expect(screen.getByText('报表绑定未完成')).toBeInTheDocument();
+  });
+
+  it('charts 为空数组：默认表格 tab，无图表 tab', async () => {
+    const { onExecute } = renderReport({ spec: spec({ charts: [] }) });
+    onExecute.mockResolvedValueOnce(ok({ items: rows }));
+    submit();
+    await waitFor(() => expect(screen.getByText('数据展示')).toBeInTheDocument());
+    expect(screen.queryByRole('tab', { name: /图表/ })).not.toBeInTheDocument();
+    expect(screen.getByText('¥1,234.5')).toBeInTheDocument();
+  });
+
+  it('查询出数据后切换到预览模式：导出被拦截', async () => {
+    const rendered = renderReport({ spec: spec({ exportable: true }) });
+    rendered.onExecute.mockResolvedValueOnce(ok({ items: rows }));
+    submit();
+    await waitFor(() => expect(screen.getByText('数据展示')).toBeInTheDocument());
+    // 组件状态保留（数据仍在），仅 preview 翻转——预览导出守卫生效
+    rendered.rerender(
+      <App>
+        <ReportPageRenderer
+          spec={spec({ exportable: true })}
+          bindings={[reportBinding]}
+          onExecute={rendered.onExecute as never}
+          preview
+        />
+      </App>,
+    );
+    fireEvent.click(screen.getByRole('button', { name: /导出 CSV/ }));
+    await waitFor(() => expect(screen.getByText('预览模式不导出数据')).toBeInTheDocument());
   });
 });

@@ -1,13 +1,17 @@
 import {
   countNodes,
   duplicateNode,
+  findInsertedSubtree,
   findNode,
   findParent,
   insertAfter,
   insertNode,
   moveNode,
   nodeId,
+  pruneDanglingBindings,
   removeNode,
+  replaceSubtree,
+  scaffoldTabsNode,
   updateProps,
   type PageNode,
 } from '../model';
@@ -250,5 +254,194 @@ describe('editor v3 model', () => {
   it('nodeId 唯一', () => {
     const ids = new Set(Array.from({ length: 100 }, () => nodeId('a')));
     expect(ids.size).toBe(100);
+  });
+});
+
+describe('editor v3 model 追加覆盖', () => {
+  it('nodeId 无参调用默认 n 前缀', () => {
+    expect(nodeId()).toMatch(/^n-/);
+  });
+
+  it('scaffoldTabsNode：tabs 节点 + 两个空页签容器', () => {
+    const node = scaffoldTabsNode();
+    expect(node.type).toBe('tabs');
+    expect(node.props).toEqual({ span: 24 });
+    expect(node.children).toHaveLength(2);
+    expect(node.children!.map((c) => c.type)).toEqual(['container', 'container']);
+    expect(node.children![0].props).toEqual({ title: '页签 1', span: 24 });
+    expect(node.children![1].props).toEqual({ title: '页签 2', span: 24 });
+    expect(node.children!.every((c) => c.children)).toBe(true);
+    expect(node.children!.every((c) => c.children!.length === 0)).toBe(true);
+    const ids = [node.id, ...node.children!.map((c) => c.id)];
+    expect(new Set(ids).size).toBe(3);
+  });
+
+  it('findInsertedSubtree：根级 / 嵌套 / 兄弟遍历 / 无新增', () => {
+    const prev: PageNode[] = [n('text', 'a'), n('container', 'b', [n('text', 'b1')])];
+    expect(findInsertedSubtree(prev, [...prev, n('text', 'new')])?.id).toBe('new');
+    expect(findInsertedSubtree(prev, [n('text', 'new'), ...prev])?.id).toBe('new');
+    // 嵌套子树内新增
+    const nested: PageNode[] = [
+      n('text', 'a'),
+      n('container', 'b', [n('text', 'new'), n('text', 'b1')]),
+    ];
+    expect(findInsertedSubtree(prev, nested)?.id).toBe('new');
+    // 第一个根的子树无新增 → 继续扫后续兄弟
+    const sibling: PageNode[] = [...prev, n('text', 'later')];
+    expect(findInsertedSubtree(prev, sibling)?.id).toBe('later');
+    expect(findInsertedSubtree(prev, prev)).toBeUndefined();
+    expect(findInsertedSubtree(prev, [...prev])).toBeUndefined();
+  });
+
+  it('replaceSubtree：根级与嵌套按 id 替换；目标不存在返回等价新数组', () => {
+    const replacement = n('text', 't1');
+    const nextRoot = replaceSubtree(tree, replacement);
+    expect(nextRoot[0]).toBe(replacement);
+    // 含 children 的兄弟节点被递归重建（结构等价，引用更新）
+    expect(nextRoot[1]).toEqual(tree[1]);
+    expect(nextRoot[1]).not.toBe(tree[1]);
+
+    const inner = replaceSubtree(tree, n('button', 'btn1'));
+    expect(findNode(inner, 'btn1')?.props).toEqual({ title: 'btn1' });
+    expect(findNode(inner, 'btn1')).not.toBe(findNode(tree, 'btn1'));
+
+    // 目标不存在：无节点被替换，返回内容等价的新数组（map 恒产新引用）
+    const miss = replaceSubtree(tree, n('text', 'nope'));
+    expect(miss).not.toBe(tree);
+    expect(miss).toEqual(tree);
+  });
+
+  it('findParent 未命中返回 undefined', () => {
+    expect(findParent(tree, 'nope')).toBeUndefined();
+  });
+
+  it('duplicateNode 嵌套目标：在父容器内复制并后插', () => {
+    const next = duplicateNode(tree, 'btn1');
+    const c1 = findNode(next, 'c1')!;
+    expect(c1.children).toHaveLength(3);
+    expect(c1.children!.slice(0, 2).map((c) => c.id)).toEqual(['tbl1', 'btn1']);
+    const copy = c1.children![2];
+    expect(copy.type).toBe('button');
+    expect(copy.id).not.toBe('btn1');
+    expect(countNodes(next)).toBe(countNodes(tree) + 1);
+    // 原树不受影响
+    expect(tree[1].children).toHaveLength(2);
+  });
+
+  it('moveNode 边界：负索引 / 原位 / 内层越界 no-op', () => {
+    expect(moveNode(tree, 't1', -1)).toBe(tree);
+    expect(moveNode(tree, 't1', 0)).toBe(tree);
+    // 内层目标越界：外层容器仍被重建（walk 递归 map），但内容不变
+    expect(moveNode(tree, 'tbl1', 9)).toEqual(tree);
+  });
+
+  it('pruneDanglingBindings：未知 kind / 空 target / 全有效链保持原值；rowActions 非数组走动作清洗', () => {
+    const keepChain = {
+      kind: 'runBinding',
+      target: 'a',
+      chain: [{ kind: 'refreshNode', target: 'a' }],
+    };
+    const rowActionsObj = { not: 'array' };
+    const nodes: PageNode[] = [
+      {
+        ...n('button', 'a'),
+        props: {
+          title: 'a',
+          unknownKind: { kind: 'teleport', target: 'ghost' },
+          emptyTarget: { kind: 'openModal', target: '' },
+          keepChain,
+          rowActionsObj,
+        },
+      },
+      { id: 'c', type: 'text', props: {} },
+    ];
+    const out = pruneDanglingBindings(nodes);
+    expect(out[0].props.unknownKind).toBe(nodes[0].props.unknownKind);
+    expect(out[0].props.emptyTarget).toEqual({ kind: 'openModal', target: '' });
+    expect(out[0].props.keepChain).toBe(keepChain);
+    // rowActions 非数组 → 按 props 普通值清洗（kind 非法 → 原样保留）
+    expect(out[0].props.rowActionsObj).toBe(rowActionsObj);
+    // 无变更无 children → 原节点引用
+    expect(out[1]).toBe(nodes[1]);
+  });
+
+  it('pruneDanglingBindings：链部分悬空剔除步骤；链全部悬空置 undefined', () => {
+    const partial = {
+      kind: 'runBinding',
+      target: 'b',
+      chain: [{ target: 'b' }, { target: 'ghost' }],
+    };
+    const allGone = { kind: 'runBinding', target: 'b', chain: [{ target: 'ghost' }] };
+    const nodes: PageNode[] = [
+      {
+        ...n('button', 'b'),
+        props: { title: 'b', partial, allGone },
+      },
+      {
+        ...n('fnTable', 't'),
+        props: {
+          title: 't',
+          rowActions: [{ targetSection: 'ghost' }, { targetSection: 't' }, {}],
+        },
+      },
+    ];
+    const out = pruneDanglingBindings(nodes);
+    expect(out[0].props.partial).toEqual({
+      kind: 'runBinding',
+      target: 'b',
+      chain: [{ target: 'b' }],
+    });
+    expect(out[0].props.partial).not.toBe(partial);
+    expect(out[0].props.allGone).toEqual({
+      kind: 'runBinding',
+      target: 'b',
+      chain: undefined,
+    });
+    // 行操作：悬空 targetSection 剔除，空 targetSection 保留
+    expect(out[1].props.rowActions).toEqual([{ targetSection: 't' }, {}]);
+  });
+
+  it('duplicateNode：chain 非数组不遍历；非 on 前缀对象与数组 props 原样保留', () => {
+    const style = { color: 'red' };
+    const src: PageNode[] = [
+      {
+        ...n('button', 'g'),
+        props: {
+          title: 'g',
+          style,
+          tags: ['a', 'b'],
+          onClick: { kind: 'openModal', target: 'g', chain: 'oops' },
+          refreshOnNode: ['g', 7] as unknown as string[],
+        },
+      },
+    ];
+    const next = duplicateNode(src, 'g');
+    const copy = next[1];
+    const onClick = copy.props.onClick as { target: string; chain: string };
+    // 子树内部自引用 target 重映射；chain 非数组保持原样
+    expect(onClick.target).toBe(copy.id);
+    expect(onClick.chain).toBe('oops');
+    expect(copy.props.style).toEqual(style);
+    expect(copy.props.tags).toEqual(['a', 'b']);
+    // refreshOnNode 混入非字符串：字符串重映射、非字符串原样
+    expect(copy.props.refreshOnNode).toEqual([copy.id, 7]);
+  });
+
+  it('insertNode：父节点无 children / 父节点嵌套在容器内', () => {
+    // 命中的父节点原本无 children → 追加为首个子节点
+    const leafParent = insertNode(tree, n('text', 'x9'), 'f1');
+    expect(findNode(leafParent, 'f1')?.children?.map((c) => c.id)).toEqual(['x9']);
+    // 父节点嵌套：先递归进 c1 再命中 tbl1
+    const nested = insertNode(tree, n('text', 'x8'), 'tbl1');
+    expect(findNode(nested, 'tbl1')?.children?.map((c) => c.id)).toEqual(['x8']);
+    // 兄弟容器结构不变
+    expect(findNode(nested, 'c1')?.children).toHaveLength(2);
+  });
+
+  it('removeNode 嵌套目标：存活容器保留其余子节点', () => {
+    const [next, removed] = removeNode(tree, 'btn1');
+    expect(removed).toBe(true);
+    expect(findNode(next, 'c1')?.children?.map((c) => c.id)).toEqual(['tbl1']);
+    expect(countNodes(next)).toBe(4);
   });
 });
