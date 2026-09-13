@@ -890,3 +890,577 @@ describe('compileTree U9：refreshOn 级联失败策略（cascadePolicy）', () 
     expect(sections.find((s) => s.key === 'player.list')?.cascadePolicy).toBeUndefined();
   });
 });
+
+describe('normalizeRowActionParams（行操作参数归一）', () => {
+  it('params 缺省/非对象：返回 undefined', () => {
+    const { normalizeRowActionParams } = jest.requireActual('../compiler/normalize');
+    expect(normalizeRowActionParams(undefined, 't', new Set(), [])).toBeUndefined();
+    expect(
+      normalizeRowActionParams('x' as unknown as undefined, 't', new Set(), []),
+    ).toBeUndefined();
+  });
+
+  it('{{row.字段}} → row.字段；混合字面量原样', () => {
+    const { normalizeRowActionParams } = jest.requireActual('../compiler/normalize');
+    const warnings: string[] = [];
+    const out = normalizeRowActionParams(
+      { a: '{{row.uid}}', b: 'plain', c: '5' },
+      undefined, // 表标题缺省 → 警告文案里空串兜底
+      new Set(['row']),
+      warnings,
+    );
+    expect(out).toEqual({ a: 'row.uid', b: 'plain', c: '5' });
+    expect(warnings).toEqual([]);
+  });
+
+  it('非 row 变量表达式：警告并按字面量保留', () => {
+    const { normalizeRowActionParams } = jest.requireActual('../compiler/normalize');
+    const warnings: string[] = [];
+    const out = normalizeRowActionParams(
+      { x: '{{otherVar.uid}}' },
+      '玩家列表',
+      new Set(['otherVar']),
+      warnings,
+    );
+    expect(out).toEqual({ x: '{{otherVar.uid}}' });
+    expect(
+      warnings.some((w) => w.includes('玩家列表') && w.includes("仅支持 '{{'row.字段'}}'")),
+    ).toBe(true);
+  });
+
+  it('嵌套行路径 {{row.a.b}}：警告按字面量保留（发布端只支持单段）', () => {
+    const { normalizeRowActionParams } = jest.requireActual('../compiler/normalize');
+    const warnings: string[] = [];
+    const out = normalizeRowActionParams(
+      { x: '{{row.a.b}}' },
+      '玩家列表',
+      new Set(['row']),
+      warnings,
+    );
+    expect(out).toEqual({ x: '{{row.a.b}}' });
+    expect(warnings.some((w) => w.includes('嵌套字段「a.b」'))).toBe(true);
+  });
+
+  it('空对象 params：返回 undefined', () => {
+    const { normalizeRowActionParams } = jest.requireActual('../compiler/normalize');
+    expect(normalizeRowActionParams({}, 't', new Set(), [])).toBeUndefined();
+  });
+
+  it('警告文案表标题缺省：空串兜底（嵌套与 row-only 两分支）', () => {
+    const { normalizeRowActionParams } = jest.requireActual('../compiler/normalize');
+    const warnings: string[] = [];
+    normalizeRowActionParams({ x: '{{row.a.b}}' }, undefined, new Set(['row']), warnings);
+    normalizeRowActionParams({ y: '{{otherVar.k}}' }, undefined, new Set(['otherVar']), warnings);
+    expect(warnings).toHaveLength(2);
+    expect(warnings.every((w) => w.startsWith('表格「」'))).toBe(true);
+  });
+});
+
+describe('compileTree 降级与防御分支补测', () => {
+  it('未知组件类型：警告忽略', () => {
+    const ghost = { id: 'g1', type: 'ghost', props: {} } as unknown as PageNode;
+    const { sections, warnings } = compileTree([ghost]);
+    expect(sections).toEqual([]);
+    expect(warnings.some((w) => w.includes('未知组件类型'))).toBe(true);
+  });
+
+  it('staticSchema 非字符串对象（遗留形态）：直接采用', () => {
+    const sf: PageNode = {
+      id: nodeId('staticForm'),
+      type: 'staticForm',
+      props: {
+        title: '筛选',
+        staticSchema: {
+          type: 'object',
+          properties: { kw: { type: 'string' } },
+        } as unknown as string,
+      },
+    };
+    const { sections, warnings } = compileTree([sf]);
+    expect(warnings).toEqual([]);
+    expect(sections[0].form).toEqual({
+      jsonSchema: { type: 'object', properties: { kw: { type: 'string' } } },
+    });
+  });
+
+  it('fnForm 未绑定函数：警告忽略', () => {
+    const node: PageNode = { id: 'f-nofid', type: 'fnForm', props: { title: '空表单' } };
+    const { sections, warnings } = compileTree([node]);
+    expect(sections).toEqual([]);
+    expect(warnings.some((w) => w.includes('没有绑定函数'))).toBe(true);
+  });
+
+  it('字面 refreshOn 数组：编译透传（与 refreshOnNode 去重合并）', () => {
+    const a = fn('fnTable', 'up.fn');
+    const b = fn('fnForm', 'm.send', {
+      refreshOnNode: [a.id],
+      refreshOn: ['up.fn', 'lit-only'],
+    });
+    const { sections, warnings } = compileTree([a, b]);
+    expect(warnings).toEqual([]);
+    expect(sections.find((s) => s.key === 'm.send')!.refreshOn).toEqual(['up.fn', 'lit-only']);
+  });
+
+  it('literal 表达式引用未知变量/行上下文：警告并按字面量保存', () => {
+    const node = fn('fnForm', 'm.send', {
+      inputAssignments: [
+        { param: '/a', kind: 'literal', value: '{{ghostVar.x}}' },
+        { param: '/b', kind: 'literal', value: '{{row.uid}}' },
+      ],
+    });
+    const { sections, warnings } = compileTree([node]);
+    expect(warnings).toHaveLength(2);
+    expect(warnings.every((w) => w.includes('引用未知变量或行上下文'))).toBe(true);
+    expect(sections[0].inputAssignments).toEqual([
+      { target: '/a', kind: 'literal', value: '{{ghostVar.x}}' },
+      { target: '/b', kind: 'literal', value: '{{row.uid}}' },
+    ]);
+  });
+
+  it('行操作目标无效：警告忽略该行操作', () => {
+    const node = fn('fnTable', 'a.list', {
+      rowActions: [{ label: '坏', targetSection: 'ghost' }],
+    });
+    const { sections, warnings } = compileTree([node]);
+    expect(warnings.some((w) => w.includes('未配置目标的行操作'))).toBe(true);
+    expect(sections[0].rowActions).toBeUndefined();
+  });
+
+  it('按钮动作目标无效（refreshNode/openModal）：警告忽略', () => {
+    const table = fn('fnTable', 'a.list');
+    const badRefresh: PageNode = {
+      id: 'btn-bad-refresh',
+      type: 'button',
+      props: { title: '坏刷新', onClick: { kind: 'refreshNode', target: 'ghost' } },
+    };
+    const badModal: PageNode = {
+      id: 'btn-bad-modal',
+      type: 'button',
+      props: { title: '坏弹窗', onClick: { kind: 'openModal', target: 'ghost' } },
+    };
+    const { sections, warnings } = compileTree([table, badRefresh, badModal]);
+    expect(warnings.some((w) => w.includes('「坏刷新」动作目标无效'))).toBe(true);
+    expect(warnings.some((w) => w.includes('「坏弹窗」的弹窗目标无效'))).toBe(true);
+    expect(sections[0].toolbarActions).toBeUndefined();
+  });
+});
+
+describe('compileTree 分支槽补测（缺省形态矩阵）', () => {
+  it('modal/card 容器缺 children：空集兜底（空弹窗警告、卡片静默）', () => {
+    const emptyModal: PageNode = { id: 'm-empty', type: 'modal', props: {} };
+    const emptyCard: PageNode = { id: 'c-empty', type: 'container', props: { publishAs: 'card' } };
+    const { sections, warnings } = compileTree([emptyModal, emptyCard]);
+    expect(sections).toEqual([]);
+    expect(warnings.some((w) => w.includes('弹窗「m-empty」为空'))).toBe(true);
+  });
+
+  it('根级 text 无 content：警告参数空串', () => {
+    const text: PageNode = { id: 't-plain', type: 'text', props: {} };
+    const { warnings } = compileTree([text]);
+    expect(warnings.some((w) => w.includes('文本「」'))).toBe(true);
+  });
+
+  it('modal 内 text 子节点：跳过不进 spec', () => {
+    const modal: PageNode = {
+      id: 'm-with-text',
+      type: 'modal',
+      props: { title: '弹窗' },
+      children: [{ id: 't-in', type: 'text', props: {} }, fn('fnForm', 'm.send')],
+    };
+    const { sections, warnings } = compileTree([modal]);
+    expect(warnings).toEqual([]);
+    expect(sections).toHaveLength(1);
+    expect(sections[0].display).toBe('dialog');
+  });
+
+  it('container 嵌套 modal/tabs：组名兜底空串（非根级容器不登记组）', () => {
+    const form = fn('fnForm', 'm.send');
+    const sf: PageNode = {
+      id: nodeId('staticForm'),
+      type: 'staticForm',
+      props: {
+        title: '筛选',
+        staticSchema: '{}',
+        sectionKey: 'nested-filter',
+        visibleWhen: { expr: '{{m.send.x}}', op: 'equals', value: 'on' },
+      },
+    };
+    const page: PageNode = {
+      id: nodeId('container'),
+      type: 'container',
+      props: { title: '页A', span: 24 },
+      children: [sf],
+    };
+    const box: PageNode = {
+      id: 'box-nest',
+      type: 'container',
+      props: { title: '盒' },
+      children: [
+        { id: 'm-nest', type: 'modal', props: { title: '弹窗' }, children: [form] },
+        { id: 'tabs-nest', type: 'tabs', props: {}, children: [page] },
+      ],
+    };
+    const { sections, warnings } = compileTree([box]);
+    expect(warnings).toEqual([]);
+    const dialog = sections.find((s) => s.key === 'm.send')!;
+    expect(dialog.display).toBe('dialog');
+    expect(dialog.group).toBeUndefined();
+    const staticSec = sections.find((s) => s.key === 'nested-filter')!;
+    expect(staticSec.display).toBe('tab');
+    expect(staticSec.group).toBeUndefined();
+    expect(staticSec.tab).toBe('页A');
+    expect(staticSec.visibleWhen).toEqual({
+      kind: 'equals',
+      key: 'm.send',
+      path: '/x',
+      value: 'on',
+    });
+  });
+
+  it('tabs 内非 container 子节点过滤；页缺 title 兜底「页签 N」；页缺 children 空兜底', () => {
+    const emptyPage: PageNode = {
+      id: nodeId('container'),
+      type: 'container',
+      props: { title: '空页', span: 24 },
+    };
+    const fullPage: PageNode = {
+      id: nodeId('container'),
+      type: 'container',
+      props: { span: 24 },
+      children: [fn('fnFields', 'v.f')],
+    };
+    const tabs: PageNode = {
+      id: nodeId('tabs'),
+      type: 'tabs',
+      props: {},
+      children: [emptyPage, fullPage, { id: 'stray', type: 'text', props: {} }],
+    };
+    const { sections, warnings } = compileTree([tabs]);
+    expect(warnings).toEqual([]);
+    expect(sections.map((s) => [s.key, s.tab])).toEqual([['v.f', '页签 2']]);
+  });
+
+  it('根级 fnForm display=dialog：编译为 dialog 区块（无 group）', () => {
+    const node = fn('fnForm', 'm.send', { display: 'dialog' });
+    const { sections, warnings } = compileTree([node]);
+    expect(warnings).toEqual([]);
+    expect(sections[0].display).toBe('dialog');
+    expect(sections[0].group).toBeUndefined();
+  });
+
+  it('staticForm 无 title/span 非数字：兜底「常量表单」与 12', () => {
+    const sf: PageNode = {
+      id: nodeId('staticForm'),
+      type: 'staticForm',
+      props: { staticSchema: '{}', span: 'not-a-number' as unknown as number },
+    };
+    const { sections, warnings } = compileTree([sf]);
+    expect(warnings).toEqual([]);
+    expect(sections[0].title).toBe('常量表单');
+    expect(sections[0].span).toBe(12);
+  });
+
+  it('fnForm 未绑定函数且无 title：警告参数兜底节点 id', () => {
+    const nofid: PageNode = { id: 'f-plain', type: 'fnForm', props: {} };
+    const { sections, warnings } = compileTree([nofid]);
+    expect(sections).toEqual([]);
+    expect(warnings.some((w) => w.includes('组件「f-plain」没有绑定函数'))).toBe(true);
+  });
+
+  it('非法 sectionKey 节点无 title：警告参数回退 key 本身', () => {
+    const plain: PageNode = {
+      id: 'k-plain',
+      type: 'fnFields',
+      props: { functionId: 'v.k', sectionKey: 'bad key!' },
+    };
+    const { warnings } = compileTree([plain]);
+    expect(warnings.some((w) => w.includes('「bad key!」非法或重复'))).toBe(true);
+  });
+
+  it('onSuccess 动作链含 refreshNode：链内目标编译为 events.success 链', () => {
+    const table = fn('fnTable', 'a.list');
+    const form = fn('fnForm', 'm.send', {
+      onSuccess: { kind: 'showMessage', chain: [{ kind: 'refreshNode', target: table.id }] },
+    });
+    const { sections, warnings } = compileTree([table, form]);
+    expect(warnings).toEqual([]);
+    const ev = sections.find((s) => s.key === 'm.send')!.events!;
+    expect(ev[0].event).toBe('success');
+    expect(ev[0].action.kind).toBe('showMessage');
+    expect(ev[0].chain).toEqual([{ kind: 'refreshNode', target: 'a.list' }]);
+  });
+
+  it('事件链步骤缺 kind/target：kind 兜底 refreshNode；全空目标链不产出', () => {
+    const withGhost = fn('fnTable', 'a.list', {
+      onRowClick: { kind: 'showMessage', chain: [{ target: 'ghost' }] },
+    });
+    const r1 = compileTree([withGhost]);
+    expect(r1.warnings).toEqual([]);
+    expect(r1.sections[0].events![0].chain).toEqual([{ kind: 'refreshNode', target: 'ghost' }]);
+
+    const allEmpty = fn('fnTable', 'b.list', {
+      onRowClick: { kind: 'showMessage', chain: [{ kind: 'runBinding' }] },
+    });
+    const r2 = compileTree([allEmpty]);
+    expect(r2.warnings).toEqual([]);
+    expect(r2.sections[0].events![0].chain).toBeUndefined();
+  });
+
+  it('inputAssignments 缺省矩阵：无 param/裸 param 名/无 sourceNodeId/无 field', () => {
+    const src = fn('fnTable', 'p.list');
+    const form = fn('fnForm', 'm.send', {
+      inputAssignments: [
+        { kind: 'literal', value: 'x' },
+        { param: 'plainName', kind: 'literal', value: 'y' },
+        { param: '/noSrc', kind: 'page_state' },
+        { param: '/noField', kind: 'page_state', sourceNodeId: src.id },
+      ],
+    });
+    const { sections, warnings } = compileTree([src, form]);
+    expect(warnings.some((w) => w.includes('「/noSrc」的来源节点已失效'))).toBe(true);
+    const asg = sections.find((s) => s.key === 'm.send')!.inputAssignments!;
+    expect(asg[0]).toEqual({ target: '/', kind: 'literal', value: 'x' });
+    expect(asg[1]).toEqual({ target: '/plainName', kind: 'literal', value: 'y' });
+    expect(asg.find((a) => a.target === '/noField')).toEqual({
+      target: '/noField',
+      kind: 'page_state',
+      key: 'p.list',
+    });
+  });
+
+  it('defaultValue 类型解析：true/false/null/数字保持 JSON 类型', () => {
+    const src = fn('fnTable', 'p.list');
+    const form = fn('fnForm', 'm.send', {
+      inputAssignments: [
+        { param: '/a', kind: 'page_state', sourceNodeId: src.id, field: 'x', defaultValue: 'true' },
+        { param: '/b', kind: 'page_state', sourceNodeId: src.id, field: 'x', defaultValue: '42' },
+        { param: '/c', kind: 'page_state', sourceNodeId: src.id, field: 'x', defaultValue: '3.14' },
+        { param: '/d', kind: 'page_state', sourceNodeId: src.id, field: 'x', defaultValue: '文本' },
+      ],
+    });
+    const { sections, warnings } = compileTree([src, form]);
+    expect(warnings).toEqual([]);
+    const asg = sections.find((s) => s.key === 'm.send')!.inputAssignments!;
+    expect(asg.map((a) => a.transform!.params!.value)).toEqual([true, 42, 3.14, '文本']);
+  });
+
+  it('rowAction 缺 targetSection/label/带无 kind 链：降级与链兜底', () => {
+    const modal: PageNode = {
+      id: 'm-ra',
+      type: 'modal',
+      props: { title: '弹窗' },
+      children: [fn('fnForm', 'm.send')],
+    };
+    const table = fn('fnTable', 'a.list', {
+      rowActions: [
+        { label: '无目标', targetSection: 123 as unknown as string },
+        { targetSection: 'm-ra', chain: [{ target: 'ghost' }] },
+      ],
+    });
+    const { sections, warnings } = compileTree([table, modal]);
+    expect(warnings.some((w) => w.includes('未配置目标的行操作'))).toBe(true);
+    const ras = sections.find((s) => s.key === 'a.list')!.rowActions!;
+    expect(ras).toHaveLength(1);
+    expect(ras[0].label).toBe('');
+    expect(ras[0].chain).toEqual([{ kind: 'refreshNode', target: 'ghost' }]);
+  });
+
+  it('visibleWhen exists 与非字符串 value：兜底形态；无 title 非法表达式警告回退 id', () => {
+    const src = fn('fnTable', 'src.fn');
+    const exists = fn('fnFields', 'v.a', {
+      visibleWhen: { expr: '{{src.fn.x}}', op: 'exists' },
+    });
+    const nonStr = fn('fnFields', 'v.b', {
+      visibleWhen: { expr: '{{src.fn.x}}', op: 'equals', value: 42 as unknown as string },
+    });
+    const plain: PageNode = {
+      id: 'v-plain',
+      type: 'fnFields',
+      props: { functionId: 'v.c', visibleWhen: { expr: '{{ghost.x}}' } },
+    };
+    const { sections, warnings } = compileTree([src, exists, nonStr, plain]);
+    expect(warnings).toEqual([
+      expect.stringContaining('区块「v-plain」的显示条件表达式「{{ghost.x}}」'),
+    ]);
+    expect(sections.find((s) => s.key === 'v.a')!.visibleWhen).toEqual({
+      kind: 'exists',
+      key: 'src.fn',
+      path: '/x',
+    });
+    expect(sections.find((s) => s.key === 'v.b')!.visibleWhen).toEqual({
+      kind: 'equals',
+      key: 'src.fn',
+      path: '/x',
+      value: '',
+    });
+  });
+
+  it('card 容器内 button：编译到页内表格 toolbar；card 无 title：cardTitle 缺省', () => {
+    const inner = fn('fnTable', 'a.list');
+    const btn: PageNode = {
+      id: 'cb-1',
+      type: 'button',
+      props: {
+        title: '顶部按钮',
+        onClick: { kind: 'navigate', params: { url: '/z' } },
+      },
+    };
+    const card: PageNode = {
+      id: 'card-plain',
+      type: 'container',
+      props: { publishAs: 'card' },
+      children: [inner, btn],
+    };
+    const { sections, warnings } = compileTree([card]);
+    expect(warnings).toEqual([]);
+    const tbl = sections.find((s) => s.key === 'a.list')!;
+    expect(tbl.display).toBe('card');
+    expect(tbl.cardTitle).toBeUndefined();
+    expect(tbl.toolbarActions![0].label).toBe('顶部按钮');
+  });
+
+  it('按钮缺省矩阵：无动作/表格前/navigate/refreshNode/runBinding 无 title', () => {
+    const table = fn('fnTable', 'a.list');
+    const noAct: PageNode = { id: 'b-plain-1', type: 'button', props: {} };
+    const beforeTable: PageNode = {
+      id: 'b-plain-2',
+      type: 'button',
+      props: { onClick: { kind: 'openModal', target: 'x' } },
+    };
+    const nav: PageNode = {
+      id: 'b-plain-3',
+      type: 'button',
+      props: { onClick: { kind: 'navigate', params: { url: '/x' } } },
+    };
+    const refresh: PageNode = {
+      id: 'b-plain-4',
+      type: 'button',
+      props: { onClick: { kind: 'refreshNode', target: table.id } },
+    };
+    const runB: PageNode = {
+      id: 'b-plain-5',
+      type: 'button',
+      props: { onClick: { kind: 'runBinding', target: table.id } },
+    };
+    const { sections, warnings } = compileTree([beforeTable, table, noAct, nav, refresh, runB]);
+    expect(warnings.some((w) => w.includes('按钮「」没有配置动作'))).toBe(true);
+    expect(warnings.some((w) => w.includes('按钮「」需放置在表格之后'))).toBe(true);
+    const tas = sections.find((s) => s.key === 'a.list')!.toolbarActions!;
+    expect(tas.map((t) => [t.label, t.chain![0].kind])).toEqual([
+      ['操作', 'navigate'],
+      ['操作', 'refreshNode'],
+      ['操作', 'runBinding'],
+    ]);
+  });
+
+  it('openModal 按钮：仅链无主动作/空弹窗目标/目标有效三种无 title 形态', () => {
+    const table = fn('fnTable', 'a.list');
+    const modal: PageNode = {
+      id: 'm-x',
+      type: 'modal',
+      props: { title: '弹窗' },
+      children: [fn('fnForm', 'm.send')],
+    };
+    // 无 children 字段（与 children: [] 同判空，但走 ?? 兜底路径）
+    const bareModal: PageNode = { id: 'm-bare', type: 'modal', props: {} };
+    const chainOnly: PageNode = {
+      id: 'b-chain-only',
+      type: 'button',
+      props: { onClick: { chain: [{ kind: 'navigate', params: { url: '/y' } }] } },
+    };
+    const emptyTarget: PageNode = {
+      id: 'b-void',
+      type: 'button',
+      props: { onClick: { kind: 'openModal', target: 'm-bare' } },
+    };
+    const plain: PageNode = {
+      id: 'b-open-plain',
+      type: 'button',
+      props: { onClick: { kind: 'openModal', target: 'm-x' } },
+    };
+    const { sections, warnings } = compileTree([
+      table,
+      modal,
+      bareModal,
+      chainOnly,
+      emptyTarget,
+      plain,
+    ]);
+    expect(warnings.some((w) => w.includes('按钮「」的弹窗目标无效，已忽略'))).toBe(true);
+    expect(warnings.some((w) => w.includes('按钮「」的弹窗目标无效（空弹窗）'))).toBe(true);
+    const tas = sections.find((s) => s.key === 'a.list')!.toolbarActions!;
+    expect(tas).toHaveLength(1);
+    expect(tas[0].label).toBe('操作');
+    expect(tas[0].targetSection).toMatch(/^modal-/);
+  });
+
+  it('card 容器带 title：cardTitle 产出；函数区块 span 非数字兜底 24', () => {
+    const inner = fn('fnForm', 'm.send', { span: 'not-a-number' as unknown as number });
+    const card: PageNode = {
+      id: 'card-titled',
+      type: 'container',
+      props: { publishAs: 'card', title: '运营卡片' },
+      children: [inner],
+    };
+    const { sections, warnings } = compileTree([card]);
+    expect(warnings).toEqual([]);
+    const sec = sections.find((s) => s.key === 'm.send')!;
+    expect(sec.display).toBe('card');
+    expect(sec.cardTitle).toBe('运营卡片');
+    expect(sec.span).toBe(24);
+  });
+
+  it('tabs 无 children 字段：空页签警告（?? 兜底侧）', () => {
+    const tabs: PageNode = { id: 'tabs-bare', type: 'tabs', props: {} };
+    const { sections, warnings } = compileTree([tabs]);
+    expect(sections).toEqual([]);
+    expect(warnings.some((w) => w.includes('页签容器「tabs-bare」为空'))).toBe(true);
+  });
+
+  it('flat 容器无 children 字段：空集兜底（无警告无区块）', () => {
+    const box: PageNode = { id: 'box-bare', type: 'container', props: { title: '空盒' } };
+    const { sections, warnings } = compileTree([box]);
+    expect(sections).toEqual([]);
+    expect(warnings).toEqual([]);
+  });
+
+  it('navigate 无 params 按钮 + refreshNode 目标无效无 title：降级形态', () => {
+    const table = fn('fnTable', 'a.list');
+    const navBare: PageNode = {
+      id: 'b-nav-bare',
+      type: 'button',
+      props: { onClick: { kind: 'navigate' } },
+    };
+    const badNoTitle: PageNode = {
+      id: 'b-bad-plain',
+      type: 'button',
+      props: { onClick: { kind: 'refreshNode', target: 'ghost' } },
+    };
+    const { sections, warnings } = compileTree([table, navBare, badNoTitle]);
+    expect(warnings.some((w) => w.includes('按钮「」动作目标无效'))).toBe(true);
+    const tas = sections.find((s) => s.key === 'a.list')!.toolbarActions!;
+    expect(tas).toHaveLength(1);
+    expect(tas[0].chain).toEqual([{ kind: 'navigate', target: '' }]);
+  });
+
+  it('defaultValue 布尔/null 与非字符串输入：parseDefaultValue 全形态', () => {
+    const src = fn('fnTable', 'p.list');
+    const form = fn('fnForm', 'm.send', {
+      inputAssignments: [
+        {
+          param: '/a',
+          kind: 'page_state',
+          sourceNodeId: src.id,
+          field: 'x',
+          defaultValue: 'false',
+        },
+        { param: '/b', kind: 'page_state', sourceNodeId: src.id, field: 'x', defaultValue: 'null' },
+        { param: '/c', kind: 'page_state', sourceNodeId: src.id, field: 'x', defaultValue: false },
+      ],
+    });
+    const { sections, warnings } = compileTree([src, form]);
+    expect(warnings).toEqual([]);
+    const asg = sections.find((s) => s.key === 'm.send')!.inputAssignments!;
+    expect(asg.map((a) => a.transform!.params!.value)).toEqual([false, null, false]);
+  });
+});

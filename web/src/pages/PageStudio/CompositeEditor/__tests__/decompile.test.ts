@@ -580,3 +580,609 @@ describe('批次B：后端形态 round-trip（LocalizedText/dialog events/onSucc
     ]);
   });
 });
+
+describe('decompileToTree 缺省与降级形态补测', () => {
+  it('区块缺少函数绑定：警告并跳过（含 bindingId 回退侧）', () => {
+    const spec: SpecSectionLike[] = [
+      // functionId 缺、bindingId 在 → fid 走 bindingId（不跳过）
+      { key: 'by-binding', bindingId: 'b.fn', view: 'form' },
+      // 两者皆缺 → 警告跳过
+      { key: 'no-fn', view: 'form', refreshOn: ['by-binding'], events: [] },
+    ];
+    const [tree, warnings] = decompileToTree(spec);
+    expect(warnings.some((w) => w.includes('区块缺少函数绑定'))).toBe(true);
+    expect(tree).toHaveLength(1);
+    // bindingId 回退节点正常产出（fnForm）
+    expect(tree[0].type).toBe('fnForm');
+    expect(String(tree[0].props.functionId)).toBe('b.fn');
+    // 被跳过的 section：refreshOn owner 查不到（continue）、events owner 同样跳过
+  });
+
+  it('裸 section（无 key/无 fid）带 events 与 refreshOn：全部查无 owner 静默跳过', () => {
+    const spec: SpecSectionLike[] = [
+      {
+        view: 'form',
+        refreshOn: ['ghost-dep'],
+        events: [{ event: 'click', action: { kind: 'navigate', target: 'ghost' } }],
+      } as unknown as SpecSectionLike,
+    ];
+    const [tree, warnings] = decompileToTree(spec);
+    expect(warnings.some((w) => w.includes('区块缺少函数绑定'))).toBe(true);
+    expect(tree).toHaveLength(0);
+  });
+
+  it('key 缺省：函数区块 key 回退 fid；static 区块 key 空串兜底「常量表单」', () => {
+    const spec: SpecSectionLike[] = [
+      { functionId: 'x.fn', view: 'form' },
+      // static 无 key/无 form/非数字 span：三重兜底
+      { static: true, view: 'form', span: 'not-a-number' } as unknown as SpecSectionLike,
+    ];
+    const [tree, warnings] = decompileToTree(spec);
+    expect(warnings).toEqual([]);
+    expect(String(tree[0].props.sectionKey)).toBe('x.fn');
+    const sf = tree[1];
+    expect(sf.type).toBe('staticForm');
+    expect(String(sf.props.title)).toBe('常量表单');
+    expect(sf.props.span).toBe(12);
+    expect(JSON.parse(String(sf.props.staticSchema))).toEqual({ type: 'object', properties: {} });
+  });
+
+  it('static card 区块：回读为 publishAs=card 容器（cardTitle 还原）', () => {
+    const spec: SpecSectionLike[] = [
+      {
+        key: 'filter-card',
+        static: true,
+        view: 'form',
+        title: { 'zh-CN': '筛选' },
+        display: 'card',
+        group: 'card-g1',
+        cardTitle: { 'zh-CN': '高级筛选' },
+        form: { jsonSchema: { type: 'object', properties: { kw: { type: 'string' } } } },
+      },
+    ];
+    const [tree, warnings] = decompileToTree(spec);
+    expect(warnings).toEqual([]);
+    const card = tree.find((n) => n.type === 'container')!;
+    expect(card.props.publishAs).toBe('card');
+    expect(String(card.props.title)).toBe('高级筛选');
+    expect(String(card.props.sectionKey)).toBe('card-g1');
+    expect(card.children![0].type).toBe('staticForm');
+  });
+
+  it('函数 card 区块：按 group 聚卡片容器（group 缺省回退 key）', () => {
+    const spec: SpecSectionLike[] = [
+      {
+        key: 'vip.rank',
+        functionId: 'vip.rank',
+        view: 'fields',
+        display: 'card',
+        // group 缺省 → 回退 key
+      },
+    ];
+    const [tree, warnings] = decompileToTree(spec);
+    expect(warnings).toEqual([]);
+    const card = tree.find((n) => n.type === 'container')!;
+    expect(card.props.publishAs).toBe('card');
+    expect(card.children![0].type).toBe('fnFields');
+  });
+
+  it('同组第二个 dialog 表单：append 进同一 modal（group 缺省回退 key）', () => {
+    const spec: SpecSectionLike[] = [
+      // group 为合法 sectionKey 形态 → modal 回写 sectionKey（true 侧）
+      {
+        key: 'mail.send',
+        group: 'mailModal',
+        functionId: 'mail.send',
+        view: 'form',
+        display: 'dialog',
+      },
+      // 同组第二表单（append 分支）+ group 缺省侧由上一例兜底
+      {
+        key: 'mail.cc',
+        group: 'mailModal',
+        functionId: 'mail.cc',
+        view: 'form',
+        display: 'dialog',
+      },
+    ];
+    const [tree, warnings] = decompileToTree(spec);
+    expect(warnings).toEqual([]);
+    expect(tree).toHaveLength(1);
+    const modal = tree[0];
+    expect(modal.type).toBe('modal');
+    expect(String(modal.props.sectionKey)).toBe('mailModal');
+    expect(modal.children).toHaveLength(2);
+  });
+
+  it('dialog group 非 sectionKey 形态：不回写 sectionKey（false 侧）', () => {
+    const spec: SpecSectionLike[] = [
+      {
+        key: 'a.fn',
+        group: '弹窗 组',
+        functionId: 'a.fn',
+        view: 'form',
+        display: 'dialog',
+      },
+    ];
+    const [tree] = decompileToTree(spec);
+    expect(tree[0].props.sectionKey).toBeUndefined();
+  });
+
+  it('refreshOn 混合依赖：节点 id 进 refreshOnNode、陈旧字面量保留 refreshOn', () => {
+    const spec: SpecSectionLike[] = [
+      {
+        key: 'mail.send',
+        functionId: 'mail.send',
+        view: 'form',
+        refreshOn: ['player.list', 'ghost-literal'],
+      },
+      { key: 'player.list', functionId: 'player.list', view: 'table' },
+    ];
+    const [tree, warnings] = decompileToTree(spec);
+    expect(warnings).toEqual([]);
+    const form = tree.find((n) => n.type === 'fnForm')!;
+    const table = tree.find((n) => n.type === 'fnTable')!;
+    expect(form.props.refreshOnNode).toEqual([table.id]);
+    expect(form.props.refreshOn).toEqual(['ghost-literal']);
+  });
+
+  it('view=table 无 table 字段：columns 兜底空数组；rowActions 无 params 还原', () => {
+    const spec: SpecSectionLike[] = [
+      {
+        key: 'a.list',
+        functionId: 'a.list',
+        view: 'table',
+        table: { rowActions: [{ label: '看', targetSection: 'd1' }] },
+      },
+      { key: 'd.fn', group: 'd1', functionId: 'd.fn', view: 'form', display: 'dialog' },
+    ];
+    const [tree, warnings] = decompileToTree(spec);
+    expect(warnings).toEqual([]);
+    const table = tree.find((n) => n.type === 'fnTable')!;
+    expect(table.props.columns).toEqual([]);
+    const ra = (table.props.rowActions as Array<Record<string, unknown>>)[0];
+    expect(ra.label).toBe('看');
+    expect(ra.params).toBeUndefined();
+  });
+
+  it('inputAssignments：page_state 无 key 不警告 + 多段数字路径转表达式字面值', () => {
+    const spec: SpecSectionLike[] = [
+      { key: 'p.list', functionId: 'p.list', view: 'table' },
+      {
+        key: 'm.send',
+        functionId: 'm.send',
+        view: 'form',
+        inputAssignments: [
+          // 无 key：不警告（upstreamId 空 → sourceNodeId 空串）
+          { target: '/a', kind: 'page_state', path: '/uid' },
+          // 多段含数字：/data/0/id → {{p.list.data[0].id}}
+          { target: '/b', kind: 'page_state', key: 'p.list', path: '/data/0/id' },
+          // transform default → defaultValue（U8 round-trip）
+          {
+            target: '/c',
+            kind: 'literal',
+            value: 'v',
+            transform: { type: 'default', params: { value: 'dv' } },
+          },
+        ],
+      },
+    ];
+    const [tree, warnings] = decompileToTree(spec);
+    expect(warnings).toEqual([]);
+    const form = tree.find((n) => n.type === 'fnForm')!;
+    const asg = form.props.inputAssignments as Array<Record<string, unknown>>;
+    expect(asg[0]).toMatchObject({
+      param: 'a',
+      kind: 'page_state',
+      sourceNodeId: '',
+      field: 'uid',
+    });
+    expect(asg[1]).toEqual({
+      param: 'b',
+      kind: 'literal',
+      value: '{{p.list.data[0].id}}',
+      sourceNodeId: '',
+      field: undefined,
+      defaultValue: undefined,
+    });
+    expect(asg[2]).toMatchObject({ param: 'c', kind: 'literal', defaultValue: 'dv' });
+  });
+
+  it('events：未知事件名跳过；目标空串保持空；target 走 dialog key 映射', () => {
+    const spec: SpecSectionLike[] = [
+      {
+        key: 'p.list',
+        functionId: 'p.list',
+        view: 'table',
+        events: [
+          { event: 'unknownEvent', action: { kind: 'navigate', target: '' } },
+          {
+            event: 'click',
+            action: { kind: 'openModal', target: 'd.fn' },
+          },
+        ],
+      },
+      // dialog：group 缺省 → group=key='d.fn'（非法 sectionKey → modal 不回写）
+      { key: 'd.fn', functionId: 'd.fn', view: 'form', display: 'dialog' },
+    ];
+    const [tree, warnings] = decompileToTree(spec);
+    expect(warnings).toEqual([]);
+    const table = tree.find((n) => n.type === 'fnTable')!;
+    const modal = tree.find((n) => n.type === 'modal')!;
+    // 未知事件名被跳过；click 还原：mapTarget 按 key 优先映射（dialog key →
+    // 其 fnForm 节点 id；group 名才映射 modal id）
+    expect(table.props.onRowClick).toBeUndefined();
+    const onClick = table.props.onClick as { kind: string; target: string };
+    expect(onClick.kind).toBe('openModal');
+    expect(onClick.target).toBe(modal.children![0].id);
+  });
+
+  it('onSuccessRefresh 目标缺失：警告丢弃（key 缺省回退 functionId）', () => {
+    const spec: SpecSectionLike[] = [
+      // 无 key：key 回退 functionId 仍可定位源
+      { functionId: 'm.send', view: 'form', onSuccessRefresh: ['ghost'] },
+    ];
+    const [tree, warnings] = decompileToTree(spec);
+    expect(warnings.some((w) => w.includes('ghost') && w.includes('无法还原'))).toBe(true);
+    expect(tree[0].props.onSuccessRefresh).toBeUndefined();
+  });
+
+  it('toolbar 按钮：danger 还原 btnStyle、target 走 dialog key 回退、目标丢失警告丢弃', () => {
+    const base = (actions: unknown[]): SpecSectionLike[] => [
+      // 表格无 table 字段 → columns 空数组（同前），toolbar 在顶层
+      {
+        key: 'p.list',
+        functionId: 'p.list',
+        view: 'table',
+        toolbar: { actions },
+      } as unknown as SpecSectionLike,
+      { key: 'd.fn', group: 'd1', functionId: 'd.fn', view: 'form', display: 'dialog' },
+    ];
+    // danger + targetSection 用 dialog key（group map miss → dialogKey 回退命中）
+    const [tree1, w1] = decompileToTree(
+      base([{ label: '封禁', danger: true, targetSection: 'd.fn', params: { id: 'x' } }]),
+    );
+    expect(w1).toEqual([]);
+    const btn1 = tree1.find((n) => n.type === 'button')!;
+    expect(btn1.props.btnStyle).toBe('danger');
+    const onClick1 = btn1.props.onClick as { kind: string; target: string; params?: unknown };
+    expect(onClick1.kind).toBe('openModal');
+    expect(onClick1.target).toBe(tree1.find((n) => n.type === 'modal')!.id);
+    expect(onClick1.params).toEqual({ id: 'x' });
+
+    // 目标丢失：警告并丢弃按钮
+    const [tree2, w2] = decompileToTree(base([{ label: '坏', targetSection: 'gone' }]));
+    expect(w2.some((w) => w.includes('坏') && w.includes('无法还原'))).toBe(true);
+    expect(tree2.find((n) => n.type === 'button')).toBeUndefined();
+  });
+
+  it('toolbar 按钮无弹窗目标带链：onClick 取链首步骤', () => {
+    const spec: SpecSectionLike[] = [
+      {
+        key: 'p.list',
+        functionId: 'p.list',
+        view: 'table',
+        toolbar: {
+          actions: [
+            {
+              label: '刷新',
+              chain: [
+                { kind: 'refreshNode', target: 'p.list' },
+                { kind: 'navigate', target: '', params: { url: '/x' } },
+              ],
+            },
+          ],
+        },
+      },
+    ];
+    const [tree, warnings] = decompileToTree(spec);
+    expect(warnings).toEqual([]);
+    const btn = tree.find((n) => n.type === 'button')!;
+    const onClick = btn.props.onClick as {
+      kind: string;
+      target: string;
+      chain?: Array<{ kind: string }>;
+    };
+    expect(onClick.kind).toBe('refreshNode');
+    expect(onClick.chain).toEqual([{ kind: 'navigate', target: '', params: { url: '/x' } }]);
+  });
+
+  it('U10 visibleWhen 回读：合法还原（含数字段/exists 无 value）与非法形态警告丢弃', () => {
+    const spec: SpecSectionLike[] = [
+      {
+        key: 'v.ok',
+        functionId: 'v.ok',
+        view: 'fields',
+        visibleWhen: { key: 'src', path: '/data/0/mode', kind: 'equals', value: 'gold' },
+      },
+      {
+        key: 'v.exists',
+        functionId: 'v.exists',
+        view: 'fields',
+        visibleWhen: { key: 'src', path: '/values/kw', kind: 'exists' },
+      },
+      // kind 非法 → 警告丢弃
+      {
+        key: 'v.bad-kind',
+        functionId: 'v.bad',
+        view: 'fields',
+        visibleWhen: { key: 'src', path: '/values/kw', kind: 'weird' },
+      },
+      // path 缺省（非字符串）→ 警告丢弃
+      {
+        key: 'v.bad-path',
+        functionId: 'v.bad2',
+        view: 'fields',
+        visibleWhen: { key: 'src', kind: 'equals', value: 'x' },
+      },
+    ];
+    const [tree, warnings] = decompileToTree(spec);
+    expect(warnings).toHaveLength(2);
+    expect(warnings.every((w) => w.includes('显示条件无法还原'))).toBe(true);
+    const ok = tree.find((n) => String(n.props.sectionKey) === 'v.ok')!;
+    expect(ok.props.visibleWhen).toEqual({
+      expr: '{{src.data[0].mode}}',
+      op: 'equals',
+      value: 'gold',
+    });
+    const exists = tree.find((n) => String(n.props.sectionKey) === 'v.exists')!;
+    expect(exists.props.visibleWhen).toEqual({ expr: '{{src.values.kw}}', op: 'exists' });
+    expect(
+      tree.find((n) => String(n.props.sectionKey) === 'v.bad-kind')!.props.visibleWhen,
+    ).toBeUndefined();
+  });
+});
+
+describe('decompileToTree 缺省与降级形态补测（二）', () => {
+  it('tab group 非法 sectionKey 形态：tabs 不回写 sectionKey（仍聚组）', () => {
+    const spec: SpecSectionLike[] = [
+      {
+        key: 'a.fn',
+        functionId: 'a.fn',
+        view: 'form',
+        display: 'tab',
+        group: 'tab 组 一',
+        tab: { 'zh-CN': '页A' },
+      },
+    ];
+    const [tree, warnings] = decompileToTree(spec);
+    expect(warnings).toEqual([]);
+    const tabs = tree.find((n) => n.type === 'tabs')!;
+    expect(tabs.props.sectionKey).toBeUndefined();
+    expect(tabs.children![0].children![0].type).toBe('fnForm');
+  });
+
+  it('static tab group 缺省：空串兜底（tabs 不回写 sectionKey）', () => {
+    const spec: SpecSectionLike[] = [
+      {
+        key: 'filter-panel',
+        static: true,
+        view: 'form',
+        title: { 'zh-CN': '筛选' },
+        display: 'tab',
+        tab: { 'zh-CN': '筛选页' },
+        form: { jsonSchema: { type: 'object', properties: { kw: { type: 'string' } } } },
+      },
+    ];
+    const [tree, warnings] = decompileToTree(spec);
+    expect(warnings).toEqual([]);
+    const tabs = tree.find((n) => n.type === 'tabs')!;
+    expect(tabs.props.sectionKey).toBeUndefined();
+    expect(tabs.children![0].children![0].type).toBe('staticForm');
+  });
+
+  it('card group 非法形态与 static card group 缺省：卡片容器不回写 sectionKey', () => {
+    const spec: SpecSectionLike[] = [
+      {
+        key: 'vip.rank',
+        functionId: 'vip.rank',
+        view: 'fields',
+        display: 'card',
+        group: '卡片 组',
+        cardTitle: { 'zh-CN': 'VIP' },
+      },
+      {
+        key: 'filter-card',
+        static: true,
+        view: 'form',
+        title: { 'zh-CN': '筛选' },
+        display: 'card',
+        cardTitle: { 'zh-CN': '高级筛选' },
+        form: { jsonSchema: { type: 'object' } },
+      },
+    ];
+    const [tree, warnings] = decompileToTree(spec);
+    expect(warnings).toEqual([]);
+    const cards = tree.filter((n) => n.type === 'container');
+    expect(cards).toHaveLength(2);
+    expect(cards.every((c) => c.props.sectionKey === undefined)).toBe(true);
+    expect(cards.map((c) => String(c.props.title))).toEqual(['VIP', '高级筛选']);
+  });
+
+  it('函数区块 span 非数字：整行兜底 24', () => {
+    const spec: SpecSectionLike[] = [
+      {
+        key: 'a.fn',
+        functionId: 'a.fn',
+        view: 'form',
+        span: 'not-a-number' as unknown as number,
+      },
+    ];
+    const [tree, warnings] = decompileToTree(spec);
+    expect(warnings).toEqual([]);
+    expect(tree[0].props.span).toBe(24);
+  });
+
+  it('columns 项缺 key：过滤空列名', () => {
+    const spec: SpecSectionLike[] = [
+      {
+        key: 'a.list',
+        functionId: 'a.list',
+        view: 'table',
+        table: { columns: [{ key: 'uid' }, {}] },
+      },
+    ];
+    const [tree, warnings] = decompileToTree(spec);
+    expect(warnings).toEqual([]);
+    expect(tree[0].props.columns).toEqual(['uid']);
+  });
+
+  it('static 区块带 visibleWhen：回读进 staticForm props', () => {
+    const spec: SpecSectionLike[] = [
+      {
+        key: 'filter-panel',
+        static: true,
+        view: 'form',
+        form: { jsonSchema: { type: 'object', properties: { kw: { type: 'string' } } } },
+        visibleWhen: { kind: 'equals', key: 'src', path: '/values/mode', value: 'gold' },
+      },
+    ];
+    const [tree, warnings] = decompileToTree(spec);
+    expect(warnings).toEqual([]);
+    expect(tree[0].props.visibleWhen).toEqual({
+      expr: '{{src.values.mode}}',
+      op: 'equals',
+      value: 'gold',
+    });
+  });
+
+  it('visibleWhen equals 缺 value：比较值兜底空串；无 key 警告参数空串', () => {
+    const spec: SpecSectionLike[] = [
+      {
+        key: 'v.nov',
+        functionId: 'v.nov',
+        view: 'fields',
+        visibleWhen: { kind: 'equals', key: 'src', path: '/a' },
+      },
+      {
+        functionId: 'v.nok',
+        view: 'fields',
+        visibleWhen: { kind: 'weird', key: 's', path: '/a' },
+      },
+    ];
+    const [tree, warnings] = decompileToTree(spec);
+    expect(warnings).toHaveLength(1);
+    // 警告 key 参数回退空串（区块「」）
+    expect(warnings[0]).toContain('区块「」');
+    const nov = tree.find((n) => String(n.props.sectionKey) === 'v.nov')!;
+    expect(nov.props.visibleWhen).toEqual({ expr: '{{src.a}}', op: 'equals', value: '' });
+  });
+
+  it('同 key 重复区块 refreshOn：refreshOnNode 合并去重（existing 合并侧）', () => {
+    const spec: SpecSectionLike[] = [
+      { key: 'dup', functionId: 'a.fn', view: 'form', refreshOn: ['up.fn'] },
+      { key: 'dup', functionId: 'a.fn', view: 'form', refreshOn: ['up.fn', 'up2.fn'] },
+      { key: 'up.fn', functionId: 'up.fn', view: 'table' },
+      { key: 'up2.fn', functionId: 'up2.fn', view: 'table' },
+    ];
+    const [tree, warnings] = decompileToTree(spec);
+    expect(warnings).toEqual([]);
+    const up = tree.find((n) => n.type === 'fnTable' && n.props.sectionKey === 'up.fn')!;
+    const up2 = tree.find((n) => n.type === 'fnTable' && n.props.sectionKey === 'up2.fn')!;
+    const dupForms = tree.filter((n) => n.type === 'fnForm');
+    expect(dupForms).toHaveLength(2);
+    // 两轮都定位 keyToNodeId['dup']（后写覆盖 → dup2）：第二轮走 existing 合并
+    const owner = dupForms.find((n) => n.props.refreshOnNode !== undefined)!;
+    expect(new Set(owner.props.refreshOnNode as string[])).toEqual(new Set([up.id, up2.id]));
+  });
+
+  it('static refreshOn 含查无节点字面量：字面量保留合并（existing 侧）', () => {
+    const spec: SpecSectionLike[] = [
+      { key: 'f-panel', static: true, view: 'form', refreshOn: ['ghost-lit'] },
+    ];
+    const [tree, warnings] = decompileToTree(spec);
+    expect(warnings).toEqual([]);
+    // static props.refreshOn 初始即数组 → existingLiterals 合并去重后保持
+    expect(tree[0].props.refreshOn).toEqual(['ghost-lit']);
+  });
+
+  it('inputAssignments 项缺 target：param 空串（单段与多段路径两侧）', () => {
+    type AssignmentLike = NonNullable<SpecSectionLike['inputAssignments']>[number];
+    const noTarget = (a: Omit<AssignmentLike, 'target'>) => a as AssignmentLike;
+    const spec: SpecSectionLike[] = [
+      { key: 'p.list', functionId: 'p.list', view: 'table' },
+      {
+        key: 'm.send',
+        functionId: 'm.send',
+        view: 'form',
+        inputAssignments: [
+          // 多段路径（表达式字面值分支）+ 无 target
+          noTarget({ kind: 'page_state', key: 'p.list', path: '/data/0/id' }),
+          // 单段路径 + 无 target
+          noTarget({ kind: 'page_state', key: 'p.list', path: '/uid' }),
+        ],
+      },
+    ];
+    const [tree, warnings] = decompileToTree(spec);
+    expect(warnings).toEqual([]);
+    const form = tree.find((n) => n.type === 'fnForm')!;
+    const asg = form.props.inputAssignments as Array<Record<string, unknown>>;
+    expect(asg[0]).toMatchObject({ param: '', kind: 'literal', value: '{{p.list.data[0].id}}' });
+    expect(asg[1]).toMatchObject({ param: '', kind: 'page_state', field: 'uid' });
+  });
+
+  it('events 目标为未知 key：映射空串保留（不警告）', () => {
+    const spec: SpecSectionLike[] = [
+      {
+        key: 'p.list',
+        functionId: 'p.list',
+        view: 'table',
+        events: [{ event: 'click', action: { kind: 'navigate', target: 'ghost-key' } }],
+      },
+    ];
+    const [tree, warnings] = decompileToTree(spec);
+    expect(warnings).toEqual([]);
+    const onClick = tree[0].props.onClick as { kind: string; target: string };
+    expect(onClick.target).toBe('');
+  });
+
+  it('rowActions 项缺 targetSection：警告丢弃', () => {
+    const spec: SpecSectionLike[] = [
+      {
+        key: 'a.list',
+        functionId: 'a.list',
+        view: 'table',
+        table: { rowActions: [{ label: '孤儿' }] },
+      },
+    ];
+    const [tree, warnings] = decompileToTree(spec);
+    expect(warnings.some((w) => w.includes('孤儿') && w.includes('无法还原'))).toBe(true);
+    expect((tree[0].props.rowActions as unknown[]).length).toBe(0);
+  });
+
+  it('函数 tab 区块 group 缺省：空串兜底（tabs 不回写 sectionKey）', () => {
+    const spec: SpecSectionLike[] = [
+      { key: 'a.fn', functionId: 'a.fn', view: 'form', display: 'tab', tab: { 'zh-CN': '页A' } },
+    ];
+    const [tree, warnings] = decompileToTree(spec);
+    expect(warnings).toEqual([]);
+    const tabs = tree.find((n) => n.type === 'tabs')!;
+    expect(tabs.props.sectionKey).toBeUndefined();
+    expect(tabs.children![0].children![0].type).toBe('fnForm');
+  });
+
+  it('无 key 区块带 events/refreshOn：owner 定位回退 functionId / bindingId', () => {
+    const spec: SpecSectionLike[] = [
+      // 无 key 有 fid：pendingEvents 与 refreshOn owner 都按 fid 定位
+      {
+        functionId: 'a.fn',
+        view: 'form',
+        refreshOn: ['up.fn'],
+        events: [{ event: 'success', action: { kind: 'refreshNode', target: 'up.fn' } }],
+      },
+      // 无 key 无 fid：fid 回退 bindingId → key=b.fn
+      { bindingId: 'b.fn', view: 'form', refreshOn: ['up.fn'] },
+      { key: 'up.fn', functionId: 'up.fn', view: 'table' },
+    ];
+    const [tree, warnings] = decompileToTree(spec);
+    expect(warnings).toEqual([]);
+    const forms = tree.filter((n) => n.type === 'fnForm');
+    expect(forms).toHaveLength(2);
+    const up = tree.find((n) => n.type === 'fnTable')!;
+    // 两个 form 都还原 refreshOnNode（owner key 分别回退 fid/bindingId）
+    expect(forms.every((f) => (f.props.refreshOnNode as string[]).length === 1)).toBe(true);
+    // events owner 也按 fid 命中 → onSuccess 还原（target 映射 up 节点 id）
+    const withEvent = forms.find((f) => f.props.onSuccess !== undefined)!;
+    expect(withEvent.props.onSuccess).toEqual({ kind: 'refreshNode', target: up.id });
+  });
+});
