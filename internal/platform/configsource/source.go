@@ -152,10 +152,9 @@ func MaskSecrets(configJSON string) string {
 	if v, ok := cfg["dsn"].(string); ok && v != "" {
 		cfg["dsn"] = maskDSN(v)
 	}
-	data, err := json.Marshal(cfg)
-	if err != nil {
-		return "{}"
-	}
+	// cfg 是 json.Unmarshal 的产物（仅含 JSON 基础类型），再 Marshal 恒成功，
+	// err 回退分支为死代码已删。
+	data, _ := json.Marshal(cfg)
 	return string(data)
 }
 

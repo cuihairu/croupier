@@ -203,15 +203,18 @@ func (s *Service) Download(ctx context.Context, req *BackupDownloadRequest) (*Do
 		return nil, err
 	}
 
-	file, err := os.Open(path)
+	// 先 os.Stat 再 os.Open：原实现 Open 后对句柄 Stat，该 fstat 在 Linux
+	// userland 无法注入失败（fd 有效即成功），分支不可测。对调后两个分支
+	// 均真实可达（文件不存在 → Stat 失败；socket 等不可 open 的 inode →
+	// Open 失败），错误消息与语义对调用方等价。
+	info, err := os.Stat(path)
 	if err != nil {
 		return nil, errorx.NewInternalError("无法打开备份文件")
 	}
 
-	info, err := file.Stat()
+	file, err := os.Open(path)
 	if err != nil {
-		file.Close()
-		return nil, errorx.NewInternalError("读取备份文件信息失败")
+		return nil, errorx.NewInternalError("无法打开备份文件")
 	}
 
 	return &DownloadPayload{
@@ -318,10 +321,10 @@ func (s *Service) loadBackupsFromExtensionInstallation(ctx context.Context) ([]B
 	if !exists || raw == nil {
 		return nil, false, nil
 	}
-	data, err := json.Marshal(raw)
-	if err != nil {
-		return nil, false, err
-	}
+	// raw 来自 json.Unmarshal(map[string]any) 的取值，值类型仅可能为 JSON
+	// 基础类型（nil/bool/float64/string/[]any/map[string]any），再 Marshal 恒
+	// 成功，error 分支不可达，已删除。
+	data, _ := json.Marshal(raw)
 	items := []Backup{}
 	if err := json.Unmarshal(data, &items); err != nil {
 		return nil, false, err

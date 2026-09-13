@@ -173,9 +173,9 @@ func compileRows(name string, rows [][]string, opts CompileOptions) (*ExcelSheet
 	}
 
 	fields := splitIdentifiers(data[0])
-	if len(fields) == 0 {
-		return nil, fmt.Errorf("sheet %s 首行没有合法字段名", name)
-	}
+	// 设计债清理：data 已滤除全空行（rowAllEmpty 与 splitIdentifiers 同以
+	// TrimSpace 判空），data[0] 至少含一个非空 cell，fields 恒非空，
+	// 原 len(fields)==0 分支不可达已删除。
 	seen := map[string]bool{}
 	for _, f := range fields {
 		if seen[f] {

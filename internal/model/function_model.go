@@ -270,10 +270,12 @@ func (m *FunctionModel) BatchDeleteFunctions(ctx context.Context, functionIDs []
 	return int(result.RowsAffected), nil, nil
 }
 
-// BatchCopyFunctions copies multiple functions
-func (m *FunctionModel) BatchCopyFunctions(ctx context.Context, functionIDs []string) (int, []string, []string, error) {
+// BatchCopyFunctions copies multiple functions.
+// 单条失败进 failedIDs 供调用方展示，无整体错误——设计债修复：旧签名
+// 的 error 返回值恒为 nil（所有失败都被吞进 failedIDs），已从签名删除。
+func (m *FunctionModel) BatchCopyFunctions(ctx context.Context, functionIDs []string) (int, []string, []string) {
 	if len(functionIDs) == 0 {
-		return 0, nil, nil, nil
+		return 0, nil, nil
 	}
 
 	var copiedIDs []string
@@ -288,7 +290,7 @@ func (m *FunctionModel) BatchCopyFunctions(ctx context.Context, functionIDs []st
 		}
 	}
 
-	return len(copiedIDs), failedIDs, copiedIDs, nil
+	return len(copiedIDs), failedIDs, copiedIDs
 }
 
 // ===== Function Policy Methods =====

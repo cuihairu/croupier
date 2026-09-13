@@ -147,10 +147,9 @@ func (s *FileTaskRoutingStore) load() error {
 }
 
 func (s *FileTaskRoutingStore) save() error {
-	data, err := json.MarshalIndent(s.routings, "", "  ")
-	if err != nil {
-		return err
-	}
+	// map[string]*TaskRouting 为纯 string/time 字段结构体，MarshalIndent
+	// 恒成功，err 分支为死代码已删。
+	data, _ := json.MarshalIndent(s.routings, "", "  ")
 
 	tmpfile := s.filepath + ".tmp"
 	if err := os.WriteFile(tmpfile, data, 0644); err != nil {

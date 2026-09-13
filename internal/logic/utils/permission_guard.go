@@ -30,6 +30,11 @@ func RequireAnyPermission(ctx context.Context, svcCtx *svc.ServiceContext, messa
 	}
 	allowed, err := rbac.EnforceAnyPermission(admin.Username, permIDs, required...)
 	if err != nil {
+		// 生产路径不可达：EnforceAnyPermission 的错误只可能来自其包内测试
+		// 接缝（newLogicalModelFromString / newLogicalEnforcer，均为 rbac 包
+		// 私有变量，跨包无法注入）；真实路径下 casbin 对编译期常量模型
+		// （logicalPermissionModel）+ 纯内存 policy 的 Enforce/AddPolicy 均
+		// 不会失败。保留该分支仅作为库行为变化时的兜底，不为其构造测试。
 		return roles, permIDs, errorx.NewInternalError("权限校验失败")
 	}
 	if allowed {

@@ -47,19 +47,12 @@ func AutoMigrate(db *gorm.DB) error {
 				return err
 			}
 		}
+		// 循环每轮要么 return 要么置 lastErr 后 continue，循环耗尽必然
+		// lastErr 非 nil，此处直接返回——不存在「耗尽后 lastErr 为 nil
+		// 再走一轮兜底重试」的路径（旧兜底代码不可达，已删除）。
 		if lastErr != nil {
 			return lastErr
 		}
-		if err := autoMigrateAllModels(db); err != nil {
-			return err
-		}
-		if err := migrateFunctionOpenAPIColumns(db); err != nil {
-			return err
-		}
-		if err := MigrateTermDictionaryDisplay(db); err != nil {
-			return err
-		}
-		return CleanupAllLegacy(db)
 	}
 
 	if err := autoMigrateAllModels(db); err != nil {
@@ -226,9 +219,9 @@ func migrateModels(db *gorm.DB, models []interface{}) error {
 				return err
 			}
 		}
-		if lastErr != nil {
-			return lastErr
-		}
+		// 循环耗尽必然 lastErr 非 nil（每轮 continue 前必赋值）——
+		// 直接返回，不再有兜底重试（同 AutoMigrate 主入口同款设计债清理）。
+		return lastErr
 	}
 	return db.AutoMigrate(models...)
 }
@@ -375,9 +368,8 @@ func renameLegacyTables(db *gorm.DB) error {
 		{oldName: "admin_role_records", newName: "admin_roles"},
 		{oldName: "role_perm_records", newName: "role_permissions"},
 	} {
-		if entry.oldName == entry.newName {
-			continue
-		}
+		// 上表五条字面量重命名条目的 old/new 名称静态互异，
+		// entry.oldName == entry.newName 恒假，该自检 continue 分支为死代码已删。
 		if migrator.HasTable(entry.oldName) && !migrator.HasTable(entry.newName) {
 			if err := migrator.RenameTable(entry.oldName, entry.newName); err != nil {
 				return fmt.Errorf("rename table %s -> %s: %w", entry.oldName, entry.newName, err)

@@ -83,6 +83,55 @@ func TestContractService_RebuildContractFromFunctionMeta(t *testing.T) {
 	assert.Equal(t, "sdk", contract.Source)
 }
 
+// 设计债回归（契约写入路径 function_id 未归一 / trim 不对称）：投影层
+// （contract_projection）读取时对 gameID/env/function_id TrimSpace，写入
+// 侧此前裸写 gameID/env/version——注册入参带首尾空白时落库行与投影层
+// 归一不对称，发布链 FindByScopeAndFunctionID 精确匹配落空。修复后写入
+// 前归一：落库值必须已 trimmed，投影层按无空白 scope 能读回同一契约。
+func TestContractService_RebuildContractTrimsScopeFields(t *testing.T) {
+	db := setupTestDB(t)
+	ctx := context.Background()
+	service := NewContractService(db)
+
+	// 全部 scope 字段带首尾空白注册。
+	err := service.RebuildContractFromFunctionMeta(ctx, "  demo-game  ", "  development  ", "sdk", FunctionMetaInput{
+		ID:          "  player.trim  ",
+		Version:     "  1.0.0  ",
+		Enabled:     true,
+		Resource:    "  player  ",
+		Operation:   "  trim  ",
+		Capability:  "action",
+		Execution:   "sync",
+		InputSchema: `{"type":"object"}`,
+		Permission:  "  player.trim.invoke  ",
+	})
+	require.NoError(t, err)
+
+	// 落库值必须已 trimmed（按无空白值能精确查到该行）。
+	var stored model.FunctionContract
+	require.NoError(t, db.Where("function_id = ?", "player.trim").First(&stored).Error)
+	assert.Equal(t, "demo-game", stored.GameID)
+	assert.Equal(t, "development", stored.Env)
+	assert.Equal(t, "player.trim", stored.FunctionID)
+	assert.Equal(t, "1.0.0", stored.Version)
+	assert.Equal(t, "player", stored.ResourceKey)
+	assert.Equal(t, "trim", stored.OperationKey)
+	assert.Equal(t, "player.trim.invoke", stored.Permission)
+
+	// 库中不得残留任何带空白的 scope 字段行（防止 trim 失效写出带空白行）。
+	var paddedCount int64
+	require.NoError(t, db.Model(&model.FunctionContract{}).
+		Where("game_id LIKE ? OR env LIKE ? OR function_id LIKE ?", "% %", "% %", "% %").
+		Count(&paddedCount).Error)
+	assert.Zero(t, paddedCount, "不得存在带空白的 game_id/env/function_id 落库")
+
+	// 投影层按无空白 scope 读回，map key 与 spec.ID 均无空白。
+	specs, err := FunctionSpecsByScope(ctx, model.NewFunctionContractModel(db), "demo-game", "development")
+	require.NoError(t, err)
+	require.Contains(t, specs, "player.trim")
+	assert.Equal(t, "player.trim", specs["player.trim"].ID)
+}
+
 func TestContractService_RebuildContractRejectsUnstableKeys(t *testing.T) {
 	db := setupTestDB(t)
 	ctx := context.Background()

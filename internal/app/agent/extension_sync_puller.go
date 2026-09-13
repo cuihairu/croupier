@@ -88,9 +88,8 @@ func (p *ExtensionSyncPuller) PullOnce(ctx context.Context) error {
 	if err := json.Unmarshal(wrapper.Payload, &payload); err != nil {
 		return err
 	}
-	_, err = p.runtime.ApplyPayload(&payload)
-	if err != nil {
-		p.runtime.RecordError(err)
-	}
-	return err
+	// ApplyPayload 仅有的错误路径是 nil receiver / nil payload，二者已被
+	// 上方判断与 &payload 取址排除，err 分支为死代码，已删除。
+	_, _ = p.runtime.ApplyPayload(&payload)
+	return nil
 }

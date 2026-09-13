@@ -1,10 +1,9 @@
 package backupexec
 
 // runbackup_putfail_gap_test.go 补齐 Executor.RunBackup 的对象存储
-// Put 失败分支（executor.go:69-72）：dump 成功但上传失败时必须落库
-// status=failed 且返回错误。
+// Put 失败分支：dump 成功但上传失败时必须落库 status=failed 且返回错误。
 //
-// 本包其余未满分支：无（RunBackup 为唯一未满函数）。
+// 本包其余未满分支：无（open 失败分支见 runbackup_openfail_gap_test.go）。
 
 import (
 	"context"

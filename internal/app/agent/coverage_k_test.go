@@ -275,9 +275,9 @@ func TestUpstreamSyncOnceClientClearedWhileComposingLabels_K(t *testing.T) {
 	assert.Contains(t, err.Error(), "not connected")
 }
 
-// --- upstream.go: updateLoop 排水已触发的去抖定时器 ---
+// --- upstream.go: updateLoop 去抖重置与到期 sync ---
 
-func TestUpstreamUpdateLoopDrainsFiredTimer_K(t *testing.T) {
+func TestUpstreamUpdateLoopDebounceSyncs_K(t *testing.T) {
 	store := agentlocal.NewLocalStore()
 	client := NewUpstreamClient("mock", "agent-k-drain", store, nil)
 	mock := &mockControlClientV9{connected: true}
@@ -286,25 +286,17 @@ func TestUpstreamUpdateLoopDrainsFiredTimer_K(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	client.updateCh = make(chan struct{}, 128)
-	// debounce 必须远小于灌消息间隔：若 debounce 大于消息间隔，去抖
-	// 语义会让 timer 在每次触发前被 Reset，永不 fire，sync 永不发生。
-	// 用亚纳秒 debounce 让 Reset 后 timer.C 立即就绪，select 在 updateCh
-	// 与已触发的 timer.C 之间均匀随机挑选；选中 updateCh 时 Stop() 返回
-	// false 进入排水分支。每轮 50%，数千轮内命中是必然事件。
-	go client.updateLoop(ctx, time.Nanosecond)
+	// 确定性时序（原概率法灌 2 秒消息既慢又依赖 select 随机）：
+	// debounce=100ms。t0 第一条消息创建 timer；t0+10ms 第二条消息到达时
+	// timer 必未到期，select 只有 updateCh 就绪 → 必走 else 分支的
+	// stopAndResetTimer（重置去抖）；Reset 后 100ms 到期 → sync 执行。
+	client.updateCh = make(chan struct{}, 4)
+	go client.updateLoop(ctx, 100*time.Millisecond)
 
-	deadline := time.Now().Add(2 * time.Second)
-	for time.Now().Before(deadline) {
-		select {
-		case client.updateCh <- struct{}{}:
-		default:
-		}
-		time.Sleep(100 * time.Microsecond)
-	}
-	// 停止生产后 updateCh 清空，已 Reset 的 timer 到期，select 必走
-	// timer.C 分支完成一次 sync，使 registers 非零成为确定性结果。
-	time.Sleep(100 * time.Millisecond)
+	client.updateCh <- struct{}{}
+	time.Sleep(10 * time.Millisecond)
+	client.updateCh <- struct{}{}
+	time.Sleep(300 * time.Millisecond)
 	cancel()
 
 	mock.mu.Lock()

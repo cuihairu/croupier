@@ -55,11 +55,10 @@ func (s *Store) Register(ctx context.Context, metadata *functionv1.FunctionMetad
 		return fmt.Errorf("function registration contains forbidden presentation field %q at %s", violation.Field, violation.Location)
 	}
 
-	// Clone the metadata to avoid external modifications
-	cloned, err := cloneMetadata(metadata)
-	if err != nil {
-		return fmt.Errorf("clone metadata failed: %w", err)
-	}
+	// Clone the metadata to avoid external modifications.
+	// metadata 非 nil 已在函数开头校验，而 cloneMetadata 仅对 nil 入参报错
+	// （proto.Clone 对合法 proto 消息恒成功），因此此处 err 恒为 nil。
+	cloned, _ := cloneMetadata(metadata)
 
 	s.mu.Lock()
 	defer s.mu.Unlock()

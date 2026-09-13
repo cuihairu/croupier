@@ -157,6 +157,58 @@ func TestOpsServicesLogic_OpsServices_FullPath(t *testing.T) {
 	assert.Equal(t, "10.1.2.3:18780", resp2.Services[0].Address)
 }
 
+// TestOpsServicesLogic_StatusTwoStates 对应设计债：ttlAndHealth 的 healthy ≡ ttl>0
+// （无独立健康信号），原先的 `else if !healthy { status = "unhealthy" }` 分支因
+// ttl>0 时 healthy 必为 true 而永不可达，已删除。现在 status 仅 healthy/expired
+// 两态：ExpireAt 未来 → healthy；ExpireAt 过去或零值 → expired；空白 AgentID 的
+// 会话在循环内被跳过，不产生服务条目。
+func TestOpsServicesLogic_StatusTwoStates(t *testing.T) {
+	svcCtx := newOpsPermSvcCtx(t)
+	store := registry.NewStore()
+
+	store.UpsertAgent(&registry.AgentSession{
+		AgentID:  "agent-past",
+		ExpireAt: time.Now().Add(-time.Hour),
+	})
+	store.UpsertAgent(&registry.AgentSession{
+		AgentID:  "agent-future",
+		ExpireAt: time.Now().Add(time.Hour),
+	})
+	store.UpsertAgent(&registry.AgentSession{
+		AgentID: "agent-zeroexpire", // ExpireAt 零值 → ttlAndHealth 返回 (0,false)
+	})
+	// 空白 AgentID 被循环跳过。
+	store.UpsertAgent(&registry.AgentSession{
+		AgentID:  "  ",
+		ExpireAt: time.Now().Add(time.Hour),
+	})
+
+	svcCtx.Config = config.Config{
+		Server: config.ServerConfig{Host: "localhost", Port: 18780},
+	}
+	svcCtx.ServerVersion = "v9.9.9"
+	svcCtx.StartTime = time.Now()
+	svcCtx.RegistryStore = store
+
+	ctx := context.WithValue(context.Background(), "username", "ops-admin")
+	logic := NewOpsServicesLogic(ctx, svcCtx)
+	resp, err := logic.OpsServices(&OpsServicesRequest{})
+	require.NoError(t, err)
+
+	statusByID := make(map[string]string, len(resp.Services))
+	for _, svcItem := range resp.Services {
+		statusByID[svcItem.ID] = svcItem.Status
+		// unhealthy 态不可达：任何条目都不应再出现该值。
+		assert.NotEqual(t, "unhealthy", svcItem.Status, "service %s status = unhealthy", svcItem.ID)
+	}
+
+	assert.Equal(t, "expired", statusByID["agent-past"])
+	assert.Equal(t, "healthy", statusByID["agent-future"])
+	assert.Equal(t, "expired", statusByID["agent-zeroexpire"])
+	// 空白 AgentID 被跳过，仅 server + 3 个 agent。
+	assert.Len(t, resp.Services, 4)
+}
+
 func TestOpsServicesLogic_OpsServices_PermissionDenied(t *testing.T) {
 	svcCtx := newOpsPermSvcCtx(t)
 	// 角色只授予 ops:read，但这里用户不存在 → 401 类错误。

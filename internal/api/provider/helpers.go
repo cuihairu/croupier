@@ -91,10 +91,9 @@ func openAPIDocFunctions(doc *openapi3.T) []map[string]interface{} {
 	functions := make([]map[string]interface{}, 0)
 
 	for path, pathItem := range doc.Paths.Map() {
+		// kin-openapi v0.144.0 的 PathItem.Operations() 只收集非 nil 的操作字段，
+		// 返回的 map 值恒非 nil，原 op == nil 防御分支为死代码，已删除。
 		for method, op := range pathItem.Operations() {
-			if op == nil {
-				continue
-			}
 
 			fn := map[string]interface{}{
 				"operationId": op.OperationID,

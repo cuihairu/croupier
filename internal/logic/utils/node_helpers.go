@@ -19,10 +19,10 @@ func ValidateNodeID(id string) (string, error) {
 
 // BuildNode converts model.Node to API Node type.
 func BuildNode(node *model.Node) Node {
-	var resources interface{} = node.Resources
-	if resources == nil {
-		resources = map[string]interface{}{}
-	}
+	// node.Resources 为 datatypes.JSONMap（命名 map 类型）：即便其值为 nil，
+	// 装入 interface{} 后携带类型信息，`interface == nil` 恒为 false——原先
+	// 的空值替换分支从未生效，予以删除；nil JSONMap 的 MarshalJSON 会输出
+	// "null"，序列化行为保持与删除前逐字节一致。
 	return Node{
 		Id:        node.NodeID,
 		Name:      node.Name,
@@ -30,7 +30,7 @@ func BuildNode(node *model.Node) Node {
 		Status:    node.Status,
 		IP:        node.IP,
 		Port:      node.Port,
-		Resources: resources,
+		Resources: node.Resources,
 		UpdatedAt: helper.FormatTimestamp(node.UpdatedAt),
 	}
 }

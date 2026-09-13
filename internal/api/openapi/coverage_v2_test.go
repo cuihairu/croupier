@@ -1157,8 +1157,7 @@ func TestService_GetDocument_Empty(t *testing.T) {
 	t.Parallel()
 	service := setupOpenAPITestService(t)
 
-	resp, err := service.GetDocument(context.Background(), &GetDocumentRequest{})
-	require.NoError(t, err)
+	resp := service.GetDocument(context.Background(), &GetDocumentRequest{})
 	assert.NotNil(t, resp.Spec)
 }
 
@@ -1166,8 +1165,7 @@ func TestService_BatchGetSpec_Empty(t *testing.T) {
 	t.Parallel()
 	service := setupOpenAPITestService(t)
 
-	resp, err := service.BatchGetSpec(context.Background(), &BatchGetSpecRequest{FunctionIDs: []string{}})
-	require.NoError(t, err)
+	resp := service.BatchGetSpec(context.Background(), &BatchGetSpecRequest{FunctionIDs: []string{}})
 	assert.Empty(t, resp)
 }
 
@@ -1176,10 +1174,9 @@ func TestService_BatchGetSpec_WithFallback(t *testing.T) {
 	service := setupOpenAPITestService(t)
 
 	// player.list is registered in the test setup
-	resp, err := service.BatchGetSpec(context.Background(), &BatchGetSpecRequest{
+	resp := service.BatchGetSpec(context.Background(), &BatchGetSpecRequest{
 		FunctionIDs: []string{"player.list"},
 	})
-	require.NoError(t, err)
 	assert.NotNil(t, resp["player.list"])
 }
 
@@ -1407,8 +1404,7 @@ func TestScanOpenAPISourceRaw_InvalidJSON(t *testing.T) {
 func TestParseOpenAPISource_NoOperations(t *testing.T) {
 	t.Parallel()
 	raw := []byte(`{"openapi":"3.0.3","info":{"title":"Empty","version":"1"},"paths":{}}`)
-	parsed, err := parseOpenAPISource(raw)
-	require.NoError(t, err)
+	parsed := parseOpenAPISource(raw)
 	assert.Len(t, parsed.Operations, 0)
 	// Should have a warning about no operations
 	found := false
@@ -1424,8 +1420,7 @@ func TestParseOpenAPISource_NoOperations(t *testing.T) {
 func TestParseOpenAPISource_UnsupportedVersion(t *testing.T) {
 	t.Parallel()
 	raw := []byte(`{"openapi":"2.0","info":{"title":"Old","version":"1"},"paths":{"/x":{"get":{"operationId":"op","responses":{"200":{"description":"OK"}}}}}}`)
-	parsed, err := parseOpenAPISource(raw)
-	require.NoError(t, err)
+	parsed := parseOpenAPISource(raw)
 	found := false
 	for _, d := range parsed.Diagnostics {
 		if d.Code == "openapi_version_unsupported" {
@@ -1439,8 +1434,7 @@ func TestParseOpenAPISource_UnsupportedVersion(t *testing.T) {
 func TestParseOpenAPISource_MissingPaths(t *testing.T) {
 	t.Parallel()
 	raw := []byte(`{"openapi":"3.0.3","info":{"title":"NoPaths","version":"1"}}`)
-	parsed, err := parseOpenAPISource(raw)
-	require.NoError(t, err)
+	parsed := parseOpenAPISource(raw)
 	// Missing paths is caught as either openapi_validation_failed (OpenAPI validation)
 	// or openapi_paths_missing (extractSourceOperations). Either is acceptable.
 	found := false
@@ -1456,8 +1450,7 @@ func TestParseOpenAPISource_MissingPaths(t *testing.T) {
 func TestParseOpenAPISource_DuplicateOperationIDs(t *testing.T) {
 	t.Parallel()
 	raw := []byte(`{"openapi":"3.0.3","info":{"title":"Dup","version":"1"},"paths":{"/a":{"get":{"operationId":"dup","responses":{"200":{"description":"OK"}}}},"/b":{"get":{"operationId":"dup","responses":{"200":{"description":"OK"}}}}}}`)
-	parsed, err := parseOpenAPISource(raw)
-	require.NoError(t, err)
+	parsed := parseOpenAPISource(raw)
 	// OpenAPI library validates and catches duplicate operationIds
 	found := false
 	for _, d := range parsed.Diagnostics {
@@ -1472,8 +1465,7 @@ func TestParseOpenAPISource_DuplicateOperationIDs(t *testing.T) {
 func TestParseOpenAPISource_MissingOperationID(t *testing.T) {
 	t.Parallel()
 	raw := []byte(`{"openapi":"3.0.3","info":{"title":"NoID","version":"1"},"paths":{"/x":{"get":{"responses":{"200":{"description":"OK"}}}}}}`)
-	parsed, err := parseOpenAPISource(raw)
-	require.NoError(t, err)
+	parsed := parseOpenAPISource(raw)
 	found := false
 	for _, d := range parsed.Diagnostics {
 		if d.Code == "openapi_operation_id_missing" {
@@ -1487,8 +1479,7 @@ func TestParseOpenAPISource_MissingOperationID(t *testing.T) {
 func TestParseOpenAPISource_InvalidResourceKey(t *testing.T) {
 	t.Parallel()
 	raw := []byte(`{"openapi":"3.0.3","info":{"title":"BadKey","version":"1"},"paths":{"/x":{"get":{"operationId":"op","x-resource":"Invalid Key!","responses":{"200":{"description":"OK"}}}}}}`)
-	parsed, err := parseOpenAPISource(raw)
-	require.NoError(t, err)
+	parsed := parseOpenAPISource(raw)
 	found := false
 	for _, d := range parsed.Diagnostics {
 		if d.Code == "openapi_resource_key_invalid" {
@@ -1502,8 +1493,7 @@ func TestParseOpenAPISource_InvalidResourceKey(t *testing.T) {
 func TestParseOpenAPISource_InvalidOperationKey(t *testing.T) {
 	t.Parallel()
 	raw := []byte(`{"openapi":"3.0.3","info":{"title":"BadOp","version":"1"},"paths":{"/x":{"get":{"operationId":"op","x-operation":"Invalid!","responses":{"200":{"description":"OK"}}}}}}`)
-	parsed, err := parseOpenAPISource(raw)
-	require.NoError(t, err)
+	parsed := parseOpenAPISource(raw)
 	found := false
 	for _, d := range parsed.Diagnostics {
 		if d.Code == "openapi_operation_key_invalid" {
@@ -1517,8 +1507,7 @@ func TestParseOpenAPISource_InvalidOperationKey(t *testing.T) {
 func TestParseOpenAPISource_XRiskInvalid(t *testing.T) {
 	t.Parallel()
 	raw := []byte(`{"openapi":"3.0.3","info":{"title":"BadRisk","version":"1"},"paths":{"/x":{"get":{"operationId":"op","x-risk":"invalid","responses":{"200":{"description":"OK"}}}}}}`)
-	parsed, err := parseOpenAPISource(raw)
-	require.NoError(t, err)
+	parsed := parseOpenAPISource(raw)
 	found := false
 	for _, d := range parsed.Diagnostics {
 		if d.Code == "openapi_risk_invalid" {
@@ -1532,8 +1521,7 @@ func TestParseOpenAPISource_XRiskInvalid(t *testing.T) {
 func TestParseOpenAPISource_XCapabilityInvalid(t *testing.T) {
 	t.Parallel()
 	raw := []byte(`{"openapi":"3.0.3","info":{"title":"BadCap","version":"1"},"paths":{"/x":{"get":{"operationId":"op","x-capability":"bogus","responses":{"200":{"description":"OK"}}}}}}`)
-	parsed, err := parseOpenAPISource(raw)
-	require.NoError(t, err)
+	parsed := parseOpenAPISource(raw)
 	found := false
 	for _, d := range parsed.Diagnostics {
 		if d.Code == "openapi_capability_invalid" {
@@ -1547,8 +1535,7 @@ func TestParseOpenAPISource_XCapabilityInvalid(t *testing.T) {
 func TestParseOpenAPISource_XExecutionInvalid(t *testing.T) {
 	t.Parallel()
 	raw := []byte(`{"openapi":"3.0.3","info":{"title":"BadExec","version":"1"},"paths":{"/x":{"get":{"operationId":"op","x-execution":"bogus","responses":{"200":{"description":"OK"}}}}}}`)
-	parsed, err := parseOpenAPISource(raw)
-	require.NoError(t, err)
+	parsed := parseOpenAPISource(raw)
 	found := false
 	for _, d := range parsed.Diagnostics {
 		if d.Code == "openapi_execution_invalid" {
@@ -1562,8 +1549,7 @@ func TestParseOpenAPISource_XExecutionInvalid(t *testing.T) {
 func TestParseOpenAPISource_FormilyKeyword(t *testing.T) {
 	t.Parallel()
 	raw := []byte(`{"openapi":"3.0.3","info":{"title":"Formily","version":"1"},"paths":{"/x":{"get":{"operationId":"op","formily":{"schema":{}},"responses":{"200":{"description":"OK"}}}}}}`)
-	parsed, err := parseOpenAPISource(raw)
-	require.NoError(t, err)
+	parsed := parseOpenAPISource(raw)
 	found := false
 	for _, d := range parsed.Diagnostics {
 		if d.Code == "openapi_presentation_field_forbidden" {
@@ -1877,8 +1863,7 @@ func TestParseOpenAPISource_ParseFailure(t *testing.T) {
 	t.Parallel()
 	// JSON that is valid JSON but not valid OpenAPI
 	raw := []byte(`{"openapi":"3.0.3","info":{"title":"Bad","version":"1"},"paths":{"bad": {"get": "not an operation"}}}`)
-	parsed, err := parseOpenAPISource(raw)
-	require.NoError(t, err) // parseOpenAPISource doesn't return errors for parse failures, adds diagnostics
+	parsed := parseOpenAPISource(raw)
 	found := false
 	for _, d := range parsed.Diagnostics {
 		if d.Severity == dashspec.SeverityError {

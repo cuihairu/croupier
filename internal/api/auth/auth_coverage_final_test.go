@@ -42,23 +42,20 @@ func TestService_MFAStatus_Branches(t *testing.T) {
 	svcAuth := NewService(model.NewAdminModel(db), permissionservice.NewPermissionService(db), "secret")
 
 	// admin 不存在 → 空响应（FindByUsername nil）
-	resp, err := svcAuth.MFAStatus(ctx, "ghost")
-	require.NoError(t, err)
+	resp := svcAuth.MFAStatus(ctx, "ghost")
 	assert.False(t, resp.Local)
 	assert.False(t, resp.Enabled)
 
 	// 本地账号（有 password_hash）→ local=true
 	createTestAdminWithRole(t, db, "localu", "pw123456", "admin")
-	resp, err = svcAuth.MFAStatus(ctx, "localu")
-	require.NoError(t, err)
+	resp = svcAuth.MFAStatus(ctx, "localu")
 	assert.True(t, resp.Local)
 	assert.False(t, resp.Enabled)
 
 	// 影子账号（无 password_hash）→ local=false
 	shadow := &model.Admin{Username: "shadowu", Status: 1, OTPEnabled: true}
 	require.NoError(t, db.Create(shadow).Error)
-	resp, err = svcAuth.MFAStatus(ctx, "shadowu")
-	require.NoError(t, err)
+	resp = svcAuth.MFAStatus(ctx, "shadowu")
 	assert.False(t, resp.Local)
 	assert.False(t, resp.Enabled, "非本地账号 enabled 应为 false")
 
@@ -69,8 +66,7 @@ func TestService_MFAStatus_Branches(t *testing.T) {
 	sqlDB, err := db2.DB()
 	require.NoError(t, err)
 	require.NoError(t, sqlDB.Close())
-	resp, err = svcAuth2.MFAStatus(ctx, "closedu")
-	require.NoError(t, err)
+	resp = svcAuth2.MFAStatus(ctx, "closedu")
 	assert.NotNil(t, resp)
 }
 

@@ -156,7 +156,6 @@ func TestFunctionInvoke_TaskSuccess(t *testing.T) {
 		ID: "player.ban", Mode: "task",
 	})
 	require.NoError(t, err)
-	assert.Equal(t, "task-123", resp.TaskID)
 	assert.Equal(t, "task-123", resp.TaskId)
 }
 

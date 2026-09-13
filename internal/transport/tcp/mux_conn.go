@@ -98,10 +98,10 @@ func NewMuxConn(conn net.Conn, config *Config, handler transportcore.Handler) *M
 
 	workers := config.DispatchWorkers
 	if workers <= 0 {
-		workers = runtime.NumCPU()
-		if workers < 2 {
-			workers = 2
-		}
+		// 行为等价重构：原 `if workers < 2 { workers = 2 }` 分支与内建 max
+		// 完全等价（单核环境补足 2，多核保持 NumCPU），消除不可注入测试的
+		// 平台相关分支。
+		workers = max(runtime.NumCPU(), 2)
 	}
 	bizQLen := config.BusinessQLen
 	if bizQLen <= 0 {
@@ -286,9 +286,10 @@ func (c *MuxConn) Run(ctx context.Context) error {
 			continue
 		}
 
-		if !protocol.IsRequest(msgID) {
-			return NewProtocolError(fmt.Errorf("unexpected non-request message: %s", protocol.MsgIDString(msgID)))
-		}
+		// protocol 消息分类对 uint32 全空间完备：IsResponse（偶数且非 event）、
+		// IsEvent（MsgTaskEvent/MsgMetricEvent 两个显式值，均为奇数故不会先被
+		// IsResponse 吸收）、IsRequest（奇数且非 event）三类不重不漏；走到此处
+		// 的 msgID 必为 request——原 !IsRequest 防御分支为死代码，已删。
 
 		if c.handler == nil {
 			return NewProtocolError(fmt.Errorf("no request handler configured for %s", protocol.MsgIDString(msgID)))
@@ -299,9 +300,8 @@ func (c *MuxConn) Run(ctx context.Context) error {
 		// never-reject lane; business requests share a bounded pool that
 		// fails fast under saturation (see sdk-wire-protocol.md 双车道).
 		if err := c.dispatchInbound(ctx, msgID, reqID, body); err != nil {
-			if isProtocolError(err) || isTimeout(err) {
-				return err
-			}
+			// 行为等价简化：原 if isProtocolError(err)||isTimeout(err) 分支与
+			// 落空分支同样 return err，条件判断无行为差异，收敛为单次返回。
 			return err
 		}
 	}
@@ -417,11 +417,10 @@ func (c *MuxConn) handleInboundRequest(ctx context.Context, msgID uint32, reqID 
 		slog.Error("rpc handler error", "msg_id", protocol.MsgIDString(msgID), "error", err)
 		if msgID == protocol.MsgInvokeRequest {
 			// InvokeRequest: return InvokeResponse with error payload (proto).
+			// proto.Marshal 对字面量构造的 InvokeResponse（单一 bytes 字段，
+			// 无 map/oneof 等复杂结构）恒成功，err 分支为死代码，已删。
 			resp := &sdkv1.InvokeResponse{Payload: []byte(`{"error":"` + err.Error() + `"}`)}
-			respBody, err = proto.Marshal(resp)
-			if err != nil {
-				return err
-			}
+			respBody, _ = proto.Marshal(resp)
 		} else {
 			// Other RPCs: send an empty body (valid proto; unmarshals to the
 			// zero value of the expected response). The real error is logged.

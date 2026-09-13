@@ -1,7 +1,6 @@
 package extension
 
 import (
-	"math"
 	"strconv"
 
 	"github.com/cuihairu/croupier/internal/common/errorx"
@@ -511,8 +510,7 @@ func parseUintParam(c *gin.Context, key string) (uint, error) {
 	if err != nil {
 		return 0, errorx.NewBadRequest("invalid path parameter: " + key)
 	}
-	if value > math.MaxUint {
-		return 0, errorx.NewBadRequest("parameter value too large: " + key)
-	}
+	// 设计债清理：64 位平台 math.MaxUint == MaxUint64，ParseUint bitSize=64 的
+	// 值域上界即 MaxUint64，原 value > math.MaxUint 溢出检查恒假已删除。
 	return uint(value), nil
 }

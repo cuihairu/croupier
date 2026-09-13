@@ -78,8 +78,7 @@ func TestService_GetDocument_WithMultipleOperations(t *testing.T) {
 		service.svcCtx.RegistryStore.UpsertOpenAPI(op.OperationID, op)
 	}
 
-	resp, err := service.GetDocument(context.Background(), &GetDocumentRequest{})
-	require.NoError(t, err)
+	resp := service.GetDocument(context.Background(), &GetDocumentRequest{})
 	assert.NotNil(t, resp.Spec)
 
 	var doc openapi3.T
@@ -92,10 +91,9 @@ func TestService_BatchGetSpec_AllNonExistent(t *testing.T) {
 
 	service := setupOpenAPITestService(t)
 
-	resp, err := service.BatchGetSpec(context.Background(), &BatchGetSpecRequest{
+	resp := service.BatchGetSpec(context.Background(), &BatchGetSpecRequest{
 		FunctionIDs: []string{"nonexistent1", "nonexistent2", "nonexistent3"},
 	})
-	require.NoError(t, err)
 	assert.Len(t, resp, 3)
 	assert.Nil(t, resp["nonexistent1"])
 	assert.Nil(t, resp["nonexistent2"])
@@ -111,10 +109,9 @@ func TestService_BatchGetSpec_Mixed(t *testing.T) {
 	op := &openapi3.Operation{OperationID: "existingFunc", Summary: "Exists"}
 	service.svcCtx.RegistryStore.UpsertOpenAPI("existingFunc", op)
 
-	resp, err := service.BatchGetSpec(context.Background(), &BatchGetSpecRequest{
+	resp := service.BatchGetSpec(context.Background(), &BatchGetSpecRequest{
 		FunctionIDs: []string{"existingFunc", "nonexistent"},
 	})
-	require.NoError(t, err)
 	assert.Len(t, resp, 2)
 	assert.NotNil(t, resp["existingFunc"])
 	assert.Nil(t, resp["nonexistent"])

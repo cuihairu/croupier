@@ -469,7 +469,7 @@ func (s *ControlService) handleRegisterRequest(ctx context.Context, req *agentv1
 	for _, warnMsg := range warnings {
 		warningTexts = append(warningTexts, warnMsg.Message)
 		s.logger.Warn("register validation warning", "agent_id", req.AgentId, "warning", warnMsg.Message, "code", warnMsg.Code, "function_id", warnMsg.FunctionID, "version", warnMsg.Version)
-		if err := s.registry.UpsertRegistrationWarning(ctx, reg.FunctionRegistrationWarning{
+		s.registry.UpsertRegistrationWarning(ctx, reg.FunctionRegistrationWarning{
 			GameID:     req.GameId,
 			Env:        req.Env,
 			AgentID:    req.AgentId,
@@ -477,9 +477,7 @@ func (s *ControlService) handleRegisterRequest(ctx context.Context, req *agentv1
 			Version:    warnMsg.Version,
 			Code:       warnMsg.Code,
 			Message:    warnMsg.Message,
-		}); err != nil {
-			s.logger.Error("failed to upsert registration warning", "error", err)
-		}
+		})
 	}
 
 	sess := &reg.AgentSession{
@@ -496,10 +494,11 @@ func (s *ControlService) handleRegisterRequest(ctx context.Context, req *agentv1
 		Functions: map[string]reg.FunctionMeta{},
 	}
 
+	// validateAndNormalizeFunctions 的后置条件：输出切片中每个 f 非 nil 且
+	// Id 为 trim+lower 后非空、通过 functionIDPattern 校验的值（nil 与
+	// 空 Id 在该函数内已全部 continue 剔除并转为 warning），故此处原
+	// `if f == nil || f.Id == "" { continue }` 防御分支为死代码，已删。
 	for _, f := range functions {
-		if f == nil || f.Id == "" {
-			continue
-		}
 		sess.Functions[f.Id] = reg.FunctionMeta{
 			Enabled:           f.Enabled,
 			Version:           f.Version,
@@ -535,6 +534,12 @@ func (s *ControlService) handleRegisterRequest(ctx context.Context, req *agentv1
 			Risk:         f.GetRisk(),
 			Permission:   f.GetPermission(),
 		}); err == nil {
+			// UpsertOpenAPI 的错误在此输入域不可达（C 类）：functionID 非空由
+			// validateAndNormalizeFunctions 后置条件保证；op 非 nil 由 converter
+			// 成功路径恒返回字面量构造保证；cloneOpenAPIOperation 的 MarshalJSON
+			// 对 Unmarshal 产物的 Schema 对象恒成功（converter 不设置 Extensions，
+			// 无不可序列化字段）。registry 为具体类型 *reg.Store，无注入 seam，
+			// 该 Warn 为防御性错误处理保留。
 			if err := s.registry.UpsertOpenAPI(f.Id, op); err != nil {
 				s.logger.Warn("failed to upsert openapi operation from register request", "function_id", f.Id, "error", err)
 			}
@@ -547,10 +552,9 @@ func (s *ControlService) handleRegisterRequest(ctx context.Context, req *agentv1
 	// 破坏性变更写入注册警告并随 RegisterResponse.warnings 返回 agent。
 	// 只告警不阻断；必须在 UpsertAgent 覆盖会话之前执行。
 	if s.schemaDiffWarn {
+		// 同上：functions 经 validateAndNormalizeFunctions 后置条件保证非 nil
+		// 且 Id 非空，原防御分支为死代码，已删。
 		for _, f := range functions {
-			if f == nil || f.Id == "" {
-				continue
-			}
 			oldInput, oldOutput, ok := s.registry.PreviousFunctionSchema(req.AgentId, req.GameId, req.Env, f.Id)
 			if !ok {
 				continue
@@ -565,7 +569,7 @@ func (s *ControlService) handleRegisterRequest(ctx context.Context, req *agentv1
 				warning := fmt.Sprintf("function %s %s%s: %s", f.Id, finding.Source, finding.Path, finding.Reason)
 				warningTexts = append(warningTexts, warning)
 				s.logger.Warn("register schema breaking change", "agent_id", req.AgentId, "function_id", f.Id, "source", finding.Source, "path", finding.Path, "reason", finding.Reason)
-				if err := s.registry.UpsertRegistrationWarning(ctx, reg.FunctionRegistrationWarning{
+				s.registry.UpsertRegistrationWarning(ctx, reg.FunctionRegistrationWarning{
 					GameID:     req.GameId,
 					Env:        req.Env,
 					AgentID:    req.AgentId,
@@ -573,9 +577,7 @@ func (s *ControlService) handleRegisterRequest(ctx context.Context, req *agentv1
 					Version:    f.Version,
 					Code:       "schema_breaking_change",
 					Message:    warning,
-				}); err != nil {
-					s.logger.Error("failed to upsert schema diff warning", "error", err)
-				}
+				})
 			}
 		}
 	}
@@ -799,15 +801,13 @@ func (s *ControlService) validateProviderScope(ctx context.Context, req *agentv1
 	msg := fmt.Sprintf("service_id=%s: %s", p.ServiceId, strings.Join(mismatches, "; "))
 	*warningTexts = append(*warningTexts, msg)
 	s.logger.Warn("provider scope mismatch", "agent_id", req.AgentId, "service_id", p.ServiceId, "detail", msg)
-	if err := s.registry.UpsertRegistrationWarning(ctx, reg.FunctionRegistrationWarning{
+	s.registry.UpsertRegistrationWarning(ctx, reg.FunctionRegistrationWarning{
 		GameID:  req.GameId,
 		Env:     req.Env,
 		AgentID: req.AgentId,
 		Code:    "provider_scope_mismatch",
 		Message: msg,
-	}); err != nil {
-		s.logger.Error("failed to upsert scope mismatch registration warning", "error", err)
-	}
+	})
 }
 
 func (s *ControlService) handleRegisterCapabilitiesRequest(ctx context.Context, req *agentv1.RegisterCapabilitiesRequest) (*agentv1.RegisterCapabilitiesResponse, error) {
@@ -845,8 +845,12 @@ func (s *ControlService) pruneMetricsOnce() {
 	s.systemInfoCache.Prune(time.Hour)
 }
 
+// backgroundLoopInterval 是指标修剪/会话清理两个后台循环的定时间隔；
+// 抽为包级变量仅为测试注入短间隔覆盖 ticker 分支，默认 5 分钟与历史行为一致。
+var backgroundLoopInterval = 5 * time.Minute
+
 func (s *ControlService) pruneOldMetrics() {
-	ticker := time.NewTicker(5 * time.Minute)
+	ticker := time.NewTicker(backgroundLoopInterval)
 	defer ticker.Stop()
 	for {
 		select {
@@ -871,7 +875,7 @@ func (s *ControlService) runSessionCleanup() {
 }
 
 func (s *ControlService) cleanupLoop() {
-	ticker := time.NewTicker(5 * time.Minute)
+	ticker := time.NewTicker(backgroundLoopInterval)
 	defer ticker.Stop()
 	for {
 		select {

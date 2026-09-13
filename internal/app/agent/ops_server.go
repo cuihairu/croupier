@@ -323,11 +323,16 @@ func (s *OpsServer) stopProcess(p *managedProcess) {
 		if wd := p.waitDone; wd != nil {
 			select {
 			case <-wd:
-			case <-time.After(5 * time.Second):
+			case <-time.After(stopProcessWaitTimeout):
 			}
 		}
 	}
 }
+
+// stopProcessWaitTimeout 是 stopProcess 等待收尸完成的上限。提为包级
+// 变量以便测试注入短超时，确定性覆盖等待超时分支（无人调用 close 的
+// waitDone）。
+var stopProcessWaitTimeout = 5 * time.Second
 
 // monitorProcess monitors a managed process and restarts if needed
 func (s *OpsServer) monitorProcess(p *managedProcess) {
@@ -475,6 +480,9 @@ func (s *OpsServer) GetServiceStatusJSON(ctx context.Context, jsonReq []byte) ([
 
 // ListCronJobsJSON handles ListCronJobsRequest via JSON
 func (s *OpsServer) ListCronJobsJSON(ctx context.Context) ([]byte, error) {
+	// 覆盖边界说明：linux 的 listCronJobsPlatform 恒返回 nil error（所有
+	// 目录读取失败均静默跳过），此 err 分支仅 windows/stub 平台可达，
+	// linux 测试构建不可覆盖。
 	jobs, err := ListCronJobs()
 	if err != nil {
 		return nil, err
@@ -576,6 +584,8 @@ func (s *OpsServer) GetServiceStatus(ctx context.Context, req *GetServiceStatusR
 
 // ListCronJobs returns cron jobs on Linux systems.
 func (s *OpsServer) ListCronJobs(ctx context.Context) (*ListCronJobsResponse, error) {
+	// 覆盖边界说明：同 ListCronJobsJSON——linux 平台 ListCronJobs 恒返回
+	// nil error，err 分支仅 windows/stub 平台可达。
 	jobs, err := ListCronJobs()
 	if err != nil {
 		return nil, err

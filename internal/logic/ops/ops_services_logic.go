@@ -69,12 +69,12 @@ func (l *OpsServicesLogic) OpsServices(_ *OpsServicesRequest) (*OpsServicesRespo
 				continue
 			}
 
-			ttl, healthy := ttlAndHealth(sess)
+			// 设计债清理：ttlAndHealth 的 healthy ≡ ttl>0，无独立健康信号，
+			// unhealthy 态不可达已删（status 仅 healthy/expired 两态）。
+			ttl, _ := ttlAndHealth(sess)
 			status := "healthy"
 			if ttl <= 0 {
 				status = "expired"
-			} else if !healthy {
-				status = "unhealthy"
 			}
 
 			labels := sess.Labels

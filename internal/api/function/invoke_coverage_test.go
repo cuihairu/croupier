@@ -2,6 +2,7 @@ package function
 
 import (
 	"context"
+	"encoding/json"
 	"testing"
 	"time"
 
@@ -199,7 +200,11 @@ func TestFunctionInvoke_AsyncTask(t *testing.T) {
 	})
 	require.NoError(t, err)
 	assert.Equal(t, "task-42", resp.TaskId)
-	assert.Equal(t, "task-42", resp.TaskID)
+	// 设计债修复：TaskID 双字段已删，async 响应 JSON 只含 taskId 不含 taskID。
+	payload, err := json.Marshal(resp)
+	require.NoError(t, err)
+	assert.Contains(t, string(payload), `"taskId":"task-42"`)
+	assert.NotContains(t, string(payload), "taskID")
 	assert.Equal(t, "true", resp.ExecutionMetadata["async"])
 }
 

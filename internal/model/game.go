@@ -88,12 +88,11 @@ func (g *Game) GetEnvs() ([]GameEnv, error) {
 	return envs, err
 }
 
-// SetEnvs 设置游戏环境列表
+// SetEnvs 设置游戏环境列表。
+// []GameEnv 为纯 string 字段结构体，json.Marshal 恒成功、无出错路径；
+// error 返回值仅为保持既有调用方（api/svc/cmd 五处）签名兼容而保留，恒返回 nil。
 func (g *Game) SetEnvs(envs []GameEnv) error {
-	data, err := json.Marshal(envs)
-	if err != nil {
-		return err
-	}
+	data, _ := json.Marshal(envs)
 	g.Envs = data
 	return nil
 }

@@ -3,6 +3,7 @@ package svc
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"log/slog"
 	"strings"
 
@@ -40,10 +41,13 @@ func (s *ServiceContext) GetAdminCached(ctx context.Context, adminID uint) (*mod
 	return &admin, nil
 }
 
+// GetAdminByUsernameCached 按用户名（大小写/空白归一后）查询管理员。
+// 设计债修复：空 username 此前静默返回 (nil, nil)，与「查询失败返回
+// error」的契约不对称；现在返回明确错误，nil 只伴随 error 出现。
 func (s *ServiceContext) GetAdminByUsernameCached(ctx context.Context, username string) (*model.Admin, error) {
 	normalized := strings.ToLower(strings.TrimSpace(username))
 	if normalized == "" {
-		return nil, nil
+		return nil, fmt.Errorf("username 不能为空")
 	}
 
 	var admin model.Admin

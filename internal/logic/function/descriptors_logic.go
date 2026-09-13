@@ -52,9 +52,9 @@ func (l *DescriptorsLogic) DescriptorsV2(req *DescriptorsRequest) (*DescriptorsV
 
 	functions := make([]spec.FunctionSpec, 0, len(functionsByID))
 	for _, fn := range functionsByID {
-		if fn.ID == "" {
-			continue
-		}
+		// 无需 fn.ID 空值检查：FunctionSpecsFromContracts 以 TrimSpace 后的
+		// FunctionID 作为 map key（空 ID 条目在投影层已被跳过），且
+		// FunctionSpec.ID 取自同一来源，遍历取出的 ID 恒等于非空 key。
 		if resource != "" && fn.Resource != resource {
 			continue
 		}

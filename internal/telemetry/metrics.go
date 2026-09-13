@@ -330,16 +330,12 @@ func setMetricField[T any](m *GameMetrics, name string, value T) {
 		panic(fmt.Sprintf("telemetry: unknown GameMetrics field %q", name))
 	}
 	vt := reflect.ValueOf(value)
-	// noop meter 返回具体实现而非 metric 接口，需要按字段接口类型转换。
-	iv := reflect.New(f.Type()).Elem()
+	// GameMetrics 全部字段均为 metric 接口类型，而 reflect 语义上接口目标类型的
+	// AssignableTo 与 Implements 恒等价，"不可直接赋值但实现接口"的组合不存在
+	// （原 Convert 分支为死代码），收敛为单一可赋值性检查：规格表与结构体声明
+	// 漂移属开发期错误，直接 panic。
 	if !vt.Type().AssignableTo(f.Type()) {
-		ok := vt.Type().Implements(f.Type())
-		if !ok {
-			panic(fmt.Sprintf("telemetry: value for field %s does not implement %s", name, f.Type()))
-		}
-		iv.Set(vt.Convert(f.Type()))
-	} else {
-		iv.Set(vt)
+		panic(fmt.Sprintf("telemetry: value for field %s does not implement %s", name, f.Type()))
 	}
-	f.Set(iv)
+	f.Set(vt)
 }

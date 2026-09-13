@@ -14,13 +14,14 @@ var errStoreUnavailable = errors.New("audit store unavailable")
 
 // buildAuditQuery 构造与 GetAuditLogs 完全一致的过滤查询
 // （作用域鉴权 + action/actor/ip/game/env/时间窗）。
-func (s *Service) buildAuditQuery(ctx context.Context, req *AuditRequest, visibleScopes auditScopeSet, unrestricted bool) (*gorm.DB, error) {
+// 空 scope（受限用户无任何 game 授权）时返回 nil 查询，调用方需短路返回空集。
+func (s *Service) buildAuditQuery(ctx context.Context, req *AuditRequest, visibleScopes auditScopeSet, unrestricted bool) *gorm.DB {
 	query := s.svcCtx.DB.WithContext(ctx).Table("audit_records")
 	// Scope authorization: non-admin viewers only see records within their
 	// game/env scopes. SQL-side so counts and pagination stay correct.
 	if !unrestricted {
 		if len(visibleScopes) == 0 {
-			return nil, nil // 空可见域：调用方直接返回空集
+			return nil // 空可见域：调用方直接返回空集
 		}
 		orParts := []string{}
 		orArgs := []interface{}{}
@@ -33,7 +34,7 @@ func (s *Service) buildAuditQuery(ctx context.Context, req *AuditRequest, visibl
 		query = query.Where(strings.Join(orParts, " OR "), orArgs...)
 	}
 	if req == nil {
-		return query, nil
+		return query
 	}
 
 	// Resolve action filter (kind / kinds / action aliases).
@@ -87,7 +88,7 @@ func (s *Service) buildAuditQuery(ctx context.Context, req *AuditRequest, visibl
 			query = query.Where("timestamp <= ?", parsed)
 		}
 	}
-	return query, nil
+	return query
 }
 
 // ExportRows 按过滤条件导出审计行（上限保护，超限截断）。
@@ -102,10 +103,7 @@ func (s *Service) ExportRows(ctx context.Context, req *AuditRequest, limit int) 
 	if err != nil {
 		return nil, false, err
 	}
-	query, err := s.buildAuditQuery(ctx, req, visibleScopes, unrestricted)
-	if err != nil {
-		return nil, false, err
-	}
+	query := s.buildAuditQuery(ctx, req, visibleScopes, unrestricted)
 	if query == nil {
 		return []AuditItem{}, false, nil
 	}

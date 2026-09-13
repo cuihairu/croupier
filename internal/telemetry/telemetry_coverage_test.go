@@ -178,6 +178,26 @@ func TestNewProvider_HostPortForm_WithTLS(t *testing.T) {
 	require.NoError(t, p.Shutdown(context.Background()))
 }
 
+// UseTLS=true + EnableMetrics=true：initMetrics 的 secure 分支（不加
+// WithInsecure，otlpmetrichttp 默认即 HTTPS）。exporter 创建不发起连接，
+// 指向无 collector 的端口也成功；shutdown 无 pending 指标即成功。
+func TestNewProvider_MetricsWithTLS_SecureExporter(t *testing.T) {
+	cfg := TelemetryConfig{
+		ServiceName:    "svc",
+		ServiceVersion: "1.0.0",
+		Environment:    "test",
+		CollectorURL:   "127.0.0.1:14318",
+		GameID:         "g1",
+		EnableTracing:  false,
+		EnableMetrics:  true,
+		UseTLS:         true,
+	}
+	p, err := NewProvider(context.Background(), cfg, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	require.NoError(t, err)
+	require.NotNil(t, p.MeterProvider)
+	_ = p.Shutdown(context.Background())
+}
+
 func TestNewProvider_NormalizesEmptyConfig(t *testing.T) {
 	cfg := TelemetryConfig{}
 	p, err := NewProvider(context.Background(), cfg, nil)

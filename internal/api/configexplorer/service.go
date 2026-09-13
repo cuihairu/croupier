@@ -219,10 +219,10 @@ func mergeMaskedConfig(oldJSON, newJSON string) string {
 			newCfg["dsn"] = restoreDSNPassword(oldDSN, s)
 		}
 	}
-	out, err := json.Marshal(newCfg)
-	if err != nil {
-		return oldJSON
-	}
+	// 设计债清理：newCfg 为 json.Unmarshal 产物，值域均为 JSON 可表示类型
+	// （string/float64/bool/nil/slice/map），对其再 Marshal 恒成功，
+	// 原 err 回退分支不可达已删除。
+	out, _ := json.Marshal(newCfg)
 	return string(out)
 }
 

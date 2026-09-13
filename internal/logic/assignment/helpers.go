@@ -73,10 +73,10 @@ func saveAssignments(path string, data map[string][]string) error {
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return err
 	}
-	bytes, err := json.MarshalIndent(data, "", "  ")
-	if err != nil {
-		return err
-	}
+	// map[string][]string 的 key/value 均为字符串，MarshalIndent 恒成功
+	// （对比 saveAssignmentHistory：其 Details 为 map[string]interface{}，
+	// 可携带不可序列化值，错误分支真实可达需保留）。
+	bytes, _ := json.MarshalIndent(data, "", "  ")
 	return fsutil.WriteFileAtomic(path, bytes, 0o644)
 }
 

@@ -3,6 +3,7 @@ package quicksdk
 import (
 	"context"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 )
@@ -146,8 +147,8 @@ func TestRateLimiter_ConcurrentAccess(t *testing.T) {
 	defer cancel()
 
 	var wg sync.WaitGroup
-	successCount := int32(0)
-	failCount := int32(0)
+	// -race 下并发自增裸 int32 会报 DATA RACE，改用 atomic。
+	var successCount, failCount int32
 
 	// Try to acquire from 20 goroutines
 	for i := 0; i < 20; i++ {
@@ -155,9 +156,9 @@ func TestRateLimiter_ConcurrentAccess(t *testing.T) {
 		go func() {
 			defer wg.Done()
 			if rl.Wait(ctx) == nil {
-				successCount++
+				atomic.AddInt32(&successCount, 1)
 			} else {
-				failCount++
+				atomic.AddInt32(&failCount, 1)
 			}
 		}()
 	}
@@ -166,13 +167,10 @@ func TestRateLimiter_ConcurrentAccess(t *testing.T) {
 
 	// Should successfully acquire up to burst size (10)
 	// Some may succeed if refill happens during test
-	if successCount < 10 {
-		t.Errorf("Expected at least 10 successful acquires, got %d", successCount)
+	if got := atomic.LoadInt32(&successCount); got < 10 {
+		t.Errorf("Expected at least 10 successful acquires, got %d", got)
 	}
-	if successCount > 12 {
-		t.Logf("Note: More than burst tokens acquired (%d), refill occurred during test", successCount)
-	}
-	t.Logf("Success: %d, Failed: %d", successCount, failCount)
+	t.Logf("Success: %d, Failed: %d", atomic.LoadInt32(&successCount), atomic.LoadInt32(&failCount))
 }
 
 // TestRateLimiter_ZeroRate verifies default rate is used for zero input.

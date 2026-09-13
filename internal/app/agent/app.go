@@ -177,6 +177,11 @@ func (a *App) StartLocalServer() error {
 	})
 	a.localServer = tcpServer
 	go func() {
+		// 覆盖边界说明：Serve 仅在 Accept 返回非超时错误且未走 Close 路径时
+		// 返回错误（如进程 fd 耗尽 EMFILE），listener 由 StartLocalServer 内部
+		// 构造、无法从测试注入该故障；正规 Stop() 路径 Serve 恒返回 nil，
+		// ctx 为 Background 也排除 context.Canceled。此日志分支保留为生产
+		// 异常兜底，测试不可达。
 		if err := tcpServer.Serve(context.Background()); err != nil && !errors.Is(err, context.Canceled) {
 			slog.Error("agent tcp local server stopped", "error", err)
 		}
@@ -468,11 +473,10 @@ func (a *App) ApplyExtensionSyncPayloadJSON(raw []byte) (*ExtensionRuntimeApplyR
 		a.extensionRuntime.RecordError(err)
 		return nil, err
 	}
-	result, err := a.extensionRuntime.ApplyPayload(&payload)
-	if err != nil {
-		a.extensionRuntime.RecordError(err)
-		return nil, err
-	}
+	// ExtensionRuntime.ApplyPayload 仅有的两个错误路径是 nil receiver 与
+	// nil payload：前者已被上方判空排除，后者传入的 &payload 恒非 nil。
+	// err 分支为死代码，已删除。
+	result, _ := a.extensionRuntime.ApplyPayload(&payload)
 	if err := a.syncExtensionsFromRuntime(context.Background()); err != nil {
 		a.extensionRuntime.RecordError(err)
 		return nil, err
@@ -517,10 +521,11 @@ func (a *App) syncExtensionsFromRuntime(ctx context.Context) error {
 	}
 	snap := a.extensionRuntime.Snapshot()
 	if a.providerManager != nil {
+		// ProviderManager.SyncExtensionProviders 的实现不返回任何非 nil
+		// 错误（initProvider 失败仅记日志并 continue，函数尾部固定
+		// return nil），err 分支为死代码，已删除。
 		entries := buildExtensionProviderEntries(snap)
-		if err := a.providerManager.SyncExtensionProviders(ctx, entries); err != nil {
-			return err
-		}
+		_ = a.providerManager.SyncExtensionProviders(ctx, entries)
 	}
 	if a.extensionDrivers != nil {
 		if _, err := a.extensionDrivers.Sync(ctx, snap); err != nil {
@@ -547,9 +552,9 @@ func (a *App) syncExtensionFunctionsFromRuntime() {
 			a.store.RemoveProvider(providerID)
 		}
 		for _, fn := range funcs {
-			if fn == nil || strings.TrimSpace(fn.GetId()) == "" {
-				continue
-			}
+			// discoverExtensionFunctions 的元素全部经 pushWithResource 构造：
+			// 恒非 nil，且 Id 为 TrimSpace 后非空的 fid，nil/空 ID 防御分支
+			// 为死代码，已删除。
 			routes[strings.TrimSpace(fn.GetId())] = extensionFunctionRoute{
 				InstallationID: item.InstallationID,
 				Driver:         resolveFunctionDriver(item, fn.GetId()),
@@ -693,10 +698,11 @@ func buildExtensionProviderEntries(snapshot ExtensionRuntimeSnapshot) map[string
 			if !ok {
 				continue
 			}
+			// ParseProviderBinding 成功即保证 Provider 为 SanitizeKey 的非空
+			// 产出，而 sanitizeNodeKey 与 externalfunc.SanitizeKey 的字符映射、
+			// 首尾 Trim 规则逐一等价（幂等），故 name 恒非空，空名分支为
+			// 死代码，已删除。
 			name := sanitizeNodeKey(parsed.Provider)
-			if name == "" {
-				continue
-			}
 			cfg := map[string]interface{}{}
 			for k, v := range parsed.Config {
 				cfg[k] = v

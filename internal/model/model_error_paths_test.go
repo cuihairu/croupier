@@ -222,9 +222,9 @@ func TestErrorPaths_FunctionModel(t *testing.T) {
 	assert.Error(t, err)
 	_, _, err = m.BatchDeleteFunctions(ctx, []string{"f1"})
 	assert.Error(t, err)
-	// BatchCopyFunctions records per-item failures instead of returning an error.
-	count, failed, copied, err := m.BatchCopyFunctions(ctx, []string{"f1"})
-	require.NoError(t, err)
+	// BatchCopyFunctions records per-item failures into failedIDs; the
+	// signature carries no error return at all (design-debt fix).
+	count, failed, copied := m.BatchCopyFunctions(ctx, []string{"f1"})
 	assert.Equal(t, 0, count)
 	assert.Equal(t, []string{"f1"}, failed)
 	assert.Empty(t, copied)

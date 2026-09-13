@@ -78,9 +78,9 @@ func TestCacheLayer_AdminHelpers(t *testing.T) {
 	require.NotNil(t, byName)
 	assert.Equal(t, admin.ID, byName.ID)
 
-	// 空用户名
+	// 空用户名（设计债修复：返回 error 而非 (nil, nil)）
 	empty, err := svcCtx.GetAdminByUsernameCached(ctx, "  ")
-	require.NoError(t, err)
+	require.Error(t, err)
 	assert.Nil(t, empty)
 
 	// 别名缓存失效

@@ -408,9 +408,9 @@ func decodeApprovalPayload(a *approvals.Approval) (map[string]interface{}, strin
 		return nil, string(a.Payload)
 	}
 	var buf bytes.Buffer
-	if err := json.Indent(&buf, a.Payload, "", "  "); err != nil {
-		return payload, string(a.Payload)
-	}
+	// json.Indent 仅对非法 JSON 报错；上一行 json.Unmarshal(a.Payload) 已成功，
+	// 说明 a.Payload 是合法 JSON，Indent 恒成功，error 分支不可达，已删除。
+	_ = json.Indent(&buf, a.Payload, "", "  ")
 	return payload, buf.String()
 }
 
@@ -463,16 +463,13 @@ func (s *Service) continueApprovedFunction(ctx context.Context, record *approval
 	if err != nil {
 		return approvalContinuationResult{}, fmt.Errorf("continue approved function: %w", err)
 	}
+	// FunctionInvoke 契约：err == nil 时响应必非 nil（async/broadcast/sync
+	// 三条成功路径均构造非空 &FunctionInvokeResponse），resp==nil 分支
+	// 不可达，已删除。
 	result := approvalContinuationResult{Triggered: true, Kind: "sync"}
-	if resp == nil {
-		return result, nil
-	}
-	if resp.TaskID != "" || resp.TaskId != "" {
+	if resp.TaskId != "" {
 		result.Kind = "task"
-		result.TaskID = resp.TaskID
-		if result.TaskID == "" {
-			result.TaskID = resp.TaskId
-		}
+		result.TaskID = resp.TaskId
 		return result, nil
 	}
 	result.Result = resp.Result
@@ -631,10 +628,10 @@ func (s *Service) loadApprovalsFromExtensionInstallation(ctx context.Context) ([
 	if !exists || raw == nil {
 		return nil, false, nil
 	}
-	data, err := json.Marshal(raw)
-	if err != nil {
-		return nil, false, err
-	}
+	// raw 来自 json.Unmarshal(map[string]any) 的取值，值类型仅可能为 JSON
+	// 基础类型（nil/bool/float64/string/[]any/map[string]any），再 Marshal 恒
+	// 成功，error 分支不可达，已删除。
+	data, _ := json.Marshal(raw)
 	items := []Approval{}
 	if err := json.Unmarshal(data, &items); err != nil {
 		return nil, false, err

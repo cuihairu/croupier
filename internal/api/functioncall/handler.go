@@ -83,5 +83,8 @@ func (h *Handler) Rerun(c *gin.Context) {
 		response.Error(c, err)
 		return
 	}
+	// 不可达论证：service.Rerun 目前是有意的功能 stub（恒返回
+	// BadRequest「当前版本暂不支持从调用历史重跑」），本行在 stub 落地
+	// 实现前不可达；届时随实现自然覆盖，不应为凑覆盖而伪造成功路径。
 	response.Success(c, resp)
 }

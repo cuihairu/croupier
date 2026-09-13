@@ -53,6 +53,13 @@ func (s *PermissionService) CheckPermission(ctx context.Context, adminID uint, r
 	candidates := permissionCandidates(resource, action)
 	allowed, err := rbac.EnforceAnyPermission(fmt.Sprintf("admin:%d", adminID), permissionIDs, candidates...)
 	if err != nil {
+		// 不可达论证（C 类）：EnforceAnyPermission 的错误仅两个来源——
+		// ① newLogicalModelFromString(logicalPermissionModel)：模型是包内
+		//   编译期常量字符串，解析恒成功；② casbin Enforce：该模型的 matcher
+		//   为纯字符串等值比较（无 eval/内置函数），对 (string,string,string)
+		//   三元组无求值错误路径。rbac 包暴露的失败注入 seam
+		//   （newLogicalModelFromString/newLogicalEnforcer）是包内未导出变量，
+		//   本包（permission）无法触达。err 为签名契约必须处理，保留透传。
 		return false, fmt.Errorf("failed to enforce permission with casbin: %w", err)
 	}
 	return allowed, nil

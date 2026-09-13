@@ -57,6 +57,8 @@ func GetPlatformInfo() map[string]interface{} {
 	info["arch"] = runtime.GOARCH
 
 	// Add platform-specific info
+	// 覆盖边界说明：windows 分支由 runtime.GOOS 编译期常量决定，linux 测试
+	// 构建下不可达（windows 构建由 sysinfo_windows_test.go 覆盖其余路径）。
 	if runtime.GOOS == "windows" {
 		info["service_manager"] = "Windows Service Manager (SCM)"
 	} else if runtime.GOOS == "linux" {
@@ -66,10 +68,14 @@ func GetPlatformInfo() map[string]interface{} {
 	return info
 }
 
+// systemdDetectPath 是 detectLinuxServiceManager 探测的 systemd 运行目录，
+// 提为包级变量以便测试注入不存在的路径覆盖非 systemd 分支。
+var systemdDetectPath = "/run/systemd"
+
 // detectLinuxServiceManager detects which service manager is in use.
 func detectLinuxServiceManager() string {
 	// Simple heuristic: check for systemd directory
-	if _, err := os.Stat("/run/systemd"); err == nil {
+	if _, err := os.Stat(systemdDetectPath); err == nil {
 		return "systemd"
 	}
 	// Default to unknown for other init systems

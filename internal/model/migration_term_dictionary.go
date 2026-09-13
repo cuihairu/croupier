@@ -72,10 +72,7 @@ func MigrateTermDictionaryDisplay(db *gorm.DB) error {
 			merged["en-US"] = row.DisplayEn
 		}
 		normalized := NormalizeTermDisplay(merged)
-		displayVal, err := marshalTermDisplay(normalized)
-		if err != nil {
-			return fmt.Errorf("serialize term_dictionary display id=%d: %w", row.ID, err)
-		}
+		displayVal := marshalTermDisplay(normalized)
 		if err := db.Table("term_dictionary").Where("id = ?", row.ID).
 			Update("display", displayVal).Error; err != nil {
 			return fmt.Errorf("backfill term_dictionary id=%d: %w", row.ID, err)

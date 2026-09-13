@@ -39,6 +39,9 @@ type Executor struct {
 	prefix  string // 对象存储 key 前缀，如 backups/
 	// execCommand 可注入（测试替身）。nil 时用真实 exec.Command。
 	execCommand func(ctx context.Context, name string, args ...string) ([]byte, error)
+	// openFile 可注入（测试替身）。nil 时用 os.Open；仅覆盖 RunBackup
+	// 打开 dump 产物的入口（dump 内部的 CreateTemp/Stat 不经过此口）。
+	openFile func(name string) (*os.File, error)
 }
 
 // New creates an executor.
@@ -65,7 +68,13 @@ func (e *Executor) RunBackup(ctx context.Context, backupID, name, backupType str
 
 	// 上传对象存储。
 	key := e.objectKey(backupID, backupType)
-	f, err := os.Open(dumpPath)
+	// openFile 注入口见 Executor 字段说明；正常路径下 dump 刚 Stat 成功，
+	// os.Open 同一临时文件无现实失败方式，错误路径仅经注入触达。
+	open := e.openFile
+	if open == nil {
+		open = os.Open
+	}
+	f, err := open(dumpPath)
 	if err != nil {
 		e.finish(ctx, backup, "failed", "", 0, "", err.Error())
 		return err

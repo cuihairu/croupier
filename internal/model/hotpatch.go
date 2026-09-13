@@ -257,10 +257,8 @@ func (m *HotpatchModel) AppendResult(ctx context.Context, id uint, r HotpatchRes
 		if !replaced {
 			results = append(results, r)
 		}
-		bytes, err := json.Marshal(results)
-		if err != nil {
-			return err
-		}
+		// HotpatchResult 为纯 string 字段结构体，Marshal 恒成功，err 分支为死代码已删。
+		bytes, _ := json.Marshal(results)
 		return tx.Model(&Hotpatch{}).Where("id = ?", id).
 			Update("results", bytes).Error
 	})
@@ -281,11 +279,11 @@ func (h *Hotpatch) BucketHit(nodeID string) bool {
 }
 
 // HotpatchSeedHex generates a rollout seed.
+// Go≥1.24 起 crypto/rand.Read 永不返回错误（失败直接 fatal crash），
+// 因此无时间戳回退分支。
 func HotpatchSeedHex() string {
 	b := make([]byte, 8)
-	if _, err := rand.Read(b); err != nil {
-		return fmt.Sprintf("%x", time.Now().UnixNano())
-	}
+	_, _ = rand.Read(b)
 	return hex.EncodeToString(b)
 }
 

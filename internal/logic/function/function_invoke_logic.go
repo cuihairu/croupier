@@ -98,7 +98,9 @@ func (l *FunctionInvokeLogic) FunctionInvoke(req *FunctionInvokeRequest) (*Funct
 			return nil, err
 		}
 		taskID := taskResp.GetTaskId()
-		return &FunctionInvokeResponse{TaskId: taskID, TaskID: taskID}, nil
+		// 契约只输出 taskId（api/function 侧同款双字段设计债已清理，
+		// 此处同步：TaskID 与 TaskId 恒同值且全仓零读取点）。
+		return &FunctionInvokeResponse{TaskId: taskID}, nil
 	}
 
 	// Default: synchronous invoke.

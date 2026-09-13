@@ -197,11 +197,11 @@ func (h *Handler) Realtime(c *gin.Context) {
 			}
 
 			// 发送数据事件
-			data, err := json.Marshal(resp)
-			if err != nil {
-				slog.ErrorContext(ctx, "Failed to marshal realtime data", "error", err)
-				continue
-			}
+			// resp 为已类型化的 *RealtimeResponse：数值字段均经 safeDivide
+			// （分母 0 返回 0，无 NaN/Inf），TopEvents 为内部构造的
+			// []map[string]interface{}（string/int 值），Marshal 恒成功，
+			// error 分支不可达，已删除。
+			data, _ := json.Marshal(resp)
 
 			fmt.Fprintf(c.Writer, "event: message\n")
 			fmt.Fprintf(c.Writer, "data: %s\n\n", data)

@@ -3,6 +3,7 @@ package backup
 import (
 	"context"
 	"fmt"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -451,6 +452,39 @@ func TestService_Download_RelativePath(t *testing.T) {
 		Close() error
 	}).Close()
 	assert.Equal(t, int64(3), payload.Size)
+}
+
+func TestService_Download_StatAndOpenFailures(t *testing.T) {
+	env := setupBackupFlowEnv(t)
+
+	t.Run("stat 失败：location 指向不存在文件", func(t *testing.T) {
+		createBackupRow(t, env, &model.Backup{
+			BackupID: "bkp-missing",
+			Name:     "missing",
+			Location: filepath.Join(t.TempDir(), "no-such-backup.tar"),
+		})
+		_, err := env.service.Download(context.Background(), &BackupDownloadRequest{ID: "bkp-missing"})
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "无法打开备份文件")
+	})
+
+	t.Run("open 失败：location 指向 unix socket 文件", func(t *testing.T) {
+		// unix socket inode 存在（os.Stat 成功）但 open(2) 返回 ENXIO，
+		// 覆盖 Stat 成功而 Open 失败的分支。
+		sockPath := filepath.Join(t.TempDir(), "backup.sock")
+		ln, err := net.Listen("unix", sockPath)
+		require.NoError(t, err)
+		defer ln.Close()
+
+		createBackupRow(t, env, &model.Backup{
+			BackupID: "bkp-sock",
+			Name:     "sock",
+			Location: sockPath,
+		})
+		_, err = env.service.Download(context.Background(), &BackupDownloadRequest{ID: "bkp-sock"})
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "无法打开备份文件")
+	})
 }
 
 func TestService_Download_RemoteRedirect(t *testing.T) {

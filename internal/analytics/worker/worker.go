@@ -32,10 +32,17 @@ const (
 	deadPaymentsStream = "analytics:payments:dead"
 
 	// Pending recovery settings
-	pendingReclaimInterval = 30 * time.Second
-	pendingIdleTimeout     = 5 * time.Minute
-	maxPendingRetries      = 3
+	pendingIdleTimeout = 5 * time.Minute
+	maxPendingRetries  = 3
 )
+
+// pendingReclaimInterval 是回收循环的心跳间隔（默认与生产行为一致），
+// 作为可注入缝隙供测试缩短以覆盖 ticker 分支。
+var pendingReclaimInterval = 30 * time.Second
+
+// runFlushInterval 是 Run 周期 flush 的心跳间隔（默认与生产行为一致），
+// 作为可注入缝隙供测试缩短以覆盖 ticker 分支。
+var runFlushInterval = 15 * time.Second
 
 type Worker struct {
 	rdb            *redis.Client
@@ -98,13 +105,11 @@ func NewWorker() (*Worker, error) {
 	if err != nil {
 		return nil, fmt.Errorf("parse clickhouse dsn: %w", err)
 	}
-	if len(opts.Addr) == 0 {
-		opts.Addr = []string{"localhost:9000"}
-	}
-	ch, err := clickhouse.Open(opts)
-	if err != nil {
-		return nil, fmt.Errorf("clickhouse: %w", err)
-	}
+	// ParseDSN 恒产出非空 Addr（DSN 缺 host 时直接报 "parse dsn address
+	// failed"），空 Addr 兜底分支不可达，已删除。
+	// clickhouse-go v2.43.0 的 Open 无条件构造连接对象返回 nil error
+	// （懒连接，不做任何可失败的校验），error 分支不可达，已删除。
+	ch, _ := clickhouse.Open(opts)
 	batchSize := 500
 	if v := strings.TrimSpace(os.Getenv("ANALYTICS_CLICKHOUSE_BATCH")); v != "" {
 		if n, err := strconv.Atoi(v); err == nil && n > 0 {
@@ -151,15 +156,15 @@ func (w *Worker) Run(ctx context.Context) error {
 
 	// periodic flush
 	go func() {
-		tk := time.NewTicker(15 * time.Second)
+		tk := time.NewTicker(runFlushInterval)
 		for {
 			select {
 			case <-ctx.Done():
 				return
 			case <-tk.C:
-				if err := w.flush(ctx); err != nil {
-					slog.Warn("flush", "err", err)
-				}
+				// flush 实现恒返回 nil（内部各失败路径均以 slog.Warn
+				// 记录后继续），err 分支不可达，已删除。
+				w.flush(ctx)
 			}
 		}
 	}()

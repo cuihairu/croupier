@@ -1232,8 +1232,7 @@ func TestService_GetDocument(t *testing.T) {
 	}
 	service.svcCtx.RegistryStore.UpsertOpenAPI("testOperation", op)
 
-	resp, err := service.GetDocument(context.Background(), &GetDocumentRequest{})
-	require.NoError(t, err)
+	resp := service.GetDocument(context.Background(), &GetDocumentRequest{})
 	assert.NotNil(t, resp.Spec)
 }
 
@@ -1248,10 +1247,9 @@ func TestService_BatchGetSpec_MultipleIDs(t *testing.T) {
 	service.svcCtx.RegistryStore.UpsertOpenAPI("func1", op1)
 	service.svcCtx.RegistryStore.UpsertOpenAPI("func2", op2)
 
-	resp, err := service.BatchGetSpec(context.Background(), &BatchGetSpecRequest{
+	resp := service.BatchGetSpec(context.Background(), &BatchGetSpecRequest{
 		FunctionIDs: []string{"func1", "func2", "player.list"},
 	})
-	require.NoError(t, err)
 	assert.Len(t, resp, 3)
 	assert.NotNil(t, resp["func1"])
 	assert.NotNil(t, resp["func2"])
@@ -1263,10 +1261,9 @@ func TestService_BatchGetSpec_WithNonExistent(t *testing.T) {
 
 	service := setupOpenAPITestService(t)
 
-	resp, err := service.BatchGetSpec(context.Background(), &BatchGetSpecRequest{
+	resp := service.BatchGetSpec(context.Background(), &BatchGetSpecRequest{
 		FunctionIDs: []string{"nonexistent"},
 	})
-	require.NoError(t, err)
 	assert.Nil(t, resp["nonexistent"])
 }
 
@@ -1275,10 +1272,9 @@ func TestService_BatchGetSpec_EmptyIDs(t *testing.T) {
 
 	service := setupOpenAPITestService(t)
 
-	resp, err := service.BatchGetSpec(context.Background(), &BatchGetSpecRequest{
+	resp := service.BatchGetSpec(context.Background(), &BatchGetSpecRequest{
 		FunctionIDs: []string{},
 	})
-	require.NoError(t, err)
 	assert.Empty(t, resp)
 }
 
@@ -1287,10 +1283,9 @@ func TestService_BatchGetSpec_WithEmptyStringID(t *testing.T) {
 
 	service := setupOpenAPITestService(t)
 
-	resp, err := service.BatchGetSpec(context.Background(), &BatchGetSpecRequest{
+	resp := service.BatchGetSpec(context.Background(), &BatchGetSpecRequest{
 		FunctionIDs: []string{"", "player.list"},
 	})
-	require.NoError(t, err)
 	// Empty string should be skipped
 	assert.Len(t, resp, 1)
 }

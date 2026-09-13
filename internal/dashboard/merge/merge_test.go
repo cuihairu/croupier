@@ -104,6 +104,16 @@ func TestAutoMergeFields_ContainsExpectedFields(t *testing.T) {
 	assert.True(t, AutoMergeFields["report.charts[].title"])
 }
 
+// TestAutoMergeFields_NotContainsNonexistentFieldGroup 对应设计债：
+// "operation.form.fields[].group" 声明曾存在于 AutoMergeFields，但
+// FormFieldSpec 没有字段级 Group 属性（分组在 Form 级 Groups），
+// compareFormFields 也不会产出该路径。该条目已删除，此处断言防止回归。
+func TestAutoMergeFields_NotContainsNonexistentFieldGroup(t *testing.T) {
+	assert.NotContains(t, AutoMergeFields, "operation.form.fields[].group")
+	assert.NotContains(t, AutoMergeFields, "task.form.fields[].group")
+	assert.NotContains(t, AutoMergeFields, "report.queryForm.fields[].group")
+}
+
 func TestConflictFields_ContainsExpectedFields(t *testing.T) {
 	assert.True(t, ConflictFields["bindings"])
 	assert.True(t, ConflictFields["bindings[].functionId"])

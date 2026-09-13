@@ -1,5 +1,6 @@
 // 覆盖目标：converter 扩展字段与校验错误分支、ValidateSpec 加载失败、
-// Init/extractConfig/buildMethodMap 错误路径、discoverMethodsFromSpec HTTP/YAML 错误、
+// Init/extractConfig 错误路径（buildMethodMap 无出错路径，签名已收紧不再返回 error）、
+// discoverMethodsFromSpec HTTP/YAML 错误、
 // parseOpenAPISpec 合并解析错误、Call 限流/构造请求/重试取消分支、
 // filterConsumedParams 全分支。
 package openapi

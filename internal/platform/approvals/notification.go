@@ -613,10 +613,8 @@ func (d *DingTalkSender) Send(ctx context.Context, recipient string, event Notif
 			"text":  fmt.Sprintf("### %s\n\n%s", event.Title, event.Message),
 		},
 	}
-	body, err := json.Marshal(payload)
-	if err != nil {
-		return err
-	}
+	// payload 为字面量构造的纯 string 嵌套 map，Marshal 恒成功，err 分支为死代码已删。
+	body, _ := json.Marshal(payload)
 	postJSON := d.postJSON
 	if postJSON == nil {
 		postJSON = defaultPostJSON
@@ -825,6 +823,12 @@ func validateEmailAddress(addr string) (string, error) {
 	if parsed.Address != addr {
 		return "", fmt.Errorf("invalid email recipient: display name not allowed")
 	}
+	// [覆盖率 C 类·不可达但保留] 纵深防御冗余防线：在当前 net/mail 实现下，
+	// ParseAddress 拒绝 CR/LF（上一分支返回 err），quoted-local-part 形态
+	//（"a b"@x.com 等）的输出会剥掉引号导致 parsed.Address != addr 被上方分支
+	// 拦截，裸地址无法携带空格/tab/;/,——故本分支恒不可达。保留原因：安全防线
+	// 不应依赖单一解析器行为，若未来 Go 的 mail 包输出形态变化（如保留引号），
+	// 此处仍是最后兜底，删除会把安全性押在标准库实现细节上。
 	if strings.ContainsAny(addr, "\r\n \t;,") {
 		return "", fmt.Errorf("invalid email recipient: control characters rejected")
 	}
@@ -858,10 +862,8 @@ func (w *WecomSender) Send(ctx context.Context, recipient string, event Notifica
 			"content": fmt.Sprintf("### %s\n\n%s", event.Title, event.Message),
 		},
 	}
-	body, err := json.Marshal(payload)
-	if err != nil {
-		return err
-	}
+	// payload 为字面量构造的纯 string 嵌套 map，Marshal 恒成功，err 分支为死代码已删。
+	body, _ := json.Marshal(payload)
 	postJSON := w.postJSON
 	if postJSON == nil {
 		postJSON = defaultPostJSON
@@ -908,10 +910,8 @@ func (f *FeishuSender) Send(ctx context.Context, recipient string, event Notific
 		payload["timestamp"] = fmt.Sprintf("%d", ts)
 		payload["sign"] = base64.StdEncoding.EncodeToString(mac.Sum(nil))
 	}
-	body, err := json.Marshal(payload)
-	if err != nil {
-		return err
-	}
+	// payload 仅含 string 字面量与 HMAC/base64 派生 string，Marshal 恒成功，err 分支为死代码已删。
+	body, _ := json.Marshal(payload)
 	postJSON := f.postJSON
 	if postJSON == nil {
 		postJSON = defaultPostJSON

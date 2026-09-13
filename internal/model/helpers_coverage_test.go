@@ -35,10 +35,14 @@ func TestNormalizeChannel(t *testing.T) {
 	assert.Equal(t, "official", NormalizeChannel(" Official "))
 }
 
+// 设计债回归：RandomSeedHex 的 crypto/rand.Read 回退分支在 Go≥1.24
+// 不可达已删除——返回值必须恒为 16 位 hex（8 字节），且两次调用不同。
 func TestRandomSeedHex(t *testing.T) {
 	s1 := RandomSeedHex()
 	s2 := RandomSeedHex()
 	assert.NotEmpty(t, s1)
+	assert.Len(t, s1, 16, "8 字节种子编码后为 16 位 hex")
+	assert.Regexp(t, `^[0-9a-f]{16}$`, s1, "必须是纯小写 hex")
 	assert.NotEqual(t, s1, s2, "每次随机")
 }
 

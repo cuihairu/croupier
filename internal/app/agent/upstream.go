@@ -343,6 +343,15 @@ func (c *UpstreamClient) reconnectLoop(ctx context.Context, needDial bool) {
 	}
 }
 
+// stopAndResetTimer 安全重置去抖定时器。Go 1.23 起 time.Timer 的 channel
+// 为 unbuffered 且官方保证 Stop/Reset 后不会再收到过期触发值（stale
+// value），经典的「Stop 返回 false 时先排空 timer.C」排水模式已无必要，
+// 原排水 select 恒走 default（本仓库 go 1.26），作为死代码删除。
+func stopAndResetTimer(timer *time.Timer, debounce time.Duration) {
+	timer.Stop()
+	timer.Reset(debounce)
+}
+
 func (c *UpstreamClient) updateLoop(ctx context.Context, debounce time.Duration) {
 	var timer *time.Timer
 	defer func() {
@@ -359,13 +368,7 @@ func (c *UpstreamClient) updateLoop(ctx context.Context, debounce time.Duration)
 			if timer == nil {
 				timer = time.NewTimer(debounce)
 			} else {
-				if !timer.Stop() {
-					select {
-					case <-timer.C:
-					default:
-					}
-				}
-				timer.Reset(debounce)
+				stopAndResetTimer(timer, debounce)
 			}
 		case <-func() <-chan time.Time {
 			if timer == nil {

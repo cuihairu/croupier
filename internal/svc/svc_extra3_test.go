@@ -61,8 +61,10 @@ func TestCacheLayer_EmptyInputsReturnNil(t *testing.T) {
 	ctx := context.Background()
 	svcCtx := setupTestServiceContext(t)
 
+	// 设计债修复：GetAdminByUsernameCached 空 username 返回 error
+	// （旧契约静默返回 (nil, nil) 已废除）。
 	admin, err := svcCtx.GetAdminByUsernameCached(ctx, "   ")
-	assert.NoError(t, err)
+	assert.Error(t, err)
 	assert.Nil(t, admin)
 
 	perm, err := svcCtx.GetPermissionCached(ctx, "")

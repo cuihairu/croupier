@@ -120,13 +120,11 @@ func TestClient_Sign(t *testing.T) {
 		"c": "3",
 	}
 
-	sig, err := c.sign(params)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
+	// sign 无出错路径（原 error 返回值恒为 nil，签名已收紧为单返回值）。
+	sig := c.sign(params)
 
 	// Verify deterministic: same params produce same signature
-	sig2, _ := c.sign(params)
+	sig2 := c.sign(params)
 	if sig != sig2 {
 		t.Errorf("sign not deterministic: %q != %q", sig, sig2)
 	}
@@ -136,8 +134,8 @@ func TestClient_Sign(t *testing.T) {
 		"a":    "1",
 		"sign": "ignored",
 	}
-	sigWithSign, _ := c.sign(paramsWithSign)
-	sigWithout, _ := c.sign(map[string]interface{}{"a": "1"})
+	sigWithSign := c.sign(paramsWithSign)
+	sigWithout := c.sign(map[string]interface{}{"a": "1"})
 	if sigWithSign != sigWithout {
 		t.Error("sign key should be excluded from signature")
 	}
@@ -527,8 +525,8 @@ func containsAll(s string, substrs ...string) bool {
 func TestClient_Sign_DifferentParams(t *testing.T) {
 	c, _ := NewClient(Config{OpenID: "id", OpenKey: "key"}, nil)
 
-	sig1, _ := c.sign(map[string]interface{}{"a": "1"})
-	sig2, _ := c.sign(map[string]interface{}{"a": "2"})
+	sig1 := c.sign(map[string]interface{}{"a": "1"})
+	sig2 := c.sign(map[string]interface{}{"a": "2"})
 
 	if sig1 == sig2 {
 		t.Error("different params should produce different signatures")
@@ -538,10 +536,8 @@ func TestClient_Sign_DifferentParams(t *testing.T) {
 func TestClient_Sign_EmptyParams(t *testing.T) {
 	c, _ := NewClient(Config{OpenID: "id", OpenKey: "key"}, nil)
 
-	sig, err := c.sign(map[string]interface{}{})
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
+	// sign 无出错路径（签名已收紧为单返回值）。
+	sig := c.sign(map[string]interface{}{})
 	if sig == "" {
 		t.Error("expected non-empty signature for empty params")
 	}

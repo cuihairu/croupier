@@ -142,10 +142,10 @@ func toDBSession(sess *registry.AgentSession) (*AgentSessionDB, error) {
 
 	// Marshal Labels to JSON
 	if sess.Labels != nil {
-		labelsJSON, err := json.Marshal(sess.Labels)
-		if err != nil {
-			return nil, err
-		}
+		// Labels 是 map[string]string，json.Marshal 恒成功、无出错路径
+		//（err 分支为死代码已删）；下方 Providers 因 ProviderSession.OpenAPIDoc
+		// 为 json.RawMessage（compact 校验可失败）仍需处理 err。
+		labelsJSON, _ := json.Marshal(sess.Labels)
 		dbSess.Labels = JSON(labelsJSON)
 	}
 

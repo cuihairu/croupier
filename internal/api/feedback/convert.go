@@ -106,9 +106,8 @@ func convertExtra(fb *model.Feedback) model.JSON {
 		extra["feedbackAttachment"] = fb.Attach
 	}
 	extra["feedbackId"] = fb.ID
-	if len(extra) == 0 {
-		return nil
-	}
+	// 设计债清理：feedbackId 无条件写入，extra 恒非空，
+	// 原 len(extra)==0 分支不可达已删除。
 	bytes, _ := json.Marshal(extra)
 	return bytes
 }

@@ -66,6 +66,15 @@ func (m *MockGRPCClient) SetStartTaskFunc(f func(ctx context.Context, req *Invok
 	m.startTaskFunc = f
 }
 
+// SetCancelTaskFunc sets a custom cancel task function.
+// 设计债清理：cancelTaskFunc 原先无公开 setter（SetInvokeFunc/SetStartTaskFunc
+// 均有），外部测试包无法注入 CancelTask 行为，照 SetStartTaskFunc 模式补齐。
+func (m *MockGRPCClient) SetCancelTaskFunc(f func(ctx context.Context, taskID string) error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.cancelTaskFunc = f
+}
+
 // SetStreamEvents sets the events to return from stream.
 func (m *MockGRPCClient) SetStreamEvents(events []*TaskEvent) {
 	m.mu.Lock()

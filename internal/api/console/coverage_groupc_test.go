@@ -1,7 +1,7 @@
 // 补齐 console 包剩余可覆盖分支（group C）：
 //  1. createPageApproval 的接收人去重循环（admin 角色用户非空时执行）。
-//  2. buildBindingPayloadFromSelectors 的最终 Marshal 失败（default transform
-//     兜底值不经 JSON 校验，非法值在编码边界报错）。
+//  2. buildBindingPayloadFromSelectors 的 default transform 兜底值非法 JSON
+//     （原先延迟到最终 Marshal 报错，现已在 resolveSelectorValue 层拦截为 422）。
 //  3. applyRenameTransform 的防御分支：源缺失 / 非法 JSON / 超界数值 /
 //     params 目标名非字符串 / selection 数组含非对象元素。
 //  4. setJSONObjectPointer 的嵌套 child Marshal 失败。
@@ -11,6 +11,7 @@ import (
 	"encoding/json"
 	"testing"
 
+	"github.com/cuihairu/croupier/internal/common/errorx"
 	"github.com/cuihairu/croupier/internal/dashboard/spec"
 	"github.com/cuihairu/croupier/internal/model"
 	"github.com/cuihairu/croupier/internal/platform/approvals"
@@ -41,8 +42,8 @@ func TestCreatePageApprovalWithAdminRoleRecipients(t *testing.T) {
 	assert.NotEmpty(t, approvalID)
 }
 
-// default transform 的兜底值来自 Params（不经 validRawJSON 校验）：非法 JSON
-// 兜底值写入 payload 后在最终 json.Marshal 处失败。
+// default transform 的兜底值非法 JSON：原先绕过校验写入 payload、延迟到最终
+// json.Marshal 报 500；现在 resolveSelectorValue 层拦截为语义化 422。
 func TestBuildBindingPayloadFromSelectorsMarshalFailure(t *testing.T) {
 	binding := spec.PageFunctionBinding{
 		ID: "b1",
@@ -63,6 +64,10 @@ func TestBuildBindingPayloadFromSelectorsMarshalFailure(t *testing.T) {
 
 	_, err := buildBindingPayloadFromSelectors(binding, ConsoleBindingExecutionContext{})
 	require.Error(t, err)
+	codeErr, ok := err.(*errorx.CodeError)
+	require.True(t, ok, "必须是语义化 ValidationError 而非 Marshal 内部错误")
+	assert.Equal(t, 422, codeErr.Code)
+	assert.Contains(t, err.Error(), "not valid JSON")
 }
 
 // applyRenameTransform 的防御分支逐一直测。

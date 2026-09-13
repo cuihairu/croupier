@@ -186,10 +186,9 @@ func (s *Service) GetUserGames(ctx context.Context, username string) (*ProfileGa
 		envMeta := make([]model.GameEnv, 0, len(gameBindings))
 		envs := make([]string, 0, len(gameBindings))
 		for _, binding := range gameBindings {
+			// bindingsByGameID 构建时（上方 147-152 行）已剔除 TrimSpace 后 env 为空的
+			// 绑定，此处 env 恒非空，原空值分支为死代码，已删除。
 			env := strings.TrimSpace(binding.Env)
-			if env == "" {
-				continue
-			}
 			if !isAdmin {
 				if _, authorized := envScopeFilter[game.ID][strings.ToLower(env)]; !authorized {
 					continue

@@ -95,6 +95,15 @@ func NewContractService(db *gorm.DB) *ContractService {
 // explicit registration contract. This is called when a function is
 // registered or updated.
 func (s *ContractService) RebuildContractFromFunctionMeta(ctx context.Context, gameID, env, source string, input spec.FunctionContractInput) error {
+	// 入库前归一（scope 字段）：投影层（contract_projection）读取时对
+	// gameID/env/function_id TrimSpace，写入侧在此同步归一，保证两侧
+	// 对称——避免上游传入（或 DB 直写/迁移数据）的首尾空白让发布链
+	// FindByScopeAndFunctionID 精确匹配落空。函数入口先归一，使本函数
+	// 内所有查找/审计/落库使用同一组 scope 值。
+	gameID = strings.TrimSpace(gameID)
+	env = strings.TrimSpace(env)
+	input.ID = strings.TrimSpace(input.ID)
+
 	if violation, ok := registrationguard.FindPresentationViolation(nil, input.InputSchema, input.OutputSchema); ok {
 		return fmt.Errorf("function contract contains forbidden presentation field %q at %s", violation.Field, violation.Location)
 	}
@@ -128,21 +137,24 @@ func (s *ContractService) RebuildContractFromFunctionMeta(ctx context.Context, g
 	digest := computeDigest(result.Function)
 
 	// 3. Build FunctionContract
+	// 入库前归一，保证与投影层 TrimSpace 对称（normalizer 已对多数
+	// 字段 trim，此处显式兜底 Version 等 normalizer 不处理的字段，
+	// 不依赖上游实现细节）。
 	contract := &model.FunctionContract{
 		GameID:       gameID,
 		Env:          env,
-		FunctionID:   result.Function.ID,
-		Version:      result.Function.Version,
+		FunctionID:   strings.TrimSpace(result.Function.ID),
+		Version:      strings.TrimSpace(result.Function.Version),
 		Enabled:      result.Function.Enabled,
 		Deprecated:   input.Deprecated,
-		ResourceKey:  result.Function.Resource,
-		OperationKey: result.Function.Operation,
+		ResourceKey:  strings.TrimSpace(result.Function.Resource),
+		OperationKey: strings.TrimSpace(result.Function.Operation),
 		Capability:   mustParseCapability(string(result.Function.Capability)),
 		Execution:    string(result.Function.Execution),
 		TimeoutMs:    timeoutMsToInt32(result.Function.TimeoutMs),
 		Approval:     approvalPolicyToJSONMap(result.Function.Approval),
 		Risk:         mustParseRisk(string(result.Function.Risk)),
-		Permission:   result.Function.Permission,
+		Permission:   strings.TrimSpace(result.Function.Permission),
 		InputSchema:  normalizeSchemaToJSON(json.RawMessage(result.Function.InputSchema)),
 		OutputSchema: normalizeSchemaToJSON(json.RawMessage(result.Function.OutputSchema)),
 		Summary:      toJSONMap(result.Function.Summary),
@@ -662,12 +674,11 @@ func inferIdentityField(sem *model.CapabilitySemantics, contracts []*model.Funct
 		valueType string
 	}
 	candidates := make([]identityCandidate, 0, len(candidateKeys))
-	seen := make(map[string]struct{}, len(candidateKeys))
+	// 候选三键恒互异，原 duplicate 去重分支为死代码，已删（连带 seen map）：
+	// "id" / resourceKey+"_id" / resourceKey+"Id" 两两比较——后两者同前缀不同
+	// 后缀（"_id" != "Id"）恒不等；resourceKey+"_id"=="id" 需 resourceKey==""
+	//（得 "_id"≠"id"），resourceKey+"Id"=="id" 同理（"Id"≠"id"，大小写不同）。
 	for _, key := range candidateKeys {
-		if _, duplicate := seen[key]; duplicate {
-			continue
-		}
-		seen[key] = struct{}{}
 		raw, ok := props[key]
 		if !ok {
 			continue
@@ -1040,9 +1051,9 @@ func (s *ContractService) RebuildProposalForFunction(ctx context.Context, gameID
 		}
 		return fmt.Errorf("find function contract %s: %w", functionID, err)
 	}
-	if contract == nil {
-		return nil
-	}
+	// FindByScopeAndFunctionID 用 gorm First 实现：err==nil 时恒返回非 nil
+	// 指针（未命中走上方 ErrRecordNotFound 分支），原 contract==nil 防御
+	// 分支为死代码，已删。
 	if isCRUDCapability(contract.Capability.String()) && strings.TrimSpace(contract.ResourceKey) != "" {
 		return nil
 	}
@@ -1092,6 +1103,15 @@ func (s *ContractService) upsertResourceProposal(
 		}
 		return map[string]struct{}{}, nil
 	}
+	// 不可达论证（C 类）：ShouldBlockProposal 仅对 code ∈ {function_id_missing,
+	// function_disabled} 的 Error 诊断返回 true，而这两个 code 只由主生成器
+	// 的 assessBaseCandidate（generator.go）产生；GenerateResourcePageProposal
+	// 的诊断来源（assessResourceSemantics / schemaSubsetDiagnostics /
+	// buildInlineResourceActions / validateGeneratedResourceViews）的 code 集合
+	// 与阻断清单不相交，故此分支当前恒 false。保留原因：阻断机制是发布安全
+	// 防线，resource 生成器未来新增 Error 诊断时该路径即被激活，删除会静默
+	// 放行本应阻断的提案；generator 的 code 常量为跨包隐式契约，无编译期
+	// 保护，不宜按死分支删除。
 	if generator.ShouldBlockProposal(generated.Diagnostics) {
 		if err := s.removeResourceProposal(ctx, gameID, env, semantics.ResourceKey); err != nil {
 			return nil, err
@@ -1617,9 +1637,9 @@ func (s *ContractService) CreateCompositeProposal(
 	// 交错合并进生成 sections——static 在前的输入不应被追加到页尾；
 	// 表单 schema 由编辑器设计期定义并透传。
 	if len(staticSections) > 0 {
-		if generated.Composite == nil {
-			generated.Composite = &spec.CompositePageSpec{}
-		}
+		// GenerateCompositePage 的唯一成功 return 恒构造
+		// Composite: &spec.CompositePageSpec{...}（ok=false 已在上方返回
+		// 错误），原 Composite==nil 防御分支为死代码，已删。
 		gen := generated.Composite.Sections
 		merged := make([]spec.CompositeSection, 0, len(gen)+len(staticSections))
 		gi := 0

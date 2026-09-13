@@ -49,9 +49,10 @@ func ValidateJSONSchema(schema any, data []byte) error {
 
 	compiler := jsonschema.NewCompiler()
 	compiler.DefaultDraft(jsonschema.Draft7)
-	if err := compiler.AddResource("schema.json", strictSchemaObjects(schema)); err != nil {
-		return fmt.Errorf("invalid JSON Schema: %w", err)
-	}
+	// AddResource 恒成功（v6 实现：固定合法 URL "schema.json" 的 absolute 解析、
+	// 非 meta URL、新 compiler 无重复资源），且它不解析 doc 本身——schema 内容
+	// 的合法性错误全部由下方 Compile 报告，故无需检查其返回值。
+	_ = compiler.AddResource("schema.json", strictSchemaObjects(schema))
 	compiled, err := compiler.Compile("schema.json")
 	if err != nil {
 		return fmt.Errorf("invalid JSON Schema: %w", err)

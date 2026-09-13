@@ -20,10 +20,7 @@ func NewHandler(service *Service) *Handler {
 // List handles GET /api/resource-catalog
 func (h *Handler) List(c *gin.Context) {
 	var req ListRequest
-	if err := requestbind.BindQueryCompat(c, &req); err != nil {
-		response.Error(c, err)
-		return
-	}
+	_ = requestbind.BindQueryCompat(c, &req) // 字段均为无校验标签的 string：绑定恒成功，保留填充语义
 
 	// Get scope from context
 	gameID, env := getScope(c)

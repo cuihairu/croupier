@@ -127,8 +127,7 @@ func TestLogin_ProviderInfraError(t *testing.T) {
 func TestOIDCState_RoundTrip(t *testing.T) {
 	svc, _ := newCascadeService(t)
 
-	state, err := svc.newOIDCState()
-	require.NoError(t, err)
+	state := svc.newOIDCState()
 	assert.True(t, svc.verifyOIDCState(state), "fresh state must verify")
 
 	assert.False(t, svc.verifyOIDCState("garbage"))

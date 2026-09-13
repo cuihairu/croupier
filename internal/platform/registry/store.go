@@ -461,9 +461,10 @@ func cloneAgentSession(session *AgentSession) *AgentSession {
 		return nil
 	}
 	var clone AgentSession
-	if err := json.Unmarshal(encoded, &clone); err != nil {
-		return nil
-	}
+	// encoded 是 json.Marshal 的产物，对同一结构再 Unmarshal 恒成功，
+	// err 分支为死代码已删（Marshal 的 err 路径因 ProviderSession.OpenAPIDoc
+	// 为 json.RawMessage 可失败，可达需保留）。
+	_ = json.Unmarshal(encoded, &clone)
 	return &clone
 }
 
@@ -1004,9 +1005,10 @@ func (s *Store) DeleteOpenAPIProvider(providerID string) error {
 	return nil
 }
 
-func (s *Store) UpsertRegistrationWarning(ctx context.Context, item FunctionRegistrationWarning) error {
+// 设计债清理：原签名声明 error 但纯内存实现恒返 nil，已删除 error 返回值。
+func (s *Store) UpsertRegistrationWarning(ctx context.Context, item FunctionRegistrationWarning) {
 	if item.Message == "" {
-		return nil
+		return
 	}
 	key := item.Key
 	if key == "" {
@@ -1036,7 +1038,7 @@ func (s *Store) UpsertRegistrationWarning(ctx context.Context, item FunctionRegi
 			cp.Count = 1
 		}
 		s.registrationWarnings[key] = &cp
-		return nil
+		return
 	}
 	existing.Count++
 	existing.LastSeen = now
@@ -1049,7 +1051,6 @@ func (s *Store) UpsertRegistrationWarning(ctx context.Context, item FunctionRegi
 	if existing.FunctionID == "" && item.FunctionID != "" {
 		existing.FunctionID = item.FunctionID
 	}
-	return nil
 }
 
 func (s *Store) ListRegistrationWarnings(filter RegistrationWarningFilter) []FunctionRegistrationWarning {

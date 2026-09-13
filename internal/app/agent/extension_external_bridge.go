@@ -3,7 +3,6 @@ package agent
 import (
 	"context"
 	"errors"
-	"fmt"
 	"strings"
 
 	"github.com/cuihairu/croupier/internal/core/extension/externalfunc"
@@ -43,9 +42,9 @@ func invokeExternalPlatformFunction(
 		}
 	}
 
-	if strings.TrimSpace(provider) == "" || strings.TrimSpace(method) == "" {
-		return nil, true, fmt.Errorf("invalid external function id: %s", functionID)
-	}
+	// ParseFunctionID 返回 ok=true 时已保证 provider/method 均为 TrimSpace
+	// 后非空的值，而 proto 覆盖（上方）只在非空时赋值，故此处二者恒非空，
+	// 空值守卫分支为死代码，已删除。
 
 	response, err := call(ctx, provider, method, requestPayload)
 	if !protoMode {

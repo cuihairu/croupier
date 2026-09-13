@@ -16,12 +16,9 @@ import (
 //  1. handler.go List（:23）错误分支：ResourceListRequest 仅含 Category/Query
 //     两个 string form 字段，ShouldBindQuery 对纯 string 绑定恒成功，错误
 //     分支不可触发。
-//  2. service.go List 排序（:49）：resourceSpecFromCapability 构造
-//     ResourceCategorySpec 时从不设置 Order（恒为 0），Order 不等分支不可
-//     触发，排序恒走 Key tie-break。
-//  3. service.go loadPersistentResources（:96）：ListByScope 使用 GORM
+//  2. service.go loadPersistentResources（:96）：ListByScope 使用 GORM
 //     Find(&[]*ResourceCapability)，结果元素恒非 nil，cap==nil 分支不可触发。
-//  4. service.go humanizeKey（:289）：strings.FieldsFunc 不产生空字符串段，
+//  3. service.go humanizeKey（:289）：strings.FieldsFunc 不产生空字符串段，
 //     parts[i]=="" 分支不可触发。
 
 func TestHandlerListQueryBindNeverFailsV11(t *testing.T) {

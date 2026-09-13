@@ -286,7 +286,7 @@ func TestWarningHandlers_V9(t *testing.T) {
 
 	t.Run("delete and mark existing key succeed", func(t *testing.T) {
 		f := newInvokeFixture(t)
-		require.NoError(t, f.store.UpsertRegistrationWarning(context.Background(), makeRegistrationWarningV9("k-v9")))
+		f.store.UpsertRegistrationWarning(context.Background(), makeRegistrationWarningV9("k-v9"))
 		h := NewHandler(NewService(f.svcCtx))
 		r := gin.New()
 		r.DELETE("/warnings/:key", h.WarningDelete)
@@ -305,8 +305,8 @@ func TestWarningHandlers_V9(t *testing.T) {
 
 	t.Run("delete all and mark all read", func(t *testing.T) {
 		f := newInvokeFixture(t)
-		require.NoError(t, f.store.UpsertRegistrationWarning(context.Background(), makeRegistrationWarningV9("k-a")))
-		require.NoError(t, f.store.UpsertRegistrationWarning(context.Background(), makeRegistrationWarningV9("k-b")))
+		f.store.UpsertRegistrationWarning(context.Background(), makeRegistrationWarningV9("k-a"))
+		f.store.UpsertRegistrationWarning(context.Background(), makeRegistrationWarningV9("k-b"))
 		h := NewHandler(NewService(f.svcCtx))
 		r := gin.New()
 		r.DELETE("/warnings", h.WarningDeleteAll)
@@ -621,15 +621,14 @@ func TestFunctionPermissions_ListError_V9(t *testing.T) {
 func TestFunctionWarnings_WithItems_V9(t *testing.T) {
 	f := newInvokeFixture(t)
 	ctx := f.ctxFor("nobody")
-	require.NoError(t, f.store.UpsertRegistrationWarning(ctx, makeRegistrationWarningV9("warn-1")))
-	require.NoError(t, f.store.UpsertRegistrationWarning(ctx, reg.FunctionRegistrationWarning{
-		GameID:     "other-game",
+	f.store.UpsertRegistrationWarning(ctx, makeRegistrationWarningV9("warn-1"))
+	f.store.UpsertRegistrationWarning(ctx, reg.FunctionRegistrationWarning{GameID: "other-game",
 		Env:        "prod",
 		AgentID:    "a2",
 		FunctionID: "other.fn",
 		Code:       "boom",
 		Message:    "m2",
-	}))
+	})
 
 	resp, err := NewService(f.svcCtx).FunctionWarnings(ctx, &FunctionWarningsRequest{})
 	require.NoError(t, err)

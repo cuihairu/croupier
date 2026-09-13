@@ -10,6 +10,9 @@ import (
 // returns a "not supported" error so non-Linux builds compile and tests that
 // do not override it fail loudly. On Linux, an init() in sysinfo_linux.go
 // replaces it with a real exec.Command implementation.
+// 覆盖边界说明：linux 构建下该默认值在包初始化阶段即被 init() 替换，
+// 永不被调用（覆盖数据恒为 0）；其函数体是非 linux 平台的编译必需品，
+// 不可删除，属跨平台保留分支。
 var systemdRunner = func(args ...string) ([]byte, error) {
 	return nil, errors.New("systemctl invocation is not supported on this platform")
 }
@@ -219,10 +222,8 @@ func extractBinaryPath(line string) string {
 	if !strings.Contains(line, "path=") {
 		return ""
 	}
+	// 上方 Contains 已保证 Index 必命中，start < 0 为死分支，已删除。
 	start := strings.Index(line, "path=")
-	if start < 0 {
-		return ""
-	}
 	start += len("path=")
 	rest := line[start:]
 	end := strings.IndexAny(rest, " \t")

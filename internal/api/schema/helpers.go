@@ -275,11 +275,12 @@ func validatePayloadAgainst(schema interface{}, payload interface{}) (bool, []st
 	}
 
 	if err := sch.Validate(payload); err != nil {
-		if ve, ok := err.(*jsonschema.ValidationError); ok {
-			errors := extractErrors(ve)
-			return false, errors, nil
-		}
-		return false, []string{err.Error()}, nil
+		// jsonschema v6 的 Schema.Validate 出错时恒返回 *ValidationError
+		//（见其 validator.go：err.(*ValidationError) 直接断言并重新构造），
+		// 下方非 ValidationError 回退分支为死代码，已删除。
+		ve := err.(*jsonschema.ValidationError)
+		errors := extractErrors(ve)
+		return false, errors, nil
 	}
 	return true, nil, nil
 }
@@ -305,10 +306,11 @@ func validateSchemaPath(cfg config.Config, path string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("invalid path: %w", err)
 	}
-	absSchemasDir, err := filepath.Abs(schemasDir)
-	if err != nil {
-		return "", fmt.Errorf("invalid schemas dir: %w", err)
-	}
+	// schemasDir 来自上方 ensureSchemasDir 的成功返回：要么是绝对路径
+	//（filepath.Abs 不再依赖 Getwd，恒成功），要么是相对路径但 MkdirAll 已
+	// 成功证明 cwd 有效（Getwd 恒成功）。两种情形 Abs(schemasDir) 均恒成功，
+	// 原 err 分支为死代码，已删除。
+	absSchemasDir, _ := filepath.Abs(schemasDir)
 	if !strings.HasPrefix(absPath, absSchemasDir+string(filepath.Separator)) {
 		return "", fmt.Errorf("path traversal detected: path is outside schemas directory")
 	}

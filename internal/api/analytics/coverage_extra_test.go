@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -1061,4 +1062,47 @@ func TestBreakdownByTimeFallbackAndSwapBranches(t *testing.T) {
 		{UserID: "u-1", EventType: "e1", OccurredAt: now.Add(-48 * time.Hour)},
 	}, now.Add(-time.Hour), now)
 	assert.NotEmpty(t, outside)
+}
+
+// UpdateInterval 极值经 time.Duration(n)*time.Second 溢出为负 → 走 60s
+// fallback 分支（interval <= 0），覆盖 handler 的防御性钳位。
+func TestRealtimeHandlerUpdateIntervalOverflowFallsBack(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	reqCtx, cancel := context.WithCancel(context.Background())
+	rec := httptest.NewRecorder()
+	ginCtx, _ := gin.CreateTestContext(rec)
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/analytics/realtime?gameId=demo&env=prod", nil).WithContext(reqCtx)
+	ginCtx.Request = req
+	capture := &sseCapture{
+		ResponseWriter: ginCtx.Writer,
+		writes:         make(chan string, 16),
+		closed:         make(chan struct{}),
+		done:           cancel,
+	}
+	ginCtx.Writer = capture
+
+	finished := make(chan struct{})
+	go func() {
+		defer close(finished)
+		// math.MaxInt 秒 × 1e9 溢出为 -1s：GetUpdateInterval 返回原值，
+		// interval <= 0 成立，应回落到 60s 而非让 NewTicker panic。
+		NewHandler(NewService(&svc.ServiceContext{}), config.SSEConfig{UpdateInterval: math.MaxInt}).Realtime(ginCtx)
+	}()
+
+	// 初始 connected 事件发出后取消：60s fallback ticker 不会触发，循环
+	// 走 ctx.Done 正常退出。
+	select {
+	case <-capture.writes:
+	case <-time.After(5 * time.Second):
+		cancel()
+		t.Fatal("no initial SSE write")
+	}
+	close(capture.closed)
+	cancel()
+	select {
+	case <-finished:
+	case <-time.After(5 * time.Second):
+		t.Fatal("handler did not return after cancellation")
+	}
 }

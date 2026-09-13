@@ -290,11 +290,11 @@ func (m *GameReleaseModel) FindByVersion(ctx context.Context, gameID, env, chann
 }
 
 // RandomSeedHex generates a fresh gray bucket seed.
+// Go≥1.24 起 crypto/rand.Read 永不返回错误（失败直接 fatal crash），
+// 因此无时间戳回退分支。
 func RandomSeedHex() string {
 	b := make([]byte, 8)
-	if _, err := rand.Read(b); err != nil {
-		return fmt.Sprintf("%x", time.Now().UnixNano())
-	}
+	_, _ = rand.Read(b)
 	return hex.EncodeToString(b)
 }
 

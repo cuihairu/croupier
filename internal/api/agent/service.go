@@ -112,10 +112,10 @@ func (s *Service) loadFiltersFromAnalyticsInstallation(ctx context.Context) ([]a
 	if raw == nil {
 		return []analytics.AnalyticsFilters{}, true, nil
 	}
-	data, err := json.Marshal(raw)
-	if err != nil {
-		return nil, false, err
-	}
+	// raw 来自 json.Unmarshal(map[string]any) 的取值，值类型仅可能为 JSON
+	// 基础类型（nil/bool/float64/string/[]any/map[string]any），再 Marshal 恒
+	// 成功，error 分支不可达，已删除。
+	data, _ := json.Marshal(raw)
 	filters := []analytics.AnalyticsFilters{}
 	if err := json.Unmarshal(data, &filters); err != nil {
 		return nil, false, err

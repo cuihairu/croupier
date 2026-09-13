@@ -52,16 +52,14 @@ func NormalizeTermDisplay(in map[string]string) map[string]string {
 	return out
 }
 
-// marshalTermDisplay 序列化为 JSON 列值；nil map 返回 nil。
-func marshalTermDisplay(m map[string]string) (any, error) {
+// marshalTermDisplay 序列化为 JSON 列值；nil/空 map 返回 nil。
+// map[string]string 的 json.Marshal 恒成功，原 error 返回值无任何出错路径，签名已收紧。
+func marshalTermDisplay(m map[string]string) any {
 	if len(m) == 0 {
-		return nil, nil
+		return nil
 	}
-	b, err := json.Marshal(m)
-	if err != nil {
-		return nil, err
-	}
-	return string(b), nil
+	b, _ := json.Marshal(m)
+	return string(b)
 }
 
 // UnmarshalTermDisplayText 解析 JSON 列文本为 map；空串/解析失败返回 nil。

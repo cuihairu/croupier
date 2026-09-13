@@ -170,9 +170,8 @@ func GenerateCompositePage(
 			}
 		}
 		if view == "table" && len(in.RowActions) > 0 {
-			if section.Table == nil {
-				section.Table = &spec.CompositeTableSpec{}
-			}
+			// view == "table" 时上方 buildListViewFromContract 的所有返回路径均非 nil
+			// （defaultListView 兜底），section.Table 必已赋值，nil 防御分支为死代码，已删除。
 			for _, ra := range in.RowActions {
 				section.Table.RowActions = append(section.Table.RowActions, spec.CompositeRowAction{
 					Label:         spec.LocalizedText{locale: ra.Label},

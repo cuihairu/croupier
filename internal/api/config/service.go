@@ -87,16 +87,9 @@ func (s *Service) Upsert(ctx context.Context, req *UpsertRequest) (*UpsertRespon
 	}
 
 	versionData := mapConfigVersion(record, true)
-	// Handle both int and int64 for version (SQLite vs other databases)
-	var version int
-	switch v := versionData["version"].(type) {
-	case int:
-		version = v
-	case int64:
-		version = int(v)
-	case int32:
-		version = int(v)
-	}
+	// 设计债清理：mapConfigVersion 的 "version" 由 model.ConfigVersion.Version（int）
+	// 直接装箱而来，动态类型恒为 int，原先的 int64/int32 兼容分支不可达，已删除。
+	version := versionData["version"].(int)
 
 	return &UpsertResponse{
 		Version: ConfigVersion{
@@ -138,14 +131,17 @@ func (s *Service) SaveConfig(ctx context.Context, id string, req *SaveConfigRequ
 }
 
 // ValidateConfig validates the submitted config content according to the declared format.
-func (s *Service) ValidateConfig(_ context.Context, _ string, req *ValidateConfigRequest) (*ValidateConfigResponse, error) {
+// 设计债清理：纯校验函数无 IO，校验失败以 Valid=false 表达而非 error，不存在出错路径，
+// 故收紧为无 error 返回（原先 handler 侧的 err 分支随之不可达并已删除）；
+// req==nil 降级为空内容校验（nil 安全，唯一调用方 handler 经 bind 恒传非 nil）。
+func (s *Service) ValidateConfig(req *ValidateConfigRequest) *ValidateConfigResponse {
 	if req == nil {
-		return nil, errors.New("request body cannot be empty")
+		req = &ValidateConfigRequest{}
 	}
 	if err := validateConfigContent(req.Format, req.Content); err != nil {
-		return &ValidateConfigResponse{Valid: false, Errors: []string{err.Error()}}, nil
+		return &ValidateConfigResponse{Valid: false, Errors: []string{err.Error()}}
 	}
-	return &ValidateConfigResponse{Valid: true, Errors: []string{}}, nil
+	return &ValidateConfigResponse{Valid: true, Errors: []string{}}
 }
 
 // ListVersions retrieves all versions for a given config key
@@ -166,16 +162,8 @@ func (s *Service) ListVersions(ctx context.Context, req *ListVersionsRequest) (*
 	items := make([]ConfigVersionItem, 0, len(versions))
 	for i := range versions {
 		versionData := mapConfigVersion(&versions[i], true)
-		// Handle both int and int64 for version (SQLite vs other databases)
-		var version int
-		switch v := versionData["version"].(type) {
-		case int:
-			version = v
-		case int64:
-			version = int(v)
-		case int32:
-			version = int(v)
-		}
+		// 设计债清理：version 动态类型恒为 int（见 Upsert 同注），int64/int32 分支已删除。
+		version := versionData["version"].(int)
 
 		items = append(items, ConfigVersionItem{
 			Key:       versionData["key"].(string),
@@ -216,16 +204,8 @@ func (s *Service) GetVersion(ctx context.Context, req *GetVersionRequest) (*GetV
 	}
 
 	versionData := mapConfigVersion(record, true)
-	// Handle both int and int64 for version (SQLite vs other databases)
-	var version int
-	switch v := versionData["version"].(type) {
-	case int:
-		version = v
-	case int64:
-		version = int(v)
-	case int32:
-		version = int(v)
-	}
+	// 设计债清理：version 动态类型恒为 int（见 Upsert 同注），int64/int32 分支已删除。
+	version := versionData["version"].(int)
 
 	return &GetVersionResponse{
 		Version: ConfigVersion{

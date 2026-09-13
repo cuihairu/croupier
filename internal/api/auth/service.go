@@ -340,10 +340,10 @@ func (s *Service) backfillProfile(ctx context.Context, admin *model.Admin, ident
 // provisionShadowAdmin 为外部身份源首次登录创建本地影子账号。
 // 密码字段写入随机值（不可用于本地登录），实际认证始终走外部提供方。
 func (s *Service) provisionShadowAdmin(ctx context.Context, ident *identity.Identity) (*model.Admin, error) {
+	// crypto/rand.Read 自 Go 1.24 起永不返回错误（失败即进程内 fatal），
+	// error 分支不可达，已删除。
 	buf := make([]byte, 32)
-	if _, err := rand.Read(buf); err != nil {
-		return nil, fmt.Errorf("generate shadow password: %w", err)
-	}
+	_, _ = rand.Read(buf)
 	nickname := ident.Nickname
 	if nickname == "" {
 		nickname = ident.Username
@@ -443,11 +443,7 @@ func (s *Service) OIDCAuthCodeURL() (string, error) {
 	if oidc == nil {
 		return "", errors.New("OIDC 登录未启用")
 	}
-	state, err := s.newOIDCState()
-	if err != nil {
-		return "", err
-	}
-	return oidc.AuthCodeURL(state), nil
+	return oidc.AuthCodeURL(s.newOIDCState()), nil
 }
 
 // OIDCLoginCallback 处理回调：校验 state，用授权码换取身份，JIT 解析本地
@@ -487,14 +483,14 @@ func (s *Service) OIDCSuccessURL() string {
 
 // newOIDCState 生成 "payload.signature" 形式的 state；
 // payload 为 base64url("nonce.timestamp")，签名为 HMAC-SHA256(jwtSecret, payload)。
-func (s *Service) newOIDCState() (string, error) {
+// crypto/rand.Read 自 Go 1.24 起永不返回错误（失败即进程内 fatal），
+// 实现无出错路径，已收紧签名去掉 error 返回。
+func (s *Service) newOIDCState() string {
 	nonce := make([]byte, 16)
-	if _, err := rand.Read(nonce); err != nil {
-		return "", fmt.Errorf("generate state nonce: %w", err)
-	}
+	_, _ = rand.Read(nonce)
 	payload := fmt.Sprintf("%s.%d", hex.EncodeToString(nonce), time.Now().Unix())
 	sig := s.signState(payload)
-	return base64.RawURLEncoding.EncodeToString([]byte(payload)) + "." + sig, nil
+	return base64.RawURLEncoding.EncodeToString([]byte(payload)) + "." + sig
 }
 
 func (s *Service) verifyOIDCState(state string) bool {
@@ -606,8 +602,9 @@ func (s *Service) recordLoginAudit(username, action, result string, req *LoginRe
 	)
 }
 
-// Logout 用户登出
-func (s *Service) Logout(ctx context.Context, req *LogoutRequest) (*LogoutResponse, error) {
+// Logout 用户登出。
+// 实现无出错路径（token 吊销失败仅记日志），已收紧签名去掉 error 返回。
+func (s *Service) Logout(ctx context.Context, req *LogoutRequest) *LogoutResponse {
 	// 递增 token_version 使该账号所有已签发 token 立即失效（含调用方
 	// 当前使用的这一个）。中间件缓存意味着最长 30s 后全网生效。
 	if req != nil && req.Username != "" {
@@ -617,7 +614,7 @@ func (s *Service) Logout(ctx context.Context, req *LogoutRequest) (*LogoutRespon
 			}
 		}
 	}
-	return &LogoutResponse{}, nil
+	return &LogoutResponse{}
 }
 
 func (s *Service) Check(ctx context.Context, username string, req *CheckRequest) (*CheckResponse, error) {

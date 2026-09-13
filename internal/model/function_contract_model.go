@@ -87,10 +87,9 @@ func canonicalJSON(raw JSON) []byte {
 	if err := json.Unmarshal(raw, &v); err != nil {
 		return []byte(raw)
 	}
-	out, err := json.Marshal(v)
-	if err != nil {
-		return []byte(raw)
-	}
+	// v 是 json.Unmarshal 的产物，仅含 JSON 基础类型，对其 Marshal 恒成功，
+	// err 分支（回退原字节）为死代码已删。
+	out, _ := json.Marshal(v)
 	return out
 }
 

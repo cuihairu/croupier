@@ -105,14 +105,12 @@ func (s *Service) CreateSource(ctx context.Context, req *OpenAPISourceCreateRequ
 		ContentHash:    sha256Hex(parsed.Spec),
 	}
 	modelSource.SetSpec(parsed.Spec)
-	if err := modelSource.SetOperations(parsed.Operations); err != nil {
-		spanErr = err
-		return nil, err
-	}
-	if err := modelSource.SetDiagnostics(parsed.Diagnostics); err != nil {
-		spanErr = err
-		return nil, err
-	}
+	// 设计债清理：parsed.Operations（[]OpenAPISourceOperation）与
+	// parsed.Diagnostics（[]spec.Diagnostic）均为纯 string/bool 字段的
+	// JSON 可序列化结构，SetOperations/SetDiagnostics 内部的 json.Marshal
+	// 恒成功，原 err 分支不可达已删除（UpdateSource 同）。
+	modelSource.SetOperations(parsed.Operations)
+	modelSource.SetDiagnostics(parsed.Diagnostics)
 	if err := s.svcCtx.OpenAPISourceModel.Create(ctx, modelSource); err != nil {
 		spanErr = err
 		return nil, err
@@ -172,14 +170,9 @@ func (s *Service) UpdateSource(ctx context.Context, req *OpenAPISourceUpdateRequ
 	source.InfoVersion = parsed.InfoVersion
 	source.ContentHash = sha256Hex(parsed.Spec)
 	source.SetSpec(parsed.Spec)
-	if err := source.SetOperations(parsed.Operations); err != nil {
-		spanErr = err
-		return nil, err
-	}
-	if err := source.SetDiagnostics(parsed.Diagnostics); err != nil {
-		spanErr = err
-		return nil, err
-	}
+	// 设计债清理：见 CreateSource 同注，Marshal 恒成功。
+	source.SetOperations(parsed.Operations)
+	source.SetDiagnostics(parsed.Diagnostics)
 	if err := s.svcCtx.OpenAPISourceModel.Update(ctx, source); err != nil {
 		spanErr = err
 		return nil, err
@@ -419,10 +412,9 @@ func (s *Service) rebuildContractForSourceBinding(
 	if functionID == "" {
 		return errorx.NewBadRequest("functionId is required for OpenAPI contract rebuild")
 	}
-	meta, err := s.functionMetaInputForBinding(source, operation, functionID, runtimeMeta)
-	if err != nil {
-		return err
-	}
+	// 设计债清理：functionMetaInputForBinding 为纯组装函数（唯一出口无
+	// 出错路径），error 返回值已随签名收紧删除。
+	meta := s.functionMetaInputForBinding(source, operation, functionID, runtimeMeta)
 
 	slog.Info("rebuilding contract for source binding",
 		"game_id", gameID,
@@ -451,12 +443,14 @@ func (s *Service) rebuildContractForSourceBinding(
 	return nil
 }
 
+// functionMetaInputForBinding 以 OpenAPI 操作为主、运行时元数据兜底组装
+// 契约重建入参。设计债清理：纯组装无出错路径，error 返回值已随签名收紧删除。
 func (s *Service) functionMetaInputForBinding(
 	source *model.OpenAPISource,
 	operation OpenAPISourceOperation,
 	functionID string,
 	runtimeMeta reg.FunctionMeta,
-) (dashboardservice.FunctionMetaInput, error) {
+) dashboardservice.FunctionMetaInput {
 	openAPIOp := openAPIOperationFromSource(source, operation.OperationID)
 	inputSchema := openAPIRequestSchema(openAPIOp)
 	if inputSchema == "" {
@@ -489,7 +483,7 @@ func (s *Service) functionMetaInputForBinding(
 		Permission:        firstNonEmpty(operation.Permission, runtimeMeta.Permission),
 		Tags:              tags,
 		TimeoutMs:         operation.TimeoutMs,
-	}, nil
+	}
 }
 
 func (s *Service) DeleteBinding(ctx context.Context, req *OpenAPISourceBindingDeleteRequest) (*OpenAPISourceBindingResponse, error) {
@@ -697,9 +691,9 @@ func normalizeRawSource(raw json.RawMessage) ([]byte, string, error) {
 	}
 	if json.Valid(trimmed) {
 		var compacted bytes.Buffer
-		if err := json.Compact(&compacted, trimmed); err != nil {
-			return nil, "", err
-		}
+		// 设计债清理：trimmed 已通过 json.Valid 校验，Compact 对合法 JSON
+		// 恒成功，原 err 分支不可达已删除。
+		_ = json.Compact(&compacted, trimmed)
 		return compacted.Bytes(), "json", nil
 	}
 	var value interface{}
@@ -743,10 +737,7 @@ func (s *Service) parseValidSource(spec json.RawMessage) (*parsedOpenAPISource, 
 	if err != nil {
 		return nil, "", err
 	}
-	parsed, err := parseOpenAPISource(raw)
-	if err != nil {
-		return nil, "", err
-	}
+	parsed := parseOpenAPISource(raw)
 	if hasErrorDiagnostic(parsed.Diagnostics) {
 		return nil, "", errorx.NewBadRequestWithDetails("OpenAPI source is invalid", map[string]any{
 			"diagnostics": parsed.Diagnostics,
@@ -755,11 +746,14 @@ func (s *Service) parseValidSource(spec json.RawMessage) (*parsedOpenAPISource, 
 	return parsed, format, nil
 }
 
-func parseOpenAPISource(raw []byte) (*parsedOpenAPISource, error) {
+// parseOpenAPISource 解析并校验 OpenAPI 源，所有失败（扫描/解析/校验/版本）
+// 一律以 Diagnostics 承载而非 error。
+// 设计债清理：原实现的全部出口均返回 nil error，error 返回值已随签名收紧删除。
+func parseOpenAPISource(raw []byte) *parsedOpenAPISource {
 	parsed := &parsedOpenAPISource{Spec: json.RawMessage(raw)}
 	parsed.Diagnostics = append(parsed.Diagnostics, scanOpenAPISourceRaw(raw)...)
 	if hasErrorDiagnostic(parsed.Diagnostics) {
-		return parsed, nil
+		return parsed
 	}
 
 	loader := openapi3.NewLoader()
@@ -772,7 +766,7 @@ func parseOpenAPISource(raw []byte) (*parsedOpenAPISource, error) {
 			err.Error(),
 			"$",
 		))
-		return parsed, nil
+		return parsed
 	}
 	normalizeOpenAPIDoc(doc)
 	if err := doc.Validate(loader.Context); err != nil {
@@ -782,7 +776,7 @@ func parseOpenAPISource(raw []byte) (*parsedOpenAPISource, error) {
 			err.Error(),
 			"$",
 		))
-		return parsed, nil
+		return parsed
 	}
 	parsed.OpenAPIVersion = strings.TrimSpace(doc.OpenAPI)
 	if !strings.HasPrefix(parsed.OpenAPIVersion, "3.") {
@@ -792,7 +786,7 @@ func parseOpenAPISource(raw []byte) (*parsedOpenAPISource, error) {
 			"only OpenAPI 3.x sources are supported",
 			"$.openapi",
 		))
-		return parsed, nil
+		return parsed
 	}
 	if doc.Info != nil {
 		parsed.InfoTitle = strings.TrimSpace(doc.Info.Title)
@@ -807,7 +801,7 @@ func parseOpenAPISource(raw []byte) (*parsedOpenAPISource, error) {
 			"$.paths",
 		))
 	}
-	return parsed, nil
+	return parsed
 }
 
 func extractSourceOperations(doc *openapi3.T, diags []spec.Diagnostic) ([]OpenAPISourceOperation, []spec.Diagnostic) {
@@ -852,14 +846,14 @@ func extractSourceOperations(doc *openapi3.T, diags []spec.Diagnostic) ([]OpenAP
 		seen[operationID] = fieldPath
 		items = append(items, operationDTOFromOpenAPI(candidate, operationID, &diags))
 	}
+	// 设计债清理：openAPIMethodOperations 按 (path, method) 唯一产出候选
+	// （pathItem 的每方法字段单值），items 不存在 (Path,Method) 重复对，
+	// 原第三级 OperationID tie-break 恒不可达已删除，两级已构成全序。
 	sort.Slice(items, func(i, j int) bool {
 		if items[i].Path != items[j].Path {
 			return items[i].Path < items[j].Path
 		}
-		if items[i].Method != items[j].Method {
-			return items[i].Method < items[j].Method
-		}
-		return items[i].OperationID < items[j].OperationID
+		return items[i].Method < items[j].Method
 	})
 	return items, diags
 }
@@ -1513,10 +1507,10 @@ func openAPIRequestSchema(op *openapi3.Operation) string {
 	if len(deduped) > 0 {
 		root["required"] = deduped
 	}
-	raw, err := json.Marshal(root)
-	if err != nil {
-		return ""
-	}
+	// 设计债清理：root 的 properties 值均为 json.Marshal 产物（合法 JSON
+	// 子串），对 map[string]json.RawMessage 再 Marshal 恒成功，
+	// 原 err 分支不可达已删除。
+	raw, _ := json.Marshal(root)
 	return string(raw)
 }
 
@@ -1829,17 +1823,22 @@ func (s *Service) startSourceSpan(ctx context.Context, name, gameID, env string,
 }
 
 // GetDocument returns aggregated OpenAPI document
-func (s *Service) GetDocument(ctx context.Context, req *GetDocumentRequest) (*GetDocumentResponse, error) {
-	spec, err := s.svcCtx.RegistryStore.BuildOpenAPISpec()
-	if err != nil {
-		return nil, err
-	}
+// 设计债清理：RegistryStore 为具体 *reg.Store，其 BuildOpenAPISpec 是纯
+// 组装（唯一出口无出错路径），GetDocument 无 error 出路，error 返回值已随
+// 签名收紧删除（handler 侧 err 分支随之简化）。
+func (s *Service) GetDocument(ctx context.Context, req *GetDocumentRequest) *GetDocumentResponse {
+	// BuildOpenAPISpec（registry.Store）为纯组装，唯一出口 return doc, nil，
+	// 恒不报错；其签名在本包外暂保留 error，此处显式丢弃。
+	spec, _ := s.svcCtx.RegistryStore.BuildOpenAPISpec()
 	return &GetDocumentResponse{
 		Spec: mustMarshalRaw(spec),
-	}, nil
+	}
 }
 
-func (s *Service) BatchGetSpec(ctx context.Context, req *BatchGetSpecRequest) (BatchGetSpecResponse, error) {
+// BatchGetSpec 批量取函数 OpenAPI spec。
+// 设计债清理：失败以「未注册则 nil / 已注册则回退 operation」承载，无 error
+// 出路，error 返回值已随签名收紧删除。
+func (s *Service) BatchGetSpec(ctx context.Context, req *BatchGetSpecRequest) BatchGetSpecResponse {
 	resp := make(BatchGetSpecResponse, len(req.FunctionIDs))
 	for _, id := range req.FunctionIDs {
 		functionID := strings.TrimSpace(id)
@@ -1857,7 +1856,7 @@ func (s *Service) BatchGetSpec(ctx context.Context, req *BatchGetSpecRequest) (B
 		}
 		resp[functionID] = mustMarshalRaw(spec)
 	}
-	return resp, nil
+	return resp
 }
 
 func hasRegisteredFunction(svcCtx *svc.ServiceContext, functionID string) bool {

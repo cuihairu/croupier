@@ -109,10 +109,8 @@ func encodeMetadataJSON(metadata map[string]string) []byte {
 	if len(metadata) == 0 {
 		return nil
 	}
-	raw, err := json.Marshal(metadata)
-	if err != nil {
-		return nil
-	}
+	// map[string]string 的 json.Marshal 恒成功，err 回退分支为死代码已删。
+	raw, _ := json.Marshal(metadata)
 	return raw
 }
 

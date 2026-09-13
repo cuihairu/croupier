@@ -182,10 +182,10 @@ func (s *Service) Stream(ctx context.Context, username string, req *StreamMessag
 }
 
 func buildMessageItemResponse(msg *model.Message) *MessageItem {
+	// 设计债清理：normalizeMessageItems 对每个输入元素无条件 append 一项，
+	// 输出长度恒等于输入长度；这里传入单元素 slice，items 恒有且仅有 1 项，
+	// 原 len(items)==0 分支不可达已删除。
 	items := normalizeMessageItems([]map[string]interface{}{utils.BuildMessageDTO(msg)})
-	if len(items) == 0 {
-		return &MessageItem{}
-	}
 	return &items[0]
 }
 

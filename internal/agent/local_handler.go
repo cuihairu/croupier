@@ -29,6 +29,10 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
+// instanceHealthyWindow 判定实例健康的心跳窗口（与生产行为一致的默认值，
+// 测试可注入负值覆盖以触达 stale 降级分支）。
+var instanceHealthyWindow = 30 * time.Second
+
 // ProviderManager is the interface for provider function calls
 type ProviderManager interface {
 	IsPlatformFunction(functionID string) bool
@@ -278,12 +282,9 @@ func (h *LocalHandler) handleInvoke(ctx context.Context, data []byte) ([]byte, e
 	callCtx, cancel := context.WithTimeout(ctx, h.providerCallDeadline(req.GetMetadata()))
 	defer cancel()
 
-	reqBytes, err := proto.Marshal(req)
-	if err != nil {
-		err = fmt.Errorf("marshal InvokeRequest: %w", err)
-		recordSpanResult(span, err)
-		return nil, err
-	}
+	// req 是函数开头 proto.Unmarshal 的产物，字段值必为合法 wire 形态，
+	// 再 Marshal 恒成功，error 分支不可达，已删除。
+	reqBytes, _ := proto.Marshal(req)
 
 	respBytes, err := h.callProvider(callCtx, functionID, req.GetMetadata(), addr, protocol.MsgInvokeRequest, reqBytes)
 	if err != nil {
@@ -402,10 +403,12 @@ func (h *LocalHandler) pickInstance(functionID string, metadata map[string]strin
 	}
 
 	// 优先选择健康实例（30秒内有心跳）
+	// instanceHealthyWindow 是可注入缝隙（默认与生产行为一致），测试中
+	// 设为负值可让全部实例落入 stale 降级分支。
 	now := time.Now()
 	var healthy []agentlocal.Instance
 	for _, inst := range arr {
-		if now.Sub(inst.LastSeen) < 30*time.Second {
+		if now.Sub(inst.LastSeen) < instanceHealthyWindow {
 			healthy = append(healthy, inst)
 		}
 	}
@@ -474,12 +477,11 @@ func (h *LocalHandler) executeTask(ctx context.Context, req *sdkv1.InvokeRequest
 		recordSpanResult(span, err)
 		return nil, err
 	}
+	// respBytes 由 handleInvoke 返回，其内部所有成功路径的返回值均为
+	// proto.Marshal 的产物（合法 InvokeResponse wire 字节），再 Unmarshal
+	// 恒成功，error 分支不可达，已删除。
 	resp := &sdkv1.InvokeResponse{}
-	if err := proto.Unmarshal(respBytes, resp); err != nil {
-		err = fmt.Errorf("unmarshal task invoke response: %w", err)
-		recordSpanResult(span, err)
-		return nil, err
-	}
+	_ = proto.Unmarshal(respBytes, resp)
 	if len(resp.GetPayload()) == 0 {
 		recordSpanResult(span, nil)
 		return []byte("null"), nil

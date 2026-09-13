@@ -176,7 +176,6 @@ type FunctionInvokeRequest struct {
 // FunctionInvokeResponse represents the response of a function invocation
 type FunctionInvokeResponse struct {
 	TaskId           string          `json:"taskId"`
-	TaskID           string          `json:"taskID,omitempty"`
 	Result           json.RawMessage `json:"result,omitempty"`
 	ApprovalID       string          `json:"approvalId,omitempty"`
 	ApprovalRequired bool            `json:"approvalRequired,omitempty"`

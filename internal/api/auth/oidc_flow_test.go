@@ -90,8 +90,7 @@ func TestOIDCLoginCallback_HappyPath(t *testing.T) {
 	}
 	svc := newOIDCService(t, fake, "")
 
-	state, err := svc.newOIDCState()
-	require.NoError(t, err)
+	state := svc.newOIDCState()
 
 	resp, err := svc.OIDCLoginCallback(context.Background(), "auth-code", state, &LoginRequest{})
 	require.NoError(t, err)
@@ -120,9 +119,8 @@ func TestOIDCLoginCallback_EmptyCode(t *testing.T) {
 	fake := &fakeOAuthProvider{ident: &identity.Identity{Username: "carol"}}
 	svc := newOIDCService(t, fake, "")
 
-	state, err := svc.newOIDCState()
-	require.NoError(t, err)
-	_, err = svc.OIDCLoginCallback(context.Background(), "", state, nil)
+	state := svc.newOIDCState()
+	_, err := svc.OIDCLoginCallback(context.Background(), "", state, nil)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "授权码")
 }
@@ -133,9 +131,8 @@ func TestOIDCLoginCallback_ExchangeFailed(t *testing.T) {
 	}
 	svc := newOIDCService(t, fake, "")
 
-	state, err := svc.newOIDCState()
-	require.NoError(t, err)
-	_, err = svc.OIDCLoginCallback(context.Background(), "code", state, nil)
+	state := svc.newOIDCState()
+	_, err := svc.OIDCLoginCallback(context.Background(), "code", state, nil)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "OIDC 登录失败")
 }
@@ -187,8 +184,7 @@ func TestHandler_OIDCCallback_JSON(t *testing.T) {
 	svc := newOIDCService(t, fake, "")
 	h := NewHandler(svc)
 
-	state, err := svc.newOIDCState()
-	require.NoError(t, err)
+	state := svc.newOIDCState()
 
 	c, rec := newAuthTestContext(http.MethodGet, "/api/v1/auth/oidc/callback?code=abc&state="+state, "")
 	h.OIDCCallback(c)
@@ -206,8 +202,7 @@ func TestHandler_OIDCCallback_Redirect(t *testing.T) {
 	svc := newOIDCService(t, fake, "http://frontend:8000/login")
 	h := NewHandler(svc)
 
-	state, err := svc.newOIDCState()
-	require.NoError(t, err)
+	state := svc.newOIDCState()
 
 	c, rec := newAuthTestContext(http.MethodGet, "/api/v1/auth/oidc/callback?code=abc&state="+state, "")
 	h.OIDCCallback(c)
@@ -239,8 +234,7 @@ func TestHandler_OIDCCallback_BadSuccessURL(t *testing.T) {
 	svc := newOIDCService(t, fake, "http://bad\x7f")
 	h := NewHandler(svc)
 
-	state, err := svc.newOIDCState()
-	require.NoError(t, err)
+	state := svc.newOIDCState()
 
 	c, rec := newAuthTestContext(http.MethodGet, "/api/v1/auth/oidc/callback?code=abc&state="+state, "")
 	h.OIDCCallback(c)

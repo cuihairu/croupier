@@ -217,10 +217,9 @@ func (s *Service) ExecuteBinding(ctx context.Context, req *ConsoleExecuteBinding
 	}
 	target = pageExecutionTarget(functionResp)
 
-	result, err = buildExecutionResult(ctx, requestID, functionResp)
-	if err != nil {
-		return nil, err
-	}
+	// 设计债清理：buildExecutionResult 为纯构造函数（四个出口均无出错路径），
+	// 已收紧为无 error 返回，原 err 分支不可达随之删除。
+	result = buildExecutionResult(ctx, requestID, functionResp)
 	return &ConsoleExecuteBindingResponse{Result: result}, nil
 }
 
@@ -405,10 +404,10 @@ func buildBindingPayloadFromSelectors(binding spec.PageFunctionBinding, execCtx 
 			})
 		}
 	}
-	raw, err := json.Marshal(payload)
-	if err != nil {
-		return nil, err
-	}
+	// 设计债清理：payload 的 value 均来自 validRawJSON 校验产物、合法 JSON 的
+	// pointer 子树（getJSONPointerValue）或 Marshal 产物，map[string]json.RawMessage
+	// 的 Marshal 恒成功，原 err 分支不可达已删除。
+	raw, _ := json.Marshal(payload)
 	return json.RawMessage(raw), nil
 }
 
@@ -430,6 +429,13 @@ func resolveSelectorValue(source spec.ValueSource, execCtx ConsoleBindingExecuti
 			return applyRenameTransform(resolved, found, t)
 		case spec.TransformDefault:
 			if !found || isNullRawJSON(resolved) {
+				// 兜底值可能来自 DB 直改/绕过 spec 校验的历史数据：非法 JSON 在此
+				// 拦截为语义化 422，而不是延迟到最终 Marshal 报 500。缺失或空值
+				// 维持原样返回（validDefaultParams 在 spec 校验层把关）。
+				raw, ok := t.Params["value"]
+				if ok && len(raw) > 0 && !json.Valid(raw) {
+					return nil, false, errorx.NewValidationError("default transform value is not valid JSON")
+				}
 				return t.Params["value"], true, nil
 			}
 		}
@@ -445,7 +451,8 @@ func resolveSourceValue(source spec.ValueSource, execCtx ConsoleBindingExecution
 		if len(source.Value) == 0 {
 			return json.RawMessage("null"), true, nil
 		}
-		return validRawJSON(source.Value, "literal")
+		raw, err := validRawJSON(source.Value, "literal")
+		return raw, err == nil, err
 	case spec.SourceForm:
 		return valueFromRawContext(execCtx.Form, source.Path, "form")
 	case spec.SourceRow:
@@ -482,8 +489,10 @@ func applyRenameTransform(resolved json.RawMessage, found bool, t *spec.Transfor
 	if !found || len(resolved) == 0 {
 		return nil, false, nil
 	}
-	raw, ok, err := validRawJSON(resolved, "rename source")
-	if err != nil || !ok {
+	// 设计债清理：resolved 非空保证 validRawJSON 不会走空值短路（其空值分支
+	// 已随签名收紧删除），found 恒为 err==nil 的同义词。
+	raw, err := validRawJSON(resolved, "rename source")
+	if err != nil {
 		return nil, false, err
 	}
 	var value any
@@ -505,10 +514,9 @@ func applyRenameTransform(resolved json.RawMessage, found bool, t *spec.Transfor
 	}
 	switch typed := value.(type) {
 	case map[string]any:
-		out, err := json.Marshal(renameOne(typed))
-		if err != nil {
-			return nil, false, err
-		}
+		// 设计债清理：renameOne 的入出参均为 Unmarshal 产物（值域是 JSON 可表示
+		// 类型），再 Marshal 恒成功，原 err 分支不可达已删除（下同）。
+		out, _ := json.Marshal(renameOne(typed))
 		return out, true, nil
 	case []any:
 		mapped := make([]any, 0, len(typed))
@@ -519,10 +527,7 @@ func applyRenameTransform(resolved json.RawMessage, found bool, t *spec.Transfor
 			}
 			mapped = append(mapped, renameOne(obj))
 		}
-		out, err := json.Marshal(mapped)
-		if err != nil {
-			return nil, false, err
-		}
+		out, _ := json.Marshal(mapped)
 		return out, true, nil
 	default:
 		return nil, false, errorx.NewValidationError("rename transform requires an object or selection source")
@@ -538,12 +543,11 @@ func pickSelectionValues(raw json.RawMessage, path string) (json.RawMessage, boo
 	if len(raw) == 0 {
 		return nil, false, nil
 	}
-	value, found, err := validRawJSON(raw, "selection")
+	// 设计债清理：raw 非空已前置保证，validRawJSON 要么报错要么成功，
+	// 原 found==false 分支不可达（下同）。
+	value, err := validRawJSON(raw, "selection")
 	if err != nil {
 		return nil, false, err
-	}
-	if !found {
-		return nil, false, nil
 	}
 	var rows []json.RawMessage
 	if err := json.Unmarshal(value, &rows); err != nil {
@@ -557,10 +561,9 @@ func pickSelectionValues(raw json.RawMessage, path string) (json.RawMessage, boo
 		}
 		values = append(values, selected)
 	}
-	result, err := json.Marshal(values)
-	if err != nil {
-		return nil, false, err
-	}
+	// 设计债清理：values 元素均为合法 JSON 文档的子树（Unmarshal 切片产物），
+	// Marshal 恒成功，原 err 分支不可达已删除。
+	result, _ := json.Marshal(values)
 	return result, true, nil
 }
 
@@ -568,12 +571,9 @@ func valueFromRawContext(raw json.RawMessage, path string, sourceName string) (j
 	if len(raw) == 0 {
 		return nil, false, nil
 	}
-	value, found, err := validRawJSON(raw, sourceName)
+	value, err := validRawJSON(raw, sourceName)
 	if err != nil {
 		return nil, false, err
-	}
-	if !found {
-		return nil, false, nil
 	}
 	if path == "" {
 		return value, true, nil
@@ -582,14 +582,14 @@ func valueFromRawContext(raw json.RawMessage, path string, sourceName string) (j
 	return selected, ok, nil
 }
 
-func validRawJSON(raw json.RawMessage, sourceName string) (json.RawMessage, bool, error) {
-	if len(raw) == 0 {
-		return nil, false, nil
-	}
+// validRawJSON 校验原始 JSON 并返回防御性拷贝。
+// 设计债清理：全部调用方都已前置拦截空输入，且非空输入下要么报错要么成功，
+// 不存在 (nil,false,nil) 形态，bool 返回值与空值短路分支已随签名收紧删除。
+func validRawJSON(raw json.RawMessage, sourceName string) (json.RawMessage, error) {
 	if !json.Valid(raw) {
-		return nil, false, errorx.NewBadRequest(sourceName + " context must be valid JSON")
+		return nil, errorx.NewBadRequest(sourceName + " context must be valid JSON")
 	}
-	return append(json.RawMessage(nil), raw...), true, nil
+	return append(json.RawMessage(nil), raw...), nil
 }
 
 func getJSONPointerValue(value json.RawMessage, path string) (json.RawMessage, bool) {
@@ -678,7 +678,9 @@ func jsonPointerTokens(path string) []string {
 	return parts
 }
 
-func buildExecutionResult(ctx context.Context, requestID string, resp *function.FunctionInvokeResponse) (spec.PageExecutionResult, error) {
+// buildExecutionResult 把函数调用响应归类为页面执行结果（sync/task/approval）。
+// 设计债清理：纯构造、四个出口均无出错路径，error 返回值已随签名收紧删除。
+func buildExecutionResult(ctx context.Context, requestID string, resp *function.FunctionInvokeResponse) spec.PageExecutionResult {
 	if strings.TrimSpace(requestID) == "" {
 		requestID = uuid.NewString()
 	}
@@ -688,7 +690,7 @@ func buildExecutionResult(ctx context.Context, requestID string, resp *function.
 			Kind:      spec.PageExecutionKindSync,
 			RequestID: requestID,
 			TraceID:   traceID,
-		}, nil
+		}
 	}
 	if resp.ApprovalRequired {
 		return spec.PageExecutionResult{
@@ -696,26 +698,22 @@ func buildExecutionResult(ctx context.Context, requestID string, resp *function.
 			RequestID:  requestID,
 			TraceID:    traceID,
 			ApprovalID: resp.ApprovalID,
-		}, nil
-	}
-	if resp.TaskId != "" || resp.TaskID != "" {
-		taskID := resp.TaskId
-		if taskID == "" {
-			taskID = resp.TaskID
 		}
+	}
+	if resp.TaskId != "" {
 		return spec.PageExecutionResult{
 			Kind:      spec.PageExecutionKindTask,
 			RequestID: requestID,
 			TraceID:   traceID,
-			TaskID:    taskID,
-		}, nil
+			TaskID:    resp.TaskId,
+		}
 	}
 	return spec.PageExecutionResult{
 		Kind:      spec.PageExecutionKindSync,
 		RequestID: requestID,
 		TraceID:   traceID,
 		Data:      resp.Result,
-	}, nil
+	}
 }
 
 func (s *Service) startPageExecuteSpan(

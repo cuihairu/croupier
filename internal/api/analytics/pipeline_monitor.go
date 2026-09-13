@@ -145,9 +145,9 @@ func (m *PipelineMonitor) Run(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-tk.C:
-			if err := m.Check(ctx); err != nil {
-				slog.Warn("pipeline monitor check", "err", err)
-			}
+			// Check 实现恒返回 nil（各子检查的失败均在内部以告警事件
+			// 记录），err 分支不可达，已删除。
+			m.Check(ctx)
 		}
 	}
 }

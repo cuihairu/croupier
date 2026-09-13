@@ -181,3 +181,41 @@ func TestGroupN_BuildFallbackRequestSchemaRequiredFields(t *testing.T) {
 		assert.Equal(t, "Invocation payload", v.Value.Description)
 	}
 }
+
+// ---------------------------------------------------------------------------
+// buildFallbackInputSchema: required-field branch
+//
+// 与上方 buildFallbackRequestSchema 的 required 分支同理：生产数据源
+// fallbackFields() 的唯一字段 Required=false，追加分支由合成字段清单直接
+// 驱动。同时锁定 BuildFallbackInputJSONSchema 对生产数据源的恒定投影。
+// ---------------------------------------------------------------------------
+
+func TestGroupN_BuildFallbackInputSchemaRequiredFields(t *testing.T) {
+	schema := buildFallbackInputSchema([]fallbackField{
+		{Name: "payload", Type: "object", Description: "Invocation payload", Required: true},
+		{Name: "note", Type: "string", Description: "Optional note", Required: false},
+	})
+	require.NotNil(t, schema)
+	assert.Equal(t, "object", schema["type"])
+	assert.Equal(t, []string{"payload"}, schema["required"])
+	props, ok := schema["properties"].(map[string]interface{})
+	require.True(t, ok, "properties must be a map")
+	require.Contains(t, props, "payload")
+	require.Contains(t, props, "note")
+	payload, ok := props["payload"].(map[string]interface{})
+	require.True(t, ok)
+	assert.Equal(t, "object", payload["type"])
+	assert.Equal(t, "payload", payload["title"])
+	assert.Equal(t, "Invocation payload", payload["description"])
+}
+
+func TestGroupN_BuildFallbackInputJSONSchemaProductionShape(t *testing.T) {
+	schema := BuildFallbackInputJSONSchema("player.update")
+	require.NotNil(t, schema)
+	// fallbackFields() 当前唯一字段 payload 为可选：required 恒为空数组。
+	assert.Equal(t, []string{}, schema["required"])
+	props, ok := schema["properties"].(map[string]interface{})
+	require.True(t, ok, "properties must be a map")
+	require.Contains(t, props, "payload")
+	require.NotContains(t, props, "playerId")
+}

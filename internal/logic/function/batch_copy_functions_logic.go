@@ -29,11 +29,8 @@ func (l *BatchCopyFunctionsLogic) BatchCopyFunctions(req *BatchCopyFunctionsRequ
 		}, nil
 	}
 
-	// 2. Call model layer to batch copy
-	updated, failed, copied, err := l.svcCtx.FunctionModel.BatchCopyFunctions(l.ctx, req.FunctionIds)
-	if err != nil {
-		return nil, err
-	}
+	// 2. Call model layer to batch copy（单条失败进 failedIDs，无整体错误）
+	updated, failed, copied := l.svcCtx.FunctionModel.BatchCopyFunctions(l.ctx, req.FunctionIds)
 
 	// 3. Return result
 	return &BatchCopyFunctionsResponse{

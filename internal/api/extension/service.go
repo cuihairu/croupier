@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"math"
 	"sort"
 	"strconv"
 	"strings"
@@ -338,18 +337,13 @@ func (s *Service) Capabilities(ctx context.Context, id uint) (*ExtensionCapabili
 	}
 	caps, details := extractCapabilityDetailsFromBindings(bindings)
 	// Fallback to manifest capabilities when bindings are empty.
+	// 设计债清理：本块仅在 len(caps)==0 时进入，原「遍历 caps 预填 capSet」的
+	// 循环体恒不可执行；extractCapabilities 产物恒非空串且内部已去重，原先的
+	// 空 key/重复 key continue 防御同样恒假——两处死分支已删除。
 	if len(caps) == 0 {
 		manifest, err := s.resolveManifestForRelease(ctx, item.ExtensionID, item.ReleaseVersion)
 		if err == nil {
-			capSet := map[string]bool{}
-			for _, cap := range caps {
-				capSet[cap] = true
-			}
 			for _, key := range extractCapabilities(manifest) {
-				if key == "" || capSet[key] {
-					continue
-				}
-				capSet[key] = true
 				caps = append(caps, key)
 				details = append(details, ExtensionCapabilityDetail{
 					Type:       "manifest",
@@ -433,9 +427,8 @@ func extractCapabilityDetailsFromBindings(bindings []model.ExtensionRuntimeBindi
 		caps = append(caps, key)
 	}
 	appendOperation := func(detail *ExtensionCapabilityDetail, operations []string) {
-		if detail == nil {
-			return
-		}
+		// 设计债清理：调用方恒传 &details[idx]，detail 恒非 nil，
+		// 原 nil 防御分支不可达已删除。
 		seen := map[string]bool{}
 		for _, op := range detail.Operations {
 			seen[strings.TrimSpace(op)] = true
@@ -450,19 +443,16 @@ func extractCapabilityDetailsFromBindings(bindings []model.ExtensionRuntimeBindi
 		}
 	}
 	appendPermissions := func(detail *ExtensionCapabilityDetail, permissions map[string]string) {
-		if detail == nil || len(permissions) == 0 {
+		if len(permissions) == 0 {
 			return
 		}
 		if detail.Permissions == nil {
 			detail.Permissions = map[string]string{}
 		}
+		// 设计债清理：permissions 来自 parseStringMapAny，其产出已过滤空 key 与
+		// 空 value，原空串 continue 分支不可达已删除。
 		for op, perm := range permissions {
-			opKey := strings.TrimSpace(op)
-			permKey := strings.TrimSpace(perm)
-			if opKey == "" || permKey == "" {
-				continue
-			}
-			detail.Permissions[opKey] = permKey
+			detail.Permissions[op] = perm
 		}
 	}
 	appendConfigKeys := func(detail *ExtensionCapabilityDetail, keys []string) {
@@ -527,10 +517,10 @@ func extractCapabilityDetailsFromBindings(bindings []model.ExtensionRuntimeBindi
 			if !ok {
 				continue
 			}
+			// 设计债清理：ok 时 parsed.Provider 是 SanitizeKey 的非空产物
+			// （仅 [a-z0-9_.-]），Capability 对其再 SanitizeKey 幂等非空，
+			// 原 capability=="" 分支不可达已删除。
 			capability := externalfunc.Capability(parsed.Provider)
-			if capability == "" {
-				continue
-			}
 			addCap(capability)
 			if idx, exists := detailIndex[capability]; exists {
 				appendOperation(&details[idx], parsed.Operations)
@@ -609,12 +599,9 @@ func extractPageDetailsFromBindings(bindings []model.ExtensionRuntimeBinding) []
 		requiredPermission := specString("required_permission")
 		order := 0
 		if rawOrder, ok := spec["order"]; ok {
-			switch v := rawOrder.(type) {
-			case float64:
-				order = int(v)
-			case int:
-				order = v
-			case int64:
+			// 设计债清理：spec 为 json.Unmarshal 产物（map[string]any），
+			// JSON 数字的动态类型恒为 float64，原 int/int64 分支不可达已删除。
+			if v, isNum := rawOrder.(float64); isNum {
 				order = int(v)
 			}
 		}
@@ -1168,9 +1155,8 @@ func (s *Service) requireWritePermission(ctx context.Context, message string) er
 
 func (s *Service) ResolveInstallationID(ctx context.Context, identifier string) (uint, error) {
 	if id, err := strconv.ParseUint(strings.TrimSpace(identifier), 10, 64); err == nil {
-		if id > math.MaxUint {
-			return 0, errorx.NewBadRequest("installation ID 超出范围")
-		}
+		// 设计债清理：64 位平台 ParseUint bitSize=64 值域上界即 math.MaxUint，
+		// 原溢出检查恒假已删除。
 		return uint(id), nil
 	}
 	item, err := s.findActiveInstallationByExtension(ctx, identifier)
@@ -1232,10 +1218,9 @@ func (s *Service) validateDependencies(ctx context.Context, extensionID, release
 	deps := parseDependencies(manifest)
 	path := map[string]bool{normalizeExtensionID(extensionID): true}
 	visited := map[string]bool{}
+	// 设计债清理：parseDependencies 只在 ExtensionID TrimSpace 非空时产出条目
+	// （string 与 map 两种形态同），原先的空 ID continue 防御恒假已删除（下同）。
 	for _, dep := range deps {
-		if strings.TrimSpace(dep.ExtensionID) == "" {
-			continue
-		}
 		if err := s.validateDependencyNode(ctx, dep, path, visited); err != nil {
 			return err
 		}
@@ -1304,10 +1289,8 @@ func (s *Service) validateDependencyNode(
 		return err
 	}
 	children := parseDependencies(manifest)
+	// 设计债清理：同 validateDependencies，parseDependencies 产物 ID 恒非空。
 	for _, child := range children {
-		if strings.TrimSpace(child.ExtensionID) == "" {
-			continue
-		}
 		if err := s.validateDependencyNode(ctx, child, path, visited); err != nil {
 			return err
 		}
@@ -1671,6 +1654,9 @@ func matchSingleClause(current semVersion, clause string) bool {
 	case "~":
 		return matchTildeConstraint(current, target)
 	default:
+		// 不可达论证：op 只能取自上方前缀 switch 穷尽提取的七种字面量
+		// （">=", "<=", ">", "<", "=", "^", "~"），default 永不命中；但 Go
+		// 要求函数所有路径显式返回，无法删除此兜底 return。
 		return false
 	}
 }

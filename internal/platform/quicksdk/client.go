@@ -168,11 +168,7 @@ func (c *Client) Do(ctx context.Context, endpoint string, params map[string]inte
 	params["time"] = time.Now().Unix()
 
 	// Generate signature
-	sign, err := c.sign(params)
-	if err != nil {
-		return nil, fmt.Errorf("failed to sign request: %w", err)
-	}
-	params["sign"] = sign
+	params["sign"] = c.sign(params)
 
 	// Build form data
 	formData := c.buildFormData(params)
@@ -236,7 +232,10 @@ func (c *Client) Do(ctx context.Context, endpoint string, params map[string]inte
 // 2. Concatenate as k1=v1&k2=v2&
 // 3. Append openKey
 // 4. Calculate MD5
-func (c *Client) sign(params map[string]interface{}) (string, error) {
+// sign 计算请求签名：键排序拼接 + openKey + MD5。
+// 实现无任何出错路径——原 error 返回值恒为 nil，属"签名声明 error
+// 但实现无出错路径"的设计债，签名已收紧。
+func (c *Client) sign(params map[string]interface{}) string {
 	// Sort keys
 	keys := make([]string, 0, len(params))
 	for k := range params {
@@ -258,7 +257,7 @@ func (c *Client) sign(params map[string]interface{}) (string, error) {
 
 	// Calculate MD5
 	hash := md5.Sum([]byte(buf.String()))
-	return fmt.Sprintf("%x", hash), nil
+	return fmt.Sprintf("%x", hash)
 }
 
 // buildFormData builds form-encoded data from parameters.
@@ -431,6 +430,9 @@ type cache struct {
 	items map[string]*cacheItem
 	ttl   time.Duration
 	done  chan struct{}
+	// cleanupInterval 后台清理循环的 ticker 周期；生产默认 1 分钟，
+	// 仅测试可缩短以触达 ticker 分支（<=0 视为默认值）。
+	cleanupInterval time.Duration
 }
 
 type cacheItem struct {
@@ -481,7 +483,11 @@ func (c *cache) Close() {
 }
 
 func (c *cache) cleanup() {
-	ticker := time.NewTicker(time.Minute)
+	interval := c.cleanupInterval
+	if interval <= 0 {
+		interval = time.Minute
+	}
+	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 
 	for {

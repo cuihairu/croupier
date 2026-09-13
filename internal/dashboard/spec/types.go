@@ -472,7 +472,6 @@ type ResourceSpec struct {
 type ResourceCategorySpec struct {
 	Key    string        `json:"key"`
 	Labels LocalizedText `json:"labels"`
-	Order  int           `json:"order,omitempty"`
 }
 
 // ---------------------------------------------------------------------------

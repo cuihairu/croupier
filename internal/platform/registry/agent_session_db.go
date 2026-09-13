@@ -231,20 +231,19 @@ func toDBSession(sess *AgentSession) (*AgentSessionDB, error) {
 	// a direct psql INSERT. Use explicit empty JSON instead: {} for maps
 	// (nil Labels/Functions), [] for slices (nil Providers).
 	if sess.Labels != nil {
-		labelsJSON, err := json.Marshal(sess.Labels)
-		if err != nil {
-			return nil, err
-		}
+		// map[string]string 的 json.Marshal 恒成功，err 分支为死代码已删
+		//（下方 Providers 因 ProviderSession.OpenAPIDoc 为 json.RawMessage、
+		// compact 校验可失败，err 路径可达需保留）。
+		labelsJSON, _ := json.Marshal(sess.Labels)
 		dbSess.Labels = string(labelsJSON)
 	} else {
 		dbSess.Labels = string([]byte("{}"))
 	}
 
 	if sess.Functions != nil {
-		functionsJSON, err := json.Marshal(sess.Functions)
-		if err != nil {
-			return nil, err
-		}
+		// map[string]FunctionMeta 为纯 bool/string/[]string 字段结构体，
+		// Marshal 恒成功，err 分支为死代码已删。
+		functionsJSON, _ := json.Marshal(sess.Functions)
 		dbSess.Functions = string(functionsJSON)
 	} else {
 		dbSess.Functions = string([]byte("{}"))

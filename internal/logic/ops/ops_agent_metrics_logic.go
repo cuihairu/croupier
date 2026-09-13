@@ -62,10 +62,10 @@ func (l *OpsAgentMetricsLogic) OpsAgentMetrics(req *OpsAgentMetricsRequest) (*Op
 			continue
 		}
 
+		// 无需 report 空值防御：MetricsStore.Add 拒绝 nil report（内存条目
+		// 恒带非 nil Report），getFromDB 回读路径也总是重建非 nil 的
+		// MetricsReport，store 产出的 entries 不存在 Report 为 nil 的条目。
 		report := entry.Report
-		if report == nil {
-			continue
-		}
 
 		data := OpsMetricsData{
 			AgentID:   entry.AgentID,

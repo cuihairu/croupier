@@ -3,7 +3,6 @@ package role
 import (
 	"context"
 	"errors"
-	"math"
 	"strconv"
 	"strings"
 	"time"
@@ -267,9 +266,8 @@ func (s *Service) parseRoleID(id string) (uint, error) {
 	if value == 0 {
 		return 0, errorx.NewBadRequest("角色ID必须大于0")
 	}
-	if value > math.MaxUint {
-		return 0, errorx.NewBadRequest("角色ID超出范围")
-	}
+	// 64 位平台上 math.MaxUint == math.MaxUint64，而 ParseUint(_, 10, 64) 的返回值
+	// 上界即 MaxUint64，故「value > math.MaxUint」恒假，原溢出分支为死代码，已删除。
 	return uint(value), nil
 }
 

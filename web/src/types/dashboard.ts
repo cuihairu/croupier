@@ -280,7 +280,6 @@ export interface FunctionSpec {
 export interface ResourceCategorySpec {
   key: string;
   labels: LocalizedText;
-  order?: number;
 }
 
 /** 稳定业务资源或能力域规格 */

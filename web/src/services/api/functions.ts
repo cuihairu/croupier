@@ -178,7 +178,6 @@ export type FunctionInvokeResponse = {
   duration?: number;
   timestamp?: string;
   taskId?: string;
-  taskID?: string;
   /** OTel trace id of this invocation, for Jaeger/Grafana lookup. */
   traceId?: string;
   approvalRequired?: boolean;

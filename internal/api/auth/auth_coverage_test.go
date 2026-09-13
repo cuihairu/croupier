@@ -424,10 +424,9 @@ func TestOIDCLoginCallback_ProvisionFails(t *testing.T) {
 
 	// admins 表不可用：JIT 解析失败 → 登录失败。
 	require.NoError(t, db.Migrator().DropTable("admins"))
-	state, err := svc.newOIDCState()
-	require.NoError(t, err)
+	state := svc.newOIDCState()
 
-	_, err = svc.OIDCLoginCallback(context.Background(), "code", state, &LoginRequest{})
+	_, err := svc.OIDCLoginCallback(context.Background(), "code", state, &LoginRequest{})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "登录失败")
 }
@@ -483,22 +482,20 @@ func TestLogout_BumpsTokenVersion(t *testing.T) {
 	before, err := adminModel.FindByUsername(ctx, "bumpme")
 	require.NoError(t, err)
 
-	_, err = svc.Logout(ctx, &LogoutRequest{Username: "bumpme"})
-	require.NoError(t, err)
+	svc.Logout(ctx, &LogoutRequest{Username: "bumpme"})
 
 	after, err := adminModel.FindByUsername(ctx, "bumpme")
 	require.NoError(t, err)
 	assert.Equal(t, before.TokenVersion+1, after.TokenVersion)
 
 	// 用户不存在的 Logout：跳过 bump，正常返回。
-	_, err = svc.Logout(ctx, &LogoutRequest{Username: "ghost"})
-	require.NoError(t, err)
+	svc.Logout(ctx, &LogoutRequest{Username: "ghost"})
 
 	// bump 写失败：仅告警，不返回错误（换角色名避开 name 唯一冲突）。
+	// Logout 已收紧签名（无出错路径），此处验证只读库也不 panic。
 	createTestAdminWithRole(t, db, "bumpfail", "pw", "ops2")
 	readOnlyDB(t, db)
-	_, err = svc.Logout(ctx, &LogoutRequest{Username: "bumpfail"})
-	require.NoError(t, err)
+	svc.Logout(ctx, &LogoutRequest{Username: "bumpfail"})
 }
 
 func TestCheck_PermissionServiceError(t *testing.T) {

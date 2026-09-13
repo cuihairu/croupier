@@ -230,7 +230,6 @@ type FunctionInvokeResponse struct {
 	Duration  int64           `json:"duration"`
 	Timestamp string          `json:"timestamp"`
 	TaskId    string          `json:"taskId"`
-	TaskID    string          `json:"taskID"`
 	// Broadcast carries per-agent outcomes when route=broadcast. The legacy
 	// Result field is also populated with the first successful response so
 	// existing callers keep working without reading Broadcast.

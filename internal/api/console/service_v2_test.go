@@ -106,21 +106,17 @@ func TestNormalizeLanguageV2(t *testing.T) {
 // ──────────────────────────────────────────────────────
 
 func TestValidRawJSONV2(t *testing.T) {
-	// empty
-	result, found, err := validRawJSON(nil, "test")
-	require.NoError(t, err)
-	assert.False(t, found)
-	assert.Nil(t, result)
+	// 设计债清理：空值短路分支已删（调用方均前置拦截空输入），签名收紧为
+	// (json.RawMessage, error)。
 
 	// invalid JSON
-	_, found, err = validRawJSON(json.RawMessage(`{invalid}`), "test")
+	_, err := validRawJSON(json.RawMessage(`{invalid}`), "test")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "must be valid JSON")
 
 	// valid JSON
-	result, found, err = validRawJSON(json.RawMessage(`{"key":"value"}`), "test")
+	result, err := validRawJSON(json.RawMessage(`{"key":"value"}`), "test")
 	require.NoError(t, err)
-	assert.True(t, found)
 	assert.JSONEq(t, `{"key":"value"}`, string(result))
 }
 
@@ -251,38 +247,29 @@ func TestIsJSONPointerV2(t *testing.T) {
 func TestBuildExecutionResultV2(t *testing.T) {
 	ctx := context.Background()
 
+	// 设计债清理：纯构造函数无出错路径，error 返回值已随签名收紧删除。
+
 	// nil response
-	result, err := buildExecutionResult(ctx, "req-1", nil)
-	require.NoError(t, err)
+	result := buildExecutionResult(ctx, "req-1", nil)
 	assert.Equal(t, spec.PageExecutionKindSync, result.Kind)
 	assert.Equal(t, "req-1", result.RequestID)
 
 	// empty requestID generates UUID
-	result, err = buildExecutionResult(ctx, "", nil)
-	require.NoError(t, err)
+	result = buildExecutionResult(ctx, "", nil)
 	assert.NotEmpty(t, result.RequestID)
 
 	// approval required
-	result, err = buildExecutionResult(ctx, "req-2", &function.FunctionInvokeResponse{ApprovalRequired: true, ApprovalID: "approval-1"})
-	require.NoError(t, err)
+	result = buildExecutionResult(ctx, "req-2", &function.FunctionInvokeResponse{ApprovalRequired: true, ApprovalID: "approval-1"})
 	assert.Equal(t, spec.PageExecutionKindApproval, result.Kind)
 	assert.Equal(t, "approval-1", result.ApprovalID)
 
-	// task response
-	result, err = buildExecutionResult(ctx, "req-3", &function.FunctionInvokeResponse{TaskID: "task-1"})
-	require.NoError(t, err)
+	// task response（TaskID 双字段已删，仅剩 TaskId）
+	result = buildExecutionResult(ctx, "req-3", &function.FunctionInvokeResponse{TaskId: "task-1"})
 	assert.Equal(t, spec.PageExecutionKindTask, result.Kind)
 	assert.Equal(t, "task-1", result.TaskID)
 
-	// TaskId (lowercase) response
-	result, err = buildExecutionResult(ctx, "req-4", &function.FunctionInvokeResponse{TaskId: "task-2"})
-	require.NoError(t, err)
-	assert.Equal(t, spec.PageExecutionKindTask, result.Kind)
-	assert.Equal(t, "task-2", result.TaskID)
-
 	// sync result
-	result, err = buildExecutionResult(ctx, "req-5", &function.FunctionInvokeResponse{Result: json.RawMessage(`{"ok":true}`)})
-	require.NoError(t, err)
+	result = buildExecutionResult(ctx, "req-5", &function.FunctionInvokeResponse{Result: json.RawMessage(`{"ok":true}`)})
 	assert.Equal(t, spec.PageExecutionKindSync, result.Kind)
 	assert.JSONEq(t, `{"ok":true}`, string(result.Data))
 }

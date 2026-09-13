@@ -114,16 +114,14 @@ func TestUpsertRegistrationWarningMergesMissingFieldsV10(t *testing.T) {
 	ctx := context.Background()
 
 	// 首次入库：AgentID/FunctionID/Version 均缺失
-	require.NoError(t, s.UpsertRegistrationWarning(ctx, FunctionRegistrationWarning{
-		Key:     "merge-key",
+	s.UpsertRegistrationWarning(ctx, FunctionRegistrationWarning{Key: "merge-key",
 		GameID:  "g",
 		Env:     "e",
 		Code:    "schema_mismatch",
 		Message: "boom",
-	}))
+	})
 	// 同 key 再来一条补齐这些字段 → 合并进已有条目并累加计数
-	require.NoError(t, s.UpsertRegistrationWarning(ctx, FunctionRegistrationWarning{
-		Key:        "merge-key",
+	s.UpsertRegistrationWarning(ctx, FunctionRegistrationWarning{Key: "merge-key",
 		GameID:     "g",
 		Env:        "e",
 		Code:       "schema_mismatch",
@@ -131,7 +129,7 @@ func TestUpsertRegistrationWarningMergesMissingFieldsV10(t *testing.T) {
 		AgentID:    "agent-x",
 		FunctionID: "fn-x",
 		Version:    "1.2.3",
-	}))
+	})
 
 	items := s.ListRegistrationWarnings(RegistrationWarningFilter{GameID: "g"})
 	require.Len(t, items, 1)

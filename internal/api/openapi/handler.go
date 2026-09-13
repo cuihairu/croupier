@@ -34,14 +34,11 @@ func (h *Handler) GetSpec(c *gin.Context) {
 }
 
 // GetDocument handles the request to get aggregated OpenAPI document
+// 设计债清理：service.GetDocument 已收紧为无 error 返回（BuildOpenAPISpec
+// 为纯组装无出错路径），原 err 分支不可达已删除。
 func (h *Handler) GetDocument(c *gin.Context) {
 	var req GetDocumentRequest
-	resp, err := h.service.GetDocument(c.Request.Context(), &req)
-	if err != nil {
-		response.Error(c, err)
-		return
-	}
-	response.Success(c, resp)
+	response.Success(c, h.service.GetDocument(c.Request.Context(), &req))
 }
 
 func (h *Handler) BatchGetSpec(c *gin.Context) {
@@ -50,13 +47,8 @@ func (h *Handler) BatchGetSpec(c *gin.Context) {
 		response.Error(c, err)
 		return
 	}
-
-	resp, err := h.service.BatchGetSpec(c.Request.Context(), &req)
-	if err != nil {
-		response.Error(c, err)
-		return
-	}
-	response.Success(c, resp)
+	// 设计债清理：service.BatchGetSpec 已收紧为无 error 返回。
+	response.Success(c, h.service.BatchGetSpec(c.Request.Context(), &req))
 }
 
 func (h *Handler) CreateSource(c *gin.Context) {

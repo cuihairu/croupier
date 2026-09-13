@@ -232,9 +232,9 @@ func TestService_Logout_Success(t *testing.T) {
 	db := setupTestDB(t)
 	service := NewService(model.NewAdminModel(db), permissionservice.NewPermissionService(db), "test-secret-key")
 
-	resp, err := service.Logout(context.Background(), &LogoutRequest{})
+	// Logout 已收紧签名（实现无出错路径），不再返回 error。
+	resp := service.Logout(context.Background(), &LogoutRequest{})
 
-	assert.NoError(t, err)
 	assert.NotNil(t, resp)
 }
 

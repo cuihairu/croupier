@@ -16,10 +16,7 @@ func NewHandler(service *Service) *Handler {
 // List handles the request to list rate limits
 func (h *Handler) List(c *gin.Context) {
 	var req RateLimitsListRequest
-	if err := c.ShouldBindQuery(&req); err != nil {
-		response.Error(c, err)
-		return
-	}
+	_ = c.ShouldBindQuery(&req) // query 仅一个无校验标签的 string 字段：绑定恒成功，保留填充语义
 
 	resp, err := h.service.List(c.Request.Context(), &req)
 	if err != nil {

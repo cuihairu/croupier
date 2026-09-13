@@ -435,8 +435,7 @@ func TestFunctionModel_ListFiltersAndBatchOps(t *testing.T) {
 
 	// Copy a distinct function to avoid same-second unique-ID collisions.
 	require.NoError(t, m.Create(ctx, &Function{FunctionID: "f2", Name: "second", Resource: "item", GameID: "demo"}))
-	batchCopiedCount, _, batchCopiedIDs, err := m.BatchCopyFunctions(ctx, []string{"f2"})
-	require.NoError(t, err)
+	batchCopiedCount, _, batchCopiedIDs := m.BatchCopyFunctions(ctx, []string{"f2"})
 	assert.Equal(t, 1, batchCopiedCount)
 	assert.NotEmpty(t, batchCopiedIDs)
 }

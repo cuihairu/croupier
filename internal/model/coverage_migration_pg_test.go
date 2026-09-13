@@ -136,6 +136,27 @@ func TestAutoMigrateScriptedPostgresLoopExhausted(t *testing.T) {
 	assert.Contains(t, err.Error(), "uni_functions_function_id")
 }
 
+// 设计债回归（AutoMigrate 兜底重试不可达已删除）：循环耗尽必然
+// lastErr 非 nil，直接返回 lastErr，不得再执行循环外的第 6 次
+// autoMigrateAllModels 兜底重试。脚本预置 6 项可自愈错误：前 5 项
+// 供循环耗尽，第 6 项是哨兵——若兜底重试仍存在会被消费，断言其
+// 必须残留。
+func TestAutoMigrateScriptedPostgresLoopExhaustedSkipsFallbackRetry(t *testing.T) {
+	script := make([]error, 6)
+	for i := range script {
+		script[i] = pgConstraintMissingErr()
+	}
+	db := newMigrationTestDB(t)
+	mig := &scriptPostgresMigrator{Migrator: db.Migrator(), autoMigrateScript: script}
+	db.Dialector = &scriptPostgresDialector{Dialector: db.Dialector, mig: mig}
+
+	err := AutoMigrate(db)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "uni_functions_function_id")
+	assert.Len(t, mig.autoMigrateScript, 1,
+		"循环耗尽后必须直接返回 lastErr，禁止第 6 次 AutoMigrate 兜底重试")
+}
+
 // AutoMigrate：enum 列类型置换失败（UNIQUE 列不可 DROP）在进入 postgres
 // 主循环之前就返回。
 func TestAutoMigrateEnumSwapFailurePropagatesEarly(t *testing.T) {

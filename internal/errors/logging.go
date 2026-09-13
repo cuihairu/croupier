@@ -251,10 +251,10 @@ func (dmc *DefaultMetricsCollector) ToJSON() []byte {
 		"timestamp":         time.Now(),
 	}
 
-	data, err := json.MarshalIndent(metrics, "", "  ")
-	if err != nil {
-		return []byte("{}")
-	}
+	// metrics 的各字段均为 encoding/json 原生支持的类型
+	// （map[string]int64、map[ErrorCode]int64、map[...]time.Duration、
+	// time.Time；ErrorCode 为 string 底层），MarshalIndent 恒成功，无错误路径。
+	data, _ := json.MarshalIndent(metrics, "", "  ")
 	return data
 }
 

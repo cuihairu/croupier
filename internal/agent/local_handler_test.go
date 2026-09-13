@@ -1055,6 +1055,28 @@ func TestLocalHandler_PickInstance_WithInstances(t *testing.T) {
 	assert.Equal(t, "localhost:8080", addr)
 }
 
+func TestLocalHandler_PickInstance_StaleFallback(t *testing.T) {
+	store := agentlocal.NewLocalStore()
+	handler := &LocalHandler{
+		store:  store,
+		logger: slog.Default(),
+	}
+
+	// Register 恒写新鲜 LastSeen，测试通过把健康窗口注入为负值，让所有
+	// 实例都判为 stale，覆盖「降级：返回第一个实例」分支。
+	orig := instanceHealthyWindow
+	instanceHealthyWindow = -time.Second
+	defer func() { instanceHealthyWindow = orig }()
+
+	store.Register("provider-1", "service-1", "localhost:8080", "1.0.0", []*sdkv1.ProviderFunctionDescriptor{
+		{Id: "game.stale.get", Version: "1.0.0"},
+	}, nil)
+
+	addr, err := handler.pickInstance("game.stale.get", nil)
+	assert.NoError(t, err)
+	assert.Equal(t, "localhost:8080", addr)
+}
+
 // --- Tests for handleGetSystemInfo with ops server ---
 
 func TestLocalHandler_HandleGetSystemInfo_WithOps(t *testing.T) {

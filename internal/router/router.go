@@ -1,8 +1,6 @@
 package router
 
 import (
-	"context"
-
 	adminapi "github.com/cuihairu/croupier/internal/api/admin"
 	"github.com/cuihairu/croupier/internal/api/auth"
 	configapi "github.com/cuihairu/croupier/internal/api/config"
@@ -132,9 +130,13 @@ func registerAuthenticatedRoutes(api *gin.RouterGroup, db *gorm.DB, cfg *config.
 		slog.Default().Warn("audit store init failed, function.contract_updated audit disabled", "error", auditErr)
 	}
 	registryStore.SetContractService(contractService)
-	registryStore.SetScopeContextResolver(func(gameID, env string) context.Context {
-		return svc.WithGameScope(context.Background(), svc.GameScope{GameID: gameID, Env: env})
-	})
+	// 设计债清理：原此处调用 SetScopeContextResolver 注入 game-scope resolver，
+	// 但该 resolver 仅在 registry store 的 agent 注册（UpsertAgent）与启动恢复
+	// （LoadFromDBFiltered）路径触发（internal/platform/registry/store.go 的
+	// rebuildContext），这两个入口全仓仅 internal/server/control_handler.go（TCP
+	// 控制面，持有独立的 store 实例）调用；router HTTP 栈无注册/恢复路径，
+	// resolver 永不被执行，删除后行为等价（store.scopeContext 为 nil 时
+	// rebuildContext 自带 defaultScopeContext 兜底）。
 
 	svcCtx := &svc.ServiceContext{
 		DB:                        db,

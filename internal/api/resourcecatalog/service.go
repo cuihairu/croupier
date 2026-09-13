@@ -381,9 +381,8 @@ func (s *Service) UpdateSemantics(ctx context.Context, req *UpdateSemanticsReque
 		provenance[field] = provenanceRecord(field, spec.SemanticSourcePlatformReview, sourceDigest, rawJSONString(value), "high", "effective", actor)
 	}
 	trackUint := func(field string, value uint) {
-		if value == 0 {
-			return
-		}
+		// 唯一调用方均在 req.XXX > 0 守卫内传入 req.XXX，value 恒非 0，
+		// 零值守卫分支为死代码，已删除。
 		changedFields = append(changedFields, field)
 		provenance[field] = provenanceRecord(field, spec.SemanticSourcePlatformReview, sourceDigest, rawJSONUint(value), "high", "effective", actor)
 	}
@@ -429,10 +428,9 @@ func (s *Service) UpdateSemantics(ctx context.Context, req *UpdateSemanticsReque
 		if err != nil {
 			return nil, err
 		}
-		raw, err := json.Marshal(actions)
-		if err != nil {
-			return nil, fmt.Errorf("marshal actions: %w", err)
-		}
+		// actions 为纯 string/结构体字段组成的 []spec.ActionSemantic，Marshal 恒成功，
+		// err 分支为死代码，已删除。
+		raw, _ := json.Marshal(actions)
 		semantics.Actions = model.JSON(raw)
 		changedFields = append(changedFields, "actions")
 		provenance["actions"] = provenanceRecord("actions", spec.SemanticSourcePlatformReview, sourceDigest, json.RawMessage(raw), "high", "effective", actor)
@@ -442,10 +440,9 @@ func (s *Service) UpdateSemantics(ctx context.Context, req *UpdateSemanticsReque
 		if err != nil {
 			return nil, err
 		}
-		raw, err := json.Marshal(tasks)
-		if err != nil {
-			return nil, fmt.Errorf("marshal tasks: %w", err)
-		}
+		// tasks 为纯 string/结构体字段组成的 []spec.TaskSemantic，Marshal 恒成功，
+		// err 分支为死代码，已删除。
+		raw, _ := json.Marshal(tasks)
 		semantics.Tasks = model.JSON(raw)
 		changedFields = append(changedFields, "tasks")
 		provenance["tasks"] = provenanceRecord("tasks", spec.SemanticSourcePlatformReview, sourceDigest, json.RawMessage(raw), "high", "effective", actor)
@@ -455,10 +452,9 @@ func (s *Service) UpdateSemantics(ctx context.Context, req *UpdateSemanticsReque
 		if err != nil {
 			return nil, err
 		}
-		raw, err := json.Marshal(reports)
-		if err != nil {
-			return nil, fmt.Errorf("marshal reports: %w", err)
-		}
+		// reports 为纯 string 字段组成的 []spec.ReportSemantic，Marshal 恒成功，
+		// err 分支为死代码，已删除。
+		raw, _ := json.Marshal(reports)
 		semantics.Reports = model.JSON(raw)
 		changedFields = append(changedFields, "reports")
 		provenance["reports"] = provenanceRecord("reports", spec.SemanticSourcePlatformReview, sourceDigest, json.RawMessage(raw), "high", "effective", actor)
@@ -509,10 +505,10 @@ func (s *Service) UpdateSemantics(ctx context.Context, req *UpdateSemanticsReque
 	semantics.Source = "platform_review"
 	semantics.UpdatedBy = actor
 	if len(provenance) > 0 {
-		raw, err := json.Marshal(provenance)
-		if err != nil {
-			return nil, fmt.Errorf("marshal provenance: %w", err)
-		}
+		// provenance 的 RawMessage 值要么来自 Unmarshal 产物（已验证合法 JSON），
+		// 要么由 rawJSONString/rawJSONUint（strconv.Quote/FormatUint）构造，
+		// 均为合法 JSON 片段，Marshal 恒成功，err 分支为死代码，已删除。
+		raw, _ := json.Marshal(provenance)
 		semantics.Provenance = raw
 	}
 
@@ -903,18 +899,14 @@ func (s *Service) validateReportSemantics(
 		}
 		report.Dimensions = dimensions
 		report.Metrics = metrics
+		// validateJSONPointerList 已保证每个指针非空且以 "/" 开头（见其内部校验），
+		// 下述 HasPrefix 前缀分支恒假，已删除；仅保留 schema 存在性检查。
 		for _, pointer := range report.Dimensions {
-			if !strings.HasPrefix(pointer, "/") {
-				return nil, fmt.Errorf("invalid reports[%d]: dataset field pointer %s must be relative to dataset item and start with /", index, pointer)
-			}
 			if !schemaObjectHasPointer(datasetItemSchema, pointer) {
 				return nil, fmt.Errorf("invalid reports[%d].dimensions: pointer %s not found in dataset item schema", index, pointer)
 			}
 		}
 		for _, pointer := range report.Metrics {
-			if !strings.HasPrefix(pointer, "/") {
-				return nil, fmt.Errorf("invalid reports[%d]: dataset field pointer %s must be relative to dataset item and start with /", index, pointer)
-			}
 			if !schemaObjectHasPointer(datasetItemSchema, pointer) {
 				return nil, fmt.Errorf("invalid reports[%d].metrics: pointer %s not found in dataset item schema", index, pointer)
 			}
@@ -1414,10 +1406,8 @@ func humanizeResourceKey(key string) string {
 	parts := strings.FieldsFunc(key, func(r rune) bool {
 		return r == '.' || r == '_' || r == '-'
 	})
+	// strings.FieldsFunc 不产生空片段（连续分隔符被跳过），空片段分支为死代码，已删除。
 	for i := range parts {
-		if parts[i] == "" {
-			continue
-		}
 		parts[i] = strings.ToUpper(parts[i][:1]) + parts[i][1:]
 	}
 	return strings.Join(parts, " ")

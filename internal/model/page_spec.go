@@ -53,11 +53,10 @@ func (p *PageSpec) GetTitle() map[string]string {
 }
 
 // SetTitle sets the title from LocalizedText.
+// map[string]string 的 json.Marshal 恒成功、无出错路径；error 返回值仅为
+// 保持既有调用方签名兼容而保留，恒返回 nil。
 func (p *PageSpec) SetTitle(title map[string]string) error {
-	b, err := json.Marshal(title)
-	if err != nil {
-		return err
-	}
+	b, _ := json.Marshal(title)
 	p.TitleJSON = string(b)
 	return nil
 }
@@ -72,11 +71,10 @@ func (p *PageSpec) GetCategoryLabels() map[string]string {
 }
 
 // SetCategoryLabels sets the category labels.
+// map[string]string 的 json.Marshal 恒成功、无出错路径；error 返回值仅为
+// 保持既有调用方签名兼容而保留，恒返回 nil。
 func (p *PageSpec) SetCategoryLabels(labels map[string]string) error {
-	b, err := json.Marshal(labels)
-	if err != nil {
-		return err
-	}
+	b, _ := json.Marshal(labels)
 	p.CategoryLabelsJSON = string(b)
 	return nil
 }

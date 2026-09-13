@@ -135,11 +135,10 @@ func FromInstance(i *WorkflowInstance) (*WorkflowInstanceModel, error) {
 
 	var historyJSON []byte
 	if i.History != nil {
-		var err error
-		historyJSON, err = json.Marshal(i.History)
-		if err != nil {
-			return nil, err
-		}
+		// []WorkflowHistoryEntry 为 time/string 字段结构体，Marshal 恒成功，
+		// err 分支为死代码已删（上方 Context 为 map[string]interface{}，
+		// 调用方可放入不可序列化值，err 路径可达需保留）。
+		historyJSON, _ = json.Marshal(i.History)
 	}
 
 	return &WorkflowInstanceModel{
@@ -257,13 +256,13 @@ func (m *DelegationModel) ToDelegation() (*Delegation, error) {
 
 // FromDelegation creates model from domain type
 func FromDelegation(d *Delegation) (*DelegationModel, error) {
-	permissions, err := json.Marshal(d.Permissions)
-	if err != nil {
-		return nil, err
-	}
+	// []DelegationPermission 为 string 类型别名切片，Marshal 恒成功，
+	// err 分支为死代码已删（下方 Constraints 含 map[string]interface{} 字段，err 路径可达需保留）。
+	permissions, _ := json.Marshal(d.Permissions)
 
 	var constraints []byte
 	if d.Constraints != nil {
+		var err error
 		constraints, err = json.Marshal(d.Constraints)
 		if err != nil {
 			return nil, err

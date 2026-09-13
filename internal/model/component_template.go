@@ -65,10 +65,9 @@ func ComputeTemplateDigest(tree JSON) string {
 	if err := json.Unmarshal(tree, &value); err != nil {
 		return ""
 	}
-	raw, err := json.Marshal(value)
-	if err != nil {
-		return ""
-	}
+	// value 是 json.Unmarshal 的产物，仅含 JSON 基础类型
+	//（float64/string/bool/nil/map/slice），对其 Marshal 恒成功，err 分支为死代码已删。
+	raw, _ := json.Marshal(value)
 	sum := sha256.Sum256(raw)
 	return hex.EncodeToString(sum[:])
 }

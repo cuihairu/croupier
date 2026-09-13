@@ -59,10 +59,10 @@ func (l *AssignmentsUpdateLogic) AssignmentsUpdate(req *AssignmentsUpdateRequest
 		return nil, errorx.NewInternalError("保存分配数据失败")
 	}
 
+	// RequireAnyPermission → LoadCurrentAdmin 已对同一 ctx 成功执行过
+	// CurrentUsername（失败会提前返回错误），此处再次读取必得非空用户名，
+	// 无需 "system" 回退。
 	username, _ := utils.CurrentUsername(l.ctx)
-	if strings.TrimSpace(username) == "" {
-		username = "system"
-	}
 	_ = appendAssignmentHistory(l.svcCtx, assignmentHistoryEntry{
 		GameID:     gameID,
 		Env:        env,

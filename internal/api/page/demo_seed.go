@@ -96,7 +96,7 @@ func (s *demoDataSeeder) seedRegistrationWarnings() {
 	}
 	now := time.Now()
 	for _, w := range demoWarnings {
-		_ = s.svc.svcCtx.RegistryStore.UpsertRegistrationWarning(context.Background(), registry.FunctionRegistrationWarning{
+		s.svc.svcCtx.RegistryStore.UpsertRegistrationWarning(context.Background(), registry.FunctionRegistrationWarning{
 			GameID:     s.gameID,
 			Env:        s.env,
 			AgentID:    w.AgentID,

@@ -27,10 +27,9 @@ func HumanizeKey(key string) string {
 	for _, field := range fields {
 		words = append(words, splitCamelWord(field)...)
 	}
+	// FieldsFunc 不产生空片段，splitCamelWord 对非空输入的切片亦均非空
+	// （切点满足 start<i<=len），故空词分支为死代码，已删除。
 	for i, word := range words {
-		if word == "" {
-			continue
-		}
 		words[i] = strings.ToUpper(word[:1]) + word[1:]
 	}
 	return strings.Join(words, " ")

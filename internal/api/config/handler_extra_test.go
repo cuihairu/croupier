@@ -283,13 +283,10 @@ func TestService_SaveConfig_EmptyID(t *testing.T) {
 func TestService_ValidateConfig(t *testing.T) {
 	_, service := setupConfigTestDB(t)
 
-	resp, err := service.ValidateConfig(t.Context(), "test", &ValidateConfigRequest{
+	resp := service.ValidateConfig(&ValidateConfigRequest{
 		Format:  "json",
 		Content: `{"a":1}`,
 	})
-	if err != nil {
-		t.Fatalf("ValidateConfig: %v", err)
-	}
 	if !resp.Valid {
 		t.Errorf("expected valid, errors: %v", resp.Errors)
 	}
@@ -298,13 +295,10 @@ func TestService_ValidateConfig(t *testing.T) {
 func TestService_ValidateConfig_InvalidJSON(t *testing.T) {
 	_, service := setupConfigTestDB(t)
 
-	resp, err := service.ValidateConfig(t.Context(), "test", &ValidateConfigRequest{
+	resp := service.ValidateConfig(&ValidateConfigRequest{
 		Format:  "json",
 		Content: `{bad}`,
 	})
-	if err != nil {
-		t.Fatalf("ValidateConfig: %v", err)
-	}
 	if resp.Valid {
 		t.Error("expected invalid")
 	}
@@ -313,9 +307,11 @@ func TestService_ValidateConfig_InvalidJSON(t *testing.T) {
 func TestService_ValidateConfig_NilRequest(t *testing.T) {
 	_, service := setupConfigTestDB(t)
 
-	_, err := service.ValidateConfig(t.Context(), "test", nil)
-	if err == nil {
-		t.Fatal("expected error for nil request")
+	// 设计债清理后 req==nil 降级为空内容校验：空 format 走 json 分支，
+	// json.Unmarshal("") 失败 → Valid=false（不再返回 error）。
+	resp := service.ValidateConfig(nil)
+	if resp.Valid {
+		t.Error("expected invalid for nil request (empty content)")
 	}
 }
 
@@ -376,14 +372,12 @@ func TestHandler_Validate_ServiceError(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	handler, _ := setupConfigTestDB(t)
 
-	// ValidateConfig with nil request triggers error
-	// We can trigger this by sending empty body with POST
+	// 设计债清理：ValidateConfig 已收紧为无 error 返回（校验失败以 Valid=false 表达），
+	// handler 侧不再存在 err 分支，unsupported format 走 200 + valid:false。
 	ctx, rec := newConfigTestContext(http.MethodPost, "/api/v1/configs/test/validate", `{"format":"unsupported","content":"data"}`)
 	ctx.Params = gin.Params{{Key: "id", Value: "test"}}
 	handler.Validate(ctx)
 
-	// Should succeed (returns valid:false) because ValidateConfig doesn't return error for unsupported format
-	// The error path (line 94-97) is only hit if ValidateConfig returns an error, which it doesn't normally
 	if rec.Code != http.StatusOK {
 		t.Logf("Validate with unsupported format: status=%d body=%s", rec.Code, rec.Body.String())
 	}

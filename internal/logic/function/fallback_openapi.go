@@ -54,9 +54,16 @@ func BuildFallbackOpenAPIOperation(functionID string) *openapi3.Operation {
 	return op
 }
 
+// BuildFallbackInputJSONSchema 返回兜底输入 JSON Schema。
+// functionID 参数仅为保持既有 API 形状保留，schema 内容与具体函数无关。
 func BuildFallbackInputJSONSchema(functionID string) map[string]interface{} {
-	fields := fallbackFields()
+	return buildFallbackInputSchema(fallbackFields())
+}
 
+// buildFallbackInputSchema 将字段清单投影为 JSON Schema map。抽出为独立
+// helper 是为了让 required 追加分支可被单测直接注入合成字段驱动（生产
+// 数据源 fallbackFields 当前全部字段 Required=false）。
+func buildFallbackInputSchema(fields []fallbackField) map[string]interface{} {
 	properties := map[string]interface{}{}
 	required := make([]string, 0, len(fields))
 	for _, field := range fields {
@@ -118,6 +125,8 @@ func inferFallbackResourceAction(functionID string) (string, string) {
 	if len(parts) == 1 {
 		return sanitizeFallbackToken(parts[0]), "invoke"
 	}
+	// 不可达：len(parts) 为非负整数，0/1/2/≥3 已被上方全部分支覆盖。
+	// Go 要求带返回值函数的所有控制路径显式返回，此兜底必须保留。
 	return "function", "invoke"
 }
 

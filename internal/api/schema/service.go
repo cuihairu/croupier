@@ -127,10 +127,10 @@ func (s *Service) RawValidate(ctx context.Context, req *RawValidateRequest) (*Ra
 		return nil, err
 	}
 
-	valid, issues, err := validatePayloadAgainst(req.Schema, req.Data)
-	if err != nil {
-		return nil, err
-	}
+	// 上方 validateSchemaDefinition 已对同一 schema 用全新 Compiler 完成相同的
+	// AddResource+Compile 且成功；此处第二次执行相同操作不可能产生不同结果
+	//（AddResource/Compile 均无副作用依赖），err 恒 nil，原分支为死代码，已删除。
+	valid, issues, _ := validatePayloadAgainst(req.Schema, req.Data)
 
 	return &RawValidateResponse{
 		Valid:  valid,

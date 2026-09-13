@@ -40,10 +40,9 @@ func (s *Service) MFASetup(ctx context.Context, username string) (*MFASetupRespo
 	if admin.OTPEnabled {
 		return &MFASetupResponse{AlreadyDone: true}, nil
 	}
-	secret, err := otp.GenerateSecret()
-	if err != nil {
-		return nil, fmt.Errorf("生成密钥失败: %w", err)
-	}
+	// otp.GenerateSecret 的唯一 error 来源是 crypto/rand.Read，Go 1.24 起永
+	// 不返回错误（失败即进程内 fatal），error 分支不可达，已删除。
+	secret, _ := otp.GenerateSecret()
 	if err := s.adminModel.SetOTPSecret(ctx, admin.ID, secret); err != nil {
 		return nil, fmt.Errorf("保存密钥失败: %w", err)
 	}
@@ -128,11 +127,12 @@ type MFAStatusResponse struct {
 }
 
 // MFAStatus 查询当前登录账号的两步验证状态。
-func (s *Service) MFAStatus(ctx context.Context, username string) (*MFAStatusResponse, error) {
+// 实现无出错路径（账号缺失即返回未启用状态），已收紧签名去掉 error 返回。
+func (s *Service) MFAStatus(ctx context.Context, username string) *MFAStatusResponse {
 	admin, err := s.adminModel.FindByUsername(ctx, username)
 	if err != nil || admin == nil {
-		return &MFAStatusResponse{}, nil
+		return &MFAStatusResponse{}
 	}
 	local := admin.PasswordHash != ""
-	return &MFAStatusResponse{Enabled: local && admin.OTPEnabled, Local: local}, nil
+	return &MFAStatusResponse{Enabled: local && admin.OTPEnabled, Local: local}
 }

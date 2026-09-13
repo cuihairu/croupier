@@ -125,10 +125,9 @@ func (m *MeshInterconnect) Forward(ctx context.Context, agentID string, req *For
 		return nil, fmt.Errorf("dial owner %s(%s): %w", owner.InstanceID, owner.AdvertiseAddr, err)
 	}
 
-	body, err := json.Marshal(req)
-	if err != nil {
-		return nil, err
-	}
+	// ForwardedInvoke 全部字段为 string/[]byte/map[string]string/bool/uint64
+	// 基础类型，Marshal 恒成功，err 分支为死代码，已删除。
+	body, _ := json.Marshal(req)
 	respBody, err := conn.send(ctx, protocol.MsgForwardInvokeReq, body)
 	if err != nil {
 		m.dropConn(owner.InstanceID)
@@ -217,10 +216,9 @@ func ServeForwardHandler(selfEpoch uint64, localInvoke func(ctx context.Context,
 }
 
 func marshalResult(r *ForwardedResult) []byte {
-	b, err := json.Marshal(r)
-	if err != nil {
-		return []byte(`{"ok":false,"error":"marshal"}`)
-	}
+	// ForwardedResult 全部字段为 bool/string/[]byte 基础类型，Marshal 恒成功，
+	// err 回退分支为死代码，已删除。
+	b, _ := json.Marshal(r)
 	return b
 }
 

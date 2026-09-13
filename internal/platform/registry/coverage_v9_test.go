@@ -24,13 +24,12 @@ func TestRegistrationWarningLifecycleV9(t *testing.T) {
 	s := NewStore()
 
 	for _, key := range []string{"k1", "k2", "k3"} {
-		require.NoError(t, s.UpsertRegistrationWarning(ctx, FunctionRegistrationWarning{
-			Key:     key,
+		s.UpsertRegistrationWarning(ctx, FunctionRegistrationWarning{Key: key,
 			GameID:  "g",
 			Env:     "e",
 			AgentID: "a",
 			Message: "m-" + key,
-		}))
+		})
 	}
 
 	// Delete single warning.
@@ -370,17 +369,13 @@ func TestRegistrationWarningMapGuardsV9(t *testing.T) {
 
 	t.Run("nil warning map initialized lazily", func(t *testing.T) {
 		s := &Store{}
-		require.NoError(t, s.UpsertRegistrationWarning(ctx, FunctionRegistrationWarning{Key: "k", Message: "m"}))
+		s.UpsertRegistrationWarning(ctx, FunctionRegistrationWarning{Key: "k", Message: "m"})
 		require.Len(t, s.ListRegistrationWarnings(RegistrationWarningFilter{}), 1)
 	})
 
 	s := NewStore()
-	require.NoError(t, s.UpsertRegistrationWarning(ctx, FunctionRegistrationWarning{
-		Key: "w1", GameID: "g1", Env: "e1", AgentID: "a1", FunctionID: "f1", Code: "c1", Message: "m",
-	}))
-	require.NoError(t, s.UpsertRegistrationWarning(ctx, FunctionRegistrationWarning{
-		Key: "w2", GameID: "g2", Env: "e2", AgentID: "a2", FunctionID: "f2", Code: "c2", Message: "m",
-	}))
+	s.UpsertRegistrationWarning(ctx, FunctionRegistrationWarning{Key: "w1", GameID: "g1", Env: "e1", AgentID: "a1", FunctionID: "f1", Code: "c1", Message: "m"})
+	s.UpsertRegistrationWarning(ctx, FunctionRegistrationWarning{Key: "w2", GameID: "g2", Env: "e2", AgentID: "a2", FunctionID: "f2", Code: "c2", Message: "m"})
 	s.registrationWarnings["nil-item"] = nil
 
 	// 每个过滤器字段的不匹配分支 + nil 条目跳过。

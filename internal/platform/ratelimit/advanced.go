@@ -153,10 +153,10 @@ func (sw *SlidingWindowLimiter) AllowN(ctx context.Context, key string, n int) (
 		result.RetryAfter = sw.windowSize - now.Sub(windowStart)
 		if len(window.timestamps) > 0 {
 			oldest := window.timestamps[0]
+			// 上方清理循环保证窗口内所有时间戳均晚于 now-windowSize，
+			// 故 oldest+windowSize 恒大于 now，差值恒为正——
+			// 负值钳制分支恒假，为死代码已删。
 			result.RetryAfter = oldest.Add(sw.windowSize).Sub(now)
-			if result.RetryAfter < 0 {
-				result.RetryAfter = 0
-			}
 		}
 	}
 

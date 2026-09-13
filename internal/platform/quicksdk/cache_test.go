@@ -115,3 +115,47 @@ func TestCache_Cleanup(t *testing.T) {
 
 	c.Close()
 }
+
+func TestCache_CleanupTickerRemovesExpired(t *testing.T) {
+	// 真正走 cleanup() 的 ticker 分支（区别于上方手动模拟的 TestCache_Cleanup）：
+	// 生产 ticker 周期为 1 分钟，此处经 cleanupInterval 注入口缩短为毫秒级，
+	// 验证后台循环会把过期项从 items 物理删除。
+	c := &cache{
+		items:           make(map[string]*cacheItem),
+		ttl:             30 * time.Millisecond,
+		done:            make(chan struct{}),
+		cleanupInterval: 10 * time.Millisecond,
+	}
+	// newCache 会启动 cleanup goroutine，此处手动构造 struct 故需自行启动。
+	go c.cleanup()
+	defer c.Close()
+
+	c.Set("expired", &Response{Status: true})
+	// 手动塞入未过期项，验证 ticker 循环只删过期项、不误删存活项。
+	c.mu.Lock()
+	c.items["not-expired"] = &cacheItem{value: &Response{Status: true}, expireAt: time.Now().Add(time.Hour)}
+	c.mu.Unlock()
+
+	// 轮询等待 ticker 至少触发一轮：过期项必须从 items map 物理消失
+	//（Get 的惰性过期路径不触碰 items，物理消失只能由 ticker 分支造成）。
+	deadline := time.Now().Add(3 * time.Second)
+	for {
+		c.mu.RLock()
+		_, expiredGone := c.items["expired"]
+		c.mu.RUnlock()
+		if !expiredGone {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("expired item was not removed by cleanup ticker within deadline")
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+
+	c.mu.RLock()
+	_, stillThere := c.items["not-expired"]
+	c.mu.RUnlock()
+	if !stillThere {
+		t.Error("cleanup ticker must not remove items that have not expired")
+	}
+}

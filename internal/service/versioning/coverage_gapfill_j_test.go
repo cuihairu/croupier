@@ -81,13 +81,14 @@ func versioningMatchTable(tx *gorm.DB, table string) bool {
 	return tx.Statement.Table == table
 }
 
-// 不可达论证（L130/L670/L731，contractsForPage 错误传播）：
-// contractsForPage 对 FindByScopeAndFunctionID 的任意错误 continue 容错
-// （service.go L626-628），唯一 return 路径的 error 恒为 nil，因此
+// 历史不可达论证（L130/L670/L731，contractsForPage 错误传播）已失效并修复：
+// contractsForPage 原先对 FindByScopeAndFunctionID 的任意错误 continue 容错，
+// 唯一 return 路径的 error 恒为 nil。设计债已定案修复——契约缺失
+// （ErrRecordNotFound）仍跳过，其他错误包装为 "load contract %s" 传播，
 // GetChangeChain / functionSpecsByID / regenerateStandaloneProposal 中
-// 对其错误的包装分支不可达。L700（proposalKey 为空）同样不可达：
-// mainContract 经非空 functionID 查得，proposalKeyForPage 对非空
-// functionID 恒返回非空 key。
+// 对其错误的包装分支现已可达（见 contracts_load_error_test.go）。
+// L700（proposalKey 为空）同样不可达：mainContract 经非空 functionID 查得，
+// proposalKeyForPage 对非空 functionID 恒返回非空 key。
 
 // L739: upsertGeneratedProposal 中 json.Marshal(PageSpec) 失败
 // （generated.PageSpec 携带无效 JSONSchema RawMessage）。

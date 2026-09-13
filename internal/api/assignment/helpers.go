@@ -73,10 +73,8 @@ func saveAssignments(path string, data map[string][]string) error {
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return err
 	}
-	bytes, err := json.MarshalIndent(data, "", "  ")
-	if err != nil {
-		return err
-	}
+	// data 为 map[string][]string，MarshalIndent 恒成功，error 分支不可达，已删除。
+	bytes, _ := json.MarshalIndent(data, "", "  ")
 	return fsutil.WriteFileAtomic(path, bytes, 0o644)
 }
 

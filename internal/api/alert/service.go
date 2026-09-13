@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"math"
 	"strconv"
 	"strings"
 
@@ -183,12 +182,11 @@ func (s *Service) SilenceDelete(ctx context.Context, req *SilenceDeleteRequest) 
 		return errors.New("请求体不能为空")
 	}
 
+	// 64 位平台 math.MaxUint == MaxUint64，ParseUint(_, 10, 64) 的结果不可能
+	// 超出 uint 范围，溢出检查分支恒假，已删除。
 	id, err := strconv.ParseUint(req.ID, 10, 64)
 	if err != nil {
 		return errors.New("静默ID格式不正确")
-	}
-	if id > math.MaxUint {
-		return errors.New("静默ID超出范围")
 	}
 
 	if err := s.svcCtx.AlertModel.DeleteSilence(ctx, uint(id)); err != nil {
@@ -251,10 +249,10 @@ func (s *Service) loadAlertingSilencesFromExtension(ctx context.Context) ([]Sile
 	if !exists || raw == nil {
 		return nil, false, nil
 	}
-	data, err := json.Marshal(raw)
-	if err != nil {
-		return nil, false, err
-	}
+	// raw 来自 json.Unmarshal(map[string]any) 的取值，值类型仅可能为 JSON
+	// 基础类型（nil/bool/float64/string/[]any/map[string]any），再 Marshal 恒
+	// 成功，error 分支不可达，已删除。
+	data, _ := json.Marshal(raw)
 	items := []Silence{}
 	if err := json.Unmarshal(data, &items); err != nil {
 		return nil, false, err

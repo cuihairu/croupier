@@ -317,9 +317,9 @@ func (m *HandlerManager) Handle(ctx context.Context, event ReloadEvent) error {
 			errors = append(errors, err)
 		}
 	case ReloadTypeAsset:
-		if err := m.assetHandler.Handle(ctx, event); err != nil {
-			errors = append(errors, err)
-		}
+		// AssetHandler.Handle 对所有输入均返回 nil（重载钩子失败只记日志、
+		// 不向上传播），此 case 不存在可聚合的错误。
+		_ = m.assetHandler.Handle(ctx, event)
 	default:
 		m.logger.Warn("Unknown reload type", "type", event.Type)
 	}

@@ -1,7 +1,6 @@
 package utils
 
 import (
-	"math"
 	"strconv"
 	"strings"
 
@@ -20,8 +19,8 @@ func ParseUintID(id, label string) (uint, error) {
 	if value == 0 {
 		return 0, errorx.NewBadRequest(label + "必须大于0")
 	}
-	if value > math.MaxUint {
-		return 0, errorx.NewBadRequest(label + "超出范围")
-	}
+	// 无需再检查 value > math.MaxUint：ParseUint(bitSize=64) 的成功结果上界
+	// 即 math.MaxUint64，而本项目目标平台（linux/amd64、linux/arm64 等 64
+	// 位平台）下 uint 为 64 位，MaxUint == MaxUint64，该比较恒假。
 	return uint(value), nil
 }

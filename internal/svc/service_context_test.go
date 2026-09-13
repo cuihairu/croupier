@@ -327,9 +327,9 @@ func TestGetAdminByUsernameCached(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "cacheduser", cachedAdmin2.Username)
 
-	// Test with empty username
+	// Test with empty username（设计债修复：空名返回 error 而非 (nil, nil)）
 	cachedAdmin3, err := ctx.GetAdminByUsernameCached(bg, "")
-	require.NoError(t, err)
+	require.Error(t, err)
 	assert.Nil(t, cachedAdmin3)
 }
 

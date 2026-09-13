@@ -250,7 +250,6 @@ type FunctionInvokeRequest struct {
 ```go
 type FunctionInvokeResponse struct {
 	TaskId           string      `json:"taskId"`
-	TaskID           string      `json:"taskID,omitempty"`
 	Result           JSONValue   `json:"result,omitempty"`
 	ApprovalID       string      `json:"approval_id,omitempty"`       // 审批请求 ID（当需要审批时返回）
 	ApprovalRequired bool        `json:"approval_required,omitempty"` // 是否需要审批

@@ -155,10 +155,11 @@ func (s *Service) fetchRemoteCertificate(domain string, port int) (*x509.Certifi
 	}
 	defer conn.Close()
 
+	// Go crypto/tls 客户端不支持任何匿名（无证书）套件：服务端返回空证书列表时
+	// 握手在 verifyServerCertificate 阶段即报 "server didn't provide a
+	// certificate" 失败，DialWithDialer 成功则 PeerCertificates 必非空，
+	// 空列表分支不可达，已删除。
 	peers := conn.ConnectionState().PeerCertificates
-	if len(peers) == 0 {
-		return nil, "", errorx.NewBadRequest(fmt.Sprintf("%s 未返回证书", address))
-	}
 	leaf := peers[0]
 	pemBytes := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: leaf.Raw})
 	return leaf, string(pemBytes), nil

@@ -80,10 +80,9 @@ func (r *Registry) ListByMode(ctx context.Context, mode functionv1.FunctionBehav
 
 // Filter retrieves functions by filter criteria.
 func (r *Registry) Filter(ctx context.Context, filter *functionv1.FunctionFilter) ([]*functionv1.FunctionMetadata, string, error) {
-	metadatas, err := r.store.Filter(ctx, filter)
-	if err != nil {
-		return nil, "", err
-	}
+	// store.Filter 为纯内存过滤：所有 return 路径（含各索引未命中时的空集
+	// 返回与 List 转发）均携带 nil error，此处不存在错误需要传播。
+	metadatas, _ := r.store.Filter(ctx, filter)
 
 	// Simple pagination - in production, use cursor-based pagination
 	nextPageToken := ""

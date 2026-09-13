@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -448,5 +449,58 @@ func TestReclaimPendingIdleClaimV9(t *testing.T) {
 	}).Result()
 	if len(pending) != 0 {
 		t.Errorf("pending should be drained after reclaim, got %d", len(pending))
+	}
+}
+
+// ---------------------------------------------------------------------------
+// NewWorker: invalid ClickHouse DSN
+// ---------------------------------------------------------------------------
+
+func TestNewWorkerBadClickHouseDSNV9(t *testing.T) {
+	t.Setenv("REDIS_URL", "redis://127.0.0.1:6379/0")
+	t.Setenv("CLICKHOUSE_DSN", "://missing-scheme")
+
+	_, err := NewWorker()
+	if err == nil {
+		t.Fatal("NewWorker must fail on unparseable CLICKHOUSE_DSN")
+	}
+	if !strings.Contains(err.Error(), "parse clickhouse dsn") {
+		t.Errorf("err = %v, want parse clickhouse dsn", err)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Run: periodic flush ticker + reclaim ticker + ctx.Done branches
+// ---------------------------------------------------------------------------
+
+func TestRunTickerAndCancelBranchesV9(t *testing.T) {
+	w, _ := testWorker(t)
+
+	origFlush, origReclaim := runFlushInterval, pendingReclaimInterval
+	runFlushInterval = 20 * time.Millisecond
+	pendingReclaimInterval = 20 * time.Millisecond
+	defer func() {
+		runFlushInterval = origFlush
+		pendingReclaimInterval = origReclaim
+	}()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan error, 1)
+	go func() { done <- w.Run(ctx) }()
+
+	// 20ms ticker 在 500ms 窗口内必然多次触发（Go ticker 首跳在 interval 后
+	// 语义上保证发生），覆盖 flush 与 reclaim 两个 ticker.C 分支。
+	time.Sleep(500 * time.Millisecond)
+	cancel()
+
+	// cancel 覆盖两个 goroutine 的 ctx.Done 分支；Run 主循环在 XReadGroup
+	// Block（2s）返回后以 ctx.Err() 退出。
+	select {
+	case err := <-done:
+		if err != context.Canceled {
+			t.Errorf("Run = %v, want context.Canceled", err)
+		}
+	case <-time.After(10 * time.Second):
+		t.Fatal("Run did not return after cancel")
 	}
 }

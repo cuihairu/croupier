@@ -141,9 +141,8 @@ func parseNamespaces(raw string) ([]string, error) {
 		seen[ns] = struct{}{}
 		out = append(out, ns)
 	}
-	if len(out) == 0 {
-		return nil, errorx.NewBadRequest("namespaces 不能为空")
-	}
+	// 设计债清理：能走到这里说明 Split 产物中至少一个 namespace 合法且首个必不被
+	// seen 去重（seen 初始为空），out 恒非空，原 len(out)==0 分支不可达已删除。
 	return out, nil
 }
 

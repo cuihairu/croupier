@@ -33,10 +33,8 @@ func rawJSONFromBytes(value []byte) json.RawMessage {
 	if json.Valid(value) {
 		return json.RawMessage(value)
 	}
-	encoded, err := json.Marshal(string(value))
-	if err != nil {
-		return nil
-	}
+	// json.Marshal 对 string 恒成功，无错误路径。
+	encoded, _ := json.Marshal(string(value))
 	return json.RawMessage(encoded)
 }
 

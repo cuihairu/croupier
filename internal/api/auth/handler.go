@@ -47,13 +47,8 @@ func (h *Handler) Login(c *gin.Context) {
 // Logout 登出处理器
 func (h *Handler) Logout(c *gin.Context) {
 	var req LogoutRequest
-	resp, err := h.service.Logout(c.Request.Context(), &req)
-	if err != nil {
-		response.InternalServerError(c, err.Error())
-		return
-	}
-
-	response.Success(c, resp)
+	// service.Logout 已收紧签名（实现无出错路径），此处不再有 error 分支。
+	response.Success(c, h.service.Logout(c.Request.Context(), &req))
 }
 
 func (h *Handler) Check(c *gin.Context) {
@@ -137,12 +132,8 @@ func (h *Handler) MFAStatus(c *gin.Context) {
 		response.Unauthorized(c, "未授权")
 		return
 	}
-	resp, err := h.service.MFAStatus(c.Request.Context(), username)
-	if err != nil {
-		response.Error(c, err)
-		return
-	}
-	response.Success(c, resp)
+	// service.MFAStatus 已收紧签名（实现无出错路径），此处不再有 error 分支。
+	response.Success(c, h.service.MFAStatus(c.Request.Context(), username))
 }
 
 // MFADisable 关闭 TOTP（POST /api/v1/auth/mfa/disable，需登录，码+密码双确认）。

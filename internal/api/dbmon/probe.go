@@ -53,6 +53,11 @@ type LockWait struct {
 	Query       string  `json:"query,omitempty"`
 }
 
+// openDB 是 sql.Open 的测试注入缝：生产恒为 sql.Open。driver 名被
+// driverName 钉死为已注册的真 driver（mysql/pgx），单测无法注册同名假
+// driver，只能经此缝注入 sqlmock 构造的 *sql.DB 以覆盖成功主路径。
+var openDB = sql.Open
+
 // Probe runs all checks against one source with a per-query timeout.
 func Probe(ctx context.Context, src *model.DBSource, dsn string) (*ProbeResult, error) {
 	if src == nil {
@@ -64,7 +69,7 @@ func Probe(ctx context.Context, src *model.DBSource, dsn string) (*ProbeResult, 
 		ProbedAt: time.Now(),
 	}
 	start := time.Now()
-	db, err := sql.Open(driverName(driver), dsn)
+	db, err := openDB(driverName(driver), dsn)
 	if err != nil {
 		res.Error = fmt.Sprintf("open: %v", err)
 		return res, nil

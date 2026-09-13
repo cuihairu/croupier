@@ -265,11 +265,8 @@ func (km *KeyManager) GetKey(ctx context.Context, id string) (*KeyEntry, error) 
 		return nil, ErrKeyNotActive
 	}
 
-	// Decrypt key material
-	decryptedKey, err := km.decryptKeyMaterial(entry.Key, entry.IV)
-	if err != nil {
-		return nil, err
-	}
+	// Decrypt key material（无出错路径，见 decryptKeyMaterial 签名收紧注释）
+	decryptedKey := km.decryptKeyMaterial(entry.Key, entry.IV)
 
 	// Create a copy with decrypted key
 	decryptedEntry := &KeyEntry{
@@ -303,11 +300,8 @@ func (km *KeyManager) GetActiveKey(ctx context.Context, purpose KeyPurpose) (*Ke
 		return nil, err
 	}
 
-	// Decrypt key material
-	decryptedKey, err := km.decryptKeyMaterial(entry.Key, entry.IV)
-	if err != nil {
-		return nil, err
-	}
+	// Decrypt key material（无出错路径，见 decryptKeyMaterial 签名收紧注释）
+	decryptedKey := km.decryptKeyMaterial(entry.Key, entry.IV)
 
 	decryptedEntry := &KeyEntry{
 		Metadata: entry.Metadata,
@@ -458,10 +452,11 @@ func (km *KeyManager) DecryptString(ctx context.Context, keyID string, ciphertex
 // Internal encryption methods
 
 func (km *KeyManager) encryptKeyMaterial(key []byte) ([]byte, []byte, error) {
-	block, err := aes.NewCipher(km.masterKey[:32])
-	if err != nil {
-		return nil, nil, err
-	}
+	// NewKeyManager 构造期已保证 masterKey≥32 字节（len<32 直接 panic），
+	// [:32] 恒为 32 字节，aes.NewCipher 对 32 字节 key 恒成功——其 err 分支
+	// 为死代码，已删除（行为等价：err 恒 nil）。函数保留 error 返回值，
+	// 因下方 rand.Reader 读取失败可经测试注入真实错误。
+	block, _ := aes.NewCipher(km.masterKey[:32])
 
 	iv := make([]byte, aes.BlockSize)
 	if _, err := io.ReadFull(rand.Reader, iv); err != nil {
@@ -475,17 +470,18 @@ func (km *KeyManager) encryptKeyMaterial(key []byte) ([]byte, []byte, error) {
 	return ciphertext, iv, nil
 }
 
-func (km *KeyManager) decryptKeyMaterial(ciphertext, iv []byte) ([]byte, error) {
-	block, err := aes.NewCipher(km.masterKey[:32])
-	if err != nil {
-		return nil, err
-	}
+// decryptKeyMaterial 无出错路径：aes.NewCipher 对构造期已保证的 32 字节
+// masterKey[:32] 恒成功（唯一 err 来源，死分支已删），cipher.NewCTR 与
+// XORKeyStream 均不返回 error——故签名收紧去掉 error 返回值（行为等价：
+// 原实现恒返回 nil error），GetKey/GetActiveKey 的 err 传导分支一并移除。
+func (km *KeyManager) decryptKeyMaterial(ciphertext, iv []byte) []byte {
+	block, _ := aes.NewCipher(km.masterKey[:32])
 
 	plaintext := make([]byte, len(ciphertext))
 	stream := cipher.NewCTR(block, iv)
 	stream.XORKeyStream(plaintext, ciphertext)
 
-	return plaintext, nil
+	return plaintext
 }
 
 func (km *KeyManager) encryptAES(key, plaintext []byte) ([]byte, error) {

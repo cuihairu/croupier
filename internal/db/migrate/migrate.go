@@ -129,6 +129,9 @@ func acquireSessionLock(ctx context.Context, sqlDB *sql.DB, gooseDialect string)
 			}
 			return code.Valid && code.Int32 >= 0, nil
 		}
+		// 不可达：外层 acquireSessionLock 已将方言过滤为 mysql/postgres/mssql
+		// 三者之一，闭包捕获的 gooseDialect 不会取其他值。Go 的字符串 switch
+		// 无法向编译器证明穷尽性，必须保留此兜底 return。
 		return false, nil
 	}
 
@@ -186,10 +189,9 @@ func EnsureUpToDate(ctx context.Context, db *gorm.DB, scope Scope, baseline func
 	if gooseDialect == "" {
 		return 0, fmt.Errorf("migrate: unsupported dialect %q", gormDialect)
 	}
-	sub, err := fs.Sub(embeddedMigrations, "migrations")
-	if err != nil {
-		return 0, fmt.Errorf("migrate: embedded fs: %w", err)
-	}
+	// go:embed migrations/*.sql 在编译期保证 "migrations" 目录存在于嵌入
+	// 文件系统（无匹配文件时编译直接失败），fs.Sub 不可能报错——忽略之。
+	sub, _ := fs.Sub(embeddedMigrations, "migrations")
 	return ensureUpToDate(ctx, db, sub, scope, baseline)
 }
 

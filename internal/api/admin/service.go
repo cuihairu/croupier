@@ -2,7 +2,6 @@ package admin
 
 import (
 	"context"
-	"math"
 	"sort"
 	"strconv"
 	"strings"
@@ -563,9 +562,8 @@ func parseAdminID(id string) (uint, error) {
 		return 0, errorx.NewBadRequest("管理员ID必须大于0")
 	}
 
-	if value > math.MaxUint {
-		return 0, errorx.NewBadRequest("管理员ID超出范围")
-	}
+	// 64 位平台 math.MaxUint == MaxUint64，ParseUint(_, 10, 64) 的结果不可能
+	// 超出 uint 范围，溢出检查分支恒假，已删除。
 
 	return uint(value), nil
 }

@@ -188,8 +188,7 @@ func TestBuildAuditQuery_FiltersAliasesAndTimeWindows(t *testing.T) {
 	ctx := context.Background()
 
 	count := func(req *AuditRequest) int64 {
-		q, err := svc.buildAuditQuery(ctx, req, nil, true)
-		require.NoError(t, err)
+		q := svc.buildAuditQuery(ctx, req, nil, true)
 		var n int64
 		require.NoError(t, q.Count(&n).Error)
 		return n
@@ -409,9 +408,9 @@ func TestGetAuditLogs_KindAliasFilterAndCountError(t *testing.T) {
 }
 
 // 文档化行为：受限用户（有 audit:read、无任何 game scope）走 GetAuditLogs 时，
-// buildAuditQuery 返回 (nil, nil) 而 Count 先于 nil 检查执行 → panic。
-// 这是生产代码缺陷（ExportRows 中 nil 检查在 Count 之前，GetAuditLogs 顺序颠倒），
-// 以 panic 测试固定现状，修复后应改为断言空列表。
+// buildAuditQuery 返回 nil 查询而 Count 先于 nil 检查执行 → panic。
+// 这是历史生产代码缺陷（ExportRows 中 nil 检查在 Count 之前，GetAuditLogs
+// 顺序颠倒），已修复为空列表短路，本测试固定该行为。
 func TestGetAuditLogs_EmptyVisibleScopes_ReturnsEmpty(t *testing.T) {
 	db := newAuditExtraDB(t)
 	admin, username := seedAuditViewer(t, db, "auditor")

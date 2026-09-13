@@ -2446,8 +2446,7 @@ func TestFunctionModel_BatchCopyFunctions(t *testing.T) {
 	err = model.Create(ctx, fn2)
 	require.NoError(t, err)
 
-	copied, failed, newIDs, err := model.BatchCopyFunctions(ctx, []string{"batchcopy1", "batchcopy2"})
-	require.NoError(t, err)
+	copied, failed, newIDs := model.BatchCopyFunctions(ctx, []string{"batchcopy1", "batchcopy2"})
 	assert.Equal(t, 2, copied)
 	assert.Len(t, failed, 0)
 	assert.Len(t, newIDs, 2)
@@ -2464,11 +2463,35 @@ func TestFunctionModel_BatchCopyFunctions_Empty(t *testing.T) {
 	model := NewFunctionModel(db)
 	ctx := context.Background()
 
-	copied, failed, newIDs, err := model.BatchCopyFunctions(ctx, []string{})
-	require.NoError(t, err)
+	copied, failed, newIDs := model.BatchCopyFunctions(ctx, []string{})
 	assert.Equal(t, 0, copied)
 	assert.Len(t, failed, 0)
 	assert.Len(t, newIDs, 0)
+}
+
+// 设计债回归（BatchCopyFunctions 恒返 nil error 已删除）：部分 id 失败时
+// 进 failedIDs 记录、其余继续复制——失败项在前也不断批次，且不再有
+// error 返回值可检查。
+func TestFunctionModel_BatchCopyFunctions_PartialFailure(t *testing.T) {
+	db := setupTestDB(t)
+	model := NewFunctionModel(db)
+	ctx := context.Background()
+
+	require.NoError(t, model.Create(ctx, &Function{
+		FunctionID: "batchpart1", GameID: "game1", Name: "BatchPart1", Resource: "test", Status: 1,
+	}))
+
+	// 失败项（不存在的 id）放在最前，证明后续项仍被继续复制。
+	count, failed, copied := model.BatchCopyFunctions(ctx, []string{"missing-id", "batchpart1"})
+	assert.Equal(t, 1, count, "仅一条成功复制")
+	assert.Equal(t, []string{"missing-id"}, failed, "失败 id 进 failedIDs")
+	require.Len(t, copied, 1)
+	assert.Contains(t, copied[0], "batchpart1_copy_", "成功项产生 _copy_ 新 id")
+
+	// 复制产物确实落库、可按新 id 查回。
+	got, err := model.FindByFunctionID(ctx, copied[0])
+	require.NoError(t, err)
+	assert.Equal(t, copied[0], got.FunctionID)
 }
 
 // ===== Helper Functions Tests =====

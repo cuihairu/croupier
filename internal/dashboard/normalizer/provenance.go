@@ -236,12 +236,11 @@ func canonicalJSON(value json.RawMessage) (json.RawMessage, error) {
 		if err := json.Unmarshal(trimmed, &object); err != nil {
 			return nil, err
 		}
+		// 顶层 Unmarshal 已证明 trimmed 是合法 JSON 对象，其每个 value
+		// （json.RawMessage 子片段）必然各自是合法 JSON，递归调用不会再
+		// 走 Unmarshal/Compact 失败路径，err 恒为 nil——忽略之。
 		for key, item := range object {
-			canonical, err := canonicalJSON(item)
-			if err != nil {
-				return nil, err
-			}
-			object[key] = canonical
+			object[key], _ = canonicalJSON(item)
 		}
 		return json.Marshal(object)
 	case '[':
@@ -249,12 +248,9 @@ func canonicalJSON(value json.RawMessage) (json.RawMessage, error) {
 		if err := json.Unmarshal(trimmed, &array); err != nil {
 			return nil, err
 		}
+		// 同上：数组元素已随顶层 Unmarshal 一并通过合法性校验。
 		for index, item := range array {
-			canonical, err := canonicalJSON(item)
-			if err != nil {
-				return nil, err
-			}
-			array[index] = canonical
+			array[index], _ = canonicalJSON(item)
 		}
 		return json.Marshal(array)
 	default:

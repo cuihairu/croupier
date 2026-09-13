@@ -777,14 +777,13 @@ func TestFunctionInvokeBroadcastNoAgentErrorV9(t *testing.T) {
 
 func TestFunctionWarningsWithItemsV9(t *testing.T) {
 	svcCtx, ctx := setupNoAuthTestContext(t)
-	require.NoError(t, svcCtx.RegistryStore.UpsertRegistrationWarning(context.Background(), reg.FunctionRegistrationWarning{
-		Key:        "v9-warning-key",
+	svcCtx.RegistryStore.UpsertRegistrationWarning(context.Background(), reg.FunctionRegistrationWarning{Key: "v9-warning-key",
 		AgentID:    "agent-w",
 		FunctionID: "fn.warn",
 		Version:    "1.0.0",
 		Code:       "schema_drift",
 		Message:    "schema drifted",
-	}))
+	})
 
 	resp, err := NewFunctionWarningsLogic(ctx, svcCtx).FunctionWarnings(&FunctionWarningsRequest{})
 	require.NoError(t, err)

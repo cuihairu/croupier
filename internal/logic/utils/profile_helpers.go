@@ -37,13 +37,12 @@ func LoadCurrentAdmin(ctx context.Context, svcCtx *svc.ServiceContext) (*model.A
 		return nil, nil, err
 	}
 
-	// 使用缓存查询管理员信息
+	// 使用缓存查询管理员信息。CurrentUsername 已保证非空 + 空名现在
+	// 直接报错 + FindByUsername 对不存在用户报错，因此 nil 只伴随 err
+	// 出现（err 已在上面先检查），无需再判 admin == nil。
 	admin, err := svcCtx.GetAdminByUsernameCached(ctx, username)
 	if err != nil {
 		return nil, nil, errorx.NewInternalError("查询管理员失败")
-	}
-	if admin == nil {
-		return nil, nil, errorx.NewUnauthorized("登录用户不存在")
 	}
 
 	// 使用缓存查询角色信息

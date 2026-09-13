@@ -62,11 +62,9 @@ func defaultWarehouseConnect() (warehouseConn, error) {
 			warehouseOpenErr = fmt.Errorf("parse clickhouse dsn: %w", err)
 			return
 		}
-		conn, err := clickhouse.Open(opts)
-		if err != nil {
-			warehouseOpenErr = fmt.Errorf("clickhouse: %w", err)
-			return
-		}
+		// clickhouse-go v2.43.0 的 Open 无条件构造连接对象返回 nil error
+		// （懒连接，不做任何可失败的校验），error 分支不可达，已删除。
+		conn, _ := clickhouse.Open(opts)
 		warehouseOpened = driverConnAdapter{conn}
 	})
 	return warehouseOpened, warehouseOpenErr

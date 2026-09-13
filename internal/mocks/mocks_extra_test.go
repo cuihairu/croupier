@@ -87,6 +87,33 @@ func TestMockGRPCClient_CancelTaskError(t *testing.T) {
 	}
 }
 
+// TestMockGRPCClient_SetCancelTaskFunc 对应设计债：cancelTaskFunc 原先只有
+// 包内直填字段的注入方式（见上方 TestMockGRPCClient_CancelTaskError），
+// 外部测试包无法定制 CancelTask 行为。补齐 SetCancelTaskFunc 公开 setter
+// 后，此处验证 setter 注入的自定义函数被 CancelTask 真正调用。
+func TestMockGRPCClient_SetCancelTaskFunc(t *testing.T) {
+	client := NewMockGRPCClient()
+	expectedErr := errors.New("cancel via setter")
+
+	var gotTaskID string
+	client.SetCancelTaskFunc(func(ctx context.Context, taskID string) error {
+		gotTaskID = taskID
+		return expectedErr
+	})
+
+	if err := client.CancelTask(context.Background(), "task-setter"); err != expectedErr {
+		t.Errorf("CancelTask() error = %v, want %v", err, expectedErr)
+	}
+	if gotTaskID != "task-setter" {
+		t.Errorf("CancelTask() propagated taskID = %q, want %q", gotTaskID, "task-setter")
+	}
+
+	calls := client.GetCalls()
+	if len(calls) != 1 || calls[0] != "CancelTask:task-setter" {
+		t.Errorf("GetCalls() = %v, want [CancelTask:task-setter]", calls)
+	}
+}
+
 func TestMockGRPCClient_ClearCalls(t *testing.T) {
 	client := NewMockGRPCClient()
 

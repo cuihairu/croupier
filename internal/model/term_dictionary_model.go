@@ -73,10 +73,7 @@ func (m *TermDictionaryModel) Upsert(ctx context.Context, item *TermDictionary) 
 			"term_key":   item.TermKey,
 			"sort_order": item.SortOrder,
 		}
-		display, err := marshalTermDisplay(NormalizeTermDisplay(item.Display))
-		if err != nil {
-			return err
-		}
+		display := marshalTermDisplay(NormalizeTermDisplay(item.Display))
 		if display != nil {
 			updates["display"] = display
 		} else {

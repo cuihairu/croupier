@@ -306,12 +306,11 @@ func (s *ProposalService) AcceptProposal(ctx context.Context, gameID, env, propo
 			CreatedAt:           now,
 			UpdatedAt:           now,
 		}
-		if err := draft.SetTitle(normalizeLocalizedText(pageSpec.Title)); err != nil {
-			return err
-		}
-		if err := draft.SetCategoryLabels(normalizeLocalizedText(pageSpec.Category.Labels)); err != nil {
-			return err
-		}
+		// SetTitle/SetCategoryLabels 恒返回 nil（model 层实现为
+		// `b, _ := json.Marshal(map[string]string)`，无出错路径；SetCategoryLabels
+		// 的注释已论证），原 err 检查为死分支，已删。
+		draft.SetTitle(normalizeLocalizedText(pageSpec.Title))
+		draft.SetCategoryLabels(normalizeLocalizedText(pageSpec.Category.Labels))
 		if err := pageModel.Upsert(txCtx, draft); err != nil {
 			return fmt.Errorf("create page draft from proposal: %w", err)
 		}
@@ -363,10 +362,10 @@ func (s *ProposalService) AcceptAndPublishProposal(ctx context.Context, gameID, 
 	if err != nil {
 		return ProposalPublishResult{}, err
 	}
-	contractsJSON, err := json.Marshal(contracts)
-	if err != nil {
-		return ProposalPublishResult{}, err
-	}
+	// json.Marshal 对 []spec.BindingContractSnapshot（纯数据字段构造，无
+	// func/chan/time 之外的复杂类型，digest 为 string）恒成功，err 分支为
+	// 死代码，已删。
+	contractsJSON, _ := json.Marshal(contracts)
 
 	actor := actorFromContext(ctx)
 	now := time.Now()
@@ -423,12 +422,10 @@ func (s *ProposalService) AcceptAndPublishProposal(ctx context.Context, gameID, 
 			CreatedAt:           now,
 			UpdatedAt:           now,
 		}
-		if err := draft.SetTitle(normalizeLocalizedText(pageSpec.Title)); err != nil {
-			return err
-		}
-		if err := draft.SetCategoryLabels(normalizeLocalizedText(pageSpec.Category.Labels)); err != nil {
-			return err
-		}
+		// 同 AcceptProposal：SetTitle/SetCategoryLabels 恒返回 nil，err 检查
+		// 为死分支，已删。
+		draft.SetTitle(normalizeLocalizedText(pageSpec.Title))
+		draft.SetCategoryLabels(normalizeLocalizedText(pageSpec.Category.Labels))
 		if err := publishedModel.DeactivatePage(txCtx, gameID, env, pageSpec.PageKey, now); err != nil {
 			return err
 		}
@@ -618,10 +615,9 @@ func (s *ProposalService) listBlockedIssueDTOs(ctx context.Context, gameID, env,
 		return nil, err
 	}
 	out := make([]BlockedProposalIssueDTO, 0, len(issues))
+	// 两个 List* 均为纯 gorm Find：每行由 gorm 构造非 nil 指针追加，
+	// 不会产生 nil 元素，原 issue==nil 防御分支为死代码，已删。
 	for _, issue := range issues {
-		if issue == nil {
-			continue
-		}
 		out = append(out, blockedIssueDTOFromModel(issue))
 	}
 	return out, nil
@@ -897,10 +893,11 @@ func pageSpecFromProposal(proposal *model.PageProposal) (spec.PageSpec, string, 
 		pageSpec.Bindings[i].ID = strings.TrimSpace(pageSpec.Bindings[i].ID)
 		pageSpec.Bindings[i].FunctionID = strings.TrimSpace(pageSpec.Bindings[i].FunctionID)
 	}
-	raw, err := json.Marshal(pageSpec)
-	if err != nil {
-		return spec.PageSpec{}, "", err
-	}
+	// json.Marshal 对 Unmarshal 产物的 spec.PageSpec 恒成功（唯一自定义
+	// Marshaler JSONSchema.MarshalJSON 实现为 `return []byte(s), nil` 无
+	// 出错路径；LocalizedText 为 map 类型恒可序列化），err 分支为死代码，
+	// 已删。
+	raw, _ := json.Marshal(pageSpec)
 	return pageSpec, string(raw), nil
 }
 
@@ -1014,12 +1011,11 @@ func (s *ProposalService) validateDirectPublishPageSpec(ctx context.Context, gam
 		return err
 	}
 	details := map[string]string{}
+	// ValidatePublishablePageShape / ValidateRequiredOutputAssignments 的全部
+	// 诊断均经 publishShapeDiagnostic 构造，Field 恒为非空字面量前缀的拼接
+	// 串，原 field=="" 时回退 Code 的分支为死代码，已删。
 	for _, diag := range spec.ValidatePublishablePageShape(page) {
-		field := strings.TrimSpace(diag.Field)
-		if field == "" {
-			field = strings.TrimSpace(diag.Code)
-		}
-		details[field] = diag.Message
+		details[strings.TrimSpace(diag.Field)] = diag.Message
 	}
 	functions, err := s.functionSpecsByID(ctx, gameID, env)
 	if err != nil {

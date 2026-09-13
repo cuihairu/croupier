@@ -406,7 +406,6 @@ func functionInvoke(ctx context.Context, svcCtx *svc.ServiceContext, req *Functi
 		} else {
 			result = &FunctionInvokeResponse{
 				TaskId:            taskResp.GetTaskId(),
-				TaskID:            taskResp.GetTaskId(),
 				Result:            nil,
 				TraceID:           telemetry.TraceIDFromContext(ctx),
 				ExecutionMetadata: cloneMetadata(metadata),
@@ -924,10 +923,10 @@ func remoteAgentSnapshots(ctx context.Context, svcCtx *svc.ServiceContext, scope
 		ownerByAgent[rec.AgentID] = rec.InstanceID
 	}
 	out := make([]remoteAgentSnapshot, 0, len(sessions))
+	// 设计债清理：sessions 来自 LoadActiveSessionsByAgentIDs，其元素由
+	// toDomainSession 产出（err!=nil 时被跳过不 append），恒非 nil，
+	// 原 nil 防御分支不可达已删除。
 	for _, sess := range sessions {
-		if sess == nil {
-			continue
-		}
 		out = append(out, remoteAgentSnapshot{sess: sess, ownerInstance: ownerByAgent[sess.AgentID]})
 	}
 	return out

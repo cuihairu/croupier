@@ -105,9 +105,10 @@ func schemaRefToMap(ref *openapi3.SchemaRef) map[string]interface{} {
 		if err != nil {
 			return nil
 		}
-		if err := json.Unmarshal(raw, &out); err != nil {
-			return nil
-		}
+		// json.Marshal 的产物按契约必为合法 JSON，再 Unmarshal 到
+		// map[string]interface{} 不会失败；即便失败 out 也保持 nil，
+		// 与原 return nil 分支等价。
+		_ = json.Unmarshal(raw, &out)
 		return out
 	}
 	if ref.Ref != "" {

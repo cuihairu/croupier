@@ -285,9 +285,9 @@ func (s *Service) EnvAdd(ctx context.Context, req *GameEnvAddRequest) (*GameEnvA
 		Env:         newEnv,
 		Description: strings.TrimSpace(req.Type),
 	})
-	if err := game.SetEnvs(envs); err != nil {
-		return nil, err
-	}
+	// 设计债清理：Game.SetEnvs 仅 Marshal 纯 string 字段的 []GameEnv，恒返回
+	// nil（模型层注释已论证），原 err 分支不可达已删除（下同）。
+	game.SetEnvs(envs)
 
 	if err := s.svcCtx.GameModel.UpdateEnvsAndBindings(
 		ctx,
@@ -350,9 +350,8 @@ func (s *Service) EnvUpdate(ctx context.Context, req *GameEnvUpdateRequest) (*Ga
 	}
 	envs[idx] = target
 
-	if err := game.SetEnvs(envs); err != nil {
-		return nil, err
-	}
+	// 设计债清理：SetEnvs 恒返回 nil（见 EnvAdd 同注）。
+	game.SetEnvs(envs)
 	newEnvName := target.Env
 	currentBinding, err := s.svcCtx.GameModel.FindEnvBinding(ctx, game.GameID, oldEnvName)
 	if err != nil {
@@ -417,9 +416,8 @@ func (s *Service) EnvDelete(ctx context.Context, req *GameEnvDeleteRequest) (*Ga
 
 	removedEnv := envs[idx].Env
 	envs = append(envs[:idx], envs[idx+1:]...)
-	if err := game.SetEnvs(envs); err != nil {
-		return nil, err
-	}
+	// 设计债清理：SetEnvs 恒返回 nil（见 EnvAdd 同注）。
+	game.SetEnvs(envs)
 	if err := s.svcCtx.GameModel.UpdateEnvsAndBindings(
 		ctx,
 		game.GameID,

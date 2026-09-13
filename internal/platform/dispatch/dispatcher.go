@@ -423,10 +423,9 @@ func (d *Dispatcher) invokeOnPickedAgent(ctx context.Context, span trace.Span, a
 		meta[k] = v
 	}
 	meta["agentId"] = agent.AgentID
+	// telemetry.InjectContext 对非 nil 入参（上方已保证 meta 非 nil）原地
+	// 注入并原样返回，恒不返回 nil，nil 回退分支为死代码已删。
 	req.Metadata = telemetry.InjectContext(ctx, meta)
-	if req.Metadata == nil {
-		req.Metadata = meta
-	}
 
 	reqBytes, err := proto.Marshal(req)
 	if err != nil {
@@ -1140,9 +1139,8 @@ func (d *Dispatcher) pickAgentWithRouting(ctx context.Context, functionID string
 			return candidates[i].AgentID < candidates[j].AgentID
 		})
 		chosen := pickAgentByHash(candidates, hashKey)
-		if chosen == nil {
-			return nil, noLiveAgentError(functionID, gameID, env, scoped)
-		}
+		// pickAgentByHash 仅在入参切片为空时返回 nil，上方 len(candidates)==0
+		// 已提前返回错误，此处 chosen 恒非 nil，nil 分支为死代码已删。
 		return chosen, nil
 	}
 

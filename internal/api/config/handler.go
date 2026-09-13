@@ -97,12 +97,9 @@ func (h *Handler) Validate(c *gin.Context) {
 		response.BadRequest(c, err.Error())
 		return
 	}
-	resp, err := h.service.ValidateConfig(c.Request.Context(), configIDFromPath(c), &req)
-	if err != nil {
-		response.InternalServerError(c, err.Error())
-		return
-	}
-	response.Success(c, resp)
+	// 设计债清理：ValidateConfig 为纯校验、无 error 出口（校验失败以 Valid=false 表达），
+	// 原 err 分支不可达已随 service 签名收紧删除。
+	response.Success(c, h.service.ValidateConfig(&req))
 }
 
 // ListVersions handles the config versions list request

@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// List：两个资源 Category.Order 相同时按 Key 排序。
+// List：排序仅按 Key 稳定排序（Category.Order 字段已删除，无持久化来源）。
 func TestFinalList_SortTieBreaksByKey(t *testing.T) {
 	svcCtx, ctx := newResourceTestServiceContext(t, reg.NewStore(), "resources:read")
 	seedPlayerResource(t, svcCtx, ctx)
@@ -19,10 +19,7 @@ func TestFinalList_SortTieBreaksByKey(t *testing.T) {
 	require.NoError(t, err)
 	require.GreaterOrEqual(t, len(resp.Items), 2)
 	for i := 1; i < len(resp.Items); i++ {
-		prev, cur := resp.Items[i-1], resp.Items[i]
-		if prev.Category.Order == cur.Category.Order {
-			assert.Less(t, prev.Key, cur.Key)
-		}
+		assert.Less(t, resp.Items[i-1].Key, resp.Items[i].Key)
 	}
 }
 

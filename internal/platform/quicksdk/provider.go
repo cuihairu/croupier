@@ -72,10 +72,10 @@ func (p *Provider) Init(ctx context.Context, config provider.ProviderConfig) err
 	}
 
 	// Create client
-	client, err := NewClient(clientConfig, p.logger)
-	if err != nil {
-		return fmt.Errorf("failed to create QuickSDK client: %w", err)
-	}
+	// NewClient 仅在 open_id/open_key 为空时报错，上方已校验两者非空，
+	// 此调用恒成功，err 分支为死代码已删（NewClient 的公开错误语义保留给
+	// 直接调用它的外部调用方）。
+	client, _ := NewClient(clientConfig, p.logger)
 
 	p.client = client
 	p.config = config
@@ -334,11 +334,10 @@ func (p *Provider) Call(ctx context.Context, method string, request []byte) ([]b
 	}
 
 	// Marshal response
-	response, err := json.Marshal(result)
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal response: %w", err)
-	}
-
+	// result 的动态类型为 []Channel/[]Order 等（字段全 string/int/float64）
+	// 或字面量 map[string]interface{}{"status": "ok"}，Marshal 恒成功，
+	// err 分支为死代码已删。
+	response, _ := json.Marshal(result)
 	return response, nil
 }
 

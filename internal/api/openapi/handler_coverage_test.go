@@ -651,8 +651,7 @@ func TestExtractSourceOperationsDiagnostics(t *testing.T) {
 
 func TestParseOpenAPISourceDiagnostics(t *testing.T) {
 	noIDSpec := `{"openapi":"3.0.3","info":{"title":"d","version":"1"},"paths":{"/a":{"get":{"responses":{"200":{"description":"ok"}}}}}}`
-	parsed, err := parseOpenAPISource([]byte(noIDSpec))
-	require.NoError(t, err)
+	parsed := parseOpenAPISource([]byte(noIDSpec))
 	assert.Empty(t, parsed.Operations)
 	hasMissing := false
 	for _, d := range parsed.Diagnostics {
@@ -663,8 +662,7 @@ func TestParseOpenAPISourceDiagnostics(t *testing.T) {
 	assert.True(t, hasMissing)
 
 	presentationSpec := `{"openapi":"3.0.3","info":{"title":"d","version":"1"},"paths":{"/a":{"get":{"operationId":"ok","formily":{},"responses":{"200":{"description":"ok"}}}}}}`
-	parsed, err = parseOpenAPISource([]byte(presentationSpec))
-	require.NoError(t, err)
+	parsed = parseOpenAPISource([]byte(presentationSpec))
 	hasForbidden := false
 	for _, d := range parsed.Diagnostics {
 		if d.Code == "openapi_presentation_field_forbidden" {
@@ -675,8 +673,7 @@ func TestParseOpenAPISourceDiagnostics(t *testing.T) {
 
 	// Documents failing kin-openapi validation surface a parse/validation diagnostic.
 	badSpec := `{"openapi":"3.0.3","info":{"title":"d","version":"1"}}`
-	parsed, err = parseOpenAPISource([]byte(badSpec))
-	require.NoError(t, err)
+	parsed = parseOpenAPISource([]byte(badSpec))
 	hasValidationFailure := false
 	for _, d := range parsed.Diagnostics {
 		if d.Code == "openapi_validation_failed" {

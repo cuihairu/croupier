@@ -87,15 +87,15 @@ var AutoMergeFields = map[string]bool{
 	"operation.form.fields[].placeholder":    true,
 	"operation.form.fields[].description":    true,
 	"operation.form.fields[].order":          true,
-	"operation.form.fields[].group":          true,
-	"operation.form.fields[].widget":         true,
-	"task.form.fields[].label":               true,
-	"task.form.fields[].placeholder":         true,
-	"task.form.fields[].description":         true,
-	"report.queryForm.fields[].label":        true,
-	"report.queryForm.fields[].placeholder":  true,
-	"report.queryForm.fields[].description":  true,
-	"report.charts[].title":                  true,
+	// FormFieldSpec 无字段级 group 属性（分组在 Form.Groups），该声明指向不存在的路径，已删除。
+	"operation.form.fields[].widget":        true,
+	"task.form.fields[].label":              true,
+	"task.form.fields[].placeholder":        true,
+	"task.form.fields[].description":        true,
+	"report.queryForm.fields[].label":       true,
+	"report.queryForm.fields[].placeholder": true,
+	"report.queryForm.fields[].description": true,
+	"report.charts[].title":                 true,
 }
 
 // ConflictFields defines fields that require explicit resolution.

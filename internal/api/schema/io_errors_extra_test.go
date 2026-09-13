@@ -194,3 +194,18 @@ func TestValidatePayloadAgainstCompileFailure(t *testing.T) {
 	_, _, err := validatePayloadAgainst(map[string]interface{}{"$ref": "#/$defs/missing"}, nil)
 	require.Error(t, err)
 }
+
+func TestValidateSchemaAddResourceFailsWhenCwdRemoved(t *testing.T) {
+	// cwd 被删除后，jsonschema v6 Compiler.AddResource 对相对 URL "schema.json"
+	// 调 absolute() 时依赖 Getwd（ENOENT），错误传导为 AddResource 失败，
+	// 覆盖 validateSchemaDefinition / validatePayloadAgainst 的 AddResource err 分支。
+	wd := t.TempDir()
+	t.Chdir(wd)
+	require.NoError(t, os.RemoveAll(wd))
+
+	err := validateSchemaDefinition(map[string]interface{}{"type": "object"})
+	require.Error(t, err)
+
+	_, _, err = validatePayloadAgainst(map[string]interface{}{"type": "object"}, map[string]interface{}{})
+	require.Error(t, err)
+}

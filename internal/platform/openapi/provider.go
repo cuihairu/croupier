@@ -326,9 +326,7 @@ func (p *Provider) Init(ctx context.Context, config provider.ProviderConfig) err
 	}
 
 	// Build method map
-	if err := p.buildMethodMap(); err != nil {
-		return fmt.Errorf("failed to build method map: %w", err)
-	}
+	p.buildMethodMap()
 
 	// Auto-discover methods if OpenAPI spec(s) are provided
 	if len(p.openapiConfig.Methods) == 0 {
@@ -361,7 +359,9 @@ func (p *Provider) extractConfig(config map[string]interface{}) error {
 }
 
 // buildMethodMap builds the method name to API definition mapping.
-func (p *Provider) buildMethodMap() error {
+// 仅遍历配置切片构建索引，无任何出错路径——原 error 返回值恒为 nil，
+// 属"签名声明 error 但实现无出错路径"的设计债，签名已收紧。
+func (p *Provider) buildMethodMap() {
 	p.methods = make([]string, 0, len(p.openapiConfig.Methods))
 	p.methodMap = make(map[string]*APIMethod)
 
@@ -373,8 +373,6 @@ func (p *Provider) buildMethodMap() error {
 		p.methodMap[method.Name] = method
 		p.methods = append(p.methods, method.Name)
 	}
-
-	return nil
 }
 
 // discoverMethodsFromSpec auto-discovers methods from a single OpenAPI specification.
@@ -467,10 +465,9 @@ func (p *Provider) parseOpenAPISpec(spec []byte) error {
 			}
 		}
 
-		merged, err := json.Marshal(existing)
-		if err != nil {
-			return err
-		}
+		// existing 是 json.Unmarshal 的产物（仅含 JSON 基础类型），
+		// 再 Marshal 恒成功，err 分支为死代码已删。
+		merged, _ := json.Marshal(existing)
 		p.openapiDoc = merged
 	}
 

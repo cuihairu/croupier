@@ -145,19 +145,16 @@ func FromRecord(r *AuditRecord) (*AuditModel, error) {
 		CreatedAt:      time.Now(),
 	}
 
+	// ActorInfo/ResourceInfo/AuditContext 均为纯 string/bool/[]string/
+	// map[string]string 字段，Marshal 恒成功，err 分支为死代码，已删除
+	//（Details/Changes 含 interface{}，仍保留 err 检查并已有 NaN 注入用例）。
 	if r.Actor.ID != "" {
-		data, err := json.Marshal(r.Actor)
-		if err != nil {
-			return nil, err
-		}
+		data, _ := json.Marshal(r.Actor)
 		model.ActorJSON = data
 	}
 
 	if r.Resource.ID != "" {
-		data, err := json.Marshal(r.Resource)
-		if err != nil {
-			return nil, err
-		}
+		data, _ := json.Marshal(r.Resource)
 		model.ResourceJSON = data
 	}
 
@@ -178,10 +175,7 @@ func FromRecord(r *AuditRecord) (*AuditModel, error) {
 	}
 
 	if r.Context.RequestID != "" {
-		data, err := json.Marshal(r.Context)
-		if err != nil {
-			return nil, err
-		}
+		data, _ := json.Marshal(r.Context)
 		model.ContextJSON = data
 	}
 
@@ -706,10 +700,9 @@ func (s *SQLAuditStore) Export(filter AuditFilter, format string) ([]byte, error
 	case "jsonl":
 		var buf strings.Builder
 		for _, r := range records {
-			data, err := json.Marshal(r)
-			if err != nil {
-				return nil, err
-			}
+			// records 全部经 DB 反序列化而来，Details 等动态字段均为合法 JSON
+			// 产物（无 NaN/func 值），Marshal 恒成功，err 分支为死代码，已删除。
+			data, _ := json.Marshal(r)
 			buf.WriteString(string(data) + "\n")
 		}
 		return []byte(buf.String()), nil
@@ -721,6 +714,8 @@ func (s *SQLAuditStore) Export(filter AuditFilter, format string) ([]byte, error
 }
 
 func exportCSV(records []*AuditRecord) ([]byte, error) {
+	// csv.Writer 的错误仅透传底层 writer 错误，而 strings.Builder.Write 恒返回
+	// nil，故 Write/Flush 的 err 分支均为死代码，已删除。
 	var buf strings.Builder
 	writer := csv.NewWriter(&buf)
 
@@ -731,9 +726,7 @@ func exportCSV(records []*AuditRecord) ([]byte, error) {
 		"Resource Type", "Resource ID", "Action",
 		"Outcome", "Error Message", "Chain Hash", "Chain Sequence",
 	}
-	if err := writer.Write(header); err != nil {
-		return nil, err
-	}
+	_ = writer.Write(header)
 
 	// Data
 	for _, r := range records {
@@ -755,15 +748,10 @@ func exportCSV(records []*AuditRecord) ([]byte, error) {
 			r.ChainInfo.Hash,
 			strconv.FormatInt(r.ChainInfo.Sequence, 10),
 		}
-		if err := writer.Write(row); err != nil {
-			return nil, err
-		}
+		_ = writer.Write(row)
 	}
 
 	writer.Flush()
-	if err := writer.Error(); err != nil {
-		return nil, err
-	}
 
 	return []byte(buf.String()), nil
 }
@@ -1013,10 +1001,9 @@ func (s *InMemoryAuditStore) CountByFilter(filter AuditFilter) (int64, error) {
 
 // Export exports audit records
 func (s *InMemoryAuditStore) Export(filter AuditFilter, format string) ([]byte, error) {
-	records, _, err := s.List(filter, AuditPage{PageSize: 100000})
-	if err != nil {
-		return nil, err
-	}
+	// InMemoryAuditStore.List 为纯内存过滤，恒返回 nil error，
+	// err 分支为死代码，已删除。
+	records, _, _ := s.List(filter, AuditPage{PageSize: 100000})
 
 	if format == "json" {
 		return json.MarshalIndent(records, "", "  ")
@@ -1061,10 +1048,9 @@ func (w *AuditWriter) Write(record *AuditRecord) error {
 	record.ChainInfo.Hash = hash
 
 	// Write to underlying writer
-	data, err = json.Marshal(record)
-	if err != nil {
-		return err
-	}
+	// 第一次 Marshal 已成功，两次调用之间仅对 ChainInfo.Hash 做 string 赋值，
+	// 第二次 Marshal 恒成功，err 分支为死代码，已删除。
+	data, _ = json.Marshal(record)
 
 	if _, err := w.w.Write(append(data, '\n')); err != nil {
 		return err
