@@ -402,7 +402,11 @@ describe('轮询：statusBinding 路径', () => {
       throw new Error('poll fail');
     });
     submit();
-    await waitFor(() => expect(spy).toHaveBeenCalledWith(expect.anything(), expect.any(Error)));
+    await waitFor(() => {
+      expect(spy).toHaveBeenCalled();
+      const hasError = spy.mock.calls.some((call) => call.some((arg) => arg instanceof Error));
+      expect(hasError).toBe(true);
+    });
     spy.mockRestore();
   });
 });

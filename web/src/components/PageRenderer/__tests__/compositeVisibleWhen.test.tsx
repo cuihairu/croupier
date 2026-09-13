@@ -45,7 +45,9 @@ describe('CompositeRenderer U10：区块级条件显示', () => {
     ];
     const onExecute = jest.fn().mockResolvedValue({ data: { x: 1 } });
     renderComposite(sections, onExecute);
-    await waitFor(() => expect(onExecute).toHaveBeenCalledWith('b-vip', expect.anything()));
+    await waitFor(() =>
+      expect(onExecute).toHaveBeenCalledWith('b-vip', expect.objectContaining({})),
+    );
     await sleep(100);
     // 来源区块无值（undefined ≠ 'advanced'）→ 不渲染
     expect(screen.queryByText('VIP 视图')).not.toBeInTheDocument();

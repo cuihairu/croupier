@@ -76,7 +76,7 @@ describe('CompositeRenderer #94：卡片分组聚合', () => {
     await waitFor(() => expect(screen.getByText('u1')).toBeInTheDocument());
     // 同卡内字段卡也在
     expect(screen.getByText('VIP 详情')).toBeInTheDocument();
-    expect(onExecute).toHaveBeenCalledWith('b-rank', expect.anything());
+    expect(onExecute).toHaveBeenCalledWith('b-rank', expect.objectContaining({}));
   });
 
   it('卡内 autoRun 照常执行（分组不排除执行）；不同 group 各自成卡', async () => {
@@ -105,8 +105,8 @@ describe('CompositeRenderer #94：卡片分组聚合', () => {
     }));
     renderComposite(sections, onExecute);
     await waitFor(() => expect(onExecute).toHaveBeenCalledTimes(2));
-    expect(onExecute).toHaveBeenCalledWith('b-a', expect.anything());
-    expect(onExecute).toHaveBeenCalledWith('b-b', expect.anything());
+    expect(onExecute).toHaveBeenCalledWith('b-a', expect.objectContaining({}));
+    expect(onExecute).toHaveBeenCalledWith('b-b', expect.objectContaining({}));
     expect(screen.getByText('g-a')).toBeInTheDocument();
     expect(screen.getByText('g-b')).toBeInTheDocument();
   });
@@ -152,7 +152,9 @@ describe('CompositeRenderer #94：卡片分组聚合', () => {
     ];
     const onExecute = jest.fn().mockResolvedValue({ data: {} });
     renderComposite(sections, onExecute);
-    await waitFor(() => expect(onExecute).toHaveBeenCalledWith('b-vip', expect.anything()));
+    await waitFor(() =>
+      expect(onExecute).toHaveBeenCalledWith('b-vip', expect.objectContaining({})),
+    );
     // 条件不满足：VIP 专属区块不渲染，但同卡常规区块在、卡片本身在（组名兜底标题）
     expect(screen.queryByText('VIP 专属区块')).not.toBeInTheDocument();
     expect(screen.getByText('常规区块')).toBeInTheDocument();

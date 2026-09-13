@@ -69,10 +69,12 @@ describe('CompositeRenderer U9 级联失败策略', () => {
     const app = renderComposite(sections, onExecute);
     const warningSpy = jest.spyOn(app.current!.message, 'warning');
 
-    await waitFor(() => expect(onExecute).toHaveBeenCalledWith('b-up', expect.anything()));
+    await waitFor(() =>
+      expect(onExecute).toHaveBeenCalledWith('b-up', expect.objectContaining({})),
+    );
     await waitFor(() => expect(warningSpy).toHaveBeenCalled());
     // 下游不被联动触发（缺省 pause）
-    expect(onExecute).not.toHaveBeenCalledWith('b-down', expect.anything());
+    expect(onExecute).not.toHaveBeenCalledWith('b-down', expect.objectContaining({}));
   });
 
   it('pause 恢复：上游失败→成功（error→ok）后级联自动续跑', async () => {
@@ -97,13 +99,18 @@ describe('CompositeRenderer U9 级联失败策略', () => {
 
     const buttons = await screen.findAllByRole('button', { name: '执行' });
     fireEvent.click(buttons[0]); // 上游第一次：失败
-    await waitFor(() => expect(onExecute).toHaveBeenCalledWith('b-up', expect.anything()));
-    expect(onExecute).not.toHaveBeenCalledWith('b-down', expect.anything());
+    await waitFor(() =>
+      expect(onExecute).toHaveBeenCalledWith('b-up', expect.objectContaining({})),
+    );
+    expect(onExecute).not.toHaveBeenCalledWith('b-down', expect.objectContaining({}));
 
     fireEvent.click(buttons[0]); // 上游第二次：成功 → 级联恢复
-    await waitFor(() => expect(onExecute).toHaveBeenCalledWith('b-down', expect.anything()), {
-      timeout: 2500,
-    });
+    await waitFor(
+      () => expect(onExecute).toHaveBeenCalledWith('b-down', expect.objectContaining({})),
+      {
+        timeout: 2500,
+      },
+    );
   });
 
   it('clear：上游失败后下游旧数据被清空', async () => {
@@ -140,7 +147,9 @@ describe('CompositeRenderer U9 级联失败策略', () => {
     expect(await screen.findByText('kept')).toBeInTheDocument();
 
     fireEvent.click(buttons[0]);
-    await waitFor(() => expect(onExecute).toHaveBeenCalledWith('b-up', expect.anything()));
+    await waitFor(() =>
+      expect(onExecute).toHaveBeenCalledWith('b-up', expect.objectContaining({})),
+    );
     // 数据保留 + 无 warning 提示 + 不重跑
     expect(screen.getByText('kept')).toBeInTheDocument();
     expect(warningSpy).not.toHaveBeenCalled();

@@ -326,7 +326,7 @@ describe('handleDragEnd：面板 basic/fn 拖入', () => {
     h.dragEnd(basic('text'), 'draggable-1', 'canvas-root');
     expect(h.tree()).toHaveLength(2);
     expect(h.tree()[1].type).toBe('text');
-    expect(h.setSelectedId).toHaveBeenCalledWith(expect.any(String));
+    expect(h.setSelectedId).toHaveBeenCalledWith(expect.stringContaining(''));
   });
 
   it('fn 组件：登记函数契约并按 componentType 构造', () => {

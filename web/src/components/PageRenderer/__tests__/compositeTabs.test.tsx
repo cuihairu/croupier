@@ -103,9 +103,11 @@ describe('CompositeRenderer V2：页签分组聚合', () => {
       data: { items: [{ uid: 'u1', nickname: 'bob' }], total: 1 },
     });
     renderComposite(onExecute);
-    await waitFor(() => expect(onExecute).toHaveBeenCalledWith('b-tab-table', expect.anything()));
+    await waitFor(() =>
+      expect(onExecute).toHaveBeenCalledWith('b-tab-table', expect.objectContaining({})),
+    );
     // inline 区块 autoRun=false 不执行
-    expect(onExecute).not.toHaveBeenCalledWith('b-inline', expect.anything());
+    expect(onExecute).not.toHaveBeenCalledWith('b-inline', expect.objectContaining({}));
   });
 
   it('切换页签后另一页内容可见', async () => {

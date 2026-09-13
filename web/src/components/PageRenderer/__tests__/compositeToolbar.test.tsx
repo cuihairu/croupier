@@ -93,7 +93,9 @@ describe('CompositeRenderer 表格工具栏按钮', () => {
     });
     renderComposite(onExecute);
     // autoRun 首次执行
-    await waitFor(() => expect(onExecute).toHaveBeenCalledWith('b-table', expect.anything()));
+    await waitFor(() =>
+      expect(onExecute).toHaveBeenCalledWith('b-table', expect.objectContaining({})),
+    );
     expect(onExecute).toHaveBeenCalledTimes(1);
 
     fireEvent.click(screen.getByRole('button', { name: '刷新列表' }));

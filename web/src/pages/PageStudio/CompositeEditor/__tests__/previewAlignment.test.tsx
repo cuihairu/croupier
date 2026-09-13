@@ -249,7 +249,9 @@ describe('预览对齐发布运行时（批次 C）', () => {
     fireEvent.click(screen.getAllByText('发邮件')[0]);
     await waitFor(() => expect(screen.getByText('发邮件弹窗')).toBeInTheDocument());
     fireEvent.click(screen.getByRole('button', { name: /提\s*交/ }));
-    await waitFor(() => expect(mockedInvoke).toHaveBeenCalledWith('mail.send', expect.anything()));
+    await waitFor(() =>
+      expect(mockedInvoke).toHaveBeenCalledWith('mail.send', expect.objectContaining({})),
+    );
     expect(screen.getByText('发邮件弹窗')).toBeInTheDocument(); // 仍打开
 
     // 成功路径：恢复可解析响应 → 提交后弹窗关闭

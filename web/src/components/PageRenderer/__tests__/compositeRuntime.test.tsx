@@ -109,7 +109,9 @@ describe('CompositeRenderer 内联区块与运行时联动', () => {
     await waitFor(() => expect(infoSpy).toHaveBeenCalledWith('done'));
 
     fireEvent.click(screen.getByRole('button', { name: '失败动作' }));
-    await waitFor(() => expect(onExecute).toHaveBeenCalledWith('b-err', expect.anything()));
+    await waitFor(() =>
+      expect(onExecute).toHaveBeenCalledWith('b-err', expect.objectContaining({})),
+    );
     await sleep(100);
     expect(infoSpy).not.toHaveBeenCalledWith('should-not-fire');
   });
@@ -141,10 +143,14 @@ describe('CompositeRenderer 内联区块与运行时联动', () => {
       );
     renderComposite(sections, onExecute);
     // autoRun 首次执行
-    await waitFor(() => expect(onExecute).toHaveBeenCalledWith('b-table', expect.anything()));
+    await waitFor(() =>
+      expect(onExecute).toHaveBeenCalledWith('b-table', expect.objectContaining({})),
+    );
     expect(onExecute).toHaveBeenCalledTimes(1);
     fireEvent.click(screen.getByRole('button', { name: '发邮件动作' }));
-    await waitFor(() => expect(onExecute).toHaveBeenCalledWith('b-act', expect.anything()));
+    await waitFor(() =>
+      expect(onExecute).toHaveBeenCalledWith('b-act', expect.objectContaining({})),
+    );
     // 成功后目标表格被刷新
     await waitFor(() => expect(onExecute).toHaveBeenCalledTimes(3));
   });
@@ -336,7 +342,9 @@ describe('CompositeRenderer 内联区块与运行时联动', () => {
         values: { to: 'bob@test' },
       }),
     );
-    await waitFor(() => expect(onExecute).toHaveBeenCalledWith('b-form', expect.anything()));
+    await waitFor(() =>
+      expect(onExecute).toHaveBeenCalledWith('b-form', expect.objectContaining({})),
+    );
     await waitFor(() => expect(infoSpy).toHaveBeenCalledWith('submitted'));
   });
 
@@ -408,7 +416,9 @@ describe('CompositeRenderer 内联区块与运行时联动', () => {
     const runButtons = screen.getAllByRole('button', { name: /执\s*行/ });
     expect(runButtons.length).toBe(3);
     fireEvent.click(runButtons[0]);
-    await waitFor(() => expect(onExecute).toHaveBeenCalledWith('b-narrow', expect.anything()));
+    await waitFor(() =>
+      expect(onExecute).toHaveBeenCalledWith('b-narrow', expect.objectContaining({})),
+    );
   });
 
   it('表格区块带工具栏且非 autoRun：卡片头同时渲染工具栏按钮与「执行」按钮', async () => {
@@ -431,7 +441,9 @@ describe('CompositeRenderer 内联区块与运行时联动', () => {
     expect(screen.getByRole('button', { name: '新建玩家' })).toBeInTheDocument();
     const runBtn = screen.getByRole('button', { name: /执\s*行/ });
     fireEvent.click(runBtn);
-    await waitFor(() => expect(onExecute).toHaveBeenCalledWith('b-table', expect.anything()));
+    await waitFor(() =>
+      expect(onExecute).toHaveBeenCalledWith('b-table', expect.objectContaining({})),
+    );
   });
 
   it('表格选中行写入运行时状态并以 merge 模式并入 page_state', async () => {

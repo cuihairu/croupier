@@ -199,7 +199,9 @@ describe('CompositeRenderer 弹窗表单（DialogForm 回归）', () => {
     const confirmBtn = await screen.findByRole('button', { name: '确认执行' });
     expect(confirmBtn).not.toBeDisabled();
     fireEvent.click(confirmBtn);
-    await waitFor(() => expect(onExecute).toHaveBeenCalledWith('b-plain', expect.anything()));
+    await waitFor(() =>
+      expect(onExecute).toHaveBeenCalledWith('b-plain', expect.objectContaining({})),
+    );
   });
 
   it('danger 按钮先弹确认框，确认后才打开弹窗', async () => {

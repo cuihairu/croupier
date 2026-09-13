@@ -67,7 +67,9 @@ describe('CompositeRenderer 选中行联动（V5）', () => {
     renderComposite(onExecute);
 
     // autoRun：表格加载即执行
-    await waitFor(() => expect(onExecute).toHaveBeenCalledWith('b-table', expect.anything()));
+    await waitFor(() =>
+      expect(onExecute).toHaveBeenCalledWith('b-table', expect.objectContaining({})),
+    );
     await waitFor(() => expect(screen.getByText('bob')).toBeInTheDocument());
 
     // 选中第一行（radio）
