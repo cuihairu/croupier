@@ -111,6 +111,18 @@ jobs:
         timeout-minutes: 5
         run: pnpm exec tsc --noEmit
 
+      - name: Unit tests with coverage
+        timeout-minutes: 15
+        run: pnpm test:coverage
+
+      - name: Upload coverage to Codecov
+        timeout-minutes: 5
+        uses: codecov/codecov-action@v7
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: ./web/coverage/lcov.info
+          flags: web-dashboard
+
   mock-e2e-tests:
     runs-on: ubuntu-latest
     timeout-minutes: 30

@@ -29,6 +29,10 @@ flags:
     paths:
       - internal/**
     carryforward: true
+  web-dashboard:
+    paths:
+      - web/src/**
+    carryforward: true
 
 coverage:
   status:
@@ -87,6 +91,13 @@ coverage:
         threshold: 1%
         if_not_found: success
         informational: true
+      web-dashboard:
+        flags:
+          - web-dashboard
+        target: auto
+        threshold: 1%
+        if_not_found: success
+        informational: true
     patch:
       default:
         target: auto
@@ -124,7 +135,11 @@ ignore:
   - "dashboard/**"
   - "examples/**"
   - "scripts/**"
-  - "web/**"
+  # web 子模块仅统计 src 下的覆盖率（lcov 只含 src，此处忽略构建产物等杂项）
+  - "web/config/**"
+  - "web/e2e/**"
+  - "web/tests/**"
+  - "web/mock/**"
 
 github_checks:
   annotations: true
