@@ -212,6 +212,10 @@ web/src/pages/PageStudio/CompositeEditor/
 6 个抽屉/弹窗组件（PreviewDrawer/EditorModal/VersionsDrawer/ChangeChainDrawer/DiffDrawer/MergeModal）
 
 - draftColumns 列定义 + shared 工具，主页保留列表编排与全部数据回调。
+- 主视图（提案收件箱上方）常驻「一键发布全部 / 一键下架全部」（2026-09 自高级
+  管理面板提升）：发布走 `POST /api/v1/pages/bulk-publish`（重算契约提案 → ready/basic
+  批量 accept-and-publish，契约变更随重算一并消化）；下架走 `bulk-unpublish`（逐页复用
+  单页真实下线链路，控制台菜单随之清空）。「高级页面管理」面板回归版本/回滚定位。
 
 发布链：编译产物 `POST /api/v1/versioning/pages/composite`（请求结构含 `key/group/display/rowActions/toolbarActions/onSuccessRefresh/chain`）→ 提案 → 接受发布 → `PageRenderer/CompositeRenderer` 按 spec 渲染。
 
