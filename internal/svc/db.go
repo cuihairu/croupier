@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"sync/atomic"
 
 	"github.com/cuihairu/croupier/internal/config"
 	gsqlite "github.com/glebarez/sqlite"
@@ -76,6 +77,10 @@ func isMemorySQLiteDSN(dsn string) bool {
 	return dsn == ":memory:" || strings.HasPrefix(dsn, "file::memory:") && !strings.Contains(dsn, "cache=shared")
 }
 
+// memoryDBSeq names each shared-cache memory database uniquely per openGorm
+// call so separate callers never land on one process-global SQLite instance.
+var memoryDBSeq atomic.Uint64
+
 // openGorm opens a *gorm.DB for the given driver and DSN, auto-creating the
 // physical database when it does not yet exist (for non-sqlite drivers).
 func openGorm(driver, dsn string) (*gorm.DB, error) {
@@ -89,12 +94,24 @@ func openGorm(driver, dsn string) (*gorm.DB, error) {
 			// ":memory:" databases are per-connection: pooled connections
 			// would each see a different empty database and break the
 			// versioned migration executor (version table visibility).
-			// Normalize to the shared-cache form so every pooled connection
-			// sees the same database.
-			db, err := gorm.Open(gsqlite.Open("file::memory:?cache=shared&_pragma=busy_timeout(5000)"), &gorm.Config{})
+			// Normalize to a *uniquely named* shared-cache memory database:
+			// pooled connections see the same database, while separate
+			// openGorm calls stay isolated. The anonymous
+			// "file::memory:?cache=shared" URI maps to one process-global
+			// database — under the CI Unit job's DATABASE_URL=":memory:"
+			// override, every test in a binary then shared rows (bootstrap
+			// games seeded by an earlier test surfaced in a later test's
+			// queries; CI run 34736654564), and locally -count=2 reproduced
+			// it as "table mem_probe already exists".
+			memDSN := fmt.Sprintf(
+				"file:croupier_mem_%d?mode=memory&cache=shared&_pragma=busy_timeout(5000)",
+				memoryDBSeq.Add(1),
+			)
+			db, err := gorm.Open(gsqlite.Open(memDSN), &gorm.Config{})
 			if err != nil {
-				// 不可达论证（C 类）：DSN 是上方硬编码的合法共享内存形态，
-				// 对内存库的打开无外部依赖、无确定性失败输入，错误仅在
+				// 不可达论证（C 类）：DSN 由上方硬编码模板 + 递增序号构造，
+				// 恒为合法的命名共享内存形态，对内存库的打开无外部依赖、
+				// 无确定性失败输入，错误仅在
 				// 进程级资源耗尽时出现；err 为签名契约必须处理，保留透传。
 				return nil, err
 			}
