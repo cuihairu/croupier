@@ -51,8 +51,11 @@ test.describe('Page Studio', () => {
     await page.goto('/functions/pages');
     await waitForPageReady(page);
 
+    // 排除主视图「一键发布全部」（modal.confirm 流程），命中提案行内发布（popconfirm 流程）
     const publishBtn = page
-      .locator('button:has-text("发布"), a:has-text("发布"), button:has-text("Publish")')
+      .locator(
+        'button:has-text("发布"):not(:has-text("一键")), a:has-text("发布"), button:has-text("Publish")',
+      )
       .first();
     await expect(publishBtn).toBeVisible();
     await publishBtn.click();
@@ -66,5 +69,20 @@ test.describe('Page Studio', () => {
     await confirmBtn.click();
     expect((await publishResponse).status()).toBe(200);
     await expect(page.getByText('已直接发布').first()).toBeAttached();
+  });
+
+  test('一键发布/下架按钮在主视图直接可见', async ({ page }) => {
+    await page.goto('/functions/pages');
+    await waitForPageReady(page);
+
+    // 不展开「高级页面管理」折叠面板，主视图（提案收件箱上方）直接可见
+    await expect(page.getByRole('button', { name: /一键发布全部/ })).toBeVisible();
+    await expect(page.getByRole('button', { name: /一键下架全部/ })).toBeVisible();
+
+    // 点击一键发布出现 confirm 弹窗（modal.confirm），取消不产生请求
+    await page.getByRole('button', { name: /一键发布全部/ }).click();
+    await expect(page.getByText('将重算提案并把所有 ready/basic 提案按真实链路发布')).toBeVisible();
+    await page.getByRole('button', { name: /取 消/ }).click();
+    await expect(page.getByText('将重算提案并把所有 ready/basic 提案按真实链路发布')).toBeHidden();
   });
 });

@@ -723,6 +723,68 @@ export default function PageStudio() {
     >
       <PageWorkflowGuide />
 
+      {/* 一键发布/下架：作用于当前 scope 全部页面。发布走「重算契约提案 →
+          ready/basic 批量 accept-and-publish」真实链路，契约变更随重算一并消化；
+          下架复用单页真实下线链路（控制台菜单随之清空）。 */}
+      <Space style={{ display: 'flex', justifyContent: 'flex-end' }}>
+        <Button
+          type="primary"
+          icon={<RocketOutlined />}
+          loading={bulkLoading === 'publish'}
+          onClick={() => {
+            modal.confirm({
+              title: intl.formatMessage({
+                id: 'pages.pageStudio.bulkPublish.confirmTitle',
+                defaultMessage: '一键发布全部',
+              }),
+              content: intl.formatMessage({
+                id: 'pages.pageStudio.bulkPublish.confirmContent',
+                defaultMessage:
+                  '将重算提案并把所有 ready/basic 提案按真实链路发布（同 scope）。确认执行？',
+              }),
+              okText: intl.formatMessage({
+                id: 'pages.pageStudio.bulkPublish.confirmOk',
+                defaultMessage: '发布',
+              }),
+              onOk: handleBulkPublish,
+            });
+          }}
+        >
+          <FormattedMessage
+            id="pages.pageStudio.bulkPublish.button"
+            defaultMessage="一键发布全部"
+          />
+        </Button>
+        <Button
+          danger
+          loading={bulkLoading === 'unpublish'}
+          onClick={() => {
+            modal.confirm({
+              title: intl.formatMessage({
+                id: 'pages.pageStudio.bulkUnpublish.confirmTitle',
+                defaultMessage: '一键下架全部',
+              }),
+              content: intl.formatMessage({
+                id: 'pages.pageStudio.bulkUnpublish.confirmContent',
+                defaultMessage:
+                  '将下线当前 scope 内全部已发布页面（运行控制台菜单随之清空）。确认执行？',
+              }),
+              okText: intl.formatMessage({
+                id: 'pages.pageStudio.bulkUnpublish.confirmOk',
+                defaultMessage: '下架',
+              }),
+              okButtonProps: { danger: true },
+              onOk: handleBulkUnpublish,
+            });
+          }}
+        >
+          <FormattedMessage
+            id="pages.pageStudio.bulkUnpublish.button"
+            defaultMessage="一键下架全部"
+          />
+        </Button>
+      </Space>
+
       <ProposalInbox focusPageKey={focusPageKey} />
 
       <Collapse
@@ -745,63 +807,6 @@ export default function PageStudio() {
                 toolBarRender={() => [
                   <Button key="refresh" icon={<ReloadOutlined />} onClick={loadDrafts}>
                     <FormattedMessage id="pages.pageStudio.action.refresh" defaultMessage="刷新" />
-                  </Button>,
-                  <Button
-                    key="bulk-publish"
-                    icon={<RocketOutlined />}
-                    loading={bulkLoading === 'publish'}
-                    onClick={() => {
-                      modal.confirm({
-                        title: intl.formatMessage({
-                          id: 'pages.pageStudio.bulkPublish.confirmTitle',
-                          defaultMessage: '一键发布全部',
-                        }),
-                        content: intl.formatMessage({
-                          id: 'pages.pageStudio.bulkPublish.confirmContent',
-                          defaultMessage:
-                            '将重算提案并把所有 ready/basic 提案按真实链路发布（同 scope）。确认执行？',
-                        }),
-                        okText: intl.formatMessage({
-                          id: 'pages.pageStudio.bulkPublish.confirmOk',
-                          defaultMessage: '发布',
-                        }),
-                        onOk: handleBulkPublish,
-                      });
-                    }}
-                  >
-                    <FormattedMessage
-                      id="pages.pageStudio.bulkPublish.button"
-                      defaultMessage="一键发布全部"
-                    />
-                  </Button>,
-                  <Button
-                    key="bulk-unpublish"
-                    danger
-                    loading={bulkLoading === 'unpublish'}
-                    onClick={() => {
-                      modal.confirm({
-                        title: intl.formatMessage({
-                          id: 'pages.pageStudio.bulkUnpublish.confirmTitle',
-                          defaultMessage: '一键下架全部',
-                        }),
-                        content: intl.formatMessage({
-                          id: 'pages.pageStudio.bulkUnpublish.confirmContent',
-                          defaultMessage:
-                            '将下线当前 scope 内全部已发布页面（运行控制台菜单随之清空）。确认执行？',
-                        }),
-                        okText: intl.formatMessage({
-                          id: 'pages.pageStudio.bulkUnpublish.confirmOk',
-                          defaultMessage: '下架',
-                        }),
-                        okButtonProps: { danger: true },
-                        onOk: handleBulkUnpublish,
-                      });
-                    }}
-                  >
-                    <FormattedMessage
-                      id="pages.pageStudio.bulkUnpublish.button"
-                      defaultMessage="一键下架全部"
-                    />
                   </Button>,
                 ]}
               />
