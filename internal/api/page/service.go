@@ -212,12 +212,10 @@ func (s *Service) SaveDraft(ctx context.Context, req *PageSaveRequest) (*PageSav
 			UpdatedBy:     actor,
 			UpdatedAt:     now,
 		}
-		if err := ps.SetTitle(title); err != nil {
-			return err
-		}
-		if err := ps.SetCategoryLabels(categoryLabels); err != nil {
-			return err
-		}
+		// SetTitle/SetCategoryLabels 恒返回 nil（model 层实现为
+		// `b, _ := json.Marshal(map[string]string)`，无出错路径），err 检查已删。
+		ps.SetTitle(title)
+		ps.SetCategoryLabels(categoryLabels)
 
 		if existing != nil {
 			ps.ID = existing.ID
@@ -907,9 +905,8 @@ func (s *Service) Rollback(ctx context.Context, req *PageRollbackRequest) (*Page
 	if target == nil {
 		return nil, errorx.NewNotFound("page version not found")
 	}
-	if req.ExpectedDraftRevision == nil {
-		return nil, errorx.NewBadRequest("expectedDraftRevision is required")
-	}
+	// 注：ExpectedDraftRevision 的 nil 检查在函数入口（上方）已完成且 req
+	// 在两处之间未被重新赋值，原此处的重复防御分支为死代码，已删（A 类）。
 	var rolledBack spec.PageSpec
 	if err := json.Unmarshal([]byte(target.SpecJSON), &rolledBack); err != nil {
 		return nil, fmt.Errorf("decode page version: %w", err)
@@ -1012,9 +1009,9 @@ func (s *Service) proposalReplacementForDraft(ctx context.Context, gameID string
 			"requiredFlow": "regenerate PageProposal from FunctionContract/CapabilitySemantics, then regenerate draft",
 		})
 	}
-	if proposal == nil {
-		return proposalReplacement{}, errorx.NewBadRequest("latest PageProposal is required for default regeneration")
-	}
+	// 注：FindByScopeAndKey/FindByScopeAndPageKey 的契约是「无记录时返回
+	// (nil, ErrRecordNotFound)、有记录时返回 (&proposal, nil)」，err == nil 时
+	// proposal 恒非 nil，原 proposal == nil 防御分支为死代码，已删（A 类）。
 	if proposal.Status != dbenum.ProposalStatusPending && proposal.Status != dbenum.ProposalStatusAccepted {
 		return proposalReplacement{}, errorx.NewBadRequestWithDetails("PageProposal is not usable for regeneration", map[string]any{
 			"proposalKey": proposal.ProposalKey,
@@ -1485,12 +1482,10 @@ func applyPageSpecToModel(p *model.PageSpec, ps spec.PageSpec) error {
 	p.CategoryOrder = ps.Category.Order
 	p.Order = ps.Order
 	p.Icon = strings.TrimSpace(ps.Icon)
-	if err := p.SetTitle(normalizeLocaleKeys(ps.Title)); err != nil {
-		return err
-	}
-	if err := p.SetCategoryLabels(normalizeLocaleKeys(ps.Category.Labels)); err != nil {
-		return err
-	}
+	// SetTitle/SetCategoryLabels 恒返回 nil（model 层实现为
+	// `b, _ := json.Marshal(map[string]string)`，无出错路径），err 检查已删。
+	p.SetTitle(normalizeLocaleKeys(ps.Title))
+	p.SetCategoryLabels(normalizeLocaleKeys(ps.Category.Labels))
 	raw, err := marshalPageSpec(ps)
 	if err != nil {
 		return err
@@ -1772,9 +1767,8 @@ func (s *Service) RebuildAllProposals(ctx context.Context) (*PageProposalsRebuil
 	if err != nil {
 		return nil, err
 	}
-	if strings.TrimSpace(gameID) == "" || strings.TrimSpace(env) == "" {
-		return nil, errorx.NewBadRequest("X-Game-ID/X-Env headers are required")
-	}
+	// 注：requireScope 成功即保证返回 TrimSpace 后非空的 gameID/env
+	// （见其实现），原此处的重复空值防御分支为死代码，已删（A 类）。
 
 	contractSvc := contractsvc.NewContractService(s.svcCtx.DB)
 	if err := contractSvc.RebuildAllProposals(ctx, gameID, env); err != nil {

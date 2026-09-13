@@ -535,11 +535,18 @@ func (s *ControlService) handleRegisterRequest(ctx context.Context, req *agentv1
 			Permission:   f.GetPermission(),
 		}); err == nil {
 			// UpsertOpenAPI 的错误在此输入域不可达（C 类）：functionID 非空由
-			// validateAndNormalizeFunctions 后置条件保证；op 非 nil 由 converter
-			// 成功路径恒返回字面量构造保证；cloneOpenAPIOperation 的 MarshalJSON
-			// 对 Unmarshal 产物的 Schema 对象恒成功（converter 不设置 Extensions，
-			// 无不可序列化字段）。registry 为具体类型 *reg.Store，无注入 seam，
-			// 该 Warn 为防御性错误处理保留。
+			// validateAndNormalizeFunctions 后置条件保证（空 Id 被 skip）；op 非
+			// nil 由 converter 成功路径恒返回字面量构造保证；cloneOpenAPIOperation
+			// 的 MarshalJSON 对「Unmarshal 成功产物」恒成功——与 versioning 曾误删
+			// 的场景（未校验的 JSONSchema 原始文本直接透传进 Marshal，可被
+			// "{invalid" 击穿）本质不同：非法 InputSchema 在 converter 的第一层
+			// json.Unmarshal 即被拒绝（走下方 else Warn 分支），进入 clone 的
+			// Schema 是 kin-openapi 类型化字段 + Extensions(仅 string 字面量
+			// x-resource/x-risk 等)，json.Unmarshal 产出的值类型集合对 Marshal
+			// 无条件可序列化。已用 28 组恶意 InputSchema（2000 层深嵌套、lone
+			// surrogate、任意 x- 扩展 map、大整数、混合 enum、$ref 等）实证
+			// 无法构造 UpsertOpenAPI 失败。registry 为具体类型 *reg.Store，无
+			// 注入 seam，该 Warn 为防御性错误处理保留。
 			if err := s.registry.UpsertOpenAPI(f.Id, op); err != nil {
 				s.logger.Warn("failed to upsert openapi operation from register request", "function_id", f.Id, "error", err)
 			}

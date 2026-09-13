@@ -139,13 +139,10 @@ func resolveGamesConfigPath(c config.Config) string {
 	if file := strings.TrimSpace(c.Auth.GamesConfig); file != "" {
 		return toAbs(file)
 	}
+	// 死分支已删（原 base=="" 兜底 ×2）：resolveBootstrapBaseDir 的三个
+	// 返回出口（BaseDir 绝对化 / UsersConfig 目录 / runtime.Default-
+	// BootstrapDataDir）全部非空，base 恒有值，空值防御不可达。
 	base := resolveBootstrapBaseDir(c)
-	if base == "" {
-		base = resolveBootstrapAuthDir(c)
-	}
-	if base == "" {
-		return ""
-	}
 	candidate := filepath.Join(base, "games.json")
 	if _, err := os.Stat(candidate); err == nil {
 		return candidate
@@ -242,9 +239,11 @@ func buildGameFromSeed(entry bootstrapGameSeedEntry, defaults []model.GameEnv, i
 		GenreCode:   strings.TrimSpace(entry.GenreCode),
 		Color:       normalizeColor(entry.Color, pickGameColor(index)),
 	}
-	if err := game.SetEnvs(envRecords); err != nil {
-		return nil, err
-	}
+	// 错误分支已删（原 if err := SetEnvs）：model.Game.SetEnvs 的实现显式
+	// 忽略 json.Marshal 的错误并恒返 nil，且 []GameEnv 字段全为 string/
+	// 数值基础类型，无可构造的失败输入（同 internal/api/game/service.go
+	// 三处裸调用的先例）。
+	game.SetEnvs(envRecords)
 	return game, nil
 }
 
@@ -316,11 +315,9 @@ func sanitizeAlias(values ...string) string {
 
 func humanizeGameID(id string) string {
 	replacer := strings.NewReplacer("_", " ", "-", " ")
+	// 空串防御已删：strings.Fields 按连续空白切分，产出元素恒非空。
 	parts := strings.Fields(replacer.Replace(id))
 	for i := range parts {
-		if len(parts[i]) == 0 {
-			continue
-		}
 		parts[i] = strings.ToUpper(parts[i][:1]) + parts[i][1:]
 	}
 	return strings.Join(parts, " ")

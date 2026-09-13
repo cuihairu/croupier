@@ -3,12 +3,15 @@ package svc
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gorm.io/gorm"
 )
 
 // openRawSQLiteDBG 打开一个裸 *sql.DB（glebarez sqlite 驱动），供迁移体直测。
@@ -38,22 +41,23 @@ func makeReadOnlySQLiteDBG(t *testing.T, ddl ...string) *sql.DB {
 
 // ---- db.go 不可覆盖分支备忘 ----------------------------------------------
 //
-// L379-381（removeDBFromPostgresDSN 补回 "?" 后缀）：死分支。正则
+// L379-381（removeDBFromPostgresDSN 补回 "?" 后缀）：死分支【已删】。正则
 // `[^/?]+` 不吞 '?'，ReplaceAllString 恒保留未匹配的 "?query" 尾巴，因此
 // dsn 含 '?' 时结果必然也含 '?'，`!strings.Contains(result, "?")` 恒为
 // false（coverage_gapfill_j_test.go 的同名行为用例亦只能停在条件为假）。
 //
-// L396-398（createPostgresDatabase 的 sql.Open 错误）：死分支。pgx v5
-// stdlib 的 Driver.OpenConnector 不解析 DSN（解析推迟到 Connect），对已
-// 注册驱动 sql.Open 恒返回 nil error；坏 DSN 的报错发生在其后的
-// db.Exec（连接触发 parse），走的是 L406 一支。
+// L396-398（createPostgresDatabase 的 sql.Open 错误）：死分支，产品代码
+// 已加 C 类论证注释。pgx v5 stdlib 的 Driver.OpenConnector 不解析 DSN
+// （解析推迟到 Connect），对已注册驱动 sql.Open 恒返回 nil error；坏 DSN
+// 的报错发生在其后的 db.Exec（连接触发 parse），走的是 CREATE 失败一支。
 //
-// L95-97（内存 sqlite gorm.Open 失败）：DSN 是硬编码的合法值，无注入缝隙。
-// L127/L160/L193（postgres/mysql/sqlserver 的 dsnWithoutDB=="" 兜底）：
-// removeDB*/replaceDB* 对非空输入永不返回 ""，且外层还需真实数据库服务
-// 报 "database does not exist" 才可达。
+// L95-97（内存 sqlite gorm.Open 失败）：DSN 是硬编码的合法值，无注入缝隙
+// 【已加 C 类论证注释】。
+// postgres/mysql/sqlserver 的 dsnWithoutDB=="" 兜底【已删】：removeDB*/
+// replaceDB* 对非空输入恒非空（等值替换或原样返回）。
 // L230-232（openReadOnlyGorm 的 PRAGMA 失败）：gorm.Open 阶段已完成连接
-// 校验，成功后同一条 `PRAGMA query_only = ON` 无确定性失败输入。
+// 校验，成功后同一条 `PRAGMA query_only = ON` 无确定性失败输入【已加
+// C 类论证注释】。
 
 // 0021/0022/0023/0024 迁移体在 wrapGorm 阶段失败：closed *sql.DB 上
 // probeDialect 的全部方言探针查询报错。
@@ -159,33 +163,69 @@ func TestToAbsFallsBackWhenGetwdFailsG(t *testing.T) {
 
 // ---- 其余不可覆盖分支备忘 -------------------------------------------------
 //
-// game_seed.go L245-247（buildGameFromSeed 的 SetEnvs 错误）：
+// game_seed.go L245-247（buildGameFromSeed 的 SetEnvs 错误）【已删】：
 // model.Game.SetEnvs 只做 json.Marshal([]GameEnv)，字段全为 string，
 // 不存在可构造的失败输入。
-// game_seed.go L321-322（humanizeGameID 的空 token continue）：
+// game_seed.go L321-322（humanizeGameID 的空 token continue）【已删】：
 // strings.Fields 不会产出空串 token。
+// game_seed.go resolveGamesConfigPath 的 base=="" 兜底 ×2【已删】：
+// resolveBootstrapBaseDir 三个出口全部非空。
 //
 // migrations.go L87-88（init 的 goose 注册失败 panic）：init 在包加载时
-// 以固定的合法迁移列表执行且仅执行一次，无测试注入点。
+// 以固定的合法迁移列表执行且仅执行一次，无测试注入点【已加 C 类论证
+// 注释】。
 //
-// ops_state_store.go L266-269（cloneOpsState 的 Unmarshal 失败）：
-// 输入是同函数内刚 json.Marshal 成功的产物，结构体各字段均可无损往返。
+// ops_state_store.go L266-269（cloneOpsState 的 Unmarshal 失败）【已删】：
+// 输入是同函数内刚 json.Marshal 成功的产物，结构体各字段均为静态类型，
+// 可无损往返。
 //
 // service_context.go：
-//   - L279-283（audit.NewSQLAuditStore 错误）：该构造函数仅对 nil db
-//     报错，而此处 db 来自 openDatabase（失败早在 L163 panic）。
-//   - L470-472 / L476-478 / L479-481（seedBootstrapPermissions/Roles/Admins
-//     错误日志）：三个函数所有路径都 return nil。
-//   - L482-484（seedBootstrapGames 错误日志）：唯一错误源是启动中段
-//     games 表 Count 失败，需注入真实数据库故障；任何能破坏该查询的
-//     库形态（如 games 视图）都会先在 L234 BackfillEnvBindings panic。
-//   - L512-513（JWT secret 错误后的开发态兜底）：jwtutil.ResolveSecret
-//     的 dev 判定与 svc.isDevelopmentConfig 逐条等价，err!=nil 时必然
-//     判为非开发态而走 panic，永不到达兜底行。
-//   - L725-727（resolveBootstrapAuthDir 空 base 兜底）：
+//   - L279-283（audit.NewSQLAuditStore 错误）【已删】：该构造函数仅对
+//     nil db 报错，而此处 db 来自 openDatabase（失败早在开头 panic）。
+//   - L470-472 / L476-478 / L479-481（seedBootstrapPermissions/Roles/
+//     Admins 错误日志）【已删】：三个函数所有路径都 return nil。
+//   - L482-484（seedBootstrapGames 错误日志）【已补测试，见下方
+//     TestNewServiceContext_SeedGamesCountFailureG】：唯一错误源是启动
+//     中段 games 表 Count 失败；破坏库形态会先在 BackfillEnvBindings
+//     panic，但 Option 注入点位于两者之间，可注册查询回调定点注错。
+//   - L512-513（JWT secret 错误后的开发态兜底）【已删】：jwtutil.
+//     ResolveSecret 的 dev 判定与 svc.isDevelopmentConfig 逐条等价，
+//     err!=nil 时必然判为非开发态而走 panic，永不到达兜底行。
+//   - L725-727（resolveBootstrapAuthDir 空 base 兜底）【已删】：
 //     resolveBootstrapBaseDir 末端恒返回 runtime.DefaultBootstrapDataDir()
 //     的非空结果。
-//   - L1004-1006（derivePermissionResourceAction 的空 action 兜底）：
-//     action 初值 "*"，splitPermissionCode 返回的 action 恒非空。
+//   - L1004-1006（derivePermissionResourceAction 的空 action 兜底）
+//     【已删】：action 初值 "*"，splitPermissionCode 返回的 action 恒非空。
 //   - L1228-1229（initObjectStore 未知驱动）：objstore.Validate 的
-//     default 分支先于 switch 拒绝未知驱动。
+//     default 分支先于 switch 拒绝未知驱动【已加 C 类论证注释】。
+
+// seedBootstrapGames 的 count games 失败（NewServiceContext 内的 error 日志
+// 分支）：BackfillEnvBindings 在迁移后立即执行且对库形态敏感（坏表直接
+// panic），无法用 DROP TABLE/视图注入；Option 的应用点位于
+// BackfillEnvBindings 之后、seed 之前，恰好可以注册查询回调把 games 表的
+// count(*) 定点替换为失败——普通 SELECT 不受影响，启动链其余部分照常。
+func TestNewServiceContext_SeedGamesCountFailureG(t *testing.T) {
+	cfg := newSvcConfig(t, false)
+	opt := func(sc *ServiceContext) {
+		require.NotNil(t, sc.DB)
+		require.NoError(t, sc.DB.Callback().Query().After("gorm:query").Register("g:games_count_boom", func(tx *gorm.DB) {
+			if tx.Statement == nil || tx.Statement.Table != "games" {
+				return
+			}
+			// Statement.SQL 在 gorm:query 的 BuildQuerySQL 阶段填充，
+			// 用语句文本区分 count 与 Find，避免误伤其他 games 查询
+			//（大小写不敏感，防 gorm 升级改写 count 大小写）。
+			if strings.Contains(strings.ToLower(tx.Statement.SQL.String()), "count(*)") {
+				tx.Error = errors.New("injected games count failure")
+			}
+		}))
+	}
+
+	ctx := NewServiceContext(cfg, opt)
+	require.NotNil(t, ctx)
+
+	// count 失败使 seedBootstrapGames 提前返回：默认引导 game 未创建。
+	games, err := ctx.GameModel.ListAll(context.Background())
+	require.NoError(t, err)
+	assert.Empty(t, games, "count 注错后 seed 应中断，不应创建引导 game")
+}

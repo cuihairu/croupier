@@ -60,6 +60,11 @@ import (
 //               物理唯一索引，同 key 重建 500）
 
 func init() {
+	// panic 分支不可达论证（C 类）：SetGlobalMigrations 仅在版本号重复或
+	// checkGoMigration 校验失败时报错；上方的迁移列表是编译期固定集合，
+	// 每个工厂函数以唯一且 ≥1 的字面量版本号经 NewGoMigration 构造，
+	// 注册恒成功。init 在包加载时仅执行一次、无测试注入点，panic 是
+	// Go init 对注册失败的唯一表达方式，保留 fail-fast。
 	if err := goose.SetGlobalMigrations(
 		openapiBackfillMigration(),
 		legacyCleanupMigration(),

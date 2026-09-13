@@ -181,6 +181,11 @@ func (s *Store) fetchCertificateInfo(domain string, port int) (*x509.Certificate
 	defer conn.Close()
 
 	certs := conn.ConnectionState().PeerCertificates
+	// 不可达论证（C 类）：tls.DialWithDialer 握手成功即保证 PeerCertificates
+	// 非空——Go 标准库 TLS 客户端不支持任何匿名套件（aNULL），服务器不出示
+	// 证书则握手必然失败并进入上方 err 分支；TLS 1.3 PSK 会话恢复场景下
+	// Go 也会从缓存的 session 恢复 peerCertificates 而非置空。该 len==0
+	// 分支为对标准库行为之外的防御性兜底，无法构造真实拨号触发，保留。
 	if len(certs) == 0 {
 		return nil, fmt.Errorf("no certificates found for %s", domain)
 	}

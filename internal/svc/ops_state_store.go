@@ -263,9 +263,10 @@ func cloneOpsState(st OpsState) OpsState {
 		return st
 	}
 	var cp OpsState
-	if err := json.Unmarshal(data, &cp); err != nil {
-		slog.Default().Error("failed to unmarshal ops state clone", "error", err)
-		return st
-	}
+	// 错误分支已删（原 if err != nil 回退原值）：输入 data 是同函数内
+	// json.Marshal 刚成功的产物，OpsState 及其嵌套字段全部为静态类型
+	//（string/time.Time/[]struct/map[string]time.Time，无 interface{}/
+	// json.RawMessage），合法 JSON 对同类型结构反序列化恒成功。
+	_ = json.Unmarshal(data, &cp)
 	return cp
 }

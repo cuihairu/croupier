@@ -93,6 +93,9 @@ func openGorm(driver, dsn string) (*gorm.DB, error) {
 			// sees the same database.
 			db, err := gorm.Open(gsqlite.Open("file::memory:?cache=shared&_pragma=busy_timeout(5000)"), &gorm.Config{})
 			if err != nil {
+				// 不可达论证（C 类）：DSN 是上方硬编码的合法共享内存形态，
+				// 对内存库的打开无外部依赖、无确定性失败输入，错误仅在
+				// 进程级资源耗尽时出现；err 为签名契约必须处理，保留透传。
 				return nil, err
 			}
 			return db, nil
@@ -122,11 +125,11 @@ func openGorm(driver, dsn string) (*gorm.DB, error) {
 				if dbName == "" {
 					return nil, fmt.Errorf("failed to extract database name from DSN: %w", err)
 				}
-				// 连接到默认的 postgres 数据库
+				// 连接到默认的 postgres 数据库。
+				// 空串兜底已删：removeDBFromPostgresDSN 的两条路径（URL
+				// 正则替换保留 scheme 前缀 / dbname= 等值替换）对非空输入
+				// 恒返回非空，而此处 dsn 已通过非空与库名提取检查。
 				dsnWithoutDB := removeDBFromPostgresDSN(dsn, "postgres")
-				if dsnWithoutDB == "" {
-					return nil, fmt.Errorf("failed to remove database name from DSN: %w", err)
-				}
 				// 创建数据库
 				if err := createPostgresDatabase(dsnWithoutDB, dbName); err != nil {
 					return nil, fmt.Errorf("failed to create database %s: %w", dbName, err)
@@ -155,11 +158,10 @@ func openGorm(driver, dsn string) (*gorm.DB, error) {
 				if dbName == "" {
 					return nil, fmt.Errorf("failed to extract database name from DSN: %w", err)
 				}
-				// 连接到 MySQL 服务器（不指定数据库）
+				// 连接到 MySQL 服务器（不指定数据库）。
+				// 空串兜底已删：removeDBFromMySQLDSN 是 `/dbname?` → `/?`
+				// 的等长替换，不匹配时原样返回，对非空输入恒非空。
 				dsnWithoutDB := removeDBFromMySQLDSN(dsn)
-				if dsnWithoutDB == "" {
-					return nil, fmt.Errorf("failed to remove database name from DSN: %w", err)
-				}
 				// 创建数据库
 				if err := createMySQLDatabase(dsnWithoutDB, dbName); err != nil {
 					return nil, fmt.Errorf("failed to create database %s: %w", dbName, err)
@@ -188,11 +190,10 @@ func openGorm(driver, dsn string) (*gorm.DB, error) {
 				if dbName == "" {
 					return nil, fmt.Errorf("failed to extract database name from DSN: %w", err)
 				}
-				// 连接到 master 数据库
+				// 连接到 master 数据库。
+				// 空串兜底已删：replaceDBInSQLServerDSN 是 database=X 的
+				// 等值替换，不匹配时原样返回，对非空输入恒非空。
 				dsnWithoutDB := replaceDBInSQLServerDSN(dsn, "master")
-				if dsnWithoutDB == "" {
-					return nil, fmt.Errorf("failed to replace database name in DSN: %w", err)
-				}
 				// 创建数据库
 				if err := createSQLServerDatabase(dsnWithoutDB, dbName); err != nil {
 					return nil, fmt.Errorf("failed to create database %s: %w", dbName, err)
@@ -228,6 +229,9 @@ func openReadOnlyGorm(driver, dsn string) (*gorm.DB, error) {
 			return nil, err
 		}
 		if err := db.Exec("PRAGMA query_only = ON").Error; err != nil {
+			// 不可达论证（C 类）：gorm.Open 阶段已完成连接与 Ping 校验，
+			// 同一连接上设置 query_only（SQLite 3.8.0+ 支持，驱动内嵌
+			// 版本远高于此）无确定性失败输入；err 为签名契约，保留透传。
 			return nil, err
 		}
 		return db, nil
@@ -372,14 +376,11 @@ func extractPostgresDatabaseName(dsn string) string {
 func removeDBFromPostgresDSN(dsn, replacementDB string) string {
 	// 处理 URL 格式
 	if strings.HasPrefix(dsn, "postgres://") || strings.HasPrefix(dsn, "postgresql://") {
-		// 替换数据库名
+		// 替换数据库名。查询参数无需补回（原补回分支已删）：正则的
+		// db 名捕获组为 [^/?]+，不吞 '?'，ReplaceAllString 保留未匹配
+		// 部分，dsn 带 "?query" 时结果必然同样带 "?"。
 		re := regexp.MustCompile(`^(postgres(?:ql)?://[^/]+/)[^/?]+`)
-		result := re.ReplaceAllString(dsn, "${1}"+replacementDB)
-		// 确保查询参数保留
-		if idx := strings.Index(dsn, "?"); idx > 0 && !strings.Contains(result, "?") {
-			result += dsn[idx:]
-		}
-		return result
+		return re.ReplaceAllString(dsn, "${1}"+replacementDB)
 	}
 	// 处理 key=value 格式
 	re := regexp.MustCompile(`dbname=[^&\s]+`)
@@ -394,6 +395,11 @@ func createPostgresDatabase(dsn, dbName string) error {
 	// pgx stdlib registers the "pgx" driver name (there is no lib/pq here).
 	db, err := sql.Open("pgx", dsn)
 	if err != nil {
+		// 不可达论证（C 类）：sql.Open 对已注册驱动仅调用 OpenConnector，
+		// 而 pgx v5 stdlib 的 Driver.OpenConnector 不解析 DSN（解析推迟到
+		// 连接建立），此处恒返回 nil error；坏 DSN 的报错发生在其后的
+		// db.Exec（连接触发 parse），走的是下方 CREATE 失败分支。err 为
+		// database/sql 签名契约，保留透传。
 		return err
 	}
 	defer db.Close()

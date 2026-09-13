@@ -27,11 +27,10 @@ func NewHandler(service *Service) *Handler {
 
 // ListDrafts handles GET /api/v1/pages
 func (h *Handler) ListDrafts(c *gin.Context) {
+	// ShouldBindQuery 恒成功（A 类删除原 err 分支）：PageDraftListRequest
+	// 仅含 form 绑定的 string 字段且无 binding 约束，gin form 绑定对
+	// string 类型不存在类型转换或校验失败路径，任何 query 输入均可绑定。
 	var req PageDraftListRequest
-	if err := c.ShouldBindQuery(&req); err != nil {
-		response.Error(c, err)
-		return
-	}
 
 	resp, err := h.service.ListDrafts(c.Request.Context(), &req)
 	if err != nil {

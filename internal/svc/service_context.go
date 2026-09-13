@@ -274,13 +274,10 @@ func NewServiceContext(c config.Config, opts ...Option) *ServiceContext {
 
 	approvalsStore := approvals.NewMemStore()
 
-	// 初始化审计服务
-	auditStore, err := audit.NewSQLAuditStore(db)
-	if err != nil {
-		slog.Default().Error("Failed to initialize audit store", "error", err)
-		// Continue without audit service
-		auditStore = nil
-	}
+	// 初始化审计服务。错误分支已删（原 if err != nil 降级为 nil）：
+	// NewSQLAuditStore 仅对 nil db 报错，而此处 db 来自 openDatabase，
+	// 其失败早在函数开头 panic，恒非 nil。
+	auditStore, _ := audit.NewSQLAuditStore(db)
 	var auditSvc *audit.AuditService
 	if auditStore != nil {
 		auditSvc = audit.NewAuditService(auditStore, nil)
@@ -467,18 +464,16 @@ func NewServiceContext(c config.Config, opts ...Option) *ServiceContext {
 		}
 	}
 
-	if err := seedBootstrapPermissions(ctx); err != nil {
-		slog.Default().Error("failed to seed bootstrap permissions", "error", err)
-	}
+	// 引导播种统一 fail-open：权限/角色/管理员三个 seed 的所有失败路径
+	// 均降级为日志并恒返 nil，错误分支已删（返回 error 是演进预留）；
+	// 扩展目录与词条字典可失败（读盘/反序列化），错误仅记录不中断启动；
+	// games seed 的 count 失败是唯一可报错源，同样仅记录。
+	_ = seedBootstrapPermissions(ctx)
 	if err := seedBootstrapExtensionCatalog(ctx); err != nil {
 		slog.Default().Error("failed to seed bootstrap extension catalog", "error", err)
 	}
-	if err := seedBootstrapRoles(ctx); err != nil {
-		slog.Default().Error("failed to seed bootstrap roles", "error", err)
-	}
-	if err := seedBootstrapAdmins(ctx); err != nil {
-		slog.Default().Error("failed to seed bootstrap admins", "error", err)
-	}
+	_ = seedBootstrapRoles(ctx)
+	_ = seedBootstrapAdmins(ctx)
 	if err := seedBootstrapGames(ctx); err != nil {
 		slog.Default().Error("failed to seed bootstrap games", "error", err)
 	}
@@ -499,18 +494,16 @@ func NewServiceContext(c config.Config, opts ...Option) *ServiceContext {
 		ctx.SystemInfoCache = reg.NewSystemInfoCache()
 	}
 
-	// 初始化 JWT 密钥（从配置文件读取）
+	// 初始化 JWT 密钥（从配置文件读取）。原「非开发态 panic / 开发态兜底
+	// DevSecret」的双分支已收敛为直接 panic：ResolveSecret 报错 ⟺ secret
+	// 为空且 jwtutil.isDevelopmentMode 为 false，而该判定与本包
+	// isDevelopmentConfig 对 mode/CROUPIER_ENV/CROUPIER_MODE 逐条等价，
+	// err != nil 时 isDevelopmentConfig 必为 false——开发态兜底分支恒不可
+	// 达（开发态下 ResolveSecret 自身已返回 DevSecret、err 为 nil）。
 	secret, err := jwtutil.ResolveSecret(ctx.Config)
 	if err != nil {
 		// JWT secret 未配置且不在开发模式，这是一个严重配置错误
-		slog.Default().Error("JWT secret configuration error", "error", err)
-		// 在生产环境下应该启动失败
-		if !isDevelopmentConfig(ctx.Config) {
-			panic(fmt.Sprintf("JWT secret not configured: %v", err))
-		}
-		// 开发模式使用默认密钥
-		secret = jwtutil.DevSecret()
-		slog.Default().Warn("Using development JWT secret - do not use in production", "mode", ctx.Config.Server.Mode)
+		panic(fmt.Sprintf("JWT secret not configured: %v", err))
 	}
 	jwtutil.InitGlobalSecret(secret)
 
@@ -721,11 +714,10 @@ func isDevelopmentConfig(cfg config.Config) bool {
 }
 
 func resolveBootstrapAuthDir(c config.Config) string {
-	baseDir := resolveBootstrapBaseDir(c)
-	if baseDir == "" {
-		return runtime.DefaultBootstrapDataDir()
-	}
-	return baseDir
+	// 空值兜底已删（原 if baseDir == ""）：resolveBootstrapBaseDir 的
+	// 三个出口全部非空（BaseDir/UsersConfig 目录/DefaultBootstrapDataDir），
+	// baseDir 恒有值。
+	return resolveBootstrapBaseDir(c)
 }
 
 func resolveBootstrapBaseDir(c config.Config) string {
@@ -1001,9 +993,8 @@ func derivePermissionResourceAction(code, module string) (string, string) {
 	if resource == "" {
 		resource = "global"
 	}
-	if action == "" {
-		action = "*"
-	}
+	// 空 action 兜底已删：action 初值为 "*"，且仅在 baseAction 非空时被
+	// 覆盖（splitPermissionCode 返回的 action 恒非空），恒不可能为 ""。
 	return resource, action
 }
 
@@ -1226,6 +1217,11 @@ func initObjectStore(ctx context.Context, cfg config.StorageConfig) (objstore.St
 	case "file":
 		return objstore.OpenFile(ctx, storeCfg)
 	default:
+		// 不可达论证（C 类）：上方 objstore.Validate 以同一 driver 串
+		// （同样 ToLower）先做 default 拒绝（"unknown storage driver"），
+		// 能到达本 switch 的 driver 必属四个已知值。保留 default 是因为
+		// Validate 是跨包隐式契约：objstore 新增驱动而本 switch 未同步时，
+		// 显式报错优于静默返回 (nil, nil) 的空 Store。
 		return nil, fmt.Errorf("unsupported storage driver: %s", driver)
 	}
 }

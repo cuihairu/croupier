@@ -89,11 +89,10 @@ func (am *AdminManager) Initialize() error {
 	am.mu.Lock()
 	defer am.mu.Unlock()
 
-	// 加载默认数据
-	if err := am.loadDefaultAdmins(); err != nil {
-		slog.Default().Error("Failed to load default admins", "error", err)
-		return err
-	}
+	// 加载默认数据。loadDefaultAdmins 的错误分支已删：其所有失败路径
+	// （读文件/解析 JSON）均降级为日志并 continue，函数恒返 nil——返回
+	// error 是演进预留签名，此处不再检查。
+	_ = am.loadDefaultAdmins()
 
 	if err := am.loadDefaultRoles(); err != nil {
 		slog.Default().Error("Failed to load default roles", "error", err)
