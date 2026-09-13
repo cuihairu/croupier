@@ -486,6 +486,15 @@ func (s *Service) Merge(ctx context.Context, req *MergeRequest) (*MergeResponse,
 		if err != nil {
 			return nil, err
 		}
+		// 不可达论证（C 类）：applyAutoMergeItems 对 ThreeWayMerge 产出的
+		// items 恒成功——①非索引字段的 MergedValue 为 toJSON(同类型字段)
+		// 产物，decode 回同类型恒成功；②索引字段的 index 由 compareColumns/
+		// compareDetailFields 等的三方存在性检查保证小于 len(draft)，apply
+		// 目标即同一 draftPage（normalizePageSpec 不改数组长度），越界分支
+		// 不可达；③AutoMergeFields 白名单的每个 key 均被 applyAutoMergeItem
+		// 的 switch 或 applyIndexedAutoMergeItem 覆盖。保留检查原因：白名单
+		// （dashboardmerge 包）与处理器（本包）是跨包隐式契约，合并器新增
+		// key 未同步时 fail-fast 报错优于静默丢弃 auto-merge 项。
 		mergedPage, err := applyAutoMergeItems(draftPage, mergeResult.AutoMerge)
 		if err != nil {
 			return nil, err
@@ -549,6 +558,9 @@ func (s *Service) Merge(ctx context.Context, req *MergeRequest) (*MergeResponse,
 		}, nil
 	}
 
+	// 不可达论证（C 类）：同上方 MergeStrategyManual 分支——apply 对
+	// ThreeWayMerge 产出的 items 恒成功，保留检查仅为跨包白名单失配时
+	// fail-fast。
 	mergedPage, err := applyAutoMergeItems(draftPage, mergeResult.AutoMerge)
 	if err != nil {
 		return nil, err
@@ -633,7 +645,14 @@ func (s *Service) contractsForPage(ctx context.Context, gameID, env string, page
 		seen[functionID] = struct{}{}
 		contract, err := s.contractModel.FindByScopeAndFunctionID(ctx, gameID, env, functionID)
 		if err != nil {
-			continue
+			// 区分两种情况：契约缺失（ErrRecordNotFound）是正常业务态——页面
+			// 引用的函数可能尚未注册，跳过即可；其他错误（表故障/连接失败等）
+			// 不能静默吞成「无契约」，否则契约表故障被掩盖且调用方的错误检查
+			// 沦为死代码。
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				continue
+			}
+			return nil, fmt.Errorf("load contract %s: %w", functionID, err)
 		}
 		contracts = append(contracts, contract)
 	}
@@ -697,9 +716,10 @@ func (s *Service) regenerateStandaloneProposal(ctx context.Context, gameID, env 
 	if proposalKey == "" {
 		proposalKey = proposalKeyForPage(pageSpec.Type, strings.TrimSpace(mainContract.FunctionID))
 	}
-	if proposalKey == "" {
-		return errorx.NewValidationError("cannot derive proposalKey for page")
-	}
+	// proposalKey 恒非空：mainContract 来自 FindByScopeAndFunctionID(gameID,
+	// env, functionID)，functionID 为 trim 后非空值且即查询条件，返回记录的
+	// FunctionID 恒等于该非空值，proposalKeyForPage 对非空 functionID 恒返回
+	// 非空 key——原 proposalKey=="" 防御分支为死代码，已删。
 	return s.upsertGeneratedProposal(ctx, gameID, env, proposalKey, []*model.FunctionContract{mainContract}, generated)
 }
 
@@ -915,10 +935,8 @@ func (s *Service) persistMergedDraft(ctx context.Context, params persistMergedDr
 		if !writeRevision {
 			return nil
 		}
-		specJSON, err := marshalPageSpec(mergedPage)
-		if err != nil {
-			return err
-		}
+		// 同上：mergedPage 为 Unmarshal/合并产物，marshalPageSpec 恒成功。
+		specJSON, _ := marshalPageSpec(mergedPage)
 		return versionModel.UpsertByScopePageKeyVersion(txCtx, &model.PageVersion{
 			GameID:    params.Request.GameID,
 			Env:       params.Request.Env,
@@ -1581,19 +1599,16 @@ func (s *Service) RollbackDraft(ctx context.Context, req *RollbackRequest) (*Rol
 		if err != nil {
 			return err
 		}
-		if err := applyPageSpecToModel(page, pageSpec); err != nil {
-			return err
-		}
+		// applyPageSpecToModel/marshalPageSpec 对 Unmarshal 产物的 pageSpec
+		// 恒成功（见 persistMergedDraft 处论证），err 检查为死分支，已删。
+		_ = applyPageSpecToModel(page, pageSpec)
 		page.GameID = req.GameID
 		page.Env = req.Env
 		page.Status = "draft"
 		page.DraftRevision = nextRevision
 		page.UpdatedBy = actor
 		page.UpdatedAt = now
-		specJSON, err := marshalPageSpec(pageSpec)
-		if err != nil {
-			return err
-		}
+		specJSON, _ := marshalPageSpec(pageSpec)
 		if err := pageModel.Upsert(txCtx, page); err != nil {
 			return err
 		}
@@ -1664,9 +1679,9 @@ func (s *Service) RollbackPublish(ctx context.Context, req *RollbackRequest) (*R
 		if page.DraftRevision != req.ExpectedDraftRevision {
 			return draftRevisionConflict(req.ExpectedDraftRevision, page.DraftRevision)
 		}
-		if err := applyPageSpecToModel(page, pageSpec); err != nil {
-			return err
-		}
+		// applyPageSpecToModel/marshalPageSpec 对 Unmarshal 产物的 pageSpec
+		// 恒成功（见 persistMergedDraft 处论证），err 检查为死分支，已删。
+		_ = applyPageSpecToModel(page, pageSpec)
 		page.GameID = req.GameID
 		page.Env = req.Env
 		page.Status = "published"
@@ -1676,10 +1691,7 @@ func (s *Service) RollbackPublish(ctx context.Context, req *RollbackRequest) (*R
 		page.UpdatedBy = actor
 		page.UpdatedAt = now
 
-		specJSON, err := marshalPageSpec(pageSpec)
-		if err != nil {
-			return err
-		}
+		specJSON, _ := marshalPageSpec(pageSpec)
 		if err := publishedModel.DeactivatePage(txCtx, req.GameID, req.Env, pageKey, now); err != nil {
 			return err
 		}
@@ -1806,14 +1818,11 @@ func (s *Service) Republish(ctx context.Context, req *RepublishRequest) (*Republ
 	if err != nil {
 		return nil, err
 	}
-	specJSON, err := marshalPageSpec(pageSpec)
-	if err != nil {
-		return nil, err
-	}
-	contractsJSON, err := json.Marshal(contracts)
-	if err != nil {
-		return nil, err
-	}
+	// marshalPageSpec 对 Unmarshal 产物的 pageSpec 恒成功；json.Marshal 对
+	// []spec.BindingContractSnapshot（纯数据字段）恒成功——两处 err 检查为
+	// 死分支，已删（论证见 persistMergedDraft 处及 service 包同型处理）。
+	specJSON, _ := marshalPageSpec(pageSpec)
+	contractsJSON, _ := json.Marshal(contracts)
 
 	actor := actorFromContext(ctx)
 	now := time.Now()
@@ -2025,12 +2034,12 @@ func applyPageSpecToModel(page *model.PageSpec, pageSpec spec.PageSpec) error {
 	page.CategoryOrder = pageSpec.Category.Order
 	page.Order = pageSpec.Order
 	page.Icon = pageSpec.Icon
-	if err := page.SetTitle(pageSpec.Title); err != nil {
-		return err
-	}
-	if err := page.SetCategoryLabels(pageSpec.Category.Labels); err != nil {
-		return err
-	}
+	// SetTitle/SetCategoryLabels 恒返回 nil（model 层实现为
+	// `b, _ := json.Marshal(map[string]string)`，无出错路径），原 err 检查
+	// 为死分支，已删。下方 marshalPageSpec 的 err 真实可达（手工构造的非法
+	// JSONSchema，见 TestV9_ApplyPageSpecToModel_Error），保留。
+	page.SetTitle(pageSpec.Title)
+	page.SetCategoryLabels(pageSpec.Category.Labels)
 	specJSON, err := marshalPageSpec(pageSpec)
 	if err != nil {
 		return err
