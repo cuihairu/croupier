@@ -307,36 +307,45 @@ export const CanvasNode: React.FC<CanvasNodeProps> = ({
                         ],
                       }}
                     >
+                      {/* 右键事件在此截断：rc-dropdown 的 contextMenu 处理器不
+                          stopPropagation，嵌套 Dropdown 会双开菜单叠加（子菜单
+                          被后渲染的主菜单盖住）。子块 div 本身是 Dropdown 的
+                          child，其 onContextMenu 会被 rc-dropdown 覆盖，须外层包装。 */}
                       <div
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onChildSelect?.(c.id);
-                        }}
-                        style={{
-                          border:
-                            selectedChildId === c.id ? '1px solid #1677ff' : '1px dashed #d9d9d9',
-                          borderRadius: 6,
-                          padding: 6,
-                          cursor: 'pointer',
-                        }}
+                        onContextMenu={(e) => e.stopPropagation()}
+                        onClick={(e) => e.stopPropagation()}
                       >
-                        <cdef.Preview node={c} fn={undefined} />
-                        <div style={{ textAlign: 'right' }}>
-                          <Button
-                            size="small"
-                            type="text"
-                            danger
-                            style={{ height: 20, fontSize: 11 }}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              onChildDelete?.(c.id);
-                            }}
-                          >
-                            {intl.formatMessage({
-                              id: 'pages.pageStudio.editor.node.delete',
-                              defaultMessage: '删除',
-                            })}
-                          </Button>
+                        <div
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onChildSelect?.(c.id);
+                          }}
+                          style={{
+                            border:
+                              selectedChildId === c.id ? '1px solid #1677ff' : '1px dashed #d9d9d9',
+                            borderRadius: 6,
+                            padding: 6,
+                            cursor: 'pointer',
+                          }}
+                        >
+                          <cdef.Preview node={c} fn={undefined} />
+                          <div style={{ textAlign: 'right' }}>
+                            <Button
+                              size="small"
+                              type="text"
+                              danger
+                              style={{ height: 20, fontSize: 11 }}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onChildDelete?.(c.id);
+                              }}
+                            >
+                              {intl.formatMessage({
+                                id: 'pages.pageStudio.editor.node.delete',
+                                defaultMessage: '删除',
+                              })}
+                            </Button>
+                          </div>
                         </div>
                       </div>
                     </Dropdown>
