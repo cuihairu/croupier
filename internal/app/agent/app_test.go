@@ -67,7 +67,7 @@ func TestParseDurationEnv(t *testing.T) {
 			if tt.value != "" {
 				t.Setenv(tt.key, tt.value)
 			} else {
-				os.Unsetenv(tt.key)
+				_ = os.Unsetenv(tt.key)
 			}
 			result := parseDurationEnv(tt.key, tt.def)
 			assert.Equal(t, tt.expected, result)
@@ -98,7 +98,7 @@ func TestGetConfigDir(t *testing.T) {
 			if tt.value != "" {
 				t.Setenv("CROUPIER_CONFIG_DIR", tt.value)
 			} else {
-				os.Unsetenv("CROUPIER_CONFIG_DIR")
+				_ = os.Unsetenv("CROUPIER_CONFIG_DIR")
 			}
 			result := getConfigDir()
 			assert.Equal(t, tt.expected, result)

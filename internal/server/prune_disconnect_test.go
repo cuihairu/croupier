@@ -44,7 +44,7 @@ func TestServeConn_DisconnectPrunesRegistry(t *testing.T) {
 	listener.SetHandler(svc)
 
 	serverEnd, clientEnd := net.Pipe()
-	defer clientEnd.Close()
+	defer func() { _ = clientEnd.Close() }()
 	go func() { // 排水：mux 响应帧同步写管道
 		buf := make([]byte, 4096)
 		for {
@@ -86,7 +86,7 @@ func TestServeConn_DisconnectPrunesRegistry(t *testing.T) {
 	}
 	require.True(t, inRegistry, "register must populate registry")
 
-	clientEnd.Close()
+	_ = clientEnd.Close()
 	deadline = time.Now().Add(2 * time.Second)
 	for time.Now().Before(deadline) {
 		store.Mu().RLock()

@@ -147,7 +147,7 @@ func TestFinalFunctionsList_ModelListError(t *testing.T) {
 			if finalFnDestIs[model.Function](tx) {
 				listQueries++
 				if listQueries >= 2 {
-					tx.AddError(errors.New("injected list failure"))
+					_ = tx.AddError(errors.New("injected list failure"))
 				}
 			}
 		}))
@@ -358,7 +358,7 @@ func TestFinalFunctionInvoke_ApprovalNotifyRecipientsError(t *testing.T) {
 		Register(name, func(tx *gorm.DB) {
 			if finalFnDestIs[model.Admin](tx) && tx.Statement.Dest != nil {
 				if _, ok := tx.Statement.Dest.(*[]model.Admin); ok {
-					tx.AddError(errors.New("injected admins list failure"))
+					_ = tx.AddError(errors.New("injected admins list failure"))
 				}
 			}
 		}))

@@ -727,7 +727,7 @@ func TestSha256Bytes(t *testing.T) {
 			result := sha256Bytes(tt.raw)
 			// sha256 always returns a hash, even for nil/empty input
 			assert.NotNil(t, result)
-			if tt.raw == nil || len(tt.raw) == 0 {
+			if len(tt.raw) == 0 {
 				// For nil/empty, we still get a hash (of empty input)
 				assert.Len(t, result, 32) // SHA256 is 32 bytes
 			} else {

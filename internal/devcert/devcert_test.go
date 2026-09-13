@@ -48,7 +48,7 @@ func TestWriteFile_Overwrite(t *testing.T) {
 	testPath := filepath.Join(tempDir, "test.txt")
 
 	// 第一次写入
-	os.WriteFile(testPath, []byte("original"), 0644)
+	_ = os.WriteFile(testPath, []byte("original"), 0644)
 
 	// 覆盖写入
 	err := writeFile(testPath, []byte("overwritten"), 0644)
@@ -439,7 +439,7 @@ func BenchmarkEnsureDevCA(b *testing.B) {
 		tempDir := b.TempDir()
 		_, _, _ = EnsureDevCA(tempDir)
 		// 清理
-		os.RemoveAll(tempDir)
+		_ = os.RemoveAll(tempDir)
 	}
 }
 
@@ -451,9 +451,9 @@ func BenchmarkEnsureServerCert(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		testDir := filepath.Join(tempDir, "bench")
-		os.MkdirAll(testDir, 0755)
+		_ = os.MkdirAll(testDir, 0755)
 		_, _, _ = EnsureServerCert(testDir, caCrt, caKey, []string{"localhost"})
-		os.RemoveAll(testDir)
+		_ = os.RemoveAll(testDir)
 	}
 }
 
@@ -465,9 +465,9 @@ func BenchmarkEnsureAgentCert(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		testDir := filepath.Join(tempDir, "bench")
-		os.MkdirAll(testDir, 0755)
+		_ = os.MkdirAll(testDir, 0755)
 		_, _, _ = EnsureAgentCert(testDir, caCrt, caKey, "bench-agent")
-		os.RemoveAll(testDir)
+		_ = os.RemoveAll(testDir)
 	}
 }
 
@@ -527,7 +527,7 @@ func TestIsCertExpired(t *testing.T) {
 
 	// 测试无效的 PEM 文件
 	invalidPEM := filepath.Join(tempDir, "invalid.crt")
-	os.WriteFile(invalidPEM, []byte("not a valid PEM"), 0644)
+	_ = os.WriteFile(invalidPEM, []byte("not a valid PEM"), 0644)
 	expired = isCertExpired(invalidPEM)
 	if !expired {
 		t.Error("Invalid PEM should be considered expired")
@@ -535,7 +535,7 @@ func TestIsCertExpired(t *testing.T) {
 
 	// 测试空的 PEM 文件
 	emptyPEM := filepath.Join(tempDir, "empty.crt")
-	os.WriteFile(emptyPEM, []byte(""), 0644)
+	_ = os.WriteFile(emptyPEM, []byte(""), 0644)
 	expired = isCertExpired(emptyPEM)
 	if !expired {
 		t.Error("Empty PEM should be considered expired")
@@ -543,7 +543,7 @@ func TestIsCertExpired(t *testing.T) {
 
 	// 测试有效的 PEM 但无效的证书
 	validPEMInvalidCert := filepath.Join(tempDir, "pem_invalid.crt")
-	os.WriteFile(validPEMInvalidCert, []byte("-----BEGIN CERTIFICATE-----\ninvalid base64 data\n-----END CERTIFICATE-----"), 0644)
+	_ = os.WriteFile(validPEMInvalidCert, []byte("-----BEGIN CERTIFICATE-----\ninvalid base64 data\n-----END CERTIFICATE-----"), 0644)
 	expired = isCertExpired(validPEMInvalidCert)
 	if !expired {
 		t.Error("PEM with invalid cert data should be considered expired")
@@ -657,8 +657,8 @@ func TestEnsureServerCert_InvalidCAContent(t *testing.T) {
 	// 创建无效的 CA 文件
 	invalidCrt := filepath.Join(tempDir, "invalid_ca.crt")
 	invalidKey := filepath.Join(tempDir, "invalid_ca.key")
-	os.WriteFile(invalidCrt, []byte("invalid cert content"), 0644)
-	os.WriteFile(invalidKey, []byte("invalid key content"), 0600)
+	_ = os.WriteFile(invalidCrt, []byte("invalid cert content"), 0644)
+	_ = os.WriteFile(invalidKey, []byte("invalid key content"), 0600)
 
 	// 尝试使用无效的 CA 创建服务器证书
 	_, _, err := EnsureServerCert(tempDir, invalidCrt, invalidKey, []string{"localhost"})
@@ -674,8 +674,8 @@ func TestEnsureAgentCert_InvalidCAContent(t *testing.T) {
 	// 创建无效的 CA 文件
 	invalidCrt := filepath.Join(tempDir, "invalid_ca.crt")
 	invalidKey := filepath.Join(tempDir, "invalid_ca.key")
-	os.WriteFile(invalidCrt, []byte("invalid cert content"), 0644)
-	os.WriteFile(invalidKey, []byte("invalid key content"), 0600)
+	_ = os.WriteFile(invalidCrt, []byte("invalid cert content"), 0644)
+	_ = os.WriteFile(invalidKey, []byte("invalid key content"), 0600)
 
 	// 尝试使用无效的 CA 创建 Agent 证书
 	_, _, err := EnsureAgentCert(tempDir, invalidCrt, invalidKey, "test-agent")

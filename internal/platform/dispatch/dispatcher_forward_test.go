@@ -36,7 +36,7 @@ func newFailoverDispatcher(t *testing.T, agentIDs ...string) *Dispatcher {
 	d := NewDispatcher(nil)
 	now := time.Now().Add(time.Hour)
 	for _, id := range agentIDs {
-		d.store.UpsertAgent(&reg.AgentSession{
+		_ = d.store.UpsertAgent(&reg.AgentSession{
 			AgentID:  id,
 			Addr:     "127.0.0.1:9001",
 			ExpireAt: now,
@@ -121,7 +121,7 @@ func TestInvokeRequest_TargetedRoutingNoFailover(t *testing.T) {
 	d := newFailoverDispatcher(t, "agent-1", "agent-2")
 	// 只给 agent-1 挂 provider service。
 	now := time.Now().Add(time.Hour)
-	d.store.UpsertAgent(&reg.AgentSession{
+	_ = d.store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "agent-1",
 		Addr:     "127.0.0.1:9001",
 		ExpireAt: now,

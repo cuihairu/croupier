@@ -40,7 +40,7 @@ func TestOpsAgentsList_EmptyStore(t *testing.T) {
 
 func TestOpsAgentsList_WithAgents(t *testing.T) {
 	store := registry.NewStore()
-	store.UpsertAgent(&registry.AgentSession{
+	_ = store.UpsertAgent(&registry.AgentSession{
 		AgentID:  "agent-1",
 		GameID:   "demo",
 		Env:      "prod",
@@ -53,7 +53,7 @@ func TestOpsAgentsList_WithAgents(t *testing.T) {
 		},
 		Labels: map[string]string{"dc": "dc1"},
 	})
-	store.UpsertAgent(&registry.AgentSession{
+	_ = store.UpsertAgent(&registry.AgentSession{
 		AgentID:  "agent-2",
 		GameID:   "demo",
 		Env:      "staging",

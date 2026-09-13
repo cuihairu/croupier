@@ -21,7 +21,7 @@ func TestMuxConn_WaitReturnsAfterRun(t *testing.T) {
 	c1, c2 := net.Pipe()
 	mc := NewMuxConn(c1, &Config{RecvTimeout: 100 * time.Millisecond}, nil)
 
-	c2.Close() // Run 的 readFrame 立即 EOF 返回
+	_ = c2.Close() // Run 的 readFrame 立即 EOF 返回
 	_ = mc.Run(context.Background())
 
 	done := make(chan struct{})
@@ -40,7 +40,7 @@ func TestMuxConn_WaitReturnsAfterRun(t *testing.T) {
 // 缓冲后，Close 的 failPending 对同一 reqID 的错误投递走 default 丢弃分支。
 func TestMuxConn_CloseFailsOccupiedPendingChannel(t *testing.T) {
 	c1, c2 := net.Pipe()
-	defer c2.Close()
+	defer func() { _ = c2.Close() }()
 	mc := NewMuxConn(c1, nil, nil)
 
 	respCh := make(chan muxResponse, 1)
@@ -94,7 +94,7 @@ func TestServeConn_StopsOnClosingSignal(t *testing.T) {
 	if err != nil {
 		t.Fatalf("dial: %v", err)
 	}
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 
 	// writeFrame 自带 4 字节长度前缀，这里只传消息体。
 	payload := protocol.NewMessageBody(protocol.MsgInvokeRequest, 7, []byte("ping"))

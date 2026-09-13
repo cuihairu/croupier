@@ -311,7 +311,7 @@ func TestCodeError_UnicodeMessage(t *testing.T) {
 
 // TestCodeError_ImplementsError 测试实现 error 接口
 func TestCodeError_ImplementsError(t *testing.T) {
-	var err error = NewBadRequest("test")
+	err := NewBadRequest("test")
 	if err == nil {
 		t.Error("CodeError should implement error interface")
 	}
@@ -322,7 +322,7 @@ func TestCodeError_ImplementsError(t *testing.T) {
 // TestValidationError_ImplementsError 测试 ValidationError 实现 error 接口
 func TestValidationError_ImplementsError(t *testing.T) {
 	details := map[string]string{"field": "error"}
-	var err error = NewValidationErrorWithDetails("test", details)
+	var err = NewValidationErrorWithDetails("test", details)
 	if err == nil {
 		t.Error("ValidationError should implement error interface")
 	}

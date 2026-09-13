@@ -15,7 +15,7 @@ func TestHandler_ListFunctions_WithAllFilters(t *testing.T) {
 	router, service := setupTestRouter()
 
 	// Register test functions
-	service.Register(testCtx(), &functionv1.FunctionMetadata{
+	_ = service.Register(testCtx(), &functionv1.FunctionMetadata{
 		Id:       "player.get",
 		Resource: "player",
 		Tags:     []string{"read"},
@@ -44,7 +44,7 @@ func TestHandler_ListFunctions_EmptyResult(t *testing.T) {
 
 	Equal(t, http.StatusOK, w.Code)
 	var resp ListFunctionsResponse
-	json.Unmarshal(w.Body.Bytes(), &resp)
+	_ = json.Unmarshal(w.Body.Bytes(), &resp)
 	Equal(t, 0, len(resp.Functions))
 }
 
@@ -85,7 +85,7 @@ func TestHandler_RegisterFunction_EmptyBody(t *testing.T) {
 func TestHandler_UpdateFunction_InvalidJSON(t *testing.T) {
 	router, service := setupTestRouter()
 
-	service.Register(testCtx(), &functionv1.FunctionMetadata{
+	_ = service.Register(testCtx(), &functionv1.FunctionMetadata{
 		Id:   "test.func",
 		Name: "Test",
 	})
@@ -101,7 +101,7 @@ func TestHandler_UpdateFunction_InvalidJSON(t *testing.T) {
 func TestHandler_UpdateFunction_PartialUpdate(t *testing.T) {
 	router, service := setupTestRouter()
 
-	service.Register(testCtx(), &functionv1.FunctionMetadata{
+	_ = service.Register(testCtx(), &functionv1.FunctionMetadata{
 		Id:          "partial.update",
 		Name:        "Original Name",
 		Description: "Original Description",
@@ -118,7 +118,7 @@ func TestHandler_UpdateFunction_PartialUpdate(t *testing.T) {
 
 	Equal(t, http.StatusOK, w.Code)
 	var resp UpdateFunctionResponse
-	json.Unmarshal(w.Body.Bytes(), &resp)
+	_ = json.Unmarshal(w.Body.Bytes(), &resp)
 	Equal(t, "Updated Name", resp.Function.Name)
 	Equal(t, "Original Description", resp.Function.Description)
 }
@@ -126,7 +126,7 @@ func TestHandler_UpdateFunction_PartialUpdate(t *testing.T) {
 func TestHandler_UpdateFunction_WithExtensions(t *testing.T) {
 	router, service := setupTestRouter()
 
-	service.Register(testCtx(), &functionv1.FunctionMetadata{
+	_ = service.Register(testCtx(), &functionv1.FunctionMetadata{
 		Id:   "ext.update",
 		Name: "Test",
 	})
@@ -139,7 +139,7 @@ func TestHandler_UpdateFunction_WithExtensions(t *testing.T) {
 
 	Equal(t, http.StatusOK, w.Code)
 	var resp UpdateFunctionResponse
-	json.Unmarshal(w.Body.Bytes(), &resp)
+	_ = json.Unmarshal(w.Body.Bytes(), &resp)
 	Equal(t, "value", resp.Function.Extensions["x-custom"])
 	Equal(t, "test", resp.Function.Extensions["x-another"])
 }
@@ -175,7 +175,7 @@ func TestHandler_GetResources_Empty(t *testing.T) {
 
 	Equal(t, http.StatusOK, w.Code)
 	var resp map[string][]string
-	json.Unmarshal(w.Body.Bytes(), &resp)
+	_ = json.Unmarshal(w.Body.Bytes(), &resp)
 	NotNil(t, resp["resources"])
 }
 
@@ -188,20 +188,20 @@ func TestHandler_GetTags_Empty(t *testing.T) {
 
 	Equal(t, http.StatusOK, w.Code)
 	var resp map[string][]string
-	json.Unmarshal(w.Body.Bytes(), &resp)
+	_ = json.Unmarshal(w.Body.Bytes(), &resp)
 	NotNil(t, resp["tags"])
 }
 
 func TestHandler_ListFunctions_WithModeFilter(t *testing.T) {
 	router, service := setupTestRouter()
 
-	service.Register(testCtx(), &functionv1.FunctionMetadata{
+	_ = service.Register(testCtx(), &functionv1.FunctionMetadata{
 		Id:       "query.func",
 		Resource: "test",
 		Security: &functionv1.FunctionSecurity{RiskLevel: functionv1.FunctionSecurity_RISK_LEVEL_LOW},
 		Behavior: &functionv1.FunctionBehavior{Mode: functionv1.FunctionBehavior_MODE_QUERY},
 	})
-	service.Register(testCtx(), &functionv1.FunctionMetadata{
+	_ = service.Register(testCtx(), &functionv1.FunctionMetadata{
 		Id:       "command.func",
 		Resource: "test",
 		Security: &functionv1.FunctionSecurity{RiskLevel: functionv1.FunctionSecurity_RISK_LEVEL_LOW},
@@ -214,7 +214,7 @@ func TestHandler_ListFunctions_WithModeFilter(t *testing.T) {
 
 	Equal(t, http.StatusOK, w.Code)
 	var resp ListFunctionsResponse
-	json.Unmarshal(w.Body.Bytes(), &resp)
+	_ = json.Unmarshal(w.Body.Bytes(), &resp)
 
 	// Should only return query functions
 	for _, f := range resp.Functions {
@@ -258,7 +258,7 @@ func TestHandler_RegisterFunction_WithAllFields(t *testing.T) {
 
 	Equal(t, http.StatusCreated, w.Code)
 	var resp RegisterFunctionResponse
-	json.Unmarshal(w.Body.Bytes(), &resp)
+	_ = json.Unmarshal(w.Body.Bytes(), &resp)
 	Equal(t, "full.func", resp.Function.ID)
 	Equal(t, "Full Function", resp.Function.Name)
 	Equal(t, "high", resp.Function.Security.RiskLevel)

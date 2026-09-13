@@ -203,7 +203,7 @@ func TestV11SyncSelectors_TxFetchError(t *testing.T) {
 
 	injected := errors.New("injected in-tx page_specs fetch failure")
 	withV11InTxPageSpecsHook(t, service.svcCtx.DB, func(tx *gorm.DB) {
-		tx.AddError(injected)
+		_ = tx.AddError(injected)
 	})
 
 	resp, err := service.SyncSelectors(ctx, &PageSyncSelectorsRequest{
@@ -226,7 +226,7 @@ func TestV11SyncSelectors_TxRevisionConflict(t *testing.T) {
 			tx.Statement.Context,
 			"UPDATE page_specs SET draft_revision = draft_revision + 1",
 		); err != nil {
-			tx.AddError(err)
+			_ = tx.AddError(err)
 		}
 	})
 

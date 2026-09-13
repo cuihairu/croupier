@@ -9,7 +9,6 @@ import (
 
 	objstore "github.com/cuihairu/croupier/internal/platform/objstore"
 	"github.com/cuihairu/croupier/internal/svc"
-	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -33,14 +32,6 @@ func setupSvcCtxWithStore(t *testing.T) *svc.ServiceContext {
 func setupSvcCtxNoStore(t *testing.T) *svc.ServiceContext {
 	t.Helper()
 	return &svc.ServiceContext{ObjectStore: nil}
-}
-
-func newTestContext(method, target, body string) (*gin.Context, *httptest.ResponseRecorder) {
-	rec := httptest.NewRecorder()
-	ctx, _ := gin.CreateTestContext(rec)
-	ctx.Request = httptest.NewRequest(method, target, strings.NewReader(body))
-	ctx.Request.Header.Set("Content-Type", "application/json")
-	return ctx, rec
 }
 
 func assertStatus(t *testing.T, rec *httptest.ResponseRecorder, want int) {

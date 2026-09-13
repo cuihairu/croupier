@@ -41,7 +41,7 @@ func TestNewGameRouter_WithPrefix(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, gameDB)
 	sqlDB, _ := gameDB.DB()
-	defer sqlDB.Close()
+	defer func() { _ = sqlDB.Close() }()
 }
 
 // --- 缓存层 ---

@@ -23,7 +23,7 @@ func TestFindConfigsDir_IgnoresFileNamedConfigsV9(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer os.Chdir(originalWd)
+	defer func() { _ = os.Chdir(originalWd) }()
 
 	tmpDir := t.TempDir()
 	if err := os.WriteFile(filepath.Join(tmpDir, "configs"), []byte("not a dir"), 0o644); err != nil {
@@ -44,7 +44,7 @@ func TestFindConfigsDir_FollowsSymlinkV9(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer os.Chdir(originalWd)
+	defer func() { _ = os.Chdir(originalWd) }()
 
 	tmpDir := t.TempDir()
 	realDir := filepath.Join(tmpDir, "real-configs")
@@ -74,7 +74,7 @@ func TestDefaultBootstrapDataDir_FileConfigsFallsBackV9(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer os.Chdir(originalWd)
+	defer func() { _ = os.Chdir(originalWd) }()
 
 	tmpDir := t.TempDir()
 	if err := os.WriteFile(filepath.Join(tmpDir, "configs"), []byte("x"), 0o644); err != nil {

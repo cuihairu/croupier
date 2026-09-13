@@ -76,7 +76,7 @@ func TestDefaultBootstrapDataDirInTempDir(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to get working directory: %v", err)
 	}
-	defer os.Chdir(originalWd)
+	defer func() { _ = os.Chdir(originalWd) }()
 
 	if err := os.Chdir(tmpDir); err != nil {
 		t.Fatalf("Failed to change to temp dir: %v", err)

@@ -29,7 +29,7 @@ func mustCreateTool(t *testing.T, s *Service) string {
 		Name: "wiki", URL: "https://wiki", Category: "docs",
 	})
 	require.NoError(t, err)
-	return fmt.Sprintf("%d", resp.Tool.Id)
+	return fmt.Sprintf("%d", resp.Id)
 }
 
 func TestToolService_Update_AllFields(t *testing.T) {
@@ -49,8 +49,8 @@ func TestToolService_Update_AllFields(t *testing.T) {
 		Icon: &icon, Sort: &sort, Enabled: &enabled, GameID: &gameID, Env: &env,
 	})
 	require.NoError(t, err)
-	assert.Equal(t, "https://wiki2", resp.Tool.Url)
-	assert.False(t, resp.Tool.Enabled)
+	assert.Equal(t, "https://wiki2", resp.Url)
+	assert.False(t, resp.Enabled)
 }
 
 func TestToolService_Update_NoFields_BadRequest(t *testing.T) {

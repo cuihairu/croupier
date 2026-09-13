@@ -52,7 +52,7 @@ func serveFakePGConn(conn net.Conn) {
 		if _, err := conn.Write([]byte{'N'}); err != nil {
 			return
 		}
-		startup, err = readPGUntypedFrame(conn)
+		_, err = readPGUntypedFrame(conn)
 		if err != nil {
 			return
 		}

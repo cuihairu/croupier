@@ -39,7 +39,7 @@ func TestInitDatabase_UsesConfiguredDataSource(t *testing.T) {
 
 	sqlDB, err := db.DB()
 	require.NoError(t, err)
-	defer sqlDB.Close()
+	defer func() { _ = sqlDB.Close() }()
 
 	assert.NoError(t, sqlDB.Ping())
 }
@@ -88,7 +88,7 @@ func TestRegisterRoutes_ProtectedRoleAndPermissionEndpointsMounted(t *testing.T)
 	require.NoError(t, err)
 	sqlDB, err := db.DB()
 	require.NoError(t, err)
-	defer sqlDB.Close()
+	defer func() { _ = sqlDB.Close() }()
 
 	require.NoError(t, model.AutoMigrate(db))
 

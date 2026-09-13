@@ -45,7 +45,7 @@ func TestNewServer_NilConfig(t *testing.T) {
 		t.Logf("NewServer with nil config returned error (expected if TLS required): %v", err)
 		return
 	}
-	defer srv.Close()
+	defer func() { _ = srv.Close() }()
 
 	if srv.Addr() == "" {
 		t.Error("expected non-empty address")
@@ -72,7 +72,7 @@ func TestServer_IsClosed(t *testing.T) {
 		t.Error("server should not be closed initially")
 	}
 
-	srv.Close()
+	_ = srv.Close()
 
 	if !srv.IsClosed() {
 		t.Error("server should be closed after Close()")
@@ -114,7 +114,7 @@ func TestServer_Serve_NilContext(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	defer srv.Close()
+	defer func() { _ = srv.Close() }()
 
 	// Serve with nil context should use context.Background()
 	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
@@ -130,7 +130,7 @@ func TestServer_Serve_NilContext(t *testing.T) {
 		// Serve returned (may be due to listener close or timeout)
 	case <-ctx.Done():
 		// Timeout - close the server to unblock
-		srv.Close()
+		_ = srv.Close()
 		<-done
 	}
 }
@@ -145,9 +145,9 @@ func TestServer_MultipleClose(t *testing.T) {
 	}
 
 	// Multiple close should not panic
-	srv.Close()
-	srv.Close()
-	srv.Close()
+	_ = srv.Close()
+	_ = srv.Close()
+	_ = srv.Close()
 }
 
 func TestClient_MultipleClose(t *testing.T) {
@@ -170,9 +170,9 @@ func TestClient_MultipleClose(t *testing.T) {
 	}
 
 	// Multiple close should not panic
-	client.Close()
-	client.Close()
-	client.Close()
+	_ = client.Close()
+	_ = client.Close()
+	_ = client.Close()
 }
 
 func TestClient_IsClosed(t *testing.T) {
@@ -198,7 +198,7 @@ func TestClient_IsClosed(t *testing.T) {
 		t.Error("client should not be closed initially")
 	}
 
-	client.Close()
+	_ = client.Close()
 
 	if !client.IsClosed() {
 		t.Error("client should be closed after Close()")
@@ -224,7 +224,7 @@ func TestClient_Call_AfterClose(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	client.Close()
+	_ = client.Close()
 
 	_, _, err = client.Call(context.Background(), protocol.MsgInvokeRequest, []byte("test"))
 	if err == nil {
@@ -433,7 +433,7 @@ func TestClient_NilConfig(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	defer client.Close()
+	defer func() { _ = client.Close() }()
 
 	respMsgID, respBody, err := client.Call(context.Background(), protocol.MsgInvokeRequest, []byte("test"))
 	if err != nil {
@@ -472,7 +472,7 @@ func TestServer_RecvSendTimeouts(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	defer client.Close()
+	defer func() { _ = client.Close() }()
 
 	_, respBody, err := client.Call(context.Background(), protocol.MsgInvokeRequest, []byte("timeout-test"))
 	if err != nil {
@@ -493,7 +493,7 @@ func TestServer_DefaultAddress(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	defer srv.Close()
+	defer func() { _ = srv.Close() }()
 
 	if !strings.Contains(srv.Addr(), "19090") {
 		t.Logf("Server addr: %s (may not use default if port is in use)", srv.Addr())

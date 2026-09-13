@@ -260,7 +260,7 @@ func TestLoadAssignments_NotExist(t *testing.T) {
 func TestLoadAssignments_InvalidJSON(t *testing.T) {
 	tmpDir := t.TempDir()
 	invalidFile := filepath.Join(tmpDir, "invalid.json")
-	os.WriteFile(invalidFile, []byte("{invalid json}"), 0644)
+	_ = os.WriteFile(invalidFile, []byte("{invalid json}"), 0644)
 
 	result, err := loadAssignments(invalidFile)
 	assert.Error(t, err)
@@ -271,7 +271,7 @@ func TestLoadAssignments_InvalidJSON(t *testing.T) {
 func TestLoadAssignmentHistory_EmptyFile(t *testing.T) {
 	tmpDir := t.TempDir()
 	emptyFile := filepath.Join(tmpDir, "history.json")
-	os.WriteFile(emptyFile, []byte{}, 0644)
+	_ = os.WriteFile(emptyFile, []byte{}, 0644)
 
 	result, err := loadAssignmentHistory(emptyFile)
 	assert.NoError(t, err)
@@ -283,7 +283,7 @@ func TestLoadAssignmentHistory_EmptyFile(t *testing.T) {
 func TestLoadAssignmentHistory_InvalidJSON(t *testing.T) {
 	tmpDir := t.TempDir()
 	invalidFile := filepath.Join(tmpDir, "invalid.json")
-	os.WriteFile(invalidFile, []byte("{invalid json}"), 0644)
+	_ = os.WriteFile(invalidFile, []byte("{invalid json}"), 0644)
 
 	result, err := loadAssignmentHistory(invalidFile)
 	assert.Error(t, err)

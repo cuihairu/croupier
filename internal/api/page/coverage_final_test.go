@@ -38,7 +38,7 @@ func injectFinalQueryFailure(t *testing.T, db *gorm.DB, name string, match func(
 			}
 			n++
 			if n >= occurrence {
-				tx.AddError(errors.New("injected query failure"))
+				_ = tx.AddError(errors.New("injected query failure"))
 			}
 		}))
 	t.Cleanup(func() { _ = db.Callback().Query().Remove(name) })
@@ -49,7 +49,7 @@ func injectFinalCreateFailure(t *testing.T, db *gorm.DB, name string, match func
 	require.NoError(t, db.Callback().Create().Before("gorm:create").
 		Register(name, func(tx *gorm.DB) {
 			if match(tx) {
-				tx.AddError(errors.New("injected create failure"))
+				_ = tx.AddError(errors.New("injected create failure"))
 			}
 		}))
 	t.Cleanup(func() { _ = db.Callback().Create().Remove(name) })
@@ -60,7 +60,7 @@ func injectFinalUpdateFailure(t *testing.T, db *gorm.DB, name string, match func
 	require.NoError(t, db.Callback().Update().Before("gorm:update").
 		Register(name, func(tx *gorm.DB) {
 			if match(tx) {
-				tx.AddError(errors.New("injected update failure"))
+				_ = tx.AddError(errors.New("injected update failure"))
 			}
 		}))
 	t.Cleanup(func() { _ = db.Callback().Update().Remove(name) })
@@ -196,7 +196,7 @@ func TestFinalPublish_TxFindFailure(t *testing.T) {
 			}
 			pageSpecQueries++
 			if pageSpecQueries >= 2 {
-				tx.AddError(errors.New("injected query failure"))
+				_ = tx.AddError(errors.New("injected query failure"))
 			}
 		}))
 	t.Cleanup(func() { _ = service.svcCtx.DB.Callback().Query().Remove(name) })
@@ -255,7 +255,7 @@ func TestFinalPublish_DeactivateFailure(t *testing.T) {
 	require.NoError(t, service.svcCtx.DB.Callback().Update().Before("gorm:update").
 		Register("test.fail.pub.update", func(tx *gorm.DB) {
 			if tableIs(tx, "published_page_specs") {
-				tx.AddError(errors.New("injected update failure"))
+				_ = tx.AddError(errors.New("injected update failure"))
 			}
 		}))
 	t.Cleanup(func() { _ = service.svcCtx.DB.Callback().Update().Remove("test.fail.pub.update") })

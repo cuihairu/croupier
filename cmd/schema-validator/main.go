@@ -252,13 +252,13 @@ func extractTarGz(src, dest string) error {
 	if err != nil {
 		return fmt.Errorf("cannot open pack: %w", err)
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	gzr, err := gzip.NewReader(file)
 	if err != nil {
 		return fmt.Errorf("invalid gzip stream: %w", err)
 	}
-	defer gzr.Close()
+	defer func() { _ = gzr.Close() }()
 
 	tr := tar.NewReader(gzr)
 	destAbs, err := filepath.Abs(dest)
@@ -299,10 +299,12 @@ func extractTarGz(src, dest string) error {
 				return fmt.Errorf("failed to create file %s: %w", target, err)
 			}
 			if _, err := io.Copy(out, tr); err != nil {
-				out.Close()
+				_ = out.Close()
 				return fmt.Errorf("failed to extract %s: %w", target, err)
 			}
-			out.Close()
+			if err := out.Close(); err != nil {
+				return fmt.Errorf("failed to finalize %s: %w", target, err)
+			}
 		case tar.TypeSymlink, tar.TypeLink:
 			// skip links for safety
 			continue

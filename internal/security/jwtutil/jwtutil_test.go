@@ -131,8 +131,8 @@ func TestResolveSecret(t *testing.T) {
 	t.Run("errors when no secret in production mode", func(t *testing.T) {
 		// Set production mode via environment
 		oldMode := os.Getenv("CROUPIER_MODE")
-		os.Setenv("CROUPIER_MODE", "prod")
-		defer os.Setenv("CROUPIER_MODE", oldMode)
+		_ = os.Setenv("CROUPIER_MODE", "prod")
+		defer func() { _ = os.Setenv("CROUPIER_MODE", oldMode) }()
 
 		cfg := config.Config{
 			Server: config.ServerConfig{
@@ -149,8 +149,8 @@ func TestResolveSecret(t *testing.T) {
 
 	t.Run("respects CROUPIER_ENV environment variable", func(t *testing.T) {
 		oldEnv := os.Getenv("CROUPIER_ENV")
-		os.Setenv("CROUPIER_ENV", "dev")
-		defer os.Setenv("CROUPIER_ENV", oldEnv)
+		_ = os.Setenv("CROUPIER_ENV", "dev")
+		defer func() { _ = os.Setenv("CROUPIER_ENV", oldEnv) }()
 
 		cfg := config.Config{
 			Server: config.ServerConfig{
@@ -205,8 +205,8 @@ func TestIsDevelopmentMode(t *testing.T) {
 
 	t.Run("production mode", func(t *testing.T) {
 		oldMode := os.Getenv("CROUPIER_MODE")
-		os.Setenv("CROUPIER_MODE", "prod")
-		defer os.Setenv("CROUPIER_MODE", oldMode)
+		_ = os.Setenv("CROUPIER_MODE", "prod")
+		defer func() { _ = os.Setenv("CROUPIER_MODE", oldMode) }()
 
 		cfg := config.Config{
 			Server: config.ServerConfig{
@@ -218,10 +218,10 @@ func TestIsDevelopmentMode(t *testing.T) {
 
 	t.Run("defaults to development", func(t *testing.T) {
 		oldMode := os.Getenv("CROUPIER_MODE")
-		os.Unsetenv("CROUPIER_MODE")
+		_ = os.Unsetenv("CROUPIER_MODE")
 		defer func() {
 			if oldMode != "" {
-				os.Setenv("CROUPIER_MODE", oldMode)
+				_ = os.Setenv("CROUPIER_MODE", oldMode)
 			}
 		}()
 

@@ -38,16 +38,16 @@ func TestFromEnv_ForcePathStyleVariations_Comprehensive(t *testing.T) {
 			original := os.Getenv("STORAGE_FORCE_PATH_STYLE")
 			defer func() {
 				if original == "" {
-					os.Unsetenv("STORAGE_FORCE_PATH_STYLE")
+					_ = os.Unsetenv("STORAGE_FORCE_PATH_STYLE")
 				} else {
-					os.Setenv("STORAGE_FORCE_PATH_STYLE", original)
+					_ = os.Setenv("STORAGE_FORCE_PATH_STYLE", original)
 				}
 			}()
 
 			if tt.value == "" {
-				os.Unsetenv("STORAGE_FORCE_PATH_STYLE")
+				_ = os.Unsetenv("STORAGE_FORCE_PATH_STYLE")
 			} else {
-				os.Setenv("STORAGE_FORCE_PATH_STYLE", tt.value)
+				_ = os.Setenv("STORAGE_FORCE_PATH_STYLE", tt.value)
 			}
 
 			cfg := FromEnv()
@@ -84,16 +84,16 @@ func TestFromEnv_SignedURLTTL_Variations(t *testing.T) {
 			original := os.Getenv("STORAGE_SIGNED_URL_TTL")
 			defer func() {
 				if original == "" {
-					os.Unsetenv("STORAGE_SIGNED_URL_TTL")
+					_ = os.Unsetenv("STORAGE_SIGNED_URL_TTL")
 				} else {
-					os.Setenv("STORAGE_SIGNED_URL_TTL", original)
+					_ = os.Setenv("STORAGE_SIGNED_URL_TTL", original)
 				}
 			}()
 
 			if tt.value == "" {
-				os.Unsetenv("STORAGE_SIGNED_URL_TTL")
+				_ = os.Unsetenv("STORAGE_SIGNED_URL_TTL")
 			} else {
-				os.Setenv("STORAGE_SIGNED_URL_TTL", tt.value)
+				_ = os.Setenv("STORAGE_SIGNED_URL_TTL", tt.value)
 			}
 
 			cfg := FromEnv()
@@ -116,14 +116,14 @@ func TestFromEnv_AllEmpty(t *testing.T) {
 	saved := make(map[string]string)
 	for _, v := range envVars {
 		saved[v] = os.Getenv(v)
-		os.Unsetenv(v)
+		_ = os.Unsetenv(v)
 	}
 	defer func() {
 		for k, v := range saved {
 			if v == "" {
-				os.Unsetenv(k)
+				_ = os.Unsetenv(k)
 			} else {
-				os.Setenv(k, v)
+				_ = os.Setenv(k, v)
 			}
 		}
 	}()
@@ -195,11 +195,11 @@ func TestFromEnv_WhitespaceHandling(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			original := os.Getenv(tt.envVar)
 			if original != "" {
-				defer os.Setenv(tt.envVar, original)
+				defer func() { _ = os.Setenv(tt.envVar, original) }()
 			} else {
-				defer os.Unsetenv(tt.envVar)
+				defer func() { _ = os.Unsetenv(tt.envVar) }()
 			}
-			os.Setenv(tt.envVar, tt.value)
+			_ = os.Setenv(tt.envVar, tt.value)
 
 			cfg := FromEnv()
 
@@ -230,11 +230,11 @@ func TestFromEnv_DriverCasePreservation(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			original := os.Getenv("STORAGE_DRIVER")
 			if original != "" {
-				defer os.Setenv("STORAGE_DRIVER", original)
+				defer func() { _ = os.Setenv("STORAGE_DRIVER", original) }()
 			} else {
-				defer os.Unsetenv("STORAGE_DRIVER")
+				defer func() { _ = os.Unsetenv("STORAGE_DRIVER") }()
 			}
-			os.Setenv("STORAGE_DRIVER", tt.value)
+			_ = os.Setenv("STORAGE_DRIVER", tt.value)
 
 			cfg := FromEnv()
 			if cfg.Driver != tt.value {

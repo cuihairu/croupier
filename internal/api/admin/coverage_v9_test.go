@@ -70,24 +70,24 @@ func v9AdminFailQueryOn(db *gorm.DB, table string, from int) {
 		}
 		hits++
 		if hits >= from {
-			tx.AddError(errors.New("v9 forced query error on " + table))
+			_ = tx.AddError(errors.New("v9 forced query error on " + table))
 		}
 	}
-	db.Callback().Query().Before("gorm:query").Register("v9_fail_query_"+table, matcher)
-	db.Callback().Row().Before("gorm:row").Register("v9_fail_row_"+table, matcher)
+	_ = db.Callback().Query().Before("gorm:query").Register("v9_fail_query_"+table, matcher)
+	_ = db.Callback().Row().Before("gorm:row").Register("v9_fail_row_"+table, matcher)
 }
 
 func v9AdminFailCreateOn(db *gorm.DB, table string) {
-	db.Callback().Create().Before("gorm:create").Register("v9_fail_create_"+table, func(tx *gorm.DB) {
+	_ = db.Callback().Create().Before("gorm:create").Register("v9_fail_create_"+table, func(tx *gorm.DB) {
 		if v9AdminTableOf(tx) == table {
-			tx.AddError(errors.New("v9 forced create error on " + table))
+			_ = tx.AddError(errors.New("v9 forced create error on " + table))
 		}
 	})
 }
 
 // v9AdminFailUpdateOn fails updates on table whose destination map contains destKey.
 func v9AdminFailUpdateOn(db *gorm.DB, table, destKey string) {
-	db.Callback().Update().Before("gorm:update").Register("v9_fail_update_"+table+"_"+destKey, func(tx *gorm.DB) {
+	_ = db.Callback().Update().Before("gorm:update").Register("v9_fail_update_"+table+"_"+destKey, func(tx *gorm.DB) {
 		if v9AdminTableOf(tx) != table {
 			return
 		}
@@ -95,14 +95,14 @@ func v9AdminFailUpdateOn(db *gorm.DB, table, destKey string) {
 		if !ok || m[destKey] == nil {
 			return
 		}
-		tx.AddError(errors.New("v9 forced update error on " + table + "." + destKey))
+		_ = tx.AddError(errors.New("v9 forced update error on " + table + "." + destKey))
 	})
 }
 
 func v9AdminFailDeleteOn(db *gorm.DB, table string) {
-	db.Callback().Delete().Before("gorm:delete").Register("v9_fail_delete_"+table, func(tx *gorm.DB) {
+	_ = db.Callback().Delete().Before("gorm:delete").Register("v9_fail_delete_"+table, func(tx *gorm.DB) {
 		if v9AdminTableOf(tx) == table {
-			tx.AddError(errors.New("v9 forced delete error on " + table))
+			_ = tx.AddError(errors.New("v9 forced delete error on " + table))
 		}
 	})
 }

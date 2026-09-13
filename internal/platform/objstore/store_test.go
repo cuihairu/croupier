@@ -27,23 +27,23 @@ func TestFromEnv(t *testing.T) {
 	defer func() {
 		for k, v := range originalEnv {
 			if v == "" {
-				os.Unsetenv(k)
+				_ = os.Unsetenv(k)
 			} else {
-				os.Setenv(k, v)
+				_ = os.Setenv(k, v)
 			}
 		}
 	}()
 
 	// 设置测试环境变量
-	os.Setenv("STORAGE_DRIVER", "s3")
-	os.Setenv("STORAGE_BUCKET", "test-bucket")
-	os.Setenv("STORAGE_REGION", "us-west-2")
-	os.Setenv("STORAGE_ENDPOINT", "https://s3.amazonaws.com")
-	os.Setenv("STORAGE_ACCESS_KEY", "test-key")
-	os.Setenv("STORAGE_SECRET_KEY", "test-secret")
-	os.Setenv("STORAGE_BASE_DIR", "/tmp/storage")
-	os.Setenv("STORAGE_FORCE_PATH_STYLE", "true")
-	os.Setenv("STORAGE_SIGNED_URL_TTL", "1h")
+	_ = os.Setenv("STORAGE_DRIVER", "s3")
+	_ = os.Setenv("STORAGE_BUCKET", "test-bucket")
+	_ = os.Setenv("STORAGE_REGION", "us-west-2")
+	_ = os.Setenv("STORAGE_ENDPOINT", "https://s3.amazonaws.com")
+	_ = os.Setenv("STORAGE_ACCESS_KEY", "test-key")
+	_ = os.Setenv("STORAGE_SECRET_KEY", "test-secret")
+	_ = os.Setenv("STORAGE_BASE_DIR", "/tmp/storage")
+	_ = os.Setenv("STORAGE_FORCE_PATH_STYLE", "true")
+	_ = os.Setenv("STORAGE_SIGNED_URL_TTL", "1h")
 
 	cfg := FromEnv()
 
@@ -87,14 +87,14 @@ func TestFromEnv_Empty(t *testing.T) {
 	originalVals := make(map[string]string)
 	for _, v := range envVars {
 		originalVals[v] = os.Getenv(v)
-		os.Unsetenv(v)
+		_ = os.Unsetenv(v)
 	}
 	defer func() {
 		for k, v := range originalVals {
 			if v == "" {
-				os.Unsetenv(k)
+				_ = os.Unsetenv(k)
 			} else {
-				os.Setenv(k, v)
+				_ = os.Setenv(k, v)
 			}
 		}
 	}()
@@ -129,8 +129,8 @@ func TestFromEnv_ForcePathStyleVariations(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			os.Setenv("STORAGE_FORCE_PATH_STYLE", tt.value)
-			defer os.Unsetenv("STORAGE_FORCE_PATH_STYLE")
+			_ = os.Setenv("STORAGE_FORCE_PATH_STYLE", tt.value)
+			defer func() { _ = os.Unsetenv("STORAGE_FORCE_PATH_STYLE") }()
 
 			cfg := FromEnv()
 			if cfg.ForcePathStyle != tt.expected {
@@ -155,8 +155,8 @@ func TestFromEnv_SignedURLTTL(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			os.Setenv("STORAGE_SIGNED_URL_TTL", tt.value)
-			defer os.Unsetenv("STORAGE_SIGNED_URL_TTL")
+			_ = os.Setenv("STORAGE_SIGNED_URL_TTL", tt.value)
+			defer func() { _ = os.Unsetenv("STORAGE_SIGNED_URL_TTL") }()
 
 			cfg := FromEnv()
 			if cfg.SignedURLTTL != tt.expected {

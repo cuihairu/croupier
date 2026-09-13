@@ -17,7 +17,6 @@ import (
 // cmd/server.interconnectHandler 的两类消息：hello + forward）。
 type interconnectServeHandler struct {
 	epoch     uint64
-	payload   []byte
 	rawResult []byte
 }
 

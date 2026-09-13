@@ -295,7 +295,7 @@ func TestClient_Do_Success(t *testing.T) {
 			Message: "success",
 			Data:    json.RawMessage(`{"key":"value"}`),
 		}
-		json.NewEncoder(w).Encode(resp)
+		_ = json.NewEncoder(w).Encode(resp)
 	}))
 	defer srv.Close()
 
@@ -323,7 +323,7 @@ func TestClient_Do_APIError(t *testing.T) {
 			Status:  false,
 			Message: "something went wrong",
 		}
-		json.NewEncoder(w).Encode(resp)
+		_ = json.NewEncoder(w).Encode(resp)
 	}))
 	defer srv.Close()
 
@@ -341,7 +341,7 @@ func TestClient_Do_APIError(t *testing.T) {
 
 func TestClient_Do_InvalidJSON(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte("not json"))
+		_, _ = w.Write([]byte("not json"))
 	}))
 	defer srv.Close()
 
@@ -362,7 +362,7 @@ func TestClient_Do_RateLimited(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		requestCount++
 		resp := Response{Status: true, Message: "ok"}
-		json.NewEncoder(w).Encode(resp)
+		_ = json.NewEncoder(w).Encode(resp)
 	}))
 	defer srv.Close()
 
@@ -393,7 +393,7 @@ func TestClient_Do_RateLimited(t *testing.T) {
 func TestClient_Do_CacheWrite(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		resp := Response{Status: true, Message: "fresh"}
-		json.NewEncoder(w).Encode(resp)
+		_ = json.NewEncoder(w).Encode(resp)
 	}))
 	defer srv.Close()
 
@@ -424,7 +424,7 @@ func TestClient_Do_CacheWrite(t *testing.T) {
 func TestClient_Do_ContextCancelled(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		resp := Response{Status: true, Message: "ok"}
-		json.NewEncoder(w).Encode(resp)
+		_ = json.NewEncoder(w).Encode(resp)
 	}))
 	defer srv.Close()
 
@@ -448,7 +448,7 @@ func TestClient_Do_ContentType(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		contentType = r.Header.Get("Content-Type")
 		resp := Response{Status: true, Message: "ok"}
-		json.NewEncoder(w).Encode(resp)
+		_ = json.NewEncoder(w).Encode(resp)
 	}))
 	defer srv.Close()
 
@@ -477,12 +477,12 @@ func TestClient_Do_RetryOnNetworkError(t *testing.T) {
 			hj, ok := w.(http.Hijacker)
 			if ok {
 				conn, _, _ := hj.Hijack()
-				conn.Close()
+				_ = conn.Close()
 			}
 			return
 		}
 		resp := Response{Status: true, Message: "ok"}
-		json.NewEncoder(w).Encode(resp)
+		_ = json.NewEncoder(w).Encode(resp)
 	}))
 	defer srv.Close()
 
@@ -548,7 +548,7 @@ func TestClient_Do_URLConstruction(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		requestURL = r.URL.String()
 		resp := Response{Status: true, Message: "ok"}
-		json.NewEncoder(w).Encode(resp)
+		_ = json.NewEncoder(w).Encode(resp)
 	}))
 	defer srv.Close()
 
@@ -571,10 +571,10 @@ func TestClient_Do_URLConstruction(t *testing.T) {
 func TestClient_Do_TimestampAdded(t *testing.T) {
 	var formValues map[string][]string
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		r.ParseForm()
+		_ = r.ParseForm()
 		formValues = r.Form
 		resp := Response{Status: true, Message: "ok"}
-		json.NewEncoder(w).Encode(resp)
+		_ = json.NewEncoder(w).Encode(resp)
 	}))
 	defer srv.Close()
 
@@ -680,7 +680,7 @@ func TestGetBool_StringVariants(t *testing.T) {
 func TestClient_Do_WithNilParams(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		resp := Response{Status: true, Message: "ok"}
-		json.NewEncoder(w).Encode(resp)
+		_ = json.NewEncoder(w).Encode(resp)
 	}))
 	defer srv.Close()
 
@@ -743,7 +743,7 @@ func BenchmarkBuildCacheKey(b *testing.B) {
 func TestClient_Do_HTTP500(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte(`{"status":false,"message":"internal error"}`))
+		_, _ = w.Write([]byte(`{"status":false,"message":"internal error"}`))
 	}))
 	defer srv.Close()
 

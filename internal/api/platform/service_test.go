@@ -29,7 +29,7 @@ func TestBuildExternalFunctionID(t *testing.T) {
 
 func TestDiscoverExternalPlatforms(t *testing.T) {
 	store := reg.NewStore()
-	store.UpsertAgent(&reg.AgentSession{
+	_ = store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "a1",
 		Addr:     "127.0.0.1:19091",
 		ExpireAt: time.Now().Add(time.Minute),
@@ -49,7 +49,7 @@ func TestDiscoverExternalPlatforms(t *testing.T) {
 
 func TestListMethodsUsesDiscoveredExternalFunctions(t *testing.T) {
 	store := reg.NewStore()
-	store.UpsertAgent(&reg.AgentSession{
+	_ = store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "a1",
 		Addr:     "127.0.0.1:19091",
 		ExpireAt: time.Now().Add(time.Minute),
@@ -124,7 +124,7 @@ func TestExtractPlatformMethodsFromBindings_NewProviderNoCoreChange(t *testing.T
 
 func TestListPlatformsMarksExtensionSource(t *testing.T) {
 	store := reg.NewStore()
-	store.UpsertAgent(&reg.AgentSession{
+	_ = store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "a1",
 		Addr:     "127.0.0.1:19091",
 		ExpireAt: time.Now().Add(time.Minute),
@@ -262,7 +262,7 @@ func TestListMethods_UnknownPlatform(t *testing.T) {
 
 func TestListMethods_CaseInsensitive(t *testing.T) {
 	store := reg.NewStore()
-	store.UpsertAgent(&reg.AgentSession{
+	_ = store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "a1",
 		Addr:     "127.0.0.1:19091",
 		ExpireAt: time.Now().Add(time.Minute),
@@ -296,7 +296,7 @@ func TestDiscoverExternalPlatforms_EmptyStore(t *testing.T) {
 
 func TestDiscoverExternalPlatforms_NoExternalFunctions(t *testing.T) {
 	store := reg.NewStore()
-	store.UpsertAgent(&reg.AgentSession{
+	_ = store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "a1",
 		Addr:     "127.0.0.1:19091",
 		ExpireAt: time.Now().Add(time.Minute),
@@ -316,7 +316,7 @@ func TestDiscoverExternalPlatforms_NoExternalFunctions(t *testing.T) {
 
 func TestDiscoverExternalPlatforms_MultiplePlatforms(t *testing.T) {
 	store := reg.NewStore()
-	store.UpsertAgent(&reg.AgentSession{
+	_ = store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "a1",
 		Addr:     "127.0.0.1:19091",
 		ExpireAt: time.Now().Add(time.Minute),
@@ -479,7 +479,7 @@ func TestStringInSlice_EmptyList(t *testing.T) {
 
 func TestListMethods_CaseInsensitivePlatform(t *testing.T) {
 	store := reg.NewStore()
-	store.UpsertAgent(&reg.AgentSession{
+	_ = store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "a1",
 		Addr:     "127.0.0.1:19091",
 		ExpireAt: time.Now().Add(time.Minute),
@@ -505,7 +505,7 @@ func TestListMethods_CaseInsensitivePlatform(t *testing.T) {
 
 func TestListMethods_WithWhitespace(t *testing.T) {
 	store := reg.NewStore()
-	store.UpsertAgent(&reg.AgentSession{
+	_ = store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "a1",
 		Addr:     "127.0.0.1:19091",
 		ExpireAt: time.Now().Add(time.Minute),
@@ -527,7 +527,7 @@ func TestListMethods_WithWhitespace(t *testing.T) {
 
 func TestListMethods_Deduplicates(t *testing.T) {
 	store := reg.NewStore()
-	store.UpsertAgent(&reg.AgentSession{
+	_ = store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "a1",
 		Addr:     "127.0.0.1:19091",
 		ExpireAt: time.Now().Add(time.Minute),
@@ -619,7 +619,7 @@ func TestDiscoverExternalPlatforms_NilInstallationService(t *testing.T) {
 
 func TestListPlatforms_SortsByName(t *testing.T) {
 	store := reg.NewStore()
-	store.UpsertAgent(&reg.AgentSession{
+	_ = store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "a1",
 		Addr:     "127.0.0.1:19091",
 		ExpireAt: time.Now().Add(time.Minute),
@@ -695,7 +695,7 @@ func TestCall_PlatformWithWhitespace(t *testing.T) {
 
 func TestListMethods_SkipsEmptyMethodNames(t *testing.T) {
 	store := reg.NewStore()
-	store.UpsertAgent(&reg.AgentSession{
+	_ = store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "a1",
 		Addr:     "127.0.0.1:19091",
 		ExpireAt: time.Now().Add(time.Minute),
@@ -736,7 +736,7 @@ func TestExtractPlatformMethodsFromBindings_EmptySpecJSON(t *testing.T) {
 
 func TestListMethods_EmptyMethodNames(t *testing.T) {
 	store := reg.NewStore()
-	store.UpsertAgent(&reg.AgentSession{
+	_ = store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "a1",
 		Addr:     "127.0.0.1:19091",
 		ExpireAt: time.Now().Add(time.Minute),
@@ -764,7 +764,7 @@ func TestCall_WithDispatcher(t *testing.T) {
 	dispatcher := dispatch.NewDispatcher(store)
 
 	// Register an agent with external function
-	store.UpsertAgent(&reg.AgentSession{
+	_ = store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "test-agent",
 		Addr:     "127.0.0.1:19091",
 		ExpireAt: time.Now().Add(time.Minute),
@@ -802,7 +802,7 @@ func TestCall_WithDispatcher_EmptyResponse(t *testing.T) {
 	store := reg.NewStore()
 	dispatcher := dispatch.NewDispatcher(store)
 
-	store.UpsertAgent(&reg.AgentSession{
+	_ = store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "test-agent",
 		Addr:     "127.0.0.1:19091",
 		ExpireAt: time.Now().Add(time.Minute),
@@ -847,7 +847,7 @@ func TestDiscoverExternalPlatforms_WithInstallationBindings(t *testing.T) {
 	}
 	service := NewService(svcCtx)
 
-	store.UpsertAgent(&reg.AgentSession{
+	_ = store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "a1",
 		Addr:     "127.0.0.1:19091",
 		ExpireAt: time.Now().Add(time.Minute),
@@ -870,7 +870,7 @@ func TestCall_DispatcherSuccessPath_NotReachable(t *testing.T) {
 	store := reg.NewStore()
 	dispatcher := dispatch.NewDispatcher(store)
 
-	store.UpsertAgent(&reg.AgentSession{
+	_ = store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "test-agent",
 		Addr:     "127.0.0.1:19091",
 		ExpireAt: time.Now().Add(time.Minute),
@@ -905,7 +905,7 @@ func TestCall_WithInvalidRequestJSON(t *testing.T) {
 	store := reg.NewStore()
 	dispatcher := dispatch.NewDispatcher(store)
 
-	store.UpsertAgent(&reg.AgentSession{
+	_ = store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "test-agent",
 		Addr:     "127.0.0.1:19091",
 		ExpireAt: time.Now().Add(time.Minute),
@@ -940,7 +940,7 @@ func TestListMethods_WithAgentButNoExternalFunctions(t *testing.T) {
 	dispatcher := dispatch.NewDispatcher(store)
 
 	// Register agent with non-external functions
-	store.UpsertAgent(&reg.AgentSession{
+	_ = store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "test-agent",
 		Addr:     "127.0.0.1:19091",
 		ExpireAt: time.Now().Add(time.Minute),
@@ -972,7 +972,7 @@ func TestListPlatforms_WithDispatcher(t *testing.T) {
 	store := reg.NewStore()
 	dispatcher := dispatch.NewDispatcher(store)
 
-	store.UpsertAgent(&reg.AgentSession{
+	_ = store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "test-agent",
 		Addr:     "127.0.0.1:19091",
 		ExpireAt: time.Now().Add(time.Minute),
@@ -1048,7 +1048,7 @@ func TestDiscoverExternalPlatforms_NilAgent(t *testing.T) {
 	store := reg.NewStore()
 
 	// Add an agent with nil functions map
-	store.UpsertAgent(&reg.AgentSession{
+	_ = store.UpsertAgent(&reg.AgentSession{
 		AgentID:   "nil-agent",
 		Addr:      "127.0.0.1:19091",
 		ExpireAt:  time.Now().Add(time.Minute),
@@ -1067,7 +1067,7 @@ func TestDiscoverExternalPlatforms_DisabledFunctions(t *testing.T) {
 	store := reg.NewStore()
 
 	// Add agent with disabled functions
-	store.UpsertAgent(&reg.AgentSession{
+	_ = store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "test-agent",
 		Addr:     "127.0.0.1:19091",
 		ExpireAt: time.Now().Add(time.Minute),
@@ -1093,7 +1093,7 @@ func TestDiscoverExternalPlatforms_MultipleAgentsSamePlatform(t *testing.T) {
 	store := reg.NewStore()
 
 	// Add multiple agents with functions for the same platform
-	store.UpsertAgent(&reg.AgentSession{
+	_ = store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "agent1",
 		Addr:     "127.0.0.1:19091",
 		ExpireAt: time.Now().Add(time.Minute),
@@ -1102,7 +1102,7 @@ func TestDiscoverExternalPlatforms_MultipleAgentsSamePlatform(t *testing.T) {
 		},
 	})
 
-	store.UpsertAgent(&reg.AgentSession{
+	_ = store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "agent2",
 		Addr:     "127.0.0.1:19092",
 		ExpireAt: time.Now().Add(time.Minute),
@@ -1124,7 +1124,7 @@ func TestDiscoverExternalPlatforms_DeduplicatesMethods(t *testing.T) {
 	store := reg.NewStore()
 
 	// Add multiple agents with the same function (case insensitive)
-	store.UpsertAgent(&reg.AgentSession{
+	_ = store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "agent1",
 		Addr:     "127.0.0.1:19091",
 		ExpireAt: time.Now().Add(time.Minute),
@@ -1133,7 +1133,7 @@ func TestDiscoverExternalPlatforms_DeduplicatesMethods(t *testing.T) {
 		},
 	})
 
-	store.UpsertAgent(&reg.AgentSession{
+	_ = store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "agent2",
 		Addr:     "127.0.0.1:19092",
 		ExpireAt: time.Now().Add(time.Minute),
@@ -1154,7 +1154,7 @@ func TestDiscoverExternalPlatforms_DeduplicatesMethods(t *testing.T) {
 func TestDiscoverExternalPlatforms_SkipsNonExternalFunctions(t *testing.T) {
 	store := reg.NewStore()
 
-	store.UpsertAgent(&reg.AgentSession{
+	_ = store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "test-agent",
 		Addr:     "127.0.0.1:19091",
 		ExpireAt: time.Now().Add(time.Minute),
@@ -1182,7 +1182,7 @@ func TestDiscoverExternalPlatforms_EmptyFunctionID(t *testing.T) {
 	store := reg.NewStore()
 
 	// Add agent with empty function ID (edge case)
-	store.UpsertAgent(&reg.AgentSession{
+	_ = store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "test-agent",
 		Addr:     "127.0.0.1:19091",
 		ExpireAt: time.Now().Add(time.Minute),
@@ -1204,7 +1204,7 @@ func TestDiscoverExternalPlatforms_InvalidFunctionID(t *testing.T) {
 	store := reg.NewStore()
 
 	// Add agent with invalid function IDs
-	store.UpsertAgent(&reg.AgentSession{
+	_ = store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "test-agent",
 		Addr:     "127.0.0.1:19091",
 		ExpireAt: time.Now().Add(time.Minute),
@@ -1255,7 +1255,7 @@ func TestCall_WithNilDispatcher(t *testing.T) {
 	store := reg.NewStore()
 
 	// Agent exists but no dispatcher
-	store.UpsertAgent(&reg.AgentSession{
+	_ = store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "test-agent",
 		Addr:     "127.0.0.1:19091",
 		ExpireAt: time.Now().Add(time.Minute),
@@ -1288,7 +1288,7 @@ func TestCall_JSONResponseHandling(t *testing.T) {
 	store := reg.NewStore()
 	dispatcher := dispatch.NewDispatcher(store)
 
-	store.UpsertAgent(&reg.AgentSession{
+	_ = store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "test-agent",
 		Addr:     "127.0.0.1:19091",
 		ExpireAt: time.Now().Add(time.Minute),
@@ -1323,7 +1323,7 @@ func TestCall_EmptyRequestBody(t *testing.T) {
 	store := reg.NewStore()
 	dispatcher := dispatch.NewDispatcher(store)
 
-	store.UpsertAgent(&reg.AgentSession{
+	_ = store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "test-agent",
 		Addr:     "127.0.0.1:19091",
 		ExpireAt: time.Now().Add(time.Minute),
@@ -1433,7 +1433,7 @@ func TestCall_RequestWithNewlines(t *testing.T) {
 	store := reg.NewStore()
 	dispatcher := dispatch.NewDispatcher(store)
 
-	store.UpsertAgent(&reg.AgentSession{
+	_ = store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "test-agent",
 		Addr:     "127.0.0.1:19091",
 		ExpireAt: time.Now().Add(time.Minute),
@@ -1486,7 +1486,7 @@ func TestListPlatforms_DeduplicatesPlatformNames(t *testing.T) {
 	store := reg.NewStore()
 
 	// Add agents with same platform (same case)
-	store.UpsertAgent(&reg.AgentSession{
+	_ = store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "agent1",
 		Addr:     "127.0.0.1:19091",
 		ExpireAt: time.Now().Add(time.Minute),
@@ -1495,7 +1495,7 @@ func TestListPlatforms_DeduplicatesPlatformNames(t *testing.T) {
 		},
 	})
 
-	store.UpsertAgent(&reg.AgentSession{
+	_ = store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "agent2",
 		Addr:     "127.0.0.1:19092",
 		ExpireAt: time.Now().Add(time.Minute),
@@ -1525,7 +1525,7 @@ func TestListPlatforms_MergesMethodsFromMultipleAgents(t *testing.T) {
 	store := reg.NewStore()
 
 	// Add agents with methods for the same platform
-	store.UpsertAgent(&reg.AgentSession{
+	_ = store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "agent1",
 		Addr:     "127.0.0.1:19091",
 		ExpireAt: time.Now().Add(time.Minute),
@@ -1535,7 +1535,7 @@ func TestListPlatforms_MergesMethodsFromMultipleAgents(t *testing.T) {
 		},
 	})
 
-	store.UpsertAgent(&reg.AgentSession{
+	_ = store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "agent2",
 		Addr:     "127.0.0.1:19092",
 		ExpireAt: time.Now().Add(time.Minute),
@@ -1582,7 +1582,7 @@ func TestDiscoverExternalPlatforms_WithBothSources(t *testing.T) {
 	store := reg.NewStore()
 
 	// Add registry agent
-	store.UpsertAgent(&reg.AgentSession{
+	_ = store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "registry-agent",
 		Addr:     "127.0.0.1:19091",
 		ExpireAt: time.Now().Add(time.Minute),
@@ -1612,7 +1612,7 @@ func TestCall_ValidJSONWithEscape(t *testing.T) {
 	store := reg.NewStore()
 	dispatcher := dispatch.NewDispatcher(store)
 
-	store.UpsertAgent(&reg.AgentSession{
+	_ = store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "test-agent",
 		Addr:     "127.0.0.1:19091",
 		ExpireAt: time.Now().Add(time.Minute),
@@ -1645,7 +1645,7 @@ func TestListMethods_ReturnsUniqueMethods(t *testing.T) {
 	store := reg.NewStore()
 
 	// Add agent with duplicate methods (different cases)
-	store.UpsertAgent(&reg.AgentSession{
+	_ = store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "test-agent",
 		Addr:     "127.0.0.1:19091",
 		ExpireAt: time.Now().Add(time.Minute),
@@ -1674,7 +1674,7 @@ func TestCall_DispatcherNilWithRegisteredFunction(t *testing.T) {
 	store := reg.NewStore()
 
 	// Register a function but no dispatcher
-	store.UpsertAgent(&reg.AgentSession{
+	_ = store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "test-agent",
 		Addr:     "127.0.0.1:19091",
 		ExpireAt: time.Now().Add(time.Minute),
@@ -1710,7 +1710,7 @@ func TestListMethods_FiltersWhitespaceOnlyMethodNames(t *testing.T) {
 	// Create a mock function registry that will return methods with whitespace
 	// Since we can't directly control discoverExternalPlatforms to return whitespace methods,
 	// we test through the actual discovery mechanism
-	store.UpsertAgent(&reg.AgentSession{
+	_ = store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "test-agent",
 		Addr:     "127.0.0.1:19091",
 		ExpireAt: time.Now().Add(time.Minute),
@@ -1757,7 +1757,7 @@ func TestListMethods_WithNonExistentPlatform(t *testing.T) {
 func TestListMethods_PreservesOriginalMethodNameCase(t *testing.T) {
 	store := reg.NewStore()
 
-	store.UpsertAgent(&reg.AgentSession{
+	_ = store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "test-agent",
 		Addr:     "127.0.0.1:19091",
 		ExpireAt: time.Now().Add(time.Minute),
@@ -1796,7 +1796,7 @@ func TestCall_ResponseUnmarshalErrorPath(t *testing.T) {
 	store := reg.NewStore()
 	dispatcher := dispatch.NewDispatcher(store)
 
-	store.UpsertAgent(&reg.AgentSession{
+	_ = store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "test-agent",
 		Addr:     "127.0.0.1:19091",
 		ExpireAt: time.Now().Add(time.Minute),
@@ -1849,7 +1849,7 @@ func TestListPlatforms_EmptyRegistry(t *testing.T) {
 func TestListMethods_PlatformWithMixedCaseMethods(t *testing.T) {
 	store := reg.NewStore()
 
-	store.UpsertAgent(&reg.AgentSession{
+	_ = store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "test-agent",
 		Addr:     "127.0.0.1:19091",
 		ExpireAt: time.Now().Add(time.Minute),
@@ -1891,7 +1891,7 @@ func TestCall_EmptyRequestWithDispatcher(t *testing.T) {
 	store := reg.NewStore()
 	dispatcher := dispatch.NewDispatcher(store)
 
-	store.UpsertAgent(&reg.AgentSession{
+	_ = store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "test-agent",
 		Addr:     "127.0.0.1:19091",
 		ExpireAt: time.Now().Add(time.Minute),
@@ -1924,7 +1924,7 @@ func TestCall_EmptyRequestWithDispatcher(t *testing.T) {
 func TestListMethods_PlatformNotFoundWithSimilarName(t *testing.T) {
 	store := reg.NewStore()
 
-	store.UpsertAgent(&reg.AgentSession{
+	_ = store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "test-agent",
 		Addr:     "127.0.0.1:19091",
 		ExpireAt: time.Now().Add(time.Minute),
@@ -1952,7 +1952,7 @@ func TestListMethods_PlatformNotFoundWithSimilarName(t *testing.T) {
 func TestListMethods_EmptyMethodName(t *testing.T) {
 	store := reg.NewStore()
 
-	store.UpsertAgent(&reg.AgentSession{
+	_ = store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "test-agent",
 		Addr:     "127.0.0.1:19091",
 		ExpireAt: time.Now().Add(time.Minute),
@@ -1978,7 +1978,7 @@ func TestDiscoverExternalPlatforms_FunctionsMapIteration(t *testing.T) {
 	store := reg.NewStore()
 
 	// Add agent with multiple platforms
-	store.UpsertAgent(&reg.AgentSession{
+	_ = store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "test-agent",
 		Addr:     "127.0.0.1:19091",
 		ExpireAt: time.Now().Add(time.Minute),
@@ -2007,7 +2007,7 @@ func TestCall_DispatcherErrorPath(t *testing.T) {
 	dispatcher := dispatch.NewDispatcher(store)
 
 	// Register an agent but it won't respond
-	store.UpsertAgent(&reg.AgentSession{
+	_ = store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "test-agent",
 		Addr:     "127.0.0.1:19999", // Port where no agent is listening
 		ExpireAt: time.Now().Add(time.Minute),
@@ -2045,7 +2045,7 @@ func TestCall_WithEmptyRequest(t *testing.T) {
 	store := reg.NewStore()
 	dispatcher := dispatch.NewDispatcher(store)
 
-	store.UpsertAgent(&reg.AgentSession{
+	_ = store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "test-agent",
 		Addr:     "127.0.0.1:19999",
 		ExpireAt: time.Now().Add(time.Minute),
@@ -2078,7 +2078,7 @@ func TestCall_WithEmptyPlatform(t *testing.T) {
 	store := reg.NewStore()
 	dispatcher := dispatch.NewDispatcher(store)
 
-	store.UpsertAgent(&reg.AgentSession{
+	_ = store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "test-agent",
 		Addr:     "127.0.0.1:19999",
 		ExpireAt: time.Now().Add(time.Minute),
@@ -2112,7 +2112,7 @@ func TestCall_WithEmptyMethod(t *testing.T) {
 	store := reg.NewStore()
 	dispatcher := dispatch.NewDispatcher(store)
 
-	store.UpsertAgent(&reg.AgentSession{
+	_ = store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "test-agent",
 		Addr:     "127.0.0.1:19999",
 		ExpireAt: time.Now().Add(time.Minute),
@@ -2145,7 +2145,7 @@ func TestCall_WithEmptyMethod(t *testing.T) {
 func TestDiscoverExternalPlatforms_WithEmptyFunctions(t *testing.T) {
 	store := reg.NewStore()
 
-	store.UpsertAgent(&reg.AgentSession{
+	_ = store.UpsertAgent(&reg.AgentSession{
 		AgentID:   "test-agent",
 		Addr:      "127.0.0.1:19091",
 		ExpireAt:  time.Now().Add(time.Minute),
@@ -2211,7 +2211,7 @@ func TestCall_WithNonJsonRequest(t *testing.T) {
 	store := reg.NewStore()
 	dispatcher := dispatch.NewDispatcher(store)
 
-	store.UpsertAgent(&reg.AgentSession{
+	_ = store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "test-agent",
 		Addr:     "127.0.0.1:19999",
 		ExpireAt: time.Now().Add(time.Minute),
@@ -2256,7 +2256,7 @@ func TestCall_WithSpecialCharactersInPlatform(t *testing.T) {
 	store := reg.NewStore()
 	dispatcher := dispatch.NewDispatcher(store)
 
-	store.UpsertAgent(&reg.AgentSession{
+	_ = store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "test-agent",
 		Addr:     "127.0.0.1:19999",
 		ExpireAt: time.Now().Add(time.Minute),
@@ -2288,7 +2288,7 @@ func TestCall_WithSpecialCharactersInPlatform(t *testing.T) {
 func TestListMethods_WithSpecialCharacters(t *testing.T) {
 	store := reg.NewStore()
 
-	store.UpsertAgent(&reg.AgentSession{
+	_ = store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "test-agent",
 		Addr:     "127.0.0.1:19091",
 		ExpireAt: time.Now().Add(time.Minute),
@@ -2315,7 +2315,7 @@ func TestService_Call_DispatcherSuccessPath(t *testing.T) {
 	dispatcher := dispatch.NewDispatcher(store)
 
 	// Register an agent with the test function
-	store.UpsertAgent(&reg.AgentSession{
+	_ = store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "test-agent",
 		Addr:     "127.0.0.1:19091",
 		ExpireAt: time.Now().Add(time.Minute),
@@ -2356,7 +2356,7 @@ func TestService_Call_DispatcherErrorResponse(t *testing.T) {
 	dispatcher := dispatch.NewDispatcher(store)
 
 	// Register an agent
-	store.UpsertAgent(&reg.AgentSession{
+	_ = store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "test-agent",
 		Addr:     "127.0.0.1:19091",
 		ExpireAt: time.Now().Add(time.Minute),
@@ -2396,7 +2396,7 @@ func TestDiscoverExternalPlatforms_MultipleAgents(t *testing.T) {
 	store := reg.NewStore()
 
 	// Add multiple agents with different functions
-	store.UpsertAgent(&reg.AgentSession{
+	_ = store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "agent1",
 		Addr:     "127.0.0.1:19091",
 		ExpireAt: time.Now().Add(time.Minute),
@@ -2406,7 +2406,7 @@ func TestDiscoverExternalPlatforms_MultipleAgents(t *testing.T) {
 		},
 	})
 
-	store.UpsertAgent(&reg.AgentSession{
+	_ = store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "agent2",
 		Addr:     "127.0.0.1:19092",
 		ExpireAt: time.Now().Add(time.Minute),
@@ -2438,7 +2438,7 @@ func TestDiscoverExternalPlatforms_MultipleAgents(t *testing.T) {
 func TestDiscoverExternalPlatforms_DisabledFunctionsCheck(t *testing.T) {
 	store := reg.NewStore()
 
-	store.UpsertAgent(&reg.AgentSession{
+	_ = store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "test-agent",
 		Addr:     "127.0.0.1:19091",
 		ExpireAt: time.Now().Add(time.Minute),
@@ -2464,7 +2464,7 @@ func TestDiscoverExternalPlatforms_DisabledFunctionsCheck(t *testing.T) {
 func TestDiscoverExternalPlatforms_NilExtensionsCheck(t *testing.T) {
 	store := reg.NewStore()
 
-	store.UpsertAgent(&reg.AgentSession{
+	_ = store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "test-agent",
 		Addr:     "127.0.0.1:19091",
 		ExpireAt: time.Now().Add(time.Minute),
@@ -2493,7 +2493,7 @@ func TestService_Call_DispatcherError(t *testing.T) {
 	dispatcher := dispatch.NewDispatcher(store)
 
 	// Register a function but no actual agent running
-	store.UpsertAgent(&reg.AgentSession{
+	_ = store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "test-agent",
 		Addr:     "127.0.0.1:19999", // Non-existent address
 		ExpireAt: time.Now().Add(time.Minute),
@@ -2531,7 +2531,7 @@ func TestService_Call_ResponseUnmarshalError(t *testing.T) {
 	store := reg.NewStore()
 	dispatcher := dispatch.NewDispatcher(store)
 
-	store.UpsertAgent(&reg.AgentSession{
+	_ = store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "test-agent",
 		Addr:     "127.0.0.1:19091",
 		ExpireAt: time.Now().Add(time.Minute),
@@ -2567,7 +2567,7 @@ func TestService_Call_WithEmptyRequest(t *testing.T) {
 	store := reg.NewStore()
 	dispatcher := dispatch.NewDispatcher(store)
 
-	store.UpsertAgent(&reg.AgentSession{
+	_ = store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "test-agent",
 		Addr:     "127.0.0.1:19091",
 		ExpireAt: time.Now().Add(time.Minute),
@@ -2601,7 +2601,7 @@ func TestService_Call_WithNonJSONRequest(t *testing.T) {
 	store := reg.NewStore()
 	dispatcher := dispatch.NewDispatcher(store)
 
-	store.UpsertAgent(&reg.AgentSession{
+	_ = store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "test-agent",
 		Addr:     "127.0.0.1:19091",
 		ExpireAt: time.Now().Add(time.Minute),
@@ -2636,7 +2636,7 @@ func TestService_Call_WithJSONRequest(t *testing.T) {
 	store := reg.NewStore()
 	dispatcher := dispatch.NewDispatcher(store)
 
-	store.UpsertAgent(&reg.AgentSession{
+	_ = store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "test-agent",
 		Addr:     "127.0.0.1:19091",
 		ExpireAt: time.Now().Add(time.Minute),
@@ -2670,7 +2670,7 @@ func TestService_Call_WithJSONRequest(t *testing.T) {
 func TestService_Call_NilDispatcherCheck(t *testing.T) {
 	store := reg.NewStore()
 
-	store.UpsertAgent(&reg.AgentSession{
+	_ = store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "test-agent",
 		Addr:     "127.0.0.1:19091",
 		ExpireAt: time.Now().Add(time.Minute),
@@ -2729,7 +2729,7 @@ func TestService_Call_EmptyFunctionIDCheck(t *testing.T) {
 func TestService_ListMethods_CaseInsensitiveCheck(t *testing.T) {
 	store := reg.NewStore()
 
-	store.UpsertAgent(&reg.AgentSession{
+	_ = store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "test-agent",
 		Addr:     "127.0.0.1:19091",
 		ExpireAt: time.Now().Add(time.Minute),
@@ -2758,7 +2758,7 @@ func TestService_ListMethods_DuplicateMethodsCheck(t *testing.T) {
 	store := reg.NewStore()
 
 	// Add same function from two agents
-	store.UpsertAgent(&reg.AgentSession{
+	_ = store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "agent1",
 		Addr:     "127.0.0.1:19091",
 		ExpireAt: time.Now().Add(time.Minute),
@@ -2768,7 +2768,7 @@ func TestService_ListMethods_DuplicateMethodsCheck(t *testing.T) {
 		},
 	})
 
-	store.UpsertAgent(&reg.AgentSession{
+	_ = store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "agent2",
 		Addr:     "127.0.0.1:19092",
 		ExpireAt: time.Now().Add(time.Minute),
@@ -2795,7 +2795,7 @@ func TestService_ListMethods_DuplicateMethodsCheck(t *testing.T) {
 func TestService_ListPlatforms_CaseInsensitiveCheck(t *testing.T) {
 	store := reg.NewStore()
 
-	store.UpsertAgent(&reg.AgentSession{
+	_ = store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "test-agent",
 		Addr:     "127.0.0.1:19091",
 		ExpireAt: time.Now().Add(time.Minute),
@@ -2936,7 +2936,7 @@ func TestExtractPlatformMethodsFromBindingsDetailed(t *testing.T) {
 func TestService_ListMethods_SourceSet(t *testing.T) {
 	store := reg.NewStore()
 
-	store.UpsertAgent(&reg.AgentSession{
+	_ = store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "test-agent",
 		Addr:     "127.0.0.1:19091",
 		ExpireAt: time.Now().Add(time.Minute),
@@ -2964,7 +2964,7 @@ func TestService_ListMethods_EmptyStringMethodInList(t *testing.T) {
 
 	// This test verifies the addMethods function handles empty strings correctly
 	// The discoverExternalPlatforms will return methods from registry
-	store.UpsertAgent(&reg.AgentSession{
+	_ = store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "test-agent",
 		Addr:     "127.0.0.1:19091",
 		ExpireAt: time.Now().Add(time.Minute),
@@ -2992,7 +2992,7 @@ func TestService_Call_ResponseUnmarshalSuccess(t *testing.T) {
 	dispatcher := dispatch.NewDispatcher(store)
 
 	// Register a function
-	store.UpsertAgent(&reg.AgentSession{
+	_ = store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "test-agent",
 		Addr:     "127.0.0.1:19091",
 		ExpireAt: time.Now().Add(time.Minute),
@@ -3029,7 +3029,7 @@ func TestService_Call_ResponseUnmarshalSuccess(t *testing.T) {
 func TestService_ListPlatforms_WithEnabledField(t *testing.T) {
 	store := reg.NewStore()
 
-	store.UpsertAgent(&reg.AgentSession{
+	_ = store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "test-agent",
 		Addr:     "127.0.0.1:19091",
 		ExpireAt: time.Now().Add(time.Minute),
@@ -3063,7 +3063,7 @@ func TestService_ListMethods_DuplicateMethodNames(t *testing.T) {
 	store := reg.NewStore()
 
 	// Add same method name with different cases
-	store.UpsertAgent(&reg.AgentSession{
+	_ = store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "test-agent",
 		Addr:     "127.0.0.1:19091",
 		ExpireAt: time.Now().Add(time.Minute),
@@ -3090,7 +3090,7 @@ func TestService_ListMethods_DuplicateMethodNames(t *testing.T) {
 func TestService_ListPlatforms_SourceField(t *testing.T) {
 	store := reg.NewStore()
 
-	store.UpsertAgent(&reg.AgentSession{
+	_ = store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "test-agent",
 		Addr:     "127.0.0.1:19091",
 		ExpireAt: time.Now().Add(time.Minute),
@@ -3119,7 +3119,7 @@ func TestService_ListPlatforms_SourceField(t *testing.T) {
 // TestDiscoverExternalPlatforms_DisabledFunction tests that disabled functions are not discovered
 func TestDiscoverExternalPlatforms_DisabledFunction2(t *testing.T) {
 	store := reg.NewStore()
-	store.UpsertAgent(&reg.AgentSession{
+	_ = store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "a1",
 		Addr:     "127.0.0.1:19091",
 		ExpireAt: time.Now().Add(time.Minute),
@@ -3144,7 +3144,7 @@ func TestDiscoverExternalPlatforms_DisabledFunction2(t *testing.T) {
 // TestDiscoverExternalPlatforms_Deduplication tests method deduplication
 func TestDiscoverExternalPlatforms_Deduplication(t *testing.T) {
 	store := reg.NewStore()
-	store.UpsertAgent(&reg.AgentSession{
+	_ = store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "a1",
 		Addr:     "127.0.0.1:19091",
 		ExpireAt: time.Now().Add(time.Minute),
@@ -3152,7 +3152,7 @@ func TestDiscoverExternalPlatforms_Deduplication(t *testing.T) {
 			"external.test.method1": {Enabled: true},
 		},
 	})
-	store.UpsertAgent(&reg.AgentSession{
+	_ = store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "a2",
 		Addr:     "127.0.0.1:19092",
 		ExpireAt: time.Now().Add(time.Minute),
@@ -3177,7 +3177,7 @@ func TestCall_DispatcherNonJSONResponse(t *testing.T) {
 	dispatcher := dispatch.NewDispatcher(store)
 
 	// Register an agent
-	store.UpsertAgent(&reg.AgentSession{
+	_ = store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "test-agent",
 		Addr:     "127.0.0.1:19999", // Non-existent address - will fail but that's fine
 		ExpireAt: time.Now().Add(time.Minute),
@@ -3215,7 +3215,7 @@ func TestCall_WithLargeRequest(t *testing.T) {
 	store := reg.NewStore()
 	dispatcher := dispatch.NewDispatcher(store)
 
-	store.UpsertAgent(&reg.AgentSession{
+	_ = store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "test-agent",
 		Addr:     "127.0.0.1:19091",
 		ExpireAt: time.Now().Add(time.Minute),
@@ -3254,7 +3254,7 @@ func TestCall_WithLargeRequest(t *testing.T) {
 // TestListMethods_EmptyMethodsFromAddMethods covers the addMethods with empty list
 func TestListMethods_EmptyMethodsFromAddMethods(t *testing.T) {
 	store := reg.NewStore()
-	store.UpsertAgent(&reg.AgentSession{
+	_ = store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "a1",
 		Addr:     "127.0.0.1:19091",
 		ExpireAt: time.Now().Add(time.Minute),
@@ -3278,7 +3278,7 @@ func TestListMethods_EmptyMethodsFromAddMethods(t *testing.T) {
 // TestListMethods_DuplicateNamesTests covers the deduplication logic more thoroughly
 func TestListMethods_DuplicateNamesTests(t *testing.T) {
 	store := reg.NewStore()
-	store.UpsertAgent(&reg.AgentSession{
+	_ = store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "a1",
 		Addr:     "127.0.0.1:19091",
 		ExpireAt: time.Now().Add(time.Minute),
@@ -3304,7 +3304,7 @@ func TestListMethods_DuplicateNamesTests(t *testing.T) {
 // TestDiscoverExternalPlatforms_WithExtensionsNil covers nil Extensions field
 func TestDiscoverExternalPlatforms_WithExtensionsNil(t *testing.T) {
 	store := reg.NewStore()
-	store.UpsertAgent(&reg.AgentSession{
+	_ = store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "a1",
 		Addr:     "127.0.0.1:19091",
 		ExpireAt: time.Now().Add(time.Minute),
@@ -3345,7 +3345,7 @@ func TestListMethods_WithWhitespacePlatform(t *testing.T) {
 // TestListMethods_SourceResolution tests that the Source field is set correctly
 func TestListMethods_SourceResolution(t *testing.T) {
 	store := reg.NewStore()
-	store.UpsertAgent(&reg.AgentSession{
+	_ = store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "a1",
 		Addr:     "127.0.0.1:19091",
 		ExpireAt: time.Now().Add(time.Minute),
@@ -3385,7 +3385,7 @@ func TestListMethods_EmptySourceWhenNotFound(t *testing.T) {
 // TestListMethods_WithOnlyWhitespaceMethods tests filtering of whitespace-only method names
 func TestListMethods_WithOnlyWhitespaceMethods(t *testing.T) {
 	store := reg.NewStore()
-	store.UpsertAgent(&reg.AgentSession{
+	_ = store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "a1",
 		Addr:     "127.0.0.1:19091",
 		ExpireAt: time.Now().Add(time.Minute),
@@ -3409,7 +3409,7 @@ func TestListMethods_WithOnlyWhitespaceMethods(t *testing.T) {
 // TestListMethods_CaseInsensitiveLookup tests that platform lookup is case-insensitive
 func TestListMethods_CaseInsensitiveLookup(t *testing.T) {
 	store := reg.NewStore()
-	store.UpsertAgent(&reg.AgentSession{
+	_ = store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "a1",
 		Addr:     "127.0.0.1:19091",
 		ExpireAt: time.Now().Add(time.Minute),
@@ -3439,7 +3439,7 @@ func TestListMethods_CaseInsensitiveLookup(t *testing.T) {
 func TestListMethods_DuplicateMethodsAcrossAgents(t *testing.T) {
 	store := reg.NewStore()
 	// Add two agents with the same platform and method
-	store.UpsertAgent(&reg.AgentSession{
+	_ = store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "a1",
 		Addr:     "127.0.0.1:19091",
 		ExpireAt: time.Now().Add(time.Minute),
@@ -3448,7 +3448,7 @@ func TestListMethods_DuplicateMethodsAcrossAgents(t *testing.T) {
 			"external.test_platform.method2": {Enabled: true},
 		},
 	})
-	store.UpsertAgent(&reg.AgentSession{
+	_ = store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "a2",
 		Addr:     "127.0.0.1:19092",
 		ExpireAt: time.Now().Add(time.Minute),
@@ -3477,7 +3477,7 @@ func TestListMethods_DuplicateMethodsAcrossAgents(t *testing.T) {
 func TestListPlatforms_DuplicatePlatformsAcrossAgents(t *testing.T) {
 	store := reg.NewStore()
 	// Add two agents with the same platform
-	store.UpsertAgent(&reg.AgentSession{
+	_ = store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "a1",
 		Addr:     "127.0.0.1:19091",
 		ExpireAt: time.Now().Add(time.Minute),
@@ -3485,7 +3485,7 @@ func TestListPlatforms_DuplicatePlatformsAcrossAgents(t *testing.T) {
 			"external.duplicate.method1": {Enabled: true},
 		},
 	})
-	store.UpsertAgent(&reg.AgentSession{
+	_ = store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "a2",
 		Addr:     "127.0.0.1:19092",
 		ExpireAt: time.Now().Add(time.Minute),
@@ -3515,7 +3515,7 @@ func TestListPlatforms_DuplicatePlatformsAcrossAgents(t *testing.T) {
 // TestDiscoverExternalPlatforms_DisabledFunction tests that disabled functions are ignored
 func TestDiscoverExternalPlatforms_DisabledFunction(t *testing.T) {
 	store := reg.NewStore()
-	store.UpsertAgent(&reg.AgentSession{
+	_ = store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "a1",
 		Addr:     "127.0.0.1:19091",
 		ExpireAt: time.Now().Add(time.Minute),
@@ -3540,7 +3540,7 @@ func TestDiscoverExternalPlatforms_DisabledFunction(t *testing.T) {
 // TestListPlatforms_MultiplePlatforms tests listing multiple platforms
 func TestListPlatforms_MultiplePlatforms(t *testing.T) {
 	store := reg.NewStore()
-	store.UpsertAgent(&reg.AgentSession{
+	_ = store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "a1",
 		Addr:     "127.0.0.1:19091",
 		ExpireAt: time.Now().Add(time.Minute),
@@ -3568,7 +3568,7 @@ func TestListPlatforms_MultiplePlatforms(t *testing.T) {
 // TestListMethods_NoMatchingPlatform tests when platform doesn't exist
 func TestListMethods_NoMatchingPlatform(t *testing.T) {
 	store := reg.NewStore()
-	store.UpsertAgent(&reg.AgentSession{
+	_ = store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "a1",
 		Addr:     "127.0.0.1:19091",
 		ExpireAt: time.Now().Add(time.Minute),
@@ -3679,7 +3679,7 @@ func TestResolveMethodsSource2(t *testing.T) {
 // TestCall_WithEmptyResponseFromDispatcher tests when dispatcher returns empty response
 func TestCall_WithEmptyResponseFromDispatcher(t *testing.T) {
 	store := reg.NewStore()
-	store.UpsertAgent(&reg.AgentSession{
+	_ = store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "a1",
 		Addr:     "127.0.0.1:19091",
 		ExpireAt: time.Now().Add(time.Minute),
@@ -3807,7 +3807,7 @@ func TestCall_WithRequestSet(t *testing.T) {
 func TestListMethods_WithDuplicateMethodNames(t *testing.T) {
 	store := reg.NewStore()
 	// Add same method multiple times (case-insensitive)
-	store.UpsertAgent(&reg.AgentSession{
+	_ = store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "a1",
 		Addr:     "127.0.0.1:19091",
 		ExpireAt: time.Now().Add(time.Minute),
@@ -3838,7 +3838,7 @@ func TestListMethods_WithDuplicateMethodNames(t *testing.T) {
 // TestListMethods_WithEmptyMethodNames tests filtering of empty method names
 func TestListMethods_WithEmptyMethodNames(t *testing.T) {
 	store := reg.NewStore()
-	store.UpsertAgent(&reg.AgentSession{
+	_ = store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "a1",
 		Addr:     "127.0.0.1:19091",
 		ExpireAt: time.Now().Add(time.Minute),
@@ -3863,7 +3863,7 @@ func TestListMethods_WithEmptyMethodNames(t *testing.T) {
 // TestListMethods_MixedEmptyAndValidMethods tests filtering with mixed methods
 func TestListMethods_MixedEmptyAndValidMethods(t *testing.T) {
 	store := reg.NewStore()
-	store.UpsertAgent(&reg.AgentSession{
+	_ = store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "a1",
 		Addr:     "127.0.0.1:19091",
 		ExpireAt: time.Now().Add(time.Minute),
@@ -3946,7 +3946,7 @@ func TestDiscoverExternalPlatforms_WithEmptyInstallationList(t *testing.T) {
 func TestDiscoverExternalPlatforms_CombinedSources(t *testing.T) {
 	store := reg.NewStore()
 	// Add platform from registry
-	store.UpsertAgent(&reg.AgentSession{
+	_ = store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "a1",
 		Addr:     "127.0.0.1:19091",
 		ExpireAt: time.Now().Add(time.Minute),
@@ -4041,7 +4041,7 @@ func TestCall_DispatcherEmptyResponse(t *testing.T) {
 // TestListPlatforms_WithRegistryAndInstallation tests platform discovery from both sources
 func TestListPlatforms_WithRegistryAndInstallation(t *testing.T) {
 	store := reg.NewStore()
-	store.UpsertAgent(&reg.AgentSession{
+	_ = store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "a1",
 		Addr:     "127.0.0.1:19091",
 		ExpireAt: time.Now().Add(time.Minute),
@@ -4124,7 +4124,7 @@ func TestHandler_ListPlatforms_ServiceContextWithExtensions(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	store := reg.NewStore()
-	store.UpsertAgent(&reg.AgentSession{
+	_ = store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "a1",
 		Addr:     "127.0.0.1:19091",
 		ExpireAt: time.Now().Add(time.Minute),
@@ -4161,7 +4161,7 @@ func TestHandler_ListMethods_WithExtensionsInContext(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	store := reg.NewStore()
-	store.UpsertAgent(&reg.AgentSession{
+	_ = store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "a1",
 		Addr:     "127.0.0.1:19091",
 		ExpireAt: time.Now().Add(time.Minute),
@@ -4244,7 +4244,7 @@ func TestDiscoverExternalPlatforms_VariousExtensionsInstallations(t *testing.T) 
 	store := reg.NewStore()
 
 	// Add some platforms from registry
-	store.UpsertAgent(&reg.AgentSession{
+	_ = store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "a1",
 		Addr:     "127.0.0.1:19091",
 		ExpireAt: time.Now().Add(time.Minute),
@@ -4292,7 +4292,7 @@ func TestListPlatforms_VariousScenarios(t *testing.T) {
 		{
 			name: "single platform",
 			setupFunc: func(store *reg.Store) {
-				store.UpsertAgent(&reg.AgentSession{
+				_ = store.UpsertAgent(&reg.AgentSession{
 					AgentID:  "a1",
 					Addr:     "127.0.0.1:19091",
 					ExpireAt: time.Now().Add(time.Minute),
@@ -4307,7 +4307,7 @@ func TestListPlatforms_VariousScenarios(t *testing.T) {
 		{
 			name: "multiple platforms",
 			setupFunc: func(store *reg.Store) {
-				store.UpsertAgent(&reg.AgentSession{
+				_ = store.UpsertAgent(&reg.AgentSession{
 					AgentID:  "a1",
 					Addr:     "127.0.0.1:19091",
 					ExpireAt: time.Now().Add(time.Minute),
@@ -4379,7 +4379,7 @@ func TestListMethods_VariousScenarios(t *testing.T) {
 			name:     "existing platform with methods",
 			platform: "test",
 			setupFunc: func(store *reg.Store) {
-				store.UpsertAgent(&reg.AgentSession{
+				_ = store.UpsertAgent(&reg.AgentSession{
 					AgentID:  "a1",
 					Addr:     "127.0.0.1:19091",
 					ExpireAt: time.Now().Add(time.Minute),
@@ -4419,7 +4419,7 @@ func TestListMethods_VariousScenarios(t *testing.T) {
 func TestListPlatforms_WithPlatformHavingNoMethods(t *testing.T) {
 	store := reg.NewStore()
 	// Add an agent but with disabled functions (no enabled methods)
-	store.UpsertAgent(&reg.AgentSession{
+	_ = store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "a1",
 		Addr:     "127.0.0.1:19091",
 		ExpireAt: time.Now().Add(time.Minute),
@@ -4443,7 +4443,7 @@ func TestListPlatforms_WithPlatformHavingNoMethods(t *testing.T) {
 // TestListMethods_PlatformNameWithDifferentCases tests case handling
 func TestListMethods_PlatformNameWithDifferentCases(t *testing.T) {
 	store := reg.NewStore()
-	store.UpsertAgent(&reg.AgentSession{
+	_ = store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "a1",
 		Addr:     "127.0.0.1:19091",
 		ExpireAt: time.Now().Add(time.Minute),
@@ -4476,7 +4476,7 @@ func TestListMethods_PlatformNameWithDifferentCases(t *testing.T) {
 func TestDiscoverExternalPlatforms_MergesSources(t *testing.T) {
 	store := reg.NewStore()
 	// Add platform from registry
-	store.UpsertAgent(&reg.AgentSession{
+	_ = store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "a1",
 		Addr:     "127.0.0.1:19091",
 		ExpireAt: time.Now().Add(time.Minute),
@@ -4589,7 +4589,7 @@ func TestCall_RequestDataConversion(t *testing.T) {
 // TestDiscoverExternalPlatforms_ExtensionsFieldSetButInstallationNil tests code path
 func TestDiscoverExternalPlatforms_ExtensionsFieldSetButInstallationNil(t *testing.T) {
 	store := reg.NewStore()
-	store.UpsertAgent(&reg.AgentSession{
+	_ = store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "a1",
 		Addr:     "127.0.0.1:19091",
 		ExpireAt: time.Now().Add(time.Minute),
@@ -4617,7 +4617,7 @@ func TestDiscoverExternalPlatforms_ExtensionsFieldSetButInstallationNil(t *testi
 // TestListPlatforms_VerifiesResponseStructure verifies the response structure
 func TestListPlatforms_VerifiesResponseStructure(t *testing.T) {
 	store := reg.NewStore()
-	store.UpsertAgent(&reg.AgentSession{
+	_ = store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "a1",
 		Addr:     "127.0.0.1:19091",
 		ExpireAt: time.Now().Add(time.Minute),
@@ -4665,7 +4665,7 @@ func TestListPlatforms_VerifiesResponseStructure(t *testing.T) {
 // TestListMethods_VerifiesResponseStructure verifies the response structure
 func TestListMethods_VerifiesResponseStructure(t *testing.T) {
 	store := reg.NewStore()
-	store.UpsertAgent(&reg.AgentSession{
+	_ = store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "a1",
 		Addr:     "127.0.0.1:19091",
 		ExpireAt: time.Now().Add(time.Minute),
@@ -4793,7 +4793,7 @@ func TestStringInSlice_VerifiesWhitespaceTrimming(t *testing.T) {
 func TestListMethods_VerifiesMethodDeduplication(t *testing.T) {
 	store := reg.NewStore()
 	// Add same method multiple times with different cases
-	store.UpsertAgent(&reg.AgentSession{
+	_ = store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "a1",
 		Addr:     "127.0.0.1:19091",
 		ExpireAt: time.Now().Add(time.Minute),
@@ -4850,7 +4850,7 @@ func TestCall_WithFunctionIDEmptyBranch(t *testing.T) {
 func TestListMethods_EmptyMethodsListAfterFiltering(t *testing.T) {
 	store := reg.NewStore()
 	// Add a function with empty method name (after trimming)
-	store.UpsertAgent(&reg.AgentSession{
+	_ = store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "a1",
 		Addr:     "127.0.0.1:19091",
 		ExpireAt: time.Now().Add(time.Minute),
@@ -4881,7 +4881,7 @@ func TestHandler_ListPlatforms_ResponseStructure(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	store := reg.NewStore()
-	store.UpsertAgent(&reg.AgentSession{
+	_ = store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "a1",
 		Addr:     "127.0.0.1:19091",
 		ExpireAt: time.Now().Add(time.Minute),
@@ -4915,7 +4915,7 @@ func TestHandler_ListMethods_ResponseStructure(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	store := reg.NewStore()
-	store.UpsertAgent(&reg.AgentSession{
+	_ = store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "a1",
 		Addr:     "127.0.0.1:19091",
 		ExpireAt: time.Now().Add(time.Minute),
@@ -5164,7 +5164,7 @@ func TestCall_RequestFieldNotEmpty(t *testing.T) {
 // TestListMethods_UsedExtensionFlag tests the usedExtension flag behavior
 func TestListMethods_UsedExtensionFlag(t *testing.T) {
 	store := reg.NewStore()
-	store.UpsertAgent(&reg.AgentSession{
+	_ = store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "a1",
 		Addr:     "127.0.0.1:19091",
 		ExpireAt: time.Now().Add(time.Minute),
@@ -5213,7 +5213,7 @@ func TestListMethods_NoMethodsFlag(t *testing.T) {
 // TestListPlatforms_PlatformSourceVerification tests that platforms have correct source
 func TestListPlatforms_PlatformSourceVerification(t *testing.T) {
 	store := reg.NewStore()
-	store.UpsertAgent(&reg.AgentSession{
+	_ = store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "a1",
 		Addr:     "127.0.0.1:19091",
 		ExpireAt: time.Now().Add(time.Minute),
@@ -5241,7 +5241,7 @@ func TestListPlatforms_PlatformSourceVerification(t *testing.T) {
 func TestListMethods_DuplicateMethodsAcrossAgents2(t *testing.T) {
 	store := reg.NewStore()
 	// Two agents with same platform and method (duplicate)
-	store.UpsertAgent(&reg.AgentSession{
+	_ = store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "agent1",
 		Addr:     "127.0.0.1:19091",
 		ExpireAt: time.Now().Add(time.Minute),
@@ -5250,7 +5250,7 @@ func TestListMethods_DuplicateMethodsAcrossAgents2(t *testing.T) {
 			"external.test.method2": {Enabled: true},
 		},
 	})
-	store.UpsertAgent(&reg.AgentSession{
+	_ = store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "agent2",
 		Addr:     "127.0.0.1:19092",
 		ExpireAt: time.Now().Add(time.Minute),
@@ -5278,7 +5278,7 @@ func TestHandler_ListMethods_ResponseFields(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	store := reg.NewStore()
-	store.UpsertAgent(&reg.AgentSession{
+	_ = store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "a1",
 		Addr:     "127.0.0.1:19091",
 		ExpireAt: time.Now().Add(time.Minute),
@@ -5357,7 +5357,7 @@ func TestCall_WithVariousRequestData2(t *testing.T) {
 // TestListMethods_VerifyMethodsResponse verifies methods response structure
 func TestListMethods_VerifyMethodsResponse(t *testing.T) {
 	store := reg.NewStore()
-	store.UpsertAgent(&reg.AgentSession{
+	_ = store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "a1",
 		Addr:     "127.0.0.1:19091",
 		ExpireAt: time.Now().Add(time.Minute),
@@ -5483,7 +5483,7 @@ func TestHandler_ListPlatforms_WithPlatforms2(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	store := reg.NewStore()
-	store.UpsertAgent(&reg.AgentSession{
+	_ = store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "a1",
 		Addr:     "127.0.0.1:19091",
 		ExpireAt: time.Now().Add(time.Minute),
@@ -5518,7 +5518,7 @@ func TestHandler_ListPlatforms_WithPlatforms2(t *testing.T) {
 func TestDiscoverExternalPlatforms_WithInstallationService2(t *testing.T) {
 	store := reg.NewStore()
 	// Add a platform from registry first
-	store.UpsertAgent(&reg.AgentSession{
+	_ = store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "a1",
 		Addr:     "127.0.0.1:19091",
 		ExpireAt: time.Now().Add(time.Minute),
@@ -5554,7 +5554,7 @@ func TestDiscoverExternalPlatforms_WithInstallationService2(t *testing.T) {
 func TestListPlatforms_WithInstallationInContext2(t *testing.T) {
 	store := reg.NewStore()
 	// Add platforms from registry
-	store.UpsertAgent(&reg.AgentSession{
+	_ = store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "a1",
 		Addr:     "127.0.0.1:19091",
 		ExpireAt: time.Now().Add(time.Minute),
@@ -5590,7 +5590,7 @@ func TestListPlatforms_WithInstallationInContext2(t *testing.T) {
 // TestListMethods_WithInstallationInContext exercises Installation path
 func TestListMethods_WithInstallationInContext2(t *testing.T) {
 	store := reg.NewStore()
-	store.UpsertAgent(&reg.AgentSession{
+	_ = store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "a1",
 		Addr:     "127.0.0.1:19091",
 		ExpireAt: time.Now().Add(time.Minute),
@@ -5711,7 +5711,7 @@ func TestCall_JSONUnmarshalError(t *testing.T) {
 	dispatcher := dispatch.NewDispatcher(store)
 
 	// Add an agent that returns invalid JSON
-	store.UpsertAgent(&reg.AgentSession{
+	_ = store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "test-agent",
 		Addr:     "127.0.0.1:19091",
 		ExpireAt: time.Now().Add(time.Minute),
@@ -5802,7 +5802,7 @@ func TestCall_DispatcherSuccessWithPathologicalResponse(t *testing.T) {
 	store := reg.NewStore()
 
 	// Add an agent
-	store.UpsertAgent(&reg.AgentSession{
+	_ = store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "test-agent",
 		Addr:     "127.0.0.1:19091",
 		ExpireAt: time.Now().Add(time.Minute),
@@ -5840,7 +5840,7 @@ func TestCall_DispatcherSuccessWithPathologicalResponse(t *testing.T) {
 // TestListMethods_WithEmptyMethodName tests the empty string filtering in addMethods
 func TestListMethods_WithEmptyMethodName(t *testing.T) {
 	store := reg.NewStore()
-	store.UpsertAgent(&reg.AgentSession{
+	_ = store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "a1",
 		Addr:     "127.0.0.1:19091",
 		ExpireAt: time.Now().Add(time.Minute),
@@ -5867,7 +5867,7 @@ func TestListMethods_WithEmptyMethodName(t *testing.T) {
 // TestListMethods_DuplicateCaseInsensitive tests deduplication with different cases
 func TestListMethods_DuplicateCaseInsensitive(t *testing.T) {
 	store := reg.NewStore()
-	store.UpsertAgent(&reg.AgentSession{
+	_ = store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "a1",
 		Addr:     "127.0.0.1:19091",
 		ExpireAt: time.Now().Add(time.Minute),
@@ -5896,7 +5896,7 @@ func TestListMethods_DuplicateCaseInsensitive(t *testing.T) {
 // TestListMethods_EmptyStringAfterTrim tests handling of whitespace-only method names
 func TestListMethods_EmptyStringAfterTrim(t *testing.T) {
 	store := reg.NewStore()
-	store.UpsertAgent(&reg.AgentSession{
+	_ = store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "a1",
 		Addr:     "127.0.0.1:19091",
 		ExpireAt: time.Now().Add(time.Minute),
@@ -5926,7 +5926,7 @@ func TestCall_EmptyResponseData(t *testing.T) {
 	dispatcher := dispatch.NewDispatcher(store)
 
 	// Add an agent
-	store.UpsertAgent(&reg.AgentSession{
+	_ = store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "test-agent",
 		Addr:     "127.0.0.1:19091",
 		ExpireAt: time.Now().Add(time.Minute),
@@ -5990,7 +5990,7 @@ func TestCall_WithNonJSONResponse(t *testing.T) {
 // TestDiscoverExternalPlatforms_WithRegistryOnly tests registry discovery without installation
 func TestDiscoverExternalPlatforms_WithRegistryOnly(t *testing.T) {
 	store := reg.NewStore()
-	store.UpsertAgent(&reg.AgentSession{
+	_ = store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "a1",
 		Addr:     "127.0.0.1:19091",
 		ExpireAt: time.Now().Add(time.Minute),
@@ -6069,7 +6069,7 @@ func TestCall_WithDispatcherSuccess(t *testing.T) {
 // TestListMethods_DuplicateSkip tests that duplicate methods are skipped
 func TestListMethods_DuplicateSkip(t *testing.T) {
 	store := reg.NewStore()
-	store.UpsertAgent(&reg.AgentSession{
+	_ = store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "a1",
 		Addr:     "127.0.0.1:19091",
 		ExpireAt: time.Now().Add(time.Minute),
@@ -6099,7 +6099,7 @@ func TestListMethods_DuplicateSkip(t *testing.T) {
 // TestDiscoverExternalPlatforms_WithDisabledFunction tests that disabled functions are skipped
 func TestDiscoverExternalPlatforms_WithDisabledFunction(t *testing.T) {
 	store := reg.NewStore()
-	store.UpsertAgent(&reg.AgentSession{
+	_ = store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "a1",
 		Addr:     "127.0.0.1:19091",
 		ExpireAt: time.Now().Add(time.Minute),
@@ -6215,7 +6215,7 @@ func TestDiscoverExternalPlatforms_WithInstallationDB(t *testing.T) {
 func TestHandler_List_AliasMethod(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	store := reg.NewStore()
-	store.UpsertAgent(&reg.AgentSession{
+	_ = store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "a1",
 		Addr:     "127.0.0.1:19091",
 		ExpireAt: time.Now().Add(time.Minute),
@@ -6250,7 +6250,7 @@ func TestHandler_List_AliasMethod(t *testing.T) {
 func TestHandler_Methods_AliasMethod(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	store := reg.NewStore()
-	store.UpsertAgent(&reg.AgentSession{
+	_ = store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "a1",
 		Addr:     "127.0.0.1:19091",
 		ExpireAt: time.Now().Add(time.Minute),

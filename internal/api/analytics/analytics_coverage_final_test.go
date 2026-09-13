@@ -49,8 +49,8 @@ func failNthQuery(t *testing.T, db *gorm.DB, n int) {
 	require.NoError(t, db.Callback().Query().Before("gorm:query").Register("test/analytics_fail_nth_query", inject))
 	require.NoError(t, db.Callback().Row().Before("gorm:row").Register("test/analytics_fail_nth_row", inject))
 	t.Cleanup(func() {
-		db.Callback().Query().Remove("test/analytics_fail_nth_query")
-		db.Callback().Row().Remove("test/analytics_fail_nth_row")
+		_ = db.Callback().Query().Remove("test/analytics_fail_nth_query")
+		_ = db.Callback().Row().Remove("test/analytics_fail_nth_row")
 	})
 }
 

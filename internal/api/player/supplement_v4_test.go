@@ -136,7 +136,7 @@ func TestService_Update_LevelV4(t *testing.T) {
 		Nickname: "Updated Lv",
 	})
 	assert.NoError(t, err)
-	assert.Equal(t, 99, resp.Player.Level)
+	assert.Equal(t, 99, resp.Level)
 }
 
 func TestService_Update_PhoneV4(t *testing.T) {
@@ -153,7 +153,7 @@ func TestService_Update_PhoneV4(t *testing.T) {
 		Phone: "9999999",
 	})
 	assert.NoError(t, err)
-	assert.Equal(t, "9999999", resp.Player.Phone)
+	assert.Equal(t, "9999999", resp.Phone)
 }
 
 func TestService_Update_AllFieldsV4(t *testing.T) {
@@ -175,12 +175,12 @@ func TestService_Update_AllFieldsV4(t *testing.T) {
 		Vip:      5,
 	})
 	assert.NoError(t, err)
-	assert.Equal(t, "New", resp.Player.Nickname)
-	assert.Equal(t, "new@example.com", resp.Player.Email)
-	assert.Equal(t, "111", resp.Player.Phone)
-	assert.Equal(t, model.PlayerStatusSuspended, resp.Player.Status)
-	assert.Equal(t, 10, resp.Player.Level)
-	assert.Equal(t, 5, resp.Player.Vip)
+	assert.Equal(t, "New", resp.Nickname)
+	assert.Equal(t, "new@example.com", resp.Email)
+	assert.Equal(t, "111", resp.Phone)
+	assert.Equal(t, model.PlayerStatusSuspended, resp.Status)
+	assert.Equal(t, 10, resp.Level)
+	assert.Equal(t, 5, resp.Vip)
 }
 
 func TestService_Update_NilRequestV4(t *testing.T) {
@@ -234,10 +234,10 @@ func TestService_Create_FullDataV4(t *testing.T) {
 	})
 	assert.NoError(t, err)
 	assert.NotNil(t, resp)
-	assert.Equal(t, "fulluser", resp.Player.Username)
-	assert.Equal(t, "Full User", resp.Player.Nickname)
-	assert.Equal(t, "full@example.com", resp.Player.Email)
-	assert.Equal(t, "5555555", resp.Player.Phone)
+	assert.Equal(t, "fulluser", resp.Username)
+	assert.Equal(t, "Full User", resp.Nickname)
+	assert.Equal(t, "full@example.com", resp.Email)
+	assert.Equal(t, "5555555", resp.Phone)
 }
 
 // --- Service.List with whitespace search ---
@@ -276,7 +276,7 @@ func TestService_Balance_NegativeAmountV4(t *testing.T) {
 		Reason: "Purchase",
 	})
 	assert.NoError(t, err)
-	assert.Equal(t, int64(50), resp.Player.Balance)
+	assert.Equal(t, int64(50), resp.Balance)
 }
 
 // --- Service.Balance invalid ID ---

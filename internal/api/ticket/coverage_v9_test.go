@@ -37,7 +37,7 @@ func createV9Ticket(t *testing.T, s *Service) string {
 		Title: "t", Content: "c", Category: "bug",
 	})
 	require.NoError(t, err)
-	return fmt.Sprint(resp.Ticket.Id)
+	return fmt.Sprint(resp.Id)
 }
 
 // failV9Updates 令所有 UPDATE 失败。

@@ -199,7 +199,7 @@ export default function ComponentPanel({
           })),
       }))
       .filter((n) => n.children.length > 0);
-  }, [descriptors, search, intl]);
+  }, [descriptors, search, intl, onAddFunction]);
 
   const fnMap = useMemo(() => {
     const m = new Map<string, FunctionDescriptor>();

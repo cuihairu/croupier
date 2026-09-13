@@ -330,9 +330,9 @@ func TestEncodeStringSlice(t *testing.T) {
 			got := EncodeStringSlice(tt.values)
 			// Normalize JSON for comparison
 			var gotJSON interface{}
-			json.Unmarshal(got, &gotJSON)
+			_ = json.Unmarshal(got, &gotJSON)
 			var wantJSON interface{}
-			json.Unmarshal([]byte(tt.want), &wantJSON)
+			_ = json.Unmarshal([]byte(tt.want), &wantJSON)
 			gotNormalized, _ := json.Marshal(gotJSON)
 			wantNormalized, _ := json.Marshal(wantJSON)
 			if string(gotNormalized) != string(wantNormalized) {
@@ -1533,13 +1533,13 @@ func TestReadAnalyticsFiltersFile(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer os.Remove(tmpfile.Name())
+	defer func() { _ = os.Remove(tmpfile.Name()) }()
 
 	content := []byte(`{"filters": ["test"]}`)
 	if _, err := tmpfile.Write(content); err != nil {
 		t.Fatal(err)
 	}
-	tmpfile.Close()
+	_ = tmpfile.Close()
 
 	tests := []struct {
 		name    string

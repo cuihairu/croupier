@@ -77,7 +77,7 @@ func TestHandler_GetPolicy(t *testing.T) {
 	handler, db := setupTestHandler(t)
 	defer func() {
 		sqlDB, _ := db.DB()
-		sqlDB.Close()
+		_ = sqlDB.Close()
 	}()
 
 	tests := []struct {
@@ -178,7 +178,7 @@ func TestHandler_SetPolicy(t *testing.T) {
 	handler, db := setupTestHandler(t)
 	defer func() {
 		sqlDB, _ := db.DB()
-		sqlDB.Close()
+		_ = sqlDB.Close()
 	}()
 
 	tests := []struct {
@@ -258,7 +258,7 @@ func TestHandler_DeletePolicy(t *testing.T) {
 	handler, db := setupTestHandler(t)
 	defer func() {
 		sqlDB, _ := db.DB()
-		sqlDB.Close()
+		_ = sqlDB.Close()
 	}()
 
 	// Setup: create an override first
@@ -296,7 +296,7 @@ func TestHandler_ListOverrides(t *testing.T) {
 	handler, db := setupTestHandler(t)
 	defer func() {
 		sqlDB, _ := db.DB()
-		sqlDB.Close()
+		_ = sqlDB.Close()
 	}()
 
 	// Setup: create some overrides
@@ -339,7 +339,7 @@ func TestHandler_GetDefaultPolicies(t *testing.T) {
 	handler, db := setupTestHandler(t)
 	defer func() {
 		sqlDB, _ := db.DB()
-		sqlDB.Close()
+		_ = sqlDB.Close()
 	}()
 
 	router := gin.New()
@@ -377,7 +377,7 @@ func TestHandler_ReloadConfig(t *testing.T) {
 	handler, db := setupTestHandler(t)
 	defer func() {
 		sqlDB, _ := db.DB()
-		sqlDB.Close()
+		_ = sqlDB.Close()
 	}()
 
 	router := gin.New()

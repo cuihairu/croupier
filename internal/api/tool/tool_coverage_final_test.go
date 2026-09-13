@@ -58,6 +58,6 @@ func TestToolService_Update_ListAllFailure(t *testing.T) {
 			_ = tx.AddError(errors.New("listall boom"))
 		}))
 
-	_, err = s.Update(context.Background(), &ToolUpdateRequest{ID: fmt.Sprintf("%d", created.Tool.Id), Name: "renamed"})
+	_, err = s.Update(context.Background(), &ToolUpdateRequest{ID: fmt.Sprintf("%d", created.Id), Name: "renamed"})
 	require.Error(t, err)
 }

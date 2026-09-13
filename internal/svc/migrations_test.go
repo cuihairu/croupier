@@ -93,7 +93,7 @@ func TestProbeDialect_Sqlite(t *testing.T) {
 	if err != nil {
 		t.Fatalf("wrapGorm: %v", err)
 	}
-	if wrapped.Dialector == nil || wrapped.Dialector.Name() != "sqlite" {
+	if wrapped.Dialector == nil || wrapped.Name() != "sqlite" {
 		t.Fatalf("wrapped dialector = %+v, want sqlite", wrapped.Dialector)
 	}
 }

@@ -14,7 +14,6 @@ type MockWorkflowStore struct {
 	definitions   map[string]*WorkflowDefinition
 	instances     map[string]*WorkflowInstance
 	stepApprovals map[string][]StepApproval
-	mu            map[string]interface{}
 }
 
 func NewMockWorkflowStore() *MockWorkflowStore {

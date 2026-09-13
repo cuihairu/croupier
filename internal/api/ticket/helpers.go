@@ -11,13 +11,6 @@ import (
 	"github.com/cuihairu/croupier/internal/model"
 )
 
-var allowedTicketStatuses = map[string]struct{}{
-	"open":        {},
-	"in_progress": {},
-	"resolved":    {},
-	"closed":      {},
-}
-
 func parseTicketID(id string) (uint, error) {
 	return utils.ParseUintID(id, "工单ID")
 }

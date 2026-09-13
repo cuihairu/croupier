@@ -1348,8 +1348,6 @@ func TestApplyIndexedAutoMergeItem_UnmatchedField(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func testBoolPtr(v bool) *bool { return &v }
-
 // ---------------------------------------------------------------------------
 // decodeMergeValue
 // ---------------------------------------------------------------------------

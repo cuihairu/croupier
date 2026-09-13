@@ -124,7 +124,7 @@ func TestGameModel_ListFiltersAndBindings(t *testing.T) {
 	assert.Equal(t, "game_demo_prod2", restored.DatabaseName)
 
 	// UpdateEnvsAndBindings rejects bindings without a database name.
-	game.SetEnvs([]GameEnv{{Env: "prod"}})
+	_ = game.SetEnvs([]GameEnv{{Env: "prod"}})
 	err = m.UpdateEnvsAndBindings(ctx, "demo", game.ID, JSON(`[{"env":"prod"}]`), nil,
 		[]GameEnvBinding{{Env: "", DatabaseName: "x"}})
 	assert.Error(t, err)

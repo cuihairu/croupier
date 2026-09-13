@@ -49,7 +49,7 @@ func TestProviderManagerLoadWithConfig(t *testing.T) {
 	// Create test server
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
 			"status": "ok",
 			"data":   map[string]string{"id": "123"},
 		})
@@ -61,7 +61,7 @@ func TestProviderManagerLoadWithConfig(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	configContent := `
 providers:
@@ -105,7 +105,7 @@ func TestProviderManagerLoadDisabledPlatform(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	configContent := `
 providers:
@@ -139,7 +139,7 @@ providers:
 func TestProviderManagerCall(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
 			"id":   "123",
 			"name": "Test User",
 		})
@@ -150,7 +150,7 @@ func TestProviderManagerCall(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	configContent := `
 providers:
@@ -223,7 +223,7 @@ func TestProviderManagerCallInvalidFunctionID(t *testing.T) {
 func TestProviderManagerIsPlatformFunction(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+		_ = json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
 	}))
 	defer server.Close()
 
@@ -231,7 +231,7 @@ func TestProviderManagerIsPlatformFunction(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	configContent := `
 providers:
@@ -281,7 +281,7 @@ providers:
 func TestProviderManagerClose(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+		_ = json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
 	}))
 	defer server.Close()
 
@@ -289,7 +289,7 @@ func TestProviderManagerClose(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	configContent := `
 providers:
@@ -342,8 +342,8 @@ func TestExpandEnvVars(t *testing.T) {
 	pm := NewProviderManager(store, "/tmp", nil)
 
 	// Set test env var
-	os.Setenv("TEST_TOKEN", "secret-token-123")
-	defer os.Unsetenv("TEST_TOKEN")
+	_ = os.Setenv("TEST_TOKEN", "secret-token-123")
+	defer func() { _ = os.Unsetenv("TEST_TOKEN") }()
 
 	tests := []struct {
 		name  string
@@ -435,8 +435,8 @@ func TestExpandEnvString(t *testing.T) {
 	store := agentlocal.NewLocalStore()
 	pm := NewProviderManager(store, "/tmp", nil)
 
-	os.Setenv("TEST_VAR", "test-value")
-	defer os.Unsetenv("TEST_VAR")
+	_ = os.Setenv("TEST_VAR", "test-value")
+	defer func() { _ = os.Unsetenv("TEST_VAR") }()
 
 	tests := []struct {
 		input string
@@ -464,7 +464,7 @@ func TestProviderManagerLoadInvalidYAML(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	configContent := `invalid: yaml: content: [[[`
 	configPath := filepath.Join(tmpDir, "providers.yaml")
@@ -486,7 +486,7 @@ func TestProviderManagerLoadUnsupportedType(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	configContent := `
 providers:
@@ -556,7 +556,7 @@ providers:
 func TestProviderManagerSyncExtensionProviders(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
 			"ok": true,
 		})
 	}))
@@ -611,7 +611,7 @@ func TestProviderManagerLoadExtensionOnlyMode(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	configContent := `
 providers:
@@ -645,12 +645,12 @@ func TestProviderManagerSyncExtensionProvidersOverrideStatic(t *testing.T) {
 
 	staticSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{"source": "static"})
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{"source": "static"})
 	}))
 	defer staticSrv.Close()
 	extSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{"source": "extension"})
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{"source": "extension"})
 	}))
 	defer extSrv.Close()
 
@@ -658,7 +658,7 @@ func TestProviderManagerSyncExtensionProvidersOverrideStatic(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	configContent := `
 providers:

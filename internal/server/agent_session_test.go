@@ -178,7 +178,7 @@ func TestAgentSessionStoreRemove(t *testing.T) {
 		SessionID: "session-1",
 	}
 
-	store.Add(sess)
+	_ = store.Add(sess)
 	if store.Count() != 1 {
 		t.Errorf("Count() before Remove() = %d, want 1", store.Count())
 	}
@@ -206,7 +206,7 @@ func TestAgentSessionStoreRemoveSessionReconnect(t *testing.T) {
 		SessionID: "session-1",
 		Env:       "dev",
 	}
-	store.Add(sess1)
+	_ = store.Add(sess1)
 
 	// Agent reconnects: Upsert replaces the old session with a new one.
 	sess2 := &AgentSession{
@@ -257,7 +257,7 @@ func TestAgentSessionStoreRemoveSessionEmptyID(t *testing.T) {
 		AgentID:   "agent-1",
 		SessionID: "session-1",
 	}
-	store.Add(sess)
+	_ = store.Add(sess)
 
 	// Empty sessionID should fall back to unconditional removal.
 	removed := store.RemoveSession("agent-1", "")
@@ -279,9 +279,9 @@ func TestAgentSessionStoreList(t *testing.T) {
 	}
 
 	// Add some sessions
-	store.Add(&AgentSession{AgentID: "agent-1"})
-	store.Add(&AgentSession{AgentID: "agent-2"})
-	store.Add(&AgentSession{AgentID: "agent-3"})
+	_ = store.Add(&AgentSession{AgentID: "agent-1"})
+	_ = store.Add(&AgentSession{AgentID: "agent-2"})
+	_ = store.Add(&AgentSession{AgentID: "agent-3"})
 
 	list = store.List()
 	if len(list) != 3 {
@@ -406,7 +406,7 @@ func TestAgentSessionStoreResolveAgentConn(t *testing.T) {
 	// Add session with nil conn explicitly
 	sess.conn = nil
 	store.Upsert(sess)
-	conn, ok = store.ResolveAgentConn("agent-1")
+	_, ok = store.ResolveAgentConn("agent-1")
 	if ok {
 		t.Error("ResolveAgentConn() should return false when conn is nil")
 	}

@@ -561,10 +561,6 @@ func startAgentCore(ctx context.Context, c *AgentConfig, configDir string) (*age
 		}
 	}
 	localListenAddr = strings.TrimPrefix(localListenAddr, "tcp://")
-	localDisplayAddr := localListenAddr
-	if strings.HasPrefix(localDisplayAddr, ":") {
-		localDisplayAddr = "0.0.0.0" + localDisplayAddr
-	}
 	localAddr := localListenAddr
 
 	agentID := resolveAgentID(strings.TrimSpace(c.Agent.ID))

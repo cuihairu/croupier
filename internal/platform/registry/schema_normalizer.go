@@ -75,9 +75,7 @@ func (n *SchemaNormalizer) normalizeProtoSchema(schema interface{}) (*openapi3.S
 	case *descriptorpb.FileDescriptorSet:
 		var messages []*descriptorpb.DescriptorProto
 		for _, file := range s.File {
-			for _, msg := range file.MessageType {
-				messages = append(messages, msg)
-			}
+			messages = append(messages, file.MessageType...)
 		}
 		if len(messages) != 1 {
 			return nil, fmt.Errorf("proto schema requires exactly one top-level message, got %d", len(messages))

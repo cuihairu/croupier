@@ -44,14 +44,14 @@ func TestRealDashboardFixtureHealth(t *testing.T) {
 	// Server HTTP health endpoint responds.
 	resp, err := http.Get(fmt.Sprintf("http://%s/healthz", fixture.HTTPAddr))
 	require.NoError(t, err)
-	resp.Body.Close()
+	_ = resp.Body.Close()
 	require.Equal(t, http.StatusOK, resp.StatusCode)
 
 	// The /players provider serves the deterministic seed records.
 	resp, err = http.Get(fmt.Sprintf("http://%s/players", fixture.ProviderAddr))
 	require.NoError(t, err)
 	body, err := io.ReadAll(resp.Body)
-	resp.Body.Close()
+	_ = resp.Body.Close()
 	require.NoError(t, err)
 	require.Equal(t, http.StatusOK, resp.StatusCode)
 	var list struct {
@@ -70,7 +70,7 @@ func TestRealDashboardFixtureHealth(t *testing.T) {
 	// The provider publishes its OpenAPI document.
 	resp, err = http.Get(fmt.Sprintf("http://%s/openapi.json", fixture.ProviderAddr))
 	require.NoError(t, err)
-	resp.Body.Close()
+	_ = resp.Body.Close()
 	require.Equal(t, http.StatusOK, resp.StatusCode)
 
 	// The real agent session is registered in the server registry with the
@@ -96,7 +96,7 @@ func TestRealDashboardFixtureHealth(t *testing.T) {
 	resp, err = http.Get(fmt.Sprintf("http://%s/__fixture__/health", fixture.FixtureAddr))
 	require.NoError(t, err)
 	body, err = io.ReadAll(resp.Body)
-	resp.Body.Close()
+	_ = resp.Body.Close()
 	require.NoError(t, err)
 	require.Equal(t, http.StatusOK, resp.StatusCode)
 	var health fixtureHealthResponse

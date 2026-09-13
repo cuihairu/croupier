@@ -241,7 +241,7 @@ func tryFixPostgresMissingConstraint(db *gorm.DB, err error) bool {
 	if db == nil || err == nil {
 		return false
 	}
-	var unwrapped error = err
+	var unwrapped = err
 	for unwrapped != nil {
 		msg := unwrapped.Error()
 		matches := postgresMissingConstraintRe.FindStringSubmatch(msg)

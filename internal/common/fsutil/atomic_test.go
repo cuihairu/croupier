@@ -23,7 +23,7 @@ func TestWriteFileAtomicReplacesForeignOwnedFile(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create: %v", err)
 	}
-	f.Close()
+	_ = f.Close()
 
 	// Simulate a root-owned, non-writable-to-us file by dropping our own
 	// write permission on it (same EACCES the non-root process got).

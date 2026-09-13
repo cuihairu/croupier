@@ -4,7 +4,6 @@ import (
 	"context"
 	"os"
 	"path/filepath"
-	"sync"
 	"testing"
 	"time"
 
@@ -119,31 +118,6 @@ func TestGetAnalyticsFiltersPrefersInstallationConfig(t *testing.T) {
 }
 
 // UpdateMeta tests
-
-var (
-	updateMetaTestDB      *gorm.DB
-	updateMetaTestDBOnce  sync.Once
-	updateMetaTestDBMutex sync.Mutex
-)
-
-func setupUpdateMetaTestDB(t *testing.T) *gorm.DB {
-	updateMetaTestDBMutex.Lock()
-	defer updateMetaTestDBMutex.Unlock()
-
-	updateMetaTestDBOnce.Do(func() {
-		var err error
-		updateMetaTestDB, err = gorm.Open(gsqlite.Open("file::memory:?cache=shared"), &gorm.Config{})
-		if err != nil {
-			panic(err)
-		}
-		err = model.AutoMigrate(updateMetaTestDB)
-		if err != nil {
-			panic(err)
-		}
-	})
-
-	return updateMetaTestDB
-}
 
 func TestUpdateMeta_NilStore(t *testing.T) {
 	t.Parallel()

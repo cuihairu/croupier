@@ -38,7 +38,7 @@ func buildXLSX(t *testing.T, sheets map[string][][]string) []byte {
 	first := true
 	for name, rows := range sheets {
 		if first {
-			f.SetSheetName("Sheet1", name)
+			_ = f.SetSheetName("Sheet1", name)
 			first = false
 		} else {
 			_, err := f.NewSheet(name)

@@ -40,7 +40,7 @@ func TestServiceOpsAgentsList(t *testing.T) {
 	svcCtx := &svc.ServiceContext{RegistryStore: store}
 	s := NewService(svcCtx)
 
-	store.UpsertAgent(&registry.AgentSession{
+	_ = store.UpsertAgent(&registry.AgentSession{
 		AgentID:   "agent-1",
 		Addr:      "localhost:1001",
 		GameID:    "game1",
@@ -77,7 +77,7 @@ func TestServiceOpsAgentMeta(t *testing.T) {
 	svcCtx := &svc.ServiceContext{RegistryStore: store}
 	s := NewService(svcCtx)
 
-	store.UpsertAgent(&registry.AgentSession{
+	_ = store.UpsertAgent(&registry.AgentSession{
 		AgentID:   "agent-1",
 		Addr:      "localhost:1001",
 		GameID:    "game1",
@@ -113,7 +113,7 @@ func TestServiceOpsAgentSystemInfo(t *testing.T) {
 	svcCtx := &svc.ServiceContext{RegistryStore: store}
 	s := NewService(svcCtx)
 
-	store.UpsertAgent(&registry.AgentSession{
+	_ = store.UpsertAgent(&registry.AgentSession{
 		AgentID:   "agent-1",
 		Addr:      "localhost:1001",
 		GameID:    "game1",
@@ -197,7 +197,7 @@ func TestServiceOpsNodes(t *testing.T) {
 	s := NewService(svcCtx)
 
 	now := time.Now()
-	store.UpsertAgent(&registry.AgentSession{
+	_ = store.UpsertAgent(&registry.AgentSession{
 		AgentID:   "node-active",
 		Addr:      "localhost:2001",
 		GameID:    "game1",
@@ -207,7 +207,7 @@ func TestServiceOpsNodes(t *testing.T) {
 		LastSeen:  now,
 		ExpireAt:  now.Add(time.Hour),
 	})
-	store.UpsertAgent(&registry.AgentSession{
+	_ = store.UpsertAgent(&registry.AgentSession{
 		AgentID:   "node-drained",
 		Addr:      "localhost:2002",
 		GameID:    "game1",
@@ -217,7 +217,7 @@ func TestServiceOpsNodes(t *testing.T) {
 		LastSeen:  now.Add(-time.Minute),
 		ExpireAt:  now.Add(time.Hour),
 	})
-	store.UpsertAgent(&registry.AgentSession{
+	_ = store.UpsertAgent(&registry.AgentSession{
 		AgentID:   "node-stale",
 		GameID:    "game1",
 		Env:       "prod",
@@ -316,7 +316,7 @@ func TestServiceOpsNodesRegistryOverridesDatabaseStatus(t *testing.T) {
 
 	store := registry.NewStore()
 	now := time.Now()
-	store.UpsertAgent(&registry.AgentSession{
+	_ = store.UpsertAgent(&registry.AgentSession{
 		AgentID:   "node-registered",
 		Addr:      "localhost:2001",
 		GameID:    "game1",
@@ -373,7 +373,7 @@ func TestServiceOpsNodeMeta(t *testing.T) {
 	svcCtx := &svc.ServiceContext{RegistryStore: store}
 	s := NewService(svcCtx)
 
-	store.UpsertAgent(&registry.AgentSession{
+	_ = store.UpsertAgent(&registry.AgentSession{
 		AgentID:   "node-1",
 		Addr:      "localhost:2001",
 		GameID:    "game1",
@@ -538,7 +538,7 @@ func TestServiceOpsFunctions(t *testing.T) {
 	svcCtx := &svc.ServiceContext{RegistryStore: store}
 	s := NewService(svcCtx)
 
-	store.UpsertAgent(&registry.AgentSession{
+	_ = store.UpsertAgent(&registry.AgentSession{
 		AgentID:   "agent-1",
 		Addr:      "localhost:1001",
 		GameID:    "game1",
@@ -676,7 +676,7 @@ func TestAgentServiceList(t *testing.T) {
 	svcCtx := &svc.ServiceContext{RegistryStore: store}
 	s := NewAgentService(svcCtx)
 
-	store.UpsertAgent(&registry.AgentSession{
+	_ = store.UpsertAgent(&registry.AgentSession{
 		AgentID:   "agent-1",
 		Addr:      "localhost:1001",
 		GameID:    "game1",
@@ -698,7 +698,7 @@ func TestAgentServiceListFilterByGameID(t *testing.T) {
 	svcCtx := &svc.ServiceContext{RegistryStore: store}
 	s := NewAgentService(svcCtx)
 
-	store.UpsertAgent(&registry.AgentSession{
+	_ = store.UpsertAgent(&registry.AgentSession{
 		AgentID:   "agent-1",
 		Addr:      "localhost:1001",
 		GameID:    "game1",
@@ -706,7 +706,7 @@ func TestAgentServiceListFilterByGameID(t *testing.T) {
 		Functions: map[string]registry.FunctionMeta{},
 		LastSeen:  time.Now(),
 	})
-	store.UpsertAgent(&registry.AgentSession{
+	_ = store.UpsertAgent(&registry.AgentSession{
 		AgentID:   "agent-2",
 		Addr:      "localhost:1002",
 		GameID:    "game2",
@@ -728,7 +728,7 @@ func TestAgentServiceGetMeta(t *testing.T) {
 	svcCtx := &svc.ServiceContext{RegistryStore: store}
 	s := NewAgentService(svcCtx)
 
-	store.UpsertAgent(&registry.AgentSession{
+	_ = store.UpsertAgent(&registry.AgentSession{
 		AgentID:   "agent-1",
 		Addr:      "localhost:1001",
 		GameID:    "game1",
@@ -772,7 +772,7 @@ func TestNodeServiceList(t *testing.T) {
 	svcCtx := &svc.ServiceContext{RegistryStore: store}
 	s := NewNodeService(svcCtx)
 
-	store.UpsertAgent(&registry.AgentSession{
+	_ = store.UpsertAgent(&registry.AgentSession{
 		AgentID:   "node-1",
 		Addr:      "localhost:2001",
 		GameID:    "game1",
@@ -806,7 +806,7 @@ func TestNodeServiceGetMeta(t *testing.T) {
 	svcCtx := &svc.ServiceContext{RegistryStore: store}
 	s := NewNodeService(svcCtx)
 
-	store.UpsertAgent(&registry.AgentSession{
+	_ = store.UpsertAgent(&registry.AgentSession{
 		AgentID:   "node-1",
 		Addr:      "localhost:2001",
 		GameID:    "game1",

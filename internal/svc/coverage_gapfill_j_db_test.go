@@ -26,7 +26,6 @@ type fakePGServer struct {
 	ln net.Listener
 
 	mu          sync.Mutex
-	closed      bool
 	pingCount   int
 	failPing    int // 前 N 个连接在启动阶段回 FATAL 3D000（库不存在）
 	failCreate  bool
@@ -54,7 +53,7 @@ func (s *fakePGServer) acceptLoop() {
 }
 
 func (s *fakePGServer) handle(conn net.Conn) {
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 	// StartupMessage / SSLRequest：int32 长度前缀帧。
 	head := make([]byte, 4)
 	for {
@@ -334,7 +333,7 @@ func (s *fakeMySQLServer) acceptLoop() {
 }
 
 func (s *fakeMySQLServer) handle(conn net.Conn, connID int) {
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 	s.mu.Lock()
 	firstErr := s.firstConnErr && connID == 1
 	createErr := s.createErr

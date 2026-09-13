@@ -142,9 +142,9 @@ func TestService_GetProfile_Success(t *testing.T) {
 
 	assert.NoError(t, err)
 	assert.NotNil(t, resp)
-	assert.Equal(t, "profileuser", resp.ProfileInfo.Username)
-	assert.Equal(t, "Profile User", resp.ProfileInfo.Nickname)
-	assert.NotEmpty(t, resp.ProfileInfo.Roles)
+	assert.Equal(t, "profileuser", resp.Username)
+	assert.Equal(t, "Profile User", resp.Nickname)
+	assert.NotEmpty(t, resp.Roles)
 }
 
 func TestService_GetProfile_UserNotFound(t *testing.T) {
@@ -457,7 +457,7 @@ func TestService_GetProfile_MultipleRoles(t *testing.T) {
 
 	assert.NoError(t, err)
 	assert.NotNil(t, resp)
-	assert.Len(t, resp.ProfileInfo.Roles, 2)
+	assert.Len(t, resp.Roles, 2)
 }
 
 func TestService_GetUserGames_SortsGamesByName(t *testing.T) {
@@ -712,8 +712,8 @@ func TestService_GetProfile_EmptyEmail(t *testing.T) {
 
 	assert.NoError(t, err)
 	assert.NotNil(t, resp)
-	assert.Equal(t, "noemailuser", resp.ProfileInfo.Username)
-	assert.Empty(t, resp.ProfileInfo.Email)
+	assert.Equal(t, "noemailuser", resp.Username)
+	assert.Empty(t, resp.Email)
 }
 
 func TestService_ChangePassword_EmptyNewPassword(t *testing.T) {
@@ -978,9 +978,9 @@ func TestService_GetProfile_WithEmailAndPhone(t *testing.T) {
 
 	assert.NoError(t, err)
 	assert.NotNil(t, resp)
-	assert.Equal(t, "emailphoneuser", resp.ProfileInfo.Username)
-	assert.Equal(t, "emailphone@example.com", resp.ProfileInfo.Email)
-	assert.Equal(t, "5555555555", resp.ProfileInfo.Phone)
+	assert.Equal(t, "emailphoneuser", resp.Username)
+	assert.Equal(t, "emailphone@example.com", resp.Email)
+	assert.Equal(t, "5555555555", resp.Phone)
 }
 
 func TestService_GetProfile_WithAvatar(t *testing.T) {
@@ -1011,7 +1011,7 @@ func TestService_GetProfile_WithAvatar(t *testing.T) {
 
 	assert.NoError(t, err)
 	assert.NotNil(t, resp)
-	assert.Equal(t, "https://example.com/avatar.png", resp.ProfileInfo.Avatar)
+	assert.Equal(t, "https://example.com/avatar.png", resp.Avatar)
 }
 
 func TestService_GetUserGames_WithMultipleScopes(t *testing.T) {

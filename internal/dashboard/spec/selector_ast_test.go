@@ -404,8 +404,7 @@ func TestValidateSelectorSemantics(t *testing.T) {
 // U8：rename/default transform 白名单扩展——组合门禁与 params 校验。
 func TestValidateSelectorRenameTransform(t *testing.T) {
 	rowSchema := JSONSchema(`{"type":"object","properties":{"uid":{"type":"string"},"cnt":{"type":"number"}}}`)
-	objectTarget := JSONSchema(`{"type":"object","properties":{"payload":{"type":"object"},"required":["payload"]`)
-	objectTarget = JSONSchema(`{"type":"object","properties":{"payload":{"type":"object"}},"required":["payload"]}`)
+	objectTarget := JSONSchema(`{"type":"object","properties":{"payload":{"type":"object"}},"required":["payload"]}`)
 
 	t.Run("row rename valid", func(t *testing.T) {
 		result := ValidateSelector(SelectorAST{Assignments: []InputAssignment{{

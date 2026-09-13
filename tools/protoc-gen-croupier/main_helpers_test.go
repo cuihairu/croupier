@@ -30,8 +30,6 @@ func TestParseParams(t *testing.T) {
 	}
 }
 
-func strPtr(s string) *string { return proto.String(s) }
-
 func TestIndexMessagesAndEnums(t *testing.T) {
 	nestedEnum := &descriptorpb.EnumDescriptorProto{Name: proto.String("Kind")}
 	nestedMsg := &descriptorpb.DescriptorProto{
@@ -526,7 +524,7 @@ func TestMainEndToEnd(t *testing.T) {
 	outFile, err := os.CreateTemp(t.TempDir(), "gen-out-*.bin")
 	require.NoError(t, err)
 	outName := outFile.Name()
-	defer os.Remove(outName)
+	defer func() { _ = os.Remove(outName) }()
 
 	oldIn, oldOut := os.Stdin, os.Stdout
 	os.Stdin, os.Stdout = stdinR, outFile

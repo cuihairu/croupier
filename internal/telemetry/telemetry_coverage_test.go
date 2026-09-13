@@ -261,13 +261,6 @@ func (m *flakyMeter) maybeFail() error {
 	return nil
 }
 
-// noop 包装：成功分支返回非 nil 实现（直接 return nil, nil 会让反射拿到零值）。
-type noopInt64Counter struct{ metric.Int64Counter }
-type noopFloat64Counter struct{ metric.Float64Counter }
-type noopInt64Gauge struct{ metric.Int64ObservableGauge }
-type noopFloat64Gauge struct{ metric.Float64ObservableGauge }
-type noopFloat64Histogram struct{ metric.Float64Histogram }
-
 func (m *flakyMeter) Int64Counter(name string, opts ...metric.Int64CounterOption) (metric.Int64Counter, error) {
 	if err := m.maybeFail(); err != nil {
 		return nil, err
@@ -453,7 +446,7 @@ func TestAnalyticsBridge_Shutdown(t *testing.T) {
 	require.NoError(t, bridge.Shutdown(context.Background()))
 
 	client := redis.NewClient(&redis.Options{Addr: mr.Addr()})
-	defer client.Close()
+	defer func() { _ = client.Close() }()
 	n, err := client.XLen(context.Background(), analyticsEventsStream).Result()
 	require.NoError(t, err)
 	assert.Equal(t, int64(1), n, "Shutdown must flush pending events")

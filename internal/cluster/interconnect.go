@@ -24,8 +24,7 @@ type MeshInterconnect struct {
 	mu    sync.Mutex
 	conns map[string]*peerConn // key: instanceID
 
-	dial  dialFunc
-	hello helloFunc
+	dial dialFunc
 
 	// peersCache：last-known peers（共享存储抖动时继续转发）。
 	peersMu    sync.RWMutex
@@ -34,9 +33,6 @@ type MeshInterconnect struct {
 
 // dialFunc 建立/复用到对端的连接并完成 server 握手（可注入测试替身）。
 type dialFunc func(ctx context.Context, addr string, self PeerInfo) (*peerConn, error)
-
-// helloFunc 发送握手（dial 内部使用；拆出来便于测试）。
-type helloFunc func(conn *peerConn, self PeerInfo) error
 
 // peerConn 是一条到对端的长连接包装。
 type peerConn struct {

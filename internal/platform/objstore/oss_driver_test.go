@@ -87,7 +87,7 @@ func (f *fakeOSSServer) handle(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			f.objects[key] = f.objects[srcKey]
-			fmt.Fprintf(w, `<?xml version="1.0" encoding="UTF-8"?><CopyObjectResult><LastModified>2024-01-01T00:00:00Z</LastModified><ETag>"abc"</ETag></CopyObjectResult>`)
+			_, _ = fmt.Fprintf(w, `<?xml version="1.0" encoding="UTF-8"?><CopyObjectResult><LastModified>2024-01-01T00:00:00Z</LastModified><ETag>"abc"</ETag></CopyObjectResult>`)
 			return
 		}
 		f.objects[key] = r.Header.Get("Content-Type")

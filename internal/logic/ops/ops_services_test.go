@@ -148,8 +148,8 @@ func TestOpsServicesLogic_RegistryData(t *testing.T) {
 			Zone:   "zone-b",
 		}
 
-		svcCtx.RegistryStore.UpsertAgent(sess1)
-		svcCtx.RegistryStore.UpsertAgent(sess2)
+		_ = svcCtx.RegistryStore.UpsertAgent(sess1)
+		_ = svcCtx.RegistryStore.UpsertAgent(sess2)
 
 		logic := NewOpsServicesLogic(context.Background(), svcCtx)
 
@@ -192,7 +192,7 @@ func TestOpsServicesLogic_RegistryData(t *testing.T) {
 			Labels:    map[string]string{},
 		}
 
-		svcCtx.RegistryStore.UpsertAgent(expiredSess)
+		_ = svcCtx.RegistryStore.UpsertAgent(expiredSess)
 
 		logic := NewOpsServicesLogic(context.Background(), svcCtx)
 

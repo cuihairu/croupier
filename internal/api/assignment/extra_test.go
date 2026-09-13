@@ -159,8 +159,8 @@ func TestCollectKnownFunctions_WithOperations(t *testing.T) {
 		Responses:   openapi3.NewResponses(),
 	}
 
-	store.UpsertOpenAPI("game1.func1", op1)
-	store.UpsertOpenAPI("game2.func2", op2)
+	_ = store.UpsertOpenAPI("game1.func1", op1)
+	_ = store.UpsertOpenAPI("game2.func2", op2)
 
 	svcCtx := &svc.ServiceContext{
 		RegistryStore: store,

@@ -16,32 +16,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// injectVersioningFail 让指定表的 gorm 语句失败（Query/Row 链都要拦：
-// gorm 的 Scan 走 Row 链而非 Query 链）。
-func injectVersioningFail(db *gorm.DB, table string) (remove func()) {
-	removeQ := injectVersioningFailQuery(db, table)
-	removeW := injectVersioningFailWrite(db, table)
-	return func() {
-		removeQ()
-		removeW()
-	}
-}
-
-func injectVersioningFailQuery(db *gorm.DB, table string) (remove func()) {
-	name := "zz.failq." + table
-	fail := func(tx *gorm.DB) {
-		if versioningMatchTable(tx, table) {
-			_ = tx.AddError(errors.New("injected failure for " + table))
-		}
-	}
-	_ = db.Callback().Query().Before("gorm:query").Register(name, fail)
-	_ = db.Callback().Row().Before("gorm:row").Register(name, fail)
-	return func() {
-		_ = db.Callback().Query().Remove(name)
-		_ = db.Callback().Row().Remove(name)
-	}
-}
-
 // 只拦 Row 链（gorm Scan）：Find（Query 链）放行。
 func injectVersioningFailRowOnly(db *gorm.DB, table string) (remove func()) {
 	name := "zz.failrow." + table

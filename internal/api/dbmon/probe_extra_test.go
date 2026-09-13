@@ -30,7 +30,7 @@ type ginEngine = gin.Engine
 func TestProbeMySQL_SuccessViaSQLMock(t *testing.T) {
 	db, mock, err := sqlmock.New()
 	require.NoError(t, err)
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	statusRows := sqlmock.NewRows([]string{"Variable_name", "Value"}).
 		AddRow("Threads_connected", "3").
@@ -73,7 +73,7 @@ func TestProbeMySQL_SuccessViaSQLMock(t *testing.T) {
 func TestProbeMySQL_MinimalStatusViaSQLMock(t *testing.T) {
 	db, mock, err := sqlmock.New()
 	require.NoError(t, err)
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	// 无死锁/查询计数键 → 对应指针保持 nil；max_connections 查询失败 → Max=-1。
 	statusRows := sqlmock.NewRows([]string{"Variable_name", "Value"}).
@@ -103,7 +103,7 @@ func TestProbeMySQL_MinimalStatusViaSQLMock(t *testing.T) {
 func TestProbeMySQL_StatusQueryError(t *testing.T) {
 	db, mock, err := sqlmock.New()
 	require.NoError(t, err)
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	mock.ExpectQuery("SHOW GLOBAL STATUS").WillReturnError(errors.New("unreachable"))
 
@@ -117,7 +117,7 @@ func TestProbeMySQL_StatusQueryError(t *testing.T) {
 func TestProbeMySQL_LockWaitScanErrorSkipped(t *testing.T) {
 	db, mock, err := sqlmock.New()
 	require.NoError(t, err)
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	mock.ExpectQuery("SHOW GLOBAL STATUS").
 		WillReturnRows(sqlmock.NewRows([]string{"Variable_name", "Value"}))
@@ -139,7 +139,7 @@ func TestProbeMySQL_LockWaitScanErrorSkipped(t *testing.T) {
 func TestProbePostgres_SuccessViaSQLMock(t *testing.T) {
 	db, mock, err := sqlmock.New()
 	require.NoError(t, err)
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	mock.ExpectQuery("pg_stat_activity").WillReturnRows(
 		sqlmock.NewRows([]string{"cur", "active", "maxc"}).AddRow(int64(8), int64(2), int64(100)))
@@ -171,7 +171,7 @@ func TestProbePostgres_SuccessViaSQLMock(t *testing.T) {
 func TestProbePostgres_StatusQueryError(t *testing.T) {
 	db, mock, err := sqlmock.New()
 	require.NoError(t, err)
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	mock.ExpectQuery("pg_stat_activity").WillReturnError(errors.New("permission denied"))
 
@@ -185,7 +185,7 @@ func TestProbePostgres_StatusQueryError(t *testing.T) {
 func TestProbePostgres_DeadlockAndLockScanFailuresDegrade(t *testing.T) {
 	db, mock, err := sqlmock.New()
 	require.NoError(t, err)
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	mock.ExpectQuery("pg_stat_activity").WillReturnRows(
 		sqlmock.NewRows([]string{"cur", "active", "maxc"}).AddRow(int64(1), int64(0), int64(10)))

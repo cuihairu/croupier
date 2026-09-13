@@ -273,7 +273,7 @@ func TestApproveRejectsPageContinuationWhenPublishedBindingStale(t *testing.T) {
 		t.Fatalf("auto migrate failed: %v", err)
 	}
 	store := reg.NewStore()
-	store.UpsertAgent(&reg.AgentSession{
+	_ = store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "agent-1",
 		GameID:   "demo-game",
 		Env:      "development",
@@ -325,7 +325,7 @@ func TestApproveRejectsPageContinuationWhenPublishedBindingStale(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("create approval failed: %v", err)
 	}
-	store.UpsertAgent(&reg.AgentSession{
+	_ = store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "agent-1",
 		GameID:   "demo-game",
 		Env:      "development",

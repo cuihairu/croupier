@@ -102,7 +102,7 @@ func TestConfigHandler_Handle_InvalidYAML(t *testing.T) {
 	}
 
 	// YAML is very lenient, this might not error. Just ensure no panic.
-	h.Handle(ctx, event)
+	_ = h.Handle(ctx, event)
 }
 
 func TestConfigHandler_Handle_IgnoreNonConfig(t *testing.T) {
@@ -395,7 +395,7 @@ func TestRegisterGameConfigHandler_JSON(t *testing.T) {
 
 	// Simulate event
 	for _, handler := range hr.handlers["/game.json"] {
-		handler(context.Background(), ReloadEvent{
+		_ = handler(context.Background(), ReloadEvent{
 			Type:    ReloadTypeConfig,
 			Path:    "/game.json",
 			Content: []byte(`{"balance":{"playerHp":100},"rules":{"maxPlayers":4}}`),
@@ -414,13 +414,13 @@ func TestRegisterGameConfigHandler_YAML(t *testing.T) {
 	hr := newTestHotReloader(t)
 	var received *GameConfig
 
-	RegisterGameConfigHandler(hr, "/game.yaml", func(gc *GameConfig) error {
+	_ = RegisterGameConfigHandler(hr, "/game.yaml", func(gc *GameConfig) error {
 		received = gc
 		return nil
 	})
 
 	for _, handler := range hr.handlers["/game.yaml"] {
-		handler(context.Background(), ReloadEvent{
+		_ = handler(context.Background(), ReloadEvent{
 			Type:    ReloadTypeConfig,
 			Path:    "/game.yaml",
 			Content: []byte("balance:\n  player_hp: 200\n"),
@@ -434,7 +434,7 @@ func TestRegisterGameConfigHandler_YAML(t *testing.T) {
 
 func TestRegisterGameConfigHandler_UnsupportedFormat(t *testing.T) {
 	hr := newTestHotReloader(t)
-	RegisterGameConfigHandler(hr, "/game.toml", func(gc *GameConfig) error { return nil })
+	_ = RegisterGameConfigHandler(hr, "/game.toml", func(gc *GameConfig) error { return nil })
 
 	for _, handler := range hr.handlers["/game.toml"] {
 		err := handler(context.Background(), ReloadEvent{
@@ -451,13 +451,13 @@ func TestRegisterGameConfigHandler_UnsupportedFormat(t *testing.T) {
 func TestRegisterGameConfigHandler_IgnoreNonConfig(t *testing.T) {
 	hr := newTestHotReloader(t)
 	var called bool
-	RegisterGameConfigHandler(hr, "/game.json", func(gc *GameConfig) error {
+	_ = RegisterGameConfigHandler(hr, "/game.json", func(gc *GameConfig) error {
 		called = true
 		return nil
 	})
 
 	for _, handler := range hr.handlers["/game.json"] {
-		handler(context.Background(), ReloadEvent{
+		_ = handler(context.Background(), ReloadEvent{
 			Type: ReloadTypeAsset,
 			Path: "/game.json",
 		})
@@ -486,7 +486,7 @@ func TestWatchGameAssets(t *testing.T) {
 	// Find the registered handler
 	pattern := filepath.Join("/assets", "*")
 	for _, handler := range hr.handlers[pattern] {
-		handler(context.Background(), ReloadEvent{
+		_ = handler(context.Background(), ReloadEvent{
 			Type:    ReloadTypeAsset,
 			Path:    "/assets/sprite.png",
 			Content: []byte("PNG"),
@@ -504,14 +504,14 @@ func TestWatchGameAssets(t *testing.T) {
 func TestWatchGameAssets_IgnoreNonAsset(t *testing.T) {
 	hr := newTestHotReloader(t)
 	var called bool
-	WatchGameAssets(hr, "/assets", func(path string, content []byte) error {
+	_ = WatchGameAssets(hr, "/assets", func(path string, content []byte) error {
 		called = true
 		return nil
 	})
 
 	pattern2 := filepath.Join("/assets", "*")
 	for _, handler := range hr.handlers[pattern2] {
-		handler(context.Background(), ReloadEvent{
+		_ = handler(context.Background(), ReloadEvent{
 			Type: ReloadTypeConfig,
 			Path: "/assets/config.json",
 		})

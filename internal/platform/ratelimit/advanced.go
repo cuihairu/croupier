@@ -278,10 +278,9 @@ func (sw *SlidingWindowLimiter) Close() error {
 
 // DistributedRateLimiter provides rate limiting across multiple instances
 type DistributedRateLimiter struct {
-	local        AdvancedLimiter
-	store        RateLimitStore
-	keyPrefix    string
-	replicaCount int
+	local     AdvancedLimiter
+	store     RateLimitStore
+	keyPrefix string
 }
 
 // RateLimitStore interface for distributed rate limit storage

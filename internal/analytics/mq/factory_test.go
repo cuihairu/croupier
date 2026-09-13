@@ -12,15 +12,15 @@ func withMQType(t *testing.T, value string) {
 	t.Helper()
 	prev, had := os.LookupEnv("ANALYTICS_MQ_TYPE")
 	if value == "" {
-		os.Unsetenv("ANALYTICS_MQ_TYPE")
+		_ = os.Unsetenv("ANALYTICS_MQ_TYPE")
 	} else {
-		os.Setenv("ANALYTICS_MQ_TYPE", value)
+		_ = os.Setenv("ANALYTICS_MQ_TYPE", value)
 	}
 	t.Cleanup(func() {
 		if had {
-			os.Setenv("ANALYTICS_MQ_TYPE", prev)
+			_ = os.Setenv("ANALYTICS_MQ_TYPE", prev)
 		} else {
-			os.Unsetenv("ANALYTICS_MQ_TYPE")
+			_ = os.Unsetenv("ANALYTICS_MQ_TYPE")
 		}
 	})
 }
@@ -30,8 +30,8 @@ func withMQType(t *testing.T, value string) {
 // address it must return an error instead of silently degrading to noop.
 func TestNewFromEnv_DefaultRedis(t *testing.T) {
 	withMQType(t, "")
-	os.Setenv("REDIS_URL", "redis://127.0.0.1:1/0") // nothing listens here
-	t.Cleanup(func() { os.Unsetenv("REDIS_URL") })
+	_ = os.Setenv("REDIS_URL", "redis://127.0.0.1:1/0") // nothing listens here
+	t.Cleanup(func() { _ = os.Unsetenv("REDIS_URL") })
 
 	q, err := NewFromEnv()
 	if err == nil {
@@ -105,8 +105,8 @@ func TestNewFromEnv_CaseSensitive(t *testing.T) {
 // value, using an unreachable address to force the error branch.
 func TestNewFromEnv_RedisExplicit(t *testing.T) {
 	withMQType(t, "redis")
-	os.Setenv("REDIS_URL", "redis://127.0.0.1:1/0")
-	t.Cleanup(func() { os.Unsetenv("REDIS_URL") })
+	_ = os.Setenv("REDIS_URL", "redis://127.0.0.1:1/0")
+	t.Cleanup(func() { _ = os.Unsetenv("REDIS_URL") })
 
 	q, err := NewFromEnv()
 	if err == nil {

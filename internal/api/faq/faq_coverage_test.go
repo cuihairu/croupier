@@ -18,14 +18,14 @@ import (
 	"gorm.io/gorm"
 )
 
-var faqCovFindOneErr = errors.New("faqCov: find_one fault injected")
+var errFAQCovFindOne = errors.New("faqCov: find_one fault injected")
 
 // faqCovInjectFindOneError registers a gorm query callback that fails every
 // SELECT on db while leaving write statements (UPDATE/CREATE/DELETE) intact.
 func faqCovInjectFindOneError(t *testing.T, db *gorm.DB) {
 	t.Helper()
 	require.NoError(t, db.Callback().Query().After("gorm:query").Register("faq_cov:fail_query", func(tx *gorm.DB) {
-		_ = tx.AddError(faqCovFindOneErr)
+		_ = tx.AddError(errFAQCovFindOne)
 	}))
 }
 
@@ -37,7 +37,7 @@ func TestFAQCov_Vote_FindOneAfterVoteError(t *testing.T) {
 	faqCovInjectFindOneError(t, db)
 
 	_, err := svc.Vote(context.Background(), &FAQVoteRequest{ID: fmt.Sprint(id), Helpful: true})
-	require.ErrorIs(t, err, faqCovFindOneErr)
+	require.ErrorIs(t, err, errFAQCovFindOne)
 }
 
 func TestFAQCov_Update_FindOneAfterUpdateError(t *testing.T) {
@@ -48,7 +48,7 @@ func TestFAQCov_Update_FindOneAfterUpdateError(t *testing.T) {
 	faqCovInjectFindOneError(t, db)
 
 	_, err := svc.Update(context.Background(), &FAQUpdateRequest{ID: fmt.Sprint(id), Question: "q2"})
-	require.ErrorIs(t, err, faqCovFindOneErr)
+	require.ErrorIs(t, err, errFAQCovFindOne)
 }
 
 func TestFAQCov_Update_Summary(t *testing.T) {

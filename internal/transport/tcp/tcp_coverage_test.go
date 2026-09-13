@@ -117,7 +117,7 @@ func newEchoTLSServer(t *testing.T) *Server {
 
 func TestClient_Call_WithDeadline(t *testing.T) {
 	srv := newEchoTLSServer(t)
-	defer srv.Close()
+	defer func() { _ = srv.Close() }()
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	go func() { _ = srv.Serve(ctx) }()
@@ -126,7 +126,7 @@ func TestClient_Call_WithDeadline(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewClient: %v", err)
 	}
-	defer client.Close()
+	defer func() { _ = client.Close() }()
 
 	callCtx, callCancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer callCancel()
@@ -141,7 +141,7 @@ func TestClient_Call_WithDeadline(t *testing.T) {
 
 func TestClient_Call_Closing(t *testing.T) {
 	c1, c2 := net.Pipe()
-	defer c2.Close()
+	defer func() { _ = c2.Close() }()
 	client := &Client{config: &Config{}, conn: c1, closing: make(chan struct{})}
 	if err := client.Close(); err != nil {
 		t.Fatalf("Close: %v", err)
@@ -178,7 +178,7 @@ func rawFrameServer(t *testing.T, respond func(reqFrame []byte) []byte) (addr st
 		if err != nil {
 			return
 		}
-		defer conn.Close()
+		defer func() { _ = conn.Close() }()
 		frame, err := readFrame(conn)
 		if err != nil {
 			return
@@ -209,7 +209,7 @@ func TestClient_Call_RequestIDMismatch(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewClient: %v", err)
 	}
-	defer client.Close()
+	defer func() { _ = client.Close() }()
 
 	_, _, err = client.Call(context.Background(), protocol.MsgInvokeRequest, []byte("x"))
 	if err == nil {
@@ -227,7 +227,7 @@ func TestClient_Call_ParseResponseFailure(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewClient: %v", err)
 	}
-	defer client.Close()
+	defer func() { _ = client.Close() }()
 
 	_, _, err = client.Call(context.Background(), protocol.MsgInvokeRequest, []byte("x"))
 	if err == nil {
@@ -245,7 +245,7 @@ func TestClient_Call_ReadFailure(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewClient: %v", err)
 	}
-	defer client.Close()
+	defer func() { _ = client.Close() }()
 
 	_, _, err = client.Call(context.Background(), protocol.MsgInvokeRequest, []byte("x"))
 	if err == nil {
@@ -349,7 +349,7 @@ func TestCreateClientTLSConfig_Full(t *testing.T) {
 
 func TestMuxConn_Run_UnsupportedVersion(t *testing.T) {
 	c1, c2 := net.Pipe()
-	defer c2.Close()
+	defer func() { _ = c2.Close() }()
 	mc := NewMuxConn(c1, nil, nil)
 
 	go func() {
@@ -392,7 +392,7 @@ func TestMuxConn_Run_EventWithoutHandler(t *testing.T) {
 
 func TestMuxConn_Run_EventWithHandler(t *testing.T) {
 	c1, c2 := net.Pipe()
-	defer c1.Close()
+	defer func() { _ = c1.Close() }()
 	eventCh := make(chan uint32, 1)
 	mc := NewMuxConn(c1, nil, transportcore.HandlerFunc(func(ctx context.Context, msgID uint32, reqID uint32, body []byte) ([]byte, error) {
 		select {
@@ -445,7 +445,7 @@ func TestMuxConn_Run_RequestWithoutHandler(t *testing.T) {
 
 func TestMuxConn_Run_RecvTimeoutLoop(t *testing.T) {
 	c1, c2 := net.Pipe()
-	defer c2.Close()
+	defer func() { _ = c2.Close() }()
 	mc := NewMuxConn(c1, &Config{RecvTimeout: 50 * time.Millisecond}, nil)
 
 	errCh := make(chan error, 1)
@@ -473,7 +473,7 @@ func TestMuxConn_Run_RecvTimeoutLoop(t *testing.T) {
 
 func TestMuxConn_HandleInboundRequest_HandlerErrorInvoke(t *testing.T) {
 	c1, c2 := net.Pipe()
-	defer c2.Close()
+	defer func() { _ = c2.Close() }()
 	mc := NewMuxConn(c1, nil, transportcore.HandlerFunc(func(ctx context.Context, msgID uint32, reqID uint32, body []byte) ([]byte, error) {
 		return nil, context.DeadlineExceeded
 	}))
@@ -508,7 +508,7 @@ func TestMuxConn_HandleInboundRequest_HandlerErrorInvoke(t *testing.T) {
 
 func TestMuxConn_HandleInboundRequest_HandlerErrorOther(t *testing.T) {
 	c1, c2 := net.Pipe()
-	defer c2.Close()
+	defer func() { _ = c2.Close() }()
 	mc := NewMuxConn(c1, nil, transportcore.HandlerFunc(func(ctx context.Context, msgID uint32, reqID uint32, body []byte) ([]byte, error) {
 		return nil, context.Canceled
 	}))
@@ -536,7 +536,7 @@ func TestMuxConn_HandleInboundRequest_HandlerErrorOther(t *testing.T) {
 
 func TestMuxConn_HandleInboundRequest_ProtocolError(t *testing.T) {
 	c1, c2 := net.Pipe()
-	defer c2.Close()
+	defer func() { _ = c2.Close() }()
 	mc := NewMuxConn(c1, nil, transportcore.HandlerFunc(func(ctx context.Context, msgID uint32, reqID uint32, body []byte) ([]byte, error) {
 		return nil, NewProtocolError(context.Canceled)
 	}))
@@ -549,7 +549,7 @@ func TestMuxConn_HandleInboundRequest_ProtocolError(t *testing.T) {
 
 func TestMuxConn_HandleInboundRequest_Success(t *testing.T) {
 	c1, c2 := net.Pipe()
-	defer c2.Close()
+	defer func() { _ = c2.Close() }()
 	mc := NewMuxConn(c1, nil, transportcore.HandlerFunc(func(ctx context.Context, msgID uint32, reqID uint32, body []byte) ([]byte, error) {
 		return []byte("ok"), nil
 	}))
@@ -615,9 +615,9 @@ func TestMuxConn_Call_WriteFailure(t *testing.T) {
 
 func TestMuxConn_Call_ContextCanceledWhileWaiting(t *testing.T) {
 	c1, c2 := net.Pipe()
-	defer c2.Close()
+	defer func() { _ = c2.Close() }()
 	mc := NewMuxConn(c1, nil, nil)
-	defer mc.Close()
+	defer func() { _ = mc.Close() }()
 
 	// Consume the request frame but never respond.
 	go func() {
@@ -635,9 +635,9 @@ func TestMuxConn_Call_ContextCanceledWhileWaiting(t *testing.T) {
 
 func TestMuxConn_Send_ContextCanceled(t *testing.T) {
 	c1, c2 := net.Pipe()
-	defer c2.Close()
+	defer func() { _ = c2.Close() }()
 	mc := NewMuxConn(c1, nil, nil)
-	defer mc.Close()
+	defer func() { _ = mc.Close() }()
 
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
@@ -648,9 +648,9 @@ func TestMuxConn_Send_ContextCanceled(t *testing.T) {
 
 func TestMuxConn_WriteFrame_SendTimeout(t *testing.T) {
 	c1, c2 := net.Pipe()
-	defer c2.Close()
+	defer func() { _ = c2.Close() }()
 	mc := NewMuxConn(c1, &Config{SendTimeout: 100 * time.Millisecond}, nil)
-	defer mc.Close()
+	defer func() { _ = mc.Close() }()
 
 	// net.Pipe honors deadlines; with nobody reading the peer, the write
 	// must time out.
@@ -675,14 +675,14 @@ func TestServer_ServeConn_HandlerErrors(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewServer: %v", err)
 	}
-	defer srv.Close()
+	defer func() { _ = srv.Close() }()
 	go func() { _ = srv.Serve(context.Background()) }()
 
 	conn, err := net.Dial("tcp", srv.Addr())
 	if err != nil {
 		t.Fatalf("dial: %v", err)
 	}
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 
 	// InvokeRequest errors produce an InvokeResponse with an error payload.
 	req := protocol.NewMessageBody(protocol.MsgInvokeRequest, 1, []byte(`{}`))
@@ -736,21 +736,21 @@ func TestServer_ServeConn_InvalidFrameClosesConn(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewServer: %v", err)
 	}
-	defer srv.Close()
+	defer func() { _ = srv.Close() }()
 	go func() { _ = srv.Serve(context.Background()) }()
 
 	conn, err := net.Dial("tcp", srv.Addr())
 	if err != nil {
 		t.Fatalf("dial: %v", err)
 	}
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 
 	// 3-byte body: shorter than the protocol header → parse error → close.
 	if _, err := conn.Write([]byte{0, 0, 0, 3, 1, 2, 3}); err != nil {
 		t.Fatalf("write: %v", err)
 	}
 	buf := make([]byte, 16)
-	conn.SetReadDeadline(time.Now().Add(2 * time.Second))
+	_ = conn.SetReadDeadline(time.Now().Add(2 * time.Second))
 	if _, err := conn.Read(buf); err == nil {
 		t.Fatal("expected connection close after invalid frame")
 	}
@@ -782,7 +782,7 @@ func TestListen_WithCertificates(t *testing.T) {
 	if err != nil {
 		t.Fatalf("listen tls: %v", err)
 	}
-	defer ln.Close()
+	defer func() { _ = ln.Close() }()
 	if ln.Addr() == nil {
 		t.Fatal("listener addr should not be nil")
 	}

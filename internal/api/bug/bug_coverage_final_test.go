@@ -32,7 +32,7 @@ func failBugCreate(t *testing.T, db *gorm.DB) {
 			_ = tx.AddError(errors.New("forced bug create failure"))
 		}
 	}))
-	t.Cleanup(func() { db.Callback().Create().Remove("test/fail_bug_create") })
+	t.Cleanup(func() { _ = db.Callback().Create().Remove("test/fail_bug_create") })
 }
 
 func failBugUpdate(t *testing.T, db *gorm.DB) {
@@ -42,7 +42,7 @@ func failBugUpdate(t *testing.T, db *gorm.DB) {
 			_ = tx.AddError(errors.New("forced bug update failure"))
 		}
 	}))
-	t.Cleanup(func() { db.Callback().Update().Remove("test/fail_bug_update") })
+	t.Cleanup(func() { _ = db.Callback().Update().Remove("test/fail_bug_update") })
 }
 
 func crashRequest(stack string) *ReportCrashRequest {
@@ -108,7 +108,7 @@ func TestBugService_UpdateModelFails(t *testing.T) {
 
 	failBugUpdate(t, db)
 	newStatus := model.BugStatusFixing
-	_, err = s.Update(context.Background(), &BugUpdateRequest{ID: fmt.Sprintf("%d", created.Bug.Id), Status: &newStatus})
+	_, err = s.Update(context.Background(), &BugUpdateRequest{ID: fmt.Sprintf("%d", created.Id), Status: &newStatus})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "forced bug update failure")
 }

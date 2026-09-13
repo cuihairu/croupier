@@ -24,7 +24,7 @@ func TestClientServerRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewServer() error = %v", err)
 	}
-	defer srv.Close()
+	defer func() { _ = srv.Close() }()
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -42,7 +42,7 @@ func TestClientServerRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewClient() error = %v", err)
 	}
-	defer client.Close()
+	defer func() { _ = client.Close() }()
 
 	respMsgID, respBody, err := client.Call(context.Background(), protocol.MsgInvokeRequest, []byte("ping"))
 	if err != nil {

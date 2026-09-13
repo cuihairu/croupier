@@ -30,7 +30,7 @@ func TestHandler_GetRegistry_WithFilters(t *testing.T) {
 	store := svcCtx.RegistryStore
 
 	// Add test data
-	store.UpsertAgent(&registry.AgentSession{
+	_ = store.UpsertAgent(&registry.AgentSession{
 		AgentID:   "agent-1",
 		GameID:    "game1",
 		Env:       "prod",
@@ -80,7 +80,7 @@ func TestService_GetRegistry_WithAgentLabels(t *testing.T) {
 	store := svcCtx.RegistryStore
 
 	// Add agent with labels
-	store.UpsertAgent(&registry.AgentSession{
+	_ = store.UpsertAgent(&registry.AgentSession{
 		AgentID:   "labeled-agent",
 		GameID:    "game1",
 		Env:       "prod",
@@ -107,7 +107,7 @@ func TestService_GetRegistry_AgentAboutToExpire(t *testing.T) {
 	store := svcCtx.RegistryStore
 
 	// Add agent that will expire soon
-	store.UpsertAgent(&registry.AgentSession{
+	_ = store.UpsertAgent(&registry.AgentSession{
 		AgentID:   "expiring-soon-agent",
 		GameID:    "game1",
 		Env:       "dev",
@@ -131,7 +131,7 @@ func TestService_GetRegistry_FunctionWithMultipleAgents(t *testing.T) {
 
 	// Three agents with the same function
 	for i := 1; i <= 3; i++ {
-		store.UpsertAgent(&registry.AgentSession{
+		_ = store.UpsertAgent(&registry.AgentSession{
 			AgentID:  "agent-" + string(rune('0'+i)),
 			GameID:   "game1",
 			Env:      "dev",
@@ -157,7 +157,7 @@ func TestService_GetRegistry_EmptyFunctions(t *testing.T) {
 	store := svcCtx.RegistryStore
 
 	// Add agent with no functions
-	store.UpsertAgent(&registry.AgentSession{
+	_ = store.UpsertAgent(&registry.AgentSession{
 		AgentID:   "no-func-agent",
 		GameID:    "game1",
 		Env:       "dev",
@@ -180,7 +180,7 @@ func TestService_GetRegistry_FilteredResponse(t *testing.T) {
 	store := svcCtx.RegistryStore
 
 	// Add agents for different games
-	store.UpsertAgent(&registry.AgentSession{
+	_ = store.UpsertAgent(&registry.AgentSession{
 		AgentID:   "agent-1",
 		GameID:    "game1",
 		Env:       "prod",
@@ -188,7 +188,7 @@ func TestService_GetRegistry_FilteredResponse(t *testing.T) {
 		ExpireAt:  time.Now().Add(5 * time.Minute),
 		Functions: map[string]registry.FunctionMeta{"game1.func": {Enabled: true}},
 	})
-	store.UpsertAgent(&registry.AgentSession{
+	_ = store.UpsertAgent(&registry.AgentSession{
 		AgentID:   "agent-2",
 		GameID:    "game2",
 		Env:       "dev",
@@ -267,7 +267,7 @@ func TestService_GetRegistry_WithAssignments(t *testing.T) {
 	service := NewService(svcCtx)
 
 	// Add an agent
-	svcCtx.RegistryStore.UpsertAgent(&registry.AgentSession{
+	_ = svcCtx.RegistryStore.UpsertAgent(&registry.AgentSession{
 		AgentID:   "agent-1",
 		GameID:    "game1",
 		Env:       "prod",
@@ -295,7 +295,7 @@ func TestService_GetRegistry_Sorting(t *testing.T) {
 		{AgentID: "m-agent", GameID: "a-game", Env: "prod", Addr: "127.0.0.1:19092", ExpireAt: time.Now().Add(5 * time.Minute), Functions: map[string]registry.FunctionMeta{"m.func": {Enabled: true}}},
 	}
 	for _, agent := range agents {
-		svcCtx.RegistryStore.UpsertAgent(agent)
+		_ = svcCtx.RegistryStore.UpsertAgent(agent)
 	}
 
 	resp, err := service.GetRegistry(nil, &RegistryRequest{})
@@ -317,7 +317,7 @@ func TestService_GetRegistry_FunctionSorting(t *testing.T) {
 	service := NewService(svcCtx)
 
 	// Add agents with functions in different orders
-	svcCtx.RegistryStore.UpsertAgent(&registry.AgentSession{
+	_ = svcCtx.RegistryStore.UpsertAgent(&registry.AgentSession{
 		AgentID:  "agent-1",
 		GameID:   "game1",
 		Env:      "prod",
@@ -328,7 +328,7 @@ func TestService_GetRegistry_FunctionSorting(t *testing.T) {
 			"a.func": {Enabled: true},
 		},
 	})
-	svcCtx.RegistryStore.UpsertAgent(&registry.AgentSession{
+	_ = svcCtx.RegistryStore.UpsertAgent(&registry.AgentSession{
 		AgentID:  "agent-2",
 		GameID:   "game1",
 		Env:      "prod",
@@ -364,7 +364,7 @@ func TestService_GetRegistry_CoverageSorting(t *testing.T) {
 	service := NewService(svcCtx)
 
 	// Add agents for different game/env combos
-	svcCtx.RegistryStore.UpsertAgent(&registry.AgentSession{
+	_ = svcCtx.RegistryStore.UpsertAgent(&registry.AgentSession{
 		AgentID:   "agent-1",
 		GameID:    "z-game",
 		Env:       "prod",
@@ -372,7 +372,7 @@ func TestService_GetRegistry_CoverageSorting(t *testing.T) {
 		ExpireAt:  time.Now().Add(5 * time.Minute),
 		Functions: map[string]registry.FunctionMeta{"test.func": {Enabled: true}},
 	})
-	svcCtx.RegistryStore.UpsertAgent(&registry.AgentSession{
+	_ = svcCtx.RegistryStore.UpsertAgent(&registry.AgentSession{
 		AgentID:   "agent-2",
 		GameID:    "a-game",
 		Env:       "dev",
@@ -397,7 +397,7 @@ func TestService_GetRegistry_DisabledFunctions(t *testing.T) {
 	service := NewService(svcCtx)
 
 	// Add agent with both enabled and disabled functions
-	svcCtx.RegistryStore.UpsertAgent(&registry.AgentSession{
+	_ = svcCtx.RegistryStore.UpsertAgent(&registry.AgentSession{
 		AgentID:  "agent-1",
 		GameID:   "game1",
 		Env:      "prod",
@@ -427,7 +427,7 @@ func TestService_GetRegistry_EmptyAgentID(t *testing.T) {
 	service := NewService(svcCtx)
 
 	// Add agent with empty AgentID (should be skipped)
-	svcCtx.RegistryStore.UpsertAgent(&registry.AgentSession{
+	_ = svcCtx.RegistryStore.UpsertAgent(&registry.AgentSession{
 		AgentID:   "",
 		GameID:    "game1",
 		Env:       "prod",
@@ -491,7 +491,7 @@ func TestService_GetRegistry_WhitespacedAgentID(t *testing.T) {
 	service := NewService(svcCtx)
 
 	// Add agent with whitespace in AgentID (should be trimmed)
-	svcCtx.RegistryStore.UpsertAgent(&registry.AgentSession{
+	_ = svcCtx.RegistryStore.UpsertAgent(&registry.AgentSession{
 		AgentID:   "  agent-whitespace  ",
 		GameID:    "game1",
 		Env:       "prod",
@@ -513,7 +513,7 @@ func TestService_GetRegistry_FunctionsKeyGeneration(t *testing.T) {
 	service := NewService(svcCtx)
 
 	// Add multiple agents for the same function
-	svcCtx.RegistryStore.UpsertAgent(&registry.AgentSession{
+	_ = svcCtx.RegistryStore.UpsertAgent(&registry.AgentSession{
 		AgentID:  "agent-a",
 		GameID:   "game1",
 		Env:      "prod",
@@ -523,7 +523,7 @@ func TestService_GetRegistry_FunctionsKeyGeneration(t *testing.T) {
 			"shared.func": {Enabled: true},
 		},
 	})
-	svcCtx.RegistryStore.UpsertAgent(&registry.AgentSession{
+	_ = svcCtx.RegistryStore.UpsertAgent(&registry.AgentSession{
 		AgentID:  "agent-b",
 		GameID:   "game1",
 		Env:      "prod",
@@ -549,7 +549,7 @@ func TestService_GetRegistry_AssignmentIntegration(t *testing.T) {
 	service := NewService(svcCtx)
 
 	// Add agent
-	svcCtx.RegistryStore.UpsertAgent(&registry.AgentSession{
+	_ = svcCtx.RegistryStore.UpsertAgent(&registry.AgentSession{
 		AgentID:   "agent-1",
 		GameID:    "game1",
 		Env:       "prod",
@@ -572,7 +572,7 @@ func TestService_GetRegistry_CoverageUncovered(t *testing.T) {
 	service := NewService(svcCtx)
 
 	// Add agent
-	svcCtx.RegistryStore.UpsertAgent(&registry.AgentSession{
+	_ = svcCtx.RegistryStore.UpsertAgent(&registry.AgentSession{
 		AgentID:  "agent-1",
 		GameID:   "game1",
 		Env:      "prod",
@@ -660,7 +660,7 @@ func TestService_GetRegistry_CoverageStats(t *testing.T) {
 	store := svcCtx.RegistryStore
 
 	// Add agent with function
-	store.UpsertAgent(&registry.AgentSession{
+	_ = store.UpsertAgent(&registry.AgentSession{
 		AgentID:  "stats-agent",
 		GameID:   "game1",
 		Env:      "prod",
@@ -690,7 +690,7 @@ func TestService_GetRegistry_DisabledFunctionsNotCounted(t *testing.T) {
 	store := svcCtx.RegistryStore
 
 	// Add agent with mixed enabled/disabled functions
-	store.UpsertAgent(&registry.AgentSession{
+	_ = store.UpsertAgent(&registry.AgentSession{
 		AgentID:  "mixed-agent",
 		GameID:   "game1",
 		Env:      "prod",
@@ -729,7 +729,7 @@ func TestService_GetRegistry_SameFunctionMultipleAgents(t *testing.T) {
 
 	// Same function on multiple agents
 	for i := 1; i <= 3; i++ {
-		store.UpsertAgent(&registry.AgentSession{
+		_ = store.UpsertAgent(&registry.AgentSession{
 			AgentID:  "agent-" + string(rune('0'+i)),
 			GameID:   "game1",
 			Env:      "prod",
@@ -763,7 +763,7 @@ func TestService_GetRegistry_WithEmptyAgentID(t *testing.T) {
 	store := svcCtx.RegistryStore
 
 	// Add agent with empty AgentID (should be filtered)
-	store.UpsertAgent(&registry.AgentSession{
+	_ = store.UpsertAgent(&registry.AgentSession{
 		AgentID:   "",
 		GameID:    "game1",
 		Env:       "prod",
@@ -864,7 +864,7 @@ func TestService_GetRegistry_WithAssignmentsFile(t *testing.T) {
 	service := NewService(svcCtx)
 
 	// Add agent that covers func1
-	svcCtx.RegistryStore.UpsertAgent(&registry.AgentSession{
+	_ = svcCtx.RegistryStore.UpsertAgent(&registry.AgentSession{
 		AgentID:   "agent-1",
 		GameID:    "game1",
 		Env:       "prod",
@@ -947,7 +947,7 @@ func TestService_GetRegistry_AssignmentCoverageWithAgent(t *testing.T) {
 	service := NewService(svcCtx)
 
 	// Add agent that covers func1 and func2
-	svcCtx.RegistryStore.UpsertAgent(&registry.AgentSession{
+	_ = svcCtx.RegistryStore.UpsertAgent(&registry.AgentSession{
 		AgentID:  "agent-1",
 		GameID:   "game1",
 		Env:      "prod",

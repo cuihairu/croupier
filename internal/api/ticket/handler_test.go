@@ -75,10 +75,10 @@ func TestHandler_CreateAndGet_RoundTrip(t *testing.T) {
 
 	var created CreateResponse
 	require.NoError(t, json.Unmarshal(createRec.Body.Bytes(), &created))
-	assert.Equal(t, "Login broken", created.Ticket.Title)
-	assert.NotZero(t, created.Ticket.Id)
+	assert.Equal(t, "Login broken", created.Title)
+	assert.NotZero(t, created.Id)
 
-	idStr := fmt.Sprint(created.Ticket.Id)
+	idStr := fmt.Sprint(created.Id)
 
 	// Fetch the ticket back by id.
 	getCtx, getRec := newTicketRequest(http.MethodGet, "/api/v1/tickets/"+idStr, "")
@@ -87,7 +87,7 @@ func TestHandler_CreateAndGet_RoundTrip(t *testing.T) {
 	require.Equal(t, http.StatusOK, getRec.Code, getRec.Body.String())
 	var detail GetResponse
 	require.NoError(t, json.Unmarshal(getRec.Body.Bytes(), &detail))
-	assert.Equal(t, created.Ticket.Id, detail.Ticket.Id)
+	assert.Equal(t, created.Id, detail.Ticket.Id)
 
 	// List reflects the new ticket.
 	listCtx, listRec := newTicketRequest(http.MethodGet, "/api/v1/tickets?page=1&pageSize=10", "")
@@ -96,7 +96,7 @@ func TestHandler_CreateAndGet_RoundTrip(t *testing.T) {
 	var listResp ListResponse
 	require.NoError(t, json.Unmarshal(listRec.Body.Bytes(), &listResp))
 	require.Len(t, listResp.Items, 1)
-	assert.Equal(t, created.Ticket.Id, listResp.Items[0].Id)
+	assert.Equal(t, created.Id, listResp.Items[0].Id)
 }
 
 func TestHandler_Create_MissingFields_BadRequest(t *testing.T) {
@@ -167,7 +167,7 @@ func TestHandler_Transition_Success(t *testing.T) {
 	require.Equal(t, http.StatusOK, createRec.Code)
 	var created CreateResponse
 	require.NoError(t, json.Unmarshal(createRec.Body.Bytes(), &created))
-	idStr := fmt.Sprint(created.Ticket.Id)
+	idStr := fmt.Sprint(created.Id)
 
 	// Transition uses ShouldBindJSON; id is supplied in the body.
 	transitionCtx, transitionRec := newTicketRequest(http.MethodPost, "/api/v1/tickets/"+idStr+"/transition",
@@ -178,7 +178,7 @@ func TestHandler_Transition_Success(t *testing.T) {
 	require.Equal(t, http.StatusOK, transitionRec.Code, transitionRec.Body.String())
 	var resp TransitionResponse
 	require.NoError(t, json.Unmarshal(transitionRec.Body.Bytes(), &resp))
-	assert.Equal(t, "in_progress", resp.Ticket.Status)
+	assert.Equal(t, "in_progress", resp.Status)
 }
 
 func TestHandler_Transition_InvalidStatus_BadRequest(t *testing.T) {
@@ -191,7 +191,7 @@ func TestHandler_Transition_InvalidStatus_BadRequest(t *testing.T) {
 	require.Equal(t, http.StatusOK, createRec.Code)
 	var created CreateResponse
 	require.NoError(t, json.Unmarshal(createRec.Body.Bytes(), &created))
-	idStr := fmt.Sprint(created.Ticket.Id)
+	idStr := fmt.Sprint(created.Id)
 
 	ctx, rec := newTicketRequest(http.MethodPost, "/api/v1/tickets/"+idStr+"/transition",
 		fmt.Sprintf(`{"id":"%s","status":"bogus"}`, idStr))
@@ -212,7 +212,7 @@ func TestHandler_CreateComment_AndList(t *testing.T) {
 	require.Equal(t, http.StatusOK, createRec.Code)
 	var created CreateResponse
 	require.NoError(t, json.Unmarshal(createRec.Body.Bytes(), &created))
-	idStr := fmt.Sprint(created.Ticket.Id)
+	idStr := fmt.Sprint(created.Id)
 
 	// CreateComment binds JSON; ticketId is supplied in the body.
 	commentCtx, commentRec := newTicketRequest(http.MethodPost, "/api/v1/tickets/"+idStr+"/comments",
@@ -245,7 +245,7 @@ func TestHandler_Delete_Success(t *testing.T) {
 	require.Equal(t, http.StatusOK, createRec.Code)
 	var created CreateResponse
 	require.NoError(t, json.Unmarshal(createRec.Body.Bytes(), &created))
-	idStr := fmt.Sprint(created.Ticket.Id)
+	idStr := fmt.Sprint(created.Id)
 
 	ctx, rec := newTicketRequest(http.MethodDelete, "/api/v1/tickets/"+idStr, "")
 	ctx.Params = gin.Params{{Key: "id", Value: idStr}}

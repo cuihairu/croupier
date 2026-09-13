@@ -26,7 +26,7 @@ func TestOpenGorm_SQLiteCreatesFile(t *testing.T) {
 	require.NotNil(t, db)
 	sqlDB, err := db.DB()
 	require.NoError(t, err)
-	defer sqlDB.Close()
+	defer func() { _ = sqlDB.Close() }()
 	_, err = os.Stat(dsn)
 	assert.NoError(t, err)
 }
@@ -62,7 +62,7 @@ func TestOpenReadOnlyGorm_DriverMatrix(t *testing.T) {
 		db, err := openReadOnlyGorm("sqlite", path)
 		if db != nil {
 			sqlDB, _ := db.DB()
-			defer sqlDB.Close()
+			defer func() { _ = sqlDB.Close() }()
 		}
 		assert.NoError(t, err)
 	})

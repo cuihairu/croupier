@@ -1572,8 +1572,8 @@ func TestHandler_CreateSource_Multipart(t *testing.T) {
 	writer := multipart.NewWriter(&buf)
 	part, _ := writer.CreateFormFile("file", "test.json")
 	_, _ = part.Write([]byte(specJSON))
-	writer.WriteField("name", "Multipart Source")
-	writer.Close()
+	_ = writer.WriteField("name", "Multipart Source")
+	_ = writer.Close()
 
 	req, _ := http.NewRequest("POST", "/sources", &buf)
 	req.Header.Set("Content-Type", writer.FormDataContentType())
@@ -1594,7 +1594,7 @@ func TestHandler_CreateSource_MultipartNoName(t *testing.T) {
 	part, _ := writer.CreateFormFile("file", "spec.json")
 	_, _ = part.Write([]byte(specJSON))
 	// No name field — should use filename
-	writer.Close()
+	_ = writer.Close()
 
 	req, _ := http.NewRequest("POST", "/sources", &buf)
 	req.Header.Set("Content-Type", writer.FormDataContentType())

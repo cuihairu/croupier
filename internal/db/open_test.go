@@ -86,7 +86,7 @@ func TestOpen_SQLite(t *testing.T) {
 				// 关闭数据库
 				sqlDB, _ := db.DB()
 				if sqlDB != nil {
-					sqlDB.Close()
+					_ = sqlDB.Close()
 				}
 
 				// 清理测试文件
@@ -98,7 +98,7 @@ func TestOpen_SQLite(t *testing.T) {
 					if len(cleanPath) > 11 && cleanPath[:11] == "sqlite:///" {
 						cleanPath = cleanPath[11:]
 					}
-					os.Remove(cleanPath)
+					_ = os.Remove(cleanPath)
 				}
 			}
 		})
@@ -109,11 +109,11 @@ func TestOpen_SQLite(t *testing.T) {
 func TestOpen_EmptyDSN(t *testing.T) {
 	// 保存当前目录
 	origDir, _ := os.Getwd()
-	defer os.Chdir(origDir)
+	defer func() { _ = os.Chdir(origDir) }()
 
 	// 创建临时目录
 	tempDir := t.TempDir()
-	os.Chdir(tempDir)
+	_ = os.Chdir(tempDir)
 
 	db, err := Open("")
 	if err != nil {
@@ -132,7 +132,7 @@ func TestOpen_EmptyDSN(t *testing.T) {
 	// 关闭数据库
 	sqlDB, _ := db.DB()
 	if sqlDB != nil {
-		sqlDB.Close()
+		_ = sqlDB.Close()
 	}
 }
 
@@ -140,11 +140,11 @@ func TestOpen_EmptyDSN(t *testing.T) {
 func TestOpen_DefaultPath(t *testing.T) {
 	// 保存当前目录
 	origDir, _ := os.Getwd()
-	defer os.Chdir(origDir)
+	defer func() { _ = os.Chdir(origDir) }()
 
 	// 创建临时目录
 	tempDir := t.TempDir()
-	os.Chdir(tempDir)
+	_ = os.Chdir(tempDir)
 
 	db, err := Open("")
 	if err != nil {
@@ -153,7 +153,7 @@ func TestOpen_DefaultPath(t *testing.T) {
 	defer func() {
 		sqlDB, _ := db.DB()
 		if sqlDB != nil {
-			sqlDB.Close()
+			_ = sqlDB.Close()
 		}
 	}()
 
@@ -196,9 +196,9 @@ func TestOpen_SQLiteURI(t *testing.T) {
 			if db != nil {
 				sqlDB, _ := db.DB()
 				if sqlDB != nil {
-					sqlDB.Close()
+					_ = sqlDB.Close()
 				}
-				os.Remove("test.db")
+				_ = os.Remove("test.db")
 			}
 		})
 	}
@@ -208,16 +208,16 @@ func TestOpen_SQLiteURI(t *testing.T) {
 func TestOpen_DataDirectoryCreation(t *testing.T) {
 	// 保存当前目录
 	origDir, _ := os.Getwd()
-	defer os.Chdir(origDir)
+	defer func() { _ = os.Chdir(origDir) }()
 
 	// 创建临时目录
 	tempDir := t.TempDir()
-	os.Chdir(tempDir)
+	_ = os.Chdir(tempDir)
 
 	// 确保 data 目录不存在
 	_, err := os.Stat("data")
 	if !os.IsNotExist(err) {
-		os.RemoveAll("data")
+		_ = os.RemoveAll("data")
 	}
 
 	db, err := Open("")
@@ -227,7 +227,7 @@ func TestOpen_DataDirectoryCreation(t *testing.T) {
 	defer func() {
 		sqlDB, _ := db.DB()
 		if sqlDB != nil {
-			sqlDB.Close()
+			_ = sqlDB.Close()
 		}
 	}()
 
@@ -246,11 +246,11 @@ func TestOpen_DataDirectoryCreation(t *testing.T) {
 func TestOpen_MultipleEmptyDSN(t *testing.T) {
 	// 保存当前目录
 	origDir, _ := os.Getwd()
-	defer os.Chdir(origDir)
+	defer func() { _ = os.Chdir(origDir) }()
 
 	// 创建临时目录
 	tempDir := t.TempDir()
-	os.Chdir(tempDir)
+	_ = os.Chdir(tempDir)
 
 	for i := 0; i < 3; i++ {
 		db, err := Open("")
@@ -261,7 +261,7 @@ func TestOpen_MultipleEmptyDSN(t *testing.T) {
 		if db != nil {
 			sqlDB, _ := db.DB()
 			if sqlDB != nil {
-				sqlDB.Close()
+				_ = sqlDB.Close()
 			}
 		}
 	}
@@ -297,7 +297,7 @@ func TestOpen_SQLitePrefixConversion(t *testing.T) {
 			if db != nil {
 				sqlDB, _ := db.DB()
 				if sqlDB != nil {
-					sqlDB.Close()
+					_ = sqlDB.Close()
 				}
 			}
 
@@ -309,7 +309,7 @@ func TestOpen_SQLitePrefixConversion(t *testing.T) {
 			if len(cleanPath) > 5 && cleanPath[:5] == "file:" {
 				cleanPath = cleanPath[5:]
 			}
-			os.Remove(cleanPath)
+			_ = os.Remove(cleanPath)
 		})
 	}
 }
@@ -336,7 +336,7 @@ func BenchmarkOpen_SQLiteMemory(b *testing.B) {
 		if db != nil {
 			sqlDB, _ := db.DB()
 			if sqlDB != nil {
-				sqlDB.Close()
+				_ = sqlDB.Close()
 			}
 		}
 	}

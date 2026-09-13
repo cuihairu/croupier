@@ -19,7 +19,7 @@ func TestJSONUnmarshalJSON_RawMessageErrorSeam(t *testing.T) {
 	}
 	t.Cleanup(func() { unmarshalRawMessage = orig })
 
-	var j JSON = JSON(`{"keep":1}`)
+	var j = JSON(`{"keep":1}`)
 	err := j.UnmarshalJSON([]byte(`{"x":1}`))
 	require.EqualError(t, err, "raw message explode")
 	assert.Equal(t, `{"keep":1}`, j.String())

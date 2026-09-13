@@ -26,11 +26,11 @@ func TestMergeEnvV2(t *testing.T) {
 		"ANALYTICS_BATCH_SIZE", "ANALYTICS_FLUSH_INTERVAL",
 	}
 	for _, v := range envVars {
-		os.Unsetenv(v)
+		_ = os.Unsetenv(v)
 	}
 	defer func() {
 		for _, v := range envVars {
-			os.Unsetenv(v)
+			_ = os.Unsetenv(v)
 		}
 	}()
 
@@ -39,13 +39,13 @@ func TestMergeEnvV2(t *testing.T) {
 	assert.Equal(t, "croupier-server", config.ServiceName) // normalized default
 
 	// Set env vars
-	os.Setenv("OTEL_ENABLED", "true")
-	os.Setenv("OTEL_SERVICE_NAME", "my-service")
-	os.Setenv("OTEL_SERVICE_VERSION", "2.0.0")
-	os.Setenv("OTEL_ENVIRONMENT", "production")
-	os.Setenv("OTEL_EXPORTER_OTLP_ENDPOINT", "http://collector:4318")
-	os.Setenv("GAME_ID", "my-game")
-	os.Setenv("OTEL_SAMPLING_RATIO", "0.5")
+	_ = os.Setenv("OTEL_ENABLED", "true")
+	_ = os.Setenv("OTEL_SERVICE_NAME", "my-service")
+	_ = os.Setenv("OTEL_SERVICE_VERSION", "2.0.0")
+	_ = os.Setenv("OTEL_ENVIRONMENT", "production")
+	_ = os.Setenv("OTEL_EXPORTER_OTLP_ENDPOINT", "http://collector:4318")
+	_ = os.Setenv("GAME_ID", "my-game")
+	_ = os.Setenv("OTEL_SAMPLING_RATIO", "0.5")
 
 	config = MergeEnv(TelemetryConfig{})
 	assert.True(t, config.Enabled)
@@ -57,23 +57,23 @@ func TestMergeEnvV2(t *testing.T) {
 	assert.Equal(t, 0.5, config.SamplingRatio)
 
 	// Tracing enables config
-	os.Setenv("OTEL_ENABLE_TRACING", "true")
+	_ = os.Setenv("OTEL_ENABLE_TRACING", "true")
 	config = MergeEnv(TelemetryConfig{})
 	assert.True(t, config.Enabled)
 	assert.True(t, config.EnableTracing)
 }
 
 func TestMergeEnv_CROUPIER_TELEMETRY_ENABLED(t *testing.T) {
-	os.Setenv("CROUPIER_TELEMETRY_ENABLED", "true")
-	defer os.Unsetenv("CROUPIER_TELEMETRY_ENABLED")
+	_ = os.Setenv("CROUPIER_TELEMETRY_ENABLED", "true")
+	defer func() { _ = os.Unsetenv("CROUPIER_TELEMETRY_ENABLED") }()
 
 	config := MergeEnv(TelemetryConfig{})
 	assert.True(t, config.Enabled)
 }
 
 func TestMergeEnv_AnalyticsEnables(t *testing.T) {
-	os.Setenv("ANALYTICS_BRIDGE_ENABLED", "true")
-	defer os.Unsetenv("ANALYTICS_BRIDGE_ENABLED")
+	_ = os.Setenv("ANALYTICS_BRIDGE_ENABLED", "true")
+	defer func() { _ = os.Unsetenv("ANALYTICS_BRIDGE_ENABLED") }()
 
 	config := MergeEnv(TelemetryConfig{})
 	assert.True(t, config.Enabled)
@@ -81,21 +81,21 @@ func TestMergeEnv_AnalyticsEnables(t *testing.T) {
 }
 
 func TestMergeEnv_AnalyticsConfig(t *testing.T) {
-	os.Setenv("ANALYTICS_REDIS_ADDR", "redis:6379")
-	os.Setenv("ANALYTICS_REDIS_PASSWORD", "secret")
-	os.Setenv("ANALYTICS_REDIS_DB", "5")
-	os.Setenv("ANALYTICS_TOPIC_PREFIX", "game:events")
-	os.Setenv("ANALYTICS_RETENTION_HOURS", "48")
-	os.Setenv("ANALYTICS_BATCH_SIZE", "50")
-	os.Setenv("ANALYTICS_FLUSH_INTERVAL", "60s")
+	_ = os.Setenv("ANALYTICS_REDIS_ADDR", "redis:6379")
+	_ = os.Setenv("ANALYTICS_REDIS_PASSWORD", "secret")
+	_ = os.Setenv("ANALYTICS_REDIS_DB", "5")
+	_ = os.Setenv("ANALYTICS_TOPIC_PREFIX", "game:events")
+	_ = os.Setenv("ANALYTICS_RETENTION_HOURS", "48")
+	_ = os.Setenv("ANALYTICS_BATCH_SIZE", "50")
+	_ = os.Setenv("ANALYTICS_FLUSH_INTERVAL", "60s")
 	defer func() {
-		os.Unsetenv("ANALYTICS_REDIS_ADDR")
-		os.Unsetenv("ANALYTICS_REDIS_PASSWORD")
-		os.Unsetenv("ANALYTICS_REDIS_DB")
-		os.Unsetenv("ANALYTICS_TOPIC_PREFIX")
-		os.Unsetenv("ANALYTICS_RETENTION_HOURS")
-		os.Unsetenv("ANALYTICS_BATCH_SIZE")
-		os.Unsetenv("ANALYTICS_FLUSH_INTERVAL")
+		_ = os.Unsetenv("ANALYTICS_REDIS_ADDR")
+		_ = os.Unsetenv("ANALYTICS_REDIS_PASSWORD")
+		_ = os.Unsetenv("ANALYTICS_REDIS_DB")
+		_ = os.Unsetenv("ANALYTICS_TOPIC_PREFIX")
+		_ = os.Unsetenv("ANALYTICS_RETENTION_HOURS")
+		_ = os.Unsetenv("ANALYTICS_BATCH_SIZE")
+		_ = os.Unsetenv("ANALYTICS_FLUSH_INTERVAL")
 	}()
 
 	config := MergeEnv(TelemetryConfig{})
@@ -111,8 +111,8 @@ func TestMergeEnv_AnalyticsConfig(t *testing.T) {
 // --- lookupEnv tests ---
 
 func TestLookupEnvV2(t *testing.T) {
-	os.Setenv("TEST_LOOKUP_KEY", "hello")
-	defer os.Unsetenv("TEST_LOOKUP_KEY")
+	_ = os.Setenv("TEST_LOOKUP_KEY", "hello")
+	defer func() { _ = os.Unsetenv("TEST_LOOKUP_KEY") }()
 
 	val, ok := lookupEnv("TEST_LOOKUP_KEY")
 	assert.True(t, ok)
@@ -270,7 +270,7 @@ func TestGameTelemetryService_StartSpanV2(t *testing.T) {
 
 	service, err := NewGameTelemetryService(config, logger)
 	require.NoError(t, err)
-	defer service.Shutdown(context.Background())
+	defer func() { _ = service.Shutdown(context.Background()) }()
 
 	// StartSpan should work even with disabled tracing
 	ctx, span := service.StartSpan(context.Background(), "test-span")
@@ -293,7 +293,7 @@ func TestGameTelemetryService_EndSpanV2(t *testing.T) {
 
 	service, err := NewGameTelemetryService(config, logger)
 	require.NoError(t, err)
-	defer service.Shutdown(context.Background())
+	defer func() { _ = service.Shutdown(context.Background()) }()
 
 	// EndSpan with nil span
 	service.EndSpan(nil, time.Now(), nil)
@@ -316,7 +316,7 @@ func TestGameTelemetryService_TraceIDV2(t *testing.T) {
 
 	service, err := NewGameTelemetryService(config, logger)
 	require.NoError(t, err)
-	defer service.Shutdown(context.Background())
+	defer func() { _ = service.Shutdown(context.Background()) }()
 
 	// TraceID from empty context
 	traceID := service.TraceID(context.Background())
@@ -337,7 +337,7 @@ func TestGameTelemetryService_HealthV2(t *testing.T) {
 
 	service, err := NewGameTelemetryService(config, logger)
 	require.NoError(t, err)
-	defer service.Shutdown(context.Background())
+	defer func() { _ = service.Shutdown(context.Background()) }()
 
 	// Health when bridge is disabled
 	err = service.Health(context.Background())
@@ -546,7 +546,7 @@ func TestNewGameMetricsV2(t *testing.T) {
 		GameID:         "test",
 	}, slog.Default())
 	require.NoError(t, err)
-	defer provider.Shutdown(context.Background())
+	defer func() { _ = provider.Shutdown(context.Background()) }()
 
 	metrics := provider.GameMetrics
 	assert.NotNil(t, metrics)
@@ -566,7 +566,7 @@ func TestNewGameTracerV2(t *testing.T) {
 		GameID:         "test",
 	}, slog.Default())
 	require.NoError(t, err)
-	defer provider.Shutdown(context.Background())
+	defer func() { _ = provider.Shutdown(context.Background()) }()
 
 	tracer := provider.GameTracer
 	assert.NotNil(t, tracer)

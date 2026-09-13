@@ -75,7 +75,7 @@ func TestService_GetDocument_WithMultipleOperations(t *testing.T) {
 			OperationID: "operation" + string(rune('0'+i)),
 			Summary:     "Test operation",
 		}
-		service.svcCtx.RegistryStore.UpsertOpenAPI(op.OperationID, op)
+		_ = service.svcCtx.RegistryStore.UpsertOpenAPI(op.OperationID, op)
 	}
 
 	resp := service.GetDocument(context.Background(), &GetDocumentRequest{})
@@ -107,7 +107,7 @@ func TestService_BatchGetSpec_Mixed(t *testing.T) {
 
 	// Add one operation
 	op := &openapi3.Operation{OperationID: "existingFunc", Summary: "Exists"}
-	service.svcCtx.RegistryStore.UpsertOpenAPI("existingFunc", op)
+	_ = service.svcCtx.RegistryStore.UpsertOpenAPI("existingFunc", op)
 
 	resp := service.BatchGetSpec(context.Background(), &BatchGetSpecRequest{
 		FunctionIDs: []string{"existingFunc", "nonexistent"},
@@ -164,7 +164,7 @@ func TestHasRegisteredFunction_ErrorCases(t *testing.T) {
 
 	// Test with function that exists in registry but not as FunctionMeta
 	op := &openapi3.Operation{OperationID: "testOp"}
-	service.svcCtx.RegistryStore.UpsertOpenAPI("testOp", op)
+	_ = service.svcCtx.RegistryStore.UpsertOpenAPI("testOp", op)
 
 	resp, err := service.GetSpec(context.Background(), &GetSpecRequest{ID: "testOp"})
 	// Should return the operation from registry even if not in FunctionMeta

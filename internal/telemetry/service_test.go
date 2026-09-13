@@ -39,7 +39,7 @@ func TestNewGameTelemetryService(t *testing.T) {
 	}
 
 	// 清理
-	service.Shutdown(context.Background())
+	_ = service.Shutdown(context.Background())
 }
 
 // TestGameTelemetryService_Shutdown 测试关闭服务
@@ -90,7 +90,7 @@ func TestGameTelemetryService_Health(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewGameTelemetryService() error = %v", err)
 	}
-	defer service.Shutdown(context.Background())
+	defer func() { _ = service.Shutdown(context.Background()) }()
 
 	ctx := context.Background()
 	err = service.Health(ctx)
@@ -117,7 +117,7 @@ func TestGameTelemetryService_TrackFunctionCall(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewGameTelemetryService() error = %v", err)
 	}
-	defer service.Shutdown(context.Background())
+	defer func() { _ = service.Shutdown(context.Background()) }()
 
 	ctx := context.Background()
 	req := FunctionCallRequest{
@@ -157,7 +157,7 @@ func TestGameTelemetryService_CompleteFunctionCall(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewGameTelemetryService() error = %v", err)
 	}
-	defer service.Shutdown(context.Background())
+	defer func() { _ = service.Shutdown(context.Background()) }()
 
 	ctx := context.Background()
 
@@ -199,7 +199,7 @@ func TestGameTelemetryService_TrackPermissionCheck(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewGameTelemetryService() error = %v", err)
 	}
-	defer service.Shutdown(context.Background())
+	defer func() { _ = service.Shutdown(context.Background()) }()
 
 	ctx := context.Background()
 	req := PermissionCheckRequest{
@@ -236,7 +236,7 @@ func TestGameTelemetryService_CompletePermissionCheck(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewGameTelemetryService() error = %v", err)
 	}
-	defer service.Shutdown(context.Background())
+	defer func() { _ = service.Shutdown(context.Background()) }()
 
 	ctx := context.Background()
 
@@ -276,7 +276,7 @@ func TestGameTelemetryService_ProxyMethods(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewGameTelemetryService() error = %v", err)
 	}
-	defer service.Shutdown(context.Background())
+	defer func() { _ = service.Shutdown(context.Background()) }()
 
 	ctx := context.Background()
 
@@ -327,7 +327,7 @@ func TestGameTelemetryService_ProxyMethodsWithMetrics(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewGameTelemetryService() error = %v", err)
 	}
-	defer service.Shutdown(context.Background())
+	defer func() { _ = service.Shutdown(context.Background()) }()
 
 	ctx := context.Background()
 
@@ -380,12 +380,12 @@ func TestHTTPMiddleware(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewGameTelemetryService() error = %v", err)
 	}
-	defer service.Shutdown(context.Background())
+	defer func() { _ = service.Shutdown(context.Background()) }()
 
 	// 创建一个简单的 handler
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("OK"))
+		_, _ = w.Write([]byte("OK"))
 	})
 
 	// 包装中间件

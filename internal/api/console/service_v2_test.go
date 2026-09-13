@@ -449,7 +449,7 @@ func TestResolveSelectorValueV2(t *testing.T) {
 	assert.Contains(t, err.Error(), "key is required")
 
 	// page_state source - nil page state
-	val, found, err = resolveSelectorValue(spec.ValueSource{
+	_, found, err = resolveSelectorValue(spec.ValueSource{
 		Kind: spec.SourcePageState,
 		Key:  "myState",
 		Path: "/x",
@@ -458,7 +458,7 @@ func TestResolveSelectorValueV2(t *testing.T) {
 	assert.False(t, found)
 
 	// page_state source - key not found
-	val, found, err = resolveSelectorValue(spec.ValueSource{
+	_, found, err = resolveSelectorValue(spec.ValueSource{
 		Kind: spec.SourcePageState,
 		Key:  "missing",
 		Path: "/x",

@@ -291,7 +291,7 @@ func TestCacheStore_Interface(t *testing.T) {
 	_ = cache.Close()
 
 	// 验证 *NullCache 实现了接口
-	var nullCache *NullCache = NewNullCache()
+	var nullCache = NewNullCache()
 	_, _ = nullCache.Get(ctx, "key")
 	_ = nullCache.Close()
 }
@@ -303,7 +303,7 @@ func BenchmarkNullCache_Get(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		cache.Get(ctx, "test_key")
+		_, _ = cache.Get(ctx, "test_key")
 	}
 }
 
@@ -315,7 +315,7 @@ func BenchmarkNullCache_Set(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		cache.Set(ctx, "test_key", value, time.Hour)
+		_ = cache.Set(ctx, "test_key", value, time.Hour)
 	}
 }
 
@@ -326,7 +326,7 @@ func BenchmarkNullCache_Exists(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		cache.Exists(ctx, "test_key")
+		_, _ = cache.Exists(ctx, "test_key")
 	}
 }
 
@@ -337,7 +337,7 @@ func BenchmarkNullCache_Concurrent(b *testing.B) {
 
 	b.RunParallel(func(pb *testing.PB) {
 		for pb.Next() {
-			cache.Get(ctx, "key")
+			_, _ = cache.Get(ctx, "key")
 		}
 	})
 }
@@ -1774,7 +1774,7 @@ func TestNewRedisCache_ValidConfig(t *testing.T) {
 		t.Skip("Redis server not available, skipping Redis cache test")
 	}
 
-	defer cache.Close()
+	defer func() { _ = cache.Close() }()
 
 	// 验证 cache 创建成功
 	if cache == nil {
@@ -1833,7 +1833,7 @@ func TestRedisCache_Client(t *testing.T) {
 	if err != nil {
 		t.Skip("Redis server not available")
 	}
-	defer cache.Close()
+	defer func() { _ = cache.Close() }()
 
 	client := cache.Client()
 	if client == nil {

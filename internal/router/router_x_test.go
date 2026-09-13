@@ -50,7 +50,7 @@ func TestRouterX_RegisterPublicRoutes_JWTSecretFallback(t *testing.T) {
 	require.NoError(t, err)
 	sqlDB, err := db.DB()
 	require.NoError(t, err)
-	defer sqlDB.Close()
+	defer func() { _ = sqlDB.Close() }()
 
 	r, api := routerXNewEngineWithAPIGroup(t)
 	registerPublicRoutes(api, db, cfg)
@@ -75,7 +75,7 @@ func TestRouterX_RegisterPublicRoutes_IdentityProviderConfigError(t *testing.T) 
 	require.NoError(t, err)
 	sqlDB, err := db.DB()
 	require.NoError(t, err)
-	defer sqlDB.Close()
+	defer func() { _ = sqlDB.Close() }()
 
 	require.NoError(t, db.AutoMigrate(&model.PlatformSetting{}))
 	require.NoError(t, db.Create(&model.PlatformSetting{

@@ -261,9 +261,9 @@ func TestService_Create_Success(t *testing.T) {
 
 	assert.NoError(t, err)
 	assert.NotNil(t, resp)
-	assert.Equal(t, "testplayer", resp.Player.Username)
-	assert.Equal(t, "Test Player", resp.Player.Nickname)
-	assert.NotZero(t, resp.Player.Id)
+	assert.Equal(t, "testplayer", resp.Username)
+	assert.Equal(t, "Test Player", resp.Nickname)
+	assert.NotZero(t, resp.Id)
 }
 
 func Test_Create_EmptyUsername(t *testing.T) {
@@ -314,7 +314,7 @@ func Test_Create_EmptyGameID(t *testing.T) {
 
 	assert.Error(t, err)
 	assert.Nil(t, resp)
-	assert.Contains(t, err.Error(), "Game ID 不能为空")
+	assert.Contains(t, err.Error(), "game ID 不能为空")
 }
 
 func TestService_Detail_Success(t *testing.T) {
@@ -340,7 +340,7 @@ func TestService_Detail_Success(t *testing.T) {
 
 	assert.NoError(t, err)
 	assert.NotNil(t, resp)
-	assert.Equal(t, "detailplayer", resp.Player.Username)
+	assert.Equal(t, "detailplayer", resp.Username)
 }
 
 func Test_Detail_NotFound(t *testing.T) {
@@ -408,7 +408,7 @@ func TestService_Update_Success(t *testing.T) {
 
 	assert.NoError(t, err)
 	assert.NotNil(t, resp)
-	assert.Equal(t, "Updated Player", resp.Player.Nickname)
+	assert.Equal(t, "Updated Player", resp.Nickname)
 }
 
 func Test_Update_Status(t *testing.T) {
@@ -435,7 +435,7 @@ func Test_Update_Status(t *testing.T) {
 
 	assert.NoError(t, err)
 	assert.NotNil(t, resp)
-	assert.Equal(t, 2, resp.Player.Status)
+	assert.Equal(t, 2, resp.Status)
 }
 
 func Test_Update_EmptyUpdate(t *testing.T) {
@@ -607,7 +607,7 @@ func TestService_Balance_Success(t *testing.T) {
 
 	assert.NoError(t, err)
 	assert.NotNil(t, resp)
-	assert.Equal(t, int64(1500), resp.Player.Balance)
+	assert.Equal(t, int64(1500), resp.Balance)
 }
 
 func Test_Balance_EmptyReason(t *testing.T) {
@@ -679,7 +679,7 @@ func TestService_Update_Email(t *testing.T) {
 
 	assert.NoError(t, err)
 	assert.NotNil(t, resp)
-	assert.Equal(t, "newemail@example.com", resp.Player.Email)
+	assert.Equal(t, "newemail@example.com", resp.Email)
 }
 
 func TestService_Balance_NegativeAmount(t *testing.T) {
@@ -708,7 +708,7 @@ func TestService_Balance_NegativeAmount(t *testing.T) {
 
 	assert.NoError(t, err)
 	assert.NotNil(t, resp)
-	assert.Equal(t, int64(500), resp.Player.Balance)
+	assert.Equal(t, int64(500), resp.Balance)
 }
 
 func TestService_Balance_EmptyRequest(t *testing.T) {
@@ -740,8 +740,8 @@ func TestService_Create_WithEmail(t *testing.T) {
 
 	assert.NoError(t, err)
 	assert.NotNil(t, resp)
-	assert.Equal(t, "emailplayer", resp.Player.Username)
-	assert.Equal(t, "test@example.com", resp.Player.Email)
+	assert.Equal(t, "emailplayer", resp.Username)
+	assert.Equal(t, "test@example.com", resp.Email)
 }
 
 func TestService_Create_WithPhone(t *testing.T) {
@@ -760,8 +760,8 @@ func TestService_Create_WithPhone(t *testing.T) {
 
 	assert.NoError(t, err)
 	assert.NotNil(t, resp)
-	assert.Equal(t, "phoneplayer", resp.Player.Username)
-	assert.Equal(t, "1234567890", resp.Player.Phone)
+	assert.Equal(t, "phoneplayer", resp.Username)
+	assert.Equal(t, "1234567890", resp.Phone)
 }
 
 func TestService_List_WithLevelFilter(t *testing.T) {

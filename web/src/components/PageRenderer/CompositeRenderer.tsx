@@ -82,13 +82,16 @@ export const CompositeRenderer: React.FC<{
   /** V5 表格选中行状态写入（selectedRow/selectedRows；不触发 refreshOn 自动重跑）。
    * 同步刷新 resultsRef——同一事件帧内的动作链求值（runChain）立即可见；
    * 并以 merge 模式并入 page_state（服务端 inputAssignment /selectedRow/* 求值）。 */
-  const setSelectionState = useCallback((key: string, rows: Record<string, unknown>[]) => {
-    const cur = (resultsRef.current[key] ?? {}) as Record<string, unknown>;
-    const entry = { ...cur, selectedRow: rows[0], selectedRows: rows };
-    resultsRef.current = { ...resultsRef.current, [key]: entry };
-    setResults(resultsRef.current);
-    onPageStateMerge?.(key, { selectedRow: rows[0], selectedRows: rows }, 'merge');
-  }, []);
+  const setSelectionState = useCallback(
+    (key: string, rows: Record<string, unknown>[]) => {
+      const cur = (resultsRef.current[key] ?? {}) as Record<string, unknown>;
+      const entry = { ...cur, selectedRow: rows[0], selectedRows: rows };
+      resultsRef.current = { ...resultsRef.current, [key]: entry };
+      setResults(resultsRef.current);
+      onPageStateMerge?.(key, { selectedRow: rows[0], selectedRows: rows }, 'merge');
+    },
+    [onPageStateMerge],
+  );
   const scheduleStaticFlush = useCallback(() => {
     if (staticTimerRef.current) clearTimeout(staticTimerRef.current);
     staticTimerRef.current = setTimeout(() => {
@@ -147,7 +150,7 @@ export const CompositeRenderer: React.FC<{
         setRunning((prev) => ({ ...prev, [sec.key]: false }));
       }
     },
-    [onExecute, preview],
+    [onExecute, onPageStateMerge, preview],
   );
 
   const runSectionRef = useRef(runSection);

@@ -372,9 +372,9 @@ func (f *DashboardFixture) ensureUIScope(ctx context.Context) error {
 		return fmt.Errorf("fixture scope models are unavailable")
 	}
 
-	game, err := f.svcCtx.GameModel.FindByGameIDString(ctx, f.GameID)
+	_, err := f.svcCtx.GameModel.FindByGameIDString(ctx, f.GameID)
 	if err != nil {
-		game = &model.Game{
+		game := &model.Game{
 			GameID:      f.GameID,
 			Name:        f.GameID,
 			AliasName:   "Real Dashboard E2E",

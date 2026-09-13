@@ -21,7 +21,7 @@ func injectQueryFailure(t *testing.T, db *gorm.DB, occurrence int) {
 		Register("test.fail.query", func(tx *gorm.DB) {
 			n++
 			if n >= occurrence {
-				tx.AddError(errors.New("injected query failure"))
+				_ = tx.AddError(errors.New("injected query failure"))
 			}
 		}))
 	t.Cleanup(func() { _ = db.Callback().Query().Remove("test.fail.query") })
@@ -31,7 +31,7 @@ func injectCreateFailure(t *testing.T, db *gorm.DB) {
 	t.Helper()
 	require.NoError(t, db.Callback().Create().Before("gorm:create").
 		Register("test.fail.create", func(tx *gorm.DB) {
-			tx.AddError(errors.New("injected create failure"))
+			_ = tx.AddError(errors.New("injected create failure"))
 		}))
 	t.Cleanup(func() { _ = db.Callback().Create().Remove("test.fail.create") })
 }
@@ -40,7 +40,7 @@ func injectUpdateFailure(t *testing.T, db *gorm.DB) {
 	t.Helper()
 	require.NoError(t, db.Callback().Update().Before("gorm:update").
 		Register("test.fail.update", func(tx *gorm.DB) {
-			tx.AddError(errors.New("injected update failure"))
+			_ = tx.AddError(errors.New("injected update failure"))
 		}))
 	t.Cleanup(func() { _ = db.Callback().Update().Remove("test.fail.update") })
 }
@@ -49,7 +49,7 @@ func injectDeleteFailure(t *testing.T, db *gorm.DB) {
 	t.Helper()
 	require.NoError(t, db.Callback().Delete().Before("gorm:delete").
 		Register("test.fail.delete", func(tx *gorm.DB) {
-			tx.AddError(errors.New("injected delete failure"))
+			_ = tx.AddError(errors.New("injected delete failure"))
 		}))
 	t.Cleanup(func() { _ = db.Callback().Delete().Remove("test.fail.delete") })
 }

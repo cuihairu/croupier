@@ -203,7 +203,7 @@ func TestProviderSessionStore_GetBySessionID(t *testing.T) {
 			ServiceID: "svc-1",
 		}
 
-		store.Add(sess)
+		_ = store.Add(sess)
 
 		got, ok := store.GetBySessionID("session-1")
 		assert.True(t, ok)
@@ -228,7 +228,7 @@ func TestProviderSessionStore_GetByServiceID(t *testing.T) {
 			ServiceID: "svc-1",
 		}
 
-		store.Add(sess)
+		_ = store.Add(sess)
 
 		got, ok := store.GetByServiceID("svc-1")
 		assert.True(t, ok)
@@ -253,7 +253,7 @@ func TestProviderSessionStore_Remove(t *testing.T) {
 			ServiceID: "svc-1",
 		}
 
-		store.Add(sess)
+		_ = store.Add(sess)
 		store.Remove("session-1")
 
 		got, ok := store.GetBySessionID("session-1")
@@ -282,7 +282,7 @@ func TestProviderSessionStore_RemoveByServiceID(t *testing.T) {
 			ServiceID: "svc-1",
 		}
 
-		store.Add(sess)
+		_ = store.Add(sess)
 		store.RemoveByServiceID("svc-1")
 
 		got, ok := store.GetBySessionID("session-1")
@@ -309,8 +309,8 @@ func TestProviderSessionStore_List(t *testing.T) {
 		sess1 := &ProviderSession{SessionID: "session-1", ServiceID: "svc-1"}
 		sess2 := &ProviderSession{SessionID: "session-2", ServiceID: "svc-2"}
 
-		store.Add(sess1)
-		store.Add(sess2)
+		_ = store.Add(sess1)
+		_ = store.Add(sess2)
 
 		sessions := store.List()
 		assert.Len(t, sessions, 2)
@@ -331,8 +331,8 @@ func TestProviderSessionStore_Count(t *testing.T) {
 		sess1 := &ProviderSession{SessionID: "session-1", ServiceID: "svc-1"}
 		sess2 := &ProviderSession{SessionID: "session-2", ServiceID: "svc-2"}
 
-		store.Add(sess1)
-		store.Add(sess2)
+		_ = store.Add(sess1)
+		_ = store.Add(sess2)
 
 		count := store.Count()
 		assert.Equal(t, 2, count)
@@ -353,8 +353,8 @@ func TestProviderSessionStore_PruneStale(t *testing.T) {
 		sess1 := &ProviderSession{SessionID: "session-1", ServiceID: "svc-1"}
 		sess2 := &ProviderSession{SessionID: "session-2", ServiceID: "svc-2"}
 
-		store.Add(sess1)
-		store.Add(sess2)
+		_ = store.Add(sess1)
+		_ = store.Add(sess2)
 
 		// Prune sessions older than 1 second
 		pruned := store.PruneStale(1 * time.Second)

@@ -32,15 +32,15 @@ func TestTelemetryConfig_Defaults(t *testing.T) {
 // TestLoadConfigFromEnv 测试从环境变量加载配置
 func TestLoadConfigFromEnv(t *testing.T) {
 	// 设置环境变量
-	os.Setenv("OTEL_SERVICE_NAME", "test-from-env")
-	os.Setenv("OTEL_SERVICE_VERSION", "2.0.0")
-	os.Setenv("OTEL_ENVIRONMENT", "production")
-	os.Setenv("GAME_ID", "my-game")
+	_ = os.Setenv("OTEL_SERVICE_NAME", "test-from-env")
+	_ = os.Setenv("OTEL_SERVICE_VERSION", "2.0.0")
+	_ = os.Setenv("OTEL_ENVIRONMENT", "production")
+	_ = os.Setenv("GAME_ID", "my-game")
 	defer func() {
-		os.Unsetenv("OTEL_SERVICE_NAME")
-		os.Unsetenv("OTEL_SERVICE_VERSION")
-		os.Unsetenv("OTEL_ENVIRONMENT")
-		os.Unsetenv("GAME_ID")
+		_ = os.Unsetenv("OTEL_SERVICE_NAME")
+		_ = os.Unsetenv("OTEL_SERVICE_VERSION")
+		_ = os.Unsetenv("OTEL_ENVIRONMENT")
+		_ = os.Unsetenv("GAME_ID")
 	}()
 
 	config := LoadConfigFromEnv()
@@ -62,9 +62,9 @@ func TestLoadConfigFromEnv(t *testing.T) {
 // TestLoadConfigFromEnv_Defaults 测试默认值
 func TestLoadConfigFromEnv_Defaults(t *testing.T) {
 	// 确保环境变量未设置
-	os.Unsetenv("OTEL_SERVICE_NAME")
-	os.Unsetenv("OTEL_SERVICE_VERSION")
-	os.Unsetenv("OTEL_ENVIRONMENT")
+	_ = os.Unsetenv("OTEL_SERVICE_NAME")
+	_ = os.Unsetenv("OTEL_SERVICE_VERSION")
+	_ = os.Unsetenv("OTEL_ENVIRONMENT")
 
 	config := LoadConfigFromEnv()
 
@@ -107,8 +107,8 @@ func TestGetEnvOrDefault(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			if tt.setValue != "" {
-				os.Setenv(tt.key, tt.setValue)
-				defer os.Unsetenv(tt.key)
+				_ = os.Setenv(tt.key, tt.setValue)
+				defer func() { _ = os.Unsetenv(tt.key) }()
 			}
 
 			result := getEnvOrDefault(tt.key, tt.defaultValue)
@@ -255,8 +255,8 @@ func TestTelemetryConfig_BooleanParsing(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			os.Setenv(tt.envKey, tt.envValue)
-			defer os.Unsetenv(tt.envKey)
+			_ = os.Setenv(tt.envKey, tt.envValue)
+			defer func() { _ = os.Unsetenv(tt.envKey) }()
 
 			config := LoadConfigFromEnv()
 			if tt.getValue(config) != tt.expectedVal {
@@ -269,9 +269,9 @@ func TestTelemetryConfig_BooleanParsing(t *testing.T) {
 
 // TestTelemetryConfig_AnalyticsDefaults 测试 Analytics 默认配置
 func TestTelemetryConfig_AnalyticsDefaults(t *testing.T) {
-	os.Unsetenv("ANALYTICS_REDIS_ADDR")
-	os.Unsetenv("ANALYTICS_REDIS_PASSWORD")
-	os.Unsetenv("ANALYTICS_REDIS_DB")
+	_ = os.Unsetenv("ANALYTICS_REDIS_ADDR")
+	_ = os.Unsetenv("ANALYTICS_REDIS_PASSWORD")
+	_ = os.Unsetenv("ANALYTICS_REDIS_DB")
 
 	config := LoadConfigFromEnv()
 
@@ -365,7 +365,7 @@ func TestProvider_GameMetrics(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewProvider failed: %v", err)
 	}
-	defer provider.Shutdown(context.Background())
+	defer func() { _ = provider.Shutdown(context.Background()) }()
 
 	if provider.GameMetrics == nil {
 		t.Error("GameMetrics should not be nil")

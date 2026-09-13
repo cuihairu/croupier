@@ -29,7 +29,7 @@ func TestServeConn_LifecycleOverPipe(t *testing.T) {
 	listener.SetClusterHooks(hooks)
 
 	serverEnd, clientEnd := net.Pipe()
-	defer clientEnd.Close()
+	defer func() { _ = clientEnd.Close() }()
 	go func() { // 排水：mux 响应帧同步写管道
 		buf := make([]byte, 4096)
 		for {
@@ -86,7 +86,7 @@ func TestServeConn_LifecycleOverPipe(t *testing.T) {
 	assert.True(t, still, "mismatched heartbeat must not evict session")
 
 	// 4. 断开 → serveConn 清理：RemoveSession + OnAgentDisconnected
-	clientEnd.Close()
+	_ = clientEnd.Close()
 	deadline = time.Now().Add(2 * time.Second)
 	var removed bool
 	for time.Now().Before(deadline) {
@@ -134,12 +134,12 @@ func TestServeConn_EdgeBranches(t *testing.T) {
 		wrapped[3] = byte(len(frame))
 		_, _ = ce.Write(wrapped)
 		time.Sleep(100 * time.Millisecond)
-		ce.Close()
-		se.Close()
+		_ = ce.Close()
+		_ = se.Close()
 	}
 
 	serverEnd, clientEnd := net.Pipe()
-	defer clientEnd.Close()
+	defer func() { _ = clientEnd.Close() }()
 	// 排水：mux 的响应帧写管道是同步的，无人读会卡住响应写
 	go func() {
 		buf := make([]byte, 4096)
@@ -209,7 +209,7 @@ func TestServeConn_EdgeBranches(t *testing.T) {
 		AgentID: "agent-1", SessionID: "session-new",
 	})
 
-	clientEnd.Close()
+	_ = clientEnd.Close()
 	deadline := time.Now().Add(2 * time.Second)
 	for time.Now().Before(deadline) {
 		if _, ok := listener.SessionStore().Get("agent-1"); !ok {

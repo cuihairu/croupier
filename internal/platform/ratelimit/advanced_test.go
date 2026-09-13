@@ -107,12 +107,12 @@ func TestNewSlidingWindowLimiter(t *testing.T) {
 	assert.Equal(t, time.Second, sw.windowSize)
 	assert.False(t, sw.closed)
 
-	sw.Close()
+	_ = sw.Close()
 }
 
 func TestSlidingWindowLimiter_Allow_Basic(t *testing.T) {
 	sw := NewSlidingWindowLimiter(3, time.Second)
-	defer sw.Close()
+	defer func() { _ = sw.Close() }()
 
 	ctx := context.Background()
 	key := "user1"
@@ -137,7 +137,7 @@ func TestSlidingWindowLimiter_Allow_Basic(t *testing.T) {
 
 func TestSlidingWindowLimiter_AllowN(t *testing.T) {
 	sw := NewSlidingWindowLimiter(10, time.Second)
-	defer sw.Close()
+	defer func() { _ = sw.Close() }()
 
 	ctx := context.Background()
 	key := "user1"
@@ -162,7 +162,7 @@ func TestSlidingWindowLimiter_AllowN(t *testing.T) {
 
 func TestSlidingWindowLimiter_AllowN_ExceedsLimit(t *testing.T) {
 	sw := NewSlidingWindowLimiter(5, time.Second)
-	defer sw.Close()
+	defer func() { _ = sw.Close() }()
 
 	ctx := context.Background()
 	key := "user1"
@@ -182,14 +182,14 @@ func TestSlidingWindowLimiter_AllowN_ExceedsLimit(t *testing.T) {
 
 func TestSlidingWindowLimiter_Reset(t *testing.T) {
 	sw := NewSlidingWindowLimiter(3, time.Second)
-	defer sw.Close()
+	defer func() { _ = sw.Close() }()
 
 	ctx := context.Background()
 	key := "user1"
 
 	// Use up all requests
 	for i := 0; i < 3; i++ {
-		sw.Allow(ctx, key)
+		_, _ = sw.Allow(ctx, key)
 	}
 
 	// Should be denied
@@ -208,7 +208,7 @@ func TestSlidingWindowLimiter_Reset(t *testing.T) {
 
 func TestSlidingWindowLimiter_GetStats(t *testing.T) {
 	sw := NewSlidingWindowLimiter(10, time.Second)
-	defer sw.Close()
+	defer func() { _ = sw.Close() }()
 
 	key := "user1"
 
@@ -219,7 +219,7 @@ func TestSlidingWindowLimiter_GetStats(t *testing.T) {
 	// Make some requests
 	ctx := context.Background()
 	for i := 0; i < 3; i++ {
-		sw.Allow(ctx, key)
+		_, _ = sw.Allow(ctx, key)
 	}
 
 	// Get stats
@@ -232,14 +232,14 @@ func TestSlidingWindowLimiter_GetStats(t *testing.T) {
 
 func TestSlidingWindowLimiter_Wait(t *testing.T) {
 	sw := NewSlidingWindowLimiter(2, time.Millisecond*100)
-	defer sw.Close()
+	defer func() { _ = sw.Close() }()
 
 	ctx := context.Background()
 	key := "user1"
 
 	// Use up quota
-	sw.Allow(ctx, key)
-	sw.Allow(ctx, key)
+	_, _ = sw.Allow(ctx, key)
+	_, _ = sw.Allow(ctx, key)
 
 	// Wait should block until quota available
 	done := make(chan error)
@@ -257,13 +257,13 @@ func TestSlidingWindowLimiter_Wait(t *testing.T) {
 
 func TestSlidingWindowLimiter_Wait_ContextCanceled(t *testing.T) {
 	sw := NewSlidingWindowLimiter(1, time.Second)
-	defer sw.Close()
+	defer func() { _ = sw.Close() }()
 
 	ctx, cancel := context.WithCancel(context.Background())
 	key := "user1"
 
 	// Use up quota
-	sw.Allow(ctx, key)
+	_, _ = sw.Allow(ctx, key)
 
 	// Cancel context and wait
 	cancel()
@@ -274,13 +274,13 @@ func TestSlidingWindowLimiter_Wait_ContextCanceled(t *testing.T) {
 
 func TestSlidingWindowLimiter_WaitWithTimeout(t *testing.T) {
 	sw := NewSlidingWindowLimiter(1, time.Second)
-	defer sw.Close()
+	defer func() { _ = sw.Close() }()
 
 	ctx := context.Background()
 	key := "user1"
 
 	// Use up quota
-	sw.Allow(ctx, key)
+	_, _ = sw.Allow(ctx, key)
 
 	// Wait with short timeout - should exceed
 	err := sw.WaitWithTimeout(ctx, key, time.Millisecond*10)
@@ -290,7 +290,7 @@ func TestSlidingWindowLimiter_WaitWithTimeout(t *testing.T) {
 
 func TestSlidingWindowLimiter_Allow_Closed(t *testing.T) {
 	sw := NewSlidingWindowLimiter(10, time.Second)
-	sw.Close()
+	_ = sw.Close()
 
 	ctx := context.Background()
 	_, err := sw.Allow(ctx, "key")
@@ -300,7 +300,7 @@ func TestSlidingWindowLimiter_Allow_Closed(t *testing.T) {
 
 func TestSlidingWindowLimiter_SlidingWindowExpiration(t *testing.T) {
 	sw := NewSlidingWindowLimiter(3, time.Millisecond*100)
-	defer sw.Close()
+	defer func() { _ = sw.Close() }()
 
 	ctx := context.Background()
 	key := "user1"
@@ -327,7 +327,7 @@ func TestSlidingWindowLimiter_SlidingWindowExpiration(t *testing.T) {
 
 func TestSlidingWindowLimiter_MultipleKeys(t *testing.T) {
 	sw := NewSlidingWindowLimiter(2, time.Second)
-	defer sw.Close()
+	defer func() { _ = sw.Close() }()
 
 	ctx := context.Background()
 
@@ -395,7 +395,7 @@ func TestDistributedRateLimiter_Reset(t *testing.T) {
 	key := "user1"
 
 	// Make a request
-	d.Allow(ctx, key)
+	_, _ = d.Allow(ctx, key)
 
 	// Reset
 	err := d.Reset(ctx, key)
@@ -412,8 +412,8 @@ func TestDistributedRateLimiter_Wait(t *testing.T) {
 	key := "user1"
 
 	// Use up quota
-	d.Allow(ctx, key)
-	d.Allow(ctx, key)
+	_, _ = d.Allow(ctx, key)
+	_, _ = d.Allow(ctx, key)
 
 	// Wait should eventually succeed
 	done := make(chan error)
@@ -438,7 +438,7 @@ func TestDistributedRateLimiter_GetStats(t *testing.T) {
 	key := "user1"
 
 	// Make a request
-	d.Allow(ctx, key)
+	_, _ = d.Allow(ctx, key)
 
 	// Get stats
 	stats := d.GetStats(key)
@@ -534,7 +534,7 @@ func TestMultiTierRateLimiter_Reset(t *testing.T) {
 
 	// Use up quota
 	for i := 0; i < 5; i++ {
-		mt.Allow(ctx, "unknown", "user1")
+		_, _ = mt.Allow(ctx, "unknown", "user1")
 	}
 
 	// Should be denied
@@ -560,7 +560,7 @@ func TestMultiTierRateLimiter_GetStats(t *testing.T) {
 	mt := NewMultiTierRateLimiter(defaultConfig, tiers)
 
 	ctx := context.Background()
-	mt.Allow(ctx, "premium", "user1")
+	_, _ = mt.Allow(ctx, "premium", "user1")
 
 	stats := mt.GetStats("premium", "user1")
 	assert.NotNil(t, stats)
@@ -574,8 +574,8 @@ func TestMultiTierRateLimiter_AddTier(t *testing.T) {
 	ctx := context.Background()
 
 	// Tier doesn't exist yet
-	mt.Allow(ctx, "new", "user1")
-	mt.Allow(ctx, "new", "user1")
+	_, _ = mt.Allow(ctx, "new", "user1")
+	_, _ = mt.Allow(ctx, "new", "user1")
 
 	// Add tier
 	mt.AddTier("new", TierConfig{MaxRequests: 50, WindowSize: time.Second})
@@ -600,7 +600,7 @@ func TestMultiTierRateLimiter_RemoveTier(t *testing.T) {
 
 	// Use premium tier
 	for i := 0; i < 50; i++ {
-		mt.Allow(ctx, "premium", "user1")
+		_, _ = mt.Allow(ctx, "premium", "user1")
 	}
 
 	// Remove tier
@@ -627,7 +627,7 @@ func TestMultiTierRateLimiter_Wait(t *testing.T) {
 	mt := NewMultiTierRateLimiter(defaultConfig, tiers)
 
 	ctx := context.Background()
-	mt.Allow(ctx, "premium", "user1")
+	_, _ = mt.Allow(ctx, "premium", "user1")
 
 	// Wait should eventually succeed
 	done := make(chan error)
@@ -653,7 +653,7 @@ func TestMultiTierRateLimiter_WaitWithTimeout(t *testing.T) {
 
 	ctx := context.Background()
 	// Use up the only quota
-	mt.Allow(ctx, "premium", "user1")
+	_, _ = mt.Allow(ctx, "premium", "user1")
 
 	err := mt.WaitWithTimeout(ctx, "premium", "user1", time.Millisecond*10)
 	assert.Error(t, err)
@@ -675,7 +675,7 @@ func TestNewAdaptiveRateLimiter(t *testing.T) {
 func TestAdaptiveRateLimiter_Allow_NoHealthCheck(t *testing.T) {
 	base := NewSlidingWindowLimiter(10, time.Second)
 	a := NewAdaptiveRateLimiter(base, 10, 5)
-	defer base.Close()
+	defer func() { _ = base.Close() }()
 
 	ctx := context.Background()
 
@@ -690,7 +690,7 @@ func TestAdaptiveRateLimiter_Allow_NoHealthCheck(t *testing.T) {
 func TestAdaptiveRateLimiter_Allow_WithHealthCheck(t *testing.T) {
 	base := NewSlidingWindowLimiter(100, time.Second)
 	a := NewAdaptiveRateLimiter(base, 100, 10)
-	defer base.Close()
+	defer func() { _ = base.Close() }()
 
 	// Set health check to return 0.5 (50% health)
 	healthCalled := false
@@ -702,14 +702,14 @@ func TestAdaptiveRateLimiter_Allow_WithHealthCheck(t *testing.T) {
 	ctx := context.Background()
 
 	// Make a request - should trigger health check
-	a.Allow(ctx, "user1")
+	_, _ = a.Allow(ctx, "user1")
 	assert.True(t, healthCalled)
 }
 
 func TestAdaptiveRateLimiter_AdjustLimit_Increase(t *testing.T) {
 	base := NewSlidingWindowLimiter(100, time.Second)
 	a := NewAdaptiveRateLimiter(base, 100, 10)
-	defer base.Close()
+	defer func() { _ = base.Close() }()
 
 	// Start at minimum
 	a.currentLimit = 10
@@ -723,7 +723,7 @@ func TestAdaptiveRateLimiter_AdjustLimit_Increase(t *testing.T) {
 
 	// Make multiple requests to allow gradual adjustment
 	for i := 0; i < 20; i++ {
-		a.Allow(ctx, "user1")
+		_, _ = a.Allow(ctx, "user1")
 	}
 
 	// Limit should have increased
@@ -733,7 +733,7 @@ func TestAdaptiveRateLimiter_AdjustLimit_Increase(t *testing.T) {
 func TestAdaptiveRateLimiter_AdjustLimit_Decrease(t *testing.T) {
 	base := NewSlidingWindowLimiter(100, time.Second)
 	a := NewAdaptiveRateLimiter(base, 100, 10)
-	defer base.Close()
+	defer func() { _ = base.Close() }()
 
 	// Start at maximum
 	a.currentLimit = 100
@@ -747,7 +747,7 @@ func TestAdaptiveRateLimiter_AdjustLimit_Decrease(t *testing.T) {
 
 	// Make multiple requests to allow gradual adjustment
 	for i := 0; i < 20; i++ {
-		a.Allow(ctx, "user1")
+		_, _ = a.Allow(ctx, "user1")
 	}
 
 	// Limit should have decreased
@@ -757,7 +757,7 @@ func TestAdaptiveRateLimiter_AdjustLimit_Decrease(t *testing.T) {
 func TestAdaptiveRateLimiter_AdjustLimit_Minimum(t *testing.T) {
 	base := NewSlidingWindowLimiter(100, time.Second)
 	a := NewAdaptiveRateLimiter(base, 100, 50)
-	defer base.Close()
+	defer func() { _ = base.Close() }()
 
 	a.currentLimit = 60
 
@@ -770,7 +770,7 @@ func TestAdaptiveRateLimiter_AdjustLimit_Minimum(t *testing.T) {
 
 	// Make many requests
 	for i := 0; i < 30; i++ {
-		a.Allow(ctx, "user1")
+		_, _ = a.Allow(ctx, "user1")
 	}
 
 	// Limit should not go below minimum
@@ -780,10 +780,10 @@ func TestAdaptiveRateLimiter_AdjustLimit_Minimum(t *testing.T) {
 func TestAdaptiveRateLimiter_Wait(t *testing.T) {
 	base := NewSlidingWindowLimiter(1, time.Millisecond*100)
 	a := NewAdaptiveRateLimiter(base, 10, 1)
-	defer base.Close()
+	defer func() { _ = base.Close() }()
 
 	ctx := context.Background()
-	a.Allow(ctx, "user1")
+	_, _ = a.Allow(ctx, "user1")
 
 	// Wait should use base limiter
 	err := a.Wait(ctx, "user1")
@@ -793,13 +793,13 @@ func TestAdaptiveRateLimiter_Wait(t *testing.T) {
 func TestAdaptiveRateLimiter_Reset(t *testing.T) {
 	base := NewSlidingWindowLimiter(10, time.Second)
 	a := NewAdaptiveRateLimiter(base, 10, 5)
-	defer base.Close()
+	defer func() { _ = base.Close() }()
 
 	ctx := context.Background()
 
 	// Use quota
 	for i := 0; i < 10; i++ {
-		a.Allow(ctx, "user1")
+		_, _ = a.Allow(ctx, "user1")
 	}
 
 	// Reset
@@ -815,10 +815,10 @@ func TestAdaptiveRateLimiter_Reset(t *testing.T) {
 func TestAdaptiveRateLimiter_GetStats(t *testing.T) {
 	base := NewSlidingWindowLimiter(10, time.Second)
 	a := NewAdaptiveRateLimiter(base, 10, 5)
-	defer base.Close()
+	defer func() { _ = base.Close() }()
 
 	ctx := context.Background()
-	a.Allow(ctx, "user1")
+	_, _ = a.Allow(ctx, "user1")
 
 	stats := a.GetStats("user1")
 	assert.NotNil(t, stats)
@@ -872,7 +872,7 @@ func TestErrors(t *testing.T) {
 
 func BenchmarkSlidingWindowLimiter_Allow(b *testing.B) {
 	sw := NewSlidingWindowLimiter(10000, time.Second)
-	defer sw.Close()
+	defer func() { _ = sw.Close() }()
 
 	ctx := context.Background()
 
@@ -880,7 +880,7 @@ func BenchmarkSlidingWindowLimiter_Allow(b *testing.B) {
 		i := 0
 		for pb.Next() {
 			key := "user" + string(rune(i%100))
-			sw.Allow(ctx, key)
+			_, _ = sw.Allow(ctx, key)
 			i++
 		}
 	})
@@ -888,7 +888,7 @@ func BenchmarkSlidingWindowLimiter_Allow(b *testing.B) {
 
 func BenchmarkSlidingWindowLimiter_AllowN(b *testing.B) {
 	sw := NewSlidingWindowLimiter(10000, time.Second)
-	defer sw.Close()
+	defer func() { _ = sw.Close() }()
 
 	ctx := context.Background()
 	keys := make([]string, 100)
@@ -898,6 +898,6 @@ func BenchmarkSlidingWindowLimiter_AllowN(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		sw.AllowN(ctx, keys[i%100], 10)
+		_, _ = sw.AllowN(ctx, keys[i%100], 10)
 	}
 }

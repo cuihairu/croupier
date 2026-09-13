@@ -139,7 +139,7 @@ func (s *Service) Events(ctx context.Context, req *EventsRequest) (*EventsRespon
 		return nil, err
 	}
 	items := make([]EventItem, 0, len(events))
-	var nextSeq int64 = req.AfterSeq
+	var nextSeq = req.AfterSeq
 	for i := range events {
 		payload := decodePayload(events[i].Payload)
 		items = append(items, EventItem{

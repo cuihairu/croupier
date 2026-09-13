@@ -640,7 +640,7 @@ func TestExtractSourceOperationsDiagnostics(t *testing.T) {
 	item := &openapi3.PathItem{Get: nil, Post: &openapi3.Operation{OperationID: "real", Responses: responses}}
 	doc.Paths = &openapi3.Paths{}
 	doc.Paths.Set("/ok", item)
-	items, diags = extractSourceOperations(doc, nil)
+	items, _ = extractSourceOperations(doc, nil)
 	require.Len(t, items, 1)
 	assert.Equal(t, "real", items[0].OperationID)
 

@@ -102,12 +102,11 @@ type KeyFilter struct {
 
 // KeyManager manages encryption keys
 type KeyManager struct {
-	store       KeyStore
-	masterKey   []byte
-	cache       map[string]*KeyEntry
-	cacheMu     sync.RWMutex
-	rotationJob *RotationJob
-	notifier    KeyRotationNotifier
+	store     KeyStore
+	masterKey []byte
+	cache     map[string]*KeyEntry
+	cacheMu   sync.RWMutex
+	notifier  KeyRotationNotifier
 }
 
 // NewKeyManager creates a new key manager

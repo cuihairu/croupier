@@ -75,7 +75,7 @@ func TestNewTCPLocalListener(t *testing.T) {
 		assert.NotNil(t, listener.sessionStore)
 		assert.NotNil(t, listener.closing)
 
-		listener.Close()
+		_ = listener.Close()
 	})
 
 	t.Run("with nil config", func(t *testing.T) {
@@ -86,7 +86,7 @@ func TestNewTCPLocalListener(t *testing.T) {
 		require.NoError(t, err)
 		assert.NotNil(t, listener)
 
-		listener.Close()
+		_ = listener.Close()
 	})
 
 	t.Run("with custom session store", func(t *testing.T) {
@@ -101,7 +101,7 @@ func TestNewTCPLocalListener(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, store, listener.sessionStore)
 
-		listener.Close()
+		_ = listener.Close()
 	})
 
 	t.Run("with custom logger", func(t *testing.T) {
@@ -116,7 +116,7 @@ func TestNewTCPLocalListener(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, logger, listener.logger)
 
-		listener.Close()
+		_ = listener.Close()
 	})
 }
 
@@ -131,7 +131,7 @@ func TestTCPLocalListener_SetOnConnect(t *testing.T) {
 
 	listener, err := NewTCPLocalListener(config, nil, nil)
 	require.NoError(t, err)
-	defer listener.Close()
+	defer func() { _ = listener.Close() }()
 
 	listener.SetOnConnect(func(sess *ProviderSession) {
 		// callback
@@ -151,7 +151,7 @@ func TestTCPLocalListener_SetOnDisconnect(t *testing.T) {
 
 	listener, err := NewTCPLocalListener(config, nil, nil)
 	require.NoError(t, err)
-	defer listener.Close()
+	defer func() { _ = listener.Close() }()
 
 	listener.SetOnDisconnect(func(sess *ProviderSession) {
 		// callback
@@ -171,7 +171,7 @@ func TestTCPLocalListener_SetLocalHandler(t *testing.T) {
 
 	listener, err := NewTCPLocalListener(config, nil, nil)
 	require.NoError(t, err)
-	defer listener.Close()
+	defer func() { _ = listener.Close() }()
 
 	handler := &mockLocalHandler{}
 	listener.SetLocalHandler(handler)
@@ -191,7 +191,7 @@ func TestTCPLocalListener_Addr(t *testing.T) {
 
 		listener, err := NewTCPLocalListener(config, nil, nil)
 		require.NoError(t, err)
-		defer listener.Close()
+		defer func() { _ = listener.Close() }()
 
 		addr := listener.Addr()
 		assert.NotEmpty(t, addr)
@@ -209,7 +209,7 @@ func TestTCPLocalListener_SessionStore(t *testing.T) {
 
 	listener, err := NewTCPLocalListener(config, nil, nil)
 	require.NoError(t, err)
-	defer listener.Close()
+	defer func() { _ = listener.Close() }()
 
 	store := listener.SessionStore()
 	assert.NotNil(t, store)
@@ -268,7 +268,7 @@ func TestTCPLocalListener_IsClosed(t *testing.T) {
 
 	assert.False(t, listener.IsClosed())
 
-	listener.Close()
+	_ = listener.Close()
 	assert.True(t, listener.IsClosed())
 }
 
@@ -294,7 +294,7 @@ func TestTCPLocalListenerProviderSessionLifecycle(t *testing.T) {
 	if err != nil {
 		t.Fatalf("new listener: %v", err)
 	}
-	defer listener.Close()
+	defer func() { _ = listener.Close() }()
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -314,7 +314,7 @@ func TestTCPLocalListenerProviderSessionLifecycle(t *testing.T) {
 	if err != nil {
 		t.Fatalf("new client: %v", err)
 	}
-	defer client.Close()
+	defer func() { _ = client.Close() }()
 
 	connectReq := &sdkv1.ProviderConnectRequest{
 		ServiceId:       "provider-1",
@@ -423,7 +423,7 @@ func TestTCPLocalListenerRejectsNonProviderConnectFirstFrame(t *testing.T) {
 	if err != nil {
 		t.Fatalf("new listener: %v", err)
 	}
-	defer listener.Close()
+	defer func() { _ = listener.Close() }()
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -443,7 +443,7 @@ func TestTCPLocalListenerRejectsNonProviderConnectFirstFrame(t *testing.T) {
 	if err != nil {
 		t.Fatalf("new client: %v", err)
 	}
-	defer client.Close()
+	defer func() { _ = client.Close() }()
 
 	_, _, err = client.Call(ctx, protocol.MsgProviderHeartbeatRequest, []byte("{}"))
 	if err == nil {
@@ -479,7 +479,7 @@ func TestProviderSessionHandler_Handle(t *testing.T) {
 
 		listener, err := NewTCPLocalListener(config, nil, nil)
 		require.NoError(t, err)
-		defer listener.Close()
+		defer func() { _ = listener.Close() }()
 
 		handler := &providerSessionHandler{
 			listener:   listener,
@@ -507,7 +507,7 @@ func TestProviderSessionHandler_Handle(t *testing.T) {
 
 		listener, err := NewTCPLocalListener(config, nil, nil)
 		require.NoError(t, err)
-		defer listener.Close()
+		defer func() { _ = listener.Close() }()
 
 		handler := &providerSessionHandler{
 			listener:   listener,
@@ -528,7 +528,7 @@ func TestProviderSessionHandler_Handle(t *testing.T) {
 
 		listener, err := NewTCPLocalListener(config, nil, nil)
 		require.NoError(t, err)
-		defer listener.Close()
+		defer func() { _ = listener.Close() }()
 
 		localHandler := &mockLocalHandler{}
 		listener.SetLocalHandler(localHandler)
@@ -553,7 +553,7 @@ func TestProviderSessionHandler_Handle(t *testing.T) {
 
 		listener, err := NewTCPLocalListener(config, nil, nil)
 		require.NoError(t, err)
-		defer listener.Close()
+		defer func() { _ = listener.Close() }()
 
 		handler := &providerSessionHandler{
 			listener:   listener,

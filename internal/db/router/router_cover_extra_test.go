@@ -23,11 +23,11 @@ type badCloseConn struct{}
 
 var (
 	registerOnce sync.Once
-	badCloseErr  = errors.New("close boom")
+	errBadClose  = errors.New("close boom")
 )
 
 func (badCloseConn) Prepare(string) (driver.Stmt, error) { return nil, errors.New("unimplemented") }
-func (badCloseConn) Close() error                        { return badCloseErr }
+func (badCloseConn) Close() error                        { return errBadClose }
 func (badCloseConn) Begin() (driver.Tx, error)           { return nil, errors.New("unimplemented") }
 func (badCloseConn) Ping() error                         { return nil }
 

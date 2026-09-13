@@ -10,7 +10,7 @@ import (
 // BuildMessageDTO converts model.Message into a serializable map.
 func BuildMessageDTO(msg *model.Message) map[string]interface{} {
 	var payload interface{}
-	if msg.Data != nil && len(msg.Data) > 0 {
+	if len(msg.Data) > 0 {
 		if err := json.Unmarshal(msg.Data, &payload); err != nil {
 			payload = string(msg.Data)
 		}

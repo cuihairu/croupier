@@ -477,7 +477,7 @@ func newConsoleTestServiceWithAudit(t *testing.T, permissions ...string) (*Servi
 	sqlDB.SetMaxOpenConns(1)
 
 	store := reg.NewStore()
-	store.UpsertAgent(&reg.AgentSession{
+	_ = store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "agent-1",
 		GameID:   "demo-game",
 		Env:      "development",

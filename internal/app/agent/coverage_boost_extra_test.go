@@ -245,7 +245,7 @@ func TestAppRun_LocalServerAddrConflict(t *testing.T) {
 	// Occupy a port first, then let Run bind the same one.
 	blocker, err := net.Listen("tcp", "127.0.0.1:0")
 	require.NoError(t, err)
-	defer blocker.Close()
+	defer func() { _ = blocker.Close() }()
 
 	app := NewWithConfigDir("127.0.0.1:1", "agent-conflict", t.TempDir())
 	app.SetLocalAddr(blocker.Addr().String())

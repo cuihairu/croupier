@@ -19,7 +19,7 @@ import (
 func TestInMemoryAuditStore_Delete(t *testing.T) {
 	store := NewInMemoryAuditStore()
 	r := &AuditRecord{ID: "r1", Timestamp: time.Now(), EventType: EventLogin, Outcome: "success"}
-	store.Create(r)
+	_ = store.Create(r)
 
 	if err := store.Delete("r1"); err != nil {
 		t.Fatalf("Delete: %v", err)
@@ -39,7 +39,7 @@ func TestInMemoryAuditStore_Delete_NotFound(t *testing.T) {
 func TestInMemoryAuditStore_GetBySequence(t *testing.T) {
 	store := NewInMemoryAuditStore()
 	r := &AuditRecord{ID: "r1", Timestamp: time.Now(), EventType: EventLogin, Outcome: "success"}
-	store.Create(r)
+	_ = store.Create(r)
 
 	got, err := store.GetBySequence(1)
 	if err != nil {
@@ -59,9 +59,9 @@ func TestInMemoryAuditStore_GetBySequence_NotFound(t *testing.T) {
 
 func TestInMemoryAuditStore_CountByFilter(t *testing.T) {
 	store := NewInMemoryAuditStore()
-	store.Create(&AuditRecord{ID: "r1", Timestamp: time.Now(), EventType: EventLogin, Outcome: "success"})
-	store.Create(&AuditRecord{ID: "r2", Timestamp: time.Now(), EventType: EventLogout, Outcome: "success"})
-	store.Create(&AuditRecord{ID: "r3", Timestamp: time.Now(), EventType: EventLogin, Outcome: "failure"})
+	_ = store.Create(&AuditRecord{ID: "r1", Timestamp: time.Now(), EventType: EventLogin, Outcome: "success"})
+	_ = store.Create(&AuditRecord{ID: "r2", Timestamp: time.Now(), EventType: EventLogout, Outcome: "success"})
+	_ = store.Create(&AuditRecord{ID: "r3", Timestamp: time.Now(), EventType: EventLogin, Outcome: "failure"})
 
 	count, err := store.CountByFilter(AuditFilter{EventType: []AuditEventType{EventLogin}})
 	if err != nil {
@@ -82,9 +82,9 @@ func TestInMemoryAuditStore_CountByFilter(t *testing.T) {
 
 func TestInMemoryAuditStore_GetChainRange(t *testing.T) {
 	store := NewInMemoryAuditStore()
-	store.Create(&AuditRecord{ID: "r1", Timestamp: time.Now(), EventType: EventLogin, Outcome: "success"})
-	store.Create(&AuditRecord{ID: "r2", Timestamp: time.Now(), EventType: EventLogout, Outcome: "success"})
-	store.Create(&AuditRecord{ID: "r3", Timestamp: time.Now(), EventType: EventLogin, Outcome: "success"})
+	_ = store.Create(&AuditRecord{ID: "r1", Timestamp: time.Now(), EventType: EventLogin, Outcome: "success"})
+	_ = store.Create(&AuditRecord{ID: "r2", Timestamp: time.Now(), EventType: EventLogout, Outcome: "success"})
+	_ = store.Create(&AuditRecord{ID: "r3", Timestamp: time.Now(), EventType: EventLogin, Outcome: "success"})
 
 	records, err := store.GetChainRange(1, 2)
 	if err != nil {
@@ -107,8 +107,8 @@ func TestInMemoryAuditStore_DeleteBefore(t *testing.T) {
 	old := time.Now().Add(-2 * time.Hour)
 	recent := time.Now()
 
-	store.Create(&AuditRecord{ID: "r1", Timestamp: old, EventType: EventLogin, Outcome: "success"})
-	store.Create(&AuditRecord{ID: "r2", Timestamp: recent, EventType: EventLogin, Outcome: "success"})
+	_ = store.Create(&AuditRecord{ID: "r1", Timestamp: old, EventType: EventLogin, Outcome: "success"})
+	_ = store.Create(&AuditRecord{ID: "r2", Timestamp: recent, EventType: EventLogin, Outcome: "success"})
 
 	count, err := store.DeleteBefore(time.Now().Add(-time.Hour))
 	if err != nil {
@@ -399,8 +399,8 @@ func TestAuditService_ValidateChain_Valid(t *testing.T) {
 	store := NewInMemoryAuditStore()
 	service := NewAuditService(store, nil)
 
-	service.Log(context.Background(), EventLogin, WithActorID("u1", "user", "T"), WithOutcome("success", ""))
-	service.Log(context.Background(), EventLogout, WithActorID("u1", "user", "T"), WithOutcome("success", ""))
+	_, _ = service.Log(context.Background(), EventLogin, WithActorID("u1", "user", "T"), WithOutcome("success", ""))
+	_, _ = service.Log(context.Background(), EventLogout, WithActorID("u1", "user", "T"), WithOutcome("success", ""))
 
 	result, err := service.ValidateChain(1, 2)
 	if err != nil {
@@ -418,8 +418,8 @@ func TestAuditService_ValidateChain_BrokenChain(t *testing.T) {
 	store := NewInMemoryAuditStore()
 	service := NewAuditService(store, nil)
 
-	service.Log(context.Background(), EventLogin, WithActorID("u1", "user", "T"), WithOutcome("success", ""))
-	service.Log(context.Background(), EventLogout, WithActorID("u1", "user", "T"), WithOutcome("success", ""))
+	_, _ = service.Log(context.Background(), EventLogin, WithActorID("u1", "user", "T"), WithOutcome("success", ""))
+	_, _ = service.Log(context.Background(), EventLogout, WithActorID("u1", "user", "T"), WithOutcome("success", ""))
 
 	records, _ := store.GetChainRange(1, 2)
 	records[1].ChainInfo.PrevHash = "tampered"
@@ -437,7 +437,7 @@ func TestAuditService_ValidateChain_HashMismatch(t *testing.T) {
 	store := NewInMemoryAuditStore()
 	service := NewAuditService(store, nil)
 
-	service.Log(context.Background(), EventLogin, WithActorID("u1", "user", "T"), WithOutcome("success", ""))
+	_, _ = service.Log(context.Background(), EventLogin, WithActorID("u1", "user", "T"), WithOutcome("success", ""))
 
 	records, _ := store.GetChainRange(1, 1)
 	records[0].ChainInfo.Hash = "wrong"
@@ -455,7 +455,7 @@ func TestAuditService_ValidateChain_WithSigner(t *testing.T) {
 	store := NewInMemoryAuditStore()
 	service := NewAuditService(store, &storeTestSigner{})
 
-	service.Log(context.Background(), EventLogin, WithActorID("u1", "user", "T"), WithOutcome("success", ""))
+	_, _ = service.Log(context.Background(), EventLogin, WithActorID("u1", "user", "T"), WithOutcome("success", ""))
 
 	result, err := service.ValidateChain(1, 1)
 	if err != nil {
@@ -470,7 +470,7 @@ func TestAuditService_ValidateChain_InvalidSignature(t *testing.T) {
 	store := NewInMemoryAuditStore()
 	service := NewAuditService(store, &storeTestSigner{verifyErr: ErrInvalidChain})
 
-	service.Log(context.Background(), EventLogin, WithActorID("u1", "user", "T"), WithOutcome("success", ""))
+	_, _ = service.Log(context.Background(), EventLogin, WithActorID("u1", "user", "T"), WithOutcome("success", ""))
 
 	result, err := service.ValidateChain(1, 1)
 	if err != nil {
@@ -485,7 +485,7 @@ func TestAuditService_Archive_Op(t *testing.T) {
 	store := NewInMemoryAuditStore()
 	service := NewAuditService(store, nil)
 
-	service.Log(context.Background(), EventLogin, WithActorID("u1", "user", "T"), WithOutcome("success", ""))
+	_, _ = service.Log(context.Background(), EventLogin, WithActorID("u1", "user", "T"), WithOutcome("success", ""))
 
 	count, err := service.Archive(time.Now().Add(time.Hour), "/tmp/archive.json")
 	if err != nil {
@@ -502,7 +502,7 @@ func TestAuditService_SetNotifier_Critical(t *testing.T) {
 	n := &storeTestNotifier{}
 	service.SetNotifier(n)
 
-	service.Log(context.Background(), EventUserDelete,
+	_, _ = service.Log(context.Background(), EventUserDelete,
 		WithActorID("u1", "user", "T"), WithOutcome("success", ""),
 	)
 

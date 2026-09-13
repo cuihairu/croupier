@@ -511,7 +511,7 @@ func BenchmarkFileStore_Put(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		key := "benchmark/file.txt"
-		store.Put(ctx, key, data, 28, "")
+		_ = store.Put(ctx, key, data, 28, "")
 	}
 }
 
@@ -527,11 +527,11 @@ func BenchmarkFileStore_List(b *testing.B) {
 	// 创建一些测试文件
 	for i := 0; i < 100; i++ {
 		data := strings.NewReader("content")
-		store.Put(ctx, "test/file.txt", data, 7, "")
+		_ = store.Put(ctx, "test/file.txt", data, 7, "")
 	}
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		store.List(ctx, "test/", "", "", 0)
+		_, _ = store.List(ctx, "test/", "", "", 0)
 	}
 }

@@ -96,7 +96,7 @@ type fakeRowsConnectorV10 struct {
 func (c fakeRowsConnectorV10) Connect(context.Context) (driver.Conn, error) {
 	return &fakeDriverConnV10{query: c.query}, nil
 }
-func (c fakeRowsConnectorV10) Driver() driver.Driver { return fakeRowsDriverV10{query: c.query} }
+func (c fakeRowsConnectorV10) Driver() driver.Driver { return fakeRowsDriverV10(c) }
 
 // newFakeDriverDBSourceV10 用假驱动打开 gorm 连接（绕过真实 MySQL），
 // 语义与生产一致：SHOW TABLES / SELECT 均由 query 回调应答。

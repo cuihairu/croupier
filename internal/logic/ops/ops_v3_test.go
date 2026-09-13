@@ -484,7 +484,7 @@ func TestFormatTimestamp_NonNil(t *testing.T) {
 
 func TestOpsAgentsList_WithProviders(t *testing.T) {
 	store := registry.NewStore()
-	store.UpsertAgent(&registry.AgentSession{
+	_ = store.UpsertAgent(&registry.AgentSession{
 		AgentID:  "agent-with-providers",
 		GameID:   "game1",
 		Env:      "prod",
@@ -542,11 +542,4 @@ func TestAgentOpsClient_ConcurrentAccess(t *testing.T) {
 	for i := 0; i < 10; i++ {
 		<-done
 	}
-}
-
-// helper for error caller
-type errCaller struct{}
-
-func (c *errCaller) Call(_ context.Context, msgID uint32, _ []byte) (uint32, []byte, error) {
-	return 0, nil, fmt.Errorf("network error")
 }

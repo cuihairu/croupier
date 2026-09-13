@@ -435,7 +435,7 @@ func TestHandler_Login_WhitespaceUsername(t *testing.T) {
 
 	// Should process (service handles trimming)
 	var result map[string]any
-	json.Unmarshal(rec.Body.Bytes(), &result)
+	_ = json.Unmarshal(rec.Body.Bytes(), &result)
 	_ = result
 }
 
@@ -612,7 +612,7 @@ func TestNewHandler(t *testing.T) {
 	handler := NewHandler(svc)
 
 	if handler == nil {
-		t.Error("NewHandler returned nil")
+		t.Fatal("NewHandler returned nil")
 	}
 	if handler.service != svc {
 		t.Error("NewHandler did not set service correctly")

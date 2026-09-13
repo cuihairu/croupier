@@ -128,7 +128,7 @@ func TestNoop_ConcurrentOperations(t *testing.T) {
 	// 并发发布事件
 	for i := 0; i < 5; i++ {
 		go func() {
-			n.PublishEvent(map[string]any{"id": i})
+			_ = n.PublishEvent(map[string]any{"id": i})
 			done <- true
 		}()
 	}
@@ -136,7 +136,7 @@ func TestNoop_ConcurrentOperations(t *testing.T) {
 	// 并发发布支付
 	for i := 0; i < 5; i++ {
 		go func() {
-			n.PublishPayment(map[string]any{"id": i})
+			_ = n.PublishPayment(map[string]any{"id": i})
 			done <- true
 		}()
 	}
@@ -198,7 +198,7 @@ func BenchmarkPublishEvent(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		n.PublishEvent(event)
+		_ = n.PublishEvent(event)
 	}
 }
 
@@ -214,7 +214,7 @@ func BenchmarkPublishPayment(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		n.PublishPayment(payment)
+		_ = n.PublishPayment(payment)
 	}
 }
 
@@ -223,7 +223,7 @@ func BenchmarkPendingEvents(b *testing.B) {
 	n := NewNoop()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		n.PendingEvents()
+		_, _ = n.PendingEvents()
 	}
 }
 
@@ -235,7 +235,7 @@ func BenchmarkConcurrentPublish(b *testing.B) {
 
 	b.RunParallel(func(pb *testing.PB) {
 		for pb.Next() {
-			n.PublishEvent(event)
+			_ = n.PublishEvent(event)
 		}
 	})
 }

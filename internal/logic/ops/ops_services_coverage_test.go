@@ -50,7 +50,7 @@ func TestOpsServicesLogic_OpsServices_FullPath(t *testing.T) {
 	store := registry.NewStore()
 
 	// 健康 agent：带 providers / labels / functions。
-	store.UpsertAgent(&registry.AgentSession{
+	_ = store.UpsertAgent(&registry.AgentSession{
 		AgentID:  "agent-healthy",
 		Addr:     "10.0.0.1:19090",
 		GameID:   "demo",
@@ -77,7 +77,7 @@ func TestOpsServicesLogic_OpsServices_FullPath(t *testing.T) {
 	})
 
 	// 过期 agent（ExpireAt 已过）。
-	store.UpsertAgent(&registry.AgentSession{
+	_ = store.UpsertAgent(&registry.AgentSession{
 		AgentID:  "agent-expired",
 		ExpireAt: time.Now().Add(-time.Hour),
 		LastSeen: time.Now().Add(-2 * time.Hour),
@@ -85,11 +85,11 @@ func TestOpsServicesLogic_OpsServices_FullPath(t *testing.T) {
 	})
 
 	// 空白 AgentID 跳过；零 LastSeen 回退 ExpireAt。
-	store.UpsertAgent(&registry.AgentSession{
+	_ = store.UpsertAgent(&registry.AgentSession{
 		AgentID:  "   ",
 		ExpireAt: time.Now().Add(time.Minute),
 	})
-	store.UpsertAgent(&registry.AgentSession{
+	_ = store.UpsertAgent(&registry.AgentSession{
 		AgentID:  "agent-nolastseen",
 		ExpireAt: time.Now().Add(time.Minute),
 		LastSeen: time.Time{},
@@ -166,19 +166,19 @@ func TestOpsServicesLogic_StatusTwoStates(t *testing.T) {
 	svcCtx := newOpsPermSvcCtx(t)
 	store := registry.NewStore()
 
-	store.UpsertAgent(&registry.AgentSession{
+	_ = store.UpsertAgent(&registry.AgentSession{
 		AgentID:  "agent-past",
 		ExpireAt: time.Now().Add(-time.Hour),
 	})
-	store.UpsertAgent(&registry.AgentSession{
+	_ = store.UpsertAgent(&registry.AgentSession{
 		AgentID:  "agent-future",
 		ExpireAt: time.Now().Add(time.Hour),
 	})
-	store.UpsertAgent(&registry.AgentSession{
+	_ = store.UpsertAgent(&registry.AgentSession{
 		AgentID: "agent-zeroexpire", // ExpireAt 零值 → ttlAndHealth 返回 (0,false)
 	})
 	// 空白 AgentID 被循环跳过。
-	store.UpsertAgent(&registry.AgentSession{
+	_ = store.UpsertAgent(&registry.AgentSession{
 		AgentID:  "  ",
 		ExpireAt: time.Now().Add(time.Hour),
 	})

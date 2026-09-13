@@ -13,7 +13,7 @@ func TestFindConfigsDir_CandidatesCovered(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer os.Chdir(originalWd)
+	defer func() { _ = os.Chdir(originalWd) }()
 
 	tmpDir := t.TempDir()
 	configsDir := filepath.Join(tmpDir, "configs")
@@ -37,7 +37,7 @@ func TestDefaultBootstrapDataDir_FallbackGetwd(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer os.Chdir(originalWd)
+	defer func() { _ = os.Chdir(originalWd) }()
 
 	// Move to a dir without configs subdirectory so findConfigsDir returns ""
 	tmpDir := t.TempDir()
@@ -57,7 +57,7 @@ func TestFindConfigsDir_NoMatch(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer os.Chdir(originalWd)
+	defer func() { _ = os.Chdir(originalWd) }()
 
 	tmpDir := t.TempDir()
 	if err := os.Chdir(tmpDir); err != nil {
@@ -106,7 +106,7 @@ func TestDefaultBootstrapDataDir_TwoFallbacks(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer os.Chdir(originalWd)
+	defer func() { _ = os.Chdir(originalWd) }()
 
 	tmpDir := t.TempDir()
 	if err := os.Chdir(tmpDir); err != nil {

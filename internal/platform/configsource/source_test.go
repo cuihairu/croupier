@@ -60,10 +60,10 @@ func TestMaskSecrets(t *testing.T) {
 func TestRedisSource_ListReadWrite(t *testing.T) {
 	mr := miniredis.RunT(t)
 	ctx := context.Background()
-	mr.Set("cfg:gameplay/item", `{"id":1}`)
-	mr.Set("cfg:gameplay/hero/skin", "1")
-	mr.Set("cfg:runtime/switch", "on")
-	mr.Set("other:key", "x")
+	_ = mr.Set("cfg:gameplay/item", `{"id":1}`)
+	_ = mr.Set("cfg:gameplay/hero/skin", "1")
+	_ = mr.Set("cfg:runtime/switch", "on")
+	_ = mr.Set("other:key", "x")
 
 	src, err := New(testBinding("redis", fmt.Sprintf(`{"addr":"%s","prefix":"cfg:"}`, mr.Addr())))
 	if err != nil {

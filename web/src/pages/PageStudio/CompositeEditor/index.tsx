@@ -286,13 +286,16 @@ export default function CompositeEditorPage() {
 
   /** 函数 → 组件节点（scaffold 按契约实例化，amis 式拖入即骨架）。 */
   /** 子节点放入容器（modal children）；V5：落树即分配语义变量名。 */
-  const addChild = useCallback((parentId: string, node: PageNode) => {
-    setTree((prev) => {
-      const [named] = assignVarNames([node], collectVarNames(prev));
-      return insertNode(prev, named, parentId);
-    });
-    setSelectedId(node.id);
-  }, []);
+  const addChild = useCallback(
+    (parentId: string, node: PageNode) => {
+      setTree((prev) => {
+        const [named] = assignVarNames([node], collectVarNames(prev));
+        return insertNode(prev, named, parentId);
+      });
+      setSelectedId(node.id);
+    },
+    [setTree],
+  );
 
   const addFunction = useCallback(
     (e: AddFnEvent) => {
@@ -321,7 +324,7 @@ export default function CompositeEditorPage() {
       });
       setSelectedId(node.id);
     },
-    [registerFn, editingModalId, addChild, message],
+    [registerFn, editingModalId, addChild, message, setTree],
   );
 
   /** 基础组件 → 节点（V5：同样分配变量名——可作动作目标、进补全列表）。
@@ -347,7 +350,7 @@ export default function CompositeEditorPage() {
       });
       setSelectedId(node.id);
     },
-    [editingModalId, message],
+    [editingModalId, message, setTree],
   );
 
   // pageKey 自动推导（函数 id 资源段）
@@ -460,7 +463,7 @@ export default function CompositeEditorPage() {
       }
       setTree((prev) => updateProps(prev, selectedId, patch));
     },
-    [selectedId, tree],
+    [selectedId, setTree, tree],
   );
 
   // ---- 拖拽（T2.2/T2.3）：面板→画布插入 / 画布内重排 / modal 收纳 ----
@@ -511,20 +514,26 @@ export default function CompositeEditorPage() {
    * 避免画布出现同名徽标与后续改名冲突。 */
   /** 复制节点：副本不继承变量名（clone 已剥离），仅对副本子树重新语义命名——
    * 不触碰原节点及其引用。 */
-  const duplicateNode = useCallback((id: string) => {
-    setTree((prev) => {
-      const next = duplicateTree(prev, id);
-      if (next === prev) return prev;
-      const copy = findInsertedSubtree(prev, next);
-      if (!copy) return next;
-      const [named] = assignVarNames([copy], collectVarNames(prev));
-      return replaceSubtree(next, named);
-    });
-  }, []);
+  const duplicateNode = useCallback(
+    (id: string) => {
+      setTree((prev) => {
+        const next = duplicateTree(prev, id);
+        if (next === prev) return prev;
+        const copy = findInsertedSubtree(prev, next);
+        if (!copy) return next;
+        const [named] = assignVarNames([copy], collectVarNames(prev));
+        return replaceSubtree(next, named);
+      });
+    },
+    [setTree],
+  );
 
-  const patchSpan = useCallback((id: string, span: number) => {
-    setTree((prev) => updateProps(prev, id, { span }));
-  }, []);
+  const patchSpan = useCallback(
+    (id: string, span: number) => {
+      setTree((prev) => updateProps(prev, id, { span }));
+    },
+    [setTree],
+  );
 
   /** 当前画布列表内上移/下移（右键菜单）。 */
   const moveWithin = useCallback(
@@ -642,19 +651,22 @@ export default function CompositeEditorPage() {
     void saveSelectionAsComponent();
   }, [multiIds, message, saveSelectionAsComponent]);
 
-  const deleteNode = useCallback((id: string) => {
-    setTree((prev) => removeNode(prev, id)[0]);
-    setSelectedId((cur) => (cur === id ? null : cur));
-    // 多选集合同步摘除（防悬空 id 残留）
-    setMultiIds((prev) => {
-      if (!prev.has(id)) return prev;
-      const next = new Set(prev);
-      next.delete(id);
-      return next;
-    });
-    // 正在弹窗内部编辑时删掉该弹窗 → 退出弹窗编辑态
-    setEditingModalId((cur) => (cur === id ? null : cur));
-  }, []);
+  const deleteNode = useCallback(
+    (id: string) => {
+      setTree((prev) => removeNode(prev, id)[0]);
+      setSelectedId((cur) => (cur === id ? null : cur));
+      // 多选集合同步摘除（防悬空 id 残留）
+      setMultiIds((prev) => {
+        if (!prev.has(id)) return prev;
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
+      // 正在弹窗内部编辑时删掉该弹窗 → 退出弹窗编辑态
+      setEditingModalId((cur) => (cur === id ? null : cur));
+    },
+    [setTree],
+  );
 
   const preview = mode === 'preview';
 

@@ -169,28 +169,28 @@ func TestSQLAuditStore_List_FiltersActorResource(t *testing.T) {
 	assert.Len(t, records, 1)
 
 	// Filter by resource type
-	records, total, err = store.List(AuditFilter{
+	_, total, err = store.List(AuditFilter{
 		ResourceType: "session",
 	}, AuditPage{PageSize: 100})
 	require.NoError(t, err)
 	assert.Equal(t, 1, total)
 
 	// Filter by resource ID
-	records, total, err = store.List(AuditFilter{
+	_, total, err = store.List(AuditFilter{
 		ResourceID: "s1",
 	}, AuditPage{PageSize: 100})
 	require.NoError(t, err)
 	assert.Equal(t, 1, total)
 
 	// Filter by game ID
-	records, total, err = store.List(AuditFilter{
+	_, total, err = store.List(AuditFilter{
 		GameID: "g1",
 	}, AuditPage{PageSize: 100})
 	require.NoError(t, err)
 	assert.Equal(t, 1, total)
 
 	// Filter by environment
-	records, total, err = store.List(AuditFilter{
+	_, total, err = store.List(AuditFilter{
 		Environment: "prod",
 	}, AuditPage{PageSize: 100})
 	require.NoError(t, err)
@@ -305,7 +305,7 @@ func TestSQLAuditStore_List_DefaultPageSize(t *testing.T) {
 	assert.Len(t, records, 3)
 
 	// PageSize > 1000 → capped to 1000
-	records, total, err = store.List(AuditFilter{}, AuditPage{Page: 0, PageSize: 2000})
+	_, total, err = store.List(AuditFilter{}, AuditPage{Page: 0, PageSize: 2000})
 	require.NoError(t, err)
 	assert.Equal(t, 3, total)
 }

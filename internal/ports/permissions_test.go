@@ -17,7 +17,6 @@ func TestPermissionServiceSatisfiesPort(t *testing.T) {
 	var _ Permissions = (*permission.PermissionService)(nil)
 
 	// A nil adapter must still satisfy the interface type (callers guard nil).
-	var p Permissions //nolint:unused // documents the satisfied contract
-	p = (*permission.PermissionService)(nil)
+	var p Permissions = (*permission.PermissionService)(nil) //nolint:unused // documents the satisfied contract
 	_ = p
 }

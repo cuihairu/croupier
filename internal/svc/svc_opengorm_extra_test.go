@@ -15,7 +15,7 @@ func TestOpenGorm_MemorySQLite_Normalized(t *testing.T) {
 	require.NotNil(t, db)
 	sqlDB, err := db.DB()
 	require.NoError(t, err)
-	defer sqlDB.Close()
+	defer func() { _ = sqlDB.Close() }()
 
 	// 归一化为共享缓存形态：跨连接可见
 	require.NoError(t, db.Exec("CREATE TABLE mem_probe (id INTEGER PRIMARY KEY)").Error)
@@ -32,7 +32,7 @@ func TestOpenGorm_EmptySQLiteDSN_UsesDefault(t *testing.T) {
 	}
 	sqlDB, err := db.DB()
 	require.NoError(t, err)
-	defer sqlDB.Close()
+	defer func() { _ = sqlDB.Close() }()
 }
 
 func TestOpenGorm_OracleDriver_Rejected(t *testing.T) {

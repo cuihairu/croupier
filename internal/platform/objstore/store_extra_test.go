@@ -591,7 +591,7 @@ func TestFromEnv_AllCombinations(t *testing.T) {
 
 			// Set test env vars
 			for k, v := range tt.env {
-				os.Setenv(k, v)
+				_ = os.Setenv(k, v)
 			}
 
 			cfg := FromEnv()
@@ -622,9 +622,9 @@ func saveAllEnv() envSnapshot {
 func restoreAllEnv(saved envSnapshot) {
 	for k, v := range saved {
 		if v == "" {
-			os.Unsetenv(k)
+			_ = os.Unsetenv(k)
 		} else {
-			os.Setenv(k, v)
+			_ = os.Setenv(k, v)
 		}
 	}
 }
@@ -632,9 +632,9 @@ func restoreAllEnv(saved envSnapshot) {
 func setEnv(key, value string) envSnapshot {
 	original := os.Getenv(key)
 	if value == "" {
-		os.Unsetenv(key)
+		_ = os.Unsetenv(key)
 	} else {
-		os.Setenv(key, value)
+		_ = os.Setenv(key, value)
 	}
 	return envSnapshot{key: original}
 }
@@ -642,9 +642,9 @@ func setEnv(key, value string) envSnapshot {
 func restoreEnv(saved envSnapshot) {
 	for k, v := range saved {
 		if v == "" {
-			os.Unsetenv(k)
+			_ = os.Unsetenv(k)
 		} else {
-			os.Setenv(k, v)
+			_ = os.Setenv(k, v)
 		}
 	}
 }

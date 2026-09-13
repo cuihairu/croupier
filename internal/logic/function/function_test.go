@@ -14,41 +14,6 @@ import (
 	"gorm.io/gorm"
 )
 
-func setupFunctionTestContext(t *testing.T) (*svc.ServiceContext, context.Context) {
-	db, err := gorm.Open(gsqlite.Open(":memory:"), &gorm.Config{})
-	require.NoError(t, err)
-
-	err = model.AutoMigrate(db)
-	require.NoError(t, err)
-
-	svcCtx := &svc.ServiceContext{
-		DB:              db,
-		FunctionModel:   model.NewFunctionModel(db),
-		AdminModel:      model.NewAdminModel(db),
-		RoleModel:       model.NewRoleModel(db),
-		PermissionModel: model.NewPermissionModel(db),
-		RegistryStore:   reg.NewStore(),
-	}
-
-	// Create test admin
-	admin := &model.Admin{Username: "testadmin", Status: 1}
-	err = svcCtx.AdminModel.Create(context.Background(), admin, "password")
-	require.NoError(t, err)
-
-	role := &model.Role{Name: "admin", Description: "Admin"}
-	err = svcCtx.RoleModel.Create(context.Background(), role)
-	require.NoError(t, err)
-
-	err = svcCtx.AdminModel.AssignRole(context.Background(), admin.ID, role.ID)
-	require.NoError(t, err)
-
-	err = svcCtx.RoleModel.ReplacePermissions(context.Background(), role.ID, []string{"admin:all"})
-	require.NoError(t, err)
-
-	ctx := context.WithValue(context.Background(), "username", "testadmin")
-	return svcCtx, ctx
-}
-
 func TestFirstNonEmpty(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -361,7 +326,7 @@ func TestFunctionsList_RuntimeResourceUsesRegisteredMetadataOnly(t *testing.T) {
 	require.NoError(t, model.AutoMigrate(db))
 
 	store := reg.NewStore()
-	store.UpsertAgent(&reg.AgentSession{
+	_ = store.UpsertAgent(&reg.AgentSession{
 		AgentID: "agent-1",
 		GameID:  "game-1",
 		Functions: map[string]reg.FunctionMeta{

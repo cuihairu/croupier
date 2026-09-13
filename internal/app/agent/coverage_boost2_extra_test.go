@@ -223,7 +223,7 @@ func TestTCPControlClientCall_Errors(t *testing.T) {
 
 	cc, err := newControlClient("tcp", f.addr(), nil)
 	require.NoError(t, err)
-	defer cc.Close()
+	defer func() { _ = cc.Close() }()
 
 	// Invalid UTF-8 forces a proto marshal error.
 	_, err = cc.Register(ctx, &agentv1.RegisterRequest{AgentId: "\xff"})
@@ -242,7 +242,7 @@ func TestTCPControlClientCall_GarbageResponse(t *testing.T) {
 
 	cc, err := newControlClient("tcp", f.addr(), nil)
 	require.NoError(t, err)
-	defer cc.Close()
+	defer func() { _ = cc.Close() }()
 
 	_, err = cc.Register(context.Background(), &agentv1.RegisterRequest{AgentId: "a"})
 	require.Error(t, err)
@@ -255,7 +255,7 @@ func TestMuxControlClientCall_Errors(t *testing.T) {
 
 	mc, err := newMuxControlClient(f.addr(), nil, nil)
 	require.NoError(t, err)
-	defer mc.Close()
+	defer func() { _ = mc.Close() }()
 
 	_, err = mc.Register(ctx, &agentv1.RegisterRequest{AgentId: "\xff"})
 	require.Error(t, err)

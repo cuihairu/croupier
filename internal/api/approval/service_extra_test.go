@@ -216,8 +216,8 @@ func TestService_Get_WithExtensionError(t *testing.T) {
 
 func TestService_List_WithStatusFilter(t *testing.T) {
 	store := approvals.NewMemStore()
-	store.Create(&approvals.Approval{ID: "1", State: "pending"})
-	store.Create(&approvals.Approval{ID: "2", State: "approved"})
+	_, _ = store.Create(&approvals.Approval{ID: "1", State: "pending"})
+	_, _ = store.Create(&approvals.Approval{ID: "2", State: "approved"})
 
 	service := NewService(&svc.ServiceContext{ApprovalsStore: store})
 
@@ -232,14 +232,14 @@ func TestService_List_WithStatusFilter(t *testing.T) {
 
 func TestService_Get_ExistingApproval(t *testing.T) {
 	store := approvals.NewMemStore()
-	store.Create(&approvals.Approval{ID: "existing", State: "pending", Actor: "tester"})
+	_, _ = store.Create(&approvals.Approval{ID: "existing", State: "pending", Actor: "tester"})
 
 	service := NewService(&svc.ServiceContext{ApprovalsStore: store})
 
 	resp, err := service.Get(context.Background(), &ApprovalGetRequest{ID: "existing"})
 	assert.NoError(t, err)
 	assert.NotNil(t, resp)
-	assert.Equal(t, "existing", resp.Approval.ID)
+	assert.Equal(t, "existing", resp.ID)
 }
 
 func TestService_Approve_NilStore_Extra(t *testing.T) {
@@ -261,7 +261,7 @@ func TestService_Reject_NilStore_Extra(t *testing.T) {
 func TestService_List_WithPagination(t *testing.T) {
 	store := approvals.NewMemStore()
 	for i := 0; i < 25; i++ {
-		store.Create(&approvals.Approval{
+		_, _ = store.Create(&approvals.Approval{
 			ID:    "approval-" + string(rune('a'+i)),
 			State: "pending",
 		})
@@ -537,7 +537,7 @@ func TestService_Get_ExtensionPath_Found(t *testing.T) {
 	resp, err := service.Get(context.Background(), &ApprovalGetRequest{ID: "ext-1"})
 	assert.NoError(t, err)
 	assert.NotNil(t, resp)
-	assert.Equal(t, "ext-1", resp.Approval.ID)
+	assert.Equal(t, "ext-1", resp.ID)
 
 	// Test not finding approval
 	_, err = service.Get(context.Background(), &ApprovalGetRequest{ID: "nonexistent"})

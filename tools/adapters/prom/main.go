@@ -2,12 +2,7 @@ package main
 
 import (
 	"context"
-	"encoding/json"
-	"fmt"
-	"io"
 	"log"
-	"net/http"
-	"net/url"
 	"os"
 	"time"
 
@@ -19,78 +14,6 @@ import (
 
 // prom-adapter implements FunctionService with function_id "prom.query_range".
 // It registers itself to the Agent via the provider-session TCP handshake and forwards QueryRange to Prometheus HTTP API.
-
-type server struct {
-	prom string
-}
-
-func (s *server) Invoke(ctx context.Context, req *sdkv1.InvokeRequest) (*sdkv1.InvokeResponse, error) {
-	// Expect JSON payloads
-	// prom.query:       { expr, time? }
-	// prom.query_range: { expr, start, end, step }
-	var in map[string]string
-	if err := json.Unmarshal(req.GetPayload(), &in); err != nil {
-		return nil, fmt.Errorf("bad payload: %w", err)
-	}
-	httpClient := &http.Client{Timeout: 15 * time.Second}
-	var u string
-	switch req.GetFunctionId() {
-	case "prom.query":
-		q := url.Values{}
-		q.Set("query", in["expr"]) // required
-		if t := in["time"]; t != "" {
-			q.Set("time", t)
-		}
-		u = s.prom + "/api/v1/query?" + q.Encode()
-	default: // prom.query_range
-		q := url.Values{}
-		q.Set("query", in["expr"]) // required
-		if v := in["start"]; v != "" {
-			q.Set("start", v)
-		}
-		if v := in["end"]; v != "" {
-			q.Set("end", v)
-		}
-		if v := in["step"]; v != "" {
-			q.Set("step", v)
-		}
-		u = s.prom + "/api/v1/query_range?" + q.Encode()
-	}
-	// build request so we can inject headers (trace)
-	r, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
-	if err != nil {
-		return nil, err
-	}
-	if req.Metadata != nil {
-		if r.Header.Get("X-Trace-Id") == "" {
-			if v := req.Metadata["traceId"]; v != "" {
-				r.Header.Set("X-Trace-Id", v)
-			}
-		}
-		if r.Header.Get("X-Game-Id") == "" {
-			if v := req.Metadata["gameId"]; v != "" {
-				r.Header.Set("X-Game-Id", v)
-			}
-		}
-		if r.Header.Get("X-Env") == "" {
-			if v := req.Metadata["env"]; v != "" {
-				r.Header.Set("X-Env", v)
-			}
-		}
-	}
-	resp, err := httpClient.Do(r)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode/100 != 2 {
-		var b []byte
-		b, _ = io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("prom error: %s", string(b))
-	}
-	b, _ := io.ReadAll(resp.Body)
-	return &sdkv1.InvokeResponse{Payload: b}, nil
-}
 
 func main() {
 	agent := os.Getenv("AGENT_ADDR") // e.g., 127.0.0.1:19090 (TCP port)

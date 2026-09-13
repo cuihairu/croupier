@@ -346,7 +346,7 @@ func TestGetPolicy_DBError(t *testing.T) {
 	// Get underlying SQL DB and close it
 	sqlDB, err := db.DB()
 	require.NoError(t, err)
-	sqlDB.Close()
+	_ = sqlDB.Close()
 
 	m, err := NewManager(db, "")
 	require.NoError(t, err)

@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -87,7 +88,7 @@ func TestMigrateHistoryPath(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			got := migrateHistoryPath(tt.ctx)
 			if tt.wantsBase {
-				if !filepath.HasPrefix(filepath.Clean(got), filepath.Clean(tt.prefix)) {
+				if !strings.HasPrefix(filepath.Clean(got), filepath.Clean(tt.prefix)) {
 					t.Errorf("migrateHistoryPath() = %q, should start with %q", got, tt.prefix)
 				}
 			}

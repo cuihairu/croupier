@@ -100,7 +100,7 @@ func TestMemStore(t *testing.T) {
 		assert.GreaterOrEqual(t, total, 5)
 
 		// Pagination
-		page1, total, err := store.List(Filter{}, Page{Page: 1, Size: 2})
+		page1, _, err := store.List(Filter{}, Page{Page: 1, Size: 2})
 		require.NoError(t, err)
 		assert.LessOrEqual(t, len(page1), 2)
 	})

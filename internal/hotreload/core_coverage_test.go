@@ -136,7 +136,7 @@ func TestHandleFileEvent_SkipsUnwatchedAndDebounces(t *testing.T) {
 		return atomic.LoadInt32(&reloadCount) == 1
 	}, 2*time.Second, 10*time.Millisecond, "debounced reload should fire exactly once")
 
-	hr.Stop()
+	_ = hr.Stop()
 }
 
 func fsresponsiveWrite() fsnotify.Op { return fsnotify.Write }
@@ -151,7 +151,7 @@ func TestWatchLoop_ExitsOnWatcherClose(t *testing.T) {
 	require.NoError(t, hr.StartWatching(ctx))
 	// Closing the watcher closes the Events channel and the loop returns.
 	require.NoError(t, hr.watcher.Close())
-	hr.Stop()
+	_ = hr.Stop()
 }
 
 func TestCheckRemoteUpdates_NotConfigured(t *testing.T) {

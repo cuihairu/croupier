@@ -110,7 +110,7 @@ func TestCompositeRowActionsSurviveListView(t *testing.T) {
 	if !ok {
 		t.Fatal("generate failed")
 	}
-	sec := generated.PageSpec.Composite.Sections[0]
+	sec := generated.Composite.Sections[0]
 	if len(sec.Table.Columns) == 0 {
 		t.Fatal("columns lost after rowActions fix")
 	}
@@ -143,7 +143,7 @@ func TestCompositeTabPassthrough(t *testing.T) {
 	if !ok {
 		t.Fatal("generate failed")
 	}
-	for _, sec := range generated.PageSpec.Composite.Sections {
+	for _, sec := range generated.Composite.Sections {
 		if sec.Display != "tab" {
 			t.Fatalf("display = %q, want tab (section %s)", sec.Display, sec.Key)
 		}
@@ -182,7 +182,7 @@ func TestCompositeCardTitlePassthrough(t *testing.T) {
 	if !ok {
 		t.Fatal("generate failed")
 	}
-	for _, sec := range generated.PageSpec.Composite.Sections {
+	for _, sec := range generated.Composite.Sections {
 		if sec.Display != "card" {
 			t.Fatalf("display = %q, want card (section %s)", sec.Display, sec.Key)
 		}
@@ -240,7 +240,7 @@ func TestCompositeEventsChainPassthrough(t *testing.T) {
 	if !ok {
 		t.Fatal("generate failed")
 	}
-	sec := generated.PageSpec.Composite.Sections[0]
+	sec := generated.Composite.Sections[0]
 	// Events 透传
 	if len(sec.Events) != 1 || sec.Events[0].Event != "rowClick" {
 		t.Fatalf("events passthrough lost: %+v", sec.Events)
@@ -286,7 +286,7 @@ func TestCompositeVisibleWhenPassthrough(t *testing.T) {
 		t.Fatal("generate failed")
 	}
 	byKey := map[string]spec.CompositeSection{}
-	for _, sec := range generated.PageSpec.Composite.Sections {
+	for _, sec := range generated.Composite.Sections {
 		byKey[sec.Key] = sec
 	}
 	got := byKey["player.list"].VisibleWhen

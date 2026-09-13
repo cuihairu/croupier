@@ -12,7 +12,7 @@ func schemaSubsetDiagnostics(functionID string, field string, schema spec.JSONSc
 	if len(schema) == 0 {
 		return nil
 	}
-	var root json.RawMessage = json.RawMessage(schema)
+	var root = json.RawMessage(schema)
 	if !json.Valid(root) {
 		return []spec.Diagnostic{schemaSubsetDiagnostic(functionID, field, "schema JSON is invalid")}
 	}

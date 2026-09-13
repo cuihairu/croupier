@@ -212,7 +212,7 @@ func TestProvider_Call_AllMethods(t *testing.T) {
 			Message: "ok",
 			Data:    data,
 		}
-		json.NewEncoder(w).Encode(resp)
+		_ = json.NewEncoder(w).Encode(resp)
 	}))
 	defer srv.Close()
 
@@ -268,7 +268,7 @@ func TestProvider_Call_UpdateAdPlan(t *testing.T) {
 			Message: "ok",
 			Data:    json.RawMessage(`{}`),
 		}
-		json.NewEncoder(w).Encode(resp)
+		_ = json.NewEncoder(w).Encode(resp)
 	}))
 	defer srv.Close()
 
@@ -288,7 +288,7 @@ func TestProvider_Call_UpdateAdPlan(t *testing.T) {
 	}
 
 	var res map[string]interface{}
-	json.Unmarshal(result, &res)
+	_ = json.Unmarshal(result, &res)
 	if res["status"] != "ok" {
 		t.Errorf("expected status 'ok', got %v", res["status"])
 	}
@@ -301,7 +301,7 @@ func TestProvider_Call_PushMessage(t *testing.T) {
 			Message: "ok",
 			Data:    json.RawMessage(`{}`),
 		}
-		json.NewEncoder(w).Encode(resp)
+		_ = json.NewEncoder(w).Encode(resp)
 	}))
 	defer srv.Close()
 
@@ -321,7 +321,7 @@ func TestProvider_Call_PushMessage(t *testing.T) {
 	}
 
 	var res map[string]interface{}
-	json.Unmarshal(result, &res)
+	_ = json.Unmarshal(result, &res)
 	if res["status"] != "ok" {
 		t.Errorf("expected status 'ok', got %v", res["status"])
 	}
@@ -354,14 +354,14 @@ func TestProvider_Close(t *testing.T) {
 func TestProvider_Call_MediaAppList_DefaultType(t *testing.T) {
 	var capturedMediaType string
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		r.ParseForm()
+		_ = r.ParseForm()
 		capturedMediaType = r.FormValue("mediaType")
 		resp := Response{
 			Status:  true,
 			Message: "ok",
 			Data:    json.RawMessage(`[]`),
 		}
-		json.NewEncoder(w).Encode(resp)
+		_ = json.NewEncoder(w).Encode(resp)
 	}))
 	defer srv.Close()
 

@@ -57,16 +57,6 @@ func TestParsePostgresDSN(t *testing.T) {
 	assert.Error(t, err)
 }
 
-// fakeStore 收集 Put 调用。
-type fakeStore struct {
-	keys []string
-}
-
-func (f *fakeStore) Put(ctx context.Context, key string, r os.File, size int64, contentType string) error {
-	f.keys = append(f.keys, key)
-	return nil
-}
-
 // newTestExecutor 注入假命令执行器（pg_dump 形态验证参数装配）。
 func newTestExecutorWithSQLite(t *testing.T, dsn string) (*Executor, string) {
 	t.Helper()
@@ -79,12 +69,12 @@ func newTestExecutorWithSQLite(t *testing.T, dsn string) (*Executor, string) {
 
 func TestDumpSQLite_CopiesFile(t *testing.T) {
 	e, src := newTestExecutorWithSQLite(t, "")
-	defer os.Remove(src)
+	defer func() { _ = os.Remove(src) }()
 
 	// dump 直测：临时文件内容 = 源文件内容。
 	path, size, checksum, err := e.dump(context.Background(), "bk-test")
 	require.NoError(t, err)
-	defer os.Remove(path)
+	defer func() { _ = os.Remove(path) }()
 	assert.Equal(t, int64(len("sqlite-database-content")), size)
 	assert.Len(t, checksum, 64) // sha256 hex
 	content, err := os.ReadFile(path)

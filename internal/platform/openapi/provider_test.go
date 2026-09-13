@@ -226,19 +226,19 @@ func TestProviderCall(t *testing.T) {
 		switch r.URL.Path {
 		case "/api/user":
 			w.Header().Set("Content-Type", "application/json")
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{
 				"id":   "123",
 				"name": "Test User",
 			})
 		case "/api/user/123":
 			w.Header().Set("Content-Type", "application/json")
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{
 				"id":   "123",
 				"name": "User 123",
 			})
 		case "/api/error":
 			w.WriteHeader(http.StatusInternalServerError)
-			w.Write([]byte("internal error"))
+			_, _ = w.Write([]byte("internal error"))
 		default:
 			w.WriteHeader(http.StatusNotFound)
 		}
@@ -385,7 +385,7 @@ func TestProviderCallWithAuth(t *testing.T) {
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				authChecked = tt.checkAuth(r)
 				w.Header().Set("Content-Type", "application/json")
-				json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+				_ = json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
 			}))
 			defer server.Close()
 
@@ -421,9 +421,9 @@ func TestProviderCallWithRequestBody(t *testing.T) {
 	var receivedBody map[string]interface{}
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		json.NewDecoder(r.Body).Decode(&receivedBody)
+		_ = json.NewDecoder(r.Body).Decode(&receivedBody)
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+		_ = json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
 	}))
 	defer server.Close()
 
@@ -507,7 +507,7 @@ func TestProviderCallWithRequestBody(t *testing.T) {
 func TestProviderCallWithResponseTransform(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
 			"code":    0,
 			"message": "success",
 			"data": map[string]interface{}{
@@ -815,7 +815,7 @@ func TestProviderCallWithContext(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		time.Sleep(100 * time.Millisecond)
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+		_ = json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
 	}))
 	defer server.Close()
 

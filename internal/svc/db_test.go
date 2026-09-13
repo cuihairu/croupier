@@ -216,7 +216,7 @@ func TestOpenGorm_SQLite(t *testing.T) {
 	require.NotNil(t, db)
 	sqlDB, err := db.DB()
 	require.NoError(t, err)
-	defer sqlDB.Close()
+	defer func() { _ = sqlDB.Close() }()
 }
 
 func TestOpenGorm_SQLiteEmptyDSN(t *testing.T) {
@@ -225,7 +225,7 @@ func TestOpenGorm_SQLiteEmptyDSN(t *testing.T) {
 	require.NotNil(t, db)
 	sqlDB, err := db.DB()
 	require.NoError(t, err)
-	defer sqlDB.Close()
+	defer func() { _ = sqlDB.Close() }()
 }
 
 func TestOpenGorm_SQLite3(t *testing.T) {
@@ -234,7 +234,7 @@ func TestOpenGorm_SQLite3(t *testing.T) {
 	require.NotNil(t, db)
 	sqlDB, err := db.DB()
 	require.NoError(t, err)
-	defer sqlDB.Close()
+	defer func() { _ = sqlDB.Close() }()
 }
 
 func TestOpenGorm_UnsupportedDriver(t *testing.T) {
@@ -255,7 +255,7 @@ func TestOpenDatabase(t *testing.T) {
 	require.NotNil(t, db)
 	sqlDB, err := db.DB()
 	require.NoError(t, err)
-	defer sqlDB.Close()
+	defer func() { _ = sqlDB.Close() }()
 }
 
 func TestResolveDriverAndDSN_EnvOverride(t *testing.T) {
@@ -280,7 +280,7 @@ func TestOpenReadOnlyGorm(t *testing.T) {
 	require.NotNil(t, db)
 	sqlDB, err := db.DB()
 	require.NoError(t, err)
-	defer sqlDB.Close()
+	defer func() { _ = sqlDB.Close() }()
 }
 
 func TestOpenReadOnlyGorm_UnsupportedDriver(t *testing.T) {
@@ -366,8 +366,8 @@ func TestEnsureSQLiteFileExists(t *testing.T) {
 	testFile := "/tmp/existing_test.db"
 	f, err := os.Create(testFile)
 	if err == nil {
-		f.Close()
-		defer os.Remove(testFile)
+		_ = f.Close()
+		defer func() { _ = os.Remove(testFile) }()
 	}
 
 	for _, tt := range tests {

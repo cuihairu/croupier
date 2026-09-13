@@ -121,7 +121,7 @@ func TestServiceScopeMismatchForbidden(t *testing.T) {
 	require.NoError(t, err)
 
 	other := svc.WithGameScope(context.Background(), svc.GameScope{GameID: "gameB", Env: "prod"})
-	id := strconv.FormatInt(created.Player.Id, 10)
+	id := strconv.FormatInt(created.Id, 10)
 
 	_, err = s.Detail(other, &PlayerDetailRequest{ID: id})
 	assert.Error(t, err)

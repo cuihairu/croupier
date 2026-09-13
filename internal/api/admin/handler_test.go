@@ -20,13 +20,6 @@ import (
 	"gorm.io/gorm"
 )
 
-func assertAdminStatus(t *testing.T, rec *httptest.ResponseRecorder, want int) {
-	t.Helper()
-	if rec.Code != want {
-		t.Fatalf("expected status %d, got %d body=%s", want, rec.Code, rec.Body.String())
-	}
-}
-
 func assertAdminRejected(t *testing.T, rec *httptest.ResponseRecorder) {
 	t.Helper()
 	if rec.Code == http.StatusOK {

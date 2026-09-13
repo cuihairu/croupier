@@ -37,7 +37,7 @@ func TestDebugPGFakeHandshake(t *testing.T) {
 	// 场景 2：后续连接正常握手并应答 simple query。
 	conn, err := net.DialTimeout("tcp", addr, 2*time.Second)
 	require.NoError(t, err)
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 	_ = conn.SetDeadline(time.Now().Add(3 * time.Second))
 
 	fe := pgproto3.NewFrontend(conn, conn)

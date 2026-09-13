@@ -144,7 +144,7 @@ func TestKeyManager_GetKey(t *testing.T) {
 		entry, _ := expiredStore.Get(metadata.ID)
 		now := time.Now().Add(-1 * time.Hour) // Set to past
 		entry.Metadata.ExpiresAt = &now
-		expiredStore.Update(entry)
+		_ = expiredStore.Update(entry)
 
 		_, err = expiredKM.GetKey(ctx, metadata.ID)
 		assert.Error(t, err)
@@ -409,7 +409,7 @@ func TestKeyManager_StartRotation(t *testing.T) {
 		entry, _ := km.store.Get(metadata.ID)
 		entry.Metadata.CreatedAt = pastTime
 		entry.Metadata.RotationDays = 0
-		km.store.Update(entry)
+		_ = km.store.Update(entry)
 
 		// This is a basic test - actual rotation testing would require more setup
 		_ = metadata
@@ -452,7 +452,7 @@ func TestMemoryKeyStore_Get(t *testing.T) {
 		entry := &KeyEntry{
 			Metadata: KeyMetadata{ID: "get-test"},
 		}
-		store.Create(entry)
+		_ = store.Create(entry)
 
 		retrieved, err := store.Get("get-test")
 		require.NoError(t, err)
@@ -478,7 +478,7 @@ func TestMemoryKeyStore_Update(t *testing.T) {
 			Purpose: PurposeEncryption,
 		},
 	}
-	store.Create(entry)
+	_ = store.Create(entry)
 
 	entry.Metadata.Name = "updated-name"
 	entry.Metadata.State = KeyStateInactive
@@ -497,7 +497,7 @@ func TestMemoryKeyStore_Delete(t *testing.T) {
 	entry := &KeyEntry{
 		Metadata: KeyMetadata{ID: "delete-test"},
 	}
-	store.Create(entry)
+	_ = store.Create(entry)
 
 	err := store.Delete("delete-test")
 	require.NoError(t, err)
@@ -525,8 +525,8 @@ func TestMemoryKeyStore_List(t *testing.T) {
 			State:   KeyStateActive,
 		},
 	}
-	store.Create(entry1)
-	store.Create(entry2)
+	_ = store.Create(entry1)
+	_ = store.Create(entry2)
 
 	t.Run("lists all entries", func(t *testing.T) {
 		all, err := store.List(KeyFilter{})
@@ -586,9 +586,9 @@ func TestMemoryKeyStore_GetActiveKey(t *testing.T) {
 		},
 	}
 
-	store.Create(oldEntry)
-	store.Create(newEntry)
-	store.Create(inactiveEntry)
+	_ = store.Create(oldEntry)
+	_ = store.Create(newEntry)
+	_ = store.Create(inactiveEntry)
 
 	t.Run("returns most recent active key", func(t *testing.T) {
 		entry, err := store.GetActiveKey(PurposeEncryption)

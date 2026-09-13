@@ -957,8 +957,8 @@ func TestAggregateAgentMetrics_WithValidAgents(t *testing.T) {
 		},
 	}
 
-	store.UpsertAgent(agent1)
-	store.UpsertAgent(agent2)
+	_ = store.UpsertAgent(agent1)
+	_ = store.UpsertAgent(agent2)
 
 	avgLatency, errorRate := aggregateAgentMetrics(store, "game1", "prod")
 
@@ -994,8 +994,8 @@ func TestAggregateAgentMetrics_FilterByGameID(t *testing.T) {
 		},
 	}
 
-	store.UpsertAgent(agent1)
-	store.UpsertAgent(agent2)
+	_ = store.UpsertAgent(agent1)
+	_ = store.UpsertAgent(agent2)
 
 	avgLatency, _ := aggregateAgentMetrics(store, "game1", "prod")
 
@@ -1033,8 +1033,8 @@ func TestAggregateAgentMetrics_FilterByEnv(t *testing.T) {
 		},
 	}
 
-	store.UpsertAgent(agent1)
-	store.UpsertAgent(agent2)
+	_ = store.UpsertAgent(agent1)
+	_ = store.UpsertAgent(agent2)
 
 	avgLatency, _ := aggregateAgentMetrics(store, "game1", "prod")
 
@@ -1067,8 +1067,8 @@ func TestAggregateAgentMetrics_PartialMetrics(t *testing.T) {
 		},
 	}
 
-	store.UpsertAgent(agent1)
-	store.UpsertAgent(agent2)
+	_ = store.UpsertAgent(agent1)
+	_ = store.UpsertAgent(agent2)
 
 	avgLatency, errorRate := aggregateAgentMetrics(store, "game1", "prod")
 
@@ -1097,7 +1097,7 @@ func TestAggregateAgentMetrics_InvalidFloatValues(t *testing.T) {
 		},
 	}
 
-	store.UpsertAgent(agent1)
+	_ = store.UpsertAgent(agent1)
 
 	avgLatency, errorRate := aggregateAgentMetrics(store, "game1", "prod")
 
@@ -1129,8 +1129,8 @@ func TestAggregateAgentMetrics_MixedValidInvalid(t *testing.T) {
 		},
 	}
 
-	store.UpsertAgent(agent1)
-	store.UpsertAgent(agent2)
+	_ = store.UpsertAgent(agent1)
+	_ = store.UpsertAgent(agent2)
 
 	avgLatency, _ := aggregateAgentMetrics(store, "game1", "prod")
 
@@ -1154,7 +1154,7 @@ func TestAggregateAgentMetrics_WhitespaceGameID(t *testing.T) {
 		},
 	}
 
-	store.UpsertAgent(agent1)
+	_ = store.UpsertAgent(agent1)
 
 	// Whitespace gameID should be trimmed to empty, so not filter
 	avgLatency, _ := aggregateAgentMetrics(store, "  ", "prod")
@@ -1518,9 +1518,6 @@ func TestRealtimeSeries_WithNilRequest(t *testing.T) {
 // Helper function for creating test events
 
 func createTestEventFull(eventType, userID, gameID, env string, occurredAt time.Time, data map[string]interface{}) model.BehaviorEvent {
-	if data == nil {
-		data = make(map[string]interface{})
-	}
 	_ = json.Unmarshal // Use json import
 	return model.BehaviorEvent{
 		EventType:  eventType,

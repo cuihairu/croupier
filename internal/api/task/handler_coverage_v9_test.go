@@ -50,7 +50,7 @@ func TestHandlerStartV9_DispatchSuccess(t *testing.T) {
 	svcCtx.Dispatcher.SetSessionResolver(&fakeAgentResolver{caller: caller})
 
 	createTestFunction(t, svcCtx.DB, "player.ban", "Ban Player")
-	svcCtx.RegistryStore.UpsertAgent(&registry.AgentSession{
+	_ = svcCtx.RegistryStore.UpsertAgent(&registry.AgentSession{
 		AgentID:  "agent-v9",
 		GameID:   "test-game",
 		Env:      "test-env",

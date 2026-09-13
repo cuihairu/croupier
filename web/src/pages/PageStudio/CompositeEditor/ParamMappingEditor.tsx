@@ -87,7 +87,7 @@ export default function ParamMappingEditor({
         .filter((n) => n.id !== selfId)
         .map((n) => ({ node: n, fields: fieldsOf(n, fnById) }))
         .filter((s) => s.fields.length > 0),
-    [nodes, fnById],
+    [nodes, fnById, selfId],
   );
 
   // V5：表达式补全上下文（页面变量 + 各变量路径树；排除自身防自引用）

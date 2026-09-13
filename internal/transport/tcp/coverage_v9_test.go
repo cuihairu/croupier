@@ -62,7 +62,7 @@ func TestClientCall_ReadFrameErrorV9(t *testing.T) {
 	if err != nil {
 		t.Fatalf("listen: %v", err)
 	}
-	defer ln.Close()
+	defer func() { _ = ln.Close() }()
 	go func() {
 		conn, err := ln.Accept()
 		if err != nil {
@@ -76,7 +76,7 @@ func TestClientCall_ReadFrameErrorV9(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewClient: %v", err)
 	}
-	defer client.Close()
+	defer func() { _ = client.Close() }()
 
 	_, _, err = client.Call(context.Background(), protocol.MsgInvokeRequest, []byte("x"))
 	if err == nil {
@@ -147,11 +147,11 @@ func TestMuxConnDispatch_BusyWriteErrorV9(t *testing.T) {
 // 事件 handler 返回 ProtocolError 时 Run 终止。
 func TestMuxConnRun_EventHandlerProtocolErrorV9(t *testing.T) {
 	c1, c2 := net.Pipe()
-	defer c2.Close()
+	defer func() { _ = c2.Close() }()
 	mc := NewMuxConn(c1, nil, transportcore.HandlerFunc(func(ctx context.Context, msgID uint32, reqID uint32, body []byte) ([]byte, error) {
 		return nil, NewProtocolError(errors.New("event violation"))
 	}))
-	defer mc.Close()
+	defer func() { _ = mc.Close() }()
 
 	errCh := make(chan error, 1)
 	go func() { errCh <- mc.Run(context.Background()) }()
@@ -179,7 +179,7 @@ func (v9WriteFailConn) Write([]byte) (int, error) { return 0, errors.New("write 
 // busy 帧写入失败（非超时）时 Run 直接返回错误。
 func TestMuxConnRun_DispatchNonTimeoutErrorV9(t *testing.T) {
 	c1, c2 := net.Pipe()
-	defer c2.Close()
+	defer func() { _ = c2.Close() }()
 	release := make(chan struct{})
 	defer close(release)
 	handler := transportcore.HandlerFunc(func(ctx context.Context, msgID uint32, reqID uint32, body []byte) ([]byte, error) {
@@ -187,7 +187,7 @@ func TestMuxConnRun_DispatchNonTimeoutErrorV9(t *testing.T) {
 		return body, nil
 	})
 	mc := NewMuxConn(v9WriteFailConn{c1}, &Config{DispatchWorkers: 1, BusinessQLen: 1}, handler)
-	defer mc.Close()
+	defer func() { _ = mc.Close() }()
 
 	errCh := make(chan error, 1)
 	go func() { errCh <- mc.Run(context.Background()) }()
@@ -213,7 +213,7 @@ func TestMuxConnRun_DispatchNonTimeoutErrorV9(t *testing.T) {
 // timeout），Run 经 isTimeout 分支返回。
 func TestMuxConnRun_DispatchTimeoutErrorV9(t *testing.T) {
 	c1, c2 := net.Pipe()
-	defer c2.Close()
+	defer func() { _ = c2.Close() }()
 	release := make(chan struct{})
 	defer close(release)
 	handler := transportcore.HandlerFunc(func(ctx context.Context, msgID uint32, reqID uint32, body []byte) ([]byte, error) {
@@ -221,7 +221,7 @@ func TestMuxConnRun_DispatchTimeoutErrorV9(t *testing.T) {
 		return body, nil
 	})
 	mc := NewMuxConn(c1, &Config{DispatchWorkers: 1, BusinessQLen: 1, ControlQLen: 1}, handler)
-	defer mc.Close()
+	defer func() { _ = mc.Close() }()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 300*time.Millisecond)
 	defer cancel()
@@ -271,7 +271,7 @@ func newV9EchoServer(t *testing.T, recv, send time.Duration) *Server {
 // accept 超时后 ctx 未取消 → continue；随后 listener 被关闭 → accept 错误返回。
 func TestServerServe_AcceptTimeoutThenClosedV9(t *testing.T) {
 	srv := newV9EchoServer(t, 0, 0)
-	defer srv.Close()
+	defer func() { _ = srv.Close() }()
 
 	errCh := make(chan error, 1)
 	go func() { errCh <- srv.Serve(context.Background()) }()
@@ -294,7 +294,7 @@ func TestServerServe_AcceptTimeoutThenClosedV9(t *testing.T) {
 // 读超时让循环回到顶部 select，serveConn 经 ctx.Done 退出。
 func TestServerServeConn_ContextDoneV9(t *testing.T) {
 	srv := newV9EchoServer(t, 150*time.Millisecond, 0)
-	defer srv.Close()
+	defer func() { _ = srv.Close() }()
 
 	ctx, cancel := context.WithCancel(context.Background())
 	errCh := make(chan error, 1)
@@ -304,7 +304,7 @@ func TestServerServeConn_ContextDoneV9(t *testing.T) {
 	if err != nil {
 		t.Fatalf("dial: %v", err)
 	}
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 
 	// 等待至少一次读超时，使读循环回到顶部 select 后再取消 ctx。
 	time.Sleep(300 * time.Millisecond)
@@ -329,7 +329,7 @@ func TestServerServeConn_ServerCloseV9(t *testing.T) {
 	if err != nil {
 		t.Fatalf("dial: %v", err)
 	}
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 
 	time.Sleep(100 * time.Millisecond)
 	requireNoError(t, srv.Close())
@@ -348,7 +348,7 @@ func TestServerServeConn_ServerCloseV9(t *testing.T) {
 // 空闲读超时后循环继续，后续请求仍可处理。
 func TestServerServeConn_ReadTimeoutContinueV9(t *testing.T) {
 	srv := newV9EchoServer(t, 150*time.Millisecond, time.Second)
-	defer srv.Close()
+	defer func() { _ = srv.Close() }()
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -358,7 +358,7 @@ func TestServerServeConn_ReadTimeoutContinueV9(t *testing.T) {
 	if err != nil {
 		t.Fatalf("dial: %v", err)
 	}
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 
 	// 等待至少一次读超时 continue。
 	time.Sleep(300 * time.Millisecond)
@@ -367,7 +367,7 @@ func TestServerServeConn_ReadTimeoutContinueV9(t *testing.T) {
 	if err := writeFrame(conn, req); err != nil {
 		t.Fatalf("write: %v", err)
 	}
-	conn.SetReadDeadline(time.Now().Add(2 * time.Second))
+	_ = conn.SetReadDeadline(time.Now().Add(2 * time.Second))
 	frame, err := readFrame(conn)
 	if err != nil {
 		t.Fatalf("read after idle timeout: %v", err)
@@ -394,14 +394,14 @@ func TestServerServeConn_WriteFrameErrorV9(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewServer: %v", err)
 	}
-	defer srv.Close()
+	defer func() { _ = srv.Close() }()
 	go func() { _ = srv.Serve(context.Background()) }()
 
 	client, err := net.Dial("tcp", srv.Addr())
 	if err != nil {
 		t.Fatalf("dial: %v", err)
 	}
-	defer client.Close()
+	defer func() { _ = client.Close() }()
 	if tc, ok := client.(*net.TCPConn); ok {
 		_ = tc.SetReadBuffer(2048)
 	}
@@ -413,7 +413,7 @@ func TestServerServeConn_WriteFrameErrorV9(t *testing.T) {
 
 	// 从不主动读响应；服务端写满缓冲后写超时断开。初始若干字节会被
 	// 内核接收缓冲收下，需持续读直到连接被服务端关闭。
-	client.SetReadDeadline(time.Now().Add(3 * time.Second))
+	_ = client.SetReadDeadline(time.Now().Add(3 * time.Second))
 	buf := make([]byte, 64)
 	gotErr := false
 	for {

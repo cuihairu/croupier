@@ -19,7 +19,7 @@ func createMockStore() *registry.Store {
 	// Add some test providers with OpenAPI docs
 	openAPIDoc := createTestOpenAPIDoc()
 
-	store.UpsertOpenAPIProvider(registry.OpenAPIProviderCaps{
+	_ = store.UpsertOpenAPIProvider(registry.OpenAPIProviderCaps{
 		ID:         "test-provider-1",
 		Version:    "1.0.0",
 		Lang:       "go",
@@ -28,7 +28,7 @@ func createMockStore() *registry.Store {
 		OpenAPIDoc: openAPIDoc,
 	})
 
-	store.UpsertOpenAPIProvider(registry.OpenAPIProviderCaps{
+	_ = store.UpsertOpenAPIProvider(registry.OpenAPIProviderCaps{
 		ID:         "test-provider-2",
 		Version:    "2.0.0",
 		Lang:       "python",

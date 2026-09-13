@@ -90,13 +90,13 @@ func TestErrorCollection_Is(t *testing.T) {
 
 func TestAppError_WithContext(t *testing.T) {
 	e := &AppError{Code: ErrCodeInternal}
-	e.WithContext("key1", "val1")
+	_ = e.WithContext("key1", "val1")
 	if e.Context["key1"] != "val1" {
 		t.Error("expected context key1=val1")
 	}
 	// nil map should be initialized
 	e2 := &AppError{Code: ErrCodeInternal}
-	e2.WithContext("k", "v")
+	_ = e2.WithContext("k", "v")
 	if e2.Context == nil {
 		t.Error("expected context map to be initialized")
 	}
@@ -104,7 +104,7 @@ func TestAppError_WithContext(t *testing.T) {
 
 func TestAppError_WithDetails(t *testing.T) {
 	e := &AppError{Code: ErrCodeInternal}
-	e.WithDetails("extra info")
+	_ = e.WithDetails("extra info")
 	if e.Details != "extra info" {
 		t.Errorf("expected 'extra info', got %q", e.Details)
 	}
@@ -112,7 +112,7 @@ func TestAppError_WithDetails(t *testing.T) {
 
 func TestAppError_WithRetry(t *testing.T) {
 	e := &AppError{Code: ErrCodeTimeout}
-	e.WithRetry(time.Second, 3)
+	_ = e.WithRetry(time.Second, 3)
 	if e.RetryCount != 3 {
 		t.Errorf("expected retry count 3, got %d", e.RetryCount)
 	}
@@ -126,13 +126,13 @@ func TestAppError_WithRetry(t *testing.T) {
 
 func TestAppError_WithHTTPHeader(t *testing.T) {
 	e := &AppError{Code: ErrCodeInternal}
-	e.WithHTTPHeader("X-Request-ID", "123")
+	_ = e.WithHTTPHeader("X-Request-ID", "123")
 	if e.HTTPHeaders["X-Request-ID"] != "123" {
 		t.Error("expected header to be set")
 	}
 	// nil map
 	e2 := &AppError{Code: ErrCodeInternal}
-	e2.WithHTTPHeader("K", "V")
+	_ = e2.WithHTTPHeader("K", "V")
 	if e2.HTTPHeaders == nil {
 		t.Error("expected headers map to be initialized")
 	}

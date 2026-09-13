@@ -32,15 +32,15 @@ func withMQEnv(t *testing.T, key, value string) {
 	t.Helper()
 	prev, had := os.LookupEnv(key)
 	if value == "" {
-		os.Unsetenv(key)
+		_ = os.Unsetenv(key)
 	} else {
-		os.Setenv(key, value)
+		_ = os.Setenv(key, value)
 	}
 	t.Cleanup(func() {
 		if had {
-			os.Setenv(key, prev)
+			_ = os.Setenv(key, prev)
 		} else {
-			os.Unsetenv(key)
+			_ = os.Unsetenv(key)
 		}
 	})
 }

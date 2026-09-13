@@ -53,9 +53,13 @@ export default function PreviewNode({
   const intl = useIntl();
   const title = String(node.props.title ?? node.type);
   // V5：列 = 声明列/schema 字段 + 行操作列（发布行为的预览等价物）
-  const rowActionDrafts = Array.isArray(node.props.rowActions)
-    ? (node.props.rowActions as Array<Record<string, unknown>>)
-    : [];
+  const rowActionDrafts = useMemo(
+    () =>
+      Array.isArray(node.props.rowActions)
+        ? (node.props.rowActions as Array<Record<string, unknown>>)
+        : [],
+    [node.props.rowActions],
+  );
   const previewColumns = useMemo(() => {
     const base = (
       Array.isArray(node.props.columns) && node.props.columns.length
@@ -97,7 +101,6 @@ export default function PreviewNode({
         ),
       },
     ];
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [node.props.columns, fn?.outputSchema, rowActionDrafts, onRowAction, intl]);
 
   if (node.type === 'text') {

@@ -43,8 +43,8 @@ func TestSessionKey_String(t *testing.T) {
 
 func TestNewBaseSession(t *testing.T) {
 	conn, remote := newTestMuxConnPair(t)
-	defer conn.Close()
-	defer remote.Close()
+	defer func() { _ = conn.Close() }()
+	defer func() { _ = remote.Close() }()
 
 	s := NewBaseSession(conn, "sess-1", "1.0.0")
 	if s.SessionID() != "sess-1" {
@@ -88,7 +88,7 @@ func TestBaseSession_IsStale(t *testing.T) {
 func TestBaseSession_Close(t *testing.T) {
 	t.Run("with conn", func(t *testing.T) {
 		conn, remote := newTestMuxConnPair(t)
-		defer remote.Close()
+		defer func() { _ = remote.Close() }()
 		s := &BaseSession{conn: conn}
 		if err := s.Close(); err != nil {
 			t.Errorf("unexpected error: %v", err)
@@ -106,8 +106,8 @@ func TestBaseSession_Close(t *testing.T) {
 func TestBaseSession_RemoteAddr(t *testing.T) {
 	t.Run("with conn", func(t *testing.T) {
 		conn, remote := newTestMuxConnPair(t)
-		defer conn.Close()
-		defer remote.Close()
+		defer func() { _ = conn.Close() }()
+		defer func() { _ = remote.Close() }()
 		s := &BaseSession{conn: conn}
 		_ = s.RemoteAddr()
 	})
@@ -123,8 +123,8 @@ func TestBaseSession_RemoteAddr(t *testing.T) {
 func TestBaseSession_LocalAddr(t *testing.T) {
 	t.Run("with conn", func(t *testing.T) {
 		conn, remote := newTestMuxConnPair(t)
-		defer conn.Close()
-		defer remote.Close()
+		defer func() { _ = conn.Close() }()
+		defer func() { _ = remote.Close() }()
 		s := &BaseSession{conn: conn}
 		_ = s.LocalAddr()
 	})
@@ -407,8 +407,8 @@ func TestHeartbeatManager_PruneStale(t *testing.T) {
 
 func TestAgentSessionAdapter(t *testing.T) {
 	conn, remote := newTestMuxConnPair(t)
-	defer conn.Close()
-	defer remote.Close()
+	defer func() { _ = conn.Close() }()
+	defer func() { _ = remote.Close() }()
 
 	sess := NewAgentSessionAdapter(conn, "agent-1", "sess-1", "game-1", "prod", "1.0.0")
 
@@ -433,8 +433,8 @@ func TestAgentSessionStoreAdapter(t *testing.T) {
 	store := NewAgentSessionStoreAdapter()
 
 	conn, remote := newTestMuxConnPair(t)
-	defer conn.Close()
-	defer remote.Close()
+	defer func() { _ = conn.Close() }()
+	defer func() { _ = remote.Close() }()
 
 	sess := NewAgentSessionAdapter(conn, "agent-1", "sess-1", "game-1", "prod", "1.0.0")
 
@@ -464,15 +464,15 @@ func TestAgentSessionStoreAdapter_Upsert(t *testing.T) {
 
 	c1, r1 := net.Pipe()
 	c2, r2 := net.Pipe()
-	defer c1.Close()
-	defer c2.Close()
-	defer r1.Close()
-	defer r2.Close()
+	defer func() { _ = c1.Close() }()
+	defer func() { _ = c2.Close() }()
+	defer func() { _ = r1.Close() }()
+	defer func() { _ = r2.Close() }()
 
 	s1 := NewAgentSessionAdapter(tcp.NewMuxConn(c1, nil, nil), "agent-1", "s1", "g1", "p", "1.0")
 	s2 := NewAgentSessionAdapter(tcp.NewMuxConn(c2, nil, nil), "agent-1", "s2", "g2", "p", "2.0")
 
-	store.Add(s1)
+	_ = store.Add(s1)
 	store.Upsert(s2)
 
 	got, ok := store.Get("agent-1")
@@ -483,8 +483,8 @@ func TestAgentSessionStoreAdapter_Upsert(t *testing.T) {
 
 func TestProviderSessionAdapter(t *testing.T) {
 	conn, remote := newTestMuxConnPair(t)
-	defer conn.Close()
-	defer remote.Close()
+	defer func() { _ = conn.Close() }()
+	defer func() { _ = remote.Close() }()
 
 	sess := NewProviderSessionAdapter(conn, "sess-1", "svc-1", "1.0.0")
 	if sess.ServiceID != "svc-1" {
@@ -502,8 +502,8 @@ func TestProviderSessionStoreAdapter(t *testing.T) {
 	store := NewProviderSessionStoreAdapter()
 
 	conn, remote := newTestMuxConnPair(t)
-	defer conn.Close()
-	defer remote.Close()
+	defer func() { _ = conn.Close() }()
+	defer func() { _ = remote.Close() }()
 
 	sess := NewProviderSessionAdapter(conn, "sess-1", "svc-1", "1.0.0")
 
@@ -558,10 +558,10 @@ func TestProviderSessionStoreAdapter_Add_Duplicate(t *testing.T) {
 
 	c1, r1 := net.Pipe()
 	c2, r2 := net.Pipe()
-	defer c1.Close()
-	defer c2.Close()
-	defer r1.Close()
-	defer r2.Close()
+	defer func() { _ = c1.Close() }()
+	defer func() { _ = c2.Close() }()
+	defer func() { _ = r1.Close() }()
+	defer func() { _ = r2.Close() }()
 
 	s1 := NewProviderSessionAdapter(tcp.NewMuxConn(c1, nil, nil), "sess-1", "svc-1", "1.0")
 	s2 := NewProviderSessionAdapter(tcp.NewMuxConn(c2, nil, nil), "sess-1", "svc-2", "2.0")

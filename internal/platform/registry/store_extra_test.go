@@ -72,7 +72,7 @@ func TestStore_UpsertAgentUsesScopedContextForContractRebuild(t *testing.T) {
 		return context.WithValue(context.Background(), registryTestScopeKey{}, seenScope{gameID: gameID, env: env})
 	})
 
-	store.UpsertAgent(&AgentSession{
+	_ = store.UpsertAgent(&AgentSession{
 		AgentID: "agent-1",
 		GameID:  "demo-game",
 		Env:     "development",
@@ -294,7 +294,7 @@ func TestStore_AgentsUnsafe(t *testing.T) {
 	store := NewStore()
 
 	// Add an agent
-	store.UpsertAgent(&AgentSession{
+	_ = store.UpsertAgent(&AgentSession{
 		AgentID: "agent-1",
 		GameID:  "game-1",
 	})
@@ -309,12 +309,12 @@ func TestStore_cleanupExpiredSessions(t *testing.T) {
 	store := NewStore()
 
 	// Add active and expired sessions
-	store.UpsertAgent(&AgentSession{
+	_ = store.UpsertAgent(&AgentSession{
 		AgentID:  "active-agent",
 		GameID:   "game-1",
 		ExpireAt: time.Now().Add(time.Hour),
 	})
-	store.UpsertAgent(&AgentSession{
+	_ = store.UpsertAgent(&AgentSession{
 		AgentID:  "expired-agent",
 		GameID:   "game-1",
 		ExpireAt: time.Now().Add(-time.Hour),
@@ -334,7 +334,7 @@ func TestStore_StartCleanupRoutine(t *testing.T) {
 	store := NewStore()
 
 	// Add an expired session
-	store.UpsertAgent(&AgentSession{
+	_ = store.UpsertAgent(&AgentSession{
 		AgentID:  "expired-agent",
 		GameID:   "game-1",
 		ExpireAt: time.Now().Add(-time.Hour),
@@ -417,23 +417,23 @@ func TestStore_UpsertAgent_NilSession(t *testing.T) {
 	store := NewStore()
 
 	// Should not panic with nil session
-	store.UpsertAgent(nil)
+	_ = store.UpsertAgent(nil)
 
 	// Should not panic with empty agent ID
-	store.UpsertAgent(&AgentSession{})
+	_ = store.UpsertAgent(&AgentSession{})
 }
 
 func TestStore_UpsertAgent_MergeLabels(t *testing.T) {
 	store := NewStore()
 
 	// First upsert
-	store.UpsertAgent(&AgentSession{
+	_ = store.UpsertAgent(&AgentSession{
 		AgentID: "agent-1",
 		Labels:  map[string]string{"key1": "value1"},
 	})
 
 	// Second upsert with new labels
-	store.UpsertAgent(&AgentSession{
+	_ = store.UpsertAgent(&AgentSession{
 		AgentID: "agent-1",
 		Labels:  map[string]string{"key2": "value2"},
 	})
@@ -449,7 +449,7 @@ func TestStore_UpsertAgent_UpdateFunctions(t *testing.T) {
 	store := NewStore()
 
 	// First upsert
-	store.UpsertAgent(&AgentSession{
+	_ = store.UpsertAgent(&AgentSession{
 		AgentID: "agent-1",
 		Functions: map[string]FunctionMeta{
 			"func-1": {Enabled: true, Version: "1.0"},
@@ -457,7 +457,7 @@ func TestStore_UpsertAgent_UpdateFunctions(t *testing.T) {
 	})
 
 	// Second upsert with different functions
-	store.UpsertAgent(&AgentSession{
+	_ = store.UpsertAgent(&AgentSession{
 		AgentID: "agent-1",
 		Functions: map[string]FunctionMeta{
 			"func-2": {Enabled: true, Version: "2.0"},

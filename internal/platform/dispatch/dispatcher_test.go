@@ -107,7 +107,7 @@ func TestDispatcher_InvokeRequest_InvalidMarshal(t *testing.T) {
 	d := NewDispatcher(nil)
 
 	// 添加一个过期的代理
-	d.store.UpsertAgent(&reg.AgentSession{
+	_ = d.store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "test-agent",
 		Addr:     "127.0.0.1:9999",
 		ExpireAt: time.Now().Add(-time.Hour), // 已过期
@@ -219,7 +219,7 @@ func TestDispatcher_ListFunctionAgents(t *testing.T) {
 
 	// 添加一些代理
 	now := time.Now().Add(time.Hour)
-	d.store.UpsertAgent(&reg.AgentSession{
+	_ = d.store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "agent-1",
 		Addr:     "127.0.0.1:9001",
 		ExpireAt: now,
@@ -228,7 +228,7 @@ func TestDispatcher_ListFunctionAgents(t *testing.T) {
 			"func-2": {Enabled: true},
 		},
 	})
-	d.store.UpsertAgent(&reg.AgentSession{
+	_ = d.store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "agent-2",
 		Addr:     "127.0.0.1:9002",
 		ExpireAt: now,
@@ -237,7 +237,7 @@ func TestDispatcher_ListFunctionAgents(t *testing.T) {
 		},
 	})
 	// 添加过期代理
-	d.store.UpsertAgent(&reg.AgentSession{
+	_ = d.store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "agent-3",
 		Addr:     "127.0.0.1:9003",
 		ExpireAt: time.Now().Add(-time.Hour),
@@ -246,7 +246,7 @@ func TestDispatcher_ListFunctionAgents(t *testing.T) {
 		},
 	})
 	// 添加禁用功能的代理
-	d.store.UpsertAgent(&reg.AgentSession{
+	_ = d.store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "agent-4",
 		Addr:     "127.0.0.1:9004",
 		ExpireAt: now,
@@ -288,7 +288,7 @@ func TestDispatcher_ListFunctionAgents_IgnoresNilAgents(t *testing.T) {
 	now := time.Now().Add(time.Hour)
 
 	// 添加有效代理
-	d.store.UpsertAgent(&reg.AgentSession{
+	_ = d.store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "agent-1",
 		Addr:     "127.0.0.1:9001",
 		ExpireAt: now,
@@ -393,7 +393,7 @@ func TestDispatcher_pickAgent(t *testing.T) {
 	now := time.Now().Add(time.Hour)
 
 	// 添加多个代理
-	d.store.UpsertAgent(&reg.AgentSession{
+	_ = d.store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "agent-3",
 		Addr:     "127.0.0.1:9003",
 		ExpireAt: now,
@@ -401,7 +401,7 @@ func TestDispatcher_pickAgent(t *testing.T) {
 			"test-func": {Enabled: true},
 		},
 	})
-	d.store.UpsertAgent(&reg.AgentSession{
+	_ = d.store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "agent-1",
 		Addr:     "127.0.0.1:9001",
 		ExpireAt: now,
@@ -409,7 +409,7 @@ func TestDispatcher_pickAgent(t *testing.T) {
 			"test-func": {Enabled: true},
 		},
 	})
-	d.store.UpsertAgent(&reg.AgentSession{
+	_ = d.store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "agent-2",
 		Addr:     "127.0.0.1:9002",
 		ExpireAt: now,
@@ -446,7 +446,7 @@ func TestDispatcher_pickAgent_ExpiresExpiredAgents(t *testing.T) {
 	d := NewDispatcher(nil)
 
 	// 添加过期代理
-	d.store.UpsertAgent(&reg.AgentSession{
+	_ = d.store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "agent-1",
 		Addr:     "127.0.0.1:9001",
 		ExpireAt: time.Now().Add(-time.Hour),
@@ -467,7 +467,7 @@ func TestDispatcher_pickAgent_IgnoresDisabledFunctions(t *testing.T) {
 	d := NewDispatcher(nil)
 	now := time.Now().Add(time.Hour)
 
-	d.store.UpsertAgent(&reg.AgentSession{
+	_ = d.store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "agent-1",
 		Addr:     "127.0.0.1:9001",
 		ExpireAt: now,
@@ -489,21 +489,21 @@ func TestDispatcher_listAgentsForFunction(t *testing.T) {
 	d := NewDispatcher(nil)
 	now := time.Now().Add(time.Hour)
 
-	d.store.UpsertAgent(&reg.AgentSession{
+	_ = d.store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "agent-1",
 		ExpireAt: now,
 		Functions: map[string]reg.FunctionMeta{
 			"fn-active": {Enabled: true},
 		},
 	})
-	d.store.UpsertAgent(&reg.AgentSession{
+	_ = d.store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "agent-2",
 		ExpireAt: now,
 		Functions: map[string]reg.FunctionMeta{
 			"fn-active": {Enabled: false},
 		},
 	})
-	d.store.UpsertAgent(&reg.AgentSession{
+	_ = d.store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "agent-3",
 		ExpireAt: time.Now().Add(-time.Hour), // expired
 		Functions: map[string]reg.FunctionMeta{
@@ -547,7 +547,7 @@ func TestDispatcher_InvokeBroadcast_AggregatesFailures(t *testing.T) {
 	now := time.Now().Add(time.Hour)
 
 	for _, id := range []string{"agent-1", "agent-2", "agent-3"} {
-		d.store.UpsertAgent(&reg.AgentSession{
+		_ = d.store.UpsertAgent(&reg.AgentSession{
 			AgentID:  id,
 			ExpireAt: now,
 			Functions: map[string]reg.FunctionMeta{
@@ -609,7 +609,7 @@ func TestDispatcher_pickAgent_AllowsEmptyRPCAddr(t *testing.T) {
 	d := NewDispatcher(nil)
 	now := time.Now().Add(time.Hour)
 
-	d.store.UpsertAgent(&reg.AgentSession{
+	_ = d.store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "agent-1",
 		Addr:     "",
 		ExpireAt: now,
@@ -632,7 +632,7 @@ func TestDispatcher_pickAgentWithRouting_TargetServiceID(t *testing.T) {
 	d := NewDispatcher(nil)
 	now := time.Now().Add(time.Hour)
 
-	d.store.UpsertAgent(&reg.AgentSession{
+	_ = d.store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "agent-1",
 		Addr:     "127.0.0.1:9001",
 		ExpireAt: now,
@@ -646,7 +646,7 @@ func TestDispatcher_pickAgentWithRouting_TargetServiceID(t *testing.T) {
 			},
 		},
 	})
-	d.store.UpsertAgent(&reg.AgentSession{
+	_ = d.store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "agent-2",
 		Addr:     "127.0.0.1:9002",
 		ExpireAt: now,
@@ -678,7 +678,7 @@ func TestDispatcher_pickAgentWithRouting_TargetServiceIDNotFound(t *testing.T) {
 	d := NewDispatcher(nil)
 	now := time.Now().Add(time.Hour)
 
-	d.store.UpsertAgent(&reg.AgentSession{
+	_ = d.store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "agent-1",
 		Addr:     "127.0.0.1:9001",
 		ExpireAt: now,
@@ -700,7 +700,7 @@ func TestDispatcher_pickAgentWithRouting_HashKey(t *testing.T) {
 	d := NewDispatcher(nil)
 	now := time.Now().Add(time.Hour)
 
-	d.store.UpsertAgent(&reg.AgentSession{
+	_ = d.store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "agent-1",
 		Addr:     "127.0.0.1:9001",
 		ExpireAt: now,
@@ -708,7 +708,7 @@ func TestDispatcher_pickAgentWithRouting_HashKey(t *testing.T) {
 			"test-func": {Enabled: true},
 		},
 	})
-	d.store.UpsertAgent(&reg.AgentSession{
+	_ = d.store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "agent-2",
 		Addr:     "127.0.0.1:9002",
 		ExpireAt: now,
@@ -735,7 +735,7 @@ func TestDispatcher_pickAgentWithRouting_EmptyHashKey(t *testing.T) {
 	d := NewDispatcher(nil)
 	now := time.Now().Add(time.Hour)
 
-	d.store.UpsertAgent(&reg.AgentSession{
+	_ = d.store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "agent-1",
 		Addr:     "127.0.0.1:9001",
 		ExpireAt: now,
@@ -761,7 +761,7 @@ func TestDispatcher_pickAgentWithRouting_NilMetadata(t *testing.T) {
 	d := NewDispatcher(nil)
 	now := time.Now().Add(time.Hour)
 
-	d.store.UpsertAgent(&reg.AgentSession{
+	_ = d.store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "agent-1",
 		Addr:     "127.0.0.1:9001",
 		ExpireAt: now,
@@ -789,7 +789,7 @@ func TestDispatcher_pickAgentWithRouting_FiltersGameEnvironment(t *testing.T) {
 		{AgentID: "agent-other-env", GameID: "game-a", Env: "dev", ExpireAt: now, Functions: map[string]reg.FunctionMeta{"test-func": {Enabled: true}}},
 		{AgentID: "agent-target", GameID: "game-a", Env: "prod", ExpireAt: now, Functions: map[string]reg.FunctionMeta{"test-func": {Enabled: true}}},
 	} {
-		d.store.UpsertAgent(agent)
+		_ = d.store.UpsertAgent(agent)
 	}
 
 	selected, err := d.pickAgentWithRouting(context.Background(), "test-func", map[string]string{"gameId": "game-a", "env": "prod"})
@@ -829,7 +829,7 @@ func TestDispatcher_taskAgentID_LoadsFromStore(t *testing.T) {
 	agentID := "agent-1"
 
 	// 直接设置到存储中
-	store.Set(taskID, agentID)
+	_ = store.Set(taskID, agentID)
 
 	// 通过 taskAgentID 获取
 	retrievedAgentID, err := d.taskAgentID(context.Background(), taskID)
@@ -1044,7 +1044,7 @@ func TestProtoMarshalError(t *testing.T) {
 	now := time.Now().Add(time.Hour)
 
 	// 添加一个代理，但会导致后续错误
-	d.store.UpsertAgent(&reg.AgentSession{
+	_ = d.store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "agent-1",
 		Addr:     "compat-address-not-used",
 		ExpireAt: now,
@@ -1110,7 +1110,7 @@ func TestDispatcher_InvokeRequest_WithMetadata(t *testing.T) {
 	d := NewDispatcher(nil)
 	now := time.Now().Add(time.Hour)
 
-	d.store.UpsertAgent(&reg.AgentSession{
+	_ = d.store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "agent-1",
 		Addr:     "compat-address-not-used",
 		ExpireAt: now,
@@ -1140,7 +1140,7 @@ func TestDispatcher_StartTaskRequest_WithMetadata(t *testing.T) {
 	d := NewDispatcher(nil)
 	now := time.Now().Add(time.Hour)
 
-	d.store.UpsertAgent(&reg.AgentSession{
+	_ = d.store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "agent-1",
 		Addr:     "compat-address-not-used",
 		ExpireAt: now,

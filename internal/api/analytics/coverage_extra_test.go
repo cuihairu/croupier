@@ -217,7 +217,7 @@ type sseCapture struct {
 
 func (w *sseCapture) Write(p []byte) (int, error) {
 	w.mu.Lock()
-	w.ResponseWriter.Write(p)
+	_, _ = w.ResponseWriter.Write(p)
 	w.mu.Unlock()
 	select {
 	case w.writes <- string(p):

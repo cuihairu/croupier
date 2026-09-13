@@ -162,7 +162,7 @@ func TestMuxControlClientConnectedTracksMuxState(t *testing.T) {
 	}
 
 	c1, c2 := net.Pipe()
-	defer c2.Close()
+	defer func() { _ = c2.Close() }()
 
 	client.mux = tcptr.NewMuxConn(c1, nil, nil)
 	if !client.Connected() {
@@ -472,7 +472,7 @@ func TestUpstreamClientComposeLabels(t *testing.T) {
 func TestUpstreamClient_HeartbeatLoopReconnectsDisconnectedClient(t *testing.T) {
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	require.NoError(t, err)
-	defer ln.Close()
+	defer func() { _ = ln.Close() }()
 
 	// Minimal server: accept and immediately close (forces disconnected
 	// state); a second accept lets the agent complete a TCP connection.
@@ -482,7 +482,7 @@ func TestUpstreamClient_HeartbeatLoopReconnectsDisconnectedClient(t *testing.T) 
 			if err != nil {
 				return
 			}
-			conn.Close()
+			_ = conn.Close()
 		}
 	}()
 

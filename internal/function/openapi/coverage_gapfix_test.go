@@ -121,7 +121,7 @@ func TestConverterSeamsRestoredRoundTrip(t *testing.T) {
 	}
 	t.Cleanup(func() { buildOperation = origBuild })
 
-	NewConverter().ExportToSpec([]*functionv1.FunctionMetadata{{Id: "x", Name: "X"}})
+	_, _ = NewConverter().ExportToSpec([]*functionv1.FunctionMetadata{{Id: "x", Name: "X"}})
 
 	buildOperation = origBuild
 

@@ -67,7 +67,7 @@ func TestNewHotReloader(t *testing.T) {
 		t.Fatal("NewHotReloader returned nil instance")
 	}
 
-	hr.Stop()
+	_ = hr.Stop()
 
 	// 使用自定义配置
 	config := &Config{
@@ -87,7 +87,7 @@ func TestNewHotReloader(t *testing.T) {
 	if hr == nil {
 		t.Fatal("NewHotReloader returned nil instance")
 	}
-	hr.Stop()
+	_ = hr.Stop()
 }
 
 // TestHotReloader_RegisterHandler 测试注册处理器
@@ -97,7 +97,7 @@ func TestHotReloader_RegisterHandler(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewHotReloader failed: %v", err)
 	}
-	defer hr.Stop()
+	defer func() { _ = hr.Stop() }()
 
 	// 注册处理器
 	err = hr.RegisterHandler("*.json", func(ctx context.Context, event ReloadEvent) error {
@@ -126,7 +126,7 @@ func TestHotReloader_GetVersion(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewHotReloader failed: %v", err)
 	}
-	defer hr.Stop()
+	defer func() { _ = hr.Stop() }()
 
 	version := hr.GetVersion()
 	if version == nil {
@@ -172,7 +172,7 @@ func TestHotReloader_StartWatching(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewHotReloader failed: %v", err)
 	}
-	defer hr.Stop()
+	defer func() { _ = hr.Stop() }()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
 	defer cancel()
@@ -209,7 +209,7 @@ func TestHotReloader_Reload(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewHotReloader failed: %v", err)
 	}
-	defer hr.Stop()
+	defer func() { _ = hr.Stop() }()
 
 	handlerCalled := false
 	// 使用通配符模式匹配任意目录下的 .json 文件
@@ -291,7 +291,7 @@ func TestDetectReloadType(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewHotReloader failed: %v", err)
 	}
-	defer hr.Stop()
+	defer func() { _ = hr.Stop() }()
 
 	// 将 hr 转换为具体类型以访问内部方法
 	type testableReloader interface {
@@ -363,7 +363,7 @@ func TestHotReloader_FileWatcher(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewHotReloader failed: %v", err)
 	}
-	defer hr.Stop()
+	defer func() { _ = hr.Stop() }()
 
 	receivedEvents := make(chan ReloadEvent, 10)
 	// 使用匹配完整路径的通配符模式
@@ -421,7 +421,7 @@ func TestHotReloader_IgnorePatterns(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewHotReloader failed: %v", err)
 	}
-	defer hr.Stop()
+	defer func() { _ = hr.Stop() }()
 
 	err = hr.RegisterHandler("*.json", func(ctx context.Context, event ReloadEvent) error {
 		return nil
@@ -519,14 +519,14 @@ func BenchmarkHotReloader_Reload(b *testing.B) {
 	}
 
 	hr, _ := NewHotReloader(config, logger)
-	defer hr.Stop()
+	defer func() { _ = hr.Stop() }()
 
 	testFile := filepath.Join(tmpDir, "test.json")
-	os.WriteFile(testFile, []byte(`{}`), 0644)
+	_ = os.WriteFile(testFile, []byte(`{}`), 0644)
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		hr.Reload(testFile)
+		_ = hr.Reload(testFile)
 	}
 }
 
@@ -534,7 +534,7 @@ func BenchmarkHotReloader_Reload(b *testing.B) {
 func BenchmarkHotReloader_RegisterHandler(b *testing.B) {
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
 	hr, _ := NewHotReloader(nil, logger)
-	defer hr.Stop()
+	defer func() { _ = hr.Stop() }()
 
 	handler := func(ctx context.Context, event ReloadEvent) error {
 		return nil
@@ -543,6 +543,6 @@ func BenchmarkHotReloader_RegisterHandler(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		pattern := "pattern_*.json"
-		hr.RegisterHandler(pattern, handler)
+		_ = hr.RegisterHandler(pattern, handler)
 	}
 }

@@ -20,7 +20,7 @@ func TestNewWriter(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewWriter failed: %v", err)
 	}
-	defer w.Close()
+	defer func() { _ = w.Close() }()
 
 	// 验证文件已创建
 	if _, err := os.Stat(logPath); os.IsNotExist(err) {
@@ -38,7 +38,7 @@ func TestNewWriter_CreateDirectory(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewWriter with nested path failed: %v", err)
 	}
-	defer w.Close()
+	defer func() { _ = w.Close() }()
 
 	// 验证文件存在
 	if _, err := os.Stat(deepPath); os.IsNotExist(err) {
@@ -55,7 +55,7 @@ func TestWriter_Log(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewWriter failed: %v", err)
 	}
-	defer w.Close()
+	defer func() { _ = w.Close() }()
 
 	// 记录事件
 	err = w.Log("login", "user1", "system", map[string]string{
@@ -114,7 +114,7 @@ func TestWriter_LogChainIntegrity(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewWriter failed: %v", err)
 	}
-	defer w.Close()
+	defer func() { _ = w.Close() }()
 
 	events := []struct {
 		kind   string
@@ -140,7 +140,7 @@ func TestWriter_LogChainIntegrity(t *testing.T) {
 		content, _ := os.ReadFile(logPath)
 		lines := strings.Split(strings.TrimSpace(string(content)), "\n")
 		var event Event
-		json.Unmarshal([]byte(lines[len(lines)-1]), &event)
+		_ = json.Unmarshal([]byte(lines[len(lines)-1]), &event)
 
 		// 验证前一个哈希匹配（除第一个事件外）
 		if i > 0 {
@@ -167,7 +167,7 @@ func TestWriter_ConcurrentLogs(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewWriter failed: %v", err)
 	}
-	defer w.Close()
+	defer func() { _ = w.Close() }()
 
 	// 并发写入
 	done := make(chan bool)
@@ -207,7 +207,7 @@ func TestWriter_LogTimestamp(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewWriter failed: %v", err)
 	}
-	defer w.Close()
+	defer func() { _ = w.Close() }()
 
 	before := time.Now().UTC()
 	err = w.Log("test", "actor", "target", nil)
@@ -219,7 +219,7 @@ func TestWriter_LogTimestamp(t *testing.T) {
 	// 读取事件
 	content, _ := os.ReadFile(logPath)
 	var event Event
-	json.Unmarshal(content, &event)
+	_ = json.Unmarshal(content, &event)
 
 	// 验证时间戳在合理范围内
 	if event.Time.Before(before) {
@@ -244,7 +244,7 @@ func TestWriter_EmptyMeta(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewWriter failed: %v", err)
 	}
-	defer w.Close()
+	defer func() { _ = w.Close() }()
 
 	// 使用 nil 元数据
 	err = w.Log("test", "actor", "target", nil)
@@ -315,7 +315,7 @@ func TestWriter_HashUniqueness(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewWriter failed: %v", err)
 	}
-	defer w.Close()
+	defer func() { _ = w.Close() }()
 
 	hashes := make(map[string]bool)
 
@@ -330,7 +330,7 @@ func TestWriter_HashUniqueness(t *testing.T) {
 		content, _ := os.ReadFile(logPath)
 		lines := strings.Split(strings.TrimSpace(string(content)), "\n")
 		var event Event
-		json.Unmarshal([]byte(lines[len(lines)-1]), &event)
+		_ = json.Unmarshal([]byte(lines[len(lines)-1]), &event)
 
 		// 验证哈希唯一性（因为 prev hash 不同）
 		if hashes[event.Hash] {
@@ -351,11 +351,11 @@ func BenchmarkWriter_LogSingleThreaded(b *testing.B) {
 	logPath := filepath.Join(tmpDir, "audit.log")
 
 	w, _ := NewWriter(logPath)
-	defer w.Close()
+	defer func() { _ = w.Close() }()
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		w.Log("action", "user", "target", nil)
+		_ = w.Log("action", "user", "target", nil)
 	}
 }
 
@@ -365,12 +365,12 @@ func BenchmarkWriter_LogConcurrent(b *testing.B) {
 	logPath := filepath.Join(tmpDir, "audit.log")
 
 	w, _ := NewWriter(logPath)
-	defer w.Close()
+	defer func() { _ = w.Close() }()
 
 	b.ResetTimer()
 	b.RunParallel(func(pb *testing.PB) {
 		for pb.Next() {
-			w.Log("action", "user", "target", nil)
+			_ = w.Log("action", "user", "target", nil)
 		}
 	})
 }

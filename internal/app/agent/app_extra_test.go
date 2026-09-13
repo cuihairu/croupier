@@ -30,7 +30,7 @@ func TestApp_NilGuards(t *testing.T) {
 	a.SetUpstreamTransportKind("tcp")
 	a.OnConnected(func() {})
 	a.OnDisconnected(func(error) {})
-	a.SyncUpstream(context.Background())
+	_ = a.SyncUpstream(context.Background())
 	require.Error(t, a.SyncUpstream(context.Background()))
 	require.Error(t, a.HeartbeatUpstream(context.Background()))
 	a.WithVersion("v")

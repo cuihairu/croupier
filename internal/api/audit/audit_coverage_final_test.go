@@ -112,7 +112,7 @@ func TestGetAuditLogs_ScanError(t *testing.T) {
 	require.NoError(t, db.Callback().Row().Before("gorm:row").Register("test/fail_audit_row_scan", func(tx *gorm.DB) {
 		_ = tx.AddError(fmt.Errorf("forced scan failure"))
 	}))
-	t.Cleanup(func() { db.Callback().Row().Remove("test/fail_audit_row_scan") })
+	t.Cleanup(func() { _ = db.Callback().Row().Remove("test/fail_audit_row_scan") })
 
 	svc := NewService(&svc.ServiceContext{DB: db})
 	_, err := svc.GetAuditLogs(context.Background(), &AuditRequest{})
@@ -134,7 +134,7 @@ func TestGetAuditLogs_SecondAdminLoadFails(t *testing.T) {
 			}
 		}
 	}))
-	t.Cleanup(func() { db.Callback().Query().Remove("test/fail_second_admin_load") })
+	t.Cleanup(func() { _ = db.Callback().Query().Remove("test/fail_second_admin_load") })
 
 	svc := NewService(&svc.ServiceContext{
 		DB: db, AdminModel: model.NewAdminModel(db), RoleModel: model.NewRoleModel(db),

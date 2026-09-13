@@ -19,7 +19,7 @@ server:
   port: 8080
   host: localhost
 `
-	os.WriteFile(baseConfig, []byte(baseContent), 0644)
+	_ = os.WriteFile(baseConfig, []byte(baseContent), 0644)
 
 	// 创建包含配置文件
 	include1 := filepath.Join(tempDir, "include1.yaml")
@@ -28,7 +28,7 @@ logging:
   level: debug
   format: json
 `
-	os.WriteFile(include1, []byte(includeContent1), 0644)
+	_ = os.WriteFile(include1, []byte(includeContent1), 0644)
 
 	// 加载配置
 	v, err := LoadWithIncludes(baseConfig, []string{include1})
@@ -59,7 +59,7 @@ func TestLoadWithIncludes_EmptyBase(t *testing.T) {
 	includeContent1 := `
 key: value1
 `
-	os.WriteFile(include1, []byte(includeContent1), 0644)
+	_ = os.WriteFile(include1, []byte(includeContent1), 0644)
 
 	// 空基础配置
 	v, err := LoadWithIncludes("", []string{include1})
@@ -80,7 +80,7 @@ func TestLoadWithIncludes_NoIncludes(t *testing.T) {
 	baseContent := `
 key: value
 `
-	os.WriteFile(baseConfig, []byte(baseContent), 0644)
+	_ = os.WriteFile(baseConfig, []byte(baseContent), 0644)
 
 	v, err := LoadWithIncludes(baseConfig, []string{})
 	if err != nil {
@@ -102,14 +102,14 @@ key: base_value
 nested:
   key: nested_base
 `
-	os.WriteFile(baseConfig, []byte(baseContent), 0644)
+	_ = os.WriteFile(baseConfig, []byte(baseContent), 0644)
 
 	include1 := filepath.Join(tempDir, "include1.yaml")
 	includeContent1 := `
 key: include_value
 new_key: new_value
 `
-	os.WriteFile(include1, []byte(includeContent1), 0644)
+	_ = os.WriteFile(include1, []byte(includeContent1), 0644)
 
 	v, err := LoadWithIncludes(baseConfig, []string{include1})
 	if err != nil {
@@ -141,19 +141,19 @@ func TestLoadWithIncludes_MultipleIncludes(t *testing.T) {
 app:
   name: test
 `
-	os.WriteFile(baseConfig, []byte(baseContent), 0644)
+	_ = os.WriteFile(baseConfig, []byte(baseContent), 0644)
 
 	include1 := filepath.Join(tempDir, "include1.yaml")
 	includeContent1 := `
 feature1: enabled
 `
-	os.WriteFile(include1, []byte(includeContent1), 0644)
+	_ = os.WriteFile(include1, []byte(includeContent1), 0644)
 
 	include2 := filepath.Join(tempDir, "include2.yaml")
 	includeContent2 := `
 feature2: enabled
 `
-	os.WriteFile(include2, []byte(includeContent2), 0644)
+	_ = os.WriteFile(include2, []byte(includeContent2), 0644)
 
 	v, err := LoadWithIncludes(baseConfig, []string{include1, include2})
 	if err != nil {
@@ -182,7 +182,7 @@ func TestLoadWithIncludes_InvalidInclude(t *testing.T) {
 	baseContent := `
 key: value
 `
-	os.WriteFile(baseConfig, []byte(baseContent), 0644)
+	_ = os.WriteFile(baseConfig, []byte(baseContent), 0644)
 
 	// 不存在的包含文件
 	v, err := LoadWithIncludes(baseConfig, []string{"nonexistent.yaml"})
@@ -200,7 +200,7 @@ func TestLoadWithIncludes_InvalidBase(t *testing.T) {
 	tempDir := t.TempDir()
 
 	baseConfig := filepath.Join(tempDir, "base.yaml")
-	os.WriteFile(baseConfig, []byte("{invalid yaml}"), 0644)
+	_ = os.WriteFile(baseConfig, []byte("{invalid yaml}"), 0644)
 
 	// Viper 会尝试读取文件，即使 YAML 无效也不会返回错误
 	// 它只会返回一个空配置
@@ -420,7 +420,7 @@ database:
   ssl:
     enabled: false
 `
-	os.WriteFile(baseConfig, []byte(baseContent), 0644)
+	_ = os.WriteFile(baseConfig, []byte(baseContent), 0644)
 
 	overrideConfig := filepath.Join(tempDir, "override.yaml")
 	overrideContent := `
@@ -430,7 +430,7 @@ database:
     enabled: true
     cert: /path/to/cert.pem
 `
-	os.WriteFile(overrideConfig, []byte(overrideContent), 0644)
+	_ = os.WriteFile(overrideConfig, []byte(overrideContent), 0644)
 
 	v, err := LoadWithIncludes(baseConfig, []string{overrideConfig})
 	if err != nil {
@@ -466,17 +466,17 @@ func BenchmarkLoadWithIncludes(b *testing.B) {
 	baseContent := `
 key: value
 `
-	os.WriteFile(baseConfig, []byte(baseContent), 0644)
+	_ = os.WriteFile(baseConfig, []byte(baseContent), 0644)
 
 	includeConfig := filepath.Join(tempDir, "include.yaml")
 	includeContent := `
 include_key: include_value
 `
-	os.WriteFile(includeConfig, []byte(includeContent), 0644)
+	_ = os.WriteFile(includeConfig, []byte(includeContent), 0644)
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		LoadWithIncludes(baseConfig, []string{includeConfig})
+		_, _ = LoadWithIncludes(baseConfig, []string{includeConfig})
 	}
 }
 

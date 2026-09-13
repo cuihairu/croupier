@@ -22,7 +22,7 @@ func TestOpenReadOnlyGorm_MySQLBadDSN(t *testing.T) {
 	if db != nil {
 		sqlDB, _ := db.DB()
 		if sqlDB != nil {
-			defer sqlDB.Close()
+			defer func() { _ = sqlDB.Close() }()
 		}
 	}
 	assert.Error(t, err)
@@ -34,7 +34,7 @@ func TestOpenReadOnlyGorm_SQLServerUnreachable(t *testing.T) {
 	if db != nil {
 		sqlDB, _ := db.DB()
 		if sqlDB != nil {
-			defer sqlDB.Close()
+			defer func() { _ = sqlDB.Close() }()
 		}
 	}
 	assert.Error(t, err)

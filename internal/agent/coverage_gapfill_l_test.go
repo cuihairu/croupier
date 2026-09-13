@@ -24,9 +24,9 @@ func TestProviderKeepaliveProbeOnce_MarshalFailureSkipsWithoutRemoval(t *testing
 	store := NewProviderSessionStore()
 
 	agentSide, peerSide := net.Pipe()
-	defer peerSide.Close()
+	defer func() { _ = peerSide.Close() }()
 	conn := tcptr.NewMuxConn(agentSide, nil, nil)
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 
 	sess := &ProviderSession{
 		conn:      conn,

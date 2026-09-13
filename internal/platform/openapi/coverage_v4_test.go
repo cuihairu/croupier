@@ -597,11 +597,11 @@ func TestCall_RetryAnd4xx_V4(t *testing.T) {
 		attempts++
 		if attempts < 3 {
 			w.WriteHeader(http.StatusInternalServerError)
-			w.Write([]byte("server error"))
+			_, _ = w.Write([]byte("server error"))
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+		_ = json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
 	})
 	defer server.Close()
 
@@ -631,7 +631,7 @@ func TestCall_4xxError_V4(t *testing.T) {
 	t.Parallel()
 	server := newTestServer(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte("bad request"))
+		_, _ = w.Write([]byte("bad request"))
 	})
 	defer server.Close()
 
@@ -660,7 +660,7 @@ func TestCall_InvalidJSON_V4(t *testing.T) {
 	t.Parallel()
 	server := newTestServer(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		w.Write([]byte(`{"ok":true}`))
+		_, _ = w.Write([]byte(`{"ok":true}`))
 	})
 	defer server.Close()
 
@@ -689,7 +689,7 @@ func TestBuildRequest_PUTPatch_V4(t *testing.T) {
 	t.Parallel()
 	server := newTestServer(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]string{"ok": "true"})
+		_ = json.NewEncoder(w).Encode(map[string]string{"ok": "true"})
 	})
 	defer server.Close()
 

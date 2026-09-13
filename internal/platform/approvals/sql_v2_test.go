@@ -155,32 +155,32 @@ func TestSQLStore_List(t *testing.T) {
 	assert.Len(t, list, 5)
 
 	// Filter by state
-	list, total, err = store.List(Filter{State: "pending"}, Page{})
+	_, total, err = store.List(Filter{State: "pending"}, Page{})
 	require.NoError(t, err)
 	assert.Equal(t, 5, total)
 
 	// Filter by function
-	list, total, err = store.List(Filter{FunctionID: "fn1"}, Page{})
+	_, total, err = store.List(Filter{FunctionID: "fn1"}, Page{})
 	require.NoError(t, err)
 	assert.Equal(t, 5, total)
 
 	// Filter by game
-	list, total, err = store.List(Filter{GameID: "g1"}, Page{})
+	_, total, err = store.List(Filter{GameID: "g1"}, Page{})
 	require.NoError(t, err)
 	assert.Equal(t, 5, total)
 
 	// Filter by env
-	list, total, err = store.List(Filter{Env: "dev"}, Page{})
+	_, total, err = store.List(Filter{Env: "dev"}, Page{})
 	require.NoError(t, err)
 	assert.Equal(t, 5, total)
 
 	// Filter by actor
-	list, total, err = store.List(Filter{Actor: "u1"}, Page{})
+	_, total, err = store.List(Filter{Actor: "u1"}, Page{})
 	require.NoError(t, err)
 	assert.Equal(t, 5, total)
 
 	// Filter by mode
-	list, total, err = store.List(Filter{Mode: "invoke"}, Page{})
+	_, total, err = store.List(Filter{Mode: "invoke"}, Page{})
 	require.NoError(t, err)
 	assert.Equal(t, 5, total)
 }
@@ -216,7 +216,7 @@ func TestSQLStore_List_Pagination(t *testing.T) {
 	assert.Empty(t, list)
 
 	// Default page/size
-	list, total, err = store.List(Filter{}, Page{})
+	_, total, err = store.List(Filter{}, Page{})
 	require.NoError(t, err)
 	assert.Equal(t, 5, total)
 }
@@ -357,19 +357,19 @@ func TestSQLWorkflowStore_InstanceCRUD(t *testing.T) {
 	assert.Len(t, instances, 1)
 
 	// List with filters
-	instances, total, err = store.ListInstances(WorkflowInstanceFilter{State: WorkflowStateApproved}, Page{})
+	_, total, err = store.ListInstances(WorkflowInstanceFilter{State: WorkflowStateApproved}, Page{})
 	require.NoError(t, err)
 	assert.Equal(t, 1, total)
 
-	instances, total, err = store.ListInstances(WorkflowInstanceFilter{DefinitionID: "def1"}, Page{})
+	_, total, err = store.ListInstances(WorkflowInstanceFilter{DefinitionID: "def1"}, Page{})
 	require.NoError(t, err)
 	assert.Equal(t, 1, total)
 
-	instances, total, err = store.ListInstances(WorkflowInstanceFilter{Initiator: "user1"}, Page{})
+	_, total, err = store.ListInstances(WorkflowInstanceFilter{Initiator: "user1"}, Page{})
 	require.NoError(t, err)
 	assert.Equal(t, 1, total)
 
-	instances, total, err = store.ListInstances(WorkflowInstanceFilter{ApprovalID: "app1"}, Page{})
+	_, total, err = store.ListInstances(WorkflowInstanceFilter{ApprovalID: "app1"}, Page{})
 	require.NoError(t, err)
 	assert.Equal(t, 1, total)
 }
@@ -488,19 +488,19 @@ func TestSQLDelegationStore_CRUD(t *testing.T) {
 	assert.Len(t, list, 1)
 
 	// List with filter
-	list, total, err = store.List(DelegationFilter{Delegator: "boss"}, Page{})
+	_, total, err = store.List(DelegationFilter{Delegator: "boss"}, Page{})
 	require.NoError(t, err)
 	assert.Equal(t, 1, total)
 
-	list, total, err = store.List(DelegationFilter{Delegate: "worker"}, Page{})
+	_, total, err = store.List(DelegationFilter{Delegate: "worker"}, Page{})
 	require.NoError(t, err)
 	assert.Equal(t, 1, total)
 
-	list, total, err = store.List(DelegationFilter{Scope: ScopeAll}, Page{})
+	_, total, err = store.List(DelegationFilter{Scope: ScopeAll}, Page{})
 	require.NoError(t, err)
 	assert.Equal(t, 1, total)
 
-	list, total, err = store.List(DelegationFilter{State: DelegationStateActive}, Page{})
+	_, total, err = store.List(DelegationFilter{State: DelegationStateActive}, Page{})
 	require.NoError(t, err)
 	assert.Equal(t, 0, total) // del1 was revoked at line 478
 

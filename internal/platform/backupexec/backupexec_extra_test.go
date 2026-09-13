@@ -199,7 +199,7 @@ func TestDumpPostgres_RealExec(t *testing.T) {
 	e := New("postgres", "host=h user=u password=p dbname=d", nil, nil, "")
 	path, size, sum, err := e.dump(context.Background(), "bk-pg-real")
 	require.NoError(t, err)
-	defer os.Remove(path)
+	defer func() { _ = os.Remove(path) }()
 	assert.Equal(t, int64(len("pgdump-body")), size)
 	assert.Len(t, sum, 64)
 	content, err := os.ReadFile(path)

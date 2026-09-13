@@ -673,7 +673,7 @@ func (s *Service) HealthCheck(ctx context.Context, id uint, operator string) (*E
 	if err != nil {
 		return nil, mapServiceError(err)
 	}
-	status := "unknown"
+	var status string
 	if strings.EqualFold(item.Status, "uninstalled") || strings.EqualFold(item.DesiredState, "uninstalled") {
 		status = "uninstalled"
 	} else if item.Enabled {
@@ -1665,7 +1665,7 @@ func matchCaretConstraint(current, base semVersion) bool {
 	if compareSemVersion(current, base) < 0 {
 		return false
 	}
-	upper := semVersion{}
+	var upper semVersion
 	if base.major > 0 {
 		upper = semVersion{major: base.major + 1}
 	} else if base.minor > 0 {
@@ -1680,7 +1680,7 @@ func matchTildeConstraint(current, base semVersion) bool {
 	if compareSemVersion(current, base) < 0 {
 		return false
 	}
-	upper := semVersion{}
+	var upper semVersion
 	if base.parts <= 1 {
 		upper = semVersion{major: base.major + 1}
 	} else {

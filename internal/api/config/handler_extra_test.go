@@ -28,10 +28,6 @@ func setupConfigTestDB(t *testing.T) (*Handler, *Service) {
 	return handler, service
 }
 
-func newGinContextWithParams(recorder interface{}, method, target string, params gin.Params) (*gin.Context, *gin.ResponseWriter) {
-	panic("use newConfigTestContext instead")
-}
-
 func TestHandler_List(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	handler, _ := setupConfigTestDB(t)

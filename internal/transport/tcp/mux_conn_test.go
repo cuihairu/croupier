@@ -92,8 +92,8 @@ func TestErrorAs(t *testing.T) {
 func TestNewMuxConn(t *testing.T) {
 	t.Run("nil config", func(t *testing.T) {
 		c1, c2 := net.Pipe()
-		defer c1.Close()
-		defer c2.Close()
+		defer func() { _ = c1.Close() }()
+		defer func() { _ = c2.Close() }()
 
 		mc := NewMuxConn(c1, nil, nil)
 		if mc == nil {
@@ -109,8 +109,8 @@ func TestNewMuxConn(t *testing.T) {
 
 	t.Run("with config", func(t *testing.T) {
 		c1, c2 := net.Pipe()
-		defer c1.Close()
-		defer c2.Close()
+		defer func() { _ = c1.Close() }()
+		defer func() { _ = c2.Close() }()
 
 		handler := transportcore.HandlerFunc(func(ctx context.Context, msgID uint32, reqID uint32, body []byte) ([]byte, error) {
 			return body, nil
@@ -148,8 +148,8 @@ func TestMuxConn_RemoteAddr_LocalAddr(t *testing.T) {
 
 	t.Run("with pipe", func(t *testing.T) {
 		c1, c2 := net.Pipe()
-		defer c1.Close()
-		defer c2.Close()
+		defer func() { _ = c1.Close() }()
+		defer func() { _ = c2.Close() }()
 
 		mc := NewMuxConn(c1, nil, nil)
 		// Pipe connections may return empty addresses, that's OK
@@ -160,7 +160,7 @@ func TestMuxConn_RemoteAddr_LocalAddr(t *testing.T) {
 
 func TestMuxConn_Close(t *testing.T) {
 	c1, c2 := net.Pipe()
-	defer c2.Close()
+	defer func() { _ = c2.Close() }()
 
 	mc := NewMuxConn(c1, nil, nil)
 	if mc.IsClosed() {
@@ -175,18 +175,18 @@ func TestMuxConn_Close(t *testing.T) {
 	}
 
 	// Multiple close should not panic
-	mc.Close()
-	mc.Close()
+	_ = mc.Close()
+	_ = mc.Close()
 }
 
 func TestMuxConn_Close_FailsPending(t *testing.T) {
 	c1, c2 := net.Pipe()
-	defer c2.Close()
+	defer func() { _ = c2.Close() }()
 
 	mc := NewMuxConn(c1, nil, nil)
 	mc.pending[1] = make(chan muxResponse, 1)
 
-	mc.Close()
+	_ = mc.Close()
 
 	// Pending channel should receive an error
 	select {
@@ -201,10 +201,10 @@ func TestMuxConn_Close_FailsPending(t *testing.T) {
 
 func TestMuxConn_Send_Closed(t *testing.T) {
 	c1, c2 := net.Pipe()
-	defer c2.Close()
+	defer func() { _ = c2.Close() }()
 
 	mc := NewMuxConn(c1, nil, nil)
-	mc.Close()
+	_ = mc.Close()
 
 	err := mc.Send(context.Background(), protocol.MsgTaskEvent, []byte("test"))
 	if err == nil {
@@ -240,17 +240,17 @@ func TestMuxConn_Send_NilContext(t *testing.T) {
 	case <-time.After(2 * time.Second):
 		t.Error("Send with nil context did not complete")
 	}
-	mc.Close()
-	c2.Close()
+	_ = mc.Close()
+	_ = c2.Close()
 }
 
 func TestMuxConn_Send_NonEvent(t *testing.T) {
 	c1, c2 := net.Pipe()
-	defer c1.Close()
-	defer c2.Close()
+	defer func() { _ = c1.Close() }()
+	defer func() { _ = c2.Close() }()
 
 	mc := NewMuxConn(c1, nil, nil)
-	defer mc.Close()
+	defer func() { _ = mc.Close() }()
 
 	err := mc.Send(context.Background(), protocol.MsgInvokeRequest, []byte("test"))
 	if err == nil {
@@ -260,10 +260,10 @@ func TestMuxConn_Send_NonEvent(t *testing.T) {
 
 func TestMuxConn_Call_Closed(t *testing.T) {
 	c1, c2 := net.Pipe()
-	defer c2.Close()
+	defer func() { _ = c2.Close() }()
 
 	mc := NewMuxConn(c1, nil, nil)
-	mc.Close()
+	_ = mc.Close()
 
 	_, _, err := mc.Call(context.Background(), protocol.MsgInvokeRequest, []byte("test"))
 	if err == nil {
@@ -295,7 +295,7 @@ func TestMuxConn_Call_NilContext(t *testing.T) {
 
 	// Give it a moment then close to unblock
 	time.AfterFunc(200*time.Millisecond, func() {
-		mc.Close()
+		_ = mc.Close()
 	})
 
 	select {
@@ -303,12 +303,12 @@ func TestMuxConn_Call_NilContext(t *testing.T) {
 	case <-time.After(3 * time.Second):
 		t.Error("Call with nil context did not complete")
 	}
-	c2.Close()
+	_ = c2.Close()
 }
 
 func TestMuxConn_Run_ContextCancellation(t *testing.T) {
 	c1, c2 := net.Pipe()
-	defer c2.Close()
+	defer func() { _ = c2.Close() }()
 
 	mc := NewMuxConn(c1, nil, nil)
 
@@ -332,7 +332,7 @@ func TestMuxConn_Run_ContextCancellation(t *testing.T) {
 
 func TestMuxConn_Run_NilContext(t *testing.T) {
 	c1, c2 := net.Pipe()
-	defer c2.Close()
+	defer func() { _ = c2.Close() }()
 
 	mc := NewMuxConn(c1, nil, nil)
 
@@ -342,7 +342,7 @@ func TestMuxConn_Run_NilContext(t *testing.T) {
 	}()
 
 	// Close the connection to unblock Run
-	mc.Close()
+	_ = mc.Close()
 
 	select {
 	case <-done:
@@ -353,8 +353,8 @@ func TestMuxConn_Run_NilContext(t *testing.T) {
 
 func TestMuxConn_FulfillPending(t *testing.T) {
 	c1, c2 := net.Pipe()
-	defer c1.Close()
-	defer c2.Close()
+	defer func() { _ = c1.Close() }()
+	defer func() { _ = c2.Close() }()
 
 	mc := NewMuxConn(c1, nil, nil)
 
@@ -378,8 +378,8 @@ func TestMuxConn_FulfillPending(t *testing.T) {
 
 func TestMuxConn_FulfillPending_UnknownReqID(t *testing.T) {
 	c1, c2 := net.Pipe()
-	defer c1.Close()
-	defer c2.Close()
+	defer func() { _ = c1.Close() }()
+	defer func() { _ = c2.Close() }()
 
 	mc := NewMuxConn(c1, nil, nil)
 	// Should not panic for unknown reqID
@@ -388,8 +388,8 @@ func TestMuxConn_FulfillPending_UnknownReqID(t *testing.T) {
 
 func TestMuxConn_FulfillPending_FullChannel(t *testing.T) {
 	c1, c2 := net.Pipe()
-	defer c1.Close()
-	defer c2.Close()
+	defer func() { _ = c1.Close() }()
+	defer func() { _ = c2.Close() }()
 
 	mc := NewMuxConn(c1, nil, nil)
 
@@ -404,8 +404,8 @@ func TestMuxConn_FulfillPending_FullChannel(t *testing.T) {
 
 func TestMuxConn_FailPending(t *testing.T) {
 	c1, c2 := net.Pipe()
-	defer c1.Close()
-	defer c2.Close()
+	defer func() { _ = c1.Close() }()
+	defer func() { _ = c2.Close() }()
 
 	mc := NewMuxConn(c1, nil, nil)
 
@@ -443,7 +443,7 @@ func TestMuxConn_Run_ReadError(t *testing.T) {
 	mc := NewMuxConn(c1, nil, nil)
 
 	// Close the remote end to cause a read error
-	c2.Close()
+	_ = c2.Close()
 
 	err := mc.Run(context.Background())
 	if err == nil {
@@ -459,8 +459,8 @@ func TestMuxConn_Run_InvalidFrame(t *testing.T) {
 	// Write invalid protocol data
 	go func() {
 		// Write a valid frame but with bad protocol content
-		writeFrame(c2, []byte{0xFF, 0xFF, 0xFF, 0xFF})
-		c2.Close()
+		_ = writeFrame(c2, []byte{0xFF, 0xFF, 0xFF, 0xFF})
+		_ = c2.Close()
 	}()
 
 	err := mc.Run(context.Background())
@@ -471,8 +471,8 @@ func TestMuxConn_Run_InvalidFrame(t *testing.T) {
 
 func TestMuxConn_Run_ProcessesInboundRequestWhileAwaitingCallbackResponse(t *testing.T) {
 	serverConn, clientConn := net.Pipe()
-	defer serverConn.Close()
-	defer clientConn.Close()
+	defer func() { _ = serverConn.Close() }()
+	defer func() { _ = clientConn.Close() }()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
@@ -499,8 +499,8 @@ func TestMuxConn_Run_ProcessesInboundRequestWhileAwaitingCallbackResponse(t *tes
 		}
 		return append([]byte("handled:"), body...), nil
 	}))
-	defer server.Close()
-	defer client.Close()
+	defer func() { _ = server.Close() }()
+	defer func() { _ = client.Close() }()
 
 	serverDone := make(chan error, 1)
 	clientDone := make(chan error, 1)

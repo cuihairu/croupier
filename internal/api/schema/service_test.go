@@ -5,13 +5,11 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"testing"
 
 	"github.com/cuihairu/croupier/internal/common/errorx"
 	"github.com/cuihairu/croupier/internal/config"
 	"github.com/cuihairu/croupier/internal/svc"
-	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -27,14 +25,6 @@ func setupSvcCtx(t *testing.T) *svc.ServiceContext {
 			Schemas: config.SchemasConfig{Dir: t.TempDir()},
 		},
 	}
-}
-
-func newTestContext(method, target, body string) (*gin.Context, *httptest.ResponseRecorder) {
-	rec := httptest.NewRecorder()
-	ctx, _ := gin.CreateTestContext(rec)
-	ctx.Request = httptest.NewRequest(method, target, strings.NewReader(body))
-	ctx.Request.Header.Set("Content-Type", "application/json")
-	return ctx, rec
 }
 
 func assertStatus(t *testing.T, rec *httptest.ResponseRecorder, want int) {

@@ -93,7 +93,7 @@ func (s *cosStore) SignedURL(ctx context.Context, key string, method string, exp
 		expiry = s.ttl
 	}
 	sec := int64(expiry / time.Second)
-	m := http.MethodGet
+	var m string
 	switch strings.ToUpper(method) {
 	case http.MethodPut:
 		m = http.MethodPut
@@ -164,9 +164,7 @@ func (s *cosStore) List(ctx context.Context, prefix, marker, delimiter string, l
 	}
 
 	// 处理前缀（目录）
-	for _, commonPrefix := range resp.CommonPrefixes {
-		result.Prefixes = append(result.Prefixes, commonPrefix)
-	}
+	result.Prefixes = append(result.Prefixes, resp.CommonPrefixes...)
 
 	// 处理对象
 	for _, obj := range resp.Contents {

@@ -376,7 +376,7 @@ func TestOpsConfig_NilSvcCtx_V2(t *testing.T) {
 func TestOpsMetrics_WithMetricsStore_V2(t *testing.T) {
 	t.Parallel()
 	store := registry.NewStore()
-	store.UpsertAgent(&registry.AgentSession{
+	_ = store.UpsertAgent(&registry.AgentSession{
 		AgentID: "a1",
 		GameID:  "g1",
 		Env:     "prod",
@@ -466,7 +466,7 @@ func TestOpsServicesLegacyCompatible_V2(t *testing.T) {
 	t.Run("with registry store", func(t *testing.T) {
 		t.Parallel()
 		store := registry.NewStore()
-		store.UpsertAgent(&registry.AgentSession{
+		_ = store.UpsertAgent(&registry.AgentSession{
 			AgentID:   "agent-1",
 			GameID:    "g1",
 			Env:       "prod",
@@ -603,7 +603,7 @@ func TestDatabaseNodeString_V2(t *testing.T) {
 func TestNodeServiceDrain_WithStore_V2(t *testing.T) {
 	t.Parallel()
 	store := registry.NewStore()
-	store.UpsertAgent(&registry.AgentSession{
+	_ = store.UpsertAgent(&registry.AgentSession{
 		AgentID:   "node-1",
 		Functions: map[string]registry.FunctionMeta{},
 		LastSeen:  time.Now(),
@@ -629,7 +629,7 @@ func TestNodeServiceDrain_NotFound_V2(t *testing.T) {
 func TestNodeServiceDrain_WithOpsState_V2(t *testing.T) {
 	t.Parallel()
 	store := registry.NewStore()
-	store.UpsertAgent(&registry.AgentSession{
+	_ = store.UpsertAgent(&registry.AgentSession{
 		AgentID:   "node-1",
 		Functions: map[string]registry.FunctionMeta{},
 		LastSeen:  time.Now(),
@@ -645,7 +645,7 @@ func TestNodeServiceDrain_WithOpsState_V2(t *testing.T) {
 func TestNodeServiceRestart_WithStore_V2(t *testing.T) {
 	t.Parallel()
 	store := registry.NewStore()
-	store.UpsertAgent(&registry.AgentSession{
+	_ = store.UpsertAgent(&registry.AgentSession{
 		AgentID:   "node-1",
 		Functions: map[string]registry.FunctionMeta{},
 		LastSeen:  time.Now(),
@@ -670,7 +670,7 @@ func TestNodeServiceRestart_NotFound_V2(t *testing.T) {
 func TestNodeServiceRestart_WithOpsState_V2(t *testing.T) {
 	t.Parallel()
 	store := registry.NewStore()
-	store.UpsertAgent(&registry.AgentSession{
+	_ = store.UpsertAgent(&registry.AgentSession{
 		AgentID:   "node-1",
 		Functions: map[string]registry.FunctionMeta{},
 		LastSeen:  time.Now(),
@@ -686,7 +686,7 @@ func TestNodeServiceRestart_WithOpsState_V2(t *testing.T) {
 func TestNodeServiceUndrain_WithStore_V2(t *testing.T) {
 	t.Parallel()
 	store := registry.NewStore()
-	store.UpsertAgent(&registry.AgentSession{
+	_ = store.UpsertAgent(&registry.AgentSession{
 		AgentID:   "node-1",
 		Functions: map[string]registry.FunctionMeta{},
 		LastSeen:  time.Now(),
@@ -711,7 +711,7 @@ func TestNodeServiceUndrain_NotFound_V2(t *testing.T) {
 func TestNodeServiceUndrain_WithOpsState_V2(t *testing.T) {
 	t.Parallel()
 	store := registry.NewStore()
-	store.UpsertAgent(&registry.AgentSession{
+	_ = store.UpsertAgent(&registry.AgentSession{
 		AgentID:   "node-1",
 		Functions: map[string]registry.FunctionMeta{},
 		LastSeen:  time.Now(),
@@ -741,7 +741,7 @@ func TestListNodes_V2(t *testing.T) {
 		t.Parallel()
 		store := registry.NewStore()
 		now := time.Now()
-		store.UpsertAgent(&registry.AgentSession{
+		_ = store.UpsertAgent(&registry.AgentSession{
 			AgentID:   "a1",
 			GameID:    "g1",
 			Env:       "prod",
@@ -751,7 +751,7 @@ func TestListNodes_V2(t *testing.T) {
 			LastSeen:  now,
 			ExpireAt:  now.Add(time.Hour),
 		})
-		store.UpsertAgent(&registry.AgentSession{
+		_ = store.UpsertAgent(&registry.AgentSession{
 			AgentID:   "a2",
 			GameID:    "g2",
 			Env:       "prod",
@@ -772,7 +772,7 @@ func TestListNodes_V2(t *testing.T) {
 		t.Parallel()
 		store := registry.NewStore()
 		now := time.Now()
-		store.UpsertAgent(&registry.AgentSession{
+		_ = store.UpsertAgent(&registry.AgentSession{
 			AgentID:   "a1",
 			GameID:    "g1",
 			Env:       "prod",
@@ -782,7 +782,7 @@ func TestListNodes_V2(t *testing.T) {
 			LastSeen:  now,
 			ExpireAt:  now.Add(time.Hour),
 		})
-		store.UpsertAgent(&registry.AgentSession{
+		_ = store.UpsertAgent(&registry.AgentSession{
 			AgentID:   "a2",
 			GameID:    "g1",
 			Env:       "dev",
@@ -803,7 +803,7 @@ func TestListNodes_V2(t *testing.T) {
 		t.Parallel()
 		store := registry.NewStore()
 		now := time.Now()
-		store.UpsertAgent(&registry.AgentSession{
+		_ = store.UpsertAgent(&registry.AgentSession{
 			AgentID:   "a1",
 			GameID:    "g1",
 			Addr:      "h:1",
@@ -812,7 +812,7 @@ func TestListNodes_V2(t *testing.T) {
 			LastSeen:  now,
 			ExpireAt:  now.Add(time.Hour),
 		})
-		store.UpsertAgent(&registry.AgentSession{
+		_ = store.UpsertAgent(&registry.AgentSession{
 			AgentID:   "a2",
 			GameID:    "g1",
 			Addr:      "",
@@ -834,14 +834,13 @@ func TestListNodes_V2(t *testing.T) {
 func TestOpsNodeDrain_WithOpsState_V2(t *testing.T) {
 	t.Parallel()
 	store := registry.NewStore()
-	store.UpsertAgent(&registry.AgentSession{
+	_ = store.UpsertAgent(&registry.AgentSession{
 		AgentID:   "node-1",
 		Functions: map[string]registry.FunctionMeta{},
 		LastSeen:  time.Now(),
 	})
 	opsStateStore := svc.NewOpsStateStore(t.TempDir())
 
-	type agentCaller struct{}
 	// We need to mock AgentSessionResolver. Let's just test without it.
 	svcCtx := &svc.ServiceContext{RegistryStore: store, OpsStateStore: opsStateStore}
 	_, err := opsNodeDrain(context.Background(), svcCtx, &OpsNodeCommandsRequest{NodeId: "node-1"})
@@ -855,7 +854,7 @@ func TestOpsNodeDrain_WithOpsState_V2(t *testing.T) {
 func TestOpsNodeRestart_WithOpsState_V2(t *testing.T) {
 	t.Parallel()
 	store := registry.NewStore()
-	store.UpsertAgent(&registry.AgentSession{
+	_ = store.UpsertAgent(&registry.AgentSession{
 		AgentID:   "node-1",
 		Functions: map[string]registry.FunctionMeta{},
 		LastSeen:  time.Now(),
@@ -872,7 +871,7 @@ func TestOpsNodeRestart_WithOpsState_V2(t *testing.T) {
 func TestOpsNodeUndrain_WithOpsState_V2(t *testing.T) {
 	t.Parallel()
 	store := registry.NewStore()
-	store.UpsertAgent(&registry.AgentSession{
+	_ = store.UpsertAgent(&registry.AgentSession{
 		AgentID:   "node-1",
 		Functions: map[string]registry.FunctionMeta{},
 		LastSeen:  time.Now(),
@@ -941,7 +940,7 @@ func TestAgentService_List_NilStore_V2(t *testing.T) {
 func TestAgentService_List_WithFilters_V2(t *testing.T) {
 	t.Parallel()
 	store := registry.NewStore()
-	store.UpsertAgent(&registry.AgentSession{
+	_ = store.UpsertAgent(&registry.AgentSession{
 		AgentID:   "a1",
 		GameID:    "g1",
 		Env:       "prod",
@@ -1275,7 +1274,7 @@ func TestListNodes_RemoteOwnedSnapshotNotStale(t *testing.T) {
 	store := registry.NewStore()
 	now := time.Now()
 	// 本实例直连的 agent：正常 active。
-	store.UpsertAgent(&registry.AgentSession{
+	_ = store.UpsertAgent(&registry.AgentSession{
 		AgentID:   "agent-local",
 		GameID:    "g1",
 		Env:       "prod",
@@ -1286,7 +1285,7 @@ func TestListNodes_RemoteOwnedSnapshotNotStale(t *testing.T) {
 		ExpireAt:  now.Add(time.Hour),
 	})
 	// 远端 agent 的冻结快照：ExpireAt 已过（心跳只在对端实例续期）。
-	store.UpsertAgent(&registry.AgentSession{
+	_ = store.UpsertAgent(&registry.AgentSession{
 		AgentID:   "agent-remote",
 		GameID:    "g1",
 		Env:       "prod",

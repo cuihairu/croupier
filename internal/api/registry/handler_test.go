@@ -27,7 +27,7 @@ func TestHandler_GetRegistry_Success(t *testing.T) {
 
 	// Register a test agent
 	store := svcCtx.RegistryStore
-	store.UpsertAgent(&registry.AgentSession{
+	_ = store.UpsertAgent(&registry.AgentSession{
 		AgentID:   "test-agent-1",
 		GameID:    "game1",
 		Env:       "dev",
@@ -112,7 +112,7 @@ func TestService_GetRegistry_MultipleAgents(t *testing.T) {
 	store := svcCtx.RegistryStore
 
 	// Add multiple agents in non-sorted order
-	store.UpsertAgent(&registry.AgentSession{
+	_ = store.UpsertAgent(&registry.AgentSession{
 		AgentID:  "agent-z",
 		GameID:   "game2",
 		Env:      "dev",
@@ -122,7 +122,7 @@ func TestService_GetRegistry_MultipleAgents(t *testing.T) {
 			"func.a": {Enabled: true},
 		},
 	})
-	store.UpsertAgent(&registry.AgentSession{
+	_ = store.UpsertAgent(&registry.AgentSession{
 		AgentID:  "agent-a",
 		GameID:   "game1",
 		Env:      "dev",
@@ -149,7 +149,7 @@ func TestService_GetRegistry_ExpiredAgent(t *testing.T) {
 	store := svcCtx.RegistryStore
 
 	// Add expired agent
-	store.UpsertAgent(&registry.AgentSession{
+	_ = store.UpsertAgent(&registry.AgentSession{
 		AgentID:  "expired-agent",
 		GameID:   "game1",
 		Env:      "dev",
@@ -176,7 +176,7 @@ func TestService_GetRegistry_AgentWithNilExpireAt(t *testing.T) {
 	store := svcCtx.RegistryStore
 
 	// Add agent with zero ExpireAt
-	store.UpsertAgent(&registry.AgentSession{
+	_ = store.UpsertAgent(&registry.AgentSession{
 		AgentID:  "no-expiry-agent",
 		GameID:   "game1",
 		Env:      "dev",
@@ -202,7 +202,7 @@ func TestService_GetRegistry_AgentWithZeroID(t *testing.T) {
 	store := svcCtx.RegistryStore
 
 	// Add agent with empty ID (should be skipped)
-	store.UpsertAgent(&registry.AgentSession{
+	_ = store.UpsertAgent(&registry.AgentSession{
 		AgentID:  "",
 		GameID:   "game1",
 		Env:      "dev",
@@ -226,7 +226,7 @@ func TestService_GetRegistry_MultipleAgentsSameFunction(t *testing.T) {
 	store := svcCtx.RegistryStore
 
 	// Two agents with the same function
-	store.UpsertAgent(&registry.AgentSession{
+	_ = store.UpsertAgent(&registry.AgentSession{
 		AgentID:  "agent-1",
 		GameID:   "game1",
 		Env:      "dev",
@@ -236,7 +236,7 @@ func TestService_GetRegistry_MultipleAgentsSameFunction(t *testing.T) {
 			"shared.func": {Enabled: true},
 		},
 	})
-	store.UpsertAgent(&registry.AgentSession{
+	_ = store.UpsertAgent(&registry.AgentSession{
 		AgentID:  "agent-2",
 		GameID:   "game1",
 		Env:      "dev",
@@ -263,7 +263,7 @@ func TestService_GetRegistry_DisabledFunctionNotIncluded(t *testing.T) {
 	store := svcCtx.RegistryStore
 
 	// Agent with disabled function
-	store.UpsertAgent(&registry.AgentSession{
+	_ = store.UpsertAgent(&registry.AgentSession{
 		AgentID:  "agent-1",
 		GameID:   "game1",
 		Env:      "dev",

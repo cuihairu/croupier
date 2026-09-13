@@ -1156,10 +1156,3 @@ func assertHasDiagnosticCode(t *testing.T, diags []Diagnostic, code string) {
 	}
 	t.Errorf("expected diagnostic code %q in %v", code, diags)
 }
-
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
-}

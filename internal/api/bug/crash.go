@@ -30,17 +30,17 @@ const crashLastPlayerKey = "crashLastPlayerId"
 // creates a triage bug, subsequent reports only bump the counter.
 type ReportCrashRequest struct {
 	GameID     string `json:"gameId"`
-	Env        string `json:"env,optional"`
-	Platform   string `json:"platform,optional"`
-	PlayerID   string `json:"playerId,optional"`
-	ServerID   string `json:"serverId,optional"`
-	Device     string `json:"device,optional"`
-	OS         string `json:"deviceOs,optional"`
-	AppVersion string `json:"appVersion,optional"`
+	Env        string `json:"env"`
+	Platform   string `json:"platform"`
+	PlayerID   string `json:"playerId"`
+	ServerID   string `json:"serverId"`
+	Device     string `json:"device"`
+	OS         string `json:"deviceOs"`
+	AppVersion string `json:"appVersion"`
 	// Stack is the raw stack trace text (required).
 	Stack string `json:"stack"`
 	// Message is the one-line error summary (optional; derived from stack).
-	Message string `json:"message,optional"`
+	Message string `json:"message"`
 }
 
 // ReportCrashResponse returns the aggregated bug and its total count.

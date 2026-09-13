@@ -49,8 +49,8 @@ func TestServiceCreate_ValidationAndSuccess(t *testing.T) {
 		Version: "2.0.0", Type: "full",
 	})
 	require.NoError(t, err)
-	assert.NotZero(t, res.Release.Id)
-	assert.Equal(t, "draft", res.Release.Status)
+	assert.NotZero(t, res.Id)
+	assert.Equal(t, "draft", res.Status)
 
 	// 渠道校验
 	_, err = f.svc.Create(context.Background(), &ReleaseCreateRequest{
@@ -82,15 +82,15 @@ func TestServiceTransition_ErrorsAndHappy(t *testing.T) {
 
 	res, err := f.svc.Transition(context.Background(), &ReleaseTransitionRequest{ID: uitoa(rel.ID), Action: "gray", GrayPercent: intPtr(30)})
 	require.NoError(t, err)
-	assert.Equal(t, "gray", res.Release.Status)
+	assert.Equal(t, "gray", res.Status)
 
 	res, err = f.svc.Transition(context.Background(), &ReleaseTransitionRequest{ID: uitoa(rel.ID), Action: "full"})
 	require.NoError(t, err)
-	assert.Equal(t, "full", res.Release.Status)
+	assert.Equal(t, "full", res.Status)
 
 	res, err = f.svc.Transition(context.Background(), &ReleaseTransitionRequest{ID: uitoa(rel.ID), Action: "rollback"})
 	require.NoError(t, err)
-	assert.Equal(t, "rolled_back", res.Release.Status)
+	assert.Equal(t, "rolled_back", res.Status)
 }
 
 func intPtr(v int) *int { return &v }

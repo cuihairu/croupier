@@ -64,21 +64,21 @@ func v9FbTableOf(tx *gorm.DB) string {
 // v9FbFailQueryOn makes queries touching table fail from the from-th hit (1-based).
 func v9FbFailQueryOn(db *gorm.DB, table string, from int) {
 	var hits int
-	db.Callback().Query().Before("gorm:query").Register("v9_fb_fail_query_"+table, func(tx *gorm.DB) {
+	_ = db.Callback().Query().Before("gorm:query").Register("v9_fb_fail_query_"+table, func(tx *gorm.DB) {
 		if v9FbTableOf(tx) != table {
 			return
 		}
 		hits++
 		if hits >= from {
-			tx.AddError(errors.New("v9 forced query error on " + table))
+			_ = tx.AddError(errors.New("v9 forced query error on " + table))
 		}
 	})
 }
 
 func v9FbFailCreateOn(db *gorm.DB, table string) {
-	db.Callback().Create().Before("gorm:create").Register("v9_fb_fail_create_"+table, func(tx *gorm.DB) {
+	_ = db.Callback().Create().Before("gorm:create").Register("v9_fb_fail_create_"+table, func(tx *gorm.DB) {
 		if v9FbTableOf(tx) == table {
-			tx.AddError(errors.New("v9 forced create error on " + table))
+			_ = tx.AddError(errors.New("v9 forced create error on " + table))
 		}
 	})
 }
@@ -86,9 +86,9 @@ func v9FbFailCreateOn(db *gorm.DB, table string) {
 // v9FbFailUpdateOn fails updates on table; when destKey != "" only updates
 // whose destination map contains that key fail.
 func v9FbFailUpdateOn(db *gorm.DB, table string) {
-	db.Callback().Update().Before("gorm:update").Register("v9_fb_fail_update_"+table, func(tx *gorm.DB) {
+	_ = db.Callback().Update().Before("gorm:update").Register("v9_fb_fail_update_"+table, func(tx *gorm.DB) {
 		if v9FbTableOf(tx) == table {
-			tx.AddError(errors.New("v9 forced update error on " + table))
+			_ = tx.AddError(errors.New("v9 forced update error on " + table))
 		}
 	})
 }

@@ -172,17 +172,17 @@ func TestPaymentsModel_ListTransactions_WithFilters(t *testing.T) {
 	assert.Len(t, result, 3)
 
 	// Filter by env
-	result, total, err = model.ListTransactions(ctx, PaymentQueryOptions{Env: "dev"})
+	_, total, err = model.ListTransactions(ctx, PaymentQueryOptions{Env: "dev"})
 	require.NoError(t, err)
 	assert.Equal(t, int64(3), total)
 
 	// Filter by status
-	result, total, err = model.ListTransactions(ctx, PaymentQueryOptions{Status: "success"})
+	_, total, err = model.ListTransactions(ctx, PaymentQueryOptions{Status: "success"})
 	require.NoError(t, err)
 	assert.Equal(t, int64(2), total)
 
 	// Filter by time range
-	result, total, err = model.ListTransactions(ctx, PaymentQueryOptions{
+	_, total, err = model.ListTransactions(ctx, PaymentQueryOptions{
 		StartTime: startTime,
 		EndTime:   endTime,
 	})

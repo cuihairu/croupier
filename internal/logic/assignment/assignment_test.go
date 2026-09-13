@@ -539,7 +539,7 @@ func TestAssignmentsHistoryPath(t *testing.T) {
 		tmpDir := t.TempDir()
 		absPath := filepath.Join(tmpDir, "absolute", "path", "assignments.json")
 		// Create the directory structure to ensure it's a valid path
-		os.MkdirAll(filepath.Dir(absPath), 0755)
+		_ = os.MkdirAll(filepath.Dir(absPath), 0755)
 
 		svcCtx := &svc.ServiceContext{
 			Config: config.Config{

@@ -226,7 +226,7 @@ func TestErrorMetadata_ToJSON(t *testing.T) {
 	factory := NewErrorFactory("test-service")
 
 	err := factory.New(ErrCodeGameNotFound, "test-operation", nil)
-	err.WithDetails("test details").
+	_ = err.WithDetails("test details").
 		WithContext("user_id", 123).
 		WithRetry(1*time.Second, 2).
 		WithHTTPHeader("X-Custom", "value")

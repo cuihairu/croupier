@@ -70,7 +70,7 @@ func TestService_UpdateSource_ReloadErrorGroupE(t *testing.T) {
 func TestProbe_OKViaSQLMockGroupS(t *testing.T) {
 	db, mock, err := sqlmock.New()
 	require.NoError(t, err)
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	mock.ExpectQuery("pg_stat_activity").WillReturnRows(
 		sqlmock.NewRows([]string{"cur", "active", "maxc"}).AddRow(int64(8), int64(2), int64(100)))

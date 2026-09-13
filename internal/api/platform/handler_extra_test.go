@@ -41,7 +41,7 @@ func TestHandlerCallDispatcherError(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	store := reg.NewStore()
 	// 注册了一个目标函数但没有任何可用 agent 会话 → Invoke 失败
-	store.UpsertAgent(&reg.AgentSession{
+	_ = store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "a1",
 		Addr:     "127.0.0.1:1",
 		ExpireAt: time.Now().Add(time.Minute),
@@ -83,7 +83,7 @@ func TestHandlerListMethodsNotFound(t *testing.T) {
 // ListMethods 成功 → writeListMethodsResponse 成功分支
 func TestHandlerListMethodsSuccess(t *testing.T) {
 	store := reg.NewStore()
-	store.UpsertAgent(&reg.AgentSession{
+	_ = store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "a1",
 		Addr:     "127.0.0.1:19091",
 		ExpireAt: time.Now().Add(time.Minute),
@@ -107,7 +107,7 @@ func TestHandlerListMethodsSuccess(t *testing.T) {
 // Service.Call：Dispatcher 存在但无可用会话 → 500 且 source=extension
 func TestServiceCallDispatcherInvokeError(t *testing.T) {
 	store := reg.NewStore()
-	store.UpsertAgent(&reg.AgentSession{
+	_ = store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "a1",
 		Addr:     "127.0.0.1:1",
 		ExpireAt: time.Now().Add(time.Minute),

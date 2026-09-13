@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"github.com/cuihairu/croupier/internal/common/dbtype"
-	"sync"
 	"time"
 
 	"gorm.io/gorm"
@@ -697,7 +696,6 @@ func (s *SQLDelegationStore) IncrementUsage(id string) error {
 // SQLNotificationStore implements NotificationStore using SQL
 type SQLNotificationStore struct {
 	db *gorm.DB
-	mu sync.Mutex
 }
 
 // NewSQLNotificationStore creates a new SQL notification store

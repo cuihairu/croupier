@@ -62,8 +62,8 @@ func TestReadVersionFile_Exists(t *testing.T) {
 	// We can't directly test readVersionFile with custom path,
 	// but we can test the behavior by changing to the temp dir
 	origDir, _ := os.Getwd()
-	os.Chdir(tmpDir)
-	defer os.Chdir(origDir)
+	_ = os.Chdir(tmpDir)
+	defer func() { _ = os.Chdir(origDir) }()
 
 	result := readVersionFile()
 	assert.Equal(t, "1.2.3", result)
@@ -73,8 +73,8 @@ func TestReadVersionFile_NotExists(t *testing.T) {
 	// Change to a directory without VERSION file
 	tmpDir := t.TempDir()
 	origDir, _ := os.Getwd()
-	os.Chdir(tmpDir)
-	defer os.Chdir(origDir)
+	_ = os.Chdir(tmpDir)
+	defer func() { _ = os.Chdir(origDir) }()
 
 	result := readVersionFile()
 	assert.Equal(t, "", result)
@@ -96,13 +96,13 @@ func TestCurrentAPIVersion_Default(t *testing.T) {
 	apiVersion = ""
 
 	// Unset the env var
-	os.Unsetenv("CROUPIER_VERSION")
+	_ = os.Unsetenv("CROUPIER_VERSION")
 
 	// Change to a directory without VERSION file
 	tmpDir := t.TempDir()
 	origDir, _ := os.Getwd()
-	os.Chdir(tmpDir)
-	defer os.Chdir(origDir)
+	_ = os.Chdir(tmpDir)
+	defer func() { _ = os.Chdir(origDir) }()
 
 	result := currentAPIVersion()
 	assert.Equal(t, "dev", result)
@@ -118,11 +118,11 @@ func TestCurrentAPIVersion_VersionFile(t *testing.T) {
 	apiVersion = ""
 
 	// Unset the env var
-	os.Unsetenv("CROUPIER_VERSION")
+	_ = os.Unsetenv("CROUPIER_VERSION")
 
 	origDir, _ := os.Getwd()
-	os.Chdir(tmpDir)
-	defer os.Chdir(origDir)
+	_ = os.Chdir(tmpDir)
+	defer func() { _ = os.Chdir(origDir) }()
 
 	result := currentAPIVersion()
 	assert.Equal(t, "2.5.0", result)

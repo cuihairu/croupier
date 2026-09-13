@@ -70,7 +70,7 @@ func (s *Service) Create(ctx context.Context, req *PlayerCreateRequest) (*Player
 	}
 	gameID := svc.ResolveGameID(ctx, req.GameId)
 	if gameID == "" {
-		return nil, errors.New("Game ID 不能为空")
+		return nil, errors.New("game ID 不能为空")
 	}
 
 	player := &model.Player{

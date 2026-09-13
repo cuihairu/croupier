@@ -341,7 +341,7 @@ func BenchmarkSign(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		manager.Sign(username, roles, ttl)
+		_, _ = manager.Sign(username, roles, ttl)
 	}
 }
 
@@ -356,7 +356,7 @@ func BenchmarkVerify(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		manager.Verify(token)
+		_, _, _ = manager.Verify(token)
 	}
 }
 

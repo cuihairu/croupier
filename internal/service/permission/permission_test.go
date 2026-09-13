@@ -36,7 +36,7 @@ func setupTestDB(t *testing.T) *gorm.DB {
 	t.Cleanup(func() {
 		sqlDB, _ := db.DB()
 		if sqlDB != nil {
-			sqlDB.Close()
+			_ = sqlDB.Close()
 		}
 	})
 	return db
@@ -1222,7 +1222,7 @@ func TestWriteJSONError_CodeError(t *testing.T) {
 		t.Fatalf("expected 400, got %d", rr.Code)
 	}
 	var body map[string]interface{}
-	json.NewDecoder(rr.Body).Decode(&body)
+	_ = json.NewDecoder(rr.Body).Decode(&body)
 	if body["error"] != "bad_request" {
 		t.Errorf("expected error code bad_request, got %v", body["error"])
 	}
@@ -1597,7 +1597,7 @@ func TestWriteJSONError_CodeErrorBody(t *testing.T) {
 	rr := httptest.NewRecorder()
 	writeJSONError(rr, errorx.NewBadRequest("test msg"))
 	var body map[string]interface{}
-	json.NewDecoder(rr.Body).Decode(&body)
+	_ = json.NewDecoder(rr.Body).Decode(&body)
 	if body["message"] != "test msg" {
 		t.Errorf("expected message 'test msg', got %v", body["message"])
 	}

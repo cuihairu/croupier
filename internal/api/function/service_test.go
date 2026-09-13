@@ -182,14 +182,14 @@ func TestFunctionDetail_Found(t *testing.T) {
 	req := &FunctionDetailRequest{ID: "func1"}
 	resp, err := functionDetail(ctx, svcCtx, req)
 	require.NoError(t, err)
-	assert.Equal(t, "func1", resp.Function.Id)
-	assert.Equal(t, "Function 1", resp.Function.Name)
-	assert.Equal(t, "test", resp.Function.Resource)
-	assert.Equal(t, 1, resp.Function.Status)
-	assert.Equal(t, "1.0.0", resp.Function.Version)
+	assert.Equal(t, "func1", resp.Id)
+	assert.Equal(t, "Function 1", resp.Name)
+	assert.Equal(t, "test", resp.Resource)
+	assert.Equal(t, 1, resp.Status)
+	assert.Equal(t, "1.0.0", resp.Version)
 	// Instances comes from getIntFromMetadata which handles int/float64
 	// After JSON round-trip through GORM, the int becomes float64
-	assert.GreaterOrEqual(t, resp.Function.Instances, 0)
+	assert.GreaterOrEqual(t, resp.Instances, 0)
 	assert.NotNil(t, resp.Descriptor)
 }
 
@@ -220,7 +220,7 @@ func TestFunctionDetail_RuntimeOnly(t *testing.T) {
 	svcCtx := setupTestServiceContext(t)
 	ctx := context.Background()
 
-	svcCtx.RegistryStore.UpsertAgent(&registry.AgentSession{
+	_ = svcCtx.RegistryStore.UpsertAgent(&registry.AgentSession{
 		AgentID: "agent1",
 		GameID:  "demo-game",
 		Env:     "development",
@@ -233,10 +233,10 @@ func TestFunctionDetail_RuntimeOnly(t *testing.T) {
 	req := &FunctionDetailRequest{ID: "player.list"}
 	resp, err := functionDetail(ctx, svcCtx, req)
 	require.NoError(t, err)
-	assert.Equal(t, "player.list", resp.Function.Id)
-	assert.Equal(t, "demo-game", resp.Function.GameId)
-	assert.Equal(t, "1.2.3", resp.Function.Version)
-	assert.Equal(t, 1, resp.Function.Instances)
+	assert.Equal(t, "player.list", resp.Id)
+	assert.Equal(t, "demo-game", resp.GameId)
+	assert.Equal(t, "1.2.3", resp.Version)
+	assert.Equal(t, 1, resp.Instances)
 }
 
 func TestFunctionDetail_RuntimeEnrichmentOnPlaceholderRecord(t *testing.T) {
@@ -253,7 +253,7 @@ func TestFunctionDetail_RuntimeEnrichmentOnPlaceholderRecord(t *testing.T) {
 		Status:     1,
 	}).Error)
 
-	svcCtx.RegistryStore.UpsertAgent(&registry.AgentSession{
+	_ = svcCtx.RegistryStore.UpsertAgent(&registry.AgentSession{
 		AgentID: "agent1",
 		GameID:  "demo-game",
 		Env:     "development",
@@ -266,10 +266,10 @@ func TestFunctionDetail_RuntimeEnrichmentOnPlaceholderRecord(t *testing.T) {
 	req := &FunctionDetailRequest{ID: "player.list"}
 	resp, err := functionDetail(ctx, svcCtx, req)
 	require.NoError(t, err)
-	assert.Equal(t, "player.list", resp.Function.Name)
-	assert.Equal(t, "demo-game", resp.Function.GameId)
-	assert.Equal(t, "1.2.3", resp.Function.Version)
-	assert.Equal(t, 1, resp.Function.Instances)
+	assert.Equal(t, "player.list", resp.Name)
+	assert.Equal(t, "demo-game", resp.GameId)
+	assert.Equal(t, "1.2.3", resp.Version)
+	assert.Equal(t, 1, resp.Instances)
 }
 
 // Test functionAnalytics
@@ -453,7 +453,7 @@ func TestFunctionInstances_WithRegistry(t *testing.T) {
 		Functions: map[string]registry.FunctionMeta{"func1": {Enabled: true, Version: "1.0.0"}},
 		LastSeen:  time.Now(),
 	}
-	svcCtx.RegistryStore.UpsertAgent(sess)
+	_ = svcCtx.RegistryStore.UpsertAgent(sess)
 
 	req := &FunctionInstancesRequest{ID: "func1"}
 	resp, err := functionInstances(ctx, svcCtx, req)
@@ -505,8 +505,8 @@ func TestFunctionInstancesAll_WithRegistry(t *testing.T) {
 		},
 		LastSeen: time.Now(),
 	}
-	svcCtx.RegistryStore.UpsertAgent(sess1)
-	svcCtx.RegistryStore.UpsertAgent(sess2)
+	_ = svcCtx.RegistryStore.UpsertAgent(sess1)
+	_ = svcCtx.RegistryStore.UpsertAgent(sess2)
 
 	req := &FunctionInstancesAllRequest{}
 	resp, err := functionInstancesAll(ctx, svcCtx, req)
@@ -835,7 +835,7 @@ func TestService_FunctionInstances(t *testing.T) {
 		Functions: map[string]registry.FunctionMeta{"func1": {Enabled: true}},
 		LastSeen:  time.Now(),
 	}
-	svcCtx.RegistryStore.UpsertAgent(sess)
+	_ = svcCtx.RegistryStore.UpsertAgent(sess)
 
 	req := &FunctionInstancesRequest{ID: "func1"}
 	resp, err := svc.FunctionInstances(ctx, req)
@@ -948,7 +948,7 @@ func TestService_FunctionDetail(t *testing.T) {
 	req := &FunctionDetailRequest{ID: "func1"}
 	resp, err := svc.FunctionDetail(ctx, req)
 	require.NoError(t, err)
-	assert.Equal(t, "func1", resp.Function.Id)
+	assert.Equal(t, "func1", resp.Id)
 }
 
 func TestService_FunctionAnalytics(t *testing.T) {
@@ -1055,7 +1055,7 @@ func TestService_FunctionInstancesAll(t *testing.T) {
 		Functions: map[string]registry.FunctionMeta{"func1": {Enabled: true}},
 		LastSeen:  time.Now(),
 	}
-	svcCtx.RegistryStore.UpsertAgent(sess)
+	_ = svcCtx.RegistryStore.UpsertAgent(sess)
 
 	req := &FunctionInstancesAllRequest{}
 	resp, err := svc.FunctionInstancesAll(ctx, req)
@@ -1351,7 +1351,7 @@ func TestHandlers_WithURIParams(t *testing.T) {
 					Functions: map[string]registry.FunctionMeta{"func1": {Enabled: true}},
 					LastSeen:  time.Now(),
 				}
-				svcCtx.RegistryStore.UpsertAgent(sess)
+				_ = svcCtx.RegistryStore.UpsertAgent(sess)
 				return "func1"
 			},
 			handler: nil, // set below
@@ -1749,7 +1749,7 @@ func TestHandlers_Success(t *testing.T) {
 		Functions: map[string]registry.FunctionMeta{"func1": {Enabled: true}},
 		LastSeen:  time.Now(),
 	}
-	svcCtx.RegistryStore.UpsertAgent(sess)
+	_ = svcCtx.RegistryStore.UpsertAgent(sess)
 
 	tests := []struct {
 		name       string

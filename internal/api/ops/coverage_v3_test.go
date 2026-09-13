@@ -53,12 +53,6 @@ func (r *fakeResolver) ResolveAgentConn(agentID string) (transport.SessionCaller
 	return c, ok
 }
 
-func newOpsFakeClient(t *testing.T, caller *fakeCaller, agentID string) {
-	t.Helper()
-	client := agentops.GetAgentOpsClient()
-	client.SetSessionResolver(&fakeResolver{conns: map[string]transport.SessionCaller{agentID: caller}})
-}
-
 // ---- opsNodeDrain / opsNodeRestart / opsNodeUndrain 成功与错误路径 ----
 
 func TestOpsNodeDrainRestartUndrainPaths(t *testing.T) {

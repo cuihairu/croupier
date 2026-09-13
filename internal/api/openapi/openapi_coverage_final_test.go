@@ -48,7 +48,7 @@ func TestService_UpdateSource_ModelUpdateFails(t *testing.T) {
 			_ = tx.AddError(errors.New("forced update failure"))
 		}
 	}))
-	t.Cleanup(func() { service.svcCtx.DB.Callback().Update().Remove("test/fail_openapi_source_update") })
+	t.Cleanup(func() { _ = service.svcCtx.DB.Callback().Update().Remove("test/fail_openapi_source_update") })
 
 	_, err = service.UpdateSource(ctx, &OpenAPISourceUpdateRequest{
 		SourceID: created.Source.SourceID,
@@ -89,7 +89,7 @@ func TestService_DeleteBinding_ModelDeleteFails(t *testing.T) {
 			_ = tx.AddError(errors.New("forced delete failure"))
 		}
 	}))
-	t.Cleanup(func() { service.svcCtx.DB.Callback().Delete().Remove("test/fail_openapi_binding_delete") })
+	t.Cleanup(func() { _ = service.svcCtx.DB.Callback().Delete().Remove("test/fail_openapi_binding_delete") })
 
 	_, err = service.DeleteBinding(ctx, &OpenAPISourceBindingDeleteRequest{
 		SourceID:  created.Source.SourceID,

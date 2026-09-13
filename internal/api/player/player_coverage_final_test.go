@@ -61,7 +61,7 @@ func TestPlayerService_Update_ModelFailure(t *testing.T) {
 
 	created, err := s.Create(ctx, &PlayerCreateRequest{Username: "u1", Password: "pw", GameId: "g"})
 	require.NoError(t, err)
-	id := strconv.FormatInt(created.Player.Id, 10)
+	id := strconv.FormatInt(created.Id, 10)
 
 	require.NoError(t, db.Callback().Update().Before("gorm:update").
 		Register("test:player_fail_update", func(tx *gorm.DB) {
@@ -78,7 +78,7 @@ func TestPlayerService_Update_ReloadFailure(t *testing.T) {
 
 	created, err := s.Create(ctx, &PlayerCreateRequest{Username: "u2", Password: "pw", GameId: "g"})
 	require.NoError(t, err)
-	id := strconv.FormatInt(created.Player.Id, 10)
+	id := strconv.FormatInt(created.Id, 10)
 
 	// Update 流程 SELECT：FindOne → (UPDATE) → 回读 FindOne；令第 2 次 SELECT 失败。
 	var selects int32
@@ -101,7 +101,7 @@ func TestPlayerService_Balance_InsufficientBalance(t *testing.T) {
 	require.NoError(t, err)
 
 	_, err = s.Balance(ctx, &PlayerBalanceRequest{
-		ID: strconv.FormatInt(created.Player.Id, 10), Amount: -100, Reason: "deduct",
+		ID: strconv.FormatInt(created.Id, 10), Amount: -100, Reason: "deduct",
 	})
 	require.ErrorContains(t, err, "insufficient balance")
 }
@@ -114,7 +114,7 @@ func TestPlayerService_Update_StatusInvalid(t *testing.T) {
 	require.NoError(t, err)
 
 	_, err = s.Update(ctx, &PlayerUpdateRequest{
-		ID: strconv.FormatInt(created.Player.Id, 10), Status: 99,
+		ID: strconv.FormatInt(created.Id, 10), Status: 99,
 	})
 	require.ErrorContains(t, err, "状态值无效")
 }

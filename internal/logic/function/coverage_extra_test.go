@@ -280,7 +280,7 @@ func TestBackfillFromRegistry_NilRegistryStore(t *testing.T) {
 
 func TestBackfillFromRegistry_WithMatchingFunction(t *testing.T) {
 	store := reg.NewStore()
-	store.UpsertAgent(&reg.AgentSession{
+	_ = store.UpsertAgent(&reg.AgentSession{
 		AgentID: "agent-1",
 		GameID:  "game-1",
 		Functions: map[string]reg.FunctionMeta{
@@ -304,7 +304,7 @@ func TestBackfillFromRegistry_WithMatchingFunction(t *testing.T) {
 
 func TestBackfillFromRegistry_NoMatch(t *testing.T) {
 	store := reg.NewStore()
-	store.UpsertAgent(&reg.AgentSession{
+	_ = store.UpsertAgent(&reg.AgentSession{
 		AgentID:   "agent-1",
 		GameID:    "game-1",
 		Functions: map[string]reg.FunctionMeta{"other.fn": {}},
@@ -317,7 +317,7 @@ func TestBackfillFromRegistry_NoMatch(t *testing.T) {
 
 func TestBackfillFromRegistry_PreservesExistingFields(t *testing.T) {
 	store := reg.NewStore()
-	store.UpsertAgent(&reg.AgentSession{
+	_ = store.UpsertAgent(&reg.AgentSession{
 		AgentID: "agent-1",
 		GameID:  "game-1",
 		Functions: map[string]reg.FunctionMeta{
@@ -494,7 +494,7 @@ func TestFunctionDetail_FromDB(t *testing.T) {
 
 func TestFunctionDetail_FromRuntime(t *testing.T) {
 	svcCtx, ctx := setupFullTestContext(t)
-	svcCtx.RegistryStore.UpsertAgent(&reg.AgentSession{
+	_ = svcCtx.RegistryStore.UpsertAgent(&reg.AgentSession{
 		AgentID: "agent-1",
 		GameID:  "game-1",
 		Functions: map[string]reg.FunctionMeta{
@@ -575,7 +575,7 @@ func TestFunctionDetail_RuntimeFallbackFields(t *testing.T) {
 	}
 	require.NoError(t, svcCtx.FunctionModel.Create(ctx, fn))
 
-	svcCtx.RegistryStore.UpsertAgent(&reg.AgentSession{
+	_ = svcCtx.RegistryStore.UpsertAgent(&reg.AgentSession{
 		AgentID:   "agent-1",
 		GameID:    "game-1",
 		ExpireAt:  time.Now().Add(time.Hour),
@@ -606,7 +606,7 @@ func TestLoadRuntimeFunctionDetail_EmptyStore(t *testing.T) {
 
 func TestLoadRuntimeFunctionDetail_WithFunction(t *testing.T) {
 	store := reg.NewStore()
-	store.UpsertAgent(&reg.AgentSession{
+	_ = store.UpsertAgent(&reg.AgentSession{
 		AgentID:   "agent-1",
 		GameID:    "game-1",
 		ExpireAt:  time.Now().Add(time.Hour),
@@ -621,13 +621,13 @@ func TestLoadRuntimeFunctionDetail_WithFunction(t *testing.T) {
 
 func TestLoadRuntimeFunctionDetail_MultipleAgents(t *testing.T) {
 	store := reg.NewStore()
-	store.UpsertAgent(&reg.AgentSession{
+	_ = store.UpsertAgent(&reg.AgentSession{
 		AgentID:   "agent-1",
 		GameID:    "game-1",
 		ExpireAt:  time.Now().Add(time.Hour),
 		Functions: map[string]reg.FunctionMeta{"player.ban": {Version: "1.0.0"}},
 	})
-	store.UpsertAgent(&reg.AgentSession{
+	_ = store.UpsertAgent(&reg.AgentSession{
 		AgentID:   "agent-2",
 		GameID:    "game-2",
 		ExpireAt:  time.Now().Add(time.Hour),
@@ -641,13 +641,13 @@ func TestLoadRuntimeFunctionDetail_MultipleAgents(t *testing.T) {
 func TestLoadRuntimeFunctionDetail_WithOpenAPI(t *testing.T) {
 	store := reg.NewStore()
 	schemaType := openapi3.Types{"object"}
-	store.UpsertAgent(&reg.AgentSession{
+	_ = store.UpsertAgent(&reg.AgentSession{
 		AgentID:   "agent-1",
 		GameID:    "game-1",
 		ExpireAt:  time.Now().Add(time.Hour),
 		Functions: map[string]reg.FunctionMeta{"player.ban": {Version: "1.0.0"}},
 	})
-	store.UpsertOpenAPI("player.ban", &openapi3.Operation{
+	_ = store.UpsertOpenAPI("player.ban", &openapi3.Operation{
 		OperationID: "player.ban",
 		RequestBody: &openapi3.RequestBodyRef{
 			Value: &openapi3.RequestBody{
@@ -671,7 +671,7 @@ func TestLoadRuntimeFunctionDetail_WithOpenAPI(t *testing.T) {
 
 func TestLoadRuntimeFunctionDetail_FallbackOpenAPI(t *testing.T) {
 	store := reg.NewStore()
-	store.UpsertAgent(&reg.AgentSession{
+	_ = store.UpsertAgent(&reg.AgentSession{
 		AgentID:   "agent-1",
 		GameID:    "game-1",
 		ExpireAt:  time.Now().Add(time.Hour),
@@ -684,13 +684,13 @@ func TestLoadRuntimeFunctionDetail_FallbackOpenAPI(t *testing.T) {
 
 func TestLoadRuntimeFunctionDetail_FallbackOpenAPI_NilRequestBody(t *testing.T) {
 	store := reg.NewStore()
-	store.UpsertAgent(&reg.AgentSession{
+	_ = store.UpsertAgent(&reg.AgentSession{
 		AgentID:   "agent-1",
 		GameID:    "game-1",
 		ExpireAt:  time.Now().Add(time.Hour),
 		Functions: map[string]reg.FunctionMeta{"player.ban": {Version: "1.0.0"}},
 	})
-	store.UpsertOpenAPI("player.ban", &openapi3.Operation{
+	_ = store.UpsertOpenAPI("player.ban", &openapi3.Operation{
 		OperationID: "player.ban",
 	})
 	result := loadRuntimeFunctionDetail(store, "player.ban")
@@ -720,7 +720,7 @@ func TestFunctionInstancesAll_EmptyStore(t *testing.T) {
 
 func TestFunctionInstancesAll_WithProviders(t *testing.T) {
 	svcCtx, ctx := setupNoAuthTestContext(t)
-	svcCtx.RegistryStore.UpsertAgent(&reg.AgentSession{
+	_ = svcCtx.RegistryStore.UpsertAgent(&reg.AgentSession{
 		AgentID:  "agent-1",
 		GameID:   "game-1",
 		Env:      "prod",
@@ -742,7 +742,7 @@ func TestFunctionInstancesAll_WithProviders(t *testing.T) {
 
 func TestFunctionInstancesAll_EmptyFunctionIDs(t *testing.T) {
 	svcCtx, ctx := setupNoAuthTestContext(t)
-	svcCtx.RegistryStore.UpsertAgent(&reg.AgentSession{
+	_ = svcCtx.RegistryStore.UpsertAgent(&reg.AgentSession{
 		AgentID:  "agent-1",
 		GameID:   "game-1",
 		ExpireAt: time.Now().Add(time.Hour),
@@ -762,7 +762,7 @@ func TestFunctionInstancesAll_EmptyFunctionIDs(t *testing.T) {
 
 func TestFunctionInstancesAll_EmptyFunctionIDInList(t *testing.T) {
 	svcCtx, ctx := setupNoAuthTestContext(t)
-	svcCtx.RegistryStore.UpsertAgent(&reg.AgentSession{
+	_ = svcCtx.RegistryStore.UpsertAgent(&reg.AgentSession{
 		AgentID:  "agent-1",
 		GameID:   "game-1",
 		ExpireAt: time.Now().Add(time.Hour),
@@ -782,7 +782,7 @@ func TestFunctionInstancesAll_EmptyFunctionIDInList(t *testing.T) {
 
 func TestFunctionInstancesAll_WithZeroLastSeen(t *testing.T) {
 	svcCtx, ctx := setupNoAuthTestContext(t)
-	svcCtx.RegistryStore.UpsertAgent(&reg.AgentSession{
+	_ = svcCtx.RegistryStore.UpsertAgent(&reg.AgentSession{
 		AgentID:  "agent-1",
 		GameID:   "game-1",
 		ExpireAt: time.Now().Add(time.Hour),
@@ -807,7 +807,7 @@ func TestFunctionInstancesAll_WithZeroLastSeen(t *testing.T) {
 
 func TestFunctionInstances_WithRegistry(t *testing.T) {
 	svcCtx, ctx := setupNoAuthTestContext(t)
-	svcCtx.RegistryStore.UpsertAgent(&reg.AgentSession{
+	_ = svcCtx.RegistryStore.UpsertAgent(&reg.AgentSession{
 		AgentID:   "agent-1",
 		GameID:    "game-1",
 		ExpireAt:  time.Now().Add(time.Hour),
@@ -839,7 +839,7 @@ func TestFunctionInstances_NilStore(t *testing.T) {
 
 func TestFunctionInstances_WithZeroLastSeen(t *testing.T) {
 	svcCtx, ctx := setupNoAuthTestContext(t)
-	svcCtx.RegistryStore.UpsertAgent(&reg.AgentSession{
+	_ = svcCtx.RegistryStore.UpsertAgent(&reg.AgentSession{
 		AgentID:  "agent-1",
 		GameID:   "game-1",
 		ExpireAt: time.Now().Add(time.Hour),
@@ -860,7 +860,7 @@ func TestFunctionInstances_WithZeroLastSeen(t *testing.T) {
 
 func TestFunctionInstances_AgentNil(t *testing.T) {
 	svcCtx, ctx := setupNoAuthTestContext(t)
-	svcCtx.RegistryStore.UpsertAgent(&reg.AgentSession{
+	_ = svcCtx.RegistryStore.UpsertAgent(&reg.AgentSession{
 		AgentID:  "agent-1",
 		GameID:   "game-1",
 		ExpireAt: time.Now().Add(time.Hour),
@@ -880,7 +880,7 @@ func TestFunctionInstances_AgentNil(t *testing.T) {
 
 func TestFunctionInstances_NilAgentID(t *testing.T) {
 	svcCtx, ctx := setupNoAuthTestContext(t)
-	svcCtx.RegistryStore.UpsertAgent(&reg.AgentSession{
+	_ = svcCtx.RegistryStore.UpsertAgent(&reg.AgentSession{
 		AgentID:  "", // empty agent ID
 		GameID:   "game-1",
 		ExpireAt: time.Now().Add(time.Hour),
@@ -1022,7 +1022,7 @@ func TestFunctionsList_RuntimeFunctions_NilStore(t *testing.T) {
 
 func TestFunctionsList_RuntimeFunctions_WithFilter(t *testing.T) {
 	svcCtx, ctx := setupNoAuthTestContext(t)
-	svcCtx.RegistryStore.UpsertAgent(&reg.AgentSession{
+	_ = svcCtx.RegistryStore.UpsertAgent(&reg.AgentSession{
 		AgentID: "agent-1",
 		GameID:  "game-1",
 		Functions: map[string]reg.FunctionMeta{
@@ -1055,7 +1055,7 @@ func TestFunctionsList_RuntimeFunctions_MergesVersionAndInstances(t *testing.T) 
 	}
 	require.NoError(t, svcCtx.FunctionModel.Create(ctx, fn))
 
-	svcCtx.RegistryStore.UpsertAgent(&reg.AgentSession{
+	_ = svcCtx.RegistryStore.UpsertAgent(&reg.AgentSession{
 		AgentID: "agent-1",
 		GameID:  "game-1",
 		Functions: map[string]reg.FunctionMeta{
@@ -1078,7 +1078,7 @@ func TestFunctionsList_RuntimeFunctions_MergesVersionAndInstances(t *testing.T) 
 
 func TestFunctionsList_RuntimeFunctions_StatusFilter(t *testing.T) {
 	svcCtx, ctx := setupNoAuthTestContext(t)
-	svcCtx.RegistryStore.UpsertAgent(&reg.AgentSession{
+	_ = svcCtx.RegistryStore.UpsertAgent(&reg.AgentSession{
 		AgentID: "agent-1",
 		GameID:  "game-1",
 		Functions: map[string]reg.FunctionMeta{
@@ -1101,14 +1101,14 @@ func TestFunctionsList_RuntimeFunctions_StatusFilter(t *testing.T) {
 
 func TestFunctionsList_RuntimeFunctions_GameIDFilter(t *testing.T) {
 	svcCtx, ctx := setupNoAuthTestContext(t)
-	svcCtx.RegistryStore.UpsertAgent(&reg.AgentSession{
+	_ = svcCtx.RegistryStore.UpsertAgent(&reg.AgentSession{
 		AgentID: "agent-1",
 		GameID:  "game-1",
 		Functions: map[string]reg.FunctionMeta{
 			"player.ban": {Enabled: true, Version: "1.0.0"},
 		},
 	})
-	svcCtx.RegistryStore.UpsertAgent(&reg.AgentSession{
+	_ = svcCtx.RegistryStore.UpsertAgent(&reg.AgentSession{
 		AgentID: "agent-2",
 		GameID:  "game-2",
 		Functions: map[string]reg.FunctionMeta{
@@ -1133,7 +1133,7 @@ func TestFunctionsList_RuntimeFunctions_GameIDFilter(t *testing.T) {
 func TestFunctionsList_RuntimeFunctions_NilAgent(t *testing.T) {
 	svcCtx, ctx := setupNoAuthTestContext(t)
 	// Insert agent with nil Functions map
-	svcCtx.RegistryStore.UpsertAgent(&reg.AgentSession{
+	_ = svcCtx.RegistryStore.UpsertAgent(&reg.AgentSession{
 		AgentID: "agent-1",
 		GameID:  "game-1",
 	})
@@ -1145,7 +1145,7 @@ func TestFunctionsList_RuntimeFunctions_NilAgent(t *testing.T) {
 
 func TestFunctionsList_RuntimeFunctions_EmptyFunctionID(t *testing.T) {
 	svcCtx, ctx := setupNoAuthTestContext(t)
-	svcCtx.RegistryStore.UpsertAgent(&reg.AgentSession{
+	_ = svcCtx.RegistryStore.UpsertAgent(&reg.AgentSession{
 		AgentID: "agent-1",
 		GameID:  "game-1",
 		Functions: map[string]reg.FunctionMeta{
@@ -1160,14 +1160,14 @@ func TestFunctionsList_RuntimeFunctions_EmptyFunctionID(t *testing.T) {
 
 func TestFunctionsList_RuntimeFunctions_VersionUpgrade(t *testing.T) {
 	svcCtx, ctx := setupNoAuthTestContext(t)
-	svcCtx.RegistryStore.UpsertAgent(&reg.AgentSession{
+	_ = svcCtx.RegistryStore.UpsertAgent(&reg.AgentSession{
 		AgentID: "agent-1",
 		GameID:  "game-1",
 		Functions: map[string]reg.FunctionMeta{
 			"player.ban": {Enabled: true, Version: "3.0.0"},
 		},
 	})
-	svcCtx.RegistryStore.UpsertAgent(&reg.AgentSession{
+	_ = svcCtx.RegistryStore.UpsertAgent(&reg.AgentSession{
 		AgentID: "agent-2",
 		GameID:  "game-1",
 		Functions: map[string]reg.FunctionMeta{
@@ -1191,7 +1191,7 @@ func TestFunctionsList_RuntimeFunctions_VersionUpgrade(t *testing.T) {
 
 func TestFunctionsList_RuntimeFunctions_GameIDFromSession(t *testing.T) {
 	svcCtx, ctx := setupNoAuthTestContext(t)
-	svcCtx.RegistryStore.UpsertAgent(&reg.AgentSession{
+	_ = svcCtx.RegistryStore.UpsertAgent(&reg.AgentSession{
 		AgentID: "agent-1",
 		GameID:  "game-1",
 		Functions: map[string]reg.FunctionMeta{
@@ -1433,7 +1433,7 @@ func TestGetOrCreateFunctionRecord_DuplicateKeyRace(t *testing.T) {
 func TestBackfillFromRegistry_WithOpenAPI(t *testing.T) {
 	store := reg.NewStore()
 	schemaType := openapi3.Types{"object"}
-	store.UpsertAgent(&reg.AgentSession{
+	_ = store.UpsertAgent(&reg.AgentSession{
 		AgentID: "agent-1",
 		GameID:  "game-1",
 		Functions: map[string]reg.FunctionMeta{
@@ -1445,7 +1445,7 @@ func TestBackfillFromRegistry_WithOpenAPI(t *testing.T) {
 			},
 		},
 	})
-	store.UpsertOpenAPI("player.ban", &openapi3.Operation{
+	_ = store.UpsertOpenAPI("player.ban", &openapi3.Operation{
 		OperationID: "player.ban",
 		Summary:     "Ban a player",
 		RequestBody: &openapi3.RequestBodyRef{
@@ -1478,14 +1478,14 @@ func TestBackfillFromRegistry_WithOpenAPI(t *testing.T) {
 func TestBackfillFromRegistry_OpenAPINoExtensions(t *testing.T) {
 	store := reg.NewStore()
 	schemaType := openapi3.Types{"object"}
-	store.UpsertAgent(&reg.AgentSession{
+	_ = store.UpsertAgent(&reg.AgentSession{
 		AgentID: "agent-1",
 		GameID:  "game-1",
 		Functions: map[string]reg.FunctionMeta{
 			"player.ban": {Enabled: true, Version: "1.0.0"},
 		},
 	})
-	store.UpsertOpenAPI("player.ban", &openapi3.Operation{
+	_ = store.UpsertOpenAPI("player.ban", &openapi3.Operation{
 		OperationID: "player.ban",
 		Summary:     "Ban a player",
 		RequestBody: &openapi3.RequestBodyRef{
@@ -1510,14 +1510,14 @@ func TestBackfillFromRegistry_OpenAPINoExtensions(t *testing.T) {
 
 func TestBackfillFromRegistry_OpenAPINilExtensions(t *testing.T) {
 	store := reg.NewStore()
-	store.UpsertAgent(&reg.AgentSession{
+	_ = store.UpsertAgent(&reg.AgentSession{
 		AgentID: "agent-1",
 		GameID:  "game-1",
 		Functions: map[string]reg.FunctionMeta{
 			"player.ban": {Enabled: true, Version: "1.0.0"},
 		},
 	})
-	store.UpsertOpenAPI("player.ban", &openapi3.Operation{
+	_ = store.UpsertOpenAPI("player.ban", &openapi3.Operation{
 		OperationID: "player.ban",
 		Summary:     "Ban a player",
 	})
@@ -1530,7 +1530,7 @@ func TestBackfillFromRegistry_OpenAPINilExtensions(t *testing.T) {
 
 func TestBackfillFromRegistry_OpenAPIOperationNil(t *testing.T) {
 	store := reg.NewStore()
-	store.UpsertAgent(&reg.AgentSession{
+	_ = store.UpsertAgent(&reg.AgentSession{
 		AgentID: "agent-1",
 		GameID:  "game-1",
 		Functions: map[string]reg.FunctionMeta{

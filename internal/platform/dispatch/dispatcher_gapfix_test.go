@@ -215,7 +215,7 @@ func TestDispatcherStartTaskOnAgentValidationAndMarshal(t *testing.T) {
 func TestDispatcherStartTaskOnAgentHAHealthTracking(t *testing.T) {
 	t.Run("call error records failure", func(t *testing.T) {
 		d := NewDispatcherWithHA(nil, nil, nil, true, StrategyMinID, nil)
-		defer d.Close()
+		defer func() { _ = d.Close() }()
 		d.GetHealthTracker().RegisterAgent("agent-direct", "")
 		// 无 session resolver：callAgent 必失败。
 		_, err := d.StartTaskOnAgent(context.Background(), "agent-direct", &sdkv1.InvokeRequest{FunctionId: "test-func"})
@@ -229,7 +229,7 @@ func TestDispatcherStartTaskOnAgentHAHealthTracking(t *testing.T) {
 
 	t.Run("success records success and returns raw bytes", func(t *testing.T) {
 		d := NewDispatcherWithHA(nil, nil, nil, true, StrategyMinID, nil)
-		defer d.Close()
+		defer func() { _ = d.Close() }()
 		d.GetHealthTracker().RegisterAgent("agent-direct", "")
 
 		respBody := mustMarshal(t, &sdkv1.StartTaskResponse{TaskId: "task-direct"})

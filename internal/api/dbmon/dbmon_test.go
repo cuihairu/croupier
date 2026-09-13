@@ -68,7 +68,7 @@ func TestProbeAll_AlertFiresAndResolves(t *testing.T) {
 	// Register a source pointing at a database that does not exist.
 	src := &model.DBSource{
 		Name: "游戏主库", Driver: "mysql", Kind: model.DBSourceKindSelf,
-		DSN: fmt.Sprintf("ro:ro@tcp(127.0.0.1:1)/nothing?timeout=1s"), Enabled: true,
+		DSN: "ro:ro@tcp(127.0.0.1:1)/nothing?timeout=1s", Enabled: true,
 	}
 	require.NoError(t, srcModel.Create(ctx, src))
 

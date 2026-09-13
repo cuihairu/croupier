@@ -124,10 +124,10 @@ func TestEnvOrDefault(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			if tc.val != "" || tc.name == "env empty string uses default" || tc.name == "env whitespace uses default" {
-				os.Setenv(tc.key, tc.val)
-				defer os.Unsetenv(tc.key)
+				_ = os.Setenv(tc.key, tc.val)
+				defer func() { _ = os.Unsetenv(tc.key) }()
 			} else {
-				os.Unsetenv(tc.key)
+				_ = os.Unsetenv(tc.key)
 			}
 			got := envOrDefault(tc.key, tc.def)
 			if got != tc.expect {
@@ -1285,8 +1285,8 @@ func TestFlush_PFCountNegative(t *testing.T) {
 // ===========================================================================
 
 func TestNewWorker_InvalidRedisURL(t *testing.T) {
-	os.Setenv("REDIS_URL", "not-a-valid-url")
-	defer os.Unsetenv("REDIS_URL")
+	_ = os.Setenv("REDIS_URL", "not-a-valid-url")
+	defer func() { _ = os.Unsetenv("REDIS_URL") }()
 
 	_, err := NewWorker()
 	if err == nil {
@@ -1298,10 +1298,10 @@ func TestNewWorker_InvalidRedisURL(t *testing.T) {
 }
 
 func TestNewWorker_InvalidCHDSN(t *testing.T) {
-	os.Setenv("REDIS_URL", "redis://localhost:6379/0")
-	os.Setenv("CLICKHOUSE_DSN", "://invalid")
-	defer os.Unsetenv("REDIS_URL")
-	defer os.Unsetenv("CLICKHOUSE_DSN")
+	_ = os.Setenv("REDIS_URL", "redis://localhost:6379/0")
+	_ = os.Setenv("CLICKHOUSE_DSN", "://invalid")
+	defer func() { _ = os.Unsetenv("REDIS_URL") }()
+	defer func() { _ = os.Unsetenv("CLICKHOUSE_DSN") }()
 
 	_, err := NewWorker()
 	if err == nil {
@@ -1313,12 +1313,12 @@ func TestNewWorker_InvalidCHDSN(t *testing.T) {
 }
 
 func TestNewWorker_InvalidBatchSize(t *testing.T) {
-	os.Setenv("REDIS_URL", "redis://localhost:6379/0")
-	os.Setenv("CLICKHOUSE_DSN", "clickhouse://localhost:9000/analytics")
-	os.Setenv("ANALYTICS_CLICKHOUSE_BATCH", "not-a-number")
-	defer os.Unsetenv("REDIS_URL")
-	defer os.Unsetenv("CLICKHOUSE_DSN")
-	defer os.Unsetenv("ANALYTICS_CLICKHOUSE_BATCH")
+	_ = os.Setenv("REDIS_URL", "redis://localhost:6379/0")
+	_ = os.Setenv("CLICKHOUSE_DSN", "clickhouse://localhost:9000/analytics")
+	_ = os.Setenv("ANALYTICS_CLICKHOUSE_BATCH", "not-a-number")
+	defer func() { _ = os.Unsetenv("REDIS_URL") }()
+	defer func() { _ = os.Unsetenv("CLICKHOUSE_DSN") }()
+	defer func() { _ = os.Unsetenv("ANALYTICS_CLICKHOUSE_BATCH") }()
 
 	_, err := NewWorker()
 	if err != nil && strings.Contains(err.Error(), "batch") {
@@ -1327,12 +1327,12 @@ func TestNewWorker_InvalidBatchSize(t *testing.T) {
 }
 
 func TestNewWorker_ZeroBatchSize(t *testing.T) {
-	os.Setenv("REDIS_URL", "redis://localhost:6379/0")
-	os.Setenv("CLICKHOUSE_DSN", "clickhouse://localhost:9000/analytics")
-	os.Setenv("ANALYTICS_CLICKHOUSE_BATCH", "0")
-	defer os.Unsetenv("REDIS_URL")
-	defer os.Unsetenv("CLICKHOUSE_DSN")
-	defer os.Unsetenv("ANALYTICS_CLICKHOUSE_BATCH")
+	_ = os.Setenv("REDIS_URL", "redis://localhost:6379/0")
+	_ = os.Setenv("CLICKHOUSE_DSN", "clickhouse://localhost:9000/analytics")
+	_ = os.Setenv("ANALYTICS_CLICKHOUSE_BATCH", "0")
+	defer func() { _ = os.Unsetenv("REDIS_URL") }()
+	defer func() { _ = os.Unsetenv("CLICKHOUSE_DSN") }()
+	defer func() { _ = os.Unsetenv("ANALYTICS_CLICKHOUSE_BATCH") }()
 
 	_, err := NewWorker()
 	if err != nil && strings.Contains(err.Error(), "batch") {
@@ -1341,12 +1341,12 @@ func TestNewWorker_ZeroBatchSize(t *testing.T) {
 }
 
 func TestNewWorker_NegativeBatchSize(t *testing.T) {
-	os.Setenv("REDIS_URL", "redis://localhost:6379/0")
-	os.Setenv("CLICKHOUSE_DSN", "clickhouse://localhost:9000/analytics")
-	os.Setenv("ANALYTICS_CLICKHOUSE_BATCH", "-5")
-	defer os.Unsetenv("REDIS_URL")
-	defer os.Unsetenv("CLICKHOUSE_DSN")
-	defer os.Unsetenv("ANALYTICS_CLICKHOUSE_BATCH")
+	_ = os.Setenv("REDIS_URL", "redis://localhost:6379/0")
+	_ = os.Setenv("CLICKHOUSE_DSN", "clickhouse://localhost:9000/analytics")
+	_ = os.Setenv("ANALYTICS_CLICKHOUSE_BATCH", "-5")
+	defer func() { _ = os.Unsetenv("REDIS_URL") }()
+	defer func() { _ = os.Unsetenv("CLICKHOUSE_DSN") }()
+	defer func() { _ = os.Unsetenv("ANALYTICS_CLICKHOUSE_BATCH") }()
 
 	_, err := NewWorker()
 	if err != nil && strings.Contains(err.Error(), "batch") {
@@ -1355,12 +1355,12 @@ func TestNewWorker_NegativeBatchSize(t *testing.T) {
 }
 
 func TestNewWorker_CheckpointPrefixTrimmed(t *testing.T) {
-	os.Setenv("REDIS_URL", "redis://localhost:6379/0")
-	os.Setenv("CLICKHOUSE_DSN", "clickhouse://localhost:9000/analytics")
-	os.Setenv("ANALYTICS_CHECKPOINT_PREFIX", "my:prefix:")
-	defer os.Unsetenv("REDIS_URL")
-	defer os.Unsetenv("CLICKHOUSE_DSN")
-	defer os.Unsetenv("ANALYTICS_CHECKPOINT_PREFIX")
+	_ = os.Setenv("REDIS_URL", "redis://localhost:6379/0")
+	_ = os.Setenv("CLICKHOUSE_DSN", "clickhouse://localhost:9000/analytics")
+	_ = os.Setenv("ANALYTICS_CHECKPOINT_PREFIX", "my:prefix:")
+	defer func() { _ = os.Unsetenv("REDIS_URL") }()
+	defer func() { _ = os.Unsetenv("CLICKHOUSE_DSN") }()
+	defer func() { _ = os.Unsetenv("ANALYTICS_CHECKPOINT_PREFIX") }()
 
 	_, err := NewWorker()
 	if err != nil && strings.Contains(err.Error(), "batch") {
@@ -1378,14 +1378,14 @@ func TestNewWorker_DefaultEnvVars(t *testing.T) {
 	saved := make(map[string]string)
 	for _, k := range envVars {
 		saved[k] = os.Getenv(k)
-		os.Unsetenv(k)
+		_ = os.Unsetenv(k)
 	}
 	defer func() {
 		for k, v := range saved {
 			if v == "" {
-				os.Unsetenv(k)
+				_ = os.Unsetenv(k)
 			} else {
-				os.Setenv(k, v)
+				_ = os.Setenv(k, v)
 			}
 		}
 	}()
@@ -1399,12 +1399,12 @@ func TestNewWorker_DefaultEnvVars(t *testing.T) {
 }
 
 func TestNewWorker_CustomConsumerName(t *testing.T) {
-	os.Setenv("REDIS_URL", "redis://localhost:6379/0")
-	os.Setenv("CLICKHOUSE_DSN", "clickhouse://localhost:9000/analytics")
-	os.Setenv("WORKER_CONSUMER", "my-consumer")
-	defer os.Unsetenv("REDIS_URL")
-	defer os.Unsetenv("CLICKHOUSE_DSN")
-	defer os.Unsetenv("WORKER_CONSUMER")
+	_ = os.Setenv("REDIS_URL", "redis://localhost:6379/0")
+	_ = os.Setenv("CLICKHOUSE_DSN", "clickhouse://localhost:9000/analytics")
+	_ = os.Setenv("WORKER_CONSUMER", "my-consumer")
+	defer func() { _ = os.Unsetenv("REDIS_URL") }()
+	defer func() { _ = os.Unsetenv("CLICKHOUSE_DSN") }()
+	defer func() { _ = os.Unsetenv("WORKER_CONSUMER") }()
 
 	_, err := NewWorker()
 	if err != nil && strings.Contains(err.Error(), "batch") {
@@ -1505,7 +1505,7 @@ func TestProcessMessage_FullPaymentFlow(t *testing.T) {
 	id1 := w.rdb.XAdd(context.Background(), &redis.XAddArgs{
 		Stream: "analytics:payments", Values: map[string]any{"data": string(data1)},
 	}).Val()
-	w.processMessage(context.Background(), "analytics:payments", redis.XMessage{ID: id1, Values: map[string]any{"data": data1}})
+	_ = w.processMessage(context.Background(), "analytics:payments", redis.XMessage{ID: id1, Values: map[string]any{"data": data1}})
 
 	// Refunded
 	data2, _ := json.Marshal(map[string]any{
@@ -1516,7 +1516,7 @@ func TestProcessMessage_FullPaymentFlow(t *testing.T) {
 	id2 := w.rdb.XAdd(context.Background(), &redis.XAddArgs{
 		Stream: "analytics:payments", Values: map[string]any{"data": string(data2)},
 	}).Val()
-	w.processMessage(context.Background(), "analytics:payments", redis.XMessage{ID: id2, Values: map[string]any{"data": data2}})
+	_ = w.processMessage(context.Background(), "analytics:payments", redis.XMessage{ID: id2, Values: map[string]any{"data": data2}})
 
 	key := "2025-06-15|g1|prod"
 	rv := w.revAgg[key]

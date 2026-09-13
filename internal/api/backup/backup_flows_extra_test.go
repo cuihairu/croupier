@@ -236,17 +236,17 @@ func TestService_Create_Success(t *testing.T) {
 	resp, err := env.service.Create(ctx, &BackupCreateRequest{})
 	require.NoError(t, err)
 	require.NotNil(t, resp)
-	assert.NotEmpty(t, resp.Backup.Id)
-	assert.Equal(t, "full", resp.Backup.Type)
-	assert.Equal(t, "pending", resp.Backup.Status)
-	assert.Contains(t, resp.Backup.Name, "full-")
+	assert.NotEmpty(t, resp.Id)
+	assert.Equal(t, "full", resp.Type)
+	assert.Equal(t, "pending", resp.Status)
+	assert.Contains(t, resp.Name, "full-")
 
 	resp, err = env.service.Create(ctx, &BackupCreateRequest{Name: " weekly ", Type: " INCREMENTAL "})
 	require.NoError(t, err)
-	assert.Equal(t, "weekly", resp.Backup.Name)
-	assert.Equal(t, "incremental", resp.Backup.Type)
+	assert.Equal(t, "weekly", resp.Name)
+	assert.Equal(t, "incremental", resp.Type)
 
-	found, err := env.svcCtx.BackupModel.FindByBackupID(ctx, resp.Backup.Id)
+	found, err := env.svcCtx.BackupModel.FindByBackupID(ctx, resp.Id)
 	require.NoError(t, err)
 	assert.Equal(t, "weekly", found.Name)
 }
@@ -267,8 +267,8 @@ func TestService_Create_SyncsExtensionRecords(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, resp.Items, 2)
 	ids := []string{resp.Items[0].Id, resp.Items[1].Id}
-	assert.Contains(t, ids, first.Backup.Id)
-	assert.Contains(t, ids, second.Backup.Id)
+	assert.Contains(t, ids, first.Id)
+	assert.Contains(t, ids, second.Id)
 
 	// Upserting an existing id updates in place instead of appending.
 	updated := first.Backup
@@ -280,7 +280,7 @@ func TestService_Create_SyncsExtensionRecords(t *testing.T) {
 	require.Len(t, resp.Items, 2)
 	var renamed bool
 	for _, item := range resp.Items {
-		if item.Id == first.Backup.Id && item.Name == "first-renamed" {
+		if item.Id == first.Id && item.Name == "first-renamed" {
 			renamed = true
 		}
 	}
@@ -407,9 +407,11 @@ func TestService_Download_SuccessFlow(t *testing.T) {
 	assert.Equal(t, "nightly", payload.Filename)
 	assert.Equal(t, int64(len(content)), payload.Size)
 	require.NotNil(t, payload.Reader)
-	defer payload.Reader.(interface {
-		Close() error
-	}).Close()
+	defer func() {
+		_ = payload.Reader.(interface {
+			Close() error
+		}).Close()
+	}()
 }
 
 func TestService_Download_FileURI(t *testing.T) {
@@ -474,7 +476,7 @@ func TestService_Download_StatAndOpenFailures(t *testing.T) {
 		sockPath := filepath.Join(t.TempDir(), "backup.sock")
 		ln, err := net.Listen("unix", sockPath)
 		require.NoError(t, err)
-		defer ln.Close()
+		defer func() { _ = ln.Close() }()
 
 		createBackupRow(t, env, &model.Backup{
 			BackupID: "bkp-sock",

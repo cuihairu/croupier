@@ -24,14 +24,14 @@ type stubConnV9 struct {
 }
 
 func (c *stubConnV9) PrepareBatch(ctx context.Context, query string, opts ...driver.PrepareBatchOption) (driver.Batch, error) {
-	c.mockConn.PrepareBatch(ctx, query, opts...)
+	_, _ = c.mockConn.PrepareBatch(ctx, query, opts...)
 	if c.prepareErr != nil {
 		return nil, c.prepareErr
 	}
 	if c.retBatch != nil {
 		return c.retBatch, nil
 	}
-	return c.mockConn.batch, nil
+	return c.batch, nil
 }
 
 // appendErrBatchV9 wraps *mockBatch with a failing Append.

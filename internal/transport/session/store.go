@@ -23,8 +23,7 @@ type BaseStore struct {
 }
 
 type sessionWrapper struct {
-	session    Session
-	lastPruned time.Time
+	session Session
 }
 
 // NewBaseStore creates a new BaseStore.

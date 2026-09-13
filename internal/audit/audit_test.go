@@ -187,10 +187,10 @@ func TestAuditService_Filter(t *testing.T) {
 	ctx := context.Background()
 
 	// Create records with different event types
-	service.Log(ctx, EventLogin, WithActorID("user-1", "user", "User 1"))
-	service.Log(ctx, EventLogout, WithActorID("user-1", "user", "User 1"))
-	service.Log(ctx, EventLogin, WithActorID("user-2", "user", "User 2"))
-	service.Log(ctx, EventAccessDenied, WithActorID("user-2", "user", "User 2"))
+	_, _ = service.Log(ctx, EventLogin, WithActorID("user-1", "user", "User 1"))
+	_, _ = service.Log(ctx, EventLogout, WithActorID("user-1", "user", "User 1"))
+	_, _ = service.Log(ctx, EventLogin, WithActorID("user-2", "user", "User 2"))
+	_, _ = service.Log(ctx, EventAccessDenied, WithActorID("user-2", "user", "User 2"))
 
 	// Filter by event type
 	records, total, err := store.List(AuditFilter{
@@ -210,7 +210,7 @@ func TestAuditService_Filter(t *testing.T) {
 	}
 
 	// Filter by actor
-	records, total, err = store.List(AuditFilter{
+	_, total, err = store.List(AuditFilter{
 		ActorID: "user-1",
 	}, AuditPage{PageSize: 100})
 
@@ -261,10 +261,10 @@ func TestAuditService_Stats(t *testing.T) {
 	ctx := context.Background()
 
 	// Create various records
-	service.Log(ctx, EventLogin, WithActorID("user-1", "user", "User 1"))
-	service.Log(ctx, EventLogin, WithActorID("user-2", "user", "User 2"))
-	service.Log(ctx, EventAccessDenied, WithActorID("user-1", "user", "User 1"), WithOutcome("failure", "access denied"))
-	service.Log(ctx, EventFunctionInvoke, WithActorID("user-1", "user", "User 1"))
+	_, _ = service.Log(ctx, EventLogin, WithActorID("user-1", "user", "User 1"))
+	_, _ = service.Log(ctx, EventLogin, WithActorID("user-2", "user", "User 2"))
+	_, _ = service.Log(ctx, EventAccessDenied, WithActorID("user-1", "user", "User 1"), WithOutcome("failure", "access denied"))
+	_, _ = service.Log(ctx, EventFunctionInvoke, WithActorID("user-1", "user", "User 1"))
 
 	// Get stats
 	now := time.Now()

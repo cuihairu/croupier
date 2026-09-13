@@ -76,10 +76,10 @@ func (s *Service) Upsert(ctx context.Context, req *RateLimitUpsertRequest) (*Rat
 	}
 
 	if req.Limit <= 0 {
-		return nil, errors.New("Limit 必须大于0")
+		return nil, errors.New("limit 必须大于0")
 	}
 	if req.Window <= 0 {
-		return nil, errors.New("Window 必须大于0")
+		return nil, errors.New("window 必须大于0")
 	}
 
 	action := strings.ToLower(strings.TrimSpace(req.Action))

@@ -339,7 +339,7 @@ func TestExtraBuildTaskStartBindingAndGenerateTaskPage(t *testing.T) {
 	require.NotNil(t, generated.Task.TaskView)
 
 	stateKeys := map[string]bool{}
-	for _, binding := range generated.PageSpec.Bindings {
+	for _, binding := range generated.Bindings {
 		if binding.Selectors == nil {
 			continue
 		}

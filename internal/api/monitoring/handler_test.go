@@ -113,7 +113,7 @@ func TestService_Healthz_WithDB(t *testing.T) {
 
 func TestService_Metrics_WithAgents(t *testing.T) {
 	store := registry.NewStore()
-	store.UpsertAgent(&registry.AgentSession{
+	_ = store.UpsertAgent(&registry.AgentSession{
 		AgentID:   "test-agent",
 		GameID:    "game1",
 		Env:       "dev",
@@ -138,7 +138,7 @@ func TestService_Metrics_WithAgents(t *testing.T) {
 
 func TestService_Status_WithExpiredAgent(t *testing.T) {
 	store := registry.NewStore()
-	store.UpsertAgent(&registry.AgentSession{
+	_ = store.UpsertAgent(&registry.AgentSession{
 		AgentID:   "expired-agent",
 		GameID:    "game1",
 		Env:       "dev",
@@ -388,7 +388,7 @@ func TestService_Status_FullyConfigured(t *testing.T) {
 
 	opsStore := svc.NewOpsStateStore("")
 	store := registry.NewStore()
-	store.UpsertAgent(&registry.AgentSession{
+	_ = store.UpsertAgent(&registry.AgentSession{
 		AgentID:  "test-agent",
 		GameID:   "game1",
 		Env:      "dev",

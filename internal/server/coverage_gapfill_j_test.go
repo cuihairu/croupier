@@ -178,7 +178,7 @@ func TestHandleHeartbeatRequest_SelfHealDefaultTTLAndHooks(t *testing.T) {
 // L642-646: 已存在 agent 心跳自报 owner 时补建 Labels map。
 func TestHandleHeartbeatRequest_EnsureLabelsMap(t *testing.T) {
 	svc := newTestControlService()
-	svc.registry.UpsertAgent(&registry.AgentSession{AgentID: "agent-lb", GameID: "game-1"})
+	_ = svc.registry.UpsertAgent(&registry.AgentSession{AgentID: "agent-lb", GameID: "game-1"})
 
 	_, err := svc.handleHeartbeatRequest(context.Background(), &agentv1.HeartbeatRequest{
 		AgentId:         "agent-lb",
@@ -198,7 +198,7 @@ func TestHandleHeartbeatRequest_AsyncPersistError(t *testing.T) {
 	loader := newMockAgentSessionLoader()
 	loader.upsertErr = errors.New("db down")
 	svc := newTestControlServiceWithLoader(loader)
-	svc.registry.UpsertAgent(&registry.AgentSession{AgentID: "agent-persist", GameID: "game-1"})
+	_ = svc.registry.UpsertAgent(&registry.AgentSession{AgentID: "agent-persist", GameID: "game-1"})
 
 	_, err := svc.handleHeartbeatRequest(context.Background(), &agentv1.HeartbeatRequest{AgentId: "agent-persist"})
 	require.NoError(t, err)
@@ -237,8 +237,8 @@ func TestAgentSessionStore_RemoveSession_Missing(t *testing.T) {
 // agent_session.go L57/L218/L230: 带 conn 的会话 Addr/Resolve 路径。
 func TestAgentSessionStore_WithMuxConn(t *testing.T) {
 	serverEnd, clientEnd := net.Pipe()
-	defer clientEnd.Close()
-	defer serverEnd.Close()
+	defer func() { _ = clientEnd.Close() }()
+	defer func() { _ = serverEnd.Close() }()
 
 	handler := transportcore.HandlerFunc(func(ctx context.Context, msgID uint32, reqID uint32, body []byte) ([]byte, error) {
 		return nil, nil
@@ -286,7 +286,7 @@ func TestServeConn_RegisterRequestErrorWarn(t *testing.T) {
 	listener.SetHandler(svc)
 
 	serverEnd, clientEnd := net.Pipe()
-	defer clientEnd.Close()
+	defer func() { _ = clientEnd.Close() }()
 	go func() { // 排水：mux 响应帧同步写管道
 		buf := make([]byte, 4096)
 		for {
@@ -310,7 +310,7 @@ func TestServeConn_RegisterRequestErrorWarn(t *testing.T) {
 	_, werr := clientEnd.Write(wrapped)
 	require.NoError(t, werr)
 	time.Sleep(150 * time.Millisecond)
-	clientEnd.Close()
+	_ = clientEnd.Close()
 }
 
 // tcp_listener.go L392: 心跳全路径 handleHeartbeatRequest 失败（upstream 错误）。
@@ -324,7 +324,7 @@ func TestServeConn_HeartbeatRequestErrorWarn(t *testing.T) {
 	listener.SetHandler(svc)
 
 	serverEnd, clientEnd := net.Pipe()
-	defer clientEnd.Close()
+	defer func() { _ = clientEnd.Close() }()
 	go func() { // 排水
 		buf := make([]byte, 4096)
 		for {
@@ -353,7 +353,7 @@ func TestServeConn_HeartbeatRequestErrorWarn(t *testing.T) {
 		require.NoError(t, werr)
 		time.Sleep(80 * time.Millisecond)
 	}
-	clientEnd.Close()
+	_ = clientEnd.Close()
 }
 
 // L311/L323/L335: handleRegister/handleHeartbeat/handleRegisterCapabilities

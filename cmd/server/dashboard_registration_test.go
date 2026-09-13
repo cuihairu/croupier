@@ -40,7 +40,7 @@ func TestWireDashboardRegistrationPipelineGeneratesProposal(t *testing.T) {
 	}
 	wireDashboardRegistrationPipeline(svcCtx)
 
-	store.UpsertAgent(&reg.AgentSession{
+	_ = store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "agent-1",
 		GameID:   "demo-game",
 		Env:      "development",
@@ -81,7 +81,7 @@ func TestDashboardRegistrationProposalPublishesToConsoleAndExecutes(t *testing.T
 	svcCtx, store, caller := newDashboardRegistrationServiceContext(t, db, []byte(`{"success":true}`))
 	wireDashboardRegistrationPipeline(svcCtx)
 
-	store.UpsertAgent(&reg.AgentSession{
+	_ = store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "agent-1",
 		GameID:   "demo-game",
 		Env:      "development",
@@ -145,7 +145,7 @@ func TestOpenAPIBindingProposalPublishesToConsoleAndExecutes(t *testing.T) {
 	svcCtx, store, caller := newDashboardRegistrationServiceContext(t, db, []byte(`{"items":[{"id":"p-001","name":"Ada"}],"total":1}`))
 
 	now := time.Now()
-	store.UpsertAgent(&reg.AgentSession{
+	_ = store.UpsertAgent(&reg.AgentSession{
 		AgentID:  "agent-1",
 		GameID:   "demo-game",
 		Env:      "development",

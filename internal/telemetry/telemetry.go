@@ -166,30 +166,22 @@ func (r *MetricsRegistry) Collect(ctx context.Context) ([]Metric, error) {
 
 	// Collect counters
 	for _, counter := range r.counters {
-		for _, m := range counter.Collect(now) {
-			metrics = append(metrics, m)
-		}
+		metrics = append(metrics, counter.Collect(now)...)
 	}
 
 	// Collect gauges
 	for _, gauge := range r.gauges {
-		for _, m := range gauge.Collect(now) {
-			metrics = append(metrics, m)
-		}
+		metrics = append(metrics, gauge.Collect(now)...)
 	}
 
 	// Collect histograms
 	for _, histogram := range r.histograms {
-		for _, m := range histogram.Collect(now) {
-			metrics = append(metrics, m)
-		}
+		metrics = append(metrics, histogram.Collect(now)...)
 	}
 
 	// Collect summaries
 	for _, summary := range r.summaries {
-		for _, m := range summary.Collect(now) {
-			metrics = append(metrics, m)
-		}
+		metrics = append(metrics, summary.Collect(now)...)
 	}
 
 	return metrics, nil
@@ -503,7 +495,7 @@ func (s *Summary) Collect(timestamp time.Time) []Metric {
 		})
 
 		// Add quantiles
-		for quantile, _ := range s.objectives {
+		for quantile := range s.objectives {
 			value := calculateQuantile(sv.observations, quantile)
 			quantileLabels := make(map[string]string)
 			for k, v := range labels {

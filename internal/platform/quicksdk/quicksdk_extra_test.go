@@ -22,11 +22,11 @@ func newCapturingServer(data string) (*httptest.Server, func() url.Values) {
 	var mu sync.Mutex
 	form := url.Values{}
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		r.ParseForm()
+		_ = r.ParseForm()
 		mu.Lock()
 		form = r.Form
 		mu.Unlock()
-		json.NewEncoder(w).Encode(Response{Status: true, Data: json.RawMessage(data)})
+		_ = json.NewEncoder(w).Encode(Response{Status: true, Data: json.RawMessage(data)})
 	}))
 	snapshot := func() url.Values {
 		mu.Lock()
@@ -39,9 +39,8 @@ func newCapturingServer(data string) (*httptest.Server, func() url.Values) {
 // --- API parse-error branches ---------------------------------------------
 
 func TestExtra_API_ParseErrors(t *testing.T) {
-	var srv *httptest.Server
-	srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		json.NewEncoder(w).Encode(Response{Status: true, Data: json.RawMessage(`{not-json`)})
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewEncoder(w).Encode(Response{Status: true, Data: json.RawMessage(`{not-json`)})
 	}))
 	defer srv.Close()
 
@@ -413,7 +412,7 @@ func TestExtra_Provider_Call_AdPlanRoutesAndErrorPropagation(t *testing.T) {
 		},
 	}
 	require.NoError(t, p.Init(context.Background(), cfg))
-	defer p.Close()
+	defer func() { _ = p.Close() }()
 
 	t.Run("create_ad_plan full params", func(t *testing.T) {
 		req, err := json.Marshal(map[string]interface{}{
@@ -481,7 +480,7 @@ func TestExtra_Provider_Call_AdPlanRoutesAndErrorPropagation(t *testing.T) {
 
 	t.Run("inner api error propagates", func(t *testing.T) {
 		badSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			json.NewEncoder(w).Encode(Response{Status: false, Message: "quota exceeded"})
+			_ = json.NewEncoder(w).Encode(Response{Status: false, Message: "quota exceeded"})
 		}))
 		defer badSrv.Close()
 

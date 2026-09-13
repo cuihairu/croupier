@@ -793,12 +793,6 @@ func TestLocalHandler_HandleProviderDrain(t *testing.T) {
 	})
 }
 
-// --- Helper to create LocalStore ---
-
-func newTestLocalStore() *agentlocal.LocalStore {
-	return agentlocal.NewLocalStore()
-}
-
 // --- Tests for handleRequest dispatch ---
 
 func TestLocalHandler_HandleRequest(t *testing.T) {

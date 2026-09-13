@@ -593,7 +593,7 @@ func TestHandlerAliasAgentMethods(t *testing.T) {
 	svcCtx := &svc.ServiceContext{RegistryStore: store}
 	h := NewHandler(NewService(svcCtx))
 
-	store.UpsertAgent(&registry.AgentSession{
+	_ = store.UpsertAgent(&registry.AgentSession{
 		AgentID:   "agent-1",
 		Addr:      "localhost:1001",
 		GameID:    "game1",
@@ -1069,7 +1069,7 @@ func TestOpsNodesHandlerWithAgents(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	store := registry.NewStore()
-	store.UpsertAgent(&registry.AgentSession{
+	_ = store.UpsertAgent(&registry.AgentSession{
 		AgentID:   "node-1",
 		Addr:      "localhost:2001",
 		GameID:    "game1",
@@ -1112,7 +1112,7 @@ func TestOpsAgentMetaWithRegistry(t *testing.T) {
 
 	ctx := context.Background()
 	store := registry.NewStore()
-	store.UpsertAgent(&registry.AgentSession{
+	_ = store.UpsertAgent(&registry.AgentSession{
 		AgentID:   "agent-1",
 		Addr:      "localhost:1001",
 		GameID:    "game1",
@@ -1138,7 +1138,7 @@ func TestOpsNodeMetaWithRegistry(t *testing.T) {
 
 	ctx := context.Background()
 	store := registry.NewStore()
-	store.UpsertAgent(&registry.AgentSession{
+	_ = store.UpsertAgent(&registry.AgentSession{
 		AgentID:   "node-1",
 		Addr:      "localhost:2001",
 		GameID:    "game1",
@@ -1224,7 +1224,7 @@ func TestOpsAgentSystemInfoResponseStructure(t *testing.T) {
 
 	ctx := context.Background()
 	store := registry.NewStore()
-	store.UpsertAgent(&registry.AgentSession{
+	_ = store.UpsertAgent(&registry.AgentSession{
 		AgentID:   "agent-1",
 		Addr:      "localhost:1001",
 		GameID:    "game1",
@@ -1249,7 +1249,7 @@ func TestOpsAgentSystemInfoEmptyLabels(t *testing.T) {
 
 	ctx := context.Background()
 	store := registry.NewStore()
-	store.UpsertAgent(&registry.AgentSession{
+	_ = store.UpsertAgent(&registry.AgentSession{
 		AgentID:   "agent-1",
 		Addr:      "localhost:1001",
 		GameID:    "game1",
@@ -1337,7 +1337,7 @@ func TestOpsAgentSystemInfoHandlerFound(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	store := registry.NewStore()
-	store.UpsertAgent(&registry.AgentSession{
+	_ = store.UpsertAgent(&registry.AgentSession{
 		AgentID:   "agent-1",
 		Addr:      "localhost:1001",
 		GameID:    "game1",
@@ -1364,7 +1364,7 @@ func TestOpsAgentMetaHandlerFound(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	store := registry.NewStore()
-	store.UpsertAgent(&registry.AgentSession{
+	_ = store.UpsertAgent(&registry.AgentSession{
 		AgentID:   "agent-1",
 		Addr:      "localhost:1001",
 		GameID:    "game1",
@@ -1391,7 +1391,7 @@ func TestOpsNodeMetaHandlerFound(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	store := registry.NewStore()
-	store.UpsertAgent(&registry.AgentSession{
+	_ = store.UpsertAgent(&registry.AgentSession{
 		AgentID:   "node-1",
 		Addr:      "localhost:2001",
 		GameID:    "game1",
@@ -1475,7 +1475,7 @@ func TestOpsAgentsListMultiple(t *testing.T) {
 
 	// Add multiple agents
 	for i := 1; i <= 3; i++ {
-		store.UpsertAgent(&registry.AgentSession{
+		_ = store.UpsertAgent(&registry.AgentSession{
 			AgentID:   fmt.Sprintf("agent-%d", i),
 			Addr:      fmt.Sprintf("localhost:100%d", i),
 			GameID:    "game1",
@@ -1503,7 +1503,7 @@ func TestOpsNodesMultiple(t *testing.T) {
 
 	// Add multiple agents as nodes
 	for i := 1; i <= 5; i++ {
-		store.UpsertAgent(&registry.AgentSession{
+		_ = store.UpsertAgent(&registry.AgentSession{
 			AgentID:   fmt.Sprintf("node-%d", i),
 			Addr:      fmt.Sprintf("localhost:200%d", i),
 			GameID:    "game1",
@@ -1529,7 +1529,7 @@ func TestOpsFunctionsMultiple(t *testing.T) {
 	svcCtx := &svc.ServiceContext{RegistryStore: store}
 
 	// Agent 1 has func1 and func2
-	store.UpsertAgent(&registry.AgentSession{
+	_ = store.UpsertAgent(&registry.AgentSession{
 		AgentID: "agent-1",
 		Addr:    "localhost:1001",
 		GameID:  "game1",
@@ -1542,7 +1542,7 @@ func TestOpsFunctionsMultiple(t *testing.T) {
 	})
 
 	// Agent 2 has func1 and func3
-	store.UpsertAgent(&registry.AgentSession{
+	_ = store.UpsertAgent(&registry.AgentSession{
 		AgentID: "agent-2",
 		Addr:    "localhost:1002",
 		GameID:  "game1",
@@ -1568,7 +1568,7 @@ func TestOpsAgentSystemInfoHandlerPOST(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	store := registry.NewStore()
-	store.UpsertAgent(&registry.AgentSession{
+	_ = store.UpsertAgent(&registry.AgentSession{
 		AgentID:   "agent-1",
 		Addr:      "localhost:1001",
 		GameID:    "game1",
@@ -1594,7 +1594,7 @@ func TestOpsAgentMetaHandlerGET(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	store := registry.NewStore()
-	store.UpsertAgent(&registry.AgentSession{
+	_ = store.UpsertAgent(&registry.AgentSession{
 		AgentID:   "agent-1",
 		Addr:      "localhost:1001",
 		GameID:    "game1",
@@ -1620,7 +1620,7 @@ func TestOpsNodeMetaHandlerGET(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	store := registry.NewStore()
-	store.UpsertAgent(&registry.AgentSession{
+	_ = store.UpsertAgent(&registry.AgentSession{
 		AgentID:   "node-1",
 		Addr:      "localhost:2001",
 		GameID:    "game1",
@@ -1677,7 +1677,7 @@ func TestOpsAgentsListHandlerGET(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	store := registry.NewStore()
-	store.UpsertAgent(&registry.AgentSession{
+	_ = store.UpsertAgent(&registry.AgentSession{
 		AgentID:   "agent-1",
 		Addr:      "localhost:1001",
 		GameID:    "game1",

@@ -56,7 +56,7 @@ export default function useAssignmentsPage() {
   const [gameId, setGameId] = useState<string | undefined>(
     localStorage.getItem('game_id') || undefined,
   );
-  const [env, setEnv] = useState<string | undefined>(localStorage.getItem('env') || undefined);
+  const [, setEnv] = useState<string | undefined>(localStorage.getItem('env') || undefined);
   const [selected, setSelected] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [editingAssignment, setEditingAssignment] = useState<AssignmentItem | null>(null);
@@ -103,7 +103,7 @@ export default function useAssignmentsPage() {
     } finally {
       setLoading(false);
     }
-  }, [env, gameId]);
+  }, [gameId]);
 
   useEffect(() => {
     load().catch(() => {});
@@ -147,7 +147,7 @@ export default function useAssignmentsPage() {
     } finally {
       setLoading(false);
     }
-  }, [env, gameId, intl, load, message, selected]);
+  }, [gameId, intl, load, message, selected]);
 
   const onBatchAssign = useCallback(
     (resource: string, assign: boolean) => {
@@ -238,7 +238,7 @@ export default function useAssignmentsPage() {
       }
       setHistoryVisible(true);
     },
-    [env, gameId, historyActionFilter, historyPage, historyPageSize],
+    [historyActionFilter, historyPage, historyPageSize],
   );
 
   const columns = useMemo(

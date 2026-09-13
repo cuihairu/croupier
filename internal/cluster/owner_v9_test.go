@@ -51,7 +51,7 @@ func TestDBOwnerResolverForSelfV9(t *testing.T) {
 	assert.Equal(t, "game-3", g)
 	assert.Equal(t, "staging", e)
 
-	g, e, ok = r.SelfOwnerScope(ctx, "ghost")
+	_, _, ok = r.SelfOwnerScope(ctx, "ghost")
 	assert.False(t, ok)
 }
 

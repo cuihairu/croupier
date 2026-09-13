@@ -26,7 +26,7 @@ func TestOpenReadOnlyGorm_SQLiteFailures(t *testing.T) {
 		db, err := openReadOnlyGorm("sqlite", path)
 		if db != nil {
 			sqlDB, _ := db.DB()
-			defer sqlDB.Close()
+			defer func() { _ = sqlDB.Close() }()
 		}
 		_ = err
 	})

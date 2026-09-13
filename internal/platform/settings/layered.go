@@ -152,11 +152,6 @@ func IsValidKey(key string) bool {
 	return ok
 }
 
-type source struct {
-	name   string // diagnostics: "default"|"config"|"database"
-	values map[string]json.RawMessage
-}
-
 // Layered resolves configuration values across the three layers.
 // The DB store loads asynchronously; until it loads, reads fail open to L2
 // (same philosophy as feature flags).

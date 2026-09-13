@@ -125,7 +125,7 @@ func TestFlushBatchEmptyEarlyReturnV9(t *testing.T) {
 
 func TestFlushBatchExecErrorV9(t *testing.T) {
 	client := redis.NewClient(&redis.Options{Addr: "127.0.0.1:1"})
-	defer client.Close()
+	defer func() { _ = client.Close() }()
 	b := &AnalyticsBridge{
 		enabled:        true,
 		logger:         slog.Default(),

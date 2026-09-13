@@ -390,7 +390,7 @@ func TestBuildPlayerNil(t *testing.T) {
 
 func TestBuildNode(t *testing.T) {
 	resources := datatypes.JSONMap{}
-	resources.UnmarshalJSON([]byte(`{"cpu": "80%", "memory": "4GB"}`))
+	_ = resources.UnmarshalJSON([]byte(`{"cpu": "80%", "memory": "4GB"}`))
 
 	node := &model.Node{
 		NodeID:    "node-1",

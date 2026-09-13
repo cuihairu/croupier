@@ -56,7 +56,7 @@ func setupOpenAPITestServiceWithAudit(t *testing.T, permissions ...string) (*Ser
 	}
 
 	store := registry.NewStore()
-	store.UpsertAgent(&registry.AgentSession{
+	_ = store.UpsertAgent(&registry.AgentSession{
 		AgentID: "agent-1",
 		GameID:  "demo-game",
 		Env:     "development",
@@ -1230,7 +1230,7 @@ func TestService_GetDocument(t *testing.T) {
 		OperationID: "testOperation",
 		Summary:     "Test operation",
 	}
-	service.svcCtx.RegistryStore.UpsertOpenAPI("testOperation", op)
+	_ = service.svcCtx.RegistryStore.UpsertOpenAPI("testOperation", op)
 
 	resp := service.GetDocument(context.Background(), &GetDocumentRequest{})
 	assert.NotNil(t, resp.Spec)
@@ -1244,8 +1244,8 @@ func TestService_BatchGetSpec_MultipleIDs(t *testing.T) {
 	// Add operations
 	op1 := &openapi3.Operation{OperationID: "func1", Summary: "Function 1"}
 	op2 := &openapi3.Operation{OperationID: "func2", Summary: "Function 2"}
-	service.svcCtx.RegistryStore.UpsertOpenAPI("func1", op1)
-	service.svcCtx.RegistryStore.UpsertOpenAPI("func2", op2)
+	_ = service.svcCtx.RegistryStore.UpsertOpenAPI("func1", op1)
+	_ = service.svcCtx.RegistryStore.UpsertOpenAPI("func2", op2)
 
 	resp := service.BatchGetSpec(context.Background(), &BatchGetSpecRequest{
 		FunctionIDs: []string{"func1", "func2", "player.list"},
@@ -1469,7 +1469,7 @@ func TestHasRegisteredFunction_WithRegistryStore(t *testing.T) {
 	require.NoError(t, err)
 
 	store := registry.NewStore()
-	store.UpsertAgent(&registry.AgentSession{
+	_ = store.UpsertAgent(&registry.AgentSession{
 		AgentID: "agent-1",
 		Functions: map[string]registry.FunctionMeta{
 			"test.func": {Enabled: true},

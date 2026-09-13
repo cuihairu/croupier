@@ -162,8 +162,8 @@ func TestService_Upsert_ValdationBranches(t *testing.T) {
 	}{
 		{"empty name", &RateLimitUpsertRequest{Name: " ", Resource: "function", Limit: 1, Window: 1, Action: "reject"}, "名称不能为空"},
 		{"empty resource", &RateLimitUpsertRequest{Name: "n", Resource: " ", Limit: 1, Window: 1, Action: "reject"}, "资源类型不能为空"},
-		{"zero limit", &RateLimitUpsertRequest{Name: "n", Resource: "function", Limit: 0, Window: 1, Action: "reject"}, "Limit"},
-		{"zero window", &RateLimitUpsertRequest{Name: "n", Resource: "function", Limit: 1, Window: 0, Action: "reject"}, "Window"},
+		{"zero limit", &RateLimitUpsertRequest{Name: "n", Resource: "function", Limit: 0, Window: 1, Action: "reject"}, "limit 必须大于0"},
+		{"zero window", &RateLimitUpsertRequest{Name: "n", Resource: "function", Limit: 1, Window: 0, Action: "reject"}, "window 必须大于0"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

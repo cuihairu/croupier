@@ -2168,8 +2168,8 @@ func TestOpenDatabase_PostgresNoDSN(t *testing.T) {
 	t.Parallel()
 
 	// Clear env vars that might override config
-	os.Unsetenv("DB_DRIVER")
-	os.Unsetenv("DATABASE_URL")
+	_ = os.Unsetenv("DB_DRIVER")
+	_ = os.Unsetenv("DATABASE_URL")
 
 	cfg := config.Config{
 		Database: config.DatabaseConfig{
@@ -2187,8 +2187,8 @@ func TestOpenDatabase_MySQLNoDSN(t *testing.T) {
 	t.Parallel()
 
 	// Clear env vars that might override config
-	os.Unsetenv("DB_DRIVER")
-	os.Unsetenv("DATABASE_URL")
+	_ = os.Unsetenv("DB_DRIVER")
+	_ = os.Unsetenv("DATABASE_URL")
 
 	cfg := config.Config{
 		Database: config.DatabaseConfig{
@@ -2206,8 +2206,8 @@ func TestOpenDatabase_SQLServerNoDSN(t *testing.T) {
 	t.Parallel()
 
 	// Clear env vars that might override config
-	os.Unsetenv("DB_DRIVER")
-	os.Unsetenv("DATABASE_URL")
+	_ = os.Unsetenv("DB_DRIVER")
+	_ = os.Unsetenv("DATABASE_URL")
 
 	cfg := config.Config{
 		Database: config.DatabaseConfig{
@@ -2225,8 +2225,8 @@ func TestOpenDatabase_UnsupportedDriver(t *testing.T) {
 	t.Parallel()
 
 	// Clear env vars that might override config
-	os.Unsetenv("DB_DRIVER")
-	os.Unsetenv("DATABASE_URL")
+	_ = os.Unsetenv("DB_DRIVER")
+	_ = os.Unsetenv("DATABASE_URL")
 
 	cfg := config.Config{
 		Database: config.DatabaseConfig{
@@ -2263,7 +2263,7 @@ func TestOpenDatabase_SQLite(t *testing.T) {
 	assert.NoError(t, sqlDB.Ping())
 
 	// Close the database to allow cleanup
-	sqlDB.Close()
+	_ = sqlDB.Close()
 }
 
 func TestOpenDatabase_Auto(t *testing.T) {

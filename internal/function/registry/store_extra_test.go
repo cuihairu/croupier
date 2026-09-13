@@ -41,7 +41,7 @@ func TestStore_ListByResource_EmptyResource(t *testing.T) {
 	store := NewStore()
 
 	// Register some functions
-	store.Register(ctx, &functionv1.FunctionMetadata{
+	_ = store.Register(ctx, &functionv1.FunctionMetadata{
 		Id:       "func1",
 		Resource: "test",
 		Behavior: &functionv1.FunctionBehavior{Mode: functionv1.FunctionBehavior_MODE_QUERY},
@@ -146,7 +146,7 @@ func TestStore_Exists_Found(t *testing.T) {
 	ctx := context.Background()
 	store := NewStore()
 
-	store.Register(ctx, &functionv1.FunctionMetadata{
+	_ = store.Register(ctx, &functionv1.FunctionMetadata{
 		Id:       "test.func",
 		Resource: "test",
 		Behavior: &functionv1.FunctionBehavior{Mode: functionv1.FunctionBehavior_MODE_QUERY},
@@ -203,7 +203,7 @@ func TestStore_GetCreatedAt_Found(t *testing.T) {
 	ctx := context.Background()
 	store := NewStore()
 
-	store.Register(ctx, &functionv1.FunctionMetadata{
+	_ = store.Register(ctx, &functionv1.FunctionMetadata{
 		Id:       "test.func",
 		Resource: "test",
 		Behavior: &functionv1.FunctionBehavior{Mode: functionv1.FunctionBehavior_MODE_QUERY},
@@ -237,7 +237,7 @@ func TestStore_GetUpdatedAt_Found(t *testing.T) {
 	ctx := context.Background()
 	store := NewStore()
 
-	store.Register(ctx, &functionv1.FunctionMetadata{
+	_ = store.Register(ctx, &functionv1.FunctionMetadata{
 		Id:       "test.func",
 		Resource: "test",
 		Behavior: &functionv1.FunctionBehavior{Mode: functionv1.FunctionBehavior_MODE_QUERY},
@@ -253,7 +253,7 @@ func TestStore_Filter_ByRiskLevel(t *testing.T) {
 	ctx := context.Background()
 	store := NewStore()
 
-	store.RegisterBatch(ctx, []*functionv1.FunctionMetadata{
+	_ = store.RegisterBatch(ctx, []*functionv1.FunctionMetadata{
 		{
 			Id:       "func.low",
 			Resource: "test",
@@ -282,7 +282,7 @@ func TestStore_Filter_ByTag(t *testing.T) {
 	ctx := context.Background()
 	store := NewStore()
 
-	store.RegisterBatch(ctx, []*functionv1.FunctionMetadata{
+	_ = store.RegisterBatch(ctx, []*functionv1.FunctionMetadata{
 		{
 			Id:       "func1",
 			Resource: "test",
@@ -312,7 +312,7 @@ func TestStore_Filter_WithPageSize(t *testing.T) {
 	ctx := context.Background()
 	store := NewStore()
 
-	store.RegisterBatch(ctx, []*functionv1.FunctionMetadata{
+	_ = store.RegisterBatch(ctx, []*functionv1.FunctionMetadata{
 		{
 			Id:       "func1",
 			Resource: "test",
@@ -345,7 +345,7 @@ func TestStore_Filter_EmptyFilter(t *testing.T) {
 	ctx := context.Background()
 	store := NewStore()
 
-	store.RegisterBatch(ctx, []*functionv1.FunctionMetadata{
+	_ = store.RegisterBatch(ctx, []*functionv1.FunctionMetadata{
 		{
 			Id:       "func1",
 			Resource: "test",

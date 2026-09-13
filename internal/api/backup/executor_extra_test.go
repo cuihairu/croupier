@@ -102,7 +102,7 @@ func TestService_Create_AsyncRunSucceeds(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, resp)
 
-	waitBackupStatus(t, env, resp.Backup.Id, "succeeded")
+	waitBackupStatus(t, env, resp.Id, "succeeded")
 }
 
 func TestService_Create_AsyncRunFails(t *testing.T) {
@@ -112,7 +112,7 @@ func TestService_Create_AsyncRunFails(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, resp)
 
-	waitBackupStatus(t, env, resp.Backup.Id, "failed")
+	waitBackupStatus(t, env, resp.Id, "failed")
 }
 
 func injectBackupCallback(t *testing.T, db *gorm.DB, op string) {

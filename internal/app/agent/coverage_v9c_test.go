@@ -306,7 +306,7 @@ providers:
 
 func TestProviderManagerInitProvider_InitFailureV9(t *testing.T) {
 	m := NewProviderManager(agentlocal.NewLocalStore(), t.TempDir(), nil)
-	defer m.Close()
+	defer func() { _ = m.Close() }()
 
 	// timeout 非法导致 openapi provider Init 失败；SyncExtensionProviders 记录错误并跳过。
 	require.NoError(t, m.SyncExtensionProviders(context.Background(), map[string]ProviderEntry{

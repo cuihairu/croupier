@@ -136,9 +136,7 @@ func (s *ossStore) List(_ context.Context, prefix, marker, delimiter string, lim
 	}
 
 	// 处理前缀（目录）
-	for _, prefix := range lor.CommonPrefixes {
-		result.Prefixes = append(result.Prefixes, prefix)
-	}
+	result.Prefixes = append(result.Prefixes, lor.CommonPrefixes...)
 
 	// 处理对象
 	for _, obj := range lor.Objects {

@@ -295,7 +295,7 @@ func TestControlService_GetStats(t *testing.T) {
 		AgentID: "agent-1",
 		GameID:  "game-1",
 	}
-	svc.registry.UpsertAgent(agent)
+	_ = svc.registry.UpsertAgent(agent)
 
 	stats := svc.GetStats()
 	assert.Equal(t, 1, stats["agent_count"])
@@ -646,7 +646,7 @@ func TestControlService_HandleHeartbeatRequest(t *testing.T) {
 			ExpireAt: time.Now().Add(5 * time.Minute),
 			LastSeen: time.Now().Add(-1 * time.Minute),
 		}
-		svc.registry.UpsertAgent(agent)
+		_ = svc.registry.UpsertAgent(agent)
 
 		req := &agentv1.HeartbeatRequest{
 			AgentId: "agent-1",
@@ -1739,7 +1739,7 @@ func TestControlService_HandleHeartbeatRequest_WithLoader(t *testing.T) {
 			ExpireAt: time.Now().Add(5 * time.Minute),
 			LastSeen: time.Now().Add(-1 * time.Minute),
 		}
-		svc.registry.UpsertAgent(agent)
+		_ = svc.registry.UpsertAgent(agent)
 
 		req := &agentv1.HeartbeatRequest{
 			AgentId: "agent-1",
@@ -2049,7 +2049,7 @@ func TestDescriptorUnknownFieldsAndSemverFallback(t *testing.T) {
 func TestNewTCPListener_NilConfigDefaults(t *testing.T) {
 	listener, err := NewTCPListener(nil, nil, nil, nil)
 	require.NoError(t, err)
-	defer listener.Close()
+	defer func() { _ = listener.Close() }()
 	assert.NotNil(t, listener)
 }
 

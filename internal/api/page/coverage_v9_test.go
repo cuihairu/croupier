@@ -240,7 +240,7 @@ func TestProposalReplacementForDraftByKeyV9(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "prop:bykey", repl.ProposalKey)
 	assert.Equal(t, 1, repl.ProposalVersion)
-	assert.Equal(t, "bykey.page", repl.PageSpec.PageKey)
+	assert.Equal(t, "bykey.page", repl.PageKey)
 }
 
 func TestProposalReplacementForDraftRejectedStatusV9(t *testing.T) {

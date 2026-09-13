@@ -85,7 +85,7 @@ func certXAppendRSACA(caFile string) {
 			certXRSACA.err = err
 			return
 		}
-		defer f.Close()
+		defer func() { _ = f.Close() }()
 		if _, err := f.WriteString(string(pemCert(der))); err != nil {
 			certXRSACA.err = err
 			return
@@ -185,7 +185,7 @@ func TestStore_CheckCertificate_ExpiredBranch_V9(t *testing.T) {
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	require.NoError(t, err)
 	srv := &http.Server{Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}), TLSConfig: tlsCfg}
-	go srv.ServeTLS(ln, "", "")
+	go func() { _ = srv.ServeTLS(ln, "", "") }()
 	t.Cleanup(func() { _ = srv.Close() })
 
 	_, portStr, err := net.SplitHostPort(ln.Addr().String())

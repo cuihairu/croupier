@@ -97,8 +97,8 @@ func TestRedisSourceListSkipEdgeKeysV9(t *testing.T) {
 	mr := miniredis.RunT(t)
 	ctx := context.Background()
 	// key 恰好等于 base（rest == ""）
-	mr.Set("cfg:", "x")
-	mr.Set("cfg:gameplay/item", "1")
+	_ = mr.Set("cfg:", "x")
+	_ = mr.Set("cfg:gameplay/item", "1")
 
 	src, err := New(testBinding("redis", fmt.Sprintf(`{"addr":"%s","prefix":"cfg:"}`, mr.Addr())))
 	require.NoError(t, err)

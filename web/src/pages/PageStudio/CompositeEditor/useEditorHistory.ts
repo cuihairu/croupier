@@ -49,22 +49,25 @@ export function useEditorHistory({
   }, []);
 
   /** 撤销/重做后按存活节点集清理选择状态（防悬空选中/多选/弹窗编辑态）。 */
-  const pruneSelection = useCallback((nodes: PageNode[]) => {
-    const alive = new Set<string>();
-    const walkIds = (list: PageNode[]) => {
-      for (const n of list) {
-        alive.add(n.id);
-        if (n.children) walkIds(n.children);
-      }
-    };
-    walkIds(nodes);
-    setSelectedId((cur) => (cur && alive.has(cur) ? cur : null));
-    setMultiIds((prev) => {
-      const next = new Set([...prev].filter((id) => alive.has(id)));
-      return next.size === prev.size ? prev : next;
-    });
-    setEditingModalId((cur) => (cur && !alive.has(cur) ? null : cur));
-  }, []);
+  const pruneSelection = useCallback(
+    (nodes: PageNode[]) => {
+      const alive = new Set<string>();
+      const walkIds = (list: PageNode[]) => {
+        for (const n of list) {
+          alive.add(n.id);
+          if (n.children) walkIds(n.children);
+        }
+      };
+      walkIds(nodes);
+      setSelectedId((cur) => (cur && alive.has(cur) ? cur : null));
+      setMultiIds((prev) => {
+        const next = new Set([...prev].filter((id) => alive.has(id)));
+        return next.size === prev.size ? prev : next;
+      });
+      setEditingModalId((cur) => (cur && !alive.has(cur) ? null : cur));
+    },
+    [setEditingModalId, setMultiIds, setSelectedId],
+  );
 
   const undo = useCallback(() => {
     if (past.length === 0) return;
@@ -75,7 +78,7 @@ export function useEditorHistory({
     setTreeState(prev);
     treeRef.current = prev;
     pruneSelection(prev);
-  }, [past.length, past, pruneSelection]);
+  }, [past, pruneSelection]);
 
   const redo = useCallback(() => {
     if (future.length === 0) return;
@@ -86,7 +89,7 @@ export function useEditorHistory({
     setTreeState(next);
     treeRef.current = next;
     pruneSelection(next);
-  }, [future.length, future, pruneSelection]);
+  }, [future, pruneSelection]);
 
   // 快捷键：Ctrl/Cmd+Z 撤销、Ctrl/Cmd+Shift+Z / Ctrl+Y 重做
   useEffect(() => {

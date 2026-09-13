@@ -204,7 +204,7 @@ func TestRunRegisterCallFailure(t *testing.T) {
 	if err != nil {
 		t.Fatalf("listen: %v", err)
 	}
-	defer ln.Close()
+	defer func() { _ = ln.Close() }()
 	go func() {
 		for {
 			conn, acceptErr := ln.Accept()
@@ -278,7 +278,7 @@ func TestRunSuccessWithDefaultsAndHeartbeat(t *testing.T) {
 	if err != nil {
 		t.Fatalf("new client: %v", err)
 	}
-	defer client.Close()
+	defer func() { _ = client.Close() }()
 
 	hbCtx, hbCancel := context.WithCancel(context.Background())
 	hbDone := make(chan error, 1)

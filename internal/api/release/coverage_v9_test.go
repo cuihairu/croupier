@@ -42,21 +42,21 @@ func v9TableOf(tx *gorm.DB) string {
 // v9FailQueryOn makes queries touching table fail from the from-th hit (1-based).
 func v9FailQueryOn(db *gorm.DB, table string, from int) {
 	var hits int
-	db.Callback().Query().Before("gorm:query").Register("v9_fail_query_"+table, func(tx *gorm.DB) {
+	_ = db.Callback().Query().Before("gorm:query").Register("v9_fail_query_"+table, func(tx *gorm.DB) {
 		if v9TableOf(tx) != table {
 			return
 		}
 		hits++
 		if hits >= from {
-			tx.AddError(errors.New("v9 forced query error on " + table))
+			_ = tx.AddError(errors.New("v9 forced query error on " + table))
 		}
 	})
 }
 
 func v9FailCreateOn(db *gorm.DB, table string) {
-	db.Callback().Create().Before("gorm:create").Register("v9_fail_create_"+table, func(tx *gorm.DB) {
+	_ = db.Callback().Create().Before("gorm:create").Register("v9_fail_create_"+table, func(tx *gorm.DB) {
 		if v9TableOf(tx) == table {
-			tx.AddError(errors.New("v9 forced create error on " + table))
+			_ = tx.AddError(errors.New("v9 forced create error on " + table))
 		}
 	})
 }
@@ -64,7 +64,7 @@ func v9FailCreateOn(db *gorm.DB, table string) {
 // v9FailUpdateOn fails updates on table; when destKey != "" only updates whose
 // destination map contains that key fail (distinguishes column updates).
 func v9FailUpdateOn(db *gorm.DB, table, destKey string) {
-	db.Callback().Update().Before("gorm:update").Register("v9_fail_update_"+table+"_"+destKey, func(tx *gorm.DB) {
+	_ = db.Callback().Update().Before("gorm:update").Register("v9_fail_update_"+table+"_"+destKey, func(tx *gorm.DB) {
 		if v9TableOf(tx) != table {
 			return
 		}
@@ -74,7 +74,7 @@ func v9FailUpdateOn(db *gorm.DB, table, destKey string) {
 				return
 			}
 		}
-		tx.AddError(errors.New("v9 forced update error on " + table))
+		_ = tx.AddError(errors.New("v9 forced update error on " + table))
 	})
 }
 
@@ -267,7 +267,7 @@ func TestV9TransitionArchiveAction(t *testing.T) {
 
 	resp, err := f.svc.Transition(t.Context(), &ReleaseTransitionRequest{ID: uitoa(rel.ID), Action: "archive"})
 	require.NoError(t, err)
-	assert.Equal(t, model.ReleaseStatusArchived, resp.Release.Status)
+	assert.Equal(t, model.ReleaseStatusArchived, resp.Status)
 }
 
 func TestV9HandlerTransitionSuccess(t *testing.T) {

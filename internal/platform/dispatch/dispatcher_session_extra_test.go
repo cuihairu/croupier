@@ -287,7 +287,7 @@ func TestDispatcher_CancelTask_CallErrorKeepsRegistration(t *testing.T) {
 
 func TestDispatcher_InvokeRequest_HASelectsHealthyAgent(t *testing.T) {
 	d := NewDispatcherWithHA(nil, nil, nil, true, StrategyMinID, nil)
-	defer d.Close()
+	defer func() { _ = d.Close() }()
 	registerTestAgent(t, d, "agent-ha")
 
 	caller := &fakeSessionCaller{respBody: mustMarshal(t, &sdkv1.InvokeResponse{Payload: []byte("ha")})}
@@ -302,7 +302,7 @@ func TestDispatcher_InvokeRequest_HASelectsHealthyAgent(t *testing.T) {
 
 func TestDispatcher_InvokeRequest_HARejectsUnavailableAgents(t *testing.T) {
 	d := NewDispatcherWithHA(nil, nil, nil, true, StrategyMinID, nil)
-	defer d.Close()
+	defer func() { _ = d.Close() }()
 	registerTestAgent(t, d, "agent-sick")
 
 	// Drive the circuit breaker open so every candidate becomes unavailable.

@@ -30,7 +30,7 @@ func TestLoad(t *testing.T) {
 	}
 
 	data, _ := json.Marshal(testUsers)
-	os.WriteFile(testFile, data, 0644)
+	_ = os.WriteFile(testFile, data, 0644)
 
 	// 加载存储
 	store, err := Load(testFile)
@@ -54,7 +54,7 @@ func TestLoad_EmptyFile(t *testing.T) {
 
 	// 创建空数组
 	data := []byte("[]")
-	os.WriteFile(testFile, data, 0644)
+	_ = os.WriteFile(testFile, data, 0644)
 
 	store, err := Load(testFile)
 	if err != nil {
@@ -83,7 +83,7 @@ func TestLoad_InvalidJSON(t *testing.T) {
 	testFile := filepath.Join(tempDir, "users.json")
 
 	// 写入无效 JSON
-	os.WriteFile(testFile, []byte("{invalid json"), 0644)
+	_ = os.WriteFile(testFile, []byte("{invalid json"), 0644)
 
 	_, err := Load(testFile)
 	if err == nil {
@@ -207,7 +207,7 @@ func TestLoad_WithComplexUser(t *testing.T) {
 	}
 
 	data, _ := json.Marshal(testUsers)
-	os.WriteFile(testFile, data, 0644)
+	_ = os.WriteFile(testFile, data, 0644)
 
 	store, err := Load(testFile)
 	if err != nil {
@@ -318,11 +318,11 @@ func BenchmarkLoad(b *testing.B) {
 	}
 
 	data, _ := json.Marshal(testUsers)
-	os.WriteFile(testFile, data, 0644)
+	_ = os.WriteFile(testFile, data, 0644)
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		Load(testFile)
+		_, _ = Load(testFile)
 	}
 }
 
@@ -363,7 +363,7 @@ func BenchmarkVerify(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		store.Verify("testuser", "testpassword")
+		_, _ = store.Verify("testuser", "testpassword")
 	}
 }
 
@@ -380,7 +380,7 @@ func TestLoad_DuplicateUsernames(t *testing.T) {
 	}
 
 	data, _ := json.Marshal(testUsers)
-	os.WriteFile(testFile, data, 0644)
+	_ = os.WriteFile(testFile, data, 0644)
 
 	store, err := Load(testFile)
 	if err != nil {

@@ -859,8 +859,11 @@ func operationToVerbs(operation string) []string {
 }
 
 func (c *UpstreamClient) composeLabels() map[string]string {
+	if c == nil {
+		return nil
+	}
 	base := cloneLabels(c.labels)
-	if c == nil || c.dynamicLabels == nil {
+	if c.dynamicLabels == nil {
 		return base
 	}
 	dynamic := c.dynamicLabels()

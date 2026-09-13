@@ -12,7 +12,7 @@ import (
 // TestMetricsRegistry_Add tests Add method for counters
 func TestMetricsRegistry_Add(t *testing.T) {
 	registry := NewMetricsRegistry()
-	registry.Register(MetricDefinition{
+	_ = registry.Register(MetricDefinition{
 		Name:   "test_counter",
 		Type:   "counter",
 		Help:   "A test counter",
@@ -31,7 +31,7 @@ func TestMetricsRegistry_Add(t *testing.T) {
 // TestMetricsRegistry_Set tests Set method for gauges
 func TestMetricsRegistry_Set(t *testing.T) {
 	registry := NewMetricsRegistry()
-	registry.Register(MetricDefinition{
+	_ = registry.Register(MetricDefinition{
 		Name:   "test_gauge",
 		Type:   "gauge",
 		Help:   "A test gauge",
@@ -50,7 +50,7 @@ func TestMetricsRegistry_Set(t *testing.T) {
 // TestMetricsRegistry_GaugeInc tests GaugeInc method
 func TestMetricsRegistry_GaugeInc(t *testing.T) {
 	registry := NewMetricsRegistry()
-	registry.Register(MetricDefinition{
+	_ = registry.Register(MetricDefinition{
 		Name:   "active_connections",
 		Type:   "gauge",
 		Help:   "Active connections",
@@ -72,7 +72,7 @@ func TestMetricsRegistry_GaugeInc(t *testing.T) {
 // TestMetricsRegistry_GaugeDec tests GaugeDec method
 func TestMetricsRegistry_GaugeDec(t *testing.T) {
 	registry := NewMetricsRegistry()
-	registry.Register(MetricDefinition{
+	_ = registry.Register(MetricDefinition{
 		Name:   "queue_size",
 		Type:   "gauge",
 		Help:   "Queue size",
@@ -94,7 +94,7 @@ func TestMetricsRegistry_GaugeDec(t *testing.T) {
 // TestMetricsRegistry_Observe tests Observe method for histograms
 func TestMetricsRegistry_Observe(t *testing.T) {
 	registry := NewMetricsRegistry()
-	registry.Register(MetricDefinition{
+	_ = registry.Register(MetricDefinition{
 		Name:   "request_duration",
 		Type:   "histogram",
 		Help:   "Request duration",
@@ -117,13 +117,13 @@ func TestMetricsRegistry_Collect(t *testing.T) {
 	registry := NewMetricsRegistry()
 
 	// Register multiple metrics
-	registry.Register(MetricDefinition{
+	_ = registry.Register(MetricDefinition{
 		Name:   "counter1",
 		Type:   "counter",
 		Help:   "Counter 1",
 		Labels: []string{},
 	})
-	registry.Register(MetricDefinition{
+	_ = registry.Register(MetricDefinition{
 		Name:   "gauge1",
 		Type:   "gauge",
 		Help:   "Gauge 1",
@@ -145,7 +145,7 @@ func TestMetricsRegistry_Collect(t *testing.T) {
 // TestMetricsRegistry_ExportPrometheus tests ExportPrometheus method
 func TestMetricsRegistry_ExportPrometheus(t *testing.T) {
 	registry := NewMetricsRegistry()
-	registry.Register(MetricDefinition{
+	_ = registry.Register(MetricDefinition{
 		Name:   "test_metric",
 		Type:   "counter",
 		Help:   "A test metric for Prometheus export",

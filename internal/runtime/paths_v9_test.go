@@ -17,7 +17,7 @@ func TestDefaultBootstrapDataDir_DeletedWorkdir(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer os.Chdir(originalWd)
+	defer func() { _ = os.Chdir(originalWd) }()
 
 	// 进入一个随即被删除的目录：os.Getwd() 将返回 ENOENT。
 	tmpDir := t.TempDir()

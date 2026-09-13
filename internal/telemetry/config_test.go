@@ -51,8 +51,8 @@ func TestLookupEnv(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			if tt.setValue != "" {
-				os.Setenv(tt.key, tt.setValue)
-				defer os.Unsetenv(tt.key)
+				_ = os.Setenv(tt.key, tt.setValue)
+				defer func() { _ = os.Unsetenv(tt.key) }()
 			}
 			value, exists := lookupEnv(tt.key)
 			if exists != tt.wantExists {
@@ -66,19 +66,19 @@ func TestLookupEnv(t *testing.T) {
 }
 
 func TestMergeEnv_OverlaysConfig(t *testing.T) {
-	os.Setenv("OTEL_ENABLED", "true")
-	os.Setenv("OTEL_SERVICE_NAME", "test-service")
-	os.Setenv("OTEL_SERVICE_VERSION", "1.0.0")
-	os.Setenv("OTEL_ENVIRONMENT", "test")
-	os.Setenv("OTEL_EXPORTER_OTLP_ENDPOINT", "http://localhost:4317")
-	os.Setenv("GAME_ID", "test-game")
+	_ = os.Setenv("OTEL_ENABLED", "true")
+	_ = os.Setenv("OTEL_SERVICE_NAME", "test-service")
+	_ = os.Setenv("OTEL_SERVICE_VERSION", "1.0.0")
+	_ = os.Setenv("OTEL_ENVIRONMENT", "test")
+	_ = os.Setenv("OTEL_EXPORTER_OTLP_ENDPOINT", "http://localhost:4317")
+	_ = os.Setenv("GAME_ID", "test-game")
 	defer func() {
-		os.Unsetenv("OTEL_ENABLED")
-		os.Unsetenv("OTEL_SERVICE_NAME")
-		os.Unsetenv("OTEL_SERVICE_VERSION")
-		os.Unsetenv("OTEL_ENVIRONMENT")
-		os.Unsetenv("OTEL_EXPORTER_OTLP_ENDPOINT")
-		os.Unsetenv("GAME_ID")
+		_ = os.Unsetenv("OTEL_ENABLED")
+		_ = os.Unsetenv("OTEL_SERVICE_NAME")
+		_ = os.Unsetenv("OTEL_SERVICE_VERSION")
+		_ = os.Unsetenv("OTEL_ENVIRONMENT")
+		_ = os.Unsetenv("OTEL_EXPORTER_OTLP_ENDPOINT")
+		_ = os.Unsetenv("GAME_ID")
 	}()
 
 	config := TelemetryConfig{
@@ -107,8 +107,8 @@ func TestMergeEnv_OverlaysConfig(t *testing.T) {
 }
 
 func TestMergeEnv_EnablesTracing(t *testing.T) {
-	os.Setenv("OTEL_ENABLE_TRACING", "true")
-	defer os.Unsetenv("OTEL_ENABLE_TRACING")
+	_ = os.Setenv("OTEL_ENABLE_TRACING", "true")
+	defer func() { _ = os.Unsetenv("OTEL_ENABLE_TRACING") }()
 
 	config := TelemetryConfig{Enabled: false}
 	result := MergeEnv(config)
@@ -122,8 +122,8 @@ func TestMergeEnv_EnablesTracing(t *testing.T) {
 }
 
 func TestMergeEnv_EnablesMetrics(t *testing.T) {
-	os.Setenv("OTEL_ENABLE_METRICS", "1")
-	defer os.Unsetenv("OTEL_ENABLE_METRICS")
+	_ = os.Setenv("OTEL_ENABLE_METRICS", "1")
+	defer func() { _ = os.Unsetenv("OTEL_ENABLE_METRICS") }()
 
 	config := TelemetryConfig{Enabled: false}
 	result := MergeEnv(config)
@@ -137,21 +137,21 @@ func TestMergeEnv_EnablesMetrics(t *testing.T) {
 }
 
 func TestMergeEnv_Analytics(t *testing.T) {
-	os.Setenv("ANALYTICS_BRIDGE_ENABLED", "true")
-	os.Setenv("ANALYTICS_REDIS_ADDR", "localhost:6379")
-	os.Setenv("ANALYTICS_REDIS_PASSWORD", "secret")
-	os.Setenv("ANALYTICS_REDIS_DB", "1")
-	os.Setenv("ANALYTICS_TOPIC_PREFIX", "test:")
-	os.Setenv("ANALYTICS_RETENTION_HOURS", "24")
-	os.Setenv("ANALYTICS_BATCH_SIZE", "100")
+	_ = os.Setenv("ANALYTICS_BRIDGE_ENABLED", "true")
+	_ = os.Setenv("ANALYTICS_REDIS_ADDR", "localhost:6379")
+	_ = os.Setenv("ANALYTICS_REDIS_PASSWORD", "secret")
+	_ = os.Setenv("ANALYTICS_REDIS_DB", "1")
+	_ = os.Setenv("ANALYTICS_TOPIC_PREFIX", "test:")
+	_ = os.Setenv("ANALYTICS_RETENTION_HOURS", "24")
+	_ = os.Setenv("ANALYTICS_BATCH_SIZE", "100")
 	defer func() {
-		os.Unsetenv("ANALYTICS_BRIDGE_ENABLED")
-		os.Unsetenv("ANALYTICS_REDIS_ADDR")
-		os.Unsetenv("ANALYTICS_REDIS_PASSWORD")
-		os.Unsetenv("ANALYTICS_REDIS_DB")
-		os.Unsetenv("ANALYTICS_TOPIC_PREFIX")
-		os.Unsetenv("ANALYTICS_RETENTION_HOURS")
-		os.Unsetenv("ANALYTICS_BATCH_SIZE")
+		_ = os.Unsetenv("ANALYTICS_BRIDGE_ENABLED")
+		_ = os.Unsetenv("ANALYTICS_REDIS_ADDR")
+		_ = os.Unsetenv("ANALYTICS_REDIS_PASSWORD")
+		_ = os.Unsetenv("ANALYTICS_REDIS_DB")
+		_ = os.Unsetenv("ANALYTICS_TOPIC_PREFIX")
+		_ = os.Unsetenv("ANALYTICS_RETENTION_HOURS")
+		_ = os.Unsetenv("ANALYTICS_BATCH_SIZE")
 	}()
 
 	config := TelemetryConfig{Enabled: false}
@@ -184,8 +184,8 @@ func TestMergeEnv_Analytics(t *testing.T) {
 }
 
 func TestMergeEnv_CroputierEnabled(t *testing.T) {
-	os.Setenv("CROUPIER_TELEMETRY_ENABLED", "yes")
-	defer os.Unsetenv("CROUPIER_TELEMETRY_ENABLED")
+	_ = os.Setenv("CROUPIER_TELEMETRY_ENABLED", "yes")
+	defer func() { _ = os.Unsetenv("CROUPIER_TELEMETRY_ENABLED") }()
 
 	config := TelemetryConfig{Enabled: false}
 	result := MergeEnv(config)

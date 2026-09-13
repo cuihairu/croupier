@@ -79,7 +79,7 @@ func TestHandler_Get_Success(t *testing.T) {
 
 	store := approvals.NewMemStore()
 	approval := &approvals.Approval{ID: "test-1", State: "pending", Actor: "tester"}
-	store.Create(approval)
+	_, _ = store.Create(approval)
 
 	service := NewService(&svc.ServiceContext{ApprovalsStore: store})
 	handler := NewHandler(service)
@@ -136,7 +136,7 @@ func TestHandler_Approve_Success(t *testing.T) {
 
 	store := approvals.NewMemStore()
 	approval := &approvals.Approval{ID: "test-approve-1", State: "pending", Actor: "tester"}
-	store.Create(approval)
+	_, _ = store.Create(approval)
 
 	service := NewService(&svc.ServiceContext{ApprovalsStore: store})
 	handler := NewHandler(service)
@@ -176,7 +176,7 @@ func TestHandler_Reject_Success(t *testing.T) {
 
 	store := approvals.NewMemStore()
 	approval := &approvals.Approval{ID: "test-reject-1", State: "pending", Actor: "tester"}
-	store.Create(approval)
+	_, _ = store.Create(approval)
 
 	service := NewService(&svc.ServiceContext{ApprovalsStore: store})
 	handler := NewHandler(service)
@@ -735,7 +735,7 @@ func TestHandler_Get_WithPayload(t *testing.T) {
 		Actor:   "tester",
 		Payload: []byte(`{"key":"value","nested":{"a":1}}`),
 	}
-	store.Create(approval)
+	_, _ = store.Create(approval)
 
 	service := NewService(&svc.ServiceContext{ApprovalsStore: store})
 	handler := NewHandler(service)
@@ -758,14 +758,14 @@ func TestService_Get_WithValidStore(t *testing.T) {
 		State: "pending",
 		Actor: "tester",
 	}
-	store.Create(approval)
+	_, _ = store.Create(approval)
 
 	service := NewService(&svc.ServiceContext{ApprovalsStore: store})
 
 	resp, err := service.Get(context.Background(), &ApprovalGetRequest{ID: "test-valid"})
 	assert.NoError(t, err)
 	assert.NotNil(t, resp)
-	assert.Equal(t, "test-valid", resp.Approval.ID)
+	assert.Equal(t, "test-valid", resp.ID)
 }
 
 func TestService_Approve_WithValidStore(t *testing.T) {
@@ -775,7 +775,7 @@ func TestService_Approve_WithValidStore(t *testing.T) {
 		State: "pending",
 		Actor: "tester",
 	}
-	store.Create(approval)
+	_, _ = store.Create(approval)
 
 	service := NewService(&svc.ServiceContext{ApprovalsStore: store})
 
@@ -793,7 +793,7 @@ func TestService_Reject_WithValidStore(t *testing.T) {
 		State: "pending",
 		Actor: "tester",
 	}
-	store.Create(approval)
+	_, _ = store.Create(approval)
 
 	service := NewService(&svc.ServiceContext{ApprovalsStore: store})
 

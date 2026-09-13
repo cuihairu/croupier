@@ -41,7 +41,7 @@ func TestNewTCPListener(t *testing.T) {
 		assert.NotNil(t, listener.closing)
 
 		// Clean up
-		listener.Close()
+		_ = listener.Close()
 	})
 
 	t.Run("with nil config", func(t *testing.T) {
@@ -56,7 +56,7 @@ func TestNewTCPListener(t *testing.T) {
 		require.NoError(t, err)
 		assert.NotNil(t, listener)
 
-		listener.Close()
+		_ = listener.Close()
 	})
 
 	t.Run("with custom session store", func(t *testing.T) {
@@ -70,7 +70,7 @@ func TestNewTCPListener(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, store, listener.sessionStore)
 
-		listener.Close()
+		_ = listener.Close()
 	})
 
 	t.Run("with custom registry", func(t *testing.T) {
@@ -84,7 +84,7 @@ func TestNewTCPListener(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, reg, listener.registry)
 
-		listener.Close()
+		_ = listener.Close()
 	})
 
 	t.Run("with custom logger", func(t *testing.T) {
@@ -98,7 +98,7 @@ func TestNewTCPListener(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, logger, listener.logger)
 
-		listener.Close()
+		_ = listener.Close()
 	})
 
 	t.Run("with invalid TLS config", func(t *testing.T) {
@@ -124,7 +124,7 @@ func TestTCPListener_SetHandler(t *testing.T) {
 
 	listener, err := NewTCPListener(config, nil, nil, nil)
 	require.NoError(t, err)
-	defer listener.Close()
+	defer func() { _ = listener.Close() }()
 
 	handler := newTestControlService()
 	listener.SetHandler(handler)
@@ -141,7 +141,7 @@ func TestTCPListener_Addr(t *testing.T) {
 
 		listener, err := NewTCPListener(config, nil, nil, nil)
 		require.NoError(t, err)
-		defer listener.Close()
+		defer func() { _ = listener.Close() }()
 
 		addr := listener.Addr()
 		assert.NotEmpty(t, addr)
@@ -162,7 +162,7 @@ func TestTCPListener_SessionStore(t *testing.T) {
 
 	listener, err := NewTCPListener(config, nil, nil, nil)
 	require.NoError(t, err)
-	defer listener.Close()
+	defer func() { _ = listener.Close() }()
 
 	store := listener.SessionStore()
 	assert.NotNil(t, store)
@@ -214,7 +214,7 @@ func TestTCPListener_IsClosed(t *testing.T) {
 
 	assert.False(t, listener.IsClosed())
 
-	listener.Close()
+	_ = listener.Close()
 	assert.True(t, listener.IsClosed())
 }
 
@@ -340,7 +340,7 @@ func TestListenTCP(t *testing.T) {
 		require.NoError(t, err)
 		assert.NotNil(t, ln)
 
-		ln.Close()
+		_ = ln.Close()
 	})
 
 	t.Run("default address", func(t *testing.T) {
@@ -403,11 +403,11 @@ func TestTCPListener_Integration(t *testing.T) {
 		// Connect to the listener
 		conn, err := net.Dial("tcp", listener.Addr())
 		require.NoError(t, err)
-		conn.Close()
+		_ = conn.Close()
 
 		// Cancel context and close listener
 		cancel()
-		listener.Close()
+		_ = listener.Close()
 
 		// Wait for serve to return
 		select {
@@ -433,7 +433,7 @@ func TestAgentSessionHandler_Handle(t *testing.T) {
 
 		listener, err := NewTCPListener(config, nil, nil, nil)
 		require.NoError(t, err)
-		defer listener.Close()
+		defer func() { _ = listener.Close() }()
 
 		svc := newTestControlService()
 		listener.SetHandler(svc)
@@ -464,7 +464,7 @@ func TestAgentSessionHandler_Handle(t *testing.T) {
 
 		listener, err := NewTCPListener(config, nil, nil, nil)
 		require.NoError(t, err)
-		defer listener.Close()
+		defer func() { _ = listener.Close() }()
 
 		svc := newTestControlService()
 		listener.SetHandler(svc)
@@ -494,7 +494,7 @@ func TestAgentSessionHandler_Handle(t *testing.T) {
 
 		listener, err := NewTCPListener(config, nil, nil, nil)
 		require.NoError(t, err)
-		defer listener.Close()
+		defer func() { _ = listener.Close() }()
 
 		svc := newTestControlService()
 		listener.SetHandler(svc)
@@ -524,7 +524,7 @@ func TestAgentSessionHandler_Handle(t *testing.T) {
 
 		listener, err := NewTCPListener(config, nil, nil, nil)
 		require.NoError(t, err)
-		defer listener.Close()
+		defer func() { _ = listener.Close() }()
 
 		svc := newTestControlService()
 		listener.SetHandler(svc)
@@ -554,7 +554,7 @@ func TestAgentSessionHandler_Handle(t *testing.T) {
 
 		listener, err := NewTCPListener(config, nil, nil, nil)
 		require.NoError(t, err)
-		defer listener.Close()
+		defer func() { _ = listener.Close() }()
 
 		svc := newTestControlService()
 		listener.SetHandler(svc)
@@ -585,7 +585,7 @@ func TestAgentSessionHandler_Handle(t *testing.T) {
 
 		listener, err := NewTCPListener(config, nil, nil, nil)
 		require.NoError(t, err)
-		defer listener.Close()
+		defer func() { _ = listener.Close() }()
 
 		svc := newTestControlService()
 		listener.SetHandler(svc)
@@ -616,7 +616,7 @@ func TestAgentSessionHandler_Handle(t *testing.T) {
 
 		listener, err := NewTCPListener(config, nil, nil, nil)
 		require.NoError(t, err)
-		defer listener.Close()
+		defer func() { _ = listener.Close() }()
 
 		svc := newTestControlService()
 		listener.SetHandler(svc)
@@ -642,7 +642,7 @@ func TestAgentSessionHandler_Handle(t *testing.T) {
 
 		listener, err := NewTCPListener(config, nil, nil, nil)
 		require.NoError(t, err)
-		defer listener.Close()
+		defer func() { _ = listener.Close() }()
 
 		handler := &agentSessionHandler{
 			listener:   listener,
@@ -666,7 +666,7 @@ func TestAgentSessionHandler_HandleRegister(t *testing.T) {
 
 		listener, err := NewTCPListener(config, nil, nil, nil)
 		require.NoError(t, err)
-		defer listener.Close()
+		defer func() { _ = listener.Close() }()
 
 		handler := &agentSessionHandler{
 			listener:   listener,
@@ -703,7 +703,7 @@ func TestAgentSessionHandler_HandleRegister(t *testing.T) {
 
 		listener, err := NewTCPListener(config, nil, nil, nil)
 		require.NoError(t, err)
-		defer listener.Close()
+		defer func() { _ = listener.Close() }()
 
 		handler := &agentSessionHandler{
 			listener: listener,
@@ -722,7 +722,7 @@ func TestAgentSessionHandler_HandleRegister(t *testing.T) {
 
 		listener, err := NewTCPListener(config, nil, nil, nil)
 		require.NoError(t, err)
-		defer listener.Close()
+		defer func() { _ = listener.Close() }()
 
 		handler := &agentSessionHandler{
 			listener: listener,
@@ -747,7 +747,7 @@ func TestAgentSessionHandler_HandleRegister(t *testing.T) {
 
 		listener, err := NewTCPListener(config, nil, nil, nil)
 		require.NoError(t, err)
-		defer listener.Close()
+		defer func() { _ = listener.Close() }()
 
 		handler := &agentSessionHandler{
 			listener: listener,
@@ -782,7 +782,7 @@ func TestAgentSessionHandler_HandleHeartbeat(t *testing.T) {
 
 		listener, err := NewTCPListener(config, nil, nil, nil)
 		require.NoError(t, err)
-		defer listener.Close()
+		defer func() { _ = listener.Close() }()
 
 		// Add a session first
 		sess := &AgentSession{
@@ -813,7 +813,7 @@ func TestAgentSessionHandler_HandleHeartbeat(t *testing.T) {
 
 		listener, err := NewTCPListener(config, nil, nil, nil)
 		require.NoError(t, err)
-		defer listener.Close()
+		defer func() { _ = listener.Close() }()
 
 		handler := &agentSessionHandler{
 			listener: listener,
@@ -837,7 +837,7 @@ func TestAgentSessionHandler_HandleHeartbeat(t *testing.T) {
 
 		listener, err := NewTCPListener(config, nil, nil, nil)
 		require.NoError(t, err)
-		defer listener.Close()
+		defer func() { _ = listener.Close() }()
 
 		handler := &agentSessionHandler{
 			listener: listener,
@@ -909,7 +909,7 @@ func TestAgentSessionHandler_HeartbeatTouchesClusterOwner(t *testing.T) {
 	config := &TCPListenerConfig{Address: ":0", Insecure: true}
 	listener, err := NewTCPListener(config, nil, nil, nil)
 	require.NoError(t, err)
-	defer listener.Close()
+	defer func() { _ = listener.Close() }()
 
 	svc := newTestControlService()
 	listener.SetHandler(svc)
@@ -979,7 +979,7 @@ func TestListenTCP_TLSBranches(t *testing.T) {
 		CertFile: certPath, KeyFile: keyPath, CAFile: caPath,
 	})
 	require.NoError(t, err)
-	ln.Close()
+	_ = ln.Close()
 
 	// 坏证书路径 → load server certificate 错误
 	_, err = listenTCP(&TCPListenerConfig{
@@ -1024,5 +1024,5 @@ func TestTCPListener_Serve_IdleTimeoutThenCancel(t *testing.T) {
 	case <-time.After(3 * time.Second):
 		t.Fatal("timeout waiting for serve to return")
 	}
-	listener.Close()
+	_ = listener.Close()
 }

@@ -173,8 +173,7 @@ func TestPlatformCollector_CollectConcurrent(t *testing.T) {
 // failingMonitoringService 经 serviceAPI 缝隙注入故障：三个端点必须以
 // 500 internal_error 响应并携带注入的错误消息。
 type failingMonitoringService struct {
-	method string
-	err    error
+	err error
 }
 
 func (f failingMonitoringService) Healthz(_ context.Context, _ *HealthzRequest) (*HealthzResponse, error) {

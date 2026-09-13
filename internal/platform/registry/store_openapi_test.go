@@ -74,8 +74,8 @@ func TestListOpenAPIOperations(t *testing.T) {
 		),
 	}
 
-	store.UpsertOpenAPI("func1", op1)
-	store.UpsertOpenAPI("func2", op2)
+	_ = store.UpsertOpenAPI("func1", op1)
+	_ = store.UpsertOpenAPI("func2", op2)
 
 	// List all
 	operations := store.ListOpenAPIOperations()
@@ -103,7 +103,7 @@ func TestDeleteOpenAPI(t *testing.T) {
 		),
 	}
 
-	store.UpsertOpenAPI("delete.me", op)
+	_ = store.UpsertOpenAPI("delete.me", op)
 
 	// Delete
 	err := store.DeleteOpenAPI("delete.me")
@@ -170,8 +170,8 @@ func TestBuildOpenAPISpec(t *testing.T) {
 		),
 	}
 
-	store.UpsertOpenAPI("func1", op1)
-	store.UpsertOpenAPI("func2", op2)
+	_ = store.UpsertOpenAPI("func1", op1)
+	_ = store.UpsertOpenAPI("func2", op2)
 
 	// Build spec
 	doc, err := store.BuildOpenAPISpec()

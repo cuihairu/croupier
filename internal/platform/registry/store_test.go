@@ -20,7 +20,7 @@ func TestStore_UpsertAgent(t *testing.T) {
 			Version: "1.0.0",
 		}
 
-		store.UpsertAgent(agent)
+		_ = store.UpsertAgent(agent)
 
 		retrieved := store.AgentsUnsafe()["agent-1"]
 		assert.NotNil(t, retrieved)
@@ -36,12 +36,12 @@ func TestStore_UpsertAgent(t *testing.T) {
 			Env:     "dev",
 		}
 
-		store.UpsertAgent(agent)
+		_ = store.UpsertAgent(agent)
 
 		// Update with new version
 		agent.Version = "2.0.0"
 		agent.Region = "us-west"
-		store.UpsertAgent(agent)
+		_ = store.UpsertAgent(agent)
 
 		retrieved := store.AgentsUnsafe()["agent-2"]
 		assert.Equal(t, "2.0.0", retrieved.Version)
@@ -55,7 +55,7 @@ func TestStore_UpsertAgent(t *testing.T) {
 			Env:     "test",
 			Addr:    "legacy-a",
 		}
-		store.UpsertAgent(agent)
+		_ = store.UpsertAgent(agent)
 
 		updated := &AgentSession{
 			AgentID: "agent-3",
@@ -63,7 +63,7 @@ func TestStore_UpsertAgent(t *testing.T) {
 			Env:     "test",
 			Addr:    "legacy-b",
 		}
-		store.UpsertAgent(updated)
+		_ = store.UpsertAgent(updated)
 
 		retrieved := store.AgentsUnsafe()["agent-3"]
 		assert.Equal(t, "legacy-b", retrieved.Addr)
@@ -96,8 +96,8 @@ func TestStore_OpenAPIOperations(t *testing.T) {
 		op1 := &openapi3.Operation{OperationID: "op1"}
 		op2 := &openapi3.Operation{OperationID: "op2"}
 
-		store.UpsertOpenAPI("op1", op1)
-		store.UpsertOpenAPI("op2", op2)
+		_ = store.UpsertOpenAPI("op1", op1)
+		_ = store.UpsertOpenAPI("op2", op2)
 
 		operations := store.ListOpenAPIOperations()
 		assert.Contains(t, operations, "op1")
@@ -106,7 +106,7 @@ func TestStore_OpenAPIOperations(t *testing.T) {
 
 	t.Run("delete operation", func(t *testing.T) {
 		op := &openapi3.Operation{OperationID: "to_delete"}
-		store.UpsertOpenAPI("to_delete", op)
+		_ = store.UpsertOpenAPI("to_delete", op)
 
 		err := store.DeleteOpenAPI("to_delete")
 		require.NoError(t, err)
@@ -145,8 +145,8 @@ func TestStore_OpenAPIProviders(t *testing.T) {
 		caps1 := OpenAPIProviderCaps{ID: "prov-test-1", Lang: "go"}
 		caps2 := OpenAPIProviderCaps{ID: "prov-test-2", Lang: "java"}
 
-		store.UpsertOpenAPIProvider(caps1)
-		store.UpsertOpenAPIProvider(caps2)
+		_ = store.UpsertOpenAPIProvider(caps1)
+		_ = store.UpsertOpenAPIProvider(caps2)
 
 		providers := store.ListOpenAPIProviders()
 
@@ -162,7 +162,7 @@ func TestStore_OpenAPIProviders(t *testing.T) {
 
 	t.Run("delete provider", func(t *testing.T) {
 		caps := OpenAPIProviderCaps{ID: "provider-to-delete"}
-		store.UpsertOpenAPIProvider(caps)
+		_ = store.UpsertOpenAPIProvider(caps)
 
 		err := store.DeleteOpenAPIProvider("provider-to-delete")
 		require.NoError(t, err)
@@ -185,8 +185,8 @@ func TestStore_BuildOpenAPISpec(t *testing.T) {
 			Summary:     "Kick player",
 		}
 
-		store.UpsertOpenAPI("player.ban", op1)
-		store.UpsertOpenAPI("player.kick", op2)
+		_ = store.UpsertOpenAPI("player.ban", op1)
+		_ = store.UpsertOpenAPI("player.kick", op2)
 
 		spec, err := store.BuildOpenAPISpec()
 		require.NoError(t, err)

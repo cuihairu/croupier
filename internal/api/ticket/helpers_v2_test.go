@@ -293,7 +293,7 @@ func TestService_Update_NoFields(t *testing.T) {
 		Category: "bug",
 	})
 	require.NoError(t, err)
-	idStr := fmt.Sprint(createResp.Ticket.Id)
+	idStr := fmt.Sprint(createResp.Id)
 
 	// Update with no fields
 	_, err = svc.Update(context.Background(), &UpdateRequest{ID: idStr})
@@ -311,7 +311,7 @@ func TestService_Update_WithFields(t *testing.T) {
 		Category: "bug",
 	})
 	require.NoError(t, err)
-	idStr := fmt.Sprint(createResp.Ticket.Id)
+	idStr := fmt.Sprint(createResp.Id)
 
 	resp, err := svc.Update(context.Background(), &UpdateRequest{
 		ID:       idStr,
@@ -323,11 +323,11 @@ func TestService_Update_WithFields(t *testing.T) {
 		Tags:     []string{"tag1"},
 	})
 	require.NoError(t, err)
-	assert.Equal(t, "New Title", resp.Ticket.Title)
-	assert.Equal(t, "New Content", resp.Ticket.Content)
-	assert.Equal(t, "feature", resp.Ticket.Category)
-	assert.Equal(t, "high", resp.Ticket.Priority)
-	assert.Equal(t, "alice", resp.Ticket.Assignee)
+	assert.Equal(t, "New Title", resp.Title)
+	assert.Equal(t, "New Content", resp.Content)
+	assert.Equal(t, "feature", resp.Category)
+	assert.Equal(t, "high", resp.Priority)
+	assert.Equal(t, "alice", resp.Assignee)
 }
 
 func TestService_Update_PartialFields(t *testing.T) {
@@ -340,7 +340,7 @@ func TestService_Update_PartialFields(t *testing.T) {
 		Category: "bug",
 	})
 	require.NoError(t, err)
-	idStr := fmt.Sprint(createResp.Ticket.Id)
+	idStr := fmt.Sprint(createResp.Id)
 
 	// Update only title
 	resp, err := svc.Update(context.Background(), &UpdateRequest{
@@ -348,8 +348,8 @@ func TestService_Update_PartialFields(t *testing.T) {
 		Title: "Updated",
 	})
 	require.NoError(t, err)
-	assert.Equal(t, "Updated", resp.Ticket.Title)
-	assert.Equal(t, "c", resp.Ticket.Content) // unchanged
+	assert.Equal(t, "Updated", resp.Title)
+	assert.Equal(t, "c", resp.Content) // unchanged
 }
 
 func TestService_Update_NotFound(t *testing.T) {
@@ -400,7 +400,7 @@ func TestService_CreateComment_EmptyContent(t *testing.T) {
 		Category: "bug",
 	})
 	require.NoError(t, err)
-	idStr := fmt.Sprint(createResp.Ticket.Id)
+	idStr := fmt.Sprint(createResp.Id)
 
 	_, err = svc.CreateComment(context.Background(), &CreateCommentRequest{
 		TicketID: idStr,
@@ -439,7 +439,7 @@ func TestService_Transition_EmptyStatus(t *testing.T) {
 		Category: "bug",
 	})
 	require.NoError(t, err)
-	idStr := fmt.Sprint(createResp.Ticket.Id)
+	idStr := fmt.Sprint(createResp.Id)
 
 	_, err = svc.Transition(context.Background(), &TransitionRequest{ID: idStr, Status: ""})
 	require.Error(t, err)
@@ -456,7 +456,7 @@ func TestService_Transition_InvalidStatus(t *testing.T) {
 		Category: "bug",
 	})
 	require.NoError(t, err)
-	idStr := fmt.Sprint(createResp.Ticket.Id)
+	idStr := fmt.Sprint(createResp.Id)
 
 	_, err = svc.Transition(context.Background(), &TransitionRequest{ID: idStr, Status: "bogus"})
 	require.Error(t, err)
@@ -473,7 +473,7 @@ func TestService_Transition_WithoutNote(t *testing.T) {
 		Category: "bug",
 	})
 	require.NoError(t, err)
-	idStr := fmt.Sprint(createResp.Ticket.Id)
+	idStr := fmt.Sprint(createResp.Id)
 
 	resp, err := svc.Transition(context.Background(), &TransitionRequest{
 		ID:     idStr,
@@ -481,7 +481,7 @@ func TestService_Transition_WithoutNote(t *testing.T) {
 		Note:   "", // empty note — no comment should be created
 	})
 	require.NoError(t, err)
-	assert.Equal(t, "in_progress", resp.Ticket.Status)
+	assert.Equal(t, "in_progress", resp.Status)
 }
 
 func TestService_List_WithFilters(t *testing.T) {
@@ -523,7 +523,7 @@ func TestService_Create_WithTags(t *testing.T) {
 	require.NoError(t, err)
 	// Verify the ticket was created successfully; tags round-trip through
 	// model.JSON/SQLite may not preserve the exact slice type.
-	assert.NotZero(t, resp.Ticket.Id)
+	assert.NotZero(t, resp.Id)
 }
 
 func TestService_CreateComment_Success(t *testing.T) {
@@ -535,7 +535,7 @@ func TestService_CreateComment_Success(t *testing.T) {
 		Category: "bug",
 	})
 	require.NoError(t, err)
-	idStr := fmt.Sprint(createResp.Ticket.Id)
+	idStr := fmt.Sprint(createResp.Id)
 
 	commentResp, err := svc.CreateComment(context.Background(), &CreateCommentRequest{
 		TicketID: idStr,
@@ -555,7 +555,7 @@ func TestService_GetComments_Success(t *testing.T) {
 		Category: "bug",
 	})
 	require.NoError(t, err)
-	idStr := fmt.Sprint(createResp.Ticket.Id)
+	idStr := fmt.Sprint(createResp.Id)
 
 	// Create a comment first
 	_, err = svc.CreateComment(context.Background(), &CreateCommentRequest{
@@ -583,7 +583,7 @@ func TestHandler_Update_Success(t *testing.T) {
 	require.Equal(t, http.StatusOK, createRec.Code)
 	var created CreateResponse
 	require.NoError(t, json.Unmarshal(createRec.Body.Bytes(), &created))
-	idStr := fmt.Sprint(created.Ticket.Id)
+	idStr := fmt.Sprint(created.Id)
 
 	// Update
 	updateBody := `{"title":"updated","content":"updated content","category":"feature","priority":"high","assignee":"alice","tags":["x"]}`
@@ -594,8 +594,8 @@ func TestHandler_Update_Success(t *testing.T) {
 	require.Equal(t, http.StatusOK, updateRec.Code, updateRec.Body.String())
 	var resp UpdateResponse
 	require.NoError(t, json.Unmarshal(updateRec.Body.Bytes(), &resp))
-	assert.Equal(t, "updated", resp.Ticket.Title)
-	assert.Equal(t, "updated content", resp.Ticket.Content)
+	assert.Equal(t, "updated", resp.Title)
+	assert.Equal(t, "updated content", resp.Content)
 }
 
 func TestHandler_Update_InvalidID(t *testing.T) {
@@ -629,7 +629,7 @@ func TestHandler_Update_NoFields(t *testing.T) {
 	require.Equal(t, http.StatusOK, createRec.Code)
 	var created CreateResponse
 	require.NoError(t, json.Unmarshal(createRec.Body.Bytes(), &created))
-	idStr := fmt.Sprint(created.Ticket.Id)
+	idStr := fmt.Sprint(created.Id)
 
 	// Update with empty body (no fields to update)
 	updateCtx, updateRec := newTicketRequest(http.MethodPut, "/api/v1/tickets/"+idStr, `{}`)
@@ -679,7 +679,7 @@ func TestHandler_CreateComment_EmptyContent(t *testing.T) {
 	require.Equal(t, http.StatusOK, createRec.Code)
 	var created CreateResponse
 	require.NoError(t, json.Unmarshal(createRec.Body.Bytes(), &created))
-	idStr := fmt.Sprint(created.Ticket.Id)
+	idStr := fmt.Sprint(created.Id)
 
 	// Create comment with empty content
 	commentCtx, commentRec := newTicketRequest(http.MethodPost, "/api/v1/tickets/"+idStr+"/comments",
@@ -700,7 +700,7 @@ func TestHandler_Transition_EmptyStatus(t *testing.T) {
 	require.Equal(t, http.StatusOK, createRec.Code)
 	var created CreateResponse
 	require.NoError(t, json.Unmarshal(createRec.Body.Bytes(), &created))
-	idStr := fmt.Sprint(created.Ticket.Id)
+	idStr := fmt.Sprint(created.Id)
 
 	ctx, rec := newTicketRequest(http.MethodPost, "/api/v1/tickets/"+idStr+"/transition",
 		fmt.Sprintf(`{"id":"%s","status":""}`, idStr))
@@ -742,7 +742,7 @@ func TestHandler_GetComments_Success(t *testing.T) {
 	require.Equal(t, http.StatusOK, createRec.Code)
 	var created CreateResponse
 	require.NoError(t, json.Unmarshal(createRec.Body.Bytes(), &created))
-	idStr := fmt.Sprint(created.Ticket.Id)
+	idStr := fmt.Sprint(created.Id)
 
 	// Get comments (empty)
 	getCtx, getRec := newTicketRequest(http.MethodGet, "/api/v1/tickets/"+idStr+"/comments", "")
@@ -765,7 +765,7 @@ func TestHandler_Update_WithOnlyTags(t *testing.T) {
 	require.Equal(t, http.StatusOK, createRec.Code)
 	var created CreateResponse
 	require.NoError(t, json.Unmarshal(createRec.Body.Bytes(), &created))
-	idStr := fmt.Sprint(created.Ticket.Id)
+	idStr := fmt.Sprint(created.Id)
 
 	// Update with only tags
 	updateBody := `{"tags":["newtag"]}`

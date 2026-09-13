@@ -530,7 +530,7 @@ func TestCloneLabels(t *testing.T) {
 			result := cloneLabels(tt.src)
 			assert.Equal(t, tt.expected, result)
 			// Verify it's a deep copy (not the same map)
-			if tt.src != nil && len(tt.src) > 0 {
+			if len(tt.src) > 0 {
 				result["new_key"] = "new_value"
 				assert.NotEqual(t, tt.src, result)
 			}

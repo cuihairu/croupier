@@ -53,7 +53,7 @@ func startFakeSMTPV9(t *testing.T, cfg fakeSMTPConfigV9) (host string, port int)
 }
 
 func handleFakeSMTPConnV9(conn net.Conn, cfg fakeSMTPConfigV9) {
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 	if cfg.immediateClose {
 		return
 	}

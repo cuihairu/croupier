@@ -12,7 +12,7 @@ import (
 // newTestServer creates a test HTTP server that returns the given response.
 func newTestServer(resp Response) *httptest.Server {
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		json.NewEncoder(w).Encode(resp)
+		_ = json.NewEncoder(w).Encode(resp)
 	}))
 }
 
@@ -102,9 +102,9 @@ func TestGetRoleInfo_WithAllParams(t *testing.T) {
 	var capturedForm url.Values
 	data := `{"total":0,"list":[]}`
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		r.ParseForm()
+		_ = r.ParseForm()
 		capturedForm = r.Form
-		json.NewEncoder(w).Encode(Response{Status: true, Data: json.RawMessage(data)})
+		_ = json.NewEncoder(w).Encode(Response{Status: true, Data: json.RawMessage(data)})
 	}))
 	defer srv.Close()
 
@@ -245,9 +245,9 @@ func TestGetAdReport(t *testing.T) {
 func TestGetAdReport_WithPlans(t *testing.T) {
 	var capturedForm url.Values
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		r.ParseForm()
+		_ = r.ParseForm()
 		capturedForm = r.Form
-		json.NewEncoder(w).Encode(Response{Status: true, Data: json.RawMessage(`[]`)})
+		_ = json.NewEncoder(w).Encode(Response{Status: true, Data: json.RawMessage(`[]`)})
 	}))
 	defer srv.Close()
 

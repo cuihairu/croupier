@@ -207,13 +207,13 @@ func TestRegistry_List(t *testing.T) {
 	reg := New()
 
 	// Register some functions
-	reg.Register(context.Background(), &functionv1.FunctionMetadata{
+	_ = reg.Register(context.Background(), &functionv1.FunctionMetadata{
 		Id:       "player.get",
 		Resource: "player",
 		Security: &functionv1.FunctionSecurity{},
 		Behavior: &functionv1.FunctionBehavior{},
 	})
-	reg.Register(context.Background(), &functionv1.FunctionMetadata{
+	_ = reg.Register(context.Background(), &functionv1.FunctionMetadata{
 		Id:       "game.create",
 		Resource: "game",
 		Security: &functionv1.FunctionSecurity{},
@@ -228,19 +228,19 @@ func TestRegistry_List(t *testing.T) {
 func TestRegistry_ListByResource(t *testing.T) {
 	reg := New()
 
-	reg.Register(context.Background(), &functionv1.FunctionMetadata{
+	_ = reg.Register(context.Background(), &functionv1.FunctionMetadata{
 		Id:       "player.get",
 		Resource: "player",
 		Security: &functionv1.FunctionSecurity{},
 		Behavior: &functionv1.FunctionBehavior{},
 	})
-	reg.Register(context.Background(), &functionv1.FunctionMetadata{
+	_ = reg.Register(context.Background(), &functionv1.FunctionMetadata{
 		Id:       "game.create",
 		Resource: "game",
 		Security: &functionv1.FunctionSecurity{},
 		Behavior: &functionv1.FunctionBehavior{},
 	})
-	reg.Register(context.Background(), &functionv1.FunctionMetadata{
+	_ = reg.Register(context.Background(), &functionv1.FunctionMetadata{
 		Id:       "player.update",
 		Resource: "player",
 		Security: &functionv1.FunctionSecurity{},
@@ -259,19 +259,19 @@ func TestRegistry_ListByResource(t *testing.T) {
 func TestRegistry_ListByTag(t *testing.T) {
 	reg := New()
 
-	reg.Register(context.Background(), &functionv1.FunctionMetadata{
+	_ = reg.Register(context.Background(), &functionv1.FunctionMetadata{
 		Id:       "player.get",
 		Tags:     []string{"read", "player"},
 		Security: &functionv1.FunctionSecurity{},
 		Behavior: &functionv1.FunctionBehavior{},
 	})
-	reg.Register(context.Background(), &functionv1.FunctionMetadata{
+	_ = reg.Register(context.Background(), &functionv1.FunctionMetadata{
 		Id:       "player.update",
 		Tags:     []string{"write", "player"},
 		Security: &functionv1.FunctionSecurity{},
 		Behavior: &functionv1.FunctionBehavior{},
 	})
-	reg.Register(context.Background(), &functionv1.FunctionMetadata{
+	_ = reg.Register(context.Background(), &functionv1.FunctionMetadata{
 		Id:       "game.create",
 		Tags:     []string{"write", "game"},
 		Security: &functionv1.FunctionSecurity{},
@@ -291,7 +291,7 @@ func TestRegistry_ListByTag(t *testing.T) {
 func TestRegistry_ListByRiskLevel(t *testing.T) {
 	reg := New()
 
-	reg.Register(context.Background(), &functionv1.FunctionMetadata{
+	_ = reg.Register(context.Background(), &functionv1.FunctionMetadata{
 		Id:   "player.get",
 		Name: "Get Player",
 		Security: &functionv1.FunctionSecurity{
@@ -299,7 +299,7 @@ func TestRegistry_ListByRiskLevel(t *testing.T) {
 		},
 		Behavior: &functionv1.FunctionBehavior{},
 	})
-	reg.Register(context.Background(), &functionv1.FunctionMetadata{
+	_ = reg.Register(context.Background(), &functionv1.FunctionMetadata{
 		Id:   "player.delete",
 		Name: "Delete Player",
 		Security: &functionv1.FunctionSecurity{
@@ -322,7 +322,7 @@ func TestRegistry_ListByRiskLevel(t *testing.T) {
 func TestRegistry_ListByMode(t *testing.T) {
 	reg := New()
 
-	reg.Register(context.Background(), &functionv1.FunctionMetadata{
+	_ = reg.Register(context.Background(), &functionv1.FunctionMetadata{
 		Id:   "player.get",
 		Name: "Get Player",
 		Behavior: &functionv1.FunctionBehavior{
@@ -330,7 +330,7 @@ func TestRegistry_ListByMode(t *testing.T) {
 		},
 		Security: &functionv1.FunctionSecurity{},
 	})
-	reg.Register(context.Background(), &functionv1.FunctionMetadata{
+	_ = reg.Register(context.Background(), &functionv1.FunctionMetadata{
 		Id:   "player.update",
 		Name: "Update Player",
 		Behavior: &functionv1.FunctionBehavior{
@@ -353,14 +353,14 @@ func TestRegistry_ListByMode(t *testing.T) {
 func TestRegistry_Filter(t *testing.T) {
 	reg := New()
 
-	reg.Register(context.Background(), &functionv1.FunctionMetadata{
+	_ = reg.Register(context.Background(), &functionv1.FunctionMetadata{
 		Id:       "player.get",
 		Resource: "player",
 		Tags:     []string{"read"},
 		Security: &functionv1.FunctionSecurity{RiskLevel: functionv1.FunctionSecurity_RISK_LEVEL_LOW},
 		Behavior: &functionv1.FunctionBehavior{Mode: functionv1.FunctionBehavior_MODE_QUERY},
 	})
-	reg.Register(context.Background(), &functionv1.FunctionMetadata{
+	_ = reg.Register(context.Background(), &functionv1.FunctionMetadata{
 		Id:       "player.update",
 		Resource: "player",
 		Tags:     []string{"write"},
@@ -419,7 +419,7 @@ func TestRegistry_Filter(t *testing.T) {
 func TestRegistry_Unregister(t *testing.T) {
 	reg := New()
 
-	reg.Register(context.Background(), &functionv1.FunctionMetadata{
+	_ = reg.Register(context.Background(), &functionv1.FunctionMetadata{
 		Id:       "player.get",
 		Name:     "Get Player",
 		Security: &functionv1.FunctionSecurity{},
@@ -442,7 +442,7 @@ func TestRegistry_Exists(t *testing.T) {
 
 	assert.False(t, reg.Exists(context.Background(), "nonexistent"))
 
-	reg.Register(context.Background(), &functionv1.FunctionMetadata{
+	_ = reg.Register(context.Background(), &functionv1.FunctionMetadata{
 		Id:       "player.get",
 		Name:     "Get Player",
 		Security: &functionv1.FunctionSecurity{},
@@ -457,7 +457,7 @@ func TestRegistry_Count(t *testing.T) {
 
 	assert.Equal(t, 0, reg.Count(context.Background()))
 
-	reg.Register(context.Background(), &functionv1.FunctionMetadata{
+	_ = reg.Register(context.Background(), &functionv1.FunctionMetadata{
 		Id:       "player.get",
 		Name:     "Get Player",
 		Security: &functionv1.FunctionSecurity{},
@@ -470,19 +470,19 @@ func TestRegistry_Count(t *testing.T) {
 func TestRegistry_GetResources(t *testing.T) {
 	reg := New()
 
-	reg.Register(context.Background(), &functionv1.FunctionMetadata{
+	_ = reg.Register(context.Background(), &functionv1.FunctionMetadata{
 		Id:       "player.get",
 		Resource: "player",
 		Security: &functionv1.FunctionSecurity{},
 		Behavior: &functionv1.FunctionBehavior{},
 	})
-	reg.Register(context.Background(), &functionv1.FunctionMetadata{
+	_ = reg.Register(context.Background(), &functionv1.FunctionMetadata{
 		Id:       "game.create",
 		Resource: "game",
 		Security: &functionv1.FunctionSecurity{},
 		Behavior: &functionv1.FunctionBehavior{},
 	})
-	reg.Register(context.Background(), &functionv1.FunctionMetadata{
+	_ = reg.Register(context.Background(), &functionv1.FunctionMetadata{
 		Id:       "player.update",
 		Resource: "player",
 		Security: &functionv1.FunctionSecurity{},
@@ -498,13 +498,13 @@ func TestRegistry_GetResources(t *testing.T) {
 func TestRegistry_GetTags(t *testing.T) {
 	reg := New()
 
-	reg.Register(context.Background(), &functionv1.FunctionMetadata{
+	_ = reg.Register(context.Background(), &functionv1.FunctionMetadata{
 		Id:       "player.get",
 		Tags:     []string{"read", "player"},
 		Security: &functionv1.FunctionSecurity{},
 		Behavior: &functionv1.FunctionBehavior{},
 	})
-	reg.Register(context.Background(), &functionv1.FunctionMetadata{
+	_ = reg.Register(context.Background(), &functionv1.FunctionMetadata{
 		Id:       "player.update",
 		Tags:     []string{"write", "player"},
 		Security: &functionv1.FunctionSecurity{},

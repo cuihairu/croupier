@@ -206,9 +206,8 @@ func TestListMethodsFoldCaseDedup_V8(t *testing.T) {
 // ---- installation bindings 发现路径 ----
 
 type v8InstallFixture struct {
-	db       *gorm.DB
-	service  *Service
-	injectFn func()
+	db      *gorm.DB
+	service *Service
 }
 
 func newV8InstallFixture(t *testing.T) *v8InstallFixture {

@@ -114,7 +114,18 @@ export function useCanvasDnd({
       // U7：跨模板边界悬空引用提示（插入完成后上报，编辑器弹重连 Modal）
       if (instantiated.dangling.length) onDanglingRefs?.(instantiated.dangling);
     },
-    [addChild, message, registerFn, allFns, setTree, onTemplateUsed, onDanglingRefs],
+    [
+      addChild,
+      message,
+      registerFn,
+      allFns,
+      setTree,
+      onTemplateUsed,
+      onDanglingRefs,
+      editingModalRef,
+      setSelectedId,
+      treeRef,
+    ],
   );
 
   const handleDragEnd = useCallback(
@@ -281,7 +292,19 @@ export function useCanvasDnd({
         return moved === prev ? prev : moved;
       });
     },
-    [addChild, intl, message, registerFn, allFns, applyTemplateInsert],
+    [
+      addChild,
+      intl,
+      message,
+      registerFn,
+      allFns,
+      applyTemplateInsert,
+      editingModalRef,
+      setInsertTpl,
+      setSelectedId,
+      setTree,
+      treeRef,
+    ],
   );
 
   return {

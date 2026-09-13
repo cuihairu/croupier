@@ -201,7 +201,7 @@ func TestLoadAll_NonExistentDir(t *testing.T) {
 		t.Logf("Expected error for non-existent directory: %v", err)
 	}
 
-	if descriptors != nil && len(descriptors) > 0 {
+	if len(descriptors) > 0 {
 		// 在某些情况下，即使目录不存在也可能返回空列表
 		t.Logf("Got %d descriptors for non-existent directory", len(descriptors))
 	}

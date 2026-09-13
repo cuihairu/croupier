@@ -59,9 +59,9 @@ func TestValidateTLS(t *testing.T) {
 	caFile := filepath.Join(tmpDir, "ca.pem")
 
 	// 创建空文件
-	os.WriteFile(certFile, []byte("cert"), 0644)
-	os.WriteFile(keyFile, []byte("key"), 0644)
-	os.WriteFile(caFile, []byte("ca"), 0644)
+	_ = os.WriteFile(certFile, []byte("cert"), 0644)
+	_ = os.WriteFile(keyFile, []byte("key"), 0644)
+	_ = os.WriteFile(caFile, []byte("ca"), 0644)
 
 	tests := []struct {
 		name    string
@@ -221,12 +221,12 @@ func TestValidateServerConfig(t *testing.T) {
 	caFile := filepath.Join(tmpDir, "ca.pem")
 
 	// 创建空文件（使用有效的 RBAC 和 users 格式）
-	os.WriteFile(rbacFile, []byte(`{"allow": {}}`), 0644)
-	os.WriteFile(usersFile, []byte(`[]`), 0644)
-	os.WriteFile(gamesFile, []byte("games: []"), 0644)
-	os.WriteFile(certFile, []byte("cert"), 0644)
-	os.WriteFile(keyFile, []byte("key"), 0644)
-	os.WriteFile(caFile, []byte("ca"), 0644)
+	_ = os.WriteFile(rbacFile, []byte(`{"allow": {}}`), 0644)
+	_ = os.WriteFile(usersFile, []byte(`[]`), 0644)
+	_ = os.WriteFile(gamesFile, []byte("games: []"), 0644)
+	_ = os.WriteFile(certFile, []byte("cert"), 0644)
+	_ = os.WriteFile(keyFile, []byte("key"), 0644)
+	_ = os.WriteFile(caFile, []byte("ca"), 0644)
 
 	tests := []struct {
 		name    string
@@ -331,9 +331,9 @@ func TestValidateAgentConfig(t *testing.T) {
 	keyFile := filepath.Join(tmpDir, "key.pem")
 	caFile := filepath.Join(tmpDir, "ca.pem")
 
-	os.WriteFile(certFile, []byte("cert"), 0644)
-	os.WriteFile(keyFile, []byte("key"), 0644)
-	os.WriteFile(caFile, []byte("ca"), 0644)
+	_ = os.WriteFile(certFile, []byte("cert"), 0644)
+	_ = os.WriteFile(keyFile, []byte("key"), 0644)
+	_ = os.WriteFile(caFile, []byte("ca"), 0644)
 
 	tests := []struct {
 		name    string

@@ -357,7 +357,7 @@ func TestOpenReadOnlyGormDefaultDSNV9(t *testing.T) {
 	require.NotNil(t, db)
 	sqlDB, err := db.DB()
 	require.NoError(t, err)
-	defer sqlDB.Close()
+	defer func() { _ = sqlDB.Close() }()
 
 	var n int
 	require.NoError(t, db.Raw("SELECT COUNT(1) FROM sqlite_master").Scan(&n).Error)

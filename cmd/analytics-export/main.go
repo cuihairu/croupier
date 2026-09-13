@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 
@@ -111,7 +110,7 @@ func main() {
 	if err := ensureDir(filepath.Dir(*out)); err != nil {
 		panic(err)
 	}
-	if err := ioutil.WriteFile(*out, b, 0o644); err != nil {
+	if err := os.WriteFile(*out, b, 0o644); err != nil {
 		panic(err)
 	}
 	fmt.Printf("wrote %s (size=%d)\n", *out, len(b))

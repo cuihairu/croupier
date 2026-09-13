@@ -98,7 +98,7 @@ func TestRegistry_Unregister(t *testing.T) {
 	provider := newMockProvider("to_unregister", true, []string{})
 	config := ProviderConfig{Enabled: true}
 
-	reg.Register(ctx, provider, config)
+	_ = reg.Register(ctx, provider, config)
 
 	err := reg.Unregister(ctx, "to_unregister")
 	if err != nil {
@@ -144,7 +144,7 @@ func TestRegistry_Get(t *testing.T) {
 	provider := newMockProvider("get_test", true, []string{})
 	config := ProviderConfig{Enabled: true}
 
-	reg.Register(ctx, provider, config)
+	_ = reg.Register(ctx, provider, config)
 
 	p, exists := reg.Get("get_test")
 	if !exists {
@@ -176,7 +176,7 @@ func TestRegistry_List(t *testing.T) {
 	for _, p := range providers {
 		provider := newMockProvider(p.name, p.enabled, p.methods)
 		config := ProviderConfig{Enabled: p.enabled}
-		reg.Register(ctx, provider, config)
+		_ = reg.Register(ctx, provider, config)
 	}
 
 	list := reg.List()
@@ -194,7 +194,7 @@ func TestRegistry_ListNames(t *testing.T) {
 	provider := newMockProvider("names_test", true, []string{})
 	config := ProviderConfig{Enabled: true}
 
-	reg.Register(ctx, provider, config)
+	_ = reg.Register(ctx, provider, config)
 
 	names := reg.ListNames()
 	if len(names) != 1 {
@@ -215,7 +215,7 @@ func TestRegistry_Call(t *testing.T) {
 	provider := newMockProvider("caller", true, []string{"test_method"})
 	config := ProviderConfig{Enabled: true}
 
-	reg.Register(ctx, provider, config)
+	_ = reg.Register(ctx, provider, config)
 
 	// 测试成功调用
 	result, err := reg.Call(ctx, "caller", "test_method", []byte(`{"test":true}`))
@@ -253,7 +253,7 @@ func TestRegistry_Call_ProviderDisabled(t *testing.T) {
 	provider := newMockProvider("disabled", false, []string{"method"})
 	config := ProviderConfig{Enabled: false}
 
-	reg.Register(ctx, provider, config)
+	_ = reg.Register(ctx, provider, config)
 
 	_, err := reg.Call(ctx, "disabled", "method", []byte{})
 	if err == nil {
@@ -274,7 +274,7 @@ func TestRegistry_Call_MethodNotSupported(t *testing.T) {
 	provider := newMockProvider("limited", true, []string{"supported_method"})
 	config := ProviderConfig{Enabled: true}
 
-	reg.Register(ctx, provider, config)
+	_ = reg.Register(ctx, provider, config)
 
 	_, err := reg.Call(ctx, "limited", "unsupported_method", []byte{})
 	if err == nil {
@@ -295,7 +295,7 @@ func TestRegistry_Close(t *testing.T) {
 	provider := newMockProvider("close_test", true, []string{})
 	config := ProviderConfig{Enabled: true}
 
-	reg.Register(ctx, provider, config)
+	_ = reg.Register(ctx, provider, config)
 
 	err := reg.Close()
 	if err != nil {
@@ -325,7 +325,7 @@ func TestRegistry_ConcurrentOperations(t *testing.T) {
 			name := "concurrent_" + string(rune('a'+idx))
 			provider := newMockProvider(name, true, []string{})
 			config := ProviderConfig{Enabled: true}
-			reg.Register(ctx, provider, config)
+			_ = reg.Register(ctx, provider, config)
 		}(i)
 	}
 
@@ -357,7 +357,7 @@ func TestRegistry_Call_EmptyRequest(t *testing.T) {
 	provider := newMockProvider("empty_req", true, []string{"test"})
 	config := ProviderConfig{Enabled: true}
 
-	reg.Register(ctx, provider, config)
+	_ = reg.Register(ctx, provider, config)
 
 	result, err := reg.Call(ctx, "empty_req", "test", []byte{})
 	if err != nil {

@@ -174,21 +174,21 @@ func TestAppError_WithMethods(t *testing.T) {
 	err := factory.New(ErrCodeInternal, "test-operation", errors.New("test cause"))
 
 	// 测试WithDetails
-	err.WithDetails("additional details")
+	_ = err.WithDetails("additional details")
 	assert.Equal(t, "additional details", err.Details)
 
 	// 测试WithContext
-	err.WithContext("user_id", 123)
+	_ = err.WithContext("user_id", 123)
 	assert.Equal(t, 123, err.Context["user_id"])
 
 	// 测试WithRetry
-	err.WithRetry(2*time.Second, 3)
+	_ = err.WithRetry(2*time.Second, 3)
 	assert.True(t, err.Retryable)
 	assert.Equal(t, 2*time.Second, err.RetryDelay)
 	assert.Equal(t, 3, err.RetryCount)
 
 	// 测试WithHTTPHeader
-	err.WithHTTPHeader("X-Custom", "value")
+	_ = err.WithHTTPHeader("X-Custom", "value")
 	assert.Equal(t, "value", err.HTTPHeaders["X-Custom"])
 }
 
@@ -202,7 +202,7 @@ func TestAppError_Error(t *testing.T) {
 	assert.Equal(t, expected, err.Error())
 
 	// 覆盖详细信息
-	err.WithDetails("additional details")
+	_ = err.WithDetails("additional details")
 	expected = "[INTERNAL_ERROR] test-operation: Internal server error - additional details"
 	assert.Equal(t, expected, err.Error())
 }
@@ -228,7 +228,7 @@ func TestAppError_ToJSON(t *testing.T) {
 	factory := NewErrorFactory("test-service")
 
 	err := factory.New(ErrCodeGameNotFound, "test-operation", nil)
-	err.WithDetails("test details").
+	_ = err.WithDetails("test details").
 		WithContext("user_id", 123).
 		WithRetry(1*time.Second, 2).
 		WithHTTPHeader("X-Custom", "value")

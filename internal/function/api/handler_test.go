@@ -43,7 +43,7 @@ func TestHandler_ListFunctions(t *testing.T) {
 	router, service := setupTestRouter()
 
 	// Register test functions
-	service.Register(testCtx(), &functionv1.FunctionMetadata{
+	_ = service.Register(testCtx(), &functionv1.FunctionMetadata{
 		Id:       "player.get",
 		Resource: "player",
 		Tags:     []string{"read"},
@@ -68,14 +68,14 @@ func TestHandler_ListFunctionsWithFilters(t *testing.T) {
 	router, service := setupTestRouter()
 
 	// Register test functions with different resources
-	service.Register(testCtx(), &functionv1.FunctionMetadata{
+	_ = service.Register(testCtx(), &functionv1.FunctionMetadata{
 		Id:       "player.get",
 		Resource: "player",
 		Tags:     []string{"read"},
 		Security: &functionv1.FunctionSecurity{RiskLevel: functionv1.FunctionSecurity_RISK_LEVEL_LOW},
 		Behavior: &functionv1.FunctionBehavior{Mode: functionv1.FunctionBehavior_MODE_QUERY},
 	})
-	service.Register(testCtx(), &functionv1.FunctionMetadata{
+	_ = service.Register(testCtx(), &functionv1.FunctionMetadata{
 		Id:       "game.create",
 		Resource: "game",
 		Tags:     []string{"write"},
@@ -90,7 +90,7 @@ func TestHandler_ListFunctionsWithFilters(t *testing.T) {
 
 	Equal(t, http.StatusOK, w.Code)
 	var resp ListFunctionsResponse
-	json.Unmarshal(w.Body.Bytes(), &resp)
+	_ = json.Unmarshal(w.Body.Bytes(), &resp)
 	Equal(t, 1, len(resp.Functions))
 	Equal(t, "player", resp.Functions[0].Resource)
 }
@@ -99,7 +99,7 @@ func TestHandler_GetFunction(t *testing.T) {
 	router, service := setupTestRouter()
 
 	// Register test function
-	service.Register(testCtx(), &functionv1.FunctionMetadata{
+	_ = service.Register(testCtx(), &functionv1.FunctionMetadata{
 		Id:       "player.ban",
 		Resource: "player",
 		Name:     "Ban Player",
@@ -114,7 +114,7 @@ func TestHandler_GetFunction(t *testing.T) {
 
 	Equal(t, http.StatusOK, w.Code)
 	var resp GetFunctionResponse
-	json.Unmarshal(w.Body.Bytes(), &resp)
+	_ = json.Unmarshal(w.Body.Bytes(), &resp)
 	Equal(t, "player.ban", resp.Function.ID)
 	Equal(t, "Ban Player", resp.Function.Name)
 }
@@ -151,7 +151,7 @@ func TestHandler_RegisterFunction(t *testing.T) {
 
 	Equal(t, http.StatusCreated, w.Code)
 	var resp RegisterFunctionResponse
-	json.Unmarshal(w.Body.Bytes(), &resp)
+	_ = json.Unmarshal(w.Body.Bytes(), &resp)
 	Equal(t, "player.kick", resp.Function.ID)
 	Equal(t, "Kick Player", resp.Function.Name)
 }
@@ -160,7 +160,7 @@ func TestHandler_DeleteFunction(t *testing.T) {
 	router, service := setupTestRouter()
 
 	// Register test function
-	service.Register(testCtx(), &functionv1.FunctionMetadata{
+	_ = service.Register(testCtx(), &functionv1.FunctionMetadata{
 		Id:       "player.warn",
 		Resource: "player",
 		Security: &functionv1.FunctionSecurity{RiskLevel: functionv1.FunctionSecurity_RISK_LEVEL_LOW},
@@ -190,13 +190,13 @@ func TestHandler_GetResources(t *testing.T) {
 	router, service := setupTestRouter()
 
 	// Register test functions
-	service.Register(testCtx(), &functionv1.FunctionMetadata{
+	_ = service.Register(testCtx(), &functionv1.FunctionMetadata{
 		Id:       "player.get",
 		Resource: "player",
 		Security: &functionv1.FunctionSecurity{RiskLevel: functionv1.FunctionSecurity_RISK_LEVEL_LOW},
 		Behavior: &functionv1.FunctionBehavior{Mode: functionv1.FunctionBehavior_MODE_QUERY},
 	})
-	service.Register(testCtx(), &functionv1.FunctionMetadata{
+	_ = service.Register(testCtx(), &functionv1.FunctionMetadata{
 		Id:       "game.create",
 		Resource: "game",
 		Security: &functionv1.FunctionSecurity{RiskLevel: functionv1.FunctionSecurity_RISK_LEVEL_HIGH},
@@ -210,7 +210,7 @@ func TestHandler_GetResources(t *testing.T) {
 
 	Equal(t, http.StatusOK, w.Code)
 	var resp map[string][]string
-	json.Unmarshal(w.Body.Bytes(), &resp)
+	_ = json.Unmarshal(w.Body.Bytes(), &resp)
 	Contains(t, resp["resources"], "player")
 	Contains(t, resp["resources"], "game")
 }
@@ -219,7 +219,7 @@ func TestHandler_GetTags(t *testing.T) {
 	router, service := setupTestRouter()
 
 	// Register test functions
-	service.Register(testCtx(), &functionv1.FunctionMetadata{
+	_ = service.Register(testCtx(), &functionv1.FunctionMetadata{
 		Id:       "player.get",
 		Resource: "player",
 		Tags:     []string{"read", "player"},
@@ -234,7 +234,7 @@ func TestHandler_GetTags(t *testing.T) {
 
 	Equal(t, http.StatusOK, w.Code)
 	var resp map[string][]string
-	json.Unmarshal(w.Body.Bytes(), &resp)
+	_ = json.Unmarshal(w.Body.Bytes(), &resp)
 	Contains(t, resp["tags"], "read")
 	Contains(t, resp["tags"], "player")
 }
@@ -273,7 +273,7 @@ func TestHandler_UpdateFunction(t *testing.T) {
 	router, service := setupTestRouter()
 
 	// Register test function
-	service.Register(testCtx(), &functionv1.FunctionMetadata{
+	_ = service.Register(testCtx(), &functionv1.FunctionMetadata{
 		Id:          "player.update",
 		Name:        "Update Player",
 		Description: "Update player info",
@@ -292,7 +292,7 @@ func TestHandler_UpdateFunction(t *testing.T) {
 	}
 	Equal(t, http.StatusOK, w.Code)
 	var resp UpdateFunctionResponse
-	json.Unmarshal(w.Body.Bytes(), &resp)
+	_ = json.Unmarshal(w.Body.Bytes(), &resp)
 	Equal(t, "Updated Player Name", resp.Function.Name)
 	Equal(t, "Updated description", resp.Function.Description)
 }
@@ -312,7 +312,7 @@ func TestHandler_UpdateFunctionNotFound(t *testing.T) {
 func TestHandler_UpdateFunctionWithBehavior(t *testing.T) {
 	router, service := setupTestRouter()
 
-	service.Register(testCtx(), &functionv1.FunctionMetadata{
+	_ = service.Register(testCtx(), &functionv1.FunctionMetadata{
 		Id:       "player.get",
 		Name:     "Get Player",
 		Security: &functionv1.FunctionSecurity{RiskLevel: functionv1.FunctionSecurity_RISK_LEVEL_LOW},
@@ -327,7 +327,7 @@ func TestHandler_UpdateFunctionWithBehavior(t *testing.T) {
 
 	Equal(t, http.StatusOK, w.Code)
 	var resp UpdateFunctionResponse
-	json.Unmarshal(w.Body.Bytes(), &resp)
+	_ = json.Unmarshal(w.Body.Bytes(), &resp)
 	Equal(t, "command", resp.Function.Behavior.Mode)
 	Equal(t, int32(60000), resp.Function.Behavior.TimeoutMs)
 	True(t, resp.Function.Behavior.Cacheable)
@@ -336,7 +336,7 @@ func TestHandler_UpdateFunctionWithBehavior(t *testing.T) {
 func TestHandler_UpdateFunctionWithSecurity(t *testing.T) {
 	router, service := setupTestRouter()
 
-	service.Register(testCtx(), &functionv1.FunctionMetadata{
+	_ = service.Register(testCtx(), &functionv1.FunctionMetadata{
 		Id:       "admin.delete",
 		Name:     "Admin Delete",
 		Security: &functionv1.FunctionSecurity{RiskLevel: functionv1.FunctionSecurity_RISK_LEVEL_HIGH},
@@ -351,7 +351,7 @@ func TestHandler_UpdateFunctionWithSecurity(t *testing.T) {
 
 	Equal(t, http.StatusOK, w.Code)
 	var resp UpdateFunctionResponse
-	json.Unmarshal(w.Body.Bytes(), &resp)
+	_ = json.Unmarshal(w.Body.Bytes(), &resp)
 	Equal(t, "danger", resp.Function.Security.RiskLevel)
 	Equal(t, "admin.delete.invoke", resp.Function.Security.Permission)
 	True(t, resp.Function.Security.RequiresApproval)

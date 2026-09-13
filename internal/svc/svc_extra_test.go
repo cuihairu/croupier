@@ -79,7 +79,7 @@ func TestOpenReadOnlyDatabase(t *testing.T) {
 	require.NotNil(t, db)
 	sqlDB, err := db.DB()
 	require.NoError(t, err)
-	defer sqlDB.Close()
+	defer func() { _ = sqlDB.Close() }()
 
 	// 只读模式：写入应失败
 	require.Error(t, db.Exec("CREATE TABLE t_ro(v int)").Error)
@@ -101,7 +101,7 @@ func TestOpenGormForRouter_SQLite(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, db)
 	sqlDB, _ := db.DB()
-	defer sqlDB.Close()
+	defer func() { _ = sqlDB.Close() }()
 }
 
 func TestEnsureGameDatabase_SQLite(t *testing.T) {
@@ -532,7 +532,7 @@ func TestAutoMigrateAndMeta(t *testing.T) {
 	db, err := openGorm("sqlite", ":memory:")
 	require.NoError(t, err)
 	sqlDB, _ := db.DB()
-	defer sqlDB.Close()
+	defer func() { _ = sqlDB.Close() }()
 
 	require.NoError(t, autoMigrate(db))
 	require.NoError(t, autoMigrateMeta(db))

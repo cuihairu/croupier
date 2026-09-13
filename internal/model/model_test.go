@@ -2708,12 +2708,12 @@ func TestAlertModel_List(t *testing.T) {
 	assert.GreaterOrEqual(t, len(items), 3)
 
 	// Test filter by level
-	items, total, err = model.List(ctx, ListAlertsOptions{Level: "error"})
+	_, total, err = model.List(ctx, ListAlertsOptions{Level: "error"})
 	require.NoError(t, err)
 	assert.GreaterOrEqual(t, total, int64(1))
 
 	// Test filter by status
-	items, total, err = model.List(ctx, ListAlertsOptions{Status: "resolved"})
+	_, total, err = model.List(ctx, ListAlertsOptions{Status: "resolved"})
 	require.NoError(t, err)
 	assert.GreaterOrEqual(t, total, int64(1))
 }
@@ -2995,12 +2995,12 @@ func TestMessageModel_List(t *testing.T) {
 	assert.GreaterOrEqual(t, total, int64(2))
 
 	// Test filter by status
-	items, total, err = model.List(ctx, ListMessagesOptions{Status: dbenum.MessageStatusUnread})
+	_, total, err = model.List(ctx, ListMessagesOptions{Status: dbenum.MessageStatusUnread})
 	require.NoError(t, err)
 	assert.GreaterOrEqual(t, total, int64(2))
 
 	// Test filter by recipient
-	items, total, err = model.List(ctx, func() ListMessagesOptions { o := NewListMessagesOptions(); o.To = "user1@example.com"; return o }())
+	_, total, err = model.List(ctx, func() ListMessagesOptions { o := NewListMessagesOptions(); o.To = "user1@example.com"; return o }())
 	require.NoError(t, err)
 	assert.GreaterOrEqual(t, total, int64(2))
 }
@@ -3438,12 +3438,12 @@ func TestTicketModel_List(t *testing.T) {
 	_ = items // items is used for verification
 
 	// Filter by category
-	items, total, err = model.List(ctx, TicketQueryOptions{Category: "bug"})
+	_, total, err = model.List(ctx, TicketQueryOptions{Category: "bug"})
 	require.NoError(t, err)
 	assert.GreaterOrEqual(t, total, int64(2))
 
 	// Filter by assignee
-	items, total, err = model.List(ctx, TicketQueryOptions{Assignee: "admin"})
+	_, total, err = model.List(ctx, TicketQueryOptions{Assignee: "admin"})
 	require.NoError(t, err)
 	assert.GreaterOrEqual(t, total, int64(2))
 }
@@ -3646,17 +3646,17 @@ func TestFeedbackModel_List(t *testing.T) {
 	_ = items // items is used for verification
 
 	// Filter by status
-	items, total, err = model.List(ctx, ListFeedbackOptions{Status: dbenum.FeedbackStatusOpen, ExcludeStatus: -1})
+	_, total, err = model.List(ctx, ListFeedbackOptions{Status: dbenum.FeedbackStatusOpen, ExcludeStatus: -1})
 	require.NoError(t, err)
 	assert.GreaterOrEqual(t, total, int64(2))
 
 	// Filter by category
-	items, total, err = model.List(ctx, ListFeedbackOptions{Category: "bug", Status: -1, ExcludeStatus: -1})
+	_, total, err = model.List(ctx, ListFeedbackOptions{Category: "bug", Status: -1, ExcludeStatus: -1})
 	require.NoError(t, err)
 	assert.GreaterOrEqual(t, total, int64(2))
 
 	// Filter by keyword
-	items, total, err = model.List(ctx, ListFeedbackOptions{Keyword: "Content 1", Status: -1, ExcludeStatus: -1})
+	_, total, err = model.List(ctx, ListFeedbackOptions{Keyword: "Content 1", Status: -1, ExcludeStatus: -1})
 	require.NoError(t, err)
 	assert.GreaterOrEqual(t, total, int64(1))
 }
@@ -3823,12 +3823,12 @@ func TestFAQModel_List(t *testing.T) {
 
 	// Filter by visible
 	visible := true
-	items, total, err = model.List(ctx, ListFAQOptions{Visible: &visible})
+	_, total, err = model.List(ctx, ListFAQOptions{Visible: &visible})
 	require.NoError(t, err)
 	assert.GreaterOrEqual(t, total, int64(2))
 
 	// Filter by keyword
-	items, total, err = model.List(ctx, ListFAQOptions{Keyword: "Q1"})
+	_, total, err = model.List(ctx, ListFAQOptions{Keyword: "Q1"})
 	require.NoError(t, err)
 	assert.GreaterOrEqual(t, total, int64(1))
 }
@@ -4349,12 +4349,12 @@ func TestBackupModel_List(t *testing.T) {
 	assert.GreaterOrEqual(t, total, int64(3))
 
 	// Filter by type
-	items, total, err = model.List(ctx, ListBackupsOptions{Type: "full"})
+	_, total, err = model.List(ctx, ListBackupsOptions{Type: "full"})
 	require.NoError(t, err)
 	assert.GreaterOrEqual(t, total, int64(2))
 
 	// Test pagination
-	items, total, err = model.List(ctx, ListBackupsOptions{PaginationOptions: PaginationOptions{Page: 1, PageSize: 2}})
+	items, _, err = model.List(ctx, ListBackupsOptions{PaginationOptions: PaginationOptions{Page: 1, PageSize: 2}})
 	require.NoError(t, err)
 	assert.LessOrEqual(t, len(items), 2)
 }
@@ -6008,15 +6008,15 @@ func TestTaskRunModel_CRUD(t *testing.T) {
 	assert.Equal(t, int64(1), total)
 
 	// List with filters
-	tasks, total, err = runModel.List(ctx, ListTasksOptions{FunctionID: "player.ban"})
+	tasks, _, err = runModel.List(ctx, ListTasksOptions{FunctionID: "player.ban"})
 	require.NoError(t, err)
 	assert.Len(t, tasks, 1)
 
-	tasks, total, err = runModel.List(ctx, ListTasksOptions{Status: "succeeded"})
+	tasks, _, err = runModel.List(ctx, ListTasksOptions{Status: "succeeded"})
 	require.NoError(t, err)
 	assert.Len(t, tasks, 1)
 
-	tasks, total, err = runModel.List(ctx, ListTasksOptions{GameID: "game1", Env: "prod"})
+	tasks, _, err = runModel.List(ctx, ListTasksOptions{GameID: "game1", Env: "prod"})
 	require.NoError(t, err)
 	assert.Len(t, tasks, 1)
 

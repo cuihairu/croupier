@@ -227,13 +227,13 @@ func TestFromInstance(t *testing.T) {
 
 	// Verify JSON fields
 	var ctx map[string]interface{}
-	json.Unmarshal(model.ContextJSON, &ctx)
+	_ = json.Unmarshal(model.ContextJSON, &ctx)
 	if ctx["key"] != "value" {
 		t.Errorf("expected context key=value, got %v", ctx)
 	}
 
 	var history []WorkflowHistoryEntry
-	json.Unmarshal(model.HistoryJSON, &history)
+	_ = json.Unmarshal(model.HistoryJSON, &history)
 	if len(history) != 1 {
 		t.Errorf("expected 1 history entry, got %d", len(history))
 	}
@@ -437,13 +437,13 @@ func TestFromDelegation(t *testing.T) {
 
 	// Verify JSON fields
 	var perms []DelegationPermission
-	json.Unmarshal(model.Permissions, &perms)
+	_ = json.Unmarshal(model.Permissions, &perms)
 	if len(perms) != 1 {
 		t.Errorf("expected 1 permission, got %d", len(perms))
 	}
 
 	var constraints []DelegationConstraint
-	json.Unmarshal(model.Constraints, &constraints)
+	_ = json.Unmarshal(model.Constraints, &constraints)
 	if len(constraints) != 1 {
 		t.Errorf("expected 1 constraint, got %d", len(constraints))
 	}

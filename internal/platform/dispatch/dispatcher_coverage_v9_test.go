@@ -81,7 +81,7 @@ func TestDispatcherInvokeRequestMarshalErrorsV9(t *testing.T) {
 
 	t.Run("ha dispatcher records failure", func(t *testing.T) {
 		d := NewDispatcherWithHA(nil, nil, nil, true, StrategyMinID, nil)
-		defer d.Close()
+		defer func() { _ = d.Close() }()
 		registerTestAgent(t, d, "agent-1")
 		d.SetSessionResolver(&fakeSessionResolver{callers: map[string]transport.SessionCaller{
 			"agent-1": &fakeSessionCaller{respBody: mustMarshal(t, &sdkv1.InvokeResponse{})},
@@ -102,7 +102,7 @@ func TestDispatcherInvokeRequestMarshalErrorsV9(t *testing.T) {
 
 func TestDispatcherInvokeRequestHARecordFailureOnCallErrorV9(t *testing.T) {
 	d := NewDispatcherWithHA(nil, nil, nil, true, StrategyMinID, nil)
-	defer d.Close()
+	defer func() { _ = d.Close() }()
 	registerTestAgent(t, d, "agent-1")
 	d.SetSessionResolver(&fakeSessionResolver{callers: map[string]transport.SessionCaller{
 		"agent-1": &fakeSessionCaller{err: errors.New("connection reset")},
@@ -145,7 +145,7 @@ func TestDispatcherInvokeBroadcastValidationAndMarshalV9(t *testing.T) {
 
 func TestDispatcherInvokeBroadcastHAHealthTrackingV9(t *testing.T) {
 	d := NewDispatcherWithHA(nil, nil, nil, true, StrategyMinID, nil)
-	defer d.Close()
+	defer func() { _ = d.Close() }()
 	registerTestAgent(t, d, "agent-good")
 	registerTestAgent(t, d, "agent-bad")
 	d.GetHealthTracker().RegisterAgent("agent-good", "")
@@ -301,7 +301,7 @@ func TestDispatcherStreamTaskRealtimeSkipsNilEventsV9(t *testing.T) {
 
 func TestDispatcherSelectAgentNoCandidatesAfterBuildV9(t *testing.T) {
 	d := NewDispatcherWithHA(nil, nil, nil, true, StrategyMinID, nil)
-	defer d.Close()
+	defer func() { _ = d.Close() }()
 
 	session := &reg.AgentSession{
 		AgentID:   "", // skipped by BuildCandidates
@@ -339,7 +339,7 @@ func TestDispatcherInvokeRequestOnAgentV9(t *testing.T) {
 
 	t.Run("call failure records health failure", func(t *testing.T) {
 		d := NewDispatcherWithHA(nil, nil, nil, true, StrategyMinID, nil)
-		defer d.Close()
+		defer func() { _ = d.Close() }()
 		d.GetHealthTracker().RegisterAgent("agent-1", "")
 		d.SetSessionResolver(&fakeSessionResolver{callers: map[string]transport.SessionCaller{
 			"agent-1": &fakeSessionCaller{err: errors.New("boom")},
@@ -355,7 +355,7 @@ func TestDispatcherInvokeRequestOnAgentV9(t *testing.T) {
 
 	t.Run("success returns raw bytes and records success", func(t *testing.T) {
 		d := NewDispatcherWithHA(nil, nil, nil, true, StrategyMinID, nil)
-		defer d.Close()
+		defer func() { _ = d.Close() }()
 		d.GetHealthTracker().RegisterAgent("agent-1", "")
 		caller := &fakeSessionCaller{respBody: []byte("raw-response")}
 		d.SetSessionResolver(&fakeSessionResolver{callers: map[string]transport.SessionCaller{"agent-1": caller}})

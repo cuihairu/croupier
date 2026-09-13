@@ -75,7 +75,7 @@ func (f *fakeCOSServer) handle(w http.ResponseWriter, r *http.Request) {
 			}
 			f.copied = append(f.copied, [2]string{src, key})
 			f.objects[key] = f.objects[strings.TrimPrefix(src, "/")]
-			fmt.Fprint(w, `<?xml version="1.0" encoding="UTF-8"?><CopyObjectResult><ETag>abc</ETag><LastModified>2024-01-01T07:23:42.000Z</LastModified></CopyObjectResult>`)
+			_, _ = fmt.Fprint(w, `<?xml version="1.0" encoding="UTF-8"?><CopyObjectResult><ETag>abc</ETag><LastModified>2024-01-01T07:23:42.000Z</LastModified></CopyObjectResult>`)
 			return
 		}
 		f.objects[key] = r.Header.Get("Content-Type")

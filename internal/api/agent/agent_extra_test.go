@@ -13,7 +13,6 @@ import (
 	"github.com/cuihairu/croupier/internal/api/analytics"
 	"github.com/cuihairu/croupier/internal/config"
 	"github.com/cuihairu/croupier/internal/platform/registry"
-	reg "github.com/cuihairu/croupier/internal/platform/registry"
 	"github.com/cuihairu/croupier/internal/svc"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
@@ -241,7 +240,7 @@ func TestService_AnalyticsFilters_FileFallback(t *testing.T) {
 
 func TestService_UpdateMeta_WithRegisteredAgent(t *testing.T) {
 	store := registry.NewStore()
-	require.NoError(t, store.UpsertAgent(&reg.AgentSession{
+	require.NoError(t, store.UpsertAgent(&registry.AgentSession{
 		AgentID: "agent-1", GameID: "game-1", Env: "dev",
 	}))
 	afSvc := NewService(&svc.ServiceContext{RegistryStore: store})

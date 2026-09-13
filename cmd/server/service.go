@@ -504,12 +504,6 @@ func runServerServiceRun(cmd *cobra.Command, args []string) error {
 	return <-errChan
 }
 
-// serverServiceWrapper 适配 kardianos/service 接口
-type serverServiceWrapper struct {
-	service.Interface
-	svc service.Service
-}
-
 // defaultServerConfigDir 返回默认配置目录
 // 优先级: 环境变量 > 可执行文件目录/etc > 系统配置目录
 func defaultServerConfigDir() string {

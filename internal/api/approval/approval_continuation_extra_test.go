@@ -57,7 +57,7 @@ func newApprovalPageEnv(t *testing.T, mutate func(page *spec.PageSpec, contracts
 	require.NoError(t, model.AutoMigrate(db))
 
 	store := reg.NewStore()
-	store.UpsertAgent(&reg.AgentSession{
+	_ = store.UpsertAgent(&reg.AgentSession{
 		AgentID: "agent-1", GameID: pageEnvGame, Env: pageEnvEnv,
 		ExpireAt: time.Now().Add(time.Minute), LastSeen: time.Now(),
 		Functions: map[string]reg.FunctionMeta{

@@ -98,7 +98,6 @@ func main() {
 				// Apply overrides from function options
 				if fo.FunctionID != "" {
 					op.ID = fo.FunctionID
-					funID = fo.FunctionID
 				}
 				if fo.Resource != "" {
 					op.Resource = fo.Resource

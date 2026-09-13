@@ -53,8 +53,8 @@ func (p *muxTestPeer) readFrame() (msgID uint32, reqID uint32, body []byte) {
 
 func TestMuxConn_DualLane_BusinessSaturation(t *testing.T) {
 	c1, c2 := net.Pipe()
-	defer c1.Close()
-	defer c2.Close()
+	defer func() { _ = c1.Close() }()
+	defer func() { _ = c2.Close() }()
 
 	// 业务 handler 慢（阻塞直到释放）；控制 handler 计数即时返回。
 	var ctrlHandled atomic.Int64
@@ -71,7 +71,7 @@ func TestMuxConn_DualLane_BusinessSaturation(t *testing.T) {
 	cfg := &Config{DispatchWorkers: 1, BusinessQLen: 1, ControlQLen: 8}
 	mc := NewMuxConn(c1, cfg, handler)
 	go func() { _ = mc.Run(context.Background()) }()
-	defer mc.Close()
+	defer func() { _ = mc.Close() }()
 
 	peer := &muxTestPeer{conn: c2, t: t}
 
@@ -129,8 +129,8 @@ func TestMuxConn_DualLane_BusinessSaturation(t *testing.T) {
 
 func TestMuxConn_DualLane_ControlNeverRejected(t *testing.T) {
 	c1, c2 := net.Pipe()
-	defer c1.Close()
-	defer c2.Close()
+	defer func() { _ = c1.Close() }()
+	defer func() { _ = c2.Close() }()
 
 	// 控制车道打满（ControlQLen=1 + 1 worker 占用）后，再投控制请求：
 	// 读循环应阻塞等待（自然背压）而非回 reject；释放后全部完成。
@@ -144,7 +144,7 @@ func TestMuxConn_DualLane_ControlNeverRejected(t *testing.T) {
 
 	mc := NewMuxConn(c1, &Config{DispatchWorkers: 1, BusinessQLen: 1, ControlQLen: 1}, handler)
 	go func() { _ = mc.Run(context.Background()) }()
-	defer mc.Close()
+	defer func() { _ = mc.Close() }()
 
 	peer := &muxTestPeer{conn: c2, t: t}
 
@@ -173,8 +173,8 @@ func TestMuxConn_DualLane_ControlNeverRejected(t *testing.T) {
 
 func TestMuxConn_DualLane_ConcurrentWritesSafe(t *testing.T) {
 	c1, c2 := net.Pipe()
-	defer c1.Close()
-	defer c2.Close()
+	defer func() { _ = c1.Close() }()
+	defer func() { _ = c2.Close() }()
 
 	var wg sync.WaitGroup
 	handler := transportcore.HandlerFunc(func(ctx context.Context, msgID uint32, reqID uint32, body []byte) ([]byte, error) {
@@ -184,7 +184,7 @@ func TestMuxConn_DualLane_ConcurrentWritesSafe(t *testing.T) {
 
 	mc := NewMuxConn(c1, &Config{DispatchWorkers: 4, BusinessQLen: 64, ControlQLen: 8}, handler)
 	go func() { _ = mc.Run(context.Background()) }()
-	defer mc.Close()
+	defer func() { _ = mc.Close() }()
 
 	peer := &muxTestPeer{conn: c2, t: t}
 

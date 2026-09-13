@@ -68,7 +68,7 @@ func (s *gap11PGScriptServer) acceptLoop() {
 }
 
 func (s *gap11PGScriptServer) handle(conn net.Conn, idx int) {
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 	_ = conn.SetDeadline(time.Now().Add(10 * time.Second))
 
 	// StartupMessage / SSLRequest：int32 长度前缀帧。
@@ -169,7 +169,6 @@ type gap11PGBuf struct{ b []byte }
 func (p *gap11PGBuf) byte(v byte)   { p.b = append(p.b, v) }
 func (p *gap11PGBuf) int32(v int32) { p.b = binary.BigEndian.AppendUint32(p.b, uint32(v)) }
 func (p *gap11PGBuf) str(v string)  { p.b = append(p.b, v...); p.b = append(p.b, 0) }
-func (p *gap11PGBuf) out() []byte   { return p.b }
 
 func gap11PGWriteMessage(conn net.Conn, typ byte, build func(*gap11PGBuf)) {
 	var body gap11PGBuf
@@ -284,7 +283,7 @@ func (s *gap11MySQLScriptServer) acceptLoop() {
 }
 
 func (s *gap11MySQLScriptServer) handle(conn net.Conn, idx int) {
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 	_ = conn.SetDeadline(time.Now().Add(10 * time.Second))
 
 	s.mu.Lock()
@@ -302,10 +301,10 @@ func (s *gap11MySQLScriptServer) handle(conn net.Conn, idx int) {
 		return
 	}
 	if script.authErrCode > 0 {
-		gap11MySQLWritePacket(conn, 2, gap11MySQLErrBody(script.authErrCode, script.authErrMsg))
+		_ = gap11MySQLWritePacket(conn, 2, gap11MySQLErrBody(script.authErrCode, script.authErrMsg))
 		return
 	}
-	gap11MySQLWritePacket(conn, 2, gap11MySQLOKBody())
+	_ = gap11MySQLWritePacket(conn, 2, gap11MySQLOKBody())
 
 	for {
 		payload, err := gap11MySQLReadPacket(conn)
@@ -317,16 +316,16 @@ func (s *gap11MySQLScriptServer) handle(conn net.Conn, idx int) {
 			return
 		case 0x03: // COM_QUERY
 			if script.batchErr && startsWithIgnoreCase(trimNullSpace(string(payload[1:])), "CREATE DATABASE") {
-				gap11MySQLWritePacket(conn, 1, gap11MySQLErrBody(1007, "Can't create database"))
+				_ = gap11MySQLWritePacket(conn, 1, gap11MySQLErrBody(1007, "Can't create database"))
 				continue
 			}
 			if startsWithIgnoreCase(trimNullSpace(string(payload[1:])), "SELECT VERSION()") {
 				gap11MySQLWriteVersionResultSet(conn)
 				continue
 			}
-			gap11MySQLWritePacket(conn, 1, gap11MySQLOKBody())
+			_ = gap11MySQLWritePacket(conn, 1, gap11MySQLOKBody())
 		default:
-			gap11MySQLWritePacket(conn, 1, gap11MySQLOKBody())
+			_ = gap11MySQLWritePacket(conn, 1, gap11MySQLOKBody())
 		}
 	}
 }
@@ -494,7 +493,7 @@ func (s *gap11TDSServer) acceptLoop() {
 }
 
 func (s *gap11TDSServer) handle(conn net.Conn, idx int) {
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 	_ = conn.SetDeadline(time.Now().Add(10 * time.Second))
 
 	s.mu.Lock()

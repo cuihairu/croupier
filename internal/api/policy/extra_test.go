@@ -137,7 +137,7 @@ func TestHandler_ReloadConfig_ErrorPath(t *testing.T) {
 	handler := NewHandler(manager)
 
 	// Delete the config file to cause reload error
-	os.Remove(tmpFile)
+	_ = os.Remove(tmpFile)
 
 	router := gin.New()
 	router.POST("/policies/reload", handler.ReloadConfig)

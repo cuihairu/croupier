@@ -44,7 +44,7 @@ func TestColoredTextHandler_HandleNonTerminalFileV9(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create file: %v", err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	handler := newColoredTextHandler(f, nil)
 	record := slog.NewRecord(time.Now(), slog.LevelInfo, "plain", 0)
@@ -64,7 +64,7 @@ func TestIsTerminalV9(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create file: %v", err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	if isTerminal(f) {
 		t.Error("regular file should not be a terminal")
 	}
@@ -73,7 +73,7 @@ func TestIsTerminalV9(t *testing.T) {
 	if err != nil {
 		t.Fatalf("open /dev/null: %v", err)
 	}
-	defer devNull.Close()
+	defer func() { _ = devNull.Close() }()
 	if !isTerminal(devNull) {
 		t.Error("/dev/null is a char device and should be reported as terminal")
 	}
@@ -152,8 +152,8 @@ func TestValidateTLS_NonStrictMissingKeyAndCAV9(t *testing.T) {
 	tmpDir := t.TempDir()
 	keyFile := filepath.Join(tmpDir, "key.pem")
 	caFile := filepath.Join(tmpDir, "ca.pem")
-	os.WriteFile(keyFile, []byte("k"), 0o644)
-	os.WriteFile(caFile, []byte("c"), 0o644)
+	_ = os.WriteFile(keyFile, []byte("k"), 0o644)
+	_ = os.WriteFile(caFile, []byte("c"), 0o644)
 
 	if err := ValidateTLS("", filepath.Join(tmpDir, "missing-key"), "", false); err == nil {
 		t.Error("expected error for missing key file in non-strict mode")
@@ -170,17 +170,17 @@ func TestValidateTLS_NonStrictMissingKeyAndCAV9(t *testing.T) {
 func TestValidateServerConfig_ErrorPathsV9(t *testing.T) {
 	tmpDir := t.TempDir()
 	badJSON := filepath.Join(tmpDir, "bad.json")
-	os.WriteFile(badJSON, []byte("{ not json"), 0o644)
+	_ = os.WriteFile(badJSON, []byte("{ not json"), 0o644)
 	validRBAC := filepath.Join(tmpDir, "rbac.json")
-	os.WriteFile(validRBAC, []byte(`{"allow": {}}`), 0o644)
+	_ = os.WriteFile(validRBAC, []byte(`{"allow": {}}`), 0o644)
 	validUsers := filepath.Join(tmpDir, "users.json")
-	os.WriteFile(validUsers, []byte(`[]`), 0o644)
+	_ = os.WriteFile(validUsers, []byte(`[]`), 0o644)
 	certFile := filepath.Join(tmpDir, "cert.pem")
 	keyFile := filepath.Join(tmpDir, "key.pem")
 	caFile := filepath.Join(tmpDir, "ca.pem")
-	os.WriteFile(certFile, []byte("cert"), 0o644)
-	os.WriteFile(keyFile, []byte("key"), 0o644)
-	os.WriteFile(caFile, []byte("ca"), 0o644)
+	_ = os.WriteFile(certFile, []byte("cert"), 0o644)
+	_ = os.WriteFile(keyFile, []byte("key"), 0o644)
+	_ = os.WriteFile(caFile, []byte("ca"), 0o644)
 
 	newV := func(kv map[string]any) *viper.Viper {
 		v := viper.New()

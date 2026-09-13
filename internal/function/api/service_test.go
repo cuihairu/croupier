@@ -46,7 +46,7 @@ func TestService_Update(t *testing.T) {
 		Security:    &functionv1.FunctionSecurity{},
 		Behavior:    &functionv1.FunctionBehavior{},
 	}
-	service.Register(context.Background(), original)
+	_ = service.Register(context.Background(), original)
 
 	// Update with new values
 	updated := &functionv1.FunctionMetadata{
@@ -72,7 +72,7 @@ func TestService_Update_IDMismatch(t *testing.T) {
 	store := registry.NewStore()
 	service := NewService(store)
 
-	service.Register(context.Background(), &functionv1.FunctionMetadata{
+	_ = service.Register(context.Background(), &functionv1.FunctionMetadata{
 		Id:       "player.get",
 		Name:     "Get Player",
 		Security: &functionv1.FunctionSecurity{},
@@ -112,14 +112,14 @@ func TestService_List_WithFilters(t *testing.T) {
 	service := NewService(store)
 
 	// Register test functions
-	service.Register(context.Background(), &functionv1.FunctionMetadata{
+	_ = service.Register(context.Background(), &functionv1.FunctionMetadata{
 		Id:       "player.get",
 		Resource: "player",
 		Tags:     []string{"read"},
 		Security: &functionv1.FunctionSecurity{RiskLevel: functionv1.FunctionSecurity_RISK_LEVEL_LOW},
 		Behavior: &functionv1.FunctionBehavior{Mode: functionv1.FunctionBehavior_MODE_QUERY},
 	})
-	service.Register(context.Background(), &functionv1.FunctionMetadata{
+	_ = service.Register(context.Background(), &functionv1.FunctionMetadata{
 		Id:       "game.create",
 		Resource: "game",
 		Tags:     []string{"write"},
