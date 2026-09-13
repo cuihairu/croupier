@@ -61,14 +61,6 @@ export default function PreviewRuntime({
     setResults((r) => ({ ...r, [nodeId]: { data: values } }));
   }, []);
 
-  // V5 表格选中行：写入 results[id]（selectedRow/selectedRows；与发布运行时
-  // 同一状态形态，不触发 refreshOnNode 联动——refreshOnNode 只看 data 更新）。
-  const handleSelectionChange = useCallback((nodeId: string, rows: JSONRecord[]) => {
-    setResults((r) => {
-      const cur = (r[nodeId] ?? {}) as Record<string, unknown>;
-      return { ...r, [nodeId]: { ...cur, selectedRow: rows[0], selectedRows: rows } };
-    });
-  }, []);
   const treeRef = useRef(tree);
   treeRef.current = tree;
   const fnRef = useRef(fnById);
