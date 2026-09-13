@@ -41,6 +41,14 @@ const nodes = (): PageNode[] => [
   { id: 'm1', type: 'modal', props: { title: '封禁弹窗' }, children: [] },
   { id: 't1', type: 'fnTable', props: { title: '玩家表', functionId: 'player.ban' } },
   { id: 'txt', type: 'text', props: { content: '说明' } },
+  // sectionKey 语义命名（nodeByVar 收集）+ 嵌套子节点递归 + 重复名跳过
+  {
+    id: 'c1',
+    type: 'container',
+    props: { title: '容器', sectionKey: 'players' },
+    children: [{ id: 'c1a', type: 'text', props: { sectionKey: 'nested' } }],
+  },
+  { id: 't2', type: 'fnFields', props: { sectionKey: 'players', title: '字段卡' } },
 ];
 
 interface RenderOptions {
@@ -54,7 +62,8 @@ interface RenderOptions {
 
 function renderEditor(options: RenderOptions = {}) {
   const onChange = jest.fn();
-  const onCreateModal = options.onCreateModal ?? jest.fn();
+  // 区分「未传 onCreateModal」（测可选回调空侧）与「默认 spy」
+  const onCreateModal = 'onCreateModal' in options ? options.onCreateModal : jest.fn();
   const props = {
     value: options.value,
     nodes: options.nodeList ?? nodes(),
@@ -76,7 +85,7 @@ const clickOption = async (label: string) => {
   fireEvent.click(option);
 };
 
-const paramInput = () => screen.getByPlaceholderText('参数名') as HTMLInputElement;
+const paramInput = () => screen.getAllByPlaceholderText('参数名')[0] as HTMLInputElement;
 
 describe('渲染门槛与 value 解析', () => {
   it('value 非法（null/非对象/坏 kind）：仅动作下拉，无链区块', () => {
@@ -86,6 +95,42 @@ describe('渲染门槛与 value 解析', () => {
 
     renderEditor({ value: 'oops' });
     expect(screen.queryByText('后续动作（主动作完成后按序执行）')).not.toBeInTheDocument();
+  });
+
+  it('对象但 kind 非法/非字符串：不选中、不渲染引导框', () => {
+    const { container } = renderEditor({ value: { kind: 'nope', target: '' } });
+    expect(screen.getByText('选择动作')).toBeInTheDocument();
+    expect(container.querySelector('.ant-select-item-option')).not.toBeInTheDocument();
+
+    const bad = renderEditor({ value: { kind: 123, target: '' } });
+    expect(bad.container.querySelector('.ant-space-vertical')).toBeInTheDocument();
+    expect(
+      screen.queryByText('页面上还没有弹窗——选一个操作函数，一步创建并绑定：'),
+    ).not.toBeInTheDocument();
+  });
+
+  it('allowedKinds 限定：下拉只含允许项', async () => {
+    renderEditor({ allowedKinds: ['closeModal', 'showMessage'] });
+    fireEvent.mouseDown(screen.getByText('选择动作'));
+    expect(await screen.findByText('关闭弹窗')).toBeInTheDocument();
+    expect(screen.getByText('提示消息')).toBeInTheDocument();
+    expect(screen.queryByText('打开弹窗')).not.toBeInTheDocument();
+    expect(screen.queryByText('跳转链接')).not.toBeInTheDocument();
+  });
+
+  it('navigate 无 params：地址空串显示；输入后带出完整 params', () => {
+    const { onChange } = renderEditor({ value: { kind: 'navigate', target: '' } });
+    expect((screen.getByPlaceholderText('https://… 或 /页面路径') as HTMLInputElement).value).toBe(
+      '',
+    );
+    fireEvent.change(screen.getByPlaceholderText('https://… 或 /页面路径'), {
+      target: { value: '/x' },
+    });
+    expect(onChange).toHaveBeenLastCalledWith({
+      kind: 'navigate',
+      target: '',
+      params: { url: '/x' },
+    });
   });
 
   it('合法 navigate：地址参数字段渲染并显示既有值；无目标下拉（needsTarget=false）', () => {
@@ -136,12 +181,17 @@ describe('kind 切换与目标', () => {
     const { onChange, container } = renderEditor({
       value: { kind: 'openModal', target: 'm1' },
     });
-    // 点击目标下拉旁的关闭按钮（Space.Compact 内 Button，调用 onChange(null)）
+    // 目标下拉旁的关闭按钮（Space.Compact 内 Button）
     const targetClose = container.querySelector('.ant-select + button') as HTMLElement;
-    if (targetClose) {
-      fireEvent.click(targetClose);
-      expect(onChange).toHaveBeenCalledWith(null);
-    }
+    fireEvent.click(targetClose);
+    expect(onChange).toHaveBeenCalledWith(null);
+
+    // 动作下拉的 allowClear（onClear）
+    fireEvent.mouseDown(screen.getAllByText('封禁弹窗')[0]);
+    const clear = container.querySelector('.ant-select-clear') as HTMLElement;
+    fireEvent.mouseDown(clear);
+    fireEvent.click(clear);
+    expect(onChange).toHaveBeenCalledWith(null);
   });
 
   it('目标切换：换目标 id', async () => {
@@ -201,6 +251,18 @@ describe('openModal 引导框（无弹窗）', () => {
       screen.getByText('创建弹窗并绑定').closest('button') as HTMLButtonElement,
     ).toBeDisabled();
   });
+
+  it('未提供 onCreateModal：选函数点创建不派发（可选回调空侧）', async () => {
+    const { onChange } = renderEditor({
+      nodeList: noModal(),
+      value: { kind: 'openModal', target: '' },
+      onCreateModal: undefined,
+    });
+    fireEvent.mouseDown(screen.getByText('选操作函数（如 mail.send）'));
+    await clickOption('player.ban');
+    fireEvent.click(screen.getByText('创建弹窗并绑定'));
+    expect(onChange).not.toHaveBeenCalled();
+  });
 });
 
 describe('动作链', () => {
@@ -231,17 +293,57 @@ describe('动作链', () => {
     });
   });
 
-  it('步骤目标切换与删除步骤', async () => {
-    const { onChange, container } = withChain([{ kind: 'refreshNode', target: 't1' }]);
+  it('步骤 kind 切换（双步骤保留兄弟）：切到 runBinding 取候选首项', async () => {
+    const { onChange } = withChain([
+      { kind: 'closeModal', target: '' },
+      { kind: 'showMessage', target: '' },
+    ]);
+    fireEvent.mouseDown(screen.getAllByText('提示')[0]);
+    await clickOption('执行');
+    expect(onChange).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        chain: [
+          { kind: 'closeModal', target: '' },
+          { kind: 'runBinding', target: 't1' },
+        ],
+      }),
+    );
+  });
 
-    // 目标切换：nodes 只有一个 fn 候选，改用双候选节点表
-    rerenderWithTwoTargets();
+  it('步骤目标切换：换目标 id（双候选·双步骤保留兄弟）', async () => {
+    const { onChange } = renderEditor({
+      nodeList: [
+        { id: 'm1', type: 'modal', props: { title: '封禁弹窗' }, children: [] },
+        { id: 't1', type: 'fnTable', props: { title: '玩家表' } },
+        { id: 't2', type: 'fnFields', props: { title: '日志表' } },
+      ],
+      value: {
+        kind: 'runBinding',
+        target: 't1',
+        chain: [
+          { kind: 'closeModal', target: '' },
+          { kind: 'refreshNode', target: 't1' },
+        ],
+      },
+    });
+    // 主目标与链步骤目标同显「玩家表」：取链区块内那个（DOM 顺序在后）
+    fireEvent.mouseDown(screen.getAllByText('玩家表')[1]);
+    await clickOption('日志表');
+    expect(onChange).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        kind: 'runBinding',
+        target: 't1',
+        chain: [
+          { kind: 'closeModal', target: '' },
+          { kind: 'refreshNode', target: 't2' },
+        ],
+      }),
+    );
+  });
 
-    function rerenderWithTwoTargets() {
-      void container;
-    }
-
-    // 删除步骤（Compact 内第三个控件：kind/目标/删除按钮）
+  it('删除步骤：从链中剔除', () => {
+    const { onChange } = withChain([{ kind: 'refreshNode', target: 't1' }]);
+    // 链区块第一个按钮即步骤行的删除按钮（Compact 内 kind/目标/删除）
     const compact = screen.getByText('后续动作（主动作完成后按序执行）').parentElement!;
     const delBtn = compact.querySelectorAll('button')[0];
     fireEvent.click(delBtn);
@@ -255,6 +357,54 @@ describe('动作链', () => {
     expect(screen.queryByPlaceholderText('参数名')).not.toBeInTheDocument();
     expect(screen.queryByText('+ 添加参数')).not.toBeInTheDocument();
   });
+
+  it('链步骤目标无效：目标下拉不显示有效值（玩家表仅主目标一处）', () => {
+    withChain([{ kind: 'refreshNode', target: 'gone' }]);
+    // rc-select 无值时不回显目标 label——「玩家表」只出现在主动作下拉
+    expect(screen.getAllByText('玩家表')).toHaveLength(1);
+  });
+
+  it('坏链步骤 kind（不在注册表）：不炸、无参数区', () => {
+    withChain([{ kind: 'nope', target: '' }]);
+    expect(screen.getByText('后续动作（主动作完成后按序执行）')).toBeInTheDocument();
+    expect(screen.queryByText('+ 添加参数')).not.toBeInTheDocument();
+  });
+
+  it('run 步骤无 params：添加参数得首项 param（双步骤保留兄弟）', () => {
+    const { onChange } = renderEditor({
+      value: {
+        kind: 'runBinding',
+        target: 't1',
+        chain: [
+          { kind: 'closeModal', target: '' },
+          { kind: 'runBinding', target: 't1' },
+        ],
+      },
+    });
+    fireEvent.click(screen.getByText('+ 添加参数'));
+    expect(onChange).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        chain: [
+          { kind: 'closeModal', target: '' },
+          { kind: 'runBinding', target: 't1', params: { param: '' } },
+        ],
+      }),
+    );
+  });
+
+  it('添加后续动作（无 fn 候选）：refreshNode 目标留空', () => {
+    const { onChange } = renderEditor({
+      nodeList: [{ id: 'txt', type: 'text', props: {} }],
+      value: { kind: 'showMessage', target: '', params: { message: 'hi' } },
+    });
+    fireEvent.click(screen.getByText('+ 添加后续动作'));
+    expect(onChange).toHaveBeenLastCalledWith(
+      expect.objectContaining({ chain: [{ kind: 'refreshNode', target: '' }] }),
+    );
+  });
+
+  // 注：链步骤 kind 切换无 openModal 目标留空路径——链 kind 下拉硬编码五项
+  // （run/refresh/closeModal/navigate/showMessage）不含 openModal，UI 不可达。
 });
 
 describe('链参数区（run/refresh 步骤）', () => {
@@ -276,37 +426,69 @@ describe('链参数区（run/refresh 步骤）', () => {
     );
   });
 
-  it('参数值经表达式输入更新', () => {
+  it('refreshNode 步骤同样渲染参数区', () => {
+    renderEditor({
+      value: {
+        kind: 'runBinding',
+        target: 't1',
+        chain: [{ kind: 'refreshNode', target: 't1', params: { param: 'a' } }],
+      },
+    });
+    expect(screen.getByPlaceholderText('参数名')).toHaveValue('param');
+  });
+
+  it('参数值经表达式输入更新（双步骤保留兄弟）', () => {
     const { onChange } = renderEditor({
-      value: { kind: 'runBinding', target: 't1', chain: stepParams({ param: 'a' }) },
+      value: {
+        kind: 'runBinding',
+        target: 't1',
+        chain: [
+          { kind: 'closeModal', target: '' },
+          { kind: 'runBinding', target: 't1', params: { param: 'a' } },
+        ],
+      },
     });
     fireEvent.change(screen.getByTestId('expr-input'), { target: { value: '{{x}}' } });
     expect(onChange).toHaveBeenLastCalledWith(
       expect.objectContaining({
-        chain: [{ kind: 'runBinding', target: 't1', params: { param: '{{x}}' } }],
+        chain: [
+          { kind: 'closeModal', target: '' },
+          { kind: 'runBinding', target: 't1', params: { param: '{{x}}' } },
+        ],
       }),
     );
   });
 
-  it('删除参数：剔除该键', () => {
+  it('删除参数：剔除该键（双步骤保留兄弟）', () => {
     const { onChange } = renderEditor({
-      value: { kind: 'runBinding', target: 't1', chain: stepParams({ param: 'a', keep: 'b' }) },
+      value: {
+        kind: 'runBinding',
+        target: 't1',
+        chain: [
+          { kind: 'runBinding', target: 't1', params: { keep0: 'x' } },
+          { kind: 'refreshNode', target: 't1', params: { param: 'a', keep: 'b' } },
+        ],
+      },
     });
     // 参数行删除按钮：与参数名输入同行（ant-space 内最右 text danger）
     const inputs = screen.getAllByPlaceholderText('参数名');
-    const row = inputs[0].closest('.ant-space')!;
+    const row = inputs[inputs.length - 1].closest('.ant-space')!;
     const del = within(row as HTMLElement).getAllByRole('button')[0];
     fireEvent.click(del);
+    // 删除的是 refreshNode 步骤第二行参数 keep：首行 param 与兄弟步骤 keep0 保留
     expect(onChange).toHaveBeenLastCalledWith(
       expect.objectContaining({
-        chain: [{ kind: 'runBinding', target: 't1', params: { keep: 'b' } }],
+        chain: [
+          { kind: 'runBinding', target: 't1', params: { keep0: 'x' } },
+          { kind: 'refreshNode', target: 't1', params: { param: 'a' } },
+        ],
       }),
     );
   });
 
-  it('参数名改名：失焦提交（保位改名）', () => {
+  it('参数名改名：失焦提交（保位改名·多参数保留兄弟键）', () => {
     const { onChange } = renderEditor({
-      value: { kind: 'runBinding', target: 't1', chain: stepParams({ param: 'a' }) },
+      value: { kind: 'runBinding', target: 't1', chain: stepParams({ param: 'a', other: 'b' }) },
     });
     const input = paramInput();
     expect(input.value).toBe('param');
@@ -314,7 +496,7 @@ describe('链参数区（run/refresh 步骤）', () => {
     fireEvent.blur(input);
     expect(onChange).toHaveBeenLastCalledWith(
       expect.objectContaining({
-        chain: [{ kind: 'runBinding', target: 't1', params: { playerId: 'a' } }],
+        chain: [{ kind: 'runBinding', target: 't1', params: { playerId: 'a', other: 'b' } }],
       }),
     );
     // 草稿清除后回显旧名（onChange 不回灌）

@@ -92,6 +92,12 @@ export default function ActionEditor({
         })}
         value={effKind}
         onChange={(kind) => {
+          // allowClear 清除时 rc-select 会先派发 onChange(undefined)：与 onClear
+          // 同语义置 null（否则 ACTIONS[undefined] 取 needsTarget 即崩）
+          if (!kind) {
+            onChange(null);
+            return;
+          }
           const def = ACTIONS[kind];
           if (!def.needsTarget) {
             onChange({ kind, target: '', params: {} });
