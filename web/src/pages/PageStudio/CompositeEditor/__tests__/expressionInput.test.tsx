@@ -55,6 +55,17 @@ describe('computeSuggestions', () => {
     expect(computeSuggestions('{{playerListTable.data}}', variables, rootsOf)).toEqual([]);
     expect(computeSuggestions('plain', variables, rootsOf)).toEqual([]);
   });
+
+  it('无标题变量：hint 回退 kind；深入无 children 节点后无候选（break）', () => {
+    const bare: ExprVariable[] = [{ name: 'rawVar', kind: 'fnFields' }];
+    const [s] = computeSuggestions('{{', bare, () => []);
+    expect(s.hint).toBe('fnFields');
+
+    // 走到无 children 的节点（hit?.children ?? []）后继续深入 → break → 空候选
+    const flatRoots = () => [{ segment: 'bag', children: [{ segment: 'inner' }] }];
+    const deep = computeSuggestions('{{rawVar.bag.inner.', bare, flatRoots);
+    expect(deep).toEqual([]);
+  });
 });
 
 describe('validateExpressionInput', () => {
@@ -91,6 +102,37 @@ describe('validateExpressionInput', () => {
     expect(d?.level).toBe('warning');
     expect(validateExpressionInput('{{row.uid}}', varNames, undefined, rootsOf)).toBeUndefined();
   });
+
+  it('row 多段路径/无字段路径：不校验深层结构，返回 undefined', () => {
+    // path.length > 1：深层路径不做行字段校验（只校验第一段）
+    expect(
+      validateExpressionInput('{{row.uid.meta.x}}', varNames, ['uid'], rootsOf),
+    ).toBeUndefined();
+    // 无字段（裸 row）：field 空串，不构成 warning
+    expect(validateExpressionInput('{{row}}', varNames, ['uid'], rootsOf)).toBeUndefined();
+  });
+
+  it('路径中间段缺失后无候选（nodes 空）：不警告（schema 未知不阻断）', () => {
+    // 走到 data（无 children）后继续找不到段 → nodes.length === 0 → undefined
+    expect(
+      validateExpressionInput('{{playerListTable.data.total.x}}', varNames, undefined, rootsOf),
+    ).toBeUndefined();
+  });
+
+  it('row 开头但语法非法且无行上下文：不诊断（可能在行操作里）', () => {
+    expect(validateExpressionInput('{{row..x}}', varNames, undefined, rootsOf)).toBeUndefined();
+    expect(validateExpressionInput('{{row..x}}', varNames, [], rootsOf)).toBeUndefined();
+  });
+
+  it('数组下标段（number）在 schema 树中不匹配字符串段 → warning', () => {
+    const d = validateExpressionInput(
+      '{{playerListTable.data[0].x}}',
+      varNames,
+      undefined,
+      rootsOf,
+    );
+    expect(d?.level).toBe('warning');
+  });
 });
 
 describe('ExpressionInput 组件', () => {
@@ -120,5 +162,47 @@ describe('ExpressionInput 组件', () => {
     );
     fireEvent.change(document.querySelector('input')!, { target: { value: '{{filterForm' } });
     expect(onChange).toHaveBeenCalledWith('{{filterForm');
+  });
+
+  it('warning 形态：⚠ 提示与黄色诊断文本', () => {
+    render(
+      <ExpressionInput
+        value="{{playerListTable.selectedRow.noSuchField}}"
+        onChange={jest.fn()}
+        variables={variables}
+        rootsOf={rootsOf}
+      />,
+    );
+    expect(screen.getByText('⚠')).toBeInTheDocument();
+    expect(screen.getByText(/路径段/)).toBeInTheDocument();
+  });
+
+  it('聚焦后渲染补全下拉：分支节点带 ▸ 提示、叶子节点无提示', async () => {
+    const { container } = render(
+      <ExpressionInput
+        value="{{playerListTable."
+        onChange={jest.fn()}
+        variables={variables}
+        rootsOf={rootsOf}
+      />,
+    );
+    fireEvent.focus(container.querySelector('input')!);
+    // 补全候选渲染在 dropdown（挂 body）：data/selectedRow 均有子级 → ▸
+    expect(await screen.findAllByText('data')).toHaveLength(1);
+    expect(screen.getByText('selectedRow')).toBeInTheDocument();
+    expect(screen.getAllByText('▸').length).toBeGreaterThanOrEqual(2);
+    fireEvent.blur(container.querySelector('input')!);
+
+    // 深入一层：data 下只有叶子 total（无 ▸）
+    const { container: c2 } = render(
+      <ExpressionInput
+        value="{{playerListTable.data."
+        onChange={jest.fn()}
+        variables={variables}
+        rootsOf={rootsOf}
+      />,
+    );
+    fireEvent.focus(c2.querySelector('input')!);
+    expect(await screen.findAllByText('total')).toHaveLength(1);
   });
 });

@@ -84,6 +84,91 @@ describe('generateMockOutput', () => {
     };
     expect(typeof out.player.profile.nickname).toBe('string');
   });
+
+  it('字段名启发式：phone/email/url/status/city/address/level/name 各归其位', () => {
+    const schema = {
+      type: 'object',
+      properties: {
+        phone: { type: 'string' },
+        email: { type: 'string' },
+        avatar: { type: 'string' },
+        status: { type: 'string' },
+        city: { type: 'string' },
+        address: { type: 'string' },
+        level: { type: 'string' }, // string 型等级走 Lv.N 启发式（integer 走数值分支）
+        petName: { type: 'string' }, // (name)$ 结尾
+        whatever: { type: 'string' }, // 默认兜底：名词+序号
+      },
+    } as JSONValue;
+    const out = generateMockOutput(schema) as Record<string, unknown>;
+    expect(typeof out.phone).toBe('string');
+    expect(String(out.email)).toContain('@');
+    expect(String(out.avatar)).toMatch(/^https?:\/\//);
+    expect(['active', 'normal', 'enabled', 'frozen']).toContain(out.status);
+    expect(typeof out.city).toBe('string');
+    expect(typeof out.address).toBe('string');
+    expect(out.level).toBe('Lv.1'); // index 0 → (0 % 9) + 1
+    expect(typeof out.petName).toBe('string');
+    expect(typeof out.whatever).toBe('string');
+  });
+
+  it('嵌套 array 字段：对象元素 3 行 / 非对象 items 空数组 / 无 properties 的 object 空对象', () => {
+    const schema = {
+      type: 'object',
+      properties: {
+        meta: {
+          type: 'object',
+          properties: {
+            tags: { type: 'array', items: { type: 'string' } },
+            broken: { type: 'array', items: 'nope' },
+            emptyObj: { type: 'object' },
+          },
+        },
+      },
+    } as JSONValue;
+    const out = generateMockOutput(schema) as {
+      meta: { tags: unknown[]; broken: unknown[]; emptyObj: unknown };
+    };
+    // mockValueBySchema 的 array 分支：对象元素（string schema）→ 3 行标量
+    expect(out.meta.tags).toHaveLength(3);
+    // items 非对象 → []
+    expect(out.meta.broken).toEqual([]);
+    // object 无 properties → {}
+    expect(out.meta.emptyObj).toEqual({});
+  });
+
+  it('顶层数组字段 items 无对象 properties：按 items schema 逐行生成', () => {
+    const schema = {
+      type: 'object',
+      properties: {
+        topTags: { type: 'array', items: { type: 'string' } },
+        nums: { type: 'array', items: { type: 'integer' } },
+      },
+    } as JSONValue;
+    const out = generateMockOutput(schema) as { topTags: unknown[]; nums: number[] };
+    expect(out.topTags).toHaveLength(3);
+    out.topTags.forEach((t) => expect(typeof t).toBe('string'));
+    expect(out.nums).toHaveLength(3);
+    out.nums.forEach((n) => expect(typeof n).toBe('number'));
+  });
+
+  it('形态兜底：非对象字段走启发式字符串 / 顶层数组非对象 items / fn 无有效 schema 返回 undefined', () => {
+    const schema = {
+      type: 'object',
+      properties: {
+        bad: 'nope', // 字段 schema 本身非对象 → mockValueBySchema 走启发式兜底
+        badArr: { type: 'array', items: 'x' }, // 顶层数组 items 非对象 → element falsy
+      },
+    } as JSONValue;
+    const out = generateMockOutput(schema) as Record<string, JSONValue>;
+    expect(typeof out.bad).toBe('string');
+    expect(out.badArr).toHaveLength(3);
+    out.badArr.forEach((v) => expect(typeof v).toBe('string'));
+
+    // fn 存在但 outputSchema 无 properties → data undefined → 响应 undefined
+    const fn = { id: 'x', outputSchema: { type: 'string' } } as unknown as FunctionDescriptor;
+    expect(generateMockResponse(fn)).toBeUndefined();
+  });
 });
 
 describe('generateMockResponse', () => {

@@ -44,10 +44,10 @@ const modalState = {
   paramCandidates: [],
 };
 
-function renderModal(onClose = () => undefined) {
+function renderModal(onClose = () => undefined, state = modalState) {
   return render(
     <App>
-      <SaveComponentModal state={modalState} onClose={onClose} />
+      <SaveComponentModal state={state} onClose={onClose} />
     </App>,
   );
 }
@@ -134,5 +134,132 @@ describe('SaveComponentModal 保存方式两模式（V3 更新通道）', () => 
     clickOk();
     await screen.findByText('请选择要更新的模板', undefined, FIND);
     expect(mockedRequest.mock.calls.some((c) => c[1]?.method === 'PUT')).toBe(false);
+  });
+
+  it('名称为空：点保存被拦（无 POST，出警告）', async () => {
+    renderModal();
+    clickOk();
+    await screen.findByText('请填写组件名称', undefined, FIND);
+    expect(mockedRequest.mock.calls.some((c) => c[1]?.method === 'POST')).toBe(false);
+  });
+
+  it('参数化候选：渲染勾选组，勾选后 body 携带 params 定义', async () => {
+    const withParams = {
+      ...modalState,
+      paramCandidates: [
+        {
+          key: 'tb1.title',
+          nodeId: 'tb1',
+          prop: 'title',
+          propLabel: '标题',
+          nodeTitle: '玩家列表',
+          current: '旧标题',
+        },
+      ],
+    };
+    renderModal(undefined, withParams);
+    expect(screen.getByText('参数化（勾选后拖入组件时可在弹窗中快速配置）')).toBeInTheDocument();
+    const box = screen.getByRole('checkbox', { name: /玩家列表·标题/ });
+    fireEvent.click(box);
+    fillName('带参模板');
+    clickOk();
+    await screen.findByText(/已保存/, undefined, FIND);
+    const post = mockedRequest.mock.calls.find(
+      (c) => typeof c[1] === 'object' && c[1]?.method === 'POST',
+    );
+    expect(post?.[1]?.data?.params).toEqual([
+      {
+        key: 'tb1.title',
+        label: { 'zh-CN': '玩家列表·标题' },
+        nodeId: 'tb1',
+        prop: 'title',
+        default: '旧标题',
+      },
+    ]);
+  });
+
+  it('保存请求失败：出错误提示且不关闭弹窗', async () => {
+    mockedRequest.mockImplementation(async (url: string) => {
+      if (typeof url === 'string' && url.includes('/api/v1/component-templates')) {
+        return { items: [] };
+      }
+      return {};
+    });
+    mockedRequest.mockRejectedValueOnce(new Error('boom')).mockRejectedValueOnce(new Error('boom'));
+    const onClose = jest.fn();
+    renderModal(onClose);
+    fillName('会失败');
+    clickOk();
+    await screen.findByText('保存失败', undefined, FIND);
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it('更新模式拉取列表失败：警告 + 下拉空（不阻断表单）', async () => {
+    mockedRequest.mockImplementation(async (url: string) => {
+      if (typeof url === 'string' && url.includes('/api/v1/component-templates')) {
+        throw new Error('boom');
+      }
+      return {};
+    });
+    renderModal();
+    fireEvent.click(await screen.findByRole('radio', { name: '更新已有模板' }, FIND));
+    await screen.findByText('拉取自定义模板失败', undefined, FIND);
+    // 拉取失败回退空列表：下拉可打开（无崩溃），保存仍被「未选模板」拦截
+    expect(screen.queryByRole('option')).toBeNull();
+  });
+
+  it('列表响应兼容裸数组与无 items 信封（归一空表）', async () => {
+    // 裸数组形态
+    mockedRequest.mockImplementation(async () => [customTpl]);
+    const { unmount } = renderModal();
+    fireEvent.click(await screen.findByRole('radio', { name: '更新已有模板' }, FIND));
+    const combo = await waitFor(() => {
+      const el = document.querySelector('#targetKey');
+      expect(el).toBeInTheDocument();
+      return el as HTMLElement;
+    }, FIND);
+    fireEvent.mouseDown(combo);
+    expect(await screen.findByText(CUSTOM_NAME, undefined, FIND)).toBeInTheDocument();
+    unmount();
+
+    // 信封无 items 键 → 空表
+    mockedRequest.mockImplementation(async () => ({ foo: 1 }));
+    renderModal();
+    fireEvent.click(await screen.findByRole('radio', { name: '更新已有模板' }, FIND));
+    await waitFor(() => expect(document.querySelector('#targetKey')).toBeInTheDocument(), FIND);
+    expect(screen.queryByText(CUSTOM_NAME)).not.toBeInTheDocument();
+  });
+
+  it('state 置 null（弹窗关闭）：重置拉取态，重开时重新拉取', async () => {
+    const listCalls = () =>
+      mockedRequest.mock.calls.filter(
+        (c) => typeof c[0] === 'string' && c[0] === '/api/v1/component-templates' && !c[1]?.method,
+      ).length;
+    const first = renderModal();
+    fireEvent.click(await screen.findByRole('radio', { name: '更新已有模板' }, FIND));
+    await waitFor(() => expect(document.querySelector('#targetKey')).toBeInTheDocument(), FIND);
+    const afterOpen = listCalls();
+
+    // 关闭：state null（effect 重置 customTemplates），再打开重新拉取
+    first.rerender(
+      <App>
+        <SaveComponentModal state={null} onClose={() => undefined} />
+      </App>,
+    );
+    first.rerender(
+      <App>
+        <SaveComponentModal state={modalState} onClose={() => undefined} />
+      </App>,
+    );
+    fireEvent.click(await screen.findByRole('radio', { name: '更新已有模板' }, FIND));
+    await waitFor(() => expect(document.querySelector('#targetKey')).toBeInTheDocument(), FIND);
+    await waitFor(() => expect(listCalls()).toBeGreaterThan(afterOpen), FIND);
+  });
+
+  it('无依赖函数：摘要文案省略函数段（fns 空侧）', () => {
+    renderModal(undefined, { ...modalState, fnIds: [] });
+    expect(
+      screen.getByText(/包含 2 个节点。保存后在组件库 Tab 拖入任意组合页复用。/),
+    ).toBeInTheDocument();
   });
 });
