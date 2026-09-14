@@ -56,10 +56,22 @@ func (CertificateAlert) TableName() string {
 // Store handles certificate monitoring
 type Store struct {
 	db *gorm.DB
+	// fetchCert 为证书获取注入点（默认 fetchCertificateInfo 的真实 TLS 拨号）。
+	// 测试可替换以确定性构造分支：真实 TLS 验证会先拒绝已过期证书，导致
+	// 「验证时有效、检查时已过期」分支无法用真实拨号稳定触发。
+	fetchCert func(domain string, port int) (*x509.Certificate, error)
 }
 
 func NewStore(db *gorm.DB) *Store {
 	return &Store{db: db}
+}
+
+// fetchCertificate 经注入点取证书；未注入（生产与 zero-value Store）回退真实拨号。
+func (s *Store) fetchCertificate(domain string, port int) (*x509.Certificate, error) {
+	if s.fetchCert != nil {
+		return s.fetchCert(domain, port)
+	}
+	return s.fetchCertificateInfo(domain, port)
 }
 
 // AutoMigrate creates certificate tables
@@ -91,7 +103,7 @@ func (s *Store) CheckCertificate(certID uint) error {
 		return nil
 	}
 
-	certInfo, err := s.fetchCertificateInfo(cert.Domain, cert.Port)
+	certInfo, err := s.fetchCertificate(cert.Domain, cert.Port)
 	if err != nil {
 		cert.Status = "error"
 		cert.ErrorMsg = err.Error()

@@ -247,6 +247,16 @@ func (c *UpstreamClient) dialServer(ctx context.Context) error {
 	return nil
 }
 
+// notifyUpdate 是 store 变更回调：向 updateCh 发送去抖通知，channel 满
+// （已有一条待处理通知）时丢弃——updateLoop 按 debounce 周期消费，旧通知
+// 未被消费前新变更无需重复通知。
+func (c *UpstreamClient) notifyUpdate() {
+	select {
+	case c.updateCh <- struct{}{}:
+	default:
+	}
+}
+
 // Start begins the upstream synchronization process.
 func (c *UpstreamClient) Start(ctx context.Context) error {
 	if c.serverAddr == "" {
@@ -271,12 +281,7 @@ func (c *UpstreamClient) Start(ctx context.Context) error {
 
 	// Register update callback
 	c.updateCh = make(chan struct{}, 1)
-	c.store.OnUpdate(func() {
-		select {
-		case c.updateCh <- struct{}{}:
-		default:
-		}
-	})
+	c.store.OnUpdate(c.notifyUpdate)
 	go c.updateLoop(ctx, 500*time.Millisecond)
 
 	// Heartbeat loop

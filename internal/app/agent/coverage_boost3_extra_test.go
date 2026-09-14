@@ -303,3 +303,25 @@ func TestBuildProviders_AddrVersionBackfill(t *testing.T) {
 	assert.Equal(t, "10.9.9.9:1", procs[0].Addr)
 	assert.Equal(t, "7.7", procs[0].Version)
 }
+
+// composeLabels nil receiver：防御性兜底直接返回 nil。
+func TestUpstreamComposeLabels_NilReceiver(t *testing.T) {
+	var c *UpstreamClient
+	assert.Nil(t, c.composeLabels())
+}
+
+// notifyUpdate：channel 空时写入通知；channel 满（已有一条待处理）时丢弃不阻塞。
+func TestUpstreamNotifyUpdate_DropWhenFull(t *testing.T) {
+	c := &UpstreamClient{updateCh: make(chan struct{}, 1)}
+
+	c.notifyUpdate()
+	assert.Len(t, c.updateCh, 1, "空 channel 应写入通知")
+
+	// 已有一条通知时再次触发：select 走 default 丢弃，不阻塞、不堆积。
+	c.notifyUpdate()
+	assert.Len(t, c.updateCh, 1, "满 channel 应丢弃新通知")
+
+	<-c.updateCh
+	c.notifyUpdate()
+	assert.Len(t, c.updateCh, 1, "消费后再触发应重新写入")
+}

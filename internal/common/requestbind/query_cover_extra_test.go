@@ -32,3 +32,21 @@ func TestBindQueryCompat_PointerToMapFallsBackToValidate(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, map[string]int{}, m)
 }
+
+// 含未导出字段的指针结构体：form binding 因 page=abc 无法转 int 失败进
+// fallback，循环对 CanSet=false 的未导出字段 continue（覆盖该分支），
+// int 解析失败静默跳过，ValidateStruct 通过返回 nil。
+type withUnexportedFieldDTO struct {
+	Page int `form:"page"`
+	mark string
+}
+
+func TestBindQueryCompat_UnexportedFieldSkippedInFallback(t *testing.T) {
+	ctx := newBindContext(t, "page=abc")
+
+	req := withUnexportedFieldDTO{mark: "kept"}
+	err := BindQueryCompat(ctx, &req)
+	assert.NoError(t, err)
+	assert.Equal(t, 0, req.Page, "非数字 query 不应写入 int 字段")
+	assert.Equal(t, "kept", req.mark)
+}

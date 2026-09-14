@@ -1335,3 +1335,27 @@ func TestListNodes_RemoteOwnedSnapshotNotStale(t *testing.T) {
 		t.Errorf("agent-remote ownerInstance = %q, want peer-inst", remote.Labels["ownerInstance"])
 	}
 }
+
+// ---- listNodes nil ctx 兜底 ----
+
+func TestListNodes_NilContext(t *testing.T) {
+	t.Parallel()
+
+	store := registry.NewStore()
+	now := time.Now()
+	_ = store.UpsertAgent(&registry.AgentSession{
+		AgentID:   "a-nil-ctx",
+		GameID:    "g1",
+		Env:       "prod",
+		Addr:      "h:1",
+		Labels:    map[string]string{},
+		Functions: map[string]registry.FunctionMeta{},
+		LastSeen:  now,
+		ExpireAt:  now.Add(time.Hour),
+	})
+
+	// 生产中间件保证 ctx 非空；nil 时 listNodes 有显式 Background 兜底。
+	svcCtx := &svc.ServiceContext{RegistryStore: store}
+	nodes := listNodes(nil, svcCtx, "", "", "")
+	assert.NotEmpty(t, nodes)
+}

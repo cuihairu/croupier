@@ -338,6 +338,18 @@ func TestSortedRequiredSortsV9(t *testing.T) {
 	assert.Empty(t, sortedRequired(map[string]bool{}))
 }
 
+// 插入排序交换体的确定性触发：map 迭代序随机，key 少时可能恰好按序 append
+// 而不进内层交换循环。10 个 key 恰好全有序的概率为 1/10!，覆盖该分支。
+func TestSortedRequired_TriggersInsertionSwapV9(t *testing.T) {
+	m := map[string]bool{}
+	for _, k := range []string{"j", "d", "a", "h", "b", "e", "i", "c", "f", "g"} {
+		m[k] = true
+	}
+	assert.Equal(t,
+		[]string{"a", "b", "c", "d", "e", "f", "g", "h", "i", "j"},
+		sortedRequired(m))
+}
+
 func TestFirstNonEmptyStrAllBlankV9(t *testing.T) {
 	assert.Empty(t, firstNonEmptyStr())
 	assert.Empty(t, firstNonEmptyStr("", "   ", "\t"))
