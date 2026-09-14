@@ -5,7 +5,7 @@
 # Croupier Platform
 
 [![CI](https://github.com/cuihairu/croupier/actions/workflows/ci.yml/badge.svg)](https://github.com/cuihairu/croupier/actions/workflows/ci.yml)
-[![codecov](https://codecov.io/gh/cuihairu/croupier/branch/main/graph/badge.svg?t=1789350127](https://codecov.io/gh/cuihairu/croupier)
+[![codecov](https://codecov.io/gh/cuihairu/croupier/branch/main/graph/badge.svg?t=1789350127)
 ![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)
 ![Go Version](https://img.shields.io/badge/go-1.26.6+-green.svg)
 
@@ -64,7 +64,7 @@ Croupier 是面向游戏运营与控制场景的 Server / Agent / SDK 平台，�
 
 | 模块      | 目录   | Build                                                                                                                                                                  | Coverage                                                                                                                                       |
 | --------- | ------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| Dashboard | `web/` | [![Build](https://github.com/cuihairu/croupier/actions/workflows/ci-dashboard.yml/badge.svg)](https://github.com/cuihairu/croupier/actions/workflows/ci-dashboard.yml) | [![Coverage](https://codecov.io/gh/cuihairu/croupier/branch/main/graph/badge.svg?flag=web-dashboard)](https://codecov.io/gh/cuihairu/croupier) |
+| Dashboard | `web/` | [![Build](https://github.com/cuihairu/croupier/actions/workflows/ci-dashboard.yml/badge.svg)](https://github.com/cuihairu/croupier/actions/workflows/ci-dashboard.yml) | [![Coverage](https://codecov.io/gh/cuihairu/croupier/branch/main/graph/badge.svg?flag=web-dashboard) |
 
 ## 架构
 
