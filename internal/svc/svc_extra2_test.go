@@ -216,8 +216,11 @@ func TestOpsStateStore_UpdateSaveFailure(t *testing.T) {
 // --- 杂项小函数 ---
 
 func TestWithGameScope_NilContext(t *testing.T) {
-	out := WithGameScope(context.TODO(), GameScope{GameID: "g", Env: "e"})
+	// 刻意传 nil：WithGameScope 对 nil ctx 有显式 Background 兜底分支，
+	// 此用例即覆盖该分支（用例名一直叫 NilContext，之前传 TODO 名不副实）。
+	out := WithGameScope(nil, GameScope{GameID: "g", Env: "e"}) //nolint:staticcheck // 刻意 nil context：验证 Background 兜底
 	assert.Equal(t, "g", GameScopeFromContext(out).GameID)
+	assert.Equal(t, "e", GameScopeFromContext(out).Env)
 }
 
 func TestResolveBootstrapAuthDir_Variants(t *testing.T) {

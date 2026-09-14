@@ -871,3 +871,36 @@ func TestGetOpenAPIDoc(t *testing.T) {
 		t.Error("GetOpenAPIDoc() should return nil before Init")
 	}
 }
+
+func TestIsWordSeparator(t *testing.T) {
+	cases := []struct {
+		r    rune
+		want bool
+		note string
+	}{
+		// ASCII 词内字符：字母数字与下划线不是分隔符
+		{'a', false, "ASCII lowercase"},
+		{'Z', false, "ASCII uppercase"},
+		{'5', false, "ASCII digit"},
+		{'_', false, "underscore"},
+		// ASCII 分隔符：其余 ASCII 全部是分隔符
+		{'-', true, "ASCII hyphen"},
+		{'/', true, "ASCII slash"},
+		{' ', true, "ASCII space"},
+		{'.', true, "ASCII dot"},
+		// 非 ASCII 字母/数字不是分隔符
+		{'中', false, "CJK letter"},
+		{'é', false, "Latin-1 letter"},
+		{'\u0663', false, "Arabic-Indic digit (Nd)"},
+		// 非 ASCII 非字母数字：空白是分隔符，其余不是
+		{'\u00A0', true, "NBSP (space)"},
+		{'\u3000', true, "Ideographic space"},
+		{'\u00B7', false, "middle dot (not space)"},
+		{'\u200B', false, "zero-width space (not IsSpace)"},
+	}
+	for _, tc := range cases {
+		if got := isWordSeparator(tc.r); got != tc.want {
+			t.Errorf("isWordSeparator(%q) = %v, want %v (%s)", tc.r, got, tc.want, tc.note)
+		}
+	}
+}
