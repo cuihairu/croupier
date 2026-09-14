@@ -155,10 +155,11 @@ jobs:
         timeout-minutes: 40
         run: |
           COMPOSE_ARGS=(--project-name "${CROUPIER_COMPOSE_PROJECT}" --env-file "${{ inputs.deploy_dir }}/.env" -f "${{ inputs.deploy_dir }}/docker-compose.yml")
+          # analytics profile（ingestion/analytics-worker）随每次部署一起拉新；
+          # 不带 profile 时 compose up 不会碰这些服务，镜像会滞留旧版本。
+          PULL_ARGS=(--profile analytics)
           if [ "${{ inputs.enable_sdk_examples }}" = "true" ]; then
-            PULL_ARGS=(--profile sdk-examples)
-          else
-            PULL_ARGS=()
+            PULL_ARGS+=(--profile sdk-examples)
           fi
           # 镜像源/外网抖动重试（3 次，间隔递增）；观测栈等非关键镜像
           # 拉取失败时降级为 warning——本地已有镜像即可继续部署，
@@ -190,6 +191,8 @@ jobs:
             croupier-agent-2 \
             croupier-haproxy \
             croupier-dashboard \
+            croupier-ingestion \
+            croupier-analytics-worker \
             croupier-sdk-demo-go
           do
             if ! docker container inspect "${name}" >/dev/null 2>&1; then
@@ -219,19 +222,22 @@ jobs:
         id: deploy
         run: |
           COMPOSE_ARGS=(--project-name "${CROUPIER_COMPOSE_PROJECT}" --env-file "${{ inputs.deploy_dir }}/.env" -f "${{ inputs.deploy_dir }}/docker-compose.yml")
+          # analytics profile（ingestion/analytics-worker）与应用服务同批启用；
+          # 二者依赖的 redis/clickhouse 在默认 profile，由 compose 自动补齐健康等待。
+          DEPLOY_ARGS=(--profile analytics)
           if [ "${{ inputs.enable_sdk_examples }}" = "true" ]; then
-            docker compose "${COMPOSE_ARGS[@]}" --profile sdk-examples up -d --wait --remove-orphans
-          else
-            docker compose "${COMPOSE_ARGS[@]}" up -d --wait --remove-orphans
+            DEPLOY_ARGS+=(--profile sdk-examples)
           fi
+          docker compose "${COMPOSE_ARGS[@]}" "${DEPLOY_ARGS[@]}" up -d --wait --remove-orphans
 
-          # 核心服务强制重建：自建 runner 上 compose 对同 tag 镜像更新的
+          # 应用服务强制重建：自建 runner 上 compose 对同 tag 镜像更新的
           # 检测曾失灵（pull 到新 digest 但 up 判定 Running 不重建），
-          # 发布语义要求核心服务必须运行最新镜像——每次部署强制重建，
+          # 发布语义要求应用服务必须运行最新镜像——每次部署强制重建
+          # （含 ingestion/analytics-worker，无状态，重启由 Redis 流缓冲兜底），
           # 基础设施（db/redis 等）仍按需重建。
           echo "===== 镜像 digest 诊断（服务 -> 镜像 ID） ====="
-          docker compose "${COMPOSE_ARGS[@]}" images server server2 agent agent2 haproxy dashboard
-          docker compose "${COMPOSE_ARGS[@]}" up -d --force-recreate --wait server server2 agent agent2 haproxy dashboard
+          docker compose "${COMPOSE_ARGS[@]}" "${DEPLOY_ARGS[@]}" images server server2 agent agent2 haproxy dashboard ingestion analytics-worker
+          docker compose "${COMPOSE_ARGS[@]}" "${DEPLOY_ARGS[@]}" up -d --force-recreate --wait server server2 agent agent2 haproxy dashboard ingestion analytics-worker
 
           # telemetry 栈（独立 project：croupier-telemetry）：prometheus/
           # grafana/jaeger/otel。宿主映射端口供 deploy 栈跨网络访问
@@ -263,11 +269,11 @@ jobs:
         timeout-minutes: 2
         run: |
           COMPOSE_ARGS=(--project-name "${CROUPIER_COMPOSE_PROJECT}" --env-file "${{ inputs.deploy_dir }}/.env" -f "${{ inputs.deploy_dir }}/docker-compose.yml")
+          PS_ARGS=(--profile analytics)
           if [ "${{ inputs.enable_sdk_examples }}" = "true" ]; then
-            docker compose "${COMPOSE_ARGS[@]}" --profile sdk-examples ps
-          else
-            docker compose "${COMPOSE_ARGS[@]}" ps
+            PS_ARGS+=(--profile sdk-examples)
           fi
+          docker compose "${COMPOSE_ARGS[@]}" "${PS_ARGS[@]}" ps
 
       - name: Cleanup dangling images
         timeout-minutes: 2
