@@ -8,12 +8,16 @@ WORKDIR /src/sdks/java
 RUN chmod +x gradlew || true \
     && ./gradlew --no-daemon jar copyRuntimeDependencies
 
+# SDK jar 文件名带版本号（随 build.gradle 版本漂移），用通配符解析，
+# 不再硬编码——版本同步脚本不覆盖本文件，硬编码会让 demo 镜像在每次
+# 版本号变更后构建失败（0.1.4 同步时踩中）。
 RUN mkdir -p /out/classes \
+    && SDK_JAR="$(ls build/libs/croupier-java-sdk-*.jar | head -1)" \
     && javac \
-      -cp "build/libs/croupier-java-sdk-0.1.1-SNAPSHOT.jar:build/runtime-deps/*" \
+      -cp "${SDK_JAR}:build/runtime-deps/*" \
       -d /out/classes \
       examples/game-demo/src/main/java/com/croupier/sdk/examples/GameDemo.java \
-    && cp build/libs/croupier-java-sdk-0.1.1-SNAPSHOT.jar /out/croupier-java-sdk.jar \
+    && cp "${SDK_JAR}" /out/croupier-java-sdk.jar \
     && cp -r build/runtime-deps /out/lib
 
 FROM eclipse-temurin:21-jre
