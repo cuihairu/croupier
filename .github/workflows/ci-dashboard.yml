@@ -115,6 +115,14 @@ jobs:
         timeout-minutes: 15
         run: pnpm test:coverage
 
+      # jest rootDir 为 web/，lcov 的 SF 路径不带 web/ 前缀；web 又是
+      # submodule，codecov uploader 无法自行推断映射，SF:src/... 落在仓库
+      # 根命名空间、被 flag 的 paths(web/src/**) 全量过滤 → flag 恒 unknown。
+      # 上传前显式重写前缀（同目录内 sed，不影响其他 flag 的上传）。
+      - name: Rewrite lcov source paths for codecov
+        timeout-minutes: 2
+        run: sed -i 's|^SF:src/|SF:web/src/|' coverage/lcov.info
+
       - name: Upload coverage to Codecov
         timeout-minutes: 5
         uses: codecov/codecov-action@v7
@@ -122,6 +130,9 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: ./web/coverage/lcov.info
           flags: web-dashboard
+          # 显式 files 之外禁用自动搜索：避免顺带上传 sdks/** 的 coverage
+          # 产物混入本 flag（对齐 ci-sdk-js.yml 的做法）。
+          disable_search: true
 
   mock-e2e-tests:
     runs-on: ubuntu-latest
