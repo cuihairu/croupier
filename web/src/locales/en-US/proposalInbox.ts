@@ -34,6 +34,14 @@ export default {
   'component.proposalInbox.contractChanges.action.autoMergeContent':
     '{message}. {merged} items merged safely, {conflicts} items still need manual handling.',
   'component.proposalInbox.contractChanges.action.autoMergeTitle': 'Auto Merge Result',
+  'component.proposalInbox.contractChanges.bulk.republish': 'Republish All',
+  'component.proposalInbox.contractChanges.bulk.republishConfirm':
+    'Regenerate drafts and republish {count} published pages to the latest contracts (same scope). Failed pages are listed individually and do not block the rest. Continue?',
+  'component.proposalInbox.contractChanges.bulk.republishEmpty': 'No published pages to republish',
+  'component.proposalInbox.contractChanges.bulk.republishFailed': 'Bulk republish failed',
+  'component.proposalInbox.contractChanges.bulk.republishPartial':
+    'Republished {published} pages, {failed} failed: {details}',
+  'component.proposalInbox.contractChanges.bulk.republishSuccess': 'Republished {published} pages',
   'component.proposalInbox.contractChanges.action.deleteConfirmContent':
     'This deletes the draft, published versions and pending proposals of page {pageKey}, and cannot be undone. Delete anyway?',
   'component.proposalInbox.contractChanges.action.deleteConfirmTitle': 'Delete Page',

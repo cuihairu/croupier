@@ -263,6 +263,13 @@ func (s *Service) RegenerateDraft(ctx context.Context, req *PageRegenerateReques
 	if err := s.requirePageEdit(ctx); err != nil {
 		return nil, err
 	}
+	return s.regenerateDraft(ctx, req)
+}
+
+// regenerateDraft 是 RegenerateDraft 的核心逻辑，不做权限检查——单页入口
+// 已校验 pages:edit；批量入口（BulkRepublish）以自身的 pages:publish 门禁
+// 覆盖整个操作（与 BulkPublish→AcceptAndPublishProposal 同一先例）。
+func (s *Service) regenerateDraft(ctx context.Context, req *PageRegenerateRequest) (*PageRegenerateResponse, error) {
 	gameID, env, err := requireScope(ctx)
 	if err != nil {
 		return nil, err
@@ -1848,6 +1855,73 @@ func (s *Service) BulkUnpublish(ctx context.Context, req *PageBulkRequest) (*Pag
 			continue
 		}
 		result.Unpublished = append(result.Unpublished, page.PageKey)
+	}
+	return result, nil
+}
+
+// BulkRepublish 一键重新发布（契约变更队列）：对契约已漂移的已发布页面
+// 逐页「重生成草稿 → 发布」，把线上快照拉齐到最新契约。未显式指定
+// pageKeys 时，复用审批收件箱同源的 stale 评估且只取已发布条目——草稿态
+// 的契约变更不在此批量发布（从未上线的页面不应被一键上线）。单页失败
+// 记录原因并继续，不中断其余页面。
+func (s *Service) BulkRepublish(ctx context.Context, req *PageBulkRepublishRequest) (*PageBulkResult, error) {
+	if err := s.requirePagePublish(ctx); err != nil {
+		return nil, err
+	}
+	gameID, env, err := requireScope(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	pageKeys := make([]string, 0, len(req.PageKeys))
+	for _, key := range req.PageKeys {
+		if key = strings.TrimSpace(key); key != "" {
+			pageKeys = append(pageKeys, key)
+		}
+	}
+	if len(pageKeys) == 0 {
+		proposalSvc := contractsvc.NewProposalService(s.svcCtx.DB)
+		inbox, err := proposalSvc.Inbox(ctx, gameID, env, contractsvc.ProposalListFilter{})
+		if err != nil {
+			return nil, err
+		}
+		for _, change := range inbox.ContractChanges {
+			if change.Kind == "published" {
+				pageKeys = append(pageKeys, change.PageKey)
+			}
+		}
+	}
+
+	result := &PageBulkResult{Total: len(pageKeys)}
+	for _, pageKey := range pageKeys {
+		// regenerateDraft 带乐观锁：按当前草稿版本重生成；并发修改会在此
+		// 冲突失败并记入 failed（与单页流程语义一致）。
+		p, err := s.svcCtx.PageSpecModel.FindByScopeAndPageKey(ctx, gameID, env, pageKey)
+		if err != nil {
+			result.Failed = append(result.Failed, map[string]string{
+				"pageKey": pageKey,
+				"error":   ErrPageNotFound(pageKey).Error(),
+			})
+			continue
+		}
+		revision := p.DraftRevision
+		regenerated, err := s.regenerateDraft(ctx, &PageRegenerateRequest{PageKey: pageKey, DraftRevision: &revision})
+		if err != nil {
+			result.Failed = append(result.Failed, map[string]string{
+				"pageKey": pageKey,
+				"error":   err.Error(),
+			})
+			continue
+		}
+		publishedRevision := regenerated.DraftRevision
+		if _, err := s.Publish(ctx, &PagePublishRequest{PageKey: pageKey, DraftRevision: &publishedRevision}); err != nil {
+			result.Failed = append(result.Failed, map[string]string{
+				"pageKey": pageKey,
+				"error":   err.Error(),
+			})
+			continue
+		}
+		result.Published = append(result.Published, pageKey)
 	}
 	return result, nil
 }

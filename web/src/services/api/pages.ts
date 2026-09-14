@@ -222,3 +222,11 @@ export async function bulkPublishPages(): Promise<PageBulkResult> {
 export async function bulkUnpublishPages(): Promise<PageBulkResult> {
   return request<PageBulkResult>('/api/v1/pages/bulk-unpublish', { method: 'POST' });
 }
+
+/** 一键重新发布契约变更队列：pageKeys 为空时处理 scope 内全部 stale 已发布页面。 */
+export async function bulkRepublishPages(pageKeys?: string[]): Promise<PageBulkResult> {
+  return request<PageBulkResult>('/api/v1/pages/bulk-republish', {
+    method: 'POST',
+    data: pageKeys ? { pageKeys } : {},
+  });
+}

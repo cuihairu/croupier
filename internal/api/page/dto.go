@@ -173,7 +173,13 @@ type PageRollbackResponse struct {
 // PageBulkRequest 一键发布/一键下架请求（预留过滤参数）。
 type PageBulkRequest struct{}
 
-// PageBulkResult 一键发布/下架结果。
+// PageBulkRepublishRequest 一键重新发布请求：pageKeys 为空时处理 scope 内
+// 全部契约漂移的已发布页面（与契约变更队列同源评估）。
+type PageBulkRepublishRequest struct {
+	PageKeys []string `json:"pageKeys,omitempty"`
+}
+
+// PageBulkResult 一键发布/下架/重新发布结果。
 type PageBulkResult struct {
 	Total       int                 `json:"total"`
 	Published   []string            `json:"published,omitempty"`

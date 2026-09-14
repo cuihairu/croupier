@@ -214,8 +214,15 @@ web/src/pages/PageStudio/CompositeEditor/
 - draftColumns 列定义 + shared 工具，主页保留列表编排与全部数据回调。
 - 主视图（提案收件箱上方）常驻「一键发布全部 / 一键下架全部」（2026-09 自高级
   管理面板提升）：发布走 `POST /api/v1/pages/bulk-publish`（重算契约提案 → ready/basic
-  批量 accept-and-publish，契约变更随重算一并消化）；下架走 `bulk-unpublish`（逐页复用
+  批量 accept-and-publish）；下架走 `bulk-unpublish`（逐页复用
   单页真实下线链路，控制台菜单随之清空）。「高级页面管理」面板回归版本/回滚定位。
+- **契约变更队列批量重发布（2026-09-14）**：契约变更 Tab 头部「一键重新发布全部」
+  走 `POST /api/v1/pages/bulk-republish`（权限 pages:publish）——对 stale 的**已发布**
+  页面逐页「重生成草稿 → 乐观锁发布」，把线上快照拉齐到最新契约；单页失败记录原因
+  并继续。请求体 `{pageKeys?: string[]}`：显式指定只处理指定页面；省略时后端按与
+  收件箱同源的 stale 评估自动发现目标。草稿态漂移页面不在批量范围（从未上线的
+  页面不应被一键上线，仍走单页处理）。注意：`bulk-publish` 只消化 pending 提案，
+  已发布页面的契约漂移由本端点负责——两者互补而非重复。
 
 发布链：编译产物 `POST /api/v1/versioning/pages/composite`（请求结构含 `key/group/display/rowActions/toolbarActions/onSuccessRefresh/chain`）→ 提案 → 接受发布 → `PageRenderer/CompositeRenderer` 按 spec 渲染。
 

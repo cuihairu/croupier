@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { App, Button, Dropdown, Popconfirm, Space, Table, Tag, Tooltip, Typography } from 'antd';
 import {
   DeleteOutlined,
@@ -16,7 +16,7 @@ import SelectorSyncReportModal from '@/components/SelectorSync/SelectorSyncRepor
 import { mergeChanges, regenerateProposal, republish } from '@/services/dashboard';
 import { deleteVersioningPage } from '@/services/api/versioning';
 import type { ConflictResolution, MergeResponse } from '@/services/api/versioning';
-import { publishPageDraft } from '@/services/api/pages';
+import { bulkRepublishPages, publishPageDraft } from '@/services/api/pages';
 import { extractErrorMessage } from '@/utils/errors';
 import { requestConsoleMenuRefresh } from '@/utils/consoleMenu';
 import { localizedText } from '@/utils/localizedText';
@@ -41,6 +41,7 @@ export default function ContractChangesPanel({
   const { message, modal } = App.useApp();
   const intl = useIntl();
   const [contractActionKey, setContractActionKey] = useState('');
+  const [bulkRepublishLoading, setBulkRepublishLoading] = useState(false);
   const [manualMergeVisible, setManualMergeVisible] = useState(false);
   const [manualMergeLoading, setManualMergeLoading] = useState(false);
   const [manualMergePreview, setManualMergePreview] = useState<MergeResponse | null>(null);
@@ -252,6 +253,84 @@ export default function ContractChangesPanel({
     [intl, modal, runContractAction],
   );
 
+  // 一键重新发布：只针对已发布态的契约漂移页面（草稿态页面从未上线，
+  // 不应被批量发布），逐页「重生成 → 发布」由后端 bulk-republish 完成。
+  const publishedStaleKeys = useMemo(
+    () => records.filter((record) => record.kind === 'published').map((record) => record.pageKey),
+    [records],
+  );
+
+  const handleBulkRepublish = useCallback(() => {
+    if (publishedStaleKeys.length === 0) {
+      message.info(
+        intl.formatMessage({
+          id: 'component.proposalInbox.contractChanges.bulk.republishEmpty',
+          defaultMessage: '没有可重新发布的已发布页面',
+        }),
+      );
+      return;
+    }
+    modal.confirm({
+      title: intl.formatMessage({
+        id: 'component.proposalInbox.contractChanges.bulk.republish',
+        defaultMessage: '一键重新发布全部',
+      }),
+      content: intl.formatMessage(
+        {
+          id: 'component.proposalInbox.contractChanges.bulk.republishConfirm',
+          defaultMessage:
+            '将把 {count} 个已发布页面重生成草稿并按最新契约重新发布（同 scope）。失败页面会逐条列出，不影响其余页面。确认执行？',
+        },
+        { count: publishedStaleKeys.length },
+      ),
+      onOk: async () => {
+        setBulkRepublishLoading(true);
+        try {
+          const res = await bulkRepublishPages(publishedStaleKeys);
+          const published = res.published?.length ?? 0;
+          const failed = res.failed ?? [];
+          if (failed.length > 0) {
+            // 部分失败：拼前 3 条明细，让用户知道哪些页面需要单独处理
+            const details = failed
+              .slice(0, 3)
+              .map((item) => `${item.pageKey}: ${item.error}`)
+              .join('；');
+            message.warning(
+              intl.formatMessage(
+                {
+                  id: 'component.proposalInbox.contractChanges.bulk.republishPartial',
+                  defaultMessage: '已重新发布 {published} 个页面，{failed} 个失败：{details}',
+                },
+                { published, failed: failed.length, details },
+              ),
+            );
+          } else {
+            message.success(
+              intl.formatMessage(
+                {
+                  id: 'component.proposalInbox.contractChanges.bulk.republishSuccess',
+                  defaultMessage: '已重新发布 {published} 个页面',
+                },
+                { published },
+              ),
+            );
+          }
+          requestConsoleMenuRefresh();
+          await onChanged();
+        } catch {
+          message.error(
+            intl.formatMessage({
+              id: 'component.proposalInbox.contractChanges.bulk.republishFailed',
+              defaultMessage: '一键重新发布失败',
+            }),
+          );
+        } finally {
+          setBulkRepublishLoading(false);
+        }
+      },
+    });
+  }, [intl, message, modal, onChanged, publishedStaleKeys]);
+
   const contractColumns: ColumnsType<ContractChangeInfo> = [
     {
       title: intl.formatMessage({
@@ -445,6 +524,38 @@ export default function ContractChangesPanel({
 
   return (
     <>
+      <div
+        style={{
+          marginBottom: 12,
+          display: 'flex',
+          justifyContent: 'flex-end',
+        }}
+      >
+        <Tooltip
+          title={
+            publishedStaleKeys.length === 0
+              ? intl.formatMessage({
+                  id: 'component.proposalInbox.contractChanges.bulk.republishEmpty',
+                  defaultMessage: '没有可重新发布的已发布页面',
+                })
+              : undefined
+          }
+        >
+          <Button
+            type="primary"
+            ghost
+            icon={<RocketOutlined />}
+            loading={bulkRepublishLoading}
+            disabled={publishedStaleKeys.length === 0}
+            onClick={handleBulkRepublish}
+          >
+            <FormattedMessage
+              id="component.proposalInbox.contractChanges.bulk.republish"
+              defaultMessage="一键重新发布全部"
+            />
+          </Button>
+        </Tooltip>
+      </div>
       <Table
         columns={contractColumns}
         dataSource={records}

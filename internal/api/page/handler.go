@@ -2,6 +2,7 @@ package page
 
 import (
 	"errors"
+	"io"
 
 	"github.com/cuihairu/croupier/internal/common/response"
 	"github.com/gin-gonic/gin"
@@ -314,6 +315,22 @@ func (h *Handler) BulkPublish(c *gin.Context) {
 // BulkUnpublish 处理一键下架全部已发布页面。
 func (h *Handler) BulkUnpublish(c *gin.Context) {
 	resp, err := h.service.BulkUnpublish(c.Request.Context(), &PageBulkRequest{})
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
+	response.Success(c, resp)
+}
+
+// BulkRepublish 处理契约变更队列的一键重新发布。body 可为空（此时处理
+// scope 内全部 stale 已发布页面），因此容忍空请求体的 io.EOF。
+func (h *Handler) BulkRepublish(c *gin.Context) {
+	req := &PageBulkRepublishRequest{}
+	if err := c.ShouldBindJSON(req); err != nil && !errors.Is(err, io.EOF) {
+		response.Error(c, err)
+		return
+	}
+	resp, err := h.service.BulkRepublish(c.Request.Context(), req)
 	if err != nil {
 		response.Error(c, err)
 		return

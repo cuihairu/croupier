@@ -33,6 +33,14 @@ export default {
   'component.proposalInbox.contractChanges.action.autoMergeContent':
     '{message}。安全合并 {merged} 项，仍有 {conflicts} 项需要人工处理。',
   'component.proposalInbox.contractChanges.action.autoMergeTitle': '自动合并结果',
+  'component.proposalInbox.contractChanges.bulk.republish': '一键重新发布全部',
+  'component.proposalInbox.contractChanges.bulk.republishConfirm':
+    '将把 {count} 个已发布页面重生成草稿并按最新契约重新发布（同 scope）。失败页面会逐条列出，不影响其余页面。确认执行？',
+  'component.proposalInbox.contractChanges.bulk.republishEmpty': '没有可重新发布的已发布页面',
+  'component.proposalInbox.contractChanges.bulk.republishFailed': '一键重新发布失败',
+  'component.proposalInbox.contractChanges.bulk.republishPartial':
+    '已重新发布 {published} 个页面，{failed} 个失败：{details}',
+  'component.proposalInbox.contractChanges.bulk.republishSuccess': '已重新发布 {published} 个页面',
   'component.proposalInbox.contractChanges.action.deleteConfirmContent':
     '将删除页面 {pageKey} 的草稿、已发布版本与待审提案，且不可恢复。确认删除？',
   'component.proposalInbox.contractChanges.action.deleteConfirmTitle': '删除页面',
