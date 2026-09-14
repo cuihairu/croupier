@@ -64,7 +64,7 @@ func (s *Service) Detail(ctx context.Context, req *DetailRequest) (*Item, error)
 	if err != nil {
 		return nil, err
 	}
-	return &Item{
+	item := &Item{
 		ID:         taskID,
 		TaskID:     taskID,
 		Status:     result.Status,
@@ -73,7 +73,12 @@ func (s *Service) Detail(ctx context.Context, req *DetailRequest) (*Item, error)
 		CreatedAt:  result.CreatedAt,
 		StartedAt:  result.StartedAt,
 		FinishedAt: result.FinishedAt,
-	}, nil
+	}
+	if result.Actor != "" {
+		item.ActorID = result.Actor
+		item.ActorType = "admin"
+	}
+	return item, nil
 }
 
 func (s *Service) Cancel(ctx context.Context, req *DetailRequest) error {
@@ -114,17 +119,24 @@ func fromTask(task taskapi.Item) Item {
 	if status == "" {
 		status = "unknown"
 	}
-	return Item{
+	// actor 透传：async 调用发起时写入 task_runs.actor（登录账号），
+	// 前端调用历史要展示真实操作人而非空值（SDK 直连调用无控制台身份时为空）。
+	item := Item{
 		ID:         task.ID,
 		TaskID:     task.ID,
 		FunctionID: task.FunctionID,
 		GameID:     task.GameID,
 		Env:        task.Env,
 		Status:     status,
+		ActorID:    task.Actor,
 		AgentID:    task.AgentID,
 		StartedAt:  task.StartedAt,
 		FinishedAt: task.FinishedAt,
 		ErrorMsg:   task.Error,
 		CreatedAt:  task.CreatedAt,
 	}
+	if task.Actor != "" {
+		item.ActorType = "admin"
+	}
+	return item
 }

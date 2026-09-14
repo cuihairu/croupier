@@ -138,6 +138,7 @@ func TestFromTask_AllFields(t *testing.T) {
 		Status:     "succeeded",
 		GameID:     "game1",
 		Env:        "prod",
+		Actor:      "opuser",
 		AgentID:    "agent-1",
 		StartedAt:  "2024-01-01T00:00:00Z",
 		FinishedAt: "2024-01-01T00:00:01Z",
@@ -152,11 +153,21 @@ func TestFromTask_AllFields(t *testing.T) {
 	assert.Equal(t, "succeeded", result.Status)
 	assert.Equal(t, "game1", result.GameID)
 	assert.Equal(t, "prod", result.Env)
+	assert.Equal(t, "opuser", result.ActorID)
+	assert.Equal(t, "admin", result.ActorType)
 	assert.Equal(t, "agent-1", result.AgentID)
 	assert.Equal(t, "2024-01-01T00:00:00Z", result.StartedAt)
 	assert.Equal(t, "2024-01-01T00:00:01Z", result.FinishedAt)
 	assert.Equal(t, "some error", result.ErrorMsg)
 	assert.Equal(t, "2024-01-01T00:00:00Z", result.CreatedAt)
+}
+
+// TestFromTask_ActorEmpty tests that an empty actor (SDK direct call without a
+// console identity) leaves ActorID/ActorType unset instead of fabricating one.
+func TestFromTask_ActorEmpty(t *testing.T) {
+	result := fromTask(taskapi.Item{ID: "t-100", FunctionID: "player.list", Status: "running"})
+	assert.Empty(t, result.ActorID)
+	assert.Empty(t, result.ActorType)
 }
 
 // TestService_Rerun_WithPayload tests Rerun with payload (still returns error).
