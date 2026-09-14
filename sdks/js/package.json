@@ -1,6 +1,6 @@
 {
   "name": "croupier-js-sdk",
-  "version": "0.1.0",
+  "version": "0.1.4",
   "description": "Croupier Node.js SDK for Game Function Registration with TCP Transport",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

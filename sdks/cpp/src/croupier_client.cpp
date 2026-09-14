@@ -4,7 +4,7 @@
 #endif
 
 #ifndef CROUPIER_SDK_VERSION
-#define CROUPIER_SDK_VERSION "0.1.0"
+#define CROUPIER_SDK_VERSION "0.1.4"
 #endif
 
 #include "croupier/sdk/croupier_client.h"

@@ -9,7 +9,7 @@ group = 'io.github.cuihairu.croupier'
 // Determine version based on build environment
 // - For tags (releases): use exact version (e.g., 0.1.0)
 // - For main branch (snapshots): use fixed SNAPSHOT version (e.g., 0.1.0-SNAPSHOT)
-String baseVersion = '0.1.1'
+String baseVersion = '0.1.4'
 if (project.hasProperty('overrideVersion')) {
     // 手动发布（release-sdk workflow）：显式版本覆盖
     version = project.property('overrideVersion')
