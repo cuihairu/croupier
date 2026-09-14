@@ -202,7 +202,7 @@ func TestService_Update_InvalidID(t *testing.T) {
 	service := NewService(&svc.ServiceContext{FeedbackModel: model.NewFeedbackModel(db)})
 	_, err := service.Update(context.Background(), &FeedbackUpdateRequest{ID: "invalid"})
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "反馈ID格式不正确")
+	assert.Contains(t, err.Error(), "反馈ID无效")
 }
 
 // Test delete validation
@@ -219,7 +219,16 @@ func TestService_Delete_InvalidID(t *testing.T) {
 	service := NewService(&svc.ServiceContext{FeedbackModel: model.NewFeedbackModel(db)})
 	err := service.Delete(context.Background(), &FeedbackDeleteRequest{ID: "invalid"})
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "反馈ID格式不正确")
+	assert.Contains(t, err.Error(), "反馈ID无效")
+}
+
+// 零值 ID 在统一解析层（utils.ParseUintID）即拒绝，不再落入模型层 not-found。
+func TestService_Delete_ZeroID(t *testing.T) {
+	db := newFeedbackExtraTestDB(t)
+	service := NewService(&svc.ServiceContext{FeedbackModel: model.NewFeedbackModel(db)})
+	err := service.Delete(context.Background(), &FeedbackDeleteRequest{ID: "0"})
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "反馈ID必须大于0")
 }
 
 // Test stats defaults

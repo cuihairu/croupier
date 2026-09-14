@@ -15,16 +15,15 @@ func ParseRoleID(id string) (uint, error) {
 	if strings.TrimSpace(id) == "" {
 		return 0, errorx.NewBadRequest("角色ID不能为空")
 	}
-	value, err := strconv.ParseUint(id, 10, 64)
+	// 按目标类型 uint 自身的宽度解析（strconv.IntSize），转换天然安全，
+	// 依据同 id_helpers.go 的 ParseUintID 注释。
+	value, err := strconv.ParseUint(id, 10, strconv.IntSize)
 	if err != nil {
 		return 0, errorx.NewBadRequest("无效的角色ID")
 	}
 	if value == 0 {
 		return 0, errorx.NewBadRequest("角色ID必须大于0")
 	}
-	// 无需再检查 value > math.MaxUint：ParseUint(bitSize=64) 的成功结果上界
-	// 即 math.MaxUint64，而本项目目标平台（64 位）下 MaxUint == MaxUint64，
-	// 该比较恒假。
 	return uint(value), nil
 }
 

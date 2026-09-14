@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/cuihairu/croupier/internal/cache"
+	"github.com/cuihairu/croupier/internal/logic/utils"
 	"github.com/cuihairu/croupier/internal/model"
 	"github.com/cuihairu/croupier/internal/svc"
 	gsqlite "github.com/glebarez/sqlite"
@@ -263,12 +264,10 @@ func TestRoleCov_List_RolesPermissionIDsError(t *testing.T) {
 	assert.Nil(t, resp)
 }
 
-// parseRoleID：超出 uint64 上限的输入在 ParseUint 即报错。
-// 注：value > math.MaxUint 分支在 64 位平台数学不可达——ParseUint(_, 10, 64)
-// 成功时值域上限即 math.MaxUint（= MaxUint64），不可能严格大于。
+// ParseRoleID：超出 uint64 上限的输入在 ParseUint 即报错。
+// 注：超出 uint64 上限的输入在 ParseUint 即报错，无需溢出死分支。
 func TestRoleCov_ParseRoleID_Overflow(t *testing.T) {
-	s, _, _, _ := newRoleCovEnv(t)
-	_, err := s.parseRoleID("18446744073709551616")
+	_, err := utils.ParseRoleID("18446744073709551616")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "无效的角色ID")
 }

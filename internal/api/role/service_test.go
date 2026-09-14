@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/cuihairu/croupier/internal/cache"
+	"github.com/cuihairu/croupier/internal/logic/utils"
 	"github.com/cuihairu/croupier/internal/model"
 	"github.com/cuihairu/croupier/internal/svc"
 	gsqlite "github.com/glebarez/sqlite"
@@ -713,11 +714,6 @@ func TestService_RolesList_PermissionDenied(t *testing.T) {
 }
 
 func TestParseRoleID_Valid(t *testing.T) {
-	db := setupRoleTestDB(t)
-	svcCtx, _ := createTestRoleContext(t, db)
-
-	service := NewService(svcCtx)
-
 	tests := []struct {
 		name     string
 		input    string
@@ -735,7 +731,7 @@ func TestParseRoleID_Valid(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := service.parseRoleID(tt.input)
+			result, err := utils.ParseRoleID(tt.input)
 			if tt.hasError {
 				assert.Error(t, err)
 			} else {

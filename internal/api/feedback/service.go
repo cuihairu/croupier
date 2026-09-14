@@ -3,7 +3,6 @@ package feedback
 import (
 	"context"
 	"errors"
-	"strconv"
 	"strings"
 
 	"github.com/cuihairu/croupier/internal/common/errorx"
@@ -111,12 +110,10 @@ func (s *Service) Update(ctx context.Context, req *FeedbackUpdateRequest) (*Feed
 		return nil, errors.New("请求体不能为空")
 	}
 
-	id, err := strconv.ParseUint(req.ID, 10, 64)
+	id, err := utils.ParseUintID(req.ID, "反馈ID")
 	if err != nil {
-		return nil, errors.New("反馈ID格式不正确")
+		return nil, err
 	}
-	// 设计债清理：64 位平台 ParseUint bitSize=64 值域上界即 math.MaxUint，
-	// 原溢出检查恒假已删除（下同）。
 
 	updates := map[string]interface{}{}
 	if status := strings.TrimSpace(req.Status); status != "" {
@@ -142,7 +139,7 @@ func (s *Service) Update(ctx context.Context, req *FeedbackUpdateRequest) (*Feed
 	// Validate the update before loading the record. Besides avoiding an
 	// unnecessary query, this keeps malformed no-op updates independent of
 	// whether the target record happens to exist.
-	record, err := s.svcCtx.FeedbackModel.FindByID(ctx, uint(id))
+	record, err := s.svcCtx.FeedbackModel.FindByID(ctx, id)
 	if err != nil {
 		return nil, err
 	}
@@ -150,11 +147,11 @@ func (s *Service) Update(ctx context.Context, req *FeedbackUpdateRequest) (*Feed
 		return nil, err
 	}
 
-	if err := s.svcCtx.FeedbackModel.Update(ctx, uint(id), updates); err != nil {
+	if err := s.svcCtx.FeedbackModel.Update(ctx, id, updates); err != nil {
 		return nil, err
 	}
 
-	updated, err := s.svcCtx.FeedbackModel.FindByID(ctx, uint(id))
+	updated, err := s.svcCtx.FeedbackModel.FindByID(ctx, id)
 	if err != nil {
 		return nil, err
 	}
@@ -173,12 +170,12 @@ func (s *Service) Delete(ctx context.Context, req *FeedbackDeleteRequest) error 
 		return errors.New("请求体不能为空")
 	}
 
-	id, err := strconv.ParseUint(req.ID, 10, 64)
+	id, err := utils.ParseUintID(req.ID, "反馈ID")
 	if err != nil {
-		return errors.New("反馈ID格式不正确")
+		return err
 	}
 
-	record, err := s.svcCtx.FeedbackModel.FindByID(ctx, uint(id))
+	record, err := s.svcCtx.FeedbackModel.FindByID(ctx, id)
 	if err != nil {
 		return err
 	}
@@ -186,7 +183,7 @@ func (s *Service) Delete(ctx context.Context, req *FeedbackDeleteRequest) error 
 		return err
 	}
 
-	return s.svcCtx.FeedbackModel.Delete(ctx, uint(id))
+	return s.svcCtx.FeedbackModel.Delete(ctx, id)
 }
 
 func currentFeedbackScope(ctx context.Context) (svc.GameScope, error) {

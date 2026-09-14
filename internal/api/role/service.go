@@ -3,7 +3,6 @@ package role
 import (
 	"context"
 	"errors"
-	"strconv"
 	"strings"
 	"time"
 
@@ -71,7 +70,7 @@ func (s *Service) RoleDelete(ctx context.Context, req *RoleDeleteRequest) error 
 		return err
 	}
 
-	roleID, err := s.parseRoleID(req.ID)
+	roleID, err := utils.ParseRoleID(req.ID)
 	if err != nil {
 		return err
 	}
@@ -103,7 +102,7 @@ func (s *Service) RoleDetail(ctx context.Context, req *RoleDetailRequest) (*Role
 		return nil, err
 	}
 
-	roleID, err := s.parseRoleID(req.ID)
+	roleID, err := utils.ParseRoleID(req.ID)
 	if err != nil {
 		return nil, err
 	}
@@ -129,7 +128,7 @@ func (s *Service) RoleUpdate(ctx context.Context, req *RoleUpdateRequest) (*Role
 		return nil, err
 	}
 
-	roleID, err := s.parseRoleID(req.ID)
+	roleID, err := utils.ParseRoleID(req.ID)
 	if err != nil {
 		return nil, err
 	}
@@ -254,22 +253,6 @@ func (s *Service) RolesList(ctx context.Context, req *RolesListRequest) (*RolesL
 }
 
 // Helper methods
-
-func (s *Service) parseRoleID(id string) (uint, error) {
-	if strings.TrimSpace(id) == "" {
-		return 0, errorx.NewBadRequest("角色ID不能为空")
-	}
-	value, err := strconv.ParseUint(id, 10, 64)
-	if err != nil {
-		return 0, errorx.NewBadRequest("无效的角色ID")
-	}
-	if value == 0 {
-		return 0, errorx.NewBadRequest("角色ID必须大于0")
-	}
-	// 64 位平台上 math.MaxUint == math.MaxUint64，而 ParseUint(_, 10, 64) 的返回值
-	// 上界即 MaxUint64，故「value > math.MaxUint」恒假，原溢出分支为死代码，已删除。
-	return uint(value), nil
-}
 
 func (s *Service) ensurePermissionIDs(ctx context.Context, permissionIDs []string) ([]string, error) {
 	if s.svcCtx.RoleModel == nil {

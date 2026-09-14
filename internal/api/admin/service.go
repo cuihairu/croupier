@@ -3,7 +3,6 @@ package admin
 import (
 	"context"
 	"sort"
-	"strconv"
 	"strings"
 	"time"
 
@@ -548,24 +547,9 @@ func (s *Service) loadAdminRoleNames(ctx context.Context, adminIDs []uint) (map[
 	return roleMap, nil
 }
 
+// parseAdminID 复用 utils.ParseUintID 的统一实现（空值/非法/零值校验与文案口径一致）。
 func parseAdminID(id string) (uint, error) {
-	if strings.TrimSpace(id) == "" {
-		return 0, errorx.NewBadRequest("管理员ID不能为空")
-	}
-
-	value, err := strconv.ParseUint(id, 10, 64)
-	if err != nil {
-		return 0, errorx.NewBadRequest("无效的管理员ID")
-	}
-
-	if value == 0 {
-		return 0, errorx.NewBadRequest("管理员ID必须大于0")
-	}
-
-	// 64 位平台 math.MaxUint == MaxUint64，ParseUint(_, 10, 64) 的结果不可能
-	// 超出 uint 范围，溢出检查分支恒假，已删除。
-
-	return uint(value), nil
+	return utils.ParseUintID(id, "管理员ID")
 }
 
 func buildAdminResponse(admin *model.Admin, roleNames []string) Admin {

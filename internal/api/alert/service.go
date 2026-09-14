@@ -182,17 +182,15 @@ func (s *Service) SilenceDelete(ctx context.Context, req *SilenceDeleteRequest) 
 		return errors.New("请求体不能为空")
 	}
 
-	// 64 位平台 math.MaxUint == MaxUint64，ParseUint(_, 10, 64) 的结果不可能
-	// 超出 uint 范围，溢出检查分支恒假，已删除。
-	id, err := strconv.ParseUint(req.ID, 10, 64)
+	id, err := utils.ParseUintID(req.ID, "静默ID")
 	if err != nil {
-		return errors.New("静默ID格式不正确")
-	}
-
-	if err := s.svcCtx.AlertModel.DeleteSilence(ctx, uint(id)); err != nil {
 		return err
 	}
-	_ = s.removeAlertingSilenceFromExtension(ctx, strconv.FormatUint(id, 10))
+
+	if err := s.svcCtx.AlertModel.DeleteSilence(ctx, id); err != nil {
+		return err
+	}
+	_ = s.removeAlertingSilenceFromExtension(ctx, strconv.FormatUint(uint64(id), 10))
 	_ = s.recordAlertingEvent(ctx, "alerts_unsilence", "alert silence deleted",
 		fmt.Sprintf(`{"silence_id":%d}`, id),
 	)

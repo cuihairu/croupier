@@ -93,7 +93,17 @@ func TestSilenceDelete_HugeIDFormatRejected(t *testing.T) {
 	// 超出 uint64 的数字在 ParseUint 即失败。
 	err := s.SilenceDelete(context.Background(), &SilenceDeleteRequest{ID: "18446744073709551616"})
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "静默ID格式不正确")
+	assert.Contains(t, err.Error(), "静默ID无效")
+}
+
+// 零值 ID 在统一解析层（utils.ParseUintID）即拒绝，不再落入模型层 not-found。
+func TestSilenceDelete_ZeroIDRejected(t *testing.T) {
+	db := alertNewMemDB(t)
+	s := NewService(&svc.ServiceContext{AlertModel: model.NewAlertModel(db)})
+
+	err := s.SilenceDelete(context.Background(), &SilenceDeleteRequest{ID: "0"})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "静默ID必须大于0")
 }
 
 func TestRulesModel_NilSvcCtx(t *testing.T) {

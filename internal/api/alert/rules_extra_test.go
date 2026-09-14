@@ -325,5 +325,5 @@ func TestSilenceService_LifecycleAndValidation(t *testing.T) {
 	err = s.Silence(ctx, &AlertSilenceRequest{ID: "no-such-alert"})
 	assert.Error(t, err)
 	err = s.SilenceDelete(ctx, &SilenceDeleteRequest{ID: "abc"})
-	assert.ErrorContains(t, err, "静默ID格式不正确")
+	assert.ErrorContains(t, err, "静默ID无效")
 }

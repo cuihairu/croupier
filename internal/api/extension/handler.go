@@ -506,11 +506,11 @@ func (h *Handler) action(c *gin.Context, fn func(id uint) (any, error)) {
 }
 
 func parseUintParam(c *gin.Context, key string) (uint, error) {
-	value, err := strconv.ParseUint(c.Param(key), 10, 64)
+	// 按目标类型 uint 自身宽度解析（strconv.IntSize），转换天然安全，
+	// 依据 internal/logic/utils/id_helpers.go 的 ParseUintID 注释。
+	value, err := strconv.ParseUint(c.Param(key), 10, strconv.IntSize)
 	if err != nil {
 		return 0, errorx.NewBadRequest("invalid path parameter: " + key)
 	}
-	// 设计债清理：64 位平台 math.MaxUint == MaxUint64，ParseUint bitSize=64 的
-	// 值域上界即 MaxUint64，原 value > math.MaxUint 溢出检查恒假已删除。
 	return uint(value), nil
 }

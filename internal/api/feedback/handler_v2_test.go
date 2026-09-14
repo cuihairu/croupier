@@ -197,7 +197,7 @@ func TestServiceV2_Update_InvalidID(t *testing.T) {
 	s := NewService(&svc.ServiceContext{FeedbackModel: model.NewFeedbackModel(db)})
 	_, err := s.Update(context.TODO(), &FeedbackUpdateRequest{ID: "abc"})
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "反馈ID格式不正确")
+	assert.Contains(t, err.Error(), "反馈ID无效")
 }
 
 func TestServiceV2_Update_NoFieldsToUpdate(t *testing.T) {
@@ -272,7 +272,7 @@ func TestServiceV2_Delete_InvalidID(t *testing.T) {
 	s := NewService(&svc.ServiceContext{FeedbackModel: model.NewFeedbackModel(db)})
 	err := s.Delete(context.TODO(), &FeedbackDeleteRequest{ID: "xyz"})
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "反馈ID格式不正确")
+	assert.Contains(t, err.Error(), "反馈ID无效")
 }
 
 func TestServiceV2_Delete_Success(t *testing.T) {

@@ -1154,9 +1154,9 @@ func (s *Service) requireWritePermission(ctx context.Context, message string) er
 }
 
 func (s *Service) ResolveInstallationID(ctx context.Context, identifier string) (uint, error) {
-	if id, err := strconv.ParseUint(strings.TrimSpace(identifier), 10, 64); err == nil {
-		// 设计债清理：64 位平台 ParseUint bitSize=64 值域上界即 math.MaxUint，
-		// 原溢出检查恒假已删除。
+	// 按目标类型 uint 自身宽度解析（strconv.IntSize），uint(id) 转换在任意平台
+	// 都可证明安全（依据同 id_helpers.go ParseUintID 注释）。
+	if id, err := strconv.ParseUint(strings.TrimSpace(identifier), 10, strconv.IntSize); err == nil {
 		return uint(id), nil
 	}
 	item, err := s.findActiveInstallationByExtension(ctx, identifier)
