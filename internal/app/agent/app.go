@@ -50,6 +50,12 @@ type App struct {
 	opsServer *OpsServer
 	agentID   string
 	version   string
+
+	// serveLocal 是本地 listener Serve 的注入点：生产为 nil（走真实
+	// tcpServer.Serve），测试注入返回非 Canceled 错误的实现以驱动
+	// StartLocalServer 的错误日志分支（listener 在函数内部构造，无法
+	// 从外部触发其 Accept 故障路径）。
+	serveLocal func(server *agent.TCPLocalListener) error
 }
 
 func (a *App) WithTelemetry(service *telemetry.GameTelemetryService) {
@@ -176,13 +182,19 @@ func (a *App) StartLocalServer() error {
 		a.store.RemoveProvider(session.SessionID)
 	})
 	a.localServer = tcpServer
-	go func() {
-		// 覆盖边界说明：Serve 仅在 Accept 返回非超时错误且未走 Close 路径时
-		// 返回错误（如进程 fd 耗尽 EMFILE），listener 由 StartLocalServer 内部
-		// 构造、无法从测试注入该故障；正规 Stop() 路径 Serve 恒返回 nil，
+	serve := a.serveLocal
+	if serve == nil {
+		// 覆盖边界说明：Serve 仅在 Accept 返回非超时错误且未走 Close 路径
+		// 时返回错误（如进程 fd 耗尽 EMFILE），listener 由 StartLocalServer
+		// 内部构造、生产无法注入该故障；正规 Stop() 路径 Serve 恒返回 nil，
 		// ctx 为 Background 也排除 context.Canceled。此日志分支保留为生产
-		// 异常兜底，测试不可达。
-		if err := tcpServer.Serve(context.Background()); err != nil && !errors.Is(err, context.Canceled) {
+		// 异常兜底，经 serveLocal 注入点测试驱动。
+		serve = func(server *agent.TCPLocalListener) error {
+			return server.Serve(context.Background())
+		}
+	}
+	go func() {
+		if err := serve(tcpServer); err != nil && !errors.Is(err, context.Canceled) {
 			slog.Error("agent tcp local server stopped", "error", err)
 		}
 	}()

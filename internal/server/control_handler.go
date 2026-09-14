@@ -27,6 +27,7 @@ import (
 	opsv1 "github.com/cuihairu/croupier/pkg/pb/croupier/ops/v1"
 	sdkv1 "github.com/cuihairu/croupier/pkg/pb/croupier/sdk/v1"
 	"github.com/cuihairu/croupier/pkg/protocol"
+	"github.com/getkin/kin-openapi/openapi3"
 	"google.golang.org/protobuf/proto"
 	"gorm.io/gorm"
 )
@@ -118,6 +119,12 @@ type ControlService struct {
 	// schema 变更写入注册警告并随 RegisterResponse.warnings 返回 agent，
 	// 不阻断注册。
 	schemaDiffWarn bool
+
+	// upsertOpenAPI 是注册链路 UpsertOpenAPI 的注入点：生产为 nil（走
+	// registry.UpsertOpenAPI 真实实现），测试注入失败以驱动注册警告分支
+	//（registry 为具体类型 *reg.Store、无接口 seam，该 Warn 分支的生产
+	// 不可达论证见 handleRegisterRequest 内注释）。
+	upsertOpenAPI func(functionID string, op *openapi3.Operation) error
 
 	// clusterHooks 集群归属钩子（多实例 HA；nil = 未启用，no-op）。
 	clusterHooks interface {
@@ -534,8 +541,8 @@ func (s *ControlService) handleRegisterRequest(ctx context.Context, req *agentv1
 			Risk:         f.GetRisk(),
 			Permission:   f.GetPermission(),
 		}); err == nil {
-			// UpsertOpenAPI 的错误在此输入域不可达（C 类）：functionID 非空由
-			// validateAndNormalizeFunctions 后置条件保证（空 Id 被 skip）；op 非
+			// UpsertOpenAPI 的错误在合法输入域不可达（C 类）：functionID 非空
+			// 由 validateAndNormalizeFunctions 后置条件保证（空 Id 被 skip）；op 非
 			// nil 由 converter 成功路径恒返回字面量构造保证；cloneOpenAPIOperation
 			// 的 MarshalJSON 对「Unmarshal 成功产物」恒成功——与 versioning 曾误删
 			// 的场景（未校验的 JSONSchema 原始文本直接透传进 Marshal，可被
@@ -545,9 +552,13 @@ func (s *ControlService) handleRegisterRequest(ctx context.Context, req *agentv1
 			// x-resource/x-risk 等)，json.Unmarshal 产出的值类型集合对 Marshal
 			// 无条件可序列化。已用 28 组恶意 InputSchema（2000 层深嵌套、lone
 			// surrogate、任意 x- 扩展 map、大整数、混合 enum、$ref 等）实证
-			// 无法构造 UpsertOpenAPI 失败。registry 为具体类型 *reg.Store，无
-			// 注入 seam，该 Warn 为防御性错误处理保留。
-			if err := s.registry.UpsertOpenAPI(f.Id, op); err != nil {
+			// 无法构造 UpsertOpenAPI 失败。该 Warn 为防御性错误处理保留，
+			// 经 upsertOpenAPI 注入点测试驱动。
+			upsert := s.upsertOpenAPI
+			if upsert == nil {
+				upsert = s.registry.UpsertOpenAPI
+			}
+			if err := upsert(f.Id, op); err != nil {
 				s.logger.Warn("failed to upsert openapi operation from register request", "function_id", f.Id, "error", err)
 			}
 		} else {

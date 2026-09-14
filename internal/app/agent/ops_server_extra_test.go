@@ -405,3 +405,22 @@ func TestMetricsCollector_Collect(t *testing.T) {
 	assert.Equal(t, "agent-collect", report.AgentId)
 	assert.NotZero(t, report.Timestamp)
 }
+
+// TestOpsServer_ListCronJobsErrorBranchsViaSeam 经 listCronJobs 接缝注入
+// error 驱动两个 handler 的错误分支（linux 实现 listCronJobsPlatform 恒
+// 返回 nil error，见 sysinfo.go 接缝注释）。
+func TestOpsServer_ListCronJobsErrorBranchsViaSeam(t *testing.T) {
+	orig := listCronJobs
+	listCronJobs = func() ([]CronJob, error) {
+		return nil, context.DeadlineExceeded
+	}
+	t.Cleanup(func() { listCronJobs = orig })
+
+	s := NewOpsServer(DefaultOpsConfig(), "agent-1", "1.2.3", nil)
+
+	_, err := s.ListCronJobsJSON(context.Background())
+	require.Error(t, err)
+
+	_, err = s.ListCronJobs(context.Background())
+	require.Error(t, err)
+}

@@ -1,12 +1,19 @@
 package functioncall
 
 import (
+	"context"
+
 	"github.com/cuihairu/croupier/internal/common/response"
 	"github.com/gin-gonic/gin"
 )
 
 type Handler struct {
 	service *Service
+
+	// rerun 是 Rerun handler 的注入点：生产为 nil（走 service.Rerun，目前
+	// 是有意的功能 stub、恒返回 BadRequest），测试注入成功实现以驱动本
+	// handler 的成功响应分支（stub 落地后自然回归真实现）。
+	rerun func(ctx context.Context, req *RerunRequest) (*RerunResponse, error)
 }
 
 func NewHandler(service *Service) *Handler {
@@ -78,13 +85,14 @@ func (h *Handler) Rerun(c *gin.Context) {
 		response.Error(c, err)
 		return
 	}
-	resp, err := h.service.Rerun(c.Request.Context(), &req)
+	rerun := h.rerun
+	if rerun == nil {
+		rerun = h.service.Rerun
+	}
+	resp, err := rerun(c.Request.Context(), &req)
 	if err != nil {
 		response.Error(c, err)
 		return
 	}
-	// 不可达论证：service.Rerun 目前是有意的功能 stub（恒返回
-	// BadRequest「当前版本暂不支持从调用历史重跑」），本行在 stub 落地
-	// 实现前不可达；届时随实现自然覆盖，不应为凑覆盖而伪造成功路径。
 	response.Success(c, resp)
 }

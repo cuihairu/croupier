@@ -108,3 +108,19 @@ func TestService_Cancel_DatabaseClosed(t *testing.T) {
 	err := s.Cancel(context.TODO(), &DetailRequest{ID: "t-1"})
 	require.Error(t, err)
 }
+
+// TestHandler_Rerun_SuccessViaInjection 经 rerun 注入点注入成功实现，驱动
+// Rerun handler 的成功响应分支（service.Rerun 是有意的功能 stub、恒返回
+// BadRequest，生产成功路径在 stub 落地前不可达，见 Handler.rerun 注释）。
+func TestHandler_Rerun_SuccessViaInjection(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	handler := setupHandler(t)
+	handler.rerun = func(ctx context.Context, req *RerunRequest) (*RerunResponse, error) {
+		return &RerunResponse{TaskID: req.ID}, nil
+	}
+	router := newRouter(handler)
+
+	rec := doReq(t, router, http.MethodPost, "/calls/call-42/rerun", `{}`)
+	assert.Equal(t, http.StatusOK, rec.Code)
+	assert.Contains(t, rec.Body.String(), "call-42")
+}

@@ -1181,6 +1181,12 @@ func seedBootstrapExtensionCatalog(ctx *ServiceContext) error {
 	return nil
 }
 
+// validateStoreConfig 是 objstore.Validate 的包级接缝：生产恒为真实实现，
+// 测试注入恒 nil 驱动 initObjectStore 的 default 分支（真实 Validate 以同
+// 一 driver 串先拒绝未知值，default 仅在跨包白名单失配时可达，论证见
+// 调用处注释）。
+var validateStoreConfig = objstore.Validate
+
 func initObjectStore(ctx context.Context, cfg config.StorageConfig) (objstore.Store, error) {
 	driver := strings.TrimSpace(cfg.Driver)
 	if driver == "" {
@@ -1203,7 +1209,7 @@ func initObjectStore(ctx context.Context, cfg config.StorageConfig) (objstore.St
 		}
 	}
 
-	if err := objstore.Validate(storeCfg); err != nil {
+	if err := validateStoreConfig(storeCfg); err != nil {
 		return nil, err
 	}
 
@@ -1221,7 +1227,8 @@ func initObjectStore(ctx context.Context, cfg config.StorageConfig) (objstore.St
 		// （同样 ToLower）先做 default 拒绝（"unknown storage driver"），
 		// 能到达本 switch 的 driver 必属四个已知值。保留 default 是因为
 		// Validate 是跨包隐式契约：objstore 新增驱动而本 switch 未同步时，
-		// 显式报错优于静默返回 (nil, nil) 的空 Store。
+		// 显式报错优于静默返回 (nil, nil) 的空 Store。经
+		// validateStoreConfig 接缝测试驱动。
 		return nil, fmt.Errorf("unsupported storage driver: %s", driver)
 	}
 }

@@ -596,3 +596,88 @@ func TestListContractChanges_SortKindTieBreaker(t *testing.T) {
 	assert.Equal(t, "draft", changes[0].Kind)
 	assert.Equal(t, "published", changes[1].Kind)
 }
+
+// L1115-1122: upsertResourceProposal 的 ShouldBlockProposal 阻断分支，经
+// shouldBlockResourceProposal 接缝注入 true 驱动（resource 生成器诊断 code
+// 与阻断清单不相交、生产不可达，论证见 contract_service.go 注释）。
+func TestUpsertResourceProposal_ShouldBlockViaSeam(t *testing.T) {
+	db := setupTestDB(t)
+	ctx := context.Background()
+	svc := NewContractService(db)
+
+	// 构造可生成 resource 页面的契约与语义（同 RebuildProposalsForResource
+	// 成功用例：collection_query + identityField=id）。
+	require.NoError(t, svc.RebuildContractFromFunctionMeta(ctx, "demo-game", "development", "sdk", FunctionMetaInput{
+		ID: "player.list", Version: "1.0.0", Enabled: true,
+		Resource: "player", Operation: "list",
+		Capability: "collection_query", Execution: "sync",
+		InputSchema:  `{"type":"object","properties":{"id":{"type":"string"}},"required":["id"]}`,
+		OutputSchema: `{"type":"object","properties":{"items":{"type":"array","items":{"type":"object","properties":{"id":{"type":"string"}}}}}}`,
+	}))
+	require.NoError(t, svc.RebuildResourceCapability(ctx, "demo-game", "development", "player"))
+
+	sem, err := model.NewCapabilitySemanticsModel(db).FindByScopeAndResourceKey(ctx, "demo-game", "development", "player")
+	require.NoError(t, err)
+	contracts, err := model.NewFunctionContractModel(db).ListByScope(ctx, "demo-game", "development")
+	require.NoError(t, err)
+
+	orig := shouldBlockResourceProposal
+	shouldBlockResourceProposal = func(diags []spec.Diagnostic) bool { return true }
+	t.Cleanup(func() { shouldBlockResourceProposal = orig })
+
+	consumed, err := svc.upsertResourceProposal(ctx, "demo-game", "development", sem, contracts)
+	require.NoError(t, err)
+	assert.Empty(t, consumed)
+}
+
+// L1122/L1125: 阻断分支内 removeResourceProposal / upsertBlockedIssue 的
+// 错误传播（seam 注入 true 后以写失败回调驱动）。
+func TestUpsertResourceProposal_ShouldBlockErrorsViaSeam(t *testing.T) {
+	db := setupTestDB(t)
+	ctx := context.Background()
+	svc := NewContractService(db)
+
+	require.NoError(t, svc.RebuildContractFromFunctionMeta(ctx, "demo-game", "development", "sdk", FunctionMetaInput{
+		ID: "player.list", Version: "1.0.0", Enabled: true,
+		Resource: "player", Operation: "list",
+		Capability: "collection_query", Execution: "sync",
+		InputSchema:  `{"type":"object","properties":{"id":{"type":"string"}},"required":["id"]}`,
+		OutputSchema: `{"type":"object","properties":{"items":{"type":"array","items":{"type":"object","properties":{"id":{"type":"string"}}}}}}`,
+	}))
+	require.NoError(t, svc.RebuildResourceCapability(ctx, "demo-game", "development", "player"))
+	sem, err := model.NewCapabilitySemanticsModel(db).FindByScopeAndResourceKey(ctx, "demo-game", "development", "player")
+	require.NoError(t, err)
+	contracts, err := model.NewFunctionContractModel(db).ListByScope(ctx, "demo-game", "development")
+	require.NoError(t, err)
+
+	orig := shouldBlockResourceProposal
+	shouldBlockResourceProposal = func(diags []spec.Diagnostic) bool { return true }
+	t.Cleanup(func() { shouldBlockResourceProposal = orig })
+
+	// removeResourceProposal 失败（page_proposals 删除被拒）。
+	removeDel := injectFailCallback(db, "page_proposals")
+	_, err = svc.upsertResourceProposal(ctx, "demo-game", "development", sem, contracts)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "delete resource proposal")
+	removeDel()
+
+	// 先无注入跑一次：resolveBlockedIssue 会把 RebuildResourceCapability
+	// 遗留的 open issue 关闭，使下一次 removeResourceProposal 全链成功。
+	_, err = svc.upsertResourceProposal(ctx, "demo-game", "development", sem, contracts)
+	require.NoError(t, err)
+
+	// upsertBlockedIssue 失败：只拦 Create 链——removeResourceProposal 内的
+	// resolveBlockedIssue 走 Update 关闭上一轮创建的 open issue（放行），
+	// upsertBlockedIssue 走 First(NotFound)→Create（被拒），精确命中该分支。
+	name := "test.failcreate.blocked_proposal_issues"
+	failCreate := func(tx *gorm.DB) {
+		if matchTable(tx, "blocked_proposal_issues") {
+			_ = tx.AddError(errors.New("injected failure for blocked_proposal_issues"))
+		}
+	}
+	require.NoError(t, db.Callback().Create().Before("gorm:create").Register(name, failCreate))
+	t.Cleanup(func() { _ = db.Callback().Create().Remove(name) })
+	_, err = svc.upsertResourceProposal(ctx, "demo-game", "development", sem, contracts)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "injected failure for blocked_proposal_issues")
+}

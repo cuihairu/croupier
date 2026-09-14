@@ -1638,27 +1638,34 @@ func matchSingleClause(current semVersion, clause string) bool {
 	}
 	cmp := compareSemVersion(current, target)
 
-	switch op {
-	case "=":
-		return cmp == 0
-	case ">":
-		return cmp > 0
-	case ">=":
-		return cmp >= 0
-	case "<":
-		return cmp < 0
-	case "<=":
-		return cmp <= 0
-	case "^":
-		return matchCaretConstraint(current, target)
-	case "~":
-		return matchTildeConstraint(current, target)
-	default:
-		// 不可达论证：op 只能取自上方前缀 switch 穷尽提取的七种字面量
-		// （">=", "<=", ">", "<", "=", "^", "~"），default 永不命中；但 Go
-		// 要求函数所有路径显式返回，无法删除此兜底 return。
+	// applyVersionOp 对未知操作符恒返 false（显式拒绝），直接传播即可。
+	return applyVersionOp(op, current, target, cmp)
+}
+
+// applyVersionOp 按 op 对版本比较结果分派。抽为独立函数使未知操作符的
+// 拒绝分支可被单测直接以任意 op 驱动（matchSingleClause 内部的 op 恒为
+// 前缀提取的七种字面量之一，查表 miss 仅在 opMatchers 被裁剪时出现）。
+func applyVersionOp(op string, current, target semVersion, cmp int) bool {
+	fn, exists := opMatchers[op]
+	if !exists {
 		return false
 	}
+	return fn(current, target, cmp)
+}
+
+// opMatchers 是版本约束操作符的分派表。
+var opMatchers = map[string]func(current, target semVersion, cmp int) bool{
+	"=":  func(_, _ semVersion, cmp int) bool { return cmp == 0 },
+	">":  func(_, _ semVersion, cmp int) bool { return cmp > 0 },
+	">=": func(_, _ semVersion, cmp int) bool { return cmp >= 0 },
+	"<":  func(_, _ semVersion, cmp int) bool { return cmp < 0 },
+	"<=": func(_, _ semVersion, cmp int) bool { return cmp <= 0 },
+	"^": func(current, target semVersion, _ int) bool {
+		return matchCaretConstraint(current, target)
+	},
+	"~": func(current, target semVersion, _ int) bool {
+		return matchTildeConstraint(current, target)
+	},
 }
 
 func matchCaretConstraint(current, base semVersion) bool {

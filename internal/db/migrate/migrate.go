@@ -101,38 +101,7 @@ func acquireSessionLock(ctx context.Context, sqlDB *sql.DB, gooseDialect string)
 	}
 
 	acquire := func() (bool, error) {
-		switch gooseDialect {
-		case "mysql":
-			var result sql.NullInt64
-			if err := conn.QueryRowContext(ctx, "SELECT GET_LOCK(?, 0)", mysqlMigrationLockName).Scan(&result); err != nil {
-				return false, err
-			}
-			return result.Valid && result.Int64 == 1, nil
-		case "postgres":
-			var ok bool
-			query := fmt.Sprintf("SELECT pg_try_advisory_lock(%d, %d)", pgAdvisoryLockKey1, pgAdvisoryLockKey2)
-			if err := conn.QueryRowContext(ctx, query).Scan(&ok); err != nil {
-				return false, err
-			}
-			return ok, nil
-		case "mssql":
-			// sp_getapplock: session-scoped exclusive application lock on
-			// the bound connection. Return codes: 0 = granted, 1 = granted
-			// after wait; <0 = timeout/cancel/error. LockTimeout 0 →
-			// immediate, -1 when held elsewhere. The resource name is a
-			// compile-time constant — inlined because go-mssqldb does not
-			// rewrite '?' placeholders inside multi-statement batches.
-			var code sql.NullInt32
-			query := fmt.Sprintf("DECLARE @r int; EXEC @r = sp_getapplock @Resource = N'%s', @LockMode = 'Exclusive', @LockOwner = 'Session', @LockTimeout = 0; SELECT @r", sqlServerMigrationLockName)
-			if err := conn.QueryRowContext(ctx, query).Scan(&code); err != nil {
-				return false, err
-			}
-			return code.Valid && code.Int32 >= 0, nil
-		}
-		// 不可达：外层 acquireSessionLock 已将方言过滤为 mysql/postgres/mssql
-		// 三者之一，闭包捕获的 gooseDialect 不会取其他值。Go 的字符串 switch
-		// 无法向编译器证明穷尽性，必须保留此兜底 return。
-		return false, nil
+		return tryAcquireLock(ctx, conn, gooseDialect)
 	}
 
 	deadline := time.Now().Add(sessionLockDeadline)
@@ -171,6 +140,41 @@ func acquireSessionLock(ctx context.Context, sqlDB *sql.DB, gooseDialect string)
 		_ = conn.Close()
 	}
 	return release, nil
+}
+
+// tryAcquireLock 在绑定连接上执行一次方言特定的非阻塞锁获取。抽为具名
+// 函数使 default 兜底分支可被单测直接以任意方言驱动（acquireSessionLock
+// 外层 switch 已把方言过滤为 mysql/postgres/mssql，闭包路径下不可达）。
+func tryAcquireLock(ctx context.Context, conn *sql.Conn, gooseDialect string) (bool, error) {
+	switch gooseDialect {
+	case "mysql":
+		var result sql.NullInt64
+		if err := conn.QueryRowContext(ctx, "SELECT GET_LOCK(?, 0)", mysqlMigrationLockName).Scan(&result); err != nil {
+			return false, err
+		}
+		return result.Valid && result.Int64 == 1, nil
+	case "postgres":
+		var ok bool
+		query := fmt.Sprintf("SELECT pg_try_advisory_lock(%d, %d)", pgAdvisoryLockKey1, pgAdvisoryLockKey2)
+		if err := conn.QueryRowContext(ctx, query).Scan(&ok); err != nil {
+			return false, err
+		}
+		return ok, nil
+	case "mssql":
+		// sp_getapplock: session-scoped exclusive application lock on
+		// the bound connection. Return codes: 0 = granted, 1 = granted
+		// after wait; <0 = timeout/cancel/error. LockTimeout 0 →
+		// immediate, -1 when held elsewhere. The resource name is a
+		// compile-time constant — inlined because go-mssqldb does not
+		// rewrite '?' placeholders inside multi-statement batches.
+		var code sql.NullInt32
+		query := fmt.Sprintf("DECLARE @r int; EXEC @r = sp_getapplock @Resource = N'%s', @LockMode = 'Exclusive', @LockOwner = 'Session', @LockTimeout = 0; SELECT @r", sqlServerMigrationLockName)
+		if err := conn.QueryRowContext(ctx, query).Scan(&code); err != nil {
+			return false, err
+		}
+		return code.Valid && code.Int32 >= 0, nil
+	}
+	return false, nil
 }
 
 // EnsureUpToDate brings the given database to the latest embedded migration

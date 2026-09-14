@@ -3,6 +3,7 @@ package utils
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
@@ -635,4 +636,27 @@ func TestBuildFunctionDTOOpenAPISpecV9(t *testing.T) {
 	assert.JSONEq(t, `{"summary":"s"}`, string(out.OpenAPISpec))
 	assert.NotEmpty(t, out.CreatedAt)
 	assert.NotEmpty(t, out.UpdatedAt)
+}
+
+// ---------------------------------------------------------------------------
+// RequireAnyPermission enforce 接缝注入
+// ---------------------------------------------------------------------------
+
+// enforceAnyPermission 接缝返回 error 时走 NewInternalError 兜底（真实路径
+// 下 casbin 纯内存 Enforce 不失败，见 permission_guard.go 接缝注释）。
+func TestRequireAnyPermissionEnforceErrorV9(t *testing.T) {
+	svcCtx, ctx := setupNonAdminContextV9(t, []string{"player:read"})
+
+	orig := enforceAnyPermission
+	enforceAnyPermission = func(sub string, perms []string, required ...string) (bool, error) {
+		return false, errors.New("casbin exploded")
+	}
+	t.Cleanup(func() { enforceAnyPermission = orig })
+
+	_, _, err := RequireAnyPermission(ctx, svcCtx, "denied", "functions:manage")
+	require.Error(t, err)
+	codeErr, ok := err.(*errorx.CodeError)
+	require.True(t, ok)
+	assert.Equal(t, 500, codeErr.Code)
+	assert.Contains(t, codeErr.Error(), "权限校验失败")
 }

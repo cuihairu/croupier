@@ -410,6 +410,12 @@ func draftRevisionConflict(expected, current int) error {
 }
 
 // Merge applies changes with the given strategy.
+// threeWayMerge 是 dashboardmerge.ThreeWayMerge 的包级接缝：生产恒为真实
+// 实现，测试注入携带白名单外 field 的 AutoMerge 项以驱动 Merge 内
+// applyAutoMergeItems 的 fail-fast 分支（ThreeWayMerge 产出项恒在白名单内，
+// 不可达论证见各调用处注释）。
+var threeWayMerge = dashboardmerge.ThreeWayMerge
+
 func (s *Service) Merge(ctx context.Context, req *MergeRequest) (*MergeResponse, error) {
 	if req.Strategy != MergeStrategyAuto &&
 		req.Strategy != MergeStrategyAccept &&
@@ -470,7 +476,7 @@ func (s *Service) Merge(ctx context.Context, req *MergeRequest) (*MergeResponse,
 		return nil, err
 	}
 
-	mergeResult := dashboardmerge.ThreeWayMerge(basePage, draftPage, latestPage)
+	mergeResult := threeWayMerge(basePage, draftPage, latestPage)
 	if req.DryRun {
 		return &MergeResponse{
 			Merged:         len(mergeResult.AutoMerge),

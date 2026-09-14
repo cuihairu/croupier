@@ -16,6 +16,7 @@ package approvals
 //     []DelegationPermission 为 string 枚举切片，恒可序列化，死分支
 
 import (
+	"net/mail"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -39,4 +40,22 @@ func TestValidateEmailAddressRejectsDisplayName_I(t *testing.T) {
 	got, err := validateEmailAddress("ops@example.com")
 	require.NoError(t, err)
 	assert.Equal(t, "ops@example.com", got)
+}
+
+// parseEmailAddress 接缝注入「解析成功但保留控制字符」的返回值，驱动
+// validateEmailAddress 的纵深防御最后防线分支（当前 net/mail 实现下该
+// 分支不可达——见 notification.go parseEmailAddress 接缝处注释）。
+func TestValidateEmailAddressDefenseInDepthViaSeam(t *testing.T) {
+	orig := parseEmailAddress
+	parseEmailAddress = func(addr string) (*mail.Address, error) {
+		return &mail.Address{Address: addr}, nil
+	}
+	t.Cleanup(func() { parseEmailAddress = orig })
+
+	for _, addr := range []string{"evil@x.com\r\nRCPT TO:<evil@y.com>", "a b@x.com", "a\tb@x.com"} {
+		got, err := validateEmailAddress(addr)
+		require.Error(t, err, "control characters must be rejected: %q", addr)
+		assert.Contains(t, err.Error(), "control characters rejected")
+		assert.Empty(t, got)
+	}
 }

@@ -823,3 +823,63 @@ func TestNewService(t *testing.T) {
 	assert.NotNil(t, service.proposalModel)
 	assert.NotNil(t, service.proposalVersionModel)
 }
+
+// TestVersioningService_MergeApplyAutoMergeErrorViaSeam 经 threeWayMerge 接缝
+// 注入携带白名单外 field 的 AutoMerge 项，驱动 manual/auto 两策略下
+// applyAutoMergeItems 的 fail-fast 分支（ThreeWayMerge 产出项恒在白名单内、
+// 生产不可达，论证见 service.go 各调用处注释）。
+func TestVersioningService_MergeApplyAutoMergeErrorViaSeam(t *testing.T) {
+	db := setupTestDB(t)
+	ctx := context.Background()
+	service := NewService(db)
+
+	basePage := spec.PageSpec{
+		PageKey:  "operation--player.ban",
+		Type:     spec.PageTypeOperation,
+		Title:    spec.LocalizedText{"zh-CN": "封禁玩家"},
+		Category: spec.PageCategorySpec{Key: "player", Labels: spec.LocalizedText{"zh-CN": "玩家"}},
+		Bindings: []spec.PageFunctionBinding{{
+			ID:         "run",
+			FunctionID: "player.ban",
+			Usage:      spec.BindingUsageAction,
+			Execution:  spec.PageBindingExecution{Mode: spec.PageExecutionModeSync},
+		}},
+		Operation: &spec.OperationPageSpec{
+			Form: &spec.FormPresentationSpec{JSONSchema: spec.JSONSchema(`{"type":"object"}`)},
+		},
+	}
+	draftPage := basePage
+	latestPage := basePage
+	latestPage.Title = spec.LocalizedText{"zh-CN": "改版标题"}
+	seedVersioningMergeFixture(t, db, basePage, draftPage, latestPage)
+
+	orig := threeWayMerge
+	threeWayMerge = func(base, draft, latest spec.PageSpec) dashboardmerge.MergeResult {
+		return dashboardmerge.MergeResult{
+			AutoMerge: []dashboardmerge.MergeItem{{Field: "bogus.unsupported.field"}},
+		}
+	}
+	t.Cleanup(func() { threeWayMerge = orig })
+
+	// Manual 策略：无 conflicts 时 resolutions 校验通过，apply 报错。
+	_, err := service.Merge(ctx, &MergeRequest{
+		GameID:                "demo-game",
+		Env:                   "development",
+		PageKey:               "operation--player.ban",
+		ExpectedDraftRevision: 1,
+		Strategy:              MergeStrategyManual,
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "unsupported auto-merge field")
+
+	// Auto 策略：同一 fail-fast。
+	_, err = service.Merge(ctx, &MergeRequest{
+		GameID:                "demo-game",
+		Env:                   "development",
+		PageKey:               "operation--player.ban",
+		ExpectedDraftRevision: 1,
+		Strategy:              MergeStrategyAuto,
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "unsupported auto-merge field")
+}

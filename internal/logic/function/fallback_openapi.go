@@ -113,21 +113,16 @@ func inferFallbackResourceAction(functionID string) (string, string) {
 	parts := strings.FieldsFunc(strings.TrimSpace(strings.ToLower(functionID)), func(r rune) bool {
 		return r == '.' || r == '_' || r == '-' || r == '/'
 	})
-	if len(parts) == 0 {
+	switch len(parts) {
+	case 0:
 		return "", "invoke"
-	}
-	if len(parts) >= 3 {
+	case 1:
+		return sanitizeFallbackToken(parts[0]), "invoke"
+	case 2:
+		return sanitizeFallbackToken(parts[0]), sanitizeFallbackToken(parts[1])
+	default:
 		return sanitizeFallbackToken(parts[len(parts)-2]), sanitizeFallbackToken(parts[len(parts)-1])
 	}
-	if len(parts) == 2 {
-		return sanitizeFallbackToken(parts[0]), sanitizeFallbackToken(parts[1])
-	}
-	if len(parts) == 1 {
-		return sanitizeFallbackToken(parts[0]), "invoke"
-	}
-	// 不可达：len(parts) 为非负整数，0/1/2/≥3 已被上方全部分支覆盖。
-	// Go 要求带返回值函数的所有控制路径显式返回，此兜底必须保留。
-	return "function", "invoke"
 }
 
 func sanitizeFallbackToken(value string) string {

@@ -2,6 +2,7 @@ package permission
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -190,4 +191,27 @@ func TestV9_LookupAdminByUsername_TableMissing(t *testing.T) {
 	_, err := NewPermissionService(db).lookupAdminByUsername("somebody")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to lookup admin")
+}
+
+// TestV9_CheckPermission_EnforceErrorViaSeam 经 enforceAnyPermission 接缝注入
+// 失败，驱动 CheckPermission 的 casbin 错误透传分支（真实路径恒 nil，见
+// service.go 接缝处不可达论证）。
+func TestV9_CheckPermission_EnforceErrorViaSeam(t *testing.T) {
+	db := setupTestDB(t)
+	admin := model.Admin{Username: "enforceadmin"}
+	require.NoError(t, db.Create(&admin).Error)
+	role := model.Role{Name: "test_role"}
+	require.NoError(t, db.Create(&role).Error)
+	require.NoError(t, db.Exec("INSERT INTO admin_roles (admin_id, role_id) VALUES (?, ?)", admin.ID, role.ID).Error)
+
+	orig := enforceAnyPermission
+	enforceAnyPermission = func(sub string, perms []string, required ...string) (bool, error) {
+		return false, errors.New("casbin exploded")
+	}
+	t.Cleanup(func() { enforceAnyPermission = orig })
+
+	allowed, err := NewPermissionService(db).CheckPermission(context.Background(), admin.ID, "game", "read")
+	require.Error(t, err)
+	assert.False(t, allowed)
+	assert.Contains(t, err.Error(), "failed to enforce permission with casbin")
 }

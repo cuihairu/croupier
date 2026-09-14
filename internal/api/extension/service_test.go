@@ -3657,3 +3657,15 @@ func TestService_ActiveInstalledExtensionSet_Integration(t *testing.T) {
 		t.Fatal("expected test.notifications to be in installed set")
 	}
 }
+
+// applyVersionOp：未知操作符 → (false, false)，调用方据此拒绝匹配。
+// opMatchers 键集合与 matchSingleClause 前缀提取的七种字面量一致，
+// 此处直测分派表的拒绝分支。
+func TestApplyVersionOp_UnknownOpRejected(t *testing.T) {
+	cur := semVersion{major: 2, minor: 0, patch: 0}
+	tgt := semVersion{major: 1, minor: 0, patch: 0}
+	assert.False(t, applyVersionOp("???", cur, tgt, 1))
+
+	// 已知操作符走表分派。
+	assert.True(t, applyVersionOp(">", cur, tgt, 1))
+}

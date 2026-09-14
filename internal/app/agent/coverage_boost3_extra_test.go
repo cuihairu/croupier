@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cuihairu/croupier/internal/agent"
 	extensionsync "github.com/cuihairu/croupier/internal/core/extension/sync"
 	agentlocal "github.com/cuihairu/croupier/internal/platform/agentlocal"
 	sdkv1 "github.com/cuihairu/croupier/pkg/pb/croupier/sdk/v1"
@@ -324,4 +325,31 @@ func TestUpstreamNotifyUpdate_DropWhenFull(t *testing.T) {
 	<-c.updateCh
 	c.notifyUpdate()
 	assert.Len(t, c.updateCh, 1, "消费后再触发应重新写入")
+}
+
+// TestAppStartLocalServer_ServeErrorLoggedViaSeam 经 serveLocal 注入点注入
+// 非 Canceled 错误，驱动 StartLocalServer 的错误日志分支（listener 在函数
+// 内部构造，生产无法触发 Accept 故障路径；Canceled 则被静默吞掉）。
+func TestAppStartLocalServer_ServeErrorLoggedViaSeam(t *testing.T) {
+	app := NewWithConfigDir("", "agent-serve-err", t.TempDir())
+	app.SetLocalAddr("127.0.0.1:0")
+
+	served := make(chan struct{}, 2)
+	app.serveLocal = func(server *agent.TCPLocalListener) error {
+		served <- struct{}{}
+		return errors.New("accept: emfile")
+	}
+	require.NoError(t, app.StartLocalServer())
+	<-served // 错误分支已执行（日志副作用不阻塞退出）
+
+	// context.Canceled 被排除：注入 Canceled 不产生日志分支，但 serve 调用本身可达。
+	app2 := NewWithConfigDir("", "agent-serve-cancel", t.TempDir())
+	app2.SetLocalAddr("127.0.0.1:0")
+	cancelServed := make(chan struct{}, 2)
+	app2.serveLocal = func(server *agent.TCPLocalListener) error {
+		cancelServed <- struct{}{}
+		return context.Canceled
+	}
+	require.NoError(t, app2.StartLocalServer())
+	<-cancelServed
 }

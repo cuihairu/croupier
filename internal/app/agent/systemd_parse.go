@@ -6,16 +6,19 @@ import (
 	"strings"
 )
 
+// systemdRunnerNotSupported 是非 linux 平台的 systemdRunner 默认实现：
+// 明确报「不支持」而非静默失败。抽为具名函数使该路径可被单测直接调用
+// （linux 构建下 init() 在包初始化阶段替换 systemdRunner，匿名字面量体
+// 永不被执行、覆盖数据恒 0）。
+func systemdRunnerNotSupported(args ...string) ([]byte, error) {
+	return nil, errors.New("systemctl invocation is not supported on this platform")
+}
+
 // systemdRunner is the function used to invoke systemctl. The default value
 // returns a "not supported" error so non-Linux builds compile and tests that
 // do not override it fail loudly. On Linux, an init() in sysinfo_linux.go
 // replaces it with a real exec.Command implementation.
-// 覆盖边界说明：linux 构建下该默认值在包初始化阶段即被 init() 替换，
-// 永不被调用（覆盖数据恒为 0）；其函数体是非 linux 平台的编译必需品，
-// 不可删除，属跨平台保留分支。
-var systemdRunner = func(args ...string) ([]byte, error) {
-	return nil, errors.New("systemctl invocation is not supported on this platform")
-}
+var systemdRunner = systemdRunnerNotSupported
 
 // runSystemdCmd invokes systemctl with the given arguments and returns its
 // combined stdout/stderr output. Errors are wrapped with both the argument

@@ -805,6 +805,11 @@ func findSubstring(s, substr string) int {
 	return -1
 }
 
+// parseEmailAddress 是 net/mail.ParseAddress 的包级接缝：生产恒为真实实现，
+// 测试注入「解析成功但携带控制字符」的返回值以驱动下方纵深防御分支（当前
+// net/mail 实现下该分支不可达，见分支处注释）。
+var parseEmailAddress = mail.ParseAddress
+
 // validateEmailAddress 阻止 SMTP 命令注入：返回 mail.ParseAddress 解析
 // 出的规范地址（拒绝 Display Name 形态与控制字符），调用方必须使用该
 // 返回值而非原始输入。
@@ -814,7 +819,7 @@ func validateEmailAddress(addr string) (string, error) {
 	}
 	// net/mail.ParseAddress 拒绝含 CR/LF 等控制字符的地址，阻断 SMTP
 	// 命令注入；其解析输出是独立的规范字符串。
-	parsed, err := mail.ParseAddress(addr)
+	parsed, err := parseEmailAddress(addr)
 	if err != nil {
 		return "", fmt.Errorf("invalid email recipient: %w", err)
 	}
@@ -823,11 +828,12 @@ func validateEmailAddress(addr string) (string, error) {
 	if parsed.Address != addr {
 		return "", fmt.Errorf("invalid email recipient: display name not allowed")
 	}
-	// [覆盖率 C 类·不可达但保留] 纵深防御冗余防线：在当前 net/mail 实现下，
-	// ParseAddress 拒绝 CR/LF（上一分支返回 err），quoted-local-part 形态
-	//（"a b"@x.com 等）的输出会剥掉引号导致 parsed.Address != addr 被上方分支
-	// 拦截，裸地址无法携带空格/tab/;/,——故本分支恒不可达。保留原因：安全防线
-	// 不应依赖单一解析器行为，若未来 Go 的 mail 包输出形态变化（如保留引号），
+	// 纵深防御冗余防线：在当前 net/mail 实现下 ParseAddress 拒绝 CR/LF
+	// （上一分支返回 err），quoted-local-part 形态（"a b"@x.com 等）的输出
+	// 会剥掉引号导致 parsed.Address != addr 被上方分支拦截，裸地址无法携带
+	// 空格/tab/;/,——生产路径恒不可达，仅当 parseEmailAddress 接缝被注入
+	// 「解析成功但保留控制字符」的返回值时可驱动。保留原因：安全防线不应
+	// 依赖单一解析器行为，若未来 Go 的 mail 包输出形态变化（如保留引号），
 	// 此处仍是最后兜底，删除会把安全性押在标准库实现细节上。
 	if strings.ContainsAny(addr, "\r\n \t;,") {
 		return "", fmt.Errorf("invalid email recipient: control characters rejected")

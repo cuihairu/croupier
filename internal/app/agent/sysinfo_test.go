@@ -2,6 +2,7 @@ package agent
 
 import (
 	"os"
+	"strings"
 	"testing"
 )
 
@@ -199,5 +200,48 @@ func TestLooksLikeCronSchedule_EdgeCases(t *testing.T) {
 	// 混合格式
 	if !looksLikeCronSchedule([]string{"0-30/5", "*/2", "1,15", "1-6", "0-5"}) {
 		t.Error("looksLikeCronSchedule() should accept mixed format")
+	}
+}
+
+// TestGetPlatformInfoWindowsBranchViaSeam 经 runtimeGOOS 接缝注入 "windows"
+// 驱动平台分支（linux 构建下该分支由编译期常量决定、不可达）。
+func TestGetPlatformInfoWindowsBranchViaSeam(t *testing.T) {
+	orig := runtimeGOOS
+	runtimeGOOS = "windows"
+	t.Cleanup(func() { runtimeGOOS = orig })
+
+	info := GetPlatformInfo()
+	if got := info["service_manager"]; got != "Windows Service Manager (SCM)" {
+		t.Errorf("service_manager = %v, want Windows Service Manager (SCM)", got)
+	}
+}
+
+// TestListCronJobsErrorBranchViaSeam 经 listCronJobs 接缝注入 error 驱动
+// 调用方错误分支（linux 实现 listCronJobsPlatform 恒返回 nil error）。
+func TestListCronJobsErrorBranchViaSeam(t *testing.T) {
+	orig := listCronJobs
+	listCronJobs = func() ([]CronJob, error) {
+		return nil, os.ErrPermission
+	}
+	t.Cleanup(func() { listCronJobs = orig })
+
+	if _, err := ListCronJobs(); err == nil {
+		t.Error("ListCronJobs() should propagate injected error")
+	}
+}
+
+// TestSystemdRunnerNotSupported 直接驱动非 linux 平台的 systemdRunner 默认
+// 实现（linux 构建下 init() 在包初始化阶段替换 systemdRunner，该路径生产
+// 不可达；具名化前为匿名字面量体、覆盖数据恒 0）。
+func TestSystemdRunnerNotSupported(t *testing.T) {
+	out, err := systemdRunnerNotSupported("status", "foo")
+	if err == nil {
+		t.Fatal("systemdRunnerNotSupported() should error on unsupported platforms")
+	}
+	if out != nil {
+		t.Errorf("systemdRunnerNotSupported() out = %v, want nil", out)
+	}
+	if !strings.Contains(err.Error(), "not supported") {
+		t.Errorf("err = %v, want 'not supported'", err)
 	}
 }

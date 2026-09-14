@@ -83,6 +83,29 @@ var memoryDBSeq atomic.Uint64
 
 // openGorm opens a *gorm.DB for the given driver and DSN, auto-creating the
 // physical database when it does not yet exist (for non-sqlite drivers).
+// openMemorySQLite 打开一个按 seq 命名的共享缓存内存 SQLite。抽为包级
+// 变量使 gorm.Open 失败分支可被测试注入（DSN 由硬编码模板构造、恒合法，
+// 生产无确定性失败输入，论证见 openGorm 内调用处注释）。
+var openMemorySQLite = func(seq uint64) (*gorm.DB, error) {
+	memDSN := fmt.Sprintf(
+		"file:croupier_mem_%d?mode=memory&cache=shared&_pragma=busy_timeout(5000)",
+		seq,
+	)
+	return gorm.Open(gsqlite.Open(memDSN), &gorm.Config{})
+}
+
+// setSQLiteQueryOnly 在只读连接上开启 PRAGMA query_only。抽为包级变量使
+// 失败分支可被测试注入（gorm.Open 阶段已 Ping 成功，同一连接设置
+// query_only 无确定性失败输入，论证见 openReadOnlyGorm 内注释）。
+var setSQLiteQueryOnly = func(db *gorm.DB) error {
+	return db.Exec("PRAGMA query_only = ON").Error
+}
+
+// sqlOpen 是 database/sql.Open 的包级接缝：生产恒为真实实现，测试注入
+// 失败驱动 createPostgresDatabase 的签名契约分支（pgx stdlib 的
+// OpenConnector 不解析 DSN、对已注册驱动恒成功，论证见调用处注释）。
+var sqlOpen = sql.Open
+
 func openGorm(driver, dsn string) (*gorm.DB, error) {
 
 	switch driver {
@@ -103,16 +126,12 @@ func openGorm(driver, dsn string) (*gorm.DB, error) {
 			// games seeded by an earlier test surfaced in a later test's
 			// queries; CI run 34736654564), and locally -count=2 reproduced
 			// it as "table mem_probe already exists".
-			memDSN := fmt.Sprintf(
-				"file:croupier_mem_%d?mode=memory&cache=shared&_pragma=busy_timeout(5000)",
-				memoryDBSeq.Add(1),
-			)
-			db, err := gorm.Open(gsqlite.Open(memDSN), &gorm.Config{})
+			db, err := openMemorySQLite(memoryDBSeq.Add(1))
 			if err != nil {
-				// 不可达论证（C 类）：DSN 由上方硬编码模板 + 递增序号构造，
-				// 恒为合法的命名共享内存形态，对内存库的打开无外部依赖、
-				// 无确定性失败输入，错误仅在
-				// 进程级资源耗尽时出现；err 为签名契约必须处理，保留透传。
+				// 不可达论证（C 类）：DSN 由 openMemorySQLite 内硬编码模板
+				// + 递增序号构造，恒为合法的命名共享内存形态，对内存库的
+				// 打开无外部依赖、无确定性失败输入，错误仅在进程级资源
+				// 耗尽时出现；err 为签名契约必须处理，保留透传。
 				return nil, err
 			}
 			return db, nil
@@ -245,10 +264,11 @@ func openReadOnlyGorm(driver, dsn string) (*gorm.DB, error) {
 		if err != nil {
 			return nil, err
 		}
-		if err := db.Exec("PRAGMA query_only = ON").Error; err != nil {
+		if err := setSQLiteQueryOnly(db); err != nil {
 			// 不可达论证（C 类）：gorm.Open 阶段已完成连接与 Ping 校验，
 			// 同一连接上设置 query_only（SQLite 3.8.0+ 支持，驱动内嵌
-			// 版本远高于此）无确定性失败输入；err 为签名契约，保留透传。
+			// 版本远高于此）无确定性失败输入；err 为签名契约，保留透传，
+			// 经 setSQLiteQueryOnly 接缝测试驱动。
 			return nil, err
 		}
 		return db, nil
@@ -402,13 +422,13 @@ func removeDBFromPostgresDSN(dsn, replacementDB string) string {
 // created it, we verify existence and treat that as success.
 func createPostgresDatabase(dsn, dbName string) error {
 	// pgx stdlib registers the "pgx" driver name (there is no lib/pq here).
-	db, err := sql.Open("pgx", dsn)
+	db, err := sqlOpen("pgx", dsn)
 	if err != nil {
 		// 不可达论证（C 类）：sql.Open 对已注册驱动仅调用 OpenConnector，
 		// 而 pgx v5 stdlib 的 Driver.OpenConnector 不解析 DSN（解析推迟到
 		// 连接建立），此处恒返回 nil error；坏 DSN 的报错发生在其后的
 		// db.Exec（连接触发 parse），走的是下方 CREATE 失败分支。err 为
-		// database/sql 签名契约，保留透传。
+		// database/sql 签名契约，保留透传，经 sqlOpen 接缝测试驱动。
 		return err
 	}
 	defer func() { _ = db.Close() }()

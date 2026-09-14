@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"compress/gzip"
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"strings"
@@ -18,6 +19,7 @@ import (
 	opsv1 "github.com/cuihairu/croupier/pkg/pb/croupier/ops/v1"
 	sdkv1 "github.com/cuihairu/croupier/pkg/pb/croupier/sdk/v1"
 	"github.com/cuihairu/croupier/pkg/protocol"
+	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
@@ -2060,4 +2062,34 @@ func TestControlService_LoadAgentSessions_LoadError(t *testing.T) {
 	err := svc.LoadAgentSessions()
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to load agent sessions")
+}
+
+// TestHandleRegisterRequest_UpsertOpenAPIErrorViaSeam 经 upsertOpenAPI 注入点
+// 注入失败，驱动注册警告分支（合法输入域下 UpsertOpenAPI 不可达失败、
+// registry 为具体类型无接口 seam，论证见 control_handler.go 注释）。
+func TestHandleRegisterRequest_UpsertOpenAPIErrorViaSeam(t *testing.T) {
+	svc := newTestControlService()
+	svc.upsertOpenAPI = func(functionID string, op *openapi3.Operation) error {
+		return errors.New("registry exploded")
+	}
+
+	req := &agentv1.RegisterRequest{
+		AgentId: "agent-1",
+		GameId:  "game-1",
+		Functions: []*agentv1.FunctionDescriptor{
+			{
+				Id:          "game.player.get",
+				Version:     "1.0.0",
+				Enabled:     true,
+				Resource:    "player",
+				Operation:   "get",
+				InputSchema: `{"type":"object"}`,
+			},
+		},
+	}
+
+	// Warn 分支不阻断注册：响应仍成功。
+	resp, err := svc.handleRegisterRequest(context.Background(), req, "")
+	require.NoError(t, err)
+	require.NotNil(t, resp)
 }

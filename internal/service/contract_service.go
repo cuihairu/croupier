@@ -1087,6 +1087,12 @@ func (s *ContractService) RebuildProposalForFunction(ctx context.Context, gameID
 	return s.resolveBlockedIssue(ctx, gameID, env, contract.ResourceKey, contract.FunctionID)
 }
 
+// shouldBlockResourceProposal 是 generator.ShouldBlockProposal 的包级接缝：
+// 生产恒为真实实现，测试注入 true 驱动 upsertResourceProposal 的阻断分支
+// （该分支的不可达论证见调用处注释——resource 生成器诊断 code 与阻断
+// 清单不相交；主生成器两处调用点可达、无需接缝）。
+var shouldBlockResourceProposal = generator.ShouldBlockProposal
+
 func (s *ContractService) upsertResourceProposal(
 	ctx context.Context,
 	gameID string,
@@ -1108,11 +1114,11 @@ func (s *ContractService) upsertResourceProposal(
 	// 的 assessBaseCandidate（generator.go）产生；GenerateResourcePageProposal
 	// 的诊断来源（assessResourceSemantics / schemaSubsetDiagnostics /
 	// buildInlineResourceActions / validateGeneratedResourceViews）的 code 集合
-	// 与阻断清单不相交，故此分支当前恒 false。保留原因：阻断机制是发布安全
-	// 防线，resource 生成器未来新增 Error 诊断时该路径即被激活，删除会静默
-	// 放行本应阻断的提案；generator 的 code 常量为跨包隐式契约，无编译期
-	// 保护，不宜按死分支删除。
-	if generator.ShouldBlockProposal(generated.Diagnostics) {
+	// 与阻断清单不相交，故此分支生产恒 false，经 shouldBlockResourceProposal
+	// 接缝测试驱动。保留原因：阻断机制是发布安全防线，resource 生成器未来
+	// 新增 Error 诊断时该路径即被激活，删除会静默放行本应阻断的提案；
+	// generator 的 code 常量为跨包隐式契约，无编译期保护，不宜按死分支删除。
+	if shouldBlockResourceProposal(generated.Diagnostics) {
 		if err := s.removeResourceProposal(ctx, gameID, env, semantics.ResourceKey); err != nil {
 			return nil, err
 		}

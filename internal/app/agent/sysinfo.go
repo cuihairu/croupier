@@ -45,21 +45,19 @@ func GetServiceStatus(name string) (*ServiceStatusDetail, error) {
 	return getServiceStatusPlatform(name)
 }
 
-// ListCronJobs returns cron jobs on Linux systems.
-func ListCronJobs() ([]CronJob, error) {
-	return listCronJobsPlatform()
-}
-
 // GetPlatformInfo returns platform-specific system information.
+// runtimeGOOS 是 runtime.GOOS 的包级接缝：生产恒为真实值（编译期常量），
+// 测试注入 "windows" 驱动 GetPlatformInfo 的平台分支（linux 构建下该
+// 分支由编译期常量决定、不可达）。
+var runtimeGOOS = runtime.GOOS
+
 func GetPlatformInfo() map[string]interface{} {
 	info := make(map[string]interface{})
 	info["os"] = runtime.GOOS
 	info["arch"] = runtime.GOARCH
 
-	// Add platform-specific info
-	// 覆盖边界说明：windows 分支由 runtime.GOOS 编译期常量决定，linux 测试
-	// 构建下不可达（windows 构建由 sysinfo_windows_test.go 覆盖其余路径）。
-	switch runtime.GOOS {
+	// Add platform-specific info（接缝见 runtimeGOOS 声明处注释）。
+	switch runtimeGOOS {
 	case "windows":
 		info["service_manager"] = "Windows Service Manager (SCM)"
 	case "linux":
@@ -67,6 +65,16 @@ func GetPlatformInfo() map[string]interface{} {
 	}
 
 	return info
+}
+
+// listCronJobs 是平台实现 listCronJobsPlatform 的包级接缝：生产恒为真实
+// 实现，测试注入 error 驱动 ListCronJobs 调用方的错误分支（linux 实现恒
+// 返回 nil error，err 分支仅 windows/stub 平台生产可达）。
+var listCronJobs = listCronJobsPlatform
+
+// ListCronJobs returns cron jobs on Linux systems.
+func ListCronJobs() ([]CronJob, error) {
+	return listCronJobs()
 }
 
 // systemdDetectPath 是 detectLinuxServiceManager 探测的 systemd 运行目录，

@@ -42,20 +42,22 @@ func newDBSource(cfg map[string]interface{}) (Source, error) {
 
 func (s *dbSource) Type() string { return "db" }
 
+// openGormConn 是 gorm.Open 的包级接缝：生产恒为真实实现，测试注入
+// 成功/失败返回值以驱动 conn 的握手成功路径（真实 MySQL 协议握手需
+// 服务器，单测环境不可得）。
+var openGormConn = gorm.Open
+
 // conn lazily opens the gorm connection.
 func (s *dbSource) conn() (*gorm.DB, error) {
 	if s.db != nil {
 		return s.db, nil
 	}
-	db, err := gorm.Open(mysql.Open(s.dsn), &gorm.Config{
+	db, err := openGormConn(mysql.Open(s.dsn), &gorm.Config{
 		Logger: gormlogger.Default.LogMode(gormlogger.Silent),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("db connect: %w", err)
 	}
-	// [覆盖率 C 类·不可达但保留] 走到本行需要一次成功的 MySQL 协议握手，
-	// 单测环境无真实 MySQL 服务器（伪造握手包属造假网络环境，不做）；
-	// 失败路径已由坏 DSN 用例覆盖，成功路径留给真实部署环境。
 	s.db, s.openAt = db, time.Now()
 	return db, nil
 }

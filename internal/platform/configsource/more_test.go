@@ -388,3 +388,24 @@ func TestMaskDSNBranch(t *testing.T) {
 	assert.Equal(t, "{}", MaskSecrets(`not json`))
 	assert.Contains(t, MaskSecrets(`{"dsn":"tcp://user:secret@x/db"}`), "******")
 }
+
+// openGormConn 接缝注入成功返回，驱动 conn 的握手成功路径（真实 MySQL
+// 协议握手需服务器，单测环境不可得；失败路径由坏 DSN 用例覆盖）。
+func TestDBSourceConnOpenSuccessViaSeam(t *testing.T) {
+	orig := openGormConn
+	openGormConn = func(dialector gorm.Dialector, opts ...gorm.Option) (*gorm.DB, error) {
+		return &gorm.DB{}, nil
+	}
+	t.Cleanup(func() { openGormConn = orig })
+
+	s := &dbSource{dsn: "user:pass@tcp(127.0.0.1:1)/db"}
+	db, err := s.conn()
+	require.NoError(t, err)
+	require.NotNil(t, db)
+	assert.False(t, s.openAt.IsZero(), "openAt must be recorded")
+
+	// 二次调用命中缓存，返回同一实例。
+	again, err := s.conn()
+	require.NoError(t, err)
+	assert.Same(t, db, again)
+}
