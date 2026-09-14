@@ -34,7 +34,7 @@ on:
       analytics_bridge:
         description: "Enable OTel→analytics bridge on servers (events land in ClickHouse)"
         required: false
-        default: "false"
+        default: "true"
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
