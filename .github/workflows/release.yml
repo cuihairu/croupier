@@ -72,7 +72,10 @@ jobs:
           New-Item -ItemType Directory -Force -Path bin | Out-Null
           $VERSION = (git describe --tags --always --dirty)
           $BUILD_TIME = (Get-Date).ToUniversalTime().ToString("yyyy-MM-dd_HH:mm:ss")
-          $LDFLAGS = "-X main.version=$VERSION -X main.buildTime=$BUILD_TIME -s -w"
+          $GIT_COMMIT = (git rev-parse --short HEAD)
+          # 变量名须与 root.go 声明一致（Version/BuildTime/GitCommit 首字母大写）；
+          # 小写形式 -X 静默 no-op，二进制恒 dev。
+          $LDFLAGS = "-X main.Version=$VERSION -X main.BuildTime=$BUILD_TIME -X main.GitCommit=$GIT_COMMIT -s -w"
           go build -tags "pg sqlite" -ldflags "$LDFLAGS" -o bin/croupier-server.exe ./cmd/server
           go build -ldflags "$LDFLAGS" -o bin/croupier-agent.exe ./cmd/agent
       - name: Package binaries (Linux/Mac, tar.gz with OS/ARCH)

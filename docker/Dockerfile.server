@@ -3,6 +3,13 @@ ARG GO_IMAGE=golang:1.26.6
 ARG RUNTIME_IMAGE=gcr.io/distroless/static:nonroot
 ARG GOPROXY_URL=https://goproxy.cn,direct
 ARG BUILD_TAGS="pg ip2location"
+# 版本注入：CI（docker.yml）或本地构建经 --build-arg 传入。cmd/server 是
+# package main，-X 必须用 "main." 前缀（链接器按符号名匹配，完整导入路径
+# 静默 no-op）；internal/svc 非 main 包，用完整导入路径（ops services API
+# 展示版本）。缺省 dev。
+ARG VERSION=dev
+ARG GIT_COMMIT=unknown
+ARG BUILD_TIME=
 # IP 属地查询（审计日志 ipRegion）需要 IP2Location LITE BIN 数据库。
 # 注册 https://lite.ip2location.com 获取下载 token 后，把完整下载 URL 传入：
 #   --build-arg IP2LOCATION_BIN_URL="https://download.ip2location.com/lite/?token=XXX&file=IP2LOCATION-LITE-DB3.BIN.ZIP"
@@ -15,6 +22,9 @@ WORKDIR /src
 
 ARG GOPROXY_URL
 ARG BUILD_TAGS
+ARG VERSION
+ARG GIT_COMMIT
+ARG BUILD_TIME
 ENV GOPROXY=${GOPROXY_URL} \
     GOFLAGS=-modcacherw
 
@@ -22,7 +32,10 @@ COPY go.mod go.sum ./
 RUN --mount=type=cache,target=/go/pkg/mod go mod download
 
 COPY . .
-RUN --mount=type=cache,target=/root/.cache/go-build CGO_ENABLED=0 GOFLAGS=-mod=mod go build -tags "${BUILD_TAGS}" -o /out/croupier-server ./cmd/server
+RUN --mount=type=cache,target=/root/.cache/go-build CGO_ENABLED=0 GOFLAGS=-mod=mod \
+    go build -tags "${BUILD_TAGS}" \
+    -ldflags "-s -w -X main.Version=${VERSION} -X main.GitCommit=${GIT_COMMIT} -X main.BuildTime=${BUILD_TIME} -X github.com/cuihairu/croupier/internal/svc.ServerVersion=${VERSION} -X github.com/cuihairu/croupier/internal/svc.ServerGitCommit=${GIT_COMMIT} -X github.com/cuihairu/croupier/internal/svc.ServerBuildTime=${BUILD_TIME}" \
+    -o /out/croupier-server ./cmd/server
 RUN mkdir -p /out/logs /out/data/uploads /out/data/components/staging
 
 # 可选：下载 IP2Location LITE BIN（IP 属地查询数据源）

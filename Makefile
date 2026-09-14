@@ -4,7 +4,10 @@ GIT_COMMIT := $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
 GIT_DIRTY := $(shell git diff --quiet || echo "-dirty")
 BUILD_TIME := $(shell date -u '+%Y-%m-%d_%H:%M:%S')
 FULL_VERSION := $(VERSION)$(GIT_DIRTY)
-LDFLAGS := -X main.version=$(FULL_VERSION) -X main.buildTime=$(BUILD_TIME) -X main.gitCommit=$(GIT_COMMIT) -s -w
+# 变量名与各入口 root.go 的声明一致（Version/GitCommit/BuildTime）。注意：
+# Go 链接器 -X 按符号名匹配——main 包符号前缀恒为 "main."（与导入路径无关），
+# 写完整导入路径（github.com/.../cmd/server.Version）是静默 no-op，二进制恒 dev。
+LDFLAGS := -X main.Version=$(FULL_VERSION) -X main.BuildTime=$(BUILD_TIME) -X main.GitCommit=$(GIT_COMMIT) -s -w
 
 .PHONY: proto sync-proto api build server agent cli clean dev tidy test lint help all tools schema-validator
 .PHONY: test test-coverage test-coverage-html test-race test-integration test-all
@@ -82,7 +85,7 @@ croupier-plugin:
 server:
 	@echo "[build] server (all database drivers)"
 	@mkdir -p $(BINDIR)
-	GOFLAGS=-mod=mod go build -ldflags "-X github.com/cuihairu/croupier/cmd/server.Version=$(FULL_VERSION) -X github.com/cuihairu/croupier/cmd/server.GitCommit=$(GIT_COMMIT) -X github.com/cuihairu/croupier/cmd/server.BuildTime=$(BUILD_TIME) -X github.com/cuihairu/croupier/internal/svc.ServerVersion=$(FULL_VERSION) -X github.com/cuihairu/croupier/internal/svc.ServerGitCommit=$(GIT_COMMIT) -X github.com/cuihairu/croupier/internal/svc.ServerBuildTime=$(BUILD_TIME) -s -w" -o $(BINDIR)/croupier-server ./cmd/server
+	GOFLAGS=-mod=mod go build -ldflags "$(LDFLAGS) -X github.com/cuihairu/croupier/internal/svc.ServerVersion=$(FULL_VERSION) -X github.com/cuihairu/croupier/internal/svc.ServerGitCommit=$(GIT_COMMIT) -X github.com/cuihairu/croupier/internal/svc.ServerBuildTime=$(BUILD_TIME)" -o $(BINDIR)/croupier-server ./cmd/server
 
 .PHONY: server-sqlite
 server-sqlite:
@@ -128,7 +131,8 @@ worker:
 ingest:
 	@echo "[build] ingest"
 	@mkdir -p $(BINDIR)
-	GOFLAGS=-mod=mod go build -ldflags "$(LDFLAGS)" -o $(BINDIR)/ingest ./cmd/ingest
+	# cmd/ingest/cmd 是 package cmd（非 main），-X 需完整导入路径
+	GOFLAGS=-mod=mod go build -ldflags "-X github.com/cuihairu/croupier/cmd/ingest/cmd.Version=$(FULL_VERSION) -X github.com/cuihairu/croupier/cmd/ingest/cmd.GitCommit=$(GIT_COMMIT) -X github.com/cuihairu/croupier/cmd/ingest/cmd.BuildTime=$(BUILD_TIME) -s -w" -o $(BINDIR)/ingest ./cmd/ingest
 
 .PHONY: analytics-spec
 analytics-spec:

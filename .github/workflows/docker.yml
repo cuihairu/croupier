@@ -24,6 +24,19 @@ jobs:
         uses: actions/checkout@v7
         with:
           submodules: false
+      - name: Set build metadata
+        timeout-minutes: 1
+        run: |
+          set -euo pipefail
+          VERSION="$(cat VERSION 2>/dev/null || echo dev)"
+          if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
+            VERSION="${GITHUB_REF_NAME#v}"
+          fi
+          {
+            echo "APP_VERSION=${VERSION}"
+            echo "GIT_COMMIT=${GITHUB_SHA}"
+            echo "BUILD_TIME=$(date -u '+%Y-%m-%d_%H:%M:%S')"
+          } >> "$GITHUB_ENV"
       - name: Set up Docker Buildx
         timeout-minutes: 5
         uses: docker/setup-buildx-action@v4
@@ -55,6 +68,9 @@ jobs:
           # 镜像内置 BIN 后审计日志即可展示 IP 属地；未配置则跳过下载。
           build-args: |
             IP2LOCATION_BIN_URL=${{ secrets.IP2LOCATION_BIN_URL }}
+            VERSION=${{ env.APP_VERSION }}
+            GIT_COMMIT=${{ env.GIT_COMMIT }}
+            BUILD_TIME=${{ env.BUILD_TIME }}
       - name: Make GHCR package public (server)
         if: github.event_name != 'pull_request'
         timeout-minutes: 3
@@ -97,6 +113,19 @@ jobs:
         uses: actions/checkout@v7
         with:
           submodules: false
+      - name: Set build metadata
+        timeout-minutes: 1
+        run: |
+          set -euo pipefail
+          VERSION="$(cat VERSION 2>/dev/null || echo dev)"
+          if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
+            VERSION="${GITHUB_REF_NAME#v}"
+          fi
+          {
+            echo "APP_VERSION=${VERSION}"
+            echo "GIT_COMMIT=${GITHUB_SHA}"
+            echo "BUILD_TIME=$(date -u '+%Y-%m-%d_%H:%M:%S')"
+          } >> "$GITHUB_ENV"
       - name: Set up Docker Buildx
         timeout-minutes: 5
         uses: docker/setup-buildx-action@v4
@@ -123,6 +152,10 @@ jobs:
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            VERSION=${{ env.APP_VERSION }}
+            GIT_COMMIT=${{ env.GIT_COMMIT }}
+            BUILD_TIME=${{ env.BUILD_TIME }}
       - name: Make GHCR package public (agent)
         if: github.event_name != 'pull_request'
         timeout-minutes: 3
@@ -161,6 +194,19 @@ jobs:
         uses: actions/checkout@v7
         with:
           submodules: false
+      - name: Set build metadata
+        timeout-minutes: 1
+        run: |
+          set -euo pipefail
+          VERSION="$(cat VERSION 2>/dev/null || echo dev)"
+          if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
+            VERSION="${GITHUB_REF_NAME#v}"
+          fi
+          {
+            echo "APP_VERSION=${VERSION}"
+            echo "GIT_COMMIT=${GITHUB_SHA}"
+            echo "BUILD_TIME=$(date -u '+%Y-%m-%d_%H:%M:%S')"
+          } >> "$GITHUB_ENV"
       - name: Set up Docker Buildx
         timeout-minutes: 5
         uses: docker/setup-buildx-action@v4
@@ -187,6 +233,10 @@ jobs:
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            VERSION=${{ env.APP_VERSION }}
+            GIT_COMMIT=${{ env.GIT_COMMIT }}
+            BUILD_TIME=${{ env.BUILD_TIME }}
           cache-from: type=gha,scope=ingest
           cache-to: type=gha,scope=ingest,mode=max
 
@@ -198,6 +248,19 @@ jobs:
         uses: actions/checkout@v7
         with:
           submodules: false
+      - name: Set build metadata
+        timeout-minutes: 1
+        run: |
+          set -euo pipefail
+          VERSION="$(cat VERSION 2>/dev/null || echo dev)"
+          if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
+            VERSION="${GITHUB_REF_NAME#v}"
+          fi
+          {
+            echo "APP_VERSION=${VERSION}"
+            echo "GIT_COMMIT=${GITHUB_SHA}"
+            echo "BUILD_TIME=$(date -u '+%Y-%m-%d_%H:%M:%S')"
+          } >> "$GITHUB_ENV"
       - name: Set up Docker Buildx
         timeout-minutes: 5
         uses: docker/setup-buildx-action@v4

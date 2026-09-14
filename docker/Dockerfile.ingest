@@ -6,12 +6,19 @@ ARG GOPROXY_URL=https://goproxy.cn,direct
 FROM ${GO_IMAGE} AS build
 WORKDIR /src
 ARG GOPROXY_URL
+# 版本注入：CI 或本地构建经 --build-arg 传入。cmd/ingest/cmd 是 package cmd
+# （非 main），-X 必须用完整导入路径（main 前缀打不中）。缺省 dev。
+ARG VERSION=dev
+ARG GIT_COMMIT=unknown
+ARG BUILD_TIME=
 ENV GOPROXY=${GOPROXY_URL} \
     GOFLAGS=-modcacherw
 COPY go.mod go.sum ./
 RUN --mount=type=cache,target=/go/pkg/mod go mod download
 COPY . .
-RUN --mount=type=cache,target=/root/.cache/go-build CGO_ENABLED=0 GOFLAGS=-mod=mod go build -o /out/ingest ./cmd/ingest
+RUN --mount=type=cache,target=/root/.cache/go-build CGO_ENABLED=0 GOFLAGS=-mod=mod \
+    go build -ldflags "-s -w -X github.com/cuihairu/croupier/cmd/ingest/cmd.Version=${VERSION} -X github.com/cuihairu/croupier/cmd/ingest/cmd.GitCommit=${GIT_COMMIT} -X github.com/cuihairu/croupier/cmd/ingest/cmd.BuildTime=${BUILD_TIME}" \
+    -o /out/ingest ./cmd/ingest
 
 FROM ${RUNTIME_IMAGE}
 WORKDIR /app

@@ -5,12 +5,19 @@ ARG GOPROXY_URL=https://goproxy.cn,direct
 FROM ${GO_IMAGE} AS build
 WORKDIR /src
 ARG GOPROXY_URL
+# 版本注入：CI 或本地构建经 --build-arg 传入，ldflags 写入 cmd/agent 的
+# Version/GitCommit/BuildTime（--version 可见）。缺省 dev。
+ARG VERSION=dev
+ARG GIT_COMMIT=unknown
+ARG BUILD_TIME=
 ENV GOPROXY=${GOPROXY_URL} \
     GOFLAGS=-modcacherw
 COPY go.mod go.sum ./
 RUN --mount=type=cache,target=/go/pkg/mod go mod download
 COPY . .
-RUN --mount=type=cache,target=/root/.cache/go-build CGO_ENABLED=0 GOFLAGS=-mod=mod go build -o /out/croupier-agent ./cmd/agent
+RUN --mount=type=cache,target=/root/.cache/go-build CGO_ENABLED=0 GOFLAGS=-mod=mod \
+    go build -ldflags "-s -w -X main.Version=${VERSION} -X main.GitCommit=${GIT_COMMIT} -X main.BuildTime=${BUILD_TIME}" \
+    -o /out/croupier-agent ./cmd/agent
 RUN mkdir -p /out/logs /out/data
 
 FROM ${RUNTIME_IMAGE}
