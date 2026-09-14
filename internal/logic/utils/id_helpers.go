@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"math"
 	"strconv"
 	"strings"
 
@@ -21,6 +22,12 @@ func ParseUintID(id, label string) (uint, error) {
 	}
 	if value == 0 {
 		return 0, errorx.NewBadRequest(label + "必须大于0")
+	}
+	// 平台 ID 在 API 契约中以 int64 回显（DTO Id 字段约定），超出 MaxInt64 的
+	// 输入不可表示，直接拒绝；该分支真实可达（可测），同时使下游
+	// int64(解析结果) 转换可证明安全（CodeQL UpperBoundCheckGuard 降级位宽）。
+	if value > math.MaxInt64 {
+		return 0, errorx.NewBadRequest(label + "超出有效范围")
 	}
 	return uint(value), nil
 }

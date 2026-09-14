@@ -248,6 +248,18 @@ func TestParseUintIDOverflowV9(t *testing.T) {
 	assert.Error(t, err)
 }
 
+// MaxInt64 上界：平台 ID 在 API 契约中以 int64 回显，超出即拒绝；
+// 该分支真实可达，同时使下游 int64(解析结果) 转换可证明安全。
+func TestParseUintIDMaxInt64BoundV9(t *testing.T) {
+	_, err := ParseUintID("9223372036854775808", "ID")
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "超出有效范围")
+
+	got, err := ParseUintID("9223372036854775807", "ID")
+	assert.NoError(t, err)
+	assert.Equal(t, uint(9223372036854775807), got)
+}
+
 func TestParseRoleIDOverflowV9(t *testing.T) {
 	_, err := ParseRoleID("18446744073709551616")
 	assert.Error(t, err)

@@ -607,11 +607,25 @@ func TestParseUintID(t *testing.T) {
 			wantErr: true, // strconv.ParseUint doesn't trim spaces
 		},
 		{
+			name:    "ID at int64 upper bound",
+			id:      "9223372036854775807",
+			label:   "ID",
+			want:    9223372036854775807,
+			wantErr: false,
+		},
+		{
+			name:    "ID beyond int64 range rejected",
+			id:      "9223372036854775808",
+			label:   "ID",
+			want:    0,
+			wantErr: true,
+		},
+		{
 			name:    "large ID",
 			id:      "18446744073709551615",
 			label:   "ID",
-			want:    18446744073709551615,
-			wantErr: false,
+			want:    0,
+			wantErr: true,
 		},
 	}
 	for _, tt := range tests {
