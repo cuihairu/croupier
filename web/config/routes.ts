@@ -169,6 +169,14 @@ export default [
             access: 'canSystemConfigRead',
             component: './System/SiteSettings',
           },
+          {
+            // 采样/埋点白名单是配置（agent 端按其过滤 analytics 事件），
+            // 不是运维观测页：归位系统配置-基础配置。
+            path: '/system/foundation/analytics-filters',
+            name: 'AnalyticsFilters',
+            access: 'canSystemConfigRead',
+            component: './Ops/AnalyticsFilters',
+          },
         ],
       },
       {
@@ -438,10 +446,9 @@ export default [
         component: './Ops/Notifications',
       },
       {
+        // 旧路径重定向：采样配置已归位系统配置（见 /system/foundation）
         path: '/ops/analytics-filters',
-        name: 'AnalyticsFilters',
-        access: 'canOpsManage',
-        component: './Ops/AnalyticsFilters',
+        redirect: '/system/foundation/analytics-filters',
       },
     ],
   },

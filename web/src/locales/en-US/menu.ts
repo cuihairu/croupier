@@ -66,7 +66,7 @@ export default {
   'menu.Ops.RateLimits': 'Rate Limits',
   'menu.Ops.Certificates': 'Certificates',
   'menu.Ops.Notifications': 'Notifications',
-  'menu.Ops.AnalyticsFilters': 'Sampling Control',
+  'menu.SystemFoundation.AnalyticsFilters': 'Sampling Control',
   'menu.Ops.Backups': 'Backups',
   // Ops
 
