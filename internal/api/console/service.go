@@ -171,6 +171,12 @@ func (s *Service) ExecuteBinding(ctx context.Context, req *ConsoleExecuteBinding
 
 	// 内层 FunctionInvoke 不再单独留痕（page 源记录已覆盖）
 	ctx = executionlog.WithSkipContext(ctx)
+	// T8/D2 执行边界先于 freshness：unbound（上传物料未绑定运行时）时
+	// schema 新旧无关紧要——执行器不存在是更根本的阻断，且语义互斥
+	//（函数整体注销走 binding_function_missing，不进本分支）。
+	if err := s.ensureExecutorBound(binding, functions); err != nil {
+		return nil, err
+	}
 	if err := s.ensureBindingFresh(binding, contract, functions); err != nil {
 		return nil, err
 	}
@@ -221,6 +227,23 @@ func (s *Service) ExecuteBinding(ctx context.Context, req *ConsoleExecuteBinding
 	// 已收紧为无 error 返回，原 err 分支不可达随之删除。
 	result = buildExecutionResult(ctx, requestID, functionResp)
 	return &ConsoleExecuteBindingResponse{Result: result}, nil
+}
+
+// ensureExecutorBound T8/D2 执行边界：binding 指向的契约处于 unbound
+// （上传物料未绑定运行时执行器）时以结构化 409 executor_unbound 阻断——
+// 前端渲染「未绑定执行器」空态并引导去绑定，禁止静默失败或伪数据兜底。
+// bound/存量缺省（投影层归一为 bound）不受影响；函数整体不存在由
+// ensureBindingFresh 的 binding_function_missing 表达，不在此重复。
+func (s *Service) ensureExecutorBound(binding spec.PageFunctionBinding, functions map[string]spec.FunctionSpec) error {
+	if fn, ok := functions[binding.FunctionID]; ok && fn.ExecutionState == spec.ExecutionStateUnbound {
+		return errorx.NewConflictWithCode("executor_unbound",
+			"函数尚未绑定运行时执行器，执行已被阻断；请先注册同名函数或在 OpenAPI Sources 完成绑定",
+			map[string]any{
+				"bindingId":  binding.ID,
+				"functionId": binding.FunctionID,
+			})
+	}
+	return nil
 }
 
 func (s *Service) ensureBindingFresh(binding spec.PageFunctionBinding, contract spec.BindingContractSnapshot, functions map[string]spec.FunctionSpec) error {

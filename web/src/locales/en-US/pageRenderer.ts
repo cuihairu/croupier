@@ -9,6 +9,13 @@ export default {
   'component.pageRenderer.composite.executeSuccess': '{title} completed successfully',
   'component.pageRenderer.composite.rowActionsColumn': 'Actions',
   'component.pageRenderer.composite.tabFallback': 'Tab {n}',
+  'component.pageRenderer.executorUnbound.description':
+    'The function behind this page comes from uploaded material and has no runtime executor bound yet; execution is blocked. Bind it first.',
+  'component.pageRenderer.executorUnbound.goBind': 'Go bind',
+  'component.pageRenderer.executorUnbound.title': 'Executor not bound',
+  'component.pageRenderer.executorUnbound.toast':
+    'The function has no runtime executor bound yet; complete the binding first',
+
   'component.pageRenderer.expression.error.arrayIndexUnterminated': 'Array index is missing ]',
   'component.pageRenderer.expression.error.empty': 'Expression is empty',
   'component.pageRenderer.expression.error.illegalCharacter': 'Invalid character "{char}"',

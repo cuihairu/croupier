@@ -280,6 +280,17 @@ task 生命周期能力拆分为独立 usage（`task_status`/`task_events`/`task
 
 Schema 节点和页面动作只能引用 `bindingId`。运行时由服务端根据 active PublishedPageSpec 找到 functionId、权限、风险、scope 和 dispatch target；浏览器无权选择这些信息。
 
+### binding execute 错误码（执行阻断契约）
+
+`POST /api/v1/console/pages/:pageKey/bindings/:bindingId/execute` 在执行前做两道结构化阻断，均返回 `409 + { error, message, details }`（错误码为前端分支稳定码）：
+
+| error              | 触发条件                                                                                        | details                               |
+| ------------------ | ----------------------------------------------------------------------------------------------- | ------------------------------------- |
+| `executor_unbound` | binding 指向的契约 `executionState=unbound`（上传物料尚未绑定运行时执行器，检查先于 freshness） | `bindingId`、`functionId`             |
+| `binding_stale`    | 发布快照契约与当前契约 digest 漂移（schema/version 变化）                                       | `bindingId`、`functionId`、`statuses` |
+
+前端按 `error` 稳定码分支：`executor_unbound` 渲染「未绑定执行器」空态并引导去 OpenAPI Sources 完成绑定（同名函数注册后 T6 自动翻转 bound，无需改页重发）；`binding_stale` 走 diff/重新发布链路。发布页（Console 运行时）禁止任何 mock 数据兜底——执行失败就是显式失败。
+
 ### Selector 一键同步（sync-selectors wire 契约）
 
 schema 漂移后对**草稿**做精准修复，只改受影响的 assignment：

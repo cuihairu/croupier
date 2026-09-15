@@ -464,7 +464,7 @@ ReportPage 必须使用已验证的数据集、指标和图表字段，不得只
 
 页面运行时固定使用 Ant Design Pro/ProComponents；PageSpec 节点与运行时组件的对应关系见 [ProComponents 页面生成与运行时](./ui-generation.md)。
 
-Renderer 只接受 PublishedPageSpec，并只通过 `POST /api/v1/console/pages/:pageKey/bindings/:bindingId/execute` 执行。浏览器不得传 functionId、route、target、gameId 或 env 来选择执行目标。
+Renderer 只接受 PublishedPageSpec，并只通过 `POST /api/v1/console/pages/:pageKey/bindings/:bindingId/execute` 执行。浏览器不得传 functionId、route、target、gameId 或 env 来选择执行目标。执行前服务端做两道结构化阻断（wire 契约见 [PageSpec 协议规范](./pagespec-protocol.md)）：契约 `executionState=unbound`（上传物料未绑定运行时执行器）返回 `409 executor_unbound`，前端渲染「未绑定执行器」空态并引导去绑定；契约漂移返回 `409 binding_stale`。发布页禁止 mock 数据兜底——执行失败必须显式呈现。
 
 PageSpec 必须与组件库解耦。未来更换表单或图表库时只替换 renderer adapter，不迁移 FunctionContract、PageSpec、菜单、发布快照或审计。
 

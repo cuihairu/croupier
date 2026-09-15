@@ -28,6 +28,11 @@ import { PlusOutlined, EditOutlined, DeleteOutlined, EyeOutlined } from '@ant-de
 import { FormattedMessage, useIntl } from '@umijs/max';
 import SchemaFormRenderer, { type SchemaFormRendererHandle } from '@/components/SchemaFormRenderer';
 import { renderJSONValueSummary } from './ResultViewRenderer';
+import ExecutorUnboundAlert, {
+  EXECUTOR_UNBOUND_CODE,
+  executeErrorToastText,
+} from './ExecutorUnboundAlert';
+import { extractApiErrorCode } from '@/utils/apiError';
 import {
   getPageStateArray,
   getPageStateObject,
@@ -202,7 +207,10 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
   const [formSubmitting, setFormSubmitting] = useState(false);
   const [detailLoading, setDetailLoading] = useState(false);
   const [listError, setListError] = useState<string | null>(null);
+  // T8：稳定错误码伴生（executor_unbound → 结构化空态替代通用错误 Alert）
+  const [listErrorCode, setListErrorCode] = useState<string>('');
   const [detailError, setDetailError] = useState<string | null>(null);
+  const [detailErrorCode, setDetailErrorCode] = useState<string>('');
 
   // 查找绑定
   const listBinding = bindings.find((b) => b.usage === 'query');
@@ -227,6 +235,7 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
   const handleRequest = useCallback(
     async (params: TableRequestParams) => {
       const intl = intlRef.current;
+      setListErrorCode('');
       if (!listBinding) {
         setListError(
           intl.formatMessage({
@@ -283,7 +292,10 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
           data: rows,
           total: total ?? rows.length,
         };
-      } catch {
+      } catch (err) {
+        // T8：unbound 阻断（409 executor_unbound）等结构化错误保留稳定码，
+        // 空数据即空态——不用伪数据兜底
+        setListErrorCode(extractApiErrorCode(err));
         setListError(
           intl.formatMessage({
             id: 'component.resourceRenderer.list.loadFailed',
@@ -336,12 +348,15 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
         setSelectedRows([]);
         actionRef.current?.reload();
         return true;
-      } catch {
+      } catch (err) {
         message.error(
-          intl.formatMessage({
-            id: 'component.resourceRenderer.create.failed',
-            defaultMessage: '创建失败',
-          }),
+          executeErrorToastText(
+            err,
+            intl.formatMessage({
+              id: 'component.resourceRenderer.create.failed',
+              defaultMessage: '创建失败',
+            }),
+          ),
         );
         return false;
       }
@@ -384,12 +399,15 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
         setSelectedRows([]);
         actionRef.current?.reload();
         return true;
-      } catch {
+      } catch (err) {
         message.error(
-          intl.formatMessage({
-            id: 'component.resourceRenderer.edit.failed',
-            defaultMessage: '更新失败',
-          }),
+          executeErrorToastText(
+            err,
+            intl.formatMessage({
+              id: 'component.resourceRenderer.edit.failed',
+              defaultMessage: '更新失败',
+            }),
+          ),
         );
         return false;
       }
@@ -434,12 +452,15 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
         setSelectedRows([]);
         actionRef.current?.reload();
         return true;
-      } catch {
+      } catch (err) {
         message.error(
-          intl.formatMessage({
-            id: 'component.resourceRenderer.action.failed',
-            defaultMessage: '操作失败',
-          }),
+          executeErrorToastText(
+            err,
+            intl.formatMessage({
+              id: 'component.resourceRenderer.action.failed',
+              defaultMessage: '操作失败',
+            }),
+          ),
         );
         return false;
       }
@@ -499,12 +520,15 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
         );
         setSelectedRows([]);
         actionRef.current?.reload();
-      } catch {
+      } catch (err) {
         message.error(
-          intl.formatMessage({
-            id: 'component.resourceRenderer.delete.failed',
-            defaultMessage: '删除失败',
-          }),
+          executeErrorToastText(
+            err,
+            intl.formatMessage({
+              id: 'component.resourceRenderer.delete.failed',
+              defaultMessage: '删除失败',
+            }),
+          ),
         );
       }
     },
@@ -568,12 +592,15 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
               );
               setSelectedRows([]);
               actionRef.current?.reload();
-            } catch {
+            } catch (err) {
               message.error(
-                intl.formatMessage({
-                  id: 'component.resourceRenderer.action.failed',
-                  defaultMessage: '操作失败',
-                }),
+                executeErrorToastText(
+                  err,
+                  intl.formatMessage({
+                    id: 'component.resourceRenderer.action.failed',
+                    defaultMessage: '操作失败',
+                  }),
+                ),
               );
             }
           },
@@ -589,12 +616,15 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
           );
           setSelectedRows([]);
           actionRef.current?.reload();
-        } catch {
+        } catch (err) {
           message.error(
-            intl.formatMessage({
-              id: 'component.resourceRenderer.action.failed',
-              defaultMessage: '操作失败',
-            }),
+            executeErrorToastText(
+              err,
+              intl.formatMessage({
+                id: 'component.resourceRenderer.action.failed',
+                defaultMessage: '操作失败',
+              }),
+            ),
           );
         }
       }
@@ -635,12 +665,15 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
           );
           setSelectedRows([]);
           actionRef.current?.reload();
-        } catch {
+        } catch (err) {
           message.error(
-            intl.formatMessage({
-              id: 'component.resourceRenderer.action.failed',
-              defaultMessage: '操作失败',
-            }),
+            executeErrorToastText(
+              err,
+              intl.formatMessage({
+                id: 'component.resourceRenderer.action.failed',
+                defaultMessage: '操作失败',
+              }),
+            ),
           );
         }
       };
@@ -677,6 +710,7 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
       setCurrentRecord(record);
       setDetailRecord(record);
       setDetailError(null);
+      setDetailErrorCode('');
       setDetailDrawerVisible(true);
       if (!detailBinding || preview) {
         return;
@@ -720,7 +754,8 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
           return;
         }
         setDetailRecord(detail);
-      } catch {
+      } catch (err) {
+        setDetailErrorCode(extractApiErrorCode(err));
         setDetailError(
           intl.formatMessage({
             id: 'component.resourceRenderer.detail.failed',
@@ -832,13 +867,18 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       {listError ? (
-        <Alert
-          type="error"
-          showIcon
-          message={listError}
-          closable
-          onClose={() => setListError(null)}
-        />
+        // T8：unbound 阻断渲染结构化空态 + 去绑定入口（空数据即空态，无伪数据兜底）
+        listErrorCode === EXECUTOR_UNBOUND_CODE ? (
+          <ExecutorUnboundAlert functionId={listBinding?.functionId} />
+        ) : (
+          <Alert
+            type="error"
+            showIcon
+            message={listError}
+            closable
+            onClose={() => setListError(null)}
+          />
+        )
       ) : null}
       {/* 列表视图 */}
       <ProTable<FormValues, TableRequestParams>
@@ -1054,7 +1094,13 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
           size={640}
         >
           <Skeleton active loading={detailLoading}>
-            {detailError ? <Alert type="error" showIcon message={detailError} /> : null}
+            {detailError ? (
+              detailErrorCode === EXECUTOR_UNBOUND_CODE ? (
+                <ExecutorUnboundAlert functionId={detailBinding?.functionId} />
+              ) : (
+                <Alert type="error" showIcon message={detailError} />
+              )
+            ) : null}
             {!detailError ? (
               <ProDescriptions column={spec.detailView.layout === 'horizontal' ? 2 : 1}>
                 {spec.detailView.fields

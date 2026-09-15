@@ -9,6 +9,11 @@ export default {
   'component.pageRenderer.composite.executeSuccess': '{title} 执行成功',
   'component.pageRenderer.composite.rowActionsColumn': '操作',
   'component.pageRenderer.composite.tabFallback': '页签 {n}',
+  'component.pageRenderer.executorUnbound.description':
+    '该页面的函数来自上传物料，尚未绑定运行时执行器，执行已被阻断；请先绑定后再执行。',
+  'component.pageRenderer.executorUnbound.goBind': '去绑定',
+  'component.pageRenderer.executorUnbound.title': '未绑定执行器',
+  'component.pageRenderer.executorUnbound.toast': '函数尚未绑定运行时执行器，请先完成绑定',
   'component.pageRenderer.expression.error.arrayIndexUnterminated': '数组下标缺少 ]',
   'component.pageRenderer.expression.error.empty': '表达式为空',
   'component.pageRenderer.expression.error.illegalCharacter': '非法字符「{char}」',

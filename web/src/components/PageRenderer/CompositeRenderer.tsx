@@ -1,9 +1,14 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { App, Button, Card, Col, Descriptions, Modal, Row, Space, Table, Tabs } from 'antd';
 import { FormattedMessage, useIntl } from '@umijs/max';
 import { ExclamationCircleOutlined } from '@ant-design/icons';
 import SchemaFormRenderer from '@/components/SchemaFormRenderer';
+import ExecutorUnboundAlert, {
+  EXECUTOR_UNBOUND_CODE,
+  executeErrorToastText,
+} from './ExecutorUnboundAlert';
 import { localizedText } from '@/utils/localizedText';
+import { extractApiErrorCode } from '@/utils/apiError';
 import { resolveStepParams } from './runtime';
 import { sectionVisible } from './sectionCondition';
 import type {
@@ -29,7 +34,7 @@ export const CompositeRenderer: React.FC<{
     values: Record<string, unknown>,
     mode?: 'replace' | 'merge',
   ) => void;
-}> = ({ sections, bindings: _bindings, onExecute, preview, onPageStateMerge }) => {
+}> = ({ sections, bindings, onExecute, preview, onPageStateMerge }) => {
   const { message, modal } = App.useApp();
   const intl = useIntl();
   // V5 §7.1：每区块运行时状态 = data（函数输出）+ selectedRow/selectedRows（表格
@@ -44,8 +49,9 @@ export const CompositeRenderer: React.FC<{
           selectedRows?: Record<string, unknown>[];
           values?: Record<string, unknown>;
         }
-      // U9 失败标记：runSection catch 写入，下游 cascadePolicy 判定依据
-      | { error: string }
+      // U9 失败标记：runSection catch 写入，下游 cascadePolicy 判定依据；
+      // errorCode 为 T8 稳定码（executor_unbound → 区块级结构化空态）
+      | { error: string; errorCode?: string }
       | null
     >
   >({});
@@ -140,10 +146,14 @@ export const CompositeRenderer: React.FC<{
         return result;
       } catch (e) {
         // U9：失败也写入 results（error 标记）——下游 cascadePolicy 据此判定
-        // 级联行为；错误继续上抛（弹窗提交路径靠 catch 保持弹窗开启并 toast）
+        // 级联行为；错误继续上抛（弹窗提交路径靠 catch 保持弹窗开启并 toast）。
+        // T8：附稳定错误码（executor_unbound → 区块内渲染绑定引导空态）
         setResults((prev) => ({
           ...prev,
-          [sec.key]: { error: e instanceof Error ? e.message : String(e) },
+          [sec.key]: {
+            error: e instanceof Error ? e.message : String(e),
+            errorCode: extractApiErrorCode(e),
+          },
         }));
         throw e;
       } finally {
@@ -384,6 +394,11 @@ export const CompositeRenderer: React.FC<{
 
   /** 单区块渲染（V2 从 inline.map 抽出复用：栅格区块与页签页内整行堆叠
    * 共用同一卡片渲染——span 由调用方决定）。 */
+  const bindingById = useMemo(() => {
+    const map: Record<string, PageFunctionBinding> = {};
+    for (const binding of bindings) map[binding.id] = binding;
+    return map;
+  }, [bindings]);
   const renderSection = (sec: CompositeSection): React.ReactNode => (
     <Card
       size="small"
@@ -412,6 +427,14 @@ export const CompositeRenderer: React.FC<{
         ) : null
       }
     >
+      {/* T8：unbound 阻断（409 executor_unbound）渲染区块级空态 + 去绑定
+          入口；表格/字段区块保持空数据，无伪数据兜底 */}
+      {isExecutorUnboundResult(results[sec.key]) ? (
+        <ExecutorUnboundAlert
+          functionId={sec.bindingId ? bindingById[sec.bindingId]?.functionId : undefined}
+          style={{ marginBottom: 12 }}
+        />
+      ) : null}
       {sec.view === 'table' ? (
         <Table
           size="small"
@@ -687,14 +710,18 @@ export const CompositeRenderer: React.FC<{
                       fireEvent(sec, 'success');
                     } catch (e) {
                       // 失败保持弹窗开启（保留已填参数）；App 实例 toast 给出
-                      // 明确错误反馈（全局拦截器只对 request 层错误兜底）
+                      // 明确错误反馈（全局拦截器只对 request 层错误兜底）；
+                      // T8：unbound 阻断 toast 换绑定指引文案
                       const errMsg = e instanceof Error ? e.message : '';
                       message.error(
-                        errMsg ||
-                          intl.formatMessage({
-                            id: 'component.pageRenderer.composite.executeFailed',
-                            defaultMessage: '执行失败',
-                          }),
+                        executeErrorToastText(
+                          e,
+                          errMsg ||
+                            intl.formatMessage({
+                              id: 'component.pageRenderer.composite.executeFailed',
+                              defaultMessage: '执行失败',
+                            }),
+                        ),
                       );
                     }
                   }}
@@ -783,4 +810,13 @@ function sectionHasForm(sec: CompositeSection): boolean {
  * null 占位、undefined 均不算失败）。 */
 function isFailedResult(r: unknown): boolean {
   return !!r && typeof r === 'object' && !!(r as { error?: unknown }).error;
+}
+
+/** T8：区块失败标记是否为 executor_unbound（unbound 阻断 → 绑定引导空态）。 */
+function isExecutorUnboundResult(r: unknown): boolean {
+  return (
+    !!r &&
+    typeof r === 'object' &&
+    (r as { errorCode?: unknown }).errorCode === EXECUTOR_UNBOUND_CODE
+  );
 }

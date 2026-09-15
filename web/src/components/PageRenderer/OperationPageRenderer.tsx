@@ -21,6 +21,8 @@ import {
 } from '@ant-design/icons';
 import SchemaFormRenderer from '@/components/SchemaFormRenderer';
 import ResultViewRenderer, { renderJSONValueSummary } from './ResultViewRenderer';
+import ExecutorUnboundAlert, { EXECUTOR_UNBOUND_CODE } from './ExecutorUnboundAlert';
+import { extractApiErrorCode } from '@/utils/apiError';
 import type {
   OperationPageSpec,
   PageFunctionBinding,
@@ -67,6 +69,8 @@ const OperationPageRenderer: React.FC<OperationPageRendererProps> = ({
   const [result, setResult] = useState<PageExecutionResult | null>(null);
   const [approvalStatus, setApprovalStatus] = useState<ApprovalStatusResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // T8：稳定错误码（executor_unbound 等）驱动结构化空态分支
+  const [errorCode, setErrorCode] = useState<string>('');
   const [confirmVisible, setConfirmVisible] = useState(false);
   const [pendingValues, setPendingValues] = useState<FormValues | null>(null);
 
@@ -106,6 +110,7 @@ const OperationPageRenderer: React.FC<OperationPageRendererProps> = ({
       // 直接执行
       setLoading(true);
       setError(null);
+      setErrorCode('');
       setResult(null);
       setApprovalStatus(null);
 
@@ -155,6 +160,7 @@ const OperationPageRenderer: React.FC<OperationPageRendererProps> = ({
                 defaultMessage: '操作失败',
               });
         setError(msg);
+        setErrorCode(extractApiErrorCode(err));
 
         if (spec.resultView?.errorMessage) {
           message.error(
@@ -200,6 +206,7 @@ const OperationPageRenderer: React.FC<OperationPageRendererProps> = ({
     setConfirmVisible(false);
     setLoading(true);
     setError(null);
+    setErrorCode('');
     setResult(null);
     setApprovalStatus(null);
 
@@ -237,6 +244,7 @@ const OperationPageRenderer: React.FC<OperationPageRendererProps> = ({
               defaultMessage: '操作失败',
             });
       setError(msg);
+      setErrorCode(extractApiErrorCode(err));
       message.error(
         intlRef.current.formatMessage({
           id: 'component.pageRenderer.operationPage.message.failed',
@@ -254,6 +262,7 @@ const OperationPageRenderer: React.FC<OperationPageRendererProps> = ({
     setResult(null);
     setApprovalStatus(null);
     setError(null);
+    setErrorCode('');
   }, []);
 
   const refreshApproval = useCallback(async () => {
@@ -397,15 +406,20 @@ const OperationPageRenderer: React.FC<OperationPageRendererProps> = ({
           })}
         >
           {error ? (
-            <Result
-              status="error"
-              title={intl.formatMessage({
-                id: 'component.pageRenderer.operationPage.message.failed',
-                defaultMessage: '操作失败',
-              })}
-              subTitle={error}
-              icon={<CloseCircleOutlined />}
-            />
+            // T8：unbound 阻断渲染结构化空态 + 去绑定入口（无伪数据兜底）
+            errorCode === EXECUTOR_UNBOUND_CODE ? (
+              <ExecutorUnboundAlert functionId={mainBinding?.functionId} />
+            ) : (
+              <Result
+                status="error"
+                title={intl.formatMessage({
+                  id: 'component.pageRenderer.operationPage.message.failed',
+                  defaultMessage: '操作失败',
+                })}
+                subTitle={error}
+                icon={<CloseCircleOutlined />}
+              />
+            )
           ) : result?.kind === 'approval' ? (
             <Result
               status="info"
