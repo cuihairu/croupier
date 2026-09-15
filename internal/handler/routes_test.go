@@ -56,3 +56,24 @@ func TestRegisterHandlers_MetaRootNoTrailingSlash(t *testing.T) {
 		assert.Equal(t, http.StatusOK, rec.Code, "GET %s 应返回 200", target)
 	}
 }
+
+// TestRegisterHandlers_RuntimeSourcesPath 回归：runtime-sources 端点必须
+// 注册在 server 真正使用的路由表（internal/handler/routes.go）。
+// 首版只挂在了无引用方的 internal/router/router.go——CI 与 handler 单测全绿，
+// 线上却 404（Gin debug 路由表实证），故此处直接断言完整路径存在。
+func TestRegisterHandlers_RuntimeSourcesPath(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	r := gin.New()
+	RegisterHandlers(r, &svc.ServiceContext{})
+
+	paths := make(map[string]bool)
+	for _, ri := range r.Routes() {
+		paths[ri.Method+" "+ri.Path] = true
+	}
+	for _, want := range []string{
+		"GET /api/v1/openapi/sources",
+		"GET /api/v1/openapi/runtime-sources",
+	} {
+		assert.True(t, paths[want], "缺少路由 %s", want)
+	}
+}

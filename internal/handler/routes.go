@@ -590,6 +590,7 @@ func registerOpenAPISourceRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 	openapiSvc := openapi.NewService(ctx)
 	openapiHandler := openapi.NewHandler(openapiSvc)
 	g.GET("/sources", openapiHandler.ListSources)
+	g.GET("/runtime-sources", openapiHandler.RuntimeSources)
 	g.POST("/sources", openapiHandler.CreateSource)
 	g.GET("/sources/:sourceId", openapiHandler.GetSource)
 	g.PUT("/sources/:sourceId", openapiHandler.UpdateSource)
