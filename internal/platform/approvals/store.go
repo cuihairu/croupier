@@ -170,10 +170,16 @@ func (s *MemStore) Create(approval *Approval) (*Approval, error) {
 	if _, exists := s.data[approval.ID]; exists {
 		return nil, errors.New("approval already exists")
 	}
-	// Create a copy
+	// Create a copy. Caller-supplied non-zero timestamps are preserved so the
+	// in-memory store matches SQLStore semantics (gorm keeps non-zero
+	// CreatedAt/UpdatedAt); zero values fall back to now.
 	newApproval := *approval
-	newApproval.CreatedAt = time.Now()
-	newApproval.UpdatedAt = time.Now()
+	if newApproval.CreatedAt.IsZero() {
+		newApproval.CreatedAt = time.Now()
+	}
+	if newApproval.UpdatedAt.IsZero() {
+		newApproval.UpdatedAt = newApproval.CreatedAt
+	}
 	s.data[approval.ID] = &newApproval
 	return &newApproval, nil
 }

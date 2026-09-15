@@ -477,6 +477,9 @@ func NewServiceContext(c config.Config, opts ...Option) *ServiceContext {
 	if err := seedBootstrapGames(ctx); err != nil {
 		slog.Default().Error("failed to seed bootstrap games", "error", err)
 	}
+	// 演示审批种子（仅 dev 模式）：approvals 页面三态数据 + 两人复核演示，
+	// 依赖 game_envs 绑定解析 scope，故置于 games seed 之后。
+	seedDemoApprovals(ctx)
 	if err := seedBootstrapTermDictionary(ctx); err != nil {
 		slog.Default().Error("failed to seed term dictionary", "error", err)
 	}
