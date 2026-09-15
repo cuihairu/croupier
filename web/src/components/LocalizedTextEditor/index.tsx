@@ -19,7 +19,12 @@ import { GlobalOutlined } from '@ant-design/icons';
 import { FormattedMessage, useIntl } from '@umijs/max';
 import type { LocalizedText } from '@/types/dashboard';
 import { localizedText } from '@/utils/localizedText';
-import { REQUIRED_LOCALE, SUPPORTED_LOCALES, SUPPORTED_LOCALE_LABELS } from '@/locales/supported';
+import {
+  REQUIRED_LOCALE,
+  REQUIRED_LOCALES,
+  SUPPORTED_LOCALES,
+  SUPPORTED_LOCALE_LABELS,
+} from '@/locales/supported';
 
 const { Text } = Typography;
 
@@ -83,6 +88,9 @@ export default function LocalizedTextEditor({
 
   const primaryHint = localizedText(value, REQUIRED_LOCALE, '');
 
+  // 与后端发布校验一致的双必填语言：未填写时下拉里标 ⚠，缺失任一会被拒
+  const missingRequired = REQUIRED_LOCALES.filter((locale) => !(value || {})[locale]?.trim());
+
   const customContent = (
     <div style={{ width: 280 }}>
       <Space orientation="vertical" size={4} style={{ width: '100%' }}>
@@ -128,10 +136,21 @@ export default function LocalizedTextEditor({
         <Text type="secondary" style={{ fontSize: 12 }}>
           <FormattedMessage
             id="component.localizedTextEditor.contractHint"
-            defaultMessage={`后端契约为 BCP47 locale 键；${REQUIRED_LOCALE} 为必选基线。清除输入框内容即删除该语言文案。`}
+            defaultMessage={`后端契约为 BCP47 locale 键；zh-CN 与 en-US 为必填（中文为第一推荐语言），缺失时发布会被拒。清除输入框内容即删除该语言文案。`}
             values={{ requiredLocale: REQUIRED_LOCALE }}
           />
         </Text>
+        {missingRequired.length > 0 && (
+          <Text type="warning" style={{ fontSize: 12 }}>
+            <FormattedMessage
+              id="component.localizedTextEditor.missingRequired"
+              defaultMessage="尚未填写必填语言：{locales}"
+              values={{
+                locales: missingRequired.map((l) => SUPPORTED_LOCALE_LABELS[l] || l).join('、'),
+              }}
+            />
+          </Text>
+        )}
       </Space>
     </div>
   );
@@ -152,7 +171,19 @@ export default function LocalizedTextEditor({
               <Text type="secondary" style={{ fontSize: 12 }}>
                 {locale}
               </Text>
-              {(value || {})[locale] ? <span style={{ color: '#52c41a' }}>✓</span> : null}
+              {(value || {})[locale]?.trim() ? (
+                <span style={{ color: '#52c41a' }}>✓</span>
+              ) : REQUIRED_LOCALES.includes(locale) ? (
+                <span
+                  style={{ color: '#faad14' }}
+                  title={intl.formatMessage({
+                    id: 'component.localizedTextEditor.requiredLocaleMissing',
+                    defaultMessage: '必填，缺失时无法发布',
+                  })}
+                >
+                  ⚠
+                </span>
+              ) : null}
             </Space>
           ),
         }))}

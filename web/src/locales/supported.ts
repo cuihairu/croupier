@@ -30,6 +30,12 @@ export const SUPPORTED_LOCALES: SupportedLocale[] = [
 /** 必选基线语言（不可移除；后端LocalizedText以zh-CN为主回退） */
 export const REQUIRED_LOCALE = 'zh-CN';
 
+/**
+ * 双必填语言（与后端发布校验 hasDefaultLocale 一致）：zh-CN 为第一推荐
+ * 展示语言，en-US 必须有；两者任缺其一发布时会被拒。
+ */
+export const REQUIRED_LOCALES: readonly string[] = ['zh-CN', 'en-US'];
+
 export const SUPPORTED_LOCALE_LABELS: Record<string, string> = Object.fromEntries(
   SUPPORTED_LOCALES.map((item) => [item.value, item.label]),
 );

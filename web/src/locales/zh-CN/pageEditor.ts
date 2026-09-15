@@ -125,7 +125,7 @@ export default {
   'component.pageEditor.shell.emptyNoTask': '无任务页面配置',
   'component.pageEditor.shell.emptyUnknownType': '未知页面类型',
   'component.pageEditor.shell.iconLabel': '图标',
-  'component.pageEditor.shell.iconPlaceholder': '可选，仅作为菜单图标 hint',
+  'component.pageEditor.shell.iconPlaceholder': '可选，选择后作为控制台菜单图标',
   'component.pageEditor.shell.metaCardTitle': '页面与菜单信息',
   'component.pageEditor.shell.metaHint':
     '这些字段会进入 PublishedPageSpec，并作为运行控制台动态菜单的唯一文本来源；函数注册和静态 locale 不提供页面显示文案。',

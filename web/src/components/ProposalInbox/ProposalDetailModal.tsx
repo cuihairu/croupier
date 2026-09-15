@@ -61,7 +61,7 @@ export default function ProposalDetailModal({
                 defaultMessage: '标题',
               })}
             >
-              {localizedText(proposal.title, proposal.pageKey)}
+              {localizedText(proposal.title, intl.locale)}
             </Descriptions.Item>
             <Descriptions.Item
               label={intl.formatMessage({

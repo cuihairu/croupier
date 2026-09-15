@@ -18,6 +18,7 @@ import OperationPageEditor from './OperationPageEditor';
 import TaskPageEditor from './TaskPageEditor';
 import ReportPageEditor from './ReportPageEditor';
 import LocalizedTextEditor from '@/components/LocalizedTextEditor';
+import IconPicker from './IconPicker';
 
 const { Text } = Typography;
 
@@ -234,9 +235,9 @@ export default function PageEditor({ value, onChange, readonly = false }: PageEd
               defaultMessage: '图标',
             })}
           >
-            <Input
-              value={value.icon || ''}
-              onChange={(event) => onChange({ ...value, icon: event.target.value })}
+            <IconPicker
+              value={value.icon}
+              onChange={(icon) => onChange({ ...value, icon })}
               placeholder={intl.formatMessage({
                 id: 'component.pageEditor.shell.iconPlaceholder',
                 defaultMessage: '可选，仅作为菜单图标 hint',

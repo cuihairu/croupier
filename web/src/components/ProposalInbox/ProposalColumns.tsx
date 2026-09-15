@@ -39,6 +39,8 @@ type IntlFormatter = {
     descriptor: { id: string; defaultMessage: string },
     values?: Record<string, string | number>,
   ) => string;
+  /** 当前界面语言（BCP47），本地化文案渲染用 */
+  locale: string;
 };
 
 /** 提案/阻断项列定义：操作回调由页面注入（modal 实例用于接受/拒绝二次确认）。 */
@@ -91,7 +93,7 @@ export function buildProposalColumns({
       }),
       dataIndex: 'title',
       key: 'title',
-      render: (_, record) => localizedText(record.title, record.pageKey),
+      render: (_, record) => localizedText(record.title, intl.locale),
     },
     {
       title: intl.formatMessage({
@@ -315,7 +317,7 @@ export function buildBlockedColumns({
       }),
       dataIndex: 'repairHint',
       key: 'repairHint',
-      render: (_, record) => localizedText(record.repairHint, 'zh-CN', '-'),
+      render: (_, record) => localizedText(record.repairHint, intl.locale, '-'),
     },
     {
       title: intl.formatMessage({

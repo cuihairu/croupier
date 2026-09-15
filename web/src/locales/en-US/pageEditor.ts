@@ -127,7 +127,7 @@ export default {
   'component.pageEditor.shell.emptyNoTask': 'No task page configuration',
   'component.pageEditor.shell.emptyUnknownType': 'Unknown page type',
   'component.pageEditor.shell.iconLabel': 'Icon',
-  'component.pageEditor.shell.iconPlaceholder': 'Optional; used only as a menu icon hint',
+  'component.pageEditor.shell.iconPlaceholder': 'Optional; shown as the console menu icon',
   'component.pageEditor.shell.metaCardTitle': 'Page and menu information',
   'component.pageEditor.shell.metaHint':
     'These fields go into PublishedPageSpec and are the only text source for the dynamic menu in the operations console; function registration and static locales do not provide page display text.',

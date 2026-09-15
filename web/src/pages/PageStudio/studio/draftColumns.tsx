@@ -22,6 +22,8 @@ type IntlFormatter = {
     descriptor: { id: string; defaultMessage: string },
     values?: Record<string, string | number>,
   ) => string;
+  /** 当前界面语言（BCP47），本地化文案渲染用 */
+  locale: string;
 };
 
 /** 草稿列表列定义：操作列回调（发布/编辑/预览/重生成/版本/变更链/对比）
@@ -63,7 +65,7 @@ export function buildDraftColumns(
       }),
       dataIndex: 'title',
       key: 'title',
-      render: (_, record) => localizedText(record.title, record.pageKey),
+      render: (_, record) => localizedText(record.title, intl.locale),
     },
     {
       title: intl.formatMessage({
@@ -73,7 +75,7 @@ export function buildDraftColumns(
       dataIndex: ['category', 'key'],
       key: 'category',
       width: 120,
-      render: (_, record) => localizedText(record.category?.labels, record.category?.key || '-'),
+      render: (_, record) => localizedText(record.category?.labels, intl.locale, '-'),
     },
     {
       title: intl.formatMessage({

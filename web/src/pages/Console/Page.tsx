@@ -20,6 +20,7 @@ import {
 } from '@/services/console';
 import type { PublishedPageSpec } from '@/types/dashboard';
 import { resolveConsolePageRoute, resolveLocalizedText } from '@/utils/consoleMenu';
+import { humanizeFieldKey } from '@/utils/humanize';
 import { getScope, subscribeScope } from '@/stores/scope';
 
 export default function ConsolePage() {
@@ -101,13 +102,14 @@ export default function ConsolePage() {
 
   // 面包屑分类 key：以发布分类为准，缺失时回退路由参数
   const breadcrumbCategoryKey = page?.category?.key || categoryKey;
-  // 页面标题：按当前语言解析发布 PageSpec 的 LocalizedText
-  const pageTitle = resolveLocalizedText(page?.title, intl.locale, pageKey);
-  // 面包屑分类：优先用发布分类的本地化 labels，缺失时回退原始 key
+  // 页面标题：按当前语言解析发布 PageSpec 的 LocalizedText；
+  // 页面未就绪时用人性化 pageKey 兜底（raw key 作标题可读性差）
+  const pageTitle = resolveLocalizedText(page?.title, intl.locale, humanizeFieldKey(pageKey));
+  // 面包屑分类：优先用发布分类的本地化 labels，缺失时回退人性化 key
   const breadcrumbCategoryTitle = resolveLocalizedText(
     page?.category?.labels,
     intl.locale,
-    breadcrumbCategoryKey,
+    humanizeFieldKey(breadcrumbCategoryKey),
   );
 
   // 404 状态

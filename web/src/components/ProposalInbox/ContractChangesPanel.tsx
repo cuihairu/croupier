@@ -341,7 +341,7 @@ export default function ContractChangesPanel({
       key: 'pageKey',
       render: (_, record) => (
         <Space orientation="vertical" size={0}>
-          <Text strong>{localizedText(record.title, record.pageKey)}</Text>
+          <Text strong>{localizedText(record.title, intl.locale)}</Text>
           <Text type="secondary">{record.pageKey}</Text>
         </Space>
       ),
