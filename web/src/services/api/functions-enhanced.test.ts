@@ -173,6 +173,7 @@ describe('normalizeFunctionInstance', () => {
         sdkName: 'croupier-go',
         sdkLang: 'go',
         sdkVersion: '1.1',
+        agentVersion: '0.2.0',
         functionId: 'player.ban',
         status: 'running',
         lastHeartbeat: '2026-01-01T00:00:01Z',
@@ -194,6 +195,7 @@ describe('normalizeFunctionInstance', () => {
       sdkName: 'croupier-go',
       sdkLang: 'go',
       sdkVersion: '1.1',
+      agentVersion: '0.2.0',
       functionId: 'player.ban',
       status: 'running',
       lastHeartbeat: '2026-01-01T00:00:01Z',
@@ -244,6 +246,7 @@ describe('normalizeFunctionInstance', () => {
   it('keeps optional numeric and boolean fields undefined when absent', () => {
     expect(normalizeFunctionInstance({})).toEqual({
       agentId: '',
+      agentVersion: '',
       agentName: '',
       serviceId: '',
       providerId: '',

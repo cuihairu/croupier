@@ -43,27 +43,46 @@ export function buildInstanceColumns({
       ),
     },
     {
+      // SDK 名称 + SDK 版本同行展示：SDK 版本是排查协议兼容问题的关键信息，
+      // 不再只藏在 Tooltip 里（与 /functions/sdk-distribution 的「SDK 版本」措辞一致）。
       title: 'SDK',
       dataIndex: 'sdkName',
-      width: 170,
+      width: 200,
       ellipsis: true,
       render: (_, record) =>
         record.sdkName || record.sdkLang ? (
-          <Tooltip title={`${record.sdkLang || ''} ${record.sdkVersion || ''}`.trim()}>
+          <Space size={4}>
             <Tag color="geekblue">{record.sdkName || record.sdkLang}</Tag>
-          </Tooltip>
+            {record.sdkVersion ? (
+              <Text type="secondary">{record.sdkVersion}</Text>
+            ) : (
+              <Text type="secondary">-</Text>
+            )}
+          </Space>
         ) : (
           <Text type="secondary">-</Text>
         ),
     },
     {
+      // 服务版本：游戏服务在 SDK RegisterWithAgent(serviceID, serviceVersion)
+      // 时上报的业务版本，不是 SDK 版本，也不是 agent 版本。
       title: intl.formatMessage({
-        id: 'pages.functionsInstances.column.version',
-        defaultMessage: '版本',
+        id: 'pages.functionsInstances.column.serviceVersion',
+        defaultMessage: '服务版本',
       }),
       dataIndex: 'version',
-      width: 90,
+      width: 100,
       render: (_, record) => <Tag color="blue">{record.version || '-'}</Tag>,
+    },
+    {
+      // Agent 版本：agent 进程自身上报的版本（RegisterRequest.Version）。
+      title: intl.formatMessage({
+        id: 'pages.functionsInstances.column.agentVersion',
+        defaultMessage: 'Agent 版本',
+      }),
+      dataIndex: 'agentVersion',
+      width: 110,
+      render: (_, record) => <Tag color="cyan">{record.agentVersion || '-'}</Tag>,
     },
     {
       title: intl.formatMessage({

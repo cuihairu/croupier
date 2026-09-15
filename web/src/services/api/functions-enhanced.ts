@@ -69,6 +69,7 @@ export interface FunctionInstance {
   sdkName?: string;
   sdkLang?: string;
   sdkVersion?: string;
+  agentVersion?: string;
   functionId: string;
   status?: 'running' | 'stopped' | 'error' | 'unknown';
   lastHeartbeat?: string;
@@ -103,6 +104,7 @@ export interface RawFunctionInstance {
   sdkName?: string;
   sdkLang?: string;
   sdkVersion?: string;
+  agentVersion?: string;
   gameId?: string;
   env?: string;
   ownerInstance?: string;
@@ -124,6 +126,7 @@ export function normalizeFunctionInstance(raw: RawFunctionInstance): FunctionIns
     sdkName: raw.sdkName || '',
     sdkLang: raw.sdkLang || '',
     sdkVersion: raw.sdkVersion || '',
+    agentVersion: raw.agentVersion || '',
     functionId: raw.functionId || '',
     status:
       status === 'running' || status === 'stopped' || status === 'error' || status === 'unknown'

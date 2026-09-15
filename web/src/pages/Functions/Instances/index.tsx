@@ -186,6 +186,9 @@ export default () => {
         record.addr,
         record.functionId,
         record.version,
+        record.sdkName,
+        record.sdkVersion,
+        record.agentVersion,
         record.gameId,
         record.env,
       ]
@@ -542,7 +545,7 @@ export default () => {
             loading={loading}
             columns={columns}
             dataSource={filteredData}
-            scroll={{ x: 890 }}
+            scroll={{ x: 1120 }}
             pagination={{
               pageSize: 10,
               showSizeChanger: true,

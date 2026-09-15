@@ -137,10 +137,14 @@ type FunctionInstanceSummary struct {
 	SDKName    string `json:"sdkName"`
 	SDKLang    string `json:"sdkLang"`
 	SDKVersion string `json:"sdkVersion"`
-	GameID     string `json:"gameId"`
-	Env        string `json:"env"`
-	Status     string `json:"status"`
-	UpdatedAt  string `json:"updatedAt"`
+	// AgentVersion 是 agent 进程自身上报的版本（RegisterRequest.Version），
+	// 与 Version（provider/游戏服务版本，SDK RegisterWithAgent 传入）、
+	// SDKVersion（SDK 库版本）三者语义不同，前端分列展示。
+	AgentVersion string `json:"agentVersion,omitempty"`
+	GameID       string `json:"gameId"`
+	Env          string `json:"env"`
+	Status       string `json:"status"`
+	UpdatedAt    string `json:"updatedAt"`
 	// OwnerInstance 非空表示该 agent 连接在另一个 server 实例上（跨实例
 	// 聚合条目）；本地连接的 agent 为空。
 	OwnerInstance string `json:"ownerInstance,omitempty"`

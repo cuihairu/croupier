@@ -14,7 +14,8 @@ export default {
   'pages.functionsInstances.column.rowAction.detail': 'View Details',
   'pages.functionsInstances.column.rowAction.logs': 'View Logs',
   'pages.functionsInstances.column.status': 'Status',
-  'pages.functionsInstances.column.version': 'Version',
+  'pages.functionsInstances.column.serviceVersion': 'Service Version',
+  'pages.functionsInstances.column.agentVersion': 'Agent Version',
   'pages.functionsInstances.debug.alert.descriptionWithServiceId':
     'Parameter preview only validates the JSON Schema locally in the browser and never calls the service; execution is routed to the current Service ID.',
   'pages.functionsInstances.debug.alert.descriptionWithoutServiceId':
@@ -46,7 +47,10 @@ export default {
   'pages.functionsInstances.detail.label.lastHeartbeat': 'Last Heartbeat',
   'pages.functionsInstances.detail.label.ownerInstance': 'Owner Instance',
   'pages.functionsInstances.detail.label.status': 'Status',
-  'pages.functionsInstances.detail.label.version': 'Version',
+  'pages.functionsInstances.detail.label.serviceVersion': 'Service Version',
+  'pages.functionsInstances.detail.label.sdkName': 'SDK Name',
+  'pages.functionsInstances.detail.label.sdkVersion': 'SDK Version',
+  'pages.functionsInstances.detail.label.agentVersion': 'Agent Version',
   'pages.functionsInstances.detail.logsAlert.description':
     'There is no instance log query API yet. This tab is reserved for a future log aggregation system.',
   'pages.functionsInstances.detail.logsAlert.message': 'Instance logs are not available yet',

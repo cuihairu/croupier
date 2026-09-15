@@ -13,7 +13,8 @@ export default {
   'pages.functionsInstances.column.rowAction.detail': '查看详情',
   'pages.functionsInstances.column.rowAction.logs': '查看日志',
   'pages.functionsInstances.column.status': '状态',
-  'pages.functionsInstances.column.version': '版本',
+  'pages.functionsInstances.column.serviceVersion': '服务版本',
+  'pages.functionsInstances.column.agentVersion': 'Agent 版本',
   'pages.functionsInstances.debug.alert.descriptionWithServiceId':
     '参数预览只在浏览器本地校验 JSON Schema，不会调用服务；执行会定向发送到当前 Service ID。',
   'pages.functionsInstances.debug.alert.descriptionWithoutServiceId':
@@ -45,7 +46,10 @@ export default {
   'pages.functionsInstances.detail.label.lastHeartbeat': '最后心跳',
   'pages.functionsInstances.detail.label.ownerInstance': '归属实例',
   'pages.functionsInstances.detail.label.status': '状态',
-  'pages.functionsInstances.detail.label.version': '版本',
+  'pages.functionsInstances.detail.label.serviceVersion': '服务版本',
+  'pages.functionsInstances.detail.label.sdkName': 'SDK 名称',
+  'pages.functionsInstances.detail.label.sdkVersion': 'SDK 版本',
+  'pages.functionsInstances.detail.label.agentVersion': 'Agent 版本',
   'pages.functionsInstances.detail.logsAlert.description':
     '当前没有可用的实例日志查询接口。此处保留为后续接入日志聚合系统。',
   'pages.functionsInstances.detail.logsAlert.message': '实例日志尚未接入',

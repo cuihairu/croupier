@@ -33,6 +33,7 @@ func remoteSession(agentID string) *reg.AgentSession {
 		GameID:  "demo",
 		Env:     "prod",
 		Addr:    "10.0.0.2:40252",
+		Version: "2.1.0",
 		Functions: map[string]reg.FunctionMeta{
 			"demo.remote_fn": {Enabled: true},
 		},
@@ -94,6 +95,8 @@ func TestFunctionInstancesAll_RemoteOwnerAggregated(t *testing.T) {
 	assert.Equal(t, "svc-agent-remote", remote.ServiceID)
 	assert.Equal(t, "java", remote.SDKLang)
 	assert.Equal(t, "croupier-java-sdk", remote.SDKName)
+	assert.Equal(t, "0.1.0", remote.SDKVersion)
+	assert.Equal(t, "2.1.0", remote.AgentVersion)
 	assert.Equal(t, "server2", remote.OwnerInstance)
 	assert.Equal(t, 2, resp.Total)
 }

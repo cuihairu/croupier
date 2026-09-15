@@ -137,11 +137,35 @@ export default function InstanceDetailDrawer({
                     </Descriptions.Item>
                     <Descriptions.Item
                       label={intl.formatMessage({
-                        id: 'pages.functionsInstances.detail.label.version',
-                        defaultMessage: '版本',
+                        id: 'pages.functionsInstances.detail.label.serviceVersion',
+                        defaultMessage: '服务版本',
                       })}
                     >
                       <Tag color="blue">{instanceDetail.instance.version || '-'}</Tag>
+                    </Descriptions.Item>
+                    <Descriptions.Item
+                      label={intl.formatMessage({
+                        id: 'pages.functionsInstances.detail.label.sdkName',
+                        defaultMessage: 'SDK 名称',
+                      })}
+                    >
+                      {instanceDetail.instance.sdkName || '-'}
+                    </Descriptions.Item>
+                    <Descriptions.Item
+                      label={intl.formatMessage({
+                        id: 'pages.functionsInstances.detail.label.sdkVersion',
+                        defaultMessage: 'SDK 版本',
+                      })}
+                    >
+                      <Tag color="geekblue">{instanceDetail.instance.sdkVersion || '-'}</Tag>
+                    </Descriptions.Item>
+                    <Descriptions.Item
+                      label={intl.formatMessage({
+                        id: 'pages.functionsInstances.detail.label.agentVersion',
+                        defaultMessage: 'Agent 版本',
+                      })}
+                    >
+                      <Tag color="cyan">{instanceDetail.instance.agentVersion || '-'}</Tag>
                     </Descriptions.Item>
                     <Descriptions.Item
                       label={intl.formatMessage({
