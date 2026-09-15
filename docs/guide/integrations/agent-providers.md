@@ -115,6 +115,8 @@ go run ./examples/openapi-provider -server 127.0.0.1:19090 -http 127.0.0.1:8091
 
 启动后控制台函数目录（default/dev）应出现 `players.player.list` 等 6 个函数。示例说明见仓库 `examples/openapi-provider/README.md`。
 
+自托管部署（docker-compose.deploy.yml）默认随 `sdk-examples` profile 常驻该示例的容器版（镜像 `croupier-openapi-provider-demo`，上游走 `haproxy:19090`，scope 由 `CROUPIER_SDK_EXAMPLE_GAME_ID/ENV` 注入）——Dashboard「OpenAPI Sources」页的运行时导入区块开箱即有数据，无需手工拉起。
+
 ## 边界
 
 - OpenAPI 文档只描述 API 契约与能力语义；页面 schema、菜单、多语言、按钮位置等 UI 信息一律不允许进入，导入器遇到会报 diagnostics（见 [OpenAPI 输入边界](openapi-registration.md#openapi-输入边界)）。

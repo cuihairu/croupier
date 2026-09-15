@@ -49,6 +49,8 @@ agent/agent2 ── TCP ──► haproxy :19090（L4：leastconn + tcp-check + 
                           └─► croupier-server2 :19090 ──┴─► 集群互联转发 + 共享目录
 
 sdk-examples ── HTTP ──► agent:19091      haproxy stats ──► :8404（连接分布排查）
+
+openapi-provider-demo ── TCP ──► haproxy :19090（内嵌 Agent，providers.yaml 注册函数）
 ```
 
 - **双 Server**（`server`/`server2`，YAML anchor 共享配置）：集群成员表 + owner 转发自动协同；任一实例故障，另一实例接管调用（Agent 断连重连经 LB 分发至存活实例，架构文档 §6 故障语义）
@@ -56,7 +58,8 @@ sdk-examples ── HTTP ──► agent:19091      haproxy stats ──► :840
 - **两层负载均衡各司其职**（nginx 管人，HAProxy 管机器）：
   - dashboard nginx（L7）：`split_clients` 按请求哈希分流到两实例 18780 + docker DNS resolver 运行时解析（10s，实例重建换 IP 不 502）；SSE 已关缓冲
   - haproxy（L4）：Agent 自研 transport TCP 长连接 `leastconn` 打散 + `tcp-check` 主动健康检查 + `resolvers` 运行时重解析（实例重建自动跟随）+ stats 页（:8404）
-- 宿主端口只由每组实例 1 发布（server: 8443/18780、agent: 19091）；实例 2 仅集群内可达
+- 宿主端口只由每组实例 1 发布（server: 8443→19090 transport / 18780 HTTP、agent: 19091）；实例 2 仅集群内可达
+- **openapi-provider-demo**（`sdk-examples` profile，随 `enable_sdk_examples=true` 部署）：`examples/openapi-provider` 的常驻容器（镜像 `croupier-openapi-provider-demo`），内嵌 Agent 经 providers.yaml 把 players API 注册进 server——Dashboard「OpenAPI Sources → 运行时导入」区块的数据源，scope 跟随 `CROUPIER_SDK_EXAMPLE_GAME_ID/ENV`
 
 ```bash
 cd docker
