@@ -25,11 +25,20 @@ type FunctionContract struct {
 	Capability   dbenum.Capability // collection_query|item_query|create|update|delete|action|task|report (int-backed)
 	Execution    string            `gorm:"size:32"`   // sync|task
 	TimeoutMs    int32             `gorm:"default:0"` // 同步调用契约预算（毫秒）；0 = 未声明（全局默认）
-	Approval     datatypes.JSONMap `gorm:"type:json"` // ApprovalPolicy
-	Risk         dbenum.Risk       // safe|warning|high|danger (int-backed)
-	Permission   string            `gorm:"size:128"`
-	InputSchema  JSON              `gorm:"type:json"`
-	OutputSchema JSON              `gorm:"type:json"`
+	// ExecutionState 执行状态（D2/T3）：bound=可执行（运行时已注册）；
+	// unbound=纯物料（上传管线生成，无执行后端）。json:"-" 是 digest
+	// 排除的机制而非疏漏：semantics/proposal 的 source digest 直接
+	// json.Marshal 本模型行（computeDigest），绑定态翻转（T6）若进入
+	// digest 会造成提案版本快照与语义 digest 的无谓 churn——契约内容与
+	// 绑定态必须正交（D2）。wire 侧经 spec.FunctionSpec.ExecutionState
+	//（json executionState）透传；仅改本字段不得触发 stale/digest 变化
+	// （测试锁定：TestExecutionStateExcludedFromContractDigest）。
+	ExecutionState string            `gorm:"size:16;not null;default:'bound'" json:"-"`
+	Approval       datatypes.JSONMap `gorm:"type:json"` // ApprovalPolicy
+	Risk           dbenum.Risk       // safe|warning|high|danger (int-backed)
+	Permission     string            `gorm:"size:128"`
+	InputSchema    JSON              `gorm:"type:json"`
+	OutputSchema   JSON              `gorm:"type:json"`
 	// PrevInputSchema/PrevOutputSchema 保存上一次注册时的 schema（本次
 	// 更新前的 existing 行内容）。页面绑定一键同步（sync-selectors）用它做
 	// 字段 rename 精确推断：prev→new 的 diff 能唯一命中时 confidence=high。

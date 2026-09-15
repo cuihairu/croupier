@@ -52,12 +52,15 @@ func FunctionSpecFromContract(contract *model.FunctionContract) spec.FunctionSpe
 		return spec.FunctionSpec{}
 	}
 	return spec.FunctionSpec{
-		ID:           strings.TrimSpace(contract.FunctionID),
-		Version:      strings.TrimSpace(contract.Version),
-		Enabled:      contract.Enabled,
-		Deprecated:   contract.Deprecated,
-		InputSchema:  spec.JSONSchema(normalizeJSONSchema(json.RawMessage(contract.InputSchema))),
-		OutputSchema: spec.JSONSchema(normalizeJSONSchema(json.RawMessage(contract.OutputSchema))),
+		ID:         strings.TrimSpace(contract.FunctionID),
+		Version:    strings.TrimSpace(contract.Version),
+		Enabled:    contract.Enabled,
+		Deprecated: contract.Deprecated,
+		// D2/T3：执行状态透传（wire json executionState）；存量行空值归一
+		// 为 bound（迁移 DEFAULT 的投影层对应物）。
+		ExecutionState: spec.NormalizeExecutionState(contract.ExecutionState),
+		InputSchema:    spec.JSONSchema(normalizeJSONSchema(json.RawMessage(contract.InputSchema))),
+		OutputSchema:   spec.JSONSchema(normalizeJSONSchema(json.RawMessage(contract.OutputSchema))),
 		// 上一次注册的 schema（sync-selectors rename 精确推断用）
 		PreviousInputSchema:  spec.JSONSchema(normalizeJSONSchema(json.RawMessage(contract.PrevInputSchema))),
 		PreviousOutputSchema: spec.JSONSchema(normalizeJSONSchema(json.RawMessage(contract.PrevOutputSchema))),

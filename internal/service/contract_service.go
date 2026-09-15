@@ -151,18 +151,22 @@ func (s *ContractService) RebuildContractFromFunctionMeta(ctx context.Context, g
 		OperationKey: strings.TrimSpace(result.Function.Operation),
 		Capability:   mustParseCapability(string(result.Function.Capability)),
 		Execution:    string(result.Function.Execution),
-		TimeoutMs:    timeoutMsToInt32(result.Function.TimeoutMs),
-		Approval:     approvalPolicyToJSONMap(result.Function.Approval),
-		Risk:         mustParseRisk(string(result.Function.Risk)),
-		Permission:   strings.TrimSpace(result.Function.Permission),
-		InputSchema:  normalizeSchemaToJSON(json.RawMessage(result.Function.InputSchema)),
-		OutputSchema: normalizeSchemaToJSON(json.RawMessage(result.Function.OutputSchema)),
-		Summary:      toJSONMap(result.Function.Summary),
-		Description:  toJSONMap(result.Function.Description),
-		Tags:         toJSON(result.Function.Tags),
-		Source:       source,
-		SourceDigest: digest,
-		Diagnostics:  toJSON(result.Diagnostics),
+		// D2/T3：运行时/SDK 注册即意味着存在可执行后端 → bound。unbound
+		// 仅由上传管线（T4）产生，运行时命中同 function_id 的 unbound 行
+		// 由自动绑定（T6）翻转。
+		ExecutionState: string(spec.ExecutionStateBound),
+		TimeoutMs:      timeoutMsToInt32(result.Function.TimeoutMs),
+		Approval:       approvalPolicyToJSONMap(result.Function.Approval),
+		Risk:           mustParseRisk(string(result.Function.Risk)),
+		Permission:     strings.TrimSpace(result.Function.Permission),
+		InputSchema:    normalizeSchemaToJSON(json.RawMessage(result.Function.InputSchema)),
+		OutputSchema:   normalizeSchemaToJSON(json.RawMessage(result.Function.OutputSchema)),
+		Summary:        toJSONMap(result.Function.Summary),
+		Description:    toJSONMap(result.Function.Description),
+		Tags:           toJSON(result.Function.Tags),
+		Source:         source,
+		SourceDigest:   digest,
+		Diagnostics:    toJSON(result.Diagnostics),
 	}
 
 	// 4. Schema 兼容性 diff（F12）：与库中现有契约对比，破坏性变更

@@ -58,6 +58,8 @@ import (
 //               page_proposals/component_templates/openapi_source_bindings/
 //               registration_warnings 里已软删的存量行物理清除——它们占着
 //               物理唯一索引，同 key 重建 500）
+//   0025 (Go)   function_contracts.execution_state 列（D2/T3：契约执行
+//               状态 bound/unbound，存量行默认 bound，行为与现状一致）
 
 func init() {
 	registerSvcMigrations()
@@ -92,6 +94,7 @@ func registerSvcMigrations() {
 		termDictionaryDisplayMigration(),
 		componentTemplateColumnsMigration(),
 		softDeleteResidueCleanupMigration(),
+		contractExecutionStateMigration(),
 	); err != nil {
 		panic(fmt.Sprintf("svc: register goose go migrations: %v", err))
 	}
@@ -504,6 +507,37 @@ func migrateSoftDeleteResidue(ctx context.Context, sqlDB *sql.DB) error {
 		if err := db.Exec(fmt.Sprintf("DELETE FROM %s WHERE deleted_at IS NOT NULL", target.table)).Error; err != nil {
 			return fmt.Errorf("migrate: 0024 purge soft-deleted rows from %s: %w", target.table, err)
 		}
+	}
+	return nil
+}
+
+// contractExecutionStateMigration 为存量库补 function_contracts.execution_state
+// 列（0025，D2/T3 契约与绑定正交化）：bound=可执行、unbound=纯物料。列带
+// DEFAULT 'bound'，存量行随 ALTER TABLE 直接回填 bound（postgres/mysql 均如此，
+// sqlite 亦支持常量默认值回填），行为与迁移前完全一致。新库由 baseline
+// AutoMigrate 带出。逐列 AddColumn（0015/0016/0021/0023 同模式）；幂等；
+// 缺表跳过。
+func contractExecutionStateMigration() *goose.Migration {
+	return goose.NewGoMigration(25,
+		&goose.GoFunc{RunDB: addContractExecutionStateColumn},
+		nil,
+	)
+}
+
+// addContractExecutionStateColumn 是 0025 的迁移体（抽出便于直测）。
+func addContractExecutionStateColumn(ctx context.Context, sqlDB *sql.DB) error {
+	db, err := wrapGorm(sqlDB)
+	if err != nil {
+		return err
+	}
+	if !db.Migrator().HasTable(&model.FunctionContract{}) {
+		return nil
+	}
+	if db.Migrator().HasColumn(&model.FunctionContract{}, "ExecutionState") {
+		return nil
+	}
+	if err := db.Migrator().AddColumn(&model.FunctionContract{}, "ExecutionState"); err != nil {
+		return fmt.Errorf("migrate: 0025 add function_contracts.execution_state: %w", err)
 	}
 	return nil
 }

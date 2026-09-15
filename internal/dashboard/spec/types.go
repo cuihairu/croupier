@@ -6,7 +6,10 @@
 // framework package. It is a pure type-definition layer.
 package spec
 
-import "encoding/json"
+import (
+	"encoding/json"
+	"strings"
+)
 
 // ---------------------------------------------------------------------------
 // Primitive type aliases
@@ -412,12 +415,18 @@ type BindingFreshnessDiagnostic struct {
 // function's executable capability. It is produced by the Descriptor
 // Normalizer from SDK / OpenAPI / DB template raw descriptors.
 type FunctionSpec struct {
-	ID           string     `json:"id"`
-	Version      string     `json:"version"`
-	Enabled      bool       `json:"enabled"`
-	Deprecated   bool       `json:"deprecated,omitempty"`
-	InputSchema  JSONSchema `json:"inputSchema,omitempty"`
-	OutputSchema JSONSchema `json:"outputSchema,omitempty"`
+	ID         string `json:"id"`
+	Version    string `json:"version"`
+	Enabled    bool   `json:"enabled"`
+	Deprecated bool   `json:"deprecated,omitempty"`
+	// ExecutionState 执行状态（D2 契约与绑定正交化）：bound=可执行
+	// （运行时已注册）；unbound=纯物料（上传管线生成，无执行后端，
+	// 执行边界 409 executor_unbound）。投影层恒写显式值——bound 在
+	// wire 上也会出现（非空字符串不受 omitempty 省略）；消费方把缺键
+	// （旧 payload/程序化构造）按 bound 处理（NormalizeExecutionState）。
+	ExecutionState ExecutionState `json:"executionState,omitempty"`
+	InputSchema    JSONSchema     `json:"inputSchema,omitempty"`
+	OutputSchema   JSONSchema     `json:"outputSchema,omitempty"`
 
 	// PreviousInputSchema/PreviousOutputSchema 是上一次注册时的 schema
 	// （FunctionContract 的 prev 列投影）。selector 同步用 prev→new 的
@@ -447,6 +456,30 @@ type FunctionSpec struct {
 
 	// Diagnostics generated during normalization
 	Diagnostics []Diagnostic `json:"diagnostics,omitempty"`
+}
+
+// ---------------------------------------------------------------------------
+// ExecutionState（D2）
+// ---------------------------------------------------------------------------
+
+// ExecutionState 是契约的执行状态（D2：契约与绑定正交化）。
+// bound：契约有可执行后端（agent/SDK/openapi provider 运行时注册）；
+// unbound：纯物料（控制台上传管线生成），无执行后端，执行边界返回
+// 409 executor_unbound（T8），编辑器经绑定抽屉补绑（T9）。
+type ExecutionState string
+
+const (
+	ExecutionStateBound   ExecutionState = "bound"
+	ExecutionStateUnbound ExecutionState = "unbound"
+)
+
+// NormalizeExecutionState 归一存量行的空值为 bound（迁移默认值语义在
+// 投影层的对应物；新路径恒写入显式值）。
+func NormalizeExecutionState(v string) ExecutionState {
+	if ExecutionState(strings.TrimSpace(v)) == ExecutionStateUnbound {
+		return ExecutionStateUnbound
+	}
+	return ExecutionStateBound
 }
 
 // ---------------------------------------------------------------------------

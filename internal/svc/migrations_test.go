@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/cuihairu/croupier/internal/db/migrate"
+	"github.com/cuihairu/croupier/internal/model"
 	reg "github.com/cuihairu/croupier/internal/platform/registry"
 	gsqlite "github.com/glebarez/sqlite"
 	"gorm.io/gorm"
@@ -176,5 +177,94 @@ func TestGoMigrations_AgentSessionAddrCatchUp(t *testing.T) {
 	}
 	if sessions[0].Addr != "10.1.2.3:54321" {
 		t.Fatalf("addr round-trip = %q, want 10.1.2.3:54321", sessions[0].Addr)
+	}
+}
+
+// TestGoMigrations_ContractExecutionStateCatchUp 回归（D2/T3）：已过
+// baseline 的存量库（无 execution_state 列、已有契约行）经 0025 catch-up
+// 拿到该列，存量行随 DEFAULT 回填 bound；显式写入 unbound 的新行往返保持。
+func TestGoMigrations_ContractExecutionStateCatchUp(t *testing.T) {
+	db := openMigrationTestDB(t)
+	ctx := context.Background()
+
+	if err := autoMigrate(db); err != nil {
+		t.Fatalf("autoMigrate: %v", err)
+	}
+	// 先落一行 0025 时代之前的契约，再删列模拟存量形态（sqlite 的
+	// DropColumn 重建表但保留行数据）。
+	if err := db.Exec(`INSERT INTO function_contracts
+		(game_id, env, function_id, execution, created_at, updated_at)
+		VALUES ('g', 'e', 'player.get', 'sync', datetime('now'), datetime('now'))`).Error; err != nil {
+		t.Fatalf("seed legacy row: %v", err)
+	}
+	if err := db.Migrator().DropColumn(&model.FunctionContract{}, "ExecutionState"); err != nil {
+		t.Fatalf("drop column: %v", err)
+	}
+	if _, err := migrate.EnsureUpToDate(ctx, db, migrate.ScopeSingle, func(db *gorm.DB) error {
+		return nil // baseline 已完成，禁止再跑 AutoMigrate
+	}); err != nil {
+		t.Fatalf("EnsureUpToDate: %v", err)
+	}
+	if !db.Migrator().HasColumn(&model.FunctionContract{}, "ExecutionState") {
+		t.Fatal("execution_state column not backfilled by 0025")
+	}
+	var state string
+	if err := db.Raw("SELECT execution_state FROM function_contracts WHERE function_id = 'player.get'").Scan(&state).Error; err != nil {
+		t.Fatalf("read legacy row state: %v", err)
+	}
+	if state != "bound" {
+		t.Fatalf("legacy row execution_state = %q, want bound (DEFAULT backfill)", state)
+	}
+
+	// 新行显式 unbound 往返保持（T4 上传管线的写入形态）。
+	if err := db.Exec("UPDATE function_contracts SET execution_state = 'unbound' WHERE function_id = 'player.get'").Error; err != nil {
+		t.Fatalf("flip to unbound: %v", err)
+	}
+	state = ""
+	if err := db.Raw("SELECT execution_state FROM function_contracts WHERE function_id = 'player.get'").Scan(&state).Error; err != nil {
+		t.Fatalf("read flipped state: %v", err)
+	}
+	if state != "unbound" {
+		t.Fatalf("execution_state round-trip = %q, want unbound", state)
+	}
+
+	// gorm 零值插入走列 DEFAULT → bound。
+	if err := db.Exec(`INSERT INTO function_contracts
+		(game_id, env, function_id, execution, created_at, updated_at)
+		VALUES ('g', 'e', 'mail.send', 'sync', datetime('now'), datetime('now'))`).Error; err != nil {
+		t.Fatalf("insert default row: %v", err)
+	}
+	state = ""
+	if err := db.Raw("SELECT execution_state FROM function_contracts WHERE function_id = 'mail.send'").Scan(&state).Error; err != nil {
+		t.Fatalf("read default row state: %v", err)
+	}
+	if state != "bound" {
+		t.Fatalf("new row execution_state = %q, want bound (column DEFAULT)", state)
+	}
+}
+
+// TestAddContractExecutionStateColumnIdempotent：列已存在时 0025 跳过
+// （幂等）；表不存在的库（meta 表在 game 库重放等场景）也跳过。
+func TestAddContractExecutionStateColumnIdempotent(t *testing.T) {
+	sqlDB := openRawSQLiteDBG(t)
+	if err := addContractExecutionStateColumn(context.Background(), sqlDB); err != nil {
+		t.Fatalf("missing table should skip, got %v", err)
+	}
+
+	db, err := gorm.Open(gsqlite.Open(filepath.Join(t.TempDir(), "idem.db")), &gorm.Config{})
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	if err := db.AutoMigrate(&model.FunctionContract{}); err != nil {
+		t.Fatalf("migrate: %v", err)
+	}
+	sqlDB2, err := db.DB()
+	if err != nil {
+		t.Fatalf("sql.DB: %v", err)
+	}
+	for i := 0; i < 2; i++ {
+		if err := addContractExecutionStateColumn(context.Background(), sqlDB2); err != nil {
+			t.Fatalf("run %d: %v", i+1, err)
+		}
 	}
 }
