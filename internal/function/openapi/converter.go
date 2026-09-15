@@ -137,7 +137,7 @@ func (c *Converter) MetadataToOperation(metadata *functionv1.FunctionMetadata) (
 // operationToMetadata converts an OpenAPI operation to FunctionMetadata.
 func (c *Converter) operationToMetadata(path string, op *openapi3.Operation, options *ImportOptions) (*functionv1.FunctionMetadata, error) {
 	metadata := &functionv1.FunctionMetadata{
-		Id:          deriveFunctionID(op, path),
+		Id:          DeriveFunctionID(op, path),
 		Name:        deriveName(op),
 		Description: op.Description,
 		Tags:        op.Tags,
@@ -330,8 +330,11 @@ func (c *Converter) extractExtension(extensions map[string]interface{}, key stri
 	}
 }
 
-// deriveFunctionID derives a function ID from operation or path.
-func deriveFunctionID(op *openapi3.Operation, path string) string {
+// DeriveFunctionID derives a deterministic function ID from an operation:
+// operationId when present, otherwise the path segments joined with "."
+// （/api/players/{id} → api.players.{id}）。上传管线（api/openapi T4）用
+// 同一映射生成 unbound 契约，保证运行时后续注册同名函数时自动绑定（D3）。
+func DeriveFunctionID(op *openapi3.Operation, path string) string {
 	if op != nil && op.OperationID != "" {
 		return op.OperationID
 	}

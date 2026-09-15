@@ -733,7 +733,7 @@ func TestConverter_DeriveFunctionID(t *testing.T) {
 			OperationID: "player.get",
 		}
 
-		id := deriveFunctionID(op, "/api/players")
+		id := DeriveFunctionID(op, "/api/players")
 		if id != "player.get" {
 			t.Errorf("Expected 'player.get', got '%s'", id)
 		}
@@ -742,21 +742,21 @@ func TestConverter_DeriveFunctionID(t *testing.T) {
 	t.Run("generate from path", func(t *testing.T) {
 		op := &openapi3.Operation{}
 
-		id := deriveFunctionID(op, "/api/players/{id}")
+		id := DeriveFunctionID(op, "/api/players/{id}")
 		if id != "api.players.{id}" {
 			t.Errorf("Expected 'api.players.{id}', got '%s'", id)
 		}
 	})
 
 	t.Run("nil operation and empty path", func(t *testing.T) {
-		id := deriveFunctionID(nil, "")
+		id := DeriveFunctionID(nil, "")
 		if id != "unknown.function" {
 			t.Errorf("Expected 'unknown.function', got '%s'", id)
 		}
 	})
 
 	t.Run("empty path", func(t *testing.T) {
-		id := deriveFunctionID(&openapi3.Operation{}, "")
+		id := DeriveFunctionID(&openapi3.Operation{}, "")
 		if id != "unknown.function" {
 			t.Errorf("Expected 'unknown.function', got '%s'", id)
 		}

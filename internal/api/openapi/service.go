@@ -20,6 +20,7 @@ import (
 	"github.com/cuihairu/croupier/internal/common/errorx"
 	"github.com/cuihairu/croupier/internal/dashboard/spec"
 	"github.com/cuihairu/croupier/internal/db/dbctx"
+	funcopenapi "github.com/cuihairu/croupier/internal/function/openapi"
 	"github.com/cuihairu/croupier/internal/function/registrationguard"
 	logicfunction "github.com/cuihairu/croupier/internal/logic/function"
 	logicutils "github.com/cuihairu/croupier/internal/logic/utils"
@@ -111,7 +112,15 @@ func (s *Service) CreateSource(ctx context.Context, req *OpenAPISourceCreateRequ
 	// 恒成功，原 err 分支不可达已删除（UpdateSource 同）。
 	_ = modelSource.SetOperations(parsed.Operations)
 	_ = modelSource.SetDiagnostics(parsed.Diagnostics)
-	if err := s.svcCtx.OpenAPISourceModel.Create(ctx, modelSource); err != nil {
+	// T4/D4：源落库与 unbound 契约生成同事务——上传即成页的契约侧入口，
+	// 无运行时函数的 operation 直接成为物料（不再要求前置注册/绑定）。
+	if err := s.scopedTransaction(ctx, func(txCtx context.Context) error {
+		if err := s.svcCtx.OpenAPISourceModel.Create(txCtx, modelSource); err != nil {
+			return err
+		}
+		_, err := s.createUnboundContractsForSource(txCtx, gameID, env, modelSource, parsed.Operations, nil)
+		return err
+	}); err != nil {
 		spanErr = err
 		return nil, err
 	}
@@ -173,12 +182,20 @@ func (s *Service) UpdateSource(ctx context.Context, req *OpenAPISourceUpdateRequ
 	// 设计债清理：见 CreateSource 同注，Marshal 恒成功。
 	_ = source.SetOperations(parsed.Operations)
 	_ = source.SetDiagnostics(parsed.Diagnostics)
-	if err := s.svcCtx.OpenAPISourceModel.Update(ctx, source); err != nil {
+	bindings, err := s.svcCtx.OpenAPISourceBindingModel.ListBySource(ctx, gameID, env, source.SourceID)
+	if err != nil {
 		spanErr = err
 		return nil, err
 	}
-	bindings, err := s.svcCtx.OpenAPISourceBindingModel.ListBySource(ctx, gameID, env, source.SourceID)
-	if err != nil {
+	// T4/D4：源更新与 unbound 契约生成同事务（既有 provider 绑定的重建
+	// 路径保持原时序，在事务提交后执行）。
+	if err := s.scopedTransaction(ctx, func(txCtx context.Context) error {
+		if err := s.svcCtx.OpenAPISourceModel.Update(txCtx, source); err != nil {
+			return err
+		}
+		_, err := s.createUnboundContractsForSource(txCtx, gameID, env, source, parsed.Operations, bindings)
+		return err
+	}); err != nil {
 		spanErr = err
 		return nil, err
 	}
@@ -524,6 +541,148 @@ func (s *Service) functionMetaInputForBinding(
 		Risk:              firstNonEmpty(string(operation.Risk), runtimeMeta.Risk),
 		Permission:        firstNonEmpty(operation.Permission, runtimeMeta.Permission),
 		Tags:              tags,
+		TimeoutMs:         operation.TimeoutMs,
+	}
+}
+
+// createUnboundContractsForSource 为无运行时函数的 operation 生成 unbound
+// 契约（D1/D4、T4）：functionId 用 deriveFunctionID 同一确定性映射
+// （operationId 优先，否则 path 段拼接）——运行时后续注册同名函数时才能
+// 自动绑定（D3）。已有 provider 绑定的 operation 走既有 bound 重建路径，
+// 此处跳过；已存在契约（bound 或 unbound）不覆盖不降级（幂等）。
+// 返回新建契约数（供 T5 摘要与 span 观测）。
+func (s *Service) createUnboundContractsForSource(
+	ctx context.Context,
+	gameID string,
+	env string,
+	source *model.OpenAPISource,
+	operations []OpenAPISourceOperation,
+	bindings []model.OpenAPISourceBinding,
+) (int, error) {
+	boundOperations := make(map[string]bool, len(bindings))
+	for _, binding := range bindings {
+		if strings.TrimSpace(binding.Kind) == "provider" {
+			boundOperations[strings.TrimSpace(binding.OperationID)] = true
+		}
+	}
+	operationsByID := openAPIOperationsByID(source.GetSpec())
+	contractService := dashboardservice.NewContractService(s.svcCtx.DB)
+	created := 0
+	for _, operation := range operations {
+		operationID := strings.TrimSpace(operation.OperationID)
+		if operationID == "" {
+			continue
+		}
+		if boundOperations[operationID] {
+			// 该操作已显式绑定运行时函数（bound 契约落在绑定函数名下）：
+			// 先前上传在 operationId 名下生成的 unbound 物料已被取代，
+			// 重放时清理，避免组件面板出现永不可执行的重复物料。
+			supersededID := unboundFunctionID(funcopenapi.DeriveFunctionID(operationsByID[operationID], operation.Path))
+			if supersededID != "" {
+				if err := s.removeSupersededUnboundContract(ctx, contractService, gameID, env, supersededID); err != nil {
+					return created, err
+				}
+			}
+			continue
+		}
+		openAPIOp := operationsByID[operationID]
+		functionID := unboundFunctionID(funcopenapi.DeriveFunctionID(openAPIOp, operation.Path))
+		if functionID == "" {
+			continue
+		}
+		meta := s.functionMetaInputForOperation(source, operation, openAPIOp, functionID)
+		createdNew, err := contractService.CreateUnboundContract(ctx, gameID, env, "openapi", meta)
+		if err != nil {
+			return created, fmt.Errorf("create unbound contract for operation %s: %w", operationID, err)
+		}
+		if createdNew {
+			created++
+		}
+	}
+	if created > 0 {
+		slog.InfoContext(ctx, "created unbound contracts from OpenAPI source",
+			"game_id", gameID,
+			"env", env,
+			"source_id", source.SourceID,
+			"contracts_created", created,
+			"operation_count", len(operations))
+	}
+	return created, nil
+}
+
+// unboundFunctionID 把确定性映射结果归一到平台 functionId 字符集
+// （^[a-z0-9][a-z0-9._-]*$）：小写折叠，非 [a-z0-9._-] 字符替换为 "-"，
+// 去除首尾的 "."/"-"/"_"，首字符仍非小写字母/数字则加 "fn-" 前缀。
+// OpenAPI 文档常见 camelCase operationId（listPlayers → listplayers）；
+// 运行时注册的 functionId 受同一字符集约束（恒小写），归一后 D3 的
+// 精确匹配语义不变。同文档两个 operationId 归一后冲突时后者被存在性
+// 检查幂等跳过（一料一契约）。
+func unboundFunctionID(derived string) string {
+	lowered := strings.ToLower(strings.TrimSpace(derived))
+	var b strings.Builder
+	for _, r := range lowered {
+		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') || r == '.' || r == '_' || r == '-' {
+			b.WriteRune(r)
+			continue
+		}
+		b.WriteRune('-')
+	}
+	out := strings.Trim(b.String(), ".-_")
+	if out == "" {
+		return ""
+	}
+	if (out[0] >= 'a' && out[0] <= 'z') || (out[0] >= '0' && out[0] <= '9') {
+		return out
+	}
+	return "fn-" + out
+}
+
+// removeSupersededUnboundContract 删除已被 provider 绑定取代的 operationId
+// unbound 契约（仅限 openapi 来源的 unbound 行——bound 行与 sdk 来源行不动；
+// 绑定函数与 operationId 同名时 bound 契约就在本名下，同样不删）。
+func (s *Service) removeSupersededUnboundContract(
+	ctx context.Context,
+	contractService *dashboardservice.ContractService,
+	gameID, env, functionID string,
+) error {
+	existing, err := contractService.GetContract(ctx, gameID, env, functionID)
+	if err != nil || existing == nil {
+		return nil // 不存在即无事可做；查询失败不阻断（下次重放再清）
+	}
+	if existing.ExecutionState != string(spec.ExecutionStateUnbound) || strings.TrimSpace(existing.Source) != "openapi" {
+		return nil
+	}
+	if _, err := contractService.RemoveFunctionContract(ctx, gameID, env, functionID); err != nil {
+		return fmt.Errorf("remove superseded unbound contract %s: %w", functionID, err)
+	}
+	return nil
+}
+
+// functionMetaInputForOperation 以 OpenAPI 操作元数据组装 unbound 契约入参
+// （functionMetaInputForBinding 的无运行时版本：无 runtimeMeta 兜底，纯物料）。
+func (s *Service) functionMetaInputForOperation(
+	source *model.OpenAPISource,
+	operation OpenAPISourceOperation,
+	openAPIOp *openapi3.Operation,
+	functionID string,
+) dashboardservice.FunctionMetaInput {
+	return dashboardservice.FunctionMetaInput{
+		ID:                strings.TrimSpace(functionID),
+		Version:           sourceInfoVersion(source),
+		Enabled:           true,
+		Summary:           firstNonEmpty(operation.Summary, operation.OperationID),
+		Description:       operation.Description,
+		InputSchema:       openAPIRequestSchema(openAPIOp),
+		OutputSchema:      openAPIResponseSchema(openAPIOp),
+		Resource:          strings.TrimSpace(operation.Resource),
+		Operation:         strings.TrimSpace(operation.Operation),
+		Capability:        strings.TrimSpace(string(operation.Capability)),
+		Execution:         firstNonEmpty(string(operation.Execution), "sync"),
+		ApprovalRequired:  operation.Approval.Required,
+		ApprovalPolicyKey: operation.Approval.PolicyKey,
+		Risk:              strings.TrimSpace(string(operation.Risk)),
+		Permission:        strings.TrimSpace(operation.Permission),
+		Tags:              append([]string(nil), operation.Tags...),
 		TimeoutMs:         operation.TimeoutMs,
 	}
 }

@@ -95,6 +95,36 @@ func NewContractService(db *gorm.DB) *ContractService {
 // explicit registration contract. This is called when a function is
 // registered or updated.
 func (s *ContractService) RebuildContractFromFunctionMeta(ctx context.Context, gameID, env, source string, input spec.FunctionContractInput) error {
+	return s.rebuildContract(ctx, gameID, env, source, input, spec.ExecutionStateBound)
+}
+
+// CreateUnboundContract 为上传管线生成 unbound 契约（D1/D4、T4）：仅当同
+// (game_id, env, function_id) 契约不存在时创建——已有 bound 契约的 operation
+// 不降级，重复上传幂等（仅不存在时建）。落库与注册路径共用 rebuildContract
+// （归一/digest/诊断/T2 模板联动一致），执行状态为 unbound。
+func (s *ContractService) CreateUnboundContract(ctx context.Context, gameID, env, source string, input spec.FunctionContractInput) (bool, error) {
+	gameID = strings.TrimSpace(gameID)
+	env = strings.TrimSpace(env)
+	input.ID = strings.TrimSpace(input.ID)
+	if input.ID == "" {
+		return false, fmt.Errorf("functionId is required for unbound contract")
+	}
+	existing, err := s.contractModel.FindByScopeAndFunctionID(ctx, gameID, env, input.ID)
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		return false, fmt.Errorf("find existing contract %s: %w", input.ID, err)
+	}
+	if existing != nil {
+		return false, nil
+	}
+	if err := s.rebuildContract(ctx, gameID, env, source, input, spec.ExecutionStateUnbound); err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
+// rebuildContract 是注册（bound）与上传管线（unbound）共用的契约落库路径：
+// 归一 → digest → schema diff → upsert → 审计/告警 → 模板联动（T2）。
+func (s *ContractService) rebuildContract(ctx context.Context, gameID, env, source string, input spec.FunctionContractInput, executionState spec.ExecutionState) error {
 	// 入库前归一（scope 字段）：投影层（contract_projection）读取时对
 	// gameID/env/function_id TrimSpace，写入侧在此同步归一，保证两侧
 	// 对称——避免上游传入（或 DB 直写/迁移数据）的首尾空白让发布链
@@ -151,10 +181,10 @@ func (s *ContractService) RebuildContractFromFunctionMeta(ctx context.Context, g
 		OperationKey: strings.TrimSpace(result.Function.Operation),
 		Capability:   mustParseCapability(string(result.Function.Capability)),
 		Execution:    string(result.Function.Execution),
-		// D2/T3：运行时/SDK 注册即意味着存在可执行后端 → bound。unbound
-		// 仅由上传管线（T4）产生，运行时命中同 function_id 的 unbound 行
-		// 由自动绑定（T6）翻转。
-		ExecutionState: string(spec.ExecutionStateBound),
+		// D2/T3：执行状态由调用路径决定——运行时/SDK 注册（bound）或
+		// 上传管线 unbound 物料（T4）；运行时命中同 function_id 的
+		// unbound 行由自动绑定（T6）翻转。
+		ExecutionState: string(executionState),
 		TimeoutMs:      timeoutMsToInt32(result.Function.TimeoutMs),
 		Approval:       approvalPolicyToJSONMap(result.Function.Approval),
 		Risk:           mustParseRisk(string(result.Function.Risk)),
