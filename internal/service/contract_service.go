@@ -195,6 +195,12 @@ func (s *ContractService) RebuildContractFromFunctionMeta(ctx context.Context, g
 		"resource", input.Resource,
 		"capability", input.Capability)
 
+	// T2/D1：契约落库/实质变更（新契约或 digest 变化）后自动重建组件模板；
+	// schema 未变的重注册不触发，避免心跳重连风暴下空转。失败不阻塞注册。
+	if existing == nil || existing.SourceDigest != digest {
+		regenerateTemplatesForScope(ctx, gameID, env, input.ID, source)
+	}
+
 	return nil
 }
 

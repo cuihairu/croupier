@@ -351,7 +351,7 @@ export default function ComponentTemplatesPage() {
           >
             <FormattedMessage
               id="pages.pageStudio.templates.action.regenerate"
-              defaultMessage="从契约重新生成"
+              defaultMessage="手动重建（兜底）"
             />
           </Button>,
           <Button key="reload" icon={<ReloadOutlined />} onClick={() => void load()} />,
@@ -430,7 +430,8 @@ export default function ComponentTemplatesPage() {
         <Empty
           description={intl.formatMessage({
             id: 'pages.pageStudio.templates.empty.none',
-            defaultMessage: '暂无组件模板——点击「生成示例常量」体验、导入常量或从契约重新生成',
+            defaultMessage:
+              '暂无组件模板——点击「生成示例常量」体验、导入常量，或注册函数契约后自动生成',
           })}
           image={Empty.PRESENTED_IMAGE_SIMPLE}
         />

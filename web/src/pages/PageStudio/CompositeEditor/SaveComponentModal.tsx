@@ -240,7 +240,7 @@ export default function SaveComponentModal({
               notFoundContent={intl.formatMessage({
                 id: 'pages.pageStudio.saveModal.noCustomTemplates',
                 defaultMessage:
-                  '暂无可更新的自定义模板（内置模板请在模板管理中「从契约重新生成」）',
+                  '暂无可更新的自定义模板（内置模板会随契约自动重建，异常时请在模板管理中「手动重建」）',
               })}
               loading={customTemplates === null}
               options={(customTemplates ?? []).map((t) => ({

@@ -1,6 +1,9 @@
 package handler
 
 import (
+	"context"
+	"fmt"
+
 	"github.com/cuihairu/croupier/internal/api/admin"
 	"github.com/cuihairu/croupier/internal/api/agent"
 	"github.com/cuihairu/croupier/internal/api/alert"
@@ -111,6 +114,11 @@ func RegisterHandlers(r *gin.Engine, serverCtx *svc.ServiceContext) {
 	// 组件模板（V4 三层组合）：CRUD
 	componentHandler := component.NewHandler(model.NewComponentTemplateModel(serverCtx.DB), model.NewFunctionContractModel(serverCtx.DB))
 	componentHandler.Register(protected.Group("/component-templates"))
+	// T2/D1：契约落库/变更后自动重建组件模板（手动 regenerate 退化为兜底）。
+	// 包级注入：ContractService 在各 api 服务内按需构造，无法逐处 setter。
+	if regen := buildContractTemplateRegenerator(serverCtx, componentHandler); regen != nil {
+		service.SetContractTemplateRegenerator(regen)
+	}
 	// RegisterAdmin 路径已带 /site 前缀（PUT/DELETE /site/:key、GET /site/features 等），
 	// 这里必须挂根组；挂 "/site" 会变成 /api/v1/site/site/... 全线 404。
 	siteSettingsHandler.RegisterAdmin(protected.Group("/"))
@@ -1120,6 +1128,23 @@ func registerPublicReleaseRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 	releaseSvc := releaseapi.NewService(ctx)
 	releaseHandler := releaseapi.NewHandler(releaseSvc)
 	g.POST("/releases/check", releaseHandler.CheckUpdate)
+}
+
+// buildContractTemplateRegenerator 组装「契约变更 → 自动重建组件模板」
+// 的注入闭包：拉当前 scope 契约全量后复用组件模块的 regenerate 逻辑
+// （与 POST /component-templates/regenerate 同一实现）。
+func buildContractTemplateRegenerator(serverCtx *svc.ServiceContext, componentHandler *component.Handler) service.ContractTemplateRegenerator {
+	if serverCtx == nil || serverCtx.DB == nil || componentHandler == nil {
+		return nil
+	}
+	contractModel := model.NewFunctionContractModel(serverCtx.DB)
+	return func(ctx context.Context, gameID, env string) error {
+		contracts, err := contractModel.ListByScope(ctx, gameID, env)
+		if err != nil {
+			return fmt.Errorf("load contracts for template regen: %w", err)
+		}
+		return componentHandler.RegenerateFromContracts(ctx, contracts)
+	}
 }
 
 func registerDBMonRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {

@@ -127,7 +127,7 @@ export default {
   'pages.pageStudio.templates.action.importConstants': 'Import constants',
   'pages.pageStudio.templates.action.openEditor': 'Use in editor',
   'pages.pageStudio.templates.action.preview': 'Preview',
-  'pages.pageStudio.templates.action.regenerate': 'Regenerate from contracts',
+  'pages.pageStudio.templates.action.regenerate': 'Manual rebuild (fallback)',
   'pages.pageStudio.templates.action.seedDemo': 'Create demo constants',
   'pages.pageStudio.templates.cleanLegacy.success':
     'Cleaned up {count} legacy merged templates — re-run "Import constants" to create standalone components',
@@ -137,7 +137,7 @@ export default {
   'pages.pageStudio.templates.delete.success': 'Deleted {key}',
   'pages.pageStudio.templates.empty.loading': 'Loading…',
   'pages.pageStudio.templates.empty.none':
-    'No component templates yet — try "Create demo constants", import constants, or regenerate from contracts',
+    'No component templates yet — try "Create demo constants", import constants, or register function contracts to auto-generate',
   'pages.pageStudio.templates.groupCount': ' ({count})',
   'pages.pageStudio.templates.importSaved':
     'Constant templates saved — drag them into the composite page editor from the component library',

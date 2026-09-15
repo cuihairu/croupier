@@ -95,7 +95,7 @@ export default {
   'pages.pageStudio.saveModal.nameRequired': '请填写组件名称',
   'pages.pageStudio.saveModal.nameRequiredRule': '组件名称必填',
   'pages.pageStudio.saveModal.noCustomTemplates':
-    '暂无可更新的自定义模板（内置模板请在模板管理中「从契约重新生成」）',
+    '暂无可更新的自定义模板（内置模板会随契约自动重建，异常时请在模板管理中「手动重建」）',
   'pages.pageStudio.saveModal.okText': '保存',
   'pages.pageStudio.saveModal.paramKeysLabel': '参数化（勾选后拖入组件时可在弹窗中快速配置）',
   'pages.pageStudio.saveModal.saveFailed': '保存失败',
@@ -115,7 +115,7 @@ export default {
   'pages.pageStudio.templates.action.importConstants': '导入常量',
   'pages.pageStudio.templates.action.openEditor': '在编辑器中使用',
   'pages.pageStudio.templates.action.preview': '预览',
-  'pages.pageStudio.templates.action.regenerate': '从契约重新生成',
+  'pages.pageStudio.templates.action.regenerate': '手动重建（兜底）',
   'pages.pageStudio.templates.action.seedDemo': '生成示例常量',
   'pages.pageStudio.templates.cleanLegacy.success':
     '已清理 {count} 个旧版合并模板——请重新「导入常量」生成独立组件',
@@ -124,7 +124,7 @@ export default {
   'pages.pageStudio.templates.delete.success': '已删除 {key}',
   'pages.pageStudio.templates.empty.loading': '加载中…',
   'pages.pageStudio.templates.empty.none':
-    '暂无组件模板——点击「生成示例常量」体验、导入常量或从契约重新生成',
+    '暂无组件模板——点击「生成示例常量」体验、导入常量，或注册函数契约后自动生成',
   'pages.pageStudio.templates.groupCount': '（{count}）',
   'pages.pageStudio.templates.importSaved': '常量模板已保存——组合页编辑器组件库中可拖入使用',
   'pages.pageStudio.templates.legacy.alertDescription':
