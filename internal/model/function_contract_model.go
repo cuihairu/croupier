@@ -25,6 +25,14 @@ func NewFunctionContractModel(db *gorm.DB) *FunctionContractModel {
 
 // UpsertContract creates or updates a function contract.
 func (m *FunctionContractModel) UpsertContract(ctx context.Context, contract *FunctionContract) error {
+	// ExecutionState 空值归一为 bound（spec.ExecutionStateBound）：列默认
+	// default:'bound' 使零值落库即 bound，不归一的话零值重注册与库中
+	// bound 行在 contractSemanticallyEqual（T6 纳入比较）里恒不等，
+	// 「内容无变化跳过写」失效。显式 unbound（上传物料）与状态翻转
+	// （T6 自动绑定）不受影响。
+	if strings.TrimSpace(contract.ExecutionState) == "" {
+		contract.ExecutionState = "bound"
+	}
 	db := dbctx.Resolve(ctx, m.db).WithContext(ctx)
 	var existing FunctionContract
 	err := db.Unscoped().Where("game_id = ? AND env = ? AND function_id = ?",
