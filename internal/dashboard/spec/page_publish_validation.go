@@ -262,7 +262,7 @@ func validatePublishableResultView(resultView *ResultViewSpec, field string) []D
 		}
 		seen[key] = struct{}{}
 		if !hasDefaultLocale(resultField.Title) {
-			diags = append(diags, publishShapeDiagnostic("result_field_title_missing", "result field title must include zh-CN locale", itemField+".title"))
+			diags = append(diags, publishShapeDiagnostic("result_field_title_missing", "result field title must include a non-empty value in at least one locale", itemField+".title"))
 		}
 		if strings.TrimSpace(resultField.DataType) == "" {
 			diags = append(diags, publishShapeDiagnostic("result_field_type_missing", "result field dataType is required", itemField+".dataType"))
@@ -295,7 +295,7 @@ func validatePublishableReportPage(report *ReportPageSpec) []Diagnostic {
 			diags = append(diags, publishShapeDiagnostic("report_dimension_key_missing", "report dataset dimension key is required", field+".key"))
 		}
 		if !hasDefaultLocale(dim.Title) {
-			diags = append(diags, publishShapeDiagnostic("report_dimension_title_missing", "report dataset dimension title must include zh-CN locale", field+".title"))
+			diags = append(diags, publishShapeDiagnostic("report_dimension_title_missing", "report dataset dimension title must include a non-empty value in at least one locale", field+".title"))
 		}
 		if !isReportDimensionType(dim.DataType) {
 			diags = append(diags, publishShapeDiagnostic("report_dimension_type_invalid", "report dataset dimension dataType must be string, number, or date", field+".dataType"))
@@ -307,7 +307,7 @@ func validatePublishableReportPage(report *ReportPageSpec) []Diagnostic {
 			diags = append(diags, publishShapeDiagnostic("report_metric_key_missing", "report dataset metric key is required", field+".key"))
 		}
 		if !hasDefaultLocale(metric.Title) {
-			diags = append(diags, publishShapeDiagnostic("report_metric_title_missing", "report dataset metric title must include zh-CN locale", field+".title"))
+			diags = append(diags, publishShapeDiagnostic("report_metric_title_missing", "report dataset metric title must include a non-empty value in at least one locale", field+".title"))
 		}
 		if strings.TrimSpace(metric.DataType) != "number" {
 			diags = append(diags, publishShapeDiagnostic("report_metric_type_invalid", "report dataset metric dataType must be number", field+".dataType"))
@@ -413,8 +413,18 @@ func validateConditionLeaf(cond *ConditionSpec, sectionKeys map[string]bool, fie
 	return nil
 }
 
+// hasDefaultLocale 默认名称必填、翻译可选（T12）：任一 locale 非空即过，
+// 仅有 en-US 的存量页面不被误拒；全空拒绝。
 func hasDefaultLocale(labels LocalizedText) bool {
-	return labels != nil && strings.TrimSpace(labels["zh-CN"]) != ""
+	if labels == nil {
+		return false
+	}
+	for _, value := range labels {
+		if strings.TrimSpace(value) != "" {
+			return true
+		}
+	}
+	return false
 }
 
 func isReportDimensionType(dataType string) bool {

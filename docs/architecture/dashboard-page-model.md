@@ -391,9 +391,7 @@ PageSpec = (pageKey, type, resourceKey?, category, title, icon, order,
 
 分类、标题、图标与排序是 PageSpec 的顶层强类型字段；`NavigationSpec` 仅承载面包屑与返回行为（breadcrumb、showBack、backPath）。它们只在 PageProposal/PageSpec 中确定，注册侧不能提供菜单事实。页面没有独立的 permissions 字段：权限由 binding 级治理（合同 permission/risk/approval 快照）与 action 级 permission 字段承载。
 
-> **⚠️ 即将变更（勿再引用本段作为设计依据）**：「zh-CN + en-US 双必填」将被「默认名称必填、翻译可选」取代，见 [上传即成页：契约与绑定正交化设计](./ui-generation-upload-pipeline.md) D7（todo.md T12/T13）。落地后本段重写。
-
-**本地化必填契约**：`title` 与 `category.labels` 的 LocalizedText 必须同时含 `zh-CN` 与 `en-US`（中文为第一推荐展示语言、英文必须存在），缺任一在保存/发布校验与发布期诊断中被拒（`hasDefaultLocale`）。生成器对词条、SDK Summary、humanize 兜底全路径经 `ensureBilingual` 双写补齐；编辑器（LocalizedTextEditor）对缺失的必填语言给出可见提示。其余 LocalizedText 字段（confirm 文案、结果提示、字段 label 等）仍为可选，渲染端按 zh-CN → en-US → 任一非空值回退。
+**本地化名称契约（T12 放宽）**：`title` 与 `category.labels` 的 LocalizedText 只要求**任一 locale 有非空值**（默认名称必填、翻译可选）——zh-CN 是第一推荐展示语言（渲染回退链首位），en-US 与其他语言一律可选，仅有 en-US 的存量页面不被误拒；全部为空白值时在保存/发布校验与发布期诊断中被拒（`hasDefaultLocale`）。生成器全路径经 `ensureDefaultLocale` 规整：空白值剔除、zh-CN 缺失时取任意既有值补位，不再强制补写 en-US（humanize 兜底的 category 标签仍双写 zh-CN+en-US，属自然双语数据而非发布要求）。编辑器（LocalizedTextEditor）的必填基线已同步降级为仅默认语言：缺失 zh-CN 时提示，缺失其他语言不警告、不阻断（组件文案与标记的彻底清理见 todo.md T13）。其余 LocalizedText 字段（confirm 文案、结果提示、字段 label 等）仍为可选，渲染端按 zh-CN → en-US → 任一非空值回退。
 
 ## CRUD 是主路径，非 CRUD 是一等扩展
 

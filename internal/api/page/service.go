@@ -156,11 +156,11 @@ func (s *Service) SaveDraft(ctx context.Context, req *PageSaveRequest) (*PageSav
 
 	title := normalizeLocaleKeys(req.Title)
 	if !hasDefaultLocale(title) {
-		return nil, errorx.NewBadRequest("title must include zh-CN and en-US locales")
+		return nil, errorx.NewBadRequest("title must include a non-empty value in at least one locale")
 	}
 	categoryLabels := normalizeLocaleKeys(req.Category.Labels)
 	if !hasDefaultLocale(categoryLabels) {
-		return nil, errorx.NewBadRequest("category.labels must include zh-CN and en-US locales")
+		return nil, errorx.NewBadRequest("category.labels must include a non-empty value in at least one locale")
 	}
 	pageSpec.Title = title
 	pageSpec.Description = normalizeLocaleKeys(req.Description)
@@ -1088,13 +1088,13 @@ func (s *Service) validatePageSpec(ctx context.Context, page spec.PageSpec, publ
 		diags = append(diags, diagnostic("page_type_invalid", spec.SeverityError, "page type is invalid", "type"))
 	}
 	if !hasDefaultLocale(page.Title) {
-		diags = append(diags, diagnostic("localized_text_missing", spec.SeverityError, "title must include zh-CN and en-US locales", "title"))
+		diags = append(diags, diagnostic("localized_text_missing", spec.SeverityError, "title must include a non-empty value in at least one locale", "title"))
 	}
 	if strings.TrimSpace(page.Category.Key) == "" {
 		diags = append(diags, diagnostic("category_key_missing", spec.SeverityError, "category.key is required", "category.key"))
 	}
 	if !hasDefaultLocale(page.Category.Labels) {
-		diags = append(diags, diagnostic("category_label_missing", spec.SeverityError, "category.labels must include zh-CN and en-US locales", "category.labels"))
+		diags = append(diags, diagnostic("category_label_missing", spec.SeverityError, "category.labels must include a non-empty value in at least one locale", "category.labels"))
 	}
 	if publish {
 		diags = append(diags, s.validatePublishedCategoryLabels(ctx, page)...)
@@ -1669,14 +1669,19 @@ func diagnosticsFromJSON(raw []byte) []spec.Diagnostic {
 	return diagnostics
 }
 
-// hasDefaultLocale 校验必填展示语言：zh-CN 必填（默认展示语言），en-US
-// 必填（用户契约：英文必须有）。生成器兜底已双写 zh-CN/en-US，词条
-// 字典多语言命中天然满足；存量快照缺 en-US 会在发布时得到明确报错，
-// 编辑器补录即可。
+// hasDefaultLocale 校验默认名称必填、翻译可选（T12）：任一 locale 有
+// 非空值即通过——zh-CN 是第一推荐展示语言（渲染回退链首位），但不再
+// 强制 en-US 双写，仅有 en-US 的存量页面也不被误拒。全空/全空白拒绝。
 func hasDefaultLocale(labels spec.LocalizedText) bool {
-	return labels != nil &&
-		strings.TrimSpace(labels["zh-CN"]) != "" &&
-		strings.TrimSpace(labels["en-US"]) != ""
+	if labels == nil {
+		return false
+	}
+	for _, value := range labels {
+		if strings.TrimSpace(value) != "" {
+			return true
+		}
+	}
+	return false
 }
 
 func localizedTextEqual(left map[string]string, right map[string]string) bool {

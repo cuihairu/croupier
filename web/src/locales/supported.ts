@@ -31,10 +31,11 @@ export const SUPPORTED_LOCALES: SupportedLocale[] = [
 export const REQUIRED_LOCALE = 'zh-CN';
 
 /**
- * 双必填语言（与后端发布校验 hasDefaultLocale 一致）：zh-CN 为第一推荐
- * 展示语言，en-US 必须有；两者任缺其一发布时会被拒。
+ * 推荐默认语言（与后端发布校验一致，T12 放宽）：发布只要求「任一
+ * locale 非空」，zh-CN 为第一推荐展示语言（缺失时编辑器提示补录，
+ * 不再阻断发布）；en-US 与其他语言一律可选。
  */
-export const REQUIRED_LOCALES: readonly string[] = ['zh-CN', 'en-US'];
+export const REQUIRED_LOCALES: readonly string[] = [REQUIRED_LOCALE];
 
 export const SUPPORTED_LOCALE_LABELS: Record<string, string> = Object.fromEntries(
   SUPPORTED_LOCALES.map((item) => [item.value, item.label]),

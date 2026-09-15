@@ -285,11 +285,12 @@ func TestServiceSaveDraftRejectsInvalidPageType(t *testing.T) {
 	assert.Contains(t, err.Error(), "type must be resource, operation, task, or report")
 }
 
-func TestServiceSaveDraftRejectsMissingTitleLocale(t *testing.T) {
+// T12 放宽：仅 en-US 的存量形态不再被拒（默认名称必填、翻译可选）。
+func TestServiceSaveDraftAcceptsEnOnlyTitle(t *testing.T) {
 	service, ctx, _ := newPageTestService(t, "pages:edit")
 	revision := 0
 
-	_, err := service.SaveDraft(ctx, &PageSaveRequest{
+	resp, err := service.SaveDraft(ctx, &PageSaveRequest{
 		PageKey:       "test.page",
 		DraftRevision: &revision,
 		Type:          spec.PageTypeOperation,
@@ -301,11 +302,11 @@ func TestServiceSaveDraftRejectsMissingTitleLocale(t *testing.T) {
 		Operation: testOperationPageSpec(),
 		Bindings:  testPageBindings(),
 	})
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "title must include zh-CN and en-US locales")
+	require.NoError(t, err)
+	assert.Equal(t, "test.page", resp.PageKey)
 }
 
-func TestServiceSaveDraftRejectsMissingCategoryLabelsLocale(t *testing.T) {
+func TestServiceSaveDraftAcceptsEnOnlyCategoryLabels(t *testing.T) {
 	service, ctx, _ := newPageTestService(t, "pages:edit")
 	revision := 0
 
@@ -321,8 +322,48 @@ func TestServiceSaveDraftRejectsMissingCategoryLabelsLocale(t *testing.T) {
 		Operation: testOperationPageSpec(),
 		Bindings:  testPageBindings(),
 	})
+	require.NoError(t, err)
+}
+
+// T12 放宽后全空仍拒：title 一个非空 locale 都没有。
+func TestServiceSaveDraftRejectsEmptyTitle(t *testing.T) {
+	service, ctx, _ := newPageTestService(t, "pages:edit")
+	revision := 0
+
+	_, err := service.SaveDraft(ctx, &PageSaveRequest{
+		PageKey:       "test.page",
+		DraftRevision: &revision,
+		Type:          spec.PageTypeOperation,
+		Title:         map[string]string{"zh-CN": "  ", "en-US": ""},
+		Category: spec.PageCategorySpec{
+			Key:    "test",
+			Labels: spec.LocalizedText{"zh-CN": "测试分类", "en-US": "测试分类 en"},
+		},
+		Operation: testOperationPageSpec(),
+		Bindings:  testPageBindings(),
+	})
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "category.labels must include zh-CN and en-US locales")
+	assert.Contains(t, err.Error(), "title must include a non-empty value in at least one locale")
+}
+
+func TestServiceSaveDraftRejectsEmptyCategoryLabels(t *testing.T) {
+	service, ctx, _ := newPageTestService(t, "pages:edit")
+	revision := 0
+
+	_, err := service.SaveDraft(ctx, &PageSaveRequest{
+		PageKey:       "test.page",
+		DraftRevision: &revision,
+		Type:          spec.PageTypeOperation,
+		Title:         map[string]string{"zh-CN": "测试", "en-US": "测试 en"},
+		Category: spec.PageCategorySpec{
+			Key:    "test",
+			Labels: spec.LocalizedText{"zh-CN": " ", "en-US": ""},
+		},
+		Operation: testOperationPageSpec(),
+		Bindings:  testPageBindings(),
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "category.labels must include a non-empty value in at least one locale")
 }
 
 func TestServiceSaveDraftRejectsNilDraftRevision(t *testing.T) {
@@ -688,11 +729,13 @@ func TestCountErrorsV2(t *testing.T) {
 	assert.Equal(t, 2, countErrors(diags))
 }
 
+// T12 放宽：任一 locale 非空即过（默认名称必填、翻译可选）。
 func TestHasDefaultLocaleV2(t *testing.T) {
 	assert.False(t, hasDefaultLocale(nil))
 	assert.False(t, hasDefaultLocale(spec.LocalizedText{}))
-	assert.False(t, hasDefaultLocale(spec.LocalizedText{"zh-CN": "  "}))
-	assert.False(t, hasDefaultLocale(spec.LocalizedText{"zh-CN": "测试"}), "仅 zh-CN 缺 en-US 不满足双语言契约")
+	assert.False(t, hasDefaultLocale(spec.LocalizedText{"zh-CN": "  ", "en-US": " "}))
+	assert.True(t, hasDefaultLocale(spec.LocalizedText{"zh-CN": "测试"}), "仅 zh-CN 即满足")
+	assert.True(t, hasDefaultLocale(spec.LocalizedText{"en-US": "Test"}), "仅 en-US 的存量形态也满足")
 	assert.True(t, hasDefaultLocale(spec.LocalizedText{"zh-CN": "测试", "en-US": "Test"}))
 }
 

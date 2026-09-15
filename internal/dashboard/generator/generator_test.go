@@ -311,16 +311,18 @@ func TestLocalizedTitle(t *testing.T) {
 		expected spec.LocalizedText
 	}{
 		{
-			// 标题必须双写 zh-CN+en-US（发布校验双必填），词条缺失时
-			// humanize 兜底值同时落入两个必填 locale
+			// T12 放宽：标题 humanize 兜底只写默认 locale（zh-CN 缺失时
+			// 才补位），不再强制补写 en-US；category 兜底仍走
+			// localizedTitleFallback 双写以便词条补录翻译后各语言命中
 			name:     "with locale",
 			op:       spec.OperationSpec{FunctionID: "player.ban"},
 			pageKey:  "ops",
 			locale:   "zh-CN",
-			expected: spec.LocalizedText{"zh-CN": "Player Ban", "en-US": "Player Ban"},
+			expected: spec.LocalizedText{"zh-CN": "Player Ban"},
 		},
 		{
-			name:    "summary 单 locale 补齐双写",
+			// zh-CN 缺失时取任意既有值补位（第一推荐语言不空）
+			name:    "summary 缺 zh-CN 时补位",
 			op:      spec.OperationSpec{FunctionID: "player.ban"},
 			pageKey: "ops",
 			locale:  "en-US",
@@ -331,6 +333,19 @@ func TestLocalizedTitle(t *testing.T) {
 			},
 			expected: spec.LocalizedText{"en-US": "Ban a player", "zh-CN": "Ban a player"},
 		},
+		{
+			// T12 放宽：zh-CN summary 不再强制补写 en-US，单 locale 直接透传
+			name:    "summary 仅 zh-CN 不补 en-US",
+			op:      spec.OperationSpec{FunctionID: "player.ban"},
+			pageKey: "ops",
+			locale:  "zh-CN",
+			opts: GenerateOptions{
+				Functions: map[string]spec.FunctionSpec{
+					"player.ban": {Summary: spec.LocalizedText{"zh-CN": "封禁玩家"}},
+				},
+			},
+			expected: spec.LocalizedText{"zh-CN": "封禁玩家"},
+		},
 	}
 
 	for _, tt := range tests {
@@ -339,6 +354,30 @@ func TestLocalizedTitle(t *testing.T) {
 			assert.Equal(t, tt.expected, result)
 		})
 	}
+}
+
+// T12 放宽后的形态规整：空白值剔除、zh-CN 缺失补位、不再强制补写 en-US。
+func TestEnsureDefaultLocale(t *testing.T) {
+	// 空输入与全空白输入返回空 map
+	assert.Empty(t, ensureDefaultLocale(nil))
+	assert.Empty(t, ensureDefaultLocale(spec.LocalizedText{"zh-CN": "  ", "en-US": ""}))
+	// 单 zh-CN 直接透传，不补写 en-US
+	assert.Equal(t,
+		spec.LocalizedText{"zh-CN": "封禁玩家"},
+		ensureDefaultLocale(spec.LocalizedText{"zh-CN": "封禁玩家", "en-US": " "}),
+	)
+	// zh-CN 缺失时取任意既有值补位（map 无序，断言值等于集合中某值且补位生效）
+	got := ensureDefaultLocale(spec.LocalizedText{"en-US": "Ban a player"})
+	assert.Equal(t, "Ban a player", got["zh-CN"])
+	assert.Equal(t, "Ban a player", got["en-US"])
+	// 已有双 key 的不删除也不覆盖
+	got = ensureDefaultLocale(spec.LocalizedText{"zh-CN": "封禁玩家", "en-US": "Ban a player"})
+	assert.Equal(t, spec.LocalizedText{"zh-CN": "封禁玩家", "en-US": "Ban a player"}, got)
+	// 其他语言单 locale 也透传（非 zh-CN 且值来自任意 locale）
+	got = ensureDefaultLocale(spec.LocalizedText{"ja-JP": "プレイヤー禁止"})
+	assert.Equal(t, "プレイヤー禁止", got["ja-JP"])
+	assert.Equal(t, "プレイヤー禁止", got["zh-CN"], "zh-CN 由任意既有值补位")
+	assert.Len(t, got, 2)
 }
 
 func TestExecutionModeForOperation(t *testing.T) {

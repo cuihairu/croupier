@@ -123,13 +123,14 @@ func TestDiagnosticsFromJSONV5_InvalidJSON(t *testing.T) {
 // hasDefaultLocale
 // ---------------------------------------------------------------------------
 
+// T12 放宽：任一 locale 非空即过（默认名称必填、翻译可选）。
 func TestHasDefaultLocaleV5(t *testing.T) {
 	assert.False(t, hasDefaultLocale(nil))
 	assert.False(t, hasDefaultLocale(map[string]string{}))
-	assert.False(t, hasDefaultLocale(map[string]string{"zh-CN": "  "}))
-	assert.False(t, hasDefaultLocale(map[string]string{"zh-CN": "ok"}), "仅 zh-CN 缺 en-US 不满足双语言契约")
+	assert.False(t, hasDefaultLocale(map[string]string{"zh-CN": "  ", "en-US": " "}))
+	assert.True(t, hasDefaultLocale(map[string]string{"zh-CN": "ok"}), "仅 zh-CN 即满足")
 	assert.True(t, hasDefaultLocale(map[string]string{"zh-CN": "ok", "en-US": "ok en"}))
-	assert.False(t, hasDefaultLocale(map[string]string{"en-US": "ok"}), "仅 en-US 缺 zh-CN 不满足双语言契约")
+	assert.True(t, hasDefaultLocale(map[string]string{"en-US": "ok"}), "仅 en-US 的存量形态也满足")
 }
 
 // ---------------------------------------------------------------------------

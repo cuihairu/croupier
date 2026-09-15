@@ -633,7 +633,9 @@ func TestHasDefaultLocaleV2(t *testing.T) {
 	assert.False(t, hasDefaultLocale(nil))
 	assert.False(t, hasDefaultLocale(map[string]string{}))
 	assert.False(t, hasDefaultLocale(map[string]string{"zh-CN": "  "}))
+	assert.False(t, hasDefaultLocale(map[string]string{"zh-CN": " ", "en-US": ""}))
 	assert.True(t, hasDefaultLocale(map[string]string{"zh-CN": "标题"}))
+	assert.True(t, hasDefaultLocale(map[string]string{"en-US": "Title"}))
 }
 
 func TestLocalizedTextEqualV2(t *testing.T) {

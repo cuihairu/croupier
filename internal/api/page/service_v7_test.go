@@ -181,13 +181,14 @@ func TestNormalizeLocaleKeys_V7(t *testing.T) {
 	}
 }
 
-// --- hasDefaultLocale ---
+// --- hasDefaultLocale（T12 放宽：任一 locale 非空即过）---
 func TestHasDefaultLocale_V7(t *testing.T) {
 	assert.False(t, hasDefaultLocale(nil))
 	assert.False(t, hasDefaultLocale(spec.LocalizedText{}))
-	assert.False(t, hasDefaultLocale(spec.LocalizedText{"zh-CN": "你好"}), "仅 zh-CN 缺 en-US 不满足双语言契约")
+	assert.False(t, hasDefaultLocale(spec.LocalizedText{"zh-CN": "  ", "en-US": " "}))
+	assert.True(t, hasDefaultLocale(spec.LocalizedText{"zh-CN": "你好"}), "仅 zh-CN 即满足")
 	assert.True(t, hasDefaultLocale(spec.LocalizedText{"zh-CN": "你好", "en-US": "Hello"}))
-	assert.False(t, hasDefaultLocale(spec.LocalizedText{"en-US": "Hello"}), "仅 en-US 缺 zh-CN 不满足双语言契约")
+	assert.True(t, hasDefaultLocale(spec.LocalizedText{"en-US": "Hello"}), "仅 en-US 的存量形态也满足")
 }
 
 // --- localizedTextEqual ---

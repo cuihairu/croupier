@@ -155,13 +155,22 @@ func TestPageFlow_HandlerNotFoundAndValidation(t *testing.T) {
 	_, err = env.service.SaveDraft(env.ctx, &req)
 	require.Error(t, err)
 
+	// T12 放宽：仅 en-US（存量形态）可通过；全空白仍拒。
 	req = base()
 	req.Title = map[string]string{"en-US": "only english"}
-	_, err = env.service.SaveDraft(env.ctx, &req)
-	require.Error(t, err)
+	resp, err := env.service.SaveDraft(env.ctx, &req)
+	require.NoError(t, err)
 
 	req = base()
+	rev = resp.DraftRevision
+	req.DraftRevision = &rev
 	req.Category.Labels = spec.LocalizedText{"en-US": "english"}
+	_, err = env.service.SaveDraft(env.ctx, &req)
+	require.NoError(t, err)
+
+	req = base()
+	req.DraftRevision = &rev
+	req.Title = map[string]string{"zh-CN": " ", "en-US": ""}
 	_, err = env.service.SaveDraft(env.ctx, &req)
 	require.Error(t, err)
 

@@ -40,6 +40,7 @@ func TestNormalizeLocalizedText(t *testing.T) {
 	}
 }
 
+// T12 放宽：任一 locale 非空即过（默认名称必填、翻译可选）。
 func TestHasDefaultLocale(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -48,9 +49,10 @@ func TestHasDefaultLocale(t *testing.T) {
 	}{
 		{"nil", nil, false},
 		{"empty", map[string]string{}, false},
-		{"no zh-CN", map[string]string{"en-US": "player"}, false},
+		{"en-US only", map[string]string{"en-US": "player"}, true},
 		{"zh-CN empty", map[string]string{"zh-CN": ""}, false},
 		{"zh-CN whitespace", map[string]string{"zh-CN": "  "}, false},
+		{"all whitespace", map[string]string{"zh-CN": "  ", "en-US": " "}, false},
 		{"zh-CN present", map[string]string{"zh-CN": "玩家"}, true},
 	}
 	for _, tt := range tests {

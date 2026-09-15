@@ -730,11 +730,12 @@ func categoryForOperation(functionID string, locale string, terms TermDictionary
 	}
 }
 
-// ensureBilingual 把任意来源的 LocalizedText（SDK Summary、词条、humanize
-// 兜底）补齐为 zh-CN+en-US 双必填形态：上游可能只带请求 locale 单键，
-// 直接透传会卡在发布校验（title must include zh-CN and en-US locales）。
-// 缺失的必填 locale 用已有序位最高的值补位，词条字典补录翻译后自然覆盖。
-func ensureBilingual(text spec.LocalizedText) spec.LocalizedText {
+// ensureDefaultLocale 把任意来源的 LocalizedText（SDK Summary、词条、
+// humanize 兜底）规整为「默认名称必填、翻译可选」形态（T12）：空白值
+// 剔除；zh-CN（第一推荐展示语言）缺失时取任意既有值补位，其余 locale
+// 不再强制补写——仅有其他语言的文本直接透传，发布校验按任一非空放行。
+// 已有双 key 的不删除，词条字典补录翻译后自然覆盖。
+func ensureDefaultLocale(text spec.LocalizedText) spec.LocalizedText {
 	out := make(spec.LocalizedText, len(text))
 	for k, v := range text {
 		if strings.TrimSpace(v) != "" {
@@ -751,9 +752,6 @@ func ensureBilingual(text spec.LocalizedText) spec.LocalizedText {
 			break
 		}
 	}
-	if _, ok := out["en-US"]; !ok {
-		out["en-US"] = out["zh-CN"]
-	}
 	return out
 }
 
@@ -766,14 +764,15 @@ func ensureBilingual(text spec.LocalizedText) spec.LocalizedText {
 // 字典（/system/foundation/terms）补录翻译后各语言才能各自命中。
 func localizedKeyLabels(key string, locale string, domain string, terms TermDictionary) spec.LocalizedText {
 	if text, ok := terms.Lookup(domain, key); ok && len(text) > 0 {
-		return ensureBilingual(text)
+		return ensureDefaultLocale(text)
 	}
 	return localizedTitleFallback(key, locale)
 }
 
 // localizedTitleFallback humanizes a raw key into a multi-locale LocalizedText:
-// the humanized label is written into zh-CN and en-US (the two mandatory
-// display locales) plus the requested locale when it differs.
+// the humanized label is written into zh-CN and en-US (natural bilingual
+// fallback data, not a publish requirement) plus the requested locale when
+// it differs.
 func localizedTitleFallback(key string, locale string) spec.LocalizedText {
 	label := fallbackLabel(key)
 	if label == "" {
@@ -789,17 +788,17 @@ func localizedTitleFallback(key string, locale string) spec.LocalizedText {
 func localizedTitle(op spec.OperationSpec, pageKey string, locale string, opts GenerateOptions) spec.LocalizedText {
 	if fn, ok := opts.Functions[op.FunctionID]; ok {
 		if summary := strings.TrimSpace(fn.Summary[locale]); summary != "" {
-			return ensureBilingual(spec.LocalizedText{locale: summary})
+			return ensureDefaultLocale(spec.LocalizedText{locale: summary})
 		}
 	}
 	fallbackKey := firstNonEmpty(op.Operation, op.FunctionID, pageKey)
 	if text, ok := opts.Terms.Lookup("operation", op.Operation); ok && len(text) > 0 {
-		return ensureBilingual(text)
+		return ensureDefaultLocale(text)
 	}
 	if text, ok := opts.Terms.Lookup("resource", fallbackKey); ok && len(text) > 0 {
-		return ensureBilingual(text)
+		return ensureDefaultLocale(text)
 	}
-	return ensureBilingual(spec.LocalizedText{
+	return ensureDefaultLocale(spec.LocalizedText{
 		locale: fallbackLabel(fallbackKey),
 	})
 }

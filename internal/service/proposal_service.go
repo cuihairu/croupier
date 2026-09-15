@@ -928,13 +928,13 @@ func validateAcceptedPageSpec(gameID, env string, proposal *model.PageProposal, 
 		details["type"] = "type must be resource, operation, task, or report"
 	}
 	if !hasDefaultLocale(page.Title) {
-		details["title"] = "title must include zh-CN and en-US locales"
+		details["title"] = "title must include a non-empty value in at least one locale"
 	}
 	if strings.TrimSpace(page.Category.Key) == "" {
 		details["category.key"] = "category.key is required"
 	}
 	if !hasDefaultLocale(page.Category.Labels) {
-		details["category.labels"] = "category.labels must include zh-CN and en-US locales"
+		details["category.labels"] = "category.labels must include a non-empty value in at least one locale"
 	}
 	if len(page.Bindings) == 0 {
 		details["bindings"] = "page must bind at least one function"
@@ -1179,8 +1179,18 @@ func normalizeLocalizedText(input map[string]string) map[string]string {
 	return out
 }
 
+// hasDefaultLocale 默认名称必填、翻译可选（T12）：任一 locale 非空即过，
+// 仅有 en-US 的存量页面不被误拒；全空拒绝。
 func hasDefaultLocale(labels map[string]string) bool {
-	return labels != nil && strings.TrimSpace(labels["zh-CN"]) != ""
+	if labels == nil {
+		return false
+	}
+	for _, value := range labels {
+		if strings.TrimSpace(value) != "" {
+			return true
+		}
+	}
+	return false
 }
 
 func localizedTextEqual(left map[string]string, right map[string]string) bool {

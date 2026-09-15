@@ -518,10 +518,13 @@ func TestValidatePublishableReportPage_MetricTypeInvalid(t *testing.T) {
 	assertHasDiagnosticCode(t, diags, "report_metric_type_invalid")
 }
 
+// T12 放宽：任一 locale 非空即过（默认名称必填、翻译可选）；key 规范化
+// （短 key 归一）是上游 normalizeLocaleKeys 的职责，此处只校验形态。
 func TestHasDefaultLocale(t *testing.T) {
 	assert.True(t, hasDefaultLocale(LocalizedText{"zh-CN": "测试"}))
-	assert.False(t, hasDefaultLocale(LocalizedText{"en": "test"}))
-	assert.False(t, hasDefaultLocale(LocalizedText{"zh-CN": "  "})) // whitespace only
+	assert.True(t, hasDefaultLocale(LocalizedText{"en-US": "test"}))
+	assert.True(t, hasDefaultLocale(LocalizedText{"en": "test"}))
+	assert.False(t, hasDefaultLocale(LocalizedText{"zh-CN": "  ", "en-US": " "})) // whitespace only
 	assert.False(t, hasDefaultLocale(nil))
 }
 
