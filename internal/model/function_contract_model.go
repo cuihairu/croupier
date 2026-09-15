@@ -53,7 +53,10 @@ func (m *FunctionContractModel) UpsertContract(ctx context.Context, contract *Fu
 // 反映新文案）；schema 用 canonical JSON（键序/空格形态差异不算
 // 变化——六语言 SDK 各自序列化同 schema 字节不同），JSONMap 走
 // 零值归一（nil 与 {required:false} 等价）。Diagnostics 属注册期
-// 质检快照，轮换不构成契约变化，不参与。
+// 质检快照，轮换不构成契约变化，不参与。ExecutionState 参与比较
+// （D2/T6）：执行状态翻转（unbound→bound 自动绑定）必须落库，不能
+// 被「内容无变化」跳过——但它在 digest 序列里被 json:"-" 排除，翻转
+// 不会扰动下游 freshness/proposal。
 func contractSemanticallyEqual(a, b *FunctionContract) bool {
 	if a == nil || b == nil {
 		return false
@@ -61,6 +64,7 @@ func contractSemanticallyEqual(a, b *FunctionContract) bool {
 	return a.Version == b.Version &&
 		a.Enabled == b.Enabled &&
 		a.Deprecated == b.Deprecated &&
+		a.ExecutionState == b.ExecutionState &&
 		a.ResourceKey == b.ResourceKey &&
 		a.OperationKey == b.OperationKey &&
 		a.Capability == b.Capability &&

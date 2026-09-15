@@ -84,6 +84,8 @@ const (
 	EventOpenAPISourceUpdate        AuditEventType = "openapi_source.update"
 	EventOpenAPISourceBindingCreate AuditEventType = "openapi_source.binding_create"
 	EventOpenAPISourceBindingDelete AuditEventType = "openapi_source.binding_delete"
+	// EventOpenAPISourceBindingAuto 运行时注册命中 unbound 契约自动置 bound（D3/T6）
+	EventOpenAPISourceBindingAuto AuditEventType = "openapi_source.binding_auto"
 
 	// Configuration events
 	EventConfigCreate        AuditEventType = "config.create"
@@ -517,6 +519,7 @@ func (s *AuditService) inferCategory(eventType AuditEventType) AuditCategory {
 		EventPageUnpublish, EventPageRollback, EventPageExecute,
 		EventOpenAPISourceCreate, EventOpenAPISourceBindingCreate,
 		EventOpenAPISourceUpdate, EventOpenAPISourceBindingDelete,
+		EventOpenAPISourceBindingAuto,
 		EventConfigUpdate, EventConfigEmergencyEdit,
 		EventConfigSourceChange:
 		return CategoryOperational

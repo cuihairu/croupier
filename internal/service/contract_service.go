@@ -139,6 +139,26 @@ func (s *ContractService) rebuildContract(ctx context.Context, gameID, env, sour
 		return fmt.Errorf("function contract contains forbidden presentation field %q at %s", violation.Field, violation.Location)
 	}
 
+	// D3/T6 自动绑定：bound 注册路径（运行时/SDK/显式 provider 绑定）命中
+	// 同 (game_id, env, function_id) 的 unbound 契约时，先回补运行时元数据
+	// 缺失的分类字段再按 bound 落库（OpenAPI 上传是富分类来源，SDK 注册常
+	// 只带 schema——与 functionMetaInputForBinding 的「OpenAPI 优先、运行时
+	// 兜底」同一取舍）。查询失败不阻断注册（跳过自动绑定与 schema diff，
+	// 与既有容错一致）。模板/提案 freshness 走既有 digest 门控：回补/运行时
+	// schema 变化即重算；内容完全一致时无谓重算被跳过（心跳风暴防护）。
+	existing, err := s.contractModel.FindByScopeAndFunctionID(ctx, gameID, env, input.ID)
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		slog.Warn("auto-bind: failed to load existing contract",
+			"game_id", gameID, "env", env, "function_id", input.ID, "error", err)
+		existing = nil
+	}
+	autoBound := existing != nil &&
+		executionState == spec.ExecutionStateBound &&
+		spec.NormalizeExecutionState(existing.ExecutionState) == spec.ExecutionStateUnbound
+	if autoBound {
+		backfillInputFromClassification(&input, existing)
+	}
+
 	// 1. Normalize the descriptor
 	normInput := normalizer.DescriptorInput{
 		ID:                input.ID,
@@ -202,7 +222,8 @@ func (s *ContractService) rebuildContract(ctx context.Context, gameID, env, sour
 
 	// 4. Schema 兼容性 diff（F12）：与库中现有契约对比，破坏性变更
 	// 写入 Diagnostics 告警（不阻断注册，由告警/可视化层消费）。
-	diagnostics, diffFindings, isUpdate, existing := mergeSchemaDiffDiagnostics(ctx, s.contractModel, gameID, env, input.ID, contract, toJSON(result.Diagnostics))
+	// existing 由函数入口统一加载（T6 自动绑定检测复用同一查询）。
+	diagnostics, diffFindings, isUpdate := mergeSchemaDiffDiagnostics(existing, contract, toJSON(result.Diagnostics))
 	// 契约更新时把上一版 schema 存入 prev 列——sync-selectors 的 rename
 	// 精确推断依赖它；schema 未变的重注册在 UpsertContract 内被跳过，
 	// prev 不会被无意义刷新。
@@ -240,7 +261,106 @@ func (s *ContractService) rebuildContract(ctx context.Context, gameID, env, sour
 		regenerateTemplatesForScope(ctx, gameID, env, input.ID, source)
 	}
 
+	// D3/T6：unbound→bound 翻转落库后写自动绑定审计事件（失败不阻塞）。
+	if autoBound {
+		s.logAutoBindingAudit(ctx, gameID, env, source, input.ID, existing)
+	}
+
 	return nil
+}
+
+// backfillInputFromClassification 用既有 unbound 契约（OpenAPI 上传物料）
+// 回补运行时注册入参中缺失的分类字段（D3/T6）：schema/分类以运行时与
+// 上传物料中非空一方为准——运行时 schema 是真实 I/O 契约，OpenAPI 分类
+// （resource/capability/risk/permission/approval）驱动页面生成与风控，
+// 两边谁有值用谁，均空保持空。Summary 回补保证提案标题不退化。
+func backfillInputFromClassification(input *spec.FunctionContractInput, existing *model.FunctionContract) {
+	if input == nil || existing == nil {
+		return
+	}
+	if strings.TrimSpace(input.Resource) == "" {
+		input.Resource = strings.TrimSpace(existing.ResourceKey)
+	}
+	if strings.TrimSpace(input.Operation) == "" {
+		input.Operation = strings.TrimSpace(existing.OperationKey)
+	}
+	if strings.TrimSpace(input.Capability) == "" {
+		input.Capability = existing.Capability.String()
+	}
+	if strings.TrimSpace(input.Execution) == "" {
+		input.Execution = strings.TrimSpace(existing.Execution)
+	}
+	if strings.TrimSpace(input.Risk) == "" {
+		input.Risk = existing.Risk.String()
+	}
+	if strings.TrimSpace(input.Permission) == "" {
+		input.Permission = strings.TrimSpace(existing.Permission)
+	}
+	if !input.ApprovalRequired {
+		input.ApprovalRequired = existing.Approval["required"] == true
+	}
+	if strings.TrimSpace(input.ApprovalPolicyKey) == "" {
+		if policyKey, ok := existing.Approval["policyKey"].(string); ok {
+			input.ApprovalPolicyKey = strings.TrimSpace(policyKey)
+		}
+	}
+	if strings.TrimSpace(input.Summary) == "" {
+		input.Summary = localizedStringFromJSONMap(existing.Summary)
+	}
+	if strings.TrimSpace(input.InputSchema) == "" {
+		input.InputSchema = strings.TrimSpace(string(existing.InputSchema))
+	}
+	if strings.TrimSpace(input.OutputSchema) == "" {
+		input.OutputSchema = strings.TrimSpace(string(existing.OutputSchema))
+	}
+}
+
+// localizedStringFromJSONMap 从契约行的 Summary/Description JSONMap
+// （LocalizedText 形态）提取展示文案：优先系统默认语言，其次 en-US，
+// 任意非空值兜底。
+func localizedStringFromJSONMap(m datatypes.JSONMap) string {
+	if len(m) == 0 {
+		return ""
+	}
+	for _, locale := range []string{"zh-CN", "en-US"} {
+		if v, ok := m[locale].(string); ok && strings.TrimSpace(v) != "" {
+			return strings.TrimSpace(v)
+		}
+	}
+	for _, v := range m {
+		if s, ok := v.(string); ok && strings.TrimSpace(s) != "" {
+			return strings.TrimSpace(s)
+		}
+	}
+	return ""
+}
+
+// logAutoBindingAudit D3/T6：unbound 契约被运行时注册自动置 bound 时写
+// openapi_source.binding_auto 审计事件；audit 服务未注入或写入失败不影响
+// 注册主流程。
+func (s *ContractService) logAutoBindingAudit(ctx context.Context, gameID, env, source, functionID string, previous *model.FunctionContract) {
+	if s.auditSvc == nil {
+		return
+	}
+	details := map[string]interface{}{
+		"gameId":         gameID,
+		"env":            env,
+		"functionId":     functionID,
+		"source":         source,
+		"previousState":  string(spec.ExecutionStateUnbound),
+		"executionState": string(spec.ExecutionStateBound),
+	}
+	if previous != nil {
+		details["materialSource"] = previous.Source
+	}
+	if _, err := s.auditSvc.Log(ctx, audit.EventOpenAPISourceBindingAuto,
+		audit.WithResourceID("function_contract", functionID),
+		audit.WithActorID("system", "system", "Contract Rebuild"),
+		audit.WithDetails(details),
+	); err != nil {
+		slog.Warn("failed to write openapi_source.binding_auto audit",
+			"game_id", gameID, "env", env, "function_id", functionID, "error", err)
+	}
 }
 
 // logContractUpdateAudit 在契约更新（非首次注册）时写审计事件；audit 服务
@@ -878,30 +998,24 @@ func toJSON(v interface{}) model.JSON {
 // mergeSchemaDiffDiagnostics 在契约 upsert 前对比库中现有契约的
 // input/output schema：破坏性变更（F12）作为 Diagnostic 追加到现有
 // diagnostics 之后；无现有契约（首次注册）或非破坏性差异时原样返回。
-// 同时返回全部 findings、是否为更新（供 F13 审计消费）与 existing 行
-// （供调用方拷贝 prev schema；首次注册为 nil）。
+// existing 由调用方（rebuildContract）加载传入——T6 自动绑定检测与
+// 本 diff 复用同一查询；返回全部 findings 与是否为更新（供 F13 审计
+// 消费）。
 func mergeSchemaDiffDiagnostics(
-	ctx context.Context,
-	contractModel *model.FunctionContractModel,
-	gameID, env, functionID string,
+	existing *model.FunctionContract,
 	contract *model.FunctionContract,
 	base model.JSON,
-) (model.JSON, []schemadiff.Finding, bool, *model.FunctionContract) {
-	existing, err := contractModel.FindByScopeAndFunctionID(ctx, gameID, env, functionID)
-	if err != nil {
-		// 首次注册（not found）或查询失败都不阻断；查询异常记录后跳过
-		if !errors.Is(err, gorm.ErrRecordNotFound) {
-			slog.Warn("schema diff: failed to load existing contract",
-				"game_id", gameID, "env", env, "function_id", functionID, "error", err)
-		}
-		return base, nil, false, nil
+) (model.JSON, []schemadiff.Finding, bool) {
+	if existing == nil {
+		// 首次注册：无对比对象，跳过 diff
+		return base, nil, false
 	}
 
 	findings := schemadiff.DiffSchemas("inputSchema", json.RawMessage(existing.InputSchema), json.RawMessage(contract.InputSchema))
 	findings = append(findings,
 		schemadiff.DiffSchemas("outputSchema", json.RawMessage(existing.OutputSchema), json.RawMessage(contract.OutputSchema))...)
 	if !schemadiff.HasBreaking(findings) {
-		return base, findings, true, existing
+		return base, findings, true
 	}
 
 	// 现有 diagnostics（数组）之上追加 schema diff 条目
@@ -920,7 +1034,7 @@ func mergeSchemaDiffDiagnostics(
 			"field":    finding.Source,
 		})
 	}
-	return toJSON(diags), findings, true, existing
+	return toJSON(diags), findings, true
 }
 
 func toJSONMap(m spec.LocalizedText) datatypes.JSONMap {

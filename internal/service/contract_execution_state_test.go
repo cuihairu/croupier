@@ -60,13 +60,15 @@ func TestContractRegistrationWritesBound(t *testing.T) {
 	assert.Equal(t, string(spec.ExecutionStateBound), stored.ExecutionState,
 		"注册即存在可执行后端，新契约必须写 bound")
 
-	// 模拟 T4 产物：行翻转为 unbound 后，同 schema 重注册不得回写覆盖。
+	// 模拟 T4 产物：行翻转为 unbound 后，重注册按 T6 自动绑定翻转回 bound
+	//（ExecutionState 参与 contractSemanticallyEqual——状态变化不被
+	//「内容无变化跳过写」吞掉；digest 仍不含状态列，下游零扰动）。
 	require.NoError(t, db.Exec("UPDATE function_contracts SET execution_state = 'unbound' WHERE function_id = 'player.get'").Error)
 	require.NoError(t, svc.RebuildContractFromFunctionMeta(ctx, "g-t3", "e-t3", "agent-1", t2ContractInput("player.get")))
 	stored, err = contractModel.FindByScopeAndFunctionID(ctx, "g-t3", "e-t3", "player.get")
 	require.NoError(t, err)
-	assert.Equal(t, string(spec.ExecutionStateUnbound), stored.ExecutionState,
-		"schema 未变的重注册跳过写入，unbound 保持（翻转属 T6 自动绑定）")
+	assert.Equal(t, string(spec.ExecutionStateBound), stored.ExecutionState,
+		"T6 自动绑定：同 schema 重注册也必须把 unbound 行翻转为 bound")
 }
 
 // T3 验收：投影层透传 executionState，存量行空值归一为 bound（迁移
