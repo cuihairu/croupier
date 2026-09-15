@@ -114,13 +114,26 @@ func (s *Service) CreateSource(ctx context.Context, req *OpenAPISourceCreateRequ
 	_ = modelSource.SetDiagnostics(parsed.Diagnostics)
 	// T4/D4：源落库与 unbound 契约生成同事务——上传即成页的契约侧入口，
 	// 无运行时函数的 operation 直接成为物料（不再要求前置注册/绑定）。
+	// T5：事务前启动摘要基线快照，事务提交后收尾模板/提案联动并产出摘要。
+	tracker, err := s.startUploadPipelineTracker(ctx, gameID, env, parsed)
+	if err != nil {
+		spanErr = err
+		return nil, err
+	}
+	var created []dashboardservice.FunctionMetaInput
 	if err := s.scopedTransaction(ctx, func(txCtx context.Context) error {
 		if err := s.svcCtx.OpenAPISourceModel.Create(txCtx, modelSource); err != nil {
 			return err
 		}
-		_, err := s.createUnboundContractsForSource(txCtx, gameID, env, modelSource, parsed.Operations, nil)
+		var err error
+		created, err = s.createUnboundContractsForSource(txCtx, gameID, env, modelSource, parsed.Operations, nil)
 		return err
 	}); err != nil {
+		spanErr = err
+		return nil, err
+	}
+	summary, err := s.finishUploadPipeline(ctx, gameID, env, modelSource.SourceID, tracker, created)
+	if err != nil {
 		spanErr = err
 		return nil, err
 	}
@@ -130,17 +143,23 @@ func (s *Service) CreateSource(ctx context.Context, req *OpenAPISourceCreateRequ
 		attribute.String("openapi_source.format", modelSource.Format),
 		attribute.Int("openapi_source.operation_count", len(parsed.Operations)),
 		attribute.Int("openapi_source.diagnostic_count", len(parsed.Diagnostics)),
+		attribute.Int("openapi_source.contracts_created", summary.ContractsCreated),
+		attribute.Int("openapi_source.templates_updated", summary.TemplatesUpdated),
+		attribute.Int("openapi_source.proposals_created", summary.ProposalsCreated),
 	)
 	finishSpan = func(error, ...attribute.KeyValue) {}
 	s.auditSourceEvent(ctx, audit.EventOpenAPISourceCreate, gameID, env, modelSource.SourceID, modelSource.Name, map[string]interface{}{
-		"revision":         modelSource.Revision,
-		"format":           modelSource.Format,
-		"openapi_version":  modelSource.OpenAPIVersion,
-		"operation_count":  len(parsed.Operations),
-		"diagnostic_count": len(parsed.Diagnostics),
-		"content_hash":     modelSource.ContentHash,
+		"revision":          modelSource.Revision,
+		"format":            modelSource.Format,
+		"openapi_version":   modelSource.OpenAPIVersion,
+		"operation_count":   len(parsed.Operations),
+		"diagnostic_count":  len(parsed.Diagnostics),
+		"content_hash":      modelSource.ContentHash,
+		"contracts_created": summary.ContractsCreated,
+		"templates_updated": summary.TemplatesUpdated,
+		"proposals_created": summary.ProposalsCreated,
 	})
-	return &OpenAPISourceGetResponse{Source: sourceDetailFromModel(modelSource, nil)}, nil
+	return &OpenAPISourceGetResponse{Source: sourceDetailFromModel(modelSource, nil), Summary: summary}, nil
 }
 
 func (s *Service) UpdateSource(ctx context.Context, req *OpenAPISourceUpdateRequest) (*OpenAPISourceGetResponse, error) {
@@ -188,12 +207,21 @@ func (s *Service) UpdateSource(ctx context.Context, req *OpenAPISourceUpdateRequ
 		return nil, err
 	}
 	// T4/D4：源更新与 unbound 契约生成同事务（既有 provider 绑定的重建
-	// 路径保持原时序，在事务提交后执行）。
+	// 路径保持原时序，在事务提交后执行）。T5：事务前启动摘要基线快照，
+	// 事务提交后收尾模板/提案联动并产出摘要（快照覆盖 unbound 与 bound
+	// 两条路径的全部产出）。
+	tracker, err := s.startUploadPipelineTracker(ctx, gameID, env, parsed)
+	if err != nil {
+		spanErr = err
+		return nil, err
+	}
+	var created []dashboardservice.FunctionMetaInput
 	if err := s.scopedTransaction(ctx, func(txCtx context.Context) error {
 		if err := s.svcCtx.OpenAPISourceModel.Update(txCtx, source); err != nil {
 			return err
 		}
-		_, err := s.createUnboundContractsForSource(txCtx, gameID, env, source, parsed.Operations, bindings)
+		var err error
+		created, err = s.createUnboundContractsForSource(txCtx, gameID, env, source, parsed.Operations, bindings)
 		return err
 	}); err != nil {
 		spanErr = err
@@ -203,11 +231,19 @@ func (s *Service) UpdateSource(ctx context.Context, req *OpenAPISourceUpdateRequ
 		spanErr = err
 		return nil, err
 	}
+	summary, err := s.finishUploadPipeline(ctx, gameID, env, source.SourceID, tracker, created)
+	if err != nil {
+		spanErr = err
+		return nil, err
+	}
 	finishSpan(nil,
 		attribute.Int("openapi_source.revision", source.Revision),
 		attribute.String("openapi_source.format", source.Format),
 		attribute.Int("openapi_source.operation_count", len(parsed.Operations)),
 		attribute.Int("openapi_source.diagnostic_count", len(parsed.Diagnostics)),
+		attribute.Int("openapi_source.contracts_created", summary.ContractsCreated),
+		attribute.Int("openapi_source.templates_updated", summary.TemplatesUpdated),
+		attribute.Int("openapi_source.proposals_created", summary.ProposalsCreated),
 	)
 	finishSpan = func(error, ...attribute.KeyValue) {}
 	s.auditSourceEvent(ctx, audit.EventOpenAPISourceUpdate, gameID, env, source.SourceID, source.Name, map[string]interface{}{
@@ -218,8 +254,11 @@ func (s *Service) UpdateSource(ctx context.Context, req *OpenAPISourceUpdateRequ
 		"operation_count":   len(parsed.Operations),
 		"diagnostic_count":  len(parsed.Diagnostics),
 		"content_hash":      source.ContentHash,
+		"contracts_created": summary.ContractsCreated,
+		"templates_updated": summary.TemplatesUpdated,
+		"proposals_created": summary.ProposalsCreated,
 	})
-	return &OpenAPISourceGetResponse{Source: sourceDetailFromModel(source, bindings)}, nil
+	return &OpenAPISourceGetResponse{Source: sourceDetailFromModel(source, bindings), Summary: summary}, nil
 }
 
 func (s *Service) CreateSourceFromMultipart(ctx context.Context, name string, file multipart.File) (*OpenAPISourceGetResponse, error) {
@@ -550,7 +589,7 @@ func (s *Service) functionMetaInputForBinding(
 // （operationId 优先，否则 path 段拼接）——运行时后续注册同名函数时才能
 // 自动绑定（D3）。已有 provider 绑定的 operation 走既有 bound 重建路径，
 // 此处跳过；已存在契约（bound 或 unbound）不覆盖不降级（幂等）。
-// 返回新建契约数（供 T5 摘要与 span 观测）。
+// 返回本次新建契约的元信息（供 T5 提案联动与摘要计数）。
 func (s *Service) createUnboundContractsForSource(
 	ctx context.Context,
 	gameID string,
@@ -558,7 +597,7 @@ func (s *Service) createUnboundContractsForSource(
 	source *model.OpenAPISource,
 	operations []OpenAPISourceOperation,
 	bindings []model.OpenAPISourceBinding,
-) (int, error) {
+) ([]dashboardservice.FunctionMetaInput, error) {
 	boundOperations := make(map[string]bool, len(bindings))
 	for _, binding := range bindings {
 		if strings.TrimSpace(binding.Kind) == "provider" {
@@ -567,7 +606,7 @@ func (s *Service) createUnboundContractsForSource(
 	}
 	operationsByID := openAPIOperationsByID(source.GetSpec())
 	contractService := dashboardservice.NewContractService(s.svcCtx.DB)
-	created := 0
+	created := make([]dashboardservice.FunctionMetaInput, 0)
 	for _, operation := range operations {
 		operationID := strings.TrimSpace(operation.OperationID)
 		if operationID == "" {
@@ -596,15 +635,15 @@ func (s *Service) createUnboundContractsForSource(
 			return created, fmt.Errorf("create unbound contract for operation %s: %w", operationID, err)
 		}
 		if createdNew {
-			created++
+			created = append(created, meta)
 		}
 	}
-	if created > 0 {
+	if len(created) > 0 {
 		slog.InfoContext(ctx, "created unbound contracts from OpenAPI source",
 			"game_id", gameID,
 			"env", env,
 			"source_id", source.SourceID,
-			"contracts_created", created,
+			"contracts_created", len(created),
 			"operation_count", len(operations))
 	}
 	return created, nil

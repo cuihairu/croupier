@@ -101,7 +101,8 @@ func (s *ContractService) RebuildContractFromFunctionMeta(ctx context.Context, g
 // CreateUnboundContract 为上传管线生成 unbound 契约（D1/D4、T4）：仅当同
 // (game_id, env, function_id) 契约不存在时创建——已有 bound 契约的 operation
 // 不降级，重复上传幂等（仅不存在时建）。落库与注册路径共用 rebuildContract
-// （归一/digest/诊断/T2 模板联动一致），执行状态为 unbound。
+// （归一/digest/诊断一致；T2 模板联动在 unbound 路径被跳过，由上传管线
+// 提交后单次收口，见 rebuildContract 尾注），执行状态为 unbound。
 func (s *ContractService) CreateUnboundContract(ctx context.Context, gameID, env, source string, input spec.FunctionContractInput) (bool, error) {
 	gameID = strings.TrimSpace(gameID)
 	env = strings.TrimSpace(env)
@@ -231,7 +232,11 @@ func (s *ContractService) rebuildContract(ctx context.Context, gameID, env, sour
 
 	// T2/D1：契约落库/实质变更（新契约或 digest 变化）后自动重建组件模板；
 	// schema 未变的重注册不触发，避免心跳重连风暴下空转。失败不阻塞注册。
-	if existing == nil || existing.SourceDigest != digest {
+	// unbound 物料（T4 上传管线）例外：模板重建由上传管线在事务提交后
+	// 单次收口（T5 RegenerateContractTemplates）——事务内逐契约联动对
+	// 大文档是 N 次冗余全量重建，且其跨连接写全局模板表在文件型 sqlite
+	// 下必锁（写锁互等待）。bound 路径不在上传事务内，行为不变。
+	if (existing == nil || existing.SourceDigest != digest) && executionState != spec.ExecutionStateUnbound {
 		regenerateTemplatesForScope(ctx, gameID, env, input.ID, source)
 	}
 

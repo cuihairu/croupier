@@ -41,3 +41,16 @@ func regenerateTemplatesForScope(ctx context.Context, gameID, env, functionID, s
 			"err", err)
 	}
 }
+
+// RegenerateContractTemplates 显式触发指定 scope 的内置组件模板重建（同一
+// 装配期注入闭包；未注入时 no-op 返回 nil）。上传管线（api/openapi T5）在
+// 契约事务提交后调用一次：unbound 契约在事务内不触发 T2 逐契约联动（见
+// rebuildContract 尾注），提交后单次全量重建收口（幂等），且可被上传摘要
+// 计数观测。
+func RegenerateContractTemplates(ctx context.Context, gameID, env string) error {
+	r := contractTemplateRegen.Load()
+	if r == nil {
+		return nil
+	}
+	return (*r)(ctx, gameID, env)
+}

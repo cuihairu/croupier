@@ -46,8 +46,15 @@ func setupOpenAPITestServiceWithPermissions(t *testing.T, permissions ...string)
 }
 
 func setupOpenAPITestServiceWithAudit(t *testing.T, permissions ...string) (*Service, context.Context, *audit.InMemoryAuditStore) {
+	return setupOpenAPITestServiceWithDSN(t, ":memory:", permissions...)
+}
+
+// setupOpenAPITestServiceWithDSN 以指定 DSN 构建测试服务。摘要管线用例
+// 需要文件型库：T2 模板联动在事务内经独立连接写全局模板表，:memory: 下
+// 每连接是独立数据库，会得到空库假失败。
+func setupOpenAPITestServiceWithDSN(t *testing.T, dsn string, permissions ...string) (*Service, context.Context, *audit.InMemoryAuditStore) {
 	t.Helper()
-	db, err := gorm.Open(gsqlite.Open(":memory:"), &gorm.Config{})
+	db, err := gorm.Open(gsqlite.Open(dsn), &gorm.Config{})
 	if err != nil {
 		t.Fatalf("open sqlite failed: %v", err)
 	}

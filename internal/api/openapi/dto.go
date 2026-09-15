@@ -128,6 +128,27 @@ type OpenAPISourceGetRequest struct {
 
 type OpenAPISourceGetResponse struct {
 	Source OpenAPISourceDetail `json:"source"`
+	// Summary 上传即成页管线摘要（D4 后半、T5）：仅 CreateSource/
+	// UpdateSource 响应携带，GetSource 恒为 nil（wire 增量字段）。
+	Summary *OpenAPISourcePipelineSummary `json:"summary,omitempty"`
+}
+
+// OpenAPISourcePipelineSummary 上传即成页管线摘要：单请求内
+// 解析→契约→组件模板→页面提案 全链生成后的观测计数（lowerCamelCase
+// 契约命名规范）。计数口径：
+//   - Operations：文档解析出的 operation 总数；
+//   - ContractsCreated：本次上传新建的 unbound 契约数（重传幂等为 0）；
+//   - TemplatesUpdated：内容新建/变化的内置组件模板数（T2 契约联动 +
+//     提交后显式重建的合并结果，按 key→digest 快照 diff）；
+//   - ProposalsCreated：本次上传新生成的页面提案数（按 scope 提案 key
+//     快照 diff，更新不计入）；
+//   - Diagnostics：解析诊断透传（info/warning；error 级已在上传入口拒绝）。
+type OpenAPISourcePipelineSummary struct {
+	Operations       int               `json:"operations"`
+	ContractsCreated int               `json:"contractsCreated"`
+	TemplatesUpdated int               `json:"templatesUpdated"`
+	ProposalsCreated int               `json:"proposalsCreated"`
+	Diagnostics      []spec.Diagnostic `json:"diagnostics,omitempty"`
 }
 
 type OpenAPISourceDiagnosticsResponse struct {
