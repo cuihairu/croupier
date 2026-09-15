@@ -1,0 +1,27 @@
+# syntax=docker/dockerfile:1
+# examples/openapi-provider 的常驻 demo 镜像：内嵌 Agent 经 providers.yaml
+# 把自带 HTTP API（players CRUD）注册进 server，供线上演示「运行时导入」。
+# 无版本注入（示例无 Version 变量）；构建上下文为仓库根（主 Go module）。
+ARG GO_IMAGE=golang:1.26.6
+ARG RUNTIME_IMAGE=gcr.io/distroless/static:nonroot
+ARG GOPROXY_URL=https://goproxy.cn,direct
+FROM ${GO_IMAGE} AS build
+WORKDIR /src
+ARG GOPROXY_URL
+ENV GOPROXY=${GOPROXY_URL} \
+    GOFLAGS=-modcacherw
+COPY go.mod go.sum ./
+RUN --mount=type=cache,target=/go/pkg/mod go mod download
+COPY . .
+RUN --mount=type=cache,target=/root/.cache/go-build CGO_ENABLED=0 GOFLAGS=-mod=mod \
+    go build -o /out/openapi-demo ./examples/openapi-provider
+# distroless 基底无 shell 不能 mkdir；示例默认往 os.MkdirTemp（/tmp）写
+# providers.yaml，从构建段带一个 1777 的空 /tmp 过去保证 nonroot 可写。
+RUN mkdir -p /out/tmp
+
+FROM ${RUNTIME_IMAGE}
+WORKDIR /app
+COPY --from=build --chmod=1777 /out/tmp /tmp
+COPY --from=build /out/openapi-demo /app/
+# 默认参数连本机 server；compose 用 command 覆盖 -server/-game-id/-env。
+ENTRYPOINT ["/app/openapi-demo"]

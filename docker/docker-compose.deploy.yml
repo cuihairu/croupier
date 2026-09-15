@@ -383,6 +383,30 @@ services:
     networks:
       - croupier-network
 
+  # examples/openapi-provider 常驻 demo（sdk-examples profile）：内嵌 Agent
+  # 经 providers.yaml 把自带 players API 注册进 server，是 dashboard
+  # openapi-sources「运行时导入」区块的数据源。与 SDK demo 复用同一对
+  # scope 变量；上游走 haproxy 入口（与容器 agent 一致，双实例任一可用）。
+  openapi-provider-demo:
+    image: ghcr.io/${GHCR_OWNER:-cuihairu}/croupier-openapi-provider-demo:${CROUPIER_SDK_EXAMPLE_TAG:-main}
+    container_name: croupier-openapi-provider-demo
+    restart: unless-stopped
+    profiles: ["sdk-examples"]
+    command:
+      [
+        "-server",
+        "haproxy:19090",
+        "-game-id",
+        "${CROUPIER_SDK_EXAMPLE_GAME_ID:-default}",
+        "-env",
+        "${CROUPIER_SDK_EXAMPLE_ENV:-dev}",
+      ]
+    depends_on:
+      haproxy:
+        condition: service_healthy
+    networks:
+      - croupier-network
+
   # Analytics pipeline (optional): events ingestion + ClickHouse worker.
   # Enable with: docker compose --profile analytics up -d
   ingestion:
