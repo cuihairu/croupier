@@ -417,6 +417,7 @@ func registerOpenAPIRoutes(authenticated *gin.RouterGroup, svcCtx *svc.ServiceCo
 		group.POST("/batch/spec", handler.BatchGetSpec)
 		group.GET("/functions/:id/spec", handler.GetSpec)
 		group.GET("/sources", handler.ListSources)
+		group.GET("/runtime-sources", handler.RuntimeSources)
 		group.POST("/sources", handler.CreateSource)
 		group.GET("/sources/:sourceId", handler.GetSource)
 		group.PUT("/sources/:sourceId", handler.UpdateSource)

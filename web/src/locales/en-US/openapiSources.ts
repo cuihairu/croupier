@@ -19,6 +19,7 @@ export default {
   'pages.openapiSources.bindingModal.alert.message': 'Only Provider binding is currently enabled',
   'pages.openapiSources.bindingModal.button.save': 'Save binding',
   'pages.openapiSources.bindingModal.function.placeholder': 'Select a registered function',
+  'pages.openapiSources.bindingModal.function.runtimeAgent': 'Runtime import · {agent}',
   'pages.openapiSources.bindingModal.providerId.placeholder':
     'Optional; leave empty to let the runtime route by function',
   'pages.openapiSources.bindingModal.title.bindProvider': 'Bind Provider',
@@ -62,6 +63,16 @@ export default {
   'pages.openapiSources.page.subTitle':
     'Uploading OpenAPI only produces capability contracts and diagnostics; executability requires an explicitly bound Provider, and page UI is still decided in Page Studio.',
   'pages.openapiSources.parse.missingInfoObject': 'OpenAPI JSON is missing the info object',
+  'pages.openapiSources.runtime.cardDescription':
+    'Function sources registered by Agent-side providers.yaml (type: openapi), labeled with the importing agent',
+  'pages.openapiSources.runtime.cardTitle': 'Runtime Imports',
+  'pages.openapiSources.runtime.column.agent': 'Source Agent',
+  'pages.openapiSources.runtime.column.functionCount': 'Functions',
+  'pages.openapiSources.runtime.column.lastSeen': 'Last Seen',
+  'pages.openapiSources.runtime.column.provider': 'Provider',
+  'pages.openapiSources.runtime.column.version': 'Version',
+  'pages.openapiSources.runtime.empty': 'No running openapi provider in the current scope',
+  'pages.openapiSources.runtime.emptyFunctions': 'No functions',
   'pages.openapiSources.parse.missingOpenapiField': 'OpenAPI JSON is missing the openapi field',
   'pages.openapiSources.parse.mustBeObject': 'OpenAPI JSON must be an object',
   'pages.openapiSources.sourceModal.alert.description.update':

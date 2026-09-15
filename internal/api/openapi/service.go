@@ -241,6 +241,48 @@ func (s *Service) ListSources(ctx context.Context, req *OpenAPISourceListRequest
 	return &OpenAPISourceListResponse{Items: resp}, nil
 }
 
+// RuntimeSources 列出当前 scope 下的运行时导入：每个 Agent 侧 openapi
+// provider 会话一条，标注来源 Agent、函数清单与最近心跳。前端
+// OpenAPI Sources 页的「运行时导入」区块与绑定弹窗的运行时函数候选
+// 都以此为准（agentID 标注来源，避免与控制台上传的 Source 混淆）。
+func (s *Service) RuntimeSources(ctx context.Context, _ *RuntimeSourcesListRequest) (*RuntimeSourcesListResponse, error) {
+	if err := s.requireSourceRead(ctx); err != nil {
+		return nil, err
+	}
+	gameID, env, err := requireScope(ctx)
+	if err != nil {
+		return nil, err
+	}
+	items := make([]RuntimeProviderItem, 0, 4)
+	if s.svcCtx != nil && s.svcCtx.RegistryStore != nil {
+		for _, snapshot := range s.svcCtx.RegistryStore.ProviderSessionSnapshots() {
+			if strings.TrimSpace(snapshot.GameID) != gameID || strings.TrimSpace(snapshot.Env) != env {
+				continue
+			}
+			name := strings.TrimPrefix(snapshot.ProviderID, "provider:")
+			if name == snapshot.ProviderID {
+				// 只展示 openapi provider 会话，普通 agent 不在此列
+				continue
+			}
+			functions := append([]string(nil), snapshot.FunctionIDs...)
+			sort.Strings(functions)
+			items = append(items, RuntimeProviderItem{
+				ProviderID:    snapshot.ProviderID,
+				Name:          name,
+				AgentID:       snapshot.AgentID,
+				GameID:        snapshot.GameID,
+				Env:           snapshot.Env,
+				Version:       snapshot.Version,
+				FunctionCount: len(functions),
+				Functions:     functions,
+				LastSeenUnix:  snapshot.LastSeenUnix,
+			})
+		}
+	}
+	sort.SliceStable(items, func(i, j int) bool { return items[i].ProviderID < items[j].ProviderID })
+	return &RuntimeSourcesListResponse{Items: items, Total: len(items)}, nil
+}
+
 func (s *Service) GetSource(ctx context.Context, req *OpenAPISourceGetRequest) (*OpenAPISourceGetResponse, error) {
 	if err := s.requireSourceRead(ctx); err != nil {
 		return nil, err

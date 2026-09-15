@@ -201,6 +201,29 @@ export async function listOpenAPISources() {
   return request<OpenAPISourceListResponse>('/api/v1/openapi/sources');
 }
 
+/** 运行时导入条目：Agent 侧 openapi provider（providers.yaml/扩展下发）注册的函数集合。
+ * 对应 internal/api/openapi RuntimeSourcesListResponse / RuntimeProviderItem。 */
+export interface RuntimeProviderItem {
+  providerId: string;
+  name: string;
+  agentId: string;
+  gameId: string;
+  env: string;
+  version?: string;
+  functionCount: number;
+  functions: string[];
+  lastSeenUnix: number;
+}
+
+export type RuntimeSourcesListResponse = {
+  items: RuntimeProviderItem[];
+  total: number;
+};
+
+export async function listRuntimeSources() {
+  return request<RuntimeSourcesListResponse>('/api/v1/openapi/runtime-sources');
+}
+
 export async function getOpenAPISource(sourceId: string) {
   return request<OpenAPISourceGetResponse>(
     `/api/v1/openapi/sources/${encodeURIComponent(sourceId)}`,

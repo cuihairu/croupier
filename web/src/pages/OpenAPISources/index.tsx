@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { PageContainer, ProTable, type ProColumns } from '@ant-design/pro-components';
-import { Alert, App, Button, Card, Space, Tag, Typography } from 'antd';
+import { Alert, App, Button, Card, Space, Tag, Tooltip, Typography } from 'antd';
 import type { UploadFile } from 'antd/es/upload/interface';
 import { CloudUploadOutlined, EditOutlined, ReloadOutlined } from '@ant-design/icons';
 import { FormattedMessage, history, useAccess, useIntl } from '@umijs/max';
@@ -10,12 +10,14 @@ import {
   deleteOpenAPISourceBinding,
   getOpenAPISource,
   listOpenAPISources,
+  listRuntimeSources,
   updateOpenAPISource,
   uploadOpenAPISourceFile,
   type OpenAPISourceBinding,
   type OpenAPISourceDetail,
   type OpenAPISourceOperation,
   type OpenAPISourceSummary,
+  type RuntimeProviderItem,
 } from '@/services/api/openapi';
 import { listDescriptors, type FunctionDescriptor } from '@/services/api/functions';
 import { isScopeReady, subscribeScope } from '@/stores/scope';
@@ -42,6 +44,7 @@ export default function OpenAPISourcesPage() {
   const canWrite = !!access.canOpenAPISourcesWrite;
   const [loading, setLoading] = useState(false);
   const [sources, setSources] = useState<OpenAPISourceSummary[]>([]);
+  const [runtimeSources, setRuntimeSources] = useState<RuntimeProviderItem[]>([]);
   const [detail, setDetail] = useState<OpenAPISourceDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [functions, setFunctions] = useState<FunctionDescriptor[]>([]);
@@ -78,6 +81,16 @@ export default function OpenAPISourcesPage() {
     }
   };
 
+  // 运行时导入与 Source 同 scope；失败不阻塞页面（区块显示为空即可）。
+  const loadRuntimeSources = async () => {
+    try {
+      const response = await listRuntimeSources();
+      setRuntimeSources(response.items || []);
+    } catch {
+      setRuntimeSources([]);
+    }
+  };
+
   const loadFunctions = async () => {
     setFunctions(await listDescriptors());
   };
@@ -98,13 +111,30 @@ export default function OpenAPISourcesPage() {
     // Skip initial request until GameSelector has validated the scope.
     if (!isScopeReady()) return;
     loadSources();
+    loadRuntimeSources();
     loadFunctions();
   }, [scopeKey]);
 
-  const functionOptions = useMemo(
-    () => functions.map((fn) => ({ label: functionLabel(fn), value: fn.id })),
-    [functions],
-  );
+  // 绑定候选 = SDK 描述符函数 + 运行时 provider 导入函数（标注来源 agent）。
+  // 运行时函数与描述符重复时以描述符为准（它们已带完整契约）。
+  const functionOptions = useMemo(() => {
+    const descriptorIds = new Set(functions.map((fn) => fn.id));
+    const runtimeOptions = runtimeSources.flatMap((provider) =>
+      provider.functions
+        .filter((fn) => !descriptorIds.has(fn))
+        .map((fn) => ({
+          label: `${fn}（${intl.formatMessage(
+            { id: 'pages.openapiSources.bindingModal.function.runtimeAgent' },
+            { agent: provider.agentId },
+          )}）`,
+          value: fn,
+        })),
+    );
+    return [
+      ...functions.map((fn) => ({ label: functionLabel(fn), value: fn.id })),
+      ...runtimeOptions,
+    ];
+  }, [functions, runtimeSources, intl]);
 
   const resetSourceForm = () => {
     setUploadName('');
@@ -453,8 +483,86 @@ export default function OpenAPISourcesPage() {
     },
   ];
 
+  const runtimeColumns: ProColumns<RuntimeProviderItem>[] = [
+    {
+      title: intl.formatMessage({
+        id: 'pages.openapiSources.runtime.column.provider',
+        defaultMessage: 'Provider',
+      }),
+      dataIndex: 'name',
+      render: (_, record) => (
+        <Space orientation="vertical" size={0}>
+          <Typography.Text strong>{record.name}</Typography.Text>
+          <Typography.Text code>{record.providerId}</Typography.Text>
+        </Space>
+      ),
+    },
+    {
+      title: intl.formatMessage({
+        id: 'pages.openapiSources.runtime.column.agent',
+        defaultMessage: '来源 Agent',
+      }),
+      dataIndex: 'agentId',
+      width: 200,
+      render: (_, record) => (
+        <Typography.Text copyable={{ text: record.agentId }}>{record.agentId}</Typography.Text>
+      ),
+    },
+    {
+      title: intl.formatMessage({
+        id: 'pages.openapiSources.runtime.column.functionCount',
+        defaultMessage: '函数数',
+      }),
+      dataIndex: 'functionCount',
+      width: 110,
+      render: (_, record) => (
+        <Tooltip
+          title={
+            record.functions.length > 0
+              ? record.functions.join('\n')
+              : intl.formatMessage({
+                  id: 'pages.openapiSources.runtime.emptyFunctions',
+                  defaultMessage: '无函数',
+                })
+          }
+        >
+          <Tag>{record.functionCount}</Tag>
+        </Tooltip>
+      ),
+    },
+    {
+      title: intl.formatMessage({
+        id: 'pages.openapiSources.runtime.column.version',
+        defaultMessage: '版本',
+      }),
+      dataIndex: 'version',
+      width: 160,
+      render: (_, record) => <Tag>{record.version || '-'}</Tag>,
+    },
+    {
+      title: intl.formatMessage({
+        id: 'pages.openapiSources.runtime.column.lastSeen',
+        defaultMessage: '最近心跳',
+      }),
+      dataIndex: 'lastSeenUnix',
+      width: 160,
+      render: (_, record) =>
+        record.lastSeenUnix > 0
+          ? formatDate(new Date(record.lastSeenUnix * 1000).toISOString())
+          : '-',
+    },
+  ];
+
   const pageActions = [
-    <Button key="reload" icon={<ReloadOutlined />} onClick={loadSources} loading={loading}>
+    <Button
+      key="reload"
+      icon={<ReloadOutlined />}
+      onClick={() => {
+        loadSources();
+        loadRuntimeSources();
+      }}
+      loading={loading}
+    >
       <FormattedMessage id="pages.openapiSources.button.refresh" defaultMessage="刷新" />
     </Button>,
   ];
@@ -536,6 +644,37 @@ export default function OpenAPISourcesPage() {
             </Space>
           </Card>
         ) : null}
+        <Card
+          title={intl.formatMessage({
+            id: 'pages.openapiSources.runtime.cardTitle',
+            defaultMessage: '运行时导入',
+          })}
+          extra={
+            <Typography.Text type="secondary">
+              {intl.formatMessage({
+                id: 'pages.openapiSources.runtime.cardDescription',
+                defaultMessage:
+                  'Agent 侧 providers.yaml（type: openapi）注册的函数来源，标注导入 Agent',
+              })}
+            </Typography.Text>
+          }
+        >
+          <ProTable<RuntimeProviderItem>
+            scroll={{ x: 800 }}
+            rowKey="providerId"
+            dataSource={runtimeSources}
+            columns={runtimeColumns}
+            search={false}
+            pagination={false}
+            options={false}
+            locale={{
+              emptyText: intl.formatMessage({
+                id: 'pages.openapiSources.runtime.empty',
+                defaultMessage: '当前 scope 没有运行中的 openapi provider',
+              }),
+            }}
+          />
+        </Card>
         <Card>
           <ProTable<OpenAPISourceSummary>
             scroll={{ x: 900 }}

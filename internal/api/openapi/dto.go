@@ -180,3 +180,26 @@ type GetDocumentRequest = OpenAPIDocumentRequest
 // GetDocumentResponse is the response with aggregated OpenAPI document
 // Deprecated: Use OpenAPIDocumentResponse instead
 type GetDocumentResponse = OpenAPIDocumentResponse
+
+// RuntimeProviderItem 是一条运行时导入：当前 scope 下某个 Agent 侧
+// openapi provider（providers.yaml 或扩展下发）注册的函数集合。
+// 与 OpenAPI Source（控制台上传的契约候选）相对，这里展示的是
+// 已经在运行时注册、可直接绑定为 kind=provider 的函数来源。
+type RuntimeProviderItem struct {
+	ProviderID    string   `json:"providerId"`
+	Name          string   `json:"name"`
+	AgentID       string   `json:"agentId"`
+	GameID        string   `json:"gameId"`
+	Env           string   `json:"env"`
+	Version       string   `json:"version,omitempty"`
+	FunctionCount int      `json:"functionCount"`
+	Functions     []string `json:"functions"`
+	LastSeenUnix  int64    `json:"lastSeenUnix"`
+}
+
+type RuntimeSourcesListRequest struct{}
+
+type RuntimeSourcesListResponse struct {
+	Items []RuntimeProviderItem `json:"items"`
+	Total int                   `json:"total"`
+}

@@ -97,6 +97,14 @@ providers:
 
 Agent provider 注册的是**运行时函数**；Dashboard 的「OpenAPI Source」导入的是**契约候选**。两者通过函数 ID 关联：Source 绑定 `kind: provider`、`functionId: players.player.list` 后，契约物化为 FunctionContract（source=`openapi`）并可生成页面 Proposal。详见 [OpenAPI 函数注册](openapi-registration.md)。
 
+Dashboard「OpenAPI Sources」页的**运行时导入**区块读取当前 scope 下的 provider 会话（含来源 Agent、函数清单与最近心跳），其数据来自：
+
+```http
+GET /api/v1/openapi/runtime-sources   # 认证 + X-Game-ID/X-Env scope
+```
+
+绑定弹窗的函数候选同样包含这些运行时函数（标注导入 Agent）。
+
 ## 本地验证
 
 仓库自带可运行的端到端示例：

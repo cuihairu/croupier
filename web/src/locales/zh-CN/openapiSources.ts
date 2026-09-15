@@ -19,6 +19,7 @@ export default {
   'pages.openapiSources.bindingModal.alert.message': '当前只启用 Provider binding',
   'pages.openapiSources.bindingModal.button.save': '保存 binding',
   'pages.openapiSources.bindingModal.function.placeholder': '选择已注册函数',
+  'pages.openapiSources.bindingModal.function.runtimeAgent': '运行时导入 · {agent}',
   'pages.openapiSources.bindingModal.providerId.placeholder': '可选；留空由运行时按函数路由',
   'pages.openapiSources.bindingModal.title.bindProvider': '绑定 Provider',
   'pages.openapiSources.bindingModal.title.withOperation': '绑定 {operationId}',
@@ -60,6 +61,16 @@ export default {
   'pages.openapiSources.page.subTitle':
     '上传 OpenAPI 只产生能力契约和诊断；可执行性必须显式绑定 Provider，页面 UI 仍在 Page Studio 确定。',
   'pages.openapiSources.parse.missingInfoObject': 'OpenAPI JSON 缺少 info 对象',
+  'pages.openapiSources.runtime.cardDescription':
+    'Agent 侧 providers.yaml（type: openapi）注册的函数来源，标注导入 Agent',
+  'pages.openapiSources.runtime.cardTitle': '运行时导入',
+  'pages.openapiSources.runtime.column.agent': '来源 Agent',
+  'pages.openapiSources.runtime.column.functionCount': '函数数',
+  'pages.openapiSources.runtime.column.lastSeen': '最近心跳',
+  'pages.openapiSources.runtime.column.provider': 'Provider',
+  'pages.openapiSources.runtime.column.version': '版本',
+  'pages.openapiSources.runtime.empty': '当前 scope 没有运行中的 openapi provider',
+  'pages.openapiSources.runtime.emptyFunctions': '无函数',
   'pages.openapiSources.parse.missingOpenapiField': 'OpenAPI JSON 缺少 openapi 字段',
   'pages.openapiSources.parse.mustBeObject': 'OpenAPI JSON 必须是对象',
   'pages.openapiSources.sourceModal.alert.description.update':

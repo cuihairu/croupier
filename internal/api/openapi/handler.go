@@ -139,6 +139,16 @@ func (h *Handler) ListSources(c *gin.Context) {
 	response.Success(c, resp)
 }
 
+// RuntimeSources 列出当前 scope 的运行时导入（Agent 侧 openapi provider 会话）。
+func (h *Handler) RuntimeSources(c *gin.Context) {
+	resp, err := h.service.RuntimeSources(c.Request.Context(), &RuntimeSourcesListRequest{})
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
+	response.Success(c, resp)
+}
+
 func (h *Handler) GetSource(c *gin.Context) {
 	var req OpenAPISourceGetRequest
 	if err := c.ShouldBindUri(&req); err != nil {
