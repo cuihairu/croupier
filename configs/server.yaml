@@ -110,3 +110,14 @@ metrics:
 #   leaseTtl: 15s                      # 租约 TTL（3 倍心跳）
 #   ownerTtl: 3m                       # agent 归属记录存活窗口
 #   peerPollInterval: 10s              # 对端发现轮询
+
+# 页面发布分级（T10）：composite 保存后的发布策略。
+#   auto     = 保存即发布（跳过人工接受提案；质量门槛照常拦截）
+#   required = 保存仅生成提案，人工在 ProposalInbox 接受并发布（默认）
+# 未配置时内置默认：dev=auto，其余 env（含 X-Env 缺失）=required。
+# publishReviewByEnv 按 env 覆盖全局值（如 dev 也走人工链）。
+# pages:
+#   publishReview: required
+#   publishReviewByEnv:
+#     dev: auto
+#     staging: auto

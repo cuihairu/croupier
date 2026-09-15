@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/cuihairu/croupier/internal/common/errorx"
+	"github.com/cuihairu/croupier/internal/config"
 	"github.com/cuihairu/croupier/internal/dashboard/freshness"
 	"github.com/cuihairu/croupier/internal/dashboard/generator"
 	dashboardmerge "github.com/cuihairu/croupier/internal/dashboard/merge"
@@ -37,6 +38,11 @@ type Service struct {
 	pageModel            *model.PageSpecModel
 	publishedModel       *model.PublishedPageSpecModel
 	pageVersionModel     *model.PageVersionModel
+	// T10 发布分级：策略与 auto 发布回调由 routes 装配时注入（回调形式
+	// 保持依赖单向——versioning 不 import api/page）。缺省时保存链维持
+	// 「只建提案」现状。
+	publishReviewPolicy func(env string) string
+	autoPublish         func(ctx context.Context, gameID, env, proposalKey string) error
 }
 
 // NewService creates the service.
@@ -51,6 +57,27 @@ func NewService(db *gorm.DB) *Service {
 		publishedModel:       model.NewPublishedPageSpecModel(db),
 		pageVersionModel:     model.NewPageVersionModel(db),
 	}
+}
+
+// SetPublishReviewHooks 注入发布分级策略与 auto 发布回调（T10/D5）。
+// policy 返回 config.PublishReviewAuto/Required；autoPublish 由 routes
+// 绑定 page service（AutoPublishComposite）。
+func (s *Service) SetPublishReviewHooks(
+	policy func(env string) string,
+	autoPublish func(ctx context.Context, gameID, env, proposalKey string) error,
+) {
+	s.publishReviewPolicy = policy
+	s.autoPublish = autoPublish
+}
+
+// CompositePageOutcome composite 保存结果（T10：含 auto 发布分级结果）。
+type CompositePageOutcome struct {
+	Proposal *model.PageProposal
+	// Published auto 策略下保存后已直接发布。
+	Published bool
+	// PublishError 非空 = auto 发布被质量门槛拒绝或失败（保存本身已成功，
+	// 可走人工提案链重试）。
+	PublishError string
 }
 
 // ChangeType represents the type of change.
@@ -2192,8 +2219,26 @@ func firstNonEmpty(values ...string) string {
 // CreateCompositePage 聚合多资源生成组合页提案（委托 ContractService，
 // 复用提案/接受/发布既有工作流）。componentTemplates 为页面级模板快照
 // （U11 更新提醒），原样透传进 PageSpec。
-func (s *Service) CreateCompositePage(ctx context.Context, gameID, env, pageKey string, sections []service.CompositeSectionRequest, componentTemplates []spec.ComponentTemplateUsage) (*model.PageProposal, error) {
-	return service.NewContractService(s.db).CreateCompositeProposal(ctx, gameID, env, pageKey, sections, componentTemplates)
+// CreateCompositePage 保存组合页提案；发布分级（T10）auto 策略下保存成功
+// 后直接自动发布（发布失败不回滚保存——提案仍在，PublishError 带回前端
+// 降级人工链）。
+func (s *Service) CreateCompositePage(ctx context.Context, gameID, env, pageKey string, sections []service.CompositeSectionRequest, componentTemplates []spec.ComponentTemplateUsage) (*CompositePageOutcome, error) {
+	proposal, err := service.NewContractService(s.db).CreateCompositeProposal(ctx, gameID, env, pageKey, sections, componentTemplates)
+	if err != nil {
+		return nil, err
+	}
+	outcome := &CompositePageOutcome{Proposal: proposal}
+	if s.publishReviewPolicy == nil || s.publishReviewPolicy(env) != config.PublishReviewAuto || s.autoPublish == nil {
+		return outcome, nil
+	}
+	if err := s.autoPublish(ctx, gameID, env, proposal.ProposalKey); err != nil {
+		slog.Warn("auto publish composite failed; proposal kept for manual flow",
+			"gameId", gameID, "env", env, "proposalKey", proposal.ProposalKey, "error", err)
+		outcome.PublishError = err.Error()
+		return outcome, nil
+	}
+	outcome.Published = true
+	return outcome, nil
 }
 
 // DeletePage deletes a page's draft, published versions and pending proposals

@@ -189,6 +189,18 @@ section 内）：`componentTemplates?: Array<{ key: string; digest: string }>`�
 digest 比对提示「所用模板有新版本」。**不参与发布校验、不参与渲染**——实例化是
 复制语义，页面内容始终是保存时的副本（提醒不自动同步）。
 
+**创建端点响应的发布分级字段（T10）**：响应在 `proposalKey`/`pageKey`/
+`pageType`/`quality` 之外新增 `published: boolean` 与可选 `publishError?: string`——
+
+- `pages.publishReview=required`（缺省策略）：`published: false`，无 `publishError`
+  字段，行为与历史一致（保存只建提案，ProposalInbox 人工接受并发布）；
+- `pages.publishReview=auto`：保存成功后直接发布，`published: true`；发布被质量
+  门槛（error 级诊断/发布校验）拒绝或失败时 `published: false` 且 `publishError`
+  带回原因——**保存本身已成功、提案保留**，前端按提示降级人工链重试；
+- 发布走真实链路（快照/版本历史照常），权限沿用保存入口 `pages:edit`（策略已
+  声明该 env 免审核），详见 [Dashboard Resource/Page 模型](./dashboard-page-model.md)
+  的「发布分级」小节。
+
 ## 数据引用和 mapping（Selector AST）
 
 输入输出 mapping 必须是可校验的 AST（对应 `spec/selector_ast.go`）：

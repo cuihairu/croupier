@@ -125,6 +125,16 @@ error 级诊断写入提案并降级 `needs_review`——提案收件箱「需�
   - **同名绑定**（所选函数 id == unbound functionId）→ T6 原地翻转，组件无需改动；
     **不同名绑定** → bound 契约建在运行时函数名下，弹确认引导切换组件函数引用
     （换绑 scaffold：列/字段/映射按新函数重建），不切换则执行仍被阻断
+- **发布分级（T10，`pages.publishReview`）**：保存组合页后的动作由 env 级策略
+  控制（`configs/server.yaml` 的 `pages.publishReview: auto | required` +
+  `publishReviewByEnv` 按 env 覆盖；未配置时 `dev=auto`，其余 env=required）：
+  - `auto`：保存即发布——保存响应带 `published: true`，页面直接进入动态菜单；
+    质量门槛不降（error 级诊断/发布校验拒绝时 `published: false` 且
+    `publishError` 带回原因，**保存本身已成功**，去 ProposalInbox 人工接受即可）
+  - `required`：保存只建提案（`published: false`），ProposalInbox 人工接受并
+    发布——与历史行为一致
+  - 权限说明：auto 的 env 中发布权限沿用保存入口 `pages:edit`（策略声明免审核，
+    保存者即发布者）；required 的 env 发布仍需 `pages:publish`
 - 同函数多实例按 key 独立执行互不干扰
 
 ### 4.1 预览验证闭环（交互规格）
@@ -373,6 +383,12 @@ prev schema 语义与 wire 契约见
 
 ## 9. 已知边界
 
+- **发布分级（T10）只覆盖 composite 保存链**：`pages.publishReview=auto` 的自动
+  发布仅在 `POST /versioning/pages/composite`（组合页保存）生效——上传管线生成
+  的 resource/operation 等提案、Page Studio 的草稿保存与其他页面类型发布仍走
+  人工链（ProposalInbox / `pages:publish`）。批量发布（BulkPublish/BulkRepublish）
+  不受策略影响，权限语义不变；前端保存弹窗暂未消费响应中的 `published`/
+  `publishError` 字段（服务端语义已闭环，前端提示增强属后续任务）
 - **编辑器内绑定抽屉（T9）不同名绑定后旧物料残留**：bound 契约建在运行时函数
   名下，原 unbound 契约行仍在（仅下次上传重放的 removeSupersededUnboundContract
   清理）——组件面板对旧物料的「未绑定」标记对事实正确；切换组件函数引用后

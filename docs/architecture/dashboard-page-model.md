@@ -502,6 +502,28 @@ active PublishedPageSpec[] -> ConsoleMenuSpec -> ProLayout
 
 自动合并的安全集只包含展示类字段：列顺序与显隐、字段 label/help、order、group、widget hint、导航标题、分类 labels、图标和排序。`visibleWhen` 只有经校验证明不影响 required 输入、binding payload 和 selector 引用时才允许自动合并，否则归入冲突集。执行类字段——bindings、functionId、input/output assignment、confirmation、permissions、risk、approval——出现任何差异都必须人工确认，不得自动合并。
 
+### 发布分级（pages.publishReview，T10）
+
+保存是否走提案审核由 env 级策略控制：`pages.publishReview: auto | required`
+（`configs/server.yaml`，含 `publishReviewByEnv` 按 env 覆盖；优先级
+`publishReviewByEnv[env]` > 全局 > 内置默认——`dev=auto`，其余 env 与 `X-Env`
+缺失一律从严 `required`）。该策略是 L2 配置（见
+[配置分层](./config-layering.md)），在保存链路同步判定，不进运行时设置。
+
+composite 保存路径（`versioning.Service.CreateCompositePage`）在 `auto` 策略下
+保存成功后直接发布（`page.Service.AutoPublishComposite`，经 routes 装配注入回调，
+依赖保持 versioning ↛ api/page 单向）：
+
+- **新页面**：走提案接受发布链（AcceptAndPublishProposal）；
+- **已存在页面**：走「提案重生成草稿 + 发布」组合（与 BulkRepublish 单页路径
+  一致）——乐观锁、published_page_specs 快照与 page_versions 历史照常记录。
+
+两条不变的门槛：**质量门槛不因免审核降低**（提案 error 级诊断与发布校验照常
+拒绝）；**发布失败不回滚保存**（响应 `publishError` 带回原因，提案保留，前端
+降级人工链）。权限语义：auto 路径不额外要求 `pages:publish`——env 已由策略声明
+免审核，权限沿用保存入口的 `pages:edit`（这是有意决策：免审核的 env 中保存者
+即发布者，审计事件 `auto_publish_composite` 记录 variant 与操作者）。
+
 ### Selector 一键同步（sync-selectors）
 
 展示字段的自动合并之外，schema 漂移还会让 selector 失效（`input_schema_stale`/`output_schema_stale`/target 消失），发布被校验阻断、运行期 console 拒绝执行。整页 regenerate 会用默认 selector 重建，把 row/selection/page_state/literal 定制冲掉；手动逐 binding 重选低效且易漏。sync-selectors 是第三条路径：**只修受影响的 assignment，保留全部未受影响定制**（含 Source/Kind/Path/Value/Transform）。planner（`spec/selector_sync.go`）是纯函数，dry-run 与 apply 共用同一实现；作用对象是草稿（发布校验的就是草稿），已发布快照不可变。

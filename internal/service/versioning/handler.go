@@ -223,6 +223,9 @@ type CreateCompositePageRequest struct {
 
 // CreateCompositePage handles POST /versioning/pages/composite：聚合 2+
 // 资源生成 composite 页提案（进入 ProposalInbox，接受并发布后生效）。
+// 发布分级（T10）pages.publishReview=auto 时，published=true 表示保存后
+// 已直接发布；publishError 非空表示自动发布被质量门槛拒绝或失败，提案
+// 仍保留、可走人工接受链重试。
 func (h *Handler) CreateCompositePage(c *gin.Context) {
 	var req CreateCompositePageRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -230,17 +233,23 @@ func (h *Handler) CreateCompositePage(c *gin.Context) {
 		return
 	}
 	gameID, env := getScope(c)
-	proposal, err := h.service.CreateCompositePage(c.Request.Context(), gameID, env, req.PageKey, req.Sections, req.ComponentTemplates)
+	outcome, err := h.service.CreateCompositePage(c.Request.Context(), gameID, env, req.PageKey, req.Sections, req.ComponentTemplates)
 	if err != nil {
 		response.Error(c, err)
 		return
 	}
-	response.Success(c, gin.H{
+	proposal := outcome.Proposal
+	body := gin.H{
 		"proposalKey": proposal.ProposalKey,
 		"pageKey":     proposal.PageKey,
 		"pageType":    proposal.PageType,
 		"quality":     proposal.Quality,
-	})
+		"published":   outcome.Published,
+	}
+	if outcome.PublishError != "" {
+		body["publishError"] = outcome.PublishError
+	}
+	response.Success(c, body)
 }
 
 // DeletePage handles DELETE /versioning/pages/:pageKey：清理草稿/已发布/提案

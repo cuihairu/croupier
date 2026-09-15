@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"sort"
@@ -665,6 +666,12 @@ func (s *Service) Publish(ctx context.Context, req *PagePublishRequest) (*PagePu
 	if err != nil {
 		return nil, err
 	}
+	return s.publishCore(ctx, gameID, env, actor, req)
+}
+
+// publishCore 是 Publish 的核心（无权限/scope/actor 解析），供发布分级
+// （T10 auto 保存即发布）以保存操作者身份复用；乐观锁与页面校验保留。
+func (s *Service) publishCore(ctx context.Context, gameID, env, actor string, req *PagePublishRequest) (*PagePublishResponse, error) {
 	if req.DraftRevision == nil {
 		return nil, errorx.NewBadRequest("draftRevision is required")
 	}
@@ -1835,6 +1842,68 @@ func (s *Service) BulkPublish(ctx context.Context, req *PageBulkRequest) (*PageB
 	return result, nil
 }
 
+// AutoPublishComposite 发布分级（T10/D5，pages.publishReview=auto）：composite
+// 保存链保存成功后调用，跳过人工提案接受直接发布。不做 pages:publish 权限
+// 检查——该 env 已由策略声明免审核，权限沿用保存入口的 pages:edit。
+//
+// 质量门槛不因免审核降低：提案 error 级诊断（HasBlockingDiagnostics）与
+// 页面校验（publishCore 的 validatePageSpec）照常拒绝发布，调用方将错误
+// 降级为人工链提示（保存本身已成功）。
+//
+// 新页面走提案接受发布链（AcceptAndPublishProposal）；已存在页面走
+// 「提案重建草稿 + 发布」组合（与 BulkRepublish 单页路径一致：乐观锁、
+// published_page_specs 快照与 page_versions 历史照常记录）。
+func (s *Service) AutoPublishComposite(ctx context.Context, gameID, env, proposalKey string) error {
+	proposalSvc := contractsvc.NewProposalService(s.svcCtx.DB)
+	proposal, err := proposalSvc.GetProposal(ctx, gameID, env, proposalKey)
+	if err != nil {
+		return fmt.Errorf("load proposal %s: %w", proposalKey, err)
+	}
+	if contractsvc.HasBlockingDiagnostics(proposal) {
+		return fmt.Errorf("proposal %s has blocking diagnostics; resolve errors before publishing", proposalKey)
+	}
+
+	existing, err := s.svcCtx.PageSpecModel.FindByScopeAndPageKey(ctx, gameID, env, proposal.PageKey)
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		return fmt.Errorf("load page draft %s: %w", proposal.PageKey, err)
+	}
+	if existing == nil {
+		if _, err := proposalSvc.AcceptAndPublishProposal(ctx, gameID, env, proposalKey); err != nil {
+			return err
+		}
+		s.auditPageEvent(ctx, audit.EventPagePublish, gameID, env, proposal.PageKey, map[string]interface{}{
+			"action":   "auto_publish_composite",
+			"variant":  "accept_and_publish",
+			"proposal": proposalKey,
+		})
+		return nil
+	}
+
+	// 已存在页面：提案 → 草稿 → 发布（regenerateDraft/publishCore 均不做
+	// 权限检查的内部路径，actor 取保存操作者）。
+	actor, err := currentUsername(ctx)
+	if err != nil {
+		return err
+	}
+	revision := existing.DraftRevision
+	regenerated, err := s.regenerateDraft(ctx, &PageRegenerateRequest{PageKey: proposal.PageKey, DraftRevision: &revision})
+	if err != nil {
+		return err
+	}
+	publishedRevision := regenerated.DraftRevision
+	if _, err := s.publishCore(ctx, gameID, env, actor, &PagePublishRequest{PageKey: proposal.PageKey, DraftRevision: &publishedRevision}); err != nil {
+		return err
+	}
+	s.auditPageEvent(ctx, audit.EventPagePublish, gameID, env, proposal.PageKey, map[string]interface{}{
+		"action":            "auto_publish_composite",
+		"variant":           "regenerate_and_publish",
+		"proposal":          proposalKey,
+		"draft_revision":    revision,
+		"published_version": publishedRevision,
+	})
+	return nil
+}
+
 // BulkUnpublish 一键下架全部：将 scope 内所有已发布页面逐一下线
 // （复用单页 Unpublish 的真实下线链路：快照停用 + 草稿回退）。
 func (s *Service) BulkUnpublish(ctx context.Context, req *PageBulkRequest) (*PageBulkResult, error) {
@@ -1920,7 +1989,16 @@ func (s *Service) BulkRepublish(ctx context.Context, req *PageBulkRepublishReque
 			continue
 		}
 		publishedRevision := regenerated.DraftRevision
-		if _, err := s.Publish(ctx, &PagePublishRequest{PageKey: pageKey, DraftRevision: &publishedRevision}); err != nil {
+		actor, err := currentUsername(ctx)
+		if err != nil {
+			result.Failed = append(result.Failed, map[string]string{
+				"pageKey": pageKey,
+				"error":   err.Error(),
+			})
+			continue
+		}
+		// publishCore：入口已验 pages:publish，无需逐页二次权限检查
+		if _, err := s.publishCore(ctx, gameID, env, actor, &PagePublishRequest{PageKey: pageKey, DraftRevision: &publishedRevision}); err != nil {
 			result.Failed = append(result.Failed, map[string]string{
 				"pageKey": pageKey,
 				"error":   err.Error(),

@@ -983,6 +983,14 @@ func registerProposalRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 
 func registerVersioningRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 	versioningSvc := versioningservice.NewService(ctx.DB)
+	// 发布分级（T10）：pages.publishReview=auto 时 composite 保存后直接发布。
+	// 策略与发布回调在此装配注入（versioning 不 import api/page，依赖保持
+	// 单向）；auto 路径权限沿用保存入口 pages:edit——env 策略已声明免审核。
+	pageSvc := page.NewService(ctx)
+	versioningSvc.SetPublishReviewHooks(
+		func(env string) string { return ctx.Config.Pages.ResolvePublishReview(env) },
+		pageSvc.AutoPublishComposite,
+	)
 	versioningHandler := versioningservice.NewHandler(versioningSvc)
 	g.GET("/pages/:pageKey/chain", versioningHandler.GetChangeChain)
 	g.GET("/pages/:pageKey/diff", versioningHandler.Diff)

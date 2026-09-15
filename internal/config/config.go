@@ -29,6 +29,8 @@ type Config struct {
 	Telemetry     TelemetryConfig          `json:"telemetry" yaml:"telemetry"`
 	Profiles      map[string]ProfileConfig `json:"profiles" yaml:"profiles"`
 	SSE           SSEConfig                `json:"sse" yaml:"sse"`
+	// Pages 页面发布分级（T10/D5）：composite 保存是否跳过人工提案审核。
+	Pages PagesConfig `json:"pages" yaml:"pages"`
 	// FeatureFlags switches optional product domains on/off at the control
 	// plane (API routes + dashboard menus). Unset flags default to enabled;
 	// only explicit `false` disables a domain. Data-plane components (agent,
@@ -38,6 +40,50 @@ type Config struct {
 	Region string            `json:"region,omitempty" yaml:"region,omitempty"`
 	Zone   string            `json:"zone,omitempty" yaml:"zone,omitempty"`
 	Labels map[string]string `json:"labels,omitempty" yaml:"labels,omitempty"`
+}
+
+// 发布分级取值（T10/D5）。
+const (
+	// PublishReviewAuto 保存即发布（composite 保存链保存成功后自动落
+	// published_page_specs，跳过人工提案接受；error 级诊断仍拒绝发布）。
+	PublishReviewAuto = "auto"
+	// PublishReviewRequired 提案 → 人工审核 → 发布（现状链路）。
+	PublishReviewRequired = "required"
+)
+
+// PagesConfig 页面发布分级配置。
+type PagesConfig struct {
+	// PublishReview 全局策略：auto | required。为空时按 env 内置默认
+	// （dev→auto，其余 env→required）。
+	PublishReview string `json:"publishReview,omitempty" yaml:"publishReview,omitempty"`
+	// PublishReviewByEnv env 级覆盖（优先于 PublishReview 与内置默认），
+	// 如 {dev: required, staging: auto}。
+	PublishReviewByEnv map[string]string `json:"publishReviewByEnv,omitempty" yaml:"publishReviewByEnv,omitempty"`
+}
+
+// ResolvePublishReview 解析 env 的发布策略（T10/D5）。
+//
+// 优先级：publishReviewByEnv[env] > publishReview > 内置默认（dev→auto，
+// 其余→required）。缺 env（请求未携带 X-Env）与非法取值一律从严 required。
+func (c PagesConfig) ResolvePublishReview(env string) string {
+	env = strings.TrimSpace(env)
+	if env == "" {
+		return PublishReviewRequired
+	}
+	if v, ok := c.PublishReviewByEnv[env]; ok && validPublishReview(v) {
+		return v
+	}
+	if validPublishReview(c.PublishReview) {
+		return c.PublishReview
+	}
+	if env == "dev" {
+		return PublishReviewAuto
+	}
+	return PublishReviewRequired
+}
+
+func validPublishReview(v string) bool {
+	return v == PublishReviewAuto || v == PublishReviewRequired
 }
 
 // Feature flag names. Keep in sync with web/src/access.ts.

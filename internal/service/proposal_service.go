@@ -491,6 +491,15 @@ func (s *ProposalService) RejectProposal(ctx context.Context, gameID, env, propo
 	return s.proposalModel.UpsertProposal(ctx, proposal)
 }
 
+// HasBlockingDiagnostics 提案诊断是否含 error 级项（发布质量门槛）。
+// 供发布分级（T10）等跨包调用方复用同一判定。
+func HasBlockingDiagnostics(proposal *model.PageProposal) bool {
+	if proposal == nil {
+		return false
+	}
+	return hasBlockingDiagnostics(proposal.Diagnostics)
+}
+
 // hasBlockingDiagnostics checks if diagnostics contain error-level items.
 func hasBlockingDiagnostics(diagnosticsJSON []byte) bool {
 	if len(diagnosticsJSON) == 0 {
