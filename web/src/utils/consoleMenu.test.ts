@@ -137,7 +137,9 @@ describe('buildMenuFromConsoleSpec', () => {
     ]);
     const ops = consoleNode.children![1];
     expect(ops.name).toBe('运营');
-    expect(ops.icon).toBe('appstore');
+    // icon 字符串经 resolveMenuIcon 解析为 ReactNode（ProLayout 需要），
+    // 未知名兜底 AppstoreOutlined
+    expect(ops.icon).toBeTruthy();
     expect(ops.locale).toBe(false);
     expect(ops.children?.[0].name).toBe('页一');
     expect(ops.children?.[0].path).toBe('/console/ops/p1');

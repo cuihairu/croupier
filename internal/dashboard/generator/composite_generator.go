@@ -230,7 +230,7 @@ func GenerateCompositePage(
 		return spec.GeneratedPageSpec{Diagnostics: diags}, false
 	}
 
-	title := spec.LocalizedText{locale: fallbackLabel(strings.ReplaceAll(pageKey, "--", " "))}
+	title := localizedTitleFallback(strings.ReplaceAll(pageKey, "--", " "), opts.DefaultLocale)
 	return spec.GeneratedPageSpec{
 		PageSpec: spec.PageSpec{
 			PageKey:    pageKey,

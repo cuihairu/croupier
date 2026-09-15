@@ -127,8 +127,9 @@ func TestHasDefaultLocaleV5(t *testing.T) {
 	assert.False(t, hasDefaultLocale(nil))
 	assert.False(t, hasDefaultLocale(map[string]string{}))
 	assert.False(t, hasDefaultLocale(map[string]string{"zh-CN": "  "}))
-	assert.True(t, hasDefaultLocale(map[string]string{"zh-CN": "ok"}))
-	assert.False(t, hasDefaultLocale(map[string]string{"en-US": "ok"}))
+	assert.False(t, hasDefaultLocale(map[string]string{"zh-CN": "ok"}), "仅 zh-CN 缺 en-US 不满足双语言契约")
+	assert.True(t, hasDefaultLocale(map[string]string{"zh-CN": "ok", "en-US": "ok en"}))
+	assert.False(t, hasDefaultLocale(map[string]string{"en-US": "ok"}), "仅 en-US 缺 zh-CN 不满足双语言契约")
 }
 
 // ---------------------------------------------------------------------------
@@ -308,8 +309,8 @@ func TestApplyPageSpecToModelV5(t *testing.T) {
 		PageKey:     "test",
 		Type:        "resource",
 		ResourceKey: "player",
-		Category:    spec.PageCategorySpec{Key: "c", Labels: spec.LocalizedText{"zh-CN": "分类"}},
-		Title:       spec.LocalizedText{"zh-CN": "测试"},
+		Category:    spec.PageCategorySpec{Key: "c", Labels: spec.LocalizedText{"zh-CN": "分类", "en-US": "分类 en"}},
+		Title:       spec.LocalizedText{"zh-CN": "测试", "en-US": "测试 en"},
 	})
 	require.NoError(t, err)
 	assert.Equal(t, "test", m.PageKey)
@@ -326,11 +327,11 @@ func TestMarshalPageSpecV5(t *testing.T) {
 		PageKey:     "  trimmed  ",
 		ResourceKey: "  rp  ",
 		Icon:        "  icon  ",
-		Title:       spec.LocalizedText{"zh-CN": "  title  "},
+		Title:       spec.LocalizedText{"zh-CN": "  title  ", "en-US": "  title   en"},
 		Description: spec.LocalizedText{"zh-CN": "  desc  "},
 		Category: spec.PageCategorySpec{
 			Key:    "  cat  ",
-			Labels: spec.LocalizedText{"zh-CN": "  labels  "},
+			Labels: spec.LocalizedText{"zh-CN": "  labels  ", "en-US": "  labels   en"},
 		},
 		Bindings: []spec.PageFunctionBinding{
 			{ID: "  b1  ", FunctionID: "  f1  "},

@@ -1,6 +1,7 @@
 import type { MenuDataItem } from '@ant-design/pro-components';
 import type { ConsoleMenuSpec, LocalizedText, PublishedPageSpec } from '@/types/dashboard';
 import { localizedText } from '@/utils/localizedText';
+import { resolveMenuIcon } from '@/utils/menuIcon';
 
 export const CONSOLE_MENU_REFRESH_EVENT = 'console-menu:refresh';
 
@@ -62,12 +63,16 @@ export function buildMenuFromConsoleSpec(
         path: category.path,
         name: resolveLocalizedText(category.title, locale, category.key),
         locale: false,
-        icon: category.icon,
+        // 后端分类项此前从不带 icon、前端也丢弃子项 page.icon——两端字段
+        // 位置互错导致菜单永远无图标。分类取组内首个非空页面图标（后端
+        // 已回填），子项透传自身 icon。
+        icon: resolveMenuIcon(category.icon),
         children: (category.children || []).map((page) => ({
           key: page.path,
           path: page.path,
           name: resolveLocalizedText(page.title, locale, page.key),
           locale: false,
+          icon: resolveMenuIcon(page.icon),
         })),
       }));
 

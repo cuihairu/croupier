@@ -730,31 +730,78 @@ func categoryForOperation(functionID string, locale string, terms TermDictionary
 	}
 }
 
+// ensureBilingual 把任意来源的 LocalizedText（SDK Summary、词条、humanize
+// 兜底）补齐为 zh-CN+en-US 双必填形态：上游可能只带请求 locale 单键，
+// 直接透传会卡在发布校验（title must include zh-CN and en-US locales）。
+// 缺失的必填 locale 用已有序位最高的值补位，词条字典补录翻译后自然覆盖。
+func ensureBilingual(text spec.LocalizedText) spec.LocalizedText {
+	out := make(spec.LocalizedText, len(text))
+	for k, v := range text {
+		if strings.TrimSpace(v) != "" {
+			out[k] = strings.TrimSpace(v)
+		}
+	}
+	if len(out) == 0 {
+		return out
+	}
+	if _, ok := out["zh-CN"]; !ok {
+		// zh-CN 缺失时取任意既有值补位，保证第一推荐语言不空
+		for _, v := range out {
+			out["zh-CN"] = v
+			break
+		}
+	}
+	if _, ok := out["en-US"]; !ok {
+		out["en-US"] = out["zh-CN"]
+	}
+	return out
+}
+
 // localizedKeyLabels resolves a key through the term dictionary first and
-// falls back to humanizing the raw key in the system default locale.
+// falls back to humanizing the raw key in every supported display locale.
+//
+// 兜底只写单 locale（词条缺失时标题变成 {"zh-CN": "Leaderboard"} 这种
+// 「英文文本冒充中文」的单键 map）是运行控制台菜单「没做国际化」的根因：
+// 值本身仍是 HumanizeKey 的英文形态，但形状必须是多 locale map，词条
+// 字典（/system/foundation/terms）补录翻译后各语言才能各自命中。
 func localizedKeyLabels(key string, locale string, domain string, terms TermDictionary) spec.LocalizedText {
 	if text, ok := terms.Lookup(domain, key); ok && len(text) > 0 {
-		return text
+		return ensureBilingual(text)
 	}
-	return spec.LocalizedText{locale: fallbackLabel(key)}
+	return localizedTitleFallback(key, locale)
+}
+
+// localizedTitleFallback humanizes a raw key into a multi-locale LocalizedText:
+// the humanized label is written into zh-CN and en-US (the two mandatory
+// display locales) plus the requested locale when it differs.
+func localizedTitleFallback(key string, locale string) spec.LocalizedText {
+	label := fallbackLabel(key)
+	if label == "" {
+		label = key
+	}
+	text := spec.LocalizedText{"zh-CN": label, "en-US": label}
+	if locale != "" && locale != "zh-CN" && locale != "en-US" {
+		text[locale] = label
+	}
+	return text
 }
 
 func localizedTitle(op spec.OperationSpec, pageKey string, locale string, opts GenerateOptions) spec.LocalizedText {
 	if fn, ok := opts.Functions[op.FunctionID]; ok {
 		if summary := strings.TrimSpace(fn.Summary[locale]); summary != "" {
-			return spec.LocalizedText{locale: summary}
+			return ensureBilingual(spec.LocalizedText{locale: summary})
 		}
 	}
 	fallbackKey := firstNonEmpty(op.Operation, op.FunctionID, pageKey)
 	if text, ok := opts.Terms.Lookup("operation", op.Operation); ok && len(text) > 0 {
-		return text
+		return ensureBilingual(text)
 	}
 	if text, ok := opts.Terms.Lookup("resource", fallbackKey); ok && len(text) > 0 {
-		return text
+		return ensureBilingual(text)
 	}
-	return spec.LocalizedText{
+	return ensureBilingual(spec.LocalizedText{
 		locale: fallbackLabel(fallbackKey),
-	}
+	})
 }
 
 func bindingIDForOperationWithSuffix(op spec.OperationSpec, suffix string) string {

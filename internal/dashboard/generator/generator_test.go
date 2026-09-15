@@ -311,11 +311,25 @@ func TestLocalizedTitle(t *testing.T) {
 		expected spec.LocalizedText
 	}{
 		{
+			// 标题必须双写 zh-CN+en-US（发布校验双必填），词条缺失时
+			// humanize 兜底值同时落入两个必填 locale
 			name:     "with locale",
 			op:       spec.OperationSpec{FunctionID: "player.ban"},
 			pageKey:  "ops",
 			locale:   "zh-CN",
-			expected: spec.LocalizedText{"zh-CN": "Player Ban"},
+			expected: spec.LocalizedText{"zh-CN": "Player Ban", "en-US": "Player Ban"},
+		},
+		{
+			name:    "summary 单 locale 补齐双写",
+			op:      spec.OperationSpec{FunctionID: "player.ban"},
+			pageKey: "ops",
+			locale:  "en-US",
+			opts: GenerateOptions{
+				Functions: map[string]spec.FunctionSpec{
+					"player.ban": {Summary: spec.LocalizedText{"en-US": "Ban a player"}},
+				},
+			},
+			expected: spec.LocalizedText{"en-US": "Ban a player", "zh-CN": "Ban a player"},
 		},
 	}
 

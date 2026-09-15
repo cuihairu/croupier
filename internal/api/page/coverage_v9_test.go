@@ -75,10 +75,10 @@ func v9SaveDraftDirect(t *testing.T, service *Service, ctx context.Context, page
 		DraftRevision: &revision,
 		Type:          spec.PageTypeOperation,
 		ResourceKey:   "player",
-		Title:         map[string]string{"zh-CN": "页面"},
+		Title:         map[string]string{"zh-CN": "页面", "en-US": "页面 en"},
 		Category: spec.PageCategorySpec{
 			Key:    "player",
-			Labels: spec.LocalizedText{"zh-CN": "玩家"},
+			Labels: spec.LocalizedText{"zh-CN": "玩家", "en-US": "玩家 en"},
 		},
 		Operation: testOperationPageSpec(),
 		Bindings:  testPageBindings(),
@@ -154,8 +154,8 @@ func TestServiceSaveDraftConflictOnExistingPageV9(t *testing.T) {
 		PageKey:       "conflict.page",
 		DraftRevision: &stale,
 		Type:          spec.PageTypeOperation,
-		Title:         map[string]string{"zh-CN": "页面"},
-		Category:      spec.PageCategorySpec{Key: "player", Labels: spec.LocalizedText{"zh-CN": "玩家"}},
+		Title:         map[string]string{"zh-CN": "页面", "en-US": "页面 en"},
+		Category:      spec.PageCategorySpec{Key: "player", Labels: spec.LocalizedText{"zh-CN": "玩家", "en-US": "玩家 en"}},
 		Operation:     testOperationPageSpec(),
 		Bindings:      testPageBindings(),
 	})
@@ -224,8 +224,8 @@ func TestProposalReplacementForDraftByKeyV9(t *testing.T) {
 	specJSON := v9MarshalSpec(t, spec.PageSpec{
 		PageKey:  "bykey.page",
 		Type:     spec.PageTypeOperation,
-		Title:    spec.LocalizedText{"zh-CN": "页面"},
-		Category: spec.PageCategorySpec{Key: "player", Labels: spec.LocalizedText{"zh-CN": "玩家"}},
+		Title:    spec.LocalizedText{"zh-CN": "页面", "en-US": "页面 en"},
+		Category: spec.PageCategorySpec{Key: "player", Labels: spec.LocalizedText{"zh-CN": "玩家", "en-US": "玩家 en"}},
 	})
 	p := v9UpsertProposal(t, db, ctx, "prop:bykey", "bykey.page", dbenum.ProposalStatusPending, specJSON)
 	v9CreateProposalVersion(t, db, ctx, p.ID)
@@ -250,7 +250,7 @@ func TestProposalReplacementForDraftRejectedStatusV9(t *testing.T) {
 	specJSON := v9MarshalSpec(t, spec.PageSpec{
 		PageKey:  "rejected.page",
 		Type:     spec.PageTypeOperation,
-		Category: spec.PageCategorySpec{Key: "player", Labels: spec.LocalizedText{"zh-CN": "玩家"}},
+		Category: spec.PageCategorySpec{Key: "player", Labels: spec.LocalizedText{"zh-CN": "玩家", "en-US": "玩家 en"}},
 	})
 	v9UpsertProposal(t, db, ctx, "prop:rejected", "rejected.page", dbenum.ProposalStatusRejected, specJSON)
 
@@ -289,7 +289,7 @@ func TestProposalReplacementForDraftPageKeyMismatchV9(t *testing.T) {
 	specJSON := v9MarshalSpec(t, spec.PageSpec{
 		PageKey:  "other.page",
 		Type:     spec.PageTypeOperation,
-		Category: spec.PageCategorySpec{Key: "player", Labels: spec.LocalizedText{"zh-CN": "玩家"}},
+		Category: spec.PageCategorySpec{Key: "player", Labels: spec.LocalizedText{"zh-CN": "玩家", "en-US": "玩家 en"}},
 	})
 	p := v9UpsertProposal(t, db, ctx, "prop:mismatch", "mismatch.page", dbenum.ProposalStatusPending, specJSON)
 	v9CreateProposalVersion(t, db, ctx, p.ID)
@@ -307,7 +307,7 @@ func TestProposalReplacementForDraftMissingVersionV9(t *testing.T) {
 	specJSON := v9MarshalSpec(t, spec.PageSpec{
 		PageKey:  "noversion.page",
 		Type:     spec.PageTypeOperation,
-		Category: spec.PageCategorySpec{Key: "player", Labels: spec.LocalizedText{"zh-CN": "玩家"}},
+		Category: spec.PageCategorySpec{Key: "player", Labels: spec.LocalizedText{"zh-CN": "玩家", "en-US": "玩家 en"}},
 	})
 	v9UpsertProposal(t, db, ctx, "prop:none", "noversion.page", dbenum.ProposalStatusPending, specJSON)
 
@@ -327,8 +327,8 @@ func TestValidatePageSpecDuplicateBindingIDV9(t *testing.T) {
 	page := spec.PageSpec{
 		PageKey:  "dup.page",
 		Type:     spec.PageTypeOperation,
-		Title:    spec.LocalizedText{"zh-CN": "重复"},
-		Category: spec.PageCategorySpec{Key: "player", Labels: spec.LocalizedText{"zh-CN": "玩家"}},
+		Title:    spec.LocalizedText{"zh-CN": "重复", "en-US": "重复 en"},
+		Category: spec.PageCategorySpec{Key: "player", Labels: spec.LocalizedText{"zh-CN": "玩家", "en-US": "玩家 en"}},
 		Bindings: []spec.PageFunctionBinding{
 			{ID: "dup", FunctionID: "player.query", Usage: spec.BindingUsageQuery, Execution: spec.PageBindingExecution{Mode: spec.PageExecutionModeSync}},
 			{ID: "dup", FunctionID: "player.action", Usage: spec.BindingUsageAction, Execution: spec.PageBindingExecution{Mode: spec.PageExecutionModeSync}},
@@ -390,7 +390,7 @@ func TestValidatePublishedCategoryLabelsPublishedRowsV9(t *testing.T) {
 		Version: 1,
 		SpecJSON: string(v9MarshalSpec(t, spec.PageSpec{
 			PageKey:  "diffcat.page",
-			Category: spec.PageCategorySpec{Key: "other", Labels: spec.LocalizedText{"zh-CN": "其他"}},
+			Category: spec.PageCategorySpec{Key: "other", Labels: spec.LocalizedText{"zh-CN": "其他", "en-US": "其他 en"}},
 		})),
 		RendererSchemaVersion: rendererSchemaVersion,
 		Active:                true,
@@ -501,7 +501,7 @@ func TestPagePublishSourceWithProposalDigestsV9(t *testing.T) {
 	specJSON := v9MarshalSpec(t, spec.PageSpec{
 		PageKey:  "dig.page",
 		Type:     spec.PageTypeOperation,
-		Category: spec.PageCategorySpec{Key: "player", Labels: spec.LocalizedText{"zh-CN": "玩家"}},
+		Category: spec.PageCategorySpec{Key: "player", Labels: spec.LocalizedText{"zh-CN": "玩家", "en-US": "玩家 en"}},
 	})
 	p := &model.PageProposal{
 		GameID:           "demo-game",
@@ -571,7 +571,7 @@ func TestServiceBrokenModelErrorPathsV9(t *testing.T) {
 	require.Error(t, err)
 
 	diags := service.validatePublishedCategoryLabels(ctx, spec.PageSpec{
-		Category: spec.PageCategorySpec{Key: "player", Labels: spec.LocalizedText{"zh-CN": "玩家"}},
+		Category: spec.PageCategorySpec{Key: "player", Labels: spec.LocalizedText{"zh-CN": "玩家", "en-US": "玩家 en"}},
 	})
 	require.Len(t, diags, 1)
 	assert.Equal(t, "category_label_check_failed", diags[0].Code)
@@ -601,8 +601,8 @@ func TestServiceSaveDraftTxFindErrorV9(t *testing.T) {
 		PageKey:       "tx.find",
 		DraftRevision: &rev,
 		Type:          spec.PageTypeOperation,
-		Title:         map[string]string{"zh-CN": "页面"},
-		Category:      spec.PageCategorySpec{Key: "player", Labels: spec.LocalizedText{"zh-CN": "玩家"}},
+		Title:         map[string]string{"zh-CN": "页面", "en-US": "页面 en"},
+		Category:      spec.PageCategorySpec{Key: "player", Labels: spec.LocalizedText{"zh-CN": "玩家", "en-US": "玩家 en"}},
 		Operation:     testOperationPageSpec(),
 		Bindings:      testPageBindings(),
 	})
@@ -617,8 +617,8 @@ func TestServiceRegenerateDraftTxVersionErrorV9(t *testing.T) {
 	upsertProposalForRegenerate(t, db, ctx, "prop:regen-tx", "regen.tx", spec.PageSpec{
 		PageKey:  "regen.tx",
 		Type:     spec.PageTypeOperation,
-		Title:    spec.LocalizedText{"zh-CN": "页面"},
-		Category: spec.PageCategorySpec{Key: "player", Labels: spec.LocalizedText{"zh-CN": "玩家"}},
+		Title:    spec.LocalizedText{"zh-CN": "页面", "en-US": "页面 en"},
+		Category: spec.PageCategorySpec{Key: "player", Labels: spec.LocalizedText{"zh-CN": "玩家", "en-US": "玩家 en"}},
 	})
 	require.NoError(t, db.Migrator().DropTable("page_versions"))
 
@@ -721,8 +721,8 @@ func TestHandlerCoverageFlowsV9(t *testing.T) {
 		DraftRevision: &rev,
 		Type:          spec.PageTypeOperation,
 		ResourceKey:   "player",
-		Title:         map[string]string{"zh-CN": "页面"},
-		Category:      spec.PageCategorySpec{Key: "player", Labels: spec.LocalizedText{"zh-CN": "玩家"}},
+		Title:         map[string]string{"zh-CN": "页面", "en-US": "页面 en"},
+		Category:      spec.PageCategorySpec{Key: "player", Labels: spec.LocalizedText{"zh-CN": "玩家", "en-US": "玩家 en"}},
 		Operation:     testOperationPageSpec(),
 		Bindings:      testPageBindings(),
 	}
@@ -745,8 +745,8 @@ func TestHandlerCoverageFlowsV9(t *testing.T) {
 	upsertProposalForRegenerate(t, db, env.ctx, "prop:regen-http", "regen.http", spec.PageSpec{
 		PageKey:  "regen.http",
 		Type:     spec.PageTypeOperation,
-		Title:    spec.LocalizedText{"zh-CN": "页面"},
-		Category: spec.PageCategorySpec{Key: "player", Labels: spec.LocalizedText{"zh-CN": "玩家"}},
+		Title:    spec.LocalizedText{"zh-CN": "页面", "en-US": "页面 en"},
+		Category: spec.PageCategorySpec{Key: "player", Labels: spec.LocalizedText{"zh-CN": "玩家", "en-US": "玩家 en"}},
 	})
 	rec = env.do(t, http.MethodPost, "/api/v1/pages/regen.http/regenerate", `{"draftRevision":`+itoa(regenRev)+`}`)
 	assert.Equal(t, http.StatusOK, rec.Code)

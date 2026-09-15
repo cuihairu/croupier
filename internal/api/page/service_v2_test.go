@@ -253,10 +253,10 @@ func TestServiceSaveDraftRejectsMissingPageKey(t *testing.T) {
 		PageKey:       "  ", // blank pageKey
 		DraftRevision: &revision,
 		Type:          spec.PageTypeOperation,
-		Title:         map[string]string{"zh-CN": "测试"},
+		Title:         map[string]string{"zh-CN": "测试", "en-US": "测试 en"},
 		Category: spec.PageCategorySpec{
 			Key:    "test",
-			Labels: spec.LocalizedText{"zh-CN": "测试分类"},
+			Labels: spec.LocalizedText{"zh-CN": "测试分类", "en-US": "测试分类 en"},
 		},
 		Operation: testOperationPageSpec(),
 		Bindings:  testPageBindings(),
@@ -273,10 +273,10 @@ func TestServiceSaveDraftRejectsInvalidPageType(t *testing.T) {
 		PageKey:       "test.page",
 		DraftRevision: &revision,
 		Type:          "invalid_type",
-		Title:         map[string]string{"zh-CN": "测试"},
+		Title:         map[string]string{"zh-CN": "测试", "en-US": "测试 en"},
 		Category: spec.PageCategorySpec{
 			Key:    "test",
-			Labels: spec.LocalizedText{"zh-CN": "测试分类"},
+			Labels: spec.LocalizedText{"zh-CN": "测试分类", "en-US": "测试分类 en"},
 		},
 		Operation: testOperationPageSpec(),
 		Bindings:  testPageBindings(),
@@ -296,13 +296,13 @@ func TestServiceSaveDraftRejectsMissingTitleLocale(t *testing.T) {
 		Title:         map[string]string{"en-US": "Test"},
 		Category: spec.PageCategorySpec{
 			Key:    "test",
-			Labels: spec.LocalizedText{"zh-CN": "测试分类"},
+			Labels: spec.LocalizedText{"zh-CN": "测试分类", "en-US": "测试分类 en"},
 		},
 		Operation: testOperationPageSpec(),
 		Bindings:  testPageBindings(),
 	})
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "title must include zh-CN locale")
+	assert.Contains(t, err.Error(), "title must include zh-CN and en-US locales")
 }
 
 func TestServiceSaveDraftRejectsMissingCategoryLabelsLocale(t *testing.T) {
@@ -313,7 +313,7 @@ func TestServiceSaveDraftRejectsMissingCategoryLabelsLocale(t *testing.T) {
 		PageKey:       "test.page",
 		DraftRevision: &revision,
 		Type:          spec.PageTypeOperation,
-		Title:         map[string]string{"zh-CN": "测试"},
+		Title:         map[string]string{"zh-CN": "测试", "en-US": "测试 en"},
 		Category: spec.PageCategorySpec{
 			Key:    "test",
 			Labels: spec.LocalizedText{"en-US": "Test Category"},
@@ -322,7 +322,7 @@ func TestServiceSaveDraftRejectsMissingCategoryLabelsLocale(t *testing.T) {
 		Bindings:  testPageBindings(),
 	})
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "category.labels must include zh-CN locale")
+	assert.Contains(t, err.Error(), "category.labels must include zh-CN and en-US locales")
 }
 
 func TestServiceSaveDraftRejectsNilDraftRevision(t *testing.T) {
@@ -331,10 +331,10 @@ func TestServiceSaveDraftRejectsNilDraftRevision(t *testing.T) {
 	_, err := service.SaveDraft(ctx, &PageSaveRequest{
 		PageKey: "test.page",
 		Type:    spec.PageTypeOperation,
-		Title:   map[string]string{"zh-CN": "测试"},
+		Title:   map[string]string{"zh-CN": "测试", "en-US": "测试 en"},
 		Category: spec.PageCategorySpec{
 			Key:    "test",
-			Labels: spec.LocalizedText{"zh-CN": "测试分类"},
+			Labels: spec.LocalizedText{"zh-CN": "测试分类", "en-US": "测试分类 en"},
 		},
 		Operation: testOperationPageSpec(),
 		Bindings:  testPageBindings(),
@@ -352,10 +352,10 @@ func TestServiceSaveDraftCreatesNewPage(t *testing.T) {
 		DraftRevision: &revision,
 		Type:          spec.PageTypeResource,
 		ResourceKey:   "test",
-		Title:         map[string]string{"zh-CN": "新页面"},
+		Title:         map[string]string{"zh-CN": "新页面", "en-US": "新页面 en"},
 		Category: spec.PageCategorySpec{
 			Key:    "test",
-			Labels: spec.LocalizedText{"zh-CN": "测试"},
+			Labels: spec.LocalizedText{"zh-CN": "测试", "en-US": "测试 en"},
 		},
 		Resource: &spec.ResourcePageSpec{},
 	})
@@ -377,10 +377,10 @@ func TestServiceSaveDraftCreatesTaskPage(t *testing.T) {
 		DraftRevision: &revision,
 		Type:          spec.PageTypeTask,
 		ResourceKey:   "task",
-		Title:         map[string]string{"zh-CN": "任务页面"},
+		Title:         map[string]string{"zh-CN": "任务页面", "en-US": "任务页面 en"},
 		Category: spec.PageCategorySpec{
 			Key:    "task",
-			Labels: spec.LocalizedText{"zh-CN": "任务"},
+			Labels: spec.LocalizedText{"zh-CN": "任务", "en-US": "任务 en"},
 		},
 		Task: &spec.TaskPageSpec{},
 	})
@@ -397,10 +397,10 @@ func TestServiceSaveDraftCreatesReportPage(t *testing.T) {
 		DraftRevision: &revision,
 		Type:          spec.PageTypeReport,
 		ResourceKey:   "report",
-		Title:         map[string]string{"zh-CN": "报表页面"},
+		Title:         map[string]string{"zh-CN": "报表页面", "en-US": "报表页面 en"},
 		Category: spec.PageCategorySpec{
 			Key:    "report",
-			Labels: spec.LocalizedText{"zh-CN": "报表"},
+			Labels: spec.LocalizedText{"zh-CN": "报表", "en-US": "报表 en"},
 		},
 		Report: &spec.ReportPageSpec{},
 	})
@@ -417,10 +417,10 @@ func TestServiceSaveDraftUpdatesExistingPage(t *testing.T) {
 		DraftRevision: &revision,
 		Type:          spec.PageTypeOperation,
 		ResourceKey:   "player",
-		Title:         map[string]string{"zh-CN": "玩家管理（已更新）"},
+		Title:         map[string]string{"zh-CN": "玩家管理（已更新）", "en-US": "玩家管理（已更新） en"},
 		Category: spec.PageCategorySpec{
 			Key:    "player",
-			Labels: spec.LocalizedText{"zh-CN": "玩家"},
+			Labels: spec.LocalizedText{"zh-CN": "玩家", "en-US": "玩家 en"},
 		},
 		Operation: testOperationPageSpec(),
 		Bindings:  testPageBindings(),
@@ -445,10 +445,10 @@ func TestServiceSaveDraftRejectsConflictOnNewPage(t *testing.T) {
 		PageKey:       "conflict.page",
 		DraftRevision: &revision,
 		Type:          spec.PageTypeOperation,
-		Title:         map[string]string{"zh-CN": "冲突页面"},
+		Title:         map[string]string{"zh-CN": "冲突页面", "en-US": "冲突页面 en"},
 		Category: spec.PageCategorySpec{
 			Key:    "conflict",
-			Labels: spec.LocalizedText{"zh-CN": "冲突"},
+			Labels: spec.LocalizedText{"zh-CN": "冲突", "en-US": "冲突 en"},
 		},
 		Operation: testOperationPageSpec(),
 		Bindings:  testPageBindings(),
@@ -692,7 +692,8 @@ func TestHasDefaultLocaleV2(t *testing.T) {
 	assert.False(t, hasDefaultLocale(nil))
 	assert.False(t, hasDefaultLocale(spec.LocalizedText{}))
 	assert.False(t, hasDefaultLocale(spec.LocalizedText{"zh-CN": "  "}))
-	assert.True(t, hasDefaultLocale(spec.LocalizedText{"zh-CN": "测试"}))
+	assert.False(t, hasDefaultLocale(spec.LocalizedText{"zh-CN": "测试"}), "仅 zh-CN 缺 en-US 不满足双语言契约")
+	assert.True(t, hasDefaultLocale(spec.LocalizedText{"zh-CN": "测试", "en-US": "Test"}))
 }
 
 func TestDigestRawV2(t *testing.T) {
@@ -834,10 +835,10 @@ func TestMarshalPageSpecV2(t *testing.T) {
 		PageKey:     "  test  ",
 		ResourceKey: "  res  ",
 		Icon:        "  icon  ",
-		Title:       spec.LocalizedText{"zh-CN": "测试"},
+		Title:       spec.LocalizedText{"zh-CN": "测试", "en-US": "测试 en"},
 		Category: spec.PageCategorySpec{
 			Key:    "  cat  ",
-			Labels: spec.LocalizedText{"zh-CN": "分类"},
+			Labels: spec.LocalizedText{"zh-CN": "分类", "en-US": "分类 en"},
 		},
 		Bindings: []spec.PageFunctionBinding{
 			{ID: "  b1  ", FunctionID: "  fn1  "},
@@ -1012,7 +1013,7 @@ func TestValidatePageSpecV2(t *testing.T) {
 	// missing category key
 	diags = service.validatePageSpec(ctx, spec.PageSpec{
 		Type:  spec.PageTypeOperation,
-		Title: spec.LocalizedText{"zh-CN": "测试"},
+		Title: spec.LocalizedText{"zh-CN": "测试", "en-US": "测试 en"},
 	}, false)
 	found = false
 	for _, d := range diags {
@@ -1026,10 +1027,10 @@ func TestValidatePageSpecV2(t *testing.T) {
 	// missing bindings
 	diags = service.validatePageSpec(ctx, spec.PageSpec{
 		Type:  spec.PageTypeOperation,
-		Title: spec.LocalizedText{"zh-CN": "测试"},
+		Title: spec.LocalizedText{"zh-CN": "测试", "en-US": "测试 en"},
 		Category: spec.PageCategorySpec{
 			Key:    "test",
-			Labels: spec.LocalizedText{"zh-CN": "测试"},
+			Labels: spec.LocalizedText{"zh-CN": "测试", "en-US": "测试 en"},
 		},
 	}, false)
 	found = false

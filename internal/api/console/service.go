@@ -1027,6 +1027,11 @@ func generateMenuFromPages(pages []spec.PublishedPageSpec, lang string) spec.Con
 		if page.Order < categories[catKey].order {
 			categories[catKey].order = page.Order
 		}
+		// 分类菜单项此前从不带 icon（前端只读 category.icon）：取组内
+		// 第一个非空页面图标作为分类图标。
+		if categories[catKey].icon == "" && strings.TrimSpace(page.Icon) != "" {
+			categories[catKey].icon = page.Icon
+		}
 		categories[catKey].pages = append(categories[catKey].pages, pageEntry{
 			key:   page.PageKey,
 			title: page.Title,
@@ -1064,6 +1069,7 @@ func generateMenuFromPages(pages []spec.PublishedPageSpec, lang string) spec.Con
 			Path:     consoleCategoryPath(cat.key),
 			Title:    cat.labels,
 			Locale:   false,
+			Icon:     cat.icon,
 			Order:    cat.order,
 			Children: children,
 		})
@@ -1142,16 +1148,31 @@ func requireScope(ctx context.Context) (string, string, error) {
 	return gameID, env, nil
 }
 
+// normalizeLanguage 归一化为 BCP47 canonical 形态（语言小写、region 大写，
+// 如 zh-tw → zh-TW）。此前盲目 ToLower 使 ja-JP 等请求永不命中 map 里
+// canonical 键，多语言排序静默失效。
 func normalizeLanguage(lang string) string {
-	lang = strings.TrimSpace(strings.ToLower(lang))
-	switch lang {
-	case "zh", "zh-cn", "zh_cn", "":
+	lang = strings.TrimSpace(lang)
+	if lang == "" {
 		return "zh-CN"
-	case "en", "en-us", "en_us":
-		return "en-US"
-	default:
-		return lang
 	}
+	lang = strings.ReplaceAll(lang, "_", "-")
+	parts := strings.Split(lang, "-")
+	parts[0] = strings.ToLower(parts[0])
+	for i := 1; i < len(parts); i++ {
+		parts[i] = strings.ToUpper(parts[i])
+	}
+	switch parts[0] {
+	case "zh":
+		if len(parts) == 1 {
+			return "zh-CN"
+		}
+	case "en":
+		if len(parts) == 1 {
+			return "en-US"
+		}
+	}
+	return strings.Join(parts, "-")
 }
 
 func getLocalizedText(labels spec.LocalizedText, lang, fallback string) string {
@@ -1162,6 +1183,9 @@ func getLocalizedText(labels spec.LocalizedText, lang, fallback string) string {
 		return v
 	}
 	if v, ok := labels["zh-CN"]; ok && v != "" {
+		return v
+	}
+	if v, ok := labels["en-US"]; ok && v != "" {
 		return v
 	}
 	for _, v := range labels {
@@ -1177,6 +1201,7 @@ type categoryGroup struct {
 	labels spec.LocalizedText
 	order  int
 	pages  []pageEntry
+	icon   string
 }
 
 type pageEntry struct {

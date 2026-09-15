@@ -185,8 +185,9 @@ func TestNormalizeLocaleKeys_V7(t *testing.T) {
 func TestHasDefaultLocale_V7(t *testing.T) {
 	assert.False(t, hasDefaultLocale(nil))
 	assert.False(t, hasDefaultLocale(spec.LocalizedText{}))
-	assert.True(t, hasDefaultLocale(spec.LocalizedText{"zh-CN": "你好"}))
-	assert.False(t, hasDefaultLocale(spec.LocalizedText{"en-US": "Hello"}))
+	assert.False(t, hasDefaultLocale(spec.LocalizedText{"zh-CN": "你好"}), "仅 zh-CN 缺 en-US 不满足双语言契约")
+	assert.True(t, hasDefaultLocale(spec.LocalizedText{"zh-CN": "你好", "en-US": "Hello"}))
+	assert.False(t, hasDefaultLocale(spec.LocalizedText{"en-US": "Hello"}), "仅 en-US 缺 zh-CN 不满足双语言契约")
 }
 
 // --- localizedTextEqual ---
@@ -404,9 +405,9 @@ func TestMarshalPageSpec_V7(t *testing.T) {
 		PageKey:     "  test  ",
 		ResourceKey: "  res  ",
 		Icon:        "  icon  ",
-		Title:       spec.LocalizedText{"zh-CN": "你好"},
+		Title:       spec.LocalizedText{"zh-CN": "你好", "en-US": "你好 en"},
 		Description: spec.LocalizedText{"en-US": "Hello"},
-		Category:    spec.PageCategorySpec{Key: "  cat  ", Labels: spec.LocalizedText{"zh-CN": "分类"}},
+		Category:    spec.PageCategorySpec{Key: "  cat  ", Labels: spec.LocalizedText{"zh-CN": "分类", "en-US": "分类 en"}},
 		Bindings: []spec.PageFunctionBinding{
 			{ID: "  b1  ", FunctionID: "  f1  "},
 		},

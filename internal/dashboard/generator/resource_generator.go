@@ -45,7 +45,7 @@ func GenerateResourcePageProposal(
 	resourceKey := strings.TrimSpace(semantics.ResourceKey)
 	pageKey := "resource--" + sanitizeSourceKey(resourceKey)
 	locale := opts.DefaultLocale
-	title := spec.LocalizedText{locale: fallbackLabel(resourceKey)}
+	title := localizedTitleFallback(resourceKey, locale)
 	if term, ok := opts.Terms.Lookup("resource", resourceKey); ok && len(term) > 0 {
 		title = term
 	}

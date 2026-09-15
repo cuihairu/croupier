@@ -919,13 +919,13 @@ func validateAcceptedPageSpec(gameID, env string, proposal *model.PageProposal, 
 		details["type"] = "type must be resource, operation, task, or report"
 	}
 	if !hasDefaultLocale(page.Title) {
-		details["title"] = "title must include zh-CN locale"
+		details["title"] = "title must include zh-CN and en-US locales"
 	}
 	if strings.TrimSpace(page.Category.Key) == "" {
 		details["category.key"] = "category.key is required"
 	}
 	if !hasDefaultLocale(page.Category.Labels) {
-		details["category.labels"] = "category.labels must include zh-CN locale"
+		details["category.labels"] = "category.labels must include zh-CN and en-US locales"
 	}
 	if len(page.Bindings) == 0 {
 		details["bindings"] = "page must bind at least one function"

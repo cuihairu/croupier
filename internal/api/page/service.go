@@ -155,11 +155,11 @@ func (s *Service) SaveDraft(ctx context.Context, req *PageSaveRequest) (*PageSav
 
 	title := normalizeLocaleKeys(req.Title)
 	if !hasDefaultLocale(title) {
-		return nil, errorx.NewBadRequest("title must include zh-CN locale")
+		return nil, errorx.NewBadRequest("title must include zh-CN and en-US locales")
 	}
 	categoryLabels := normalizeLocaleKeys(req.Category.Labels)
 	if !hasDefaultLocale(categoryLabels) {
-		return nil, errorx.NewBadRequest("category.labels must include zh-CN locale")
+		return nil, errorx.NewBadRequest("category.labels must include zh-CN and en-US locales")
 	}
 	pageSpec.Title = title
 	pageSpec.Description = normalizeLocaleKeys(req.Description)
@@ -1081,13 +1081,13 @@ func (s *Service) validatePageSpec(ctx context.Context, page spec.PageSpec, publ
 		diags = append(diags, diagnostic("page_type_invalid", spec.SeverityError, "page type is invalid", "type"))
 	}
 	if !hasDefaultLocale(page.Title) {
-		diags = append(diags, diagnostic("localized_text_missing", spec.SeverityError, "title must include zh-CN locale", "title"))
+		diags = append(diags, diagnostic("localized_text_missing", spec.SeverityError, "title must include zh-CN and en-US locales", "title"))
 	}
 	if strings.TrimSpace(page.Category.Key) == "" {
 		diags = append(diags, diagnostic("category_key_missing", spec.SeverityError, "category.key is required", "category.key"))
 	}
 	if !hasDefaultLocale(page.Category.Labels) {
-		diags = append(diags, diagnostic("category_label_missing", spec.SeverityError, "category.labels must include zh-CN locale", "category.labels"))
+		diags = append(diags, diagnostic("category_label_missing", spec.SeverityError, "category.labels must include zh-CN and en-US locales", "category.labels"))
 	}
 	if publish {
 		diags = append(diags, s.validatePublishedCategoryLabels(ctx, page)...)
@@ -1662,8 +1662,14 @@ func diagnosticsFromJSON(raw []byte) []spec.Diagnostic {
 	return diagnostics
 }
 
+// hasDefaultLocale 校验必填展示语言：zh-CN 必填（默认展示语言），en-US
+// 必填（用户契约：英文必须有）。生成器兜底已双写 zh-CN/en-US，词条
+// 字典多语言命中天然满足；存量快照缺 en-US 会在发布时得到明确报错，
+// 编辑器补录即可。
 func hasDefaultLocale(labels spec.LocalizedText) bool {
-	return labels != nil && strings.TrimSpace(labels["zh-CN"]) != ""
+	return labels != nil &&
+		strings.TrimSpace(labels["zh-CN"]) != "" &&
+		strings.TrimSpace(labels["en-US"]) != ""
 }
 
 func localizedTextEqual(left map[string]string, right map[string]string) bool {
