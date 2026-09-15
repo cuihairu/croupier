@@ -1839,6 +1839,10 @@ func (f failingRegisterContractService) RebuildProposalForFunction(context.Conte
 	return f.err
 }
 
+func (f failingRegisterContractService) RegenerateContractTemplates(context.Context, string, string) error {
+	return f.err
+}
+
 func TestDescriptorPresentationField(t *testing.T) {
 	// Test nil descriptor
 	field, ok := descriptorPresentationField(nil)

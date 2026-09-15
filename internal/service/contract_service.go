@@ -101,8 +101,8 @@ func (s *ContractService) RebuildContractFromFunctionMeta(ctx context.Context, g
 // CreateUnboundContract 为上传管线生成 unbound 契约（D1/D4、T4）：仅当同
 // (game_id, env, function_id) 契约不存在时创建——已有 bound 契约的 operation
 // 不降级，重复上传幂等（仅不存在时建）。落库与注册路径共用 rebuildContract
-// （归一/digest/诊断一致；T2 模板联动在 unbound 路径被跳过，由上传管线
-// 提交后单次收口，见 rebuildContract 尾注），执行状态为 unbound。
+// （归一/digest/诊断一致），执行状态为 unbound；模板联动由上传管线在事务
+// 提交后单次收口（T5 RegenerateContractTemplates）。
 func (s *ContractService) CreateUnboundContract(ctx context.Context, gameID, env, source string, input spec.FunctionContractInput) (bool, error) {
 	gameID = strings.TrimSpace(gameID)
 	env = strings.TrimSpace(env)
@@ -124,7 +124,8 @@ func (s *ContractService) CreateUnboundContract(ctx context.Context, gameID, env
 }
 
 // rebuildContract 是注册（bound）与上传管线（unbound）共用的契约落库路径：
-// 归一 → digest → schema diff → upsert → 审计/告警 → 模板联动（T2）。
+// 归一 → digest → schema diff → upsert → 审计/告警。组件模板联动（T2）由
+// 各事务边界在提交后经 RegenerateContractTemplates 单次收口（见函数尾注）。
 func (s *ContractService) rebuildContract(ctx context.Context, gameID, env, source string, input spec.FunctionContractInput, executionState spec.ExecutionState) error {
 	// 入库前归一（scope 字段）：投影层（contract_projection）读取时对
 	// gameID/env/function_id TrimSpace，写入侧在此同步归一，保证两侧
@@ -251,15 +252,12 @@ func (s *ContractService) rebuildContract(ctx context.Context, gameID, env, sour
 		"resource", input.Resource,
 		"capability", input.Capability)
 
-	// T2/D1：契约落库/实质变更（新契约或 digest 变化）后自动重建组件模板；
-	// schema 未变的重注册不触发，避免心跳重连风暴下空转。失败不阻塞注册。
-	// unbound 物料（T4 上传管线）例外：模板重建由上传管线在事务提交后
-	// 单次收口（T5 RegenerateContractTemplates）——事务内逐契约联动对
-	// 大文档是 N 次冗余全量重建，且其跨连接写全局模板表在文件型 sqlite
-	// 下必锁（写锁互等待）。bound 路径不在上传事务内，行为不变。
-	if (existing == nil || existing.SourceDigest != digest) && executionState != spec.ExecutionStateUnbound {
-		regenerateTemplatesForScope(ctx, gameID, env, input.ID, source)
-	}
+	// T2/D1 模板联动不在此处内联触发：组件模板表经进程级注入闭包走全局
+	// 连接，而本函数常在调用方事务内执行（agent 注册 / OpenAPI 绑定），
+	// 文件型 sqlite 下跨连接写模板表会与事务写锁互等待 busy_timeout(60s)
+	// 自死锁（E2E probe register 超时根因）。收口统一挪到各事务边界提交
+	// 后单次执行（RegenerateContractTemplates）：注册 → registry Store；
+	// 上传/更新源 → finishUploadPipeline；显式绑定/解绑 → openapi service。
 
 	// D3/T6：unbound→bound 翻转落库后写自动绑定审计事件（失败不阻塞）。
 	if autoBound {

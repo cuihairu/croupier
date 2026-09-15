@@ -263,6 +263,10 @@ func (m *transactionalFailingMaterializer) RebuildContractFromFunctionMeta(ctx c
 	return m.service.RebuildContractFromFunctionMeta(ctx, gameID, env, source, meta)
 }
 
+func (m *transactionalFailingMaterializer) RegenerateContractTemplates(ctx context.Context, gameID, env string) error {
+	return m.service.RegenerateContractTemplates(ctx, gameID, env)
+}
+
 func (m *transactionalFailingMaterializer) RemoveFunctionContract(ctx context.Context, gameID, env, functionID string) (string, error) {
 	return m.service.RemoveFunctionContract(ctx, gameID, env, functionID)
 }

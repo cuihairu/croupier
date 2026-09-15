@@ -447,6 +447,13 @@ func (s *Service) CreateBinding(ctx context.Context, req *OpenAPISourceBindingCr
 		spanErr = err
 		return nil, err
 	}
+	// T2 收口：绑定契约重建在事务内完成，模板联动在提交后单次执行
+	// （事务内经全局连接写模板表在文件型 sqlite 下会与事务写锁互等待
+	// 自死锁，见 service.RegenerateContractTemplates 注）。失败仅告警。
+	if err := dashboardservice.RegenerateContractTemplates(ctx, gameID, env); err != nil {
+		slog.WarnContext(ctx, "auto regenerate component templates after binding create failed",
+			"game_id", gameID, "env", env, "function_id", functionID, "error", err)
+	}
 	finishSpan(nil,
 		attribute.String("openapi_source.id", source.SourceID),
 		attribute.Int("openapi_source.revision", source.Revision),
@@ -762,6 +769,12 @@ func (s *Service) DeleteBinding(ctx context.Context, req *OpenAPISourceBindingDe
 			return nil, errorx.NewNotFound("OpenAPI source binding not found")
 		}
 		return nil, err
+	}
+	// T2 收口：解绑的契约重建/删除在事务内完成，模板联动在提交后单次执行
+	// （同 CreateBinding 注：事务内写模板表会与事务写锁互等待自死锁）。
+	if err := dashboardservice.RegenerateContractTemplates(ctx, gameID, env); err != nil {
+		slog.WarnContext(ctx, "auto regenerate component templates after binding delete failed",
+			"game_id", gameID, "env", env, "function_id", binding.FunctionID, "error", err)
 	}
 	finishSpan(nil, attribute.Int("openapi_source.revision", source.Revision))
 	finishSpan = func(error, ...attribute.KeyValue) {}

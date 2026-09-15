@@ -63,6 +63,13 @@ func (p *registrationContractPipeline) RebuildProposalForFunction(ctx context.Co
 	return contractSvc.RebuildProposalForFunction(ctx, gameID, env, functionID)
 }
 
+// RegenerateContractTemplates 注册事务提交后的组件模板收口（T2）。模板表
+// 在全局/meta 库，走进程级注入闭包（与组件 handler regenerate 同一实现），
+// 不经 per-game 契约服务解析。
+func (p *registrationContractPipeline) RegenerateContractTemplates(ctx context.Context, gameID, env string) error {
+	return dashboardservice.RegenerateContractTemplates(ctx, gameID, env)
+}
+
 func (p *registrationContractPipeline) contractService(ctx context.Context, gameID, env string) (*dashboardservice.ContractService, error) {
 	db, err := p.scopedDB(ctx, gameID, env)
 	if err != nil {

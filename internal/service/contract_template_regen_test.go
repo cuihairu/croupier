@@ -42,8 +42,23 @@ func t2ContractInput(id string) spec.FunctionContractInput {
 	}
 }
 
-// T2 验收：契约 upsert 后 builtin 模板自动更新（无需手动 regenerate）。
-func TestContractUpsertAutoRegeneratesTemplates(t *testing.T) {
+// 契约重建本体不再内联触发模板联动（事务内写全局模板表在文件型 sqlite
+// 下与事务写锁自死锁，收口挪到各事务边界提交后的
+// RegenerateContractTemplates——注册边界的行为见 registry
+// store_template_regen_test.go）。
+func TestContractRebuildDoesNotRegenTemplatesInline(t *testing.T) {
+	db := setupTestDBFileV9(t)
+	require.NoError(t, db.AutoMigrate(&model.ComponentTemplate{}))
+	_, calls := withTestTemplateRegen(t, db)
+
+	svc := NewContractService(db)
+	require.NoError(t, svc.RebuildContractFromFunctionMeta(context.Background(), "g-t2", "e-t2", "agent-1", t2ContractInput("player.get")))
+	assert.Equal(t, 0, *calls, "契约落库不应内联触发模板重建（由事务边界提交后收口）")
+}
+
+// T2 验收：提交后单次收口——RegenerateContractTemplates 拉当前 scope 契约
+// 全量重建，builtin 模板自动生成（无需手动 regenerate 端点）。
+func TestRegenerateContractTemplatesBuildsTemplates(t *testing.T) {
 	db := setupTestDBFileV9(t)
 	require.NoError(t, db.AutoMigrate(&model.ComponentTemplate{}))
 	tplModel, calls := withTestTemplateRegen(t, db)
@@ -51,46 +66,29 @@ func TestContractUpsertAutoRegeneratesTemplates(t *testing.T) {
 	svc := NewContractService(db)
 
 	require.NoError(t, svc.RebuildContractFromFunctionMeta(ctx, "g-t2", "e-t2", "agent-1", t2ContractInput("player.get")))
-	assert.Equal(t, 1, *calls, "新契约应触发一次模板重建")
+	require.NoError(t, svc.RegenerateContractTemplates(ctx, "g-t2", "e-t2"))
+	assert.Equal(t, 1, *calls, "收口入口应触发一次模板重建")
 
 	tpl, err := tplModel.FindByKey(ctx, "fn--player.get")
 	require.NoError(t, err, "单函数 builtin 模板应自动生成")
 	assert.True(t, tpl.Builtin)
 }
 
-// T2 验收：schema 未变的重注册不触发重建（心跳重连风暴下不空转）。
-func TestContractReRegisterSkipsRegenWhenDigestUnchanged(t *testing.T) {
-	db := setupTestDBFileV9(t)
-	require.NoError(t, db.AutoMigrate(&model.ComponentTemplate{}))
-	_, calls := withTestTemplateRegen(t, db)
-	ctx := context.Background()
-	svc := NewContractService(db)
-
-	require.NoError(t, svc.RebuildContractFromFunctionMeta(ctx, "g-t2", "e-t2", "agent-1", t2ContractInput("player.get")))
-	require.NoError(t, svc.RebuildContractFromFunctionMeta(ctx, "g-t2", "e-t2", "agent-1", t2ContractInput("player.get")))
-	assert.Equal(t, 1, *calls, "digest 未变的重注册不应再次触发")
-
-	// schema 实质变化 → 再次触发。
-	changed := t2ContractInput("player.get")
-	changed.OutputSchema = `{"type":"object","properties":{"player":{"type":"object"},"gold":{"type":"integer"}}}`
-	require.NoError(t, svc.RebuildContractFromFunctionMeta(ctx, "g-t2", "e-t2", "agent-1", changed))
-	assert.Equal(t, 2, *calls, "契约实质变更应再次触发")
+// 未注入（单测/裁剪部署）时收口入口 no-op 返回 nil，不 panic。
+func TestRegenerateContractTemplatesNoopWithoutInjector(t *testing.T) {
+	SetContractTemplateRegenerator(nil)
+	assert.NoError(t, RegenerateContractTemplates(context.Background(), "g", "e"))
+	assert.NoError(t, NewContractService(nil).RegenerateContractTemplates(context.Background(), "g", "e"))
 }
 
-// T2 验收：regenerate 失败不阻塞契约重建主流程。
-func TestContractUpsertSurvivesRegenFailure(t *testing.T) {
-	db := setupTestDBFileV9(t)
-	require.NoError(t, db.AutoMigrate(&model.ComponentTemplate{}))
+// 收口失败把错误返回给调用方（注册/绑定边界按 T2 语义仅告警不回滚）。
+func TestRegenerateContractTemplatesReturnsClosureError(t *testing.T) {
 	SetContractTemplateRegenerator(func(ctx context.Context, gameID, env string) error {
 		return errors.New("regen boom")
 	})
 	t.Cleanup(func() { SetContractTemplateRegenerator(nil) })
 
-	svc := NewContractService(db)
-	require.NoError(t, svc.RebuildContractFromFunctionMeta(context.Background(), "g-t2", "e-t2", "agent-1", t2ContractInput("player.get")),
-		"模板重建失败不应影响契约注册")
-
-	contracts, err := model.NewFunctionContractModel(db).ListByScope(context.Background(), "g-t2", "e-t2")
-	require.NoError(t, err)
-	assert.Len(t, contracts, 1)
+	err := RegenerateContractTemplates(context.Background(), "g-t2", "e-t2")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "regen boom")
 }

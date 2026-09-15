@@ -2,7 +2,6 @@ package service
 
 import (
 	"context"
-	"log/slog"
 	"sync/atomic"
 )
 
@@ -27,30 +26,25 @@ func SetContractTemplateRegenerator(r ContractTemplateRegenerator) {
 	contractTemplateRegen.Store(&r)
 }
 
-// regenerateTemplatesForScope 在契约变更后同步重建当前 scope 的组件模板。
-// 失败不阻塞契约重建主流程：warn 日志携带定位字段（T2 验收语义）。
-func regenerateTemplatesForScope(ctx context.Context, gameID, env, functionID, source string) {
-	r := contractTemplateRegen.Load()
-	if r == nil {
-		return
-	}
-	if err := (*r)(ctx, gameID, env); err != nil {
-		slog.WarnContext(ctx, "auto regenerate component templates failed (manual regenerate remains as fallback)",
-			"game_id", gameID, "env", env,
-			"trigger_function_id", functionID, "trigger_source", source,
-			"err", err)
-	}
-}
-
 // RegenerateContractTemplates 显式触发指定 scope 的内置组件模板重建（同一
-// 装配期注入闭包；未注入时 no-op 返回 nil）。上传管线（api/openapi T5）在
-// 契约事务提交后调用一次：unbound 契约在事务内不触发 T2 逐契约联动（见
-// rebuildContract 尾注），提交后单次全量重建收口（幂等），且可被上传摘要
-// 计数观测。
+// 装配期注入闭包；未注入时 no-op 返回 nil）。这是 T2 模板联动的唯一收口
+// 入口，必须在契约事务提交后调用——重建闭包经全局连接写模板表，文件型
+// sqlite 下事务内调用会与事务写锁互等待 busy_timeout 自死锁（agent 注册
+// 大事务曾因此把 probe register 卡满 60s）。收口点：agent 注册 → registry
+// Store.UpsertAgent 提交后；OpenAPI 上传/更新源 → finishUploadPipeline；
+// 显式绑定/解绑 → openapi service 提交后。失败仅告警/上报，不回滚已提交
+// 的契约变更（手动 regenerate 仍是兜底）。
 func RegenerateContractTemplates(ctx context.Context, gameID, env string) error {
 	r := contractTemplateRegen.Load()
 	if r == nil {
 		return nil
 	}
 	return (*r)(ctx, gameID, env)
+}
+
+// RegenerateContractTemplates（方法形态）是包级函数的接口桥：registry
+// Store 经 contractMaterializer 接口在注册事务提交后调用，避免
+// platform/registry 直接依赖本包。
+func (s *ContractService) RegenerateContractTemplates(ctx context.Context, gameID, env string) error {
+	return RegenerateContractTemplates(ctx, gameID, env)
 }

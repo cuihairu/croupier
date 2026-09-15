@@ -236,6 +236,10 @@ func (removeFailingContractServiceV9) RebuildProposalForFunction(context.Context
 	return nil
 }
 
+func (removeFailingContractServiceV9) RegenerateContractTemplates(context.Context, string, string) error {
+	return nil
+}
+
 func TestUpsertAgentScopedTransactionFailurePathsV9(t *testing.T) {
 	scopedSession := func() *AgentSession {
 		return &AgentSession{
@@ -559,6 +563,10 @@ func (proposalsFailingServiceV9) RebuildProposalsForResource(context.Context, st
 }
 
 func (proposalsFailingServiceV9) RebuildProposalForFunction(context.Context, string, string, string) error {
+	return nil
+}
+
+func (proposalsFailingServiceV9) RegenerateContractTemplates(context.Context, string, string) error {
 	return nil
 }
 

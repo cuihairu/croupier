@@ -148,6 +148,11 @@ func (r *recordingContractService) RebuildProposalForFunction(ctx context.Contex
 	return nil
 }
 
+func (r *recordingContractService) RegenerateContractTemplates(ctx context.Context, gameID, env string) error {
+	r.record(ctx)
+	return nil
+}
+
 func (r *recordingContractService) record(ctx context.Context) {
 	seen, _ := ctx.Value(registryTestScopeKey{}).(seenScope)
 	r.scopes = append(r.scopes, seen)
@@ -206,6 +211,10 @@ type failingContractService struct {
 }
 
 func (f failingContractService) RebuildContractFromFunctionMeta(context.Context, string, string, string, spec.FunctionContractInput) error {
+	return f.err
+}
+
+func (f failingContractService) RegenerateContractTemplates(context.Context, string, string) error {
 	return f.err
 }
 

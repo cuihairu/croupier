@@ -156,6 +156,10 @@ type contractMaterializer interface {
 	RebuildResourceCapability(ctx context.Context, gameID, env, resourceKey string) error
 	RebuildProposalsForResource(ctx context.Context, gameID, env, resourceKey string) error
 	RebuildProposalForFunction(ctx context.Context, gameID, env, functionID string) error
+	// RegenerateContractTemplates 在注册写入提交后重建 scope 的内置组件
+	// 模板（T2 收口）。模板表经全局连接写，注册事务进行中调用会在文件型
+	// sqlite 下与事务写锁互等待自死锁——只允许在事务/写入成功之后调用。
+	RegenerateContractTemplates(ctx context.Context, gameID, env string) error
 }
 
 type FunctionRegistrationWarning struct {
@@ -293,6 +297,7 @@ func (s *Store) UpsertAgent(a *AgentSession) error {
 		}); err != nil {
 			return err
 		}
+		s.regenTemplatesAfterRegistration(scopeCtx, a, diff)
 	} else if s.db != nil && dbctx.Get(scopeCtx) != nil && s.contractService != nil && a.Functions != nil {
 		operation, err := s.prepareRegistrationOperation(a, previousSession)
 		if err != nil {
@@ -328,6 +333,7 @@ func (s *Store) UpsertAgent(a *AgentSession) error {
 			s.markRegistrationOperation(operation.OperationID, "compensated", metaErr)
 			return metaErr
 		}
+		s.regenTemplatesAfterRegistration(scopeCtx, a, diff)
 	} else {
 		if err := materialize(scopeCtx, a, diff); err != nil {
 			return err
@@ -337,6 +343,7 @@ func (s *Store) UpsertAgent(a *AgentSession) error {
 				return fmt.Errorf("write agent session to database: %w", err)
 			}
 		}
+		s.regenTemplatesAfterRegistration(scopeCtx, a, diff)
 	}
 
 	// Always write to memory (primary store)
@@ -369,6 +376,26 @@ func (s *Store) UpsertAgent(a *AgentSession) error {
 	cur.ExpireAt = a.ExpireAt
 	cur.LastSeen = a.LastSeen
 	return nil
+}
+
+// regenTemplatesAfterRegistration 在注册写入（事务或直写）成功后单次收口
+// 组件模板重建（T2）。快照无 Added/Changed/Removed 时不触发——心跳/重连
+// 风暴下函数集未变即不空转（对齐原 digest 门控语义）。失败仅告警，不影响
+// 已提交的注册结果（手动 regenerate 仍是兜底）。
+func (s *Store) regenTemplatesAfterRegistration(ctx context.Context, session *AgentSession, diff functionSnapshotDiff) {
+	if s.contractService == nil || session == nil {
+		return
+	}
+	if len(diff.Added) == 0 && len(diff.Changed) == 0 && len(diff.Removed) == 0 {
+		return
+	}
+	if err := s.contractService.RegenerateContractTemplates(ctx, session.GameID, session.Env); err != nil {
+		slog.Default().Warn("auto regenerate component templates after agent registration failed (manual regenerate remains as fallback)",
+			"agent_id", session.AgentID,
+			"game_id", session.GameID,
+			"env", session.Env,
+			"error", err)
+	}
 }
 
 func (s *Store) materializeScopedTransaction(
@@ -1203,6 +1230,7 @@ func (s *Store) recoverPendingRegistrationOperations(ctx context.Context) error 
 			return fmt.Errorf("recover registration operation %s: %w", operation.OperationID, err)
 		}
 		s.markRegistrationOperation(operation.OperationID, "compensated", nil)
+		s.regenTemplatesAfterRegistration(scopeCtx, previous, reverseDiff)
 	}
 	return nil
 }
