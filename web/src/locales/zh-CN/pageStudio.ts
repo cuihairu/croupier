@@ -145,6 +145,9 @@ export default {
     '已生成 {count} 个示例常量组件——组合页编辑器中可拖入使用',
   'pages.pageStudio.templates.tag.builtin': '内置',
   'pages.pageStudio.templates.tag.stale': '已过期',
+  'pages.pageStudio.templates.tag.unbound': '未绑定',
+  'pages.pageStudio.templates.tag.unbound.tooltip':
+    '依赖函数未绑定运行时：{fns}（模板可拖入设计，执行前需绑定）',
   'pages.pageStudio.templates.title': '组件模板',
   'pages.pageStudio.title': '页面工作台',
   'pages.pageStudio.unpublish.failed': '取消发布失败',

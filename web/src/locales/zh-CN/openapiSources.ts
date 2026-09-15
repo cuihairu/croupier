@@ -61,6 +61,13 @@ export default {
   'pages.openapiSources.page.subTitle':
     '上传 OpenAPI 只产生能力契约和诊断；可执行性必须显式绑定 Provider，页面 UI 仍在 Page Studio 确定。',
   'pages.openapiSources.parse.missingInfoObject': 'OpenAPI JSON 缺少 info 对象',
+  'pages.openapiSources.pipelineModal.contractsCreated': '新建未绑定契约：{count}',
+  'pages.openapiSources.pipelineModal.operations': '解析操作：{count}',
+  'pages.openapiSources.pipelineModal.openEditor': '打开编辑器',
+  'pages.openapiSources.pipelineModal.proposalsCreated': '生成页面提案：{count}',
+  'pages.openapiSources.pipelineModal.templatesUpdated': '更新组件模板：{count}',
+  'pages.openapiSources.pipelineModal.title': '上传完成：契约、组件与页面提案已生成',
+  'pages.openapiSources.pipelineModal.viewProposals': '查看提案',
   'pages.openapiSources.runtime.cardDescription':
     'Agent 侧 providers.yaml（type: openapi）注册的函数来源，标注导入 Agent',
   'pages.openapiSources.runtime.cardTitle': '运行时导入',

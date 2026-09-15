@@ -223,6 +223,9 @@ export default {
     'No functions in other scopes either — register functions via SDK/OpenAPI first',
   'pages.pageStudio.editor.panel.searchPlaceholder': 'Search functions / resources',
   'pages.pageStudio.editor.panel.switchScope': 'Switch to {gameId}/{env} ({count} functions)',
+  'pages.pageStudio.editor.panel.unboundTag': 'Unbound',
+  'pages.pageStudio.editor.panel.unboundTag.tooltip':
+    'Uploaded material not bound to a runtime: usable for design; bind before execution',
   'pages.pageStudio.editor.paramMapping.fieldPlaceholder': 'Field',
   'pages.pageStudio.editor.paramMapping.renameHint': 'Rename {field} → {param}',
   'pages.pageStudio.editor.paramMapping.defaultPlaceholder': 'Default (optional)',

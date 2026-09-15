@@ -160,6 +160,9 @@ export default {
     'Created {count} demo constant components — drag them into the composite page editor to use',
   'pages.pageStudio.templates.tag.builtin': 'Built-in',
   'pages.pageStudio.templates.tag.stale': 'Stale',
+  'pages.pageStudio.templates.tag.unbound': 'Unbound',
+  'pages.pageStudio.templates.tag.unbound.tooltip':
+    'Required functions not bound to a runtime: {fns} (template is usable for design; bind before execution)',
   'pages.pageStudio.templates.title': 'Component Templates',
   'pages.pageStudio.title': 'Page Studio',
   'pages.pageStudio.unpublish.failed': 'Failed to unpublish',

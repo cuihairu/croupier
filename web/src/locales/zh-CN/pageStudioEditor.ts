@@ -198,6 +198,9 @@ export default {
     '其他 scope 也没有函数——请先通过 SDK/OpenAPI 注册函数',
   'pages.pageStudio.editor.panel.searchPlaceholder': '搜索函数 / 资源',
   'pages.pageStudio.editor.panel.switchScope': '切换到 {gameId}/{env}（{count} 函数）',
+  'pages.pageStudio.editor.panel.unboundTag': '未绑定',
+  'pages.pageStudio.editor.panel.unboundTag.tooltip':
+    '上传物料未绑定运行时：设计可用，执行前需绑定',
   'pages.pageStudio.editor.paramMapping.fieldPlaceholder': '字段',
   'pages.pageStudio.editor.paramMapping.renameHint': '改名 {field} → {param}',
   'pages.pageStudio.editor.paramMapping.defaultPlaceholder': '缺省值（可选）',

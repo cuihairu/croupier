@@ -32,6 +32,9 @@ export type FunctionDescriptor = {
   outputSchema?: JSONValue; // JSON Schema for response body (from proto)
   /** F13：契约诊断（含 schema_breaking_change 告警），来自 FunctionContract */
   diagnostics?: FunctionContractDiagnostic[];
+  /** 契约执行状态（D2/T3）：bound=运行时已注册可执行；unbound=上传物料
+   * 尚未绑定运行时（设计可用，执行前需绑定 Provider/注册函数） */
+  executionState?: 'bound' | 'unbound';
 };
 
 /** 契约诊断条目（对齐 spec.Diagnostic wire 契约） */

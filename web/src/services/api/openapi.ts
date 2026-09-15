@@ -134,8 +134,21 @@ export type OpenAPISourceListResponse = {
   items: OpenAPISourceSummary[];
 };
 
+// Source: croupier/internal/api/openapi/dto.go OpenAPISourcePipelineSummary
+// 上传即成页管线摘要（D4/T5）：单请求内 解析→契约→组件模板→页面提案
+// 全链生成后的观测计数；仅 create/update 响应携带，GetSource 恒缺省。
+export interface OpenAPISourcePipelineSummary {
+  operations: number;
+  contractsCreated: number;
+  templatesUpdated: number;
+  proposalsCreated: number;
+  diagnostics?: Diagnostic[];
+}
+
 export type OpenAPISourceGetResponse = {
   source: OpenAPISourceDetail;
+  /** 上传即成页管线摘要（T5）：仅 create/update 响应携带，GetSource 恒缺省 */
+  summary?: OpenAPISourcePipelineSummary;
 };
 
 export type OpenAPISourceDiagnosticsResponse = {

@@ -16,6 +16,7 @@ import {
   type OpenAPISourceBinding,
   type OpenAPISourceDetail,
   type OpenAPISourceOperation,
+  type OpenAPISourcePipelineSummary,
   type OpenAPISourceSummary,
   type RuntimeProviderItem,
 } from '@/services/api/openapi';
@@ -25,6 +26,7 @@ import type { Diagnostic } from '@/types/dashboard';
 import SourceDetailDrawer from './SourceDetailDrawer';
 import SourceModal from './SourceModal';
 import BindingModal from './BindingModal';
+import PipelineSummaryModal from './PipelineSummaryModal';
 import {
   diagnosticsFromError,
   errorMessage,
@@ -60,6 +62,8 @@ export default function OpenAPISourcesPage() {
   const [bindingProviderId, setBindingProviderId] = useState('');
   const [bindingId, setBindingId] = useState('');
   const [sourceDiagnostics, setSourceDiagnostics] = useState<Diagnostic[]>([]);
+  // T7/D4：上传即成页摘要——create/update 响应携带时弹摘要 Modal（计数 + CTA）。
+  const [pipelineSummary, setPipelineSummary] = useState<OpenAPISourcePipelineSummary | null>(null);
   const [scopeKey, setScopeKey] = useState('');
   const isUpdatingSource = sourceModalMode === 'update';
 
@@ -246,17 +250,24 @@ export default function OpenAPISourcesPage() {
         }
         response = await createOpenAPISource(parseOpenAPIDocument(text), uploadName || undefined);
       }
-      message.success(
-        isUpdatingSource
-          ? intl.formatMessage({
-              id: 'pages.openapiSources.message.sourceUpdated',
-              defaultMessage: 'OpenAPI Source 已更新',
-            })
-          : intl.formatMessage({
-              id: 'pages.openapiSources.message.sourceCreated',
-              defaultMessage: 'OpenAPI Source 已创建',
-            }),
-      );
+      if (response.summary) {
+        // T7/D4：上传即成页——摘要 Modal 展示单请求生成的契约/组件/提案
+        // 计数与诊断，CTA 直达编辑器/提案收件箱（与 binding 保存后的
+        // proposal CTA 同一交互模式）；Modal 已表达成功，不再叠加 toast。
+        setPipelineSummary(response.summary);
+      } else {
+        message.success(
+          isUpdatingSource
+            ? intl.formatMessage({
+                id: 'pages.openapiSources.message.sourceUpdated',
+                defaultMessage: 'OpenAPI Source 已更新',
+              })
+            : intl.formatMessage({
+                id: 'pages.openapiSources.message.sourceCreated',
+                defaultMessage: 'OpenAPI Source 已创建',
+              }),
+        );
+      }
       setSourceModalOpen(false);
       resetSourceForm();
       await loadSources();
@@ -725,6 +736,8 @@ export default function OpenAPISourcesPage() {
         onCancel={() => setBindOpen(false)}
         onOk={submitBinding}
       />
+
+      <PipelineSummaryModal summary={pipelineSummary} onClose={() => setPipelineSummary(null)} />
     </PageContainer>
   );
 }

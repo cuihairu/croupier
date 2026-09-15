@@ -1,6 +1,6 @@
 import React, { useMemo, useRef, useState } from 'react';
 import { useDraggable } from '@dnd-kit/core';
-import { Empty, Input, Space, Typography } from 'antd';
+import { Empty, Input, Space, Tag, Tooltip, Typography } from 'antd';
 import { SearchOutlined } from '@ant-design/icons';
 import type { DataNode } from 'antd/es/tree';
 import { Tree } from 'antd';
@@ -190,6 +190,25 @@ export default function ComponentPanel({
                 }}
                 label={f.operation || f.id.split('.').pop() || f.id}
                 compact
+                suffix={
+                  // T7/D2：unbound 物料标注「未绑定」——设计期可拖入画布，
+                  // 不置灰；执行前需绑定运行时（T8 执行边界兜底）。
+                  f.executionState === 'unbound' ? (
+                    <Tooltip
+                      title={intl.formatMessage({
+                        id: 'pages.pageStudio.editor.panel.unboundTag.tooltip',
+                        defaultMessage: '上传物料未绑定运行时：设计可用，执行前需绑定',
+                      })}
+                    >
+                      <Tag color="gold" style={{ marginRight: 0, fontSize: 10 }}>
+                        {intl.formatMessage({
+                          id: 'pages.pageStudio.editor.panel.unboundTag',
+                          defaultMessage: '未绑定',
+                        })}
+                      </Tag>
+                    </Tooltip>
+                  ) : undefined
+                }
                 onClick={() =>
                   onAddFunction({ fn: f, componentType: viewTypeToComponent(defaultView(f)) })
                 }
@@ -294,12 +313,15 @@ function PanelDraggable({
   data,
   label,
   icon,
+  suffix,
   compact,
   onClick,
 }: {
   data: Record<string, unknown>;
   label: string;
   icon?: React.ReactNode;
+  /** 标签后缀（如 unbound「未绑定」Tag，T7）。 */
+  suffix?: React.ReactNode;
   compact?: boolean;
   onClick: () => void;
 }) {
@@ -335,6 +357,7 @@ function PanelDraggable({
       <Text code={compact} style={{ fontSize: compact ? 12 : undefined }}>
         {label}
       </Text>
+      {suffix}
     </div>
   );
 }

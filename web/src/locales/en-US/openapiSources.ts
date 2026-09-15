@@ -63,6 +63,14 @@ export default {
   'pages.openapiSources.page.subTitle':
     'Uploading OpenAPI only produces capability contracts and diagnostics; executability requires an explicitly bound Provider, and page UI is still decided in Page Studio.',
   'pages.openapiSources.parse.missingInfoObject': 'OpenAPI JSON is missing the info object',
+  'pages.openapiSources.pipelineModal.contractsCreated': 'Unbound contracts created: {count}',
+  'pages.openapiSources.pipelineModal.operations': 'Operations parsed: {count}',
+  'pages.openapiSources.pipelineModal.openEditor': 'Open Editor',
+  'pages.openapiSources.pipelineModal.proposalsCreated': 'Page proposals created: {count}',
+  'pages.openapiSources.pipelineModal.templatesUpdated': 'Component templates updated: {count}',
+  'pages.openapiSources.pipelineModal.title':
+    'Upload complete: contracts, components, and page proposals generated',
+  'pages.openapiSources.pipelineModal.viewProposals': 'View Proposals',
   'pages.openapiSources.runtime.cardDescription':
     'Function sources registered by Agent-side providers.yaml (type: openapi), labeled with the importing agent',
   'pages.openapiSources.runtime.cardTitle': 'Runtime Imports',

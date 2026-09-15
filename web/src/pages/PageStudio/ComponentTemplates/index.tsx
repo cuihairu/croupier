@@ -13,6 +13,7 @@ import {
   Segmented,
   Space,
   Tag,
+  Tooltip,
   Typography,
 } from 'antd';
 import {
@@ -79,6 +80,13 @@ function treeSummary(tree: unknown[]): string {
       return fn ? `${type}(${fn})` : type;
     })
     .join(' → ');
+}
+
+/** 模板依赖函数中未绑定运行时的（T7/D2）：模板可拖入设计，执行前需绑定。 */
+function unboundRequiredFns(tpl: TemplateDTO, fnById: Map<string, FunctionDescriptor>): string[] {
+  return (tpl.requiredFunctions ?? []).filter(
+    (fid) => fnById.get(fid)?.executionState === 'unbound',
+  );
 }
 
 /** 组件模板管理页面。 */
@@ -446,90 +454,113 @@ export default function ComponentTemplatesPage() {
               )}
             </Title>
             <Row gutter={[12, 12]}>
-              {items.map((tpl) => (
-                <Col key={tpl.key} xs={24} sm={12} md={8} lg={6}>
-                  <Card
-                    size="small"
-                    hoverable
-                    actions={[
-                      <Button
-                        key="preview"
-                        size="small"
-                        type="text"
-                        icon={<EyeOutlined />}
-                        onClick={() => setPreviewKey(tpl.key)}
-                      >
-                        <FormattedMessage
-                          id="pages.pageStudio.templates.action.preview"
-                          defaultMessage="预览"
-                        />
-                      </Button>,
-                      ...(!tpl.builtin
-                        ? [
-                            <Popconfirm
-                              key="del"
-                              title={intl.formatMessage({
-                                id: 'pages.pageStudio.templates.delete.confirm',
-                                defaultMessage: '确认删除？',
-                              })}
-                              onConfirm={() => void handleDelete(tpl.key)}
-                            >
-                              <Button size="small" type="text" danger icon={<DeleteOutlined />}>
+              {items.map((tpl) => {
+                // T7：依赖命中 unbound 契约 → 卡片标注「未绑定」（不置灰）。
+                const unboundFns = unboundRequiredFns(tpl, fnById);
+                return (
+                  <Col key={tpl.key} xs={24} sm={12} md={8} lg={6}>
+                    <Card
+                      size="small"
+                      hoverable
+                      actions={[
+                        <Button
+                          key="preview"
+                          size="small"
+                          type="text"
+                          icon={<EyeOutlined />}
+                          onClick={() => setPreviewKey(tpl.key)}
+                        >
+                          <FormattedMessage
+                            id="pages.pageStudio.templates.action.preview"
+                            defaultMessage="预览"
+                          />
+                        </Button>,
+                        ...(!tpl.builtin
+                          ? [
+                              <Popconfirm
+                                key="del"
+                                title={intl.formatMessage({
+                                  id: 'pages.pageStudio.templates.delete.confirm',
+                                  defaultMessage: '确认删除？',
+                                })}
+                                onConfirm={() => void handleDelete(tpl.key)}
+                              >
+                                <Button size="small" type="text" danger icon={<DeleteOutlined />}>
+                                  <FormattedMessage
+                                    id="pages.pageStudio.templates.action.delete"
+                                    defaultMessage="删除"
+                                  />
+                                </Button>
+                              </Popconfirm>,
+                            ]
+                          : []),
+                      ]}
+                    >
+                      <Card.Meta
+                        avatar={<AppstoreOutlined style={{ fontSize: 24, color: '#1677ff' }} />}
+                        title={
+                          <Space size={6}>
+                            <Text strong>{nameOf(tpl)}</Text>
+                            {tpl.builtin && (
+                              <Tag style={{ fontSize: 10 }}>
                                 <FormattedMessage
-                                  id="pages.pageStudio.templates.action.delete"
-                                  defaultMessage="删除"
+                                  id="pages.pageStudio.templates.tag.builtin"
+                                  defaultMessage="内置"
                                 />
-                              </Button>
-                            </Popconfirm>,
-                          ]
-                        : []),
-                    ]}
-                  >
-                    <Card.Meta
-                      avatar={<AppstoreOutlined style={{ fontSize: 24, color: '#1677ff' }} />}
-                      title={
-                        <Space size={6}>
-                          <Text strong>{nameOf(tpl)}</Text>
-                          {tpl.builtin && (
-                            <Tag style={{ fontSize: 10 }}>
-                              <FormattedMessage
-                                id="pages.pageStudio.templates.tag.builtin"
-                                defaultMessage="内置"
-                              />
-                            </Tag>
-                          )}
-                          {tpl.stale && (
-                            <Tag color="orange" style={{ fontSize: 10 }}>
-                              <FormattedMessage
-                                id="pages.pageStudio.templates.tag.stale"
-                                defaultMessage="已过期"
-                              />
-                            </Tag>
-                          )}
-                        </Space>
-                      }
-                      description={
-                        <div>
-                          <Text type="secondary" style={{ fontSize: 12 }}>
-                            {descOf(tpl) || tpl.key}
-                          </Text>
-                          {tpl.requiredFunctions?.length ? (
-                            <div>
-                              <Text type="secondary" style={{ fontSize: 11 }}>
+                              </Tag>
+                            )}
+                            {tpl.stale && (
+                              <Tag color="orange" style={{ fontSize: 10 }}>
                                 <FormattedMessage
-                                  id="pages.pageStudio.templates.requiredFunctions"
-                                  defaultMessage="依赖：{fns}"
-                                  values={{ fns: tpl.requiredFunctions.join(', ') }}
+                                  id="pages.pageStudio.templates.tag.stale"
+                                  defaultMessage="已过期"
                                 />
-                              </Text>
-                            </div>
-                          ) : null}
-                        </div>
-                      }
-                    />
-                  </Card>
-                </Col>
-              ))}
+                              </Tag>
+                            )}
+                            {unboundFns.length > 0 && (
+                              <Tooltip
+                                title={intl.formatMessage(
+                                  {
+                                    id: 'pages.pageStudio.templates.tag.unbound.tooltip',
+                                    defaultMessage:
+                                      '依赖函数未绑定运行时：{fns}（模板可拖入设计，执行前需绑定）',
+                                  },
+                                  { fns: unboundFns.join(', ') },
+                                )}
+                              >
+                                <Tag color="gold" style={{ fontSize: 10 }}>
+                                  <FormattedMessage
+                                    id="pages.pageStudio.templates.tag.unbound"
+                                    defaultMessage="未绑定"
+                                  />
+                                </Tag>
+                              </Tooltip>
+                            )}
+                          </Space>
+                        }
+                        description={
+                          <div>
+                            <Text type="secondary" style={{ fontSize: 12 }}>
+                              {descOf(tpl) || tpl.key}
+                            </Text>
+                            {tpl.requiredFunctions?.length ? (
+                              <div>
+                                <Text type="secondary" style={{ fontSize: 11 }}>
+                                  <FormattedMessage
+                                    id="pages.pageStudio.templates.requiredFunctions"
+                                    defaultMessage="依赖：{fns}"
+                                    values={{ fns: tpl.requiredFunctions.join(', ') }}
+                                  />
+                                </Text>
+                              </div>
+                            ) : null}
+                          </div>
+                        }
+                      />
+                    </Card>
+                  </Col>
+                );
+              })}
             </Row>
           </div>
         ))

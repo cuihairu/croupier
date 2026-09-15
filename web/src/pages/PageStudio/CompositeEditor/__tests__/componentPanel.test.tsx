@@ -145,6 +145,24 @@ describe('ComponentPanel 基础组件与函数树', () => {
     expect(screen.getByText('tool')).toBeInTheDocument();
   });
 
+  it('T7 unbound 物料：叶子带「未绑定」Tag（不置灰）；bound 不带', async () => {
+    mockedList.mockResolvedValue([
+      ...fns,
+      { id: 'player.query', operation: 'get', resource: 'player', executionState: 'unbound' },
+      { id: 'player.kick', operation: 'kick', resource: 'player', executionState: 'bound' },
+    ]);
+    const onAddFunction = jest.fn();
+    renderPanel(jest.fn(), onAddFunction);
+    expect(await screen.findByText('player (4)')).toBeInTheDocument();
+    // unbound 叶子标注「未绑定」（仅 1 个：bound/缺省不标注）
+    expect(screen.getAllByText('未绑定')).toHaveLength(1);
+    // 不置灰：unbound 叶子仍可点击加入画布（点击 → onAddFunction）
+    fireEvent.click(screen.getByText('get'));
+    const calls = onAddFunction.mock.calls as unknown as [AddFnEvent][];
+    expect(calls.some(([e]) => e.fn.id === 'player.query')).toBe(true);
+    // opacity 由 isDragging 控制，与执行状态无关——Tag 只标注不弱化
+  });
+
   it('listDescriptors 失败：静默回退空态引导（无未捕获异常）', async () => {
     mockedList.mockRejectedValue(new Error('boom'));
     const { container } = render(
