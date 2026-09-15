@@ -39,6 +39,44 @@ export default {
     'Only function forms can be placed inside a modal (V1)',
   'pages.pageStudio.editor.canvas.showTemplates': 'View composite templates',
   'pages.pageStudio.editor.canvas.templateEmpty': 'The template is empty',
+  'pages.pageStudio.editor.binding.title': 'Bind runtime executor',
+  'pages.pageStudio.editor.binding.unboundLabel': 'Executor: unbound',
+  'pages.pageStudio.editor.binding.unboundDesc':
+    'The function referenced by this component comes from uploaded material and has no runtime executor bound yet; execution will be blocked after publishing (409 executor_unbound).',
+  'pages.pageStudio.editor.binding.goBind': 'Bind now',
+  'pages.pageStudio.editor.binding.hint.title':
+    'This function comes from uploaded material with no runtime executor bound',
+  'pages.pageStudio.editor.binding.hint.desc':
+    'After binding, the bound contract of the operation is created under the selected runtime function id; same-name binding flips in place (no component change needed), different-name binding can switch the component function reference afterwards.',
+  'pages.pageStudio.editor.binding.tracing': 'Tracing source operation…',
+  'pages.pageStudio.editor.binding.traceFailed':
+    'No source operation found for this function in OpenAPI Sources',
+  'pages.pageStudio.editor.binding.traceFailedDesc':
+    'Pick a source and operation manually, or check the uploaded material on the OpenAPI Sources page.',
+  'pages.pageStudio.editor.binding.sourceLabel': 'Source',
+  'pages.pageStudio.editor.binding.sourcePlaceholder': 'Select an OpenAPI source',
+  'pages.pageStudio.editor.binding.operationLabel': 'Operation (operationId)',
+  'pages.pageStudio.editor.binding.operationPlaceholder': 'Select an operation',
+  'pages.pageStudio.editor.binding.sourceFirst': 'Select a source first',
+  'pages.pageStudio.editor.binding.boundTag': 'Bound → {functionId}',
+  'pages.pageStudio.editor.binding.unboundOpTag': 'Unbound',
+  'pages.pageStudio.editor.binding.functionLabel': 'Runtime function',
+  'pages.pageStudio.editor.binding.functionPlaceholder':
+    'Select a runtime function registered in the current scope',
+  'pages.pageStudio.editor.binding.noCandidates':
+    'No runtime functions registered in the current scope (register via Agent/SDK first)',
+  'pages.pageStudio.editor.binding.providerIdLabel':
+    'providerId (optional; routing hint when multiple providers register the same function)',
+  'pages.pageStudio.editor.binding.sourceMatched': 'Source match',
+  'pages.pageStudio.editor.binding.submit': 'Save binding',
+  'pages.pageStudio.editor.binding.incomplete': 'Select a source operation and a runtime function',
+  'pages.pageStudio.editor.binding.successToast': 'Binding saved; contract state refreshed',
+  'pages.pageStudio.editor.binding.saveFailed': 'Failed to save binding',
+  'pages.pageStudio.editor.binding.swapTitle': 'Switch to the bound function?',
+  'pages.pageStudio.editor.binding.swapContent':
+    'The bound function "{fn}" differs from the component function "{unbound}": the bound contract is created under the runtime function id, and execution stays blocked until the component switches. Switch now? Columns/fields/mappings will be rebuilt for the new function.',
+  'pages.pageStudio.editor.binding.swapOk': 'Switch component function',
+  'pages.pageStudio.editor.binding.swapCancel': 'Not now',
   'pages.pageStudio.editor.dangling.title': 'Template links disconnected',
   'pages.pageStudio.editor.dangling.intro':
     '{count} link(s) point to blocks outside the template (other nodes on the canvas when it was saved) and were disconnected on instantiation. Reconnect them to canvas blocks, or keep them disconnected (save still warns).',

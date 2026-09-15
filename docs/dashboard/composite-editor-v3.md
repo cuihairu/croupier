@@ -112,6 +112,19 @@ error 级诊断写入提案并降级 `needs_review`——提案收件箱「需�
   Operation/Resource 页同样按错误码分支渲染空态。发布页无 mock 数据兜底
   （编辑器预览的模拟数据是编辑器内安全环境，与发布运行时无关）；同名函数注册后
   契约自动翻转 bound（T6），无需改页重发即可恢复执行
+- **编辑器内绑定抽屉（T9）**：编辑态选中 unbound 组件 → 属性面板顶部警示
+  「执行器：未绑定 [去绑定]」就地打开抽屉（不必再跳 OpenAPI Sources 页）：
+  - 抽屉打开即**溯源**：前端复刻服务端确定性映射（`DeriveFunctionID` +
+    `unboundFunctionID` 归一）把组件引用的 unbound functionId 反查回
+    (source, operationId) 并预填（命中项标注「来源匹配」）；零命中降级为
+    手动选择（warning 提示）
+  - 函数候选 = bound 描述符 ∪ 运行时 provider 独有函数（与 `CreateBinding`
+    服务端校验源一致）；保存复用 Binding 模型（`kind=provider`，
+    bindingId 缺省 operationId）并即时刷新编辑器契约视图（组件面板「未绑定」
+    标记随刷新消失）
+  - **同名绑定**（所选函数 id == unbound functionId）→ T6 原地翻转，组件无需改动；
+    **不同名绑定** → bound 契约建在运行时函数名下，弹确认引导切换组件函数引用
+    （换绑 scaffold：列/字段/映射按新函数重建），不切换则执行仍被阻断
 - 同函数多实例按 key 独立执行互不干扰
 
 ### 4.1 预览验证闭环（交互规格）
@@ -360,6 +373,11 @@ prev schema 语义与 wire 契约见
 
 ## 9. 已知边界
 
+- **编辑器内绑定抽屉（T9）不同名绑定后旧物料残留**：bound 契约建在运行时函数
+  名下，原 unbound 契约行仍在（仅下次上传重放的 removeSupersededUnboundContract
+  清理）——组件面板对旧物料的「未绑定」标记对事实正确；切换组件函数引用后
+  该物料不再被页面引用。抽屉内也不展示 proposal/模板 freshness 提示
+  （Proposal 队列有独立入口）
 - **模板更新提醒（U11）只提示不自动同步**：实例化保持复制语义，提醒不提供一键
   更新（需手动重新拖入模板）；快照按 key 去重——同模板多次拖入只登记一次 digest，
   页面内删除模板节点也不摘除快照条目（快照描述「创建页面时用过哪些模板」，

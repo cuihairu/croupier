@@ -39,6 +39,7 @@ import ComponentLibrary, {
 } from './ComponentLibrary';
 import DanglingRefsModal from './DanglingRefsModal';
 import PropsPanel from './PropsPanel';
+import BindingDrawer, { decideBindOutcome } from './BindingDrawer';
 import { registerBuiltinComponents } from './components/builtin';
 import { scaffoldProps } from './registry';
 import { useCanvasDnd } from './useCanvasDnd';
@@ -138,6 +139,8 @@ export default function CompositeEditorPage() {
   const fnById = useRef(new Map<string, FunctionDescriptor>());
   const [allFns, setAllFns] = useState<FunctionDescriptor[]>([]);
   const canvasRef = useRef<HTMLDivElement>(null);
+  // T9 编辑器内绑定抽屉：属性面板 unbound「去绑定」打开；null = 关闭
+  const [bindingFn, setBindingFn] = useState<FunctionDescriptor | null>(null);
 
   // 全量函数（属性面板换绑下拉）；scope 切换自动重拉
   const [fnReload, setFnReload] = useState(0);
@@ -451,6 +454,55 @@ export default function CompositeEditorPage() {
       setTree((prev) => updateProps(prev, selectedId, patch));
     },
     [selectedId, setTree, tree],
+  );
+
+  /** T9 绑定抽屉保存成功：重拉契约（同名绑定原地翻转 bound → 属性面板
+   * unbound 提示与组件面板 Tag 消失）；不同名（bound 契约落在运行时函数
+   * 名下，unbound 行仍在）→ 引导把组件切换到已绑定函数（换绑 scaffold）。 */
+  const handleBindingSaved = useCallback(
+    async (boundFunctionId: string) => {
+      // 先同步拉一次填充 fnById：确认切换时 scaffoldProps 拿得到新函数
+      try {
+        const fns = await listDescriptors();
+        setAllFns(fns);
+        for (const f of fns) fnById.current.set(f.id, f);
+      } catch {
+        /* 刷新失败不阻断切换引导（fnReload 链稍后重试） */
+      }
+      setFnReload((k) => k + 1); // 触发既有刷新链（回读 effect 有 tree>0 守卫）
+      if (
+        decideBindOutcome(bindingFn?.id, boundFunctionId) !== 'swap' ||
+        !bindingFn ||
+        !selectedId
+      ) {
+        return;
+      }
+      const unboundId = bindingFn.id;
+      modal.confirm({
+        title: intl.formatMessage({
+          id: 'pages.pageStudio.editor.binding.swapTitle',
+          defaultMessage: '切换到已绑定函数？',
+        }),
+        content: intl.formatMessage(
+          {
+            id: 'pages.pageStudio.editor.binding.swapContent',
+            defaultMessage:
+              '绑定函数「{fn}」与组件当前函数「{unbound}」不同名：bound 契约已建在运行时函数名下，组件不切换则执行仍被阻断。是否切换？列/字段/映射将按新函数重建。',
+          },
+          { fn: boundFunctionId, unbound: unboundId },
+        ),
+        okText: intl.formatMessage({
+          id: 'pages.pageStudio.editor.binding.swapOk',
+          defaultMessage: '切换组件函数',
+        }),
+        cancelText: intl.formatMessage({
+          id: 'pages.pageStudio.editor.binding.swapCancel',
+          defaultMessage: '暂不切换',
+        }),
+        onOk: () => patchProps({ functionId: boundFunctionId }),
+      });
+    },
+    [bindingFn, selectedId, patchProps, setFnReload, modal, intl],
   );
 
   // ---- 拖拽（T2.2/T2.3）：面板→画布插入 / 画布内重排 / modal 收纳 ----
@@ -884,7 +936,11 @@ export default function CompositeEditorPage() {
                         defaultMessage: '函数',
                       }),
                       children: (
-                        <ComponentPanel onAddBasic={addBasic} onAddFunction={addFunction} />
+                        <ComponentPanel
+                          onAddBasic={addBasic}
+                          onAddFunction={addFunction}
+                          refreshKey={fnReload}
+                        />
                       ),
                     },
                     {
@@ -1144,6 +1200,7 @@ export default function CompositeEditorPage() {
                 onPatch={patchProps}
                 onRenameVariable={renameVarOfSelected}
                 onCreateModal={createModalForButton}
+                onOpenBinding={setBindingFn}
                 onDelete={() => selected && deleteNode(selected.id)}
               />
             </Col>
@@ -1212,6 +1269,13 @@ export default function CompositeEditorPage() {
           if (fixes.length) setTree((prev) => reconnectTemplateRefs(prev, fixes));
           setDanglingRefs([]);
         }}
+      />
+      <BindingDrawer
+        open={bindingFn !== null}
+        functionId={bindingFn?.id}
+        allFns={allFns}
+        onClose={() => setBindingFn(null)}
+        onBound={handleBindingSaved}
       />
     </PageContainer>
   );

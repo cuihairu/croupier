@@ -124,15 +124,20 @@ function ScopeGuide({ onReload }: { onReload: () => void }) {
 export default function ComponentPanel({
   onAddBasic,
   onAddFunction,
+  refreshKey,
 }: {
   onAddBasic: (type: 'button' | 'modal' | 'container' | 'tabs' | 'text') => void;
   onAddFunction: (e: AddFnEvent) => void;
+  /** 外部刷新信号（T9：编辑器内绑定成功后重拉契约，「未绑定」Tag 消失）。
+   * 首次挂载跳过（mount 已由 reloadKey 初始 effect 拉取一次）。 */
+  refreshKey?: number;
 }) {
   const intl = useIntl();
   const [descriptors, setDescriptors] = useState<FunctionDescriptor[]>([]);
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState('');
   const [reloadKey, setReloadKey] = useState(0);
+  const firstRefresh = React.useRef(true);
 
   React.useEffect(() => {
     void (async () => {
@@ -146,6 +151,14 @@ export default function ComponentPanel({
       }
     })();
   }, [reloadKey]);
+
+  React.useEffect(() => {
+    if (firstRefresh.current) {
+      firstRefresh.current = false;
+      return;
+    }
+    setReloadKey((k) => k + 1);
+  }, [refreshKey]);
 
   React.useEffect(() => subscribeScope(() => setReloadKey((k) => k + 1)), []);
 

@@ -34,10 +34,11 @@ interface PanelOpts {
   fns?: FunctionDescriptor[];
   onPatch?: jest.Mock;
   onRenameVariable?: (name: string) => void;
+  onOpenBinding?: (fn: FunctionDescriptor) => void;
 }
 
 function renderPanel(node: PageNode, opts: PanelOpts = {}) {
-  const { nodes = [node], fns = [], onPatch = jest.fn(), onRenameVariable } = opts;
+  const { nodes = [node], fns = [], onPatch = jest.fn(), onRenameVariable, onOpenBinding } = opts;
   const fnById = new Map(fns.map((f) => [f.id, f]));
   render(
     <App>
@@ -49,6 +50,7 @@ function renderPanel(node: PageNode, opts: PanelOpts = {}) {
         onPatch={onPatch}
         onDelete={jest.fn()}
         onRenameVariable={onRenameVariable}
+        onOpenBinding={onOpenBinding}
       />
     </App>,
   );
@@ -283,5 +285,43 @@ describe('ParamMappingEditor 集成（参数映射变更落 patch）', () => {
         ),
       ).toBe(true),
     );
+  });
+});
+
+describe('unbound 绑定提示（T9）', () => {
+  const unboundFn: FunctionDescriptor = {
+    id: 'listplayers',
+    operation: 'list',
+    resource: 'player',
+    executionState: 'unbound',
+  };
+  const node: PageNode = {
+    id: 'tb-9',
+    type: 'fnTable',
+    props: { functionId: 'listplayers' },
+  };
+
+  it('unbound 函数：警示 Alert +「去绑定」以该函数描述符回调', async () => {
+    const onOpenBinding = jest.fn();
+    renderPanel(node, { nodes: [node], fns: [unboundFn], onOpenBinding });
+    expect(await screen.findByText('执行器：未绑定')).toBeInTheDocument();
+    expect(screen.getByText(/409 executor_unbound/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: '去绑定' }));
+    expect(onOpenBinding).toHaveBeenCalledWith(unboundFn);
+  });
+
+  it('bound 函数：不出现绑定提示', async () => {
+    renderPanel(node, {
+      nodes: [node],
+      fns: [{ ...unboundFn, executionState: undefined }],
+    });
+    await screen.findByText('配置');
+    expect(screen.queryByText('执行器：未绑定')).not.toBeInTheDocument();
+  });
+
+  it('未传 onOpenBinding 回调：不渲染提示（无入口场景不空挂 Alert）', async () => {
+    renderPanel(node, { nodes: [node], fns: [unboundFn] });
+    await screen.findByText('配置');
+    expect(screen.queryByText('执行器：未绑定')).not.toBeInTheDocument();
   });
 });

@@ -83,6 +83,10 @@ POST /api/v1/openapi/sources（上传）
 
 - 组件面板/模板库中 unbound 物料带「未绑定」标记，**不禁用**拖拽。
 - 画布上选中 unbound 组件 → 属性面板显示「执行器：未绑定 [去绑定]」→ 抽屉内选择当前 scope 下已注册的运行时函数完成绑定（复用现有 Binding 模型，`kind=provider`）。
+- 抽屉打开即溯源：前端复刻服务端确定性映射（`DeriveFunctionID` + `unboundFunctionID` 归一，见 `web/src/pages/PageStudio/CompositeEditor/unboundTrace.ts`），把组件引用的 unbound functionId 反查回 (source, operationId) 并预填；零命中时降级为手动选择。
+- 函数候选 = bound 描述符 ∪ 运行时 provider 独有函数，与 `CreateBinding` 的 `registeredFunctionMetaInScope` 校验源一致；保存即重建 bound 契约并刷新编辑器契约视图。
+- **同名绑定**（所选函数 id == unbound functionId）：走 T6 原地翻转语义，unbound 契约原地变 bound，刷新后「未绑定」标记自动消失，组件无需改动。
+- **不同名绑定**：bound 契约建在运行时函数名下，组件仍引用 unbound 物料 → 抽屉保存后弹确认引导切换组件函数引用（`patchProps({functionId})` 换绑 scaffold，列/字段/联动按新函数重建）。
 - OpenAPISources 页的 BindingModal 下沉为编辑器抽屉；源管理页退化为上传入口 + 诊断/绑定状态总览。
 - 组合页取消 ≥2 区块限制：单区块页面合法，保存编译、发布、渲染全链放行。
 
@@ -154,5 +158,7 @@ function_contracts 新增列：execution_state VARCHAR(16) NOT NULL DEFAULT 'bou
 ## 7. 已知边界
 
 - unbound 契约的 functionId 来自 OpenAPI operationId 的确定性映射；agent 侧注册的 functionId 命名不一致时无法自动绑定，需人工在编辑器抽屉内绑定。
+- 不同名绑定成功后，原 unbound 契约行仍在（仅下次上传重放的 `removeSupersededUnboundContract` 清理）；组件面板对旧物料的「未绑定」标记对事实正确，组件切换函数引用后不再展示。
+- 抽屉内不展示 proposal/模板 freshness 提示——Proposal 队列有独立入口；抽屉只解决「绑定」这一件事。
 - 发布分级的 env 判定依赖 scope 传递正确性；`X-Env` 缺失时按最严格（required）处理。
 - 上传管线为同步事务，超大文档（>500 operations）的耗时与超时策略在落地时按实测调整（必要时转异步任务）。

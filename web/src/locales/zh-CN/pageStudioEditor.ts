@@ -38,6 +38,41 @@ export default {
   'pages.pageStudio.editor.canvas.tabsNotAllowed':
     '页签内不接受「{type}」子组件（页签页仅允许表格/字段卡/按钮/文本）',
   'pages.pageStudio.editor.canvas.templateEmpty': '模板为空',
+  'pages.pageStudio.editor.binding.title': '绑定运行时执行器',
+  'pages.pageStudio.editor.binding.unboundLabel': '执行器：未绑定',
+  'pages.pageStudio.editor.binding.unboundDesc':
+    '该组件引用的函数来自上传物料，尚未绑定运行时执行器；发布后执行将被阻断（409 executor_unbound）。',
+  'pages.pageStudio.editor.binding.goBind': '去绑定',
+  'pages.pageStudio.editor.binding.hint.title': '该函数来自上传物料，尚未绑定运行时执行器',
+  'pages.pageStudio.editor.binding.hint.desc':
+    '绑定后 operation 的 bound 契约落在所选运行时函数名下；与物料同名时原地翻转（组件无需改动），不同名时可在绑定后切换组件函数引用。',
+  'pages.pageStudio.editor.binding.tracing': '正在溯源来源操作…',
+  'pages.pageStudio.editor.binding.traceFailed': '未在 OpenAPI Sources 中找到该函数的来源操作',
+  'pages.pageStudio.editor.binding.traceFailedDesc':
+    '可手动选择来源与操作，或前往 OpenAPI Sources 页核查上传物料。',
+  'pages.pageStudio.editor.binding.sourceLabel': '来源 Source',
+  'pages.pageStudio.editor.binding.sourcePlaceholder': '选择 OpenAPI Source',
+  'pages.pageStudio.editor.binding.operationLabel': '操作（operationId）',
+  'pages.pageStudio.editor.binding.operationPlaceholder': '选择 operation',
+  'pages.pageStudio.editor.binding.sourceFirst': '先选择来源 Source',
+  'pages.pageStudio.editor.binding.boundTag': '已绑定 → {functionId}',
+  'pages.pageStudio.editor.binding.unboundOpTag': '未绑定',
+  'pages.pageStudio.editor.binding.functionLabel': '运行时函数',
+  'pages.pageStudio.editor.binding.functionPlaceholder': '选择当前 scope 已注册的运行时函数',
+  'pages.pageStudio.editor.binding.noCandidates':
+    '当前 scope 暂无已注册运行时函数（请先在 Agent/SDK 侧注册）',
+  'pages.pageStudio.editor.binding.providerIdLabel':
+    'providerId（可选，多 provider 注册同名函数时用于路由）',
+  'pages.pageStudio.editor.binding.sourceMatched': '来源匹配',
+  'pages.pageStudio.editor.binding.submit': '保存绑定',
+  'pages.pageStudio.editor.binding.incomplete': '请选择来源操作与运行时函数',
+  'pages.pageStudio.editor.binding.successToast': '绑定成功，契约状态已刷新',
+  'pages.pageStudio.editor.binding.saveFailed': '保存 binding 失败',
+  'pages.pageStudio.editor.binding.swapTitle': '切换到已绑定函数？',
+  'pages.pageStudio.editor.binding.swapContent':
+    '绑定函数「{fn}」与组件当前函数「{unbound}」不同名：bound 契约已建在运行时函数名下，组件不切换则执行仍被阻断。是否切换？列/字段/映射将按新函数重建。',
+  'pages.pageStudio.editor.binding.swapOk': '切换组件函数',
+  'pages.pageStudio.editor.binding.swapCancel': '暂不切换',
   'pages.pageStudio.editor.dangling.title': '模板联动断链提示',
   'pages.pageStudio.editor.dangling.intro':
     '以下 {count} 处联动指向模板外区块（模板保存时画布上的其他节点），实例化后已断开。可选择画布区块重连，或保持断开（保存时仍会警告）。',

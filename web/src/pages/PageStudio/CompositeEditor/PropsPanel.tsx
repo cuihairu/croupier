@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Button, Card, Empty, Input, Space, Tabs, Tooltip, Typography } from 'antd';
+import { Alert, Button, Card, Empty, Input, Space, Tabs, Tooltip, Typography } from 'antd';
 import { DeleteOutlined } from '@ant-design/icons';
 import { useIntl } from '@umijs/max';
 import SchemaFormRenderer from '@/components/SchemaFormRenderer';
@@ -28,6 +28,7 @@ export default function PropsPanel({
   onRenameVariable,
   onDelete,
   onCreateModal,
+  onOpenBinding,
 }: {
   node: PageNode | undefined;
   nodes: PageNode[];
@@ -39,6 +40,8 @@ export default function PropsPanel({
   onDelete: () => void;
   /** 无弹窗时按钮动作内联创建（建弹窗+装表单+绑定）。 */
   onCreateModal?: (fn: FunctionDescriptor) => void;
+  /** T9：unbound 函数「去绑定」——打开编辑器内绑定抽屉。 */
+  onOpenBinding?: (fn: FunctionDescriptor) => void;
 }) {
   const intl = useIntl();
   const def = node ? getComponent(node.type) : undefined;
@@ -132,6 +135,30 @@ export default function PropsPanel({
             forceRender: true,
             children: (
               <div style={{ maxHeight: 'calc(100vh - 300px)', overflow: 'auto', paddingRight: 4 }}>
+                {fn?.executionState === 'unbound' && onOpenBinding && (
+                  <Alert
+                    type="warning"
+                    showIcon
+                    style={{ marginBottom: 12 }}
+                    message={intl.formatMessage({
+                      id: 'pages.pageStudio.editor.binding.unboundLabel',
+                      defaultMessage: '执行器：未绑定',
+                    })}
+                    description={intl.formatMessage({
+                      id: 'pages.pageStudio.editor.binding.unboundDesc',
+                      defaultMessage:
+                        '该组件引用的函数来自上传物料，尚未绑定运行时执行器；发布后执行将被阻断（409 executor_unbound）。',
+                    })}
+                    action={
+                      <Button size="small" type="primary" onClick={() => onOpenBinding(fn)}>
+                        {intl.formatMessage({
+                          id: 'pages.pageStudio.editor.binding.goBind',
+                          defaultMessage: '去绑定',
+                        })}
+                      </Button>
+                    }
+                  />
+                )}
                 {staticSchemaKeys.map((key) => (
                   <div key={key} style={{ marginBottom: 12 }}>
                     <Typography.Text

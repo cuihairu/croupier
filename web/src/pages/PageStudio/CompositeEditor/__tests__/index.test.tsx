@@ -119,6 +119,7 @@ interface PropsPanelStubProps {
   onRenameVariable: (newName: string) => void;
   onCreateModal: (fn: FunctionDescriptor) => void;
   onDelete: () => void;
+  onOpenBinding?: (fn: FunctionDescriptor) => void;
 }
 
 interface DataPanelStubProps {
@@ -163,6 +164,15 @@ interface DndHookState {
 // ---------------------------------------------------------------------------
 jest.mock('@/services/api/functions', () => ({
   listDescriptors: jest.fn(async () => []),
+}));
+
+// T9 绑定抽屉（真实组件）依赖的 OpenAPI service
+jest.mock('@/services/api/openapi', () => ({
+  __esModule: true,
+  listOpenAPISources: jest.fn(async () => ({ items: [] })),
+  getOpenAPISource: jest.fn(async () => ({ source: { operations: [] } })),
+  listRuntimeSources: jest.fn(async () => ({ items: [], total: 0 })),
+  bindOpenAPISourceProvider: jest.fn(async () => ({})),
 }));
 
 jest.mock('@/stores/scope', () => {
@@ -424,6 +434,7 @@ jest.mock('../PropsPanel', () => {
     onRenameVariable,
     onCreateModal,
     onDelete,
+    onOpenBinding,
   }: PropsPanelStubProps) =>
     R.createElement(
       'div',
@@ -440,6 +451,9 @@ jest.mock('../PropsPanel', () => {
       btn('pp:create-modal', () =>
         onCreateModal({ id: 'mail.send', summary: { 'zh-CN': '发邮件' } }),
       ),
+      onOpenBinding
+        ? btn('pp:open-binding', () => onOpenBinding({ id: String(node?.props.functionId ?? '') }))
+        : null,
       btn('pp:delete', onDelete),
     );
   return { __esModule: true, default: PropsPanel };
@@ -603,6 +617,12 @@ jest.mock('../useCanvasDnd', () => {
 // ---------------------------------------------------------------------------
 const mockedRequest = request as unknown as jest.Mock;
 const mockedListDescriptors = listDescriptors as unknown as jest.Mock;
+const mockedOpenapi = jest.requireMock('@/services/api/openapi') as {
+  listOpenAPISources: jest.Mock;
+  getOpenAPISource: jest.Mock;
+  listRuntimeSources: jest.Mock;
+  bindOpenAPISourceProvider: jest.Mock;
+};
 
 const umiMock = jest.requireMock('@umijs/max') as {
   __umiState: { search: string };
@@ -730,6 +750,14 @@ beforeEach(() => {
   mockedRequest.mockImplementation(async () => ({}));
   mockedListDescriptors.mockReset();
   mockedListDescriptors.mockResolvedValue([]);
+  mockedOpenapi.listOpenAPISources.mockReset();
+  mockedOpenapi.listOpenAPISources.mockResolvedValue({ items: [] });
+  mockedOpenapi.getOpenAPISource.mockReset();
+  mockedOpenapi.getOpenAPISource.mockResolvedValue({ source: { operations: [] } });
+  mockedOpenapi.listRuntimeSources.mockReset();
+  mockedOpenapi.listRuntimeSources.mockResolvedValue({ items: [], total: 0 });
+  mockedOpenapi.bindOpenAPISourceProvider.mockReset();
+  mockedOpenapi.bindOpenAPISourceProvider.mockResolvedValue({});
   umiMock.__umiState.search = '';
   umiMock.history.push.mockClear();
   scopeListener.current = null;
@@ -1100,6 +1128,127 @@ describe('属性面板回调', () => {
       onClick?: { target?: string };
     };
     expect(patched.onClick?.target).toBe(modalId);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 编辑器内绑定抽屉（T9）：unbound 组件就地绑定 → 不同名 swap 引导
+// ---------------------------------------------------------------------------
+describe('编辑器内绑定抽屉（T9）', () => {
+  it('unbound 组件 → 溯源预填 → 保存绑定 → 不同名确认切换 → 组件换绑 scaffold', async () => {
+    mockedListDescriptors.mockResolvedValue([
+      fnPlayer,
+      fnMail,
+      { id: 'listplayers', executionState: 'unbound' },
+      { id: 'players.list', executionState: 'bound' },
+    ]);
+    mockedOpenapi.listOpenAPISources.mockResolvedValue({
+      items: [
+        {
+          sourceId: 'src-1',
+          name: '玩家服务',
+          revision: 1,
+          format: 'json',
+          openapiVersion: '3.0.3',
+          contentHash: 'h',
+          operationCount: 1,
+          diagnosticCount: 0,
+          createdAt: '2026-09-15T00:00:00Z',
+          updatedAt: '2026-09-15T00:00:00Z',
+        },
+      ],
+    });
+    mockedOpenapi.getOpenAPISource.mockResolvedValue({
+      source: {
+        operations: [{ operationId: 'listPlayers', method: 'get', path: '/players', bound: false }],
+      },
+    });
+    renderEditor();
+    await openLibraryTab();
+    insertViaLib(
+      [{ id: 'b1', type: 'fnTable', props: { functionId: 'listplayers' } }],
+      tpl('bind'),
+    );
+    await waitFor(() => expect(byId('cn:b1')).toBeInTheDocument());
+    click('cn:b1:sel');
+    // 等 fnById/allFns 拉取完成（cn:b1:fn 由 fnById 渲染）再开抽屉
+    await waitFor(() => expect(byId('cn:b1:fn').textContent).toBe('listplayers'));
+    click('pp:open-binding');
+    // 真实 BindingDrawer：标题 + 溯源预填（GET /players）
+    expect(await screen.findByText('绑定运行时执行器')).toBeInTheDocument();
+    await screen.findByText('GET /players');
+    // 选运行时函数（combobox 顺序：来源/操作/函数）
+    fireEvent.mouseDown(screen.getAllByRole('combobox')[2]);
+    const option = screen
+      .getAllByText('players.list')
+      .map((el) => el.closest('.ant-select-item-option'))
+      .find((el): el is HTMLElement => el !== null);
+    if (!option) throw new Error('players.list option not found');
+    fireEvent.click(option);
+    fireEvent.click(screen.getByRole('button', { name: '保存绑定' }));
+    await waitFor(() =>
+      expect(mockedOpenapi.bindOpenAPISourceProvider).toHaveBeenCalledWith('src-1', {
+        operationId: 'listPlayers',
+        functionId: 'players.list',
+        providerId: undefined,
+        bindingId: 'listPlayers',
+      }),
+    );
+    // 不同名（listplayers ≠ players.list）→ swap 确认弹窗（内容含两侧函数名）
+    expect((await screen.findAllByText('切换到已绑定函数？')).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/「players.list」/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/「listplayers」/).length).toBeGreaterThan(0);
+    fireEvent.click(screen.getByRole('button', { name: '切换组件函数' }));
+    // 确认后 patchProps({functionId}) → 组件按新函数重建 scaffold
+    await waitFor(() => expect(propsJsonOf('b1')).toContain('players.list'), undefined, FIND);
+    await waitFor(() => expect(byId('cn:b1:fn').textContent).toBe('players.list'));
+  });
+
+  it('同名绑定（T6 翻转后描述符已 bound）：保存不弹切换确认，函数引用保持', async () => {
+    mockedListDescriptors.mockResolvedValue([
+      { id: 'listplayers', executionState: 'bound' },
+      { id: 'mail.send', executionState: 'bound' },
+    ]);
+    mockedOpenapi.listOpenAPISources.mockResolvedValue({
+      items: [{ sourceId: 'src-1', name: '玩家服务' }],
+    });
+    mockedOpenapi.getOpenAPISource.mockResolvedValue({
+      source: {
+        operations: [{ operationId: 'listPlayers', method: 'get', path: '/players' }],
+      },
+    });
+    renderEditor();
+    await openLibraryTab();
+    insertViaLib(
+      [{ id: 'b1', type: 'fnTable', props: { functionId: 'listplayers' } }],
+      tpl('same'),
+    );
+    await waitFor(() => expect(byId('cn:b1')).toBeInTheDocument());
+    click('cn:b1:sel');
+    await waitFor(() => expect(byId('cn:b1:fn').textContent).toBe('listplayers'));
+    click('pp:open-binding');
+    await screen.findByText('GET /players');
+    // 同名候选来自 bound 描述符（T6 运行时注册翻转后的状态）；标题 code 也有
+    // listplayers，按 option 节点定位
+    fireEvent.mouseDown(screen.getAllByRole('combobox')[2]);
+    const option = screen
+      .getAllByText('listplayers')
+      .map((el) => el.closest('.ant-select-item-option'))
+      .find((el): el is HTMLElement => el !== null);
+    if (!option) throw new Error('listplayers option not found');
+    fireEvent.click(option);
+    fireEvent.click(screen.getByRole('button', { name: '保存绑定' }));
+    await waitFor(() =>
+      expect(mockedOpenapi.bindOpenAPISourceProvider).toHaveBeenCalledWith('src-1', {
+        operationId: 'listPlayers',
+        functionId: 'listplayers',
+        providerId: undefined,
+        bindingId: 'listPlayers',
+      }),
+    );
+    // 同名 → 不弹确认；组件函数引用保持不变
+    await waitFor(() => expect(screen.queryByText('切换到已绑定函数？')).not.toBeInTheDocument());
+    expect(propsJsonOf('b1')).toContain('listplayers');
   });
 });
 

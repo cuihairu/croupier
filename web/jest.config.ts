@@ -7,7 +7,7 @@ export default async () => {
     // 固定 v8 provider（语句/分支口径一致）
     coverageProvider: 'v8',
     testMatch: ['**/?(*.)+(spec|test).[jt]s?(x)'],
-    testPathIgnorePatterns: ['/node_modules/', '<rootDir>/e2e/'],
+    testPathIgnorePatterns: ['/node_modules/', '<rootDir>/e2e/', '<rootDir>/e2e-verify/'],
     transform: {
       '^.+\\.(t|j)sx?$': [
         'ts-jest',
