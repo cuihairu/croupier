@@ -1,6 +1,6 @@
 /** TemplateQuickStart（空白画布模板引导）覆盖：外部模板直用、自行拉取
- * （数组/信封 items/失败空表/loading Spin）、组合过滤（tree≥2）、卡片
- * 内容（name 本地化/内置 Tag/描述回退区块数/函数标签截 3 + 溢出 +N）、
+ * （数组/信封 items/失败空表/loading Spin）、单节点模板同样展示（D1）、
+ * 卡片内容（name 本地化/内置 Tag/描述回退区块数/函数标签截 3 + 溢出 +N）、
  * 点击实例化（id 重映射 + onPick 三参）、从空白开始、空态文案。 */
 import React from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
@@ -78,8 +78,8 @@ describe('TemplateQuickStart', () => {
     expect(screen.queryByText('player.query')).not.toBeInTheDocument();
   });
 
-  it('单节点与无 tree 模板过滤；全过滤后空态文案', () => {
-    const { container } = render(
+  it('单节点与无 tree 模板同样展示（D1 不再过滤）；空表才空态', () => {
+    const { container, unmount } = render(
       <TemplateQuickStart
         templates={[
           tpl({ key: 'single', tree: tree.slice(0, 1) }),
@@ -88,10 +88,17 @@ describe('TemplateQuickStart', () => {
         onPick={jest.fn()}
       />,
     );
+    // D1：单函数区块页面合法——单节点/无 tree 模板不作过滤
+    expect(container.querySelectorAll('.ant-card-hoverable').length).toBeGreaterThan(0);
+    expect(screen.getByText('1 个区块')).toBeInTheDocument();
+    expect(screen.getByText('0 个区块')).toBeInTheDocument();
+
+    // 空表才显示空态文案
+    unmount();
+    render(<TemplateQuickStart templates={[]} onPick={jest.fn()} />);
     expect(
       screen.getByText(/暂无组合模板——可先到「组件模板」页从契约重新生成/),
     ).toBeInTheDocument();
-    expect(container.querySelector('.tpl-thumb')).toBeNull();
   });
 
   it('点击卡片：实例化 id 重映射 + onPick(nodes, tpl, dangling)', () => {

@@ -38,7 +38,7 @@ const single = tpl({
 });
 
 describe('TemplateQuickStart（空画布模板引导）', () => {
-  it('只列出多区块组合模板，点击卡片回调 onPick（节点 + 模板）', () => {
+  it('组合与单区块模板都列出（D1），点击卡片回调 onPick（节点 + 模板）', () => {
     const onPick = jest.fn();
     render(
       <App>
@@ -46,8 +46,8 @@ describe('TemplateQuickStart（空画布模板引导）', () => {
       </App>,
     );
     expect(screen.getByText('crud--player')).toBeInTheDocument();
-    // 单节点模板不出现（组合页需 ≥2 区块）
-    expect(screen.queryByText('fn--mail.send')).not.toBeInTheDocument();
+    // D1：单函数区块页面合法——单节点模板同样展示
+    expect(screen.getByText('fn--mail.send')).toBeInTheDocument();
     // 依赖函数 Tag 展示
     expect(screen.getByText('player.list')).toBeInTheDocument();
 
@@ -61,7 +61,7 @@ describe('TemplateQuickStart（空画布模板引导）', () => {
   it('无组合模板时显示降级文案（指向左栏拖入与模板页）', () => {
     render(
       <App>
-        <TemplateQuickStart templates={[single]} onPick={() => undefined} />
+        <TemplateQuickStart templates={[]} onPick={() => undefined} />
       </App>,
     );
     expect(screen.getByText(/暂无组合模板/)).toBeInTheDocument();
