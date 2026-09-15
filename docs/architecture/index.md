@@ -232,6 +232,7 @@ server_id LowCardinality(String) -- 例如 "s1", "asia1", "us_west_1"
 - [OpenAPI / SDK Descriptor v2](./openapi-sdk-descriptor-v2.md) — OpenAPI 扩展字段、SDK descriptor 与 FunctionContract 的统一注册契约
 - [PageSpec 协议规范](./pagespec-protocol.md) — PageSpec/FormPresentationSpec/typed selector 的 wire 契约唯一出处
 - [ProComponents 页面生成与运行时](./ui-generation.md) — 生成器默认值、Page Studio 与唯一运行时边界
+- [上传即成页：契约与绑定正交化设计](./ui-generation-upload-pipeline.md) — OpenAPI 上传即生成组件/页面、unbound 契约与发布分级的设计
 - [运行控制台动态菜单](./console-dynamic-menu.md) — PublishedPageSpec 到 ConsoleMenuSpec 的菜单唯一来源与分类仲裁
 - [旧模型删除清单](./legacy-deletion-inventory.md) — 旧模型删除的历史记录与防回流 guard 索引
 

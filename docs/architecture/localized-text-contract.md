@@ -21,6 +21,8 @@
    任何输入形态（BCP47、遗留短 key、裸字符串）统一输出 `{ "zh-CN", "en-US" }`。
    遗留短 key 只允许在该函数内读取兜底，不允许在任何出口产生。
 
+   > **⚠️ 即将变更**：「统一输出 `{ zh-CN, en-US }` 双 key」将放宽为「按输入归一 BCP47 key 原样透传，不强制双写」，见 [上传即成页：契约与绑定正交化设计](./ui-generation-upload-pipeline.md) D7（todo.md T12/T13）。唯一定义/唯一归一层/唯一渲染路径三条契约本身不变。
+
 3. **唯一渲染路径**：组件渲染必须调用
    `web/src/utils/localizedText.ts` 的 `localizedText(value, locale, fallback)`。
    禁止在组件内内联 `value['zh-CN'] || ...` / `value?.zh || value?.en` 之类取值链。

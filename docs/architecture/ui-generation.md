@@ -14,6 +14,8 @@ tag:
 
 > **状态**：In progress -- 页面生成器（`internal/dashboard/generator/`）与唯一前端运行时（`web/src/components/PageRenderer/`、`SchemaFormRenderer`）已落地；真实浏览器 E2E 的 CI 门禁和全部场景验收仍以根目录 `todo.md` 为准。
 
+> **⚠️ 即将变更**：本文的「② 提案生成」「③ 审核发布」与「Page Studio」节描述的流程编排（契约变更手动 regenerate、全部保存走提案门禁）将被 [上传即成页：契约与绑定正交化设计](./ui-generation-upload-pipeline.md) 取代（D4 上传管线、D5 发布分级、模板自动重建，对应 todo.md T2/T4/T5/T10）。生成器职责与运行时约束两节长期有效，不受影响的章节不带此标记。
+
 > **新手入口**：本文是实现规范。核心思路、全链路走读与设计取舍的入门讲解见
 > [界面是怎么生成的：核心思路与全链路](./descriptor-driven-ui.md)。
 

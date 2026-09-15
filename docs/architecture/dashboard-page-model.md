@@ -15,6 +15,8 @@ tag:
 
 > **状态**：In progress -- 本文是 Dashboard 页面模型的权威定义。实现、文档和 SDK 以本文的正向模型为准；旧模型按 [旧模型删除清单](./legacy-deletion-inventory.md) 清理，并由 `scripts/dashboard_vnext_guard.sh` 防回流；真实浏览器回归仍以根目录 `todo.md` 的未完成项目为准。
 
+> **⚠️ 即将变更**：FunctionContract 将增加 `executionState`（bound/unbound）维度，契约存在不再以运行时注册为前提，见 [上传即成页：契约与绑定正交化设计](./ui-generation-upload-pipeline.md)（D2/D3，todo.md T3/T6）。落地后本文相应章节同步重写。
+
 ## 决策
 
 Croupier 保留 **React + Umi + Ant Design Pro + ProComponents**，不集成 React Admin，也不把 React Admin 的 CRUD `DataProvider` 作为平台协议。
@@ -388,6 +390,8 @@ PageSpec = (pageKey, type, resourceKey?, category, title, icon, order,
 `PageBinding` 只引用发布期允许执行的 FunctionContract。输入输出映射必须使用受控的 typed selector AST，禁止保存无约束 JSON mapping、裸整行透传或运行时猜路径。
 
 分类、标题、图标与排序是 PageSpec 的顶层强类型字段；`NavigationSpec` 仅承载面包屑与返回行为（breadcrumb、showBack、backPath）。它们只在 PageProposal/PageSpec 中确定，注册侧不能提供菜单事实。页面没有独立的 permissions 字段：权限由 binding 级治理（合同 permission/risk/approval 快照）与 action 级 permission 字段承载。
+
+> **⚠️ 即将变更（勿再引用本段作为设计依据）**：「zh-CN + en-US 双必填」将被「默认名称必填、翻译可选」取代，见 [上传即成页：契约与绑定正交化设计](./ui-generation-upload-pipeline.md) D7（todo.md T12/T13）。落地后本段重写。
 
 **本地化必填契约**：`title` 与 `category.labels` 的 LocalizedText 必须同时含 `zh-CN` 与 `en-US`（中文为第一推荐展示语言、英文必须存在），缺任一在保存/发布校验与发布期诊断中被拒（`hasDefaultLocale`）。生成器对词条、SDK Summary、humanize 兜底全路径经 `ensureBilingual` 双写补齐；编辑器（LocalizedTextEditor）对缺失的必填语言给出可见提示。其余 LocalizedText 字段（confirm 文案、结果提示、字段 label 等）仍为可选，渲染端按 zh-CN → en-US → 任一非空值回退。
 

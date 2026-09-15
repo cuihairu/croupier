@@ -124,6 +124,8 @@ SDK 和 OpenAPI Source 导入边界只接受 FunctionContract 字段。页面展
 
 ## OpenAPI Source 与执行绑定
 
+> **⚠️ 即将变更（勿再引用本节作为设计依据）**：本节描述的「上传只产生候选、provider binding 是契约前提」模型将被 [上传即成页：契约与绑定正交化设计](./ui-generation-upload-pipeline.md) 取代（D1/D2/D4：上传即生成 unbound FunctionContract，绑定成为正交属性）。对应 todo.md T3–T5；落地后本节重写。
+
 上传 OpenAPI 只产生 Source、FunctionContract 候选和 diagnostics；它不直接注册可调用函数。
 
 ```text
