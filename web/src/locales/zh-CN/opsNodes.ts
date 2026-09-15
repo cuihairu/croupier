@@ -2,6 +2,9 @@
 export default {
   'pages.opsNodes.column.actions': '操作',
   'pages.opsNodes.column.agentId': '节点 ID',
+  'pages.opsNodes.column.ip': '连接来源 IP',
+  'pages.opsNodes.column.reportedIp': '自报 IP',
+  'pages.opsNodes.column.hostname': '主机名',
   'pages.opsNodes.column.buttonCron': '定时任务',
   'pages.opsNodes.column.buttonDetail': '详情',
   'pages.opsNodes.column.buttonDrain': '下线',

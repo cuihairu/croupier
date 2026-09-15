@@ -4,6 +4,10 @@ import type { RegistryAgent } from '@/services/api/registry';
 export type NodeRow = RegistryAgent & {
   type?: string;
   ip?: string;
+  /** agent 自报系统信息（注册 labels）：连接经 LB 时 ip 全为 LB 地址，
+   *  自报 ip/hostname 才是区分 agent 的真实标识 */
+  hostname?: string;
+  reportedIp?: string;
   version?: string;
   sdkName?: string;
   sdkLanguage?: string;
@@ -56,6 +60,8 @@ export function normalizeOpsNode(node: OpsNode): NodeRow {
     env: node.env || '',
     addr: node.addr || '',
     ip: addrHost(node.addr),
+    hostname: typeof node.labels?.hostname === 'string' ? node.labels.hostname : '',
+    reportedIp: typeof node.labels?.ip === 'string' ? node.labels.ip : '',
     functions: node.functions || 0,
     healthy: ['active', 'healthy', 'online'].includes(node.status || ''),
     expiresInSec: node.expiresInSec || 0,

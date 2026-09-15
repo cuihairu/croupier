@@ -2,6 +2,9 @@
 export default {
   'pages.opsNodes.column.actions': 'Actions',
   'pages.opsNodes.column.agentId': 'Node ID',
+  'pages.opsNodes.column.ip': 'Source IP',
+  'pages.opsNodes.column.reportedIp': 'Reported IP',
+  'pages.opsNodes.column.hostname': 'Hostname',
   'pages.opsNodes.column.buttonCron': 'Cron Jobs',
   'pages.opsNodes.column.buttonDetail': 'Details',
   'pages.opsNodes.column.buttonDrain': 'Drain',

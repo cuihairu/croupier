@@ -45,7 +45,31 @@ export function buildNodeColumns({
       dataIndex: 'env',
       width: 80,
     },
-    { title: 'IP', dataIndex: 'ip', width: 130, ellipsis: true },
+    {
+      // 连接来源 IP 是 server 看到的 TCP 对端：agent 经 LB 接入时全部显示
+      // LB 地址（相同是正常现象）；区分 agent 用「自报 IP」「主机名」列。
+      title: intl.formatMessage({ id: 'pages.opsNodes.column.ip', defaultMessage: '连接来源 IP' }),
+      dataIndex: 'ip',
+      width: 140,
+      ellipsis: true,
+    },
+    {
+      title: intl.formatMessage({
+        id: 'pages.opsNodes.column.reportedIp',
+        defaultMessage: '自报 IP',
+      }),
+      dataIndex: 'reportedIp',
+      width: 130,
+      ellipsis: true,
+      render: (v: string) => (v ? <Tag color="cyan">{v}</Tag> : '-'),
+    },
+    {
+      title: intl.formatMessage({ id: 'pages.opsNodes.column.hostname', defaultMessage: '主机名' }),
+      dataIndex: 'hostname',
+      width: 150,
+      ellipsis: true,
+      render: (v: string) => v || '-',
+    },
     {
       title: intl.formatMessage({
         id: 'pages.opsNodes.column.ownerInstance',

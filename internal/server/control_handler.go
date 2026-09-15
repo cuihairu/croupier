@@ -488,14 +488,17 @@ func (s *ControlService) handleRegisterRequest(ctx context.Context, req *agentv1
 	}
 
 	sess := &reg.AgentSession{
-		AgentID:   req.AgentId,
-		GameID:    req.GameId,
-		Env:       req.Env,
-		Addr:      remoteAddr,
-		Version:   req.Version,
-		Region:    "",
-		Zone:      "",
-		Labels:    map[string]string{},
+		AgentID: req.AgentId,
+		GameID:  req.GameId,
+		Env:     req.Env,
+		Addr:    remoteAddr,
+		Version: req.Version,
+		Region:  "",
+		Zone:    "",
+		// 保留 agent 自报系统标签（os/arch/hostname/ip 等）：IP 列显示的是
+		// server 看到的 TCP 对端（经 LB 时全为 LB 地址），自报 ip/hostname
+		// 是区分 agent 的关键信息。心跳路径的 reportedOwner 在后续心跳写入。
+		Labels:    sanitizeAgentLabels(req.GetLabels()),
 		ExpireAt:  time.Now().Add(ttl),
 		LastSeen:  time.Now(),
 		Functions: map[string]reg.FunctionMeta{},
@@ -750,6 +753,35 @@ func (s *ControlService) handleHeartbeatRequest(ctx context.Context, req *agentv
 	s.registry.Mu().Unlock()
 
 	return &agentv1.HeartbeatResponse{}, nil
+}
+
+// sanitizeAgentLabels 复制 agent 注册时上报的系统标签。限制数量与键值
+// 长度，防止注册路径被塞入任意大的标签集合；空键/空值丢弃，超长值截断。
+func sanitizeAgentLabels(labels map[string]string) map[string]string {
+	const (
+		maxLabels = 32
+		maxKeyLen = 64
+		maxValLen = 256
+	)
+	out := make(map[string]string, min(len(labels), maxLabels))
+	for k, v := range labels {
+		if len(out) >= maxLabels {
+			break
+		}
+		k = strings.TrimSpace(k)
+		if k == "" || len(k) > maxKeyLen {
+			continue
+		}
+		v = strings.TrimSpace(v)
+		if v == "" {
+			continue
+		}
+		if len(v) > maxValLen {
+			v = v[:maxValLen]
+		}
+		out[k] = v
+	}
+	return out
 }
 
 // snapshotAgentSession 在 registry 锁内拷贝会话快照（异步落盘用）。
