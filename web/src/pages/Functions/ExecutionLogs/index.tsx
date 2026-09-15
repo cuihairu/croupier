@@ -1,7 +1,20 @@
 import React, { useMemo, useRef, useState } from 'react';
-import { Card, Drawer, Input, Select, Space, Tag, DatePicker, Button, Typography } from 'antd';
+import {
+  Alert,
+  Button,
+  Card,
+  Descriptions,
+  Drawer,
+  Input,
+  Select,
+  Space,
+  Tag,
+  DatePicker,
+  Typography,
+  App,
+} from 'antd';
 import { ProTable, type ActionType, type ProColumns } from '@ant-design/pro-components';
-import { ReloadOutlined } from '@ant-design/icons';
+import { DownOutlined, ReloadOutlined, UpOutlined } from '@ant-design/icons';
 import {
   getExecutionLog,
   listExecutionLogs,
@@ -18,7 +31,7 @@ const PAGE_SIZE = 20;
 
 const preStyle: React.CSSProperties = {
   whiteSpace: 'pre-wrap',
-  background: '#fafafa',
+  background: 'rgba(128, 128, 128, 0.08)',
   padding: 12,
   borderRadius: 6,
   maxHeight: 320,
@@ -33,11 +46,24 @@ function toLocalInput(value: Date): string {
   )}:${pad(value.getMinutes())}:${pad(value.getSeconds())}`;
 }
 
-/** 执行留痕（管理员审计视角）：全量执行记录按用户/函数/来源/状态/时间过滤。 */
+/** 从失败记录的 responseBody 中提取失败原因（写入端约定 responseBody={"error": ...}）。 */
+function extractErrorReason(body: unknown): string {
+  if (body && typeof body === 'object' && 'error' in (body as Record<string, unknown>)) {
+    const err = (body as Record<string, unknown>).error;
+    if (typeof err === 'string' && err.trim()) return err;
+  }
+  if (typeof body === 'string' && body.trim()) return body;
+  return '';
+}
+
+/** 执行留痕（管理员审计视角）：全量执行记录按操作人/函数/来源/状态/时间过滤。 */
 export default function ExecutionLogsPage() {
   const intl = useIntl();
+  const { message } = App.useApp();
   const actionRef = useRef<ActionType | undefined>(undefined);
   const [loadError, setLoadError] = useState('');
+  // 高频筛选默认展示；Trace ID / 时间范围低频，收进「更多筛选」减少常驻占位
+  const [advancedOpen, setAdvancedOpen] = useState(false);
 
   const [actor, setActor] = useState('');
   const [functionId, setFunctionId] = useState('');
@@ -48,6 +74,8 @@ export default function ExecutionLogsPage() {
 
   const [detail, setDetail] = useState<ExecutionLogDetail | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
+
+  const backToFirstPage = () => actionRef.current?.setPageInfo?.({ current: 1 });
 
   const columns: ProColumns<ExecutionLogItem>[] = [
     {
@@ -62,10 +90,11 @@ export default function ExecutionLogsPage() {
     {
       title: intl.formatMessage({
         id: 'pages.functionsExecutionLogs.column.actor',
-        defaultMessage: '申请人',
+        defaultMessage: '操作人',
       }),
       dataIndex: 'actor',
-      width: 120,
+      width: 110,
+      render: (_, r) => r.actor || '-',
     },
     {
       title: intl.formatMessage({
@@ -73,14 +102,38 @@ export default function ExecutionLogsPage() {
         defaultMessage: '函数',
       }),
       dataIndex: 'functionId',
+      width: 220,
       ellipsis: true,
+      render: (_, r) => (
+        <Text code copyable>
+          {r.functionId}
+        </Text>
+      ),
+    },
+    {
+      // 页面执行的记录展示所属页面 Key，调用链路溯源到发起页面
+      title: intl.formatMessage({
+        id: 'pages.functionsExecutionLogs.column.pageKey',
+        defaultMessage: '页面 Key',
+      }),
+      dataIndex: 'pageKey',
+      width: 170,
+      ellipsis: true,
+      render: (_, r) =>
+        r.pageKey ? (
+          <Text code copyable>
+            {r.pageKey}
+          </Text>
+        ) : (
+          '-'
+        ),
     },
     {
       title: intl.formatMessage({
         id: 'pages.functionsExecutionLogs.column.gameEnv',
         defaultMessage: '游戏/环境',
       }),
-      width: 150,
+      width: 130,
       render: (_, r) => `${r.gameId}/${r.env}`,
     },
     {
@@ -136,6 +189,22 @@ export default function ExecutionLogsPage() {
       dataIndex: 'durationMs',
       width: 90,
     },
+    {
+      title: intl.formatMessage({
+        id: 'pages.functionsExecutionLogs.column.actions',
+        defaultMessage: '操作',
+      }),
+      key: 'actions',
+      width: 70,
+      render: (_, r) => (
+        <Button type="link" size="small" onClick={() => void viewDetail(r.id)}>
+          <FormattedMessage
+            id="pages.functionsExecutionLogs.action.viewDetail"
+            defaultMessage="详情"
+          />
+        </Button>
+      ),
+    },
   ];
 
   const viewDetail = useMemo(
@@ -143,12 +212,21 @@ export default function ExecutionLogsPage() {
       try {
         setDetail(await getExecutionLog(id));
         setDetailOpen(true);
-      } catch {
-        /* 详情加载失败静默：可重开 */
+      } catch (e) {
+        message.error(
+          e instanceof Error
+            ? e.message
+            : intl.formatMessage({
+                id: 'pages.functionsExecutionLogs.detail.loadFailedToast',
+                defaultMessage: '详情加载失败',
+              }),
+        );
       }
     },
-    [],
+    [intl, message],
   );
+
+  const errorReason = detail ? extractErrorReason(detail.responseBody) : '';
 
   return (
     <Card
@@ -169,14 +247,14 @@ export default function ExecutionLogsPage() {
         <Input
           placeholder={intl.formatMessage({
             id: 'pages.functionsExecutionLogs.filter.actor',
-            defaultMessage: '申请人',
+            defaultMessage: '操作人',
           })}
           value={actor}
           onChange={(e) => {
             setActor(e.target.value);
             // 筛选变化回第 1 页：params 变化与 setPageInfo 的双触发由
             // ProTable 内部 debounce + abort 合并，不会出现错序数据
-            actionRef.current?.setPageInfo?.({ current: 1 });
+            backToFirstPage();
           }}
           style={{ width: 140 }}
           allowClear
@@ -189,7 +267,7 @@ export default function ExecutionLogsPage() {
           value={functionId}
           onChange={(e) => {
             setFunctionId(e.target.value);
-            actionRef.current?.setPageInfo?.({ current: 1 });
+            backToFirstPage();
           }}
           style={{ width: 200 }}
           allowClear
@@ -203,7 +281,7 @@ export default function ExecutionLogsPage() {
           value={source || undefined}
           onChange={(v) => {
             setSource(v || '');
-            actionRef.current?.setPageInfo?.({ current: 1 });
+            backToFirstPage();
           }}
           allowClear
           options={[
@@ -232,7 +310,7 @@ export default function ExecutionLogsPage() {
           value={status || undefined}
           onChange={(v) => {
             setStatus(v || '');
-            actionRef.current?.setPageInfo?.({ current: 1 });
+            backToFirstPage();
           }}
           allowClear
           options={[
@@ -252,23 +330,38 @@ export default function ExecutionLogsPage() {
             },
           ]}
         />
-        <Input
-          placeholder="Trace ID"
-          value={traceId}
-          onChange={(e) => {
-            setTraceId(e.target.value);
-            actionRef.current?.setPageInfo?.({ current: 1 });
-          }}
-          style={{ width: 200 }}
-          allowClear
-        />
-        <RangePicker
-          showTime
-          onChange={(dates) => {
-            setRange(dates ? [dates[0]?.toDate() ?? null, dates[1]?.toDate() ?? null] : null);
-            actionRef.current?.setPageInfo?.({ current: 1 });
-          }}
-        />
+        {advancedOpen && (
+          <>
+            <Input
+              placeholder="Trace ID"
+              value={traceId}
+              onChange={(e) => {
+                setTraceId(e.target.value);
+                backToFirstPage();
+              }}
+              style={{ width: 200 }}
+              allowClear
+            />
+            <RangePicker
+              showTime
+              onChange={(dates) => {
+                setRange(dates ? [dates[0]?.toDate() ?? null, dates[1]?.toDate() ?? null] : null);
+                backToFirstPage();
+              }}
+            />
+          </>
+        )}
+        <Button type="text" size="small" onClick={() => setAdvancedOpen((v) => !v)}>
+          {advancedOpen ? <UpOutlined /> : <DownOutlined />}
+          <FormattedMessage
+            id={
+              advancedOpen
+                ? 'pages.functionsExecutionLogs.filter.less'
+                : 'pages.functionsExecutionLogs.filter.more'
+            }
+            defaultMessage={advancedOpen ? '收起筛选' : '更多筛选'}
+          />
+        </Button>
         <Button type="primary" onClick={() => actionRef.current?.reload()}>
           <FormattedMessage id="pages.functionsExecutionLogs.action.search" defaultMessage="查询" />
         </Button>
@@ -284,6 +377,7 @@ export default function ExecutionLogsPage() {
         rowKey="id"
         size="small"
         columns={columns}
+        scroll={{ x: 1120 }}
         search={false}
         options={false}
         toolBarRender={false}
@@ -355,84 +449,125 @@ export default function ExecutionLogsPage() {
       >
         {detail && (
           <>
-            <Space orientation="vertical" size={4} style={{ width: '100%', marginBottom: 12 }}>
-              <Text>
-                <Text type="secondary">
-                  <FormattedMessage
-                    id="pages.functionsExecutionLogs.detail.label.actor"
-                    defaultMessage="申请人："
-                  />
-                </Text>
-                {detail.actor}
-              </Text>
-              <Text>
-                <Text type="secondary">
-                  <FormattedMessage
-                    id="pages.functionsExecutionLogs.detail.label.function"
-                    defaultMessage="函数："
-                  />
-                </Text>
-                {detail.functionId}
-              </Text>
-              <Text>
-                <Text type="secondary">
-                  <FormattedMessage
-                    id="pages.functionsExecutionLogs.detail.label.source"
-                    defaultMessage="来源："
-                  />
-                </Text>
-                {detail.source === 'page'
-                  ? intl.formatMessage(
-                      {
-                        id: 'pages.functionsExecutionLogs.detail.sourcePage',
-                        defaultMessage: `页面（${detail.pageKey} / ${detail.bindingId}）`,
-                      },
-                      { pageKey: detail.pageKey, bindingId: detail.bindingId },
-                    )
-                  : intl.formatMessage({
-                      id: 'pages.functionsExecutionLogs.sourceLabel.invoke',
-                      defaultMessage: '调用',
-                    })}
-              </Text>
-              <Text>
-                <Text type="secondary">
-                  <FormattedMessage
-                    id="pages.functionsExecutionLogs.detail.label.status"
-                    defaultMessage="状态："
-                  />
-                </Text>
-                {detail.status === 'ok'
-                  ? intl.formatMessage({
-                      id: 'pages.functionsExecutionLogs.statusLabel.ok',
-                      defaultMessage: '成功',
-                    })
-                  : intl.formatMessage({
-                      id: 'pages.functionsExecutionLogs.statusLabel.error',
-                      defaultMessage: '失败',
-                    })}
-                {detail.truncated
-                  ? intl.formatMessage({
-                      id: 'pages.functionsExecutionLogs.detail.truncated',
-                      defaultMessage: '（载荷已截断）',
-                    })
-                  : ''}
-              </Text>
-              <Text>
-                <Text type="secondary">
-                  <FormattedMessage
-                    id="pages.functionsExecutionLogs.detail.label.time"
-                    defaultMessage="时间："
-                  />
-                </Text>
-                {formatDateTime(detail.createdAt)} · {detail.durationMs}ms
-              </Text>
-              {detail.traceId && (
-                <Text>
-                  <Text type="secondary">Trace：</Text>
-                  <Text code>{detail.traceId}</Text>
-                </Text>
-              )}
-            </Space>
+            <Descriptions
+              column={2}
+              size="small"
+              bordered
+              style={{ marginBottom: 16 }}
+              items={[
+                {
+                  key: 'actor',
+                  label: intl.formatMessage({
+                    id: 'pages.functionsExecutionLogs.column.actor',
+                    defaultMessage: '操作人',
+                  }),
+                  children: detail.actor || '-',
+                },
+                {
+                  key: 'status',
+                  label: intl.formatMessage({
+                    id: 'pages.functionsExecutionLogs.column.status',
+                    defaultMessage: '状态',
+                  }),
+                  children: (
+                    <>
+                      <Tag
+                        color={detail.status === 'ok' ? 'green' : 'red'}
+                        style={{ marginInlineEnd: 0 }}
+                      >
+                        {detail.status === 'ok'
+                          ? intl.formatMessage({
+                              id: 'pages.functionsExecutionLogs.statusLabel.ok',
+                              defaultMessage: '成功',
+                            })
+                          : intl.formatMessage({
+                              id: 'pages.functionsExecutionLogs.statusLabel.error',
+                              defaultMessage: '失败',
+                            })}
+                      </Tag>
+                      {detail.truncated
+                        ? intl.formatMessage({
+                            id: 'pages.functionsExecutionLogs.detail.truncated',
+                            defaultMessage: '（载荷已截断）',
+                          })
+                        : ''}
+                    </>
+                  ),
+                },
+                {
+                  key: 'function',
+                  label: intl.formatMessage({
+                    id: 'pages.functionsExecutionLogs.column.function',
+                    defaultMessage: '函数',
+                  }),
+                  children: (
+                    <Text code copyable>
+                      {detail.functionId}
+                    </Text>
+                  ),
+                },
+                {
+                  key: 'gameEnv',
+                  label: intl.formatMessage({
+                    id: 'pages.functionsExecutionLogs.column.gameEnv',
+                    defaultMessage: '游戏/环境',
+                  }),
+                  children: `${detail.gameId}/${detail.env}`,
+                },
+                {
+                  key: 'source',
+                  label: intl.formatMessage({
+                    id: 'pages.functionsExecutionLogs.column.source',
+                    defaultMessage: '来源',
+                  }),
+                  span: 2,
+                  children:
+                    detail.source === 'page'
+                      ? intl.formatMessage(
+                          {
+                            id: 'pages.functionsExecutionLogs.detail.sourcePage',
+                            defaultMessage: `页面（${detail.pageKey} / ${detail.bindingId}）`,
+                          },
+                          { pageKey: detail.pageKey, bindingId: detail.bindingId },
+                        )
+                      : intl.formatMessage({
+                          id: 'pages.functionsExecutionLogs.sourceLabel.invoke',
+                          defaultMessage: '调用',
+                        }),
+                },
+                {
+                  key: 'time',
+                  label: intl.formatMessage({
+                    id: 'pages.functionsExecutionLogs.detail.label.time',
+                    defaultMessage: '时间：',
+                  }),
+                  children: `${formatDateTime(detail.createdAt)} · ${detail.durationMs}ms`,
+                },
+                {
+                  key: 'traceId',
+                  label: 'Trace',
+                  children: detail.traceId ? (
+                    <Text code copyable>
+                      {detail.traceId}
+                    </Text>
+                  ) : (
+                    '-'
+                  ),
+                },
+              ]}
+            />
+            {detail.status !== 'ok' && errorReason && (
+              <Alert
+                type="error"
+                showIcon
+                style={{ marginBottom: 16 }}
+                message={intl.formatMessage({
+                  id: 'pages.functionsExecutionLogs.detail.errorReason',
+                  defaultMessage: '失败原因',
+                })}
+                description={errorReason}
+              />
+            )}
             <Text type="secondary">
               <FormattedMessage
                 id="pages.functionsExecutionLogs.detail.requestTitle"
@@ -468,10 +603,10 @@ export default function ExecutionLogsPage() {
   );
 }
 
-function AlertMessage({ message, onRetry }: { message: string; onRetry: () => void }) {
+function AlertMessage({ message: text, onRetry }: { message: string; onRetry: () => void }) {
   return (
     <div role="alert">
-      <Text type="danger">{message}</Text>
+      <Text type="danger">{text}</Text>
       <Button size="small" icon={<ReloadOutlined />} onClick={onRetry} style={{ marginLeft: 8 }}>
         <FormattedMessage id="pages.functionsExecutionLogs.action.retry" defaultMessage="重试" />
       </Button>
