@@ -10,6 +10,10 @@ import (
 	"github.com/cuihairu/croupier/internal/svc"
 )
 
+// alertSourceContract 标记函数契约域写入的业务告警（schema 破坏性变更），
+// /ops/alerts 读取时排除，避免混入基础设施告警中心。
+const alertSourceContract = "contract"
+
 // Alert operations sub-service
 
 type AlertService struct {
@@ -25,9 +29,11 @@ func (s *AlertService) List(ctx context.Context, gameId, env, status string) ([]
 		return nil, errors.New("alert model unavailable")
 	}
 
+	// /ops/alerts 只承载基础设施告警；业务告警不混入（函数域自行呈现）
 	alerts, _, err := s.svcCtx.AlertModel.List(ctx, model.ListAlertsOptions{
 		PaginationOptions: model.NewPagination(1, 100),
 		Status:            status,
+		ExcludeSources:    []string{alertSourceContract},
 	})
 	if err != nil {
 		return nil, err

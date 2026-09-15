@@ -26,6 +26,10 @@ type ListAlertsOptions struct {
 	Level  string
 	Status string
 	Source string
+	// ExcludeSources 排除的告警来源：/ops/alerts 是基础设施告警中心，
+	// 函数域业务告警（source=contract 的 schema 破坏性变更）由函数域
+	// 诊断呈现，不混入运维告警列表。
+	ExcludeSources []string
 }
 
 // Create inserts a new alert.
@@ -77,6 +81,9 @@ func (m *AlertModel) List(ctx context.Context, opts ListAlertsOptions) ([]Alert,
 	}
 	if opts.Source != "" {
 		query = query.Where("source = ?", opts.Source)
+	}
+	if len(opts.ExcludeSources) > 0 {
+		query = query.Where("source NOT IN ?", opts.ExcludeSources)
 	}
 
 	if err := query.Count(&total).Error; err != nil {

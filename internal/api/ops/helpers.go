@@ -335,8 +335,10 @@ func opsBackupDownload(ctx context.Context, svcCtx *svc.ServiceContext, req *Ops
 // Alert operations implementations
 
 func opsAlerts(ctx context.Context, svcCtx *svc.ServiceContext, req *OpsAlertsRequest) (*OpsAlertsResponse, error) {
+	// 只输出基础设施告警；业务告警（如 schema 破坏性变更）由函数域诊断呈现
 	opts := model.ListAlertsOptions{
 		PaginationOptions: model.NewPagination(1, 1000),
+		ExcludeSources:    []string{alertSourceContract},
 	}
 	alerts, _, err := svcCtx.AlertModel.List(ctx, opts)
 	if err != nil {
