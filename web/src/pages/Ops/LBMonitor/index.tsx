@@ -22,20 +22,40 @@ const QUERIES = {
   errors: 'sum by (proxy) (rate(haproxy_backend_errors_total[5m]))',
 } as const;
 
-type SeriesPoint = { time: string; value: number; backend: string };
+type SeriesPoint = { ts: number; time: string; value: number; backend: string };
 
 function toSeries(
   rows: { metric: Record<string, string>; value: [number, string] }[],
   labelKey: string,
 ): SeriesPoint[] {
-  const t = new Date();
   return rows.map((r) => ({
-    time: t.toLocaleTimeString(),
+    // Prometheus 即时查询返回的评估时间戳（秒）——不能用「当前时刻」伪造，
+    // 否则整批点共用一个 x 值
+    ts: (r.value?.[0] ?? Math.floor(Date.now() / 1000)) * 1000,
+    time: new Date((r.value?.[0] ?? Math.floor(Date.now() / 1000)) * 1000).toLocaleTimeString(),
     value: Number(r.value[1]) || 0,
     // fallback 链覆盖 exporter 标签变体；都缺失时才归为 unknown
     backend:
       r.metric[labelKey] || r.metric.proxy || r.metric.backend || r.metric.instance || 'unknown',
   }));
+}
+
+// 会话趋势缓冲窗口：即时查询每次只回一个采样，直接渲染只有单个 x 值
+//（多个 backend 的点竖排 = 一根竖线）。按 backend 追加历史采样并保留
+// 最近 10 分钟，才能形成真正的时间趋势线。
+const HISTORY_WINDOW_MS = 10 * 60 * 1000;
+
+function appendHistory(history: SeriesPoint[], samples: SeriesPoint[]): SeriesPoint[] {
+  const cutoff = Date.now() - HISTORY_WINDOW_MS;
+  const seen = new Map<string, SeriesPoint>();
+  for (const p of [...history, ...samples]) {
+    if (p.ts < cutoff) continue;
+    // 同一 backend 同一时刻的采样去重（轮询重叠时保留最新值）
+    seen.set(`${p.backend}|${p.ts}`, p);
+  }
+  return Array.from(seen.values()).sort(
+    (a, b) => a.ts - b.ts || a.backend.localeCompare(b.backend),
+  );
 }
 
 export default function LBMonitor() {
@@ -70,7 +90,9 @@ export default function LBMonitor() {
         queryLbStats({ query: QUERIES.backendSessions }),
         queryLbStats({ query: QUERIES.serverStatus }),
       ]);
-      setSessionsData(toSeries(sessions.data?.result || [], 'proxy'));
+      setSessionsData((prev) =>
+        appendHistory(prev, toSeries(sessions.data?.result || [], 'proxy')),
+      );
       // haproxy_server_status 是 per-state 指标族（server×UP/DOWN/MAINT/
       // DRAIN/NOLB 各一行）——只看 state="UP" 行的值：1=健康，其余=不健康
       const down = (status.data?.result || [])
@@ -131,6 +153,13 @@ export default function LBMonitor() {
     [sessionsData],
   );
 
+  // 统计卡片只看最新一轮快照，不把缓冲里的历史采样重复累计
+  const latestSnapshot = useMemo(() => {
+    if (!sessionsData.length) return [] as SeriesPoint[];
+    const maxTs = Math.max(...sessionsData.map((p) => p.ts));
+    return sessionsData.filter((p) => p.ts === maxTs);
+  }, [sessionsData]);
+
   if (!loading && !lbStats?.enabled) {
     return (
       <PageContainer>
@@ -189,7 +218,7 @@ export default function LBMonitor() {
                   id: 'pages.opsLBMonitor.statistic.totalSessions',
                   defaultMessage: 'LB 会话总数',
                 })}
-                value={sessionsData.reduce((s, p) => s + p.value, 0)}
+                value={latestSnapshot.reduce((s, p) => s + p.value, 0)}
               />
             </Space>
           </Card>
