@@ -112,6 +112,7 @@ export default {
   'pages.pageStudio.saveModal.updateHint': '更新会以当前画布选择覆盖该模板的结构、参数与依赖函数。',
   'pages.pageStudio.saveModal.updateSuccess': '「{name}」已更新——模板内容已按当前画布选择覆盖',
   'pages.pageStudio.subtitle': '注册能力后自动生成默认页面；预览、发布、运行无需手工创建页面',
+  'pages.pageStudio.templates.action.createComposite': '创建组合页',
   'pages.pageStudio.templates.action.delete': '删除',
   'pages.pageStudio.templates.action.importConstants': '导入常量',
   'pages.pageStudio.templates.action.openEditor': '在编辑器中使用',

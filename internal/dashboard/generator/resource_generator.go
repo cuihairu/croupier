@@ -918,15 +918,15 @@ func paginationFromContract(contract *model.FunctionContract, semantics *model.C
 	if len(properties) == 0 {
 		return nil
 	}
+	// page 命中即启用分页；page_size 仅在语义声明且 schema 收录时参与
+	// selector 映射。此前两者缺一即返回 nil——契约只有 page 无 page_size
+	// 时分页整体关闭，listQuerySchema 不注入 current，而 selector 已把
+	// page 映射到 /current，发布校验永远失败（页面不可发布）。
 	pageField := strings.TrimSpace(semantics.PageFieldName)
-	pageSizeField := strings.TrimSpace(semantics.PageSizeFieldName)
-	if pageField == "" || pageSizeField == "" {
+	if pageField == "" {
 		return nil
 	}
 	if _, ok := properties[pageField]; !ok {
-		return nil
-	}
-	if _, ok := properties[pageSizeField]; !ok {
 		return nil
 	}
 	return &spec.PaginationSpec{

@@ -595,7 +595,9 @@ func TestPaginationFromContractGuardsV9(t *testing.T) {
 	assert.Nil(t, paginationFromContract(&model.FunctionContract{
 		InputSchema: model.JSON(`{"type":"object","properties":{"pageSize":{"type":"integer"}}}`),
 	}, semantics))
-	assert.Nil(t, paginationFromContract(&model.FunctionContract{
+	// 只有 page（无 page_size）也必须启用分页：缺 page_size 返回 nil 会让
+	// listQuerySchema 失去 current，selector 的 page→/current 映射卡死发布
+	require.NotNil(t, paginationFromContract(&model.FunctionContract{
 		InputSchema: model.JSON(`{"type":"object","properties":{"page":{"type":"integer"}}}`),
 	}, semantics))
 	require.NotNil(t, paginationFromContract(&model.FunctionContract{

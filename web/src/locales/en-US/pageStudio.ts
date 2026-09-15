@@ -124,6 +124,7 @@ export default {
     '"{name}" updated — template content overwritten with the current canvas selection',
   'pages.pageStudio.subtitle':
     'Default pages are generated automatically once capabilities are registered; preview, publish, and run without creating pages manually',
+  'pages.pageStudio.templates.action.createComposite': 'Create composite page',
   'pages.pageStudio.templates.action.delete': 'Delete',
   'pages.pageStudio.templates.action.importConstants': 'Import constants',
   'pages.pageStudio.templates.action.openEditor': 'Use in editor',

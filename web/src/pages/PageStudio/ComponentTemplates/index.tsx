@@ -27,7 +27,7 @@ import {
 } from '@ant-design/icons';
 import { PageContainer } from '@ant-design/pro-components';
 import ConstantImportModal from '../CompositeEditor/ConstantImportModal';
-import { FormattedMessage, request, useIntl } from '@umijs/max';
+import { FormattedMessage, history, request, useIntl } from '@umijs/max';
 import { listDescriptors, type FunctionDescriptor } from '@/services/api/functions';
 import {
   instantiateTemplate,
@@ -311,6 +311,17 @@ export default function ComponentTemplatesPage() {
           defaultMessage: '组件模板',
         }),
         extra: [
+          <Button
+            key="create-composite"
+            type="primary"
+            icon={<AppstoreOutlined />}
+            onClick={() => history.push('/functions/pages/composite-editor')}
+          >
+            <FormattedMessage
+              id="pages.pageStudio.templates.action.createComposite"
+              defaultMessage="创建组合页"
+            />
+          </Button>,
           <Button
             key="import-consts"
             icon={<ControlOutlined />}
