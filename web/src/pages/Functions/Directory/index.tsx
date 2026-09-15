@@ -354,7 +354,7 @@ export default function DirectoryPage() {
                 ),
             }}
             search={{ filterType: 'light', labelWidth: 'auto' }}
-            scroll={{ x: 1390 }}
+            scroll={{ x: 1480 }}
             dateFormatter="string"
             headerTitle={false}
             options={false}

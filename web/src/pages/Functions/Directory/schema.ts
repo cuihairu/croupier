@@ -22,7 +22,15 @@ export type DirectoryPageSchema = {
   }>;
   columns: Array<{
     key:
-      'id' | 'displayName' | 'summary' | 'resource' | 'operation' | 'tags' | 'enabled' | 'actions';
+      | 'id'
+      | 'version'
+      | 'displayName'
+      | 'summary'
+      | 'resource'
+      | 'operation'
+      | 'tags'
+      | 'enabled'
+      | 'actions';
     title: string;
     width?: number;
     copyable?: boolean;
@@ -103,6 +111,14 @@ export const DIRECTORY_PAGE_SCHEMA: DirectoryPageSchema = {
       }),
       width: 250,
       copyable: true,
+    },
+    {
+      key: 'version',
+      title: intl.formatMessage({
+        id: 'pages.functionsDirectory.column.version',
+        defaultMessage: '版本',
+      }),
+      width: 110,
     },
     {
       key: 'displayName',

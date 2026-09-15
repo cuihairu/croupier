@@ -125,6 +125,9 @@ export default function useDirectoryPage() {
         intl,
         columns: DIRECTORY_PAGE_SCHEMA.columns,
         rowActions: DIRECTORY_PAGE_SCHEMA.rowActions,
+        versions: Array.from(
+          new Set(rows.map((r) => r.version).filter((v): v is string => Boolean(v))),
+        ),
         onOpenDetail: (record) => handleViewDetail(record),
         onOpenSchema: (id) =>
           history.push(`/functions/${encodeURIComponent(id)}?tab=config&subTab=schema`),
@@ -132,7 +135,7 @@ export default function useDirectoryPage() {
           history.push(buildInvokePath(record.id));
         },
       }),
-    [buildInvokePath, handleViewDetail, intl],
+    [buildInvokePath, handleViewDetail, intl, rows],
   );
 
   const headerActions = useMemo(

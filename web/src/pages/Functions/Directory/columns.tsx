@@ -20,6 +20,8 @@ type BuildColumnsOptions = {
   intl: IntlFormatter;
   columns: DirectoryPageSchema['columns'];
   rowActions: DirectoryPageSchema['rowActions'];
+  /** 当前数据集出现的全部函数版本（离散值，用于列过滤选项） */
+  versions: string[];
   onOpenDetail: (record: SummaryRow) => void;
   onOpenSchema: (id: string) => void;
   onInvoke: (record: SummaryRow) => void;
@@ -35,6 +37,7 @@ export const buildDirectoryColumns = ({
   intl,
   columns,
   rowActions,
+  versions,
   onOpenDetail,
   onOpenSchema,
   onInvoke,
@@ -51,9 +54,19 @@ export const buildDirectoryColumns = ({
           <Space>
             <Badge status={record.enabled ? 'success' : 'default'} />
             <Text code>{record.id}</Text>
-            {record.version && <Tag color="blue">v{record.version}</Tag>}
           </Space>
         ),
+      } as ProColumns<SummaryRow>;
+    }
+    if (col.key === 'version') {
+      // 版本是独立且重要的信息：单独成列并支持按版本过滤（不再挤在函数 ID 后面）
+      return {
+        title: col.title,
+        dataIndex: 'version',
+        width: col.width,
+        filters: versions.map((v) => ({ text: `v${v}`, value: v })),
+        onFilter: (value, record) => record.version === value,
+        render: (_, record) => (record.version ? <Tag color="blue">v{record.version}</Tag> : '-'),
       } as ProColumns<SummaryRow>;
     }
     if (col.key === 'displayName') {

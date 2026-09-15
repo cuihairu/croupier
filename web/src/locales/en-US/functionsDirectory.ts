@@ -20,6 +20,7 @@ export default {
   'pages.functionsDirectory.column.displayName': 'Function Name',
   'pages.functionsDirectory.column.enabled': 'Status',
   'pages.functionsDirectory.column.id': 'Function ID',
+  'pages.functionsDirectory.column.version': 'Version',
   'pages.functionsDirectory.column.resource': 'Resource',
   'pages.functionsDirectory.column.summary': 'Function Summary',
   'pages.functionsDirectory.column.tags': 'Tags',

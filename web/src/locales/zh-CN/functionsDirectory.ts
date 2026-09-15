@@ -19,6 +19,7 @@ export default {
   'pages.functionsDirectory.column.displayName': '函数名称',
   'pages.functionsDirectory.column.enabled': '状态',
   'pages.functionsDirectory.column.id': '函数ID',
+  'pages.functionsDirectory.column.version': '版本',
   'pages.functionsDirectory.column.resource': '资源',
   'pages.functionsDirectory.column.summary': '函数摘要',
   'pages.functionsDirectory.column.tags': '标签',
