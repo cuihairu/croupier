@@ -389,6 +389,8 @@ PageSpec = (pageKey, type, resourceKey?, category, title, icon, order,
 
 分类、标题、图标与排序是 PageSpec 的顶层强类型字段；`NavigationSpec` 仅承载面包屑与返回行为（breadcrumb、showBack、backPath）。它们只在 PageProposal/PageSpec 中确定，注册侧不能提供菜单事实。页面没有独立的 permissions 字段：权限由 binding 级治理（合同 permission/risk/approval 快照）与 action 级 permission 字段承载。
 
+**本地化必填契约**：`title` 与 `category.labels` 的 LocalizedText 必须同时含 `zh-CN` 与 `en-US`（中文为第一推荐展示语言、英文必须存在），缺任一在保存/发布校验与发布期诊断中被拒（`hasDefaultLocale`）。生成器对词条、SDK Summary、humanize 兜底全路径经 `ensureBilingual` 双写补齐；编辑器（LocalizedTextEditor）对缺失的必填语言给出可见提示。其余 LocalizedText 字段（confirm 文案、结果提示、字段 label 等）仍为可选，渲染端按 zh-CN → en-US → 任一非空值回退。
+
 ## CRUD 是主路径，非 CRUD 是一等扩展
 
 ### ResourcePage
