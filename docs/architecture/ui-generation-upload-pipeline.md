@@ -159,7 +159,7 @@ function_contracts 新增列：execution_state VARCHAR(16) NOT NULL DEFAULT 'bou
 ## 7. 已知边界
 
 - unbound 契约的 functionId 来自 OpenAPI operationId 的确定性映射；agent 侧注册的 functionId 命名不一致时无法自动绑定，需人工在编辑器抽屉内绑定。
-- 不同名绑定成功后，原 unbound 契约行仍在（仅下次上传重放的 `removeSupersededUnboundContract` 清理）；组件面板对旧物料的「未绑定」标记对事实正确，组件切换函数引用后不再展示。
+- 不同名绑定成功后，原 unbound 契约行即时清理（`CreateBinding` 事务内与上传重放的 `removeSupersededUnboundContract` 对称执行）——否则资源语义槽位出现同源双候选，unresolved conflict 会把 resource proposal 降级 needs_review。
 - 抽屉内不展示 proposal/模板 freshness 提示——Proposal 队列有独立入口；抽屉只解决「绑定」这一件事。
 - 发布分级的 env 判定依赖 scope 传递正确性；`X-Env` 缺失时按最严格（required）处理。
 - 上传管线为同步事务，超大文档（>500 operations）的耗时与超时策略在落地时按实测调整（必要时转异步任务）。

@@ -389,11 +389,11 @@ prev schema 语义与 wire 契约见
   人工链（ProposalInbox / `pages:publish`）。批量发布（BulkPublish/BulkRepublish）
   不受策略影响，权限语义不变；前端保存弹窗暂未消费响应中的 `published`/
   `publishError` 字段（服务端语义已闭环，前端提示增强属后续任务）
-- **编辑器内绑定抽屉（T9）不同名绑定后旧物料残留**：bound 契约建在运行时函数
-  名下，原 unbound 契约行仍在（仅下次上传重放的 removeSupersededUnboundContract
-  清理）——组件面板对旧物料的「未绑定」标记对事实正确；切换组件函数引用后
-  该物料不再被页面引用。抽屉内也不展示 proposal/模板 freshness 提示
-  （Proposal 队列有独立入口）
+- **编辑器内绑定抽屉（T9）不同名绑定即时清理旧物料**：bound 契约建在运行时函数
+  名下，原 operationId 名下的 unbound 契约行在绑定事务内即时清理
+  （removeSupersededUnboundContract，与上传重放对称）——组件面板不再出现
+  永不可执行的重复物料，资源语义槽位也不会因双候选冲突把 proposal 降级。
+  抽屉内不展示 proposal/模板 freshness 提示（Proposal 队列有独立入口）
 - **模板更新提醒（U11）只提示不自动同步**：实例化保持复制语义，提醒不提供一键
   更新（需手动重新拖入模板）；快照按 key 去重——同模板多次拖入只登记一次 digest，
   页面内删除模板节点也不摘除快照条目（快照描述「创建页面时用过哪些模板」，

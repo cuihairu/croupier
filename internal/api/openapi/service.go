@@ -442,6 +442,18 @@ func (s *Service) CreateBinding(ctx context.Context, req *OpenAPISourceBindingCr
 		if err := s.svcCtx.OpenAPISourceBindingModel.Upsert(txCtx, binding); err != nil {
 			return err
 		}
+		// 不同名绑定取代 operationId 名下的 unbound 物料：绑定时即清理
+		// （与上传重放的 removeSupersededUnboundContract 对称），否则资源
+		// 语义槽位出现同源双候选 → unresolved conflict → proposal 被
+		// 降级 needs_review。同名绑定走 T6 原地翻转，原行保留不删。
+		supersededID := unboundFunctionID(funcopenapi.DeriveFunctionID(
+			openAPIOperationFromSource(source, req.OperationID), operation.Path))
+		if supersededID != "" && supersededID != functionID {
+			if err := s.removeSupersededUnboundContract(
+				txCtx, dashboardservice.NewContractService(s.svcCtx.DB), gameID, env, supersededID); err != nil {
+				return err
+			}
+		}
 		return s.rebuildContractForSourceBinding(txCtx, gameID, env, source, operation, binding, runtimeMeta)
 	}); err != nil {
 		spanErr = err

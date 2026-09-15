@@ -1182,6 +1182,105 @@ func TestService_CreateBindingRebuildsContractAndProposal(t *testing.T) {
 	assert.NotEmpty(t, proposal.PageSpec)
 }
 
+// 不同名绑定（functionId != operationId 派生 ID）取代 operationId 名下的
+// unbound 物料：绑定时即清理（与上传重放的 removeSupersededUnboundContract
+// 对称）。否则资源语义槽位出现同源双候选 → unresolved conflict → resource
+// proposal 被降级 needs_review（real-dashboard openapi-crud 回归，T4 起上传
+// 即物化 unbound 契约后暴露）。同名绑定（T6 原地翻转）不受影响，见上例。
+func TestService_CreateBindingRemovesSupersededUnboundContract(t *testing.T) {
+	t.Parallel()
+
+	service := setupOpenAPITestService(t)
+	// 绑定目标：与 operationId（player.list）不同名的运行时函数。
+	require.NoError(t, service.svcCtx.RegistryStore.UpsertAgent(&registry.AgentSession{
+		AgentID: "agent-players",
+		GameID:  "demo-game",
+		Env:     "development",
+		Functions: map[string]registry.FunctionMeta{
+			"players.player.list": {
+				Enabled: true, Version: "1.0.0",
+				Resource: "player", Capability: "collection_query", Execution: "sync",
+			},
+		},
+		LastSeen: time.Now(),
+	}))
+	specDoc := map[string]interface{}{
+		"openapi": "3.0.3",
+		"info": map[string]interface{}{
+			"title":   "Player API",
+			"version": "1.0.0",
+		},
+		"paths": map[string]interface{}{
+			"/player": map[string]interface{}{
+				"get": map[string]interface{}{
+					"operationId": "player.list",
+					"responses": map[string]interface{}{
+						"200": map[string]interface{}{
+							"description": "OK",
+							"content": map[string]interface{}{
+								"application/json": map[string]interface{}{
+									"schema": map[string]interface{}{
+										"type": "object",
+										"properties": map[string]interface{}{
+											"items": map[string]interface{}{
+												"type": "array",
+												"items": map[string]interface{}{
+													"type": "object",
+													"properties": map[string]interface{}{
+														"id":   map[string]interface{}{"type": "string"},
+														"name": map[string]interface{}{"type": "string"},
+													},
+												},
+											},
+											"total": map[string]interface{}{"type": "integer"},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	created, err := service.CreateSource(openAPITestContext(), &OpenAPISourceCreateRequest{Spec: rawSpec(t, specDoc)})
+	require.NoError(t, err)
+
+	// 上传即物化：operationId 名下先生成 unbound 契约。
+	contractModel := model.NewFunctionContractModel(service.svcCtx.DB)
+	unbound, err := contractModel.FindByScopeAndFunctionID(openAPITestContext(), "demo-game", "development", "player.list")
+	require.NoError(t, err, "上传后应存在 operationId 名下的 unbound 契约")
+	assert.Equal(t, string(dashspec.ExecutionStateUnbound), unbound.ExecutionState)
+
+	_, err = service.CreateBinding(openAPITestContext(), &OpenAPISourceBindingCreateRequest{
+		SourceID:    created.Source.SourceID,
+		OperationID: "player.list",
+		Kind:        "provider",
+		FunctionID:  "players.player.list",
+	})
+	require.NoError(t, err)
+
+	// 被取代的 unbound 行已清理；bound 契约落在绑定函数名下。
+	_, err = contractModel.FindByScopeAndFunctionID(openAPITestContext(), "demo-game", "development", "player.list")
+	assert.ErrorIs(t, err, gorm.ErrRecordNotFound, "不同名绑定应清理 operationId 名下的 unbound 物料")
+	bound, err := contractModel.FindByScopeAndFunctionID(openAPITestContext(), "demo-game", "development", "players.player.list")
+	require.NoError(t, err)
+	assert.Equal(t, string(dashspec.ExecutionStateBound), bound.ExecutionState)
+
+	// 资源语义无残留冲突，proposal 质量不被降级。
+	semantics, err := model.NewCapabilitySemanticsModel(service.svcCtx.DB).FindByScopeAndResourceKey(openAPITestContext(), "demo-game", "development", "player")
+	require.NoError(t, err)
+	var conflicts []dashspec.SemanticConflict
+	if len(semantics.Conflicts) > 0 {
+		require.NoError(t, json.Unmarshal(semantics.Conflicts, &conflicts))
+	}
+	assert.Empty(t, conflicts, "被取代的 unbound 契约不应残留语义槽位冲突")
+
+	proposal, err := model.NewPageProposalModel(service.svcCtx.DB).FindByScopeAndKey(openAPITestContext(), "demo-game", "development", "resource:player")
+	require.NoError(t, err)
+	assert.Equal(t, string(dashspec.GeneratedPageQualityReady), proposal.Quality, "槽位双候选冲突不再把 resource proposal 降级为 needs_review")
+}
+
 func TestService_CreateBindingRejectsHttpConnectorWithoutPersisting(t *testing.T) {
 	t.Parallel()
 
