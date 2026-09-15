@@ -4,14 +4,12 @@ import { Space } from 'antd';
 import { useIntl } from '@umijs/max';
 import { StandardListSection, SummaryOverview } from '@/components';
 import HistoryModal from './HistoryModal';
-import CanaryModal from './CanaryModal';
 import CloneModal from './CloneModal';
 import PageRenderer from './PageRenderer';
 import useAssignmentsPage from './useAssignmentsPage';
 
 export default function AssignmentsPage() {
   const {
-    message,
     pageCtx,
     headerActions,
     historyVisible,
@@ -24,9 +22,6 @@ export default function AssignmentsPage() {
     historyActionFilter,
     setHistoryActionFilter,
     loadHistory,
-    canaryModalVisible,
-    setCanaryModalVisible,
-    editingAssignment,
     cloneModalVisible,
     setCloneModalVisible,
     onCloneToEnv,
@@ -38,11 +33,11 @@ export default function AssignmentsPage() {
     <PageContainer
       title={intl.formatMessage({
         id: 'pages.assignments.page.title',
-        defaultMessage: '函数分配管理',
+        defaultMessage: '函数开放范围',
       })}
       subTitle={intl.formatMessage({
         id: 'pages.assignments.page.subTitle',
-        defaultMessage: '管理不同游戏环境中可用的函数列表',
+        defaultMessage: '选择当前游戏环境开放哪些函数，保存后生效',
       })}
       extra={headerActions}
     >
@@ -151,25 +146,6 @@ export default function AssignmentsPage() {
         }}
         onReload={() => loadHistory(historyPage, historyPageSize, historyActionFilter)}
         onPageChange={(page, pageSize) => loadHistory(page, pageSize, historyActionFilter)}
-      />
-
-      <CanaryModal
-        open={canaryModalVisible}
-        assignment={editingAssignment}
-        onClose={() => setCanaryModalVisible(false)}
-        onSave={(values) => {
-          const functionId = String(values.functionId || editingAssignment?.id || '-');
-          message.success(
-            intl.formatMessage(
-              {
-                id: 'pages.assignments.canary.saved',
-                defaultMessage: `灰度配置已保存 (${functionId})`,
-              },
-              { functionId },
-            ),
-          );
-          setCanaryModalVisible(false);
-        }}
       />
 
       <CloneModal

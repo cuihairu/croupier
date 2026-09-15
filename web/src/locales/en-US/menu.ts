@@ -37,7 +37,7 @@ export default {
   'menu.FunctionsAndPages.SdkDistribution': 'SDK Distribution',
   'menu.FunctionsAndPages.FunctionInstances': 'Instance Management',
   'menu.FunctionsAndPages.FunctionWarnings': 'Registration Warnings',
-  'menu.FunctionsAndPages.FunctionAssignments': 'Permission Assignments',
+  'menu.FunctionsAndPages.FunctionAssignments': 'Function Availability',
   'menu.FunctionsAndPages.ResourceCatalog': 'Resource Catalog',
   'menu.ControlConsole': 'Runtime Console',
   'menu.ControlConsole.ConsoleHome': 'Runtime Entry',

@@ -6,7 +6,6 @@ import {
   CheckCircleOutlined,
   DeleteOutlined,
   EditOutlined,
-  ExperimentOutlined,
   SettingOutlined,
 } from '@ant-design/icons';
 import { FormattedMessage } from '@umijs/max';
@@ -29,8 +28,6 @@ type BuildColumnsOptions = {
   setSelected: Dispatch<SetStateAction<string[]>>;
   listColumns: AssignmentPageSchema['listColumns'];
   rowActions: AssignmentPageSchema['rowActions'];
-  setEditingAssignment: Dispatch<SetStateAction<AssignmentItem | null>>;
-  setCanaryModalVisible: Dispatch<SetStateAction<boolean>>;
   onOpenDetail: (id: string) => void;
 };
 
@@ -41,8 +38,6 @@ export const buildAssignmentColumns = ({
   setSelected,
   listColumns,
   rowActions,
-  setEditingAssignment,
-  setCanaryModalVisible,
   onOpenDetail,
 }: BuildColumnsOptions): ProColumns<AssignmentItem>[] =>
   listColumns.map((col) => {
@@ -54,15 +49,7 @@ export const buildAssignmentColumns = ({
         copyable: col.copyable,
         render: (_, record) => (
           <Space>
-            <Badge
-              status={
-                record.status === 'active'
-                  ? 'success'
-                  : record.status === 'canary'
-                    ? 'processing'
-                    : 'default'
-              }
-            />
+            <Badge status={record.status === 'active' ? 'success' : 'default'} />
             <span>{record.id}</span>
           </Space>
         ),
@@ -96,13 +83,6 @@ export const buildAssignmentColumns = ({
               text: intl.formatMessage({
                 id: 'pages.assignments.column.status.active',
                 defaultMessage: '已启用',
-              }),
-            },
-            canary: {
-              color: 'processing',
-              text: intl.formatMessage({
-                id: 'pages.assignments.column.status.canary',
-                defaultMessage: '灰度中',
               }),
             },
             disabled: {
@@ -154,7 +134,6 @@ export const buildAssignmentColumns = ({
         const iconMap = {
           check: <CheckCircleOutlined />,
           delete: <DeleteOutlined />,
-          experiment: <ExperimentOutlined />,
           setting: <SettingOutlined />,
           edit: <EditOutlined />,
         } as const;
@@ -172,11 +151,6 @@ export const buildAssignmentColumns = ({
           }
           if (key === 'disable') {
             setSelected(selected.filter((id) => id !== record.id));
-            return;
-          }
-          if (key === 'canary') {
-            setEditingAssignment(record);
-            setCanaryModalVisible(true);
             return;
           }
           if (key === 'detail') {

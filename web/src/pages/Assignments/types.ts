@@ -35,5 +35,4 @@ export type AssignmentGroup = {
   resource: string;
   items: AssignmentItem[];
   activeCount: number;
-  canaryCount: number;
 };

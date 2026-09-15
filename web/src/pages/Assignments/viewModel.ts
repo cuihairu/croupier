@@ -42,7 +42,6 @@ export const buildGroupedAssignments = (options: AssignmentOption[], selected: s
     resource,
     items,
     activeCount: items.filter((i) => i.status === 'active').length,
-    canaryCount: items.filter((i) => i.status === 'canary').length,
   }));
 };
 

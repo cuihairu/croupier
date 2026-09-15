@@ -59,7 +59,6 @@ export default function useAssignmentsPage() {
   const [, setEnv] = useState<string | undefined>(localStorage.getItem('env') || undefined);
   const [selected, setSelected] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
-  const [editingAssignment, setEditingAssignment] = useState<AssignmentItem | null>(null);
   const [historyVisible, setHistoryVisible] = useState(false);
   const [history, setHistory] = useState<AssignmentHistory[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
@@ -67,7 +66,6 @@ export default function useAssignmentsPage() {
   const [historyPageSize, setHistoryPageSize] = useState(10);
   const [historyTotal, setHistoryTotal] = useState(0);
   const [historyActionFilter, setHistoryActionFilter] = useState<HistoryAction>('all');
-  const [canaryModalVisible, setCanaryModalVisible] = useState(false);
   const [cloneModalVisible, setCloneModalVisible] = useState(false);
   const [activeTab, setActiveTab] = useState('list');
 
@@ -250,8 +248,6 @@ export default function useAssignmentsPage() {
         setSelected,
         listColumns: ASSIGNMENTS_PAGE_SCHEMA.listColumns,
         rowActions: ASSIGNMENTS_PAGE_SCHEMA.rowActions,
-        setEditingAssignment,
-        setCanaryModalVisible,
         onOpenDetail: (id) => {
           routerHistory.push(`/functions/${encodeURIComponent(id)}?tab=config&subTab=schema`);
         },
@@ -336,9 +332,6 @@ export default function useAssignmentsPage() {
     historyActionFilter,
     setHistoryActionFilter,
     loadHistory,
-    canaryModalVisible,
-    setCanaryModalVisible,
-    editingAssignment,
     cloneModalVisible,
     setCloneModalVisible,
     onCloneToEnv,

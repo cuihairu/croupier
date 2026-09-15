@@ -32,7 +32,7 @@ export default {
   'menu.FunctionsAndPages.SdkDistribution': 'SDK 版本分布',
   'menu.FunctionsAndPages.FunctionInstances': '实例管理',
   'menu.FunctionsAndPages.FunctionWarnings': '注册告警',
-  'menu.FunctionsAndPages.FunctionAssignments': '权限分配',
+  'menu.FunctionsAndPages.FunctionAssignments': '函数开放范围',
   'menu.FunctionsAndPages.ResourceCatalog': '资源目录',
   'menu.ControlConsole': '运行控制台',
   'menu.ControlConsole.ConsoleHome': '运行入口',

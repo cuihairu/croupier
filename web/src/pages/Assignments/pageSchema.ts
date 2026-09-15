@@ -37,9 +37,9 @@ export type AssignmentPageSchema = {
     label: string;
   }>;
   rowActions: Array<{
-    key: 'enable' | 'disable' | 'canary' | 'detail';
+    key: 'enable' | 'disable' | 'detail';
     tooltip: string;
-    icon: 'check' | 'delete' | 'experiment' | 'setting';
+    icon: 'check' | 'delete' | 'setting';
     danger?: boolean;
     permission?: 'read' | 'write';
     visibleWhen?: 'isActive' | 'notActive';
@@ -274,7 +274,7 @@ export const ASSIGNMENTS_PAGE_SCHEMA: AssignmentPageSchema = {
       key: 'enable',
       tooltip: intl.formatMessage({
         id: 'pages.assignments.schema.action.enable',
-        defaultMessage: '启用',
+        defaultMessage: '加入开放',
       }),
       icon: 'check',
       permission: 'write',
@@ -284,21 +284,12 @@ export const ASSIGNMENTS_PAGE_SCHEMA: AssignmentPageSchema = {
       key: 'disable',
       tooltip: intl.formatMessage({
         id: 'pages.assignments.schema.action.disable',
-        defaultMessage: '禁用',
+        defaultMessage: '移出开放',
       }),
       icon: 'delete',
       permission: 'write',
       danger: true,
       visibleWhen: 'isActive',
-    },
-    {
-      key: 'canary',
-      tooltip: intl.formatMessage({
-        id: 'pages.assignments.schema.action.canaryConfig',
-        defaultMessage: '灰度配置',
-      }),
-      icon: 'experiment',
-      permission: 'write',
     },
     {
       key: 'detail',

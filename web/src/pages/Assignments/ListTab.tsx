@@ -55,13 +55,6 @@ export default function ListTab({
                   values={{ count: group.activeCount }}
                 />
               </Tag>
-              <Tag color="orange">
-                <FormattedMessage
-                  id="pages.assignments.group.canaryCount"
-                  defaultMessage={`${group.canaryCount} 灰度中`}
-                  values={{ count: group.canaryCount }}
-                />
-              </Tag>
             </Space>
           }
           style={{ marginBottom: 16 }}
