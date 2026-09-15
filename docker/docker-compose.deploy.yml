@@ -184,7 +184,10 @@ services:
     # 宿主端口只由 server-1 发布（双实例不能绑同一宿主端口）；
     # 集群内互联走容器名，宿主直连（调试）走 server-1。
     ports:
-      - "${SERVER_TLS_PORT:-8443}:8443"
+      # transport（agent/SDK 连接）：镜像内 server.yaml control.addr=:19090，
+      # 宿主沿用 8443 端口名。旧写法 :8443->8443 是死映射（容器内无监听，
+      # 连接被 reset，docker-proxy 假 accept），2026-09 修正。
+      - "${SERVER_TRANSPORT_PORT:-8443}:19090"
       - "${SERVER_HTTP_PORT:-18780}:18780"
     environment:
       <<: *server-env
