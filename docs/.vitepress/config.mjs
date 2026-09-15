@@ -64,6 +64,7 @@ const config = defineConfig({
           collapsed: true,
           items: [
             { text: 'OpenAPI 注册', link: '/guide/integrations/openapi-registration' },
+            { text: 'Agent Providers', link: '/guide/integrations/agent-providers' },
             { text: '第三方平台', link: '/guide/integrations/third-party-platforms' },
           ],
         },
