@@ -381,18 +381,6 @@ export default function CompositeEditorPage() {
       return;
     }
     const { sections, warnings } = compileTree(tree);
-    if (sections.length < 2) {
-      message.warning(
-        intlRef.current.formatMessage(
-          {
-            id: 'pages.pageStudio.editor.save.minSections',
-            defaultMessage: '组合页至少需要 2 个函数区块（当前有效的 {count} 个）',
-          },
-          { count: sections.length },
-        ),
-      );
-      return;
-    }
     setSaving(true);
     try {
       const resp = (await request('/api/v1/versioning/pages/composite', {

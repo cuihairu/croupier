@@ -68,7 +68,7 @@ function tpl(partial: { key: string; digest?: string; tree: PageNode[] }): Compo
   } as ComponentTemplateDTO;
 }
 
-/** 组合模板（≥2 区块：quick-start 可列出、保存过 minSections 门禁）。 */
+/** 组合模板（多区块示例：quick-start 可列出）。 */
 const comboTpl = tpl({
   key: 'combo--player',
   digest: 'digest-v1',

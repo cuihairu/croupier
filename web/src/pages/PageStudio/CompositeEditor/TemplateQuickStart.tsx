@@ -16,9 +16,9 @@ const { Text, Title } = Typography;
 type QuickStartTemplate = ComponentTemplateDTO & { tree?: PageNode[] };
 
 /**
- * 从模板开始（空白画布引导）：列出多节点组合模板，点击即实例化为
+ * 从模板开始（空白画布引导）：列出组合模板，点击即实例化为
  * 初始页面；「从空白开始」切换到空画布自主搭建（可再返回）。
- * 单节点模板不出现（组合页需 ≥2 区块）。
+ * 单节点模板同样可作起点（D1：单区块组合页合法）。
  */
 export default function TemplateQuickStart({
   templates,
@@ -50,7 +50,7 @@ export default function TemplateQuickStart({
   }, [templates]);
 
   const list = templates ?? fetched ?? [];
-  const combos = list.filter((t) => (t.tree?.length ?? 0) >= 2);
+  const combos = list;
 
   return (
     <Card size="small">

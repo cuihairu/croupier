@@ -51,8 +51,6 @@ export default {
   'pages.pageStudio.editor.save.compileWarnings': 'Compile warnings: {warnings}. ',
   'pages.pageStudio.editor.save.failed': 'Failed to create proposal',
   'pages.pageStudio.editor.save.keyRequired': 'Please fill in the page key',
-  'pages.pageStudio.editor.save.minSections':
-    'A composite page needs at least 2 function sections ({count} valid now)',
   'pages.pageStudio.editor.save.proposalCreated': 'Proposal created',
   'pages.pageStudio.editor.save.proposalCreatedContent':
     'Proposal {proposalKey} has entered the proposal inbox and takes effect after accept-and-publish.',

@@ -46,8 +46,6 @@ export default {
   'pages.pageStudio.editor.save.compileWarnings': '编译警告：{warnings}。',
   'pages.pageStudio.editor.save.failed': '创建提案失败',
   'pages.pageStudio.editor.save.keyRequired': '请填写页面 Key',
-  'pages.pageStudio.editor.save.minSections':
-    '组合页至少需要 2 个函数区块（当前有效的 {count} 个）',
   'pages.pageStudio.editor.save.proposalCreated': '提案已创建',
   'pages.pageStudio.editor.save.proposalCreatedContent':
     '提案 {proposalKey} 已进入提案收件箱，接受并发布后生效。',

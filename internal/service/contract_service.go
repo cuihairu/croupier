@@ -1496,8 +1496,9 @@ func (s *ContractService) CreateCompositeProposal(
 	gameID = strings.TrimSpace(gameID)
 	env = strings.TrimSpace(env)
 	pageKey = strings.TrimSpace(pageKey)
-	if pageKey == "" || len(sections) < 2 {
-		return nil, fmt.Errorf("pageKey and 2+ sections are required")
+	// 上传即成页（D1）：单区块（单函数）组合页合法——仅要求 pageKey 非空。
+	if pageKey == "" {
+		return nil, fmt.Errorf("pageKey is required")
 	}
 
 	var contracts []*model.FunctionContract

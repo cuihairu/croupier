@@ -41,12 +41,18 @@ func TestCreateCompositeProposalValidationBranchesV9(t *testing.T) {
 	_, err := svc.CreateCompositeProposal(ctx, "g9", "e9", "  ", []CompositeSectionRequest{
 		{FunctionID: "player.get"}, {FunctionID: "order.list"},
 	}, nil)
-	assert.ErrorContains(t, err, "pageKey and 2+ sections are required")
+	assert.ErrorContains(t, err, "pageKey is required")
 
-	_, err = svc.CreateCompositeProposal(ctx, "g9", "e9", "composite--one", []CompositeSectionRequest{
+	// D1：单区块（单函数）组合页合法——可创建、可发布。
+	single, err := svc.CreateCompositeProposal(ctx, "g9", "e9", "composite--one", []CompositeSectionRequest{
 		{FunctionID: "player.get"},
 	}, nil)
-	assert.ErrorContains(t, err, "pageKey and 2+ sections are required")
+	require.NoError(t, err)
+	require.NotNil(t, single)
+	assert.NotEmpty(t, single.ProposalKey)
+	pubRes, err := NewProposalService(db).AcceptAndPublishProposal(ctx, "g9", "e9", single.ProposalKey)
+	require.NoError(t, err)
+	assert.Equal(t, "composite--one", pubRes.PageKey)
 
 	// 空 FunctionID 区块被跳过：仍剩两个有效区块，可正常生成。
 	proposal, err := svc.CreateCompositeProposal(ctx, "g9", "e9", "composite--skip-empty", []CompositeSectionRequest{

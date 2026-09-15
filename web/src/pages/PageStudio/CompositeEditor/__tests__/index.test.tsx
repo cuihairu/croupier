@@ -889,18 +889,10 @@ describe('弹窗内联编辑（面包屑 + 只能放函数表单）', () => {
 // 保存为提案
 // ---------------------------------------------------------------------------
 describe('保存为提案', () => {
-  it('空 pageKey / 有效区块不足 2 → 警告拦截（不发 POST）', async () => {
+  it('空 pageKey → 警告拦截（不发 POST）；单区块不再拦截（D1）', async () => {
     renderEditor();
     fireEvent.click(screen.getByRole('button', { name: /保存为提案$/ }));
     await waitFor(() => expect(screen.getByText('请填写页面 Key')).toBeInTheDocument());
-    click('cp:fn:fnTable'); // pageKey=player，仅 1 个区块
-    await waitFor(() => expect(pageKeyInput().value).toBe('player'));
-    fireEvent.click(screen.getByRole('button', { name: /保存为提案$/ }));
-    await waitFor(() =>
-      expect(
-        screen.getByText('组合页至少需要 2 个函数区块（当前有效的 1 个）'),
-      ).toBeInTheDocument(),
-    );
     expect(lastCompositePost()).toBeUndefined();
   });
 
