@@ -13,15 +13,17 @@
 
 1. **唯一定义**：`spec.LocalizedText = map[BCP47-locale]string`（Go，
    `internal/dashboard/spec/types.go`）与 `web/src/types/dashboard.ts` 的
-   `LocalizedText`。key 必须是 `"zh-CN"` / `"en-US"`。
+   `LocalizedText`。key 必须是合法 BCP47 locale（`"zh-CN"` 为系统默认语言与
+   渲染回退链首位，`"en-US"` 为第二回退；`"ja-JP"` 等其他 BCP47 key 合法）。
    禁止任何模块声明第二份本地化类型或自造短 key（`zh` / `en` / `zh_cn`）。
 
 2. **唯一归一层**：service 边界统一经
    `normalizeLocalizedText`（`web/src/services/api/functions-enhanced.ts`）。
-   任何输入形态（BCP47、遗留短 key、裸字符串）统一输出 `{ "zh-CN", "en-US" }`。
-   遗留短 key 只允许在该函数内读取兜底，不允许在任何出口产生。
-
-   > **⚠️ 即将变更**：「统一输出 `{ zh-CN, en-US }` 双 key」将放宽为「按输入归一 BCP47 key 原样透传，不强制双写」，见 [上传即成页：契约与绑定正交化设计](./ui-generation-upload-pipeline.md) D7（todo.md T12/T13）。唯一定义/唯一归一层/唯一渲染路径三条契约本身不变。
+   任何输入形态（BCP47、遗留短 key、裸字符串）归一为 BCP47 key 后**原样透传**，
+   不强制输出双 key（D7）：裸字符串归一到系统默认语言 `"zh-CN"` 单 key；
+   其余 BCP47 key（如 `"ja-JP"`）原样保留不丢弃。
+   遗留短 key 只允许在该函数内读取兜底（映射为 canonical key 且不覆盖既有值），
+   不允许在任何出口产生。
 
 3. **唯一渲染路径**：组件渲染必须调用
    `web/src/utils/localizedText.ts` 的 `localizedText(value, locale, fallback)`。

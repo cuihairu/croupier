@@ -136,7 +136,7 @@ describe('normalizeFunctionDescriptor', () => {
 
     const result = normalizeFunctionDescriptor(raw);
 
-    expect(result.displayName).toEqual({ 'en-US': 'Test Function', 'zh-CN': 'Test Function' });
+    expect(result.displayName).toEqual({ 'zh-CN': 'Test Function' });
   });
 
   it('should normalize displayName from object', () => {
@@ -167,7 +167,7 @@ describe('normalizeFunctionDescriptor', () => {
 
     const result = normalizeFunctionDescriptor(raw);
 
-    expect(result.displayName).toEqual({ 'en-US': 'Test Function', 'zh-CN': 'Test Function' });
+    expect(result.displayName).toEqual({ 'zh-CN': 'Test Function' });
   });
 
   it('should flatten the nested detail descriptor and map name to displayName', () => {
@@ -186,11 +186,8 @@ describe('normalizeFunctionDescriptor', () => {
       },
     });
 
-    expect(result.displayName).toEqual({ 'en-US': 'Nested Function', 'zh-CN': 'Nested Function' });
-    expect(result.summary).toEqual({
-      'en-US': 'Function description',
-      'zh-CN': 'Function description',
-    });
+    expect(result.displayName).toEqual({ 'zh-CN': 'Nested Function' });
+    expect(result.summary).toEqual({ 'zh-CN': 'Function description' });
     expect(result.inputSchema).toMatchObject({
       type: 'object',
       required: ['playerId'],
@@ -215,7 +212,7 @@ describe('functions API adapters', () => {
       expect(result).toEqual([
         expect.objectContaining({
           id: 'player.ban',
-          displayName: { 'zh-CN': '封禁玩家', 'en-US': '封禁玩家' },
+          displayName: { 'zh-CN': '封禁玩家' },
         }),
       ]);
     });
@@ -564,7 +561,7 @@ describe('functions API adapters', () => {
       const detail = await getFunctionDetail('fn-1');
 
       expect(mockedRequest).toHaveBeenCalledWith('/api/v1/functions/fn-1');
-      expect(detail.displayName).toEqual({ 'zh-CN': '批量邮件', 'en-US': '批量邮件' });
+      expect(detail.displayName).toEqual({ 'zh-CN': '批量邮件' });
       expect(detail.inputSchema).toEqual({ type: 'object' });
       expect(detail.outputSchema).toEqual({ type: 'array' });
       expect(detail.schema).toEqual({ type: 'object' });
@@ -580,7 +577,7 @@ describe('functions API adapters', () => {
 
       const detail = await getFunctionDetail('fn-2');
 
-      expect(detail.displayName).toEqual({ 'zh-CN': '正式名字', 'en-US': '正式名字' });
+      expect(detail.displayName).toEqual({ 'zh-CN': '正式名字' });
       expect(detail.summary).toEqual({ 'zh-CN': '摘要', 'en-US': 'Summary' });
     });
   });

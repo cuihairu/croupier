@@ -115,8 +115,8 @@ describe('normalizeLocalizedText', () => {
     expect(normalizeLocalizedText('   ')).toBeUndefined();
   });
 
-  it('trims bare strings into symmetric zh-CN/en-US entries', () => {
-    expect(normalizeLocalizedText('  封禁  ')).toEqual({ 'zh-CN': '封禁', 'en-US': '封禁' });
+  it('trims bare strings into a default-locale entry (D7: no forced dual keys)', () => {
+    expect(normalizeLocalizedText('  封禁  ')).toEqual({ 'zh-CN': '封禁' });
   });
 
   it('keeps canonical BCP47 keys as-is', () => {
@@ -154,9 +154,17 @@ describe('normalizeLocalizedText', () => {
     expect(normalizeLocalizedText({ zh: '中' })).toEqual({ 'zh-CN': '中' });
   });
 
-  it('returns undefined when neither locale has text', () => {
+  it('passes non-dual BCP47 keys through instead of dropping them (D7)', () => {
+    expect(normalizeLocalizedText({ fr: 'Français' })).toEqual({ fr: 'Français' });
+    expect(normalizeLocalizedText({ 'ja-JP': 'こんにちは', 'zh-CN': '你好' })).toEqual({
+      'ja-JP': 'こんにちは',
+      'zh-CN': '你好',
+    });
+  });
+
+  it('returns undefined when no entry has text', () => {
     expect(normalizeLocalizedText({})).toBeUndefined();
-    expect(normalizeLocalizedText({ fr: 'Français' })).toBeUndefined();
+    expect(normalizeLocalizedText({ fr: '   ' })).toBeUndefined();
   });
 });
 
@@ -296,7 +304,7 @@ describe('normalizeFunctionSummary fallbacks', () => {
       id: 'f-2',
       version: undefined,
       enabled: true,
-      displayName: { 'zh-CN': '玩家', 'en-US': '玩家' },
+      displayName: { 'zh-CN': '玩家' },
       summary: undefined,
       tags: [],
       resource: undefined,
@@ -331,7 +339,7 @@ describe('getFunctionSummary', () => {
     expect(res).toEqual([
       expect.objectContaining({
         id: 'f-1',
-        displayName: { 'zh-CN': '玩家', 'en-US': '玩家' },
+        displayName: { 'zh-CN': '玩家' },
       }),
     ]);
   });

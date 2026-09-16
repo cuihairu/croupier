@@ -4,9 +4,19 @@ import type { FunctionDescriptor } from './functions';
 
 export type { LocalizedText };
 
+/** 遗留短 key → BCP47 的读取兜底映射（仅读取侧，出口一律 BCP47 key）。 */
+const LEGACY_LOCALE_KEYS: Record<string, string> = {
+  zh: 'zh-CN',
+  zh_cn: 'zh-CN',
+  en: 'en-US',
+  en_us: 'en-US',
+};
+
 /**
- * 服务边界归一：任何本地化形态（BCP47 key、遗留短 key、裸字符串）
- * 统一为契约形态 { "zh-CN", "en-US" }。出口不允许其他 key。
+ * 服务边界归一：任何本地化形态（BCP47 key、遗留短 key、裸字符串）归一为
+ * BCP47 契约形态。D7 放宽后按输入 key 原样透传，不再强制输出双 key：
+ * 裸字符串归一到系统默认语言 `zh-CN` 单 key；遗留短 key 读取兜底映射且
+ * 不覆盖既有 canonical 值；其余 BCP47 key（如 ja-JP）原样保留不丢弃。
  */
 export function normalizeLocalizedText(
   value?: LocalizedText | string | Record<string, string>,
@@ -14,13 +24,22 @@ export function normalizeLocalizedText(
   if (!value) return undefined;
   if (typeof value === 'string') {
     const text = value.trim();
-    return text ? { 'zh-CN': text, 'en-US': text } : undefined;
+    return text ? { 'zh-CN': text } : undefined;
   }
   const raw = value as Record<string, string | undefined>;
-  const zh = raw['zh-CN'] || raw.zh || raw.zh_cn;
-  const en = raw['en-US'] || raw.en || raw.en_us;
-  if (!zh && !en) return undefined;
-  return { ...(zh ? { 'zh-CN': zh } : {}), ...(en ? { 'en-US': en } : {}) };
+  const out: Record<string, string> = {};
+  for (const [key, val] of Object.entries(raw)) {
+    if (LEGACY_LOCALE_KEYS[key]) continue;
+    const text = typeof val === 'string' ? val.trim() : '';
+    if (text) out[key] = text;
+  }
+  for (const [key, val] of Object.entries(raw)) {
+    const canonical = LEGACY_LOCALE_KEYS[key];
+    if (!canonical || out[canonical]) continue;
+    const text = typeof val === 'string' ? val.trim() : '';
+    if (text) out[canonical] = text;
+  }
+  return Object.keys(out).length > 0 ? (out as LocalizedText) : undefined;
 }
 
 // Enhanced types for better type safety.

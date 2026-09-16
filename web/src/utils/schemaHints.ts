@@ -261,11 +261,12 @@ function deriveGroups(root: SchemaNode, ordered: FieldDerived[]): FormGroupSpec[
     if (!group) continue;
     let target = byKey.get(group);
     if (!target) {
-      // 未声明的分组 key：按字段出现顺序自动补组，title 取 key 人性化
+      // 未声明的分组 key：按字段出现顺序自动补组，title 取 key 人性化。
+      // D7：归一为默认语言单 key，不再强制双写（渲染端按回退链取值）。
       const humanized = humanizeFieldKey(group);
       target = {
         key: group,
-        title: { 'zh-CN': humanized, 'en-US': humanized },
+        title: { 'zh-CN': humanized },
         fields: [],
       };
       byKey.set(group, target);

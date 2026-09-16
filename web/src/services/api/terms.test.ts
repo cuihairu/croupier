@@ -71,7 +71,7 @@ describe('services/api/terms listTerms', () => {
         domain: 'operation',
         termKey: 'ban',
         alias: '封禁',
-        display: { 'zh-CN': '封禁操作', 'en-US': '封禁操作' },
+        display: { 'zh-CN': '封禁操作' },
         order: undefined,
       },
       {

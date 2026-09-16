@@ -31,7 +31,7 @@ describe('admin pending-function API adapters', () => {
     expect(rows).toHaveLength(2);
     expect(rows[0]).toEqual({
       functionId: 'player.ban',
-      displayName: { 'zh-CN': '封禁玩家', 'en-US': '封禁玩家' },
+      displayName: { 'zh-CN': '封禁玩家' },
       summary: { 'zh-CN': '封禁', 'en-US': 'Ban' },
       suggestedPermissions: { verbs: ['write'], scopes: ['player'] },
     });

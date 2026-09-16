@@ -34,7 +34,7 @@ describe('derivePresentationSpec', () => {
     expect(spec.fields).toHaveLength(1);
     const field = spec.fields![0];
     expect(field.widget).toBe('Select');
-    expect(field.label).toEqual({ 'zh-CN': '玩家', 'en-US': '玩家' });
+    expect(field.label).toEqual({ 'zh-CN': '玩家' });
     expect(field.placeholder).toEqual({ 'zh-CN': '选择玩家', 'en-US': 'Pick a player' });
   });
 
@@ -130,7 +130,7 @@ describe('derivePresentationSpec', () => {
       }),
     );
     expect(spec.fields!.map((f) => f.key)).toEqual(['address']);
-    expect(spec.fields![0].label).toEqual({ 'zh-CN': '地址', 'en-US': '地址' });
+    expect(spec.fields![0].label).toEqual({ 'zh-CN': '地址' });
   });
 
   it('分组：声明组收集成员，未声明 key 自动补组并人性化标题，空声明组被剪除', () => {
@@ -152,7 +152,7 @@ describe('derivePresentationSpec', () => {
     expect(spec.groups!.find((g) => g.key === 'basic')!.title).toEqual({ 'zh-CN': '基本信息' });
     expect(spec.groups!.find((g) => g.key === 'basic')!.fields).toEqual(['title']);
     const auto = spec.groups!.find((g) => g.key === 'undeclared')!;
-    expect(auto.title).toEqual({ 'zh-CN': 'Undeclared', 'en-US': 'Undeclared' });
+    expect(auto.title).toEqual({ 'zh-CN': 'Undeclared' });
     expect(spec.groups!.find((g) => g.key === 'empty')).toBeUndefined();
   });
 
@@ -438,7 +438,7 @@ describe('derivePresentationSpec hints 边界（追加）', () => {
     expect(spec.fields!.find((f) => f.key === 'lo')!.order).toBe(1.5);
     const hi = spec.fields!.find((f) => f.key === 'hi')!;
     expect(hi.width).toBe(12);
-    expect(hi.description).toEqual({ 'zh-CN': '说明文案', 'en-US': '说明文案' });
+    expect(hi.description).toEqual({ 'zh-CN': '说明文案' });
     expect(spec.fields!.find((f) => f.key === 'frac')!.width).toBeUndefined();
   });
 
@@ -489,7 +489,7 @@ describe('derivePresentationSpec hints 边界（追加）', () => {
     );
     expect(spec.groups).toHaveLength(2);
     const g1 = spec.groups!.find((g) => g.key === 'g1')!;
-    expect(g1.title).toEqual({ 'zh-CN': '标题', 'en-US': '标题' });
+    expect(g1.title).toEqual({ 'zh-CN': '标题' });
     expect(g1.collapsible).toBe(true);
     expect(g1.collapsed).toBe(true);
     expect(g1.fields).toEqual(['a']);
