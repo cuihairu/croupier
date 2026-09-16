@@ -15,8 +15,6 @@ tag:
 
 > **状态**：In progress -- 本文是 Dashboard 页面模型的权威定义。实现、文档和 SDK 以本文的正向模型为准；旧模型按 [旧模型删除清单](./legacy-deletion-inventory.md) 清理，并由 `scripts/dashboard_vnext_guard.sh` 防回流；真实浏览器回归仍以根目录 `todo.md` 的未完成项目为准。
 
-> **⚠️ 即将变更**：FunctionContract 将增加 `executionState`（bound/unbound）维度，契约存在不再以运行时注册为前提，见 [上传即成页：契约与绑定正交化设计](./ui-generation-upload-pipeline.md)（D2/D3，todo.md T3/T6）。落地后本文相应章节同步重写。
-
 ## 决策
 
 Croupier 保留 **React + Umi + Ant Design Pro + ProComponents**，不集成 React Admin，也不把 React Admin 的 CRUD `DataProvider` 作为平台协议。
@@ -97,12 +95,20 @@ interface FunctionContract {
   risk: RiskLevel;
   permission?: string;
   execution: "sync" | "task";
+  executionState: "bound" | "unbound"; // 执行状态（D2）：契约存在与运行时绑定正交
   approval: ApprovalPolicy;
   resourceKey?: string;
   operationKey?: string;
   capability?: CapabilityKind;
 }
 ```
+
+`executionState`（数据库 `execution_state` 列，默认 `bound`）表达契约是否已有可执行
+的运行时函数：**OpenAPI 上传即生成 `unbound` 契约物料**（上传即成页，不再要求前置注册）；
+agent/SDK 运行时注册同 scope 同 functionId 的函数时自动翻转 `bound`（T6）；不同名函数
+可在编辑器绑定抽屉人工绑定（T9）。`unbound` 契约可正常进入模板与提案管线、可保存发布，
+仅执行被阻断：binding execute 返回 `409 executor_unbound`（T8）。该字段不参与契约
+digest/stale 判定（测试锁定），存量行迁移后一律为 `bound`，行为与旧模型一致。
 
 `previousInputSchema`/`previousOutputSchema`（数据库 `prev_input_schema`/`prev_output_schema` 列）保存本次注册前的上一版 schema，**只存一版，无版本表**：
 

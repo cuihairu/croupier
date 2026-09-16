@@ -1,7 +1,7 @@
 // pages.openapiSources.* — OpenAPISources 页
 export default {
   'pages.openapiSources.alert.notUi.description':
-    'OpenAPI Source 用于解析 FunctionSpec / ResourceSpec / OperationSpec 和 PageCandidate 诊断；Source 未绑定 Provider 前不可执行，上传文档中的 UI、菜单、路由和 renderer 私有字段会被后端拒绝。',
+    'OpenAPI Source 上传即生成 FunctionContract 物料、组件模板与页面提案；未绑定运行时执行器的契约为 unbound（可编排发布、执行被阻断），同名运行时注册自动绑定，不同名可在编辑器抽屉或本页绑定；文档中的 UI、菜单、路由和 renderer 私有字段仍被后端拒绝。',
   'pages.openapiSources.alert.notUi.message': 'Source 不是 UI，也不是自动注册',
   'pages.openapiSources.alert.readOnly.description':
     '你可以查看 Source、operation、diagnostics 和现有 Provider binding；上传、绑定和解绑需要 OpenAPI Source 写权限。',
@@ -59,7 +59,7 @@ export default {
   'pages.openapiSources.message.uploadOrPaste': '请上传文件或粘贴 OpenAPI JSON',
   'pages.openapiSources.message.validationFailed': 'OpenAPI Source 校验失败，请查看诊断',
   'pages.openapiSources.page.subTitle':
-    '上传 OpenAPI 只产生能力契约和诊断；可执行性必须显式绑定 Provider，页面 UI 仍在 Page Studio 确定。',
+    '上传 OpenAPI 即成页：契约物料、组件模板与页面提案一次生成；执行绑定是正交属性，可后补。页面 UI 仍在 Page Studio 确定。',
   'pages.openapiSources.parse.missingInfoObject': 'OpenAPI JSON 缺少 info 对象',
   'pages.openapiSources.pipelineModal.contractsCreated': '新建未绑定契约：{count}',
   'pages.openapiSources.pipelineModal.operations': '解析操作：{count}',

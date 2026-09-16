@@ -1,7 +1,7 @@
 // pages.openapiSources.* — OpenAPISources 页
 export default {
   'pages.openapiSources.alert.notUi.description':
-    'OpenAPI Sources are parsed into FunctionSpec / ResourceSpec / OperationSpec and PageCandidate diagnostics; a Source is not executable until a Provider is bound, and UI, menu, route, and renderer private fields in the uploaded document are rejected by the backend.',
+    'Uploading an OpenAPI Source immediately generates FunctionContract material, component templates, and page proposals; contracts without a runtime executor stay unbound (publishable, but execution is blocked), a same-name runtime registration binds them automatically, and a different-name function can be bound in the editor drawer or on this page. UI, menu, route, and renderer private fields in the document are still rejected by the backend.',
   'pages.openapiSources.alert.notUi.message': 'A Source is not UI, nor auto-registration',
   'pages.openapiSources.alert.readOnly.description':
     'You can view sources, operations, diagnostics, and existing provider bindings; uploading, binding, and unbinding require OpenAPI Source write permission.',
@@ -61,7 +61,7 @@ export default {
   'pages.openapiSources.message.validationFailed':
     'OpenAPI Source validation failed; check the diagnostics',
   'pages.openapiSources.page.subTitle':
-    'Uploading OpenAPI only produces capability contracts and diagnostics; executability requires an explicitly bound Provider, and page UI is still decided in Page Studio.',
+    'Upload-to-page: contracts, component templates, and page proposals are generated in one request; execution binding is orthogonal and can be added later. Page UI is still decided in Page Studio.',
   'pages.openapiSources.parse.missingInfoObject': 'OpenAPI JSON is missing the info object',
   'pages.openapiSources.pipelineModal.contractsCreated': 'Unbound contracts created: {count}',
   'pages.openapiSources.pipelineModal.operations': 'Operations parsed: {count}',

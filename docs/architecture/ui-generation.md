@@ -14,8 +14,6 @@ tag:
 
 > **状态**：In progress -- 页面生成器（`internal/dashboard/generator/`）与唯一前端运行时（`web/src/components/PageRenderer/`、`SchemaFormRenderer`）已落地；真实浏览器 E2E 的 CI 门禁和全部场景验收仍以根目录 `todo.md` 为准。
 
-> **⚠️ 即将变更**：本文的「② 提案生成」「③ 审核发布」与「Page Studio」节描述的流程编排（契约变更手动 regenerate、全部保存走提案门禁）将被 [上传即成页：契约与绑定正交化设计](./ui-generation-upload-pipeline.md) 取代（D4 上传管线、D5 发布分级、模板自动重建，对应 todo.md T2/T4/T5/T10）。生成器职责与运行时约束两节长期有效，不受影响的章节不带此标记。
-
 > **新手入口**：本文是实现规范。核心思路、全链路走读与设计取舍的入门讲解见
 > [界面是怎么生成的：核心思路与全链路](./descriptor-driven-ui.md)。
 
@@ -35,8 +33,10 @@ tag:
       schema digest 供 stale 检测
 
 ② 提案生成（确定性：相同输入摘要 + generator version ⇒ 相同 Proposal）
-   ├─ 路径 A：契约变更触发重算 / 手动 POST /api/v1/pages/proposals/rebuild
-   │   （internal/api/page/service.go RebuildAllProposals）
+   ├─ 路径 A：契约落库/实质变更自动触发组件模板重建与提案重算（T2，失败不阻塞
+   │   主流程、记 warn + 审计）；OpenAPI 上传单请求完成契约落库 + 模板重建 +
+   │   提案生成并返回摘要（T4/T5）；手动 POST /api/v1/pages/proposals/rebuild
+   │   （internal/api/page/service.go RebuildAllProposals）退化为兜底入口
    └─ 路径 B：组合页编辑器保存 POST /api/v1/versioning/pages/composite
        （internal/service/versioning → CreateCompositeProposal）
    表单派生全页型同源（internal/dashboard/generator/）：
@@ -46,11 +46,15 @@ tag:
        （enum→Select、date→DatePicker、array(enum)→MultiSelect 等）>
        schema title > key 人性化
 
-③ 审核发布
-   ProposalInbox（web/src/components/ProposalInbox）→ accept-and-publish
-   （internal/service/proposal_service.go）
-   ├─ 质量门槛：error 级诊断拒绝发布；blocked/needs_review 需人工处理
-   └─ published_page_specs 不可变快照 + page_versions 历史 + 提案置 accepted
+③ 审核发布（发布分级 D5/T10：pages.publishReview 按 env 控制）
+   ├─ required（prod 等；X-Env 缺失从严按 required）：
+   │   ProposalInbox（web/src/components/ProposalInbox）→ accept-and-publish
+   │   （internal/service/proposal_service.go）
+   │   ├─ 质量门槛：error 级诊断拒绝发布；blocked/needs_review 需人工处理
+   │   └─ published_page_specs 不可变快照 + page_versions 历史 + 提案置 accepted
+   └─ auto（dev 默认）：composite 保存跳过人工接受直接落 published_page_specs
+       （internal/api/page/service.go AutoPublishComposite）；
+       快照/版本历史不变，error 级诊断仍拒绝发布
 
 ④ 运行时渲染
    PageRenderer 按 PageSpec.type 分发（web/src/components/PageRenderer/）

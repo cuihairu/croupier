@@ -5,7 +5,7 @@ title: 组合页编辑器 V3 使用与扩展指南
 # 组合页编辑器 V3（组件化）
 
 > 状态：**已上线全量**（V3 计划 + V3.1 边界清零：动作链/弹窗分组多组件/容器子级交互/回读增强/多选/撤销重做/右键菜单）
-> **⚠️ 即将变更**：本文「组合页需 ≥2 区块」约束与「绑定需先经 OpenAPISources 页」的流程将被 [上传即成页：契约与绑定正交化设计](../architecture/ui-generation-upload-pipeline.md) 取代（todo.md T1/T9：单区块合法化、编辑器内就地绑定抽屉）。落地后本文相应段落重写。
+
 > 设计依据：[V3 计划](./composite-editor-v3-plan.md)｜[参考产品对比分析](./editor-reference-analysis.md)｜spec 模型见 [Dashboard 页面模型](../architecture/dashboard-page-model.md) CompositePage 节
 > 参考样品：[amis-editor](http://192.168.5.5:8001)、[Appsmith](http://192.168.5.5:8002)
 
@@ -262,8 +262,8 @@ web/src/pages/PageStudio/CompositeEditor/
 
 **模板可用性与入口（2026-09）**：
 
-- 空白画布自动显示「从模板开始」——列出多区块组合模板（单节点模板不出现，
-  组合页需 ≥2 区块），点击即实例化为页面起点；「从空白开始」切换到空白白板
+- 空白画布自动显示「从模板开始」——列出全部组合模板（T1 起单节点模板同样出现，
+  组合页不再要求 ≥2 区块，单函数区块页面合法），点击即实例化为页面起点；「从空白开始」切换到空白白板
   （根落区即拖放目标，可「查看组合模板」返回引导，双向切换）——2026-09-12
   修复：Canvas 的空树根落区（droppable canvas-root）与外层渲染条件互斥曾是
   死代码，空态拖拽无落区、亦无空白起步入口

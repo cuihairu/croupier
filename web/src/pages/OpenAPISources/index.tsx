@@ -611,7 +611,7 @@ export default function OpenAPISourcesPage() {
           description={intl.formatMessage({
             id: 'pages.openapiSources.alert.notUi.description',
             defaultMessage:
-              'OpenAPI Source 用于解析 FunctionSpec / ResourceSpec / OperationSpec 和 PageCandidate 诊断；Source 未绑定 Provider 前不可执行，上传文档中的 UI、菜单、路由和 renderer 私有字段会被后端拒绝。',
+              'OpenAPI Source 上传即生成 FunctionContract 物料、组件模板与页面提案；未绑定运行时执行器的契约为 unbound（可编排发布、执行被阻断），同名运行时注册自动绑定，不同名可在编辑器抽屉或本页绑定；文档中的 UI、菜单、路由和 renderer 私有字段仍被后端拒绝。',
           })}
         />
         {!canWrite ? (

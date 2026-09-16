@@ -124,19 +124,19 @@ SDK 和 OpenAPI Source 导入边界只接受 FunctionContract 字段。页面展
 
 ## OpenAPI Source 与执行绑定
 
-> **⚠️ 即将变更（勿再引用本节作为设计依据）**：本节描述的「上传只产生候选、provider binding 是契约前提」模型将被 [上传即成页：契约与绑定正交化设计](./ui-generation-upload-pipeline.md) 取代（D1/D2/D4：上传即生成 unbound FunctionContract，绑定成为正交属性）。对应 todo.md T3–T5；落地后本节重写。
-
-上传 OpenAPI 只产生 Source、FunctionContract 候选和 diagnostics；它不直接注册可调用函数。
+上传 OpenAPI 单请求完成「上传即成页」全链生成（[契约与绑定正交化设计](./ui-generation-upload-pipeline.md) D1/D2/D4）：解析校验后，每个 operation 直接落库为 FunctionContract 物料（无对应运行时函数的置 `executionState=unbound`），同事务触发组件模板重建与 PageProposal 生成，响应携带 `{ operations, contractsCreated, templatesUpdated, proposalsCreated, diagnostics }` 摘要。契约存在不再以运行时注册为前提。
 
 ```text
 OpenAPI Source
   -> parse / validate / normalize
-  -> provider binding 或受控 http connector
-  -> FunctionContract
-  -> CapabilitySemantics / PageProposal
+  -> FunctionContract（unbound 物料；已有 bound 契约不降级、重复上传幂等）
+  -> 组件模板重建 + CapabilitySemantics / PageProposal
+  -> 运行时注册同名函数自动翻转 bound / 编辑器抽屉人工绑定
 ```
 
-当前 provider binding 和未来受控 http connector 都必须按 `game_id + env` 隔离，并经过权限、审计与 OTel。OpenAPI 文档不允许包含 Secret、任意内网 URL 或页面配置。
+执行绑定是契约的**正交属性**：`unbound` 契约照常进入模板与提案管线、可保存发布；仅执行被阻断——binding execute 返回结构化 `409 executor_unbound`，前端渲染「未绑定执行器」空态并引导绑定。agent/SDK 注册同 scope 同 functionId 的函数时自动将对应 unbound 契约置 `bound`；不同名运行时函数可在编辑器属性面板的绑定抽屉或 OpenAPI Sources 页人工绑定（不同名绑定成功后即时清理被取代的 unbound 行）。
+
+绑定与未来的受控 http connector 都必须按 `game_id + env` 隔离，并经过权限、审计与 OTel。OpenAPI 文档不允许包含 Secret、任意内网 URL 或页面配置。
 
 ## 生成边界
 
