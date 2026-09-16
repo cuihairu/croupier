@@ -140,6 +140,13 @@ ignore:
   - "web/e2e/**"
   - "web/tests/**"
   - "web/mock/**"
+  # 部署后一次性线上 smoke 套件（直连线上，同 e2e 无单测覆盖）
+  - "web/e2e-verify/**"
+  # web 根配置（jest/playwright），不属于 src 覆盖产物
+  - "web/*.config.ts"
+  # 纯类型定义目录：编译后为空模块，v8 lcov 无语句记录（0 个 SF 条目），
+  # 计入 patch/project 只会贡献假 missed，不提供任何覆盖信号
+  - "web/src/types/**"
 
 github_checks:
   annotations: true
