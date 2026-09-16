@@ -12,7 +12,7 @@ tag:
 
 # 上传即成页：契约与绑定正交化设计
 
-> **状态**：Proposed -- 设计已评审待落地；原子任务拆分见根目录 `todo.md`。
+> **状态**：Current -- D1–D7 已全部落地（todo.md T1–T10、T12、T13；T11 收尾中），本文为正交化模型的权威设计依据。
 > 前置阅读：[ProComponents 页面生成与运行时](./ui-generation.md)、[Dashboard Resource/Page 模型](./dashboard-page-model.md)、[OpenAPI / SDK Descriptor v2](./openapi-sdk-descriptor-v2.md)。
 
 ## 1. 问题陈述：为什么现在"传了文档却生成不了页面"
@@ -46,7 +46,7 @@ tag:
 - **D5 发布分级**：是否走提案审核由 env 级策略决定；dev 默认保存即发布（快照与版本历史保留），prod 保留提案→审核→发布。
 - **D6 协议零改动**：PageSpec wire 契约、渲染器、权限/审计体系不变。本设计只改契约准入条件与流程编排。
 - **D7 文案 i18n：默认名称必填、翻译可选**：菜单/页面标题等 LocalizedText 字段只要求**默认名称**（系统默认语言 `systemDefaultLocale`）非空；其余语言（含 en-US）一律是可选翻译。发布校验不再强制 zh-CN+en-US 双写（废除 `hasDefaultLocale` 的双 key 判定与 `ensureBilingual` 强制补写）；渲染端回退链不变（当前界面语言 → 系统默认语言 → 任一非空值）。编辑入口统一为 `LocalizedTextEditor` 组件（已是仓库唯一实现）：语言选项来自全局支持列表，用户按需录入翻译，缺失任何非默认语言不警告、不阻断。
-  - **落地状态**：T12/T13 已落地——后端三处 `hasDefaultLocale` 统一为「任一 locale 非空即过」（全空白仍拒），生成器改名 `ensureDefaultLocale` 并废除 en-US 强制补写，前端 `REQUIRED_LOCALES` 降级为 `['zh-CN']`；编辑器（LocalizedTextEditor）已移除下拉 ⚠ 标记与 `contractHint` 双必填表述，默认语言缺失仅在 🌐 气泡中给出不阻断发布的补录提示（`defaultLocaleMissing`），非默认语言缺失不提示。`normalizeLocalizedText` 归一层「不再强制输出双 key」属后续演进，尚未实施。
+  - **落地状态**：T12/T13 已落地——后端三处 `hasDefaultLocale` 统一为「任一 locale 非空即过」（全空白仍拒），生成器改名 `ensureDefaultLocale` 并废除 en-US 强制补写，前端 `REQUIRED_LOCALES` 降级为 `['zh-CN']`；编辑器（LocalizedTextEditor）已移除下拉 ⚠ 标记与 `contractHint` 双必填表述，默认语言缺失仅在 🌐 气泡中给出不阻断发布的补录提示（`defaultLocaleMissing`），非默认语言缺失不提示。`normalizeLocalizedText` 归一层亦已放宽（2026-09-16）：按输入归一 BCP47 key 原样透传，不再强制输出双 key——裸字符串归一为默认语言单 key，其余 BCP47 key 原样保留。
 
 ## 3. 目标链路
 
