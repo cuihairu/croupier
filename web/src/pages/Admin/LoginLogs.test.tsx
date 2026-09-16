@@ -12,6 +12,9 @@ jest.mock('@/services/api', () => ({ listAudit: jest.fn() }));
 jest.mock('@/utils/export', () => ({ exportToCSV: jest.fn() }));
 jest.mock('@/utils/format', () => ({ formatDateTime: (t: string) => `T:${t}` }));
 
+// 全量并行高负载下曾撞默认 5s 超时（隔离跑恒绿）——放宽用例级预算
+jest.setTimeout(20000);
+
 // RangePicker 在 jsdom 里带 showTime 的面板交互极不可靠，
 // 用受控桩替换：三个按钮分别触发 onChange 的三种取值形态
 jest.mock('antd', () => {

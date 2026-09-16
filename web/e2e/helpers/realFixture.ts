@@ -112,7 +112,17 @@ export async function startRealFixture(): Promise<RealFixtureState> {
   const child: ChildProcess = spawn(
     serverBin,
     ['dev-fixture', '--http-addr', httpAddr, '--bootstrap-dir', path.join(repoRoot, 'configs')],
-    { cwd: repoRoot, stdio: ['ignore', 'pipe', 'inherit'] },
+    {
+      cwd: repoRoot,
+      stdio: ['ignore', 'pipe', 'inherit'],
+      env: {
+        ...process.env,
+        // 上传管线 E2E（upload-pipeline.spec.ts）需要 publishReview=auto 的
+        // 「保存即发布」链路；fixture scope env=e2e 的内置默认是 required，
+        // 这里显式注入 auto（可用同名环境变量覆盖）。
+        CROUPIER_E2E_PUBLISH_REVIEW: process.env.CROUPIER_E2E_PUBLISH_REVIEW ?? 'auto',
+      },
+    },
   );
 
   let readyLine = '';

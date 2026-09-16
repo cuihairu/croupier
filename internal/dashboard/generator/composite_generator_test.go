@@ -54,16 +54,16 @@ func TestGenerateCompositePage_Sections(t *testing.T) {
 	if _, ok := byID["player.get"]; !ok {
 		t.Fatalf("expected binding player.get, got %v", byID)
 	}
-	// 必填输入映射 page_state（联动）
+	// 必填输入缺省映射 form 同名路径（区块执行时渲染层只发 context.form）
 	get := byID["player.get"]
 	found := false
 	for _, a := range get.Selectors.Input.Assignments {
-		if a.Target == "/id" && a.Source.Kind == spec.SourcePageState && a.Source.Key == "player.get" {
+		if a.Target == "/id" && a.Source.Kind == spec.SourceForm && a.Source.Path == "/id" {
 			found = true
 		}
 	}
 	if !found {
-		t.Fatalf("player.get required input should map page_state, got %+v", get.Selectors)
+		t.Fatalf("player.get required input should map form same-name pointer, got %+v", get.Selectors)
 	}
 	// 输出写 stateKey（供下游消费）
 	list := byID["order.list"]

@@ -200,7 +200,7 @@ func GenerateCompositePage(
 		}
 		selectors := &spec.BindingSelectors{}
 		if len(contract.InputSchema) > 0 {
-			selectors.Input = compositeInputSelector(spec.JSONSchema(contract.InputSchema), key)
+			selectors.Input = compositeInputSelector(spec.JSONSchema(contract.InputSchema))
 			// 显式参数映射：按 target 覆盖自动映射（P0 数据流显式契约）
 			for _, ia := range in.InputAssignments {
 				assign := ia
@@ -268,26 +268,26 @@ func compositeUsage(view string) spec.PageBindingUsage {
 	}
 }
 
-// compositeInputSelector：必填字段缺省映射 page_state.<sectionKey>（联动）。
-// 联动键即区块 key——上游区块的输出写同名 stateKey。
-func compositeInputSelector(schema spec.JSONSchema, sectionKey string) spec.SelectorAST {
+// compositeInputSelector：必填字段缺省映射 form 同名路径。
+// 区块执行时渲染层把「本区块表单值 + 编辑器显式 override」合并进
+// context.form 发送（CompositeRenderer.runSection），缺省源因此是 form
+// 而非 page_state——page_state 只承载区块输出，且空 path 语义是把整个
+// state 对象灌进目标参数（标量参数必 422）。跨区块联动仍由编辑器显式
+// inputAssignments（page_state + 完整 path）按 target 覆盖本缺省映射。
+func compositeInputSelector(schema spec.JSONSchema) spec.SelectorAST {
 	ast := spec.SelectorAST{}
 	for _, target := range sortedRequired(requiredProperties(schema)) {
-		// page_state 无嵌套 path（composite 状态按区块整体存储，渲染层
-		// 做同名字段合并），selector 声明目标字段即可。
+		pointer := "/" + target
 		ast.Assignments = append(ast.Assignments, spec.InputAssignment{
-			Target: "/" + target,
+			Target: pointer,
 			Source: spec.ValueSource{
-				Kind: spec.SourcePageState,
-				Key:  sectionKey,
+				Kind: spec.SourceForm,
+				Path: pointer,
 			},
 		})
 	}
 	return ast
 }
-
-// compositePageStateKeys 用于 composite 输入的 page_state 上下文：区块
-// key 即状态键。
 
 // requiredProperties 提取顶层 required 字段名。
 func requiredProperties(schema spec.JSONSchema) map[string]bool {

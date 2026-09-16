@@ -12,6 +12,9 @@ import type { CompositeSection } from '@/types/dashboard';
 
 jest.mock('@/services/api/functions', () => ({ invokeFunction: jest.fn() }));
 
+// 全量并行高负载下曾撞默认 5s 超时（隔离跑恒绿）——放宽用例级预算
+jest.setTimeout(20000);
+
 function renderComposite(sections: CompositeSection[], onExecute: jest.Mock) {
   return render(
     <App>

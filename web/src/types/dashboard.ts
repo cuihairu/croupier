@@ -340,7 +340,8 @@ export interface BindingSelectors {
 
 /** 选择器 AST */
 export interface SelectorAST {
-  assignments: InputAssignment[];
+  // Go 端 nil slice 序列化为 null（如无参数的 list binding），消费方必须按可空处理
+  assignments: InputAssignment[] | null;
 }
 
 /** 输入选择器赋值 */

@@ -1,3 +1,4 @@
+import * as UmiMax from '@umijs/max';
 import {
   isSingleExpression,
   matchVariable,
@@ -54,6 +55,22 @@ describe('expression: 解析', () => {
     expect(parseExpression('{{playerListTable..x}}', VARS)).toMatchObject({ ok: false });
     expect(parseExpression('{{playerListTable.data[abc]}}', VARS)).toMatchObject({ ok: false });
     expect(parseExpression('{{playerListTable.data[1}}', VARS)).toMatchObject({ ok: false });
+  });
+  it('下标段后的非法字符（变量已命中，段间出现 . / [ 之外字符）', () => {
+    // [0] 之后跟 '-'：matchVariable 已命中变量，路径循环走到非法字符分支
+    expect(parseExpression('{{playerListTable.data[0]-x}}', VARS)).toMatchObject({ ok: false });
+    expect(parseExpression('{{row.uid|lower}}', VARS)).toMatchObject({ ok: false });
+  });
+  it('getIntl 抛错时错误文案回退 defaultMessage（umi 运行时外防御）', () => {
+    // spyOn 模块命名空间：expression.ts 经属性访问调用，spy 生效
+    const spy = jest.spyOn(UmiMax, 'getIntl').mockImplementation(() => {
+      throw new Error('no intl runtime');
+    });
+    expect(parseExpression('固定文案', VARS)).toEqual({
+      ok: false,
+      error: "不是表达式（应以 '{{' 开头、'}}' 结尾）",
+    });
+    spy.mockRestore();
   });
 });
 

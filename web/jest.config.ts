@@ -8,6 +8,9 @@ export default async () => {
     coverageProvider: 'v8',
     testMatch: ['**/?(*.)+(spec|test).[jt]s?(x)'],
     testPathIgnorePatterns: ['/node_modules/', '<rootDir>/e2e/', '<rootDir>/e2e-verify/'],
+    // __tests__ 下的非 *.test.* 文件是测试脚手架（如 Dashboard 的 express mock
+    // server helper），被测试 import 后会进 v8 provider 分母，一律排除
+    coveragePathIgnorePatterns: ['/node_modules/', '/__tests__/[^/]+\\.(ts|tsx|js|jsx)$'],
     transform: {
       '^.+\\.(t|j)sx?$': [
         'ts-jest',

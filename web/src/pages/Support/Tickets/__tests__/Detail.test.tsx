@@ -509,4 +509,97 @@ describe('Support/Tickets/Detail', () => {
       await waitFor(() => expect(mockMessageApi.error).toHaveBeenCalledWith('评价失败'));
     });
   });
+
+  describe('错误 toast 兜底（catch 非 Error / 空 message 分支）', () => {
+    it('非 Error 拒绝统一回退「操作失败」（升级走专属文案）', async () => {
+      // 六条操作链各自的 catch：e instanceof Error 为 false 的分支
+      mockedUploadAsset.mockRejectedValueOnce('cdn down');
+      mockedAddTicketComment.mockRejectedValueOnce('api down');
+      mockedTransitionTicket.mockRejectedValueOnce('503');
+      mockedUpdateTicket.mockRejectedValueOnce('edit down');
+      mockedUpdateTicket.mockRejectedValueOnce('assign down');
+      mockedConvertTicketToBug.mockRejectedValueOnce('boom');
+      const { container } = renderDetail();
+      await screen.findByText('工单详情 #1');
+
+      fireEvent.change(container.querySelector('input[type="file"]') as HTMLInputElement, {
+        target: { files: [new File(['x'], 'e.png', { type: 'image/png' })] },
+      });
+      await waitFor(() => expect(mockedUploadAsset).toHaveBeenCalled());
+
+      fireEvent.change(cmtTextarea(), { target: { value: '内容' } });
+      fireEvent.click(submitCmtButton());
+      await waitFor(() => expect(mockedAddTicketComment).toHaveBeenCalled());
+
+      fireEvent.click(screen.getByRole('button', { name: /流\s*转/ }));
+      await screen.findByPlaceholderText('流转备注（可选）');
+      fireEvent.click(screen.getByRole('button', { name: 'OK' }));
+      await waitFor(() => expect(mockedTransitionTicket).toHaveBeenCalled());
+
+      fireEvent.click(screen.getByRole('button', { name: '编辑工单' }));
+      await screen.findByText('编辑工单', { selector: '.ant-modal-title' });
+      fireEvent.click(screen.getByRole('button', { name: /确\s*定/ }));
+      await waitFor(() => expect(mockedUpdateTicket).toHaveBeenCalledTimes(1));
+
+      fireEvent.click(screen.getByRole('button', { name: '指派给我' }));
+      await waitFor(() => expect(mockedUpdateTicket).toHaveBeenCalledTimes(2));
+
+      fireEvent.click(screen.getByRole('button', { name: '升级为缺陷' }));
+      await waitFor(() => expect(mockedConvertTicketToBug).toHaveBeenCalled());
+
+      const errors = mockMessageApi.error.mock.calls.map((c) => c[0]);
+      expect(errors.filter((m) => m === '操作失败')).toHaveLength(5);
+      expect(errors).toContain('升级失败');
+    });
+
+    it('Error message 为空时回退各操作专属兜底文案', async () => {
+      mockedUploadAsset.mockRejectedValueOnce(new Error(''));
+      mockedAddTicketComment.mockRejectedValueOnce(new Error(''));
+      mockedTransitionTicket.mockRejectedValueOnce(new Error(''));
+      mockedUpdateTicket.mockRejectedValueOnce(new Error(''));
+      mockedUpdateTicket.mockRejectedValueOnce(new Error(''));
+      const { container } = renderDetail();
+      await screen.findByText('工单详情 #1');
+
+      fireEvent.change(container.querySelector('input[type="file"]') as HTMLInputElement, {
+        target: { files: [new File(['x'], 'f.png', { type: 'image/png' })] },
+      });
+      await waitFor(() => expect(mockMessageApi.error).toHaveBeenCalledWith('上传失败'));
+
+      fireEvent.change(cmtTextarea(), { target: { value: '内容' } });
+      fireEvent.click(submitCmtButton());
+      await waitFor(() => expect(mockMessageApi.error).toHaveBeenCalledWith('评论失败'));
+
+      fireEvent.click(screen.getByRole('button', { name: /流\s*转/ }));
+      await screen.findByPlaceholderText('流转备注（可选）');
+      fireEvent.click(screen.getByRole('button', { name: 'OK' }));
+      await waitFor(() => expect(mockMessageApi.error).toHaveBeenCalledWith('流转失败'));
+
+      fireEvent.click(screen.getByRole('button', { name: '编辑工单' }));
+      await screen.findByText('编辑工单', { selector: '.ant-modal-title' });
+      fireEvent.click(screen.getByRole('button', { name: /确\s*定/ }));
+      await waitFor(() => expect(mockMessageApi.error).toHaveBeenCalledWith('更新失败'));
+
+      fireEvent.click(screen.getByRole('button', { name: '指派给我' }));
+      await waitFor(() => expect(mockMessageApi.error).toHaveBeenCalledWith('指派失败'));
+    });
+
+    it('评价被非 Error 值拒绝时回退「评价失败」', async () => {
+      mockedGetTicket.mockResolvedValue({ ...baseTicket, status: 'resolved' });
+      mockedRateTicket.mockRejectedValueOnce('rate down');
+      renderDetail();
+      await screen.findByText('已解决');
+      fireEvent.click(
+        document.querySelectorAll('.ant-rate-star')[1].querySelector('span') as HTMLElement,
+      );
+      await waitFor(() => expect(mockMessageApi.error).toHaveBeenCalledWith('评价失败'));
+    });
+
+    it('status 缺失时状态枚举同样以 - 兜底', async () => {
+      mockedGetTicket.mockResolvedValueOnce({ ...baseTicket, status: undefined });
+      renderDetail();
+      await screen.findByText('工单详情 #1');
+      expect(screen.getAllByText('-').length).toBeGreaterThanOrEqual(1);
+    });
+  });
 });

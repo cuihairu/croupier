@@ -89,7 +89,8 @@ export default function ContractChangesPanel({
               }),
             ),
           });
-          throw e;
+          // 不再 rethrow：runContractAction 的 finally 已复位行内 loading，
+          // rethrow 只会在菜单 onClick 处产生 unhandled rejection。
         }
       });
     },

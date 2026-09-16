@@ -79,9 +79,12 @@ export function projectBindingContext(
   binding: PageFunctionBinding | undefined,
   context: BindingExecutionContext,
 ): BindingExecutionContext {
-  if (!binding?.selectors?.input.assignments.length) return {};
+  // assignments 可为 null（服务端 nil slice 序列化），按空处理而非抛错——
+  // 否则无输入参数的 binding 执行在浏览器端直接 TypeError、请求都不发不出
+  const assignments = binding?.selectors?.input.assignments ?? [];
+  if (!assignments.length) return {};
   const projected: BindingExecutionContext = {};
-  for (const assignment of binding.selectors.input.assignments) {
+  for (const assignment of assignments) {
     const source = assignment.source;
     if (source.kind === 'literal' || !source.path) continue;
     const sourceValue =

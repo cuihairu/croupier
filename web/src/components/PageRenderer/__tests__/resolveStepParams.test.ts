@@ -46,6 +46,17 @@ describe('resolveStepParams（V5 表达式 + 遗留兼容）', () => {
     });
   });
 
+  it('遗留裸形态多段路径不套 data 前缀，按字面路径直取', () => {
+    // 多段（区块key.data.字段 / 区块key.values.字段）不满足「单段遗留」判据，
+    // 直接以原路径求值——data 键在 RUNTIME_STATE_KEYS 中也同理直取
+    expect(resolveStepParams({ total: 'playerListTable.data.total' }, state)).toEqual({
+      total: 2,
+    });
+    expect(resolveStepParams({ kw: 'filterForm.values.keyword' }, state)).toEqual({
+      kw: 'kw-live',
+    });
+  });
+
   it('遗留裸形态 row.字段 / ctx.字段 从上下文取值', () => {
     expect(resolveStepParams({ x: 'row.uid' }, state, { uid: 'ctx-1' })).toEqual({ x: 'ctx-1' });
   });

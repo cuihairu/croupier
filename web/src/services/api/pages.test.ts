@@ -7,6 +7,7 @@ import type {
 } from '@/types/dashboard';
 import {
   bulkPublishPages,
+  bulkRepublishPages,
   bulkUnpublishPages,
   getPageDraft,
   getPageVersion,
@@ -341,6 +342,26 @@ describe('pages draft/version API adapters', () => {
       expect(resp).toEqual(report);
       expect(mockedRequest).toHaveBeenCalledWith('/api/v1/pages/bulk-unpublish', {
         method: 'POST',
+      });
+    });
+
+    it('POSTs bulk-republish with pageKeys; empty input publishes the whole scope', async () => {
+      const report = {
+        total: 1,
+        published: ['players'],
+      };
+      mockedRequest.mockResolvedValue(report);
+
+      await expect(bulkRepublishPages(['players'])).resolves.toEqual(report);
+      expect(mockedRequest).toHaveBeenCalledWith('/api/v1/pages/bulk-republish', {
+        method: 'POST',
+        data: { pageKeys: ['players'] },
+      });
+
+      await expect(bulkRepublishPages()).resolves.toEqual(report);
+      expect(mockedRequest).toHaveBeenLastCalledWith('/api/v1/pages/bulk-republish', {
+        method: 'POST',
+        data: {},
       });
     });
   });

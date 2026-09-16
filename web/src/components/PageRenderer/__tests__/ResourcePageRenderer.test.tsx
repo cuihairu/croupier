@@ -3,13 +3,17 @@
  * 覆盖路径：列规格转换（boolean·date·enum·number·text、tag 命中·未命中、copy、
  * visible 隐藏）、列表请求（缺绑定/预览/成功/缺 selector/未命中/非数组/异常/
  * Alert 关闭）、创建·编辑（预览拦截/成功 reload/失败/row 上下文）、行操作
- * （预览/带表单弹窗/confirm 流/requireConfirm/直接执行成败）、删除（预览/成败）、
- * 工具栏与批量（预览/直接/confirm/selection 上下文/已选计数）、详情抽屉
- * （无绑定直显/预览/成功/缺 selector/未命中/非对象/异常/字段过滤·横排）、
+ * （预览/带表单弹窗/confirm 流/requireConfirm/直接执行成败/带表单执行失败）、
+ * 删除（预览/成败）、工具栏与批量（预览/直接/confirm/selection 上下文/已选计数）、
+ * 详情抽屉（无绑定直显/预览/成功/缺 selector/未命中/非对象/异常/字段过滤·横排）、
+ * executor_unbound 结构化空态（列表 Alert + 去绑定入口/详情抽屉）、
+ * preview 拦截（弹窗打开后热切换预览提交/预览下 disabled 按钮事件派发）、
+ * bindings 热更后弹窗提交的缺绑定护栏（提案应用后绑定集变化）、
  * rowKey 兜底、标题三态、分页开关。 */
 import React from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { App } from 'antd';
+import { history } from '@umijs/max';
 import { ProTable } from '@ant-design/pro-components';
 import * as SchemaFormModule from '@/components/SchemaFormRenderer';
 import ResourcePageRenderer from '../ResourcePageRenderer';
@@ -176,6 +180,9 @@ jest.mock('@ant-design/pro-components', () => {
 const { formMockState } = SchemaFormModule as unknown as {
   formMockState: { validate: boolean; values: Record<string, unknown> };
 };
+
+// @umijs/max 为 setupTests 全局 mock（history.push 即 jest.fn）
+const historyPush = history.push as unknown as jest.Mock;
 
 type ExecuteMock = jest.Mock<Promise<PageExecutionResult>, [string, unknown]>;
 
@@ -392,6 +399,22 @@ describe('列表请求', () => {
     await waitFor(() =>
       expect(screen.getByText(/列表 items selector 的结果不是数组/)).toBeInTheDocument(),
     );
+  });
+
+  it('无参数 list binding（assignments 为 null）不抛错，照常发出执行', async () => {
+    // 真实线上形态：服务端 nil slice 序列化为 "assignments":null（上传即成页的
+    // 无参数 list 函数）。投影层必须按空集处理——否则浏览器端直接 TypeError，
+    // 执行请求都不发不出，列表只显示通用错误 Alert（T11 E2E 实测回归）
+    const nullInput = {
+      ...listBinding,
+      selectors: {
+        input: { assignments: null },
+        output: listBinding.selectors?.output,
+      },
+    } as PageFunctionBinding;
+    const rendered = await loadList({ bindings: [nullInput] });
+    expect(rendered.onExecute).toHaveBeenCalledWith('b-list', { form: {} });
+    expect(screen.queryByText(/获取资源列表失败/)).not.toBeInTheDocument();
   });
 
   it('请求异常：Alert + toast', async () => {
@@ -939,5 +962,261 @@ describe('渲染细节', () => {
   it('pagination 未启用时不传分页配置', async () => {
     await loadList({ spec: spec({ listView: { columns, pagination: { enabled: false } } }) });
     expect(screen.queryByTestId('pagination-bar')).not.toBeInTheDocument();
+  });
+});
+
+describe('executor_unbound 结构化空态', () => {
+  // umi request 对 409 抛 ResponseError（.data 即响应体）；本地以带 data 的
+  // Error 模拟同构错误对象（extractApiErrorCode 只读 err.data.error）
+  const unboundErr = () =>
+    Object.assign(new Error('executor unbound'), { data: { error: 'executor_unbound' } });
+
+  it('列表：ExecutorUnboundAlert 替代通用错误 + 去绑定入口', async () => {
+    renderResource({
+      executeImpl: async () => {
+        throw unboundErr();
+      },
+    });
+    await waitFor(() => expect(screen.getByText('未绑定执行器')).toBeInTheDocument());
+    expect(screen.getByText('fn-b-list')).toBeInTheDocument();
+    // T8：结构化空态替代通用错误 Alert
+    expect(screen.queryByText(/获取资源列表失败/)).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /去\s*绑\s*定/ }));
+    expect(historyPush).toHaveBeenCalledWith('/functions/openapi-sources');
+  });
+
+  it('详情：抽屉内渲染 ExecutorUnboundAlert', async () => {
+    renderResource({
+      spec: spec({
+        detailView: {
+          fields: [{ key: 'id', title: { 'zh-CN': 'ID' }, dataType: 'string' }],
+          layout: 'horizontal',
+        },
+      }),
+      bindings: [listBinding, detailBinding],
+      executeImpl: async (id: string) => {
+        if (id === 'b-list') return ok({ data: rows, total: 2 });
+        throw unboundErr();
+      },
+    });
+    await waitFor(() => expect(screen.getByText('Alice')).toBeInTheDocument());
+    fireEvent.click(screen.getAllByRole('button', { name: /查\s*看/ })[0]);
+    await waitFor(() => expect(screen.getByText('未绑定执行器')).toBeInTheDocument());
+  });
+});
+
+describe('preview 拦截', () => {
+  beforeEach(() => {
+    formMockState.validate = true;
+    formMockState.values = {};
+  });
+
+  /** 覆写当前渲染（弹窗可见性是组件内 state，跨 rerender 存留） */
+  const rerenderAs = (
+    rerender: (ui: React.ReactElement) => void,
+    props: { spec: ResourcePageSpec; bindings: PageFunctionBinding[]; onExecute: ExecuteMock },
+    preview = true,
+  ) => {
+    rerender(
+      <App>
+        <ResourcePageRenderer
+          spec={props.spec}
+          bindings={props.bindings}
+          onExecute={props.onExecute as never}
+          preview={preview}
+        />
+      </App>,
+    );
+  };
+
+  it('创建：弹窗打开后热切换预览，提交被拦截', async () => {
+    const createSpec = spec({ createForm: { jsonSchema: { type: 'object' } } });
+    const withCreate = [listBinding, binding('create', 'action')];
+    const { onExecute, rerender } = renderResource({
+      spec: createSpec,
+      bindings: withCreate,
+      executeImpl: defaultImpl,
+    });
+    await waitFor(() => expect(screen.getByText('Alice')).toBeInTheDocument());
+    fireEvent.click(screen.getByRole('button', { name: /新\s*建/ }));
+    await waitFor(() => expect(screen.getByTestId('schema-form-stub')).toBeInTheDocument());
+
+    rerenderAs(rerender, { spec: createSpec, bindings: withCreate, onExecute });
+    fireEvent.click(screen.getByRole('button', { name: 'OK' }));
+    await waitFor(() => expect(screen.getByText('预览模式不执行创建操作')).toBeInTheDocument());
+    expect(onExecute.mock.calls.filter(([id]) => id === 'create')).toHaveLength(0);
+  });
+
+  it('编辑：弹窗打开后热切换预览，提交被拦截', async () => {
+    const editSpec = spec({
+      updateForm: { jsonSchema: { type: 'object' } },
+      listView: {
+        columns,
+        rowActions: [{ key: 'edit', title: { 'zh-CN': '编辑' }, bindingId: 'update' }],
+      },
+    });
+    const withEdit = [listBinding, binding('update', 'action')];
+    const impl = async (id: string) => (id === 'b-list' ? ok({ data: rows, total: 2 }) : ok({}));
+    const { onExecute, rerender } = renderResource({
+      spec: editSpec,
+      bindings: withEdit,
+      executeImpl: impl,
+    });
+    await waitFor(() =>
+      expect(screen.getAllByRole('button', { name: /编\s*辑/ }).length).toBeGreaterThan(0),
+    );
+    fireEvent.click(screen.getAllByRole('button', { name: /编\s*辑/ })[0]);
+    await waitFor(() => expect(screen.getByTestId('schema-form-stub')).toBeInTheDocument());
+
+    rerenderAs(rerender, { spec: editSpec, bindings: withEdit, onExecute });
+    fireEvent.click(screen.getByRole('button', { name: 'OK' }));
+    await waitFor(() => expect(screen.getByText('预览模式不执行编辑操作')).toBeInTheDocument());
+    expect(onExecute.mock.calls.filter(([id]) => id === 'update')).toHaveLength(0);
+  });
+
+  it('带表单行操作：弹窗打开后热切换预览，提交被拦截', async () => {
+    const formAction: ActionSpec = { ...banAction, form: { jsonSchema: { type: 'object' } } };
+    const actionSpec = spec({ listView: { columns, rowActions: [formAction] } });
+    const withBan = [listBinding, binding('b-ban', 'action')];
+    const { onExecute, rerender } = await loadList({ spec: actionSpec, bindings: withBan });
+    await clickRowAction(/封\s*禁/);
+    await waitFor(() => expect(screen.getByTestId('form-change')).toBeInTheDocument());
+
+    rerenderAs(rerender, { spec: actionSpec, bindings: withBan, onExecute });
+    fireEvent.click(screen.getByRole('button', { name: 'OK' }));
+    await waitFor(() => expect(screen.getByText('预览模式不执行资源动作')).toBeInTheDocument());
+    expect(onExecute.mock.calls.filter(([id]) => id === 'b-ban')).toHaveLength(0);
+  });
+
+  it('删除：热切换预览后打开气泡，确认被拦截', async () => {
+    const delSpec = spec({
+      deleteAction: { title: { 'zh-CN': '删除玩家' }, bindingId: 'b-del' },
+    });
+    const withDel = [listBinding, binding('b-del', 'action')];
+    const { onExecute, rerender } = await loadList({ spec: delSpec, bindings: withDel });
+    rerenderAs(rerender, { spec: delSpec, bindings: withDel, onExecute });
+    // 全程同步：气泡挂载在 fireEvent 的 act flush 内完成；任何 await 都会让
+    // 预览 reload 的清空行微任务先跑（行卸载 → 气泡离场，点了个空）
+    fireEvent.click(screen.getAllByRole('button', { name: /删\s*除/ })[0]);
+    fireEvent.click(screen.getByRole('button', { name: /确\s*认/ })); // 默认 okText
+    await waitFor(() => expect(screen.getByText('预览模式不执行删除操作')).toBeInTheDocument());
+    expect(onExecute.mock.calls.filter(([id]) => id === 'b-del')).toHaveLength(0);
+  });
+
+  it('行操作：行就绪后热切换预览，同步点击直接被拦截', async () => {
+    const withBan = [listBinding, binding('b-ban', 'action')];
+    const { onExecute, rerender } = await loadList({ bindings: withBan });
+    rerenderAs(rerender, { spec: spec(), bindings: withBan, onExecute });
+    // 预览下 reload 在微任务里才会清空行数据；同步点击仍能触达行按钮，
+    // 此时 handler 已按 preview=true 重建 → 拦截
+    fireEvent.click(screen.getAllByRole('button', { name: /封\s*禁/ })[0]);
+    await waitFor(() => expect(screen.getByText('预览模式不执行资源动作')).toBeInTheDocument());
+    expect(onExecute.mock.calls.filter(([id]) => id === 'b-ban')).toHaveLength(0);
+  });
+
+  // 注：工具栏/批量按钮的 preview 拦截在事件层不可达——按钮渲染恒带
+  // disabled={preview}，jsdom 对 disabled 按钮连 dispatchEvent 都不派发；
+  // 与 handleDelete/handleRowAction/executeListAction 的 missingBinding
+  // 分支（渲染前 hasBinding 过滤兜底）同属防御性死代码。
+});
+
+describe('bindings 热更（提案应用后绑定集变化）', () => {
+  beforeEach(() => {
+    formMockState.validate = true;
+    formMockState.values = {};
+  });
+
+  /** 覆写 bindings（弹窗已打开的可见性 state 不受影响，提交时才发现绑定消失） */
+  const rerenderBindings = (
+    rerender: (ui: React.ReactElement) => void,
+    props: { spec: ResourcePageSpec; onExecute: ExecuteMock },
+  ) => {
+    rerender(
+      <App>
+        <ResourcePageRenderer
+          spec={props.spec}
+          bindings={[listBinding]}
+          onExecute={props.onExecute as never}
+        />
+      </App>,
+    );
+  };
+
+  it('创建弹窗打开后 create 绑定消失：提示未配置', async () => {
+    const createSpec = spec({ createForm: { jsonSchema: { type: 'object' } } });
+    const { onExecute, rerender } = renderResource({
+      spec: createSpec,
+      bindings: [listBinding, binding('create', 'action')],
+      executeImpl: defaultImpl,
+    });
+    await waitFor(() => expect(screen.getByText('Alice')).toBeInTheDocument());
+    fireEvent.click(screen.getByRole('button', { name: /新\s*建/ }));
+    await waitFor(() => expect(screen.getByTestId('schema-form-stub')).toBeInTheDocument());
+
+    rerenderBindings(rerender, { spec: createSpec, onExecute });
+    fireEvent.click(screen.getByRole('button', { name: 'OK' }));
+    await waitFor(() => expect(screen.getByText('未配置创建操作')).toBeInTheDocument());
+    expect(onExecute.mock.calls.filter(([id]) => id === 'create')).toHaveLength(0);
+  });
+
+  it('编辑弹窗打开后 update 绑定消失：提示未配置', async () => {
+    const editSpec = spec({
+      updateForm: { jsonSchema: { type: 'object' } },
+      listView: {
+        columns,
+        rowActions: [{ key: 'edit', title: { 'zh-CN': '编辑' }, bindingId: 'update' }],
+      },
+    });
+    const impl = async (id: string) => (id === 'b-list' ? ok({ data: rows, total: 2 }) : ok({}));
+    const { onExecute, rerender } = renderResource({
+      spec: editSpec,
+      bindings: [listBinding, binding('update', 'action')],
+      executeImpl: impl,
+    });
+    await waitFor(() =>
+      expect(screen.getAllByRole('button', { name: /编\s*辑/ }).length).toBeGreaterThan(0),
+    );
+    fireEvent.click(screen.getAllByRole('button', { name: /编\s*辑/ })[0]);
+    await waitFor(() => expect(screen.getByTestId('schema-form-stub')).toBeInTheDocument());
+
+    rerenderBindings(rerender, { spec: editSpec, onExecute });
+    fireEvent.click(screen.getByRole('button', { name: 'OK' }));
+    await waitFor(() => expect(screen.getByText('未配置编辑操作')).toBeInTheDocument());
+    expect(onExecute.mock.calls.filter(([id]) => id === 'update')).toHaveLength(0);
+  });
+
+  it('表单行操作弹窗打开后绑定消失：提示未配置操作绑定', async () => {
+    const formAction: ActionSpec = { ...banAction, form: { jsonSchema: { type: 'object' } } };
+    const actionSpec = spec({ listView: { columns, rowActions: [formAction] } });
+    const { onExecute, rerender } = await loadList({
+      spec: actionSpec,
+      bindings: [listBinding, binding('b-ban', 'action')],
+    });
+    await clickRowAction(/封\s*禁/);
+    await waitFor(() => expect(screen.getByTestId('form-change')).toBeInTheDocument());
+
+    rerenderBindings(rerender, { spec: actionSpec, onExecute });
+    fireEvent.click(screen.getByRole('button', { name: 'OK' }));
+    await waitFor(() => expect(screen.getByText('未配置操作绑定')).toBeInTheDocument());
+    expect(onExecute.mock.calls.filter(([id]) => id === 'b-ban')).toHaveLength(0);
+  });
+});
+
+describe('带表单行操作执行失败', () => {
+  it('执行拒绝：toast「操作失败」', async () => {
+    formMockState.validate = true;
+    formMockState.values = { days: 3 };
+    const formAction: ActionSpec = { ...banAction, form: { jsonSchema: { type: 'object' } } };
+    const { onExecute } = await loadList({
+      spec: spec({ listView: { columns, rowActions: [formAction] } }),
+      bindings: [listBinding, binding('b-ban', 'action')],
+    });
+    onExecute.mockRejectedValueOnce(new Error('deny'));
+    await clickRowAction(/封\s*禁/);
+    await waitFor(() => expect(screen.getByTestId('form-change')).toBeInTheDocument());
+    fireEvent.click(screen.getByRole('button', { name: 'OK' }));
+    await waitFor(() => expect(screen.getByText('操作失败')).toBeInTheDocument());
+    // 失败后弹窗保留（不静默关闭）
+    expect(screen.getByTestId('form-change')).toBeInTheDocument();
   });
 });

@@ -2,6 +2,9 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import ResourcePageRenderer from './ResourcePageRenderer';
 import type { PageFunctionBinding, ResourcePageSpec } from '@/types/dashboard';
 
+// 全量并行高负载下曾撞默认 5s 超时（隔离跑恒绿）——放宽用例级预算
+jest.setTimeout(20000);
+
 const resource: ResourcePageSpec = {
   listView: {
     identityKey: 'id',

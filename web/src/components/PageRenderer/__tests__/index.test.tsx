@@ -253,6 +253,29 @@ describe('page_state 编排', () => {
       composite: { sections: [{ key: 's1', bindingId: 'b1', view: 'fields' }] },
     }) as PageSpec;
 
+  it('executeWithPageState：assignments 为 null 的 binding 投影为空上下文，不抛错', async () => {
+    // 真实线上形态：服务端 nil slice 序列化为 "assignments":null（上传即成页的
+    // 无参数 list 函数）。投影曾在此 TypeError，浏览器端连执行请求都发不出，
+    // 页面只剩通用错误 Alert（T11 E2E 实测回归）
+    const nullAssignments = {
+      id: 'b1',
+      functionId: 'fn',
+      usage: 'query',
+      execution: { mode: 'sync' },
+      selectors: { input: { assignments: null } },
+    } as PageFunctionBinding;
+    const onExecute = jest
+      .fn<(b: string, c: unknown) => Promise<PageExecutionResult>>()
+      .mockResolvedValue(ok());
+    render(<PageRenderer pageSpec={compositeSpec([nullAssignments])} onExecute={onExecute} />);
+
+    const props = lastProps(mockedComposite) as {
+      onExecute: (b: string, c: unknown) => Promise<PageExecutionResult>;
+    };
+    await act(async () => props.onExecute('b1', { form: { page: 1 } }));
+    expect(onExecute).toHaveBeenCalledWith('b1', {});
+  });
+
   it('executeWithPageState：输出选择器落 page_state 并注入下一次执行上下文', async () => {
     const onExecute = jest
       .fn<(b: string, c: unknown) => Promise<PageExecutionResult>>()

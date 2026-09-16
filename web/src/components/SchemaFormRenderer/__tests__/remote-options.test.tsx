@@ -119,6 +119,18 @@ describe('F9: useRemoteOptions', () => {
       expect(invokeFunction).toHaveBeenCalledWith('player.search', { keyword: 'ali' }),
     );
   });
+
+  test('spec 缺省或无 functionId：重置空选项且不发请求', async () => {
+    const { rerender } = render(<HookHarness spec={undefined} />);
+    await act(async () => {});
+    expect(screen.getByTestId('loading').textContent).toBe('false');
+    expect(screen.getByTestId('options').children.length).toBe(0);
+
+    rerender(<HookHarness spec={{ functionId: '', labelPath: '/items/*/name' }} search="" />);
+    await act(async () => {});
+    expect(screen.getByTestId('loading').textContent).toBe('false');
+    expect(invokeFunction).not.toHaveBeenCalled();
+  });
 });
 
 describe('F9: Select 集成渲染', () => {

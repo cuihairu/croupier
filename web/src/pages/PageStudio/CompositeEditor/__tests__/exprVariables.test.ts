@@ -103,4 +103,52 @@ describe('buildPathRoots（§4.3 变量空间）', () => {
   it('基础组件无路径（仅可作动作目标）', () => {
     expect(buildPathRoots(buttonNode, fnById)).toEqual([]);
   });
+
+  it('fnFields 暴露 data（outputSchema）', () => {
+    const fieldsNode: PageNode = {
+      id: 'n5',
+      type: 'fnFields',
+      props: { sectionKey: 'playerFields', functionId: 'player.list' },
+    };
+    const roots = buildPathRoots(fieldsNode, fnById);
+    expect(roots.map((r) => r.segment)).toEqual(['data']);
+    expect((roots[0].children ?? []).map((c) => c.segment)).toEqual(['items', 'total']);
+  });
+
+  it('嵌套 object schema 递归展开（type=object 字段下钻）', () => {
+    const nestedFn: FunctionDescriptor = {
+      id: 'stat.card',
+      outputSchema: {
+        type: 'object',
+        properties: {
+          summary: {
+            type: 'object',
+            properties: { dau: { type: 'number' }, revenue: { type: 'number' } },
+          },
+        },
+      } as JSONValue,
+    } as unknown as FunctionDescriptor;
+    const node: PageNode = {
+      id: 'n6',
+      type: 'fnFields',
+      props: { sectionKey: 'statCard', functionId: 'stat.card' },
+    };
+    const roots = buildPathRoots(node, new Map([['stat.card', nestedFn]]));
+    const summary = (roots[0].children ?? []).find((c) => c.segment === 'summary');
+    expect((summary?.children ?? []).map((c) => c.segment)).toEqual(['dau', 'revenue']);
+  });
+
+  it('staticSchema 为非法 JSON 字符串时回退空树', () => {
+    const badNode: PageNode = {
+      id: 'n7',
+      type: 'staticForm',
+      props: { sectionKey: 'badForm', staticSchema: '{oops' },
+    };
+    const roots = buildPathRoots(badNode, fnById);
+    expect(roots).toEqual([{ segment: 'values', children: [] }]);
+  });
+
+  it('节点缺失返回空', () => {
+    expect(buildPathRoots(undefined, fnById)).toEqual([]);
+  });
 });

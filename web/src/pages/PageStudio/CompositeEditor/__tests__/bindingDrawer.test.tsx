@@ -74,7 +74,7 @@ const allFns: FunctionDescriptor[] = [
   { id: 'listplayers', executionState: 'unbound' },
 ];
 
-function renderDrawer(props?: { functionId?: string }) {
+function renderDrawer(props?: { functionId?: string; fns?: FunctionDescriptor[] }) {
   const onClose = jest.fn();
   const onBound = jest.fn();
   render(
@@ -82,7 +82,7 @@ function renderDrawer(props?: { functionId?: string }) {
       <BindingDrawer
         open
         functionId={props?.functionId ?? 'listplayers'}
-        allFns={allFns}
+        allFns={props?.fns ?? allFns}
         onClose={onClose}
         onBound={onBound}
       />
@@ -260,5 +260,53 @@ describe('溯源失败（手动兜底）', () => {
         bindingId: 'listPlayers',
       }),
     );
+  });
+});
+
+describe('错误 toast 兜底与绑定状态展示', () => {
+  it('保存失败仅有 Error.message（无 body）→ toast 展示该 message', async () => {
+    mockedBind.mockRejectedValueOnce(new Error('agent offline'));
+    const { onClose } = renderDrawer();
+    await waitFor(() => expect(screen.getByText(/listPlayers（来源匹配）/)).toBeInTheDocument());
+    pickOption(2, 'players.list');
+    fireEvent.click(screen.getByRole('button', { name: '保存绑定' }));
+    expect(await screen.findByText('agent offline')).toBeInTheDocument();
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it('保存失败为非对象拒绝 → toast 回退默认文案', async () => {
+    mockedBind.mockRejectedValueOnce('boom');
+    renderDrawer();
+    await waitFor(() => expect(screen.getByText(/listPlayers（来源匹配）/)).toBeInTheDocument());
+    pickOption(2, 'players.list');
+    fireEvent.click(screen.getByRole('button', { name: '保存绑定' }));
+    expect(await screen.findByText('保存 binding 失败')).toBeInTheDocument();
+  });
+
+  it('operation 已绑定 → 绿色 Tag 标注运行时函数', async () => {
+    mockedGetSource.mockResolvedValue({
+      source: { operations: [op({ bound: true, functionId: 'players.list' })] },
+    });
+    renderDrawer();
+    expect(await screen.findByText('已绑定 → players.list')).toBeInTheDocument();
+  });
+
+  it('来源详情拉取失败 → 该来源按空操作集降级（不中断抽屉）', async () => {
+    mockedGetSource.mockRejectedValue(new Error('source detail 500'));
+    renderDrawer({ functionId: 'ghost.fn' });
+    // 详情全失败 → 无命中走 warning 兜底路径，抽屉仍可手动选择来源
+    expect(
+      await screen.findByText('未在 OpenAPI Sources 中找到该函数的来源操作'),
+    ).toBeInTheDocument();
+    pickOption(0, /玩家服务/);
+    // src-1 详情失败 → 操作下拉为空（无 listPlayers 选项）
+    fireEvent.mouseDown(screen.getAllByRole('combobox')[1]);
+    await waitFor(() => expect(screen.queryByText('先选择来源 Source')).toBeNull());
+  });
+
+  it('scope 无任何运行时函数候选 → Select 提示暂无候选', async () => {
+    mockedListRuntime.mockResolvedValue({ items: [], total: 0 });
+    renderDrawer({ fns: [] });
+    expect(await screen.findByText(/当前 scope 暂无已注册运行时函数/)).toBeInTheDocument();
   });
 });

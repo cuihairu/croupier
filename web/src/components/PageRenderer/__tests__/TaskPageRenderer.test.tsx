@@ -670,3 +670,11 @@ describe('渲染分支', () => {
     });
   });
 });
+
+// 剩余未覆盖分支均为渲染层守卫造成的防御性死代码，事件层不可达：
+// - handleCancel 的 !taskStatus?.taskId 与「未配置取消任务绑定」warning：
+//   取消按钮仅在 (cancelBinding || onCancelTask) 且 running 时渲染；
+// - pollTaskStatus 的 !onQueryStatus 兜底：刷新按钮/启动轮询均先经
+//   canQueryTaskStatus（statusBinding || onQueryStatus）过滤；
+// - refreshApproval 的 !approvalId || !onQueryApprovalStatus：按钮渲染已过滤；
+// - selectByJsonPointer 的 null 入参：唯一调用方先经 isJsonRecord 守卫。

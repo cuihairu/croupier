@@ -95,4 +95,23 @@ describe('F11: TaskProgressPanel', () => {
     await waitFor(() => expect(onCompleted).toHaveBeenCalledWith(null));
     jest.useRealTimers();
   });
+
+  test('timed_out 展示超时告警', async () => {
+    fetchTaskResult.mockResolvedValue({ state: 'timed_out' });
+    render(<TaskProgressPanel taskId="t6" />);
+    await waitFor(() => expect(screen.getByText('任务已超时')).toBeTruthy());
+  });
+
+  test('取消失败保持面板状态（catch 静默，取消按钮复位）', async () => {
+    fetchTaskResult.mockResolvedValue({ state: 'running' });
+    cancelTask.mockRejectedValue(new Error('deny'));
+    render(<TaskProgressPanel taskId="t7" />);
+    await act(async () => {});
+    fireEvent.click(screen.getByTestId('task-cancel'));
+    await waitFor(() => expect(cancelTask).toHaveBeenCalledWith('t7'));
+    // 取消失败不抛错、面板保留取消按钮（未终态），可重试
+    await waitFor(() =>
+      expect(screen.getByTestId('task-progress-panel').textContent).toContain('取消任务'),
+    );
+  });
 });

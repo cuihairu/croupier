@@ -314,6 +314,12 @@ func (f *DashboardFixture) startServer(ctx context.Context, opts DashboardFixtur
 	cfg.BootstrapData.BaseDir = bootstrapDir
 	cfg.Storage.Driver = "file"
 	cfg.Storage.BaseDir = filepath.Join(f.BaseDir, "uploads")
+	// 发布分级覆盖（T10/T11 E2E）：默认缺省（按 env 内置规则 dev=auto、其余
+	// required）；real-dashboard 上传管线场景（upload-pipeline.spec.ts）需要
+	// auto 链路验证「保存即发布」，经环境变量注入，未设置时行为不变。
+	if v := strings.TrimSpace(os.Getenv("CROUPIER_E2E_PUBLISH_REVIEW")); v != "" {
+		cfg.Pages.PublishReview = v
+	}
 	applyRuntimeDefaults(&cfg)
 	f.cfg = cfg
 

@@ -244,6 +244,60 @@ describe('确认对话框', () => {
     await waitFor(() => expect(screen.getByText('预览模式不执行操作')).toBeInTheDocument());
     expect(screen.queryByText('危险操作')).not.toBeInTheDocument();
   });
+
+  it('确认弹窗打开后热切换预览：确认链在 handleConfirm 层被拦截', async () => {
+    // 弹窗 visible/pendingValues 是组件 state，跨 rerender 存留——
+    // 触达 handleSubmit 之后的第二道 preview 防线
+    const onExecute = jest.fn() as ExecuteMock;
+    const utils = render(
+      <App>
+        <OperationPageRenderer
+          spec={confirmSpec}
+          bindings={[actionBinding()]}
+          onExecute={onExecute as never}
+        />
+      </App>,
+    );
+    submit();
+    await waitFor(() => expect(screen.getByText('危险操作')).toBeInTheDocument());
+    utils.rerender(
+      <App>
+        <OperationPageRenderer
+          spec={confirmSpec}
+          bindings={[actionBinding()]}
+          onExecute={onExecute as never}
+          preview
+        />
+      </App>,
+    );
+    fireEvent.click(screen.getByRole('button', { name: /执\s*行/ }));
+    await waitFor(() => expect(screen.getByText('预览模式不执行操作')).toBeInTheDocument());
+    expect(onExecute).not.toHaveBeenCalled();
+  });
+
+  it('确认弹窗打开后绑定被移除：确认无操作直接返回（防御）', async () => {
+    const onExecute = jest.fn() as ExecuteMock;
+    const utils = render(
+      <App>
+        <OperationPageRenderer
+          spec={confirmSpec}
+          bindings={[actionBinding()]}
+          onExecute={onExecute as never}
+        />
+      </App>,
+    );
+    submit();
+    await waitFor(() => expect(screen.getByText('危险操作')).toBeInTheDocument());
+    // 提案应用后绑定集变化：弹窗仍开（spec.confirm 维持 requiresConfirm），
+    // 但 mainBinding 已不在——确认应静默返回而非抛错
+    utils.rerender(
+      <App>
+        <OperationPageRenderer spec={confirmSpec} bindings={[]} onExecute={onExecute as never} />
+      </App>,
+    );
+    fireEvent.click(screen.getByRole('button', { name: /执\s*行/ }));
+    expect(onExecute).not.toHaveBeenCalled();
+  });
 });
 
 describe('审批刷新', () => {
@@ -261,6 +315,9 @@ describe('审批刷新', () => {
     }
     return { onQueryApprovalStatus: onQueryApprovalStatus as jest.Mock };
   };
+
+  // refreshApproval 内 !approvalId || !onQueryApprovalStatus 防御 return 为
+  // 死代码：刷新按钮仅在 result.approvalId && onQueryApprovalStatus 时渲染
 
   it('pending 状态渲染 info Alert', async () => {
     const { onQueryApprovalStatus } = await toApproval('pending');

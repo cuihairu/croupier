@@ -59,6 +59,13 @@ describe('ModalPlaceholder（弹窗占位卡：D 项内嵌编辑的可测面）'
     expect(screen.getByText(/拖入函数表单/)).toBeInTheDocument();
   });
 
+  it('无标题时回退默认「弹窗」名；已命名时展示 ⌗sectionKey 标签', () => {
+    const calls = { select: [], enter: [] };
+    setup({ id: 'm3', type: 'modal', props: { sectionKey: 'sendMailModal' }, children: [] }, calls);
+    expect(screen.getByText('弹窗')).toBeInTheDocument();
+    expect(screen.getByText('⌗sendMailModal')).toBeInTheDocument();
+  });
+
   it('点击透传鼠标事件（shiftKey 可达，供 Shift 多选门控）', () => {
     const seen: Array<boolean | undefined> = [];
     render(

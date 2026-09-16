@@ -93,6 +93,17 @@ describe('fetchJSON', () => {
     expect(fetchSpy.mock.calls[1][1].headers.get('Authorization')).toBeNull();
   });
 
+  it('localStorage access throwing (blocked storage) degrades to no Authorization header', async () => {
+    // 隐私模式/存储被策略禁用：getItem 抛错不能中断请求
+    (localStorage.getItem as unknown as jest.Mock).mockImplementationOnce(() => {
+      throw new Error('SecurityError');
+    });
+    fetchSpy.mockResolvedValueOnce(jsonResponse({}));
+
+    await expect(fetchJSON('/api/v1/open')).resolves.toEqual({});
+    expect(fetchSpy.mock.calls[0][1].headers.get('Authorization')).toBeNull();
+  });
+
   it('waits for scope resolution and applies scope headers for scope-needing URLs', async () => {
     mockedNeedsScope.mockReturnValue(true);
     fetchSpy.mockResolvedValueOnce(jsonResponse({ ok: 1 }));
