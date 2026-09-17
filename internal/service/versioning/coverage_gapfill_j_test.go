@@ -135,7 +135,7 @@ func TestRollbackDraft_NextVersionError(t *testing.T) {
 		Type:        spec.PageTypeResource,
 		ResourceKey: "player",
 		Title:       spec.LocalizedText{"zh-CN": "玩家"},
-		Category:    spec.PageCategorySpec{Key: "player", Labels: spec.LocalizedText{"zh-CN": "玩家"}},
+		Category:    spec.PageCategorySpec{Key: "player"},
 		Bindings: []spec.PageFunctionBinding{{
 			ID: "query", FunctionID: "player.list", Usage: spec.BindingUsageQuery,
 			Execution: spec.PageBindingExecution{Mode: spec.PageExecutionModeSync},

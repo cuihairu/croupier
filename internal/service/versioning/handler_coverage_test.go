@@ -70,7 +70,7 @@ func seedHandlerChainFixture(t *testing.T, db *gorm.DB) spec.PageSpec {
 		PageKey:  "operation--player.ban",
 		Type:     spec.PageTypeOperation,
 		Title:    spec.LocalizedText{"zh-CN": "封禁玩家"},
-		Category: spec.PageCategorySpec{Key: "player", Labels: spec.LocalizedText{"zh-CN": "玩家"}},
+		Category: spec.PageCategorySpec{Key: "player"},
 		Bindings: []spec.PageFunctionBinding{{
 			ID:         "run",
 			FunctionID: "player.ban",

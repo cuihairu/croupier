@@ -56,58 +56,46 @@ export async function listPlayers(params: {
   level?: number;
   vip?: number;
 }) {
-  const token = typeof window !== 'undefined' ? localStorage.getItem('token') : '';
   return request<PlayersListResponse>('/api/v1/players', {
     method: 'GET',
     params,
-    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
   });
 }
 
 // RESTful: 创建玩家
 export async function createPlayer(params: PlayerCreateRequest) {
-  const token = typeof window !== 'undefined' ? localStorage.getItem('token') : '';
   return request<Player>('/api/v1/players', {
     method: 'POST',
     data: params,
-    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
   });
 }
 
 // RESTful: 获取玩家详情
 export async function getPlayer(id: string) {
-  const token = typeof window !== 'undefined' ? localStorage.getItem('token') : '';
   return request<Player>(`/api/v1/players/${id}`, {
     method: 'GET',
-    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
   });
 }
 
 // RESTful: 更新玩家信息
 export async function updatePlayer(id: string, params: PlayerUpdateRequest) {
-  const token = typeof window !== 'undefined' ? localStorage.getItem('token') : '';
   return request<Player>(`/api/v1/players/${id}`, {
     method: 'PUT',
     data: params,
-    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
   });
 }
 
 // RESTful: 删除玩家
 export async function deletePlayer(id: string) {
-  const token = typeof window !== 'undefined' ? localStorage.getItem('token') : '';
   return request(`/api/v1/players/${id}`, {
     method: 'DELETE',
-    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
   });
 }
 
 // RESTful: 调整玩家余额
 export async function adjustPlayerBalance(id: string, params: PlayerBalanceRequest) {
-  const token = typeof window !== 'undefined' ? localStorage.getItem('token') : '';
   return request<Player>(`/api/v1/players/${id}/balance`, {
     method: 'POST',
     data: params,
-    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
   });
 }

@@ -108,7 +108,7 @@ func setupPublishableProposal(t *testing.T, db *gorm.DB, svc *ProposalService, p
 		ResourceKey: "mail",
 		Title:       spec.LocalizedText{"zh-CN": "发送邮件"},
 		Category: spec.PageCategorySpec{
-			Key: "mail", Labels: spec.LocalizedText{"zh-CN": "邮件"},
+			Key: "mail",
 		},
 		Operation: &spec.OperationPageSpec{
 			Form: &spec.FormPresentationSpec{JSONSchema: spec.JSONSchema(`{"type":"object"}`)},

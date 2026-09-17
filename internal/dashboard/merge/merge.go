@@ -26,7 +26,7 @@ type MergeResult struct {
 
 // MergeItem represents a single field that can be auto-merged.
 type MergeItem struct {
-	// Field is the field path (e.g., "title", "category.labels", "resource.listView.columns[0].title").
+	// Field is the field path (e.g., "title", "category.order", "resource.listView.columns[0].title").
 	Field string `json:"field"`
 
 	// BaseValue is the value from the base Proposal.
@@ -70,7 +70,6 @@ var AutoMergeFields = map[string]bool{
 	"description":                            true,
 	"icon":                                   true,
 	"order":                                  true,
-	"category.labels":                        true,
 	"category.order":                         true,
 	"navigation.title":                       true,
 	"navigation.breadcrumb":                  true,
@@ -188,7 +187,6 @@ func ThreeWayMerge(
 
 	// Compare category
 	compareField("", "category.key", toJSON(base.Category.Key), toJSON(draft.Category.Key), toJSON(latest.Category.Key), &result)
-	compareField("", "category.labels", toJSON(base.Category.Labels), toJSON(draft.Category.Labels), toJSON(latest.Category.Labels), &result)
 	compareField("", "category.order", toJSON(base.Category.Order), toJSON(draft.Category.Order), toJSON(latest.Category.Order), &result)
 
 	// Compare navigation

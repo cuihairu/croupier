@@ -1174,9 +1174,9 @@ func (s *ContractService) removeResourceProposal(ctx context.Context, gameID, en
 
 // RebuildProposalForFunction creates or refreshes the standalone page proposal
 // for a function that cannot be safely grouped into a ResourcePage.
-// loadTermDictionary loads the platform term dictionary for generated
-// category labels and title fallbacks. A nil/empty result keeps generation
-// on the humanize fallback path.
+// loadTermDictionary loads the platform term dictionary for generated title
+// fallbacks (category display names are owned by the menu system since T-M8).
+// A nil/empty result keeps generation on the humanize fallback path.
 func (s *ContractService) loadTermDictionary(ctx context.Context) generator.TermDictionary {
 	if s == nil || s.db == nil {
 		return nil

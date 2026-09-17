@@ -45,32 +45,6 @@ func TestPageSpec_SetTitle(t *testing.T) {
 	assert.Equal(t, title, got)
 }
 
-func TestPageSpec_GetCategoryLabels(t *testing.T) {
-	tests := []struct {
-		name     string
-		labelsJS string
-		expected map[string]string
-	}{
-		{"empty", "", nil},
-		{"valid JSON", `{"zh-CN":"玩家"}`, map[string]string{"zh-CN": "玩家"}},
-		{"invalid JSON", `{bad`, nil},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			ps := &PageSpec{CategoryLabelsJSON: tt.labelsJS}
-			assert.Equal(t, tt.expected, ps.GetCategoryLabels())
-		})
-	}
-}
-
-func TestPageSpec_SetCategoryLabels(t *testing.T) {
-	ps := &PageSpec{}
-	labels := map[string]string{"zh-CN": "分类"}
-	require.NoError(t, ps.SetCategoryLabels(labels))
-	got := ps.GetCategoryLabels()
-	assert.Equal(t, labels, got)
-}
-
 func TestPageSpec_GetSpec(t *testing.T) {
 	raw := json.RawMessage(`{"pageKey":"test","type":"operation"}`)
 	ps := &PageSpec{SpecJSON: string(raw)}
@@ -105,16 +79,6 @@ func TestPageSpec_SetTitle_NilAndEmpty(t *testing.T) {
 	ps2 := &PageSpec{}
 	require.NoError(t, ps2.SetTitle(map[string]string{}))
 	assert.Equal(t, "{}", ps2.TitleJSON)
-}
-
-func TestPageSpec_SetCategoryLabels_NilAndEmpty(t *testing.T) {
-	ps := &PageSpec{}
-	require.NoError(t, ps.SetCategoryLabels(nil))
-	assert.Equal(t, "null", ps.CategoryLabelsJSON)
-
-	ps2 := &PageSpec{}
-	require.NoError(t, ps2.SetCategoryLabels(map[string]string{}))
-	assert.Equal(t, "{}", ps2.CategoryLabelsJSON)
 }
 
 func TestPageSpecModel_NewModels(t *testing.T) {
@@ -207,9 +171,8 @@ func testPageSpec(gameID, env, pageKey, titleJSON string) *PageSpec {
 		PageKey:            pageKey,
 		Type:               "operation",
 		TitleJSON:          titleJSON,
-		CategoryKey:        "player",
-		CategoryLabelsJSON: `{"zh-CN":"玩家"}`,
-		SpecJSON:           `{"pageKey":"` + pageKey + `","type":"operation","title":{"zh-CN":"玩家管理"},"category":{"key":"player","labels":{"zh-CN":"玩家"}},"operation":{"form":{"jsonSchema":{"type":"object","properties":{}}}},"bindings":[]}`,
+		CategoryKey: "player",
+		SpecJSON:    `{"pageKey":"` + pageKey + `","type":"operation","title":{"zh-CN":"玩家管理"},"category":{"key":"player"},"operation":{"form":{"jsonSchema":{"type":"object","properties":{}}}},"bindings":[]}`,
 		Status:             "draft",
 		DraftRevision:      1,
 	}

@@ -555,7 +555,7 @@ func TestGenerateMenuFromPagesV2(t *testing.T) {
 			Title:   spec.LocalizedText{"zh-CN": "测试"},
 			Category: spec.PageCategorySpec{
 				Key:    "",
-				Labels: spec.LocalizedText{"zh-CN": ""},
+				,
 			},
 		}},
 	}, "zh-CN")
@@ -565,11 +565,11 @@ func TestGenerateMenuFromPagesV2(t *testing.T) {
 	menu = generateMenuFromPages([]spec.PublishedPageSpec{
 		{PageSpec: spec.PageSpec{
 			PageKey: "b.page", Title: spec.LocalizedText{"zh-CN": "B"}, Order: 10,
-			Category: spec.PageCategorySpec{Key: "cat", Labels: spec.LocalizedText{"zh-CN": "分类"}, Order: 1},
+			Category: spec.PageCategorySpec{Key: "cat", Order: 1},
 		}},
 		{PageSpec: spec.PageSpec{
 			PageKey: "a.page", Title: spec.LocalizedText{"zh-CN": "A"}, Order: 5,
-			Category: spec.PageCategorySpec{Key: "cat", Labels: spec.LocalizedText{"zh-CN": "分类"}, Order: 1},
+			Category: spec.PageCategorySpec{Key: "cat", Order: 1},
 		}},
 	}, "zh-CN")
 	require.Len(t, menu.Items, 1)
@@ -581,11 +581,11 @@ func TestGenerateMenuFromPagesV2(t *testing.T) {
 	menu = generateMenuFromPages([]spec.PublishedPageSpec{
 		{PageSpec: spec.PageSpec{
 			PageKey: "b.page", Title: spec.LocalizedText{"zh-CN": "B"}, Order: 5,
-			Category: spec.PageCategorySpec{Key: "cat", Labels: spec.LocalizedText{"zh-CN": "分类"}, Order: 1},
+			Category: spec.PageCategorySpec{Key: "cat", Order: 1},
 		}},
 		{PageSpec: spec.PageSpec{
 			PageKey: "a.page", Title: spec.LocalizedText{"zh-CN": "A"}, Order: 5,
-			Category: spec.PageCategorySpec{Key: "cat", Labels: spec.LocalizedText{"zh-CN": "分类"}, Order: 1},
+			Category: spec.PageCategorySpec{Key: "cat", Order: 1},
 		}},
 	}, "zh-CN")
 	require.Len(t, menu.Items, 1)
@@ -596,11 +596,11 @@ func TestGenerateMenuFromPagesV2(t *testing.T) {
 	menu = generateMenuFromPages([]spec.PublishedPageSpec{
 		{PageSpec: spec.PageSpec{
 			PageKey: "b.page", Title: spec.LocalizedText{"zh-CN": "Same"}, Order: 5,
-			Category: spec.PageCategorySpec{Key: "cat", Labels: spec.LocalizedText{"zh-CN": "分类"}, Order: 1},
+			Category: spec.PageCategorySpec{Key: "cat", Order: 1},
 		}},
 		{PageSpec: spec.PageSpec{
 			PageKey: "a.page", Title: spec.LocalizedText{"zh-CN": "Same"}, Order: 5,
-			Category: spec.PageCategorySpec{Key: "cat", Labels: spec.LocalizedText{"zh-CN": "分类"}, Order: 1},
+			Category: spec.PageCategorySpec{Key: "cat", Order: 1},
 		}},
 	}, "zh-CN")
 	require.Len(t, menu.Items, 1)
@@ -611,11 +611,11 @@ func TestGenerateMenuFromPagesV2(t *testing.T) {
 	menu = generateMenuFromPages([]spec.PublishedPageSpec{
 		{PageSpec: spec.PageSpec{
 			PageKey: "a.page", Title: spec.LocalizedText{"zh-CN": "A"}, Order: 5,
-			Category: spec.PageCategorySpec{Key: "cat-b", Labels: spec.LocalizedText{"zh-CN": "B分类"}, Order: 1},
+			Category: spec.PageCategorySpec{Key: "cat-b", Order: 1},
 		}},
 		{PageSpec: spec.PageSpec{
 			PageKey: "b.page", Title: spec.LocalizedText{"zh-CN": "B"}, Order: 5,
-			Category: spec.PageCategorySpec{Key: "cat-a", Labels: spec.LocalizedText{"zh-CN": "A分类"}, Order: 1},
+			Category: spec.PageCategorySpec{Key: "cat-a", Order: 1},
 		}},
 	}, "zh-CN")
 	require.Len(t, menu.Items, 2)
@@ -626,11 +626,11 @@ func TestGenerateMenuFromPagesV2(t *testing.T) {
 	menu = generateMenuFromPages([]spec.PublishedPageSpec{
 		{PageSpec: spec.PageSpec{
 			PageKey: "a.page", Title: spec.LocalizedText{"zh-CN": "Same"}, Order: 5,
-			Category: spec.PageCategorySpec{Key: "cat-b", Labels: spec.LocalizedText{"zh-CN": "Same"}, Order: 1},
+			Category: spec.PageCategorySpec{Key: "cat-b", Order: 1},
 		}},
 		{PageSpec: spec.PageSpec{
 			PageKey: "b.page", Title: spec.LocalizedText{"zh-CN": "Same"}, Order: 5,
-			Category: spec.PageCategorySpec{Key: "cat-a", Labels: spec.LocalizedText{"zh-CN": "Same"}, Order: 1},
+			Category: spec.PageCategorySpec{Key: "cat-a", Order: 1},
 		}},
 	}, "zh-CN")
 	require.Len(t, menu.Items, 2)
@@ -640,7 +640,7 @@ func TestGenerateMenuFromPagesV2(t *testing.T) {
 	menu = generateMenuFromPages([]spec.PublishedPageSpec{
 		{PageSpec: spec.PageSpec{
 			PageKey: "icon.page", Title: spec.LocalizedText{"zh-CN": "Icon"}, Icon: "icon.png", Order: 1,
-			Category: spec.PageCategorySpec{Key: "cat", Labels: spec.LocalizedText{"zh-CN": "分类"}, Order: 1},
+			Category: spec.PageCategorySpec{Key: "cat", Order: 1},
 		}},
 	}, "zh-CN")
 	require.Len(t, menu.Items, 1)

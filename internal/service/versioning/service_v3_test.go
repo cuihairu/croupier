@@ -27,7 +27,7 @@ func TestVersioningService_RollbackDraft_Success(t *testing.T) {
 		Type:        spec.PageTypeResource,
 		ResourceKey: "player",
 		Title:       spec.LocalizedText{"zh-CN": "玩家"},
-		Category:    spec.PageCategorySpec{Key: "player", Labels: spec.LocalizedText{"zh-CN": "玩家"}},
+		Category:    spec.PageCategorySpec{Key: "player"},
 	}
 	require.NoError(t, createVersioningTestPage(db, "demo-game", "development", page))
 	require.NoError(t, createVersioningTestPageVersion(db, "demo-game", "development", page, 1, "initial"))
@@ -472,7 +472,7 @@ func TestNormalizePageSpec_MoreFields(t *testing.T) {
 		PageKey: "  test  ", ResourceKey: "  player  ", Icon: "  icon  ",
 		Title:       spec.LocalizedText{"zh": " 玩家 ", "en": " Player "},
 		Description: spec.LocalizedText{"zh_cn": " 描述 "},
-		Category:    spec.PageCategorySpec{Key: "  cat  ", Labels: spec.LocalizedText{"en": " Cat "}, Order: 3},
+		Category:    spec.PageCategorySpec{Key: "  cat  ", Order: 3},
 		Bindings:    []spec.PageFunctionBinding{{ID: "  run  ", FunctionID: "  func  "}},
 	}
 	n := normalizePageSpec(page)
@@ -483,7 +483,6 @@ func TestNormalizePageSpec_MoreFields(t *testing.T) {
 	assert.Equal(t, "Player", n.Title["en-US"])
 	assert.Equal(t, "描述", n.Description["zh-CN"])
 	assert.Equal(t, "cat", n.Category.Key)
-	assert.Equal(t, "Cat", n.Category.Labels["en-US"])
 	assert.Equal(t, "run", n.Bindings[0].ID)
 	assert.Equal(t, "func", n.Bindings[0].FunctionID)
 }
@@ -730,7 +729,7 @@ func TestApplyPageSpecToModel_MoreFields(t *testing.T) {
 		PageKey: "test-page", Type: spec.PageTypeOperation, ResourceKey: "player",
 		Icon: "icon-name", Order: 5,
 		Title:    spec.LocalizedText{"zh-CN": "测试"},
-		Category: spec.PageCategorySpec{Key: "player", Labels: spec.LocalizedText{"zh-CN": "玩家"}, Order: 3},
+		Category: spec.PageCategorySpec{Key: "player", Order: 3},
 		Bindings: []spec.PageFunctionBinding{{ID: "run", FunctionID: "player.ban"}},
 	})
 	require.NoError(t, err)

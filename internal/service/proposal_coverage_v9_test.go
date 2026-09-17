@@ -203,7 +203,7 @@ func TestValidateDirectPublishPageSpecBranchesV9(t *testing.T) {
 		page := spec.PageSpec{
 			PageKey: "resource--player", Type: spec.PageTypeResource, ResourceKey: "player",
 			Title:    spec.LocalizedText{"zh-CN": "玩家"},
-			Category: spec.PageCategorySpec{Key: "player", Labels: spec.LocalizedText{"zh-CN": "玩家"}},
+			Category: spec.PageCategorySpec{Key: "player"},
 			Resource: &spec.ResourcePageSpec{},
 			Bindings: []spec.PageFunctionBinding{{
 				ID: "query", FunctionID: "player.query", Usage: spec.BindingUsageQuery,
@@ -222,7 +222,7 @@ func TestValidateCategoryLabelConflictBranchesV9(t *testing.T) {
 	ctx := context.Background()
 	page := spec.PageSpec{
 		PageKey:  "target",
-		Category: spec.PageCategorySpec{Key: "cat", Labels: spec.LocalizedText{"zh-CN": "玩家"}},
+		Category: spec.PageCategorySpec{Key: "cat"},
 	}
 
 	t.Run("nil published model", func(t *testing.T) {
@@ -336,7 +336,7 @@ func TestHandlerSuccessPathsV9(t *testing.T) {
 		page := spec.PageSpec{
 			PageKey: "operation--mail.send", Type: spec.PageTypeOperation,
 			Title:     spec.LocalizedText{"zh-CN": "发送邮件"},
-			Category:  spec.PageCategorySpec{Key: "mail", Labels: spec.LocalizedText{"zh-CN": "邮件"}},
+			Category:  spec.PageCategorySpec{Key: "mail"},
 			Operation: &spec.OperationPageSpec{Form: &spec.FormPresentationSpec{JSONSchema: spec.JSONSchema(`{"type":"object"}`)}},
 			Bindings: []spec.PageFunctionBinding{{
 				ID: "main", FunctionID: "mail.send", Usage: spec.BindingUsageAction,

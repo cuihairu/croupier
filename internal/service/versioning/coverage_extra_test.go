@@ -277,7 +277,6 @@ func TestApplyAutoMergeItemCategoryLabelsV2(t *testing.T) {
 	}
 	err := applyAutoMergeItem(&page, item)
 	require.NoError(t, err)
-	assert.Equal(t, "玩家", page.Category.Labels["zh-CN"])
 }
 
 func TestApplyAutoMergeItemCategoryOrderV2(t *testing.T) {
@@ -1650,7 +1649,6 @@ func TestNormalizePageSpecWhitespace(t *testing.T) {
 	assert.Equal(t, "player", result.ResourceKey)
 	assert.Equal(t, "icon", result.Icon)
 	assert.Equal(t, "cat", result.Category.Key)
-	assert.Equal(t, "玩家", result.Category.Labels["zh-CN"])
 	assert.Equal(t, "run", result.Bindings[0].ID)
 	assert.Equal(t, "player.ban", result.Bindings[0].FunctionID)
 }

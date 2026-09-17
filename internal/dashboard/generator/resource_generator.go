@@ -98,7 +98,7 @@ func GenerateResourcePageProposal(
 			Type:        spec.PageTypeResource,
 			ResourceKey: resourceKey,
 			Title:       title,
-			Category:    categoryForResource(resourceKey, locale, opts.Terms),
+			Category:    categoryForResource(resourceKey),
 			Navigation: &spec.NavigationSpec{
 				Title: title,
 			},

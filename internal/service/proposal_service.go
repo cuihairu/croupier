@@ -306,11 +306,9 @@ func (s *ProposalService) AcceptProposal(ctx context.Context, gameID, env, propo
 			CreatedAt:           now,
 			UpdatedAt:           now,
 		}
-		// SetTitle/SetCategoryLabels 恒返回 nil（model 层实现为
-		// `b, _ := json.Marshal(map[string]string)`，无出错路径；SetCategoryLabels
-		// 的注释已论证），原 err 检查为死分支，已删。
+		// SetTitle 恒返回 nil（model 层实现为 `b, _ := json.Marshal(
+		// map[string]string)`，无出错路径），原 err 检查为死分支，已删。
 		_ = draft.SetTitle(normalizeLocalizedText(pageSpec.Title))
-		_ = draft.SetCategoryLabels(normalizeLocalizedText(pageSpec.Category.Labels))
 		if err := pageModel.Upsert(txCtx, draft); err != nil {
 			return fmt.Errorf("create page draft from proposal: %w", err)
 		}
@@ -422,10 +420,8 @@ func (s *ProposalService) AcceptAndPublishProposal(ctx context.Context, gameID, 
 			CreatedAt:           now,
 			UpdatedAt:           now,
 		}
-		// 同 AcceptProposal：SetTitle/SetCategoryLabels 恒返回 nil，err 检查
-		// 为死分支，已删。
+		// 同 AcceptProposal：SetTitle 恒返回 nil，err 检查为死分支，已删。
 		_ = draft.SetTitle(normalizeLocalizedText(pageSpec.Title))
-		_ = draft.SetCategoryLabels(normalizeLocalizedText(pageSpec.Category.Labels))
 		if err := publishedModel.DeactivatePage(txCtx, gameID, env, pageSpec.PageKey, now); err != nil {
 			return err
 		}
@@ -832,9 +828,8 @@ func parseDraftPageSpec(item model.PageSpec) spec.PageSpec {
 		page.ResourceKey = item.ResourceKey
 		page.Title = item.GetTitle()
 		page.Category = spec.PageCategorySpec{
-			Key:    item.CategoryKey,
-			Labels: item.GetCategoryLabels(),
-			Order:  item.CategoryOrder,
+			Key:   item.CategoryKey,
+			Order: item.CategoryOrder,
 		}
 	}
 	return page
@@ -897,7 +892,6 @@ func pageSpecFromProposal(proposal *model.PageProposal) (spec.PageSpec, string, 
 	pageSpec.Title = normalizeLocalizedText(pageSpec.Title)
 	pageSpec.Description = normalizeLocalizedText(pageSpec.Description)
 	pageSpec.Category.Key = strings.TrimSpace(pageSpec.Category.Key)
-	pageSpec.Category.Labels = normalizeLocalizedText(pageSpec.Category.Labels)
 	for i := range pageSpec.Bindings {
 		pageSpec.Bindings[i].ID = strings.TrimSpace(pageSpec.Bindings[i].ID)
 		pageSpec.Bindings[i].FunctionID = strings.TrimSpace(pageSpec.Bindings[i].FunctionID)
@@ -932,9 +926,6 @@ func validateAcceptedPageSpec(gameID, env string, proposal *model.PageProposal, 
 	}
 	if strings.TrimSpace(page.Category.Key) == "" {
 		details["category.key"] = "category.key is required"
-	}
-	if !hasDefaultLocale(page.Category.Labels) {
-		details["category.labels"] = "category.labels must include a non-empty value in at least one locale"
 	}
 	if len(page.Bindings) == 0 {
 		details["bindings"] = "page must bind at least one function"
@@ -1033,9 +1024,6 @@ func (s *ProposalService) validateDirectPublishPageSpec(ctx context.Context, gam
 	for field, message := range CollectBindingSelectorIssues(functions, page) {
 		details[field] = message
 	}
-	if err := s.validateCategoryLabelConflict(ctx, gameID, env, page); err != nil {
-		return err
-	}
 	if len(details) > 0 {
 		return errorx.NewValidationErrorWithDetails("proposal PageSpec publish validation failed", details)
 	}
@@ -1048,39 +1036,6 @@ func (s *ProposalService) functionSpecsByID(ctx context.Context, gameID, env str
 		return nil, fmt.Errorf("list function contracts: %w", err)
 	}
 	return FunctionSpecsFromContracts(contracts), nil
-}
-
-func (s *ProposalService) validateCategoryLabelConflict(ctx context.Context, gameID, env string, page spec.PageSpec) error {
-	if s.publishedModel == nil {
-		return nil
-	}
-	categoryKey := strings.TrimSpace(page.Category.Key)
-	if categoryKey == "" {
-		return nil
-	}
-	published, err := s.publishedModel.ListLatestActiveByScope(ctx, gameID, env)
-	if err != nil {
-		return fmt.Errorf("list published pages: %w", err)
-	}
-	expected := normalizeLocalizedText(page.Category.Labels)
-	for _, item := range published {
-		if item.PageKey == page.PageKey {
-			continue
-		}
-		var publishedPage spec.PageSpec
-		if strings.TrimSpace(item.SpecJSON) != "" {
-			_ = json.Unmarshal([]byte(item.SpecJSON), &publishedPage)
-		}
-		if strings.TrimSpace(publishedPage.Category.Key) != categoryKey {
-			continue
-		}
-		if !localizedTextEqual(normalizeLocalizedText(publishedPage.Category.Labels), expected) {
-			return errorx.NewValidationErrorWithDetails("category labels conflict", map[string]string{
-				"category.labels": "category.labels must match existing published pages in the same category",
-			})
-		}
-	}
-	return nil
 }
 
 func isValidProposalPageType(pageType spec.PageType) bool {

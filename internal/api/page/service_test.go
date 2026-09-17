@@ -33,7 +33,7 @@ func TestServiceSaveDraftRequiresPageEditPermission(t *testing.T) {
 		Title:         map[string]string{"zh-CN": "玩家管理", "en-US": "Player Management"},
 		Category: spec.PageCategorySpec{
 			Key:    "player",
-			Labels: spec.LocalizedText{"zh-CN": "玩家", "en-US": "Player"},
+			,
 		},
 		Operation: testOperationPageSpec(),
 		Bindings:  testPageBindings(),
@@ -55,7 +55,7 @@ func TestServiceSaveDraftUsesContextActorAndWritesAudit(t *testing.T) {
 		Title:         map[string]string{"zh-CN": "玩家管理", "en-US": "Player Management"},
 		Category: spec.PageCategorySpec{
 			Key:    "player",
-			Labels: spec.LocalizedText{"zh-CN": "玩家", "en-US": "Player"},
+			,
 		},
 		Operation: testOperationPageSpec(),
 		Bindings:  testPageBindings(),
@@ -95,7 +95,7 @@ func TestServiceSaveDraftRejectsMissingCategoryKey(t *testing.T) {
 		ResourceKey:   "player",
 		Title:         map[string]string{"zh-CN": "玩家管理", "en-US": "玩家管理 en"},
 		Category: spec.PageCategorySpec{
-			Labels: spec.LocalizedText{"zh-CN": "玩家", "en-US": "玩家 en"},
+			,
 		},
 		Operation: testOperationPageSpec(),
 		Bindings:  testPageBindings(),
@@ -207,7 +207,7 @@ func TestServicePublishRejectsStaleDraftRevision(t *testing.T) {
 		Title:         map[string]string{"zh-CN": "玩家管理（已更新）", "en-US": "玩家管理（已更新） en"},
 		Category: spec.PageCategorySpec{
 			Key:    "player",
-			Labels: spec.LocalizedText{"zh-CN": "玩家", "en-US": "玩家 en"},
+			,
 		},
 		Operation: testOperationPageSpec(),
 		Bindings:  testPageBindings(),
@@ -243,7 +243,7 @@ func TestServiceRollbackRejectsStaleDraftRevision(t *testing.T) {
 		Title:         map[string]string{"zh-CN": "玩家管理（已更新）", "en-US": "玩家管理（已更新） en"},
 		Category: spec.PageCategorySpec{
 			Key:    "player",
-			Labels: spec.LocalizedText{"zh-CN": "玩家", "en-US": "玩家 en"},
+			,
 		},
 		Operation: testOperationPageSpec(),
 		Bindings:  testPageBindings(),
@@ -275,7 +275,7 @@ func TestServicePublishRejectsMissingBindingSelector(t *testing.T) {
 		Title:         map[string]string{"zh-CN": "玩家管理", "en-US": "Player Management"},
 		Category: spec.PageCategorySpec{
 			Key:    "player",
-			Labels: spec.LocalizedText{"zh-CN": "玩家", "en-US": "Player"},
+			,
 		},
 		Operation: testOperationPageSpec(),
 		Bindings:  testPageBindingsWithoutSelector(),
@@ -311,7 +311,7 @@ func TestServicePublishRejectsIncompleteBindingSelector(t *testing.T) {
 		Title:         map[string]string{"zh-CN": "玩家管理", "en-US": "Player Management"},
 		Category: spec.PageCategorySpec{
 			Key:    "player",
-			Labels: spec.LocalizedText{"zh-CN": "玩家", "en-US": "Player"},
+			,
 		},
 		Operation: testOperationPageSpec(),
 		Bindings:  bindings,
@@ -344,7 +344,7 @@ func TestServicePublishRejectsInvalidOutputSelector(t *testing.T) {
 		Title:         map[string]string{"zh-CN": "玩家管理", "en-US": "Player Management"},
 		Category: spec.PageCategorySpec{
 			Key:    "player",
-			Labels: spec.LocalizedText{"zh-CN": "玩家", "en-US": "Player"},
+			,
 		},
 		Operation: testOperationPageSpec(),
 		Bindings:  bindings,
@@ -371,7 +371,7 @@ func TestServicePublishRejectsMissingBindings(t *testing.T) {
 		Title:         map[string]string{"zh-CN": "玩家管理", "en-US": "Player Management"},
 		Category: spec.PageCategorySpec{
 			Key:    "player",
-			Labels: spec.LocalizedText{"zh-CN": "玩家", "en-US": "Player"},
+			,
 		},
 		Operation: testOperationPageSpec(),
 		Bindings:  nil,
@@ -452,7 +452,7 @@ func TestServicePublishRejectsCategoryLabelConflict(t *testing.T) {
 		Title:         map[string]string{"zh-CN": "玩家审计", "en-US": "玩家审计 en"},
 		Category: spec.PageCategorySpec{
 			Key:    "player",
-			Labels: spec.LocalizedText{"zh-CN": "玩家管理", "en-US": "玩家管理 en"},
+			,
 		},
 		Operation: testOperationPageSpec(),
 		Bindings:  testPageBindings(),
@@ -517,7 +517,7 @@ func TestServiceRegenerateDraftUsesLatestFunctionContractWithoutPublishing(t *te
 		Title:         map[string]string{"zh-CN": "旧查询页", "en-US": "旧查询页 en"},
 		Category: spec.PageCategorySpec{
 			Key:    "player",
-			Labels: spec.LocalizedText{"zh-CN": "玩家", "en-US": "玩家 en"},
+			,
 		},
 		Operation: testOperationPageSpec(),
 		Bindings:  testPageBindings(),
@@ -548,7 +548,7 @@ func TestServiceRegenerateDraftUsesLatestFunctionContractWithoutPublishing(t *te
 		Title:       spec.LocalizedText{"zh-CN": "Query", "en-US": "Query en"},
 		Category: spec.PageCategorySpec{
 			Key:    "player",
-			Labels: spec.LocalizedText{"zh-CN": "玩家", "en-US": "玩家 en"},
+			,
 		},
 		Operation: &spec.OperationPageSpec{
 			Form: spec.DefaultFormPresentation(spec.JSONSchema(`{"type":"object","properties":{"keyword":{"type":"string"},"server_id":{"type":"string","title":"区服"}}}`)),
@@ -711,7 +711,7 @@ func TestServiceKeepsSamePageKeyIsolatedByScope(t *testing.T) {
 		Title:         map[string]string{"zh-CN": "生产玩家管理", "en-US": "生产玩家管理 en"},
 		Category: spec.PageCategorySpec{
 			Key:    "player",
-			Labels: spec.LocalizedText{"zh-CN": "玩家", "en-US": "玩家 en"},
+			,
 		},
 		Operation: testOperationPageSpec(),
 		Bindings:  testPageBindings(),
@@ -799,7 +799,7 @@ func saveTestPageDraft(t *testing.T, service *Service, ctx context.Context) int 
 		Title:         map[string]string{"zh-CN": "玩家管理", "en-US": "Player Management"},
 		Category: spec.PageCategorySpec{
 			Key:    "player",
-			Labels: spec.LocalizedText{"zh-CN": "玩家", "en-US": "Player"},
+			,
 		},
 		Operation: testOperationPageSpec(),
 		Bindings:  testPageBindings(),

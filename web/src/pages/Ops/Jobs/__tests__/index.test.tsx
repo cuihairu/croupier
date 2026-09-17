@@ -598,4 +598,288 @@ describe('Ops/Jobs 任务监控页', () => {
     // 抽屉收起（jsdom 下 motion 不卸载 DOM，以 open class 消失为准）
     await waitFor(() => expect(document.querySelector('.ant-drawer-open')).toBeNull());
   });
+
+  it('加载失败兜底：非 Error 拒绝提示「操作失败」，空 message 提示「加载失败」', async () => {
+    listOpsTasks.mockRejectedValueOnce('backend gone' as never);
+    renderPage();
+    expect(await screen.findByText('操作失败')).toBeInTheDocument();
+
+    listOpsTasks.mockRejectedValueOnce(new Error(''));
+    fireEvent.click(screen.getByRole('button', { name: '刷新' }));
+    expect(await screen.findByText('加载失败')).toBeInTheDocument();
+  });
+
+  it('取消失败兜底：非 Error 拒绝提示「操作失败」，空 message 提示「取消失败」', async () => {
+    renderPage();
+    await awaitInitialLoad();
+
+    cancelTask.mockRejectedValueOnce('rpc gone' as never);
+    fireEvent.click(within(findRow('task-run-1')).getByRole('button', { name: '取消' }));
+    fireEvent.click(await screen.findByRole('button', { name: '取消任务' }));
+    expect(await screen.findByText('操作失败')).toBeInTheDocument();
+
+    cancelTask.mockRejectedValueOnce(new Error(''));
+    fireEvent.click(within(findRow('task-run-1')).getByRole('button', { name: '取消' }));
+    fireEvent.click(await screen.findByRole('button', { name: '取消任务' }));
+    expect(await screen.findByText('取消失败')).toBeInTheDocument();
+  });
+
+  it('刷新结果失败兜底：非 Error 拒绝提示「操作失败」，空 message 提示「查询失败」', async () => {
+    renderPage();
+    await awaitInitialLoad();
+    fireEvent.click(within(findRow('task-ok-2')).getByRole('button', { name: '查看详情' }));
+    const drawer = await drawerPanel();
+
+    fetchTaskResult.mockRejectedValueOnce('storage gone' as never);
+    fireEvent.click(within(drawer).getByRole('button', { name: '刷新结果' }));
+    expect(await screen.findByText('操作失败')).toBeInTheDocument();
+
+    fetchTaskResult.mockRejectedValueOnce(new Error(''));
+    fireEvent.click(within(drawer).getByRole('button', { name: '刷新结果' }));
+    expect(await screen.findByText('查询失败')).toBeInTheDocument();
+  });
+
+  it('手动连接后再切运行中任务详情：自动订阅前先关闭残留的旧订阅', async () => {
+    renderPage();
+    await awaitInitialLoad();
+
+    // 已结束任务：不自动订阅（effect 提前返回、无 cleanup），手动连接会写入 subRef
+    fireEvent.click(within(findRow('task-ok-2')).getByRole('button', { name: '查看详情' }));
+    const drawer = await drawerPanel();
+    fireEvent.click(within(drawer).getByRole('button', { name: '连接' }));
+    await waitFor(() => expect(subscribeTaskEvents).toHaveBeenCalledTimes(1));
+    const manualSub = subscribeTaskEvents.mock.results[0].value as { close: jest.Mock };
+    manualSub.close.mockClear();
+
+    // 切到运行中任务：自动订阅 effect 检测到 subRef 残留，先 close 再新建
+    fireEvent.click(within(findRow('task-run-1')).getByRole('button', { name: '查看详情' }));
+    await waitFor(() => expect(subscribeTaskEvents).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(manualSub.close).toHaveBeenCalled());
+  });
+
+  it('详情抽屉：actor 缺省时操作者显示「未知操作者」', async () => {
+    renderPage();
+    await awaitInitialLoad();
+    fireEvent.click(within(findRow('task-blank-6')).getByRole('button', { name: '查看详情' }));
+    const drawer = await drawerPanel();
+    expect(await within(drawer).findByText('未知操作者')).toBeInTheDocument();
+  });
+
+  it('手动连接的事件流：message 缺省走 payload、对象 JSON 序列化、字符串直通', async () => {
+    renderPage();
+    await awaitInitialLoad();
+    fireEvent.click(within(findRow('task-ok-2')).getByRole('button', { name: '查看详情' }));
+    const drawer = await drawerPanel();
+    fireEvent.click(within(drawer).getByRole('button', { name: '连接' }));
+    await waitFor(() => expect(subscribeTaskEvents).toHaveBeenCalledTimes(1));
+
+    const handlers = lastSubscriptionHandlers();
+    // message 为空 → body 取 payload；payload 为对象 → JSON.stringify
+    await act(async () => {
+      handlers.onEvent?.({
+        seq: 1,
+        type: 'log',
+        progress: 0,
+        message: '',
+        payload: { a: 1 },
+        createdAt: '',
+      });
+    });
+    expect(await within(drawer).findByText('log: {"a":1}')).toBeInTheDocument();
+
+    // message 非空：字符串直通（typeof string 分支）
+    await act(async () => {
+      handlers.onEvent?.({
+        seq: 2,
+        type: 'log',
+        progress: 0,
+        message: 'plain-text',
+        payload: null,
+        createdAt: '',
+      });
+    });
+    expect(await within(drawer).findByText('log: plain-text')).toBeInTheDocument();
+  });
+
+  it('自动订阅事件流：message 缺省走 payload、对象 payload JSON 序列化', async () => {
+    renderPage();
+    await awaitInitialLoad();
+    fireEvent.click(within(findRow('task-run-1')).getByRole('button', { name: '查看详情' }));
+    const drawer = await drawerPanel();
+    await waitFor(() => expect(subscribeTaskEvents).toHaveBeenCalledTimes(1));
+
+    const handlers = lastSubscriptionHandlers();
+    await act(async () => {
+      handlers.onEvent?.({
+        seq: 1,
+        type: 'log',
+        progress: 0,
+        message: '',
+        payload: { a: 1 },
+        createdAt: '',
+      });
+    });
+    expect(await within(drawer).findByText('log: {"a":1}')).toBeInTheDocument();
+  });
+
+  it('脏响应兜底：tasks/total/functions 字段缺失时回退空值不崩', async () => {
+    listOpsTasks.mockResolvedValueOnce({} as never);
+    listOpsFunctions.mockResolvedValueOnce({} as never);
+    renderPage();
+
+    // tasks 缺失 → rows []；total 缺失 → 回退当前页行数 0；函数下拉回退空 options
+    expect(await screen.findByText('任务 0')).toBeInTheDocument();
+    expect(screen.getByText('当前结果 0 个任务')).toBeInTheDocument();
+  });
+
+  it('下拉筛选点 clear：onChange(undefined) 回退空串并按无条件重拉', async () => {
+    renderPage();
+    await awaitInitialLoad();
+
+    const statusSelect = Array.from(document.querySelectorAll('.ant-select')).find(
+      (s) => s.querySelector('.ant-select-placeholder')?.textContent === '状态',
+    ) as HTMLElement;
+    const fnSelect = Array.from(document.querySelectorAll('.ant-select')).find(
+      (s) => s.querySelector('.ant-select-placeholder')?.textContent === '函数',
+    ) as HTMLElement;
+
+    // 状态：选中 → clear → 回到无条件请求
+    fireEvent.mouseDown(statusSelect);
+    fireEvent.click(
+      await waitFor(() => {
+        const dropdown = document.querySelector(
+          '.ant-select-dropdown:not(.ant-select-dropdown-hidden)',
+        );
+        const hit = Array.from(dropdown?.querySelectorAll('.ant-select-item-option') || []).find(
+          (o) => o.textContent === '已取消',
+        );
+        expect(hit).toBeTruthy();
+        return hit as HTMLElement;
+      }),
+    );
+    await waitFor(() =>
+      expect(listOpsTasks).toHaveBeenLastCalledWith(
+        expect.objectContaining({ status: 'canceled' }),
+      ),
+    );
+    fireEvent.mouseDown(statusSelect.querySelector('.ant-select-clear')!);
+    fireEvent.click(statusSelect.querySelector('.ant-select-clear')!);
+    await waitFor(() =>
+      expect(listOpsTasks).toHaveBeenLastCalledWith({ page: 1, size: 10 }),
+    );
+
+    // 函数：选中 → clear → 同样回到无条件请求
+    fireEvent.mouseDown(fnSelect);
+    fireEvent.click(
+      await waitFor(() => {
+        const dropdown = document.querySelector(
+          '.ant-select-dropdown:not(.ant-select-dropdown-hidden)',
+        );
+        const hit = Array.from(dropdown?.querySelectorAll('.ant-select-item-option') || []).find(
+          (o) => o.textContent === 'fn-alpha',
+        );
+        expect(hit).toBeTruthy();
+        return hit as HTMLElement;
+      }),
+    );
+    await waitFor(() =>
+      expect(listOpsTasks).toHaveBeenLastCalledWith(
+        expect.objectContaining({ functionId: 'fn-alpha' }),
+      ),
+    );
+    fireEvent.mouseDown(fnSelect.querySelector('.ant-select-clear')!);
+    fireEvent.click(fnSelect.querySelector('.ant-select-clear')!);
+    await waitFor(() =>
+      expect(listOpsTasks).toHaveBeenLastCalledWith({ page: 1, size: 10 }),
+    );
+  });
+
+  it('抽屉关闭后点击 header 残留的刷新结果：被 if (!detail) return 守卫拦截', async () => {
+    renderPage();
+    await awaitInitialLoad();
+    fireEvent.click(within(findRow('task-run-1')).getByRole('button', { name: '查看详情' }));
+    await drawerPanel();
+    await waitFor(() => expect(subscribeTaskEvents).toHaveBeenCalledTimes(1));
+
+    // 关闭抽屉：detail 置 null。extra 里的取消按钮随条件渲染消失、body 的事件流
+    // 卡片被销毁，仅 header 的「刷新结果」按钮残留（闭包 detail 已为 null）
+    fireEvent.click(document.querySelector('.ant-drawer-close')!);
+    await waitFor(() => expect(document.querySelector('.ant-drawer-open')).toBeNull());
+
+    const resultBefore = fetchTaskResult.mock.calls.length;
+    fireEvent.click(screen.getByRole('button', { name: '刷新结果', hidden: true }));
+    expect(fetchTaskResult.mock.calls.length).toBe(resultBefore);
+  });
+
+  it('订阅 close 抛错（自动订阅链）：切详情/自动订阅 onDone/cleanup 均吞错不崩', async () => {
+    subscribeTaskEvents.mockImplementation(() => ({
+      close: jest.fn(() => {
+        throw new Error('close broken');
+      }),
+    }));
+    renderPage();
+    await awaitInitialLoad();
+
+    // 已结束任务手动连接写入坏订阅，切运行中任务：effect 检测残留 close 抛错被吞后照常自动订阅
+    fireEvent.click(within(findRow('task-ok-2')).getByRole('button', { name: '查看详情' }));
+    const drawer = await drawerPanel();
+    fireEvent.click(within(drawer).getByRole('button', { name: '连接' }));
+    await waitFor(() => expect(subscribeTaskEvents).toHaveBeenCalledTimes(1));
+
+    fireEvent.click(within(findRow('task-run-1')).getByRole('button', { name: '查看详情' }));
+    await waitFor(() => expect(subscribeTaskEvents).toHaveBeenCalledTimes(2));
+
+    // 自动订阅 onDone：sub.close 抛错被吞，仍拉取结果并刷新列表
+    const callsBefore = listOpsTasks.mock.calls.length;
+    const handlers = lastSubscriptionHandlers();
+    await act(async () => {
+      await handlers.onDone?.();
+    });
+    await waitFor(() => expect(fetchTaskResult).toHaveBeenCalledWith('task-run-1'));
+    await waitFor(() => expect(listOpsTasks.mock.calls.length).toBeGreaterThan(callsBefore));
+
+    // 切回已结束任务：effect cleanup 的 close 抛错被吞，抽屉正常展示
+    fireEvent.click(within(findRow('task-ok-2')).getByRole('button', { name: '查看详情' }));
+    const drawer2 = await drawerPanel();
+    expect(await within(drawer2).findByText('task-ok-2')).toBeInTheDocument();
+  });
+
+  it('订阅 close 抛错（手动连接链）：重复连接/断开/onDone 全链吞错', async () => {
+    subscribeTaskEvents.mockImplementation(() => ({
+      close: jest.fn(() => {
+        throw new Error('close broken');
+      }),
+    }));
+    renderPage();
+    await awaitInitialLoad();
+    fireEvent.click(within(findRow('task-ok-2')).getByRole('button', { name: '查看详情' }));
+    const drawer = await drawerPanel();
+
+    // 连接后再次连接：旧订阅 close 抛错被吞后仍新建
+    fireEvent.click(within(drawer).getByRole('button', { name: '连接' }));
+    await waitFor(() => expect(subscribeTaskEvents).toHaveBeenCalledTimes(1));
+    fireEvent.click(within(drawer).getByRole('button', { name: '连接' }));
+    await waitFor(() => expect(subscribeTaskEvents).toHaveBeenCalledTimes(2));
+
+    // 断开：close 抛错被吞
+    fireEvent.click(within(drawer).getByRole('button', { name: '断开' }));
+
+    // 重新连接后 onDone：close 与拉结果双失败均吞，列表仍刷新
+    fireEvent.click(within(drawer).getByRole('button', { name: '连接' }));
+    await waitFor(() => expect(subscribeTaskEvents).toHaveBeenCalledTimes(3));
+    fetchTaskResult.mockRejectedValueOnce(new Error('result gone'));
+    const callsBefore = listOpsTasks.mock.calls.length;
+    const handlers = lastSubscriptionHandlers();
+    await act(async () => {
+      await handlers.onDone?.();
+    });
+    await waitFor(() => expect(listOpsTasks.mock.calls.length).toBeGreaterThan(callsBefore));
+  });
 });
+
+// 不可达分支说明（v8 coverage 恒 missed 的两处 `if (!detail) return` true 侧）：
+// - 抽屉内取消按钮（index.tsx ~594）：按钮仅在 detail?.state === 'running' 时渲染，
+//   detail 为 null 时条件渲染直接消失，DOM 存在则闭包 detail 必非空。
+// - 事件流「连接」按钮（index.tsx ~868）：位于 Drawer body 的 Card，抽屉关闭
+//   （detail=null）后 body 被销毁，无残留节点可点击。
+// 两者均为 TS 闭包窄化防御，jsdom 下无法构造点击时 detail 为 null 的状态。

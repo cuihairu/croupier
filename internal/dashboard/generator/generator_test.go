@@ -1209,8 +1209,7 @@ func TestTermDictionaryLocalization(t *testing.T) {
 			Enabled:    true,
 		}, GenerateOptions{DefaultLocale: "zh-CN", Terms: terms})
 		assert.Equal(t, "inventory", page.Category.Key)
-		assert.Equal(t, "道具", page.Category.Labels["zh-CN"])
-		assert.Equal(t, "Item", page.Category.Labels["en-US"])
+
 	})
 
 	t.Run("title falls back to operation term when summary missing", func(t *testing.T) {
@@ -1245,7 +1244,6 @@ func TestTermDictionaryLocalization(t *testing.T) {
 			Enabled:    true,
 		}, GenerateOptions{DefaultLocale: "zh-CN", Terms: terms})
 		assert.Equal(t, "unknown", page.Category.Key)
-		assert.Equal(t, "Unknown", page.Category.Labels["zh-CN"])
 	})
 }
 
@@ -1272,5 +1270,4 @@ func TestResourcePageProposalUsesResourceTerm(t *testing.T) {
 	require.True(t, ok)
 	assert.Equal(t, "道具", generated.Title["zh-CN"])
 	assert.Equal(t, "Item", generated.Title["en-US"])
-	assert.Equal(t, "道具", generated.Category.Labels["zh-CN"])
 }

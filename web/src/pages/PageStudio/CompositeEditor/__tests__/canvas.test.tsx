@@ -1,6 +1,6 @@
 import { render, screen, fireEvent } from '@testing-library/react';
 import { App } from 'antd';
-import { CanvasNode, ModalPlaceholder } from '../Canvas';
+import Canvas, { CanvasNode, ModalPlaceholder } from '../Canvas';
 import { resetRegistryForTest } from '../registry';
 import { registerBuiltinComponents } from '../components/builtin';
 import type { PageNode } from '../model';
@@ -166,5 +166,68 @@ describe('CanvasNode 右键菜单「保存为组件」（V1 发现性）', () =>
     fireEvent.contextMenu(screen.getByText('发邮件'));
     const item = await screen.findByText('保存为组件');
     expect(item.closest('.ant-dropdown-menu-item')).toHaveClass('ant-dropdown-menu-item-disabled');
+  });
+});
+
+describe('Canvas 空树根落区（RootDropZone）', () => {
+  const canvasProps = {
+    tree: [],
+    selectedId: null,
+    fnById: new Map(),
+    onSelect: () => undefined,
+    onDelete: () => undefined,
+    onDuplicate: () => undefined,
+    onSpanChange: () => undefined,
+    onEnterModal: () => undefined,
+    canvasWidthRef: { current: null },
+  };
+
+  it('空树渲染引导文案与「查看组合模板」链接；非空树渲染 children', () => {
+    const { rerender } = render(
+      <App>
+        <Canvas {...canvasProps} onShowTemplates={() => undefined}>
+          <div>node-content</div>
+        </Canvas>
+      </App>,
+    );
+    expect(screen.getByText('从左侧点击或拖入组件，开始搭建页面')).toBeInTheDocument();
+    expect(screen.getByText('查看组合模板')).toBeInTheDocument();
+    expect(screen.queryByText('node-content')).toBeNull();
+
+    // 非空树：渲染 children（SortableList 注入的根级节点）
+    rerender(
+      <App>
+        <Canvas {...canvasProps} tree={[modalNode]}>
+          <div>node-content</div>
+        </Canvas>
+      </App>,
+    );
+    expect(screen.getByText('node-content')).toBeInTheDocument();
+    expect(screen.queryByText('从左侧点击或拖入组件，开始搭建页面')).toBeNull();
+  });
+
+  it('未提供 onShowTemplates 时不渲染模板链接（弹窗级空态）', () => {
+    render(
+      <App>
+        <Canvas {...canvasProps}>
+          <div />
+        </Canvas>
+      </App>,
+    );
+    expect(screen.getByText('从左侧点击或拖入组件，开始搭建页面')).toBeInTheDocument();
+    expect(screen.queryByText('查看组合模板')).toBeNull();
+  });
+
+  it('「查看组合模板」点击触发回调', () => {
+    const onShow = jest.fn();
+    render(
+      <App>
+        <Canvas {...canvasProps} onShowTemplates={onShow}>
+          <div />
+        </Canvas>
+      </App>,
+    );
+    fireEvent.click(screen.getByText('查看组合模板'));
+    expect(onShow).toHaveBeenCalledTimes(1);
   });
 });

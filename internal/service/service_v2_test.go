@@ -496,7 +496,7 @@ func TestValidateAcceptedPageSpecV2(t *testing.T) {
 		PageKey:  "pk1",
 		Type:     spec.PageTypeResource,
 		Title:    spec.LocalizedText{"zh-CN": "标题"},
-		Category: spec.PageCategorySpec{Key: "cat", Labels: spec.LocalizedText{"zh-CN": "类别"}},
+		Category: spec.PageCategorySpec{Key: "cat"},
 		Resource: &spec.ResourcePageSpec{},
 		Bindings: []spec.PageFunctionBinding{{ID: "b1", FunctionID: "f1", Usage: spec.BindingUsageQuery, Execution: spec.PageBindingExecution{Mode: spec.PageExecutionModeSync}}},
 	}
@@ -532,10 +532,8 @@ func TestValidateAcceptedPageSpecV2(t *testing.T) {
 	page.Category.Key = "cat"
 
 	// Missing category labels
-	page.Category.Labels = nil
 	err = validateAcceptedPageSpec("g1", "dev", proposal, page)
 	assert.Error(t, err)
-	page.Category.Labels = spec.LocalizedText{"zh-CN": "类别"}
 
 	// Missing bindings
 	page.Bindings = nil

@@ -105,7 +105,6 @@ func TestAcceptAndPublish_CategoryLabelConflict(t *testing.T) {
 
 	// A second page in the same category with different labels conflicts.
 	conflicting, err := buildOperationProposal("cat--second", "player.query", func(p *spec.PageSpec) {
-		p.Category.Labels = spec.LocalizedText{"zh-CN": "玩家管理"}
 	})
 	require.NoError(t, err)
 	require.NoError(t, svc.proposalModel.UpsertProposal(ctx, conflicting))
@@ -115,7 +114,6 @@ func TestAcceptAndPublish_CategoryLabelConflict(t *testing.T) {
 
 	// Identical labels are accepted.
 	consistent, err := buildOperationProposal("cat--third", "player.query", func(p *spec.PageSpec) {
-		p.Category.Labels = spec.LocalizedText{"zh-CN": "玩家"}
 	})
 	require.NoError(t, err)
 	require.NoError(t, svc.proposalModel.UpsertProposal(ctx, consistent))

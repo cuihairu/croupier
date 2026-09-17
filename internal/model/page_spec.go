@@ -14,19 +14,18 @@ import (
 // indexed fields mirror immutable identifiers and list metadata; SpecJSON is
 // the single source for the full page DSL.
 type PageSpec struct {
-	ID                 uint           `gorm:"primarykey" json:"id"`
-	CreatedAt          time.Time      `json:"createdAt"`
-	UpdatedAt          time.Time      `json:"updatedAt"`
-	DeletedAt          gorm.DeletedAt `gorm:"index" json:"-"`
-	GameID             string         `gorm:"size:64;not null;default:'';uniqueIndex:uidx_page_specs_scope_key,priority:1;index:idx_page_specs_scope,priority:1" json:"gameId"`
-	Env                string         `gorm:"size:64;not null;default:'';uniqueIndex:uidx_page_specs_scope_key,priority:2;index:idx_page_specs_scope,priority:2" json:"env"`
-	PageKey            string         `gorm:"size:128;not null;uniqueIndex:uidx_page_specs_scope_key,priority:3" json:"pageKey"`
-	Type               string         `gorm:"size:32" json:"type"` // resource/operation/task/report
-	ResourceKey        string         `gorm:"size:128;index" json:"resourceKey,omitempty"`
-	TitleJSON          string         `gorm:"type:text" json:"-"`
-	CategoryKey        string         `gorm:"size:64;index" json:"categoryKey"`
-	CategoryLabelsJSON string         `gorm:"type:text" json:"-"`
-	CategoryOrder      int            `gorm:"default:0" json:"categoryOrder"`
+	ID            uint           `gorm:"primarykey" json:"id"`
+	CreatedAt     time.Time      `json:"createdAt"`
+	UpdatedAt     time.Time      `json:"updatedAt"`
+	DeletedAt     gorm.DeletedAt `gorm:"index" json:"-"`
+	GameID        string         `gorm:"size:64;not null;default:'';uniqueIndex:uidx_page_specs_scope_key,priority:1;index:idx_page_specs_scope,priority:1" json:"gameId"`
+	Env           string         `gorm:"size:64;not null;default:'';uniqueIndex:uidx_page_specs_scope_key,priority:2;index:idx_page_specs_scope,priority:2" json:"env"`
+	PageKey       string         `gorm:"size:128;not null;uniqueIndex:uidx_page_specs_scope_key,priority:3" json:"pageKey"`
+	Type          string         `gorm:"size:32" json:"type"` // resource/operation/task/report
+	ResourceKey   string         `gorm:"size:128;index" json:"resourceKey,omitempty"`
+	TitleJSON     string         `gorm:"type:text" json:"-"`
+	CategoryKey   string         `gorm:"size:64;index" json:"categoryKey"`
+	CategoryOrder int            `gorm:"default:0" json:"categoryOrder"`
 	// MenuID 关联 menu_items.id（同 game 库）；nil 表示未挂到任何菜单。
 	MenuID              *uint  `gorm:"index" json:"menuId,omitempty"`
 	Order               int    `gorm:"default:0" json:"order"`
@@ -60,24 +59,6 @@ func (p *PageSpec) GetTitle() map[string]string {
 func (p *PageSpec) SetTitle(title map[string]string) error {
 	b, _ := json.Marshal(title)
 	p.TitleJSON = string(b)
-	return nil
-}
-
-// GetCategoryLabels returns the parsed category labels.
-func (p *PageSpec) GetCategoryLabels() map[string]string {
-	var labels map[string]string
-	if p.CategoryLabelsJSON != "" {
-		_ = json.Unmarshal([]byte(p.CategoryLabelsJSON), &labels)
-	}
-	return labels
-}
-
-// SetCategoryLabels sets the category labels.
-// map[string]string 的 json.Marshal 恒成功、无出错路径；error 返回值仅为
-// 保持既有调用方签名兼容而保留，恒返回 nil。
-func (p *PageSpec) SetCategoryLabels(labels map[string]string) error {
-	b, _ := json.Marshal(labels)
-	p.CategoryLabelsJSON = string(b)
 	return nil
 }
 

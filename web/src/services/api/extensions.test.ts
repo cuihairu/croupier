@@ -87,6 +87,17 @@ describe('extension API adapters', () => {
     });
   });
 
+  it('getExtensionCatalogDetail 透传数组形态的 capabilities（Array.isArray true 侧）', async () => {
+    mockedRequest.mockResolvedValueOnce({ capabilities: ['http', 'cron'] });
+
+    await expect(api.getExtensionCatalogDetail('x')).resolves.toEqual({
+      item: undefined,
+      releases: [],
+      manifest: undefined,
+      capabilities: ['http', 'cron'],
+    });
+  });
+
   it('listExtensionCatalogReleases maps releases and totals', async () => {
     mockedRequest.mockResolvedValueOnce({ total: 2, releases: [{ version: 'v' }] });
 
@@ -249,6 +260,48 @@ describe('extension API adapters', () => {
     await api.getAgentSyncPayload('agent/1');
 
     expect(mockedRequest).toHaveBeenCalledWith('/api/v1/extensions/agents/agent%2F1/sync-payload');
+  });
+
+  it('响应整体为 undefined 时全部走兜底（可选链短路 / ||[] / ?? 默认）', async () => {
+    // 不设置 Once：沿用 beforeEach 的 mockResolvedValue(undefined)
+    await expect(api.listExtensionCatalog()).resolves.toEqual({ total: 0, items: [] });
+
+    await expect(api.getExtensionCatalogDetail('x')).resolves.toEqual({
+      item: undefined,
+      releases: [],
+      manifest: undefined,
+      capabilities: [],
+    });
+
+    await expect(api.listExtensionCatalogReleases('x')).resolves.toEqual({
+      total: 0,
+      releases: [],
+    });
+
+    await expect(api.listExtensionInstallations()).resolves.toEqual({ total: 0, items: [] });
+
+    await expect(
+      api.installExtension({
+        extensionId: 'grafana',
+        releaseVersion: '1.2.0',
+        scopeType: 'game',
+        scopeId: 'demo',
+        targetType: 'cluster',
+      }),
+    ).resolves.toEqual({ installationId: 0, status: '' });
+
+    await expect(api.getExtensionInstallationDetail(1)).resolves.toEqual({
+      installation: undefined,
+      configSchema: undefined,
+      config: {},
+      secretRefs: {},
+      bindings: [],
+      events: [],
+    });
+
+    await expect(api.listExtensionEvents(1)).resolves.toEqual({ total: 0, items: [] });
+
+    await expect(api.listExtensionPages('x')).resolves.toEqual({ items: [] });
   });
 
   it('listExtensionPages projects page descriptors', async () => {

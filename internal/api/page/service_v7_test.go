@@ -408,7 +408,7 @@ func TestMarshalPageSpec_V7(t *testing.T) {
 		Icon:        "  icon  ",
 		Title:       spec.LocalizedText{"zh-CN": "你好", "en-US": "你好 en"},
 		Description: spec.LocalizedText{"en-US": "Hello"},
-		Category:    spec.PageCategorySpec{Key: "  cat  ", Labels: spec.LocalizedText{"zh-CN": "分类", "en-US": "分类 en"}},
+		Category:    spec.PageCategorySpec{Key: "  cat  "},
 		Bindings: []spec.PageFunctionBinding{
 			{ID: "  b1  ", FunctionID: "  f1  "},
 		},

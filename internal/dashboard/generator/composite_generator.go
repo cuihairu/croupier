@@ -236,7 +236,7 @@ func GenerateCompositePage(
 			PageKey:    pageKey,
 			Type:       spec.PageTypeComposite,
 			Title:      title,
-			Category:   spec.PageCategorySpec{Key: "composite", Labels: spec.LocalizedText{locale: "组合"}},
+			Category:   spec.PageCategorySpec{Key: "composite"},
 			Navigation: &spec.NavigationSpec{Title: title},
 			Composite:  &spec.CompositePageSpec{Sections: sections},
 			Bindings:   bindings,

@@ -1042,9 +1042,10 @@ func generateMenuFromPages(pages []spec.PublishedPageSpec, lang string) spec.Con
 		}
 		if _, ok := categories[catKey]; !ok {
 			categories[catKey] = &categoryGroup{
-				key:    catKey,
-				labels: page.Category.Labels,
-				order:  page.Order,
+				key: catKey,
+				// 分类名称（labels）由菜单系统接管（T-M8）：页面规格不再
+				// 携带分类文案，菜单标题回落 key；前端以菜单 labels 覆盖。
+				order: page.Order,
 			}
 		}
 		if page.Order < categories[catKey].order {

@@ -83,7 +83,7 @@ func TestGenerateMenuFromPagesUsesLowestPublishedPageOrderForCategory(t *testing
 				Order:   100,
 				Category: spec.PageCategorySpec{
 					Key:    "late",
-					Labels: spec.LocalizedText{"zh-CN": "后分类"},
+					,
 					Order:  1,
 				},
 			},
@@ -95,7 +95,7 @@ func TestGenerateMenuFromPagesUsesLowestPublishedPageOrderForCategory(t *testing
 				Order:   10,
 				Category: spec.PageCategorySpec{
 					Key:    "early",
-					Labels: spec.LocalizedText{"zh-CN": "前分类"},
+					,
 					Order:  999,
 				},
 			},
@@ -610,7 +610,7 @@ func seedConsolePublishedPageForScope(svcCtx *svc.ServiceContext, ctx context.Co
 		Title:       spec.LocalizedText{"zh-CN": pageKey},
 		Category: spec.PageCategorySpec{
 			Key:    categoryKey,
-			Labels: spec.LocalizedText{"zh-CN": categoryTitle},
+			,
 		},
 		Order:     order,
 		Operation: testConsoleOperationPageSpec(),
@@ -693,7 +693,7 @@ func seedConsolePublishedPageWithSchemaAndSelector(svcCtx *svc.ServiceContext, c
 		Title:       spec.LocalizedText{"zh-CN": "玩家管理"},
 		Category: spec.PageCategorySpec{
 			Key:    "player",
-			Labels: spec.LocalizedText{"zh-CN": "玩家"},
+			,
 		},
 		Operation: testConsoleOperationPageSpec(),
 		Bindings: []spec.PageFunctionBinding{

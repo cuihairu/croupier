@@ -83,7 +83,7 @@ func newApprovalPageEnv(t *testing.T, mutate func(page *spec.PageSpec, contracts
 	page := spec.PageSpec{
 		PageKey: "player.manage", Type: spec.PageTypeResource,
 		Title:    spec.LocalizedText{"zh-CN": "玩家管理"},
-		Category: spec.PageCategorySpec{Key: "player", Labels: spec.LocalizedText{"zh-CN": "玩家"}},
+		Category: spec.PageCategorySpec{Key: "player"},
 		Resource: &spec.ResourcePageSpec{
 			ListView: &spec.ListViewSpec{
 				IdentityKey: "playerId",

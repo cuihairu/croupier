@@ -310,7 +310,7 @@ func TestApplyPageSpecToModelV5(t *testing.T) {
 		PageKey:     "test",
 		Type:        "resource",
 		ResourceKey: "player",
-		Category:    spec.PageCategorySpec{Key: "c", Labels: spec.LocalizedText{"zh-CN": "分类", "en-US": "分类 en"}},
+		Category:    spec.PageCategorySpec{Key: "c"},
 		Title:       spec.LocalizedText{"zh-CN": "测试", "en-US": "测试 en"},
 	})
 	require.NoError(t, err)
@@ -332,7 +332,7 @@ func TestMarshalPageSpecV5(t *testing.T) {
 		Description: spec.LocalizedText{"zh-CN": "  desc  "},
 		Category: spec.PageCategorySpec{
 			Key:    "  cat  ",
-			Labels: spec.LocalizedText{"zh-CN": "  labels  ", "en-US": "  labels   en"},
+			,
 		},
 		Bindings: []spec.PageFunctionBinding{
 			{ID: "  b1  ", FunctionID: "  f1  "},

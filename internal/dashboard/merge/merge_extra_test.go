@@ -644,12 +644,12 @@ func TestThreeWayMerge_CategoryFields(t *testing.T) {
 	base := spec.PageSpec{
 		PageKey:  "test",
 		Type:     spec.PageTypeOperation,
-		Category: spec.PageCategorySpec{Key: "admin", Labels: spec.LocalizedText{"zh-CN": "管理"}, Order: 1},
+		Category: spec.PageCategorySpec{Key: "admin", Order: 1},
 	}
 	draft := base
-	draft.Category = spec.PageCategorySpec{Key: "user", Labels: spec.LocalizedText{"zh-CN": "用户管理"}, Order: 1}
+	draft.Category = spec.PageCategorySpec{Key: "user", Order: 1}
 	latest := base
-	latest.Category = spec.PageCategorySpec{Key: "system", Labels: spec.LocalizedText{"zh-CN": "最新管理"}, Order: 2}
+	latest.Category = spec.PageCategorySpec{Key: "system", Order: 2}
 
 	result := ThreeWayMerge(base, draft, latest)
 

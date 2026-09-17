@@ -239,7 +239,7 @@ func seedConsoleApprovedPublishing(t *testing.T, svcCtx *svc.ServiceContext, ctx
 		Title:       spec.LocalizedText{"zh-CN": "玩家管理"},
 		Category: spec.PageCategorySpec{
 			Key:    "player",
-			Labels: spec.LocalizedText{"zh-CN": "玩家"},
+			,
 		},
 		Bindings: []spec.PageFunctionBinding{
 			{

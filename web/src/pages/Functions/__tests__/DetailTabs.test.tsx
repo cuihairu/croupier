@@ -103,4 +103,31 @@ describe('WarningsTab', () => {
     fireEvent.click(viewAll);
     expect(mockHistoryPush).toHaveBeenCalledWith('/functions/warnings?function_id=player%20ban');
   });
+
+  it('items 非数组脏值兜底空表；code/version 空列渲染 -', async () => {
+    mockWarnings.mockResolvedValue({ items: 'corrupt' } as unknown as Awaited<
+      ReturnType<typeof listFunctionWarnings>
+    >);
+    render(<WarningsTab functionId="player.ban" />);
+    await waitFor(() => expect(mockWarnings).toHaveBeenCalled());
+    expect(await screen.findAllByText(/No data|暂无数据/)).not.toHaveLength(0);
+
+    // 空告警代码/版本 → Tag 与文本列兜底 '-'
+    mockWarnings.mockResolvedValue({
+      items: [
+        {
+          key: 'w-2',
+          functionId: 'player.ban',
+          version: '',
+          code: '',
+          message: 'x',
+          count: 1,
+          lastSeen: '2026-09-14T10:00:00Z',
+        },
+      ],
+    });
+    render(<WarningsTab functionId="player.ban" />);
+    await waitFor(() => expect(mockWarnings).toHaveBeenCalledTimes(2));
+    expect(await screen.findAllByText('-')).not.toHaveLength(0);
+  });
 });

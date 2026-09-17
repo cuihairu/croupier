@@ -728,10 +728,11 @@ type CompositeToolbarAction struct {
 }
 
 // PageCategorySpec groups pages into navigation categories.
+// 分类名称（labels）已由菜单系统（menu_items.labels）接管（T-M8）：
+// key 仅作为已发布页面的分组/路由定位键保留。
 type PageCategorySpec struct {
-	Key    string        `json:"key"`
-	Labels LocalizedText `json:"labels"`
-	Order  int           `json:"order,omitempty"`
+	Key   string `json:"key"`
+	Order int    `json:"order,omitempty"`
 }
 
 // PageFunctionBinding ties a function to a stable runtime binding in a page.

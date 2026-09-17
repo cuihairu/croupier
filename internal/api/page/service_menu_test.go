@@ -122,7 +122,7 @@ func TestSaveDraftPreservesMenuAssociation(t *testing.T) {
 		Title:         map[string]string{"zh-CN": "玩家管理"},
 		Category: spec.PageCategorySpec{
 			Key:    "player",
-			Labels: spec.LocalizedText{"zh-CN": "玩家", "en-US": "Player"},
+			,
 		},
 		Operation: testOperationPageSpec(),
 		Bindings:  testPageBindings(),

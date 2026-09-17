@@ -882,7 +882,6 @@ func TestContractRelatedModels_ScopeLists(t *testing.T) {
 
 	pageSpec := &PageSpec{GameID: "demo", Env: "prod", PageKey: "player-page", Type: "resource", Status: "draft", DraftRevision: 1}
 	require.NoError(t, pageSpec.SetTitle(map[string]string{"zh-CN": "玩家"}))
-	require.NoError(t, pageSpec.SetCategoryLabels(map[string]string{"zh-CN": "玩家"}))
 	pageSpec.SetSpec([]byte(`{"pageKey":"player-page"}`))
 	require.NoError(t, psm.Upsert(ctx, pageSpec))
 

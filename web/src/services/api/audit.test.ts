@@ -70,4 +70,29 @@ describe('audit API adapter', () => {
 
     expect(res).toEqual({ events: [], total: 0, page: 1, pageSize: 5 });
   });
+
+  it('item 全字段缺失时空值兜底（normalizeAuditEvent 全部 ?? 右侧）', async () => {
+    mockedRequest.mockResolvedValue({ items: [{}] });
+
+    const res = await listAudit();
+
+    expect(res.events[0]).toEqual({
+      time: '',
+      kind: '',
+      actor: '',
+      target: '',
+      hash: '',
+      prev: '',
+      // metadata 与顶层字段均缺失：traceId/gameId/env/ua 等回退 undefined（键视同不存在）
+      meta: { ipRegion: '' },
+    });
+  });
+
+  it('response 缺分页字段时 pageSize 按 params.size 回退', async () => {
+    mockedRequest.mockResolvedValue({ items: [] });
+
+    const res = await listAudit({ size: 7 });
+
+    expect(res.pageSize).toBe(7);
+  });
 });

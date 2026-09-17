@@ -44,7 +44,7 @@ func TestAcceptAndPublish_ResourceQueryRequiresSelectors(t *testing.T) {
 		Type:        spec.PageTypeResource,
 		ResourceKey: "player",
 		Title:       spec.LocalizedText{"zh-CN": "玩家列表"},
-		Category:    spec.PageCategorySpec{Key: "player", Labels: spec.LocalizedText{"zh-CN": "玩家"}},
+		Category:    spec.PageCategorySpec{Key: "player"},
 		Resource:    &spec.ResourcePageSpec{},
 		Bindings: []spec.PageFunctionBinding{
 			{ID: "query", FunctionID: "player.query", Usage: spec.BindingUsageQuery,
@@ -100,7 +100,7 @@ func TestAcceptAndPublish_InvalidOutputAssignments(t *testing.T) {
 		Type:        spec.PageTypeResource,
 		ResourceKey: "player",
 		Title:       spec.LocalizedText{"zh-CN": "玩家列表"},
-		Category:    spec.PageCategorySpec{Key: "player", Labels: spec.LocalizedText{"zh-CN": "玩家"}},
+		Category:    spec.PageCategorySpec{Key: "player"},
 		Resource:    &spec.ResourcePageSpec{},
 		Bindings: []spec.PageFunctionBinding{
 			{

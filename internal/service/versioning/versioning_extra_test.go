@@ -23,7 +23,7 @@ func extraOperationPage(pageKey string) spec.PageSpec {
 		PageKey:  pageKey,
 		Type:     spec.PageTypeOperation,
 		Title:    spec.LocalizedText{"zh-CN": "标题A"},
-		Category: spec.PageCategorySpec{Key: "player", Labels: spec.LocalizedText{"zh-CN": "玩家"}},
+		Category: spec.PageCategorySpec{Key: "player"},
 		Bindings: []spec.PageFunctionBinding{{
 			ID:         "run",
 			FunctionID: "player.ban",

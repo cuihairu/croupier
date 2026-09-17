@@ -280,7 +280,7 @@ func seedConsolePublishedPageCustomV9(svcCtx *svc.ServiceContext, ctx context.Co
 		Title:       spec.LocalizedText{"zh-CN": "玩家管理"},
 		Category: spec.PageCategorySpec{
 			Key:    "player",
-			Labels: spec.LocalizedText{"zh-CN": "玩家"},
+			,
 		},
 		Bindings: bindings,
 	}
@@ -336,7 +336,7 @@ func seedConsoleTaskApprovalPublishingV9(t *testing.T, svcCtx *svc.ServiceContex
 		Title:       spec.LocalizedText{"zh-CN": "玩家管理"},
 		Category: spec.PageCategorySpec{
 			Key:    "player",
-			Labels: spec.LocalizedText{"zh-CN": "玩家"},
+			,
 		},
 		Bindings: []spec.PageFunctionBinding{
 			{

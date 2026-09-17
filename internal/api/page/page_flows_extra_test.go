@@ -85,7 +85,7 @@ func (e *pageFlowEnv) saveDraft(t *testing.T, pageKey string, revision int) int 
 		Title:         map[string]string{"zh-CN": "页面", "en-US": "页面 en"},
 		Category: spec.PageCategorySpec{
 			Key:    "player",
-			Labels: spec.LocalizedText{"zh-CN": "玩家", "en-US": "玩家 en"},
+			,
 		},
 		Operation: testOperationPageSpec(),
 		Bindings:  testPageBindings(),
@@ -135,7 +135,7 @@ func TestPageFlow_HandlerNotFoundAndValidation(t *testing.T) {
 			Type:          spec.PageTypeOperation,
 			ResourceKey:   "player",
 			Title:         map[string]string{"zh-CN": "页面", "en-US": "页面 en"},
-			Category:      spec.PageCategorySpec{Key: "player", Labels: spec.LocalizedText{"zh-CN": "玩家", "en-US": "玩家 en"}},
+			Category:      spec.PageCategorySpec{Key: "player"},
 			Operation:     testOperationPageSpec(),
 			Bindings:      testPageBindings(),
 		}
@@ -164,7 +164,6 @@ func TestPageFlow_HandlerNotFoundAndValidation(t *testing.T) {
 	req = base()
 	rev = resp.DraftRevision
 	req.DraftRevision = &rev
-	req.Category.Labels = spec.LocalizedText{"en-US": "english"}
 	_, err = env.service.SaveDraft(env.ctx, &req)
 	require.NoError(t, err)
 
@@ -234,7 +233,7 @@ func TestPageFlow_PreviewValidationFailure(t *testing.T) {
 		Type:          spec.PageTypeOperation,
 		ResourceKey:   "player",
 		Title:         map[string]string{"zh-CN": "预览", "en-US": "预览 en"},
-		Category:      spec.PageCategorySpec{Key: "player", Labels: spec.LocalizedText{"zh-CN": "玩家", "en-US": "玩家 en"}},
+		Category:      spec.PageCategorySpec{Key: "player"},
 		Operation:     testOperationPageSpec(),
 		Bindings: []spec.PageFunctionBinding{
 			{ID: "ghost", FunctionID: "ghost.function", Usage: spec.BindingUsageQuery},
@@ -319,7 +318,7 @@ func TestPageFlow_ListDraftsFilters(t *testing.T) {
 		Type:          spec.PageTypeOperation,
 		ResourceKey:   "order",
 		Title:         map[string]string{"zh-CN": "订单", "en-US": "订单 en"},
-		Category:      spec.PageCategorySpec{Key: "order", Labels: spec.LocalizedText{"zh-CN": "订单", "en-US": "订单 en"}},
+		Category:      spec.PageCategorySpec{Key: "order"},
 		Operation:     testOperationPageSpec(),
 		Bindings:      testPageBindings(),
 	})

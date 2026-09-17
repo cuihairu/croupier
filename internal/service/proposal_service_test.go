@@ -142,7 +142,7 @@ func TestProposalService_AcceptAndPublishFreezesBindingContractSnapshot(t *testi
 		Type:    spec.PageTypeOperation,
 		Title:   spec.LocalizedText{"zh-CN": "发送邮件"},
 		Category: spec.PageCategorySpec{
-			Key: "mail", Labels: spec.LocalizedText{"zh-CN": "邮件"},
+			Key: "mail",
 		},
 		Operation: &spec.OperationPageSpec{Form: &spec.FormPresentationSpec{JSONSchema: spec.JSONSchema(`{"type":"object"}`)}},
 		Bindings: []spec.PageFunctionBinding{{
@@ -351,7 +351,7 @@ func testProposalPageSpec(pageKey string) spec.PageSpec {
 		Title:       spec.LocalizedText{"zh-CN": "玩家管理"},
 		Category: spec.PageCategorySpec{
 			Key:    "player",
-			Labels: spec.LocalizedText{"zh-CN": "玩家"},
+			,
 		},
 		Operation: &spec.OperationPageSpec{
 			Form: &spec.FormPresentationSpec{

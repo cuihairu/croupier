@@ -4,10 +4,10 @@ import { deleteAlertSilence, listAlertSilences, listAlerts, silenceAlert } from 
 jest.mock('@umijs/max', () => ({ request: jest.fn() }));
 
 const mockedRequest = request as jest.MockedFunction<typeof request>;
-// tests/setupTests.jsx 把 window/global.localStorage 换成了 jest.fn() mock
-const mockedGetItem = jest.mocked(localStorage.getItem);
 
-// 表格驱动：[名称, 调用, 期望 URL, 期望 options（不含 Authorization）]
+// Authorization 由 requestErrorConfig 的请求拦截器统一注入
+// （含无 token 时的省略），适配层只负责 URL/method/参数形状。
+// 表格驱动：[名称, 调用, 期望 URL, 期望 options]
 type Case = {
   name: string;
   call: () => Promise<unknown>;
@@ -60,36 +60,18 @@ const cases: Case[] = [
 describe('alerts API adapters', () => {
   beforeEach(() => {
     mockedRequest.mockReset().mockResolvedValue(undefined);
-    mockedGetItem.mockReset().mockReturnValue('tok-abc');
   });
 
-  it.each(cases)(
-    '$name attaches the bearer token from localStorage',
-    async ({ call, url, options }) => {
-      await call();
+  it.each(cases)('$name hits the right URL, method and payload', async ({ call, url, options }) => {
+    await call();
 
-      expect(mockedRequest).toHaveBeenCalledTimes(1);
-      const [calledUrl, calledOptions] = mockedRequest.mock.calls[0];
-      expect(calledUrl).toBe(url);
-      expect(calledOptions).toEqual({
-        ...options,
-        headers: { Authorization: 'Bearer tok-abc' },
-      });
-    },
-  );
-
-  it.each(cases)(
-    '$name omits the Authorization header without a stored token',
-    async ({ call, url, options }) => {
-      mockedGetItem.mockReturnValue(null);
-
-      await call();
-
-      const [calledUrl, calledOptions] = mockedRequest.mock.calls[0];
-      expect(calledUrl).toBe(url);
-      expect(calledOptions).toEqual({ ...options, headers: undefined });
-    },
-  );
+    expect(mockedRequest).toHaveBeenCalledTimes(1);
+    const [calledUrl, calledOptions] = mockedRequest.mock.calls[0];
+    expect(calledUrl).toBe(url);
+    expect(calledOptions).toEqual(options);
+    // Authorization 由 requestErrorConfig 拦截器统一注入，适配层不携带 headers
+    expect(calledOptions).not.toHaveProperty('headers');
+  });
 
   it('returns the alerts list response untouched', async () => {
     mockedRequest.mockResolvedValue({
@@ -113,8 +95,5 @@ describe('alerts API adapters', () => {
 
     expect(resp.total).toBe(1);
     expect(resp.items[0].id).toBe('al-1');
-    // jsdom 下 window 恒定义，SSR 防御分支（typeof window === 'undefined' → ''）
-    // 在测试环境不可达，此处断言 token 路径已生效
-    expect(mockedGetItem).toHaveBeenCalledWith('token');
   });
 });

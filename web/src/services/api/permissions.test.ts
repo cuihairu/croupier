@@ -115,24 +115,26 @@ const cases: Case[] = [
 describe('permissions & role/admin API adapters', () => {
   beforeEach(() => {
     mockedRequest.mockReset().mockResolvedValue(undefined);
-    (localStorage.getItem as unknown as jest.Mock).mockReturnValue('tok-abc');
   });
 
+  // Authorization 由 requestErrorConfig 的请求拦截器统一注入（含无 token 时的
+  // 省略），适配层只负责 URL/method/参数形状——不再手写 token/headers。
   it.each(cases)('$name hits the right URL, method and payload', async ({ call, url, options }) => {
     await call();
     expect(mockedRequest).toHaveBeenCalledTimes(1);
     const [calledUrl, calledOptions] = mockedRequest.mock.calls[0];
     expect(calledUrl).toBe(url);
-    expect(calledOptions).toEqual({ ...options, headers: { Authorization: 'Bearer tok-abc' } });
+    expect(calledOptions).toEqual(options);
+    expect(calledOptions).not.toHaveProperty('headers');
   });
 
-  it('omits the Authorization header when no token is stored', async () => {
-    (localStorage.getItem as unknown as jest.Mock).mockReturnValue(null);
-
+  it('适配层不注入 Authorization/headers 键（拦截器职责）', async () => {
     await api.listPermissions();
+    await api.deleteAdmin(7);
 
-    const [, options] = mockedRequest.mock.calls[0];
-    expect(options.headers).toBeUndefined();
+    for (const call of mockedRequest.mock.calls) {
+      expect(call[1]).not.toHaveProperty('headers');
+    }
   });
 
   it('passes scope filters to the profile permissions and check endpoints', async () => {

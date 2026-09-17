@@ -12,15 +12,15 @@ import {
 jest.mock('@umijs/max', () => ({ request: jest.fn() }));
 
 const mockedRequest = request as jest.MockedFunction<typeof request>;
-const mockedGetItem = localStorage.getItem as unknown as jest.Mock;
 
+// Authorization 由 requestErrorConfig 的请求拦截器统一注入
+// （含无 token 时的省略），适配层只负责 URL/method/参数形状。
 describe('nodes API adapters', () => {
   beforeEach(() => {
     mockedRequest.mockReset();
-    mockedGetItem.mockReset().mockReturnValue('tok-nodes');
   });
 
-  it('lists nodes with filter params and bearer token', async () => {
+  it('lists nodes with filter params', async () => {
     mockedRequest.mockResolvedValue({ items: [] });
 
     await listNodes({ type: 'agent', status: 'online' });
@@ -28,7 +28,6 @@ describe('nodes API adapters', () => {
     expect(mockedRequest).toHaveBeenCalledWith('/api/v1/nodes', {
       method: 'GET',
       params: { type: 'agent', status: 'online' },
-      headers: { Authorization: 'Bearer tok-nodes' },
     });
   });
 
@@ -40,20 +39,6 @@ describe('nodes API adapters', () => {
     expect(mockedRequest).toHaveBeenCalledWith('/api/v1/nodes', {
       method: 'GET',
       params: undefined,
-      headers: { Authorization: 'Bearer tok-nodes' },
-    });
-  });
-
-  it('omits the Authorization header when no token is stored', async () => {
-    mockedGetItem.mockReturnValue(undefined);
-    mockedRequest.mockResolvedValue({ items: [] });
-
-    await listNodes();
-
-    expect(mockedRequest).toHaveBeenCalledWith('/api/v1/nodes', {
-      method: 'GET',
-      params: undefined,
-      headers: undefined,
     });
   });
 
@@ -64,7 +49,6 @@ describe('nodes API adapters', () => {
 
     expect(mockedRequest).toHaveBeenCalledWith('/api/v1/nodes/node-1/meta', {
       method: 'GET',
-      headers: { Authorization: 'Bearer tok-nodes' },
     });
   });
 
@@ -76,7 +60,6 @@ describe('nodes API adapters', () => {
     expect(mockedRequest).toHaveBeenCalledWith('/api/v1/nodes/node-1/meta', {
       method: 'PUT',
       data: { meta: { zone: 'z-a' } },
-      headers: { Authorization: 'Bearer tok-nodes' },
     });
   });
 
@@ -88,7 +71,6 @@ describe('nodes API adapters', () => {
     expect(mockedRequest).toHaveBeenCalledWith('/api/v1/nodes/node-1/drain', {
       method: 'POST',
       data: { timeout: 30 },
-      headers: { Authorization: 'Bearer tok-nodes' },
     });
   });
 
@@ -100,7 +82,6 @@ describe('nodes API adapters', () => {
     expect(mockedRequest).toHaveBeenCalledWith('/api/v1/nodes/node-1/drain', {
       method: 'POST',
       data: { timeout: undefined },
-      headers: { Authorization: 'Bearer tok-nodes' },
     });
   });
 
@@ -111,7 +92,6 @@ describe('nodes API adapters', () => {
 
     expect(mockedRequest).toHaveBeenCalledWith('/api/v1/nodes/node-1/undrain', {
       method: 'POST',
-      headers: { Authorization: 'Bearer tok-nodes' },
     });
   });
 
@@ -122,19 +102,6 @@ describe('nodes API adapters', () => {
 
     expect(mockedRequest).toHaveBeenCalledWith('/api/v1/nodes/node-1/restart', {
       method: 'POST',
-      headers: { Authorization: 'Bearer tok-nodes' },
-    });
-  });
-
-  it('drops the header for mutations too when token is absent', async () => {
-    mockedGetItem.mockReturnValue(undefined);
-    mockedRequest.mockResolvedValue(undefined);
-
-    await restartNode('node-2');
-
-    expect(mockedRequest).toHaveBeenCalledWith('/api/v1/nodes/node-2/restart', {
-      method: 'POST',
-      headers: undefined,
     });
   });
 
@@ -144,12 +111,17 @@ describe('nodes API adapters', () => {
 
     expect(mockedRequest).toHaveBeenCalledWith('/api/v1/nodes/commands', {
       method: 'GET',
-      headers: { Authorization: 'Bearer tok-nodes' },
     });
   });
 
-  // 不可达分支说明：每个函数内 `typeof window !== 'undefined' ? ... : ''` 的
-  // false 路径是 SSR 防御守卫。jsdom 环境中 globalThis.window 为
-  // non-configurable（Object.defineProperty 重定义抛 "Cannot redefine
-  // property: window"），无法在单测中置为 undefined，故该分支不可达。
+  it('适配层不注入 Authorization/headers 键（拦截器职责）', async () => {
+    mockedRequest.mockResolvedValue(undefined);
+
+    await listNodes();
+    await restartNode('node-2');
+
+    for (const call of mockedRequest.mock.calls) {
+      expect(call[1]).not.toHaveProperty('headers');
+    }
+  });
 });

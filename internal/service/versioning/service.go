@@ -871,8 +871,6 @@ func applyAutoMergeItem(page *spec.PageSpec, item dashboardmerge.MergeItem) erro
 		return decodeMergeValue(item, &page.Icon)
 	case "order":
 		return decodeMergeValue(item, &page.Order)
-	case "category.labels":
-		return decodeMergeValue(item, &page.Category.Labels)
 	case "category.order":
 		return decodeMergeValue(item, &page.Category.Order)
 	case "navigation.title":
@@ -2067,12 +2065,11 @@ func applyPageSpecToModel(page *model.PageSpec, pageSpec spec.PageSpec) error {
 	page.CategoryOrder = pageSpec.Category.Order
 	page.Order = pageSpec.Order
 	page.Icon = pageSpec.Icon
-	// SetTitle/SetCategoryLabels 恒返回 nil（model 层实现为
-	// `b, _ := json.Marshal(map[string]string)`，无出错路径），原 err 检查
-	// 为死分支，已删。下方 marshalPageSpec 的 err 真实可达（手工构造的非法
-	// JSONSchema，见 TestV9_ApplyPageSpecToModel_Error），保留。
+	// SetTitle 恒返回 nil（model 层实现为 `b, _ := json.Marshal(
+	// map[string]string)`，无出错路径），原 err 检查为死分支，已删。下方
+	// marshalPageSpec 的 err 真实可达（手工构造的非法 JSONSchema，见
+	// TestV9_ApplyPageSpecToModel_Error），保留。
 	_ = page.SetTitle(pageSpec.Title)
-	_ = page.SetCategoryLabels(pageSpec.Category.Labels)
 	specJSON, err := marshalPageSpec(pageSpec)
 	if err != nil {
 		return err
@@ -2088,7 +2085,6 @@ func normalizePageSpec(page spec.PageSpec) spec.PageSpec {
 	page.Title = normalizeLocalizedText(page.Title)
 	page.Description = normalizeLocalizedText(page.Description)
 	page.Category.Key = strings.TrimSpace(page.Category.Key)
-	page.Category.Labels = normalizeLocalizedText(page.Category.Labels)
 	for i := range page.Bindings {
 		page.Bindings[i].ID = strings.TrimSpace(page.Bindings[i].ID)
 		page.Bindings[i].FunctionID = strings.TrimSpace(page.Bindings[i].FunctionID)

@@ -88,7 +88,7 @@ func TestFinalSaveDraft_InvalidSchemaMarshal(t *testing.T) {
 		DraftRevision: &rev,
 		Type:          spec.PageTypeResource,
 		Title:         map[string]string{"zh-CN": "页面", "en-US": "页面 en"},
-		Category:      spec.PageCategorySpec{Key: "player", Labels: spec.LocalizedText{"zh-CN": "玩家", "en-US": "玩家 en"}},
+		Category:      spec.PageCategorySpec{Key: "player"},
 		Resource: &spec.ResourcePageSpec{
 			ListView: &spec.ListViewSpec{RowSchema: spec.JSONSchema("{invalid")},
 		},
@@ -108,7 +108,7 @@ func TestFinalSaveDraft_UpsertError(t *testing.T) {
 		DraftRevision: &rev,
 		Type:          spec.PageTypeOperation,
 		Title:         map[string]string{"zh-CN": "页面", "en-US": "页面 en"},
-		Category:      spec.PageCategorySpec{Key: "player", Labels: spec.LocalizedText{"zh-CN": "玩家", "en-US": "玩家 en"}},
+		Category:      spec.PageCategorySpec{Key: "player"},
 		Operation:     testOperationPageSpec(),
 		Bindings:      testPageBindings(),
 	})
@@ -246,7 +246,7 @@ func TestFinalPublish_DeactivateFailure(t *testing.T) {
 		DraftRevision: &rev2,
 		Type:          spec.PageTypeOperation,
 		Title:         map[string]string{"zh-CN": "页面", "en-US": "页面 en"},
-		Category:      spec.PageCategorySpec{Key: "player", Labels: spec.LocalizedText{"zh-CN": "玩家", "en-US": "玩家 en"}},
+		Category:      spec.PageCategorySpec{Key: "player"},
 		Operation:     testOperationPageSpec(),
 		Bindings:      testPageBindings(),
 	})
@@ -347,7 +347,7 @@ func TestFinalApplyPageSpecToModel_MarshalError(t *testing.T) {
 		PageKey:  "k",
 		Type:     spec.PageTypeResource,
 		Title:    spec.LocalizedText{"zh-CN": "标题", "en-US": "标题 en"},
-		Category: spec.PageCategorySpec{Key: "player", Labels: spec.LocalizedText{"zh-CN": "玩家", "en-US": "玩家 en"}},
+		Category: spec.PageCategorySpec{Key: "player"},
 		Resource: &spec.ResourcePageSpec{
 			ListView: &spec.ListViewSpec{RowSchema: spec.JSONSchema("{invalid")},
 		},

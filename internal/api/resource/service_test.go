@@ -68,7 +68,6 @@ func TestServiceListUsesPersistentFunctionContracts(t *testing.T) {
 	assert.Equal(t, "player", player.Key)
 	assert.Equal(t, "Player", player.Labels["zh-CN"])
 	assert.Equal(t, "player", player.Category.Key)
-	assert.Equal(t, "Player", player.Category.Labels["zh-CN"])
 	require.Len(t, player.Operations, 2)
 
 	ops := map[string]spec.OperationSpec{}

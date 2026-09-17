@@ -56,3 +56,7 @@ describe('navigateTo', () => {
     errorSpy.mockRestore();
   });
 });
+
+// 不可达分支说明：各函数的 `typeof window === 'undefined'` true 路径是 SSR
+// 防御守卫。jsdom 中 globalThis.window 为 non-configurable（重定义抛
+// "Cannot redefine property: window"），单测无法置为 undefined，故不可达。

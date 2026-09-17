@@ -48,7 +48,7 @@ func TestGapfixSaveDraft_CurrentUsernameError(t *testing.T) {
 		DraftRevision: &rev,
 		Type:          spec.PageTypeOperation,
 		Title:         map[string]string{"zh-CN": "页面", "en-US": "页面 en"},
-		Category:      spec.PageCategorySpec{Key: "player", Labels: spec.LocalizedText{"zh-CN": "玩家", "en-US": "玩家 en"}},
+		Category:      spec.PageCategorySpec{Key: "player"},
 		Operation:     testOperationPageSpec(),
 		Bindings:      testPageBindings(),
 	})

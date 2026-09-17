@@ -64,9 +64,6 @@ func createVersioningTestPage(db *gorm.DB, gameID, env string, page spec.PageSpe
 	if err := modelPage.SetTitle(page.Title); err != nil {
 		return err
 	}
-	if err := modelPage.SetCategoryLabels(page.Category.Labels); err != nil {
-		return err
-	}
 	return model.NewPageSpecModel(db).Upsert(context.Background(), modelPage)
 }
 
@@ -181,7 +178,7 @@ func TestVersioningService_GetChangeChain(t *testing.T) {
 		Type:        spec.PageTypeResource,
 		ResourceKey: "player",
 		Title:       spec.LocalizedText{"zh-CN": "Player"},
-		Category:    spec.PageCategorySpec{Key: "player", Labels: spec.LocalizedText{"zh-CN": "Player"}},
+		Category:    spec.PageCategorySpec{Key: "player"},
 		Bindings: []spec.PageFunctionBinding{{
 			ID:         "query",
 			FunctionID: "player.list",
@@ -222,7 +219,7 @@ func TestVersioningService_Diff(t *testing.T) {
 		Type:        spec.PageTypeResource,
 		ResourceKey: "player",
 		Title:       spec.LocalizedText{"zh-CN": "Player"},
-		Category:    spec.PageCategorySpec{Key: "player", Labels: spec.LocalizedText{"zh-CN": "Player"}},
+		Category:    spec.PageCategorySpec{Key: "player"},
 	}))
 
 	// Get diff
@@ -281,7 +278,7 @@ func TestVersioningService_MergeManualRequiresExactConflictResolutions(t *testin
 		PageKey:  "operation--player.ban",
 		Type:     spec.PageTypeOperation,
 		Title:    spec.LocalizedText{"zh-CN": "封禁玩家"},
-		Category: spec.PageCategorySpec{Key: "player", Labels: spec.LocalizedText{"zh-CN": "玩家"}},
+		Category: spec.PageCategorySpec{Key: "player"},
 		Bindings: []spec.PageFunctionBinding{{
 			ID:         "run",
 			FunctionID: "player.ban",
@@ -346,7 +343,7 @@ func TestVersioningService_MergeManualDryRunReturnsPreview(t *testing.T) {
 		PageKey:  "operation--player.ban",
 		Type:     spec.PageTypeOperation,
 		Title:    spec.LocalizedText{"zh-CN": "封禁玩家"},
-		Category: spec.PageCategorySpec{Key: "player", Labels: spec.LocalizedText{"zh-CN": "玩家"}},
+		Category: spec.PageCategorySpec{Key: "player"},
 		Bindings: []spec.PageFunctionBinding{{
 			ID:         "run",
 			FunctionID: "player.ban",
@@ -419,7 +416,7 @@ func TestVersioningService_MergeManualAppliesAutoAndConflictResolutions(t *testi
 		PageKey:  "operation--player.ban",
 		Type:     spec.PageTypeOperation,
 		Title:    spec.LocalizedText{"zh-CN": "封禁玩家"},
-		Category: spec.PageCategorySpec{Key: "player", Labels: spec.LocalizedText{"zh-CN": "玩家"}},
+		Category: spec.PageCategorySpec{Key: "player"},
 		Bindings: []spec.PageFunctionBinding{{
 			ID:         "run",
 			FunctionID: "player.ban",
@@ -508,7 +505,7 @@ func TestVersioningService_RollbackDraftRejectsStaleRevision(t *testing.T) {
 		Type:        spec.PageTypeResource,
 		ResourceKey: "player",
 		Title:       spec.LocalizedText{"zh-CN": "玩家"},
-		Category:    spec.PageCategorySpec{Key: "player", Labels: spec.LocalizedText{"zh-CN": "玩家"}},
+		Category:    spec.PageCategorySpec{Key: "player"},
 	}
 	restored := page
 	restored.Title = spec.LocalizedText{"zh-CN": "旧版玩家"}
@@ -541,7 +538,7 @@ func TestVersioningService_RollbackPublishRejectsStaleRevision(t *testing.T) {
 		Type:        spec.PageTypeResource,
 		ResourceKey: "player",
 		Title:       spec.LocalizedText{"zh-CN": "玩家"},
-		Category:    spec.PageCategorySpec{Key: "player", Labels: spec.LocalizedText{"zh-CN": "玩家"}},
+		Category:    spec.PageCategorySpec{Key: "player"},
 	}
 	published := page
 	published.Title = spec.LocalizedText{"zh-CN": "已发布旧版玩家"}
@@ -586,7 +583,7 @@ func TestVersioningService_MergeRejectsStaleRevision(t *testing.T) {
 		PageKey:  "operation--player.ban",
 		Type:     spec.PageTypeOperation,
 		Title:    spec.LocalizedText{"zh-CN": "封禁玩家"},
-		Category: spec.PageCategorySpec{Key: "player", Labels: spec.LocalizedText{"zh-CN": "玩家"}},
+		Category: spec.PageCategorySpec{Key: "player"},
 		Bindings: []spec.PageFunctionBinding{{
 			ID: "run", FunctionID: "player.ban", Usage: spec.BindingUsageAction,
 			Execution: spec.PageBindingExecution{Mode: spec.PageExecutionModeSync},
@@ -640,7 +637,7 @@ func TestVersioningService_RegenerateProposal(t *testing.T) {
 		Type:        spec.PageTypeResource,
 		ResourceKey: "player",
 		Title:       spec.LocalizedText{"zh-CN": "Player"},
-		Category:    spec.PageCategorySpec{Key: "player", Labels: spec.LocalizedText{"zh-CN": "Player"}},
+		Category:    spec.PageCategorySpec{Key: "player"},
 		Bindings: []spec.PageFunctionBinding{{
 			ID:         "query",
 			FunctionID: "player.list",
@@ -837,7 +834,7 @@ func TestVersioningService_MergeApplyAutoMergeErrorViaSeam(t *testing.T) {
 		PageKey:  "operation--player.ban",
 		Type:     spec.PageTypeOperation,
 		Title:    spec.LocalizedText{"zh-CN": "封禁玩家"},
-		Category: spec.PageCategorySpec{Key: "player", Labels: spec.LocalizedText{"zh-CN": "玩家"}},
+		Category: spec.PageCategorySpec{Key: "player"},
 		Bindings: []spec.PageFunctionBinding{{
 			ID:         "run",
 			FunctionID: "player.ban",

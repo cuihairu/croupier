@@ -45,21 +45,17 @@ export async function listPermissions(params?: {
   pageSize?: number;
   resource?: string;
 }) {
-  const token = typeof window !== 'undefined' ? localStorage.getItem('token') : '';
   return request<{ items: PermissionRecord[]; total: number; page: number; pageSize: number }>(
     '/api/v1/permissions',
     {
       params,
-      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
     },
   );
 }
 
 export async function getPermission(id: string) {
-  const token = typeof window !== 'undefined' ? localStorage.getItem('token') : '';
   return request<PermissionRecord>(`/api/v1/permissions/${id}`, {
     method: 'GET',
-    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
   });
 }
 
@@ -92,12 +88,10 @@ export async function listAdmins(params?: {
   role?: string;
   status?: number;
 }) {
-  const token = typeof window !== 'undefined' ? localStorage.getItem('token') : '';
   return request<{ items: AdminRecord[]; total: number; page: number; pageSize: number }>(
     '/api/v1/admin',
     {
       params,
-      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
     },
   );
 }
@@ -110,19 +104,15 @@ export async function createAdmin(body: {
   phone?: string;
   roles: string[];
 }) {
-  const token = typeof window !== 'undefined' ? localStorage.getItem('token') : '';
   return request<AdminRecord>('/api/v1/admin', {
     method: 'POST',
     data: body,
-    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
   });
 }
 
 export async function getAdmin(id: number) {
-  const token = typeof window !== 'undefined' ? localStorage.getItem('token') : '';
   return request<AdminRecord>(`/api/v1/admin/${id}`, {
     method: 'GET',
-    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
   });
 }
 
@@ -136,28 +126,22 @@ export async function updateAdmin(
     status?: number;
   },
 ) {
-  const token = typeof window !== 'undefined' ? localStorage.getItem('token') : '';
   return request<AdminRecord>(`/api/v1/admin/${id}`, {
     method: 'PUT',
     data: body,
-    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
   });
 }
 
 export async function deleteAdmin(id: number) {
-  const token = typeof window !== 'undefined' ? localStorage.getItem('token') : '';
   return request<void>(`/api/v1/admin/${id}`, {
     method: 'DELETE',
-    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
   });
 }
 
 export async function resetAdminPassword(id: number, newPassword: string) {
-  const token = typeof window !== 'undefined' ? localStorage.getItem('token') : '';
   return request<void>(`/api/v1/admin/${id}/password-reset`, {
     method: 'POST',
     data: { newPassword },
-    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
   });
 }
 
@@ -169,12 +153,10 @@ export async function listRoles(params?: {
   category?: string;
   search?: string;
 }) {
-  const token = typeof window !== 'undefined' ? localStorage.getItem('token') : '';
   return request<{ items: RoleRecord[]; total: number; page: number; pageSize: number }>(
     '/api/v1/roles',
     {
       params,
-      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
     },
   );
 }
@@ -185,19 +167,15 @@ export async function createRole(body: {
   category?: string;
   permissions?: string[];
 }) {
-  const token = typeof window !== 'undefined' ? localStorage.getItem('token') : '';
   return request<RoleRecord>('/api/v1/roles', {
     method: 'POST',
     data: body,
-    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
   });
 }
 
 export async function getRole(id: number) {
-  const token = typeof window !== 'undefined' ? localStorage.getItem('token') : '';
   return request<RoleRecord>(`/api/v1/roles/${id}`, {
     method: 'GET',
-    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
   });
 }
 
@@ -210,28 +188,22 @@ export async function updateRole(
     permissions?: string[];
   },
 ) {
-  const token = typeof window !== 'undefined' ? localStorage.getItem('token') : '';
   return request<RoleRecord>(`/api/v1/roles/${id}`, {
     method: 'PUT',
     data: body,
-    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
   });
 }
 
 export async function deleteRole(id: number) {
-  const token = typeof window !== 'undefined' ? localStorage.getItem('token') : '';
   return request<void>(`/api/v1/roles/${id}`, {
     method: 'DELETE',
-    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
   });
 }
 
 export async function updateRolePermissions(id: number, permissions: string[]) {
-  const token = typeof window !== 'undefined' ? localStorage.getItem('token') : '';
   return request<void>(`/api/v1/roles/${id}/permissions`, {
     method: 'PUT',
     data: { permissions },
-    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
   });
 }
 
@@ -275,10 +247,8 @@ export async function batchCheckPermissions(
 // === 管理员游戏权限 API ===
 
 export async function getAdminGames(adminId: number) {
-  const token = typeof window !== 'undefined' ? localStorage.getItem('token') : '';
   return request<{ games: AdminGame[] }>(`/api/v1/admin/${adminId}/games`, {
     method: 'GET',
-    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
   });
 }
 
@@ -286,10 +256,8 @@ export async function updateAdminGames(
   adminId: number,
   games: Array<{ gameId: string; envs: string[] }>,
 ) {
-  const token = typeof window !== 'undefined' ? localStorage.getItem('token') : '';
   return request<void>(`/api/v1/admin/${adminId}/games`, {
     method: 'PUT',
     data: { games },
-    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
   });
 }

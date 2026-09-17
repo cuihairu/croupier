@@ -129,7 +129,7 @@ func TestMenuCreateValidation(t *testing.T) {
 	assert.Error(t, err)
 
 	// labels 全空
-	_, err = service.Create(ctx, &CreateMenuRequest{MenuKey: "resource", Labels: spec.LocalizedText{"zh-CN": "  "}})
+	_, err = service.Create(ctx, &CreateMenuRequest{MenuKey: "resource"})
 	assert.Error(t, err)
 
 	// 合法创建

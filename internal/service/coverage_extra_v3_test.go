@@ -648,25 +648,6 @@ func TestFunctionSpecsByIDV3(t *testing.T) {
 // ===========================================================================
 // validateCategoryLabelConflict
 // ===========================================================================
-
-func TestValidateCategoryLabelConflictV3(t *testing.T) {
-	db := setupTestDB(t)
-	ctx := context.Background()
-	p := NewProposalService(db)
-
-	err := p.validateCategoryLabelConflict(ctx, "g1", "dev", spec.PageSpec{})
-	assert.NoError(t, err)
-
-	err = p.validateCategoryLabelConflict(ctx, "g1", "dev", spec.PageSpec{
-		Category: spec.PageCategorySpec{
-			Key:    "cat1",
-			Labels: spec.LocalizedText{"zh-CN": "类别1"},
-		},
-	})
-	assert.NoError(t, err)
-}
-
-// ===========================================================================
 // validateDirectPublishPageSpec
 // ===========================================================================
 
@@ -687,7 +668,7 @@ func TestValidateDirectPublishPageSpecV3(t *testing.T) {
 		PageKey:  "test",
 		Type:     spec.PageTypeResource,
 		Title:    spec.LocalizedText{"zh-CN": "玩家"},
-		Category: spec.PageCategorySpec{Key: "cat", Labels: spec.LocalizedText{"zh-CN": "类别"}},
+		Category: spec.PageCategorySpec{Key: "cat"},
 		Resource: &spec.ResourcePageSpec{},
 		Bindings: []spec.PageFunctionBinding{{
 			ID: "b1", FunctionID: "player.list", Usage: spec.BindingUsageQuery,
@@ -708,7 +689,7 @@ func TestValidateDirectPublishPageSpecV3_MissingTitle(t *testing.T) {
 	page := spec.PageSpec{
 		PageKey:  "test",
 		Type:     spec.PageTypeResource,
-		Category: spec.PageCategorySpec{Key: "cat", Labels: spec.LocalizedText{"zh-CN": "类别"}},
+		Category: spec.PageCategorySpec{Key: "cat"},
 		Resource: &spec.ResourcePageSpec{},
 		Bindings: []spec.PageFunctionBinding{{
 			ID: "b1", FunctionID: "player.list", Usage: spec.BindingUsageQuery,

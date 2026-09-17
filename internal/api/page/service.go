@@ -87,9 +87,8 @@ func (s *Service) ListDrafts(ctx context.Context, req *PageDraftListRequest) (*P
 			ResourceKey: p.ResourceKey,
 			Title:       p.GetTitle(),
 			Category: spec.PageCategorySpec{
-				Key:    p.CategoryKey,
-				Labels: p.GetCategoryLabels(),
-				Order:  p.CategoryOrder,
+				Key:   p.CategoryKey,
+				Order: p.CategoryOrder,
 			},
 			MenuID:           menuIDToDTO(p.MenuID),
 			Status:           spec.PageDraftStatus(p.Status),
@@ -198,16 +197,11 @@ func (s *Service) SaveDraft(ctx context.Context, req *PageSaveRequest) (*PageSav
 	if !hasDefaultLocale(title) {
 		return nil, errorx.NewBadRequest("title must include a non-empty value in at least one locale")
 	}
-	categoryLabels := normalizeLocaleKeys(req.Category.Labels)
-	if !hasDefaultLocale(categoryLabels) {
-		return nil, errorx.NewBadRequest("category.labels must include a non-empty value in at least one locale")
-	}
-	pageSpec.Title = title
-	pageSpec.Description = normalizeLocaleKeys(req.Description)
+	// 分类名称（category.labels）已由菜单系统接管（T-M8）：请求里的
+	// labels 一律丢弃，仅保留 category.key 作为分组定位键。
 	pageSpec.Category = spec.PageCategorySpec{
-		Key:    categoryKey,
-		Labels: categoryLabels,
-		Order:  req.Category.Order,
+		Key:   categoryKey,
+		Order: req.Category.Order,
 	}
 	pageSpec.Order = req.Order
 	pageSpec.Icon = strings.TrimSpace(req.Icon)
@@ -253,10 +247,9 @@ func (s *Service) SaveDraft(ctx context.Context, req *PageSaveRequest) (*PageSav
 			UpdatedBy:     actor,
 			UpdatedAt:     now,
 		}
-		// SetTitle/SetCategoryLabels 恒返回 nil（model 层实现为
-		// `b, _ := json.Marshal(map[string]string)`，无出错路径），err 检查已删。
+		// SetTitle 恒返回 nil（model 层实现为 `b, _ := json.Marshal(
+		// map[string]string)`，无出错路径），err 检查已删。
 		_ = ps.SetTitle(title)
-		_ = ps.SetCategoryLabels(categoryLabels)
 
 		if existing != nil {
 			ps.ID = existing.ID
@@ -1136,12 +1129,8 @@ func (s *Service) validatePageSpec(ctx context.Context, page spec.PageSpec, publ
 	if strings.TrimSpace(page.Category.Key) == "" {
 		diags = append(diags, diagnostic("category_key_missing", spec.SeverityError, "category.key is required", "category.key"))
 	}
-	if !hasDefaultLocale(page.Category.Labels) {
-		diags = append(diags, diagnostic("category_label_missing", spec.SeverityError, "category.labels must include a non-empty value in at least one locale", "category.labels"))
-	}
-	if publish {
-		diags = append(diags, s.validatePublishedCategoryLabels(ctx, page)...)
-	}
+	// category.labels 校验已随菜单系统接管一并移除（T-M8）：分类名称由
+	// menu_items.labels 提供，页面规格不再承载。
 	if len(page.Bindings) == 0 {
 		diags = append(diags, diagnostic("bindings_missing", spec.SeverityError, "page must bind at least one function", "bindings"))
 	}
@@ -1164,47 +1153,6 @@ func (s *Service) validatePageSpec(ctx context.Context, page spec.PageSpec, publ
 	}
 
 	return diags
-}
-
-func (s *Service) validatePublishedCategoryLabels(ctx context.Context, page spec.PageSpec) []spec.Diagnostic {
-	if s == nil || s.svcCtx == nil || s.svcCtx.PublishedPageSpecModel == nil {
-		return nil
-	}
-	categoryKey := strings.TrimSpace(page.Category.Key)
-	if categoryKey == "" {
-		return nil
-	}
-	gameID, env, err := requireScope(ctx)
-	if err != nil {
-		return nil
-	}
-	published, err := s.svcCtx.PublishedPageSpecModel.ListLatestActiveByScope(ctx, gameID, env)
-	if err != nil {
-		return []spec.Diagnostic{diagnostic("category_label_check_failed", spec.SeverityError, "failed to validate category labels", "category.labels")}
-	}
-	expected := normalizeLocaleKeys(page.Category.Labels)
-	for _, item := range published {
-		if item.PageKey == page.PageKey {
-			continue
-		}
-		publishedPage, err := pageSpecFromPublishedModel(item)
-		if err != nil {
-			return []spec.Diagnostic{diagnostic("published_page_spec_invalid", spec.SeverityError, "published page contains invalid canonical PageSpec", "category.labels")}
-		}
-		if strings.TrimSpace(publishedPage.Category.Key) != categoryKey {
-			continue
-		}
-		actual := normalizeLocaleKeys(publishedPage.Category.Labels)
-		if !localizedTextEqual(actual, expected) {
-			return []spec.Diagnostic{diagnostic(
-				"category_label_conflict",
-				spec.SeverityError,
-				"category.labels must match existing published pages in the same category",
-				"category.labels",
-			)}
-		}
-	}
-	return nil
 }
 
 func validatePageShape(page spec.PageSpec) []spec.Diagnostic {
@@ -1524,7 +1472,6 @@ func pageSpecFromProposalModel(proposal *model.PageProposal) (spec.PageSpec, err
 	pageSpec.Title = normalizeLocaleKeys(pageSpec.Title)
 	pageSpec.Description = normalizeLocaleKeys(pageSpec.Description)
 	pageSpec.Category.Key = strings.TrimSpace(pageSpec.Category.Key)
-	pageSpec.Category.Labels = normalizeLocaleKeys(pageSpec.Category.Labels)
 	for i := range pageSpec.Bindings {
 		pageSpec.Bindings[i].ID = strings.TrimSpace(pageSpec.Bindings[i].ID)
 		pageSpec.Bindings[i].FunctionID = strings.TrimSpace(pageSpec.Bindings[i].FunctionID)
@@ -1549,10 +1496,9 @@ func applyPageSpecToModel(p *model.PageSpec, ps spec.PageSpec) error {
 	p.CategoryOrder = ps.Category.Order
 	p.Order = ps.Order
 	p.Icon = strings.TrimSpace(ps.Icon)
-	// SetTitle/SetCategoryLabels 恒返回 nil（model 层实现为
-	// `b, _ := json.Marshal(map[string]string)`，无出错路径），err 检查已删。
+	// SetTitle 恒返回 nil（model 层实现为 `b, _ := json.Marshal(
+	// map[string]string)`，无出错路径），err 检查已删。
 	_ = p.SetTitle(normalizeLocaleKeys(ps.Title))
-	_ = p.SetCategoryLabels(normalizeLocaleKeys(ps.Category.Labels))
 	raw, err := marshalPageSpec(ps)
 	if err != nil {
 		return err
@@ -1576,7 +1522,6 @@ func marshalPageSpec(page spec.PageSpec) (string, error) {
 	page.Title = normalizeLocaleKeys(page.Title)
 	page.Description = normalizeLocaleKeys(page.Description)
 	page.Category.Key = strings.TrimSpace(page.Category.Key)
-	page.Category.Labels = normalizeLocaleKeys(page.Category.Labels)
 	for i := range page.Bindings {
 		page.Bindings[i].ID = strings.TrimSpace(page.Bindings[i].ID)
 		page.Bindings[i].FunctionID = strings.TrimSpace(page.Bindings[i].FunctionID)

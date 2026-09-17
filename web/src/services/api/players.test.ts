@@ -11,15 +11,15 @@ import {
 jest.mock('@umijs/max', () => ({ request: jest.fn() }));
 
 const mockedRequest = request as jest.MockedFunction<typeof request>;
-const mockedGetItem = localStorage.getItem as unknown as jest.Mock;
 
+// Authorization 由 requestErrorConfig 的请求拦截器统一注入
+// （含无 token 时的省略），适配层只负责 URL/method/参数形状。
 describe('players API adapters', () => {
   beforeEach(() => {
     mockedRequest.mockReset();
-    mockedGetItem.mockReset().mockReturnValue('tok-players');
   });
 
-  it('lists players with query params and bearer token', async () => {
+  it('lists players with query params', async () => {
     mockedRequest.mockResolvedValue({ items: [], total: 0, page: 1, pageSize: 20 });
 
     await listPlayers({ page: 2, pageSize: 50, gameId: 'demo', search: 'alice', status: 1 });
@@ -27,20 +27,6 @@ describe('players API adapters', () => {
     expect(mockedRequest).toHaveBeenCalledWith('/api/v1/players', {
       method: 'GET',
       params: { page: 2, pageSize: 50, gameId: 'demo', search: 'alice', status: 1 },
-      headers: { Authorization: 'Bearer tok-players' },
-    });
-  });
-
-  it('omits the Authorization header when no token is stored', async () => {
-    mockedGetItem.mockReturnValue(undefined);
-    mockedRequest.mockResolvedValue({ items: [], total: 0, page: 1, pageSize: 10 });
-
-    await listPlayers({});
-
-    expect(mockedRequest).toHaveBeenCalledWith('/api/v1/players', {
-      method: 'GET',
-      params: {},
-      headers: undefined,
     });
   });
 
@@ -57,7 +43,6 @@ describe('players API adapters', () => {
     expect(mockedRequest).toHaveBeenCalledWith('/api/v1/players', {
       method: 'POST',
       data: { username: 'alice', password: 'secret', nickname: 'Alice', gameId: 'demo' },
-      headers: { Authorization: 'Bearer tok-players' },
     });
   });
 
@@ -68,7 +53,6 @@ describe('players API adapters', () => {
 
     expect(mockedRequest).toHaveBeenCalledWith('/api/v1/players/p-1', {
       method: 'GET',
-      headers: { Authorization: 'Bearer tok-players' },
     });
   });
 
@@ -80,7 +64,6 @@ describe('players API adapters', () => {
     expect(mockedRequest).toHaveBeenCalledWith('/api/v1/players/p-1', {
       method: 'PUT',
       data: { status: 0, level: 3 },
-      headers: { Authorization: 'Bearer tok-players' },
     });
   });
 
@@ -91,7 +74,6 @@ describe('players API adapters', () => {
 
     expect(mockedRequest).toHaveBeenCalledWith('/api/v1/players/p-1', {
       method: 'DELETE',
-      headers: { Authorization: 'Bearer tok-players' },
     });
   });
 
@@ -103,25 +85,17 @@ describe('players API adapters', () => {
     expect(mockedRequest).toHaveBeenCalledWith('/api/v1/players/p-1/balance', {
       method: 'POST',
       data: { amount: -50, reason: 'refund' },
-      headers: { Authorization: 'Bearer tok-players' },
     });
   });
 
-  it('drops the header for mutation calls too when token is absent', async () => {
-    mockedGetItem.mockReturnValue(undefined);
+  it('适配层不注入 Authorization/headers 键（拦截器职责）', async () => {
     mockedRequest.mockResolvedValue(undefined);
 
+    await getPlayer('p-2');
     await adjustPlayerBalance('p-2', { amount: 10, reason: 'gift' });
 
-    expect(mockedRequest).toHaveBeenCalledWith('/api/v1/players/p-2/balance', {
-      method: 'POST',
-      data: { amount: 10, reason: 'gift' },
-      headers: undefined,
-    });
+    for (const call of mockedRequest.mock.calls) {
+      expect(call[1]).not.toHaveProperty('headers');
+    }
   });
-
-  // 不可达分支说明：每个函数内 `typeof window !== 'undefined' ? ... : ''` 的
-  // false 路径是 SSR 防御守卫。jsdom 环境中 globalThis.window 为
-  // non-configurable（Object.defineProperty 重定义抛 "Cannot redefine
-  // property: window"），无法在单测中置为 undefined，故该分支不可达。
 });
