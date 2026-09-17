@@ -29,7 +29,7 @@ async function gotoWithRetry(page: Page, url: string, attempts = 3): Promise<voi
  * storageState（globalSetup 预登录）存在时直接复用，跳过 UI 登录；
  * 否则走完整 UI 登录流程（真实环境/回退路径）。
  */
-export async function login(page: Page): Promise<void> {
+export async function login(page: Page, username = 'admin', password = 'admin123'): Promise<void> {
   // storageState 预登录时 token 已在 localStorage：先到应用页再检测，
   // 避免 about:blank 上访问 localStorage 抛 SecurityError。
   await gotoWithRetry(page, '/');
@@ -64,8 +64,8 @@ export async function login(page: Page): Promise<void> {
     .first();
   await usernameInput.waitFor({ state: 'visible', timeout: 60000 });
 
-  await usernameInput.fill('admin');
-  await page.locator('input[type="password"]').fill('admin123');
+  await usernameInput.fill(username);
+  await page.locator('input[type="password"]').fill(password);
 
   // 点击登录按钮
   // antd zh 下两字按钮自动插空格（「登 录」），hasText 正则容忍空格（先例 locale-switch.spec）

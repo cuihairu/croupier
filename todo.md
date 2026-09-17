@@ -369,13 +369,13 @@ T3（execution_state 字段）→ T4/T6/T8；T2 → T5；T12（后端校验放�
 - `pnpm --dir web test` 通过
 - 无残留的 `category.labels` 代码
 
-### T-M9. 端到端验证
+### T-M9. 端到端验证（已完成 2026-09-17）
 
 **目标**：验证菜单系统完整工作流。
 
 **改动点**：
 
-- `tests/e2e/menu-management.spec.ts`：E2E 测试
+- `web/e2e/menu-management.spec.ts`：E2E 测试（real-dashboard 项目，三用例：CRUD 完整流程 / 页面按分类 key 挂载菜单 / 权限过滤与继承）
 
 **验收**：
 

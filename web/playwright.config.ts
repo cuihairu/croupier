@@ -35,7 +35,7 @@ const requestedProjects = selectedProjects(process.argv);
 const startMockWeb = requestedProjects.size === 0 || requestedProjects.has('mock-dashboard');
 const startRealWeb = requestedProjects.size === 0 || requestedProjects.has('real-dashboard');
 const realDashboardScenarios =
-  /@(?:fixture-health|sdk-|openapi-|schema-change|governance-change|stale-|safe-|identity-|republish-|upload-)/;
+  /@(?:fixture-health|sdk-|openapi-|schema-change|governance-change|stale-|safe-|identity-|republish-|upload-|menu-)/;
 
 // Mock 套件在 CI 用生产构建（无按需编译、无 HMR 开销）；本地默认 dev
 // （迭代快），可 MOCK_E2E_STATIC=1 强制静态。
