@@ -171,6 +171,64 @@ func TestMenuItemUpdateSortOrder(t *testing.T) {
 	assert.Equal(t, "DatabaseOutlined", got.Icon, "other fields untouched")
 }
 
+// TestPageSpecMenuAssociation 页面 menu_id 挂载/解除/批量清理。
+func TestPageSpecMenuAssociation(t *testing.T) {
+	db, err := gorm.Open(
+		sqlite.Open(fmt.Sprintf("file:menu_page_assoc_%d?mode=memory&cache=shared", menuDBSeq+2000)),
+		&gorm.Config{Logger: logger.Default.LogMode(logger.Silent)},
+	)
+	require.NoError(t, err)
+	require.NoError(t, db.AutoMigrate(&MenuItem{}, &PageSpec{}))
+	m := NewMenuItemModel(db)
+	pm := NewPageSpecModel(db)
+	ctx := context.Background()
+
+	menu := sampleMenuItem("resource")
+	require.NoError(t, m.Create(ctx, menu))
+	page := &PageSpec{
+		GameID:   "demo-game",
+		Env:      "development",
+		PageKey:  "resource--player",
+		SpecJSON: `{"pageKey":"resource--player"}`,
+	}
+	require.NoError(t, db.Create(page).Error)
+
+	// 挂载
+	menuID := menu.ID
+	require.NoError(t, pm.UpdateMenuID(ctx, "demo-game", "development", "resource--player", &menuID))
+	got, err := pm.FindByScopeAndPageKey(ctx, "demo-game", "development", "resource--player")
+	require.NoError(t, err)
+	require.NotNil(t, got.MenuID)
+	assert.Equal(t, menu.ID, *got.MenuID)
+
+	// 解除
+	require.NoError(t, pm.UpdateMenuID(ctx, "demo-game", "development", "resource--player", nil))
+	got, err = pm.FindByScopeAndPageKey(ctx, "demo-game", "development", "resource--player")
+	require.NoError(t, err)
+	assert.Nil(t, got.MenuID)
+
+	// 批量清理（挂回两个页面后按菜单清理）
+	second := &PageSpec{
+		GameID:   "demo-game",
+		Env:      "development",
+		PageKey:  "resource--order",
+		SpecJSON: `{"pageKey":"resource--order"}`,
+	}
+	require.NoError(t, db.Create(second).Error)
+	require.NoError(t, pm.UpdateMenuID(ctx, "demo-game", "development", "resource--player", &menuID))
+	require.NoError(t, pm.UpdateMenuID(ctx, "demo-game", "development", "resource--order", &menuID))
+	require.NoError(t, pm.ClearMenuReferences(ctx, "demo-game", "development", []uint{menu.ID}))
+	got, err = pm.FindByScopeAndPageKey(ctx, "demo-game", "development", "resource--player")
+	require.NoError(t, err)
+	assert.Nil(t, got.MenuID)
+	got, err = pm.FindByScopeAndPageKey(ctx, "demo-game", "development", "resource--order")
+	require.NoError(t, err)
+	assert.Nil(t, got.MenuID)
+
+	// 空 ID 列表是 no-op
+	require.NoError(t, pm.ClearMenuReferences(ctx, "demo-game", "development", nil))
+}
+
 // TestMenuItemDeleteByScopeAndKey 按 menu_key 硬删除。
 func TestMenuItemDeleteByScopeAndKey(t *testing.T) {
 	db := setupMenuDB(t)

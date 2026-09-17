@@ -22,10 +22,24 @@ type PageDraftResponse struct {
 	Status           string                            `json:"status"`
 	DraftRevision    int                               `json:"draftRevision"`
 	PublishedVersion int                               `json:"publishedVersion,omitempty"`
+	MenuID           *int64                            `json:"menuId,omitempty"`
 	Diagnostics      []spec.Diagnostic                 `json:"diagnostics,omitempty"`
 	BindingFreshness []spec.BindingFreshnessDiagnostic `json:"bindingFreshness,omitempty"`
 	UpdatedAt        string                            `json:"updatedAt"`
 	UpdatedBy        string                            `json:"updatedBy,omitempty"`
+}
+
+// PageMenuUpdateRequest 是 PUT /api/v1/pages/:pageKey/menu 的载荷：
+// menuId 为 null 或 0 表示解除挂载；非 0 必须是同 scope 已存在的菜单。
+type PageMenuUpdateRequest struct {
+	PageKey string `uri:"pageKey" binding:"required"`
+	MenuID  *int64 `json:"menuId"`
+}
+
+// PageMenuResponse 回显挂载结果。
+type PageMenuResponse struct {
+	PageKey string `json:"pageKey"`
+	MenuID  *int64 `json:"menuId"`
 }
 
 type PageSaveRequest struct {

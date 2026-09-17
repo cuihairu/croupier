@@ -41,6 +41,7 @@ func newMenuTestService(t *testing.T, permissions ...string) (*Service, context.
 		RoleModel:       model.NewRoleModel(db),
 		PermissionModel: model.NewPermissionModel(db),
 		MenuModel:       model.NewMenuItemModel(db),
+		PageSpecModel:   model.NewPageSpecModel(db),
 	}
 	ctx := svc.WithGameScope(context.Background(), svc.GameScope{GameID: "demo-game", Env: "development"})
 	ctx = context.WithValue(ctx, "username", admin.Username)
@@ -377,6 +378,41 @@ func TestMenuAccessibleNoPermissionUserSeesUngated(t *testing.T) {
 	require.NoError(t, err)
 	keys := menuTreeKeys(resp.Items)
 	assert.Equal(t, []string{"open"}, keys, "无权限用户只看到无权限要求的菜单")
+}
+
+func TestMenuDeleteClearsPageReferences(t *testing.T) {
+	service, ctx := newMenuTestService(t, "menu:create", "menu:delete")
+
+	root, err := service.Create(ctx, &CreateMenuRequest{MenuKey: "resource", Labels: menuLabels()})
+	require.NoError(t, err)
+	_, err = service.Create(ctx, &CreateMenuRequest{MenuKey: "player", ParentID: &root.ID, Labels: menuLabels()})
+	require.NoError(t, err)
+
+	// 两个页面分别挂到父/子菜单
+	pageModel := service.svcCtx.PageSpecModel
+	for _, key := range []string{"resource--player", "resource--order"} {
+		page := &model.PageSpec{
+			GameID:   "demo-game",
+			Env:      "development",
+			PageKey:  key,
+			SpecJSON: `{"pageKey":"` + key + `"}`,
+		}
+		require.NoError(t, service.svcCtx.DB.Create(page).Error)
+	}
+	childMenu, err := service.menuModel().FindByScopeAndKey(ctx, "demo-game", "development", "player")
+	require.NoError(t, err)
+	rootMenuID := uint(root.ID)
+	require.NoError(t, pageModel.UpdateMenuID(ctx, "demo-game", "development", "resource--player", &rootMenuID))
+	require.NoError(t, pageModel.UpdateMenuID(ctx, "demo-game", "development", "resource--order", &childMenu.ID))
+
+	// 删除父菜单（级联子菜单）→ 页面引用全部解除
+	require.NoError(t, service.Delete(ctx, &UpdateMenuRequest{ID: formatID(root.ID)}))
+
+	for _, key := range []string{"resource--player", "resource--order"} {
+		page, err := pageModel.FindByScopeAndPageKey(ctx, "demo-game", "development", key)
+		require.NoError(t, err)
+		assert.Nil(t, page.MenuID, "%s 的菜单引用应被清理", key)
+	}
 }
 
 func menuTreeKeys(items []*MenuDTO) []string {

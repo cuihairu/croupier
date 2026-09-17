@@ -62,6 +62,26 @@ func (h *Handler) GetDraft(c *gin.Context) {
 	response.Success(c, resp)
 }
 
+// SetMenu handles PUT /api/v1/pages/:pageKey/menu — 挂载/解除页面与菜单的
+// 关联（menuId 为 null 或 0 表示解除）。
+func (h *Handler) SetMenu(c *gin.Context) {
+	var req PageMenuUpdateRequest
+	if err := c.ShouldBindUri(&req); err != nil {
+		response.Error(c, err)
+		return
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, err)
+		return
+	}
+	resp, err := h.service.SetPageMenu(c.Request.Context(), &req)
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
+	response.Success(c, resp)
+}
+
 // SaveDraft handles PUT /api/v1/pages/:pageKey
 func (h *Handler) SaveDraft(c *gin.Context) {
 	var req PageSaveRequest

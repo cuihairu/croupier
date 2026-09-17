@@ -91,6 +91,7 @@ func (s *Service) ListDrafts(ctx context.Context, req *PageDraftListRequest) (*P
 				Labels: p.GetCategoryLabels(),
 				Order:  p.CategoryOrder,
 			},
+			MenuID:           menuIDToDTO(p.MenuID),
 			Status:           spec.PageDraftStatus(p.Status),
 			DraftRevision:    p.DraftRevision,
 			PublishedVersion: p.PublishedVersion,
@@ -115,6 +116,45 @@ func (s *Service) GetDraft(ctx context.Context, req *PageDraftRequest) (*PageDra
 	}
 	resp.BindingFreshness = s.bindingFreshnessForPublishedDraft(ctx, p)
 	return resp, nil
+}
+
+// SetPageMenu mounts/unmounts a page under a menu (PUT /pages/:pageKey/menu).
+// menuId nil or 0 unmounts; otherwise the menu must exist in the same scope.
+func (s *Service) SetPageMenu(ctx context.Context, req *PageMenuUpdateRequest) (*PageMenuResponse, error) {
+	if err := s.requirePageEdit(ctx); err != nil {
+		return nil, err
+	}
+	gameID, env, err := requireScope(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	var menuID *uint
+	if req.MenuID != nil && *req.MenuID != 0 {
+		if s.svcCtx.MenuModel == nil {
+			return nil, errorx.NewInternalError("菜单模型未初始化")
+		}
+		menu, err := s.svcCtx.MenuModel.FindByID(ctx, gameID, env, uint(*req.MenuID))
+		if err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return nil, errorx.NewNotFound("菜单不存在")
+			}
+			return nil, err
+		}
+		menuID = &menu.ID
+	}
+
+	p, err := s.findDraft(ctx, req.PageKey)
+	if err != nil {
+		return nil, err
+	}
+	if err := s.svcCtx.PageSpecModel.UpdateMenuID(ctx, gameID, env, p.PageKey, menuID); err != nil {
+		return nil, err
+	}
+	return &PageMenuResponse{
+		PageKey: req.PageKey,
+		MenuID:  menuIDToDTO(menuID),
+	}, nil
 }
 
 func (s *Service) SaveDraft(ctx context.Context, req *PageSaveRequest) (*PageSaveResponse, error) {
@@ -226,6 +266,9 @@ func (s *Service) SaveDraft(ctx context.Context, req *PageSaveRequest) (*PageSav
 			ps.BaseProposalKey = existing.BaseProposalKey
 			ps.BaseProposalVersion = existing.BaseProposalVersion
 			ps.DraftRevision = existing.DraftRevision + 1
+			// 菜单挂载是独立 API 维护的运营属性，SaveDraft 全列覆盖时必须
+			// 原样保留，否则每次保存都会静默解除页面的菜单关联。
+			ps.MenuID = existing.MenuID
 		} else {
 			ps.CreatedAt = now
 			ps.DraftRevision = 1
@@ -1394,9 +1437,19 @@ func pageDraftResponseFromModel(p *model.PageSpec) (*PageDraftResponse, error) {
 		Status:           p.Status,
 		DraftRevision:    p.DraftRevision,
 		PublishedVersion: p.PublishedVersion,
+		MenuID:           menuIDToDTO(p.MenuID),
 		UpdatedAt:        p.UpdatedAt.Format(time.RFC3339),
 		UpdatedBy:        p.UpdatedBy,
 	}, nil
+}
+
+// menuIDToDTO 把模型层 *uint 菜单外键转成 API 契约的 *int64。
+func menuIDToDTO(menuID *uint) *int64 {
+	if menuID == nil {
+		return nil
+	}
+	v := int64(*menuID)
+	return &v
 }
 
 func (s *Service) bindingFreshnessForPublishedDraft(ctx context.Context, p *model.PageSpec) []spec.BindingFreshnessDiagnostic {

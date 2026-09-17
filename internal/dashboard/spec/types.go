@@ -916,18 +916,21 @@ const (
 
 // PageSpecDraftSummary is a summary of a page draft for list views.
 type PageSpecDraftSummary struct {
-	GameID           string           `json:"gameId,omitempty"`
-	Env              string           `json:"env,omitempty"`
-	PageKey          string           `json:"pageKey"`
-	Type             PageType         `json:"type"`
-	ResourceKey      string           `json:"resourceKey,omitempty"`
-	Title            LocalizedText    `json:"title"`
-	Category         PageCategorySpec `json:"category"`
-	Status           PageDraftStatus  `json:"status"`
-	DraftRevision    int              `json:"draftRevision"`
-	PublishedVersion int              `json:"publishedVersion,omitempty"`
-	UpdatedAt        string           `json:"updatedAt"`
-	UpdatedBy        string           `json:"updatedBy,omitempty"`
+	GameID      string           `json:"gameId,omitempty"`
+	Env         string           `json:"env,omitempty"`
+	PageKey     string           `json:"pageKey"`
+	Type        PageType         `json:"type"`
+	ResourceKey string           `json:"resourceKey,omitempty"`
+	Title       LocalizedText    `json:"title"`
+	Category    PageCategorySpec `json:"category"`
+	// MenuID 是页面挂载的菜单（menu_items.id）；nil 表示未挂载。
+	// 菜单关联属于看板运营属性，存于 page_specs 列，不进 SpecJSON DSL。
+	MenuID           *int64          `json:"menuId,omitempty"`
+	Status           PageDraftStatus `json:"status"`
+	DraftRevision    int             `json:"draftRevision"`
+	PublishedVersion int             `json:"publishedVersion,omitempty"`
+	UpdatedAt        string          `json:"updatedAt"`
+	UpdatedBy        string          `json:"updatedBy,omitempty"`
 }
 
 // PageVersionItem represents a single version in the page version history.

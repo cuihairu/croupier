@@ -220,6 +220,14 @@ func (s *Service) Delete(ctx context.Context, req *UpdateMenuRequest) error {
 		}
 	}
 	toDelete := collectDescendants(id, children)
+	// 先解除页面挂载再删菜单行：失败时最多留下「无页面引用的多余菜单」，
+	// 不会留下指向已删除菜单的悬挂 menu_id。
+	if s.svcCtx.PageSpecModel != nil {
+		allIDs := append([]uint{id}, toDelete...)
+		if err := s.svcCtx.PageSpecModel.ClearMenuReferences(ctx, gameID, env, allIDs); err != nil {
+			return err
+		}
+	}
 	if err := s.menuModel().Delete(ctx, gameID, env, id); err != nil {
 		return err
 	}

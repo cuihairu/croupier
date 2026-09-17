@@ -14,29 +14,31 @@ import (
 // indexed fields mirror immutable identifiers and list metadata; SpecJSON is
 // the single source for the full page DSL.
 type PageSpec struct {
-	ID                  uint           `gorm:"primarykey" json:"id"`
-	CreatedAt           time.Time      `json:"createdAt"`
-	UpdatedAt           time.Time      `json:"updatedAt"`
-	DeletedAt           gorm.DeletedAt `gorm:"index" json:"-"`
-	GameID              string         `gorm:"size:64;not null;default:'';uniqueIndex:uidx_page_specs_scope_key,priority:1;index:idx_page_specs_scope,priority:1" json:"gameId"`
-	Env                 string         `gorm:"size:64;not null;default:'';uniqueIndex:uidx_page_specs_scope_key,priority:2;index:idx_page_specs_scope,priority:2" json:"env"`
-	PageKey             string         `gorm:"size:128;not null;uniqueIndex:uidx_page_specs_scope_key,priority:3" json:"pageKey"`
-	Type                string         `gorm:"size:32" json:"type"` // resource/operation/task/report
-	ResourceKey         string         `gorm:"size:128;index" json:"resourceKey,omitempty"`
-	TitleJSON           string         `gorm:"type:text" json:"-"`
-	CategoryKey         string         `gorm:"size:64;index" json:"categoryKey"`
-	CategoryLabelsJSON  string         `gorm:"type:text" json:"-"`
-	CategoryOrder       int            `gorm:"default:0" json:"categoryOrder"`
-	Order               int            `gorm:"default:0" json:"order"`
-	Icon                string         `gorm:"size:64" json:"icon,omitempty"`
-	SpecJSON            string         `gorm:"not null" json:"-"`
-	Status              string         `gorm:"size:32;default:'draft'" json:"status"` // draft/published/archived
-	PublishedActive     bool           `gorm:"default:false;index" json:"publishedActive"`
-	DraftRevision       int            `gorm:"default:1" json:"draftRevision"`
-	PublishedVersion    int            `gorm:"default:0" json:"publishedVersion"`
-	BaseProposalKey     string         `gorm:"size:128;index" json:"baseProposalKey,omitempty"`
-	BaseProposalVersion int            `gorm:"default:0" json:"baseProposalVersion,omitempty"`
-	UpdatedBy           string         `gorm:"size:128" json:"updatedBy,omitempty"`
+	ID                 uint           `gorm:"primarykey" json:"id"`
+	CreatedAt          time.Time      `json:"createdAt"`
+	UpdatedAt          time.Time      `json:"updatedAt"`
+	DeletedAt          gorm.DeletedAt `gorm:"index" json:"-"`
+	GameID             string         `gorm:"size:64;not null;default:'';uniqueIndex:uidx_page_specs_scope_key,priority:1;index:idx_page_specs_scope,priority:1" json:"gameId"`
+	Env                string         `gorm:"size:64;not null;default:'';uniqueIndex:uidx_page_specs_scope_key,priority:2;index:idx_page_specs_scope,priority:2" json:"env"`
+	PageKey            string         `gorm:"size:128;not null;uniqueIndex:uidx_page_specs_scope_key,priority:3" json:"pageKey"`
+	Type               string         `gorm:"size:32" json:"type"` // resource/operation/task/report
+	ResourceKey        string         `gorm:"size:128;index" json:"resourceKey,omitempty"`
+	TitleJSON          string         `gorm:"type:text" json:"-"`
+	CategoryKey        string         `gorm:"size:64;index" json:"categoryKey"`
+	CategoryLabelsJSON string         `gorm:"type:text" json:"-"`
+	CategoryOrder      int            `gorm:"default:0" json:"categoryOrder"`
+	// MenuID 关联 menu_items.id（同 game 库）；nil 表示未挂到任何菜单。
+	MenuID              *uint  `gorm:"index" json:"menuId,omitempty"`
+	Order               int    `gorm:"default:0" json:"order"`
+	Icon                string `gorm:"size:64" json:"icon,omitempty"`
+	SpecJSON            string `gorm:"not null" json:"-"`
+	Status              string `gorm:"size:32;default:'draft'" json:"status"` // draft/published/archived
+	PublishedActive     bool   `gorm:"default:false;index" json:"publishedActive"`
+	DraftRevision       int    `gorm:"default:1" json:"draftRevision"`
+	PublishedVersion    int    `gorm:"default:0" json:"publishedVersion"`
+	BaseProposalKey     string `gorm:"size:128;index" json:"baseProposalKey,omitempty"`
+	BaseProposalVersion int    `gorm:"default:0" json:"baseProposalVersion,omitempty"`
+	UpdatedBy           string `gorm:"size:128" json:"updatedBy,omitempty"`
 }
 
 func (PageSpec) TableName() string {
@@ -204,6 +206,27 @@ func (m *PageSpecModel) Delete(ctx context.Context, gameID, env, pageKey string)
 		Unscoped().
 		Where("game_id = ? AND env = ? AND page_key = ?", gameID, env, pageKey).
 		Delete(&PageSpec{}).Error
+}
+
+// UpdateMenuID sets or clears the menu association of a scoped page.
+func (m *PageSpecModel) UpdateMenuID(ctx context.Context, gameID, env, pageKey string, menuID *uint) error {
+	return dbctx.Resolve(ctx, m.db).WithContext(ctx).
+		Model(&PageSpec{}).
+		Where("game_id = ? AND env = ? AND page_key = ?", gameID, env, pageKey).
+		Update("menu_id", menuID).Error
+}
+
+// ClearMenuReferences detaches pages from the given menus (menu deletion
+// cleanup). Missing menu references must not linger after the menu rows are
+// gone.
+func (m *PageSpecModel) ClearMenuReferences(ctx context.Context, gameID, env string, menuIDs []uint) error {
+	if len(menuIDs) == 0 {
+		return nil
+	}
+	return dbctx.Resolve(ctx, m.db).WithContext(ctx).
+		Model(&PageSpec{}).
+		Where("game_id = ? AND env = ? AND menu_id IN ?", gameID, env, menuIDs).
+		Update("menu_id", nil).Error
 }
 
 // PublishedPageSpecModel provides data access for published page specs.
