@@ -166,6 +166,10 @@ func TestListContractChangesSortAndSkipsV9(t *testing.T) {
 		GameID: "g9", Env: "e9", PageKey: "pd", Type: "operation", Status: "draft",
 		SpecJSON: `{"pageKey":"pd","type":"operation","bindings":[]}`,
 	}).Error)
+	// 慢机上多行 Create 可能跨秒，UpdatedAt 落入不同秒会绕过
+	// Kind/PageKey tie-breaker，显式统一时间戳锁定同秒排序分支。
+	// published 侧排序键 PublishedAt 已显式为零值，无需拨动。
+	require.NoError(t, db.Exec("UPDATE page_specs SET updated_at = '2026-01-01 00:00:00' WHERE game_id = 'g9'").Error)
 
 	changes, err := svc.listContractChanges(ctx, "g9", "e9", "")
 	require.NoError(t, err)
