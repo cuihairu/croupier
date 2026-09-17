@@ -134,7 +134,9 @@ jobs:
         timeout-minutes: 10
         run: |
           echo "Running Go vulnerability scan..."
-          ~/go/bin/govulncheck ./...
+          # 豁免清单见 scripts/govulncheck-allowlist.sh 头注释（逐条注明
+          # 处置方式与移除条件，未豁免漏洞仍然失败）
+          bash scripts/govulncheck-allowlist.sh
 
   test:
     name: Test

@@ -16,7 +16,7 @@ require (
 	go.opentelemetry.io/otel/sdk v1.44.0
 	go.opentelemetry.io/otel/sdk/metric v1.44.0
 	go.opentelemetry.io/otel/trace v1.44.0
-	golang.org/x/crypto v0.56.0
+	golang.org/x/crypto v0.57.0
 	gopkg.in/yaml.v3 v3.0.1
 	gorm.io/datatypes v1.2.7
 	gorm.io/driver/mysql v1.6.0
@@ -56,9 +56,10 @@ require (
 	github.com/tencentyun/cos-go-sdk-v5 v0.7.73
 	github.com/xuri/excelize/v2 v2.11.0
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.65.0
+	go.opentelemetry.io/otel/exporters/otlp/otlptrace v1.44.0
 	gocloud.dev v0.45.0
 	golang.org/x/oauth2 v0.36.0
-	golang.org/x/sync v0.22.0
+	golang.org/x/sync v0.23.0
 	golang.org/x/time v0.15.0
 	gorm.io/driver/sqlite v1.6.0
 	modernc.org/sqlite v1.44.3
@@ -173,7 +174,7 @@ require (
 	github.com/quic-go/qpack v0.6.0 // indirect
 	github.com/quic-go/quic-go v0.59.1 // indirect
 	github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec // indirect
-	github.com/richardlehane/mscfb v1.0.7 // indirect
+	github.com/richardlehane/mscfb v1.0.8 // indirect
 	github.com/richardlehane/msoleps v1.0.6 // indirect
 	github.com/sagikazarmark/locafero v0.12.0 // indirect
 	github.com/segmentio/asm v1.2.1 // indirect
@@ -196,7 +197,6 @@ require (
 	github.com/yusufpapurcu/wmi v1.2.4 // indirect
 	go.mongodb.org/mongo-driver/v2 v2.5.0 // indirect
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
-	go.opentelemetry.io/otel/exporters/otlp/otlptrace v1.44.0 // indirect
 	go.opentelemetry.io/proto/otlp v1.10.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	go.yaml.in/yaml/v3 v3.0.4 // indirect
@@ -215,9 +215,9 @@ require (
 require (
 	github.com/spf13/pflag v1.0.10 // indirect
 	github.com/spf13/viper v1.21.0
-	golang.org/x/net v0.58.0 // indirect
-	golang.org/x/sys v0.47.0
-	golang.org/x/text v0.41.0 // indirect
+	golang.org/x/net v0.59.0 // indirect
+	golang.org/x/sys v0.48.0
+	golang.org/x/text v0.42.0 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20260720211330-0afa2a65878a // indirect
 	google.golang.org/protobuf v1.36.11
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1
@@ -227,3 +227,9 @@ require (
 exclude github.com/mattn/go-sqlite3 v1.14.22
 
 exclude github.com/mattn/go-sqlite3 v1.14.33
+
+// GO-2026-6452（CVE-2026-59162，GetRows 负 shared-string 索引 panic）：
+// v2.11.0 及以下受影响，上游修复已合入 master（#2331/#2366）但未发版。
+// 精确 pin 到含修复的 commit；上游发布含修复的正式版后，本 replace 与
+// scripts/govulncheck-allowlist.sh 的对应豁免条目同 PR 撤除。
+replace github.com/xuri/excelize/v2 => github.com/xuri/excelize/v2 v2.11.1-0.20260916002613-f0b1c24ee69c
