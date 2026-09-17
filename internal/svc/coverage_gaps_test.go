@@ -416,3 +416,66 @@ func TestRoleAdminSoftDeleteCleanupMigration(t *testing.T) {
 	require.NoError(t, migrateRoleAdminSoftDelete(context.Background(), sqlDB2))
 	require.False(t, db2.Migrator().HasTable(&model.Role{}))
 }
+
+// TestRoleAdminSoftDeleteCleanupMigration_ErrorBranches 补 0026 的错误与
+// 跳过分支：wrapGorm 探测失败、表存在但无 deleted_at 列（HasColumn 跳过）、
+// purge / 悬挂收口的 DELETE 失败（raw Exec 不走 gorm 回调，用 sqlite
+// RAISE 触发器注入）。
+func TestRoleAdminSoftDeleteCleanupMigration_ErrorBranches(t *testing.T) {
+	// wrapGorm 方言探测全失败 → 返回错误。
+	t.Run("wrapGorm 探测失败", func(t *testing.T) {
+		sqlDB, mock, err := sqlmock.New()
+		require.NoError(t, err)
+		t.Cleanup(func() { _ = sqlDB.Close() })
+		mock.ExpectQuery("SELECT COUNT").WillReturnError(assert.AnError)
+		mock.ExpectQuery("SELECT CURRENT_SETTING").WillReturnError(assert.AnError)
+		mock.ExpectQuery("SELECT @@version_comment").WillReturnError(assert.AnError)
+		assert.Error(t, migrateRoleAdminSoftDelete(context.Background(), sqlDB))
+	})
+
+	// 表存在但缺 deleted_at 列（列裁剪过的存量形态）→ 跳过且不建列。
+	t.Run("缺 deleted_at 列跳过", func(t *testing.T) {
+		db, err := gorm.Open(gsqlite.Open(t.TempDir()+"/m26c.db"), &gorm.Config{})
+		require.NoError(t, err)
+		require.NoError(t, db.Exec(`CREATE TABLE roles (id integer primary key, name text)`).Error)
+		require.NoError(t, db.Exec(`CREATE TABLE admins (id integer primary key, username text)`).Error)
+		sqlDB, err := db.DB()
+		require.NoError(t, err)
+		require.NoError(t, migrateRoleAdminSoftDelete(context.Background(), sqlDB))
+		assert.False(t, db.Migrator().HasColumn(&model.Role{}, "DeletedAt"), "不应给存量表补列")
+	})
+
+	// roles 表 RAISE 触发器拦截 DELETE → purge 失败向上传播。
+	t.Run("purge DELETE 失败", func(t *testing.T) {
+		db, err := gorm.Open(gsqlite.Open(t.TempDir()+"/m26d.db"), &gorm.Config{})
+		require.NoError(t, err)
+		require.NoError(t, db.AutoMigrate(&model.Role{}))
+		require.NoError(t, db.Exec(`INSERT INTO roles (created_at, updated_at, deleted_at, name)
+			VALUES (datetime(), datetime(), datetime(), 'legacy')`).Error)
+		require.NoError(t, db.Exec(`CREATE TRIGGER block_purge BEFORE DELETE ON roles
+			BEGIN SELECT RAISE(ABORT, 'injected purge failure'); END`).Error)
+		sqlDB, err := db.DB()
+		require.NoError(t, err)
+		err = migrateRoleAdminSoftDelete(context.Background(), sqlDB)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "purge soft-deleted rows from roles")
+	})
+
+	// admin_roles 表 RAISE 触发器拦截悬挂收口 DELETE（roles/admins purge 空转成功）。
+	t.Run("悬挂收口 DELETE 失败", func(t *testing.T) {
+		db, err := gorm.Open(gsqlite.Open(t.TempDir()+"/m26e.db"), &gorm.Config{})
+		require.NoError(t, err)
+		require.NoError(t, db.AutoMigrate(&model.Role{}, &model.Admin{}, &model.AdminRole{}))
+		require.NoError(t, db.Exec(`INSERT INTO roles (created_at, updated_at, name)
+			VALUES (datetime(), datetime(), 'live')`).Error)
+		require.NoError(t, db.Exec(`INSERT INTO admin_roles (created_at, updated_at, admin_id, role_id)
+			VALUES (datetime(), datetime(), 1, 999)`).Error)
+		require.NoError(t, db.Exec(`CREATE TRIGGER block_dangling BEFORE DELETE ON admin_roles
+			BEGIN SELECT RAISE(ABORT, 'injected dangling failure'); END`).Error)
+		sqlDB, err := db.DB()
+		require.NoError(t, err)
+		err = migrateRoleAdminSoftDelete(context.Background(), sqlDB)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "purge dangling admin_roles")
+	})
+}
