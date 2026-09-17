@@ -225,3 +225,160 @@ T3（execution_state 字段）→ T4/T6/T8；T2 → T5；T12（后端校验放�
 - `bash scripts/dashboard_vnext_guard.sh` PASSED
 - `cd docs && pnpm build` 通过
 - E2E 用例全绿
+
+---
+
+## 菜单管理系统（Menu Management）
+
+设计依据：`docs/design/menu-management.md`
+原子任务：独立完成、独立测试、独立提交。无顺序依赖，可并行开发。
+
+### T-M1. 数据库迁移：创建 menu_items 表
+
+**目标**：创建菜单管理的基础数据结构。
+
+**改动点**：
+
+- `internal/model/migration.go`：新增 `menu_items` 表自动迁移
+- `internal/model/menu.go`：新建 `MenuItem` 模型（GORM）
+
+**验收**：
+
+- `go test ./internal/model/...` 通过
+- 数据库启动后自动创建 `menu_items` 表
+- 表结构包含：id, parent_id, menu_key, labels, icon, sort_order, permission, is_visible
+
+### T-M2. 菜单 CRUD API
+
+**目标**：实现菜单的增删改查接口。
+
+**改动点**：
+
+- `internal/api/menu/handler.go`：新建菜单 handler
+- `internal/api/menu/service.go`：新建菜单 service
+- `internal/handler/routes.go`：注册菜单路由
+
+**API**：
+
+- `GET /api/v1/menus` — 获取菜单树
+- `POST /api/v1/menus` — 创建菜单
+- `PUT /api/v1/menus/:id` — 更新菜单
+- `DELETE /api/v1/menus/:id` — 删除菜单
+- `PUT /api/v1/menus/:id/sort` — 更新排序
+
+**验收**：
+
+- `go test ./internal/api/menu/...` 通过
+- CRUD 接口可正常调用
+- 菜单支持多级嵌套
+
+### T-M3. 菜单权限过滤 API
+
+**目标**：实现用户可访问菜单的过滤接口。
+
+**改动点**：
+
+- `internal/api/menu/handler.go`：新增 `GET /api/v1/menus/accessible`
+- `internal/api/menu/service.go`：实现权限继承过滤逻辑
+
+**验收**：
+
+- `go test ./internal/api/menu/...` 通过
+- 无权限用户看不到受限菜单
+- 子菜单继承父菜单权限
+
+### T-M4. 页面关联菜单 API
+
+**目标**：实现页面与菜单的关联。
+
+**改动点**：
+
+- `internal/api/page/handler.go`：新增 `PUT /api/v1/pages/:key/menu`
+- `internal/api/page/service.go`：实现菜单关联逻辑
+- `internal/model/migration.go`：pages 表新增 `menu_id` 字段
+
+**验收**：
+
+- `go test ./internal/api/page/...` 通过
+- 页面可设置所属菜单
+- 页面可查看所属菜单
+
+### T-M5. 数据迁移脚本
+
+**目标**：将现有 category 数据迁移到 menu_items 表。
+
+**改动点**：
+
+- `scripts/migrate-categories-to-menus.sql`：迁移脚本
+- 从 pages 表提取 category_key/category_labels 创建 menu_items
+- 更新 pages 表的 menu_id
+
+**验收**：
+
+- 迁移脚本可执行
+- 迁移后数据一致性验证通过
+- 页面正确关联到菜单
+
+### T-M6. 前端菜单管理页面
+
+**目标**：实现菜单管理的 UI 界面。
+
+**改动点**：
+
+- `web/src/pages/MenuManagement/index.tsx`：菜单管理页面
+- `web/src/pages/MenuManagement/MenuForm.tsx`：菜单编辑弹窗
+- `web/src/pages/MenuManagement/MenuTree.tsx`：菜单树组件
+- `web/config/routes.ts`：注册菜单管理路由
+
+**验收**：
+
+- `pnpm --dir web test` 通过
+- 可查看菜单树
+- 可创建/编辑/删除菜单
+- 可拖拽排序
+
+### T-M7. 前端登录时拉取菜单
+
+**目标**：登录后获取用户可访问的菜单树。
+
+**改动点**：
+
+- `web/src/services/api/menu.ts`：菜单 API 封装
+- `web/src/store/modules/menu.ts`：菜单状态管理
+- `web/src/layouts/BasicLayout/index.tsx`：侧边栏使用菜单数据
+
+**验收**：
+
+- `pnpm --dir web test` 通过
+- 登录后侧边栏显示用户可访问的菜单
+- 无权限菜单不显示
+
+### T-M8. 删除旧 category.labels 代码
+
+**目标**：清理所有旧的分类标签相关代码。
+
+**改动点**：
+
+- 删除 `internal/api/page/service.go` 中的 `category.labels` 校验逻辑
+- 删除前端中 `category.labels` 相关的代码
+- 删除数据库迁移中的旧字段
+
+**验收**：
+
+- `go test ./internal/...` 通过
+- `pnpm --dir web test` 通过
+- 无残留的 `category.labels` 代码
+
+### T-M9. 端到端验证
+
+**目标**：验证菜单系统完整工作流。
+
+**改动点**：
+
+- `tests/e2e/menu-management.spec.ts`：E2E 测试
+
+**验收**：
+
+- 创建菜单 → 页面关联菜单 → 用户登录看到菜单 → 权限过滤正确
+- 菜单 CRUD 完整流程
+- 权限继承正确
