@@ -175,6 +175,7 @@ func GameModels() []interface{} {
 		&PageSpec{},
 		&PublishedPageSpec{},
 		&PageVersion{},
+		&MenuItem{},
 		&BehaviorEvent{},
 		&FeatureAdoption{},
 		&PaymentTransaction{},
