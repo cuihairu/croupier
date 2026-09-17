@@ -1,5 +1,12 @@
 import { request } from '@umijs/max';
-import { createMenu, deleteMenu, listMenus, updateMenu, updateMenuSort } from './menu';
+import {
+  createMenu,
+  deleteMenu,
+  listAccessibleMenus,
+  listMenus,
+  updateMenu,
+  updateMenuSort,
+} from './menu';
 
 jest.mock('@umijs/max', () => ({ request: jest.fn() }));
 
@@ -47,6 +54,14 @@ describe('menu api', () => {
     mockedRequest.mockResolvedValueOnce([rawMenu]);
     const items = await listMenus();
     expect(items).toHaveLength(1);
+  });
+
+  it('listAccessibleMenus 请求 /api/v1/menus/accessible 并归一', async () => {
+    mockedRequest.mockResolvedValueOnce({ items: [rawMenu] });
+    const items = await listAccessibleMenus();
+    expect(mockedRequest).toHaveBeenCalledWith('/api/v1/menus/accessible');
+    expect(items).toHaveLength(1);
+    expect(items[0].children[0].labels).toEqual({ 'zh-CN': '玩家管理' });
   });
 
   it('listMenus 空响应返回空数组，isVisible 缺省为 true', async () => {

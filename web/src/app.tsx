@@ -19,10 +19,12 @@ import type { ServerFeatures } from './services/api/features';
 import { fetchSiteConfig, type SiteConfig } from './services/api/sites';
 import { getScope, subscribeScope, type Scope } from './stores/scope';
 import {
+  buildConsoleMenuFromAccessibleMenus,
   buildMenuFromConsoleSpec,
   CONSOLE_MENU_REFRESH_EVENT,
   type RuntimeMenuItem,
 } from './utils/consoleMenu';
+import { refreshAccessibleMenus, resetAccessibleMenus } from './store/modules/menu';
 
 const isDev = process.env.NODE_ENV === 'development';
 const loginPath = '/user/login';
@@ -85,6 +87,8 @@ export async function getInitialState(): Promise<InitialState> {
       if (status === 401 || status === 400) {
         localStorage.removeItem('token');
       }
+      // 身份失效：可访问菜单缓存一并失效，避免下个登录复用旧身份的菜单
+      resetAccessibleMenus();
       history.push(loginPath);
       return undefined;
     }
@@ -207,11 +211,25 @@ export const layout: RunTimeLayoutConfig = ({ initialState, setInitialState }) =
         try {
           const locale = getLocale();
           const consoleMenu = await getConsoleMenu(locale);
-          return buildMenuFromConsoleSpec(
+          const base = buildMenuFromConsoleSpec(
             defaultMenuData as RuntimeMenuItem[],
             consoleMenu,
             locale,
           );
+          // T-M7：/console 子树优先由用户可访问菜单（menu_items）驱动；
+          // accessible 加载失败（如权限退化）时回退 category 派生菜单。
+          try {
+            const menus = await refreshAccessibleMenus(true);
+            if (menus.length > 0) {
+              return buildConsoleMenuFromAccessibleMenus(base, menus, consoleMenu, locale);
+            }
+          } catch (menuError) {
+            console.warn(
+              '[console-menu] accessible menus unavailable, fallback to categories',
+              menuError,
+            );
+          }
+          return base;
         } catch (error) {
           console.error('[console-menu] failed to load dynamic runtime menu', error);
           throw error;

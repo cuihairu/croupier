@@ -1,7 +1,9 @@
 import type { ConsoleMenuSpec } from '@/types/dashboard';
+import type { MenuItem } from '@/services/api/menu';
 import {
   CONSOLE_MENU_REFRESH_EVENT,
   buildConsolePagePath,
+  buildConsoleMenuFromAccessibleMenus,
   buildMenuFromConsoleSpec,
   requestConsoleMenuRefresh,
   resolveConsolePageRoute,
@@ -212,5 +214,118 @@ describe('buildMenuFromConsoleSpec', () => {
       '/console/ops',
       '/console/bare',
     ]);
+  });
+});
+
+describe('buildConsoleMenuFromAccessibleMenus', () => {
+  const menu = (): RuntimeMenuItem[] => [
+    {
+      key: '/console',
+      path: '/console',
+      children: [{ key: '/console/home', path: '/console/home', name: '首页' }],
+    },
+    { key: '/ops', path: '/ops', children: [{ key: '/ops/a', path: '/ops/a', name: 'A' }] },
+  ];
+
+  const spec = (): ConsoleMenuSpec => ({
+    items: [
+      {
+        key: 'resource',
+        path: '/console/resource',
+        title: { 'zh-CN': '资源管理' },
+        locale: false,
+        icon: 'appstore',
+        children: [
+          {
+            key: 'p1',
+            path: '/console/resource/p1',
+            title: { 'zh-CN': '玩家管理' },
+            locale: false,
+          },
+        ],
+      },
+      {
+        key: 'legacy',
+        path: '/console/legacy',
+        title: { 'zh-CN': '遗留分类' },
+        locale: false,
+        children: [
+          {
+            key: 'p2',
+            path: '/console/legacy/p2',
+            title: { 'zh-CN': '遗留页' },
+            locale: false,
+          },
+        ],
+      },
+    ],
+  });
+
+  const menuNode = (
+    id: number,
+    menuKey: string,
+    children: MenuItem[] = [],
+    icon?: string,
+  ): MenuItem => ({
+    id,
+    parentId: null,
+    menuKey,
+    labels: { 'zh-CN': `菜单${menuKey}` },
+    icon,
+    sortOrder: id,
+    isVisible: true,
+    children,
+  });
+
+  it('菜单树驱动 console 子树：页面挂同名菜单下，home 保留', () => {
+    const menus = [menuNode(1, 'resource', [menuNode(2, 'player')], 'DatabaseOutlined')];
+    const out = buildConsoleMenuFromAccessibleMenus(menu(), menus, spec(), 'zh-CN');
+    const consoleItem = out[0];
+    // home + 菜单驱动子树（legacy 分类无同名菜单 → 兜底分组仍在）
+    expect(consoleItem.children?.map((c) => c.name)).toEqual(['首页', '菜单resource', '遗留分类']);
+    const resource = consoleItem.children![1];
+    expect(resource.icon).toBeTruthy();
+    // 子菜单 + 页面（页面在子菜单之后）
+    expect(resource.children?.map((c) => c.name)).toEqual(['菜单player', '玩家管理']);
+    // 叶子子菜单无页面 → path 落分类空态路由
+    expect(resource.children![0].path).toBe('/console/player');
+    // 页面路径透传 consoleMenu 已构建好的 path
+    expect(resource.children![1].path).toBe('/console/resource/p1');
+  });
+
+  it('叶子菜单（无子无页面）path 落到分类路由', () => {
+    const menus = [menuNode(1, 'bare')];
+    const out = buildConsoleMenuFromAccessibleMenus(menu(), menus, spec(), 'zh-CN');
+    const bare = out[0].children![1];
+    expect(bare.name).toBe('菜单bare');
+    expect(bare.path).toBe('/console/bare');
+    expect(bare.children).toBeUndefined();
+  });
+
+  it('分类页面无同名菜单 → 兜底分组不丢弃', () => {
+    const menus = [menuNode(1, 'resource')];
+    const out = buildConsoleMenuFromAccessibleMenus(menu(), menus, spec(), 'zh-CN');
+    const names = out[0].children!.map((c) => c.name);
+    expect(names).toEqual(['首页', '菜单resource', '遗留分类']);
+    const legacy = out[0].children![2];
+    expect(legacy.children?.[0].path).toBe('/console/legacy/p2');
+  });
+
+  it('可访问菜单为空 → 退化为分类兜底分组（保持旧可见性，不静默丢页面）', () => {
+    const out = buildConsoleMenuFromAccessibleMenus(menu(), [], spec(), 'zh-CN');
+    expect(out[0].children?.map((c) => c.name)).toEqual(['首页', '资源管理', '遗留分类']);
+  });
+
+  it('深层嵌套的 console 节点同样被替换', () => {
+    const deep: RuntimeMenuItem[] = [
+      { key: '/wrap', path: '/wrap', children: [{ key: '/console', path: '/console' }] },
+    ];
+    const out = buildConsoleMenuFromAccessibleMenus(
+      deep,
+      [menuNode(1, 'resource')],
+      spec(),
+      'zh-CN',
+    );
+    expect(out[0].children![0].children?.map((c) => c.name)).toEqual(['菜单resource', '遗留分类']);
   });
 });

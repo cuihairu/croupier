@@ -68,6 +68,13 @@ export async function listMenus(): Promise<MenuItem[]> {
   return items.map(normalizeMenuItem);
 }
 
+/** 获取当前用户可访问的菜单树（服务端按可见性+权限继承过滤）。 */
+export async function listAccessibleMenus(): Promise<MenuItem[]> {
+  const res = await request<{ items?: RawMenuItem[] } | RawMenuItem[]>('/api/v1/menus/accessible');
+  const items = Array.isArray(res) ? res : res?.items || [];
+  return items.map(normalizeMenuItem);
+}
+
 /** 创建菜单。 */
 export async function createMenu(payload: MenuCreatePayload): Promise<MenuItem> {
   const res = await request<RawMenuItem>('/api/v1/menus', { method: 'POST', data: payload });
