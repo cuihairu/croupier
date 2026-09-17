@@ -47,6 +47,17 @@ func newMenuTestService(t *testing.T, permissions ...string) (*Service, context.
 	return NewService(svcCtx), ctx
 }
 
+// newViewerContext returns a context for an additional admin with no roles
+// (no permissions at all), sharing the same backend state.
+func newViewerContext(t *testing.T, svcCtx *svc.ServiceContext, gameID, env string) context.Context {
+	t.Helper()
+
+	viewer := model.Admin{Username: "menu_viewer", Status: 1, PasswordHash: "test"}
+	require.NoError(t, svcCtx.DB.Create(&viewer).Error)
+	ctx := svc.WithGameScope(context.Background(), svc.GameScope{GameID: gameID, Env: env})
+	return context.WithValue(ctx, "username", viewer.Username)
+}
+
 func grantMenuPermission(t *testing.T, db *gorm.DB, roleID uint, permissionID string) {
 	t.Helper()
 
@@ -263,6 +274,117 @@ func TestMenuMissingScope(t *testing.T) {
 
 	_, err := service.List(ctx)
 	assert.Error(t, err, "缺少 X-Game-ID/X-Env 应报错")
+}
+
+func TestMenuAccessiblePermissionFiltering(t *testing.T) {
+	service, ctx := newMenuTestService(t, "menu:create", "resource:read", "order:read")
+
+	// 结构：resource(需 resource:read) → player(需 player:read，用户无)
+	//                       → order(需 order:read，用户有)
+	//       operation(无权限要求，所有人可见)
+	//       secret(需 secret:read，用户无；隐藏分支)
+	resource, err := service.Create(ctx, &CreateMenuRequest{
+		MenuKey: "resource", Labels: menuLabels(), Permission: "resource:read",
+	})
+	require.NoError(t, err)
+	_, err = service.Create(ctx, &CreateMenuRequest{
+		MenuKey: "player", ParentID: &resource.ID, Labels: menuLabels(), Permission: "player:read",
+	})
+	require.NoError(t, err)
+	_, err = service.Create(ctx, &CreateMenuRequest{
+		MenuKey: "order", ParentID: &resource.ID, Labels: menuLabels(), Permission: "order:read",
+	})
+	require.NoError(t, err)
+	_, err = service.Create(ctx, &CreateMenuRequest{MenuKey: "operation", Labels: menuLabels()})
+	require.NoError(t, err)
+	_, err = service.Create(ctx, &CreateMenuRequest{MenuKey: "secret", Labels: menuLabels(), Permission: "secret:read"})
+	require.NoError(t, err)
+
+	resp, err := service.Accessible(ctx)
+	require.NoError(t, err)
+	keys := menuTreeKeys(resp.Items)
+	assert.Equal(t, []string{"resource", "operation"}, keys, "受限分支与无权限分支整体隐藏")
+
+	// resource 下只有 order 可见（player 被 player:read 过滤）
+	require.Len(t, resp.Items[0].Children, 1)
+	assert.Equal(t, "order", resp.Items[0].Children[0].MenuKey)
+}
+
+func TestMenuAccessibleInheritsParentPermission(t *testing.T) {
+	service, ctx := newMenuTestService(t, "menu:create", "resource:read")
+
+	// 父有权限要求且用户持有；子自身无权限字段 → 继承父级可见
+	root, err := service.Create(ctx, &CreateMenuRequest{MenuKey: "resource", Labels: menuLabels(), Permission: "resource:read"})
+	require.NoError(t, err)
+	_, err = service.Create(ctx, &CreateMenuRequest{MenuKey: "player", ParentID: &root.ID, Labels: menuLabels()})
+	require.NoError(t, err)
+
+	resp, err := service.Accessible(ctx)
+	require.NoError(t, err)
+	require.Len(t, resp.Items, 1)
+	require.Len(t, resp.Items[0].Children, 1, "子菜单继承父菜单权限后可见")
+	assert.Equal(t, "player", resp.Items[0].Children[0].MenuKey)
+}
+
+func TestMenuAccessibleHidesInvisible(t *testing.T) {
+	service, ctx := newMenuTestService(t, "admin:all")
+
+	root, err := service.Create(ctx, &CreateMenuRequest{MenuKey: "resource", Labels: menuLabels()})
+	require.NoError(t, err)
+	child, err := service.Create(ctx, &CreateMenuRequest{MenuKey: "player", ParentID: &root.ID, Labels: menuLabels()})
+	require.NoError(t, err)
+
+	// 根不可见 → 整支隐藏
+	_, err = service.Update(ctx, &UpdateMenuRequest{ID: formatID(root.ID), IsVisible: ptrBool(false)})
+	require.NoError(t, err)
+	resp, err := service.Accessible(ctx)
+	require.NoError(t, err)
+	assert.Empty(t, resp.Items)
+
+	// 根可见、子不可见 → 只隐藏子
+	_, err = service.Update(ctx, &UpdateMenuRequest{ID: formatID(root.ID), IsVisible: ptrBool(true)})
+	require.NoError(t, err)
+	_, err = service.Update(ctx, &UpdateMenuRequest{ID: formatID(child.ID), IsVisible: ptrBool(false)})
+	require.NoError(t, err)
+	resp, err = service.Accessible(ctx)
+	require.NoError(t, err)
+	require.Len(t, resp.Items, 1)
+	assert.Empty(t, resp.Items[0].Children)
+}
+
+func TestMenuAccessibleAdminSeesAll(t *testing.T) {
+	service, ctx := newMenuTestService(t, "admin:all")
+
+	_, err := service.Create(ctx, &CreateMenuRequest{MenuKey: "resource", Labels: menuLabels(), Permission: "resource:read"})
+	require.NoError(t, err)
+
+	resp, err := service.Accessible(ctx)
+	require.NoError(t, err)
+	require.Len(t, resp.Items, 1, "admin 角色不受菜单权限过滤")
+}
+
+func TestMenuAccessibleNoPermissionUserSeesUngated(t *testing.T) {
+	// 创建者带全部权限；查询者无任何角色权限
+	service, ctx := newMenuTestService(t, "menu:create")
+
+	_, err := service.Create(ctx, &CreateMenuRequest{MenuKey: "gated", Labels: menuLabels(), Permission: "secret:read"})
+	require.NoError(t, err)
+	_, err = service.Create(ctx, &CreateMenuRequest{MenuKey: "open", Labels: menuLabels()})
+	require.NoError(t, err)
+
+	viewerCtx := newViewerContext(t, service.svcCtx, "demo-game", "development")
+	resp, err := service.Accessible(viewerCtx)
+	require.NoError(t, err)
+	keys := menuTreeKeys(resp.Items)
+	assert.Equal(t, []string{"open"}, keys, "无权限用户只看到无权限要求的菜单")
+}
+
+func menuTreeKeys(items []*MenuDTO) []string {
+	keys := make([]string, 0, len(items))
+	for _, item := range items {
+		keys = append(keys, item.MenuKey)
+	}
+	return keys
 }
 
 func TestBuildMenuTreeOrphanPromotedToRoot(t *testing.T) {

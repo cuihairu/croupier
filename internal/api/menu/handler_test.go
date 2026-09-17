@@ -165,6 +165,24 @@ func TestMenuHandlerErrorShapes(t *testing.T) {
 	assert.Equal(t, "forbidden", payload["error"])
 }
 
+func TestMenuHandlerAccessibleRoute(t *testing.T) {
+	r, _ := newMenuTestRouter(t, "menu:create", "secret:read")
+
+	// 建一个需要 secret:read 的菜单（当前用户有）+ 一个无权限要求的
+	rec, _ := doMenuRequest(t, r, http.MethodPost, "/api/v1/menus",
+		`{"menuKey":"gated","labels":{"zh-CN":"受限"},"permission":"secret:read"}`)
+	require.Equal(t, http.StatusCreated, rec.Code, rec.Body.String())
+	rec, _ = doMenuRequest(t, r, http.MethodPost, "/api/v1/menus",
+		`{"menuKey":"open","labels":{"zh-CN":"开放"}}`)
+	require.Equal(t, http.StatusCreated, rec.Code, rec.Body.String())
+
+	rec, resp := doMenuRequest(t, r, http.MethodGet, "/api/v1/menus/accessible", "")
+	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+	items, ok := resp["items"].([]any)
+	require.True(t, ok)
+	require.Len(t, items, 2)
+}
+
 func TestMenuHandlerMissingScope(t *testing.T) {
 	r, _ := newMenuTestRouterWithScope(t, false, "admin:all")
 

@@ -260,6 +260,106 @@ func (s *Service) UpdateSort(ctx context.Context, req *SortMenuRequest) (*MenuDT
 	return menuToDTO(item), nil
 }
 
+// Accessible returns the permission-filtered menu tree for the current user.
+// No menu:read gate here: this is the login-time endpoint for every admin.
+func (s *Service) Accessible(ctx context.Context) (*MenuListResponse, error) {
+	gameID, env, err := requireScope(ctx)
+	if err != nil {
+		return nil, err
+	}
+	_, roles, err := utils.LoadCurrentAdmin(ctx, s.svcCtx)
+	if err != nil {
+		return nil, err
+	}
+	permIDs, err := utils.PermissionIDsFromRoles(ctx, s.svcCtx, roles)
+	if err != nil {
+		return nil, err
+	}
+	if utils.HasAdminRole(utils.RoleNamesFromModels(roles)) {
+		permIDs = append(permIDs, "admin:all", "*")
+	}
+	items, err := s.menuModel().ListByScope(ctx, gameID, env)
+	if err != nil {
+		return nil, err
+	}
+	return &MenuListResponse{Items: filterAccessibleTree(items, permIDs)}, nil
+}
+
+// filterAccessibleTree builds the user-visible menu tree. Rules follow the
+// design (docs/design/menu-management.md §7): invisible menus are pruned,
+// a menu-level permission must be held by the user, and requirements cascade
+// from parents to children (an inaccessible parent hides its whole branch).
+// Orphan nodes (parent record missing entirely) are promoted to roots; a
+// parent that exists but is filtered out hides its children.
+func filterAccessibleTree(items []model.MenuItem, permIDs []string) []*MenuDTO {
+	allowed := make(map[string]struct{}, len(permIDs))
+	for _, id := range permIDs {
+		allowed[strings.ToLower(strings.TrimSpace(id))] = struct{}{}
+	}
+	_, hasWildcard := allowed["*"]
+	_, hasAdminAll := allowed["admin:all"]
+	hasAll := hasWildcard || hasAdminAll
+
+	byID := make(map[uint]*model.MenuItem, len(items))
+	for i := range items {
+		byID[items[i].ID] = &items[i]
+	}
+
+	accessible := make(map[uint]bool, len(items))
+	var check func(item *model.MenuItem) bool
+	check = func(item *model.MenuItem) bool {
+		if visible, seen := accessible[item.ID]; seen {
+			return visible
+		}
+		ok := item.IsVisible
+		if ok && item.Permission != "" && !hasAll {
+			if _, found := allowed[strings.ToLower(strings.TrimSpace(item.Permission))]; !found {
+				ok = false
+			}
+		}
+		// 先落 false 再递归父级：脏数据成环时读到的 false 直接终止递归
+		accessible[item.ID] = false
+		if ok && item.ParentID != nil {
+			if parent, exists := byID[*item.ParentID]; exists {
+				ok = check(parent)
+			}
+		}
+		accessible[item.ID] = ok
+		return ok
+	}
+
+	dtos := make([]*MenuDTO, 0, len(items))
+	byDTO := make(map[uint]*MenuDTO, len(items))
+	for i := range items {
+		dto := menuToDTO(&items[i])
+		dtos = append(dtos, dto)
+		byDTO[items[i].ID] = dto
+	}
+
+	roots := make([]*MenuDTO, 0)
+	for i := range items {
+		item := &items[i]
+		if !check(item) {
+			continue
+		}
+		if item.ParentID == nil {
+			roots = append(roots, byDTO[item.ID])
+			continue
+		}
+		parent, exists := byID[*item.ParentID]
+		if !exists {
+			roots = append(roots, byDTO[item.ID])
+			continue
+		}
+		if !check(parent) {
+			continue
+		}
+		parentDTO := byDTO[parent.ID]
+		parentDTO.Children = append(parentDTO.Children, byDTO[item.ID])
+	}
+	return roots
+}
+
 // resolveParentID validates the requested parent: 0/nil means root; otherwise
 // the parent must exist in the same scope and cannot be the node itself.
 func (s *Service) resolveParentID(ctx context.Context, gameID, env string, parentID *int64, selfID uint) (*uint, error) {

@@ -23,6 +23,17 @@ func (h *Handler) List(c *gin.Context) {
 	response.Success(c, resp)
 }
 
+// Accessible handles GET /api/v1/menus/accessible — the login-time
+// permission-filtered menu tree for the current user.
+func (h *Handler) Accessible(c *gin.Context) {
+	resp, err := h.service.Accessible(c.Request.Context())
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
+	response.Success(c, resp)
+}
+
 // Create handles POST /api/v1/menus.
 func (h *Handler) Create(c *gin.Context) {
 	var req CreateMenuRequest

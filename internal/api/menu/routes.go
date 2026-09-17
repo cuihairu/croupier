@@ -12,6 +12,7 @@ func RegisterMenuRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 	menuHandler := NewHandler(menuSvc)
 	g.GET("", menuHandler.List)
 	g.GET("/", menuHandler.List)
+	g.GET("/accessible", menuHandler.Accessible)
 	g.POST("", menuHandler.Create)
 	g.POST("/", menuHandler.Create)
 	g.PUT("/:id", menuHandler.Update)
