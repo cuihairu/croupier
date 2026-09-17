@@ -11,6 +11,7 @@ const SCOPED_API_PREFIXES = [
   '/api/v1/function-calls',
   '/api/v1/functions',
   '/api/v1/metadata',
+  '/api/v1/menus',
   '/api/v1/openapi',
   '/api/v1/ops',
   '/api/v1/pages',

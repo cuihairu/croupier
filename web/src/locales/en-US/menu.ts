@@ -30,6 +30,7 @@ export default {
   'menu.FunctionsAndPages.FunctionCatalog': 'Function Catalog',
   'menu.FunctionsAndPages.ComponentTemplates': 'Component Templates',
   'menu.FunctionsAndPages.PageStudio': 'Page Studio',
+  'menu.FunctionsAndPages.MenuManagement': 'Menus',
   'menu.FunctionsAndPages.OpenAPISources': 'OpenAPI Sources',
   'menu.FunctionsAndPages.ExecutionLogs': 'Execution Logs',
   'menu.FunctionsAndPages.FunctionInvoke': 'Function Invoke',

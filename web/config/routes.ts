@@ -43,6 +43,14 @@ const functionManagementRoutes = [
     icon: 'layout',
   },
   {
+    // 菜单管理：看板导航菜单（menu_items）独立维护，替代 PageSpec.category 分类。
+    path: '/functions/menus',
+    name: 'MenuManagement',
+    access: 'canMenuRead',
+    component: './MenuManagement',
+    icon: 'menu',
+  },
+  {
     path: '/functions/pages/composite-editor',
     name: 'CompositeEditor',
     access: 'canPageRead',

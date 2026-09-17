@@ -53,6 +53,9 @@ export default function access(
   const canPagePublish = hasAny('pages:publish');
   const canPageRollback = hasAny('pages:rollback');
   const canPageDelete = hasAny('pages:delete');
+  // 菜单管理（与后端 menu:* RBAC key 对齐）
+  const canMenuRead = hasAny('menu:read', 'menu:create', 'menu:update', 'menu:delete', 'menu:sort');
+  const canMenuManage = hasAny('menu:create', 'menu:update', 'menu:delete', 'menu:sort');
   const canConsoleRead = hasAny('console:read', 'pages:read', 'function:invoke');
   const canResourcesRead = hasAny(
     'resources:read',
@@ -110,6 +113,8 @@ export default function access(
     canPagePublish,
     canPageRollback,
     canPageDelete,
+    canMenuRead,
+    canMenuManage,
     canResourcesRead,
     canOpenAPISourcesRead,
     canOpenAPISourcesWrite,

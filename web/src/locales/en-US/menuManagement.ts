@@ -1,0 +1,38 @@
+// pages.menuManagement.* — MenuManagement menu administration page
+export default {
+  'pages.menuManagement.title': 'Menus',
+  'pages.menuManagement.description':
+    'Maintain dashboard navigation menus: hierarchy, names, icons and permissions',
+  'pages.menuManagement.action.create': 'New Menu',
+  'pages.menuManagement.action.edit': 'Edit',
+  'pages.menuManagement.action.delete': 'Delete',
+  'pages.menuManagement.action.addChild': 'Add Child',
+  'pages.menuManagement.delete.confirm': 'Delete this menu with all its children and detach pages?',
+  'pages.menuManagement.empty': 'No menus yet — click "New Menu" to create one',
+  'pages.menuManagement.field.menuKey': 'Menu Key',
+  'pages.menuManagement.field.menuKeyPlaceholder':
+    'e.g. resource (letter first; letters/digits/dash/underscore)',
+  'pages.menuManagement.field.menuKeyInvalid':
+    'Only letters/digits/dash/underscore starting with a letter, length 1-64',
+  'pages.menuManagement.field.labels': 'Name (localized)',
+  'pages.menuManagement.field.labelsRequired': 'At least one language name is required',
+  'pages.menuManagement.field.labelsPlaceholder': 'Enter menu name',
+  'pages.menuManagement.field.parent': 'Parent Menu',
+  'pages.menuManagement.field.parentRoot': 'Top level',
+  'pages.menuManagement.field.icon': 'Icon',
+  'pages.menuManagement.field.iconPlaceholder': 'Pick an icon (optional)',
+  'pages.menuManagement.field.sortOrder': 'Sort Order',
+  'pages.menuManagement.field.permission': 'Permission',
+  'pages.menuManagement.field.permissionPlaceholder':
+    'e.g. resource:read (leave empty for everyone)',
+  'pages.menuManagement.field.isVisible': 'Visible',
+  'pages.menuManagement.field.isVisibleHelp': 'Hidden menus are pruned for all users',
+  'pages.menuManagement.tag.hidden': 'Hidden',
+  'pages.menuManagement.tag.permission': 'Perm',
+  'pages.menuManagement.createSuccess': 'Menu created',
+  'pages.menuManagement.updateSuccess': 'Menu updated',
+  'pages.menuManagement.deleteSuccess': 'Menu deleted',
+  'pages.menuManagement.sortUpdated': 'Menu order updated',
+  'pages.menuManagement.sortFailed': 'Failed to update menu order',
+  'pages.menuManagement.moveRejected': 'Cannot move a menu under its own descendant',
+};

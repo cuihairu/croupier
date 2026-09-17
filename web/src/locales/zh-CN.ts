@@ -33,6 +33,7 @@ import gameSelector from './zh-CN/gameSelector';
 import gamesEnvs from './zh-CN/gamesEnvs';
 import globalHeader from './zh-CN/globalHeader';
 import menu from './zh-CN/menu';
+import menuManagement from './zh-CN/menuManagement';
 import mergeConflictModal from './zh-CN/mergeConflictModal';
 import openapiSources from './zh-CN/openapiSources';
 import operationsConfigs from './zh-CN/operationsConfigs';
@@ -123,6 +124,7 @@ export default {
   ...gamesEnvs,
   ...globalHeader,
   ...menu,
+  ...menuManagement,
   ...mergeConflictModal,
   ...openapiSources,
   ...operationsConfigs,
