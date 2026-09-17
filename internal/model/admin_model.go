@@ -86,9 +86,11 @@ func (m *AdminModel) Update(ctx context.Context, id uint, updates map[string]int
 	return m.db.WithContext(ctx).Model(&Admin{}).Where("id = ?", id).Updates(updates).Error
 }
 
-// Delete deletes an admin by ID.
+// Delete hard-deletes an admin by ID. Hard delete by design: admins.username
+// has a physical unique index, so a soft-deleted row would block recreating
+// the same username with a duplicate-key 500（同 fd88b420f 软删占索引族问题）.
 func (m *AdminModel) Delete(ctx context.Context, id uint) error {
-	return m.db.WithContext(ctx).Delete(&Admin{}, id).Error
+	return m.db.WithContext(ctx).Unscoped().Delete(&Admin{}, id).Error
 }
 
 // List returns paginated admins plus total count.

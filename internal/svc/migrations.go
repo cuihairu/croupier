@@ -60,6 +60,9 @@ import (
 //               物理唯一索引，同 key 重建 500）
 //   0025 (Go)   function_contracts.execution_state 列（D2/T3：契约执行
 //               状态 bound/unbound，存量行默认 bound，行为与现状一致）
+//   0026 (Go)   roles/admins 软删除残留行清理（0024 同族漏网表：删除路径
+//               改硬删后物理清除已软删的存量行——roles.name 与
+//               admins.username 的物理唯一索引被软删行占位，同名重建 500）
 
 func init() {
 	registerSvcMigrations()
@@ -95,6 +98,7 @@ func registerSvcMigrations() {
 		componentTemplateColumnsMigration(),
 		softDeleteResidueCleanupMigration(),
 		contractExecutionStateMigration(),
+		roleAdminSoftDeleteCleanupMigration(),
 	); err != nil {
 		panic(fmt.Sprintf("svc: register goose go migrations: %v", err))
 	}
@@ -538,6 +542,51 @@ func addContractExecutionStateColumn(ctx context.Context, sqlDB *sql.DB) error {
 	}
 	if err := db.Migrator().AddColumn(&model.FunctionContract{}, "ExecutionState"); err != nil {
 		return fmt.Errorf("migrate: 0025 add function_contracts.execution_state: %w", err)
+	}
+	return nil
+}
+
+// roleAdminSoftDeleteCleanupMigration 为 0026：roles/admins 删除路径改硬删
+// （Unscoped）之后，把 0024 同族漏网的存量软删行物理清除。roles.name 与
+// admins.username 是物理唯一索引，软删行占着索引位会导致同名重建直接
+// duplicate-key 500（T-M9 菜单 E2E 实证：删除角色后重建报 UNIQUE
+// constraint failed: roles.name）。纯 DELETE，不动表结构，幂等；缺表/缺列跳过。
+// admin_roles 里指向被清行的悬挂关联一并清除（软删时代就存在，借迁移收口）。
+func roleAdminSoftDeleteCleanupMigration() *goose.Migration {
+	return goose.NewGoMigration(26,
+		&goose.GoFunc{RunDB: migrateRoleAdminSoftDelete},
+		nil,
+	)
+}
+
+// migrateRoleAdminSoftDelete 是 0026 的迁移体（抽出便于直测）。
+func migrateRoleAdminSoftDelete(ctx context.Context, sqlDB *sql.DB) error {
+	db, err := wrapGorm(sqlDB)
+	if err != nil {
+		return err
+	}
+	targets := []struct {
+		table string
+		model interface{}
+	}{
+		{"roles", &model.Role{}},
+		{"admins", &model.Admin{}},
+	}
+	for _, target := range targets {
+		if !db.Migrator().HasTable(target.model) {
+			continue
+		}
+		if !db.Migrator().HasColumn(target.model, "DeletedAt") {
+			continue
+		}
+		if err := db.Exec(fmt.Sprintf("DELETE FROM %s WHERE deleted_at IS NOT NULL", target.table)).Error; err != nil {
+			return fmt.Errorf("migrate: 0026 purge soft-deleted rows from %s: %w", target.table, err)
+		}
+	}
+	if db.Migrator().HasTable(&model.AdminRole{}) {
+		if err := db.Exec(`DELETE FROM admin_roles WHERE role_id NOT IN (SELECT id FROM roles)`).Error; err != nil {
+			return fmt.Errorf("migrate: 0026 purge dangling admin_roles: %w", err)
+		}
 	}
 	return nil
 }

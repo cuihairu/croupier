@@ -52,9 +52,11 @@ func (m *RoleModel) Update(ctx context.Context, id uint, updates map[string]inte
 	return m.db.WithContext(ctx).Model(&Role{}).Where("id = ?", id).Updates(updates).Error
 }
 
-// Delete removes a role.
+// Delete hard-deletes a role. Hard delete by design: roles.name has a physical
+// unique index, so a soft-deleted row would block recreating the same role
+// name with a duplicate-key 500（同 fd88b420f 软删占索引族问题的漏网表）.
 func (m *RoleModel) Delete(ctx context.Context, id uint) error {
-	return m.db.WithContext(ctx).Delete(&Role{}, id).Error
+	return m.db.WithContext(ctx).Unscoped().Delete(&Role{}, id).Error
 }
 
 // List returns paginated roles plus total count.

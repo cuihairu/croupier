@@ -87,6 +87,14 @@ func (s *Service) RoleDelete(ctx context.Context, req *RoleDeleteRequest) error 
 			return errorx.NewInternalError("删除角色权限失败")
 		}
 
+		// 角色改硬删后顺手清 admin_roles 悬挂引用（软删时代同样悬挂，只
+		// 是查询过滤掩盖了问题；对齐 admin 删除清理 AdminRole 的做法）。
+		if err := tx.WithContext(ctx).
+			Where("role_id = ?", roleID).
+			Delete(&model.AdminRole{}).Error; err != nil {
+			return errorx.NewInternalError("删除用户角色绑定失败")
+		}
+
 		return roleModel.Delete(ctx, roleID)
 	}); err != nil {
 		return err

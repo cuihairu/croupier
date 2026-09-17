@@ -370,3 +370,49 @@ func TestSoftDeleteResidueCleanupMigration(t *testing.T) {
 	require.NoError(t, migrateSoftDeleteResidue(context.Background(), sqlDB2))
 	require.False(t, db2.Migrator().HasTable(&model.PageSpec{}))
 }
+
+// TestRoleAdminSoftDeleteCleanupMigration 验证 0026：roles/admins 的软删残留
+// 行被物理清除、活跃行保留、admin_roles 悬挂关联收口、幂等、缺表跳过。
+func TestRoleAdminSoftDeleteCleanupMigration(t *testing.T) {
+	db, err := gorm.Open(gsqlite.Open(t.TempDir()+"/m26.db"), &gorm.Config{})
+	require.NoError(t, err)
+	require.NoError(t, db.AutoMigrate(&model.Role{}, &model.Admin{}, &model.AdminRole{}))
+
+	// roles/admins 各塞一行软删残留 + 一行活跃行；admin_roles 指向残留角色 + 活跃角色。
+	require.NoError(t, db.Exec(`INSERT INTO roles (created_at, updated_at, deleted_at, name)
+		VALUES (datetime(), datetime(), datetime(), 'legacy-role'),
+		(datetime(), datetime(), NULL, 'live-role')`).Error)
+	require.NoError(t, db.Exec(`INSERT INTO admins (created_at, updated_at, deleted_at, username)
+		VALUES (datetime(), datetime(), datetime(), 'legacy-admin'),
+		(datetime(), datetime(), NULL, 'live-admin')`).Error)
+	require.NoError(t, db.Exec(`INSERT INTO admin_roles (created_at, updated_at, admin_id, role_id)
+		VALUES (datetime(), datetime(), 1, 1),
+		(datetime(), datetime(), 2, 2)`).Error)
+
+	sqlDB, err := db.DB()
+	require.NoError(t, err)
+	require.NoError(t, migrateRoleAdminSoftDelete(context.Background(), sqlDB))
+
+	for _, table := range []string{"roles", "admins"} {
+		var dead, alive int64
+		require.NoError(t, db.Raw(fmt.Sprintf("SELECT COUNT(*) FROM %s WHERE deleted_at IS NOT NULL", table)).Scan(&dead).Error)
+		require.NoError(t, db.Raw(fmt.Sprintf("SELECT COUNT(*) FROM %s WHERE deleted_at IS NULL", table)).Scan(&alive).Error)
+		assert.Zero(t, dead, table+" 的软删残留应被清除")
+		assert.Equal(t, int64(1), alive, table+" 的活跃行应保留")
+	}
+	var dangling int64
+	require.NoError(t, db.Raw(`SELECT COUNT(*) FROM admin_roles ar
+		LEFT JOIN roles r ON r.id = ar.role_id WHERE r.id IS NULL`).Scan(&dangling).Error)
+	assert.Zero(t, dangling, "admin_roles 悬挂关联应被清除")
+
+	// 幂等：重复执行不报错。
+	require.NoError(t, migrateRoleAdminSoftDelete(context.Background(), sqlDB))
+
+	// 缺表库：跳过不建空壳表。
+	db2, err := gorm.Open(gsqlite.Open(t.TempDir()+"/m26b.db"), &gorm.Config{})
+	require.NoError(t, err)
+	sqlDB2, err := db2.DB()
+	require.NoError(t, err)
+	require.NoError(t, migrateRoleAdminSoftDelete(context.Background(), sqlDB2))
+	require.False(t, db2.Migrator().HasTable(&model.Role{}))
+}
