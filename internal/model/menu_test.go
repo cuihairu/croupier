@@ -34,6 +34,7 @@ func sampleMenuItem(menuKey string) *MenuItem {
 		Icon:       "DatabaseOutlined",
 		SortOrder:  1,
 		Permission: "resource:read",
+		IsVisible:  true,
 	}
 	// SetLabels 恒成功（json.Marshal map 无出错路径），返回值可安全忽略。
 	_ = item.SetLabels(map[string]string{"zh-CN": "资源管理", "en-US": "Resource"})
@@ -73,7 +74,15 @@ func TestMenuItemCRUD(t *testing.T) {
 	item := sampleMenuItem("resource")
 	require.NoError(t, m.Create(ctx, item))
 	assert.NotZero(t, item.ID)
-	assert.True(t, item.IsVisible, "IsVisible default should be true")
+	assert.True(t, item.IsVisible)
+
+	// 显式 false 可见性往返不被默认值覆盖
+	hidden := sampleMenuItem("hidden")
+	hidden.IsVisible = false
+	require.NoError(t, m.Create(ctx, hidden))
+	gotHidden, err := m.FindByScopeAndKey(ctx, "demo-game", "development", "hidden")
+	require.NoError(t, err)
+	assert.False(t, gotHidden.IsVisible)
 
 	got, err := m.FindByScopeAndKey(ctx, "demo-game", "development", "resource")
 	require.NoError(t, err)

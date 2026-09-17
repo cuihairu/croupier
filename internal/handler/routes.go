@@ -29,6 +29,7 @@ import (
 	"github.com/cuihairu/croupier/internal/api/functioncall"
 	"github.com/cuihairu/croupier/internal/api/game"
 	"github.com/cuihairu/croupier/internal/api/hotpatch"
+	"github.com/cuihairu/croupier/internal/api/menu"
 	"github.com/cuihairu/croupier/internal/api/message"
 	"github.com/cuihairu/croupier/internal/api/meta"
 	"github.com/cuihairu/croupier/internal/api/monitoring"
@@ -200,6 +201,7 @@ func RegisterHandlers(r *gin.Engine, serverCtx *svc.ServiceContext) {
 			registerOpsRoutes(scoped.Group("/ops", softFlags.guard(configpkg.FlagOps)), serverCtx)
 		}
 		registerPageRoutes(scoped.Group("/pages"), serverCtx)
+		registerMenuRoutes(scoped.Group("/menus"), serverCtx)
 		if flags.Enabled(configpkg.FlagAnalytics) {
 			registerAnalyticsRoutes(scoped.Group("/analytics", softFlags.guard(configpkg.FlagAnalytics)), serverCtx)
 		}
@@ -967,6 +969,10 @@ func registerResourceCatalogRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) 
 // ============================================================================
 func registerPageRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 	page.RegisterDraftRoutes(g, ctx)
+}
+
+func registerMenuRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
+	menu.RegisterMenuRoutes(g, ctx)
 }
 
 func registerProposalRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {

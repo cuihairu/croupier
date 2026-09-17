@@ -132,6 +132,7 @@ type ServiceContext struct {
 	PageVersionModel          *model.PageVersionModel
 	OpenAPISourceModel        *model.OpenAPISourceModel
 	OpenAPISourceBindingModel *model.OpenAPISourceBindingModel
+	MenuModel                 *model.MenuItemModel
 
 	// Agent Session 持久化
 	AgentSessionModel *reg.AgentSessionModel
@@ -243,6 +244,7 @@ func NewServiceContext(c config.Config, opts ...Option) *ServiceContext {
 	pageVersionModel := model.NewPageVersionModel(db)
 	openAPISourceModel := model.NewOpenAPISourceModel(db)
 	openAPISourceBindingModel := model.NewOpenAPISourceBindingModel(db)
+	menuModel := model.NewMenuItemModel(db)
 
 	// Agent Session Model for database persistence
 	agentSessionModel := reg.NewAgentSessionModel(db)
@@ -388,6 +390,7 @@ func NewServiceContext(c config.Config, opts ...Option) *ServiceContext {
 		PageVersionModel:          pageVersionModel,
 		OpenAPISourceModel:        openAPISourceModel,
 		OpenAPISourceBindingModel: openAPISourceBindingModel,
+		MenuModel:                 menuModel,
 		AgentSessionModel:         agentSessionModel,
 
 		// 版本信息（从 version.go 读取，ldflags 注入后会更新）

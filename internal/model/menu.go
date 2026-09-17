@@ -26,7 +26,10 @@ type MenuItem struct {
 	Icon       string         `gorm:"size:64" json:"icon,omitempty"`
 	SortOrder  int            `gorm:"default:0" json:"sortOrder"`
 	Permission string         `gorm:"size:128" json:"permission,omitempty"`
-	IsVisible  bool           `gorm:"default:true" json:"isVisible"`
+	// IsVisible 不带 default 标签：GORM 会对带 default 的字段在零值时省略
+	// INSERT 列，导致显式 false 被数据库默认值 true 覆盖；可见性默认值由
+	// service 层按「未提供即为 true」处理。
+	IsVisible bool `gorm:"not null" json:"isVisible"`
 }
 
 func (MenuItem) TableName() string {
