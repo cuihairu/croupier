@@ -182,8 +182,11 @@ public sealed class CoverageBoost5TransportTests
         using var transport = new TCPTransport($"127.0.0.1:{port}", timeoutMs: 5000, connectTimeoutMs: 3000);
         transport.SetInboundRequestHandler((msgId, reqId, body) =>
             Task.FromResult<byte[]>(Encoding.UTF8.GetBytes("should-not-be-used")));
-        transport.Connect();
+        // 必须在 Connect 前置饱和：Connect 启动接收循环后服务器立即下发请求帧，
+        // 快机/CI 上接收循环可能先于本线程的 SetField 完成派发（历史 flaky 根因）。
+        // 连接过程无任何代码重置 _inboundQueued，前置注入在帧到达时依然成立。
         SetField(transport, "_inboundQueued", int.MaxValue - 1);
+        transport.Connect();
 
         var bodyLength = await serverTask.WaitAsync(TimeSpan.FromSeconds(5));
         bodyLength.Should().Be(0);
