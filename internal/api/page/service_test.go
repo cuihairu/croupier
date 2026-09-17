@@ -32,8 +32,7 @@ func TestServiceSaveDraftRequiresPageEditPermission(t *testing.T) {
 		Type:          spec.PageTypeOperation,
 		Title:         map[string]string{"zh-CN": "玩家管理", "en-US": "Player Management"},
 		Category: spec.PageCategorySpec{
-			Key:    "player",
-			,
+			Key: "player",
 		},
 		Operation: testOperationPageSpec(),
 		Bindings:  testPageBindings(),
@@ -54,8 +53,7 @@ func TestServiceSaveDraftUsesContextActorAndWritesAudit(t *testing.T) {
 		ResourceKey:   "player",
 		Title:         map[string]string{"zh-CN": "玩家管理", "en-US": "Player Management"},
 		Category: spec.PageCategorySpec{
-			Key:    "player",
-			,
+			Key: "player",
 		},
 		Operation: testOperationPageSpec(),
 		Bindings:  testPageBindings(),
@@ -94,11 +92,9 @@ func TestServiceSaveDraftRejectsMissingCategoryKey(t *testing.T) {
 		Type:          spec.PageTypeOperation,
 		ResourceKey:   "player",
 		Title:         map[string]string{"zh-CN": "玩家管理", "en-US": "玩家管理 en"},
-		Category: spec.PageCategorySpec{
-			,
-		},
-		Operation: testOperationPageSpec(),
-		Bindings:  testPageBindings(),
+		Category:      spec.PageCategorySpec{},
+		Operation:     testOperationPageSpec(),
+		Bindings:      testPageBindings(),
 	})
 
 	require.Error(t, err)
@@ -108,17 +104,16 @@ func TestServiceSaveDraftRejectsMissingCategoryKey(t *testing.T) {
 func TestServiceGetDraftRejectsMissingCanonicalSpecJSON(t *testing.T) {
 	service, ctx, _ := newPageTestService(t, "pages:read")
 	require.NoError(t, service.svcCtx.PageSpecModel.Upsert(ctx, &model.PageSpec{
-		GameID:             "demo-game",
-		Env:                "development",
-		PageKey:            "player.legacy",
-		Type:               "operation",
-		ResourceKey:        "player",
-		CategoryKey:        "player",
-		CategoryLabelsJSON: `{"zh-CN":"玩家"}`,
-		TitleJSON:          `{"zh-CN":"旧页面"}`,
-		Status:             "draft",
-		DraftRevision:      1,
-		UpdatedBy:          "legacy",
+		GameID:        "demo-game",
+		Env:           "development",
+		PageKey:       "player.legacy",
+		Type:          "operation",
+		ResourceKey:   "player",
+		CategoryKey:   "player",
+		TitleJSON:     `{"zh-CN":"旧页面"}`,
+		Status:        "draft",
+		DraftRevision: 1,
+		UpdatedBy:     "legacy",
 	}))
 
 	_, err := service.GetDraft(ctx, &PageDraftRequest{PageKey: "player.legacy"})
@@ -206,8 +201,7 @@ func TestServicePublishRejectsStaleDraftRevision(t *testing.T) {
 		ResourceKey:   "player",
 		Title:         map[string]string{"zh-CN": "玩家管理（已更新）", "en-US": "玩家管理（已更新） en"},
 		Category: spec.PageCategorySpec{
-			Key:    "player",
-			,
+			Key: "player",
 		},
 		Operation: testOperationPageSpec(),
 		Bindings:  testPageBindings(),
@@ -242,8 +236,7 @@ func TestServiceRollbackRejectsStaleDraftRevision(t *testing.T) {
 		ResourceKey:   "player",
 		Title:         map[string]string{"zh-CN": "玩家管理（已更新）", "en-US": "玩家管理（已更新） en"},
 		Category: spec.PageCategorySpec{
-			Key:    "player",
-			,
+			Key: "player",
 		},
 		Operation: testOperationPageSpec(),
 		Bindings:  testPageBindings(),
@@ -274,8 +267,7 @@ func TestServicePublishRejectsMissingBindingSelector(t *testing.T) {
 		ResourceKey:   "player",
 		Title:         map[string]string{"zh-CN": "玩家管理", "en-US": "Player Management"},
 		Category: spec.PageCategorySpec{
-			Key:    "player",
-			,
+			Key: "player",
 		},
 		Operation: testOperationPageSpec(),
 		Bindings:  testPageBindingsWithoutSelector(),
@@ -310,8 +302,7 @@ func TestServicePublishRejectsIncompleteBindingSelector(t *testing.T) {
 		ResourceKey:   "player",
 		Title:         map[string]string{"zh-CN": "玩家管理", "en-US": "Player Management"},
 		Category: spec.PageCategorySpec{
-			Key:    "player",
-			,
+			Key: "player",
 		},
 		Operation: testOperationPageSpec(),
 		Bindings:  bindings,
@@ -343,8 +334,7 @@ func TestServicePublishRejectsInvalidOutputSelector(t *testing.T) {
 		ResourceKey:   "player",
 		Title:         map[string]string{"zh-CN": "玩家管理", "en-US": "Player Management"},
 		Category: spec.PageCategorySpec{
-			Key:    "player",
-			,
+			Key: "player",
 		},
 		Operation: testOperationPageSpec(),
 		Bindings:  bindings,
@@ -370,8 +360,7 @@ func TestServicePublishRejectsMissingBindings(t *testing.T) {
 		ResourceKey:   "player",
 		Title:         map[string]string{"zh-CN": "玩家管理", "en-US": "Player Management"},
 		Category: spec.PageCategorySpec{
-			Key:    "player",
-			,
+			Key: "player",
 		},
 		Operation: testOperationPageSpec(),
 		Bindings:  nil,
@@ -403,7 +392,9 @@ func TestServicePublishDrivesConsoleMenuAndUnpublishRemovesIt(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, menu.Items, 1)
 	assert.Equal(t, "player", menu.Items[0].Key)
-	assert.Equal(t, "玩家", menu.Items[0].Title["zh-CN"])
+	// category.labels 已由菜单系统接管（T-M8）：页面规格不再携带分类文案，
+	// 菜单回落到 key，前端以 menu_items.labels 覆盖。
+	assert.Empty(t, menu.Items[0].Title["zh-CN"])
 	require.Len(t, menu.Items[0].Children, 1)
 	assert.Equal(t, "player.manage", menu.Items[0].Children[0].Key)
 	assert.Equal(t, "玩家管理", menu.Items[0].Children[0].Title["zh-CN"])
@@ -434,7 +425,7 @@ func TestServicePublishDrivesConsoleMenuAndUnpublishRemovesIt(t *testing.T) {
 	assert.Contains(t, err.Error(), "page not found")
 }
 
-func TestServicePublishRejectsCategoryLabelConflict(t *testing.T) {
+func TestServicePublishAllowsSharedCategoryKey(t *testing.T) {
 	service, ctx, _ := newPageTestService(t, "pages:edit", "pages:publish", "pages:read")
 	firstRevision := saveTestPageDraft(t, service, ctx)
 	_, err := service.Publish(ctx, &PagePublishRequest{
@@ -451,21 +442,22 @@ func TestServicePublishRejectsCategoryLabelConflict(t *testing.T) {
 		ResourceKey:   "player",
 		Title:         map[string]string{"zh-CN": "玩家审计", "en-US": "玩家审计 en"},
 		Category: spec.PageCategorySpec{
-			Key:    "player",
-			,
+			Key: "player",
 		},
 		Operation: testOperationPageSpec(),
 		Bindings:  testPageBindings(),
 	})
 	require.NoError(t, err)
 
-	_, err = service.Publish(ctx, &PagePublishRequest{
+	resp, err := service.Publish(ctx, &PagePublishRequest{
 		PageKey:       "player.audit",
 		DraftRevision: &secondResp.DraftRevision,
 	})
 
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "category.labels must match existing published pages")
+	// T-M8 后分类名称由菜单系统（menu_items.labels）统一提供，页面规格
+	// 不再校验 category.labels 一致性，同 category key 的页面可并存发布。
+	require.NoError(t, err)
+	assert.True(t, resp.Published)
 }
 
 func TestServiceGetDraftReturnsPublishedBindingFreshness(t *testing.T) {
@@ -516,8 +508,7 @@ func TestServiceRegenerateDraftUsesLatestFunctionContractWithoutPublishing(t *te
 		ResourceKey:   "player",
 		Title:         map[string]string{"zh-CN": "旧查询页", "en-US": "旧查询页 en"},
 		Category: spec.PageCategorySpec{
-			Key:    "player",
-			,
+			Key: "player",
 		},
 		Operation: testOperationPageSpec(),
 		Bindings:  testPageBindings(),
@@ -547,8 +538,7 @@ func TestServiceRegenerateDraftUsesLatestFunctionContractWithoutPublishing(t *te
 		ResourceKey: "player",
 		Title:       spec.LocalizedText{"zh-CN": "Query", "en-US": "Query en"},
 		Category: spec.PageCategorySpec{
-			Key:    "player",
-			,
+			Key: "player",
 		},
 		Operation: &spec.OperationPageSpec{
 			Form: spec.DefaultFormPresentation(spec.JSONSchema(`{"type":"object","properties":{"keyword":{"type":"string"},"server_id":{"type":"string","title":"区服"}}}`)),
@@ -710,8 +700,7 @@ func TestServiceKeepsSamePageKeyIsolatedByScope(t *testing.T) {
 		ResourceKey:   "player",
 		Title:         map[string]string{"zh-CN": "生产玩家管理", "en-US": "生产玩家管理 en"},
 		Category: spec.PageCategorySpec{
-			Key:    "player",
-			,
+			Key: "player",
 		},
 		Operation: testOperationPageSpec(),
 		Bindings:  testPageBindings(),
@@ -798,8 +787,7 @@ func saveTestPageDraft(t *testing.T, service *Service, ctx context.Context) int 
 		ResourceKey:   "player",
 		Title:         map[string]string{"zh-CN": "玩家管理", "en-US": "Player Management"},
 		Category: spec.PageCategorySpec{
-			Key:    "player",
-			,
+			Key: "player",
 		},
 		Operation: testOperationPageSpec(),
 		Bindings:  testPageBindings(),

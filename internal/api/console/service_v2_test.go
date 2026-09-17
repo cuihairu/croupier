@@ -554,8 +554,7 @@ func TestGenerateMenuFromPagesV2(t *testing.T) {
 			PageKey: "test",
 			Title:   spec.LocalizedText{"zh-CN": "测试"},
 			Category: spec.PageCategorySpec{
-				Key:    "",
-				,
+				Key: "",
 			},
 		}},
 	}, "zh-CN")

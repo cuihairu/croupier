@@ -376,14 +376,14 @@ func TestValidateAcceptedPageSpec(t *testing.T) {
 			Resource: &spec.ResourcePageSpec{},
 			Bindings: []spec.PageFunctionBinding{{ID: "b1", FunctionID: "player.list", Usage: spec.BindingUsageQuery, Execution: spec.PageBindingExecution{Mode: spec.PageExecutionModeSync}}},
 		}, true},
-		{"missing category labels", "game1", "prod", &model.PageProposal{PageKey: "test"}, spec.PageSpec{
+		{"category key only", "game1", "prod", &model.PageProposal{PageKey: "test"}, spec.PageSpec{
 			PageKey:  "test",
 			Type:     spec.PageTypeResource,
 			Title:    spec.LocalizedText{"zh-CN": "玩家"},
 			Category: spec.PageCategorySpec{Key: "player"},
 			Resource: &spec.ResourcePageSpec{},
 			Bindings: []spec.PageFunctionBinding{{ID: "b1", FunctionID: "player.list", Usage: spec.BindingUsageQuery, Execution: spec.PageBindingExecution{Mode: spec.PageExecutionModeSync}}},
-		}, true},
+		}, false},
 		{"no bindings", "game1", "prod", &model.PageProposal{PageKey: "test"}, spec.PageSpec{
 			PageKey:  "test",
 			Type:     spec.PageTypeResource,

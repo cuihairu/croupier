@@ -87,7 +87,9 @@ func TestAcceptAndPublish_RequiresInputSelectors(t *testing.T) {
 	assert.Contains(t, err.Error(), "selectors.input is required")
 }
 
-func TestAcceptAndPublish_CategoryLabelConflict(t *testing.T) {
+// T-M8 后分类名称由菜单系统（menu_items.labels）统一提供，提案发布不再
+// 校验 category.labels 冲突，同 category key 的页面可并存发布。
+func TestAcceptAndPublish_SharedCategoryKey(t *testing.T) {
 	db := setupTestDB(t)
 	ctx := proposalTestContext()
 	svc := NewProposalService(db)
@@ -103,23 +105,13 @@ func TestAcceptAndPublish_CategoryLabelConflict(t *testing.T) {
 	_, err = svc.AcceptAndPublishProposal(ctx, "demo-game", "development", first.ProposalKey)
 	require.NoError(t, err)
 
-	// A second page in the same category with different labels conflicts.
-	conflicting, err := buildOperationProposal("cat--second", "player.query", func(p *spec.PageSpec) {
-	})
+	// A second page in the same category publishes successfully.
+	second, err := buildOperationProposal("cat--second", "player.query", nil)
 	require.NoError(t, err)
-	require.NoError(t, svc.proposalModel.UpsertProposal(ctx, conflicting))
-	_, err = svc.AcceptAndPublishProposal(ctx, "demo-game", "development", conflicting.ProposalKey)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "category labels conflict")
-
-	// Identical labels are accepted.
-	consistent, err := buildOperationProposal("cat--third", "player.query", func(p *spec.PageSpec) {
-	})
+	require.NoError(t, svc.proposalModel.UpsertProposal(ctx, second))
+	result, err := svc.AcceptAndPublishProposal(ctx, "demo-game", "development", second.ProposalKey)
 	require.NoError(t, err)
-	require.NoError(t, svc.proposalModel.UpsertProposal(ctx, consistent))
-	result, err := svc.AcceptAndPublishProposal(ctx, "demo-game", "development", consistent.ProposalKey)
-	require.NoError(t, err)
-	assert.Equal(t, "cat--third", result.PageKey)
+	assert.Equal(t, "cat--second", result.PageKey)
 }
 
 func TestAcceptAndPublish_HappyPathFreezesSnapshot(t *testing.T) {

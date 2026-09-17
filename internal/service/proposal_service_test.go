@@ -234,7 +234,6 @@ func TestProposalService_AcceptProposalDoesNotOverwriteExistingDraft(t *testing.
 		UpdatedBy:     "manual_editor",
 	}
 	require.NoError(t, existing.SetTitle(map[string]string{"zh-CN": "用户已编辑"}))
-	require.NoError(t, existing.SetCategoryLabels(map[string]string{"zh-CN": "玩家"}))
 	require.NoError(t, model.NewPageSpecModel(db).Upsert(ctx, existing))
 
 	err = service.AcceptProposal(ctx, "demo-game", "development", "resource:player")
@@ -350,8 +349,7 @@ func testProposalPageSpec(pageKey string) spec.PageSpec {
 		ResourceKey: "player",
 		Title:       spec.LocalizedText{"zh-CN": "玩家管理"},
 		Category: spec.PageCategorySpec{
-			Key:    "player",
-			,
+			Key: "player",
 		},
 		Operation: &spec.OperationPageSpec{
 			Form: &spec.FormPresentationSpec{

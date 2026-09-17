@@ -699,8 +699,7 @@ func createOpenAPITestPublishedPage(svcCtx *svc.ServiceContext, ctx context.Cont
 		ResourceKey: "player",
 		Title:       dashspec.LocalizedText{"zh-CN": "玩家管理"},
 		Category: dashspec.PageCategorySpec{
-			Key:    "player",
-			Labels: dashspec.LocalizedText{"zh-CN": "玩家"},
+			Key: "player",
 		},
 		Operation: &dashspec.OperationPageSpec{},
 		Bindings: []dashspec.PageFunctionBinding{{

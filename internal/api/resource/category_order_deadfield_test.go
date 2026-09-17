@@ -49,6 +49,6 @@ func TestList_SortByKeyOnly_CategoryOrderRemoved(t *testing.T) {
 
 	for _, item := range resp.Items {
 		assert.NotEmpty(t, item.Category.Key)
-		
+
 	}
 }

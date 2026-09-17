@@ -46,7 +46,6 @@ func TestInbox_ContractChangesForPublishedAndDrafts(t *testing.T) {
 		Status: "draft", DraftRevision: 1, SpecJSON: string(specJSON),
 	}
 	require.NoError(t, draft.SetTitle(map[string]string{"zh-CN": "草稿"}))
-	require.NoError(t, draft.SetCategoryLabels(map[string]string{"zh-CN": "玩家"}))
 	require.NoError(t, db.Create(draft).Error)
 
 	// An empty published row exercises the skip branch.
@@ -110,7 +109,6 @@ func TestInbox_DraftFallsBackToPublishedStaleness(t *testing.T) {
 		Status: "draft", DraftRevision: 2, PublishedVersion: 1, SpecJSON: string(freshJSON),
 	}
 	require.NoError(t, draft.SetTitle(map[string]string{"zh-CN": "新草稿"}))
-	require.NoError(t, draft.SetCategoryLabels(map[string]string{"zh-CN": "玩家"}))
 	require.NoError(t, db.Create(draft).Error)
 
 	resp, err := svc.Inbox(ctx, "demo-game", "development", ProposalListFilter{})

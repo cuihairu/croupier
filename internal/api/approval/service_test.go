@@ -361,8 +361,7 @@ func seedApprovalPublishedPage(svcCtx *svc.ServiceContext, ctx context.Context, 
 		Type:    spec.PageTypeResource,
 		Title:   spec.LocalizedText{"zh-CN": "玩家管理"},
 		Category: spec.PageCategorySpec{
-			Key:    "player",
-			,
+			Key: "player",
 		},
 		Resource: &spec.ResourcePageSpec{
 			ListView: &spec.ListViewSpec{

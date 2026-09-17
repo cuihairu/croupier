@@ -20,8 +20,7 @@ func TestMatchesResourceQuery(t *testing.T) {
 		{
 			name: "empty query matches everything",
 			resource: spec.ResourceSpec{
-				Key:    "player",
-				,
+				Key: "player",
 			},
 			query: "",
 			want:  true,
@@ -29,8 +28,7 @@ func TestMatchesResourceQuery(t *testing.T) {
 		{
 			name: "match by key",
 			resource: spec.ResourceSpec{
-				Key:    "player",
-				,
+				Key: "player",
 			},
 			query: "player",
 			want:  true,
@@ -38,8 +36,7 @@ func TestMatchesResourceQuery(t *testing.T) {
 		{
 			name: "match by key case insensitive",
 			resource: spec.ResourceSpec{
-				Key:    "Player",
-				,
+				Key: "Player",
 			},
 			query: "player",
 			want:  true,
@@ -48,7 +45,7 @@ func TestMatchesResourceQuery(t *testing.T) {
 			name: "match by label",
 			resource: spec.ResourceSpec{
 				Key:    "player",
-				,
+				Labels: spec.LocalizedText{"zh-CN": "玩家"},
 			},
 			query: "玩家",
 			want:  true,
@@ -56,8 +53,7 @@ func TestMatchesResourceQuery(t *testing.T) {
 		{
 			name: "no match",
 			resource: spec.ResourceSpec{
-				Key:    "player",
-				,
+				Key: "player",
 			},
 			query: "order",
 			want:  false,
@@ -65,8 +61,7 @@ func TestMatchesResourceQuery(t *testing.T) {
 		{
 			name: "whitespace query matches everything",
 			resource: spec.ResourceSpec{
-				Key:    "player",
-				,
+				Key: "player",
 			},
 			query: "  ",
 			want:  true,

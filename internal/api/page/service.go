@@ -197,6 +197,8 @@ func (s *Service) SaveDraft(ctx context.Context, req *PageSaveRequest) (*PageSav
 	if !hasDefaultLocale(title) {
 		return nil, errorx.NewBadRequest("title must include a non-empty value in at least one locale")
 	}
+	pageSpec.Title = title
+	pageSpec.Description = normalizeLocaleKeys(req.Description)
 	// 分类名称（category.labels）已由菜单系统接管（T-M8）：请求里的
 	// labels 一律丢弃，仅保留 category.key 作为分组定位键。
 	pageSpec.Category = spec.PageCategorySpec{

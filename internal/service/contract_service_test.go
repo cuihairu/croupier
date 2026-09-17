@@ -1578,8 +1578,7 @@ func TestContractService_GeneratedProposalUsesTermDictionary(t *testing.T) {
 	var page spec.PageSpec
 	require.NoError(t, json.Unmarshal(proposal.PageSpec, &page))
 	assert.Equal(t, "inventory", page.Category.Key)
-	
-	
+
 	// title 没有 summary，回退到 operation 术语
 	assert.Equal(t, "消耗", page.Title["zh-CN"])
 	assert.Equal(t, "Consume", page.Title["en-US"])

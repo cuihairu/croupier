@@ -255,8 +255,7 @@ func TestServiceSaveDraftRejectsMissingPageKey(t *testing.T) {
 		Type:          spec.PageTypeOperation,
 		Title:         map[string]string{"zh-CN": "测试", "en-US": "测试 en"},
 		Category: spec.PageCategorySpec{
-			Key:    "test",
-			,
+			Key: "test",
 		},
 		Operation: testOperationPageSpec(),
 		Bindings:  testPageBindings(),
@@ -275,8 +274,7 @@ func TestServiceSaveDraftRejectsInvalidPageType(t *testing.T) {
 		Type:          "invalid_type",
 		Title:         map[string]string{"zh-CN": "测试", "en-US": "测试 en"},
 		Category: spec.PageCategorySpec{
-			Key:    "test",
-			,
+			Key: "test",
 		},
 		Operation: testOperationPageSpec(),
 		Bindings:  testPageBindings(),
@@ -296,33 +294,13 @@ func TestServiceSaveDraftAcceptsEnOnlyTitle(t *testing.T) {
 		Type:          spec.PageTypeOperation,
 		Title:         map[string]string{"en-US": "Test"},
 		Category: spec.PageCategorySpec{
-			Key:    "test",
-			,
+			Key: "test",
 		},
 		Operation: testOperationPageSpec(),
 		Bindings:  testPageBindings(),
 	})
 	require.NoError(t, err)
 	assert.Equal(t, "test.page", resp.PageKey)
-}
-
-func TestServiceSaveDraftAcceptsEnOnlyCategoryLabels(t *testing.T) {
-	service, ctx, _ := newPageTestService(t, "pages:edit")
-	revision := 0
-
-	_, err := service.SaveDraft(ctx, &PageSaveRequest{
-		PageKey:       "test.page",
-		DraftRevision: &revision,
-		Type:          spec.PageTypeOperation,
-		Title:         map[string]string{"zh-CN": "测试", "en-US": "测试 en"},
-		Category: spec.PageCategorySpec{
-			Key:    "test",
-			,
-		},
-		Operation: testOperationPageSpec(),
-		Bindings:  testPageBindings(),
-	})
-	require.NoError(t, err)
 }
 
 // T12 放宽后全空仍拒：title 一个非空 locale 都没有。
@@ -336,8 +314,7 @@ func TestServiceSaveDraftRejectsEmptyTitle(t *testing.T) {
 		Type:          spec.PageTypeOperation,
 		Title:         map[string]string{"zh-CN": "  ", "en-US": ""},
 		Category: spec.PageCategorySpec{
-			Key:    "test",
-			,
+			Key: "test",
 		},
 		Operation: testOperationPageSpec(),
 		Bindings:  testPageBindings(),
@@ -346,7 +323,9 @@ func TestServiceSaveDraftRejectsEmptyTitle(t *testing.T) {
 	assert.Contains(t, err.Error(), "title must include a non-empty value in at least one locale")
 }
 
-func TestServiceSaveDraftRejectsEmptyCategoryLabels(t *testing.T) {
+// T-M8 后分类名称由菜单系统（menu_items.labels）提供，页面规格只保留
+// category.key，保存草稿不再要求 category.labels。
+func TestServiceSaveDraftAllowsCategoryWithoutLabels(t *testing.T) {
 	service, ctx, _ := newPageTestService(t, "pages:edit")
 	revision := 0
 
@@ -356,14 +335,12 @@ func TestServiceSaveDraftRejectsEmptyCategoryLabels(t *testing.T) {
 		Type:          spec.PageTypeOperation,
 		Title:         map[string]string{"zh-CN": "测试", "en-US": "测试 en"},
 		Category: spec.PageCategorySpec{
-			Key:    "test",
-			,
+			Key: "test",
 		},
 		Operation: testOperationPageSpec(),
 		Bindings:  testPageBindings(),
 	})
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "category.labels must include a non-empty value in at least one locale")
+	require.NoError(t, err)
 }
 
 func TestServiceSaveDraftRejectsNilDraftRevision(t *testing.T) {
@@ -374,8 +351,7 @@ func TestServiceSaveDraftRejectsNilDraftRevision(t *testing.T) {
 		Type:    spec.PageTypeOperation,
 		Title:   map[string]string{"zh-CN": "测试", "en-US": "测试 en"},
 		Category: spec.PageCategorySpec{
-			Key:    "test",
-			,
+			Key: "test",
 		},
 		Operation: testOperationPageSpec(),
 		Bindings:  testPageBindings(),
@@ -395,8 +371,7 @@ func TestServiceSaveDraftCreatesNewPage(t *testing.T) {
 		ResourceKey:   "test",
 		Title:         map[string]string{"zh-CN": "新页面", "en-US": "新页面 en"},
 		Category: spec.PageCategorySpec{
-			Key:    "test",
-			,
+			Key: "test",
 		},
 		Resource: &spec.ResourcePageSpec{},
 	})
@@ -420,8 +395,7 @@ func TestServiceSaveDraftCreatesTaskPage(t *testing.T) {
 		ResourceKey:   "task",
 		Title:         map[string]string{"zh-CN": "任务页面", "en-US": "任务页面 en"},
 		Category: spec.PageCategorySpec{
-			Key:    "task",
-			,
+			Key: "task",
 		},
 		Task: &spec.TaskPageSpec{},
 	})
@@ -440,8 +414,7 @@ func TestServiceSaveDraftCreatesReportPage(t *testing.T) {
 		ResourceKey:   "report",
 		Title:         map[string]string{"zh-CN": "报表页面", "en-US": "报表页面 en"},
 		Category: spec.PageCategorySpec{
-			Key:    "report",
-			,
+			Key: "report",
 		},
 		Report: &spec.ReportPageSpec{},
 	})
@@ -460,8 +433,7 @@ func TestServiceSaveDraftUpdatesExistingPage(t *testing.T) {
 		ResourceKey:   "player",
 		Title:         map[string]string{"zh-CN": "玩家管理（已更新）", "en-US": "玩家管理（已更新） en"},
 		Category: spec.PageCategorySpec{
-			Key:    "player",
-			,
+			Key: "player",
 		},
 		Operation: testOperationPageSpec(),
 		Bindings:  testPageBindings(),
@@ -488,8 +460,7 @@ func TestServiceSaveDraftRejectsConflictOnNewPage(t *testing.T) {
 		Type:          spec.PageTypeOperation,
 		Title:         map[string]string{"zh-CN": "冲突页面", "en-US": "冲突页面 en"},
 		Category: spec.PageCategorySpec{
-			Key:    "conflict",
-			,
+			Key: "conflict",
 		},
 		Operation: testOperationPageSpec(),
 		Bindings:  testPageBindings(),
@@ -880,8 +851,7 @@ func TestMarshalPageSpecV2(t *testing.T) {
 		Icon:        "  icon  ",
 		Title:       spec.LocalizedText{"zh-CN": "测试", "en-US": "测试 en"},
 		Category: spec.PageCategorySpec{
-			Key:    "  cat  ",
-			,
+			Key: "  cat  ",
 		},
 		Bindings: []spec.PageFunctionBinding{
 			{ID: "  b1  ", FunctionID: "  fn1  "},
@@ -1072,8 +1042,7 @@ func TestValidatePageSpecV2(t *testing.T) {
 		Type:  spec.PageTypeOperation,
 		Title: spec.LocalizedText{"zh-CN": "测试", "en-US": "测试 en"},
 		Category: spec.PageCategorySpec{
-			Key:    "test",
-			,
+			Key: "test",
 		},
 	}, false)
 	found = false

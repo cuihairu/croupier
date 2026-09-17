@@ -216,54 +216,6 @@ func TestValidateDirectPublishPageSpecBranchesV9(t *testing.T) {
 	})
 }
 
-// validateCategoryLabelConflict：publishedModel 为 nil 跳过、查询失败、
-// 同 PageKey 跳过、异类目跳过、同目目同文案不冲突。
-func TestValidateCategoryLabelConflictBranchesV9(t *testing.T) {
-	ctx := context.Background()
-	page := spec.PageSpec{
-		PageKey:  "target",
-		Category: spec.PageCategorySpec{Key: "cat"},
-	}
-
-	t.Run("nil published model", func(t *testing.T) {
-		db := setupTestDBFileV9(t)
-		svc := NewProposalService(db)
-		svc.publishedModel = nil
-		assert.NoError(t, svc.validateCategoryLabelConflict(ctx, "g9", "e9", page))
-	})
-
-	t.Run("published query error", func(t *testing.T) {
-		db := setupTestDBFileV9(t)
-		svc := NewProposalService(db)
-		stubTableV9(t, db, &model.PublishedPageSpec{})
-		err := svc.validateCategoryLabelConflict(ctx, "g9", "e9", page)
-		assert.ErrorContains(t, err, "list published pages")
-	})
-
-	t.Run("same page key and other categories skipped", func(t *testing.T) {
-		db := setupTestDBFileV9(t)
-		svc := NewProposalService(db)
-		seed := []model.PublishedPageSpec{
-			{ // 同 PageKey → continue。
-				GameID: "g9", Env: "e9", PageKey: "target", Version: 1, Active: true,
-				SpecJSON: `{"pageKey":"target","category":{"key":"cat","labels":{"zh-CN":"别的"}}}`,
-			},
-			{ // 异类目 → continue。
-				GameID: "g9", Env: "e9", PageKey: "other", Version: 1, Active: true,
-				SpecJSON: `{"pageKey":"other","category":{"key":"othercat","labels":{"zh-CN":"别的"}}}`,
-			},
-			{ // 同类目同文案 → 不冲突。
-				GameID: "g9", Env: "e9", PageKey: "another", Version: 1, Active: true,
-				SpecJSON: `{"pageKey":"another","category":{"key":"cat","labels":{"zh-CN":"玩家"}}}`,
-			},
-		}
-		for i := range seed {
-			require.NoError(t, db.Create(&seed[i]).Error)
-		}
-		assert.NoError(t, svc.validateCategoryLabelConflict(ctx, "g9", "e9", page))
-	})
-}
-
 // Handler 成功路径：GetContract / GetProposal / Accept / AcceptAndPublish / Reject。
 func TestHandlerSuccessPathsV9(t *testing.T) {
 	ctx := proposalTestContext()

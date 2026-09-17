@@ -121,8 +121,7 @@ func TestSaveDraftPreservesMenuAssociation(t *testing.T) {
 		ResourceKey:   "player",
 		Title:         map[string]string{"zh-CN": "玩家管理"},
 		Category: spec.PageCategorySpec{
-			Key:    "player",
-			,
+			Key: "player",
 		},
 		Operation: testOperationPageSpec(),
 		Bindings:  testPageBindings(),

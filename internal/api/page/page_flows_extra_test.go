@@ -84,8 +84,7 @@ func (e *pageFlowEnv) saveDraft(t *testing.T, pageKey string, revision int) int 
 		ResourceKey:   "player",
 		Title:         map[string]string{"zh-CN": "页面", "en-US": "页面 en"},
 		Category: spec.PageCategorySpec{
-			Key:    "player",
-			,
+			Key: "player",
 		},
 		Operation: testOperationPageSpec(),
 		Bindings:  testPageBindings(),

@@ -57,7 +57,7 @@ func TestServiceMenuAllowsPagesReadPermission(t *testing.T) {
 	assert.Equal(t, "player.manage", resp.Items[0].Children[0].Key)
 }
 
-func TestServiceMenuUsesPublishedPageScopeAndLabels(t *testing.T) {
+func TestServiceMenuUsesPublishedPageScope(t *testing.T) {
 	service, ctx := newConsoleTestService(t, "console:read")
 	require.NoError(t, seedConsolePublishedPage(service.svcCtx, ctx))
 	otherScope := svc.WithGameScope(ctx, svc.GameScope{GameID: "demo-game", Env: "production"})
@@ -68,7 +68,9 @@ func TestServiceMenuUsesPublishedPageScopeAndLabels(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, resp.Items, 1)
 	assert.Equal(t, "player", resp.Items[0].Key)
-	assert.Equal(t, "玩家", resp.Items[0].Title["zh-CN"])
+	// category.labels 已由菜单系统接管（T-M8）：页面驱动菜单的分类标题
+	// 回落为空，前端以 menu_items.labels 覆盖。
+	assert.Empty(t, resp.Items[0].Title["zh-CN"])
 	assert.Equal(t, "/console/player", resp.Items[0].Path)
 	require.Len(t, resp.Items[0].Children, 1)
 	assert.Equal(t, "/console/player/player.manage", resp.Items[0].Children[0].Path)
@@ -82,9 +84,8 @@ func TestGenerateMenuFromPagesUsesLowestPublishedPageOrderForCategory(t *testing
 				Title:   spec.LocalizedText{"zh-CN": "后"},
 				Order:   100,
 				Category: spec.PageCategorySpec{
-					Key:    "late",
-					,
-					Order:  1,
+					Key:   "late",
+					Order: 1,
 				},
 			},
 		},
@@ -94,9 +95,8 @@ func TestGenerateMenuFromPagesUsesLowestPublishedPageOrderForCategory(t *testing
 				Title:   spec.LocalizedText{"zh-CN": "前"},
 				Order:   10,
 				Category: spec.PageCategorySpec{
-					Key:    "early",
-					,
-					Order:  999,
+					Key:   "early",
+					Order: 999,
 				},
 			},
 		},
@@ -609,8 +609,7 @@ func seedConsolePublishedPageForScope(svcCtx *svc.ServiceContext, ctx context.Co
 		ResourceKey: categoryKey,
 		Title:       spec.LocalizedText{"zh-CN": pageKey},
 		Category: spec.PageCategorySpec{
-			Key:    categoryKey,
-			,
+			Key: categoryKey,
 		},
 		Order:     order,
 		Operation: testConsoleOperationPageSpec(),
@@ -692,8 +691,7 @@ func seedConsolePublishedPageWithSchemaAndSelector(svcCtx *svc.ServiceContext, c
 		ResourceKey: "player",
 		Title:       spec.LocalizedText{"zh-CN": "玩家管理"},
 		Category: spec.PageCategorySpec{
-			Key:    "player",
-			,
+			Key: "player",
 		},
 		Operation: testConsoleOperationPageSpec(),
 		Bindings: []spec.PageFunctionBinding{

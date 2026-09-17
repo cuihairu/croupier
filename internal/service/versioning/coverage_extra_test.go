@@ -269,16 +269,6 @@ func TestApplyAutoMergeItemOrderV2(t *testing.T) {
 	assert.Equal(t, 10, page.Order)
 }
 
-func TestApplyAutoMergeItemCategoryLabelsV2(t *testing.T) {
-	page := spec.PageSpec{}
-	item := dashboardmerge.MergeItem{
-		Field:       "category.labels",
-		MergedValue: json.RawMessage(`{"zh-CN":"玩家"}`),
-	}
-	err := applyAutoMergeItem(&page, item)
-	require.NoError(t, err)
-}
-
 func TestApplyAutoMergeItemCategoryOrderV2(t *testing.T) {
 	page := spec.PageSpec{}
 	item := dashboardmerge.MergeItem{
@@ -1637,8 +1627,7 @@ func TestNormalizePageSpecWhitespace(t *testing.T) {
 		ResourceKey: "  player  ",
 		Icon:        "  icon  ",
 		Category: spec.PageCategorySpec{
-			Key:    "  cat  ",
-			Labels: map[string]string{"zh-CN": "  玩家  "},
+			Key: "  cat  ",
 		},
 		Bindings: []spec.PageFunctionBinding{
 			{ID: "  run  ", FunctionID: "  player.ban  "},
@@ -1686,8 +1675,7 @@ func TestApplyPageSpecToModel(t *testing.T) {
 		Type:        spec.PageTypeResource,
 		ResourceKey: "player",
 		Category: spec.PageCategorySpec{
-			Key:    "player",
-			Labels: map[string]string{"zh-CN": "玩家"},
+			Key: "player",
 		},
 		Order: 10,
 		Icon:  "icon-name",

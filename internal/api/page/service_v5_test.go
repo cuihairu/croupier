@@ -331,8 +331,7 @@ func TestMarshalPageSpecV5(t *testing.T) {
 		Title:       spec.LocalizedText{"zh-CN": "  title  ", "en-US": "  title   en"},
 		Description: spec.LocalizedText{"zh-CN": "  desc  "},
 		Category: spec.PageCategorySpec{
-			Key:    "  cat  ",
-			,
+			Key: "  cat  ",
 		},
 		Bindings: []spec.PageFunctionBinding{
 			{ID: "  b1  ", FunctionID: "  f1  "},

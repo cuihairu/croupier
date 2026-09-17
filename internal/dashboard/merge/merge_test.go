@@ -96,7 +96,7 @@ func TestAutoMergeFields_ContainsExpectedFields(t *testing.T) {
 	assert.True(t, AutoMergeFields["title"])
 	assert.True(t, AutoMergeFields["description"])
 	assert.True(t, AutoMergeFields["icon"])
-	assert.True(t, AutoMergeFields["category.labels"])
+	assert.True(t, AutoMergeFields["category.order"])
 	assert.True(t, AutoMergeFields["navigation.title"])
 	assert.True(t, AutoMergeFields["resource.listView.columns[].title"])
 	assert.True(t, AutoMergeFields["resource.listView.defaultSort"])

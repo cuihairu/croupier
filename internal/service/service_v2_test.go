@@ -531,10 +531,6 @@ func TestValidateAcceptedPageSpecV2(t *testing.T) {
 	assert.Error(t, err)
 	page.Category.Key = "cat"
 
-	// Missing category labels
-	err = validateAcceptedPageSpec("g1", "dev", proposal, page)
-	assert.Error(t, err)
-
 	// Missing bindings
 	page.Bindings = nil
 	err = validateAcceptedPageSpec("g1", "dev", proposal, page)

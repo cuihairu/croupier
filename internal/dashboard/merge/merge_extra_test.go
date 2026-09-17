@@ -657,7 +657,6 @@ func TestThreeWayMerge_CategoryFields(t *testing.T) {
 	for _, item := range result.AutoMerge {
 		autoMergeFields[item.Field] = true
 	}
-	assert.True(t, autoMergeFields["category.labels"], "category.labels should be auto-merged")
 	assert.True(t, autoMergeFields["category.order"], "category.order should be auto-merged")
 
 	conflictFields := make(map[string]bool)

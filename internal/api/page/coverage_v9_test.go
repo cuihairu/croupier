@@ -77,8 +77,7 @@ func v9SaveDraftDirect(t *testing.T, service *Service, ctx context.Context, page
 		ResourceKey:   "player",
 		Title:         map[string]string{"zh-CN": "页面", "en-US": "页面 en"},
 		Category: spec.PageCategorySpec{
-			Key:    "player",
-			,
+			Key: "player",
 		},
 		Operation: testOperationPageSpec(),
 		Bindings:  testPageBindings(),
@@ -338,69 +337,6 @@ func TestValidatePageSpecDuplicateBindingIDV9(t *testing.T) {
 	assertDiagnostic(t, diags, "binding_id_duplicate", "bindings[1].id")
 }
 
-func TestValidatePublishedCategoryLabelsGuardsV9(t *testing.T) {
-	service, ctx, _ := newPageTestService(t, "admin:all")
-
-	// nil service context
-	assert.Nil(t, NewService(nil).validatePublishedCategoryLabels(ctx, spec.PageSpec{
-		Category: spec.PageCategorySpec{Key: "player"},
-	}))
-
-	// empty category key short-circuits
-	assert.Nil(t, service.validatePublishedCategoryLabels(ctx, spec.PageSpec{}))
-
-	// missing scope short-circuits
-	assert.Nil(t, service.validatePublishedCategoryLabels(context.Background(), spec.PageSpec{
-		Category: spec.PageCategorySpec{Key: "player"},
-	}))
-}
-
-func TestValidatePublishedCategoryLabelsPublishedRowsV9(t *testing.T) {
-	env := setupPageFlowEnv(t)
-	db := env.service.svcCtx.DB
-
-	rev := env.saveDraft(t, "cat.page", 0)
-	_, err := env.service.Publish(env.ctx, &PagePublishRequest{PageKey: "cat.page", DraftRevision: &rev})
-	require.NoError(t, err)
-
-	labels := spec.LocalizedText{"zh-CN": "玩家"}
-
-	// Same pageKey rows are skipped.
-	assert.Nil(t, env.service.validatePublishedCategoryLabels(env.ctx, spec.PageSpec{
-		PageKey:  "cat.page",
-		Category: spec.PageCategorySpec{Key: "player", Labels: labels},
-	}))
-
-	// Published rows with corrupt SpecJSON produce a diagnostic.
-	require.NoError(t, db.Create(&model.PublishedPageSpec{
-		GameID: "demo-game", Env: "development", PageKey: "badpub.page",
-		Version: 1, SpecJSON: "{bad", RendererSchemaVersion: rendererSchemaVersion, Active: true,
-	}).Error)
-	diags := env.service.validatePublishedCategoryLabels(env.ctx, spec.PageSpec{
-		PageKey:  "cat.page",
-		Category: spec.PageCategorySpec{Key: "player", Labels: labels},
-	})
-	require.NotEmpty(t, diags)
-	assert.Equal(t, "published_page_spec_invalid", diags[0].Code)
-
-	// Published rows in another category are skipped.
-	require.NoError(t, db.Model(&model.PublishedPageSpec{}).Where("page_key = ?", "badpub.page").Update("active", false).Error)
-	require.NoError(t, db.Create(&model.PublishedPageSpec{
-		GameID: "demo-game", Env: "development", PageKey: "diffcat.page",
-		Version: 1,
-		SpecJSON: string(v9MarshalSpec(t, spec.PageSpec{
-			PageKey:  "diffcat.page",
-			Category: spec.PageCategorySpec{Key: "other"},
-		})),
-		RendererSchemaVersion: rendererSchemaVersion,
-		Active:                true,
-	}).Error)
-	assert.Nil(t, env.service.validatePublishedCategoryLabels(env.ctx, spec.PageSpec{
-		PageKey:  "cat.page",
-		Category: spec.PageCategorySpec{Key: "player", Labels: labels},
-	}))
-}
-
 func TestValidatePageShapeCompositeV9(t *testing.T) {
 	diags := validatePageShape(spec.PageSpec{Type: spec.PageTypeComposite})
 	assertDiagnostic(t, diags, "page_shape_missing", "composite")
@@ -569,12 +505,6 @@ func TestServiceBrokenModelErrorPathsV9(t *testing.T) {
 
 	_, err = service.Rollback(ctx, &PageRollbackRequest{PageKey: "p", VersionID: "1", ExpectedDraftRevision: intPtr(1)})
 	require.Error(t, err)
-
-	diags := service.validatePublishedCategoryLabels(ctx, spec.PageSpec{
-		Category: spec.PageCategorySpec{Key: "player"},
-	})
-	require.Len(t, diags, 1)
-	assert.Equal(t, "category_label_check_failed", diags[0].Code)
 
 	assert.Nil(t, service.bindingFreshnessForPublishedDraft(ctx, &model.PageSpec{
 		GameID: "demo-game", Env: "development", PageKey: "p", PublishedVersion: 2,

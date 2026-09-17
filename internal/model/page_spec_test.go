@@ -166,15 +166,15 @@ func setupPageSpecTestDB(t *testing.T) *gorm.DB {
 
 func testPageSpec(gameID, env, pageKey, titleJSON string) *PageSpec {
 	return &PageSpec{
-		GameID:             gameID,
-		Env:                env,
-		PageKey:            pageKey,
-		Type:               "operation",
-		TitleJSON:          titleJSON,
-		CategoryKey: "player",
-		SpecJSON:    `{"pageKey":"` + pageKey + `","type":"operation","title":{"zh-CN":"玩家管理"},"category":{"key":"player"},"operation":{"form":{"jsonSchema":{"type":"object","properties":{}}}},"bindings":[]}`,
-		Status:             "draft",
-		DraftRevision:      1,
+		GameID:        gameID,
+		Env:           env,
+		PageKey:       pageKey,
+		Type:          "operation",
+		TitleJSON:     titleJSON,
+		CategoryKey:   "player",
+		SpecJSON:      `{"pageKey":"` + pageKey + `","type":"operation","title":{"zh-CN":"玩家管理"},"category":{"key":"player"},"operation":{"form":{"jsonSchema":{"type":"object","properties":{}}}},"bindings":[]}`,
+		Status:        "draft",
+		DraftRevision: 1,
 	}
 }
 
