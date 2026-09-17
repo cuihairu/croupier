@@ -12,7 +12,7 @@ tag:
 
 # 运行控制台动态菜单
 
-> **状态**：Current — 运行控制台菜单只消费已发布 PageSpec。详细模型见 [Dashboard Resource/Page 模型](./dashboard-page-model.md)。实现索引：菜单生成 `internal/api/console/`（`GET /api/v1/console/menu`）、前端路由 `web/config/routes.ts`、菜单组装 `web/src/utils/consoleMenu.ts`、发布期分类 labels 仲裁 `internal/service/proposal_service.go`。
+> **状态**：Current — 运行控制台菜单消费已发布 PageSpec 与菜单系统（`menu_items`）的并集。详细模型见 [Dashboard Resource/Page 模型](./dashboard-page-model.md)。实现索引：菜单生成 `internal/api/console/`（`GET /api/v1/console/menu`）、菜单模型 `internal/model/menu.go`、前端路由 `web/config/routes.ts`、菜单组装 `web/src/utils/consoleMenu.ts`（`buildConsoleMenuFromAccessibleMenus`）、存量迁移 `scripts/migrate-categories-to-menus.sql`。
 
 ## 结论
 
@@ -24,7 +24,7 @@ tag:
 PublishedPageSpec[] -> ConsoleMenuSpec
 ```
 
-前端不得为动态分类修改 `web/src/locales/*/menu.ts`。动态分类和页面标题必须分别来自已发布 PageSpec 的 `category.labels` 与 `title`，而不是不受约束的 metadata。
+前端不得为动态分类修改 `web/src/locales/*/menu.ts`。动态分类名称来自菜单系统（`menu_items.labels`，菜单管理页维护），页面标题来自已发布 PageSpec 的 `title`；PageSpec 侧只提供 `category.key`（分组定位键），不携带分类文案（T-M8）。
 
 ## 分类规则
 
@@ -50,31 +50,37 @@ PublishedPageSpec[] -> ConsoleMenuSpec
 
 ## 分类仲裁
 
-同一 `category.key` 可被多个 PageSpec 使用，分类的 labels 和 order 必须有唯一事实：
+同一 `category.key` 可被多个 PageSpec 使用；T-M8 起页面规格不再携带分类文案，仲裁规则随之简化：
 
-1. 发布时 Server 校验同一 scope 内相同 `category.key` 的所有已发布 PageSpec，其 `category.labels` 必须完全一致；不一致则发布失败，由管理员在 Page Studio 统一后重发。
+1. 分类名称的唯一事实是菜单系统：`menu_items` 以 `(game_id, env, menu_key)` 唯一索引承载分类多语言名称（`labels`），不存在多页面 labels 冲突问题；存量漂移由迁移脚本（`scripts/migrate-categories-to-menus.sql`）归位——同 key 下 labels 不一致时取最近更新页面的 labels 落为菜单名。
 2. 分类 order 取该分类下所有已发布页面 `category.order` 的最小值；分类内页面按各自 `order` 排序。
-3. 分类下最后一个页面下线时分类随之消失，不存在独立的空分类配置。
+3. 分类下最后一个页面下线时，页面驱动菜单中的该分类随之消失；菜单系统中同名菜单仍保留（可挂纯菜单分组或空分类），由菜单管理页独立管理。
 
 ## 确定时机
 
 函数注册不提供运行菜单分类，也不提供分类多语言显示名。Server 可以根据 `resourceKey`、主 binding 原始 `functionId` 和契约分析给 Page Studio 提供分类建议，但最终分类必须在 PageSpec 保存或发布时确定。`operation--mail.send` 等生成 pageKey 不是分类推导来源。
 
-运行控制台加载菜单时不再推断分类。它只能读取已经发布并通过校验的 `category.key`、`category.labels` 和页面 labels。
+运行控制台加载菜单时不再推断分类。页面侧只读取已经发布并通过校验的 `category.key` 与页面 `title`；分类显示名由菜单系统的 `menu_items.labels` 覆盖（前端 `buildConsoleMenuFromAccessibleMenus` 按 `menuKey = category.key` 匹配挂载）。
 
 ## 多语言
 
-动态菜单显示名从 PageSpec 的强类型字段中取值：
+动态菜单显示名分两个事实源（T-M8）：分类标题来自菜单系统，页面标题来自 PageSpec：
 
 ```json
+// menu_items（菜单管理页维护，分类标题唯一事实）
 {
-  "category": {
-    "key": "support",
-    "labels": {
-      "zh-CN": "客服",
-      "en-US": "Support"
-    }
-  },
+  "menuKey": "support",
+  "labels": {
+    "zh-CN": "客服",
+    "en-US": "Support"
+  }
+}
+```
+
+```json
+// PublishedPageSpec（页面侧只携带分组键与自身标题）
+{
+  "category": { "key": "support" },
   "title": {
     "zh-CN": "封禁玩家",
     "en-US": "Ban Player"
@@ -84,12 +90,12 @@ PublishedPageSpec[] -> ConsoleMenuSpec
 
 规则：
 
-- `category.labels` 用于分类菜单标题。
+- `menu_items.labels` 用于分类菜单标题；菜单缺失或 labels 为空时前端回落显示 `menuKey`。
 - `title` 用于页面菜单标题。
 - 静态 locale 只用于固定系统菜单，例如“运行控制台”。
 - 动态菜单项必须设置 `locale: false`。
-- 缺少系统默认语言时发布失败。
-- 默认 labels 由生成器产出（见 [UI 生成](./ui-generation.md)）；labels 不齐备的 Proposal 不得标记为 `ready`/`basic`。
+- 页面 `title` 缺少系统默认语言时发布失败（分类名称不在此校验范围——它不再随页面发布）。
+- 菜单 labels 在菜单管理页维护，与页面发布链解耦；改分类名不需要重发页面。
 
 ## 路由
 
@@ -114,7 +120,7 @@ PublishedPageSpec[] -> ConsoleMenuSpec
 - 从前端页面里重复实现分类推断。
 - 从函数目录直接生成运行控制台菜单。
 - 把未发布 PageSpec 或函数注册草稿展示到运行控制台。
-- 缺少分类 labels 时静默显示 key 并继续发布。
+- 在 PageSpec、前端组件或静态字典中重新引入分类文案（分类名称只属于菜单系统）。
 
 允许：
 
@@ -125,9 +131,9 @@ PublishedPageSpec[] -> ConsoleMenuSpec
 ## 验收规则
 
 - 新增分类不需要改前端代码。
-- 切换语言后，动态分类和页面标题来自 PageSpec labels。
-- 没有 PageSpec 发布时，运行控制台不展示对应菜单。
-- 没有 `category.labels` 默认语言时发布失败。
+- 切换语言后，动态分类标题来自 `menu_items.labels`，页面标题来自 PageSpec `title`。
+- 没有 PageSpec 发布时，运行控制台不展示对应页面菜单；空菜单（无子菜单无页面）可保留为分组入口，点击落到分类路由空态页。
+- 没有 `title` 默认语言时页面发布失败。
 - 函数目录、Page Studio 草稿和运行控制台菜单之间不存在第二套分类逻辑。
-- 同一 scope 内相同 `category.key` 的 labels 冲突时发布失败。
-- 切换全局 game/env 后，菜单只显示新 scope 的 active PublishedPageSpec。
+- 存量迁移后 `unmapped_categorized_pages` 必须为 0（迁移脚本自带校验输出）。
+- 切换全局 game/env 后，菜单只显示新 scope 的 active PublishedPageSpec 与菜单项。

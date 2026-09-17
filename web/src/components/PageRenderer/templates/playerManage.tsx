@@ -38,7 +38,6 @@ export const playerManagePageSpec: PageSpec = {
   },
   category: {
     key: 'players',
-    labels: { 'zh-CN': '玩家管理', 'en-US': 'Players' },
   },
   resource: {
     listView: {

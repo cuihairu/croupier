@@ -206,18 +206,8 @@ export default function PageEditor({ value, onChange, readonly = false }: PageEd
               }
             />
           </Form.Item>
-          <Form.Item
-            label={intl.formatMessage({
-              id: 'component.pageEditor.shell.categoryTitleLabel',
-              defaultMessage: '分类标题（多语言）',
-            })}
-            required
-          >
-            <LocalizedTextEditor
-              value={category.labels}
-              onChange={(labels) => onChange({ ...value, category: { ...category, labels } })}
-            />
-          </Form.Item>
+          {/* T-M8：分类名称由菜单管理（menu_items.labels）维护，
+              页面规格只保留 category.key，分类标题不再随草稿编辑。 */}
           <Form.Item
             label={intl.formatMessage({
               id: 'component.pageEditor.shell.orderLabel',

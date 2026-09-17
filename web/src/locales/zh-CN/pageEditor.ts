@@ -113,7 +113,6 @@ export default {
     '导航配置（标题、分类）在页面级别设置，不在此编辑器中配置。',
   'component.pageEditor.resourcePage.navigation.title': '导航配置',
   'component.pageEditor.shell.categoryKeyLabel': '分类 key',
-  'component.pageEditor.shell.categoryTitleLabel': '分类标题（多语言）',
   'component.pageEditor.shell.compositeHint':
     '组合页由生成器按资源契约自动维护（每资源一个 tab 视图）；如需调整资源集合，请在提案收件箱删除后重新创建，或等待契约变更触发的提案更新。',
   'component.pageEditor.shell.compositeLinkage': '联动 {deps}',

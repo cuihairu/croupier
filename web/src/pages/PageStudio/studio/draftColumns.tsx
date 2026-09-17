@@ -75,7 +75,7 @@ export function buildDraftColumns(
       dataIndex: ['category', 'key'],
       key: 'category',
       width: 120,
-      render: (_, record) => localizedText(record.category?.labels, intl.locale, '-'),
+      render: (_, record) => record.category?.key ?? '-',
     },
     {
       title: intl.formatMessage({

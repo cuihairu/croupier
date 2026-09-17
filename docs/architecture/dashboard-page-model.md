@@ -395,9 +395,9 @@ PageSpec = (pageKey, type, resourceKey?, category, title, icon, order,
 
 `PageBinding` 只引用发布期允许执行的 FunctionContract。输入输出映射必须使用受控的 typed selector AST，禁止保存无约束 JSON mapping、裸整行透传或运行时猜路径。
 
-分类、标题、图标与排序是 PageSpec 的顶层强类型字段；`NavigationSpec` 仅承载面包屑与返回行为（breadcrumb、showBack、backPath）。它们只在 PageProposal/PageSpec 中确定，注册侧不能提供菜单事实。页面没有独立的 permissions 字段：权限由 binding 级治理（合同 permission/risk/approval 快照）与 action 级 permission 字段承载。
+分类、标题、图标与排序是 PageSpec 的顶层强类型字段；`NavigationSpec` 仅承载面包屑与返回行为（breadcrumb、showBack、backPath）。它们只在 PageProposal/PageSpec 中确定，注册侧不能提供菜单事实。页面没有独立的 permissions 字段：权限由 binding 级治理（合同 permission/risk/approval 快照）与 action 级 permission 字段承载。**T-M8 起分类名称与页面规格解耦**：`PageCategorySpec` 只保留 `key`（分组定位键）与 `order`，多语言分类名称由菜单系统（`menu_items.labels`）统一提供；存量数据经迁移脚本（`scripts/migrate-categories-to-menus.sql`）归位，页面驱动菜单的分类标题回落为空、前端以 `menu_items.labels` 覆盖。
 
-**本地化名称契约（T12 放宽）**：`title` 与 `category.labels` 的 LocalizedText 只要求**任一 locale 有非空值**（默认名称必填、翻译可选）——zh-CN 是第一推荐展示语言（渲染回退链首位），en-US 与其他语言一律可选，仅有 en-US 的存量页面不被误拒；全部为空白值时在保存/发布校验与发布期诊断中被拒（`hasDefaultLocale`）。生成器全路径经 `ensureDefaultLocale` 规整：空白值剔除、zh-CN 缺失时取任意既有值补位，不再强制补写 en-US（humanize 兜底的 category 标签仍双写 zh-CN+en-US，属自然双语数据而非发布要求）。编辑器（LocalizedTextEditor）的必填基线已同步降级为仅默认语言：缺失 zh-CN 时在 🌐 气泡中给出不阻断发布的补录提示，缺失其他语言不警告、不阻断；下拉标记回归单一 ✓（已录语言），必填 ⚠ 标记与 `contractHint` 的强制双写表述已随 T13 移除。其余 LocalizedText 字段（confirm 文案、结果提示、字段 label 等）仍为可选，渲染端按 zh-CN → en-US → 任一非空值回退。
+**本地化名称契约（T12 放宽，T-M8 起 category.labels 部分移交菜单）**：`title` 的 LocalizedText 只要求**任一 locale 有非空值**（默认名称必填、翻译可选）——zh-CN 是第一推荐展示语言（渲染回退链首位），en-US 与其他语言一律可选，仅有 en-US 的存量页面不被误拒；全部为空白值时在保存/发布校验与发布期诊断中被拒（`hasDefaultLocale`）。生成器全路径经 `ensureDefaultLocale` 规整：空白值剔除、zh-CN 缺失时取任意既有值补位，不再强制补写 en-US。编辑器（LocalizedTextEditor）的必填基线已同步降级为仅默认语言：缺失 zh-CN 时在 🌐 气泡中给出不阻断发布的补录提示，缺失其他语言不警告、不阻断；下拉标记回归单一 ✓（已录语言），必填 ⚠ 标记与 `contractHint` 的强制双写表述已随 T13 移除；分类标题编辑入口已随 T-M8 从页面编辑器移除（菜单管理页维护）。其余 LocalizedText 字段（confirm 文案、结果提示、字段 label 等）仍为可选，渲染端按 zh-CN → en-US → 任一非空值回退。
 
 ## CRUD 是主路径，非 CRUD 是一等扩展
 
@@ -504,7 +504,7 @@ active PublishedPageSpec[] -> ConsoleMenuSpec -> ProLayout
 
 函数或 CapabilitySemantics 变化后，Server 生成新的 Proposal 并计算 diff。已发布页标记 stale 且拒绝执行；Page Studio 必须提供“查看差异、自动合并安全字段、解决冲突、重新发布”。绝不静默更新 Draft 或 PublishedPageSpec。
 
-自动合并的安全集只包含展示类字段：列顺序与显隐、字段 label/help、order、group、widget hint、导航标题、分类 labels、图标和排序。`visibleWhen` 只有经校验证明不影响 required 输入、binding payload 和 selector 引用时才允许自动合并，否则归入冲突集。执行类字段——bindings、functionId、input/output assignment、confirmation、permissions、risk、approval——出现任何差异都必须人工确认，不得自动合并。
+自动合并的安全集只包含展示类字段：列顺序与显隐、字段 label/help、order、group、widget hint、导航标题、分类 key/order、图标和排序。`visibleWhen` 只有经校验证明不影响 required 输入、binding payload 和 selector 引用时才允许自动合并，否则归入冲突集。执行类字段——bindings、functionId、input/output assignment、confirmation、permissions、risk、approval——出现任何差异都必须人工确认，不得自动合并。
 
 ### 发布分级（pages.publishReview，T10）
 

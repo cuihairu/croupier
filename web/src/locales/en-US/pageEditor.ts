@@ -115,7 +115,6 @@ export default {
     'Navigation settings (title, category) are configured at the page level, not in this editor.',
   'component.pageEditor.resourcePage.navigation.title': 'Navigation',
   'component.pageEditor.shell.categoryKeyLabel': 'Category key',
-  'component.pageEditor.shell.categoryTitleLabel': 'Category title (multilingual)',
   'component.pageEditor.shell.compositeHint':
     'Composite pages are maintained automatically by the generator from resource contracts (one tab view per resource); to change the resource set, delete the page in the proposal inbox and recreate it, or wait for a proposal update triggered by a contract change.',
   'component.pageEditor.shell.compositeLinkage': 'linked to {deps}',

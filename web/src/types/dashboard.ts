@@ -316,10 +316,9 @@ export interface OperationSpec {
 // PageSpec
 // ---------------------------------------------------------------------------
 
-/** 页面分类规格 */
+/** 页面分类规格（T-M8：分类名称由 menu_items.labels 提供，仅保留定位键） */
 export interface PageCategorySpec {
   key: string;
-  labels: LocalizedText;
   order?: number;
 }
 

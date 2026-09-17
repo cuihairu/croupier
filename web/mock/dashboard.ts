@@ -368,7 +368,8 @@ function buildMockConsoleMenu() {
     const category: MockConsoleMenuItem = categories.get(categoryKey) || {
       key: categoryKey,
       path: `/console/${encodeURIComponent(categoryKey)}`,
-      title: page.category.labels,
+      // T-M8：分类名称由 menu_items.labels 提供，页面驱动菜单的分类标题回落为空。
+      title: {},
       locale: false,
       order: index + 1,
       children: [],
