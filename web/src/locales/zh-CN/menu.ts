@@ -67,7 +67,7 @@ export default {
   'menu.SystemConfig.SystemFoundation.Terms': '术语字典',
   'menu.Ops.Certificates': '证书监控',
   'menu.Ops.Notifications': '事件通知',
-  'menu.SystemFoundation.AnalyticsFilters': '采样控制',
+  'menu.SystemConfig.SystemFoundation.AnalyticsFilters': '采样控制',
   'menu.Ops.Backups': '数据备份',
   // 数据分析
   'menu.Analytics': '分析中心',
