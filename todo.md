@@ -383,6 +383,8 @@ T3（execution_state 字段）→ T4/T6/T8；T2 → T5；T12（后端校验放�
 - 菜单 CRUD 完整流程
 - 权限继承正确
 
+> **存量库迁移补漏（2026-09-18，0027）**：T-M1/T-M4 落地时只改了模型（MenuItem 表 + PageSpec.MenuID 列），未配编号迁移——线上 postgres `menu_items` 表缺失（menus API 500）、`page_specs.menu_id` 缺列（页面保存/发布链 SQLSTATE 42703 整体中断）；sqlite/dev 环境走 AutoMigrateGame 建全列，CI 拦不住。0027 补齐（缺表 CreateTable + 缺列 AddColumn，幂等），`MinimumRequiredVersion` 26→27。与 0021/0023 同族「模型改了迁移漏配」事故。
+
 ---
 
 ## UI 生成链路 6 卡点整改（M1–M6，已完成 2026-09-18）
