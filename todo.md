@@ -390,7 +390,7 @@ T3（execution_state 字段）→ T4/T6/T8；T2 → T5；T12（后端校验放�
 
 > **存量库迁移补漏（2026-09-18，0027）**：T-M1/T-M4 落地时只改了模型（MenuItem 表 + PageSpec.MenuID 列），未配编号迁移——线上 postgres `menu_items` 表缺失（menus API 500）、`page_specs.menu_id` 缺列（页面保存/发布链 SQLSTATE 42703 整体中断）；sqlite/dev 环境走 AutoMigrateGame 建全列，CI 拦不住。0027 补齐（缺表 CreateTable + 缺列 AddColumn，幂等），`MinimumRequiredVersion` 26→27。与 0021/0023 同族「模型改了迁移漏配」事故。
 
-### T-M10. 默认菜单种子（scope 化惰性导入）【待排期，用户 2026-09-18 提出】
+### T-M10. 默认菜单种子（scope 化惰性导入）（已完成 2026-09-18）
 
 **动机**：页面能自动生成、auto env 保存即发布，但菜单树开箱为空——控制台导航「最后一公里」断在手动建菜单。
 
@@ -408,7 +408,7 @@ T3（execution_state 字段）→ T4/T6/T8；T2 → T5；T12（后端校验放�
 - 已有菜单的 scope → 不导入不覆盖
 - 种子导入的菜单与手工创建行为一致（可改/可删/可挂载）
 
----
+> **交付（2026-09-18）**：`internal/svc/menu_seeder.go`（MenuSeeder 惰性种子 + LoadSeedMenus 校验）、`configs/default-menus.json`（player/operation/payment/announcement/audit 五组双语骨架）、读路径接线 `menu.Service.List` 与 `menu.AccessibleTree`（console 导航共用）；零新配置（文件存在即启用，缺失即禁用）；`MenuItemModel.CountByScope` 查询方法（无 schema 变更，无需迁移）。单测 `menu_seeder_test.go` 12 例 + e2e 实证（fixture 日志 `menu seed: default menus imported created=5`，menu/operation/openapi-crud 三 spec 全绿含 openapi-crud:344 排他断言）。
 
 ## UI 生成链路 6 卡点整改（M1–M6，已完成 2026-09-18）
 

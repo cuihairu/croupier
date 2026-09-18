@@ -1,0 +1,32 @@
+[
+  {
+    "menuKey": "player",
+    "labels": { "zh-CN": "玩家管理", "en-US": "Players" },
+    "icon": "UserOutlined",
+    "sortOrder": 10
+  },
+  {
+    "menuKey": "operation",
+    "labels": { "zh-CN": "运营", "en-US": "Operations" },
+    "icon": "ToolOutlined",
+    "sortOrder": 20
+  },
+  {
+    "menuKey": "payment",
+    "labels": { "zh-CN": "支付订单", "en-US": "Payments" },
+    "icon": "PayCircleOutlined",
+    "sortOrder": 30
+  },
+  {
+    "menuKey": "announcement",
+    "labels": { "zh-CN": "公告", "en-US": "Announcements" },
+    "icon": "BellOutlined",
+    "sortOrder": 40
+  },
+  {
+    "menuKey": "audit",
+    "labels": { "zh-CN": "审计", "en-US": "Audit" },
+    "icon": "FileSearchOutlined",
+    "sortOrder": 50
+  }
+]

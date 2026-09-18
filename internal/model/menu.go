@@ -98,6 +98,19 @@ func (m *MenuItemModel) ListByScope(ctx context.Context, gameID, env string) ([]
 	return items, nil
 }
 
+// CountByScope returns the number of menu items (soft-delete excluded) in a
+// scope. Used by the default-menu seeder to detect "scope already has menus".
+func (m *MenuItemModel) CountByScope(ctx context.Context, gameID, env string) (int64, error) {
+	var count int64
+	if err := dbctx.Resolve(ctx, m.db).WithContext(ctx).
+		Model(&MenuItem{}).
+		Where("game_id = ? AND env = ?", gameID, env).
+		Count(&count).Error; err != nil {
+		return 0, err
+	}
+	return count, nil
+}
+
 // Create inserts a new menu item.
 func (m *MenuItemModel) Create(ctx context.Context, item *MenuItem) error {
 	return dbctx.Resolve(ctx, m.db).WithContext(ctx).Create(item).Error

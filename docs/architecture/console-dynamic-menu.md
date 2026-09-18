@@ -93,6 +93,17 @@ PageSpec 的 `category.key` 保留为页面侧元数据（页面工作台分组�
 
 `/console/:categoryKey/:pageKey` 渲染具体 PageSpec。canonical 仲裁以菜单树为唯一事实：`resolveConsolePageCanonicalPath` 在 `ConsoleMenuSpec` 树中递归查找 `pageKey` 的挂载路径；URL 与规范路径不一致时前端跳转到规范路径。页面未挂任何菜单（canonical 为空串）时不重定向，直达 URL 正常渲染。URL 不是 scope：页面、菜单和执行都按全局 `game_id + env` context 查询；同一个 `pageKey` 可以存在于不同 scope。
 
+## 默认菜单种子（T-M10）
+
+菜单读路径（`GET /menus`、`GET /menus/accessible`，含控制台导航组装共用的 `menu.AccessibleTree`）在 scope 首次访问时触发惰性种子：该 `(gameId, env)` 无任何菜单 → 导入 bootstrap 目录（`bootstrapData.baseDir`，与 `admins.json` 同目录）`default-menus.json` 中的顶级菜单骨架。实现：`internal/svc/menu_seeder.go`（`MenuSeeder.EnsureSeeded`）。
+
+设计边界（有意行为）：
+
+- 文件存在且非空即启用，缺失/空数组即禁用（零配置开关）；任一条目非法（menuKey 不合规、labels 全空）整体禁用并 Error 日志，不留半套骨架。
+- 只在 scope 菜单表为空时导入，**永不更新/覆盖**用户数据；进程内每 scope 只尝试一次（成败均标记），重启后重新评估——用户删光全部菜单并重启会重新种一次，彻底禁用需删种子文件。
+- 种子是系统行为，不写用户审计（与 AdminManager 默认管理员同语义）。
+- 默认骨架（`configs/default-menus.json`）：玩家管理 / 运营 / 支付订单 / 公告 / 审计五个空组，仅是挂载位置骨架——三要素（菜单+已发布+挂载）不变，空组在控制台渲染为指向 `/console/<menuKey>` 的单链接。
+
 ## 边界
 
 禁止：

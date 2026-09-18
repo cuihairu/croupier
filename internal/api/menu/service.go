@@ -52,6 +52,9 @@ func (s *Service) List(ctx context.Context) (*MenuListResponse, error) {
 	if err != nil {
 		return nil, err
 	}
+	// 默认菜单惰性种子（T-M10）：scope 首访且菜单为空时导入骨架，随后
+	// 的 ListByScope 返回种子结果（同请求可见）。
+	s.svcCtx.MenuSeeder.EnsureSeeded(ctx, gameID, env)
 	items, err := s.menuModel().ListByScope(ctx, gameID, env)
 	if err != nil {
 		return nil, err
@@ -288,6 +291,9 @@ func AccessibleTree(ctx context.Context, svcCtx *svc.ServiceContext) ([]*MenuDTO
 	if utils.HasAdminRole(utils.RoleNamesFromModels(roles)) {
 		permIDs = append(permIDs, "admin:all", "*")
 	}
+	// 默认菜单惰性种子（T-M10）：console 导航与 accessible API 共用此入口，
+	// scope 首访且为空时先导入骨架再查树。
+	svcCtx.MenuSeeder.EnsureSeeded(ctx, gameID, env)
 	items, err := svcCtx.MenuModel.ListByScope(ctx, gameID, env)
 	if err != nil {
 		return nil, err

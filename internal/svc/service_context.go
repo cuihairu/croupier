@@ -133,6 +133,9 @@ type ServiceContext struct {
 	OpenAPISourceModel        *model.OpenAPISourceModel
 	OpenAPISourceBindingModel *model.OpenAPISourceBindingModel
 	MenuModel                 *model.MenuItemModel
+	// MenuSeeder 默认菜单惰性种子（T-M10）：菜单读路径首访空 scope 时导入
+	// bootstrap 目录 default-menus.json 骨架。文件缺失/空 → Disabled no-op。
+	MenuSeeder *MenuSeeder
 
 	// Agent Session 持久化
 	AgentSessionModel *reg.AgentSessionModel
@@ -267,6 +270,15 @@ func NewServiceContext(c config.Config, opts ...Option) *ServiceContext {
 		}
 	}
 
+	// 默认菜单种子（T-M10）：bootstrap 目录 default-menus.json，缺失/空 →
+	// 禁用；解析失败 Error 禁用（不阻断启动，菜单管理仍可手工创建）。
+	menuSeeds, err := LoadSeedMenus(configDir)
+	if err != nil {
+		slog.Default().Error("Default menu seeds disabled: invalid file", "error", err)
+	} else if len(menuSeeds) > 0 {
+		slog.Default().Info("Default menu seeds enabled", "count", len(menuSeeds), "configDir", configDir)
+	}
+
 	opsStateStore := NewOpsStateStore(resolveBootstrapBaseDir(c))
 
 	objectStore, err := initObjectStore(context.Background(), c.Storage)
@@ -391,6 +403,7 @@ func NewServiceContext(c config.Config, opts ...Option) *ServiceContext {
 		OpenAPISourceModel:        openAPISourceModel,
 		OpenAPISourceBindingModel: openAPISourceBindingModel,
 		MenuModel:                 menuModel,
+		MenuSeeder:                NewMenuSeeder(menuModel, menuSeeds),
 		AgentSessionModel:         agentSessionModel,
 
 		// 版本信息（从 version.go 读取，ldflags 注入后会更新）
