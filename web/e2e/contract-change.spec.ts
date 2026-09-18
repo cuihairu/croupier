@@ -336,17 +336,25 @@ test.describe('真实契约变化链路', () => {
     });
 
     // 重注册生成新 proposal（含新字段），但不得覆盖 PublishedPageSpec 冻结快照。
+    // M2 起提案重建是注册提交后的衍生重建（异步）：stale 诊断可见与 proposal
+    // 再生完成之间存在窗口，CI 慢机上裸拉会拿到旧 proposal——poll 等待。
     const state = readRealFixtureState();
-    const proposalsResponse = await request.get(`${state.serverBaseURL}/api/v1/proposals`, {
-      headers,
-    });
-    expect(proposalsResponse.status()).toBe(200);
-    const proposals = (await proposalsResponse.json()) as unknown[];
-    const mailProposal = proposals.find(
-      (item) => (item as { proposalKey?: string }).proposalKey === 'operation:ops.restart',
-    );
-    expect(mailProposal).toBeDefined();
-    expect(JSON.stringify(mailProposal)).toContain('priority');
+    await expect
+      .poll(
+        async () => {
+          const proposalsResponse = await request.get(`${state.serverBaseURL}/api/v1/proposals`, {
+            headers,
+          });
+          expect(proposalsResponse.status()).toBe(200);
+          const proposals = (await proposalsResponse.json()) as unknown[];
+          const regenerated = proposals.find(
+            (item) => (item as { proposalKey?: string }).proposalKey === 'operation:ops.restart',
+          );
+          return JSON.stringify(regenerated ?? {});
+        },
+        { timeout: 30000 },
+      )
+      .toContain('priority');
 
     const after = await fetchOpsConsolePage(request, headers);
     expect(after.page?.bindingContracts?.[0]?.inputSchemaDigest).toBe(frozenDigest);
