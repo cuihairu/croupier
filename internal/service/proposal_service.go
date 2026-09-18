@@ -4,11 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"sort"
 	"strings"
 	"time"
 
 	"github.com/cuihairu/croupier/internal/common/errorx"
+	"github.com/cuihairu/croupier/internal/config"
 	"github.com/cuihairu/croupier/internal/dashboard/freshness"
 	"github.com/cuihairu/croupier/internal/dashboard/spec"
 	"github.com/cuihairu/croupier/internal/db/dbctx"
@@ -27,6 +29,33 @@ type ProposalService struct {
 	contractModel  *model.FunctionContractModel
 	publishedModel *model.PublishedPageSpecModel
 	blockedModel   *model.BlockedProposalIssueModel
+	// 发布分级（T10 扩展）：auto env 下 AcceptProposal 落 draft 后自动
+	// 接续发布。策略与发布回调由 routes 装配时注入（回调形式保持依赖
+	// 单向——ProposalService 不 import api/page）。缺省时 accept 维持
+	// 「只落 draft」现状。
+	publishReviewPolicy func(env string) string
+	autoPublish         func(ctx context.Context, gameID, env, proposalKey string) error
+}
+
+// SetPublishReviewHooks 注入发布分级策略与 auto 发布回调（镜像
+// versioning.Service.SetPublishReviewHooks）。policy 返回
+// config.PublishReviewAuto/Required；autoPublish 由 routes 绑定 page
+// service（AutoPublishComposite）。
+func (s *ProposalService) SetPublishReviewHooks(
+	policy func(env string) string,
+	autoPublish func(ctx context.Context, gameID, env, proposalKey string) error,
+) {
+	s.publishReviewPolicy = policy
+	s.autoPublish = autoPublish
+}
+
+// ProposalAcceptOutcome accept 结果（auto env 下含接续发布结果）。
+type ProposalAcceptOutcome struct {
+	// Published auto 策略下 accept 落 draft 后已直接发布。
+	Published bool
+	// PublishError 非空 = auto 发布被质量门槛拒绝或失败（accept 本身已
+	// 成功不回滚，draft 保留，可走手动发布重试）。
+	PublishError string
 }
 
 // ProposalListFilter controls proposal query filters exposed by HTTP API.
@@ -245,33 +274,35 @@ func (s *ProposalService) GetProposalDTO(ctx context.Context, gameID, env, propo
 
 // AcceptProposal accepts a proposal and materializes it as a PageSpec draft.
 // Proposals with error-level diagnostics cannot be accepted.
-func (s *ProposalService) AcceptProposal(ctx context.Context, gameID, env, proposalKey string) error {
+// 发布分级（T10 扩展）：auto env 下落 draft 成功后自动接续发布；发布
+// 失败不回滚 accept——draft 已在，PublishError 带回前端走人工链。
+func (s *ProposalService) AcceptProposal(ctx context.Context, gameID, env, proposalKey string) (ProposalAcceptOutcome, error) {
 	proposal, err := s.proposalModel.FindByScopeAndKey(ctx, gameID, env, proposalKey)
 	if err != nil {
-		return fmt.Errorf("proposal not found: %w", err)
+		return ProposalAcceptOutcome{}, fmt.Errorf("proposal not found: %w", err)
 	}
 
 	if proposal.Status != dbenum.ProposalStatusPending {
-		return fmt.Errorf("proposal is not pending")
+		return ProposalAcceptOutcome{}, fmt.Errorf("proposal is not pending")
 	}
 
 	// Block acceptance if there are error-level diagnostics
 	if hasBlockingDiagnostics(proposal.Diagnostics) {
-		return fmt.Errorf("proposal has blocking diagnostics; resolve errors before accepting")
+		return ProposalAcceptOutcome{}, fmt.Errorf("proposal has blocking diagnostics; resolve errors before accepting")
 	}
 
 	pageSpec, specJSON, err := pageSpecFromProposal(proposal)
 	if err != nil {
-		return err
+		return ProposalAcceptOutcome{}, err
 	}
 	if err := validateAcceptedPageSpec(gameID, env, proposal, pageSpec); err != nil {
-		return err
+		return ProposalAcceptOutcome{}, err
 	}
 
 	actor := actorFromContext(ctx)
 	now := time.Now()
 	db := dbctx.Resolve(ctx, s.db)
-	return db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	if err = db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		txCtx := dbctx.WithDB(ctx, tx)
 		pageModel := model.NewPageSpecModel(tx)
 		versionModel := model.NewPageVersionModel(tx)
@@ -329,7 +360,25 @@ func (s *ProposalService) AcceptProposal(ctx context.Context, gameID, env, propo
 		proposal.UpdatedBy = actor
 		proposal.UpdatedAt = now
 		return proposalModel.UpsertProposal(txCtx, proposal)
-	})
+	}); err != nil {
+		return ProposalAcceptOutcome{}, err
+	}
+	return s.autoPublishAfterAccept(ctx, gameID, env, proposalKey)
+}
+
+// autoPublishAfterAccept 在 accept 事务提交后按发布分级接续发布。
+// 未注入钩子或策略非 auto 时维持「只落 draft」现状；auto 发布失败不回滚
+// accept（镜像 versioning.CreateCompositePage 的降级语义）。
+func (s *ProposalService) autoPublishAfterAccept(ctx context.Context, gameID, env, proposalKey string) (ProposalAcceptOutcome, error) {
+	if s.publishReviewPolicy == nil || s.publishReviewPolicy(env) != config.PublishReviewAuto || s.autoPublish == nil {
+		return ProposalAcceptOutcome{}, nil
+	}
+	if err := s.autoPublish(ctx, gameID, env, proposalKey); err != nil {
+		slog.Warn("auto publish after accept failed; draft kept for manual publish",
+			"gameId", gameID, "env", env, "proposalKey", proposalKey, "error", err)
+		return ProposalAcceptOutcome{PublishError: err.Error()}, nil
+	}
+	return ProposalAcceptOutcome{Published: true}, nil
 }
 
 // AcceptAndPublishProposal materializes a ready/basic proposal as a draft and

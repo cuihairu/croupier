@@ -87,7 +87,7 @@ func TestProposalService_AcceptProposal(t *testing.T) {
 	require.NoError(t, err)
 
 	// Accept proposal
-	err = service.AcceptProposal(ctx, "demo-game", "development", "resource:player")
+	_, err = service.AcceptProposal(ctx, "demo-game", "development", "resource:player")
 	require.NoError(t, err)
 
 	// Verify status changed
@@ -196,7 +196,7 @@ func TestProposalService_AcceptProposalRequiresCanonicalPageSpec(t *testing.T) {
 	err := service.proposalModel.UpsertProposal(ctx, proposal)
 	require.NoError(t, err)
 
-	err = service.AcceptProposal(ctx, "demo-game", "development", "resource:player")
+	_, err = service.AcceptProposal(ctx, "demo-game", "development", "resource:player")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "canonical PageSpec")
 }
@@ -236,7 +236,7 @@ func TestProposalService_AcceptProposalDoesNotOverwriteExistingDraft(t *testing.
 	require.NoError(t, existing.SetTitle(map[string]string{"zh-CN": "用户已编辑"}))
 	require.NoError(t, model.NewPageSpecModel(db).Upsert(ctx, existing))
 
-	err = service.AcceptProposal(ctx, "demo-game", "development", "resource:player")
+	_, err = service.AcceptProposal(ctx, "demo-game", "development", "resource:player")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "page draft already exists")
 
@@ -270,7 +270,7 @@ func TestProposalService_AcceptProposalRejectsErrorDiagnostics(t *testing.T) {
 	err = service.proposalModel.UpsertProposal(ctx, proposal)
 	require.NoError(t, err)
 
-	err = service.AcceptProposal(ctx, "demo-game", "development", "resource:player")
+	_, err = service.AcceptProposal(ctx, "demo-game", "development", "resource:player")
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "blocking diagnostics")
 }

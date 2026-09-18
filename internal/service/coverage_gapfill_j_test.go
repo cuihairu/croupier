@@ -326,7 +326,7 @@ func TestAcceptProposal_UpdateProposalStatusError(t *testing.T) {
 
 	remove := injectWriteFailCallback(db, "page_proposals")
 	defer remove()
-	err := svc.AcceptProposal(ctx, "demo-game", "development", "key-"+page.PageKey)
+	_, err := svc.AcceptProposal(ctx, "demo-game", "development", "key-"+page.PageKey)
 	require.Error(t, err)
 }
 
@@ -341,7 +341,7 @@ func TestAcceptProposal_FindExistingDraftError(t *testing.T) {
 
 	remove := injectFailCallback(db, "page_specs")
 	defer remove()
-	err := svc.AcceptProposal(ctx, "demo-game", "development", "key-"+page.PageKey)
+	_, err := svc.AcceptProposal(ctx, "demo-game", "development", "key-"+page.PageKey)
 	require.Error(t, err)
 }
 
@@ -367,7 +367,7 @@ func TestAcceptProposal_SnapshotMarshalError(t *testing.T) {
 		Diagnostics: model.JSON(`not-json`),
 	}))
 
-	err = svc.AcceptProposal(ctx, "demo-game", "development", "key-"+page.PageKey)
+	_, err = svc.AcceptProposal(ctx, "demo-game", "development", "key-"+page.PageKey)
 	require.Error(t, err)
 }
 
@@ -382,7 +382,7 @@ func TestAcceptProposal_UpsertVersionError(t *testing.T) {
 
 	remove := injectFailCallback(db, "page_versions")
 	defer remove()
-	err := svc.AcceptProposal(ctx, "demo-game", "development", "key-"+page.PageKey)
+	_, err := svc.AcceptProposal(ctx, "demo-game", "development", "key-"+page.PageKey)
 	require.Error(t, err)
 }
 

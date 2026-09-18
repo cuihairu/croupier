@@ -119,13 +119,35 @@ export default function ProposalInbox({ focusPageKey = '' }: ProposalInboxProps)
     setPreviewVisible(true);
   }, []);
 
+  // 发布分级（auto env）：accept 落 draft 后由后端自动接续发布。按响应
+  // published/publishError 分支提示——发布失败不回滚 accept（draft 已在，
+  // 指引走手动发布）；缺省（required env）维持静默跳编辑器的现状。
   const handleAccept = useCallback(
     async (proposal: PageProposal) => {
-      await acceptProposal(proposal.proposalKey);
+      const result = await acceptProposal(proposal.proposalKey);
       await fetchData();
+      if (result.published) {
+        requestConsoleMenuRefresh();
+        message.success(
+          intl.formatMessage({
+            id: 'component.proposalInbox.inbox.acceptAutoPublished',
+            defaultMessage: '已接受并自动发布（当前环境为免审核策略）',
+          }),
+        );
+      } else if (result.publishError) {
+        message.warning(
+          intl.formatMessage(
+            {
+              id: 'component.proposalInbox.inbox.acceptPublishFailed',
+              defaultMessage: '已接受，但自动发布失败：{error}。草稿已保存，可在页面编辑器手动发布',
+            },
+            { error: result.publishError },
+          ),
+        );
+      }
       navigateTo(`/functions/pages?focus=${encodeURIComponent(proposal.pageKey)}`);
     },
-    [fetchData],
+    [fetchData, intl, message],
   );
 
   const handleAcceptAndPublish = useCallback(

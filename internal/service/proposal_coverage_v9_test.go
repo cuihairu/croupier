@@ -85,7 +85,7 @@ func TestAcceptProposalValidationFailedV9(t *testing.T) {
 		Status:   dbenum.ProposalStatusPending,
 		PageSpec: model.JSON(`{"pageKey":"op--invalid","type":"operation"}`),
 	}))
-	err := svc.AcceptProposal(ctx, "demo-game", "development", "resource:invalid")
+	_, err := svc.AcceptProposal(ctx, "demo-game", "development", "resource:invalid")
 	assert.ErrorContains(t, err, "validation")
 }
 

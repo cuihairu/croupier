@@ -29,7 +29,7 @@ func TestAcceptProposal_DraftUpsertBlockedV9H(t *testing.T) {
 	// 失败点精确落在 pageModel.Upsert。
 	abortWritesV9(t, db, &model.PageSpec{}, "INSERT", "UPDATE")
 
-	err = svc.AcceptProposal(ctx, "demo-game", "development", proposal.ProposalKey)
+	_, err = svc.AcceptProposal(ctx, "demo-game", "development", proposal.ProposalKey)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "create page draft from proposal")
 }

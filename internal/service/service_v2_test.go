@@ -351,7 +351,7 @@ func TestProposalService_AcceptProposal_NotPending(t *testing.T) {
 		PageSpec: []byte(`{"pageKey":"pk1","type":"resource"}`),
 	}))
 
-	err := svc.AcceptProposal(ctx, "g1", "dev", "r:p1")
+	_, err := svc.AcceptProposal(ctx, "g1", "dev", "r:p1")
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "not pending")
 }
@@ -457,7 +457,7 @@ func TestProposalService_AcceptProposal_HasBlockingDiagnostics(t *testing.T) {
 		Diagnostics: model.JSON(`[{"severity":"error","message":"blocking"}]`),
 	}))
 
-	err = svc.AcceptProposal(ctx, "g1", "dev", "r:p1")
+	_, err = svc.AcceptProposal(ctx, "g1", "dev", "r:p1")
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "blocking diagnostics")
 }

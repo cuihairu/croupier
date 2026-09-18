@@ -192,8 +192,11 @@ export async function getProposal(proposalKey: string): Promise<PageProposal> {
   });
 }
 
-/** 接受提案 */
-export async function acceptProposal(proposalKey: string): Promise<{ message: string }> {
+/** 接受提案（auto env 下落 draft 后自动接续发布：published/publishError
+ *  透传接续发布结果，前端按字段分支提示） */
+export async function acceptProposal(
+  proposalKey: string,
+): Promise<{ message: string; published?: boolean; publishError?: string }> {
   return request(`${BASE_URL}/proposals/${proposalKey}/accept`, {
     method: 'POST',
   });

@@ -720,7 +720,7 @@ func TestAcceptProposalV3_Success(t *testing.T) {
 		Status: dbenum.ProposalStatusPending, PageSpec: pageJSON,
 	}))
 
-	err = p.AcceptProposal(ctx, "demo-game", "development", "resource:player")
+	_, err = p.AcceptProposal(ctx, "demo-game", "development", "resource:player")
 	require.NoError(t, err)
 
 	proposal, err := p.GetProposal(ctx, "demo-game", "development", "resource:player")

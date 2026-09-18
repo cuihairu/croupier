@@ -25,7 +25,7 @@ func TestErrorPaths_ProposalService(t *testing.T) {
 	_, err = svc.GetProposalDTO(ctx, "demo-game", "development", "key")
 	assert.Error(t, err)
 
-	err = svc.AcceptProposal(ctx, "demo-game", "development", "key")
+	_, err = svc.AcceptProposal(ctx, "demo-game", "development", "key")
 	assert.Error(t, err)
 
 	_, err = svc.AcceptAndPublishProposal(ctx, "demo-game", "development", "key")

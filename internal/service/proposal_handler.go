@@ -61,17 +61,24 @@ func (h *ProposalHandler) GetProposal(c *gin.Context) {
 }
 
 // AcceptProposal handles POST /api/proposals/:proposalKey/accept
+// 发布分级（T10 扩展）：auto env 下接续发布结果随响应带回——
+// published 恒存在；publishError 仅失败时出现（对齐 versioning composite
+// 响应模式，前端按字段分支提示）。
 func (h *ProposalHandler) AcceptProposal(c *gin.Context) {
 	proposalKey := c.Param("proposalKey")
 	scope := svc.GameScopeFromContext(c.Request.Context())
 
-	err := h.service.AcceptProposal(c.Request.Context(), scope.GameID, scope.Env, proposalKey)
+	outcome, err := h.service.AcceptProposal(c.Request.Context(), scope.GameID, scope.Env, proposalKey)
 	if err != nil {
 		response.Error(c, err)
 		return
 	}
 
-	response.Success(c, gin.H{"message": "proposal accepted"})
+	payload := gin.H{"message": "proposal accepted", "published": outcome.Published}
+	if outcome.PublishError != "" {
+		payload["publishError"] = outcome.PublishError
+	}
+	response.Success(c, payload)
 }
 
 // AcceptAndPublishProposal handles POST /api/proposals/:proposalKey/accept-and-publish

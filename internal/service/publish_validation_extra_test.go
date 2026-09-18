@@ -163,7 +163,7 @@ func TestAcceptAndPublish_ConflictsWithExistingDraftOrPage(t *testing.T) {
 	assert.Contains(t, err.Error(), "already exists")
 
 	// A plain accept reports the conflict as well.
-	err = svc.AcceptProposal(ctx, "demo-game", "development", draftProposal.ProposalKey)
+	_, err = svc.AcceptProposal(ctx, "demo-game", "development", draftProposal.ProposalKey)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "page draft already exists")
 
@@ -176,7 +176,7 @@ func TestAcceptAndPublish_ConflictsWithExistingDraftOrPage(t *testing.T) {
 	require.NoError(t, err)
 	rejected.Status = dbenum.ProposalStatusAccepted
 	require.NoError(t, svc.proposalModel.UpsertProposal(ctx, rejected))
-	err = svc.AcceptProposal(ctx, "demo-game", "development", rejected.ProposalKey)
+	_, err = svc.AcceptProposal(ctx, "demo-game", "development", rejected.ProposalKey)
 	assert.Error(t, err)
 	err = svc.RejectProposal(ctx, "demo-game", "development", rejected.ProposalKey)
 	assert.Error(t, err)

@@ -977,6 +977,15 @@ func registerMenuRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 
 func registerProposalRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 	proposalSvc := service.NewProposalService(ctx.DB)
+	// 发布分级（T10 扩展）：auto env 下 accept 落 draft 后自动接续发布。
+	// 策略与发布回调在此装配注入（ProposalService 不 import api/page，
+	// 依赖保持单向）；回调复用 versioning 同源的 page service
+	// AutoPublishComposite——已存在草稿走「提案重建草稿 + 发布」。
+	pageSvc := page.NewService(ctx)
+	proposalSvc.SetPublishReviewHooks(
+		func(env string) string { return ctx.Config.Pages.ResolvePublishReview(env) },
+		pageSvc.AutoPublishComposite,
+	)
 	proposalHandler := service.NewProposalHandler(proposalSvc)
 	g.GET("", proposalHandler.ListProposals)
 	g.GET("/", proposalHandler.ListProposals)
