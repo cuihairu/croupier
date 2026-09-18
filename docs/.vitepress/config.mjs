@@ -55,6 +55,7 @@ const config = defineConfig({
             { text: '系统概述', link: '/guide/concepts/overview' },
             { text: '函数管理', link: '/guide/concepts/function-management' },
             { text: 'Page Studio', link: '/guide/concepts/function-registration-ui' },
+            { text: '运行控制台导航与页面挂载', link: '/guide/concepts/console-navigation' },
             { text: '权限控制', link: '/guide/concepts/permissions' },
             { text: '资源与页面', link: '/architecture/dashboard-page-model' },
           ],

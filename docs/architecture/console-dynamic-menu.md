@@ -12,7 +12,7 @@ tag:
 
 # 运行控制台动态菜单
 
-> **状态**：Current — 运行控制台菜单由菜单管理（`menu_items`）**唯一驱动**：菜单节点构成导航树，挂载到菜单且已发布的页面才出现在控制台。详细模型见 [Dashboard Resource/Page 模型](./dashboard-page-model.md)。实现索引：菜单生成 `internal/api/console/`（`generateMenuFromMenuItems`，`GET /api/v1/console/menu`）、菜单树与权限过滤 `internal/api/menu/`（`AccessibleTree`）、菜单模型 `internal/model/menu.go`、挂载字段 `internal/model/page_spec.go`（`MenuID`）、前端路由 `web/config/routes.ts`、侧边菜单组装 `web/src/utils/consoleMenu.ts`（`buildMenuFromConsoleSpec`）、canonical 仲裁 `resolveConsolePageCanonicalPath`。
+> **状态**：Current — 运行控制台菜单由菜单管理（`menu_items`）**唯一驱动**：菜单节点构成导航树，挂载到菜单且已发布的页面才出现在控制台。详细模型见 [Dashboard Resource/Page 模型](./dashboard-page-model.md)，操作向导（建菜单→发布→挂载→控制台出现）见 [运行控制台导航与页面挂载](/guide/concepts/console-navigation.md)。实现索引：菜单生成 `internal/api/console/`（`generateMenuFromMenuItems`，`GET /api/v1/console/menu`）、菜单树与权限过滤 `internal/api/menu/`（`AccessibleTree`）、菜单模型 `internal/model/menu.go`、挂载字段 `internal/model/page_spec.go`（`MenuID`）、前端路由 `web/config/routes.ts`、侧边菜单组装 `web/src/utils/consoleMenu.ts`（`buildMenuFromConsoleSpec`）、canonical 仲裁 `resolveConsolePageCanonicalPath`。
 
 ## 结论
 
