@@ -268,3 +268,91 @@ func TestAddContractExecutionStateColumnIdempotent(t *testing.T) {
 		}
 	}
 }
+
+// TestGoMigrations_MenuItemTablesCatchUp 回归（T-M1/T-M4）：已过 baseline
+// 的存量库（无 menu_items 表、无 page_specs.menu_id 列、已有页面行）经
+// 0027 catch-up 建表补列，存量行保留——线上 postgres 实证：menus API
+// 因表缺失 500、页面保存/发布链因全字段 INSERT 报 column "menu_id"
+// does not exist 中断（sqlite/dev 环境走 AutoMigrateGame 建全列，CI 拦不住）。
+func TestGoMigrations_MenuItemTablesCatchUp(t *testing.T) {
+	db := openMigrationTestDB(t)
+	ctx := context.Background()
+
+	if err := autoMigrate(db); err != nil {
+		t.Fatalf("autoMigrate: %v", err)
+	}
+	// 先落一行菜单时代之前的页面，再删列 + 删表模拟存量形态（sqlite 的
+	// DropColumn 重建表但保留行数据）。
+	if err := db.Exec(`INSERT INTO page_specs
+		(game_id, env, page_key, status, spec_json, created_at, updated_at)
+		VALUES ('demo_game', 'dev', 'resource--player', 'published', '{}', datetime('now'), datetime('now'))`).Error; err != nil {
+		t.Fatalf("seed legacy row: %v", err)
+	}
+	if err := db.Migrator().DropColumn(&model.PageSpec{}, "MenuID"); err != nil {
+		t.Fatalf("drop menu_id: %v", err)
+	}
+	if err := db.Migrator().DropTable(&model.MenuItem{}); err != nil {
+		t.Fatalf("drop menu_items: %v", err)
+	}
+	if _, err := migrate.EnsureUpToDate(ctx, db, migrate.ScopeSingle, func(db *gorm.DB) error {
+		return nil // baseline 已完成，禁止再跑 AutoMigrate
+	}); err != nil {
+		t.Fatalf("EnsureUpToDate: %v", err)
+	}
+	if !db.Migrator().HasTable(&model.MenuItem{}) {
+		t.Fatal("menu_items table not created by 0027")
+	}
+	if !db.Migrator().HasColumn(&model.PageSpec{}, "MenuID") {
+		t.Fatal("page_specs.menu_id not backfilled by 0027")
+	}
+	var count int64
+	if err := db.Raw("SELECT COUNT(*) FROM page_specs WHERE page_key = 'resource--player'").Scan(&count).Error; err != nil {
+		t.Fatalf("read legacy row: %v", err)
+	}
+	if count != 1 {
+		t.Fatalf("legacy page_specs row lost: %d", count)
+	}
+	// 建出的 menu_items 可正常写入（含 uniqueIndex，scope 同键二次写入应被拒）
+	if err := db.Exec(`INSERT INTO menu_items (created_at, updated_at, game_id, env, menu_key, labels, is_visible)
+		VALUES (datetime('now'), datetime('now'), 'demo_game', 'dev', 'ops', '{}', 1)`).Error; err != nil {
+		t.Fatalf("insert menu_items: %v", err)
+	}
+	if err := db.Exec(`INSERT INTO menu_items (created_at, updated_at, game_id, env, menu_key, labels, is_visible)
+		VALUES (datetime('now'), datetime('now'), 'demo_game', 'dev', 'ops', '{}', 1)`).Error; err == nil {
+		t.Fatal("duplicate scope key should violate unique index")
+	}
+	// 补列后页面挂菜单（全字段 UPDATE 带 menu_id 列）不再报缺列
+	var menuID uint
+	if err := db.Raw("SELECT id FROM menu_items LIMIT 1").Scan(&menuID).Error; err != nil {
+		t.Fatalf("read menu id: %v", err)
+	}
+	if err := db.Exec("UPDATE page_specs SET menu_id = ? WHERE page_key = 'resource--player'", menuID).Error; err != nil {
+		t.Fatalf("update menu_id: %v", err)
+	}
+}
+
+// TestMigrateMenuItemTablesIdempotent：表列均已存在时 0027 跳过（幂等）；
+// 空库不因缺 page_specs 表报错（menu_items 按 0019 建表先例照常创建）。
+func TestMigrateMenuItemTablesIdempotent(t *testing.T) {
+	sqlDB := openRawSQLiteDBG(t)
+	if err := migrateMenuItemTables(context.Background(), sqlDB); err != nil {
+		t.Fatalf("empty db should not error, got %v", err)
+	}
+
+	db, err := gorm.Open(gsqlite.Open(filepath.Join(t.TempDir(), "m27.db")), &gorm.Config{})
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	if err := db.AutoMigrate(&model.PageSpec{}, &model.MenuItem{}); err != nil {
+		t.Fatalf("migrate: %v", err)
+	}
+	sqlDB2, err := db.DB()
+	if err != nil {
+		t.Fatalf("sql.DB: %v", err)
+	}
+	for i := 0; i < 2; i++ {
+		if err := migrateMenuItemTables(context.Background(), sqlDB2); err != nil {
+			t.Fatalf("run %d: %v", i+1, err)
+		}
+	}
+}

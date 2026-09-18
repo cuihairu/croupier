@@ -63,6 +63,11 @@ import (
 //   0026 (Go)   roles/admins 软删除残留行清理（0024 同族漏网表：删除路径
 //               改硬删后物理清除已软删的存量行——roles.name 与
 //               admins.username 的物理唯一索引被软删行占位，同名重建 500）
+//   0027 (Go)   menu_items 表 + page_specs.menu_id 列（T-M1/T-M4 菜单系统
+//               落地时只改了模型，存量库过 baseline 后不再跑 AutoMigrate：
+//               menus API 因表缺失 500，页面保存/发布链因 GORM 全字段
+//               INSERT 报 column "menu_id" does not exist 中断——0021/0023
+//               同族「模型改了迁移漏配」事故）
 
 func init() {
 	registerSvcMigrations()
@@ -99,6 +104,7 @@ func registerSvcMigrations() {
 		softDeleteResidueCleanupMigration(),
 		contractExecutionStateMigration(),
 		roleAdminSoftDeleteCleanupMigration(),
+		menuItemTablesMigration(),
 	); err != nil {
 		panic(fmt.Sprintf("svc: register goose go migrations: %v", err))
 	}
@@ -586,6 +592,43 @@ func migrateRoleAdminSoftDelete(ctx context.Context, sqlDB *sql.DB) error {
 	if db.Migrator().HasTable(&model.AdminRole{}) {
 		if err := db.Exec(`DELETE FROM admin_roles WHERE role_id NOT IN (SELECT id FROM roles)`).Error; err != nil {
 			return fmt.Errorf("migrate: 0026 purge dangling admin_roles: %w", err)
+		}
+	}
+	return nil
+}
+
+// menuItemTablesMigration 为 0027：菜单管理系统（T-M1/T-M4）落地时只改了
+// 模型（MenuItem 表 + PageSpec.MenuID 列），存量库过 baseline 后不再跑
+// AutoMigrate，缺两样：menu_items 表（menus API 全部 500）与
+// page_specs.menu_id 列（GORM 全字段 INSERT 直接 SQLSTATE 42703，页面
+// 保存/发布链中断）。逐项幂等补齐：缺表 CreateTable（新建表，索引随建表
+// 一次建出，无存量约束名漂移问题——0023 教训只针对改既有表）、缺列
+// AddColumn（0015/0016/0021/0023/0025 同模式，不动既有约束）。menu_id 的
+// 普通索引不补：级联清理查询低频且 page_specs 行数量级小，全表扫无感知；
+// 避免 CreateIndex 与存量索引名对齐引入新风险面。
+func menuItemTablesMigration() *goose.Migration {
+	return goose.NewGoMigration(27,
+		&goose.GoFunc{RunDB: migrateMenuItemTables},
+		nil,
+	)
+}
+
+// migrateMenuItemTables 是 0027 的迁移体（抽出便于直测）。
+func migrateMenuItemTables(ctx context.Context, sqlDB *sql.DB) error {
+	db, err := wrapGorm(sqlDB)
+	if err != nil {
+		return err
+	}
+	if !db.Migrator().HasTable(&model.MenuItem{}) {
+		if err := db.Migrator().CreateTable(&model.MenuItem{}); err != nil {
+			return fmt.Errorf("migrate: 0027 create menu_items: %w", err)
+		}
+	}
+	if db.Migrator().HasTable(&model.PageSpec{}) {
+		if !db.Migrator().HasColumn(&model.PageSpec{}, "MenuID") {
+			if err := db.Migrator().AddColumn(&model.PageSpec{}, "MenuID"); err != nil {
+				return fmt.Errorf("migrate: 0027 add page_specs.menu_id: %w", err)
+			}
 		}
 	}
 	return nil
