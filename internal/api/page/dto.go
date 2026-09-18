@@ -201,3 +201,27 @@ type PageBulkResult struct {
 	Skipped     []string            `json:"skipped,omitempty"`
 	Failed      []map[string]string `json:"failed,omitempty"`
 }
+
+// PageBulkSyncSelectorsRequest 批量 selector 同步请求：pageKeys 为空时
+// 处理 scope 内全部契约变更页面（与契约变更队列同源评估）。
+type PageBulkSyncSelectorsRequest struct {
+	PageKeys []string `json:"pageKeys,omitempty"`
+}
+
+// PageBulkSyncSelectorsSkipped 批量同步中被跳过的页面：Manual 非空
+// （governance/version 等不可由 selector 同步修复的漂移）时整页跳过，
+// 诊断透传给人工处理。
+type PageBulkSyncSelectorsSkipped struct {
+	PageKey string            `json:"pageKey"`
+	Reason  string            `json:"reason"`
+	Manual  []spec.Diagnostic `json:"manual,omitempty"`
+}
+
+// PageBulkSyncSelectorsResult 批量 selector 同步结果。同步只写 draft，
+// 上线仍需 bulk-republish（不自动发布）。
+type PageBulkSyncSelectorsResult struct {
+	Total   int                            `json:"total"`
+	Synced  []string                       `json:"synced,omitempty"`
+	Skipped []PageBulkSyncSelectorsSkipped `json:"skipped,omitempty"`
+	Failed  []map[string]string            `json:"failed,omitempty"`
+}

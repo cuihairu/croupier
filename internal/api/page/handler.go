@@ -358,6 +358,23 @@ func (h *Handler) BulkRepublish(c *gin.Context) {
 	response.Success(c, resp)
 }
 
+// BulkSyncSelectors 处理契约变更队列的批量 selector 同步（只写草稿）。
+// body 可为空（此时处理 scope 内全部契约变更页面），因此容忍空请求体
+// 的 io.EOF。
+func (h *Handler) BulkSyncSelectors(c *gin.Context) {
+	req := &PageBulkSyncSelectorsRequest{}
+	if err := c.ShouldBindJSON(req); err != nil && !errors.Is(err, io.EOF) {
+		response.Error(c, err)
+		return
+	}
+	resp, err := h.service.BulkSyncSelectors(c.Request.Context(), req)
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
+	response.Success(c, resp)
+}
+
 // SeedDemoData 处理演示数据填充（Terms/发布页面/注册警告）。
 func (h *Handler) SeedDemoData(c *gin.Context) {
 	resp, err := h.service.SeedDemoData(c.Request.Context(), &PageSeedDemoRequest{})

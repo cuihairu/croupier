@@ -16,7 +16,7 @@ import SelectorSyncReportModal from '@/components/SelectorSync/SelectorSyncRepor
 import { mergeChanges, regenerateProposal, republish } from '@/services/dashboard';
 import { deleteVersioningPage } from '@/services/api/versioning';
 import type { ConflictResolution, MergeResponse } from '@/services/api/versioning';
-import { bulkRepublishPages, publishPageDraft } from '@/services/api/pages';
+import { bulkRepublishPages, bulkSyncPageSelectors, publishPageDraft } from '@/services/api/pages';
 import { extractErrorMessage } from '@/utils/errors';
 import { requestConsoleMenuRefresh } from '@/utils/consoleMenu';
 import { localizedText } from '@/utils/localizedText';
@@ -42,6 +42,7 @@ export default function ContractChangesPanel({
   const intl = useIntl();
   const [contractActionKey, setContractActionKey] = useState('');
   const [bulkRepublishLoading, setBulkRepublishLoading] = useState(false);
+  const [bulkSyncLoading, setBulkSyncLoading] = useState(false);
   const [manualMergeVisible, setManualMergeVisible] = useState(false);
   const [manualMergeLoading, setManualMergeLoading] = useState(false);
   const [manualMergePreview, setManualMergePreview] = useState<MergeResponse | null>(null);
@@ -332,6 +333,104 @@ export default function ContractChangesPanel({
     });
   }, [intl, message, modal, onChanged, publishedStaleKeys]);
 
+  // 批量同步 selector：契约变更队列全部页面（published + draft）的草稿侧
+  // 收口。同步只更新草稿、不发布——governance/版本漂移页面会被跳过并
+  // 列出原因，上线仍需一键重发布。
+  const handleBulkSyncSelectors = useCallback(() => {
+    const targetKeys = records.map((record) => record.pageKey);
+    if (targetKeys.length === 0) {
+      message.info(
+        intl.formatMessage({
+          id: 'component.proposalInbox.contractChanges.bulk.syncEmpty',
+          defaultMessage: '没有可同步的契约变更页面',
+        }),
+      );
+      return;
+    }
+    modal.confirm({
+      title: intl.formatMessage({
+        id: 'component.proposalInbox.contractChanges.bulk.syncSelectors',
+        defaultMessage: '批量同步 Selector',
+      }),
+      content: intl.formatMessage(
+        {
+          id: 'component.proposalInbox.contractChanges.bulk.syncConfirm',
+          defaultMessage:
+            '将把 {count} 个契约变更页面的 stale selector 同步到草稿（只更新草稿、不发布；governance/版本漂移页面会跳过并列出原因）。完成后可再一键重发布。确认执行？',
+        },
+        { count: targetKeys.length },
+      ),
+      onOk: async () => {
+        setBulkSyncLoading(true);
+        try {
+          const res = await bulkSyncPageSelectors(targetKeys);
+          const synced = res.synced?.length ?? 0;
+          const skipped = res.skipped ?? [];
+          const failed = res.failed ?? [];
+          // 部分跳过/失败：拼前 3 条明细，让用户知道哪些页面需要单独处理
+          const skippedDetails = skipped
+            .slice(0, 3)
+            .map(
+              (item) =>
+                `${item.pageKey}: ${
+                  (item.manual ?? [])
+                    .map((d) => d.code)
+                    .filter(Boolean)
+                    .join(',') || item.reason
+                }`,
+            )
+            .join('；');
+          const failedDetails = failed
+            .slice(0, 3)
+            .map((item) => `${item.pageKey}: ${item.error}`)
+            .join('；');
+          if (failed.length > 0) {
+            message.warning(
+              intl.formatMessage(
+                {
+                  id: 'component.proposalInbox.contractChanges.bulk.syncPartialFailed',
+                  defaultMessage: '已同步 {synced} 个页面，{failed} 个失败：{details}',
+                },
+                { synced, failed: failed.length, details: failedDetails },
+              ),
+            );
+          } else if (skipped.length > 0) {
+            message.warning(
+              intl.formatMessage(
+                {
+                  id: 'component.proposalInbox.contractChanges.bulk.syncPartialSkipped',
+                  defaultMessage:
+                    '已同步 {synced} 个页面，{skipped} 个存在不可自动修复的漂移（需人工处理）：{details}',
+                },
+                { synced, skipped: skipped.length, details: skippedDetails },
+              ),
+            );
+          } else {
+            message.success(
+              intl.formatMessage(
+                {
+                  id: 'component.proposalInbox.contractChanges.bulk.syncSuccess',
+                  defaultMessage: '已同步 {synced} 个页面的草稿（未发布，可再一键重发布）',
+                },
+                { synced },
+              ),
+            );
+          }
+          await onChanged();
+        } catch {
+          message.error(
+            intl.formatMessage({
+              id: 'component.proposalInbox.contractChanges.bulk.syncFailed',
+              defaultMessage: '批量同步 Selector 失败',
+            }),
+          );
+        } finally {
+          setBulkSyncLoading(false);
+        }
+      },
+    });
+  }, [intl, message, modal, onChanged, records]);
+
   const contractColumns: ColumnsType<ContractChangeInfo> = [
     {
       title: intl.formatMessage({
@@ -532,30 +631,54 @@ export default function ContractChangesPanel({
           justifyContent: 'flex-end',
         }}
       >
-        <Tooltip
-          title={
-            publishedStaleKeys.length === 0
-              ? intl.formatMessage({
-                  id: 'component.proposalInbox.contractChanges.bulk.republishEmpty',
-                  defaultMessage: '没有可重新发布的已发布页面',
-                })
-              : undefined
-          }
-        >
-          <Button
-            type="primary"
-            ghost
-            icon={<RocketOutlined />}
-            loading={bulkRepublishLoading}
-            disabled={publishedStaleKeys.length === 0}
-            onClick={handleBulkRepublish}
+        <Space>
+          <Tooltip
+            title={
+              records.length === 0
+                ? intl.formatMessage({
+                    id: 'component.proposalInbox.contractChanges.bulk.syncEmpty',
+                    defaultMessage: '没有可同步的契约变更页面',
+                  })
+                : undefined
+            }
           >
-            <FormattedMessage
-              id="component.proposalInbox.contractChanges.bulk.republish"
-              defaultMessage="一键重新发布全部"
-            />
-          </Button>
-        </Tooltip>
+            <Button
+              icon={<ThunderboltOutlined />}
+              loading={bulkSyncLoading}
+              disabled={records.length === 0}
+              onClick={handleBulkSyncSelectors}
+            >
+              <FormattedMessage
+                id="component.proposalInbox.contractChanges.bulk.syncSelectors"
+                defaultMessage="批量同步 Selector"
+              />
+            </Button>
+          </Tooltip>
+          <Tooltip
+            title={
+              publishedStaleKeys.length === 0
+                ? intl.formatMessage({
+                    id: 'component.proposalInbox.contractChanges.bulk.republishEmpty',
+                    defaultMessage: '没有可重新发布的已发布页面',
+                  })
+                : undefined
+            }
+          >
+            <Button
+              type="primary"
+              ghost
+              icon={<RocketOutlined />}
+              loading={bulkRepublishLoading}
+              disabled={publishedStaleKeys.length === 0}
+              onClick={handleBulkRepublish}
+            >
+              <FormattedMessage
+                id="component.proposalInbox.contractChanges.bulk.republish"
+                defaultMessage="一键重新发布全部"
+              />
+            </Button>
+          </Tooltip>
+        </Space>
       </div>
       <Table
         columns={contractColumns}

@@ -8,6 +8,7 @@ import type {
 import {
   bulkPublishPages,
   bulkRepublishPages,
+  bulkSyncPageSelectors,
   bulkUnpublishPages,
   getPageDraft,
   getPageVersion,
@@ -360,6 +361,27 @@ describe('pages draft/version API adapters', () => {
 
       await expect(bulkRepublishPages()).resolves.toEqual(report);
       expect(mockedRequest).toHaveBeenLastCalledWith('/api/v1/pages/bulk-republish', {
+        method: 'POST',
+        data: {},
+      });
+    });
+
+    it('POSTs bulk-sync-selectors with pageKeys; empty input syncs the whole scope', async () => {
+      const report = {
+        total: 2,
+        synced: ['players'],
+        skipped: [{ pageKey: 'orders', reason: 'manual_required', manual: [] }],
+      };
+      mockedRequest.mockResolvedValue(report);
+
+      await expect(bulkSyncPageSelectors(['players', 'orders'])).resolves.toEqual(report);
+      expect(mockedRequest).toHaveBeenCalledWith('/api/v1/pages/bulk-sync-selectors', {
+        method: 'POST',
+        data: { pageKeys: ['players', 'orders'] },
+      });
+
+      await expect(bulkSyncPageSelectors()).resolves.toEqual(report);
+      expect(mockedRequest).toHaveBeenLastCalledWith('/api/v1/pages/bulk-sync-selectors', {
         method: 'POST',
         data: {},
       });

@@ -460,7 +460,15 @@ func (s *Service) SyncSelectors(ctx context.Context, req *PageSyncSelectorsReque
 			"provided": *req.DraftRevision,
 		})
 	}
+	return s.syncSelectorsCore(ctx, gameID, env, actor, p, req.BindingIDs, req.DryRun, *req.DraftRevision)
+}
 
+// syncSelectorsCore 是单页 selector 同步的核心（planner 循环 + 发布级
+// 校验 + apply 事务）。外壳（权限/scope/乐观锁前置校验）由调用方负责：
+// 单页 SyncSelectors 要求调用方提供 draftRevision；BulkSyncSelectors 由
+// 服务端读取当前草稿 revision 后调用（并发冲突在核心的事务内重查处
+// 409，调用方按页计失败继续）。
+func (s *Service) syncSelectorsCore(ctx context.Context, gameID, env, actor string, p *model.PageSpec, bindingIDs []string, dryRun bool, providedRevision int) (*PageSyncSelectorsResponse, error) {
 	pageSpec, err := pageSpecFromModel(p)
 	if err != nil {
 		return nil, err
@@ -468,7 +476,7 @@ func (s *Service) SyncSelectors(ctx context.Context, req *PageSyncSelectorsReque
 	functions := s.normalizedFunctions(ctx)
 	contracts := s.publishedContractsForSync(ctx, p)
 	onlyBindings := map[string]struct{}{}
-	for _, id := range req.BindingIDs {
+	for _, id := range bindingIDs {
 		if id = strings.TrimSpace(id); id != "" {
 			onlyBindings[id] = struct{}{}
 		}
@@ -531,7 +539,7 @@ func (s *Service) SyncSelectors(ctx context.Context, req *PageSyncSelectorsReque
 
 	remaining := s.validatePageSpec(ctx, synced, true)
 
-	if req.DryRun {
+	if dryRun {
 		return &PageSyncSelectorsResponse{
 			PageKey:              p.PageKey,
 			DryRun:               true,
@@ -556,11 +564,10 @@ func (s *Service) SyncSelectors(ctx context.Context, req *PageSyncSelectorsReque
 	if err != nil {
 		return nil, err
 	}
-	providedRevision := *req.DraftRevision
 	err = s.withPageTransaction(ctx, func(txCtx context.Context, pageModel *model.PageSpecModel, _ *model.PublishedPageSpecModel, versionModel *model.PageVersionModel) error {
 		// 事务内重查 revision（SaveDraft 同款乐观锁）：planner 运行期间
 		// 草稿可能被并发保存，直接落库会静默冲掉他人定制。
-		current, err := pageModel.FindByScopeAndPageKey(txCtx, gameID, env, req.PageKey)
+		current, err := pageModel.FindByScopeAndPageKey(txCtx, gameID, env, p.PageKey)
 		if err != nil {
 			return err
 		}
@@ -590,7 +597,7 @@ func (s *Service) SyncSelectors(ctx context.Context, req *PageSyncSelectorsReque
 		return nil, err
 	}
 
-	s.auditPageEvent(ctx, audit.EventPageDraftSave, gameID, env, req.PageKey, map[string]interface{}{
+	s.auditPageEvent(ctx, audit.EventPageDraftSave, gameID, env, p.PageKey, map[string]interface{}{
 		"action":            "sync_selectors",
 		"draft_revision":    p.DraftRevision,
 		"previous_revision": providedRevision,
@@ -2013,6 +2020,103 @@ func (s *Service) BulkRepublish(ctx context.Context, req *PageBulkRepublishReque
 		result.Published = append(result.Published, pageKey)
 	}
 	return result, nil
+}
+
+// BulkSyncSelectors 批量同步 stale selector（契约变更队列的草稿侧收口）：
+// 逐页跑与单页 SyncSelectors 同源的 planner/apply 核心。与单页的差异：
+//   - pageKeys 为空时取审批收件箱 ContractChanges 的全部 pageKey
+//     （published 与 draft 都取——同步只动草稿，上线仍走 bulk-republish）；
+//   - revision 由服务端读取当前草稿版本（并发修改在核心事务内 409，
+//     按页计入 Failed 继续，不中断其余页面）；
+//   - 先 dry-run 判定：存在 Manual（governance/version 等不可由 selector
+//     同步修复的漂移）的页面整体 Skipped 并透传诊断，不做半吊子同步；
+//   - 严格只写 draft（published_page_specs 不动），不自动 publish。
+func (s *Service) BulkSyncSelectors(ctx context.Context, req *PageBulkSyncSelectorsRequest) (*PageBulkSyncSelectorsResult, error) {
+	if err := s.requirePageEdit(ctx); err != nil {
+		return nil, err
+	}
+	gameID, env, err := requireScope(ctx)
+	if err != nil {
+		return nil, err
+	}
+	actor, err := currentUsername(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	// pageKey 去重：Inbox 的 ContractChanges 对同一页面可能同时挂
+	// published 与 draft 两条变更；重复同步会因 revision 过期产生伪 409。
+	pageKeys := make([]string, 0, len(req.PageKeys))
+	seen := map[string]bool{}
+	appendKey := func(key string) {
+		if key = strings.TrimSpace(key); key == "" || seen[key] {
+			return
+		}
+		seen[key] = true
+		pageKeys = append(pageKeys, key)
+	}
+	for _, key := range req.PageKeys {
+		appendKey(key)
+	}
+	if len(pageKeys) == 0 {
+		proposalSvc := contractsvc.NewProposalService(s.svcCtx.DB)
+		inbox, err := proposalSvc.Inbox(ctx, gameID, env, contractsvc.ProposalListFilter{})
+		if err != nil {
+			return nil, err
+		}
+		for _, change := range inbox.ContractChanges {
+			appendKey(change.PageKey)
+		}
+	}
+
+	result := &PageBulkSyncSelectorsResult{Total: len(pageKeys)}
+	for _, pageKey := range pageKeys {
+		p, err := s.svcCtx.PageSpecModel.FindByScopeAndPageKey(ctx, gameID, env, pageKey)
+		if err != nil {
+			result.Failed = append(result.Failed, map[string]string{
+				"pageKey": pageKey,
+				"error":   ErrPageNotFound(pageKey).Error(),
+			})
+			continue
+		}
+		// dry-run 判定：Manual 非空（不可由 selector 同步修复的漂移）→
+		// 整页跳过并透传诊断，由人工决定重绑定/下线/重发布。
+		dry, err := s.syncSelectorsCore(ctx, gameID, env, actor, p, nil, true, p.DraftRevision)
+		if err != nil {
+			result.Failed = append(result.Failed, map[string]string{
+				"pageKey": pageKey,
+				"error":   err.Error(),
+			})
+			continue
+		}
+		if manual := collectManualDiagnostics(dry.SyncedBindings); len(manual) > 0 {
+			result.Skipped = append(result.Skipped, PageBulkSyncSelectorsSkipped{
+				PageKey: pageKey,
+				Reason:  "manual_required",
+				Manual:  manual,
+			})
+			continue
+		}
+		if _, err := s.syncSelectorsCore(ctx, gameID, env, actor, p, nil, false, p.DraftRevision); err != nil {
+			result.Failed = append(result.Failed, map[string]string{
+				"pageKey": pageKey,
+				"error":   err.Error(),
+			})
+			continue
+		}
+		result.Synced = append(result.Synced, pageKey)
+	}
+	return result, nil
+}
+
+// collectManualDiagnostics 汇总各 binding 报告里的 Manual 诊断（批量
+// 同步的跳过原因透传）。
+func collectManualDiagnostics(reports []spec.BindingSelectorSyncReport) []spec.Diagnostic {
+	var manual []spec.Diagnostic
+	for _, report := range reports {
+		manual = append(manual, report.Manual...)
+	}
+	return manual
 }
 
 // SeedDemoData 填充演示数据（F：演示站点）：

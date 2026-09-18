@@ -25,6 +25,7 @@ func RegisterDraftRoutes(group *gin.RouterGroup, svcCtx *svc.ServiceContext) {
 	group.POST("/bulk-publish", handler.BulkPublish)
 	group.POST("/bulk-unpublish", handler.BulkUnpublish)
 	group.POST("/bulk-republish", handler.BulkRepublish)
+	group.POST("/bulk-sync-selectors", handler.BulkSyncSelectors)
 	group.POST("/seed-demo", handler.SeedDemoData)
 	group.GET("/:pageKey/versions", handler.Versions)
 	group.GET("/:pageKey/versions/:versionId", handler.VersionDetail)

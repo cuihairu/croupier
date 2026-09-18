@@ -230,3 +230,28 @@ export async function bulkRepublishPages(pageKeys?: string[]): Promise<PageBulkR
     data: pageKeys ? { pageKeys } : {},
   });
 }
+
+/** 批量 selector 同步中被跳过的页面（governance/版本等不可同步修复的漂移，诊断透传）。 */
+export type PageBulkSyncSkipped = {
+  pageKey: string;
+  reason: string;
+  manual?: Diagnostic[];
+};
+
+/** 批量 selector 同步结果：同步只写草稿，上线仍需 bulk-republish。 */
+export type PageBulkSyncSelectorsResult = {
+  total: number;
+  synced?: string[];
+  skipped?: PageBulkSyncSkipped[];
+  failed?: { pageKey: string; error: string }[];
+};
+
+/** 批量同步契约变更队列的 stale selector：pageKeys 为空时处理 scope 内全部契约变更页面。 */
+export async function bulkSyncPageSelectors(
+  pageKeys?: string[],
+): Promise<PageBulkSyncSelectorsResult> {
+  return request<PageBulkSyncSelectorsResult>('/api/v1/pages/bulk-sync-selectors', {
+    method: 'POST',
+    data: pageKeys ? { pageKeys } : {},
+  });
+}
