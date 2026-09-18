@@ -3,18 +3,20 @@
  *
  * 验收路径（todo.md T-M9）：
  * - 菜单 CRUD 完整流程（管理页 UI：新建 / 加子菜单 / 编辑 / 删除）
- * - 页面关联菜单：发布页 category.key 与 menuKey 自动匹配挂载，登录侧边栏可见
+ * - 页面挂载菜单：已发布页显式挂到菜单（PUT /pages/:pageKey/menu）后
+ *   控制台导航与登录侧边栏可见（menu_items 驱动，发布不自动进菜单）
  * - 权限过滤与继承：带 permission 的菜单对无权限用户隐藏，限制沿子树级联
  *
  * 前置（beforeAll，API）：低权限角色/用户（仅 console:read——保住 /console 侧边栏
  * 可见性，但不含机密菜单的自定义 permission）+ game 授权、
- * operation:mail.send 幂等发布（category.key=mail）、mail 菜单、
+ * operation:mail.send 幂等发布、mail 菜单 + 页面挂载、
  * 机密父子菜单（父带自定义 permission，子无 permission——验证级联继承）。
  */
 
 import { test, expect } from '@playwright/test';
 import type { APIRequestContext, Page } from '@playwright/test';
 import { readRealFixtureState } from './helpers/realFixture';
+import { ensurePageMountedToMenu } from './helpers/menuMount';
 import { login, waitForPageReady } from './helpers';
 
 type MenuItemDTO = {
@@ -227,12 +229,19 @@ test.describe('菜单系统端到端', () => {
     });
     expect(gamesResponse.status()).toBe(200);
 
-    // 发布页 + 三组菜单（挂载 / 权限 / 继承）
+    // 发布页 + mail 菜单 + 显式挂载（menu_items 驱动导航）
     await ensureMailPagePublished(request, api);
     await createMenu(request, api, {
       menuKey: MOUNT_MENU_KEY,
       labels: { 'zh-CN': MOUNT_MENU_TITLE },
     });
+    await ensurePageMountedToMenu(
+      request,
+      api.headers,
+      MOUNT_MENU_KEY,
+      MAIL_PAGE_KEY,
+      MOUNT_MENU_TITLE,
+    );
     const secret = await createMenu(request, api, {
       menuKey: SECRET_MENU_KEY,
       labels: { 'zh-CN': SECRET_MENU_TITLE },
@@ -313,10 +322,10 @@ test.describe('菜单系统端到端', () => {
     await expect(page.getByText('e2e-menu-crud')).toHaveCount(0);
   });
 
-  test('@menu- 页面按分类 key 挂载菜单，登录侧边栏可见', async ({ page, request }) => {
+  test('@menu- 页面挂载菜单后控制台导航与侧边栏可见', async ({ page, request }) => {
     await login(page);
 
-    // API 预检：发布页分类 key=mail（ConsoleMenuSpec 派生侧）
+    // API 预检：ConsoleMenuSpec 按菜单树 + 挂载页面组装（mail 菜单组）
     const menuResponse = await request.get('/api/v1/console/menu', { headers: api.headers });
     expect(menuResponse.status()).toBe(200);
     const consoleMenu = (await menuResponse.json()) as {
@@ -328,12 +337,12 @@ test.describe('菜单系统端到端', () => {
     expect(mailCategory).toBeDefined();
     expect((mailCategory?.children || []).some((item) => item.key === MAIL_PAGE_KEY)).toBe(true);
 
-    // UI：登录后侧边栏由 accessible 菜单驱动，mail 菜单（menu_items.labels）可见
+    // UI：登录后侧边栏由 ConsoleMenuSpec（menu_items 驱动）渲染，mail 菜单可见
     await page.goto('/console/home');
     await waitForPageReady(page);
     await expandConsoleSubtree(page);
 
-    // 展开菜单：发布页（category.key=mail）自动挂载为子项。
+    // 展开菜单：显式挂载的发布页（beforeAll PUT /pages/:pageKey/menu）为子项。
     // 同 expandConsoleSubtree：点文字本体，避开 ProLayout 内层拦截。
     // antd inline 菜单子项收起时 DOM 保留（hidden），若 submenu 原本已展开，
     // 无条件点击会把它收起——按 aria-expanded 守卫仅在收起时点击。

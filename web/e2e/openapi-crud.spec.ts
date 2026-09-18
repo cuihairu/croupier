@@ -11,6 +11,7 @@
 import { test, expect } from '@playwright/test';
 import type { APIRequestContext, Page } from '@playwright/test';
 import { readRealFixtureState } from './helpers/realFixture';
+import { ensurePageMountedToMenu } from './helpers/menuMount';
 import {
   ensurePlayersSourceBound,
   ensurePlayersResourcePublished,
@@ -319,7 +320,10 @@ test.describe('真实 OpenAPI players Proposal 链路', () => {
       }
     }
 
-    // 菜单仅来自 PublishedPageSpec，不来自 OpenAPI tag/source/静态 locale。
+    // menu_items 驱动：发布不自动进菜单，须显式挂到 players 菜单。
+    await ensurePageMountedToMenu(request, headers, 'players', 'resource--players', '玩家');
+
+    // 菜单来自挂载菜单的已发布页面，不来自 OpenAPI tag/source/静态 locale。
     const menuResponse = await request.get(`${state.serverBaseURL}/api/v1/console/menu`, {
       headers,
     });

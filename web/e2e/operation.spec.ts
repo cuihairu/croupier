@@ -5,6 +5,7 @@
 import { test, expect } from '@playwright/test';
 import type { APIRequestContext, Page } from '@playwright/test';
 import { readRealFixtureState } from './helpers/realFixture';
+import { ensurePageMountedToMenu } from './helpers/menuMount';
 import { login, navigateToConsole, waitForPageReady, expectFormVisible } from './helpers';
 
 type ProposalDTO = {
@@ -84,6 +85,12 @@ async function ensureMailOperationPublished(request: APIRequestContext): Promise
 
   const published = await request.get(pageURL, { headers: api.headers });
   expect(published.status()).toBe(200);
+}
+
+/** 已发布 mail.send 页挂到 mail 菜单（控制台导航 menu_items 驱动）。 */
+async function ensureMailOperationMounted(request: APIRequestContext): Promise<void> {
+  const api = await authenticatedAPI(request);
+  await ensurePageMountedToMenu(request, api.headers, 'mail', 'operation--mail.send', '邮件');
 }
 
 async function expectMailOperationPublished(page: Page): Promise<void> {
@@ -260,8 +267,10 @@ test.describe('真实 SDK Operation 链路', () => {
     await expectMailOperationPublished(page);
   });
 
-  test('@sdk-operation-menu 菜单只来自已发布 PageSpec', async ({ page }) => {
+  test('@sdk-operation-menu 菜单只来自挂载菜单的已发布 PageSpec', async ({ page }) => {
     await ensureMailOperationPublished(page.request);
+    // menu_items 驱动：发布不自动进菜单，须显式挂到 mail 菜单
+    await ensureMailOperationMounted(page.request);
     await login(page);
     const headers = await browserAPIHeaders(page);
     const menuResponse = await page.request.get('/api/v1/console/menu', { headers });
