@@ -22,6 +22,25 @@ const functionManagementRoutes = [
     component: './Functions/Directory',
   },
   {
+    path: '/functions/resource-catalog',
+    name: 'ResourceCatalog',
+    access: 'canResourcesRead',
+    component: './ResourceCatalog',
+    icon: 'database',
+  },
+  {
+    path: '/functions/openapi-sources',
+    name: 'OpenAPISources',
+    access: 'canOpenAPISourcesRead',
+    component: './OpenAPISources',
+    icon: 'cloudUpload',
+  },
+  {
+    // 旧「资源/操作」页已并入资源目录（ResourceCatalog），保留重定向兼容书签与旧链接。
+    path: '/functions/resources',
+    redirect: '/functions/resource-catalog',
+  },
+  {
     // 静态段优先级高于 /functions/:id（react-router ranked matching），
     // 不会被函数详情动态路由拦截。
     path: '/functions/component-templates',
@@ -29,11 +48,6 @@ const functionManagementRoutes = [
     access: 'canPageRead',
     component: './PageStudio/ComponentTemplates',
     icon: 'appstore',
-  },
-  {
-    // 旧「资源/操作」页已并入资源目录（ResourceCatalog），保留重定向兼容书签与旧链接。
-    path: '/functions/resources',
-    redirect: '/functions/resource-catalog',
   },
   {
     path: '/functions/pages',
@@ -58,13 +72,6 @@ const functionManagementRoutes = [
     hideInMenu: true,
   },
   {
-    path: '/functions/openapi-sources',
-    name: 'OpenAPISources',
-    access: 'canOpenAPISourcesRead',
-    component: './OpenAPISources',
-    icon: 'cloudUpload',
-  },
-  {
     path: '/functions/invoke',
     name: 'FunctionInvoke',
     access: 'canFunctionsRead',
@@ -79,6 +86,14 @@ const functionManagementRoutes = [
     icon: 'cluster',
   },
   {
+    // SDK 版本分布：在线 provider 实例按 SDK 语言/版本聚合（F：sdk-stats）
+    path: '/functions/sdk-distribution',
+    name: 'SdkDistribution',
+    access: 'canFunctionsRead',
+    component: './Functions/SdkDistribution',
+    icon: 'cluster',
+  },
+  {
     // 执行留痕（管理员审计视角）：全量执行记录按用户/函数/时间过滤。
     // 属函数域观测（谁调了什么函数），故挂函数与页面菜单而非运维。
     path: '/functions/execution-logs',
@@ -86,14 +101,6 @@ const functionManagementRoutes = [
     access: 'canAuditRead',
     component: './Functions/ExecutionLogs',
     icon: 'fileSearch',
-  },
-  {
-    // SDK 版本分布：在线 provider 实例按 SDK 语言/版本聚合（F：sdk-stats）
-    path: '/functions/sdk-distribution',
-    name: 'SdkDistribution',
-    access: 'canFunctionsRead',
-    component: './Functions/SdkDistribution',
-    icon: 'cluster',
   },
   {
     path: '/functions/warnings',
@@ -108,13 +115,6 @@ const functionManagementRoutes = [
     access: 'canAssignmentsRead',
     component: './Assignments',
     icon: 'safety',
-  },
-  {
-    path: '/functions/resource-catalog',
-    name: 'ResourceCatalog',
-    access: 'canResourcesRead',
-    component: './ResourceCatalog',
-    icon: 'database',
   },
   {
     path: '/functions/proposals',
