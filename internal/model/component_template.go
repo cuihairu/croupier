@@ -1,6 +1,7 @@
 package model
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
@@ -72,6 +73,44 @@ func ComputeTemplateDigest(tree JSON) string {
 	return hex.EncodeToString(sum[:])
 }
 
+// jsonEquivalent 报告两段 JSON 的语义是否等价：unmarshal → marshal
+// 规范化（与 ComputeTemplateDigest 同源，map 键序稳定、空白消除）后
+// 比较。字节相同直接等价；任一侧解析失败且字节不同则不等价——保守
+// 取向是宁误写不误跳过。
+func jsonEquivalent(a, b JSON) bool {
+	if bytes.Equal([]byte(a), []byte(b)) {
+		return true
+	}
+	var va, vb interface{}
+	if err := json.Unmarshal(a, &va); err != nil {
+		return false
+	}
+	if err := json.Unmarshal(b, &vb); err != nil {
+		return false
+	}
+	ra, _ := json.Marshal(va)
+	rb, _ := json.Marshal(vb)
+	return bytes.Equal(ra, rb)
+}
+
+// builtinContentEqual 报告 builtin 模板内容是否等价（UpsertBuiltin 跳写
+// 门控）：只比对一次写入会真正覆盖的列——JSON 列（Name/Description/
+// RequiredFunctions/Tree）走 jsonEquivalent，标量列（Category/Icon）直比。
+// Params 不在 UpsertBuiltin 覆盖范围也不进门控；Digest/CreatedBy/时间戳
+// 是推导值或元数据，均不参与。
+func builtinContentEqual(existing, incoming *ComponentTemplate) bool {
+	if existing == nil || incoming == nil {
+		return false
+	}
+	if existing.Category != incoming.Category || existing.Icon != incoming.Icon {
+		return false
+	}
+	return jsonEquivalent(existing.Name, incoming.Name) &&
+		jsonEquivalent(existing.Description, incoming.Description) &&
+		jsonEquivalent(existing.RequiredFunctions, incoming.RequiredFunctions) &&
+		jsonEquivalent(existing.Tree, incoming.Tree)
+}
+
 // Create inserts a new template.
 func (m *ComponentTemplateModel) Create(ctx context.Context, t *ComponentTemplate) error {
 	t.Key = strings.TrimSpace(t.Key)
@@ -97,6 +136,12 @@ func (m *ComponentTemplateModel) UpsertBuiltin(ctx context.Context, t *Component
 	}
 	if err != nil {
 		return err
+	}
+	// 内容门控（卡点 6）：builtin 行内容未变时跳写——逐函数注册风暴触发
+	// 的全量模板重建不再无意义刷新 updated_at。custom 占 key 行不走门控
+	// （existing.Builtin=false），维持覆盖语义。
+	if existing.Builtin && builtinContentEqual(&existing, t) {
+		return nil
 	}
 	existing.Name = t.Name
 	existing.Description = t.Description

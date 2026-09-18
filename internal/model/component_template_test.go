@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/glebarez/sqlite"
 	"github.com/stretchr/testify/assert"
@@ -179,4 +180,80 @@ func TestComponentTemplateDigestWritePaths(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, ComputeTemplateDigest(v2.Tree), got2.Digest, "UpsertBuiltin update must refresh the digest")
 	assert.NotEqual(t, got1.Digest, got2.Digest)
+}
+
+// TestUpsertBuiltinContentGate 卡点 6：builtin 行内容未变时 UpsertBuiltin
+// 跳写（updated_at 不刷新）；JSON 键序/空白不同语义相同视为未变；Tree/
+// Name 变化正常写；非法 JSON 回退字节比较不误跳过；custom 占 key 行不
+// 走门控维持覆盖语义。
+func TestUpsertBuiltinContentGate(t *testing.T) {
+	db := setupCompTplDB(t)
+	m := NewComponentTemplateModel(db)
+	ctx := context.Background()
+
+	require.NoError(t, m.UpsertBuiltin(ctx, sampleTemplate("gate-mgmt", true)))
+	got1, err := m.FindByKey(ctx, "gate-mgmt")
+	require.NoError(t, err)
+
+	time.Sleep(50 * time.Millisecond)
+	// 同内容二次 upsert：跳写，updated_at 不变。
+	require.NoError(t, m.UpsertBuiltin(ctx, sampleTemplate("gate-mgmt", true)))
+	got2, err := m.FindByKey(ctx, "gate-mgmt")
+	require.NoError(t, err)
+	assert.True(t, got1.UpdatedAt.Equal(got2.UpdatedAt), "unchanged content must skip the write")
+
+	time.Sleep(50 * time.Millisecond)
+	// JSON 键序/空白不同但语义相同：跳写。
+	reordered := sampleTemplate("gate-mgmt", true)
+	reordered.Name = JSON(`{ "zh-CN" : "玩家管理" }`)
+	reordered.Tree = JSON(`[ { "props" : { "functionId" : "player.list" } , "type" : "fnTable" } ]`)
+	require.NoError(t, m.UpsertBuiltin(ctx, reordered))
+	got3, err := m.FindByKey(ctx, "gate-mgmt")
+	require.NoError(t, err)
+	assert.True(t, got2.UpdatedAt.Equal(got3.UpdatedAt), "key-order/whitespace-only differences are not content changes")
+
+	time.Sleep(50 * time.Millisecond)
+	// Tree 内容变化：写，digest 跟随刷新。
+	changed := sampleTemplate("gate-mgmt", true)
+	changed.Tree = JSON(`[{"type":"fnForm","props":{"functionId":"mail.send"}}]`)
+	require.NoError(t, m.UpsertBuiltin(ctx, changed))
+	got4, err := m.FindByKey(ctx, "gate-mgmt")
+	require.NoError(t, err)
+	assert.True(t, got4.UpdatedAt.After(got3.UpdatedAt), "tree change must write")
+	assert.Equal(t, ComputeTemplateDigest(changed.Tree), got4.Digest)
+
+	time.Sleep(50 * time.Millisecond)
+	// Name 变化：写。
+	renamed := sampleTemplate("gate-mgmt", true)
+	renamed.Name = JSON(`{"zh-CN":"玩家管理Pro"}`)
+	require.NoError(t, m.UpsertBuiltin(ctx, renamed))
+	got5, err := m.FindByKey(ctx, "gate-mgmt")
+	require.NoError(t, err)
+	assert.True(t, got5.UpdatedAt.After(got4.UpdatedAt), "name change must write")
+	assert.Equal(t, renamed.Name, got5.Name)
+
+	time.Sleep(50 * time.Millisecond)
+	// 非法 JSON：解析失败回退字节比较，不误跳过。
+	broken := sampleTemplate("gate-mgmt", true)
+	broken.Tree = JSON(`not json at all`)
+	require.NoError(t, m.UpsertBuiltin(ctx, broken))
+	got6, err := m.FindByKey(ctx, "gate-mgmt")
+	require.NoError(t, err)
+	assert.True(t, got6.UpdatedAt.After(got5.UpdatedAt), "unparseable JSON must fall back to byte comparison")
+	assert.Equal(t, broken.Tree, got6.Tree)
+
+	// custom 行占 key：不走门控（existing.Builtin=false），内容被覆盖
+	// 且 Builtin 保持 false（现状语义：UpsertBuiltin 不翻转该标记）。
+	customDB := setupCompTplDB(t)
+	m2 := NewComponentTemplateModel(customDB)
+	custom := sampleTemplate("gate-custom", false)
+	custom.Category = "自定义"
+	require.NoError(t, m2.Create(ctx, custom))
+	time.Sleep(50 * time.Millisecond)
+	require.NoError(t, m2.UpsertBuiltin(ctx, sampleTemplate("gate-custom", true)))
+	gotC, err := m2.FindByKey(ctx, "gate-custom")
+	require.NoError(t, err)
+	assert.False(t, gotC.Builtin, "UpsertBuiltin must not flip a custom row's builtin flag")
+	assert.Equal(t, "运营", gotC.Category, "custom row occupying the key is still overwritten")
+	assert.True(t, gotC.UpdatedAt.After(custom.UpdatedAt))
 }
