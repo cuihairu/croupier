@@ -433,3 +433,37 @@ rg -n '`input_schema`|`output_schema`|`approval_required`|`approval_policy_key`'
 ```
 
 New occurrences are review failures unless they are explicit legacy compatibility code or annotated proto-name references.
+
+## Database Schema Migration Contract (Mandatory)
+
+模型（`internal/model/`）加字段或加新表 **不等于迁移完成**。存量库过 0001 baseline 后不再跑 gorm AutoMigrate——线上 postgres 的表结构演进只认 `internal/svc/migrations.go` 注册的 goose 编号迁移。四起同族线上事故（0021 prev_schema / 0022 display / 0023 params,digest / 0027 menu_items+menu_id）的共同根因都是「模型改了、迁移漏配」。
+
+### 1) Canonical Rules
+
+- 模型加列 → 必须新增编号迁移，逐列 `Migrator().HasColumn` + `AddColumn` 补列（0015/0016/0021/0025/0027 模式）。**禁止对整模型 AutoMigrate**：存量表唯一约束名与模型 `uniqueIndex` 默认名漂移，AutoMigrate 的索引对齐在 postgres 直接 panic（0023 事故：部署即双实例 crashloop ~15 分钟）。
+- 模型加新表 → 编号迁移内 `HasTable` 检查后 `CreateTable`（0019 announcements 先例；新建表无存量约束名漂移问题）。
+- 迁移必须幂等（列/表已存在时跳过）、缺表跳过（fanout 重放到无该表的库不报错、不建空壳）。
+- 新增迁移同 PR 内必须三处同步：
+  1. `internal/svc/migrations.go`：迁移函数 + `registerSvcMigrations` 注册 + 文件头版本清单注释
+  2. `internal/db/migrate/migrate.go`：`MinimumRequiredVersion` bump 到新编号
+  3. `internal/db/migrate/migrate_test.go`：合成迁移清单（mapFS probe 条目）与版本断言同步
+- 回归用例必须复刻存量形态：DropColumn/DropTable 模拟过 baseline 的老库（`TestGoMigrations_MenuItemTablesCatchUp`），或手工 CREATE TABLE 带老式约束名（`TestComponentTemplateColumnsMigration_LegacyTableShape`）——AutoMigrate 建出的新表测不出存量库行为。
+- 运维要点：迁移失败不记 goose 版本（库停旧版），修复版部署时同版本号会干净重跑，无需 bump。
+
+### 2) Why CI Cannot Catch This
+
+sqlite/dev/CI 环境建库走 `model.AutoMigrateGame`（全表全列，模型即真值），只有线上 postgres 走 goose 链——**迁移漏配时本地全绿、上线即断**，且炸点是最早触达该列/该表的写路径（0027 实证：menus API 全部 500、页面保存/发布链 SQLSTATE 42703 整体中断，发布链 smoke 才暴露）。
+
+### 3) Review Checklist
+
+模型文件出现变更时，review 第一问：**编号迁移在哪**。
+
+```bash
+CHANGED=$(git diff --name-only origin/main...HEAD)
+echo "$CHANGED" | grep -E 'internal/model/'      # 有输出 → 下一条必须有输出，否则 review failure
+echo "$CHANGED" | grep -E 'internal/(svc/migrations\.go|db/migrate/migrate\.go)'
+```
+
+`internal/model/` 与迁移文件必须同 PR 出现（纯索引/tag 调整也不例外）。
+
+本节同样约束 `gorm:"index/uniqueIndex"` 变更、`TableName()` 改名、以及任何 column tag 调整——它们都改变存量库所期望的 schema。
