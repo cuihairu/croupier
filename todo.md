@@ -390,6 +390,24 @@ T3（execution_state 字段）→ T4/T6/T8；T2 → T5；T12（后端校验放�
 
 > **存量库迁移补漏（2026-09-18，0027）**：T-M1/T-M4 落地时只改了模型（MenuItem 表 + PageSpec.MenuID 列），未配编号迁移——线上 postgres `menu_items` 表缺失（menus API 500）、`page_specs.menu_id` 缺列（页面保存/发布链 SQLSTATE 42703 整体中断）；sqlite/dev 环境走 AutoMigrateGame 建全列，CI 拦不住。0027 补齐（缺表 CreateTable + 缺列 AddColumn，幂等），`MinimumRequiredVersion` 26→27。与 0021/0023 同族「模型改了迁移漏配」事故。
 
+### T-M10. 默认菜单种子（scope 化惰性导入）【待排期，用户 2026-09-18 提出】
+
+**动机**：页面能自动生成、auto env 保存即发布，但菜单树开箱为空——控制台导航「最后一公里」断在手动建菜单。
+
+**设计要点**：
+
+- 对齐 AdminManager 默认管理员/角色先例：种子文件放 `configs/`（如 `default-menus.json`）
+- **scope 化惰性导入**：某 `(gameId, env)` 首次访问菜单服务且该 scope 菜单为空时导入（非仅进程首启）——每个新游戏/环境接入自动拿到骨架
+- **只在空表导入、永不覆盖**：用户改名/删菜单后重启不受影响（幂等种子，非 sync）
+- 骨架与 capability 常见分类对齐：player 玩家 / operation 运营 / payment 支付订单 / announcement 公告 / audit 审计
+- 边界：默认菜单只是空组骨架，三要素不变（页面仍需已发布+挂载才上控制台）；空组渲染为指向 `/console/<menuKey>` 的单链接
+
+**验收**：
+
+- 全新 scope 首次访问菜单 → 种子导入且只导一次
+- 已有菜单的 scope → 不导入不覆盖
+- 种子导入的菜单与手工创建行为一致（可改/可删/可挂载）
+
 ---
 
 ## UI 生成链路 6 卡点整改（M1–M6，已完成 2026-09-18）
