@@ -162,4 +162,4 @@ function_contracts 新增列：execution_state VARCHAR(16) NOT NULL DEFAULT 'bou
 - 不同名绑定成功后，原 unbound 契约行即时清理（`CreateBinding` 事务内与上传重放的 `removeSupersededUnboundContract` 对称执行）——否则资源语义槽位出现同源双候选，unresolved conflict 会把 resource proposal 降级 needs_review。
 - 抽屉内不展示 proposal/模板 freshness 提示——Proposal 队列有独立入口；抽屉只解决「绑定」这一件事。
 - 发布分级的 env 判定依赖 scope 传递正确性；`X-Env` 缺失时按最严格（required）处理。
-- 上传管线为同步事务，超大文档有超时风险（全 scope 模板重建 + 逐资源提案生成，受 HTTP WriteTimeout 约束）。M6 起大文档护栏（M6）：operations 数超过 `openapi.pipelineOperationGuard`（默认 500，负数禁用）时，create/update 响应摘要追加 warn 级 `large_document_pipeline` diagnostic，提示拆分 source 或分批上传；护栏只提示不阻断，异步化另议。
+- 上传管线为同步事务，超大文档有超时风险（全 scope 模板重建 + 逐资源提案生成，受 HTTP WriteTimeout 约束）。M6 起大文档护栏：operations 数超过 `openapi.pipelineOperationGuard`（默认 500，负数禁用）时，create/update 响应摘要追加 warn 级 `large_document_pipeline` diagnostic，提示拆分 source 或分批上传；护栏只提示不阻断，异步化另议。
