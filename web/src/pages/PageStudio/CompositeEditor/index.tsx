@@ -412,29 +412,70 @@ export default function CompositeEditorPage() {
           // U11 模板快照：随保存并入（回读比对「所用模板有新版本」的依据）
           ...(tplUsage.length > 0 ? { componentTemplates: tplUsage } : {}),
         },
-      })) as { proposalKey?: unknown };
-      modal.success({
-        title: intlRef.current.formatMessage({
+      })) as { proposalKey?: unknown; published?: boolean; publishError?: unknown };
+      // 发布分级（T10）三态提示：auto 策略下服务端可能已直接发布（published）
+      // 或自动发布被拒（publishError，提案保留可人工重试）；默认态仍是进收件箱。
+      const fmt = intlRef.current.formatMessage;
+      const proposalKeyText = String(resp?.proposalKey ?? '');
+      const warningsPrefix = warnings.length
+        ? fmt(
+            {
+              id: 'pages.pageStudio.editor.save.compileWarnings',
+              defaultMessage: '编译警告：{warnings}。',
+            },
+            { warnings: warnings.join('；') },
+          )
+        : '';
+      let title: string;
+      let content: string;
+      if (resp?.published === true) {
+        title = fmt({
+          id: 'pages.pageStudio.editor.save.published',
+          defaultMessage: '页面已发布',
+        });
+        content =
+          warningsPrefix +
+          fmt(
+            {
+              id: 'pages.pageStudio.editor.save.publishedContent',
+              defaultMessage:
+                '提案 {proposalKey} 已自动发布生效（当前环境为保存即发布策略），无需人工接受。',
+            },
+            { proposalKey: proposalKeyText },
+          );
+      } else if (resp?.published === false && resp?.publishError) {
+        title = fmt({
+          id: 'pages.pageStudio.editor.save.autoPublishFailed',
+          defaultMessage: '提案已创建，自动发布失败',
+        });
+        content =
+          warningsPrefix +
+          fmt(
+            {
+              id: 'pages.pageStudio.editor.save.autoPublishFailedContent',
+              defaultMessage:
+                '提案 {proposalKey} 已保留在收件箱；自动发布未完成：{reason}。可在提案收件箱人工接受发布重试。',
+            },
+            { proposalKey: proposalKeyText, reason: String(resp.publishError) },
+          );
+      } else {
+        title = fmt({
           id: 'pages.pageStudio.editor.save.proposalCreated',
           defaultMessage: '提案已创建',
-        }),
-        content:
-          (warnings.length
-            ? intlRef.current.formatMessage(
-                {
-                  id: 'pages.pageStudio.editor.save.compileWarnings',
-                  defaultMessage: '编译警告：{warnings}。',
-                },
-                { warnings: warnings.join('；') },
-              )
-            : '') +
-          intlRef.current.formatMessage(
+        });
+        content =
+          warningsPrefix +
+          fmt(
             {
               id: 'pages.pageStudio.editor.save.proposalCreatedContent',
               defaultMessage: '提案 {proposalKey} 已进入提案收件箱，接受并发布后生效。',
             },
-            { proposalKey: String(resp?.proposalKey ?? '') },
-          ),
+            { proposalKey: proposalKeyText },
+          );
+      }
+      modal.success({
+        title,
+        content,
         onOk: () => history.push('/functions/pages'),
       });
     } catch (err) {

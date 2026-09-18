@@ -1,5 +1,10 @@
 # 上传即成页：契约与绑定正交化 TODO
 
+> **T1–T13 已于 2026-09-18 全部完成**（T1 `65f88486b`、T2 `3b17cfc41`、T3 `f61011249`、
+> T4 `a911471e0`、T5 `f4bd57640`、T6 `0a6a4703e`、T7 `16aea5947`、T8 `057f17045`、
+> T9 `3937b71ff`、T10 `f5b397f9c`、T11 `7564698d1`/`3970ce87d`、T12 `6dd616154`、
+> T13 `545477a5e`），下方任务清单保留为验收口径存档。
+
 设计依据：`docs/architecture/ui-generation-upload-pipeline.md`（D1–D7 决策不再变更）。
 
 每个任务原子性：独立完成、独立迁移文件、独立测试、独立可提交。仅以下落地顺序依赖：
@@ -407,7 +412,7 @@ T3（execution_state 字段）→ T4/T6/T8；T2 → T5；T12（后端校验放�
 2. **auto accept 自动发布失败不回滚**（M5）：accept 已成功、draft 保留，`publishError` 带回原因由前端提示走人工链；已存在 draft 的 auto accept 走「提案重建草稿 + 发布」多一跳（行为与 composite 保存链一致）。
 3. **批量同步严格只写 draft**（M4）：不自动 publish，上线仍需 `bulk-republish`；governance/version 等不可由 selector 同步修复的漂移整页 `skipped` 并透传诊断（不做半吊子同步）；单页失败/并发冲突计入 `failed` 继续不中断。
 4. **大文档护栏只提示不阻断**（M6）：warn 级 `large_document_pipeline` diagnostic，同步管线仍受 HTTP WriteTimeout 约束，异步化另议。
-5. **composite 保存弹窗前端暂未消费 `published`/`publishError`**（T10 遗留，M5 只接了收件箱 accept 链）：服务端语义已闭环，保存弹窗提示增强属后续任务。
+5. ~~**composite 保存弹窗前端暂未消费 `published`/`publishError`**~~（已收口 2026-09-18：保存弹窗按响应三态提示——`published=true` → 「页面已发布」；带 `publishError` → 「提案已创建，自动发布失败」+ 原因与人工重试指引；默认 → 进收件箱文案）。
 6. **M3 门控仅限 builtin 行**：custom 占 key 行维持覆盖路径且 Builtin 标记不翻转；JSON 列解析失败回退字节比较（宁误写不误跳过）。
 
 明确不做（当期范围外）：freshness 评估、Console 菜单聚合、unbound 翻转、`registration_warnings` DB 表接线。

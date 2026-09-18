@@ -56,6 +56,12 @@ export default {
   'pages.pageStudio.editor.save.proposalCreated': 'Proposal created',
   'pages.pageStudio.editor.save.proposalCreatedContent':
     'Proposal {proposalKey} has entered the proposal inbox and takes effect after accept-and-publish.',
+  'pages.pageStudio.editor.save.published': 'Page published',
+  'pages.pageStudio.editor.save.publishedContent':
+    'Proposal {proposalKey} has been auto-published (current env uses save-as-publish policy); manual accept is not needed.',
+  'pages.pageStudio.editor.save.autoPublishFailed': 'Proposal created, auto publish failed',
+  'pages.pageStudio.editor.save.autoPublishFailedContent':
+    'Proposal {proposalKey} is kept in the inbox; auto publish did not complete: {reason}. Retry via accept-and-publish in the proposal inbox.',
   'pages.pageStudio.editor.saveComponent.button': 'Save as component ({count})',
   'pages.pageStudio.editor.saveComponent.buttonIdle': 'Save as component',
   'pages.pageStudio.editor.saveComponent.hint':

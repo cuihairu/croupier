@@ -51,6 +51,12 @@ export default {
   'pages.pageStudio.editor.save.proposalCreated': '提案已创建',
   'pages.pageStudio.editor.save.proposalCreatedContent':
     '提案 {proposalKey} 已进入提案收件箱，接受并发布后生效。',
+  'pages.pageStudio.editor.save.published': '页面已发布',
+  'pages.pageStudio.editor.save.publishedContent':
+    '提案 {proposalKey} 已自动发布生效（当前环境为保存即发布策略），无需人工接受。',
+  'pages.pageStudio.editor.save.autoPublishFailed': '提案已创建，自动发布失败',
+  'pages.pageStudio.editor.save.autoPublishFailedContent':
+    '提案 {proposalKey} 已保留在收件箱；自动发布未完成：{reason}。可在提案收件箱人工接受发布重试。',
   'pages.pageStudio.editor.saveComponent.button': '保存为组件（{count}）',
   'pages.pageStudio.editor.saveComponent.buttonIdle': '保存为组件',
   'pages.pageStudio.editor.saveComponent.hint': 'Shift+点击 多选画布节点后，可保存为可复用组件模板',

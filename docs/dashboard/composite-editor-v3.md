@@ -434,9 +434,10 @@ DB 持久化接线留待独立需求。
   `pages.publishReview=auto` 的自动发布在 `POST /versioning/pages/composite`
   （组合页保存，T10）与 ProposalInbox「接受」（AcceptProposal，M5）生效；其余
   保持人工链——编辑器 SaveDraft 恒不自动发布，显式 accept-and-publish 本就直发。
-  批量发布（BulkPublish/BulkRepublish）不受策略影响，权限语义不变；前端保存
-  弹窗暂未消费保存响应中的 `published`/`publishError` 字段（收件箱接受链的
-  published/publishError 提示已随 M5 落地；保存弹窗提示增强属后续任务）。自动
+  批量发布（BulkPublish/BulkRepublish）不受策略影响，权限语义不变；保存弹窗
+  按响应三态提示（`published=true` → 「页面已发布」；`published=false` 带
+  `publishError` → 「提案已创建，自动发布失败」+ 原因与人工重试指引；默认 →
+  「提案已创建」进收件箱）。自动
   发布失败一律不回滚前置成功操作（提案/草稿保留，`publishError` 带回原因）
 - **编辑器内绑定抽屉（T9）不同名绑定即时清理旧物料**：bound 契约建在运行时函数
   名下，原 operationId 名下的 unbound 契约行在绑定事务内即时清理

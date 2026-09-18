@@ -965,6 +965,64 @@ describe('保存为提案', () => {
     await waitFor(() => expect(umiMock.history.push).toHaveBeenCalledWith('/functions/pages'));
   });
 
+  it('auto 策略 published=true → 提示已自动发布生效，不再指引人工接受', async () => {
+    setRoutes({
+      'POST /api/v1/versioning/pages/composite': {
+        proposalKey: 'composite--auto',
+        published: true,
+      },
+    });
+    renderEditor();
+    mockedListDescriptors.mockResolvedValue([fnPlayer, fnMail]);
+    await openLibraryTab();
+    insertViaLib(
+      [
+        { id: 's1', type: 'fnTable', props: { functionId: 'player.list' } },
+        { id: 's2', type: 'fnForm', props: { functionId: 'mail.send' } },
+      ],
+      tpl('save-auto'),
+    );
+    await waitFor(() => expect(screen.getByText('2 个组件')).toBeInTheDocument());
+    fireEvent.click(screen.getByRole('button', { name: /保存为提案$/ }));
+    expect((await screen.findAllByText('页面已发布')).length).toBeGreaterThan(0);
+    expect(
+      (await screen.findAllByText(/提案 composite--auto 已自动发布生效/)).length,
+    ).toBeGreaterThan(0);
+    // 不出现默认态的「接受并发布后生效」指引
+    expect(screen.queryAllByText(/已进入提案收件箱/)).toHaveLength(0);
+  });
+
+  it('published=false + publishError → 提示提案保留 + 失败原因 + 人工重试指引', async () => {
+    setRoutes({
+      'POST /api/v1/versioning/pages/composite': {
+        proposalKey: 'composite--perr',
+        published: false,
+        publishError: 'publish blocked by governance diagnostics',
+      },
+    });
+    renderEditor();
+    mockedListDescriptors.mockResolvedValue([fnPlayer, fnMail]);
+    await openLibraryTab();
+    insertViaLib(
+      [
+        { id: 's1', type: 'fnTable', props: { functionId: 'player.list' } },
+        { id: 's2', type: 'fnForm', props: { functionId: 'mail.send' } },
+      ],
+      tpl('save-perr'),
+    );
+    await waitFor(() => expect(screen.getByText('2 个组件')).toBeInTheDocument());
+    fireEvent.click(screen.getByRole('button', { name: /保存为提案$/ }));
+    expect((await screen.findAllByText('提案已创建，自动发布失败')).length).toBeGreaterThan(0);
+    expect(
+      (
+        await screen.findAllByText(
+          /提案 composite--perr 已保留在收件箱；自动发布未完成：publish blocked by governance diagnostics/,
+        )
+      ).length,
+    ).toBeGreaterThan(0);
+    expect((await screen.findAllByText(/人工接受发布重试/)).length).toBeGreaterThan(0);
+  });
+
   it('编译警告前缀 + 响应缺 proposalKey 兜底空串', async () => {
     setRoutes({ 'POST /api/v1/versioning/pages/composite': {} });
     renderEditor();
