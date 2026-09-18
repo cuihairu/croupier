@@ -121,3 +121,63 @@ func diagnosticCodes(diags []spec.Diagnostic) []string {
 	}
 	return codes
 }
+
+// M6 大文档护栏：finishUploadPipeline 对超阈值（openapi.
+// pipelineOperationGuard，0=默认 500，负数=禁用）的文档追加 warn 级
+// large_document_pipeline diagnostic（提示分批/拆分，不阻断）。直接以
+// tracker 注入 operations 数——不需要真实大文档 fixture。不注入模板
+// 重建器，可并行。
+func TestFinishUploadPipeline_LargeDocumentGuard(t *testing.T) {
+	newTracker := func(operations int) *uploadPipelineTracker {
+		return &uploadPipelineTracker{
+			operations:      operations,
+			templatesBefore: map[string]string{},
+			proposalsBefore: map[string]struct{}{},
+		}
+	}
+	findGuard := func(diags []spec.Diagnostic) *spec.Diagnostic {
+		for i := range diags {
+			if diags[i].Code == "large_document_pipeline" {
+				return &diags[i]
+			}
+		}
+		return nil
+	}
+
+	t.Run("over default threshold appends warning", func(t *testing.T) {
+		t.Parallel()
+		service := setupOpenAPITestService(t) // Config 零值 → 默认阈值 500
+		summary, err := service.finishUploadPipeline(openAPITestContext(), "demo-game", "development", "src-guard", newTracker(501), nil)
+		require.NoError(t, err)
+		guard := findGuard(summary.Diagnostics)
+		require.NotNil(t, guard, "超默认阈值应有大文档护栏诊断")
+		assert.Equal(t, spec.SeverityWarning, guard.Severity)
+		assert.Contains(t, guard.Message, "501")
+	})
+
+	t.Run("at default threshold omits warning", func(t *testing.T) {
+		t.Parallel()
+		service := setupOpenAPITestService(t)
+		summary, err := service.finishUploadPipeline(openAPITestContext(), "demo-game", "development", "src-guard", newTracker(500), nil)
+		require.NoError(t, err)
+		assert.Nil(t, findGuard(summary.Diagnostics), "恰好到达阈值不触发（严格大于）")
+	})
+
+	t.Run("negative config disables guard even over default", func(t *testing.T) {
+		t.Parallel()
+		service := setupOpenAPITestService(t)
+		service.svcCtx.Config.OpenAPI.PipelineOperationGuard = -1
+		summary, err := service.finishUploadPipeline(openAPITestContext(), "demo-game", "development", "src-guard", newTracker(501), nil)
+		require.NoError(t, err)
+		assert.Nil(t, findGuard(summary.Diagnostics), "负数禁用：超默认阈值也不提示")
+	})
+
+	t.Run("injected small threshold warns", func(t *testing.T) {
+		t.Parallel()
+		service := setupOpenAPITestService(t)
+		service.svcCtx.Config.OpenAPI.PipelineOperationGuard = 2
+		summary, err := service.finishUploadPipeline(openAPITestContext(), "demo-game", "development", "src-guard", newTracker(3), nil)
+		require.NoError(t, err)
+		require.NotNil(t, findGuard(summary.Diagnostics), "注入小阈值：3 operations 即触发")
+	})
+}

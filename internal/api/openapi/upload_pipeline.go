@@ -51,8 +51,10 @@ func (s *Service) startUploadPipelineTracker(ctx context.Context, gameID, env st
 //     proposalsCreated/diagnostics）——快照同时覆盖 bound 重建路径
 //     （rebuildContractsForSourceBindings）经 T2 联动产出的模板变更。
 //
-// 已知边界：超大文档（>500 operations）在同步管线下有超时风险（全 scope
-// 模板重建 + 逐资源提案生成），异步化另议。
+// 已知边界：超大文档在同步管线下有超时风险（全 scope 模板重建 + 逐资源
+// 提案生成），异步化另议。M6 起超阈值（openapi.pipelineOperationGuard，
+// 默认 500，负数禁用）在摘要里追加 warn 级 large_document_pipeline
+// diagnostic 提示分批/拆分，不阻断。
 func (s *Service) finishUploadPipeline(
 	ctx context.Context,
 	gameID, env, sourceID string,
@@ -81,6 +83,15 @@ func (s *Service) finishUploadPipeline(
 		Operations:       tracker.operations,
 		ContractsCreated: len(created),
 		Diagnostics:      tracker.diagnostics,
+	}
+	// M6 大文档护栏：超阈值追加 warn 级 diagnostic（提示分批/拆分，
+	// 不阻断——上传本身已成功）。
+	if threshold, enabled := s.svcCtx.Config.OpenAPI.PipelineOperationGuardThreshold(); enabled && summary.Operations > threshold {
+		summary.Diagnostics = append(summary.Diagnostics, spec.Diagnostic{
+			Severity: spec.SeverityWarning,
+			Code:     "large_document_pipeline",
+			Message:  fmt.Sprintf("document has %d operations (threshold %d): synchronous pipeline is slow and may hit the write timeout; split the source or upload in batches", summary.Operations, threshold),
+		})
 	}
 	for key, digest := range templatesAfter {
 		if tracker.templatesBefore[key] != digest {

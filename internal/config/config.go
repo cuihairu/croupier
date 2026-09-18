@@ -31,6 +31,8 @@ type Config struct {
 	SSE           SSEConfig                `json:"sse" yaml:"sse"`
 	// Pages 页面发布分级（T10/D5）：composite 保存是否跳过人工提案审核。
 	Pages PagesConfig `json:"pages" yaml:"pages"`
+	// OpenAPI 上传管线护栏（M6）：大文档提示阈值（warn 级，不阻断）。
+	OpenAPI OpenAPIConfig `json:"openapi,omitempty" yaml:"openapi,omitempty"`
 	// FeatureFlags switches optional product domains on/off at the control
 	// plane (API routes + dashboard menus). Unset flags default to enabled;
 	// only explicit `false` disables a domain. Data-plane components (agent,
@@ -84,6 +86,30 @@ func (c PagesConfig) ResolvePublishReview(env string) string {
 
 func validPublishReview(v string) bool {
 	return v == PublishReviewAuto || v == PublishReviewRequired
+}
+
+// DefaultPipelineOperationGuard 大文档提示默认阈值（M6）。
+const DefaultPipelineOperationGuard = 500
+
+// OpenAPIConfig OpenAPI 上传管线配置。
+type OpenAPIConfig struct {
+	// PipelineOperationGuard 大文档提示阈值：operations 数超过该值的上传
+	// 在管线摘要里追加 warn 级 large_document_pipeline diagnostic（建议
+	// 分批/拆分 source，同步管线有超时风险），不阻断上传。0=默认 500，
+	// 负数=禁用。
+	PipelineOperationGuard int `json:"pipelineOperationGuard,omitempty" yaml:"pipelineOperationGuard,omitempty"`
+}
+
+// PipelineOperationGuardThreshold 解析生效阈值。返回 (0, false) 表示护栏
+// 禁用；0 值配置回落 DefaultPipelineOperationGuard。
+func (c OpenAPIConfig) PipelineOperationGuardThreshold() (int, bool) {
+	if c.PipelineOperationGuard < 0 {
+		return 0, false
+	}
+	if c.PipelineOperationGuard == 0 {
+		return DefaultPipelineOperationGuard, true
+	}
+	return c.PipelineOperationGuard, true
 }
 
 // Feature flag names. Keep in sync with web/src/access.ts.

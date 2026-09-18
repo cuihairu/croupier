@@ -367,6 +367,12 @@ interface ComponentTemplate {
   快照进 `PageSpec.componentTemplates`（页面级可选字段，随 proposal→draft→published
   JSON 透传，不参与发布校验），再次打开页面时与模板库当前 digest 比对，不一致提示
   「所用模板有新版本」（只提示不自动同步）
+- **UpsertBuiltin 内容门控（M3）**：`UpsertBuiltin` 对 builtin 行做全字段内容
+  比较（Name/Description/Category/Icon/RequiredFunctions/Tree；JSON 列经
+  规范化比对，解析失败回退字节比较——宁误写不误跳过），内容一致直接跳过写入
+  （不刷 `updated_at`）。门控价值：逐函数注册触发的全量模板重建不再对未变模板
+  反复落库。仅限 builtin 行——custom 占 key 行（`builtin=false`）维持覆盖路径
+  且 Builtin 标记不翻转；手工改动强制回归语义保留（内容不同必写）
 
 REST：`/api/v1/component-templates`（List/Get/Create/Update/Delete/Regenerate），
 wire 契约见 [API 文档](../api/component-templates.md)。使用层文档见
@@ -546,7 +552,9 @@ composite 保存路径（`versioning.Service.CreateCompositePage`）在 `auto` �
 3. source 消失：必需 stateKey（resource query→items、detail→detail、report→dataset、task→taskStatus/taskEvents/taskResult 六类矩阵，与发布校验同步）经 rename 候选 / generator 默认推导 / 根对象（`source=""`）三阶梯重推导，全部失败保留原 assignment + `manual_required`——**必需输出绝不摘成缺失**；非必需无候选 → removed。
 4. 必需输出整体缺失 → 同三阶梯补一条（`added`），推导不出 → `manual_required`。
 
-写路径与权限：`POST /api/v1/pages/:pageKey/sync-selectors`（wire 契约见 [PageSpec 协议规范](./pagespec-protocol.md)）走 SaveDraft 同款乐观锁（事务内 revision 重查）+ PageVersion + 审计（action=sync_selectors）；权限是 `pages:edit`。**同步不自动 publish**——发布是 `pages:publish` 权限与审批/审计语义，同步后的发布级校验结果放在 `remainingDiagnostics` 由用户自查后手动发布。execution mode 对齐是附带修复：task 函数绑成 sync（或反之）时按 freshness 同规则修正，不造非法组合；governance/version 漂移不可由 selector 同步修复，重跑 freshness 后透传进报告的 manual 区。
+写路径与权限：`POST /api/v1/pages/:pageKey/sync-selectors`（wire 契约见 [PageSpec 协议规范](./pagespec-protocol.md)）走 SaveDraft 同款乐观锁（事务内 revision 重查）+ PageVersion + 审计（action=sync_selectors）；权限是 `pages:edit`。**同步只改 draft、不自动 publish**——发布是 `pages:publish` 权限与审批/审计语义，`published_page_specs` 不可变快照不在同步写路径上，同步后的发布级校验结果放在 `remainingDiagnostics` 由用户自查后手动发布。execution mode 对齐是附带修复：task 函数绑成 sync（或反之）时按 freshness 同规则修正，不造非法组合；governance/version 漂移不可由 selector 同步修复，重跑 freshness 后透传进报告的 manual 区。
+
+批量收口（M4，`POST /api/v1/pages/bulk-sync-selectors`）：契约变更队列的草稿侧整体处理——逐页跑与单页 sync-selectors 同源的 planner/apply，语义不变：**严格只写 draft**（已发布快照不动，上线仍需 `bulk-republish`）；revision 由服务端读取当前草稿，并发冲突在事务内 409、按页计入 `failed` 继续不中断；先 dry-run 判定，存在 Manual 诊断（governance/version 等不可由 selector 同步修复的漂移）的页面整体 `skipped` 并透传诊断，不做半吊子同步。
 
 ## 模型边界
 

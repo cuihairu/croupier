@@ -29,8 +29,13 @@ tag:
    SDK / OpenAPI 声明函数，inputSchema 可携带 x-ui-* 呈现 hints
    （presentation-hints.md「字段清单与映射」）
    ├─ registrationguard 拒绝页面级字段进入注册（internal/function/registrationguard）
-   └─ FunctionContract 落库 function_contracts（internal/model/function_contract.go），
-      schema digest 供 stale 检测
+   ├─ FunctionContract 落库 function_contracts（internal/model/function_contract.go），
+   │  schema digest 供 stale 检测
+   └─ 注册事务边界（M2）：事务内只保留权威状态——契约（含 Removed 级联
+      清理）+ 能力聚合（RebuildResourceCapability）；提案与组件模板是
+      提交后的衍生重建（internal/platform/registry/store.go），失败不回滚
+      注册，降级为 registration warning（Code 见下）。心跳重注册与手动
+      POST /api/v1/pages/proposals/rebuild 均可补齐衍生产物。
 
 ② 提案生成（确定性：相同输入摘要 + generator version ⇒ 相同 Proposal）
    ├─ 路径 A：契约落库/实质变更自动触发组件模板重建与提案重算（T2，失败不阻塞
@@ -52,9 +57,15 @@ tag:
    │   （internal/service/proposal_service.go）
    │   ├─ 质量门槛：error 级诊断拒绝发布；blocked/needs_review 需人工处理
    │   └─ published_page_specs 不可变快照 + page_versions 历史 + 提案置 accepted
-   └─ auto（dev 默认）：composite 保存跳过人工接受直接落 published_page_specs
-       （internal/api/page/service.go AutoPublishComposite）；
-       快照/版本历史不变，error 级诊断仍拒绝发布
+   └─ auto（dev 默认）：
+       ├─ composite 保存跳过人工接受直接落 published_page_specs
+       │   （internal/api/page/service.go AutoPublishComposite）
+       └─ AcceptProposal 落 draft 后自动接续发布（M5；
+           internal/service/proposal_service.go SetPublishReviewHooks 注入，
+           回调复用 AutoPublishComposite——已存在草稿走「提案重建草稿 +
+           发布」）。发布失败不回滚 accept：draft 保留，响应带
+           publishError 由前端提示走人工链。
+       两路快照/版本历史不变，error 级诊断仍拒绝发布。
 
 ④ 运行时渲染
    PageRenderer 按 PageSpec.type 分发（web/src/components/PageRenderer/）
@@ -78,6 +89,33 @@ tag:
 | 提案 | `PageProposal`（generator 产出）  | rebuild / 编辑器保存，人工不可直接改 spec |
 | 展示 | `PageDraft`（可选人工调整）       | Page Studio，仅限展示类字段               |
 | 运行 | `PublishedPageSpec`（不可变快照） | 只能通过新提案 → 再发布                   |
+
+### 发布分级矩阵（M5 后）
+
+| 入口                                   | required env | auto env                      |
+| -------------------------------------- | ------------ | ----------------------------- |
+| composite 保存（CreateCompositePage）  | 只建提案     | 保存成功后直接发布（T10）     |
+| ProposalInbox accept（AcceptProposal） | 只落 draft   | 落 draft 后自动接续发布（M5） |
+| accept-and-publish（显式）             | 直接发布     | 直接发布                      |
+| 编辑器 SaveDraft                       | 恒不自动发布 | 恒不自动发布                  |
+
+auto 语义统一约束：质量门槛不因免审核降低（error 级诊断照常拒绝发布）；
+自动发布失败一律不回滚前置成功操作（提案/草稿保留，`publishError` 带回
+前端降级人工链）。
+
+### 注册衍生重建告警 Code
+
+提案/模板移出注册事务后（M2），衍生重建失败通过 registration warnings
+通道暴露（`GET /api/v1/functions/warnings`，Functions → Warnings 页）：
+
+| Code                      | 含义                                                      |
+| ------------------------- | --------------------------------------------------------- |
+| `proposal_rebuild_failed` | 提交后提案重建失败（按 resource/function 标识进 Message） |
+| `template_regen_failed`   | 提交后组件模板重建失败（手动 regenerate 兜底语义不变）    |
+
+**已知边界**：两类告警与现有注册告警同为内存生命周期——进程重启即失、
+重建成功不自动清除既有告警条目（按 Count 递增）；`registration_warnings`
+DB 持久化接线留待独立需求。
 
 ## 为什么不集成 React Admin（决策记录）
 

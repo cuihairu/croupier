@@ -135,6 +135,11 @@ error 级诊断写入提案并降级 `needs_review`——提案收件箱「需�
     发布——与历史行为一致
   - 权限说明：auto 的 env 中发布权限沿用保存入口 `pages:edit`（策略声明免审核，
     保存者即发布者）；required 的 env 发布仍需 `pages:publish`
+  - **ProposalInbox「接受」在 auto 的 env 下同样自动接续发布（M5）**：接受落
+    draft 成功后直接发布，前端提示「已接受并自动发布」；自动发布失败**不回滚
+    接受**——draft 保留，提示 `publishError` 并指引走 accept-and-publish/手动
+    发布。required 的 env 仍只落 draft（历史行为）。编辑器 SaveDraft 恒不自动
+    发布（两策略一致）
 - 同函数多实例按 key 独立执行互不干扰
 
 ### 4.1 预览验证闭环（交互规格）
@@ -253,6 +258,13 @@ web/src/pages/PageStudio/CompositeEditor/
   收件箱同源的 stale 评估自动发现目标。草稿态漂移页面不在批量范围（从未上线的
   页面不应被一键上线，仍走单页处理）。注意：`bulk-publish` 只消化 pending 提案，
   已发布页面的契约漂移由本端点负责——两者互补而非重复。
+- **契约变更队列批量同步 Selector（2026-09，M4）**：契约变更 Tab 头部「一键同步
+  Selector」与「一键重新发布全部」并列，走 `POST /api/v1/pages/bulk-sync-selectors`
+  （权限 pages:edit）——对队列内页面逐页跑与单页 sync-selectors 同源的
+  planner/apply，把 selector 拉齐到最新契约（DraftRevision+1）。**严格只写草稿、
+  不发布**：完成后需再点「一键重新发布全部」才生效（按钮文案已明示）。governance/
+  version 等不可由 selector 同步修复的页面整体 skipped 并透传诊断；单页失败不中断
+  其余页面（对齐 bulk-republish 取舍）。
 
 发布链：编译产物 `POST /api/v1/versioning/pages/composite`（请求结构含 `key/group/display/rowActions/toolbarActions/onSuccessRefresh/chain`）→ 提案 → 接受发布 → `PageRenderer/CompositeRenderer` 按 spec 渲染。
 
@@ -358,6 +370,11 @@ prev schema 语义与 wire 契约见
 [Dashboard Resource/Page 模型](../architecture/dashboard-page-model.md)与
 [PageSpec 协议规范](../architecture/pagespec-protocol.md)。
 
+批量入口（M4）：契约变更队列 Tab 头部「一键同步 Selector」（见第 6 节）逐页
+跑同一 planner/apply——存在 `manual_required` 级诊断（governance/version 漂移）
+的页面整体 skipped 透传诊断，可同步的页面自动 apply（revision+1）；**严格只写
+草稿**，完成后需再「一键重新发布全部」才上线。
+
 ## 8.6 模板更新提醒（U11，2026-09）
 
 模板实例化是**复制语义**——页面保存的是拖入时刻的模板内容副本，模板之后改版
@@ -381,14 +398,35 @@ prev schema 语义与 wire 契约见
 模板与**函数契约**脱节，digest 提醒指模板**内容改版**与页面快照不一致——两者
 并存、语义不同。
 
+## 8.7 注册衍生重建告警（M1/M2，2026-09）
+
+函数注册（agent 心跳重注册 / 手动重注册）后，提案与组件模板的重建已移出注册
+事务——注册的权威状态（契约 + 能力聚合）不再被衍生重建失败回滚。衍生重建
+失败降级为**注册告警**，在 Functions → Warnings（`GET /api/v1/functions/warnings`）
+暴露，Code 以 Tag 原样渲染：
+
+| Code                      | 含义                                                         |
+| ------------------------- | ------------------------------------------------------------ |
+| `proposal_rebuild_failed` | 提交后提案重建失败（Message 带 resource/function 标识）      |
+| `template_regen_failed`   | 提交后组件模板重建失败（「从契约重新生成」手动兜底语义不变） |
+
+处理路径：按 Message 定位目标——提案侧手动 `POST /api/v1/pages/proposals/rebuild`
+（或等待心跳重注册自动重触发）；模板侧到组件模板页「从契约重新生成」。
+
+已知边界：两类告警与既有注册告警同为**内存生命周期**——进程重启即失；重建
+成功不自动清除既有告警条目（重复失败按 Count 递增）；`registration_warnings`
+DB 持久化接线留待独立需求。
+
 ## 9. 已知边界
 
-- **发布分级（T10）只覆盖 composite 保存链**：`pages.publishReview=auto` 的自动
-  发布仅在 `POST /versioning/pages/composite`（组合页保存）生效——上传管线生成
-  的 resource/operation 等提案、Page Studio 的草稿保存与其他页面类型发布仍走
-  人工链（ProposalInbox / `pages:publish`）。批量发布（BulkPublish/BulkRepublish）
-  不受策略影响，权限语义不变；前端保存弹窗暂未消费响应中的 `published`/
-  `publishError` 字段（服务端语义已闭环，前端提示增强属后续任务）
+- **发布分级（T10/M5）覆盖 composite 保存与收件箱接受两处入口**：
+  `pages.publishReview=auto` 的自动发布在 `POST /versioning/pages/composite`
+  （组合页保存，T10）与 ProposalInbox「接受」（AcceptProposal，M5）生效；其余
+  保持人工链——编辑器 SaveDraft 恒不自动发布，显式 accept-and-publish 本就直发。
+  批量发布（BulkPublish/BulkRepublish）不受策略影响，权限语义不变；前端保存
+  弹窗暂未消费保存响应中的 `published`/`publishError` 字段（收件箱接受链的
+  published/publishError 提示已随 M5 落地；保存弹窗提示增强属后续任务）。自动
+  发布失败一律不回滚前置成功操作（提案/草稿保留，`publishError` 带回原因）
 - **编辑器内绑定抽屉（T9）不同名绑定即时清理旧物料**：bound 契约建在运行时函数
   名下，原 operationId 名下的 unbound 契约行在绑定事务内即时清理
   （removeSupersededUnboundContract，与上传重放对称）——组件面板不再出现

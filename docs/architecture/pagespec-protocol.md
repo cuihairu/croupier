@@ -363,6 +363,30 @@ interface SelectorSyncOutputEntry {
 
 语义要点：dry-run 与 apply 共用同一 planner（`spec/selector_sync.go`），预览与落库不会漂移；apply 不自动 publish，`remainingDiagnostics` 有 error 时发布会继续被阻断，须先处理 `manual_required` 项；必需输出在任何路径上都不被摘成缺失（推导失败保留原 assignment + `manual_required`）。prev schema 的来源与精确性判定（`previousInputSchema`/`previousOutputSchema`、digest 双算法匹配降级策略）见 [Dashboard Resource/Page 模型](./dashboard-page-model.md)。
 
+### 批量 selector 同步（bulk-sync-selectors wire 契约，M4）
+
+契约变更队列的草稿侧批量收口——逐页跑与单页 sync-selectors 同源的 planner/apply：
+
+```ts
+// POST /api/v1/pages/bulk-sync-selectors   （权限 pages:edit；body 可为空）
+interface PageBulkSyncSelectorsRequest {
+  pageKeys?: string[]; // 省略/空白 = 审批收件箱 ContractChanges 全量（去重）
+}
+
+interface PageBulkSyncSelectorsResult {
+  total: number;
+  synced?: string[]; // 成功页（selector 拉齐 + DraftRevision+1）
+  skipped?: {
+    pageKey: string;
+    reason: string; // 恒 "manual_required"
+    manual?: Diagnostic[]; // 不可自动修复漂移的诊断透传（governance/version 等）
+  }[];
+  failed?: { pageKey: string; error: string }[]; // 单页失败不中断其余页面
+}
+```
+
+语义要点：**严格只写 draft**（`published_page_specs` 不动），上线仍需 `bulk-republish`；revision 由服务端读取当前草稿版本（并发冲突在事务内 409，按页计入 `failed` 继续）；先 dry-run 判定——存在 Manual 诊断（governance/version 等不可由 selector 同步修复的漂移）的页面整体 `skipped` 并透传诊断，不做半吊子同步；不自动 publish。
+
 ## 导航与多语言
 
 分类、标题、图标与排序是 PageSpec 顶层字段（`category{key,order}`、`title`、`icon`、`order`）。T-M8 起分类名称不再随页面规格承载：`category` 只保留 `key`（分组定位键）与 `order`，分类的多语言名称由菜单系统（`menu_items.labels`）提供。`NavigationSpec` 仅承载返回导航行为：
