@@ -26,6 +26,8 @@ export default {
   'pages.pageStudio.editor.breadcrumb.page': '页面',
   'pages.pageStudio.editor.component.selectionMissing': '选中的组件不存在',
   'pages.pageStudio.editor.component.selectionRequired': '请先选中至少一个组件',
+  'pages.pageStudio.editor.component.createGuidance':
+    '拖入组件自由组合 → 框选节点（Shift+点击）→ 顶栏「保存为组件」即存为可复用模板',
   'pages.pageStudio.editor.deleteSelected.button': '删除所选（{count}）',
   'pages.pageStudio.editor.drag.basic': '组件：{type}',
   'pages.pageStudio.editor.drag.function': '函数：{fnId}',
@@ -110,6 +112,7 @@ export default {
   'pages.pageStudio.saveModal.updateHint': '更新会以当前画布选择覆盖该模板的结构、参数与依赖函数。',
   'pages.pageStudio.saveModal.updateSuccess': '「{name}」已更新——模板内容已按当前画布选择覆盖',
   'pages.pageStudio.subtitle': '注册能力后自动生成默认页面；预览、发布、运行无需手工创建页面',
+  'pages.pageStudio.templates.action.createComponent': '新建组合组件',
   'pages.pageStudio.templates.action.createComposite': '创建组合页',
   'pages.pageStudio.templates.action.delete': '删除',
   'pages.pageStudio.templates.action.importConstants': '导入常量',

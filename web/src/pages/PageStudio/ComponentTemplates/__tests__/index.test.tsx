@@ -70,3 +70,58 @@ describe('ComponentTemplates unbound 标注（T7）', () => {
     expect(screen.queryByText('未绑定')).not.toBeInTheDocument();
   });
 });
+
+describe('ComponentTemplates 创建入口与分类体系', () => {
+  it('「新建组合组件」主按钮 → 跳编辑器并带 createComponent 引导标记', async () => {
+    const { history } = await import('@umijs/max');
+    (history.push as jest.Mock).mockClear();
+    render(
+      <App>
+        <ComponentTemplatesPage />
+      </App>,
+    );
+    const btn = await screen.findByText('新建组合组件', undefined, FIND);
+    btn.click();
+    expect(history.push).toHaveBeenCalledWith(
+      '/functions/pages/composite-editor?createComponent=1',
+    );
+    // 「创建组合页」仍保留（建页面，非组件），不再承担主入口
+    expect(screen.getByText('创建组合页')).toBeInTheDocument();
+  });
+
+  it('分组按规范分类顺序展示（内置函数/查询/资源 → 组合组件 → 常量），未收录分类排尾', async () => {
+    const catTpl = (key: string, category?: string) => ({
+      key,
+      name: `模板-${key}`,
+      tree: [],
+      builtin: !category,
+      ...(category ? { category } : {}),
+    });
+    mockedRequest.mockReset().mockImplementation(async (url: string) => {
+      if (typeof url === 'string' && url.includes('/api/v1/component-templates')) {
+        return {
+          items: [
+            // 乱序给：常量/组合组件/未收录/内置各类，断言渲染分组顺序稳定
+            catTpl('c-const', '常量'),
+            catTpl('c-composite', '组合组件'),
+            catTpl('c-other', '自由分类'),
+            { ...catTpl('b-fn'), category: '函数组件' },
+            { ...catTpl('b-crud'), category: '资源管理' },
+            { ...catTpl('b-query'), category: '查询组合' },
+          ],
+        };
+      }
+      return {};
+    });
+    const { container } = render(
+      <App>
+        <ComponentTemplatesPage />
+      </App>,
+    );
+    await waitFor(() => expect(screen.getByText('模板-c-other')).toBeInTheDocument(), FIND);
+    const titles = Array.from(container.querySelectorAll('h5')).map((h) => h.textContent ?? '');
+    // 计数后缀（0）来自 groupCount 插值 mock；只比对分组名顺序
+    const order = titles.map((t) => t.replace(/（\d+）$/, ''));
+    expect(order).toEqual(['函数组件', '查询组合', '资源管理', '组合组件', '常量', '自由分类']);
+  });
+});

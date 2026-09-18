@@ -85,6 +85,8 @@ describe('SaveComponentModal 保存方式两模式（V3 更新通道）', () => 
     expect(post?.[0]).toBe('/api/v1/component-templates');
     expect(String(post?.[1]?.data?.key)).toMatch(/^custom--/);
     expect(post?.[1]?.data?.tree).toEqual(modalState.selectedNodes);
+    // 默认分类为规范体系中的「组合组件」（与模板库分组顺序对齐）
+    expect(post?.[1]?.data?.category).toBe('组合组件');
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 

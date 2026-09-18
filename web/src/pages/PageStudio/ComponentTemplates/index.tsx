@@ -20,6 +20,7 @@ import {
   AppstoreOutlined,
   DeleteOutlined,
   EyeOutlined,
+  ProfileOutlined,
   ReloadOutlined,
   SearchOutlined,
   ControlOutlined,
@@ -41,6 +42,10 @@ import { localizedText } from '@/utils/localizedText';
 import type { LocalizedText } from '@/types/dashboard';
 
 const { Text, Title } = Typography;
+
+/** 规范分类顺序：内置单函数 → 内置查询 → 内置资源 CRUD → 用户组合 → 常量；
+ * 未收录分类按字母序排在末尾（自由填写的自定义分类仍可见，不丢弃）。 */
+const CATEGORY_ORDER = ['函数组件', '查询组合', '资源管理', '组合组件', '常量'];
 
 /** 组件模板 DTO。 */
 interface TemplateDTO {
@@ -299,7 +304,16 @@ export default function ComponentTemplatesPage() {
       if (!byCat.has(cat)) byCat.set(cat, []);
       byCat.get(cat)!.push(t);
     }
-    return Array.from(byCat.entries()).sort(([a], [b]) => a.localeCompare(b));
+    return Array.from(byCat.entries()).sort(([a], [b]) => {
+      const ia = CATEGORY_ORDER.indexOf(a);
+      const ib = CATEGORY_ORDER.indexOf(b);
+      if (ia !== -1 || ib !== -1) {
+        if (ia === -1) return 1;
+        if (ib === -1) return -1;
+        return ia - ib;
+      }
+      return a.localeCompare(b);
+    });
   }, [filtered]);
 
   const previewTpl = templates.find((t) => t.key === previewKey);
@@ -320,9 +334,19 @@ export default function ComponentTemplatesPage() {
         }),
         extra: [
           <Button
-            key="create-composite"
+            key="create-component"
             type="primary"
             icon={<AppstoreOutlined />}
+            onClick={() => history.push('/functions/pages/composite-editor?createComponent=1')}
+          >
+            <FormattedMessage
+              id="pages.pageStudio.templates.action.createComponent"
+              defaultMessage="新建组合组件"
+            />
+          </Button>,
+          <Button
+            key="create-composite"
+            icon={<ProfileOutlined />}
             onClick={() => history.push('/functions/pages/composite-editor')}
           >
             <FormattedMessage

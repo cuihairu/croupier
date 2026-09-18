@@ -79,7 +79,7 @@ export default function SaveComponentModal({
     if (!tpl) return;
     form.setFieldsValue({
       name: localizedText(tpl.name, 'zh-CN', tpl.key),
-      category: tpl.category || '自定义',
+      category: tpl.category || '组合组件',
       description: localizedText(tpl.description, 'zh-CN', ''),
     });
   }, [mode, targetKey, customTemplates, form]);
@@ -123,7 +123,7 @@ export default function SaveComponentModal({
       const body = {
         name: { 'zh-CN': name, 'en-US': name },
         description: { 'zh-CN': description, 'en-US': description },
-        category: form.getFieldValue('category') || '自定义',
+        category: form.getFieldValue('category') || '组合组件',
         icon: 'AppstoreOutlined',
         requiredFunctions: state.fnIds,
         ...(params.length ? { params } : {}),
@@ -280,14 +280,16 @@ export default function SaveComponentModal({
             id: 'pages.pageStudio.saveModal.categoryLabel',
             defaultMessage: '分类',
           })}
-          initialValue="自定义"
+          initialValue="组合组件"
         >
           <Select
             options={[
+              { label: '组合组件', value: '组合组件' },
+              { label: '查询组合', value: '查询组合' },
+              { label: '资源管理', value: '资源管理' },
+              { label: '函数组件', value: '函数组件' },
+              { label: '常量', value: '常量' },
               { label: '自定义', value: '自定义' },
-              { label: '查询表单', value: '查询表单' },
-              { label: '操作面板', value: '操作面板' },
-              { label: '监控展示', value: '监控展示' },
             ]}
           />
         </Form.Item>

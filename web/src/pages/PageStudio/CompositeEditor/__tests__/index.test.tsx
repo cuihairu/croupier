@@ -196,7 +196,11 @@ jest.mock('@umijs/max', () => {
     );
   const state = { search: '' };
   const req = jest.fn(async () => ({}));
-  const history = { push: jest.fn(), location: { pathname: '/functions/pages' } };
+  const history = {
+    push: jest.fn(),
+    replace: jest.fn(),
+    location: { pathname: '/functions/pages' },
+  };
   const FormattedMessage = ({
     defaultMessage,
     values,
@@ -626,7 +630,7 @@ const mockedOpenapi = jest.requireMock('@/services/api/openapi') as {
 
 const umiMock = jest.requireMock('@umijs/max') as {
   __umiState: { search: string };
-  history: { push: jest.Mock };
+  history: { push: jest.Mock; replace: jest.Mock };
 };
 const scopeListener = (
   jest.requireMock('@/stores/scope') as { __scopeListener: { current: (() => void) | null } }
@@ -760,6 +764,7 @@ beforeEach(() => {
   mockedOpenapi.bindOpenAPISourceProvider.mockResolvedValue({});
   umiMock.__umiState.search = '';
   umiMock.history.push.mockClear();
+  umiMock.history.replace.mockClear();
   scopeListener.current = null;
   qsConfig.nodes = [];
   qsConfig.tpl = tpl('qs-tpl', { name: { 'zh-CN': '引导模板' }, builtin: true });
@@ -778,6 +783,18 @@ beforeEach(() => {
 // 初始渲染 / 顶栏 / 函数列表拉取
 // ---------------------------------------------------------------------------
 describe('初始渲染与顶栏', () => {
+  it('模板库「新建组合组件」入口（?createComponent=1）：进入弹引导提示并清掉 query', async () => {
+    umiMock.__umiState.search = '?createComponent=1';
+    renderEditor();
+    // 引导文案进 message 通知（区别于顶栏按钮的「保存为组件（N）」）
+    await waitFor(() =>
+      expect(document.querySelector('.ant-message')?.textContent).toContain('可复用模板'),
+    );
+    expect(umiMock.history.replace).toHaveBeenCalledWith(
+      expect.objectContaining({ pathname: window.location.pathname, search: '' }),
+    );
+  });
+
   it('默认骨架：标题/版本/quick-start/撤销重做禁用/空闲保存组件禁用/组件数 0', () => {
     const { container } = renderEditor();
     expect(byId('pc:title').textContent).toBe('组合页编辑器');

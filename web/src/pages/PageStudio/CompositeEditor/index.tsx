@@ -136,6 +136,24 @@ export default function CompositeEditorPage() {
   const [searchParams] = useSearchParams();
   const loadKey = searchParams.get('pageKey');
 
+  // 模板库「新建组合组件」入口（?createComponent=1）：一次性引导组合→保存为组件的路径
+  React.useEffect(() => {
+    if (searchParams.get('createComponent') !== '1') return;
+    message.info(
+      intlRef.current.formatMessage({
+        id: 'pages.pageStudio.editor.component.createGuidance',
+        defaultMessage:
+          '拖入组件自由组合 → 框选节点（Shift+点击）→ 顶栏「保存为组件」即存为可复用模板',
+      }),
+    );
+    // 引导一次即收口：清掉 query 防止刷新/返回重复弹出
+    const rest = new URLSearchParams(searchParams);
+    rest.delete('createComponent');
+    const qs = rest.toString();
+    history.replace({ pathname: window.location.pathname, search: qs ? `?${qs}` : '' });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const fnById = useRef(new Map<string, FunctionDescriptor>());
   const [allFns, setAllFns] = useState<FunctionDescriptor[]>([]);
   const canvasRef = useRef<HTMLDivElement>(null);

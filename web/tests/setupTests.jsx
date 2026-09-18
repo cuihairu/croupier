@@ -146,6 +146,7 @@ jest.mock(
       __esModule: true,
       history: {
         push: jest.fn(),
+        replace: jest.fn(),
         location: { pathname: '/user/login' },
       },
       request,
