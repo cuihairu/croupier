@@ -355,6 +355,55 @@ test.describe('菜单系统端到端', () => {
     await expect(page.locator(`a[href="${MAIL_PAGE_PATH}"]`)).toBeVisible();
   });
 
+  test('@menu- 页面工作台 UI 挂载菜单', async ({ page, request }) => {
+    await login(page);
+    // 页面工作台：mail 页行 More 下拉 → 挂载菜单 → TreeSelect 选 mail 菜单 → 确定。
+    // 草稿列表在「高级页面管理」折叠面板内（默认收起），先展开。
+    await page.goto('/functions/pages');
+    await waitForPageReady(page);
+    await page.getByText('高级页面管理').click();
+    const mailRow = page.locator('tbody tr', { hasText: MAIL_PAGE_KEY }).first();
+    await expect(mailRow).toBeVisible({ timeout: 10000 });
+    await mailRow.locator('button .anticon-more').first().click();
+    await page.getByRole('menuitem', { name: '挂载菜单' }).click();
+
+    const dialog = page.getByRole('dialog');
+    await expect(dialog).toBeVisible();
+    // TreeSelect：点开下拉选「E2E邮件管理」（beforeAll 创建的 mail 菜单）
+    await dialog.locator('.ant-select').click();
+    await page
+      .locator('.ant-select-tree-node-content-wrapper', { hasText: MOUNT_MENU_TITLE })
+      .click();
+    // antd zh 两字按钮插空格（「确 定」）
+    await dialog.getByRole('button', { name: /确\s*定/ }).click();
+    await expect(page.getByText('挂载已更新，控制台导航即时生效')).toBeVisible();
+
+    // API 复核：console/menu 出现挂载项（menu_items 驱动）
+    const menuResponse = await request.get('/api/v1/console/menu', { headers: api.headers });
+    expect(menuResponse.status()).toBe(200);
+    const consoleMenu = (await menuResponse.json()) as {
+      items?: Array<{ key: string; children?: Array<{ key: string }> }>;
+    };
+    const mailCategory = (consoleMenu.items || []).find(
+      (category) => category.key === MOUNT_MENU_KEY,
+    );
+    expect((mailCategory?.children || []).some((item) => item.key === MAIL_PAGE_KEY)).toBe(true);
+
+    // UI 复核：控制台侧边栏出现挂载页面链接（mail 菜单组也要展开）
+    await page.goto('/console/home');
+    await waitForPageReady(page);
+    await expandConsoleSubtree(page);
+    const mountGroupTitle = page
+      .locator('.ant-menu-submenu-title', { hasText: MOUNT_MENU_TITLE })
+      .first();
+    if ((await mountGroupTitle.getAttribute('aria-expanded')) !== 'true') {
+      await mountGroupTitle.getByText(MOUNT_MENU_TITLE).click();
+    }
+    await expect(page.locator(`a[href="${MAIL_PAGE_PATH}"]`)).toBeVisible();
+    // 挂载不在此处解除：afterAll 删菜单级联解除；显式解除会让 mail 组变空组，
+    // 破坏后续「权限过滤」用例的 expandConsoleSubtree 前置断言
+  });
+
   test('@menu- 菜单权限过滤与继承', async ({ page, request }) => {
     // API 正例：admin（admin:all）的 accessible 树含机密父子（继承=子随父可见）
     const accessibleResponse = await request.get(`${api.baseURL}/api/v1/menus/accessible`, {

@@ -175,6 +175,9 @@ export default {
   'pages.pageStudio.templates.title': 'Component Templates',
   'pages.pageStudio.title': 'Page Studio',
   'pages.pageStudio.unpublish.failed': 'Failed to unpublish',
+  'pages.pageStudio.mountMenu.failed': 'Failed to update menu mount',
+  'pages.pageStudio.mountMenu.success':
+    'Menu mount updated; console navigation updates immediately',
   'pages.pageStudio.unpublish.success': 'Page unpublished',
   'pages.pageStudio.versions.loadFailed': 'Failed to load version history',
 };

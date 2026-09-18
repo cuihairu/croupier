@@ -175,6 +175,26 @@ export async function unpublishPage(pageKey: string): Promise<PageUnpublishRespo
   });
 }
 
+/** 挂载响应：pageKey + 当前 menuId（null=已解除）。 */
+export interface PageMenuResponse {
+  pageKey: string;
+  menuId: number | null;
+}
+
+/**
+ * 挂载页面到菜单（menuId 非 null）或解除挂载（null）。
+ * 挂载读 draft 表即时生效，无需重发页面；要求 pages:edit。
+ */
+export async function updatePageMenu(
+  pageKey: string,
+  menuId: number | null,
+): Promise<PageMenuResponse> {
+  return request<PageMenuResponse>(`${BASE}/${encodeURIComponent(pageKey)}/menu`, {
+    method: 'PUT',
+    data: { menuId },
+  });
+}
+
 export async function listPageVersions(
   pageKey: string,
   params?: { limit?: number; offset?: number },

@@ -160,6 +160,8 @@ export default {
   'pages.pageStudio.templates.title': '组件模板',
   'pages.pageStudio.title': '页面工作台',
   'pages.pageStudio.unpublish.failed': '取消发布失败',
+  'pages.pageStudio.mountMenu.failed': '更新挂载失败',
+  'pages.pageStudio.mountMenu.success': '挂载已更新，控制台导航即时生效',
   'pages.pageStudio.unpublish.success': '已取消发布',
   'pages.pageStudio.versions.loadFailed': '加载版本历史失败',
 };

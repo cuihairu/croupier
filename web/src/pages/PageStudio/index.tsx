@@ -13,6 +13,7 @@ import VersionsDrawer from './studio/VersionsDrawer';
 import ChangeChainDrawer from './studio/ChangeChainDrawer';
 import DiffDrawer from './studio/DiffDrawer';
 import MergeModal from './studio/MergeModal';
+import MenuMountModal from './studio/MenuMountModal';
 import { buildDraftColumns } from './studio/draftColumns';
 import { currentFocusPageKey } from './studio/shared';
 import {
@@ -23,9 +24,11 @@ import {
   regeneratePageDraft,
   savePageDraft,
   unpublishPage,
+  updatePageMenu,
   bulkPublishPages,
   bulkUnpublishPages,
 } from '@/services/api/pages';
+import { listMenus, type MenuItem } from '@/services/api/menu';
 import {
   getChangeChain,
   getDiff,
@@ -259,6 +262,46 @@ export default function PageStudio() {
             defaultMessage: '取消发布失败',
           }),
         );
+      }
+    },
+    [loadDrafts, message],
+  );
+
+  // 挂载菜单（menu_items 驱动控制台导航）：打开弹窗时拉当前 scope 菜单树
+  const [mountTarget, setMountTarget] = useState<PageSpecDraftSummary | null>(null);
+  const [mountMenus, setMountMenus] = useState<MenuItem[]>([]);
+  const [mountSaving, setMountSaving] = useState(false);
+  const handleMountMenu = useCallback(async (record: PageSpecDraftSummary) => {
+    setMountTarget(record);
+    try {
+      setMountMenus(await listMenus());
+    } catch {
+      setMountMenus([]);
+    }
+  }, []);
+  const handleMountSubmit = useCallback(
+    async (pageKey: string, menuId: number | null) => {
+      setMountSaving(true);
+      try {
+        await updatePageMenu(pageKey, menuId);
+        requestConsoleMenuRefresh();
+        message.success(
+          intlRef.current.formatMessage({
+            id: 'pages.pageStudio.mountMenu.success',
+            defaultMessage: '挂载已更新，控制台导航即时生效',
+          }),
+        );
+        setMountTarget(null);
+        loadDrafts();
+      } catch {
+        message.error(
+          intlRef.current.formatMessage({
+            id: 'pages.pageStudio.mountMenu.failed',
+            defaultMessage: '更新挂载失败',
+          }),
+        );
+      } finally {
+        setMountSaving(false);
       }
     },
     [loadDrafts, message],
@@ -706,6 +749,7 @@ export default function PageStudio() {
       onVersions: handleVersions,
       onChangeChain: handleChangeChain,
       onDiff: handleDiff,
+      onMountMenu: (record) => void handleMountMenu(record),
     },
     modal,
     intl,
@@ -883,6 +927,14 @@ export default function PageStudio() {
         onCancel={() => setMergeVisible(false)}
         onAutoMerge={() => void handleMerge('auto')}
         onManualMerge={() => void handleOpenManualMerge()}
+      />
+
+      <MenuMountModal
+        page={mountTarget}
+        menus={mountMenus}
+        saving={mountSaving}
+        onCancel={() => setMountTarget(null)}
+        onSubmit={(pageKey, menuId) => void handleMountSubmit(pageKey, menuId)}
       />
 
       <MergeConflictModal

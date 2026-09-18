@@ -1,5 +1,6 @@
 import { Button, Dropdown, Popconfirm, Space, Tag, Tooltip, Typography } from 'antd';
 import {
+  ApartmentOutlined,
   DiffOutlined,
   EditOutlined,
   EyeOutlined,
@@ -38,6 +39,8 @@ export function buildDraftColumns(
     onVersions: (pageKey: string) => void;
     onChangeChain: (pageKey: string) => void;
     onDiff: (pageKey: string) => void;
+    /** 挂载菜单（menu_items 驱动控制台导航；null=解除） */
+    onMountMenu: (record: PageSpecDraftSummary) => void;
   },
   modal: { confirm: (config: { title: string; content: string; onOk: () => void }) => void },
   intl: IntlFormatter,
@@ -181,6 +184,15 @@ export function buildDraftColumns(
           <Dropdown
             menu={{
               items: [
+                {
+                  key: 'mount-menu',
+                  icon: <ApartmentOutlined />,
+                  label: intl.formatMessage({
+                    id: 'pages.pageStudio.studio.action.mountMenu',
+                    defaultMessage: '挂载菜单',
+                  }),
+                  onClick: () => handlers.onMountMenu(record),
+                },
                 {
                   key: 'regenerate',
                   icon: <ReloadOutlined />,

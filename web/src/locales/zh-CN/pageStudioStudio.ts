@@ -6,6 +6,7 @@ export default {
   'pages.pageStudio.studio.action.changeChain': '变更链',
   'pages.pageStudio.studio.action.diff': '变更对比',
   'pages.pageStudio.studio.action.edit': '编辑',
+  'pages.pageStudio.studio.action.mountMenu': '挂载菜单',
   'pages.pageStudio.studio.action.preview': '预览',
   'pages.pageStudio.studio.action.publish': '发布',
   'pages.pageStudio.studio.action.publishConfirm': '确认发布此页面？',
@@ -51,6 +52,15 @@ export default {
   'pages.pageStudio.studio.editor.saveDraft': '仅保存草稿',
   'pages.pageStudio.studio.editor.title': '页面编辑',
   'pages.pageStudio.studio.merge.auto': '自动合并',
+  'pages.pageStudio.studio.mountMenu.draftHint':
+    '该页面尚未发布：挂载关系会保存，但发布后才会出现在运行控制台导航。',
+  'pages.pageStudio.studio.mountMenu.emptyMenus':
+    '当前环境暂无菜单，请先在「菜单管理」中创建菜单。',
+  'pages.pageStudio.studio.mountMenu.extra':
+    '清空即解除挂载（页面从运行控制台导航消失，发布状态保留）。改挂载即时生效，无需重新发布。',
+  'pages.pageStudio.studio.mountMenu.field': '所属菜单',
+  'pages.pageStudio.studio.mountMenu.placeholder': '选择挂载的菜单（可清空）',
+  'pages.pageStudio.studio.mountMenu.title': '挂载菜单：{pageKey}',
   'pages.pageStudio.studio.merge.cancel': '取消',
   'pages.pageStudio.studio.merge.hint':
     '自动合并只会写入展示字段；binding、selector、权限、风险、审批和执行模式必须人工确认后重新发布。',

@@ -947,6 +947,8 @@ export interface PageSpecDraftSummary {
   resourceKey?: string;
   title: LocalizedText;
   category: PageCategorySpec;
+  /** 挂载的菜单（menu_items.id）；null/缺省 = 未挂载（不进控制台导航）。 */
+  menuId?: number | null;
   status: PageDraftStatus;
   draftRevision: number;
   publishedVersion?: number;

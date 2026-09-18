@@ -6,6 +6,7 @@ export default {
   'pages.pageStudio.studio.action.changeChain': 'Change chain',
   'pages.pageStudio.studio.action.diff': 'Change diff',
   'pages.pageStudio.studio.action.edit': 'Edit',
+  'pages.pageStudio.studio.action.mountMenu': 'Mount to menu',
   'pages.pageStudio.studio.action.preview': 'Preview',
   'pages.pageStudio.studio.action.publish': 'Publish',
   'pages.pageStudio.studio.action.publishConfirm': 'Publish this page?',
@@ -56,6 +57,15 @@ export default {
   'pages.pageStudio.studio.editor.saveDraft': 'Save draft only',
   'pages.pageStudio.studio.editor.title': 'Edit page',
   'pages.pageStudio.studio.merge.auto': 'Auto merge',
+  'pages.pageStudio.studio.mountMenu.draftHint':
+    'This page is not published yet: the mount is saved, but it only appears in the console navigation after publishing.',
+  'pages.pageStudio.studio.mountMenu.emptyMenus':
+    'No menus in the current environment. Create one in Menu Management first.',
+  'pages.pageStudio.studio.mountMenu.extra':
+    'Clearing unmounts the page (it disappears from console navigation; publish state is kept). Remounting takes effect immediately without republishing.',
+  'pages.pageStudio.studio.mountMenu.field': 'Menu',
+  'pages.pageStudio.studio.mountMenu.placeholder': 'Select a menu (clearable)',
+  'pages.pageStudio.studio.mountMenu.title': 'Mount to menu: {pageKey}',
   'pages.pageStudio.studio.merge.cancel': 'Cancel',
   'pages.pageStudio.studio.merge.hint':
     'Auto merge only writes display fields; bindings, selectors, permissions, risks, approvals, and execution modes must be confirmed manually and republished.',
