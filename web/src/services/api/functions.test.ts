@@ -238,7 +238,7 @@ describe('functions API adapters', () => {
 
       await deleteFunctionWarning('warn/1');
 
-      expect(mockedRequest).toHaveBeenCalledWith('/api/v1/function/warnings/warn%2F1', {
+      expect(mockedRequest).toHaveBeenCalledWith('/api/v1/functions/warnings/warn%2F1', {
         method: 'DELETE',
       });
     });
@@ -248,7 +248,7 @@ describe('functions API adapters', () => {
 
       await markFunctionWarningRead('warn/1');
 
-      expect(mockedRequest).toHaveBeenCalledWith('/api/v1/function/warnings/warn%2F1/read', {
+      expect(mockedRequest).toHaveBeenCalledWith('/api/v1/functions/warnings/read/warn%2F1', {
         method: 'POST',
       });
     });

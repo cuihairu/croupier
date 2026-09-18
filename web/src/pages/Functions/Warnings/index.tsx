@@ -100,7 +100,7 @@ export default function FunctionWarningsPage() {
         description={intl.formatMessage({
           id: 'pages.functionsWarnings.rules.description',
           defaultMessage:
-            '注册会强制校验 function_id 格式、版本 SemVer，并对重复 function_id 进行版本去重；所有告警在此处可检索。',
+            '注册会强制校验 function_id 格式、版本 SemVer，并对重复 function_id 进行版本去重；注册提交后的契约/提案/模板衍生重建失败也会以 proposal_rebuild_failed / template_regen_failed 记录在此（告警存于内存，重启后清除；重建成功不自动清除）。所有告警在此处可检索。',
         })}
         style={{ marginBottom: 16 }}
       />

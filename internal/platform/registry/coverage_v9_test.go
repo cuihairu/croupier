@@ -205,7 +205,7 @@ func TestAgentSessionModelClosedDBErrorsV9(t *testing.T) {
 
 func TestMaterializeScopedTransactionWithoutDBV9(t *testing.T) {
 	s := NewStore()
-	err := s.materializeScopedTransaction(context.Background(), &AgentSession{}, s.materializeAgent, functionSnapshotDiff{})
+	_, err := s.materializeScopedTransaction(context.Background(), &AgentSession{}, s.materializeAgent, functionSnapshotDiff{})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "registration projection database is not initialized")
 }
@@ -597,6 +597,7 @@ func TestUpsertAgentRemovedSurvivorRebuildFailsV9(t *testing.T) {
 	assert.Contains(t, err.Error(), "agent registration contract rebuild failed")
 }
 
+// 提案重建已移出注册事务：提交后失败降级为告警（不回滚注册）。
 func TestUpsertAgentProposalRebuildFailureV9(t *testing.T) {
 	s := NewStore()
 	s.SetContractService(proposalsFailingServiceV9{})
@@ -607,6 +608,13 @@ func TestUpsertAgentProposalRebuildFailureV9(t *testing.T) {
 		Env:       "e",
 		Functions: map[string]FunctionMeta{"fn.q": {Enabled: true, Resource: "res-q"}},
 	})
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "rebuild page proposals")
+	require.NoError(t, err, "提交后提案重建失败不应回滚注册")
+	s.Mu().RLock()
+	require.NotNil(t, s.AgentsUnsafe()["a-p"])
+	s.Mu().RUnlock()
+
+	warnings := s.ListRegistrationWarnings(RegistrationWarningFilter{Code: WarningCodeProposalRebuildFailed})
+	require.Len(t, warnings, 1, "提案重建失败应产生 proposal_rebuild_failed 告警")
+	assert.Contains(t, warnings[0].Message, "resource res-q")
+	assert.Equal(t, "a-p", warnings[0].AgentID)
 }

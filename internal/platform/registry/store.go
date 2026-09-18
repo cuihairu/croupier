@@ -177,6 +177,18 @@ type FunctionRegistrationWarning struct {
 	Read       bool // F：已读状态（删除/已读 UI）
 }
 
+// 注册提交后衍生数据重建失败的告警 Code（与函数注册告警同一通道/同一
+// 生命周期——内存存储，重启即失；重建成功不自动清除，人工删除兜底）。
+const (
+	// WarningCodeProposalRebuildFailed 注册写入提交后页面提案重建失败。
+	// 提案为衍生数据可由已提交契约全量重算，失败不回滚注册
+	// （POST /pages/proposals/rebuild 是手动兜底）。
+	WarningCodeProposalRebuildFailed = "proposal_rebuild_failed"
+	// WarningCodeTemplateRegenFailed 注册写入提交后内置组件模板重建失败。
+	// 手动 POST /component-templates/regenerate 是兜底。
+	WarningCodeTemplateRegenFailed = "template_regen_failed"
+)
+
 type RegistrationWarningFilter struct {
 	GameID     string
 	Env        string
@@ -260,8 +272,12 @@ func (s *Store) Mu() *sync.RWMutex { return &s.mu }
 func (s *Store) AgentsUnsafe() map[string]*AgentSession { return s.agents }
 
 // UpsertAgent inserts or updates an agent session by AgentID.
-// Contract and proposal materialization is part of registration and must
-// succeed before the session becomes visible in the runtime registry.
+// Contract and capability materialization is part of registration and must
+// succeed before the session becomes visible in the runtime registry. Page
+// proposals and component templates are derived data rebuilt after the
+// registration write commits; their failure is downgraded to a registration
+// warning (proposal_rebuild_failed / template_regen_failed) and never rolls
+// back the registration itself.
 func (s *Store) UpsertAgent(a *AgentSession) error {
 	if a == nil || a.AgentID == "" {
 		return nil
@@ -285,11 +301,14 @@ func (s *Store) UpsertAgent(a *AgentSession) error {
 	// and operation status commit together. Any meta failure restores the
 	// previous game projection immediately or leaves an explicit recovery row.
 	if s.db != nil && dbctx.Get(scopeCtx) == nil {
+		var plan *registrationRebuildPlan
 		if err := s.db.Transaction(func(tx *gorm.DB) error {
 			txCtx := dbctx.WithDB(scopeCtx, tx)
-			if err := materialize(txCtx, a, diff); err != nil {
+			p, err := materialize(txCtx, a, diff)
+			if err != nil {
 				return err
 			}
+			plan = p
 			if err := s.writeToDB(txCtx, a); err != nil {
 				return fmt.Errorf("write agent session to database: %w", err)
 			}
@@ -297,13 +316,15 @@ func (s *Store) UpsertAgent(a *AgentSession) error {
 		}); err != nil {
 			return err
 		}
+		s.rebuildProposalsAfterRegistration(scopeCtx, a, plan)
 		s.regenTemplatesAfterRegistration(scopeCtx, a, diff)
 	} else if s.db != nil && dbctx.Get(scopeCtx) != nil && s.contractService != nil && a.Functions != nil {
 		operation, err := s.prepareRegistrationOperation(a, previousSession)
 		if err != nil {
 			return err
 		}
-		if err := s.materializeScopedTransaction(scopeCtx, a, materialize, diff); err != nil {
+		plan, err := s.materializeScopedTransaction(scopeCtx, a, materialize, diff)
+		if err != nil {
 			s.markRegistrationOperation(operation.OperationID, "aborted", err)
 			return err
 		}
@@ -325,17 +346,20 @@ func (s *Store) UpsertAgent(a *AgentSession) error {
 				}
 			}
 			reverseDiff := classifyFunctionSnapshot(a.Functions, previousForRestore.Functions)
-			compensationErr := s.materializeScopedTransaction(scopeCtx, previousForRestore, materialize, reverseDiff)
-			if compensationErr != nil {
+			// 补偿只需恢复权威状态（契约+能力）：提案不在注册事务内，
+			// meta 提交失败时提交后重建尚未发生，无需补偿。
+			if _, compensationErr := s.materializeScopedTransaction(scopeCtx, previousForRestore, materialize, reverseDiff); compensationErr != nil {
 				s.markRegistrationOperation(operation.OperationID, "compensation_required", compensationErr)
 				return fmt.Errorf("write agent session to database: %w; registration compensation failed: %w", metaErr, compensationErr)
 			}
 			s.markRegistrationOperation(operation.OperationID, "compensated", metaErr)
 			return metaErr
 		}
+		s.rebuildProposalsAfterRegistration(scopeCtx, a, plan)
 		s.regenTemplatesAfterRegistration(scopeCtx, a, diff)
 	} else {
-		if err := materialize(scopeCtx, a, diff); err != nil {
+		plan, err := materialize(scopeCtx, a, diff)
+		if err != nil {
 			return err
 		}
 		if s.db != nil {
@@ -343,6 +367,7 @@ func (s *Store) UpsertAgent(a *AgentSession) error {
 				return fmt.Errorf("write agent session to database: %w", err)
 			}
 		}
+		s.rebuildProposalsAfterRegistration(scopeCtx, a, plan)
 		s.regenTemplatesAfterRegistration(scopeCtx, a, diff)
 	}
 
@@ -380,7 +405,8 @@ func (s *Store) UpsertAgent(a *AgentSession) error {
 
 // regenTemplatesAfterRegistration 在注册写入（事务或直写）成功后单次收口
 // 组件模板重建（T2）。快照无 Added/Changed/Removed 时不触发——心跳/重连
-// 风暴下函数集未变即不空转（对齐原 digest 门控语义）。失败仅告警，不影响
+// 风暴下函数集未变即不空转（对齐原 digest 门控语义）。失败仅告警（写
+// registrationWarnings，Code=template_regen_failed，UI 可见），不影响
 // 已提交的注册结果（手动 regenerate 仍是兜底）。
 func (s *Store) regenTemplatesAfterRegistration(ctx context.Context, session *AgentSession, diff functionSnapshotDiff) {
 	if s.contractService == nil || session == nil {
@@ -395,27 +421,53 @@ func (s *Store) regenTemplatesAfterRegistration(ctx context.Context, session *Ag
 			"game_id", session.GameID,
 			"env", session.Env,
 			"error", err)
+		s.UpsertRegistrationWarning(ctx, FunctionRegistrationWarning{
+			GameID:  session.GameID,
+			Env:     session.Env,
+			AgentID: session.AgentID,
+			Code:    WarningCodeTemplateRegenFailed,
+			Message: err.Error(),
+		})
 	}
+}
+
+// registrationRebuildPlan 注册事务内收集的衍生重建计划（提交后执行）。
+// 快照无变化（心跳/重连）时集合为空，提交后重建自然跳过。
+type registrationRebuildPlan struct {
+	Resources           []string
+	StandaloneFunctions []string
 }
 
 func (s *Store) materializeScopedTransaction(
 	scopeCtx context.Context,
 	session *AgentSession,
-	materialize func(context.Context, *AgentSession, functionSnapshotDiff) error,
+	materialize func(context.Context, *AgentSession, functionSnapshotDiff) (*registrationRebuildPlan, error),
 	diff functionSnapshotDiff,
-) error {
+) (*registrationRebuildPlan, error) {
 	scopeDB := dbctx.Resolve(scopeCtx, s.db)
 	if scopeDB == nil {
-		return fmt.Errorf("registration projection database is not initialized")
+		return nil, fmt.Errorf("registration projection database is not initialized")
 	}
-	return scopeDB.Transaction(func(tx *gorm.DB) error {
-		return materialize(dbctx.WithDB(scopeCtx, tx), session, diff)
-	})
+	var plan *registrationRebuildPlan
+	if err := scopeDB.Transaction(func(tx *gorm.DB) error {
+		p, err := materialize(dbctx.WithDB(scopeCtx, tx), session, diff)
+		if err != nil {
+			return err
+		}
+		plan = p
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+	return plan, nil
 }
 
-func (s *Store) materializeAgent(ctx context.Context, session *AgentSession, sessionDiff functionSnapshotDiff) error {
+// materializeAgent 物化注册的权威状态（契约 + 资源能力聚合），并收集
+// 页面提案的衍生重建计划。提案重建不在本事务内执行——见
+// rebuildProposalsAfterRegistration。
+func (s *Store) materializeAgent(ctx context.Context, session *AgentSession, sessionDiff functionSnapshotDiff) (*registrationRebuildPlan, error) {
 	if s.contractService == nil || session == nil || session.Functions == nil {
-		return nil
+		return nil, nil
 	}
 	var rebuildErrors []error
 	resources := stringSet(sessionDiff.Resources)
@@ -447,19 +499,58 @@ func (s *Store) materializeAgent(ctx context.Context, session *AgentSession, ses
 			rebuildErrors = append(rebuildErrors, fmt.Errorf("rebuild resource capability %s: %w", resource, err))
 			continue
 		}
-		if err := s.contractService.RebuildProposalsForResource(ctx, session.GameID, session.Env, resource); err != nil {
-			rebuildErrors = append(rebuildErrors, fmt.Errorf("rebuild page proposals for %s: %w", resource, err))
-		}
-	}
-	for _, functionID := range sortedStringSet(standaloneFunctions) {
-		if err := s.contractService.RebuildProposalForFunction(ctx, session.GameID, session.Env, functionID); err != nil {
-			rebuildErrors = append(rebuildErrors, fmt.Errorf("rebuild standalone page proposal %s: %w", functionID, err))
-		}
 	}
 	if len(rebuildErrors) > 0 {
-		return fmt.Errorf("agent registration contract rebuild failed: %w", errors.Join(rebuildErrors...))
+		return nil, fmt.Errorf("agent registration contract rebuild failed: %w", errors.Join(rebuildErrors...))
 	}
-	return nil
+	return &registrationRebuildPlan{
+		Resources:           sortedStringSet(resources),
+		StandaloneFunctions: sortedStringSet(standaloneFunctions),
+	}, nil
+}
+
+// rebuildProposalsAfterRegistration 在注册写入（事务或直写）成功后重建
+// 页面提案（衍生数据，可由已提交契约全量重算）。失败仅告警
+// （Code=proposal_rebuild_failed，UI 可见），不影响已提交的注册结果——
+// 手动 POST /pages/proposals/rebuild 仍是兜底。
+func (s *Store) rebuildProposalsAfterRegistration(ctx context.Context, session *AgentSession, plan *registrationRebuildPlan) {
+	if s.contractService == nil || session == nil || plan == nil {
+		return
+	}
+	for _, resource := range plan.Resources {
+		if err := s.contractService.RebuildProposalsForResource(ctx, session.GameID, session.Env, resource); err != nil {
+			slog.Default().Warn("rebuild page proposals after agent registration failed (manual proposals rebuild remains as fallback)",
+				"agent_id", session.AgentID,
+				"game_id", session.GameID,
+				"env", session.Env,
+				"resource", resource,
+				"error", err)
+			s.UpsertRegistrationWarning(ctx, FunctionRegistrationWarning{
+				GameID:  session.GameID,
+				Env:     session.Env,
+				AgentID: session.AgentID,
+				Code:    WarningCodeProposalRebuildFailed,
+				Message: fmt.Sprintf("resource %s: %s", resource, err.Error()),
+			})
+		}
+	}
+	for _, functionID := range plan.StandaloneFunctions {
+		if err := s.contractService.RebuildProposalForFunction(ctx, session.GameID, session.Env, functionID); err != nil {
+			slog.Default().Warn("rebuild standalone page proposal after agent registration failed (manual proposals rebuild remains as fallback)",
+				"agent_id", session.AgentID,
+				"game_id", session.GameID,
+				"env", session.Env,
+				"function_id", functionID,
+				"error", err)
+			s.UpsertRegistrationWarning(ctx, FunctionRegistrationWarning{
+				GameID:  session.GameID,
+				Env:     session.Env,
+				AgentID: session.AgentID,
+				Code:    WarningCodeProposalRebuildFailed,
+				Message: fmt.Sprintf("function %s: %s", functionID, err.Error()),
+			})
+		}
+	}
 }
 
 func (s *Store) previousAgentSession(agentID string) *AgentSession {
@@ -1225,7 +1316,7 @@ func (s *Store) recoverPendingRegistrationOperations(ctx context.Context) error 
 
 		scopeCtx := s.rebuildContext(target.GameID, target.Env)
 		reverseDiff := classifyFunctionSnapshot(target.Functions, previous.Functions)
-		if err := s.materializeScopedTransaction(scopeCtx, previous, s.materializeAgent, reverseDiff); err != nil {
+		if _, err := s.materializeScopedTransaction(scopeCtx, previous, s.materializeAgent, reverseDiff); err != nil {
 			s.markRegistrationOperation(operation.OperationID, "compensation_required", err)
 			return fmt.Errorf("recover registration operation %s: %w", operation.OperationID, err)
 		}

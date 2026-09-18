@@ -198,11 +198,11 @@ export async function listDescriptors() {
 }
 
 export async function deleteFunctionWarning(key: string) {
-  return request(`/api/v1/function/warnings/${encodeURIComponent(key)}`, { method: 'DELETE' });
+  return request(`/api/v1/functions/warnings/${encodeURIComponent(key)}`, { method: 'DELETE' });
 }
 
 export async function markFunctionWarningRead(key: string) {
-  return request(`/api/v1/function/warnings/${encodeURIComponent(key)}/read`, { method: 'POST' });
+  return request(`/api/v1/functions/warnings/read/${encodeURIComponent(key)}`, { method: 'POST' });
 }
 
 export async function markAllFunctionWarningsRead(): Promise<{ marked: number }> {
