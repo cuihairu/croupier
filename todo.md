@@ -382,3 +382,30 @@ T3（execution_state 字段）→ T4/T6/T8；T2 → T5；T12（后端校验放�
 - 创建菜单 → 页面关联菜单 → 用户登录看到菜单 → 权限过滤正确
 - 菜单 CRUD 完整流程
 - 权限继承正确
+
+---
+
+## UI 生成链路 6 卡点整改（M1–M6，已完成 2026-09-18）
+
+六卡点全部落地（提交 `f28efde48`/`55df216f4`/`50926e89f`/`d5ac9a938`/`5aa785c51`，CI 全绿，
+发布链闭环经 dev-fixture 真实 server 验证）：
+
+| 卡点                                  | 交付                                                                                       |
+| ------------------------------------- | ------------------------------------------------------------------------------------------ |
+| 1. 提案重建失败回滚整个注册           | M2：提案/模板重建移出注册事务，失败降级 registration warning，手动 rebuild/心跳重注册兜底  |
+| 2. 模板重建失败仅 slog 静默           | M1：`template_regen_failed` 进告警通道 + 前端 Warnings URL 修复                            |
+| 3. auto 发布分级只覆盖 composite 保存 | M5：auto env 下 AcceptProposal 自动接续发布（SetPublishReviewHooks 注入）                  |
+| 4. 契约漂移无批量 sync-selectors      | M4：`POST /pages/bulk-sync-selectors`（契约变更队列逐页收口，只写 draft）                  |
+| 5. >500 operations 上传同步超时       | M6：`openapi.pipelineOperationGuard` 护栏 warn 级 diagnostic（默认 500、负数禁用、不阻断） |
+| 6. 逐函数注册反复全量模板重写         | M3：UpsertBuiltin 内容门控（全字段比较一致跳写，不刷 updated_at）                          |
+
+**已知边界（诚实清单）**：
+
+1. **衍生重建告警内存生命周期**（M1/M2）：`proposal_rebuild_failed`/`template_regen_failed` 与既有注册告警同为内存实现——进程重启即失、重建成功不自动清除既有条目（按 Count 递增）；`registration_warnings` DB 持久化接线留待独立需求。
+2. **auto accept 自动发布失败不回滚**（M5）：accept 已成功、draft 保留，`publishError` 带回原因由前端提示走人工链；已存在 draft 的 auto accept 走「提案重建草稿 + 发布」多一跳（行为与 composite 保存链一致）。
+3. **批量同步严格只写 draft**（M4）：不自动 publish，上线仍需 `bulk-republish`；governance/version 等不可由 selector 同步修复的漂移整页 `skipped` 并透传诊断（不做半吊子同步）；单页失败/并发冲突计入 `failed` 继续不中断。
+4. **大文档护栏只提示不阻断**（M6）：warn 级 `large_document_pipeline` diagnostic，同步管线仍受 HTTP WriteTimeout 约束，异步化另议。
+5. **composite 保存弹窗前端暂未消费 `published`/`publishError`**（T10 遗留，M5 只接了收件箱 accept 链）：服务端语义已闭环，保存弹窗提示增强属后续任务。
+6. **M3 门控仅限 builtin 行**：custom 占 key 行维持覆盖路径且 Builtin 标记不翻转；JSON 列解析失败回退字节比较（宁误写不误跳过）。
+
+明确不做（当期范围外）：freshness 评估、Console 菜单聚合、unbound 翻转、`registration_warnings` DB 表接线。
