@@ -30,7 +30,7 @@ sequenceDiagram
     SDK->>Server: 注册 FunctionContract（无 UI 字段）
     Server->>Server: 聚合 CapabilitySemantics、生成 PageProposal
     Admin->>Server: 预览 / accept-and-publish（冻结 BindingContractSnapshot）
-    Server-->>UI: GET /api/v1/console/menu（只含 active PublishedPageSpec）
+    Server-->>UI: GET /api/v1/console/menu（菜单树 menu_items + 挂载的 active PublishedPageSpec）
     UI->>Server: POST /api/v1/console/pages/:pageKey/bindings/:bindingId/execute
     Server->>Server: binding/snapshot/stale/permission/approval 校验
     Note over Server: 合同变化未重新发布时返回 409 binding_stale

@@ -15,7 +15,7 @@ tag:
 
 > **状态**：Current -- 路由注册于 `internal/handler/routes.go`（Proposal / Pages / Versioning / Console 四组）。默认工作流是语义化编辑与发布。
 
-这组 API 管理当前 `game_id + env` scope 的 PageProposal、PageDraft、PublishedPageSpec、三方合并与 Console 运行时。运行控制台只读取 PublishedPageSpec 和由它生成的 ConsoleMenuSpec。
+这组 API 管理当前 `game_id + env` scope 的 PageProposal、PageDraft、PublishedPageSpec、三方合并与 Console 运行时。运行控制台导航由菜单系统（`menu_items`）驱动：ConsoleMenuSpec 按「菜单树 + 挂载的已发布页面」组装（见 [运行控制台动态菜单](../architecture/console-dynamic-menu.md)）。
 
 ## Scope
 
@@ -51,6 +51,7 @@ POST /api/v1/proposals/{proposalKey}/reject
 GET  /api/v1/pages
 GET  /api/v1/pages/{pageKey}
 PUT  /api/v1/pages/{pageKey}
+PUT  /api/v1/pages/{pageKey}/menu
 POST /api/v1/pages/{pageKey}/regenerate
 POST /api/v1/pages/{pageKey}/validate
 POST /api/v1/pages/{pageKey}/preview
@@ -62,6 +63,8 @@ POST /api/v1/pages/{pageKey}/rollback
 ```
 
 `PUT` / `publish` / `rollback` 请求体使用 `draftRevision`（或 `expectedDraftRevision`）乐观并发，不匹配返回 409。
+
+`PUT /{pageKey}/menu` 挂载/解除页面与菜单的关联（请求体 `{ "menuId": 123 }`；`null` 或 `0` 解除挂载）。挂载读 draft 表（`page_specs.menu_id`）即时生效，无需重发页面；要求 `pages:edit`。
 
 PageSpec 使用导航、列表、详情、表单动作、确认动作、任务、报表和 typed selector DTO（见 [PageSpec 协议规范](../architecture/pagespec-protocol.md)）。它不含具体 React 组件 props、无约束 JSON mapping 或浏览器可控 target。
 
@@ -108,7 +111,7 @@ GET  /api/v1/console/pages/{pageKey}
 POST /api/v1/console/pages/{pageKey}/bindings/{bindingId}/execute
 ```
 
-- `menu` 返回由 active PublishedPageSpec 生成的 `ConsoleMenuSpec`（`{ items: [...] }`），是动态菜单唯一来源。
+- `menu` 返回由菜单系统（`menu_items` 权限过滤树）+ 挂载的 active PublishedPageSpec 组装的 `ConsoleMenuSpec`（`{ items: [...] }`），是动态菜单唯一来源：未挂载菜单的已发布页面不进导航；无菜单时 `items` 为空。
 - `pages/{pageKey}` 返回发布快照与 `bindingContracts`（函数版本、schema digest、risk、permission、approval、renderer 版本）及只读 `bindingFreshness` 诊断。
 - `execute` 请求只提交 selector context：
 

@@ -1,17 +1,20 @@
 // Console 工作台（避开保留字 console）
 export default {
   'pages.console.home.description':
-    '运行控制台展示已发布的页面。页面由 PageSpec 定义，通过统一 JSON Schema 表单渲染器执行。',
-  'pages.console.home.empty.category': '该分类下暂无页面',
-  'pages.console.home.empty.categoryKey': '分类 "{categoryKey}" 下暂无已发布页面',
-  'pages.console.home.empty.hint': '请先在 Page 工作台发布页面，然后在这里查看。',
-  'pages.console.home.empty.pages': '暂无已发布页面',
+    '运行控制台的导航由菜单管理（menu_items）驱动：菜单节点分组展示，挂载到菜单且已发布的页面才会出现在这里。',
+  'pages.console.home.empty.category': '该菜单下暂无页面',
+  'pages.console.home.empty.categoryKey': '菜单 "{categoryKey}" 下暂无已发布页面',
+  'pages.console.home.empty.goMenus': '去菜单管理',
+  'pages.console.home.empty.hint':
+    '请先在菜单管理中创建菜单并挂载已发布页面（页面工作台发布），然后在这里查看。',
+  'pages.console.home.empty.pages': '暂无菜单',
   'pages.console.home.error.load': '加载失败',
   'pages.console.home.error.loadConsoleFailed': '加载控制台失败',
   'pages.console.home.loading': '加载控制台...',
   'pages.console.home.permission.deniedText': '你没有查看运行控制台的权限。',
   'pages.console.home.permission.title': '权限受限',
-  'pages.console.home.tag.categories': '{count} 个分类',
+  'pages.console.home.tag.categories': '{count} 个菜单',
+  'pages.console.home.tag.menuGroup': '菜单组 · {count} 项',
   'pages.console.home.tag.pages': '已发布 {count} 个页面',
   'pages.console.home.tag.published': '已发布',
   'pages.console.home.tag.stale': '契约失效 {count}',

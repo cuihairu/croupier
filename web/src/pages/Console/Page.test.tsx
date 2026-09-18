@@ -5,7 +5,8 @@
  * - 错误码解析：404（含 '404' 与仅 'not found' 两种命中）、403（'403' 与
  *   非 Error 拒绝值走 String() 命中 'forbidden'）、通用错误
  * - 404/403/错误态的「返回控制台」、错误态「重试」（window.location.reload）
- * - canonical 重定向（分类不匹配）/ pageKey 守卫（page.pageKey !== 路由 pageKey）
+ * - canonical 重定向由菜单树仲裁（URL 菜单段与挂载菜单不一致时跳规范路径）/
+ *   页面数据不参与 canonical（spec.category 不再影响跳转）
  * - getPublishedPage 返回 null：不渲染 PageRenderer、面包屑回退
  * - 无 category：面包屑不渲染分类项
  * - 契约失效警示：functionId 有/无两个条目、三个处置按钮（前往处理 /
@@ -25,6 +26,7 @@ import SelectorSyncReportModal from '@/components/SelectorSync/SelectorSyncRepor
 import {
   cancelTask,
   executePageBinding,
+  getConsoleMenu,
   getPublishedPage,
   queryApprovalStatus,
   queryTaskStatus,
@@ -59,6 +61,7 @@ jest.mock('@umijs/max', () => {
 });
 
 jest.mock('@/services/console', () => ({
+  getConsoleMenu: jest.fn(),
   getPublishedPage: jest.fn(),
   executePageBinding: jest.fn(),
   queryTaskStatus: jest.fn(),
@@ -87,6 +90,7 @@ const mockedUseParams = useParams as unknown as jest.Mock<Record<string, string>
 const mockedReplace = history.replace as unknown as jest.Mock;
 const mockedHistoryPush = history.push as unknown as jest.Mock;
 const mockedGetPublishedPage = jest.mocked(getPublishedPage);
+const mockedGetConsoleMenu = jest.mocked(getConsoleMenu);
 const mockedExecutePageBinding = jest.mocked(executePageBinding);
 const mockedRenderer = jest.mocked(PageRenderer);
 const mockedSyncModal = jest.mocked(SelectorSyncReportModal);
@@ -124,6 +128,23 @@ function setParams(value: Record<string, string> | undefined): void {
   mockedUseParams.mockReturnValue(value);
 }
 
+/** 菜单树 fixture：player 挂 resource--player（canonical /console/player/resource--player）；
+ * 其余 pageKey 不在树中（未挂菜单 → canonical 空串不重定向） */
+function menuSpec() {
+  return {
+    items: [
+      {
+        key: 'player',
+        path: '/console/player',
+        title: {},
+        children: [
+          { key: 'resource--player', path: '/console/player/resource--player', title: {} },
+        ],
+      },
+    ],
+  };
+}
+
 /** jsdom 的 location.reload 不可改写，调用会经 console.error 输出
  * "Not implemented: navigation"——用 spy 同时静音与计数 */
 function countReloads(spy: jest.SpyInstance): number {
@@ -142,6 +163,7 @@ describe('Console/Page 页面渲染器', () => {
     ));
     setParams(undefined);
     mockedGetPublishedPage.mockResolvedValue(pageSpec());
+    mockedGetConsoleMenu.mockResolvedValue(menuSpec());
   });
 
   it('params 为 undefined 时 pageKey 为空，停留加载态且不发请求（可选链回退）', () => {
@@ -254,7 +276,7 @@ describe('Console/Page 页面渲染器', () => {
     expect(screen.getByTestId('sync-modal')).toHaveAttribute('data-open', 'false');
   });
 
-  it('canonical 重定向：分类不匹配时 replace 到发布分类路径', async () => {
+  it('canonical 重定向：URL 菜单段与挂载菜单不一致时 replace 到菜单树规范路径', async () => {
     setParams({ categoryKey: 'wrongcat', pageKey: 'resource--player' });
 
     const { container } = render(<ConsolePage />);
@@ -267,17 +289,17 @@ describe('Console/Page 页面渲染器', () => {
     expect(container.querySelector('.ant-spin')).toBeInTheDocument();
   });
 
-  it('canonical 守卫：page.pageKey 与路由 pageKey 不一致时不 replace', async () => {
+  it('页面数据不参与 canonical：spec 分类与路由菜单段不符也不 replace（菜单树唯一仲裁）', async () => {
     setParams({ categoryKey: 'player', pageKey: 'resource--player' });
-    // 已加载 spec 属于另一页面且其分类与路由不符：shouldRedirect 为真，
-    // 但 pageKey 不一致（新页数据未到的窗口）必须直接返回
+    // 旧实现读 page.category.key 会因 spec 分类 'othercat' 与路由不符而
+    // 弹走；菜单树仲裁后 canonical 只看挂载关系，页面数据无关
     mockedGetPublishedPage.mockResolvedValue(
       pageSpec({ pageKey: 'other--page', category: { key: 'othercat' } }),
     );
 
     const { container } = render(<ConsolePage />);
 
-    await waitFor(() => expect(container.querySelector('.ant-spin')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByTestId('page-renderer')).toBeInTheDocument());
     expect(mockedReplace).not.toHaveBeenCalled();
   });
 

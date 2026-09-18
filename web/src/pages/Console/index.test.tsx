@@ -198,7 +198,7 @@ describe('Console/index 运行控制台首页', () => {
     await waitFor(() => expect(screen.getByText('分类甲')).toBeInTheDocument());
     expect(screen.getByText('运行控制台')).toBeInTheDocument();
     expect(screen.getByText('已发布 2 个页面')).toBeInTheDocument();
-    expect(screen.getByText('4 个分类')).toBeInTheDocument();
+    expect(screen.getByText('4 个菜单')).toBeInTheDocument();
 
     // 子页卡片：契约失效 Tag（count 插值）与已发布 Tag（fresh / 未发布两种来源）
     expect(screen.getByText('契约失效 2')).toBeInTheDocument();
@@ -211,7 +211,7 @@ describe('Console/index 运行控制台首页', () => {
     expect(screen.getByText('Ops')).toBeInTheDocument();
 
     // catB/catC/catD 均无子页：空分类占位（catB children=[]、catC/catD children 缺失）
-    expect(screen.getAllByText('该分类下暂无页面').length).toBe(3);
+    expect(screen.getAllByText('该菜单下暂无页面').length).toBe(3);
 
     // 卡片点击跳转
     fireEvent.click(screen.getByText('玩家管理'));
@@ -220,8 +220,93 @@ describe('Console/index 运行控制台首页', () => {
     // 根视图不渲染「分类未匹配」Empty
     expect(screen.queryByText(/下暂无已发布页面/)).not.toBeInTheDocument();
     // 有分类数据时不渲染全量 Empty
-    expect(screen.queryByText('暂无已发布页面')).not.toBeInTheDocument();
+    expect(screen.queryByText('暂无菜单')).not.toBeInTheDocument();
     expect(container.querySelector('.ant-empty')).not.toBeInTheDocument();
+  });
+
+  it('子菜单组（pagesByKey 未命中且带 children）渲染菜单组卡并跳转其 categoryKey 页', async () => {
+    mockedGetConsoleMenu.mockResolvedValue(
+      asMenu([
+        menuItem({
+          key: 'root',
+          path: '/console/root',
+          title: { 'zh-CN': '运营' },
+          children: [
+            menuItem({
+              key: 'sub-audit',
+              path: '/console/sub-audit',
+              title: { 'zh-CN': '审计中心' },
+              children: [
+                menuItem({
+                  key: 'page-x',
+                  path: '/console/sub-audit/page-x',
+                  title: { 'zh-CN': '审计页' },
+                }),
+              ],
+            }),
+          ],
+        }),
+      ]),
+    );
+    mockedListPublishedPages.mockResolvedValue([publishedPage('page-x')]);
+    setParams(undefined);
+
+    render(<ConsoleIndex />);
+
+    // 子菜单节点渲染为菜单组卡（Tag 带子项计数），不误标「已发布」
+    await waitFor(() => expect(screen.getByText('菜单组 · 1 项')).toBeInTheDocument());
+    expect(screen.getByText('审计中心')).toBeInTheDocument();
+    // 点击菜单组卡进入子菜单的 categoryKey 页
+    fireEvent.click(screen.getByText('审计中心'));
+    expect(mockedHistoryPush).toHaveBeenCalledWith('/console/sub-audit');
+  });
+
+  it('categoryKey 为子菜单 key 时递归命中（任意层级），渲染该子菜单的挂载页面', async () => {
+    mockedGetConsoleMenu.mockResolvedValue(
+      asMenu([
+        menuItem({
+          key: 'root',
+          path: '/console/root',
+          title: { 'zh-CN': '运营' },
+          children: [
+            menuItem({
+              key: 'sub-deep',
+              path: '/console/sub-deep',
+              title: { 'zh-CN': '深层菜单' },
+              children: [
+                menuItem({
+                  key: 'page-deep',
+                  path: '/console/sub-deep/page-deep',
+                  title: { 'zh-CN': '深层页面' },
+                }),
+              ],
+            }),
+          ],
+        }),
+      ]),
+    );
+    mockedListPublishedPages.mockResolvedValue([publishedPage('page-deep')]);
+    setParams({ categoryKey: 'sub-deep' });
+
+    render(<ConsoleIndex />);
+
+    await waitFor(() => expect(screen.getByText('运行控制台 / 深层菜单')).toBeInTheDocument());
+    expect(screen.getByText('深层页面')).toBeInTheDocument();
+    // 根级其他菜单不出现
+    expect(screen.queryByText('运营')).not.toBeInTheDocument();
+  });
+
+  it('空菜单空态：渲染「去菜单管理」引导按钮并跳转菜单管理页', async () => {
+    mockedGetConsoleMenu.mockResolvedValue(asMenu([]));
+    mockedListPublishedPages.mockResolvedValue([]);
+    setParams(undefined);
+
+    render(<ConsoleIndex />);
+
+    await waitFor(() => expect(screen.getByText('暂无菜单')).toBeInTheDocument());
+    const goButton = screen.getByRole('button', { name: '去菜单管理' });
+    fireEvent.click(goButton);
+    expect(mockedHistoryPush).toHaveBeenCalledWith('/functions/menus');
   });
 
   it('categoryKey 命中时只渲染该分类并按分类标题拼 pageTitle', async () => {
@@ -245,7 +330,7 @@ describe('Console/index 运行控制台首页', () => {
     render(<ConsoleIndex />);
 
     await waitFor(() => expect(screen.getByText('运行控制台 / ghost')).toBeInTheDocument());
-    expect(screen.getByText('分类 "ghost" 下暂无已发布页面')).toBeInTheDocument();
+    expect(screen.getByText('菜单 "ghost" 下暂无已发布页面')).toBeInTheDocument();
     expect(screen.queryByText('分类甲')).not.toBeInTheDocument();
   });
 
@@ -256,10 +341,15 @@ describe('Console/index 运行控制台首页', () => {
 
     render(<ConsoleIndex />);
 
-    await waitFor(() => expect(screen.getByText('0 个分类')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText('0 个菜单')).toBeInTheDocument());
     expect(screen.getByText('已发布 0 个页面')).toBeInTheDocument();
-    expect(screen.getByText('暂无已发布页面')).toBeInTheDocument();
-    expect(screen.getByText('请先在 Page 工作台发布页面，然后在这里查看。')).toBeInTheDocument();
+    expect(screen.getByText('暂无菜单')).toBeInTheDocument();
+    expect(screen.getByText('去菜单管理')).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        '请先在菜单管理中创建菜单并挂载已发布页面（页面工作台发布），然后在这里查看。',
+      ),
+    ).toBeInTheDocument();
   });
 
   it('menu 为 null 时不渲染分类 Tag，渲染全量 Empty', async () => {
@@ -269,8 +359,8 @@ describe('Console/index 运行控制台首页', () => {
 
     render(<ConsoleIndex />);
 
-    await waitFor(() => expect(screen.getByText('暂无已发布页面')).toBeInTheDocument());
-    expect(screen.queryByText(/个分类/)).not.toBeInTheDocument();
+    await waitFor(() => expect(screen.getByText('暂无菜单')).toBeInTheDocument());
+    expect(screen.queryByText(/个菜单/)).not.toBeInTheDocument();
   });
 
   it('加载失败（Error 实例）渲染错误 Alert 与错误消息', async () => {

@@ -60,6 +60,11 @@ func TestConsoleServiceScopeAndListFailuresV9(t *testing.T) {
 	require.NoError(t, brokenSQL.Close())
 	service.svcCtx.PublishedPageSpecModel = model.NewPublishedPageSpecModel(brokenDB)
 
+	// 菜单驱动链路：AccessibleTree 命中菜单才继续查 draft/published——
+	// seed 一条菜单让流程推进到 brokenDB 注错点。
+	_, seedErr := seedConsoleMenu(service.svcCtx, scopedCtx, "player", spec.LocalizedText{"zh-CN": "玩家"}, 1, "")
+	require.NoError(t, seedErr)
+
 	_, err = service.Menu(scopedCtx, &ConsoleMenuRequest{})
 	require.Error(t, err)
 

@@ -2,8 +2,9 @@ import { render, waitFor } from '@testing-library/react';
 import { useParams, history } from '@umijs/max';
 import ConsolePage from './Page';
 
-// canonical 重定向回归测试：pageKey 切换后（同路由组件不重挂载），
-// 旧 page state 不得把新页面弹回上一个页面
+// canonical 重定向回归测试：canonical 由菜单树（menu_items 驱动的
+// ConsoleMenuSpec）仲裁——URL categoryKey 段与页面挂载菜单不一致时跳规范路径；
+// pageKey 切换后（同路由组件不重挂载）不得把新页面弹回上一个页面
 // （线上 bug：打开 /console/player/resource--player 后，任何其他挂载页
 //  都被 history.replace 弹回该页面）。
 
@@ -16,6 +17,7 @@ jest.mock('@umijs/max', () => ({
 }));
 
 jest.mock('@/services/console', () => ({
+  getConsoleMenu: jest.fn(),
   getPublishedPage: jest.fn(),
   executePageBinding: jest.fn(),
   queryTaskStatus: jest.fn(),
@@ -33,28 +35,63 @@ jest.mock('@/components/PageRenderer', () => ({
   default: () => <div data-testid="page-renderer" />,
 }));
 
-import { getPublishedPage } from '@/services/console';
+import { getConsoleMenu, getPublishedPage } from '@/services/console';
 
 const mockedUseParams = useParams as unknown as jest.Mock;
 const mockedReplace = history.replace as jest.Mock;
 const mockedGet = getPublishedPage as jest.Mock;
+const mockedGetMenu = getConsoleMenu as unknown as jest.Mock;
 
 function playerSpec() {
   return { pageKey: 'resource--player', category: { key: 'player' }, title: {} };
 }
 
+/** 菜单树 fixture：player 挂 resource--player、mail 挂 operation--mail-send */
+function menuSpec() {
+  return {
+    items: [
+      {
+        key: 'player',
+        path: '/console/player',
+        title: {},
+        children: [
+          { key: 'resource--player', path: '/console/player/resource--player', title: {} },
+        ],
+      },
+      {
+        key: 'mail',
+        path: '/console/mail',
+        title: {},
+        children: [
+          { key: 'operation--mail-send', path: '/console/mail/operation--mail-send', title: {} },
+        ],
+      },
+    ],
+  };
+}
+
 describe('ConsolePage canonical 重定向守卫', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockedGetMenu.mockResolvedValue(menuSpec());
   });
 
-  it('分类与路由不匹配且 pageKey 一致时才重定向（canonical 语义）', async () => {
+  it('URL 菜单段与页面挂载菜单不一致时重定向到菜单树规范路径', async () => {
     mockedUseParams.mockReturnValue({ categoryKey: 'wrongcat', pageKey: 'resource--player' });
     mockedGet.mockResolvedValue(playerSpec());
     render(<ConsolePage />);
     await waitFor(() =>
       expect(mockedReplace).toHaveBeenCalledWith('/console/player/resource--player'),
     );
+  });
+
+  it('页面未挂任何菜单（canonical 为空串）时不重定向，直达 URL 正常渲染', async () => {
+    mockedUseParams.mockReturnValue({ categoryKey: 'legacy', pageKey: 'orphan.page' });
+    mockedGet.mockResolvedValue({ pageKey: 'orphan.page', title: {} });
+    render(<ConsolePage />);
+    await waitFor(() => expect(mockedGet).toHaveBeenCalledWith('orphan.page'));
+    await new Promise((r) => setTimeout(r, 30));
+    expect(mockedReplace).not.toHaveBeenCalled();
   });
 
   it('pageKey 切换后旧 page 不得把新页面弹回旧页（回归）', async () => {
@@ -82,10 +119,9 @@ describe('ConsolePage canonical 重定向守卫', () => {
     await new Promise((r) => setTimeout(r, 50));
     expect(mockedReplace).not.toHaveBeenCalledWith('/console/player/resource--player');
 
-    // 新页面数据到达（分类 mail 与路由一致）：无需重定向。
+    // 新页面数据到达（mail 与菜单树 canonical 一致）：无需重定向。
     resolveSecond({
       pageKey: 'operation--mail-send',
-      category: { key: 'mail' },
       title: {},
     });
     await waitFor(() => expect(mockedGet).toHaveBeenCalledWith('operation--mail-send'));

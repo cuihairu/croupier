@@ -19,12 +19,11 @@ import type { ServerFeatures } from './services/api/features';
 import { fetchSiteConfig, type SiteConfig } from './services/api/sites';
 import { getScope, subscribeScope, type Scope } from './stores/scope';
 import {
-  buildConsoleMenuFromAccessibleMenus,
   buildMenuFromConsoleSpec,
   CONSOLE_MENU_REFRESH_EVENT,
   type RuntimeMenuItem,
 } from './utils/consoleMenu';
-import { refreshAccessibleMenus, resetAccessibleMenus } from './store/modules/menu';
+import { resetAccessibleMenus } from './store/modules/menu';
 
 const isDev = process.env.NODE_ENV === 'development';
 const loginPath = '/user/login';
@@ -211,25 +210,14 @@ export const layout: RunTimeLayoutConfig = ({ initialState, setInitialState }) =
         try {
           const locale = getLocale();
           const consoleMenu = await getConsoleMenu(locale);
-          const base = buildMenuFromConsoleSpec(
+          // /console 子树由 ConsoleMenuSpec 唯一驱动：后端已从 menu_items
+          // （menu.AccessibleTree 权限过滤）+ 挂载页面组装，前端不再叠加
+          // accessible 菜单合并层。
+          return buildMenuFromConsoleSpec(
             defaultMenuData as RuntimeMenuItem[],
             consoleMenu,
             locale,
           );
-          // T-M7：/console 子树优先由用户可访问菜单（menu_items）驱动；
-          // accessible 加载失败（如权限退化）时回退 category 派生菜单。
-          try {
-            const menus = await refreshAccessibleMenus(true);
-            if (menus.length > 0) {
-              return buildConsoleMenuFromAccessibleMenus(base, menus, consoleMenu, locale);
-            }
-          } catch (menuError) {
-            console.warn(
-              '[console-menu] accessible menus unavailable, fallback to categories',
-              menuError,
-            );
-          }
-          return base;
         } catch (error) {
           console.error('[console-menu] failed to load dynamic runtime menu', error);
           throw error;

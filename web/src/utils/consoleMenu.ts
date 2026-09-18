@@ -1,6 +1,5 @@
 import type { MenuDataItem } from '@ant-design/pro-components';
-import type { MenuItem } from '@/services/api/menu';
-import type { ConsoleMenuSpec, LocalizedText, PublishedPageSpec } from '@/types/dashboard';
+import type { ConsoleMenuItem, ConsoleMenuSpec, LocalizedText } from '@/types/dashboard';
 import { localizedText } from '@/utils/localizedText';
 import { resolveMenuIcon } from '@/utils/menuIcon';
 
@@ -31,21 +30,45 @@ export function buildConsolePagePath(categoryKey: string, pageKey: string): stri
   return `/console/${encodeURIComponent(categoryKey)}/${encodeURIComponent(pageKey)}`;
 }
 
-export function resolveConsolePageRoute(
-  page: Pick<PublishedPageSpec, 'category' | 'pageKey'> | null | undefined,
-  currentCategoryKey: string,
-): { canonicalPath: string; shouldRedirect: boolean } {
-  const actualCategoryKey = page?.category?.key?.trim() || '';
-  if (!page || !actualCategoryKey) {
-    return { canonicalPath: '', shouldRedirect: false };
-  }
-
-  const canonicalPath = buildConsolePagePath(actualCategoryKey, page.pageKey);
-  return {
-    canonicalPath,
-    shouldRedirect: actualCategoryKey !== currentCategoryKey,
+/**
+ * 在 ConsoleMenuSpec 树中递归查找 pageKey 的规范路径。
+ * URL 的 categoryKey 段是挂载菜单 key（menu_items 驱动）：页面挂到哪个
+ * 菜单，规范路径就是 /console/{menuKey}/{pageKey}。树中未找到（未挂
+ * 菜单的直达 URL）返回空串——页面仍按 pageKey 渲染，不做重定向。
+ */
+export function resolveConsolePageCanonicalPath(
+  menu: ConsoleMenuSpec | null | undefined,
+  pageKey: string,
+): string {
+  if (!pageKey) return '';
+  const visit = (items: ConsoleMenuItem[]): string => {
+    for (const item of items) {
+      for (const child of item.children || []) {
+        if (child.key === pageKey) {
+          return child.path || buildConsolePagePath(item.key, pageKey);
+        }
+      }
+      const nested = visit((item.children || []) as ConsoleMenuItem[]);
+      if (nested) return nested;
+    }
+    return '';
   };
+  return visit(((menu?.items || []) as unknown as ConsoleMenuItem[]) || []);
 }
+
+/** ConsoleMenuSpec 子节点 → 侧边栏菜单项。
+ * 子项可能是挂载页面（叶子）或子菜单（菜单树任意层级嵌套）——
+ * menu_items 驱动后树深不限，递归展开。 */
+const toConsoleChild = (node: ConsoleMenuItem, locale: string): RuntimeMenuItem => ({
+  key: node.path,
+  path: node.path,
+  name: resolveLocalizedText(node.title, locale, node.key),
+  locale: false,
+  icon: resolveMenuIcon(node.icon),
+  ...(node.children?.length
+    ? { children: node.children.map((child) => toConsoleChild(child, locale)) }
+    : {}),
+});
 
 /**
  * 运行控制台动态菜单只来自 ConsoleMenuSpec。
@@ -64,17 +87,9 @@ export function buildMenuFromConsoleSpec(
         path: category.path,
         name: resolveLocalizedText(category.title, locale, category.key),
         locale: false,
-        // 后端分类项此前从不带 icon、前端也丢弃子项 page.icon——两端字段
-        // 位置互错导致菜单永远无图标。分类取组内首个非空页面图标（后端
-        // 已回填），子项透传自身 icon。
+        // 分类项此前从不带 icon——后端已回填组内首个非空图标，子项透传自身 icon。
         icon: resolveMenuIcon(category.icon),
-        children: (category.children || []).map((page) => ({
-          key: page.path,
-          path: page.path,
-          name: resolveLocalizedText(page.title, locale, page.key),
-          locale: false,
-          icon: resolveMenuIcon(page.icon),
-        })),
+        children: (category.children || []).map((child) => toConsoleChild(child, locale)),
       }));
 
       return {
@@ -90,92 +105,6 @@ export function buildMenuFromConsoleSpec(
       };
     }
 
-    return item;
-  });
-}
-
-/**
- * 用用户可访问菜单树（menu_items，T-M7）驱动 /console 动态子树：
- * 菜单节点 → 子菜单/分组；已发布页面按其分类 key（=迁移后的菜单 key）
- * 挂到同名菜单下。无权限菜单服务端已过滤，这里不再出现。
- *
- * pagesByMenuKey：consoleMenu 里各分类（key=menuKey）及其页面；
- * 未匹配到任何菜单的分类页面追加到「未分类」分组兜底，不静默丢弃。
- */
-export function buildConsoleMenuFromAccessibleMenus(
-  defaultMenuData: RuntimeMenuItem[],
-  menus: MenuItem[],
-  consoleMenu: ConsoleMenuSpec,
-  locale: string,
-): RuntimeMenuItem[] {
-  const categories = new Map<string, ConsoleMenuSpec['items'][number]>();
-  for (const category of consoleMenu?.items || []) {
-    categories.set(category.key, category);
-  }
-  const consumedKeys = new Set<string>();
-
-  const toRuntimeItem = (menu: MenuItem): RuntimeMenuItem => {
-    const category = categories.get(menu.menuKey);
-    if (category) consumedKeys.add(category.key);
-    const childMenus = (menu.children || []).map(toRuntimeItem);
-    const pages: RuntimeMenuItem[] = (category?.children || []).map((page) => ({
-      key: page.path,
-      path: page.path,
-      name: resolveLocalizedText(page.title, locale, page.key),
-      locale: false,
-      icon: resolveMenuIcon(page.icon),
-    }));
-    const children = [...childMenus, ...pages];
-    return {
-      key: `/console/${menu.menuKey}`,
-      // 叶子菜单（无子菜单无页面）也可点：落到分类路由空态页
-      path: children.length > 0 ? undefined : `/console/${encodeURIComponent(menu.menuKey)}`,
-      name: resolveLocalizedText(menu.labels, locale, menu.menuKey),
-      locale: false,
-      icon: resolveMenuIcon(menu.icon || category?.icon),
-      children: children.length > 0 ? children : undefined,
-    };
-  };
-
-  const dynamicChildren = menus.map(toRuntimeItem);
-
-  // 迁移期兜底：分类页面挂到了尚未创建/不可见的菜单下时不丢弃
-  const orphans = (consoleMenu?.items || [])
-    .filter((category) => !consumedKeys.has(category.key) && (category.children || []).length > 0)
-    .map((category): RuntimeMenuItem => ({
-      key: category.path,
-      path: category.path,
-      name: resolveLocalizedText(category.title, locale, category.key),
-      locale: false,
-      icon: resolveMenuIcon(category.icon),
-      children: (category.children || []).map((page) => ({
-        key: page.path,
-        path: page.path,
-        name: resolveLocalizedText(page.title, locale, page.key),
-        locale: false,
-        icon: resolveMenuIcon(page.icon),
-      })),
-    }));
-
-  return defaultMenuData.map((item): RuntimeMenuItem => {
-    if (item.path === '/console' || item.key === '/console') {
-      const homeChild = (item.children || []).find((child) => child.path === '/console/home');
-      return {
-        ...item,
-        children: [...(homeChild ? [homeChild] : []), ...dynamicChildren, ...orphans],
-      };
-    }
-    if (item.children && item.children.length > 0) {
-      return {
-        ...item,
-        children: buildConsoleMenuFromAccessibleMenus(
-          item.children,
-          menus,
-          consoleMenu,
-          locale,
-        ) as RuntimeMenuItem[],
-      };
-    }
     return item;
   });
 }

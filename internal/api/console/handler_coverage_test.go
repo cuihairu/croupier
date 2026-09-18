@@ -53,7 +53,7 @@ func executeBindingURIParams(pageKey, bindingID string) gin.Params {
 
 func TestNewHandlerAndMenuHandler(t *testing.T) {
 	service, ctx := newConsoleTestService(t, "console:read")
-	require.NoError(t, seedConsolePublishedPage(service.svcCtx, ctx))
+	require.NoError(t, seedConsoleMountedPublishedPage(service.svcCtx, ctx, "player", "player.manage"))
 
 	handler := NewHandler(service)
 

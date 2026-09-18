@@ -1,18 +1,21 @@
 // Console 工作台（避开保留字 console）
 export default {
   'pages.console.home.description':
-    'The Runtime Console shows published pages. Pages are defined by PageSpec and rendered through the unified JSON Schema form renderer.',
-  'pages.console.home.empty.category': 'No pages in this category yet',
-  'pages.console.home.empty.categoryKey': 'No published pages in category "{categoryKey}"',
-  'pages.console.home.empty.hint': 'Publish a page in the Page workspace first, then view it here.',
-  'pages.console.home.empty.pages': 'No published pages yet',
+    'The Runtime Console navigation is driven by Menu Management (menu_items): menu nodes group the view, and only pages mounted to a menu and published appear here.',
+  'pages.console.home.empty.category': 'No pages in this menu yet',
+  'pages.console.home.empty.categoryKey': 'No published pages in menu "{categoryKey}"',
+  'pages.console.home.empty.goMenus': 'Go to Menu Management',
+  'pages.console.home.empty.hint':
+    'Create menus in Menu Management and mount published pages (publish them in the Page workspace) first, then view them here.',
+  'pages.console.home.empty.pages': 'No menus yet',
   'pages.console.home.error.load': 'Load Failed',
   'pages.console.home.error.loadConsoleFailed': 'Failed to load the console',
   'pages.console.home.loading': 'Loading console...',
   'pages.console.home.permission.deniedText':
     'You do not have permission to view the Runtime Console.',
   'pages.console.home.permission.title': 'Permission Restricted',
-  'pages.console.home.tag.categories': '{count} categories',
+  'pages.console.home.tag.categories': '{count} menus',
+  'pages.console.home.tag.menuGroup': 'Menu group · {count} items',
   'pages.console.home.tag.pages': '{count} pages published',
   'pages.console.home.tag.published': 'Published',
   'pages.console.home.tag.stale': 'Contract stale: {count}',

@@ -14,12 +14,17 @@ import SelectorSyncReportModal from '@/components/SelectorSync/SelectorSyncRepor
 import {
   cancelTask,
   executePageBinding,
+  getConsoleMenu,
   getPublishedPage,
   queryApprovalStatus,
   queryTaskStatus,
 } from '@/services/console';
-import type { PublishedPageSpec } from '@/types/dashboard';
-import { resolveConsolePageRoute, resolveLocalizedText } from '@/utils/consoleMenu';
+import type { ConsoleMenuSpec, PublishedPageSpec } from '@/types/dashboard';
+import {
+  buildConsolePagePath,
+  resolveConsolePageCanonicalPath,
+  resolveLocalizedText,
+} from '@/utils/consoleMenu';
 import { humanizeFieldKey } from '@/utils/humanize';
 import { getScope, subscribeScope } from '@/stores/scope';
 
@@ -30,11 +35,33 @@ export default function ConsolePage() {
   const intl = useIntl();
 
   const [page, setPage] = useState<PublishedPageSpec | null>(null);
+  const [menu, setMenu] = useState<ConsoleMenuSpec | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string>('');
   const [errorCode, setErrorCode] = useState<string>('');
   const [syncOpen, setSyncOpen] = useState(false);
-  const { canonicalPath, shouldRedirect } = resolveConsolePageRoute(page, categoryKey);
+  // canonical 路径以菜单树为唯一仲裁：URL 段是挂载菜单 key，
+  // 不再读发布 PageSpec 的 category.key（菜单管理驱动后的规范源）。
+  const canonicalPath = resolveConsolePageCanonicalPath(menu, pageKey);
+  const currentPath = categoryKey
+    ? buildConsolePagePath(categoryKey, pageKey)
+    : `/console/${encodeURIComponent(pageKey)}`;
+  const shouldRedirect = canonicalPath !== '' && canonicalPath !== currentPath;
+
+  useEffect(() => {
+    let mounted = true;
+    // 菜单树用于 canonical 仲裁；失败不阻断页面渲染（放弃重定向即可）
+    getConsoleMenu()
+      .then((data) => {
+        if (mounted) setMenu(data);
+      })
+      .catch(() => {
+        if (mounted) setMenu(null);
+      });
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   useEffect(() => {
     if (!pageKey) return;
@@ -77,14 +104,11 @@ export default function ConsolePage() {
   }, [pageKey]);
 
   useEffect(() => {
-    if (!page) return;
     if (!shouldRedirect) return;
-    // 双保险：仅当已加载页与当前路由 pageKey 一致时才做 canonical
-    // 重定向——pageKey 变化后、新 spec 到达前，page 是旧页数据，
-    // canonicalPath 指向旧页（曾导致任何新页面被弹回上一个页面）。
-    if (page.pageKey !== pageKey) return;
+    // canonical 只依赖菜单树与 pageKey（与页面数据无关）：pageKey 切换后
+    // 新 canonical 立即可用，不存在「旧 page 把新页面弹回」的窗口。
     history.replace(canonicalPath);
-  }, [canonicalPath, page, pageKey, shouldRedirect]);
+  }, [canonicalPath, shouldRedirect]);
 
   // scope 切换后重新加载发布页面：旧 scope 的数据与菜单必须立即失效。
   useEffect(() => {
@@ -100,13 +124,12 @@ export default function ConsolePage() {
     return unsubscribe;
   }, []);
 
-  // 面包屑分类 key：以发布分类为准，缺失时回退路由参数
-  const breadcrumbCategoryKey = page?.category?.key || categoryKey;
+  // 面包屑分类 key：URL 段即挂载菜单 key（菜单管理驱动）
+  const breadcrumbCategoryKey = categoryKey;
   // 页面标题：按当前语言解析发布 PageSpec 的 LocalizedText；
   // 页面未就绪时用人性化 pageKey 兜底（raw key 作标题可读性差）
   const pageTitle = resolveLocalizedText(page?.title, intl.locale, humanizeFieldKey(pageKey));
-  // 面包屑分类：T-M8 后分类名称由菜单系统（menu_items.labels）提供，
-  // 发布 PageSpec 只认 category.key，标题用人性化 key 兜底
+  // 面包屑分类标题：人性化菜单 key 兜底（菜单 labels 不随页面下发）
   const breadcrumbCategoryTitle = humanizeFieldKey(breadcrumbCategoryKey);
 
   // 404 状态

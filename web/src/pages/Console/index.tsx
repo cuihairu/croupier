@@ -6,15 +6,27 @@
  */
 
 import { FormattedMessage, history, useAccess, useIntl, useParams } from '@umijs/max';
-import { Alert, Card, Empty, Space, Spin, Tag, Typography } from 'antd';
+import { Alert, Button, Card, Empty, Space, Spin, Tag, Typography } from 'antd';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { AppstoreOutlined, CheckCircleOutlined } from '@ant-design/icons';
+import { AppstoreOutlined, CheckCircleOutlined, FolderOutlined } from '@ant-design/icons';
 import { getConsoleMenu, listPublishedPages } from '@/services/console';
 import type { ConsoleMenuItem, ConsoleMenuSpec, PublishedPageSpec } from '@/types/dashboard';
 import { localizedText } from '@/utils/localizedText';
 
 type ConsoleAccess = {
   canConsoleRead?: boolean;
+};
+
+// findMenuItem 在菜单树中递归查找指定 key 的节点（菜单可任意层级嵌套）。
+const findMenuItem = (items: ConsoleMenuItem[], key: string): ConsoleMenuItem | undefined => {
+  for (const item of items) {
+    if (item.key === key) return item;
+    if (item.children?.length) {
+      const found = findMenuItem(item.children, key);
+      if (found) return found;
+    }
+  }
+  return undefined;
 };
 
 export default function ConsoleIndex() {
@@ -73,10 +85,12 @@ export default function ConsoleIndex() {
     return item.title[intl.locale] || localizedText(item.title, intl.locale, item.key);
   };
 
+  // 菜单树递归查找：子菜单（任意层级）的 categoryKey 路由也能命中
   const visibleCategories = useMemo(() => {
     const items = menu?.items || [];
     if (!categoryKey) return items;
-    return items.filter((item) => item.key === categoryKey);
+    const found = findMenuItem(items, categoryKey);
+    return found ? [found] : [];
   }, [categoryKey, menu?.items]);
 
   const activeCategory = categoryKey ? visibleCategories[0] : undefined;
@@ -89,6 +103,9 @@ export default function ConsoleIndex() {
   const renderPageCard = (item: ConsoleMenuItem) => {
     const page = pagesByKey.get(item.key);
     const staleCount = page?.bindingFreshness?.length || 0;
+    // 子菜单组：非页面节点（pagesByKey 未命中且带 children）渲染为分组卡，
+    // 点击进入该子菜单的 categoryKey 页
+    const isMenuGroup = !page && (item.children?.length || 0) > 0;
     return (
       <Card
         key={item.key}
@@ -106,11 +123,17 @@ export default function ConsoleIndex() {
                 borderRadius: 12,
                 display: 'grid',
                 placeItems: 'center',
-                background: 'linear-gradient(135deg, #1677ff 0%, #69b1ff 100%)',
+                background: isMenuGroup
+                  ? 'linear-gradient(135deg, #722ed1 0%, #b37feb 100%)'
+                  : 'linear-gradient(135deg, #1677ff 0%, #69b1ff 100%)',
                 color: '#fff',
               }}
             >
-              <AppstoreOutlined style={{ fontSize: 18 }} />
+              {isMenuGroup ? (
+                <FolderOutlined style={{ fontSize: 18 }} />
+              ) : (
+                <AppstoreOutlined style={{ fontSize: 18 }} />
+              )}
             </div>
           }
           title={
@@ -118,7 +141,15 @@ export default function ConsoleIndex() {
               <Typography.Text strong>
                 {localizedText(item.title, intl.locale, item.key)}
               </Typography.Text>
-              {staleCount > 0 ? (
+              {isMenuGroup ? (
+                <Tag color="purple">
+                  <FormattedMessage
+                    id="pages.console.home.tag.menuGroup"
+                    defaultMessage="菜单组 · {count} 项"
+                    values={{ count: item.children?.length || 0 }}
+                  />
+                </Tag>
+              ) : staleCount > 0 ? (
                 <Tag color="error">
                   <FormattedMessage
                     id="pages.console.home.tag.stale"
@@ -218,7 +249,7 @@ export default function ConsoleIndex() {
             {intl.formatMessage({
               id: 'pages.console.home.description',
               defaultMessage:
-                '运行控制台展示已发布的页面。页面由 PageSpec 定义，通过统一 JSON Schema 表单渲染器执行。',
+                '运行控制台的导航由菜单管理（menu_items）驱动：菜单节点分组展示，挂载到菜单且已发布的页面才会出现在这里。',
             })}
           </Typography.Text>
           <Space wrap size={[8, 8]}>
@@ -233,7 +264,7 @@ export default function ConsoleIndex() {
               <Tag color="green">
                 <FormattedMessage
                   id="pages.console.home.tag.categories"
-                  defaultMessage="{count} 个分类"
+                  defaultMessage="{count} 个菜单"
                   values={{ count: menu.items.length }}
                 />
               </Tag>
@@ -264,7 +295,7 @@ export default function ConsoleIndex() {
                 <Typography.Text type="secondary">
                   <FormattedMessage
                     id="pages.console.home.empty.category"
-                    defaultMessage="该分类下暂无页面"
+                    defaultMessage="该菜单下暂无页面"
                   />
                 </Typography.Text>
               )}
@@ -276,7 +307,7 @@ export default function ConsoleIndex() {
                 description={intl.formatMessage(
                   {
                     id: 'pages.console.home.empty.categoryKey',
-                    defaultMessage: '分类 "{categoryKey}" 下暂无已发布页面',
+                    defaultMessage: '菜单 "{categoryKey}" 下暂无已发布页面',
                   },
                   { categoryKey },
                 )}
@@ -289,15 +320,23 @@ export default function ConsoleIndex() {
           <Empty
             description={intl.formatMessage({
               id: 'pages.console.home.empty.pages',
-              defaultMessage: '暂无已发布页面',
+              defaultMessage: '暂无菜单',
             })}
           >
-            <Typography.Text type="secondary">
-              <FormattedMessage
-                id="pages.console.home.empty.hint"
-                defaultMessage="请先在 Page 工作台发布页面，然后在这里查看。"
-              />
-            </Typography.Text>
+            <Space direction="vertical" size={8}>
+              <Typography.Text type="secondary">
+                <FormattedMessage
+                  id="pages.console.home.empty.hint"
+                  defaultMessage="请先在菜单管理中创建菜单并挂载已发布页面（页面工作台发布），然后在这里查看。"
+                />
+              </Typography.Text>
+              <Button type="primary" onClick={() => history.push('/functions/menus')}>
+                <FormattedMessage
+                  id="pages.console.home.empty.goMenus"
+                  defaultMessage="去菜单管理"
+                />
+              </Button>
+            </Space>
           </Empty>
         </Card>
       )}

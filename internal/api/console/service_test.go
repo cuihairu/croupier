@@ -46,66 +46,122 @@ func TestServiceMenuRequiresConsoleReadPermission(t *testing.T) {
 
 func TestServiceMenuAllowsPagesReadPermission(t *testing.T) {
 	service, ctx := newConsoleTestService(t, "pages:read")
-	require.NoError(t, seedConsolePublishedPage(service.svcCtx, ctx))
+	require.NoError(t, seedConsoleMountedPublishedPage(service.svcCtx, ctx, "player", "player.manage"))
 
 	resp, err := service.Menu(ctx, &ConsoleMenuRequest{Language: "zh-CN"})
 
 	require.NoError(t, err)
 	require.Len(t, resp.Items, 1)
 	assert.Equal(t, "player", resp.Items[0].Key)
+	// 菜单标题来自 menu_items.labels（菜单管理是控制台导航唯一来源）。
+	assert.Equal(t, "player", resp.Items[0].Title["zh-CN"])
 	require.Len(t, resp.Items[0].Children, 1)
 	assert.Equal(t, "player.manage", resp.Items[0].Children[0].Key)
 }
 
 func TestServiceMenuUsesPublishedPageScope(t *testing.T) {
 	service, ctx := newConsoleTestService(t, "console:read")
-	require.NoError(t, seedConsolePublishedPage(service.svcCtx, ctx))
+	require.NoError(t, seedConsoleMountedPublishedPage(service.svcCtx, ctx, "player", "player.manage"))
 	otherScope := svc.WithGameScope(ctx, svc.GameScope{GameID: "demo-game", Env: "production"})
-	require.NoError(t, seedConsolePublishedPageForScope(service.svcCtx, otherScope, "mail.send", "mail", "邮件", 5))
+	require.NoError(t, seedConsoleMountedPublishedPageForScope(service.svcCtx, otherScope, "mail", "mail.send", 5))
 
 	resp, err := service.Menu(ctx, &ConsoleMenuRequest{Language: "zh-CN"})
 
 	require.NoError(t, err)
 	require.Len(t, resp.Items, 1)
 	assert.Equal(t, "player", resp.Items[0].Key)
-	// category.labels 已由菜单系统接管（T-M8）：页面驱动菜单的分类标题
-	// 回落为空，前端以 menu_items.labels 覆盖。
-	assert.Empty(t, resp.Items[0].Title["zh-CN"])
 	assert.Equal(t, "/console/player", resp.Items[0].Path)
 	require.Len(t, resp.Items[0].Children, 1)
 	assert.Equal(t, "/console/player/player.manage", resp.Items[0].Children[0].Path)
 }
 
-func TestGenerateMenuFromPagesUsesLowestPublishedPageOrderForCategory(t *testing.T) {
-	menu := generateMenuFromPages([]spec.PublishedPageSpec{
-		{
-			PageSpec: spec.PageSpec{
-				PageKey: "late.page",
-				Title:   spec.LocalizedText{"zh-CN": "后"},
-				Order:   100,
-				Category: spec.PageCategorySpec{
-					Key:   "late",
-					Order: 1,
-				},
-			},
-		},
-		{
-			PageSpec: spec.PageSpec{
-				PageKey: "early.page",
-				Title:   spec.LocalizedText{"zh-CN": "前"},
-				Order:   10,
-				Category: spec.PageCategorySpec{
-					Key:   "early",
-					Order: 999,
-				},
-			},
-		},
-	}, "zh-CN")
+// menu_items 驱动核心语义：无菜单 → 空 items（即使存在已发布页面）。
+func TestServiceMenuEmptyWithoutMenus(t *testing.T) {
+	service, ctx := newConsoleTestService(t, "console:read")
+	require.NoError(t, seedConsolePublishedPage(service.svcCtx, ctx))
 
-	require.Len(t, menu.Items, 2)
-	assert.Equal(t, "early", menu.Items[0].Key)
-	assert.Equal(t, 10, menu.Items[0].Order)
-	assert.Equal(t, "/console/early", menu.Items[0].Path)
+	resp, err := service.Menu(ctx, &ConsoleMenuRequest{Language: "zh-CN"})
+
+	require.NoError(t, err)
+	assert.Empty(t, resp.Items)
+}
+
+// 已发布页面未挂菜单 → 不出现在控制台导航。
+func TestServiceMenuSkipsUnmountedPublishedPages(t *testing.T) {
+	service, ctx := newConsoleTestService(t, "console:read")
+	require.NoError(t, seedConsolePublishedPage(service.svcCtx, ctx))
+	_, err := seedConsoleMenu(service.svcCtx, ctx, "player", spec.LocalizedText{"zh-CN": "玩家"}, 1, "")
+	require.NoError(t, err)
+
+	resp, err := service.Menu(ctx, &ConsoleMenuRequest{Language: "zh-CN"})
+
+	require.NoError(t, err)
+	require.Len(t, resp.Items, 1)
+	assert.Empty(t, resp.Items[0].Children)
+}
+
+// 挂载了菜单但页面未发布（draft-only）→ 不伪造控制台入口。
+func TestServiceMenuSkipsDraftOnlyMountedPages(t *testing.T) {
+	service, ctx := newConsoleTestService(t, "console:read")
+	playerMenu, err := seedConsoleMenu(service.svcCtx, ctx, "player", spec.LocalizedText{"zh-CN": "玩家"}, 1, "")
+	require.NoError(t, err)
+	require.NoError(t, seedConsolePageSpecMount(service.svcCtx, ctx, "player.manage", &playerMenu.ID))
+
+	resp, err := service.Menu(ctx, &ConsoleMenuRequest{Language: "zh-CN"})
+
+	require.NoError(t, err)
+	require.Len(t, resp.Items, 1)
+	assert.Empty(t, resp.Items[0].Children)
+}
+
+// 菜单级权限：用户不持有 → 整个菜单（含挂载页面）不出现。
+func TestServiceMenuFiltersMenuPermission(t *testing.T) {
+	service, ctx := newConsoleTestService(t, "console:read")
+	require.NoError(t, seedConsolePublishedPage(service.svcCtx, ctx))
+	playerMenu, err := seedConsoleMenu(service.svcCtx, ctx, "player", spec.LocalizedText{"zh-CN": "玩家"}, 1, "player:admin")
+	require.NoError(t, err)
+	require.NoError(t, seedConsolePageSpecMount(service.svcCtx, ctx, "player.manage", &playerMenu.ID))
+	_, err = seedConsoleMenu(service.svcCtx, ctx, "mail", spec.LocalizedText{"zh-CN": "邮件"}, 2, "")
+	require.NoError(t, err)
+
+	resp, err := service.Menu(ctx, &ConsoleMenuRequest{Language: "zh-CN"})
+
+	require.NoError(t, err)
+	require.Len(t, resp.Items, 1)
+	assert.Equal(t, "mail", resp.Items[0].Key)
+}
+
+// 子菜单与挂载页面混排 children，按 order → 本地化标题 → key 排序；
+// 路径段沿用菜单 key（URL 语义不变）。
+func TestServiceMenuMergesSubmenusAndMountedPages(t *testing.T) {
+	service, ctx := newConsoleTestService(t, "console:read")
+	require.NoError(t, seedConsoleMountedPublishedPage(service.svcCtx, ctx, "player", "player.manage"))
+	playerMenu, err := seedConsoleMenuByKey(service.svcCtx, ctx, "player")
+	require.NoError(t, err)
+	sub := &model.MenuItem{
+		GameID:    "demo-game",
+		Env:       "development",
+		ParentID:  &playerMenu.ID,
+		MenuKey:   "audit",
+		SortOrder: 0,
+		IsVisible: true,
+	}
+	require.NoError(t, sub.SetLabels(spec.LocalizedText{"zh-CN": "审计"}))
+	require.NoError(t, service.svcCtx.MenuModel.Create(ctx, sub))
+
+	resp, err := service.Menu(ctx, &ConsoleMenuRequest{Language: "zh-CN"})
+
+	require.NoError(t, err)
+	require.Len(t, resp.Items, 1)
+	children := resp.Items[0].Children
+	require.Len(t, children, 2)
+	// 子菜单排序在前（sortOrder 0 < 页面 order 1）；path 为单段
+	// /console/{menuKey}（菜单 key 全局唯一，匹配前端 /console/:categoryKey 路由）
+	assert.Equal(t, "audit", children[0].Key)
+	assert.Equal(t, "/console/audit", children[0].Path)
+	assert.Equal(t, "player.manage", children[1].Key)
+	assert.Equal(t, "/console/player/player.manage", children[1].Path)
+	// 路径段转义（沿用页面驱动菜单时代的 URL 契约）
 	assert.Equal(t, "/console/player%20ops/player.ban", consolePagePath("player ops", "player.ban"))
 }
 
@@ -518,6 +574,7 @@ func newConsoleTestServiceWithAudit(t *testing.T, permissions ...string) (*Servi
 		PageSpecModel:          model.NewPageSpecModel(db),
 		PublishedPageSpecModel: model.NewPublishedPageSpecModel(db),
 		PageVersionModel:       model.NewPageVersionModel(db),
+		MenuModel:              model.NewMenuItemModel(db),
 		RegistryStore:          store,
 		Dispatcher:             dispatcher,
 		AuditService:           audit.NewAuditService(auditStore, nil),
@@ -599,6 +656,62 @@ func spanAttribute(span sdktrace.ReadOnlySpan, key string) (attribute.Value, boo
 
 func seedConsolePublishedPage(svcCtx *svc.ServiceContext, ctx context.Context) error {
 	return seedConsolePublishedPageForScope(svcCtx, ctx, "player.manage", "player", "玩家", 1)
+}
+
+// seedConsoleMenu 创建一条可见的根菜单（labels/order/permission 可控）。
+func seedConsoleMenu(svcCtx *svc.ServiceContext, ctx context.Context, menuKey string, labels spec.LocalizedText, order int, permission string) (*model.MenuItem, error) {
+	scope := svc.GameScopeFromContext(ctx)
+	item := &model.MenuItem{
+		GameID:     scope.GameID,
+		Env:        scope.Env,
+		MenuKey:    menuKey,
+		SortOrder:  order,
+		Permission: permission,
+		IsVisible:  true,
+	}
+	if err := item.SetLabels(labels); err != nil {
+		return nil, err
+	}
+	if err := svcCtx.MenuModel.Create(ctx, item); err != nil {
+		return nil, err
+	}
+	return item, nil
+}
+
+// seedConsoleMenuByKey 按标识取回既有菜单（子菜单用例拿父 ID）。
+func seedConsoleMenuByKey(svcCtx *svc.ServiceContext, ctx context.Context, menuKey string) (*model.MenuItem, error) {
+	scope := svc.GameScopeFromContext(ctx)
+	return svcCtx.MenuModel.FindByScopeAndKey(ctx, scope.GameID, scope.Env, menuKey)
+}
+
+// seedConsolePageSpecMount 写一条 draft page_spec 并把页面挂到菜单——
+// 控制台菜单的挂载映射读 draft 表 page_specs.menu_id。
+func seedConsolePageSpecMount(svcCtx *svc.ServiceContext, ctx context.Context, pageKey string, menuID *uint) error {
+	scope := svc.GameScopeFromContext(ctx)
+	return svcCtx.PageSpecModel.Upsert(ctx, &model.PageSpec{
+		GameID:   scope.GameID,
+		Env:      scope.Env,
+		PageKey:  pageKey,
+		Status:   "published",
+		SpecJSON: "{}",
+		MenuID:   menuID,
+	})
+}
+
+// seedConsoleMountedPublishedPage 一站式构造「菜单 + 已发布页面 + 挂载」。
+func seedConsoleMountedPublishedPage(svcCtx *svc.ServiceContext, ctx context.Context, menuKey string, pageKey string) error {
+	return seedConsoleMountedPublishedPageForScope(svcCtx, ctx, menuKey, pageKey, 1)
+}
+
+func seedConsoleMountedPublishedPageForScope(svcCtx *svc.ServiceContext, ctx context.Context, menuKey string, pageKey string, order int) error {
+	if err := seedConsolePublishedPageForScope(svcCtx, ctx, pageKey, menuKey, menuKey, order); err != nil {
+		return err
+	}
+	item, err := seedConsoleMenu(svcCtx, ctx, menuKey, spec.LocalizedText{"zh-CN": menuKey}, order, "")
+	if err != nil {
+		return err
+	}
+	return seedConsolePageSpecMount(svcCtx, ctx, pageKey, &item.ID)
 }
 
 func seedConsolePublishedPageForScope(svcCtx *svc.ServiceContext, ctx context.Context, pageKey string, categoryKey string, categoryTitle string, order int) error {

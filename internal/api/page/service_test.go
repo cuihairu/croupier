@@ -376,10 +376,21 @@ func TestServicePublishRejectsMissingBindings(t *testing.T) {
 	assert.Contains(t, err.Error(), "operation page requires an action binding before publish")
 }
 
-func TestServicePublishDrivesConsoleMenuAndUnpublishRemovesIt(t *testing.T) {
+func TestServiceMenuMountDrivesConsoleMenuAndUnmountRemovesIt(t *testing.T) {
 	pageService, ctx, _ := newPageTestService(t, "pages:edit", "pages:publish", "pages:read")
 	consoleService := consoleapi.NewService(pageService.svcCtx)
 	revision := saveTestPageDraft(t, pageService, ctx)
+
+	// 控制台导航由 menu_items 驱动：先建菜单，再发布、挂载页面。
+	menuItem := model.MenuItem{
+		GameID:    "demo-game",
+		Env:       "development",
+		MenuKey:   "player",
+		SortOrder: 1,
+		IsVisible: true,
+	}
+	require.NoError(t, menuItem.SetLabels(map[string]string{"zh-CN": "玩家", "en-US": "Player"}))
+	require.NoError(t, pageService.svcCtx.MenuModel.Create(ctx, &menuItem))
 
 	publishResp, err := pageService.Publish(ctx, &PagePublishRequest{
 		PageKey:       "player.manage",
@@ -388,13 +399,27 @@ func TestServicePublishDrivesConsoleMenuAndUnpublishRemovesIt(t *testing.T) {
 	require.NoError(t, err)
 	assert.True(t, publishResp.Published)
 
+	// 已发布但未挂载：菜单组保留（空组），组下无页面。
+	unmountedMenu, err := consoleService.Menu(ctx, &consoleapi.ConsoleMenuRequest{Language: "zh-CN"})
+	require.NoError(t, err)
+	require.Len(t, unmountedMenu.Items, 1)
+	assert.Empty(t, unmountedMenu.Items[0].Children)
+
+	// 挂载后菜单组带页面；分组标题来自 menu_items.labels。
+	menuID := int64(menuItem.ID)
+	mountResp, err := pageService.SetPageMenu(ctx, &PageMenuUpdateRequest{
+		PageKey: "player.manage",
+		MenuID:  &menuID,
+	})
+	require.NoError(t, err)
+	require.NotNil(t, mountResp.MenuID)
+	assert.Equal(t, menuID, *mountResp.MenuID)
+
 	menu, err := consoleService.Menu(ctx, &consoleapi.ConsoleMenuRequest{Language: "zh-CN"})
 	require.NoError(t, err)
 	require.Len(t, menu.Items, 1)
 	assert.Equal(t, "player", menu.Items[0].Key)
-	// category.labels 已由菜单系统接管（T-M8）：页面规格不再携带分类文案，
-	// 菜单回落到 key，前端以 menu_items.labels 覆盖。
-	assert.Empty(t, menu.Items[0].Title["zh-CN"])
+	assert.Equal(t, "玩家", menu.Items[0].Title["zh-CN"])
 	require.Len(t, menu.Items[0].Children, 1)
 	assert.Equal(t, "player.manage", menu.Items[0].Children[0].Key)
 	assert.Equal(t, "玩家管理", menu.Items[0].Children[0].Title["zh-CN"])
@@ -413,13 +438,23 @@ func TestServicePublishDrivesConsoleMenuAndUnpublishRemovesIt(t *testing.T) {
 	require.NoError(t, err)
 	assert.Empty(t, prodMenu.Items)
 
+	// 解除挂载：页面仍已发布，但不再出现在运行控制台（菜单组保留为空组）。
+	unmountResp, err := pageService.SetPageMenu(ctx, &PageMenuUpdateRequest{
+		PageKey: "player.manage",
+		MenuID:  nil,
+	})
+	require.NoError(t, err)
+	assert.Nil(t, unmountResp.MenuID)
+
+	emptyMenu, err := consoleService.Menu(ctx, &consoleapi.ConsoleMenuRequest{Language: "zh-CN"})
+	require.NoError(t, err)
+	require.Len(t, emptyMenu.Items, 1)
+	assert.Empty(t, emptyMenu.Items[0].Children)
+
 	unpublishResp, err := pageService.Unpublish(ctx, &PageUnpublishRequest{PageKey: "player.manage"})
 	require.NoError(t, err)
 	assert.False(t, unpublishResp.Published)
 
-	emptyMenu, err := consoleService.Menu(ctx, &consoleapi.ConsoleMenuRequest{Language: "zh-CN"})
-	require.NoError(t, err)
-	assert.Empty(t, emptyMenu.Items)
 	_, err = consoleService.Page(ctx, &consoleapi.ConsolePageRequest{PageKey: "player.manage"})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "page not found")
@@ -669,11 +704,15 @@ func TestServicePublishesBasicGeneratedOperationPage(t *testing.T) {
 	require.NoError(t, err)
 	assert.True(t, publishResp.Published)
 
+	// menu_items 驱动后，未挂菜单的已发布页面不进控制台导航；
+	// 页面内容仍可按 pageKey 直达（Page 接口取发布快照）。
 	menu, err := consoleService.Menu(ctx, &consoleapi.ConsoleMenuRequest{Language: "zh-CN"})
 	require.NoError(t, err)
-	require.Len(t, menu.Items, 1)
-	require.Len(t, menu.Items[0].Children, 1)
-	assert.Equal(t, generated.PageKey, menu.Items[0].Children[0].Key)
+	assert.Empty(t, menu.Items)
+
+	pageResp, err := consoleService.Page(ctx, &consoleapi.ConsolePageRequest{PageKey: generated.PageKey})
+	require.NoError(t, err)
+	assert.Equal(t, generated.PageKey, pageResp.Page.PageKey)
 }
 
 func TestServiceKeepsSamePageKeyIsolatedByScope(t *testing.T) {
@@ -746,6 +785,7 @@ func newPageTestService(t *testing.T, permissions ...string) (*Service, context.
 		PageSpecModel:          model.NewPageSpecModel(db),
 		PublishedPageSpecModel: model.NewPublishedPageSpecModel(db),
 		PageVersionModel:       model.NewPageVersionModel(db),
+		MenuModel:              model.NewMenuItemModel(db),
 		RegistryStore:          store,
 		AuditService:           audit.NewAuditService(auditStore, nil),
 		Cache:                  nullCache,

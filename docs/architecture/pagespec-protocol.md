@@ -389,7 +389,7 @@ interface PageBulkSyncSelectorsResult {
 
 ## 导航与多语言
 
-分类、标题、图标与排序是 PageSpec 顶层字段（`category{key,order}`、`title`、`icon`、`order`）。T-M8 起分类名称不再随页面规格承载：`category` 只保留 `key`（分组定位键）与 `order`，分类的多语言名称由菜单系统（`menu_items.labels`）提供。`NavigationSpec` 仅承载返回导航行为：
+分类、标题、图标与排序是 PageSpec 顶层字段（`category{key,order}`、`title`、`icon`、`order`）。`category` 只保留 `key` 与 `order`，是页面工作台侧的分组元数据；运行控制台导航由菜单系统驱动（`menu_items` 树 + `page_specs.menu_id` 挂载映射，见 [运行控制台动态菜单](./console-dynamic-menu.md)），不消费 `category`，分类多语言名称由菜单系统（`menu_items.labels`）提供。`NavigationSpec` 仅承载返回导航行为：
 
 ```ts
 interface NavigationSpec {

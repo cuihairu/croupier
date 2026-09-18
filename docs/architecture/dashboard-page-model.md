@@ -47,7 +47,7 @@ SDK / OpenAPI
   -> Server 解析并持久化能力、语义和诊断
   -> 生成可追溯的默认 PageProposal
   -> 用户直接接受并发布，或在 Page Studio 调整
-  -> Console 按已发布 Page 的分类生成左侧菜单
+  -> Console 按菜单树（menu_items）+ 挂载的已发布 Page 生成左侧菜单
   -> 页面通过已发布 binding 受控执行
 ```
 
@@ -494,13 +494,14 @@ PageIdentity = game_id + env + pageKey
 
 Page Studio、Console、Proposal 和执行都从全局 scope 获取 `game_id + env`；页面内部不得再次选择或覆盖 scope。
 
-动态菜单唯一来源不变：
+动态菜单唯一来源（menu_items 驱动，详见 [运行控制台动态菜单](./console-dynamic-menu.md)）：
 
 ```text
-active PublishedPageSpec[] -> ConsoleMenuSpec -> ProLayout
+menu_items（菜单树） + page_specs.menu_id（挂载） + active PublishedPageSpec[]（页面内容）
+  -> ConsoleMenuSpec -> ProLayout
 ```
 
-分类与页面多语言文本来自 PublishedPageSpec 的 NavigationSpec，动态菜单项设置 `locale: false`，不使用静态 locale 或字典作为事实源。
+菜单多语言文本来自 `menu_items.labels`，页面多语言文本来自 PublishedPageSpec 的 NavigationSpec，动态菜单项设置 `locale: false`，不使用静态 locale 或字典作为事实源。未挂载菜单的已发布页面不进控制台导航。
 
 发布时必须冻结：
 

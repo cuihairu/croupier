@@ -268,29 +268,41 @@ func (s *Service) UpdateSort(ctx context.Context, req *SortMenuRequest) (*MenuDT
 	return menuToDTO(item), nil
 }
 
-// Accessible returns the permission-filtered menu tree for the current user.
-// No menu:read gate here: this is the login-time endpoint for every admin.
-func (s *Service) Accessible(ctx context.Context) (*MenuListResponse, error) {
+// AccessibleTree returns the permission-filtered menu tree of the current
+// scope for the current user. Shared by the menus API (GET /menus/accessible)
+// and the console navigation assembly — menu_items are the single source of
+// the runtime console menu. No menu rows → empty tree.
+func AccessibleTree(ctx context.Context, svcCtx *svc.ServiceContext) ([]*MenuDTO, error) {
 	gameID, env, err := requireScope(ctx)
 	if err != nil {
 		return nil, err
 	}
-	_, roles, err := utils.LoadCurrentAdmin(ctx, s.svcCtx)
+	_, roles, err := utils.LoadCurrentAdmin(ctx, svcCtx)
 	if err != nil {
 		return nil, err
 	}
-	permIDs, err := utils.PermissionIDsFromRoles(ctx, s.svcCtx, roles)
+	permIDs, err := utils.PermissionIDsFromRoles(ctx, svcCtx, roles)
 	if err != nil {
 		return nil, err
 	}
 	if utils.HasAdminRole(utils.RoleNamesFromModels(roles)) {
 		permIDs = append(permIDs, "admin:all", "*")
 	}
-	items, err := s.menuModel().ListByScope(ctx, gameID, env)
+	items, err := svcCtx.MenuModel.ListByScope(ctx, gameID, env)
 	if err != nil {
 		return nil, err
 	}
-	return &MenuListResponse{Items: filterAccessibleTree(items, permIDs)}, nil
+	return filterAccessibleTree(items, permIDs), nil
+}
+
+// Accessible returns the permission-filtered menu tree for the current user.
+// No menu:read gate here: this is the login-time endpoint for every admin.
+func (s *Service) Accessible(ctx context.Context) (*MenuListResponse, error) {
+	items, err := AccessibleTree(ctx, s.svcCtx)
+	if err != nil {
+		return nil, err
+	}
+	return &MenuListResponse{Items: items}, nil
 }
 
 // filterAccessibleTree builds the user-visible menu tree. Rules follow the

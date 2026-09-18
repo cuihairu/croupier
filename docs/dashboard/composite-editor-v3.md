@@ -250,7 +250,8 @@ web/src/pages/PageStudio/CompositeEditor/
 - 主视图（提案收件箱上方）常驻「一键发布全部 / 一键下架全部」（2026-09 自高级
   管理面板提升）：发布走 `POST /api/v1/pages/bulk-publish`（重算契约提案 → ready/basic
   批量 accept-and-publish）；下架走 `bulk-unpublish`（逐页复用
-  单页真实下线链路，控制台菜单随之清空）。「高级页面管理」面板回归版本/回滚定位。
+  单页真实下线链路；下架后页面不再出现在运行控制台（控制台导航由菜单挂载 + 已发布
+  共同决定，见 `docs/architecture/console-dynamic-menu.md`）。「高级页面管理」面板回归版本/回滚定位。
 - **契约变更队列批量重发布（2026-09-14）**：契约变更 Tab 头部「一键重新发布全部」
   走 `POST /api/v1/pages/bulk-republish`（权限 pages:publish）——对 stale 的**已发布**
   页面逐页「重生成草稿 → 乐观锁发布」，把线上快照拉齐到最新契约；单页失败记录原因

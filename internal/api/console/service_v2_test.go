@@ -544,110 +544,6 @@ func TestValueFromRawContextV2(t *testing.T) {
 }
 
 // ──────────────────────────────────────────────────────
-// generateMenuFromPages - additional coverage
-// ──────────────────────────────────────────────────────
-
-func TestGenerateMenuFromPagesV2(t *testing.T) {
-	// empty category key is skipped
-	menu := generateMenuFromPages([]spec.PublishedPageSpec{
-		{PageSpec: spec.PageSpec{
-			PageKey: "test",
-			Title:   spec.LocalizedText{"zh-CN": "测试"},
-			Category: spec.PageCategorySpec{
-				Key: "",
-			},
-		}},
-	}, "zh-CN")
-	assert.Empty(t, menu.Items)
-
-	// pages sorted by order then title
-	menu = generateMenuFromPages([]spec.PublishedPageSpec{
-		{PageSpec: spec.PageSpec{
-			PageKey: "b.page", Title: spec.LocalizedText{"zh-CN": "B"}, Order: 10,
-			Category: spec.PageCategorySpec{Key: "cat", Order: 1},
-		}},
-		{PageSpec: spec.PageSpec{
-			PageKey: "a.page", Title: spec.LocalizedText{"zh-CN": "A"}, Order: 5,
-			Category: spec.PageCategorySpec{Key: "cat", Order: 1},
-		}},
-	}, "zh-CN")
-	require.Len(t, menu.Items, 1)
-	require.Len(t, menu.Items[0].Children, 2)
-	assert.Equal(t, "a.page", menu.Items[0].Children[0].Key)
-	assert.Equal(t, "b.page", menu.Items[0].Children[1].Key)
-
-	// same order, sorted by title
-	menu = generateMenuFromPages([]spec.PublishedPageSpec{
-		{PageSpec: spec.PageSpec{
-			PageKey: "b.page", Title: spec.LocalizedText{"zh-CN": "B"}, Order: 5,
-			Category: spec.PageCategorySpec{Key: "cat", Order: 1},
-		}},
-		{PageSpec: spec.PageSpec{
-			PageKey: "a.page", Title: spec.LocalizedText{"zh-CN": "A"}, Order: 5,
-			Category: spec.PageCategorySpec{Key: "cat", Order: 1},
-		}},
-	}, "zh-CN")
-	require.Len(t, menu.Items, 1)
-	require.Len(t, menu.Items[0].Children, 2)
-	assert.Equal(t, "a.page", menu.Items[0].Children[0].Key)
-
-	// same order and title, sorted by key
-	menu = generateMenuFromPages([]spec.PublishedPageSpec{
-		{PageSpec: spec.PageSpec{
-			PageKey: "b.page", Title: spec.LocalizedText{"zh-CN": "Same"}, Order: 5,
-			Category: spec.PageCategorySpec{Key: "cat", Order: 1},
-		}},
-		{PageSpec: spec.PageSpec{
-			PageKey: "a.page", Title: spec.LocalizedText{"zh-CN": "Same"}, Order: 5,
-			Category: spec.PageCategorySpec{Key: "cat", Order: 1},
-		}},
-	}, "zh-CN")
-	require.Len(t, menu.Items, 1)
-	require.Len(t, menu.Items[0].Children, 2)
-	assert.Equal(t, "a.page", menu.Items[0].Children[0].Key)
-
-	// category sort: same order, sorted by title
-	menu = generateMenuFromPages([]spec.PublishedPageSpec{
-		{PageSpec: spec.PageSpec{
-			PageKey: "a.page", Title: spec.LocalizedText{"zh-CN": "A"}, Order: 5,
-			Category: spec.PageCategorySpec{Key: "cat-b", Order: 1},
-		}},
-		{PageSpec: spec.PageSpec{
-			PageKey: "b.page", Title: spec.LocalizedText{"zh-CN": "B"}, Order: 5,
-			Category: spec.PageCategorySpec{Key: "cat-a", Order: 1},
-		}},
-	}, "zh-CN")
-	require.Len(t, menu.Items, 2)
-	assert.Equal(t, "cat-a", menu.Items[0].Key)
-	assert.Equal(t, "cat-b", menu.Items[1].Key)
-
-	// category sort: same order and title, sorted by key
-	menu = generateMenuFromPages([]spec.PublishedPageSpec{
-		{PageSpec: spec.PageSpec{
-			PageKey: "a.page", Title: spec.LocalizedText{"zh-CN": "Same"}, Order: 5,
-			Category: spec.PageCategorySpec{Key: "cat-b", Order: 1},
-		}},
-		{PageSpec: spec.PageSpec{
-			PageKey: "b.page", Title: spec.LocalizedText{"zh-CN": "Same"}, Order: 5,
-			Category: spec.PageCategorySpec{Key: "cat-a", Order: 1},
-		}},
-	}, "zh-CN")
-	require.Len(t, menu.Items, 2)
-	assert.Equal(t, "cat-a", menu.Items[0].Key)
-
-	// page with icon
-	menu = generateMenuFromPages([]spec.PublishedPageSpec{
-		{PageSpec: spec.PageSpec{
-			PageKey: "icon.page", Title: spec.LocalizedText{"zh-CN": "Icon"}, Icon: "icon.png", Order: 1,
-			Category: spec.PageCategorySpec{Key: "cat", Order: 1},
-		}},
-	}, "zh-CN")
-	require.Len(t, menu.Items, 1)
-	require.Len(t, menu.Items[0].Children, 1)
-	assert.Equal(t, "icon.png", menu.Items[0].Children[0].Icon)
-}
-
-// ──────────────────────────────────────────────────────
 // parsePublishedPageSpec - additional coverage
 // ──────────────────────────────────────────────────────
 
@@ -904,7 +800,7 @@ func TestServiceExecuteBindingRejectsMissingContract(t *testing.T) {
 
 func TestServiceMenuUsesLanguageFallbackV2(t *testing.T) {
 	service, ctx := newConsoleTestService(t, "console:read")
-	require.NoError(t, seedConsolePublishedPage(service.svcCtx, ctx))
+	require.NoError(t, seedConsoleMountedPublishedPage(service.svcCtx, ctx, "player", "player.manage"))
 
 	// empty language → defaults to zh-CN
 	resp, err := service.Menu(ctx, &ConsoleMenuRequest{})
@@ -1039,18 +935,18 @@ func TestServiceExecuteBindingRejectsLiteralSelector(t *testing.T) {
 }
 
 // ──────────────────────────────────────────────────────
-// Menu with multiple categories
+// Menu with multiple menu_items roots
 // ──────────────────────────────────────────────────────
 
 func TestServiceMenuMultipleCategoriesV2(t *testing.T) {
 	service, ctx := newConsoleTestService(t, "console:read")
-	require.NoError(t, seedConsolePublishedPageForScope(service.svcCtx, ctx, "player.manage", "player", "玩家", 1))
-	require.NoError(t, seedConsolePublishedPageForScope(service.svcCtx, ctx, "mail.send", "mail", "邮件", 2))
+	require.NoError(t, seedConsoleMountedPublishedPageForScope(service.svcCtx, ctx, "player", "player.manage", 1))
+	require.NoError(t, seedConsoleMountedPublishedPageForScope(service.svcCtx, ctx, "mail", "mail.send", 2))
 
 	resp, err := service.Menu(ctx, &ConsoleMenuRequest{Language: "zh-CN"})
 	require.NoError(t, err)
 	require.Len(t, resp.Items, 2)
-	// sorted by order
+	// sorted by sortOrder
 	assert.Equal(t, "player", resp.Items[0].Key)
 	assert.Equal(t, "mail", resp.Items[1].Key)
 }

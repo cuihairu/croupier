@@ -1,7 +1,7 @@
 import {
   buildConsolePagePath,
   buildMenuFromConsoleSpec,
-  resolveConsolePageRoute,
+  resolveConsolePageCanonicalPath,
   resolveLocalizedText,
 } from '@/utils/consoleMenu';
 import type { ConsoleMenuSpec, PublishedPageSpec } from '@/types/dashboard';
@@ -89,12 +89,11 @@ describe('console menu model', () => {
     expect(resolveLocalizedText({}, 'zh-CN', 'mail')).toBe('mail');
   });
 
-  it('根据 PublishedPageSpec 分类生成规范页面路径', () => {
+  it('根据菜单树生成规范页面路径（menu_items 驱动仲裁）', () => {
     const page: PublishedPageSpec = {
       pageKey: 'player.ban',
       type: 'operation',
       title: { 'zh-CN': '封禁玩家' },
-      category: { key: 'player ops', labels: { 'zh-CN': '玩家运营' } },
       operation: {
         form: {
           jsonSchema: {
@@ -109,17 +108,26 @@ describe('console menu model', () => {
       rendererSchemaVersion: 'page-spec:1',
       bindingContracts: [],
     };
+    const menu: ConsoleMenuSpec = {
+      items: [
+        {
+          key: 'player ops',
+          path: '/console/player%20ops',
+          title: { 'zh-CN': '玩家运营' },
+          children: [{ key: 'player.ban', path: '/console/player%20ops/player.ban', title: {} }],
+        },
+      ],
+    };
 
+    expect(page.pageKey).toBe('player.ban');
     expect(buildConsolePagePath('player ops', 'player.ban')).toBe(
       '/console/player%20ops/player.ban',
     );
-    expect(resolveConsolePageRoute(page, 'player')).toEqual({
-      canonicalPath: '/console/player%20ops/player.ban',
-      shouldRedirect: true,
-    });
-    expect(resolveConsolePageRoute(page, 'player ops')).toEqual({
-      canonicalPath: '/console/player%20ops/player.ban',
-      shouldRedirect: false,
-    });
+    // 页面挂在菜单树中 → 规范路径由挂载菜单决定（URL 段不一致时跳转）
+    expect(resolveConsolePageCanonicalPath(menu, 'player.ban')).toBe(
+      '/console/player%20ops/player.ban',
+    );
+    // 页面未挂菜单 → 空串（直达 URL 不重定向）
+    expect(resolveConsolePageCanonicalPath(menu, 'unmounted.page')).toBe('');
   });
 });
