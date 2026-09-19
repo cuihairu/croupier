@@ -507,16 +507,16 @@ public class GameDemo {
             new Fn("player.create", "warning", "player", "create", "create", "sync", null, playerCreate(store)),
             new Fn("player.get", "safe", "player", "get", "item_query", "sync", null, playerGet(store)),
             new Fn("player.update", "warning", "player", "update", "update", "sync", null, playerUpdate(store)),
-            new Fn("player.delete", "danger", "player", "delete", "delete", "sync", "demo.player.delete", playerDelete(store)),
+            new Fn("player.delete", "danger", "player", "delete", "delete", "sync", null, playerDelete(store)),
             new Fn("player.list", "safe", "player", "list", "collection_query", "sync", null, playerList(store)),
             new Fn("order.create", "warning", "order", "create", "create", "sync", null, orderCreate(store)),
             new Fn("order.get", "safe", "order", "get", "item_query", "sync", null, orderGet(store)),
             new Fn("order.update", "warning", "order", "update", "update", "sync", null, orderUpdate(store)),
-            new Fn("order.delete", "danger", "order", "delete", "delete", "sync", "demo.order.delete", orderDelete(store)),
+            new Fn("order.delete", "danger", "order", "delete", "delete", "sync", null, orderDelete(store)),
             new Fn("order.list", "safe", "order", "list", "collection_query", "sync", null, orderList(store)),
             new Fn("leaderboard.list", "safe", "leaderboard", "list", "collection_query", "sync", null, leaderboardList(store)),
             new Fn("leaderboard.upsert", "warning", "leaderboard", "upsert", "action", "sync", null, leaderboardUpsert(store)),
-            new Fn("leaderboard.reset", "danger", "leaderboard", "reset", "action", "task", "demo.leaderboard.reset", leaderboardReset(store)),
+            new Fn("leaderboard.reset", "danger", "leaderboard", "reset", "action", "sync", null, leaderboardReset(store)),
             new Fn("inventory.list", "safe", "inventory", "list", "collection_query", "sync", null, inventoryList(store)),
             new Fn("inventory.grant", "warning", "inventory", "grant", "action", "sync", null, inventoryGrant(store)),
             new Fn("inventory.consume", "warning", "inventory", "consume", "action", "sync", null, inventoryConsume(store)),
@@ -597,62 +597,65 @@ public class GameDemo {
     }
 
     private static final Map<String, String[]> SCHEMAS = Map.ofEntries(
+        // 与 Go SDK demo（sdks/go/examples/demo/main.go）19 个共享契约槽位逐字对齐。
+        // 六语言心跳重注册会互相覆盖同一契约行——修改前先改 Go 基准，再逐语言同步。
         Map.entry("player.create", new String[]{
-            "{\"type\":\"object\",\"properties\":" + PLAYER_FIELDS + "}",
-            PLAYER_OBJECT}),
+                "{\"type\":\"object\",\"properties\":{\"id\":{\"type\":\"string\"},\"name\":{\"type\":\"string\"},\"level\":{\"type\":\"integer\"},\"vip\":{\"type\":\"integer\"},\"gold\":{\"type\":\"integer\"},\"status\":{\"type\":\"string\"},\"server\":{\"type\":\"string\"},\"profile\":{\"type\":\"object\"}}}",
+                "{\"type\":\"object\",\"properties\":{\"id\":{\"type\":\"string\"},\"name\":{\"type\":\"string\"},\"level\":{\"type\":\"integer\"},\"vip\":{\"type\":\"integer\"},\"gold\":{\"type\":\"integer\"},\"status\":{\"type\":\"string\"},\"server\":{\"type\":\"string\"},\"createdAt\":{\"type\":\"string\",\"format\":\"date-time\"},\"updatedAt\":{\"type\":\"string\",\"format\":\"date-time\"},\"lastLoginAt\":{\"type\":\"string\",\"format\":\"date-time\"},\"profile\":{\"type\":\"object\"}}}"}),
         Map.entry("player.get", new String[]{
-            "{\"type\":\"object\",\"properties\":{\"id\":" + STR + "},\"required\":[\"id\"]}",
-            PLAYER_OBJECT}),
+                "{\"type\":\"object\",\"properties\":{\"id\":{\"type\":\"string\"}},\"required\":[\"id\"]}",
+                "{\"type\":\"object\",\"properties\":{\"id\":{\"type\":\"string\"},\"name\":{\"type\":\"string\"},\"level\":{\"type\":\"integer\"},\"vip\":{\"type\":\"integer\"},\"gold\":{\"type\":\"integer\"},\"status\":{\"type\":\"string\"},\"server\":{\"type\":\"string\"},\"createdAt\":{\"type\":\"string\",\"format\":\"date-time\"},\"updatedAt\":{\"type\":\"string\",\"format\":\"date-time\"},\"lastLoginAt\":{\"type\":\"string\",\"format\":\"date-time\"},\"profile\":{\"type\":\"object\"}}}"}),
         Map.entry("player.update", new String[]{
-            "{\"type\":\"object\",\"properties\":" + PLAYER_FIELDS + ",\"required\":[\"id\"]}",
-            PLAYER_OBJECT}),
+                "{\"type\":\"object\",\"properties\":{\"id\":{\"type\":\"string\"},\"name\":{\"type\":\"string\"},\"level\":{\"type\":\"integer\"},\"vip\":{\"type\":\"integer\"},\"gold\":{\"type\":\"integer\"},\"status\":{\"type\":\"string\"},\"server\":{\"type\":\"string\"},\"profile\":{\"type\":\"object\"}},\"required\":[\"id\"]}",
+                "{\"type\":\"object\",\"properties\":{\"id\":{\"type\":\"string\"},\"name\":{\"type\":\"string\"},\"level\":{\"type\":\"integer\"},\"vip\":{\"type\":\"integer\"},\"gold\":{\"type\":\"integer\"},\"status\":{\"type\":\"string\"},\"server\":{\"type\":\"string\"},\"createdAt\":{\"type\":\"string\",\"format\":\"date-time\"},\"updatedAt\":{\"type\":\"string\",\"format\":\"date-time\"},\"lastLoginAt\":{\"type\":\"string\",\"format\":\"date-time\"},\"profile\":{\"type\":\"object\"}}}"}),
         Map.entry("player.delete", new String[]{
-            "{\"type\":\"object\",\"properties\":{\"id\":" + STR + "},\"required\":[\"id\"]}",
-            DELETE_OUTPUT}),
+                "{\"type\":\"object\",\"properties\":{\"id\":{\"type\":\"string\"}},\"required\":[\"id\"]}",
+                "{\"type\":\"object\",\"properties\":{\"id\":{\"type\":\"string\"},\"deleted\":{\"type\":\"boolean\"}},\"required\":[\"id\",\"deleted\"]}"}),
         Map.entry("player.list", new String[]{
-            "{\"type\":\"object\",\"properties\":{\"page\":" + INT + ",\"pageSize\":" + INT + "}}",
-            listOutput(PLAYER_OBJECT)}),
+                "{\"type\":\"object\",\"properties\":{\"page\":{\"type\":\"integer\",\"minimum\":1},\"pageSize\":{\"type\":\"integer\",\"minimum\":1,\"maximum\":100}}}",
+                "{\"type\":\"object\",\"properties\":{\"items\":{\"type\":\"array\",\"items\":{\"type\":\"object\",\"properties\":{\"id\":{\"type\":\"string\"},\"name\":{\"type\":\"string\"},\"level\":{\"type\":\"integer\"},\"vip\":{\"type\":\"integer\"},\"gold\":{\"type\":\"integer\"},\"status\":{\"type\":\"string\"},\"server\":{\"type\":\"string\"},\"createdAt\":{\"type\":\"string\",\"format\":\"date-time\"},\"updatedAt\":{\"type\":\"string\",\"format\":\"date-time\"},\"lastLoginAt\":{\"type\":\"string\",\"format\":\"date-time\"},\"profile\":{\"type\":\"object\"}}}},\"total\":{\"type\":\"integer\"},\"page\":{\"type\":\"integer\"},\"pageSize\":{\"type\":\"integer\"}},\"required\":[\"items\",\"total\",\"page\",\"pageSize\"]}"}),
         Map.entry("order.create", new String[]{
-            "{\"type\":\"object\",\"properties\":{\"id\":" + STR + ",\"playerId\":" + STR + ",\"productId\":" + STR + ",\"amount\":" + INT + ",\"currency\":" + STR + ",\"status\":" + STR + ",\"channel\":" + STR + ",\"attributes\":" + OBJ + "}}",
-            ORDER_OBJECT}),
+                "{\"type\":\"object\",\"properties\":{\"id\":{\"type\":\"string\"},\"playerId\":{\"type\":\"string\"},\"productId\":{\"type\":\"string\"},\"amount\":{\"type\":\"integer\"},\"currency\":{\"type\":\"string\"},\"status\":{\"type\":\"string\"},\"channel\":{\"type\":\"string\"},\"attributes\":{\"type\":\"object\"}},\"required\":[\"playerId\"]}",
+                "{\"type\":\"object\",\"properties\":{\"id\":{\"type\":\"string\"},\"playerId\":{\"type\":\"string\"},\"productId\":{\"type\":\"string\"},\"amount\":{\"type\":\"integer\"},\"currency\":{\"type\":\"string\"},\"status\":{\"type\":\"string\"},\"channel\":{\"type\":\"string\"},\"createdAt\":{\"type\":\"string\",\"format\":\"date-time\"},\"updatedAt\":{\"type\":\"string\",\"format\":\"date-time\"},\"attributes\":{\"type\":\"object\"}}}"}),
         Map.entry("order.get", new String[]{
-            "{\"type\":\"object\",\"properties\":{\"id\":" + STR + "},\"required\":[\"id\"]}",
-            ORDER_OBJECT}),
+                "{\"type\":\"object\",\"properties\":{\"id\":{\"type\":\"string\"}},\"required\":[\"id\"]}",
+                "{\"type\":\"object\",\"properties\":{\"id\":{\"type\":\"string\"},\"playerId\":{\"type\":\"string\"},\"productId\":{\"type\":\"string\"},\"amount\":{\"type\":\"integer\"},\"currency\":{\"type\":\"string\"},\"status\":{\"type\":\"string\"},\"channel\":{\"type\":\"string\"},\"createdAt\":{\"type\":\"string\",\"format\":\"date-time\"},\"updatedAt\":{\"type\":\"string\",\"format\":\"date-time\"},\"attributes\":{\"type\":\"object\"}}}"}),
         Map.entry("order.update", new String[]{
-            "{\"type\":\"object\",\"properties\":{\"id\":" + STR + ",\"status\":" + STR + ",\"channel\":" + STR + ",\"amount\":" + INT + ",\"attributes\":" + OBJ + "},\"required\":[\"id\"]}",
-            ORDER_OBJECT}),
+                "{\"type\":\"object\",\"properties\":{\"id\":{\"type\":\"string\"},\"amount\":{\"type\":\"integer\"},\"status\":{\"type\":\"string\"},\"channel\":{\"type\":\"string\"},\"attributes\":{\"type\":\"object\"}},\"required\":[\"id\"]}",
+                "{\"type\":\"object\",\"properties\":{\"id\":{\"type\":\"string\"},\"playerId\":{\"type\":\"string\"},\"productId\":{\"type\":\"string\"},\"amount\":{\"type\":\"integer\"},\"currency\":{\"type\":\"string\"},\"status\":{\"type\":\"string\"},\"channel\":{\"type\":\"string\"},\"createdAt\":{\"type\":\"string\",\"format\":\"date-time\"},\"updatedAt\":{\"type\":\"string\",\"format\":\"date-time\"},\"attributes\":{\"type\":\"object\"}}}"}),
         Map.entry("order.delete", new String[]{
-            "{\"type\":\"object\",\"properties\":{\"id\":" + STR + "},\"required\":[\"id\"]}",
-            DELETE_OUTPUT}),
+                "{\"type\":\"object\",\"properties\":{\"id\":{\"type\":\"string\"}},\"required\":[\"id\"]}",
+                "{\"type\":\"object\",\"properties\":{\"id\":{\"type\":\"string\"},\"deleted\":{\"type\":\"boolean\"}},\"required\":[\"id\",\"deleted\"]}"}),
         Map.entry("order.list", new String[]{
-            "{\"type\":\"object\",\"properties\":{\"playerId\":" + STR + ",\"page\":" + INT + ",\"pageSize\":" + INT + "}}",
-            listOutput(ORDER_OBJECT)}),
+                "{\"type\":\"object\",\"properties\":{\"playerId\":{\"type\":\"string\"},\"page\":{\"type\":\"integer\",\"minimum\":1},\"pageSize\":{\"type\":\"integer\",\"minimum\":1,\"maximum\":100}}}",
+                "{\"type\":\"object\",\"properties\":{\"items\":{\"type\":\"array\",\"items\":{\"type\":\"object\",\"properties\":{\"id\":{\"type\":\"string\"},\"playerId\":{\"type\":\"string\"},\"productId\":{\"type\":\"string\"},\"amount\":{\"type\":\"integer\"},\"currency\":{\"type\":\"string\"},\"status\":{\"type\":\"string\"},\"channel\":{\"type\":\"string\"},\"createdAt\":{\"type\":\"string\",\"format\":\"date-time\"},\"updatedAt\":{\"type\":\"string\",\"format\":\"date-time\"},\"attributes\":{\"type\":\"object\"}}}},\"total\":{\"type\":\"integer\"},\"page\":{\"type\":\"integer\"},\"pageSize\":{\"type\":\"integer\"}},\"required\":[\"items\",\"total\",\"page\",\"pageSize\"]}"}),
         Map.entry("leaderboard.list", new String[]{
-            "{\"type\":\"object\",\"properties\":{\"page\":" + INT + ",\"pageSize\":" + INT + "}}",
-            listOutput(LEADERBOARD_OBJECT)}),
+                "{\"type\":\"object\",\"properties\":{\"page\":{\"type\":\"integer\",\"minimum\":1},\"pageSize\":{\"type\":\"integer\",\"minimum\":1,\"maximum\":100}}}",
+                "{\"type\":\"object\",\"properties\":{\"items\":{\"type\":\"array\",\"items\":{\"type\":\"object\",\"properties\":{\"id\":{\"type\":\"string\"},\"playerId\":{\"type\":\"string\"},\"playerName\":{\"type\":\"string\"},\"score\":{\"type\":\"integer\"},\"rank\":{\"type\":\"integer\"},\"updatedAt\":{\"type\":\"string\",\"format\":\"date-time\"}}}},\"total\":{\"type\":\"integer\"},\"page\":{\"type\":\"integer\"},\"pageSize\":{\"type\":\"integer\"}},\"required\":[\"items\",\"total\",\"page\",\"pageSize\"]}"}),
         Map.entry("leaderboard.upsert", new String[]{
-            "{\"type\":\"object\",\"properties\":{\"playerId\":" + STR + ",\"score\":" + INT + "},\"required\":[\"playerId\"]}",
-            LEADERBOARD_OBJECT}),
-        Map.entry("leaderboard.reset", new String[]{"{\"type\":\"object\",\"properties\":{}}", "{\"type\":\"object\",\"properties\":{\"reset\":" + BOOL + "}}"}),
+                "{\"type\":\"object\",\"properties\":{\"playerId\":{\"type\":\"string\"},\"score\":{\"type\":\"integer\"}},\"required\":[\"playerId\",\"score\"]}",
+                "{\"type\":\"object\",\"properties\":{\"id\":{\"type\":\"string\"},\"playerId\":{\"type\":\"string\"},\"playerName\":{\"type\":\"string\"},\"score\":{\"type\":\"integer\"},\"rank\":{\"type\":\"integer\"},\"updatedAt\":{\"type\":\"string\",\"format\":\"date-time\"}}}"}),
+        Map.entry("leaderboard.reset", new String[]{
+                "{\"type\":\"object\",\"properties\":{}}",
+                "{\"type\":\"object\",\"properties\":{\"reset\":{\"type\":\"boolean\"}},\"required\":[\"reset\"]}"}),
         Map.entry("inventory.list", new String[]{
-            "{\"type\":\"object\",\"properties\":{\"playerId\":" + STR + "},\"required\":[\"playerId\"]}",
-            listOutput(ITEM_OBJECT)}),
+                "{\"type\":\"object\",\"properties\":{\"playerId\":{\"type\":\"string\"},\"page\":{\"type\":\"integer\",\"minimum\":1},\"pageSize\":{\"type\":\"integer\",\"minimum\":1,\"maximum\":100}},\"required\":[\"playerId\"]}",
+                "{\"type\":\"object\",\"properties\":{\"items\":{\"type\":\"array\",\"items\":{\"type\":\"object\",\"properties\":{\"id\":{\"type\":\"string\"},\"templateId\":{\"type\":\"string\"},\"name\":{\"type\":\"string\"},\"quantity\":{\"type\":\"integer\"},\"rarity\":{\"type\":\"string\"},\"updatedAt\":{\"type\":\"string\",\"format\":\"date-time\"}}}},\"total\":{\"type\":\"integer\"},\"page\":{\"type\":\"integer\"},\"pageSize\":{\"type\":\"integer\"}},\"required\":[\"items\",\"total\",\"page\",\"pageSize\"]}"}),
         Map.entry("inventory.grant", new String[]{
-            "{\"type\":\"object\",\"properties\":{\"playerId\":" + STR + ",\"templateId\":" + STR + ",\"quantity\":" + INT + "},\"required\":[\"playerId\",\"templateId\"]}",
-            ITEM_OBJECT}),
+                "{\"type\":\"object\",\"properties\":{\"playerId\":{\"type\":\"string\"},\"templateId\":{\"type\":\"string\"},\"quantity\":{\"type\":\"integer\",\"minimum\":1},\"name\":{\"type\":\"string\"},\"rarity\":{\"type\":\"string\"}},\"required\":[\"playerId\",\"templateId\"]}",
+                "{\"type\":\"object\",\"properties\":{\"id\":{\"type\":\"string\"},\"templateId\":{\"type\":\"string\"},\"name\":{\"type\":\"string\"},\"quantity\":{\"type\":\"integer\"},\"rarity\":{\"type\":\"string\"},\"updatedAt\":{\"type\":\"string\",\"format\":\"date-time\"}}}"}),
         Map.entry("inventory.consume", new String[]{
-            "{\"type\":\"object\",\"properties\":{\"playerId\":" + STR + ",\"templateId\":" + STR + ",\"quantity\":" + INT + "},\"required\":[\"playerId\",\"templateId\"]}",
-            ITEM_OBJECT}),
+                "{\"type\":\"object\",\"properties\":{\"playerId\":{\"type\":\"string\"},\"templateId\":{\"type\":\"string\"},\"quantity\":{\"type\":\"integer\",\"minimum\":1}},\"required\":[\"playerId\",\"templateId\"]}",
+                "{\"type\":\"object\",\"properties\":{\"id\":{\"type\":\"string\"},\"templateId\":{\"type\":\"string\"},\"name\":{\"type\":\"string\"},\"quantity\":{\"type\":\"integer\"},\"rarity\":{\"type\":\"string\"},\"updatedAt\":{\"type\":\"string\",\"format\":\"date-time\"}}}"}),
         Map.entry("mail.send", new String[]{
-            "{\"type\":\"object\",\"properties\":{\"playerId\":" + STR + ",\"title\":" + STR + ",\"content\":" + STR + ",\"reward\":" + OBJ + ",\"expireAt\":" + STR + "},\"required\":[\"playerId\"]}",
-            MAIL_OBJECT}),
+                "{\"type\":\"object\",\"properties\":{\"playerId\":{\"type\":\"string\"},\"title\":{\"type\":\"string\"},\"content\":{\"type\":\"string\"},\"reward\":{\"type\":\"object\"},\"expireAt\":{\"type\":\"string\",\"format\":\"date-time\"}},\"required\":[\"playerId\"]}",
+                "{\"type\":\"object\",\"properties\":{\"id\":{\"type\":\"string\"},\"playerId\":{\"type\":\"string\"},\"title\":{\"type\":\"string\"},\"content\":{\"type\":\"string\"},\"status\":{\"type\":\"string\"},\"reward\":{\"type\":\"object\"},\"sentAt\":{\"type\":\"string\",\"format\":\"date-time\"},\"updatedAt\":{\"type\":\"string\",\"format\":\"date-time\"},\"expireAt\":{\"type\":\"string\",\"format\":\"date-time\"}}}"}),
         Map.entry("mail.list", new String[]{
-            "{\"type\":\"object\",\"properties\":{\"playerId\":" + STR + "},\"required\":[\"playerId\"]}",
-            listOutput(MAIL_OBJECT)}),
+                "{\"type\":\"object\",\"properties\":{\"playerId\":{\"type\":\"string\"},\"page\":{\"type\":\"integer\",\"minimum\":1},\"pageSize\":{\"type\":\"integer\",\"minimum\":1,\"maximum\":100}},\"required\":[\"playerId\"]}",
+                "{\"type\":\"object\",\"properties\":{\"items\":{\"type\":\"array\",\"items\":{\"type\":\"object\",\"properties\":{\"id\":{\"type\":\"string\"},\"playerId\":{\"type\":\"string\"},\"title\":{\"type\":\"string\"},\"content\":{\"type\":\"string\"},\"status\":{\"type\":\"string\"},\"reward\":{\"type\":\"object\"},\"sentAt\":{\"type\":\"string\",\"format\":\"date-time\"},\"updatedAt\":{\"type\":\"string\",\"format\":\"date-time\"},\"expireAt\":{\"type\":\"string\",\"format\":\"date-time\"}}}},\"total\":{\"type\":\"integer\"},\"page\":{\"type\":\"integer\"},\"pageSize\":{\"type\":\"integer\"}},\"required\":[\"items\",\"total\",\"page\",\"pageSize\"]}"}),
         Map.entry("mail.claim", new String[]{
-            "{\"type\":\"object\",\"properties\":{\"playerId\":" + STR + ",\"mailId\":" + STR + "},\"required\":[\"playerId\",\"mailId\"]}",
-            MAIL_OBJECT})
-    );
+                "{\"type\":\"object\",\"properties\":{\"playerId\":{\"type\":\"string\"},\"id\":{\"type\":\"string\"}},\"required\":[\"playerId\",\"id\"]}",
+                "{\"type\":\"object\",\"properties\":{\"id\":{\"type\":\"string\"},\"playerId\":{\"type\":\"string\"},\"title\":{\"type\":\"string\"},\"content\":{\"type\":\"string\"},\"status\":{\"type\":\"string\"},\"reward\":{\"type\":\"object\"},\"sentAt\":{\"type\":\"string\",\"format\":\"date-time\"},\"updatedAt\":{\"type\":\"string\",\"format\":\"date-time\"},\"expireAt\":{\"type\":\"string\",\"format\":\"date-time\"}}}"} );
 
     // ==================== Main ====================
 

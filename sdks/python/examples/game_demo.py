@@ -623,76 +623,87 @@ def _list_output(item: dict[str, Any] | None = None) -> dict[str, Any]:
 LIST_OUTPUT: dict[str, Any] = _list_output()
 
 SCHEMAS: dict[str, dict[str, dict[str, Any]]] = {
+    # 与 Go SDK demo（sdks/go/examples/demo/main.go）19 个共享契约槽位逐字对齐。
+    # 六语言心跳重注册会互相覆盖同一契约行——任何形状差异都会在线上表现为
+    # schema_breaking_change 反复翻转与页面 bindingFreshness 持续 stale。
+    # 修改这里之前先改 Go 基准，再逐语言同步（勿手工增删字段）。
     "player.create": {
-        "input": _obj(dict(PLAYER_FIELDS)),
-        "output": PLAYER_OBJECT,
+        "input": json.loads('''{"type":"object","properties":{"id":{"type":"string"},"name":{"type":"string"},"level":{"type":"integer"},"vip":{"type":"integer"},"gold":{"type":"integer"},"status":{"type":"string"},"server":{"type":"string"},"profile":{"type":"object"}}}'''),
+        "output": json.loads('''{"type":"object","properties":{"id":{"type":"string"},"name":{"type":"string"},"level":{"type":"integer"},"vip":{"type":"integer"},"gold":{"type":"integer"},"status":{"type":"string"},"server":{"type":"string"},"createdAt":{"type":"string","format":"date-time"},"updatedAt":{"type":"string","format":"date-time"},"lastLoginAt":{"type":"string","format":"date-time"},"profile":{"type":"object"}}}'''),
     },
     "player.get": {
-        "input": _obj({"id": _s()}, ["id"]),
-        "output": PLAYER_OBJECT,
+        "input": json.loads('''{"type":"object","properties":{"id":{"type":"string"}},"required":["id"]}'''),
+        "output": json.loads('''{"type":"object","properties":{"id":{"type":"string"},"name":{"type":"string"},"level":{"type":"integer"},"vip":{"type":"integer"},"gold":{"type":"integer"},"status":{"type":"string"},"server":{"type":"string"},"createdAt":{"type":"string","format":"date-time"},"updatedAt":{"type":"string","format":"date-time"},"lastLoginAt":{"type":"string","format":"date-time"},"profile":{"type":"object"}}}'''),
     },
     "player.update": {
-        "input": _obj(dict(PLAYER_FIELDS), ["id"]),
-        "output": PLAYER_OBJECT,
+        "input": json.loads('''{"type":"object","properties":{"id":{"type":"string"},"name":{"type":"string"},"level":{"type":"integer"},"vip":{"type":"integer"},"gold":{"type":"integer"},"status":{"type":"string"},"server":{"type":"string"},"profile":{"type":"object"}},"required":["id"]}'''),
+        "output": json.loads('''{"type":"object","properties":{"id":{"type":"string"},"name":{"type":"string"},"level":{"type":"integer"},"vip":{"type":"integer"},"gold":{"type":"integer"},"status":{"type":"string"},"server":{"type":"string"},"createdAt":{"type":"string","format":"date-time"},"updatedAt":{"type":"string","format":"date-time"},"lastLoginAt":{"type":"string","format":"date-time"},"profile":{"type":"object"}}}'''),
     },
     "player.delete": {
-        "input": _obj({"id": _s()}, ["id"]),
-        "output": DELETE_OUTPUT,
+        "input": json.loads('''{"type":"object","properties":{"id":{"type":"string"}},"required":["id"]}'''),
+        "output": json.loads('''{"type":"object","properties":{"id":{"type":"string"},"deleted":{"type":"boolean"}},"required":["id","deleted"]}'''),
     },
-    "player.list": {"input": _obj(dict(PAGINATION)), "output": _list_output(PLAYER_OBJECT)},
+    "player.list": {
+        "input": json.loads('''{"type":"object","properties":{"page":{"type":"integer","minimum":1},"pageSize":{"type":"integer","minimum":1,"maximum":100}}}'''),
+        "output": json.loads('''{"type":"object","properties":{"items":{"type":"array","items":{"type":"object","properties":{"id":{"type":"string"},"name":{"type":"string"},"level":{"type":"integer"},"vip":{"type":"integer"},"gold":{"type":"integer"},"status":{"type":"string"},"server":{"type":"string"},"createdAt":{"type":"string","format":"date-time"},"updatedAt":{"type":"string","format":"date-time"},"lastLoginAt":{"type":"string","format":"date-time"},"profile":{"type":"object"}}}},"total":{"type":"integer"},"page":{"type":"integer"},"pageSize":{"type":"integer"}},"required":["items","total","page","pageSize"]}'''),
+    },
     "order.create": {
-        "input": _obj(dict(ORDER_FIELDS)),
-        "output": ORDER_OBJECT,
+        "input": json.loads('''{"type":"object","properties":{"id":{"type":"string"},"playerId":{"type":"string"},"productId":{"type":"string"},"amount":{"type":"integer"},"currency":{"type":"string"},"status":{"type":"string"},"channel":{"type":"string"},"attributes":{"type":"object"}},"required":["playerId"]}'''),
+        "output": json.loads('''{"type":"object","properties":{"id":{"type":"string"},"playerId":{"type":"string"},"productId":{"type":"string"},"amount":{"type":"integer"},"currency":{"type":"string"},"status":{"type":"string"},"channel":{"type":"string"},"createdAt":{"type":"string","format":"date-time"},"updatedAt":{"type":"string","format":"date-time"},"attributes":{"type":"object"}}}'''),
     },
     "order.get": {
-        "input": _obj({"id": _s()}, ["id"]),
-        "output": ORDER_OBJECT,
+        "input": json.loads('''{"type":"object","properties":{"id":{"type":"string"}},"required":["id"]}'''),
+        "output": json.loads('''{"type":"object","properties":{"id":{"type":"string"},"playerId":{"type":"string"},"productId":{"type":"string"},"amount":{"type":"integer"},"currency":{"type":"string"},"status":{"type":"string"},"channel":{"type":"string"},"createdAt":{"type":"string","format":"date-time"},"updatedAt":{"type":"string","format":"date-time"},"attributes":{"type":"object"}}}'''),
     },
     "order.update": {
-        "input": _obj({k: ORDER_FIELDS[k] for k in ("id", "status", "channel", "amount", "attributes")}, ["id"]),
-        "output": ORDER_OBJECT,
+        "input": json.loads('''{"type":"object","properties":{"id":{"type":"string"},"amount":{"type":"integer"},"status":{"type":"string"},"channel":{"type":"string"},"attributes":{"type":"object"}},"required":["id"]}'''),
+        "output": json.loads('''{"type":"object","properties":{"id":{"type":"string"},"playerId":{"type":"string"},"productId":{"type":"string"},"amount":{"type":"integer"},"currency":{"type":"string"},"status":{"type":"string"},"channel":{"type":"string"},"createdAt":{"type":"string","format":"date-time"},"updatedAt":{"type":"string","format":"date-time"},"attributes":{"type":"object"}}}'''),
     },
     "order.delete": {
-        "input": _obj({"id": _s()}, ["id"]),
-        "output": DELETE_OUTPUT,
+        "input": json.loads('''{"type":"object","properties":{"id":{"type":"string"}},"required":["id"]}'''),
+        "output": json.loads('''{"type":"object","properties":{"id":{"type":"string"},"deleted":{"type":"boolean"}},"required":["id","deleted"]}'''),
     },
     "order.list": {
-        "input": _obj({"playerId": _s(), **PAGINATION}),
-        "output": _list_output(ORDER_OBJECT),
+        "input": json.loads('''{"type":"object","properties":{"playerId":{"type":"string"},"page":{"type":"integer","minimum":1},"pageSize":{"type":"integer","minimum":1,"maximum":100}}}'''),
+        "output": json.loads('''{"type":"object","properties":{"items":{"type":"array","items":{"type":"object","properties":{"id":{"type":"string"},"playerId":{"type":"string"},"productId":{"type":"string"},"amount":{"type":"integer"},"currency":{"type":"string"},"status":{"type":"string"},"channel":{"type":"string"},"createdAt":{"type":"string","format":"date-time"},"updatedAt":{"type":"string","format":"date-time"},"attributes":{"type":"object"}}}},"total":{"type":"integer"},"page":{"type":"integer"},"pageSize":{"type":"integer"}},"required":["items","total","page","pageSize"]}'''),
     },
-    "leaderboard.list": {"input": _obj(dict(PAGINATION)), "output": _list_output(LEADERBOARD_OBJECT)},
+    "leaderboard.list": {
+        "input": json.loads('''{"type":"object","properties":{"page":{"type":"integer","minimum":1},"pageSize":{"type":"integer","minimum":1,"maximum":100}}}'''),
+        "output": json.loads('''{"type":"object","properties":{"items":{"type":"array","items":{"type":"object","properties":{"id":{"type":"string"},"playerId":{"type":"string"},"playerName":{"type":"string"},"score":{"type":"integer"},"rank":{"type":"integer"},"updatedAt":{"type":"string","format":"date-time"}}}},"total":{"type":"integer"},"page":{"type":"integer"},"pageSize":{"type":"integer"}},"required":["items","total","page","pageSize"]}'''),
+    },
     "leaderboard.upsert": {
-        "input": _obj({"playerId": _s(), "score": _i()}, ["playerId"]),
-        "output": LEADERBOARD_OBJECT,
+        "input": json.loads('''{"type":"object","properties":{"playerId":{"type":"string"},"score":{"type":"integer"}},"required":["playerId","score"]}'''),
+        "output": json.loads('''{"type":"object","properties":{"id":{"type":"string"},"playerId":{"type":"string"},"playerName":{"type":"string"},"score":{"type":"integer"},"rank":{"type":"integer"},"updatedAt":{"type":"string","format":"date-time"}}}'''),
     },
-    "leaderboard.reset": {"input": _obj({}), "output": _obj({"reset": {"type": "boolean"}})},
+    "leaderboard.reset": {
+        "input": json.loads('''{"type":"object","properties":{}}'''),
+        "output": json.loads('''{"type":"object","properties":{"reset":{"type":"boolean"}},"required":["reset"]}'''),
+    },
     "inventory.list": {
-        "input": _obj({"playerId": _s()}, ["playerId"]),
-        "output": _list_output(ITEM_OBJECT),
+        "input": json.loads('''{"type":"object","properties":{"playerId":{"type":"string"},"page":{"type":"integer","minimum":1},"pageSize":{"type":"integer","minimum":1,"maximum":100}},"required":["playerId"]}'''),
+        "output": json.loads('''{"type":"object","properties":{"items":{"type":"array","items":{"type":"object","properties":{"id":{"type":"string"},"templateId":{"type":"string"},"name":{"type":"string"},"quantity":{"type":"integer"},"rarity":{"type":"string"},"updatedAt":{"type":"string","format":"date-time"}}}},"total":{"type":"integer"},"page":{"type":"integer"},"pageSize":{"type":"integer"}},"required":["items","total","page","pageSize"]}'''),
     },
     "inventory.grant": {
-        "input": _obj({"playerId": _s(), "templateId": _s(), "quantity": _i()}, ["playerId", "templateId"]),
-        "output": ITEM_OBJECT,
+        "input": json.loads('''{"type":"object","properties":{"playerId":{"type":"string"},"templateId":{"type":"string"},"quantity":{"type":"integer","minimum":1},"name":{"type":"string"},"rarity":{"type":"string"}},"required":["playerId","templateId"]}'''),
+        "output": json.loads('''{"type":"object","properties":{"id":{"type":"string"},"templateId":{"type":"string"},"name":{"type":"string"},"quantity":{"type":"integer"},"rarity":{"type":"string"},"updatedAt":{"type":"string","format":"date-time"}}}'''),
     },
     "inventory.consume": {
-        "input": _obj({"playerId": _s(), "templateId": _s(), "quantity": _i()}, ["playerId", "templateId"]),
-        "output": ITEM_OBJECT,
+        "input": json.loads('''{"type":"object","properties":{"playerId":{"type":"string"},"templateId":{"type":"string"},"quantity":{"type":"integer","minimum":1}},"required":["playerId","templateId"]}'''),
+        "output": json.loads('''{"type":"object","properties":{"id":{"type":"string"},"templateId":{"type":"string"},"name":{"type":"string"},"quantity":{"type":"integer"},"rarity":{"type":"string"},"updatedAt":{"type":"string","format":"date-time"}}}'''),
     },
     "mail.send": {
-        "input": _obj({"playerId": _s(), "title": _s(), "content": _s(), "reward": {"type": "object"}, "expireAt": _s()}, ["playerId"]),
-        "output": MAIL_OBJECT,
+        "input": json.loads('''{"type":"object","properties":{"playerId":{"type":"string"},"title":{"type":"string"},"content":{"type":"string"},"reward":{"type":"object"},"expireAt":{"type":"string","format":"date-time"}},"required":["playerId"]}'''),
+        "output": json.loads('''{"type":"object","properties":{"id":{"type":"string"},"playerId":{"type":"string"},"title":{"type":"string"},"content":{"type":"string"},"status":{"type":"string"},"reward":{"type":"object"},"sentAt":{"type":"string","format":"date-time"},"updatedAt":{"type":"string","format":"date-time"},"expireAt":{"type":"string","format":"date-time"}}}'''),
     },
     "mail.list": {
-        "input": _obj({"playerId": _s()}, ["playerId"]),
-        "output": _list_output(MAIL_OBJECT),
+        "input": json.loads('''{"type":"object","properties":{"playerId":{"type":"string"},"page":{"type":"integer","minimum":1},"pageSize":{"type":"integer","minimum":1,"maximum":100}},"required":["playerId"]}'''),
+        "output": json.loads('''{"type":"object","properties":{"items":{"type":"array","items":{"type":"object","properties":{"id":{"type":"string"},"playerId":{"type":"string"},"title":{"type":"string"},"content":{"type":"string"},"status":{"type":"string"},"reward":{"type":"object"},"sentAt":{"type":"string","format":"date-time"},"updatedAt":{"type":"string","format":"date-time"},"expireAt":{"type":"string","format":"date-time"}}}},"total":{"type":"integer"},"page":{"type":"integer"},"pageSize":{"type":"integer"}},"required":["items","total","page","pageSize"]}'''),
     },
     "mail.claim": {
-        "input": _obj({"playerId": _s(), "mailId": _s()}, ["playerId", "mailId"]),
-        "output": MAIL_OBJECT,
+        "input": json.loads('''{"type":"object","properties":{"playerId":{"type":"string"},"id":{"type":"string"}},"required":["playerId","id"]}'''),
+        "output": json.loads('''{"type":"object","properties":{"id":{"type":"string"},"playerId":{"type":"string"},"title":{"type":"string"},"content":{"type":"string"},"status":{"type":"string"},"reward":{"type":"object"},"sentAt":{"type":"string","format":"date-time"},"updatedAt":{"type":"string","format":"date-time"},"expireAt":{"type":"string","format":"date-time"}}}'''),
     },
 }
-
-
 def enrich_descriptor(desc: FunctionDescriptor) -> FunctionDescriptor:
     if not desc.tags:
         desc.tags = [value for value in (desc.resource, desc.operation) if value]
@@ -770,20 +781,20 @@ def main() -> None:
         ("player.create", "player", "warning", "create", "create", "sync", None, make_player_create(store)),
         ("player.get", "player", "safe", "get", "item_query", "sync", None, make_player_get(store)),
         ("player.update", "player", "warning", "update", "update", "sync", None, make_player_update(store)),
-        ("player.delete", "player", "high", "delete", "delete", "sync", "gm.player.delete", make_player_delete(store)),
+        ("player.delete", "player", "danger", "delete", "delete", "sync", None, make_player_delete(store)),
         ("player.list", "player", "safe", "list", "collection_query", "sync", None, make_player_list(store)),
         ("order.create", "order", "warning", "create", "create", "sync", None, make_order_create(store)),
         ("order.get", "order", "safe", "get", "item_query", "sync", None, make_order_get(store)),
         ("order.update", "order", "warning", "update", "update", "sync", None, make_order_update(store)),
-        ("order.delete", "order", "high", "delete", "delete", "sync", "gm.order.delete", make_order_delete(store)),
+        ("order.delete", "order", "danger", "delete", "delete", "sync", None, make_order_delete(store)),
         ("order.list", "order", "safe", "list", "collection_query", "sync", None, make_order_list(store)),
         ("leaderboard.list", "leaderboard", "safe", "list", "collection_query", "sync", None, make_leaderboard_list(store)),
         ("leaderboard.upsert", "leaderboard", "warning", "upsert", "action", "sync", None, make_leaderboard_upsert(store)),
-        ("leaderboard.reset", "leaderboard", "high", "reset", "action", "sync", "gm.leaderboard.reset", make_leaderboard_reset(store)),
+        ("leaderboard.reset", "leaderboard", "danger", "reset", "action", "sync", None, make_leaderboard_reset(store)),
         ("inventory.list", "inventory", "safe", "list", "collection_query", "sync", None, make_inventory_list(store)),
         ("inventory.grant", "inventory", "warning", "grant", "action", "sync", None, make_inventory_grant(store)),
         ("inventory.consume", "inventory", "warning", "consume", "action", "sync", None, make_inventory_consume(store)),
-        ("mail.send", "mail", "warning", "send", "action", "task", None, make_mail_send(store)),
+        ("mail.send", "mail", "warning", "send", "action", "sync", None, make_mail_send(store)),
         ("mail.list", "mail", "safe", "list", "collection_query", "sync", None, make_mail_list(store)),
         ("mail.claim", "mail", "warning", "claim", "action", "sync", None, make_mail_claim(store)),
     ]
