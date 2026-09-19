@@ -3,12 +3,14 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 
 	consoleapi "github.com/cuihairu/croupier/internal/api/console"
 	openapiapi "github.com/cuihairu/croupier/internal/api/openapi"
+	pageapi "github.com/cuihairu/croupier/internal/api/page"
 	"github.com/cuihairu/croupier/internal/cache"
 	"github.com/cuihairu/croupier/internal/config"
 	"github.com/cuihairu/croupier/internal/dashboard/spec"
@@ -107,12 +109,14 @@ func TestDashboardRegistrationProposalPublishesToConsoleAndExecutes(t *testing.T
 	require.NoError(t, err)
 	require.Equal(t, "operation--player.ban", result.PageKey)
 
+	mountDashboardRegistrationPage(t, svcCtx, ctx, "demo-game", "development", "player", "operation--player.ban")
 	menu, err := consoleapi.NewService(svcCtx).Menu(ctx, &consoleapi.ConsoleMenuRequest{Language: "zh-CN"})
 	require.NoError(t, err)
-	require.Len(t, menu.Items, 1)
-	require.Equal(t, "player", menu.Items[0].Key)
-	require.Len(t, menu.Items[0].Children, 1)
-	require.Equal(t, "operation--player.ban", menu.Items[0].Children[0].Key)
+	// T-M10 默认种子导入 5 个分类骨架；页面只出现在显式挂载分类下（T-M4）。
+	require.Len(t, menu.Items, 5)
+	player := findConsoleMenuCategory(t, menu.Items, "player")
+	require.Len(t, player.Children, 1)
+	require.Equal(t, "operation--player.ban", player.Children[0].Key)
 
 	consoleSvc := consoleapi.NewService(svcCtx)
 	page, err := consoleSvc.Page(ctx, &consoleapi.ConsolePageRequest{PageKey: "operation--player.ban"})
@@ -185,12 +189,14 @@ func TestOpenAPIBindingProposalPublishesToConsoleAndExecutes(t *testing.T) {
 	require.Equal(t, "resource--players", publishResult.PageKey)
 
 	consoleSvc := consoleapi.NewService(svcCtx)
+	// 资源页挂进默认种子的 player 分类（menu_items 无 players 骨架）。
+	mountDashboardRegistrationPage(t, svcCtx, ctx, "demo-game", "development", "player", "resource--players")
 	menu, err := consoleSvc.Menu(ctx, &consoleapi.ConsoleMenuRequest{Language: "zh-CN"})
 	require.NoError(t, err)
-	require.Len(t, menu.Items, 1)
-	require.Equal(t, "players", menu.Items[0].Key)
-	require.Len(t, menu.Items[0].Children, 1)
-	require.Equal(t, "resource--players", menu.Items[0].Children[0].Key)
+	require.Len(t, menu.Items, 5)
+	player := findConsoleMenuCategory(t, menu.Items, "player")
+	require.Len(t, player.Children, 1)
+	require.Equal(t, "resource--players", player.Children[0].Key)
 
 	page, err := consoleSvc.Page(ctx, &consoleapi.ConsolePageRequest{PageKey: "resource--players"})
 	require.NoError(t, err)
@@ -218,6 +224,9 @@ func newDashboardRegistrationServiceContext(t *testing.T, db *gorm.DB, responseP
 	dispatcher := dispatch.NewDispatcher(store)
 	caller := &dashboardRegistrationSessionCaller{payload: responsePayload}
 	dispatcher.SetSessionResolver(dashboardRegistrationSessionResolver{caller: caller})
+	menuModel := model.NewMenuItemModel(db)
+	menuSeeds, seedErr := svc.LoadSeedMenus(filepath.Join("..", "..", "configs"))
+	require.NoError(t, seedErr)
 	return &svc.ServiceContext{
 		Config:                    config.Config{},
 		DB:                        db,
@@ -228,6 +237,8 @@ func newDashboardRegistrationServiceContext(t *testing.T, db *gorm.DB, responseP
 		PageSpecModel:             model.NewPageSpecModel(db),
 		PageVersionModel:          model.NewPageVersionModel(db),
 		PublishedPageSpecModel:    model.NewPublishedPageSpecModel(db),
+		MenuModel:                 menuModel,
+		MenuSeeder:                svc.NewMenuSeeder(menuModel, menuSeeds),
 		RegistryStore:             store,
 		OpenAPISourceModel:        model.NewOpenAPISourceModel(db),
 		OpenAPISourceBindingModel: model.NewOpenAPISourceBindingModel(db),
@@ -235,6 +246,44 @@ func newDashboardRegistrationServiceContext(t *testing.T, db *gorm.DB, responseP
 		Cache:                     nullCache,
 		CacheHelper:               cache.NewCacheHelper(nullCache),
 	}, store, caller
+}
+
+// mountDashboardRegistrationPage 复刻 T-M4 后的控制台菜单语义：
+// menu_items 树是唯一驱动，发布链不再自动挂载——先触发惰性种子拿到
+// 分类 ID，再经 SetPageMenu 显式挂载页面。
+func mountDashboardRegistrationPage(
+	t *testing.T,
+	svcCtx *svc.ServiceContext,
+	ctx context.Context,
+	gameID, env, menuKey, pageKey string,
+) {
+	t.Helper()
+	svcCtx.MenuSeeder.EnsureSeeded(ctx, gameID, env)
+	items, err := svcCtx.MenuModel.ListByScope(ctx, gameID, env)
+	require.NoError(t, err)
+	var targetID int64
+	for _, item := range items {
+		if item.MenuKey == menuKey {
+			targetID = int64(item.ID)
+		}
+	}
+	require.NotZero(t, targetID, "菜单分类 %s 不存在", menuKey)
+	_, err = pageapi.NewService(svcCtx).SetPageMenu(ctx, &pageapi.PageMenuUpdateRequest{
+		PageKey: pageKey,
+		MenuID:  &targetID,
+	})
+	require.NoError(t, err)
+}
+
+func findConsoleMenuCategory(t *testing.T, items []spec.ConsoleMenuItem, key string) spec.ConsoleMenuItem {
+	t.Helper()
+	for _, item := range items {
+		if item.Key == key {
+			return item
+		}
+	}
+	t.Fatalf("菜单分类 %s 不存在", key)
+	return spec.ConsoleMenuItem{}
 }
 
 func dashboardRegistrationOpenAPISpec(t *testing.T) json.RawMessage {
