@@ -56,6 +56,8 @@ export default {
   'pages.pageStudio.studio.editor.mountPlaceholder': 'Mount to menu (optional; clear to unmount)',
   'pages.pageStudio.studio.editor.mountNoMenus':
     'No menus yet; create one in Menu Management first',
+  'pages.pageStudio.studio.editor.mountMenusLoadFailed':
+    'Failed to load menu list; check permission or retry later',
   'pages.pageStudio.studio.editor.saveAndPublish': 'Save and publish',
   'pages.pageStudio.studio.editor.saveDraft': 'Save draft only',
   'pages.pageStudio.studio.editor.title': 'Edit page',

@@ -271,14 +271,23 @@ export default function PageStudio() {
   const [mountTarget, setMountTarget] = useState<PageSpecDraftSummary | null>(null);
   const [mountMenus, setMountMenus] = useState<MenuItem[]>([]);
   const [mountSaving, setMountSaving] = useState(false);
-  const handleMountMenu = useCallback(async (record: PageSpecDraftSummary) => {
-    setMountTarget(record);
-    try {
-      setMountMenus(await listMenus());
-    } catch {
-      setMountMenus([]);
-    }
-  }, []);
+  const handleMountMenu = useCallback(
+    async (record: PageSpecDraftSummary) => {
+      setMountTarget(record);
+      try {
+        setMountMenus(await listMenus());
+      } catch {
+        setMountMenus([]);
+        message.error(
+          intlRef.current.formatMessage({
+            id: 'pages.pageStudio.studio.editor.mountMenusLoadFailed',
+            defaultMessage: '菜单列表加载失败，请检查权限或稍后重试',
+          }),
+        );
+      }
+    },
+    [message],
+  );
   const handleMountSubmit = useCallback(
     async (pageKey: string, menuId: number | null) => {
       setMountSaving(true);
@@ -328,9 +337,17 @@ export default function PageStudio() {
       // 编辑器 footer 的挂载菜单选择需要当前 scope 菜单树
       listMenus()
         .then(setMountMenus)
-        .catch(() => setMountMenus([]));
+        .catch(() => {
+          setMountMenus([]);
+          message.error(
+            intlRef.current.formatMessage({
+              id: 'pages.pageStudio.studio.editor.mountMenusLoadFailed',
+              defaultMessage: '菜单列表加载失败，请检查权限或稍后重试',
+            }),
+          );
+        });
     },
-    [loadDraftDetail],
+    [loadDraftDetail, message],
   );
 
   useEffect(() => {

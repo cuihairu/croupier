@@ -238,7 +238,7 @@ func newDashboardRegistrationServiceContext(t *testing.T, db *gorm.DB, responseP
 		PageVersionModel:          model.NewPageVersionModel(db),
 		PublishedPageSpecModel:    model.NewPublishedPageSpecModel(db),
 		MenuModel:                 menuModel,
-		MenuSeeder:                svc.NewMenuSeeder(menuModel, menuSeeds),
+		MenuSeeder:                svc.NewMenuSeeder(menuModel, model.NewPlatformSettingModel(db), menuSeeds),
 		RegistryStore:             store,
 		OpenAPISourceModel:        model.NewOpenAPISourceModel(db),
 		OpenAPISourceBindingModel: model.NewOpenAPISourceBindingModel(db),

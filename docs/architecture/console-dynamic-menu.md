@@ -95,12 +95,13 @@ PageSpec 的 `category.key` 保留为页面侧元数据（页面工作台分组�
 
 ## 默认菜单种子（T-M10）
 
-菜单读路径（`GET /menus`、`GET /menus/accessible`，含控制台导航组装共用的 `menu.AccessibleTree`）在 scope 首次访问时触发惰性种子：该 `(gameId, env)` 无任何菜单 → 导入 bootstrap 目录（`bootstrapData.baseDir`，与 `admins.json` 同目录）`default-menus.json` 中的顶级菜单骨架。实现：`internal/svc/menu_seeder.go`（`MenuSeeder.EnsureSeeded`）。
+菜单读路径（`GET /menus`、`GET /menus/accessible`，含控制台导航组装共用的 `menu.AccessibleTree`）在 scope 首次访问时触发惰性种子，导入 bootstrap 目录（`bootstrapData.baseDir`，与 `admins.json` 同目录）`default-menus.json` 中的顶级菜单骨架。实现：`internal/svc/menu_seeder.go`（`MenuSeeder.EnsureSeeded`）。
 
 设计边界（有意行为）：
 
 - 文件存在且非空即启用，缺失/空数组即禁用（零配置开关）；任一条目非法（menuKey 不合规、labels 全空）整体禁用并 Error 日志，不留半套骨架。
-- 只在 scope 菜单表为空时导入，**永不更新/覆盖**用户数据；进程内每 scope 只尝试一次（成败均标记），重启后重新评估——用户删光全部菜单并重启会重新种一次，彻底禁用需删种子文件。
+- **空 scope → 全量种入**：永不更新/覆盖已存在的 key；用户删光全部菜单并重启会重新种一次，彻底禁用需删种子文件。
+- **非空 scope → 仅一次「按 menuKey 补缺」backfill**（`platform_settings` 持久标记 `menuSeedBackfill/<gameId>/<env>`，每 scope 只执行一次）：修复 T-M10 上线前已有数据的旧 scope 永远缺骨架的问题（旧行为「scope 非空即整体跳过」）。标记写于首次种子处理后（含空 scope 全量种入），因此用户删除过的默认分类重启后**不会被补回**；标记写失败仅退化为重启后再尝试一次（key 幂等不会重复创建）。
 - 种子是系统行为，不写用户审计（与 AdminManager 默认管理员同语义）。
 - 默认骨架（`configs/default-menus.json`）：玩家管理 / 运营 / 支付订单 / 公告 / 审计五个空组，仅是挂载位置骨架——三要素（菜单+已发布+挂载）不变，空组在控制台渲染为指向 `/console/<menuKey>` 的单链接。
 

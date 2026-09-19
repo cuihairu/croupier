@@ -73,29 +73,44 @@ func hasAnyLabel(labels map[string]string) bool {
 	return false
 }
 
-// MenuSeeder 在某 (gameId, env) scope 首次访问菜单读路径且该 scope 无任何
-// 菜单时，导入 default-menus.json 骨架（惰性种子）。
+// MenuSeeder 在 (gameId, env) scope 的菜单读路径惰性维护 default-menus.json
+// 骨架。
 //
 // 语义边界（有意设计，勿改）：
-//   - 只在 scope 菜单表为空时导入，永不覆盖/更新用户数据；
+//   - 空 scope → 全量种入；用户删光菜单后重启会再种一次（彻底禁用请删种子文件）；
+//   - 非空 scope → 仅执行一次「按 menuKey 补缺」（platform_settings 持久标记，
+//     每 scope 只 backfill 一次）：修复 T-M10 之前已存在数据的旧 scope 永远缺
+//     骨架的问题（2026-09 线上 dev 仅剩一条 player 的根因——旧行为「count>0
+//     即整体跳过」）。标记存在后不再补种，用户删除过的分类不会复活；
+//   - 已存在的 key 永不覆盖/更新用户数据；
 //   - 进程内每 scope 只尝试一次（成功、失败、冲突均标记），重启后重新评估；
-//   - 用户删光全部菜单后重启会重新种一次——彻底禁用请删种子文件；
 //   - 种子是系统行为（与 AdminManager 默认 admins 同语义），不写用户审计。
 type MenuSeeder struct {
-	model *model.MenuItemModel
-	seeds []SeedMenuItem
+	model    *model.MenuItemModel
+	settings *model.PlatformSettingModel
+	seeds    []SeedMenuItem
 
 	mu    sync.Mutex
 	tried map[string]struct{}
 }
 
 // NewMenuSeeder 构造 seeder；seeds 为 nil/空时 EnsureSeeded 恒为 no-op。
-func NewMenuSeeder(menuModel *model.MenuItemModel, seeds []SeedMenuItem) *MenuSeeder {
+// settings 为 nil 时禁用非空 scope 的补缺 backfill（保守：不改已有数据的 scope）。
+func NewMenuSeeder(menuModel *model.MenuItemModel, settingsModel *model.PlatformSettingModel, seeds []SeedMenuItem) *MenuSeeder {
 	return &MenuSeeder{
-		model: menuModel,
-		seeds: seeds,
-		tried: make(map[string]struct{}),
+		model:    menuModel,
+		settings: settingsModel,
+		seeds:    seeds,
+		tried:    make(map[string]struct{}),
 	}
+}
+
+// seedBackfillSettingKey 标记该 scope 的种子逻辑已至少处理过一次（空 scope
+// 全量种入与非空 scope 补缺共用），防止用户删除的种子分类在后续重启时被复活。
+const seedBackfillSettingPrefix = "menuSeedBackfill/"
+
+func seedBackfillSettingKey(gameID, env string) string {
+	return seedBackfillSettingPrefix + gameID + "/" + env
 }
 
 // Enabled 报告种子是否启用（文件存在且非空）。
@@ -119,18 +134,56 @@ func (s *MenuSeeder) EnsureSeeded(ctx context.Context, gameID, env string) {
 	// 无论后续成败都在退出前标记（失败不重试：文件错误重启才重评估）。
 	defer func() { s.tried[scope] = struct{}{} }()
 
-	count, err := s.model.CountByScope(ctx, gameID, env)
+	existing, err := s.model.ListByScope(ctx, gameID, env)
 	if err != nil {
-		slog.Default().Warn("menu seed: count scope failed", "gameId", gameID, "env", env, "error", err)
+		slog.Default().Warn("menu seed: list scope failed", "gameId", gameID, "env", env, "error", err)
 		return
 	}
-	if count > 0 {
-		// scope 已有菜单（用户数据或上次种子）：永不导入。
-		return
+	have := make(map[string]struct{}, len(existing))
+	for _, it := range existing {
+		have[it.MenuKey] = struct{}{}
+	}
+	var missing []SeedMenuItem
+	for _, seed := range s.seeds {
+		if _, ok := have[seed.MenuKey]; !ok {
+			missing = append(missing, seed)
+		}
 	}
 
+	emptyScope := len(existing) == 0
+	if !emptyScope {
+		if len(missing) == 0 {
+			return
+		}
+		if s.settings == nil {
+			return
+		}
+		_, found, err := s.settings.Get(ctx, seedBackfillSettingKey(gameID, env))
+		if err != nil {
+			slog.Default().Warn("menu seed: read backfill marker failed", "gameId", gameID, "env", env, "error", err)
+			return
+		}
+		if found {
+			return
+		}
+	}
+
+	created := s.seedItems(ctx, gameID, env, missing)
+	if emptyScope {
+		if created > 0 {
+			slog.Default().Info("menu seed: default menus imported", "gameId", gameID, "env", env, "created", created)
+		}
+	} else if created > 0 {
+		slog.Default().Info("menu seed: default menus backfilled", "gameId", gameID, "env", env, "created", created)
+	}
+	s.markSeedBackfilled(ctx, gameID, env)
+}
+
+// seedItems 创建给定种子集合中尚不存在的条目；撞唯一索引（并发/种子内重复
+// key）跳过该条继续。返回实际创建数。
+func (s *MenuSeeder) seedItems(ctx context.Context, gameID, env string, seeds []SeedMenuItem) int {
 	created := 0
-	for _, seed := range s.seeds {
+	for _, seed := range seeds {
 		item := &model.MenuItem{
 			GameID:     gameID,
 			Env:        env,
@@ -145,15 +198,24 @@ func (s *MenuSeeder) EnsureSeeded(ctx context.Context, gameID, env string) {
 			continue
 		}
 		if err := s.model.Create(ctx, item); err != nil {
-			// 并发首访撞唯一索引 / 残留半套种子：跳过该条继续，唯一索引
+			// 并发首访/种子内重复 key 撞唯一索引：跳过该条继续，唯一索引
 			// 保证不会重复。
 			slog.Default().Warn("menu seed: create skipped", "gameId", gameID, "env", env, "menuKey", seed.MenuKey, "error", err)
 			continue
 		}
 		created++
 	}
-	if created > 0 {
-		slog.Default().Info("menu seed: default menus imported", "gameId", gameID, "env", env, "created", created)
+	return created
+}
+
+// markSeedBackfilled 写持久标记（失败仅 Warn：标记失败的后果是重启后再
+// 尝试一次补缺，menuKey 幂等保证不会重复创建）。
+func (s *MenuSeeder) markSeedBackfilled(ctx context.Context, gameID, env string) {
+	if s.settings == nil {
+		return
+	}
+	if err := s.settings.Set(ctx, seedBackfillSettingKey(gameID, env), json.RawMessage(`true`), "system"); err != nil {
+		slog.Default().Warn("menu seed: write backfill marker failed", "gameId", gameID, "env", env, "error", err)
 	}
 }
 

@@ -50,6 +50,7 @@ export default {
   'pages.pageStudio.studio.editor.previewOn': '预览开',
   'pages.pageStudio.studio.editor.mountPlaceholder': '挂载到菜单（可选，清空解除）',
   'pages.pageStudio.studio.editor.mountNoMenus': '暂无菜单，可先在「菜单管理」创建',
+  'pages.pageStudio.studio.editor.mountMenusLoadFailed': '菜单列表加载失败，请检查权限或稍后重试',
   'pages.pageStudio.studio.editor.saveAndPublish': '保存并发布',
   'pages.pageStudio.studio.editor.saveDraft': '仅保存草稿',
   'pages.pageStudio.studio.editor.title': '页面编辑',

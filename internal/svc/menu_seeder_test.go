@@ -79,7 +79,7 @@ func TestMenuSeederEnsureSeeded(t *testing.T) {
 		db := setupTestDB(t)
 		require.NoError(t, autoMigrate(db))
 		mm := model.NewMenuItemModel(db)
-		return NewMenuSeeder(mm, seeds), mm, db
+		return NewMenuSeeder(mm, model.NewPlatformSettingModel(db), seeds), mm, db
 	}
 
 	seeds := []SeedMenuItem{
@@ -116,7 +116,7 @@ func TestMenuSeederEnsureSeeded(t *testing.T) {
 		assert.EqualValues(t, 2, count)
 	})
 
-	t.Run("scope 已有菜单 → 永不导入", func(t *testing.T) {
+	t.Run("scope 已有其它菜单 → 补缺种子且保留用户数据", func(t *testing.T) {
 		seeder, mm, _ := newSeeder(t, seeds)
 		// 用户先建了一条菜单
 		existing := &model.MenuItem{GameID: "g2", Env: "prod", MenuKey: "custom", IsVisible: true}
@@ -126,8 +126,14 @@ func TestMenuSeederEnsureSeeded(t *testing.T) {
 		seeder.EnsureSeeded(ctx, "g2", "prod")
 		items, err := mm.ListByScope(ctx, "g2", "prod")
 		require.NoError(t, err)
-		require.Len(t, items, 1)
-		assert.Equal(t, "custom", items[0].MenuKey)
+		require.Len(t, items, 3)
+		keys := map[string]bool{}
+		for _, it := range items {
+			keys[it.MenuKey] = true
+		}
+		assert.True(t, keys["custom"])
+		assert.True(t, keys["player"])
+		assert.True(t, keys["operation"])
 	})
 
 	t.Run("scope 相互独立", func(t *testing.T) {
@@ -147,8 +153,8 @@ func TestMenuSeederEnsureSeeded(t *testing.T) {
 		seeder.EnsureSeeded(ctx, "g1", "dev") // 不得 panic
 	})
 
-	t.Run("半套残留不再补种", func(t *testing.T) {
-		// 上次种子中断只落了 1 条：count>0 → 本进程不再导入。
+	t.Run("半套残留 → 只补缺失 key", func(t *testing.T) {
+		// 上次种子中断只落了 1 条：新语义按 key 补齐缺的 operation。
 		seeder, mm, _ := newSeeder(t, seeds)
 		partial := &model.MenuItem{GameID: "g3", Env: "dev", MenuKey: "player", IsVisible: true}
 		require.NoError(t, partial.SetLabels(map[string]string{"zh-CN": "玩家管理"}))
@@ -157,7 +163,23 @@ func TestMenuSeederEnsureSeeded(t *testing.T) {
 		seeder.EnsureSeeded(ctx, "g3", "dev")
 		count, err := mm.CountByScope(ctx, "g3", "dev")
 		require.NoError(t, err)
-		assert.EqualValues(t, 1, count)
+		assert.EqualValues(t, 2, count)
+	})
+
+	t.Run("backfill 标记后用户删除的种子分类不复活", func(t *testing.T) {
+		// 空 scope 全量种入 → 用户删掉 operation → 模拟重启（新 seeder 实例）
+		// → 再访问：operation 不得被补回（持久标记已存在）。
+		seeder, mm, db := newSeeder(t, seeds)
+		seeder.EnsureSeeded(ctx, "g6", "dev")
+		op, err := mm.FindByScopeAndKey(ctx, "g6", "dev", "operation")
+		require.NoError(t, err)
+		require.NoError(t, mm.Delete(ctx, "g6", "dev", op.ID))
+
+		restarted := NewMenuSeeder(mm, model.NewPlatformSettingModel(db), seeds)
+		restarted.EnsureSeeded(ctx, "g6", "dev")
+		count, err := mm.CountByScope(ctx, "g6", "dev")
+		require.NoError(t, err)
+		assert.EqualValues(t, 1, count) // 仅剩 player
 	})
 
 	t.Run("种子文件是目录（读取失败）→ 报错禁用", func(t *testing.T) {
@@ -181,7 +203,7 @@ func TestMenuSeederEnsureSeeded(t *testing.T) {
 		assert.Equal(t, "玩家管理", items[0].GetLabels()["zh-CN"])
 	})
 
-	t.Run("count 查询失败 → Warn 跳过不导入不 panic", func(t *testing.T) {
+	t.Run("list 查询失败 → Warn 跳过不导入不 panic", func(t *testing.T) {
 		seeder, _, db := newSeeder(t, seeds)
 		sqlDB, err := db.DB()
 		require.NoError(t, err)

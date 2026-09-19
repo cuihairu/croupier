@@ -403,7 +403,7 @@ func NewServiceContext(c config.Config, opts ...Option) *ServiceContext {
 		OpenAPISourceModel:        openAPISourceModel,
 		OpenAPISourceBindingModel: openAPISourceBindingModel,
 		MenuModel:                 menuModel,
-		MenuSeeder:                NewMenuSeeder(menuModel, menuSeeds),
+		MenuSeeder:                NewMenuSeeder(menuModel, platformSettingModel, menuSeeds),
 		AgentSessionModel:         agentSessionModel,
 
 		// 版本信息（从 version.go 读取，ldflags 注入后会更新）
