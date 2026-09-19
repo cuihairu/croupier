@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { Alert, App, Button, Input, Modal, Space, Tag, Typography } from 'antd';
+import { Alert, App, Button, Modal, Space, Tag, Tooltip, Typography } from 'antd';
 import { FormattedMessage, useIntl } from '@umijs/max';
 import validator from '@rjsf/validator-ajv8';
 import type { RJSFSchema } from '@rjsf/utils';
 import { getFunctionDetail, invokeFunction, type FunctionInstance } from '@/services/api';
+import JsonCodeEditor from '@/components/JsonCodeEditor';
 import { deriveSchemaDefaults } from '@/utils/json';
 import type { JSONValue } from '@/types/dashboard';
 import { resolveDescriptorSchema } from './shared';
@@ -166,16 +167,26 @@ export default function DebugModal({
         defaultMessage="参数预览"
       />
     </Button>,
-    <Button
-      key="execute"
-      type="primary"
-      danger
-      onClick={() => executeDebug(false)}
-      disabled={!instance?.serviceId?.trim()}
-      loading={debugLoading}
+    <Tooltip
+      title={intl.formatMessage({
+        id: 'pages.functionsInstances.debug.button.executeHint',
+        defaultMessage:
+          '定向执行需要该函数实例具备 Service ID；缺失时点击会给出原因，参数预览仍可用',
+      })}
     >
-      <FormattedMessage id="pages.functionsInstances.debug.button.execute" defaultMessage="执行" />
-    </Button>,
+      <Button
+        key="execute"
+        type="primary"
+        danger
+        onClick={() => executeDebug(false)}
+        loading={debugLoading}
+      >
+        <FormattedMessage
+          id="pages.functionsInstances.debug.button.execute"
+          defaultMessage="执行"
+        />
+      </Button>
+    </Tooltip>,
   ];
 
   return (
@@ -233,13 +244,9 @@ export default function DebugModal({
               defaultMessage="请求参数 (JSON):"
             />
           </Text>
-          <Input.TextArea
-            style={{ marginTop: 8, fontFamily: 'monospace' }}
-            rows={10}
-            value={debugPayload}
-            onChange={(e) => setDebugPayload(e.target.value)}
-            placeholder='{\n  "param1": "value1"\n}'
-          />
+          <div style={{ marginTop: 8 }}>
+            <JsonCodeEditor value={debugPayload} onChange={setDebugPayload} height={260} />
+          </div>
         </div>
 
         {debugResult && (

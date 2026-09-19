@@ -148,6 +148,25 @@ describe('parseInputSchema', () => {
 });
 
 describe('deriveSchemaDefaults', () => {
+  it('array 按 items 派生一件示例元素（对象展开字段骨架、基元给占位值）', () => {
+    expect(
+      deriveSchemaDefaults({
+        type: 'object',
+        properties: {
+          items: {
+            type: 'array',
+            items: {
+              type: 'object',
+              properties: { id: { type: 'string' }, n: { type: 'integer', minimum: 1 } },
+            },
+          },
+          tags: { type: 'array', items: { type: 'string' } },
+          free: { type: 'array' },
+        },
+      }),
+    ).toEqual({ items: [{ id: '', n: 1 }], tags: [''], free: [] });
+  });
+
   it('schema 缺失或非 object 类型返回空对象', () => {
     expect(deriveSchemaDefaults(undefined)).toEqual({});
     expect(deriveSchemaDefaults(null)).toEqual({});

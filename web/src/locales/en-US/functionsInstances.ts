@@ -24,6 +24,8 @@ export default {
     'This instance has no Service ID, so real execution is disabled; parameter preview is still available for checking the JSON against the schema.',
   'pages.functionsInstances.debug.alert.message': 'Debug requests will execute for real',
   'pages.functionsInstances.debug.button.cancel': 'Cancel',
+  'pages.functionsInstances.debug.button.executeHint':
+    'Targeted execution requires a Service ID on this instance; clicking without one explains why. Parameter preview stays available.',
   'pages.functionsInstances.debug.button.execute': 'Execute',
   'pages.functionsInstances.debug.button.preview': 'Preview Params',
   'pages.functionsInstances.debug.error.executeFailed': 'Debug execution failed',

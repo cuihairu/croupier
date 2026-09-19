@@ -2,6 +2,7 @@ import { Alert, Button, Card, Tabs, Tooltip } from 'antd';
 import { FormattedMessage, useIntl } from '@umijs/max';
 import SchemaFormRenderer, { type SchemaFormRendererHandle } from '@/components/SchemaFormRenderer';
 import { CodeEditor } from '@/components/MonacoDynamic';
+import { defineSublimeTheme } from '@/components/JsonCodeEditor';
 import type { FormValues } from '@/types/dashboard';
 import type { FormSchemaState } from './types';
 
@@ -57,7 +58,8 @@ export default function RequestBodyEditor(props: RequestBodyEditorProps) {
                 value={props.rawJson}
                 onChange={props.onRawJsonChange}
                 language="json"
-                theme="vs-dark"
+                theme="croupier-sublime"
+                beforeMount={defineSublimeTheme}
                 height={420}
                 options={{
                   lineNumbers: 'on',

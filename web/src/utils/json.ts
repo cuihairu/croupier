@@ -194,8 +194,12 @@ function deriveFieldDefault(field: JSONSchemaType): JSONSchemaValue | undefined 
       return typeof field.minimum === 'number' ? field.minimum : 0;
     case 'boolean':
       return false;
-    case 'array':
-      return [];
+    case 'array': {
+      // 数组也派生一件示例元素（含 items 对象的全部字段骨架），避免留下
+      // 无法照抄的空 [] 让用户猜结构（2026-09 反馈：参数没有按 schema 填好）。
+      const itemDefault = field.items ? deriveFieldDefault(field.items) : undefined;
+      return itemDefault === undefined ? [] : [itemDefault];
+    }
     case 'object':
       return deriveSchemaDefaults(field);
     default:

@@ -3,6 +3,8 @@ import { PageContainer, ProTable } from '@ant-design/pro-components';
 import { App, Alert, Button, Input, Select, Space } from 'antd';
 import { ReloadOutlined } from '@ant-design/icons';
 import { getFunctionInstances, type FunctionInstance } from '@/services/api';
+import { listDescriptors, type FunctionDescriptor } from '@/services/api/functions';
+import { localizedText } from '@/utils/localizedText';
 import { StandardFilterBar, StandardListSection, SummaryOverview } from '@/components';
 import { FormattedMessage, useIntl } from '@umijs/max';
 import { buildInstanceColumns } from './columns';
@@ -29,6 +31,7 @@ export default () => {
   const [logsOpen, setLogsOpen] = useState(false);
   const [debugOpen, setDebugOpen] = useState(false);
   const [selectedInstance, setSelectedInstance] = useState<FunctionInstance | null>(null);
+  const [descriptorMeta, setDescriptorMeta] = useState<Record<string, FunctionDescriptor>>({});
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -144,12 +147,41 @@ export default () => {
     }));
   }, [instances]);
 
+  // 函数下拉的说明来自契约 descriptor（summary/description + 契约版本）
+  useEffect(() => {
+    let cancelled = false;
+    listDescriptors()
+      .then((list) => {
+        if (cancelled) return;
+        const map: Record<string, FunctionDescriptor> = {};
+        for (const d of list) {
+          if (d?.id) map[d.id] = d;
+        }
+        setDescriptorMeta(map);
+      })
+      .catch(() => {
+        /* 说明缺失不阻断过滤功能 */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const functionOptions = useMemo(() => {
     return [...new Set(instances.map((instance) => instance.functionId))]
       .filter(Boolean)
       .sort()
-      .map((funcId) => ({ label: funcId, value: funcId }));
-  }, [instances]);
+      .map((funcId) => {
+        const d = descriptorMeta[funcId];
+        const summary = d ? localizedText(d.summary ?? d.description, intl.locale, '') : '';
+        return {
+          label: funcId,
+          value: funcId,
+          summary,
+          contractVersion: d?.version ?? '',
+        };
+      });
+  }, [instances, descriptorMeta, intl.locale]);
 
   const gameOptions = useMemo(() => {
     return [...new Set(instances.map((instance) => instance.gameId).filter(Boolean))]
@@ -502,6 +534,50 @@ export default () => {
                   value={functionFilter || undefined}
                   onChange={(value) => setFunctionFilter(value || '')}
                   options={functionOptions}
+                  optionFilterProp="value"
+                  filterOption={(input, option) => {
+                    const q = input.trim().toLowerCase();
+                    if (!q) return true;
+                    const o = option as { value?: string; summary?: string };
+                    return (
+                      String(o.value ?? '')
+                        .toLowerCase()
+                        .includes(q) ||
+                      String(o.summary ?? '')
+                        .toLowerCase()
+                        .includes(q)
+                    );
+                  }}
+                  optionRender={(option) => {
+                    const o = option.data as { summary?: string; contractVersion?: string };
+                    return (
+                      <div style={{ lineHeight: 1.4 }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
+                          <span style={{ fontFamily: 'monospace' }}>{option.label}</span>
+                          {o.contractVersion ? (
+                            <span style={{ color: 'rgba(0,0,0,0.45)', fontSize: 12 }}>
+                              v{o.contractVersion}
+                            </span>
+                          ) : null}
+                        </div>
+                        {o.summary ? (
+                          <div
+                            style={{
+                              color: 'rgba(0,0,0,0.55)',
+                              fontSize: 12,
+                              whiteSpace: 'nowrap',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              maxWidth: 300,
+                            }}
+                          >
+                            {o.summary}
+                          </div>
+                        ) : null}
+                      </div>
+                    );
+                  }}
+                  popupMatchSelectWidth={340}
                 />
                 {hasFilters ? (
                   <Button

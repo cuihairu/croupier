@@ -23,6 +23,8 @@ export default {
     '当前实例没有 Service ID，已禁用真实执行；参数预览仍可用于检查 JSON 和 Schema。',
   'pages.functionsInstances.debug.alert.message': '调试请求将真实执行',
   'pages.functionsInstances.debug.button.cancel': '取消',
+  'pages.functionsInstances.debug.button.executeHint':
+    '定向执行需要该函数实例具备 Service ID；缺失时点击会给出原因，参数预览仍可用',
   'pages.functionsInstances.debug.button.execute': '执行',
   'pages.functionsInstances.debug.button.preview': '参数预览',
   'pages.functionsInstances.debug.error.executeFailed': '调试执行失败',
