@@ -278,7 +278,14 @@ jest.mock('../InvocationResponse', () => ({
 }));
 
 jest.mock('../approvalPolling', () => {
-  type Update = { status: 'approved' | 'rejected' | 'expired'; reason?: string };
+  type Update = {
+    status: 'approved' | 'rejected' | 'expired';
+    reason?: string;
+    continuation?: boolean;
+    resultKind?: 'sync' | 'task';
+    taskId?: string;
+    result?: unknown;
+  };
   type Fetcher = (id: string) => Promise<{ status: string; reason?: string }>;
   const captured: {
     approvalId: string;
@@ -324,7 +331,14 @@ const mockedGetLocale = jest.mocked(getLocale);
 type LocationLike = ReturnType<typeof useLocation>;
 const asLocation = (search: string): LocationLike => ({ search }) as unknown as LocationLike;
 
-type ApprovalUpdate = { status: 'approved' | 'rejected' | 'expired'; reason?: string };
+type ApprovalUpdate = {
+  status: 'approved' | 'rejected' | 'expired';
+  reason?: string;
+  continuation?: boolean;
+  resultKind?: 'sync' | 'task';
+  taskId?: string;
+  result?: unknown;
+};
 const pollingMock = jest.requireMock('../approvalPolling') as unknown as {
   startApprovalPolling: jest.Mock;
   __captured: {
@@ -1003,25 +1017,29 @@ describe('函数调用工作台：审批流', () => {
     await waitFor(() => expect(screen.getByTestId('rh-count')).toHaveTextContent('0'));
   });
 
-  it('轮询 fetcher：包装 queryApprovalStatus 返回 {status, reason}', async () => {
+  it('轮询 fetcher：透传 queryApprovalStatus 完整结果（含续跑字段，不再裁剪）', async () => {
     mockedInvoke.mockResolvedValueOnce({ approvalRequired: true, approvalId: 'ap-4' });
     mountPage('?fid=fn.echo');
     await waitForFormReady();
     clickSend();
     await waitFor(() => expect(pollingMock.__captured.fetcher).not.toBeNull());
-    mockedQueryApproval.mockResolvedValueOnce({
-      status: 'rejected',
-      reason: '超时',
-    } as unknown as Awaited<ReturnType<typeof queryApprovalStatus>>);
-    let mapped: { status: string; reason?: string } | undefined;
+    const detail = {
+      approvalId: 'ap-4',
+      status: 'approved',
+      continuation: true,
+      resultKind: 'sync',
+      result: { ok: 7 },
+    } as unknown as Awaited<ReturnType<typeof queryApprovalStatus>>;
+    mockedQueryApproval.mockResolvedValueOnce(detail);
+    let mapped: unknown;
     await act(async () => {
       mapped = await pollingMock.__captured.fetcher?.('ap-4');
     });
     expect(mockedQueryApproval).toHaveBeenCalledWith('ap-4');
-    expect(mapped).toEqual({ status: 'rejected', reason: '超时' });
+    expect(mapped).toEqual(detail);
   });
 
-  it('approved：成功提示 + 重新调用按钮再次执行 + 轮询退订', async () => {
+  it('approved 未自动续跑：提示可重新发起 + 保留重新调用按钮（此时无副作用发生，重放安全）', async () => {
     mockedInvoke
       .mockResolvedValueOnce({ approvalRequired: true, approvalId: 'ap-2' })
       .mockResolvedValueOnce({ result: { ok: 1 } });
@@ -1031,7 +1049,9 @@ describe('函数调用工作台：审批流', () => {
     clickSend();
     const onUpdate = await waitForPollingUpdate();
     act(() => onUpdate({ status: 'approved' }));
-    await waitFor(() => expect(screen.getByText('审批已通过：可重新发起调用')).toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.getByText('审批已通过：未自动续跑，可重新发起调用')).toBeInTheDocument(),
+    );
     expect(document.querySelector('.ant-alert-success')).not.toBeNull();
     expect(pollingMock.__unsubscribe).toHaveBeenCalled();
 
@@ -1039,6 +1059,48 @@ describe('函数调用工作台：审批流', () => {
     await waitFor(() => expect(mockedInvoke).toHaveBeenCalledTimes(2));
     await waitFor(() => expect(spies.success).toHaveBeenCalledWith('调用成功'));
     await waitFor(() => expect(screen.queryByText(/审批已通过/)).toBeNull());
+  });
+
+  it('approved + continuation(sync)：直接展示续跑结果，不出现重新调用按钮（防二次副作用）', async () => {
+    mockedInvoke.mockResolvedValueOnce({ approvalRequired: true, approvalId: 'ap-c1' });
+    mountPage('?fid=fn.echo');
+    await waitForFormReady();
+    clickSend();
+    const onUpdate = await waitForPollingUpdate();
+    act(() =>
+      onUpdate({
+        status: 'approved',
+        continuation: true,
+        resultKind: 'sync',
+        result: { banId: 'b-1' },
+      }),
+    );
+    await waitFor(() =>
+      expect(screen.getByText('审批已通过：服务端已按原请求自动续跑执行')).toBeInTheDocument(),
+    );
+    expect(screen.queryByText('审批已通过：未自动续跑，可重新发起调用')).toBeNull();
+    expect(screen.queryByRole('button', { name: /重新调用/ })).toBeNull();
+    expect(screen.getByTestId('ir-response-raw')).toHaveTextContent('banId');
+  });
+
+  it('approved + continuation(task)：任务面板接管续跑任务，不出现重新调用按钮', async () => {
+    mockedInvoke.mockResolvedValueOnce({ approvalRequired: true, approvalId: 'ap-c2' });
+    mountPage('?fid=fn.echo');
+    await waitForFormReady();
+    clickSend();
+    expect(screen.queryByTestId('task-progress')).toBeNull();
+    const onUpdate = await waitForPollingUpdate();
+    act(() =>
+      onUpdate({
+        status: 'approved',
+        continuation: true,
+        resultKind: 'task',
+        taskId: 't-cont',
+      }),
+    );
+    await waitFor(() => expect(screen.getByTestId('task-progress')).toBeInTheDocument());
+    expect(screen.getByTestId('tp-task-id')).toHaveTextContent('t-cont');
+    expect(screen.queryByRole('button', { name: /重新调用/ })).toBeNull();
   });
 
   it('rejected（含/不含原因）与 expired 文案与告警类型', async () => {

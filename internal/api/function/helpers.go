@@ -13,6 +13,8 @@ import (
 	"github.com/cuihairu/croupier/internal/audit"
 	"github.com/cuihairu/croupier/internal/cluster"
 	"github.com/cuihairu/croupier/internal/common/errorx"
+	"github.com/cuihairu/croupier/internal/dashboard/spec"
+	"github.com/cuihairu/croupier/internal/dbenum"
 	logicfunction "github.com/cuihairu/croupier/internal/logic/function"
 	"github.com/cuihairu/croupier/internal/logic/utils"
 	"github.com/cuihairu/croupier/internal/model"
@@ -311,7 +313,7 @@ func functionInvoke(ctx context.Context, svcCtx *svc.ServiceContext, req *Functi
 	// Apply function policy checks
 	if svcCtx.PolicyManager != nil && !approvedContinuation && !pageSnapshotGoverned {
 		roleNames := utils.RoleNamesFromModels(roles)
-		functionPolicy, err = enforceFunctionPolicy(ctx, svcCtx, req.ID, roleNames)
+		functionPolicy, err = enforceFunctionPolicy(ctx, svcCtx, req.ID, strings.TrimSpace(req.GameID), strings.TrimSpace(req.Env), roleNames)
 		if err != nil {
 			spanErr = err
 			return nil, err
@@ -1432,19 +1434,64 @@ func rawJSONFromBytes(value []byte) json.RawMessage {
 	return json.RawMessage(encoded)
 }
 
-// enforceFunctionPolicy checks if the user's roles are allowed to invoke the function
-// based on the effective policy for that function.
-// Returns the effective policy for auditing purposes.
-func enforceFunctionPolicy(ctx context.Context, svcCtx *svc.ServiceContext, functionID string, userRoles []string) (*policy.Policy, error) {
-	// Get function's risk level from registry
-	riskLevel := policy.RiskMedium // default
+// policyRiskFromContract maps a contract risk word (safe/warning/high/danger)
+// into the policy engine's risk vocabulary (low/medium/high/danger). The two
+// vocabularies intentionally differ; this is the single seam. Unknown/empty
+// values fall back to medium, preserving the historical default.
+func policyRiskFromContract(risk string) policy.RiskLevel {
+	switch strings.ToLower(strings.TrimSpace(risk)) {
+	case string(spec.RiskSafe):
+		return policy.RiskLow
+	case string(spec.RiskWarning):
+		return policy.RiskMedium
+	case string(spec.RiskHigh):
+		return policy.RiskHigh
+	case string(spec.RiskDanger):
+		return policy.RiskDanger
+	default:
+		return policy.RiskMedium
+	}
+}
+
+// resolvePolicyRisk 解析函数治理风险，优先级：
+//  1. 内存 openapiOperations 的 x-risk（converter 写入的键是 x-risk，此前误读
+//     x-risk-level 永不命中）——本次启动内的显式声明，含 safe。
+//  2. 契约行的非 safe risk——契约行是 OpenAPI 上传（x-risk）与注册物化的汇聚点，
+//     重启后仍可解析；但 risk 列零值即 safe，无法区分「声明 safe」与「未声明」，
+//     故契约行的 safe 不采信，未声明函数保守维持 medium（治理只会收紧不会放松）。
+//  3. 皆无 → medium（历史默认）。
+//
+// 服务端治理覆盖入口是 PolicyManager 的 per-function DB override（SetOverride），
+// GetPolicy 优先命中 override，本函数只影响无 override 时的默认档位选择。
+func resolvePolicyRisk(ctx context.Context, svcCtx *svc.ServiceContext, functionID, gameID, env string) policy.RiskLevel {
 	if svcCtx.RegistryStore != nil {
-		if op, err := svcCtx.RegistryStore.GetOpenAPI(functionID); err == nil {
-			if riskVal, ok := op.Extensions["x-risk-level"].(string); ok {
-				riskLevel = policy.RiskLevel(riskVal)
+		if op, err := svcCtx.RegistryStore.GetOpenAPI(functionID); err == nil && op != nil {
+			if riskVal, ok := op.Extensions["x-risk"].(string); ok && strings.TrimSpace(riskVal) != "" {
+				return policyRiskFromContract(riskVal)
 			}
 		}
 	}
+	if svcCtx.DB != nil {
+		gameID, env = strings.TrimSpace(gameID), strings.TrimSpace(env)
+		if gameID != "" && env != "" {
+			contract, err := model.NewFunctionContractModel(svcCtx.DB).
+				FindByScopeAndFunctionID(ctx, gameID, env, strings.TrimSpace(functionID))
+			if err == nil && contract != nil {
+				switch contract.Risk {
+				case dbenum.RiskWarning, dbenum.RiskHigh, dbenum.RiskDanger:
+					return policyRiskFromContract(contract.Risk.String())
+				}
+			}
+		}
+	}
+	return policy.RiskMedium
+}
+
+// enforceFunctionPolicy checks if the user's roles are allowed to invoke the function
+// based on the effective policy for that function.
+// Returns the effective policy for auditing purposes.
+func enforceFunctionPolicy(ctx context.Context, svcCtx *svc.ServiceContext, functionID, gameID, env string, userRoles []string) (*policy.Policy, error) {
+	riskLevel := resolvePolicyRisk(ctx, svcCtx, functionID, gameID, env)
 
 	// Get effective policy (for approval/audit settings)
 	functionPolicy, err := svcCtx.PolicyManager.GetPolicy(ctx, functionID, riskLevel)

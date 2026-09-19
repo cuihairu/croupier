@@ -60,3 +60,24 @@ func TestFunctionSpecFromContract_Diagnostics(t *testing.T) {
 		t.Fatalf("expected nil for empty diagnostics, got %+v", diags)
 	}
 }
+
+// timeoutMs 漏投影回归：FunctionContract.TimeoutMs（0016 列）必须进入
+// FunctionSpec，否则 descriptors API 的 timeoutMs 恒空、UI 不可见。
+func TestFunctionSpecFromContract_TimeoutMs(t *testing.T) {
+	contract := &model.FunctionContract{
+		GameID:     "game-1",
+		Env:        "prod",
+		FunctionID: "player.ban",
+		Version:    "1.0.0",
+		TimeoutMs:  30000,
+	}
+	fnSpec := FunctionSpecFromContract(contract)
+	if fnSpec.TimeoutMs != 30000 {
+		t.Fatalf("expected TimeoutMs 30000, got %d", fnSpec.TimeoutMs)
+	}
+
+	contract.TimeoutMs = 0
+	if got := FunctionSpecFromContract(contract).TimeoutMs; got != 0 {
+		t.Fatalf("undeclared timeout must project 0, got %d", got)
+	}
+}

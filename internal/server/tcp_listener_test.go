@@ -7,14 +7,17 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/pem"
+	"errors"
 	"log/slog"
 	"math/big"
 	"net"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
+	"github.com/cuihairu/croupier/internal/dashboard/spec"
 	"github.com/cuihairu/croupier/internal/platform/registry"
 	agentv1 "github.com/cuihairu/croupier/pkg/pb/croupier/agent/v1"
 	"github.com/cuihairu/croupier/pkg/protocol"
@@ -770,6 +773,91 @@ func TestAgentSessionHandler_HandleRegister(t *testing.T) {
 		assert.NoError(t, err)
 		assert.NotEmpty(t, registerResp.SessionId)
 		assert.True(t, registerResp.ExpireAt > 0)
+	})
+}
+
+// failingMaterializerForRegisterTest 契约物化恒失败，用于验证注册错误
+// 可见性链路（registration_materialize_failed 必须经 warnings 回传）。
+type failingMaterializerForRegisterTest struct{}
+
+func (failingMaterializerForRegisterTest) RebuildContractFromFunctionMeta(context.Context, string, string, string, spec.FunctionContractInput) error {
+	return errors.New("contract rebuild boom")
+}
+func (failingMaterializerForRegisterTest) RemoveFunctionContract(context.Context, string, string, string) (string, error) {
+	return "", nil
+}
+func (failingMaterializerForRegisterTest) RebuildResourceCapability(context.Context, string, string, string) error {
+	return nil
+}
+func (failingMaterializerForRegisterTest) RebuildProposalsForResource(context.Context, string, string, string) error {
+	return nil
+}
+func (failingMaterializerForRegisterTest) RebuildProposalForFunction(context.Context, string, string, string) error {
+	return nil
+}
+func (failingMaterializerForRegisterTest) RegenerateContractTemplates(context.Context, string, string) error {
+	return nil
+}
+
+func TestAgentSessionHandler_HandleRegisterErrorVisibility(t *testing.T) {
+	t.Run("materialize failure surfaces via warnings", func(t *testing.T) {
+		listener, err := NewTCPListener(&TCPListenerConfig{Address: ":0", Insecure: true}, nil, nil, nil)
+		require.NoError(t, err)
+		defer func() { _ = listener.Close() }()
+
+		store := registry.NewStore()
+		store.SetContractService(failingMaterializerForRegisterTest{})
+		svc := NewControlService(store, nil)
+		svc.SetLogger(slog.Default())
+		listener.SetHandler(svc)
+
+		handler := &agentSessionHandler{listener: listener}
+		req := &agentv1.RegisterRequest{
+			AgentId: "agent-1", GameId: "game-1", Env: "dev", Version: "1.0.0",
+			Functions: []*agentv1.FunctionDescriptor{{
+				Id:      "game.ban",
+				Version: "1.0.0",
+			}},
+		}
+		data, _ := proto.Marshal(req)
+
+		// 保持「回成功」语义（避免 agent 重连风暴），但失败必须可见
+		respBytes, err := handler.handleRegister(context.Background(), data)
+		require.NoError(t, err)
+		resp := &agentv1.RegisterResponse{}
+		require.NoError(t, proto.Unmarshal(respBytes, resp))
+		found := false
+		for _, w := range resp.GetWarnings() {
+			if strings.HasPrefix(w, "registration_materialize_failed:") {
+				found = true
+				break
+			}
+		}
+		assert.True(t, found, "materialize failure must surface via warnings: %v", resp.GetWarnings())
+	})
+
+	t.Run("validation warnings pass through", func(t *testing.T) {
+		listener, err := NewTCPListener(&TCPListenerConfig{Address: ":0", Insecure: true}, nil, nil, nil)
+		require.NoError(t, err)
+		defer func() { _ = listener.Close() }()
+
+		listener.SetHandler(newTestControlService())
+
+		handler := &agentSessionHandler{listener: listener}
+		req := &agentv1.RegisterRequest{
+			AgentId: "agent-2", GameId: "game-1", Env: "dev", Version: "1.0.0",
+			Functions: []*agentv1.FunctionDescriptor{{
+				Id:      "game.ban",
+				Version: "not-semver",
+			}},
+		}
+		data, _ := proto.Marshal(req)
+
+		respBytes, err := handler.handleRegister(context.Background(), data)
+		require.NoError(t, err)
+		resp := &agentv1.RegisterResponse{}
+		require.NoError(t, proto.Unmarshal(respBytes, resp))
+		assert.Contains(t, strings.Join(resp.GetWarnings(), "\n"), "invalid semver")
 	})
 }
 

@@ -1,7 +1,8 @@
 // pages.functionsInvoke.* — Functions/Invoke 函数调用页
 export default {
   'pages.functionsInvoke.alert.selectFirst': '请选择一个已注册函数后再发送请求',
-  'pages.functionsInvoke.approval.statusApproved': '审批已通过：可重新发起调用',
+  'pages.functionsInvoke.approval.statusApproved': '审批已通过：未自动续跑，可重新发起调用',
+  'pages.functionsInvoke.approval.statusApprovedAuto': '审批已通过：服务端已按原请求自动续跑执行',
   'pages.functionsInvoke.approval.statusExpired': '审批已过期',
   'pages.functionsInvoke.approval.statusPending': '审批中：该操作需要审批通过后才会执行',
   'pages.functionsInvoke.approval.statusRejected': '审批已拒绝',

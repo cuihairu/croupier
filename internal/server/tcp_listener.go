@@ -366,6 +366,10 @@ func (h *agentSessionHandler) handleRegister(ctx context.Context, body []byte) (
 		} else {
 			h.listener.logger.Warn("register functions to dispatcher registry failed",
 				"agent_id", req.AgentId, "error", err)
+			// 注册错误黑洞修复：物化失败仍回成功（避免 agent 重连风暴），
+			// 但必须经 warnings 显式回传，否则 agent 侧完全不可见，
+			// 调用端只会看到 "no live agent for function"。
+			regWarnings = append(regWarnings, "registration_materialize_failed: "+err.Error())
 		}
 	}
 

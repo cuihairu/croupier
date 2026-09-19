@@ -291,6 +291,11 @@ func backfillInputFromClassification(input *spec.FunctionContractInput, existing
 	if strings.TrimSpace(input.Risk) == "" {
 		input.Risk = existing.Risk.String()
 	}
+	// SDK 重注册路径不携带 timeout（agentv1.FunctionDescriptor 无此字段），
+	// 0 按「未声明」处理：保留 OpenAPI 上传等路径已声明的预算，避免静默清零。
+	if input.TimeoutMs <= 0 {
+		input.TimeoutMs = int(existing.TimeoutMs)
+	}
 	if strings.TrimSpace(input.Permission) == "" {
 		input.Permission = strings.TrimSpace(existing.Permission)
 	}

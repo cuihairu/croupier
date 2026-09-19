@@ -66,6 +66,8 @@ interface RemoteOptionsSpec {
 }
 ```
 
+渲染器生效语义（`SchemaFormRenderer`，2026-09 收口）：`required` 与 `validationRules[].type="required"` 并入运行时 schema `required`（`required: false` 可撤销 schema 原必填；visibleWhen 隐藏字段仍豁免）；`min`/`max` 按字段类型映射（string→`minLength/maxLength`，number/integer→`minimum/maximum`，array→`minItems/maxItems`），`pattern` 直写 JSON Schema `pattern`；`custom` 无法用 JSON Schema 表达，渲染时显式告警并忽略（不静默丢弃）。`defaultValue` 参与表单初值种入：仅补未提供值的字段，显式 `initialValues` 优先，`null`/空串视为已提供不覆盖。
+
 `widget` 是受控枚举，取值为 antd/ProComponents 组件名（PascalCase）：`Input`、`TextArea`、`InputNumber`、`Password`、`Select`、`MultiSelect`、`Radio`、`Checkbox`、`Switch`、`DatePicker`、`TimePicker`、`DateRange`、`Upload`、`ImageUpload`、`FileUpload`、`RichText`、`Code`、`Cascader`、`TreeSelect`、`Color`、`Slider`、`Rate`、`JSON`、`KeyValue`、`Array`、`Object`。扩展 widget 需要修改 spec 包并同步前端类型，不允许前端私加。
 
 可见性条件是受限表达式，不能读 row/详情数据或调用函数：

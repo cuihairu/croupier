@@ -526,6 +526,7 @@ func (s *ControlService) handleRegisterRequest(ctx context.Context, req *agentv1
 			Summary:           f.GetSummary(),
 			Description:       f.GetDescription(),
 			OperationID:       f.Id,
+			Deprecated:        f.GetDeprecated(),
 			InputSchema:       f.GetInputSchema(),
 			OutputSchema:      f.GetOutputSchema(),
 			Resource:          f.GetResource(),

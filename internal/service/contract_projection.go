@@ -70,9 +70,12 @@ func FunctionSpecFromContract(contract *model.FunctionContract) spec.FunctionSpe
 		Operation:            strings.TrimSpace(contract.OperationKey),
 		Capability:           spec.CapabilityKind(contract.Capability.String()),
 		Execution:            spec.FunctionExecution(contract.Execution),
-		Approval:             ApprovalPolicyFromJSONMap(contract.Approval),
-		Risk:                 spec.RiskLevel(contract.Risk.String()),
-		Permission:           strings.TrimSpace(contract.Permission),
+		// TimeoutMs 投影补全：模型列（0016 迁移）早已存在，此前漏投影导致
+		// descriptors API 的 timeoutMs 恒空，UI 侧看不到声明式超时预算。
+		TimeoutMs:  int(contract.TimeoutMs),
+		Approval:   ApprovalPolicyFromJSONMap(contract.Approval),
+		Risk:       spec.RiskLevel(contract.Risk.String()),
+		Permission: strings.TrimSpace(contract.Permission),
 		// F13：契约诊断（含 schema_breaking_change 告警）透传给 descriptors API
 		Diagnostics: DiagnosticsFromJSON(json.RawMessage(contract.Diagnostics)),
 	}

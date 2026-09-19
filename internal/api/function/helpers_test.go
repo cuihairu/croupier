@@ -102,7 +102,7 @@ func TestFunctionPolicy_EnforceFunctionPolicy(t *testing.T) {
 			t.Fatalf("set policy failed: %v", err)
 		}
 
-		result, err := enforceFunctionPolicy(ctx, svcCtx, "test.function", []string{"any"})
+		result, err := enforceFunctionPolicy(ctx, svcCtx, "test.function", "", "", []string{"any"})
 		if err != nil {
 			t.Fatalf("expected no error, got %v", err)
 		}
@@ -126,7 +126,7 @@ func TestFunctionPolicy_EnforceFunctionPolicy(t *testing.T) {
 		}
 
 		// Test with allowed role
-		result, err := enforceFunctionPolicy(ctx, svcCtx, "test.secure", []string{"admin"})
+		result, err := enforceFunctionPolicy(ctx, svcCtx, "test.secure", "", "", []string{"admin"})
 		if err != nil {
 			t.Fatalf("expected no error for admin, got %v", err)
 		}
@@ -135,7 +135,7 @@ func TestFunctionPolicy_EnforceFunctionPolicy(t *testing.T) {
 		}
 
 		// Test with denied role
-		_, err = enforceFunctionPolicy(ctx, svcCtx, "test.secure", []string{"user"})
+		_, err = enforceFunctionPolicy(ctx, svcCtx, "test.secure", "", "", []string{"user"})
 		if err == nil {
 			t.Fatal("expected error for user role")
 		}
@@ -152,7 +152,7 @@ func TestFunctionPolicy_EnforceFunctionPolicy(t *testing.T) {
 		}
 
 		// Test with lowercase role name
-		result, err := enforceFunctionPolicy(ctx, svcCtx, "test.case", []string{"admin"})
+		result, err := enforceFunctionPolicy(ctx, svcCtx, "test.case", "", "", []string{"admin"})
 		if err != nil {
 			t.Fatalf("expected no error with lowercase admin, got %v", err)
 		}

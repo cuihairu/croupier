@@ -270,7 +270,6 @@ func TestUpstreamSyncOnce_TagsAndOwnerInstanceV9(t *testing.T) {
 	store.Register("sess-1", "svc-1", "127.0.0.1:1", "1.0", []*sdkv1.ProviderFunctionDescriptor{
 		{Id: "fn-tags", Version: "1.0", Tags: []string{"core"}},
 	}, nil)
-
 	client := NewUpstreamClient("mock", "agent-v9-sync", store, nil)
 	mock := &mockControlClientV9{connected: true, instanceID: "inst-v9"}
 	client.setClient(mock)
@@ -286,6 +285,34 @@ func TestUpstreamSyncOnce_TagsAndOwnerInstanceV9(t *testing.T) {
 
 	// 注册响应中的集群实例 ID 被记录。
 	assert.Equal(t, "inst-v9", client.ownerInstance())
+}
+
+// deprecated 断链回归：agentlocal 已保留 fn.Deprecated，syncOnce 组装
+// agentv1.FunctionDescriptor 时必须拷贝（此前漏拷 → server 契约 deprecated 恒 false）。
+func TestUpstreamSyncOnceCopiesDeprecatedV9(t *testing.T) {
+	store := agentlocal.NewLocalStore()
+	store.Register("sess-1", "svc-1", "127.0.0.1:1", "1.0", []*sdkv1.ProviderFunctionDescriptor{
+		{Id: "fn-deprecated", Version: "1.0", Deprecated: true},
+		{Id: "fn-active", Version: "1.0"},
+	}, nil)
+
+	client := NewUpstreamClient("mock", "agent-v9-dep", store, nil)
+	mock := &mockControlClientV9{connected: true}
+	client.setClient(mock)
+
+	require.NoError(t, client.syncOnce(context.Background()))
+
+	mock.mu.Lock()
+	require.Len(t, mock.registers, 1)
+	reg := mock.registers[0]
+	mock.mu.Unlock()
+	byID := map[string]bool{}
+	for _, f := range reg.Functions {
+		byID[f.Id] = f.Deprecated
+	}
+	require.Len(t, reg.Functions, 2)
+	assert.True(t, byID["fn-deprecated"], "deprecated 必须透传到 agentv1.FunctionDescriptor")
+	assert.False(t, byID["fn-active"])
 }
 
 func TestUpstreamSetOwnerInstanceV9(t *testing.T) {

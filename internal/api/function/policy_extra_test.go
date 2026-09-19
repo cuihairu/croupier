@@ -18,7 +18,7 @@ func TestEnforceFunctionPolicy_AllowedRolesAdminBypass(t *testing.T) {
 	}))
 
 	ctx := f.ctxFor("policy-admin")
-	p, err := enforceFunctionPolicy(ctx, f.svcCtx, "restricted.fn", []string{"admin"})
+	p, err := enforceFunctionPolicy(ctx, f.svcCtx, "restricted.fn", "", "", []string{"admin"})
 	require.NoError(t, err)
 	require.NotNil(t, p)
 }
@@ -29,7 +29,7 @@ func TestEnforceFunctionPolicy_NoRoleRestriction(t *testing.T) {
 	f.createOperator(t, "policy-free", "admin")
 
 	ctx := f.ctxFor("policy-free")
-	p, err := enforceFunctionPolicy(ctx, f.svcCtx, "any.fn", []string{"admin"})
+	p, err := enforceFunctionPolicy(ctx, f.svcCtx, "any.fn", "", "", []string{"admin"})
 	require.NoError(t, err)
 	require.NotNil(t, p)
 }
@@ -42,7 +42,7 @@ func TestEnforceFunctionPolicy_RoleMismatchForbidden(t *testing.T) {
 	}))
 
 	ctx := f.ctxFor("policy-viewer")
-	_, err := enforceFunctionPolicy(ctx, f.svcCtx, "restricted.fn2", []string{"viewer"})
+	_, err := enforceFunctionPolicy(ctx, f.svcCtx, "restricted.fn2", "", "", []string{"viewer"})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "无权调用")
 }

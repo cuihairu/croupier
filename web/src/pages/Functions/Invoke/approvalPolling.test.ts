@@ -31,7 +31,14 @@ describe('startApprovalPolling', () => {
     await jest.advanceTimersByTimeAsync(0);
 
     expect(onUpdate).toHaveBeenCalledTimes(1);
-    expect(onUpdate).toHaveBeenCalledWith({ status: 'approved', reason: undefined });
+    expect(onUpdate).toHaveBeenCalledWith({
+      status: 'approved',
+      reason: undefined,
+      continuation: undefined,
+      resultKind: undefined,
+      taskId: undefined,
+      result: undefined,
+    });
 
     const callsAfterTerminal = fetcher.mock.calls.length;
     await jest.advanceTimersByTimeAsync(5000);
@@ -46,7 +53,34 @@ describe('startApprovalPolling', () => {
 
     await jest.advanceTimersByTimeAsync(0);
 
-    expect(onUpdate).toHaveBeenCalledWith({ status: 'rejected', reason: '越权' });
+    expect(onUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({ status: 'rejected', reason: '越权' }),
+    );
+    stop();
+  });
+
+  it('approved 终态透传服务端续跑事实（continuation/resultKind/taskId/result）', async () => {
+    const fetcher = jest.fn().mockResolvedValueOnce({
+      status: 'approved',
+      continuation: true,
+      resultKind: 'sync',
+      taskId: 't-1',
+      result: { ok: 1 },
+    });
+    const onUpdate = jest.fn();
+    const stop = startApprovalPolling('ap-1', onUpdate, fetcher, 1000);
+
+    await jest.advanceTimersByTimeAsync(0);
+
+    expect(onUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: 'approved',
+        continuation: true,
+        resultKind: 'sync',
+        taskId: 't-1',
+        result: { ok: 1 },
+      }),
+    );
     stop();
   });
 

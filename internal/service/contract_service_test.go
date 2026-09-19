@@ -1734,3 +1734,21 @@ func TestContractService_SchemaBreakingChangeCreatesAlert(t *testing.T) {
 	require.NoError(t, err)
 	assert.Len(t, alerts, 1)
 }
+
+// SDK 重注册（input.TimeoutMs=0，descriptor 无此字段）不得清零 OpenAPI
+// 上传路径已声明的预算；显式声明值则覆盖。
+func TestBackfillInputFromClassification_PreservesDeclaredTimeout(t *testing.T) {
+	existing := &model.FunctionContract{TimeoutMs: 15000}
+
+	input := &spec.FunctionContractInput{ID: "player.ban", TimeoutMs: 0}
+	backfillInputFromClassification(input, existing)
+	if input.TimeoutMs != 15000 {
+		t.Fatalf("undeclared re-registration must keep existing budget, got %d", input.TimeoutMs)
+	}
+
+	input = &spec.FunctionContractInput{ID: "player.ban", TimeoutMs: 5000}
+	backfillInputFromClassification(input, existing)
+	if input.TimeoutMs != 5000 {
+		t.Fatalf("explicit declaration must win, got %d", input.TimeoutMs)
+	}
+}

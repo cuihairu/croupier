@@ -33,12 +33,17 @@ const HISTORY_KEY = 'croupier.function-invoke.history.v1';
 const EMPTY_FORM_STATE: FormSchemaState = { status: 'idle' };
 const APPROVAL_POLL_INTERVAL_MS = 10000;
 
-/** 审批中状态（A4）：invoke 返回 approvalRequired 时进入轮询直到终态。 */
+/** 审批中状态（A4）：invoke 返回 approvalRequired 时进入轮询直到终态。
+ *  终态携带服务端续跑事实（continuation/resultKind/taskId/result）。 */
 type PendingApproval = {
   approvalId: string;
   functionId: string;
   status: 'pending' | 'approved' | 'rejected' | 'expired';
   reason?: string;
+  continuation?: boolean;
+  resultKind?: 'sync' | 'task';
+  taskId?: string;
+  result?: JSONValue;
 };
 
 function displayName(descriptor: FunctionDescriptor, locale: string) {
@@ -344,13 +349,30 @@ export default function FunctionInvokePage() {
       pendingApproval.approvalId,
       (update) => {
         setPendingApproval((prev) =>
-          prev ? { ...prev, status: update.status, reason: update.reason } : prev,
+          prev
+            ? {
+                ...prev,
+                status: update.status,
+                reason: update.reason,
+                continuation: update.continuation,
+                resultKind: update.resultKind,
+                taskId: update.taskId,
+                result: update.result,
+              }
+            : prev,
         );
+        if (update.status !== 'approved') return;
+        // 服务端 approve 时已按原 payload 自动续跑（continueApprovedFunction）：
+        // 直接消费续跑结果，而非诱导用户「重新调用」——重放在无幂等键通道下
+        // 是第二次真实副作用（此前轮询丢弃 continuation/result 造成重复执行风险）。
+        if (update.resultKind === 'task' && update.taskId) {
+          setActiveTaskId(update.taskId);
+        } else if (update.continuation && update.result !== undefined) {
+          setResponse(update.result);
+          setRawJson(JSON.stringify(update.result ?? null, null, 2));
+        }
       },
-      async (id) => {
-        const st = await queryApprovalStatus(id);
-        return { status: st.status, reason: st.reason };
-      },
+      async (id) => queryApprovalStatus(id),
       APPROVAL_POLL_INTERVAL_MS,
     );
   }, [pendingApproval]);
@@ -369,6 +391,13 @@ export default function FunctionInvokePage() {
     setPendingApproval(null);
     setDuration(item.duration);
   };
+  // approved 且服务端未自动续跑（无 continuation、无 task/结果）才允许人工
+  // 重放；已续跑的场景结果面板/任务面板即为出口，禁止诱导二次副作用。
+  const approvedWithoutContinuation =
+    pendingApproval?.status === 'approved' &&
+    !pendingApproval.continuation &&
+    pendingApproval.result === undefined &&
+    !pendingApproval.taskId;
   const responseRaw = response === undefined ? '' : JSON.stringify(response, null, 2);
   return (
     <PageContainer
@@ -523,10 +552,15 @@ export default function FunctionInvokePage() {
                         defaultMessage: '审批中：该操作需要审批通过后才会执行',
                       })
                     : pendingApproval.status === 'approved'
-                      ? intl.formatMessage({
-                          id: 'pages.functionsInvoke.approval.statusApproved',
-                          defaultMessage: '审批已通过：可重新发起调用',
-                        })
+                      ? approvedWithoutContinuation
+                        ? intl.formatMessage({
+                            id: 'pages.functionsInvoke.approval.statusApproved',
+                            defaultMessage: '审批已通过：未自动续跑，可重新发起调用',
+                          })
+                        : intl.formatMessage({
+                            id: 'pages.functionsInvoke.approval.statusApprovedAuto',
+                            defaultMessage: '审批已通过：服务端已按原请求自动续跑执行',
+                          })
                       : pendingApproval.status === 'rejected'
                         ? pendingApproval.reason
                           ? intl.formatMessage(
@@ -565,7 +599,7 @@ export default function FunctionInvokePage() {
                           defaultMessage="前往审批中心查看"
                         />
                       </a>
-                      {pendingApproval.status === 'approved' && (
+                      {approvedWithoutContinuation && (
                         <Button size="small" type="primary" onClick={() => void execute()}>
                           <FormattedMessage
                             id="pages.functionsInvoke.button.reinvoke"

@@ -537,6 +537,7 @@ func (c *UpstreamClient) syncOnce(ctx context.Context) error {
 			}
 			desc.Summary = meta.Summary
 			desc.Description = meta.Description
+			desc.Deprecated = meta.Deprecated
 		}
 		funcs = append(funcs, desc)
 	}
@@ -566,6 +567,11 @@ func (c *UpstreamClient) syncOnce(ctx context.Context) error {
 	if v := resp.GetInstanceId(); v != "" {
 		c.setOwnerInstance(v)
 		slog.Info("upstream owner instance reported", "instance_id", v)
+	}
+	// 注册错误黑洞修复：server 侧校验/物化告警（含 registration_materialize_failed）
+	// 必须落到 agent 日志，否则 agent 以为注册成功而函数实际不可用。
+	if ws := resp.GetWarnings(); len(ws) > 0 {
+		slog.Warn("upstream register reported warnings", "agent_id", c.agentID, "warnings", ws)
 	}
 	slog.Info("synced with upstream server", "transport", c.transportKind, "functions", len(funcs))
 

@@ -2,7 +2,10 @@
 export default {
   'pages.functionsInvoke.alert.selectFirst':
     'Select a registered function before sending the request',
-  'pages.functionsInvoke.approval.statusApproved': 'Approval granted: you can invoke again',
+  'pages.functionsInvoke.approval.statusApproved':
+    'Approval granted: no automatic continuation ran, you can invoke again',
+  'pages.functionsInvoke.approval.statusApprovedAuto':
+    'Approval granted: the server continued execution with the original request',
   'pages.functionsInvoke.approval.statusExpired': 'Approval expired',
   'pages.functionsInvoke.approval.statusPending':
     'Pending approval: this operation runs only after the approval is granted',

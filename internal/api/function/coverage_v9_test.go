@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/cuihairu/croupier/internal/audit"
+	"github.com/cuihairu/croupier/internal/dbenum"
 	"github.com/cuihairu/croupier/internal/model"
 	"github.com/cuihairu/croupier/internal/platform/approvals"
 	reg "github.com/cuihairu/croupier/internal/platform/registry"
@@ -661,22 +662,72 @@ func TestEnforceFunctionPolicy_RiskFromOpenAPI_V9(t *testing.T) {
 	f := newInvokeFixture(t)
 	ctx := context.Background()
 
-	// x-risk-level 字符串 → 高风险默认策略（需审批）
+	// 键错位回归：converter 写入的 extension 是 x-risk（不是 x-risk-level），
+	// high → 高风险默认策略（需审批）
 	op := openapi3.NewOperation()
-	op.Extensions = map[string]interface{}{"x-risk-level": "high"}
+	op.Extensions = map[string]interface{}{"x-risk": "high"}
 	require.NoError(t, f.store.UpsertOpenAPI("risk.fn", op))
-	p, err := enforceFunctionPolicy(ctx, f.svcCtx, "risk.fn", []string{"admin"})
+	p, err := enforceFunctionPolicy(ctx, f.svcCtx, "risk.fn", "", "", []string{"admin"})
 	require.NoError(t, err)
 	require.NotNil(t, p)
 	assert.True(t, p.RequireApproval)
 
-	// 扩展值非字符串 → 断言失败回落 medium
-	op2 := openapi3.NewOperation()
-	op2.Extensions = map[string]interface{}{"x-risk-level": 42}
-	require.NoError(t, f.store.UpsertOpenAPI("risk.num", op2))
-	p, err = enforceFunctionPolicy(ctx, f.svcCtx, "risk.num", []string{"admin"})
+	// danger → two_person 工作流
+	opDanger := openapi3.NewOperation()
+	opDanger.Extensions = map[string]interface{}{"x-risk": "danger"}
+	require.NoError(t, f.store.UpsertOpenAPI("risk.danger", opDanger))
+	p, err = enforceFunctionPolicy(ctx, f.svcCtx, "risk.danger", "", "", []string{"admin"})
 	require.NoError(t, err)
 	require.NotNil(t, p)
+	assert.Equal(t, "two_person", p.ApprovalWorkflow)
+
+	// 显式声明 safe → low 策略：不要求审批
+	opSafe := openapi3.NewOperation()
+	opSafe.Extensions = map[string]interface{}{"x-risk": "safe"}
+	require.NoError(t, f.store.UpsertOpenAPI("risk.safe", opSafe))
+	p, err = enforceFunctionPolicy(ctx, f.svcCtx, "risk.safe", "", "", []string{"admin"})
+	require.NoError(t, err)
+	require.NotNil(t, p)
+	assert.False(t, p.RequireApproval)
+
+	// 扩展值非字符串 → 回落 medium
+	op2 := openapi3.NewOperation()
+	op2.Extensions = map[string]interface{}{"x-risk": 42}
+	require.NoError(t, f.store.UpsertOpenAPI("risk.num", op2))
+	p, err = enforceFunctionPolicy(ctx, f.svcCtx, "risk.num", "", "", []string{"admin"})
+	require.NoError(t, err)
+	require.NotNil(t, p)
+	assert.False(t, p.RequireApproval)
+}
+
+func TestResolvePolicyRisk_ContractFallback_V9(t *testing.T) {
+	f := newInvokeFixture(t)
+	ctx := context.Background()
+
+	// 契约行非 safe risk（OpenAPI 上传/物化汇聚点，重启后仍可解析）→ 采信
+	high := &model.FunctionContract{
+		GameID: "g-risk", Env: "e", FunctionID: "contract.risk.high",
+		Version: "1.0.0", Risk: dbenum.RiskHigh,
+	}
+	require.NoError(t, f.db.Create(high).Error)
+	assert.Equal(t, policymgr.RiskHigh, resolvePolicyRisk(ctx, f.svcCtx, "contract.risk.high", "g-risk", "e"))
+
+	// 契约行 safe 与「未声明」同为零值，不可区分 → 不采信，保守回落 medium
+	safe := &model.FunctionContract{
+		GameID: "g-risk", Env: "e", FunctionID: "contract.risk.safe",
+		Version: "1.0.0", Risk: dbenum.RiskSafe,
+	}
+	require.NoError(t, f.db.Create(safe).Error)
+	assert.Equal(t, policymgr.RiskMedium, resolvePolicyRisk(ctx, f.svcCtx, "contract.risk.safe", "g-risk", "e"))
+
+	// 内存显式声明优先于契约行（本次启动重新注册即最新事实）
+	op := openapi3.NewOperation()
+	op.Extensions = map[string]interface{}{"x-risk": "safe"}
+	require.NoError(t, f.store.UpsertOpenAPI("contract.risk.high", op))
+	assert.Equal(t, policymgr.RiskLow, resolvePolicyRisk(ctx, f.svcCtx, "contract.risk.high", "g-risk", "e"))
+
+	// scope 缺失（game/env 空）→ 不做契约查询，回落 medium
+	assert.Equal(t, policymgr.RiskMedium, resolvePolicyRisk(ctx, f.svcCtx, "contract.risk.safe", "", ""))
 }
 
 func TestEnforceFunctionPolicy_GetPolicyError_V9(t *testing.T) {
@@ -684,7 +735,7 @@ func TestEnforceFunctionPolicy_GetPolicyError_V9(t *testing.T) {
 	require.NoError(t, f.db.Migrator().DropTable("function_policies"))
 
 	// 策略读取失败不阻断调用：返回 (nil, nil)
-	p, err := enforceFunctionPolicy(context.Background(), f.svcCtx, "any.fn", []string{"admin"})
+	p, err := enforceFunctionPolicy(context.Background(), f.svcCtx, "any.fn", "", "", []string{"admin"})
 	require.NoError(t, err)
 	assert.Nil(t, p)
 }
@@ -708,7 +759,7 @@ func TestEnforceFunctionPolicy_CasbinBranch_V9(t *testing.T) {
 		FunctionID:   "casbin.ok",
 		AllowedRoles: []string{"casbin_role"},
 	}))
-	p, err := enforceFunctionPolicy(userCtx, f.svcCtx, "casbin.ok", []string{"casbin_role"})
+	p, err := enforceFunctionPolicy(userCtx, f.svcCtx, "casbin.ok", "", "", []string{"casbin_role"})
 	require.NoError(t, err)
 	require.NotNil(t, p)
 
@@ -717,7 +768,7 @@ func TestEnforceFunctionPolicy_CasbinBranch_V9(t *testing.T) {
 		FunctionID:   "casbin.deny",
 		AllowedRoles: []string{"admin"},
 	}))
-	_, err = enforceFunctionPolicy(userCtx, f.svcCtx, "casbin.deny", []string{"casbin_role"})
+	_, err = enforceFunctionPolicy(userCtx, f.svcCtx, "casbin.deny", "", "", []string{"casbin_role"})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "无权调用该函数")
 }
@@ -732,7 +783,7 @@ func TestEnforceFunctionPolicy_FallbackMatch_V9(t *testing.T) {
 
 	// 无 AdminModel → 简单角色匹配分支
 	bare := &svc.ServiceContext{DB: f.db, PolicyManager: f.svcCtx.PolicyManager, RegistryStore: f.store}
-	p, err := enforceFunctionPolicy(ctx, bare, "fb.fn", []string{"viewer"})
+	p, err := enforceFunctionPolicy(ctx, bare, "fb.fn", "", "", []string{"viewer"})
 	require.NoError(t, err)
 	require.NotNil(t, p)
 }

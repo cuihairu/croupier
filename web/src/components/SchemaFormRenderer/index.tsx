@@ -34,6 +34,7 @@ import { matchesCondition } from '@/components/PageRenderer/sectionCondition';
 import { customWidgets } from './widgets';
 import { uploadFields, uploadWidgets } from './widgets-upload';
 import { customTemplates } from './templates';
+import SchemaFormErrorBoundary from './ErrorBoundary';
 
 export interface SchemaFormRendererHandle {
   submit: () => void;
@@ -293,7 +294,85 @@ function applyFieldPresentation(
   if (field.widgetProps)
     nextUi['ui:options'] = { ...(nextUi['ui:options'] || {}), ...field.widgetProps };
   uiSchema[field.key] = nextUi;
+  mergeFieldValidity(jsonSchema, field);
   return field.visible !== false;
+}
+
+// FormFieldSpec.required / validationRules 生效（3.1 修复）：编辑器可发布
+// 这些字段（versioning manual-merge），此前渲染器静默丢弃 = 配置假成功。
+// min/max 按字段类型映射到 ajv 关键字（array→Items、number/integer→imum、
+// 其余→Length）；pattern 直接进 schema.pattern；custom 无法表达为 JSON
+// Schema，显式告警而非静默吞掉。required:false 可撤销 schema 原有必填。
+function mergeFieldValidity(schema: RJSFSchema, field: FormFieldSpec): void {
+  const properties = schema.properties as Record<string, RJSFSchema> | undefined;
+  const child = properties?.[field.key];
+  const required: string[] = Array.isArray(schema.required) ? [...schema.required] : [];
+  let changed = false;
+  const addRequired = () => {
+    if (!required.includes(field.key)) {
+      required.push(field.key);
+      changed = true;
+    }
+  };
+  if (field.required === true) addRequired();
+  if (field.required === false) {
+    const index = required.indexOf(field.key);
+    if (index >= 0) {
+      required.splice(index, 1);
+      changed = true;
+    }
+  }
+  for (const rule of field.validationRules ?? []) {
+    switch (rule.type) {
+      case 'required':
+        addRequired();
+        break;
+      case 'min':
+      case 'max': {
+        if (!child || typeof rule.value !== 'number') break;
+        const isArray = child.type === 'array';
+        const isNumber = child.type === 'number' || child.type === 'integer';
+        if (rule.type === 'min') {
+          if (isArray) child.minItems = rule.value;
+          else if (isNumber) child.minimum = rule.value;
+          else child.minLength = rule.value;
+        } else {
+          if (isArray) child.maxItems = rule.value;
+          else if (isNumber) child.maximum = rule.value;
+          else child.maxLength = rule.value;
+        }
+        changed = true;
+        break;
+      }
+      case 'pattern':
+        if (child && typeof rule.value === 'string') {
+          child.pattern = rule.value;
+          changed = true;
+        }
+        break;
+      case 'custom':
+        // eslint-disable-next-line no-console
+        console.warn(
+          `[SchemaFormRenderer] field "${field.key}" validation rule "custom" is not supported and ignored`,
+        );
+        break;
+    }
+  }
+  if (changed) schema.required = required;
+}
+
+/** spec.fields[].defaultValue 种入表单初值（仅补未提供值的字段；
+ *  显式传入的 initialValues 优先，空串/null 视为已提供的值不覆盖）。 */
+export function applySpecDefaults(spec: FormPresentationSpec, values: FormValues): FormValues {
+  const fields = spec.fields ?? [];
+  if (!fields.some((field) => field.defaultValue !== undefined)) return values;
+  const next = { ...values };
+  for (const field of fields) {
+    if (field.defaultValue !== undefined && next[field.key] === undefined) {
+      next[field.key] = field.defaultValue;
+    }
+  }
+  return next;
 }
 
 function cloneSchema(schema: JSONSchema): RJSFSchema {
@@ -426,21 +505,25 @@ const SchemaFormRenderer = forwardRef<SchemaFormRendererHandle, SchemaFormRender
     ref,
   ) => {
     const formRef = useRef<RJSFFormRef | null>(null);
-    const currentValuesRef = useRef<FormValues>(initialValues || {});
-    const [formValues, setFormValues] = useState<FormValues>(initialValues || {});
     const initialValuesJson = useMemo(
       () => JSON.stringify(normalizeFormValues(initialValues || {})),
       [initialValues],
     );
+    const seededInitial = useMemo(
+      () => applySpecDefaults(spec, normalizeFormValues(initialValues || {})),
+      [spec, initialValues],
+    );
+    const currentValuesRef = useRef<FormValues>(seededInitial);
+    const [formValues, setFormValues] = useState<FormValues>(seededInitial);
     const lastInitJsonRef = useRef<string | null>(null);
 
     useEffect(() => {
       // 外部重置初值（JSON 变化）才同步；自身 onChange 回声由 JSON 相等跳过
       if (lastInitJsonRef.current === initialValuesJson) return;
       lastInitJsonRef.current = initialValuesJson;
-      currentValuesRef.current = normalizeFormValues(initialValues || {});
+      currentValuesRef.current = seededInitial;
       setFormValues(currentValuesRef.current);
-    }, [initialValues, initialValuesJson]);
+    }, [initialValuesJson, seededInitial]);
 
     const { schema, uiSchema, formContext, hiddenKeys } = useMemo(() => {
       const derived = deriveRuntimeSchema(spec, formValues);
@@ -494,27 +577,37 @@ const SchemaFormRenderer = forwardRef<SchemaFormRendererHandle, SchemaFormRender
       [schema],
     );
     const widgets = useMemo(() => ({ ...customWidgets, ...uploadWidgets }), []);
+    // 2.2：spec 内容变化时复位错误边界（换函数/换页面不残留上一次的崩溃态）
+    const boundaryKey = useMemo(() => {
+      try {
+        return JSON.stringify(spec);
+      } catch {
+        return `spec-${Date.now()}`;
+      }
+    }, [spec]);
 
     return (
-      <Form
-        ref={formRef as React.Ref<RJSFFormRef>}
-        schema={schema}
-        uiSchema={uiSchema}
-        formContext={formContext}
-        validator={validator}
-        widgets={widgets}
-        fields={uploadFields}
-        templates={customTemplates}
-        formData={formValues}
-        readonly={readonly}
-        disabled={disabled}
-        liveValidate={false}
-        omitExtraData
-        noHtml5Validate
-        transformErrors={transformErrors}
-        onChange={handleChangeEvent}
-        onSubmit={handleSubmitEvent}
-      />
+      <SchemaFormErrorBoundary key={boundaryKey}>
+        <Form
+          ref={formRef as React.Ref<RJSFFormRef>}
+          schema={schema}
+          uiSchema={uiSchema}
+          formContext={formContext}
+          validator={validator}
+          widgets={widgets}
+          fields={uploadFields}
+          templates={customTemplates}
+          formData={formValues}
+          readonly={readonly}
+          disabled={disabled}
+          liveValidate={false}
+          omitExtraData
+          noHtml5Validate
+          transformErrors={transformErrors}
+          onChange={handleChangeEvent}
+          onSubmit={handleSubmitEvent}
+        />
+      </SchemaFormErrorBoundary>
     );
   },
 );
