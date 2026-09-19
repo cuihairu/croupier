@@ -21,6 +21,7 @@ import (
 	"github.com/cuihairu/croupier/internal/function/schemadiff"
 	"github.com/cuihairu/croupier/internal/model"
 	reg "github.com/cuihairu/croupier/internal/platform/registry"
+	"github.com/cuihairu/croupier/internal/platform/registry/sdkversion"
 	"github.com/cuihairu/croupier/internal/tasks"
 	transportcore "github.com/cuihairu/croupier/internal/transport"
 	agentv1 "github.com/cuihairu/croupier/pkg/pb/croupier/agent/v1"
@@ -487,6 +488,12 @@ func (s *ControlService) handleRegisterRequest(ctx context.Context, req *agentv1
 		})
 	}
 
+	// SDK 滑动版本门槛（针对函数注册）：按 (game_id, env, sdk_language) 的
+	// 历史最高 SDK 版本评估各 provider 进程；落后超容忍窗（低 2 个及以上
+	// minor 或 1 个及以上 major）的进程其函数不进本次注册。判定在
+	// sess.Functions 构造之前完成；抬升高水位在 UpsertAgent 成功之后。
+	sdkFloor := s.evaluateSDKVersionFloor(ctx, req, &warningTexts)
+
 	sess := &reg.AgentSession{
 		AgentID: req.AgentId,
 		GameID:  req.GameId,
@@ -509,6 +516,9 @@ func (s *ControlService) handleRegisterRequest(ctx context.Context, req *agentv1
 	// 空 Id 在该函数内已全部 continue 剔除并转为 warning），故此处原
 	// `if f == nil || f.Id == "" { continue }` 防御分支为死代码，已删。
 	for _, f := range functions {
+		if sdkFloor.rejected[f.Id] {
+			continue
+		}
 		sess.Functions[f.Id] = reg.FunctionMeta{
 			Enabled:           f.Enabled,
 			Version:           f.Version,
@@ -574,8 +584,12 @@ func (s *ControlService) handleRegisterRequest(ctx context.Context, req *agentv1
 	// 只告警不阻断；必须在 UpsertAgent 覆盖会话之前执行。
 	if s.schemaDiffWarn {
 		// 同上：functions 经 validateAndNormalizeFunctions 后置条件保证非 nil
-		// 且 Id 非空，原防御分支为死代码，已删。
+		// 且 Id 非空，原防御分支为死代码，已删。被门槛拒绝的函数不进本次
+		// 注册，其 schema 对比是无意义的噪音，跳过。
 		for _, f := range functions {
+			if sdkFloor.rejected[f.Id] {
+				continue
+			}
 			oldInput, oldOutput, ok := s.registry.PreviousFunctionSchema(req.AgentId, req.GameId, req.Env, f.Id)
 			if !ok {
 				continue
@@ -632,6 +646,13 @@ func (s *ControlService) handleRegisterRequest(ctx context.Context, req *agentv1
 
 	if err := s.registry.UpsertAgent(sess); err != nil {
 		return nil, fmt.Errorf("register agent dashboard contract rebuild failed: %w", err)
+	}
+
+	// 门槛放行的 provider 注册成功后抬升 (game_id, env, sdk_language) 高水位，
+	// 作为后续注册的滑动下限。放行 ≠ 抬升：低版本放行（容忍窗内）不抬；
+	// 不可解析版本（"unknown"）不抬。
+	for _, raise := range sdkFloor.raises {
+		s.registry.ObserveSDKVersion(req.GameId, req.Env, raise.language, raise.version)
 	}
 
 	// 集群归属：本实例持有该 Agent 连接（多实例 HA 转发路由依据）。
@@ -858,6 +879,103 @@ func (s *ControlService) validateProviderScope(ctx context.Context, req *agentv1
 		Code:    "provider_scope_mismatch",
 		Message: msg,
 	})
+}
+
+// sdkFloorRaise 是一次通过门槛且需要抬升高水位的版本观测。
+type sdkFloorRaise struct {
+	language string
+	version  string
+}
+
+// sdkFloorOutcome 是一次注册请求的 SDK 滑动版本门槛评估结果：
+// rejected 为被拒函数集合（不进 sess.Functions、不物化契约），raises 为
+// 注册成功后待抬升的 (language, version) 观测。
+type sdkFloorOutcome struct {
+	rejected map[string]bool
+	raises   []sdkFloorRaise
+}
+
+// evaluateSDKVersionFloor 按 (game_id, env, sdk_language) 的历史最高 SDK
+// 版本（高水位）评估注册请求中的 provider 进程（sdkversion 三档判定）：
+//
+//   - 无 sdk_language/sdk_version 自报的进程（自定义游戏服直连）不参与
+//     门槛，函数照常放行且不抬升高水位；
+//   - 版本解析失败的进程一律放行（门槛只在两端都可解析时生效）；
+//   - 落后超容忍窗（低 2 个及以上 minor 或 1 个及以上 major）的进程，
+//     其独占声明的函数从本次注册中剔除——多个进程交叉提供同一函数时，
+//     只要任一放行进程也声明了该函数就不剔（避免误伤），即使其声明者
+//     部分被拒。
+//
+// 剔除只作用于函数面（sess.Functions 与物化路径）；provider 进程记录与
+// 其自报 function_ids 保留在会话中（进程存在是事实，调度候选第一道门
+// 是 agent.Functions，不会误路由）。连接保持，拒绝以注册警告 +
+// RegisterResponse.warnings 传达 agent 日志。
+func (s *ControlService) evaluateSDKVersionFloor(ctx context.Context, req *agentv1.RegisterRequest, warningTexts *[]string) sdkFloorOutcome {
+	outcome := sdkFloorOutcome{rejected: map[string]bool{}}
+	if len(req.Processes) == 0 {
+		return outcome
+	}
+	rejectedByProc := map[string][]string{} // service_id -> 被拒声明的函数
+	allowedDeclared := map[string]bool{}    // 任一放行进程声明的函数
+	for _, p := range req.Processes {
+		if p == nil || p.ServiceId == "" {
+			continue
+		}
+		language := strings.TrimSpace(p.SdkLanguage)
+		if language == "" || strings.TrimSpace(p.SdkVersion) == "" {
+			for _, fid := range p.FunctionIds {
+				allowedDeclared[fid] = true
+			}
+			continue
+		}
+		floor := s.registry.GetSDKVersionFloor(req.GameId, req.Env, language)
+		switch sdkversion.Compare(p.SdkVersion, floor) {
+		case sdkversion.VerdictAllow:
+			for _, fid := range p.FunctionIds {
+				allowedDeclared[fid] = true
+			}
+			// 不可解析版本 Compare 恒 Allow，但高水位只记可解析版本。
+			if sdkversion.Parseable(p.SdkVersion) {
+				outcome.raises = append(outcome.raises, sdkFloorRaise{language: language, version: p.SdkVersion})
+			}
+		case sdkversion.VerdictAllowWithWarning:
+			for _, fid := range p.FunctionIds {
+				allowedDeclared[fid] = true
+			}
+			msg := fmt.Sprintf("service_id=%s sdk=%s/%s behind high watermark %s: registration accepted, upgrade the SDK", p.ServiceId, language, p.SdkVersion, floor)
+			*warningTexts = append(*warningTexts, msg)
+			s.logger.Warn("sdk version behind high watermark", "agent_id", req.AgentId, "service_id", p.ServiceId, "sdk_language", language, "sdk_version", p.SdkVersion, "high_watermark", floor)
+			s.registry.UpsertRegistrationWarning(ctx, reg.FunctionRegistrationWarning{
+				GameID:  req.GameId,
+				Env:     req.Env,
+				AgentID: req.AgentId,
+				Code:    reg.WarningCodeSDKVersionBehind,
+				Message: msg,
+			})
+		case sdkversion.VerdictReject:
+			rejectedByProc[p.ServiceId] = p.FunctionIds
+			msg := fmt.Sprintf("service_id=%s sdk=%s/%s behind high watermark %s by 2+ minors or 1+ major: function registration rejected (%d functions)", p.ServiceId, language, p.SdkVersion, floor, len(p.FunctionIds))
+			*warningTexts = append(*warningTexts, msg)
+			s.logger.Warn("sdk version floor rejected registration", "agent_id", req.AgentId, "service_id", p.ServiceId, "sdk_language", language, "sdk_version", p.SdkVersion, "high_watermark", floor, "functions", len(p.FunctionIds))
+			s.registry.UpsertRegistrationWarning(ctx, reg.FunctionRegistrationWarning{
+				GameID:  req.GameId,
+				Env:     req.Env,
+				AgentID: req.AgentId,
+				Code:    reg.WarningCodeSDKVersionFloorRejected,
+				Message: msg,
+			})
+		}
+	}
+	for _, fids := range rejectedByProc {
+		for _, fid := range fids {
+			// 交叉提供保护：任一放行进程（或无 SDK 自报进程）也声明该函数
+			// 时不剔——函数仍可由放行方提供，拒绝不应造成可用性缺口。
+			if !allowedDeclared[fid] {
+				outcome.rejected[fid] = true
+			}
+		}
+	}
+	return outcome
 }
 
 func (s *ControlService) handleRegisterCapabilitiesRequest(ctx context.Context, req *agentv1.RegisterCapabilitiesRequest) (*agentv1.RegisterCapabilitiesResponse, error) {

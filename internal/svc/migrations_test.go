@@ -356,3 +356,65 @@ func TestMigrateMenuItemTablesIdempotent(t *testing.T) {
 		}
 	}
 }
+
+// TestMigrateSDKVersionHighwatermarkIdempotent：表已存在时 0028 跳过
+// （幂等）；空库不报错。
+func TestMigrateSDKVersionHighwatermarkIdempotent(t *testing.T) {
+	sqlDB := openRawSQLiteDBG(t)
+	if err := migrateSDKVersionHighwatermark(context.Background(), sqlDB); err != nil {
+		t.Fatalf("empty db should not error, got %v", err)
+	}
+
+	db, err := gorm.Open(gsqlite.Open(filepath.Join(t.TempDir(), "m28.db")), &gorm.Config{})
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	if err := db.AutoMigrate(&model.SDKVersionHighwatermark{}); err != nil {
+		t.Fatalf("migrate: %v", err)
+	}
+	sqlDB2, err := db.DB()
+	if err != nil {
+		t.Fatalf("sql.DB: %v", err)
+	}
+	for i := 0; i < 2; i++ {
+		if err := migrateSDKVersionHighwatermark(context.Background(), sqlDB2); err != nil {
+			t.Fatalf("run %d: %v", i+1, err)
+		}
+	}
+}
+
+// TestGoMigrations_SDKHighwatermarkCatchUp 回归：已过 baseline 的存量库
+// （模型改动时 baseline 已完成、不再跑 AutoMigrateGame——CI sqlite 环境
+// 拦不住的线上缺口形态）经 0028 catch-up 建出 sdk_version_highwatermarks，
+// 唯一索引与写入语义可用。
+func TestGoMigrations_SDKHighwatermarkCatchUp(t *testing.T) {
+	db := openMigrationTestDB(t)
+	ctx := context.Background()
+
+	if err := autoMigrate(db); err != nil {
+		t.Fatalf("autoMigrate: %v", err)
+	}
+	// 模拟存量库：baseline 后模型才加表 → 库里没有该表。
+	if err := db.Migrator().DropTable(&model.SDKVersionHighwatermark{}); err != nil {
+		t.Fatalf("drop table: %v", err)
+	}
+	if _, err := migrate.EnsureUpToDate(ctx, db, migrate.ScopeSingle, func(db *gorm.DB) error {
+		return nil // baseline 已完成，禁止再跑 AutoMigrate
+	}); err != nil {
+		t.Fatalf("EnsureUpToDate: %v", err)
+	}
+	if !db.Migrator().HasTable(&model.SDKVersionHighwatermark{}) {
+		t.Fatal("sdk_version_highwatermarks table not created by 0028")
+	}
+	// 建出的表可写入，(game_id, env, sdk_language) 唯一索引生效。
+	if err := db.Exec(`INSERT INTO sdk_version_highwatermarks
+		(updated_at, game_id, env, sdk_language, sdk_version)
+		VALUES (datetime('now'), 'demo_game', 'dev', 'go', '0.3.0')`).Error; err != nil {
+		t.Fatalf("insert row: %v", err)
+	}
+	if err := db.Exec(`INSERT INTO sdk_version_highwatermarks
+		(updated_at, game_id, env, sdk_language, sdk_version)
+		VALUES (datetime('now'), 'demo_game', 'dev', 'go', '0.2.0')`).Error; err == nil {
+		t.Fatal("duplicate scope key should violate unique index")
+	}
+}

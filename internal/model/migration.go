@@ -166,6 +166,7 @@ func GameModels() []interface{} {
 		&OpenAPISource{},
 		&OpenAPISourceBinding{},
 		&FunctionContract{},
+		&SDKVersionHighwatermark{},
 		&ResourceCapability{},
 		&CapabilitySemantics{},
 		&CapabilitySemanticVersion{},

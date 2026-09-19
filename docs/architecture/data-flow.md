@@ -100,6 +100,30 @@ sequenceDiagram
     Server-->>Agent: HeartbeatResponse
 ```
 
+### SDK 滑动版本门槛（函数注册）
+
+`RegisterRequest.processes` 各进程自报 `sdk_language`/`sdk_version`。Server 按 `(game_id, env, sdk_language)` 记录历史最高 SDK 版本（**高水位**，落各 game 库 `sdk_version_highwatermarks` 表，编号迁移 0028），注册时三档判定（`internal/platform/registry/sdkversion`）：
+
+| 判定        | 条件                            | 行为                                                                                              |
+| ----------- | ------------------------------- | ------------------------------------------------------------------------------------------------- |
+| 放行        | 版本 ≥ 高水位                   | 注册成功后抬升高水位                                                                              |
+| 放行 + 警告 | 同 major 且落后 1 个 minor      | 函数照常注册，写 `sdk_version_behind` 注册警告                                                    |
+| 拒绝        | 落后 ≥2 个 minor 或 ≥1 个 major | 该进程独占声明的函数不进本次注册（会话函数表/契约均不物化），写 `sdk_version_floor_rejected` 警告 |
+
+细节语义：
+
+- **拒绝粒度是函数不是连接**：被拒进程的 provider 记录仍进会话（进程存在是事实；调度候选第一道门是 `agent.Functions`，不会误路由）。多进程交叉提供同一函数时，只要任一放行进程也声明了该函数就不剔除，拒绝不制造可用性缺口。
+- **版本解析失败（`"unknown"`/空/非数字段）一律放行**，且不抬升高水位——门槛只在两端都是可解析的语义化版本时生效。
+- 无 `sdk_language`/`sdk_version` 自报的进程（自定义游戏服直连）不参与门槛。
+- 拒绝与落后警告同时随 `RegisterResponse.warnings` 返回，agent 侧日志可见；连接保持不断开。
+
+**已知边界**：
+
+- 高水位是单调观测值：高版本 SDK 永久下线后，低版本会持续被拒，重置需手动 `DELETE FROM sdk_version_highwatermarks WHERE ...`。
+- 内存 registry（无 DB）退化为进程内 map，重启丢失，重新从首次注册版本开始累积。
+- 落后警告（`sdk_version_behind`）在 SDK 追赶后不自动清除（多语言 provider 共用 agent+code 维度无法精确按语言清理），人工删除兜底。
+- 抬升高水位发生在 `UpsertAgent` 成功之后：注册链中途失败不会留下「未注册但已抬升」的状态；反之注册成功后进程崩溃在抬升之前，高水位少记一次，下次注册补记，无正确性影响。
+
 ## 5. 作业流
 
 ```mermaid

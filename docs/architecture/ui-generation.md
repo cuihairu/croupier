@@ -117,6 +117,12 @@ auto 语义统一约束：质量门槛不因免审核降低（error 级诊断照
 重建成功不自动清除既有告警条目（按 Count 递增）；`registration_warnings`
 DB 持久化接线留待独立需求。
 
+同通道另有 SDK 滑动版本门槛告警（规则与高水位语义见
+[数据流 §4](./data-flow.md)）：`sdk_version_behind`（落后 1 个 minor，放行
++提示升级）、`sdk_version_floor_rejected`（落后 ≥2 minor 或 ≥1 major，该
+进程独占函数不进本次注册）。追赶后 `sdk_version_behind` 不自动清除，人工
+删除兜底。
+
 ## 为什么不集成 React Admin（决策记录）
 
 React Admin 的可借鉴之处是“资源语义 -> 默认后台页面 -> 局部覆盖”，而不是它的 UI 组件或 `DataProvider` 协议。Croupier 已有 Ant Design Pro/ProComponents，表格、表单、详情、抽屉、步骤、权限和布局能力足够且更贴合现有系统。

@@ -139,6 +139,10 @@ type Store struct {
 	openapiOperations    map[string]*openapi3.Operation  // function_id -> OpenAPI operation
 	openapiProviders     map[string]*OpenAPIProviderCaps // provider_id -> OpenAPI caps
 	registrationWarnings map[string]*FunctionRegistrationWarning
+	// sdkHwmMu guards sdkHwm (in-memory SDK version high watermarks for
+	// DB-less registries; DB-backed stores read/write the table directly).
+	sdkHwmMu sync.Mutex
+	sdkHwm   map[string]string
 	// Optional database for dual-write persistence
 	db *gorm.DB
 	// scopeContext resolves the DB/scope context used by game-scoped
@@ -187,6 +191,15 @@ const (
 	// WarningCodeTemplateRegenFailed 注册写入提交后内置组件模板重建失败。
 	// 手动 POST /component-templates/regenerate 是兜底。
 	WarningCodeTemplateRegenFailed = "template_regen_failed"
+	// WarningCodeSDKVersionBehind provider 自报 SDK 版本低于 (game_id, env,
+	// sdk_language) 高水位但在容忍窗内（同 major 且 minor 差 <2）：函数注册
+	// 放行但提示升级。追赶后不自动清除（多语言 provider 共用 agent+code
+	// 维度，无法按语言精确清理），人工删除兜底。
+	WarningCodeSDKVersionBehind = "sdk_version_behind"
+	// WarningCodeSDKVersionFloorRejected provider 自报 SDK 版本落后高水位
+	// 超出容忍窗（低 2 个及以上 minor，或 1 个及以上 major）：该 provider
+	// 的函数注册被拒（函数不进会话/不物化契约），连接保持。
+	WarningCodeSDKVersionFloorRejected = "sdk_version_floor_rejected"
 )
 
 type RegistrationWarningFilter struct {
@@ -226,6 +239,7 @@ func NewStore() *Store {
 		openapiOperations:    make(map[string]*openapi3.Operation),
 		openapiProviders:     make(map[string]*OpenAPIProviderCaps),
 		registrationWarnings: make(map[string]*FunctionRegistrationWarning),
+		sdkHwm:               map[string]string{},
 		db:                   nil,
 		scopeContext:         defaultScopeContext,
 	}
@@ -238,6 +252,7 @@ func NewStoreWithDB(db *gorm.DB) *Store {
 		openapiOperations:    make(map[string]*openapi3.Operation),
 		openapiProviders:     make(map[string]*OpenAPIProviderCaps),
 		registrationWarnings: make(map[string]*FunctionRegistrationWarning),
+		sdkHwm:               map[string]string{},
 		db:                   db,
 		scopeContext:         defaultScopeContext,
 	}

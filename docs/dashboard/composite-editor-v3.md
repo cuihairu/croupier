@@ -428,6 +428,13 @@ prev schema 语义与 wire 契约见
 成功不自动清除既有告警条目（重复失败按 Count 递增）；`registration_warnings`
 DB 持久化接线留待独立需求。
 
+同通道另有 SDK 滑动版本门槛告警（判定规则见
+[数据流文档 §4](../architecture/data-flow.md)）：`sdk_version_behind`
+（SDK 落后高水位 1 个 minor，函数照常注册，提示升级）、
+`sdk_version_floor_rejected`（落后 ≥2 个 minor 或 ≥1 个 major，该进程独占
+函数不进本次注册，连接保持）。处理路径：升级对应语言 SDK 至高水位后重新
+注册即恢复。
+
 ## 9. 已知边界
 
 - **发布分级（T10/M5）覆盖 composite 保存与收件箱接受两处入口**：

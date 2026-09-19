@@ -68,6 +68,9 @@ import (
 //               menus API 因表缺失 500，页面保存/发布链因 GORM 全字段
 //               INSERT 报 column "menu_id" does not exist 中断——0021/0023
 //               同族「模型改了迁移漏配」事故）
+//   0028 (Go)   sdk_version_highwatermarks 表（SDK 滑动版本门槛的高水位
+//               存储：per (game_id, env, sdk_language) 记见过的最高版本；
+//               新建表无存量约束名漂移，0014/0027 建表同模式）
 
 func init() {
 	registerSvcMigrations()
@@ -105,6 +108,7 @@ func registerSvcMigrations() {
 		contractExecutionStateMigration(),
 		roleAdminSoftDeleteCleanupMigration(),
 		menuItemTablesMigration(),
+		sdkVersionHighwatermarkMigration(),
 	); err != nil {
 		panic(fmt.Sprintf("svc: register goose go migrations: %v", err))
 	}
@@ -592,6 +596,30 @@ func migrateRoleAdminSoftDelete(ctx context.Context, sqlDB *sql.DB) error {
 	if db.Migrator().HasTable(&model.AdminRole{}) {
 		if err := db.Exec(`DELETE FROM admin_roles WHERE role_id NOT IN (SELECT id FROM roles)`).Error; err != nil {
 			return fmt.Errorf("migrate: 0026 purge dangling admin_roles: %w", err)
+		}
+	}
+	return nil
+}
+
+// sdkVersionHighwatermarkMigration 为 0028：SDK 滑动版本门槛的高水位表。
+// 新表 CreateTable（索引随建表一次建出，无存量约束名漂移——0023 教训只
+// 针对改既有表），幂等：已存在时跳过。
+func sdkVersionHighwatermarkMigration() *goose.Migration {
+	return goose.NewGoMigration(28,
+		&goose.GoFunc{RunDB: migrateSDKVersionHighwatermark},
+		nil,
+	)
+}
+
+// migrateSDKVersionHighwatermark 是 0028 的迁移体（抽出便于直测）。
+func migrateSDKVersionHighwatermark(ctx context.Context, sqlDB *sql.DB) error {
+	db, err := wrapGorm(sqlDB)
+	if err != nil {
+		return err
+	}
+	if !db.Migrator().HasTable(&model.SDKVersionHighwatermark{}) {
+		if err := db.Migrator().CreateTable(&model.SDKVersionHighwatermark{}); err != nil {
+			return fmt.Errorf("migrate: 0028 create sdk_version_highwatermarks: %w", err)
 		}
 	}
 	return nil
