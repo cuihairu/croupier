@@ -41,6 +41,8 @@ OpenAPI
 | `approval`                | `x-approval`                     | `required` 与可选 `policyKey`；可与同步/异步执行组合 |
 | `risk` / `permission`     | `x-risk` / `x-permission`        | 治理字段                                             |
 
+版本回退链（契约物化时）：operation 级 `x-version` > 运行时注册版本（SDK 同名函数） > 文档 `info.version` > 默认 `1.0.0`。`info.version` 按 OpenAPI 规范允许任意字符串，非 semver 值不会让函数被丢弃，而是回退到 `1.0.0`。Agent provider 路径的版本规则见 [Agent Providers](agent-providers.md#函数注册规则)。
+
 REST 自动识别示例：
 
 ```yaml

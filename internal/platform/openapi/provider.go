@@ -70,6 +70,7 @@ type Provider struct {
 	methods       []string
 	methodMap     map[string]*APIMethod // method name -> API definition
 	openapiDoc    json.RawMessage       // Raw OpenAPI document JSON
+	infoVersion   string                // info.version of the first parsed document (may be non-semver)
 	mu            sync.RWMutex
 }
 
@@ -186,6 +187,7 @@ type APIMethod struct {
 	Execution  string `yaml:"x-execution" json:"x-execution"`   // x-execution: sync/task
 	Enabled    bool   `yaml:"x-enabled" json:"x-enabled"`       // x-enabled: whether this function is enabled
 	Permission string `yaml:"x-permission" json:"x-permission"` // x-permission: optional permission identifier
+	Version    string `yaml:"x-version" json:"x-version"`       // x-version: per-operation semver override (falls back to batch default)
 }
 
 // ParameterMapping defines how to map a parameter.
@@ -285,6 +287,7 @@ type MethodDetails struct {
 	Execution  string // x-execution
 	Enabled    bool   // x-enabled
 	Permission string // x-permission
+	Version    string // x-version (per-operation semver override; may be empty)
 }
 
 // NewProvider creates a new OpenAPI provider.
@@ -477,6 +480,17 @@ func (p *Provider) parseOpenAPISpec(spec []byte) error {
 		return err
 	}
 
+	// Document-level version (info.version). OpenAPI spec allows any string
+	// here; validity is decided by the consumer (versionutil), we only carry
+	// the raw value. First non-empty document wins on multi-spec merge.
+	if p.infoVersion == "" {
+		if info, ok := openapi["info"].(map[string]interface{}); ok {
+			if v, ok := info["version"].(string); ok {
+				p.infoVersion = strings.TrimSpace(v)
+			}
+		}
+	}
+
 	// Support both OpenAPI 3.0 and Swagger 2.0
 	paths := make(map[string]interface{})
 	if v, ok := openapi["paths"].(map[string]interface{}); ok {
@@ -541,6 +555,7 @@ func (p *Provider) parseOpenAPISpec(spec []byte) error {
 			execution, _ := methodObj["x-execution"].(string)
 			enabled, _ := methodObj["x-enabled"].(bool)
 			permission, _ := methodObj["x-permission"].(string)
+			versionOverride, _ := methodObj["x-version"].(string)
 
 			// Create APIMethod
 			apiMethod := &APIMethod{
@@ -560,6 +575,7 @@ func (p *Provider) parseOpenAPISpec(spec []byte) error {
 				Execution:   execution,
 				Enabled:     enabled,
 				Permission:  permission,
+				Version:     strings.TrimSpace(versionOverride),
 			}
 
 			p.methodMap[methodName] = apiMethod
@@ -750,9 +766,18 @@ func (p *Provider) GetMethodDetails() map[string]*MethodDetails {
 			Execution:   method.Execution,
 			Enabled:     method.Enabled,
 			Permission:  method.Permission,
+			Version:     method.Version,
 		}
 	}
 	return result
+}
+
+// InfoVersion returns the document-level info.version of the first parsed
+// OpenAPI spec (raw value; validity must be checked by the caller).
+func (p *Provider) InfoVersion() string {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	return p.infoVersion
 }
 
 // GetOpenAPIDoc returns the raw OpenAPI document JSON.

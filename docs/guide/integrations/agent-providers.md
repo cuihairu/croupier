@@ -38,6 +38,7 @@ providers:
     config:
       baseUrl: "http://127.0.0.1:8091" # 上游 API 根地址
       openapiSpec: "http://127.0.0.1:8091/openapi.json" # OpenAPI 3.0 文档 URL
+      version: "1.2.0" # 可选；本 provider 契约版本（semver），缺省回退见「函数注册规则」
       timeout: "5s" # 可选；默认 30s（"500ms"/"1m" 均可）
       headers: # 可选；全部请求附带的默认 header
         X-Request-Source: croupier
@@ -48,18 +49,19 @@ providers:
 
 ### 字段参考
 
-| 字段                       | 必填                     | 说明                                         |
-| -------------------------- | ------------------------ | -------------------------------------------- |
-| `providers.<name>.enabled` | 是                       | `false` 时跳过加载                           |
-| `providers.<name>.type`    | 是                       | 仅支持 `openapi`                             |
-| `providers.<name>.game_id` | 建议                     | 归属游戏 ID；为空时跟随 Agent 注册 scope     |
-| `providers.<name>.env`     | 建议                     | 归属环境（prod/stage/test/dev…）             |
-| `config.baseUrl`           | 是                       | 上游 API 根地址，路径直接拼接                |
-| `config.openapiSpec`       | 与 `openapiSpecs` 二选一 | OpenAPI 文档 URL                             |
-| `config.openapiSpecs`      | 与 `openapiSpec` 二选一  | 多文档 URL 列表（合并注册）                  |
-| `config.timeout`           | 否                       | 上游调用超时，Go duration 字符串，默认 `30s` |
-| `config.headers`           | 否                       | 全部请求附带的默认 header                    |
-| `config.auth`              | 否                       | 鉴权配置，见下                               |
+| 字段                       | 必填                     | 说明                                          |
+| -------------------------- | ------------------------ | --------------------------------------------- |
+| `providers.<name>.enabled` | 是                       | `false` 时跳过加载                            |
+| `providers.<name>.type`    | 是                       | 仅支持 `openapi`                              |
+| `providers.<name>.game_id` | 建议                     | 归属游戏 ID；为空时跟随 Agent 注册 scope      |
+| `providers.<name>.env`     | 建议                     | 归属环境（prod/stage/test/dev…）              |
+| `config.baseUrl`           | 是                       | 上游 API 根地址，路径直接拼接                 |
+| `config.openapiSpec`       | 与 `openapiSpecs` 二选一 | OpenAPI 文档 URL                              |
+| `config.openapiSpecs`      | 与 `openapiSpec` 二选一  | 多文档 URL 列表（合并注册）                   |
+| `config.version`           | 否                       | 本 provider 函数的契约版本（须为合法 semver） |
+| `config.timeout`           | 否                       | 上游调用超时，Go duration 字符串，默认 `30s`  |
+| `config.headers`           | 否                       | 全部请求附带的默认 header                     |
+| `config.auth`              | 否                       | 鉴权配置，见下                                |
 
 ### 鉴权（`config.auth`）
 
@@ -89,6 +91,8 @@ providers:
   | 其他（如 `POST /{resource}/{id}/kick`） | `action`（低置信度） |
 
   可用 `x-capability` / `x-resource` / `x-operation` 显式覆盖；`x-execution: task` 声明异步任务执行；`x-risk` / `x-permission` 声明治理字段；`x-approval: required` 声明审批要求。
+
+- **契约版本**：解析优先级为 operation 级 `x-version` > `config.version` > 文档 `info.version` > 默认 `1.0.0`。每一级都要求合法 semver，非法值告警并回退下一级而非丢弃函数——服务端注册门槛（`invalid_version`）会直接丢弃非 semver 的函数，而 OpenAPI 规范允许 `info.version` 为任意字符串（如 `2026-09`），provider 侧在注册前完成归一。
 
 - **分页**：collection 接口的请求带 `page`/`page_size` 参数、响应为 `{items, total}` 形状时，生成的资源页自动带分页绑定。
 - **注册时机**：Agent 启动加载 `providers.yaml`；通过扩展安装下发的 provider 走同一注册路径（`SyncExtensionProviders`），与静态文件同名冲突时默认静态优先（`CROUPIER_EXTENSION_PROVIDER_OVERRIDE_STATIC=1` 可反转）。`CROUPIER_EXTENSION_PROVIDERS_ONLY=1` 时跳过静态文件。

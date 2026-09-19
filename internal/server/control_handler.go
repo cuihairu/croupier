@@ -16,6 +16,7 @@ import (
 	"sync"
 	"time"
 
+	versionutil "github.com/cuihairu/croupier/internal/common/version"
 	"github.com/cuihairu/croupier/internal/function/converter"
 	"github.com/cuihairu/croupier/internal/function/registrationguard"
 	"github.com/cuihairu/croupier/internal/function/schemadiff"
@@ -35,7 +36,6 @@ import (
 
 var (
 	functionIDPattern = regexp.MustCompile(`^[a-z0-9]+(?:[._-][a-z0-9]+)*(?:\.[a-z0-9]+(?:[._-][a-z0-9]+)*)+$`)
-	semverPattern     = regexp.MustCompile(`^v?(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$`)
 )
 
 type registerWarning struct {
@@ -1164,7 +1164,7 @@ func descriptorPresentationField(f *agentv1.FunctionDescriptor) (string, bool) {
 }
 
 func isValidSemver(v string) bool {
-	return semverPattern.MatchString(strings.TrimSpace(v))
+	return versionutil.IsValid(v)
 }
 
 func compareSemver(a, b string) int {

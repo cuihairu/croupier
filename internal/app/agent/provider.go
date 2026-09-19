@@ -11,6 +11,7 @@ import (
 	"sync"
 	"time"
 
+	versionutil "github.com/cuihairu/croupier/internal/common/version"
 	agentlocal "github.com/cuihairu/croupier/internal/platform/agentlocal"
 	"github.com/cuihairu/croupier/internal/platform/openapi"
 	"github.com/cuihairu/croupier/internal/platform/provider"
@@ -126,8 +127,30 @@ func (m *ProviderManager) initProvider(ctx context.Context, name string, entry P
 
 	// Try to get method details from OpenAPI provider (if available)
 	var methodDetails map[string]*openapi.MethodDetails
+	var infoVersion string
 	if openapiProvider, ok := p.(*openapi.Provider); ok {
 		methodDetails = openapiProvider.GetMethodDetails()
+		infoVersion = openapiProvider.InfoVersion()
+	}
+
+	// Version resolution chain for this provider's functions:
+	//   config.version (explicit) > document info.version (valid semver) > 1.0.0
+	// An explicitly configured but invalid semver is surfaced once here instead
+	// of silently dropping every function at the server-side gate later.
+	batchVersion := versionutil.DefaultVersion
+	if raw, ok := providerConfig.Config["version"]; ok && raw != nil {
+		configured := strings.TrimSpace(fmt.Sprint(raw))
+		if configured != "" {
+			if versionutil.IsValid(configured) {
+				batchVersion = configured
+			} else {
+				m.logger.Warn("provider config version is not valid semver, falling back",
+					"provider", name, "configured_version", configured)
+			}
+		}
+	}
+	if batchVersion == versionutil.DefaultVersion && versionutil.IsValid(infoVersion) {
+		batchVersion = strings.TrimSpace(infoVersion)
 	}
 
 	for _, method := range methods {
@@ -137,7 +160,7 @@ func (m *ProviderManager) initProvider(ctx context.Context, name string, entry P
 		// Create ProviderFunctionDescriptor with OpenAPI-compatible fields
 		desc := &sdkv1.ProviderFunctionDescriptor{
 			Id:      funcID,
-			Version: "1.0.0",
+			Version: batchVersion,
 		}
 
 		// Fill in details from OpenAPI provider if available
@@ -153,6 +176,14 @@ func (m *ProviderManager) initProvider(ctx context.Context, name string, entry P
 				desc.Operation = details.Operation
 				desc.Capability = details.Capability
 				desc.Execution = details.Execution
+				if details.Version != "" {
+					if versionutil.IsValid(details.Version) {
+						desc.Version = details.Version
+					} else {
+						m.logger.Warn("operation x-version is not valid semver, falling back to batch version",
+							"function", funcID, "x_version", details.Version)
+					}
+				}
 			}
 		}
 
@@ -183,7 +214,7 @@ func (m *ProviderManager) initProvider(ctx context.Context, name string, entry P
 		"functions", len(functionIDs))
 
 	// 注册：providerID=serviceID, serviceID=serviceID, addr=""（临时）
-	m.store.Register(serviceID, serviceID, "", "1.0.0", funcs, nil)
+	m.store.Register(serviceID, serviceID, "", batchVersion, funcs, nil)
 
 	m.logger.Info("provider loaded", "name", name, "methods", len(methods))
 	return nil

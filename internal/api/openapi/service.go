@@ -18,6 +18,7 @@ import (
 
 	"github.com/cuihairu/croupier/internal/audit"
 	"github.com/cuihairu/croupier/internal/common/errorx"
+	versionutil "github.com/cuihairu/croupier/internal/common/version"
 	"github.com/cuihairu/croupier/internal/dashboard/spec"
 	"github.com/cuihairu/croupier/internal/db/dbctx"
 	funcopenapi "github.com/cuihairu/croupier/internal/function/openapi"
@@ -583,7 +584,7 @@ func (s *Service) functionMetaInputForBinding(
 	}
 	return dashboardservice.FunctionMetaInput{
 		ID:                strings.TrimSpace(functionID),
-		Version:           firstNonEmpty(runtimeMeta.Version, sourceInfoVersion(source)),
+		Version:           versionutil.ValidOrDefault(runtimeMeta.Version, sourceInfoVersion(source)),
 		Enabled:           runtimeMeta.Enabled,
 		Deprecated:        runtimeMeta.Deprecated,
 		Summary:           firstNonEmpty(operation.Summary, runtimeMeta.Summary, operation.OperationID),
@@ -726,7 +727,7 @@ func (s *Service) functionMetaInputForOperation(
 ) dashboardservice.FunctionMetaInput {
 	return dashboardservice.FunctionMetaInput{
 		ID:                strings.TrimSpace(functionID),
-		Version:           sourceInfoVersion(source),
+		Version:           versionutil.ValidOrDefault(sourceInfoVersion(source)),
 		Enabled:           true,
 		Summary:           firstNonEmpty(operation.Summary, operation.OperationID),
 		Description:       operation.Description,
