@@ -213,3 +213,12 @@ web/e2e/.auth/
 *.gcov
 sdks/cpp/build/
 coverage/
+
+# Eclipse/IDE 工程文件（本地 javac 调试产物，不入库）
+sdks/java/.classpath
+sdks/java/.project
+sdks/java/.settings/
+sdks/java/*/.classpath
+sdks/java/*/.project
+sdks/java/*/.factorypath
+sdks/java/*/.settings/
