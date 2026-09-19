@@ -629,12 +629,23 @@ func (s *ControlService) handleRegisterRequest(ctx context.Context, req *agentv1
 			// 一致——空值同样视为 mismatch，无兼容分支。不一致说明 SDK 侧
 			// 配置错误：产生业务层注册警告（路由仍按 agent scope 保持稳定）。
 			s.validateProviderScope(ctx, req, p, &warningTexts)
+			// provider 会话版本与函数槽同门槛：非 semver（含空/"unknown"/误传
+			// providerID）不进 version 槽——函数实例页该列即「契约版本」，
+			// 脏值直通会让下游 sdkversion gate/排障全部失真。
+			providerVersion := strings.TrimSpace(p.Version)
+			if !versionutil.IsValid(providerVersion) {
+				normalized := versionutil.ValidOrDefault(providerVersion)
+				if providerVersion != "" {
+					warningTexts = append(warningTexts, fmt.Sprintf("provider_version_invalid: service=%s version=%q is not valid semver; normalized to %s", p.ServiceId, p.Version, normalized))
+				}
+				providerVersion = normalized
+			}
 			providers = append(providers, reg.ProviderSession{
 				ProviderID:   p.ServiceId,
 				GameID:       req.GameId,
 				Env:          req.Env,
 				Addr:         p.Addr,
-				Version:      p.Version,
+				Version:      providerVersion,
 				SDKLanguage:  p.SdkLanguage,
 				SDKVersion:   p.SdkVersion,
 				SDKName:      p.SdkName,

@@ -130,6 +130,8 @@ export default {
   'component.pageEditor.shell.metaHint':
     'These fields go into PublishedPageSpec and provide page display text; console navigation placement is decided by the Mount menu below (menu_items). Category keys no longer drive menus.',
   'component.pageEditor.shell.orderLabel': 'Page order',
+  'component.pageEditor.shell.orderExtra':
+    'Order among sibling pages within the mounted menu (smaller first). The current value is reflected in Menu Management.',
   'component.pageEditor.shell.pageTitleLabel': 'Page title (multilingual)',
   'component.pageEditor.shell.structureCardTitle': 'Page structure',
   'component.pageEditor.taskPage.bindingNotConfigured': 'Not configured',

@@ -137,8 +137,8 @@ export default function InstanceDetailDrawer({
                     </Descriptions.Item>
                     <Descriptions.Item
                       label={intl.formatMessage({
-                        id: 'pages.functionsInstances.detail.label.serviceVersion',
-                        defaultMessage: '服务版本',
+                        id: 'pages.functionsInstances.detail.label.contractVersion',
+                        defaultMessage: '契约版本',
                       })}
                     >
                       <Tag color="blue">{instanceDetail.instance.version || '-'}</Tag>

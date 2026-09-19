@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/cuihairu/croupier/internal/agent"
+	versionutil "github.com/cuihairu/croupier/internal/common/version"
 	"github.com/cuihairu/croupier/internal/core/extension/externalfunc"
 	extensionsync "github.com/cuihairu/croupier/internal/core/extension/sync"
 	agentlocal "github.com/cuihairu/croupier/internal/platform/agentlocal"
@@ -559,7 +560,7 @@ func (a *App) syncExtensionFunctionsFromRuntime() {
 		funcs := discoverExtensionFunctions(item)
 		if len(funcs) > 0 {
 			// 扩展没有 serviceID，传空字符串
-			a.store.Register(providerID, "", "", item.ReleaseVersion, funcs, nil)
+			a.store.Register(providerID, "", "", versionutil.ValidOrDefault(item.ReleaseVersion), funcs, nil)
 		} else {
 			a.store.RemoveProvider(providerID)
 		}
@@ -589,7 +590,7 @@ func discoverExtensionFunctions(item RuntimeInstallation) []*sdkv1.ProviderFunct
 		seen[fid] = true
 		out = append(out, &sdkv1.ProviderFunctionDescriptor{
 			Id:          fid,
-			Version:     item.ReleaseVersion,
+			Version:     versionutil.ValidOrDefault(item.ReleaseVersion),
 			Risk:        "unknown",
 			Resource:    firstNonEmpty(resource, inferFunctionResource(fid), item.ExtensionID),
 			Operation:   firstNonEmpty(operation, inferFunctionOperation(fid), "custom"),

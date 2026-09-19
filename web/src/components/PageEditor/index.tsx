@@ -207,9 +207,14 @@ export default function PageEditor({
               id: 'component.pageEditor.shell.orderLabel',
               defaultMessage: '页面排序',
             })}
+            extra={intl.formatMessage({
+              id: 'component.pageEditor.shell.orderExtra',
+              defaultMessage:
+                '挂载菜单内兄弟页面的排列顺序，数字小者在前；可回菜单管理页核对当前值。',
+            })}
           >
             <InputNumber
-              value={value.order}
+              value={value.order ?? 0}
               onChange={(order) => onChange({ ...value, order: order ?? undefined })}
             />
           </Form.Item>

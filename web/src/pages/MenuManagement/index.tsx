@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { useAccess, useIntl } from '@umijs/max';
+import { history, useAccess, useIntl } from '@umijs/max';
 import { App, Button, Card, Empty, Spin } from 'antd';
 import { PlusOutlined } from '@ant-design/icons';
 import { PageContainer } from '@ant-design/pro-components';
@@ -11,8 +11,9 @@ import {
   updateMenuSort,
   type MenuItem,
 } from '@/services/api/menu';
+import { listPageDrafts } from '@/services/api/pages';
 import MenuForm, { type MenuFormValues } from './MenuForm';
-import MenuTree from './MenuTree';
+import MenuTree, { type MenuMountedPage } from './MenuTree';
 import { type SortUpdate } from './sortUtils';
 
 /** MenuManagement 菜单管理页：树查看 + 新建/编辑/删除 + 拖拽排序。 */
@@ -23,6 +24,7 @@ export default function MenuManagementPage() {
   const canManage = Boolean(access.canMenuManage);
 
   const [items, setItems] = useState<MenuItem[]>([]);
+  const [pages, setPages] = useState<MenuMountedPage[]>([]);
   const [loading, setLoading] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<MenuItem | null>(null);
@@ -33,7 +35,20 @@ export default function MenuManagementPage() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      setItems(await listMenus());
+      const [menus, drafts] = await Promise.all([listMenus(), listPageDrafts()]);
+      setItems(menus);
+      setPages(
+        drafts
+          .filter((d) => typeof d.menuId === 'number' && d.menuId > 0)
+          .map((d) => ({
+            pageKey: d.pageKey,
+            type: d.type,
+            menuId: d.menuId as number,
+            title: d.title ?? {},
+            status: d.status,
+            order: (d as { order?: number }).order,
+          })),
+      );
     } catch {
       // 错误 toast 由全局 request 拦截器负责
     } finally {
@@ -155,7 +170,11 @@ export default function MenuManagementPage() {
           ) : (
             <MenuTree
               items={items}
+              pages={pages}
               canManage={canManage}
+              onEditPage={(pageKey) =>
+                history.push(`/functions/pages?focus=${encodeURIComponent(pageKey)}`)
+              }
               onEdit={handleEdit}
               onDelete={handleDelete}
               onMove={handleMove}

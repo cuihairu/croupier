@@ -128,6 +128,8 @@ export default {
   'component.pageEditor.shell.metaHint':
     '这些字段会进入 PublishedPageSpec 并作为页面显示文案来源；导航归属由下方「挂载菜单」决定（menu_items），控制台不再按分类 key 生成菜单。',
   'component.pageEditor.shell.orderLabel': '页面排序',
+  'component.pageEditor.shell.orderExtra':
+    '挂载菜单内兄弟页面的排列顺序，数字小者在前；可回菜单管理页核对当前值。',
   'component.pageEditor.shell.pageTitleLabel': '页面标题（多语言）',
   'component.pageEditor.shell.structureCardTitle': '页面结构',
   'component.pageEditor.taskPage.bindingNotConfigured': '未配置',

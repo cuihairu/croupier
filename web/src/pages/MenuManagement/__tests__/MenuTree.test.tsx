@@ -7,7 +7,7 @@
  */
 import React from 'react';
 import { render, screen, fireEvent, waitFor, within, configure } from '@testing-library/react';
-import MenuTree, { buildDropHandler } from '../MenuTree';
+import MenuTree, { buildDropHandler, type MenuMountedPage } from '../MenuTree';
 import type { MenuItem } from '@/services/api/menu';
 
 jest.mock('@umijs/max', () => ({
@@ -54,16 +54,20 @@ interface TreeHandlers {
   onMove: jest.Mock;
 }
 
-function renderTree(handlers: Partial<TreeHandlers> = {}): TreeHandlers {
+function renderTree(
+  handlers: Partial<TreeHandlers & { pages?: MenuMountedPage[] }> = {},
+): TreeHandlers {
   const merged: TreeHandlers = {
     onEdit: jest.fn(),
     onDelete: jest.fn(),
     onMove: jest.fn(),
     ...handlers,
   };
+  const { pages, ...treeHandlers } = handlers;
   render(
     <MenuTree
       items={treeItems}
+      pages={pages ?? []}
       canManage
       onEdit={merged.onEdit}
       onDelete={merged.onDelete}
@@ -72,6 +76,24 @@ function renderTree(handlers: Partial<TreeHandlers> = {}): TreeHandlers {
   );
   return merged;
 }
+
+const mountedPages: MenuMountedPage[] = [
+  {
+    pageKey: 'operation--player.ban',
+    type: 'operation',
+    menuId: 2,
+    title: { 'zh-CN': '封禁玩家' },
+    status: 'published',
+    order: 3,
+  },
+  {
+    pageKey: 'resource--player',
+    type: 'resource',
+    menuId: 2,
+    title: { 'zh-CN': '玩家列表' },
+    status: 'draft',
+  },
+];
 
 /** 取当前「资源管理」行的展开开关（受控展开下收起/展开状态由 class 表达）。 */
 const getResourceSwitcher = (): HTMLElement => {
@@ -160,5 +182,43 @@ describe('MenuTree 节点交互', () => {
     await waitFor(() =>
       expect(document.querySelector('.ant-popover:not(.ant-popover-hidden)')).toBeNull(),
     );
+  });
+});
+
+describe('挂载页面叶子展示', () => {
+  it('已发布/草稿页面作为只读叶子挂在菜单节点下，带状态徽标与排序值', () => {
+    renderTree({ pages: mountedPages });
+    expect(screen.getByText('封禁玩家')).toBeInTheDocument();
+    expect(screen.getByText('玩家列表')).toBeInTheDocument();
+    expect(screen.getByText('已发布')).toBeInTheDocument();
+    expect(screen.getByText('草稿')).toBeInTheDocument();
+    expect(screen.getByText('发布后才会出现在控制台导航')).toBeInTheDocument();
+    expect(screen.getByText('排序 3')).toBeInTheDocument();
+  });
+
+  it('页面叶子不参与拖拽（nodeDraggable 排除 page: 前缀）', () => {
+    renderTree({ pages: mountedPages });
+    const pageNode = screen.getByText('封禁玩家').closest('.ant-tree-treenode');
+    const draggableEl = pageNode?.querySelector('[draggable="true"]');
+    expect(draggableEl).toBeNull();
+  });
+
+  it('点击「编辑页面」回调 onEditPage(pageKey)', () => {
+    const onEditPage = jest.fn();
+    // 直接渲染带 onEditPage 的树
+    render(
+      <MenuTree
+        items={treeItems}
+        pages={mountedPages}
+        canManage
+        onEdit={jest.fn()}
+        onDelete={jest.fn()}
+        onMove={jest.fn()}
+        onEditPage={onEditPage}
+      />,
+    );
+    const banRow = screen.getByText('封禁玩家').closest('.ant-tree-treenode');
+    fireEvent.click(within(banRow as HTMLElement).getByText('编辑页面'));
+    expect(onEditPage).toHaveBeenCalledWith('operation--player.ban');
   });
 });

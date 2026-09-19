@@ -423,6 +423,52 @@ func TestControlService_HandleRegisterRequest(t *testing.T) {
 		assert.Equal(t, "svc-1", agent.Providers[0].ProviderID)
 	})
 
+	t.Run("provider 自报版本非 semver → 归一 1.0.0 并告警；合法值透传；空值归一不告警", func(t *testing.T) {
+		svc := newTestControlService()
+
+		req := &agentv1.RegisterRequest{
+			AgentId: "agent-1",
+			GameId:  "game-1",
+			Env:     "dev",
+			Processes: []*agentv1.AgentProcess{
+				{ServiceId: "svc-dirty", Addr: "a:1", Version: "unknown", FunctionIds: []string{"game.player.get"}},
+				{ServiceId: "svc-misplaced", Addr: "b:2", Version: "provider:openapi-source-x", FunctionIds: []string{"game.player.get"}},
+				{ServiceId: "svc-empty", Addr: "c:3", Version: "", FunctionIds: []string{"game.player.get"}},
+				{ServiceId: "svc-ok", Addr: "d:4", Version: "2.3.1", FunctionIds: []string{"game.player.get"}},
+			},
+		}
+
+		resp, err := svc.handleRegisterRequest(context.Background(), req, "")
+		require.NoError(t, err)
+
+		var dirtyWarn, misplacedWarn bool
+		for _, w := range resp.Warnings {
+			switch {
+			case strings.Contains(w, "service=svc-dirty"):
+				dirtyWarn = true
+			case strings.Contains(w, "service=svc-misplaced"):
+				misplacedWarn = true
+			case strings.Contains(w, "service=svc-empty"), strings.Contains(w, "service=svc-ok"):
+				t.Fatalf("normalization must not warn for empty/valid versions: %q", w)
+			}
+		}
+		assert.True(t, dirtyWarn, "unknown 自报版本必须产生 provider_version_invalid 告警")
+		assert.True(t, misplacedWarn, "误传 providerID 作版本必须告警")
+
+		svc.registry.Mu().RLock()
+		agent := svc.registry.AgentsUnsafe()["agent-1"]
+		svc.registry.Mu().RUnlock()
+		require.NotNil(t, agent)
+		byID := map[string]string{}
+		for _, p := range agent.Providers {
+			byID[p.ProviderID] = p.Version
+		}
+		assert.Equal(t, "1.0.0", byID["svc-dirty"])
+		assert.Equal(t, "1.0.0", byID["svc-misplaced"])
+		assert.Equal(t, "1.0.0", byID["svc-empty"])
+		assert.Equal(t, "2.3.1", byID["svc-ok"])
+	})
+
 	t.Run("with upstream handler", func(t *testing.T) {
 		svc := newTestControlService()
 		mockHandler := &mockHandler{

@@ -64,11 +64,12 @@ export function buildInstanceColumns({
         ),
     },
     {
-      // 服务版本：游戏服务在 SDK RegisterWithAgent(serviceID, serviceVersion)
-      // 时上报的业务版本，不是 SDK 版本，也不是 agent 版本。
+      // 契约版本：游戏服务在 SDK RegisterWithAgent(serviceID, serviceVersion)
+      // 时上报、随函数 descriptor 落库的版本（行粒度=函数，即该函数契约版本）；
+      // server 端已对非 semver 自报值归一为 1.0.0（provider_version_invalid 告警）。
       title: intl.formatMessage({
-        id: 'pages.functionsInstances.column.serviceVersion',
-        defaultMessage: '服务版本',
+        id: 'pages.functionsInstances.column.contractVersion',
+        defaultMessage: '契约版本',
       }),
       dataIndex: 'version',
       width: 100,
@@ -109,17 +110,29 @@ export function buildInstanceColumns({
       dataIndex: 'ownerInstance',
       width: 120,
       ellipsis: true,
-      render: (_, record) =>
-        record.ownerInstance ? (
-          <Tag color="geekblue">{record.ownerInstance}</Tag>
-        ) : (
-          <span style={{ color: '#999' }}>
-            {intl.formatMessage({
-              id: 'pages.functionsInstances.column.ownerSelf',
-              defaultMessage: '本实例',
-            })}
-          </span>
-        ),
+      render: (_, record) => (
+        <Tooltip
+          title={intl.formatMessage(
+            {
+              id: 'pages.functionsInstances.column.ownerHint',
+              defaultMessage:
+                '维护该会话的 croupier-server 实例（多实例 HA 部署下的分片归属；单实例部署恒为「本实例」）',
+            },
+            {},
+          )}
+        >
+          {record.ownerInstance ? (
+            <Tag color="geekblue">{record.ownerInstance}</Tag>
+          ) : (
+            <span style={{ color: '#999' }}>
+              {intl.formatMessage({
+                id: 'pages.functionsInstances.column.ownerSelf',
+                defaultMessage: '本实例',
+              })}
+            </span>
+          )}
+        </Tooltip>
+      ),
     },
     {
       title: intl.formatMessage({

@@ -4,6 +4,13 @@ export default {
   'pages.menuManagement.description':
     'Maintain dashboard navigation menus: hierarchy, names, icons and permissions',
   'pages.menuManagement.action.create': 'New Menu',
+  'pages.menuManagement.dragHint': 'Drag to reorder among siblings',
+  'pages.menuManagement.page.statusPublished': 'Published',
+  'pages.menuManagement.page.statusDraft': 'Draft',
+  'pages.menuManagement.page.statusArchived': 'Archived',
+  'pages.menuManagement.page.draftHint': 'Appears in console navigation after publishing',
+  'pages.menuManagement.page.order': 'order {order}',
+  'pages.menuManagement.page.edit': 'Edit page',
   'pages.menuManagement.action.edit': 'Edit',
   'pages.menuManagement.action.delete': 'Delete',
   'pages.menuManagement.action.addChild': 'Add Child',

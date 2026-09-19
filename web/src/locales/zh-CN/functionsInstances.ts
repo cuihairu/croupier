@@ -9,11 +9,13 @@ export default {
   'pages.functionsInstances.column.functionId': '函数ID',
   'pages.functionsInstances.column.ownerInstance': '归属实例',
   'pages.functionsInstances.column.ownerSelf': '本实例',
+  'pages.functionsInstances.column.ownerHint':
+    '维护该会话的 croupier-server 实例（多实例 HA 部署下的分片归属；单实例部署恒为「本实例」）',
   'pages.functionsInstances.column.rowAction.debug': '调试',
   'pages.functionsInstances.column.rowAction.detail': '查看详情',
   'pages.functionsInstances.column.rowAction.logs': '查看日志',
   'pages.functionsInstances.column.status': '状态',
-  'pages.functionsInstances.column.serviceVersion': '服务版本',
+  'pages.functionsInstances.column.contractVersion': '契约版本',
   'pages.functionsInstances.column.agentVersion': 'Agent 版本',
   'pages.functionsInstances.debug.alert.descriptionWithServiceId':
     '参数预览只在浏览器本地校验 JSON Schema，不会调用服务；执行会定向发送到当前 Service ID。',
@@ -46,7 +48,7 @@ export default {
   'pages.functionsInstances.detail.label.lastHeartbeat': '最后心跳',
   'pages.functionsInstances.detail.label.ownerInstance': '归属实例',
   'pages.functionsInstances.detail.label.status': '状态',
-  'pages.functionsInstances.detail.label.serviceVersion': '服务版本',
+  'pages.functionsInstances.detail.label.contractVersion': '契约版本',
   'pages.functionsInstances.detail.label.sdkName': 'SDK 名称',
   'pages.functionsInstances.detail.label.sdkVersion': 'SDK 版本',
   'pages.functionsInstances.detail.label.agentVersion': 'Agent 版本',

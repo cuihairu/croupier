@@ -2,6 +2,7 @@ import { configure, fireEvent, render, screen, waitFor, within } from '@testing-
 import { App, ConfigProvider } from 'antd';
 import { useAccess } from '@umijs/max';
 import MenuManagementPage from '../index';
+import { listPageDrafts } from '@/services/api/pages';
 import { createMenu, deleteMenu, listMenus, updateMenu, updateMenuSort } from '@/services/api/menu';
 
 jest.mock('@/services/api/menu', () => ({
@@ -10,6 +11,10 @@ jest.mock('@/services/api/menu', () => ({
   listMenus: jest.fn(),
   updateMenu: jest.fn(),
   updateMenuSort: jest.fn(),
+}));
+
+jest.mock('@/services/api/pages', () => ({
+  listPageDrafts: jest.fn(),
 }));
 
 jest.mock('@umijs/max', () => ({
@@ -32,6 +37,7 @@ const mockedCreateMenu = createMenu as jest.MockedFunction<typeof createMenu>;
 const mockedUpdateMenu = updateMenu as jest.MockedFunction<typeof updateMenu>;
 const mockedDeleteMenu = deleteMenu as jest.MockedFunction<typeof deleteMenu>;
 const mockedUpdateMenuSort = updateMenuSort as jest.MockedFunction<typeof updateMenuSort>;
+const mockedListPageDrafts = listPageDrafts as jest.MockedFunction<typeof listPageDrafts>;
 
 const treeItems = [
   {
@@ -85,6 +91,7 @@ beforeEach(() => {
   jest.clearAllMocks();
   mockedAccess.mockReturnValue({ canMenuManage: true } as never);
   mockedListMenus.mockResolvedValue(treeItems as never);
+  mockedListPageDrafts.mockResolvedValue([] as never);
 });
 
 describe('MenuManagement page', () => {

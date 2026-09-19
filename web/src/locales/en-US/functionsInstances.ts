@@ -10,11 +10,13 @@ export default {
   'pages.functionsInstances.column.functionId': 'Function ID',
   'pages.functionsInstances.column.ownerInstance': 'Owner Instance',
   'pages.functionsInstances.column.ownerSelf': 'This instance',
+  'pages.functionsInstances.column.ownerHint':
+    'The croupier-server instance maintaining this session (HA shard owner; always this instance in single-node deployments)',
   'pages.functionsInstances.column.rowAction.debug': 'Debug',
   'pages.functionsInstances.column.rowAction.detail': 'View Details',
   'pages.functionsInstances.column.rowAction.logs': 'View Logs',
   'pages.functionsInstances.column.status': 'Status',
-  'pages.functionsInstances.column.serviceVersion': 'Service Version',
+  'pages.functionsInstances.column.contractVersion': 'Contract Version',
   'pages.functionsInstances.column.agentVersion': 'Agent Version',
   'pages.functionsInstances.debug.alert.descriptionWithServiceId':
     'Parameter preview only validates the JSON Schema locally in the browser and never calls the service; execution is routed to the current Service ID.',
@@ -47,7 +49,7 @@ export default {
   'pages.functionsInstances.detail.label.lastHeartbeat': 'Last Heartbeat',
   'pages.functionsInstances.detail.label.ownerInstance': 'Owner Instance',
   'pages.functionsInstances.detail.label.status': 'Status',
-  'pages.functionsInstances.detail.label.serviceVersion': 'Service Version',
+  'pages.functionsInstances.detail.label.contractVersion': 'Contract Version',
   'pages.functionsInstances.detail.label.sdkName': 'SDK Name',
   'pages.functionsInstances.detail.label.sdkVersion': 'SDK Version',
   'pages.functionsInstances.detail.label.agentVersion': 'Agent Version',
