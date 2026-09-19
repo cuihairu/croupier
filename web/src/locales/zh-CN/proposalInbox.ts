@@ -4,11 +4,12 @@ export default {
   'component.proposalInbox.column.action.customizeConfirm': '接受为草稿并自定义页面？',
   'component.proposalInbox.column.action.edit': '去编辑',
   'component.proposalInbox.column.action.more': '更多',
+  'component.proposalInbox.column.action.mountMenu': '挂载菜单',
   'component.proposalInbox.column.action.preview': '预览',
   'component.proposalInbox.column.action.publish': '发布',
-  'component.proposalInbox.column.action.publishConfirmDescription':
-    '会创建草稿并发布到运行控制台左侧动态菜单。',
+  'component.proposalInbox.column.action.publishConfirmDescription': '会创建草稿并发布。',
   'component.proposalInbox.column.action.publishConfirmTitle': '发布默认页面？',
+  'component.proposalInbox.column.action.publishTip': '发布默认页面（可选挂载到菜单）',
   'component.proposalInbox.column.action.reject': '拒绝',
   'component.proposalInbox.column.action.rejectConfirm': '拒绝此提案？',
   'component.proposalInbox.column.action.review': '处理',
@@ -95,7 +96,7 @@ export default {
   'component.proposalInbox.diagnostics.none': '无',
   'component.proposalInbox.diagnostics.warningCount': '{count} 警告',
   'component.proposalInbox.inbox.acceptAndPublishContent':
-    '页面 {pageKey} 已发布，版本 {publishedVersion}。运行控制台菜单会从已发布快照生成。',
+    '页面 {pageKey} 已发布，版本 {publishedVersion}。{mountState}',
   'component.proposalInbox.inbox.acceptAndPublishTitle': '已直接发布',
   'component.proposalInbox.inbox.alertDescription':
     '函数注册只描述能力；页面分类、标题和表单展示由平台生成默认 PageSpec。ready/basic 可以直接发布，不满意再进入编辑。',
@@ -108,9 +109,15 @@ export default {
   'component.proposalInbox.inbox.emptyBlocked': '暂无阻断项',
   'component.proposalInbox.inbox.emptyNeedsReview': '暂无需要处理的 Proposal',
   'component.proposalInbox.inbox.emptyPublishable': '暂无可直接发布的默认页面',
+  'component.proposalInbox.inbox.mountedHint': '已挂载到所选菜单，运行控制台导航即时可见。',
+  'component.proposalInbox.inbox.notMountedHint':
+    '未挂载菜单：页面不会出现在运行控制台导航，可稍后在页面工作台挂载。',
   'component.proposalInbox.inbox.openRuntimeConsole': '打开运行控制台',
   'component.proposalInbox.inbox.openRuntimePage': '打开运行页',
   'component.proposalInbox.inbox.proposalNotFound': '未找到 Proposal：{key}',
+  'component.proposalInbox.inbox.publishFailed': '发布失败，请重试',
+  'component.proposalInbox.inbox.publishMountFailed':
+    '页面 {pageKey} 已发布，版本 {publishedVersion}；但挂载菜单失败，可稍后在页面工作台重新挂载。',
   'component.proposalInbox.inbox.refresh': '刷新',
   'component.proposalInbox.inbox.searchPlaceholder': '搜索提案、页面或资源',
   'component.proposalInbox.inbox.tabContractChanges': '契约变更',
@@ -125,6 +132,10 @@ export default {
   'component.proposalInbox.preview.executionRejected':
     'Proposal 预览不执行函数；发布后请在运行控制台执行。',
   'component.proposalInbox.preview.title': '默认页面预览',
+  'component.proposalInbox.publish.mountField': '挂载到菜单（可选）',
+  'component.proposalInbox.publish.mountPlaceholder': '选择挂载的菜单；不选则仅发布',
+  'component.proposalInbox.publish.noMenus':
+    '当前环境暂无菜单：页面发布后不会出现在运行控制台导航，可先到「菜单管理」创建菜单。',
   'component.proposalInbox.quality.basic': '基础可发布',
   'component.proposalInbox.quality.needsReview': '需要处理',
   'component.proposalInbox.quality.ready': '可直接发布',

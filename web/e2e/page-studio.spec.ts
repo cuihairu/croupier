@@ -51,7 +51,8 @@ test.describe('Page Studio', () => {
     await page.goto('/functions/pages');
     await waitForPageReady(page);
 
-    // 排除主视图「一键发布全部」（modal.confirm 流程），命中提案行内发布（popconfirm 流程）
+    // 排除主视图「一键发布全部」（modal.confirm 流程），命中提案行内发布
+    // （发布确认弹窗：含挂载菜单选择，不选菜单则仅发布）
     const publishBtn = page
       .locator(
         'button:has-text("发布"):not(:has-text("一键")), a:has-text("发布"), button:has-text("Publish")',
@@ -60,7 +61,7 @@ test.describe('Page Studio', () => {
     await expect(publishBtn).toBeVisible();
     await publishBtn.click();
 
-    const confirmBtn = page.locator('.ant-popconfirm .ant-btn-primary').first();
+    const confirmBtn = page.locator('.ant-modal .ant-btn-primary').first();
     await expect(confirmBtn).toBeVisible();
     const publishResponse = page.waitForResponse(
       (response) =>

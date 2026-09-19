@@ -53,3 +53,24 @@ export function currentFocusPageKey(): string {
   }
   return new URLSearchParams(window.location.search).get('focus') || '';
 }
+
+/** URL ?mount=1 参数：配合 focus，进入工作台后自动打开该页面的挂载菜单弹窗。 */
+export function currentMountFlag(): boolean {
+  if (typeof window === 'undefined') {
+    return false;
+  }
+  return new URLSearchParams(window.location.search).get('mount') === '1';
+}
+
+/** 消费一次后清除 mount 参数，避免刷新/返回时重复打开挂载弹窗。 */
+export function clearMountParam(): void {
+  if (typeof window === 'undefined') {
+    return;
+  }
+  const url = new URL(window.location.href);
+  if (!url.searchParams.has('mount')) {
+    return;
+  }
+  url.searchParams.delete('mount');
+  window.history.replaceState(null, '', `${url.pathname}${url.search}${url.hash}`);
+}

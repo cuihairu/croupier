@@ -2,7 +2,7 @@
 export default {
   'pages.pageStudio.action.refresh': 'Refresh',
   'pages.pageStudio.advancedPanel.label':
-    'Advanced page management (only for accepted drafts, version handling, or rollbacks)',
+    'Advanced page management (draft editing, menu mounting, versions and rollbacks)',
   'pages.pageStudio.bulkPublish.button': 'Publish all',
   'pages.pageStudio.bulkPublish.confirmContent':
     'This will recompute proposals and publish all ready/basic proposals through the real pipeline (same scope). Proceed?',

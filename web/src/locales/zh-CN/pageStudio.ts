@@ -1,7 +1,7 @@
 // pages.pageStudio.* — PageStudio 编辑器/组件模板/保存弹窗
 export default {
   'pages.pageStudio.action.refresh': '刷新',
-  'pages.pageStudio.advancedPanel.label': '高级页面管理（仅在已接受草稿、处理版本或回滚时使用）',
+  'pages.pageStudio.advancedPanel.label': '高级页面管理（草稿编辑、挂载菜单、版本与回滚）',
   'pages.pageStudio.bulkPublish.button': '一键发布全部',
   'pages.pageStudio.bulkPublish.confirmContent':
     '将重算提案并把所有 ready/basic 提案按真实链路发布（同 scope）。确认执行？',

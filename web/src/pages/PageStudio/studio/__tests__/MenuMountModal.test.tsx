@@ -111,6 +111,13 @@ describe('MenuMountModal', () => {
     expect(screen.queryByRole('button', { name: /确\s*定|OK/ })).toBeNull();
     expect(onSubmit).not.toHaveBeenCalled();
     expect(onCancel).not.toHaveBeenCalled();
+
+    // 按钮仅 CSS 隐藏（okButtonProps display:none）：jsdom 直接派发点击仍走
+    // onOk 的 empty 分支——直接 onCancel 关闭，不提交
+    const ok = document.querySelector('.ant-modal-footer .ant-btn-primary') as HTMLElement;
+    fireEvent.click(ok);
+    expect(onCancel).toHaveBeenCalledTimes(1);
+    expect(onSubmit).not.toHaveBeenCalled();
   });
 
   it('draft 页面显示「发布后才上控制台」提示；published 不显示', async () => {

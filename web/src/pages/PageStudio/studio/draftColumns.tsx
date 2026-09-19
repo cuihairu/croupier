@@ -116,7 +116,7 @@ export function buildDraftColumns(
         defaultMessage: '操作',
       }),
       key: 'actions',
-      width: 160,
+      width: 200,
       fixed: 'right',
       render: (_, record) => (
         <Space size={4}>
@@ -181,18 +181,22 @@ export function buildDraftColumns(
               </Tooltip>
             </Popconfirm>
           )}
+          <Tooltip
+            title={intl.formatMessage({
+              id: 'pages.pageStudio.studio.action.mountMenu',
+              defaultMessage: '挂载菜单',
+            })}
+          >
+            <Button
+              type="link"
+              size="small"
+              icon={<ApartmentOutlined />}
+              onClick={() => handlers.onMountMenu(record)}
+            />
+          </Tooltip>
           <Dropdown
             menu={{
               items: [
-                {
-                  key: 'mount-menu',
-                  icon: <ApartmentOutlined />,
-                  label: intl.formatMessage({
-                    id: 'pages.pageStudio.studio.action.mountMenu',
-                    defaultMessage: '挂载菜单',
-                  }),
-                  onClick: () => handlers.onMountMenu(record),
-                },
                 {
                   key: 'regenerate',
                   icon: <ReloadOutlined />,

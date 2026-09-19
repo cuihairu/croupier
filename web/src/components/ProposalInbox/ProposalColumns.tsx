@@ -1,6 +1,7 @@
 import React from 'react';
-import { App, Button, Dropdown, Popconfirm, Space, Tag, Tooltip, Typography } from 'antd';
+import { App, Button, Dropdown, Space, Tag, Tooltip, Typography } from 'antd';
 import {
+  ApartmentOutlined,
   CheckOutlined,
   CloseOutlined,
   ExclamationCircleOutlined,
@@ -51,7 +52,7 @@ export function buildProposalColumns({
   onViewDetail,
   onPreview,
   onAccept,
-  onAcceptAndPublish,
+  onRequestPublish,
   onReview,
   onReject,
 }: {
@@ -60,7 +61,8 @@ export function buildProposalColumns({
   onViewDetail: (proposalKey: string) => void;
   onPreview: (proposalKey: string) => void;
   onAccept: (proposal: PageProposal) => Promise<void>;
-  onAcceptAndPublish: (proposal: PageProposal) => Promise<void>;
+  /** 打开发布确认弹窗（含挂载菜单选择）——发布按钮不再用 Popconfirm 直发。 */
+  onRequestPublish: (proposal: PageProposal) => void;
   onReview: (proposal: PageProposal) => Promise<void>;
   onReject: (proposalKey: string) => Promise<void>;
 }): ColumnsType<PageProposal> {
@@ -220,6 +222,22 @@ export function buildProposalColumns({
               }),
           });
         }
+        // 已存在页面（发布过/有草稿）：提供挂载菜单直达入口——控制台导航
+        // 由 menu_items 唯一驱动，未挂载的已发布页面不出现在导航中
+        if (record.pageExists && record.pageKey) {
+          moreItems.push({
+            key: 'mount-menu',
+            icon: <ApartmentOutlined />,
+            label: intl.formatMessage({
+              id: 'component.proposalInbox.column.action.mountMenu',
+              defaultMessage: '挂载菜单',
+            }),
+            onClick: () =>
+              navigateTo(
+                `/functions/pages?focus=${encodeURIComponent(record.pageKey || '')}&mount=1`,
+              ),
+          });
+        }
         return (
           <Space size={0}>
             <Button type="link" size="small" onClick={() => onViewDetail(record.proposalKey)}>
@@ -237,24 +255,24 @@ export function buildProposalColumns({
             {record.status === 'pending' &&
               (record.quality === 'ready' || record.quality === 'basic') &&
               !record.pageExists && (
-                <Popconfirm
+                <Tooltip
                   title={intl.formatMessage({
-                    id: 'component.proposalInbox.column.action.publishConfirmTitle',
-                    defaultMessage: '发布默认页面？',
+                    id: 'component.proposalInbox.column.action.publishTip',
+                    defaultMessage: '发布默认页面（可选挂载到菜单）',
                   })}
-                  description={intl.formatMessage({
-                    id: 'component.proposalInbox.column.action.publishConfirmDescription',
-                    defaultMessage: '会创建草稿并发布到运行控制台左侧动态菜单。',
-                  })}
-                  onConfirm={() => onAcceptAndPublish(record)}
                 >
-                  <Button type="link" size="small" icon={<RocketOutlined />}>
+                  <Button
+                    type="link"
+                    size="small"
+                    icon={<RocketOutlined />}
+                    onClick={() => onRequestPublish(record)}
+                  >
                     <FormattedMessage
                       id="component.proposalInbox.column.action.publish"
                       defaultMessage="发布"
                     />
                   </Button>
-                </Popconfirm>
+                </Tooltip>
               )}
             {record.status === 'pending' && record.pageExists && (
               <Button

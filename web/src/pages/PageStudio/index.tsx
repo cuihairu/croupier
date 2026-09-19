@@ -15,7 +15,7 @@ import DiffDrawer from './studio/DiffDrawer';
 import MergeModal from './studio/MergeModal';
 import MenuMountModal from './studio/MenuMountModal';
 import { buildDraftColumns } from './studio/draftColumns';
-import { currentFocusPageKey } from './studio/shared';
+import { clearMountParam, currentFocusPageKey, currentMountFlag } from './studio/shared';
 import {
   getPageDraft,
   listPageVersions,
@@ -339,6 +339,20 @@ export default function PageStudio() {
       }
     }
   }, [handleEdit]);
+
+  // mount=1（ProposalInbox「挂载菜单」入口跳转）：drafts 就绪后对 focus 页面
+  // 自动打开挂载弹窗；找不到页面（未 accept）则静默——弹窗本就无页可挂
+  useEffect(() => {
+    if (!currentMountFlag() || loading || !focusPageKey) {
+      return;
+    }
+    const record = drafts.find((item) => item.pageKey === focusPageKey);
+    if (!record) {
+      return;
+    }
+    clearMountParam();
+    handleMountMenu(record);
+  }, [drafts, loading, focusPageKey, handleMountMenu]);
 
   // 编辑器只改页面内容部分；draft 元数据（status/revision/bindingFreshness
   // 等）保留当前 state 的值。
@@ -831,12 +845,13 @@ export default function PageStudio() {
 
       <Collapse
         style={{ marginTop: 16 }}
+        defaultActiveKey={['advanced-page-management']}
         items={[
           {
             key: 'advanced-page-management',
             label: intl.formatMessage({
               id: 'pages.pageStudio.advancedPanel.label',
-              defaultMessage: '高级页面管理（仅在已接受草稿、处理版本或回滚时使用）',
+              defaultMessage: '高级页面管理（草稿编辑、挂载菜单、版本与回滚）',
             }),
             children: (
               <ProTable<PageSpecDraftSummary>

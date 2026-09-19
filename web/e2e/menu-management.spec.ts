@@ -357,15 +357,13 @@ test.describe('菜单系统端到端', () => {
 
   test('@menu- 页面工作台 UI 挂载菜单', async ({ page, request }) => {
     await login(page);
-    // 页面工作台：mail 页行 More 下拉 → 挂载菜单 → TreeSelect 选 mail 菜单 → 确定。
-    // 草稿列表在「高级页面管理」折叠面板内（默认收起），先展开。
+    // 页面工作台：mail 页行内「挂载菜单」显式按钮（ApartmentOutlined）→
+    // TreeSelect 选 mail 菜单 → 确定。「高级页面管理」面板默认展开（草稿表直接可见）。
     await page.goto('/functions/pages');
     await waitForPageReady(page);
-    await page.getByText('高级页面管理').click();
     const mailRow = page.locator('tbody tr', { hasText: MAIL_PAGE_KEY }).first();
     await expect(mailRow).toBeVisible({ timeout: 10000 });
-    await mailRow.locator('button .anticon-more').first().click();
-    await page.getByRole('menuitem', { name: '挂载菜单' }).click();
+    await mailRow.locator('button .anticon-apartment').first().click();
 
     const dialog = page.getByRole('dialog');
     await expect(dialog).toBeVisible();

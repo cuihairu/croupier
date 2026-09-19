@@ -4,8 +4,21 @@
  * 队列数据由后端聚合；前端不从 Proposal quality 推断 stale/blocked。
  */
 
-import React, { useCallback, useEffect, useState } from 'react';
-import { Alert, App, Button, Card, Empty, Input, Space, Table, Tabs, Tag } from 'antd';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import {
+  Alert,
+  App,
+  Button,
+  Card,
+  Empty,
+  Input,
+  Modal,
+  Space,
+  Table,
+  Tabs,
+  Tag,
+  TreeSelect,
+} from 'antd';
 import {
   ExclamationCircleOutlined,
   ReloadOutlined,
@@ -21,7 +34,10 @@ import {
   listProposalInbox,
   rejectProposal,
 } from '@/services/dashboard';
+import { listMenus, type MenuItem } from '@/services/api/menu';
+import { updatePageMenu } from '@/services/api/pages';
 import { buildConsolePagePath, requestConsoleMenuRefresh } from '@/utils/consoleMenu';
+import { localizedText } from '@/utils/localizedText';
 import { FormattedMessage, history, useIntl } from '@umijs/max';
 import { emptyInbox, matchesQuery } from './shared';
 import { buildBlockedColumns, buildProposalColumns } from './ProposalColumns';
@@ -151,8 +167,17 @@ export default function ProposalInbox({ focusPageKey = '' }: ProposalInboxProps)
   );
 
   const handleAcceptAndPublish = useCallback(
-    async (proposal: PageProposal) => {
+    async (proposal: PageProposal, menuId: number | null) => {
       const result = await acceptAndPublishProposal(proposal.proposalKey);
+      let mountFailed = false;
+      if (menuId != null) {
+        // 挂载写 draft 表 menu_id，控制台导航即时生效，无需重新发布
+        try {
+          await updatePageMenu(result.pageKey, menuId);
+        } catch {
+          mountFailed = true;
+        }
+      }
       await fetchData();
       requestConsoleMenuRefresh();
       const categoryKey = proposal.pageSpec?.category?.key?.trim() || '';
@@ -161,14 +186,36 @@ export default function ProposalInbox({ focusPageKey = '' }: ProposalInboxProps)
           id: 'component.proposalInbox.inbox.acceptAndPublishTitle',
           defaultMessage: '已直接发布',
         }),
-        content: intl.formatMessage(
-          {
-            id: 'component.proposalInbox.inbox.acceptAndPublishContent',
-            defaultMessage:
-              '页面 {pageKey} 已发布，版本 {publishedVersion}。运行控制台菜单会从已发布快照生成。',
-          },
-          { pageKey: result.pageKey, publishedVersion: result.publishedVersion },
-        ),
+        content: mountFailed
+          ? intl.formatMessage(
+              {
+                id: 'component.proposalInbox.inbox.publishMountFailed',
+                defaultMessage:
+                  '页面 {pageKey} 已发布，版本 {publishedVersion}；但挂载菜单失败，可稍后在页面工作台重新挂载。',
+              },
+              { pageKey: result.pageKey, publishedVersion: result.publishedVersion },
+            )
+          : intl.formatMessage(
+              {
+                id: 'component.proposalInbox.inbox.acceptAndPublishContent',
+                defaultMessage: '页面 {pageKey} 已发布，版本 {publishedVersion}。{mountState}',
+              },
+              {
+                pageKey: result.pageKey,
+                publishedVersion: result.publishedVersion,
+                mountState:
+                  menuId != null
+                    ? intl.formatMessage({
+                        id: 'component.proposalInbox.inbox.mountedHint',
+                        defaultMessage: '已挂载到所选菜单，运行控制台导航即时可见。',
+                      })
+                    : intl.formatMessage({
+                        id: 'component.proposalInbox.inbox.notMountedHint',
+                        defaultMessage:
+                          '未挂载菜单：页面不会出现在运行控制台导航，可稍后在页面工作台挂载。',
+                      }),
+              },
+            ),
         okText: categoryKey
           ? intl.formatMessage({
               id: 'component.proposalInbox.inbox.openRuntimePage',
@@ -184,6 +231,55 @@ export default function ProposalInbox({ focusPageKey = '' }: ProposalInboxProps)
     },
     [fetchData, intl, modal],
   );
+
+  // 发布确认弹窗（含挂载菜单选择）：发布按钮直开本弹窗，替代原 Popconfirm
+  // 直发——控制台导航由 menu_items 唯一驱动，发布时一步完成挂载
+  const [publishTarget, setPublishTarget] = useState<PageProposal | null>(null);
+  const [publishMenus, setPublishMenus] = useState<MenuItem[]>([]);
+  const [publishMenuId, setPublishMenuId] = useState<number | null>(null);
+  const [publishing, setPublishing] = useState(false);
+
+  const openPublishModal = useCallback(async (proposal: PageProposal) => {
+    setPublishTarget(proposal);
+    setPublishMenuId(null);
+    try {
+      setPublishMenus(await listMenus());
+    } catch {
+      setPublishMenus([]);
+    }
+  }, []);
+
+  const menuTreeData = useMemo(() => {
+    interface MenuNode {
+      value: number;
+      title: string;
+      children?: MenuNode[];
+    }
+    const toNode = (node: MenuItem): MenuNode => ({
+      value: node.id,
+      title: localizedText(node.labels, intl.locale, node.menuKey),
+      children: node.children.length ? node.children.map(toNode) : undefined,
+    });
+    return publishMenus.map(toNode);
+  }, [publishMenus, intl.locale]);
+
+  const handlePublishModalOk = useCallback(async () => {
+    if (!publishTarget) return;
+    setPublishing(true);
+    try {
+      await handleAcceptAndPublish(publishTarget, publishMenuId);
+      setPublishTarget(null);
+    } catch {
+      message.error(
+        intl.formatMessage({
+          id: 'component.proposalInbox.inbox.publishFailed',
+          defaultMessage: '发布失败，请重试',
+        }),
+      );
+    } finally {
+      setPublishing(false);
+    }
+  }, [publishTarget, publishMenuId, handleAcceptAndPublish, intl, message]);
 
   const handleReject = useCallback(
     async (proposalKey: string) => {
@@ -222,7 +318,7 @@ export default function ProposalInbox({ focusPageKey = '' }: ProposalInboxProps)
     onViewDetail: handleViewDetail,
     onPreview: handlePreview,
     onAccept: handleAccept,
-    onAcceptAndPublish: handleAcceptAndPublish,
+    onRequestPublish: (proposal) => void openPublishModal(proposal),
     onReview: handleReviewProposal,
     onReject: handleReject,
   });
@@ -403,6 +499,59 @@ export default function ProposalInbox({ focusPageKey = '' }: ProposalInboxProps)
           },
         ]}
       />
+
+      <Modal
+        open={publishTarget != null}
+        title={intl.formatMessage({
+          id: 'component.proposalInbox.column.action.publishConfirmTitle',
+          defaultMessage: '发布默认页面？',
+        })}
+        confirmLoading={publishing}
+        onOk={() => void handlePublishModalOk()}
+        onCancel={() => setPublishTarget(null)}
+        destroyOnHidden
+      >
+        <Space orientation="vertical" style={{ width: '100%' }} size={12}>
+          <span>
+            {intl.formatMessage({
+              id: 'component.proposalInbox.column.action.publishConfirmDescription',
+              defaultMessage: '会创建草稿并发布。',
+            })}
+          </span>
+          {publishMenus.length > 0 ? (
+            <>
+              <span>
+                {intl.formatMessage({
+                  id: 'component.proposalInbox.publish.mountField',
+                  defaultMessage: '挂载到菜单（可选）',
+                })}
+              </span>
+              <TreeSelect
+                style={{ width: '100%' }}
+                value={publishMenuId ?? undefined}
+                treeData={menuTreeData}
+                treeDefaultExpandAll
+                allowClear
+                placeholder={intl.formatMessage({
+                  id: 'component.proposalInbox.publish.mountPlaceholder',
+                  defaultMessage: '选择挂载的菜单；不选则仅发布',
+                })}
+                onChange={(value: number | undefined) => setPublishMenuId(value ?? null)}
+              />
+            </>
+          ) : (
+            <Alert
+              type="warning"
+              showIcon
+              message={intl.formatMessage({
+                id: 'component.proposalInbox.publish.noMenus',
+                defaultMessage:
+                  '当前环境暂无菜单：页面发布后不会出现在运行控制台导航，可先到「菜单管理」创建菜单。',
+              })}
+            />
+          )}
+        </Space>
+      </Modal>
 
       <ProposalDetailModal
         open={detailVisible}
