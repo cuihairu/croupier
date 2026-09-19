@@ -248,7 +248,8 @@ test.describe('真实 SDK Operation 链路', () => {
     await page.getByRole('dialog').getByRole('button', { name: 'Close' }).click();
 
     await proposalRow.getByRole('button', { name: '发布' }).click();
-    const confirm = page.locator('.ant-popconfirm .ant-btn-primary');
+    // 发布确认弹窗（含可选挂载菜单选择）：不选菜单直接确定即仅发布
+    const confirm = page.locator('.ant-modal .ant-btn-primary');
     await expect(confirm).toBeVisible();
     const publishResponsePromise = page.waitForResponse(
       (response) =>
