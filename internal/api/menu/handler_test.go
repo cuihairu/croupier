@@ -192,3 +192,39 @@ func TestMenuHandlerMissingScope(t *testing.T) {
 	assert.Equal(t, http.StatusBadRequest, rec.Code)
 	assert.True(t, strings.Contains(rec.Body.String(), "X-Game-ID"), rec.Body.String())
 }
+
+// 各写入口的 JSON bind 失败与 service 错误统一走 response.Error。
+func TestMenuHandlerBindAndServiceErrors(t *testing.T) {
+	r, _ := newMenuTestRouter(t, "menu:create", "menu:update", "menu:sort")
+
+	// Create：非法 JSON body → 400
+	rec, payload := doMenuRequest(t, r, http.MethodPost, "/api/v1/menus", `{"menuKey":`)
+	require.Equal(t, http.StatusBadRequest, rec.Code, rec.Body.String())
+	assert.Equal(t, "bad_request", payload["error"])
+
+	// Update：非法 JSON body → 400
+	rec, payload = doMenuRequest(t, r, http.MethodPut, "/api/v1/menus/1", `not-json`)
+	require.Equal(t, http.StatusBadRequest, rec.Code)
+	assert.Equal(t, "bad_request", payload["error"])
+
+	// UpdateSort：非法 JSON body → 400
+	rec, payload = doMenuRequest(t, r, http.MethodPut, "/api/v1/menus/1/sort", `{`)
+	require.Equal(t, http.StatusBadRequest, rec.Code)
+	assert.Equal(t, "bad_request", payload["error"])
+
+	// UpdateSort：service 错误（非数字 ID）→ 400
+	rec, payload = doMenuRequest(t, r, http.MethodPut, "/api/v1/menus/abc/sort", `{"sortOrder":1}`)
+	require.Equal(t, http.StatusBadRequest, rec.Code)
+	assert.Equal(t, "bad_request", payload["error"])
+}
+
+// accessible 入口缺 scope → 400（登录期接口同受 scope 契约约束）。
+func TestMenuHandlerAccessibleMissingScope(t *testing.T) {
+	r, _ := newMenuTestRouterWithScope(t, false)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/menus/accessible", nil)
+	rec := httptest.NewRecorder()
+	r.ServeHTTP(rec, req)
+	assert.Equal(t, http.StatusBadRequest, rec.Code)
+	assert.True(t, strings.Contains(rec.Body.String(), "X-Game-ID"), rec.Body.String())
+}

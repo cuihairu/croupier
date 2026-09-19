@@ -246,3 +246,34 @@ func TestMenuItemDeleteByScopeAndKey(t *testing.T) {
 	recreated := sampleMenuItem("resource")
 	require.NoError(t, m.Create(ctx, recreated))
 }
+
+// TestMenuItemDBFailureBranches 关闭底层连接：各方法的 error 分支统一
+// 返回错误而非 panic。
+func TestMenuItemDBFailureBranches(t *testing.T) {
+	db := setupMenuDB(t)
+	m := NewMenuItemModel(db)
+	ctx := context.Background()
+
+	item := sampleMenuItem("resource")
+	require.NoError(t, m.Create(ctx, item))
+
+	sqlDB, err := db.DB()
+	require.NoError(t, err)
+	require.NoError(t, sqlDB.Close())
+
+	_, err = m.FindByScopeAndKey(ctx, "demo-game", "development", "resource")
+	assert.Error(t, err)
+	_, err = m.FindByID(ctx, "demo-game", "development", item.ID)
+	assert.Error(t, err)
+	_, err = m.ListByScope(ctx, "demo-game", "development")
+	assert.Error(t, err)
+	_, err = m.CountByScope(ctx, "demo-game", "development")
+	assert.Error(t, err)
+	_, err = m.CountByParent(ctx, "demo-game", "development", item.ID)
+	assert.Error(t, err)
+	assert.Error(t, m.Create(ctx, sampleMenuItem("another")))
+	assert.Error(t, m.Save(ctx, item))
+	assert.Error(t, m.Delete(ctx, "demo-game", "development", item.ID))
+	assert.Error(t, m.DeleteByScopeAndKey(ctx, "demo-game", "development", "resource"))
+	assert.Error(t, m.UpdateSortOrder(ctx, "demo-game", "development", item.ID, 2))
+}

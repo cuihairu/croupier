@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"testing"
 
+	"github.com/cuihairu/croupier/internal/api/component"
 	"github.com/cuihairu/croupier/internal/model"
 	"github.com/cuihairu/croupier/internal/platform/settings"
 	"github.com/cuihairu/croupier/internal/svc"
@@ -88,4 +89,44 @@ func TestRegisterRoutesRoutes(t *testing.T) {
 		}
 	}
 	assert.True(t, found, "route catalogue GET / should be registered")
+}
+
+// buildContractTemplateRegenerator：nil 依赖守卫返回 nil；合法依赖返回
+// 闭包——契约加载失败包装错误、空契约集安全走 RegenerateFromContracts。
+func TestBuildContractTemplateRegenerator(t *testing.T) {
+	assert.Nil(t, buildContractTemplateRegenerator(nil, nil))
+	assert.Nil(t, buildContractTemplateRegenerator(&svc.ServiceContext{}, nil))
+
+	db, err := gorm.Open(gsqlite.Open(":memory:"), &gorm.Config{})
+	require.NoError(t, err)
+	require.NoError(t, model.AutoMigrate(db))
+	serverCtx := &svc.ServiceContext{DB: db}
+	componentHandler := component.NewHandler(
+		model.NewComponentTemplateModel(db),
+		model.NewFunctionContractModel(db))
+
+	regen := buildContractTemplateRegenerator(serverCtx, componentHandler)
+	require.NotNil(t, regen)
+
+	// 空契约集：regenerate 为 no-op 成功
+	require.NoError(t, regen(context.Background(), "demo-game", "development"))
+
+	// 契约加载失败：闭包包装错误
+	closedCtx := &svc.ServiceContext{DB: closedTemplateRegenDB(t)}
+	closedRegen := buildContractTemplateRegenerator(closedCtx, componentHandler)
+	require.NotNil(t, closedRegen)
+	err = closedRegen(context.Background(), "demo-game", "development")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "load contracts for template regen")
+}
+
+func closedTemplateRegenDB(t *testing.T) *gorm.DB {
+	t.Helper()
+	db, err := gorm.Open(gsqlite.Open(":memory:"), &gorm.Config{})
+	require.NoError(t, err)
+	require.NoError(t, model.AutoMigrate(db))
+	sqlDB, err := db.DB()
+	require.NoError(t, err)
+	require.NoError(t, sqlDB.Close())
+	return db
 }

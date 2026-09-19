@@ -210,3 +210,16 @@ func TestFromTask(t *testing.T) {
 		})
 	}
 }
+
+func TestService_Detail_ActorAnnotated(t *testing.T) {
+	svcCtx := setupSvcCtx(t)
+	run := seedTaskRun(t, svcCtx.DB, "t-actor", "player.ban", "succeeded")
+	run.Actor = "gm_admin"
+	require.NoError(t, svcCtx.DB.Save(run).Error)
+	svc := NewService(svcCtx)
+
+	resp, err := svc.Detail(context.Background(), &DetailRequest{ID: "t-actor"})
+	require.NoError(t, err)
+	assert.Equal(t, "gm_admin", resp.ActorID)
+	assert.Equal(t, "admin", resp.ActorType)
+}

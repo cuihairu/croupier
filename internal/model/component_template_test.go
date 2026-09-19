@@ -257,3 +257,85 @@ func TestUpsertBuiltinContentGate(t *testing.T) {
 	assert.Equal(t, "运营", gotC.Category, "custom row occupying the key is still overwritten")
 	assert.True(t, gotC.UpdatedAt.After(custom.UpdatedAt))
 }
+
+// TestBuiltinContentEqualDirect 等价判定纯函数的分支矩阵：nil 守卫、
+// 标量列（Category/Icon）变化、JSON 列规范化比较与解析失败回退。
+func TestBuiltinContentEqualDirect(t *testing.T) {
+	base := sampleTemplate("eq-base", true)
+
+	// nil 守卫
+	assert.False(t, builtinContentEqual(nil, base))
+	assert.False(t, builtinContentEqual(base, nil))
+
+	// 标量列变化 → 不等价
+	diffCategory := sampleTemplate("eq-base", true)
+	diffCategory.Category = "数据"
+	assert.False(t, builtinContentEqual(base, diffCategory))
+	diffIcon := sampleTemplate("eq-base", true)
+	diffIcon.Icon = "FundOutlined"
+	assert.False(t, builtinContentEqual(base, diffIcon))
+
+	// JSON 列规范化：键序/空白不同语义相同 → 等价
+	reordered := sampleTemplate("eq-base", true)
+	reordered.Name = JSON(`{ "zh-CN" : "玩家管理" }`)
+	reordered.RequiredFunctions = JSON(`[ "player.list" , "player.get" ]`)
+	assert.True(t, builtinContentEqual(base, reordered))
+
+	// 同字节 → 等价
+	assert.True(t, builtinContentEqual(base, sampleTemplate("eq-base", true)))
+
+	// jsonEquivalent 直测：字节相同、双侧规范化相等、单侧非法 JSON、
+	// 语义不同
+	assert.True(t, jsonEquivalent(JSON(`{"a":1}`), JSON(`{"a":1}`)))
+	assert.True(t, jsonEquivalent(JSON(`{"a":1,"b":2}`), JSON(`{"b":2, "a" : 1}`)))
+	assert.False(t, jsonEquivalent(JSON(`{"a":1}`), JSON(`{"a":2}`)))
+	assert.False(t, jsonEquivalent(JSON(`not json`), JSON(`{"a":1}`)))
+	assert.False(t, jsonEquivalent(JSON(`{"a":1}`), JSON(`not json`)))
+	assert.True(t, jsonEquivalent(JSON(`not json`), JSON(`not json`)), "字节相同直接等价")
+}
+
+// TestUpsertBuiltinScalarAndExistingSideInvalidJSON 门控补充：Category/
+// Icon 变化触发写；存量行本身持有非法 JSON（existing 侧解析失败）也不
+// 误跳过。
+func TestUpsertBuiltinScalarAndExistingSideInvalidJSON(t *testing.T) {
+	db := setupCompTplDB(t)
+	m := NewComponentTemplateModel(db)
+	ctx := context.Background()
+
+	require.NoError(t, m.UpsertBuiltin(ctx, sampleTemplate("scalar-gate", true)))
+	got1, err := m.FindByKey(ctx, "scalar-gate")
+	require.NoError(t, err)
+
+	time.Sleep(50 * time.Millisecond)
+	// Category 变化：写
+	categoryChanged := sampleTemplate("scalar-gate", true)
+	categoryChanged.Category = "配置"
+	require.NoError(t, m.UpsertBuiltin(ctx, categoryChanged))
+	got2, err := m.FindByKey(ctx, "scalar-gate")
+	require.NoError(t, err)
+	assert.True(t, got2.UpdatedAt.After(got1.UpdatedAt), "category change must write")
+	assert.Equal(t, "配置", got2.Category)
+
+	time.Sleep(50 * time.Millisecond)
+	// Icon 变化：写
+	iconChanged := sampleTemplate("scalar-gate", true)
+	iconChanged.Icon = "SettingOutlined"
+	require.NoError(t, m.UpsertBuiltin(ctx, iconChanged))
+	got3, err := m.FindByKey(ctx, "scalar-gate")
+	require.NoError(t, err)
+	assert.True(t, got3.UpdatedAt.After(got2.UpdatedAt), "icon change must write")
+	assert.Equal(t, "SettingOutlined", got3.Icon)
+
+	time.Sleep(50 * time.Millisecond)
+	// 存量行持有非法 JSON（经 Create 落入）：existing 侧解析失败 → 回退
+	// 字节比较，incoming 合法 JSON 字节不同 → 写。
+	brokenRow := sampleTemplate("broken-existing", true)
+	brokenRow.Tree = JSON(`{invalid`)
+	require.NoError(t, m.Create(ctx, brokenRow))
+	time.Sleep(50 * time.Millisecond)
+	require.NoError(t, m.UpsertBuiltin(ctx, sampleTemplate("broken-existing", true)))
+	gotB, err := m.FindByKey(ctx, "broken-existing")
+	require.NoError(t, err)
+	assert.True(t, gotB.UpdatedAt.After(brokenRow.UpdatedAt), "existing-side invalid JSON must not skip the write")
+	assert.Equal(t, sampleTemplate("broken-existing", true).Tree, gotB.Tree)
+}

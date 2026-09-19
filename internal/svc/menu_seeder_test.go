@@ -9,6 +9,7 @@ import (
 	"github.com/cuihairu/croupier/internal/model"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gorm.io/gorm"
 )
 
 // 写种子文件到临时目录，返回目录路径。
@@ -73,12 +74,12 @@ func TestLoadSeedMenus(t *testing.T) {
 func TestMenuSeederEnsureSeeded(t *testing.T) {
 	ctx := context.Background()
 
-	newSeeder := func(t *testing.T, seeds []SeedMenuItem) (*MenuSeeder, *model.MenuItemModel) {
+	newSeeder := func(t *testing.T, seeds []SeedMenuItem) (*MenuSeeder, *model.MenuItemModel, *gorm.DB) {
 		t.Helper()
 		db := setupTestDB(t)
 		require.NoError(t, autoMigrate(db))
 		mm := model.NewMenuItemModel(db)
-		return NewMenuSeeder(mm, seeds), mm
+		return NewMenuSeeder(mm, seeds), mm, db
 	}
 
 	seeds := []SeedMenuItem{
@@ -87,7 +88,7 @@ func TestMenuSeederEnsureSeeded(t *testing.T) {
 	}
 
 	t.Run("seeds 为空 → no-op", func(t *testing.T) {
-		seeder, mm := newSeeder(t, nil)
+		seeder, mm, _ := newSeeder(t, nil)
 		assert.False(t, seeder.Enabled())
 		seeder.EnsureSeeded(ctx, "g1", "dev")
 		count, err := mm.CountByScope(ctx, "g1", "dev")
@@ -96,7 +97,7 @@ func TestMenuSeederEnsureSeeded(t *testing.T) {
 	})
 
 	t.Run("空 scope 首访种入；二次调用幂等", func(t *testing.T) {
-		seeder, mm := newSeeder(t, seeds)
+		seeder, mm, _ := newSeeder(t, seeds)
 		seeder.EnsureSeeded(ctx, "g1", "dev")
 
 		items, err := mm.ListByScope(ctx, "g1", "dev")
@@ -116,7 +117,7 @@ func TestMenuSeederEnsureSeeded(t *testing.T) {
 	})
 
 	t.Run("scope 已有菜单 → 永不导入", func(t *testing.T) {
-		seeder, mm := newSeeder(t, seeds)
+		seeder, mm, _ := newSeeder(t, seeds)
 		// 用户先建了一条菜单
 		existing := &model.MenuItem{GameID: "g2", Env: "prod", MenuKey: "custom", IsVisible: true}
 		require.NoError(t, existing.SetLabels(map[string]string{"zh-CN": "自定义"}))
@@ -130,7 +131,7 @@ func TestMenuSeederEnsureSeeded(t *testing.T) {
 	})
 
 	t.Run("scope 相互独立", func(t *testing.T) {
-		seeder, mm := newSeeder(t, seeds)
+		seeder, mm, _ := newSeeder(t, seeds)
 		seeder.EnsureSeeded(ctx, "g1", "dev")
 		seeder.EnsureSeeded(ctx, "g1", "prod")
 		for _, env := range []string{"dev", "prod"} {
@@ -148,7 +149,7 @@ func TestMenuSeederEnsureSeeded(t *testing.T) {
 
 	t.Run("半套残留不再补种", func(t *testing.T) {
 		// 上次种子中断只落了 1 条：count>0 → 本进程不再导入。
-		seeder, mm := newSeeder(t, seeds)
+		seeder, mm, _ := newSeeder(t, seeds)
 		partial := &model.MenuItem{GameID: "g3", Env: "dev", MenuKey: "player", IsVisible: true}
 		require.NoError(t, partial.SetLabels(map[string]string{"zh-CN": "玩家管理"}))
 		require.NoError(t, mm.Create(ctx, partial))
@@ -157,5 +158,35 @@ func TestMenuSeederEnsureSeeded(t *testing.T) {
 		count, err := mm.CountByScope(ctx, "g3", "dev")
 		require.NoError(t, err)
 		assert.EqualValues(t, 1, count)
+	})
+
+	t.Run("种子文件是目录（读取失败）→ 报错禁用", func(t *testing.T) {
+		dir := t.TempDir()
+		require.NoError(t, os.Mkdir(filepath.Join(dir, DefaultMenusFilename), 0o755))
+		_, err := LoadSeedMenus(dir)
+		require.Error(t, err)
+	})
+
+	t.Run("种子内重复 menuKey → 撞唯一索引跳过该条继续", func(t *testing.T) {
+		dupSeeds := []SeedMenuItem{
+			{MenuKey: "player", Labels: map[string]string{"zh-CN": "玩家管理"}},
+			{MenuKey: "player", Labels: map[string]string{"zh-CN": "玩家管理-重复"}},
+		}
+		seeder, mm, _ := newSeeder(t, dupSeeds)
+		seeder.EnsureSeeded(ctx, "g4", "dev")
+		// 第二条 create 撞唯一索引被跳过：只落第一条（labels 为首个定义）
+		items, err := mm.ListByScope(ctx, "g4", "dev")
+		require.NoError(t, err)
+		require.Len(t, items, 1)
+		assert.Equal(t, "玩家管理", items[0].GetLabels()["zh-CN"])
+	})
+
+	t.Run("count 查询失败 → Warn 跳过不导入不 panic", func(t *testing.T) {
+		seeder, _, db := newSeeder(t, seeds)
+		sqlDB, err := db.DB()
+		require.NoError(t, err)
+		require.NoError(t, sqlDB.Close())
+
+		seeder.EnsureSeeded(ctx, "g5", "dev") // 不得 panic
 	})
 }
