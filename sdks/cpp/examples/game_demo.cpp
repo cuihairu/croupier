@@ -127,7 +127,7 @@ static std::string input_schema_for(const std::string& resource, const std::stri
 static void enrich_descriptor(FunctionDescriptor& desc) {
     desc.tags = {desc.resource, desc.operation};
     desc.summary = desc.resource + " " + desc.operation;
-    desc.description = "Demo function " + desc.id + " for " + desc.resource + " " + desc.operation + " action.";
+    desc.description = "Demo function " + desc.id + " for " + desc.resource + " " + desc.operation + " operations.";
     desc.operation_id = desc.id;
     const auto demo_schema = demo_schema_for(desc.id);
     if (!demo_schema.first.empty()) {

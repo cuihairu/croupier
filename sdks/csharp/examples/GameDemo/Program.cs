@@ -420,7 +420,7 @@ class Program
     static void EnrichDescriptor(FunctionDescriptor desc)
     {
         desc.Summary ??= $"{desc.Resource} {desc.Operation}";
-        desc.Description ??= $"Demo function {desc.Id} for {desc.Resource} {desc.Operation} action.";
+        desc.Description ??= $"Demo function {desc.Id} for {desc.Resource} {desc.Operation} operations.";
         desc.OperationId ??= desc.Id;
         desc.Tags ??= new List<string> { desc.Resource ?? "", desc.Operation ?? "" };
         var schemas = SchemasFor(desc.Id ?? "");

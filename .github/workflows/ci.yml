@@ -44,6 +44,9 @@ jobs:
       - name: SDK matrix conformance
         timeout-minutes: 5
         run: bash scripts/check-sdk-matrix.sh
+      - name: Demo contract baseline guard
+        timeout-minutes: 5
+        run: bash scripts/check-demo-contract-baseline.sh
       - name: Normalize Go toolchain env
         timeout-minutes: 2
         shell: bash

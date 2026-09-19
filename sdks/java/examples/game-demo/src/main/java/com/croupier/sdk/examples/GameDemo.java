@@ -543,7 +543,7 @@ public class GameDemo {
         desc.setTags(List.of(desc.getResource(), desc.getOperation()));
         desc.setSummary(desc.getResource() + " " + desc.getOperation());
         desc.setDescription(String.format(
-            "Demo function %s for %s %s action.",
+            "Demo function %s for %s %s operations.",
             desc.getId(), desc.getResource(), desc.getOperation()
         ));
         desc.setOperationId(desc.getId());

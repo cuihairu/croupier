@@ -385,9 +385,9 @@ function mailClaim(store: DemoStore): FunctionHandler {
 
 function enrichDescriptor(desc: FunctionDescriptor): FunctionDescriptor {
   const tags = desc.tags || ([desc.resource, desc.operation].filter(Boolean) as string[]);
-  // 与 Go/Java demo 对齐：summary 兜底 functionID，避免各语言默认
-  // 文案不同导致契约展示字段在重注册时轮换。
-  desc.summary = desc.summary || desc.id;
+  // 六语言 demo 共享同一契约槽位：summary/description 兜底文案必须与
+  // Go 基准逐字一致（`{resource} {operation}` / `... operations.`），
+  // 任何语言漂移都会让心跳重注册互相覆盖展示字段并翻转页面 stale。
   return {
     ...desc,
     tags,

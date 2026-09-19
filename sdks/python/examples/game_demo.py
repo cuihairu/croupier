@@ -708,7 +708,7 @@ def enrich_descriptor(desc: FunctionDescriptor) -> FunctionDescriptor:
     if not desc.tags:
         desc.tags = [value for value in (desc.resource, desc.operation) if value]
     if not desc.summary:
-        desc.summary = desc.id
+        desc.summary = f"{desc.resource} {desc.operation}"
     if not desc.description:
         desc.description = (
             f"Demo function {desc.id} for {desc.resource or 'unscoped'} {desc.operation or 'invoke'} operations."
