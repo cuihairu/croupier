@@ -907,6 +907,46 @@ export default {
     });
   },
 
+  // Page Studio 草稿编辑链（详情/保存/发布）+ 挂载菜单（menu_items 驱动控制台导航）
+  'GET /api/v1/pages/:pageKey': (req: Request, res: Response) => {
+    const pageKey = req.params.pageKey as string;
+    const page = findPage(pageKey);
+    if (!page) {
+      res.status(404).send({ error: 'not_found', message: `page not found: ${pageKey}` });
+      return;
+    }
+    res.send({ ...page, status: 'draft', draftRevision: 1, menuId: null });
+  },
+
+  'PUT /api/v1/pages/:pageKey': (req: Request, res: Response) => {
+    res.send({ pageKey: req.params.pageKey, draftRevision: 2 });
+  },
+
+  'POST /api/v1/pages/:pageKey/publish': (req: Request, res: Response) => {
+    res.send({ pageKey: req.params.pageKey, published: true, publishedVersion: 2 });
+  },
+
+  'PUT /api/v1/pages/:pageKey/menu': (req: Request, res: Response) => {
+    const body = req.body as { menuId?: number | null } | undefined;
+    res.send({ pageKey: req.params.pageKey, menuId: body?.menuId ?? null });
+  },
+
+  'GET /api/v1/menus': (req: Request, res: Response) => {
+    res.send({
+      items: [
+        {
+          id: 1,
+          parentId: null,
+          menuKey: 'mail',
+          labels: { 'zh-CN': '邮件', 'en-US': 'Mail' },
+          sortOrder: 0,
+          isVisible: true,
+          children: [],
+        },
+      ],
+    });
+  },
+
   // Page Specs API (for Page Studio)
   'GET /api/v1/page-specs': (req: Request, res: Response) => {
     res.send({

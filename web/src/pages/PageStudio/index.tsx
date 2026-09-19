@@ -323,7 +323,12 @@ export default function PageStudio() {
         return;
       }
       loadDraftDetail(pageKey);
+      setSelectedPageKey(pageKey);
       setEditorVisible(true);
+      // 编辑器 footer 的挂载菜单选择需要当前 scope 菜单树
+      listMenus()
+        .then(setMountMenus)
+        .catch(() => setMountMenus([]));
     },
     [loadDraftDetail],
   );
@@ -366,9 +371,11 @@ export default function PageStudio() {
   }, []);
 
   const handleSave = useCallback(
-    async (options?: { publishAfterSave?: boolean }) => {
+    async (options?: { publishAfterSave?: boolean; menuId?: number | null }) => {
       if (!selectedDraft) return;
       const publishAfterSave = options?.publishAfterSave ?? false;
+      // 编辑器 footer 的挂载改动：undefined=未改动不提交；null=解除；数字=挂载
+      const mountMenuId = options?.menuId;
       setSaving(true);
       try {
         const result = await savePageDraft({
@@ -376,16 +383,49 @@ export default function PageStudio() {
           draftRevision: selectedDraftRevision,
         });
         setSelectedDraftRevision(result.draftRevision);
+        // 挂载在保存成功路径执行：写 draft menu_id（发布后进控制台导航），
+        // 失败不回滚保存/发布，提示可稍后在工作台「挂载菜单」重新操作
+        let mountFailed = false;
+        if (mountMenuId !== undefined) {
+          try {
+            await updatePageMenu(selectedDraft.pageKey, mountMenuId);
+            requestConsoleMenuRefresh();
+          } catch {
+            mountFailed = true;
+          }
+        }
         if (publishAfterSave) {
           try {
             await publishPageDraft(selectedDraft.pageKey, result.draftRevision);
             requestConsoleMenuRefresh();
-            message.success(
-              intlRef.current.formatMessage({
-                id: 'pages.pageStudio.save.savedAndPublished',
-                defaultMessage: '已保存并发布',
-              }),
-            );
+            if (mountFailed) {
+              message.warning(
+                intlRef.current.formatMessage({
+                  id: 'pages.pageStudio.save.publishMountFailed',
+                  defaultMessage: '已保存并发布；但挂载菜单失败，可稍后在页面工作台重新挂载',
+                }),
+              );
+            } else if (mountMenuId !== undefined) {
+              message.success(
+                intlRef.current.formatMessage({
+                  id:
+                    mountMenuId === null
+                      ? 'pages.pageStudio.save.savedAndPublishedUnmounted'
+                      : 'pages.pageStudio.save.savedAndPublishedMounted',
+                  defaultMessage:
+                    mountMenuId === null
+                      ? '已保存并发布，已解除菜单挂载'
+                      : '已保存并发布，已挂载到所选菜单',
+                }),
+              );
+            } else {
+              message.success(
+                intlRef.current.formatMessage({
+                  id: 'pages.pageStudio.save.savedAndPublished',
+                  defaultMessage: '已保存并发布',
+                }),
+              );
+            }
           } catch (publishError) {
             // 草稿已保存，仅发布失败：保留编辑器打开让用户决定重试或稍后发布
             const reason = extractErrorMessage(
@@ -425,6 +465,26 @@ export default function PageStudio() {
             loadDrafts();
             return;
           }
+        } else if (mountFailed) {
+          message.warning(
+            intlRef.current.formatMessage({
+              id: 'pages.pageStudio.save.savedMountFailed',
+              defaultMessage: '已保存；但挂载菜单失败，可稍后在页面工作台重新挂载',
+            }),
+          );
+        } else if (mountMenuId !== undefined) {
+          message.success(
+            intlRef.current.formatMessage({
+              id:
+                mountMenuId === null
+                  ? 'pages.pageStudio.save.savedUnmounted'
+                  : 'pages.pageStudio.save.savedMounted',
+              defaultMessage:
+                mountMenuId === null
+                  ? '已保存，已解除菜单挂载'
+                  : '已保存，挂载已更新（发布后进控制台导航）',
+            }),
+          );
         } else {
           message.success(
             intlRef.current.formatMessage({
@@ -884,6 +944,8 @@ export default function PageStudio() {
         draft={selectedDraft}
         livePreview={livePreview}
         saving={saving}
+        menus={mountMenus}
+        currentMenuId={selectedDraft?.menuId ?? null}
         onClose={() => setEditorVisible(false)}
         onLivePreviewChange={setLivePreview}
         onSave={(options) => void handleSave(options)}

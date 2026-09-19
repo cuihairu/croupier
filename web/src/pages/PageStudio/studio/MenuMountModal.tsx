@@ -3,34 +3,7 @@ import { Alert, Form, Modal, TreeSelect } from 'antd';
 import { useIntl } from '@umijs/max';
 import type { MenuItem } from '@/services/api/menu';
 import type { PageSpecDraftSummary } from '@/types/dashboard';
-import { localizedText } from '@/utils/localizedText';
-
-interface TreeDatum {
-  title: React.ReactNode;
-  value: number;
-  key: string;
-  children?: TreeDatum[];
-}
-
-/** MenuItem 树 → TreeSelect treeData（title 用 labels 本地化 + menuKey 标识）。 */
-function toTreeData(items: MenuItem[], locale: string): TreeDatum[] {
-  return items.map((item) => {
-    const label = localizedText(item.labels, locale, item.menuKey);
-    const node: TreeDatum = {
-      title: (
-        <span>
-          {label}
-          <span style={{ color: 'rgba(0,0,0,0.45)', marginLeft: 8 }}>{item.menuKey}</span>
-        </span>
-      ),
-      value: item.id,
-      key: item.menuKey,
-    };
-    const children = toTreeData(item.children ?? [], locale);
-    if (children.length > 0) node.children = children;
-    return node;
-  });
-}
+import { toMenuTreeData, type MenuTreeDatum } from './menuTree';
 
 export interface MenuMountModalProps {
   /** 打开中的页面（null=关闭）；draft 状态页面挂载后发布才上控制台。 */
@@ -56,10 +29,10 @@ const MenuMountModal: React.FC<MenuMountModalProps> = ({
 }) => {
   const intl = useIntl();
   const [form] = Form.useForm<{ menuId: number | null }>();
-  const [treeData, setTreeData] = useState<TreeDatum[]>([]);
+  const [treeData, setTreeData] = useState<MenuTreeDatum[]>([]);
 
   useEffect(() => {
-    setTreeData(toTreeData(menus, intl.locale));
+    setTreeData(toMenuTreeData(menus, intl.locale));
   }, [menus, intl.locale]);
 
   useEffect(() => {

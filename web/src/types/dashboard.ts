@@ -962,6 +962,8 @@ export type PageSpecDraft = PageSpec & {
   env?: string;
   status: PageDraftStatus;
   draftRevision: number;
+  /** 挂载的菜单（menu_items.id）；null/缺省 = 未挂载（不进控制台导航）。 */
+  menuId?: number | null;
   publishedVersion?: number;
   diagnostics?: Diagnostic[];
   bindingFreshness?: BindingFreshnessDiagnostic[];

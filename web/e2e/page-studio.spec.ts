@@ -86,4 +86,49 @@ test.describe('Page Studio', () => {
     await page.getByRole('button', { name: /取 消/ }).click();
     await expect(page.getByText('将重算提案并把所有 ready/basic 提案按真实链路发布')).toBeHidden();
   });
+
+  test('编辑器内挂载菜单并保存发布', async ({ page }) => {
+    await page.goto('/functions/pages');
+    await waitForPageReady(page);
+
+    // 高级页面管理（默认展开）：草稿行「编辑」（icon-only + Tooltip）打开 EditorModal。
+    // 主视图提案行（resource--players 同名）操作列无 edit 图标，用图标过滤天然区分
+    const row = page
+      .getByRole('row', { name: /resource--players/ })
+      .filter({ has: page.locator('button:has(.anticon-edit)') });
+    await expect(row).toHaveCount(1);
+    await row.locator('button:has(.anticon-edit)').click();
+
+    const dialog = page.getByRole('dialog');
+    await expect(dialog).toBeVisible();
+    await expect(dialog.getByText('页面编辑')).toBeVisible();
+    await expect(dialog.getByText('resource--players').first()).toBeVisible();
+
+    // footer 挂载菜单选择（T-M8 后控制台导航只由 menu_items 驱动）。
+    // 弹窗内还有语言选择 combobox，按挂载 placeholder 过滤避免命中
+    const mountSelect = dialog.locator('.ant-select').filter({ hasText: '挂载到菜单' }).first();
+    await expect(mountSelect).toBeVisible();
+    await mountSelect.click();
+    const option = page.getByRole('treeitem', { name: /邮件/ }).first();
+    await expect(option).toBeVisible();
+    const menuResponse = page.waitForResponse(
+      (response) =>
+        response.url().includes('/pages/resource--players/menu') &&
+        response.request().method() === 'PUT',
+    );
+    await option.click();
+
+    // 保存并发布：保存 → 发布 → 挂载（挂载失败不回滚发布）
+    const publishResponse = page.waitForResponse(
+      (response) =>
+        response.url().includes('/pages/resource--players/publish') &&
+        response.request().method() === 'POST',
+    );
+    await dialog.getByRole('button', { name: /保存并发布/ }).click();
+    expect((await publishResponse).status()).toBe(200);
+    const mounted = await menuResponse;
+    expect(mounted.status()).toBe(200);
+    expect(mounted.request().postDataJSON()).toEqual({ menuId: 1 });
+    await expect(page.getByText('已保存并发布，已挂载到所选菜单').first()).toBeVisible();
+  });
 });

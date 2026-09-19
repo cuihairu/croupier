@@ -89,6 +89,13 @@ export default {
   'pages.pageStudio.save.failed': '保存失败',
   'pages.pageStudio.save.retryLater': '保存失败，请稍后重试',
   'pages.pageStudio.save.savedAndPublished': '已保存并发布',
+  'pages.pageStudio.save.savedAndPublishedMounted': '已保存并发布，已挂载到所选菜单',
+  'pages.pageStudio.save.savedAndPublishedUnmounted': '已保存并发布，已解除菜单挂载',
+  'pages.pageStudio.save.publishMountFailed':
+    '已保存并发布；但挂载菜单失败，可稍后在页面工作台重新挂载',
+  'pages.pageStudio.save.savedMounted': '已保存，挂载已更新（发布后进控制台导航）',
+  'pages.pageStudio.save.savedUnmounted': '已保存，已解除菜单挂载',
+  'pages.pageStudio.save.savedMountFailed': '已保存；但挂载菜单失败，可稍后在页面工作台重新挂载',
   'pages.pageStudio.save.success': '保存成功',
   'pages.pageStudio.saveModal.cancelText': '取消',
   'pages.pageStudio.saveModal.categoryLabel': '分类',

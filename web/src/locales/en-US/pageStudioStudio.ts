@@ -53,6 +53,9 @@ export default {
     'Preview does not execute functions; run them in the operations console after publishing',
   'pages.pageStudio.studio.editor.previewOff': 'Preview off',
   'pages.pageStudio.studio.editor.previewOn': 'Preview on',
+  'pages.pageStudio.studio.editor.mountPlaceholder': 'Mount to menu (optional; clear to unmount)',
+  'pages.pageStudio.studio.editor.mountNoMenus':
+    'No menus yet; create one in Menu Management first',
   'pages.pageStudio.studio.editor.saveAndPublish': 'Save and publish',
   'pages.pageStudio.studio.editor.saveDraft': 'Save draft only',
   'pages.pageStudio.studio.editor.title': 'Edit page',

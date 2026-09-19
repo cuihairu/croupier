@@ -96,6 +96,16 @@ export default {
   'pages.pageStudio.save.failed': 'Save failed',
   'pages.pageStudio.save.retryLater': 'Save failed, please try again later',
   'pages.pageStudio.save.savedAndPublished': 'Saved and published',
+  'pages.pageStudio.save.savedAndPublishedMounted':
+    'Saved and published; mounted to the selected menu',
+  'pages.pageStudio.save.savedAndPublishedUnmounted': 'Saved and published; menu mount removed',
+  'pages.pageStudio.save.publishMountFailed':
+    'Saved and published; menu mount failed, you can remount later in Page Studio',
+  'pages.pageStudio.save.savedMounted':
+    'Saved; menu mount updated (appears in console nav after publish)',
+  'pages.pageStudio.save.savedUnmounted': 'Saved; menu mount removed',
+  'pages.pageStudio.save.savedMountFailed':
+    'Saved; menu mount failed, you can remount later in Page Studio',
   'pages.pageStudio.save.success': 'Saved successfully',
   'pages.pageStudio.saveModal.cancelText': 'Cancel',
   'pages.pageStudio.saveModal.categoryLabel': 'Category',
