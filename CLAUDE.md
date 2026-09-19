@@ -467,3 +467,27 @@ echo "$CHANGED" | grep -E 'internal/(svc/migrations\.go|db/migrate/migrate\.go)'
 `internal/model/` 与迁移文件必须同 PR 出现（纯索引/tag 调整也不例外）。
 
 本节同样约束 `gorm:"index/uniqueIndex"` 变更、`TableName()` 改名、以及任何 column tag 调整——它们都改变存量库所期望的 schema。
+
+## Package Import Boundaries (Mandatory)
+
+`internal/platform/registry` 包**任何文件都不得 import `internal/model`**：`model/agent_session_model.go` 反向 import registry（既成事实，非可顺手拆除），Go 不允许环。两个坑一次说清：
+
+### 1) 业务代码：匿名 struct + `Table()` 直达表
+
+registry 内需要读写 model 定义的表时，定义包内匿名 row struct + `Table("表名")` 直达（先例：`store.go` 的 `writeToDB` 用 `Table("agent_sessions")` + `clause.OnConflict`；`store_sdkfloor.go` 的 `sdkVersionHwmRow`）。匿名 struct 的**列集必须与 model 定义两侧手动同步**（列 drift 是静默的），并在注释标明「mirrors model.Xxx（列集变更需两侧同步）」。
+
+`internal/svc/migrations.go` import model 无环，不受本节限制。
+
+### 2) 测试代码：必须外部测试包
+
+`package registry` 的同包 `_test.go` import model 照样报 `import cycle not allowed in test`——测试须写成外部测试包 `package registry_test`（先例：`store_transaction_integration_test.go`、`store_sdkfloor_test.go`）。外部包访问不了包私有成员（如 `s.db`），断言用构造时保留的句柄或行为面验证。
+
+### 3) Review Checklist
+
+registry 包新增持久化访问时检查：无 `internal/model` import；匿名 row struct 有 mirrors 注释；测试文件是 `package registry_test`。
+
+## Operational Notes（CI 与线上速记）
+
+- **CI - Dashboard 失败先判形态**：jest 全量在慢机上是「15 分钟 step 超时」不是用例失败——日志尾部 `##[error]...has timed out after 15 minutes`、无失败用例名、每文件 10-17s。属环境性慢，`gh run rerun <id> --failed` 即过，勿当回归 bisect。真失败先 grep `✕|FAIL|Tests:`。
+- **线上 postgres 是单库模式**：库名就是 `croupier`（所有表同库，非 multiGame 的 `croupier_meta` + `game_demo_*` 分库）。排查 SQL 别猜库名：`ssh runner-docker "docker exec croupier-postgres psql -U croupier -d croupier -c '...'"`。编号迁移（goose）在 server 启动时自动跑。
+- **`docker compose --profile sdk-examples up -d` 是隐式全栈更新**：pull 拉到最新 main 镜像后会级联 recreate server/agent/dashboard——效果等同一次部署（新功能 + 迁移直接上线）。只想重建 demo 容器时，pull/up 显式限定六个 demo 服务名；接受级联则验证新迁移落表即可。
