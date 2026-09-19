@@ -62,43 +62,61 @@ static std::string player_fields_schema(bool with_required) {
 }
 
 static std::pair<std::string, std::string> demo_schema_for(const std::string& id) {
-    const std::string player_out = "{\"type\":\"object\",\"properties\":{\"player\":" + std::string(SCHEMA_OBJ) + "}}";
-    const std::string list_out = "{\"type\":\"object\",\"properties\":{\"items\":{\"type\":\"array\",\"items\":" + std::string(SCHEMA_OBJ) + "},\"total\":" + SCHEMA_INT + "}}";
-    const std::string pagination_in = "{\"type\":\"object\",\"properties\":{\"page\":" + std::string(SCHEMA_INT) + ",\"pageSize\":" + SCHEMA_INT + "}}";
+    // 与 Go/Python/Java/JS demo 契约逐一对齐（六语言共享同一契约槽位，
+    // 任一语言的简形状/包装形态都会在其他 SDK 重连时覆盖正确 schema，
+    // 造成页面绑定反复 stale——线上实证）。基准 = Go demo main.go。
+    const std::string dt = "{\"type\":\"string\",\"format\":\"date-time\"}";
     const std::string id_required_in = "{\"type\":\"object\",\"properties\":{\"id\":" + std::string(SCHEMA_STR) + "},\"required\":[\"id\"]}";
     // delete 类输出与 Go/Python/Java demo 对齐：{id, deleted}（required）。
     // 此前 player.delete 声明 {playerId}、order.delete 声明 {deleted}，
     // 六语言共享契约槽位下 schema 互相覆盖。
     const std::string delete_out = "{\"type\":\"object\",\"properties\":{\"id\":" + std::string(SCHEMA_STR) + ",\"deleted\":{\"type\":\"boolean\"}},\"required\":[\"id\",\"deleted\"]}";
+    const std::string pagination_in = "{\"type\":\"object\",\"properties\":{\"page\":{\"type\":\"integer\",\"minimum\":1},\"pageSize\":{\"type\":\"integer\",\"minimum\":1,\"maximum\":100}}}";
+    // 各资源平铺输出（含时间戳字段），与 Go demo 的 *Schema 常量一致。
+    const std::string player_out = "{\"type\":\"object\",\"properties\":{\"id\":" + std::string(SCHEMA_STR) + ",\"name\":" + SCHEMA_STR + ",\"level\":" + SCHEMA_INT + ",\"vip\":" + SCHEMA_INT + ",\"gold\":" + SCHEMA_INT + ",\"status\":" + SCHEMA_STR + ",\"server\":" + SCHEMA_STR + ",\"createdAt\":" + dt + ",\"updatedAt\":" + dt + ",\"lastLoginAt\":" + dt + ",\"profile\":" + SCHEMA_OBJ + "}}";
+    const std::string order_out = "{\"type\":\"object\",\"properties\":{\"id\":" + std::string(SCHEMA_STR) + ",\"playerId\":" + SCHEMA_STR + ",\"productId\":" + SCHEMA_STR + ",\"amount\":" + SCHEMA_INT + ",\"currency\":" + SCHEMA_STR + ",\"status\":" + SCHEMA_STR + ",\"channel\":" + SCHEMA_STR + ",\"createdAt\":" + dt + ",\"updatedAt\":" + dt + ",\"attributes\":" + SCHEMA_OBJ + "}}";
+    const std::string leaderboard_out = "{\"type\":\"object\",\"properties\":{\"id\":" + std::string(SCHEMA_STR) + ",\"playerId\":" + SCHEMA_STR + ",\"playerName\":" + SCHEMA_STR + ",\"score\":" + SCHEMA_INT + ",\"rank\":" + SCHEMA_INT + ",\"updatedAt\":" + dt + "}}";
+    const std::string inventory_out = "{\"type\":\"object\",\"properties\":{\"id\":" + std::string(SCHEMA_STR) + ",\"templateId\":" + SCHEMA_STR + ",\"name\":" + SCHEMA_STR + ",\"quantity\":" + SCHEMA_INT + ",\"rarity\":" + SCHEMA_STR + ",\"updatedAt\":" + dt + "}}";
+    const std::string mail_out = "{\"type\":\"object\",\"properties\":{\"id\":" + std::string(SCHEMA_STR) + ",\"playerId\":" + SCHEMA_STR + ",\"title\":" + SCHEMA_STR + ",\"content\":" + SCHEMA_STR + ",\"status\":" + SCHEMA_STR + ",\"reward\":" + SCHEMA_OBJ + ",\"sentAt\":" + dt + ",\"updatedAt\":" + dt + ",\"expireAt\":" + dt + "}}";
+    // 列表分页输出与 Go demo demoCollectionSchema 对齐（items 为具体记录 schema）。
+    auto collection = [](const std::string& item) {
+        return "{\"type\":\"object\",\"properties\":{\"items\":{\"type\":\"array\",\"items\":" + item + "},\"total\":{\"type\":\"integer\"},\"page\":{\"type\":\"integer\"},\"pageSize\":{\"type\":\"integer\"}},\"required\":[\"items\",\"total\",\"page\",\"pageSize\"]}";
+    };
+    auto player_scoped_pagination_in = []() {
+        return "{\"type\":\"object\",\"properties\":{\"playerId\":{\"type\":\"string\"},\"page\":{\"type\":\"integer\",\"minimum\":1},\"pageSize\":{\"type\":\"integer\",\"minimum\":1,\"maximum\":100}}}";
+    };
+    auto player_scoped_pagination_required_in = []() {
+        return "{\"type\":\"object\",\"properties\":{\"playerId\":{\"type\":\"string\"},\"page\":{\"type\":\"integer\",\"minimum\":1},\"pageSize\":{\"type\":\"integer\",\"minimum\":1,\"maximum\":100}},\"required\":[\"playerId\"]}";
+    };
     if (id == "player.create") return {player_fields_schema(false), player_out};
     if (id == "player.get") return {id_required_in, player_out};
     if (id == "player.update") return {player_fields_schema(true), player_out};
     if (id == "player.delete") return {id_required_in, delete_out};
-    if (id == "player.list") return {pagination_in, list_out};
-    // 与 Go demo 契约逐一对齐。此前未列出的函数落到 action fallback
-    //（{status,action}），六语言 demo 共享同一契约槽位，fallback 注册
-    // 会覆盖 Go 写入的正确 schema，导致页面发布校验
-    // "/items,/total not found" 失败（DB 实证全量污染）。
-    if (id == "order.list" || id == "leaderboard.list" ||
-        id == "inventory.list" || id == "mail.list") return {pagination_in, list_out};
+    if (id == "player.list") return {pagination_in, collection(player_out)};
+    if (id == "order.list") return {player_scoped_pagination_in(), collection(order_out)};
+    if (id == "leaderboard.list") return {pagination_in, collection(leaderboard_out)};
+    if (id == "inventory.list") return {player_scoped_pagination_required_in(), collection(inventory_out)};
+    if (id == "mail.list") return {player_scoped_pagination_required_in(), collection(mail_out)};
     if (id == "mail.batch_send") return {"{\"type\":\"object\",\"properties\":{\"mailIds\":{\"type\":\"array\",\"items\":{\"type\":\"string\"}},\"title\":{\"type\":\"string\"},\"content\":{\"type\":\"string\"},\"reward\":" + std::string(SCHEMA_OBJ) + "}}",
-                                          "{\"type\":\"object\",\"properties\":{\"sent\":{\"type\":\"integer\"},\"failed\":{\"type\":\"integer\"}}}"};
+                                         "{\"type\":\"object\",\"properties\":{\"sent\":{\"type\":\"integer\"},\"failed\":{\"type\":\"integer\"}}}"};
     if (id == "leaderboard.reset") return {"{\"type\":\"object\",\"properties\":{}}",
-                                           "{\"type\":\"object\",\"properties\":{\"reset\":{\"type\":\"boolean\"}}}"};
-    if (id == "order.create") return {"{\"type\":\"object\",\"properties\":{\"id\":" + std::string(SCHEMA_STR) + ",\"playerId\":" + std::string(SCHEMA_STR) + ",\"productId\":" + std::string(SCHEMA_STR) + ",\"amount\":" + SCHEMA_INT + ",\"currency\":" + std::string(SCHEMA_STR) + ",\"status\":" + std::string(SCHEMA_STR) + ",\"channel\":" + std::string(SCHEMA_STR) + ",\"attributes\":" + std::string(SCHEMA_OBJ) + "}}",
-                                      "{\"type\":\"object\",\"properties\":{\"order\":" + std::string(SCHEMA_OBJ) + "}}"};
-    if (id == "order.get") return {"{\"type\":\"object\",\"properties\":{\"id\":" + std::string(SCHEMA_STR) + "},\"required\":[\"id\"]}",
-                                   "{\"type\":\"object\",\"properties\":{\"order\":" + std::string(SCHEMA_OBJ) + "}}"};
-    if (id == "order.update") return {"{\"type\":\"object\",\"properties\":{\"id\":" + std::string(SCHEMA_STR) + ",\"status\":" + std::string(SCHEMA_STR) + ",\"channel\":" + std::string(SCHEMA_STR) + ",\"amount\":" + SCHEMA_INT + "},\"required\":[\"id\"]}",
-                                      "{\"type\":\"object\",\"properties\":{\"order\":" + std::string(SCHEMA_OBJ) + "}}"};
-    if (id == "order.delete") return {"{\"type\":\"object\",\"properties\":{\"id\":" + std::string(SCHEMA_STR) + "},\"required\":[\"id\"]}",
-                                      delete_out};
-    if (id == "leaderboard.upsert") return {"{\"type\":\"object\",\"properties\":{\"playerId\":" + std::string(SCHEMA_STR) + ",\"score\":" + SCHEMA_INT + "},\"required\":[\"playerId\"]}",
-                                            "{\"type\":\"object\",\"properties\":{\"entry\":" + std::string(SCHEMA_OBJ) + "}}"};
-    if (id == "inventory.grant" || id == "inventory.consume") return {"{\"type\":\"object\",\"properties\":{\"playerId\":" + std::string(SCHEMA_STR) + ",\"templateId\":" + std::string(SCHEMA_STR) + ",\"quantity\":" + SCHEMA_INT + "},\"required\":[\"playerId\",\"templateId\"]}",
-                                                                       "{\"type\":\"object\",\"properties\":{\"item\":" + std::string(SCHEMA_OBJ) + "}}"};
-    if (id == "mail.send" || id == "mail.claim") return {"{\"type\":\"object\",\"properties\":{\"playerId\":" + std::string(SCHEMA_STR) + ",\"mailId\":" + std::string(SCHEMA_STR) + "},\"required\":[\"playerId\"]}",
-                                                          "{\"type\":\"object\",\"properties\":{\"mail\":" + std::string(SCHEMA_OBJ) + "}}"};
+                                           "{\"type\":\"object\",\"properties\":{\"reset\":{\"type\":\"boolean\"}},\"required\":[\"reset\"]}"};
+    if (id == "order.create") return {"{\"type\":\"object\",\"properties\":{\"id\":" + std::string(SCHEMA_STR) + ",\"playerId\":" + SCHEMA_STR + ",\"productId\":" + SCHEMA_STR + ",\"amount\":" + SCHEMA_INT + ",\"currency\":" + SCHEMA_STR + ",\"status\":" + SCHEMA_STR + ",\"channel\":" + SCHEMA_STR + ",\"attributes\":" + SCHEMA_OBJ + "},\"required\":[\"playerId\"]}",
+                                      order_out};
+    if (id == "order.get") return {id_required_in, order_out};
+    if (id == "order.update") return {"{\"type\":\"object\",\"properties\":{\"id\":" + std::string(SCHEMA_STR) + ",\"status\":" + SCHEMA_STR + ",\"channel\":" + SCHEMA_STR + ",\"amount\":" + SCHEMA_INT + "},\"required\":[\"id\"]}",
+                                      order_out};
+    if (id == "order.delete") return {id_required_in, delete_out};
+    if (id == "leaderboard.upsert") return {"{\"type\":\"object\",\"properties\":{\"playerId\":" + std::string(SCHEMA_STR) + ",\"score\":" + SCHEMA_INT + "},\"required\":[\"playerId\",\"score\"]}",
+                                            leaderboard_out};
+    if (id == "inventory.grant") return {"{\"type\":\"object\",\"properties\":{\"playerId\":" + std::string(SCHEMA_STR) + ",\"templateId\":" + SCHEMA_STR + ",\"quantity\":{\"type\":\"integer\",\"minimum\":1},\"name\":" + SCHEMA_STR + ",\"rarity\":" + SCHEMA_STR + "},\"required\":[\"playerId\",\"templateId\"]}",
+                                         inventory_out};
+    if (id == "inventory.consume") return {"{\"type\":\"object\",\"properties\":{\"playerId\":" + std::string(SCHEMA_STR) + ",\"templateId\":" + SCHEMA_STR + ",\"quantity\":{\"type\":\"integer\",\"minimum\":1}},\"required\":[\"playerId\",\"templateId\"]}",
+                                           inventory_out};
+    if (id == "mail.send") return {"{\"type\":\"object\",\"properties\":{\"playerId\":" + std::string(SCHEMA_STR) + ",\"title\":" + SCHEMA_STR + ",\"content\":" + SCHEMA_STR + ",\"reward\":" + SCHEMA_OBJ + ",\"expireAt\":" + dt + "},\"required\":[\"playerId\"]}",
+                                   mail_out};
+    if (id == "mail.claim") return {"{\"type\":\"object\",\"properties\":{\"playerId\":" + std::string(SCHEMA_STR) + ",\"id\":" + SCHEMA_STR + "},\"required\":[\"playerId\",\"id\"]}",
+                                    mail_out};
     return {};
 }
 

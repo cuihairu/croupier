@@ -430,42 +430,72 @@ class Program
 
     // Schemas describe the handlers' real wire contract with camelCase JSON
     // keys. snake_case is only allowed inside databases, never on the wire.
+    // 与 Go/Python/Java/JS demo 契约逐一对齐（六语言共享同一契约槽位，
+    // 任一语言的简形状/包装形态都会在其他 SDK 重连时覆盖正确 schema，
+    // 造成页面绑定反复 stale——线上实证）。基准 = Go demo main.go。
     static readonly string SchemaObj = "{\"type\":\"object\"}";
     static readonly string SchemaStr = "{\"type\":\"string\"}";
     static readonly string SchemaInt = "{\"type\":\"integer\"}";
+    static readonly string SchemaDt = "{\"type\":\"string\",\"format\":\"date-time\"}";
     static readonly string PlayerFields =
         "{\"id\":" + SchemaStr + ",\"name\":" + SchemaStr + ",\"level\":" + SchemaInt + ",\"vip\":" + SchemaInt +
         ",\"gold\":" + SchemaInt + ",\"status\":" + SchemaStr + ",\"server\":" + SchemaStr + ",\"profile\":" + SchemaObj + "}";
+    static readonly string PlayerOutFields =
+        "{\"id\":" + SchemaStr + ",\"name\":" + SchemaStr + ",\"level\":" + SchemaInt + ",\"vip\":" + SchemaInt +
+        ",\"gold\":" + SchemaInt + ",\"status\":" + SchemaStr + ",\"server\":" + SchemaStr +
+        ",\"createdAt\":" + SchemaDt + ",\"updatedAt\":" + SchemaDt + ",\"lastLoginAt\":" + SchemaDt + ",\"profile\":" + SchemaObj + "}";
+    static readonly string OrderOutFields =
+        "{\"id\":" + SchemaStr + ",\"playerId\":" + SchemaStr + ",\"productId\":" + SchemaStr + ",\"amount\":" + SchemaInt +
+        ",\"currency\":" + SchemaStr + ",\"status\":" + SchemaStr + ",\"channel\":" + SchemaStr +
+        ",\"createdAt\":" + SchemaDt + ",\"updatedAt\":" + SchemaDt + ",\"attributes\":" + SchemaObj + "}";
+    static readonly string LeaderboardOutFields =
+        "{\"id\":" + SchemaStr + ",\"playerId\":" + SchemaStr + ",\"playerName\":" + SchemaStr +
+        ",\"score\":" + SchemaInt + ",\"rank\":" + SchemaInt + ",\"updatedAt\":" + SchemaDt + "}";
+    static readonly string InventoryOutFields =
+        "{\"id\":" + SchemaStr + ",\"templateId\":" + SchemaStr + ",\"name\":" + SchemaStr +
+        ",\"quantity\":" + SchemaInt + ",\"rarity\":" + SchemaStr + ",\"updatedAt\":" + SchemaDt + "}";
+    static readonly string MailOutFields =
+        "{\"id\":" + SchemaStr + ",\"playerId\":" + SchemaStr + ",\"title\":" + SchemaStr + ",\"content\":" + SchemaStr +
+        ",\"status\":" + SchemaStr + ",\"reward\":" + SchemaObj + ",\"sentAt\":" + SchemaDt +
+        ",\"updatedAt\":" + SchemaDt + ",\"expireAt\":" + SchemaDt + "}";
+    static readonly string DeleteOutFields = "{\"id\":" + SchemaStr + ",\"deleted\":{\"type\":\"boolean\"}}";
+    static readonly string PaginationFields = "{\"page\":{\"type\":\"integer\",\"minimum\":1},\"pageSize\":{\"type\":\"integer\",\"minimum\":1,\"maximum\":100}}";
+    static readonly string PlayerScopedFields = "{\"playerId\":" + SchemaStr + ",\"page\":{\"type\":\"integer\",\"minimum\":1},\"pageSize\":{\"type\":\"integer\",\"minimum\":1,\"maximum\":100}}";
+
+    // 列表分页输出与 Go demo demoCollectionSchema 对齐（items 为具体记录 schema）。
+    static string Collection(string itemFields) =>
+        BuildObj("{\"items\":{\"type\":\"array\",\"items\":" + itemFields + "},\"total\":{\"type\":\"integer\"},\"page\":{\"type\":\"integer\"},\"pageSize\":{\"type\":\"integer\"}}",
+            new[] { "items", "total", "page", "pageSize" });
 
     static (string Input, string Output) SchemasFor(string id) => id switch
     {
-        "player.create" => (BuildObj(PlayerFields), BuildObj("{\"player\":" + SchemaObj + "}")),
-        "player.get" => (BuildObj("{\"id\":" + SchemaStr + "}", new[] { "id" }), BuildObj("{\"player\":" + SchemaObj + "}")),
-        "player.update" => (BuildObj(PlayerFields, new[] { "id" }), BuildObj("{\"player\":" + SchemaObj + "}")),
-        "player.delete" => (BuildObj("{\"id\":" + SchemaStr + "}", new[] { "id" }), BuildObj("{\"playerId\":" + SchemaStr + "}")),
-        "player.list" => (BuildObj("{\"page\":" + SchemaInt + ",\"pageSize\":" + SchemaInt + "}"),
-                          BuildObj("{\"items\":{\"type\":\"array\",\"items\":" + SchemaObj + "},\"total\":" + SchemaInt + "}")),
-        // 与 Go demo 契约逐一对齐（六语言共享同一契约槽位，fallback
-        // 形状会覆盖其他 SDK 写入的正确 schema → 发布校验失败）。
-        "order.list" or "leaderboard.list" or "mail.list"
-            => (BuildObj("{\"page\":" + SchemaInt + ",\"pageSize\":" + SchemaInt + "}"),
-                BuildObj("{\"items\":{\"type\":\"array\",\"items\":" + SchemaObj + "},\"total\":" + SchemaInt + "}")),
-        "inventory.list" => (BuildObj("{\"playerId\":" + SchemaStr + "}", new[] { "playerId" }),
-                BuildObj("{\"items\":{\"type\":\"array\",\"items\":" + SchemaObj + "},\"total\":" + SchemaInt + "}")),
-        "order.create" => (BuildObj("{\"id\":" + SchemaStr + ",\"playerId\":" + SchemaStr + ",\"productId\":" + SchemaStr + ",\"amount\":" + SchemaInt + ",\"currency\":" + SchemaStr + ",\"status\":" + SchemaStr + ",\"channel\":" + SchemaStr + ",\"attributes\":" + SchemaObj + "}"),
-                BuildObj("{\"order\":" + SchemaObj + "}")),
-        "order.get" or "order.update" => (BuildObj("{\"id\":" + SchemaStr + ",\"status\":" + SchemaStr + ",\"channel\":" + SchemaStr + ",\"amount\":" + SchemaInt + "}", new[] { "id" }),
-                BuildObj("{\"order\":" + SchemaObj + "}")),
-        "order.delete" => (BuildObj("{\"id\":" + SchemaStr + "}", new[] { "id" }),
-                BuildObj("{\"deleted\":{\"type\":\"boolean\"}}")),
-        "leaderboard.upsert" => (BuildObj("{\"playerId\":" + SchemaStr + ",\"score\":" + SchemaInt + "}", new[] { "playerId" }),
-                BuildObj("{\"entry\":" + SchemaObj + "}")),
+        "player.create" => (BuildObj(PlayerFields), BuildObj(PlayerOutFields)),
+        "player.get" => (BuildObj("{\"id\":" + SchemaStr + "}", new[] { "id" }), BuildObj(PlayerOutFields)),
+        "player.update" => (BuildObj(PlayerFields, new[] { "id" }), BuildObj(PlayerOutFields)),
+        "player.delete" => (BuildObj("{\"id\":" + SchemaStr + "}", new[] { "id" }), BuildObj(DeleteOutFields, new[] { "id", "deleted" })),
+        "player.list" => (BuildObj(PaginationFields), Collection(PlayerOutFields)),
+        "order.list" => (BuildObj(PlayerScopedFields), Collection(OrderOutFields)),
+        "leaderboard.list" => (BuildObj(PaginationFields), Collection(LeaderboardOutFields)),
+        "inventory.list" => (BuildObj(PlayerScopedFields, new[] { "playerId" }), Collection(InventoryOutFields)),
+        "mail.list" => (BuildObj(PlayerScopedFields, new[] { "playerId" }), Collection(MailOutFields)),
+        "order.create" => (BuildObj("{\"id\":" + SchemaStr + ",\"playerId\":" + SchemaStr + ",\"productId\":" + SchemaStr + ",\"amount\":" + SchemaInt + ",\"currency\":" + SchemaStr + ",\"status\":" + SchemaStr + ",\"channel\":" + SchemaStr + ",\"attributes\":" + SchemaObj + "}", new[] { "playerId" }),
+                BuildObj(OrderOutFields)),
+        "order.get" => (BuildObj("{\"id\":" + SchemaStr + "}", new[] { "id" }), BuildObj(OrderOutFields)),
+        "order.update" => (BuildObj("{\"id\":" + SchemaStr + ",\"status\":" + SchemaStr + ",\"channel\":" + SchemaStr + ",\"amount\":" + SchemaInt + "}", new[] { "id" }),
+                BuildObj(OrderOutFields)),
+        "order.delete" => (BuildObj("{\"id\":" + SchemaStr + "}", new[] { "id" }), BuildObj(DeleteOutFields, new[] { "id", "deleted" })),
+        "leaderboard.upsert" => (BuildObj("{\"playerId\":" + SchemaStr + ",\"score\":" + SchemaInt + "}", new[] { "playerId", "score" }),
+                BuildObj(LeaderboardOutFields)),
         "leaderboard.reset" => (BuildObj("{}"),
-                BuildObj("{\"reset\":{\"type\":\"boolean\"}}")),
-        "inventory.grant" or "inventory.consume" => (BuildObj("{\"playerId\":" + SchemaStr + ",\"templateId\":" + SchemaStr + ",\"quantity\":" + SchemaInt + "}", new[] { "playerId", "templateId" }),
-                BuildObj("{\"item\":" + SchemaObj + "}")),
-        "mail.send" or "mail.claim" => (BuildObj("{\"playerId\":" + SchemaStr + ",\"mailId\":" + SchemaStr + "}", new[] { "playerId" }),
-                BuildObj("{\"mail\":" + SchemaObj + "}")),
+                BuildObj("{\"reset\":{\"type\":\"boolean\"}}", new[] { "reset" })),
+        "inventory.grant" => (BuildObj("{\"playerId\":" + SchemaStr + ",\"templateId\":" + SchemaStr + ",\"quantity\":{\"type\":\"integer\",\"minimum\":1},\"name\":" + SchemaStr + ",\"rarity\":" + SchemaStr + "}", new[] { "playerId", "templateId" }),
+                BuildObj(InventoryOutFields)),
+        "inventory.consume" => (BuildObj("{\"playerId\":" + SchemaStr + ",\"templateId\":" + SchemaStr + ",\"quantity\":{\"type\":\"integer\",\"minimum\":1}}", new[] { "playerId", "templateId" }),
+                BuildObj(InventoryOutFields)),
+        "mail.send" => (BuildObj("{\"playerId\":" + SchemaStr + ",\"title\":" + SchemaStr + ",\"content\":" + SchemaStr + ",\"reward\":" + SchemaObj + ",\"expireAt\":" + SchemaDt + "}", new[] { "playerId" }),
+                BuildObj(MailOutFields)),
+        "mail.claim" => (BuildObj("{\"playerId\":" + SchemaStr + ",\"id\":" + SchemaStr + "}", new[] { "playerId", "id" }),
+                BuildObj(MailOutFields)),
         _ => (BuildObj("{}"), "{\"type\":\"object\",\"properties\":{\"status\":{\"type\":\"string\"},\"action\":{\"type\":\"string\"}}}"),
     };
 
