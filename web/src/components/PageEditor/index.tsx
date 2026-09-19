@@ -11,7 +11,7 @@
 import React from 'react';
 import { FormattedMessage, useIntl } from '@umijs/max';
 import { localizedText } from '@/utils/localizedText';
-import { Card, Empty, Form, Input, InputNumber, Space, Tag, Typography } from 'antd';
+import { Card, Empty, Form, InputNumber, Space, Tag, Typography } from 'antd';
 import type { PageSpec } from '@/types/dashboard';
 import ResourcePageEditor from './ResourcePageEditor';
 import OperationPageEditor from './OperationPageEditor';
@@ -33,15 +33,24 @@ export interface PageEditorProps {
   onChange: (value: PageSpec) => void;
   /** 是否只读 */
   readonly?: boolean;
+  /**
+   * 挂载菜单选择器插槽（调用方注入 TreeSelect 等）。渲染在「页面信息」
+   * 卡片的标题之后——菜单挂载是导航归属的唯一事实源（menu_items）。
+   */
+  mountMenuSlot?: React.ReactNode;
 }
 
 // ---------------------------------------------------------------------------
 // PageEditor Component
 // ---------------------------------------------------------------------------
 
-export default function PageEditor({ value, onChange, readonly = false }: PageEditorProps) {
+export default function PageEditor({
+  value,
+  onChange,
+  readonly = false,
+  mountMenuSlot,
+}: PageEditorProps) {
   const intl = useIntl();
-  const category = value.category || { key: '', labels: {} };
   const renderBody = () => {
     switch (value.type) {
       case 'resource':
@@ -173,7 +182,7 @@ export default function PageEditor({ value, onChange, readonly = false }: PageEd
         <Text type="secondary">
           <FormattedMessage
             id="component.pageEditor.shell.metaHint"
-            defaultMessage="这些字段会进入 PublishedPageSpec，并作为运行控制台动态菜单的唯一文本来源；函数注册和静态 locale 不提供页面显示文案。"
+            defaultMessage="这些字段会进入 PublishedPageSpec 并作为页面显示文案来源；导航归属由下方「挂载菜单」决定（menu_items），控制台不再按分类 key 生成菜单。"
           />
         </Text>
         <Form layout="vertical" disabled={readonly} style={{ marginTop: 16 }}>
@@ -189,25 +198,10 @@ export default function PageEditor({ value, onChange, readonly = false }: PageEd
               onChange={(title) => onChange({ ...value, title })}
             />
           </Form.Item>
-          <Form.Item
-            label={intl.formatMessage({
-              id: 'component.pageEditor.shell.categoryKeyLabel',
-              defaultMessage: '分类 key',
-            })}
-            required
-          >
-            <Input
-              value={category.key}
-              onChange={(event) =>
-                onChange({
-                  ...value,
-                  category: { ...category, key: event.target.value },
-                })
-              }
-            />
-          </Form.Item>
-          {/* T-M8：分类名称由菜单管理（menu_items.labels）维护，
-              页面规格只保留 category.key，分类标题不再随草稿编辑。 */}
+          {/* 菜单挂载（menu_items）是导航归属唯一事实源；旧「分类 key」
+              （category.key 驱动菜单时代的编辑入口）已移除——协议字段仍随
+              存量数据透传，不再提供编辑。 */}
+          {mountMenuSlot}
           <Form.Item
             label={intl.formatMessage({
               id: 'component.pageEditor.shell.orderLabel',

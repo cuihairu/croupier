@@ -5,6 +5,7 @@ import {
   Card,
   Col,
   Empty,
+  Form,
   Modal,
   Row,
   Space,
@@ -23,8 +24,9 @@ const { Text } = Typography;
 
 /** 页面编辑弹窗：左侧 PageEditor + 可开关的实时预览（预览不执行函数）；
  * 保存/发布由工作台主页回调（错误明细弹窗也在主页统一处理）。
- * footer 提供挂载菜单选择（T-M8 后分类 key 不再进菜单，控制台导航只由
- * menu_items 驱动）：改动过才随保存提交（menuId null=解除挂载）。 */
+ * 挂载菜单选择器经 mountMenuSlot 渲染在编辑器 body「页面信息」卡片内
+ * （旧版放 footer，被 100vh 满高 body 挤出视口导致永远不可见——2026-09
+ * 线上反馈根因）：改动过才随保存提交（menuId null=解除挂载）。 */
 export default function EditorModal({
   open,
   pageKey,
@@ -105,28 +107,6 @@ export default function EditorModal({
               defaultMessage="仅保存草稿"
             />
           </Button>
-          <TreeSelect
-            style={{ minWidth: 240 }}
-            value={menuId ?? undefined}
-            treeData={menuTreeData}
-            treeDefaultExpandAll
-            allowClear
-            disabled={menus.length === 0}
-            placeholder={intl.formatMessage({
-              id:
-                menus.length > 0
-                  ? 'pages.pageStudio.studio.editor.mountPlaceholder'
-                  : 'pages.pageStudio.studio.editor.mountNoMenus',
-              defaultMessage:
-                menus.length > 0
-                  ? '挂载到菜单（可选，清空解除）'
-                  : '暂无菜单，可先在「菜单管理」创建',
-            })}
-            onChange={(value: number | undefined) => {
-              setMenuId(value ?? null);
-              setMenuDirty(true);
-            }}
-          />
           <Button
             type="primary"
             loading={saving}
@@ -186,7 +166,45 @@ export default function EditorModal({
                 }
               />
             ) : null}
-            <PageEditor value={draft} onChange={onSpecChange} />
+            <PageEditor
+              value={draft}
+              onChange={onSpecChange}
+              mountMenuSlot={
+                <Form.Item
+                  label={intl.formatMessage({
+                    id: 'pages.pageStudio.studio.editor.mountMenuLabel',
+                    defaultMessage: '挂载菜单',
+                  })}
+                  extra={intl.formatMessage({
+                    id: 'pages.pageStudio.studio.editor.mountMenuExtra',
+                    defaultMessage: '控制台导航按挂载菜单展示；清空即从菜单解除挂载。',
+                  })}
+                >
+                  <TreeSelect
+                    style={{ width: '100%' }}
+                    value={menuId ?? undefined}
+                    treeData={menuTreeData}
+                    treeDefaultExpandAll
+                    allowClear
+                    disabled={menus.length === 0}
+                    placeholder={intl.formatMessage({
+                      id:
+                        menus.length > 0
+                          ? 'pages.pageStudio.studio.editor.mountPlaceholder'
+                          : 'pages.pageStudio.studio.editor.mountNoMenus',
+                      defaultMessage:
+                        menus.length > 0
+                          ? '挂载到菜单（可选，清空解除）'
+                          : '暂无菜单，可先在「菜单管理」创建',
+                    })}
+                    onChange={(value: number | undefined) => {
+                      setMenuId(value ?? null);
+                      setMenuDirty(true);
+                    }}
+                  />
+                </Form.Item>
+              }
+            />
           </Col>
           {livePreview ? (
             <Col span={11} style={{ height: '100%', overflow: 'auto' }}>

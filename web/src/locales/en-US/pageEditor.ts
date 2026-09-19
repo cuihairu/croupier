@@ -114,7 +114,6 @@ export default {
   'component.pageEditor.resourcePage.navigation.hint':
     'Navigation settings (title, category) are configured at the page level, not in this editor.',
   'component.pageEditor.resourcePage.navigation.title': 'Navigation',
-  'component.pageEditor.shell.categoryKeyLabel': 'Category key',
   'component.pageEditor.shell.compositeHint':
     'Composite pages are maintained automatically by the generator from resource contracts (one tab view per resource); to change the resource set, delete the page in the proposal inbox and recreate it, or wait for a proposal update triggered by a contract change.',
   'component.pageEditor.shell.compositeLinkage': 'linked to {deps}',
@@ -129,7 +128,7 @@ export default {
   'component.pageEditor.shell.iconPlaceholder': 'Optional; shown as the console menu icon',
   'component.pageEditor.shell.metaCardTitle': 'Page and menu information',
   'component.pageEditor.shell.metaHint':
-    'These fields go into PublishedPageSpec and are the only text source for the dynamic menu in the operations console; function registration and static locales do not provide page display text.',
+    'These fields go into PublishedPageSpec and provide page display text; console navigation placement is decided by the Mount menu below (menu_items). Category keys no longer drive menus.',
   'component.pageEditor.shell.orderLabel': 'Page order',
   'component.pageEditor.shell.pageTitleLabel': 'Page title (multilingual)',
   'component.pageEditor.shell.structureCardTitle': 'Page structure',

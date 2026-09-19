@@ -20,11 +20,14 @@ jest.mock('@umijs/max', () => ({
   FormattedMessage: ({ defaultMessage }: { defaultMessage?: string }) => <>{defaultMessage}</>,
 }));
 
-// 编辑器/预览是重组件且与本弹窗契约无关：替身只透传回调
+// 编辑器/预览是重组件且与本弹窗契约无关：替身只透传回调与挂载插槽
+// （mountMenuSlot 真实渲染，选择器已移入编辑器 body——2026-09 footer 不可见修复）
 jest.mock('@/components/PageEditor', () => {
-  const MockPageEditor: React.FC<{ value: unknown; onChange: (v: unknown) => void }> = () => (
-    <div data-testid="page-editor" />
-  );
+  const MockPageEditor: React.FC<{
+    value: unknown;
+    onChange: (v: unknown) => void;
+    mountMenuSlot?: React.ReactNode;
+  }> = ({ mountMenuSlot }) => <div data-testid="page-editor">{mountMenuSlot}</div>;
   return { __esModule: true, default: MockPageEditor };
 });
 jest.mock('@/components/PageRenderer', () => {
@@ -101,7 +104,7 @@ async function clearSelection(): Promise<void> {
   fireEvent.click(clear);
 }
 
-describe('EditorModal footer 挂载菜单选择', () => {
+describe('EditorModal 挂载菜单选择（body 内「页面信息」卡片）', () => {
   it('打开回显当前挂载菜单；未改动保存不提交挂载', async () => {
     const { onSave } = renderModal({ currentMenuId: 1 });
     await waitFor(() => expect(selectedText()).toContain('玩家'));

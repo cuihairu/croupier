@@ -53,6 +53,9 @@ export default {
     'Preview does not execute functions; run them in the operations console after publishing',
   'pages.pageStudio.studio.editor.previewOff': 'Preview off',
   'pages.pageStudio.studio.editor.previewOn': 'Preview on',
+  'pages.pageStudio.studio.editor.mountMenuExtra':
+    'Console navigation follows the mounted menu; clearing it unmounts the page.',
+  'pages.pageStudio.studio.editor.mountMenuLabel': 'Mount menu',
   'pages.pageStudio.studio.editor.mountPlaceholder': 'Mount to menu (optional; clear to unmount)',
   'pages.pageStudio.studio.editor.mountNoMenus':
     'No menus yet; create one in Menu Management first',

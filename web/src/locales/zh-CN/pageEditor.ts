@@ -112,7 +112,6 @@ export default {
   'component.pageEditor.resourcePage.navigation.hint':
     '导航配置（标题、分类）在页面级别设置，不在此编辑器中配置。',
   'component.pageEditor.resourcePage.navigation.title': '导航配置',
-  'component.pageEditor.shell.categoryKeyLabel': '分类 key',
   'component.pageEditor.shell.compositeHint':
     '组合页由生成器按资源契约自动维护（每资源一个 tab 视图）；如需调整资源集合，请在提案收件箱删除后重新创建，或等待契约变更触发的提案更新。',
   'component.pageEditor.shell.compositeLinkage': '联动 {deps}',
@@ -127,7 +126,7 @@ export default {
   'component.pageEditor.shell.iconPlaceholder': '可选，选择后作为控制台菜单图标',
   'component.pageEditor.shell.metaCardTitle': '页面与菜单信息',
   'component.pageEditor.shell.metaHint':
-    '这些字段会进入 PublishedPageSpec，并作为运行控制台动态菜单的唯一文本来源；函数注册和静态 locale 不提供页面显示文案。',
+    '这些字段会进入 PublishedPageSpec 并作为页面显示文案来源；导航归属由下方「挂载菜单」决定（menu_items），控制台不再按分类 key 生成菜单。',
   'component.pageEditor.shell.orderLabel': '页面排序',
   'component.pageEditor.shell.pageTitleLabel': '页面标题（多语言）',
   'component.pageEditor.shell.structureCardTitle': '页面结构',

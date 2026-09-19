@@ -435,7 +435,7 @@ PageSpec = (pageKey, type, resourceKey?, category, title, icon, order,
 
 分类、标题、图标与排序是 PageSpec 的顶层强类型字段；`NavigationSpec` 仅承载面包屑与返回行为（breadcrumb、showBack、backPath）。它们只在 PageProposal/PageSpec 中确定，注册侧不能提供菜单事实。页面没有独立的 permissions 字段：权限由 binding 级治理（合同 permission/risk/approval 快照）与 action 级 permission 字段承载。**T-M8 起分类名称与页面规格解耦**：`PageCategorySpec` 只保留 `key`（分组定位键）与 `order`，多语言分类名称由菜单系统（`menu_items.labels`）统一提供；存量数据经迁移脚本（`scripts/migrate-categories-to-menus.sql`）归位，页面驱动菜单的分类标题回落为空、前端以 `menu_items.labels` 覆盖。
 
-**本地化名称契约（T12 放宽，T-M8 起 category.labels 部分移交菜单）**：`title` 的 LocalizedText 只要求**任一 locale 有非空值**（默认名称必填、翻译可选）——zh-CN 是第一推荐展示语言（渲染回退链首位），en-US 与其他语言一律可选，仅有 en-US 的存量页面不被误拒；全部为空白值时在保存/发布校验与发布期诊断中被拒（`hasDefaultLocale`）。生成器全路径经 `ensureDefaultLocale` 规整：空白值剔除、zh-CN 缺失时取任意既有值补位，不再强制补写 en-US。编辑器（LocalizedTextEditor）的必填基线已同步降级为仅默认语言：缺失 zh-CN 时在 🌐 气泡中给出不阻断发布的补录提示，缺失其他语言不警告、不阻断；下拉标记回归单一 ✓（已录语言），必填 ⚠ 标记与 `contractHint` 的强制双写表述已随 T13 移除；分类标题编辑入口已随 T-M8 从页面编辑器移除（菜单管理页维护）。其余 LocalizedText 字段（confirm 文案、结果提示、字段 label 等）仍为可选，渲染端按 zh-CN → en-US → 任一非空值回退。
+**本地化名称契约（T12 放宽，T-M8 起 category.labels 部分移交菜单）**：`title` 的 LocalizedText 只要求**任一 locale 有非空值**（默认名称必填、翻译可选）——zh-CN 是第一推荐展示语言（渲染回退链首位），en-US 与其他语言一律可选，仅有 en-US 的存量页面不被误拒；全部为空白值时在保存/发布校验与发布期诊断中被拒（`hasDefaultLocale`）。生成器全路径经 `ensureDefaultLocale` 规整：空白值剔除、zh-CN 缺失时取任意既有值补位，不再强制补写 en-US。编辑器（LocalizedTextEditor）的必填基线已同步降级为仅默认语言：缺失 zh-CN 时在 🌐 气泡中给出不阻断发布的补录提示，缺失其他语言不警告、不阻断；下拉标记回归单一 ✓（已录语言），必填 ⚠ 标记与 `contractHint` 的强制双写表述已随 T13 移除；分类标题编辑入口已随 T-M8 从页面编辑器移除（菜单管理页维护）；2026-09 起 `category.key` 的输入框也一并移除——导航归属唯一入口是挂载菜单（menu_items + 页面 `menuId`），`category` 仅作为协议字段随存量 spec 透传，不再提供编辑。其余 LocalizedText 字段（confirm 文案、结果提示、字段 label 等）仍为可选，渲染端按 zh-CN → en-US → 任一非空值回退。
 
 ## CRUD 是主路径，非 CRUD 是一等扩展
 

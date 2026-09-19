@@ -48,6 +48,9 @@ export default {
   'pages.pageStudio.studio.editor.previewHint': '预览不执行函数；发布后请在运行控制台执行',
   'pages.pageStudio.studio.editor.previewOff': '预览关',
   'pages.pageStudio.studio.editor.previewOn': '预览开',
+  'pages.pageStudio.studio.editor.mountMenuExtra':
+    '控制台导航按挂载菜单展示；清空即从菜单解除挂载。',
+  'pages.pageStudio.studio.editor.mountMenuLabel': '挂载菜单',
   'pages.pageStudio.studio.editor.mountPlaceholder': '挂载到菜单（可选，清空解除）',
   'pages.pageStudio.studio.editor.mountNoMenus': '暂无菜单，可先在「菜单管理」创建',
   'pages.pageStudio.studio.editor.mountMenusLoadFailed': '菜单列表加载失败，请检查权限或稍后重试',
