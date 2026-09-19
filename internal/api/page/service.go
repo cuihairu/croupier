@@ -3,8 +3,6 @@ package page
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -1374,12 +1372,12 @@ func buildBindingContracts(bindings []spec.PageFunctionBinding, functions map[st
 	return out, nil
 }
 
+// digestRaw 冻结 binding 契约快照 digest。必须与 freshness 评估端共用
+// CanonicalDigest：raw 字节哈希会因 jsonb 列键序/空格形态与 canonical 序不同，
+// 同一 schema 也恒不等，导致 bindingFreshness 永远报 schema stale（2026-09-19
+// 线上 operation 页面 5 changes 无法收敛的根因）。
 func digestRaw(raw []byte) string {
-	if len(raw) == 0 {
-		return ""
-	}
-	sum := sha256.Sum256(raw)
-	return hex.EncodeToString(sum[:])
+	return freshness.CanonicalDigest(raw)
 }
 
 func pageDraftResponseFromModel(p *model.PageSpec) (*PageDraftResponse, error) {

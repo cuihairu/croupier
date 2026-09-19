@@ -1169,11 +1169,11 @@ func jsonPointerTokens(path string) []string {
 	return parts
 }
 
+// digestRawJSON 计算资源语义 functionRef 的 schema digest。与发布/评估链
+// 共用 freshness.CanonicalDigest，避免 raw 字节哈希因键序/空格形态不同而
+// 与其他 binding digest 比对恒不等（同 api/page digestRaw 2026-09-19 修复）。
 func digestRawJSON(raw []byte) string {
-	if len(raw) == 0 {
-		return ""
-	}
-	return fmt.Sprintf("%x", sha256Bytes(raw))
+	return freshness.CanonicalDigest(raw)
 }
 
 func (s *Service) buildAffectedPages(ctx context.Context, gameID, env, resourceKey string) ([]AffectedPageInfo, error) {
