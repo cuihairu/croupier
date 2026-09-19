@@ -1,5 +1,6 @@
-import { resetRegistryForTest } from '../../registry';
+import { allowedAtRoot, resetRegistryForTest } from '../../registry';
 import { registerBuiltinComponents, viewTypeToComponent } from '../builtin';
+import type { ComponentType } from '../../model';
 import type { FunctionDescriptor } from '@/services/api/functions';
 
 const listFn: FunctionDescriptor = {
@@ -67,6 +68,17 @@ describe('builtin components scaffold（契约→组件默认值，防回归快�
     });
   });
 
+  it('fnTable：无契约（拖入时函数列表未就绪/未选函数）回退兜底骨架', () => {
+    const def = resetAndGet('fnTable');
+    expect(def.scaffold(undefined)).toEqual({
+      functionId: '',
+      title: '表格',
+      span: 24,
+      autoRun: true,
+      columns: [],
+    });
+  });
+
   it('fnForm：display 默认 inline', () => {
     const def = resetAndGet('fnForm');
     expect(def.scaffold(formFn)).toEqual({
@@ -100,6 +112,27 @@ describe('builtin components scaffold（契约→组件默认值，防回归快�
   it('modal 只接受 fnForm 子节点', () => {
     const def = resetAndGet('modal');
     expect(def.allowedChildren).toEqual(['fnForm']);
+  });
+
+  it('tabs scaffold：默认整宽', () => {
+    expect(resetAndGet('tabs').scaffold()).toEqual({ span: 24 });
+  });
+});
+
+describe('allowedAtRoot（根级放置约束：V1 全部组件可入根级）', () => {
+  it.each([
+    'fnTable',
+    'fnForm',
+    'fnFields',
+    'staticForm',
+    'button',
+    'modal',
+    'container',
+    'tabs',
+    'text',
+  ] as ComponentType[])('%s → 根级可放置', (type) => {
+    // fnForm 走 `|| true` 右侧、其余走 `!== 'fnForm'` 左侧，两路均恒 true
+    expect(allowedAtRoot(type)).toBe(true);
   });
 });
 

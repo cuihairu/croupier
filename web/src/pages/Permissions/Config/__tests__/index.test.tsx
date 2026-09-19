@@ -119,4 +119,24 @@ describe('Permissions/Config', () => {
     expect(screen.getByText('以下权限需要特别注意')).toBeInTheDocument();
     expect(screen.getByText('超级权限，拥有所有系统权限')).toBeInTheDocument();
   });
+
+  it('权限详情 Tab 的搜索框（第二个 Input 实例）同样受控过滤', async () => {
+    render(<ConfigPage />);
+    await waitFor(() => expect(tableRows()).toBe(PAGE_SIZE));
+    fireEvent.click(screen.getByRole('tab', { name: '权限详情' }));
+    await waitFor(() =>
+      expect(document.querySelectorAll('.ant-collapse-header').length).toBe(ALL_DOMAINS),
+    );
+
+    // 两个 Tab 的搜索框共享 searchText state 但是独立的 Input onChange 实例：
+    // [0] 为权限域总览、[1] 为权限详情面板内的输入框
+    const detailInput = screen.getAllByPlaceholderText('搜索权限域或权限')[1] as HTMLInputElement;
+    fireEvent.change(detailInput, { target: { value: 'system:restart' } });
+    await waitFor(() => expect(document.querySelectorAll('.ant-collapse-header').length).toBe(1));
+    // 清空恢复全量
+    fireEvent.change(detailInput, { target: { value: '' } });
+    await waitFor(() =>
+      expect(document.querySelectorAll('.ant-collapse-header').length).toBe(ALL_DOMAINS),
+    );
+  });
 });

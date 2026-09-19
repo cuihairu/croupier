@@ -11,18 +11,30 @@ import RowActionsEditor from '../RowActionsEditor';
 import type { PageNode } from '../model';
 import type { FunctionDescriptor } from '@/services/api/functions';
 
-// ExpressionInput 替身：受控 input 透传 onChange
-jest.mock('../ExpressionInput', () => ({
-  __esModule: true,
-  default: ({ value, onChange }: { value?: string; onChange: (v: string) => void }) => (
-    <input
-      type="text"
-      data-testid="expr-input"
-      value={value ?? ''}
-      onChange={(e) => onChange(e.target.value)}
-    />
-  ),
-}));
+// ExpressionInput 替身：受控 input 透传 onChange；挂载时调用 rootsOf 探针
+// （覆盖 RowActionsEditor 向 ParamMapping 注入的 rootsOf={() => []} 函数路径）
+jest.mock('../ExpressionInput', () => {
+  // 大写命名：react-hooks/rules-of-hooks 按函数名识别组件
+  const MockExpressionInput: React.FC<{
+    value?: string;
+    onChange: (v: string) => void;
+    rootsOf?: (name: string) => string[];
+  }> = ({ value, onChange, rootsOf }) => {
+    const { useEffect } = require('react') as typeof React;
+    useEffect(() => {
+      rootsOf?.('__probe__');
+    }, [rootsOf]);
+    return (
+      <input
+        type="text"
+        data-testid="expr-input"
+        value={value ?? ''}
+        onChange={(e) => onChange(e.target.value)}
+      />
+    );
+  };
+  return { __esModule: true, default: MockExpressionInput };
+});
 
 const banFn: FunctionDescriptor = {
   id: 'player.ban',
@@ -51,6 +63,13 @@ const nodes = (): PageNode[] => [
   { id: 't1', type: 'fnTable', props: {} },
   // 无 fnForm 子的 modal（不进选项）
   { id: 'm4', type: 'modal', props: { title: '坏弹窗' }, children: [] },
+  // fnForm 无 functionId 键（?? '' 的 undefined 侧；m3 是空串走左侧）
+  {
+    id: 'm5',
+    type: 'modal',
+    props: { title: '缺函数键' },
+    children: [{ id: 'm5-f', type: 'fnForm', props: {} }],
+  },
 ];
 
 const fnById = new Map([['player.ban', banFn]]);
@@ -97,6 +116,17 @@ describe('行操作编辑主体', () => {
     expect(screen.getByText('弹窗（player.ban）')).toBeInTheDocument();
     expect(screen.getByText('空函数（）')).toBeInTheDocument();
     expect(screen.queryByText('坏弹窗')).not.toBeInTheDocument();
+    // m5：fnForm props 无 functionId 键 → functionId ?? '' 兜底
+    expect(screen.getByText('缺函数键（）')).toBeInTheDocument();
+  });
+
+  it('多条行操作编辑非首条：patch map 的其余条目原样保位', () => {
+    const first = { label: '甲', targetSection: 'm1', params: {}, danger: false };
+    const second = { label: '乙', targetSection: 'm2', params: {}, danger: false };
+    const { onChange } = renderEditor({ value: [first, second] });
+    fireEvent.change(screen.getByDisplayValue('乙'), { target: { value: '丙' } });
+    // 非编辑条目（idx 0）走 map else 侧原样返回
+    expect(onChange).toHaveBeenCalledWith([first, { ...second, label: '丙' }]);
   });
 
   it('无可用弹窗：添加禁用并提示', () => {
@@ -225,7 +255,19 @@ describe('参数映射（ParamMapping）', () => {
     fireEvent.blur(first);
     expect(onChange).not.toHaveBeenCalled();
 
-    // 删除第二条（× 按钮）
+    // blur 从未输入过的参数名框：无草稿（draft undefined）直接 return
+    const second = screen.getByDisplayValue('b') as HTMLInputElement;
+    fireEvent.blur(second);
+    expect(onChange).not.toHaveBeenCalled();
+
+    // 合法改名 a→c：另一键 b 保位（rename map 的 else 侧）
+    fireEvent.change(first, { target: { value: 'c' } });
+    fireEvent.blur(first);
+    expect(onChange).toHaveBeenLastCalledWith([
+      expect.objectContaining({ params: { c: 'uid', b: 'nickname' } }),
+    ]);
+
+    // 删除第二条（× 按钮）——受控组件未回喂改名结果，仍基于初始 {a,b}
     const removes = screen.getAllByRole('button', { name: '×' });
     fireEvent.click(removes[1]);
     expect(onChange).toHaveBeenLastCalledWith([expect.objectContaining({ params: { a: 'uid' } })]);

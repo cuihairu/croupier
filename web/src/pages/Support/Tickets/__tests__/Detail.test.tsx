@@ -602,4 +602,102 @@ describe('Support/Tickets/Detail', () => {
       expect(screen.getAllByText('-').length).toBeGreaterThanOrEqual(1);
     });
   });
+
+  describe('渲染兜底与取消路径（覆盖补充）', () => {
+    it('未知优先级枚举：Tag 颜色回退 default、文本显示原值', async () => {
+      mockedGetTicket.mockResolvedValue({ ...baseTicket, priority: 'p0-plus' });
+      renderDetail();
+      const tag = await screen.findByText('p0-plus');
+      expect(tag.closest('.ant-tag')).not.toBeNull();
+    });
+
+    it('评论响应缺 comments 字段：回退空数组渲染不崩', async () => {
+      mockedListTicketComments.mockResolvedValueOnce({
+        comments: undefined,
+        items: [],
+      } as unknown as Awaited<ReturnType<typeof listTicketComments>>);
+      renderDetail();
+      await screen.findByText('工单详情 #1');
+      expect(document.querySelectorAll('.ant-list-item').length).toBe(0);
+    });
+
+    it('上传成功但响应缺 URL：附件被过滤，提交评论不带附件', async () => {
+      mockedUploadAsset.mockResolvedValueOnce({ Key: 'k2' } as unknown as Awaited<
+        ReturnType<typeof uploadAsset>
+      >);
+      const { container } = renderDetail();
+      await screen.findByText('工单详情 #1');
+      fireEvent.change(container.querySelector('input[type="file"]') as HTMLInputElement, {
+        target: { files: [new File(['x'], 'd.png', { type: 'image/png' })] },
+      });
+      await waitFor(() => expect(mockedUploadAsset).toHaveBeenCalled());
+      await screen.findByText('d.png');
+
+      fireEvent.change(cmtTextarea(), { target: { value: 'no url' } });
+      fireEvent.click(submitCmtButton());
+      await waitFor(() =>
+        expect(mockedAddTicketComment).toHaveBeenCalledWith('1', {
+          content: 'no url',
+          attach: '[]',
+        }),
+      );
+    });
+
+    it('评论内容为空与附件缺名：正文渲染空串、图片 alt 与链接文本兜底 url', async () => {
+      mockedListTicketComments.mockResolvedValue({
+        comments: [
+          {
+            id: 9,
+            content: '',
+            createdAt: '2024-01-05T00:00:00Z',
+            attach: JSON.stringify([{ url: 'http://x/noname.png' }, { url: 'http://x/doc.txt' }]),
+          },
+        ],
+      });
+      const { container } = renderDetail();
+      await screen.findByText('工单详情 #1');
+      const img = container.querySelector('img[src="http://x/noname.png"]') as HTMLImageElement;
+      expect(img).toBeInTheDocument();
+      expect(img.alt).toBe('');
+      const link = screen.getByText('http://x/doc.txt');
+      expect(link).toHaveAttribute('href', 'http://x/doc.txt');
+    });
+
+    it('详情未返回前：「编辑工单」被守卫拦截，「升级为缺陷」steps 兜底 undefined', async () => {
+      // getTicket 永不 resolve：ticket 保持 null（Card extra 操作区仍渲染）
+      mockedGetTicket.mockImplementation(
+        () => new Promise<Awaited<ReturnType<typeof getTicket>>>(() => {}),
+      );
+      mockedConvertTicketToBug.mockResolvedValueOnce({ bugId: '42' });
+      renderDetail();
+
+      // openEdit 守卫：ticket 为 null 时直接 return，编辑弹窗不打开
+      fireEvent.click(screen.getByRole('button', { name: '编辑工单' }));
+      await act(async () => {});
+      expect(screen.queryByText('编辑工单', { selector: '.ant-modal-title' })).toBeNull();
+
+      // 升级为缺陷：ticket?.content 可选链空侧 → steps 传 undefined
+      fireEvent.click(screen.getByRole('button', { name: '升级为缺陷' }));
+      await waitFor(() =>
+        expect(mockedConvertTicketToBug).toHaveBeenCalledWith(1, { steps: undefined }),
+      );
+      await waitFor(() =>
+        expect(mockMessageApi.success).toHaveBeenCalledWith('已升级为缺陷 #42（研发 → 缺陷追踪）'),
+      );
+    });
+
+    it('流转弹窗点 Cancel：onCancel 关闭弹窗且不发流转请求', async () => {
+      renderDetail();
+      await screen.findByText('工单详情 #1');
+      fireEvent.click(screen.getByRole('button', { name: /流\s*转/ }));
+      await screen.findByPlaceholderText('流转备注（可选）');
+      fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+      // antd Modal 关闭后节点以 display:none 残留（未开 destroyOnClose），
+      // 以可见性判定关闭
+      await waitFor(() =>
+        expect(screen.getByPlaceholderText('流转备注（可选）')).not.toBeVisible(),
+      );
+      expect(mockedTransitionTicket).not.toHaveBeenCalled();
+    });
+  });
 });

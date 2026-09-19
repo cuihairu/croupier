@@ -19,6 +19,9 @@ const summary: OpenAPISourcePipelineSummary = {
   proposalsCreated: 2,
   diagnostics: [
     { code: 'operation_extension_unknown', severity: 'warning', message: '未知扩展将被忽略' },
+    // severity 全三级 + field 定位后缀（Alert message 形如 code @ field）
+    { code: 'pipeline_guard', severity: 'error', field: 'paths./mail', message: '超阈值' },
+    { code: 'hint_only', severity: 'info', message: '仅提示' },
   ],
 };
 
@@ -40,6 +43,10 @@ describe('PipelineSummaryModal 上传即成页摘要', () => {
     expect(screen.getByText('生成页面提案：2')).toBeInTheDocument();
     expect(screen.getByText('operation_extension_unknown')).toBeInTheDocument();
     expect(screen.getByText('未知扩展将被忽略')).toBeInTheDocument();
+    // error 级带 field 定位、info 级无 field：三级 severity 各走对应 Alert type
+    expect(screen.getByText('pipeline_guard @ paths./mail')).toBeInTheDocument();
+    expect(screen.getByText('超阈值')).toBeInTheDocument();
+    expect(screen.getByText('hint_only')).toBeInTheDocument();
   });
 
   it('无诊断时不渲染 Alert 区块', () => {

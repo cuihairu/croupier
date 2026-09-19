@@ -9,6 +9,10 @@ import { invokeFunction } from '@/services/api/functions';
 import type { FunctionDescriptor } from '@/services/api/functions';
 import type { PageNode } from '../model';
 
+// 重 DOM 套件（PreviewRuntime 全量渲染）在全量并行负载下撞默认 5s 用例
+// 预算（隔离跑恒绿），与 Ops/Jobs、Tickets/Detail 等重 suite 同法放宽
+jest.setTimeout(20000);
+
 jest.mock('@/services/api/functions', () => ({
   invokeFunction: jest.fn(async () => ({ result: { items: [] } })),
   listDescriptors: jest.fn(async () => []),

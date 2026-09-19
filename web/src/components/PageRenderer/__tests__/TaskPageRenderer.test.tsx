@@ -329,6 +329,16 @@ describe('轮询：statusBinding 路径', () => {
     await waitFor(() => expect(screen.getByText('PENDING')).toBeInTheDocument());
   });
 
+  it('状态数据为非 record/非 string 标量（数字）：跳过归一，按 previous/兜底 pending', async () => {
+    // normalizeTaskStatusFromExecution 的尾部兜底：executionData 既非对象也非字符串
+    const { onExecute } = renderTask({ bindings: statusBindings });
+    onExecute.mockImplementation((bindingId: string) =>
+      bindingId === 'b-task' ? ok(undefined, { taskId: 't-num' }) : ok({ wrapper: 42 }),
+    );
+    submit();
+    await waitFor(() => expect(screen.getByText('PENDING')).toBeInTheDocument());
+  });
+
   it('eventsData 为 {items:[...]} 形态时同样提取时间线', async () => {
     const { onExecute } = renderTask({
       bindings: [...statusBindings, binding('task_events', 'b-events', { taskEvents: 'evts' })],
@@ -671,10 +681,243 @@ describe('渲染分支', () => {
   });
 });
 
+describe('事件与状态数据形态（分支补齐）', () => {
+  it('statusData 内联 events：直接作为时间线（非 previousEvents 兜底）；createdAt 兜底时间戳；failed/cancel_requested/cancelled 事件类型归一（L239/L196/L166/L169/L170）', async () => {
+    const { onExecute } = renderTask({
+      bindings: [
+        binding('task', 'b-task'),
+        binding('task_status', 'b-status', { taskStatus: 'wrapper' }),
+      ],
+    });
+    onExecute.mockImplementation(async (bindingId: string) => {
+      if (bindingId === 'b-task') return ok(undefined, { taskId: 't-ev' });
+      return ok({
+        wrapper: {
+          state: 'running',
+          events: [
+            // 仅 createdAt 无 timestamp → 时间戳兜底链（L196 右支）
+            { createdAt: '2026-01-01T00:00:00Z', message: '失败事件', type: 'failed' },
+            { createdAt: '2026-01-01T00:01:00Z', message: '取消请求', type: 'cancel_requested' },
+            { createdAt: '2026-01-01T00:02:00Z', message: '取消完成', type: 'cancelled' },
+            // 无任何时间戳字段 → 事件被过滤（L196 两级 || 均落空）
+            { message: '无时间事件' },
+          ],
+        },
+      });
+    });
+    submit();
+    // 内联 events 非空 → nextEvents 直接采用（L239 真值侧）
+    await waitFor(() => expect(screen.getByText('失败事件')).toBeInTheDocument());
+    expect(screen.getByText('取消请求')).toBeInTheDocument();
+    expect(screen.getByText('取消完成')).toBeInTheDocument();
+    // 三种类型分别归一为 error/warning/warning（时间线渲染即证明归一路径执行）
+    expect(screen.getByText('任务事件')).toBeInTheDocument();
+    // 无时间戳事件被过滤
+    expect(screen.queryByText('无时间事件')).not.toBeInTheDocument();
+  });
+
+  it('eventsData 为 {events:[...]} 包装形态时提取时间线（L187）', async () => {
+    const { onExecute } = renderTask({
+      bindings: [
+        binding('task', 'b-task'),
+        binding('task_status', 'b-status', { taskStatus: 'wrapper' }),
+        binding('task_events', 'b-events', { taskEvents: 'evts' }),
+      ],
+      spec: spec({ eventsBindingId: 'b-events' }),
+    });
+    onExecute.mockImplementation(async (bindingId: string) => {
+      if (bindingId === 'b-task') return ok(undefined, { taskId: 't-w' });
+      if (bindingId === 'b-status') return ok({ wrapper: { state: 'running' } });
+      return ok({ evts: { events: [{ timestamp: '2026-01-01T00:00:00Z', message: '包装事件' }] } });
+    });
+    submit();
+    await waitFor(() => expect(screen.getByText('包装事件')).toBeInTheDocument());
+  });
+
+  it('eventsBindingId 显式指定时按 id 匹配而非 usage（L315 真值侧）', async () => {
+    const { onExecute } = renderTask({
+      bindings: [
+        binding('task', 'b-task'),
+        binding('task_status', 'b-status', { taskStatus: 'wrapper' }),
+        // usage 故意非 task_events：显式 id 必须压过 usage 缺省匹配
+        binding('query', 'b-ev-2', { taskEvents: 'evts' }),
+      ],
+      spec: spec({ eventsBindingId: 'b-ev-2' }),
+    });
+    onExecute.mockImplementation(async (bindingId: string) => {
+      if (bindingId === 'b-task') return ok(undefined, { taskId: 't-i2' });
+      if (bindingId === 'b-status') return ok({ wrapper: { state: 'running' } });
+      return ok({ evts: { items: [{ timestamp: '2026-01-01T00:00:00Z', message: '显式事件' }] } });
+    });
+    submit();
+    await waitFor(() =>
+      expect(onExecute).toHaveBeenCalledWith('b-ev-2', { pageState: { taskId: 't-i2' } }),
+    );
+    expect(screen.getByText('显式事件')).toBeInTheDocument();
+  });
+
+  it('eventsData 为无关 record（无 events/items）时不渲染时间线（L190 兜底）', async () => {
+    const { onExecute } = renderTask({
+      bindings: [
+        binding('task', 'b-task'),
+        binding('task_status', 'b-status', { taskStatus: 'wrapper' }),
+        binding('task_events', 'b-events', { taskEvents: 'evts' }),
+      ],
+    });
+    onExecute.mockImplementation(async (bindingId: string) => {
+      if (bindingId === 'b-task') return ok(undefined, { taskId: 't-n' });
+      if (bindingId === 'b-status') return ok({ wrapper: { state: 'running' } });
+      return ok({ evts: { total: 3 } });
+    });
+    submit();
+    await waitFor(() => expect(screen.getByText('RUNNING')).toBeInTheDocument());
+    expect(screen.queryByText('任务事件')).not.toBeInTheDocument();
+  });
+
+  it('statusData 为 null：非 record 非字符串，沿用上次状态展开（L253 previous 侧）', async () => {
+    const { onExecute } = renderTask({
+      bindings: [
+        binding('task', 'b-task'),
+        binding('task_status', 'b-status', { taskStatus: 'wrapper' }),
+      ],
+    });
+    onExecute.mockImplementation(async (bindingId: string) =>
+      bindingId === 'b-task' ? ok(undefined, { taskId: 't-null' }) : ok({ wrapper: null }),
+    );
+    submit();
+    // previous = 提交时的 pending 状态 → 展开后仍 PENDING，且保留提交消息
+    await waitFor(() => expect(screen.getByText('PENDING')).toBeInTheDocument());
+    // antd message 通知（命令式 portal，cleanup 不卸载）会与前序用例的
+    // 「任务已提交」notice 叠加，selector 限定到本用例渲染的 Alert 标题
+    expect(screen.getByText('任务已提交', { selector: '.ant-alert-title' })).toBeInTheDocument();
+  });
+});
+
+describe('绑定 id 匹配与缺省（分支补齐）', () => {
+  it('statusBindingId 为空串：回退按 usage 匹配 task_status（L313 假值侧）', async () => {
+    const { onExecute } = renderTask({
+      bindings: [
+        binding('task', 'b-task'),
+        binding('task_status', 'b-st2', { taskStatus: 'wrapper' }),
+      ],
+      spec: spec({ statusBindingId: '' }),
+    });
+    onExecute.mockImplementation(async (bindingId: string) =>
+      bindingId === 'b-task'
+        ? ok(undefined, { taskId: 't-u' })
+        : ok({ wrapper: { state: 'running' } }),
+    );
+    submit();
+    await waitFor(() => expect(screen.getByText('RUNNING')).toBeInTheDocument());
+    expect(onExecute).toHaveBeenCalledWith('b-st2', { pageState: { taskId: 't-u' } });
+  });
+
+  it('cancelBindingId 显式指定时按 id 匹配并执行该绑定（L321 真值侧）', async () => {
+    const onQueryStatus = jest.fn<() => Promise<TaskStatusResult>>().mockResolvedValue({
+      taskId: 't-c2',
+      status: 'running',
+    });
+    const { onExecute } = renderTask({
+      onQueryStatus,
+      bindings: [binding('task', 'b-task'), binding('action', 'b-cancel-2')],
+      spec: spec({ cancelBindingId: 'b-cancel-2' }),
+    });
+    onExecute.mockResolvedValueOnce(ok(undefined, { taskId: 't-c2' }));
+    submit();
+    await waitFor(() => expect(screen.getByText('RUNNING')).toBeInTheDocument());
+    fireEvent.click(screen.getByRole('button', { name: /取\s*消/ }));
+    await waitFor(() => expect(screen.getByText('任务已取消')).toBeInTheDocument());
+    expect(onExecute).toHaveBeenCalledWith('b-cancel-2', { pageState: { taskId: 't-c2' } });
+    expect(screen.getByText('CANCELLED')).toBeInTheDocument();
+  });
+
+  it('taskIdStateKey 为空串：pageState 键回落 taskId（L323/L265）', async () => {
+    const { onExecute } = renderTask({
+      bindings: [
+        binding('task', 'b-task'),
+        binding('task_status', 'b-status', { taskStatus: 'wrapper' }),
+      ],
+      spec: spec({ taskIdStateKey: '' }),
+    });
+    onExecute.mockImplementation(async (bindingId: string) =>
+      bindingId === 'b-task'
+        ? ok(undefined, { taskId: 't-k' })
+        : ok({ wrapper: { state: 'running' } }),
+    );
+    submit();
+    await waitFor(() => expect(screen.getByText('RUNNING')).toBeInTheDocument());
+    expect(onExecute).toHaveBeenCalledWith('b-status', { pageState: { taskId: 't-k' } });
+  });
+});
+
+describe('审批单号与进度渲染（分支补齐）', () => {
+  it('approval 响应缺 approvalId：回落 requestId 作为审批单号（L509 右支）', async () => {
+    const onQueryApprovalStatus = jest.fn<() => Promise<ApprovalStatusResult>>().mockResolvedValue({
+      approvalId: 'req-9',
+      status: 'pending',
+    });
+    const { onExecute } = renderTask({ onQueryApprovalStatus });
+    onExecute.mockResolvedValueOnce({ kind: 'approval', requestId: 'req-9' });
+    submit();
+    await waitFor(() => expect(screen.getByText('等待审批')).toBeInTheDocument());
+    fireEvent.click(screen.getByRole('button', { name: /刷新审批状态/ }));
+    // 审批单号取 requestId 兜底值
+    await waitFor(() => expect(onQueryApprovalStatus).toHaveBeenCalledWith('req-9'));
+    await waitFor(() => expect(screen.getByText(/审批状态：pending/)).toBeInTheDocument());
+  });
+
+  it('failed + 进度：Progress 呈 exception 态（L730）', async () => {
+    const onQueryStatus = jest.fn<() => Promise<TaskStatusResult>>().mockResolvedValue({
+      taskId: 't-pf',
+      status: 'failed',
+      progress: 40,
+    });
+    const { onExecute } = renderTask({ onQueryStatus });
+    onExecute.mockResolvedValueOnce(ok(undefined, { taskId: 't-pf' }));
+    submit();
+    await waitFor(() => expect(screen.getByText('FAILED')).toBeInTheDocument());
+    expect(document.querySelector('.ant-progress-status-exception')).toBeInTheDocument();
+  });
+
+  it('running + 进度：Progress 呈 active 态（L733）', async () => {
+    const onQueryStatus = jest.fn<() => Promise<TaskStatusResult>>().mockResolvedValue({
+      taskId: 't-pr',
+      status: 'running',
+      progress: 55,
+    });
+    const { onExecute } = renderTask({ onQueryStatus });
+    onExecute.mockResolvedValueOnce(ok(undefined, { taskId: 't-pr' }));
+    submit();
+    await waitFor(() => expect(screen.getByText('RUNNING')).toBeInTheDocument());
+    expect(document.querySelector('.ant-progress-status-active')).toBeInTheDocument();
+  });
+
+  it('终态后点击「刷新」按钮：手动触发一次状态查询（FN onClick）', async () => {
+    const onQueryStatus = jest.fn<() => Promise<TaskStatusResult>>().mockResolvedValue({
+      taskId: 't-r3',
+      status: 'completed',
+    });
+    const { onExecute } = renderTask({ onQueryStatus });
+    onExecute.mockResolvedValueOnce(ok(undefined, { taskId: 't-r3' }));
+    submit();
+    await waitFor(() => expect(screen.getByText('COMPLETED')).toBeInTheDocument());
+    expect(onQueryStatus).toHaveBeenCalledTimes(1);
+    // 轮询已停（polling=false），刷新按钮可点击（name 含 sync 图标 aria-label 前缀，尾匹配）
+    fireEvent.click(screen.getByRole('button', { name: /刷\s*新$/ }));
+    await waitFor(() => expect(onQueryStatus).toHaveBeenCalledTimes(2));
+    expect(onQueryStatus).toHaveBeenLastCalledWith('t-r3');
+  });
+});
+
 // 剩余未覆盖分支均为渲染层守卫造成的防御性死代码，事件层不可达：
 // - handleCancel 的 !taskStatus?.taskId 与「未配置取消任务绑定」warning：
 //   取消按钮仅在 (cancelBinding || onCancelTask) 且 running 时渲染；
 // - pollTaskStatus 的 !onQueryStatus 兜底：刷新按钮/启动轮询均先经
 //   canQueryTaskStatus（statusBinding || onQueryStatus）过滤；
 // - refreshApproval 的 !approvalId || !onQueryApprovalStatus：按钮渲染已过滤；
-// - selectByJsonPointer 的 null 入参：唯一调用方先经 isJsonRecord 守卫。
+// - selectByJsonPointer 的 null 入参（L132-134）：唯一调用方先经 isJsonRecord 守卫；
+// - normalizeTaskStatusFromExecution 的 previous 假值侧（L253 右支）：轮询启动前
+//   taskStatusRef 恒被同步写入（提交/审批分流/轮询三路径均如此）；
+// - handleCancel 的 taskStatusRef 空值侧（L613 右支）：取消按钮存在即有 taskStatus；
+// - Progress status 的 approved→success（L762 中支）：两条 approved 路径均同步
+//   setApprovalId('')，React 批处理下无「已通过但 Alert 仍在」的渲染窗口。

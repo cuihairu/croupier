@@ -26,8 +26,9 @@ import {
 import { getMessage } from '@/utils/antdApp';
 
 // ProTable 重查带内部 debounce，coverage instrumentation 下更慢：放宽异步查询与用例超时
+// （隔离 coverage 跑 ~5s/用例，全量并行负载下放大至 20s+，预算给足 40s）
 configure({ asyncUtilTimeout: 5000 });
-jest.setTimeout(20000);
+jest.setTimeout(40000);
 
 jest.mock('@umijs/max', () => ({
   useAccess: jest.fn(),

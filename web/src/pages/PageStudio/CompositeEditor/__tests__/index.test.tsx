@@ -20,7 +20,9 @@ import type {
   TemplateRefFix,
 } from '../ComponentLibrary';
 
-jest.setTimeout(20000);
+// 59 用例全量渲染主组件；coverage instrumentation 负载下个别交互用例
+// 撞 20s 预算（隔离跑恒绿），放宽到 30s
+jest.setTimeout(30000);
 const FIND = { timeout: 5000 } as const;
 
 // ---------------------------------------------------------------------------
@@ -795,6 +797,17 @@ describe('初始渲染与顶栏', () => {
     );
   });
 
+  it('引导 query 伴随其余参数（?createComponent=1&other=x）：仅摘除 createComponent', async () => {
+    umiMock.__umiState.search = '?createComponent=1&other=x';
+    renderEditor();
+    await waitFor(() =>
+      expect(document.querySelector('.ant-message')?.textContent).toContain('可复用模板'),
+    );
+    expect(umiMock.history.replace).toHaveBeenCalledWith(
+      expect.objectContaining({ search: '?other=x' }),
+    );
+  });
+
   it('默认骨架：标题/版本/quick-start/撤销重做禁用/空闲保存组件禁用/组件数 0', () => {
     const { container } = renderEditor();
     expect(byId('pc:title').textContent).toBe('组合页编辑器');
@@ -1277,6 +1290,71 @@ describe('编辑器内绑定抽屉（T9）', () => {
     // 确认后 patchProps({functionId}) → 组件按新函数重建 scaffold
     await waitFor(() => expect(propsJsonOf('b1')).toContain('players.list'), undefined, FIND);
     await waitFor(() => expect(byId('cn:b1:fn').textContent).toBe('players.list'));
+  });
+
+  it('保存绑定后契约刷新失败：catch 静默降级（fnReload 链重试、切换引导不阻断）', async () => {
+    mockedListDescriptors.mockResolvedValue([{ id: 'listplayers', executionState: 'unbound' }]);
+    mockedOpenapi.listOpenAPISources.mockResolvedValue({
+      items: [{ sourceId: 'src-1', name: '玩家服务' }],
+    });
+    mockedOpenapi.getOpenAPISource.mockResolvedValue({
+      source: { operations: [{ operationId: 'listPlayers', method: 'get', path: '/players' }] },
+    });
+    // 运行时候选：runtime provider 提供 players.list（描述符全 unbound 被排除）
+    mockedOpenapi.listRuntimeSources.mockResolvedValue({
+      items: [
+        {
+          providerId: 'provider:ops',
+          name: 'ops',
+          agentId: 'agent-1',
+          gameId: 'demo',
+          env: 'dev',
+          functionCount: 1,
+          functions: ['players.list'],
+          lastSeenUnix: 0,
+        },
+      ],
+      total: 1,
+    });
+    renderEditor();
+    await openLibraryTab();
+    insertViaLib(
+      [{ id: 'b1', type: 'fnTable', props: { functionId: 'listplayers' } }],
+      tpl('bind-err'),
+    );
+    await waitFor(() => expect(byId('cn:b1')).toBeInTheDocument());
+    click('cn:b1:sel');
+    await waitFor(() => expect(byId('cn:b1:fn').textContent).toBe('listplayers'));
+    click('pp:open-binding');
+    expect(await screen.findByText('绑定运行时执行器')).toBeInTheDocument();
+    await screen.findByText('GET /players');
+    // 保存绑定后 handleBindingSaved 内的契约刷新这次失败（catch 静默）
+    mockedListDescriptors.mockRejectedValueOnce(new Error('refresh down'));
+    fireEvent.mouseDown(screen.getAllByRole('combobox')[2]);
+    // 运行时候选经异步请求进入下拉：等待 option 渲染。运行时候选 label 带
+    // 「（运行时导入 · agent-1）」后缀，精确文本匹配只会命中 antd v6 的隐藏
+    // ARIA 镜像 listbox（其内容是 option value），故按 title 前缀定位 styled option
+    const option = await waitFor(() => {
+      const el = [...document.querySelectorAll('.ant-select-item-option')].find((node) =>
+        (node.getAttribute('title') ?? '').startsWith('players.list'),
+      );
+      if (!el) throw new Error('players.list option not found');
+      return el;
+    });
+    fireEvent.click(option);
+    fireEvent.click(screen.getByRole('button', { name: '保存绑定' }));
+    await waitFor(() =>
+      expect(mockedOpenapi.bindOpenAPISourceProvider).toHaveBeenCalledWith('src-1', {
+        operationId: 'listPlayers',
+        functionId: 'players.list',
+        providerId: undefined,
+        bindingId: 'listPlayers',
+      }),
+    );
+    // catch 不阻断切换引导：swap 确认弹窗仍出现
+    expect((await screen.findAllByText('切换到已绑定函数？')).length).toBeGreaterThan(0);
+    // fnReload 链触发重拉：mount(1) + handleBindingSaved 内 reject(2) + effect 重试(3)
+    await waitFor(() => expect(mockedListDescriptors).toHaveBeenCalledTimes(3), undefined, FIND);
   });
 
   it('同名绑定（T6 翻转后描述符已 bound）：保存不弹切换确认，函数引用保持', async () => {

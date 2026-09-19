@@ -7,7 +7,7 @@
  * Popconfirm 确认后 apply 成功（message.success/onApplied/按钮撤下）与
  * apply 失败（Error / 非 Error）。 */
 import React from 'react';
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { message } from 'antd';
 import SelectorSyncReportModal from './SelectorSyncReportModal';
 import { getPageDraft, syncPageSelectors } from '@/services/api/pages';
@@ -335,5 +335,45 @@ describe('SelectorSyncReportModal：应用同步', () => {
     expect(closeIcon).not.toBeNull();
     fireEvent.click(closeIcon);
     expect(onClose).toHaveBeenCalledTimes(2);
+  });
+
+  it('草稿版本缺失（draftRevision 为 null）：apply 前置守卫直接返回，不发起第二次同步', async () => {
+    mockedGetDraft.mockResolvedValue({ draftRevision: null } as unknown as PageSpecDraft);
+    mockedSync.mockResolvedValueOnce(syncResponse({ syncedBindings: fullReport }));
+    renderModal();
+
+    expect(await screen.findByText('bind-1')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: '应用同步到草稿' }));
+    await clickPopconfirmOk('应用同步到草稿？');
+
+    // 守卫返回：无第二次 syncPageSelectors、无成功提示，应用按钮保留
+    // （antd v6 Popconfirm 浮层 leave 动画在 jsdom 不卸载节点，闭合断言不可靠，
+    // 守卫语义由 sync 计数与按钮存留承载）
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(mockedSync).toHaveBeenCalledTimes(1);
+    expect(successSpy).not.toHaveBeenCalled();
+    expect(screen.getByRole('button', { name: '应用同步到草稿' })).toBeInTheDocument();
+  });
+
+  it('apply 成功且未传 onApplied：可选回调安全跳过，成功提示照常', async () => {
+    mockedSync
+      .mockResolvedValueOnce(syncResponse({ syncedBindings: fullReport, remainingDiagnostics: [] }))
+      .mockResolvedValueOnce(syncResponse({ dryRun: false, applied: true, draftRevision: 9 }));
+    renderModal();
+
+    await screen.findByText('bind-1');
+    fireEvent.click(screen.getByRole('button', { name: '应用同步到草稿' }));
+    await clickPopconfirmOk('应用同步到草稿？');
+
+    await waitFor(() => expect(mockedSync).toHaveBeenCalledTimes(2));
+    await waitFor(() =>
+      expect(successSpy).toHaveBeenCalledWith('已应用到草稿（版本 9），请检查后手动发布'),
+    );
+    // 成功 Alert 与 message toast 各渲染一处，用 AllBy 断言
+    expect(await screen.findAllByText('已应用到草稿（版本 9），请检查后手动发布')).not.toHaveLength(
+      0,
+    );
   });
 });

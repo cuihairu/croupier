@@ -90,6 +90,21 @@ describe('SaveComponentModal 保存方式两模式（V3 更新通道）', () => 
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
+  it('改选分类：提交沿用用户选择（category || 默认 的左侧真值）', async () => {
+    renderModal();
+    fillName('新模板');
+    // category 是 Select（initialValue=组合组件，表单内首个 Select）：改选「查询组合」
+    fireEvent.mouseDown(document.querySelector('.ant-select') as HTMLElement);
+    const option = await screen.findAllByText('查询组合');
+    fireEvent.click(option[option.length - 1]);
+    clickOk();
+    await screen.findByText(/已保存/, undefined, FIND);
+    const post = mockedRequest.mock.calls.find(
+      (c) => typeof c[1] === 'object' && c[1]?.method === 'POST',
+    );
+    expect(post?.[1]?.data?.category).toBe('查询组合');
+  });
+
   it('更新模式：下拉只列自定义模板，选中预填后 PUT /:key 覆盖 tree', async () => {
     renderModal();
     // findByRole 等初始渲染稳定（antd Form 的 initialValues 在 effect 中写入，

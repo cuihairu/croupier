@@ -764,9 +764,7 @@ describe('Ops/Jobs 任务监控页', () => {
     );
     fireEvent.mouseDown(statusSelect.querySelector('.ant-select-clear')!);
     fireEvent.click(statusSelect.querySelector('.ant-select-clear')!);
-    await waitFor(() =>
-      expect(listOpsTasks).toHaveBeenLastCalledWith({ page: 1, size: 10 }),
-    );
+    await waitFor(() => expect(listOpsTasks).toHaveBeenLastCalledWith({ page: 1, size: 10 }));
 
     // 函数：选中 → clear → 同样回到无条件请求
     fireEvent.mouseDown(fnSelect);
@@ -789,9 +787,7 @@ describe('Ops/Jobs 任务监控页', () => {
     );
     fireEvent.mouseDown(fnSelect.querySelector('.ant-select-clear')!);
     fireEvent.click(fnSelect.querySelector('.ant-select-clear')!);
-    await waitFor(() =>
-      expect(listOpsTasks).toHaveBeenLastCalledWith({ page: 1, size: 10 }),
-    );
+    await waitFor(() => expect(listOpsTasks).toHaveBeenLastCalledWith({ page: 1, size: 10 }));
   });
 
   it('抽屉关闭后点击 header 残留的刷新结果：被 if (!detail) return 守卫拦截', async () => {
@@ -874,6 +870,21 @@ describe('Ops/Jobs 任务监控页', () => {
       await handlers.onDone?.();
     });
     await waitFor(() => expect(listOpsTasks.mock.calls.length).toBeGreaterThan(callsBefore));
+  });
+
+  it('手动连接的事件流：onError 追加错误输出（独立于自动订阅链）', async () => {
+    renderPage();
+    await awaitInitialLoad();
+    fireEvent.click(within(findRow('task-ok-2')).getByRole('button', { name: '查看详情' }));
+    const drawer = await drawerPanel();
+    fireEvent.click(within(drawer).getByRole('button', { name: '连接' }));
+    await waitFor(() => expect(subscribeTaskEvents).toHaveBeenCalledTimes(1));
+
+    const handlers = lastSubscriptionHandlers();
+    await act(async () => {
+      handlers.onError?.(new Error('manual poll down'));
+    });
+    expect(await within(drawer).findByText('error: Error: manual poll down')).toBeInTheDocument();
   });
 });
 

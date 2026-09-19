@@ -21,6 +21,7 @@ import {
   savePageDraft,
   syncPageSelectors,
   unpublishPage,
+  updatePageMenu,
   validatePageDraft,
   type PageSavePayload,
 } from './pages';
@@ -384,6 +385,33 @@ describe('pages draft/version API adapters', () => {
       expect(mockedRequest).toHaveBeenLastCalledWith('/api/v1/pages/bulk-sync-selectors', {
         method: 'POST',
         data: {},
+      });
+    });
+  });
+
+  describe('updatePageMenu', () => {
+    it('PUTs menuId to mount the page and URL-encodes the key', async () => {
+      mockedRequest.mockResolvedValue({ pageKey: 'ops/a b', menuId: 3 });
+
+      const resp = await updatePageMenu('ops/a b', 3);
+
+      expect(resp).toEqual({ pageKey: 'ops/a b', menuId: 3 });
+      expect(mockedRequest).toHaveBeenCalledWith('/api/v1/pages/ops%2Fa%20b/menu', {
+        method: 'PUT',
+        data: { menuId: 3 },
+      });
+    });
+
+    it('PUTs null to unmount the page', async () => {
+      mockedRequest.mockResolvedValue({ pageKey: 'players', menuId: null });
+
+      await expect(updatePageMenu('players', null)).resolves.toEqual({
+        pageKey: 'players',
+        menuId: null,
+      });
+      expect(mockedRequest).toHaveBeenCalledWith('/api/v1/pages/players/menu', {
+        method: 'PUT',
+        data: { menuId: null },
       });
     });
   });

@@ -220,6 +220,40 @@ describe('绑定保存', () => {
     expect(onClose).not.toHaveBeenCalled();
   });
 
+  it('providerId 输入含前后空白：提交按 trim 后传参', async () => {
+    renderDrawer();
+    await waitFor(() => expect(screen.getByText(/listPlayers（来源匹配）/)).toBeInTheDocument());
+    pickOption(2, 'players.list');
+    fireEvent.change(screen.getByPlaceholderText('provider:xxx'), {
+      target: { value: ' ops-1 ' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: '保存绑定' }));
+    await waitFor(() =>
+      expect(mockedBind).toHaveBeenCalledWith('src-1', {
+        operationId: 'listPlayers',
+        functionId: 'players.list',
+        providerId: 'ops-1',
+        bindingId: 'listPlayers',
+      }),
+    );
+  });
+
+  it('providerId 纯空白输入：按未填写提交（undefined）', async () => {
+    renderDrawer();
+    await waitFor(() => expect(screen.getByText(/listPlayers（来源匹配）/)).toBeInTheDocument());
+    pickOption(2, 'players.list');
+    fireEvent.change(screen.getByPlaceholderText('provider:xxx'), {
+      target: { value: '   ' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: '保存绑定' }));
+    await waitFor(() =>
+      expect(mockedBind).toHaveBeenCalledWith(
+        'src-1',
+        expect.objectContaining({ providerId: undefined }),
+      ),
+    );
+  });
+
   it('保存失败 → 错误 toast（服务端 message），不回调/不关闭', async () => {
     mockedBind.mockRejectedValue(
       Object.assign(new Error('Request failed with status 400'), {
@@ -308,5 +342,44 @@ describe('错误 toast 兜底与绑定状态展示', () => {
     mockedListRuntime.mockResolvedValue({ items: [], total: 0 });
     renderDrawer({ fns: [] });
     expect(await screen.findByText(/当前 scope 暂无已注册运行时函数/)).toBeInTheDocument();
+  });
+});
+
+describe('溯源请求容错（各响应形态降级兜底）', () => {
+  it('listRuntimeSources 失败：运行时候选降级为空（catch 兜底，不中断抽屉）', async () => {
+    mockedListRuntime.mockRejectedValue(new Error('runtime down'));
+    renderDrawer({ fns: [] });
+    // catch 兜底 items=[] 且 allFns 空 → 无候选提示；抽屉主体仍渲染
+    expect(await screen.findByText(/当前 scope 暂无已注册运行时函数/)).toBeInTheDocument();
+    expect(screen.getByText('绑定运行时执行器')).toBeInTheDocument();
+  });
+
+  it('listRuntimeSources 响应缺 items 字段：按空表兜底', async () => {
+    mockedListRuntime.mockResolvedValue({});
+    renderDrawer({ fns: [] });
+    expect(await screen.findByText(/当前 scope 暂无已注册运行时函数/)).toBeInTheDocument();
+  });
+
+  it('listOpenAPISources 响应缺 items 字段：来源表空且不触发「未找到」警示', async () => {
+    mockedListSources.mockResolvedValue({});
+    renderDrawer();
+    // 溯源结束（Spin 让位表单区）后：sources 空 → warning 分支条件 sources.length>0 不满足
+    await waitFor(() => expect(screen.getByText('选择 OpenAPI Source')).toBeInTheDocument());
+    expect(
+      screen.queryByText('未在 OpenAPI Sources 中找到该函数的来源操作'),
+    ).not.toBeInTheDocument();
+  });
+
+  it('来源详情返回空 source 对象：操作下拉兜底空表（无可选操作）', async () => {
+    mockedGetSource.mockResolvedValue({ source: {} });
+    renderDrawer({ functionId: 'ghost.fn' });
+    expect(
+      await screen.findByText('未在 OpenAPI Sources 中找到该函数的来源操作'),
+    ).toBeInTheDocument();
+    pickOption(0, /玩家服务/);
+    // 已选来源 → notFoundContent 让位默认空态；无 listPlayers 选项
+    fireEvent.mouseDown(screen.getAllByRole('combobox')[1]);
+    await waitFor(() => expect(screen.queryByText('先选择来源 Source')).toBeNull());
+    expect(screen.queryByText('listPlayers')).toBeNull();
   });
 });

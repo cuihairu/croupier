@@ -243,3 +243,40 @@ describe('AnalyticsOverviewPage', () => {
     expect(container.querySelectorAll('svg')).toHaveLength(0);
   });
 });
+
+describe('AnalyticsOverviewPage 导出兜底补充', () => {
+  it('newUsers 最短：t 逐级回退 peakOnline/revenue，缺失列取空串', async () => {
+    mockFetchOverview.mockResolvedValue({
+      ...FULL_DATA,
+      series: {
+        // newUsers 1 点 / peakOnline 2 点 / revenue 3 点：
+        // 第 1 行 t 取 peakOnline；第 2 行两级都缺 → t 取 revenue；
+        // 第 1/2 行 newUsers[i] 不存在 → new_users 列 '' 回退
+        newUsers: [[1760000000000, 10]],
+        peakOnline: [
+          [1760000000000, 100],
+          [1760086400000, 200],
+        ],
+        revenue: [
+          [1760000000000, 5000],
+          [1760086400000, 6000],
+          [1760172800000, 7000],
+        ],
+      },
+    } as unknown as OverviewResponse);
+    render(<AnalyticsOverviewPage />);
+    await waitFor(() => expect(screen.getByText('DAU')).toBeInTheDocument());
+    fireEvent.click(screen.getByRole('button', { name: /导\s*出/ }));
+
+    await waitFor(() => expect(mockExportToXLSX).toHaveBeenCalledTimes(1));
+    const seriesSheet = mockExportToXLSX.mock.calls[0][1].find(
+      (s: { sheet: string }) => s.sheet === 'series',
+    );
+    expect(seriesSheet.rows).toEqual([
+      ['time', 'new_users', 'peak_online', 'revenue_cents'],
+      ['1760000000000', '10', '100', '5000'],
+      ['1760086400000', '', '200', '6000'],
+      ['1760172800000', '', '', '7000'],
+    ]);
+  });
+});

@@ -4,12 +4,21 @@
  * Excel 导入（XLSX 真实字节流，长表聚合）、
  * 保存（空字段提示、逐常量 POST component-templates、成功回调与重置、失败 Alert）、
  * 取消（重置 + onCancel）。
+ *
+ * 补充覆盖（v8 branch/function 缺口）：
+ * - Excel 解析失败 catch（PNG 魔数字节确定性触发 XLSX.read 抛错）
+ * - JSON 解析抛非 Error 值 → 「JSON 解析失败」兜底（jsonToFields mock 单次抛字符串）
+ * - 空名常量：save 时 f.title || f.key 双兜底分支（name 与 tree 标题回退）
+ * - 保存 reject 非 Error 值 → 「保存失败」兜底
+ * - Modal 右上角 X（onCancel：reset + onCancel 回调）
+ * - ConstantFieldsEditor onChange → schemaToFields 回写 fields（计数联动）
  */
 import React from 'react';
 import { fireEvent, render, screen, waitFor, configure } from '@testing-library/react';
 import * as XLSX from 'xlsx';
 import { request } from '@umijs/max';
 import ConstantImportModal from '../ConstantImportModal';
+import { jsonToFields } from '../constants';
 
 configure({ asyncUtilTimeout: 5000 });
 jest.setTimeout(20000);
@@ -17,9 +26,33 @@ jest.setTimeout(20000);
 // @umijs/max 用 setupTests 的全局 mock（request 即 jest.fn）
 const requestMock = request as unknown as jest.Mock;
 
+// jsonToFields 包一层 jest.fn（默认透传真实实现），供「抛非 Error 异常」
+// 用例 mockImplementationOnce 单次替换，其余用例行为不变
+jest.mock('../constants', () => {
+  const actual = jest.requireActual('../constants');
+  return { ...actual, jsonToFields: jest.fn(actual.jsonToFields) };
+});
+
 jest.mock('../ConstantFieldsEditor', () => ({
   __esModule: true,
-  default: () => <div data-testid="constant-fields-editor" />,
+  default: (props: { value?: string; onChange?: (v: string) => void }) => {
+    // 模拟编辑器提交：点击按钮回写一份单字段 schema（驱动 onChange → schemaToFields 链路）
+    const singleFieldSchema = JSON.stringify({
+      type: 'object',
+      properties: { 阵营: { type: 'string', title: '阵营', enum: ['联盟', '部落'] } },
+    });
+    return (
+      <div data-testid="constant-fields-editor">
+        <button
+          type="button"
+          data-testid="cfe-change"
+          onClick={() => props.onChange?.(singleFieldSchema)}
+        >
+          模拟编辑器回写
+        </button>
+      </div>
+    );
+  },
 }));
 
 function renderModal(onSaved = jest.fn()) {
@@ -170,5 +203,104 @@ describe('取消', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /取\s*消/ }));
     expect(onCancel).toHaveBeenCalled();
+  });
+});
+
+// ==================== 覆盖率缺口补充（v8 branch/function）====================
+
+describe('Excel 解析失败（beforeUpload catch）', () => {
+  it('损坏的 xlsx 字节流 → Alert 展示 XLSX 抛出的错误信息', async () => {
+    renderModal();
+    // 垃圾文本会被 sheetjs 降级为 PRN 明文解析而不抛错；
+    // PNG 魔数走 firstbyte 分发，确定性抛 Error('PNG Image File is not a spreadsheet')
+    const pngBytes = new File(
+      [new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])],
+      'broken.xlsx',
+      { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' },
+    );
+    uploadFile(pngBytes);
+
+    await waitFor(() =>
+      expect(screen.getByRole('alert')).toHaveTextContent('PNG Image File is not a spreadsheet'),
+    );
+    expect(screen.queryByText(/常量预览/)).not.toBeInTheDocument();
+  });
+});
+
+describe('JSON 解析抛非 Error 值（防御兜底）', () => {
+  it('jsonToFields 抛出原始字符串 → 提示「JSON 解析失败」', async () => {
+    // 单次抛非 Error 值：命中 e instanceof Error 的 false 分支（intl 兜底文案）
+    (jsonToFields as unknown as jest.Mock).mockImplementationOnce(() => {
+      throw '原始字符串异常';
+    });
+    renderModal();
+    uploadFile(jsonFile('{"阵营":["联盟"]}'));
+
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('JSON 解析失败'));
+  });
+});
+
+describe('空名常量兜底（f.title || f.key）', () => {
+  it('空字符串常量名：保存的模板 name 与 tree 标题回退空值', async () => {
+    const onSaved = jest.fn();
+    renderModal(onSaved);
+    // 对象 key 为空串：jsonToFields 仅按 options 过滤，产出 title/key 俱空的字段
+    uploadFile(jsonFile('{"": ["联盟"]}'));
+
+    fireEvent.click(await screen.findByRole('button', { name: /全部保存（1 个组件）/ }));
+    await waitFor(() => expect(onSaved).toHaveBeenCalledWith('1 个常量组件'));
+
+    const body = requestMock.mock.calls[0][1].data as {
+      key: string;
+      name: { 'zh-CN': string; 'en-US': string };
+      tree: Array<{ props: { title?: string } }>;
+    };
+    expect(body.key).toMatch(/^consts--/);
+    // f.title || f.key 双分支（zh-CN/en-US）与 staticFormNodeFromFields 标题兜底
+    expect(body.name).toEqual({ 'zh-CN': '', 'en-US': '' });
+    expect(body.tree[0]?.props.title).toBe('');
+  });
+});
+
+describe('保存失败（reject 非 Error 值）', () => {
+  it('request reject 字符串 → 提示「保存失败」兜底', async () => {
+    requestMock.mockRejectedValue('配额超限');
+    renderModal();
+    uploadFile(jsonFile('{"阵营":["联盟"]}'));
+
+    fireEvent.click(await screen.findByRole('button', { name: /全部保存（1 个组件）/ }));
+
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('保存失败'));
+  });
+});
+
+describe('右上角 X 关闭（Modal onCancel）', () => {
+  it('X 按钮：重置字段并回调 onCancel', async () => {
+    const { onCancel } = renderModal();
+    uploadFile(jsonFile('{"阵营":["联盟"]}'));
+    await waitFor(() => expect(screen.getByText(/常量预览（1 个/)).toBeInTheDocument());
+
+    const closeIcon = document.querySelector('.ant-modal-close') as HTMLElement | null;
+    expect(closeIcon).not.toBeNull();
+    fireEvent.click(closeIcon as HTMLElement);
+    expect(onCancel).toHaveBeenCalledTimes(1);
+    // reset 生效：保存计数归零
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: /全部保存（0 个组件）/ })).toBeInTheDocument(),
+    );
+  });
+});
+
+describe('常量预览编辑器回写（ConstantFieldsEditor onChange）', () => {
+  it('编辑器回写单字段 schema → fields 经 schemaToFields 收敛（计数联动）', async () => {
+    renderModal();
+    uploadFile(jsonFile('[{"name":"甲","options":["a"]},{"name":"乙","options":["b"]}]'));
+    expect(await screen.findByRole('button', { name: /全部保存（2 个组件）/ })).toBeInTheDocument();
+
+    // mock 编辑器的回写按钮 → onChange(schema) → setFields(schemaToFields(schema))
+    fireEvent.click(screen.getByTestId('cfe-change'));
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: /全部保存（1 个组件）/ })).toBeInTheDocument(),
+    );
   });
 });

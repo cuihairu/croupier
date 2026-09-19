@@ -50,3 +50,42 @@ describe('ExecutionOptions：路由选项随 同步/异步 刷新', () => {
     expect(screen.getByText('哈希路由需要填写 hash key')).toBeInTheDocument();
   });
 });
+
+describe('ExecutionOptions：控件回调（受控交互）', () => {
+  beforeEach(() => jest.clearAllMocks());
+
+  it('路由下拉选择触发 onRouteChange', async () => {
+    render(<ExecutionOptions {...baseProps} />);
+    openRouteDropdown();
+    fireEvent.click(await screen.findByText('指定实例'));
+    // antd Select onChange 透传 (value, option) 双参
+    expect(baseProps.onRouteChange).toHaveBeenCalledWith(
+      'targeted',
+      expect.objectContaining({ value: 'targeted' }),
+    );
+  });
+
+  it('targeted 输入 service_id / hash 输入 key 触发对应 onChange', () => {
+    const { rerender } = render(<ExecutionOptions {...baseProps} route="targeted" />);
+    fireEvent.change(screen.getByPlaceholderText('目标 service_id'), {
+      target: { value: 'svc-1' },
+    });
+    expect(baseProps.onTargetServiceIdChange).toHaveBeenCalledWith('svc-1');
+
+    rerender(<ExecutionOptions {...baseProps} route="hash" />);
+    fireEvent.change(screen.getByPlaceholderText('hash key'), { target: { value: 'key-1' } });
+    expect(baseProps.onHashKeyChange).toHaveBeenCalledWith('key-1');
+  });
+
+  it('同步/异步 Radio 切换触发 onAsyncModeChange', () => {
+    // 异步模式下点「同步」radio（未选中态才会派发 change）
+    const { rerender } = render(<ExecutionOptions {...baseProps} asyncMode />);
+    fireEvent.click(screen.getByRole('radio', { name: /同步/ }));
+    expect(baseProps.onAsyncModeChange).toHaveBeenCalledWith(false);
+
+    // 同步模式下点「异步任务」radio
+    rerender(<ExecutionOptions {...baseProps} />);
+    fireEvent.click(screen.getByRole('radio', { name: /异步任务/ }));
+    expect(baseProps.onAsyncModeChange).toHaveBeenCalledWith(true);
+  });
+});

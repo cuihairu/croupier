@@ -95,6 +95,8 @@ describe('storage API adapters', () => {
       expect(buildAvatarObjectKey(new File(['x'], 'noext'))).toMatch(/\.bin$/);
       expect(buildAvatarObjectKey(new File(['x'], 'dotted.'))).toMatch(/\.bin$/);
       expect(buildAvatarObjectKey(new File(['x'], '.hidden'))).toMatch(/\.bin$/);
+      // 空文件名：getFileExtension 的 (name || '') 兜底侧
+      expect(buildAvatarObjectKey(new File(['x'], ''))).toMatch(/\.bin$/);
     });
 
     it('uses a timestamp+random fallback when randomUUID is unavailable', () => {
@@ -129,6 +131,16 @@ describe('storage API adapters', () => {
     lastXHR.responseText = JSON.stringify({ path: 'p/a.txt' });
     lastXHR.onload?.();
     await expect(promise).resolves.toEqual({ path: 'p/a.txt' });
+  });
+
+  it('resolves an empty object when a 2xx body is JSON null', async () => {
+    const promise = uploadObject(new File(['d'], 'a.txt'));
+    await flush();
+
+    lastXHR.status = 200;
+    lastXHR.responseText = 'null';
+    lastXHR.onload?.();
+    await expect(promise).resolves.toEqual({});
   });
 
   it('rejects with the backend message on non-2xx', async () => {

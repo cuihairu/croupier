@@ -174,6 +174,33 @@ describe('ComponentPanel 基础组件与函数树', () => {
       expect(container.textContent).toContain('当前 scope（demo/prod）没有函数契约'),
     );
   });
+
+  it('refreshKey 递增触发函数列表重拉（mount 首次跳过）', async () => {
+    const view = render(
+      <App>
+        <ComponentPanel onAddBasic={jest.fn()} onAddFunction={jest.fn()} refreshKey={0} />
+      </App>,
+    );
+    await screen.findByText('player (2)');
+    expect(mockedList).toHaveBeenCalledTimes(1);
+    // refreshKey 0→1：重拉并渲染新集合（旧集合消失）
+    mockedList.mockResolvedValue([fn('mail.send', 'update', 'mail')]);
+    view.rerender(
+      <App>
+        <ComponentPanel onAddBasic={jest.fn()} onAddFunction={jest.fn()} refreshKey={1} />
+      </App>,
+    );
+    await screen.findByText('mail (1)');
+    expect(mockedList).toHaveBeenCalledTimes(2);
+    expect(screen.queryByText('player (2)')).not.toBeInTheDocument();
+    // refreshKey 1→2：再次重拉（第三次）
+    view.rerender(
+      <App>
+        <ComponentPanel onAddBasic={jest.fn()} onAddFunction={jest.fn()} refreshKey={2} />
+      </App>,
+    );
+    await waitFor(() => expect(mockedList).toHaveBeenCalledTimes(3));
+  });
 });
 
 describe('ScopeGuide 空态 scope 引导', () => {
@@ -241,5 +268,14 @@ describe('ScopeGuide 空态 scope 引导', () => {
     await screen.findByText('其他 scope 也没有函数——请先通过 SDK/OpenAPI 注册函数', undefined, {
       timeout: 5000,
     });
+  });
+});
+
+describe('ComponentPanel 函数树兜底分支', () => {
+  it('operation 为空的描述符：叶子标签回退 id 末段', async () => {
+    mockedList.mockResolvedValue([fn('player.legacy', '', 'player')]);
+    renderPanel();
+    // f.operation 为空 → label 回退 f.id.split('.').pop()
+    expect(await screen.findByText('legacy')).toBeInTheDocument();
   });
 });

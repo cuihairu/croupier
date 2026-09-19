@@ -1220,3 +1220,228 @@ describe('带表单行操作执行失败', () => {
     expect(screen.getByTestId('form-change')).toBeInTheDocument();
   });
 });
+
+describe('列渲染缺省值与行键（分支补齐）', () => {
+  it('enum+tag：无色枚举项回落 default Tag；行缺字段渲染「-」；copy 列缺值同样「-」（L159/L164/L169）', async () => {
+    const enumColumns: ColumnSpec[] = [
+      {
+        key: 'state',
+        title: { 'zh-CN': '状态' },
+        dataType: 'enum',
+        render: 'tag',
+        enum: [
+          { value: 'active', label: { 'zh-CN': '活跃' }, color: 'green' },
+          // 无 color：opt.color || 'default' 右支
+          { value: 'pending', label: { 'zh-CN': '待定' } },
+        ],
+      },
+      { key: 'id', title: { 'zh-CN': 'ID' }, dataType: 'string', render: 'copy' },
+    ];
+    await loadList(
+      { spec: spec({ listView: { columns: enumColumns } }) },
+      { data: [{ id: 'p1', state: 'pending' }, { name: 'no-state' }], total: 2 },
+    );
+    // 无色枚举项 → default 色 Tag「待定」
+    expect(screen.getByText('待定')).toBeInTheDocument();
+    expect(screen.getByText('p1')).toBeInTheDocument();
+    // 行缺 state（未命中枚举 → ?? '-'）且缺 id（copy → ?? '-'）：两处兜底
+    expect(screen.getAllByText('-').length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('identityKey 缺省时以 fixed=left 列为行键（L231 命中侧）', async () => {
+    await loadList(
+      {
+        spec: spec({
+          listView: {
+            columns: [
+              { key: 'uid', title: { 'zh-CN': 'UID' }, dataType: 'string', fixed: 'left' },
+              { key: 'name', title: { 'zh-CN': '名称' }, dataType: 'string' },
+            ],
+          },
+        }),
+      },
+      {
+        data: [
+          { uid: 'f-1', name: '甲' },
+          { uid: 'f-2', name: '乙' },
+        ],
+        total: 2,
+      },
+    );
+    expect(screen.getByText('f-1')).toBeInTheDocument();
+    expect(screen.getByText('f-2')).toBeInTheDocument();
+  });
+
+  it('spec 无 listView：columns 兜底空数组，标题回落「资源列表」（L774 假值侧）', async () => {
+    renderResource({ spec: {}, preview: true });
+    await waitFor(() => expect(screen.getByTestId('protable-title')).toBeInTheDocument());
+    expect(screen.getByTestId('protable-title').textContent).toContain('资源列表');
+    expect(document.querySelectorAll('td')).toHaveLength(0);
+  });
+});
+
+describe('操作列与按钮形态（分支补齐）', () => {
+  it('detailView + 行操作并存：操作列宽 160；type=primary 行操作渲染主按钮（L786/L802）', async () => {
+    const boostAction: ActionSpec = {
+      key: 'boost',
+      title: { 'zh-CN': '充值' },
+      type: 'primary',
+      bindingId: 'b-boost',
+    };
+    await loadList({
+      spec: spec({
+        detailView: { fields: [{ key: 'id', title: { 'zh-CN': 'ID' }, dataType: 'string' }] },
+        listView: { columns, rowActions: [boostAction] },
+      }),
+      bindings: [listBinding, binding('b-boost', 'action')],
+    });
+    // 操作列 width = 160（detailView 与 rowActions 并存分支）
+    const call = (ProTable as unknown as jest.Mock).mock.calls[
+      (ProTable as unknown as jest.Mock).mock.calls.length - 1
+    ][0] as { columns: Array<{ key?: string; width?: number }> };
+    const actionColumn = call.columns[call.columns.length - 1];
+    expect(actionColumn.key).toBe('action');
+    expect(actionColumn.width).toBe(160);
+    // 行操作按钮 type=primary → 主按钮样式（每行一枚，逐行断言）
+    const boostButtons = screen.getAllByRole('button', { name: /充\s*值/ });
+    boostButtons.forEach((btn) => expect(btn.className).toContain('ant-btn-primary'));
+  });
+
+  it('工具栏动作未声明 type：回落 default 按钮（L937 假值侧）', async () => {
+    const plainToolbar: ActionSpec = {
+      key: 'export',
+      title: { 'zh-CN': '导出' },
+      bindingId: 'b-exp',
+    };
+    await loadList({
+      spec: spec({ listView: { columns, toolbarActions: [plainToolbar] } }),
+      bindings: [listBinding, binding('b-exp', 'action')],
+    });
+    const exportButton = screen.getByRole('button', { name: /导\s*出/ });
+    expect(exportButton.className).not.toContain('ant-btn-primary');
+    expect(exportButton.className).toContain('ant-btn-default');
+  });
+
+  it('批量动作 type=primary：选择条内渲染主按钮（L987 真值侧）', async () => {
+    const primaryBatch: ActionSpec = {
+      key: 'batch-boost',
+      title: { 'zh-CN': '批量加速' },
+      type: 'primary',
+      bindingId: 'b-bb',
+    };
+    await loadList({
+      spec: spec({ listView: { columns, batchActions: [primaryBatch] } }),
+      bindings: [listBinding, binding('b-bb', 'action')],
+    });
+    fireEvent.click(screen.getByTestId('row-check-0'));
+    await waitFor(() => expect(screen.getByTestId('selection-bar')).toBeInTheDocument());
+    const batchButton = screen.getByRole('button', { name: /批量加速/ });
+    expect(batchButton.className).toContain('ant-btn-primary');
+  });
+
+  it('分页声明 pageSizes：走自定义档位而非默认档位（L1012 真值侧）', async () => {
+    await loadList({
+      spec: spec({
+        listView: { columns, pagination: { enabled: true, defaultSize: 10, pageSizes: [10, 50] } },
+      }),
+    });
+    expect(screen.getByTestId('pagination-bar')).toBeInTheDocument();
+    expect(screen.getByText('共 2 条')).toBeInTheDocument();
+  });
+});
+
+describe('弹窗校验失败与取消（分支补齐）', () => {
+  beforeEach(() => {
+    formMockState.validate = true;
+    formMockState.values = {};
+  });
+
+  const openCreate = async () => {
+    const createSpec = spec({ createForm: { jsonSchema: { type: 'object' } } });
+    const rendered = renderResource({
+      spec: createSpec,
+      bindings: [listBinding, binding('create', 'action')],
+      executeImpl: defaultImpl,
+    });
+    await waitFor(() => expect(screen.getByText('Alice')).toBeInTheDocument());
+    fireEvent.click(screen.getByRole('button', { name: /新\s*建/ }));
+    await waitFor(() => expect(screen.getByTestId('schema-form-stub')).toBeInTheDocument());
+    return rendered;
+  };
+
+  const openEdit = async () => {
+    const editSpec = spec({
+      updateForm: { jsonSchema: { type: 'object' } },
+      listView: {
+        columns,
+        rowActions: [{ key: 'edit', title: { 'zh-CN': '编辑' }, bindingId: 'update' }],
+      },
+    });
+    const rendered = renderResource({
+      spec: editSpec,
+      bindings: [listBinding, binding('update', 'action')],
+      executeImpl: async (id: string) => (id === 'b-list' ? ok({ data: rows, total: 2 }) : ok({})),
+    });
+    await waitFor(() =>
+      expect(screen.getAllByRole('button', { name: /编\s*辑/ }).length).toBeGreaterThan(0),
+    );
+    fireEvent.click(screen.getAllByRole('button', { name: /编\s*辑/ })[0]);
+    await waitFor(() => expect(screen.getByTestId('schema-form-stub')).toBeInTheDocument());
+    return rendered;
+  };
+
+  it('创建弹窗 validate 失败：OK 不提交（L472 真值侧）', async () => {
+    formMockState.validate = false;
+    const { onExecute } = await openCreate();
+    fireEvent.click(screen.getByRole('button', { name: 'OK' }));
+    expect(onExecute.mock.calls.filter(([id]) => id === 'create')).toHaveLength(0);
+    // 弹窗保持开启
+    expect(screen.getByTestId('schema-form-stub')).toBeInTheDocument();
+    formMockState.validate = true;
+  });
+
+  it('编辑弹窗 validate 失败：OK 不提交（L482 真值侧）', async () => {
+    formMockState.validate = false;
+    const { onExecute } = await openEdit();
+    fireEvent.click(screen.getByRole('button', { name: 'OK' }));
+    expect(onExecute.mock.calls.filter(([id]) => id === 'update')).toHaveLength(0);
+    expect(screen.getByTestId('schema-form-stub')).toBeInTheDocument();
+    formMockState.validate = true;
+  });
+
+  it('创建弹窗点击 Cancel：onCancel 关闭且不提交（FN onCancel 1/3）', async () => {
+    const { onExecute } = await openCreate();
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    await waitFor(() => expect(screen.queryByTestId('schema-form-stub')).not.toBeInTheDocument());
+    expect(onExecute.mock.calls.filter(([id]) => id === 'create')).toHaveLength(0);
+  });
+
+  it('编辑弹窗点击 Cancel：onCancel 关闭且不提交（FN onCancel 2/3）', async () => {
+    const { onExecute } = await openEdit();
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    await waitFor(() => expect(screen.queryByTestId('schema-form-stub')).not.toBeInTheDocument());
+    expect(onExecute.mock.calls.filter(([id]) => id === 'update')).toHaveLength(0);
+  });
+
+  it('带表单行操作弹窗点击 Cancel：onCancel 关闭且不执行（FN onCancel 3/3）', async () => {
+    const formAction: ActionSpec = { ...banAction, form: { jsonSchema: { type: 'object' } } };
+    const { onExecute } = await loadList({
+      spec: spec({ listView: { columns, rowActions: [formAction] } }),
+      bindings: [listBinding, binding('b-ban', 'action')],
+    });
+    await clickRowAction(/封\s*禁/);
+    await waitFor(() => expect(screen.getByTestId('form-change')).toBeInTheDocument());
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    await waitFor(() => expect(screen.queryByTestId('form-change')).not.toBeInTheDocument());
+    expect(onExecute.mock.calls.filter(([id]) => id === 'b-ban')).toHaveLength(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 判定为不可达的防御分支（放弃覆盖）：
+// - submitActionForm 的 !actionFormState（L422）：唯一调用方 ActionFormModal
+//   仅在 actionFormState?.action.form 真值时挂载；
+// - handleDelete / handleRowAction / executeListAction 的 !binding 分支
+//   （L495-503 / L543-551 / L639-656）：触发按钮均由渲染前的 hasBinding
+//   过滤产出，bindings 热更时按钮随列 render 一并卸载，事件层无法触达。
+// ---------------------------------------------------------------------------

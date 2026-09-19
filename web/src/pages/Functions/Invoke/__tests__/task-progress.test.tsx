@@ -114,4 +114,33 @@ describe('F11: TaskProgressPanel', () => {
       expect(screen.getByTestId('task-progress-panel').textContent).toContain('取消任务'),
     );
   });
+
+  test('点击刷新立即重新轮询（onClick 自增 refreshTick 重跑 effect）', async () => {
+    fetchTaskResult.mockResolvedValue({ state: 'running' });
+    render(<TaskProgressPanel taskId="t-refresh" />);
+    await act(async () => {});
+    expect(fetchTaskResult).toHaveBeenCalledTimes(1);
+
+    fireEvent.click(screen.getByText('刷新'));
+    // 非终态下刷新按钮触发 effect 重跑：无需等 2s 轮询间隔
+    await waitFor(() => expect(fetchTaskResult).toHaveBeenCalledTimes(2));
+    expect(screen.getByTestId('task-status').textContent).toBe('执行中');
+  });
+
+  test('taskId 为空：effect 直接早退不发起轮询', async () => {
+    render(<TaskProgressPanel taskId="" />);
+    await act(async () => {});
+    expect(fetchTaskResult).not.toHaveBeenCalled();
+    // 面板仍渲染（任务 id 空占位），状态为初始「查询中」
+    expect(screen.getByTestId('task-status').textContent).toBe('查询中');
+  });
+
+  test('state 非字符串（缺省）：按空状态处理显示「查询中」', async () => {
+    fetchTaskResult.mockResolvedValue({ payload: { partial: true } });
+    render(<TaskProgressPanel taskId="t-nostate" />);
+    await act(async () => {});
+    expect(fetchTaskResult).toHaveBeenCalledWith('t-nostate');
+    // state undefined → 回退空串 → 未知状态走「查询中」文案，不抛错
+    expect(screen.getByTestId('task-status').textContent).toBe('查询中');
+  });
 });

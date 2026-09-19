@@ -132,13 +132,15 @@ describe('HistoryTab 调用历史数据源', () => {
       size: 10,
     });
     const { container } = render(<HistoryTab functionId="player.ban" />);
-    await waitFor(() =>
-      expect(container.querySelectorAll('.ant-table-row')).toHaveLength(10),
-    );
+    await waitFor(() => expect(container.querySelectorAll('.ant-table-row')).toHaveLength(10));
 
     fireEvent.click(container.querySelector('.ant-pagination-item-2')!);
     await waitFor(() =>
-      expect(mockList).toHaveBeenLastCalledWith({ functionId: 'player.ban', page: 2, pageSize: 10 }),
+      expect(mockList).toHaveBeenLastCalledWith({
+        functionId: 'player.ban',
+        page: 2,
+        pageSize: 10,
+      }),
     );
   });
 
@@ -216,5 +218,18 @@ describe('HistoryTab 调用历史数据源', () => {
     await screen.findAllByText('-');
     // BigInt 无法 JSON.stringify → catch 回退 String(value) = "10"
     expect(await screen.findByText('10')).toBeInTheDocument();
+  });
+
+  it('关闭 Drawer：onClose 复位 detailOpen，抽屉收起', async () => {
+    const detail: ExecutionLogDetail = makeItem({ id: 71, requestPayload: { a: 1 } });
+    mockList.mockResolvedValue({ items: [detail], total: 1, page: 1, size: 10 });
+    mockGet.mockResolvedValue(detail);
+    render(<HistoryTab functionId="player.ban" />);
+
+    fireEvent.click(await screen.findByRole('button', { name: /详情|Detail/ }));
+    await waitFor(() => expect(document.querySelector('.ant-drawer-open')).not.toBeNull());
+
+    fireEvent.click(document.querySelector('.ant-drawer-close') as HTMLElement);
+    await waitFor(() => expect(document.querySelector('.ant-drawer-open')).toBeNull());
   });
 });

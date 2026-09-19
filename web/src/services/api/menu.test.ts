@@ -111,3 +111,47 @@ describe('menu api', () => {
     });
   });
 });
+
+describe('menu api 归一兜底分支', () => {
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('节点缺 labels/sortOrder/children：labels 兜底空对象、sortOrder 0、children 空数组', async () => {
+    mockedRequest.mockResolvedValueOnce({
+      items: [{ id: 7, parentId: null, menuKey: 'bare' }],
+    });
+    const items = await listMenus();
+    expect(items).toEqual([
+      {
+        id: 7,
+        parentId: null,
+        menuKey: 'bare',
+        labels: {},
+        icon: undefined,
+        sortOrder: 0,
+        permission: undefined,
+        isVisible: true,
+        children: [],
+      },
+    ]);
+  });
+
+  it('labels 为空字符串：normalize 后兜底空对象', async () => {
+    mockedRequest.mockResolvedValueOnce({
+      items: [{ id: 8, parentId: null, menuKey: 'k', labels: '' }],
+    });
+    const items = await listMenus();
+    expect(items[0].labels).toEqual({});
+  });
+
+  it('listAccessibleMenus 兼容裸数组响应与空体', async () => {
+    mockedRequest.mockResolvedValueOnce([rawMenu]);
+    expect(await listAccessibleMenus()).toHaveLength(1);
+    // 空响应体 / items 缺省 → 空数组（不抛错）
+    mockedRequest.mockResolvedValueOnce(undefined);
+    expect(await listAccessibleMenus()).toEqual([]);
+    mockedRequest.mockResolvedValueOnce({ items: [] });
+    expect(await listAccessibleMenus()).toEqual([]);
+  });
+});

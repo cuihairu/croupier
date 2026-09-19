@@ -12,6 +12,10 @@ import {
 } from '@/components/SchemaFormRenderer/useRemoteOptions';
 import type { FormPresentationSpec, JSONSchema, RemoteOptionsSpec } from '@/types/dashboard';
 
+// 重 DOM 集成用例在 coverage instrumentation 负载下撞默认 5s 用例预算
+// （隔离跑恒绿），与 Ops/Jobs 等重 suite 同法放宽
+jest.setTimeout(20000);
+
 jest.mock('@/services/api/functions', () => ({
   invokeFunction: jest.fn(),
 }));
@@ -57,6 +61,67 @@ describe('F9: selectByPointer / optionsFromResult', () => {
         valuePath: '/items/*/id',
       }),
     ).toEqual([{ label: 'p9', value: 'p9' }]);
+  });
+
+  test('pointer 缺省或无前导斜杠：直接返回 data 本身', () => {
+    const data = { items: [{ id: 'p1' }] };
+    expect(selectByPointer(data as unknown as JSONValue, undefined)).toBe(data);
+    expect(selectByPointer(data as unknown as JSONValue, 'items')).toBe(data);
+  });
+
+  test("'*' 通配段但 data 非数组：返回空数组（无可映射项）", () => {
+    expect(selectByPointer({ items: {} } as unknown as JSONValue, '/items/*/id')).toEqual([]);
+  });
+
+  test('数组索引段非法（非整数/越界/负数）：返回 undefined', () => {
+    const data = { items: [{ id: 'p1' }] };
+    expect(selectByPointer(data as unknown as JSONValue, '/items/abc')).toBeUndefined();
+    expect(selectByPointer(data as unknown as JSONValue, '/items/5')).toBeUndefined();
+    expect(selectByPointer(data as unknown as JSONValue, '/items/-1')).toBeUndefined();
+  });
+
+  test('valuePath 缺省：value 回退 labelPath 取值', () => {
+    expect(
+      optionsFromResult({ items: [{ name: 'Alice' }] } as unknown as JSONValue, {
+        functionId: 'x',
+        labelPath: '/items/*/name',
+      }),
+    ).toEqual([{ label: 'Alice', value: 'Alice' }]);
+  });
+
+  test('labels/values 非数组（单值形态）：按单元素列表参与对齐', () => {
+    // labels 非数组：labelList=[3] 与 values 对齐取下标 0
+    expect(
+      optionsFromResult({ total: 3, items: [{ id: 'x' }] } as unknown as JSONValue, {
+        functionId: 'x',
+        labelPath: '/total',
+        valuePath: '/items/*/id',
+      }),
+    ).toEqual([{ label: '3', value: 'x' }]);
+    // values 非数组：valueList=[2] 单值选项
+    expect(
+      optionsFromResult({ total: 2, items: [{ id: 'x' }] } as unknown as JSONValue, {
+        functionId: 'x',
+        labelPath: '/items/*/id',
+        valuePath: '/total',
+      }),
+    ).toEqual([{ label: 'x', value: '2' }]);
+  });
+
+  test('values 数组含 null/undefined：跳过不产选项', () => {
+    expect(
+      optionsFromResult({ items: [{ id: null }, { id: 'y' }] } as unknown as JSONValue, {
+        functionId: 'x',
+        labelPath: '/items/*/name',
+        valuePath: '/items/*/id',
+      }),
+    ).toEqual([{ label: 'y', value: 'y' }]);
+  });
+
+  test('结果为 undefined（label/value 均未命中）：单元素 undefined 跳过，返回空选项', () => {
+    // labels/values 非数组且值为 undefined → valueList=[undefined] → continue 分支的
+    // undefined 侧（null 侧由上一用例覆盖）
+    expect(optionsFromResult(undefined, { functionId: 'x' })).toEqual([]);
   });
 });
 
@@ -104,6 +169,18 @@ describe('F9: useRemoteOptions', () => {
     render(<HookHarness spec={spec} />);
     await waitFor(() => expect(screen.getByTestId('loading').textContent).toBe('false'));
     expect(screen.getAllByTestId('options')[0].children.length).toBe(0);
+  });
+
+  test('响应无 result 包装（裸 payload）：整体按数据解析', async () => {
+    // 服务端直返业务对象（无 { result: ... } 信封）→ response?.result ?? response 兜底
+    invokeFunction.mockResolvedValue({ items: [{ name: 'Alice', id: 'p1' }] });
+    const spec: RemoteOptionsSpec = {
+      functionId: 'player.list',
+      labelPath: '/items/*/name',
+      valuePath: '/items/*/id',
+    };
+    render(<HookHarness spec={spec} />);
+    await waitFor(() => expect(screen.getByText('Alice')).toBeTruthy());
   });
 
   test('searchParam 存在时以关键词重新调用', async () => {

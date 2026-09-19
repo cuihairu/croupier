@@ -9,12 +9,14 @@ import {
   getOpenAPISource,
   getOpenAPISourceDiagnostics,
   listOpenAPISources,
+  listRuntimeSources,
   normalizeFunctionOpenAPIResponse,
   updateOpenAPISource,
   uploadOpenAPISourceFile,
   type GetFunctionOpenAPIResponse,
   type OpenAPIDocument,
   type OpenAPIOperation,
+  type RuntimeSourcesListResponse,
 } from './openapi';
 
 jest.mock('@umijs/max', () => ({ request: jest.fn() }));
@@ -174,6 +176,29 @@ describe('openapi API adapters', () => {
     expect(mockedRequest).toHaveBeenCalledWith('/api/v1/openapi/sources/src%2F1/bindings/b%2F2', {
       method: 'DELETE',
     });
+  });
+
+  it('listRuntimeSources GETs agent runtime providers', async () => {
+    const list: RuntimeSourcesListResponse = {
+      items: [
+        {
+          providerId: 'prov-1',
+          name: 'demo-provider',
+          agentId: 'agent-1',
+          gameId: 'demo',
+          env: 'prod',
+          version: 'v1',
+          functionCount: 2,
+          functions: ['player.list', 'player.ban'],
+          lastSeenUnix: 1758123456,
+        },
+      ],
+      total: 1,
+    };
+    mockedRequest.mockResolvedValue(list);
+
+    await expect(listRuntimeSources()).resolves.toBe(list);
+    expect(mockedRequest).toHaveBeenCalledWith('/api/v1/openapi/runtime-sources');
   });
 });
 

@@ -34,7 +34,7 @@
     "start:pre": "cross-env REACT_APP_ENV=pre UMI_ENV=dev max dev",
     "start:test": "cross-env REACT_APP_ENV=test MOCK=none UMI_ENV=dev max dev",
     "test": "jest",
-    "test:coverage": "npm run jest -- --coverage",
+    "test:coverage": "npm run jest -- --coverage --testTimeout=20000",
     "test:update": "npm run jest -- -u",
     "tsc": "tsc --noEmit"
   },

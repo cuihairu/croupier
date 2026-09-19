@@ -166,6 +166,18 @@ describe('normalizeLocalizedText', () => {
     expect(normalizeLocalizedText({})).toBeUndefined();
     expect(normalizeLocalizedText({ fr: '   ' })).toBeUndefined();
   });
+
+  it('drops non-string values in both canonical and legacy passes', () => {
+    // typeof val === 'string' 三元的 false 侧：number 等非字符串按空处理
+    expect(
+      normalizeLocalizedText({ 'zh-CN': 123, 'en-US': 'EN' } as unknown as Record<string, string>),
+    ).toEqual({
+      'en-US': 'EN',
+    });
+    expect(
+      normalizeLocalizedText({ zh: 123, en: 456 } as unknown as Record<string, string>),
+    ).toBeUndefined();
+  });
 });
 
 describe('normalizeFunctionInstance', () => {

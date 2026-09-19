@@ -112,4 +112,54 @@ describe('F7: 分组渲染', () => {
     expect(container.querySelector('.ant-card')).toBeNull();
     expect(screen.getByLabelText('普通')).toBeTruthy();
   });
+
+  test('layout grid：字段缺省宽度走 formContext.colSpan=12（半行）', () => {
+    const spec: FormPresentationSpec = {
+      jsonSchema: schemaOf({
+        type: 'object',
+        properties: { a: { type: 'string', title: '甲' }, b: { type: 'string', title: '乙' } },
+      }),
+      layout: 'grid',
+      groups: [{ key: 'g', title: { 'zh-CN': '网格组' }, fields: ['a', 'b'] }],
+    };
+    const { container } = render(<SchemaFormRenderer spec={spec} onFinish={jest.fn()} />);
+    const card = container.querySelector('[data-testid="group-g"]') as HTMLElement;
+    expect(card).toBeTruthy();
+    // 无 per-field width → colSpan 12 优先于 defaultSpan（非 24）
+    expect(card.querySelectorAll('.ant-col-12')).toHaveLength(2);
+  });
+
+  test('空分组（fields 为空）被过滤：不渲染该分组容器', () => {
+    const spec: FormPresentationSpec = {
+      jsonSchema: schemaOf({
+        type: 'object',
+        properties: { a: { type: 'string', title: '甲' } },
+      }),
+      groups: [
+        { key: 'g-real', title: { 'zh-CN': '实组' }, fields: ['a'] },
+        { key: 'g-empty', title: { 'zh-CN': '空组' }, fields: [] },
+      ],
+    };
+    const { container } = render(<SchemaFormRenderer spec={spec} onFinish={jest.fn()} />);
+    expect(container.querySelector('[data-testid="group-g-real"]')).toBeTruthy();
+    expect(container.querySelector('[data-testid="group-g-empty"]')).toBeNull();
+  });
+
+  test('collapsible 分组未指定 collapsed：默认展开', () => {
+    const spec: FormPresentationSpec = {
+      jsonSchema: schemaOf({
+        type: 'object',
+        properties: { opt: { type: 'string', title: '可选项' } },
+      }),
+      groups: [
+        { key: 'open', title: { 'zh-CN': '默认展开组' }, fields: ['opt'], collapsible: true },
+      ],
+    };
+    const { container } = render(<SchemaFormRenderer spec={spec} onFinish={jest.fn()} />);
+    const collapse = container.querySelector('[data-testid="group-open"]') as HTMLElement;
+    expect(collapse).toBeTruthy();
+    const item = collapse.querySelector('.ant-collapse-item') as HTMLElement;
+    // defaultActiveKey=[key] → 默认展开态
+    expect(item.className).toContain('ant-collapse-item-active');
+  });
 });

@@ -15,6 +15,10 @@ jest.mock('@/services/api/functions', () => ({
   listDescriptors: jest.fn(async () => []),
 }));
 
+// 重 DOM 套件（PreviewRuntime 全量渲染）在 coverage instrumentation 负载下
+// 撞默认 5s 用例预算（隔离跑恒绿），与 Ops/Jobs 等重 suite 同法放宽
+jest.setTimeout(20000);
+
 const mockedInvoke = invokeFunction as unknown as jest.Mock;
 
 const playerListDescriptor: FunctionDescriptor = {

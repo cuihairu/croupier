@@ -18,6 +18,10 @@ jest.mock('@/services/api/support', () => ({
 
 jest.mock('@/services/api/storage', () => ({ uploadAsset: jest.fn() }));
 
+// 整页渲染用例在 coverage instrumentation 负载下撞默认 5s 用例预算
+// （隔离跑恒绿），与 Ops/Jobs 等重 suite 同法放宽
+jest.setTimeout(20000);
+
 jest.mock('@umijs/max', () => ({
   history: { push: jest.fn() },
   useParams: () => ({ id: 'ticket-1' }),

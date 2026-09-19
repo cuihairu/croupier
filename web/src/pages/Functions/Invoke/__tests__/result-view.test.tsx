@@ -58,6 +58,45 @@ describe('F10: deriveResultSpec', () => {
   });
 });
 
+describe('F10: deriveResultSpec 宽松 schema 形态', () => {
+  test('property 值非对象：字段兜底 string 类型（title 人性化）', () => {
+    const derived = deriveResultSpec(
+      schemaOf({
+        type: 'object',
+        properties: { bad: 'oops', good: { type: 'integer' } },
+      }),
+    );
+    expect(derived?.shape).toBe('object');
+    expect(derived?.spec.fields).toEqual([
+      { key: 'bad', title: { 'zh-CN': 'Bad', 'en-US': 'Bad' }, dataType: 'string' },
+      { key: 'good', title: { 'zh-CN': 'Good', 'en-US': 'Good' }, dataType: 'integer' },
+    ]);
+  });
+
+  test('property 缺 type：dataType 兜底 string', () => {
+    const derived = deriveResultSpec(
+      schemaOf({ type: 'object', properties: { notype: { title: '无类型' } } }),
+    );
+    expect(derived?.spec.fields).toEqual([
+      { key: 'notype', title: { 'zh-CN': '无类型', 'en-US': '无类型' }, dataType: 'string' },
+    ]);
+  });
+
+  test('array 缺 items / items 非对象：无法结构化 → undefined', () => {
+    expect(deriveResultSpec(schemaOf({ type: 'array' }))).toBeUndefined();
+    expect(deriveResultSpec(schemaOf({ type: 'array', items: 'oops' }))).toBeUndefined();
+  });
+
+  test('array items 缺 properties：无表格列 → undefined', () => {
+    expect(
+      deriveResultSpec(schemaOf({ type: 'array', items: { type: 'object' } })),
+    ).toBeUndefined();
+    expect(
+      deriveResultSpec(schemaOf({ type: 'array', items: { type: 'object', properties: {} } })),
+    ).toBeUndefined();
+  });
+});
+
 describe('F10: InvocationResponse 结构化渲染', () => {
   test('object 结果优先展示结构化 Tab（字段卡片）', () => {
     render(

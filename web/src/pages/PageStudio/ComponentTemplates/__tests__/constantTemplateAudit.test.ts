@@ -110,3 +110,64 @@ describe('demoConstantTemplatePayloads', () => {
     expect(countStaticFormFields(node)).toBe(1);
   });
 });
+
+describe('countStaticFormFields 缺省与异常形态', () => {
+  it('staticSchema 非字符串（缺省/数字/对象）：返回 0', () => {
+    expect(countStaticFormFields({ id: 'x1', type: 'staticForm', props: {} })).toBe(0);
+    expect(
+      countStaticFormFields({ id: 'x2', type: 'staticForm', props: { staticSchema: 42 } }),
+    ).toBe(0);
+    expect(
+      countStaticFormFields({
+        id: 'x3',
+        type: 'staticForm',
+        props: { staticSchema: { type: 'object' } },
+      }),
+    ).toBe(0);
+  });
+
+  it('staticSchema 空白字符串：返回 0', () => {
+    expect(
+      countStaticFormFields({ id: 'x4', type: 'staticForm', props: { staticSchema: '' } }),
+    ).toBe(0);
+    expect(
+      countStaticFormFields({ id: 'x5', type: 'staticForm', props: { staticSchema: '   ' } }),
+    ).toBe(0);
+  });
+
+  it('合法 JSON 但无 properties：按 0 个字段计', () => {
+    expect(
+      countStaticFormFields({
+        id: 'x6',
+        type: 'staticForm',
+        props: { staticSchema: '{"type":"object"}' },
+      }),
+    ).toBe(0);
+  });
+});
+
+describe('maxConstantsInTree 防御形态', () => {
+  it('非数组入参返回 0', () => {
+    expect(maxConstantsInTree(undefined as unknown as unknown[])).toBe(0);
+    expect(maxConstantsInTree('nope' as unknown as unknown[])).toBe(0);
+    expect(maxConstantsInTree(null as unknown as unknown[])).toBe(0);
+  });
+
+  it('树中混入 null/非对象项：跳过并统计有效 staticForm', () => {
+    const tree = [null, 42, staticFormNode({ only: { type: 'string' } })] as unknown as unknown[];
+    expect(maxConstantsInTree(tree)).toBe(1);
+  });
+
+  it('props.children 数组形态：递归取嵌套最大字段数', () => {
+    const tree: unknown[] = [
+      {
+        id: 'wrap',
+        type: 'container',
+        props: {
+          children: [staticFormNode({ a: { type: 'string' }, b: { type: 'string' } })],
+        },
+      },
+    ];
+    expect(maxConstantsInTree(tree)).toBe(2);
+  });
+});

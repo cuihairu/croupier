@@ -7,6 +7,29 @@ import React from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import LocalizedTextEditor from '.';
 
+// 覆盖 intl.locale 相关初始化分支：全局 setup mock 的 useIntl 不带 locale
+// （uiLocale 恒 undefined，present.includes(uiLocale) 永假）。本文件在全局
+// mock 语义基础上补充 locale: 'zh-CN'，其余行为（formatMessage 插值 /
+// FormattedMessage 渲染 defaultMessage）与 setupTests.jsx 保持一致。
+jest.mock('@umijs/max', () => {
+  const formatMessage = (
+    descriptor: { defaultMessage: string },
+    values?: Record<string, unknown>,
+  ) =>
+    Object.entries(values || {}).reduce(
+      (msg: string, [key, val]) => msg.split(`{${key}}`).join(String(val)),
+      descriptor.defaultMessage,
+    );
+  return {
+    __esModule: true,
+    useIntl: () => ({ formatMessage, locale: mockUiLocale.locale }),
+    FormattedMessage: ({ defaultMessage }: { defaultMessage: string }) => defaultMessage,
+  };
+});
+
+/** 界面语言 holder：默认 zh-CN，个别用例临时切到其他语言覆盖初始化回退分支 */
+const mockUiLocale = { locale: 'zh-CN' };
+
 /** 打开 🌐 气泡（唯一无文案按钮），等待契约提示渲染 */
 const openPopover = async () => {
   fireEvent.click(screen.getByRole('button'));
@@ -156,5 +179,88 @@ describe('LocalizedTextEditor：编辑与自定义 locale', () => {
     expect(screen.getByRole('combobox')).toBeDisabled();
     expect(screen.getByRole('textbox')).toBeDisabled();
     expect(screen.getByRole('button')).toBeDisabled();
+  });
+});
+
+describe('LocalizedTextEditor：locale 初始化与选项兜底', () => {
+  it('界面语言（zh-CN）已录入：activeLocale 直接跟随界面语言', () => {
+    render(
+      <LocalizedTextEditor value={{ 'zh-CN': '玩家', 'en-US': 'Players' }} onChange={jest.fn()} />,
+    );
+    expect(screen.getByDisplayValue('玩家')).toBeInTheDocument();
+  });
+
+  it('defaultLocale 未命中已录入语言：不选中 defaultLocale，回退界面语言', () => {
+    render(
+      <LocalizedTextEditor
+        value={{ 'zh-CN': '玩家', 'en-US': 'Players' }}
+        defaultLocale="fr-FR"
+        onChange={jest.fn()}
+      />,
+    );
+    expect(screen.getByDisplayValue('玩家')).toBeInTheDocument();
+  });
+
+  it('value 携带自定义 locale：下拉出现该语言并以 BCP47 串为标签', async () => {
+    render(
+      <LocalizedTextEditor value={{ 'zh-CN': '玩家', 'ko-KR': '한국어' }} onChange={jest.fn()} />,
+    );
+    expect(screen.getByDisplayValue('玩家')).toBeInTheDocument();
+    const options = await openLocaleDropdown();
+    const koOption = options.find((o) => o.textContent?.includes('ko-KR'));
+    expect(koOption).toBeTruthy();
+    // 无语言显示名映射 → 标签直接显示 locale 串本身，不显示已录文案
+    expect(koOption?.textContent).not.toContain('한국어');
+  });
+
+  it('value 移除当前编辑语言：下拉值回退默认语言（activeLocale 失效兜底）', () => {
+    const { rerender } = render(
+      <LocalizedTextEditor value={{ 'ko-KR': '한국어' }} onChange={jest.fn()} />,
+    );
+    expect(screen.getByDisplayValue('한국어')).toBeInTheDocument();
+
+    // ko-KR 从 value 移除后不再可选 → Select 值回退 zh-CN；
+    // 输入框仍按旧 activeLocale（ko-KR）取值，显示为空
+    rerender(<LocalizedTextEditor value={{ 'zh-CN': '玩家' }} onChange={jest.fn()} />);
+    expect((screen.getByRole('textbox') as HTMLInputElement).value).toBe('');
+  });
+
+  it('placeholder 透传优先于主语言文案对照', () => {
+    render(
+      <LocalizedTextEditor
+        value={{ 'zh-CN': '玩家' }}
+        placeholder="请输入名称"
+        onChange={jest.fn()}
+      />,
+    );
+    expect((screen.getByRole('textbox') as HTMLInputElement).placeholder).toBe('请输入名称');
+  });
+});
+
+describe('LocalizedTextEditor：初始化兜底与无 onChange 行为', () => {
+  it('value 缺省：按空对象初始化，不抛错且输入为空', () => {
+    render(<LocalizedTextEditor />);
+    expect((screen.getByRole('textbox') as HTMLInputElement).value).toBe('');
+  });
+
+  it('界面语言未录入但默认语言已录入：activeLocale 回退默认语言', () => {
+    mockUiLocale.locale = 'en-US';
+    try {
+      render(<LocalizedTextEditor value={{ 'zh-CN': '玩家' }} onChange={jest.fn()} />);
+      expect(screen.getByDisplayValue('玩家')).toBeInTheDocument();
+    } finally {
+      mockUiLocale.locale = 'zh-CN';
+    }
+  });
+
+  it('无 onChange 时添加自定义语言：不抛错，编辑语言切到新 locale', async () => {
+    render(<LocalizedTextEditor value={{ 'zh-CN': '玩家' }} />);
+    await openPopover();
+    const customInput = screen.getByPlaceholderText('自定义 BCP47，如 ko-KR');
+    fireEvent.change(customInput, { target: { value: 'ko-KR' } });
+    fireEvent.keyDown(customInput, { key: 'Enter' });
+    // onChange 缺席：值更新静默跳过；setActiveLocale('ko-KR') 仍生效——
+    // 主输入框切到无文案的新 locale 显示空串（jsdom 气泡 DOM 残留，以此为准）
+    await waitFor(() => expect((screen.getByRole('textbox') as HTMLInputElement).value).toBe(''));
   });
 });

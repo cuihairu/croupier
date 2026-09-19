@@ -548,4 +548,60 @@ describe('链参数区（run/refresh 步骤）', () => {
     fireEvent.blur(paramInput());
     expect(onChange).not.toHaveBeenCalled();
   });
+
+  it('参数名改名（双步骤链）：只改目标步骤、兄弟步骤原样保留（链内 map 保位）', () => {
+    const { onChange } = renderEditor({
+      value: {
+        kind: 'runBinding',
+        target: 't1',
+        chain: [
+          { kind: 'runBinding', target: 't1', params: { first: 'a' } },
+          { kind: 'runBinding', target: 't1', params: { second: 'b' } },
+        ],
+      },
+    });
+    const input = paramInput(); // 第一步骤的参数名输入
+    expect(input.value).toBe('first');
+    fireEvent.change(input, { target: { value: 'renamed' } });
+    fireEvent.blur(input);
+    expect(onChange).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        chain: [
+          { kind: 'runBinding', target: 't1', params: { renamed: 'a' } },
+          { kind: 'runBinding', target: 't1', params: { second: 'b' } },
+        ],
+      }),
+    );
+  });
+});
+
+describe('动作链空链与无参数步骤兜底', () => {
+  it('chain 缺省：链区块渲染为空列表，添加后续动作从空链起步', () => {
+    const { onChange } = renderEditor({ value: { kind: 'runBinding', target: 't1' } });
+    expect(screen.getByText('后续动作（主动作完成后按序执行）')).toBeInTheDocument();
+    fireEvent.click(screen.getByText('+ 添加后续动作'));
+    expect(onChange).toHaveBeenLastCalledWith({
+      kind: 'runBinding',
+      target: 't1',
+      chain: [{ kind: 'refreshNode', target: 't1' }],
+    });
+  });
+
+  it('步骤无 params：参数区为空，「+ 添加参数」从空对象起步', () => {
+    const { onChange } = renderEditor({
+      value: {
+        kind: 'runBinding',
+        target: 't1',
+        chain: [{ kind: 'refreshNode', target: 't1' }],
+      },
+    });
+    // 步骤已渲染（无参数行）
+    expect(screen.getByText('+ 添加参数')).toBeInTheDocument();
+    fireEvent.click(screen.getByText('+ 添加参数'));
+    expect(onChange).toHaveBeenLastCalledWith({
+      kind: 'runBinding',
+      target: 't1',
+      chain: [{ kind: 'refreshNode', target: 't1', params: { param: '' } }],
+    });
+  });
 });

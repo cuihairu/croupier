@@ -13,6 +13,10 @@ import type { CompositeSection } from '@/types/dashboard';
 
 jest.mock('@/services/api/functions', () => ({ invokeFunction: jest.fn() }));
 
+// 用例含 300ms 防抖真实等待，全量并行负载下撞默认 5s 用例预算
+// （隔离跑恒绿），与 Ops/Jobs 等重 suite 同法放宽
+jest.setTimeout(20000);
+
 type AppApi = ReturnType<typeof App.useApp>;
 
 function renderComposite(

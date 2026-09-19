@@ -109,6 +109,34 @@ describe('projectBindingContext', () => {
     });
   });
 
+  test('literal 来源与空 path 来源跳过投影（不产生上下文键）', () => {
+    // literal：值内联于 assignment，不经上下文投影；path 缺省同样跳过
+    const context = projectBindingContext(
+      binding([
+        { target: '/mode', source: { kind: 'literal', value: 'force' } },
+        { target: '/form', source: { kind: 'form', path: '' } },
+      ]),
+      { form: { a: 1 } },
+    );
+    expect(context).toEqual({});
+  });
+
+  test('page_state 空 key：按空串键取值并原样投影（key || "" 兜底）', () => {
+    const context = projectBindingContext(
+      binding([{ target: '/id', source: { kind: 'page_state', key: '', path: '/id' } }]),
+      { pageState: { '': { id: 'z-9', secret: 'must-not-leak' } } },
+    );
+    expect(context).toEqual({ pageState: { '': { id: 'z-9' } } });
+  });
+
+  test('page_state 来源但上下文无 pageState：无可投影值返回空对象', () => {
+    const context = projectBindingContext(
+      binding([{ target: '/id', source: { kind: 'page_state', key: 'task', path: '/id' } }]),
+      {},
+    );
+    expect(context).toEqual({});
+  });
+
   test('selection 上下文为非数组脏值时按赋值整体覆盖（不经逐行合并）', () => {
     // 防御：selection 语义上是行数组，但契约是 JSONValue——服务端/历史状态
     // 可能给出对象形态，此时走通用投影并直接覆盖而非 mergeProjectedSelection

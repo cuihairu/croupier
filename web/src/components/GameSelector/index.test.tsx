@@ -7,7 +7,7 @@
  * （受控跳过内部 state、scope.gameId 缺失不持久化）；header/mobile 变体
  * （抽屉开关、activeAlias/activeEnvLabel 各级兜底）。 */
 import React from 'react';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import GameSelector from '.';
 import { listMyGames } from '@/services/api';
 import type { Game } from '@/services/api';
@@ -373,5 +373,52 @@ describe('GameSelector：变体渲染', () => {
 
     expect(await screen.findByText('未选择游戏')).toBeInTheDocument();
     expect(screen.getByText('ENV')).toBeInTheDocument();
+  });
+});
+
+describe('GameSelector：envMeta 形态兼容与无名游戏', () => {
+  it('envMeta 传入 EnvOption 形态（value/color）：env 名取 value、色点直接生效', async () => {
+    // buildEnvOptions 兼容 { value, color } 形态（GameEnvMeta 无 env 字段时回退 value）
+    mockedList.mockResolvedValue({
+      games: [
+        {
+          name: 'g1',
+          envMeta: [{ value: 'biz-opt', color: '#123456' }],
+        } as unknown as Game,
+      ],
+    });
+    render(<GameSelector />);
+    await waitFor(() => expect(screen.getAllByRole('combobox').length).toBe(2));
+
+    openSelect(1);
+    const option = await waitFor(() => {
+      const hit = Array.from(document.querySelectorAll('.ant-select-item-option')).find((o) =>
+        o.textContent?.includes('BIZ-OPT'),
+      );
+      if (!hit) throw new Error('env 选项未渲染');
+      return hit as HTMLElement;
+    });
+    const dot = option.querySelector('span[style]') as HTMLElement;
+    expect(dot.style.backgroundColor).toBe('rgb(18, 52, 86)');
+  });
+
+  it('无名游戏选项点击：value 为 undefined 时 !next 守卫直接返回，不写 scope', async () => {
+    mockedList.mockResolvedValue({ games: [{} as Game] });
+    render(<GameSelector />);
+    // 无名游戏无 env 元数据：仅游戏下拉渲染，环境位降级为「未配置可用环境」
+    await waitFor(() => expect(screen.getAllByRole('combobox').length).toBe(1));
+    expect(await screen.findByText('未配置可用环境')).toBeInTheDocument();
+
+    openSelect(0);
+    const option = await waitFor(() => {
+      const nodes = document.querySelectorAll('.ant-select-item-option');
+      if (nodes.length === 0) throw new Error('游戏选项未渲染');
+      return nodes[0] as HTMLElement;
+    });
+    fireEvent.click(option);
+    await act(async () => {});
+    // 守卫返回：scope 不写入、不持久化、面板不崩
+    expect(getScope().gameId).toBeUndefined();
+    expect(mockedPersist).not.toHaveBeenCalled();
   });
 });

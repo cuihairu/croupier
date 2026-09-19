@@ -423,3 +423,77 @@ describe('防御分支补充', () => {
     await waitFor(() => expect(screen.getByText('预览模式不导出数据')).toBeInTheDocument());
   });
 });
+
+describe('图表分发与单元格类型兜底（分支补齐）', () => {
+  it('五类型分发：line/bar/area/pie 各自组件 + 未知类型兜底 Line；xField/yField/seriesField 全缺省时 0/空串兜底', async () => {
+    const { onExecute } = renderReport({ spec: spec({ charts }) });
+    onExecute.mockResolvedValueOnce(ok({ items: rows }));
+    submit();
+    await waitFor(() => expect(screen.getAllByTestId('chart-area').length).toBeGreaterThan(0));
+
+    // area 图未声明 xField/yField/seriesField：chartData 每行兜底 {x:'', y:0, series:''}
+    const areaCalls = (Area as unknown as jest.Mock).mock.calls;
+    const areaData = (
+      areaCalls[areaCalls.length - 1][0] as {
+        data: Array<{ x: string; y: number; series: string }>;
+      }
+    ).data;
+    expect(areaData).toEqual([
+      { x: '', y: 0, series: '' },
+      { x: '', y: 0, series: '' },
+    ]);
+
+    // 末次 Line 调用 = 未知类型（scatter）兜底：x 取声明的 seq 字段（数字转字符串）
+    const lineCalls = (Line as unknown as jest.Mock).mock.calls;
+    const scatterData = (
+      lineCalls[lineCalls.length - 1][0] as {
+        data: Array<{ x: string; y: number }>;
+      }
+    ).data;
+    expect(scatterData.map((item) => item.x)).toEqual(['1', '2']);
+
+    // bar / pie 分支组件确实挂载
+    expect(screen.getAllByTestId('chart-column').length).toBeGreaterThan(0);
+    expect(screen.getAllByTestId('chart-pie').length).toBeGreaterThan(0);
+  });
+
+  it('CSV 单元格：布尔值原样输出、空串保持空串（toCell 非 object 直返分支）', async () => {
+    const boolRows = [
+      {
+        date: '2026-02-01',
+        channel: 'ios',
+        seq: 1,
+        pay: 10,
+        ratio: 0.5,
+        count: 1,
+        meta: true,
+      },
+      { date: '2026-02-02', channel: '', seq: 2, pay: 20, ratio: 0.25, count: 2, meta: '' },
+    ];
+    const { onExecute } = renderReport({ spec: spec({ exportable: true }) });
+    onExecute.mockResolvedValueOnce(ok({ items: boolRows }));
+    submit();
+    await waitFor(() => expect(screen.getByText('数据展示')).toBeInTheDocument());
+    fireEvent.click(screen.getByRole('button', { name: /导出 CSV/ }));
+    await waitFor(() => expect(screen.getByText('导出成功')).toBeInTheDocument());
+    const [, csvRows] = (exportToCSV as jest.Mock).mock.calls[
+      (exportToCSV as jest.Mock).mock.calls.length - 1
+    ] as [string, Array<Array<string | number | boolean | null>>];
+    // 列序：日期/渠道/序号/充值/占比/次数/附加
+    expect(csvRows[1][6]).toBe(true); // 布尔原样（非 object → 直返）
+    expect(csvRows[2][1]).toBe(''); // 空串非 null/undefined → 原样空串
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 判定为不可达的防御分支（放弃覆盖）：
+// - ChartRenderer 空数据分支（L132 假值侧 / L134-142「暂无数据」）：
+//   ChartRenderer 仅在 data.length > 0 的「数据展示」卡片内挂载，prop 与
+//   守卫读同一 state，无同渲染窗口能以空数据进入图表；
+// - handleQuery 的 !mainBinding（L184-192）：无绑定时组件在渲染层早退为
+//   「报表绑定未完成」Result，查询表单（含提交按钮）不挂载；
+// - handleExport 的「仅支持 CSV 导出」（L264-271）与「没有可导出的数据」
+//   （L273-281）：导出 Excel 按钮仅在 onExport 存在时渲染、导出按钮仅在
+//   data.length > 0 的卡片内渲染，两个守卫的输入与按钮挂载同源，
+//   热更 rerender 时按钮随条件一并卸载。
+// ---------------------------------------------------------------------------

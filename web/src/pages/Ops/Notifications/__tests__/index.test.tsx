@@ -284,4 +284,26 @@ describe('Ops/Notifications 页面', () => {
     fireEvent.click(screen.getByRole('button', { name: '保存' }));
     expect(await screen.findByText('保存失败')).toBeInTheDocument();
   });
+
+  it('响应整体缺失（resolve undefined）：渠道/规则回退空表（r?.x || [] 兜底）不崩', async () => {
+    fetchOpsNotifications.mockResolvedValueOnce(undefined);
+    renderPage();
+    // 渠道/规则两张表均为空态，且不触发加载失败提示（非 reject）
+    const empties = await screen.findAllByText(/No data|暂无数据/);
+    expect(empties.length).toBeGreaterThanOrEqual(2);
+    expect(screen.queryByText('加载失败')).toBeNull();
+  });
+
+  it('规则脏数据：channels 缺失 / thresholdDays 为空时行渲染不崩、无渠道标签', async () => {
+    fetchOpsNotifications.mockResolvedValueOnce({
+      channels: [{ id: 'ding_main', type: 'dingtalk', url: 'https://oapi.example.com/ding/hook' }],
+      rules: [{ event: 'dirty_rule', channels: undefined, thresholdDays: null }],
+    });
+    renderPage();
+    await awaitTextPresent('dirty_rule');
+    // channels 列按空数组渲染：行内不出现渠道标签，也不崩
+    const row = findRow('dirty_rule');
+    expect(within(row).queryByText('ding_main')).toBeNull();
+    expect(row.textContent).toContain('dirty_rule');
+  });
 });

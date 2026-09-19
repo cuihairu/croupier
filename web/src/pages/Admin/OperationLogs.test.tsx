@@ -11,6 +11,10 @@ jest.mock('@/services/api', () => ({ listAudit: jest.fn() }));
 jest.mock('@/utils/export', () => ({ exportToCSV: jest.fn() }));
 jest.mock('@/utils/format', () => ({ formatDateTime: (t: string) => `T:${t}` }));
 
+// 重 DOM 套件在 coverage instrumentation 负载下撞默认 5s 用例预算
+// （隔离跑恒绿），与 Ops/Jobs 等重 suite 同法放宽
+jest.setTimeout(20000);
+
 // RangePicker 在 jsdom 里带 showTime 的面板交互极不可靠，用受控桩替换
 jest.mock('antd', () => {
   const actual = jest.requireActual('antd');

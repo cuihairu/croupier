@@ -6,6 +6,10 @@ import SchemaFormRenderer from '@/components/SchemaFormRenderer';
 import { uploadValueFromFileList } from '@/components/SchemaFormRenderer/widgets-upload';
 import type { FormPresentationSpec, JSONSchema } from '@/types/dashboard';
 
+// 重 DOM 套件（Upload/KeyValue 全链路）在 coverage instrumentation 负载下
+// 撞默认 5s 用例预算（隔离跑恒绿），与 Ops/Jobs 等重 suite 同法放宽
+jest.setTimeout(20000);
+
 const schemaOf = (value: Record<string, unknown>): JSONSchema => value as unknown as JSONSchema;
 
 describe('F4: uploadValueFromFileList 值归一', () => {

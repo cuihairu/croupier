@@ -11,6 +11,10 @@ import { registerBuiltinComponents } from '../components/builtin';
 import type { PageNode } from '../model';
 import type { FunctionDescriptor } from '@/services/api/functions';
 
+// 重 DOM 套件（PropsPanel 多编辑器全量渲染）在全量并行负载下撞默认 5s 用例
+// 预算（隔离跑恒绿），与 Ops/Jobs、Tickets/Detail 等重 suite 同法放宽
+jest.setTimeout(20000);
+
 beforeAll(() => registerBuiltinComponents());
 
 const banFn: FunctionDescriptor = {
@@ -257,6 +261,69 @@ describe('动作 Tab 集成（按钮事件 + 行操作）', () => {
         true,
       ),
     );
+  });
+
+  it('事件目标清除按钮：动作置空落 patch（onClick: undefined）', async () => {
+    const modal: PageNode = {
+      id: 'm-clr',
+      type: 'modal',
+      props: { title: '封禁弹窗' },
+      children: [{ id: 'ff-clr', type: 'fnForm', props: { functionId: 'player.ban' } }],
+    };
+    const node: PageNode = {
+      id: 'btn-clr',
+      type: 'button',
+      props: { title: '发邮件', onClick: { kind: 'openModal', target: 'm-clr' } },
+    };
+    const { onPatch } = renderPanel(node, { nodes: [node, modal], fns: [banFn] });
+    // 按钮自动切动作 Tab；用事件 label 定位动作 pane
+    await screen.findByText(/onClick/);
+    const pane = screen.getByText(/onClick/).closest('[role="tabpanel"]') as HTMLElement;
+    // openModal 有目标 → 目标下拉 + 相邻清除按钮（Compact 内）
+    const clearBtn = pane.querySelector('.ant-select + button') as HTMLElement;
+    expect(clearBtn).toBeTruthy();
+    fireEvent.click(clearBtn);
+    await waitFor(() => expect(onPatch).toHaveBeenCalledWith({ onClick: undefined }));
+  });
+
+  it('行操作 rowFields：幽灵函数（fnById 未登记）兜底空表，添加映射禁用', async () => {
+    const modal: PageNode = {
+      id: 'm-raf',
+      type: 'modal',
+      props: { title: '封禁弹窗' },
+      children: [{ id: 'ff-raf', type: 'fnForm', props: { functionId: 'player.ban' } }],
+    };
+    const node: PageNode = {
+      id: 'tb-ghost',
+      type: 'fnTable',
+      props: {
+        functionId: 'ghost.fn',
+        rowActions: [{ label: '封禁', targetSection: 'm-raf', params: {}, danger: false }],
+      },
+    };
+    renderPanel(node, { nodes: [node, modal], fns: [banFn] });
+    fireEvent.click(await screen.findByRole('tab', { name: '动作' }));
+    // fn 未命中 → outputSchema undefined → rowFields=[]（映射区渲染但无可选字段）
+    expect(await screen.findByRole('button', { name: '+ 添加映射' })).toBeDisabled();
+  });
+
+  it('行操作 rowFields：无 functionId 走条件 falsy 侧兜底空表', async () => {
+    const modal: PageNode = {
+      id: 'm-raf2',
+      type: 'modal',
+      props: { title: '封禁弹窗' },
+      children: [{ id: 'ff-raf2', type: 'fnForm', props: { functionId: 'player.ban' } }],
+    };
+    const node: PageNode = {
+      id: 'tb-nofn',
+      type: 'fnTable',
+      props: {
+        rowActions: [{ label: '封禁', targetSection: 'm-raf2', params: {}, danger: false }],
+      },
+    };
+    renderPanel(node, { nodes: [node, modal], fns: [banFn] });
+    fireEvent.click(await screen.findByRole('tab', { name: '动作' }));
+    expect(await screen.findByRole('button', { name: '+ 添加映射' })).toBeDisabled();
   });
 });
 

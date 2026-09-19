@@ -1464,3 +1464,56 @@ describe('compileTree 分支槽补测（缺省形态矩阵）', () => {
     expect(asg.map((a) => a.transform!.params!.value)).toEqual([false, null, false]);
   });
 });
+
+describe('compileTree #94 补充：卡内 staticForm 的 cardTitle 缺省', () => {
+  it('card 容器无 title：staticForm 区块 display=card、组名兜底、不带 cardTitle', () => {
+    const staticSchema = '{"type":"object","properties":{"kw":{"type":"string"}}}';
+    const card: PageNode = {
+      id: 'card-bare',
+      type: 'container',
+      props: { publishAs: 'card' },
+      children: [{ id: 'sf-bare', type: 'staticForm', props: { staticSchema } }],
+    };
+    const { sections, warnings } = compileTree([card]);
+    expect(warnings).toEqual([]);
+    const staticSec = sections.find((s) => s.static === true)!;
+    expect(staticSec.display).toBe('card');
+    // 无声明 sectionKey → card-<id尾6> 兜底（'card-bare'.slice(-6)='d-bare'）
+    expect(staticSec.group).toBe('card-d-bare');
+    // 容器无 title → cardTitle 不产出（渲染端按组兜底）
+    expect(staticSec.cardTitle).toBeUndefined();
+  });
+});
+
+describe('compileTree 防御：modal 内非视图组件带函数绑定', () => {
+  it('modal 内 button 绑定函数：未登记区块 key，兜底用 functionId 作 key', () => {
+    // modal 分支不区分子组件类型（除 text）：button 不在 VIEW_MAP →
+    // collectDeclared/assignKeys 不登记 key → emitFnSection 的 key 走 ?? fid 兜底
+    const modal: PageNode = {
+      id: 'M-BTN',
+      type: 'modal',
+      props: { title: '弹窗' },
+      children: [
+        { id: 'btn-fid', type: 'button', props: { title: '按钮表单', functionId: 'btn.fn' } },
+      ],
+    };
+    const { sections, warnings } = compileTree([modal]);
+    expect(warnings).toEqual([]);
+    expect(sections).toHaveLength(1);
+    expect(sections[0].key).toBe('btn.fn');
+    expect(sections[0].functionId).toBe('btn.fn');
+    expect(sections[0].display).toBe('dialog');
+    expect(sections[0].group).toMatch(/^modal-/);
+  });
+});
+
+describe('compiler barrel 导出面（index.ts）', () => {
+  it('SECTION_KEY_RE 经 barrel 再导出可用（合法/非法判定）', async () => {
+    const { SECTION_KEY_RE } = await import('../compiler');
+    expect(SECTION_KEY_RE.test('player.list-2')).toBe(true);
+    expect(SECTION_KEY_RE.test('filter_panel')).toBe(true);
+    expect(SECTION_KEY_RE.test('bad key!')).toBe(false);
+    expect(SECTION_KEY_RE.test('-lead')).toBe(false);
+    expect(SECTION_KEY_RE.test('')).toBe(false);
+  });
+});

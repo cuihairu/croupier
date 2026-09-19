@@ -3,7 +3,29 @@ import { App } from 'antd';
 import Canvas, { CanvasNode, ModalPlaceholder } from '../Canvas';
 import { resetRegistryForTest } from '../registry';
 import { registerBuiltinComponents } from '../components/builtin';
+import type { FunctionDescriptor } from '@/services/api/functions';
 import type { PageNode } from '../model';
+
+// 仅替换 @dnd-kit/core 的 useDroppable（ModalPlaceholder/RootDropZone 的拖入高亮）：
+// 可控 __droppableState.over 与 droppable id 比较决定 isOver；其余导出保留真实实现
+// （本文件 CanvasNode 用例不依赖 dnd-kit hooks，dragHandleProps 由父级注入）。
+jest.mock('@dnd-kit/core', () => {
+  const actual = jest.requireActual('@dnd-kit/core');
+  const state = { over: null as string | number | null };
+  const useDroppable = ({ id }: { id: string | number }) => ({
+    setNodeRef: () => undefined,
+    isOver: state.over === id,
+  });
+  return { ...actual, useDroppable, __droppableState: state };
+});
+
+const droppableState = (
+  jest.requireMock('@dnd-kit/core') as { __droppableState: { over: string | number | null } }
+).__droppableState;
+
+beforeEach(() => {
+  droppableState.over = null;
+});
 
 const formNode: PageNode = {
   id: 'form-1',
@@ -229,5 +251,137 @@ describe('Canvas 空树根落区（RootDropZone）', () => {
     );
     fireEvent.click(screen.getByText('查看组合模板'));
     expect(onShow).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('ModalPlaceholder 选中边框 / 拖入高亮 / children 兜底（useDroppable 受控）', () => {
+  const knownFnMap = new Map<string, FunctionDescriptor>([
+    ['mail.send', { id: 'mail.send', summary: { 'zh-CN': '发邮件摘要' } }],
+  ]);
+
+  function renderPlaceholder(modal: PageNode, selected: boolean) {
+    return render(
+      <App>
+        <ModalPlaceholder
+          modal={modal}
+          selected={selected}
+          fnById={knownFnMap}
+          onSelect={() => undefined}
+          onEnterModal={() => undefined}
+        />
+      </App>,
+    );
+  }
+
+  /** 占位卡根节点（唯一 cursor:pointer 的 div）。 */
+  const cardOf = (title: string) =>
+    screen.getByText(title).closest('div[style*="cursor: pointer"]') as HTMLElement;
+
+  it('modal 无 children 字段：按空数组兜底渲染空弹窗引导', () => {
+    renderPlaceholder({ id: 'm-no-kids', type: 'modal', props: { title: '无子段' } }, false);
+    expect(screen.getByText(/空弹窗——拖入函数表单/)).toBeInTheDocument();
+  });
+
+  it('selected=true 实线高亮边框；false 回虚线', () => {
+    const { rerender } = renderPlaceholder(modalNode, true);
+    expect(cardOf('发邮件弹窗').style.borderStyle).toBe('solid');
+    expect(cardOf('发邮件弹窗').style.borderColor).toBe('rgb(22, 119, 255)');
+    rerender(
+      <App>
+        <ModalPlaceholder
+          modal={modalNode}
+          selected={false}
+          fnById={knownFnMap}
+          onSelect={() => undefined}
+          onEnterModal={() => undefined}
+        />
+      </App>,
+    );
+    expect(cardOf('发邮件弹窗').style.borderStyle).toBe('dashed');
+  });
+
+  it('拖拽悬停（isOver）切换浅绿背景；离开复位', () => {
+    const { rerender } = renderPlaceholder(modalNode, false);
+    expect(cardOf('发邮件弹窗').style.background).toBe('rgb(250, 245, 255)');
+    droppableState.over = 'modal-drop:modal-1';
+    rerender(
+      <App>
+        <ModalPlaceholder
+          modal={modalNode}
+          selected={false}
+          fnById={knownFnMap}
+          onSelect={() => undefined}
+          onEnterModal={() => undefined}
+        />
+      </App>,
+    );
+    expect(cardOf('发邮件弹窗').style.background).toBe('rgb(246, 255, 237)');
+  });
+
+  it('children 混合渲染：非表单组件/幽灵函数/已登记函数（fn 查找与摘要兜底链）', () => {
+    const modal: PageNode = {
+      id: 'm-mix',
+      type: 'modal',
+      props: { title: '混合弹窗' },
+      children: [
+        // 非 fnForm 且无 functionId：Tag 显示类型原文、functionId 兜底空串、无摘要
+        { id: 'k-btn', type: 'button', props: { title: '子按钮' } },
+        // fnForm 指向 fnById 未登记函数：显示「表单」+ functionId，摘要空
+        { id: 'k-ghost', type: 'fnForm', props: { functionId: 'ghost.fn' } },
+        // fnForm 指向已登记函数：摘要可见
+        { id: 'k-known', type: 'fnForm', props: { functionId: 'mail.send' } },
+      ],
+    };
+    renderPlaceholder(modal, false);
+    const rows = [...document.querySelectorAll('div[style*="padding: 3px 8px"]')] as HTMLElement[];
+    expect(rows).toHaveLength(3);
+    const textOf = (el: HTMLElement) => el.textContent.replace(/\s+/g, '');
+    expect(textOf(rows[0])).toBe('button');
+    expect(textOf(rows[1])).toBe('表单ghost.fn');
+    expect(textOf(rows[2])).toContain('mail.send');
+    expect(textOf(rows[2])).toContain('发邮件摘要');
+  });
+});
+
+describe('RootDropZone 拖入高亮（useDroppable 受控）', () => {
+  const canvasProps = {
+    tree: [],
+    selectedId: null,
+    fnById: new Map(),
+    onSelect: () => undefined,
+    onDelete: () => undefined,
+    onDuplicate: () => undefined,
+    onSpanChange: () => undefined,
+    onEnterModal: () => undefined,
+    canvasWidthRef: { current: null },
+  };
+
+  /** 根落区根节点（唯一 text-align:center 的 div）。 */
+  const zoneOf = () =>
+    screen
+      .getByText('从左侧点击或拖入组件，开始搭建页面')
+      .closest('div[style*="text-align: center"]') as HTMLElement;
+
+  it('isOver 切换蓝色加粗虚线与浅蓝背景；默认态透明', () => {
+    const { rerender } = render(
+      <App>
+        <Canvas {...canvasProps} onShowTemplates={() => undefined}>
+          <div />
+        </Canvas>
+      </App>,
+    );
+    expect(zoneOf().style.borderWidth).toBe('1px');
+    expect(zoneOf().style.background).toBe('transparent');
+    droppableState.over = 'canvas-root';
+    rerender(
+      <App>
+        <Canvas {...canvasProps} onShowTemplates={() => undefined}>
+          <div />
+        </Canvas>
+      </App>,
+    );
+    expect(zoneOf().style.borderWidth).toBe('2px');
+    expect(zoneOf().style.borderColor).toBe('rgb(22, 119, 255)');
+    expect(zoneOf().style.background).toBe('rgb(240, 247, 255)');
   });
 });
