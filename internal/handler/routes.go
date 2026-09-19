@@ -397,6 +397,11 @@ func registerFunctionRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 	// 描述符
 	g.GET("/descriptors", functionHandler.Descriptors)
 
+	// B2：契约变更历史（版本快照流）
+	g.GET("/:id/versions", functionHandler.ContractVersions)
+	g.GET("/:id/versions/diff", functionHandler.ContractVersionDiff)
+	g.GET("/:id/versions/:seq", functionHandler.ContractVersionDetail)
+
 	// 待处理
 	g.GET("/pending", functionHandler.Pending)
 

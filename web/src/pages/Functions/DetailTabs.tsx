@@ -1,9 +1,31 @@
 import React, { useEffect, useState } from 'react';
-import { Alert, Button, Col, Descriptions, Drawer, Row, Table, Tag, Typography } from 'antd';
+import {
+  Alert,
+  Button,
+  Col,
+  Descriptions,
+  Drawer,
+  Row,
+  Select,
+  Space,
+  Table,
+  Tag,
+  Typography,
+} from 'antd';
 import { StatisticCard } from '@ant-design/pro-components';
 import { BarChartOutlined } from '@ant-design/icons';
 import { FormattedMessage, history, useIntl } from '@umijs/max';
-import { getFunctionAnalytics, listFunctionWarnings } from '@/services/api/functions';
+import {
+  diffContractVersions,
+  getContractVersion,
+  getFunctionAnalytics,
+  listContractVersions,
+  listFunctionWarnings,
+  type ContractVersionDetail,
+  type ContractVersionDiffResult,
+  type ContractVersionDiffEntry,
+  type ContractVersionItem,
+} from '@/services/api/functions';
 import {
   getExecutionLog,
   listExecutionLogs,
@@ -516,5 +538,341 @@ export function WarningsTab({ functionId }: { functionId: string }) {
         pagination={{ pageSize: 10 }}
       />
     </>
+  );
+}
+
+// B2：函数契约变更历史（版本快照流 + 两版对比）
+const CHANGE_TYPE_TONE: Record<ContractVersionItem['changeType'], string> = {
+  created: 'success',
+  updated: 'processing',
+  removed: 'error',
+};
+
+function prettyJSON(value: unknown): string {
+  try {
+    return JSON.stringify(value, null, 2);
+  } catch {
+    return String(value);
+  }
+}
+
+export function VersionsTab({ functionId }: { functionId: string }) {
+  const intl = useIntl();
+  const [rows, setRows] = useState<ContractVersionItem[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const [total, setTotal] = useState(0);
+
+  const [snapshotOpen, setSnapshotOpen] = useState(false);
+  const [snapshotLoading, setSnapshotLoading] = useState(false);
+  const [snapshot, setSnapshot] = useState<ContractVersionDetail | null>(null);
+
+  const [fromSeq, setFromSeq] = useState<number | undefined>();
+  const [toSeq, setToSeq] = useState<number | undefined>();
+  const [diffResult, setDiffResult] = useState<ContractVersionDiffResult | null>(null);
+  const [diffLoading, setDiffLoading] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setLoading(true);
+      try {
+        const resp = await listContractVersions(functionId, { page, pageSize });
+        if (!cancelled) {
+          setRows(resp.items);
+          setTotal(resp.total);
+        }
+      } catch {
+        if (!cancelled) {
+          setRows([]);
+          setTotal(0);
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+    void load();
+    return () => {
+      cancelled = true;
+    };
+  }, [functionId, page, pageSize]);
+
+  const openSnapshot = async (seq: number) => {
+    setSnapshotOpen(true);
+    setSnapshotLoading(true);
+    try {
+      setSnapshot(await getContractVersion(functionId, seq));
+    } catch {
+      setSnapshot(null);
+    } finally {
+      setSnapshotLoading(false);
+    }
+  };
+
+  const runDiff = async () => {
+    if (fromSeq === undefined || toSeq === undefined || fromSeq === toSeq) return;
+    setDiffLoading(true);
+    try {
+      setDiffResult(await diffContractVersions(functionId, fromSeq, toSeq));
+    } catch {
+      setDiffResult(null);
+    } finally {
+      setDiffLoading(false);
+    }
+  };
+
+  const seqOptions = rows.map((row) => ({ value: row.seq, label: `#${row.seq}` }));
+  const changeTypeLabel = (type: ContractVersionItem['changeType']) => {
+    if (type !== 'created' && type !== 'updated' && type !== 'removed') return type;
+    return intl.formatMessage({
+      id: `pages.functionsDetail.versions.changeType.${type}`,
+      defaultMessage: type === 'created' ? '新建' : type === 'removed' ? '删除' : '更新',
+    });
+  };
+
+  return (
+    <Space orientation="vertical" size={16} style={{ width: '100%' }}>
+      <Space wrap>
+        <FormattedMessage
+          id="pages.functionsDetail.versions.diffToolbar"
+          defaultMessage="两版对比："
+        />
+        <Select
+          style={{ width: 110 }}
+          placeholder={intl.formatMessage({
+            id: 'pages.functionsDetail.versions.fromSeq',
+            defaultMessage: '起始版本',
+          })}
+          options={seqOptions}
+          value={fromSeq}
+          onChange={setFromSeq}
+        />
+        <Select
+          style={{ width: 110 }}
+          placeholder={intl.formatMessage({
+            id: 'pages.functionsDetail.versions.toSeq',
+            defaultMessage: '目标版本',
+          })}
+          options={seqOptions}
+          value={toSeq}
+          onChange={setToSeq}
+        />
+        <Button
+          type="primary"
+          disabled={fromSeq === undefined || toSeq === undefined || fromSeq === toSeq}
+          loading={diffLoading}
+          onClick={() => void runDiff()}
+        >
+          <FormattedMessage id="pages.functionsDetail.versions.diffAction" defaultMessage="对比" />
+        </Button>
+      </Space>
+      {diffResult ? (
+        <div>
+          {diffResult.breaking ? (
+            <Alert
+              type="warning"
+              showIcon
+              message={intl.formatMessage(
+                {
+                  id: 'pages.functionsDetail.versions.diffBreaking',
+                  defaultMessage:
+                    '#{from} → #{to}：存在破坏性 schema 变更，绑定页面可能需要同步更新',
+                },
+                { from: diffResult.fromSeq, to: diffResult.toSeq },
+              )}
+            />
+          ) : (
+            <Alert
+              type="info"
+              showIcon
+              message={intl.formatMessage(
+                {
+                  id: 'pages.functionsDetail.versions.diffSafe',
+                  defaultMessage: '#{from} → #{to}：变更兼容',
+                },
+                { from: diffResult.fromSeq, to: diffResult.toSeq },
+              )}
+            />
+          )}
+          <Table<ContractVersionDiffEntry>
+            style={{ marginTop: 8 }}
+            size="small"
+            rowKey={(record) => `${record.field}-${record.change ?? record.from ?? ''}`}
+            dataSource={diffResult.changes}
+            pagination={false}
+            columns={[
+              { title: 'field', dataIndex: 'field', width: 140 },
+              { title: 'from', dataIndex: 'from', ellipsis: true },
+              { title: 'to', dataIndex: 'to', ellipsis: true },
+              {
+                title: intl.formatMessage({
+                  id: 'pages.functionsDetail.versions.column.findings',
+                  defaultMessage: 'schema 变更',
+                }),
+                key: 'findings',
+                width: 220,
+                render: (_, record) =>
+                  record.findings?.length
+                    ? record.findings.map((finding) => (
+                        <div key={`${finding.source}${finding.path}${finding.reason}`}>
+                          <Tag color={finding.severity === 'breaking' ? 'red' : 'blue'}>
+                            {finding.severity}
+                          </Tag>
+                          {finding.path} {finding.reason}
+                        </div>
+                      ))
+                    : '-',
+              },
+            ]}
+          />
+        </div>
+      ) : null}
+      <Table<ContractVersionItem>
+        loading={loading}
+        rowKey="seq"
+        dataSource={rows}
+        columns={[
+          { title: '#', dataIndex: 'seq', width: 60 },
+          {
+            title: intl.formatMessage({
+              id: 'pages.functionsDetail.versions.column.time',
+              defaultMessage: '时间',
+            }),
+            dataIndex: 'createdAt',
+            width: 170,
+            render: (text: string) => formatDateTime(text),
+          },
+          {
+            title: 'version',
+            dataIndex: 'version',
+            width: 100,
+            render: (text?: string) => text || '-',
+          },
+          {
+            title: intl.formatMessage({
+              id: 'pages.functionsDetail.versions.column.changeType',
+              defaultMessage: '变更',
+            }),
+            dataIndex: 'changeType',
+            width: 90,
+            render: (type: ContractVersionItem['changeType']) => (
+              <Tag color={CHANGE_TYPE_TONE[type]}>{changeTypeLabel(type)}</Tag>
+            ),
+          },
+          {
+            title: intl.formatMessage({
+              id: 'pages.functionsDetail.versions.column.breaking',
+              defaultMessage: '兼容性',
+            }),
+            dataIndex: 'breaking',
+            width: 100,
+            render: (breaking: boolean) =>
+              breaking ? (
+                <Tag color="orange">
+                  <FormattedMessage
+                    id="pages.functionsDetail.versions.breakingTag"
+                    defaultMessage="破坏性"
+                  />
+                </Tag>
+              ) : (
+                <FormattedMessage
+                  id="pages.functionsDetail.versions.compatibleTag"
+                  defaultMessage="兼容"
+                />
+              ),
+          },
+          {
+            title: 'source',
+            dataIndex: 'source',
+            width: 90,
+            render: (text?: string) => text || '-',
+          },
+          {
+            title: intl.formatMessage({
+              id: 'pages.functionsDetail.versions.column.actor',
+              defaultMessage: '触发方',
+            }),
+            dataIndex: 'actor',
+            width: 110,
+            render: (text?: string) => text || '-',
+          },
+          {
+            title: intl.formatMessage({
+              id: 'pages.functionsDetail.versions.column.changes',
+              defaultMessage: '变更字段',
+            }),
+            key: 'changes',
+            ellipsis: true,
+            render: (_, record) =>
+              record.diff?.length ? record.diff.map((entry) => entry.field).join('、') : '-',
+          },
+          {
+            title: intl.formatMessage({
+              id: 'pages.functionsDetail.versions.column.action',
+              defaultMessage: '操作',
+            }),
+            key: 'action',
+            width: 80,
+            render: (_, record) => (
+              <Button type="link" size="small" onClick={() => void openSnapshot(record.seq)}>
+                <FormattedMessage
+                  id="pages.functionsDetail.versions.action.snapshot"
+                  defaultMessage="快照"
+                />
+              </Button>
+            ),
+          },
+        ]}
+        pagination={{
+          current: page,
+          pageSize,
+          total,
+          showSizeChanger: true,
+          pageSizeOptions: [10, 20, 50],
+          showTotal: (t) =>
+            intl.formatMessage(
+              {
+                id: 'pages.functionsDetail.versions.paginationTotal',
+                defaultMessage: '共 {total} 条',
+              },
+              { total: t },
+            ),
+          onChange: (nextPage, nextSize) => {
+            setPage(nextPage);
+            setPageSize(nextSize);
+          },
+        }}
+      />
+      <Drawer
+        open={snapshotOpen}
+        width={640}
+        loading={snapshotLoading}
+        onClose={() => setSnapshotOpen(false)}
+        title={intl.formatMessage(
+          {
+            id: 'pages.functionsDetail.versions.snapshotTitle',
+            defaultMessage: '版本 #{seq} 快照',
+          },
+          { seq: snapshot?.seq ?? '-' },
+        )}
+      >
+        {snapshot ? (
+          <pre
+            style={{
+              margin: 0,
+              fontSize: 12,
+              background: 'rgba(128, 128, 128, 0.08)',
+              padding: 8,
+              borderRadius: 4,
+              whiteSpace: 'pre-wrap',
+              wordBreak: 'break-all',
+            }}
+          >
+            {prettyJSON(snapshot.snapshot)}
+          </pre>
+        ) : null}
+      </Drawer>
+    </Space>
   );
 }

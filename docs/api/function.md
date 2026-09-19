@@ -513,6 +513,79 @@ map[string]OpenAPIOperation
 - 该接口用于 Dashboard 批量读取函数 OpenAPI，避免逐个请求。
 - 当前返回值直接透传注册表中的 OpenAPI operation 对象。
 
+### 22. "获取函数契约变更历史"
+
+1. route definition
+
+- Url: /api/v1/functions/:id/versions
+- Method: GET
+- Request: query `page` / `pageSize`
+- Response: `ContractVersionsResult`
+
+2. response definition
+
+```go
+type ContractVersionDiffEntry struct {
+	Field    string                 `json:"field"`
+	From     string                 `json:"from,omitempty"`
+	To       string                 `json:"to,omitempty"`
+	Change   string                 `json:"change,omitempty"` // 如 schema_replaced
+	Findings []schemadiff.Finding   `json:"findings,omitempty"`
+}
+
+type ContractVersionItem struct {
+	Seq          int64    `json:"seq"`
+	Version      string   `json:"version,omitempty"`
+	Source       string   `json:"source,omitempty"`
+	SourceDigest string   `json:"sourceDigest,omitempty"`
+	ChangeType   string   `json:"changeType"` // created|updated|removed
+	Breaking     bool     `json:"breaking"`
+	Actor        string   `json:"actor,omitempty"`
+	CreatedAt    string   `json:"createdAt"`
+	Diff         []ContractVersionDiffEntry `json:"diff,omitempty"`
+}
+
+type ContractVersionsResult struct {
+	Items []ContractVersionItem `json:"items"`
+	Total int64                 `json:"total"`
+	Page  int                   `json:"page"`
+	Size  int                   `json:"size"`
+}
+```
+
+### 23. "获取函数契约版本快照"
+
+1. route definition
+
+- Url: /api/v1/functions/:id/versions/:seq
+- Method: GET
+- Response: `ContractVersionDetailResult`（`ContractVersionItem` + `snapshot`，snapshot 为变更后的 FunctionSpec 投影；不存在返回 404）
+
+### 24. "对比函数契约两个版本"
+
+1. route definition
+
+- Url: /api/v1/functions/:id/versions/diff
+- Method: GET
+- Request: query `from` / `to`（版本 seq）
+- Response: `ContractVersionDiffResult`
+
+```go
+type ContractVersionDiffResult struct {
+	FromSeq  int64                      `json:"fromSeq"`
+	ToSeq    int64                      `json:"toSeq"`
+	Breaking bool                       `json:"breaking"`
+	Changes  []ContractVersionDiffEntry `json:"changes"`
+}
+```
+
+### 说明（版本历史）
+
+- 判据与 `UpsertContract` 的「内容无变化跳过写」完全一致（同一 `contractSemanticallyEqual`）：重复注册相同内容不产生历史。
+- 每函数保留上限 `FunctionContractVersionRetention`（当前 50 条），超出按最老淘汰。
+- 历史写失败降级为告警不阻断注册（衍生审计数据；表由 goose 0029 + 启动期 `MinimumRequiredVersion=29` 保证存在）。
+- `seq` 无唯一索引（多实例并发注册允许并列，读取按 `seq DESC, id DESC` 稳定排序）。
+
 ## 函数政策 API（未接线）
 
 函数政策（`GET/PUT/DELETE /api/v1/functions/:function_id/policy`）与系统政策（`/api/v1/policies/*`）端点当前**未在生效路由**（`internal/handler/routes.go`）注册，仅存在于并行注册文件 `internal/router/router.go` 中，不对外提供。政策行为由函数合同的 risk/approval 字段与执行链路治理承载；本节历史文档已删除，待端点接线后再恢复。

@@ -418,3 +418,42 @@ func TestGoMigrations_SDKHighwatermarkCatchUp(t *testing.T) {
 		t.Fatal("duplicate scope key should violate unique index")
 	}
 }
+
+// TestGoMigrations_ContractVersionsCatchUp 回归（B2/0029）：已过 baseline 的
+// 存量库不再跑 AutoMigrate——function_contract_versions 必须由 0029 建出，
+// 否则注册链历史写入（与契约写同事务）直接炸掉整条注册。
+func TestGoMigrations_ContractVersionsCatchUp(t *testing.T) {
+	db := openMigrationTestDB(t)
+	ctx := context.Background()
+
+	if err := autoMigrate(db); err != nil {
+		t.Fatalf("autoMigrate: %v", err)
+	}
+	if err := db.Migrator().DropTable(&model.FunctionContractVersion{}); err != nil {
+		t.Fatalf("drop table: %v", err)
+	}
+	if _, err := migrate.EnsureUpToDate(ctx, db, migrate.ScopeSingle, func(db *gorm.DB) error {
+		return nil // baseline 已完成，禁止再跑 AutoMigrate
+	}); err != nil {
+		t.Fatalf("EnsureUpToDate: %v", err)
+	}
+	if !db.Migrator().HasTable(&model.FunctionContractVersion{}) {
+		t.Fatal("function_contract_versions table not created by 0029")
+	}
+	// 建出的表可写入，且 seq 非唯一（多实例竞态允许并列，读取按 seq,id 排序）。
+	for i := 0; i < 2; i++ {
+		if err := db.Exec(`INSERT INTO function_contract_versions
+			(created_at, updated_at, game_id, env, function_id, seq, change_type)
+			VALUES (datetime('now'), datetime('now'), 'demo_game', 'dev', 'player.ban', 1, 'updated')`).Error; err != nil {
+			t.Fatalf("insert row: %v", err)
+		}
+	}
+	// 幂等：再跑一次迁移体（已存在跳过，不报错）。
+	sqlDB, err := db.DB()
+	if err != nil {
+		t.Fatalf("db.DB: %v", err)
+	}
+	if err := migrateFunctionContractVersionTable(ctx, sqlDB); err != nil {
+		t.Fatalf("0029 rerun: %v", err)
+	}
+}

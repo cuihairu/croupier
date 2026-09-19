@@ -15,7 +15,7 @@ import { FormattedMessage, history, useLocation, useParams, useIntl } from '@umi
 import { App } from 'antd';
 import { DASHBOARD_PAGE_TOKENS, PageStatePanel } from '@/components';
 import { BasicInfoTab, PermissionsTab } from './DetailSections';
-import { AnalyticsTab, HistoryTab, WarningsTab } from './DetailTabs';
+import { AnalyticsTab, HistoryTab, VersionsTab, WarningsTab } from './DetailTabs';
 import DetailConfigTab from './DetailConfigTab';
 import useFunctionDetailPage from './useFunctionDetailPage';
 import { FUNCTION_DETAIL_SCHEMA, type DetailActionKey, type DetailTabKey } from './detailSchema';
@@ -152,6 +152,7 @@ export default function FunctionDetailPage() {
     history: <HistoryTab functionId={params.id || ''} />,
     analytics: <AnalyticsTab functionId={params.id || ''} />,
     warnings: <WarningsTab functionId={params.id || ''} />,
+    versions: <VersionsTab functionId={params.id || ''} />,
   };
 
   const mainTabItems = FUNCTION_DETAIL_SCHEMA.tabs.map((tab) => ({

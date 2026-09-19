@@ -1,7 +1,7 @@
 import { getIntl } from '@umijs/max';
 
 export type DetailTabKey =
-  'basic' | 'config' | 'permissions' | 'history' | 'analytics' | 'warnings';
+  'basic' | 'config' | 'permissions' | 'history' | 'analytics' | 'warnings' | 'versions';
 
 export type DetailActionKey = 'reload' | 'copy' | 'delete' | 'edit';
 
@@ -60,6 +60,13 @@ export const FUNCTION_DETAIL_SCHEMA = {
       label: intl.formatMessage({
         id: 'pages.functionsDetail.tabs.warnings',
         defaultMessage: '注册告警',
+      }),
+    },
+    {
+      key: 'versions',
+      label: intl.formatMessage({
+        id: 'pages.functionsDetail.tabs.versions',
+        defaultMessage: '变更历史',
       }),
     },
   ] as Array<{ key: DetailTabKey; label: string }>,

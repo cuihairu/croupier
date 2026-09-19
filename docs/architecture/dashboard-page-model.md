@@ -110,12 +110,44 @@ agent/SDK 运行时注册同 scope 同 functionId 的函数时自动翻转 `boun
 仅执行被阻断：binding execute 返回 `409 executor_unbound`（T8）。该字段不参与契约
 digest/stale 判定（测试锁定），存量行迁移后一律为 `bound`，行为与旧模型一致。
 
-`previousInputSchema`/`previousOutputSchema`（数据库 `prev_input_schema`/`prev_output_schema` 列）保存本次注册前的上一版 schema，**只存一版，无版本表**：
+`previousInputSchema`/`previousOutputSchema`（数据库 `prev_input_schema`/`prev_output_schema` 列）保存本次注册前的上一版 schema，**只存一版**（完整历史见下方 FunctionContractVersion）：
 
 - 写入时机：注册路径发现 existing 行即拷贝其 schema 进 prev 列；schema 未变的重注册被 upsert 的语义等价检查跳过，prev 不会被无意义刷新。
 - 消费方：selector 一键同步（sync-selectors）用 prev→new 的字段 diff 做精确 rename 推断；freshness 的 selector 级 stale 诊断同样消费它产出 rename 候选提示。
 - 精确性判定：prev 与页面发布快照的 schema digest 双双一致（freshness 双算法 digestMatch）时 rename 候选标 `confidence=high`；digest 缺失（旧快照）或多跳漂移（发布后又改过契约）一律降级启发式 `low`。
 - 存量行无 prev（功能上线前注册的契约）：首次同步走启发式；软删后复活的契约不设 prev。
+
+### FunctionContractVersion（B2：契约变更历史）
+
+FunctionContract 每函数只有一行；`function_contract_versions` 表（goose 0029）以
+`(game_id, env, function_id)` 为主维度记录内容变更的追加式快照流：
+
+```ts
+interface FunctionContractVersion {
+  seq: number; // 函数内单调递增（max+1 计算，无唯一索引——并发允许并列，按 seq,id 排序）
+  version?: string;
+  source?: string; // sdk|openapi|catalog
+  sourceDigest?: string;
+  changeType: "created" | "updated" | "removed";
+  breaking: boolean; // input/output schema 破坏性变更（schemadiff）
+  actor?: string; // system|用户名（注册路径恒 system）
+  snapshot: FunctionSpec; // 变更后投影；removed 为删除前最后一版
+  diff?: Array<{
+    field: string;
+    from?: string;
+    to?: string;
+    change?: string;
+    findings?: SchemaFinding[];
+  }>;
+  createdAt: string;
+}
+```
+
+- **写入判据与 `UpsertContract` 的「内容无变化跳过写」完全一致**（同一 `contractSemanticallyEqual`）：心跳式重注册不产生历史；`RemoveFunctionContract` 落 `removed` 事件。
+- **保留策略（用户已定）**：每函数上限 50 条（`FunctionContractVersionRetention`），超出按最老淘汰。
+- **失败语义**：历史是衍生审计数据（与提案/模板重建同档），写失败降级为告警、不阻断注册；表存在性由启动期 `MinimumRequiredVersion=29` 保证。
+- **消费面**：函数详情页「变更历史」tab（列表/快照 Drawer/两版对比），REST 见 [函数 API §22-24](../api/function.md)。
+- 历史表不进契约 digest、不参与 stale 判定；契约行仍是唯一权威事实源。
 
 type LocaleCode = string;
 type LocalizedText = Readonly<Record<LocaleCode, string>>;

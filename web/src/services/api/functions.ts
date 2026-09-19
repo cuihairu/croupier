@@ -455,6 +455,115 @@ export async function getFunctionDetail(functionId: string) {
   return normalizeFunctionDetail(response);
 }
 
+// Source: croupier/internal/logic/function/contract_versions_logic.go（B2 契约变更历史）
+export type ContractVersionDiffFinding = {
+  severity: string;
+  source: string;
+  path: string;
+  reason: string;
+};
+
+export type ContractVersionDiffEntry = {
+  field: string;
+  from?: string;
+  to?: string;
+  change?: string;
+  findings?: ContractVersionDiffFinding[];
+};
+
+export type ContractVersionChangeType = 'created' | 'updated' | 'removed' | (string & {});
+
+export type ContractVersionItem = {
+  seq: number;
+  version?: string;
+  source?: string;
+  sourceDigest?: string;
+  changeType: ContractVersionChangeType;
+  breaking: boolean;
+  actor?: string;
+  createdAt: string;
+  diff?: ContractVersionDiffEntry[];
+};
+
+export type ContractVersionsResult = {
+  items: ContractVersionItem[];
+  total: number;
+  page: number;
+  size: number;
+};
+
+export type ContractVersionDetail = ContractVersionItem & {
+  snapshot?: JSONValue;
+};
+
+export type ContractVersionDiffResult = {
+  fromSeq: number;
+  toSeq: number;
+  breaking: boolean;
+  changes: ContractVersionDiffEntry[];
+};
+
+function asContractVersionItem(raw: Record<string, JSONValue | undefined>): ContractVersionItem {
+  return {
+    seq: Number(raw.seq ?? 0),
+    version: typeof raw.version === 'string' ? raw.version : undefined,
+    source: typeof raw.source === 'string' ? raw.source : undefined,
+    sourceDigest: typeof raw.sourceDigest === 'string' ? raw.sourceDigest : undefined,
+    changeType: (typeof raw.changeType === 'string' && raw.changeType) || 'updated',
+    breaking: Boolean(raw.breaking),
+    actor: typeof raw.actor === 'string' ? raw.actor : undefined,
+    createdAt: typeof raw.createdAt === 'string' ? raw.createdAt : '',
+    diff: Array.isArray(raw.diff) ? (raw.diff as ContractVersionDiffEntry[]) : undefined,
+  };
+}
+
+export async function listContractVersions(
+  functionId: string,
+  params?: { page?: number; pageSize?: number },
+): Promise<ContractVersionsResult> {
+  const response = await request<{
+    items?: Record<string, JSONValue | undefined>[];
+    total?: number;
+    page?: number;
+    size?: number;
+  }>(`/api/v1/functions/${encodeURIComponent(functionId)}/versions`, {
+    params: { page: params?.page, pageSize: params?.pageSize },
+  });
+  return {
+    items: (response.items ?? []).map(asContractVersionItem),
+    total: response.total ?? 0,
+    page: response.page ?? params?.page ?? 1,
+    size: response.size ?? params?.pageSize ?? 20,
+  };
+}
+
+export async function getContractVersion(
+  functionId: string,
+  seq: number,
+): Promise<ContractVersionDetail> {
+  const raw = await request<Record<string, JSONValue | undefined>>(
+    `/api/v1/functions/${encodeURIComponent(functionId)}/versions/${seq}`,
+  );
+  return { ...asContractVersionItem(raw), snapshot: raw.snapshot };
+}
+
+export async function diffContractVersions(
+  functionId: string,
+  fromSeq: number,
+  toSeq: number,
+): Promise<ContractVersionDiffResult> {
+  const response = await request<ContractVersionDiffResult>(
+    `/api/v1/functions/${encodeURIComponent(functionId)}/versions/diff`,
+    { params: { from: fromSeq, to: toSeq } },
+  );
+  return {
+    fromSeq: response.fromSeq,
+    toSeq: response.toSeq,
+    breaking: Boolean(response.breaking),
+    changes: Array.isArray(response.changes) ? response.changes : [],
+  };
+}
+
 // Source: croupier/internal/api/function/dto.go FunctionHistoryItem
 export type FunctionHistoryItemDTO = {
   id: string;

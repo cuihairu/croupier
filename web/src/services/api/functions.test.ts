@@ -6,8 +6,11 @@ import {
   deleteAllFunctionWarnings,
   deleteFunction,
   deleteFunctionWarning,
+  diffContractVersions,
   disableFunction,
   enableFunction,
+  getContractVersion,
+  listContractVersions,
   fetchTaskResult,
   getFunctionAnalytics,
   getFunctionDetail,
@@ -579,6 +582,96 @@ describe('functions API adapters', () => {
 
       expect(detail.displayName).toEqual({ 'zh-CN': '正式名字' });
       expect(detail.summary).toEqual({ 'zh-CN': '摘要', 'en-US': 'Summary' });
+    });
+  });
+
+  describe('contract version history (B2)', () => {
+    it('listContractVersions 带分页参数并归一行', async () => {
+      mockedRequest.mockResolvedValue({
+        items: [
+          {
+            seq: 2,
+            version: '1.1.0',
+            changeType: 'updated',
+            breaking: true,
+            createdAt: '2026-09-19T00:00:00Z',
+            diff: [{ field: 'risk', from: 'safe', to: 'danger' }],
+          },
+          { seq: 1, changeType: 'created', createdAt: '2026-09-18T00:00:00Z' },
+        ],
+        total: 2,
+        page: 1,
+        size: 10,
+      });
+
+      const res = await listContractVersions('fn.a', { page: 1, pageSize: 10 });
+
+      expect(mockedRequest).toHaveBeenCalledWith('/api/v1/functions/fn.a/versions', {
+        params: { page: 1, pageSize: 10 },
+      });
+      expect(res.total).toBe(2);
+      expect(res.items[0]).toMatchObject({ seq: 2, changeType: 'updated', breaking: true });
+      expect(res.items[1]).toMatchObject({ seq: 1, breaking: false });
+    });
+
+    it('listContractVersions 容忍缺 items 并透传未知 changeType', async () => {
+      mockedRequest.mockResolvedValue({ items: [{ seq: 9, changeType: '???' }] });
+      const res = await listContractVersions('fn.a');
+      expect(res.items).toHaveLength(1);
+      expect(res.items[0].changeType).toBe('???');
+      expect(res.total).toBe(0);
+    });
+
+    it('getContractVersion 保留快照原样', async () => {
+      mockedRequest.mockResolvedValue({
+        seq: 3,
+        changeType: 'removed',
+        breaking: false,
+        createdAt: '',
+        snapshot: { id: 'fn.a', version: '1.2.0' },
+      });
+
+      const detail = await getContractVersion('fn.a', 3);
+
+      expect(mockedRequest).toHaveBeenCalledWith('/api/v1/functions/fn.a/versions/3');
+      expect(detail.changeType).toBe('removed');
+      expect(detail.snapshot).toEqual({ id: 'fn.a', version: '1.2.0' });
+    });
+
+    it('diffContractVersions 传 from/to 并规整 changes', async () => {
+      mockedRequest.mockResolvedValue({
+        fromSeq: 1,
+        toSeq: 2,
+        breaking: true,
+        changes: [
+          {
+            field: 'inputSchema',
+            change: 'schema_replaced',
+            findings: [
+              {
+                severity: 'breaking',
+                source: 'inputSchema',
+                path: '/reason',
+                reason: '字段被删除',
+              },
+            ],
+          },
+        ],
+      });
+
+      const res = await diffContractVersions('fn.a', 1, 2);
+
+      expect(mockedRequest).toHaveBeenCalledWith('/api/v1/functions/fn.a/versions/diff', {
+        params: { from: 1, to: 2 },
+      });
+      expect(res.breaking).toBe(true);
+      expect(res.changes[0].findings?.[0].path).toBe('/reason');
+    });
+
+    it('diffContractVersions 缺 changes 归空数组', async () => {
+      mockedRequest.mockResolvedValue({ fromSeq: 1, toSeq: 2, breaking: false });
+      const res = await diffContractVersions('fn.a', 1, 2);
+      expect(res.changes).toEqual([]);
     });
   });
 

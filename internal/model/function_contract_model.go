@@ -56,6 +56,12 @@ func (m *FunctionContractModel) UpsertContract(ctx context.Context, contract *Fu
 	return db.Save(contract).Error
 }
 
+// ContractSemanticallyEqual 暴露 UpsertContract 的「内容无变化」判据：
+// 版本历史写路径（B2）复用同一函数，保证「跳过写」与「跳过历史」永不漂移。
+func ContractSemanticallyEqual(a, b *FunctionContract) bool {
+	return contractSemanticallyEqual(a, b)
+}
+
 // contractSemanticallyEqual 比较契约全部字段（含展示层 Summary/
 // Description/Tags——文案变化需要写入，e2e 契约链路依赖 proposal
 // 反映新文案）；schema 用 canonical JSON（键序/空格形态差异不算

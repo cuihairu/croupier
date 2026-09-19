@@ -49,9 +49,9 @@ const VersionTableName = "goose_db_version"
 // Bump it together with new migration files once the baseline era ends.
 //
 // 0001 baseline marker; 0002 openapi backfill; 0003 legacy cleanup;
-// 0004 enum columns; 0005 game-support context columns; 0006 bug tracker; 0007 tool registry; 0008 game release; 0009 config namespace; 0010 ticket CSAT; 0011 hotpatch; 0012 db source registry; 0013 platform settings; 0015 agent sessions addr; 0016 function contract timeout_ms; 0017 admins login security; 0018 admins otp; 0019 announcements; 0017 admins login security columns; 0018 admins otp_enabled; 0021 function contract prev schemas; 0022 term dictionary display; 0023 component_templates params/digest columns; 0024 soft-delete residue cleanup; 0025 function contract execution_state; 0026 roles/admins soft-delete residue cleanup; 0027 menu_items table + page_specs.menu_id column; 0028 sdk_version_highwatermarks table
+// 0004 enum columns; 0005 game-support context columns; 0006 bug tracker; 0007 tool registry; 0008 game release; 0009 config namespace; 0010 ticket CSAT; 0011 hotpatch; 0012 db source registry; 0013 platform settings; 0015 agent sessions addr; 0016 function contract timeout_ms; 0017 admins login security; 0018 admins otp; 0019 announcements; 0017 admins login security columns; 0018 admins otp_enabled; 0021 function contract prev schemas; 0022 term dictionary display; 0023 component_templates params/digest columns; 0024 soft-delete residue cleanup; 0025 function contract execution_state; 0026 roles/admins soft-delete residue cleanup; 0027 menu_items table + page_specs.menu_id column; 0028 sdk_version_highwatermarks table; 0029 function_contract_versions table
 // (Go migrations registered in internal/svc/migrations.go).
-const MinimumRequiredVersion int64 = 28
+const MinimumRequiredVersion int64 = 29
 
 func dialectOf(gormDialect string) string {
 	switch strings.ToLower(strings.TrimSpace(gormDialect)) {

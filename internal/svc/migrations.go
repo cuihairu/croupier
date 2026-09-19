@@ -71,6 +71,9 @@ import (
 //   0028 (Go)   sdk_version_highwatermarks 表（SDK 滑动版本门槛的高水位
 //               存储：per (game_id, env, sdk_language) 记见过的最高版本；
 //               新建表无存量约束名漂移，0014/0027 建表同模式）
+//   0029 (Go)   function_contract_versions 表（B2 函数契约变更历史：
+//               per (game_id, env, function_id) 的内容变化快照流；
+//               新建表无存量约束名漂移，0028 同模式）
 
 func init() {
 	registerSvcMigrations()
@@ -109,6 +112,7 @@ func registerSvcMigrations() {
 		roleAdminSoftDeleteCleanupMigration(),
 		menuItemTablesMigration(),
 		sdkVersionHighwatermarkMigration(),
+		contractVersionTableMigration(),
 	); err != nil {
 		panic(fmt.Sprintf("svc: register goose go migrations: %v", err))
 	}
@@ -620,6 +624,30 @@ func migrateSDKVersionHighwatermark(ctx context.Context, sqlDB *sql.DB) error {
 	if !db.Migrator().HasTable(&model.SDKVersionHighwatermark{}) {
 		if err := db.Migrator().CreateTable(&model.SDKVersionHighwatermark{}); err != nil {
 			return fmt.Errorf("migrate: 0028 create sdk_version_highwatermarks: %w", err)
+		}
+	}
+	return nil
+}
+
+// contractVersionTableMigration 为 0029：B2 函数契约变更历史表。
+// 新表 CreateTable（索引随建表一次建出，无存量约束名漂移——0028 同模式），
+// 幂等：已存在时跳过。
+func contractVersionTableMigration() *goose.Migration {
+	return goose.NewGoMigration(29,
+		&goose.GoFunc{RunDB: migrateFunctionContractVersionTable},
+		nil,
+	)
+}
+
+// migrateFunctionContractVersionTable 是 0029 的迁移体（抽出便于直测）。
+func migrateFunctionContractVersionTable(ctx context.Context, sqlDB *sql.DB) error {
+	db, err := wrapGorm(sqlDB)
+	if err != nil {
+		return err
+	}
+	if !db.Migrator().HasTable(&model.FunctionContractVersion{}) {
+		if err := db.Migrator().CreateTable(&model.FunctionContractVersion{}); err != nil {
+			return fmt.Errorf("migrate: 0029 create function_contract_versions: %w", err)
 		}
 	}
 	return nil

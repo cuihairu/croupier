@@ -56,6 +56,7 @@ type ContractService struct {
 	capabilityModel  *model.ResourceCapabilityModel
 	semanticsModel   *model.CapabilitySemanticsModel
 	versionModel     *model.CapabilitySemanticVersionModel
+	contractVersions *model.FunctionContractVersionModel
 	proposalModel    *model.PageProposalModel
 	proposalVersions *model.PageProposalVersionModel
 	blockedIssues    *model.BlockedProposalIssueModel
@@ -84,6 +85,7 @@ func NewContractService(db *gorm.DB) *ContractService {
 		capabilityModel:  model.NewResourceCapabilityModel(db),
 		semanticsModel:   model.NewCapabilitySemanticsModel(db),
 		versionModel:     model.NewCapabilitySemanticVersionModel(db),
+		contractVersions: model.NewFunctionContractVersionModel(db),
 		proposalModel:    model.NewPageProposalModel(db),
 		proposalVersions: model.NewPageProposalVersionModel(db),
 		blockedIssues:    model.NewBlockedProposalIssueModel(db),
@@ -225,6 +227,14 @@ func (s *ContractService) rebuildContract(ctx context.Context, gameID, env, sour
 	// 写入 Diagnostics 告警（不阻断注册，由告警/可视化层消费）。
 	// existing 由函数入口统一加载（T6 自动绑定检测复用同一查询）。
 	diagnostics, diffFindings, isUpdate := mergeSchemaDiffDiagnostics(existing, contract, toJSON(result.Diagnostics))
+	// ExecutionState 空值归一与 UpsertContract 内部一致——B2 历史判据
+	// （contractContentChanged）必须在归一后比较，否则「跳过写」与
+	// 「跳过历史」判据漂移。
+	if strings.TrimSpace(contract.ExecutionState) == "" {
+		contract.ExecutionState = string(spec.ExecutionStateBound)
+	}
+	// B2：版本历史判据与 UpsertContract 的跳过写完全一致。
+	contractChanged := contractContentChanged(existing, contract)
 	// 契约更新时把上一版 schema 存入 prev 列——sync-selectors 的 rename
 	// 精确推断依赖它；schema 未变的重注册在 UpsertContract 内被跳过，
 	// prev 不会被无意义刷新。
@@ -237,6 +247,17 @@ func (s *ContractService) rebuildContract(ctx context.Context, gameID, env, sour
 	contract.Diagnostics = diagnostics
 	if err := s.contractModel.UpsertContract(ctx, contract); err != nil {
 		return fmt.Errorf("upsert function contract: %w", err)
+	}
+
+	// B2：内容变化才落版本历史。历史是衍生审计数据（与 proposals/templates
+	// 重建同档），写失败降级为告警不阻断注册——迁移 0029 + 启动期
+	// MinimumRequiredVersion=29 已保证表存在，此处软失败是为并发/边界容错，
+	// 绝不在注册事务内因软删竞态等把整条注册带崩。
+	if contractChanged {
+		if err := s.appendContractVersion(ctx, existing, contract, diffFindings); err != nil {
+			slog.Warn("append function contract version failed",
+				"game_id", gameID, "env", env, "function_id", input.ID, "error", err)
+		}
 	}
 
 	// F13：契约更新审计（function.contract_updated，含 diff 摘要）。
@@ -1099,6 +1120,12 @@ func (s *ContractService) RemoveFunctionContract(ctx context.Context, gameID, en
 	resourceKey := strings.TrimSpace(contract.ResourceKey)
 	if err := s.contractModel.DeleteByScopeAndFunctionID(ctx, gameID, env, functionID); err != nil {
 		return "", fmt.Errorf("delete function contract %s: %w", functionID, err)
+	}
+	// B2：删除也是可查询的历史事件（快照保留删除前最后一版）。
+	// 同 rebuildContract：历史写失败降级告警，不回滚已成功的删除。
+	if err := s.appendRemovedContractVersion(ctx, contract); err != nil {
+		slog.Warn("append function contract version failed",
+			"game_id", gameID, "env", env, "function_id", functionID, "error", err)
 	}
 	if err := s.removeStandaloneProposalsForFunction(ctx, gameID, env, functionID); err != nil {
 		return "", err

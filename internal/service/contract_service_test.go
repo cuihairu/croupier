@@ -23,6 +23,7 @@ func setupTestDB(t *testing.T) *gorm.DB {
 
 	err = db.AutoMigrate(
 		&model.FunctionContract{},
+		&model.FunctionContractVersion{},
 		&model.ResourceCapability{},
 		&model.CapabilitySemantics{},
 		&model.CapabilitySemanticVersion{},
