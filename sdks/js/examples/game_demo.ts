@@ -560,6 +560,8 @@ async function main(): Promise<void> {
   for (const [id, resource, risk, operation, capability, handler] of fns) {
     const desc = enrichDescriptor({
       id, version: "1.0.0", resource, risk, operation, capability,
+      approvalRequired: risk === "danger",
+      approvalPolicyKey: risk === "danger" ? `${id}.double_check` : undefined,
     });
     client.registerFunction(desc, handler);
     console.log(`  registered: ${id}`);

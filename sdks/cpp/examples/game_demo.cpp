@@ -104,7 +104,7 @@ static std::pair<std::string, std::string> demo_schema_for(const std::string& id
     if (id == "order.create") return {"{\"type\":\"object\",\"properties\":{\"id\":" + std::string(SCHEMA_STR) + ",\"playerId\":" + SCHEMA_STR + ",\"productId\":" + SCHEMA_STR + ",\"amount\":" + SCHEMA_INT + ",\"currency\":" + SCHEMA_STR + ",\"status\":" + SCHEMA_STR + ",\"channel\":" + SCHEMA_STR + ",\"attributes\":" + SCHEMA_OBJ + "},\"required\":[\"playerId\"]}",
                                       order_out};
     if (id == "order.get") return {id_required_in, order_out};
-    if (id == "order.update") return {"{\"type\":\"object\",\"properties\":{\"id\":" + std::string(SCHEMA_STR) + ",\"status\":" + SCHEMA_STR + ",\"channel\":" + SCHEMA_STR + ",\"amount\":" + SCHEMA_INT + "},\"required\":[\"id\"]}",
+    if (id == "order.update") return {"{\"type\":\"object\",\"properties\":{\"id\":" + std::string(SCHEMA_STR) + ",\"status\":" + SCHEMA_STR + ",\"channel\":" + SCHEMA_STR + ",\"amount\":" + SCHEMA_INT + ",\"attributes\":{\"type\":\"object\"}},\"required\":[\"id\"]}",
                                       order_out};
     if (id == "order.delete") return {id_required_in, delete_out};
     if (id == "leaderboard.upsert") return {"{\"type\":\"object\",\"properties\":{\"playerId\":" + std::string(SCHEMA_STR) + ",\"score\":" + SCHEMA_INT + "},\"required\":[\"playerId\",\"score\"]}",

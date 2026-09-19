@@ -380,7 +380,7 @@ class Program
             if (risk == "danger")
             {
                 desc.ApprovalRequired = true;
-                desc.ApprovalPolicyKey = $"gm.{id}";
+                desc.ApprovalPolicyKey = $"{id}.double_check";
             }
             EnrichDescriptor(desc);
             client.RegisterFunction(desc, handler);
@@ -481,7 +481,7 @@ class Program
         "order.create" => (BuildObj("{\"id\":" + SchemaStr + ",\"playerId\":" + SchemaStr + ",\"productId\":" + SchemaStr + ",\"amount\":" + SchemaInt + ",\"currency\":" + SchemaStr + ",\"status\":" + SchemaStr + ",\"channel\":" + SchemaStr + ",\"attributes\":" + SchemaObj + "}", new[] { "playerId" }),
                 BuildObj(OrderOutFields)),
         "order.get" => (BuildObj("{\"id\":" + SchemaStr + "}", new[] { "id" }), BuildObj(OrderOutFields)),
-        "order.update" => (BuildObj("{\"id\":" + SchemaStr + ",\"status\":" + SchemaStr + ",\"channel\":" + SchemaStr + ",\"amount\":" + SchemaInt + "}", new[] { "id" }),
+        "order.update" => (BuildObj("{\"id\":" + SchemaStr + ",\"status\":" + SchemaStr + ",\"channel\":" + SchemaStr + ",\"amount\":" + SchemaInt + ",\"attributes\":" + SchemaObj + "}", new[] { "id" }),
                 BuildObj(OrderOutFields)),
         "order.delete" => (BuildObj("{\"id\":" + SchemaStr + "}", new[] { "id" }), BuildObj(DeleteOutFields, new[] { "id", "deleted" })),
         "leaderboard.upsert" => (BuildObj("{\"playerId\":" + SchemaStr + ",\"score\":" + SchemaInt + "}", new[] { "playerId", "score" }),

@@ -46,6 +46,23 @@ grep -q 'summary: desc.summary || `${desc.resource || "function"} ${desc.operati
 grep -q 'setTags(List.of(desc.getResource(), desc.getOperation()))' "$J" || err "java: tags 模板漂移"
 grep -q 'desc.tags = {desc.resource, desc.operation};' "$C" || err "cpp: tags 模板漂移"
 
+
+# 5) approval 基线：danger 三函数 required + {id}.double_check（策略词统一）
+grep -q '"player.delete.double_check"' "$GO" || err "go: player.delete 缺 double_check"
+grep -q '"order.delete.double_check"' "$GO" || err "go: order.delete 缺 double_check"
+grep -q '"leaderboard.reset.double_check"' "$GO" || err "go: leaderboard.reset 缺 double_check"
+grep -q '"player.delete.double_check"' "$PY" || err "python: player.delete 缺 double_check"
+grep -q '"order.delete.double_check"' "$J" || err "java: order.delete 缺 double_check"
+grep -q '"player.delete.double_check"' "$C" || err "cpp: player.delete 缺 double_check"
+grep -q '{id}.double_check' "$CS" || err "csharp: 缺 {id}.double_check（禁止回到 gm.* 命名）"
+grep -q '.double_check' "$JS" || err "js: danger 函数缺 double_check 派生"
+grep -q 'gm.{id}\|ApprovalPolicyKey = $"gm\.' "$CS" && err "csharp: approval 命名回退 gm.*"
+
+# 6) order.update input 必须含 attributes（六语言 schema 槽）
+grep -q '"attributes":{"type":"object"}' "$GO" || err "go: order.update schema 缺 attributes"
+grep -q 'attributes' "$CS" || err "csharp: order.update schema 缺 attributes"
+grep -qF ',\"attributes\":{\"type\":\"object\"}' "$C" || err "cpp: order.update schema 缺 attributes"
+
 if [ "$fail" -eq 0 ]; then
   echo "DEMO-BASELINE OK: 六语言 demo 契约兜底文案与 Go 基线一致"
 fi
