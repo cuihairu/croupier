@@ -52,6 +52,7 @@ export default {
   'pages.functionsInstances.detail.label.ownerInstance': 'Owner Instance',
   'pages.functionsInstances.detail.label.status': 'Status',
   'pages.functionsInstances.detail.label.contractVersion': 'Contract Version',
+  'pages.functionsInstances.detail.tab.contractVersions': 'Change history',
   'pages.functionsInstances.detail.label.sdkName': 'SDK Name',
   'pages.functionsInstances.detail.label.sdkVersion': 'SDK Version',
   'pages.functionsInstances.detail.label.agentVersion': 'Agent Version',

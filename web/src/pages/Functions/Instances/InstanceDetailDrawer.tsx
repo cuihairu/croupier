@@ -1,9 +1,10 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Alert, App, Badge, Button, Descriptions, Drawer, Tabs, Tag, Typography } from 'antd';
-import { BugOutlined, HistoryOutlined } from '@ant-design/icons';
+import { BugOutlined, FieldTimeOutlined, HistoryOutlined } from '@ant-design/icons';
 import { getFunctionDetail, type FunctionInstance } from '@/services/api';
 import { FormattedMessage, useIntl } from '@umijs/max';
 import type { InstanceDetail } from './shared';
+import { VersionsTab } from '../DetailTabs';
 
 const { Text } = Typography;
 
@@ -292,6 +293,27 @@ export default function InstanceDetailDrawer({
                     />
                   </Button>
                 </div>
+              ),
+            },
+            {
+              key: 'contractVersions',
+              label: (
+                <span>
+                  <FieldTimeOutlined />{' '}
+                  <FormattedMessage
+                    id="pages.functionsInstances.detail.tab.contractVersions"
+                    defaultMessage="变更历史"
+                  />
+                </span>
+              ),
+              // 复用函数详情页的契约版本历史（B2：列表/快照/两版对比）。
+              // key 绑定 functionId：抽屉切到另一函数的实例时重挂载，
+              // 避免上一函数的页码/对比选型残留进新函数的列表请求
+              children: (
+                <VersionsTab
+                  key={instance?.functionId ?? ''}
+                  functionId={instance?.functionId ?? ''}
+                />
               ),
             },
             {

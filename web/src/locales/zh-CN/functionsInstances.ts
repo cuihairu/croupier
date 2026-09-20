@@ -51,6 +51,7 @@ export default {
   'pages.functionsInstances.detail.label.ownerInstance': '归属实例',
   'pages.functionsInstances.detail.label.status': '状态',
   'pages.functionsInstances.detail.label.contractVersion': '契约版本',
+  'pages.functionsInstances.detail.tab.contractVersions': '变更历史',
   'pages.functionsInstances.detail.label.sdkName': 'SDK 名称',
   'pages.functionsInstances.detail.label.sdkVersion': 'SDK 版本',
   'pages.functionsInstances.detail.label.agentVersion': 'Agent 版本',
