@@ -137,6 +137,15 @@ jobs:
           if [ -n "${PREV_ENVV}" ]; then
             echo "CROUPIER_SDK_EXAMPLE_ENV=${PREV_ENVV}" >> "${{ inputs.deploy_dir }}/.env"
           fi
+          # 宿主机自定义宿主端口（*_PORT=）与 GAME/ENV 同理是环境事实：
+          # 共享 runner 上 9000/8123 可能被他项目占用（2026-09 cockpit-server
+          # 冲突致部署失败），运维在 .env 里改端口必须跨部署存活。
+          if [ -f "${{ inputs.deploy_dir }}/.env" ]; then
+            PREV_PORTS="$(grep -E '^[A-Z][A-Z0-9_]*_PORT=' "${{ inputs.deploy_dir }}/.env" || true)"
+            if [ -n "${PREV_PORTS}" ]; then
+              printf '%s\n' "${PREV_PORTS}" >> "${{ inputs.deploy_dir }}/.env"
+            fi
+          fi
 
       - name: Login GHCR
         timeout-minutes: 3

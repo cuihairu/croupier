@@ -126,7 +126,7 @@ services:
       CLICKHOUSE_DB: ${CLICKHOUSE_DB:-analytics}
     ports:
       - "${CLICKHOUSE_HTTP_PORT:-8123}:8123"
-      - "${CLICKHOUSE_NATIVE_PORT:-9000}:9000"
+      - "${CLICKHOUSE_NATIVE_PORT:-19010}:9000"
     volumes:
       - clickhouse_data:/var/lib/clickhouse
       - clickhouse_logs:/var/log/clickhouse-server
