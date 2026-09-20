@@ -1,10 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import {
   Alert,
+  App,
   Button,
+  Card,
   Col,
   Descriptions,
   Drawer,
+  Input,
   Row,
   Select,
   Space,
@@ -16,11 +19,14 @@ import { StatisticCard } from '@ant-design/pro-components';
 import { BarChartOutlined } from '@ant-design/icons';
 import { FormattedMessage, history, useIntl } from '@umijs/max';
 import {
+  deleteFunctionVersionFloor,
   diffContractVersions,
   getContractVersion,
   getFunctionAnalytics,
+  getFunctionVersionFloor,
   listContractVersions,
   listFunctionWarnings,
+  putFunctionVersionFloor,
   type ContractVersionDetail,
   type ContractVersionDiffResult,
   type ContractVersionDiffEntry,
@@ -558,6 +564,10 @@ function prettyJSON(value: unknown): string {
 
 export function VersionsTab({ functionId }: { functionId: string }) {
   const intl = useIntl();
+  const { message } = App.useApp();
+  const [floor, setFloor] = useState('');
+  const [floorInput, setFloorInput] = useState('');
+  const [floorSaving, setFloorSaving] = useState(false);
   const [rows, setRows] = useState<ContractVersionItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [page, setPage] = useState(1);
@@ -572,6 +582,66 @@ export function VersionsTab({ functionId }: { functionId: string }) {
   const [toSeq, setToSeq] = useState<number | undefined>();
   const [diffResult, setDiffResult] = useState<ContractVersionDiffResult | null>(null);
   const [diffLoading, setDiffLoading] = useState(false);
+
+  // 版本门槛（函数级最低 SDK 版本）：与版本历史同页维护——它们共同
+  // 回答「这个函数的契约/版本现在以谁为准」。
+  useEffect(() => {
+    let cancelled = false;
+    getFunctionVersionFloor(functionId)
+      .then((resp) => {
+        if (cancelled) return;
+        setFloor(resp.minVersion);
+        setFloorInput(resp.minVersion);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setFloor('');
+        setFloorInput('');
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [functionId]);
+
+  const saveFloor = async () => {
+    const minVersion = floorInput.trim();
+    if (!minVersion) return;
+    setFloorSaving(true);
+    try {
+      const resp = await putFunctionVersionFloor(functionId, minVersion);
+      setFloor(resp.minVersion);
+      setFloorInput(resp.minVersion);
+      message.success(
+        intl.formatMessage({
+          id: 'pages.functionsDetail.versions.floor.saved',
+          defaultMessage: '版本门槛已更新',
+        }),
+      );
+    } catch (err) {
+      message.error(err instanceof Error ? err.message : String(err));
+    } finally {
+      setFloorSaving(false);
+    }
+  };
+
+  const clearFloor = async () => {
+    setFloorSaving(true);
+    try {
+      await deleteFunctionVersionFloor(functionId);
+      setFloor('');
+      setFloorInput('');
+      message.success(
+        intl.formatMessage({
+          id: 'pages.functionsDetail.versions.floor.cleared',
+          defaultMessage: '版本门槛已清除',
+        }),
+      );
+    } catch (err) {
+      message.error(err instanceof Error ? err.message : String(err));
+    } finally {
+      setFloorSaving(false);
+    }
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -633,6 +703,62 @@ export function VersionsTab({ functionId }: { functionId: string }) {
 
   return (
     <Space orientation="vertical" size={16} style={{ width: '100%' }}>
+      <Card
+        size="small"
+        title={intl.formatMessage({
+          id: 'pages.functionsDetail.versions.floor.title',
+          defaultMessage: '版本门槛（最低可注册 SDK 版本）',
+        })}
+      >
+        <Space wrap>
+          <Typography.Text type="secondary">
+            <FormattedMessage
+              id="pages.functionsDetail.versions.floor.description"
+              defaultMessage="provider 自报 SDK 版本低于该值时，本函数不随注册物化（只产生注册警告）。留空表示不设置。"
+            />
+          </Typography.Text>
+          <Input
+            style={{ width: 160 }}
+            placeholder="0.3.0"
+            value={floorInput}
+            disabled={floorSaving}
+            onChange={(e) => setFloorInput(e.target.value)}
+          />
+          <Button
+            type="primary"
+            loading={floorSaving}
+            disabled={!floorInput.trim() || floorInput.trim() === floor}
+            onClick={saveFloor}
+          >
+            <FormattedMessage
+              id="pages.functionsDetail.versions.floor.save"
+              defaultMessage="保存"
+            />
+          </Button>
+          <Button danger disabled={floorSaving || !floor} onClick={clearFloor}>
+            <FormattedMessage
+              id="pages.functionsDetail.versions.floor.clear"
+              defaultMessage="清除"
+            />
+          </Button>
+          {floor ? (
+            <Tag color="blue">
+              <FormattedMessage
+                id="pages.functionsDetail.versions.floor.current"
+                defaultMessage="当前门槛"
+              />
+              {`: ${floor}`}
+            </Tag>
+          ) : (
+            <Tag>
+              <FormattedMessage
+                id="pages.functionsDetail.versions.floor.unset"
+                defaultMessage="未设置"
+              />
+            </Tag>
+          )}
+        </Space>
+      </Card>
       <Space wrap>
         <FormattedMessage
           id="pages.functionsDetail.versions.diffToolbar"

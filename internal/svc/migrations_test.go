@@ -419,6 +419,43 @@ func TestGoMigrations_SDKHighwatermarkCatchUp(t *testing.T) {
 	}
 }
 
+// TestGoMigrations_FunctionVersionFloorsCatchUp 回归（0030）：已过 baseline
+// 的存量库不再跑 AutoMigrate——function_version_floors 必须由 0030 建出，
+// 否则函数级版本门槛的读写直接炸掉注册评估/设置 API。
+func TestGoMigrations_FunctionVersionFloorsCatchUp(t *testing.T) {
+	db := openMigrationTestDB(t)
+	ctx := context.Background()
+
+	if err := autoMigrate(db); err != nil {
+		t.Fatalf("autoMigrate: %v", err)
+	}
+	if err := db.Migrator().DropTable(&model.FunctionVersionFloor{}); err != nil {
+		t.Fatalf("drop table: %v", err)
+	}
+	if _, err := migrate.EnsureUpToDate(ctx, db, migrate.ScopeSingle, func(db *gorm.DB) error {
+		return nil // baseline 已完成，禁止再跑 AutoMigrate
+	}); err != nil {
+		t.Fatalf("EnsureUpToDate: %v", err)
+	}
+	if !db.Migrator().HasTable(&model.FunctionVersionFloor{}) {
+		t.Fatal("function_version_floors table not created by 0030")
+	}
+	// 建出的表可写入（物理唯一索引 game+env+function）。
+	if err := db.Exec(`INSERT INTO function_version_floors
+		(created_at, updated_at, game_id, env, function_id, min_version, updated_by)
+		VALUES (datetime('now'), datetime('now'), 'demo_game', 'dev', 'player.ban', '0.3.0', 'admin')`).Error; err != nil {
+		t.Fatalf("insert row: %v", err)
+	}
+	// 幂等：再跑一次迁移体（已存在跳过，不报错）。
+	sqlDB, err := db.DB()
+	if err != nil {
+		t.Fatalf("db.DB: %v", err)
+	}
+	if err := migrateFunctionVersionFloorTable(ctx, sqlDB); err != nil {
+		t.Fatalf("0030 rerun: %v", err)
+	}
+}
+
 // TestGoMigrations_ContractVersionsCatchUp 回归（B2/0029）：已过 baseline 的
 // 存量库不再跑 AutoMigrate——function_contract_versions 必须由 0029 建出，
 // 否则注册链历史写入（与契约写同事务）直接炸掉整条注册。

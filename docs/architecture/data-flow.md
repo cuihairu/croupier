@@ -135,6 +135,15 @@ registry:
 - 与高水位门槛同样保守：自报版本或配置值解析失败时不触发；
 - 交叉提供保护一致：任一放行进程也声明的函数不被剔除。
 
+#### 函数级最低版本（UI 按函数配置）
+
+除语言级 yaml 外，还可对**单个函数**设置最低可注册 SDK 版本：函数详情页「变更历史」tab 顶部的「版本门槛」卡片（`GET/PUT/DELETE /api/v1/functions/:id/version-floor`，写需 `functions:manage`），落 game 库 `function_version_floors` 表（编号迁移 0030）。
+
+- **判定粒度是函数不是进程**：provider 进程整体达标（语言级/高水位放行）后逐函数再判——低于该函数配置值的声明单独不物化，同进程其他达标函数照常注册；写 `function_version_below_minimum` 注册警告（fid 附各自门槛值），交叉提供保护一致。
+- **优先级**：函数级配置 > `registry.sdkVersionMinimums`（语言级）> 滑动高水位（自动）。
+- 与注册物化解耦存独立表：函数行随重注册 upsert，平台设置不会被描述符回写冲掉；清空即物理删行（唯一索引不被软删残留占住）。
+- 同样保守：provider 未自报版本或版本不可解析时不触发；配置值入库前服务端校验可解析（`sdkversion.Parseable`）。
+
 **已知边界**：
 
 - 高水位是单调观测值：高版本 SDK 永久下线后，低版本会持续被拒，重置需手动 `DELETE FROM sdk_version_highwatermarks WHERE ...`。

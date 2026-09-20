@@ -5,26 +5,36 @@
 import React from 'react';
 import { fireEvent, render, screen, waitFor, configure } from '@testing-library/react';
 import { VersionsTab } from '../DetailTabs';
+import { App as AntdApp } from 'antd';
 import {
+  deleteFunctionVersionFloor,
   diffContractVersions,
   getContractVersion,
+  getFunctionVersionFloor,
   listContractVersions,
+  putFunctionVersionFloor,
 } from '@/services/api/functions';
 
 configure({ asyncUtilTimeout: 5000 });
 jest.setTimeout(20000);
 
 jest.mock('@/services/api/functions', () => ({
+  deleteFunctionVersionFloor: jest.fn(),
   diffContractVersions: jest.fn(),
   getContractVersion: jest.fn(),
   getFunctionAnalytics: jest.fn(),
+  getFunctionVersionFloor: jest.fn(),
   listContractVersions: jest.fn(),
   listFunctionWarnings: jest.fn(),
+  putFunctionVersionFloor: jest.fn(),
 }));
 
 const mockList = jest.mocked(listContractVersions);
 const mockGet = jest.mocked(getContractVersion);
 const mockDiff = jest.mocked(diffContractVersions);
+const mockGetFloor = jest.mocked(getFunctionVersionFloor);
+const mockPutFloor = jest.mocked(putFunctionVersionFloor);
+const mockDelFloor = jest.mocked(deleteFunctionVersionFloor);
 
 const rows = [
   {
@@ -74,7 +84,17 @@ const rows = [
 beforeEach(() => {
   jest.clearAllMocks();
   mockList.mockResolvedValue({ items: rows, total: 3, page: 1, size: 10 });
+  mockGetFloor.mockResolvedValue({ functionId: 'player.ban', minVersion: '' });
+  mockPutFloor.mockImplementation(async (functionId, minVersion) => ({ functionId, minVersion }));
+  mockDelFloor.mockResolvedValue(undefined);
 });
+
+const renderTab = () =>
+  render(
+    <AntdApp>
+      <VersionsTab functionId="player.ban" />
+    </AntdApp>,
+  );
 
 describe('VersionsTab', () => {
   it('按 functionId 拉取历史：类型/兼容性/变更字段列渲染', async () => {
@@ -152,5 +172,34 @@ describe('VersionsTab', () => {
     render(<VersionsTab functionId="player.ban" />);
     const button = await screen.findByRole('button', { name: /对比|比 对/ });
     expect(button).toBeDisabled();
+  });
+});
+
+describe('VersionsTab 版本门槛设置', () => {
+  it('已配置门槛：回显当前值与「当前门槛」标签', async () => {
+    mockGetFloor.mockResolvedValue({ functionId: 'player.ban', minVersion: '0.3.0' });
+    renderTab();
+    await waitFor(() => expect(mockGetFloor).toHaveBeenCalledWith('player.ban'));
+    expect(await screen.findByText('当前门槛', { exact: false })).toBeInTheDocument();
+    expect(screen.getByDisplayValue('0.3.0')).toBeInTheDocument();
+  });
+
+  it('输入新版本并保存 → PUT 并更新回显', async () => {
+    renderTab();
+    await waitFor(() => expect(mockGetFloor).toHaveBeenCalled());
+    fireEvent.change(screen.getByPlaceholderText('0.3.0'), { target: { value: '0.4.0' } });
+    fireEvent.click(screen.getByRole('button', { name: /保\s*存/ }));
+    await waitFor(() => expect(mockPutFloor).toHaveBeenCalledWith('player.ban', '0.4.0'));
+    expect(await screen.findByText('当前门槛', { exact: false })).toBeInTheDocument();
+    expect(screen.getByDisplayValue('0.4.0')).toBeInTheDocument();
+  });
+
+  it('清除门槛 → DELETE 并回到未设置', async () => {
+    mockGetFloor.mockResolvedValue({ functionId: 'player.ban', minVersion: '0.3.0' });
+    renderTab();
+    expect(await screen.findByText('当前门槛', { exact: false })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /清\s*除/ }));
+    await waitFor(() => expect(mockDelFloor).toHaveBeenCalledWith('player.ban'));
+    expect(await screen.findByText('未设置')).toBeInTheDocument();
   });
 });

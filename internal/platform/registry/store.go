@@ -143,6 +143,10 @@ type Store struct {
 	// DB-less registries; DB-backed stores read/write the table directly).
 	sdkHwmMu sync.Mutex
 	sdkHwm   map[string]string
+	// fnFloorMu guards fnFloor (in-memory 函数级版本门槛，DB-less registry
+	// 的退化存储；DB-backed 直接读写 function_version_floors 表)。
+	fnFloorMu sync.Mutex
+	fnFloor   map[string]string
 	// Optional database for dual-write persistence
 	db *gorm.DB
 	// scopeContext resolves the DB/scope context used by game-scoped
@@ -205,6 +209,10 @@ const (
 	// 函数不注册（只产生告警），连接保持。配置门槛是绝对下限，优先于
 	// 滑动高水位判定。
 	WarningCodeSDKVersionBelowMinimum = "sdk_version_below_minimum"
+	// WarningCodeFunctionVersionBelowMinimum provider 自报 SDK 版本低于
+	// 函数级配置的最低版本（function_version_floors 表，UI 按函数设置）：
+	// 该函数不随本次注册物化（只产生告警），交叉提供保护一致。
+	WarningCodeFunctionVersionBelowMinimum = "function_version_below_minimum"
 )
 
 type RegistrationWarningFilter struct {
@@ -245,6 +253,7 @@ func NewStore() *Store {
 		openapiProviders:     make(map[string]*OpenAPIProviderCaps),
 		registrationWarnings: make(map[string]*FunctionRegistrationWarning),
 		sdkHwm:               map[string]string{},
+		fnFloor:              map[string]string{},
 		db:                   nil,
 		scopeContext:         defaultScopeContext,
 	}
@@ -258,6 +267,7 @@ func NewStoreWithDB(db *gorm.DB) *Store {
 		openapiProviders:     make(map[string]*OpenAPIProviderCaps),
 		registrationWarnings: make(map[string]*FunctionRegistrationWarning),
 		sdkHwm:               map[string]string{},
+		fnFloor:              map[string]string{},
 		db:                   db,
 		scopeContext:         defaultScopeContext,
 	}

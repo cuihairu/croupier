@@ -564,6 +564,46 @@ export async function diffContractVersions(
   };
 }
 
+// 函数级最低 SDK 版本门槛（PUT 需 functions:manage）：
+// provider 自报 sdk_version 低于配置值时，该函数不随注册物化。
+export type FunctionVersionFloor = {
+  functionId: string;
+  minVersion: string;
+  updatedBy?: string;
+};
+
+export async function getFunctionVersionFloor(functionId: string): Promise<FunctionVersionFloor> {
+  const response = await request<{ functionId?: string; minVersion?: string; updatedBy?: string }>(
+    `/api/v1/functions/${encodeURIComponent(functionId)}/version-floor`,
+  );
+  return {
+    functionId: response.functionId ?? functionId,
+    minVersion: response.minVersion ?? '',
+    updatedBy: response.updatedBy,
+  };
+}
+
+export async function putFunctionVersionFloor(
+  functionId: string,
+  minVersion: string,
+): Promise<FunctionVersionFloor> {
+  const response = await request<{ functionId?: string; minVersion?: string; updatedBy?: string }>(
+    `/api/v1/functions/${encodeURIComponent(functionId)}/version-floor`,
+    { method: 'PUT', data: { minVersion } },
+  );
+  return {
+    functionId: response.functionId ?? functionId,
+    minVersion: response.minVersion ?? minVersion,
+    updatedBy: response.updatedBy,
+  };
+}
+
+export async function deleteFunctionVersionFloor(functionId: string): Promise<void> {
+  await request(`/api/v1/functions/${encodeURIComponent(functionId)}/version-floor`, {
+    method: 'DELETE',
+  });
+}
+
 // Source: croupier/internal/api/function/dto.go FunctionHistoryItem
 export type FunctionHistoryItemDTO = {
   id: string;

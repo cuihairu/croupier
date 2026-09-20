@@ -402,6 +402,11 @@ func registerFunctionRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 	g.GET("/:id/versions/diff", functionHandler.ContractVersionDiff)
 	g.GET("/:id/versions/:seq", functionHandler.ContractVersionDetail)
 
+	// 函数级最低 SDK 版本门槛（低于配置值的 provider 注册时该函数不物化）
+	g.GET("/:id/version-floor", functionHandler.VersionFloorGet)
+	g.PUT("/:id/version-floor", functionHandler.VersionFloorPut)
+	g.DELETE("/:id/version-floor", functionHandler.VersionFloorDelete)
+
 	// 待处理
 	g.GET("/pending", functionHandler.Pending)
 

@@ -71,6 +71,8 @@ import (
 //   0028 (Go)   sdk_version_highwatermarks 表（SDK 滑动版本门槛的高水位
 //               存储：per (game_id, env, sdk_language) 记见过的最高版本；
 //               新建表无存量约束名漂移，0014/0027 建表同模式）
+//   0030 (Go)   function_version_floors 表（函数级最低 SDK 版本门槛：
+//               平台设置独立于注册物化，0030 同 0028/0029 新建表模式）
 //   0029 (Go)   function_contract_versions 表（B2 函数契约变更历史：
 //               per (game_id, env, function_id) 的内容变化快照流；
 //               新建表无存量约束名漂移，0028 同模式）
@@ -113,6 +115,7 @@ func registerSvcMigrations() {
 		menuItemTablesMigration(),
 		sdkVersionHighwatermarkMigration(),
 		contractVersionTableMigration(),
+		functionVersionFloorTableMigration(),
 	); err != nil {
 		panic(fmt.Sprintf("svc: register goose go migrations: %v", err))
 	}
@@ -648,6 +651,31 @@ func migrateFunctionContractVersionTable(ctx context.Context, sqlDB *sql.DB) err
 	if !db.Migrator().HasTable(&model.FunctionContractVersion{}) {
 		if err := db.Migrator().CreateTable(&model.FunctionContractVersion{}); err != nil {
 			return fmt.Errorf("migrate: 0029 create function_contract_versions: %w", err)
+		}
+	}
+	return nil
+}
+
+// functionVersionFloorTableMigration 为 0030：函数级最低 SDK 版本门槛表
+// （平台侧设置独立于注册物化，不随描述符回写被冲）。新表 CreateTable
+// （索引随建表一次建出，无存量约束名漂移——0028/0029 同模式），幂等：
+// 已存在时跳过。
+func functionVersionFloorTableMigration() *goose.Migration {
+	return goose.NewGoMigration(30,
+		&goose.GoFunc{RunDB: migrateFunctionVersionFloorTable},
+		nil,
+	)
+}
+
+// migrateFunctionVersionFloorTable 是 0030 的迁移体（抽出便于直测）。
+func migrateFunctionVersionFloorTable(ctx context.Context, sqlDB *sql.DB) error {
+	db, err := wrapGorm(sqlDB)
+	if err != nil {
+		return err
+	}
+	if !db.Migrator().HasTable(&model.FunctionVersionFloor{}) {
+		if err := db.Migrator().CreateTable(&model.FunctionVersionFloor{}); err != nil {
+			return fmt.Errorf("migrate: 0030 create function_version_floors: %w", err)
 		}
 	}
 	return nil

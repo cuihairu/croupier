@@ -958,6 +958,22 @@ func (s *ControlService) evaluateSDKVersionFloor(ctx context.Context, req *agent
 	}
 	rejectedByProc := map[string][]string{} // service_id -> 被拒声明的函数
 	allowedDeclared := map[string]bool{}    // 任一放行进程声明的函数
+	// 函数级最低版本门槛（function_version_floors 表，UI 按函数配置）：
+	// 批量取一次，逐函数判定——低于该函数配置值的声明单独被拒（不影响
+	// 同进程其他达标函数），优先级高于语言级 yaml 与高水位（后两者是
+	// 进程级判定，函数级在放行路径上再叠一层）。未自报版本的进程
+	// （SdkVersion 为空）Below 恒 false，不受函数级门槛限制（保守一致）。
+	fnFloors := s.registry.GetFunctionVersionFloors(req.GameId, req.Env)
+	fnRejected := map[string][]string{} // service_id -> 函数级被拒的 "fid(<min)"
+	allowWithFloor := func(p *agentv1.AgentProcess) {
+		for _, fid := range p.FunctionIds {
+			if min, ok := fnFloors[fid]; ok && sdkversion.Below(p.SdkVersion, min) {
+				fnRejected[p.ServiceId] = append(fnRejected[p.ServiceId], fid+"(<"+min+")")
+				continue
+			}
+			allowedDeclared[fid] = true
+		}
+	}
 	for _, p := range req.Processes {
 		if p == nil || p.ServiceId == "" {
 			continue
@@ -989,17 +1005,13 @@ func (s *ControlService) evaluateSDKVersionFloor(ctx context.Context, req *agent
 		floor := s.registry.GetSDKVersionFloor(req.GameId, req.Env, language)
 		switch sdkversion.Compare(p.SdkVersion, floor) {
 		case sdkversion.VerdictAllow:
-			for _, fid := range p.FunctionIds {
-				allowedDeclared[fid] = true
-			}
+			allowWithFloor(p)
 			// 不可解析版本 Compare 恒 Allow，但高水位只记可解析版本。
 			if sdkversion.Parseable(p.SdkVersion) {
 				outcome.raises = append(outcome.raises, sdkFloorRaise{language: language, version: p.SdkVersion})
 			}
 		case sdkversion.VerdictAllowWithWarning:
-			for _, fid := range p.FunctionIds {
-				allowedDeclared[fid] = true
-			}
+			allowWithFloor(p)
 			msg := fmt.Sprintf("service_id=%s sdk=%s/%s behind high watermark %s: registration accepted, upgrade the SDK", p.ServiceId, language, p.SdkVersion, floor)
 			*warningTexts = append(*warningTexts, msg)
 			s.logger.Warn("sdk version behind high watermark", "agent_id", req.AgentId, "service_id", p.ServiceId, "sdk_language", language, "sdk_version", p.SdkVersion, "high_watermark", floor)
@@ -1024,6 +1036,21 @@ func (s *ControlService) evaluateSDKVersionFloor(ctx context.Context, req *agent
 			})
 		}
 	}
+	// 函数级门槛拒绝：按进程聚合一条告警（fid(<min) 列出各函数的门槛
+	// 值），拒绝集与进程级判定共用同一交叉提供保护。
+	for serviceID, fids := range fnRejected {
+		rejectedByProc[serviceID] = append(rejectedByProc[serviceID], bareFunctionIDs(fids)...)
+		msg := fmt.Sprintf("service_id=%s sdk below function configured minimum: function registration rejected (%d functions: %s)", serviceID, len(fids), strings.Join(fids, ", "))
+		*warningTexts = append(*warningTexts, msg)
+		s.logger.Warn("function version floor rejected registration", "agent_id", req.AgentId, "service_id", serviceID, "functions", fids)
+		s.registry.UpsertRegistrationWarning(ctx, reg.FunctionRegistrationWarning{
+			GameID:  req.GameId,
+			Env:     req.Env,
+			AgentID: req.AgentId,
+			Code:    reg.WarningCodeFunctionVersionBelowMinimum,
+			Message: msg,
+		})
+	}
 	for _, fids := range rejectedByProc {
 		for _, fid := range fids {
 			// 交叉提供保护：任一放行进程（或无 SDK 自报进程）也声明该函数
@@ -1034,6 +1061,20 @@ func (s *ControlService) evaluateSDKVersionFloor(ctx context.Context, req *agent
 		}
 	}
 	return outcome
+}
+
+// bareFunctionIDs 把 "fid(<min)" 展示串还原为裸函数 id（拒绝集与
+// allowedDeclared 的 key 都是裸 id）。
+func bareFunctionIDs(annotated []string) []string {
+	out := make([]string, 0, len(annotated))
+	for _, item := range annotated {
+		if i := strings.Index(item, "(<"); i > 0 {
+			out = append(out, item[:i])
+			continue
+		}
+		out = append(out, item)
+	}
+	return out
 }
 
 func (s *ControlService) handleRegisterCapabilitiesRequest(ctx context.Context, req *agentv1.RegisterCapabilitiesRequest) (*agentv1.RegisterCapabilitiesResponse, error) {
