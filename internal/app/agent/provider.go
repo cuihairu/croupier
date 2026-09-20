@@ -213,8 +213,16 @@ func (m *ProviderManager) initProvider(ctx context.Context, name string, entry P
 		"env", entry.Env,
 		"functions", len(functionIDs))
 
-	// 注册：providerID=serviceID, serviceID=serviceID, addr=""（临时）
-	m.store.Register(serviceID, serviceID, "", batchVersion, funcs, nil)
+	// 注册：providerID=serviceID, serviceID=serviceID, addr=""（临时）。
+	// scope 必须随 Instance.Metadata 下发（upstream buildProviders 只认
+	// metadata 的 gameId/env 键组装 AgentProcess），否则服务端
+	// validateProviderScope 硬切规则把空 scope 判为 provider_scope_mismatch。
+	// providers.yaml 未显式声明 scope 时不回退继承 agent 自身 scope
+	//（作用域规范 §14：provider 必须显式携带 scope）。
+	m.store.Register(serviceID, serviceID, "", batchVersion, funcs, map[string]string{
+		"gameId": strings.TrimSpace(entry.GameID),
+		"env":    strings.TrimSpace(entry.Env),
+	})
 
 	m.logger.Info("provider loaded", "name", name, "methods", len(methods))
 	return nil

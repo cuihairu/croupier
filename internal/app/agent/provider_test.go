@@ -718,3 +718,93 @@ providers:
 		t.Fatalf("expected extension source after override, got %+v", extOut)
 	}
 }
+
+// provider 注册必须把 providers.yaml 声明的 scope 带进 Instance.Metadata：
+// upstream buildProviders 只认 metadata 的 gameId/env 键组装 AgentProcess，
+// 服务端 validateProviderScope 硬切规则把空 scope 判为 provider_scope_mismatch。
+func TestProviderManagerRegisterCarriesScopeMetadata(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{"status": "ok"})
+	}))
+	defer server.Close()
+
+	tmpDir, err := os.MkdirTemp("", "provider-scope-test-*")
+	if err != nil {
+		t.Fatalf("failed to create temp dir: %v", err)
+	}
+	defer func() { _ = os.RemoveAll(tmpDir) }()
+
+	configContent := `
+providers:
+  demo:
+    enabled: true
+    type: openapi
+    game_id: demo_game
+    env: dev
+    config:
+      base_url: "` + server.URL + `"
+      methods:
+        - name: get_user
+          path: /api/user
+          method: GET
+`
+	configPath := filepath.Join(tmpDir, "providers.yaml")
+	if err := os.WriteFile(configPath, []byte(configContent), 0644); err != nil {
+		t.Fatalf("failed to write config: %v", err)
+	}
+
+	store := agentlocal.NewLocalStore()
+	pm := NewProviderManager(store, tmpDir, nil)
+	if err := pm.Load(context.Background()); err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+
+	instances := store.List()["demo.get_user"]
+	if len(instances) == 0 {
+		t.Fatalf("expected registered instance for demo.get_user, got none")
+	}
+	meta := instances[0].Metadata
+	if meta["gameId"] != "demo_game" {
+		t.Errorf("metadata gameId = %q, want demo_game", meta["gameId"])
+	}
+	if meta["env"] != "dev" {
+		t.Errorf("metadata env = %q, want dev", meta["env"])
+	}
+
+	// 未显式声明 scope 的 provider 不回退继承：metadata 键存在但为空，
+	// 由服务端按硬切规则报 provider_scope_mismatch（作用域规范 §14）。
+	emptyDir, err := os.MkdirTemp("", "provider-scope-empty-*")
+	if err != nil {
+		t.Fatalf("failed to create temp dir: %v", err)
+	}
+	defer func() { _ = os.RemoveAll(emptyDir) }()
+	emptyConfig := `
+providers:
+  bare:
+    enabled: true
+    type: openapi
+    config:
+      base_url: "` + server.URL + `"
+      methods:
+        - name: ping
+          path: /api/ping
+          method: GET
+`
+	if err := os.WriteFile(filepath.Join(emptyDir, "providers.yaml"), []byte(emptyConfig), 0644); err != nil {
+		t.Fatalf("failed to write config: %v", err)
+	}
+	store2 := agentlocal.NewLocalStore()
+	pm2 := NewProviderManager(store2, emptyDir, nil)
+	if err := pm2.Load(context.Background()); err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+	bare := store2.List()["bare.ping"]
+	if len(bare) == 0 {
+		t.Fatalf("expected registered instance for bare.ping, got none")
+	}
+	if bare[0].Metadata["gameId"] != "" || bare[0].Metadata["env"] != "" {
+		t.Errorf("bare provider scope should stay empty (no fallback), got gameId=%q env=%q",
+			bare[0].Metadata["gameId"], bare[0].Metadata["env"])
+	}
+}
