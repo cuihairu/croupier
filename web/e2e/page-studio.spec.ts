@@ -104,9 +104,15 @@ test.describe('Page Studio', () => {
     await expect(dialog.getByText('页面编辑')).toBeVisible();
     await expect(dialog.getByText('resource--players').first()).toBeVisible();
 
-    // footer 挂载菜单选择（T-M8 后控制台导航只由 menu_items 驱动）。
-    // 弹窗内还有语言选择 combobox，按挂载 placeholder 过滤避免命中
-    const mountSelect = dialog.locator('.ant-select').filter({ hasText: '挂载到菜单' }).first();
+    // 挂载选择按 form-item 标签定位：未挂载页面默认选中第一个菜单后
+    // （a746f6e52），select 文本是菜单名而非「挂载到菜单」placeholder，
+    // 按 placeholder 文本过滤会定位失败。先收窄到挂载 form-item 再取
+    // select，避开弹窗内的语言选择 combobox。
+    const mountSelect = dialog
+      .locator('.ant-form-item')
+      .filter({ hasText: '挂载菜单' })
+      .locator('.ant-select')
+      .first();
     await expect(mountSelect).toBeVisible();
     await mountSelect.click();
     const option = page.getByRole('treeitem', { name: /邮件/ }).first();
