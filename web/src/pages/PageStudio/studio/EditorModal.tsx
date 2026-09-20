@@ -57,14 +57,17 @@ export default function EditorModal({
   onSyncSelectors: () => void;
 }) {
   const intl = useIntl();
-  const [menuId, setMenuId] = useState<number | null>(currentMenuId ?? null);
-  // 是否改动过挂载：未改动不随保存提交（避免每次保存都调挂载 API）
-  const [menuDirty, setMenuDirty] = useState(false);
+  // 未挂载时默认选中第一个菜单（进入即有默认值，可清空解除）；默认视为
+  // 已改动，保存即随提交挂载——否则显示默认值却不生效是误导。已挂载页面
+  // 回显原值且不算改动（未改动不随保存提交，避免每次保存都调挂载 API）。
+  const firstMenuId = menus.length > 0 ? menus[0].id : null;
+  const [menuId, setMenuId] = useState<number | null>(currentMenuId ?? firstMenuId);
+  const [menuDirty, setMenuDirty] = useState(currentMenuId == null && firstMenuId != null);
 
   useEffect(() => {
-    setMenuId(currentMenuId ?? null);
-    setMenuDirty(false);
-  }, [currentMenuId]);
+    setMenuId(currentMenuId ?? firstMenuId);
+    setMenuDirty(currentMenuId == null && firstMenuId != null);
+  }, [currentMenuId, firstMenuId]);
 
   const menuTreeData = useMemo(() => toMenuTreeData(menus, intl.locale), [menus, intl.locale]);
   return (

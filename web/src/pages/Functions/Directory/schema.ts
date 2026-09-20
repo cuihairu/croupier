@@ -9,9 +9,9 @@ export type DirectoryPageSchema = {
     disabledWhen?: Array<'loading'>;
   }>;
   drawerActions: Array<{
-    key: 'invoke' | 'detailPage';
+    key: 'invoke' | 'detailPage' | 'contractVersions';
     label: string;
-    icon: 'play' | 'info';
+    icon: 'play' | 'info' | 'history';
     disabledWhen?: Array<'noSelection' | 'loading'>;
     loadingWhen?: 'loading';
   }>;
@@ -62,6 +62,16 @@ export const DIRECTORY_PAGE_SCHEMA: DirectoryPageSchema = {
         defaultMessage: '详情页',
       }),
       icon: 'info',
+      disabledWhen: ['noSelection', 'loading'],
+      loadingWhen: 'loading',
+    },
+    {
+      key: 'contractVersions',
+      label: intl.formatMessage({
+        id: 'pages.functionsDirectory.action.contractVersions',
+        defaultMessage: '变更历史',
+      }),
+      icon: 'history',
       disabledWhen: ['noSelection', 'loading'],
       loadingWhen: 'loading',
     },

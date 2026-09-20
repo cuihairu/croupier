@@ -118,6 +118,22 @@ describe('EditorModal 挂载菜单选择（body 内「页面信息」卡片）',
     expect(onSave).toHaveBeenLastCalledWith({ publishAfterSave: true });
   });
 
+  it('未挂载打开：默认选中第一个菜单，直接保存即挂载（无需手选）', async () => {
+    const { onSave } = renderModal();
+    // 默认值 = 第一个菜单（进入即有值，不再是空占位）
+    await waitFor(() => expect(selectedText()).toContain('玩家'));
+    fireEvent.click(screen.getByRole('button', { name: /仅保存草稿/ }));
+    expect(onSave).toHaveBeenLastCalledWith({ menuId: 1 });
+  });
+
+  it('未挂载默认后清空 → menuId null 保持不挂载', async () => {
+    const { onSave } = renderModal();
+    await waitFor(() => expect(selectedText()).toContain('玩家'));
+    await clearSelection();
+    fireEvent.click(screen.getByRole('button', { name: /保存并发布/ }));
+    expect(onSave).toHaveBeenLastCalledWith({ publishAfterSave: true, menuId: null });
+  });
+
   it('选择菜单后保存并发布 → onSave({ publishAfterSave: true, menuId })', async () => {
     const { onSave } = renderModal();
     await selectMenu('运营');
@@ -127,9 +143,10 @@ describe('EditorModal 挂载菜单选择（body 内「页面信息」卡片）',
 
   it('选择菜单后仅保存草稿 → onSave({ menuId })（draft 挂载发布后才上控制台）', async () => {
     const { onSave } = renderModal();
-    await selectMenu('玩家');
+    // 未挂载默认选中第一个菜单（玩家），改选运营验证改动路径
+    await selectMenu('运营');
     fireEvent.click(screen.getByRole('button', { name: /仅保存草稿/ }));
-    expect(onSave).toHaveBeenLastCalledWith({ menuId: 1 });
+    expect(onSave).toHaveBeenLastCalledWith({ menuId: 2 });
   });
 
   it('清空选择 → menuId null 表示解除挂载', async () => {

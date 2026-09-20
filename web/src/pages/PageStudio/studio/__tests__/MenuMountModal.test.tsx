@@ -88,6 +88,14 @@ describe('MenuMountModal', () => {
     await waitFor(() => expect(selectedText()).toContain('玩家'));
   });
 
+  it('未挂载打开：默认选中第一个菜单，直接确定即挂载', async () => {
+    const { onSubmit } = renderModal();
+    // 默认值 = 第一个菜单（进入即有值，不再是空占位）
+    await waitFor(() => expect(selectedText()).toContain('玩家'));
+    fireEvent.click(screen.getByRole('button', { name: /确\s*定|OK/ }));
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledWith('resource--players', 1));
+  });
+
   it('选择菜单提交 → onSubmit(pageKey, menuId)', async () => {
     const { onSubmit } = renderModal();
     await selectMenu('运营');

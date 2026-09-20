@@ -1,6 +1,7 @@
 // pages.functionsDirectory.* — Functions/Directory 函数目录
 export default {
   'pages.functionsDirectory.action.detailPage': 'Detail Page',
+  'pages.functionsDirectory.action.contractVersions': 'Change History',
   'pages.functionsDirectory.action.invoke': 'Invoke Function',
   'pages.functionsDirectory.action.refresh': 'Refresh',
   'pages.functionsDirectory.alert.description':

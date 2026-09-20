@@ -37,9 +37,10 @@ const MenuMountModal: React.FC<MenuMountModalProps> = ({
 
   useEffect(() => {
     if (page) {
-      form.setFieldsValue({ menuId: page.menuId ?? null });
+      // 未挂载页面默认选中第一个菜单（进入即有默认值，清空即解除挂载）
+      form.setFieldsValue({ menuId: page.menuId ?? (menus.length > 0 ? menus[0].id : null) });
     }
-  }, [page, form]);
+  }, [page, form, menus]);
 
   const empty = useMemo(() => menus.length === 0, [menus]);
 

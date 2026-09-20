@@ -166,6 +166,10 @@ export default function useDirectoryPage() {
               history.push(`/functions/${encodeURIComponent(selectedFunction.id)}`);
               return;
             }
+            if (key === 'contractVersions') {
+              history.push(`/functions/${encodeURIComponent(selectedFunction.id)}?tab=versions`);
+              return;
+            }
             history.push(buildInvokePath(selectedFunction.id));
             setDetailVisible(false);
           },
