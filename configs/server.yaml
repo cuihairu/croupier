@@ -40,6 +40,11 @@ registry:
   assignmentsPath: "data/assignments.json"
   analyticsFiltersPath: "schemas/analytics_filters.json"
   rateLimitsPath: "data/rate_limits.json"
+  # 按语言配置最低可注册 SDK 版本（绝对下限，低于配置值的 provider
+  # 独占声明函数不注册、只产生告警；未配置的语言仅走滑动高水位门槛）。
+  # sdkVersionMinimums:
+  #   go: "0.3.0"
+  #   python: "0.2.0"
 
 agentDispatch:
   jobRoutingDir: "data"

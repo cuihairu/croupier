@@ -27,6 +27,32 @@ rateLimitsPath: data/limits.json
 	}
 }
 
+func TestRegistryConfig_UnmarshalYAML_SDKVersionMinimums(t *testing.T) {
+	input := `
+sdkVersionMinimums:
+  go: "0.3.0"
+  python: "0.2.0"
+`
+	var cfg RegistryConfig
+	if err := yaml.Unmarshal([]byte(input), &cfg); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if cfg.SDKVersionMinimums["go"] != "0.3.0" {
+		t.Errorf("SDKVersionMinimums[go] = %q", cfg.SDKVersionMinimums["go"])
+	}
+	if cfg.SDKVersionMinimums["python"] != "0.2.0" {
+		t.Errorf("SDKVersionMinimums[python] = %q", cfg.SDKVersionMinimums["python"])
+	}
+	// 未配置时为 nil（仅滑动高水位门槛生效）。
+	var empty RegistryConfig
+	if err := yaml.Unmarshal([]byte(`assignmentsPath: x`), &empty); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if empty.SDKVersionMinimums != nil {
+		t.Errorf("SDKVersionMinimums must stay nil when absent, got %v", empty.SDKVersionMinimums)
+	}
+}
+
 func TestRegistryConfig_UnmarshalYAML_Legacy(t *testing.T) {
 	input := `
 AssignmentsPath: legacy/assignments.json

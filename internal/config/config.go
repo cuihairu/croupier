@@ -377,6 +377,11 @@ type RegistryConfig struct {
 	AssignmentsPath      string `json:"assignmentsPath,omitempty" yaml:"assignmentsPath,omitempty"`
 	AnalyticsFiltersPath string `json:"analyticsFiltersPath,omitempty" yaml:"analyticsFiltersPath,omitempty"`
 	RateLimitsPath       string `json:"rateLimitsPath,omitempty" yaml:"rateLimitsPath,omitempty"`
+	// SDKVersionMinimums 按语言配置最低可注册 SDK 版本（language → 语义化
+	// 版本，如 go: "0.2.0"）。自报版本低于配置值的 provider 独占声明的
+	// 函数不注册（只产生告警），未配置的语言仅走滑动高水位门槛。
+	// 语言键大小写不敏感，配置值解析失败时该条目不生效。
+	SDKVersionMinimums map[string]string `json:"sdkVersionMinimums,omitempty" yaml:"sdkVersionMinimums,omitempty"`
 }
 
 // ClusterConfig 配置 Server 多实例 HA（docs/architecture/server-ha-multi-instance.md）。

@@ -426,6 +426,9 @@ func startControlServer(ctx context.Context, c *config.Config, svcCtx *svc.Servi
 	controlService := server.NewControlService(svcCtx.RegistryStore, svcCtx.AgentSessionModel)
 	// F12：注册时 schema 兼容性告警开关（descriptors.schemaDiffWarn，默认开）
 	controlService.SetSchemaDiffWarnEnabled(svcCtx.Config.Descriptors.SchemaDiffWarnEnabled())
+	// 最低 SDK 版本门槛（registry.sdkVersionMinimums，按语言配置的绝对
+	// 下限，低于配置值的 provider 独占声明函数不注册、只产生告警）
+	controlService.SetSDKVersionMinimums(c.Registry.SDKVersionMinimums)
 	// 心跳自愈：本地会话丢失（过期清理/替换竞态）但 TCP 仍活时，从
 	// 共享归属表回读本实例持有的 scope 重建会话——僵尸连接不再静默。
 	if svcCtx.Cluster != nil && svcCtx.Cluster.Resolver != nil {

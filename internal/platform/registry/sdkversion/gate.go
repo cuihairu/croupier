@@ -123,6 +123,24 @@ func Higher(a, b string) bool {
 	return va.patch > vb.patch
 }
 
+// Below reports whether current parses strictly lower than minimum. Either
+// side failing to parse yields false: the configured minimum floor only
+// fires when both ends are semantic versions, never on "unknown".
+func Below(current, minimum string) bool {
+	cur, okCur := parseVersion(current)
+	min, okMin := parseVersion(minimum)
+	if !okCur || !okMin {
+		return false
+	}
+	if cur.major != min.major {
+		return cur.major < min.major
+	}
+	if cur.minor != min.minor {
+		return cur.minor < min.minor
+	}
+	return cur.patch < min.patch
+}
+
 // Parseable reports whether s is a dotted numeric version usable by the gate.
 func Parseable(s string) bool {
 	_, ok := parseVersion(s)

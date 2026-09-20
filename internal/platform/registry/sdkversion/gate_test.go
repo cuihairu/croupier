@@ -83,3 +83,35 @@ func TestParseable(t *testing.T) {
 		}
 	}
 }
+
+func TestBelow(t *testing.T) {
+	for _, tc := range []struct {
+		current, minimum string
+		want             bool
+	}{
+		{"0.1.0", "0.2.0", true},
+		{"0.1.9", "0.1.10", true},
+		{"0.9.9", "1.0.0", true},
+		{"0.2.0", "0.2.0", false},
+		{"0.2.1", "0.2.0", false},
+		{"1.0.0", "0.9.9", false},
+		{"0.2", "0.2.0", false},
+		{"0.1.0-rc1", "0.2.0", true},
+	} {
+		if got := Below(tc.current, tc.minimum); got != tc.want {
+			t.Errorf("Below(%q, %q) = %v, want %v", tc.current, tc.minimum, got, tc.want)
+		}
+	}
+}
+
+func TestBelowUnparseableNeverTrips(t *testing.T) {
+	if Below("unknown", "0.2.0") {
+		t.Error("unparseable current must never trip the configured minimum")
+	}
+	if Below("0.1.0", "abc") {
+		t.Error("unparseable configured minimum must never trip")
+	}
+	if Below("", "0.2.0") {
+		t.Error("empty current must never trip the configured minimum")
+	}
+}

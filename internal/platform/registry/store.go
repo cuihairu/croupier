@@ -200,6 +200,11 @@ const (
 	// 超出容忍窗（低 2 个及以上 minor，或 1 个及以上 major）：该 provider
 	// 的函数注册被拒（函数不进会话/不物化契约），连接保持。
 	WarningCodeSDKVersionFloorRejected = "sdk_version_floor_rejected"
+	// WarningCodeSDKVersionBelowMinimum provider 自报 SDK 版本低于配置的
+	// 最低版本（registry.sdkVersionMinimums）：该 provider 独占声明的
+	// 函数不注册（只产生告警），连接保持。配置门槛是绝对下限，优先于
+	// 滑动高水位判定。
+	WarningCodeSDKVersionBelowMinimum = "sdk_version_below_minimum"
 )
 
 type RegistrationWarningFilter struct {

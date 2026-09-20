@@ -121,6 +121,12 @@ type ControlService struct {
 	// 不阻断注册。
 	schemaDiffWarn bool
 
+	// sdkVersionMinimums 按语言配置的最低可注册 SDK 版本（来自
+	// registry.sdkVersionMinimums，键已归一小写）：自报版本低于配置值
+	// 的 provider 独占声明函数不注册（只产生告警）。绝对下限，优先于
+	// 滑动高水位门槛；nil/空表示未配置。
+	sdkVersionMinimums map[string]string
+
 	// upsertOpenAPI 是注册链路 UpsertOpenAPI 的注入点：生产为 nil（走
 	// registry.UpsertOpenAPI 真实实现），测试注入失败以驱动注册警告分支
 	//（registry 为具体类型 *reg.Store、无接口 seam，该 Warn 分支的生产
@@ -188,6 +194,27 @@ func NewControlService(registry *reg.Store, loader AgentSessionLoader) *ControlS
 // SetSchemaDiffWarnEnabled 开关注册时 schema 兼容性告警（默认开启）。
 func (s *ControlService) SetSchemaDiffWarnEnabled(enabled bool) {
 	s.schemaDiffWarn = enabled
+}
+
+// SetSDKVersionMinimums 注入按语言配置的最低可注册 SDK 版本
+// （registry.sdkVersionMinimums）。语言键归一小写，空版本值的条目
+// 丢弃；传 nil/空表即未配置（仅滑动高水位门槛生效）。
+func (s *ControlService) SetSDKVersionMinimums(minimums map[string]string) {
+	if len(minimums) == 0 {
+		return
+	}
+	normalized := make(map[string]string, len(minimums))
+	for language, minimum := range minimums {
+		key := strings.ToLower(strings.TrimSpace(language))
+		value := strings.TrimSpace(minimum)
+		if key == "" || value == "" {
+			continue
+		}
+		normalized[key] = value
+	}
+	if len(normalized) > 0 {
+		s.sdkVersionMinimums = normalized
+	}
 }
 
 func (s *ControlService) SetTaskStore(store TaskStore) {
@@ -910,6 +937,8 @@ type sdkFloorOutcome struct {
 // evaluateSDKVersionFloor 按 (game_id, env, sdk_language) 的历史最高 SDK
 // 版本（高水位）评估注册请求中的 provider 进程（sdkversion 三档判定）：
 //
+//   - 配置了 registry.sdkVersionMinimums 的语言，自报版本低于配置值
+//     的进程直接拒注册（绝对下限，优先于高水位判定，无高水位也生效）；
 //   - 无 sdk_language/sdk_version 自报的进程（自定义游戏服直连）不参与
 //     门槛，函数照常放行且不抬升高水位；
 //   - 版本解析失败的进程一律放行（门槛只在两端都可解析时生效）；
@@ -938,6 +967,23 @@ func (s *ControlService) evaluateSDKVersionFloor(ctx context.Context, req *agent
 			for _, fid := range p.FunctionIds {
 				allowedDeclared[fid] = true
 			}
+			continue
+		}
+		// 配置最低版本门槛（registry.sdkVersionMinimums）：绝对下限，
+		// 优先于滑动高水位——即使尚无高水位观测，低于配置值也拒注册。
+		// 版本解析失败不触发（Below 恒 false，与高水位门槛同样保守）。
+		if minimum, ok := s.sdkVersionMinimums[strings.ToLower(language)]; ok && sdkversion.Below(p.SdkVersion, minimum) {
+			rejectedByProc[p.ServiceId] = p.FunctionIds
+			msg := fmt.Sprintf("service_id=%s sdk=%s/%s below configured minimum %s: function registration rejected (%d functions)", p.ServiceId, language, p.SdkVersion, minimum, len(p.FunctionIds))
+			*warningTexts = append(*warningTexts, msg)
+			s.logger.Warn("sdk version below configured minimum", "agent_id", req.AgentId, "service_id", p.ServiceId, "sdk_language", language, "sdk_version", p.SdkVersion, "configured_minimum", minimum, "functions", len(p.FunctionIds))
+			s.registry.UpsertRegistrationWarning(ctx, reg.FunctionRegistrationWarning{
+				GameID:  req.GameId,
+				Env:     req.Env,
+				AgentID: req.AgentId,
+				Code:    reg.WarningCodeSDKVersionBelowMinimum,
+				Message: msg,
+			})
 			continue
 		}
 		floor := s.registry.GetSDKVersionFloor(req.GameId, req.Env, language)

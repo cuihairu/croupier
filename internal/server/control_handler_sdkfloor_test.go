@@ -253,3 +253,181 @@ func TestSDKVersionFloor_CatchUpReRegisters(t *testing.T) {
 		assert.NotContains(t, w, "sdk_version_floor_rejected")
 	}
 }
+
+// 配置最低版本（registry.sdkVersionMinimums go=0.3.0）：即使没有任何
+// 高水位观测，自报 0.1.0 的 provider 独占声明函数也不注册，拒绝以注册
+// 警告 + response warnings 双通道传达，连接保持。
+func TestSDKVersionFloor_ConfiguredMinimumRejects(t *testing.T) {
+	svc := newScopeTestService(t)
+	svc.SetSDKVersionMinimums(map[string]string{"go": "0.3.0"})
+	ctx := context.Background()
+
+	resp, err := svc.handleRegisterRequest(ctx, &agentv1.RegisterRequest{
+		AgentId: "agent-min",
+		GameId:  "game-1",
+		Env:     "dev",
+		Functions: []*agentv1.FunctionDescriptor{
+			{Id: "player.ban", Version: "1.0.0", Enabled: true},
+		},
+		Processes: []*agentv1.AgentProcess{
+			{ServiceId: "svc-go", SdkLanguage: "go", SdkVersion: "0.1.0", FunctionIds: []string{"player.ban"}, GameId: "game-1", Env: "dev"},
+		},
+	}, "")
+	require.NoError(t, err, "rejection must keep the connection (no register error)")
+
+	sess := svc.registry.AgentsUnsafe()["agent-min"]
+	require.NotNil(t, sess)
+	assert.NotContains(t, sess.Functions, "player.ban", "below configured minimum must not register")
+	require.Len(t, sess.Providers, 1, "provider record must be kept")
+
+	got := svc.registry.ListRegistrationWarnings(registry.RegistrationWarningFilter{
+		GameID: "game-1", Env: "dev", AgentID: "agent-min", Code: registry.WarningCodeSDKVersionBelowMinimum,
+	})
+	require.Len(t, got, 1)
+	assert.Contains(t, got[0].Message, "below configured minimum 0.3.0")
+
+	var found bool
+	for _, w := range resp.GetWarnings() {
+		if strings.Contains(w, "below configured minimum") && strings.Contains(w, "svc-go") {
+			found = true
+		}
+	}
+	assert.True(t, found, "response warnings must carry the rejection, got %v", resp.GetWarnings())
+}
+
+// 自报版本等于/高于配置最低版本：正常注册，无告警。
+func TestSDKVersionFloor_ConfiguredMinimumAllowsAtOrAbove(t *testing.T) {
+	svc := newScopeTestService(t)
+	svc.SetSDKVersionMinimums(map[string]string{"go": "0.3.0"})
+	ctx := context.Background()
+
+	for _, tc := range []struct{ agent, version, fn string }{
+		{"agent-min-eq", "0.3.0", "player.list"},
+		{"agent-min-hi", "0.4.1", "player.get"},
+	} {
+		resp, err := svc.handleRegisterRequest(ctx, &agentv1.RegisterRequest{
+			AgentId: tc.agent,
+			GameId:  "game-1",
+			Env:     "dev",
+			Functions: []*agentv1.FunctionDescriptor{
+				{Id: tc.fn, Version: "1.0.0", Enabled: true},
+			},
+			Processes: []*agentv1.AgentProcess{
+				{ServiceId: "svc-go", SdkLanguage: "go", SdkVersion: tc.version, FunctionIds: []string{tc.fn}, GameId: "game-1", Env: "dev"},
+			},
+		}, "")
+		require.NoError(t, err)
+		assert.Empty(t, resp.GetWarnings(), "version %s at/above minimum must pass silently", tc.version)
+		sess := svc.registry.AgentsUnsafe()[tc.agent]
+		require.NotNil(t, sess)
+		assert.Contains(t, sess.Functions, tc.fn)
+	}
+}
+
+// 配置最低版本对解析失败的自报版本不生效（Below 恒 false），与高水位
+// 门槛同样保守。
+func TestSDKVersionFloor_ConfiguredMinimumUnparseablePasses(t *testing.T) {
+	svc := newScopeTestService(t)
+	svc.SetSDKVersionMinimums(map[string]string{"go": "0.3.0"})
+	ctx := context.Background()
+
+	resp, err := svc.handleRegisterRequest(ctx, &agentv1.RegisterRequest{
+		AgentId: "agent-min-unknown",
+		GameId:  "game-1",
+		Env:     "dev",
+		Functions: []*agentv1.FunctionDescriptor{
+			{Id: "player.list", Version: "1.0.0", Enabled: true},
+		},
+		Processes: []*agentv1.AgentProcess{
+			{ServiceId: "svc-go", SdkLanguage: "go", SdkVersion: "unknown", FunctionIds: []string{"player.list"}, GameId: "game-1", Env: "dev"},
+		},
+	}, "")
+	require.NoError(t, err)
+	assert.Empty(t, resp.GetWarnings())
+	sess := svc.registry.AgentsUnsafe()["agent-min-unknown"]
+	require.NotNil(t, sess)
+	assert.Contains(t, sess.Functions, "player.list")
+}
+
+// 未配置最低版本的语言不受配置门槛影响（仅走滑动高水位）；语言键大小写
+// 不敏感（配置 "Go" 命中自报 "go"）。
+func TestSDKVersionFloor_ConfiguredMinimumScopeAndCase(t *testing.T) {
+	svc := newScopeTestService(t)
+	svc.SetSDKVersionMinimums(map[string]string{"Go": "0.3.0"})
+	ctx := context.Background()
+
+	// python 未配置：0.0.1 也放行。
+	resp, err := svc.handleRegisterRequest(ctx, &agentv1.RegisterRequest{
+		AgentId: "agent-py",
+		GameId:  "game-1",
+		Env:     "dev",
+		Functions: []*agentv1.FunctionDescriptor{
+			{Id: "player.list", Version: "1.0.0", Enabled: true},
+		},
+		Processes: []*agentv1.AgentProcess{
+			{ServiceId: "svc-py", SdkLanguage: "python", SdkVersion: "0.0.1", FunctionIds: []string{"player.list"}, GameId: "game-1", Env: "dev"},
+		},
+	}, "")
+	require.NoError(t, err)
+	assert.Empty(t, resp.GetWarnings())
+	assert.Contains(t, svc.registry.AgentsUnsafe()["agent-py"].Functions, "player.list")
+
+	// go 自报 0.1.0：配置键 "Go" 归一后仍命中 → 拒。
+	resp2, err := svc.handleRegisterRequest(ctx, &agentv1.RegisterRequest{
+		AgentId: "agent-go",
+		GameId:  "game-1",
+		Env:     "dev",
+		Functions: []*agentv1.FunctionDescriptor{
+			{Id: "player.ban", Version: "1.0.0", Enabled: true},
+		},
+		Processes: []*agentv1.AgentProcess{
+			{ServiceId: "svc-go", SdkLanguage: "go", SdkVersion: "0.1.0", FunctionIds: []string{"player.ban"}, GameId: "game-1", Env: "dev"},
+		},
+	}, "")
+	require.NoError(t, err)
+	assert.NotContains(t, svc.registry.AgentsUnsafe()["agent-go"].Functions, "player.ban")
+	var found bool
+	for _, w := range resp2.GetWarnings() {
+		if strings.Contains(w, "below configured minimum") {
+			found = true
+		}
+	}
+	assert.True(t, found, "case-insensitive language key must match, got %v", resp2.GetWarnings())
+}
+
+// 低于配置最低版本的 provider 与放行 provider 交叉声明同一函数：函数
+// 保留（拒绝不造成可用性缺口），但拒绝告警照常记录。
+func TestSDKVersionFloor_ConfiguredMinimumCrossProvidedKept(t *testing.T) {
+	svc := newScopeTestService(t)
+	svc.SetSDKVersionMinimums(map[string]string{"go": "0.3.0"})
+	ctx := context.Background()
+
+	resp, err := svc.handleRegisterRequest(ctx, &agentv1.RegisterRequest{
+		AgentId: "agent-cross",
+		GameId:  "game-1",
+		Env:     "dev",
+		Functions: []*agentv1.FunctionDescriptor{
+			{Id: "player.list", Version: "1.0.0", Enabled: true},
+		},
+		Processes: []*agentv1.AgentProcess{
+			{ServiceId: "svc-old", SdkLanguage: "go", SdkVersion: "0.1.0", FunctionIds: []string{"player.list"}, GameId: "game-1", Env: "dev"},
+			{ServiceId: "svc-new", SdkLanguage: "go", SdkVersion: "0.3.0", FunctionIds: []string{"player.list"}, GameId: "game-1", Env: "dev"},
+		},
+	}, "")
+	require.NoError(t, err)
+	assert.Contains(t, svc.registry.AgentsUnsafe()["agent-cross"].Functions, "player.list",
+		"cross-provided function must survive the rejection")
+
+	got := svc.registry.ListRegistrationWarnings(registry.RegistrationWarningFilter{
+		GameID: "game-1", Env: "dev", AgentID: "agent-cross", Code: registry.WarningCodeSDKVersionBelowMinimum,
+	})
+	require.Len(t, got, 1)
+	assert.Contains(t, got[0].Message, "svc-old")
+	var found bool
+	for _, w := range resp.GetWarnings() {
+		if strings.Contains(w, "below configured minimum") {
+			found = true
+		}
+	}
+	assert.True(t, found)
+}

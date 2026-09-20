@@ -117,6 +117,24 @@ sequenceDiagram
 - 无 `sdk_language`/`sdk_version` 自报的进程（自定义游戏服直连）不参与门槛。
 - 拒绝与落后警告同时随 `RegisterResponse.warnings` 返回，agent 侧日志可见；连接保持不断开。
 
+#### 配置最低版本（绝对下限）
+
+除自动高水位外，还可按语言配置**最低可注册版本**（`registry.sdkVersionMinimums`）：
+
+```yaml
+registry:
+  sdkVersionMinimums:
+    go: "0.3.0"
+    python: "0.2.0"
+```
+
+自报版本低于配置值的 provider 其独占声明函数**不注册**（写 `sdk_version_below_minimum` 注册警告并随 `RegisterResponse.warnings` 返回，连接保持）。语义要点：
+
+- 配置门槛是**绝对下限，优先于滑动高水位判定**——即使尚无高水位观测（首次注册）也生效；
+- 未配置的语言仅走高水位门槛；语言键大小写不敏感；
+- 与高水位门槛同样保守：自报版本或配置值解析失败时不触发；
+- 交叉提供保护一致：任一放行进程也声明的函数不被剔除。
+
 **已知边界**：
 
 - 高水位是单调观测值：高版本 SDK 永久下线后，低版本会持续被拒，重置需手动 `DELETE FROM sdk_version_highwatermarks WHERE ...`。
