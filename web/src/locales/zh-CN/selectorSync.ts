@@ -7,6 +7,12 @@ export default {
   'component.selectorSync.action.renamed': '重映射',
   'component.selectorSync.action.shape_updated': '形状更新',
   'component.selectorSync.action.type_changed': '类型变化',
+  'component.selectorSync.appliedAndPublished':
+    '已同步并自动发布（版本 {revision}），控制台即时生效',
+  'component.selectorSync.appliedNeedPublishPermission':
+    '已同步到草稿，但当前账号无发布权限，请转由有权限成员发布',
+  'component.selectorSync.appliedAutoPublishFailed':
+    '已同步到草稿（版本 {revision}）；自动发布失败：{reason}，请检查后手动发布',
   'component.selectorSync.applied': '已应用到草稿（版本 {revision}），请检查后手动发布',
   'component.selectorSync.apply': '应用同步到草稿',
   'component.selectorSync.applyConfirmDescription':

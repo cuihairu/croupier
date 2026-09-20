@@ -1,6 +1,9 @@
 package page
 
 import (
+	"context"
+	"time"
+
 	"github.com/cuihairu/croupier/internal/svc"
 	"github.com/gin-gonic/gin"
 )
@@ -30,4 +33,9 @@ func RegisterDraftRoutes(group *gin.RouterGroup, svcCtx *svc.ServiceContext) {
 	group.GET("/:pageKey/versions", handler.Versions)
 	group.GET("/:pageKey/versions/:versionId", handler.VersionDetail)
 	group.POST("/:pageKey/rollback", handler.Rollback)
+
+	// 契约漂移后的 stale 自动愈合循环（2026-09 自动化收口）：能自动适配的
+	// 页面由系统同步+发布恢复，修不了的留在编辑器告警。多实例并发由草稿
+	// 乐观锁与幂等护栏（无变化不落库）兜底。
+	go NewService(svcCtx).StartStaleHealLoop(context.Background(), 5*time.Minute)
 }

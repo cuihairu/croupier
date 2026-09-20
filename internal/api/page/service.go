@@ -458,7 +458,11 @@ func (s *Service) SyncSelectors(ctx context.Context, req *PageSyncSelectorsReque
 			"provided": *req.DraftRevision,
 		})
 	}
-	return s.syncSelectorsCore(ctx, gameID, env, actor, p, req.BindingIDs, req.DryRun, *req.DraftRevision)
+	resp, err := s.syncSelectorsCore(ctx, gameID, env, actor, p, req.BindingIDs, req.DryRun, *req.DraftRevision)
+	if err == nil && !req.DryRun {
+		s.autoPublishAfterSync(ctx, resp, gameID, env, actor, int(p.PublishedVersion), resp.DraftRevision)
+	}
+	return resp, err
 }
 
 // syncSelectorsCore 是单页 selector 同步的核心（planner 循环 + 发布级
@@ -548,6 +552,19 @@ func (s *Service) syncSelectorsCore(ctx context.Context, gameID, env, actor stri
 		}, nil
 	}
 
+	// 幂等护栏（仅系统愈合循环）：无 selector 修复且无 manual 项时不落
+	// 草稿——后台循环每 5 分钟一轮，不能让无变化页面反复 bump revision。
+	// 用户/bulk 路径保持「同步必落草稿」旧契约（覆盖写语义与错误路径不变）。
+	if actor == staleHealActor && countChangedBindings(reports) == 0 && countManualEntries(reports) == 0 {
+		return &PageSyncSelectorsResponse{
+			PageKey:        p.PageKey,
+			DryRun:         dryRun,
+			Applied:        false,
+			DraftRevision:  p.DraftRevision,
+			SyncedBindings: reports,
+		}, nil
+	}
+
 	now := time.Now()
 	if err := applyPageSpecToModel(p, synced); err != nil {
 		return nil, err
@@ -612,6 +629,26 @@ func (s *Service) syncSelectorsCore(ctx context.Context, gameID, env, actor stri
 		SyncedBindings:       reports,
 		RemainingDiagnostics: remaining,
 	}, nil
+}
+
+// autoPublishAfterSync 是「自动化收口」（2026-09）：单页同步成功且
+// selector 全部适配（无 manual 遗留）、页面已发布时，自动接续发布，
+// 刷新契约快照并恢复控制台执行——用户不再需要「同步 → 发布」两步。
+// 发布权限缺失或发布失败降级为 AutoPublishError 提示，草稿保持已同步。
+func (s *Service) autoPublishAfterSync(ctx context.Context, resp *PageSyncSelectorsResponse, gameID, env, actor string, publishedVersion int, draftRevision int) {
+	if resp == nil || !resp.Applied || publishedVersion == 0 || countManualEntries(resp.SyncedBindings) > 0 {
+		return
+	}
+	if err := s.requirePagePublish(ctx); err != nil {
+		resp.AutoPublishError = "publish_permission_required"
+		return
+	}
+	rev := draftRevision
+	if _, err := s.publishCore(ctx, gameID, env, actor, &PagePublishRequest{PageKey: resp.PageKey, DraftRevision: &rev}); err != nil {
+		resp.AutoPublishError = err.Error()
+		return
+	}
+	resp.AutoPublished = true
 }
 
 // publishedContractsForSync 取最新发布快照的 binding contract（prev

@@ -98,6 +98,11 @@ type PageSyncSelectorsResponse struct {
 	// 发布（manual_required 项仍需人工处理），错误留在这里由调用方
 	// 呈现，不阻断保存。
 	RemainingDiagnostics []spec.Diagnostic `json:"remainingDiagnostics,omitempty"`
+	// 自动化收口（2026-09）：同步后若无 manual 遗留且页面已发布，
+	// 自动接续发布刷新契约快照（无需用户二次操作）。无发布权限或
+	// 发布失败时 AutoPublishError 说明原因，草稿保持已同步状态。
+	AutoPublished    bool   `json:"autoPublished"`
+	AutoPublishError string `json:"autoPublishError,omitempty"`
 }
 
 // PageProposalsRebuildResponse reports the scope covered by a bulk proposal

@@ -92,6 +92,9 @@ type PageSyncSelectorsResponse = {
   draftRevision: number;
   syncedBindings: BindingSelectorSyncReport[];
   remainingDiagnostics?: Diagnostic[];
+  /** 自动化收口：完全适配且已发布时服务端自动接续发布 */
+  autoPublished?: boolean;
+  autoPublishError?: string;
 };
 
 export async function listPageDrafts(

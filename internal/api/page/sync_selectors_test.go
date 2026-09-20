@@ -301,13 +301,15 @@ func TestSyncSelectors_PublishChainEndToEnd(t *testing.T) {
 
 	pageVersions, err := service.svcCtx.PageVersionModel.ListByScopeAndPageKey(ctx, "demo-game", "development", pageKey)
 	require.NoError(t, err)
+	// 注意：autoPublish 会在同一 revision 上再登记发布版本
+	// （UpsertByScopePageKeyVersion 覆盖 message）——断言该版本行存在即可。
 	foundVersion := false
 	for _, version := range pageVersions {
-		if version.Version == revision+1 && version.Message == "sync selectors from latest function contracts" {
+		if version.Version == revision+1 {
 			foundVersion = true
 		}
 	}
-	assert.True(t, foundVersion, "PageVersion with sync message must exist")
+	assert.True(t, foundVersion, "PageVersion for synced revision must exist")
 
 	records, _, err := auditStore.List(audit.AuditFilter{
 		EventType:  []audit.AuditEventType{audit.EventPageDraftSave},
@@ -323,16 +325,21 @@ func TestSyncSelectors_PublishChainEndToEnd(t *testing.T) {
 	assert.True(t, foundAudit, "audit event with action=sync_selectors must exist")
 
 	// 6. 发布成功（此前被阻断的同一草稿）
+	// 6. 自动化收口：apply 成功后同步链内自动接续发布（ctx 具备 publish
+	//    权限且无 manual 遗留）——用户不再需要「同步 → 发布」两步操作。
+	assert.Empty(t, applyResp.AutoPublishError, "auto publish must not fail: %s", applyResp.AutoPublishError)
+	assert.True(t, applyResp.AutoPublished, "selector 完全适配后必须自动发布（自动化收口）")
+
 	newRevision := applyResp.DraftRevision
-	publishResp, err := service.Publish(ctx, &PagePublishRequest{PageKey: pageKey, DraftRevision: &newRevision})
-	require.NoError(t, err, "publish must succeed after selector sync")
-	assert.Equal(t, newRevision, publishResp.PublishedVersion)
+	publishedRow, err := service.svcCtx.PublishedPageSpecModel.FindLatestByScopeAndPageKey(ctx, "demo-game", "development", pageKey)
+	require.NoError(t, err)
+	assert.EqualValues(t, newRevision, publishedRow.Version, "auto publish must land on the synced draft revision")
 
 	// 7. 新发布快照对最新契约 freshness 干净（console binding_stale 409 的判定源）
 	stale := service.bindingFreshnessForPublishedDraft(ctx, &model.PageSpec{
-		GameID: "demo-game", Env: "development", PageKey: pageKey, PublishedVersion: publishResp.PublishedVersion,
+		GameID: "demo-game", Env: "development", PageKey: pageKey, PublishedVersion: newRevision,
 	})
-	assert.Empty(t, stale, "published snapshot must be fresh after sync + publish")
+	assert.Empty(t, stale, "published snapshot must be fresh after sync + auto publish")
 }
 
 func syncGiftMeta(inputSchema string) reg.FunctionMeta {

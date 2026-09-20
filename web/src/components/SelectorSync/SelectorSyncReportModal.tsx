@@ -128,15 +128,43 @@ export default function SelectorSyncReportModal({
       setReport(resp.syncedBindings || []);
       setRemaining(resp.remainingDiagnostics || []);
       setAppliedRevision(resp.draftRevision);
-      message.success(
-        intl.formatMessage(
-          {
-            id: 'component.selectorSync.applied',
-            defaultMessage: '已应用到草稿（版本 {revision}），请检查后手动发布',
-          },
-          { revision: resp.draftRevision },
-        ),
-      );
+      if (resp.autoPublished) {
+        message.success(
+          intl.formatMessage(
+            {
+              id: 'component.selectorSync.appliedAndPublished',
+              defaultMessage: '已同步并自动发布（版本 {revision}），控制台即时生效',
+            },
+            { revision: resp.draftRevision },
+          ),
+        );
+      } else if (resp.autoPublishError) {
+        message.warning(
+          resp.autoPublishError === 'publish_permission_required'
+            ? intl.formatMessage({
+                id: 'component.selectorSync.appliedNeedPublishPermission',
+                defaultMessage: '已同步到草稿，但当前账号无发布权限，请转由有权限成员发布',
+              })
+            : intl.formatMessage(
+                {
+                  id: 'component.selectorSync.appliedAutoPublishFailed',
+                  defaultMessage:
+                    '已同步到草稿（版本 {revision}）；自动发布失败：{reason}，请检查后手动发布',
+                },
+                { revision: resp.draftRevision, reason: resp.autoPublishError },
+              ),
+        );
+      } else {
+        message.success(
+          intl.formatMessage(
+            {
+              id: 'component.selectorSync.applied',
+              defaultMessage: '已应用到草稿（版本 {revision}），请检查后手动发布',
+            },
+            { revision: resp.draftRevision },
+          ),
+        );
+      }
       onApplied?.(resp.draftRevision);
     } catch (err: unknown) {
       message.error(

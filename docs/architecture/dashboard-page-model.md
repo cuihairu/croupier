@@ -541,7 +541,13 @@ menu_items（菜单树） + page_specs.menu_id（挂载） + active PublishedPag
 - 每个 binding 的函数版本、输入/输出 schema digest、风险、权限、执行模式、审批策略和语义 digest。
 - Renderer ABI version 与 generator version。
 
-函数或 CapabilitySemantics 变化后，Server 生成新的 Proposal 并计算 diff。已发布页标记 stale 且拒绝执行；Page Studio 必须提供“查看差异、自动合并安全字段、解决冲突、重新发布”。绝不静默更新 Draft 或 PublishedPageSpec。
+函数或 CapabilitySemantics 变化后，Server 生成新的 Proposal 并计算 diff。已发布页标记 stale 且拒绝执行；Page Studio 必须提供“查看差异、自动合并安全字段、解决冲突、重新发布”。
+
+契约漂移的自动化收口（2026-09，`internal/api/page/stale_heal.go`）：
+
+- **系统愈合循环**（每 5 分钟，actor `system:contract-heal`）对存在发布快照且 freshness 非空的页面自动执行 selector 同步；自动发布仅限**无歧义子集**——输入侧只放行 kept/removed，输出侧再加 shape_updated；`renamed/added/type_changed` 与任何 manual 项只落草稿（rename 是语义判断，实测“唯一候选”启发式会把删旧+增新误判为改名，绝不机器发布）。无变化时不落库（幂等护栏，循环可高频运行）。
+- **用户一键同步**（编辑器/变更面板，`pages:edit` + `pages:publish`）在报告无 manual 时**自动接续发布**（响应 `autoPublished`），一步完成“同步→发布→快照刷新→控制台恢复执行”；无发布权限时降级提示转交有权限成员。
+- 除上述声明路径外，绝不静默更新 Draft 或 PublishedPageSpec。
 
 自动合并的安全集只包含展示类字段：列顺序与显隐、字段 label/help、order、group、widget hint、导航标题、分类 key/order、图标和排序。`visibleWhen` 只有经校验证明不影响 required 输入、binding payload 和 selector 引用时才允许自动合并，否则归入冲突集。执行类字段——bindings、functionId、input/output assignment、confirmation、permissions、risk、approval——出现任何差异都必须人工确认，不得自动合并。
 

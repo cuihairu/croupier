@@ -7,6 +7,12 @@ export default {
   'component.selectorSync.action.renamed': 'Renamed',
   'component.selectorSync.action.shape_updated': 'Shape updated',
   'component.selectorSync.action.type_changed': 'Type changed',
+  'component.selectorSync.appliedAndPublished':
+    'Synced and published automatically (revision {revision}); effective in console immediately',
+  'component.selectorSync.appliedNeedPublishPermission':
+    'Synced to draft, but this account lacks publish permission; ask a member with publish rights',
+  'component.selectorSync.appliedAutoPublishFailed':
+    'Synced to draft (revision {revision}); auto publish failed: {reason} — review and publish manually',
   'component.selectorSync.applied':
     'Applied to the draft (revision {revision}); review it and publish manually',
   'component.selectorSync.apply': 'Apply sync to draft',
