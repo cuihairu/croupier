@@ -38,6 +38,8 @@ jest.mock('@/services/api/functions', () => ({
   diffContractVersions: jest.fn(),
   getContractVersion: jest.fn(),
   getFunctionAnalytics: jest.fn(),
+  // VersionsTab 挂载即拉函数级版本门槛（a92f2281e），mock 缺键会 TypeError
+  getFunctionVersionFloor: jest.fn().mockResolvedValue({ minVersion: '' }),
   listContractVersions: jest.fn(),
   listFunctionWarnings: jest.fn(),
 }));
