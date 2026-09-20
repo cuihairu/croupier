@@ -287,7 +287,7 @@ class Program
                 store.Leaderboard[pid] = e;
                 return H.Resp(new() { ["status"] = "success", ["action"] = "leaderboard.upsert", ["entry"] = e });
             }),
-            ("leaderboard.reset", "danger", "leaderboard", "reset", "action", "task", async (ctx, payload) => {
+            ("leaderboard.reset", "danger", "leaderboard", "reset", "action", "sync", async (ctx, payload) => {
                 store.Leaderboard.Clear();
                 return H.Resp(new() { ["status"] = "success", ["action"] = "leaderboard.reset" });
             }),
@@ -473,11 +473,11 @@ class Program
         "player.get" => (BuildObj("{\"id\":" + SchemaStr + "}", new[] { "id" }), BuildObj(PlayerOutFields)),
         "player.update" => (BuildObj(PlayerFields, new[] { "id" }), BuildObj(PlayerOutFields)),
         "player.delete" => (BuildObj("{\"id\":" + SchemaStr + "}", new[] { "id" }), BuildObj(DeleteOutFields, new[] { "id", "deleted" })),
-        "player.list" => (BuildObj(PaginationFields), Collection(PlayerOutFields)),
-        "order.list" => (BuildObj(PlayerScopedFields), Collection(OrderOutFields)),
-        "leaderboard.list" => (BuildObj(PaginationFields), Collection(LeaderboardOutFields)),
-        "inventory.list" => (BuildObj(PlayerScopedFields, new[] { "playerId" }), Collection(InventoryOutFields)),
-        "mail.list" => (BuildObj(PlayerScopedFields, new[] { "playerId" }), Collection(MailOutFields)),
+        "player.list" => (BuildObj(PaginationFields), Collection(BuildObj(PlayerOutFields))),
+        "order.list" => (BuildObj(PlayerScopedFields), Collection(BuildObj(OrderOutFields))),
+        "leaderboard.list" => (BuildObj(PaginationFields), Collection(BuildObj(LeaderboardOutFields))),
+        "inventory.list" => (BuildObj(PlayerScopedFields, new[] { "playerId" }), Collection(BuildObj(InventoryOutFields))),
+        "mail.list" => (BuildObj(PlayerScopedFields, new[] { "playerId" }), Collection(BuildObj(MailOutFields))),
         "order.create" => (BuildObj("{\"id\":" + SchemaStr + ",\"playerId\":" + SchemaStr + ",\"productId\":" + SchemaStr + ",\"amount\":" + SchemaInt + ",\"currency\":" + SchemaStr + ",\"status\":" + SchemaStr + ",\"channel\":" + SchemaStr + ",\"attributes\":" + SchemaObj + "}", new[] { "playerId" }),
                 BuildObj(OrderOutFields)),
         "order.get" => (BuildObj("{\"id\":" + SchemaStr + "}", new[] { "id" }), BuildObj(OrderOutFields)),

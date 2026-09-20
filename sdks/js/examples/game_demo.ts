@@ -403,111 +403,82 @@ function enrichDescriptor(desc: FunctionDescriptor): FunctionDescriptor {
 
 // Schemas describe the handlers' real wire contract with camelCase JSON
 // keys. snake_case is only allowed inside databases, never on the wire.
-const s = (): { type: string } => ({ type: "string" });
-const i = (): { type: string } => ({ type: "integer" });
+// 与 Go/Python/Java/C#/C++ demo 契约逐一对齐（六语言共享同一契约槽位，
+// 任一语言的简形状/包装形态都会在其他 SDK 重连时覆盖正确 schema，
+// 造成页面绑定反复 stale——线上实证）。基准 = Go demo main.go；
+// scripts/check_demo_contract_parity.py 在 CI 逐槽比对六语言，改这里
+// 必须六语言同步。schema 统一 JSON.parse 字面量：字段集/约束与源码文本
+// 一眼可对，杜绝 helper 组合出的隐性漂移。
+const PLAYER_SCHEMA: Record<string, unknown> = JSON.parse('{"type":"object","properties":{"id":{"type":"string"},"name":{"type":"string"},"level":{"type":"integer"},"vip":{"type":"integer"},"gold":{"type":"integer"},"status":{"type":"string"},"server":{"type":"string"},"createdAt":{"type":"string","format":"date-time"},"updatedAt":{"type":"string","format":"date-time"},"lastLoginAt":{"type":"string","format":"date-time"},"profile":{"type":"object"}}}');
+const ORDER_SCHEMA: Record<string, unknown> = JSON.parse('{"type":"object","properties":{"id":{"type":"string"},"playerId":{"type":"string"},"productId":{"type":"string"},"amount":{"type":"integer"},"currency":{"type":"string"},"status":{"type":"string"},"channel":{"type":"string"},"createdAt":{"type":"string","format":"date-time"},"updatedAt":{"type":"string","format":"date-time"},"attributes":{"type":"object"}}}');
+const LEADERBOARD_SCHEMA: Record<string, unknown> = JSON.parse('{"type":"object","properties":{"id":{"type":"string"},"playerId":{"type":"string"},"playerName":{"type":"string"},"score":{"type":"integer"},"rank":{"type":"integer"},"updatedAt":{"type":"string","format":"date-time"}}}');
+const INVENTORY_SCHEMA: Record<string, unknown> = JSON.parse('{"type":"object","properties":{"id":{"type":"string"},"templateId":{"type":"string"},"name":{"type":"string"},"quantity":{"type":"integer"},"rarity":{"type":"string"},"updatedAt":{"type":"string","format":"date-time"}}}');
+const MAIL_SCHEMA: Record<string, unknown> = JSON.parse('{"type":"object","properties":{"id":{"type":"string"},"playerId":{"type":"string"},"title":{"type":"string"},"content":{"type":"string"},"status":{"type":"string"},"reward":{"type":"object"},"sentAt":{"type":"string","format":"date-time"},"updatedAt":{"type":"string","format":"date-time"},"expireAt":{"type":"string","format":"date-time"}}}');
+const DELETE_SCHEMA: Record<string, unknown> = JSON.parse('{"type":"object","properties":{"id":{"type":"string"},"deleted":{"type":"boolean"}},"required":["id","deleted"]}');
+const RESET_SCHEMA: Record<string, unknown> = JSON.parse('{"type":"object","properties":{"reset":{"type":"boolean"}},"required":["reset"]}');
 
-const PLAYER_FIELDS: Record<string, unknown> = {
-  id: s(), name: s(), level: i(), vip: i(),
-  gold: i(), status: s(), server: s(), profile: { type: "object" },
-};
-const ORDER_FIELDS: Record<string, unknown> = {
-  id: s(), playerId: s(), productId: s(), amount: i(),
-  currency: s(), status: s(), channel: s(), attributes: { type: "object" },
-};
-const PAGINATION: Record<string, unknown> = { page: i(), pageSize: i() };
+// 列表分页输出与 Go demo demoCollectionSchema 对齐（items 为具体记录 schema）。
+const COLLECTION = (item: Record<string, unknown>) => JSON.parse('{"type":"object","properties":{"items":{"type":"array","items":' + JSON.stringify(item) + '},"total":{"type":"integer"},"page":{"type":"integer"},"pageSize":{"type":"integer"}},"required":["items","total","page","pageSize"]}');
 
-// Record output schemas: flat objects matching the handlers' real wire shape
-// (identical to the Go SDK demo contract).
-const dt = (): Record<string, unknown> => ({ type: "string", format: "date-time" });
-const PLAYER_OBJECT: Record<string, unknown> = obj({
-  ...PLAYER_FIELDS, createdAt: dt(), updatedAt: dt(), lastLoginAt: dt(),
-});
-const ORDER_OBJECT: Record<string, unknown> = obj({
-  ...ORDER_FIELDS, createdAt: dt(), updatedAt: dt(),
-});
-const LEADERBOARD_OBJECT: Record<string, unknown> = obj({
-  id: s(), playerId: s(), playerName: s(), score: i(), rank: i(), updatedAt: dt(),
-});
-const ITEM_OBJECT: Record<string, unknown> = obj({
-  id: s(), templateId: s(), name: s(), quantity: i(), rarity: s(), updatedAt: dt(),
-});
-const MAIL_OBJECT: Record<string, unknown> = obj({
-  id: s(), playerId: s(), title: s(), content: s(), status: s(),
-  reward: { type: "object" }, sentAt: dt(), updatedAt: dt(), expireAt: s(),
-});
-const DELETE_OUTPUT: Record<string, unknown> = obj({ id: s(), deleted: { type: "boolean" } }, ["id", "deleted"]);
-
-function listOutput(item?: Record<string, unknown>): Record<string, unknown> {
-  return {
-    type: "object",
-    properties: {
-      items: { type: "array", items: item || { type: "object" } },
-      total: i(), page: i(), pageSize: i(),
-    },
-  };
-}
-
-const LIST_OUTPUT: Record<string, unknown> = listOutput();
+// 复用输入片段：分页 / playerId 过滤 / 按 ID 查询（与五语言共享同一形态）。
+const PAGINATION_IN: Record<string, unknown> = JSON.parse('{"type":"object","properties":{"page":{"type":"integer","minimum":1},"pageSize":{"type":"integer","minimum":1,"maximum":100}}}');
+const PLAYER_SCOPED_PAGINATION_IN: Record<string, unknown> = JSON.parse('{"type":"object","properties":{"playerId":{"type":"string"},"page":{"type":"integer","minimum":1},"pageSize":{"type":"integer","minimum":1,"maximum":100}}}');
+const PLAYER_SCOPED_PAGINATION_REQUIRED_IN: Record<string, unknown> = JSON.parse('{"type":"object","properties":{"playerId":{"type":"string"},"page":{"type":"integer","minimum":1},"pageSize":{"type":"integer","minimum":1,"maximum":100}},"required":["playerId"]}');
+const ID_REQUIRED_IN: Record<string, unknown> = JSON.parse('{"type":"object","properties":{"id":{"type":"string"}},"required":["id"]}');
 
 const SCHEMAS: Record<string, { input: Record<string, unknown>; output: Record<string, unknown> }> = {
-  "player.create": { input: obj({ ...PLAYER_FIELDS }), output: PLAYER_OBJECT },
-  "player.get": { input: obj({ id: s() }, ["id"]), output: PLAYER_OBJECT },
-  "player.update": { input: obj({ ...PLAYER_FIELDS }, ["id"]), output: PLAYER_OBJECT },
-  "player.delete": { input: obj({ id: s() }, ["id"]), output: DELETE_OUTPUT },
-  "player.list": { input: obj({ ...PAGINATION }), output: listOutput(PLAYER_OBJECT) },
-  "order.create": { input: obj({ ...ORDER_FIELDS }), output: ORDER_OBJECT },
-  "order.get": { input: obj({ id: s() }, ["id"]), output: ORDER_OBJECT },
+  "player.create": {
+    input: JSON.parse('{"type":"object","properties":{"id":{"type":"string"},"name":{"type":"string"},"level":{"type":"integer"},"vip":{"type":"integer"},"gold":{"type":"integer"},"status":{"type":"string"},"server":{"type":"string"},"profile":{"type":"object"}}}'),
+    output: PLAYER_SCHEMA,
+  },
+  "player.get": { input: ID_REQUIRED_IN, output: PLAYER_SCHEMA },
+  "player.update": {
+    input: JSON.parse('{"type":"object","properties":{"id":{"type":"string"},"name":{"type":"string"},"level":{"type":"integer"},"vip":{"type":"integer"},"gold":{"type":"integer"},"status":{"type":"string"},"server":{"type":"string"},"profile":{"type":"object"}},"required":["id"]}'),
+    output: PLAYER_SCHEMA,
+  },
+  "player.delete": { input: ID_REQUIRED_IN, output: DELETE_SCHEMA },
+  "player.list": { input: PAGINATION_IN, output: COLLECTION(PLAYER_SCHEMA) },
+  "order.create": {
+    input: JSON.parse('{"type":"object","properties":{"id":{"type":"string"},"playerId":{"type":"string"},"productId":{"type":"string"},"amount":{"type":"integer"},"currency":{"type":"string"},"status":{"type":"string"},"channel":{"type":"string"},"attributes":{"type":"object"}},"required":["playerId"]}'),
+    output: ORDER_SCHEMA,
+  },
+  "order.get": { input: ID_REQUIRED_IN, output: ORDER_SCHEMA },
   "order.update": {
-    input: obj(pick(ORDER_FIELDS, ["id", "status", "channel", "amount", "attributes"]), ["id"]),
-    output: ORDER_OBJECT,
+    input: JSON.parse('{"type":"object","properties":{"id":{"type":"string"},"amount":{"type":"integer"},"status":{"type":"string"},"channel":{"type":"string"},"attributes":{"type":"object"}},"required":["id"]}'),
+    output: ORDER_SCHEMA,
   },
-  "order.delete": { input: obj({ id: s() }, ["id"]), output: DELETE_OUTPUT },
-  "order.list": { input: obj({ playerId: s(), ...PAGINATION }), output: listOutput(ORDER_OBJECT) },
-  "leaderboard.list": { input: obj({ ...PAGINATION }), output: listOutput(LEADERBOARD_OBJECT) },
+  "order.delete": { input: ID_REQUIRED_IN, output: DELETE_SCHEMA },
+  "order.list": { input: PLAYER_SCOPED_PAGINATION_IN, output: COLLECTION(ORDER_SCHEMA) },
+  "leaderboard.list": { input: PAGINATION_IN, output: COLLECTION(LEADERBOARD_SCHEMA) },
   "leaderboard.upsert": {
-    input: obj({ playerId: s(), score: i() }, ["playerId"]),
-    output: LEADERBOARD_OBJECT,
+    input: JSON.parse('{"type":"object","properties":{"playerId":{"type":"string"},"score":{"type":"integer"}},"required":["playerId","score"]}'),
+    output: LEADERBOARD_SCHEMA,
   },
-  "leaderboard.reset": { input: obj({}), output: obj({ reset: { type: "boolean" } }) },
-  "inventory.list": {
-    input: obj({ playerId: s() }, ["playerId"]),
-    output: listOutput(ITEM_OBJECT),
-  },
+  "leaderboard.reset": { input: JSON.parse('{"type":"object","properties":{}}'), output: RESET_SCHEMA },
+  "inventory.list": { input: PLAYER_SCOPED_PAGINATION_REQUIRED_IN, output: COLLECTION(INVENTORY_SCHEMA) },
   "inventory.grant": {
-    input: obj({ playerId: s(), templateId: s(), quantity: i() }, ["playerId", "templateId"]),
-    output: ITEM_OBJECT,
+    input: JSON.parse('{"type":"object","properties":{"playerId":{"type":"string"},"templateId":{"type":"string"},"quantity":{"type":"integer","minimum":1},"name":{"type":"string"},"rarity":{"type":"string"}},"required":["playerId","templateId"]}'),
+    output: INVENTORY_SCHEMA,
   },
   "inventory.consume": {
-    input: obj({ playerId: s(), templateId: s(), quantity: i() }, ["playerId", "templateId"]),
-    output: ITEM_OBJECT,
+    input: JSON.parse('{"type":"object","properties":{"playerId":{"type":"string"},"templateId":{"type":"string"},"quantity":{"type":"integer","minimum":1}},"required":["playerId","templateId"]}'),
+    output: INVENTORY_SCHEMA,
   },
   "mail.send": {
-    input: obj({ playerId: s(), title: s(), content: s(), reward: { type: "object" }, expireAt: s() }, ["playerId"]),
-    output: MAIL_OBJECT,
+    input: JSON.parse('{"type":"object","properties":{"playerId":{"type":"string"},"title":{"type":"string"},"content":{"type":"string"},"reward":{"type":"object"},"expireAt":{"type":"string","format":"date-time"}},"required":["playerId"]}'),
+    output: MAIL_SCHEMA,
   },
-  "mail.list": { input: obj({ playerId: s() }, ["playerId"]), output: listOutput(MAIL_OBJECT) },
+  "mail.list": { input: PLAYER_SCOPED_PAGINATION_REQUIRED_IN, output: COLLECTION(MAIL_SCHEMA) },
   "mail.claim": {
-    input: obj({ playerId: s(), mailId: s() }, ["playerId", "mailId"]),
-    output: MAIL_OBJECT,
+    input: JSON.parse('{"type":"object","properties":{"playerId":{"type":"string"},"id":{"type":"string"}},"required":["playerId","id"]}'),
+    output: MAIL_SCHEMA,
   },
 };
-
-function obj(props: Record<string, unknown>, required?: string[]): Record<string, unknown> {
-  const schema: Record<string, unknown> = { type: "object", properties: props };
-  if (required && required.length > 0) schema.required = required;
-  return schema;
-}
-
-function pick(source: Record<string, unknown>, keys: string[]): Record<string, unknown> {
-  const out: Record<string, unknown> = {};
-  for (const key of keys) if (key in source) out[key] = source[key];
-  return out;
-}
 
 function schemasFor(functionId: string): { input: Record<string, unknown>; output: Record<string, unknown> } {
   return SCHEMAS[functionId] || {
-    input: { type: "object", properties: {} },
-    output: { type: "object", properties: { status: s(), action: s() } },
+    input: JSON.parse('{"type":"object","properties":{}}'),
+    output: JSON.parse('{"type":"object","properties":{"status":{"type":"string"},"action":{"type":"string"}}}'),
   };
 }
 
@@ -548,7 +519,7 @@ async function main(): Promise<void> {
     ["order.list", "order", "safe", "list", "collection_query", orderList(store)],
     ["leaderboard.list", "leaderboard", "safe", "list", "collection_query", leaderboardList(store)],
     ["leaderboard.upsert", "leaderboard", "warning", "upsert", "action", leaderboardUpsert(store)],
-    ["leaderboard.reset", "leaderboard", "high", "reset", "action", leaderboardReset(store)],
+    ["leaderboard.reset", "leaderboard", "danger", "reset", "action", leaderboardReset(store)],
     ["inventory.list", "inventory", "safe", "list", "collection_query", inventoryList(store)],
     ["inventory.grant", "inventory", "warning", "grant", "action", inventoryGrant(store)],
     ["inventory.consume", "inventory", "warning", "consume", "action", inventoryConsume(store)],

@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
-# 六语言 demo 契约兜底文案基线守护（Go 基准）。
+# 六语言 demo 契约基线守护（Go 基准）：兜底文案 grep + 契约十栏逐槽互比。
 # 根因背景：六个 demo 共享同一 (game,env,functionId) 契约槽位，心跳重注册
 # 互相覆盖契约行——任何语言的 summary/description 兜底文案差异都会表现为
 # 契约版本反复翻转（B2 function_contract_versions 可见 updated 振荡）与
 # 已发布页面 bindingFreshness 永久 stale。历史修复：cpp/csharp 对齐（9a85d137c）、
-# python/java schema 对齐（40ea68422）、六语言 summary/description 统一（2026-09）。
-# 修改任一 demo 的描述文案必须六语言同步，否则本脚本失败。
+# python/java schema 对齐（40ea68422）、六语言 summary/description 统一（2026-09）、
+# js demo schema 结构对齐 + 十栏互比（2026-09-20）。
+# 修改任一 demo 的描述文案或契约槽位必须六语言同步，否则本脚本失败。
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -63,7 +64,14 @@ grep -q '"attributes":{"type":"object"}' "$GO" || err "go: order.update schema �
 grep -q 'attributes' "$CS" || err "csharp: order.update schema 缺 attributes"
 grep -qF ',\"attributes\":{\"type\":\"object\"}' "$C" || err "cpp: order.update schema 缺 attributes"
 
+# 7) 六语言契约逐槽互比（十栏结构比对：version/resource/operation/capability/
+#    execution/risk/approvalRequired/approvalPolicyKey/inputSchema/outputSchema）。
+#    文案级 grep 守不住 schema 结构漂移（2026-09-20 实证：js demo 裸辅助函数
+#    缺 minimum/format 约束，重启注册竞态翻转 function_contracts 引发全页 stale）。
+#    Python 解析六份源码逐槽比对，基准 = Go demo；解析不出函数也视为失败。
+python3 scripts/check_demo_contract_parity.py || err "六语言契约互比失败（见上方 drift 输出）"
+
 if [ "$fail" -eq 0 ]; then
-  echo "DEMO-BASELINE OK: 六语言 demo 契约兜底文案与 Go 基线一致"
+  echo "DEMO-BASELINE OK: 六语言 demo 契约兜底文案与 Go 基线一致，十栏互比 PASS"
 fi
 exit "$fail"

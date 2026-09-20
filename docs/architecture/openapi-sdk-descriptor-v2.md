@@ -14,6 +14,8 @@ tag:
 # OpenAPI / SDK Descriptor v2
 
 > **状态**：Current -- 本文是函数注册与页面自动生成的权威契约，已由各 SDK parity 测试与注册边界 guard（`internal/function/registrationguard/`）守护。SDK/OpenAPI 只负责可执行能力，不负责页面设计。
+>
+> **六语言 demo 契约同源**：六语言 SDK demo（go/python/java/js/csharp/cpp）向同一 `(game_id, env)` 注册同名函数，registry 最新注册胜出——任一语言的契约槽位（schema/文案/approval）漂移都会在其他 demo 重启时覆盖正确值，表现为 `function_contract_versions` 反复 updated 与已发布页面 bindingFreshness 永久 stale（2026-09 三起线上实证）。修改任一 demo 的契约必须六语言同步；CI 由 `scripts/check-demo-contract-baseline.sh`（文案基线 + 调用 `scripts/check_demo_contract_parity.py` 十栏逐槽互比，基准 = Go demo）守护，单语言独有函数不参与比对。
 
 ## 目的
 
