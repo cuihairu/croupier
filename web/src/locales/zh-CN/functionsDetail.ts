@@ -156,9 +156,9 @@ export default {
     '#{from} → #{to}：存在破坏性 schema 变更，绑定页面可能需要同步更新',
   'pages.functionsDetail.versions.diffSafe': '#{from} → #{to}：变更兼容',
   'pages.functionsDetail.versions.diffToolbar': '两版对比：',
-  'pages.functionsDetail.versions.floor.title': '版本门槛（最低可注册 SDK 版本）',
+  'pages.functionsDetail.versions.floor.title': '版本门槛（最低函数版本）',
   'pages.functionsDetail.versions.floor.description':
-    'provider 自报 SDK 版本低于该值时，本函数不随注册物化（只产生注册警告）。留空表示不设置。',
+    '函数以低于该值的版本注册时不物化（只产生注册警告）——挡住滚动升级窗口里旧 game server 重注册造成的契约回退。留空表示不设置。',
   'pages.functionsDetail.versions.floor.save': '保存',
   'pages.functionsDetail.versions.floor.clear': '清除',
   'pages.functionsDetail.versions.floor.current': '当前门槛',

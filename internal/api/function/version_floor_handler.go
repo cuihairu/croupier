@@ -12,9 +12,9 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// 函数级最低 SDK 版本门槛 REST 面（scoped by X-Game-ID/X-Env）。
-// 判定语义见 control_handler.evaluateSDKVersionFloor：provider 自报
-// sdk_version 低于配置值时该函数不随注册物化（只产生注册警告）。
+// 函数级最低函数版本门槛 REST 面（scoped by X-Game-ID/X-Env）。
+// 判定语义见 control_handler.evaluateSDKVersionFloor：函数描述符版本
+// 低于配置值时，旧版声明不随注册物化（只产生注册警告）——防契约回退。
 
 type versionFloorResponse struct {
 	FunctionID string `json:"functionId"`

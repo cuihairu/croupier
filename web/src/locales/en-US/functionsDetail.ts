@@ -162,9 +162,9 @@ export default {
     '#{from} → #{to}: contains breaking schema changes; bound pages may need syncing',
   'pages.functionsDetail.versions.diffSafe': '#{from} → #{to}: changes are compatible',
   'pages.functionsDetail.versions.diffToolbar': 'Compare two versions:',
-  'pages.functionsDetail.versions.floor.title': 'Version floor (minimum registrable SDK version)',
+  'pages.functionsDetail.versions.floor.title': 'Version floor (minimum function version)',
   'pages.functionsDetail.versions.floor.description':
-    'When a provider reports an SDK version below this value, this function is not materialized on registration (a registration warning is produced instead). Leave empty to unset.',
+    'When this function registers with a version below the floor, the old declaration is not materialized (a registration warning is produced instead) - blocking contract regression from stale game servers during rolling upgrades. Leave empty to unset.',
   'pages.functionsDetail.versions.floor.save': 'Save',
   'pages.functionsDetail.versions.floor.clear': 'Clear',
   'pages.functionsDetail.versions.floor.current': 'Current floor',

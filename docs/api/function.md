@@ -628,7 +628,7 @@ type versionFloorBatchResponse struct {
 
 ### 说明（版本门槛）
 
-- 函数级版本门槛是「UI 按函数配置的最低可注册 SDK 版本」，判定语义见 `docs/architecture/data-flow.md` §「函数级最低版本（UI 按函数配置）」。
+- 函数级版本门槛是「UI 按函数配置的最低可注册函数版本」（比函数描述符自身 version，与 SDK 版本无关），判定语义见 `docs/architecture/data-flow.md` §「函数级最低版本（UI 按函数配置）」。
 - 单函数三端点：`GET/PUT/DELETE /api/v1/functions/:id/version-floor`（PUT body `{minVersion}`，写需 `functions:manage`；DELETE 物理删行）。
 - 批量 minVersion 非空时服务端先整包校验可解析（`sdkversion.Parseable`），非法 400 且零写入。
 - 版本门槛落 game 库 `function_version_floors` 表（编号迁移 0030）；内存 registry（无 DB）退化为进程内 map。

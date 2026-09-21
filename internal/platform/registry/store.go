@@ -143,8 +143,8 @@ type Store struct {
 	// DB-less registries; DB-backed stores read/write the table directly).
 	sdkHwmMu sync.Mutex
 	sdkHwm   map[string]string
-	// fnFloorMu guards fnFloor (in-memory 函数级版本门槛，DB-less registry
-	// 的退化存储；DB-backed 直接读写 function_version_floors 表)。
+	// fnFloorMu guards fnFloor (in-memory 函数级最低函数版本门槛，DB-less
+	// registry 的退化存储；DB-backed 直接读写 function_version_floors 表)。
 	fnFloorMu sync.Mutex
 	fnFloor   map[string]string
 	// Optional database for dual-write persistence
@@ -209,9 +209,9 @@ const (
 	// 函数不注册（只产生告警），连接保持。配置门槛是绝对下限，优先于
 	// 滑动高水位判定。
 	WarningCodeSDKVersionBelowMinimum = "sdk_version_below_minimum"
-	// WarningCodeFunctionVersionBelowMinimum provider 自报 SDK 版本低于
-	// 函数级配置的最低版本（function_version_floors 表，UI 按函数设置）：
-	// 该函数不随本次注册物化（只产生告警），交叉提供保护一致。
+	// WarningCodeFunctionVersionBelowMinimum 函数描述符自报版本低于函数级
+	// 配置的最低版本（function_version_floors 表，UI 按函数设置）：旧版
+	// 函数声明不随本次注册物化（只产生告警）——防契约回退。
 	WarningCodeFunctionVersionBelowMinimum = "function_version_below_minimum"
 )
 

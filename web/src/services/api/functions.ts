@@ -564,8 +564,8 @@ export async function diffContractVersions(
   };
 }
 
-// 函数级最低 SDK 版本门槛（PUT 需 functions:manage）：
-// provider 自报 sdk_version 低于配置值时，该函数不随注册物化。
+// 函数级最低函数版本门槛（PUT 需 functions:manage）：函数以低于配置值
+// 的版本注册时，旧版声明不随注册物化（防契约回退）。
 export type FunctionVersionFloor = {
   functionId: string;
   minVersion: string;

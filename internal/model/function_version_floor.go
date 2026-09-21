@@ -3,9 +3,10 @@ package model
 import "time"
 
 // FunctionVersionFloor 是平台侧按 (game_id, env, function_id) 配置的最低
-// 可注册 SDK 版本（函数级版本门槛）。provider 自报 sdk_version 低于配置
-// 值时，该函数不随本次注册物化（只产生 function_version_below_minimum
-// 注册警告），交叉提供保护与高水位门槛一致。
+// 可注册函数版本（函数级版本门槛，比的是函数描述符自身的 version，与
+// SDK 版本无关）。旧版函数声明低于配置值时不随本次注册物化（只产生
+// function_version_below_minimum 注册警告）——挡住滚动升级窗口里旧
+// game server 重注册造成的契约回退。
 //
 // 优先级：函数级配置 > registry.sdkVersionMinimums（语言级 yaml）>
 // 滑动高水位（自动观测）。与注册物化解耦存独立表：函数行随重注册
@@ -18,8 +19,8 @@ type FunctionVersionFloor struct {
 	GameID     string `gorm:"size:64;uniqueIndex:idx_fn_floor_game_env_fn" json:"gameId"`
 	Env        string `gorm:"size:64;uniqueIndex:idx_fn_floor_game_env_fn" json:"env"`
 	FunctionID string `gorm:"size:128;uniqueIndex:idx_fn_floor_game_env_fn" json:"functionId"`
-	// MinVersion 是最低可注册版本（semver 数字前缀）。设置时服务端校验
-	// 可解析（sdkversion.Parseable），不可解析值拒绝入库。
+	// MinVersion 是最低可注册函数版本（semver 数字前缀）。设置时服务端
+	// 校验可解析（sdkversion.Parseable），不可解析值拒绝入库。
 	MinVersion string `gorm:"size:32" json:"minVersion"`
 	// UpdatedBy 是最近一次设置/清空的管理员账号（审计用）。
 	UpdatedBy string    `gorm:"size:64" json:"updatedBy"`

@@ -137,12 +137,14 @@ registry:
 
 #### 函数级最低版本（UI 按函数配置）
 
-除语言级 yaml 外，还可对**单个函数**设置最低可注册 SDK 版本：函数详情页「变更历史」tab 顶部的「版本门槛」卡片（`GET/PUT/DELETE /api/v1/functions/:id/version-floor`，写需 `functions:manage`），落 game 库 `function_version_floors` 表（编号迁移 0030）。
+除语言级 yaml 外，还可对**单个函数**设置最低可注册**函数版本**（比函数描述符自身的 `version`，与 SDK 版本无关）：函数详情页「变更历史」tab 顶部的「版本门槛」卡片，或函数目录勾选后「批量设置门槛」（`GET/PUT/DELETE /api/v1/functions/:id/version-floor` + 批量端点，写需 `functions:manage`），落 game 库 `function_version_floors` 表（编号迁移 0030）。
 
-- **判定粒度是函数不是进程**：provider 进程整体达标（语言级/高水位放行）后逐函数再判——低于该函数配置值的声明单独不物化，同进程其他达标函数照常注册；写 `function_version_below_minimum` 注册警告（fid 附各自门槛值），交叉提供保护一致。
-- **优先级**：函数级配置 > `registry.sdkVersionMinimums`（语言级）> 滑动高水位（自动）。
+- **防契约回退**：滚动升级窗口里旧 game server 的重注册会把物化契约刷回旧版（契约振荡 → 页面 stale 的主要触发源）；低于配置值的旧版函数声明不物化，写 `function_version_below_minimum` 注册警告（随 `RegisterResponse.warnings` 返回），契约永不回退。
+- **判定粒度是函数**：逐描述符判定（`req.Functions` 的 `version`），同请求里其他达标函数照常注册；不依赖进程自报（无 processes 的纯游戏服直连也生效）。
+- **与 SDK 版本门槛正交**：SDK 门槛（高水位/语言级 yaml）管车队升级，函数版本门槛管契约不回退；语义化版本比较复用同一 `sdkversion` 包。
 - 与注册物化解耦存独立表：函数行随重注册 upsert，平台设置不会被描述符回写冲掉；清空即物理删行（唯一索引不被软删残留占住）。
-- 同样保守：provider 未自报版本或版本不可解析时不触发；配置值入库前服务端校验可解析（`sdkversion.Parseable`）。
+- 平台上函数版本恒为可解析 semver：上游注册校验已按 `invalid_version` 拒绝空/非法版本（根本到不了门槛）；配置值入库前服务端同样校验可解析（`sdkversion.Parseable`）。
+- **已知边界**：唯一 provider 的版本低于门槛时函数不可用（警告可见），这是「低于配置值不注册」语义的直接结果。
 
 **批量入口（函数目录页）**：典型场景是 SDK 全量升级后把一批函数的门槛统一收口，逐个进详情页不可接受。函数目录页表格支持勾选多函数后浮出批量操作条（「批量设置门槛」/「批量清除」），并新增「最低SDK版本」列回显当前门槛：
 

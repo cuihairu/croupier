@@ -934,15 +934,20 @@ type sdkFloorOutcome struct {
 	raises   []sdkFloorRaise
 }
 
-// evaluateSDKVersionFloor 按 (game_id, env, sdk_language) 的历史最高 SDK
-// 版本（高水位）评估注册请求中的 provider 进程（sdkversion 三档判定）：
+// evaluateSDKVersionFloor 两道判定：
 //
-//   - 配置了 registry.sdkVersionMinimums 的语言，自报版本低于配置值
+//  1. 函数级最低函数版本（function_version_floors）：比描述符自身
+//     version，旧版函数声明不物化（防契约回退），逐函数告警；
+//
+//  2. 按 (game_id, env, sdk_language) 的历史最高 SDK 版本（高水位）
+//     评估注册请求中的 provider 进程（sdkversion 三档判定）：
+//
+//     - 配置了 registry.sdkVersionMinimums 的语言，自报版本低于配置值
 //     的进程直接拒注册（绝对下限，优先于高水位判定，无高水位也生效）；
-//   - 无 sdk_language/sdk_version 自报的进程（自定义游戏服直连）不参与
+//     - 无 sdk_language/sdk_version 自报的进程（自定义游戏服直连）不参与
 //     门槛，函数照常放行且不抬升高水位；
-//   - 版本解析失败的进程一律放行（门槛只在两端都可解析时生效）；
-//   - 落后超容忍窗（低 2 个及以上 minor 或 1 个及以上 major）的进程，
+//     - 版本解析失败的进程一律放行（门槛只在两端都可解析时生效）；
+//     - 落后超容忍窗（低 2 个及以上 minor 或 1 个及以上 major）的进程，
 //     其独占声明的函数从本次注册中剔除——多个进程交叉提供同一函数时，
 //     只要任一放行进程也声明了该函数就不剔（避免误伤），即使其声明者
 //     部分被拒。
@@ -953,9 +958,6 @@ type sdkFloorOutcome struct {
 // RegisterResponse.warnings 传达 agent 日志。
 func (s *ControlService) evaluateSDKVersionFloor(ctx context.Context, req *agentv1.RegisterRequest, warningTexts *[]string) sdkFloorOutcome {
 	outcome := sdkFloorOutcome{rejected: map[string]bool{}}
-	if len(req.Processes) == 0 {
-		return outcome
-	}
 	rejectedByProc := map[string][]string{} // service_id -> 被拒声明的函数
 	allowedDeclared := map[string]bool{}    // 任一放行进程声明的函数
 	// 函数级最低版本门槛（function_version_floors 表，UI 按函数配置）：
@@ -963,16 +965,36 @@ func (s *ControlService) evaluateSDKVersionFloor(ctx context.Context, req *agent
 	// 同进程其他达标函数），优先级高于语言级 yaml 与高水位（后两者是
 	// 进程级判定，函数级在放行路径上再叠一层）。未自报版本的进程
 	// （SdkVersion 为空）Below 恒 false，不受函数级门槛限制（保守一致）。
+	// 函数级最低版本门槛（function_version_floors 表，UI 按函数配置）：
+	// 比的是函数描述符自身的版本，与 SDK 版本无关——滚动升级窗口里
+	// 旧 game server 的重注册会把物化契约刷回旧版（契约回退/振荡），
+	// 低于配置值的旧版函数声明不物化（只产生告警），契约永不回退。
+	// 版本不可解析（空/"unknown"）不触发（保守一致，Below 恒 false）。
 	fnFloors := s.registry.GetFunctionVersionFloors(req.GameId, req.Env)
-	fnRejected := map[string][]string{} // service_id -> 函数级被拒的 "fid(<min)"
-	allowWithFloor := func(p *agentv1.AgentProcess) {
-		for _, fid := range p.FunctionIds {
-			if min, ok := fnFloors[fid]; ok && sdkversion.Below(p.SdkVersion, min) {
-				fnRejected[p.ServiceId] = append(fnRejected[p.ServiceId], fid+"(<"+min+")")
-				continue
-			}
-			allowedDeclared[fid] = true
+	for _, f := range req.Functions {
+		if f == nil || f.Id == "" {
+			continue
 		}
+		min, ok := fnFloors[f.Id]
+		if !ok || min == "" {
+			continue
+		}
+		if sdkversion.Below(f.Version, min) {
+			outcome.rejected[f.Id] = true
+			msg := fmt.Sprintf("function_id=%s version=%s below configured minimum %s: function registration rejected", f.Id, f.Version, min)
+			*warningTexts = append(*warningTexts, msg)
+			s.logger.Warn("function version floor rejected registration", "agent_id", req.AgentId, "function_id", f.Id, "function_version", f.Version, "configured_minimum", min)
+			s.registry.UpsertRegistrationWarning(ctx, reg.FunctionRegistrationWarning{
+				GameID:  req.GameId,
+				Env:     req.Env,
+				AgentID: req.AgentId,
+				Code:    reg.WarningCodeFunctionVersionBelowMinimum,
+				Message: msg,
+			})
+		}
+	}
+	if len(req.Processes) == 0 {
+		return outcome
 	}
 	for _, p := range req.Processes {
 		if p == nil || p.ServiceId == "" {
@@ -1005,13 +1027,17 @@ func (s *ControlService) evaluateSDKVersionFloor(ctx context.Context, req *agent
 		floor := s.registry.GetSDKVersionFloor(req.GameId, req.Env, language)
 		switch sdkversion.Compare(p.SdkVersion, floor) {
 		case sdkversion.VerdictAllow:
-			allowWithFloor(p)
+			for _, fid := range p.FunctionIds {
+				allowedDeclared[fid] = true
+			}
 			// 不可解析版本 Compare 恒 Allow，但高水位只记可解析版本。
 			if sdkversion.Parseable(p.SdkVersion) {
 				outcome.raises = append(outcome.raises, sdkFloorRaise{language: language, version: p.SdkVersion})
 			}
 		case sdkversion.VerdictAllowWithWarning:
-			allowWithFloor(p)
+			for _, fid := range p.FunctionIds {
+				allowedDeclared[fid] = true
+			}
 			msg := fmt.Sprintf("service_id=%s sdk=%s/%s behind high watermark %s: registration accepted, upgrade the SDK", p.ServiceId, language, p.SdkVersion, floor)
 			*warningTexts = append(*warningTexts, msg)
 			s.logger.Warn("sdk version behind high watermark", "agent_id", req.AgentId, "service_id", p.ServiceId, "sdk_language", language, "sdk_version", p.SdkVersion, "high_watermark", floor)
@@ -1036,21 +1062,6 @@ func (s *ControlService) evaluateSDKVersionFloor(ctx context.Context, req *agent
 			})
 		}
 	}
-	// 函数级门槛拒绝：按进程聚合一条告警（fid(<min) 列出各函数的门槛
-	// 值），拒绝集与进程级判定共用同一交叉提供保护。
-	for serviceID, fids := range fnRejected {
-		rejectedByProc[serviceID] = append(rejectedByProc[serviceID], bareFunctionIDs(fids)...)
-		msg := fmt.Sprintf("service_id=%s sdk below function configured minimum: function registration rejected (%d functions: %s)", serviceID, len(fids), strings.Join(fids, ", "))
-		*warningTexts = append(*warningTexts, msg)
-		s.logger.Warn("function version floor rejected registration", "agent_id", req.AgentId, "service_id", serviceID, "functions", fids)
-		s.registry.UpsertRegistrationWarning(ctx, reg.FunctionRegistrationWarning{
-			GameID:  req.GameId,
-			Env:     req.Env,
-			AgentID: req.AgentId,
-			Code:    reg.WarningCodeFunctionVersionBelowMinimum,
-			Message: msg,
-		})
-	}
 	for _, fids := range rejectedByProc {
 		for _, fid := range fids {
 			// 交叉提供保护：任一放行进程（或无 SDK 自报进程）也声明该函数
@@ -1061,20 +1072,6 @@ func (s *ControlService) evaluateSDKVersionFloor(ctx context.Context, req *agent
 		}
 	}
 	return outcome
-}
-
-// bareFunctionIDs 把 "fid(<min)" 展示串还原为裸函数 id（拒绝集与
-// allowedDeclared 的 key 都是裸 id）。
-func bareFunctionIDs(annotated []string) []string {
-	out := make([]string, 0, len(annotated))
-	for _, item := range annotated {
-		if i := strings.Index(item, "(<"); i > 0 {
-			out = append(out, item[:i])
-			continue
-		}
-		out = append(out, item)
-	}
-	return out
 }
 
 func (s *ControlService) handleRegisterCapabilitiesRequest(ctx context.Context, req *agentv1.RegisterCapabilitiesRequest) (*agentv1.RegisterCapabilitiesResponse, error) {

@@ -72,7 +72,7 @@ describe('BatchFloorModal', () => {
   it('文案含已选数量', () => {
     renderModal(true);
     expect(
-      screen.getByText('将把已选 2 个函数的最低可注册 SDK 版本统一设为输入值。'),
+      screen.getByText('将把已选 2 个函数的最低可注册函数版本统一设为输入值。'),
     ).toBeInTheDocument();
   });
 

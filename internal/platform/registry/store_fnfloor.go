@@ -13,7 +13,8 @@ import (
 	"github.com/cuihairu/croupier/internal/platform/registry/sdkversion"
 )
 
-// 函数级最低 SDK 版本门槛存取（判定见 control_handler.evaluateSDKVersionFloor）。
+// 函数级最低函数版本门槛存取（判定见 control_handler.evaluateSDKVersionFloor，
+// 比的是函数描述符自身的 version，与 SDK 版本无关）。
 // DB 模式：落 game 库 function_version_floors 表（经 scopeContext 解析 per-game
 // 连接，对齐高水位/契约物化路径）。表模型在 internal/model（migration/0030），
 // 但 registry 不能 import model（agent_session_model 反向依赖本包，import

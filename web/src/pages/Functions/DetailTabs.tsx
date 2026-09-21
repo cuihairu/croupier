@@ -707,14 +707,14 @@ export function VersionsTab({ functionId }: { functionId: string }) {
         size="small"
         title={intl.formatMessage({
           id: 'pages.functionsDetail.versions.floor.title',
-          defaultMessage: '版本门槛（最低可注册 SDK 版本）',
+          defaultMessage: '版本门槛（最低函数版本）',
         })}
       >
         <Space wrap>
           <Typography.Text type="secondary">
             <FormattedMessage
               id="pages.functionsDetail.versions.floor.description"
-              defaultMessage="provider 自报 SDK 版本低于该值时，本函数不随注册物化（只产生注册警告）。留空表示不设置。"
+              defaultMessage="函数以低于该值的版本注册时不物化（只产生注册警告）——挡住滚动升级窗口里旧 game server 重注册造成的契约回退。留空表示不设置。"
             />
           </Typography.Text>
           <Input

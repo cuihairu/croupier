@@ -432,13 +432,13 @@ func TestSDKVersionFloor_ConfiguredMinimumCrossProvidedKept(t *testing.T) {
 	assert.True(t, found)
 }
 
-// 函数级最低版本（function_version_floors）：进程整体达标（语言级/高水位
-// 均放行）但某函数配置了更高门槛时，只拒该函数——同进程其他达标函数
-// 照常注册；拒绝以 function_version_below_minimum 告警 + response
-// warnings 双通道传达。
+// 函数级最低函数版本（function_version_floors）：比的是描述符自身的
+// version——player.ban 以 1.0.0 注册、门槛 2.0.0 时不物化（防契约回退），
+// 同请求里无门槛的 player.list 照常注册；拒绝以
+// function_version_below_minimum 告警 + response warnings 双通道传达。
 func TestFunctionVersionFloor_RejectsOnlyFlooredFunction(t *testing.T) {
 	svc := newScopeTestService(t)
-	require.NoError(t, svc.registry.SetFunctionVersionFloor("game-1", "dev", "player.ban", "0.3.0", "admin"))
+	require.NoError(t, svc.registry.SetFunctionVersionFloor("game-1", "dev", "player.ban", "2.0.0", "admin"))
 	ctx := context.Background()
 
 	resp, err := svc.handleRegisterRequest(ctx, &agentv1.RegisterRequest{
@@ -449,37 +449,34 @@ func TestFunctionVersionFloor_RejectsOnlyFlooredFunction(t *testing.T) {
 			{Id: "player.ban", Version: "1.0.0", Enabled: true},
 			{Id: "player.list", Version: "1.0.0", Enabled: true},
 		},
-		Processes: []*agentv1.AgentProcess{
-			{ServiceId: "svc-go", SdkLanguage: "go", SdkVersion: "0.2.0", FunctionIds: []string{"player.ban", "player.list"}, GameId: "game-1", Env: "dev"},
-		},
 	}, "")
 	require.NoError(t, err, "rejection must keep the connection (no register error)")
 
 	sess := svc.registry.AgentsUnsafe()["agent-fnfloor"]
 	require.NotNil(t, sess)
-	assert.NotContains(t, sess.Functions, "player.ban", "below function floor must not register")
-	assert.Contains(t, sess.Functions, "player.list", "unfloored function of the same process must register")
+	assert.NotContains(t, sess.Functions, "player.ban", "old function version must not materialize")
+	assert.Contains(t, sess.Functions, "player.list", "unfloored function must register")
 
 	got := svc.registry.ListRegistrationWarnings(registry.RegistrationWarningFilter{
 		GameID: "game-1", Env: "dev", AgentID: "agent-fnfloor", Code: registry.WarningCodeFunctionVersionBelowMinimum,
 	})
 	require.Len(t, got, 1)
-	assert.Contains(t, got[0].Message, "player.ban(<0.3.0)")
-	assert.Contains(t, got[0].Message, "svc-go")
+	assert.Contains(t, got[0].Message, "player.ban")
+	assert.Contains(t, got[0].Message, "version=1.0.0 below configured minimum 2.0.0")
 
 	var found bool
 	for _, w := range resp.GetWarnings() {
-		if strings.Contains(w, "below function configured minimum") && strings.Contains(w, "player.ban") {
+		if strings.Contains(w, "below configured minimum") && strings.Contains(w, "player.ban") {
 			found = true
 		}
 	}
 	assert.True(t, found, "response warnings must carry the rejection, got %v", resp.GetWarnings())
 }
 
-// 达标的 provider 注册后函数级门槛不拦（版本 ≥ 配置值）。
+// 描述符版本等于/高于门槛：正常注册，无告警。
 func TestFunctionVersionFloor_AllowsAtOrAbove(t *testing.T) {
 	svc := newScopeTestService(t)
-	require.NoError(t, svc.registry.SetFunctionVersionFloor("game-1", "dev", "player.ban", "0.3.0", "admin"))
+	require.NoError(t, svc.registry.SetFunctionVersionFloor("game-1", "dev", "player.ban", "1.0.0", "admin"))
 	ctx := context.Background()
 
 	resp, err := svc.handleRegisterRequest(ctx, &agentv1.RegisterRequest{
@@ -489,56 +486,56 @@ func TestFunctionVersionFloor_AllowsAtOrAbove(t *testing.T) {
 		Functions: []*agentv1.FunctionDescriptor{
 			{Id: "player.ban", Version: "1.0.0", Enabled: true},
 		},
-		Processes: []*agentv1.AgentProcess{
-			{ServiceId: "svc-go", SdkLanguage: "go", SdkVersion: "0.3.0", FunctionIds: []string{"player.ban"}, GameId: "game-1", Env: "dev"},
-		},
 	}, "")
 	require.NoError(t, err)
 	assert.Empty(t, resp.GetWarnings())
 	assert.Contains(t, svc.registry.AgentsUnsafe()["agent-fnok"].Functions, "player.ban")
 }
 
-// 交叉提供保护：低于函数级门槛的进程与达标进程交叉声明同一函数时，
-// 函数保留（拒绝不造成可用性缺口），但拒绝告警照常记录。
-func TestFunctionVersionFloor_CrossProvidedKept(t *testing.T) {
+// 版本不可解析（空串/"unknown"）：根本到不了门槛——上游注册校验已按
+// invalid_version 拒绝（"invalid semver and skipped"），不产生
+// function_version_below_minimum 告警。即平台上的函数版本恒为可解析
+// semver，门槛的 Below 判定始终有意义。
+func TestFunctionVersionFloor_UnparseableRejectedUpstream(t *testing.T) {
 	svc := newScopeTestService(t)
-	require.NoError(t, svc.registry.SetFunctionVersionFloor("game-1", "dev", "player.list", "0.3.0", "admin"))
+	require.NoError(t, svc.registry.SetFunctionVersionFloor("game-1", "dev", "player.ban", "2.0.0", "admin"))
 	ctx := context.Background()
 
-	resp, err := svc.handleRegisterRequest(ctx, &agentv1.RegisterRequest{
-		AgentId: "agent-fncross",
-		GameId:  "game-1",
-		Env:     "dev",
-		Functions: []*agentv1.FunctionDescriptor{
-			{Id: "player.list", Version: "1.0.0", Enabled: true},
-		},
-		Processes: []*agentv1.AgentProcess{
-			{ServiceId: "svc-old", SdkLanguage: "go", SdkVersion: "0.1.0", FunctionIds: []string{"player.list"}, GameId: "game-1", Env: "dev"},
-			{ServiceId: "svc-new", SdkLanguage: "go", SdkVersion: "0.3.0", FunctionIds: []string{"player.list"}, GameId: "game-1", Env: "dev"},
-		},
-	}, "")
-	require.NoError(t, err)
-	assert.Contains(t, svc.registry.AgentsUnsafe()["agent-fncross"].Functions, "player.list",
-		"cross-provided function must survive the rejection")
+	for _, tc := range []struct{ agent, version string }{
+		{"agent-fn-v-empty", ""},
+		{"agent-fn-v-unknown", "unknown"},
+	} {
+		resp, err := svc.handleRegisterRequest(ctx, &agentv1.RegisterRequest{
+			AgentId: tc.agent,
+			GameId:  "game-1",
+			Env:     "dev",
+			Functions: []*agentv1.FunctionDescriptor{
+				{Id: "player.ban", Version: tc.version, Enabled: true},
+			},
+		}, "")
+		require.NoError(t, err)
+		assert.NotContains(t, svc.registry.AgentsUnsafe()[tc.agent].Functions, "player.ban",
+			"unparseable version %q is rejected by upstream validation", tc.version)
 
-	got := svc.registry.ListRegistrationWarnings(registry.RegistrationWarningFilter{
-		GameID: "game-1", Env: "dev", AgentID: "agent-fncross", Code: registry.WarningCodeFunctionVersionBelowMinimum,
-	})
-	require.Len(t, got, 1)
-	assert.Contains(t, got[0].Message, "svc-old")
-	var found bool
-	for _, w := range resp.GetWarnings() {
-		if strings.Contains(w, "below function configured minimum") {
-			found = true
+		floorWarnings := svc.registry.ListRegistrationWarnings(registry.RegistrationWarningFilter{
+			GameID: "game-1", Env: "dev", AgentID: tc.agent, Code: registry.WarningCodeFunctionVersionBelowMinimum,
+		})
+		assert.Empty(t, floorWarnings, "floor must not fire on unparseable versions")
+
+		var found bool
+		for _, w := range resp.GetWarnings() {
+			if strings.Contains(w, "invalid semver") {
+				found = true
+			}
 		}
+		assert.True(t, found, "upstream invalid_version warning expected, got %v", resp.GetWarnings())
 	}
-	assert.True(t, found)
 }
 
-// 清空函数级门槛后，此前被拒的版本照常注册（设置可逆）。
+// 清空函数级门槛后，此前被拒的旧版本照常注册（设置可逆）。
 func TestFunctionVersionFloor_ClearedFloorRegisters(t *testing.T) {
 	svc := newScopeTestService(t)
-	require.NoError(t, svc.registry.SetFunctionVersionFloor("game-1", "dev", "player.ban", "0.3.0", "admin"))
+	require.NoError(t, svc.registry.SetFunctionVersionFloor("game-1", "dev", "player.ban", "2.0.0", "admin"))
 	require.NoError(t, svc.registry.DeleteFunctionVersionFloor("game-1", "dev", "player.ban"))
 	ctx := context.Background()
 
@@ -548,9 +545,6 @@ func TestFunctionVersionFloor_ClearedFloorRegisters(t *testing.T) {
 		Env:     "dev",
 		Functions: []*agentv1.FunctionDescriptor{
 			{Id: "player.ban", Version: "1.0.0", Enabled: true},
-		},
-		Processes: []*agentv1.AgentProcess{
-			{ServiceId: "svc-go", SdkLanguage: "go", SdkVersion: "0.1.0", FunctionIds: []string{"player.ban"}, GameId: "game-1", Env: "dev"},
 		},
 	}, "")
 	require.NoError(t, err)

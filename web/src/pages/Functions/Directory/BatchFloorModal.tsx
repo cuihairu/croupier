@@ -56,7 +56,7 @@ export default function BatchFloorModal({
         message={intl.formatMessage(
           {
             id: 'pages.functionsDirectory.batch.modalDescription',
-            defaultMessage: '将把已选 {count} 个函数的最低可注册 SDK 版本统一设为输入值。',
+            defaultMessage: '将把已选 {count} 个函数的最低可注册函数版本统一设为输入值。',
           },
           { count },
         )}
@@ -65,7 +65,7 @@ export default function BatchFloorModal({
       <Text strong>
         {intl.formatMessage({
           id: 'pages.functionsDirectory.batch.versionLabel',
-          defaultMessage: '最低 SDK 版本',
+          defaultMessage: '最低函数版本',
         })}
       </Text>
       <Input
