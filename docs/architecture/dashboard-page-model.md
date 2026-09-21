@@ -516,6 +516,8 @@ JSON Schema 是函数输入/输出的持久化标准；表单展示由 `FormPres
 
 `FormPresentationSpec` 只负责表单展示，不改变 FunctionContract payload；保存和发布都必须经过服务端结构校验，校验失败必须报错并要求管理员修复。表单 runtime 固定为 `@rjsf/antd + @rjsf/validator-ajv8`，项目内禁止并行保留第二套表单运行时。
 
+**无 schema 兜底（单 payload 字段）**：函数没有 `inputSchema` 时，页面生成器不再产出空表单（渲染为空白废页），而是兑现 normalizer 诊断（`input_schema_missing`）的承诺——生成单 `payload` 字段的表单（JSON 文本域，`widget: JSON`，双语 label/描述）。已知边界：payload 是包裹键，提交的请求体为 `{"payload": "<用户输入 JSON 文本>"}`，执行链不解包；要获得真表单应在注册侧补 schema（openapi provider 已自动推导，见 [Agent Providers](../guide/integrations/agent-providers.md)）。
+
 ## Scope、菜单、发布与演进
 
 页面身份固定为：

@@ -78,7 +78,7 @@ providers:
 ## 函数注册规则
 
 - **函数 ID**：`<provider名>.<operationId>`，例如 provider `players` + `operationId: player.list` → `players.player.list`。`operationId` 必须稳定——改名等于换函数。
-- **契约来源**：summary / description / inputSchema（request body）/ outputSchema（response）全部来自 OpenAPI 文档。
+- **契约来源**：summary / description / tags / x-* 治理字段来自 OpenAPI 文档；**inputSchema 自动推导**——parameters（path/query/header/cookie，调用期均从调用方 payload 取值）逐个成为顶层属性，`application/json` requestBody 为 object 时其 properties/required 合并进顶层，其他形状归入 `body` 属性。已知边界：仅解析本地 `$ref`（`#/components/...`，循环引用按深度 16 截断为空对象，悬空引用退化为空 schema，非本地引用原样保留）；outputSchema 当前不推导（注册为空，页面详情列依赖函数实际返回）。
 - **capability 推导**（method + path 形状，高置信度）：
 
   | 形状                                    | capability           |
@@ -125,3 +125,5 @@ go run ./examples/openapi-provider -server 127.0.0.1:19090 -http 127.0.0.1:8091
 
 - OpenAPI 文档只描述 API 契约与能力语义；页面 schema、菜单、多语言、按钮位置等 UI 信息一律不允许进入，导入器遇到会报 diagnostics（见 [OpenAPI 输入边界](openapi-registration.md#openapi-输入边界)）。
 - 文档支持外部 URL 拉取（provider 场景）；Dashboard OpenAPI Source 上传则必须内联（≤2MiB，拒绝外部 `$ref`）——两条路径的边界不同，注意区分。
+- 自动推导的 inputSchema 是调用方视角的合成 schema（parameters + requestBody 合并），与 API 实际 body 结构未必一一对应：无 requestBody 的操作得到空 object schema；调用期仍按既有 ParameterMapping/RequestBodyMapping 组装请求，schema 只驱动表单与契约展示。
+- 注册链语义相等跳写照常生效：升级 Agent 后已注册函数的 inputSchema 从空变为有值属内容变更，会正常落新契约版本；仪表盘已发布页面需重新生成/发布才会获得真表单。

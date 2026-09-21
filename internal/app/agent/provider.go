@@ -176,6 +176,10 @@ func (m *ProviderManager) initProvider(ctx context.Context, name string, entry P
 				desc.Operation = details.Operation
 				desc.Capability = details.Capability
 				desc.Execution = details.Execution
+				// Derived from parameters + request body so the server-side
+				// contract carries a real input schema (dashboard forms are
+				// generated from it, not from the call-time mappings below).
+				desc.InputSchema = details.InputSchema
 				if details.Version != "" {
 					if versionutil.IsValid(details.Version) {
 						desc.Version = details.Version

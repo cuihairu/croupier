@@ -188,6 +188,11 @@ type APIMethod struct {
 	Enabled    bool   `yaml:"x-enabled" json:"x-enabled"`       // x-enabled: whether this function is enabled
 	Permission string `yaml:"x-permission" json:"x-permission"` // x-permission: optional permission identifier
 	Version    string `yaml:"x-version" json:"x-version"`       // x-version: per-operation semver override (falls back to batch default)
+
+	// InputSchema is the JSON Schema (JSON text) derived from the operation's
+	// parameters and application/json request body (see extractInputSchema).
+	// Derived from the spec; methods declared only in config stay empty.
+	InputSchema string `yaml:"input_schema" json:"inputSchema"`
 }
 
 // ParameterMapping defines how to map a parameter.
@@ -288,6 +293,10 @@ type MethodDetails struct {
 	Enabled    bool   // x-enabled
 	Permission string // x-permission
 	Version    string // x-version (per-operation semver override; may be empty)
+
+	// InputSchema is the JSON Schema (JSON text) derived from the operation's
+	// parameters and application/json request body (see extractInputSchema).
+	InputSchema string
 }
 
 // NewProvider creates a new OpenAPI provider.
@@ -576,6 +585,7 @@ func (p *Provider) parseOpenAPISpec(spec []byte) error {
 				Enabled:     enabled,
 				Permission:  permission,
 				Version:     strings.TrimSpace(versionOverride),
+				InputSchema: extractInputSchema(methodObj, openapi),
 			}
 
 			p.methodMap[methodName] = apiMethod
@@ -767,6 +777,7 @@ func (p *Provider) GetMethodDetails() map[string]*MethodDetails {
 			Enabled:     method.Enabled,
 			Permission:  method.Permission,
 			Version:     method.Version,
+			InputSchema: method.InputSchema,
 		}
 	}
 	return result

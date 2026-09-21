@@ -598,7 +598,9 @@ func taskOutputShapeForPointer(outputSchema spec.JSONSchema, pointer string) spe
 func buildFormPresentation(op spec.OperationSpec, opts GenerateOptions) *spec.FormPresentationSpec {
 	fn, ok := opts.Functions[op.FunctionID]
 	if !ok || len(fn.InputSchema) == 0 {
-		return spec.DefaultFormPresentation(spec.JSONSchema(`{"type":"object","properties":{}}`))
+		// 兑现 normalizer「single payload field」承诺：无 schema 函数也能得到
+		// 一个可操作的表单（单 JSON 文本字段），而不是渲染为空的废页。
+		return payloadOnlyFormPresentation()
 	}
 	fp := spec.DefaultFormPresentation(fn.InputSchema)
 	// 自动生成字段展示信息（如果 schema 中没有 title）

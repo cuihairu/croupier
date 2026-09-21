@@ -808,3 +808,62 @@ providers:
 			bare[0].Metadata["gameId"], bare[0].Metadata["env"])
 	}
 }
+
+// provider 方法描述必须透传 openapi spec 推导出的 inputSchema——
+// 服务端契约落库与仪表盘表单生成都依赖它（players.* 空表单根因）。
+func TestProviderManagerLoadCarriesInputSchema(t *testing.T) {
+	specServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{
+		  "openapi": "3.0.3",
+		  "info": {"version": "1.0.0"},
+		  "paths": {"/players/{id}": {"delete": {
+		    "operationId": "player.delete",
+		    "parameters": [{"name": "id", "in": "path", "required": true, "schema": {"type": "string"}}]
+		  }}}
+		}`))
+	}))
+	defer specServer.Close()
+
+	tmpDir, err := os.MkdirTemp("", "provider-input-schema-*")
+	if err != nil {
+		t.Fatalf("failed to create temp dir: %v", err)
+	}
+	defer func() { _ = os.RemoveAll(tmpDir) }()
+
+	configContent := `
+providers:
+  players:
+    enabled: true
+    type: openapi
+    game_id: demo
+    env: dev
+    config:
+      openapiSpec: "` + specServer.URL + `"
+`
+	if err := os.WriteFile(filepath.Join(tmpDir, "providers.yaml"), []byte(configContent), 0644); err != nil {
+		t.Fatalf("failed to write config: %v", err)
+	}
+
+	store := agentlocal.NewLocalStore()
+	pm := NewProviderManager(store, tmpDir, nil)
+	if err := pm.Load(context.Background()); err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+
+	meta := store.FunctionMetadata()["players.player.delete"]
+	if meta == nil {
+		t.Fatal("players.player.delete not registered")
+	}
+	if meta.InputSchema == "" {
+		t.Fatal("registered function must carry the derived inputSchema")
+	}
+	var schema map[string]interface{}
+	if err := json.Unmarshal([]byte(meta.InputSchema), &schema); err != nil {
+		t.Fatalf("InputSchema is not valid JSON: %v", err)
+	}
+	props, _ := schema["properties"].(map[string]interface{})
+	if _, ok := props["id"]; !ok {
+		t.Errorf("path parameter should be in input schema, got %v", schema)
+	}
+}
