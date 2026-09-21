@@ -604,6 +604,37 @@ export async function deleteFunctionVersionFloor(functionId: string): Promise<vo
   });
 }
 
+// 批量面（写需 functions:manage）：函数目录「最低SDK版本」列数据源 +
+// 目录页勾选批量设置/清除。清除 = minVersion 传空串（对齐单函数 DELETE）。
+export async function listFunctionVersionFloors(): Promise<Record<string, string>> {
+  const response = await request<{ floors?: Record<string, string> }>(
+    '/api/v1/functions/version-floors',
+  );
+  return response?.floors ?? {};
+}
+
+export type FunctionVersionFloorBatchResult = {
+  updated: number;
+  failed: string[];
+};
+
+export async function batchSetFunctionVersionFloor(
+  functionIds: string[],
+  minVersion: string,
+): Promise<FunctionVersionFloorBatchResult> {
+  const response = await request<{
+    updated?: number;
+    failed?: string[];
+  }>('/api/v1/functions/version-floor/batch', {
+    method: 'POST',
+    data: { functionIds, minVersion },
+  });
+  return {
+    updated: response?.updated ?? 0,
+    failed: Array.isArray(response?.failed) ? response.failed : [],
+  };
+}
+
 // Source: croupier/internal/api/function/dto.go FunctionHistoryItem
 export type FunctionHistoryItemDTO = {
   id: string;

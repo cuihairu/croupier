@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import type { Key } from 'react';
 import { App } from 'antd';
 import { history, useIntl } from '@umijs/max';
 import { listDescriptors, listFunctionInstances, type FunctionDescriptor } from '@/services/api';
 import { getFunctionSummary } from '@/services/api/functions-enhanced';
 import type { FunctionSummary } from '@/services/api/functions-enhanced';
+import { batchSetFunctionVersionFloor, listFunctionVersionFloors } from '@/services/api/functions';
 import { renderSchemaActions } from '@/components/page-schema/PageSchemaRenderer';
 import { resolveSchemaIcon } from '@/components/page-schema/icons';
 import { DIRECTORY_PAGE_SCHEMA } from './schema';
@@ -27,7 +29,11 @@ function toDescriptorArray(input: DescriptorListResponse): FunctionDescriptor[] 
   return [];
 }
 
-function toSummaryRow(item: FunctionSummary, descriptor?: FunctionDescriptor): SummaryRow {
+function toSummaryRow(
+  item: FunctionSummary,
+  descriptor?: FunctionDescriptor,
+  floors?: Record<string, string>,
+): SummaryRow {
   return {
     id: item.id,
     version: item.version || descriptor?.version,
@@ -39,6 +45,7 @@ function toSummaryRow(item: FunctionSummary, descriptor?: FunctionDescriptor): S
     // item.tags 经过 normalize 后恒为数组（可能是空数组），需按长度判断才能
     // 让 descriptor 的 tags 兜底生效。
     tags: item.tags?.length ? item.tags : descriptor?.tags || [],
+    minVersion: floors?.[item.id] || undefined,
   };
 }
 
@@ -55,8 +62,12 @@ async function fetchSummary(): Promise<SummaryRow[]> {
     if (descriptor.id) descMap.set(descriptor.id, descriptor);
   });
 
-  const res = await getFunctionSummary();
-  return res.map((item) => toSummaryRow(item, descMap.get(item.id)));
+  // floors 拉取失败降级为空表（门槛列显示未配置），不阻塞列表主数据。
+  const [res, floors] = await Promise.all([
+    getFunctionSummary(),
+    listFunctionVersionFloors().catch(() => ({})),
+  ]);
+  return res.map((item) => toSummaryRow(item, descMap.get(item.id), floors));
 }
 
 export default function useDirectoryPage() {
@@ -66,6 +77,9 @@ export default function useDirectoryPage() {
   const [loading, setLoading] = useState(false);
   const [detailVisible, setDetailVisible] = useState(false);
   const [selectedFunction, setSelectedFunction] = useState<DetailRow | null>(null);
+  const [selectedRowKeys, setSelectedRowKeys] = useState<Key[]>([]);
+  const [batchModalOpen, setBatchModalOpen] = useState(false);
+  const [batchSubmitting, setBatchSubmitting] = useState(false);
 
   const buildInvokePath = useCallback((functionId: string) => {
     return `/functions/invoke?fid=${encodeURIComponent(functionId)}`;
@@ -92,6 +106,83 @@ export default function useDirectoryPage() {
   useEffect(() => {
     reload();
   }, [reload]);
+
+  // reloadFloors 只重拉门槛 map 并 patch 现有行（不清空勾选）——批量
+  // 设置/清除后的局部刷新；失败保持现状，不打断操作反馈。
+  const reloadFloors = useCallback(async () => {
+    try {
+      const floors = await listFunctionVersionFloors();
+      setRows((prev) => prev.map((r) => ({ ...r, minVersion: floors[r.id] || undefined })));
+    } catch {
+      // 列仍显示旧值，等待下次整页 reload
+    }
+  }, []);
+
+  // applyBatchFloor 统一值语义：minVersion 空串 = 批量清除（后端对齐
+  // 单函数 DELETE）。部分失败（failed 非空）以 warning 列出明细；请求级
+  // 失败 error 且保留勾选便于重试。成功后刷新门槛列并清空勾选。
+  const applyBatchFloor = useCallback(
+    async (minVersion: string) => {
+      if (selectedRowKeys.length === 0) return;
+      setBatchSubmitting(true);
+      try {
+        const ids = selectedRowKeys.map(String);
+        const result = await batchSetFunctionVersionFloor(ids, minVersion);
+        if (result.failed.length > 0) {
+          message.warning(
+            intl.formatMessage(
+              {
+                id: 'pages.functionsDirectory.batch.partialFailed',
+                defaultMessage: '已更新 {updated} 个，失败 {failed} 个：{failedIds}',
+              },
+              {
+                updated: result.updated,
+                failed: result.failed.length,
+                failedIds: result.failed.join(', '),
+              },
+            ),
+          );
+        } else if (minVersion) {
+          message.success(
+            intl.formatMessage(
+              {
+                id: 'pages.functionsDirectory.batch.saved',
+                defaultMessage: '{count} 个函数的版本门槛已设为 {version}',
+              },
+              { count: result.updated, version: minVersion },
+            ),
+          );
+        } else {
+          message.success(
+            intl.formatMessage(
+              {
+                id: 'pages.functionsDirectory.batch.cleared',
+                defaultMessage: '{count} 个函数的版本门槛已清除',
+              },
+              { count: result.updated },
+            ),
+          );
+        }
+        await reloadFloors();
+        setSelectedRowKeys([]);
+        setBatchModalOpen(false);
+      } catch (err) {
+        message.error(err instanceof Error ? err.message : String(err));
+      } finally {
+        setBatchSubmitting(false);
+      }
+    },
+    [intl, message, reloadFloors, selectedRowKeys],
+  );
+
+  const rowSelection = useMemo(
+    () => ({
+      type: 'checkbox' as const,
+      selectedRowKeys,
+      onChange: (keys: Key[]) => setSelectedRowKeys(keys),
+    }),
+    [selectedRowKeys],
+  );
 
   const processedData = useMemo(() => rows, [rows]);
 
@@ -191,5 +282,12 @@ export default function useDirectoryPage() {
     drawerActions,
     handleViewDetail,
     buildInvokePath,
+    selectedRowKeys,
+    setSelectedRowKeys,
+    rowSelection,
+    batchModalOpen,
+    setBatchModalOpen,
+    batchSubmitting,
+    applyBatchFloor,
   };
 }

@@ -7,6 +7,20 @@ export default {
   'pages.functionsDirectory.alert.description':
     '如果目标是做运营人员真正访问的页面，不要在函数层配置菜单或页面布局；请到资源/页面候选中进入 Page Studio。',
   'pages.functionsDirectory.alert.title': '函数目录只展示能力供给，不承载页面 UI',
+  'pages.functionsDirectory.batch.clearConfirm': '清除已选函数的版本门槛？',
+  'pages.functionsDirectory.batch.clearFloor': '批量清除',
+  'pages.functionsDirectory.batch.clearSelection': '取消选择',
+  'pages.functionsDirectory.batch.cleared': '{count} 个函数的版本门槛已清除',
+  'pages.functionsDirectory.batch.modalDescription':
+    '将把已选 {count} 个函数的最低可注册 SDK 版本统一设为输入值。',
+  'pages.functionsDirectory.batch.modalTitle': '批量设置版本门槛',
+  'pages.functionsDirectory.batch.partialFailed':
+    '已更新 {updated} 个，失败 {failed} 个：{failedIds}',
+  'pages.functionsDirectory.batch.saved': '{count} 个函数的版本门槛已设为 {version}',
+  'pages.functionsDirectory.batch.selected': '已选 {count} 项',
+  'pages.functionsDirectory.batch.setFloor': '批量设置门槛',
+  'pages.functionsDirectory.batch.versionLabel': '最低 SDK 版本',
+  'pages.functionsDirectory.batch.versionPlaceholder': '如 0.3.0',
   'pages.functionsDirectory.button.testInvoke': '测试调用',
   'pages.functionsDirectory.button.viewResourceCandidates': '查看资源/页面候选',
   'pages.functionsDirectory.button.viewResources': '查看资源',
@@ -20,6 +34,7 @@ export default {
   'pages.functionsDirectory.column.displayName': '函数名称',
   'pages.functionsDirectory.column.enabled': '状态',
   'pages.functionsDirectory.column.id': '函数ID',
+  'pages.functionsDirectory.column.minVersion': '最低SDK版本',
   'pages.functionsDirectory.column.version': '版本',
   'pages.functionsDirectory.column.resource': '资源',
   'pages.functionsDirectory.column.summary': '函数摘要',

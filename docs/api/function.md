@@ -586,6 +586,53 @@ type ContractVersionDiffResult struct {
 - 历史写失败降级为告警不阻断注册（衍生审计数据；表由 goose 0029 + 启动期 `MinimumRequiredVersion=29` 保证存在）。
 - `seq` 无唯一索引（多实例并发注册允许并列，读取按 `seq DESC, id DESC` 稳定排序）。
 
+### 25. "获取全部函数版本门槛"
+
+1. route definition
+
+- Url: /api/v1/functions/version-floors
+- Method: GET
+- Response: 当前 game/env 下全部已配置门槛（未配置的函数不在返回中）
+
+```go
+type versionFloorsListResponse struct {
+	Floors map[string]string `json:"floors"` // functionId -> minVersion
+}
+```
+
+### 26. "批量设置/清除函数版本门槛"
+
+1. route definition
+
+- Url: /api/v1/functions/version-floor/batch
+- Method: POST
+- Permission: `functions:manage`（同单函数 PUT/DELETE）
+- Request:
+
+```go
+type versionFloorBatchRequest struct {
+	FunctionIds []string `json:"functionIds" binding:"required"` // trim + 去重后为空返回 400
+	MinVersion  string   `json:"minVersion"`                     // 空串 = 批量清除（等价逐函数 DELETE）
+}
+```
+
+- Response: 部分成功语义（逐函数循环 Set/Delete，均幂等可重试，无事务）
+
+```go
+type versionFloorBatchResponse struct {
+	Updated    int      `json:"updated"`
+	Failed     []string `json:"failed"`
+	MinVersion string   `json:"minVersion,omitempty"` // 回显本次设置值
+}
+```
+
+### 说明（版本门槛）
+
+- 函数级版本门槛是「UI 按函数配置的最低可注册 SDK 版本」，判定语义见 `docs/architecture/data-flow.md` §「函数级最低版本（UI 按函数配置）」。
+- 单函数三端点：`GET/PUT/DELETE /api/v1/functions/:id/version-floor`（PUT body `{minVersion}`，写需 `functions:manage`；DELETE 物理删行）。
+- 批量 minVersion 非空时服务端先整包校验可解析（`sdkversion.Parseable`），非法 400 且零写入。
+- 版本门槛落 game 库 `function_version_floors` 表（编号迁移 0030）；内存 registry（无 DB）退化为进程内 map。
+
 ## 函数政策 API（未接线）
 
 函数政策（`GET/PUT/DELETE /api/v1/functions/:function_id/policy`）与系统政策（`/api/v1/policies/*`）端点当前**未在生效路由**（`internal/handler/routes.go`）注册，仅存在于并行注册文件 `internal/router/router.go` 中，不对外提供。政策行为由函数合同的 risk/approval 字段与执行链路治理承载；本节历史文档已删除，待端点接线后再恢复。
@@ -598,6 +645,7 @@ type ContractVersionDiffResult struct {
 GET /api/v1/functions/{id}/analytics   # 函数调用分析
 GET /api/v1/functions/instances        # 全量函数实例
 GET /api/v1/functions/warnings         # 注册警告列表
+GET /api/v1/functions/version-floors   # 全部函数版本门槛
 GET /api/v1/functions/:id/openapi      # 函数 OpenAPI spec（公开）
 POST /api/v1/functions/_openapi-batch  # 批量获取 OpenAPI spec（公开）
 GET /api/v1/openapi/spec               # 全局 OpenAPI 文档（公开）

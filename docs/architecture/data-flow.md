@@ -144,6 +144,13 @@ registry:
 - 与注册物化解耦存独立表：函数行随重注册 upsert，平台设置不会被描述符回写冲掉；清空即物理删行（唯一索引不被软删残留占住）。
 - 同样保守：provider 未自报版本或版本不可解析时不触发；配置值入库前服务端校验可解析（`sdkversion.Parseable`）。
 
+**批量入口（函数目录页）**：典型场景是 SDK 全量升级后把一批函数的门槛统一收口，逐个进详情页不可接受。函数目录页表格支持勾选多函数后浮出批量操作条（「批量设置门槛」/「批量清除」），并新增「最低SDK版本」列回显当前门槛：
+
+- 批量读：`GET /api/v1/functions/version-floors` → `{"floors": {functionId: minVersion}}`（当前 game/env 全量门槛）。
+- 批量写：`POST /api/v1/functions/version-floor/batch`，body `{functionIds, minVersion}`；minVersion 非空时统一 upsert（服务端先整包校验可解析，非法 400 零写入），空串等价对每个函数执行 DELETE（物理删行）。写权限同单函数（`functions:manage`）。
+- **部分成功语义**：逐函数循环 Set/Delete（均幂等，重试安全），响应 `{updated, failed, minVersion}`；failed 列出失败 functionId，前端 warning 提示明细。无事务包裹。
+- 目录列拉取失败降级为不显示门槛（`.catch(() => ({}))`），不阻塞函数列表。
+
 **已知边界**：
 
 - 高水位是单调观测值：高版本 SDK 永久下线后，低版本会持续被拒，重置需手动 `DELETE FROM sdk_version_highwatermarks WHERE ...`。

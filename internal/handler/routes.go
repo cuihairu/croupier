@@ -406,6 +406,8 @@ func registerFunctionRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 	g.GET("/:id/version-floor", functionHandler.VersionFloorGet)
 	g.PUT("/:id/version-floor", functionHandler.VersionFloorPut)
 	g.DELETE("/:id/version-floor", functionHandler.VersionFloorDelete)
+	g.GET("/version-floors", functionHandler.VersionFloorsList)
+	g.POST("/version-floor/batch", functionHandler.VersionFloorBatch)
 
 	// 待处理
 	g.GET("/pending", functionHandler.Pending)

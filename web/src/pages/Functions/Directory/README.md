@@ -13,6 +13,8 @@ Read this page in this order:
    - Column render logic mapped by schema keys.
 5. `types.ts`
    - Summary/detail row types for table and drawer.
+6. `BatchFloorModal.tsx`
+   - Controlled modal for batch-setting the version floor of selected rows (open state owned by `useDirectoryPage`).
 
 Rule:
 

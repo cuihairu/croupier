@@ -11,6 +11,8 @@ export type SummaryRow = {
   operation?: string;
   tags?: string[];
   version?: string;
+  /** 函数级最低 SDK 版本门槛（未配置为 undefined） */
+  minVersion?: string;
 };
 
 export type DetailRow = SummaryRow & {

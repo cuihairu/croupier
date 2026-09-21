@@ -24,6 +24,7 @@ export type DirectoryPageSchema = {
     key:
       | 'id'
       | 'version'
+      | 'minVersion'
       | 'displayName'
       | 'summary'
       | 'resource'
@@ -129,6 +130,14 @@ export const DIRECTORY_PAGE_SCHEMA: DirectoryPageSchema = {
         defaultMessage: '版本',
       }),
       width: 110,
+    },
+    {
+      key: 'minVersion',
+      title: intl.formatMessage({
+        id: 'pages.functionsDirectory.column.minVersion',
+        defaultMessage: '最低SDK版本',
+      }),
+      width: 130,
     },
     {
       key: 'displayName',

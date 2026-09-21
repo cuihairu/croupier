@@ -7,6 +7,7 @@ import {
   Card,
   Descriptions,
   Drawer,
+  Popconfirm,
   Space,
   Tag,
   Typography,
@@ -18,6 +19,7 @@ import { FormattedMessage, history, useIntl } from '@umijs/max';
 import { DASHBOARD_PAGE_TOKENS, StandardListSection, SummaryOverview } from '@/components';
 import type { SummaryRow } from './types';
 import useDirectoryPage from './useDirectoryPage';
+import BatchFloorModal from './BatchFloorModal';
 import { localizedText } from '@/utils/localizedText';
 
 const { Text } = Typography;
@@ -34,6 +36,13 @@ export default function DirectoryPage() {
     selectedFunction,
     drawerActions,
     buildInvokePath,
+    selectedRowKeys,
+    setSelectedRowKeys,
+    rowSelection,
+    batchModalOpen,
+    setBatchModalOpen,
+    batchSubmitting,
+    applyBatchFloor,
   } = useDirectoryPage();
 
   const summary = React.useMemo(() => {
@@ -335,11 +344,58 @@ export default function DirectoryPage() {
             { count: processedData.length },
           )}
         >
+          {selectedRowKeys.length > 0 && (
+            <Alert
+              type="info"
+              showIcon
+              style={{ marginBottom: 12 }}
+              message={
+                <Space wrap>
+                  <span>
+                    {intl.formatMessage(
+                      {
+                        id: 'pages.functionsDirectory.batch.selected',
+                        defaultMessage: '已选 {count} 项',
+                      },
+                      { count: selectedRowKeys.length },
+                    )}
+                  </span>
+                  <Button type="primary" size="small" onClick={() => setBatchModalOpen(true)}>
+                    {intl.formatMessage({
+                      id: 'pages.functionsDirectory.batch.setFloor',
+                      defaultMessage: '批量设置门槛',
+                    })}
+                  </Button>
+                  <Popconfirm
+                    title={intl.formatMessage({
+                      id: 'pages.functionsDirectory.batch.clearConfirm',
+                      defaultMessage: '清除已选函数的版本门槛？',
+                    })}
+                    onConfirm={() => applyBatchFloor('')}
+                  >
+                    <Button danger size="small">
+                      {intl.formatMessage({
+                        id: 'pages.functionsDirectory.batch.clearFloor',
+                        defaultMessage: '批量清除',
+                      })}
+                    </Button>
+                  </Popconfirm>
+                  <Button size="small" onClick={() => setSelectedRowKeys([])}>
+                    {intl.formatMessage({
+                      id: 'pages.functionsDirectory.batch.clearSelection',
+                      defaultMessage: '取消选择',
+                    })}
+                  </Button>
+                </Space>
+              }
+            />
+          )}
           <ProTable<SummaryRow>
             rowKey="id"
             loading={loading}
             columns={columns}
             dataSource={processedData}
+            rowSelection={rowSelection}
             pagination={{
               pageSize: 10,
               showSizeChanger: true,
@@ -354,7 +410,7 @@ export default function DirectoryPage() {
                 ),
             }}
             search={{ filterType: 'light', labelWidth: 'auto' }}
-            scroll={{ x: 1480 }}
+            scroll={{ x: 1600 }}
             dateFormatter="string"
             headerTitle={false}
             options={false}
@@ -548,6 +604,14 @@ export default function DirectoryPage() {
           </Card>
         )}
       </Drawer>
+
+      <BatchFloorModal
+        open={batchModalOpen}
+        count={selectedRowKeys.length}
+        submitting={batchSubmitting}
+        onSubmit={(minVersion) => applyBatchFloor(minVersion)}
+        onClose={() => setBatchModalOpen(false)}
+      />
     </PageContainer>
   );
 }

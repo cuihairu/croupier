@@ -69,6 +69,17 @@ export const buildDirectoryColumns = ({
         render: (_, record) => (record.version ? <Tag color="blue">v{record.version}</Tag> : '-'),
       } as ProColumns<SummaryRow>;
     }
+    if (col.key === 'minVersion') {
+      // 函数级最低 SDK 版本门槛：有值蓝 Tag（≥ 前缀表达下限语义），未配置
+      // 显示 '-'（与相邻 version 列空态一致）
+      return {
+        title: col.title,
+        dataIndex: 'minVersion',
+        width: col.width,
+        render: (_, record) =>
+          record.minVersion ? <Tag color="blue">≥ {record.minVersion}</Tag> : '-',
+      } as ProColumns<SummaryRow>;
+    }
     if (col.key === 'displayName') {
       return {
         title: col.title,
