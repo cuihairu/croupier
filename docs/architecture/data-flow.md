@@ -146,7 +146,7 @@ registry:
 - 平台上函数版本恒为可解析 semver：上游注册校验已按 `invalid_version` 拒绝空/非法版本（根本到不了门槛）；配置值入库前服务端同样校验可解析（`sdkversion.Parseable`）。
 - **已知边界**：唯一 provider 的版本低于门槛时函数不可用（警告可见），这是「低于配置值不注册」语义的直接结果。
 
-**批量入口（函数目录页）**：典型场景是 SDK 全量升级后把一批函数的门槛统一收口，逐个进详情页不可接受。函数目录页表格支持勾选多函数后浮出批量操作条（「批量设置门槛」/「批量清除」），并新增「最低SDK版本」列回显当前门槛：
+**批量入口（函数目录页）**：典型场景是 SDK 全量升级后把一批函数的门槛统一收口，逐个进详情页不可接受。函数目录页表格支持勾选多函数后浮出批量操作条（「批量设置门槛」/「批量清除」），并新增「最低函数版本」列回显当前门槛：
 
 - 批量读：`GET /api/v1/functions/version-floors` → `{"floors": {functionId: minVersion}}`（当前 game/env 全量门槛）。
 - 批量写：`POST /api/v1/functions/version-floor/batch`，body `{functionIds, minVersion}`；minVersion 非空时统一 upsert（服务端先整包校验可解析，非法 400 零写入），空串等价对每个函数执行 DELETE（物理删行）。写权限同单函数（`functions:manage`）。

@@ -135,7 +135,7 @@ export const DIRECTORY_PAGE_SCHEMA: DirectoryPageSchema = {
       key: 'minVersion',
       title: intl.formatMessage({
         id: 'pages.functionsDirectory.column.minVersion',
-        defaultMessage: '最低SDK版本',
+        defaultMessage: '最低函数版本',
       }),
       width: 130,
     },
