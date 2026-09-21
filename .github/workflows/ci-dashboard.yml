@@ -112,7 +112,10 @@ jobs:
         run: pnpm exec tsc --noEmit
 
       - name: Unit tests with coverage
-        timeout-minutes: 15
+        # 全量 jest+coverage 在自托管 runner 上实测 ~908s（210 套件/2766 用例
+        # 全绿后仍被 15 分钟墙钟强杀，2026-09-21 两次连炸），15 已低于实际
+        # 耗时；放宽到 30 留出慢机余量。
+        timeout-minutes: 30
         run: pnpm test:coverage
 
       # jest rootDir 为 web/，lcov 的 SF 路径不带 web/ 前缀；web 又是
