@@ -6,7 +6,15 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
+
+// exporterFunc 把函数适配为 SpanExporter，供用例内联定义交付行为。
+type exporterFunc func(ctx context.Context, spans []*Span) error
+
+func (f exporterFunc) ExportSpans(ctx context.Context, spans []*Span) error {
+	return f(ctx, spans)
+}
 
 // --- TracerProvider extra coverage ---
 
@@ -83,7 +91,17 @@ func TestSpan_SetAttribute(t *testing.T) {
 
 func TestTracerProvider_EndSpan_WithExporter(t *testing.T) {
 	provider := NewTracerProvider()
-	exporter := &testSpanExporter{}
+	// EndSpan 对每个 exporter 起 fire-and-forget goroutine（无同步缝），
+	// 必须等交付信号而非裸断言——否则 goroutine 是否被调度纯看运气，
+	// 全量并行负载下会偶发漏执行（覆盖率 99.9% 抖动的根源）。
+	delivered := make(chan []*Span, 1)
+	exporter := exporterFunc(func(ctx context.Context, spans []*Span) error {
+		select {
+		case delivered <- spans:
+		default:
+		}
+		return nil
+	})
 	provider.RegisterExporter(exporter)
 
 	ctx := context.Background()
@@ -92,6 +110,14 @@ func TestTracerProvider_EndSpan_WithExporter(t *testing.T) {
 
 	assert.NotNil(t, span.EndTime)
 	assert.True(t, span.Duration >= 0)
+
+	select {
+	case spans := <-delivered:
+		require.Len(t, spans, 1)
+		assert.Equal(t, span.Name, spans[0].Name)
+	case <-time.After(5 * time.Second):
+		t.Fatal("EndSpan 未在超时内把 span 交付给已注册的 exporter")
+	}
 }
 
 // --- NewJSONSpanExporter ---
