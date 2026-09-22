@@ -495,7 +495,7 @@ func (d *Dispatcher) InvokeBroadcast(ctx context.Context, req *sdkv1.InvokeReque
 	// 空才查远端」会静默漏投对端实例持有的一半（与 pick 的兜底语义不同）。
 	agents = d.withRemoteBroadcastCandidates(ctx, agents, req.GetFunctionId(), gameID, env, scoped)
 	if len(agents) == 0 {
-		err := noLiveAgentError(req.GetFunctionId(), gameID, env, scoped)
+		err := d.noLiveAgentError(req.GetFunctionId(), gameID, env, scoped)
 		span.RecordError(err)
 		span.SetStatus(codes.Error, err.Error())
 		return nil, err
@@ -1041,7 +1041,7 @@ func (d *Dispatcher) pickAgentInScope(functionID, gameID, env string, scoped boo
 
 func (d *Dispatcher) selectAgent(functionID string, candidates []*reg.AgentSession, gameID, env string, scoped bool) (*reg.AgentSession, error) {
 	if len(candidates) == 0 {
-		return nil, noLiveAgentError(functionID, gameID, env, scoped)
+		return nil, d.noLiveAgentError(functionID, gameID, env, scoped)
 	}
 
 	// Use load balancer if HA is enabled
@@ -1113,7 +1113,7 @@ func (d *Dispatcher) pickAgentWithRouting(ctx context.Context, functionID string
 		}
 	}
 	if len(candidates) == 0 {
-		return nil, noLiveAgentError(functionID, gameID, env, scoped)
+		return nil, d.noLiveAgentError(functionID, gameID, env, scoped)
 	}
 
 	// Targeted: choose the agent that owns the service_id.
@@ -1206,9 +1206,47 @@ func formatRoutingScope(gameID, env string, scoped bool) string {
 	return fmt.Sprintf(" in game_id %s env %s", gameID, env)
 }
 
-func noLiveAgentError(functionID, gameID, env string, scoped bool) error {
+// noLiveAgentError 收口「调度无可用候选」。函数被函数级版本门槛拦截时
+// （注册警告 function_version_below_minimum 且门槛仍在配置），返回专属
+// 错误码 FUNCTION_VERSION_BELOW_MINIMUM——与「agent 真没活」按码区分，
+// 避免运维把门槛拦截误判为连接故障去查 agent；未命中回落 503
+// service_unavailable 原语义（E9）。
+func (d *Dispatcher) noLiveAgentError(functionID, gameID, env string, scoped bool) error {
+	if w, ok := d.functionVersionFloorBlock(functionID, gameID, env, scoped); ok {
+		version := w.Version
+		if version == "" {
+			version = "unknown"
+		}
+		return apperrors.Newf(apperrors.ErrCodeFunctionVersionBelowMinimum, "invoke", nil,
+			"function %s%s blocked by version floor: registered version %s is below the configured minimum (upgrade the game server and re-register, or adjust the version floor in the function catalog)",
+			functionID, formatRoutingScope(gameID, env, scoped), version)
+	}
 	return apperrors.Newf(apperrors.ErrCodeServiceUnavailable, "invoke", nil,
 		"no live agent for function %s%s", functionID, formatRoutingScope(gameID, env, scoped))
+}
+
+// functionVersionFloorBlock 判定函数是否存在有效的版本门槛拦截证据：
+// 注册警告（某次注册确被拒）与门槛仍配置（权威面，删除门槛不自动清
+// 警告）双条件同时成立才命中——门槛已删的陈旧警告不得把「agent 真没
+// 活」误述成「被门槛拦截」。
+func (d *Dispatcher) functionVersionFloorBlock(functionID, gameID, env string, scoped bool) (reg.FunctionRegistrationWarning, bool) {
+	if d == nil || d.store == nil || !scoped {
+		return reg.FunctionRegistrationWarning{}, false
+	}
+	warnings := d.store.ListRegistrationWarnings(reg.RegistrationWarningFilter{
+		GameID:     gameID,
+		Env:        env,
+		FunctionID: functionID,
+		Code:       reg.WarningCodeFunctionVersionBelowMinimum,
+		Limit:      1,
+	})
+	if len(warnings) == 0 {
+		return reg.FunctionRegistrationWarning{}, false
+	}
+	if d.store.GetFunctionVersionFloor(gameID, env, functionID) == "" {
+		return reg.FunctionRegistrationWarning{}, false
+	}
+	return warnings[0], true
 }
 
 func noHealthyAgentError(functionID, gameID, env string, scoped bool) error {

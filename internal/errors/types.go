@@ -25,6 +25,11 @@ const (
 	ErrCodeGameAlreadyExist  ErrorCode = "GAME_ALREADY_EXIST"
 	ErrCodeGameDisabled      ErrorCode = "GAME_DISABLED"
 	ErrCodeInvalidGameStatus ErrorCode = "INVALID_GAME_STATUS"
+	// ErrCodeFunctionVersionBelowMinimum 执行侧可解释性（E9）：函数描述符
+	// 版本低于函数级最低版本门槛，注册面拦截（不物化）后调度无候选。与
+	// 「agent 真没活」（SERVICE_UNAVAILABLE）按码区分，避免把门槛拦截误判
+	// 为 agent 连接故障。
+	ErrCodeFunctionVersionBelowMinimum ErrorCode = "FUNCTION_VERSION_BELOW_MINIMUM"
 
 	// 数据库错误码 (3000-3999)
 	ErrCodeDatabaseError     ErrorCode = "DATABASE_ERROR"

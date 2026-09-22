@@ -551,3 +551,45 @@ func TestFunctionVersionFloor_ClearedFloorRegisters(t *testing.T) {
 	assert.Empty(t, resp.GetWarnings())
 	assert.Contains(t, svc.registry.AgentsUnsafe()["agent-fnclear"].Functions, "player.ban")
 }
+
+// E9 配套：拦截警告必须携带 FunctionID/Version（执行侧 dispatcher 按
+// (game,env,function) 过滤警告做门槛归因）；达标版本注册即清该函数的
+// 历史拦截警告（生命周期跟随注册行为），保证「警告存在 ⟹ 最近注册仍
+// 被拦」，执行侧不会把已恢复函数误述成被门槛拦截。
+func TestFunctionVersionFloor_WarningCarriesFunctionAndClearsOnCompliant(t *testing.T) {
+	svc := newScopeTestService(t)
+	require.NoError(t, svc.registry.SetFunctionVersionFloor("game-1", "dev", "player.ban", "2.0.0", "admin"))
+	ctx := context.Background()
+
+	_, err := svc.handleRegisterRequest(ctx, &agentv1.RegisterRequest{
+		AgentId: "agent-fnflag",
+		GameId:  "game-1",
+		Env:     "dev",
+		Functions: []*agentv1.FunctionDescriptor{
+			{Id: "player.ban", Version: "1.0.0", Enabled: true},
+		},
+	}, "")
+	require.NoError(t, err)
+	got := svc.registry.ListRegistrationWarnings(registry.RegistrationWarningFilter{
+		GameID: "game-1", Env: "dev", AgentID: "agent-fnflag", Code: registry.WarningCodeFunctionVersionBelowMinimum,
+	})
+	require.Len(t, got, 1)
+	assert.Equal(t, "player.ban", got[0].FunctionID, "警告必须按函数可过滤")
+	assert.Equal(t, "1.0.0", got[0].Version, "警告必须携带被拦版本")
+
+	// 升级后达标注册：警告清除，函数物化。
+	_, err = svc.handleRegisterRequest(ctx, &agentv1.RegisterRequest{
+		AgentId: "agent-fnflag",
+		GameId:  "game-1",
+		Env:     "dev",
+		Functions: []*agentv1.FunctionDescriptor{
+			{Id: "player.ban", Version: "2.1.0", Enabled: true},
+		},
+	}, "")
+	require.NoError(t, err)
+	assert.Contains(t, svc.registry.AgentsUnsafe()["agent-fnflag"].Functions, "player.ban")
+	got = svc.registry.ListRegistrationWarnings(registry.RegistrationWarningFilter{
+		GameID: "game-1", Env: "dev", FunctionID: "player.ban", Code: registry.WarningCodeFunctionVersionBelowMinimum,
+	})
+	assert.Empty(t, got, "达标注册必须清历史拦截警告")
+}

@@ -986,11 +986,24 @@ func (s *ControlService) evaluateSDKVersionFloor(ctx context.Context, req *agent
 			*warningTexts = append(*warningTexts, msg)
 			s.logger.Warn("function version floor rejected registration", "agent_id", req.AgentId, "function_id", f.Id, "function_version", f.Version, "configured_minimum", min)
 			s.registry.UpsertRegistrationWarning(ctx, reg.FunctionRegistrationWarning{
-				GameID:  req.GameId,
-				Env:     req.Env,
-				AgentID: req.AgentId,
-				Code:    reg.WarningCodeFunctionVersionBelowMinimum,
-				Message: msg,
+				GameID:     req.GameId,
+				Env:        req.Env,
+				AgentID:    req.AgentId,
+				FunctionID: f.Id,
+				Version:    f.Version,
+				Code:       reg.WarningCodeFunctionVersionBelowMinimum,
+				Message:    msg,
+			})
+		} else {
+			// 修复闭环（生命周期跟随注册行为，对齐 provider_scope_mismatch）：
+			// 达标版本注册成功即清该函数的历史拦截警告——执行侧门槛拦截
+			// 判定（dispatcher.noLiveAgentError）依赖「警告存在 ⟹ 最近注册
+			// 仍被拦」，不清会把已恢复函数误述成被门槛拦截。
+			s.registry.RemoveRegistrationWarnings(reg.RegistrationWarningFilter{
+				GameID:     req.GameId,
+				Env:        req.Env,
+				FunctionID: f.Id,
+				Code:       reg.WarningCodeFunctionVersionBelowMinimum,
 			})
 		}
 	}

@@ -142,6 +142,16 @@ var errorConfigs = map[ErrorCode]ErrorConfig{
 		Retryable:      false,
 		DefaultDetails: "The game status transition is not valid",
 	},
+	ErrCodeFunctionVersionBelowMinimum: {
+		Code:           ErrCodeFunctionVersionBelowMinimum,
+		Message:        "Function version below configured minimum",
+		HTTPStatusCode: http.StatusServiceUnavailable,
+		Severity:       SeverityHigh,
+		Category:       CategoryBusiness,
+		UserError:      false,
+		Retryable:      true,
+		DefaultDetails: "The function version registered by the game server is below the configured version floor, so it was not materialized and no agent can serve it",
+	},
 
 	// 数据库错误
 	ErrCodeDatabaseError: {
