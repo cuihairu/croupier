@@ -19,6 +19,8 @@ import (
 // 归属表入口），其余方法 no-op。
 type refreshOwnerFake struct {
 	recs []cluster.AgentOwnerRecord
+	// listErr 非空时 ListAliveOwners 报错（归属表不可达分支验证）。
+	listErr error
 }
 
 func (f *refreshOwnerFake) ClaimOwner(context.Context, string, string, string, string, uint64) error {
@@ -33,6 +35,9 @@ func (f *refreshOwnerFake) FindOwner(context.Context, string) (*cluster.AgentOwn
 	return nil, nil
 }
 func (f *refreshOwnerFake) ListAliveOwners(context.Context) ([]cluster.AgentOwnerRecord, error) {
+	if f.listErr != nil {
+		return nil, f.listErr
+	}
 	return f.recs, nil
 }
 func (f *refreshOwnerFake) CountAgentsByOwner(context.Context) (map[string]int64, error) {

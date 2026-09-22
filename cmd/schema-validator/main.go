@@ -281,6 +281,9 @@ func extractTarGz(src, dest string) error {
 			return fmt.Errorf("path traversal detected in archive: %s", hdr.Name)
 		}
 		target := filepath.Join(destAbs, cleanName)
+		// Join/Clean 语义保证非空 cleanName 经 Join 的结果要么就是 destAbs、
+		// 要么以 destAbs+sep 开头，本分支恒 false（自证性双保险，
+		// coverage-exemptions.md cmd-4）；归一化链改动时须补对应用例。
 		if !strings.HasPrefix(target, destAbs+string(os.PathSeparator)) && target != destAbs {
 			return fmt.Errorf("invalid path in archive: %s", hdr.Name)
 		}
@@ -302,6 +305,8 @@ func extractTarGz(src, dest string) error {
 				_ = out.Close()
 				return fmt.Errorf("failed to extract %s: %w", target, err)
 			}
+			// OpenFile 成功后 Close 仅剩 ENOSPC 类延迟写失败，测试环境不可
+			// 确定性构造（coverage-exemptions.md cmd-4）。
 			if err := out.Close(); err != nil {
 				return fmt.Errorf("failed to finalize %s: %w", target, err)
 			}

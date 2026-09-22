@@ -43,6 +43,62 @@ internal/ 目标的逐包语句覆盖率为 100%。本文档是**唯一豁免清
 
 **失效条件**：Go 标准库引入客户端侧 PSK/匿名套件，或函数改为可注入 `tls.Config`/拨号器。
 
+---
+
+## cmd/ 覆盖口径与豁免清单（2026-09-22 扩展）
+
+cmd/ 的覆盖目标与 internal/ 不同：二进制装配层允许存在进程边界与系统变更面，**策略逻辑全部下沉 internal/**（已 100%）。当前读数（`go test -cover`）：`cmd/server` ≈73%、`cmd/agent` ≈72%、`cmd/analytics-export` 91.7%、`cmd/schema-validator` ≈91%、`cmd/ingest/cmd` 99.1%。除下述豁免外，cmd/ 其余不可达分支均已按「先构造、构造不出才豁免」收口（含 fixture REST 全语义、startCluster 全装配矩阵、interconnect 全路由、service manager 状态机、schema-validator 归档解剖边界等）。
+
+### cmd-1.（进程边界）全部二进制的 `main` / `Execute`
+
+**位置**：`cmd/{server,agent,ingest,schema-validator,analytics-export,analytics-worker,check-db}` 的 `root.go` / `main.go` 入口函数。
+
+**论证**：`main` 与 `Execute` 是进程装配边界（全局 flag 绑定、cobra 执行、`os.Exit`、信号与生命周期归 init 进程所有）。测试进程内执行会与被测进程生命周期冲突。各命令的 `run*` 策略函数均已直测——入口只做转发，无分支逻辑。
+
+**失效条件**：无（结构性边界）。若 `Execute` 内出现可单测的分支逻辑，应把逻辑抽出为可直测函数而非在入口测。
+
+### cmd-2.（系统变更）server/agent 的 service 变更命令主体
+
+**位置**：`cmd/server/service.go` 与 `cmd/agent/service.go` 的 `run*ServiceInstall/Uninstall/Start/Stop/Restart` 中 `svc.Install()/Uninstall()/Start()/Stop()` 调用及其后的打印。
+
+**论证**：install/uninstall/start/stop/restart 触发**真实系统级变更**（写 systemd unit、启停系统服务），单测进程不可执行。每个函数可安全触达的前置面已覆盖：入口守卫（`createServerService`/`createService` 失败 → "创建服务失败"）、状态查询守卫（`runServiceStatus`）、`service run` 前台运行路径（fakeService 注入 Start 失败/取消/成功三态）。
+
+**失效条件**：命令增加纯校验类前置分支（如参数合法性检查）时应直测；若引入 dry-run 模式则守卫面应随实现补齐。
+
+### cmd-3.（main 壳包）cmd/check-db、cmd/analytics-worker、cmd/ingest
+
+**位置**：三包整包（7~108 行）。
+
+**论证**：整包即 main 装配（连接串解析 + 调 internal 包诊断/导出逻辑），无策略分支；被调逻辑在 internal/ 已 100%。check-db 是运维诊断工具，装配错误即进程退出报错。
+
+**失效条件**：包内出现 if/err 分支逻辑时需重新评估（届时按 C 类准入逐块论证）。
+
+### cmd-4.（C 类防御）schema-validator — extractTarGz 的 `invalid path` 双保险与 `out.Close` 失败分支
+
+**位置**：`cmd/schema-validator/main.go`（`extractTarGz`：`!strings.HasPrefix(target, destAbs+sep) && target != destAbs` 分支；`out.Close()` err 分支）。
+
+**论证**：
+
+- `invalid path` 分支：`target = filepath.Join(destAbs, cleanName)`，且 `cleanName = filepath.Clean(hdr.Name)` 已在上一步挡掉 `..` 前缀与内嵌 `../`。Go 的 `Join`/`Clean` 语义保证：非空 `cleanName` 经 `Join` 的结果要么**就是** `destAbs`（`cleanName` 归一为 `"."`），要么以 `destAbs+PathSeparator` 开头——二元判断的两个析取支恰好覆盖 `Join` 全部可能输出，条件恒 false。它是归一化不变式的自证性双保险（同 internal 第 2 条 `"fn-"` 前缀的构造）。
+- `out.Close()` 分支：`OpenFile` 成功后 `Close` 的失败只剩 ENOSPC 类延迟写错误（close 时 flush），测试环境无法确定性构造且不影响解包语义（数据已 `io.Copy` 完毕）。
+
+**失效条件**：归一化链改动（换掉 `Clean`+`Join` 组合、放开 `..` 检查）使 `invalid path` 变为可达；或引入写路径抽象（如可注入 fs）使 Close 失败可注入。
+
+### cmd-5.（C 类防御）cmd/server — startCluster 的两处装配降级死分支
+
+**位置**：`cmd/server/cluster.go`（`NormalizeConfig` err → standalone 分支；DB 存储下 `DBOwnerResolver.EnsureTable` err → standalone 分支）。
+
+**论证**：
+
+- `NormalizeConfig` 对任意输入恒返回 nil error（默认值填充型归一化，无失败路径），err 分支为死代码防御。
+- `DBOwnerResolver.EnsureTable` 失败分支：成员表 `EnsureTable` 先行且使用**同一 DB 连接**，若连接可写则两表 DDL 同命运、若不可写则先行分支已拦截（只读库用例已覆盖先行分支）。让「成员表成功而 owner 表失败」需要 DDL 在同连接上对两个同构 `CreateTable` 分叉，无法确定性构造。gorm 层错误注入（如按表名 After 回调注错）对未来实现的回归有 pin 价值，但当前实现下两分支结构性同源。
+
+**失效条件**：两表 EnsureTable 引入独立连接/不同 DDL 路径，或 `NormalizeConfig` 增加真实校验——届时按错误注入工具箱补测。
+
+### cmd/ 残留部分覆盖面（非豁免，如实记录）
+
+`cmd/server/dashboard_fixture.go` 的 E2E fixture 全链启动（`StartDashboardFixture`/`startServer`/`startAgent`/`ensureUIScope` 等约 55%-88% 覆盖）依赖真实 server+agent+dashboard 子进程编排，属 E2E 领域基础设施：可测面（fixture REST、SDK 替换、存储句柄、未启动防御）已在 `dashboard_fixture_*_test.go` 直测，全链编排由 `real-dashboard` E2E 套件承担，不在单测覆盖率口径内。
+
 ## 复核流程
 
 1. 对每个豁免候选穷举可达路径（含缓存一致性、环、字节/多字节 rune、Unicode 折叠等边角），证伪「可构造触发」的所有尝试；

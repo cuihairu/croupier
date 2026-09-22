@@ -71,7 +71,9 @@ func TestDashboardRegistrationPipelineSweepsExpiredRemovalsPerGameDB(t *testing.
 	open := func(driver, dsn string) (*gorm.DB, error) {
 		db, err := gorm.Open(gsqlite.Open(dsn), &gorm.Config{})
 		if err == nil {
-			require.NoError(t, db.AutoMigrate(&model.FunctionContract{}))
+			// 生产路径 game 库首用即全量迁移；清扫链会触达契约版本历史、
+			// 独立提案与阻塞问题等 game 库表，播种必须给全（单库用例同）。
+			require.NoError(t, model.AutoMigrate(db))
 			seen[dsn] = db
 		}
 		return db, err

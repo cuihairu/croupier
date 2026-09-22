@@ -14,11 +14,13 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"os/signal"
 	"runtime"
 	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
+	"syscall"
 	"time"
 
 	"github.com/cuihairu/croupier/internal/analytics/mq"
@@ -71,6 +73,11 @@ type server struct {
 
 	// Metrics collection
 	mu sync.RWMutex
+
+	// metricsInterval / queueCheckInterval 是后台巡检周期；零值回落到
+	// 产品默认（30s / 10s）。测试注入短周期以确定性驱动循环体。
+	metricsInterval    time.Duration
+	queueCheckInterval time.Duration
 }
 
 var (
@@ -104,6 +111,11 @@ var rootCmd = &cobra.Command{
 		return runIngest()
 	},
 }
+
+// waitForShutdownFn 是 runIngest 的关停等待接缝：产品代码恒为
+// waitForShutdown；测试注入假实现以瞬时收尾 runIngest 并探查已装配的
+// mux。用后必须在测试中复位。
+var waitForShutdownFn = waitForShutdown
 
 // Execute runs the CLI entrypoint.
 func Execute() {
@@ -209,10 +221,10 @@ func runIngest() error {
 		addr, rateLimitRPS, rateBurst, maxBodySizeMB)
 
 	// Start metrics reporter in background
-	go s.reportMetrics()
+	go s.reportMetrics(context.Background())
 
 	// Start queue monitoring
-	go s.monitorQueueBacklog()
+	go s.monitorQueueBacklog(context.Background())
 
 	// Start server in background
 	go func() {
@@ -222,12 +234,20 @@ func runIngest() error {
 	}()
 
 	// Wait for interrupt signal
-	return waitForShutdown(svr)
+	return waitForShutdownFn(svr, notifyShutdownSignals())
 }
 
-func waitForShutdown(svr *http.Server) error {
+// notifyShutdownSignals 注册进程级中断信号（SIGINT/SIGTERM）并返回其通道。
+// 此前实现只创建通道未注册信号源，Ctrl+C 走默认处理直接终止进程，
+// 优雅关闭（含 svr.Shutdown 排空在途请求）永远不会触发。
+func notifyShutdownSignals() <-chan os.Signal {
 	sigChan := make(chan os.Signal, 1)
-	<-sigChan
+	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
+	return sigChan
+}
+
+func waitForShutdown(svr *http.Server, sig <-chan os.Signal) error {
+	<-sig
 
 	log.Println("[ingest] shutting down...")
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -683,93 +703,123 @@ func envOrDefaultInt(key string, def int) int {
 }
 
 // monitorQueueBacklog periodically checks queue backlog
-func (s *server) monitorQueueBacklog() {
-	ticker := time.NewTicker(10 * time.Second)
+func (s *server) monitorQueueBacklog(ctx context.Context) {
+	interval := s.queueCheckInterval
+	if interval <= 0 {
+		interval = 10 * time.Second
+	}
+	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 
-	for range ticker.C {
-		if mq, ok := s.q.(interface {
-			PendingEvents() (int64, error)
-			PendingPayments() (int64, error)
-		}); ok {
-			if events, err := mq.PendingEvents(); err == nil {
-				atomic.StoreInt64(&s.eventsPending, events)
-			}
-			if payments, err := mq.PendingPayments(); err == nil {
-				atomic.StoreInt64(&s.paymentsPending, payments)
-			}
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			s.sampleQueueBacklog()
 		}
-		s.queueLastCheck = time.Now()
 	}
 }
 
+// sampleQueueBacklog 单轮积压采样：仅当底层队列支持积压查询接口时刷新
+// pending 计数（错误时保留上一次读数），并推进 queueLastCheck。
+func (s *server) sampleQueueBacklog() {
+	if mq, ok := s.q.(interface {
+		PendingEvents() (int64, error)
+		PendingPayments() (int64, error)
+	}); ok {
+		if events, err := mq.PendingEvents(); err == nil {
+			atomic.StoreInt64(&s.eventsPending, events)
+		}
+		if payments, err := mq.PendingPayments(); err == nil {
+			atomic.StoreInt64(&s.paymentsPending, payments)
+		}
+	}
+	s.queueLastCheck = time.Now()
+}
+
 // reportMetrics periodically reports detailed metrics
-func (s *server) reportMetrics() {
-	ticker := time.NewTicker(30 * time.Second)
+func (s *server) reportMetrics(ctx context.Context) {
+	interval := s.metricsInterval
+	if interval <= 0 {
+		interval = 30 * time.Second
+	}
+	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 
-	for range ticker.C {
-		total := atomic.LoadInt64(&s.requestsTotal)
-		success := atomic.LoadInt64(&s.requestsSuccess)
-		error := atomic.LoadInt64(&s.requestsError)
-		dropped := atomic.LoadInt64(&s.requestsDropped)
-
-		events := atomic.LoadInt64(&s.eventsProcessed)
-		payments := atomic.LoadInt64(&s.paymentsProcessed)
-		validationErrs := atomic.LoadInt64(&s.validationErrors)
-		queueErrs := atomic.LoadInt64(&s.queueErrors)
-		authErrs := atomic.LoadInt64(&s.authErrors)
-
-		// Calculate QPS
-		qps := float64(total) / 30.0
-
-		// Calculate average latency
-		latencySum := atomic.LoadInt64(&s.latencySum)
-		latencyCount := atomic.LoadInt64(&s.latencyCount)
-		avgLatencyMs := float64(0)
-		if latencyCount > 0 {
-			avgLatencyMs = float64(latencySum) / float64(latencyCount) / 1000
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			s.reportMetricsOnce()
 		}
+	}
+}
 
-		// Get queue backlog
-		s.mu.RLock()
-		eventsPending := atomic.LoadInt64(&s.eventsPending)
-		paymentsPending := atomic.LoadInt64(&s.paymentsPending)
-		s.mu.RUnlock()
+// reportMetricsOnce 单轮指标输出：吞吐/积压/延迟日志、错误率与积压告警，
+// 以及延迟计数器的周期性复位。
+func (s *server) reportMetricsOnce() {
+	total := atomic.LoadInt64(&s.requestsTotal)
+	success := atomic.LoadInt64(&s.requestsSuccess)
+	error := atomic.LoadInt64(&s.requestsError)
+	dropped := atomic.LoadInt64(&s.requestsDropped)
 
-		// Log detailed metrics
-		log.Printf("[ingest] metrics - qps: %.2f, total: %d, success: %d, error: %d, dropped: %d",
-			qps, total, success, error, dropped)
-		log.Printf("[ingest] events - processed: %d, pending: %d", events, eventsPending)
-		log.Printf("[ingest] payments - processed: %d, pending: %d", payments, paymentsPending)
-		log.Printf("[ingest] errors - validation: %d, queue: %d, auth: %d", validationErrs, queueErrs, authErrs)
-		log.Printf("[ingest] latency - avg: %.2fms, samples: %d", avgLatencyMs, latencyCount)
+	events := atomic.LoadInt64(&s.eventsProcessed)
+	payments := atomic.LoadInt64(&s.paymentsProcessed)
+	validationErrs := atomic.LoadInt64(&s.validationErrors)
+	queueErrs := atomic.LoadInt64(&s.queueErrors)
+	authErrs := atomic.LoadInt64(&s.authErrors)
 
-		// Alert on high error rate
-		if total > 0 {
-			errorRate := float64(error) / float64(total) * 100
-			if errorRate > 10 { // Alert if error rate > 10%
-				log.Printf("[ingest] ALERT: High error rate: %.2f%%", errorRate)
-			}
+	// Calculate QPS
+	qps := float64(total) / 30.0
+
+	// Calculate average latency
+	latencySum := atomic.LoadInt64(&s.latencySum)
+	latencyCount := atomic.LoadInt64(&s.latencyCount)
+	avgLatencyMs := float64(0)
+	if latencyCount > 0 {
+		avgLatencyMs = float64(latencySum) / float64(latencyCount) / 1000
+	}
+
+	// Get queue backlog
+	s.mu.RLock()
+	eventsPending := atomic.LoadInt64(&s.eventsPending)
+	paymentsPending := atomic.LoadInt64(&s.paymentsPending)
+	s.mu.RUnlock()
+
+	// Log detailed metrics
+	log.Printf("[ingest] metrics - qps: %.2f, total: %d, success: %d, error: %d, dropped: %d",
+		qps, total, success, error, dropped)
+	log.Printf("[ingest] events - processed: %d, pending: %d", events, eventsPending)
+	log.Printf("[ingest] payments - processed: %d, pending: %d", payments, paymentsPending)
+	log.Printf("[ingest] errors - validation: %d, queue: %d, auth: %d", validationErrs, queueErrs, authErrs)
+	log.Printf("[ingest] latency - avg: %.2fms, samples: %d", avgLatencyMs, latencyCount)
+
+	// Alert on high error rate
+	if total > 0 {
+		errorRate := float64(error) / float64(total) * 100
+		if errorRate > 10 { // Alert if error rate > 10%
+			log.Printf("[ingest] ALERT: High error rate: %.2f%%", errorRate)
 		}
+	}
 
-		// Alert on queue backlog
-		if eventsPending > 10000 {
-			log.Printf("[ingest] ALERT: High events backlog: %d", eventsPending)
-		}
-		if paymentsPending > 10000 {
-			log.Printf("[ingest] ALERT: High payments backlog: %d", paymentsPending)
-		}
+	// Alert on queue backlog
+	if eventsPending > 10000 {
+		log.Printf("[ingest] ALERT: High events backlog: %d", eventsPending)
+	}
+	if paymentsPending > 10000 {
+		log.Printf("[ingest] ALERT: High payments backlog: %d", paymentsPending)
+	}
 
-		// Alert on high latency
-		if avgLatencyMs > 1000 { // Alert if avg latency > 1 second
-			log.Printf("[ingest] ALERT: High latency: %.2fms", avgLatencyMs)
-		}
+	// Alert on high latency
+	if avgLatencyMs > 1000 { // Alert if avg latency > 1 second
+		log.Printf("[ingest] ALERT: High latency: %.2fms", avgLatencyMs)
+	}
 
-		// Reset counters periodically to avoid overflow
-		if latencyCount > 1000000 {
-			atomic.StoreInt64(&s.latencySum, 0)
-			atomic.StoreInt64(&s.latencyCount, 0)
-		}
+	// Reset counters periodically to avoid overflow
+	if latencyCount > 1000000 {
+		atomic.StoreInt64(&s.latencySum, 0)
+		atomic.StoreInt64(&s.latencyCount, 0)
 	}
 }

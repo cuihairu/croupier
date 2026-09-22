@@ -26,6 +26,10 @@ import (
 // 互联消息处理复用 ControlService 的 TCP 基座；owner 侧本地执行
 // （ForwardedInvoke → Agent session）与 caller 侧转发均已接线
 // （cmd/server/root.go 的 SetRemoteForwarder + 本文件 localInvoker）。
+// reconcileTickerInterval 归属 reconcile 兜底周期。包级变量是测试注入点
+// （时序分支禁相位对齐，用注入点驱动循环体），生产语义 30s。
+var reconcileTickerInterval = 30 * time.Second
+
 func startCluster(ctx context.Context, c *config.Config, svcCtx *svc.ServiceContext) (*cluster.Lifecycle, *tcp.Server) {
 	cfg := c.Cluster
 	if !cfg.Enabled {
@@ -58,6 +62,8 @@ func startCluster(ctx context.Context, c *config.Config, svcCtx *svc.ServiceCont
 		LeaseTTL:          cfg.LeaseTTL,
 		PeerPollInterval:  cfg.PeerPollInterval,
 	})
+	// NormalizeConfig 是默认值填充型归一化，恒返回 nil error；本分支为死代码
+	// 防御（coverage-exemptions.md cmd-5），实现增加真实校验时须补 standalone 用例。
 	if err != nil {
 		slog.Error("cluster: config invalid, running standalone", "error", err)
 		return nil, nil
@@ -78,7 +84,13 @@ func startCluster(ctx context.Context, c *config.Config, svcCtx *svc.ServiceCont
 			slog.Error("cluster: redis store unavailable, running standalone", "error", err)
 			return nil, nil
 		}
-		defer func() { _ = rdb.Close() }()
+		// 客户端随集群生命周期存活（member/resolver 长期持有它）；不能
+		// defer Close——那会在本函数返回时立刻关掉协调面（member 续租、
+		// 归属解析全部 "client is closed"）。
+		go func() {
+			<-ctx.Done()
+			_ = rdb.Close()
+		}()
 		pingCtx, cancel := context.WithTimeout(ctx, 3*time.Second)
 		pingErr := rdb.Ping(pingCtx).Err()
 		cancel()
@@ -97,6 +109,8 @@ func startCluster(ctx context.Context, c *config.Config, svcCtx *svc.ServiceCont
 		}
 		member = dbm
 		dbr := cluster.NewDBOwnerResolver(svcCtx.DB, ownerTTL)
+		// 与成员表共用同一 DB 连接：连接可写则两表 DDL 同命运，不可写则
+		// 上方分支已拦截，本分支不可确定性构造（coverage-exemptions.md cmd-5）。
 		if err := dbr.EnsureTable(ctx); err != nil {
 			slog.Error("cluster: ensure owner table failed, running standalone", "error", err)
 			return nil, nil
@@ -129,7 +143,7 @@ func startCluster(ctx context.Context, c *config.Config, svcCtx *svc.ServiceCont
 	// 偶发漏 Touch 把活跃 agent 冻成过期（/ops/nodes 聚合按 TTL 判活）。
 	// 本地会话过期（僵尸）则不再续期，行按 TTL 自然衰减。
 	go func() {
-		ticker := time.NewTicker(30 * time.Second)
+		ticker := time.NewTicker(reconcileTickerInterval)
 		defer ticker.Stop()
 		for {
 			select {
