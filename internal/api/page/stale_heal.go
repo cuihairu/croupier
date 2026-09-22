@@ -7,7 +7,9 @@ import (
 
 	"github.com/cuihairu/croupier/internal/dashboard/spec"
 	"github.com/cuihairu/croupier/internal/db/dbctx"
+	"github.com/cuihairu/croupier/internal/model"
 	"github.com/cuihairu/croupier/internal/svc"
+	"gorm.io/gorm"
 )
 
 // staleHealActor 是系统愈合循环写审计/草稿的 actor 标识。
@@ -49,18 +51,44 @@ type healScope struct {
 	Env    string `gorm:"column:env"`
 }
 
+// healScopes 枚举待扫描的 (game,env) scope 清单，按部署形态分流（U1）：
+//   - 单库模式（Router 未装配）：meta 库即游戏库，直查 page_specs 的
+//     distinct scope——只扫有发布快照的 scope，行为与历史版本一致；
+//   - 分库模式（database-per-game）：page_specs 在 game 库、meta 库无此
+//     表，旧实现在 meta 直查每轮 no-such-table 报错返回、愈合永不执行。
+//     改从 game_envs 绑定表枚举 scope（meta 侧唯一事实源，与迁移 fanout
+//     同源），页级查询经 scopeDBContext 落到对应 game 库。绑定存在但
+//     game 库尚未懒建时，Resolve 会在首轮访问建库——有发布页的 scope
+//     必然建过库；纯绑定无页的 scope 空转一轮页级空查询，无副作用。
+func (s *Service) healScopes(ctx context.Context, metaDB *gorm.DB) ([]healScope, error) {
+	if s.svcCtx.Router == nil {
+		var scopes []healScope
+		err := metaDB.WithContext(ctx).
+			Table("page_specs").
+			Where("deleted_at IS NULL AND published_version > 0").
+			Distinct("game_id", "env").
+			Scan(&scopes).Error
+		return scopes, err
+	}
+	bindings, err := model.NewGameModel(metaDB).ListAllEnvBindings(ctx)
+	if err != nil {
+		return nil, err
+	}
+	scopes := make([]healScope, 0, len(bindings))
+	for _, b := range bindings {
+		scopes = append(scopes, healScope{GameID: b.GameID, Env: b.Env})
+	}
+	return scopes, nil
+}
+
 // healStalePublishedPagesOnce 执行一轮扫描（导出仅包内，测试直调）。
 func (s *Service) healStalePublishedPagesOnce(ctx context.Context) {
 	loopCtx, cancel := context.WithTimeout(ctx, 60*time.Second)
 	defer cancel()
 
 	metaDB := s.svcCtx.DB
-	var scopes []healScope
-	if err := metaDB.WithContext(loopCtx).
-		Table("page_specs").
-		Where("deleted_at IS NULL AND published_version > 0").
-		Distinct("game_id", "env").
-		Scan(&scopes).Error; err != nil {
+	scopes, err := s.healScopes(loopCtx, metaDB)
+	if err != nil {
 		slog.Warn("stale heal: list scopes failed", "error", err)
 		return
 	}
