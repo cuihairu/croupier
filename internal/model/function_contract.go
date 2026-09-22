@@ -54,6 +54,13 @@ type FunctionContract struct {
 	Diagnostics      JSON              `gorm:"type:json"` // Diagnostic array
 	UpdatedAt        time.Time
 	UpdatedBy        string `gorm:"size:64"` // user or system
+	// RemovalPendingAt 摘除宽限标记（迁移 0031）：函数从注册中消失时不
+	// 立即删除，标记待删时间点；宽限期内重注册清除，过期由后台清扫真删
+	// ——瞬态摘除（重启窗口/门槛误配/闪断）不再制造 removed+created 版本
+	// 噪音与页面 stale 抖动。json:"-" 同 ExecutionState：宽限是生命周期
+	// 状态不是契约内容，进 digest 会造成提案版本快照无谓 churn。索引供
+	// 清扫循环按 pending 过滤候选（与 0031 迁移同步建）。
+	RemovalPendingAt *time.Time `json:"-" gorm:"index:idx_function_contracts_removal_pending"`
 }
 
 // ResourceCapability aggregates function capabilities around a business resource.

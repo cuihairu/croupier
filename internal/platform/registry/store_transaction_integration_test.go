@@ -199,12 +199,15 @@ func TestUpsertAgentCompensatesGameProjectionWhenMetaSessionWriteFails(t *testin
 	err := store.UpsertAgent(session)
 	require.Error(t, err)
 
-	_, err = model.NewFunctionContractModel(gameDB).
+	// 补偿走摘除宽限：反向 diff 对刚写入的契约打 pending 标记（不真删），
+	// 契约与提案宽限期内保留，由清扫器最终收口。
+	compensated, err := model.NewFunctionContractModel(gameDB).
 		FindByScopeAndFunctionID(context.Background(), "demo-game", "development", "mail.send")
-	assert.ErrorIs(t, err, gorm.ErrRecordNotFound)
+	require.NoError(t, err)
+	assert.NotNil(t, compensated.RemovalPendingAt, "补偿应打摘除宽限标记而非真删")
 	_, err = model.NewPageProposalModel(gameDB).
 		FindByScopeAndKey(context.Background(), "demo-game", "development", "operation:mail.send")
-	assert.ErrorIs(t, err, gorm.ErrRecordNotFound)
+	assert.ErrorIs(t, err, gorm.ErrRecordNotFound, "提案重建在补偿发生时尚未执行（meta 先失败），本就不存在")
 
 	var operation registry.AgentRegistrationOperationDB
 	require.NoError(t, metaDB.Where("agent_id = ?", "agent-cross-db").First(&operation).Error)
@@ -219,9 +222,10 @@ func TestUpsertAgentCompensatesGameProjectionWhenMetaSessionWriteFails(t *testin
 	// consistent session/projection pair, and a fresh process restores it.
 	require.NoError(t, metaDB.AutoMigrate(&registry.AgentSessionDB{}))
 	require.NoError(t, store.UpsertAgent(session))
-	_, err = model.NewFunctionContractModel(gameDB).
+	rebuilt, err := model.NewFunctionContractModel(gameDB).
 		FindByScopeAndFunctionID(context.Background(), "demo-game", "development", "mail.send")
 	require.NoError(t, err)
+	assert.Nil(t, rebuilt.RemovalPendingAt, "重试注册应清除补偿留下的 pending 标记")
 	_, err = model.NewPageProposalModel(gameDB).
 		FindByScopeAndKey(context.Background(), "demo-game", "development", "operation:mail.send")
 	require.NoError(t, err)
@@ -284,12 +288,15 @@ func TestLoadFromDBRecoversPendingCrossDatabaseRegistration(t *testing.T) {
 	})
 	require.NoError(t, restarted.LoadFromDB(context.Background(), registry.NewAgentSessionModel(metaDB)))
 
-	_, err = model.NewFunctionContractModel(gameDB).
+	// pending 操作回放走摘除宽限：预置契约被打 pending 标记保留（不真删），
+	// 提案同样保留，由清扫器最终收口。
+	compensated, err := model.NewFunctionContractModel(gameDB).
 		FindByScopeAndFunctionID(context.Background(), "demo-game", "development", "mail.send")
-	assert.ErrorIs(t, err, gorm.ErrRecordNotFound)
+	require.NoError(t, err)
+	assert.NotNil(t, compensated.RemovalPendingAt, "pending 操作补偿应打摘除宽限标记而非真删")
 	_, err = model.NewPageProposalModel(gameDB).
 		FindByScopeAndKey(context.Background(), "demo-game", "development", "operation:mail.send")
-	assert.ErrorIs(t, err, gorm.ErrRecordNotFound)
+	assert.NoError(t, err, "补偿后提案宽限期内保留")
 	var operation registry.AgentRegistrationOperationDB
 	require.NoError(t, metaDB.Where("operation_id = ?", "pending-recovery").First(&operation).Error)
 	assert.Equal(t, "compensated", operation.Status)
@@ -303,6 +310,7 @@ func openRegistrationTestDB(t *testing.T) *gorm.DB {
 		&registry.AgentSessionDB{},
 		&registry.AgentRegistrationOperationDB{},
 		&model.FunctionContract{},
+		&model.FunctionContractVersion{},
 		&model.ResourceCapability{},
 		&model.CapabilitySemantics{},
 		&model.CapabilitySemanticVersion{},
@@ -313,13 +321,16 @@ func openRegistrationTestDB(t *testing.T) *gorm.DB {
 	return db
 }
 
-// Removed 无幸存者：契约与 standalone 提案的级联清理在事务内
-// （RemoveFunctionContract），资源维度的提案重建在提交后仍被触发
-// （RebuildProposalsForResource 的 removeResourceProposal 清理路径）。
-func TestUpsertAgentRemovesProposalsAfterFunctionRemoval(t *testing.T) {
+// Removed 无幸存者：注册面函数消失走摘除宽限——契约行保留并标记
+// removal_pending_at（目录即时 0 实例、调用 503），宽限内重注册自动
+// 清除 pending；宽限过期由清扫（FinalizeExpiredContractRemovals）真删
+// 契约并级联清理 standalone 提案。
+func TestUpsertAgentRemovalGraceLifecycle(t *testing.T) {
 	db := openRegistrationTestDB(t)
 	store := registry.NewStoreWithDB(db)
-	store.SetContractService(contractsvc.NewContractService(db))
+	contractSvc := contractsvc.NewContractService(db)
+	store.SetContractService(contractSvc)
+	ctx := context.Background()
 
 	session := &registry.AgentSession{
 		AgentID:  "agent-removal",
@@ -337,20 +348,53 @@ func TestUpsertAgentRemovesProposalsAfterFunctionRemoval(t *testing.T) {
 		},
 	}
 	require.NoError(t, store.UpsertAgent(session))
-	_, err := model.NewPageProposalModel(db).FindByScopeAndKey(context.Background(), "demo-game", "development", "operation:mail.send")
+	_, err := model.NewPageProposalModel(db).FindByScopeAndKey(ctx, "demo-game", "development", "operation:mail.send")
 	require.NoError(t, err, "standalone 提案应在首次注册后存在")
 
 	// 同一 agent 重注册为空函数集：函数 Removed 且无幸存者。必须用新
 	// 对象——内存 registry 存的是 session 指针，原地清空 Functions 会让
 	// previous 快照同步变空、diff 捕捉不到 Removed。
-	emptySession := *session
-	emptySession.Functions = map[string]registry.FunctionMeta{}
-	require.NoError(t, store.UpsertAgent(&emptySession))
+	markEmpty := func() {
+		emptySession := *session
+		emptySession.Functions = map[string]registry.FunctionMeta{}
+		require.NoError(t, store.UpsertAgent(&emptySession))
+	}
+	markEmpty()
 
-	_, err = model.NewFunctionContractModel(db).FindByScopeAndFunctionID(context.Background(), "demo-game", "development", "mail.send")
-	assert.ErrorIs(t, err, gorm.ErrRecordNotFound)
-	_, err = model.NewPageProposalModel(db).FindByScopeAndKey(context.Background(), "demo-game", "development", "operation:mail.send")
-	assert.ErrorIs(t, err, gorm.ErrRecordNotFound, "standalone 提案应由事务内契约级联清理")
+	contract, err := model.NewFunctionContractModel(db).FindByScopeAndFunctionID(ctx, "demo-game", "development", "mail.send")
+	require.NoError(t, err, "宽限期内契约行保留不真删")
+	assert.NotNil(t, contract.RemovalPendingAt, "消失后应标记 removal_pending_at")
+	_, err = model.NewPageProposalModel(db).FindByScopeAndKey(ctx, "demo-game", "development", "operation:mail.send")
+	assert.NoError(t, err, "宽限期内 standalone 提案保留")
+
+	// 宽限期内重注册：pending 自动清除。必须传新对象——内存 registry 存
+	// 的是 session 指针，原对象回传时 previous 快照与本次注册同源，
+	// diff 捕捉不到 Added、清除路径不会触发。
+	recovered := *session
+	recovered.Functions = map[string]registry.FunctionMeta{
+		"mail.send": session.Functions["mail.send"],
+	}
+	require.NoError(t, store.UpsertAgent(&recovered))
+	contract, err = model.NewFunctionContractModel(db).FindByScopeAndFunctionID(ctx, "demo-game", "development", "mail.send")
+	require.NoError(t, err)
+	assert.Nil(t, contract.RemovalPendingAt, "宽限内重注册应清除 pending")
+
+	// 再次消失后宽限过期，清扫真删契约并级联清理 standalone 提案，
+	// 且留 removed 版本历史。
+	markEmpty()
+	finalized, err := contractSvc.FinalizeExpiredContractRemovals(ctx, 0)
+	require.NoError(t, err)
+	assert.Equal(t, 1, finalized)
+
+	_, err = model.NewFunctionContractModel(db).FindByScopeAndFunctionID(ctx, "demo-game", "development", "mail.send")
+	assert.ErrorIs(t, err, gorm.ErrRecordNotFound, "宽限过期后契约真删")
+	_, err = model.NewPageProposalModel(db).FindByScopeAndKey(ctx, "demo-game", "development", "operation:mail.send")
+	assert.ErrorIs(t, err, gorm.ErrRecordNotFound, "真删后 standalone 提案级联清理")
+
+	versions, total, err := model.NewFunctionContractVersionModel(db).ListByFunctionPaged(ctx, "demo-game", "development", "mail.send", 10, 0)
+	require.NoError(t, err)
+	require.NotZero(t, total, "removed 版本历史应保留")
+	assert.Equal(t, "removed", versions[0].ChangeType, "最新一条历史应为 removed（seq DESC 排列）")
 }
 
 type transactionalFailingMaterializer struct {
@@ -378,6 +422,14 @@ func (m *contractFailingMaterializer) RemoveFunctionContract(ctx context.Context
 	return m.service.RemoveFunctionContract(ctx, gameID, env, functionID)
 }
 
+func (m *contractFailingMaterializer) MarkContractRemovalPending(ctx context.Context, gameID, env, functionID string) error {
+	return m.service.MarkContractRemovalPending(ctx, gameID, env, functionID)
+}
+
+func (m *contractFailingMaterializer) FinalizeExpiredContractRemovals(ctx context.Context, grace time.Duration) (int, error) {
+	return m.service.FinalizeExpiredContractRemovals(ctx, grace)
+}
+
 func (m *contractFailingMaterializer) RebuildResourceCapability(ctx context.Context, gameID, env, resourceKey string) error {
 	return m.service.RebuildResourceCapability(ctx, gameID, env, resourceKey)
 }
@@ -400,6 +452,14 @@ func (m *transactionalFailingMaterializer) RegenerateContractTemplates(ctx conte
 
 func (m *transactionalFailingMaterializer) RemoveFunctionContract(ctx context.Context, gameID, env, functionID string) (string, error) {
 	return m.service.RemoveFunctionContract(ctx, gameID, env, functionID)
+}
+
+func (m *transactionalFailingMaterializer) MarkContractRemovalPending(ctx context.Context, gameID, env, functionID string) error {
+	return m.service.MarkContractRemovalPending(ctx, gameID, env, functionID)
+}
+
+func (m *transactionalFailingMaterializer) FinalizeExpiredContractRemovals(ctx context.Context, grace time.Duration) (int, error) {
+	return m.service.FinalizeExpiredContractRemovals(ctx, grace)
 }
 
 func (m *transactionalFailingMaterializer) RebuildResourceCapability(ctx context.Context, gameID, env, resourceKey string) error {

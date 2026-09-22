@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/cuihairu/croupier/internal/dashboard/spec"
 	"github.com/stretchr/testify/assert"
@@ -31,6 +32,14 @@ func (r *regenCountingService) RemoveFunctionContract(_ context.Context, _, _, f
 		return "mail", nil
 	}
 	return "", nil
+}
+
+func (r *regenCountingService) MarkContractRemovalPending(context.Context, string, string, string) error {
+	return nil
+}
+
+func (r *regenCountingService) FinalizeExpiredContractRemovals(context.Context, time.Duration) (int, error) {
+	return 0, nil
 }
 
 func (r *regenCountingService) RebuildResourceCapability(context.Context, string, string, string) error {

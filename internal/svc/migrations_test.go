@@ -494,3 +494,66 @@ func TestGoMigrations_ContractVersionsCatchUp(t *testing.T) {
 		t.Fatalf("0029 rerun: %v", err)
 	}
 }
+
+// TestGoMigrations_ContractRemovalPendingCatchUp 回归（摘除宽限）：已过
+// baseline 的存量库（无 removal_pending_at 列、已有契约行）经 0031
+// catch-up 拿到该列，存量行回填 NULL（非 pending 语义——标记只由
+// 注册面 Removed 分支写入，补列不得把存量契约误标摘除）。
+func TestGoMigrations_ContractRemovalPendingCatchUp(t *testing.T) {
+	db := openMigrationTestDB(t)
+	ctx := context.Background()
+
+	if err := autoMigrate(db); err != nil {
+		t.Fatalf("autoMigrate: %v", err)
+	}
+	// 先落一行 0031 时代之前的契约，再删列模拟存量形态。
+	if err := db.Exec(`INSERT INTO function_contracts
+		(game_id, env, function_id, execution, created_at, updated_at)
+		VALUES ('g', 'e', 'player.get', 'sync', datetime('now'), datetime('now'))`).Error; err != nil {
+		t.Fatalf("seed legacy row: %v", err)
+	}
+	if err := db.Migrator().DropColumn(&model.FunctionContract{}, "RemovalPendingAt"); err != nil {
+		t.Fatalf("drop column: %v", err)
+	}
+	if _, err := migrate.EnsureUpToDate(ctx, db, migrate.ScopeSingle, func(db *gorm.DB) error {
+		return nil // baseline 已完成，禁止再跑 AutoMigrate
+	}); err != nil {
+		t.Fatalf("EnsureUpToDate: %v", err)
+	}
+	if !db.Migrator().HasColumn(&model.FunctionContract{}, "RemovalPendingAt") {
+		t.Fatal("removal_pending_at column not backfilled by 0031")
+	}
+	var count int
+	if err := db.Raw("SELECT COUNT(*) FROM function_contracts WHERE function_id = 'player.get' AND removal_pending_at IS NULL").Scan(&count).Error; err != nil {
+		t.Fatalf("read legacy row: %v", err)
+	}
+	if count != 1 {
+		t.Fatalf("legacy row removal_pending_at not NULL after 0031 catch-up (rows=%d)", count)
+	}
+}
+
+// TestAddContractRemovalPendingColumnIdempotent：列已存在时 0031 跳过
+// （幂等）；表不存在的库（meta 表在 game 库重放等场景）也跳过。
+func TestAddContractRemovalPendingColumnIdempotent(t *testing.T) {
+	sqlDB := openRawSQLiteDBG(t)
+	if err := migrateContractRemovalPendingColumn(context.Background(), sqlDB); err != nil {
+		t.Fatalf("missing table should skip, got %v", err)
+	}
+
+	db, err := gorm.Open(gsqlite.Open(filepath.Join(t.TempDir(), "idem0031.db")), &gorm.Config{})
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	if err := db.AutoMigrate(&model.FunctionContract{}); err != nil {
+		t.Fatalf("migrate: %v", err)
+	}
+	sqlDB2, err := db.DB()
+	if err != nil {
+		t.Fatalf("sql.DB: %v", err)
+	}
+	for i := 0; i < 2; i++ {
+		if err := migrateContractRemovalPendingColumn(context.Background(), sqlDB2); err != nil {
+			t.Fatalf("run %d: %v", i+1, err)
+		}
+	}
+}

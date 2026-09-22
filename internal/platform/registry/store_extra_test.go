@@ -113,7 +113,12 @@ func TestUpsertAgentClassifiesFunctionSnapshotDiff(t *testing.T) {
 }
 
 type recordingContractService struct {
-	scopes []seenScope
+	scopes         []seenScope
+	removals       []seenScope     // RemoveFunctionContract 调用（即时移除路径——摘除宽限后应为空）
+	pendingMarks   []seenScope     // MarkContractRemovalPending 调用（摘除宽限路径）
+	finalizeGraces []time.Duration // FinalizeExpiredContractRemovals 调用（清扫转发）
+	finalizeResult int
+	finalizeErr    error
 }
 
 type seenScope struct {
@@ -130,7 +135,19 @@ func (r *recordingContractService) RebuildContractFromFunctionMeta(ctx context.C
 
 func (r *recordingContractService) RemoveFunctionContract(ctx context.Context, gameID, env, functionID string) (string, error) {
 	r.record(ctx)
+	r.removals = append(r.removals, seenScope{gameID: gameID, env: env})
 	return "", nil
+}
+
+func (r *recordingContractService) MarkContractRemovalPending(ctx context.Context, gameID, env, functionID string) error {
+	r.record(ctx)
+	r.pendingMarks = append(r.pendingMarks, seenScope{gameID: gameID, env: env})
+	return nil
+}
+
+func (r *recordingContractService) FinalizeExpiredContractRemovals(ctx context.Context, grace time.Duration) (int, error) {
+	r.finalizeGraces = append(r.finalizeGraces, grace)
+	return r.finalizeResult, r.finalizeErr
 }
 
 func (r *recordingContractService) RebuildResourceCapability(ctx context.Context, gameID, env, resourceKey string) error {
@@ -156,6 +173,49 @@ func (r *recordingContractService) RegenerateContractTemplates(ctx context.Conte
 func (r *recordingContractService) record(ctx context.Context) {
 	seen, _ := ctx.Value(registryTestScopeKey{}).(seenScope)
 	r.scopes = append(r.scopes, seen)
+}
+
+// 注册面 Removed 分支走摘除宽限：只打 pending 标记，不再触发即时移除
+// （RemoveFunctionContract 仅剩 API 手动删除入口）。
+func TestUpsertAgentMarksRemovalPendingInsteadOfImmediateRemoval(t *testing.T) {
+	store := NewStore()
+	recorder := &recordingContractService{}
+	store.SetContractService(recorder)
+
+	session := &AgentSession{
+		AgentID: "agent-1",
+		GameID:  "demo-game",
+		Env:     "development",
+		Functions: map[string]FunctionMeta{
+			"mail.send": {Enabled: true, Version: "1.0.0"},
+		},
+	}
+	require.NoError(t, store.UpsertAgent(session))
+	empty := *session
+	empty.Functions = map[string]FunctionMeta{}
+	require.NoError(t, store.UpsertAgent(&empty))
+
+	require.Len(t, recorder.pendingMarks, 1)
+	assert.Equal(t, "demo-game", recorder.pendingMarks[0].gameID)
+	assert.Equal(t, "development", recorder.pendingMarks[0].env)
+	assert.Empty(t, recorder.removals, "注册面不得再走即时移除路径")
+}
+
+// SweepExpiredContractRemovals：未接线契约服务时 no-op；接线后转发清扫
+// 并回传结果，宽限取包级默认（10min，显式断言防无意变更）。
+func TestStoreSweepExpiredContractRemovals(t *testing.T) {
+	store := NewStore()
+	finalized, err := store.SweepExpiredContractRemovals(context.Background())
+	require.NoError(t, err)
+	assert.Zero(t, finalized)
+
+	recorder := &recordingContractService{finalizeResult: 3}
+	store.SetContractService(recorder)
+	finalized, err = store.SweepExpiredContractRemovals(context.Background())
+	require.NoError(t, err)
+	assert.Equal(t, 3, finalized)
+	require.Len(t, recorder.finalizeGraces, 1)
+	assert.Equal(t, 10*time.Minute, recorder.finalizeGraces[0])
 }
 
 func TestStore_UpsertAgentFailsWhenContractRebuildFails(t *testing.T) {
@@ -220,6 +280,14 @@ func (f failingContractService) RegenerateContractTemplates(context.Context, str
 
 func (f failingContractService) RemoveFunctionContract(context.Context, string, string, string) (string, error) {
 	return "", f.err
+}
+
+func (f failingContractService) MarkContractRemovalPending(context.Context, string, string, string) error {
+	return f.err
+}
+
+func (f failingContractService) FinalizeExpiredContractRemovals(context.Context, time.Duration) (int, error) {
+	return 0, f.err
 }
 
 func (f failingContractService) RebuildResourceCapability(context.Context, string, string, string) error {

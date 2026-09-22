@@ -8,9 +8,12 @@ package server
 // 轮询窗口 2s 远大于 5ms 间隔，不构成时序敏感断言。
 
 import (
+	"context"
+	"sync/atomic"
 	"testing"
 	"time"
 
+	"github.com/cuihairu/croupier/internal/dashboard/spec"
 	registry "github.com/cuihairu/croupier/internal/platform/registry"
 	gsqlite "github.com/glebarez/sqlite"
 	"github.com/stretchr/testify/require"
@@ -96,5 +99,61 @@ func TestControlService_PruneOldMetrics_TickFires(t *testing.T) {
 	case <-done:
 	case <-time.After(2 * time.Second):
 		t.Fatal("pruneOldMetrics did not exit after cancel")
+	}
+}
+
+// contractRemovalSweepLoop：ticker 触发后 runContractRemovalSweep →
+// registry.SweepExpiredContractRemovals 转发到契约服务的清扫入口。
+// sweepContractService 是 registry.Store 契约物化接口的桩，原子计数
+// 观察触发（循环 goroutine 并发读写，与 mockAgentSessionLoader 同手法）。
+type sweepContractService struct {
+	called int32
+}
+
+func (s *sweepContractService) RebuildContractFromFunctionMeta(ctx context.Context, gameID, env, source string, meta spec.FunctionContractInput) error {
+	return nil
+}
+func (s *sweepContractService) RemoveFunctionContract(ctx context.Context, gameID, env, functionID string) (string, error) {
+	return "", nil
+}
+func (s *sweepContractService) MarkContractRemovalPending(ctx context.Context, gameID, env, functionID string) error {
+	return nil
+}
+func (s *sweepContractService) FinalizeExpiredContractRemovals(ctx context.Context, grace time.Duration) (int, error) {
+	atomic.AddInt32(&s.called, 1)
+	return 0, nil
+}
+func (s *sweepContractService) RebuildResourceCapability(ctx context.Context, gameID, env, resourceKey string) error {
+	return nil
+}
+func (s *sweepContractService) RebuildProposalsForResource(ctx context.Context, gameID, env, resourceKey string) error {
+	return nil
+}
+func (s *sweepContractService) RebuildProposalForFunction(ctx context.Context, gameID, env, functionID string) error {
+	return nil
+}
+func (s *sweepContractService) RegenerateContractTemplates(ctx context.Context, gameID, env string) error {
+	return nil
+}
+
+func TestControlService_ContractRemovalSweepLoop_TickFires(t *testing.T) {
+	withShortLoopInterval(t)
+	svc := newTestControlService()
+	fake := &sweepContractService{}
+	svc.registry.SetContractService(fake)
+
+	done := make(chan struct{})
+	go func() {
+		svc.contractRemovalSweepLoop()
+		close(done)
+	}()
+
+	waitLoopCond(t, func() bool { return atomic.LoadInt32(&fake.called) >= 1 })
+
+	svc.cancel()
+	select {
+	case <-done:
+	case <-time.After(2 * time.Second):
+		t.Fatal("contractRemovalSweepLoop did not exit after cancel")
 	}
 }

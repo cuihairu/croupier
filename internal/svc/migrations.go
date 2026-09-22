@@ -71,6 +71,9 @@ import (
 //   0028 (Go)   sdk_version_highwatermarks 表（SDK 滑动版本门槛的高水位
 //               存储：per (game_id, env, sdk_language) 记见过的最高版本；
 //               新建表无存量约束名漂移，0014/0027 建表同模式）
+//   0031 (Go)   function_contracts.removal_pending_at 列 + 清扫候选
+//               过滤索引 idx_function_contracts_removal_pending（摘除
+//               宽限：瞬态摘除延迟真删，过期清扫；0021/0025 加列模式）
 //   0030 (Go)   function_version_floors 表（函数级最低 SDK 版本门槛：
 //               平台设置独立于注册物化，0030 同 0028/0029 新建表模式）
 //   0029 (Go)   function_contract_versions 表（B2 函数契约变更历史：
@@ -116,6 +119,7 @@ func registerSvcMigrations() {
 		sdkVersionHighwatermarkMigration(),
 		contractVersionTableMigration(),
 		functionVersionFloorTableMigration(),
+		contractRemovalPendingColumnMigration(),
 	); err != nil {
 		panic(fmt.Sprintf("svc: register goose go migrations: %v", err))
 	}
@@ -676,6 +680,42 @@ func migrateFunctionVersionFloorTable(ctx context.Context, sqlDB *sql.DB) error 
 	if !db.Migrator().HasTable(&model.FunctionVersionFloor{}) {
 		if err := db.Migrator().CreateTable(&model.FunctionVersionFloor{}); err != nil {
 			return fmt.Errorf("migrate: 0030 create function_version_floors: %w", err)
+		}
+	}
+	return nil
+}
+
+// contractRemovalPendingColumnMigration 为 0031：function_contracts 加
+// removal_pending_at 列 + 清扫候选过滤索引（摘除宽限——瞬态摘除不立即
+// 真删，过期清扫）。改既有表走 HasColumn+AddColumn 逐列补齐（0021/0025
+// 同模式；整模型 AutoMigrate 会与存量约束名漂移 panic——0023 教训），
+// 幂等：列/索引已存在跳过。
+func contractRemovalPendingColumnMigration() *goose.Migration {
+	return goose.NewGoMigration(31,
+		&goose.GoFunc{RunDB: migrateContractRemovalPendingColumn},
+		nil,
+	)
+}
+
+// migrateContractRemovalPendingColumn 是 0031 的迁移体（抽出便于直测）。
+func migrateContractRemovalPendingColumn(ctx context.Context, sqlDB *sql.DB) error {
+	db, err := wrapGorm(sqlDB)
+	if err != nil {
+		return err
+	}
+	if !db.Migrator().HasTable(&model.FunctionContract{}) {
+		return nil // 无该表的库（fanout 重放）跳过，不建空壳
+	}
+	if !db.Migrator().HasColumn(&model.FunctionContract{}, "RemovalPendingAt") {
+		if err := db.Migrator().AddColumn(&model.FunctionContract{}, "RemovalPendingAt"); err != nil {
+			return fmt.Errorf("migrate: 0031 add function_contracts.removal_pending_at: %w", err)
+		}
+	}
+	// 清扫循环每 5 分钟按 removal_pending_at IS NOT NULL 过滤候选，
+	// 契约表大后全表扫放大；普通（非部分）索引保证三方言通用。
+	if !db.Migrator().HasIndex(&model.FunctionContract{}, "idx_function_contracts_removal_pending") {
+		if err := db.Migrator().CreateIndex(&model.FunctionContract{}, "idx_function_contracts_removal_pending"); err != nil {
+			return fmt.Errorf("migrate: 0031 index function_contracts.removal_pending_at: %w", err)
 		}
 	}
 	return nil

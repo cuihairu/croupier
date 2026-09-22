@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"strings"
+	"time"
 
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
@@ -189,6 +190,63 @@ func (m *FunctionContractModel) DeleteByScopeAndFunctionID(ctx context.Context, 
 	return dbctx.Resolve(ctx, m.db).WithContext(ctx).
 		Where("game_id = ? AND env = ? AND function_id = ?", gameID, env, functionID).
 		Delete(&FunctionContract{}).Error
+}
+
+// MarkRemovalPending 标记摘除宽限起点（函数从注册中消失时调用）。
+// 返回是否存在被标记的行——行已不存在时 false（调用方走即时删除路径
+// 也无对象）。已 pending 的行重复标记会刷新时间点：连续缺席只算最新
+// 一次，宽限从最后一次消失起算。用 UpdateColumn 而非 Update：gorm 的
+// Update 会自动触碰 updated_at，而 computeDigest 整行序列化含
+// updated_at——触碰会让宽限内首轮提案重建误判「契约已变化」，把
+// accepted 提案打回 pending（与宽限「零版本噪音」目标相抵）。
+func (m *FunctionContractModel) MarkRemovalPending(ctx context.Context, gameID, env, functionID string) (bool, error) {
+	res := dbctx.Resolve(ctx, m.db).WithContext(ctx).
+		Model(&FunctionContract{}).
+		Where("game_id = ? AND env = ? AND function_id = ?", gameID, env, functionID).
+		UpdateColumn("removal_pending_at", time.Now())
+	if res.Error != nil {
+		return false, res.Error
+	}
+	return res.RowsAffected > 0, nil
+}
+
+// ClearRemovalPending 清除摘除宽限标记（宽限期内重注册）。无 pending
+// 时是零成本 no-op（WHERE 条件兜底）。UpdateColumn 理由同 MarkRemovalPending。
+func (m *FunctionContractModel) ClearRemovalPending(ctx context.Context, gameID, env, functionID string) error {
+	return dbctx.Resolve(ctx, m.db).WithContext(ctx).
+		Model(&FunctionContract{}).
+		Where("game_id = ? AND env = ? AND function_id = ? AND removal_pending_at IS NOT NULL", gameID, env, functionID).
+		UpdateColumn("removal_pending_at", nil).Error
+}
+
+// ListExpiredPendingRemovals 列出宽限已到期的 pending 行（清扫器候选项）。
+// limit>0 时按 removal_pending_at 最旧优先截断（清扫每轮批量认领，剩余
+// 候选下一轮继续——未到期的量不该拖垮单轮预算）；limit<=0 不限量。
+func (m *FunctionContractModel) ListExpiredPendingRemovals(ctx context.Context, cutoff time.Time, limit int) ([]*FunctionContract, error) {
+	q := dbctx.Resolve(ctx, m.db).WithContext(ctx).
+		Where("removal_pending_at IS NOT NULL AND removal_pending_at < ?", cutoff).
+		Order("removal_pending_at ASC")
+	if limit > 0 {
+		q = q.Limit(limit)
+	}
+	var rows []*FunctionContract
+	err := q.Find(&rows).Error
+	return rows, err
+}
+
+// DeleteIfRemovalPending 条件删除：仅当行仍处于 pending 时删除成功。
+// 这是 HA 多实例清扫的原子认领——两个实例同时 finalize 同一行时只有一个
+// DELETE 命中（另一个 RowsAffected=0 跳过），removed 版本历史不会双写；
+// 与重注册的竞态同理：宽限内重注册已清除 pending，条件删除命中不了，
+// 刚回来的函数不会被误删。
+func (m *FunctionContractModel) DeleteIfRemovalPending(ctx context.Context, gameID, env, functionID string) (bool, error) {
+	res := dbctx.Resolve(ctx, m.db).WithContext(ctx).
+		Where("game_id = ? AND env = ? AND function_id = ? AND removal_pending_at IS NOT NULL", gameID, env, functionID).
+		Delete(&FunctionContract{})
+	if res.Error != nil {
+		return false, res.Error
+	}
+	return res.RowsAffected > 0, nil
 }
 
 // ResourceCapabilityModel wraps data access for resource capabilities.

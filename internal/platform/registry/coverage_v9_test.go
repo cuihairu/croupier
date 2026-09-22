@@ -224,6 +224,16 @@ func (removeFailingContractServiceV9) RemoveFunctionContract(context.Context, st
 	return "", errV9Compensation
 }
 
+// 摘除宽限：注册链 Removed 分支改调 MarkContractRemovalPending——失败
+// 语义随之迁移（断言的 rebuildErrors 来源不变）。
+func (removeFailingContractServiceV9) MarkContractRemovalPending(context.Context, string, string, string) error {
+	return errV9Compensation
+}
+
+func (removeFailingContractServiceV9) FinalizeExpiredContractRemovals(context.Context, time.Duration) (int, error) {
+	return 0, nil
+}
+
 func (removeFailingContractServiceV9) RebuildResourceCapability(context.Context, string, string, string) error {
 	return nil
 }
@@ -552,6 +562,14 @@ func (proposalsFailingServiceV9) RebuildContractFromFunctionMeta(context.Context
 
 func (proposalsFailingServiceV9) RemoveFunctionContract(context.Context, string, string, string) (string, error) {
 	return "", nil
+}
+
+func (proposalsFailingServiceV9) MarkContractRemovalPending(context.Context, string, string, string) error {
+	return nil
+}
+
+func (proposalsFailingServiceV9) FinalizeExpiredContractRemovals(context.Context, time.Duration) (int, error) {
+	return 0, nil
 }
 
 func (proposalsFailingServiceV9) RebuildResourceCapability(context.Context, string, string, string) error {

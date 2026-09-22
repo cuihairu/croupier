@@ -3,7 +3,9 @@ package main
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"strings"
+	"time"
 
 	"github.com/cuihairu/croupier/internal/dashboard/spec"
 	"github.com/cuihairu/croupier/internal/db/dbctx"
@@ -37,6 +39,59 @@ func (p *registrationContractPipeline) RemoveFunctionContract(ctx context.Contex
 		return "", err
 	}
 	return contractSvc.RemoveFunctionContract(ctx, gameID, env, functionID)
+}
+
+func (p *registrationContractPipeline) MarkContractRemovalPending(ctx context.Context, gameID, env, functionID string) error {
+	contractSvc, err := p.contractService(ctx, gameID, env)
+	if err != nil {
+		return err
+	}
+	return contractSvc.MarkContractRemovalPending(ctx, gameID, env, functionID)
+}
+
+// FinalizeExpiredContractRemovals 跨 scope 清扫摘除宽限到期的 pending 行。
+// database-per-game 模式下 pending 行散布在各 game 库，单库清扫会漏——
+// 分库模式枚举 game_envs 绑定逐 scope 清扫；单库模式（Router nil）契约
+// 全在 meta 库（game_id 行级隔离），一次清扫覆盖全部 scope。单 scope
+// 失败记日志继续（其余 scope 不被拖累，失败 scope 下轮重试）。
+func (p *registrationContractPipeline) FinalizeExpiredContractRemovals(ctx context.Context, grace time.Duration) (int, error) {
+	if p == nil || p.svcCtx == nil || p.svcCtx.DB == nil {
+		return 0, nil
+	}
+	if p.svcCtx.Router == nil {
+		return dashboardservice.NewContractService(p.svcCtx.DB).FinalizeExpiredContractRemovals(ctx, grace)
+	}
+	if p.svcCtx.GameModel == nil {
+		return 0, fmt.Errorf("finalize pending removals: game model is not initialized")
+	}
+	bindings, err := p.svcCtx.GameModel.ListAllEnvBindings(ctx)
+	if err != nil {
+		return 0, fmt.Errorf("list game env bindings for pending removal sweep: %w", err)
+	}
+	total := 0
+	var firstErr error
+	for _, binding := range bindings {
+		db, err := p.svcCtx.Router.GameDB(ctx, binding.GameID, binding.Env)
+		if err != nil {
+			slog.Warn("resolve game db for pending removal sweep failed",
+				"game_id", binding.GameID, "env", binding.Env, "error", err)
+			if firstErr == nil {
+				firstErr = err
+			}
+			continue
+		}
+		finalized, err := dashboardservice.NewContractService(db).FinalizeExpiredContractRemovals(ctx, grace)
+		if err != nil {
+			slog.Warn("finalize pending removals failed",
+				"game_id", binding.GameID, "env", binding.Env, "error", err)
+			if firstErr == nil {
+				firstErr = err
+			}
+			continue
+		}
+		total += finalized
+	}
+	return total, firstErr
 }
 
 func (p *registrationContractPipeline) RebuildResourceCapability(ctx context.Context, gameID, env, resourceKey string) error {

@@ -18,7 +18,7 @@ import (
 func TestRegistrationMaterializesDefaultOperationProposal(t *testing.T) {
 	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
 	require.NoError(t, err)
-	require.NoError(t, db.AutoMigrate(&registry.AgentSessionDB{}, &model.FunctionContract{}, &model.ResourceCapability{}, &model.CapabilitySemantics{}, &model.CapabilitySemanticVersion{}, &model.PageProposal{}, &model.PageProposalVersion{}, &model.BlockedProposalIssue{}, &model.PageSpec{}, &model.PublishedPageSpec{}, &model.PageVersion{}))
+	require.NoError(t, db.AutoMigrate(&registry.AgentSessionDB{}, &model.FunctionContract{}, &model.FunctionContractVersion{}, &model.ResourceCapability{}, &model.CapabilitySemantics{}, &model.CapabilitySemanticVersion{}, &model.PageProposal{}, &model.PageProposalVersion{}, &model.BlockedProposalIssue{}, &model.PageSpec{}, &model.PublishedPageSpec{}, &model.PageVersion{}))
 	store := registry.NewStoreWithDB(db)
 	store.SetContractService(service.NewContractService(db))
 	err = store.UpsertAgent(&registry.AgentSession{AgentID: "agent-1", GameID: "demo-game", Env: "development", Functions: map[string]registry.FunctionMeta{
@@ -50,7 +50,7 @@ func TestRegistrationMaterializesDefaultOperationProposal(t *testing.T) {
 func TestUpsertAgentDoesNotInferSDKResourceOrCapability(t *testing.T) {
 	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
 	require.NoError(t, err)
-	require.NoError(t, db.AutoMigrate(&registry.AgentSessionDB{}, &model.FunctionContract{}, &model.ResourceCapability{}, &model.CapabilitySemantics{}, &model.CapabilitySemanticVersion{}, &model.PageProposal{}, &model.PageProposalVersion{}, &model.BlockedProposalIssue{}, &model.PageSpec{}, &model.PublishedPageSpec{}, &model.PageVersion{}))
+	require.NoError(t, db.AutoMigrate(&registry.AgentSessionDB{}, &model.FunctionContract{}, &model.FunctionContractVersion{}, &model.ResourceCapability{}, &model.CapabilitySemantics{}, &model.CapabilitySemanticVersion{}, &model.PageProposal{}, &model.PageProposalVersion{}, &model.BlockedProposalIssue{}, &model.PageSpec{}, &model.PublishedPageSpec{}, &model.PageVersion{}))
 
 	store := registry.NewStoreWithDB(db)
 	store.SetContractService(service.NewContractService(db))
@@ -88,13 +88,14 @@ func TestUpsertAgentDoesNotInferSDKResourceOrCapability(t *testing.T) {
 	assert.Empty(t, capabilities)
 }
 
-func TestUpsertAgentRemovesContractsAndProposalsAbsentFromSnapshot(t *testing.T) {
+func TestUpsertAgentFinalizesExpiredRemovalsAbsentFromSnapshot(t *testing.T) {
 	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
 	require.NoError(t, err)
-	require.NoError(t, db.AutoMigrate(&registry.AgentSessionDB{}, &model.FunctionContract{}, &model.ResourceCapability{}, &model.CapabilitySemantics{}, &model.CapabilitySemanticVersion{}, &model.PageProposal{}, &model.PageProposalVersion{}, &model.BlockedProposalIssue{}, &model.PageSpec{}, &model.PublishedPageSpec{}, &model.PageVersion{}))
+	require.NoError(t, db.AutoMigrate(&registry.AgentSessionDB{}, &model.FunctionContract{}, &model.FunctionContractVersion{}, &model.ResourceCapability{}, &model.CapabilitySemantics{}, &model.CapabilitySemanticVersion{}, &model.PageProposal{}, &model.PageProposalVersion{}, &model.BlockedProposalIssue{}, &model.PageSpec{}, &model.PublishedPageSpec{}, &model.PageVersion{}))
 
 	store := registry.NewStoreWithDB(db)
-	store.SetContractService(service.NewContractService(db))
+	contractSvc := service.NewContractService(db)
+	store.SetContractService(contractSvc)
 	first := &registry.AgentSession{
 		AgentID: "agent-1",
 		GameID:  "demo-game",
@@ -128,6 +129,18 @@ func TestUpsertAgentRemovesContractsAndProposalsAbsentFromSnapshot(t *testing.T)
 		Functions: map[string]registry.FunctionMeta{},
 	}))
 
+	// 摘除宽限：快照消失只打 pending 标记，契约与衍生行宽限期内保留。
+	contract, err := contractModel.FindByScopeAndFunctionID(ctx, "demo-game", "development", "player.list")
+	require.NoError(t, err)
+	assert.NotNil(t, contract.RemovalPendingAt)
+	_, err = proposalModel.FindByScopeAndKey(ctx, "demo-game", "development", "resource:player")
+	assert.NoError(t, err, "宽限期内资源提案保留")
+
+	// 宽限过期清扫：真删契约并级联清理资源维度的全部衍生状态。
+	finalized, err := contractSvc.FinalizeExpiredContractRemovals(ctx, 0)
+	require.NoError(t, err)
+	assert.Equal(t, 1, finalized)
+
 	_, err = contractModel.FindByScopeAndFunctionID(ctx, "demo-game", "development", "player.list")
 	assert.ErrorIs(t, err, gorm.ErrRecordNotFound)
 	_, err = proposalModel.FindByScopeAndKey(ctx, "demo-game", "development", "resource:player")
@@ -141,7 +154,7 @@ func TestUpsertAgentRemovesContractsAndProposalsAbsentFromSnapshot(t *testing.T)
 func TestUpsertAgentKeepsContractDeclaredByAnotherAgent(t *testing.T) {
 	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
 	require.NoError(t, err)
-	require.NoError(t, db.AutoMigrate(&registry.AgentSessionDB{}, &model.FunctionContract{}, &model.ResourceCapability{}, &model.CapabilitySemantics{}, &model.CapabilitySemanticVersion{}, &model.PageProposal{}, &model.PageProposalVersion{}, &model.BlockedProposalIssue{}, &model.PageSpec{}, &model.PublishedPageSpec{}, &model.PageVersion{}))
+	require.NoError(t, db.AutoMigrate(&registry.AgentSessionDB{}, &model.FunctionContract{}, &model.FunctionContractVersion{}, &model.ResourceCapability{}, &model.CapabilitySemantics{}, &model.CapabilitySemanticVersion{}, &model.PageProposal{}, &model.PageProposalVersion{}, &model.BlockedProposalIssue{}, &model.PageSpec{}, &model.PublishedPageSpec{}, &model.PageVersion{}))
 
 	store := registry.NewStoreWithDB(db)
 	store.SetContractService(service.NewContractService(db))

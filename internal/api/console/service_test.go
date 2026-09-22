@@ -490,14 +490,27 @@ func TestRemovedRegisteredFunctionInvalidatesProposalAndStalesPublishedPage(t *t
 	// Use the production registration projection, rather than merely changing
 	// the in-memory registry: Console freshness is intentionally based on the
 	// persisted FunctionContract snapshot.
-	service.svcCtx.RegistryStore.SetContractService(contractsvc.NewContractService(service.svcCtx.DB))
+	contractSvc := contractsvc.NewContractService(service.svcCtx.DB)
+	service.svcCtx.RegistryStore.SetContractService(contractSvc)
 	require.NoError(t, service.svcCtx.RegistryStore.UpsertAgent(&reg.AgentSession{
 		AgentID:   "agent-1",
 		GameID:    "demo-game",
 		Env:       "development",
 		Functions: map[string]reg.FunctionMeta{},
 	}))
-	_, err := model.NewFunctionContractModel(service.svcCtx.DB).FindByScopeAndFunctionID(ctx, "demo-game", "development", "player.query")
+	// 摘除宽限：快照消失只打 pending 标记，契约与页面绑定宽限期内保留
+	// （瞬态摘除不制造 stale 抖动）。
+	contract, err := model.NewFunctionContractModel(service.svcCtx.DB).FindByScopeAndFunctionID(ctx, "demo-game", "development", "player.query")
+	require.NoError(t, err)
+	assert.NotNil(t, contract.RemovalPendingAt)
+	freshResp, err := service.Page(ctx, &ConsolePageRequest{PageKey: "player.manage"})
+	require.NoError(t, err)
+	assert.Empty(t, freshResp.Page.BindingFreshness, "宽限期内绑定保持 fresh")
+
+	// 宽限过期清扫：契约真删，页面绑定转为 function_missing / stale。
+	_, err = contractSvc.FinalizeExpiredContractRemovals(ctx, 0)
+	require.NoError(t, err)
+	_, err = model.NewFunctionContractModel(service.svcCtx.DB).FindByScopeAndFunctionID(ctx, "demo-game", "development", "player.query")
 	assert.ErrorIs(t, err, gorm.ErrRecordNotFound)
 
 	pageResp, err := service.Page(ctx, &ConsolePageRequest{PageKey: "player.manage"})

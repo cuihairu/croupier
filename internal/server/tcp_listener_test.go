@@ -786,6 +786,12 @@ func (failingMaterializerForRegisterTest) RebuildContractFromFunctionMeta(contex
 func (failingMaterializerForRegisterTest) RemoveFunctionContract(context.Context, string, string, string) (string, error) {
 	return "", nil
 }
+func (failingMaterializerForRegisterTest) MarkContractRemovalPending(context.Context, string, string, string) error {
+	return nil
+}
+func (failingMaterializerForRegisterTest) FinalizeExpiredContractRemovals(context.Context, time.Duration) (int, error) {
+	return 0, nil
+}
 func (failingMaterializerForRegisterTest) RebuildResourceCapability(context.Context, string, string, string) error {
 	return nil
 }

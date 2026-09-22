@@ -314,6 +314,7 @@ func (s *ControlService) StartBackgroundTasks() {
 		if s.agentSessionLoader != nil {
 			go s.cleanupLoop()
 		}
+		go s.contractRemovalSweepLoop()
 	})
 }
 
@@ -1110,8 +1111,9 @@ func (s *ControlService) pruneMetricsOnce() {
 	s.systemInfoCache.Prune(time.Hour)
 }
 
-// backgroundLoopInterval 是指标修剪/会话清理两个后台循环的定时间隔；
-// 抽为包级变量仅为测试注入短间隔覆盖 ticker 分支，默认 5 分钟与历史行为一致。
+// backgroundLoopInterval 是指标修剪/会话清理/摘除宽限清扫三个后台循环的
+// 定时间隔；抽为包级变量仅为测试注入短间隔覆盖 ticker 分支，默认 5 分钟
+// 与历史行为一致。
 var backgroundLoopInterval = 5 * time.Minute
 
 func (s *ControlService) pruneOldMetrics() {
@@ -1148,6 +1150,32 @@ func (s *ControlService) cleanupLoop() {
 			return
 		case <-ticker.C:
 			s.runSessionCleanup()
+		}
+	}
+}
+
+// runContractRemovalSweep 执行一轮摘除宽限到期契约的清扫（供循环调用与直接测试）。
+// 未接线契约服务（内存注册面）时 SweepExpiredContractRemovals 为 no-op。
+func (s *ControlService) runContractRemovalSweep() {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	finalized, err := s.registry.SweepExpiredContractRemovals(ctx)
+	if err != nil {
+		s.logger.Error("failed to sweep expired contract removals", "error", err, "finalized", finalized)
+	} else if finalized > 0 {
+		s.logger.Info("finalized expired contract removals", "count", finalized)
+	}
+}
+
+func (s *ControlService) contractRemovalSweepLoop() {
+	ticker := time.NewTicker(backgroundLoopInterval)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-s.ctx.Done():
+			return
+		case <-ticker.C:
+			s.runContractRemovalSweep()
 		}
 	}
 }

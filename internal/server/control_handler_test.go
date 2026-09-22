@@ -1873,6 +1873,14 @@ func (f failingRegisterContractService) RemoveFunctionContract(context.Context, 
 	return "", f.err
 }
 
+func (f failingRegisterContractService) MarkContractRemovalPending(context.Context, string, string, string) error {
+	return f.err
+}
+
+func (f failingRegisterContractService) FinalizeExpiredContractRemovals(context.Context, time.Duration) (int, error) {
+	return 0, f.err
+}
+
 func (f failingRegisterContractService) RebuildResourceCapability(context.Context, string, string, string) error {
 	return f.err
 }

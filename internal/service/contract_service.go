@@ -11,6 +11,7 @@ import (
 	"runtime/debug"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/cuihairu/croupier/internal/audit"
 	"github.com/cuihairu/croupier/internal/dashboard/generator"
@@ -247,6 +248,14 @@ func (s *ContractService) rebuildContract(ctx context.Context, gameID, env, sour
 	contract.Diagnostics = diagnostics
 	if err := s.contractModel.UpsertContract(ctx, contract); err != nil {
 		return fmt.Errorf("upsert function contract: %w", err)
+	}
+	// 摘除宽限：宽限期内重注册清除 pending 标记——瞬态摘除（重启窗口/
+	// 门槛误配/闪断）不产生 removed+created 版本噪音，契约行全程存活。
+	// 无 pending 时是零成本 no-op；清除失败降级告警（下轮清扫最多误删
+	// 一次后由本轮注册物化恢复，不阻断注册）。
+	if err := s.contractModel.ClearRemovalPending(ctx, gameID, env, input.ID); err != nil {
+		slog.Warn("clear contract removal pending failed",
+			"game_id", gameID, "env", env, "function_id", input.ID, "error", err)
 	}
 
 	// B2：内容变化才落版本历史。历史是衍生审计数据（与 proposals/templates
@@ -1134,6 +1143,127 @@ func (s *ContractService) RemoveFunctionContract(ctx context.Context, gameID, en
 		return "", err
 	}
 	return resourceKey, nil
+}
+
+// MarkContractRemovalPending 注册链函数消失时打摘除宽限标记（不立即
+// 真删）。契约行不存在时静默返回（无对象可标记，语义等同已删）。
+func (s *ContractService) MarkContractRemovalPending(ctx context.Context, gameID, env, functionID string) error {
+	if s.contractModel == nil {
+		return nil
+	}
+	marked, err := s.contractModel.MarkRemovalPending(ctx, gameID, env, functionID)
+	if err != nil {
+		return fmt.Errorf("mark function contract %s removal pending: %w", functionID, err)
+	}
+	if marked {
+		slog.Info("function contract removal pending",
+			"game_id", gameID, "env", env, "function_id", functionID)
+	}
+	return nil
+}
+
+// removalSweepBatchSize 单轮清扫最多认领的候选行数：候选查询按
+// removal_pending_at 最旧优先 LIMIT 截断，剩余候选 30s 后下一轮继续，
+// 积压再大也不拖垮单轮预算（索引 idx_function_contracts_removal_pending
+// 支持过滤+排序）。
+const removalSweepBatchSize = 200
+
+// FinalizeExpiredContractRemovals 清扫宽限已到期的摘除 pending 行：
+// 条件删除原子认领（HA 多实例清扫只有一个命中，removed 历史不双写；
+// 宽限内重注册已清 pending，条件删除命中不了，函数不会被误删）。
+// 真删后补 removed 版本历史 + 提案清理 + 资源能力/页面提案重建 +
+// 组件模板收口（与 RemoveFunctionContract 即时路径同净效果）。衍生
+// 动作失败不中断整轮清扫（其余候选继续），但聚合进返回错误——否则
+// 契约已真删而衍生状态残缺时运维不可见、下轮也不再处理。
+func (s *ContractService) FinalizeExpiredContractRemovals(ctx context.Context, grace time.Duration) (int, error) {
+	if s.contractModel == nil {
+		return 0, nil
+	}
+	candidates, err := s.contractModel.ListExpiredPendingRemovals(ctx, time.Now().Add(-grace), removalSweepBatchSize)
+	if err != nil {
+		return 0, fmt.Errorf("list expired pending removals: %w", err)
+	}
+	finalized := 0
+	var errs []error
+	templatesToRegen := [][2]string{} // 去重后的 (gameID, env) 收口清单
+	for _, contract := range candidates {
+		deleted, err := s.contractModel.DeleteIfRemovalPending(ctx, contract.GameID, contract.Env, contract.FunctionID)
+		if err != nil {
+			// 认领失败不提前收整轮：其余候选继续清扫，失败聚合返回
+			//（与衍生动作失败同一口径，R6/R7）。
+			errs = append(errs, fmt.Errorf("claim pending removal %s: %w", contract.FunctionID, err))
+			continue
+		}
+		if !deleted {
+			continue // 被另一实例认领，或宽限内已重注册
+		}
+		if err := s.appendRemovedContractVersion(ctx, contract); err != nil {
+			slog.Warn("append function contract version failed",
+				"game_id", contract.GameID, "env", contract.Env, "function_id", contract.FunctionID, "error", err)
+			errs = append(errs, fmt.Errorf("function %s removed history: %w", contract.FunctionID, err))
+		}
+		if err := s.removeStandaloneProposalsForFunction(ctx, contract.GameID, contract.Env, contract.FunctionID); err != nil {
+			slog.Warn("remove standalone proposals failed",
+				"game_id", contract.GameID, "env", contract.Env, "function_id", contract.FunctionID, "error", err)
+			errs = append(errs, fmt.Errorf("function %s standalone proposals: %w", contract.FunctionID, err))
+		}
+		if err := s.resolveBlockedIssue(ctx, contract.GameID, contract.Env, strings.TrimSpace(contract.ResourceKey), contract.FunctionID); err != nil {
+			slog.Warn("resolve blocked issue failed",
+				"game_id", contract.GameID, "env", contract.Env, "function_id", contract.FunctionID, "error", err)
+			errs = append(errs, fmt.Errorf("function %s blocked issue: %w", contract.FunctionID, err))
+		}
+		if resourceKey := strings.TrimSpace(contract.ResourceKey); resourceKey != "" {
+			if err := s.RebuildResourceCapability(ctx, contract.GameID, contract.Env, resourceKey); err != nil {
+				slog.Warn("rebuild resource capability after pending removal failed",
+					"game_id", contract.GameID, "env", contract.Env, "resource", resourceKey, "error", err)
+				errs = append(errs, fmt.Errorf("resource %s capability: %w", resourceKey, err))
+			}
+			// 与即时移除路径同净效果：资源仍有其他存活契约时重生成
+			// 资源页提案（摘除已删函数的 binding，旧提案若直接发布会
+			// 产出 binding_function_missing 的必败绑定）；资源已无存活
+			// 契约（能力聚合被清）时，资源页提案一并摘除。
+			_, capErr := s.capabilityModel.FindByScopeAndResourceKey(ctx, contract.GameID, contract.Env, resourceKey)
+			switch {
+			case errors.Is(capErr, gorm.ErrRecordNotFound):
+				if err := s.removeResourceProposal(ctx, contract.GameID, contract.Env, resourceKey); err != nil {
+					slog.Warn("remove resource proposal after pending removal failed",
+						"game_id", contract.GameID, "env", contract.Env, "resource", resourceKey, "error", err)
+					errs = append(errs, fmt.Errorf("resource %s proposal removal: %w", resourceKey, err))
+				}
+			case capErr != nil:
+				slog.Warn("find resource capability after pending removal failed",
+					"game_id", contract.GameID, "env", contract.Env, "resource", resourceKey, "error", capErr)
+				errs = append(errs, fmt.Errorf("resource %s capability lookup: %w", resourceKey, capErr))
+			default:
+				if err := s.RebuildProposalsForResource(ctx, contract.GameID, contract.Env, resourceKey); err != nil {
+					slog.Warn("rebuild resource proposals after pending removal failed",
+						"game_id", contract.GameID, "env", contract.Env, "resource", resourceKey, "error", err)
+					errs = append(errs, fmt.Errorf("resource %s proposal rebuild: %w", resourceKey, err))
+				}
+			}
+		}
+		finalized++
+		scopeSeen := false
+		for _, scope := range templatesToRegen {
+			if scope[0] == contract.GameID && scope[1] == contract.Env {
+				scopeSeen = true
+				break
+			}
+		}
+		if !scopeSeen {
+			templatesToRegen = append(templatesToRegen, [2]string{contract.GameID, contract.Env})
+		}
+	}
+	// 组件模板收口：只对发生真删的 scope 重建一次（模板内容含契约
+	// 形态，残留死函数模板与提案同理误导运营）。
+	for _, scope := range templatesToRegen {
+		if err := s.RegenerateContractTemplates(ctx, scope[0], scope[1]); err != nil {
+			slog.Warn("regenerate contract templates after pending removal failed",
+				"game_id", scope[0], "env", scope[1], "error", err)
+			errs = append(errs, fmt.Errorf("templates %s/%s: %w", scope[0], scope[1], err))
+		}
+	}
+	return finalized, errors.Join(errs...)
 }
 
 // ListResourceCapabilities lists all resource capabilities in a scope.

@@ -161,6 +161,10 @@ type Store struct {
 type contractMaterializer interface {
 	RebuildContractFromFunctionMeta(ctx context.Context, gameID, env, source string, meta spec.FunctionContractInput) error
 	RemoveFunctionContract(ctx context.Context, gameID, env, functionID string) (resourceKey string, err error)
+	// MarkContractRemovalPending 注册链函数消失走摘除宽限（不立即真删）：
+	// 宽限期内重注册自动清除，过期由 FinalizeExpiredContractRemovals 真删。
+	MarkContractRemovalPending(ctx context.Context, gameID, env, functionID string) error
+	FinalizeExpiredContractRemovals(ctx context.Context, grace time.Duration) (int, error)
 	RebuildResourceCapability(ctx context.Context, gameID, env, resourceKey string) error
 	RebuildProposalsForResource(ctx context.Context, gameID, env, resourceKey string) error
 	RebuildProposalForFunction(ctx context.Context, gameID, env, functionID string) error
@@ -276,6 +280,22 @@ func NewStoreWithDB(db *gorm.DB) *Store {
 // SetContractService sets the contract service for FunctionContract persistence.
 func (s *Store) SetContractService(svc contractMaterializer) {
 	s.contractService = svc
+}
+
+// contractRemovalGracePeriod 是摘除宽限默认时长：注册面函数消失后契约先标
+// pending，宽限期内重注册自动清除，超期才由 SweepExpiredContractRemovals
+// 真删。包级变量沿用 backgroundLoopInterval 的测试注入惯例（无配置先例，
+// 不加配置项）。
+var contractRemovalGracePeriod = 10 * time.Minute
+
+// SweepExpiredContractRemovals 清扫摘除宽限到期的 pending 契约（后台循环
+// 每 backgroundLoopInterval 调一次）。未接线 contractService（内存注册面）
+// 时为 no-op。
+func (s *Store) SweepExpiredContractRemovals(ctx context.Context) (int, error) {
+	if s == nil || s.contractService == nil {
+		return 0, nil
+	}
+	return s.contractService.FinalizeExpiredContractRemovals(ctx, contractRemovalGracePeriod)
 }
 
 // SessionPersistenceEnabled reports whether the registry itself persists
@@ -515,13 +535,14 @@ func (s *Store) materializeAgent(ctx context.Context, session *AgentSession, ses
 			}
 			continue
 		}
-		resourceKey, err := s.contractService.RemoveFunctionContract(ctx, session.GameID, session.Env, functionID)
-		if err != nil {
-			rebuildErrors = append(rebuildErrors, fmt.Errorf("remove function contract %s: %w", functionID, err))
+		// 摘除宽限：函数从本次注册中消失时只打 pending 标记，不立即真删
+		// ——重启窗口/门槛误配/闪断的瞬态摘除不再制造 removed+created
+		// 版本噪音与页面 stale 抖动；宽限期（默认 10min）后由
+		// SweepExpiredContractRemovals 真删并补 removed 历史。资源能力
+		// 聚合此刻无需重建（契约行仍存活，聚合内容不变）。
+		if err := s.contractService.MarkContractRemovalPending(ctx, session.GameID, session.Env, functionID); err != nil {
+			rebuildErrors = append(rebuildErrors, fmt.Errorf("mark function contract removal pending %s: %w", functionID, err))
 			continue
-		}
-		if resourceKey != "" {
-			resources[resourceKey] = true
 		}
 	}
 	for _, resource := range sortedStringSet(resources) {
