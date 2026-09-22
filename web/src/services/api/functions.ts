@@ -62,12 +62,12 @@ type RawFunctionDescriptor = Omit<FunctionDescriptor, 'displayName' | 'summary' 
 };
 
 // Source: croupier/internal/api/function/dto.go FunctionPermission
+// （后端 DTO 无 gameId/env——规则级 scope 断链，见
+// docs/architecture/game-environment-scope.md §12.7；补通 API 前禁止在前端自造这两个字段）
 export type FunctionPermission = {
   resource: string;
   actions: string[];
   roles: string[];
-  gameId?: string;
-  env?: string;
 };
 
 // Frontend warning DTO for /api/v1/functions/warnings.

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Alert,
   Button,
@@ -17,6 +17,7 @@ import {
 import type { FormInstance } from 'antd/es/form';
 import { CopyOutlined } from '@ant-design/icons';
 import { CodeEditor } from '@/components/MonacoDynamic';
+import { listRoles } from '@/services/api/permissions';
 import { formatDateTime } from '@/utils/format';
 import { FormattedMessage, useIntl } from '@umijs/max';
 
@@ -400,6 +401,27 @@ export function PermissionsTab({
   onSave: () => Promise<void>;
 }) {
   const intl = useIntl();
+  const [roleOptions, setRoleOptions] = useState<{ label: string; value: string }[]>([]);
+  const [rolesLoading, setRolesLoading] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    setRolesLoading(true);
+    listRoles({ pageSize: 200 })
+      .then((res) => {
+        if (!cancelled) {
+          setRoleOptions((res.items || []).map((r) => ({ label: r.name, value: r.name })));
+        }
+      })
+      .catch(() => undefined) // 选项加载失败降级为 tags 自由输入，不阻塞权限编辑
+      .finally(() => {
+        if (!cancelled) setRolesLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   return (
     <>
       <Alert
@@ -500,7 +522,7 @@ export function PermissionsTab({
                           <Select mode="tags" placeholder="invoke / execute" />
                         </Form.Item>
                       </Col>
-                      <Col span={6}>
+                      <Col span={12}>
                         <Form.Item
                           {...field}
                           label="roles"
@@ -517,21 +539,13 @@ export function PermissionsTab({
                         >
                           <Select
                             mode="tags"
+                            loading={rolesLoading}
+                            options={roleOptions}
                             placeholder={intl.formatMessage({
                               id: 'pages.functionsDetail.section.permissions.rolesPlaceholder',
                               defaultMessage: '例如：ops / admin / functions:manage',
                             })}
                           />
-                        </Form.Item>
-                      </Col>
-                      <Col span={3}>
-                        <Form.Item {...field} label="gameId" name={[field.name, 'gameId']}>
-                          <Input placeholder="(all)" />
-                        </Form.Item>
-                      </Col>
-                      <Col span={3}>
-                        <Form.Item {...field} label="env" name={[field.name, 'env']}>
-                          <Input placeholder="(all)" />
                         </Form.Item>
                       </Col>
                     </Row>
