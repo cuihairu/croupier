@@ -344,7 +344,8 @@ func TestSendPaginatedWithMetadata(t *testing.T) {
 
 func TestErrorAnalyzerTopErrorsSorted(t *testing.T) {
 	ea := NewErrorAnalyzer(100, nil)
-	// codeA×1, codeB×3：倒序插入确保排序交换分支执行
+	// codeA×1, codeB×3：计数降序确定性排序（排序实现已改为 sort.Slice，
+	// 相等数量按 code 升序决胜，不再依赖 map 遍历序）
 	ea.AddError(New(ErrCodeInternal, "op", nil))
 	ea.AddError(New(ErrCodeInvalidInput, "op", nil))
 	ea.AddError(New(ErrCodeInvalidInput, "op", nil))

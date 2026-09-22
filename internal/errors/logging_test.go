@@ -346,6 +346,31 @@ func TestErrorAnalyzer_GetTopErrors(t *testing.T) {
 	}
 }
 
+// GetTopErrors 相等数量按 code 升序决胜：排序输出对同一输入恒定同一顺序
+// （原冒泡实现相等数量的顺序跟随 map 遍历随机漂移）。
+func TestErrorAnalyzer_GetTopErrorsTieBreakByCode(t *testing.T) {
+	ea := NewErrorAnalyzer(100, nil)
+	ea.AddError(&AppError{Code: ErrCodeInternal, Timestamp: time.Now()})
+	ea.AddError(&AppError{Code: ErrCodeInvalidInput, Timestamp: time.Now()})
+	ea.AddError(&AppError{Code: ErrCodeForbidden, Timestamp: time.Now()})
+
+	all := ea.GetTopErrors(0)
+	if len(all) != 3 {
+		t.Fatalf("expected 3 error codes, got %d", len(all))
+	}
+	for i := 1; i < len(all); i++ {
+		if all[i-1] >= all[i] {
+			t.Fatalf("相等数量应按 code 升序，got %v", all)
+		}
+	}
+
+	// 截断：limit 落在中间。
+	top2 := ea.GetTopErrors(2)
+	if len(top2) != 2 || top2[0] >= top2[1] {
+		t.Fatalf("截断应保留 code 最小的前两个，got %v", top2)
+	}
+}
+
 func TestErrorAnalyzer_Clear(t *testing.T) {
 	ea := NewErrorAnalyzer(100, nil)
 	ea.AddError(&AppError{Code: ErrCodeInternal, Timestamp: time.Now()})

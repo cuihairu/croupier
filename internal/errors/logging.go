@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"sort"
 	"time"
 )
 
@@ -354,14 +355,15 @@ func (ea *ErrorAnalyzer) GetTopErrors(limit int) []ErrorCode {
 		sortedErrors = append(sortedErrors, errorCount{code: code, count: count})
 	}
 
-	// 简单排序（按数量降序）
-	for i := 0; i < len(sortedErrors); i++ {
-		for j := i + 1; j < len(sortedErrors); j++ {
-			if sortedErrors[j].count > sortedErrors[i].count {
-				sortedErrors[i], sortedErrors[j] = sortedErrors[j], sortedErrors[i]
-			}
+	// 按数量降序、code 升序。原先的冒泡只按数量排序，相等数量的顺序跟随
+	// map 遍历随机漂移（同一输入两次调用可能给出不同 top 序），且测试覆盖
+	// 交换分支只能碰运气；改为确定性排序后同一输入恒定同一输出。
+	sort.Slice(sortedErrors, func(i, j int) bool {
+		if sortedErrors[i].count != sortedErrors[j].count {
+			return sortedErrors[i].count > sortedErrors[j].count
 		}
-	}
+		return sortedErrors[i].code < sortedErrors[j].code
+	})
 
 	if limit > 0 && limit < len(sortedErrors) {
 		sortedErrors = sortedErrors[:limit]
