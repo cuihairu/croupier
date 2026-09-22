@@ -26,6 +26,12 @@ import (
 // this to the shared open logic in internal/svc; tests can inject fakes.
 type DatabaseOpener func(driver, dsn string) (*gorm.DB, error)
 
+// gameDBInflightHook 是 GameDB singleflight 回调入口的测试接缝，产品代码
+// 恒为 nil。唯一用途：让测试在「leader 赢得 Do 竞争」与「缓存 re-check」
+// 之间同步注入竞争条目，确定性覆盖 re-check 分支（该窗口内产品代码自身
+// 无挂起点，真实交错不可构造）。用后必须在 t.Cleanup 复位。
+var gameDBInflightHook func()
+
 // DatabaseEnsurer creates the physical database named dbName on the server
 // reachable via baseDSN (which points at an existing/admin database), then
 // returns the DSN to connect to the newly created database. If the database
@@ -143,6 +149,12 @@ func (r *Router) GameDB(_ context.Context, gameID, env string) (*gorm.DB, error)
 	// Slow path: deduplicate per-db. The create/migrate/open I/O happens
 	// inside openGameDB, outside any cache lock.
 	v, err, _ := r.inflight.Do(dbName, func() (interface{}, error) {
+		// 测试接缝（产品恒 nil）：在回调入口同步注入「等待窗口内他人抢先
+		// 发布」的交错，使下方 re-check 分支可确定性覆盖——替代已退役的
+		// 锁泊车/TryLock 自旋相位对齐编排（时序分支用注入点）。
+		if gameDBInflightHook != nil {
+			gameDBInflightHook()
+		}
 		// Re-check under read lock once we win the race: another goroutine may
 		// have populated the cache while we were waiting.
 		r.mu.RLock()
