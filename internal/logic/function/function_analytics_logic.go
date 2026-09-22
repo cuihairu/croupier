@@ -20,6 +20,12 @@ func NewFunctionAnalyticsLogic(ctx context.Context, svcCtx *svc.ServiceContext) 
 	}
 }
 
+// FunctionAnalytics 返回函数的真实调用统计，数据源为 execution_logs
+// 执行留痕（REST invoke / 页面绑定执行）。零调用时 TotalCalls/SuccessRate
+// 为 0——此前实现数的是 function_form 配置版本数且硬编码成功率 100%，
+// 属占位伪造数据，已在 function-pipeline-blockers.md 记录并废弃。
+// 口径边界：异步任务与 agent→游戏侧直连调用不经 execution_logs，
+// 不在统计内（执行链路卡点 E3/E10）。
 func (l *FunctionAnalyticsLogic) FunctionAnalytics(req *FunctionAnalyticsRequest) (*FunctionAnalyticsResponse, error) {
 	functionID, err := utils.ValidateFunctionID(req.ID)
 	if err != nil {
@@ -29,59 +35,26 @@ func (l *FunctionAnalyticsLogic) FunctionAnalytics(req *FunctionAnalyticsRequest
 		return nil, err
 	}
 
-	now := time.Now().UTC()
-	dayStart := now.Add(-24 * time.Hour)
-	weekStart := now.Add(-7 * 24 * time.Hour)
-	monthStart := now.Add(-30 * 24 * time.Hour)
-
-	var total, today, week, month int64
-	if l.svcCtx.ConfigVersionModel != nil {
-		countInRange := func(key string, from time.Time) (int64, error) {
-			versions, listErr := l.svcCtx.ConfigVersionModel.List(l.ctx, key)
-			if listErr != nil {
-				return 0, listErr
-			}
-			var count int64
-			for _, v := range versions {
-				if v.CreatedAt.UTC().After(from) {
-					count++
-				}
-			}
-			return count, nil
-		}
-
-		keys := []string{"function_form:" + functionID}
-		for _, key := range keys {
-			versions, listErr := l.svcCtx.ConfigVersionModel.List(l.ctx, key)
-			if listErr != nil {
-				return nil, listErr
-			}
-			total += int64(len(versions))
-
-			cDay, listErr := countInRange(key, dayStart)
-			if listErr != nil {
-				return nil, listErr
-			}
-			today += cDay
-			cWeek, listErr := countInRange(key, weekStart)
-			if listErr != nil {
-				return nil, listErr
-			}
-			week += cWeek
-			cMonth, listErr := countInRange(key, monthStart)
-			if listErr != nil {
-				return nil, listErr
-			}
-			month += cMonth
-		}
+	resp := &FunctionAnalyticsResponse{}
+	if l.svcCtx == nil || l.svcCtx.ExecutionLogModel == nil {
+		return resp, nil
 	}
 
-	return &FunctionAnalyticsResponse{
-		TotalCalls:     total,
-		SuccessRate:    100,
-		AvgLatency:     0,
-		CallsToday:     today,
-		CallsThisWeek:  week,
-		CallsThisMonth: month,
-	}, nil
+	now := time.Now().UTC()
+	stats, err := l.svcCtx.ExecutionLogModel.CallStatsByFunction(
+		l.ctx, functionID,
+		now.Add(-24*time.Hour), now.Add(-7*24*time.Hour), now.Add(-30*24*time.Hour),
+	)
+	if err != nil {
+		return nil, err
+	}
+	resp.TotalCalls = stats.Total
+	resp.CallsToday = stats.Today
+	resp.CallsThisWeek = stats.Week
+	resp.CallsThisMonth = stats.Month
+	if stats.Total > 0 {
+		resp.SuccessRate = float64(stats.Ok) * 100 / float64(stats.Total)
+		resp.AvgLatency = stats.AvgMs
+	}
+	return resp, nil
 }

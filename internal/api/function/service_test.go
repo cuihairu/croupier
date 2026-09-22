@@ -283,7 +283,8 @@ func TestFunctionAnalytics(t *testing.T) {
 	resp, err := functionAnalytics(ctx, svcCtx, req)
 	require.NoError(t, err)
 	assert.Equal(t, int64(0), resp.TotalCalls)
-	assert.Equal(t, 100.0, resp.SuccessRate)
+	// 新口径（execution_logs 真实聚合）：零调用不伪造 100% 成功率
+	assert.Equal(t, 0.0, resp.SuccessRate)
 	assert.Equal(t, 0.0, resp.AvgLatency)
 }
 

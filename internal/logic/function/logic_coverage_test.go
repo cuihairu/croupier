@@ -421,23 +421,49 @@ func TestBatchCopyFunctions_AllBranches(t *testing.T) {
 // FunctionAnalytics with ConfigVersionModel
 // ---------------------------------------------------------------------------
 
-func TestFunctionAnalytics_WithConfigVersions(t *testing.T) {
+func TestFunctionAnalytics_FromExecutionLogs(t *testing.T) {
 	svcCtx, ctx := setupFullTestContext(t)
-	svcCtx.ConfigVersionModel = model.NewConfigVersionModel(svcCtx.DB)
+	svcCtx.ExecutionLogModel = model.NewExecutionLogModel(svcCtx.DB)
 
-	_, errCreate := svcCtx.ConfigVersionModel.Create(ctx, "function_form:analytics.fn", `{"x":1}`, "tester")
-	require.NoError(t, errCreate)
-	_, errCreate = svcCtx.ConfigVersionModel.Create(ctx, "function_form:analytics.fn", `{"x":2}`, "tester")
-	require.NoError(t, errCreate)
+	now := time.Now().UTC()
+	seed := func(status string, dur int64, createdAt time.Time) {
+		require.NoError(t, svcCtx.ExecutionLogModel.Create(ctx, &model.ExecutionLog{
+			GameID:     "demo",
+			Env:        "prod",
+			FunctionID: "analytics.fn",
+			Source:     "invoke",
+			Actor:      "tester",
+			Status:     status,
+			DurationMs: dur,
+			CreatedAt:  createdAt,
+		}))
+	}
+	seed("ok", 100, now)                       // 今日 + 成功
+	seed("error", 300, now)                    // 今日 + 失败
+	seed("ok", 200, now.Add(-48*time.Hour))    // 本周非今日
+	seed("ok", 400, now.Add(-20*24*time.Hour)) // 本月非本周
 
 	logic := NewFunctionAnalyticsLogic(ctx, svcCtx)
 	resp, err := logic.FunctionAnalytics(&FunctionAnalyticsRequest{ID: "analytics.fn"})
 	require.NoError(t, err)
-	assert.Equal(t, int64(2), resp.TotalCalls)
+	assert.Equal(t, int64(4), resp.TotalCalls)
 	assert.Equal(t, int64(2), resp.CallsToday)
-	assert.Equal(t, int64(2), resp.CallsThisWeek)
-	assert.Equal(t, int64(2), resp.CallsThisMonth)
-	assert.Equal(t, float64(100), resp.SuccessRate)
+	assert.Equal(t, int64(3), resp.CallsThisWeek)
+	assert.Equal(t, int64(4), resp.CallsThisMonth)
+	assert.InDelta(t, 75, resp.SuccessRate, 0.01) // 3 ok / 4 total
+	assert.InDelta(t, 250, resp.AvgLatency, 0.01) // (100+300+200+400)/4
+}
+
+func TestFunctionAnalytics_ZeroCallsNotFabricated(t *testing.T) {
+	svcCtx, ctx := setupFullTestContext(t)
+	svcCtx.ExecutionLogModel = model.NewExecutionLogModel(svcCtx.DB)
+
+	logic := NewFunctionAnalyticsLogic(ctx, svcCtx)
+	resp, err := logic.FunctionAnalytics(&FunctionAnalyticsRequest{ID: "analytics.empty"})
+	require.NoError(t, err)
+	assert.Equal(t, int64(0), resp.TotalCalls)
+	assert.Equal(t, float64(0), resp.SuccessRate) // 零调用不伪造 100%
+	assert.Equal(t, float64(0), resp.AvgLatency)
 }
 
 func TestFunctionAnalytics_InvalidID(t *testing.T) {

@@ -349,6 +349,7 @@ export function AnalyticsTab({ functionId }: { functionId: string }) {
   const intl = useIntl();
   const [analyticsData, setAnalyticsData] = useState<AnalyticsData | null>(null);
   const [analyticsLoading, setAnalyticsLoading] = useState(false);
+  const hasCalls = (analyticsData?.totalCalls ?? 0) > 0;
 
   useEffect(() => {
     const loadAnalytics = async () => {
@@ -388,12 +389,17 @@ export function AnalyticsTab({ functionId }: { functionId: string }) {
               id: 'pages.functionsDetail.analytics.successRate',
               defaultMessage: '成功率',
             }),
-            value: analyticsData?.successRate || 0,
-            suffix: '%',
-            precision: 2,
+            // 零调用不显示伪造的成功率（后端已不再硬编码 100）：显示「—」
+            value: hasCalls ? analyticsData?.successRate || 0 : '—',
+            suffix: hasCalls ? '%' : undefined,
+            precision: hasCalls ? 2 : undefined,
             styles: {
               content: {
-                color: (analyticsData?.successRate || 0) >= 95 ? '#3f8600' : '#cf1322',
+                color: !hasCalls
+                  ? undefined
+                  : (analyticsData?.successRate || 0) >= 95
+                    ? '#3f8600'
+                    : '#cf1322',
               },
             },
           }}

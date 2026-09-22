@@ -54,6 +54,21 @@ describe('AnalyticsTab', () => {
     await waitFor(() => expect(mockAnalytics).toHaveBeenCalled());
     expect(await screen.findByText('总调用次数')).toBeInTheDocument();
   });
+
+  it('零调用时成功率显示「—」不伪造百分比', async () => {
+    mockAnalytics.mockResolvedValue({
+      totalCalls: 0,
+      successRate: 0,
+      avgLatency: 0,
+      callsToday: 0,
+    });
+    render(<AnalyticsTab functionId="player.ban" />);
+
+    await waitFor(() => expect(mockAnalytics).toHaveBeenCalledWith('player.ban'));
+    expect(await screen.findByText('—')).toBeInTheDocument();
+    // 不应出现伪造的百分比数值
+    expect(document.body.textContent).not.toContain('100');
+  });
 });
 
 describe('WarningsTab', () => {

@@ -120,6 +120,56 @@ func (m *ExecutionLogModel) CreateBatch(ctx context.Context, items []ExecutionLo
 	return dbctx.Resolve(ctx, m.db).WithContext(ctx).Create(&items).Error
 }
 
+// FunctionCallStats 是单个函数在 execution_logs 中的真实调用统计
+// （函数 analytics 端点的数据源；口径 = 平台受控执行留痕，见
+// docs/architecture/function-pipeline-blockers.md E10）。
+type FunctionCallStats struct {
+	Total int64   // 全量调用数
+	Ok    int64   // status=ok 的调用数
+	AvgMs float64 // 全量平均耗时（毫秒）
+	Today int64   // 近 24h 调用数
+	Week  int64   // 近 7d 调用数
+	Month int64   // 近 30d 调用数
+}
+
+// CallStatsByFunction 按 function_id 单条条件聚合全量调用数、成功数、
+// 平均耗时与 24h/7d/30d 窗口计数。零数据时各计数为 0、AvgMs 为 0，
+// 成功率由调用方计算（0 调用不伪造 100%）。function_id 过滤命中
+// idx_exec_logs_function_created，created_at 条件走同一索引前缀。
+func (m *ExecutionLogModel) CallStatsByFunction(ctx context.Context, functionID string, dayStart, weekStart, monthStart time.Time) (*FunctionCallStats, error) {
+	var row struct {
+		Total int64   `gorm:"column:total"`
+		Ok    int64   `gorm:"column:ok_count"`
+		AvgMs float64 `gorm:"column:avg_ms"`
+		Today int64   `gorm:"column:today_count"`
+		Week  int64   `gorm:"column:week_count"`
+		Month int64   `gorm:"column:month_count"`
+	}
+	err := dbctx.Resolve(ctx, m.db).WithContext(ctx).Model(&ExecutionLog{}).
+		Select(
+			"COUNT(*) AS total, "+
+				"COALESCE(SUM(CASE WHEN status = 'ok' THEN 1 ELSE 0 END), 0) AS ok_count, "+
+				"COALESCE(AVG(duration_ms), 0) AS avg_ms, "+
+				"COALESCE(SUM(CASE WHEN created_at >= ? THEN 1 ELSE 0 END), 0) AS today_count, "+
+				"COALESCE(SUM(CASE WHEN created_at >= ? THEN 1 ELSE 0 END), 0) AS week_count, "+
+				"COALESCE(SUM(CASE WHEN created_at >= ? THEN 1 ELSE 0 END), 0) AS month_count",
+			dayStart, weekStart, monthStart,
+		).
+		Where("function_id = ?", functionID).
+		Scan(&row).Error
+	if err != nil {
+		return nil, err
+	}
+	return &FunctionCallStats{
+		Total: row.Total,
+		Ok:    row.Ok,
+		AvgMs: row.AvgMs,
+		Today: row.Today,
+		Week:  row.Week,
+		Month: row.Month,
+	}, nil
+}
+
 // deleteBatch 分批删除 created_at 早于 cutoff 的记录，返回总删除行数。
 func deleteBatch(ctx context.Context, db *gorm.DB, dest interface{}, cutoff time.Time, batch int) (int64, error) {
 	if batch <= 0 {

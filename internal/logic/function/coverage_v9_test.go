@@ -291,7 +291,7 @@ func TestFunctionAnalyticsRecordErrorV9(t *testing.T) {
 	assert.Error(t, err)
 }
 
-func TestFunctionAnalyticsConfigVersionErrorV9(t *testing.T) {
+func TestFunctionAnalyticsExecutionLogErrorV9(t *testing.T) {
 	db, err := gorm.Open(gsqlite.Open(":memory:"), &gorm.Config{})
 	require.NoError(t, err)
 	require.NoError(t, model.AutoMigrate(db))
@@ -299,9 +299,9 @@ func TestFunctionAnalyticsConfigVersionErrorV9(t *testing.T) {
 	closedDB := openClosedDBV9(t)
 
 	svcCtx := &svc.ServiceContext{
-		DB:                 db,
-		FunctionModel:      model.NewFunctionModel(db),
-		ConfigVersionModel: model.NewConfigVersionModel(closedDB),
+		DB:                db,
+		FunctionModel:     model.NewFunctionModel(db),
+		ExecutionLogModel: model.NewExecutionLogModel(closedDB),
 	}
 	ctx := context.Background()
 
@@ -309,25 +309,29 @@ func TestFunctionAnalyticsConfigVersionErrorV9(t *testing.T) {
 	assert.Error(t, err)
 }
 
-func TestFunctionAnalyticsConfigVersionSuccessV9(t *testing.T) {
+func TestFunctionAnalyticsExecutionLogSuccessV9(t *testing.T) {
 	db, err := gorm.Open(gsqlite.Open(":memory:"), &gorm.Config{})
 	require.NoError(t, err)
 	require.NoError(t, model.AutoMigrate(db))
 
 	svcCtx := &svc.ServiceContext{
-		DB:                 db,
-		FunctionModel:      model.NewFunctionModel(db),
-		ConfigVersionModel: model.NewConfigVersionModel(db),
+		DB:                db,
+		FunctionModel:     model.NewFunctionModel(db),
+		ExecutionLogModel: model.NewExecutionLogModel(db),
 	}
 	ctx := context.Background()
 	require.NoError(t, svcCtx.FunctionModel.Create(ctx, &model.Function{FunctionID: "fn.an3", Name: "fn.an3", Status: 1}))
-	_, err = svcCtx.ConfigVersionModel.Create(ctx, "function_form:fn.an3", `{"name":"x"}`, "unit")
-	require.NoError(t, err)
+	require.NoError(t, svcCtx.ExecutionLogModel.Create(ctx, &model.ExecutionLog{
+		GameID: "demo", Env: "prod", FunctionID: "fn.an3", Source: "invoke",
+		Actor: "unit", Status: "ok", DurationMs: 42, CreatedAt: time.Now().UTC(),
+	}))
 
 	resp, err := NewFunctionAnalyticsLogic(ctx, svcCtx).FunctionAnalytics(&FunctionAnalyticsRequest{ID: "fn.an3"})
 	require.NoError(t, err)
 	assert.Equal(t, int64(1), resp.TotalCalls)
 	assert.Equal(t, int64(1), resp.CallsToday)
+	assert.InDelta(t, 100, resp.SuccessRate, 0.01)
+	assert.InDelta(t, 42, resp.AvgLatency, 0.01)
 }
 
 // ---------------------------------------------------------------------------

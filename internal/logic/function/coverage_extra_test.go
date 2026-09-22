@@ -1258,13 +1258,14 @@ func TestFunctionHistory_WithNilConfigVersionModel(t *testing.T) {
 
 func TestFunctionAnalytics_Basic(t *testing.T) {
 	svcCtx, ctx := setupNoAuthTestContext(t)
-	svcCtx.ConfigVersionModel = nil
+	svcCtx.ExecutionLogModel = nil
 	logic := NewFunctionAnalyticsLogic(ctx, svcCtx)
 	resp, err := logic.FunctionAnalytics(&FunctionAnalyticsRequest{ID: "test.fn"})
 	require.NoError(t, err)
 	assert.NotNil(t, resp)
 	assert.Equal(t, int64(0), resp.TotalCalls)
-	assert.Equal(t, float64(100), resp.SuccessRate)
+	// 零调用不伪造成功率：未接 execution_logs 时各指标归零
+	assert.Equal(t, float64(0), resp.SuccessRate)
 }
 
 // ---------------------------------------------------------------------------

@@ -46,40 +46,9 @@ func failQueryOnTableGN(t *testing.T, db *gorm.DB, table string, failAt int) *in
 }
 
 // ---------------------------------------------------------------------------
-// FunctionAnalytics: countInRange error branches
-//
-// FunctionAnalytics issues four config_versions queries in a fixed order:
-// Q1 outer List (line 55), Q2 day range, Q3 week range, Q4 month range.
-// Failing Q2/Q3/Q4 exercises the three countInRange error returns.
+// FunctionAnalytics 的聚合查询错误分支由 TestFunctionAnalyticsExecutionLogErrorV9
+// 以 closed-DB 注入覆盖（同一 return 点），此处不再重复搭接缝。
 // ---------------------------------------------------------------------------
-
-func TestGroupN_FunctionAnalyticsCountInRangeErrors(t *testing.T) {
-	for _, tc := range []struct {
-		name   string
-		failAt int
-	}{
-		{"day range fails", 2},
-		{"week range fails", 3},
-		{"month range fails", 4},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			db, err := gorm.Open(gsqlite.Open(":memory:"), &gorm.Config{})
-			require.NoError(t, err)
-			require.NoError(t, model.AutoMigrate(db))
-			failQueryOnTableGN(t, db, "config_versions", tc.failAt)
-
-			svcCtx := &svc.ServiceContext{
-				DB:                 db,
-				FunctionModel:      model.NewFunctionModel(db),
-				ConfigVersionModel: model.NewConfigVersionModel(db),
-			}
-
-			_, err = NewFunctionAnalyticsLogic(context.Background(), svcCtx).
-				FunctionAnalytics(&FunctionAnalyticsRequest{ID: "fn.gn.count"})
-			assert.Error(t, err)
-		})
-	}
-}
 
 // ---------------------------------------------------------------------------
 // FunctionPermissionsUpdate: ListPermissions error after successful replace
