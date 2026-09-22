@@ -105,9 +105,9 @@ func (s *Service) Create(ctx context.Context, req *CreateMenuRequest) (*MenuDTO,
 	if req.SortOrder != nil {
 		item.SortOrder = *req.SortOrder
 	}
-	if err := item.SetLabels(req.Labels); err != nil {
-		return nil, err
-	}
+	// SetLabels 恒返回 nil（map[string]string 的 Marshal 无出错路径，
+	// 见 model.MenuItem.SetLabels 注释），无需错误分支。
+	_ = item.SetLabels(req.Labels)
 	if err := s.menuModel().Create(ctx, item); err != nil {
 		return nil, err
 	}
@@ -168,9 +168,9 @@ func (s *Service) Update(ctx context.Context, req *UpdateMenuRequest) (*MenuDTO,
 		if err := validateLabels(*req.Labels); err != nil {
 			return nil, err
 		}
-		if err := item.SetLabels(*req.Labels); err != nil {
-			return nil, err
-		}
+		// SetLabels 恒返回 nil（map[string]string 的 Marshal 无出错路径，
+		// 见 model.MenuItem.SetLabels 注释），无需错误分支。
+		_ = item.SetLabels(*req.Labels)
 	}
 	if req.Icon != nil {
 		item.Icon = strings.TrimSpace(*req.Icon)

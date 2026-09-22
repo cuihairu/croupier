@@ -193,10 +193,9 @@ func (s *MenuSeeder) seedItems(ctx context.Context, gameID, env string, seeds []
 			Permission: seed.Permission,
 			IsVisible:  seed.IsVisibleOrDefault(),
 		}
-		if err := item.SetLabels(seed.Labels); err != nil {
-			slog.Default().Warn("menu seed: marshal labels failed", "menuKey", seed.MenuKey, "error", err)
-			continue
-		}
+		// SetLabels 恒返回 nil（map[string]string 的 Marshal 无出错路径，
+		// 见 model.MenuItem.SetLabels 注释），无需错误分支。
+		_ = item.SetLabels(seed.Labels)
 		if err := s.model.Create(ctx, item); err != nil {
 			// 并发首访/种子内重复 key 撞唯一索引：跳过该条继续，唯一索引
 			// 保证不会重复。
