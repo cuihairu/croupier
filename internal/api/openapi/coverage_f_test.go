@@ -415,3 +415,25 @@ func TestRuntimeSourcesSortsMultipleProviders(t *testing.T) {
 // 同理 unboundFunctionID 的 "fn-" 前缀分支恒不可达（Trim cutset 恰为字符集
 // 内全部非字母数字成员，非空结果首字符必属 [a-z0-9]）。以上两分支为防御性
 // 代码保留，不删产品分支。
+
+// createUnboundContractsForSource 的空 operationId continue：生产链路上
+// operations 全部经 extractSourceOperations 产出（空 ID 在提取阶段即整源
+// 拒绝），但函数本身对入参无此假设——直测传入空白 operationId 元素验证
+// 静默跳过且不影响后续 operation 的正常建约。
+func TestCreateUnboundContractsForSourceSkipsBlankOperationID(t *testing.T) {
+	service := newCoverageFService(t)
+	source := &model.OpenAPISource{SpecJSON: string(coverageFPlayerListSpec(t))}
+	ctx := openAPITestContext()
+
+	created, err := service.createUnboundContractsForSource(ctx, "demo-game", "development", source,
+		[]OpenAPISourceOperation{
+			{OperationID: "   ", Method: "get", Path: "/players"},
+			{OperationID: "player.list", Method: "get", Path: "/players"},
+			// spec 中无对应定义且 path 全为斜杠：DeriveFunctionID 归一出
+			// 空串 → functionID == "" 的防御 continue。
+			{OperationID: "ghost.op", Method: "get", Path: "///"},
+		}, nil)
+	require.NoError(t, err)
+	require.Len(t, created, 1, "空白 operationId 与空派生 ID 应被跳过，不产生契约")
+	assert.Equal(t, "player.list", created[0].ID)
+}
