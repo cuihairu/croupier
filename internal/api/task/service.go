@@ -55,6 +55,11 @@ func (s *Service) Start(ctx context.Context, req *StartRequest) (*StartResponse,
 	if _, err := s.runtime.FindFunctionContract(ctx, scope.GameID, scope.Env, functionID); err != nil {
 		return nil, err
 	}
+	// 禁用拦截（E2）：与 functionInvoke 同一守卫，/tasks 不能绕过禁用
+	// 状态启动异步任务——同一语义与 CheckInvokePermission 双入口共享同理。
+	if err := utils.EnsureFunctionEnabled(ctx, s.svcCtx, functionID); err != nil {
+		return nil, err
+	}
 
 	// Apply the same authorization as the function-invoke path so /tasks
 	// cannot be used to bypass function-level RBAC.

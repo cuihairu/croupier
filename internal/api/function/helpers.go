@@ -260,6 +260,12 @@ func functionInvoke(ctx context.Context, svcCtx *svc.ServiceContext, req *Functi
 	if err := validateInvokeRoute(req); err != nil {
 		return nil, err
 	}
+	// 禁用拦截（E2）：dashboard 禁用按钮写 functions.status，但本路径从不
+	// 回读，禁用函数照常执行。守卫在遥测/审计/执行留痕之前——被拒的调用
+	// 不是一次执行，不产生失败执行记录污染成功率口径。
+	if err := utils.EnsureFunctionEnabled(ctx, svcCtx, strings.TrimSpace(req.ID)); err != nil {
+		return nil, err
+	}
 	startedAt := time.Now()
 	var spanErr error
 	if svcCtx != nil && svcCtx.Telemetry != nil {

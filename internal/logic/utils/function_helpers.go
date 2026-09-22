@@ -3,6 +3,7 @@ package utils
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"strings"
 
 	"github.com/cuihairu/croupier/internal/common/errorx"
@@ -10,6 +11,7 @@ import (
 	"github.com/cuihairu/croupier/internal/model"
 	"github.com/cuihairu/croupier/internal/svc"
 	sdkv1 "github.com/cuihairu/croupier/pkg/pb/croupier/sdk/v1"
+	"gorm.io/gorm"
 )
 
 // ValidateFunctionID ensures function ID is provided.
@@ -105,6 +107,32 @@ func CheckInvokePermission(ctx context.Context, svcCtx *svc.ServiceContext, role
 		return nil
 	}
 	return errorx.NewForbidden("无权调用该函数（需要 function:invoke 或配置函数权限）")
+}
+
+// EnsureFunctionEnabled is the execution gate for disabled functions (E2):
+// the dashboard disable button (setFunctionEnabled) writes functions.status,
+// but invoke and task-start paths never read it back, so a "disabled"
+// function kept executing. Both entries (functionInvoke and /tasks Start)
+// call this before dispatch so the two paths cannot drift — same rationale
+// as CheckInvokePermission. 稳定错误码 function_disabled 与页面生成器的
+// 同名诊断（dashboard/generator）对齐同一语义词汇表。
+// functions 表无行（未物化）不拦——disable 写路径同样写不了不存在的行，
+// 拦截语义与禁用入口保持同一张真值表。
+func EnsureFunctionEnabled(ctx context.Context, svcCtx *svc.ServiceContext, functionID string) error {
+	if svcCtx == nil || svcCtx.FunctionModel == nil {
+		return nil
+	}
+	fn, err := svcCtx.FunctionModel.FindByFunctionID(ctx, functionID)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil // 无物化行：disable 写路径同样触达不到，不拦
+		}
+		return err
+	}
+	if fn.Status == model.StatusDisabled {
+		return errorx.NewConflictWithCode("function_disabled", "函数已禁用，不能执行（可在函数目录重新启用）", nil)
+	}
+	return nil
 }
 
 // ConvertFunctionPermissions converts API permissions to model records.
