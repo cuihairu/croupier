@@ -160,6 +160,21 @@ registry:
 - 落后警告（`sdk_version_behind`）在 SDK 追赶后不自动清除（多语言 provider 共用 agent+code 维度无法精确按语言清理），人工删除兜底。
 - 抬升高水位发生在 `UpsertAgent` 成功之后：注册链中途失败不会留下「未注册但已抬升」的状态；反之注册成功后进程崩溃在抬升之前，高水位少记一次，下次注册补记，无正确性影响。
 
+#### 函数摘除宽限（注册面 Removed）
+
+此前注册面函数消失（game server 下线/重启窗口/闪断/门槛误配）会**立即真删**契约并级联清理提案，重注册后再 created+物化回来——瞬态摘除制造 removed+created 版本噪音与页面 stale 抖动。现在改为**摘除宽限**两段式（列 `function_contracts.removal_pending_at`，编号迁移 0031）：
+
+- **打标（注册事务内）**：`UpsertAgent` 的 diff 发现函数 Removed 且无幸存 provider 时，只把契约行标 `removal_pending_at = now`（重复摘除刷新时间戳），不真删。运行时可用性立即生效——内存 registry 的 `agent.Functions` 已不含该函数，调用路由即刻 503，目录实例数归零。
+- **清除（宽限内重注册）**：函数重新出现在注册面时，契约物化后自动清 `removal_pending_at`。全程零版本噪音、页面不抖。
+- **清扫（宽限过期）**：后台循环（`StartBackgroundTasks`，与指标修剪/会话清理同 5 分钟间隔）调 `SweepExpiredContractRemovals`，对 `removal_pending_at` 早于宽限（默认 **10 分钟**，包级常量）的行做**条件删除原子认领**（`DELETE ... WHERE removal_pending_at IS NOT NULL`，HA 多实例只有一个实例命中，removed 历史不双写；宽限内已重注册的行条件删除落空，不误删）。真删后补 removed 版本历史（B2 变更历史可见终态）、清理 standalone 提案、资源无存活契约时摘除资源能力/语义/资源页提案（与即时移除路径同净效果）。
+- **跨 scope**：database-per-game 模式下 pending 行散布在各 game 库，清扫按 `game_envs` 绑定逐 scope 收口（单 scope 失败记日志继续，下轮重试）；单库模式一次清扫覆盖全部 scope。
+
+**已知边界**：
+
+- 宽限期内（默认 10 分钟）契约行与提案仍在：运行时不可用（调用 503）以内存 registry 为准，但契约目录/函数详情在宽限期内仍能看到该函数的契约内容（实例 0）；这是宽限语义的直接结果，不是目录 bug。
+- 宽限时长是包级常量（`contractRemovalGracePeriod`），暂不暴露配置项；清扫间隔复用后台循环 5 分钟，实际最迟删除时点 ≈ 摘除时刻 + 宽限 + 清扫间隔。
+- `RemoveFunctionContract` 即时路径仅剩 OpenAPI 服务内部使用（被取代的 unbound 契约清理、SDK 回退 reconcile），注册面不再触发。
+
 ## 5. 作业流
 
 ```mermaid

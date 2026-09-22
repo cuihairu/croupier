@@ -83,6 +83,7 @@ const config = defineConfig({
             { text: '游戏与环境作用域', link: '/architecture/game-environment-scope' },
             { text: 'Session 生命周期', link: '/architecture/session-lifecycle' },
             { text: 'SDK Wire 协议', link: '/architecture/sdk-wire-protocol' },
+            { text: '函数链路卡点清单', link: '/architecture/function-pipeline-blockers' },
           ],
         },
         {

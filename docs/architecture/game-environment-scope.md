@@ -376,6 +376,16 @@ scope 中立接口        → 不读取、不恢复、不校验 game_id / env
 
 scope 中立不等于绕过数据授权。`/api/v1/audit` 必须先校验 `audit:read`（或全局管理员权限）；全局管理员可读全部审计记录，普通用户只能读其全部 `admin_game_env_scopes` 对应的记录。`gameId`、`env` 在该接口中只是可选的审计记录筛选条件，不能作为请求 scope，也不能扩大可见范围。没有完整 `(game_id, env)` 归属的全局审计记录仅对全局管理员可见。
 
+### 12.7 函数权限规则的 scope 层级
+
+函数权限（`function_permissions`）存在三层 scope 关系，必须区分清楚：
+
+1. **函数注册 scope**：函数经 agent 注册时即归属确定的 `(game_id, env)`，registry 以 `(game_id, function_id)` 索引路由。函数目录/详情页看到的函数本身就带注册 scope，这不是权限规则要回答的问题。
+2. **权限规则 scope**：`function_permissions.GameID` / `Env` 表达"这条规则在哪些调用 scope 生效"。两列为空 = 对全部 scope 生效（全局规则）；填写 = 仅当调用请求 scope（`X-Game-ID` / `X-Env`）与之匹配时才参与判定。同一 `function_id` 可在多个 scope 注册，规则级 scope 用于区分"只对某游戏/某环境放行"。
+3. **调用校验匹配**：执行链 `FunctionActionAllowed` 以请求 scope 对规则 scope 匹配（规则带 scope 而请求未带 scope 时，该规则跳过，不参与判定）。
+
+**现状断链（已知边界，2026-09-22 核对）**：函数权限 REST API（`GET/PUT /api/v1/functions/:id/permissions`）的 DTO 只有 `resource/actions/roles`（`internal/api/function/dto.go`），**未接通** `gameId` / `env`——写请求携带的这两个字段在 JSON 绑定时被静默丢弃，读响应也不返回。因此当前所有函数权限规则恒为全局规则，函数详情页权限 tab 曾出现的 gameId/env 自由输入框是死字段（已移除）。补通该断链前，规则级 scope 能力视为未实现；补通时 DTO 与读写两端同 PR 恢复，UI 以受控选择呈现（函数已注册的 scope 或"全部"），不再提供自由文本。
+
 ## 13. API 传输与 SSE
 
 ### 13.1 HTTP API
