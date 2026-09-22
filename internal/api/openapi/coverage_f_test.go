@@ -409,17 +409,13 @@ func TestRuntimeSourcesSortsMultipleProviders(t *testing.T) {
 	assert.Equal(t, 2, resp.Total)
 }
 
-// createUnboundContractsForSource 的空 operationId 跳过分支（continue）
-// 恒不可达：operations 全部来自 parseValidSource → extractSourceOperations，
-// 空 operationId 在提取阶段即产出 error 级诊断并整源拒绝，不会进入本函数。
-// 同理 unboundFunctionID 的 "fn-" 前缀分支恒不可达（Trim cutset 恰为字符集
-// 内全部非字母数字成员，非空结果首字符必属 [a-z0-9]）。以上两分支为防御性
-// 代码保留，不删产品分支。
-
 // createUnboundContractsForSource 的空 operationId continue：生产链路上
 // operations 全部经 extractSourceOperations 产出（空 ID 在提取阶段即整源
 // 拒绝），但函数本身对入参无此假设——直测传入空白 operationId 元素验证
 // 静默跳过且不影响后续 operation 的正常建约。
+// （unboundFunctionID 的 "fn-" 前缀分支仍是唯一豁免残留，见
+// docs/development/coverage-exemptions.md：Trim cutset 恰为字符集内全部
+// 非字母数字成员，非空结果首字符必属 [a-z0-9]。）
 func TestCreateUnboundContractsForSourceSkipsBlankOperationID(t *testing.T) {
 	service := newCoverageFService(t)
 	source := &model.OpenAPISource{SpecJSON: string(coverageFPlayerListSpec(t))}

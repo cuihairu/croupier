@@ -9,10 +9,13 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// 本文件固化 Create(108-110) / Update(171-173) / filterAccessibleTree(380-381)
-// 三处覆盖率清单上的残余块。它们均为防御性分支，在当前实现下恒不可达，
-// 不删产品代码，以 pin 测试锁定其依赖的不变式——若未来实现变化导致
-// 分支变为可达，本文件的测试会失败并提醒补错误路径用例。
+// 本文件固化 filterAccessibleTree 的 `!check(parent)` 防御分支（唯一豁免
+// 残留，完整论证见 docs/development/coverage-exemptions.md）。该分支在当前
+// 实现下恒不可达：check(item)=true 且父节点存在时，check 内部递归已执行
+// ok=check(parent) 并为 true，主循环再次 check(parent) 命中缓存返回同一
+// final 值。不删产品代码，以 pin 测试锁定其依赖的不变式（缓存一致性、
+// 成环 false 传播、ParentID/byID/权限集执行期不可变）——若未来实现变化
+// 导致分支变为可达，本文件的测试会失败并提醒补错误路径用例。
 
 // SetLabels 恒返回 nil：map[string]string 的 json.Marshal 恒成功，error
 // 返回值仅为对齐既有模型助手签名而保留（internal/model/menu.go 函数注释
