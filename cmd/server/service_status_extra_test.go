@@ -250,7 +250,7 @@ func TestRunServerServiceRun_DefaultConfigDir(t *testing.T) {
 
 // runServerServiceRun 的启动成功路径：配置文件存在 → createServerService
 // （接缝注入 fake）→ svcObj.Start 同步检查通过后立即返回 nil →
-// runServerServiceRun 返回 nil；后台 runServer 因无效配置快速失败，触发
+// runServerServiceRun 返回 nil；后台 runServerFunc 替身返回错误，触发
 // fake 的 Stop（waitServerStopped 确认）。
 func TestRunServerServiceRun_Starts(t *testing.T) {
 	saveServerServiceGlobals(t)
@@ -259,7 +259,8 @@ func TestRunServerServiceRun_Starts(t *testing.T) {
 	serviceConfigDir = dir
 	serviceName = "croupier-server-test"
 	t.Cleanup(func() { serviceConfigDir, serviceName = oldDir, oldName })
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "server.yaml"), []byte("[]\n"), 0o600)) // 无效配置 → runServer 快速失败
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "server.yaml"), []byte("log:\n  level: info\n"), 0o600))
+	stubRunServerFunc(t, assert.AnError) // 后台启动失败 → svc.Stop
 
 	fake := newFakeServerSvc()
 	restore := newKardianosService

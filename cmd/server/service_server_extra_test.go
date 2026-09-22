@@ -54,16 +54,24 @@ func (f *fakeServerSvc) Status() (service.Status, error) {
 	return f.status, nil
 }
 
-// saveServerServiceGlobals 还原 service.go 测试触碰的全局变量。
+// saveServerServiceGlobals 还原 service.go 测试触碰的全局变量。五个 service
+// 变更命令的第一行都会经 cmd.Flags().GetString 把 name/display-name/
+// description/config-dir 回写进全局（fake cmd 无旗标时返回空串），故除
+// cfgFile 外四个 service 全局都必须覆盖，否则 -count>1 的下一轮会被跨轮
+// 污染。
 func saveServerServiceGlobals(t *testing.T) {
 	t.Helper()
 	oldCfgFile := cfgFile
 	oldDir := serviceConfigDir
 	oldName := serviceName
+	oldDisplay := serviceDisplayName
+	oldDesc := serviceDescription
 	t.Cleanup(func() {
 		cfgFile = oldCfgFile
 		serviceConfigDir = oldDir
 		serviceName = oldName
+		serviceDisplayName = oldDisplay
+		serviceDescription = oldDesc
 	})
 }
 
@@ -77,6 +85,16 @@ func waitServerStopped(t *testing.T, ch chan struct{}) {
 	}
 }
 
+// stubRunServerFunc 注入不读全局的 runServer 替身：Start 的后台 goroutine
+// 与 saveServerServiceGlobals 的 cleanup 并发，替身根除二者对全局 cfgFile
+// 的数据竞争。err 为替身的返回值（nil = 启动成功路径）。
+func stubRunServerFunc(t *testing.T, err error) {
+	t.Helper()
+	old := runServerFunc
+	runServerFunc = func() error { return err }
+	t.Cleanup(func() { runServerFunc = old })
+}
+
 // Start 的配置缺失分支：cfgFile 指向不存在的文件 → 同步报错。
 func TestServerServiceStart_ConfigMissing(t *testing.T) {
 	s := newServerService(filepath.Join(t.TempDir(), "missing.yaml"))
@@ -85,11 +103,10 @@ func TestServerServiceStart_ConfigMissing(t *testing.T) {
 	s.Stop(newFakeServerSvc())
 }
 
-// Start 的 runServer 失败分支：全局 cfgFile 指向空目录里的 server.yaml
-// 不存在 → runServer 报错 → goroutine 内调 svc.Stop。
+// Start 的 runServer 失败分支：替身返回错误 → goroutine 内调 svc.Stop。
 func TestServerServiceStart_RunServerFailure(t *testing.T) {
 	saveServerServiceGlobals(t)
-	cfgFile = "" // runServer 读全局 cfgFile → loadConfigFile 失败
+	stubRunServerFunc(t, assert.AnError)
 
 	s := newServerService("")
 	fake := newFakeServerSvc()
@@ -98,10 +115,11 @@ func TestServerServiceStart_RunServerFailure(t *testing.T) {
 	require.NoError(t, s.Stop(fake))
 }
 
-// Start 的 ctx 取消分支：取消后 ctx.Done goroutine 触发 svc.Stop。
+// Start 的 ctx 取消分支：runServerFunc 替身走成功路径，取消 ctx 后
+// ctx.Done goroutine 触发 svc.Stop。
 func TestServerServiceStart_ContextCancel(t *testing.T) {
 	saveServerServiceGlobals(t)
-	cfgFile = ""
+	stubRunServerFunc(t, nil)
 
 	s := newServerService("")
 	fake := newFakeServerSvc()
@@ -135,6 +153,8 @@ func TestServerService_InitLoggingFromConfig(t *testing.T) {
 
 func TestCreateServerService(t *testing.T) {
 	saveServerServiceGlobals(t)
+	oldArgs := os.Args
+	t.Cleanup(func() { os.Args = oldArgs })
 	serviceConfigDir = t.TempDir()
 	os.Args = []string{"prog"} // getServerFlagValue 不命中 → configPath/server.yaml
 

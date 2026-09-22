@@ -47,7 +47,7 @@ internal/ 目标的逐包语句覆盖率为 100%。本文档是**唯一豁免清
 
 ## cmd/ 覆盖口径与豁免清单（2026-09-22 扩展）
 
-cmd/ 的覆盖目标与 internal/ 不同：二进制装配层允许存在进程边界与系统变更面，**策略逻辑全部下沉 internal/**（已 100%）。当前读数（`go test -cover`）：`cmd/server` ≈75%、`cmd/agent` ≈84%、`cmd/analytics-export` 91.7%、`cmd/schema-validator` ≈91%、`cmd/ingest/cmd` 99.1%。除下述豁免外，cmd/ 其余不可达分支均已按「先构造、构造不出才豁免」收口（含 fixture REST 全语义、startCluster 全装配矩阵、interconnect 全路由、service manager 状态机、service status 三态与平台分支、schema-validator 归档解剖边界等）。
+cmd/ 的覆盖目标与 internal/ 不同：二进制装配层允许存在进程边界与系统变更面，**策略逻辑全部下沉 internal/**（已 100%）。当前读数（`go test -cover`）：`cmd/server` ≈75%、`cmd/agent` ≈84%、`cmd/analytics-export` 91.7%、`cmd/schema-validator` ≈91%、`cmd/ingest/cmd` 99.1%。除下述豁免外，cmd/ 其余不可达分支均已按「先构造、构造不出才豁免」收口（含 fixture REST 全语义、startCluster 全装配矩阵、interconnect 全路由、service manager 状态机、service status 三态与平台分支、schema-validator 归档解剖边界等）。`pkg/protocol` 100%；`pkg/pb/**` 为 protoc 生成物（`make proto` 产物，随生成链更新），不纳入手写测试口径。
 
 ### cmd-1.（进程边界）全部二进制的 `main` / `Execute`
 

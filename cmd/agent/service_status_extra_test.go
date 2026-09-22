@@ -227,8 +227,9 @@ func TestRunServiceRun_DefaultConfigDir(t *testing.T) {
 }
 
 // runServiceRun 的启动成功路径：配置文件存在 → createService（接缝注入
-// fake）→ svcObj.Start 立即返回 nil → runServiceRun 返回 nil；随后后台
-// runAgent 因无效配置失败，触发 fake 的 Stop（waitStopped 确认）。
+// fake）→ svcObj.Start 同步检查通过后立即返回 nil → runServiceRun 返回
+// nil；后台 runAgentFunc 替身返回错误，触发 fake 的 Stop（waitStopped
+// 确认）。
 func TestRunServiceRun_Starts(t *testing.T) {
 	saveServiceGlobals(t)
 	oldDir, oldName := serviceConfigDir, serviceName
@@ -236,7 +237,8 @@ func TestRunServiceRun_Starts(t *testing.T) {
 	serviceConfigDir = dir
 	serviceName = "croupier-agent-test"
 	t.Cleanup(func() { serviceConfigDir, serviceName = oldDir, oldName })
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "agent.yaml"), []byte("[]\n"), 0o600)) // 无效配置 → runAgent 快速失败
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "agent.yaml"), []byte("log:\n  level: info\n"), 0o600))
+	stubRunAgentFunc(t, assert.AnError) // 后台启动失败 → svc.Stop
 
 	fake := newFakeService()
 	restore := newKardianosService
@@ -246,5 +248,5 @@ func TestRunServiceRun_Starts(t *testing.T) {
 	t.Cleanup(func() { newKardianosService = restore })
 
 	assert.NoError(t, runServiceRun(nil, nil))
-	waitStopped(t, fake.stopped) // Start 内 runAgent 失败 → svc.Stop()
+	waitStopped(t, fake.stopped)
 }

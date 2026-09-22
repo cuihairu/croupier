@@ -55,11 +55,24 @@ func (f *fakeService) Status() (service.Status, error) {
 	return f.status, nil
 }
 
-// saveServiceGlobals 还原测试触碰的全局状态。
+// saveServiceGlobals 还原测试触碰的全局状态。service 四个 run 变更命令的
+// 第一行都会经 cmd.Flags().GetString 把 name/display-name/description/
+// config-dir 回写进全局（fake cmd 无旗标时返回空串），故这里必须覆盖全部
+// 五个全局，否则 -count>1 的下一轮会被跨轮污染。
 func saveServiceGlobals(t *testing.T) {
 	t.Helper()
 	oldCfgFile := cfgFile
-	t.Cleanup(func() { cfgFile = oldCfgFile })
+	oldDir := serviceConfigDir
+	oldName := serviceName
+	oldDisplay := serviceDisplayName
+	oldDesc := serviceDescription
+	t.Cleanup(func() {
+		cfgFile = oldCfgFile
+		serviceConfigDir = oldDir
+		serviceName = oldName
+		serviceDisplayName = oldDisplay
+		serviceDescription = oldDesc
+	})
 }
 
 func waitStopped(t *testing.T, ch chan struct{}) {
@@ -71,10 +84,19 @@ func waitStopped(t *testing.T, ch chan struct{}) {
 	}
 }
 
-// Start 的 runAgent 失败分支：全局 cfgFile 为空 → 启动报错 → 假服务的 Stop 被调。
+// stubRunAgentFunc 注入不读全局的 runAgent 替身：Start 的后台 goroutine
+// 与 saveServiceGlobals 的 cleanup 并发，替身根除二者对全局 cfgFile 的
+// 数据竞争。err 为替身的返回值（nil = 启动成功路径）。
+func stubRunAgentFunc(t *testing.T, err error) {
+	t.Helper()
+	old := runAgentFunc
+	runAgentFunc = func() error { return err }
+	t.Cleanup(func() { runAgentFunc = old })
+}
+
+// Start 的 runAgent 失败分支：替身返回错误 → goroutine 内调 svc.Stop。
 func TestAgentServiceStart_RunAgentFailure(t *testing.T) {
-	saveServiceGlobals(t)
-	cfgFile = ""
+	stubRunAgentFunc(t, assert.AnError)
 
 	svc := newAgentService("")
 	fake := newFakeService()
@@ -85,10 +107,10 @@ func TestAgentServiceStart_RunAgentFailure(t *testing.T) {
 	require.NoError(t, svc.Stop(fake))
 }
 
-// Start 的 ctx 取消分支：取消后 ctx.Done goroutine 触发 svc.Stop。
+// Start 的 ctx 取消分支：runAgentFunc 替身走成功路径，取消 ctx 后
+// ctx.Done goroutine 触发 svc.Stop。
 func TestAgentServiceStart_ContextCancel(t *testing.T) {
-	saveServiceGlobals(t)
-	cfgFile = ""
+	stubRunAgentFunc(t, nil)
 
 	svc := newAgentService("")
 	fake := newFakeService()

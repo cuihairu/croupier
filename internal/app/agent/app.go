@@ -43,8 +43,13 @@ type App struct {
 
 	// TCP local server
 	localHandler *agent.LocalHandler
-	localServer  transportcore.Server
-	localAddr    string
+	// localServerMu 守护 localServer 的发布与读取：StartLocalServer 在 Run
+	// 调用方派生的 goroutine 内赋值，而 Stop/GetLocalServerAddr 可能在启动
+	// 完成前被调用（SIGTERM 早到、测试快速收尾），无同步的读/写构成数据
+	// 竞争（2026-09-22 -race 实证）。
+	localServerMu sync.Mutex
+	localServer   transportcore.Server
+	localAddr     string
 
 	// Ops module (optional)
 	opsConfig *OpsConfig
@@ -182,7 +187,9 @@ func (a *App) StartLocalServer() error {
 	tcpServer.SetOnDisconnect(func(session *agent.ProviderSession) {
 		a.store.RemoveProvider(session.SessionID)
 	})
+	a.localServerMu.Lock()
 	a.localServer = tcpServer
+	a.localServerMu.Unlock()
 	serve := a.serveLocal
 	if serve == nil {
 		// 覆盖边界说明：Serve 仅在 Accept 返回非超时错误且未走 Close 路径
@@ -208,8 +215,11 @@ func (a *App) GetLocalServerAddr() string {
 	if a == nil {
 		return ""
 	}
-	if a.localServer != nil {
-		return a.localServer.Addr()
+	a.localServerMu.Lock()
+	ls := a.localServer
+	a.localServerMu.Unlock()
+	if ls != nil {
+		return ls.Addr()
 	}
 	return ""
 }
@@ -300,9 +310,14 @@ func (a *App) Stop() {
 	if a == nil {
 		return
 	}
-	// Stop local TCP server
-	if a.localServer != nil {
-		_ = a.localServer.Close()
+	// Stop local TCP server（localServer 经锁快照读取，与 StartLocalServer
+	// 的发布同步；启动未完成即收到停止信号时此处看到 nil，与原 nil 检查
+	// 语义一致）
+	a.localServerMu.Lock()
+	ls := a.localServer
+	a.localServerMu.Unlock()
+	if ls != nil {
+		_ = ls.Close()
 	}
 	// Stop upstream connection
 	if a.upstream != nil {

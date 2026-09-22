@@ -142,8 +142,11 @@ func startCluster(ctx context.Context, c *config.Config, svcCtx *svc.ServiceCont
 	// 仍存活（LastSeen 新鲜），周期性续期归属行——防止心跳处理路径的
 	// 偶发漏 Touch 把活跃 agent 冻成过期（/ops/nodes 聚合按 TTL 判活）。
 	// 本地会话过期（僵尸）则不再续期，行按 TTL 自然衰减。
+	// 注入点变量在 startCluster 同步段读取一次，goroutine 只用局部副本：
+	// 测试对 reconcileTickerInterval 的注入/还原不与后台 goroutine 竞争。
+	reconcileInterval := reconcileTickerInterval
 	go func() {
-		ticker := time.NewTicker(reconcileTickerInterval)
+		ticker := time.NewTicker(reconcileInterval)
 		defer ticker.Stop()
 		for {
 			select {

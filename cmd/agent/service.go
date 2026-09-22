@@ -129,9 +129,11 @@ func (s *croupierAgentService) Start(svc service.Service) error {
 
 	s.logger("info", "Croupier Agent 服务启动中...")
 
-	// 启动 agent
+	// 启动 agent。接缝变量在 Start 的同步段读取一次，goroutine 只用局部
+	// 副本：测试对 runAgentFunc 的注入/还原不与后台 goroutine 竞争。
+	runFn := runAgentFunc
 	go func() {
-		if err := runAgent(); err != nil {
+		if err := runFn(); err != nil {
 			s.logger("error", fmt.Sprintf("Agent 启动失败: %v", err))
 			// 启动失败，停止服务
 			_ = svc.Stop()
@@ -161,6 +163,11 @@ func (s *croupierAgentService) logger(level, msg string) {
 	timestamp := time.Now().Format("2006-01-02 15:04:05")
 	fmt.Printf("[%s] [%s] %s\n", timestamp, level, msg)
 }
+
+// runAgentFunc 是 runAgent 的包级接缝（时序分支用注入点）：Start 的后台
+// goroutine 与测试的全局变量 cleanup 并发，测试注入不读全局的替身以根除
+// 数据竞争。
+var runAgentFunc = runAgent
 
 // newKardianosService 是 service.New 的包级接缝：测试注入 fake 以驱动
 // runServiceStatus 的三态输出与平台提示分支（环境分支用注入点，不碰真实

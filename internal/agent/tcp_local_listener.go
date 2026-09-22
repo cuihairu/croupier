@@ -53,7 +53,8 @@ type TCPLocalListener struct {
 
 	wg      sync.WaitGroup
 	closing chan struct{}
-	once    sync.Once
+	closeMu sync.Mutex // 守护 closed/listener.Close/wg.Wait 的幂等收口（见 Close）
+	closed  bool
 
 	logger *slog.Logger
 }
@@ -193,13 +194,20 @@ func (l *TCPLocalListener) SessionStore() *ProviderSessionStore {
 }
 
 // Close stops accepting new connections and waits for active ones to finish.
+// 幂等；用互斥锁而非 sync.Once：锁在 Close 与 Close、Close 与 Serve 之间
+// 建立显式 happens-before，避免 once.done 的原子写与启动竞态下的读取构成
+// 数据竞争（2026-09-22 -race 实证：App.Stop 与 serve goroutine 启动窗口
+// 重叠时被 race detector 标记）。
 func (l *TCPLocalListener) Close() error {
-	var closeErr error
-	l.once.Do(func() {
-		close(l.closing)
-		closeErr = l.listener.Close()
-		l.wg.Wait()
-	})
+	l.closeMu.Lock()
+	defer l.closeMu.Unlock()
+	if l.closed {
+		return nil
+	}
+	l.closed = true
+	close(l.closing)
+	closeErr := l.listener.Close()
+	l.wg.Wait()
 	return closeErr
 }
 

@@ -145,7 +145,9 @@ func (s *croupierServerService) Start(svc service.Service) error {
 		cfgFile = s.cfgFile
 	}
 
-	// 启动 server
+	// 启动 server。接缝变量在 Start 的同步段读取一次，goroutine 只用局部
+	// 副本：测试对 runServerFunc 的注入/还原不与后台 goroutine 竞争。
+	runFn := runServerFunc
 	go func() {
 		defer func() {
 			if r := recover(); r != nil {
@@ -155,7 +157,7 @@ func (s *croupierServerService) Start(svc service.Service) error {
 		}()
 
 		slog.Info("正在调用 runServer()...")
-		if err := runServer(); err != nil {
+		if err := runFn(); err != nil {
 			slog.Error("Server 启动失败", "error", err)
 			// 启动失败，停止服务
 			_ = svc.Stop()
@@ -180,6 +182,11 @@ func (s *croupierServerService) Stop(svc service.Service) error {
 	s.cancel()
 	return nil
 }
+
+// runServerFunc 是 runServer 的包级接缝（时序分支用注入点）：Start 的后台
+// goroutine 与测试的全局变量 cleanup 并发，测试注入不读全局的替身以根除
+// 数据竞争。
+var runServerFunc = runServer
 
 // initLoggingFromConfig 从配置文件初始化日志系统
 func (s *croupierServerService) initLoggingFromConfig() {
