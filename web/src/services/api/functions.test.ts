@@ -809,17 +809,46 @@ describe('subscribeTaskEvents', () => {
     sub.close();
   });
 
-  it('reports poll errors and stops retrying', async () => {
+  it('retries after a transient poll failure and recovers on success', async () => {
     const err = new Error('network down');
-    mockedRequest.mockRejectedValueOnce(err);
+    mockedRequest
+      .mockRejectedValueOnce(err)
+      .mockResolvedValueOnce({ items: [evt(1)], nextSeq: 1, done: true });
+    const onError = jest.fn();
+    const onEvent = jest.fn();
+    const onDone = jest.fn();
+
+    const sub = subscribeTaskEvents('t-1', { onEvent, onDone, onError });
+    await jest.advanceTimersByTimeAsync(0);
+
+    // 单次失败：上报但重试（E8 前单次错误即永久停止）
+    expect(onError).toHaveBeenCalledTimes(1);
+    expect(onError).toHaveBeenCalledWith(err);
+    await jest.advanceTimersByTimeAsync(1500);
+
+    expect(mockedRequest).toHaveBeenCalledTimes(2);
+    expect(onEvent).toHaveBeenCalledWith(evt(1));
+    expect(onDone).toHaveBeenCalled();
+    sub.close();
+  });
+
+  it('gives up only after 5 consecutive poll failures', async () => {
+    const err = new Error('still down');
+    mockedRequest.mockRejectedValue(err);
     const onError = jest.fn();
 
     const sub = subscribeTaskEvents('t-1', { onError });
-    await jest.advanceTimersByTimeAsync(0);
+    for (let i = 0; i < 5; i += 1) {
+      await jest.advanceTimersByTimeAsync(i === 0 ? 0 : 1500);
+    }
 
-    expect(onError).toHaveBeenCalledWith(err);
-    await jest.advanceTimersByTimeAsync(10000);
-    expect(mockedRequest).toHaveBeenCalledTimes(1);
+    expect(onError).toHaveBeenCalledTimes(5);
+    expect(mockedRequest).toHaveBeenCalledTimes(5);
+
+    // 超限后停止：不再发起新请求，也不再上报
+    await jest.advanceTimersByTimeAsync(15000);
+    expect(mockedRequest).toHaveBeenCalledTimes(5);
+    expect(onError).toHaveBeenCalledTimes(5);
     sub.close();
   });
 

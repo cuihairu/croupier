@@ -362,6 +362,13 @@ export function subscribeTaskEvents(
   let stopped = false;
   let timer: ReturnType<typeof setTimeout> | null = null;
   const intervalMs = 1500;
+  // E8：单次轮询错误曾永久终止订阅——网关瞬断 / server 滚动重启的几秒
+  // 窗口会把进行中任务的进度流静默打死，任务实际还在跑。改为连续失败
+  // maxConsecutiveFailures 次内重试（间隔不变），成功即复位计数；每次
+  // 失败仍回调 onError（消费方把它当日志行渲染，瞬断可见），超限才停止
+  // ——终局失败与「暂时不可达」在上层日志里可分辨（次数）。
+  const maxConsecutiveFailures = 5;
+  let consecutiveFailures = 0;
 
   const poll = async () => {
     if (stopped) return;
@@ -374,6 +381,7 @@ export function subscribeTaskEvents(
         params: { afterSeq },
       });
       if (stopped) return;
+      consecutiveFailures = 0;
       const items = res.items || [];
       for (const it of items) handlers.onEvent?.(it);
       afterSeq = res?.nextSeq ?? afterSeq;
@@ -382,8 +390,10 @@ export function subscribeTaskEvents(
         return;
       }
     } catch (err) {
-      if (!stopped) handlers.onError?.(err);
-      return;
+      if (stopped) return;
+      consecutiveFailures += 1;
+      handlers.onError?.(err);
+      if (consecutiveFailures >= maxConsecutiveFailures) return;
     }
     if (stopped) return;
     timer = setTimeout(poll, intervalMs);
