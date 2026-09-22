@@ -16,8 +16,12 @@ import (
 )
 
 // fakeService 是 service.Service 的最小假实现，只记录 Stop 调用。
+// platform/status/statusErr 可注入，驱动 runServiceStatus 的三态与平台分支。
 type fakeService struct {
-	stopped chan struct{}
+	stopped   chan struct{}
+	platform  string
+	status    service.Status
+	statusErr error
 }
 
 func newFakeService() *fakeService { return &fakeService{stopped: make(chan struct{}, 4)} }
@@ -34,9 +38,22 @@ func (f *fakeService) Logger(errs chan<- error) (service.Logger, error) {
 func (f *fakeService) SystemLogger(errs chan<- error) (service.Logger, error) {
 	return service.ConsoleLogger, nil
 }
-func (f *fakeService) String() string                  { return "fake" }
-func (f *fakeService) Platform() string                { return "test" }
-func (f *fakeService) Status() (service.Status, error) { return service.StatusUnknown, nil }
+func (f *fakeService) String() string { return "fake" }
+func (f *fakeService) Platform() string {
+	if f.platform == "" {
+		return "test"
+	}
+	return f.platform
+}
+func (f *fakeService) Status() (service.Status, error) {
+	if f.statusErr != nil {
+		return service.StatusUnknown, f.statusErr
+	}
+	if f.status == 0 {
+		return service.StatusUnknown, nil
+	}
+	return f.status, nil
+}
 
 // saveServiceGlobals 还原测试触碰的全局状态。
 func saveServiceGlobals(t *testing.T) {

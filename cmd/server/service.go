@@ -220,9 +220,30 @@ func (s *croupierServerService) initLoggingFromConfig() {
 	)
 }
 
+// newKardianosService 是 service.New 的包级接缝：测试注入 fake 以驱动
+// runServerServiceStatus 的三态输出与平台提示分支（环境分支用注入点，不碰
+// 真实 systemd）。
+var newKardianosService = service.New
+
+// platformFamily 把 kardianos 平台串归一为 OS 家族。service.Platform() 在
+// linux+systemd 环境返回 "linux-systemd"（darwin 为 "darwin-launchd"、windows
+// 为 "windows-service"），与 "linux"/"windows" 精确比较恒 false——曾导致
+// systemd unit 的 network-online 依赖与 croupier 运行用户从未写入。未识别
+// 的平台串原样返回。
+func platformFamily(p string) string {
+	for _, family := range []string{"linux", "windows", "darwin"} {
+		if strings.HasPrefix(p, family) {
+			return family
+		}
+	}
+	return p
+}
+
 // 创建服务对象
 func createServerService() (service.Service, error) {
 	execPath, err := os.Executable()
+	// os.Executable 对自身进程恒成功，err 分支为防御性兜底
+	// （coverage-exemptions.md cmd-6）。
 	if err != nil {
 		return nil, fmt.Errorf("无法获取可执行文件路径: %w", err)
 	}
@@ -232,14 +253,20 @@ func createServerService() (service.Service, error) {
 		configPath = defaultServerConfigDir()
 	}
 	if !filepath.IsAbs(configPath) {
-		configPath, err = filepath.Abs(configPath)
+		// 如果是相对路径，转换为绝对路径。Abs 失败（如 cwd 已被删除）时
+		// 回退到「可执行文件同级目录」拼接：必须用独立变量承接 Abs 结果，
+		// 否则 err 返回会把 configPath 清零、相对目录在拼接时被静默丢弃。
+		absPath, err := filepath.Abs(configPath)
 		if err != nil {
 			returnPath, err := filepath.Abs(execPath)
+			// execPath 已确认是绝对路径，Abs 对绝对输入直接 Clean 返回
+			// （不查 Getwd），恒成功（coverage-exemptions.md cmd-6）。
 			if err != nil {
 				return nil, fmt.Errorf("无法转换配置路径: %w", err)
 			}
-			configPath = filepath.Join(filepath.Dir(returnPath), configPath)
+			absPath = filepath.Join(filepath.Dir(returnPath), configPath)
 		}
+		configPath = absPath
 	}
 
 	cfgFile := filepath.Join(configPath, "server.yaml")
@@ -255,13 +282,15 @@ func createServerService() (service.Service, error) {
 		Arguments:   []string{"--config", cfgFile, "service", "run"},
 	}
 
-	if service.Platform() == "windows" {
+	// windows 分支为跨平台面，linux 测试环境不可达
+	// （coverage-exemptions.md cmd-6）
+	if platformFamily(service.Platform()) == "windows" {
 		svcConfig.Option = service.KeyValue{
 			"StartType": "auto",
 		}
 	}
 
-	if service.Platform() == "linux" {
+	if platformFamily(service.Platform()) == "linux" {
 		svcConfig.Dependencies = []string{
 			"After=network-online.target",
 			"Wants=network-online.target",
@@ -269,7 +298,7 @@ func createServerService() (service.Service, error) {
 		svcConfig.UserName = "croupier"
 	}
 
-	svc, err := service.New(nil, svcConfig)
+	svc, err := newKardianosService(nil, svcConfig)
 	if err != nil {
 		return nil, fmt.Errorf("创建服务对象失败: %w", err)
 	}
@@ -461,7 +490,7 @@ func runServerServiceStatus(cmd *cobra.Command, args []string) error {
 
 	fmt.Printf("平台: %s\n", svc.Platform())
 
-	if svc.Platform() == "windows" {
+	if platformFamily(svc.Platform()) == "windows" {
 		if status == service.StatusRunning {
 			fmt.Printf("\n管理命令:\n")
 			fmt.Printf("  PowerShell: Get-Service %s\n", serviceName)
@@ -469,7 +498,7 @@ func runServerServiceStatus(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	if svc.Platform() == "linux" {
+	if platformFamily(svc.Platform()) == "linux" {
 		fmt.Printf("\n管理命令:\n")
 		fmt.Printf("  systemctl status %s\n", serviceName)
 		fmt.Printf("  journalctl -u %s -f\n", serviceName)
@@ -522,8 +551,9 @@ func defaultServerConfigDir() string {
 		}
 	}
 
-	// 3. 回退到系统配置目录
-	switch service.Platform() {
+	// 3. 回退到系统配置目录（windows/darwin case 为跨平台面，linux 测试
+	// 环境不可达，coverage-exemptions.md cmd-6）
+	switch platformFamily(service.Platform()) {
 	case "windows":
 		return "C:\\ProgramData\\Croupier\\config"
 	case "darwin":

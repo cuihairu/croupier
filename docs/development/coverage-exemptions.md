@@ -47,7 +47,7 @@ internal/ 目标的逐包语句覆盖率为 100%。本文档是**唯一豁免清
 
 ## cmd/ 覆盖口径与豁免清单（2026-09-22 扩展）
 
-cmd/ 的覆盖目标与 internal/ 不同：二进制装配层允许存在进程边界与系统变更面，**策略逻辑全部下沉 internal/**（已 100%）。当前读数（`go test -cover`）：`cmd/server` ≈73%、`cmd/agent` ≈72%、`cmd/analytics-export` 91.7%、`cmd/schema-validator` ≈91%、`cmd/ingest/cmd` 99.1%。除下述豁免外，cmd/ 其余不可达分支均已按「先构造、构造不出才豁免」收口（含 fixture REST 全语义、startCluster 全装配矩阵、interconnect 全路由、service manager 状态机、schema-validator 归档解剖边界等）。
+cmd/ 的覆盖目标与 internal/ 不同：二进制装配层允许存在进程边界与系统变更面，**策略逻辑全部下沉 internal/**（已 100%）。当前读数（`go test -cover`）：`cmd/server` ≈75%、`cmd/agent` ≈84%、`cmd/analytics-export` 91.7%、`cmd/schema-validator` ≈91%、`cmd/ingest/cmd` 99.1%。除下述豁免外，cmd/ 其余不可达分支均已按「先构造、构造不出才豁免」收口（含 fixture REST 全语义、startCluster 全装配矩阵、interconnect 全路由、service manager 状态机、service status 三态与平台分支、schema-validator 归档解剖边界等）。
 
 ### cmd-1.（进程边界）全部二进制的 `main` / `Execute`
 
@@ -61,7 +61,7 @@ cmd/ 的覆盖目标与 internal/ 不同：二进制装配层允许存在进程�
 
 **位置**：`cmd/server/service.go` 与 `cmd/agent/service.go` 的 `run*ServiceInstall/Uninstall/Start/Stop/Restart` 中 `svc.Install()/Uninstall()/Start()/Stop()` 调用及其后的打印。
 
-**论证**：install/uninstall/start/stop/restart 触发**真实系统级变更**（写 systemd unit、启停系统服务），单测进程不可执行。每个函数可安全触达的前置面已覆盖：入口守卫（`createServerService`/`createService` 失败 → "创建服务失败"）、状态查询守卫（`runServiceStatus`）、`service run` 前台运行路径（fakeService 注入 Start 失败/取消/成功三态）。
+**论证**：install/uninstall/start/stop/restart 触发**真实系统级变更**（写 systemd unit、启停系统服务），单测进程不可执行。每个函数可安全触达的前置面已覆盖：入口守卫（`createServerService`/`createService` 失败 → "创建服务失败"）、状态查询（`runServiceStatus`/`runServerServiceStatus` 经 `service.New` 接缝注入 fake，运行/停止/未安装三态与 linux/windows 平台提示分支全直测）、`service run` 前台运行路径（fakeService 注入 Start 失败/取消/成功三态 + createService 失败与成功路径）。
 
 **失效条件**：命令增加纯校验类前置分支（如参数合法性检查）时应直测；若引入 dry-run 模式则守卫面应随实现补齐。
 
@@ -94,6 +94,21 @@ cmd/ 的覆盖目标与 internal/ 不同：二进制装配层允许存在进程�
 - `DBOwnerResolver.EnsureTable` 失败分支：成员表 `EnsureTable` 先行且使用**同一 DB 连接**，若连接可写则两表 DDL 同命运、若不可写则先行分支已拦截（只读库用例已覆盖先行分支）。让「成员表成功而 owner 表失败」需要 DDL 在同连接上对两个同构 `CreateTable` 分叉，无法确定性构造。gorm 层错误注入（如按表名 After 回调注错）对未来实现的回归有 pin 价值，但当前实现下两分支结构性同源。
 
 **失效条件**：两表 EnsureTable 引入独立连接/不同 DDL 路径，或 `NormalizeConfig` 增加真实校验——届时按错误注入工具箱补测。
+
+### cmd-6.（C 类防御 + 跨平台面）server/agent service.go 的环境恒成功守卫与 windows/darwin 分支
+
+**位置**：`cmd/server/service.go` 与 `cmd/agent/service.go`（`createServerService`/`createService` 的三处守卫与 windows 分支、`defaultServerConfigDir`/`defaultConfigDir` 的 windows/darwin case）；`cmd/agent/root.go`（`resolveAgentID` 的 `os.Hostname` 空值兜底）。
+
+**论证**：
+
+- `os.Executable` 对自身进程恒成功（无参数、无环境依赖），err 分支为防御性兜底。
+- `filepath.Abs(execPath)` 二次转换：`execPath` 已被上一步确认为绝对路径，`Abs` 对绝对输入直接 `Clean` 返回、不调用 `Getwd`，恒成功。（相对路径分支本身已可测：删除 cwd 使 `Getwd` 失败后 `Abs` 报错，`TestCreateService_AbsFailureFallback`/`TestCreateServerService_AbsFailureFallback` 覆盖回退链。）
+- `resolveAgentID` 的 `os.Hostname()` 空值兜底：`Hostname` 仅在病态系统调用失败时返回空，测试进程内不可构造。
+- windows 分支（`StartType: auto`）与 `defaultConfigDir` 系的 windows/darwin case：真实跨平台分支，在对应 OS 上可达、在 linux 测试环境不可触达。属环境性盲区而非死代码——`platformFamily` 的归一语义（"linux-systemd"→linux、"windows-service"→windows、"darwin-launchd"→darwin）由 `TestPlatformFamily`（两包各一）锁定。
+
+**失效条件**：上述系统调用改为可注入（如 hostname/executable 变量化）时按错误注入工具箱补测；CI 引入 windows/darwin runner 时 windows 分支应转为可覆盖面并移除本条。
+
+**2026-09-22 同轮修复记录**（非豁免，随本条入档备查）：`service.Platform()` 在 linux+systemd 返回 `"linux-systemd"`，历史代码 `== "linux"` 精确比较恒 false——systemd unit 的 `network-online` 依赖与 `croupier` 运行用户、status 的 Linux 管理命令提示从未生效（server/agent 两包同病）。已引入 `platformFamily` 归一并补三态/平台分支用例。同轮还删除了 `cmd/agent` AgentConfig 解析中 canonical TLS/OutboundTLS 冗余视图（与内联字段键集完全重叠，分支恒假），并修复 Abs 失败回退链中承接变量被 err 返回清零导致相对配置目录被静默丢弃的缺陷。
 
 ### cmd/ 残留部分覆盖面（非豁免，如实记录）
 

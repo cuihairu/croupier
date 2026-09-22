@@ -155,3 +155,33 @@ ops:
 		t.Fatalf("legacy ops keys not compat-parsed: %+v", cfg2.Ops)
 	}
 }
+
+// canonical 顶层 `tls:` / `outboundTLS:` 键直接由 AgentConfig 内联字段
+// （yaml:"tls"/"outboundTLS"）捕获；TLS 不设 canonical 二次视图（键集重叠、
+// 冗余分支已删），这里锁定 canonical 键到 TLS/OutboundTLS 的解析路径。
+func TestAgentConfigUnmarshalCanonicalTLS(t *testing.T) {
+	data := []byte(`
+Name: croupier-agent
+tls:
+  enabled: true
+  certFile: /etc/croupier/tls/agent.crt
+  keyFile: /etc/croupier/tls/agent.key
+  serverName: croupier.local
+outboundTLS:
+  enabled: true
+  caFile: /etc/croupier/tls/ca.crt
+  insecureSkipVerify: true
+`)
+	var cfg AgentConfig
+	if err := yaml.Unmarshal(data, &cfg); err != nil {
+		t.Fatalf("unmarshal canonical tls: %v", err)
+	}
+	if !cfg.TLS.Enabled || cfg.TLS.CertFile != "/etc/croupier/tls/agent.crt" ||
+		cfg.TLS.ServerName != "croupier.local" {
+		t.Fatalf("canonical tls not parsed: %+v", cfg.TLS)
+	}
+	if !cfg.OutboundTLS.Enabled || cfg.OutboundTLS.CAFile != "/etc/croupier/tls/ca.crt" ||
+		!cfg.OutboundTLS.InsecureSkipVerify {
+		t.Fatalf("canonical outboundTLS not parsed: %+v", cfg.OutboundTLS)
+	}
+}

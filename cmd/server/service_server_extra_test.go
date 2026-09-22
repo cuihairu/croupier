@@ -14,8 +14,13 @@ import (
 )
 
 // fakeServerSvc 是 service.Service 的最小假实现，只记录 Stop 调用。
+// platform/status/statusErr 可注入，驱动 runServerServiceStatus 的三态与
+// 平台分支。
 type fakeServerSvc struct {
-	stopped chan struct{}
+	stopped   chan struct{}
+	platform  string
+	status    service.Status
+	statusErr error
 }
 
 func newFakeServerSvc() *fakeServerSvc { return &fakeServerSvc{stopped: make(chan struct{}, 4)} }
@@ -32,9 +37,22 @@ func (f *fakeServerSvc) Logger(chan<- error) (service.Logger, error) {
 func (f *fakeServerSvc) SystemLogger(chan<- error) (service.Logger, error) {
 	return service.ConsoleLogger, nil
 }
-func (f *fakeServerSvc) String() string                  { return "fake" }
-func (f *fakeServerSvc) Platform() string                { return "test" }
-func (f *fakeServerSvc) Status() (service.Status, error) { return service.StatusUnknown, nil }
+func (f *fakeServerSvc) String() string { return "fake" }
+func (f *fakeServerSvc) Platform() string {
+	if f.platform == "" {
+		return "test"
+	}
+	return f.platform
+}
+func (f *fakeServerSvc) Status() (service.Status, error) {
+	if f.statusErr != nil {
+		return service.StatusUnknown, f.statusErr
+	}
+	if f.status == 0 {
+		return service.StatusUnknown, nil
+	}
+	return f.status, nil
+}
 
 // saveServerServiceGlobals 还原 service.go 测试触碰的全局变量。
 func saveServerServiceGlobals(t *testing.T) {

@@ -188,9 +188,7 @@ func (c *AgentConfig) UnmarshalYAML(value *yaml.Node) error {
 		OutboundTLS AgentTLSConfig       `yaml:"OutboundTLS"`
 	}
 	var canonical struct {
-		Logging     canonicalAgentLogConfig `yaml:"log"`
-		TLS         AgentTLSConfig          `yaml:"tls"`
-		OutboundTLS AgentTLSConfig          `yaml:"outboundTLS"`
+		Logging canonicalAgentLogConfig `yaml:"log"`
 	}
 	if err := value.Decode(&compat); err != nil {
 		return err
@@ -225,21 +223,14 @@ func (c *AgentConfig) UnmarshalYAML(value *yaml.Node) error {
 			decoded.Logging = compat.Logging.toCommon()
 		}
 	}
-	if isZeroInlineTLSConfig(decoded.TLS) {
-		switch {
-		case !isZeroAgentTLSConfig(canonical.TLS):
-			decoded.TLS = canonical.TLS
-		case !isZeroAgentTLSConfig(compat.TLS):
-			decoded.TLS = compat.TLS
-		}
+	// TLS/OutboundTLS 不设 canonical 视图：AgentConfig 内联字段本身就是
+	// canonical 键（yaml:"tls"/"outboundTLS"），plain 解码已捕获；这里只
+	// 需要把旧部署的 PascalCase（TLS:/OutboundTLS:）兼容进来。
+	if isZeroInlineTLSConfig(decoded.TLS) && !isZeroAgentTLSConfig(compat.TLS) {
+		decoded.TLS = compat.TLS
 	}
-	if isZeroInlineTLSConfig(decoded.OutboundTLS) {
-		switch {
-		case !isZeroAgentTLSConfig(canonical.OutboundTLS):
-			decoded.OutboundTLS = canonical.OutboundTLS
-		case !isZeroAgentTLSConfig(compat.OutboundTLS):
-			decoded.OutboundTLS = compat.OutboundTLS
-		}
+	if isZeroInlineTLSConfig(decoded.OutboundTLS) && !isZeroAgentTLSConfig(compat.OutboundTLS) {
+		decoded.OutboundTLS = compat.OutboundTLS
 	}
 
 	cfg := AgentConfig(decoded)
@@ -656,6 +647,8 @@ func resolveAgentID(configured string) string {
 		return strings.TrimSpace(configured)
 	}
 	host, _ := os.Hostname()
+	// os.Hostname 对可运行进程恒非空（仅病态系统调用失败才落入兜底），
+	// 分支不可构造（coverage-exemptions.md cmd-6）。
 	if host == "" {
 		host = "agent"
 	}
