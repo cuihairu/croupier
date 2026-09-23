@@ -1,13 +1,42 @@
 import React from 'react';
-import { Alert, Card, Row, Col } from 'antd';
+import { Alert, Card, Space, Typography, theme as antdTheme } from 'antd';
 import { PageContainer } from '@ant-design/pro-components';
 import { useIntl } from '@umijs/max';
+import { DASHBOARD_PAGE_TOKENS } from '@/components';
 import { useRealtimeStream } from './useRealtimeStream';
 import Toolbar from './Toolbar';
 import StatCard from './StatCard';
 
+// 指标网格：auto-fit + minmax 自适应列数（宽屏 4 列、窄屏自动降列），
+// 取代固定 span 的 Row/Col（CSS Grid 惯用法先例 SdkDistribution）。
+const statGridStyle: React.CSSProperties = {
+  display: 'grid',
+  gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
+  gap: DASHBOARD_PAGE_TOKENS.sectionGap,
+};
+
+/** 指标分组：主次指标分区块展示（实时活跃 / 规模与存量 / 收入转化）。 */
+function StatGroup({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <Space
+      orientation="vertical"
+      size={DASHBOARD_PAGE_TOKENS.itemGap}
+      style={{ width: '100%' }}
+      data-testid="stat-group"
+    >
+      <Typography.Title level={5} style={{ margin: 0 }}>
+        {title}
+      </Typography.Title>
+      <div style={statGridStyle} data-testid="stat-grid">
+        {children}
+      </div>
+    </Space>
+  );
+}
+
 export default function AnalyticsRealtimePage() {
   const intl = useIntl();
+  const { token } = antdTheme.useToken();
   const {
     data,
     loading,
@@ -26,6 +55,13 @@ export default function AnalyticsRealtimePage() {
     refresh,
     clearTrend,
   } = useRealtimeStream();
+
+  // 低于阈值时数值标红（色值取 antd token，不再硬编码）
+  const belowThresholdStyle = (
+    value: number,
+    threshold: number,
+  ): React.CSSProperties | undefined =>
+    threshold > 0 && value < threshold ? { color: token.colorError } : undefined;
 
   return (
     <PageContainer>
@@ -57,7 +93,7 @@ export default function AnalyticsRealtimePage() {
         <Alert
           type={streamStatus === 'error' ? 'error' : streamStatus === 'stale' ? 'warning' : 'info'}
           showIcon
-          style={{ marginBottom: 16 }}
+          style={{ marginBottom: DASHBOARD_PAGE_TOKENS.sectionGap }}
           message={
             streamStatus === 'error'
               ? intl.formatMessage({
@@ -75,8 +111,17 @@ export default function AnalyticsRealtimePage() {
                   })
           }
         />
-        <Row gutter={[16, 16]}>
-          <Col span={6}>
+        <Space
+          orientation="vertical"
+          size={DASHBOARD_PAGE_TOKENS.sectionGap}
+          style={{ width: '100%' }}
+        >
+          <StatGroup
+            title={intl.formatMessage({
+              id: 'pages.analyticsRealtime.stat.group.live',
+              defaultMessage: '实时活跃',
+            })}
+          >
             <StatCard
               loading={loading}
               title={intl.formatMessage({
@@ -84,15 +129,9 @@ export default function AnalyticsRealtimePage() {
                 defaultMessage: '实时在线',
               })}
               value={data?.online || 0}
-              contentStyle={
-                thrOnline > 0 && Number(data?.online || 0) < thrOnline
-                  ? { color: '#cf1322' }
-                  : undefined
-              }
+              contentStyle={belowThresholdStyle(Number(data?.online || 0), thrOnline)}
               spark={ptsOnline}
             />
-          </Col>
-          <Col span={6}>
             <StatCard
               loading={loading}
               title={intl.formatMessage({
@@ -101,8 +140,6 @@ export default function AnalyticsRealtimePage() {
               })}
               value={data?.active1M || 0}
             />
-          </Col>
-          <Col span={6}>
             <StatCard
               loading={loading}
               title={intl.formatMessage({
@@ -110,13 +147,9 @@ export default function AnalyticsRealtimePage() {
                 defaultMessage: '5分钟活跃',
               })}
               value={data?.active5M || 0}
-              contentStyle={
-                thrA5 > 0 && Number(data?.active5M || 0) < thrA5 ? { color: '#cf1322' } : undefined
-              }
+              contentStyle={belowThresholdStyle(Number(data?.active5M || 0), thrA5)}
               spark={ptsA5}
             />
-          </Col>
-          <Col span={6}>
             <StatCard
               loading={loading}
               title={intl.formatMessage({
@@ -126,10 +159,13 @@ export default function AnalyticsRealtimePage() {
               value={data?.active15M || 0}
               spark={ptsA15}
             />
-          </Col>
-        </Row>
-        <Row gutter={[16, 16]} style={{ marginTop: 12 }}>
-          <Col span={6}>
+          </StatGroup>
+          <StatGroup
+            title={intl.formatMessage({
+              id: 'pages.analyticsRealtime.stat.group.scale',
+              defaultMessage: '规模与存量',
+            })}
+          >
             <StatCard
               loading={loading}
               title={intl.formatMessage({
@@ -138,8 +174,6 @@ export default function AnalyticsRealtimePage() {
               })}
               value={data?.onlinePeakToday || 0}
             />
-          </Col>
-          <Col span={6}>
             <StatCard
               loading={loading}
               title={intl.formatMessage({
@@ -148,8 +182,6 @@ export default function AnalyticsRealtimePage() {
               })}
               value={data?.onlinePeakAllTime || 0}
             />
-          </Col>
-          <Col span={6}>
             <StatCard
               loading={loading}
               title={intl.formatMessage({
@@ -158,8 +190,6 @@ export default function AnalyticsRealtimePage() {
               })}
               value={data?.dauToday || 0}
             />
-          </Col>
-          <Col span={6}>
             <StatCard
               loading={loading}
               title={intl.formatMessage({
@@ -168,10 +198,6 @@ export default function AnalyticsRealtimePage() {
               })}
               value={data?.newToday || 0}
             />
-          </Col>
-        </Row>
-        <Row gutter={[16, 16]} style={{ marginTop: 12 }}>
-          <Col span={6}>
             <StatCard
               loading={loading}
               title={intl.formatMessage({
@@ -180,8 +206,13 @@ export default function AnalyticsRealtimePage() {
               })}
               value={data?.registeredTotal || 0}
             />
-          </Col>
-          <Col span={6}>
+          </StatGroup>
+          <StatGroup
+            title={intl.formatMessage({
+              id: 'pages.analyticsRealtime.stat.group.revenue',
+              defaultMessage: '收入转化',
+            })}
+          >
             <StatCard
               loading={loading}
               title={intl.formatMessage({
@@ -193,8 +224,6 @@ export default function AnalyticsRealtimePage() {
               prefix="¥"
               spark={ptsRev5}
             />
-          </Col>
-          <Col span={6}>
             <StatCard
               loading={loading}
               title={intl.formatMessage({
@@ -205,8 +234,6 @@ export default function AnalyticsRealtimePage() {
               precision={2}
               suffix="%"
             />
-          </Col>
-          <Col span={6}>
             <StatCard
               loading={loading}
               title={intl.formatMessage({
@@ -217,8 +244,8 @@ export default function AnalyticsRealtimePage() {
               precision={2}
               prefix="¥"
             />
-          </Col>
-        </Row>
+          </StatGroup>
+        </Space>
       </Card>
     </PageContainer>
   );

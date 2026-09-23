@@ -48,4 +48,19 @@ describe('StatCard', () => {
     expect(content).toBeInTheDocument();
     expect(content).toHaveStyle({ color: 'rgb(207, 19, 34)' });
   });
+
+  it('无 spark 时渲染与 sparkline 等高的空白占位（网格等高，非 svg）', () => {
+    const { container } = render(<StatCard title="在线" value={1} />);
+    const placeholder = container.querySelector('div[aria-hidden="true"]');
+    expect(placeholder).toBeInTheDocument();
+    expect(placeholder).toHaveStyle({ height: '40px' });
+    // 占位不是死 sparkline：仍然没有 svg
+    expect(container.querySelector('svg')).not.toBeInTheDocument();
+  });
+
+  it('卡片根 height:100%（配合 grid 单元格拉伸等高）', () => {
+    const { container } = render(<StatCard title="在线" value={1} />);
+    const card = container.querySelector('.ant-pro-card');
+    expect(card).toHaveStyle({ height: '100%' });
+  });
 });

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Button, DatePicker, Space, Tag } from 'antd';
+import { Button, DatePicker, InputNumber, Space, Tag, theme as antdTheme } from 'antd';
 import type { Dayjs } from 'dayjs';
 import { FormattedMessage, useIntl } from '@umijs/max';
 import { fetchRealtimeSeries } from '@/services/api/analytics';
@@ -42,6 +42,7 @@ export default function Toolbar({
   ptsRev5: [number, number][];
 }) {
   const intl = useIntl();
+  const { token } = antdTheme.useToken();
   const [expRange, setExpRange] = useState<[Dayjs | null, Dayjs | null] | null>(null);
 
   const statusTag =
@@ -78,7 +79,7 @@ export default function Toolbar({
   return (
     <Space>
       {statusTag}
-      <span style={{ color: '#666' }}>
+      <span style={{ color: token.colorTextSecondary }}>
         <FormattedMessage
           id="pages.analyticsRealtime.toolbar.lastUpdated"
           defaultMessage="最后更新:"
@@ -114,17 +115,19 @@ export default function Toolbar({
           defaultMessage: '阈值(在线/5m活跃):',
         })}
       </span>
-      <input
-        type="number"
+      <InputNumber
+        min={0}
         value={thrOnline}
-        onChange={(e) => onThrOnlineChange(Number(e.target.value || 0))}
+        onChange={(v) => onThrOnlineChange(typeof v === 'number' ? v : 0)}
         style={{ width: 80 }}
+        aria-label="threshold-online"
       />
-      <input
-        type="number"
+      <InputNumber
+        min={0}
         value={thrA5}
-        onChange={(e) => onThrA5Change(Number(e.target.value || 0))}
+        onChange={(v) => onThrA5Change(typeof v === 'number' ? v : 0)}
         style={{ width: 80 }}
+        aria-label="threshold-active5m"
       />
       <DatePicker.RangePicker
         showTime
