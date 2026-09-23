@@ -387,6 +387,34 @@ export default function PageStudio() {
     });
   }, []);
 
+  const handleRegenerate = useCallback(
+    async (pageKey: string, draftRevision: number) => {
+      try {
+        const result = await regeneratePageDraft(pageKey, draftRevision);
+        if (selectedDraft?.pageKey === pageKey) {
+          setSelectedDraft(result.page);
+          setSelectedDraftRevision(result.draftRevision);
+        }
+        message.success(
+          intlRef.current.formatMessage({
+            id: 'pages.pageStudio.regenerate.success',
+            defaultMessage: '已按最新 Proposal 重新生成草稿',
+          }),
+        );
+        await loadDrafts();
+      } catch {
+        message.error(
+          intlRef.current.formatMessage({
+            id: 'pages.pageStudio.regenerate.failed',
+            defaultMessage: '重新生成草稿失败',
+          }),
+        );
+      } finally {
+      }
+    },
+    [loadDrafts, message, selectedDraft?.pageKey],
+  );
+
   const handleSave = useCallback(
     async (options?: { publishAfterSave?: boolean; menuId?: number | null }) => {
       if (!selectedDraft) return;
@@ -452,7 +480,9 @@ export default function PageStudio() {
                 defaultMessage: '未知原因',
               }),
             );
-            modal.error({
+            const pageKey = selectedDraft.pageKey;
+            const draftRev = selectedDraftRevision;
+            const modalRef = modal.error({
               title: intlRef.current.formatMessage({
                 id: 'pages.pageStudio.publish.failedDraftSaved',
                 defaultMessage: '发布失败（草稿已保存）',
@@ -473,9 +503,46 @@ export default function PageStudio() {
                   <Typography.Text type="warning">
                     <FormattedMessage
                       id="pages.pageStudio.publish.contractStaleHint"
-                      defaultMessage="通常是函数契约已变化导致页面绑定失效，可点击「重新生成草稿」按最新契约重建后再发布。"
+                      defaultMessage="通常是函数契约已变化导致页面绑定失效，可选择以下操作修复："
                     />
                   </Typography.Text>
+                  <Space style={{ marginTop: 8 }}>
+                    <Button
+                      type="primary"
+                      onClick={() => {
+                        modalRef.destroy();
+                        setSelectedPageKey(pageKey);
+                        setSyncSelectorsVisible(true);
+                      }}
+                    >
+                      <FormattedMessage
+                        id="pages.pageStudio.publish.syncSelectors"
+                        defaultMessage="一键同步 Selector"
+                      />
+                    </Button>
+                    <Button
+                      onClick={() => {
+                        modalRef.destroy();
+                        void handleRegenerate(pageKey, draftRev);
+                      }}
+                    >
+                      <FormattedMessage
+                        id="pages.pageStudio.publish.regenerate"
+                        defaultMessage="重新生成草稿"
+                      />
+                    </Button>
+                    <Button
+                      onClick={() => {
+                        modalRef.destroy();
+                        setEditorVisible(true);
+                      }}
+                    >
+                      <FormattedMessage
+                        id="pages.pageStudio.publish.goToEditor"
+                        defaultMessage="前往编辑"
+                      />
+                    </Button>
+                  </Space>
                 </Space>
               ),
             });
@@ -538,35 +605,7 @@ export default function PageStudio() {
         setSaving(false);
       }
     },
-    [loadDrafts, message, modal, selectedDraft, selectedDraftRevision],
-  );
-
-  const handleRegenerate = useCallback(
-    async (pageKey: string, draftRevision: number) => {
-      try {
-        const result = await regeneratePageDraft(pageKey, draftRevision);
-        if (selectedDraft?.pageKey === pageKey) {
-          setSelectedDraft(result.page);
-          setSelectedDraftRevision(result.draftRevision);
-        }
-        message.success(
-          intlRef.current.formatMessage({
-            id: 'pages.pageStudio.regenerate.success',
-            defaultMessage: '已按最新 Proposal 重新生成草稿',
-          }),
-        );
-        await loadDrafts();
-      } catch {
-        message.error(
-          intlRef.current.formatMessage({
-            id: 'pages.pageStudio.regenerate.failed',
-            defaultMessage: '重新生成草稿失败',
-          }),
-        );
-      } finally {
-      }
-    },
-    [loadDrafts, message, selectedDraft?.pageKey],
+    [loadDrafts, message, modal, selectedDraft, selectedDraftRevision, handleRegenerate],
   );
 
   // 同步 Selector 已落草稿：重载草稿让 EditorModal 的 spec 与

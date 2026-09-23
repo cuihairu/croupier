@@ -76,7 +76,10 @@ export default {
   'pages.pageStudio.merge.previewLoadFailed': '加载冲突预览失败',
   'pages.pageStudio.merge.selectPageFirst': '请选择页面后再处理冲突',
   'pages.pageStudio.publish.contractStaleHint':
-    '通常是函数契约已变化导致页面绑定失效，可点击「重新生成草稿」按最新契约重建后再发布。',
+    '通常是函数契约已变化导致页面绑定失效，可选择以下操作修复：',
+  'pages.pageStudio.publish.syncSelectors': '一键同步 Selector',
+  'pages.pageStudio.publish.regenerate': '重新生成草稿',
+  'pages.pageStudio.publish.goToEditor': '前往编辑',
   'pages.pageStudio.publish.failed': '发布失败',
   'pages.pageStudio.publish.failedDraftSaved': '发布失败（草稿已保存）',
   'pages.pageStudio.publish.failureReason': '失败原因：{reason}',

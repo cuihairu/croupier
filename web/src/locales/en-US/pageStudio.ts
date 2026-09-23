@@ -83,7 +83,10 @@ export default {
   'pages.pageStudio.merge.previewLoadFailed': 'Failed to load conflict preview',
   'pages.pageStudio.merge.selectPageFirst': 'Select a page before handling conflicts',
   'pages.pageStudio.publish.contractStaleHint':
-    'Usually the function contract has changed and the page bindings are stale. Click "Regenerate Draft" to rebuild against the latest contract, then publish again.',
+    'Usually the function contract has changed and the page bindings are stale. Choose one of the following actions to fix:',
+  'pages.pageStudio.publish.syncSelectors': 'Sync Selectors',
+  'pages.pageStudio.publish.regenerate': 'Regenerate Draft',
+  'pages.pageStudio.publish.goToEditor': 'Go to Editor',
   'pages.pageStudio.publish.failed': 'Publish failed',
   'pages.pageStudio.publish.failedDraftSaved': 'Publish failed (draft saved)',
   'pages.pageStudio.publish.failureReason': 'Failure reason: {reason}',
