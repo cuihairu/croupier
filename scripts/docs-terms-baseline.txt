@@ -1,3 +1,4 @@
+docs/agent-capability-library-matrix.md|gRPC
 docs/analytics/api-reference.md|gRPC
 docs/analytics/opentelemetry-integration.md|gRPC
 docs/architecture/agent-server-session-transport-redesign.md|REQ/REP
