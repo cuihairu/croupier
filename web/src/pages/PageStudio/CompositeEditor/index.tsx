@@ -478,7 +478,11 @@ export default function CompositeEditorPage() {
       modal.success({
         title,
         content,
-        onOk: () => history.push('/functions/pages'),
+        onOk: () => {
+          setSaving(false);
+          history.push('/functions/pages');
+        },
+        onCancel: () => setSaving(false),
       });
     } catch (err) {
       message.error(
@@ -490,7 +494,6 @@ export default function CompositeEditorPage() {
           }),
         ),
       );
-    } finally {
       setSaving(false);
     }
   }, [pageKey, tree, tplUsage, message, modal]);

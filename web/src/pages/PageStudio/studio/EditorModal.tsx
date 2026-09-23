@@ -67,7 +67,7 @@ export default function EditorModal({
   useEffect(() => {
     setMenuId(currentMenuId ?? firstMenuId);
     setMenuDirty(currentMenuId == null && firstMenuId != null);
-  }, [currentMenuId, firstMenuId]);
+  }, [currentMenuId, firstMenuId, open]);
 
   const menuTreeData = useMemo(() => toMenuTreeData(menus, intl.locale), [menus, intl.locale]);
   return (
