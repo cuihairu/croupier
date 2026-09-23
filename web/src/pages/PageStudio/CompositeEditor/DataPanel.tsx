@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Button, Table, Typography } from 'antd';
 import { CaretDownOutlined, CaretRightOutlined, PlayCircleOutlined } from '@ant-design/icons';
 import { FormattedMessage, useIntl } from '@umijs/max';
@@ -25,6 +25,12 @@ export default function DataPanel({
   const [error, setError] = useState('');
   const [data, setData] = useState<JSONRecord | null>(null);
   const intl = useIntl();
+
+  // Reset data/error when selected node changes to avoid showing stale results
+  useEffect(() => {
+    setData(null);
+    setError('');
+  }, [node?.id]);
 
   if (
     !node ||

@@ -77,6 +77,8 @@ export default function CompositeEditorPage() {
   const intlRef = useRef(intl);
   intlRef.current = intl;
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const selectedIdRef = useRef<string | null>(null);
+  selectedIdRef.current = selectedId;
   /** Shift 多选集合（批量删除）。 */
   const [multiIds, setMultiIds] = useState<Set<string>>(new Set());
   const [saveModalState, setSaveModalState] = useState<null | {
@@ -529,10 +531,13 @@ export default function CompositeEditorPage() {
         /* 刷新失败不阻断切换引导（fnReload 链稍后重试） */
       }
       setFnReload((k) => k + 1); // 触发既有刷新链（回读 effect 有 tree>0 守卫）
+      // Read selectedId from ref (not closure) to avoid stale value when user
+      // switches canvas selection between drawer open and confirm click.
+      const currentSelectedId = selectedIdRef.current;
       if (
         decideBindOutcome(bindingFn?.id, boundFunctionId) !== 'swap' ||
         !bindingFn ||
-        !selectedId
+        !currentSelectedId
       ) {
         return;
       }
@@ -561,7 +566,7 @@ export default function CompositeEditorPage() {
         onOk: () => patchProps({ functionId: boundFunctionId }),
       });
     },
-    [bindingFn, selectedId, patchProps, setFnReload, modal, intl],
+    [bindingFn, patchProps, setFnReload, modal, intl],
   );
 
   // ---- 拖拽（T2.2/T2.3）：面板→画布插入 / 画布内重排 / modal 收纳 ----
