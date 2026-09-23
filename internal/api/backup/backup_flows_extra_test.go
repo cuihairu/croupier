@@ -477,9 +477,14 @@ func TestService_Download_StatAndOpenFailures(t *testing.T) {
 	t.Run("open 失败：location 指向 unix socket 文件", func(t *testing.T) {
 		// unix socket inode 存在（os.Stat 成功）但 open(2) 返回 ENXIO，
 		// 覆盖 Stat 成功而 Open 失败的分支。
-		sockPath := filepath.Join(t.TempDir(), "backup.sock")
-		ln, err := net.Listen("unix", sockPath)
+		// socket 路径受内核 sun_path 108 字节限制，不能用 t.TempDir()——
+		// TMPDIR 指向长路径时 bind 报 invalid argument（先例排查：本地长 scratch 目录）。
+		sockDir, err := os.MkdirTemp("/tmp", "croupier-bkp-sock")
 		require.NoError(t, err)
+		t.Cleanup(func() { _ = os.RemoveAll(sockDir) })
+		sockPath := filepath.Join(sockDir, "backup.sock")
+		ln, listenErr := net.Listen("unix", sockPath)
+		require.NoError(t, listenErr)
 		defer func() { _ = ln.Close() }()
 
 		createBackupRow(t, env, &model.Backup{
