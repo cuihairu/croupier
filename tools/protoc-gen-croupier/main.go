@@ -29,15 +29,19 @@ type OpenAPIOperation struct {
 	Response    map[string]any `json:"response,omitempty"`
 }
 
+// fatalExit 是 fatal 的包级接缝：测试替换为 panic 型 sentinel 以断言
+// 错误路径（fatalf 本体含 os.Exit，进程边界，见文末豁免注释）。
+var fatalExit = fatalf
+
 func main() {
 	// Read request from stdin
 	in, err := io.ReadAll(os.Stdin)
 	if err != nil {
-		fatalf("read stdin: %v", err)
+		fatalExit("read stdin: %v", err)
 	}
 	var req pluginpb.CodeGeneratorRequest
 	if err := proto.Unmarshal(in, &req); err != nil {
-		fatalf("unmarshal CodeGeneratorRequest: %v", err)
+		fatalExit("unmarshal CodeGeneratorRequest: %v", err)
 	}
 
 	// Defaults and params
@@ -155,11 +159,11 @@ func main() {
 
 	// Write response
 	out, err := proto.Marshal(resp)
-	if err != nil {
-		fatalf("marshal CodeGeneratorResponse: %v", err)
+	if err != nil { // C 类豁免：构造的 CodeGeneratorResponse（文件名+字节数据）Marshal 恒成功（docs/development/coverage-exemptions.md）
+		fatalExit("marshal CodeGeneratorResponse: %v", err)
 	}
 	if _, err := os.Stdout.Write(out); err != nil {
-		fatalf("write stdout: %v", err)
+		fatalExit("write stdout: %v", err)
 	}
 }
 
@@ -812,6 +816,8 @@ func parseOptionObjectMap(s, fieldName string) map[string]string {
 	return res
 }
 
+// fatalf 进程边界豁免（cmd-1 同款）：os.Exit 只能归被测进程所有，
+// 测试经 fatalExit 接缝断言错误路径，本体不走进程内断言。
 func fatalf(format string, a ...any) {
 	fmt.Fprintf(os.Stderr, format+"\n", a...)
 	os.Exit(1)
