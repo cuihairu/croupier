@@ -114,6 +114,58 @@ cmd/ 的覆盖目标与 internal/ 不同：二进制装配层允许存在进程�
 
 `cmd/server/dashboard_fixture.go` 的 E2E fixture 全链启动（`StartDashboardFixture`/`startServer`/`startAgent`/`ensureUIScope` 等约 55%-88% 覆盖）依赖真实 server+agent+dashboard 子进程编排，属 E2E 领域基础设施：可测面（fixture REST、SDK 替换、存储句柄、未启动防御）已在 `dashboard_fixture_*_test.go` 直测，全链编排由 `real-dashboard` E2E 套件承担，不在单测覆盖率口径内。
 
+## tools/ 与 scripts/ 覆盖口径与豁免清单（2026-09-23 扩展）
+
+tools/ 适配器与 protoc 插件是独立部署的小型可执行体，覆盖目标与 cmd/ 同口径：装配/注册/调用链全直测（fake agent 走 tcptr、main 错误路径走 stdin/stdout fd 注入与 fatalExit 接缝），进程边界与构造恒成功分支豁免。当前读数（`go test -cover`）：`tools/adapters/prom` 93.8%、`tools/adapters/http` 97.0%、`tools/protoc-gen-croupier` 99.3%、`scripts`（gen_bcrypt）80.0%。
+
+### tools-1.（C 类防御）prom 适配器两处 Marshal
+
+**位置**：`tools/adapters/prom/main.go` `run()` 的 `proto.Marshal(regReq)` 与 `heartbeatLoop()` 的 `proto.Marshal(hbReq)` 错误分支。
+
+**论证**：两条消息字段均为 string/slice/嵌套 message（`buildProviderConnectRequest` 构造、`ProviderHeartbeatRequest` 仅两个 string 字段），protobuf Marshal 对纯类型化构造消息进程内恒成功，无可构造触发。
+
+**pin**：`adapter_run_test.go` `TestBuildProviderConnectRequest` 对 regReq 与 hbReq 断言 Marshal 恒成功。
+
+**失效条件**：消息新增非序列化安全字段类型（如自定义 Marshaler 抛错路径）时按错误注入工具箱补测并移除本条。
+
+### tools-2.（C 类防御）http 适配器四处
+
+**位置**：`tools/adapters/http/main.go` 两处 `http.NewRequestWithContext(ctx, http.MethodGet, u.String(), nil)` 错误分支（alertmanager alerts 与 grafana search 的 `q.Encode()` 构造 URL）与两处 Marshal 错误分支（`run()` 的 regReq、`keepAlive()` 的 hbReq）。
+
+**论证**：`u.String()` 产出已通过 `url.Parse` 校验的 URL，`NewRequestWithContext` 对合法 method+URL+nil body 恒成功（generic invoke 的 in.Method 路径已有 `TestInvokeGenericBadMethodFailsNewRequest` 覆盖错误面）；Marshal 分支论证同 tools-1。
+
+**pin**：`adapter_run_test.go` `TestMarshalProviderMessagesAlwaysSucceeds`。
+
+**失效条件**：同 tools-1；NewRequestWithContext 侧若改为拼接用户可控 raw URL 的路径，则该分支转为可覆盖面。
+
+### tools-3.（C 类防御）protoc-gen-croupier main 的 Marshal(resp)
+
+**位置**：`tools/protoc-gen-croupier/main.go` `main()` 的 `proto.Marshal(resp)` 错误分支。
+
+**论证**：`CodeGeneratorResponse` 仅含文件名与字节数据（string 字段），构造后 Marshal 恒成功，无可构造触发。
+
+**pin**：`main_plugin_test.go` `TestCodeGeneratorResponseMarshalPin`。
+
+**失效条件**：同 tools-1。
+
+### tools-4.（进程边界，cmd-1 同款）protoc-gen-croupier fatalf 本体
+
+**位置**：`tools/protoc-gen-croupier/main.go` `fatalf()`（内含 `os.Exit(1)`）。
+
+**论证**：`os.Exit` 归被测进程所有，进程内断言会杀掉测试进程。已加包级接缝 `fatalExit`，main() 的四条错误路径（read stdin / unmarshal / marshal / write stdout）经 `main_plugin_test.go` 三个用例以 panic 型替身断言（目录 fd EISDIR / 垃圾字节 / 只读 `/dev/null` EBADF），本体不走进程内断言。
+
+**失效条件**：无（结构性边界，与 cmd-1 同理）。
+
+### tools-5.（C 类防御）scripts/gen_bcrypt 的 panic 分支
+
+**位置**：`scripts/gen_bcrypt.go` `main()` 的 `panic(err)`（`bcrypt.GenerateFromPassword` 错误分支）。
+
+**论证**：一次性运维小工具，输入固定为 `"admin"`+`bcrypt.DefaultCost`，进程内 GenerateFromPassword 恒成功，panic 分支无可构造触发。main 主体已由 `gen_bcrypt_test.go` `TestGenBcryptMain` 同包直测。
+
+**pin**：`TestGenBcryptMainPin`（恒成功 + 哈希 round-trip 校验回 "admin"）。
+
+**失效条件**：输入改为外部可注入（flag/env）时按错误注入工具箱补测并移除本条。
+
 ## 复核流程
 
 1. 对每个豁免候选穷举可达路径（含缓存一致性、环、字节/多字节 rune、Unicode 折叠等边角），证伪「可构造触发」的所有尝试；

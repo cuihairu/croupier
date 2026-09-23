@@ -56,7 +56,7 @@ func (s *server) Invoke(ctx context.Context, req *sdkv1.InvokeRequest) (*sdkv1.I
 		}
 		u.RawQuery = q.Encode()
 		r, err := http.NewRequestWithContext(ctx, http.MethodGet, u.String(), nil)
-		if err != nil {
+		if err != nil { // C 类豁免：url.Values.Encode() 产出的构造 URL，NewRequestWithContext 恒成功（docs/development/coverage-exemptions.md）
 			return nil, err
 		}
 		if req.Metadata != nil {
@@ -119,7 +119,7 @@ func (s *server) Invoke(ctx context.Context, req *sdkv1.InvokeRequest) (*sdkv1.I
 		}
 		u.RawQuery = q.Encode()
 		r, err := http.NewRequestWithContext(ctx, http.MethodGet, u.String(), nil)
-		if err != nil {
+		if err != nil { // C 类豁免：url.Values.Encode() 产出的构造 URL，NewRequestWithContext 恒成功（docs/development/coverage-exemptions.md）
 			return nil, err
 		}
 		if req.Metadata != nil {
@@ -388,7 +388,7 @@ func run(ctx context.Context) error {
 		TransportSecurityMode: "plain_tcp",
 	}
 	regData, err := proto.Marshal(regReq)
-	if err != nil {
+	if err != nil { // C 类豁免：构造的纯类型化消息 Marshal 恒成功（docs/development/coverage-exemptions.md）
 		return fmt.Errorf("failed to marshal ProviderConnectRequest: %v", err)
 	}
 
@@ -420,7 +420,7 @@ func keepAlive(ctx context.Context, tcpClient *tcptr.Client, serviceID, sessionI
 			return nil
 		case <-ticker.C:
 			hbData, marshalErr := proto.Marshal(hbReq)
-			if marshalErr != nil {
+			if marshalErr != nil { // C 类豁免：构造的纯类型化消息 Marshal 恒成功（docs/development/coverage-exemptions.md）
 				log.Printf("Failed to marshal ProviderHeartbeatRequest: %v", marshalErr)
 				continue
 			}

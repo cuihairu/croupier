@@ -309,3 +309,27 @@ func TestRunSuccessWithDefaultsAndHeartbeat(t *testing.T) {
 		t.Fatal("run() did not return after context cancel")
 	}
 }
+
+// TestMarshalProviderMessagesAlwaysSucceeds pin：构造的纯类型化消息
+// （run() 内联的 ProviderConnectRequest 与 keepAlive 的
+// ProviderHeartbeatRequest，字段均为 string/slice）Marshal 恒成功——
+// main.go 两处 Marshal 错误分支 C 类豁免的不变式。
+func TestMarshalProviderMessagesAlwaysSucceeds(t *testing.T) {
+	regReq := &sdkv1.ProviderConnectRequest{
+		ServiceId: "svc-x",
+		Version:   "9.9.9",
+		Functions: []*sdkv1.ProviderFunctionDescriptor{
+			{Id: "http.generic_invoke", InputSchema: "{}", OutputSchema: "{}"},
+		},
+		SdkLanguage:           "go",
+		ProtocolVersion:       "v1",
+		SupportedTransports:   []string{"tcp"},
+		TransportSecurityMode: "plain_tcp",
+	}
+	if _, err := proto.Marshal(regReq); err != nil {
+		t.Fatalf("Marshal(regReq) = %v, want always-success", err)
+	}
+	if _, err := proto.Marshal(&sdkv1.ProviderHeartbeatRequest{ServiceId: "s", SessionId: "x"}); err != nil {
+		t.Fatalf("Marshal(hbReq) = %v, want always-success", err)
+	}
+}
