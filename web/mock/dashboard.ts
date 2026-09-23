@@ -593,6 +593,25 @@ export default {
     });
   },
 
+  // Approval list API（审批中心列表；详情走上方 :approvalId）
+  'GET /api/v1/approvals': (req: Request, res: Response) => {
+    res.send({
+      approvals: [
+        {
+          id: 'ap-1',
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          state: 'approved',
+          actor: 'admin',
+          approver: 'reviewer',
+          functionId: 'system.dangerous-op',
+          mode: 'two-person',
+        },
+      ],
+      total: 1,
+    });
+  },
+
   // Resource Catalog API
   'GET /api/v1/resource-catalog': (req: Request, res: Response) => {
     res.send({
@@ -897,13 +916,34 @@ export default {
     res.send({ count: 0 });
   },
 
-  // Pages API
+  // Pages API（草稿列表含长 pageKey 样本，覆盖列宽挤压场景）
   'GET /api/v1/pages': (req: Request, res: Response) => {
+    const now = new Date().toISOString();
+    const draft = (
+      pageKey: string,
+      type: string,
+      status: string,
+      categoryKey: string,
+      publishedVersion?: number,
+    ) => ({
+      pageKey,
+      type,
+      status,
+      category: { key: categoryKey },
+      title: { 'zh-CN': `${pageKey} 的页面标题`, 'en-US': `Title of ${pageKey}` },
+      draftRevision: 3,
+      publishedVersion,
+      updatedAt: now,
+      updatedBy: 'admin',
+    });
     res.send({
       items: [
-        { pageKey: 'resource--players', type: 'resource', title: { 'zh-CN': '玩家列表' } },
-        { pageKey: 'resource--inventory', type: 'resource', title: { 'zh-CN': '背包物品' } },
+        draft('inventory-leaderboard-mail', 'composite', 'draft', 'composite'),
+        draft('operation--ops.restart', 'operation', 'published', 'operation', 2),
+        draft('resource--players', 'resource', 'published', 'resource', 1),
+        draft('resource--inventory', 'resource', 'draft', 'resource'),
       ],
+      total: 4,
     });
   },
 

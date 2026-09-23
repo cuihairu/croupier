@@ -74,15 +74,20 @@ export function buildProposalColumns({
       }),
       dataIndex: 'proposalKey',
       key: 'proposalKey',
+      width: 220,
       render: (_, record) => {
         // proposalKey 形如 operation--mail.send / resource--mail，pageKey 是其去前缀形态；
         // 两者一致时只显示一行，避免相邻两行看起来是重复字段。
         const bareKey = record.proposalKey.replace(/^(operation|resource|task|report)--/, '');
         return (
           <Space orientation="vertical" size={0}>
-            <Text strong>{record.proposalKey}</Text>
+            <Text strong ellipsis={{ tooltip: record.proposalKey }}>
+              {record.proposalKey}
+            </Text>
             {record.pageKey && record.pageKey !== bareKey && (
-              <Text type="secondary">{record.pageKey}</Text>
+              <Text type="secondary" ellipsis={{ tooltip: record.pageKey }}>
+                {record.pageKey}
+              </Text>
             )}
           </Space>
         );
@@ -95,6 +100,8 @@ export function buildProposalColumns({
       }),
       dataIndex: 'title',
       key: 'title',
+      width: 160,
+      ellipsis: true,
       render: (_, record) => localizedText(record.title, intl.locale),
     },
     {
@@ -118,7 +125,7 @@ export function buildProposalColumns({
       }),
       dataIndex: 'resourceKey',
       key: 'resourceKey',
-      width: 140,
+      width: 120,
       render: (value) => value || '-',
     },
     {
@@ -128,7 +135,7 @@ export function buildProposalColumns({
       }),
       dataIndex: 'quality',
       key: 'quality',
-      width: 120,
+      width: 110,
       render: (quality: ProposalQuality) => (
         <Tag color={qualityColors[quality]}>{intl.formatMessage(qualityLabels[quality])}</Tag>
       ),
@@ -140,7 +147,7 @@ export function buildProposalColumns({
       }),
       dataIndex: 'status',
       key: 'status',
-      width: 100,
+      width: 90,
       render: (status: ProposalStatus) => (
         <Tag color={statusColors[status]}>{intl.formatMessage(statusLabels[status])}</Tag>
       ),
@@ -152,7 +159,7 @@ export function buildProposalColumns({
       }),
       dataIndex: 'diagnostics',
       key: 'diagnostics',
-      width: 160,
+      width: 140,
       render: (diagnostics?: DiagnosticInfo[]) => diagnosticSummary(intl, diagnostics),
     },
     {
@@ -162,7 +169,7 @@ export function buildProposalColumns({
       }),
       dataIndex: 'updatedAt',
       key: 'updatedAt',
-      width: 180,
+      width: 160,
       render: formatDate,
     },
     {
@@ -321,12 +328,20 @@ export function buildBlockedColumns({
       }),
       dataIndex: 'id',
       key: 'id',
-      render: (_, record) => (
-        <Space orientation="vertical" size={0}>
-          <Text strong>{record.functionId || record.resourceKey || `issue-${record.id}`}</Text>
-          <Text type="secondary">{record.resourceKey || '-'}</Text>
-        </Space>
-      ),
+      width: 220,
+      render: (_, record) => {
+        const head = record.functionId || record.resourceKey || `issue-${record.id}`;
+        return (
+          <Space orientation="vertical" size={0}>
+            <Text strong ellipsis={{ tooltip: head }}>
+              {head}
+            </Text>
+            <Text type="secondary" ellipsis={{ tooltip: record.resourceKey || '-' }}>
+              {record.resourceKey || '-'}
+            </Text>
+          </Space>
+        );
+      },
     },
     {
       title: intl.formatMessage({
@@ -335,6 +350,8 @@ export function buildBlockedColumns({
       }),
       dataIndex: 'repairHint',
       key: 'repairHint',
+      width: 200,
+      ellipsis: true,
       render: (_, record) => localizedText(record.repairHint, intl.locale, '-'),
     },
     {
@@ -344,7 +361,7 @@ export function buildBlockedColumns({
       }),
       dataIndex: 'diagnostics',
       key: 'diagnostics',
-      width: 160,
+      width: 140,
       render: (diagnostics?: DiagnosticInfo[]) => diagnosticSummary(intl, diagnostics),
     },
     {
@@ -354,7 +371,7 @@ export function buildBlockedColumns({
       }),
       dataIndex: 'updatedAt',
       key: 'updatedAt',
-      width: 180,
+      width: 160,
       render: formatDate,
     },
     {

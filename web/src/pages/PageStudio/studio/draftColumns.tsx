@@ -55,8 +55,10 @@ export function buildDraftColumns(
       key: 'pageKey',
       width: 220,
       render: (_, record) => (
-        <Space>
-          <Text strong>{record.pageKey}</Text>
+        <Space size={4} wrap>
+          <Text strong ellipsis={{ tooltip: record.pageKey }} style={{ maxWidth: 130 }}>
+            {record.pageKey}
+          </Text>
           <Tag color="blue">{pageTypeLabel(record.type)}</Tag>
         </Space>
       ),
@@ -68,6 +70,8 @@ export function buildDraftColumns(
       }),
       dataIndex: 'title',
       key: 'title',
+      width: 160,
+      ellipsis: true,
       render: (_, record) => localizedText(record.title, intl.locale),
     },
     {
@@ -87,7 +91,7 @@ export function buildDraftColumns(
       }),
       dataIndex: 'status',
       key: 'status',
-      width: 100,
+      width: 90,
       render: (_, record) => <Tag color={statusColor(record.status)}>{record.status}</Tag>,
     },
     {
@@ -107,7 +111,7 @@ export function buildDraftColumns(
       }),
       dataIndex: 'updatedAt',
       key: 'updatedAt',
-      width: 180,
+      width: 160,
       render: (_, record) => formatDate(record.updatedAt),
     },
     {

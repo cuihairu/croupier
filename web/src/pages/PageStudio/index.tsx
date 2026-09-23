@@ -938,6 +938,7 @@ export default function PageStudio() {
                 rowKey="pageKey"
                 search={false}
                 pagination={false}
+                scroll={{ x: 1040 }}
                 toolBarRender={() => [
                   <Button key="refresh" icon={<ReloadOutlined />} onClick={loadDrafts}>
                     <FormattedMessage id="pages.pageStudio.action.refresh" defaultMessage="刷新" />

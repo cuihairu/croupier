@@ -439,12 +439,20 @@ export default function ContractChangesPanel({
       }),
       dataIndex: 'pageKey',
       key: 'pageKey',
-      render: (_, record) => (
-        <Space orientation="vertical" size={0}>
-          <Text strong>{localizedText(record.title, intl.locale)}</Text>
-          <Text type="secondary">{record.pageKey}</Text>
-        </Space>
-      ),
+      width: 220,
+      render: (_, record) => {
+        const title = localizedText(record.title, intl.locale);
+        return (
+          <Space orientation="vertical" size={0}>
+            <Text strong ellipsis={{ tooltip: title }}>
+              {title}
+            </Text>
+            <Text type="secondary" ellipsis={{ tooltip: record.pageKey }}>
+              {record.pageKey}
+            </Text>
+          </Space>
+        );
+      },
     },
     {
       title: intl.formatMessage({
@@ -467,7 +475,7 @@ export default function ContractChangesPanel({
       }),
       dataIndex: 'resourceKey',
       key: 'resourceKey',
-      width: 140,
+      width: 120,
       render: (value) => value || '-',
     },
     {
@@ -499,6 +507,7 @@ export default function ContractChangesPanel({
       }),
       dataIndex: 'bindingFreshness',
       key: 'bindingFreshness',
+      width: 180,
       render: (_, record) => {
         const diagnostics = record.bindingFreshness?.map((item) => item.diagnostic) || [];
         return diagnosticSummary(intl, diagnostics);
@@ -511,7 +520,7 @@ export default function ContractChangesPanel({
       }),
       dataIndex: 'updatedAt',
       key: 'updatedAt',
-      width: 180,
+      width: 160,
       render: formatDate,
     },
     {
@@ -688,7 +697,7 @@ export default function ContractChangesPanel({
           record.pageKey === focusPageKey ? 'proposal-inbox-focus-row' : ''
         }
         loading={loading}
-        scroll={{ x: 'max-content' }}
+        scroll={{ x: 1080 }}
       />
       <MergeConflictModal
         open={manualMergeVisible}

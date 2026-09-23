@@ -409,7 +409,7 @@ export default function ProposalInbox({ focusPageKey = '' }: ProposalInboxProps)
                   record.pageKey === focusPageKey ? 'proposal-inbox-focus-row' : ''
                 }
                 loading={loading}
-                scroll={{ x: 'max-content' }}
+                scroll={{ x: 1260 }}
                 locale={{
                   emptyText: (
                     <Empty
@@ -445,7 +445,7 @@ export default function ProposalInbox({ focusPageKey = '' }: ProposalInboxProps)
                     record.pageKey === focusPageKey ? 'proposal-inbox-focus-row' : ''
                   }
                   loading={loading}
-                  scroll={{ x: 'max-content' }}
+                  scroll={{ x: 1260 }}
                   locale={{
                     emptyText: (
                       <Empty
@@ -462,6 +462,7 @@ export default function ProposalInbox({ focusPageKey = '' }: ProposalInboxProps)
                   dataSource={blockedIssues}
                   rowKey="id"
                   loading={loading}
+                  scroll={{ x: 840 }}
                   locale={{
                     emptyText: (
                       <Empty
