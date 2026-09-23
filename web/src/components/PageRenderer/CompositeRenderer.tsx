@@ -384,8 +384,11 @@ export const CompositeRenderer: React.FC<{
               act.danger,
               localizedText(act.label, 'zh-CN'),
             );
+            // Don't run chain when opening dialog — chain should run after
+            // dialog form submission (configure via section onSuccess)
+          } else {
+            runChain(act.chain);
           }
-          runChain(act.chain);
         }}
       >
         {localizedText(act.label, 'zh-CN')}
@@ -483,8 +486,9 @@ export const CompositeRenderer: React.FC<{
                                   ra.danger,
                                   localizedText(ra.label, 'zh-CN'),
                                 );
+                              } else {
+                                runChain(ra.chain);
                               }
-                              runChain(ra.chain);
                             }}
                           >
                             {localizedText(ra.label, 'zh-CN')}
