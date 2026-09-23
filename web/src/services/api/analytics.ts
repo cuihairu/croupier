@@ -308,6 +308,7 @@ export type AnalyticsLevelMetric = {
   completionRate: number;
   avgDuration: number;
   avgRetries: number;
+  difficulty?: number;
 };
 
 export type AnalyticsEpisodeMetric = {

@@ -43,6 +43,7 @@ export default function AnalyticsLevelsPage() {
         winRate: item.completionRate * 100,
         avgDurationSec: item.avgDuration,
         avgRetries: item.avgRetries,
+        difficulty: item.difficulty,
       }));
       setData({
         perLevel,

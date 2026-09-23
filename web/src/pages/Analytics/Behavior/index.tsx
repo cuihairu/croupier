@@ -56,16 +56,24 @@ export default function AnalyticsBehaviorPage() {
   const [seq, setSeq] = useState<boolean>(false);
   const [sameSess, setSameSess] = useState<boolean>(false);
   const [gapSec, setGapSec] = useState<number>(0);
-  const loadFunnel = async (overrideSteps?: string[]) => {
+  const loadFunnel = async (opts?: {
+    steps?: string[];
+    sequential?: boolean;
+    sameSession?: boolean;
+    gapSec?: number;
+  }) => {
     setLoading(true);
     try {
-      const st = overrideSteps && overrideSteps.length > 0 ? overrideSteps : steps;
+      const st = opts?.steps && opts.steps.length > 0 ? opts.steps : steps;
+      const useSeq = opts?.sequential ?? seq;
+      const useSameSess = opts?.sameSession ?? sameSess;
+      const useGapSec = opts?.gapSec ?? gapSec;
       const params: Record<string, string | number> = {
         steps: st.join(','),
-        sequential: seq ? 1 : 0,
+        sequential: useSeq ? 1 : 0,
       };
-      if (sameSess) params.sameSession = 1;
-      if (gapSec && gapSec > 0) params.gapSec = gapSec;
+      if (useSameSess) params.sameSession = 1;
+      if (useGapSec && useGapSec > 0) params.gapSec = useGapSec;
       if (range && range[0]) params.start = range[0].toISOString();
       if (range && range[1]) params.end = range[1].toISOString();
       const r = await fetchAnalyticsFunnel(params);
@@ -101,7 +109,16 @@ export default function AnalyticsBehaviorPage() {
         } catch {}
       }
       if (st.length > 0) {
-        setTimeout(() => loadFunnel(st), 0);
+        setTimeout(
+          () =>
+            loadFunnel({
+              steps: st,
+              sequential: oseq === '1',
+              sameSession: oss === '1',
+              gapSec: og,
+            }),
+          0,
+        );
       }
     } catch {}
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -187,7 +204,11 @@ export default function AnalyticsBehaviorPage() {
             <Button
               onClick={async () => {
                 const rowsOut = [['time', 'event', 'user_id']].concat(
-                  (rows || []).map((r: EventRow) => [r.time || '', r.event || '', r.userId || '']),
+                  (rows || []).map((r: EventRow) => [
+                    r.time || '',
+                    r.event || '',
+                    (r.user_id || r.userId || '') as string,
+                  ]),
                 );
                 await exportToXLSX('events.csv', [{ sheet: 'events', rows: rowsOut }]);
               }}
@@ -341,7 +362,7 @@ export default function AnalyticsBehaviorPage() {
             currentSteps={steps}
             onUsePath={(p) => {
               setSteps(p);
-              setTimeout(() => loadFunnel(p), 0);
+              setTimeout(() => loadFunnel({ steps: p }), 0);
               const el = document.getElementById('funnel-anchor');
               if (el) el.scrollIntoView({ behavior: 'smooth' });
             }}
