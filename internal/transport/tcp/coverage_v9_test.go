@@ -360,14 +360,21 @@ func TestServerServeConn_ReadTimeoutContinueV9(t *testing.T) {
 	}
 	defer func() { _ = conn.Close() }()
 
-	// 等待至少一次读超时 continue。
-	time.Sleep(300 * time.Millisecond)
+	// 等待至少一次读超时 continue。取 375ms（RecvTimeout=150ms 的 2.5 个
+	// 周期）使写帧落在第 3 轮读的中段相位：原 300ms 恰为 2 个整周期，写帧
+	// 永远贴在 deadline 到期边缘——高负载下 timer 延迟会让 readFrame 在
+	// 到期前消费半截帧头，continue 重读后流错位、连接饿死（2026-09-23
+	// load≈50 时稳定复现；60 次注入实验：贴边 60/60 错位，非对齐后归零级）。
+	time.Sleep(375 * time.Millisecond)
 
 	req := protocol.NewMessageBody(protocol.MsgInvokeRequest, 1, []byte("alive"))
 	if err := writeFrame(conn, req); err != nil {
 		t.Fatalf("write: %v", err)
 	}
-	_ = conn.SetReadDeadline(time.Now().Add(2 * time.Second))
+	// 读 deadline 放宽到 5s：被覆盖语义是「idle 超时后循环继续、后续请求
+	// 仍被处理」，高负载机上服务端调度延迟可达秒级，2s 会把环境抖动误报为
+	// continue 语义失效（2026-09-23 load≈50 时 count=3 稳定复现 i/o timeout）。
+	_ = conn.SetReadDeadline(time.Now().Add(5 * time.Second))
 	frame, err := readFrame(conn)
 	if err != nil {
 		t.Fatalf("read after idle timeout: %v", err)
