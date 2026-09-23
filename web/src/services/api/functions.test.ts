@@ -1,10 +1,12 @@
 import { request } from '@umijs/max';
 import {
+  batchSetFunctionVersionFloor,
   batchUpdateFunctions,
   cancelTask,
   copyFunction,
   deleteAllFunctionWarnings,
   deleteFunction,
+  deleteFunctionVersionFloor,
   deleteFunctionWarning,
   diffContractVersions,
   disableFunction,
@@ -17,12 +19,15 @@ import {
   getFunctionHistory,
   getFunctionOpenAPI,
   getFunctionPermissions,
+  getFunctionVersionFloor,
   invokeFunction,
   listDescriptors,
   listFunctionInstances,
+  listFunctionVersionFloors,
   listFunctionWarnings,
   markAllFunctionWarningsRead,
   markFunctionWarningRead,
+  putFunctionVersionFloor,
   normalizeFunctionDescriptor,
   normalizeFunctionDetail,
   startTask,
@@ -947,5 +952,74 @@ describe('subscribeTaskEvents', () => {
 
     await jest.advanceTimersByTimeAsync(10000);
     expect(mockedRequest).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('function version floor APIs', () => {
+  it('getFunctionVersionFloor normalizes the response and defaults missing fields', async () => {
+    mockedRequest.mockResolvedValue({ minVersion: 'v1.2.0' });
+
+    await expect(getFunctionVersionFloor('demo.fn')).resolves.toEqual({
+      functionId: 'demo.fn',
+      minVersion: 'v1.2.0',
+      updatedBy: undefined,
+    });
+    expect(mockedRequest).toHaveBeenCalledWith('/api/v1/functions/demo.fn/version-floor');
+  });
+
+  it('putFunctionVersionFloor PUTs minVersion and falls back to the request value', async () => {
+    mockedRequest.mockResolvedValue({ updatedBy: 'admin' });
+
+    await expect(putFunctionVersionFloor('demo.fn', 'v2.0.0')).resolves.toEqual({
+      functionId: 'demo.fn',
+      minVersion: 'v2.0.0',
+      updatedBy: 'admin',
+    });
+    expect(mockedRequest).toHaveBeenCalledWith('/api/v1/functions/demo.fn/version-floor', {
+      method: 'PUT',
+      data: { minVersion: 'v2.0.0' },
+    });
+  });
+
+  it('deleteFunctionVersionFloor DELETEs the floor resource', async () => {
+    mockedRequest.mockResolvedValue(undefined);
+
+    await expect(deleteFunctionVersionFloor('demo.fn')).resolves.toBeUndefined();
+    expect(mockedRequest).toHaveBeenCalledWith('/api/v1/functions/demo.fn/version-floor', {
+      method: 'DELETE',
+    });
+  });
+
+  it('listFunctionVersionFloors returns floors map and tolerates a bare response', async () => {
+    mockedRequest.mockClear();
+    mockedRequest.mockResolvedValueOnce({ floors: { 'a.fn': 'v1', 'b.fn': 'v2' } });
+    await expect(listFunctionVersionFloors()).resolves.toEqual({
+      'a.fn': 'v1',
+      'b.fn': 'v2',
+    });
+
+    mockedRequest.mockResolvedValueOnce(undefined);
+    await expect(listFunctionVersionFloors()).resolves.toEqual({});
+    expect(mockedRequest).toHaveBeenNthCalledWith(1, '/api/v1/functions/version-floors');
+    expect(mockedRequest).toHaveBeenNthCalledWith(2, '/api/v1/functions/version-floors');
+  });
+
+  it('batchSetFunctionVersionFloor normalizes the batch result', async () => {
+    mockedRequest.mockResolvedValue({ updated: 2 });
+
+    await expect(batchSetFunctionVersionFloor(['a.fn', 'b.fn'], 'v3')).resolves.toEqual({
+      updated: 2,
+      failed: [],
+    });
+    expect(mockedRequest).toHaveBeenCalledWith('/api/v1/functions/version-floor/batch', {
+      method: 'POST',
+      data: { functionIds: ['a.fn', 'b.fn'], minVersion: 'v3' },
+    });
+
+    mockedRequest.mockResolvedValueOnce({ updated: 1, failed: ['c.fn'] });
+    await expect(batchSetFunctionVersionFloor(['c.fn'], 'v3')).resolves.toEqual({
+      updated: 1,
+      failed: ['c.fn'],
+    });
   });
 });
