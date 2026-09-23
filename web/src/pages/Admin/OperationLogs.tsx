@@ -21,6 +21,9 @@ export default function OperationLogsPage() {
     () => new URLSearchParams(location.search).get('actor') || '',
   );
   const [ip, setIP] = useState<string>('');
+  // Approvals 详情抽屉等入口经 URL 预置 kind（如 ?kind=approval_approve）：
+  // 带参时聚焦单事件类型，否则回默认全集
+  const presetKind = useMemo(() => new URLSearchParams(location.search).get('kind') || '', []);
   // 默认展示常见操作类事件，不含登录
   const defaultKinds = useMemo(
     () => [
@@ -46,7 +49,7 @@ export default function OperationLogsPage() {
     ],
     [],
   );
-  const [kinds, setKinds] = useState<string[]>(defaultKinds);
+  const [kinds, setKinds] = useState<string[]>(() => (presetKind ? [presetKind] : defaultKinds));
   const [timeRange, setTimeRange] = useState<[Dayjs | null, Dayjs | null] | null>(null);
   const [gameId, setGameId] = useState<string>('');
   const [env, setEnv] = useState<string>('');

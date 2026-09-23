@@ -262,6 +262,17 @@ describe('OperationLogsPage 操作日志', () => {
     expect((screen.getByPlaceholderText('操作者') as HTMLInputElement).value).toBe('bob');
   });
 
+  it('URL kind 预填聚焦单事件类型（Approvals 审计跳转入口）', async () => {
+    window.history.replaceState(null, '', '/admin/operation-logs?kind=approval_approve');
+    render(<OperationLogsPage />);
+    await waitFor(() => expect(mockedListAudit).toHaveBeenCalledTimes(1));
+    expect(mockedListAudit).toHaveBeenCalledWith({
+      page: 1,
+      size: 20,
+      kinds: 'approval_approve',
+    });
+  });
+
   it('筛选输入（actor/ip/gameId/env）+ 分页参数透传', async () => {
     render(<OperationLogsPage />);
     await waitFor(() => expect(mockedListAudit).toHaveBeenCalledTimes(1));

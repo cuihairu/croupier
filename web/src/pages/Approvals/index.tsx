@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Card, Tag, Space, Button, Drawer, Descriptions, Select, Input, Tabs } from 'antd';
 import { ProTable, type ActionType } from '@ant-design/pro-components';
-import { FormattedMessage, useIntl } from '@umijs/max';
+import { FormattedMessage, history, useIntl } from '@umijs/max';
 import { getMessage } from '@/utils/antdApp';
 import {
   approveApproval,
@@ -569,9 +569,8 @@ export default function ApprovalsPage() {
                 <Button
                   size="small"
                   onClick={() =>
-                    window.open(
-                      `/ops/audit?actor=${encodeURIComponent(current.actor || '')}`,
-                      '_blank',
+                    history.push(
+                      `/admin/operation-logs?actor=${encodeURIComponent(current.actor || '')}`,
                     )
                   }
                 >
@@ -585,9 +584,8 @@ export default function ApprovalsPage() {
                 <Button
                   size="small"
                   onClick={() =>
-                    window.open(
-                      `/ops/audit?actor=${encodeURIComponent(current.approver || current.actor || '')}&kind=approval_approve`,
-                      '_blank',
+                    history.push(
+                      `/admin/operation-logs?actor=${encodeURIComponent(current.approver || current.actor || '')}&kind=approval_approve`,
                     )
                   }
                 >
@@ -601,9 +599,8 @@ export default function ApprovalsPage() {
                 <Button
                   size="small"
                   onClick={() =>
-                    window.open(
-                      `/ops/audit?actor=${encodeURIComponent(current.approver || current.actor || '')}&kind=approval_reject`,
-                      '_blank',
+                    history.push(
+                      `/admin/operation-logs?actor=${encodeURIComponent(current.approver || current.actor || '')}&kind=approval_reject`,
                     )
                   }
                 >
