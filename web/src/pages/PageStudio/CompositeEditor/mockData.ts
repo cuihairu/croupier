@@ -118,11 +118,43 @@ export function generateMockOutput(
   return out;
 }
 
+/** 通用兜底假数据：函数未注册（fnById 无记录）时按常见模式生成占位数据，
+ *  保证预览可用——表格至少有 items 数组，详情至少有对象字段。 */
+function generateFallbackMockData(functionId: string): JSONValue {
+  // *.list / *.query 等集合语义：生成 items 数组
+  if (/(^|\.)list$|(^|\.)query$|(^|\.)search$/.test(functionId)) {
+    return {
+      items: Array.from({ length: 3 }, (_, i) => ({
+        id: `mock-${1001 + i}`,
+        name: `${faker.word.noun()}${i + 1}`,
+        status: faker.helpers.arrayElement(['active', 'normal', 'enabled']),
+        createdAt: faker.date.recent({ days: 7 }).toISOString(),
+      })),
+      total: 3,
+    };
+  }
+  // 其他函数：生成单对象
+  return {
+    id: 'mock-1001',
+    name: faker.word.noun(),
+    status: 'active',
+    message: 'mock data',
+  };
+}
+
 /** 从函数契约生成模拟响应（与 invokeFunction 返回同形态：{ data }）。 */
 export function generateMockResponse(
   fn: FunctionDescriptor | undefined,
+  functionId?: string,
 ): { data: JSONValue } | undefined {
-  if (!fn) return undefined;
+  if (!fn) {
+    // 函数未注册：按 functionId 生成兜底假数据，保证预览可用
+    if (functionId) return { data: generateFallbackMockData(functionId) };
+    return undefined;
+  }
   const data = generateMockOutput(fn.outputSchema);
-  return data === undefined ? undefined : { data };
+  if (data !== undefined) return { data };
+  // 有函数描述符但无 outputSchema：同样给兜底数据
+  if (functionId) return { data: generateFallbackMockData(functionId) };
+  return undefined;
 }

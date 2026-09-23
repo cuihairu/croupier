@@ -149,7 +149,7 @@ export default function PreviewRuntime({
         };
         if (mockRef.current) {
           // 模拟模式：按 outputSchema 合成假数据（跳过真实调用与错误提示）
-          const mockResp = generateMockResponse(fnRef.current.get(fid));
+          const mockResp = generateMockResponse(fnRef.current.get(fid), fid);
           // 无 schema/顶层结构不支持 → 模拟数据为空（发布端真实调用同样为空，
           // 不伪造数据造成预览/发布分叉）——每节点提示一次即可
           if (!mockResp && !mockWarnedRef.current.has(node.id)) {
