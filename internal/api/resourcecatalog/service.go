@@ -168,8 +168,9 @@ func (s *Service) List(ctx context.Context, req *ListRequest) (*ListResponse, er
 
 	items := make([]ResourceCatalogItem, 0, len(capabilities))
 	for _, cap := range capabilities {
-		// Apply category filter
-		if req.Category != "" && cap.CategoryKey != req.Category {
+		// Apply category filter (compare against derived key to match dropdown options)
+		resolvedCategory := categoryKeyForResource(cap.ResourceKey, cap.CategoryKey)
+		if req.Category != "" && resolvedCategory != req.Category {
 			continue
 		}
 
