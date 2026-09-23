@@ -353,9 +353,21 @@ export default function ConsolePage() {
       {page && (
         <PageRenderer
           pageSpec={page}
-          onExecute={async (bindingId, context) => {
-            return executePageBinding(page.pageKey, bindingId, context);
-          }}
+          onExecute={
+            bindingFreshness.length > 0
+              ? async () => {
+                  throw new Error(
+                    intl.formatMessage({
+                      id: 'pages.console.page.staleBlocked',
+                      defaultMessage:
+                        '页面绑定的函数契约已变化，执行已被阻断；请同步 Selector 或重新发布后重试',
+                    }),
+                  );
+                }
+              : async (bindingId, context) => {
+                  return executePageBinding(page.pageKey, bindingId, context);
+                }
+          }
           onQueryStatus={queryTaskStatus}
           onCancelTask={cancelTask}
           onQueryApprovalStatus={queryApprovalStatus}

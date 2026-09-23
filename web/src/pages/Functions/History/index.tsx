@@ -524,7 +524,7 @@ export default () => {
                 });
               } else {
                 const rest = Object.fromEntries(
-                  Object.entries(filters).filter(([k]) => k !== 'start_time' && k !== 'end_time'),
+                  Object.entries(filters).filter(([k]) => k !== 'startTime' && k !== 'endTime'),
                 );
                 setFilters(rest);
               }
