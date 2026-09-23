@@ -74,7 +74,7 @@ const mockedUploadAsset = jest.mocked(uploadAsset);
 const baseTicket = {
   id: 1,
   title: '登录失败',
-  status: 'inProgress',
+  status: 'in_progress',
   priority: 'high',
   assignee: 'bob',
   tags: ['lag'],
@@ -396,7 +396,7 @@ describe('Support/Tickets/Detail', () => {
       await waitFor(() =>
         expect(mockedUpdateTicket).toHaveBeenCalledWith(
           1,
-          expect.objectContaining({ title: '登录失败', status: 'inProgress' }),
+          expect.objectContaining({ title: '登录失败', status: 'in_progress' }),
         ),
       );
       await waitFor(() => expect(mockedGetTicket).toHaveBeenCalledTimes(2));
