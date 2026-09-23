@@ -5,10 +5,8 @@ modules:
 lint:
   use:
     - STANDARD
-  except:
-    - RPC_REQUEST_RESPONSE_UNIQUE
-    - RPC_REQUEST_STANDARD_NAME
-    - RPC_RESPONSE_STANDARD_NAME
+    # RPC_* 规则保留启用（无 except）：本仓库 proto 只定义 message，
+    # 禁止 service/rpc 定义，杜绝 gRPC 代码生成的前提（docs/grpc-investigation.md）。
 breaking:
   use:
     - FILE

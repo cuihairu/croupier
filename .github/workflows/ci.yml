@@ -98,6 +98,9 @@ jobs:
       - name: Vet Go code
         timeout-minutes: 5
         run: go vet ./...
+      - name: Check no gRPC
+        timeout-minutes: 5
+        run: bash scripts/check-no-grpc.sh
 
   security:
     name: Security Scan
