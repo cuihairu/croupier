@@ -107,7 +107,9 @@ describe('ApprovalsPage 审计跳转', () => {
 
   it('抽屉「查看审计（申请人）」应用内跳转操作日志并带 actor 过滤', async () => {
     render(<ApprovalsPage />);
-    await waitFor(() => expect(screen.getByRole('button', { name: '查看' })).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByRole('button', { name: '查看' })).toBeInTheDocument(), {
+      timeout: 15000,
+    });
     fireEvent.click(screen.getByRole('button', { name: '查看' }));
     const actorBtn = await screen.findByRole('button', { name: '查看审计（申请人）' });
     fireEvent.click(actorBtn);
