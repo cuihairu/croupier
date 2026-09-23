@@ -38,6 +38,15 @@ export default function PreviewRuntime({
   const { message, modal } = App.useApp();
   const intl = useIntl();
   const [results, setResults] = useState<Record<string, unknown>>({});
+  // Cascade trigger: bumped by external events (form change, static form,
+  // selection, mode switch) so refreshOnNode effect fires on value changes,
+  // not just key additions. NOT bumped by runNode to prevent cascade loops.
+  const cascadeTriggerRef = useRef(0);
+  const [cascadeTrigger, setCascadeTrigger] = useState(0);
+  const bumpCascade = useCallback(() => {
+    cascadeTriggerRef.current++;
+    setCascadeTrigger(cascadeTriggerRef.current);
+  }, []);
   const [running, setRunning] = useState<Record<string, boolean>>({});
   const [dialogId, setDialogId] = useState<string | null>(null);
   // V5：弹窗表单预填初值（行操作/带参动作求值结果，按表单节点 id 键控）
@@ -57,9 +66,13 @@ export default function PreviewRuntime({
 
   // staticForm 值：StaticFormLive 内防抖后并入 results（与发布运行时的
   // 值缓冲一致），驱动 refreshOnNode 联动。
-  const handleStaticChange = useCallback((nodeId: string, values: JSONRecord) => {
-    setResults((r) => ({ ...r, [nodeId]: { data: values } }));
-  }, []);
+  const handleStaticChange = useCallback(
+    (nodeId: string, values: JSONRecord) => {
+      setResults((r) => ({ ...r, [nodeId]: { data: values } }));
+      bumpCascade();
+    },
+    [bumpCascade],
+  );
 
   const treeRef = useRef(tree);
   treeRef.current = tree;
@@ -362,23 +375,28 @@ export default function PreviewRuntime({
       const entry = { ...cur, selectedRow: rows[0], selectedRows: rows };
       resultsRef.current = { ...resultsRef.current, [node.id]: entry };
       setResults(resultsRef.current);
+      bumpCascade();
       const name = typeof node.props.sectionKey === 'string' ? node.props.sectionKey.trim() : '';
       if (name) {
         stateByVarRef.current = { ...stateByVarRef.current, [name]: entry };
       }
       if (rows[0]) handleAction(node.props.onRowSelected, rows[0]);
     },
-    [handleAction],
+    [handleAction, bumpCascade],
   );
 
   /** 表单当前值写入页面状态 results[id].values（{{var.values.x}} 求值来源）——
    * 对齐发布端 valuesMergeRef 防抖合并（预览规模小，直写即可）。 */
-  const handleFormValues = useCallback((formNodeId: string, values: JSONRecord) => {
-    setResults((r) => {
-      const cur = (r[formNodeId] ?? {}) as JSONRecord;
-      return { ...r, [formNodeId]: { ...cur, values } };
-    });
-  }, []);
+  const handleFormValues = useCallback(
+    (formNodeId: string, values: JSONRecord) => {
+      setResults((r) => {
+        const cur = (r[formNodeId] ?? {}) as JSONRecord;
+        return { ...r, [formNodeId]: { ...cur, values } };
+      });
+      bumpCascade();
+    },
+    [bumpCascade],
+  );
 
   // autoRun（进入预览时一次）
   useEffect(() => {
@@ -389,15 +407,19 @@ export default function PreviewRuntime({
   }, []);
 
   /** 模拟/真实模式切换：同步刷新 ref（同帧生效）→ 清空状态 → 重跑 autoRun 区块。 */
-  const applyMockMode = useCallback((v: boolean) => {
-    mockRef.current = v;
-    setMock(v);
-    setResults({});
-    cascadeInputsRef.current = {};
-    for (const n of flattenInline(treeRef.current)) {
-      if (n.props.autoRun === true) void runRef.current(n);
-    }
-  }, []);
+  const applyMockMode = useCallback(
+    (v: boolean) => {
+      mockRef.current = v;
+      setMock(v);
+      setResults({});
+      bumpCascade();
+      cascadeInputsRef.current = {};
+      for (const n of flattenInline(treeRef.current)) {
+        if (n.props.autoRun === true) void runRef.current(n);
+      }
+    },
+    [bumpCascade],
+  );
 
   // refreshOnNode 级联：上游（含 staticForm 值）产出即重跑下游 + 同名字段
   // 合并进输入——语义对齐发布运行时 CompositeRenderer。
@@ -431,7 +453,7 @@ export default function PreviewRuntime({
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [Object.keys(results).join(',')]);
+  }, [cascadeTrigger]); // external-event-driven trigger, not results object
 
   const inline = tree.filter((n) => n.type !== 'modal');
   const modals = tree.filter((n) => n.type === 'modal');

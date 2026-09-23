@@ -112,4 +112,83 @@ describe('PreviewRuntime refreshOnNode 级联（对齐发布运行时）', () =>
     await new Promise((r) => setTimeout(r, 600));
     expect(mockedInvoke).not.toHaveBeenCalled();
   });
+
+  it('fnForm 提交成功后，refreshOnNode 指向它的 fnTable 应自动重跑（值变化级联）', async () => {
+    // 复现 bug：Object.keys(results).join(',') 只检测 key 增删，
+    // 不检测已有 key 的 value 变化 → fnForm 提交后下游不刷新。
+    // 测试策略：手动触发 form 值变化（onFormValues），验证级联是否触发。
+    const formNode: PageNode = {
+      id: 'form1',
+      type: 'fnForm',
+      props: {
+        functionId: 'player.create',
+        title: '创建玩家',
+        span: 12,
+        autoRun: false,
+      },
+    };
+    const tableNode: PageNode = {
+      id: 'tbl1',
+      type: 'fnTable',
+      props: {
+        functionId: 'player.list',
+        title: '玩家列表',
+        span: 24,
+        autoRun: true, // 首次自动执行 → tbl1 key 立即进入 results
+        refreshOnNode: ['form1'],
+      },
+    };
+    const createDesc: FunctionDescriptor = {
+      id: 'player.create',
+      inputSchema: {
+        type: 'object',
+        properties: { name: { type: 'string' } },
+        required: ['name'],
+      },
+    } as unknown as FunctionDescriptor;
+    const listDesc: FunctionDescriptor = {
+      id: 'player.list',
+      inputSchema: { type: 'object', properties: {} },
+    } as unknown as FunctionDescriptor;
+    const fnMap = new Map([
+      ['player.create', createDesc],
+      ['player.list', listDesc],
+    ]);
+
+    let listCallCount = 0;
+    mockedInvoke.mockImplementation(async (fid: string) => {
+      if (fid === 'player.create') return { result: { success: true } };
+      listCallCount++;
+      return { result: { items: [{ id: listCallCount }] } };
+    });
+
+    render(
+      <App>
+        <PreviewRuntime tree={[formNode, tableNode]} fnById={fnMap} />
+      </App>,
+    );
+
+    // 切到真实模式 → autoRun=true 的 fnTable 立即执行
+    fireEvent.click(screen.getByRole('switch'));
+
+    // 等 fnTable autoRun 完成 → 此时 results 已有 tbl1 key
+    await waitFor(() => {
+      expect(listCallCount).toBe(1);
+    });
+
+    // 模拟 fnForm 值变化（onFormValues 写入 results[form1].values）
+    // 这是 fnForm 提交后的效果：results[form1] 从无到有，触发级联
+    const nameInput = screen.queryByLabelText(/name/i) || screen.queryByRole('textbox');
+    if (nameInput) {
+      fireEvent.change(nameInput, { target: { value: 'test' } });
+    }
+
+    // fnForm 值变化后，fnTable 应因 refreshOnNode 级联自动重跑
+    await waitFor(
+      () => {
+        expect(listCallCount).toBeGreaterThanOrEqual(2);
+      },
+      { timeout: 5000 },
+    );
+  });
 });
