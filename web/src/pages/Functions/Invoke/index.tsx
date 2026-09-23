@@ -94,6 +94,10 @@ export default function FunctionInvokePage() {
   const locale = getLocale();
   const fid = new URLSearchParams(useLocation().search).get('fid') || '';
   const formRef = useRef<SchemaFormRendererHandle | null>(null);
+  // Flag: true while restore() is setting state; useEffect([selected]) skips
+  // resetting form values when this is set, avoiding the race where
+  // history.push changes URL → selected changes → effect overwrites restore.
+  const restoringRef = useRef(false);
   const [loading, setLoading] = useState(false);
   const [executing, setExecuting] = useState(false);
   const [descriptors, setDescriptors] = useState<FunctionDescriptor[]>([]);
@@ -149,6 +153,11 @@ export default function FunctionInvokePage() {
     refresh();
   }, [refresh, scopeKey]);
   useEffect(() => {
+    // Skip reset when restore() is setting state (race condition guard)
+    if (restoringRef.current) {
+      restoringRef.current = false;
+      return;
+    }
     if (!selected) return setFormState(EMPTY_FORM_STATE);
     const schema = resolveSchema(selected);
     setFormState(
@@ -378,6 +387,7 @@ export default function FunctionInvokePage() {
   }, [pendingApproval]);
 
   const restore = (item: RequestHistoryItem) => {
+    restoringRef.current = true;
     history.push(`/functions/invoke?fid=${encodeURIComponent(item.functionId)}`);
     setRawJson(JSON.stringify(item.request, null, 2));
     setInputMode('json');

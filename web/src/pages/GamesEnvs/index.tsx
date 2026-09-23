@@ -40,17 +40,19 @@ export default function GamesEnvsPage() {
 
     setGames(gameList);
 
-    if (!gameId && gameList.length > 0) {
+    // Use functional update to avoid depending on gameId (prevents double-fetch
+    // when loadGames sets gameId which changes its own identity)
+    setGameId((prev) => {
+      if (prev) return prev;
+      if (gameList.length === 0) return prev;
       const preferred = localStorage.getItem('game_id') || undefined;
       const matched =
         gameList.find((g) => g.name === preferred) ||
         gameList.find((g) => String(g.id) === preferred);
       const fallback = matched || gameList[0];
-      if (fallback?.id) {
-        setGameId(fallback.id);
-      }
-    }
-  }, [gameId]);
+      return fallback?.id ?? prev;
+    });
+  }, []);
   const loadEnvs = useCallback(
     async (gid?: number) => {
       if (!gid) return;

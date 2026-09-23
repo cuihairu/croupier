@@ -421,7 +421,7 @@ export default function ApprovalsPage() {
                   return (d?.risk || '').toString().toLowerCase() === wantRisk;
                 })
               : rows;
-            return { data: visible, total: json.total || 0, success: true };
+            return { data: visible, total: visible.length, success: true };
           } catch (e) {
             const msg =
               e instanceof Error
