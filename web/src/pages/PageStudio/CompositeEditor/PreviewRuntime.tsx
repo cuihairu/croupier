@@ -178,14 +178,43 @@ export default function PreviewRuntime({
               ),
             );
           }
-          setResults((r) => ({ ...r, [node.id]: mockResp ?? { data: {} } }));
+          setResults((r) => {
+            const prev = r[node.id] as Record<string, unknown> | undefined;
+            const next = mockResp ?? { data: {} };
+            // Preserve table selection state (selectedRow/selectedRows) across refreshes
+            if (prev?.selectedRow || prev?.selectedRows) {
+              return {
+                ...r,
+                [node.id]: {
+                  ...next,
+                  selectedRow: prev.selectedRow,
+                  selectedRows: prev.selectedRows,
+                },
+              };
+            }
+            return { ...r, [node.id]: next };
+          });
         } else {
           // 真实响应归一为 {data: payload}：FunctionInvokeResponse.result 才是
           // 函数输出——与发布端 {{var.data.x}} / 级联 .data 的读取形态同构
           // （直接存原始响应会让两者恒 undefined）。
           const resp = (await invokeFunction(fid, merged as JSONValue)) as JSONRecord;
           if (typeof resp?.error === 'string' && resp.error) return false;
-          setResults((r) => ({ ...r, [node.id]: { data: payloadOf(resp) } }));
+          setResults((r) => {
+            const prev = r[node.id] as Record<string, unknown> | undefined;
+            const next = { data: payloadOf(resp) };
+            if (prev?.selectedRow || prev?.selectedRows) {
+              return {
+                ...r,
+                [node.id]: {
+                  ...next,
+                  selectedRow: prev.selectedRow,
+                  selectedRows: prev.selectedRows,
+                },
+              };
+            }
+            return { ...r, [node.id]: next };
+          });
         }
         // fnForm 成功 → 刷新下游（失败路径不触发）。两条来源（编译产物已去重，
         // 预览侧再防御性去重）：props.onSuccess（规范路径）+ 遗留 props.onSuccessRefresh。
@@ -434,7 +463,9 @@ export default function PreviewRuntime({
         ? (node.props.refreshOnNode as unknown[]).map(String)
         : [];
       if (deps.length === 0) continue;
-      const merged = { ...(cascadeInputsRef.current[node.id] ?? {}) };
+      // Merge fresh from deps each cycle (don't accumulate from previous cycle
+      // which would retain stale fields when upstream removes them)
+      const merged: JSONRecord = {};
       for (const dep of deps) {
         const depData = (resultsRef.current[dep] as { data?: JSONRecord } | undefined)?.data;
         if (depData) Object.assign(merged, depData);

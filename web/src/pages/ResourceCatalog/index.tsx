@@ -164,7 +164,9 @@ const ResourceCatalogPage: React.FC = () => {
         ]);
         setSelectedResource(detail);
         setSemanticMeta(meta);
-        await fetchSemanticVersions(resourceKey, versionPage, versionPageSize);
+        // Reset version pagination when switching resources
+        setVersionPage(1);
+        await fetchSemanticVersions(resourceKey, 1, versionPageSize);
         return detail;
       } catch (error) {
         message.error(
