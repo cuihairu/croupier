@@ -1,7 +1,6 @@
 package mocks
 
 import (
-	"context"
 	"errors"
 	"sync"
 	"testing"
@@ -120,102 +119,6 @@ func TestMockFunctionStore_ConcurrentAccess(t *testing.T) {
 	}
 
 	wg.Wait()
-}
-
-func TestMockGRPCClient_Invoke(t *testing.T) {
-	client := NewMockGRPCClient()
-
-	resp, err := client.Invoke(context.Background(), &InvokeRequest{
-		FunctionID: "player.ban",
-		Payload:    []byte(`{"player_id":"123"}`),
-	})
-
-	if err != nil {
-		t.Errorf("Invoke() error = %v", err)
-	}
-	if resp == nil {
-		t.Fatal("Invoke() returned nil response")
-	}
-	if !resp.Success {
-		t.Error("Invoke() response.Success = false, want true")
-	}
-
-	calls := client.GetCalls()
-	if len(calls) != 1 || calls[0] != "Invoke:player.ban" {
-		t.Errorf("GetCalls() = %v, want [Invoke:player.ban]", calls)
-	}
-}
-
-func TestMockGRPCClient_CustomInvokeFunc(t *testing.T) {
-	client := NewMockGRPCClient()
-
-	customResponse := &InvokeResponse{
-		Success: true,
-		Result:  []byte(`{"custom":"response"}`),
-	}
-
-	client.SetInvokeFunc(func(ctx context.Context, req *InvokeRequest) (*InvokeResponse, error) {
-		return customResponse, nil
-	})
-
-	resp, err := client.Invoke(context.Background(), &InvokeRequest{FunctionID: "test"})
-	if err != nil {
-		t.Errorf("Invoke() error = %v", err)
-	}
-	if string(resp.Result) != string(customResponse.Result) {
-		t.Errorf("Invoke() result = %s, want %s", resp.Result, customResponse.Result)
-	}
-}
-
-func TestMockGRPCClient_SetError(t *testing.T) {
-	client := NewMockGRPCClient()
-	expectedErr := errors.New("connection refused")
-	client.SetError(expectedErr)
-
-	_, err := client.Invoke(context.Background(), &InvokeRequest{FunctionID: "test"})
-	if err != expectedErr {
-		t.Errorf("Invoke() error = %v, want %v", err, expectedErr)
-	}
-
-	_, err = client.StartTask(context.Background(), &InvokeRequest{FunctionID: "test"})
-	if err != expectedErr {
-		t.Errorf("StartTask() error = %v, want %v", err, expectedErr)
-	}
-}
-
-func TestMockGRPCClient_TaskWorkflow(t *testing.T) {
-	client := NewMockGRPCClient()
-
-	// Start task
-	taskID, err := client.StartTask(context.Background(), &InvokeRequest{
-		FunctionID: "player.export",
-	})
-	if err != nil {
-		t.Errorf("StartTask() error = %v", err)
-	}
-	if taskID == "" {
-		t.Error("StartTask() returned empty task ID")
-	}
-
-	// Stream events
-	events, err := client.StreamTask(context.Background(), taskID)
-	if err != nil {
-		t.Errorf("StreamTask() error = %v", err)
-	}
-	if len(events) < 2 {
-		t.Errorf("StreamTask() returned %d events, want at least 2", len(events))
-	}
-
-	// Cancel task
-	err = client.CancelTask(context.Background(), taskID)
-	if err != nil {
-		t.Errorf("CancelTask() error = %v", err)
-	}
-
-	calls := client.GetCalls()
-	if len(calls) != 3 {
-		t.Errorf("GetCalls() = %d calls, want 3", len(calls))
-	}
 }
 
 func TestMockServiceContext_Basic(t *testing.T) {

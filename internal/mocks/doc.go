@@ -1,9 +1,8 @@
 // Package mocks provides mock implementations for testing.
 //
 // This package contains:
-//   - Interface definitions for mockable dependencies
-//   - Mock implementations for gRPC clients
-//   - Mock implementations for database operations
+//   - Mock implementations for function storage
+//   - Mock implementations for service context
 //   - Test helpers and fixtures
 //
 // Usage:
