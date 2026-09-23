@@ -538,7 +538,7 @@ export default function DirectoryPage() {
               </Descriptions.Item>
             </Descriptions>
 
-            {localizedText(selectedFunction.displayName, 'zh-CN', '') && (
+            {localizedText(selectedFunction.displayName, intl.locale, '') && (
               <Card
                 size="small"
                 title={intl.formatMessage({
@@ -547,11 +547,11 @@ export default function DirectoryPage() {
                 })}
                 style={{ marginTop: 16 }}
               >
-                {localizedText(selectedFunction.displayName, 'zh-CN', '')}
+                {localizedText(selectedFunction.displayName, intl.locale, '')}
               </Card>
             )}
 
-            {localizedText(selectedFunction.summary, 'zh-CN', '') && (
+            {localizedText(selectedFunction.summary, intl.locale, '') && (
               <Card
                 size="small"
                 title={intl.formatMessage({
@@ -560,7 +560,7 @@ export default function DirectoryPage() {
                 })}
                 style={{ marginTop: 16 }}
               >
-                {localizedText(selectedFunction.summary, 'zh-CN', '')}
+                {localizedText(selectedFunction.summary, intl.locale, '')}
               </Card>
             )}
 

@@ -388,6 +388,11 @@ export default function FunctionInvokePage() {
 
   const restore = (item: RequestHistoryItem) => {
     restoringRef.current = true;
+    // Reset flag after microtask in case selected doesn't change (same function)
+    // so the flag doesn't leak into a future different-function switch.
+    setTimeout(() => {
+      restoringRef.current = false;
+    }, 0);
     history.push(`/functions/invoke?fid=${encodeURIComponent(item.functionId)}`);
     setRawJson(JSON.stringify(item.request, null, 2));
     setInputMode('json');
