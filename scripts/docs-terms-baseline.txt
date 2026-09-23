@@ -25,6 +25,7 @@ docs/development/documentation-governance.md|gRPC
 docs/development/documentation-governance.md|rpc_addr
 docs/development/repository-guidelines.md|gRPC
 docs/development/repository-guidelines.md|rpc_addr
+docs/grpc-investigation.md|gRPC
 docs/guide/integrations/third-party-platforms.md|rpc_addr
 docs/guide/quick-start.md|REQ/REP
 docs/guide/quick-start.md|gRPC
