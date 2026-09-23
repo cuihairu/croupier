@@ -203,6 +203,8 @@ const OperationPageRenderer: React.FC<OperationPageRendererProps> = ({
       return;
     }
 
+    // Close confirm dialog and clear pending only on success; on failure,
+    // keep dialog open and values so user can review and retry.
     setConfirmVisible(false);
     setLoading(true);
     setError(null);
@@ -213,6 +215,7 @@ const OperationPageRenderer: React.FC<OperationPageRendererProps> = ({
     try {
       const response = await onExecute(mainBinding.id, { form: pendingValues });
       setResult(response);
+      setPendingValues(null);
       if (response.kind === 'approval') {
         message.info(
           intlRef.current.formatMessage({
@@ -245,6 +248,8 @@ const OperationPageRenderer: React.FC<OperationPageRendererProps> = ({
             });
       setError(msg);
       setErrorCode(extractApiErrorCode(err));
+      // Re-open confirm dialog on failure so user can retry
+      setConfirmVisible(true);
       message.error(
         intlRef.current.formatMessage({
           id: 'component.pageRenderer.operationPage.message.failed',
@@ -253,7 +258,6 @@ const OperationPageRenderer: React.FC<OperationPageRendererProps> = ({
       );
     } finally {
       setLoading(false);
-      setPendingValues(null);
     }
   }, [message, mainBinding, pendingValues, onExecute, preview]);
 

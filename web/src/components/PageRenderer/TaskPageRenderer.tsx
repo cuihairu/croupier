@@ -452,9 +452,18 @@ const TaskPageRenderer: React.FC<TaskPageRendererProps> = ({
         return;
       }
       setPolling(true);
-      pollingRef.current = setInterval(() => pollTaskStatus(taskId), 2000);
+      // Use recursive setTimeout instead of setInterval to prevent
+      // concurrent polls when API responses are slow (>2s)
+      const schedulePoll = () => {
+        pollingRef.current = setTimeout(async () => {
+          await pollTaskStatus(taskId);
+          if (pollingRef.current) schedulePoll();
+        }, 2000) as unknown as ReturnType<typeof setInterval>;
+      };
       // 立即查询一次
-      pollTaskStatus(taskId);
+      void pollTaskStatus(taskId).then(() => {
+        if (pollingRef.current !== null) schedulePoll();
+      });
     },
     [message, canQueryTaskStatus, pollTaskStatus],
   );
@@ -463,7 +472,7 @@ const TaskPageRenderer: React.FC<TaskPageRendererProps> = ({
   const stopPolling = useCallback(() => {
     setPolling(false);
     if (pollingRef.current) {
-      clearInterval(pollingRef.current);
+      clearTimeout(pollingRef.current as unknown as ReturnType<typeof setTimeout>);
       pollingRef.current = null;
     }
   }, []);
