@@ -154,6 +154,23 @@ export default {
   'pages.resourceCatalog.editSemantics.taskList.taskIdType.required': '请选择 taskId 类型',
   'pages.resourceCatalog.editSemantics.taskList.title': '任务语义',
   'pages.resourceCatalog.editSemantics.title': '编辑语义',
+  // page
+  'pages.resourceCatalog.page.alert.description':
+    '页面标题、菜单、表格列与按钮位置在 Page Studio 的 Proposal 中确定；确认资源语义后，请进入 Page Studio 生成或调整页面。',
+  'pages.resourceCatalog.page.alert.title': '资源目录只展示语义与候选，不承载页面 UI',
+  'pages.resourceCatalog.page.button.openPageStudio': '进入 Page Studio',
+  'pages.resourceCatalog.page.subTitle':
+    '资源目录只管理函数聚合后的资源语义；页面、菜单和分类在 Page Studio 中确定',
+  'pages.resourceCatalog.page.summary.description':
+    '这里是资源语义层。资源目录聚合函数契约、维护语义版本与冲突决议，不决定页面结构与菜单。',
+  'pages.resourceCatalog.page.summary.hint':
+    '资源层负责语义供给，Page Studio 负责页面装配，运行端菜单只来自已发布 PageSpec。',
+  'pages.resourceCatalog.page.summary.item.categories': '分类 {count}',
+  'pages.resourceCatalog.page.summary.item.diagnostics': '诊断异常 {count}',
+  'pages.resourceCatalog.page.summary.item.semantics': '已声明语义 {count}',
+  'pages.resourceCatalog.page.summary.item.total': '总数 {count}',
+  'pages.resourceCatalog.page.summary.title': '资源概览',
+  'pages.resourceCatalog.page.title': '资源目录',
   // list
   'pages.resourceCatalog.list.button.refresh': '刷新',
   'pages.resourceCatalog.list.button.search': '搜索',

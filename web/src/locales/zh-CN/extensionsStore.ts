@@ -19,6 +19,10 @@ export default {
   'pages.extensionsStore.detail.none': '无',
   'pages.extensionsStore.detail.releasesLabel': '可用版本:',
   'pages.extensionsStore.detail.titleFallback': '扩展详情',
+  'pages.extensionsStore.alert.positioning.description':
+    '安装后扩展的能力注册与页面模板即进入本租户可用范围；生效状态排查与卸载在安装列表中完成，页面编排仍在 Page Studio。',
+  'pages.extensionsStore.alert.positioning.message': '商店只负责发现与安装扩展物料',
+  'pages.extensionsStore.button.viewInstallations': '查看安装列表',
   'pages.extensionsStore.filter.keywordPlaceholder': '关键字',
   'pages.extensionsStore.filter.kindPlaceholder': '类型',
   'pages.extensionsStore.filter.reset': '重置',

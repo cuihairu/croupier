@@ -3,6 +3,8 @@ export default {
   'pages.devConfigExplorer.action.editEmergency': '应急编辑',
   'pages.devConfigExplorer.action.manageSources': '管理数据源',
   'pages.devConfigExplorer.action.refresh': '刷新',
+  'pages.devConfigExplorer.page.subTitle':
+    '配置中心浏览器：按游戏/环境只读浏览在线配置，编辑走写回流程并记入审计',
   'pages.devConfigExplorer.column.columnNo': '列 {index}',
   'pages.devConfigExplorer.empty.noSources': '暂无数据源，请先管理数据源添加',
   'pages.devConfigExplorer.empty.selectFile': '选择左侧文件查看在线配置',

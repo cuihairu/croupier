@@ -613,6 +613,14 @@ export default function OpenAPISourcesPage() {
             defaultMessage:
               'OpenAPI Source 上传即生成 FunctionContract 物料、组件模板与页面提案；未绑定运行时执行器的契约为 unbound（可编排发布、执行被阻断），同名运行时注册自动绑定，不同名可在编辑器抽屉或本页绑定；文档中的 UI、菜单、路由和 renderer 私有字段仍被后端拒绝。',
           })}
+          action={
+            <Button type="primary" onClick={() => history.push('/functions/pages')}>
+              <FormattedMessage
+                id="pages.openapiSources.button.openPageStudio"
+                defaultMessage="进入 Page Studio"
+              />
+            </Button>
+          }
         />
         {!canWrite ? (
           <Alert

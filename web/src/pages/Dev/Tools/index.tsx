@@ -270,7 +270,13 @@ export default function DevToolsPage() {
   };
 
   return (
-    <PageContainer>
+    <PageContainer
+      subTitle={intl.formatMessage({
+        id: 'pages.devTools.page.subTitle',
+        defaultMessage:
+          '开发者工具目录：登记、发现和调用注册辅助与联调工具；运营页面在 Page Studio 编排',
+      })}
+    >
       <Card
         title={
           <Space>

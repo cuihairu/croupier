@@ -25,6 +25,7 @@ export default {
   'pages.openapiSources.bindingModal.title.bindProvider': 'Bind Provider',
   'pages.openapiSources.bindingModal.title.withOperation': 'Bind {operationId}',
   'pages.openapiSources.button.open': 'Open',
+  'pages.openapiSources.button.openPageStudio': 'Open Page Studio',
   'pages.openapiSources.button.refresh': 'Refresh',
   'pages.openapiSources.button.update': 'Update',
   'pages.openapiSources.button.upload': 'Upload Source',

@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Card, Space, Select, Button, Table, Form, Input, App, Tag } from 'antd';
+import { Alert, Card, Space, Select, Button, Table, Form, Input, App, Tag } from 'antd';
 import { ModalForm, PageContainer } from '@ant-design/pro-components';
-import { FormattedMessage, useIntl } from '@umijs/max';
+import { FormattedMessage, history, useIntl } from '@umijs/max';
 import type { ColumnsType } from 'antd/es/table';
 import { listGamesMeta, listMyGames, type Game as GameMeta } from '@/services/api';
 import {
@@ -182,7 +182,34 @@ export default function GamesEnvsPage() {
   };
 
   return (
-    <PageContainer>
+    <PageContainer
+      subTitle={intl.formatMessage({
+        id: 'pages.gamesEnvs.page.subTitle',
+        defaultMessage: '游戏与环境是所有能力的作用域；先选定作用域，再浏览函数、资源与页面',
+      })}
+    >
+      <Alert
+        type="info"
+        showIcon
+        style={{ marginBottom: 16 }}
+        message={intl.formatMessage({
+          id: 'pages.gamesEnvs.alert.scope.message',
+          defaultMessage: '环境只是作用域，不产生页面',
+        })}
+        description={intl.formatMessage({
+          id: 'pages.gamesEnvs.alert.scope.description',
+          defaultMessage:
+            '选定游戏/环境后，函数目录、资源目录与 Page Studio 中的数据都会按当前作用域过滤；要编排运营页面，仍需进入 Page Studio。',
+        })}
+        action={
+          <Button type="primary" onClick={() => history.push('/functions/pages')}>
+            <FormattedMessage
+              id="pages.gamesEnvs.button.openPageStudio"
+              defaultMessage="进入 Page Studio"
+            />
+          </Button>
+        }
+      />
       <Card
         title={intl.formatMessage({ id: 'pages.gamesEnvs.title', defaultMessage: '游戏环境' })}
         extra={

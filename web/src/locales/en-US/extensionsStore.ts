@@ -19,6 +19,11 @@ export default {
   'pages.extensionsStore.detail.none': 'None',
   'pages.extensionsStore.detail.releasesLabel': 'Available Versions:',
   'pages.extensionsStore.detail.titleFallback': 'Extension Details',
+  'pages.extensionsStore.alert.positioning.description':
+    "After installation, an extension's capability registrations and page templates become available in this tenant; check effect and uninstall from the Installations list, and compose pages in Page Studio.",
+  'pages.extensionsStore.alert.positioning.message':
+    'The store discovers and installs extension materials only',
+  'pages.extensionsStore.button.viewInstallations': 'View Installations',
   'pages.extensionsStore.filter.keywordPlaceholder': 'Keyword',
   'pages.extensionsStore.filter.kindPlaceholder': 'Kind',
   'pages.extensionsStore.filter.reset': 'Reset',

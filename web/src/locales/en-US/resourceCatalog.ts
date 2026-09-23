@@ -178,6 +178,24 @@ export default {
     'Please select the taskId type',
   'pages.resourceCatalog.editSemantics.taskList.title': 'Task Semantics',
   'pages.resourceCatalog.editSemantics.title': 'Edit Semantics',
+  // page
+  'pages.resourceCatalog.page.alert.description':
+    'Page titles, menus, table columns, and button placement are decided by Proposals in Page Studio; once resource semantics are confirmed, open Page Studio to generate or adjust pages.',
+  'pages.resourceCatalog.page.alert.title':
+    'Resource Catalog shows semantics and candidates only, not page UI',
+  'pages.resourceCatalog.page.button.openPageStudio': 'Open Page Studio',
+  'pages.resourceCatalog.page.subTitle':
+    'Resource Catalog manages aggregated resource semantics only; pages, menus, and categories are decided in Page Studio',
+  'pages.resourceCatalog.page.summary.description':
+    'This is the resource semantics layer. Resource Catalog aggregates function contracts and maintains semantic versions and conflict resolutions; it does not decide page structure or menus.',
+  'pages.resourceCatalog.page.summary.hint':
+    'The resource layer supplies semantics, Page Studio assembles pages, and runtime menus come only from published PageSpecs.',
+  'pages.resourceCatalog.page.summary.item.categories': 'Categories {count}',
+  'pages.resourceCatalog.page.summary.item.diagnostics': 'Diagnostics {count}',
+  'pages.resourceCatalog.page.summary.item.semantics': 'Declared semantics {count}',
+  'pages.resourceCatalog.page.summary.item.total': 'Total {count}',
+  'pages.resourceCatalog.page.summary.title': 'Resource Overview',
+  'pages.resourceCatalog.page.title': 'Resource Catalog',
   // list
   'pages.resourceCatalog.list.button.refresh': 'Refresh',
   'pages.resourceCatalog.list.button.search': 'Search',

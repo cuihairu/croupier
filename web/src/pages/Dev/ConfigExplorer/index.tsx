@@ -328,6 +328,10 @@ export default function ConfigExplorer() {
 
   return (
     <PageContainer
+      subTitle={intl.formatMessage({
+        id: 'pages.devConfigExplorer.page.subTitle',
+        defaultMessage: '配置中心浏览器：按游戏/环境只读浏览在线配置，编辑走写回流程并记入审计',
+      })}
       extra={[
         <Button
           key="manage"

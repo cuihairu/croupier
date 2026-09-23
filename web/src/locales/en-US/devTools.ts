@@ -3,6 +3,8 @@ export default {
   'pages.devTools.action.delete': 'Delete',
   'pages.devTools.action.refresh': 'Refresh',
   'pages.devTools.action.register': 'Register Tool',
+  'pages.devTools.page.subTitle':
+    'Developer tool catalog: register, discover, and invoke helper and debugging tools; operator pages are authored in Page Studio',
   'pages.devTools.card.title': 'Toolbox',
   'pages.devTools.confirm.delete': 'Delete tool "{name}"?',
   'pages.devTools.empty.noTools':

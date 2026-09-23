@@ -24,6 +24,7 @@ export default {
   'pages.openapiSources.bindingModal.title.bindProvider': '绑定 Provider',
   'pages.openapiSources.bindingModal.title.withOperation': '绑定 {operationId}',
   'pages.openapiSources.button.open': '打开',
+  'pages.openapiSources.button.openPageStudio': '进入 Page Studio',
   'pages.openapiSources.button.refresh': '刷新',
   'pages.openapiSources.button.update': '更新',
   'pages.openapiSources.button.upload': '上传 Source',

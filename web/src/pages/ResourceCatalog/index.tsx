@@ -6,8 +6,10 @@
  * 页面标题、菜单、列、按钮位置属于 Page Proposal/Page Studio。
  */
 
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { PageContainer } from '@ant-design/pro-components';
 import {
+  Alert,
   Button,
   Card,
   Form,
@@ -50,6 +52,7 @@ import {
 } from '@/services/dashboard';
 import { extractErrorMessage } from '@/utils/errors';
 import { localizedText } from '@/utils/localizedText';
+import { SummaryOverview } from '@/components';
 import {
   compactSemanticsPayload,
   conflictSources,
@@ -314,6 +317,20 @@ const ResourceCatalogPage: React.FC = () => {
     .filter((item, index, all) => all.indexOf(item) === index)
     .sort();
 
+  // 概览卡统计：与列表同一份 data 派生，不额外发请求。
+  // 已声明语义 = semantics.version 存在；诊断异常 = diagnostics 含 error/warning 的资源数。
+  const summary = useMemo(() => {
+    const total = data.length;
+    const categoryCount = categoryOptions.length;
+    const semanticCount = data.filter((item) => item.semantics?.version).length;
+    const diagnosticsCount = data.filter((item) =>
+      (item.diagnostics || []).some(
+        (diagnostic) => diagnostic.severity === 'error' || diagnostic.severity === 'warning',
+      ),
+    ).length;
+    return { total, categoryCount, semanticCount, diagnosticsCount };
+  }, [categoryOptions.length, data]);
+
   const columns: ColumnsType<ResourceCatalogItem> = [
     {
       title: intl.formatMessage({
@@ -476,73 +493,168 @@ const ResourceCatalogPage: React.FC = () => {
   ];
 
   return (
-    <div>
-      <Card style={{ marginBottom: 16 }}>
-        <Space wrap>
-          <Input
-            placeholder={intl.formatMessage({
-              id: 'pages.resourceCatalog.list.search.placeholder',
-              defaultMessage: '搜索资源',
-            })}
-            prefix={<SearchOutlined />}
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            onPressEnter={fetchData}
-            style={{ width: 220 }}
-          />
-          <Select
-            placeholder={intl.formatMessage({
-              id: 'pages.resourceCatalog.list.search.categoryPlaceholder',
-              defaultMessage: '选择分类',
-            })}
-            value={category || undefined}
-            onChange={(value) => setCategory(value || '')}
-            allowClear
-            style={{ width: 180 }}
-            options={categoryOptions.map((item) => ({
-              value: item,
-              label: item,
-            }))}
-          />
-          <Button type="primary" icon={<SearchOutlined />} onClick={fetchData}>
-            <FormattedMessage id="pages.resourceCatalog.list.button.search" defaultMessage="搜索" />
-          </Button>
-          <Button icon={<ReloadOutlined />} onClick={fetchData}>
-            <FormattedMessage
-              id="pages.resourceCatalog.list.button.refresh"
-              defaultMessage="刷新"
-            />
-          </Button>
-        </Space>
-      </Card>
-
-      <Card
-        title={intl.formatMessage({
-          id: 'pages.resourceCatalog.list.card.title',
-          defaultMessage: '资源能力目录',
-        })}
-      >
-        <Table
-          columns={columns}
-          dataSource={data}
-          rowKey="resourceKey"
-          loading={loading}
-          scroll={{ x: 1100 }}
-          pagination={{
-            total,
-            pageSize: 20,
-            showSizeChanger: true,
-            showTotal: (value) =>
-              intl.formatMessage(
+    <PageContainer
+      title={intl.formatMessage({
+        id: 'pages.resourceCatalog.page.title',
+        defaultMessage: '资源目录',
+      })}
+      subTitle={intl.formatMessage({
+        id: 'pages.resourceCatalog.page.subTitle',
+        defaultMessage: '资源目录只管理函数聚合后的资源语义；页面、菜单和分类在 Page Studio 中确定',
+      })}
+    >
+      <Space orientation="vertical" size={16} style={{ width: '100%' }}>
+        <SummaryOverview
+          title={intl.formatMessage({
+            id: 'pages.resourceCatalog.page.summary.title',
+            defaultMessage: '资源概览',
+          })}
+          description={intl.formatMessage({
+            id: 'pages.resourceCatalog.page.summary.description',
+            defaultMessage:
+              '这里是资源语义层。资源目录聚合函数契约、维护语义版本与冲突决议，不决定页面结构与菜单。',
+          })}
+          items={[
+            {
+              color: '#1677ff',
+              text: intl.formatMessage(
                 {
-                  id: 'pages.resourceCatalog.list.pagination.total',
-                  defaultMessage: '共 {total} 条',
+                  id: 'pages.resourceCatalog.page.summary.item.total',
+                  defaultMessage: '总数 {count}',
                 },
-                { total: value },
+                { count: summary.total },
               ),
-          }}
+            },
+            {
+              color: '#52c41a',
+              text: intl.formatMessage(
+                {
+                  id: 'pages.resourceCatalog.page.summary.item.categories',
+                  defaultMessage: '分类 {count}',
+                },
+                { count: summary.categoryCount },
+              ),
+            },
+            {
+              color: '#722ed1',
+              text: intl.formatMessage(
+                {
+                  id: 'pages.resourceCatalog.page.summary.item.semantics',
+                  defaultMessage: '已声明语义 {count}',
+                },
+                { count: summary.semanticCount },
+              ),
+            },
+            {
+              color: summary.diagnosticsCount > 0 ? '#faad14' : '#d9d9d9',
+              text: intl.formatMessage(
+                {
+                  id: 'pages.resourceCatalog.page.summary.item.diagnostics',
+                  defaultMessage: '诊断异常 {count}',
+                },
+                { count: summary.diagnosticsCount },
+              ),
+            },
+          ]}
+          hint={intl.formatMessage({
+            id: 'pages.resourceCatalog.page.summary.hint',
+            defaultMessage:
+              '资源层负责语义供给，Page Studio 负责页面装配，运行端菜单只来自已发布 PageSpec。',
+          })}
         />
-      </Card>
+
+        <Alert
+          type="info"
+          showIcon
+          message={intl.formatMessage({
+            id: 'pages.resourceCatalog.page.alert.title',
+            defaultMessage: '资源目录只展示语义与候选，不承载页面 UI',
+          })}
+          description={intl.formatMessage({
+            id: 'pages.resourceCatalog.page.alert.description',
+            defaultMessage:
+              '页面标题、菜单、表格列与按钮位置在 Page Studio 的 Proposal 中确定；确认资源语义后，请进入 Page Studio 生成或调整页面。',
+          })}
+          action={
+            <Button type="primary" onClick={() => history.push('/functions/pages')}>
+              <FormattedMessage
+                id="pages.resourceCatalog.page.button.openPageStudio"
+                defaultMessage="进入 Page Studio"
+              />
+            </Button>
+          }
+        />
+
+        <Card>
+          <Space wrap>
+            <Input
+              placeholder={intl.formatMessage({
+                id: 'pages.resourceCatalog.list.search.placeholder',
+                defaultMessage: '搜索资源',
+              })}
+              prefix={<SearchOutlined />}
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              onPressEnter={fetchData}
+              style={{ width: 220 }}
+            />
+            <Select
+              placeholder={intl.formatMessage({
+                id: 'pages.resourceCatalog.list.search.categoryPlaceholder',
+                defaultMessage: '选择分类',
+              })}
+              value={category || undefined}
+              onChange={(value) => setCategory(value || '')}
+              allowClear
+              style={{ width: 180 }}
+              options={categoryOptions.map((item) => ({
+                value: item,
+                label: item,
+              }))}
+            />
+            <Button type="primary" icon={<SearchOutlined />} onClick={fetchData}>
+              <FormattedMessage
+                id="pages.resourceCatalog.list.button.search"
+                defaultMessage="搜索"
+              />
+            </Button>
+            <Button icon={<ReloadOutlined />} onClick={fetchData}>
+              <FormattedMessage
+                id="pages.resourceCatalog.list.button.refresh"
+                defaultMessage="刷新"
+              />
+            </Button>
+          </Space>
+        </Card>
+
+        <Card
+          title={intl.formatMessage({
+            id: 'pages.resourceCatalog.list.card.title',
+            defaultMessage: '资源能力目录',
+          })}
+        >
+          <Table
+            columns={columns}
+            dataSource={data}
+            rowKey="resourceKey"
+            loading={loading}
+            scroll={{ x: 1100 }}
+            pagination={{
+              total,
+              pageSize: 20,
+              showSizeChanger: true,
+              showTotal: (value) =>
+                intl.formatMessage(
+                  {
+                    id: 'pages.resourceCatalog.list.pagination.total',
+                    defaultMessage: '共 {total} 条',
+                  },
+                  { total: value },
+                ),
+            }}
+          />
+        </Card>
+      </Space>
 
       <ResourceDetailModal
         open={detailVisible}
@@ -578,7 +690,7 @@ const ResourceCatalogPage: React.FC = () => {
         onOk={handleResolveConflict}
         onCancel={() => setResolveVisible(false)}
       />
-    </div>
+    </PageContainer>
   );
 };
 

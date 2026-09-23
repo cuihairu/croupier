@@ -3,6 +3,8 @@ export default {
   'pages.devTools.action.delete': '删除',
   'pages.devTools.action.refresh': '刷新',
   'pages.devTools.action.register': '登记工具',
+  'pages.devTools.page.subTitle':
+    '开发者工具目录：登记、发现和调用注册辅助与联调工具；运营页面在 Page Studio 编排',
   'pages.devTools.card.title': '工具箱',
   'pages.devTools.confirm.delete': '删除工具「{name}」？',
   'pages.devTools.empty.noTools':

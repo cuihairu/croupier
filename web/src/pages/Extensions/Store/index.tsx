@@ -1,12 +1,12 @@
 import React, { useRef, useState } from 'react';
-import { App, Button, Card, Form, Input, Select, Space, Tag, Typography } from 'antd';
+import { Alert, App, Button, Card, Form, Input, Select, Space, Tag, Typography } from 'antd';
 import {
   PageContainer,
   ProTable,
   type ActionType,
   type ProColumns,
 } from '@ant-design/pro-components';
-import { FormattedMessage, useAccess, useIntl } from '@umijs/max';
+import { FormattedMessage, history, useAccess, useIntl } from '@umijs/max';
 import {
   getExtensionCatalogDetail,
   installExtension,
@@ -365,6 +365,28 @@ export default function ExtensionsStorePage() {
         defaultMessage: '浏览和安装可用扩展',
       })}
     >
+      <Alert
+        type="info"
+        showIcon
+        style={{ marginBottom: 16 }}
+        message={intl.formatMessage({
+          id: 'pages.extensionsStore.alert.positioning.message',
+          defaultMessage: '商店只负责发现与安装扩展物料',
+        })}
+        description={intl.formatMessage({
+          id: 'pages.extensionsStore.alert.positioning.description',
+          defaultMessage:
+            '安装后扩展的能力注册与页面模板即进入本租户可用范围；生效状态排查与卸载在安装列表中完成，页面编排仍在 Page Studio。',
+        })}
+        action={
+          <Button onClick={() => history.push('/system/extensions/installations')}>
+            <FormattedMessage
+              id="pages.extensionsStore.button.viewInstallations"
+              defaultMessage="查看安装列表"
+            />
+          </Button>
+        }
+      />
       <Card>
         <Space style={{ marginBottom: 16 }} wrap>
           <Input

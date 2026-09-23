@@ -3,6 +3,8 @@ export default {
   'pages.devConfigExplorer.action.editEmergency': 'Emergency Edit',
   'pages.devConfigExplorer.action.manageSources': 'Manage Sources',
   'pages.devConfigExplorer.action.refresh': 'Refresh',
+  'pages.devConfigExplorer.page.subTitle':
+    'Config center browser: browse online configs read-only per game/env; edits go through the write-back flow and are audit-logged',
   'pages.devConfigExplorer.column.columnNo': 'Column {index}',
   'pages.devConfigExplorer.empty.noSources':
     'No config sources yet; add one via Manage Sources first',
