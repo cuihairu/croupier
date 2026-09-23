@@ -390,10 +390,7 @@ export function decompileToTree(sections: SpecSectionLike[]): [PageNode[], strin
           for (const [k, v] of Object.entries(
             (ra.params as Record<string, unknown> | undefined) ?? {},
           )) {
-            params[k] =
-              typeof v === 'string' && v.startsWith('row.') && !v.slice(4).includes('.')
-                ? `{{${v}}}`
-                : v;
+            params[k] = typeof v === 'string' && /^row\.[^.]+$/.test(v) ? `{{${v}}}` : v;
           }
           return {
             ...ra,

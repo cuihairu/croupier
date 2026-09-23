@@ -566,7 +566,9 @@ const SchemaFormRenderer = forwardRef<SchemaFormRendererHandle, SchemaFormRender
         const next = Object.fromEntries(
           Object.entries(raw).filter(([key]) => !hidden.has(key)),
         ) as FormValues;
-        currentValuesRef.current = next;
+        // Don't update currentValuesRef with filtered value — keep all fields
+        // (including hidden) so they're available when visibility conditions change.
+        // Only the onFinish payload excludes hidden fields.
         await onFinish?.(next);
       },
       [onFinish],
