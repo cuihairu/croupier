@@ -13,6 +13,7 @@ import {
 } from '@/services/api/extensions';
 import { adaptInstallationListResponse } from '@/services/adapters/extensions';
 import { EXTENSION_ERROR_CODES } from '@/services/errors/codes';
+import { extractErrorMessage } from '@/utils/errors';
 import { mapExtensionError } from '@/services/errors/mapper';
 import { buildInstallationsColumns } from './columns';
 import EventsDrawer from './EventsDrawer';
@@ -74,9 +75,21 @@ export default function ExtensionsInstallationsPage() {
   const reload = () => actionRef.current?.reload();
 
   const withReload = async (fn: () => Promise<unknown>, successText: string) => {
-    await fn();
-    message.success(successText);
-    reload();
+    try {
+      await fn();
+      message.success(successText);
+      reload();
+    } catch (err) {
+      message.error(
+        extractErrorMessage(
+          err,
+          intl.formatMessage({
+            id: 'pages.extensionsInstallations.error.operationFailed',
+            defaultMessage: '操作失败',
+          }),
+        ),
+      );
+    }
   };
 
   const handleUninstall = (row: ExtensionInstallationItem) => {

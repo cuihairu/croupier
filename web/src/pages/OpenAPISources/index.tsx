@@ -80,6 +80,17 @@ export default function OpenAPISourcesPage() {
     try {
       const response = await listOpenAPISources();
       setSources(response.items || []);
+    } catch (err) {
+      message.error(
+        errorMessage(
+          err,
+          intl.formatMessage({
+            id: 'pages.openAPISources.error.loadFailed',
+            defaultMessage: '加载 OpenAPI 来源失败',
+          }),
+        ),
+      );
+      setSources([]);
     } finally {
       setLoading(false);
     }
@@ -96,7 +107,11 @@ export default function OpenAPISourcesPage() {
   };
 
   const loadFunctions = async () => {
-    setFunctions(await listDescriptors());
+    try {
+      setFunctions(await listDescriptors());
+    } catch {
+      setFunctions([]);
+    }
   };
 
   const openDetail = async (sourceId: string) => {
