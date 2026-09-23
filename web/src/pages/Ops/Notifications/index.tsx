@@ -241,11 +241,9 @@ export default function OpsNotificationsPage() {
         value={editCh || undefined}
         onClose={() => setEditCh(null)}
         onOk={(v) => {
-          // ID 必填由表单 required rule 拦截，走到这里的一定是通过校验的值
-          const exists = channels.findIndex((c) => c.id === v.id);
-          const next = [...channels];
-          if (exists >= 0) next[exists] = v;
-          else next.push(v);
+          // When editing, remove old entry if ID changed
+          const next = channels.filter((c) => c.id !== (editCh?.id ?? v.id));
+          next.push(v);
           setChannels(next);
           setEditCh(null);
         }}
@@ -257,7 +255,11 @@ export default function OpsNotificationsPage() {
         channels={channels}
         onClose={() => setEditRule(null)}
         onOk={(v) => {
-          const idx = rules.findIndex((r) => r.event === v.event);
+          // Use composite key to find the rule being edited (not just event)
+          const ruleKey = (r: typeof v) =>
+            `${r.event}|${(r.channels || []).join(',')}|${r.thresholdDays ?? ''}`;
+          const oldKey = editRule ? ruleKey(editRule) : null;
+          const idx = oldKey ? rules.findIndex((r) => ruleKey(r) === oldKey) : -1;
           const next = [...rules];
           if (idx >= 0) next[idx] = v;
           else next.push(v);
