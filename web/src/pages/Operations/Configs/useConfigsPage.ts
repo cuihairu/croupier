@@ -163,7 +163,9 @@ export default function useConfigsPage() {
   const viewVersion = async (ver: number) => {
     if (!cur) return;
     const r = await getVersion(cur.id, ver);
-    setCur({ ...cur, content: r?.value || '', version: ver, format: r?.format || cur.format });
+    // Don't update cur.version — keep the latest version for save's baseVersion.
+    // Only update content and format for preview.
+    setCur({ ...cur, content: r?.value || '', format: r?.format || cur.format });
     setVerOpen(false);
   };
 

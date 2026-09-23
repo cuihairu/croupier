@@ -73,13 +73,13 @@ const priTextMap: Record<string, IntlMessage> = {
 };
 const stColorMap: Record<string, string> = {
   open: 'gold',
-  inProgress: 'blue',
+  in_progress: 'blue',
   resolved: 'green',
   closed: 'default',
 };
 const stTextMap: Record<string, IntlMessage> = {
   open: { id: 'pages.ticketsDetail.status.open', defaultMessage: '打开' },
-  inProgress: { id: 'pages.ticketsDetail.status.inProgress', defaultMessage: '处理中' },
+  in_progress: { id: 'pages.ticketsDetail.status.inProgress', defaultMessage: '处理中' },
   resolved: { id: 'pages.ticketsDetail.status.resolved', defaultMessage: '已解决' },
   closed: { id: 'pages.ticketsDetail.status.closed', defaultMessage: '已关闭' },
 };

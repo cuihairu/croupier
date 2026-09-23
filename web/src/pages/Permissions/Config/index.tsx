@@ -9,6 +9,7 @@ import {
   Collapse,
   Badge,
   Tooltip,
+  Popover,
   Input,
   Button,
 } from 'antd';
@@ -92,13 +93,30 @@ export default function ConfigPage() {
         defaultMessage: '操作',
       }),
       key: 'action',
-      render: (_: unknown, _record: PermissionDomain) => (
-        <Button type="link" icon={<InfoCircleOutlined />}>
-          <FormattedMessage
-            id="pages.permissionsConfig.action.viewDetail"
-            defaultMessage="查看详情"
-          />
-        </Button>
+      render: (_: unknown, record: PermissionDomain) => (
+        <Popover
+          content={
+            <div style={{ maxWidth: 300 }}>
+              {record.permissions.map((p) => (
+                <Tag key={p} style={{ margin: 2 }}>
+                  {p}
+                </Tag>
+              ))}
+            </div>
+          }
+          title={intl.formatMessage({
+            id: 'pages.permissionsConfig.action.viewDetail',
+            defaultMessage: '查看详情',
+          })}
+          trigger="click"
+        >
+          <Button type="link" icon={<InfoCircleOutlined />}>
+            <FormattedMessage
+              id="pages.permissionsConfig.action.viewDetail"
+              defaultMessage="查看详情"
+            />
+          </Button>
+        </Popover>
       ),
     },
   ];
