@@ -15,6 +15,28 @@ export default {
   'pages.functionsExecutionLogs.action.viewDetail': 'Detail',
   'pages.functionsExecutionLogs.filter.more': 'More filters',
   'pages.functionsExecutionLogs.filter.less': 'Fewer filters',
+  'pages.functionsExecutionLogs.title.main': 'Execution Logs',
+  'pages.functionsExecutionLogs.title.sub':
+    'Investigate function executions by operator, function, source, status and time range',
+  'pages.functionsExecutionLogs.summary.title': 'Execution overview',
+  'pages.functionsExecutionLogs.summary.description':
+    'Central place to inspect execution records: who triggered which function via invocation or page, with outcome and duration. Request/response payloads are redacted.',
+  'pages.functionsExecutionLogs.summary.total': 'Total records {count}',
+  'pages.functionsExecutionLogs.summary.hint':
+    'Recommended path: filter by operator or status to locate suspicious executions, click a row for the redacted request/response detail, and use Trace ID to follow one call chain.',
+  'pages.functionsExecutionLogs.list.title': 'Execution records',
+  'pages.functionsExecutionLogs.list.resultCount': '{count} records match current filters',
+  'pages.functionsExecutionLogs.filter.clear': 'Clear filters',
+  'pages.functionsExecutionLogs.filter.activeMessage': 'Showing filtered execution records',
+  'pages.functionsExecutionLogs.filter.activeDescription': 'Active filters: {filters}',
+  'pages.functionsExecutionLogs.filter.summaryActor': 'Operator {value}',
+  'pages.functionsExecutionLogs.filter.summaryFunctionId': 'Function {value}',
+  'pages.functionsExecutionLogs.filter.summaryTraceId': 'Trace {value}',
+  'pages.functionsExecutionLogs.filter.summaryTimeRange': 'Time {from} ~ {to}',
+  'pages.functionsExecutionLogs.empty.filtered':
+    'No execution records match the current filters. Try adjusting them.',
+  'pages.functionsExecutionLogs.empty.none':
+    'No execution records yet. Records appear here after a function is invoked or triggered from a page; check whether the function has been called.',
   'pages.functionsExecutionLogs.detail.errorReason': 'Failure Reason',
   'pages.functionsExecutionLogs.detail.loadFailedToast': 'Failed to load detail',
   'pages.functionsExecutionLogs.detail.emptyPayload': '(empty)',
@@ -33,7 +55,6 @@ export default {
   'pages.functionsExecutionLogs.filter.functionId': 'Function ID',
   'pages.functionsExecutionLogs.filter.source': 'Source',
   'pages.functionsExecutionLogs.filter.status': 'Status',
-  'pages.functionsExecutionLogs.page.title': 'Execution Logs',
   'pages.functionsExecutionLogs.pagination.total': '{total} items in total',
   'pages.functionsExecutionLogs.sourceLabel.invoke': 'Invocation',
   'pages.functionsExecutionLogs.sourceLabel.page': 'Page',

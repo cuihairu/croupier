@@ -1,8 +1,8 @@
 import React, { useMemo, useRef, useState } from 'react';
 import {
   Alert,
+  App,
   Button,
-  Card,
   Descriptions,
   Drawer,
   Input,
@@ -11,9 +11,13 @@ import {
   Tag,
   DatePicker,
   Typography,
-  App,
 } from 'antd';
-import { ProTable, type ActionType, type ProColumns } from '@ant-design/pro-components';
+import {
+  PageContainer,
+  ProTable,
+  type ActionType,
+  type ProColumns,
+} from '@ant-design/pro-components';
 import { DownOutlined, ReloadOutlined, UpOutlined } from '@ant-design/icons';
 import {
   getExecutionLog,
@@ -22,6 +26,7 @@ import {
   type ExecutionLogItem,
 } from '@/services/api/executionLogs';
 import { FormattedMessage, useIntl } from '@umijs/max';
+import { StandardFilterBar, StandardListSection, SummaryOverview } from '@/components';
 import { formatDateTime } from '@/utils/format';
 
 const { Text } = Typography;
@@ -64,6 +69,8 @@ export default function ExecutionLogsPage() {
   const [loadError, setLoadError] = useState('');
   // 高频筛选默认展示；Trace ID / 时间范围低频，收进「更多筛选」减少常驻占位
   const [advancedOpen, setAdvancedOpen] = useState(false);
+  // 服务端分页总数：供概览指标与筛选栏结果计数
+  const [total, setTotal] = useState(0);
 
   const [actor, setActor] = useState('');
   const [functionId, setFunctionId] = useState('');
@@ -76,6 +83,94 @@ export default function ExecutionLogsPage() {
   const [detailOpen, setDetailOpen] = useState(false);
 
   const backToFirstPage = () => actionRef.current?.setPageInfo?.({ current: 1 });
+
+  const hasFilters = Boolean(
+    actor.trim() ||
+    functionId.trim() ||
+    source ||
+    status ||
+    traceId.trim() ||
+    range?.[0] ||
+    range?.[1],
+  );
+
+  const filterSummary = useMemo(() => {
+    const parts: string[] = [];
+    if (actor.trim())
+      parts.push(
+        intl.formatMessage(
+          {
+            id: 'pages.functionsExecutionLogs.filter.summaryActor',
+            defaultMessage: `操作人 {value}`,
+          },
+          { value: actor.trim() },
+        ),
+      );
+    if (functionId.trim())
+      parts.push(
+        intl.formatMessage(
+          {
+            id: 'pages.functionsExecutionLogs.filter.summaryFunctionId',
+            defaultMessage: `函数 {value}`,
+          },
+          { value: functionId.trim() },
+        ),
+      );
+    if (source)
+      parts.push(
+        intl.formatMessage({
+          id:
+            source === 'page'
+              ? 'pages.functionsExecutionLogs.sourceLabel.page'
+              : 'pages.functionsExecutionLogs.sourceLabel.invoke',
+          defaultMessage: source,
+        }),
+      );
+    if (status)
+      parts.push(
+        intl.formatMessage({
+          id:
+            status === 'ok'
+              ? 'pages.functionsExecutionLogs.statusLabel.ok'
+              : 'pages.functionsExecutionLogs.statusLabel.error',
+          defaultMessage: status,
+        }),
+      );
+    if (traceId.trim())
+      parts.push(
+        intl.formatMessage(
+          {
+            id: 'pages.functionsExecutionLogs.filter.summaryTraceId',
+            defaultMessage: `Trace {value}`,
+          },
+          { value: traceId.trim() },
+        ),
+      );
+    if (range?.[0] || range?.[1]) {
+      const from = range[0] ? formatDateTime(range[0].toISOString()) : '…';
+      const to = range[1] ? formatDateTime(range[1].toISOString()) : '…';
+      parts.push(
+        intl.formatMessage(
+          {
+            id: 'pages.functionsExecutionLogs.filter.summaryTimeRange',
+            defaultMessage: `时间 {from} ~ {to}`,
+          },
+          { from, to },
+        ),
+      );
+    }
+    return parts.join(' / ');
+  }, [intl, actor, functionId, source, status, traceId, range]);
+
+  const clearFilters = () => {
+    setActor('');
+    setFunctionId('');
+    setSource('');
+    setStatus('');
+    setTraceId('');
+    setRange(null);
+    backToFirstPage();
+  };
 
   const columns: ProColumns<ExecutionLogItem>[] = [
     {
@@ -229,207 +324,322 @@ export default function ExecutionLogsPage() {
   const errorReason = detail ? extractErrorReason(detail.responseBody) : '';
 
   return (
-    <Card
+    <PageContainer
       title={intl.formatMessage({
-        id: 'pages.functionsExecutionLogs.page.title',
+        id: 'pages.functionsExecutionLogs.title.main',
         defaultMessage: '执行留痕',
       })}
-      extra={
-        <Button icon={<ReloadOutlined />} onClick={() => actionRef.current?.reload()}>
-          <FormattedMessage
-            id="pages.functionsExecutionLogs.action.refresh"
-            defaultMessage="刷新"
-          />
-        </Button>
-      }
+      subTitle={intl.formatMessage({
+        id: 'pages.functionsExecutionLogs.title.sub',
+        defaultMessage: '按操作人、函数、来源、状态与时间范围排查函数执行记录',
+      })}
     >
-      <Space style={{ marginBottom: 16 }} wrap>
-        <Input
-          placeholder={intl.formatMessage({
-            id: 'pages.functionsExecutionLogs.filter.actor',
-            defaultMessage: '操作人',
+      <Space orientation="vertical" size={16} style={{ width: '100%' }}>
+        <SummaryOverview
+          title={intl.formatMessage({
+            id: 'pages.functionsExecutionLogs.summary.title',
+            defaultMessage: '执行留痕概览',
           })}
-          value={actor}
-          onChange={(e) => {
-            setActor(e.target.value);
-            // 筛选变化回第 1 页：params 变化与 setPageInfo 的双触发由
-            // ProTable 内部 debounce + abort 合并，不会出现错序数据
-            backToFirstPage();
-          }}
-          style={{ width: 140 }}
-          allowClear
-        />
-        <Input
-          placeholder={intl.formatMessage({
-            id: 'pages.functionsExecutionLogs.filter.functionId',
-            defaultMessage: '函数ID',
+          description={intl.formatMessage({
+            id: 'pages.functionsExecutionLogs.summary.description',
+            defaultMessage:
+              '这里集中查询函数执行的留痕：谁通过调用或页面触发了哪个函数、执行结果与耗时，请求/响应载荷已脱敏。',
           })}
-          value={functionId}
-          onChange={(e) => {
-            setFunctionId(e.target.value);
-            backToFirstPage();
-          }}
-          style={{ width: 200 }}
-          allowClear
-        />
-        <Select
-          placeholder={intl.formatMessage({
-            id: 'pages.functionsExecutionLogs.filter.source',
-            defaultMessage: '来源',
-          })}
-          style={{ width: 110 }}
-          value={source || undefined}
-          onChange={(v) => {
-            setSource(v || '');
-            backToFirstPage();
-          }}
-          allowClear
-          options={[
+          items={[
             {
-              label: intl.formatMessage({
-                id: 'pages.functionsExecutionLogs.sourceLabel.invoke',
-                defaultMessage: '调用',
-              }),
-              value: 'invoke',
-            },
-            {
-              label: intl.formatMessage({
-                id: 'pages.functionsExecutionLogs.sourceLabel.page',
-                defaultMessage: '页面',
-              }),
-              value: 'page',
+              color: '#1677ff',
+              text: intl.formatMessage(
+                {
+                  id: 'pages.functionsExecutionLogs.summary.total',
+                  defaultMessage: `记录总数 {count}`,
+                },
+                { count: total },
+              ),
             },
           ]}
-        />
-        <Select
-          placeholder={intl.formatMessage({
-            id: 'pages.functionsExecutionLogs.filter.status',
-            defaultMessage: '状态',
+          hint={intl.formatMessage({
+            id: 'pages.functionsExecutionLogs.summary.hint',
+            defaultMessage:
+              '推荐路径：先按操作人或状态筛选定位可疑执行，点击行查看已脱敏的请求/响应详情；同一调用链可按 Trace ID 串联。',
           })}
-          style={{ width: 110 }}
-          value={status || undefined}
-          onChange={(v) => {
-            setStatus(v || '');
-            backToFirstPage();
-          }}
-          allowClear
-          options={[
-            {
-              label: intl.formatMessage({
-                id: 'pages.functionsExecutionLogs.statusLabel.ok',
-                defaultMessage: '成功',
-              }),
-              value: 'ok',
-            },
-            {
-              label: intl.formatMessage({
-                id: 'pages.functionsExecutionLogs.statusLabel.error',
-                defaultMessage: '失败',
-              }),
-              value: 'error',
-            },
-          ]}
         />
-        {advancedOpen && (
-          <>
-            <Input
-              placeholder="Trace ID"
-              value={traceId}
-              onChange={(e) => {
-                setTraceId(e.target.value);
-                backToFirstPage();
-              }}
-              style={{ width: 200 }}
-              allowClear
-            />
-            <RangePicker
-              showTime
-              onChange={(dates) => {
-                setRange(dates ? [dates[0]?.toDate() ?? null, dates[1]?.toDate() ?? null] : null);
-                backToFirstPage();
-              }}
-            />
-          </>
-        )}
-        <Button type="text" size="small" onClick={() => setAdvancedOpen((v) => !v)}>
-          {advancedOpen ? <UpOutlined /> : <DownOutlined />}
-          <FormattedMessage
-            id={
-              advancedOpen
-                ? 'pages.functionsExecutionLogs.filter.less'
-                : 'pages.functionsExecutionLogs.filter.more'
-            }
-            defaultMessage={advancedOpen ? '收起筛选' : '更多筛选'}
-          />
-        </Button>
-        <Button type="primary" onClick={() => actionRef.current?.reload()}>
-          <FormattedMessage id="pages.functionsExecutionLogs.action.search" defaultMessage="查询" />
-        </Button>
-      </Space>
 
-      {loadError ? (
-        <div style={{ marginBottom: 16 }}>
-          <AlertMessage message={loadError} onRetry={() => actionRef.current?.reload()} />
-        </div>
-      ) : null}
-      <ProTable<ExecutionLogItem>
-        actionRef={actionRef}
-        rowKey="id"
-        size="small"
-        columns={columns}
-        scroll={{ x: 1120 }}
-        search={false}
-        options={false}
-        toolBarRender={false}
-        params={{ actor, functionId, source, status, traceId, range }}
-        request={async ({
-          current = 1,
-          pageSize = PAGE_SIZE,
-          actor: actorFilter = '',
-          functionId: functionIdFilter = '',
-          source: sourceFilter = '',
-          status: statusFilter = '',
-          traceId: traceIdFilter = '',
-          range: timeRange = null,
-        }) => {
-          setLoadError('');
-          const params: Record<string, string | number> = { page: current, pageSize };
-          if (actorFilter.trim()) params.actor = actorFilter.trim();
-          if (functionIdFilter.trim()) params.functionId = functionIdFilter.trim();
-          if (sourceFilter) params.source = sourceFilter;
-          if (statusFilter) params.status = statusFilter;
-          if (traceIdFilter.trim()) params.traceId = traceIdFilter.trim();
-          if (timeRange?.[0]) params.from = toLocalInput(timeRange[0]);
-          if (timeRange?.[1]) params.to = toLocalInput(timeRange[1]);
-          try {
-            const json = await listExecutionLogs(params);
-            return { data: json.items || [], total: json.total || 0, success: true };
-          } catch (e) {
-            setLoadError(
-              e instanceof Error
-                ? e.message
-                : intl.formatMessage({
-                    id: 'pages.functionsExecutionLogs.error.loadFailed',
-                    defaultMessage: '加载失败',
-                  }),
-            );
-            return { data: [], total: 0, success: false };
+        <StandardListSection
+          title={intl.formatMessage({
+            id: 'pages.functionsExecutionLogs.list.title',
+            defaultMessage: '执行记录',
+          })}
+          extra={
+            <Button icon={<ReloadOutlined />} onClick={() => actionRef.current?.reload()}>
+              <FormattedMessage
+                id="pages.functionsExecutionLogs.action.refresh"
+                defaultMessage="刷新"
+              />
+            </Button>
           }
-        }}
-        pagination={{
-          pageSize: PAGE_SIZE,
-          showSizeChanger: true,
-          showTotal: (t) =>
-            intl.formatMessage(
-              { id: 'pages.functionsExecutionLogs.pagination.total', defaultMessage: `共 ${t} 条` },
-              { total: t },
-            ),
-        }}
-        onRow={(record) => ({
-          onClick: () => void viewDetail(record.id),
-          style: { cursor: 'pointer' },
-        })}
-      />
+        >
+          <StandardFilterBar
+            resultText={intl.formatMessage(
+              {
+                id: 'pages.functionsExecutionLogs.list.resultCount',
+                defaultMessage: `当前结果 {count} 条`,
+              },
+              { count: total },
+            )}
+            controls={
+              <>
+                <Input
+                  placeholder={intl.formatMessage({
+                    id: 'pages.functionsExecutionLogs.filter.actor',
+                    defaultMessage: '操作人',
+                  })}
+                  value={actor}
+                  onChange={(e) => {
+                    setActor(e.target.value);
+                    // 筛选变化回第 1 页：params 变化与 setPageInfo 的双触发由
+                    // ProTable 内部 debounce + abort 合并，不会出现错序数据
+                    backToFirstPage();
+                  }}
+                  style={{ width: 140 }}
+                  allowClear
+                />
+                <Input
+                  placeholder={intl.formatMessage({
+                    id: 'pages.functionsExecutionLogs.filter.functionId',
+                    defaultMessage: '函数ID',
+                  })}
+                  value={functionId}
+                  onChange={(e) => {
+                    setFunctionId(e.target.value);
+                    backToFirstPage();
+                  }}
+                  style={{ width: 200 }}
+                  allowClear
+                />
+                <Select
+                  placeholder={intl.formatMessage({
+                    id: 'pages.functionsExecutionLogs.filter.source',
+                    defaultMessage: '来源',
+                  })}
+                  style={{ width: 110 }}
+                  value={source || undefined}
+                  onChange={(v) => {
+                    setSource(v || '');
+                    backToFirstPage();
+                  }}
+                  allowClear
+                  options={[
+                    {
+                      label: intl.formatMessage({
+                        id: 'pages.functionsExecutionLogs.sourceLabel.invoke',
+                        defaultMessage: '调用',
+                      }),
+                      value: 'invoke',
+                    },
+                    {
+                      label: intl.formatMessage({
+                        id: 'pages.functionsExecutionLogs.sourceLabel.page',
+                        defaultMessage: '页面',
+                      }),
+                      value: 'page',
+                    },
+                  ]}
+                />
+                <Select
+                  placeholder={intl.formatMessage({
+                    id: 'pages.functionsExecutionLogs.filter.status',
+                    defaultMessage: '状态',
+                  })}
+                  style={{ width: 110 }}
+                  value={status || undefined}
+                  onChange={(v) => {
+                    setStatus(v || '');
+                    backToFirstPage();
+                  }}
+                  allowClear
+                  options={[
+                    {
+                      label: intl.formatMessage({
+                        id: 'pages.functionsExecutionLogs.statusLabel.ok',
+                        defaultMessage: '成功',
+                      }),
+                      value: 'ok',
+                    },
+                    {
+                      label: intl.formatMessage({
+                        id: 'pages.functionsExecutionLogs.statusLabel.error',
+                        defaultMessage: '失败',
+                      }),
+                      value: 'error',
+                    },
+                  ]}
+                />
+                {advancedOpen && (
+                  <>
+                    <Input
+                      placeholder="Trace ID"
+                      value={traceId}
+                      onChange={(e) => {
+                        setTraceId(e.target.value);
+                        backToFirstPage();
+                      }}
+                      style={{ width: 200 }}
+                      allowClear
+                    />
+                    <RangePicker
+                      showTime
+                      onChange={(dates) => {
+                        setRange(
+                          dates ? [dates[0]?.toDate() ?? null, dates[1]?.toDate() ?? null] : null,
+                        );
+                        backToFirstPage();
+                      }}
+                    />
+                  </>
+                )}
+                <Button type="text" size="small" onClick={() => setAdvancedOpen((v) => !v)}>
+                  {advancedOpen ? <UpOutlined /> : <DownOutlined />}
+                  <FormattedMessage
+                    id={
+                      advancedOpen
+                        ? 'pages.functionsExecutionLogs.filter.less'
+                        : 'pages.functionsExecutionLogs.filter.more'
+                    }
+                    defaultMessage={advancedOpen ? '收起筛选' : '更多筛选'}
+                  />
+                </Button>
+                {hasFilters && (
+                  <Button onClick={clearFilters}>
+                    <FormattedMessage
+                      id="pages.functionsExecutionLogs.filter.clear"
+                      defaultMessage="清空筛选"
+                    />
+                  </Button>
+                )}
+                <Button type="primary" onClick={() => actionRef.current?.reload()}>
+                  <FormattedMessage
+                    id="pages.functionsExecutionLogs.action.search"
+                    defaultMessage="查询"
+                  />
+                </Button>
+              </>
+            }
+          />
+          {hasFilters ? (
+            <Alert
+              style={{ marginBottom: 12 }}
+              type="info"
+              showIcon
+              message={intl.formatMessage({
+                id: 'pages.functionsExecutionLogs.filter.activeMessage',
+                defaultMessage: '当前正在查看筛选后的执行记录',
+              })}
+              description={intl.formatMessage(
+                {
+                  id: 'pages.functionsExecutionLogs.filter.activeDescription',
+                  defaultMessage: `已生效条件：{filters}`,
+                },
+                { filters: filterSummary },
+              )}
+            />
+          ) : null}
+          {loadError ? (
+            <Alert
+              style={{ marginBottom: 12 }}
+              type="error"
+              showIcon
+              message={intl.formatMessage({
+                id: 'pages.functionsExecutionLogs.error.loadFailed',
+                defaultMessage: '加载失败',
+              })}
+              description={loadError}
+              action={
+                <Button size="small" danger onClick={() => actionRef.current?.reload()}>
+                  <FormattedMessage
+                    id="pages.functionsExecutionLogs.action.retry"
+                    defaultMessage="重试"
+                  />
+                </Button>
+              }
+            />
+          ) : null}
+          <ProTable<ExecutionLogItem>
+            actionRef={actionRef}
+            rowKey="id"
+            size="small"
+            columns={columns}
+            scroll={{ x: 1120 }}
+            search={false}
+            options={false}
+            toolBarRender={false}
+            locale={{
+              emptyText: hasFilters
+                ? intl.formatMessage({
+                    id: 'pages.functionsExecutionLogs.empty.filtered',
+                    defaultMessage: '当前筛选条件下没有匹配的执行记录，请调整筛选条件后重试。',
+                  })
+                : intl.formatMessage({
+                    id: 'pages.functionsExecutionLogs.empty.none',
+                    defaultMessage:
+                      '暂无执行留痕。函数被调用或页面发起执行后，记录会出现在这里；可先确认对应函数是否已被调用。',
+                  }),
+            }}
+            params={{ actor, functionId, source, status, traceId, range }}
+            request={async ({
+              current = 1,
+              pageSize = PAGE_SIZE,
+              actor: actorFilter = '',
+              functionId: functionIdFilter = '',
+              source: sourceFilter = '',
+              status: statusFilter = '',
+              traceId: traceIdFilter = '',
+              range: timeRange = null,
+            }) => {
+              setLoadError('');
+              const params: Record<string, string | number> = { page: current, pageSize };
+              if (actorFilter.trim()) params.actor = actorFilter.trim();
+              if (functionIdFilter.trim()) params.functionId = functionIdFilter.trim();
+              if (sourceFilter) params.source = sourceFilter;
+              if (statusFilter) params.status = statusFilter;
+              if (traceIdFilter.trim()) params.traceId = traceIdFilter.trim();
+              if (timeRange?.[0]) params.from = toLocalInput(timeRange[0]);
+              if (timeRange?.[1]) params.to = toLocalInput(timeRange[1]);
+              try {
+                const json = await listExecutionLogs(params);
+                setTotal(json.total || 0);
+                return { data: json.items || [], total: json.total || 0, success: true };
+              } catch (e) {
+                setTotal(0);
+                setLoadError(
+                  e instanceof Error
+                    ? e.message
+                    : intl.formatMessage({
+                        id: 'pages.functionsExecutionLogs.error.loadFailed',
+                        defaultMessage: '加载失败',
+                      }),
+                );
+                return { data: [], total: 0, success: false };
+              }
+            }}
+            pagination={{
+              pageSize: PAGE_SIZE,
+              showSizeChanger: true,
+              showTotal: (t) =>
+                intl.formatMessage(
+                  {
+                    id: 'pages.functionsExecutionLogs.pagination.total',
+                    defaultMessage: `共 {total} 条`,
+                  },
+                  { total: t },
+                ),
+            }}
+            onRow={(record) => ({
+              onClick: () => void viewDetail(record.id),
+              style: { cursor: 'pointer' },
+            })}
+          />
+        </StandardListSection>
+      </Space>
 
       <Drawer
         title={
@@ -526,7 +736,7 @@ export default function ExecutionLogsPage() {
                       ? intl.formatMessage(
                           {
                             id: 'pages.functionsExecutionLogs.detail.sourcePage',
-                            defaultMessage: `页面（${detail.pageKey} / ${detail.bindingId}）`,
+                            defaultMessage: `页面（{pageKey} / {bindingId}）`,
                           },
                           { pageKey: detail.pageKey, bindingId: detail.bindingId },
                         )
@@ -599,17 +809,6 @@ export default function ExecutionLogsPage() {
           </>
         )}
       </Drawer>
-    </Card>
-  );
-}
-
-function AlertMessage({ message: text, onRetry }: { message: string; onRetry: () => void }) {
-  return (
-    <div role="alert">
-      <Text type="danger">{text}</Text>
-      <Button size="small" icon={<ReloadOutlined />} onClick={onRetry} style={{ marginLeft: 8 }}>
-        <FormattedMessage id="pages.functionsExecutionLogs.action.retry" defaultMessage="重试" />
-      </Button>
-    </div>
+    </PageContainer>
   );
 }
