@@ -32,11 +32,16 @@ export default () => {
   const [debugOpen, setDebugOpen] = useState(false);
   const [selectedInstance, setSelectedInstance] = useState<FunctionInstance | null>(null);
   const [descriptorMeta, setDescriptorMeta] = useState<Record<string, FunctionDescriptor>>({});
+  // Race condition guard: discard stale fetchData responses
+  const fetchIdRef = useRef(0);
 
   const fetchData = useCallback(async () => {
+    const fetchId = ++fetchIdRef.current;
     setLoading(true);
     try {
       const res = await getFunctionInstances();
+      // Discard if a newer fetch has started
+      if (fetchId !== fetchIdRef.current) return;
       const instanceList = res?.instances || [];
       const rowKeySeen = new Map<string, number>();
       const normalized = instanceList.map((instance, index) => {
@@ -290,6 +295,9 @@ export default () => {
     .join(' / ');
 
   const handleDetail = useCallback((record: FunctionInstance) => {
+    // Close other modals to prevent stale instance context
+    setLogsOpen(false);
+    setDebugOpen(false);
     setSelectedInstance(record);
     setDetailOpen(true);
   }, []);
