@@ -671,7 +671,7 @@ export default function TicketDetailPage() {
               style={{ width: '100%' }}
               options={[
                 { label: intl.formatMessage(stTextMap.open), value: 'open' },
-                { label: intl.formatMessage(stTextMap.inProgress), value: 'in_progress' },
+                { label: intl.formatMessage(stTextMap.in_progress), value: 'in_progress' },
                 { label: intl.formatMessage(stTextMap.resolved), value: 'resolved' },
                 { label: intl.formatMessage(stTextMap.closed), value: 'closed' },
               ]}
@@ -778,7 +778,7 @@ export default function TicketDetailPage() {
           <Select
             options={[
               { label: intl.formatMessage(stTextMap.open), value: 'open' },
-              { label: intl.formatMessage(stTextMap.inProgress), value: 'in_progress' },
+              { label: intl.formatMessage(stTextMap.in_progress), value: 'in_progress' },
               { label: intl.formatMessage(stTextMap.resolved), value: 'resolved' },
               { label: intl.formatMessage(stTextMap.closed), value: 'closed' },
             ]}
