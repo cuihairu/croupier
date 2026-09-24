@@ -1,11 +1,20 @@
 import React, { useEffect, useMemo, useState, useCallback } from 'react';
-import { Card, Table, Space, Input, Button, DatePicker, Tag } from 'antd';
+import { Card, Table, Space, Input, Button, DatePicker, Tag, Row, Col, Typography } from 'antd';
 import type { Dayjs } from 'dayjs';
 import { PageContainer } from '@ant-design/pro-components';
 import { FormattedMessage, useIntl } from '@umijs/max';
 import { listAudit, type AuditEvent } from '@/services/api';
 import { exportToCSV } from '@/utils/export';
 import { formatDateTime } from '@/utils/format';
+
+/** 过滤区小标签：控件分组可视化，全部走 i18n（禁止硬编码中文）。 */
+function FilterLabel({ id, defaultMessage }: { id: string; defaultMessage: string }) {
+  return (
+    <Typography.Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>
+      <FormattedMessage id={id} defaultMessage={defaultMessage} />
+    </Typography.Text>
+  );
+}
 
 export default function LoginLogsPage() {
   const intl = useIntl();
@@ -109,107 +118,144 @@ export default function LoginLogsPage() {
           defaultMessage: '登录日志',
         })}
       >
-        <Space style={{ marginBottom: 12 }} wrap>
-          <Input
-            placeholder={intl.formatMessage({
-              id: 'pages.adminLogs.loginLog.search.actor',
-              defaultMessage: '操作者',
-            })}
-            value={actor}
-            onChange={(e) => setActor(e.target.value)}
-            style={{ width: 160 }}
-          />
-          <Input
-            placeholder="IP"
-            value={ip}
-            onChange={(e) => setIP(e.target.value)}
-            style={{ width: 160 }}
-          />
-          <Space size={4}>
-            {['login', 'login_fail', 'login_rate_limited'].map((k) => (
-              <Tag
-                key={k}
-                color={kinds.includes(k) ? 'blue' : 'default'}
-                onClick={() => {
-                  setKinds((prev) =>
-                    prev.includes(k) ? prev.filter((x) => x !== k) : [...prev, k],
-                  );
-                }}
-                style={{ cursor: 'pointer' }}
-              >
-                {k}
-              </Tag>
-            ))}
-          </Space>
-          <DatePicker.RangePicker
-            showTime
-            value={timeRange as [Dayjs, Dayjs]}
-            onChange={(dates) => setTimeRange(dates as [Dayjs | null, Dayjs | null] | null)}
-          />
-          <Button type="primary" onClick={load}>
-            <FormattedMessage id="pages.adminLogs.loginLog.action.query" defaultMessage="查询" />
-          </Button>
-          <Button onClick={exportCSV}>
-            <FormattedMessage
-              id="pages.adminLogs.loginLog.action.exportCsv"
-              defaultMessage="导出 CSV"
-            />
-          </Button>
-        </Space>
-        <Space style={{ marginBottom: 12 }} wrap>
-          <span>
-            <FormattedMessage id="pages.adminLogs.loginLog.filter.device" defaultMessage="设备:" />
-          </span>
-          <Space size={4}>
-            {['Windows', 'macOS', 'Linux', 'Android', 'iOS', 'Other'].map((os) => (
-              <Tag
-                key={os}
-                color={osSel.includes(os) ? 'blue' : 'default'}
-                onClick={() =>
-                  setOsSel((prev) =>
-                    prev.includes(os) ? prev.filter((x) => x !== os) : [...prev, os],
-                  )
-                }
-                style={{ cursor: 'pointer' }}
-              >
-                {os}
-              </Tag>
-            ))}
-          </Space>
-          <span>
-            <FormattedMessage
-              id="pages.adminLogs.loginLog.filter.browser"
-              defaultMessage="浏览器:"
-            />
-          </span>
-          <Space size={4}>
-            {['Edge', 'Chrome', 'Safari', 'Firefox', 'Other'].map((br) => (
-              <Tag
-                key={br}
-                color={brSel.includes(br) ? 'blue' : 'default'}
-                onClick={() =>
-                  setBrSel((prev) =>
-                    prev.includes(br) ? prev.filter((x) => x !== br) : [...prev, br],
-                  )
-                }
-                style={{ cursor: 'pointer' }}
-              >
-                {br}
-              </Tag>
-            ))}
-          </Space>
-          <Button
-            onClick={() => {
-              setOsSel([]);
-              setBrSel([]);
-            }}
-          >
-            <FormattedMessage
-              id="pages.adminLogs.loginLog.action.clearDeviceFilter"
-              defaultMessage="清空设备/浏览器筛选"
-            />
-          </Button>
-        </Space>
+        {/* 过滤区分三行：输入/时间/操作 → 类型 Tag → 设备/浏览器 Tag（窄屏 Col 自动换行） */}
+        <div data-testid="login-log-filters">
+          <Row gutter={[12, 12]} align="bottom" style={{ marginBottom: 16 }}>
+            <Col xs={24} sm={12} md={5}>
+              <FilterLabel id="pages.adminLogs.loginLog.filter.actor" defaultMessage="操作者" />
+              <Input
+                placeholder={intl.formatMessage({
+                  id: 'pages.adminLogs.loginLog.search.actor',
+                  defaultMessage: '操作者',
+                })}
+                value={actor}
+                onChange={(e) => setActor(e.target.value)}
+                style={{ width: '100%' }}
+              />
+            </Col>
+            <Col xs={24} sm={12} md={5}>
+              <FilterLabel id="pages.adminLogs.loginLog.filter.ip" defaultMessage="IP" />
+              <Input
+                placeholder="IP"
+                value={ip}
+                onChange={(e) => setIP(e.target.value)}
+                style={{ width: '100%' }}
+              />
+            </Col>
+            <Col xs={24} sm={24} md={8}>
+              <FilterLabel id="pages.adminLogs.loginLog.filter.time" defaultMessage="时间" />
+              <DatePicker.RangePicker
+                showTime
+                value={timeRange as [Dayjs, Dayjs]}
+                onChange={(dates) => setTimeRange(dates as [Dayjs | null, Dayjs | null] | null)}
+                style={{ width: '100%' }}
+              />
+            </Col>
+            <Col xs={12} sm={12} md={3}>
+              <Button type="primary" onClick={load} block>
+                <FormattedMessage
+                  id="pages.adminLogs.loginLog.action.query"
+                  defaultMessage="查询"
+                />
+              </Button>
+            </Col>
+            <Col xs={12} sm={12} md={3}>
+              <Button onClick={exportCSV} block>
+                <FormattedMessage
+                  id="pages.adminLogs.loginLog.action.exportCsv"
+                  defaultMessage="导出 CSV"
+                />
+              </Button>
+            </Col>
+          </Row>
+          <Row gutter={[8, 8]} style={{ marginBottom: 16 }}>
+            <Col xs={24}>
+              <Space size={4} wrap>
+                <span>
+                  <FormattedMessage
+                    id="pages.adminLogs.loginLog.filter.kind"
+                    defaultMessage="类型:"
+                  />
+                </span>
+                {['login', 'login_fail', 'login_rate_limited'].map((k) => (
+                  <Tag
+                    key={k}
+                    color={kinds.includes(k) ? 'blue' : 'default'}
+                    onClick={() => {
+                      setKinds((prev) =>
+                        prev.includes(k) ? prev.filter((x) => x !== k) : [...prev, k],
+                      );
+                    }}
+                    style={{ cursor: 'pointer' }}
+                  >
+                    {k}
+                  </Tag>
+                ))}
+              </Space>
+            </Col>
+          </Row>
+          <Row gutter={[8, 8]} style={{ marginBottom: 16 }} align="middle">
+            <Col xs={24}>
+              <Space size={8} wrap>
+                <span>
+                  <FormattedMessage
+                    id="pages.adminLogs.loginLog.filter.device"
+                    defaultMessage="设备:"
+                  />
+                </span>
+                <Space size={4}>
+                  {['Windows', 'macOS', 'Linux', 'Android', 'iOS', 'Other'].map((os) => (
+                    <Tag
+                      key={os}
+                      color={osSel.includes(os) ? 'blue' : 'default'}
+                      onClick={() =>
+                        setOsSel((prev) =>
+                          prev.includes(os) ? prev.filter((x) => x !== os) : [...prev, os],
+                        )
+                      }
+                      style={{ cursor: 'pointer' }}
+                    >
+                      {os}
+                    </Tag>
+                  ))}
+                </Space>
+                <span>
+                  <FormattedMessage
+                    id="pages.adminLogs.loginLog.filter.browser"
+                    defaultMessage="浏览器:"
+                  />
+                </span>
+                <Space size={4}>
+                  {['Edge', 'Chrome', 'Safari', 'Firefox', 'Other'].map((br) => (
+                    <Tag
+                      key={br}
+                      color={brSel.includes(br) ? 'blue' : 'default'}
+                      onClick={() =>
+                        setBrSel((prev) =>
+                          prev.includes(br) ? prev.filter((x) => x !== br) : [...prev, br],
+                        )
+                      }
+                      style={{ cursor: 'pointer' }}
+                    >
+                      {br}
+                    </Tag>
+                  ))}
+                </Space>
+                <Button
+                  onClick={() => {
+                    setOsSel([]);
+                    setBrSel([]);
+                  }}
+                >
+                  <FormattedMessage
+                    id="pages.adminLogs.loginLog.action.clearDeviceFilter"
+                    defaultMessage="清空设备/浏览器筛选"
+                  />
+                </Button>
+              </Space>
+            </Col>
+          </Row>
+        </div>
         <Table
           rowKey={(r) => r.hash}
           loading={loading}

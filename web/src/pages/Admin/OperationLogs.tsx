@@ -1,5 +1,5 @@
 import React, { useMemo, useRef, useState } from 'react';
-import { Card, Space, Input, Button, DatePicker, Tag } from 'antd';
+import { Card, Space, Input, Button, DatePicker, Tag, Row, Col, Typography } from 'antd';
 import type { Dayjs } from 'dayjs';
 import {
   PageContainer,
@@ -11,6 +11,15 @@ import { FormattedMessage, useIntl } from '@umijs/max';
 import { listAudit, type AuditEvent } from '@/services/api';
 import { exportToCSV } from '@/utils/export';
 import { formatDateTime } from '@/utils/format';
+
+/** 过滤区小标签：控件分组可视化，全部走 i18n（禁止硬编码中文）。 */
+function FilterLabel({ id, defaultMessage }: { id: string; defaultMessage: string }) {
+  return (
+    <Typography.Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>
+      <FormattedMessage id={id} defaultMessage={defaultMessage} />
+    </Typography.Text>
+  );
+}
 
 export default function OperationLogsPage() {
   const intl = useIntl();
@@ -175,67 +184,103 @@ export default function OperationLogsPage() {
           defaultMessage: '操作日志',
         })}
       >
-        <Space style={{ marginBottom: 12 }} wrap>
-          <Input
-            placeholder={intl.formatMessage({
-              id: 'pages.adminLogs.operationLog.search.actor',
-              defaultMessage: '操作者',
-            })}
-            value={actor}
-            onChange={(e) => setActor(e.target.value)}
-            style={{ width: 160 }}
-          />
-          <Input
-            placeholder="IP"
-            value={ip}
-            onChange={(e) => setIP(e.target.value)}
-            style={{ width: 160 }}
-          />
-          <Input
-            placeholder={intl.formatMessage({
-              id: 'pages.adminLogs.operationLog.search.game',
-              defaultMessage: '游戏',
-            })}
-            value={gameId}
-            onChange={(e) => setGameId(e.target.value)}
-            style={{ width: 140 }}
-          />
-          <Input
-            placeholder={intl.formatMessage({
-              id: 'pages.adminLogs.operationLog.search.env',
-              defaultMessage: '环境',
-            })}
-            value={env}
-            onChange={(e) => setEnv(e.target.value)}
-            style={{ width: 120 }}
-          />
-          {kindTags}
-          <DatePicker.RangePicker
-            showTime
-            value={timeRange as [Dayjs, Dayjs]}
-            onChange={(dates) => setTimeRange(dates as [Dayjs | null, Dayjs | null] | null)}
-          />
-          <Button
-            type="primary"
-            onClick={() => {
-              // 回第 1 页并重查：已在第 1 页时 setPageInfo 不触发请求，
-              // 由 reload 兜底；非第 1 页时双触发经 debounce + abort 合并
-              actionRef.current?.setPageInfo?.({ current: 1 });
-              actionRef.current?.reload();
-            }}
-          >
-            <FormattedMessage
-              id="pages.adminLogs.operationLog.action.query"
-              defaultMessage="查询"
-            />
-          </Button>
-          <Button onClick={exportCSV}>
-            <FormattedMessage
-              id="pages.adminLogs.operationLog.action.exportCsv"
-              defaultMessage="导出 CSV"
-            />
-          </Button>
-        </Space>
+        {/* 过滤区分两行：输入/时间/操作 → 类型 Tag（窄屏 Col 自动换行） */}
+        <div data-testid="operation-log-filters">
+          <Row gutter={[12, 12]} align="bottom" style={{ marginBottom: 16 }}>
+            <Col xs={24} sm={12} md={4}>
+              <FilterLabel id="pages.adminLogs.operationLog.filter.actor" defaultMessage="操作者" />
+              <Input
+                placeholder={intl.formatMessage({
+                  id: 'pages.adminLogs.operationLog.search.actor',
+                  defaultMessage: '操作者',
+                })}
+                value={actor}
+                onChange={(e) => setActor(e.target.value)}
+                style={{ width: '100%' }}
+              />
+            </Col>
+            <Col xs={24} sm={12} md={4}>
+              <FilterLabel id="pages.adminLogs.operationLog.filter.ip" defaultMessage="IP" />
+              <Input
+                placeholder="IP"
+                value={ip}
+                onChange={(e) => setIP(e.target.value)}
+                style={{ width: '100%' }}
+              />
+            </Col>
+            <Col xs={24} sm={12} md={4}>
+              <FilterLabel id="pages.adminLogs.operationLog.filter.game" defaultMessage="游戏" />
+              <Input
+                placeholder={intl.formatMessage({
+                  id: 'pages.adminLogs.operationLog.search.game',
+                  defaultMessage: '游戏',
+                })}
+                value={gameId}
+                onChange={(e) => setGameId(e.target.value)}
+                style={{ width: '100%' }}
+              />
+            </Col>
+            <Col xs={24} sm={12} md={3}>
+              <FilterLabel id="pages.adminLogs.operationLog.filter.env" defaultMessage="环境" />
+              <Input
+                placeholder={intl.formatMessage({
+                  id: 'pages.adminLogs.operationLog.search.env',
+                  defaultMessage: '环境',
+                })}
+                value={env}
+                onChange={(e) => setEnv(e.target.value)}
+                style={{ width: '100%' }}
+              />
+            </Col>
+            <Col xs={24} sm={24} md={6}>
+              <FilterLabel id="pages.adminLogs.operationLog.filter.time" defaultMessage="时间" />
+              <DatePicker.RangePicker
+                showTime
+                value={timeRange as [Dayjs, Dayjs]}
+                onChange={(dates) => setTimeRange(dates as [Dayjs | null, Dayjs | null] | null)}
+                style={{ width: '100%' }}
+              />
+            </Col>
+            <Col xs={12} sm={12} md={3}>
+              <Button
+                type="primary"
+                block
+                onClick={() => {
+                  // 回第 1 页并重查：已在第 1 页时 setPageInfo 不触发请求，
+                  // 由 reload 兜底；非第 1 页时双触发经 debounce + abort 合并
+                  actionRef.current?.setPageInfo?.({ current: 1 });
+                  actionRef.current?.reload();
+                }}
+              >
+                <FormattedMessage
+                  id="pages.adminLogs.operationLog.action.query"
+                  defaultMessage="查询"
+                />
+              </Button>
+            </Col>
+            <Col xs={12} sm={12} md={3}>
+              <Button onClick={exportCSV} block>
+                <FormattedMessage
+                  id="pages.adminLogs.operationLog.action.exportCsv"
+                  defaultMessage="导出 CSV"
+                />
+              </Button>
+            </Col>
+          </Row>
+          <Row gutter={[8, 8]} style={{ marginBottom: 16 }}>
+            <Col xs={24}>
+              <Space size={4} wrap>
+                <span>
+                  <FormattedMessage
+                    id="pages.adminLogs.operationLog.filter.kind"
+                    defaultMessage="类型:"
+                  />
+                </span>
+                {kindTags}
+              </Space>
+            </Col>
+          </Row>
+        </div>
         <ProTable<AuditEvent>
           actionRef={actionRef}
           rowKey={(r) => r.hash}

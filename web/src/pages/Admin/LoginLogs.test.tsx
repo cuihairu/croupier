@@ -1,5 +1,5 @@
 import React from 'react';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import type { Dayjs } from 'dayjs';
 import type { JSONValue } from '@/types/dashboard';
 import LoginLogsPage from './LoginLogs';
@@ -328,5 +328,35 @@ describe('LoginLogsPage 登录日志', () => {
       ),
     );
     await waitFor(() => expect(tableRows(container)).toHaveLength(2));
+  });
+
+  it('过滤控件分布于独立行（Row/Col 三行分组）', async () => {
+    const { container } = render(<LoginLogsPage />);
+    await waitFor(() => expect(mockedListAudit).toHaveBeenCalledTimes(1));
+
+    const filterRoot = container.querySelector('[data-testid="login-log-filters"]');
+    expect(filterRoot).toBeTruthy();
+    const rows = filterRoot!.querySelectorAll(':scope > .ant-row');
+    expect(rows.length).toBe(3);
+
+    // 第 1 行：操作者 / IP / 时间范围 / 查询 / 导出
+    expect(rows[0].querySelector('input[placeholder="操作者"]')).toBeTruthy();
+    expect(rows[0].querySelector('input[placeholder="IP"]')).toBeTruthy();
+    expect(rows[0].querySelector('[data-testid="range-stub"]')).toBeTruthy();
+    expect(within(rows[0] as HTMLElement).getByRole('button', { name: /查\s*询/ })).toBeTruthy();
+    expect(within(rows[0] as HTMLElement).getByRole('button', { name: '导出 CSV' })).toBeTruthy();
+
+    // 第 2 行：登录类型 Tag 组（带「类型:」标签），不含输入框
+    expect(rows[1].textContent).toContain('类型');
+    expect(rows[1].querySelector('input[placeholder="操作者"]')).toBeNull();
+    expect(rows[1].querySelectorAll('.ant-tag').length).toBeGreaterThanOrEqual(3);
+
+    // 第 3 行：设备/浏览器 Tag 组 + 清空按钮，不含输入框
+    expect(rows[2].textContent).toContain('设备');
+    expect(rows[2].textContent).toContain('浏览器');
+    expect(rows[2].querySelector('input[placeholder="操作者"]')).toBeNull();
+    expect(
+      within(rows[2] as HTMLElement).getByRole('button', { name: '清空设备/浏览器筛选' }),
+    ).toBeTruthy();
   });
 });
