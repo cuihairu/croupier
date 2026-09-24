@@ -139,7 +139,7 @@ func TestBuildGameFromSeed_AliasHumanizeFallback(t *testing.T) {
 // agent_registration_operations 只归 platform/registry 的
 // MigrateAgentSessions 管理，用它占位才能精确命中 L605。
 func TestAutoMigrateServerModels_AgentSessionsError(t *testing.T) {
-	db, err := gorm.Open(gsqlite.Open(t.TempDir()+"/s.db"), &gorm.Config{})
+	db, err := gorm.Open(gsqlite.Open("file:"+t.TempDir()+"/s.db?_pragma=synchronous(OFF)"), &gorm.Config{})
 	require.NoError(t, err)
 	require.NoError(t, model.AutoMigrateMeta(db))
 	require.NoError(t, db.Migrator().DropTable("agent_registration_operations"))

@@ -22,9 +22,11 @@ import (
 // newV9TestDB opens a fresh file-backed sqlite database with the goose
 // version table pre-created so individual Go migrations can be replayed via
 // (*goose.Migration).UpContext.
+// synchronous(OFF): callers run full AutoMigrate/AutoMigrateMeta; default
+// fsync on slow disks blows package timeouts under parallel go test.
 func newV9TestDB(t *testing.T) *gorm.DB {
 	t.Helper()
-	db, err := gorm.Open(gsqlite.Open(filepath.Join(t.TempDir(), "v9.db")), &gorm.Config{})
+	db, err := gorm.Open(gsqlite.Open("file:"+filepath.Join(t.TempDir(), "v9.db")+"?_pragma=synchronous(OFF)"), &gorm.Config{})
 	require.NoError(t, err)
 	require.NoError(t, db.Exec(`CREATE TABLE IF NOT EXISTS goose_db_version (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,

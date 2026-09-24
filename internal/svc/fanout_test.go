@@ -17,13 +17,17 @@ func fanoutConfig(t *testing.T, multiGame bool) config.Config {
 	dir := t.TempDir()
 	// Pin the env overrides so CI's DATABASE_URL=":memory:" cannot hijack
 	// resolveDriverAndDSN and make every test share one memory database.
+	// synchronous(OFF): seedEnvBinding/RunMigrationFanout run full
+	// AutoMigrateMeta against this file; default fsync on slow disks blows
+	// package timeouts under parallel go test. sqliteFileDSN skips adding
+	// busy_timeout/WAL once any _pragma is present, so restate them here.
 	t.Setenv("DB_DRIVER", "sqlite")
-	t.Setenv("DATABASE_URL", filepath.Join(dir, "meta.db"))
+	t.Setenv("DATABASE_URL", "file:"+filepath.Join(dir, "meta.db")+"?_pragma=busy_timeout(60000)&_pragma=journal_mode(WAL)&_pragma=synchronous(OFF)")
 	return config.Config{
 		Server: config.ServerConfig{Mode: "dev"},
 		Database: config.DatabaseConfig{
 			Driver:     "sqlite",
-			DataSource: filepath.Join(dir, "meta.db"),
+			DataSource: "file:" + filepath.Join(dir, "meta.db") + "?_pragma=busy_timeout(60000)&_pragma=journal_mode(WAL)&_pragma=synchronous(OFF)",
 			MultiGame:  multiGame,
 		},
 	}

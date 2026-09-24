@@ -365,7 +365,7 @@ func TestSeedBootstrapReadOnlyDBErrorsV9(t *testing.T) {
 	dir := t.TempDir()
 	dbPath := filepath.Join(dir, "ro.db")
 
-	writable, err := gorm.Open(gsqlite.Open(dbPath), &gorm.Config{})
+	writable, err := gorm.Open(gsqlite.Open("file:"+dbPath+"?_pragma=synchronous(OFF)"), &gorm.Config{})
 	require.NoError(t, err)
 	require.NoError(t, model.AutoMigrate(writable))
 	// Pre-existing admin with a stale status: bootstrapping tries to update

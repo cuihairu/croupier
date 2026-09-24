@@ -141,7 +141,9 @@ func TestOwnerResolver_ClaimResolveRelease(t *testing.T) {
 
 func TestOwnerResolver_TTLExpiry(t *testing.T) {
 	db := newDB(t)
-	resolver := NewDBOwnerResolver(db, 50*time.Millisecond)
+	// 宽 TTL + 显式回拨 last_seen_at：避免「先 Resolve 后 Sleep」在慢盘/高负载
+	// 下因 Claim→Resolve 间隔 > 短 TTL 而 flaky（首断言即失败）。
+	resolver := NewDBOwnerResolver(db, 2*time.Second)
 	require.NoError(t, resolver.EnsureTable(context.Background()))
 	ctx := context.Background()
 	require.NoError(t, resolver.ClaimOwner(ctx, "agent-1", "g", "e", "self", 1))
@@ -149,7 +151,9 @@ func TestOwnerResolver_TTLExpiry(t *testing.T) {
 	owner, _ := resolver.ResolveOwner(ctx, "agent-1")
 	require.NotNil(t, owner)
 
-	time.Sleep(60 * time.Millisecond)
+	require.NoError(t, db.WithContext(ctx).Model(&AgentOwnerRecord{}).
+		Where("agent_id = ?", "agent-1").
+		Update("last_seen_at", time.Now().UTC().Add(-3*time.Second)).Error)
 	owner, _ = resolver.ResolveOwner(ctx, "agent-1")
 	assert.Nil(t, owner, "owner 记录过期后应视为无 owner")
 }

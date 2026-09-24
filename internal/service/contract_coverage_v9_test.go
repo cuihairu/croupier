@@ -18,9 +18,10 @@ import (
 // setupTestDBFileV9 与 setupTestDB 相同迁移集，但使用临时文件数据库：
 // 连接池中多个连接共享同一物理库，触发器/表改动对后续查询稳定可见
 // （":memory:" 每个连接是独立库，触发器类用例会随机失效）。
+// synchronous(OFF)：文件库 AutoMigrate 的 fsync 在慢盘上会拖垮包超时。
 func setupTestDBFileV9(t *testing.T) *gorm.DB {
 	t.Helper()
-	db, err := gorm.Open(sqlite.Open(t.TempDir()+"/cov9.db"), &gorm.Config{})
+	db, err := gorm.Open(sqlite.Open("file:"+t.TempDir()+"/cov9.db?_pragma=synchronous(OFF)"), &gorm.Config{})
 	require.NoError(t, err)
 	require.NoError(t, db.AutoMigrate(
 		&model.FunctionContract{},

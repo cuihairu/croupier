@@ -17,7 +17,11 @@ func newStore(t *testing.T) *model.PlatformSettingModel {
 	// File-backed (not shared-memory): a shared-cache memory DB vanishes when
 	// its last pooled connection closes, which made tests order-dependent
 	// under CI load.
-	dsn := t.TempDir() + "/settings.db"
+	// synchronous(OFF): full AutoMigrate issues thousands of durable commits;
+	// default fsync on slow disks pushes a single newStore past 14s and blows
+	// package timeouts under parallel go test. Tests only need crash
+	// irrelevance, not durability.
+	dsn := "file:" + t.TempDir() + "/settings.db?_pragma=synchronous(OFF)"
 	db, err := gorm.Open(gsqlite.Open(dsn), &gorm.Config{})
 	require.NoError(t, err)
 	require.NoError(t, model.AutoMigrate(db))
