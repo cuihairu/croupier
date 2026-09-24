@@ -570,7 +570,10 @@ func buildEmailBody(event NotificationEvent) string {
 }
 
 func htmlEscape(s string) string {
-	return html.EscapeString(s)
+	// stdlib html.EscapeString 把双引号转成 &#34;，与历史输出 &quot; 等价；
+	// 这里归一回 &quot; 保持邮件 HTML 输出不变，同时保留 stdlib 调用本身
+	// （code scanning 识别 html.EscapeString 为 email-injection sanitizer）。
+	return strings.ReplaceAll(html.EscapeString(s), "&#34;", "&quot;")
 }
 
 // DingTalkSender sends DingTalk group-bot notifications.
