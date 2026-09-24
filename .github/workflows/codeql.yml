@@ -51,8 +51,10 @@ jobs:
         with:
           languages: go
           # 高级设置默认不跑 alert-suppression 查询，// codeql[...] 抑制注释要生效
-          # 必须显式追加（附加在默认 suite 之上，+ 号保留默认安全查询）
-          queries: +codeql/go-queries:AlertSuppression.ql
+          # 必须显式追加（附加在默认 suite 之上，+ 号保留默认安全查询）。
+          # 本地查询包见 .github/codeql-custom/（registry pack:file 写法会被
+          # 解析成非法 external repository 而报错，只能走本地目录）。
+          queries: +./.github/codeql-custom
 
       - name: Build (for Go extractor)
         timeout-minutes: 15
