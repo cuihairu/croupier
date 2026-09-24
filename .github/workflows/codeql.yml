@@ -50,6 +50,9 @@ jobs:
         uses: github/codeql-action/init@v4
         with:
           languages: go
+          # 高级设置默认不跑 alert-suppression 查询，// codeql[...] 抑制注释要生效
+          # 必须显式追加（附加在默认 suite 之上，+ 号保留默认安全查询）
+          queries: +codeql/go-queries:AlertSuppression.ql
 
       - name: Build (for Go extractor)
         timeout-minutes: 15
