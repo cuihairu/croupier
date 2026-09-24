@@ -10,6 +10,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"html"
 	"io"
 	"mime"
 	"net"
@@ -569,14 +570,7 @@ func buildEmailBody(event NotificationEvent) string {
 }
 
 func htmlEscape(s string) string {
-	r := strings.NewReplacer(
-		"&", "&amp;",
-		"<", "&lt;",
-		">", "&gt;",
-		`"`, "&quot;",
-		"'", "&#39;",
-	)
-	return r.Replace(s)
+	return html.EscapeString(s)
 }
 
 // DingTalkSender sends DingTalk group-bot notifications.
