@@ -62,4 +62,19 @@ jobs:
 
       - name: Perform CodeQL Analysis
         timeout-minutes: 10
+        id: analyze
         uses: github/codeql-action/analyze@v4
+        with:
+          output: sarif-results
+
+      # GitHub 不会自动按 SARIF suppressions[] 关闭告警，需要官方 dismiss-alerts
+      # 把被 // codeql[...] 标记的结果 PATCH 为 dismissed（reason=won't fix）。
+      # 仅 main（默认分支）上执行，避免分支上误改全局告警状态。
+      - name: Dismiss suppressed alerts
+        if: github.ref == 'refs/heads/main'
+        uses: advanced-security/dismiss-alerts@v2
+        with:
+          sarif-id: ${{ steps.analyze.outputs.sarif-id }}
+          sarif-file: sarif-results/go.sarif
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
