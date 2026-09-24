@@ -466,7 +466,6 @@ func (e *EmailSender) defaultSendMail(ctx context.Context, msg *emailMessage) er
 	if err != nil {
 		return fmt.Errorf("smtp DATA: %w", err)
 	}
-	// codeql[go/email-injection]
 	// 抑制理由：该查询的 taint 配置（EmailInjectionCustomizations.qll）只有 source/sink、
 	// 不定义任何 sanitizer，因此收件人经 validateEmailAddress（mail.ParseAddress 拒绝 CR/LF，
 	// 断 SMTP 头注入）、主题/正文经 sanitizeEmailText 与 htmlEscape 的处理都"看不见"。
@@ -474,6 +473,8 @@ func (e *EmailSender) defaultSendMail(ctx context.Context, msg *emailMessage) er
 	// 静态渲染（buildEmailMessage 用 \r\n 定界且动态段已净化），攻击者无法注入头部或命令。
 	// 这是 GitHub 扫描器的建模盲区而非代码缺陷（业界同规则普遍采用带理由抑制，如
 	// infiniflow/ragflow 的 smtp.go），故按 CodeQL 指令抑制本行结果。
+	// 注意：codeql 指令必须紧贴被抑制语句的上一行才生效，理由写在指令上方。
+	// codeql[go/email-injection]
 	if _, err := writer.Write(buildEmailMessage(msg)); err != nil {
 		return fmt.Errorf("smtp write body: %w", err)
 	}
