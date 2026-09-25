@@ -326,6 +326,9 @@ func (c *MuxConn) Send(ctx context.Context, msgID uint32, body []byte) error {
 	return c.writeFrame(0, msgID, body)
 }
 
+// callPrecheckDone 测试接缝（见 Call 内注释），生产路径恒为 nil。
+var callPrecheckDone func()
+
 // Call sends a request and waits for the matching response on the same connection.
 func (c *MuxConn) Call(ctx context.Context, msgID uint32, reqBody []byte) (respMsgID uint32, respBody []byte, err error) {
 	if ctx == nil {
@@ -335,6 +338,13 @@ func (c *MuxConn) Call(ctx context.Context, msgID uint32, reqBody []byte) (respM
 	case <-c.closed:
 		return 0, nil, fmt.Errorf("connection closed")
 	default:
+	}
+	// callPrecheckDone 是测试接缝：位于 closed 预检与 pending 挂载之间，
+	// 确定性构造「Close 完成于两者之间」的窗口（mux_conn_close_race_test.go）。
+	// 真实连接在该窗口内 writeFrame 会失败并提前返回；静默写测试连接下才会
+	// 走到终 select 的 closed+空队列分支。生产路径恒为 nil。
+	if callPrecheckDone != nil {
+		callPrecheckDone()
 	}
 
 	reqID := c.nextReqID.Add(1)
@@ -358,6 +368,15 @@ func (c *MuxConn) Call(ctx context.Context, msgID uint32, reqBody []byte) (respM
 	case <-ctx.Done():
 		return 0, nil, ctx.Err()
 	case <-c.closed:
+		// Run 读到响应后才收到 EOF 并触发 Close 时，响应已由
+		// fulfillPending 入队（failPending 的非阻塞发送不会覆盖）。
+		// 两个 case 同时就绪，select 会随机偏向 closed——先非阻塞
+		// 取一次已送达的响应，避免把成功响应误报为连接关闭。
+		select {
+		case resp := <-respCh:
+			return resp.msgID, resp.body, resp.err
+		default:
+		}
 		return 0, nil, fmt.Errorf("connection closed")
 	case resp := <-respCh:
 		return resp.msgID, resp.body, resp.err
