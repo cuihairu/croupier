@@ -194,4 +194,82 @@ describe('compactSemanticsPayload', () => {
     expect(payload.itemQueryId).toBeUndefined();
     expect(payload.deleteId).toBeUndefined();
   });
+
+  it('任务可选子字段全缺省：taskId/status/events/result/cancel 逐项走 || 兜底', () => {
+    const payload = compactSemanticsPayload({
+      tasks: [
+        {
+          start: { functionId: '  t.optional  ' },
+          status: { function: { functionId: ' t.opt.status ' } },
+          events: { function: { functionId: ' t.ev ' } },
+          result: { function: { functionId: ' t.res ' } },
+          cancel: { function: { functionId: ' t.cancel ' } },
+        },
+      ],
+    } as unknown as UpdateResourceSemanticsRequest);
+
+    expect(payload.tasks).toEqual([
+      {
+        start: { functionId: 't.optional' },
+        taskId: { resultPath: '', valueType: 'string' },
+        status: { function: { functionId: 't.opt.status' }, taskIdInput: '', statePath: '' },
+        events: { function: { functionId: 't.ev' }, taskIdInput: '', eventsPath: '' },
+        result: { function: { functionId: 't.res' }, taskIdInput: '', resultPath: '' },
+        cancel: { function: { functionId: 't.cancel' }, taskIdInput: '' },
+      },
+    ]);
+  });
+
+  it('报表 query/datasetPath/dimensions/metrics 缺省：空 functionId 报表被丢弃', () => {
+    const payload = compactSemanticsPayload({
+      reports: [
+        { query: { functionId: '   ' } },
+        {
+          query: { functionId: ' r.two ' },
+          datasetPath: ' /ds2 ',
+          dimensions: [' d1 ', '  ', ' d2 '],
+          metrics: [' m1 '],
+        },
+        { query: {} },
+      ],
+    } as unknown as UpdateResourceSemanticsRequest);
+
+    expect(payload.reports).toEqual([
+      {
+        query: { functionId: 'r.two' },
+        datasetPath: '/ds2',
+        dimensions: ['d1', 'd2'],
+        metrics: ['m1'],
+      },
+    ]);
+  });
+});
+
+describe('pageTitleText / bindingFreshnessSummary 兜底', () => {
+  it('标题缺失时 localizedText 兜底恒为占位串（pageKey 分支见不可达分支说明）', () => {
+    expect(pageTitleText({ pageKey: 'resource--players', kind: 'draft' } as AffectedPageInfo)).toBe(
+      '-',
+    );
+    expect(pageTitleText({} as AffectedPageInfo)).toBe('-');
+  });
+
+  it('bindingFreshness 存在但为空数组同样返回「无」', () => {
+    expect(
+      bindingFreshnessSummary(intl, {
+        pageKey: 'p',
+        kind: 'draft',
+        bindingFreshness: [],
+      } as AffectedPageInfo),
+    ).toBe('无');
+  });
+
+  it('bindingFreshness 只有单项时直接返回该状态', () => {
+    expect(
+      bindingFreshnessSummary(intl, {
+        pageKey: 'p',
+        kind: 'draft',
+        bindingFreshness: [{ status: 'stale' }],
+      } as unknown as AffectedPageInfo),
+    ).toBe('stale');
+  });
 });

@@ -6,7 +6,7 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { App } from 'antd';
 import EditorModal from '../EditorModal';
 import type { MenuItem } from '@/services/api/menu';
-import type { PageSpecDraft } from '@/types/dashboard';
+import type { BindingFreshnessDiagnostic, PageSpecDraft } from '@/types/dashboard';
 
 jest.mock('@umijs/max', () => ({
   useIntl: () => ({
@@ -61,6 +61,9 @@ const draft: PageSpecDraft = {
 
 function renderModal(props: Partial<Parameters<typeof EditorModal>[0]> = {}) {
   const onSave = jest.fn();
+  const onClose = jest.fn();
+  const onLivePreviewChange = jest.fn();
+  const onSyncSelectors = jest.fn();
   const utils = render(
     <App>
       <EditorModal
@@ -70,16 +73,16 @@ function renderModal(props: Partial<Parameters<typeof EditorModal>[0]> = {}) {
         livePreview={false}
         saving={false}
         menus={MENUS}
-        onClose={jest.fn()}
-        onLivePreviewChange={jest.fn()}
+        onClose={onClose}
+        onLivePreviewChange={onLivePreviewChange}
         onSave={onSave}
         onSpecChange={jest.fn()}
-        onSyncSelectors={jest.fn()}
+        onSyncSelectors={onSyncSelectors}
         {...props}
       />
     </App>,
   );
-  return { onSave, ...utils };
+  return { onSave, onClose, onLivePreviewChange, onSyncSelectors, ...utils };
 }
 
 async function selectMenu(optionText: string): Promise<void> {
@@ -187,5 +190,132 @@ describe('EditorModal 挂载菜单选择（body 内「页面信息」卡片）',
     const selector = document.querySelector('.ant-select') as HTMLElement;
     await waitFor(() => expect(selector.className).toContain('ant-select-disabled'));
     expect(screen.getByText('暂无菜单，可先在「菜单管理」创建')).toBeInTheDocument();
+  });
+});
+
+describe('EditorModal 弹窗基础行为', () => {
+  it('draft 为空：渲染「请选择页面」空态，不渲染编辑器', () => {
+    renderModal({ draft: null });
+    expect(screen.getByText('请选择页面')).toBeInTheDocument();
+    expect(screen.queryByTestId('page-editor')).not.toBeInTheDocument();
+  });
+
+  it('pageKey 缺省：标题回退占位 -', () => {
+    renderModal({ pageKey: '' });
+    expect(screen.getByText('-')).toBeInTheDocument();
+    expect(screen.queryByText('operation--inventory.consume')).not.toBeInTheDocument();
+  });
+
+  it('取消按钮触发 onClose', () => {
+    const { onClose } = renderModal();
+    fireEvent.click(screen.getByRole('button', { name: /取消/ }));
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('saving 时保存/发布按钮进入加载态', () => {
+    renderModal({ saving: true });
+    const draftBtn = screen.getByRole('button', { name: /仅保存草稿/ });
+    const publishBtn = screen.getByRole('button', { name: /保存并发布/ });
+    expect(draftBtn.className).toContain('ant-btn-loading');
+    expect(publishBtn.className).toContain('ant-btn-loading');
+  });
+});
+
+describe('EditorModal 绑定过期告警', () => {
+  const stale = (
+    bindingId: string,
+    functionId?: string,
+    message?: string,
+  ): BindingFreshnessDiagnostic => ({
+    bindingId,
+    functionId,
+    status: 'function_version_stale',
+    diagnostic: {
+      code: 'function_version_stale',
+      severity: 'warning',
+      message: message ?? '',
+      ...(functionId ? { functionId } : {}),
+    },
+  });
+
+  it('无 bindingFreshness：不渲染告警与同步按钮', () => {
+    renderModal();
+    expect(
+      screen.queryByText('页面绑定与函数契约不一致（发布会校验失败）'),
+    ).not.toBeInTheDocument();
+  });
+
+  it('有告警：逐条渲染 functionId（缺省回退 bindingId）与诊断消息', () => {
+    renderModal({
+      draft: {
+        ...draft,
+        bindingFreshness: [stale('b-1', 'fn.a', '契约已变更'), stale('b-2', undefined, '')],
+      },
+    });
+
+    expect(screen.getByText('页面绑定与函数契约不一致（发布会校验失败）')).toBeInTheDocument();
+    expect(screen.getByText('fn.a')).toBeInTheDocument();
+    expect(screen.getByText('：契约已变更')).toBeInTheDocument();
+    // 无 functionId → 回退 bindingId；无 message → 不追加冒号
+    expect(screen.getByText('b-2')).toBeInTheDocument();
+    expect(screen.queryByText('：')).not.toBeInTheDocument();
+  });
+
+  it('超过 8 条：截断列表并展示「…以及另外 N 条」', () => {
+    const items = Array.from({ length: 10 }, (_, i) => stale(`b-${i}`, `fn.${i}`));
+    renderModal({ draft: { ...draft, bindingFreshness: items } });
+
+    expect(screen.getByText('fn.7')).toBeInTheDocument();
+    expect(screen.queryByText('fn.8')).not.toBeInTheDocument();
+    expect(screen.getByText('…以及另外 2 条')).toBeInTheDocument();
+  });
+
+  it('一键同步 Selector 按钮触发 onSyncSelectors', () => {
+    const { onSyncSelectors } = renderModal({
+      draft: { ...draft, bindingFreshness: [stale('b-1', 'fn.a', 'msg')] },
+    });
+    fireEvent.click(screen.getByRole('button', { name: '一键同步 Selector' }));
+    expect(onSyncSelectors).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('EditorModal 实时预览开关', () => {
+  it('livePreview 关：无预览卡片；点击开关触发回调', () => {
+    const { onLivePreviewChange } = renderModal({ livePreview: false });
+    expect(screen.queryByText('实时预览')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('page-renderer')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('switch'));
+    // antd Switch onChange = (checked, event)
+    expect(onLivePreviewChange).toHaveBeenNthCalledWith(1, true, expect.anything());
+  });
+
+  it('livePreview 开：渲染预览卡片与提示，关闭后消失', () => {
+    const { rerender, onLivePreviewChange } = renderModal({ livePreview: true });
+    expect(screen.getByText('实时预览')).toBeInTheDocument();
+    expect(screen.getByTestId('page-renderer')).toBeInTheDocument();
+    expect(screen.getByText('预览不执行函数；发布后请在运行控制台执行')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('switch'));
+    expect(onLivePreviewChange).toHaveBeenNthCalledWith(1, false, expect.anything());
+
+    rerender(
+      <App>
+        <EditorModal
+          open
+          pageKey="operation--inventory.consume"
+          draft={draft}
+          livePreview={false}
+          saving={false}
+          menus={MENUS}
+          onClose={jest.fn()}
+          onLivePreviewChange={jest.fn()}
+          onSave={jest.fn()}
+          onSpecChange={jest.fn()}
+          onSyncSelectors={jest.fn()}
+        />
+      </App>,
+    );
+    expect(screen.queryByText('实时预览')).not.toBeInTheDocument();
   });
 });

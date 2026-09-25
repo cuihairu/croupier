@@ -20,8 +20,10 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"log/slog"
 	"os"
 	"sync"
@@ -34,31 +36,48 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
+// exit 是 os.Exit 的测试注入点：main 只经由它退出，测试替换后可直接调用
+// main 断言退出码而不终止测试进程；生产路径等价于 os.Exit(code)。
+var exit = os.Exit
+
 func main() {
-	addr := flag.String("addr", "127.0.0.1:19090", "server control-plane TCP address")
-	agentID := flag.String("agent-id", "", "agent id (required)")
-	gameID := flag.String("game-id", "", "game scope id")
-	env := flag.String("env", "", "environment (e.g. dev/prod)")
-	version := flag.String("version", "e2e-probe-1.0", "agent version reported at register")
-	insecure := flag.Bool("insecure", true, "use plain TCP (skip TLS)")
-	skipHeartbeat := flag.Bool("skip-heartbeat", false, "skip the post-register heartbeat probe")
-	timeout := flag.Duration("timeout", 10*time.Second, "register/heartbeat timeout")
-	ttlSeconds := flag.Uint("ttl-seconds", 0, "session ttl in seconds (0 = server default)")
+	exit(runMain(os.Args[0], os.Args[1:], os.Stdout, os.Stderr))
+}
+
+// runMain 解析 flag 并执行探针，返回进程退出码：
+// 0=成功，1=运行期失败（诊断已写 stderr），2=flag 解析错误（-h 为 0）。
+func runMain(prog string, args []string, stdout, stderr io.Writer) int {
+	fs := flag.NewFlagSet(prog, flag.ContinueOnError)
+	fs.SetOutput(stderr)
+	addr := fs.String("addr", "127.0.0.1:19090", "server control-plane TCP address")
+	agentID := fs.String("agent-id", "", "agent id (required)")
+	gameID := fs.String("game-id", "", "game scope id")
+	env := fs.String("env", "", "environment (e.g. dev/prod)")
+	version := fs.String("version", "e2e-probe-1.0", "agent version reported at register")
+	insecure := fs.Bool("insecure", true, "use plain TCP (skip TLS)")
+	skipHeartbeat := fs.Bool("skip-heartbeat", false, "skip the post-register heartbeat probe")
+	timeout := fs.Duration("timeout", 10*time.Second, "register/heartbeat timeout")
+	ttlSeconds := fs.Uint("ttl-seconds", 0, "session ttl in seconds (0 = server default)")
 	// Serve-mode flags.
-	mockTask := flag.String("mock-task", "", "serve mode: function id to declare and serve")
-	serveDuration := flag.Duration("serve-duration", 60*time.Second, "serve mode: max runtime")
-	exitAfterTasks := flag.Int("exit-after-tasks", 0, "serve mode: exit once this many StartTask requests are received (0 = only serve-duration)")
-	stepMs := flag.Int("step-ms", 60, "serve mode: milliseconds between progress events")
-	flag.Parse()
+	mockTask := fs.String("mock-task", "", "serve mode: function id to declare and serve")
+	serveDuration := fs.Duration("serve-duration", 60*time.Second, "serve mode: max runtime")
+	exitAfterTasks := fs.Int("exit-after-tasks", 0, "serve mode: exit once this many StartTask requests are received (0 = only serve-duration)")
+	stepMs := fs.Int("step-ms", 60, "serve mode: milliseconds between progress events")
+	if err := fs.Parse(args); err != nil {
+		if errors.Is(err, flag.ErrHelp) {
+			return 0
+		}
+		return 2
+	}
 
 	if *agentID == "" {
-		fail("-agent-id is required")
+		return fail(stderr, "-agent-id is required")
 	}
 	if *stepMs < 0 {
 		*stepMs = 0
 	}
 
-	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelInfo}))
+	logger := slog.New(slog.NewTextHandler(stderr, &slog.HandlerOptions{Level: slog.LevelInfo}))
 
 	// Dial and wrap in a MuxConn so we can both Call (Register/Heartbeat) and
 	// receive inbound requests (StartTask/Cancel) on the same session.
@@ -68,7 +87,7 @@ func main() {
 		ConnectTimeout: 5 * time.Second,
 	})
 	if err != nil {
-		fail("dial %s: %v", *addr, err)
+		return fail(stderr, "dial %s: %v", *addr, err)
 	}
 
 	taskCh := make(chan struct{}, 64)
@@ -84,7 +103,7 @@ func main() {
 		logger: logger,
 	}
 	mux := tcp.NewMuxConn(conn, &tcp.Config{RecvTimeout: 30 * time.Second, SendTimeout: 10 * time.Second}, handler)
-	handler.mux = mux
+	handler.send = mux.Send
 
 	runCtx, runCancel := context.WithCancel(context.Background())
 	defer runCancel()
@@ -110,59 +129,41 @@ func main() {
 	}
 	regBody, err := call(mux, *timeout, protocol.MsgRegisterRequest, regReq, protocol.MsgRegisterResponse)
 	if err != nil {
-		fail("register: %v", err)
+		return fail(stderr, "register: %v", err)
 	}
 	regResp := &agentv1.RegisterResponse{}
 	if err := proto.Unmarshal(regBody, regResp); err != nil {
-		fail("unmarshal RegisterResponse: %v", err)
+		return fail(stderr, "unmarshal RegisterResponse: %v", err)
 	}
 	if regResp.GetSessionId() == "" {
-		fail("register returned empty session id")
+		return fail(stderr, "register returned empty session id")
 	}
-	fmt.Fprintf(os.Stderr, "registered agent=%s session=%s game=%s env=%s functions=%d\n",
+	fmt.Fprintf(stderr, "registered agent=%s session=%s game=%s env=%s functions=%d\n",
 		*agentID, regResp.GetSessionId(), *gameID, *env, len(regReq.Functions))
 
 	// 2. Heartbeat — validates the post-register state machine.
 	if !*skipHeartbeat {
 		hbReq := &agentv1.HeartbeatRequest{AgentId: *agentID}
 		if _, err := call(mux, *timeout, protocol.MsgHeartbeatRequest, hbReq, protocol.MsgHeartbeatResponse); err != nil {
-			fail("heartbeat: %v", err)
+			return fail(stderr, "heartbeat: %v", err)
 		}
-		fmt.Fprintf(os.Stderr, "heartbeat ok agent=%s\n", *agentID)
+		fmt.Fprintf(stderr, "heartbeat ok agent=%s\n", *agentID)
 	}
 
 	// 3. Handshake mode: done.
 	if *mockTask == "" {
 		runCancel()
 		<-runErrCh
-		fmt.Println("e2e-agent-probe: PASS")
-		return
+		fmt.Fprintln(stdout, "e2e-agent-probe: PASS")
+		return 0
 	}
 
 	// 4. Serve mode: stay connected until exitAfterTasks reached or serveDuration.
-	fmt.Fprintf(os.Stderr, "serving function=%s exit-after-tasks=%d max=%s step=%dms\n",
+	fmt.Fprintf(stderr, "serving function=%s exit-after-tasks=%d max=%s step=%dms\n",
 		*mockTask, *exitAfterTasks, *serveDuration, *stepMs)
 
-	deadline := time.NewTimer(*serveDuration)
-	defer deadline.Stop()
-servedLoop:
-	for {
-		select {
-		case <-deadline.C:
-			break servedLoop
-		case <-taskCh:
-			handler.mu.Lock()
-			n := handler.tasksHandled
-			handler.mu.Unlock()
-			if *exitAfterTasks > 0 && n >= *exitAfterTasks {
-				break servedLoop
-			}
-		case err := <-runErrCh:
-			if err != nil {
-				fail("mux run ended early: %v", err)
-			}
-			break servedLoop
-		}
+	if err := serveLoop(handler, taskCh, runErrCh, *exitAfterTasks, *serveDuration); err != nil {
+		return fail(stderr, "mux run ended early: %v", err)
 	}
 
 	// Grace period then drain: wait for any in-flight cancel to arrive and be
@@ -182,11 +183,39 @@ servedLoop:
 	tasks := handler.tasksHandled
 	cancels := handler.cancelsHandled
 	handler.mu.Unlock()
-	fmt.Fprintf(os.Stderr, "served tasks=%d cancels=%d\n", tasks, cancels)
+	fmt.Fprintf(stderr, "served tasks=%d cancels=%d\n", tasks, cancels)
 	if tasks == 0 {
-		fail("serve mode: no tasks received (dispatcher did not route to this probe)")
+		return fail(stderr, "serve mode: no tasks received (dispatcher did not route to this probe)")
 	}
-	fmt.Println("e2e-agent-probe: PASS")
+	fmt.Fprintln(stdout, "e2e-agent-probe: PASS")
+	return 0
+}
+
+// serveLoop 是 serve 模式的等待循环：serve-duration 到期、exit-after-tasks
+// 达成或会话提前结束时退出。返回非 nil 表示 mux 会话异常结束（调用方 fail）。
+func serveLoop(handler *probeHandler, taskCh <-chan struct{}, runErrCh <-chan error, exitAfterTasks int, serveDuration time.Duration) error {
+	deadline := time.NewTimer(serveDuration)
+	defer deadline.Stop()
+servedLoop:
+	for {
+		select {
+		case <-deadline.C:
+			break servedLoop
+		case <-taskCh:
+			handler.mu.Lock()
+			n := handler.tasksHandled
+			handler.mu.Unlock()
+			if exitAfterTasks > 0 && n >= exitAfterTasks {
+				break servedLoop
+			}
+		case err := <-runErrCh:
+			if err != nil {
+				return err
+			}
+			break servedLoop
+		}
+	}
+	return nil
 }
 
 // call marshals req, sends it as msgID, and asserts the response is respMsgID.
@@ -210,7 +239,6 @@ func call(mux *tcp.MuxConn, timeout time.Duration, msgID uint32, req proto.Messa
 // probeHandler is the mock agent: it answers StartTask/Cancel and streams
 // TaskEvents upstream via the shared MuxConn.
 type probeHandler struct {
-	mux            *tcp.MuxConn
 	stepMs         int
 	mu             sync.Mutex
 	tasksHandled   int
@@ -219,6 +247,8 @@ type probeHandler struct {
 	inflight       sync.WaitGroup
 	onTask         func()
 	logger         *slog.Logger
+	// send 是 TaskEvent 上行通道：生产实现为 mux.Send，测试注入记录器。
+	send func(ctx context.Context, msgID uint32, body []byte) error
 }
 
 // Handle implements transport.Handler.
@@ -302,10 +332,8 @@ func (h *probeHandler) runMockTask(taskID string) {
 			return
 		case <-time.After(step):
 		}
+		// 步长固定 20、从 0 起：progress 恰好停在 100，原 `>100` clamp 为死代码。
 		progress += 20
-		if progress > 100 {
-			progress = 100
-		}
 		h.sendEvent(taskID, "progress", "", int32(progress), nil)
 	}
 	result, _ := json.Marshal(map[string]any{"ok": true, "agent": "e2e-probe"})
@@ -325,7 +353,7 @@ func (h *probeHandler) sendEvent(taskID, etype, msg string, progress int32, payl
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	if err := h.mux.Send(ctx, protocol.MsgTaskEvent, body); err != nil {
+	if err := h.send(ctx, protocol.MsgTaskEvent, body); err != nil {
 		h.logger.Warn("send task event failed", "task_id", taskID, "type", etype, "error", err)
 	}
 }
@@ -340,7 +368,8 @@ func (h *probeHandler) waitIdle(ctx context.Context) {
 	}
 }
 
-func fail(format string, args ...any) {
-	fmt.Fprintf(os.Stderr, "e2e-agent-probe: FAIL — "+format+"\n", args...)
-	os.Exit(1)
+// fail 打印诊断并返回退出码 1；真正的进程出口由 main 的 exit 执行。
+func fail(stderr io.Writer, format string, args ...any) int {
+	fmt.Fprintf(stderr, "e2e-agent-probe: FAIL — "+format+"\n", args...)
+	return 1
 }

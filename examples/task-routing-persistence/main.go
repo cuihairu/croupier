@@ -10,18 +10,28 @@ import (
 )
 
 func main() {
+	if err := run("data"); err != nil {
+		log.Fatal(err)
+	}
+}
+
+func run(dataDir string) error {
 	fmt.Println("=== Task Routing Persistence Demo ===")
 
 	// Create registry store
 	registryStore := registry.NewStore()
 
 	// Create dispatcher with file-based task routing store
-	taskStore, err := dispatch.NewFileTaskRoutingStore("data")
+	taskStore, err := dispatch.NewFileTaskRoutingStore(dataDir)
 	if err != nil {
-		log.Fatalf("Failed to create task routing store: %v", err)
+		return fmt.Errorf("Failed to create task routing store: %v", err)
 	}
 	defer func() { _ = taskStore.Close() }()
 
+	return demonstrate(registryStore, taskStore)
+}
+
+func demonstrate(registryStore *registry.Store, taskStore dispatch.TaskRoutingStore) error {
 	// Create dispatcher with persistent task store
 	dispatcher := dispatch.NewDispatcherWithTaskStore(registryStore, taskStore, nil)
 	defer func() { _ = dispatcher.Close() }()
@@ -47,7 +57,7 @@ func main() {
 	fmt.Println("\n2. Listing all task routes...")
 	routings, err := taskStore.List()
 	if err != nil {
-		log.Fatalf("Failed to list task routes: %v", err)
+		return fmt.Errorf("Failed to list task routes: %v", err)
 	}
 
 	for _, routing := range routings {
@@ -79,7 +89,7 @@ func main() {
 	fmt.Println("\n5. Checking remaining tasks...")
 	routings, err = taskStore.List()
 	if err != nil {
-		log.Fatalf("Failed to list task routes: %v", err)
+		return fmt.Errorf("Failed to list task routes: %v", err)
 	}
 
 	fmt.Printf("   Remaining tasks: %d\n", len(routings))
@@ -91,11 +101,12 @@ func main() {
 	fmt.Println("\n6. Testing cleanup of old tasks...")
 	time.Sleep(10 * time.Millisecond) // Ensure tasks are considered "old"
 	if err := dispatcher.CleanupOldTasks(1 * time.Millisecond); err != nil {
-		log.Fatalf("Failed to cleanup old tasks: %v", err)
+		return fmt.Errorf("Failed to cleanup old tasks: %v", err)
 	}
 
 	routings, _ = taskStore.List()
 	fmt.Printf("   Tasks after cleanup: %d\n", len(routings))
 
 	fmt.Println("\n=== Demo Complete ===")
+	return nil
 }

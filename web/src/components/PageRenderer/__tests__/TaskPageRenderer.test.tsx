@@ -578,6 +578,17 @@ describe('审批刷新', () => {
     fireEvent.click(screen.getByRole('button', { name: /刷新审批状态/ }));
     await waitFor(() => expect(screen.getByText('net')).toBeInTheDocument());
   });
+
+  it('approved 但未带 resultKind：审批单号保留，Alert 呈 success 色（L771 中支）', async () => {
+    const { onQueryApprovalStatus } = await toApproval();
+    onQueryApprovalStatus.mockResolvedValueOnce({ approvalId: 'apr-1', status: 'approved' });
+    fireEvent.click(screen.getByRole('button', { name: /刷新审批状态/ }));
+
+    await waitFor(() => expect(document.querySelector('.ant-alert-success')).toBeInTheDocument());
+    expect(screen.getByText(/审批状态：approved/)).toBeInTheDocument();
+    // 未声明 resultKind → 既不续接任务也不置完成，审批单号保留 → 刷新入口仍在
+    expect(screen.getByRole('button', { name: /刷新审批状态/ })).toBeInTheDocument();
+  });
 });
 
 describe('渲染分支', () => {
@@ -919,5 +930,11 @@ describe('审批单号与进度渲染（分支补齐）', () => {
 // - normalizeTaskStatusFromExecution 的 previous 假值侧（L253 右支）：轮询启动前
 //   taskStatusRef 恒被同步写入（提交/审批分流/轮询三路径均如此）；
 // - handleCancel 的 taskStatusRef 空值侧（L613 右支）：取消按钮存在即有 taskStatus；
-// - Progress status 的 approved→success（L762 中支）：两条 approved 路径均同步
-//   setApprovalId('')，React 批处理下无「已通过但 Alert 仍在」的渲染窗口。
+// - pageStateForTask 的 `|| 'taskId'`（L265 右支）：入口 taskIdStateKey 已在
+//   L323 `spec.taskView.taskIdStateKey || 'taskId'` 归一，调用方恒传真值 key；
+// - pollingRef 的 5 处清理/续排分支（L358-361 / L385-388 / L421-424 /
+//   L465 schedulePoll / L474-477）：pollingRef.current 仅由 schedulePoll 写入，
+//   而首查后的续排判断 `pollingRef.current !== null` 在首查时恒为 false——
+//   轮询实际只发一次（遗留缺陷，非测试缺口），故 timer 清理与续排体不可达。
+// （approved→success（L771 中支）已由「approved 但未带 resultKind」用例覆盖：
+//   resultKind 为可选字段，缺省时既不续接任务也不置完成，审批单号保留。）

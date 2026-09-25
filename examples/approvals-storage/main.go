@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"log"
 	"os"
@@ -10,25 +11,34 @@ import (
 	"github.com/google/uuid"
 )
 
+// errUsage 表示用法已输出（stdout），main 只需以退出码 1 结束，
+// 不再重复打印错误。
+var errUsage = errors.New("usage printed")
+
 func main() {
-	// 检查命令行参数
-	if len(os.Args) < 2 {
-		fmt.Printf("用法: %s <存储类型> [DSN]\n", os.Args[0])
-		fmt.Println("存储类型:")
-		fmt.Println("  mem     - 内存存储（默认）")
-		fmt.Println("  sqlite  - SQLite 存储")
-		fmt.Println("  pg      - PostgreSQL 存储")
-		fmt.Println("\n示例:")
-		fmt.Printf("  %s mem\n", os.Args[0])
-		fmt.Printf("  %s sqlite data/approvals.db\n", os.Args[0])
-		fmt.Printf("  %s pg postgres://user:pass@localhost:5432/db?sslmode=disable\n", os.Args[0])
+	if err := run(os.Args); err != nil {
+		if !errors.Is(err, errUsage) {
+			log.Print(err)
+		}
 		os.Exit(1)
 	}
+}
 
-	storeType := os.Args[1]
+func run(args []string) error {
+	// 检查命令行参数
+	prog := ""
+	if len(args) > 0 {
+		prog = args[0]
+	}
+	if len(args) < 2 {
+		printUsage(prog)
+		return errUsage
+	}
+
+	storeType := args[1]
 	var dsn string
-	if len(os.Args) > 2 {
-		dsn = os.Args[2]
+	if len(args) > 2 {
+		dsn = args[2]
 	}
 
 	// 创建存储
@@ -47,27 +57,39 @@ func main() {
 		}
 		store, err = approvals.NewSQLiteStore(dsn)
 		if err != nil {
-			log.Fatalf("创建 SQLite 存储失败: %v", err)
+			return fmt.Errorf("创建 SQLite 存储失败: %v", err)
 		}
 		fmt.Printf("使用 SQLite 存储: %s\n", dsn)
 	case "pg":
 		if dsn == "" {
-			log.Fatal("PostgreSQL 需要提供 DSN")
+			return errors.New("PostgreSQL 需要提供 DSN")
 		}
 		store, err = approvals.NewPGStore(dsn)
 		if err != nil {
-			log.Fatalf("创建 PostgreSQL 存储失败: %v", err)
+			return fmt.Errorf("创建 PostgreSQL 存储失败: %v", err)
 		}
 		fmt.Printf("使用 PostgreSQL 存储: %s\n", dsn)
 	default:
-		log.Fatalf("不支持的存储类型: %s", storeType)
+		return fmt.Errorf("不支持的存储类型: %s", storeType)
 	}
 
 	// 演示存储操作
-	demonstrateStore(store)
+	return demonstrateStore(store)
 }
 
-func demonstrateStore(store approvals.Store) {
+func printUsage(prog string) {
+	fmt.Printf("用法: %s <存储类型> [DSN]\n", prog)
+	fmt.Println("存储类型:")
+	fmt.Println("  mem     - 内存存储（默认）")
+	fmt.Println("  sqlite  - SQLite 存储")
+	fmt.Println("  pg      - PostgreSQL 存储")
+	fmt.Println("\n示例:")
+	fmt.Printf("  %s mem\n", prog)
+	fmt.Printf("  %s sqlite data/approvals.db\n", prog)
+	fmt.Printf("  %s pg postgres://user:pass@localhost:5432/db?sslmode=disable\n", prog)
+}
+
+func demonstrateStore(store approvals.Store) error {
 	fmt.Println("\n=== 演示 Approvals 存储操作 ===")
 
 	// 1. 创建一个待审批的请求
@@ -87,7 +109,7 @@ func demonstrateStore(store approvals.Store) {
 	fmt.Printf("\n1. 创建审批请求: %s\n", approval.ID)
 	created, err := store.Create(approval)
 	if err != nil {
-		log.Fatalf("创建失败: %v", err)
+		return fmt.Errorf("创建失败: %v", err)
 	}
 	fmt.Printf("   状态: %s\n", created.State)
 	fmt.Printf("   功能: %s\n", created.FunctionID)
@@ -96,7 +118,7 @@ func demonstrateStore(store approvals.Store) {
 	fmt.Printf("\n2. 获取审批请求\n")
 	retrieved, err := store.Get(approval.ID)
 	if err != nil {
-		log.Fatalf("获取失败: %v", err)
+		return fmt.Errorf("获取失败: %v", err)
 	}
 	fmt.Printf("   创建时间: %s\n", retrieved.CreatedAt.Format("2006-01-02 15:04:05"))
 
@@ -107,7 +129,7 @@ func demonstrateStore(store approvals.Store) {
 		approvals.Page{Page: 1, Size: 10},
 	)
 	if err != nil {
-		log.Fatalf("列表查询失败: %v", err)
+		return fmt.Errorf("列表查询失败: %v", err)
 	}
 	fmt.Printf("   总数: %d\n", total)
 	fmt.Printf("   当前页: %d\n", len(pending))
@@ -151,7 +173,7 @@ func demonstrateStore(store approvals.Store) {
 		approvals.Page{Size: 10},
 	)
 	if err != nil {
-		log.Fatalf("按游戏过滤失败: %v", err)
+		return fmt.Errorf("按游戏过滤失败: %v", err)
 	}
 	fmt.Printf("   game-001 的审批: %d\n", len(gameApprovals))
 
@@ -161,7 +183,7 @@ func demonstrateStore(store approvals.Store) {
 		approvals.Page{Size: 10},
 	)
 	if err != nil {
-		log.Fatalf("按状态过滤失败: %v", err)
+		return fmt.Errorf("按状态过滤失败: %v", err)
 	}
 	fmt.Printf("   已批准的审批: %d\n", len(rejected))
 
@@ -170,7 +192,7 @@ func demonstrateStore(store approvals.Store) {
 	fmt.Printf("   批准审批: %s\n", approval.ID)
 	approved, err := store.Approve(approval.ID, "demo-admin")
 	if err != nil {
-		log.Fatalf("批准失败: %v", err)
+		return fmt.Errorf("批准失败: %v", err)
 	}
 	fmt.Printf("   新状态: %s\n", approved.State)
 	fmt.Printf("   更新时间: %s\n", approved.UpdatedAt.Format("2006-01-02 15:04:05"))
@@ -179,7 +201,7 @@ func demonstrateStore(store approvals.Store) {
 	fmt.Printf("\n   拒绝审批: %s\n", testApprovals[0].ID)
 	rejectedApproval, err := store.Reject(testApprovals[0].ID, "缺少必要信息", "demo-admin")
 	if err != nil {
-		log.Fatalf("拒绝失败: %v", err)
+		return fmt.Errorf("拒绝失败: %v", err)
 	}
 	fmt.Printf("   新状态: %s\n", rejectedApproval.State)
 	fmt.Printf("   拒绝原因: %s\n", rejectedApproval.Reason)
@@ -201,7 +223,7 @@ func demonstrateStore(store approvals.Store) {
 
 	_, total, err = store.List(approvals.Filter{}, approvals.Page{Size: 1})
 	if err != nil {
-		log.Fatalf("获取总数失败: %v", err)
+		return fmt.Errorf("获取总数失败: %v", err)
 	}
 
 	fmt.Printf("   待审批: %d\n", len(pendingCount))
@@ -210,4 +232,5 @@ func demonstrateStore(store approvals.Store) {
 	fmt.Printf("   总计: %d\n", total)
 
 	fmt.Println("\n=== 演示完成 ===")
+	return nil
 }

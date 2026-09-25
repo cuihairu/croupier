@@ -421,6 +421,20 @@ describe('批量同步 Selector', () => {
     expect(await screen.findByText('批量同步 Selector 失败')).toBeInTheDocument();
     expect(onChanged).not.toHaveBeenCalled();
   });
+
+  it('响应缺 synced 字段：按 0 计数走成功态（res.synced?.length ?? 0，L367）', async () => {
+    const { onChanged } = renderPanel([makeRecord({ pageKey: 'p1' })]);
+    mockBulkSyncPageSelectors.mockResolvedValue({ total: 1 } as PageBulkSyncSelectorsResult);
+
+    fireEvent.click(screen.getByRole('button', { name: /批量同步 Selector/ }));
+    fireEvent.click(await screen.findByRole('button', { name: /OK|确\s*定/ }));
+
+    await waitFor(() => expect(mockBulkSyncPageSelectors).toHaveBeenCalledWith(['p1']));
+    expect(
+      await screen.findByText('已同步 0 个页面的草稿（未发布，可再一键重发布）'),
+    ).toBeInTheDocument();
+    await waitFor(() => expect(onChanged).toHaveBeenCalled());
+  });
 });
 
 describe('行内编辑与同步入口', () => {

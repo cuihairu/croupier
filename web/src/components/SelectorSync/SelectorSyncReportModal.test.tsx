@@ -5,7 +5,9 @@
  * functionId、输入/输出/需人工区块及 newTarget/newSource/required 缺省形态）、
  * 变更计数、剩余错误级诊断 warning（含 slice(0,8)）与清零 success、
  * Popconfirm 确认后 apply 成功（message.success/onApplied/按钮撤下）与
- * apply 失败（Error / 非 Error）。 */
+ * apply 失败（Error / 非 Error）、apply 的自动发布反馈三态
+ * （autoPublished 成功 / autoPublishError=publish_permission_required /
+ * autoPublishError 其它原因）。 */
 import React from 'react';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { message } from 'antd';
@@ -18,6 +20,7 @@ jest.mock('@/services/api/pages');
 const mockedGetDraft = jest.mocked(getPageDraft);
 const mockedSync = jest.mocked(syncPageSelectors);
 const successSpy = jest.spyOn(message, 'success');
+const warningSpy = jest.spyOn(message, 'warning');
 const errorSpy = jest.spyOn(message, 'error');
 
 const PAGE_KEY = 'demo-page';
@@ -377,3 +380,57 @@ describe('SelectorSyncReportModal：应用同步', () => {
     );
   });
 });
+
+describe('SelectorSyncReportModal：apply 的自动发布反馈', () => {
+  /** dry-run 计划就绪 + 点击确认应用；apply 响应由调用方注入 */
+  const applyWithResponse = async (applyResponse: Partial<SyncResp>) => {
+    mockedSync
+      .mockResolvedValueOnce(syncResponse({ syncedBindings: fullReport, remainingDiagnostics: [] }))
+      .mockResolvedValueOnce(
+        syncResponse({ dryRun: false, applied: true, draftRevision: 8, ...applyResponse }),
+      );
+    renderModal();
+
+    await screen.findByText('bind-1');
+    fireEvent.click(screen.getByRole('button', { name: '应用同步到草稿' }));
+    await clickPopconfirmOk('应用同步到草稿？');
+    await waitFor(() => expect(mockedSync).toHaveBeenCalledTimes(2));
+  };
+
+  it('autoPublished：提示已同步并自动发布（版本号插值）', async () => {
+    await applyWithResponse({ autoPublished: true });
+
+    await waitFor(() =>
+      expect(successSpy).toHaveBeenCalledWith('已同步并自动发布（版本 8），控制台即时生效'),
+    );
+  });
+
+  it('autoPublishError=publish_permission_required：提示转由有权限成员发布', async () => {
+    await applyWithResponse({ autoPublishError: 'publish_permission_required' });
+
+    await waitFor(() =>
+      expect(warningSpy).toHaveBeenCalledWith(
+        '已同步到草稿，但当前账号无发布权限，请转由有权限成员发布',
+      ),
+    );
+  });
+
+  it('autoPublishError=其它原因：提示自动发布失败并带原因与版本号', async () => {
+    await applyWithResponse({ autoPublishError: 'publish_denied' });
+
+    await waitFor(() =>
+      expect(warningSpy).toHaveBeenCalledWith(
+        '已同步到草稿（版本 8）；自动发布失败：publish_denied，请检查后手动发布',
+      ),
+    );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 判定为不可达的防御分支（放弃覆盖）：
+// - L336 / L368 / L410 的 `binding.input|output|manual || []` 右支：三处均在
+//   各自 `(binding.x || []).length > 0 ?` 守卫的真值侧内，守卫恒真时才进到
+//   map，`[]` 兜底永不求值；
+// - L378 `entry.newSource || '""'` 右支：位于 L375 `entry.newSource ?` 真值侧，
+//   渲染时 newSource 恒为真值。
+// ---------------------------------------------------------------------------

@@ -3,6 +3,7 @@ import { App, ConfigProvider } from 'antd';
 import { useAccess } from '@umijs/max';
 import MenuManagementPage from '../index';
 import { listPageDrafts } from '@/services/api/pages';
+import type { PageSpecDraftSummary } from '@/types/dashboard';
 import { createMenu, deleteMenu, listMenus, updateMenu, updateMenuSort } from '@/services/api/menu';
 
 jest.mock('@/services/api/menu', () => ({
@@ -29,7 +30,11 @@ jest.mock('@umijs/max', () => ({
         defaultMessage,
       ),
   }),
+  // 编辑页面跳转用（工厂内联创建，避免 TDZ）
+  history: { push: jest.fn() },
 }));
+
+const umiMock = jest.requireMock('@umijs/max') as { history: { push: jest.Mock } };
 
 const mockedAccess = useAccess as jest.MockedFunction<typeof useAccess>;
 const mockedListMenus = listMenus as jest.MockedFunction<typeof listMenus>;
@@ -83,7 +88,28 @@ const renderPage = () =>
 
 jest.setTimeout(20000);
 
+/** jsdom 未实现 DragEvent：RTL 会退回 Event，clientY/clientX 会丢失，
+ *  rc-tree 的「顶级上半区」判断需要真实坐标——补一个最小实现。 */
+class TestDragEvent extends Event {
+  dataTransfer: DataTransfer | null = null;
+  clientX = 0;
+  clientY = 0;
+  constructor(type: string, init: DragEventInit = {}) {
+    super(type, init);
+    this.clientX = init.clientX ?? 0;
+    this.clientY = init.clientY ?? 0;
+    this.dataTransfer = init.dataTransfer ?? null;
+  }
+}
+
 beforeAll(() => {
+  if (typeof window.DragEvent !== 'function') {
+    Object.defineProperty(window, 'DragEvent', {
+      value: TestDragEvent,
+      configurable: true,
+      writable: true,
+    });
+  }
   configure({ asyncUtilTimeout: 8000 });
 });
 
@@ -337,5 +363,56 @@ describe('MenuManagement page', () => {
     await screen.findByText('资源管理');
     expect(screen.queryByRole('button', { name: /新建菜单/ })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /编\s*辑/ })).not.toBeInTheDocument();
+  });
+
+  /** 页面草稿摘要（缺省挂到 资源管理(id=1)） */
+  const draftOf = (overrides: Partial<PageSpecDraftSummary> = {}): PageSpecDraftSummary => ({
+    pageKey: 'players',
+    type: 'resource',
+    title: { 'zh-CN': '玩家页面' },
+    category: { key: 'resource' },
+    menuId: 1,
+    status: 'draft',
+    draftRevision: 1,
+    updatedAt: '2026-09-20T00:00:00Z',
+    ...overrides,
+  });
+
+  it('页面草稿挂载：menuId>0 渲染菜单页叶子，点击「编辑页面」跳编辑器', async () => {
+    const noTitle = draftOf({ pageKey: 'no-title', menuId: 3 });
+    Reflect.deleteProperty(noTitle, 'title');
+    mockedListPageDrafts.mockResolvedValue([
+      draftOf(),
+      draftOf({ pageKey: 'zero-menu', menuId: 0 }),
+      draftOf({ pageKey: 'null-menu', menuId: null }),
+      noTitle,
+    ]);
+
+    renderPage();
+    await screen.findByText('玩家页面');
+
+    const editBtns = await screen.findAllByRole('button', { name: /编辑页面/ });
+    expect(editBtns).toHaveLength(2);
+    fireEvent.click(editBtns[0]);
+    expect(umiMock.history.push).toHaveBeenCalledWith('/functions/pages?focus=players');
+  });
+
+  it('拖拽到顶级空隙：parentId=null 以 0 兜底提交 updateMenu', async () => {
+    mockedUpdateMenu.mockResolvedValue(treeItems[0] as never);
+    mockedUpdateMenuSort.mockResolvedValue(treeItems[0] as never);
+    renderPage();
+    await screen.findByText('资源管理');
+
+    // clientY=-1 使 rc-tree 命中「首个顶级节点上半区」→ dropPosition=-1（gap/顶级）
+    const dataTransfer = makeDataTransfer();
+    const evt = { dataTransfer, clientY: -1 };
+    fireEvent.dragStart(rowOf('玩家管理'), evt);
+    fireEvent.dragEnter(rowOf('资源管理'), evt);
+    fireEvent.drop(rowOf('资源管理'), evt);
+
+    await waitFor(() => {
+      expect(mockedUpdateMenu).toHaveBeenCalledWith(2, { parentId: 0 });
+    });
+    expect(await screen.findByText('菜单排序已更新')).toBeInTheDocument();
   });
 });

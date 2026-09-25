@@ -283,6 +283,44 @@ describe('CompositeRenderer 动作链与参数缺省', () => {
     const noteInput = (await screen.findByLabelText('备注')) as HTMLInputElement;
     expect(noteInput.value).toBe('');
   });
+
+  it('rowAction 无 targetSection：走 else 支执行动作链 runBinding（L489-491）', async () => {
+    const sections: CompositeSection[] = [
+      {
+        key: 'mainTable',
+        bindingId: 'b-table',
+        view: 'table',
+        autoRun: true,
+        title: { 'zh-CN': '玩家列表' },
+        table: {
+          columns: [{ key: 'uid', title: { 'zh-CN': 'UID' } }],
+          rowActions: [
+            {
+              label: { 'zh-CN': '刷新统计' },
+              chain: [{ kind: 'runBinding', target: 'statPanel' }],
+            },
+          ],
+        },
+      },
+      { key: 'statPanel', bindingId: 'b-stat', view: 'fields', title: { 'zh-CN': '统计' } },
+    ];
+    const onExecute = jest
+      .fn()
+      .mockImplementation((bindingId: string) =>
+        Promise.resolve(
+          bindingId === 'b-table' ? { data: { items: [{ uid: 'u1' }] } } : { data: { hit: 1 } },
+        ),
+      );
+    renderComposite(sections, onExecute);
+    await screen.findByText('u1');
+    // 统计区块非 autoRun：执行前未被触发过
+    expect(onExecute.mock.calls.filter(([id]) => id === 'b-stat')).toHaveLength(0);
+
+    fireEvent.click(screen.getByRole('button', { name: '刷新统计' }));
+    await waitFor(() =>
+      expect(onExecute.mock.calls.filter(([id]) => id === 'b-stat')).toHaveLength(1),
+    );
+  });
 });
 
 describe('CompositeRenderer 分组缺省（group ?? key 兜底）', () => {
@@ -587,5 +625,8 @@ describe('CompositeRenderer 表格选中行事件（L451-453 复守）', () => {
 // - L374 `sec.toolbar?.actions || []`（表格卡片头工具栏）：调用点受 L408
 //   `actions.length > 0` 守卫，右侧死支；
 // - L451 `rows[0]` 假值侧：radio 型行选择不可反选，onChange 恒带选中行；
-// - L692 `sectionInputs[dialogKey] || {}`：openDialog 恒先写入同 key 输入。
+// - L692 `sectionInputs[dialogKey] || {}`：openDialog 恒先写入同 key 输入；
+// - L159 `finally` 的直落支（v8 block 计数为 0 的 finally 关键字块）：try 体
+//   末语句是 `return result`，只有「正常返回」与「抛异常进 catch」两条出口，
+//   不存在既不 return 也不 throw 的直落 finally 路径。
 // ---------------------------------------------------------------------------

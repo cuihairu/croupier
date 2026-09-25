@@ -47,6 +47,22 @@ describe('AnalyticsTab', () => {
     expect(document.body.textContent).toContain('97.5');
   });
 
+  it('有调用但成功率为 0 → 有调用分支 + 红色阈值，不显示「—」', async () => {
+    mockAnalytics.mockResolvedValue({
+      totalCalls: 50,
+      successRate: 0,
+      avgLatency: 12,
+      callsToday: 3,
+    });
+    render(<AnalyticsTab functionId="player.ban" />);
+
+    await waitFor(() => expect(mockAnalytics).toHaveBeenCalledWith('player.ban'));
+    expect(await screen.findByText('成功率')).toBeInTheDocument();
+    // hasCalls=true → 走 `successRate || 0` 与 `< 95` 的红色分支
+    expect(document.body.textContent).not.toContain('—');
+    expect(document.body.textContent).toContain('50');
+  });
+
   it('接口失败静默归零不崩', async () => {
     mockAnalytics.mockRejectedValue(new Error('boom'));
     render(<AnalyticsTab functionId="player.ban" />);

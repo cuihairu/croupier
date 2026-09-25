@@ -1023,3 +1023,68 @@ describe('function version floor APIs', () => {
     });
   });
 });
+
+describe('契约版本 / 版本基线兜底分支', () => {
+  it('listContractVersions 响应缺 items/page/size 时走 params 与默认值', async () => {
+    mockedRequest.mockResolvedValue({});
+
+    const res = await listContractVersions('fn.a', { page: 3, pageSize: 50 });
+
+    expect(res.items).toEqual([]);
+    expect(res.page).toBe(3);
+    expect(res.size).toBe(50);
+    expect(res.total).toBe(0);
+  });
+
+  it('asContractVersionItem 全字段形态：source/sourceDigest/actor + 非 string changeType 回落 updated', async () => {
+    mockedRequest.mockResolvedValue({
+      items: [
+        {
+          seq: 7,
+          version: '2.0.0',
+          source: 'openapi',
+          sourceDigest: 'digest-1',
+          changeType: 0,
+          actor: 'carol',
+          breaking: true,
+          createdAt: '2026-09-20T00:00:00Z',
+        },
+        {},
+      ],
+      total: 2,
+    });
+
+    const res = await listContractVersions('fn.a');
+
+    expect(res.items[0]).toMatchObject({
+      seq: 7,
+      version: '2.0.0',
+      source: 'openapi',
+      sourceDigest: 'digest-1',
+      changeType: 'updated',
+      breaking: true,
+      actor: 'carol',
+      createdAt: '2026-09-20T00:00:00Z',
+    });
+    expect(res.items[1]).toMatchObject({ seq: 0, changeType: 'updated', breaking: false });
+  });
+
+  it('getFunctionVersionFloor 缺 minVersion 时回落空串', async () => {
+    mockedRequest.mockResolvedValue({ updatedBy: 'admin' });
+
+    await expect(getFunctionVersionFloor('demo.fn')).resolves.toEqual({
+      functionId: 'demo.fn',
+      minVersion: '',
+      updatedBy: 'admin',
+    });
+  });
+
+  it('batchSetFunctionVersionFloor 响应缺 updated 时回落 0', async () => {
+    mockedRequest.mockResolvedValue({});
+
+    await expect(batchSetFunctionVersionFloor(['a.fn'], 'v3')).resolves.toEqual({
+      updated: 0,
+      failed: [],
+    });
+  });
+});

@@ -481,4 +481,45 @@ describe('Console/Page 页面渲染器', () => {
     });
     expect(mockedGetPublishedPage).toHaveBeenCalledTimes(1);
   });
+
+  it('getConsoleMenu 失败：走 catch 分支放弃 canonical 仲裁，不影响页面渲染', async () => {
+    mockedGetConsoleMenu.mockRejectedValue(new Error('menu net'));
+    setParams({ categoryKey: 'player', pageKey: 'resource--player' });
+
+    render(<ConsolePage />);
+
+    await waitFor(() => expect(mockedGetConsoleMenu).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(screen.getByTestId('page-renderer')).toBeInTheDocument());
+    // 菜单缺失 → canonical 空串 → 不重定向
+    expect(mockedReplace).not.toHaveBeenCalled();
+  });
+
+  it('契约失效（bindingFreshness 非空）：onExecute 抛错阻断执行', async () => {
+    setParams({ categoryKey: 'player', pageKey: 'resource--player' });
+    mockedGetPublishedPage.mockResolvedValue(
+      pageSpec({
+        bindingFreshness: [
+          {
+            bindingId: 'binding-stale-1',
+            functionId: 'fn-player-query',
+            status: 'input_schema_stale',
+            diagnostic: {
+              code: 'input_schema_stale',
+              severity: 'error',
+              message: '诊断一',
+            },
+          },
+        ],
+      }),
+    );
+
+    render(<ConsolePage />);
+
+    await waitFor(() => expect(screen.getByTestId('page-renderer')).toBeInTheDocument());
+    const rendererProps = mockedRenderer.mock.calls[0][0];
+    await expect(rendererProps.onExecute('binding-stale-1', { form: {} })).rejects.toThrow(
+      /执行已被阻断/,
+    );
+    expect(mockedExecutePageBinding).not.toHaveBeenCalled();
+  });
 });

@@ -1296,3 +1296,38 @@ describe('函数调用工作台：结果面板复制回调', () => {
     await waitFor(() => expect(spies.success).toHaveBeenCalledWith('已复制'));
   });
 });
+
+// ---------------------------------------------------------------------------
+// restoringRef 守卫与续跑空结果
+// ---------------------------------------------------------------------------
+
+describe('函数调用工作台：恢复与续跑残余分支', () => {
+  it('restore 同 tick 内切换函数 → restoringRef 守卫跳过表单重置', async () => {
+    getItemMock().mockReturnValue(JSON.stringify([SEEDED_HISTORY_ITEM]));
+    const { rerenderPage } = mountPage('?fid=fn.echo');
+    await act(async () => {});
+
+    toggleHistory();
+    fireEvent.click(screen.getByRole('button', { name: 'rh-select-first' }));
+    // restore 把 URL 推到 fn.bare；同一同步块内换 selected，effect 在
+    // restoringRef=true 时重跑并早退（否则会用 fn.bare 的 schema 默认值覆盖回填）
+    rerenderPage('?fid=fn.bare');
+
+    await waitFor(() => expect(mockedPush).toHaveBeenCalledWith('/functions/invoke?fid=fn.bare'));
+    expect(screen.getByTestId('rbe-rawjson')).toHaveTextContent('"seeded": true');
+  });
+
+  it('approved + continuation(sync, result=null)：结果面板展示 null', async () => {
+    mockedInvoke.mockResolvedValueOnce({ approvalRequired: true, approvalId: 'ap-null' });
+    mountPage('?fid=fn.echo');
+    await waitForFormReady();
+    clickSend();
+    const onUpdate = await waitForPollingUpdate();
+    act(() =>
+      onUpdate({ status: 'approved', continuation: true, resultKind: 'sync', result: null }),
+    );
+    await waitFor(() => expect(screen.getByTestId('ir-response-raw')).toHaveTextContent('null'));
+    expect(screen.getByTestId('rbe-rawjson')).toHaveTextContent('null');
+    expect(screen.queryByRole('button', { name: /重新调用/ })).toBeNull();
+  });
+});
