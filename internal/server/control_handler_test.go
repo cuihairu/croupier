@@ -2106,11 +2106,45 @@ func TestDescriptorUnknownFieldsAndSemverFallback(t *testing.T) {
 }
 
 // NewTCPListener nil 配置兜底。
+//
+// 该用例此前直接 NewTCPListener(nil, ...)，从而真的去 bind 生产默认端口
+// :19090（docs/BUGS.md BUG-001）。只要开发机上跑着本地栈（control.addr
+// 默认同为 :19090），或并行测试占着该端口，用例就会以
+// "bind: address already in use" 失败——一个与被测逻辑无关的环境耦合。
+//
+// 拆成两条：默认值用纯函数断言（不占端口），监听器可用性改用临时端口
+// （:0，由内核分配）验证。
 func TestNewTCPListener_NilConfigDefaults(t *testing.T) {
-	listener, err := NewTCPListener(nil, nil, nil, nil)
+	cfg := defaultTCPListenerConfig(nil)
+	require.NotNil(t, cfg)
+	assert.Equal(t, defaultControlAddress, cfg.Address, "nil 配置应回落到默认控制面地址")
+	assert.True(t, cfg.Insecure, "nil 配置应默认关闭 TLS")
+}
+
+// defaultTCPListenerConfig 对非 nil 配置是恒等返回：不得覆盖调用方显式设置。
+func TestNewTCPListener_ConfigDefaults_PreservesExplicitValues(t *testing.T) {
+	in := &TCPListenerConfig{Address: "127.0.0.1:0", Insecure: false, RecvTimeout: 7 * time.Second}
+	got := defaultTCPListenerConfig(in)
+	assert.Same(t, in, got, "非 nil 配置应原样返回，不得替换")
+	assert.Equal(t, "127.0.0.1:0", got.Address)
+	assert.False(t, got.Insecure, "不得擅自翻转显式的 TLS 开关")
+	assert.Equal(t, 7*time.Second, got.RecvTimeout)
+}
+
+// nil 依赖项（sessionStore/registry/logger）兜底 + 监听器可创建。
+// 用 :0 临时端口，避免与本地栈或并行用例抢占固定端口。
+func TestNewTCPListener_NilDepsUseDefaults(t *testing.T) {
+	listener, err := NewTCPListener(&TCPListenerConfig{Address: "127.0.0.1:0", Insecure: true}, nil, nil, nil)
 	require.NoError(t, err)
 	defer func() { _ = listener.Close() }()
-	assert.NotNil(t, listener)
+	require.NotNil(t, listener)
+	assert.NotNil(t, listener.sessionStore, "nil sessionStore 应兜底为新建 store")
+	assert.NotNil(t, listener.registry, "nil registry 应兜底为新建 store")
+	assert.NotNil(t, listener.logger, "nil logger 应兜底为 slog.Default()")
+	// 实际 bind 成功且拿到可用端口（内核分配的临时端口非 :0）
+	addr := listener.listener.Addr().String()
+	assert.NotEmpty(t, addr)
+	assert.NotEqual(t, defaultControlAddress, addr, "临时端口不应等于生产默认端口")
 }
 
 // LoadAgentSessions 的 loader 错误分支。

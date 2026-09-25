@@ -61,11 +61,26 @@ type TCPListener struct {
 	logger *slog.Logger
 }
 
+// defaultControlAddress is the Server-side Agent control-plane listen address
+// used when no configuration is supplied. Kept as a named constant so tests can
+// assert the default without binding the port (see TestNewTCPListener_NilConfigDefaults).
+const defaultControlAddress = ":19090"
+
+// defaultTCPListenerConfig returns config with nil fields defaulted.
+//
+// Split out of NewTCPListener so the defaulting contract is testable without
+// binding a fixed port: a test that constructs a listener with the real default
+// address fails whenever a local Server (or a parallel test) already owns it.
+func defaultTCPListenerConfig(config *TCPListenerConfig) *TCPListenerConfig {
+	if config != nil {
+		return config
+	}
+	return &TCPListenerConfig{Address: defaultControlAddress, Insecure: true}
+}
+
 // NewTCPListener creates a new TCP session listener.
 func NewTCPListener(config *TCPListenerConfig, sessionStore *AgentSessionStore, registry *reg.Store, logger *slog.Logger) (*TCPListener, error) {
-	if config == nil {
-		config = &TCPListenerConfig{Address: ":19090", Insecure: true}
-	}
+	config = defaultTCPListenerConfig(config)
 	if sessionStore == nil {
 		sessionStore = NewAgentSessionStore()
 	}
