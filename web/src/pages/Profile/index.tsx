@@ -28,7 +28,7 @@ import {
 import { useIntl, useLocation, useModel, useNavigate } from '@umijs/max';
 import { updateMyProfile } from '@/services/api/me';
 import { formatDateTime } from '@/utils/format';
-import { TAB_KEYS, type ProfileData } from './shared';
+import { TAB_KEYS, normalizeAvatarSrc, type ProfileData } from './shared';
 import { useProfileData } from './useProfileData';
 import InfoTab from './InfoTab';
 import SecurityTab from './SecurityTab';
@@ -76,7 +76,7 @@ export default function Profile() {
     openMessage,
     markAllRead,
     setDetailMessage,
-  } = useProfileData(form);
+  } = useProfileData();
 
   const infoSectionRef = useRef<HTMLDivElement>(null);
   const initialTab = useMemo(
@@ -184,7 +184,9 @@ export default function Profile() {
                 <Space align="center">
                   <Avatar
                     size={96}
-                    src={profile?.avatar}
+                    // 空串 src 会被浏览器当成「重新请求当前页」的 URL
+                    //（docs/BUGS.md BUG-007），统一归一为 undefined 走 icon 占位。
+                    src={normalizeAvatarSrc(profile?.avatar)}
                     icon={!profile?.avatar ? <UserOutlined /> : undefined}
                     style={{
                       border: '3px solid #1890ff',
@@ -391,7 +393,7 @@ export default function Profile() {
                       <Alert
                         showIcon
                         type="info"
-                        message={formatMessage('profile.sessions.unavailable')}
+                        title={formatMessage('profile.sessions.unavailable')}
                         style={{ marginBottom: 16 }}
                       />
                     ) : null}
@@ -418,7 +420,7 @@ export default function Profile() {
                       <Alert
                         showIcon
                         type="info"
-                        message={formatMessage('profile.notifications.unavailable')}
+                        title={formatMessage('profile.notifications.unavailable')}
                         style={{ marginBottom: 16 }}
                       />
                     ) : null}

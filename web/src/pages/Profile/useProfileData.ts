@@ -1,6 +1,5 @@
 import { useCallback, useMemo, useState } from 'react';
 import { App } from 'antd';
-import type { FormInstance } from 'antd';
 import { useIntl } from '@umijs/max';
 import {
   getMyGames,
@@ -21,8 +20,9 @@ import {
 } from './shared';
 
 /** Profile 页数据层：profile + 五类扩展数据（games/permissions/audit/login/messages）
- * 的一次性并行拉取与派生 memo。UI 编排状态（Tab/编辑态/弹窗）留在主页。 */
-export function useProfileData(form: FormInstance) {
+ * 的一次性并行拉取与派生 memo。UI 编排状态（Tab/编辑态/弹窗）留在主页。
+ * 表单回填不在本层——见下方 useProfileData 的说明。 */
+export function useProfileData() {
   const { message } = App.useApp();
   const intl = useIntl();
   const formatMessage = useCallback((id: string) => intl.formatMessage({ id }), [intl]);
@@ -94,16 +94,18 @@ export function useProfileData(form: FormInstance) {
     try {
       const p = await getMyProfile();
       setProfile(p);
-      form.setFieldsValue({
-        displayName: p.displayName || p.nickname,
-        email: p.email,
-        phone: p.phone,
-      });
+      // 注意：这里刻意**不**回填表单。表单实例由主页 useForm 创建，而承载
+      // <Form> 的 InfoTab 位于 Tabs 的「资料」面板内——antd Tabs 惰性渲染，
+      // 未激活的面板根本不挂载。若在此处 setFieldsValue，当用户直接停在
+      // ?tab=security 等其它标签时，实例处于「未连接」状态，antd 会报
+      // "Instance created by `useForm` is not connected to any Form element"
+      // （docs/BUGS.md BUG-008）。回填改由 InfoTab 在自身挂载时完成——
+      // 那正是表单存在、且回填才有意义的时候。
       loadExtras(p.username);
     } catch {
       message.error(formatMessage('profile.load.error'));
     }
-  }, [message, form, formatMessage, loadExtras]);
+  }, [message, formatMessage, loadExtras]);
 
   // 消息详情：打开未读消息即标记已读并刷新列表状态
   const openMessage = useCallback((item: MessageItem) => {

@@ -2,6 +2,21 @@ import type { JSONValue } from '@/types/dashboard';
 
 /** Profile 页共享常量与纯工具（Tab 键、审计元数据提取、申请模板类型）。 */
 
+/**
+ * 归一头像 URL：空串 / 空白串 → undefined。
+ *
+ * 后端在未设置头像时返回 `avatar: ""`。React 会把它原样渲染成 `<img src="">`，
+ * 而浏览器把空 src 解释为「重新请求当前页面的 URL」——既是一次无意义的请求，
+ * 也会触发 React 告警。归一为 undefined 后由 `<Avatar icon={...}>` 占位。
+ *
+ * 个人中心 hero 与头像弹窗共用此函数（docs/BUGS.md BUG-007）。
+ */
+export function normalizeAvatarSrc(value: string | null | undefined): string | undefined {
+  if (typeof value !== 'string') return undefined;
+  const trimmed = value.trim();
+  return trimmed === '' ? undefined : trimmed;
+}
+
 export const TAB_KEYS = {
   PROFILE: 'profile',
   SECURITY: 'security',

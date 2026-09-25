@@ -162,7 +162,7 @@ export default function PermissionsTab({
             <Alert
               showIcon
               type="info"
-              message={selected.name}
+              title={selected.name}
               description={`${selected.resource}:${selected.action}`}
             />
           )}

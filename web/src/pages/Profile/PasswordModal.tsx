@@ -38,7 +38,7 @@ export default function PasswordModal({ open, onClose }: { open: boolean; onClos
       }}
     >
       <Alert
-        message={formatMessage('profile.password.modal.warning')}
+        title={formatMessage('profile.password.modal.warning')}
         type="warning"
         showIcon
         style={{ marginBottom: 16 }}

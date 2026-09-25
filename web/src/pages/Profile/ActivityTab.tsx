@@ -24,7 +24,7 @@ export default function ActivityTab({
         <Alert
           showIcon
           type="info"
-          message={formatMessage('profile.activities.unavailable')}
+          title={formatMessage('profile.activities.unavailable')}
           style={{ marginBottom: 16 }}
         />
       ) : null}

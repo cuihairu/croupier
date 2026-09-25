@@ -6,6 +6,7 @@ import { InboxOutlined, UserOutlined } from '@ant-design/icons';
 import { useIntl } from '@umijs/max';
 import { updateMyProfile } from '@/services/api/me';
 import { buildAvatarObjectKey, uploadAsset } from '@/services/api/storage';
+import { normalizeAvatarSrc } from './shared';
 import type { UploadProps } from 'antd/es/upload/interface';
 
 type AvatarFormValues = { avatar: string };
@@ -97,7 +98,9 @@ export default function AvatarModal({
             <div className="avatar-upload-preview">
               <Avatar
                 size={72}
-                src={avatarValue}
+                // 空串 src 会让浏览器把 <img src=""> 当成当前页 URL 重新请求
+                //（docs/BUGS.md BUG-007）；与个人中心 hero 共用同一归一函数。
+                src={normalizeAvatarSrc(avatarValue)}
                 icon={!avatarValue ? <UserOutlined /> : undefined}
               />
               <div>

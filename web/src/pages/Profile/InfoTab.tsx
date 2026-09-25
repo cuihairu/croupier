@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useEffect } from 'react';
 import { Button, Card, Col, Descriptions, Form, Input, Row, Space } from 'antd';
 import {
   EditOutlined,
@@ -37,6 +37,24 @@ export default function InfoTab({
   const intl = useIntl();
   const formatMessage = useCallback((id: string) => intl.formatMessage({ id }), [intl]);
   const notSet = formatMessage('profile.info.notSet');
+
+  // 资料到位后回填表单。
+  //
+  // 刻意放在这里而不是数据层：<Form> 只在 InfoTab 挂载后才存在，而 InfoTab 位于
+  // Tabs 的「资料」面板内、antd 惰性渲染。若由数据层（在任何标签下都会跑）调用
+  // setFieldsValue，用户停在其它标签时实例未连接，antd 每次都会告警
+  // "not connected to any Form element"（docs/BUGS.md BUG-008）。
+  //
+  // 依赖只取三个字段：编辑期间用户输入的值不应被后台刷新覆盖。
+  const { displayName, email, phone } = profile || {};
+  useEffect(() => {
+    form.setFieldsValue({
+      displayName: displayName || profile?.nickname,
+      email,
+      phone,
+    });
+  }, [form, displayName, email, phone, profile?.nickname]);
+
   const infoItems = [
     {
       title: formatMessage('profile.info.user.id'),
@@ -110,7 +128,15 @@ export default function InfoTab({
                 </Descriptions.Item>
               ))}
             </Descriptions>
-          ) : (
+          ) : null}
+          {/*
+            表单始终挂载、非编辑态仅隐藏：`form` 实例由父级 useForm 创建并被
+            复用（进入编辑前 setFieldsValue 回填、保存时 submit）。若只在编辑态
+            渲染 <Form>，未编辑时实例处于「未连接」状态，antd 每次渲染都会告警
+            "Instance created by `useForm` is not connected to any Form element"。
+            用 hidden 保留挂载（display:none 下不参与布局），视觉与之前一致。
+          */}
+          <div hidden={!editing}>
             <Form form={form} layout="vertical" onFinish={onSubmit}>
               <Form.Item
                 name="displayName"
@@ -151,7 +177,7 @@ export default function InfoTab({
                 <Input placeholder={formatMessage('profile.phone.placeholder')} />
               </Form.Item>
             </Form>
-          )}
+          </div>
         </Card>
       </Col>
     </Row>
