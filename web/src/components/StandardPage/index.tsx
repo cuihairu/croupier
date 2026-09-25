@@ -74,7 +74,7 @@ export function SummaryOverview({
             </div>
           ))}
         </Space>
-        {hint ? <Alert type={hintType} showIcon message={hint} /> : null}
+        {hint ? <Alert type={hintType} showIcon title={hint} /> : null}
       </Space>
     </Card>
   );

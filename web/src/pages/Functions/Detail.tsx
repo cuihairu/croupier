@@ -402,7 +402,7 @@ export default function FunctionDetailPage() {
               type="warning"
               showIcon
               style={{ marginBottom: 16 }}
-              message={intl.formatMessage({
+              title={intl.formatMessage({
                 id: 'pages.functionsDetail.alert.contractDiagnostics',
                 defaultMessage: '契约诊断告警',
               })}
@@ -423,7 +423,7 @@ export default function FunctionDetailPage() {
             type="info"
             showIcon
             style={{ marginBottom: 16 }}
-            message={intl.formatMessage({
+            title={intl.formatMessage({
               id: 'pages.functionsDetail.alert.functionLayer.message',
               defaultMessage: '函数层负责能力定义，Page Studio 负责页面装配',
             })}

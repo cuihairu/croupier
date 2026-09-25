@@ -80,7 +80,7 @@ export default function NodeDetailDrawer({
       )}
       open={!!node}
       onClose={onClose}
-      width={600}
+      size={600}
     >
       {node && (
         <Space orientation="vertical" size={24} style={{ width: '100%' }}>

@@ -82,7 +82,7 @@ const EditSemanticsModal: React.FC<{
         type="warning"
         showIcon
         style={{ marginBottom: 16 }}
-        message={intl.formatMessage({
+        title={intl.formatMessage({
           id: 'pages.resourceCatalog.editSemantics.alert.message',
           defaultMessage: '这里只补充能力语义，不编辑页面 UI',
         })}
@@ -288,7 +288,7 @@ const EditSemanticsModal: React.FC<{
                 type="info"
                 showIcon
                 style={{ marginBottom: 12 }}
-                message={intl.formatMessage({
+                title={intl.formatMessage({
                   id: 'pages.resourceCatalog.editSemantics.actionList.alert.message',
                   defaultMessage: '这里只描述动作需要的资源上下文',
                 })}
@@ -439,7 +439,7 @@ const EditSemanticsModal: React.FC<{
                 type="info"
                 showIcon
                 style={{ marginBottom: 12 }}
-                message={intl.formatMessage({
+                title={intl.formatMessage({
                   id: 'pages.resourceCatalog.editSemantics.taskList.alert.message',
                   defaultMessage: '这里只描述任务生命周期能力',
                 })}
@@ -690,7 +690,7 @@ const EditSemanticsModal: React.FC<{
                 type="info"
                 showIcon
                 style={{ marginBottom: 12 }}
-                message={intl.formatMessage({
+                title={intl.formatMessage({
                   id: 'pages.resourceCatalog.editSemantics.reportList.alert.message',
                   defaultMessage: '这里只描述报表数据集',
                 })}

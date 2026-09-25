@@ -27,7 +27,7 @@ export default function DiffDrawer({
         id: 'pages.pageStudio.studio.diff.title',
         defaultMessage: '变更对比',
       })}
-      width={840}
+      size={840}
       open={open}
       onClose={onClose}
       loading={loading}

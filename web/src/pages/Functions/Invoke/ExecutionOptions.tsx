@@ -118,7 +118,7 @@ export default function ExecutionOptions(props: ExecutionOptionsProps) {
           style={{ marginTop: 12 }}
           type="warning"
           showIcon
-          message={intl.formatMessage({
+          title={intl.formatMessage({
             id: 'pages.functionsInvoke.validation.targetedServiceId',
             defaultMessage: '指定实例路由需要填写 service_id',
           })}
@@ -129,7 +129,7 @@ export default function ExecutionOptions(props: ExecutionOptionsProps) {
           style={{ marginTop: 12 }}
           type="warning"
           showIcon
-          message={intl.formatMessage({
+          title={intl.formatMessage({
             id: 'pages.functionsInvoke.validation.hashKey',
             defaultMessage: '哈希路由需要填写 hash key',
           })}
@@ -140,7 +140,7 @@ export default function ExecutionOptions(props: ExecutionOptionsProps) {
           style={{ marginTop: 12 }}
           type="warning"
           showIcon
-          message={intl.formatMessage({
+          title={intl.formatMessage({
             id: 'pages.functionsInvoke.execution.broadcastAsyncWarning',
             defaultMessage: '广播仅支持同步调用——已自动切回负载均衡',
           })}

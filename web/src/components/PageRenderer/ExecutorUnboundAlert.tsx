@@ -26,7 +26,7 @@ const ExecutorUnboundAlert: React.FC<ExecutorUnboundAlertProps> = ({ functionId,
     type="warning"
     showIcon
     style={style}
-    message={
+    title={
       <FormattedMessage
         id="component.pageRenderer.executorUnbound.title"
         defaultMessage="未绑定执行器"

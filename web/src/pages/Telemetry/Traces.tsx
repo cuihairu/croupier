@@ -71,7 +71,7 @@ export default function TracesPage() {
         <Alert
           type="info"
           showIcon
-          message={intl.formatMessage({
+          title={intl.formatMessage({
             id: 'pages.telemetry.traces.alert.message',
             defaultMessage: '当前版本不提供 Trace 列表/详情查询',
           })}

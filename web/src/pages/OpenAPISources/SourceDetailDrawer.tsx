@@ -217,8 +217,8 @@ export default function SourceDetailDrawer({
           </Button>
         ) : null
       }
-      width="86vw"
-      destroyOnClose
+      size="86vw"
+      destroyOnHidden
     >
       {detail ? (
         <Space orientation="vertical" size={16} style={{ width: '100%' }}>

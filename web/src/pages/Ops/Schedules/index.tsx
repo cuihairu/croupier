@@ -524,7 +524,7 @@ export default function SchedulesPage() {
         )}
         open={!!runsTarget}
         onClose={() => setRunsTarget(null)}
-        width={640}
+        size={640}
       >
         <Table<RunLogItem>
           rowKey="id"

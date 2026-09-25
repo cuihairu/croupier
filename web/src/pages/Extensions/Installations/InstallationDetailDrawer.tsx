@@ -101,7 +101,7 @@ export default function InstallationDetailDrawer({
       <Drawer
         open={open}
         onClose={onClose}
-        width={860}
+        size={860}
         title={intl.formatMessage(
           {
             id: 'pages.extensionsInstallations.detail.drawer.title',
@@ -362,7 +362,7 @@ export default function InstallationDetailDrawer({
                   <Alert
                     type="info"
                     showIcon
-                    message={intl.formatMessage({
+                    title={intl.formatMessage({
                       id: 'pages.extensionsInstallations.detail.config.focusMessage',
                       defaultMessage: '这里先处理配置本身',
                     })}
@@ -456,7 +456,7 @@ export default function InstallationDetailDrawer({
                   type="info"
                   showIcon
                   style={{ marginBottom: 12 }}
-                  message={intl.formatMessage({
+                  title={intl.formatMessage({
                     id: 'pages.extensionsInstallations.detail.bindings.focusMessage',
                     defaultMessage: '这里主要用于排查绑定问题',
                   })}

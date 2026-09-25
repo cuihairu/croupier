@@ -902,7 +902,7 @@ export default function CompositeEditorPage() {
           type="warning"
           showIcon
           style={{ marginBottom: 8 }}
-          message={intl.formatMessage({
+          title={intl.formatMessage({
             id: 'pages.pageStudio.editor.templateStale.title',
             defaultMessage: '所用模板有新版本',
           })}

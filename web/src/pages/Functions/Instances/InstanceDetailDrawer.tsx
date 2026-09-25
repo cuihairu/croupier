@@ -78,7 +78,7 @@ export default function InstanceDetailDrawer({
         defaultMessage: '实例详情',
       })}
       placement="right"
-      width="min(720px, calc(100vw - 16px))"
+      size="min(720px, calc(100vw - 16px))"
       open={open}
       onClose={onClose}
       loading={detailLoading}
@@ -242,7 +242,7 @@ export default function InstanceDetailDrawer({
                     type="info"
                     showIcon
                     style={{ marginTop: 24 }}
-                    message={intl.formatMessage({
+                    title={intl.formatMessage({
                       id: 'pages.functionsInstances.detail.metricsAlert.message',
                       defaultMessage: '运行指标与最近调用尚未接入',
                     })}
@@ -271,7 +271,7 @@ export default function InstanceDetailDrawer({
                   <Alert
                     type="info"
                     showIcon
-                    message={intl.formatMessage({
+                    title={intl.formatMessage({
                       id: 'pages.functionsInstances.detail.logsAlert.message',
                       defaultMessage: '实例日志尚未接入',
                     })}
@@ -330,7 +330,7 @@ export default function InstanceDetailDrawer({
               children: (
                 <div>
                   <Alert
-                    message={intl.formatMessage({
+                    title={intl.formatMessage({
                       id: 'pages.functionsInstances.detail.debugAlert.message',
                       defaultMessage: '调试模式',
                     })}

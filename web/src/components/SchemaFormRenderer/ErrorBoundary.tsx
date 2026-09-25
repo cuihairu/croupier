@@ -52,7 +52,7 @@ export default class SchemaFormErrorBoundary extends React.Component<
       <Alert
         type="error"
         showIcon
-        message={text('component.schemaFormRenderer.renderCrash.title', '表单渲染失败')}
+        title={text('component.schemaFormRenderer.renderCrash.title', '表单渲染失败')}
         description={
           <div>
             {text(

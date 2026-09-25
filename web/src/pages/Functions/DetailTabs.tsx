@@ -231,7 +231,7 @@ export function HistoryTab({ functionId }: { functionId: string }) {
       />
       <Drawer
         open={detailOpen}
-        width={560}
+        size={560}
         loading={detailLoading}
         onClose={() => setDetailOpen(false)}
         title={
@@ -470,7 +470,7 @@ export function WarningsTab({ functionId }: { functionId: string }) {
   return (
     <>
       <Alert
-        message={intl.formatMessage({
+        title={intl.formatMessage({
           id: 'pages.functionsDetail.warnings.alertMessage',
           defaultMessage: '注册告警',
         })}
@@ -805,7 +805,7 @@ export function VersionsTab({ functionId }: { functionId: string }) {
             <Alert
               type="warning"
               showIcon
-              message={intl.formatMessage(
+              title={intl.formatMessage(
                 {
                   id: 'pages.functionsDetail.versions.diffBreaking',
                   defaultMessage:
@@ -818,7 +818,7 @@ export function VersionsTab({ functionId }: { functionId: string }) {
             <Alert
               type="info"
               showIcon
-              message={intl.formatMessage(
+              title={intl.formatMessage(
                 {
                   id: 'pages.functionsDetail.versions.diffSafe',
                   defaultMessage: '#{from} → #{to}：变更兼容',
@@ -978,7 +978,7 @@ export function VersionsTab({ functionId }: { functionId: string }) {
       />
       <Drawer
         open={snapshotOpen}
-        width={640}
+        size={640}
         loading={snapshotLoading}
         onClose={() => setSnapshotOpen(false)}
         title={intl.formatMessage(

@@ -14,7 +14,7 @@ export default function DiagnosticsList({ items }: { items: Diagnostic[] }) {
           key={`${item.code}:${item.field || ''}:${item.message}`}
           type={diagnosticAlertType(item.severity)}
           showIcon
-          message={
+          title={
             <Space>
               <Tag color={diagnosticColor(item.severity)}>{item.severity}</Tag>
               <Text code>{item.code}</Text>

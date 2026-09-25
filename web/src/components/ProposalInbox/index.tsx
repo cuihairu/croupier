@@ -334,7 +334,7 @@ export default function ProposalInbox({ focusPageKey = '' }: ProposalInboxProps)
       <Alert
         type="info"
         showIcon
-        message={intl.formatMessage({
+        title={intl.formatMessage({
           id: 'component.proposalInbox.inbox.alertMessage',
           defaultMessage: '默认页面先生成 Proposal，用户确认后才发布到运行控制台',
         })}
@@ -544,7 +544,7 @@ export default function ProposalInbox({ focusPageKey = '' }: ProposalInboxProps)
             <Alert
               type="warning"
               showIcon
-              message={intl.formatMessage({
+              title={intl.formatMessage({
                 id: 'component.proposalInbox.publish.noMenus',
                 defaultMessage:
                   '当前环境暂无菜单：页面发布后不会出现在运行控制台导航，可先到「菜单管理」创建菜单。',

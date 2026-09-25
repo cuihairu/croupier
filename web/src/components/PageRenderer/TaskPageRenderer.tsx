@@ -745,11 +745,11 @@ const TaskPageRenderer: React.FC<TaskPageRendererProps> = ({
           )}
 
           {/* 消息 */}
-          {taskStatus.message && <Alert message={taskStatus.message} type="info" />}
+          {taskStatus.message && <Alert title={taskStatus.message} type="info" />}
 
           {approvalId ? (
             <Alert
-              message={
+              title={
                 approvalStatus
                   ? intl.formatMessage(
                       {
@@ -776,7 +776,7 @@ const TaskPageRenderer: React.FC<TaskPageRendererProps> = ({
           ) : null}
 
           {/* 错误信息 */}
-          {taskStatus.error && <Alert message={taskStatus.error} type="error" />}
+          {taskStatus.error && <Alert title={taskStatus.error} type="error" />}
 
           {/* 操作按钮 */}
           <Space>

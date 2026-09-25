@@ -76,7 +76,7 @@ export default function EventsDrawer({
     <Drawer
       open={open}
       onClose={onClose}
-      width={760}
+      size={760}
       title={intl.formatMessage(
         {
           id: 'pages.extensionsInstallations.events.drawer.title',
@@ -167,7 +167,7 @@ export default function EventsDrawer({
           style={{ marginBottom: 12 }}
           type="info"
           showIcon
-          message={intl.formatMessage({
+          title={intl.formatMessage({
             id: 'pages.extensionsInstallations.events.filter.activeMessage',
             defaultMessage: '当前正在查看筛选后的事件范围',
           })}

@@ -66,23 +66,29 @@ const PathControls: React.FC<{
             },
           ]}
         />
-        <InputNumber
-          value={steps}
-          onChange={(v) => setSteps(Number(v || 5))}
-          min={1}
-          max={10}
-          addonBefore={intl.formatMessage({
+        {/* antd 6 废弃 Input/InputNumber.addonBefore（运行时 console 报 deprecated），
+            官方替代是把前缀作为 Space.Compact 的相邻兄弟节点。 */}
+        <Space.Compact>
+          {intl.formatMessage({
             id: 'pages.analyticsBehavior.path.filter.addonBefore.steps',
             defaultMessage: '步数',
           })}
-        />
-        <InputNumber
-          value={limit}
-          onChange={(v) => setLimit(Number(v || 50))}
-          min={10}
-          max={500}
-          addonBefore="TopN"
-        />
+          <InputNumber
+            value={steps}
+            onChange={(v) => setSteps(Number(v || 5))}
+            min={1}
+            max={10}
+          />
+        </Space.Compact>
+        <Space.Compact>
+          TopN
+          <InputNumber
+            value={limit}
+            onChange={(v) => setLimit(Number(v || 50))}
+            min={10}
+            max={500}
+          />
+        </Space.Compact>
         <Select
           mode="tags"
           value={include}
@@ -109,15 +115,13 @@ const PathControls: React.FC<{
             defaultMessage="同会话"
           />
         </Checkbox>
-        <InputNumber
-          value={gapSec}
-          onChange={(v) => setGapSec(Number(v || 0))}
-          min={0}
-          addonBefore={intl.formatMessage({
+        <Space.Compact>
+          {intl.formatMessage({
             id: 'pages.analyticsBehavior.path.filter.addonBefore.gapSec',
             defaultMessage: '步间秒数',
           })}
-        />
+          <InputNumber value={gapSec} onChange={(v) => setGapSec(Number(v || 0))} min={0} />
+        </Space.Compact>
         <Input
           placeholder={intl.formatMessage({
             id: 'pages.analyticsBehavior.path.filter.placeholder.pathRe',

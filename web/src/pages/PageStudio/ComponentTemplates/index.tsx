@@ -415,7 +415,7 @@ export default function ComponentTemplatesPage() {
           type="warning"
           showIcon
           style={{ marginBottom: 16 }}
-          message={intl.formatMessage(
+          title={intl.formatMessage(
             {
               id: 'pages.pageStudio.templates.legacy.alertMessage',
               defaultMessage: '检测到 {count} 个旧版合并常量模板（一个模板包含多个常量）',
@@ -423,7 +423,7 @@ export default function ComponentTemplatesPage() {
             { count: legacyMerged.length },
           )}
           description={
-            <Space direction="vertical" size={4}>
+            <Space orientation="vertical" size={4}>
               <Text type="secondary" style={{ fontSize: 12 }}>
                 {intl.formatMessage(
                   {

@@ -134,7 +134,7 @@ export default function EditorModal({
                 type="warning"
                 showIcon
                 style={{ marginBottom: 12 }}
-                message={intl.formatMessage({
+                title={intl.formatMessage({
                   id: 'pages.pageStudio.studio.editor.bindingStaleTitle',
                   defaultMessage: '页面绑定与函数契约不一致（发布会校验失败）',
                 })}

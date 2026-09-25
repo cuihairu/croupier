@@ -297,7 +297,7 @@ const OperationPageRenderer: React.FC<OperationPageRendererProps> = ({
         <Alert
           type="info"
           showIcon
-          message={intl.formatMessage({
+          title={intl.formatMessage({
             id: 'component.pageRenderer.operationPage.approval.taskStarted',
             defaultMessage: '审批已通过，任务已启动',
           })}
@@ -441,7 +441,7 @@ const OperationPageRenderer: React.FC<OperationPageRendererProps> = ({
                   <Alert
                     type="info"
                     showIcon
-                    message={intl.formatMessage({
+                    title={intl.formatMessage({
                       id: 'component.pageRenderer.operationPage.approval.incompleteTitle',
                       defaultMessage: '操作尚未完成',
                     })}
@@ -462,7 +462,7 @@ const OperationPageRenderer: React.FC<OperationPageRendererProps> = ({
                               : 'info'
                         }
                         showIcon
-                        message={intl.formatMessage(
+                        title={intl.formatMessage(
                           {
                             id: 'component.pageRenderer.operationPage.approval.statusLabel',
                             defaultMessage: `审批状态：${approvalStatus.status}`,

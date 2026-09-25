@@ -239,7 +239,7 @@ export default function AnalyticsInvocationsPage() {
                   defaultMessage: '失败',
                 })}
                 value={summary.failed}
-                valueStyle={{ color: '#cf1322' }}
+                styles={{ content: { color: '#cf1322' } }}
               />
             </Col>
             <Col span={4}>

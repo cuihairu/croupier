@@ -70,7 +70,7 @@ const ConditionEditor: React.FC<{
   const patch = (next: Partial<VisibleWhenProp>) => onChange({ ...value, ...next });
 
   return (
-    <Space direction="vertical" size={6} style={{ width: '100%' }}>
+    <Space orientation="vertical" size={6} style={{ width: '100%' }}>
       <Text type="secondary" style={{ fontSize: 11 }}>
         {intl.formatMessage({
           id: 'pages.pageStudio.editor.condition.hint',

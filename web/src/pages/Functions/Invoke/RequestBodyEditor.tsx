@@ -91,7 +91,7 @@ export default function RequestBodyEditor(props: RequestBodyEditorProps) {
                 <Alert
                   type="info"
                   showIcon
-                  message={
+                  title={
                     props.formState.status === 'unavailable'
                       ? props.formState.error
                       : intl.formatMessage({

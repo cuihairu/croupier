@@ -540,7 +540,7 @@ export default () => {
           id: 'pages.functionsHistory.detail.title',
           defaultMessage: '调用详情',
         })}
-        width={720}
+        size={720}
         open={detailVisible}
         onClose={() => setDetailVisible(false)}
       >

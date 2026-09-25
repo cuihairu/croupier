@@ -124,7 +124,7 @@ const Welcome: React.FC = () => {
     >
       <Space orientation="vertical" size={20} style={{ width: '100%' }}>
         <Card
-          bordered={false}
+          variant="borderless"
           style={{
             overflow: 'hidden',
             background: `linear-gradient(135deg, ${token.colorBgContainer} 0%, ${token.colorPrimaryBg} 100%)`,

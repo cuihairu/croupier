@@ -530,7 +530,7 @@ export default function ExecutionLogsPage() {
               style={{ marginBottom: 12 }}
               type="info"
               showIcon
-              message={intl.formatMessage({
+              title={intl.formatMessage({
                 id: 'pages.functionsExecutionLogs.filter.activeMessage',
                 defaultMessage: '当前正在查看筛选后的执行记录',
               })}
@@ -548,7 +548,7 @@ export default function ExecutionLogsPage() {
               style={{ marginBottom: 12 }}
               type="error"
               showIcon
-              message={intl.formatMessage({
+              title={intl.formatMessage({
                 id: 'pages.functionsExecutionLogs.error.loadFailed',
                 defaultMessage: '加载失败',
               })}
@@ -653,7 +653,7 @@ export default function ExecutionLogsPage() {
               )
             : ''
         }
-        width={720}
+        size={720}
         open={detailOpen}
         onClose={() => setDetailOpen(false)}
       >
@@ -771,7 +771,7 @@ export default function ExecutionLogsPage() {
                 type="error"
                 showIcon
                 style={{ marginBottom: 16 }}
-                message={intl.formatMessage({
+                title={intl.formatMessage({
                   id: 'pages.functionsExecutionLogs.detail.errorReason',
                   defaultMessage: '失败原因',
                 })}

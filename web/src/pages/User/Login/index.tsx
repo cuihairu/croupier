@@ -73,7 +73,7 @@ const LoginMessage: React.FC<{
       style={{
         marginBottom: 24,
       }}
-      message={content}
+      title={content}
       type={type}
       showIcon
     />
@@ -335,7 +335,7 @@ const Login: React.FC = () => {
               style={{ marginBottom: 16 }}
               type="info"
               showIcon
-              message={intl.formatMessage({
+              title={intl.formatMessage({
                 id: 'pages.login.ldap.notice',
                 defaultMessage:
                   '支持域账号：直接输入 LDAP 用户名和密码登录（本地账号校验失败时自动尝试目录服务）',

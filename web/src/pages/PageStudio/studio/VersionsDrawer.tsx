@@ -44,7 +44,7 @@ export default function VersionsDrawer({
         id: 'pages.pageStudio.studio.versions.title',
         defaultMessage: '版本历史',
       })}
-      width={760}
+      size={760}
       open={open}
       onClose={onClose}
     >

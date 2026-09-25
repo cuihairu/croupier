@@ -60,7 +60,7 @@ export default function BindingModal({
         <Alert
           type="info"
           showIcon
-          message={intl.formatMessage({
+          title={intl.formatMessage({
             id: 'pages.openapiSources.bindingModal.alert.message',
             defaultMessage: '当前只启用 Provider binding',
           })}
@@ -70,11 +70,14 @@ export default function BindingModal({
               'httpConnector 需要 allowlist、SecretRef、超时/重试和审计策略后才能开放。',
           })}
         />
-        <Input
-          addonBefore="bindingId"
-          value={bindingId}
-          onChange={(event) => onBindingIdChange(event.target.value)}
-        />
+        {/* antd 6 废弃 Input.addonBefore：前缀改为 Space.Compact 的相邻兄弟节点 */}
+        <Space.Compact>
+          bindingId
+          <Input
+            value={bindingId}
+            onChange={(event) => onBindingIdChange(event.target.value)}
+          />
+        </Space.Compact>
         <Select
           showSearch
           placeholder={intl.formatMessage({
@@ -87,15 +90,17 @@ export default function BindingModal({
           optionFilterProp="label"
           style={{ width: '100%' }}
         />
-        <Input
-          addonBefore="providerId"
-          placeholder={intl.formatMessage({
-            id: 'pages.openapiSources.bindingModal.providerId.placeholder',
-            defaultMessage: '可选；留空由运行时按函数路由',
-          })}
-          value={providerId}
-          onChange={(event) => onProviderIdChange(event.target.value)}
-        />
+        <Space.Compact>
+          providerId
+          <Input
+            placeholder={intl.formatMessage({
+              id: 'pages.openapiSources.bindingModal.providerId.placeholder',
+              defaultMessage: '可选；留空由运行时按函数路由',
+            })}
+            value={providerId}
+            onChange={(event) => onProviderIdChange(event.target.value)}
+          />
+        </Space.Compact>
       </Space>
     </Modal>
   );

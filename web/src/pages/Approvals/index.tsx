@@ -558,7 +558,7 @@ export default function ApprovalsPage() {
           { id: 'pages.approvals.drawer.title', defaultMessage: '审批详情 {id}' },
           { id: current?.id || '' },
         )}
-        width={720}
+        size={720}
         open={open}
         onClose={() => setOpen(false)}
       >

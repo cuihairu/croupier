@@ -87,7 +87,7 @@ const ResourceDetailModal: React.FC<{
             type={resource.status === 'conflict' ? 'error' : 'info'}
             showIcon
             style={{ marginBottom: 16 }}
-            message={intl.formatMessage({
+            title={intl.formatMessage({
               id: 'pages.resourceCatalog.detail.alert.message',
               defaultMessage: 'Resource Catalog 只维护资源能力语义',
             })}

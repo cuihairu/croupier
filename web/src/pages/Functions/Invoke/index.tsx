@@ -486,7 +486,7 @@ export default function FunctionInvokePage() {
                   style={{ marginTop: 12 }}
                   type="info"
                   showIcon
-                  message={intl.formatMessage({
+                  title={intl.formatMessage({
                     id: 'pages.functionsInvoke.alert.selectFirst',
                     defaultMessage: '请选择一个已注册函数后再发送请求',
                   })}
@@ -560,7 +560,7 @@ export default function FunctionInvokePage() {
                       : 'warning'
                 }
                 showIcon
-                message={
+                title={
                   pendingApproval.status === 'pending'
                     ? intl.formatMessage({
                         id: 'pages.functionsInvoke.approval.statusPending',

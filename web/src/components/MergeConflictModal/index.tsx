@@ -140,7 +140,7 @@ export default function MergeConflictModal(props: MergeConflictModalProps) {
       })}
       okButtonProps={{ disabled: conflictItems.length > 0 && !canSubmit }}
       confirmLoading={loading}
-      destroyOnClose
+      destroyOnHidden
     >
       {preview ? (
         <Space orientation="vertical" style={{ width: '100%' }} size="middle">

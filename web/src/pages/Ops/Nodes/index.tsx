@@ -355,7 +355,7 @@ export default function OpsNodesPage() {
               style={{ marginBottom: 12 }}
               type="info"
               showIcon
-              message={intl.formatMessage({
+              title={intl.formatMessage({
                 id: 'pages.opsNodes.filter.activeMessage',
                 defaultMessage: '当前正在查看筛选后的节点范围',
               })}

@@ -353,7 +353,7 @@ export default function ExtensionsInstallationsPage() {
               style={{ marginBottom: 12 }}
               type="info"
               showIcon
-              message={intl.formatMessage({
+              title={intl.formatMessage({
                 id: 'pages.extensionsInstallations.filter.activeMessage',
                 defaultMessage: '当前正在查看筛选后的安装实例',
               })}

@@ -391,7 +391,7 @@ const GameSelector: React.FC<GameSelectorProps> = ({
             defaultMessage: '选择作用域',
           })}
           placement="bottom"
-          height="auto"
+          size="auto"
           open={drawerOpen}
           onClose={() => setDrawerOpen(false)}
           className={styles.mobileDrawer}

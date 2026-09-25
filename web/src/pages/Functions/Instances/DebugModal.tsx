@@ -202,7 +202,7 @@ export default function DebugModal({
     >
       <Space orientation="vertical" style={{ width: '100%' }} size="large">
         <Alert
-          message={intl.formatMessage({
+          title={intl.formatMessage({
             id: 'pages.functionsInstances.debug.alert.message',
             defaultMessage: '调试请求将真实执行',
           })}

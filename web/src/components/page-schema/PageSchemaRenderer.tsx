@@ -110,7 +110,7 @@ export default function PageSchemaRenderer({
               <Statistic
                 title={stat.title}
                 value={statValues[stat.key]}
-                valueStyle={stat.color ? { color: stat.color } : undefined}
+                styles={stat.color ? { content: { color: stat.color } } : undefined}
                 prefix={renderIcon(stat.icon)}
               />
             </Card>

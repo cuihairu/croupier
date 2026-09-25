@@ -20,7 +20,7 @@ export default function PreviewDrawer({
         id: 'pages.pageStudio.studio.preview.title',
         defaultMessage: '页面预览',
       })}
-      width={900}
+      size={900}
       open={open}
       onClose={onClose}
     >

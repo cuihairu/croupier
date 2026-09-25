@@ -200,7 +200,7 @@ export default function ConsoleIndex() {
       <div style={{ textAlign: 'center', padding: '100px 0' }}>
         <Spin
           size="large"
-          tip={intl.formatMessage({
+          description={intl.formatMessage({
             id: 'pages.console.home.loading',
             defaultMessage: '加载控制台...',
           })}
@@ -215,7 +215,7 @@ export default function ConsoleIndex() {
       <Card>
         <Alert
           type="error"
-          message={intl.formatMessage({
+          title={intl.formatMessage({
             id: 'pages.console.home.error.load',
             defaultMessage: '加载失败',
           })}
@@ -323,7 +323,7 @@ export default function ConsoleIndex() {
               defaultMessage: '暂无菜单',
             })}
           >
-            <Space direction="vertical" size={8}>
+            <Space orientation="vertical" size={8}>
               <Typography.Text type="secondary">
                 <FormattedMessage
                   id="pages.console.home.empty.hint"

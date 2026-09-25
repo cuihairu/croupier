@@ -24,7 +24,7 @@ export default function ChangeChainDrawer({
         id: 'pages.pageStudio.studio.changeChain.title',
         defaultMessage: '变更链',
       })}
-      width={640}
+      size={640}
       open={open}
       onClose={onClose}
       loading={loading}

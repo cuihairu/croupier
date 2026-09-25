@@ -619,7 +619,7 @@ export default function OpenAPISourcesPage() {
         <Alert
           type="info"
           showIcon
-          message={intl.formatMessage({
+          title={intl.formatMessage({
             id: 'pages.openapiSources.alert.notUi.message',
             defaultMessage: 'Source 不是 UI，也不是自动注册',
           })}
@@ -641,7 +641,7 @@ export default function OpenAPISourcesPage() {
           <Alert
             type="warning"
             showIcon
-            message={intl.formatMessage({
+            title={intl.formatMessage({
               id: 'pages.openapiSources.alert.readOnly.message',
               defaultMessage: '当前是只读模式',
             })}
@@ -671,7 +671,7 @@ export default function OpenAPISourcesPage() {
                         : 'info'
                   }
                   showIcon
-                  message={`${item.code}${item.field ? ` @ ${item.field}` : ''}`}
+                  title={`${item.code}${item.field ? ` @ ${item.field}` : ''}`}
                   description={item.message}
                 />
               ))}

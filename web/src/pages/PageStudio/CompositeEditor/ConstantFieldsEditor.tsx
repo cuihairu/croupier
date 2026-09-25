@@ -112,22 +112,37 @@ export default function ConstantFieldsEditor({
             style={{ border: '1px solid #f0f0f0', borderRadius: 6, padding: 8, marginBottom: 8 }}
           >
             <Space size={6} style={{ width: '100%' }} wrap>
+              {/*
+               * antd 6 废弃 Input.addonBefore（运行时 console 刷 deprecated），
+               * 改用未被废弃的 Input.prefix 承载字段标签。选择 prefix 而非官方
+               * 推荐的 Space.Compact，原因同 ActionEditor：Compact 每次渲染都
+               * 为子项重建上下文对象，编辑器批量渲染时会把下游 Input 全部拖进
+               * 重渲染（docs/BUGS.md BUG-009）。
+               */}
               <Input
                 size="small"
-                addonBefore={intl.formatMessage({
-                  id: 'pages.pageStudio.editor.constantFields.titleAddon',
-                  defaultMessage: '显示名',
-                })}
+                prefix={
+                  <span style={{ fontSize: 11 }}>
+                    {intl.formatMessage({
+                      id: 'pages.pageStudio.editor.constantFields.titleAddon',
+                      defaultMessage: '显示名',
+                    })}
+                  </span>
+                }
                 value={f.title}
                 onChange={(e) => updateField(i, { title: e.target.value })}
                 style={{ width: 150 }}
               />
               <Input
                 size="small"
-                addonBefore={intl.formatMessage({
-                  id: 'pages.pageStudio.editor.constantFields.varNameAddon',
-                  defaultMessage: '变量名',
-                })}
+                prefix={
+                  <span style={{ fontSize: 11 }}>
+                    {intl.formatMessage({
+                      id: 'pages.pageStudio.editor.constantFields.varNameAddon',
+                      defaultMessage: '变量名',
+                    })}
+                  </span>
+                }
                 status={draftInvalid ? 'error' : undefined}
                 value={draft ?? f.key}
                 onChange={(e) => setKeyDrafts((prev) => ({ ...prev, [f.key]: e.target.value }))}

@@ -214,7 +214,7 @@ export default function BindingDrawer({
 
   return (
     <Drawer
-      width={480}
+      size={480}
       open={open}
       onClose={onClose}
       title={
@@ -242,11 +242,11 @@ export default function BindingDrawer({
         </Space>
       }
     >
-      <Space direction="vertical" size={12} style={{ width: '100%' }}>
+      <Space orientation="vertical" size={12} style={{ width: '100%' }}>
         <Alert
           type="info"
           showIcon
-          message={intl.formatMessage({
+          title={intl.formatMessage({
             id: 'pages.pageStudio.editor.binding.hint.title',
             defaultMessage: '该函数来自上传物料，尚未绑定运行时执行器',
           })}
@@ -258,7 +258,7 @@ export default function BindingDrawer({
         />
         {tracing ? (
           <Spin
-            tip={intl.formatMessage({
+            description={intl.formatMessage({
               id: 'pages.pageStudio.editor.binding.tracing',
               defaultMessage: '正在溯源来源操作…',
             })}
@@ -271,7 +271,7 @@ export default function BindingDrawer({
               <Alert
                 type="warning"
                 showIcon
-                message={intl.formatMessage({
+                title={intl.formatMessage({
                   id: 'pages.pageStudio.editor.binding.traceFailed',
                   defaultMessage: '未在 OpenAPI Sources 中找到该函数的来源操作',
                 })}

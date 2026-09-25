@@ -185,7 +185,7 @@ export default function TaskProgressPanel({ taskId, onCompleted }: TaskProgressP
         <Alert
           type="error"
           showIcon
-          message={intl.formatMessage({
+          title={intl.formatMessage({
             id: 'pages.functionsInvoke.taskPanel.alert.failed',
             defaultMessage: '任务执行失败',
           })}
@@ -197,7 +197,7 @@ export default function TaskProgressPanel({ taskId, onCompleted }: TaskProgressP
         <Alert
           type="warning"
           showIcon
-          message={intl.formatMessage({
+          title={intl.formatMessage({
             id: 'pages.functionsInvoke.taskPanel.alert.timedOut',
             defaultMessage: '任务已超时',
           })}

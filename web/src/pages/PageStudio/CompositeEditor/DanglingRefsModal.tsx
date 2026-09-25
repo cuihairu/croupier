@@ -98,7 +98,7 @@ export default function DanglingRefsModal({
       <Alert
         type="warning"
         showIcon
-        message={intl.formatMessage(
+        title={intl.formatMessage(
           {
             id: 'pages.pageStudio.editor.dangling.intro',
             defaultMessage:
@@ -108,7 +108,7 @@ export default function DanglingRefsModal({
         )}
         style={{ marginBottom: 12 }}
       />
-      <Space direction="vertical" size={8} style={{ width: '100%' }}>
+      <Space orientation="vertical" size={8} style={{ width: '100%' }}>
         {refs.map((ref, i) => (
           <Space
             key={`${ref.nodeId}:${ref.prop}:${ref.ref}:${ref.detail ?? ''}`}

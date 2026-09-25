@@ -194,7 +194,7 @@ export default function GamesEnvsPage() {
         type="info"
         showIcon
         style={{ marginBottom: 16 }}
-        message={intl.formatMessage({
+        title={intl.formatMessage({
           id: 'pages.gamesEnvs.alert.scope.message',
           defaultMessage: '环境只是作用域，不产生页面',
         })}

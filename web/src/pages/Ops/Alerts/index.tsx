@@ -514,7 +514,7 @@ export default function OpsAlertsPage() {
           id: 'pages.opsAlerts.drawer.title',
           defaultMessage: '告警详情',
         })}
-        width={720}
+        size={720}
         open={!!detail}
         onClose={() => setDetail(null)}
       >

@@ -93,7 +93,7 @@ export default function FunctionWarningsPage() {
       <Alert
         type="warning"
         showIcon
-        message={intl.formatMessage({
+        title={intl.formatMessage({
           id: 'pages.functionsWarnings.rules.title',
           defaultMessage: '规则说明',
         })}

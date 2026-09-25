@@ -72,7 +72,7 @@ const MenuMountModal: React.FC<MenuMountModalProps> = ({
         <Alert
           type="info"
           showIcon
-          message={intl.formatMessage({
+          title={intl.formatMessage({
             id: 'pages.pageStudio.studio.mountMenu.emptyMenus',
             defaultMessage: '当前环境暂无菜单，请先在「菜单管理」中创建菜单。',
           })}
@@ -105,7 +105,7 @@ const MenuMountModal: React.FC<MenuMountModalProps> = ({
             <Alert
               type="warning"
               showIcon
-              message={intl.formatMessage({
+              title={intl.formatMessage({
                 id: 'pages.pageStudio.studio.mountMenu.draftHint',
                 defaultMessage:
                   '该页面尚未发布：挂载关系会保存，但发布后才会出现在运行控制台导航。',

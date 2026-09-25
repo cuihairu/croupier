@@ -121,7 +121,7 @@ export default function ParamMappingEditor({
   if (!fn || params.length === 0) return null;
 
   return (
-    <Space direction="vertical" size={8} style={{ width: '100%' }}>
+    <Space orientation="vertical" size={8} style={{ width: '100%' }}>
       <Text type="secondary" style={{ fontSize: 11, display: 'block' }}>
         {intl.formatMessage({
           id: 'pages.pageStudio.editor.paramMapping.hint',

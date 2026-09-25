@@ -874,7 +874,7 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
           <Alert
             type="error"
             showIcon
-            message={listError}
+            title={listError}
             closable
             onClose={() => setListError(null)}
           />
@@ -1032,7 +1032,7 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
           onCancel={() => setCreateModalVisible(false)}
           confirmLoading={formSubmitting}
           width={560}
-          destroyOnClose
+          destroyOnHidden
         >
           <SchemaFormRenderer ref={createFormRef} spec={spec.createForm} hideSubmit />
         </Modal>
@@ -1068,7 +1068,7 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
           onCancel={() => setEditModalVisible(false)}
           confirmLoading={formSubmitting}
           width={560}
-          destroyOnClose
+          destroyOnHidden
         >
           <SchemaFormRenderer
             ref={updateFormRef}
@@ -1098,7 +1098,7 @@ const ResourcePageRenderer: React.FC<ResourcePageRendererProps> = ({
               detailErrorCode === EXECUTOR_UNBOUND_CODE ? (
                 <ExecutorUnboundAlert functionId={detailBinding?.functionId} />
               ) : (
-                <Alert type="error" showIcon message={detailError} />
+                <Alert type="error" showIcon title={detailError} />
               )
             ) : null}
             {!detailError ? (

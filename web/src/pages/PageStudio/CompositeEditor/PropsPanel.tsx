@@ -140,7 +140,7 @@ export default function PropsPanel({
                     type="warning"
                     showIcon
                     style={{ marginBottom: 12 }}
-                    message={intl.formatMessage({
+                    title={intl.formatMessage({
                       id: 'pages.pageStudio.editor.binding.unboundLabel',
                       defaultMessage: '执行器：未绑定',
                     })}

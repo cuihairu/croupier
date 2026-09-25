@@ -312,7 +312,7 @@ export default function DirectoryPage() {
         <Alert
           type="info"
           showIcon
-          message={intl.formatMessage({
+          title={intl.formatMessage({
             id: 'pages.functionsDirectory.alert.title',
             defaultMessage: '函数目录只展示能力供给，不承载页面 UI',
           })}
@@ -349,7 +349,7 @@ export default function DirectoryPage() {
               type="info"
               showIcon
               style={{ marginBottom: 12 }}
-              message={
+              title={
                 <Space wrap>
                   <span>
                     {intl.formatMessage(
@@ -425,7 +425,7 @@ export default function DirectoryPage() {
           id: 'pages.functionsDirectory.drawer.title',
           defaultMessage: '函数详情',
         })}
-        width={600}
+        size={600}
         open={detailVisible}
         onClose={() => setDetailVisible(false)}
         extra={drawerActions}

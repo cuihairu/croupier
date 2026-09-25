@@ -255,7 +255,7 @@ export default function InvocationResponse({
         <Alert
           type="error"
           showIcon
-          message={intl.formatMessage({
+          title={intl.formatMessage({
             id: 'pages.functionsInvoke.error.invokeFailed',
             defaultMessage: '调用失败',
           })}

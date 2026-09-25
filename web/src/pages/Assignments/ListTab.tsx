@@ -25,7 +25,7 @@ export default function ListTab({
     <>
       <Space style={{ marginBottom: 16, width: '100%' }} wrap>
         {toolbarActions}
-        <Divider type="vertical" />
+        <Divider orientation="vertical" />
         {groupedAssignments.map((group) => (
           <Space key={group.resource} style={{ marginRight: 16 }}>
             <span>{group.resource}:</span>

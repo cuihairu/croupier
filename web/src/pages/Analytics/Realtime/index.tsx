@@ -94,7 +94,7 @@ export default function AnalyticsRealtimePage() {
           type={streamStatus === 'error' ? 'error' : streamStatus === 'stale' ? 'warning' : 'info'}
           showIcon
           style={{ marginBottom: DASHBOARD_PAGE_TOKENS.sectionGap }}
-          message={
+          title={
             streamStatus === 'error'
               ? intl.formatMessage({
                   id: 'pages.analyticsRealtime.alert.streamError',

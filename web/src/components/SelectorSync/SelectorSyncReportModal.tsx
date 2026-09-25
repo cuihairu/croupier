@@ -224,7 +224,7 @@ export default function SelectorSyncReportModal({
       {loading ? (
         <div style={{ textAlign: 'center', padding: '48px 0' }}>
           <Spin
-            tip={intl.formatMessage({
+            description={intl.formatMessage({
               id: 'component.selectorSync.loading',
               defaultMessage: '正在获取同步计划…',
             })}
@@ -236,12 +236,12 @@ export default function SelectorSyncReportModal({
         <Alert
           type="error"
           showIcon
-          message={intl.formatMessage({
+          title={intl.formatMessage({
             id: 'component.selectorSync.loadFailed',
             defaultMessage: '加载同步计划失败',
           })}
           description={
-            <Space direction="vertical">
+            <Space orientation="vertical">
               <Text>{errorText}</Text>
               <Button
                 size="small"
@@ -255,12 +255,12 @@ export default function SelectorSyncReportModal({
           }
         />
       ) : (
-        <Space direction="vertical" size={12} style={{ width: '100%' }}>
+        <Space orientation="vertical" size={12} style={{ width: '100%' }}>
           {appliedRevision != null ? (
             <Alert
               type="success"
               showIcon
-              message={intl.formatMessage(
+              title={intl.formatMessage(
                 {
                   id: 'component.selectorSync.applied',
                   defaultMessage: '已应用到草稿（版本 {revision}），请检查后手动发布',
@@ -273,7 +273,7 @@ export default function SelectorSyncReportModal({
             <Alert
               type="info"
               showIcon
-              message={intl.formatMessage({
+              title={intl.formatMessage({
                 id: 'component.selectorSync.noBindings',
                 defaultMessage: '没有需要同步的 binding',
               })}
@@ -422,7 +422,7 @@ export default function SelectorSyncReportModal({
             <Alert
               type="warning"
               showIcon
-              message={intl.formatMessage(
+              title={intl.formatMessage(
                 {
                   id: 'component.selectorSync.remainingErrors',
                   defaultMessage:
@@ -445,7 +445,7 @@ export default function SelectorSyncReportModal({
             <Alert
               type="success"
               showIcon
-              message={intl.formatMessage({
+              title={intl.formatMessage({
                 id: 'component.selectorSync.remainingClean',
                 defaultMessage: '同步后无错误级诊断，可尝试发布',
               })}

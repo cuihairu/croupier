@@ -521,7 +521,7 @@ export default function OpsTasksPage() {
               style={{ marginBottom: 12 }}
               type="info"
               showIcon
-              message={intl.formatMessage({
+              title={intl.formatMessage({
                 id: 'pages.opsJobs.filter.activeMessage',
                 defaultMessage: '当前正在查看筛选后的任务范围',
               })}
@@ -574,7 +574,7 @@ export default function OpsTasksPage() {
 
       <Drawer
         title={intl.formatMessage({ id: 'pages.opsJobs.detail.title', defaultMessage: '任务详情' })}
-        width={720}
+        size={720}
         open={!!detail}
         onClose={() => {
           setDetail(null);
@@ -827,7 +827,7 @@ export default function OpsTasksPage() {
                     <Alert
                       type="info"
                       showIcon
-                      message={intl.formatMessage({
+                      title={intl.formatMessage({
                         id: 'pages.opsJobs.detail.noResult.message',
                         defaultMessage: '当前还没有结果数据',
                       })}
@@ -843,7 +843,7 @@ export default function OpsTasksPage() {
                 <Alert
                   type="info"
                   showIcon
-                  message={intl.formatMessage({
+                  title={intl.formatMessage({
                     id: 'pages.opsJobs.detail.resultNotLoaded.message',
                     defaultMessage: '结果尚未加载',
                   })}

@@ -52,7 +52,7 @@ export default function CronJobsDrawer({
               defaultMessage: '主机定时任务',
             })
       }
-      width={720}
+      size={720}
       open={Boolean(node)}
       onClose={onClose}
     >

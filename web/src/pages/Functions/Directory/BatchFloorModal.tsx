@@ -53,7 +53,7 @@ export default function BatchFloorModal({
       <Alert
         type="info"
         showIcon
-        message={intl.formatMessage(
+        title={intl.formatMessage(
           {
             id: 'pages.functionsDirectory.batch.modalDescription',
             defaultMessage: '将把已选 {count} 个函数的最低可注册函数版本统一设为输入值。',

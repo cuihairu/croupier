@@ -100,7 +100,7 @@ export default function DetailConfigTab({
       children: (
         <>
           <Alert
-            message={intl.formatMessage({
+            title={intl.formatMessage({
               id: 'pages.functionsDetail.configTab.jsonAlert.message',
               defaultMessage: '函数元数据',
             })}
@@ -125,7 +125,7 @@ export default function DetailConfigTab({
       children: (
         <Space orientation="vertical" size={16} style={{ width: '100%' }}>
           <Alert
-            message={intl.formatMessage({
+            title={intl.formatMessage({
               id: 'pages.functionsDetail.configTab.schemaAlert.message',
               defaultMessage: '函数注册只提供契约，不保存页面 UI',
             })}
@@ -181,7 +181,7 @@ export default function DetailConfigTab({
         type="warning"
         showIcon
         style={{ marginBottom: 16 }}
-        message={intl.formatMessage({
+        title={intl.formatMessage({
           id: 'pages.functionsDetail.configTab.warningAlert.message',
           defaultMessage: '这里配置的是单个函数，不是整个业务页面',
         })}

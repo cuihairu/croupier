@@ -425,7 +425,7 @@ export function PermissionsTab({
   return (
     <>
       <Alert
-        message={intl.formatMessage({
+        title={intl.formatMessage({
           id: 'pages.functionsDetail.section.permissions.alertMessage',
           defaultMessage: '权限配置',
         })}
@@ -443,7 +443,7 @@ export function PermissionsTab({
           style={{ marginTop: 16 }}
           type="error"
           showIcon
-          message={intl.formatMessage({
+          title={intl.formatMessage({
             id: 'pages.functionsDetail.section.permissions.errorTitle',
             defaultMessage: '无法读取权限',
           })}

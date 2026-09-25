@@ -369,7 +369,7 @@ export default function ExtensionsStorePage() {
         type="info"
         showIcon
         style={{ marginBottom: 16 }}
-        message={intl.formatMessage({
+        title={intl.formatMessage({
           id: 'pages.extensionsStore.alert.positioning.message',
           defaultMessage: '商店只负责发现与安装扩展物料',
         })}

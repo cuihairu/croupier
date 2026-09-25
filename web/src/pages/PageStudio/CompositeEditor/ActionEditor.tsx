@@ -114,10 +114,20 @@ export default function ActionEditor({
       />
       {effKind &&
         (ACTIONS[effKind].paramFields ?? []).map((pf) => (
+          /*
+           * antd 6 废弃 Input.addonBefore（运行时 console 刷 deprecated）。
+           *
+           * 这里用 Input 的 prefix 而非官方推荐的 Space.Compact：本组件在行操作
+           * 编辑器里会被大批量渲染，而 antd 的 Compact 每次渲染都为每个子项新建
+           * 上下文对象（CompactItem 的 useMemo 依赖是每渲染新建的 others），
+           * 导致下游 Input 全部重渲染——实测把本处包上 Space.Compact 后
+           * previewActions 用例从 <1s 涨到 8~13s 并大面积超时
+           * （docs/BUGS.md BUG-009）。prefix 同样能承载参数标签，且不引入额外组件。
+           */
           <Input
             key={pf.key}
             size="small"
-            addonBefore={<span style={{ fontSize: 11 }}>{pf.label}</span>}
+            prefix={<span style={{ fontSize: 11 }}>{pf.label}</span>}
             placeholder={pf.placeholder}
             value={String(action?.params?.[pf.key] ?? '')}
             onChange={(e) =>

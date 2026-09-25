@@ -568,7 +568,7 @@ const ResourceCatalogPage: React.FC = () => {
         <Alert
           type="info"
           showIcon
-          message={intl.formatMessage({
+          title={intl.formatMessage({
             id: 'pages.resourceCatalog.page.alert.title',
             defaultMessage: '资源目录只展示语义与候选，不承载页面 UI',
           })}

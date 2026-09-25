@@ -127,7 +127,7 @@ export default function ServerHistoryPanel({ functionId }: { functionId?: string
       );
     }
     return (
-      <Space direction="vertical" size={8} style={{ width: '100%' }}>
+      <Space orientation="vertical" size={8} style={{ width: '100%' }}>
         <div>
           <Space size={8}>
             <Text type="secondary">
@@ -215,7 +215,7 @@ export default function ServerHistoryPanel({ functionId }: { functionId?: string
         <Alert
           type="error"
           showIcon
-          message={intl.formatMessage({
+          title={intl.formatMessage({
             id: 'pages.functionsInvoke.serverHistory.error.loadFailed',
             defaultMessage: '服务端记录加载失败',
           })}

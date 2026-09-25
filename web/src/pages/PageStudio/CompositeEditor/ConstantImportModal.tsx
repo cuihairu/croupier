@@ -198,7 +198,7 @@ export default function ConstantImportModal({
         </Space>
       }
     >
-      <Space direction="vertical" size={10} style={{ width: '100%' }}>
+      <Space orientation="vertical" size={10} style={{ width: '100%' }}>
         <Space size={8} wrap>
           <Radio.Group
             size="small"
@@ -239,7 +239,7 @@ export default function ConstantImportModal({
           )}
         </Text>
 
-        {error && <Alert type="error" showIcon message={error} />}
+        {error && <Alert type="error" showIcon title={error} />}
 
         {fields.length > 0 && (
           <>

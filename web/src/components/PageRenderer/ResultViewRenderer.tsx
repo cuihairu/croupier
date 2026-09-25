@@ -91,7 +91,7 @@ const ResultViewRenderer: React.FC<ResultViewRendererProps> = ({
       <Alert
         type="info"
         showIcon
-        message={intl.formatMessage({
+        title={intl.formatMessage({
           id: 'component.pageRenderer.resultView.noStructuredResult',
           defaultMessage: '执行已完成，无结构化返回结果',
         })}
@@ -104,7 +104,7 @@ const ResultViewRenderer: React.FC<ResultViewRendererProps> = ({
       <Alert
         type="warning"
         showIcon
-        message={emptyTitle}
+        title={emptyTitle}
         description={intl.formatMessage({
           id: 'component.pageRenderer.resultView.fieldsMissingDescription',
           defaultMessage:
@@ -137,7 +137,7 @@ const ResultViewRenderer: React.FC<ResultViewRendererProps> = ({
       <Alert
         type="warning"
         showIcon
-        message={intl.formatMessage({
+        title={intl.formatMessage({
           id: 'component.pageRenderer.resultView.structureMismatchTitle',
           defaultMessage: '结果结构与 ResultViewSpec 不匹配',
         })}

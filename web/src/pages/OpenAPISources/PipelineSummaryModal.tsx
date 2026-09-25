@@ -73,7 +73,7 @@ export default function PipelineSummaryModal({
       ]}
       onCancel={onClose}
     >
-      <Space direction="vertical" size={4}>
+      <Space orientation="vertical" size={4}>
         {counters.map((item) => (
           <Text key={item.id} style={{ fontSize: 13 }}>
             {intl.formatMessage(
@@ -83,7 +83,7 @@ export default function PipelineSummaryModal({
           </Text>
         ))}
         {summary?.diagnostics?.length ? (
-          <Space direction="vertical" size={4} style={{ marginTop: 8, width: '100%' }}>
+          <Space orientation="vertical" size={4} style={{ marginTop: 8, width: '100%' }}>
             {summary.diagnostics.map((item) => (
               <Alert
                 key={`${item.code}:${item.field || ''}:${item.message}`}
@@ -95,7 +95,7 @@ export default function PipelineSummaryModal({
                       : 'info'
                 }
                 showIcon
-                message={`${item.code}${item.field ? ` @ ${item.field}` : ''}`}
+                title={`${item.code}${item.field ? ` @ ${item.field}` : ''}`}
                 description={item.message}
               />
             ))}

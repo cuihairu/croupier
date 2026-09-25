@@ -65,7 +65,7 @@ export default function SourceModal({
         <Alert
           type={isUpdatingSource ? 'info' : 'warning'}
           showIcon
-          message={intl.formatMessage(
+          title={intl.formatMessage(
             isUpdatingSource
               ? {
                   id: 'pages.openapiSources.sourceModal.alert.message.update',
@@ -90,15 +90,18 @@ export default function SourceModal({
                 },
           )}
         />
-        <Input
-          addonBefore="name"
-          placeholder={intl.formatMessage({
-            id: 'pages.openapiSources.sourceModal.name.placeholder',
-            defaultMessage: '可选，默认使用 info.title',
-          })}
-          value={name}
-          onChange={(event) => onNameChange(event.target.value)}
-        />
+        {/* antd 6 废弃 Input.addonBefore：前缀改为 Space.Compact 的相邻兄弟节点 */}
+        <Space.Compact>
+          name
+          <Input
+            placeholder={intl.formatMessage({
+              id: 'pages.openapiSources.sourceModal.name.placeholder',
+              defaultMessage: '可选，默认使用 info.title',
+            })}
+            value={name}
+            onChange={(event) => onNameChange(event.target.value)}
+          />
+        </Space.Compact>
         {isUpdatingSource ? null : (
           <Upload
             beforeUpload={(uploading) => {

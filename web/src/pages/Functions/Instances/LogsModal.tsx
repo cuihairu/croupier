@@ -71,7 +71,7 @@ export default function LogsModal({
         <Alert
           type="info"
           showIcon
-          message={intl.formatMessage({
+          title={intl.formatMessage({
             id: 'pages.functionsInstances.logs.empty',
             defaultMessage: '暂无日志数据',
           })}

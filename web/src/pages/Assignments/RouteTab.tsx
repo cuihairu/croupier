@@ -22,7 +22,7 @@ export default function RouteTab({ data, columns }: Props) {
       toolBarRender={() => [
         <Alert
           key="hint"
-          message={intl.formatMessage({
+          title={intl.formatMessage({
             id: 'pages.assignments.route.hint.title',
             defaultMessage: '函数能力归属说明',
           })}

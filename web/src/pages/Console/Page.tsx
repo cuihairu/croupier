@@ -205,7 +205,7 @@ export default function ConsolePage() {
         <div style={{ textAlign: 'center', padding: '100px 0' }}>
           <Spin
             size="large"
-            tip={intl.formatMessage({
+            description={intl.formatMessage({
               id: 'pages.console.page.loading.spin',
               defaultMessage: '加载页面中...',
             })}
@@ -255,7 +255,7 @@ export default function ConsolePage() {
         <div style={{ textAlign: 'center', padding: '100px 0' }}>
           <Spin
             size="large"
-            tip={intl.formatMessage({
+            description={intl.formatMessage({
               id: 'pages.console.page.redirecting.spin',
               defaultMessage: '正在跳转到页面发布分类...',
             })}
@@ -292,7 +292,7 @@ export default function ConsolePage() {
           type="error"
           showIcon
           style={{ marginBottom: 16 }}
-          message={intl.formatMessage({
+          title={intl.formatMessage({
             id: 'pages.console.page.staleAlert.message',
             defaultMessage: '页面绑定的函数契约已变化，执行已被阻断',
           })}

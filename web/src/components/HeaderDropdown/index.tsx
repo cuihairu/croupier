@@ -2,7 +2,7 @@ import { Dropdown } from 'antd';
 import type { DropDownProps } from 'antd/es/dropdown';
 import React from 'react';
 import { createStyles } from 'antd-style';
-import classNames from 'classnames';
+import classnames from 'classnames';
 
 const useStyles = createStyles(({ token }) => {
   return {
@@ -21,7 +21,8 @@ export type HeaderDropdownProps = {
 
 const HeaderDropdown: React.FC<HeaderDropdownProps> = ({ overlayClassName: cls, ...restProps }) => {
   const { styles } = useStyles();
-  return <Dropdown overlayClassName={classNames(styles.dropdown, cls)} {...restProps} />;
+  // antd 6：overlayClassName 已废弃，迁移到 classNames.root（与内置样式合并）。
+  return <Dropdown classNames={{ root: classnames(cls, styles.dropdown) }} {...restProps} />;
 };
 
 export default HeaderDropdown;

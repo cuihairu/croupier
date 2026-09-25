@@ -73,7 +73,7 @@ export default function AnalyticsWarehousePage() {
         <Alert
           type="info"
           showIcon
-          message={intl.formatMessage({ id: 'pages.analytics.warehouse.disabled.title' })}
+          title={intl.formatMessage({ id: 'pages.analytics.warehouse.disabled.title' })}
           description={intl.formatMessage({
             id: 'pages.analytics.warehouse.disabled.description',
           })}
@@ -88,7 +88,7 @@ export default function AnalyticsWarehousePage() {
         <Alert
           type="error"
           showIcon
-          message={intl.formatMessage({ id: 'pages.analytics.warehouse.error.title' })}
+          title={intl.formatMessage({ id: 'pages.analytics.warehouse.error.title' })}
           action={
             <a onClick={load} href="#">
               {intl.formatMessage({ id: 'pages.analytics.warehouse.retry' })}

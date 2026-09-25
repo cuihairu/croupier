@@ -439,7 +439,7 @@ export default () => {
         />
 
         <Alert
-          message={intl.formatMessage({
+          title={intl.formatMessage({
             id: 'pages.functionsInstances.alert.transitionalTitle',
             defaultMessage: '实例详情、日志和调试仍是过渡态',
           })}
@@ -610,7 +610,7 @@ export default () => {
               style={{ marginBottom: 12 }}
               type="info"
               showIcon
-              message={intl.formatMessage({
+              title={intl.formatMessage({
                 id: 'pages.functionsInstances.filter.activeTitle',
                 defaultMessage: '当前正在查看筛选后的实例范围',
               })}
