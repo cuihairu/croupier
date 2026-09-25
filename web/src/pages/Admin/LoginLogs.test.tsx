@@ -8,7 +8,12 @@ import type { AuditEvent } from '@/services/api';
 import { exportToCSV } from '@/utils/export';
 
 // services/导出/格式化均为纯数据依赖，mock 掉以精确断言参数与产物
-jest.mock('@/services/api', () => ({ listAudit: jest.fn() }));
+jest.mock('@/services/api', () => ({
+  listAudit: jest.fn(),
+  // rowKey 依赖：整页 key 必须唯一（BUG-011）。用真实实现，避免桩把
+  // 「唯一性」这一被测性质一并抹掉。
+  auditRowKey: jest.requireActual('@/services/api/audit').auditRowKey,
+}));
 jest.mock('@/utils/export', () => ({ exportToCSV: jest.fn() }));
 jest.mock('@/utils/format', () => ({ formatDateTime: (t: string) => `T:${t}` }));
 
@@ -55,6 +60,7 @@ const UA_LINUX =
 const UA_OTHER = 'CroupierBot/1.0';
 
 const mkRow = (i: number, over: Partial<AuditEvent>): AuditEvent => ({
+  id: `audit_${i}_x`,
   time: '2024-05-01T10:00:00Z',
   kind: 'login',
   actor: `user-${i}`,
@@ -106,8 +112,42 @@ describe('LoginLogsPage 登录日志', () => {
     window.history.replaceState(null, '', '/');
   });
 
-  it('初始加载：URL actor 预填 + 默认类型与分页参数', async () => {
-    window.history.replaceState(null, '', '/admin/login-logs?actor=alice');
+  /**
+   * BUG-011 回归：整页行 key 必须唯一。
+   *
+   * 现场症状是控制台刷 `Encountered two children with the same key`：两个日志页
+   * 原本用 `rowKey={(r) => r.hash}`，而 `/api/v1/audit` 在当前部署不回填 `hash`
+   * （实测 19 条记录 `hash` 全空），于是整页 rowKey 都是空串。
+   *
+   * 这里直接断言 DOM 上的 row key 互不相同——比断言「没打日志」可靠（React 的
+   * duplicate-key 告警受全局去重影响，可能已被别处消费掉）。
+   */
+  it('hash/id 全缺时行 key 仍互不相同（BUG-011）', async () => {
+    // 同形于真实响应：id 唯一但 hash 全空；再叠加一批 id/hash 都缺的极端行
+    const noHash = Array.from({ length: 12 }, (_, i) =>
+      mkRow(i, { id: `audit_${i}_z`, hash: '' }),
+    );
+    const noIds = Array.from({ length: 4 }, (_, i) =>
+      mkRow(100 + i, { id: '', hash: '' }),
+    );
+    mockedListAudit.mockResolvedValue({
+      events: [...noHash, ...noIds],
+      total: 16,
+      page: 1,
+      pageSize: 20,
+    });
+
+    const { container } = render(<LoginLogsPage />);
+    await waitFor(() => {
+      expect(tableRows(container).length).toBe(16);
+    });
+
+    const keys = Array.from(tableRows(container)).map((tr) => tr.getAttribute('data-row-key'));
+    expect(keys.every((k) => k !== null && k !== '')).toBe(true);
+    expect(new Set(keys).size).toBe(keys.length);
+  });
+
+  it('初始加载：URL actor 预填 + 默认类型与分页参数', async () => {    window.history.replaceState(null, '', '/admin/login-logs?actor=alice');
     const { container } = render(<LoginLogsPage />);
     await waitFor(() => expect(mockedListAudit).toHaveBeenCalledTimes(1));
     expect(mockedListAudit).toHaveBeenCalledWith({

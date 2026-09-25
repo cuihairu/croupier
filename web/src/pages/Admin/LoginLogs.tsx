@@ -3,7 +3,7 @@ import { Card, Table, Space, Input, Button, DatePicker, Tag, Row, Col, Typograph
 import type { Dayjs } from 'dayjs';
 import { PageContainer } from '@ant-design/pro-components';
 import { FormattedMessage, useIntl } from '@umijs/max';
-import { listAudit, type AuditEvent } from '@/services/api';
+import { auditRowKey, listAudit, type AuditEvent } from '@/services/api';
 import { exportToCSV } from '@/utils/export';
 import { formatDateTime } from '@/utils/format';
 
@@ -73,6 +73,19 @@ export default function LoginLogsPage() {
     const start = (page - 1) * size;
     return filtered.slice(start, start + size);
   }, [filtered, page, size]);
+
+  /**
+   * 当前页的表格数据：预先算好行 key。
+   *
+   * 不在 `rowKey` 回调里用 index 兜底——antd 6 已废弃该参数
+   * （`index` parameter of `rowKey` function is deprecated），会在 dev 模式
+   * 刷告警。改为在切片时就把 key 落到行上，Table 用字符串 rowKey 读取。
+   * 详见 docs/BUGS.md BUG-011。
+   */
+  const pagedWithKey = useMemo(
+    () => paged.map((e, i) => ({ ...e, __rowKey: auditRowKey(e, i) })),
+    [paged],
+  );
 
   const exportCSV = () => {
     const arr = (filtered || []).map((e: AuditEvent) => {
@@ -257,7 +270,7 @@ export default function LoginLogsPage() {
           </Row>
         </div>
         <Table
-          rowKey={(r) => r.hash}
+          rowKey="__rowKey"
           loading={loading}
           columns={[
             {
@@ -330,7 +343,7 @@ export default function LoginLogsPage() {
               render: (_, r) => detectBrowser(String(r.meta?.ua || '')),
             },
           ]}
-          dataSource={paged}
+          dataSource={pagedWithKey}
           expandable={{
             expandedRowRender: (r) => {
               const ua = String(r?.meta?.ua || '');

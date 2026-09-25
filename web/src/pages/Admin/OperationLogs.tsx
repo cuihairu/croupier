@@ -8,7 +8,7 @@ import {
   type ProColumns,
 } from '@ant-design/pro-components';
 import { FormattedMessage, useIntl } from '@umijs/max';
-import { listAudit, type AuditEvent } from '@/services/api';
+import { auditRowKey, listAudit, type AuditEvent } from '@/services/api';
 import { exportToCSV } from '@/utils/export';
 import { formatDateTime } from '@/utils/format';
 
@@ -283,7 +283,7 @@ export default function OperationLogsPage() {
         </div>
         <ProTable<AuditEvent>
           actionRef={actionRef}
-          rowKey={(r) => r.hash}
+          rowKey="__rowKey"
           columns={columns}
           search={false}
           options={false}
@@ -311,8 +311,14 @@ export default function OperationLogsPage() {
             if (range && range[1]) params.end = range[1].toISOString();
             try {
               const r = await listAudit(params);
-              setRows(r.events || []);
-              return { data: r.events || [], total: r.total || 0, success: true };
+              // 行 key 在此处落定，不在 rowKey 回调里用 index 兜底——
+              // antd 6 已废弃该参数（docs/BUGS.md BUG-011）。
+              const withKeys = (r.events || []).map((e, i) => ({
+                ...e,
+                __rowKey: auditRowKey(e, i),
+              }));
+              setRows(withKeys);
+              return { data: withKeys, total: r.total || 0, success: true };
             } catch {
               // 原实现无本地弹错（依赖全局请求拦截器 toast），保持静默
               return { data: [], total: 0, success: false };

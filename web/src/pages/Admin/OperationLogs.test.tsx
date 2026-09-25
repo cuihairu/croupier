@@ -7,7 +7,12 @@ import { listAudit } from '@/services/api';
 import type { AuditEvent } from '@/services/api';
 import { exportToCSV } from '@/utils/export';
 
-jest.mock('@/services/api', () => ({ listAudit: jest.fn() }));
+jest.mock('@/services/api', () => ({
+  listAudit: jest.fn(),
+  // rowKey 依赖：整页 key 必须唯一（BUG-011）。用真实实现，避免桩把
+  // 「唯一性」这一被测性质一并抹掉。
+  auditRowKey: jest.requireActual('@/services/api/audit').auditRowKey,
+}));
 jest.mock('@/utils/export', () => ({ exportToCSV: jest.fn() }));
 jest.mock('@/utils/format', () => ({ formatDateTime: (t: string) => `T:${t}` }));
 
@@ -134,7 +139,27 @@ jest.mock('@ant-design/pro-components', () => {
         </button>
         <div data-testid="ref-calls">{refCalls.join('|')}</div>
         {rows.map((row, i: number) => (
-          <div data-testid="stub-row" key={props.rowKey ? props.rowKey(row) : String(i)}>
+          <div
+            data-testid="stub-row"
+            data-row-key={
+              // rowKey 既可能是函数也可能是字段名字符串（antd 两种都支持）。
+              // 本页用字符串 `__rowKey`——行 key 在 request 里就落定了，
+              // 不走 rowKey 回调的 index 兜底（antd 6 已废弃该参数，
+              // 见 docs/BUGS.md BUG-011）。
+              typeof props.rowKey === 'function'
+                ? props.rowKey(row)
+                : props.rowKey
+                  ? (row as Record<string, unknown>)[props.rowKey]
+                  : String(i)
+            }
+            key={
+              typeof props.rowKey === 'function'
+                ? props.rowKey(row)
+                : props.rowKey
+                  ? String((row as Record<string, unknown>)[props.rowKey] ?? i)
+                  : String(i)
+            }
+          >
             {(props.columns || []).map((col: StubColumn, ci: number) => (
               <span data-testid="stub-cell" key={ci}>
                 {col.render
@@ -176,6 +201,7 @@ const DEFAULT_KINDS = [
 ];
 
 const mkRow = (i: number, over: Partial<AuditEvent>): AuditEvent => ({
+  id: `audit_${i}_y`,
   time: '2024-06-01T10:00:00Z',
   kind: 'invoke',
   actor: `admin-${i}`,

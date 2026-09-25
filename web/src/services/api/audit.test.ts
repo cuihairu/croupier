@@ -77,6 +77,7 @@ describe('audit API adapter', () => {
     const res = await listAudit();
 
     expect(res.events[0]).toEqual({
+      id: '',
       time: '',
       kind: '',
       actor: '',
