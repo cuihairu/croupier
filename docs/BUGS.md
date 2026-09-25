@@ -1,0 +1,529 @@
+# 界面 Bug 验证与回归台账
+
+> 范围：本地栈（`croupier-server` + `pnpm dev`）上复现/验证前端交互路径，发现的问题、
+> 根因、修复与回归测试。
+>
+> 验收口径：**每个 BUG 都要有一条能真正判别修复与回归的测试**——「修复前红、修复后绿」。
+> 仅断言渲染成功、或用被 mock 弱化到无法失败的断言，都不算回归测试（本文档多次踩到，
+> 已在各条的「回归测试」里写明）。
+>
+> 相关：`todo.md`（T1–T13 已完成）、`CLAUDE.md`、`web/package.json`（antd 6）。
+
+## 验证手段
+
+| 手段 | 位置 | 用途 |
+| --- | --- | --- |
+| 控制台审计脚本 | `web/scripts/console-audit.mjs` | 登录真实栈，遍历 **52** 条路由，收集 console warning/error/pageerror，输出 JSON 报告。dev 模式下 antd 的运行时废弃告警、React 重复 key、缺失 locale key 只有这样才抓得到。 |
+| 废弃属性静态守卫 | `web/tests/antd6Deprecations.test.ts` | 从 `node_modules/antd` 的**运行时告警表**反推废弃清单，扫描 `src/**/*.tsx`，任何新写入的废弃属性直接失败并报文件行号。 |
+| 单元测试 | `pnpm --dir web test`（jest，251 个 suite） | 组件行为回归。 |
+| Go 测试 | `make test`（`go test -short ./...`，169 个包） | 后端回归。 |
+
+审计脚本的运行方式（需本地栈已起）：
+
+```bash
+cd web && node --import tsx scripts/console-audit.mjs http://127.0.0.1:8000
+# 报告写入 web/test-results/console-audit.json
+```
+
+**最终结论**：**52 条**路由的 console 输出中，antd 废弃告警 **0 条**、其他
+warning/error/pageerror **0 条**（BUG-005 / 007 / 008 / 010 / 011 修复前分别为
+19、4、2、4、14 条）。
+
+唯一的残留是 `/analytics/warehouse` 的 3 条
+`Failed to load resource: 503`——后端返回
+`{"error":"service_unavailable","message":"分析仓库未启用"}`，即本地未启用
+ClickHouse 分析仓库（`services/api/analytics.ts:484` 已注明
+「503 when the warehouse is not enabled」）。这是**预期内的后端状态**，不是界面缺陷；
+浏览器对任何 503 都会打这条 resource 错误，前端无法消除。
+
+---
+
+## BUG-001 `TestNewTCPListener_NilConfigDefaults` 抢占生产默认端口，本地起栈即失败
+
+**严重度**：高（阻断「go test 全绿」）
+
+**现象**
+
+本地跑着 croupier 栈时执行 `make test`，`internal/server` 必挂：
+
+```
+--- FAIL: TestNewTCPListener_NilConfigDefaults (0.00s)
+    listen tcp :19090: bind: address already in use
+```
+
+**根因**
+
+用例直接 `NewTCPListener(nil, nil, nil, nil)`，而 `nil` 配置会回落到生产默认地址
+`:19090`（`configs/*.yaml` 的 `control.addr` 默认同为 `:19090`）。于是测试真的去
+bind 了**业务端口**。任何跑着本地栈的开发者、或并行占着该端口的用例都会中招——
+一个与被测逻辑完全无关的环境耦合。同包的 `tcp_listener_test.go` 其余用例早已改用
+临时端口 `:0`，只有这一条漏网。
+
+**修复**
+
+把「配置兜底」从「建监听器」里拆出来，使其可测而不占端口：
+
+- `internal/server/tcp_listener.go`：新增 `defaultControlAddress` 常量与
+  `defaultTCPListenerConfig(config)`（非 nil 配置原样返回，不覆盖调用方显式值），
+  `NewTCPListener` 改为调用它。生产行为不变。
+- `internal/server/control_handler_test.go`：拆成三条——
+  1. `TestNewTCPListener_NilConfigDefaults`：纯函数断言默认地址与 `Insecure`；
+  2. `TestNewTCPListener_ConfigDefaults_PreservesExplicitValues`：断言恒等返回、
+     不翻转显式 TLS 开关；
+  3. `TestNewTCPListener_NilDepsUseDefaults`：用 `127.0.0.1:0` 验证 nil
+     sessionStore/registry/logger 兜底，并断言实际端口**不等于**生产默认端口。
+
+**回归测试**：同文件三条用例。修复前第 1 条在本地栈运行时必红。
+
+---
+
+## BUG-002 引导管理员的 nickname/email/phone 被静默丢弃
+
+**严重度**：中（数据缺失，非崩溃）
+
+**现象**
+
+`GET /api/v1/profile` 对 `admin` 返回 `nickname:""`、`email:""`、`phone:""`，
+尽管 `configs/users.json` 明确写了 `nickname: "系统管理员"`、`email: "admin@croupier.local"`。
+
+**根因（两处叠加）**
+
+1. `AdminManager.loadDefaultAdmins` 按 `admins.json` → `users.json` 顺序遍历，
+   但只要某文件 `loadedCount > 0` 就 **`return`**。`configs/admins.json` 里
+   `admin` 只有身份没有档案字段，于是它先「命中」，`users.json` **根本没被读**，
+   同名去重把档案字段静默丢弃。
+2. `seedBootstrapAdmins` 对已存在的 DB 行只同步 `status`，不回填空档案字段——
+   即使配置正确，存量行也永远是空。
+
+**修复**
+
+- `loadDefaultAdmins`：不再提前 return；改为「首个贡献身份的文件生效后，后续文件
+  仅做档案补齐（nickname/email/phone 只补空、不覆盖），不再新增账号」，
+  保持「admins.json 优先、users.json 兜底」的语义不变。
+- `seedBootstrapAdmins`：对存量行仅回填空档案字段，**不覆盖用户已设置的值**，
+  二次 seed 幂等。
+
+**回归测试**：`internal/svc/admin_manager_test.go` 四条
+（`..._EnrichesProfileFromLaterConfig` / `..._EnrichDoesNotOverwriteExistingProfile` /
+`..._LaterFileDoesNotAddIdentity` / `..._SecondFileLoadsWhenFirstEmpty`）+
+`internal/svc/bootstrap_admin_seed_test.go` 的
+`TestSeedBootstrapAdminsBackfillsEmptyProfileFields`（含二次 seed 幂等断言）。
+
+---
+
+## BUG-003 LB 监控「归属率」仪表盘永远不显示数值
+
+**严重度**：中（功能静默失效）
+
+**现象**
+
+`/ops/lb` 的「归属 vs LB 对账（僵尸探测）」卡片里，归属率仪表盘是空白的，
+读数不反映 `agent 节点数 / LB 后端数` 的真实比例。
+
+**根因（已在本机复现，三段证据）**
+
+1. `@ant-design/plots@2.6.8` 的 gauge adaptor 把入参改写成对象——
+   实跑其 adaptor，`data: 0.5` 恒变为 **`{"value": 0.5}`**
+   （`es/core/plots/gauge/adaptor.js`：`params.options.data = { value: data }`）。
+2. `@antv/g2@5.4.8` 的 Gauge mark 只认 `number` 或
+   `{target, total, percent, name, thresholds}`——其 `GaugeData` 类型里**没有
+   `value` 这个键**。
+3. g2 的 `getGaugeData` 对非 number 原样返回，`dataTransform` 只解构
+   `{name, target, total, percent, thresholds}`。因此 `target/total/percent`
+   全部为 `undefined`，`_target = percent || target = undefined`、
+   `_total = percent ? 1 : total = undefined`，通道 y 退化成 `undefined` / `NaN`。
+
+即：**百分数被静默丢弃**，指针与读数都不动。
+
+> 早期注释写作「渲染即抛 TypeError」。按上述数据通路推导，值是**静默丢成
+> undefined/NaN** 而非必然抛错；本文档以实测到的事实为准。
+
+**修复**
+
+- `web/src/pages/Ops/LBMonitor/index.tsx`：改用 antd `Progress type="dashboard"`
+  呈现同一比例（不依赖 canvas 图表链路）。
+- 抽出纯函数 `ownershipRatioPercent(nodes, backends)`：无 agent → 0（不是 NaN）、
+  无 backend → 分母取 1 避免除零、超 100% 截断。
+
+**回归测试**：`web/src/pages/Ops/LBMonitor/__tests__/reconciliation.test.tsx`
+7 条——5 条纯函数边界（含 0–5 × 0–5 全组合断言恒为 0–100 整数、非 NaN/Infinity），
+2 条组件渲染（读出 `归属 2 / LB 后端 4` 与 `50%`；无 agent 时 `0%`）。
+
+---
+
+## BUG-004 菜单树排序标签漏传 intl values，真实 intl 抛 MISSING_VALUE
+
+**严重度**：低（界面正确、控制台报错），但**掩盖了错误的实现方式**
+
+**现象**
+
+菜单管理页每个带排序值的节点都在 console 刷 intl 解析错误（`MISSING_VALUE`），
+可见文本却是对的。
+
+**根因**
+
+组件写成：
+
+```ts
+fmt('pages.menuManagement.page.order', '排序 {order}').replace('{order}', String(n))
+```
+
+`{order}` 是 ICU 占位符。真实 `react-intl` 在 defaultMessage 含占位符却没有
+`values` 时会走 `onError`（MISSING_VALUE），返回未插值的串——`.replace` 只是把
+**可见文本**兜住了，错误本身仍在。正确写法是经 `values` 传参。
+
+**为什么长期没被发现**：`MenuTree.test.tsx` 自己 mock 了 `@umijs/max`：
+
+```ts
+formatMessage: ({ defaultMessage }) => defaultMessage   // 丢弃 values
+```
+
+这个 mock 把「漏传 values」的错误一并吞掉，等于替组件打了补丁，于是组件得以停留在
+错误写法上。
+
+**修复**
+
+- `MenuTree.tsx`：新增 `fmtOrder(order)`，`intl.formatMessage(desc, { order })`。
+- `MenuTree.test.tsx`：把 mock 换成**忠实实现**（按 `values` 插值），并记录
+  每次调用的 `id/defaultMessage/values`。
+
+**回归测试**（同文件）：`排序标签的 {order} 经 intl values 传入，不靠组件侧 replace 兜底`
+——断言每个含 `{order}` 的调用都带上了数值型 `order`，且插值后的文本为 `排序 3`。
+
+**变异验证**：把 `MenuTree.tsx` 改回 `.replace` 写法后，
+- 旧用例 `已发布/草稿页面…排序 3` **仍然通过**（证明它没有判别力）；
+- 新用例失败（`values` 为 `undefined`）。
+
+这条对比是本文档「验收口径」里「必须能判别」的由来。
+
+---
+
+## BUG-005 antd 6 废弃属性 142 处，TypeScript 不报错、页面也不报错
+
+**严重度**：中（污染控制台、掩盖真实问题、升级到 v7 会集体断裂）
+
+**现象**
+
+dev 模式每次进页面刷 `Warning: [antd: X] \`p\` is deprecated. Please use \`q\` instead.`。
+其中 `Drawer height` 来自**全局布局**的 `GameSelector`，等于每翻一页都刷一次
+（审计脚本量到单页 18 次）。
+
+**根因**
+
+仓库已升到 `antd@^6.4.3`（实测安装 6.6.0），但代码里仍有大量 antd 5 写法。
+antd 6 对这批属性**只打告警、不改行为**，所以 `tsc` 全绿、页面也正常，废弃用法可以
+无限期潜伏。真正的风险是 v7 移除后集中断裂，以及告警淹没控制台后真问题被埋掉。
+
+清单不是照文档手抄的，而是从 `node_modules/antd/es/**/*.js` 里的
+`devUseWarning('<Component>')` **运行时告警表**反推——antd 实际有三种写法，
+抽取器三种都认（否则会漏）：
+
+1. 对照表 + `forEach`：`[['message', 'title']].forEach(...)`（多数组件）
+2. 直接调用：`warning.deprecated(!tip, 'tip', 'description')`（`Spin`）
+3. 对象字面量映射：`const deprecatedProps = { dropdownRender: 'popupRender' }`（`Select`）
+
+> 只收**属性名**级别的废弃。形如 `size="default"` 的值级建议不是 JSX 属性，不纳入。
+
+**修复（142 处 → 0）**
+
+| 属性 | 处数 | 处理方式 |
+| --- | --- | --- |
+| `Alert message` → `title` | 100 | 直接改名 |
+| `Drawer width` / `height` → `size` | 20 | 直接改名（`drawerSize` 归一后取值一致） |
+| `Space direction` → `orientation` | 12 | 直接改名 |
+| `Input` / `InputNumber addonBefore` → `Space.Compact` | 6 | **结构改写**：前缀移出输入框，成为 `Space.Compact` 的相邻兄弟节点（静态表单：PathControls ×3、BindingModal ×2、SourceModal ×1） |
+| `Input addonBefore` → `Input.prefix` | 3 | **结构改写**，但改用 `prefix` 而非 `Space.Compact`——见 BUG-009（热路径编辑器：ActionEditor ×1、ConstantFieldsEditor ×2） |
+| `Statistic valueStyle` → `styles.content` | 1 | 嵌套路径，改为 `styles={{ content: {...} }}` |
+| `Spin tip` → `description` | 5 | 直接改名 |
+
+改写通过「按 JSX 开始标签定位」的 codemod 完成，跳过 `{}` 表达式与字符串字面量里的
+`>`（否则 `<Alert title={a > b} />` 会在表达式中间被误判为标签结束），只改属性名，
+不碰子元素/对象字面量/同名的其他组件。
+
+**回归测试**：`web/tests/antd6Deprecations.test.ts` 3 条：
+
+1. 抽取器本身有效（`> 50` 条对照项 + 抽样命中 `Alert.message` / `Drawer.width` /
+   `Drawer.height` / `Space.direction` / `Statistic.valueStyle` / `Card.bordered` /
+   `Divider.type` / `Spin.tip` / `Select.dropdownRender`）——防止清单失效后守卫变成
+   「永远通过」的假阴性；
+2. `src` 下不存在任何废弃 JSX 属性，失败时逐条报 `文件:行号 <X p=…> → 改用 q`；
+3. 字面量兜底：`addonBefore=` / `addonAfter=` / `valueStyle=` 一律不得出现。
+
+**变异验证**：把 `Welcome.tsx` 的 `variant="borderless"` 改回 `bordered={false}`，
+第 2 条立即失败并指出 `src/pages/Welcome.tsx:126 <Card bordered=…> → 改用 variant`。
+
+---
+
+## BUG-006 组合页编辑器菜单缺 locale key
+
+**严重度**：低
+
+**现象**：`menu.FunctionsAndPages.CompositeEditor` 在 `zh-CN` / `en-US` 的
+`menu.ts` 里都没有登记，菜单项回退显示原始 key。
+
+**修复**：`web/src/locales/{zh-CN,en-US}/menu.ts` 补
+`组合页编辑器` / `Composite Page Editor`。
+
+---
+
+## BUG-007 后端返回空头像串时渲染 `<img src="">`，浏览器把当前页重新请求一遍
+
+**严重度**：中（真实的多余网络请求 + React 告警）
+
+**现象**
+
+`/admin/account/center`（亦即 `/account/center` 的重定向目标）控制台报：
+
+```
+An empty string ("") was passed to the src attribute. This may cause the
+browser to download the whole page again over the network.
+```
+
+**根因**
+
+`GET /api/v1/profile` 在未设置头像时返回 `"avatar":""`（本机实测确认）。
+`Profile/index.tsx` 与 `AvatarModal.tsx` 把它直接透传给 `<Avatar src={...}>`。
+空 `src` 被浏览器解释为「重新请求当前页面的 URL」。注意同处代码的
+`icon={!profile?.avatar ? <UserOutlined /> : undefined}` **已经**判空——只有
+`src` 漏了。
+
+**修复**
+
+抽出 `normalizeAvatarSrc()`（`web/src/pages/Profile/shared.ts`）：非字符串、空串、
+纯空白 → `undefined`；合法 URL 去首尾空白后返回。两处调用点统一使用。
+
+**回归测试**：`web/src/pages/Profile/__tests__/InfoTab.regression.test.tsx`
+5 条——`normalizeAvatarSrc` 的空串/空白/null/undefined/非字符串（防后端类型漂移）/
+合法 URL 六个分支，外加一条源码级锁定：两处 `src={...}` 必须走归一函数，且不得
+出现未归一的直接透传（渲染整个 Profile 需拉起 7 个 Tab 与一批接口，代价与收益
+不成比例，故此处用源码断言，并在用例注释里写明取舍）。
+
+---
+
+## BUG-008 个人中心表单实例未连接，antd 每次渲染都告警
+
+**严重度**：低
+
+**现象**：`/admin/account/center` 控制台报
+
+```
+Warning: Instance created by `useForm` is not connected to any Form element.
+Forget to pass `form` prop?
+```
+
+**根因**
+
+表单实例由主页 `Profile` 的 `useForm` 创建并复用（`useProfileData` 拉到资料后
+`form.setFieldsValue` 回填、取消编辑再回填、保存时 `form.submit()`），但
+`InfoTab` 里 `<Form form={form}>` **只在 `editing` 为真时渲染**。非编辑态下实例
+处于「未连接」状态。
+
+告警并非挂载时报的，而是 `FormHook.warningUnhooked`——由**表单实例方法**
+（`setFieldsValue` / `getFieldsValue` / `submit` …）在 `setTimeout` 里检查
+`formHooked` 触发。所以复现路径是「未连接 + 调方法」，只挂载不调方法不会告警。
+
+**修复**：`InfoTab` 中 `<Form>` 改为**常驻挂载**，非编辑态用 `hidden` 容器隐藏
+（`display:none` 不参与布局，视觉与之前一致）。
+
+**回归测试**：同文件 4 条。要点：
+
+- 一条**对照**用例：构造「不挂 `<Form>` 的孤立实例」并调 `setFieldsValue`，
+  断言确实命中告警——证明告警通道有效，否则正向断言是假阴性；
+- 回归锁用**结构不变量**（非编辑态 `<form>` 元素必须在 DOM 中、且带
+  `div[hidden]` 祖先），而不是「断言无告警」。
+
+**为什么不用「断言无告警」**：rc-util 的 `warning` 按 message 去重，同一条文案在
+一个模块生命周期内只报一次。对照用例一旦先报过，后续任何「无告警」断言都恒真。
+这一点是**实测踩出来的**：把 `InfoTab` 改回条件渲染后，「无告警」断言仍然通过，
+而结构断言失败。现已改为结构断言，变异验证下有 2 条用例转红。
+
+---
+
+## BUG-009 按 antd 官方建议用 `Space.Compact` 迁移 `addonBefore`，把编辑器拖慢 10 倍
+
+**严重度**：中（不改变功能，但把测试/交互性能打到超时）
+
+**发现经过**
+
+修 BUG-005 时按 antd 官方迁移建议，把 `ActionEditor` / `ConstantFieldsEditor` 里
+标签前缀包进 `Space.Compact`。改完 `tsc` 全绿、相关单测也过，直到跑**全量** jest：
+
+```
+Test Suites: 1 failed, 253 passed, 254 total
+Tests:       1 failed, 3251 passed, 3252 total
+```
+
+且失败用例每次都换一批、单例耗时从 <1s 涨到 5–21s——典型的**超时**特征而非逻辑错误。
+
+**根因**
+
+antd 的 `Space.Compact` 会给**每个子项**包一层 `CompactItem` context provider：
+
+```js
+const CompactItem = props => {
+  const { children, ...others } = props;
+  return <SpaceCompactItemContext.Provider value={useMemo(() => others, [others])}>
+    {children}
+  </SpaceCompactItemContext.Provider>;
+};
+```
+
+`others` 是每次渲染新建的对象，`useMemo` 依赖因此每渲染必变 → **context 值每渲染
+都是新引用** → 所有消费该 context 的 `Input`（`useCompactItemContext`）每次都被
+拖进重渲染。行操作编辑器在表格/预览里会被大批量实例化，这个成本被成倍放大。
+
+> 注：这两个文件里包裹 `Select` 的 `Space.Compact` 是**既有写法**，且实测未触发
+> 问题（Select 的重渲染成本低于 Input）。本条只针对「标签前缀」这一处新增的包裹。
+
+**修复**
+
+标签前缀改用 `Input` 自带的 `prefix` 属性（未被 antd 6 废弃，同样能承载标签），
+不引入额外组件，因而不产生上述 context 重建。
+
+- `web/src/pages/PageStudio/CompositeEditor/ActionEditor.tsx`
+- `web/src/pages/PageStudio/CompositeEditor/ConstantFieldsEditor.tsx`
+
+静态表单（`PathControls` / `BindingModal` / `SourceModal`）仍按官方建议用
+`Space.Compact`——它们不是热路径，无此问题。
+
+**回归测试**：`web/tests/antd6Deprecations.test.ts` 的
+`热路径编辑器的标签前缀用 Input.prefix，未被 Space.Compact 包裹`——
+
+- 截取「承载标签的那个元素」所在源码片段，断言其内有 `<Input` + `prefix={<span`，
+  且**不含** `<Space.Compact`（先剥注释，否则解释性注释本身会命中子串匹配）；
+- `ConstantFieldsEditor` 另按 `titleAddon` / `varNameAddon` 两个锚点回溯到各自的
+  `<Input`，分别断言。
+
+**变异验证**：把 `ActionEditor` 改回 `Space.Compact` 包裹后该用例立即失败。
+
+**效果**：全量 jest 由 207s 回到 ~145s，连续两次全量通过（3252/3252）。
+
+> 一处实测反直觉，值得记下：单文件 40 个 `ActionEditor` 的定向基准里，
+> `prefix`（838ms 挂载 / 1115ms 重渲染 5 次）与 `Space.Compact`
+> （863ms / 1070ms）**基本无差异**。也就是说，定向基准测不出这个问题，
+> 只有全量并发下的真实负载才暴露。**性能回归不要指望单个基准用例来发现。**
+
+---
+
+## BUG-010 `app.cancel` 未登记 locale key，组合页编辑器每次打开都报错
+
+**严重度**：低（文案回退到 `defaultMessage`，但控制台每次都刷红）
+
+**现象**：`/functions/pages/composite-editor` 控制台连报 4 条
+
+```
+[React Intl] Missing message: "app.cancel" for locale: "zh-CN", using default message as fallback.
+```
+
+**根因**
+
+`DanglingRefsModal.tsx` 与 `BindingDrawer.tsx` 都用
+`intl.formatMessage({ id: 'app.cancel', defaultMessage: '取消' })`，但 `app.cancel`
+在 `locales/{zh-CN,en-US}/app.ts` 里从未登记——该文件此前只承载
+`app.layout.*` 与 `app.request.*` 两组键，没有通用动作文案这一组。
+
+`formatMessage` 带 `defaultMessage` 时会回退渲染，功能不受影响，但缺失键会被
+`onError` 上报，控制台每开一次弹窗就多两条。
+
+**修复**：在 `zh-CN/app.ts` 与 `en-US/app.ts` 补齐通用动作键组
+（`app.cancel` / `app.confirm` / `app.save` / `app.close`），两语言同步。
+
+> 该问题不在 BUG-005 的静态扫描范围内——废弃告警与缺失 locale 是两类不同问题。
+> 它是**控制台审计**（运行时证据）发现的，这正是本轮同时保留静态守卫与运行时
+> 审计两条路径的原因。
+
+---
+
+## BUG-011 审计日志两页用 `hash` 当 rowKey，整页 key 全同
+
+**严重度**：中（React 重复 key，行可能重复/漏渲染）
+
+**现象**：`/admin/login-logs` 每页刷十余条
+
+```
+Encountered two children with the same key, `%s`. Keys should be unique so that
+components maintain their identity across updates.
+```
+
+**根因**
+
+`LoginLogs.tsx` 与 `OperationLogs.tsx` 都写 `rowKey={(r) => r.hash}`，而
+`/api/v1/audit` 在当前部署**不回填 `hash`**——实测该接口返回 19 条记录，
+`hash` 字段**全部缺失**：
+
+```
+items 19 / unique hash 1 / empty hash count 19
+```
+
+`normalizeAuditEvent` 又把缺失的 `hash` 兜底成 `''`，于是 `r.hash` 恒为 `''`，
+整页所有行的 key 完全相同。服务端其实有唯一 `id`
+（形如 `audit_1790375253236648061_bb169c724c610ee5`，19 条互不相同），
+但归一化时**没有带过来**。
+
+**修复**
+
+- `services/api/audit.ts`：`AuditEvent` 增加 `id` 字段并在
+  `normalizeAuditEvent` 中透传 `item.id`。
+- 新增 `auditRowKey(event, index?)`：`id` → `hash` → `time|actor|kind|target`
+  → 行序号，保证同页内唯一。
+- 两个页面在**切片/取数阶段**就把 `__rowKey` 落到行上，Table 用字符串
+  `rowKey="__rowKey"`。
+
+**为什么不用 index 兜底在 rowKey 回调里**：antd 6 已废弃该参数
+（`index` parameter of `rowKey` function is deprecated）。第一版实现写成
+`rowKey={(r, i) => auditRowKey(r, i)}`，运行时审计立刻又抓到 2 条新告警——
+这正是「先改完再审计」比「静态扫描」多一层保障的例证。
+
+**回归测试**
+
+- `web/src/services/api/auditRowKey.test.ts`（7 条）：归一化保留 `id`；`auditRowKey`
+  四级回退各自命中；**还原真实响应**（19 条、`hash` 全空）后整页 key 互不相同。
+  变异验证（把实现退回 `return event.hash` 并删掉 `id`）后 6 条转红。
+- `web/src/pages/Admin/LoginLogs.test.tsx` 的 `hash/id 全缺时行 key 仍互不相同`：
+  页面级，直接断言 DOM 上 `data-row-key` 互异且非空。变异验证（改回
+  `rowKey={(r) => r.hash}`）后转红。
+
+> 这里**没有**用「断言控制台无 duplicate-key 告警」的方式：React 的该告警受全局
+> 去重影响，先跑到的用例会消费掉后续的告警，断言会恒真（BUG-008 已踩过一次同类坑）。
+> 改为直接断言 DOM 上的 key 唯一性这一被测性质。
+
+---
+
+## 汇总
+
+| BUG | 位置 | 状态 | 回归测试 |
+| --- | --- | --- | --- |
+| 001 | `internal/server` 测试抢占 `:19090` | 已修 | 3 条 Go 用例 |
+| 002 | 引导管理员档案字段被丢弃 | 已修 | 5 条 Go 用例 |
+| 003 | LB 归属率仪表盘不显示 | 已修 | 7 条 jest |
+| 004 | 排序标签漏传 intl values | 已修 | 1 条 jest（判别力已验证） |
+| 005 | antd 6 废弃属性 142 处 | 已修 | 4 条 jest（判别力已验证） |
+| 006 | 组合页编辑器缺 locale key | 已修 | 随 `consoleMenu` 相关用例覆盖 |
+| 007 | 空头像串触发多余请求 | 已修 | 5 条 jest |
+| 008 | 表单实例未连接 | 已修 | 4 条 jest（判别力已验证） |
+| 009 | `Space.Compact` 迁移拖慢热路径编辑器 | 已修 | 1 条 jest（判别力已验证） |
+| 010 | `app.cancel` 未登记 locale key | 已修 | 随控制台审计守护 |
+| 011 | 审计日志两页 rowKey 全同 | 已修 | 8 条 jest（判别力已验证） |
+
+### 遗留 / 未修
+
+- **`Input.addonBefore` 的 9 处结构改写**视觉上由 `addonBefore` 内置样式换成
+  `Space.Compact`（6 处）或 `Input.prefix`（3 处）。`prefix` 把标签从输入框**外侧**
+  移到**内侧**，这两处的标签位置与改写前不同；已通过组件级单测锁定交互与取值，
+  像素级差异未做视觉回归。
+- **BUG-002 的存量数据**：本机 `data/croupier.db` 里 `admin` 的
+  `nickname/email/phone` 仍为空。修复只在 **server 启动时的 `seedBootstrapAdmins`**
+  里回填，而当前跑着的 `./bin/croupier-server` 是修复前的二进制（构建于本轮改动
+  之前）。重启服务后应自动补齐；本轮未重启，以免打断正在使用该栈的手工验证。
+- **`Space.Compact` 的宽度行为**：`Space.Compact` 宽度由内容撑开，
+  `Analytics/Behavior` 的 `PathControls` 与 `OpenAPISources` 的两个弹窗宽度可能与
+  改写前有细微差异。已通过组件级单测锁定交互与取值；像素级差异未做视觉回归。
+- **`@ant-design/charts` 的 `Line`** 仍在 `LBMonitor` 中使用，本次只处理了
+  `Gauge`。`Line` 未观察到丢值问题（`xField/yField/colorField` 走 plots 正常
+  adaptor 路径），未改动。
+- **审计覆盖的 52 条路由**按「含废弃属性的组件」+「此前完全没覆盖到的路由组」
+  两条线索拼出（`config/routes.ts` 里 `/admin/*`、`/dev/*`、`/support/*`、
+  `/system/*`、`/ops/*` 余下路径等），仍不是逐条穷举；动态路由（如 `/functions/:id`、
+  `/support/tickets/:id`、`/console/:categoryKey`）需要具体 id，未纳入。
+  守卫用例（BUG-005 第 2 条）是**全量静态扫描** `src/**/*.tsx`，不依赖路由清单；
+  控制台审计是补充性的运行时证据。
