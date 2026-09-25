@@ -1,8 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { App, Card, Empty, Select, Space, Spin, Statistic, Typography } from 'antd';
+import { App, Card, Empty, Progress, Select, Space, Spin, Statistic, Typography } from 'antd';
 import { PageContainer } from '@ant-design/pro-components';
 import { useIntl } from '@umijs/max';
-import { Line, Gauge } from '@ant-design/charts';
+import { Line } from '@ant-design/charts';
 import {
   fetchClusterInfo,
   listOpsNodes,
@@ -44,6 +44,22 @@ function toSeries(
 //（多个 backend 的点竖排 = 一根竖线）。按 backend 追加历史采样并保留
 // 最近 10 分钟，才能形成真正的时间趋势线。
 const HISTORY_WINDOW_MS = 10 * 60 * 1000;
+
+/**
+ * 归属率（0-100，供 Progress 使用）。
+ *
+ * 语义：归属表里的 agent 数 / LB 后端数，上限截到 100%。
+ * - 无 agent（nodes 为空）时为 0，而不是 NaN（0/0）；
+ * - 无 backend 时分母取 1，避免除零；
+ * - 有 agent 但无 backend 时仍受截断保护，落在 0-100 而非 Infinity/NaN。
+ *
+ * 单独导出以便单测直接锁定边界（docs/BUGS.md BUG-003）。
+ */
+export function ownershipRatioPercent(nodes: OpsNode[], backends: string[]): number {
+  if (nodes.length === 0) return 0;
+  const ratio = Math.min(nodes.length / Math.max(backends.length, 1), 1);
+  return Math.round(ratio * 100);
+}
 
 function appendHistory(history: SeriesPoint[], samples: SeriesPoint[]): SeriesPoint[] {
   const cutoff = Date.now() - HISTORY_WINDOW_MS;
@@ -204,7 +220,7 @@ export default function LBMonitor() {
                   defaultMessage: '不健康后端',
                 })}
                 value={unhealthy.length}
-                valueStyle={{ color: unhealthy.length ? '#cf1322' : '#3f8600' }}
+                styles={{ content: { color: unhealthy.length ? '#cf1322' : '#3f8600' } }}
               />
               <Statistic
                 title={intl.formatMessage({
@@ -296,27 +312,26 @@ export default function LBMonitor() {
                   '归属表 agent 数与 LB 会话数长期不一致（连接在、心跳停）= 半开连接信号， 结合 /ops/nodes 的「agent 自报」列定位。',
               })}
             </Text>
-            <div style={{ marginTop: 12 }}>
-              <Gauge
-                height={160}
-                percent={
-                  nodes.length > 0 ? Math.min(nodes.length / Math.max(backends.length, 1), 1) : 0
-                }
-                innerRadius={0.7}
-                annotations={{
-                  0.5: {
-                    content: {
-                      content: intl.formatMessage(
-                        {
-                          id: 'pages.opsLBMonitor.gauge.ownershipRatio',
-                          defaultMessage: '归属 {nodes} / LB 后端 {backends}',
-                        },
-                        { nodes: nodes.length, backends: backends.length },
-                      ),
-                    },
+            <div style={{ marginTop: 12, textAlign: 'center' }}>
+              {/* 归属率用 Progress(dashboard) 呈现，不再用 @ant-design/charts 的 Gauge。
+                  原因（docs/BUGS.md BUG-003，已在本机复现）：@ant-design/plots 2.6.8 的
+                  gauge adaptor 会把 `data: percent` 改写成 `data: { value: percent }`
+                  （实测 adaptor 输出恒为 {"value":0.5}），而 @antv/g2 5.4.8 的 Gauge mark
+                  只接受 number 或 {target,total,percent,name,thresholds}
+                  （见 @antv/g2 GaugeData 类型与 getGaugeData/dataTransform 的解构）。
+                  `{value}` 不在其列，于是 target/total/percent 全部解构为 undefined，
+                  通道 y 退化为 undefined/NaN——百分数被静默丢弃，指针不动、读数空白。
+                  两者都不需要 canvas 依赖，故直接换成 antd Progress。 */}
+              <Progress type="dashboard" percent={ownershipRatioPercent(nodes, backends)} size={160} />
+              <div style={{ marginTop: 4 }}>
+                {intl.formatMessage(
+                  {
+                    id: 'pages.opsLBMonitor.gauge.ownershipRatio',
+                    defaultMessage: '归属 {nodes} / LB 后端 {backends}',
                   },
-                }}
-              />
+                  { nodes: nodes.length, backends: backends.length },
+                )}
+              </div>
             </div>
           </Card>
         </Space>
