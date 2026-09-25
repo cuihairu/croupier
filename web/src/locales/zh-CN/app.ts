@@ -2,6 +2,12 @@
 export default {
   'app.layout.openapiDocs': 'OpenAPI 文档',
 
+  // app.* — 通用动作文案（跨页面复用，避免各页重复登记）
+  'app.cancel': '取消',
+  'app.confirm': '确定',
+  'app.save': '保存',
+  'app.close': '关闭',
+
   // app.request.* — 全局请求错误文案（requestErrorConfig）
   'app.request.error.badGateway': '上游服务错误',
   'app.request.error.conflict': '资源冲突',

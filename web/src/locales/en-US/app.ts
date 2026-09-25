@@ -2,6 +2,12 @@
 export default {
   'app.layout.openapiDocs': 'OpenAPI Docs',
 
+  // app.* — shared action labels (reused across pages)
+  'app.cancel': 'Cancel',
+  'app.confirm': 'OK',
+  'app.save': 'Save',
+  'app.close': 'Close',
+
   // app.request.* — global request error messages (requestErrorConfig)
   'app.request.error.badGateway': 'Upstream service error',
   'app.request.error.conflict': 'Resource conflict',

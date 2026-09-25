@@ -97,6 +97,10 @@ export default function MenuTree({
 }: MenuTreeProps) {
   const intl = useIntl();
   const fmt = (id: string, defaultMessage: string) => intl.formatMessage({ id, defaultMessage });
+  // {order} 是 ICU 占位符，必须经 values 传参；formatMessage 后再 .replace 会触发
+  // intl 解析错误（MISSING_VALUE 三连报错，见 docs/BUGS.md BUG-004）。
+  const fmtOrder = (order: number) =>
+    intl.formatMessage({ id: 'pages.menuManagement.page.order', defaultMessage: '排序 {order}' }, { order });
 
   // defaultExpandAll 不作用于异步后到的 treeData：数据变化时受控全展开
   const allKeys = useMemo(() => collectKeys(items), [items]);
@@ -145,12 +149,7 @@ export default function MenuTree({
           </Typography.Text>
         ) : null}
         {page.order ? (
-          <Tag style={{ marginInlineEnd: 0 }}>
-            {fmt('pages.menuManagement.page.order', '排序 {order}').replace(
-              '{order}',
-              String(page.order),
-            )}
-          </Tag>
+          <Tag style={{ marginInlineEnd: 0 }}>{fmtOrder(page.order)}</Tag>
         ) : null}
         {onEditPage ? (
           <Button
@@ -191,12 +190,7 @@ export default function MenuTree({
                 {node.menuKey}
               </Typography.Text>
               {node.sortOrder ? (
-                <Tag style={{ marginInlineEnd: 0 }}>
-                  {fmt('pages.menuManagement.page.order', '排序 {order}').replace(
-                    '{order}',
-                    String(node.sortOrder),
-                  )}
-                </Tag>
+                <Tag style={{ marginInlineEnd: 0 }}>{fmtOrder(node.sortOrder)}</Tag>
               ) : null}
             </Space>
             <Space size={4}>

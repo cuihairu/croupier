@@ -25,6 +25,7 @@ export default {
   'menu.FunctionsAndPages.FunctionCatalog': '函数目录',
   'menu.FunctionsAndPages.ComponentTemplates': '组件模板',
   'menu.FunctionsAndPages.PageStudio': '页面工作台',
+  'menu.FunctionsAndPages.CompositeEditor': '组合页编辑器',
   'menu.FunctionsAndPages.MenuManagement': '菜单管理',
   'menu.FunctionsAndPages.OpenAPISources': 'OpenAPI 来源',
   'menu.FunctionsAndPages.ExecutionLogs': '执行留痕',

@@ -10,13 +10,40 @@ import { render, screen, fireEvent, waitFor, within, configure } from '@testing-
 import MenuTree, { buildDropHandler, type MenuMountedPage } from '../MenuTree';
 import type { MenuItem } from '@/services/api/menu';
 
+/**
+ * 收集 formatMessage 收到的 ICU 占位符插值调用。
+ *
+ * 真实 react-intl 在 defaultMessage 含 `{order}` 却没有 values 时会抛
+ * MISSING_VALUE 解析错误（onError 被调用），并把 `{order}` 原样渲染。此前本文件
+ * 的 mock 只回 defaultMessage、丢弃 values，等于替组件把「漏传 values」的错误
+ * 藏起来了——组件因此长期停留在 `formatMessage(...).replace('{order}', n)` 的
+ * 错误写法上（docs/BUGS.md BUG-004）。这里保留 values 并记录调用，让回归测试
+ * 能真正断言插值路径。
+ */
+const intlCalls: { id: string; defaultMessage: string; values?: Record<string, unknown> }[] = [];
+
 jest.mock('@umijs/max', () => ({
   // localizedText 渲染需要 locale；formatMessage 语义同 tests/setupTests.jsx
+  //（按 values 做 {placeholder} 插值）
   useIntl: () => ({
     locale: 'zh-CN',
-    formatMessage: ({ defaultMessage }: { defaultMessage: string }) => defaultMessage,
+    formatMessage: (
+      descriptor: { id: string; defaultMessage: string },
+      values?: Record<string, unknown>,
+    ) => {
+      intlCalls.push({ id: descriptor.id, defaultMessage: descriptor.defaultMessage, values });
+      return Object.entries(values || {}).reduce(
+        (msg, [key, val]) => msg.split(`{${key}}`).join(String(val)),
+        descriptor.defaultMessage,
+      );
+    },
   }),
 }));
+
+/** 渲染前清空 intl 调用记录。 */
+function resetIntlCalls(): void {
+  intlCalls.length = 0;
+}
 
 // coverage instrumentation 下树收起动画（rc-motion deadline）较慢：放宽等待
 configure({ asyncUtilTimeout: 5000 });
@@ -193,6 +220,30 @@ describe('挂载页面叶子展示', () => {
     expect(screen.getByText('已发布')).toBeInTheDocument();
     expect(screen.getByText('草稿')).toBeInTheDocument();
     expect(screen.getByText('发布后才会出现在控制台导航')).toBeInTheDocument();
+    expect(screen.getByText('排序 3')).toBeInTheDocument();
+  });
+
+  /**
+   * BUG-004 回归：排序标签必须经 intl values 传 `{order}`。
+   *
+   * 组件一度写成 `formatMessage({ defaultMessage: '排序 {order}' }).replace(...)`：
+   * 真实 react-intl 会因缺 values 抛 MISSING_VALUE 解析错误（console 报错），
+   * 再由 .replace 兜住可见文本。断言两条：(1) 占位符经 values 传入；(2) 渲染
+   * 结果由 intl 插值而来，页面不再自行 replace。
+   */
+  it('排序标签的 {order} 经 intl values 传入，不靠组件侧 replace 兜底', () => {
+    resetIntlCalls();
+    renderTree({ pages: mountedPages });
+
+    const orderCalls = intlCalls.filter((c) => c.id === 'pages.menuManagement.page.order');
+    expect(orderCalls.length).toBeGreaterThan(0);
+    // 每个含 {order} 的调用都必须带上 order 值——漏传即触发 MISSING_VALUE。
+    for (const call of orderCalls) {
+      expect(call.defaultMessage).toContain('{order}');
+      expect(call.values).toHaveProperty('order');
+      expect(typeof call.values?.order).toBe('number');
+    }
+    // 插值后的可见文本由 intl 产出
     expect(screen.getByText('排序 3')).toBeInTheDocument();
   });
 
