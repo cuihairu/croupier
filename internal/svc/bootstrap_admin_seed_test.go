@@ -102,3 +102,84 @@ func TestSeedBootstrapAdminsRepairsExistingAdminRoleBindings(t *testing.T) {
 		t.Fatal("expected bootstrap admin to pass admin read permission")
 	}
 }
+
+func TestSeedBootstrapAdminsBackfillsEmptyProfileFields(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	// admins.json：身份最小定义（无档案字段）；users.json：同名档案补齐
+	if err := os.WriteFile(filepath.Join(dir, "admins.json"), []byte(`[{"username":"admin","password":"admin123","roles":["admin"]}]`), 0o644); err != nil {
+		t.Fatalf("write admins.json failed: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "users.json"), []byte(`[{"username":"admin","password":"admin123","nickname":"系统管理员","email":"admin@croupier.local","roles":["admin"]}]`), 0o644); err != nil {
+		t.Fatalf("write users.json failed: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "roles.json"), []byte(`[]`), 0o644); err != nil {
+		t.Fatalf("write roles.json failed: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "permissions.json"), []byte(`[]`), 0o644); err != nil {
+		t.Fatalf("write permissions.json failed: %v", err)
+	}
+
+	db, err := gorm.Open(gsqlite.Open(":memory:"), &gorm.Config{})
+	if err != nil {
+		t.Fatalf("open sqlite failed: %v", err)
+	}
+	if err := model.AutoMigrate(db); err != nil {
+		t.Fatalf("auto migrate failed: %v", err)
+	}
+
+	ctx := &ServiceContext{
+		DB:              db,
+		AdminManager:    NewAdminManager(dir),
+		AdminModel:      model.NewAdminModel(db),
+		RoleModel:       model.NewRoleModel(db),
+		PermissionModel: model.NewPermissionModel(db),
+	}
+	if err := ctx.AdminManager.Initialize(); err != nil {
+		t.Fatalf("admin manager init failed: %v", err)
+	}
+
+	// 模拟存量部署：DB 行已存在但档案字段为空
+	existing := &model.Admin{Username: "admin", Status: 1}
+	if err := ctx.AdminModel.Create(context.Background(), existing, "admin123"); err != nil {
+		t.Fatalf("create existing admin failed: %v", err)
+	}
+	// 预置一个非空 nickname，验证回填不覆盖用户已设置的值
+	other := &model.Admin{Username: "keeper", Nickname: "保留昵称", Status: 1}
+	if err := ctx.AdminModel.Create(context.Background(), other, "keeper123"); err != nil {
+		t.Fatalf("create keeper admin failed: %v", err)
+	}
+	// keeper 不在引导配置里（AdminManager 只有 admin），seed 不会动它——为验证
+	// 「不覆盖非空值」，直接用同库行模拟：把 keeper 的 nickname 视作用户数据基线。
+
+	if err := seedBootstrapAdmins(ctx); err != nil {
+		t.Fatalf("seedBootstrapAdmins failed: %v", err)
+	}
+
+	admin, err := ctx.AdminModel.FindByUsername(context.Background(), "admin")
+	if err != nil {
+		t.Fatalf("FindByUsername failed: %v", err)
+	}
+	if admin.Nickname != "系统管理员" {
+		t.Fatalf("expected nickname backfilled from users.json, got %q", admin.Nickname)
+	}
+	if admin.Email != "admin@croupier.local" {
+		t.Fatalf("expected email backfilled from users.json, got %q", admin.Email)
+	}
+
+	// 二次 seed 幂等：字段已非空则保持不变
+	if err := ctx.AdminModel.Update(context.Background(), admin.ID, map[string]interface{}{"nickname": "用户改名"}); err != nil {
+		t.Fatalf("update nickname failed: %v", err)
+	}
+	if err := seedBootstrapAdmins(ctx); err != nil {
+		t.Fatalf("second seedBootstrapAdmins failed: %v", err)
+	}
+	admin, err = ctx.AdminModel.FindByUsername(context.Background(), "admin")
+	if err != nil {
+		t.Fatalf("FindByUsername(2) failed: %v", err)
+	}
+	if admin.Nickname != "用户改名" {
+		t.Fatalf("expected user-set nickname preserved on re-seed, got %q", admin.Nickname)
+	}
+}

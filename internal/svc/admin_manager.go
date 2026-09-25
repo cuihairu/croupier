@@ -113,6 +113,7 @@ func (am *AdminManager) loadDefaultAdmins() error {
 	slog.Default().Info("Loading default admins", "configDir", am.configDir)
 	// 尝试加载多个可能的配置文件
 	configFiles := []string{"admins.json", "users.json"}
+	identityLoaded := false
 
 	for _, configFile := range configFiles {
 		adminsPath := filepath.Join(am.configDir, configFile)
@@ -152,18 +153,44 @@ func (am *AdminManager) loadDefaultAdmins() error {
 			}
 
 			// 检查是否已存在，不存在则添加
-			if _, exists := am.admins[admin.Username]; !exists {
-				am.admins[admin.Username] = &defaultAdmins[i]
-				slog.Default().Info("Loaded default admin", "file", configFile, "username", admin.Username, "roles", admin.Roles)
-				loadedCount++
-			} else {
-				slog.Default().Debug("Admin already loaded, skipping", "username", admin.Username)
+			if existing, exists := am.admins[admin.Username]; exists {
+				// 后加载文件（users.json）不覆盖身份/凭据，仅补齐先加载文件
+				// （admins.json）缺失的档案字段，避免 users.json 里的
+				// nickname/email/phone 因同名去重被静默丢弃（docs/BUGS.md BUG-002）。
+				enriched := false
+				if existing.Nickname == "" && admin.Nickname != "" {
+					existing.Nickname = admin.Nickname
+					enriched = true
+				}
+				if existing.Email == "" && admin.Email != "" {
+					existing.Email = admin.Email
+					enriched = true
+				}
+				if existing.Phone == "" && admin.Phone != "" {
+					existing.Phone = admin.Phone
+					enriched = true
+				}
+				if enriched {
+					slog.Default().Info("Enriched admin profile from later config file", "file", configFile, "username", admin.Username)
+				} else {
+					slog.Default().Debug("Admin already loaded, skipping", "username", admin.Username)
+				}
+				continue
 			}
+			if identityLoaded {
+				// 首个贡献身份的文件生效后，后续文件仅做档案补齐，不再新增账号
+				// （保持「admins.json 优先、users.json 兜底」语义不变）。
+				slog.Default().Debug("Admin identity already loaded from earlier config, skipping", "file", configFile, "username", admin.Username)
+				continue
+			}
+			am.admins[admin.Username] = &defaultAdmins[i]
+			slog.Default().Info("Loaded default admin", "file", configFile, "username", admin.Username, "roles", admin.Roles)
+			loadedCount++
 		}
 
 		if loadedCount > 0 {
+			identityLoaded = true
 			slog.Default().Info("Successfully loaded admins", "count", loadedCount, "file", configFile)
-			return nil
 		}
 	}
 

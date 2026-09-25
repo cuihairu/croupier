@@ -825,11 +825,41 @@ func seedBootstrapAdmins(ctx *ServiceContext) error {
 		} else if err != nil {
 			slog.Default().Error("查询管理员失败", "username", username, "error", err)
 			continue
-		} else if dbAdmin.Status != bootstrapStatus {
-			if err := ctx.AdminModel.Update(bg, dbAdmin.ID, map[string]interface{}{"status": bootstrapStatus}); err != nil {
-				slog.Default().Error("同步引导管理员状态失败", "username", username, "error", err)
-			} else {
-				dbAdmin.Status = bootstrapStatus
+		} else {
+			if dbAdmin.Status != bootstrapStatus {
+				if err := ctx.AdminModel.Update(bg, dbAdmin.ID, map[string]interface{}{"status": bootstrapStatus}); err != nil {
+					slog.Default().Error("同步引导管理员状态失败", "username", username, "error", err)
+				} else {
+					dbAdmin.Status = bootstrapStatus
+				}
+			}
+			// 存量行档案字段回填：仅补空字段，不覆盖用户已设置的值
+			//（引导配置补齐 nickname/email/phone，docs/BUGS.md BUG-002）。
+			updates := map[string]interface{}{}
+			if dbAdmin.Nickname == "" && strings.TrimSpace(admin.Nickname) != "" {
+				updates["nickname"] = strings.TrimSpace(admin.Nickname)
+			}
+			if dbAdmin.Email == "" && strings.TrimSpace(admin.Email) != "" {
+				updates["email"] = strings.TrimSpace(admin.Email)
+			}
+			if dbAdmin.Phone == "" && strings.TrimSpace(admin.Phone) != "" {
+				updates["phone"] = strings.TrimSpace(admin.Phone)
+			}
+			if len(updates) > 0 {
+				if err := ctx.AdminModel.Update(bg, dbAdmin.ID, updates); err != nil {
+					slog.Default().Warn("回填引导管理员档案字段失败", "username", username, "error", err)
+				} else {
+					if v, ok := updates["nickname"]; ok {
+						dbAdmin.Nickname, _ = v.(string)
+					}
+					if v, ok := updates["email"]; ok {
+						dbAdmin.Email, _ = v.(string)
+					}
+					if v, ok := updates["phone"]; ok {
+						dbAdmin.Phone, _ = v.(string)
+					}
+					slog.Default().Info("已回填引导管理员档案字段", "username", username, "fields", len(updates))
+				}
 			}
 		}
 

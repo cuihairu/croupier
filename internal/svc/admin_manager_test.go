@@ -222,3 +222,76 @@ func TestAdminManagerGetAdmin(t *testing.T) {
 	assert.Error(t, err)
 	assert.Nil(t, admin)
 }
+
+func TestAdminManagerLoadDefaultAdmins_EnrichesProfileFromLaterConfig(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	// admins.json：身份最小定义（无档案字段）
+	adminsData := `[{"username":"admin","password":"admin123","roles":["admin"]}]`
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "admins.json"), []byte(adminsData), 0o644))
+	// users.json：同名用户携带完整档案字段
+	usersData := `[{"username":"admin","password":"admin123","nickname":"系统管理员","email":"admin@croupier.local","phone":"13800000000","roles":["admin"]}]`
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "users.json"), []byte(usersData), 0o644))
+
+	manager := NewAdminManager(dir)
+	require.NoError(t, manager.loadDefaultAdmins())
+
+	admin, err := manager.GetAdmin("admin")
+	require.NoError(t, err)
+	assert.Equal(t, "系统管理员", admin.Nickname)
+	assert.Equal(t, "admin@croupier.local", admin.Email)
+	assert.Equal(t, "13800000000", admin.Phone)
+	// 身份/凭据以先加载文件为准
+	assert.Equal(t, []string{"admin"}, admin.Roles)
+}
+
+func TestAdminManagerLoadDefaultAdmins_EnrichDoesNotOverwriteExistingProfile(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	adminsData := `[{"username":"admin","password":"admin123","nickname":"已有昵称","roles":["admin"]}]`
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "admins.json"), []byte(adminsData), 0o644))
+	usersData := `[{"username":"admin","password":"admin123","nickname":"配置昵称","email":"a@b.c","roles":["admin"]}]`
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "users.json"), []byte(usersData), 0o644))
+
+	manager := NewAdminManager(dir)
+	require.NoError(t, manager.loadDefaultAdmins())
+
+	admin, err := manager.GetAdmin("admin")
+	require.NoError(t, err)
+	assert.Equal(t, "已有昵称", admin.Nickname)
+	assert.Equal(t, "a@b.c", admin.Email)
+}
+
+func TestAdminManagerLoadDefaultAdmins_LaterFileDoesNotAddIdentity(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	adminsData := `[{"username":"admin","password":"admin123","roles":["admin"]}]`
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "admins.json"), []byte(adminsData), 0o644))
+	usersData := `[{"username":"operator","password":"op123","roles":["op"]}]`
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "users.json"), []byte(usersData), 0o644))
+
+	manager := NewAdminManager(dir)
+	require.NoError(t, manager.loadDefaultAdmins())
+
+	_, err := manager.GetAdmin("operator")
+	assert.Error(t, err, "首个文件生效后，后续文件不应新增账号")
+}
+
+func TestAdminManagerLoadDefaultAdmins_SecondFileLoadsWhenFirstEmpty(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "admins.json"), []byte("[]"), 0o644))
+	usersData := `[{"username":"super_admin","password":"super123","nickname":"超级管理员","roles":["super_admin"]}]`
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "users.json"), []byte(usersData), 0o644))
+
+	manager := NewAdminManager(dir)
+	require.NoError(t, manager.loadDefaultAdmins())
+
+	admin, err := manager.GetAdmin("super_admin")
+	require.NoError(t, err)
+	assert.Equal(t, "超级管理员", admin.Nickname)
+}
