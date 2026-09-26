@@ -93,8 +93,8 @@ func TestHandler_List_InvalidQuery(t *testing.T) {
 	db := setupTestDB(t)
 	router := newResourceCatalogRouter(t, db)
 
-	// ListRequest has no form-bound fields, so binding cannot fail in a
-	// meaningful way; assert an empty result instead.
+	// ListRequest fields carry validation-free string form tags, so binding
+	// cannot fail in a meaningful way; assert an empty result instead.
 	rec := doCatalogRequest(router, http.MethodGet, "/api/resource-catalog", "")
 	require.Equal(t, http.StatusOK, rec.Code)
 	var resp ListResponse

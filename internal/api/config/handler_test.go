@@ -155,15 +155,20 @@ func TestHandler_Upsert_GETMethod(t *testing.T) {
 	t.Parallel()
 	gin.SetMode(gin.TestMode)
 
-	h := NewHandler(NewService(&svc.ServiceContext{}))
-	// Using GET with Upsert should still bind query params
-	ctx, rec := newConfigTestContext(http.MethodGet, "/api/v1/config?key=test&value={}", "")
-	h.Upsert(ctx)
-
-	// Should use query binding for GET
-	body := rec.Body.String()
-	if rec.Code == http.StatusBadRequest {
-		t.Fatalf("expected binding to succeed for GET with query params, got status=%d body=%s", rec.Code, body)
+	// GET + query params must actually populate UpsertRequest. 旧断言只查
+	// 「非 400」——gin 按字段名精确匹配绑不上 key/value，service 拿到空 key
+	// 报错返回 500，测试因错误原因转绿（BUG-030 病类；旧代码此处 req.Key
+	// 恒为空，本断言可作回归）。
+	ctx, _ := newConfigTestContext(http.MethodGet, "/api/v1/config?key=test&value={}", "")
+	var req UpsertRequest
+	if err := bindConfigRequest(ctx, &req); err != nil {
+		t.Fatalf("expected binding to succeed for GET with query params, got error: %v", err)
+	}
+	if req.Key != "test" {
+		t.Fatalf("expected key=test, got %q", req.Key)
+	}
+	if req.Value != "{}" {
+		t.Fatalf("expected value={}, got %q", req.Value)
 	}
 }
 

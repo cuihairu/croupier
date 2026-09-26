@@ -160,21 +160,21 @@ func TestBindQueryCompatJSONFallback(t *testing.T) {
 	err := BindQueryCompat(c, &req)
 
 	if err != nil {
-		t.Logf("BindQueryCompat() error = %v", err)
+		t.Errorf("BindQueryCompat() error = %v", err)
 	}
 
-	// Note: ShouldBindQuery returns nil for structs without form tags,
-	// but doesn't bind any values. The fallback logic only triggers
-	// when ShouldBindQuery fails, not when it succeeds without binding.
-	// This test documents the current behavior - fields remain unbound.
-	if req.Username != "" {
-		t.Errorf(`Username = %q, want "" (json tags don't work with query binding)`, req.Username)
+	// The reflect fallback now always runs: gin binds nothing here (no form
+	// tags, exact-name match misses the lowercase query keys), so the json
+	// tags must take over (OPEN-ISSUES #5 — this test previously pinned the
+	// defect where fields stayed unbound whenever ShouldBindQuery succeeded).
+	if req.Username != "testuser" {
+		t.Errorf("Username = %q, want %q (json fallback)", req.Username, "testuser")
 	}
-	if req.Count != 0 {
-		t.Errorf("Count = %d, want 0 (json tags don't work with query binding)", req.Count)
+	if req.Count != 42 {
+		t.Errorf("Count = %d, want 42 (json fallback)", req.Count)
 	}
-	if req.Active {
-		t.Error("Active should be false (json tags don't work with query binding)")
+	if !req.Active {
+		t.Error("Active should be true (json fallback)")
 	}
 }
 

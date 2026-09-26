@@ -145,11 +145,14 @@ type AffectedPageInfo struct {
 }
 
 // ListRequest is the request for listing resources.
+// form tag 必须显式小写：gin 对无 tag 字段按字段名精确匹配（大小写敏感），
+// 前端发的 category/query 从未绑定成功过（见 requestbind.BindQueryCompat
+// 与 OPEN-ISSUES #5）。
 type ListRequest struct {
-	GameID   string
-	Env      string
-	Category string
-	Query    string
+	GameID   string `form:"gameId"`
+	Env      string `form:"env"`
+	Category string `form:"category"`
+	Query    string `form:"query"`
 }
 
 // ListResponse is the response for listing resources.
