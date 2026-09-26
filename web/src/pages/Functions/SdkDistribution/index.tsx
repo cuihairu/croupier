@@ -199,9 +199,7 @@ export default function SdkDistributionPage() {
               </Tag>
             ))}
             {entries.length > 3 && (
-              <Tooltip
-                title={entries.map(([key, val]) => `${key}=${val}`).join('\n')}
-              >
+              <Tooltip title={entries.map(([key, val]) => `${key}=${val}`).join('\n')}>
                 <Tag style={{ marginInlineEnd: 0 }}>+{entries.length - 3}</Tag>
               </Tooltip>
             )}

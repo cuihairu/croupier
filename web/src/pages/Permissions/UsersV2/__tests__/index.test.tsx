@@ -34,12 +34,9 @@ jest.mock('@/services/api/games', () => ({ listGamesMeta: jest.fn() }));
 jest.mock('@/services/api/envs', () => ({ listGameEnvs: jest.fn() }));
 jest.mock('@/utils/antdApp', () => ({ getMessage: () => mockMessageApi }));
 jest.mock('@umijs/max', () => ({
-  FormattedMessage: ({
-    defaultMessage,
-  }: {
-    id: string;
-    defaultMessage?: string;
-  }) => <>{defaultMessage ?? ''}</>,
+  FormattedMessage: ({ defaultMessage }: { id: string; defaultMessage?: string }) => (
+    <>{defaultMessage ?? ''}</>
+  ),
   useIntl: () => ({
     formatMessage: (opts: { defaultMessage?: string }, values?: Record<string, string>) => {
       let text = opts.defaultMessage ?? '';
@@ -58,13 +55,14 @@ jest.mock('@ant-design/pro-components', () => ({
 
 const mockMessageApi = { error: jest.fn(), success: jest.fn(), warning: jest.fn() };
 
-const { listAdmins, listRoles, updateAdmin, deleteAdmin } =
-  jest.requireMock('@/services/api/permissions') as {
-    listAdmins: jest.Mock;
-    listRoles: jest.Mock;
-    updateAdmin: jest.Mock;
-    deleteAdmin: jest.Mock;
-  };
+const { listAdmins, listRoles, updateAdmin, deleteAdmin } = jest.requireMock(
+  '@/services/api/permissions',
+) as {
+  listAdmins: jest.Mock;
+  listRoles: jest.Mock;
+  updateAdmin: jest.Mock;
+  deleteAdmin: jest.Mock;
+};
 const { listGamesMeta } = jest.requireMock('@/services/api/games') as {
   listGamesMeta: jest.Mock;
 };
@@ -159,11 +157,11 @@ describe('UsersV2 BUG-028 bootstrap 保护与禁用/解封', () => {
     await screen.findByText('Administrator');
 
     fireEvent.click(within(findRow('ops1')).getByText('禁用'));
-    await clickPopconfirmOk('禁用后该账号将无法登录，已签发的登录凭证立即失效，之后可随时解封。确认禁用？');
-
-    await waitFor(() =>
-      expect(updateAdmin).toHaveBeenCalledWith(2, { status: 0 }),
+    await clickPopconfirmOk(
+      '禁用后该账号将无法登录，已签发的登录凭证立即失效，之后可随时解封。确认禁用？',
     );
+
+    await waitFor(() => expect(updateAdmin).toHaveBeenCalledWith(2, { status: 0 }));
     expect(deleteAdmin).not.toHaveBeenCalled();
   });
 
@@ -174,8 +172,6 @@ describe('UsersV2 BUG-028 bootstrap 保护与禁用/解封', () => {
     fireEvent.click(within(findRow('locked')).getByText('解封'));
     await clickPopconfirmOk('确认解封该账号？解封后可重新登录。');
 
-    await waitFor(() =>
-      expect(updateAdmin).toHaveBeenCalledWith(3, { status: 1 }),
-    );
+    await waitFor(() => expect(updateAdmin).toHaveBeenCalledWith(3, { status: 1 }));
   });
 });

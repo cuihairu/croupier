@@ -17,12 +17,9 @@ jest.mock('@/services/api/sdkStats', () => ({
   fetchSdkStats: jest.fn(),
 }));
 jest.mock('@umijs/max', () => ({
-  FormattedMessage: ({
-    defaultMessage,
-  }: {
-    id: string;
-    defaultMessage?: string;
-  }) => <>{defaultMessage ?? ''}</>,
+  FormattedMessage: ({ defaultMessage }: { id: string; defaultMessage?: string }) => (
+    <>{defaultMessage ?? ''}</>
+  ),
   useIntl: () => ({
     formatMessage: (opts: { defaultMessage?: string }, values?: Record<string, string>) => {
       let text = opts.defaultMessage ?? '';

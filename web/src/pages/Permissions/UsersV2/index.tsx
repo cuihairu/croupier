@@ -1,5 +1,17 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Card, Table, Button, Form, Input, Switch, Select, Tag, Space, Popconfirm, Tooltip } from 'antd';
+import {
+  Card,
+  Table,
+  Button,
+  Form,
+  Input,
+  Switch,
+  Select,
+  Tag,
+  Space,
+  Popconfirm,
+  Tooltip,
+} from 'antd';
 import { FormattedMessage, useIntl } from '@umijs/max';
 import { ModalForm, PageContainer } from '@ant-design/pro-components';
 import type { ColumnsType } from 'antd/es/table';
@@ -225,8 +237,7 @@ export default function UsersV2() {
   // （Admin Update → BumpTokenVersion），解封后可重新登录（BUG-028）。
   const toggleStatus = async (rec: AdminRecord) => {
     await updateAdmin(rec.id, {
-      status:
-        rec.status === ADMIN_STATUS_ACTIVE ? ADMIN_STATUS_DISABLED : ADMIN_STATUS_ACTIVE,
+      status: rec.status === ADMIN_STATUS_ACTIVE ? ADMIN_STATUS_DISABLED : ADMIN_STATUS_ACTIVE,
     });
     getMessage()?.success(
       intl.formatMessage({
@@ -249,10 +260,12 @@ export default function UsersV2() {
         <Space>
           {value}
           {rec.bootstrap && (
-            <Tooltip title={intl.formatMessage({
-              id: 'pages.permissionsUsers.tag.bootstrapTip',
-              defaultMessage: '引导账号：不可删除，可禁用',
-            })}>
+            <Tooltip
+              title={intl.formatMessage({
+                id: 'pages.permissionsUsers.tag.bootstrapTip',
+                defaultMessage: '引导账号：不可删除，可禁用',
+              })}
+            >
               <Tag color="purple">
                 {intl.formatMessage({
                   id: 'pages.permissionsUsers.tag.bootstrap',
