@@ -1,4 +1,5 @@
 import { request } from '@umijs/max';
+import type { NotificationChannelState } from '@/pages/Profile/shared';
 
 // Canonical frontend profile DTO normalized from croupier/internal/api/profile/dto.go ProfileGetResponse.
 export type MeProfile = {
@@ -177,5 +178,21 @@ export async function persistMyScope(gameId: string, env: string): Promise<void>
   await request<void>('/api/v1/profile/scope', {
     method: 'PATCH',
     data: { gameId, env },
+  });
+}
+
+/**
+ * 拉取通知通道的真实状态。
+ *
+ * Source: croupier/internal/api/profile/notification_channels.go
+ *        NotificationChannelsResponse
+ */
+export type MyNotificationChannelsResponse = {
+  channels: NotificationChannelState[];
+};
+
+export async function fetchMyNotificationChannels(): Promise<MyNotificationChannelsResponse> {
+  return request<MyNotificationChannelsResponse>('/api/v1/profile/notification-channels', {
+    method: 'GET',
   });
 }

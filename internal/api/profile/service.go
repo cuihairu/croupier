@@ -12,6 +12,7 @@ import (
 
 	"github.com/cuihairu/croupier/internal/common/errorx"
 	"github.com/cuihairu/croupier/internal/model"
+	"github.com/cuihairu/croupier/internal/platform/approvals"
 	"github.com/cuihairu/croupier/internal/platform/objstore"
 	"github.com/cuihairu/croupier/internal/svc"
 )
@@ -26,6 +27,10 @@ type Service struct {
 	objectStore objstore.Store
 	// invalidateCache 用于资料更新后失效 admin 缓存（可为 nil）。
 	invalidateCache func(ctx context.Context, adminID uint, username string)
+	// sms 短信服务商注册表（可为 nil → 视为未接入）。
+	sms *approvals.SMSRegistry
+	// notifyBase 平台侧（站内信/邮件）通道状态来源；nil 时读设置单例。
+	notifyBase func() NotificationBaseStatus
 }
 
 func NewService(adminModel *model.AdminModel, gameModel *model.GameModel, roleModel *model.RoleModel, opsStore ...*svc.OpsStateStore) *Service {
@@ -67,6 +72,20 @@ func (s *Service) resolveAvatar(ctx context.Context, key string) string {
 		return ""
 	}
 	return url
+}
+
+// WithNotifyBaseStatus overrides the platform-side (in-app / email) channel
+// status source. Test seam: the production source is the settings singleton.
+func (s *Service) WithNotifyBaseStatus(fn func() NotificationBaseStatus) *Service {
+	s.notifyBase = fn
+	return s
+}
+
+// WithSMSRegistry wires the SMS provider registry used to report whether the SMS
+// channel is really available (docs/BUGS.md BUG-016).
+func (s *Service) WithSMSRegistry(r *approvals.SMSRegistry) *Service {
+	s.sms = r
+	return s
 }
 
 // WithCacheInvalidator wires the admin-cache eviction hook.

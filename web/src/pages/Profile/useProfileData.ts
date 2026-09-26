@@ -11,6 +11,8 @@ import {
 import { listAudit, AuditEvent } from '@/services/api/audit';
 import { listMessages, markMessagesRead, MessageItem } from '@/services/api/messages';
 import { listPermissions, type PermissionRecord } from '@/services/api/permissions';
+import { fetchMyNotificationChannels } from '@/services/api/me';
+import type { NotificationChannelState } from './shared';
 import type { JSONValue } from '@/types/dashboard';
 import {
   FALLBACK_APPLY_PERMISSION_TEMPLATES,
@@ -31,6 +33,8 @@ export function useProfileData() {
   const [games, setGames] = useState<ProfileGame[]>([]);
   const [permissions, setPermissions] = useState<ProfilePermission[]>([]);
   const [permissionIds, setPermissionIds] = useState<string[]>([]);
+  // 通知通道真实状态：后端判定「是否真的接入」，前端不再自行推断
+  const [notificationChannels, setNotificationChannels] = useState<NotificationChannelState[]>([]);
   const [permissionCatalog, setPermissionCatalog] = useState<PermissionRecord[]>([]);
   const [permissionCatalogAvailable, setPermissionCatalogAvailable] = useState(true);
   const [activities, setActivities] = useState<AuditEvent[]>([]);
@@ -43,8 +47,15 @@ export function useProfileData() {
     async (username?: string) => {
       setExtrasLoading(true);
       try {
-        const [gamesRes, permsRes, auditsRes, loginRes, notificationsRes, permissionCatalogRes] =
-          await Promise.allSettled([
+        const [
+          gamesRes,
+          permsRes,
+          auditsRes,
+          loginRes,
+          notificationsRes,
+          permissionCatalogRes,
+          channelsRes,
+        ] = await Promise.allSettled([
             getMyGames(),
             getMyPermissions({}),
             listAudit({ actor: username, size: 8 }),
@@ -57,6 +68,8 @@ export function useProfileData() {
               : Promise.resolve({ events: [] }),
             listMessages({ status: 'all', pageSize: 8 }),
             listPermissions({ page: 1, pageSize: 500 }),
+            // 通知通道状态放最后：失败时留空数组，前端显示「正在读取」而不是假状态
+            fetchMyNotificationChannels().then((r) => r?.channels || []),
           ]);
 
         setGames(gamesRes.status === 'fulfilled' ? gamesRes.value?.games || [] : []);
@@ -73,6 +86,9 @@ export function useProfileData() {
         setLoginRecords(loginRes.status === 'fulfilled' ? loginRes.value?.events || [] : []);
         setNotifications(
           notificationsRes.status === 'fulfilled' ? notificationsRes.value?.items || [] : [],
+        );
+        setNotificationChannels(
+          channelsRes.status === 'fulfilled' ? channelsRes.value || [] : [],
         );
         if (permissionCatalogRes.status === 'fulfilled') {
           setPermissionCatalog(permissionCatalogRes.value?.items || []);
@@ -237,6 +253,7 @@ export function useProfileData() {
 
   return {
     profile,
+    notificationChannels,
     setProfile,
     games,
     permissions,

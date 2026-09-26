@@ -359,4 +359,20 @@ export default {
 
   // Placeholder page
   'pages.placeholder.description': '功能开发中，敬请期待。',
+  // 通知通道真实状态（后端判定「是否真的接入」，不再由「填了手机号」推断）
+  'profile.channel.email': '邮件通知',
+  'profile.channel.inApp': '站内消息',
+  'profile.channel.section': '通知通道',
+  'profile.channel.off': '已关闭',
+  'profile.channel.loading': '正在读取通知通道状态…',
+  'profile.channel.notConnected': '未接入',
+  'profile.channel.on': '已开启',
+  'profile.channel.ready': '已接入，可正常接收通知',
+  'profile.channel.reason.inAppOff': '站内信已被管理员关闭',
+  'profile.channel.reason.noEmail': '未填写邮箱，填了才能接收',
+  'profile.channel.reason.noPhone': '未填写手机号，填了才能接收',
+  'profile.channel.reason.smsMissing': '未接入短信服务',
+  'profile.channel.reason.smtpMissing': '未配置 SMTP 服务器',
+  'profile.channel.sms': '短信通知',
+  'profile.channel.reason.notConnected': '未接入该通知通道',
 };

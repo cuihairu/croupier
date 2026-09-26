@@ -29,7 +29,7 @@ import { useIntl, useLocation, useModel, useNavigate } from '@umijs/max';
 import { updateMyProfile } from '@/services/api/me';
 import UserAvatar from '@/components/UserAvatar';
 import { formatDateTime } from '@/utils/format';
-import { TAB_KEYS, normalizeAvatarSrc, profileText, type ProfileData } from './shared';
+import { TAB_KEYS, profileText, type ProfileData } from './shared';
 import { useProfileData } from './useProfileData';
 import InfoTab from './InfoTab';
 import SecurityTab from './SecurityTab';
@@ -61,6 +61,7 @@ export default function Profile() {
 
   const {
     profile,
+    notificationChannels,
     games,
     permissions,
     permissionCatalogAvailable,
@@ -330,7 +331,9 @@ export default function Profile() {
                 ),
                 children: (
                   <SecurityTab
-                    hasPhone={!!profile?.phone}
+                    // 通知通道状态完全来自后端（是否真的接入了服务商），
+                    // 不再用「填了手机号」推断「已开启」（BUG-016）
+                    notificationChannels={notificationChannels}
                     hasSessions={loginSessionRows.length > 0}
                     onShowPasswordModal={() => setPasswordModalVisible(true)}
                   />

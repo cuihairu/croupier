@@ -650,6 +650,65 @@ Functions DetailSections 19 条）。运行时复证：重跑走查后 List 告�
 
 ---
 
+## BUG-016 安全中心「登录通知」是假开关（假状态 + 假交互）
+
+**严重度**：中（用户被误导以为自己在收短信登录提醒）
+
+**现象**：`/admin/account/center?tab=security` 的「登录通知」行，只要用户填了
+手机号就渲染绿色「已开启」标签；辅助文案写「用于登录提醒和短信验证」——而仓内
+**没有任何短信服务商**（`ChannelSMS` 只是个没人用的枚举常量，无 sender、无配置、
+无 UI 入口）。用户据此以为自己在收短信。
+
+**根因**：前端用「用户填了手机号」（`hasPhone`）推断通道可用。手机号只是接收
+目标，与「服务商是否接入」毫无关系。这正是本文档反复出现的**假状态**问题在
+通知域的变体。
+
+**修复**（新增 `GET /api/v1/profile/notification-channels`，可用性只由后端判定）：
+
+- `approvals/sms.go`：固定短信接入点——`SMSProvider` 接口 + `ErrSMSNotConfigured`
+  + 默认 `unconfiguredSMSProvider`（未接入时发送**明确失败**而非静默成功）；
+  `SMSRegistry.Status()` 只在「已注册 provider 且凭据齐备」时报可用。
+- `api/profile/notification_channels.go`：三通道事实来源——in_app（站内信零配置
+  即通，平台设置可关）、email（SMTP 未配置时 EmailSender 是 no-op，不得声称可用）、
+  sms（只看注册表）。`available` 与 `userEnabled` 是独立维度；不可用必带 `reason`。
+- 前端 `SecurityTab`：状态完全由后端驱动。不可达 → warning 标签 + 原因 tooltip +
+  开关禁用；**收口修正一**：开关改只读呈现 `userEnabled`——它当前来自平台级
+  设置、没有用户侧写接口，「可点击但无任何效果」的假交互同样是本条要消灭的东西；
+  **收口修正二**：状态标签三分支——通道可达但平台未开启时显示「已关闭」，否则
+  「SMTP 已配置但平台关了邮件通知」会渲染成绿色「已开启」+ 未勾选的开关，自相
+  矛盾（原实现就漏了这支）。
+- 区头文案改用新键 `profile.channel.section`（旧键 `profile.login.notification`
+  的现有值是「登录通知」，defaultMessage 不会生效，收口前区头实际显示的是旧文案）。
+
+**回归测试**：`notification_channels_test.go` 10 条（未接入/凭据不齐/SMTP 有无/
+管理员关闭/账号缺失/Registry 边界——含「填了手机号也不得变可用」的核心不变量）；
+`SecurityTab.channels.test.tsx` 14 条（含「可达但未开启 → 已关闭」「in_app 被
+关闭 → 已关闭+原因」「开关只读」三条收口新增）。
+
+---
+
+## BUG-017 飞书签名密钥漏登记 secretKeys，掩码回存会覆盖真值
+
+**严重度**：中（配置损坏：通知静默失败，非泄露）
+
+**现象**（代码审阅发现，未上网络）：`notification.feishuSecret` 在
+`ValidKeys` 里却不在 `secretKeys` 里。
+
+**根因与影响**：`GET /api/v1/site/notification` 快照对它有专门的
+`feishuSecretMasked` 字段（掩码一直正常），但 `PutKey` 的「掩码回存保护」分支
+只认 `IsSecretKey`——管理端把快照原样回存时，`****+尾4` 会被当成真值覆盖入库，
+此后飞书通知用假密钥**静默失败**。同类的 SMTP 密码/DingTalk/Webhook 密钥都
+登记了，唯独飞书漏网。
+
+**修复**：`secretKeys` 补 `KeyNotifyFeishuSecret`；注释原文声称「明文回显泄露」，
+经核对（快照掩码先于本修复存在、裸值 `FeishuSecret` 只进 sender 无 HTTP 暴露面）
+属于误判，已改为上述真实缺陷。
+
+**回归测试**：`layered_notify_test.go` 的 `TestKeyClassificationHelpers` 增加
+`IsSecretKey(KeyNotifyFeishuSecret)` 断言（修复前为 false）。
+
+---
+
 ## 汇总
 
 | BUG | 位置 | 状态 | 回归测试 |
@@ -669,6 +728,8 @@ Functions DetailSections 19 条）。运行时复证：重跑走查后 List 告�
 | 013 | MFA 绑定不可用 + 无恢复码兜底 | 已修 | RFC 向量 + Go 14 条 + jest 8 条 |
 | 014 | 健康分数衰减用例依赖墙钟 | 已修 | 改写为轮询 + 离散不变量 |
 | 015 | antd 6 整体废弃 `List` 组件（组件级守卫盲区） | 已修 | jest 8 条 + 守卫新用例 + 走查复证 |
+| 016 | 安全中心「登录通知」假开关（假状态 + 假交互） | 已修 | Go 10 条 + jest 14 条 |
+| 017 | 飞书密钥漏登记 secretKeys，掩码回存覆盖真值 | 已修 | `IsSecretKey` 断言（修复前红） |
 
 ### 遗留 / 未修
 

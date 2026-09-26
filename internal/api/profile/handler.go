@@ -49,6 +49,18 @@ func (h *Handler) GetGames(c *gin.Context) {
 	response.Success(c, resp)
 }
 
+// GetNotificationChannels 报告各通知通道的真实可用性与用户意愿
+// （GET /api/v1/profile/notification-channels）。
+func (h *Handler) GetNotificationChannels(c *gin.Context) {
+	username := c.GetString("username")
+	if username == "" {
+		response.Unauthorized(c, "未授权")
+		return
+	}
+	// 无出错路径：账号缺失时返回空列表而非 500。
+	response.Success(c, h.service.GetNotificationChannels(c.Request.Context(), username))
+}
+
 // UpdateProfile 更新个人资料
 func (h *Handler) UpdateProfile(c *gin.Context) {
 	username := c.GetString("username")

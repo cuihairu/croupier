@@ -76,6 +76,9 @@ type ServiceContext struct {
 	AuditService   *audit.AuditService
 
 	ObjectStore objstore.Store
+	// SMSRegistry 持有短信服务商实例；默认未接入（NewSMSRegistry），
+	// 供个人中心如实上报「短信通道未接入」而非假装已开启。
+	SMSRegistry *approvals.SMSRegistry
 	Telemetry   *telemetry.GameTelemetryService
 
 	// Agent Ops support
@@ -419,6 +422,7 @@ func NewServiceContext(c config.Config, opts ...Option) *ServiceContext {
 		AnalyticsFiltersLock: &sync.RWMutex{},
 
 		ObjectStore:    objectStore,
+		SMSRegistry:    approvals.NewSMSRegistry(),
 		ApprovalsStore: approvalsStore,
 		PolicyManager:  policyManager,
 		AuditService:   auditSvc,

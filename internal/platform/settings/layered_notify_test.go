@@ -27,6 +27,9 @@ func TestKeyClassificationHelpers(t *testing.T) {
 	assert.True(t, IsSecretKey(KeyNotifySMTPPassword))
 	assert.True(t, IsSecretKey(KeyNotifyDingtalkSecret))
 	assert.True(t, IsSecretKey(KeyNotifyWebhookSecret))
+	// BUG-017：飞书签名密钥曾漏在 secretKeys 之外——快照掩码正常，但 PutKey
+	// 的「掩码回存保护」不生效，回存 "****+尾4" 会把真值覆盖成掩码。
+	assert.True(t, IsSecretKey(KeyNotifyFeishuSecret))
 	assert.False(t, IsSecretKey(KeyNotifySMTPHost))
 	assert.True(t, IsIntKey(KeyNotifySMTPPort))
 	assert.False(t, IsIntKey(KeySiteName))

@@ -134,3 +134,27 @@ export interface PasswordValues {
   password: string;
   confirm?: string;
 }
+
+/**
+ * 通知通道的真实状态（后端 GET /api/v1/profile/notification-channels）。
+ *
+ * 存在意义是消灭假状态：`available` 只能来自后端对「是否真的接入了可发送的
+ * 服务商」的判断，前端不得用「用户填了手机号」这类无关信号推断
+ * （docs/BUGS.md BUG-016）。
+ */
+export type NotificationChannelState = {
+  /** in_app / email / sms */
+  key: string;
+  /** 该通道是否已接入可发送的实现且配置齐备 */
+  available: boolean;
+  /** 用户是否希望接收该通道通知（与 available 相互独立） */
+  userEnabled: boolean;
+  /** !available 时的原因标识（稳定短语） */
+  reason?: string;
+  /** 该通道是否需要用户填手机号/邮箱 */
+  requiresTarget?: boolean;
+  /** 用户是否已填写 */
+  hasTarget?: boolean;
+  /** 已接入时的服务商信息（仅 sms） */
+  info?: { provider?: string; signature?: string; template?: string };
+};

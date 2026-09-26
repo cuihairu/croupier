@@ -968,7 +968,9 @@ func registerProfileRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 		// 头像对象 key → 当前可访问 URL；未接对象存储时退化为 /uploads/ 相对路径。
 		WithObjectStore(ctx.ObjectStore).
 		// 资料更新后失效 admin 缓存（缓存整行，含 Avatar）。
-		WithCacheInvalidator(ctx.InvalidateAdminCache)
+		WithCacheInvalidator(ctx.InvalidateAdminCache).
+		// 短信通道可用性（未接入时如实报 unavailable，前端据此禁用开关）
+		WithSMSRegistry(ctx.SMSRegistry)
 	profileHandler := profile.NewHandler(profileSvc)
 	g.GET("", profileHandler.GetProfile)     // /api/v1/profile
 	g.GET("/", profileHandler.GetProfile)    // /api/v1/profile/
@@ -976,6 +978,7 @@ func registerProfileRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 	g.PUT("/", profileHandler.UpdateProfile) // /api/v1/profile/
 	g.PUT("/password", profileHandler.ChangePassword)
 	g.GET("/permissions", profileHandler.GetPermissions)
+	g.GET("/notification-channels", profileHandler.GetNotificationChannels)
 	g.GET("/games", profileHandler.GetGames)
 	g.PATCH("/scope", profileHandler.UpdateScope)
 }

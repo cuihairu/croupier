@@ -110,6 +110,12 @@ var secretKeys = map[string]struct{}{
 	KeyNotifySMTPPassword:   {},
 	KeyNotifyDingtalkSecret: {},
 	KeyNotifyWebhookSecret:  {},
+	// 飞书群机器人的签名密钥同样是凭据。此前它被登记在 ValidKeys 里却漏在
+	// secretKeys 之外：GET /api/v1/site/notification 快照虽有专门的
+	// feishuSecretMasked 字段（一直有掩码），但 PutKey 的「掩码回存保护」分支
+	// 只认 IsSecretKey——管理端把快照原样回存时，"****+尾4" 会被当成真值
+	// 覆盖入库，通知发送从此静默失败（docs/BUGS.md BUG-017）。
+	KeyNotifyFeishuSecret:   {},
 	KeyAuthLdapBindPassword: {},
 	KeyAuthOidcClientSecret: {},
 }

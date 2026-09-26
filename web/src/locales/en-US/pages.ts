@@ -384,4 +384,21 @@ export default {
 
   // Placeholder page
   'pages.placeholder.description': 'This feature is under development. Stay tuned.',
+  // Real notification channel state (backend decides availability; never inferred
+  // from "the user entered a phone number")
+  'profile.channel.email': 'Email',
+  'profile.channel.inApp': 'In-app messages',
+  'profile.channel.section': 'Notification channels',
+  'profile.channel.off': 'Off',
+  'profile.channel.loading': 'Loading notification channel status…',
+  'profile.channel.notConnected': 'Not connected',
+  'profile.channel.on': 'Enabled',
+  'profile.channel.ready': 'Connected and ready to receive notifications',
+  'profile.channel.reason.inAppOff': 'In-app messages are disabled by an administrator',
+  'profile.channel.reason.noEmail': 'No email address on file',
+  'profile.channel.reason.noPhone': 'No phone number on file',
+  'profile.channel.reason.smsMissing': 'No SMS service connected',
+  'profile.channel.reason.smtpMissing': 'No SMTP server configured',
+  'profile.channel.sms': 'SMS',
+  'profile.channel.reason.notConnected': 'This notification channel is not connected',
 };
