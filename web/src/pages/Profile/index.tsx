@@ -71,6 +71,9 @@ export default function Profile() {
     extrasLoading,
     permissionGroups,
     applyPermissionCandidates,
+    roleGrants,
+    fullAccess,
+    permissionCatalogForTree,
     loginSessionRows,
     latestLoginIP,
     loadProfile,
@@ -362,6 +365,9 @@ export default function Profile() {
                     groups={permissionGroups}
                     candidates={applyPermissionCandidates}
                     catalogAvailable={permissionCatalogAvailable}
+                    roleGrants={roleGrants}
+                    catalog={permissionCatalogForTree}
+                    fullAccess={fullAccess}
                     username={profile?.username ? String(profile.username) : undefined}
                   />
                 ),

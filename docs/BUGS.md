@@ -709,6 +709,148 @@ Functions DetailSections 19 条）。运行时复证：重跑走查后 List 告�
 
 ---
 
+## BUG-018 游戏访问权限恒为空：admin 看到的是一块空白
+
+**严重度**：中（无法判断是「全部权限」还是「没有权限」）
+
+**现象**
+
+`/admin/account/center?tab=games`：admin 的每个游戏卡片上「权限」一栏永远是空的。
+
+**根因**
+
+`internal/api/profile/service.go` 的 `GetUserGames` 在构造 `ProfileGame` 时写死了
+
+```go
+Permissions: []string{},
+```
+
+不是「查不到」，是**字面量**——对所有用户、所有游戏恒为空。前端 `GamesTab` 直接
+`{(game.permissions || []).map(...)}` 渲染，空数组即空区域。admin 与只读账号
+看到的东西完全一样，无法区分「拥有全部权限」与「一个权限都没有」。
+
+**修复**：如实上报，并把口径讲清楚。
+
+- `GetUserGames` 改为按用户实际持有的权限计算
+  （`internal/api/profile/permissions.go` 的 `perGamePermissions`）：
+  持通配 → `["*"]`（前端渲染为绿色「全部权限」）；否则返回真实持有的权限 id。
+- DTO 增 `accessLevel`（`full` / `scoped` / `none`）与 `permissionScope`（固定
+  `"role"`）。空权限由此成为**可解释状态**而不是空白。
+- 前端 `GamesTab` 按级别渲染三态（全部权限 / 逐条标签 / 无显式权限+原因说明），
+  并说明「权限按角色授予，不按游戏单独切分」——避免用户以为每个游戏能单独授权。
+
+**口径澄清**：RBAC 挂在角色上、**不按游戏维度切分**；按游戏/环境切分的是
+「可见游戏与可见环境」（`admin_game_env_scopes`，`GetUserGames` 已用它过滤）。
+因此同一用户在所有可见游戏上的权限集本来就是同一个，per-game 权限不存在
+「只在这个游戏有某个操作」的语义。
+
+**回归测试**：`internal/api/profile/permissions_test.go`（`GetUserGames_AdminSeesFullAccessPerGame`
+断言 `["*"]`+`full`；`GetUserGames_NonAdminWithoutPermissionsIsNone` 断言 `none`）
++ `web/src/pages/Profile/__tests__/GamesTab.permissions.test.tsx` 5 条（含
+「后端未升级、无 accessLevel 时也绝不留白」这条兼容路径）。
+
+---
+
+## BUG-019 权限概览是编造数据：resource 恒为 "role"、角色名混进权限 id
+
+**严重度**：高（前端据此渲染的「权限概览」与实际授权无关）
+
+**现象**
+
+个人中心「权限」页/弹窗里的「已有权限」列表内容不对：资源名全是 `role`，
+每条的操作是角色名。
+
+**根因**
+
+`GetPermissions` 的两处构造都是编造的：
+
+```go
+permissions = append(permissions, ProfilePermission{
+    Resource: "role",              // 字面量
+    Actions:  []string{role.Name}, // 把角色名当操作
+})
+```
+
+更隐蔽的一处：
+
+```go
+for _, role := range roles {
+    appendPermission(role)                    // ← 角色名进了 permissionIDs
+    if role == "admin" || role == "super_admin" {
+        appendPermission("admin")             // ← 同样是角色名，不是权限
+        appendPermission("*")
+    }
+}
+```
+
+于是 admin 的 `permissionIDs` 是 `["*", "admin", "user:read", ...]`。前端拿
+`permissionIDs` 与权限目录做差集来渲染「已授权 / 未授权」，`"admin"` 与
+`"super_admin"` 在 `configs/permissions.json` 里查不到，于是变成两条永远
+「未授权」的假权限。同时 `permissionIDs` **不含**具体资源的完整授权信息
+（只到并集），树状结构无从构建。
+
+**修复**
+
+- 角色名彻底退出 `permissionIDs`，只留在 `roles`；`permissions[]` 改为
+  真实的资源 → 操作分组（`resolvePermissions`）。
+- 资源轴取自**权限 id 的前缀**（`pages:write` → resource=pages），而不是
+  `permissions` 表的 `resource` 列——那一列存的是 module（如 `dashboard`），
+  38 条目录会塌缩成 7 个值。这是「树只剩几个节点」的直接原因。
+- 通配判定收紧为**两个维度都通配**才叫 `fullAccess`（`resource==* && action==*`，
+  即 `*` / `admin:all`）。`user:*` 只是「user 这个资源的全部操作」，无权访问
+  其它资源；把它算成 fullAccess 会让前端把所有条目渲染成「已授权」——又是一次
+  假状态。单段 id（无冒号）同理按「整串即资源」处理，不按 `.` 猜切分。
+- 通配 id 不生成假的 `*` 资源节点。
+- 拆分语义统一到 `rbac.SplitLogicalPermission`（本次为导出），
+  `splitLogicalPermission` 与 profile 侧不再各写一份。
+- 增 `rolePermissions`（逐角色授权明细）：只有并集时无法回答「这个操作是哪个
+  角色给的」，树就只能退化成单层列表。
+
+**回归测试**：`permissions_test.go` 21 条，含
+`KeepsRoleNamesOut`（角色名不进 permissionIDs）、
+`ResourceFromIDPrefixNotModule`（锁住「不塌缩成 module」）、
+`PartialWildcardIsNotFullAccess`（`user:*` 不等于全部权限）、
+`SingleSegmentIDBecomesItsOwnResource`（不按 `.` 切分）、
+`RoleGrantsIncludeEmptyRoles`。同时改写 4 条**锁住了旧错误行为**的既有用例
+（`TestService_GetPermissions_WithAdminRole` 等断言 `"admin" ∈ permissionIDs`），
+这些断言本身就是 BUG-019 的固化。
+
+---
+
+## BUG-020 权限概览是单层平铺，没有资源/操作分层与授权两态
+
+**严重度**：中（看不出哪些有、哪些没有）
+
+**现象**
+
+「已有权限」是一层平铺的列表，没有资源→操作的层级，也没有任何「已授权 /
+未授权」的区分。
+
+**根因**
+
+`PermissionsTab` 用 `SimpleList` 平铺后端返回的 `groups`，而那批数据
+（1）本身是编造的（见 BUG-019）；（2）只包含**已授权**项。因此灰掉的
+「未授权」操作根本没有数据来源——页面看上去就像「全部都有权限」。
+
+**修复**：新增 `permissionTree.ts` + `PermissionTreeView.tsx`，渲染
+角色 → 资源 → 操作三层。
+
+- **资源/操作的候选集来自全量权限目录**（`GET /api/v1/permissions`），不是
+  已授权 id；目录缺失时退化为「仅已授权」，仍不崩也不伪造。
+- 每项按当前角色独立判定：绿（`#52c41a`）+ `CheckOutlined` = 已授权，
+  灰（`#bfbfbf`）+ `CloseOutlined` = 未授权。颜色之外有第二重区分，不只靠色觉。
+- 三层可展开收起；「展开/收起全部」在「全展开 ⇄ 仅角色层」间循环。
+- 持账号级通配时整棵树按全绿呈现，并显式提示「灰色仅表示未由具体角色显式授予，
+  实际可用」——否则用户会把灰色读成「不可用」。
+- 有角色但零权限的角色仍出现在树上并标注「无显式权限」。
+- 前端再兜一层：`getMyPermissions` 归一化时剔除被误塞进 `permissionIDs` 的角色名。
+
+**回归测试**：`PermissionTree.test.tsx` 23 条（纯逻辑 17 + 渲染 6），
+其中 `目录提供未授权项` 锁住核心缺口、`资源级通配 user:* 覆盖该资源全部操作，
+但不影响别的资源` 锁住通配粒度。变异验证：把资源轴改回 module 后 7 条转红。
+
+---
+
 ## 汇总
 
 | BUG | 位置 | 状态 | 回归测试 |
@@ -730,6 +872,9 @@ Functions DetailSections 19 条）。运行时复证：重跑走查后 List 告�
 | 015 | antd 6 整体废弃 `List` 组件（组件级守卫盲区） | 已修 | jest 8 条 + 守卫新用例 + 走查复证 |
 | 016 | 安全中心「登录通知」假开关（假状态 + 假交互） | 已修 | Go 10 条 + jest 14 条 |
 | 017 | 飞书密钥漏登记 secretKeys，掩码回存覆盖真值 | 已修 | `IsSecretKey` 断言（修复前红） |
+| 018 | 游戏访问权限恒为空（admin 看到空白） | 已修 | Go 2 条 + jest 5 条 |
+| 019 | 权限概览是编造数据（resource="role"／角色名混入） | 已修 | Go 21 条（含改写 4 条固化旧错的用例） |
+| 020 | 权限概览单层平铺、无授权两态 | 已修 | jest 23 条 + 变异验证 7 条转红 |
 
 ### 遗留 / 未修
 

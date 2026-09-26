@@ -13,6 +13,7 @@ import { listMessages, markMessagesRead, MessageItem } from '@/services/api/mess
 import { listPermissions, type PermissionRecord } from '@/services/api/permissions';
 import { fetchMyNotificationChannels } from '@/services/api/me';
 import type { NotificationChannelState } from './shared';
+import type { PermissionCatalogEntry, RoleGrant } from './permissionTree';
 import type { JSONValue } from '@/types/dashboard';
 import {
   FALLBACK_APPLY_PERMISSION_TEMPLATES,
@@ -33,6 +34,10 @@ export function useProfileData() {
   const [games, setGames] = useState<ProfileGame[]>([]);
   const [permissions, setPermissions] = useState<ProfilePermission[]>([]);
   const [permissionIds, setPermissionIds] = useState<string[]>([]);
+  // 逐角色授权明细：权限树需要知道「哪个角色授予了哪些操作」
+  const [roleGrants, setRoleGrants] = useState<RoleGrant[]>([]);
+  // 账号级通配：树整体按全绿呈现并给出说明，避免把「未显式授予」误读为「不可用」
+  const [fullAccess, setFullAccess] = useState(false);
   // 通知通道真实状态：后端判定「是否真的接入」，前端不再自行推断
   const [notificationChannels, setNotificationChannels] = useState<NotificationChannelState[]>([]);
   const [permissionCatalog, setPermissionCatalog] = useState<PermissionRecord[]>([]);
@@ -78,9 +83,13 @@ export function useProfileData() {
           const ids = payload.permissionIDs || [];
           setPermissions(payload.permissions || []);
           setPermissionIds(Array.isArray(ids) ? ids : []);
+          setRoleGrants(Array.isArray(payload.rolePermissions) ? payload.rolePermissions : []);
+          setFullAccess(payload.fullAccess === true);
         } else {
           setPermissions([]);
           setPermissionIds([]);
+          setRoleGrants([]);
+          setFullAccess(false);
         }
         setActivities(auditsRes.status === 'fulfilled' ? auditsRes.value?.events || [] : []);
         setLoginRecords(loginRes.status === 'fulfilled' ? loginRes.value?.events || [] : []);
@@ -200,6 +209,27 @@ export function useProfileData() {
     return keys;
   }, [permissions, permissionIds]);
 
+  /**
+   * 权限树用的目录视图。
+   *
+   * 树的资源/操作候选集必须来自**全量权限目录**而不是已授权 id：只用已授权
+   * 的话，未授权项没有数据来源，页面看上去就像「全部都有权限」
+   * （docs/BUGS.md BUG-020）。
+   *
+   * 注意 catalog 的 `resource`/`action` 列存的是 module 粒度，渲染时按 **id
+   * 前缀**分组（与后端 permissions.go 同一口径），因此这里只透传 id + 展示名。
+   */
+  const permissionCatalogForTree = useMemo<PermissionCatalogEntry[]>(
+    () =>
+      permissionCatalog.map((item) => ({
+        id: item.id,
+        name: item.name || item.id,
+        description: item.description,
+        category: item.category,
+      })),
+    [permissionCatalog],
+  );
+
   const applyPermissionCandidates = useMemo(() => {
     const source: PermissionApplyItem[] =
       permissionCatalog.length > 0
@@ -264,6 +294,9 @@ export function useProfileData() {
     extrasLoading,
     permissionGroups,
     applyPermissionCandidates,
+    roleGrants,
+    fullAccess,
+    permissionCatalogForTree,
     loginSessionRows,
     latestLoginIP,
     loadProfile,

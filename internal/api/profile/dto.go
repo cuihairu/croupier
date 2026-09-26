@@ -8,6 +8,19 @@ type ProfileGame struct {
 	Envs        []string    `json:"envs"`
 	EnvMeta     interface{} `json:"envMeta"`
 	Permissions []string    `json:"permissions"`
+	// AccessLevel 是访问级别：full（持通配，等价全部权限）/ scoped（有显式
+	// 权限集）/ none（无任何显式权限）。
+	//
+	// 此前 Permissions 对所有用户所有游戏恒为 []string{}（字面量），admin 的
+	// 「游戏访问权限」因此永远空白且无从解释（docs/BUGS.md BUG-018）。有了
+	// AccessLevel，前端才能区分「全部权限」「部分权限」「无显式权限」三种语义。
+	AccessLevel string `json:"accessLevel,omitempty"`
+	// PermissionScope 说明权限的授权维度，固定为 "role"。
+	//
+	// RBAC 挂在角色上、不按游戏切分；按游戏/环境切分的是「可见游戏与可见环境」
+	// （GetUserGames 已按 admin_game_env_scopes 过滤）。把这个事实下发给前端，
+	// 避免用户以为每个游戏可以单独授权、进而把空列表当成 bug。
+	PermissionScope string `json:"permissionScope,omitempty"`
 }
 
 // ProfileGamesRequest 获取我的游戏请求
@@ -65,10 +78,38 @@ type ProfilePermissionsRequest struct {
 
 // ProfilePermissionsResponse 获取权限列表响应
 type ProfilePermissionsResponse struct {
-	Permissions   []ProfilePermission `json:"permissions"`
-	Admin         bool                `json:"admin"`
-	Roles         []string            `json:"roles"`
-	PermissionIDs []string            `json:"permissionIDs,omitempty"`
+	// Permissions 是资源 → 操作的真实分组（按字典序）。
+	//
+	// 此前这里是「一个角色一条、resource 恒为字面量 "role"、actions 塞角色名」
+	// 的编造数据，根本不是权限列表（docs/BUGS.md BUG-019）。
+	Permissions []ProfilePermission `json:"permissions"`
+	Admin       bool                `json:"admin"`
+	Roles       []string            `json:"roles"`
+	// PermissionIDs 用户真实持有的权限 id，**不含角色名**（同 BUG-019）。
+	// 前端用它与权限目录做差集，渲染「已授权 / 未授权」两态。
+	PermissionIDs []string `json:"permissionIDs,omitempty"`
+	// AccessLevel 访问级别：full / scoped / none。
+	AccessLevel string `json:"accessLevel,omitempty"`
+	// PermissionScope 授权维度，固定 "role"（RBAC 不按游戏切分）。
+	PermissionScope string `json:"permissionScope,omitempty"`
+	// FullAccess 持有通配权限（* / admin:all）。为 true 时前端不应把任何
+	// 「未授权」条目解读为「该操作真的不可用」。
+	FullAccess bool `json:"fullAccess,omitempty"`
+	// RolePermissions 是「哪个角色授予了哪些权限 id」，用于渲染
+	// 角色 → 资源 → 操作 的权限树。
+	//
+	// 之前只有并集（PermissionIDs），无法回答「这个操作是哪个角色给的」——
+	// 树就只能退化成单层列表。角色未挂任何权限时也会出现（空数组），
+	// 否则「有角色但零权限」的账号在树上根本看不到自己有哪些角色。
+	RolePermissions []RolePermissionGrant `json:"rolePermissions,omitempty"`
+}
+
+// RolePermissionGrant 单个角色的权限授予明细。
+type RolePermissionGrant struct {
+	// Role 角色名（展示用，保留原大小写）。
+	Role string `json:"role"`
+	// PermissionIDs 该角色挂上的权限 id（去重排序）。
+	PermissionIDs []string `json:"permissionIds"`
 }
 
 // ProfileUpdateRequest 更新个人资料请求。

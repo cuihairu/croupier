@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"log/slog"
-	"sort"
 	"strings"
 	"time"
 
@@ -235,6 +234,9 @@ func (s *Service) GetUserGames(ctx context.Context, username string) (*ProfileGa
 		}
 	}
 
+	// 每个游戏下展示的权限（RBAC 不按游戏切分，故只需解析一次，见 permissions.go）
+	perms := collectUserPermissionSet(ctx, s, roleModels)
+
 	games := make([]ProfileGame, 0, len(gameModels))
 	seen := make(map[string]struct{}, len(gameModels))
 	for _, game := range gameModels {
@@ -281,12 +283,17 @@ func (s *Service) GetUserGames(ctx context.Context, username string) (*ProfileGa
 		}
 
 		games = append(games, ProfileGame{
-			GameId:      gameID,
-			GameName:    gameName,
-			Color:       game.Color,
-			Envs:        envs,
-			EnvMeta:     envMeta,
-			Permissions: []string{},
+			GameId:   gameID,
+			GameName: gameName,
+			Color:    game.Color,
+			Envs:     envs,
+			EnvMeta:  envMeta,
+			// 真实权限：RBAC 不按游戏切分，同一用户在所有可见游戏上的权限集相同。
+			// 持通配 → ["*"]（前端渲染「全部权限」）；否则返回真实持有的权限 id。
+			// 旧实现在此硬编码 []string{}，使 admin 的这一栏永远空白（BUG-018）。
+			Permissions:     perGamePermissions(perms.Resolved),
+			AccessLevel:     perms.Resolved.AccessLevel,
+			PermissionScope: accessScopeRole,
 		})
 	}
 
@@ -398,68 +405,19 @@ func (s *Service) GetPermissions(ctx context.Context, username string) (*Profile
 		return nil, errors.New("获取用户角色失败")
 	}
 
-	// 返回角色名称作为权限
-	roles := make([]string, 0, len(roleModels))
-	isAdmin := false
-	for _, role := range roleModels {
-		roles = append(roles, role.Name)
-		// 检查是否是管理员角色
-		if role.Name == "admin" || role.Name == "super_admin" {
-			isAdmin = true
-		}
-	}
-
-	// 构建权限ID列表
-	permissionSet := make(map[string]struct{}, len(roles)+8)
-	permissionIDs := make([]string, 0, len(roles)+8)
-	appendPermission := func(id string) {
-		id = strings.TrimSpace(id)
-		if id == "" {
-			return
-		}
-		if _, ok := permissionSet[id]; ok {
-			return
-		}
-		permissionSet[id] = struct{}{}
-		permissionIDs = append(permissionIDs, id)
-	}
-	roleIDs := make([]uint, 0, len(roleModels))
-	for _, role := range roles {
-		appendPermission(role)
-		// 如果是管理员角色，添加通配符权限
-		if role == "admin" || role == "super_admin" {
-			appendPermission("admin")
-			appendPermission("*")
-		}
-	}
-	for _, role := range roleModels {
-		roleIDs = append(roleIDs, role.ID)
-	}
-	if s.roleModel != nil && len(roleIDs) > 0 {
-		rolePermMap, err := s.roleModel.GetRolesPermissionIDs(ctx, roleIDs)
-		if err == nil {
-			for _, ids := range rolePermMap {
-				for _, id := range ids {
-					appendPermission(id)
-				}
-			}
-		}
-	}
-	sort.Strings(permissionIDs)
-
-	permissions := make([]ProfilePermission, 0, len(roleModels))
-	for _, role := range roleModels {
-		permissions = append(permissions, ProfilePermission{
-			Resource: "role",
-			Actions:  []string{role.Name},
-		})
-	}
+	// 角色与权限一次解析，两处共用（角色名不再混进 PermissionIDs，BUG-019）
+	set := collectUserPermissionSet(ctx, s, roleModels)
 
 	return &ProfilePermissionsResponse{
-		Permissions:   permissions,
-		Admin:         isAdmin,
-		Roles:         roles,
-		PermissionIDs: permissionIDs,
+		// 真实资源 → 操作分组；旧实现在此返回 resource:"role" 的编造数据
+		Permissions:     set.Resolved.Groups,
+		Admin:           set.IsAdmin,
+		Roles:           set.Roles,
+		PermissionIDs:   set.PermissionIDs,
+		AccessLevel:     set.Resolved.AccessLevel,
+		PermissionScope: accessScopeRole,
+		FullAccess:      set.Resolved.FullAccess,
+		RolePermissions: set.RoleGrants,
 	}, nil
 }
 

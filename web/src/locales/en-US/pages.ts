@@ -401,4 +401,23 @@ export default {
   'profile.channel.reason.smtpMissing': 'No SMTP server configured',
   'profile.channel.sms': 'SMS',
   'profile.channel.reason.notConnected': 'This notification channel is not connected',
+  // Permission tree (role → resource → action): green = granted, gray = not granted
+  'profile.permissions.tree.denied': 'Not granted',
+  'profile.permissions.tree.fullAccess': 'Holds all permissions',
+  'profile.permissions.tree.fullAccess.hint':
+    'This account holds a wildcard grant (* / admin:all), so every action below is available. Gray only means "not explicitly granted by a specific role".',
+  'profile.permissions.tree.granted': 'Granted',
+  'profile.permissions.tree.noRole': 'This account has no roles',
+  'profile.permissions.tree.rawId': 'Unnamed permission',
+  'profile.permissions.tree.summary': '{granted}/{total} actions granted',
+  'profile.permissions.tree.title': 'Permission tree (role → resource → action)',
+  'profile.permissions.tree.toggleAll': 'Expand / collapse all',
+  // Permissions block on a game card: an empty list must be explained, never blank (BUG-018)
+  'profile.games.permissions.full': 'All permissions',
+  'profile.games.permissions.none': 'No explicit permissions',
+  'profile.games.permissions.none.hint':
+    'This account has no explicit permissions on this game. The accessible scope is decided by the game/environment assignments made by an administrator.',
+  'profile.games.permissions.scope.hint':
+    'Permissions are granted per role, not per game. What you see here applies to every game this account can reach.',
+  'profile.games.permissions.wildcard': 'All',
 };

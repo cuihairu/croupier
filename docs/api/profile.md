@@ -129,7 +129,18 @@ type ProfileGamesRequest struct {
 type ProfileGamesResponse struct {
 	Games []ProfileGame `json:"games"`
 }
+
+type ProfileGame struct {
+	// ...省略
+	Permissions     []string `json:"permissions"`             // full 时为 ["*"]
+	AccessLevel     string   `json:"accessLevel,omitempty"`  // full / scoped / none
+	PermissionScope string   `json:"permissionScope,omitempty"` // 固定 "role"
+}
 ```
+
+`accessLevel` 让「空权限」成为**可解释状态**：修复前 `Permissions` 被硬编码成
+`[]string{}`，对所有用户所有游戏恒为空，admin 的「游戏访问权限」因此永远是一块
+空白（docs/BUGS.md BUG-018）。`none` 时前端必须给出说明而不是留白。
 
 ### 4. "修改密码"
 
@@ -182,10 +193,32 @@ type ProfilePermissionsRequest struct {
 
 ```go
 type ProfilePermissionsResponse struct {
-	Permissions []ProfilePermission `json:"permissions"`
-	Admin bool `json:"admin"`
-	Roles []string `json:"roles"`
-	PermissionIDs []string `json:"permissionIDs,omitempty"`
+	Permissions   []ProfilePermission       `json:"permissions"`
+	Admin         bool                      `json:"admin"`
+	Roles         []string                  `json:"roles"`
+	PermissionIDs []string                  `json:"permissionIDs,omitempty"`
+	AccessLevel       string `json:"accessLevel,omitempty"`       // full / scoped / none
+	PermissionScope   string `json:"permissionScope,omitempty"`   // 固定 "role"
+	FullAccess        bool   `json:"fullAccess,omitempty"`
+	RolePermissions   []RolePermissionGrant `json:"rolePermissions,omitempty"`
+}
+
+type RolePermissionGrant struct {
+	Role          string   `json:"role"`
+	PermissionIDs []string `json:"permissionIds"`
 }
 ```
+
+字段语义（docs/BUGS.md BUG-019 / BUG-020）：
+
+- `permissions[]` 是**真实的资源 → 操作分组**，`resource` 取自权限 id 的前缀
+  （`pages:write` → `resource=pages`），**不是** `permissions` 表的 `resource` 列
+  （那一列存 module，38 条目录会塌缩成 7 个值）。
+- `permissionIDs` 只含**权限 id**，不含角色名。角色名只在 `roles` 里。
+- `permissionScope` 恒为 `role`：**RBAC 挂在角色上、不按游戏维度切分**；按游戏/
+  环境切分的是「可见游戏与可见环境」（`admin_game_env_scopes`）。
+- `fullAccess` 为 true 当且仅当持有**两个维度都通配**的权限（`*` / `admin:all`）。
+  `user:*` 只是「user 资源的全部操作」，不算 `fullAccess`。
+- `rolePermissions` 给出逐角色明细，供前端渲染「角色 → 资源 → 操作」的权限树；
+  角色未挂任何权限时也会出现（空数组）。
 

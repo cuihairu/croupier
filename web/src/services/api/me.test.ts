@@ -217,6 +217,7 @@ describe('services/api/me getMyPermissions', () => {
   it('omits params entirely when no scope query is given', async () => {
     mockedRequest.mockResolvedValue({});
 
+    // 响应缺字段时不得凭空注入 permissionIDs / rolePermissions
     await expect(getMyPermissions()).resolves.toEqual({ permissions: [] });
     expect(mockedRequest).toHaveBeenCalledWith('/api/v1/profile/permissions', {
       params: undefined,
@@ -227,6 +228,35 @@ describe('services/api/me getMyPermissions', () => {
     mockedRequest.mockResolvedValue(undefined);
 
     await expect(getMyPermissions()).resolves.toEqual({ permissions: [] });
+  });
+
+  // BUG-020：角色名不是权限 id。归一化层再兜一层，任何把角色名塞进
+  // permissionIDs 的后端实现都不会漏到权限树上。
+  it('drops role names leaked into permissionIDs', async () => {
+    mockedRequest.mockResolvedValue({
+      roles: ['viewer'],
+      permissionIDs: ['*', 'admin:all', 'viewer', 'user:read', 'viewer'],
+    });
+
+    const res = await getMyPermissions();
+    expect(res.permissionIDs).toEqual(['*', 'admin:all', 'user:read']);
+  });
+
+  it('normalizes rolePermissions into {role, permissionIds}', async () => {
+    mockedRequest.mockResolvedValue({
+      rolePermissions: [
+        { role: 'reader', permissionIds: ['user:read', 'user:read', ''] },
+        { role: '', permissionIds: undefined },
+        { role: 'writer' },
+      ],
+    });
+
+    const res = await getMyPermissions();
+    expect(res.rolePermissions).toEqual([
+      { role: 'reader', permissionIds: ['user:read'] },
+      { role: '', permissionIds: [] },
+      { role: 'writer', permissionIds: [] },
+    ]);
   });
 
   it('propagates request failures untouched', async () => {

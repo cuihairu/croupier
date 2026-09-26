@@ -83,6 +83,16 @@ func newLogicalPermissionEnforcer(subject string, granted []string) (logicalPerm
 	return enforcer, nil
 }
 
+// SplitLogicalPermission 把 `resource:action` 形式的权限 id 拆成两段。
+//
+// 与 splitLogicalPermission 同实现；导出给需要**按资源/操作维度渲染权限**
+// 的调用方（例如个人中心的权限树），以保证全后端的通配语义只有一处定义。
+// 通配约定：`""` / `*` / `admin:all` → ("*", "*")；无冒号 → (id, "*")；
+// action 为空或 `all` → "*"。
+func SplitLogicalPermission(permission string) (string, string) {
+	return splitLogicalPermission(permission)
+}
+
 func splitLogicalPermission(permission string) (string, string) {
 	normalized := strings.ToLower(strings.TrimSpace(permission))
 	switch normalized {

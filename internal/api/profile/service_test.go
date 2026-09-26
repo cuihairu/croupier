@@ -879,8 +879,13 @@ func TestService_GetPermissions_WithAdminRole(t *testing.T) {
 	assert.NotNil(t, resp)
 	assert.True(t, resp.Admin)
 	assert.Contains(t, resp.Roles, "admin")
-	assert.Contains(t, resp.PermissionIDs, "admin")
+	// admin 角色补通配权限（configs/permissions.json 里 "*"/"admin:all" 是两条真权限）
 	assert.Contains(t, resp.PermissionIDs, "*")
+	assert.Contains(t, resp.PermissionIDs, "admin:all")
+	// 但角色名 "admin" 不是权限 id，不得混进 permissionIDs（BUG-019）
+	assert.NotContains(t, resp.PermissionIDs, "admin")
+	assert.True(t, resp.FullAccess)
+	assert.Equal(t, accessFull, resp.AccessLevel)
 }
 
 func TestService_GetPermissions_WithSuperAdminRole(t *testing.T) {
@@ -912,9 +917,11 @@ func TestService_GetPermissions_WithSuperAdminRole(t *testing.T) {
 	assert.NotNil(t, resp)
 	assert.True(t, resp.Admin)
 	assert.Contains(t, resp.Roles, "super_admin")
-	assert.Contains(t, resp.PermissionIDs, "super_admin")
-	assert.Contains(t, resp.PermissionIDs, "admin")
 	assert.Contains(t, resp.PermissionIDs, "*")
+	// 角色名 "super_admin"/"admin" 不是权限 id（BUG-019）
+	assert.NotContains(t, resp.PermissionIDs, "super_admin")
+	assert.NotContains(t, resp.PermissionIDs, "admin")
+	assert.True(t, resp.FullAccess)
 }
 
 func TestService_GetPermissions_WithCustomRole(t *testing.T) {
@@ -946,7 +953,11 @@ func TestService_GetPermissions_WithCustomRole(t *testing.T) {
 	assert.NotNil(t, resp)
 	assert.False(t, resp.Admin)
 	assert.Contains(t, resp.Roles, "custom_operator")
-	assert.Contains(t, resp.PermissionIDs, "custom_operator")
+	// 该角色没挂任何权限：permissionIDs 为空，级别 none——而不是像旧实现那样
+	// 把角色名当成一条权限（BUG-019）
+	assert.Empty(t, resp.PermissionIDs)
+	assert.NotContains(t, resp.PermissionIDs, "custom_operator")
+	assert.Equal(t, accessNoAccess, resp.AccessLevel)
 }
 
 func TestService_GetProfile_WithEmailAndPhone(t *testing.T) {

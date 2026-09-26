@@ -6,22 +6,39 @@ import { ModalForm } from '@ant-design/pro-components';
 import { CopyOutlined } from '@ant-design/icons';
 import { useIntl, useNavigate } from '@umijs/max';
 import { createFeedback } from '@/services/api/support';
+import PermissionTreeView from './PermissionTreeView';
+import type { PermissionCatalogEntry, RoleGrant } from './permissionTree';
 import type { PermissionApplyItem } from './shared';
 
 const { Text } = Typography;
 
 type ApplyFormValues = { reason: string };
 
-/** 权限 Tab：已有权限汇总 + 可申请权限列表 + 申请弹窗（复制申请文案/提交反馈工单）。 */
+/**
+ * 权限 Tab：权限树（角色 → 资源 → 操作）+ 可申请权限列表 + 申请弹窗。
+ *
+ * 原先是单层 `SimpleList` 平铺「已授权」，既没有资源/操作分层，也没有
+ * 已授权/未授权的两态区分（docs/BUGS.md BUG-020）。现在树结构由
+ * `PermissionTreeView` 渲染，汇总列表保留在下方作为紧凑视图。
+ */
 export default function PermissionsTab({
   groups,
   candidates,
   catalogAvailable,
+  roleGrants,
+  catalog,
+  fullAccess,
   username,
 }: {
   groups: { resource: string; actions: string[]; scope?: string }[];
   candidates: PermissionApplyItem[];
   catalogAvailable: boolean;
+  /** 逐角色授权明细；缺失时树退化为「仅已授权」单层结构 */
+  roleGrants?: RoleGrant[];
+  /** 全量权限目录，用于渲染未授权项 */
+  catalog?: PermissionCatalogEntry[];
+  /** 账号持通配权限 */
+  fullAccess?: boolean;
   username?: string;
 }) {
   const { message } = App.useApp();
@@ -81,6 +98,11 @@ export default function PermissionsTab({
   return (
     <>
       <Space orientation="vertical" size={16} style={{ width: '100%' }}>
+        <PermissionTreeView
+          roles={roleGrants || []}
+          catalog={catalog || []}
+          fullAccess={fullAccess === true}
+        />
         <Card title={formatMessage('profile.permissions.summary.title')}>
           <SimpleList
             dataSource={groups}

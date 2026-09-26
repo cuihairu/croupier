@@ -375,4 +375,23 @@ export default {
   'profile.channel.reason.smtpMissing': '未配置 SMTP 服务器',
   'profile.channel.sms': '短信通知',
   'profile.channel.reason.notConnected': '未接入该通知通道',
+  // 权限树（角色 → 资源 → 操作）：绿=已授权、灰=未授权
+  'profile.permissions.tree.denied': '未授权',
+  'profile.permissions.tree.fullAccess': '持有全部权限',
+  'profile.permissions.tree.fullAccess.hint':
+    '该账号持有通配权限（* / admin:all），下列所有操作均可用；灰色仅表示「未由具体角色显式授予」。',
+  'profile.permissions.tree.granted': '已授权',
+  'profile.permissions.tree.noRole': '当前账号没有任何角色',
+  'profile.permissions.tree.rawId': '未命名权限',
+  'profile.permissions.tree.summary': '已授权 {granted}/{total} 项操作',
+  'profile.permissions.tree.title': '权限树（角色 → 资源 → 操作）',
+  'profile.permissions.tree.toggleAll': '展开/收起全部',
+  // 游戏卡片上的权限区：空列表必须给解释，不得留白（BUG-018）
+  'profile.games.permissions.full': '全部权限',
+  'profile.games.permissions.none': '无显式权限',
+  'profile.games.permissions.none.hint':
+    '该账号在此游戏上没有显式权限，实际可访问范围由管理员分配的游戏/环境决定。',
+  'profile.games.permissions.scope.hint':
+    '权限按角色授予，不按游戏单独切分；此处显示的是该账号在所有游戏上的通用权限。',
+  'profile.games.permissions.wildcard': '全部',
 };

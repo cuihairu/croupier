@@ -318,15 +318,23 @@ func TestService_GetPermissions_MergesRolePermissionIDs(t *testing.T) {
 
 	role := &model.Role{}
 	require.NoError(t, db.Where("name = ?", "custom_operator").First(role).Error)
+	// 权限 id 形如 resource:action（configs/permissions.json 的 38 条目录统一如此）
 	require.NoError(t, db.Create(&model.RolePermission{
 		RoleID:       role.ID,
-		PermissionID: "function.invoke",
+		PermissionID: "function:invoke",
 	}).Error)
 
 	resp, err := service.GetPermissions(context.Background(), "rolepermuser")
 	require.NoError(t, err)
-	assert.Contains(t, resp.PermissionIDs, "function.invoke")
-	assert.Contains(t, resp.PermissionIDs, "custom_operator")
+	assert.Contains(t, resp.PermissionIDs, "function:invoke")
+	// 角色名只出现在 roles，不再混进 permissionIDs（BUG-019）
+	assert.Contains(t, resp.Roles, "custom_operator")
+	assert.NotContains(t, resp.PermissionIDs, "custom_operator",
+		"角色名不是权限 id；前端会拿 permissionIDs 与权限目录比对，混进去就是一条假权限")
+	// 真实分组：function:invoke → resource=function, actions=[invoke]
+	require.Len(t, resp.Permissions, 1)
+	assert.Equal(t, "function", resp.Permissions[0].Resource)
+	assert.Equal(t, []string{"invoke"}, resp.Permissions[0].Actions)
 }
 
 func TestService_UpdateScope_EnvNotBound(t *testing.T) {
