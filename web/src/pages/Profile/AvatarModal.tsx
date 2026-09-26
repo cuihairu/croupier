@@ -1,12 +1,12 @@
 import { useCallback, useRef, useState } from 'react';
-import { App, Avatar, Form, Input, Upload } from 'antd';
+import { App, Form, Input, Upload } from 'antd';
 import type { FormInstance } from 'antd';
 import { ModalForm } from '@ant-design/pro-components';
-import { InboxOutlined, UserOutlined } from '@ant-design/icons';
+import { InboxOutlined } from '@ant-design/icons';
 import { useIntl } from '@umijs/max';
 import { updateMyProfile } from '@/services/api/me';
 import { buildAvatarObjectKey, uploadAsset } from '@/services/api/storage';
-import { normalizeAvatarSrc } from './shared';
+import UserAvatar from '@/components/UserAvatar';
 import type { UploadProps } from 'antd/es/upload/interface';
 
 type AvatarFormValues = { avatar: string };
@@ -15,11 +15,17 @@ type AvatarFormValues = { avatar: string };
 export default function AvatarModal({
   open,
   avatar,
+  displayName,
+  username,
   onClose,
   onPersisted,
 }: {
   open: boolean;
   avatar?: string;
+  /** 参与头像首字母占位的展示名 */
+  displayName?: string;
+  /** 参与头像首字母占位的登录名 */
+  username?: string;
   onClose: () => void;
   onPersisted: () => Promise<void>;
 }) {
@@ -96,13 +102,8 @@ export default function AvatarModal({
           const avatarValue = getFieldValue('avatar') || avatar;
           return (
             <div className="avatar-upload-preview">
-              <Avatar
-                size={72}
-                // 空串 src 会让浏览器把 <img src=""> 当成当前页 URL 重新请求
-                //（docs/BUGS.md BUG-007）；与个人中心 hero 共用同一归一函数。
-                src={normalizeAvatarSrc(avatarValue)}
-                icon={!avatarValue ? <UserOutlined /> : undefined}
-              />
+              {/* 与个人中心 hero 共用同一组件：src / 占位 用同一归一结果 */}
+              <UserAvatar size={72} src={avatarValue} name={displayName} username={username} />
               <div>
                 <div className="avatar-upload-preview__title">
                   {formatMessage('profile.avatar.modal.title')}

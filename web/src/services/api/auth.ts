@@ -32,6 +32,12 @@ export type CurrentUser = {
   nickname?: string;
   email?: string;
   roles: string[];
+  /**
+   * 头像地址。此前 CurrentUser 不带该字段，而 layout 的 avatarProps 读的是
+   * initialState.currentUser.avatar —— 于是右上角头像恒为占位图标，永远不显示
+   * 用户真实头像（docs/BUGS.md BUG-012）。
+   */
+  avatar?: string;
 };
 
 // Source: croupier/internal/api/profile/dto.go ProfilePermissionsResponse
@@ -53,6 +59,8 @@ function toCurrentUser(profile: MeProfile): CurrentUser {
     nickname: profile.nickname || profile.displayName,
     email: profile.email,
     roles: profile.roles || [],
+    // 透传头像，layout 顶栏才能显示真实头像而非恒定占位（BUG-012）。
+    avatar: profile.avatar,
   };
 }
 

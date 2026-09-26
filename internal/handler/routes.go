@@ -3,6 +3,8 @@ package handler
 import (
 	"context"
 	"fmt"
+	"os"
+	"strings"
 
 	"github.com/cuihairu/croupier/internal/api/admin"
 	"github.com/cuihairu/croupier/internal/api/agent"
@@ -63,6 +65,7 @@ import (
 	"github.com/cuihairu/croupier/internal/function/registry"
 	"github.com/cuihairu/croupier/internal/middleware/reqinfo"
 	"github.com/cuihairu/croupier/internal/model"
+	"github.com/cuihairu/croupier/internal/platform/objstore"
 	settings "github.com/cuihairu/croupier/internal/platform/settings"
 	"github.com/cuihairu/croupier/internal/security/jwtutil"
 	"github.com/cuihairu/croupier/internal/service"
@@ -77,8 +80,9 @@ import (
 
 func RegisterHandlers(r *gin.Engine, serverCtx *svc.ServiceContext) {
 	// 客户端身份（IP/UA）注入 request context，供审计等非 handler 层读取
-	// （audit.AuditService.Log 自动补 WithIPAddress）。
+	//（audit.AuditService.Log 自动补 WithIPAddress）。
 	r.Use(reqinfo.Middleware())
+	registerUploadStaticRoute(r, serverCtx)
 	v1 := r.Group("/api/v1")
 
 	// 网站配置 handler 必须先于 auth 路由创建：registerAuthRoutes 要把
@@ -918,10 +922,51 @@ func registerPlayerRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 }
 
 // ============================================================================
+// 本地上传文件静态服务（file 驱动）
+// ============================================================================
+
+// registerUploadStaticRoute 为 file 存储驱动挂载头像静态目录。
+//
+// fileStore.SignedURL 在未配置 PublicURL 时返回 `/uploads/<key>` 相对路径，
+// 但此前没有任何 handler 提供该路径——于是上传成功的头像一律 404，页面只能
+// 显示空白占位（docs/BUGS.md BUG-012）。S3/OSS/COS 驱动返回的是带签名的绝对
+// 地址，不需要这条路由。
+//
+// 只挂 **avatars 子树**：通用存储 API 也往同一目录写文件（缺陷附件、导出等），
+// 把整个 uploads 目录静态暴露会一并泄露；而头像必须能被 <img src> 直接加载
+// （浏览器发 <img> 请求不带 Authorization 头，走不了鉴权路由）。
+func registerUploadStaticRoute(r *gin.Engine, serverCtx *svc.ServiceContext) {
+	baseDir := strings.TrimSpace(serverCtx.Config.Storage.BaseDir)
+	if baseDir == "" || !strings.EqualFold(strings.TrimSpace(serverCtx.Config.Storage.Driver), "file") {
+		return
+	}
+	dir, err := objstore.LocalAvatarDir(baseDir)
+	if err != nil {
+		slog.Default().Warn("本地头像静态目录无效，未挂载 "+objstore.AvatarPublicPrefix,
+			"baseDir", baseDir, "error", err)
+		return
+	}
+	// 目录可能尚未创建（还没人上传过头像）：StaticFS 仍可挂载，文件缺失时 404。
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		slog.Default().Warn("本地头像目录创建失败，未挂载 "+objstore.AvatarPublicPrefix,
+			"dir", dir, "error", err)
+		return
+	}
+	r.StaticFS(objstore.AvatarPublicPrefix, gin.Dir(dir, false))
+	slog.Default().Info("已挂载本地头像静态目录",
+		"prefix", objstore.AvatarPublicPrefix, "dir", dir)
+}
+
+// ============================================================================
 // Profile 路由注册
 // ============================================================================
 func registerProfileRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
-	profileSvc := profile.NewService(ctx.AdminModel, ctx.GameModel, ctx.RoleModel, ctx.OpsStateStore).WithDB(ctx.DB)
+	profileSvc := profile.NewService(ctx.AdminModel, ctx.GameModel, ctx.RoleModel, ctx.OpsStateStore).
+		WithDB(ctx.DB).
+		// 头像对象 key → 当前可访问 URL；未接对象存储时退化为 /uploads/ 相对路径。
+		WithObjectStore(ctx.ObjectStore).
+		// 资料更新后失效 admin 缓存（缓存整行，含 Avatar）。
+		WithCacheInvalidator(ctx.InvalidateAdminCache)
 	profileHandler := profile.NewHandler(profileSvc)
 	g.GET("", profileHandler.GetProfile)     // /api/v1/profile
 	g.GET("/", profileHandler.GetProfile)    // /api/v1/profile/

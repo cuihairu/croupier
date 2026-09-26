@@ -1371,6 +1371,10 @@ func NewAuthMiddlewareImpl(svcCtx *ServiceContext) *AuthMiddleware {
 			// 客户端公开端点（游戏内 SDK / 玩家侧，无管理台 token）
 			"/api/v1/public/", // 配置拉取 + 玩家客服
 			"/api/v1/releases/check",
+			// file 存储驱动下的头像静态目录（见 registerUploadStaticRoute）。
+			// 必须免鉴权：<img src> 请求不会携带 Authorization 头，走鉴权必然
+			// 401，头像永远加载不出来。只放行 avatars 子树，其余上传物不对外。
+			string(objstore.AvatarPublicPrefix),
 		},
 	}
 	// Prometheus 抓取器不带 JWT：端点开启时加入免认证白名单。

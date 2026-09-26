@@ -27,8 +27,9 @@ import {
 } from '@ant-design/icons';
 import { useIntl, useLocation, useModel, useNavigate } from '@umijs/max';
 import { updateMyProfile } from '@/services/api/me';
+import UserAvatar from '@/components/UserAvatar';
 import { formatDateTime } from '@/utils/format';
-import { TAB_KEYS, normalizeAvatarSrc, type ProfileData } from './shared';
+import { TAB_KEYS, normalizeAvatarSrc, profileText, type ProfileData } from './shared';
 import { useProfileData } from './useProfileData';
 import InfoTab from './InfoTab';
 import SecurityTab from './SecurityTab';
@@ -182,12 +183,12 @@ export default function Profile() {
             <Row gutter={[32, 24]} align="middle">
               <Col xs={24} md={10}>
                 <Space align="center">
-                  <Avatar
+                  {/* 真实头像优先；无头像用姓名首字母占位（BUG-012） */}
+                  <UserAvatar
                     size={96}
-                    // 空串 src 会被浏览器当成「重新请求当前页」的 URL
-                    //（docs/BUGS.md BUG-007），统一归一为 undefined 走 icon 占位。
-                    src={normalizeAvatarSrc(profile?.avatar)}
-                    icon={!profile?.avatar ? <UserOutlined /> : undefined}
+                    src={profile?.avatar}
+                    name={profileText(profile?.displayName) || profileText(profile?.nickname)}
+                    username={profileText(profile?.username)}
                     style={{
                       border: '3px solid #1890ff',
                       boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
@@ -446,6 +447,8 @@ export default function Profile() {
       <AvatarModal
         open={avatarModalVisible}
         avatar={profile?.avatar}
+        displayName={profileText(profile?.displayName) || profileText(profile?.nickname)}
+        username={profileText(profile?.username)}
         onClose={() => setAvatarModalVisible(false)}
         onPersisted={loadProfile}
       />

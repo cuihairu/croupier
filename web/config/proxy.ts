@@ -16,6 +16,13 @@ export default {
       target: process.env.CROUPIER_SERVER_BASE_URL || 'http://localhost:18780',
       changeOrigin: true,
     },
+    // file 存储驱动下的上传文件由 Server 以 /uploads/* 静态提供（头像走这条）。
+    // 生产环境前后端同源，无需代理；开发环境前端在 8000、Server 在 18780，
+    // 缺这条代理头像就会 404（docs/BUGS.md BUG-012）。
+    '/uploads/': {
+      target: process.env.CROUPIER_SERVER_BASE_URL || 'http://localhost:18780',
+      changeOrigin: true,
+    },
   },
 
   /**

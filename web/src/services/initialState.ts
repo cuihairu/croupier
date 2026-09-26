@@ -7,6 +7,8 @@ export type InitialCurrentUser = {
   access?: string;
   roles?: string[];
   avatar?: string;
+  /** 展示名：首字母占位需要它，缺失时回退 name/userid */
+  nickname?: string;
 };
 
 export type RuntimeInitialState = {

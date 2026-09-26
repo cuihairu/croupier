@@ -17,8 +17,21 @@ export function normalizeAvatarSrc(value: string | null | undefined): string | u
   return trimmed === '' ? undefined : trimmed;
 }
 
-export const TAB_KEYS = {
-  PROFILE: 'profile',
+/**
+ * 把 ProfileData 的松散字段收敛成字符串。
+ *
+ * ProfileData 带开放索引签名（后端可能新增字段），字段类型是
+ * `string | number | boolean | string[] | undefined`。头像占位、展示名等只需要
+ * 文本，直接传给 string 入参会触发类型错误；这里统一做一次窄化，非字符串一律
+ * 视为「未设置」——避免把 `false` 变成字符串 "false" 之类的假值显示。
+ */
+export function profileText(value: unknown): string | undefined {
+  if (typeof value === 'string') return value;
+  if (typeof value === 'number' && Number.isFinite(value)) return String(value);
+  return undefined;
+}
+
+export const TAB_KEYS = {  PROFILE: 'profile',
   SECURITY: 'security',
   GAMES: 'games',
   PERMISSIONS: 'permissions',

@@ -71,12 +71,18 @@ type ProfilePermissionsResponse struct {
 	PermissionIDs []string            `json:"permissionIDs,omitempty"`
 }
 
-// ProfileUpdateRequest 更新个人资料请求
+// ProfileUpdateRequest 更新个人资料请求。
+//
+// 全部使用指针 + omitempty：指针为 nil 表示「请求未携带该字段」，应保留库里的
+// 现有值。此前用裸 string 时，Go 绑定 JSON 会把缺失字段解成空串，再被 service
+// 无条件写库——于是「只改昵称」会把头像/邮箱/手机清空，「只改头像」会把昵称/
+// 邮箱/手机清空（docs/BUGS.md BUG-012）。docs/api/profile.md 早已按部分更新语义
+// 描述该接口，代码却没实现。
 type ProfileUpdateRequest struct {
-	Nickname string `json:"nickname"`
-	Email    string `json:"email"`
-	Phone    string `json:"phone"`
-	Avatar   string `json:"avatar"`
+	Nickname *string `json:"nickname"`
+	Email    *string `json:"email"`
+	Phone    *string `json:"phone"`
+	Avatar   *string `json:"avatar"`
 }
 
 // ProfileUpdateResponse 更新个人资料响应

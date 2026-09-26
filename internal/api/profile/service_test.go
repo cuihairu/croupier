@@ -260,10 +260,10 @@ func TestService_UpdateProfile_Success(t *testing.T) {
 	require.NoError(t, err)
 
 	resp, err := service.UpdateProfile(context.Background(), "updateuser", &ProfileUpdateRequest{
-		Nickname: "Updated User",
-		Email:    "updated@example.com",
-		Phone:    "9876543210",
-		Avatar:   "https://example.com/avatar.png",
+		Nickname: strPtr("Updated User"),
+		Email:    strPtr("updated@example.com"),
+		Phone:    strPtr("9876543210"),
+		Avatar:   strPtr("avatars/avatar.png"),
 	})
 
 	assert.NoError(t, err)
@@ -281,7 +281,7 @@ func TestService_UpdateProfile_UserNotFound(t *testing.T) {
 	service := NewService(adminModel, svcCtx.GameModel, permSvc)
 
 	resp, err := service.UpdateProfile(context.Background(), "nonexistent", &ProfileUpdateRequest{
-		Nickname: "Test",
+		Nickname: strPtr("Test"),
 	})
 
 	assert.Error(t, err)
@@ -556,10 +556,10 @@ func TestService_UpdateProfile_WithAllFields(t *testing.T) {
 	require.NoError(t, err)
 
 	resp, err := service.UpdateProfile(context.Background(), "allfieldsuser", &ProfileUpdateRequest{
-		Nickname: "All Fields Updated",
-		Email:    "allfields@example.com",
-		Phone:    "1111111111",
-		Avatar:   "https://example.com/avatar.png",
+		Nickname: strPtr("All Fields Updated"),
+		Email:    strPtr("allfields@example.com"),
+		Phone:    strPtr("1111111111"),
+		Avatar:   strPtr("avatars/avatar.png"),
 	})
 
 	assert.NoError(t, err)
@@ -764,7 +764,7 @@ func TestService_UpdateProfile_OnlyNickname(t *testing.T) {
 	require.NoError(t, err)
 
 	resp, err := service.UpdateProfile(context.Background(), "nickonlyuser", &ProfileUpdateRequest{
-		Nickname: "Updated Nickname",
+		Nickname: strPtr("Updated Nickname"),
 	})
 
 	assert.NoError(t, err)
@@ -790,7 +790,7 @@ func TestService_UpdateProfile_OnlyEmail(t *testing.T) {
 	require.NoError(t, err)
 
 	resp, err := service.UpdateProfile(context.Background(), "emailonlyuser", &ProfileUpdateRequest{
-		Email: "newemail@example.com",
+		Email: strPtr("newemail@example.com"),
 	})
 
 	assert.NoError(t, err)
@@ -816,7 +816,7 @@ func TestService_UpdateProfile_OnlyPhone(t *testing.T) {
 	require.NoError(t, err)
 
 	resp, err := service.UpdateProfile(context.Background(), "phoneonlyuser", &ProfileUpdateRequest{
-		Phone: "9876543210",
+		Phone: strPtr("9876543210"),
 	})
 
 	assert.NoError(t, err)
@@ -842,7 +842,7 @@ func TestService_UpdateProfile_OnlyAvatar(t *testing.T) {
 	require.NoError(t, err)
 
 	resp, err := service.UpdateProfile(context.Background(), "avataronlyuser", &ProfileUpdateRequest{
-		Avatar: "https://example.com/new-avatar.png",
+		Avatar: strPtr("avatars/new-avatar.png"),
 	})
 
 	assert.NoError(t, err)
@@ -1109,10 +1109,10 @@ func TestService_UpdateProfile_EmptyFields(t *testing.T) {
 	require.NoError(t, err)
 
 	resp, err := service.UpdateProfile(context.Background(), "emptyfieldsuser", &ProfileUpdateRequest{
-		Nickname: "",
-		Email:    "",
-		Phone:    "",
-		Avatar:   "",
+		Nickname: strPtr(""),
+		Email:    strPtr(""),
+		Phone:    strPtr(""),
+		Avatar:   strPtr(""),
 	})
 
 	// Should allow updating to empty strings

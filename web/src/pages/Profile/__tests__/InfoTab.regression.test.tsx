@@ -243,16 +243,30 @@ describe('normalizeAvatarSrc（BUG-007）', () => {
     expect(normalizeAvatarSrc('  https://example.com/a.png  ')).toBe('https://example.com/a.png');
   });
 
-  it('两处 Avatar 调用点都走归一函数，不直接透传后端 avatar', () => {
-    // hero 头像与头像弹窗若退回 src={profile?.avatar} / src={avatarValue}，
-    // 空串又会漏回 DOM。这里做源码级锁定（渲染整个 Profile 需拉起 7 个 Tab
-    // 与一批接口，代价与收益不成比例）。
+  it('两处头像渲染都走共享的 UserAvatar，裸 antd Avatar 不再直接接后端字段', () => {
+    // hero 头像与头像弹窗若退回裸 <Avatar src={profile?.avatar}>，空串又会漏回
+    // DOM（BUG-007），且占位判定与 src 归一会再次分叉（BUG-012）。统一收敛到
+    // <UserAvatar>：它在内部用同一份归一结果同时决定 src 与占位。
+    // 源码级锁定（渲染整个 Profile 需拉起 7 个 Tab 与一批接口，代价与收益不
+    // 成比例）。
     const dir = path.resolve(__dirname, '..');
     const read = (f: string) => fs.readFileSync(path.join(dir, f), 'utf8');
-    expect(read('index.tsx')).toContain('src={normalizeAvatarSrc(profile?.avatar)}');
-    expect(read('AvatarModal.tsx')).toContain('src={normalizeAvatarSrc(avatarValue)}');
-    // 不允许出现未归一的直接透传
-    expect(read('index.tsx')).not.toMatch(/src=\{profile\?\.avatar\}/);
-    expect(read('AvatarModal.tsx')).not.toMatch(/src=\{avatarValue\}/);
+
+    for (const file of ['index.tsx', 'AvatarModal.tsx']) {
+      const src = read(file);
+      expect({ file, hasUserAvatar: src.includes('<UserAvatar') }).toEqual({
+        file,
+        hasUserAvatar: true,
+      });
+      // 裸 antd <Avatar> 一律不得带 src（即不得直接接后端 avatar 字段）
+      const rawAvatarTags = src.match(/<Avatar\b[^>]*>/g) ?? [];
+      for (const tag of rawAvatarTags) {
+        expect({ file, tag, hasSrc: /\ssrc=/.test(tag) }).toEqual({
+          file,
+          tag,
+          hasSrc: false,
+        });
+      }
+    }
   });
 });

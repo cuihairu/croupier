@@ -3,6 +3,7 @@ package profile
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"sort"
 	"strings"
 	"time"
@@ -11,6 +12,7 @@ import (
 
 	"github.com/cuihairu/croupier/internal/common/errorx"
 	"github.com/cuihairu/croupier/internal/model"
+	"github.com/cuihairu/croupier/internal/platform/objstore"
 	"github.com/cuihairu/croupier/internal/svc"
 )
 
@@ -20,6 +22,10 @@ type Service struct {
 	roleModel  *model.RoleModel
 	opsStore   *svc.OpsStateStore
 	db         *gorm.DB
+	// objectStore 用于把头像对象 key 解析成当前可访问的 URL（可为 nil）。
+	objectStore objstore.Store
+	// invalidateCache 用于资料更新后失效 admin 缓存（可为 nil）。
+	invalidateCache func(ctx context.Context, adminID uint, username string)
 }
 
 func NewService(adminModel *model.AdminModel, gameModel *model.GameModel, roleModel *model.RoleModel, opsStore ...*svc.OpsStateStore) *Service {
@@ -40,6 +46,47 @@ func NewService(adminModel *model.AdminModel, gameModel *model.GameModel, roleMo
 func (s *Service) WithDB(db *gorm.DB) *Service {
 	s.db = db
 	return s
+}
+
+// WithObjectStore attaches the object store used to resolve the stored avatar
+// object key into a readable URL on every read. Optional: without it the
+// avatar degrades to the file driver's relative path form.
+func (s *Service) WithObjectStore(store objstore.Store) *Service {
+	s.objectStore = store
+	return s
+}
+
+// resolveAvatar turns the persisted avatar object key into a URL the browser can
+// load right now. Signing on read (rather than persisting a signed URL) is what
+// keeps the avatar from breaking once the signature expires.
+func (s *Service) resolveAvatar(ctx context.Context, key string) string {
+	url, err := objstore.ResolveAvatarURL(ctx, s.objectStore, key)
+	if err != nil {
+		// 解析失败不应让整个 profile 读取失败——头像退化为空，前端走占位图。
+		slog.Default().Warn("头像地址解析失败，回退为占位图", "key", key, "error", err)
+		return ""
+	}
+	return url
+}
+
+// WithCacheInvalidator wires the admin-cache eviction hook.
+//
+// cache_layer caches the whole model.Admin (Avatar included) under both
+// admin:id:<id> and admin:username:<name>; without eviction after a profile
+// update the next reader keeps seeing the pre-update avatar until the TTL
+// expires. The hook is injected rather than imported because invalidation lives
+// on *svc.ServiceContext, which this package deliberately does not depend on.
+func (s *Service) WithCacheInvalidator(fn func(ctx context.Context, adminID uint, username string)) *Service {
+	s.invalidateCache = fn
+	return s
+}
+
+// invalidateAdminCache drops cached admin rows after a profile update.
+func (s *Service) invalidateAdminCache(ctx context.Context, id uint, username string) {
+	if s.invalidateCache == nil {
+		return
+	}
+	s.invalidateCache(ctx, id, username)
 }
 
 // GetProfile 获取个人资料
@@ -70,7 +117,8 @@ func (s *Service) GetProfile(ctx context.Context, username string) (*ProfileGetR
 			Phone:       admin.Phone,
 			Active:      admin.Status == 1,
 			Roles:       roles,
-			Avatar:      admin.Avatar,
+			// 库里存的是裸对象 key，这里现算一个当前有效的访问地址。
+			Avatar:      s.resolveAvatar(ctx, admin.Avatar),
 			CreatedAt:   admin.CreatedAt.String(),
 			UpdatedAt:   admin.UpdatedAt.String(),
 			LastLoginAt: s.resolveLastLoginAt(admin.Username, admin.LastLoginAt),
@@ -246,18 +294,45 @@ func (s *Service) UpdateProfile(ctx context.Context, username string, req *Profi
 		return nil, errors.New("用户不存在")
 	}
 
-	// 准备更新字段
-	updates := map[string]interface{}{
-		"nickname": req.Nickname,
-		"email":    req.Email,
-		"phone":    req.Phone,
-		"avatar":   req.Avatar,
+	// 只写请求里真正携带的字段。指针为 nil = 未携带 = 保留库中原值；
+	// 显式传空串则视为「清空该字段」（例如把头像重置回占位图）。
+	updates := map[string]interface{}{}
+	if req.Nickname != nil {
+		updates["nickname"] = *req.Nickname
+	}
+	if req.Email != nil {
+		updates["email"] = *req.Email
+	}
+	if req.Phone != nil {
+		updates["phone"] = *req.Phone
+	}
+	if req.Avatar != nil {
+		// 头像只存对象 key，不存带签名/带前缀的 URL。签名 URL 会过期
+		// （S3 驱动默认 15min TTL），存进库就成了定时失效的死链。
+		// 具体驱动的 URL 解析见 objstore 包。
+		key, err := objstore.NormalizeAvatarKey(*req.Avatar)
+		if err != nil {
+			return nil, err
+		}
+		if key == "" {
+			// 归一后为空 = 用户清空头像，直接落空串。
+			updates["avatar"] = ""
+		} else {
+			updates["avatar"] = key
+		}
+	}
+	if len(updates) == 0 {
+		// 全空请求无需写库（否则 gorm Updates 空 map 会误报 no-op 错误）。
+		return &ProfileUpdateResponse{Ok: true}, nil
 	}
 
 	// 保存更新
 	if err := s.adminModel.Update(ctx, admin.ID, updates); err != nil {
 		return nil, errors.New("更新失败")
 	}
+	// 头像变更须失效 admin 缓存：cache_layer 缓存整个 model.Admin（含 Avatar），
+	// 读取方若走 GetAdminCached 会继续命中旧头像。
+	s.invalidateAdminCache(ctx, admin.ID, admin.Username)
 
 	return &ProfileUpdateResponse{Ok: true}, nil
 }

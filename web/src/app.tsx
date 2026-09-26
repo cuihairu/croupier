@@ -1,6 +1,6 @@
 import { Footer, Question, SelectLang, AvatarDropdown, AvatarName } from '@/components';
 import MessagesBell from '@/components/MessagesBell';
-import { LinkOutlined, UserOutlined } from '@ant-design/icons';
+import { LinkOutlined } from '@ant-design/icons';
 import type { Settings as LayoutSettings } from '@ant-design/pro-components';
 import { SettingDrawer } from '@ant-design/pro-components';
 import type { RunTimeLayoutConfig } from '@umijs/max';
@@ -24,6 +24,8 @@ import {
   type RuntimeMenuItem,
 } from './utils/consoleMenu';
 import { resetAccessibleMenus } from './store/modules/menu';
+import { AvatarFallback, avatarInitials } from '@/components/UserAvatar';
+import { normalizeAvatarSrc } from '@/pages/Profile/shared';
 
 const isDev = process.env.NODE_ENV === 'development';
 const loginPath = '/user/login';
@@ -80,6 +82,9 @@ export async function getInitialState(): Promise<InitialState> {
         userid: currentUser.username,
         access: accessTokens.join(','),
         roles: roleNames,
+        // 此前漏传，顶栏头像恒为占位图标（docs/BUGS.md BUG-012）。
+        avatar: normalizeAvatarSrc(currentUser.avatar),
+        nickname: currentUser.nickname || currentUser.username,
       };
     } catch (error: unknown) {
       const status = (error as { response?: { status?: number } })?.response?.status;
@@ -226,7 +231,15 @@ export const layout: RunTimeLayoutConfig = ({ initialState, setInitialState }) =
     },
     avatarProps: {
       src: initialState?.currentUser?.avatar,
-      icon: initialState?.currentUser?.avatar ? undefined : <UserOutlined />,
+      // 无头像时用姓名首字母占位，不再是清一色的通用图标（BUG-012）。
+      icon: initialState?.currentUser?.avatar ? undefined : (
+        <AvatarFallback
+          initials={avatarInitials(
+            initialState?.currentUser?.nickname || initialState?.currentUser?.name,
+            initialState?.currentUser?.userid,
+          )}
+        />
+      ),
       title: <AvatarName />,
       render: (_, avatarChildren) => {
         return <AvatarDropdown menu>{avatarChildren}</AvatarDropdown>;

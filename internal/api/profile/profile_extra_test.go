@@ -148,7 +148,7 @@ func TestService_UpdateProfile_UpdateError(t *testing.T) {
 
 	registerFailUpdateCallback(t, db, "test_fail_nickname", "nickname")
 
-	_, err := service.UpdateProfile(context.Background(), "updfailuser", &ProfileUpdateRequest{Nickname: "x"})
+	_, err := service.UpdateProfile(context.Background(), "updfailuser", &ProfileUpdateRequest{Nickname: strPtr("x")})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "更新失败")
 }
