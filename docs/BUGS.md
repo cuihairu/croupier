@@ -1141,6 +1141,53 @@ AuditService 缺席时审批主流程不受影响。线上栈复证：修复前�
 
 ---
 
+## BUG-026 站内信「发送」无权限校验：任何登录用户可给任意账号投递消息
+
+**严重度**：高（越权写：收件人无法分辨来源，可被用来伪造系统通知）
+
+**现象与背景**
+
+「通知」与「发通知」必须区分：收件（我收到的通知）人人可见；发送是后台
+运营能力，必须独立入口 + 权限门禁（用户反馈原文：「发送信息应该单独的页面，
+有些人没有权限就不应该看到，而信息通知每个人都可以看到」）。
+
+UI 侧 BUG-021 已完成分离（个人中心消息 Tab 只剩收件箱 + 渠道偏好，jest 有
+「页面里不存在任何发送消息/广播控件」守卫；发送唯一入口是 admin-only 的
+`/admin/announcements`，路由 `access: 'canAdmin'`、侧边栏菜单由后端
+`menu.AccessibleTree` 按权限过滤）。但 API 侧漏了一个洞：
+`POST /api/v1/messages`（点对点单发）的 handler **没有任何权限校验**，
+任何登录用户都能调用——群发 `POST /api/v1/messages/broadcast` 有
+`isBroadcaster`（admin 角色）校验，单发反而没有。
+
+**根因**
+
+`internal/api/message/handler.go` 的 `Send` 直接绑定请求体落库，未校验
+当前用户角色；且 `model.Message` 无发送者字段，消息来源完全不可追溯
+（谁发的、是不是本人发的都无法判定）。
+
+**修复**
+
+`Send` 复用与 `Broadcast` 相同的 `isBroadcaster` 门禁（仅 admin 角色可发送，
+含点对点单发）；收件侧（List/Detail/Read/UnreadCount/Stream）保持所有登录
+用户可用。前端 `services/api/messages.ts` 的 `sendMessage/broadcastMessage`
+无任何页面调用（发送 UI 唯一入口是公告管理页），保留为 admin API 客户端，
+非管理员调用现在会被后端 403 兜底。既有消息测试中「无登录态
+handler.Send 做种子/主流程」的用例按新契约修正：收件侧用例改模型层直种
+（`seedMessage`），发送主流程/校验用例改管理员登录态
+（`newMessageHandlerWithAdmin` + `withReqUsername`）。
+
+**回归测试**
+
+`internal/api/message/send_permission_test.go`：复用 broadcast 的
+admin/ops 双账号夹具，断言未认证 403、ops 角色 403、admin 200 且消息落库、
+ops 用户收件箱（GET /messages）仍 200 可读——收发两侧语义一次锁死。
+
+**已知边界（记录不修）**：`messages` 表没有发送者（from）列，站内信不记录
+来源账号；补该列属于模型变更，需按迁移契约走编号迁移并设计展示层，另行立项。
+当前所有合法发送路径（公告/群发/系统通知）都是管理员或系统行为，风险可控。
+
+---
+
 ## 汇总
 
 | BUG | 位置 | 状态 | 回归测试 |
@@ -1170,6 +1217,7 @@ AuditService 缺席时审批主流程不受影响。线上栈复证：修复前�
 | 023 | 公告页双语词条缺 14 条 + 菜单键缺失 | 已修 | locale 覆盖守卫 5 条（stash 变异 4/5 转红） |
 | 024 | 审批动作从不写审计链 + 通知把申请人当审批人 | 已修 | Go 3 条（audit_chain_test，含申请人名下恒空反断言）+ 线上栈复证 |
 | 025 | 审核人跳转回退到申请人（approver 缺失时） | 已修 | jest 1 条（修复前 actor=申请人 转红）|
+| 026 | 站内信「发送」无权限校验（人人可发任意账号） | 已修 | Go 1 条（未认证/ops 403、admin 200、收件侧不受影响）|
 
 ### 遗留 / 未修
 

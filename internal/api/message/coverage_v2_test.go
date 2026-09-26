@@ -91,14 +91,8 @@ func TestHandler_Read_V2(t *testing.T) {
 	db := newMessageTestDB(t)
 	handler := newMessageHandler(db)
 
-	// Send a message first
-	sendCtx, sendRec := newMessageRequest(http.MethodPost, "/api/v1/messages",
-		`{"to":"u","type":"notice","content":"read-test"}`)
-	handler.Send(sendCtx)
-	require.Equal(t, http.StatusOK, sendRec.Code, sendRec.Body.String())
-
-	var sent MessageItem
-	require.NoError(t, json.Unmarshal(sendRec.Body.Bytes(), &sent))
+	// Seed a message first（模型层直种，发送权限见 BUG-026）
+	sent := seedMessage(t, db, "u", "notice", "read-test")
 
 	// Read the message
 	readCtx, readRec := newMessageRequest(http.MethodGet, "/api/v1/messages/"+jsonStr(sent.ID), "")
@@ -147,14 +141,8 @@ func TestHandler_Get_Alias_V2(t *testing.T) {
 	db := newMessageTestDB(t)
 	handler := newMessageHandler(db)
 
-	// Send a message
-	sendCtx, sendRec := newMessageRequest(http.MethodPost, "/api/v1/messages",
-		`{"to":"u","type":"notice","content":"get-alias"}`)
-	handler.Send(sendCtx)
-	require.Equal(t, http.StatusOK, sendRec.Code)
-
-	var sent MessageItem
-	require.NoError(t, json.Unmarshal(sendRec.Body.Bytes(), &sent))
+	// Seed a message（模型层直种）
+	sent := seedMessage(t, db, "u", "notice", "get-alias")
 
 	// Get via alias
 	getCtx, getRec := newMessageRequest(http.MethodGet, "/api/v1/messages/"+jsonStr(sent.ID), "")
@@ -214,13 +202,14 @@ func TestService_Send_EmptyTo_V2(t *testing.T) {
 func TestService_Send_InvalidType_V2(t *testing.T) {
 	t.Parallel()
 
-	db := newMessageTestDB(t)
-	handler := newMessageHandler(db)
+	// 合法发送 + admin 登录态（BUG-026 后 Send 仅 admin 可用）
+	handler := newMessageHandlerWithAdmin(t)
 
 	// Note: ValidateMessageType may accept any string type,
 	// so we test with a type that gets normalized/accepted
 	ctx, rec := newMessageRequest(http.MethodPost, "/api/v1/messages",
 		`{"to":"u","type":"notice","content":"hello"}`)
+	withReqUsername(ctx, "boss")
 	handler.Send(ctx)
 	// The type "notice" is valid, so we get 200
 	assert.Equal(t, http.StatusOK, rec.Code)
@@ -234,9 +223,9 @@ func TestHandler_List_WithFilters_V2(t *testing.T) {
 	db := newMessageTestDB(t)
 	handler := newMessageHandler(db)
 
-	// Seed messages
-	handler.Send(newMessageRequestWithBody(t, `{"to":"u1","type":"notice","content":"a"}`))
-	handler.Send(newMessageRequestWithBody(t, `{"to":"u1","type":"alert","content":"b"}`))
+	// Seed messages（模型层直种）
+	seedMessage(t, db, "u1", "notice", "a")
+	seedMessage(t, db, "u1", "alert", "b")
 
 	// Filter by type
 	ctx, rec := newMessageRequest(http.MethodGet, "/api/v1/messages?type=notice", "")

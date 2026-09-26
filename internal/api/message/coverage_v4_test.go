@@ -123,14 +123,8 @@ func TestService_Read_WrongUsername_V4(t *testing.T) {
 	db := newMessageTestDB(t)
 	handler := newMessageHandler(db)
 
-	// Send a message to user "owner"
-	sendCtx, sendRec := newMessageRequest(http.MethodPost, "/api/v1/messages",
-		`{"to":"owner","type":"notice","content":"private"}`)
-	handler.Send(sendCtx)
-	require.Equal(t, http.StatusOK, sendRec.Code, sendRec.Body.String())
-
-	var sent MessageItem
-	require.NoError(t, json.Unmarshal(sendRec.Body.Bytes(), &sent))
+	// Seed a message to user "owner"（模型层直种，发送权限见 BUG-026）
+	sent := seedMessage(t, db, "owner", "notice", "private")
 
 	// Try to read as different user
 	readCtx, readRec := newMessageRequest(http.MethodGet, "/api/v1/messages/"+jsonStr(sent.ID), "")
@@ -147,14 +141,8 @@ func TestService_Detail_WrongUsername_V4(t *testing.T) {
 	db := newMessageTestDB(t)
 	handler := newMessageHandler(db)
 
-	// Send message to "owner"
-	sendCtx, sendRec := newMessageRequest(http.MethodPost, "/api/v1/messages",
-		`{"to":"owner","type":"notice","content":"secret"}`)
-	handler.Send(sendCtx)
-	require.Equal(t, http.StatusOK, sendRec.Code, sendRec.Body.String())
-
-	var sent MessageItem
-	require.NoError(t, json.Unmarshal(sendRec.Body.Bytes(), &sent))
+	// Seed message to "owner"（模型层直种）
+	sent := seedMessage(t, db, "owner", "notice", "secret")
 
 	// Try to access as different user
 	detailCtx, detailRec := newMessageRequest(http.MethodGet, "/api/v1/messages/"+jsonStr(sent.ID), "")
@@ -231,11 +219,8 @@ func TestHandler_Stream_WithMessages_V4(t *testing.T) {
 	db := newMessageTestDB(t)
 	handler := newMessageHandler(db)
 
-	// Seed a message
-	sendCtx, sendRec := newMessageRequest(http.MethodPost, "/api/v1/messages",
-		`{"to":"stream-user","type":"notice","content":"stream-content"}`)
-	handler.Send(sendCtx)
-	require.Equal(t, http.StatusOK, sendRec.Code)
+	// Seed a message（模型层直种）
+	seedMessage(t, db, "stream-user", "notice", "stream-content")
 
 	gin.SetMode(gin.TestMode)
 	rec := httptest.NewRecorder()

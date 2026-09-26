@@ -48,7 +48,16 @@ func (h *Handler) List(c *gin.Context) {
 }
 
 // Send handles the request to send a message
+//
+// 发送（含点对点单发）是后台运营能力，与群发同门槛：仅 admin 角色可调用。
+// 此前这里没有任何权限校验，任何登录用户都能给任意账号投递站内信
+// （docs/BUGS.md BUG-026）。收件侧（List/Detail/Read/UnreadCount/Stream）
+// 保持所有登录用户可用。
 func (h *Handler) Send(c *gin.Context) {
+	if !isBroadcaster(c, h) {
+		response.Forbidden(c, "仅管理员可发送站内消息")
+		return
+	}
 	var req MessageSendRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.Error(c, err)
@@ -180,8 +189,8 @@ func (h *Handler) Broadcast(c *gin.Context) {
 	response.Success(c, resp)
 }
 
-// isBroadcaster 校验当前用户具有 admin 角色（群发是后台运营能力，
-// 不属于普通用户的单发语义）。
+// isBroadcaster 校验当前用户具有 admin 角色（发送是后台运营能力：
+// 群发 Broadcast 与点对点单发 Send 同门槛，普通用户只有收件语义）。
 func isBroadcaster(c *gin.Context, h *Handler) bool {
 	admin, roles, err := utils.LoadCurrentAdmin(c.Request.Context(), h.service.svcCtx)
 	if err != nil {

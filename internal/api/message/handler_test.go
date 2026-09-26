@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/cuihairu/croupier/internal/config"
+	"github.com/cuihairu/croupier/internal/dbenum"
 	"github.com/cuihairu/croupier/internal/model"
 	"github.com/cuihairu/croupier/internal/svc"
 	"github.com/gin-gonic/gin"
@@ -35,6 +36,46 @@ func newMessageTestDB(t *testing.T) *gorm.DB {
 func newMessageHandler(db *gorm.DB) *Handler {
 	svcCtx := &svc.ServiceContext{MessageModel: model.NewMessageModel(db)}
 	return NewHandler(NewService(svcCtx), config.SSEConfig{})
+}
+
+// newMessageHandlerWithAdmin 在 newMessageHandler 基础上接入 AdminModel
+// 并落一个 admin 角色账号 "boss"——BUG-026 后发送侧（Send）仅 admin 可用，
+// 发送主流程用例用它构造有权限的登录态。
+func newMessageHandlerWithAdmin(t *testing.T) *Handler {
+	t.Helper()
+	db := newMessageTestDB(t)
+	require.NoError(t, db.AutoMigrate(&model.Admin{}, &model.Role{}, &model.AdminRole{}))
+	adminModel := model.NewAdminModel(db)
+	require.NoError(t, adminModel.Create(context.Background(), &model.Admin{Username: "boss", Nickname: "Boss"}, "x"))
+	boss, err := adminModel.FindByUsername(context.Background(), "boss")
+	require.NoError(t, err)
+	role := &model.Role{Name: "admin"}
+	require.NoError(t, db.Create(role).Error)
+	require.NoError(t, adminModel.AssignRole(context.Background(), boss.ID, role.ID))
+	svcCtx := &svc.ServiceContext{MessageModel: model.NewMessageModel(db), AdminModel: adminModel}
+	return NewHandler(NewService(svcCtx), config.SSEConfig{})
+}
+
+// withReqUsername 把登录名写进 request context（isBroadcaster →
+// LoadCurrentAdmin 从 request context 读 username，与 gin context 的
+// c.Set("username", ...) 是两条通道）。
+func withReqUsername(ctx *gin.Context, username string) {
+	ctx.Request = ctx.Request.WithContext(
+		context.WithValue(ctx.Request.Context(), "username", username))
+}
+
+// seedMessage 经模型层直接落一条未读消息：收件侧用例不应依赖发送 API
+// （BUG-026 后 Send 仅 admin 可用，无登录态的 handler.Send 做种子会 403）。
+func seedMessage(t *testing.T, db *gorm.DB, to, msgType, content string) *model.Message {
+	t.Helper()
+	msg := &model.Message{
+		To:      to,
+		Type:    msgType,
+		Content: content,
+		Status:  dbenum.MessageStatusUnread,
+	}
+	require.NoError(t, model.NewMessageModel(db).Create(context.Background(), msg))
+	return msg
 }
 
 func newMessageRequest(method, target, body string) (*gin.Context, *httptest.ResponseRecorder) {
@@ -68,11 +109,12 @@ func TestHandler_List_Empty_Success(t *testing.T) {
 }
 
 func TestHandler_SendAndDetail_RoundTrip(t *testing.T) {
-	db := newMessageTestDB(t)
-	handler := newMessageHandler(db)
+	handler := newMessageHandlerWithAdmin(t)
 
 	sendCtx, sendRec := newMessageRequest(http.MethodPost, "/api/v1/messages",
 		`{"to":"user-1","type":"notice","title":"Hello","content":"Welcome aboard","data":{"x":1}}`)
+	// 发送侧需 admin 登录态（BUG-026）：isBroadcaster 读 request context
+	withReqUsername(sendCtx, "boss")
 	handler.Send(sendCtx)
 	require.Equal(t, http.StatusOK, sendRec.Code, sendRec.Body.String())
 
@@ -101,7 +143,9 @@ func TestHandler_SendAndDetail_RoundTrip(t *testing.T) {
 }
 
 func TestHandler_Send_MissingFields_BadRequest(t *testing.T) {
-	handler := newMessageHandler(newMessageTestDB(t))
+	// 用 admin 登录态隔离出「参数校验」这一层（无登录态会先被
+	// BUG-026 权限门禁 403，测不到校验逻辑）
+	handler := newMessageHandlerWithAdmin(t)
 
 	tests := []struct {
 		name string
@@ -116,6 +160,7 @@ func TestHandler_Send_MissingFields_BadRequest(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			ctx, rec := newMessageRequest(http.MethodPost, "/api/v1/messages", tt.body)
+			withReqUsername(ctx, "boss")
 			handler.Send(ctx)
 			assert.NotEqual(t, http.StatusOK, rec.Code, "expected rejection, got 200 body=%s", rec.Body.String())
 			assertMessageErrorShape(t, rec)
@@ -161,11 +206,8 @@ func TestHandler_UnreadCount_Success(t *testing.T) {
 	db := newMessageTestDB(t)
 	handler := newMessageHandler(db)
 
-	// Seed an unread message.
-	sendCtx, sendRec := newMessageRequest(http.MethodPost, "/api/v1/messages",
-		`{"to":"u","type":"notice","content":"c"}`)
-	handler.Send(sendCtx)
-	require.Equal(t, http.StatusOK, sendRec.Code)
+	// Seed an unread message（模型层直种，发送权限见 BUG-026）。
+	seedMessage(t, db, "u", "notice", "c")
 
 	ctx, rec := newMessageRequest(http.MethodGet, "/api/v1/messages/unread-count", "")
 	handler.UnreadCount(ctx)
@@ -180,11 +222,8 @@ func TestHandler_Stream_Success(t *testing.T) {
 	db := newMessageTestDB(t)
 	handler := newMessageHandler(db)
 
-	// Seed a message so the stream has content.
-	sendCtx, sendRec := newMessageRequest(http.MethodPost, "/api/v1/messages",
-		`{"to":"u","type":"notice","content":"streamed"}`)
-	handler.Send(sendCtx)
-	require.Equal(t, http.StatusOK, sendRec.Code)
+	// Seed a message so the stream has content（模型层直种）。
+	seedMessage(t, db, "u", "notice", "streamed")
 
 	gin.SetMode(gin.TestMode)
 	rec := httptest.NewRecorder()
