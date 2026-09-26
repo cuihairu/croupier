@@ -233,7 +233,7 @@ antd 6 对这批属性**只打告警、不改行为**，所以 `tsc` 全绿、�
 | `Space direction` → `orientation` | 12 | 直接改名 |
 | `Input` / `InputNumber addonBefore` → `Space.Compact` | 6 | **结构改写**：前缀移出输入框，成为 `Space.Compact` 的相邻兄弟节点（静态表单：PathControls ×3、BindingModal ×2、SourceModal ×1） |
 | `Input addonBefore` → `Input.prefix` | 3 | **结构改写**，但改用 `prefix` 而非 `Space.Compact`——见 BUG-009（热路径编辑器：ActionEditor ×1、ConstantFieldsEditor ×2） |
-| `Statistic valueStyle` → `styles.content` | 1 | 嵌套路径，改为 `styles={{ content: {...} }}` |
+| `Statistic valueStyle` → `styles.content` | 1 | 嵌套路径，改为 `styles` 的 `content` 槽（`content: {...}`） |
 | `Spin tip` → `description` | 5 | 直接改名 |
 
 改写通过「按 JSX 开始标签定位」的 codemod 完成，跳过 `{}` 表达式与字符串字面量里的
@@ -906,6 +906,59 @@ for _, role := range roles {
   创建后重拉列表、编辑带 id 走 update、删除二次确认。
 - `SecurityTab.channels.test.tsx`（14 条）改为从 `NotificationChannels` 导入
   `channelAvailability`，两处共用实现的契约由此被测试锁住。
+
+---
+
+## BUG-022 登录页无 antd App 上下文，登录成功/失败/MFA 的 message 提示全部丢失
+
+**严重度**：高（登录失败时页面零反馈）
+
+**现象**
+
+Playwright 三条路径实测（修复前）：
+
+1. 直接打开 `/user/login` 用正确密码登录 → 登录成功，但**没有任何「登录成功」提示**；
+2. 从 `/` 重定向到登录页再登录 → 同样无提示，console 还报
+   `[antd: Message] You are calling notice in render ...`；
+3. **密码错误 → 页面完全零反馈**（既无 toast 也无内联错误，光停留在登录页）。
+
+**根因**
+
+`src/app.tsx` 把 `AppApiRegistrar`（`AntdApp.useApp()` → `setAppApi` 注册全局
+message/notification/modal）挂在了**已登录布局**的 `childrenRender` 里，而登录页是
+`layout: false`，根本不经过布局渲染。两条丢消息的路径：
+
+- 直接打开登录页：`getMessage()` 一直是 `undefined`，所有 `getMessage()?.xxx()`
+  被可选链静默吞掉；
+- 先访问 `/` 再被重定向：`/` 短暂挂载过布局里的 `<AntdApp>`，`setAppApi` 注册了一个
+  holder 尚未挂载（或已随布局卸载）的实例且 effect 无清理；登录页拿着这个死实例调
+  `message.success`，antd 检测到 `holderRef.current` 为空，告警**并静默丢弃**该条消息。
+
+另外登录页的内联错误兜底也是死代码：`const [userLoginState] = useState({})` 没有
+setter，`status === 'error'` 的 Alert 分支永远不会成立——即 toast 是失败反馈的唯一
+通道，丢了就是零反馈。
+
+**修复**
+
+- `src/app.tsx`：`AppApiRegistrar` 提升到模块级，新增 umi 运行时
+  `rootContainer` 导出，用 `<AntdApp>` 包裹**整个应用**（含 `layout: false` 的
+  登录页）；`childrenRender` 不再重复包裹（`ScopeMenuRefresher`/`SettingDrawer`
+  留在原地，它们依赖 layout 运行时闭包）。
+- effect 增加对称清理：`utils/antdApp.ts` 新增 `clearAppApi(api)`（仅当仍指向同一
+  实例时清空，不误清后来者），卸载 `<AntdApp>` 时不再残留死实例。
+- 顺带删除 `userLoginState` 死状态（`const [userLoginState] = useState({})` 与其
+  永假的 `status === 'error'` 分支）。——若后续没动这段可忽略本条。
+
+**回归测试**
+
+- `web/tests/appAntdRoot.test.ts` 4 条：rootContainer 存在且 `<AntdApp>` +
+  `AppApiRegistrar` 包裹 `{container}`、registrar effect 含 `setAppApi(inst)` 与
+  `clearAppApi(inst)` 清理、childrenRender 不再渲染 `<AntdApp>`、antdApp 模块导出
+  `clearAppApi`（防「搬回 childrenRender」/「删掉清理」两类回归）。
+- `web/src/utils/antdApp.test.ts` 新增 3 条 `clearAppApi` 语义用例（清当前实例、
+  不误清后来者、未注册 no-op）。
+- 运行时验证（Playwright，修复后）：三条路径 toast 分别为「登录成功！」/
+  「登录成功！」/「登录失败，请重试！」，`notice in render` 告警 0 条。
 
 ---
 

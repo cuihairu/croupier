@@ -11,7 +11,7 @@ import { errorConfig } from './requestErrorConfig';
 import { fetchCurrentUser, getMyPermissions } from '@/services/api';
 import React, { useEffect } from 'react';
 import { App as AntdApp, Grid } from 'antd';
-import { setAppApi } from './utils/antdApp';
+import { clearAppApi, setAppApi } from './utils/antdApp';
 import { getConsoleMenu } from './services/console';
 import type { ProfilePermission } from '@/services/api/me';
 import { loadAuthedInitialState, type InitialCurrentUser } from './services/initialState';
@@ -29,6 +29,31 @@ import { normalizeAvatarSrc } from '@/pages/Profile/shared';
 
 const isDev = process.env.NODE_ENV === 'development';
 const loginPath = '/user/login';
+
+/**
+ * 把 <AntdApp> 的 message/notification/modal 实例注册给非 React 模块
+ * （utils/antdApp）。必须在 rootContainer 层包裹**全部路由**：登录页是
+ * `layout: false`，不经过布局的 childrenRender——此前注册器只挂在已登录
+ * 布局里，登录页上「登录成功/失败/MFA 提示」的 message 全部被静默丢弃，
+ * antd 还会报 "notice in render" 告警（docs/BUGS.md BUG-022）。
+ * 卸载时对称清理，避免残留指向已卸载 holder 的死实例。
+ */
+const AppApiRegistrar: React.FC = () => {
+  const inst = AntdApp.useApp();
+  useEffect(() => {
+    setAppApi(inst);
+    return () => clearAppApi(inst);
+  }, [inst]);
+  return null;
+};
+
+// umi 运行时 rootContainer：包裹整个应用（含 layout:false 的登录页）。
+export const rootContainer = (container: React.ReactNode) => (
+  <AntdApp>
+    <AppApiRegistrar />
+    {container}
+  </AntdApp>
+);
 
 type PermissionResponse = {
   permissions?: ProfilePermission[];
@@ -160,14 +185,6 @@ export const layout: RunTimeLayoutConfig = ({ initialState, setInitialState }) =
     );
   };
 
-  const AppApiRegistrar: React.FC = () => {
-    const inst = AntdApp.useApp();
-    useEffect(() => {
-      setAppApi({ message: inst.message, notification: inst.notification, modal: inst.modal });
-    }, [inst]);
-    return null;
-  };
-
   const ScopeMenuRefresher: React.FC = () => {
     useEffect(
       () =>
@@ -264,9 +281,9 @@ export const layout: RunTimeLayoutConfig = ({ initialState, setInitialState }) =
       : [],
     menuHeaderRender: undefined,
     childrenRender: (children) => {
+      // AntdApp 上下文已在 rootContainer 层全局提供（含登录页），此处不再重复包裹。
       return (
-        <AntdApp>
-          <AppApiRegistrar />
+        <>
           <ScopeMenuRefresher />
           {children}
           {isDev && (
@@ -282,7 +299,7 @@ export const layout: RunTimeLayoutConfig = ({ initialState, setInitialState }) =
               }}
             />
           )}
-        </AntdApp>
+        </>
       );
     },
     ...initialState?.settings,

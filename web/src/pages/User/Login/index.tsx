@@ -82,7 +82,6 @@ const LoginMessage: React.FC<{
 
 const Login: React.FC = () => {
   // siteCfg 在下方 useModel 声明后取用
-  const [userLoginState] = useState<{ status?: string; type?: string }>({});
   // Only account/password login is supported
   const { initialState, setInitialState } = useModel('@@initialState');
   const siteCfg = initialState?.siteConfig;
@@ -172,7 +171,6 @@ const Login: React.FC = () => {
       getMessage()?.error(defaultLoginFailureMessage);
     }
   };
-  const { status } = userLoginState;
 
   return (
     <div className={styles.container}>
@@ -246,14 +244,6 @@ const Login: React.FC = () => {
                 id: 'pages.login.mfa.hint',
                 defaultMessage:
                   '两步验证已开启，请输入认证器 App 中的 6 位动态验证码，或绑定时的备用恢复码',
-              })}
-            />
-          )}
-          {status === 'error' && (
-            <LoginMessage
-              content={intl.formatMessage({
-                id: 'pages.login.accountLogin.errorMessage',
-                defaultMessage: '账户或密码错误(admin/ant.design)',
               })}
             />
           )}

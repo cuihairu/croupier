@@ -19,6 +19,17 @@ export function setAppApi(api: AppApi) {
   appApi = api;
 }
 
+/**
+ * 卸载持有该实例的 <AntdApp> 时清空注册。仅当仍指向同一实例时才清，
+ * 避免误清后来者。不清理的话，页面会残留一个指向已卸载 holder 的死实例：
+ * 对它调用 message.xxx 会被 antd 静默丢弃（docs/BUGS.md BUG-022）。
+ */
+export function clearAppApi(api: AppApi) {
+  if (appApi === api) {
+    appApi = null;
+  }
+}
+
 export function getMessage(): MessageInstance | undefined {
   return appApi?.message;
 }
