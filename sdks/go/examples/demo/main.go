@@ -1062,17 +1062,24 @@ func main() {
 	serviceID := getenv("CROUPIER_SERVICE_ID", "game-demo-service")
 	env := getenv("CROUPIER_ENV", "dev")
 
-	config := &croupier.ClientConfig{
-		AgentAddr:      agentAddr,
-		GameID:         gameID,
-		Env:            env,
-		ServiceID:      serviceID,
-		ServiceVersion: "1.0.0",
-		TimeoutSeconds: 30,
-		Insecure:       true,
+	instanceMetadata, err := parseInstanceMetadata(os.Getenv("CROUPIER_INSTANCE_METADATA"))
+	if err != nil {
+		log.Fatalf("CROUPIER_INSTANCE_METADATA invalid: %v", err)
 	}
 
-	log.Printf("starting game demo provider: agent=%s game=%s env=%s service=%s", agentAddr, gameID, env, serviceID)
+	config := &croupier.ClientConfig{
+		AgentAddr:        agentAddr,
+		GameID:           gameID,
+		Env:              env,
+		ServiceID:        serviceID,
+		ServiceVersion:   "1.0.0",
+		TimeoutSeconds:   30,
+		Insecure:         true,
+		InstanceMetadata: instanceMetadata,
+	}
+
+	log.Printf("starting game demo provider: agent=%s game=%s env=%s service=%s metadata=%d kv",
+		agentAddr, gameID, env, serviceID, len(instanceMetadata))
 
 	client := croupier.NewClient(config)
 	store := newDemoStore()
@@ -1097,4 +1104,39 @@ func getenv(key, fallback string) string {
 		return value
 	}
 	return fallback
+}
+
+// parseInstanceMetadata 解析 CROUPIER_INSTANCE_METADATA（demo 用，支持两种写法）：
+//   - JSON 对象：{"serverId":"s1","pod":"game-7c4d"}
+//   - 简写 k=v：serverId=s1,pod=game-7c4d
+//
+// 空串/空白返回 nil（不携带元数据）。保留键由 agent 侧剥离并告警，这里不重复校验。
+func parseInstanceMetadata(raw string) (map[string]string, error) {
+	trimmed := strings.TrimSpace(raw)
+	if trimmed == "" {
+		return nil, nil
+	}
+
+	if strings.HasPrefix(trimmed, "{") {
+		metadata := map[string]string{}
+		if err := json.Unmarshal([]byte(trimmed), &metadata); err != nil {
+			return nil, fmt.Errorf("parse JSON instance metadata: %w", err)
+		}
+		return metadata, nil
+	}
+
+	metadata := map[string]string{}
+	for _, pair := range strings.Split(trimmed, ",") {
+		pair = strings.TrimSpace(pair)
+		if pair == "" {
+			continue
+		}
+		key, value, found := strings.Cut(pair, "=")
+		key = strings.TrimSpace(key)
+		if !found || key == "" {
+			return nil, fmt.Errorf("pair %q must be key=value", pair)
+		}
+		metadata[key] = strings.TrimSpace(value)
+	}
+	return metadata, nil
 }

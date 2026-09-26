@@ -297,6 +297,8 @@ services:
       CROUPIER_GAME_ID: ${CROUPIER_SDK_EXAMPLE_GAME_ID:-default}
       CROUPIER_SERVICE_ID: ${CROUPIER_SDK_GO_EXAMPLE_SERVICE_ID:-game-demo-go}
       CROUPIER_ENV: ${CROUPIER_SDK_EXAMPLE_ENV:-dev}
+      # demo 专用实例元数据（JSON 对象或 k=v 简写），在 SDK 版本分布页展示/搜索
+      CROUPIER_INSTANCE_METADATA: ${CROUPIER_SDK_GO_EXAMPLE_METADATA:-serverId=demo-s1,pod=game-demo-7c4d,region=cn-north}
     depends_on:
       agent:
         condition: service_healthy

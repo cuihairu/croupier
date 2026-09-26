@@ -49,4 +49,9 @@ client := croupier.NewClient(&croupier.ClientConfig{
 
 - 保留键 `sdkLanguage` / `sdkVersion` / `sdkName` / `protocol_version` / `gameId` / `env` 由平台固定字段生成；用户元数据撞键时 agent 丢弃该键并在注册响应 `warnings` 中告警。
 - 元数据仅用于观测（展示/搜索/诊断），不参与路由与负载均衡。
+- demo（`sdks/go/examples/demo`）从环境变量 `CROUPIER_INSTANCE_METADATA` 读取，支持 JSON 对象或 `k=v,k=v` 简写两种写法，空值即不携带：
+  ```bash
+  CROUPIER_INSTANCE_METADATA='serverId=s1,pod=game-7c4d'
+  # 等价：CROUPIER_INSTANCE_METADATA='{"serverId":"s1","pod":"game-7c4d"}'
+  ```
 - wire 语义与存储设计结论见 `docs/architecture/sdk-wire-protocol.md`「实例元数据」。
