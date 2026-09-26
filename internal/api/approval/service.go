@@ -222,6 +222,12 @@ func (s *Service) Approve(ctx context.Context, req *ApprovalApproveRequest) (*Ap
 	if err != nil {
 		return nil, err
 	}
+	// 审批决定即时落审计链（先于续跑：续跑失败也是「已批准」这一事实）。
+	// 此前审批只写扩展事件流与通知，audit_records 里从没有
+	// approval.approved/rejected 行，operation-logs 的 kind=approval_* 过滤
+	// 永远为空——审批详情「查看审计（批准/拒绝）」跳过去必然查无此人
+	// （docs/BUGS.md BUG-024）。
+	s.recordApprovalAudit(ctx, audit.EventApprovalApproved, operator, record)
 	continuation, err := s.continueApprovedFunction(ctx, record)
 	if err != nil {
 		record.Reason = "approved but continuation failed: " + err.Error()
@@ -243,7 +249,7 @@ func (s *Service) Approve(ctx context.Context, req *ApprovalApproveRequest) (*Ap
 	)
 	s.notifyApprovalEvent(ctx, "approval.approved", record,
 		"审批已通过: "+record.FunctionID,
-		"审批 "+record.ID+"（"+record.FunctionID+"）已由 "+record.Actor+" 通过。")
+		"审批 "+record.ID+"（"+record.FunctionID+"）已由 "+record.Approver+" 通过。")
 
 	return &ApprovalApproveResponse{
 		ID:           record.ID,
@@ -286,6 +292,7 @@ func (s *Service) Reject(ctx context.Context, req *ApprovalRejectRequest) (*Appr
 	if err != nil {
 		return nil, err
 	}
+	s.recordApprovalAudit(ctx, audit.EventApprovalRejected, operator, record)
 	_ = s.upsertApprovalToExtension(ctx, buildApprovalDetail(record))
 	_ = s.recordApprovalEvent(ctx, "approvals_reject", "approval rejected",
 		fmt.Sprintf(`{"approvalId":"%s"}`, record.ID),
@@ -299,6 +306,41 @@ func (s *Service) Reject(ctx context.Context, req *ApprovalRejectRequest) (*Appr
 		State:  record.State,
 		Reason: record.Reason,
 	}, nil
+}
+
+// recordApprovalAudit 把审批终态写入哈希链审计（audit_records，actor_id=审批人、
+// game_id/env 随记录落列），使 operation-logs 的 actor+kind=approval_approve/reject
+// 过滤能查到真实审批动作——审批详情页「查看审计（批准/拒绝）」的数据源。
+// 写失败只吞掉：审计是旁路，不得阻塞审批主流程。
+func (s *Service) recordApprovalAudit(ctx context.Context, eventType audit.AuditEventType, operator string, record *approvals.Approval) {
+	if s == nil || s.svcCtx == nil || s.svcCtx.AuditService == nil || record == nil {
+		return
+	}
+	details := map[string]interface{}{
+		"approvalId": record.ID,
+		"functionId": record.FunctionID,
+		"actor":      record.Actor,
+		"operator":   operator,
+		"gameId":     record.GameID,
+		"env":        record.Env,
+	}
+	if record.Reason != "" {
+		details["reason"] = record.Reason
+	}
+	if record.ResultKind != "" {
+		details["resultKind"] = record.ResultKind
+	}
+	if record.TaskID != "" {
+		details["taskId"] = record.TaskID
+	}
+	// WithResourceID 会整体替换 Resource，必须先于 WithGameID 调用，
+	// 否则 game_id/env 列被抹掉（scope 过滤将查不到该行）。
+	_, _ = s.svcCtx.AuditService.Log(ctx, eventType,
+		audit.WithActorID(operator, "admin", operator),
+		audit.WithResourceID("approval", record.ID),
+		audit.WithGameID(record.GameID, record.Env),
+		audit.WithDetails(details),
+	)
 }
 
 func currentApprovalScope(ctx context.Context) (svc.GameScope, error) {

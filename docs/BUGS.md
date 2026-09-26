@@ -1002,6 +1002,145 @@ zh-CN/en-US 都没有 `menu.AccessControl.Announcements` 词条，每渲染一�
 
 ---
 
+## 审核模块假数据验证（BUG-024 / 025 背景）
+
+「跳转到审核人的信息都是错的」此前一直没有系统性假数据来复现。本轮用仓库已有的
+dev 播种惯例（`internal/svc/approval_seed.go`，历史提交 2490e1e 引入）扩出一套
+可重复的审核假数据，并沿「列表页显示的审核人 → 跳转路由/参数 → 目标页查询 →
+后端过滤 → 展示字段」全链路逐层验证。
+
+### 假数据种子（dev 模式自动播种，一条命令重建）
+
+- **位置**：`internal/svc/approval_seed.go`（`seedDemoApprovals`，在
+  `service_context.go` 启动序列中 `seedBootstrapGames` 之后调用）。
+- **重建方式**：重启 dev server 即重建——审批库在 dev 配置下是
+  `approvals.NewMemStore()`（`service_context.go`），内存态、不落盘，每次启动
+  从种子全量重建，天然幂等，无需清理命令。
+- **生产隔离**：`isDevelopmentConfig` 门禁（mode 为 dev/development/debug，或
+  `CROUPIER_ENV=dev`；仅显式 production 才关闭），生产路径不执行任何播种。
+- **覆盖面**（单 scope 8 条：4 approved + 2 rejected + 2 pending）：
+  - 审批人 **3 个不同账号**：admin（3 条）/ reviewer01（2 条）/ reviewer02（1 条）；
+  - 申请人 operator / gm01 与审批人**全部错开**（跨角色组合：运营申请—管理员复核、
+    策划申请—安全复核、运营申请—安全复核）；
+  - 三态齐全，rejected 均带拒绝理由；1 条 approved 带
+    `metadata.delegatedFrom=reviewer02` 表达**转审**场景；
+  - 演示账号：admin / operator / gm01 / reviewer01 / reviewer02
+    （登录口令同 bootstrap，admin/admin123）。
+- **锁种子的测试**：`internal/svc/approval_seed_test.go`
+  `TestSeedDemoApprovalsInto_StatesAndTwoPerson` 断言三态计数、审批人覆盖
+  `{admin, reviewer01, reviewer02}`、审批人≠申请人、恰好 1 条转审记录。
+
+### 复现与判定（本地栈实测）
+
+```bash
+go build -o bin/croupier-server ./cmd/server
+(bin/croupier-server --config configs/server-sqlite.yaml &)
+# 登录后（X-Game-ID: default / X-Env: dev）：
+# GET /api/v1/approvals/                → 8 条种子（三态 × 3 审批人）
+# GET /api/v1/audit?kind=approval_approve&actor=<审批人>   → 跳转目标
+```
+
+- **修复前**：`kind=approval_approve` 任何 actor 都查不到（total=0）——
+  BUG-024 现场；前端遇 approver 缺失还会拿申请人去查（BUG-025）。
+- **修复后**：admin 批准一条 pending 后，`actor=admin&kind=approval_approve`
+  恰 1 行（userId=审批人、gameId/env 落列、metadata 同时可读申请人
+  actor=operator 与 operator=admin）；`actor=<申请人>&kind=approval_approve`
+  恒 0 行。续跑失败（无 live agent）时记录仍 approved、审计仍落链，
+  「审批事实」与「续跑结果」分离可判。
+
+---
+
+## BUG-024 审批动作从不写审计链 + 通知把申请人当审批人
+
+**严重度**：高（用户点名「跳转到审核人的信息都是错的」的后端根因）
+
+**现象**
+
+审批列表/详情里点「查看审计（批准）」跳到
+`/admin/operation-logs?actor=<审批人>&kind=approval_approve`，页面永远
+「暂无数据」；任意 actor、任意时间都一样。审批通知文案写着
+「已由 operator 通过」——operator 是**申请人**，不是审批人。
+
+**根因**
+
+两层叠加：
+
+1. `internal/audit/audit.go` 定义了 `EventApprovalApproved/Rejected`
+   （approval.approved / approval.rejected），但**全仓库没有任何写入点**——
+   审批通过/拒绝只写扩展事件流（`recordApprovalEvent` → approvals 扩展表）和
+   通知，`audit_records` 里从没有对应行。operation-logs 的 kind 过滤
+   （kindAliases: approval_approve → approval.approved）于是永远空集。
+2. 通知文案拼的是 `record.Actor`（申请人）而非 `record.Approver`
+   （审批人），消息中心/站内信里审批归属张冠李戴。
+
+**修复**
+
+- `internal/api/approval/service.go`：`Approve`/`Reject` 在 store 落终态后
+  **先于续跑**调用新增的 `recordApprovalAudit`，把 approval.approved/rejected
+  写入哈希链审计：actor_id=审批人、game_id/env 随记录落列、details 同时带
+  申请人（actor）与审批人（operator）及 functionId/reason。放在续跑之前是
+  刻意的：续跑失败也是「已批准」这一事实，审计必须先落。写失败只吞掉
+  （审计是旁路，不阻塞审批主流程）。注意 `WithResourceID` 会整体替换
+  Resource，必须先于 `WithGameID` 调用，否则 scope 列被抹掉。
+- `internal/api/approval/service.go` + `notify.go`：通知文案改用
+  `record.Approver`，事件 Data 补 `approver` 字段。
+
+**回归测试**
+
+`internal/api/approval/audit_chain_test.go` 3 条：批准/拒绝各断言
+「按审批人 + 事件类型 + scope 过滤恰 1 行、details.actor=申请人、
+details.operator=审批人」，并反向断言**申请人名下不得出现
+approval.approved 行**（正是修复前会产生的错误数据形态）；第三条断言
+AuditService 缺席时审批主流程不受影响。线上栈复证：修复前基线 total=0，
+批准后 `actor=admin&kind=approval_approve` total=1。
+
+**已知边界（未修，属既有行为）**：续跑失败时 Approve 接口对前端返回
+`service_unavailable` 错误，但记录已 approved、审计已落链——审批人会看到
+报错提示，刷新列表才发现状态已通过。记录的 reason 字段保留
+「approved but continuation failed: …」全文。改动该语义需要前端/SDK 同步
+调整提示策略，本轮仅记录不修。
+
+---
+
+## BUG-025 前端审核人跳转回退到申请人（approver 缺失时）
+
+**严重度**：高（用户点名「跳转到审核人的信息都是错的」的前端根因）
+
+**现象**
+
+审批详情里「查看审计（批准）/（拒绝）」按钮的 actor 参数用
+`current.approver || current.actor` 兜底——只要记录缺 approver（历史数据、
+导入数据、异常态），跳转就把**申请人**当成过滤条件，去 operation-logs 查
+申请人名下的 approval_approve。正确情况下申请人名下根本没有这种行（审批是
+别人做的），查出来要么空、要么是此人自己审批**别人**申请的无关记录——
+无论哪种都是「跳过去人不对」。
+
+**根因**
+
+`web/src/pages/Approvals/index.tsx` 两处审计跳转按钮把「字段可能缺失」
+错误地处理成「换个人查」。语义上批准/拒绝动作只有审批人一个主体，
+缺 approver 时正确行为是**空串过滤**（明确查无），绝不能回退到申请人。
+（「查看审计（申请人）」按钮本来就是 actor=current.actor，不受影响。）
+
+**修复**
+
+两处按钮改为 `current.approver || ''`，并注释禁止回退。
+
+**回归测试**
+
+`web/src/pages/Approvals/index.test.tsx` 新增「approver 缺失但 actor 存在」
+用例：断言跳转为 `actor=&kind=approval_approve`，且**不得**出现
+`actor=gm01&kind=approval_approve`（修复前行为即后者）。与既有的
+「approver/actor 均为空按空串跳转」两条互补，覆盖全部分支。
+
+**已知边界（记录不修）**：转审（委托审批）目前只有平台层实现
+（`internal/platform/approvals/delegation.go` 的 DelegationService，
+未接线到任何 API handler），审批 DTO 也不透出 metadata，前端无从展示
+`delegatedFrom`。种子里用 `metadata.delegatedFrom` 表达的转审记录，
+在 API/界面侧暂不可见——待转审 API 落地后再接展示。
+
+---
+
 ## 汇总
 
 | BUG | 位置 | 状态 | 回归测试 |
@@ -1029,6 +1168,8 @@ zh-CN/en-US 都没有 `menu.AccessControl.Announcements` 词条，每渲染一�
 | 021 | 个人中心挂广播入口 + 公告无入口 | 已修 | jest 23 条 |
 | 022 | 登录页无 antd App 上下文，登录提示全部丢失 | 已修 | 布线守卫 4 条 + antdApp 3 条 + Playwright 三路径复证 |
 | 023 | 公告页双语词条缺 14 条 + 菜单键缺失 | 已修 | locale 覆盖守卫 5 条（stash 变异 4/5 转红） |
+| 024 | 审批动作从不写审计链 + 通知把申请人当审批人 | 已修 | Go 3 条（audit_chain_test，含申请人名下恒空反断言）+ 线上栈复证 |
+| 025 | 审核人跳转回退到申请人（approver 缺失时） | 已修 | jest 1 条（修复前 actor=申请人 转红）|
 
 ### 遗留 / 未修
 

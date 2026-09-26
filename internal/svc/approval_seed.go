@@ -33,16 +33,19 @@ type demoApprovalFixture struct {
 	functionID  string
 	state       string // pending|approved|rejected
 	actor       string
-	approver    string // reviewed 记录的复核人
-	reviewAfter time.Duration
-	age         time.Duration // 距 now 的创建时间
-	mode        string
-	reason      string // rejected 记录的拒绝理由
-	payload     string
+	approver    string            // reviewed 记录的复核人
+	reviewAfter time.Duration     // reviewed 记录的审批耗时
+	age         time.Duration     // 距 now 的创建时间
+	mode        string            // sync|async
+	reason      string            // rejected 记录的拒绝理由
+	payload     string            // 调用参数 JSON
+	metadata    map[string]string // 额外元数据（如转审来源 delegatedFrom）
 }
 
 // demoApprovalFixtures 单个 scope 的演示记录。UpdatedAt 排序下 pending 两条
-// 置顶，三种状态在列表首页交织可见。
+// 置顶，三种状态在列表首页交织可见。审批人覆盖 admin / reviewer01 / reviewer02
+// 三个不同账号（对应「运营申请—安全复核」「客服申请—管理员复核」等跨角色
+// 组合），其中一条带 delegatedFrom 元数据演示转审（委托审批）场景。
 var demoApprovalFixtures = []demoApprovalFixture{
 	{
 		functionID: "player.unban",
@@ -91,11 +94,43 @@ var demoApprovalFixtures = []demoApprovalFixture{
 		mode:        "async",
 		payload:     `{"attachments":[],"content":"恭喜完成 S3 赛季，奖励已随信发放。","receiverRange":"all","title":"S3 赛季结算奖励"}`,
 	},
+	{
+		functionID:  "config.update",
+		state:       "approved",
+		actor:       "gm01",
+		approver:    "reviewer01",
+		reviewAfter: 9 * time.Minute,
+		age:         5 * time.Hour,
+		mode:        "sync",
+		payload:     `{"key":"match.mmr.k","newValue":32,"oldValue":40,"scope":"global"}`,
+		metadata:    map[string]string{"delegatedFrom": "reviewer02"},
+	},
+	{
+		functionID:  "player.unban",
+		state:       "rejected",
+		actor:       "gm01",
+		approver:    "reviewer01",
+		reviewAfter: 18 * time.Minute,
+		age:         30 * time.Hour,
+		mode:        "sync",
+		reason:      "封禁依据不足，请补充证据链后再提交",
+		payload:     `{"durationHours":0,"operator":"gm01","playerId":"100511","reason":"误封申诉"}`,
+	},
+	{
+		functionID:  "mail.send",
+		state:       "approved",
+		actor:       "operator",
+		approver:    "reviewer02",
+		reviewAfter: 33 * time.Minute,
+		age:         52 * time.Hour,
+		mode:        "async",
+		payload:     `{"attachments":[],"content":"服务器将于周日 02:00-04:00 停机维护。","receiverRange":"all","title":"停机维护公告"}`,
+	},
 }
 
 // seedDemoApprovals 开发模式下向内存审批库写入演示数据（每个 scope
-// 2 approved + 1 rejected + 2 pending）。放在 seedBootstrapGames 之后调用，
-// 以便从 game_envs 绑定读取真实可用的 scope。
+// 4 approved + 2 rejected + 2 pending，审批人覆盖 admin/reviewer01/reviewer02）。
+// 放在 seedBootstrapGames 之后调用，以便从 game_envs 绑定读取真实可用的 scope。
 func seedDemoApprovals(ctx *ServiceContext) {
 	if ctx == nil || !isDevelopmentConfig(ctx.Config) || ctx.ApprovalsStore == nil || ctx.GameModel == nil {
 		return
@@ -176,6 +211,10 @@ func seedDemoApprovalsInto(store approvals.Store, scopes []GameScope, now time.T
 	for scopeIdx, scope := range scopes {
 		for _, f := range demoApprovalFixtures {
 			createdAt := now.Add(-f.age).Add(time.Duration(scopeIdx) * time.Microsecond)
+			metadata := map[string]string{"source": "console"}
+			for k, v := range f.metadata {
+				metadata[k] = v
+			}
 			record := &approvals.Approval{
 				ID:             fmt.Sprintf("func_%s_%d", f.functionID, createdAt.UnixNano()),
 				State:          f.state,
@@ -185,9 +224,9 @@ func seedDemoApprovalsInto(store approvals.Store, scopes []GameScope, now time.T
 				Actor:          f.actor,
 				Mode:           f.mode,
 				Route:          "lb",
-				IdempotencyKey: fmt.Sprintf("seed-%s-%s-%s", scope.Env, f.functionID, f.state),
+				IdempotencyKey: fmt.Sprintf("seed-%s-%s-%s-%s", scope.Env, f.functionID, f.state, f.approver),
 				Payload:        []byte(f.payload),
-				Metadata:       map[string]string{"source": "console"},
+				Metadata:       metadata,
 				Reason:         f.reason,
 				CreatedAt:      createdAt,
 				UpdatedAt:      createdAt,

@@ -599,6 +599,32 @@ describe('ApprovalsPage 筛选、审批动作与错误路径', () => {
     );
   });
 
+  it('已通过记录 approver 缺失但 actor 存在：批准审计不得回退到申请人（BUG-025）', async () => {
+    // 修复前 `approver || actor` 会拿申请人查 approval_approve——
+    // 用假数据场景锁定：申请人名下绝不产生批准/拒绝审计行。
+    const noApprover = {
+      ...pendingRow,
+      id: 'ap-no-approver',
+      state: 'approved',
+      approver: undefined,
+      actor: 'gm01',
+    };
+    mockedListApprovals.mockResolvedValue({ approvals: [noApprover], total: 1 });
+    mockedGetApproval.mockResolvedValue(noApprover);
+    render(<ApprovalsPage />);
+    await screen.findAllByTestId('approval-row');
+    fireEvent.click(screen.getByRole('button', { name: /查\s*看/ }));
+    const drawer = await openDrawer();
+
+    fireEvent.click(within(drawer).getByRole('button', { name: '查看审计（批准）' }));
+    expect(mockedHistoryPush).toHaveBeenCalledWith(
+      '/admin/operation-logs?actor=&kind=approval_approve',
+    );
+    expect(mockedHistoryPush).not.toHaveBeenCalledWith(
+      '/admin/operation-logs?actor=gm01&kind=approval_approve',
+    );
+  });
+
   it('已拒绝记录且 approver/actor 均为空：拒绝审计按空串跳转', async () => {
     const bare = {
       ...pendingRow,

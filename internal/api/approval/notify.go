@@ -42,6 +42,7 @@ func (s *Service) notifyApprovalEvent(ctx context.Context, event string, record 
 			"env":        record.Env,
 			"state":      string(record.State),
 			"actor":      record.Actor,
+			"approver":   record.Approver,
 		},
 	})
 }

@@ -585,7 +585,9 @@ export default function ApprovalsPage() {
                   size="small"
                   onClick={() =>
                     history.push(
-                      `/admin/operation-logs?actor=${encodeURIComponent(current.approver || current.actor || '')}&kind=approval_approve`,
+                      // 只按审批人过滤，绝不回退到 actor（申请人）：
+                      // 拿申请人查 approval_approve 只会得到错误数据（BUG-025）
+                      `/admin/operation-logs?actor=${encodeURIComponent(current.approver || '')}&kind=approval_approve`,
                     )
                   }
                 >
@@ -600,7 +602,8 @@ export default function ApprovalsPage() {
                   size="small"
                   onClick={() =>
                     history.push(
-                      `/admin/operation-logs?actor=${encodeURIComponent(current.approver || current.actor || '')}&kind=approval_reject`,
+                      // 同上：只按审批人过滤（BUG-025）
+                      `/admin/operation-logs?actor=${encodeURIComponent(current.approver || '')}&kind=approval_reject`,
                     )
                   }
                 >

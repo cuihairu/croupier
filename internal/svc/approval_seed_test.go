@@ -114,8 +114,39 @@ func TestSeedDemoApprovalsInto_StatesAndTwoPerson(t *testing.T) {
 			t.Errorf("record %s missing function payload fields", a.ID)
 		}
 	}
-	if countByState["pending"] != 2 || countByState["approved"] != 2 || countByState["rejected"] != 1 {
-		t.Fatalf("expected 2 pending / 2 approved / 1 rejected, got %+v", countByState)
+	if countByState["pending"] != 2 || countByState["approved"] != 4 || countByState["rejected"] != 2 {
+		t.Fatalf("expected 2 pending / 4 approved / 2 rejected, got %+v", countByState)
+	}
+
+	// 审批人覆盖 ≥3 个账号且全部与申请人错开（跨角色组合：
+	// 运营申请—管理员复核、策划申请—安全复核等），转审（delegatedFrom）
+	// 场景恰好一条且落在 approved 记录上。
+	approvers := map[string]bool{}
+	delegated := 0
+	for _, a := range list {
+		if a.Approver != "" {
+			approvers[a.Approver] = true
+			if a.Approver == a.Actor {
+				t.Errorf("record %s approver %q must differ from actor", a.ID, a.Approver)
+			}
+		}
+		if a.Metadata["delegatedFrom"] != "" {
+			delegated++
+			if a.State != "approved" {
+				t.Errorf("delegated record %s should be approved, got %s", a.ID, a.State)
+			}
+		}
+	}
+	if len(approvers) != 3 {
+		t.Fatalf("expected 3 distinct approvers admin/reviewer01/reviewer02, got %+v", approvers)
+	}
+	for _, want := range []string{"admin", "reviewer01", "reviewer02"} {
+		if !approvers[want] {
+			t.Fatalf("expected approver %q in seed, got %+v", want, approvers)
+		}
+	}
+	if delegated != 1 {
+		t.Fatalf("expected exactly 1 delegated (转审) record, got %d", delegated)
 	}
 
 	// 跨 scope ID 不碰撞：第二个 scope 全量写入成功
