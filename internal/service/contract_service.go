@@ -1704,9 +1704,30 @@ func proposalComparableDigest(proposal *model.PageProposal) string {
 		Title:            proposal.Title,
 		Description:      proposal.Description,
 		CategoryKey:      proposal.CategoryKey,
-		PageSpec:         proposal.PageSpec,
-		Diagnostics:      proposal.Diagnostics,
+		PageSpec:         canonicalJSONBytes(proposal.PageSpec),
+		Diagnostics:      canonicalJSONBytes(proposal.Diagnostics),
 	})
+}
+
+// canonicalJSONBytes 把 JSON 字节归一化为「解析后按键序重排再序列化」的
+// 规范形态（与 model 层 contractSemanticallyEqual 的 canonicalJSON 同思路）。
+// page_proposals.page_spec/diagnostics 是 jsonb：Postgres 回读与 fresh
+// marshal 的字节形态永不一致（键重排/去空白），digest 直接吃原始字节会让
+// generatedProposalChanged 恒判「有变化」——每轮提案重建灌一批版本快照，
+// pages 界面出现成堆需人工处理的假性变更。
+func canonicalJSONBytes(raw model.JSON) model.JSON {
+	if len(raw) == 0 {
+		return nil
+	}
+	var v interface{}
+	if err := json.Unmarshal(raw, &v); err != nil {
+		return raw
+	}
+	out, err := json.Marshal(v)
+	if err != nil {
+		return raw
+	}
+	return model.JSON(out)
 }
 
 func preserveGeneratedProposalStatus(status dbenum.ProposalStatus) dbenum.ProposalStatus {

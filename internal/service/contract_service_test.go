@@ -894,6 +894,26 @@ func TestReportSemanticsByQueryFunction(t *testing.T) {
 }
 
 func TestGeneratedProposalChanged(t *testing.T) {
+	// JSONB 回读归一化回归：page_proposals.page_spec/diagnostics 是 jsonb，
+	// Postgres 会重排键序/去空白——fresh marshal 与 DB 回读的字节永不相等。
+	// digest 必须做 canonical JSON：否则每次重建 guard 恒判「有变化」，
+	// 提案版本快照被灌水（线上实证：单提案累计 261 版、每轮重建 +11 版），
+	// pages 界面出现成堆需人工处理的假性变更。
+	existingJSONB := &model.PageProposal{
+		PageSpec: model.JSON(`{"b":1,"a":{"y":1,"x":[2,3]}}`),
+	}
+	nextJSONB := &model.PageProposal{
+		// 语义相同、键序/空白不同——jsonb 归一化后的等价形态。
+		PageSpec: model.JSON(`{"a": {"x": [2, 3], "y": 1}, "b": 1}`),
+	}
+	assert.False(t, generatedProposalChanged(existingJSONB, nextJSONB),
+		"semantically identical PageSpec with different key order must not be reported as changed")
+
+	// 语义确实不同时仍必须判变化（canonical 化不能把 guard 变瞎）。
+	assert.True(t, generatedProposalChanged(existingJSONB, &model.PageProposal{
+		PageSpec: model.JSON(`{"b":2,"a":{"y":1,"x":[2,3]}}`),
+	}))
+
 	// Test with different digests
 	existing := &model.PageProposal{
 		FunctionDigest: "digest1",
