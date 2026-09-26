@@ -96,3 +96,71 @@ func TestRegisterFrameCarriesInstanceMetadata(t *testing.T) {
 		t.Fatalf("register frame metadata = %v, want serverId/pod", got.GetMetadata())
 	}
 }
+
+// 重连路径回归：断线重连经 reconnectWithBackoff 重建 Manager 时同样必须携带
+// 实例元数据——线上 demo 在 agent 重启后走该路径恢复会话，元数据在此第三次
+// 被吞（Connect 首连正常、重连后实例 meta 变空）。
+func TestReconnectCarriesInstanceMetadata(t *testing.T) {
+	frames := make(chan *sdkv1.ProviderConnectRequest, 4)
+	handler := func(msgID uint32, _ uint32, body []byte) (uint32, []byte, bool) {
+		if msgID == 0x050101 { // protocol.MsgProviderConnectRequest
+			req := &sdkv1.ProviderConnectRequest{}
+			if err := proto.Unmarshal(body, req); err != nil {
+				t.Errorf("unmarshal ProviderConnectRequest: %v", err)
+				return 0, nil, false
+			}
+			frames <- req
+			resp, _ := proto.Marshal(&sdkv1.ProviderConnectResponse{SessionId: "sess-reconnect"})
+			return 0x050102, resp, true
+		}
+		return 0, nil, false
+	}
+	agent := startFakeAgent(t, "127.0.0.1:0", handler)
+
+	client := NewClient(&ClientConfig{
+		AgentAddr:        agent.addr(),
+		Insecure:         true,
+		InstanceMetadata: map[string]string{"serverId": "s1"},
+		Reconnect: &ReconnectConfig{
+			Enabled:           true,
+			InitialDelayMs:    50,
+			MaxDelayMs:        200,
+			BackoffMultiplier: 2,
+			MaxAttempts:       10,
+		},
+	})
+	defer client.Close()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	if err := client.Connect(ctx); err != nil {
+		t.Fatalf("Connect: %v", err)
+	}
+	// Serve 进入断线监听循环，重连由它驱动。
+	go func() { _ = client.Serve(ctx) }()
+
+	select {
+	case req := <-frames:
+		if req.GetMetadata()["serverId"] != "s1" {
+			t.Fatalf("first connect metadata = %v, want serverId=s1", req.GetMetadata())
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("first ProviderConnectRequest never arrived")
+	}
+
+	// 从 fake agent 侧掐断连接，触发 SDK 断线重连。
+	agent.mu.Lock()
+	for conn := range agent.conns {
+		_ = conn.Close()
+	}
+	agent.mu.Unlock()
+
+	select {
+	case req := <-frames:
+		if req.GetMetadata()["serverId"] != "s1" {
+			t.Fatalf("reconnect frame metadata lost: %v", req.GetMetadata())
+		}
+	case <-time.After(10 * time.Second):
+		t.Fatal("reconnect ProviderConnectRequest never arrived")
+	}
+}

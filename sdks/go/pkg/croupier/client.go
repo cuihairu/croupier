@@ -140,19 +140,13 @@ func (c *client) RegisterFunction(desc FunctionDescriptor, handler FunctionHandl
 	return nil
 }
 
-// Connect implements Client.Connect
-func (c *client) Connect(ctx context.Context) error {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
-	if c.connected.Load() {
-		return nil
-	}
-
-	c.logger.Infof("Connecting to Croupier Agent: %s", c.config.AgentAddr)
-
-	// Create TCP manager
-	managerConfig := ManagerConfig{
+// buildManagerConfig snapshots the client config into ManagerConfig. Both the
+// initial Connect and the reconnect path MUST go through here: the reconnect
+// path once hand-rolled its own copy and silently dropped InstanceMetadata
+// (BUG-029 family — instances re-registered after an agent restart carried no
+// metadata while first connects did).
+func (c *client) buildManagerConfig() ManagerConfig {
+	return ManagerConfig{
 		AgentAddr:          c.config.AgentAddr,
 		ControlAddr:        c.config.ControlAddr,
 		TimeoutSeconds:     c.config.TimeoutSeconds,
@@ -166,6 +160,21 @@ func (c *client) Connect(ctx context.Context) error {
 		InsecureSkipVerify: c.config.InsecureSkipVerify,
 		InstanceMetadata:   c.config.InstanceMetadata,
 	}
+}
+
+// Connect implements Client.Connect
+func (c *client) Connect(ctx context.Context) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if c.connected.Load() {
+		return nil
+	}
+
+	c.logger.Infof("Connecting to Croupier Agent: %s", c.config.AgentAddr)
+
+	// Create TCP manager
+	managerConfig := c.buildManagerConfig()
 
 	var err error
 	c.manager, err = NewManager(managerConfig, c.handlers)
@@ -280,19 +289,7 @@ func (c *client) reconnectWithBackoff(ctx context.Context) error {
 		}
 
 		// Create new manager and connect
-		managerConfig := ManagerConfig{
-			AgentAddr:          c.config.AgentAddr,
-			ControlAddr:        c.config.ControlAddr,
-			TimeoutSeconds:     c.config.TimeoutSeconds,
-			Insecure:           c.config.Insecure,
-			CAFile:             c.config.CAFile,
-			CertFile:           c.config.CertFile,
-			KeyFile:            c.config.KeyFile,
-			ServerName:         c.config.ServerName,
-			ProviderLang:       c.config.ProviderLang,
-			ProviderSDK:        c.config.ProviderSDK,
-			InsecureSkipVerify: c.config.InsecureSkipVerify,
-		}
+		managerConfig := c.buildManagerConfig()
 
 		var err error
 		nextManager, err := NewManager(managerConfig, c.handlers)

@@ -1339,6 +1339,14 @@ map，REST Delete/前端都没接这路信息——引导账号与普通账号�
 - 已注册 SDK 的旧版本（< 本次修复）仍不上送元数据，升级 SDK 后重连即恢复；
 - 保留键冲突仅在 agent 侧丢弃并在连接响应 warnings 中告知，SDK 侧不二次校验。
 
+**补充（同日，第三丢失点）**：上线后 demo 容器在 agent 重启后经
+`reconnectWithBackoff` 恢复会话，实例 meta 再次变空——重连路径在 client.go
+里**又**手搓了一份 `ManagerConfig`（`Connect()` 修了、它没修），漏
+`InstanceMetadata`。修复：抽取 `buildManagerConfig()` 供首连/重连共用，
+回归测试 `TestReconnectCarriesInstanceMetadata`（fake agent 真连接→agent 侧
+掐断→重连帧断言 metadata，修复前红/修复后绿）。教训：手工逐字段拷贝的
+配置交接链每多一处就多一个丢失点，必须收敛到单一构造函数。
+
 ---
 
 ## 汇总
