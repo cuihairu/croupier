@@ -1,5 +1,6 @@
 // pages.profileMfa.* — Profile/MfaSettings（两步验证 TOTP 区块）
 export default {
+  'pages.profileMfa.alreadyEnabled': '两步验证已处于开启状态',
   'pages.profileMfa.cancel.button': '取消',
   'pages.profileMfa.code.placeholder': '6 位验证码',
   'pages.profileMfa.confirm.button': '确认开启',
@@ -14,10 +15,23 @@ export default {
   'pages.profileMfa.external.description': '当前账号来自外部身份源，二次验证由身份提供方管理。',
   'pages.profileMfa.external.tag': '由 IdP 管理',
   'pages.profileMfa.password.placeholder': '登录密码',
+  // 备用恢复码：绑定成功时一次性展示，关闭后不可再查看
+  'pages.profileMfa.recovery.download': '下载全部恢复码',
+  'pages.profileMfa.recovery.hint':
+    '每个恢复码只能使用一次。丢失验证器 App 时，可在登录页用恢复码代替动态验证码。关闭本提示后无法再次查看。',
+  'pages.profileMfa.recovery.remaining': '剩余恢复码 {remaining}/{total}',
+  'pages.profileMfa.recovery.saved': '我已保存，关闭',
+  'pages.profileMfa.recovery.title': '请立即保存备用恢复码',
+  'pages.profileMfa.setup.qrIssuer': '签发方：{issuer}',
   'pages.profileMfa.setup.secretWarning': '密钥仅此次展示，请妥善保存；确认后登录必须携带动态码。',
   'pages.profileMfa.setup.step1Bold': '手动录入密钥',
   'pages.profileMfa.setup.step1Prefix': '1. 在验证器 App 中',
-  'pages.profileMfa.setup.step1Suffix': '，或使用',
+  'pages.profileMfa.setup.step1Scan': '扫描二维码',
+  'pages.profileMfa.setup.step1Suffix': '（微软/谷歌 Authenticator、1Password 等均支持），',
+  'pages.profileMfa.setup.step2Prefix': '2. 无法扫码时',
+  'pages.profileMfa.setup.step3Bold': '6 位验证码',
+  'pages.profileMfa.setup.step3Prefix': '3. 输入 App 显示的',
+  'pages.profileMfa.setup.step3Suffix': '完成绑定',
   'pages.profileMfa.status.disabled': '未开启',
   'pages.profileMfa.status.enabled': '已开启',
   'pages.profileMfa.success.disabled': '两步验证已关闭',

@@ -37,13 +37,14 @@ func TestHandler_Login_MFARequiredBranch(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	db := setupTestDB(t)
 	adminModel := model.NewAdminModel(db)
-	svc := NewService(adminModel, permissionservice.NewPermissionService(db), "test-secret")
+	svc := NewService(adminModel, permissionservice.NewPermissionService(db), "test-secret").WithRecoveryDB(db)
 	ctx := context.Background()
 	createTestAdminWithRole(t, db, "mfahttp", "CorrectPass123", "admin")
 
 	setup, err := svc.MFASetup(ctx, "mfahttp")
 	require.NoError(t, err)
-	require.NoError(t, svc.MFAConfirm(ctx, "mfahttp", currentTOTP(t, setup.Secret)))
+	_, err = svc.MFAConfirm(ctx, "mfahttp", currentTOTP(t, setup.Secret))
+	require.NoError(t, err)
 
 	h := NewHandler(svc)
 	c, rec := newAuthTestContext("POST", "/login", `{"username":"mfahttp","password":"CorrectPass123"}`)
@@ -72,7 +73,7 @@ func TestHandler_MFAEndpoints(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	db := setupTestDB(t)
 	adminModel := model.NewAdminModel(db)
-	svc := NewService(adminModel, permissionservice.NewPermissionService(db), "test-secret")
+	svc := NewService(adminModel, permissionservice.NewPermissionService(db), "test-secret").WithRecoveryDB(db)
 	createTestAdminWithRole(t, db, "mfaep", "CorrectPass123", "admin")
 	h := NewHandler(svc)
 
@@ -125,7 +126,7 @@ func TestHandler_MFAEndpoints(t *testing.T) {
 func TestMFAService_ErrorBranches(t *testing.T) {
 	db := setupTestDB(t)
 	adminModel := model.NewAdminModel(db)
-	svc := NewService(adminModel, permissionservice.NewPermissionService(db), "test-secret")
+	svc := NewService(adminModel, permissionservice.NewPermissionService(db), "test-secret").WithRecoveryDB(db)
 	ctx := context.Background()
 	createTestAdminWithRole(t, db, "mfabranch", "CorrectPass123", "admin")
 
@@ -133,7 +134,8 @@ func TestMFAService_ErrorBranches(t *testing.T) {
 	_, err := svc.MFASetup(ctx, "ghost")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "用户不存在")
-	require.Error(t, svc.MFAConfirm(ctx, "ghost", "000000"))
+	_, err = svc.MFAConfirm(ctx, "ghost", "000000")
+	require.Error(t, err)
 	require.Error(t, svc.MFADisable(ctx, "ghost", "000000", "pw"))
 
 	// 影子账号（外部身份源，PasswordHash 为空）。
@@ -144,7 +146,7 @@ func TestMFAService_ErrorBranches(t *testing.T) {
 	assert.Contains(t, err.Error(), "外部身份源账号")
 
 	// confirm 未先 setup：提示先获取密钥。
-	err = svc.MFAConfirm(ctx, "mfabranch", "000000")
+	_, err = svc.MFAConfirm(ctx, "mfabranch", "000000")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "请先获取二次验证密钥")
 
@@ -156,7 +158,8 @@ func TestMFAService_ErrorBranches(t *testing.T) {
 	// 启用后 disable 错误验证码。
 	setup, err := svc.MFASetup(ctx, "mfabranch")
 	require.NoError(t, err)
-	require.NoError(t, svc.MFAConfirm(ctx, "mfabranch", currentTOTP(t, setup.Secret)))
+	_, err = svc.MFAConfirm(ctx, "mfabranch", currentTOTP(t, setup.Secret))
+	require.NoError(t, err)
 	err = svc.MFADisable(ctx, "mfabranch", "000000", "CorrectPass123")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "验证码错误")
@@ -168,7 +171,7 @@ func TestMFAService_StoreWriteFailures(t *testing.T) {
 	t.Run("setup save secret fails", func(t *testing.T) {
 		db := setupTestDB(t)
 		adminModel := model.NewAdminModel(db)
-		svc := NewService(adminModel, permissionservice.NewPermissionService(db), "test-secret")
+		svc := NewService(adminModel, permissionservice.NewPermissionService(db), "test-secret").WithRecoveryDB(db)
 		createTestAdminWithRole(t, db, "saveme", "CorrectPass123", "admin")
 
 		readOnlyDB(t, db)
@@ -180,13 +183,35 @@ func TestMFAService_StoreWriteFailures(t *testing.T) {
 	t.Run("confirm enable fails", func(t *testing.T) {
 		db := setupTestDB(t)
 		adminModel := model.NewAdminModel(db)
-		svc := NewService(adminModel, permissionservice.NewPermissionService(db), "test-secret")
+		svc := NewService(adminModel, permissionservice.NewPermissionService(db), "test-secret").WithRecoveryDB(db)
 		createTestAdminWithRole(t, db, "enableme", "CorrectPass123", "admin")
 
 		setup, err := svc.MFASetup(ctx, "enableme")
 		require.NoError(t, err)
 		readOnlyDB(t, db)
-		err = svc.MFAConfirm(ctx, "enableme", currentTOTP(t, setup.Secret))
+		_, err = svc.MFAConfirm(ctx, "enableme", currentTOTP(t, setup.Secret))
+		require.Error(t, err)
+		// 恢复码先于开关落库（写失败则不得开启 MFA，否则用户永远拿不到恢复码），
+		// 因此只读库上先撞到恢复码写入。
+		assert.Contains(t, err.Error(), "保存备用恢复码失败")
+	})
+
+	// 恢复码已落库、但开启开关失败时，必须报「启用失败」并保持未启用。
+	// 手法：恢复码 store 走 DryRun（构造 SQL 但不执行 → 视为写成功），
+	// admins 表则真的只读，于是只撞 EnableOTP 的失败。
+	// （不能用「两个 *gorm.DB 句柄」来实现：SQLite 的 PRAGMA query_only 是
+	//   按连接的，共享同一个 *sql.DB 时两个句柄会一起变只读。）
+	t.Run("confirm recovery saved but enable fails", func(t *testing.T) {
+		db := setupTestDB(t)
+		writableAdmin := model.NewAdminModel(db)
+		svc := NewService(writableAdmin, permissionservice.NewPermissionService(db), "test-secret").
+			WithRecoveryDB(db.Session(&gorm.Session{DryRun: true}))
+		createTestAdminWithRole(t, db, "enablefail", "CorrectPass123", "admin")
+
+		setup, err := svc.MFASetup(ctx, "enablefail")
+		require.NoError(t, err)
+		readOnlyDB(t, db)
+		_, err = svc.MFAConfirm(ctx, "enablefail", currentTOTP(t, setup.Secret))
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "启用失败")
 	})
@@ -194,12 +219,13 @@ func TestMFAService_StoreWriteFailures(t *testing.T) {
 	t.Run("disable fails", func(t *testing.T) {
 		db := setupTestDB(t)
 		adminModel := model.NewAdminModel(db)
-		svc := NewService(adminModel, permissionservice.NewPermissionService(db), "test-secret")
+		svc := NewService(adminModel, permissionservice.NewPermissionService(db), "test-secret").WithRecoveryDB(db)
 		createTestAdminWithRole(t, db, "disableme", "CorrectPass123", "admin")
 
 		setup, err := svc.MFASetup(ctx, "disableme")
 		require.NoError(t, err)
-		require.NoError(t, svc.MFAConfirm(ctx, "disableme", currentTOTP(t, setup.Secret)))
+		_, err = svc.MFAConfirm(ctx, "disableme", currentTOTP(t, setup.Secret))
+		require.NoError(t, err)
 		readOnlyDB(t, db)
 		err = svc.MFADisable(ctx, "disableme", currentTOTP(t, setup.Secret), "CorrectPass123")
 		require.Error(t, err)
@@ -213,12 +239,13 @@ func TestRecordMfaAudit_Branches(t *testing.T) {
 	t.Run("persists mfa events", func(t *testing.T) {
 		db := setupTestDB(t)
 		db.Exec("DELETE FROM audit_records")
-		svc := withTableAudit(t, db, NewService(model.NewAdminModel(db), permissionservice.NewPermissionService(db), "test-secret"))
+		svc := withTableAudit(t, db, NewService(model.NewAdminModel(db), permissionservice.NewPermissionService(db), "test-secret").WithRecoveryDB(db))
 		createTestAdminWithRole(t, db, "auditmfa", "CorrectPass123", "admin")
 
 		setup, err := svc.MFASetup(ctx, "auditmfa")
 		require.NoError(t, err)
-		require.NoError(t, svc.MFAConfirm(ctx, "auditmfa", currentTOTP(t, setup.Secret)))
+		_, err = svc.MFAConfirm(ctx, "auditmfa", currentTOTP(t, setup.Secret))
+		require.NoError(t, err)
 
 		row := lastAuditRow(t, db)
 		assert.Equal(t, string(audit.EventMFAEnabled), row["event_type"])
@@ -227,7 +254,7 @@ func TestRecordMfaAudit_Branches(t *testing.T) {
 
 	t.Run("audit store failure logs and continues", func(t *testing.T) {
 		db := setupTestDB(t)
-		svc := withTableAudit(t, db, NewService(model.NewAdminModel(db), permissionservice.NewPermissionService(db), "test-secret"))
+		svc := withTableAudit(t, db, NewService(model.NewAdminModel(db), permissionservice.NewPermissionService(db), "test-secret").WithRecoveryDB(db))
 		require.NoError(t, db.Migrator().DropTable("audit_records"))
 
 		// Log 失败：告警分支，不 panic。
@@ -248,7 +275,7 @@ func TestBuildIdentityProviders_LDAPRequiresBindContext(t *testing.T) {
 
 func TestRefreshIdentityProviders_RebuildAndInvalid(t *testing.T) {
 	db := setupTestDB(t)
-	svc := NewService(model.NewAdminModel(db), permissionservice.NewPermissionService(db), "test-secret")
+	svc := NewService(model.NewAdminModel(db), permissionservice.NewPermissionService(db), "test-secret").WithRecoveryDB(db)
 	ctx := context.Background()
 
 	// 无效配置：返回错误且现状不变。
@@ -302,7 +329,7 @@ func TestLogin_LocalWriteFailuresStillSucceedOrFailCleanly(t *testing.T) {
 
 	t.Run("reset failures warn only", func(t *testing.T) {
 		db := setupTestDB(t)
-		svc := NewService(model.NewAdminModel(db), permissionservice.NewPermissionService(db), "test-secret")
+		svc := NewService(model.NewAdminModel(db), permissionservice.NewPermissionService(db), "test-secret").WithRecoveryDB(db)
 		createTestAdminWithRole(t, db, "resetwarn", "pw", "ops")
 		readOnlyDB(t, db)
 
@@ -314,7 +341,7 @@ func TestLogin_LocalWriteFailuresStillSucceedOrFailCleanly(t *testing.T) {
 
 	t.Run("record failure warn only", func(t *testing.T) {
 		db := setupTestDB(t)
-		svc := NewService(model.NewAdminModel(db), permissionservice.NewPermissionService(db), "test-secret")
+		svc := NewService(model.NewAdminModel(db), permissionservice.NewPermissionService(db), "test-secret").WithRecoveryDB(db)
 		createTestAdminWithRole(t, db, "recordwarn", "pw", "ops")
 		readOnlyDB(t, db)
 
@@ -327,7 +354,7 @@ func TestLogin_LocalWriteFailuresStillSucceedOrFailCleanly(t *testing.T) {
 
 func TestLogin_LocalProviderRecordVanished(t *testing.T) {
 	db := setupTestDB(t)
-	svc := NewService(model.NewAdminModel(db), permissionservice.NewPermissionService(db), "test-secret")
+	svc := NewService(model.NewAdminModel(db), permissionservice.NewPermissionService(db), "test-secret").WithRecoveryDB(db)
 
 	// 本地 kind 的替身认证通过，但库里无此记录：视为凭证失效。
 	svc.WithPasswordProvider(stubPasswordProvider{kind: identity.KindLocal, username: "vanish"})
@@ -339,7 +366,7 @@ func TestLogin_LocalProviderRecordVanished(t *testing.T) {
 func TestLogin_BackfillUpdateFailsWarnsOnly(t *testing.T) {
 	db := setupTestDB(t)
 	adminModel := model.NewAdminModel(db)
-	svc := NewService(adminModel, permissionservice.NewPermissionService(db), "test-secret")
+	svc := NewService(adminModel, permissionservice.NewPermissionService(db), "test-secret").WithRecoveryDB(db)
 
 	admin := &model.Admin{Username: "backfill", Status: 1}
 	require.NoError(t, adminModel.Create(context.Background(), admin, "localpw"))
@@ -365,7 +392,7 @@ func TestLogin_AssignDefaultRoles_Branches(t *testing.T) {
 	t.Run("nil role model skips assignment", func(t *testing.T) {
 		db := setupTestDB(t)
 		// 未 WithRoleModel：JIT 建号后直接跳过角色赋权。
-		svc := NewService(model.NewAdminModel(db), permissionservice.NewPermissionService(db), "test-secret")
+		svc := NewService(model.NewAdminModel(db), permissionservice.NewPermissionService(db), "test-secret").WithRecoveryDB(db)
 		svc.WithPasswordProvider(stubPasswordProvider{kind: identity.KindLDAP, username: "norolemodel"})
 		resp, err := svc.Login(ctx, &LoginRequest{Username: "norolemodel", Password: "x"})
 		require.NoError(t, err)
@@ -374,7 +401,7 @@ func TestLogin_AssignDefaultRoles_Branches(t *testing.T) {
 
 	t.Run("role list failure skips missing roles", func(t *testing.T) {
 		db := setupTestDB(t)
-		svc := NewService(model.NewAdminModel(db), permissionservice.NewPermissionService(db), "test-secret").
+		svc := NewService(model.NewAdminModel(db), permissionservice.NewPermissionService(db), "test-secret").WithRecoveryDB(db).WithRecoveryDB(db).
 			WithRoleModel(model.NewRoleModel(db))
 		svc.WithPasswordProvider(stubPasswordProvider{kind: identity.KindLDAP, username: "listfail"})
 		svc.WithProviderDefaultRoles(identity.KindLDAP, []string{"viewer"})
@@ -388,7 +415,7 @@ func TestLogin_AssignDefaultRoles_Branches(t *testing.T) {
 
 	t.Run("assign role failure warns only", func(t *testing.T) {
 		db := setupTestDB(t)
-		svc := NewService(model.NewAdminModel(db), permissionservice.NewPermissionService(db), "test-secret").
+		svc := NewService(model.NewAdminModel(db), permissionservice.NewPermissionService(db), "test-secret").WithRecoveryDB(db).WithRecoveryDB(db).
 			WithRoleModel(model.NewRoleModel(db))
 		svc.WithPasswordProvider(stubPasswordProvider{kind: identity.KindLDAP, username: "assignfail"})
 		svc.WithProviderDefaultRoles(identity.KindLDAP, []string{"viewer"})
@@ -405,7 +432,7 @@ func TestLogin_AssignDefaultRoles_Branches(t *testing.T) {
 
 func TestLogin_EmptySecretTokenGenerationFails(t *testing.T) {
 	db := setupTestDB(t)
-	svc := NewService(model.NewAdminModel(db), permissionservice.NewPermissionService(db), "")
+	svc := NewService(model.NewAdminModel(db), permissionservice.NewPermissionService(db), "").WithRecoveryDB(db)
 	createTestAdminWithRole(t, db, "signfail", "pw", "ops")
 
 	_, err := svc.Login(context.Background(), &LoginRequest{Username: "signfail", Password: "pw"})
@@ -415,7 +442,7 @@ func TestLogin_EmptySecretTokenGenerationFails(t *testing.T) {
 
 func TestOIDCLoginCallback_ProvisionFails(t *testing.T) {
 	db := setupTestDB(t)
-	svc := NewService(model.NewAdminModel(db), permissionservice.NewPermissionService(db), "test-secret")
+	svc := NewService(model.NewAdminModel(db), permissionservice.NewPermissionService(db), "test-secret").WithRecoveryDB(db)
 	fake := &fakeOAuthProvider{
 		authURL: "https://idp/auth",
 		ident:   &identity.Identity{Provider: identity.KindOIDC, Username: "provisionfail"},
@@ -452,7 +479,7 @@ func TestValidLastScope_EnvScopeQueryFails(t *testing.T) {
 	db := setupTestDB(t)
 	adminModel := model.NewAdminModel(db)
 	gameModel := model.NewGameModel(db)
-	svc := NewService(adminModel, permissionservice.NewPermissionService(db), "secret").
+	svc := NewService(adminModel, permissionservice.NewPermissionService(db), "secret").WithRecoveryDB(db).
 		WithGameModel(gameModel)
 
 	game := &model.Game{Name: "scopegame", Status: "running"}
@@ -476,7 +503,7 @@ func TestLogout_BumpsTokenVersion(t *testing.T) {
 	ctx := context.Background()
 	db := setupTestDB(t)
 	adminModel := model.NewAdminModel(db)
-	svc := NewService(adminModel, permissionservice.NewPermissionService(db), "test-secret")
+	svc := NewService(adminModel, permissionservice.NewPermissionService(db), "test-secret").WithRecoveryDB(db)
 	createTestAdminWithRole(t, db, "bumpme", "pw", "ops")
 
 	before, err := adminModel.FindByUsername(ctx, "bumpme")
@@ -500,7 +527,7 @@ func TestLogout_BumpsTokenVersion(t *testing.T) {
 
 func TestCheck_PermissionServiceError(t *testing.T) {
 	db := setupTestDB(t)
-	svc := NewService(model.NewAdminModel(db), permissionservice.NewPermissionService(db), "test-secret")
+	svc := NewService(model.NewAdminModel(db), permissionservice.NewPermissionService(db), "test-secret").WithRecoveryDB(db)
 	createTestAdminWithRole(t, db, "permerr", "pw", "ops")
 
 	// 非法 resource：CheckPermission 返回错误，Check 转 allowed=false + reason。
@@ -516,7 +543,7 @@ func TestCheck_PermissionServiceError(t *testing.T) {
 
 func TestCheck_ValidResourceButDenied(t *testing.T) {
 	db := setupTestDB(t)
-	svc := NewService(model.NewAdminModel(db), permissionservice.NewPermissionService(db), "test-secret")
+	svc := NewService(model.NewAdminModel(db), permissionservice.NewPermissionService(db), "test-secret").WithRecoveryDB(db)
 	createTestAdminWithRole(t, db, "deniedvalid", "pw", "ops")
 
 	// 合法 resource/action 但账号无任何授权：走 permission denied 分支。

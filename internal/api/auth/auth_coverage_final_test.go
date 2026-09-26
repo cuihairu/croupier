@@ -27,7 +27,7 @@ func TestHandler_MFAStatus_Branches(t *testing.T) {
 	// 已登录 + 本地账号 → 200（enabled=false, local=true）
 	db := setupTestDB(t)
 	createTestAdminWithRole(t, db, "statususer", "pw123456", "admin")
-	svcAuth := NewService(model.NewAdminModel(db), permissionservice.NewPermissionService(db), "secret")
+	svcAuth := NewService(model.NewAdminModel(db), permissionservice.NewPermissionService(db), "secret").WithRecoveryDB(db).WithRecoveryDB(db)
 
 	ginCtx2, rec2 := newAuthTestContext(http.MethodGet, "/api/v1/auth/mfa/status", "")
 	ginCtx2.Set("username", "statususer")
@@ -39,7 +39,7 @@ func TestHandler_MFAStatus_Branches(t *testing.T) {
 func TestService_MFAStatus_Branches(t *testing.T) {
 	ctx := context.Background()
 	db := setupTestDB(t)
-	svcAuth := NewService(model.NewAdminModel(db), permissionservice.NewPermissionService(db), "secret")
+	svcAuth := NewService(model.NewAdminModel(db), permissionservice.NewPermissionService(db), "secret").WithRecoveryDB(db).WithRecoveryDB(db)
 
 	// admin 不存在 → 空响应（FindByUsername nil）
 	resp := svcAuth.MFAStatus(ctx, "ghost")
@@ -62,7 +62,7 @@ func TestService_MFAStatus_Branches(t *testing.T) {
 	// 查询错误（连接关闭）→ 空响应兜底
 	db2 := setupTestDB(t)
 	createTestAdminWithRole(t, db2, "closedu", "pw123456", "admin")
-	svcAuth2 := NewService(model.NewAdminModel(db2), permissionservice.NewPermissionService(db2), "secret")
+	svcAuth2 := NewService(model.NewAdminModel(db2), permissionservice.NewPermissionService(db2), "secret").WithRecoveryDB(db2)
 	sqlDB, err := db2.DB()
 	require.NoError(t, err)
 	require.NoError(t, sqlDB.Close())
@@ -78,7 +78,7 @@ func TestService_ProvisionShadowAdmin_FallsBackToExisting(t *testing.T) {
 	existing := &model.Admin{Username: "dup-shadow", Nickname: "dup", Status: 1}
 	require.NoError(t, db.Create(existing).Error)
 
-	svcAuth := NewService(model.NewAdminModel(db), permissionservice.NewPermissionService(db), "secret")
+	svcAuth := NewService(model.NewAdminModel(db), permissionservice.NewPermissionService(db), "secret").WithRecoveryDB(db).WithRecoveryDB(db)
 
 	// Create 注错 → 唯一索引冲突路径：回落到已存在记录。
 	require.NoError(t, db.Callback().Create().Before("gorm:create").

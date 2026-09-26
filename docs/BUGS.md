@@ -489,6 +489,84 @@ items 19 / unique hash 1 / empty hash count 19
 
 ---
 
+## BUG-012 账户中心头像四处独立缺陷（数据互清 / 死链 / 404 / 顶栏恒占位）
+
+**严重度**：高（其一为数据丢失：任何一次资料保存都会清空其它字段）
+
+**现象**：用户实测反馈「账户中心头像错误」。定位为 4 个互相独立的缺陷：
+
+1. **数据互清**：`ProfileUpdateRequest` 四字段裸 string，Go 绑定缺失字段得空串，
+   service 无条件四列齐写——「只改昵称」会清空头像/邮箱/手机。既有测试只断言
+   `resp.Ok`，从不断言字段幸存，长期无人发现。
+2. **死链**：上传接口返回的 `url` 是带签名、带过期时间的地址（S3/OSS/COS 默认
+   15min TTL），原样存库等于存定时失效死链。
+3. **file 驱动 404**：`fileStore.SignedURL` 返回 `/uploads/<key>` 相对路径，但
+   全仓无 handler 提供该路径。
+4. **顶栏恒占位**：`toCurrentUser` 丢掉 profile 的 avatar，`getInitialState`
+   也不回填——顶栏头像从未生效过。
+
+**修复**（提交 `e69db6f`）：
+
+- 四字段改 `*string`：nil=未携带=保留原值，显式空串=清空，两种语义分开；
+  空请求短路不写库。
+- 库里只存**裸对象 key**，读取时现算有效 URL；`objstore.NormalizeAvatarKey`
+  统一归一（裸 key / file 相对路径 / 绝对 URL），拒绝非 `avatars/` 目录与路径
+  穿越；存量绝对 URL 读取时原样返回（拼成 `/uploads/https://…` 会把「可能
+  过期」变成「必然 404」），用户下次保存即自愈。
+- file 驱动挂载静态目录，只暴露 `avatars/` 子树（不泄露缺陷附件等通用上传物），
+  免鉴权（`<img src>` 不带 Authorization），dev proxy 补 `/uploads/` 转发。
+- `CurrentUser` 增加 avatar/nickname 透传回填；新增共享组件 `UserAvatar`，
+  占位统一为姓名首字母（中文首字/英文首字母/username/? 四级回退），src 与
+  占位用同一份归一结果判定，消除「纯空白头像渲染成空圆圈」的分叉。
+
+**回归测试**：`objstore/avatar_test.go`（归一四类输入、拒绝五类非法输入、
+穿越防护、每次读取现签、存量 URL 原样透传、静态目录校验）；
+`api/profile/avatar_test.go`（只改单字段时其余字段幸存、空请求不写库、显式
+空串即清空、头像落裸 key 四种输入、非约定目录拒绝）；`UserAvatar` 组件测试
+11 条（首字母规则/渲染/独立占位）。本机独立实例（28780/29090）实测上传→
+签名→保存→无 Authorization 头取回 200 且字节一致。
+
+## BUG-013 MFA 绑定体验不可用 + 无恢复码兜底
+
+**严重度**：高（丢失验证器 App 即被锁死在账号外）
+
+**现象**：`/admin/account/center?tab=security` 开启两步验证只有「手动抄 base32
+密钥」一条路径——微软/谷歌 Authenticator 并不提供「粘贴 otpauth 链接」的入口，
+绑定流程实际不可用；且开启后**没有任何恢复手段**，丢手机=丢账号。
+
+**根因**：
+
+1. `otpauth://` URI 手写拼接，账号名未 percent-encode（含 `@`/`/`/非 ASCII 的
+   用户名会让验证器解析失败），且缺 `algorithm/digits/period` 参数，部分 App
+   按自己的默认值解析；
+2. 前端无二维码渲染，无恢复码机制；
+3. `VerifyTOTP` 依赖 `time.Now()`，RFC 6238 附录 B 的固定测试向量无法复现，
+   实现正确性无规范级锁定。
+
+**修复**：
+
+- `otp.OtpauthURI`：label 规范 percent-encoding + issuer 参数显式 +
+  algorithm/digits/period 齐全（Google Authenticator 校验 label 前缀与 issuer
+  参数一致，不一致会静默丢弃）。
+- `VerifyTOTPAt`/`CodeAt` 暴露可注入时间点；`DecodeSecret` 归一各 App 导出的
+  密钥形态（大小写/空格/补位）。
+- 备用恢复码：绑定时一次性签发 10 码（30 字符字母表去易混淆字符，约 49.5 bit
+  熵），SHA-256 存储、明文仅 confirm 响应返回一次；逐条单次消费
+  （`UPDATE ... WHERE used_at IS NULL` 天然防并发复用）；登录页动态码输入框
+  兼容恢复码（`verifySecondFactor` 二选一）；关闭 MFA 随即清空恢复码。
+- 前端：二维码扫码即绑（手动录入兜底保留）、恢复码一次性展示+下载、剩余数量
+  提示（≤2 预警）；登录页 totpCode 输入 maxLength 6→12 并提示可用恢复码。
+- 迁移 0032 `admin_otp_recovery_codes` 表（HasTable/CreateTable 幂等），
+  `MinimumRequiredVersion` 31→32，migrate_test probe 同步。
+
+**回归测试**：`security/otp/rfc6238_test.go`（RFC 6238 附录 B 官方向量 +
+skew 行为）；`otpauth_test.go`（URI 归一/转义/参数）；`api/auth/mfa_recovery_test.go`
+14 条（签发/单次消费/空格输入归一/关闭清空/重绑替换/剩余统计/恢复码登录三态）；
+`MfaSettings.test.tsx` 8 条（二维码渲染/恢复码一次性展示/下载/关闭确认/外部
+账号说明）。
+
+---
+
 ## 汇总
 
 | BUG | 位置 | 状态 | 回归测试 |
@@ -504,6 +582,8 @@ items 19 / unique hash 1 / empty hash count 19
 | 009 | `Space.Compact` 迁移拖慢热路径编辑器 | 已修 | 1 条 jest（判别力已验证） |
 | 010 | `app.cancel` 未登记 locale key | 已修 | 随控制台审计守护 |
 | 011 | 审计日志两页 rowKey 全同 | 已修 | 8 条 jest（判别力已验证） |
+| 012 | 头像数据互清/死链/404/顶栏恒占位 | 已修 | Go 2 套 + jest 11 条 + 实测全链路 |
+| 013 | MFA 绑定不可用 + 无恢复码兜底 | 已修 | RFC 向量 + Go 14 条 + jest 8 条 |
 
 ### 遗留 / 未修
 

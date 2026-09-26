@@ -51,7 +51,7 @@ func newOIDCService(t *testing.T, oauth identity.OAuthProvider, successURL strin
 		model.NewAdminModel(db),
 		permissionservice.NewPermissionService(db),
 		"test-secret",
-	).WithRoleModel(model.NewRoleModel(db))
+	).WithRecoveryDB(db).WithRoleModel(model.NewRoleModel(db))
 	if oauth != nil {
 		svc.WithOIDCProvider(oauth, []string{"viewer"}, successURL)
 	}
@@ -248,7 +248,7 @@ func TestLogin_BackfillProfileFromLDAP(t *testing.T) {
 		model.NewAdminModel(db),
 		permissionservice.NewPermissionService(db),
 		"test-secret",
-	).WithRoleModel(model.NewRoleModel(db))
+	).WithRecoveryDB(db).WithRoleModel(model.NewRoleModel(db))
 
 	// 预置一个昵称/邮箱为空的本地账号，密码与 LDAP 不同。
 	admin := &model.Admin{Username: "dave", Status: 1}
@@ -335,7 +335,7 @@ func TestBuildIdentityProviders(t *testing.T) {
 	assert.NotNil(t, ips.ldap)
 
 	db := setupTestDB(t)
-	svc := NewService(model.NewAdminModel(db), permissionservice.NewPermissionService(db), "s")
+	svc := NewService(model.NewAdminModel(db), permissionservice.NewPermissionService(db), "s").WithRecoveryDB(db).WithRecoveryDB(db)
 	assert.False(t, svc.LDAPEnabled())
 	ips.Attach(svc)
 	assert.True(t, svc.LDAPEnabled())
@@ -356,7 +356,7 @@ func TestBuildIdentityProviders(t *testing.T) {
 	assert.NotNil(t, ips.oidc)
 	assert.Equal(t, "http://frontend:8000/login", ips.oidcURL)
 
-	svc2 := NewService(model.NewAdminModel(db), permissionservice.NewPermissionService(db), "s")
+	svc2 := NewService(model.NewAdminModel(db), permissionservice.NewPermissionService(db), "s").WithRecoveryDB(db).WithRecoveryDB(db)
 	ips.Attach(svc2)
 	assert.True(t, svc2.OIDCEnabled())
 
@@ -381,14 +381,14 @@ func TestBuildIdentityProviders(t *testing.T) {
 
 func TestBuildIdentityProviders_NilAttach(t *testing.T) {
 	db := setupTestDB(t)
-	svc := NewService(model.NewAdminModel(db), permissionservice.NewPermissionService(db), "s")
+	svc := NewService(model.NewAdminModel(db), permissionservice.NewPermissionService(db), "s").WithRecoveryDB(db).WithRecoveryDB(db)
 	assert.NotPanics(t, func() { (*IdentityProviders)(nil).Attach(svc) })
 }
 
 func TestLogin_LocalRecordVanished(t *testing.T) {
 	db := setupTestDB(t)
 	adminModel := model.NewAdminModel(db)
-	svc := NewService(adminModel, permissionservice.NewPermissionService(db), "test-secret")
+	svc := NewService(adminModel, permissionservice.NewPermissionService(db), "test-secret").WithRecoveryDB(db)
 
 	// 预置本地账号使 LocalProvider 校验通过，随后从底层清掉，
 	// 模拟"校验通过后记录消失"的极端窗口。

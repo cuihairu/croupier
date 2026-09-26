@@ -247,6 +247,8 @@ func registerAuthRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 		WithGameModel(ctx.GameModel).
 		WithAuditService(ctx.AuditService).
 		WithRoleModel(model.NewRoleModel(ctx.DB)).
+		WithOTPRecoveryModel(ctx.AdminOTPRecoveryModel).
+		WithRecoveryDB(ctx.DB).
 		WithLoginLockout(ctx.Config.Auth.LoginLockout)
 	// 初始装配从分层设置读取（yaml 初始值 + database L3 覆盖）：
 	// 只读 ctx.Config 会导致 UI 保存的登录方式重启后静默失效

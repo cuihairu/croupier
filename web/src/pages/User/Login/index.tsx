@@ -160,7 +160,7 @@ const Login: React.FC = () => {
         getMessage()?.info(
           intl.formatMessage({
             id: 'pages.login.mfa.required.info',
-            defaultMessage: '该账号已启用两步验证，请输入动态验证码',
+            defaultMessage: '该账号已启用两步验证，请输入动态验证码或备用恢复码',
           }),
         );
         return;
@@ -244,7 +244,8 @@ const Login: React.FC = () => {
               type="info"
               content={intl.formatMessage({
                 id: 'pages.login.mfa.hint',
-                defaultMessage: '两步验证已开启，请输入认证器 App 中的 6 位动态验证码',
+                defaultMessage:
+                  '两步验证已开启，请输入认证器 App 中的 6 位动态验证码，或绑定时的备用恢复码',
               })}
             />
           )}
@@ -308,12 +309,14 @@ const Login: React.FC = () => {
                   fieldProps={{
                     size: 'large',
                     prefix: <SafetyCertificateOutlined />,
-                    maxLength: 6,
+                    // 兼容 10 位备用恢复码（后端 verifySecondFactor 二选一），
+                    // 6 位动态码与 10 位恢复码都能通过此输入框提交
+                    maxLength: 12,
                     autoComplete: 'one-time-code',
                   }}
                   placeholder={intl.formatMessage({
                     id: 'pages.login.mfa.placeholder',
-                    defaultMessage: '动态验证码（6 位）',
+                    defaultMessage: '动态验证码或备用恢复码',
                   })}
                   rules={[
                     {
@@ -321,7 +324,7 @@ const Login: React.FC = () => {
                       message: (
                         <FormattedMessage
                           id="pages.login.mfa.required"
-                          defaultMessage="请输入动态验证码！"
+                          defaultMessage="请输入动态验证码或备用恢复码！"
                         />
                       ),
                     },

@@ -125,12 +125,23 @@ export async function fetchCurrentUserGames(): Promise<CurrentUserGamesResponse>
 export interface MfaStatus {
   enabled: boolean;
   local: boolean;
+  /** 剩余未使用的备用恢复码数量（0 表示未启用或已全部用尽） */
+  recoveryCodesRemaining?: number;
+  /** 每次绑定签发的恢复码总数 */
+  recoveryCodeTotal?: number;
 }
 
 export interface MfaSetupResult {
   secret: string;
   otpauthUrl: string;
   alreadyEnabled: boolean;
+  /** 写入 otpauth:// 的签发方，前端用于二维码下方说明 */
+  issuer?: string;
+}
+
+/** 确认启用后的一次性返回：明文恢复码只在此刻出现一次（库里仅存哈希） */
+export interface MfaConfirmResult {
+  recoveryCodes?: string[];
 }
 
 export async function fetchMfaStatus(): Promise<MfaStatus> {
@@ -141,8 +152,8 @@ export async function setupMfa(): Promise<MfaSetupResult> {
   return request<MfaSetupResult>('/api/v1/auth/mfa/setup', { method: 'POST' });
 }
 
-export async function confirmMfa(code: string): Promise<void> {
-  await request('/api/v1/auth/mfa/confirm', {
+export async function confirmMfa(code: string): Promise<MfaConfirmResult> {
+  return request<MfaConfirmResult>('/api/v1/auth/mfa/confirm', {
     method: 'POST',
     data: { code },
   });

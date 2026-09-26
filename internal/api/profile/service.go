@@ -110,13 +110,13 @@ func (s *Service) GetProfile(ctx context.Context, username string) (*ProfileGetR
 
 	return &ProfileGetResponse{
 		ProfileInfo: ProfileInfo{
-			Id:          int64(admin.ID),
-			Username:    admin.Username,
-			Nickname:    admin.Nickname,
-			Email:       admin.Email,
-			Phone:       admin.Phone,
-			Active:      admin.Status == 1,
-			Roles:       roles,
+			Id:       int64(admin.ID),
+			Username: admin.Username,
+			Nickname: admin.Nickname,
+			Email:    admin.Email,
+			Phone:    admin.Phone,
+			Active:   admin.Status == 1,
+			Roles:    roles,
 			// 库里存的是裸对象 key，这里现算一个当前有效的访问地址。
 			Avatar:      s.resolveAvatar(ctx, admin.Avatar),
 			CreatedAt:   admin.CreatedAt.String(),

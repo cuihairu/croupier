@@ -44,7 +44,7 @@ func pad6(v int) string {
 func TestMFA_SetupConfirmDisable_Lifecycle(t *testing.T) {
 	db := setupTestDB(t)
 	adminModel := model.NewAdminModel(db)
-	svc := NewService(adminModel, permissionservice.NewPermissionService(db), "test-secret")
+	svc := NewService(adminModel, permissionservice.NewPermissionService(db), "test-secret").WithRecoveryDB(db)
 	ctx := context.Background()
 	createTestAdminWithRole(t, db, "mfauser", "CorrectPass123", "admin")
 
@@ -56,11 +56,11 @@ func TestMFA_SetupConfirmDisable_Lifecycle(t *testing.T) {
 	assert.Contains(t, setup.OtpauthURL, "otpauth://totp/")
 
 	// 错误 code 不能 confirm
-	err = svc.MFAConfirm(ctx, "mfauser", "000000")
+	_, err = svc.MFAConfirm(ctx, "mfauser", "000000")
 	require.Error(t, err)
 
 	// 正确 code 确认启用
-	err = svc.MFAConfirm(ctx, "mfauser", currentTOTP(t, setup.Secret))
+	_, err = svc.MFAConfirm(ctx, "mfauser", currentTOTP(t, setup.Secret))
 	require.NoError(t, err)
 	admin, err := adminModel.FindByUsername(ctx, "mfauser")
 	require.NoError(t, err)
@@ -86,14 +86,15 @@ func TestMFA_SetupConfirmDisable_Lifecycle(t *testing.T) {
 func TestLogin_MFA_RequiredAndVerified(t *testing.T) {
 	db := setupTestDB(t)
 	adminModel := model.NewAdminModel(db)
-	svc := NewService(adminModel, permissionservice.NewPermissionService(db), "test-secret")
+	svc := NewService(adminModel, permissionservice.NewPermissionService(db), "test-secret").WithRecoveryDB(db)
 	ctx := context.Background()
 	createTestAdminWithRole(t, db, "guard", "CorrectPass123", "admin")
 
 	// 启用 MFA
 	setup, err := svc.MFASetup(ctx, "guard")
 	require.NoError(t, err)
-	require.NoError(t, svc.MFAConfirm(ctx, "guard", currentTOTP(t, setup.Secret)))
+	_, err = svc.MFAConfirm(ctx, "guard", currentTOTP(t, setup.Secret))
+	require.NoError(t, err)
 
 	// 无 totpCode：返回 ErrMFARequired
 	_, err = svc.Login(ctx, &LoginRequest{Username: "guard", Password: "CorrectPass123"})
@@ -113,7 +114,7 @@ func TestLogin_MFA_RequiredAndVerified(t *testing.T) {
 func TestLogin_MFA_SkippedForExternalProvider(t *testing.T) {
 	db := setupTestDB(t)
 	adminModel := model.NewAdminModel(db)
-	svc := NewService(adminModel, permissionservice.NewPermissionService(db), "test-secret")
+	svc := NewService(adminModel, permissionservice.NewPermissionService(db), "test-secret").WithRecoveryDB(db)
 	ctx := context.Background()
 
 	// 影子账号：无 password_hash（外部身份源 JIT 形态），但 OTPEnabled 意外为真

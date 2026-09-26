@@ -179,12 +179,12 @@ func (s *countingStore) SignedURL(_ context.Context, key string, _ string, _ tim
 	}
 	return PublicUploadPrefix + key, nil
 }
-func (s *countingStore) Delete(context.Context, string) error      { return nil }
+func (s *countingStore) Delete(context.Context, string) error { return nil }
 func (s *countingStore) List(context.Context, string, string, string, int) (ListResult, error) {
 	return ListResult{}, nil
 }
-func (s *countingStore) CreatePrefix(context.Context, string) error          { return nil }
-func (s *countingStore) RenamePrefix(context.Context, string, string) error  { return nil }
+func (s *countingStore) CreatePrefix(context.Context, string) error         { return nil }
+func (s *countingStore) RenamePrefix(context.Context, string, string) error { return nil }
 
 // 存量库里存的是绝对 URL（归一化是本次修复之后才引入的）。这类值必须原样返回——
 // 把它拼成 /uploads/https://… 会把「可能过期」变成「必然 404」。

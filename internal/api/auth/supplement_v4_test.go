@@ -213,7 +213,7 @@ func TestService_Login_WithOpsStore_V4(t *testing.T) {
 
 	createTestAdminWithRole(t, db, "audituser", "password123", "admin")
 
-	service := NewService(adminModel, permSvc, "test-secret-key").WithAuditService(audit.NewAuditService(auditStore, nil))
+	service := NewService(adminModel, permSvc, "test-secret-key").WithRecoveryDB(db).WithAuditService(audit.NewAuditService(auditStore, nil))
 
 	resp, err := service.Login(context.Background(), &LoginRequest{
 		Username:  "audituser",
@@ -251,7 +251,7 @@ func TestService_Login_FailedPassword_WithOpsStore_V4(t *testing.T) {
 
 	createTestAdminWithRole(t, db, "auditfail", "password123", "admin")
 
-	service := NewService(adminModel, permSvc, "test-secret-key").WithAuditService(audit.NewAuditService(auditStore, nil))
+	service := NewService(adminModel, permSvc, "test-secret-key").WithRecoveryDB(db).WithAuditService(audit.NewAuditService(auditStore, nil))
 
 	_, err = service.Login(context.Background(), &LoginRequest{
 		Username:  "auditfail",
@@ -402,7 +402,7 @@ func TestRecordLoginAudit_EmptyReason_V4(t *testing.T) {
 	db.Exec("DELETE FROM audit_records")
 	auditStore, err := audit.NewSQLAuditStore(db)
 	require.NoError(t, err)
-	service := NewService(model.NewAdminModel(db), permissionservice.NewPermissionService(db), "secret").WithAuditService(audit.NewAuditService(auditStore, nil))
+	service := NewService(model.NewAdminModel(db), permissionservice.NewPermissionService(db), "secret").WithRecoveryDB(db).WithRecoveryDB(db).WithRecoveryDB(db).WithAuditService(audit.NewAuditService(auditStore, nil))
 
 	service.recordLoginAudit("testuser", "auth.login", "success", &LoginRequest{
 		ClientIP:  "127.0.0.1",
@@ -425,7 +425,7 @@ func TestRecordLoginAudit_EmptyReason_V4(t *testing.T) {
 func TestRecordLoginAudit_NilOpsStore_V4(t *testing.T) {
 	t.Parallel()
 	db := setupTestDB(t)
-	service := NewService(model.NewAdminModel(db), permissionservice.NewPermissionService(db), "secret")
+	service := NewService(model.NewAdminModel(db), permissionservice.NewPermissionService(db), "secret").WithRecoveryDB(db).WithRecoveryDB(db)
 
 	// Should not panic
 	service.recordLoginAudit("testuser", "auth.login", "success", nil, "", "")
@@ -484,7 +484,7 @@ func TestRecordLoginAudit_WhitespaceFields_V4(t *testing.T) {
 	db.Exec("DELETE FROM audit_records")
 	auditStore, err := audit.NewSQLAuditStore(db)
 	require.NoError(t, err)
-	service := NewService(model.NewAdminModel(db), permissionservice.NewPermissionService(db), "secret").WithAuditService(audit.NewAuditService(auditStore, nil))
+	service := NewService(model.NewAdminModel(db), permissionservice.NewPermissionService(db), "secret").WithRecoveryDB(db).WithRecoveryDB(db).WithRecoveryDB(db).WithAuditService(audit.NewAuditService(auditStore, nil))
 
 	req := &LoginRequest{
 		ClientIP:  "   ",
@@ -511,7 +511,7 @@ func TestRecordLoginAudit_AuditTrimming_V4(t *testing.T) {
 	db.Exec("DELETE FROM audit_records")
 	auditStore, err := audit.NewSQLAuditStore(db)
 	require.NoError(t, err)
-	service := NewService(model.NewAdminModel(db), permissionservice.NewPermissionService(db), "secret").WithAuditService(audit.NewAuditService(auditStore, nil))
+	service := NewService(model.NewAdminModel(db), permissionservice.NewPermissionService(db), "secret").WithRecoveryDB(db).WithRecoveryDB(db).WithRecoveryDB(db).WithAuditService(audit.NewAuditService(auditStore, nil))
 
 	service.recordLoginAudit("newuser", "auth.login", "success", nil, "", "")
 	var row struct {

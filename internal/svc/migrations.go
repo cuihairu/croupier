@@ -79,6 +79,8 @@ import (
 //   0029 (Go)   function_contract_versions 表（B2 函数契约变更历史：
 //               per (game_id, env, function_id) 的内容变化快照流；
 //               新建表无存量约束名漂移，0028 同模式）
+//   0032 (Go)   admin_otp_recovery_codes 表（MFA 备用恢复码：TOTP 绑定时
+//               一次性签发、逐条一次性消费；新表无存量数据，0028/0030 同模式）
 
 func init() {
 	registerSvcMigrations()
@@ -120,6 +122,7 @@ func registerSvcMigrations() {
 		contractVersionTableMigration(),
 		functionVersionFloorTableMigration(),
 		contractRemovalPendingColumnMigration(),
+		adminOtpRecoveryCodesMigration(),
 	); err != nil {
 		panic(fmt.Sprintf("svc: register goose go migrations: %v", err))
 	}
@@ -683,6 +686,30 @@ func migrateFunctionVersionFloorTable(ctx context.Context, sqlDB *sql.DB) error 
 		}
 	}
 	return nil
+}
+
+// adminOtpRecoveryCodesMigration 为 0032：建 admin_otp_recovery_codes 表。
+//
+// 新建表，无存量数据约束；幂等（表已存在则跳过）。与 0028/0030 同模式：不整
+// 模型 AutoMigrate——存量库上会与既有约束名漂移 panic（0023 教训）。
+func adminOtpRecoveryCodesMigration() *goose.Migration {
+	return goose.NewGoMigration(32,
+		&goose.GoFunc{RunDB: func(ctx context.Context, sqlDB *sql.DB) error {
+			db, err := wrapGorm(sqlDB)
+			if err != nil {
+				return err
+			}
+			migrator := db.Migrator()
+			if migrator.HasTable(&model.AdminOTPRecoveryCode{}) {
+				return nil
+			}
+			if err := migrator.CreateTable(&model.AdminOTPRecoveryCode{}); err != nil {
+				return fmt.Errorf("migrate: 0032 create admin_otp_recovery_codes: %w", err)
+			}
+			return nil
+		}},
+		nil,
+	)
 }
 
 // contractRemovalPendingColumnMigration 为 0031：function_contracts 加

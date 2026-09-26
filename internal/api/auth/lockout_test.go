@@ -17,7 +17,7 @@ import (
 func newLockoutService(t *testing.T) (*Service, *model.AdminModel, *gorm.DB) {
 	db := setupTestDB(t)
 	adminModel := model.NewAdminModel(db)
-	svc := NewService(adminModel, permissionservice.NewPermissionService(db), "test-secret").
+	svc := NewService(adminModel, permissionservice.NewPermissionService(db), "test-secret").WithRecoveryDB(db).WithRecoveryDB(db).
 		WithLoginLockout(config.LoginLockoutConfig{Threshold: 3, LockMinutes: 1})
 	return svc, adminModel, db
 }

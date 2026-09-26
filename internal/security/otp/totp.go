@@ -25,28 +25,71 @@ func GenerateSecret() (string, error) {
 	return base32.StdEncoding.WithPadding(base32.NoPadding).EncodeToString(buf), nil
 }
 
+// TOTP 参数。RFC 4226 / RFC 6238 规定的默认值，验证器 App（Google/Microsoft
+// Authenticator、1Password 等）默认也是这一组。
+const (
+	// Period 是时间步长（秒）。
+	Period = 30
+	// Digits 是验证码位数。
+	Digits = 6
+)
+
 // VerifyTOTP verifies an RFC 6238 TOTP code with 30s step and given skew steps.
 // secret can be base32 (no padding) as common authenticator apps export.
 func VerifyTOTP(secret string, code string, skew int) bool {
+	return VerifyTOTPAt(secret, code, skew, time.Now())
+}
+
+// VerifyTOTPAt is VerifyTOTP with an injectable instant.
+//
+// 把「当前时间」作为参数暴露出来有两个用途：
+//   - 用 RFC 6238 附录 B 的官方测试向量锁定实现符合规范（那些向量是固定时间点
+//     的，依赖 time.Now() 的实现在测试里根本无法复现）；
+//   - skew 回溯/前推的行为可以确定性断言。
+func VerifyTOTPAt(secret string, code string, skew int, at time.Time) bool {
 	if len(code) < 6 || len(code) > 8 {
 		return false
 	}
-	// decode base32 (ignore padding and case)
-	s := strings.ToUpper(strings.ReplaceAll(secret, " ", ""))
-	s = strings.TrimSpace(s)
-	dec, err := base32.StdEncoding.WithPadding(base32.NoPadding).DecodeString(s)
-	if err != nil || len(dec) == 0 {
+	key, ok := DecodeSecret(secret)
+	if !ok {
 		return false
 	}
-	now := time.Now().Unix()
-	step := now / 30
+	step := at.Unix() / Period
 	// check within [-skew, +skew]
 	for i := -skew; i <= skew; i++ {
-		if hotp(dec, uint64(step+int64(i)), 6) == code {
+		if hotp(key, uint64(step+int64(i)), Digits) == code {
 			return true
 		}
 	}
 	return false
+}
+
+// DecodeSecret normalizes and base32-decodes a TOTP secret.
+//
+// Authenticator apps 导出的密钥形态不一（小写/大写、带不带 '=' 补位、有时用
+// 空格分组），这些都要能接受。
+func DecodeSecret(secret string) ([]byte, bool) {
+	s := strings.ReplaceAll(secret, " ", "")
+	s = strings.ToUpper(strings.TrimSpace(s))
+	s = strings.TrimRight(s, "=")
+	if s == "" {
+		return nil, false
+	}
+	dec, err := base32.StdEncoding.WithPadding(base32.NoPadding).DecodeString(s)
+	if err != nil || len(dec) == 0 {
+		return nil, false
+	}
+	return dec, true
+}
+
+// CodeAt 计算某一时刻的 TOTP 验证码。导出以便用 RFC 测试向量锁定生成侧，
+// 也便于绑定流程回显「你的 App 现在应该显示什么」。
+func CodeAt(secret string, at time.Time) (string, bool) {
+	key, ok := DecodeSecret(secret)
+	if !ok {
+		return "", false
+	}
+	return hotp(key, uint64(at.Unix()/Period), Digits), true
 }
 
 func hotp(key []byte, counter uint64, digits int) string {

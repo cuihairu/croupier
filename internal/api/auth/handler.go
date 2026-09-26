@@ -118,11 +118,13 @@ func (h *Handler) MFAConfirm(c *gin.Context) {
 		response.BadRequest(c, "参数错误: "+err.Error())
 		return
 	}
-	if err := h.service.MFAConfirm(c.Request.Context(), username, req.Code); err != nil {
+	resp, err := h.service.MFAConfirm(c.Request.Context(), username, req.Code)
+	if err != nil {
 		response.BadRequest(c, err.Error())
 		return
 	}
-	response.Success(c, gin.H{"ok": true})
+	// 备用恢复码明文只在此刻返回一次（库里仅存哈希），必须透传给前端展示。
+	response.Success(c, gin.H{"ok": true, "recoveryCodes": resp.RecoveryCodes})
 }
 
 // MFAStatus 查询当前账号两步验证状态（GET /api/v1/auth/mfa/status）。

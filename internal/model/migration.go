@@ -117,6 +117,7 @@ func MigrateFunctionOpenAPIColumns(db *gorm.DB) error { return migrateFunctionOp
 func MetaModels() []interface{} {
 	return []interface{}{
 		&Admin{},
+		&AdminOTPRecoveryCode{},
 		&Role{},
 		&Permission{},
 		&AdminRole{},

@@ -202,7 +202,7 @@ describe('Login Page 覆盖补齐（提交链路/品牌兜底/MFA/登录入口�
     });
     fireEvent.change(screen.getByPlaceholderText('密码: admin'), { target: { value: password } });
     if (totp !== undefined) {
-      fireEvent.change(screen.getByPlaceholderText('动态验证码（6 位）'), {
+      fireEvent.change(screen.getByPlaceholderText('动态验证码或备用恢复码'), {
         target: { value: totp },
       });
     }
@@ -245,8 +245,8 @@ describe('Login Page 覆盖补齐（提交链路/品牌兜底/MFA/登录入口�
     render(<Login />);
     await fillAndSubmit('admin', 'ant.design');
 
-    expect(await screen.findByPlaceholderText('动态验证码（6 位）')).toBeTruthy();
-    expect(screen.getByText('两步验证已开启，请输入认证器 App 中的 6 位动态验证码')).toBeTruthy();
+    expect(await screen.findByPlaceholderText('动态验证码或备用恢复码')).toBeTruthy();
+    expect(screen.getByText('两步验证已开启，请输入认证器 App 中的 6 位动态验证码，或绑定时的备用恢复码')).toBeTruthy();
     await waitFor(() => expect(msg.info).toHaveBeenCalledTimes(1));
     expect(msg.error).not.toHaveBeenCalled();
     expect(history.push).not.toHaveBeenCalled();
@@ -262,6 +262,30 @@ describe('Login Page 覆盖补齐（提交链路/品牌兜底/MFA/登录入口�
     expect(msg.success).toHaveBeenCalledTimes(1);
   });
 
+  it('MFA：备用恢复码可完整输入（10 位）并随重试提交', async () => {
+    const msg = messageApi();
+    mockedGetMessage.mockReturnValue(msg);
+    mockedCreateSession
+      .mockRejectedValueOnce({ data: { error: 'mfa_required' } })
+      .mockImplementation(async () => okSession());
+
+    render(<Login />);
+    await fillAndSubmit('admin', 'ant.design');
+
+    const mfaInput = await screen.findByPlaceholderText('动态验证码或备用恢复码');
+    // maxLength 放宽到 12（BUG-013）：6 位限制曾把 10 位恢复码截断到无法提交
+    expect(mfaInput.getAttribute('maxlength')).toBe('12');
+    await fillAndSubmit('admin', 'ant.design', 'AB2CD3EF4G');
+
+    await waitFor(() => expect(mockedCreateSession).toHaveBeenCalledTimes(2));
+    expect(mockedCreateSession).toHaveBeenLastCalledWith({
+      username: 'admin',
+      password: 'ant.design',
+      totpCode: 'AB2CD3EF4G',
+    });
+    await waitFor(() => expect(history.push).toHaveBeenCalledWith('/'));
+  });
+
   it('非 MFA 登录失败：错误提示且不进入二次验证', async () => {
     const msg = messageApi();
     mockedGetMessage.mockReturnValue(msg);
@@ -273,7 +297,7 @@ describe('Login Page 覆盖补齐（提交链路/品牌兜底/MFA/登录入口�
     await waitFor(() => expect(msg.error).toHaveBeenCalledTimes(1));
     expect(msg.error).toHaveBeenCalledWith('登录失败，请重试！');
     expect(msg.info).not.toHaveBeenCalled();
-    expect(screen.queryByPlaceholderText('动态验证码（6 位）')).toBeNull();
+    expect(screen.queryByPlaceholderText('动态验证码或备用恢复码')).toBeNull();
     expect(history.push).not.toHaveBeenCalled();
   });
 

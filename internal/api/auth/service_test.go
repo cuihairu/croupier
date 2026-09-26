@@ -83,7 +83,7 @@ func TestService_Login_EmptyUsername(t *testing.T) {
 	t.Parallel()
 
 	db := setupTestDB(t)
-	service := NewService(model.NewAdminModel(db), permissionservice.NewPermissionService(db), "test-secret-key")
+	service := NewService(model.NewAdminModel(db), permissionservice.NewPermissionService(db), "test-secret-key").WithRecoveryDB(db).WithRecoveryDB(db)
 
 	resp, err := service.Login(context.Background(), &LoginRequest{
 		Username: "",
@@ -99,7 +99,7 @@ func TestService_Login_EmptyPassword(t *testing.T) {
 	t.Parallel()
 
 	db := setupTestDB(t)
-	service := NewService(model.NewAdminModel(db), permissionservice.NewPermissionService(db), "test-secret-key")
+	service := NewService(model.NewAdminModel(db), permissionservice.NewPermissionService(db), "test-secret-key").WithRecoveryDB(db).WithRecoveryDB(db)
 
 	resp, err := service.Login(context.Background(), &LoginRequest{
 		Username: "admin",
@@ -125,7 +125,7 @@ func TestService_Login_InvalidPassword(t *testing.T) {
 	err := adminModel.Create(context.Background(), admin, "password123")
 	require.NoError(t, err)
 
-	service := NewService(adminModel, permissionservice.NewPermissionService(db), "test-secret-key")
+	service := NewService(adminModel, permissionservice.NewPermissionService(db), "test-secret-key").WithRecoveryDB(db)
 
 	resp, err := service.Login(context.Background(), &LoginRequest{
 		Username: "testadmin",
@@ -141,7 +141,7 @@ func TestService_Login_UserNotFound(t *testing.T) {
 	t.Parallel()
 
 	db := setupTestDB(t)
-	service := NewService(model.NewAdminModel(db), permissionservice.NewPermissionService(db), "test-secret-key")
+	service := NewService(model.NewAdminModel(db), permissionservice.NewPermissionService(db), "test-secret-key").WithRecoveryDB(db).WithRecoveryDB(db)
 
 	resp, err := service.Login(context.Background(), &LoginRequest{
 		Username: "nonexistent",
@@ -185,7 +185,7 @@ func TestService_Login_MultipleRoles(t *testing.T) {
 	err = adminModel.AssignRole(context.Background(), admin.ID, role3.ID)
 	require.NoError(t, err)
 
-	service := NewService(adminModel, permissionservice.NewPermissionService(db), "test-secret-key")
+	service := NewService(adminModel, permissionservice.NewPermissionService(db), "test-secret-key").WithRecoveryDB(db)
 	jwtutil.InitGlobalSecret("test-secret-key")
 
 	resp, err := service.Login(context.Background(), &LoginRequest{
@@ -212,7 +212,7 @@ func TestService_Login_NoRoles(t *testing.T) {
 	err := adminModel.Create(context.Background(), admin, "password123")
 	require.NoError(t, err)
 
-	service := NewService(adminModel, permissionservice.NewPermissionService(db), "test-secret-key")
+	service := NewService(adminModel, permissionservice.NewPermissionService(db), "test-secret-key").WithRecoveryDB(db)
 	jwtutil.InitGlobalSecret("test-secret-key")
 
 	resp, err := service.Login(context.Background(), &LoginRequest{
@@ -230,7 +230,7 @@ func TestService_Logout_Success(t *testing.T) {
 	t.Parallel()
 
 	db := setupTestDB(t)
-	service := NewService(model.NewAdminModel(db), permissionservice.NewPermissionService(db), "test-secret-key")
+	service := NewService(model.NewAdminModel(db), permissionservice.NewPermissionService(db), "test-secret-key").WithRecoveryDB(db).WithRecoveryDB(db)
 
 	// Logout 已收紧签名（实现无出错路径），不再返回 error。
 	resp := service.Logout(context.Background(), &LogoutRequest{})
@@ -264,7 +264,7 @@ func TestService_Check_UserNotFound(t *testing.T) {
 	t.Parallel()
 
 	db := setupTestDB(t)
-	service := NewService(model.NewAdminModel(db), permissionservice.NewPermissionService(db), "test-secret-key")
+	service := NewService(model.NewAdminModel(db), permissionservice.NewPermissionService(db), "test-secret-key").WithRecoveryDB(db).WithRecoveryDB(db)
 
 	resp, err := service.Check(context.Background(), "nonexistent", &CheckRequest{
 		Resource: "game",
@@ -284,7 +284,7 @@ func TestService_BatchCheck_EmptyChecks(t *testing.T) {
 
 	createTestAdminWithRole(t, db, "testadmin", "password123", "admin")
 
-	service := NewService(adminModel, permissionservice.NewPermissionService(db), "test-secret-key")
+	service := NewService(adminModel, permissionservice.NewPermissionService(db), "test-secret-key").WithRecoveryDB(db)
 
 	resp, err := service.BatchCheck(context.Background(), "testadmin", &BatchCheckRequest{
 		Checks: []CheckRequest{},
@@ -299,7 +299,7 @@ func TestService_BatchCheck_UserNotFound(t *testing.T) {
 	t.Parallel()
 
 	db := setupTestDB(t)
-	service := NewService(model.NewAdminModel(db), permissionservice.NewPermissionService(db), "test-secret-key")
+	service := NewService(model.NewAdminModel(db), permissionservice.NewPermissionService(db), "test-secret-key").WithRecoveryDB(db).WithRecoveryDB(db)
 
 	resp, err := service.BatchCheck(context.Background(), "nonexistent", &BatchCheckRequest{
 		Checks: []CheckRequest{
@@ -483,7 +483,7 @@ func TestService_Login_WhitespaceOnlyUsername(t *testing.T) {
 	t.Parallel()
 
 	db := setupTestDB(t)
-	service := NewService(model.NewAdminModel(db), permissionservice.NewPermissionService(db), "test-secret-key")
+	service := NewService(model.NewAdminModel(db), permissionservice.NewPermissionService(db), "test-secret-key").WithRecoveryDB(db).WithRecoveryDB(db)
 
 	resp, err := service.Login(context.Background(), &LoginRequest{
 		Username: "   ",
@@ -499,7 +499,7 @@ func TestService_Login_WhitespaceOnlyPassword(t *testing.T) {
 	t.Parallel()
 
 	db := setupTestDB(t)
-	service := NewService(model.NewAdminModel(db), permissionservice.NewPermissionService(db), "test-secret-key")
+	service := NewService(model.NewAdminModel(db), permissionservice.NewPermissionService(db), "test-secret-key").WithRecoveryDB(db).WithRecoveryDB(db)
 
 	resp, err := service.Login(context.Background(), &LoginRequest{
 		Username: "testuser",
@@ -571,7 +571,7 @@ func TestRecordLoginAudit_NilService(t *testing.T) {
 // TestRecordLoginAudit_NilOpsStore tests recordLoginAudit with nil opsStore
 func TestRecordLoginAudit_NilOpsStore(t *testing.T) {
 	db := setupTestDB(t)
-	service := NewService(model.NewAdminModel(db), permissionservice.NewPermissionService(db), "test-secret-key")
+	service := NewService(model.NewAdminModel(db), permissionservice.NewPermissionService(db), "test-secret-key").WithRecoveryDB(db).WithRecoveryDB(db)
 	// service.opsStore is nil
 	assert.Nil(t, service.opsStore)
 
@@ -616,7 +616,7 @@ func lastAuditRow(t *testing.T, db *gorm.DB) map[string]interface{} {
 func TestRecordLoginAudit_WithAuditTable(t *testing.T) {
 	db := setupTestDB(t)
 	db.Exec("DELETE FROM audit_records")
-	service := withTableAudit(t, db, NewService(model.NewAdminModel(db), permissionservice.NewPermissionService(db), "test-secret"))
+	service := withTableAudit(t, db, NewService(model.NewAdminModel(db), permissionservice.NewPermissionService(db), "test-secret").WithRecoveryDB(db).WithRecoveryDB(db))
 
 	req := &LoginRequest{
 		ClientIP:  "127.0.0.1",
@@ -636,7 +636,7 @@ func TestRecordLoginAudit_WithAuditTable(t *testing.T) {
 func TestRecordLoginAudit_WithReason(t *testing.T) {
 	db := setupTestDB(t)
 	db.Exec("DELETE FROM audit_records")
-	service := withTableAudit(t, db, NewService(model.NewAdminModel(db), permissionservice.NewPermissionService(db), "test-secret"))
+	service := withTableAudit(t, db, NewService(model.NewAdminModel(db), permissionservice.NewPermissionService(db), "test-secret").WithRecoveryDB(db).WithRecoveryDB(db))
 
 	req := &LoginRequest{
 		ClientIP:  "192.168.1.1",
@@ -654,7 +654,7 @@ func TestRecordLoginAudit_WithReason(t *testing.T) {
 func TestRecordLoginAudit_WithNilRequest(t *testing.T) {
 	db := setupTestDB(t)
 	db.Exec("DELETE FROM audit_records")
-	service := withTableAudit(t, db, NewService(model.NewAdminModel(db), permissionservice.NewPermissionService(db), "test-secret"))
+	service := withTableAudit(t, db, NewService(model.NewAdminModel(db), permissionservice.NewPermissionService(db), "test-secret").WithRecoveryDB(db).WithRecoveryDB(db))
 
 	service.recordLoginAudit("user", "auth.login", "success", nil, "", "")
 	row := lastAuditRow(t, db)
@@ -666,7 +666,7 @@ func TestRecordLoginAudit_WithNilRequest(t *testing.T) {
 func TestRecordLoginAudit_WithWhitespaceInRequest(t *testing.T) {
 	db := setupTestDB(t)
 	db.Exec("DELETE FROM audit_records")
-	service := withTableAudit(t, db, NewService(model.NewAdminModel(db), permissionservice.NewPermissionService(db), "test-secret"))
+	service := withTableAudit(t, db, NewService(model.NewAdminModel(db), permissionservice.NewPermissionService(db), "test-secret").WithRecoveryDB(db).WithRecoveryDB(db))
 
 	req := &LoginRequest{
 		ClientIP:  "   ",
@@ -683,7 +683,7 @@ func TestRecordLoginAudit_WithWhitespaceInRequest(t *testing.T) {
 func TestRecordLoginAudit_TrimmedUsername(t *testing.T) {
 	db := setupTestDB(t)
 	db.Exec("DELETE FROM audit_records")
-	service := withTableAudit(t, db, NewService(model.NewAdminModel(db), permissionservice.NewPermissionService(db), "test-secret"))
+	service := withTableAudit(t, db, NewService(model.NewAdminModel(db), permissionservice.NewPermissionService(db), "test-secret").WithRecoveryDB(db).WithRecoveryDB(db))
 
 	service.recordLoginAudit("  admin  ", "auth.login", "success", nil, "", "")
 	row := lastAuditRow(t, db)

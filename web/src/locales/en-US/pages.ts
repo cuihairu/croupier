@@ -5,11 +5,11 @@ export default {
   'pages.login.accountLogin.errorMessage': 'Incorrect username/password(admin/ant.design)',
   'pages.login.failure': 'Login failed, please try again!',
   'pages.login.mfa.hint':
-    'Two-step verification is on. Enter the 6-digit code from your authenticator app',
-  'pages.login.mfa.placeholder': 'Verification code (6 digits)',
-  'pages.login.mfa.required': 'Please enter the verification code!',
+    'Two-step verification is on. Enter the 6-digit code from your authenticator app, or a backup recovery code',
+  'pages.login.mfa.placeholder': 'Verification code or recovery code',
+  'pages.login.mfa.required': 'Please enter the verification code or a recovery code!',
   'pages.login.mfa.required.info':
-    'This account has two-step verification enabled. Enter your verification code',
+    'This account has two-step verification enabled. Enter your verification code or a recovery code',
   'pages.login.success': 'Login successful!',
   'pages.login.username.placeholder': 'Username: admin or user',
   'pages.login.username.required': 'Please input your username!',

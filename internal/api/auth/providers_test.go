@@ -47,7 +47,7 @@ func newCascadeService(t *testing.T, extra ...identity.PasswordProvider) (*Servi
 	db := setupTestDB(t)
 	adminModel := model.NewAdminModel(db)
 	roleModel := model.NewRoleModel(db)
-	svc := NewService(adminModel, permissionservice.NewPermissionService(db), jwtutil.DevSecret()).
+	svc := NewService(adminModel, permissionservice.NewPermissionService(db), jwtutil.DevSecret()).WithRecoveryDB(db).
 		WithRoleModel(roleModel)
 	for _, p := range extra {
 		svc.WithPasswordProvider(p)
@@ -59,7 +59,7 @@ func TestLogin_LocalStillWorks(t *testing.T) {
 	db := setupTestDB(t)
 	adminModel := model.NewAdminModel(db)
 	roleModel := model.NewRoleModel(db)
-	svc := NewService(adminModel, permissionservice.NewPermissionService(db), jwtutil.DevSecret()).
+	svc := NewService(adminModel, permissionservice.NewPermissionService(db), jwtutil.DevSecret()).WithRecoveryDB(db).
 		WithRoleModel(roleModel)
 
 	// 外部源配置为空时，仅本地提供方可用。

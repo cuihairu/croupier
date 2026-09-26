@@ -23,9 +23,9 @@ import (
 	"github.com/cuihairu/croupier/internal/model"
 	"github.com/cuihairu/croupier/internal/security/identity"
 	"github.com/cuihairu/croupier/internal/security/jwtutil"
-	"github.com/cuihairu/croupier/internal/security/otp"
 	permissionservice "github.com/cuihairu/croupier/internal/service/permission"
 	"github.com/cuihairu/croupier/internal/svc"
+	"gorm.io/gorm"
 )
 
 // ErrMFARequired 表示本地账号已启用 TOTP，登录请求缺少二次验证码。
@@ -46,6 +46,11 @@ type Service struct {
 	auditSvc   *audit.AuditService
 	jwtSecret  string
 
+	// otpRecoveryModel 持久化 MFA 备用恢复码（可为 nil，测试构造 Service 时省略）。
+	otpRecoveryModel *model.AdminOTPRecoveryCodeModel
+	// recoveryDB 是 otpRecoveryModel 未注入时兜底建模型用的 DB（可为 nil）。
+	recoveryDB *gorm.DB
+
 	// passwordProviders 是密码型身份提供方级联，按顺序尝试；
 	// 首个元素始终是本地 admins 表。
 	passwordProviders []identity.PasswordProvider
@@ -64,6 +69,29 @@ type Service struct {
 	// 临时锁定策略（仅 local provider 生效；外部身份源失败计数在 IdP 侧）。
 	lockoutThreshold int
 	lockoutDuration  time.Duration
+}
+
+// WithAdminModel swaps the admins model. Exists so tests can drive
+// storage-failure branches per-dependency (e.g. recovery codes persist but
+// enabling the flag fails) without a second full ServiceContext.
+func (s *Service) WithAdminModel(m *model.AdminModel) *Service {
+	s.adminModel = m
+	return s
+}
+
+// WithOTPRecoveryModel wires the store for MFA backup recovery codes.
+// Optional: without it, recovery-code features report zero remaining codes and
+// recovery-code login falls through to the TOTP path.
+func (s *Service) WithOTPRecoveryModel(m *model.AdminOTPRecoveryCodeModel) *Service {
+	s.otpRecoveryModel = m
+	return s
+}
+
+// WithRecoveryDB lets the service build the recovery-code model lazily from a
+// DB handle. Used by tests and by wiring paths that only have *gorm.DB.
+func (s *Service) WithRecoveryDB(db *gorm.DB) *Service {
+	s.recoveryDB = db
+	return s
 }
 
 // WithGameModel enables validation of persisted scope before login returns it
@@ -237,14 +265,16 @@ func (s *Service) Login(ctx context.Context, req *LoginRequest) (*LoginResponse,
 
 	// MFA 仅对 local provider 生效：LDAP/OIDC 的二次验证是 IdP 的职责
 	//（OIDC 流本身发生在 IdP 侧；裸 LDAP 部署若需要 MFA 应使用 local
-	// 账号承载）。已启用 TOTP 的本地账号必须携带有效 totpCode。
+	// 账号承载）。已启用 TOTP 的本地账号必须携带有效 totpCode，
+	// 或一个未使用过的备用恢复码（丢失验证器 App 时的兜底）。
 	if ident.Provider == identity.KindLocal && admin.OTPEnabled {
-		code := strings.TrimSpace(req.TOTPCode)
-		if code == "" {
-			s.recordLoginAudit(username, "auth.mfa_required", "failed", req, "totp_required", ident.Provider)
-			return nil, ErrMFARequired
-		}
-		if !otp.VerifyTOTP(admin.OTPSecret, code, 1) {
+		if s.verifySecondFactor(ctx, admin, req) {
+			// 通过：TOTP 码或恢复码任一有效即可
+		} else {
+			if strings.TrimSpace(req.TOTPCode) == "" {
+				s.recordLoginAudit(username, "auth.mfa_required", "failed", req, "totp_required", ident.Provider)
+				return nil, ErrMFARequired
+			}
 			s.recordLoginAudit(username, "auth.mfa_failed", "failed", req, "invalid_totp", ident.Provider)
 			return nil, errors.New("二次验证码错误")
 		}
