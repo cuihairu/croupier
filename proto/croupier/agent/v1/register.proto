@@ -47,6 +47,10 @@ message AgentProcess {
   string sdk_name = 8;            // SDK display name, e.g. "croupier-js-sdk"; user-overridable
   string game_id = 9;             // game scope the provider belongs to
   string env = 10;                // logical environment (prod/stage/dev)
+
+  // Provider-declared user metadata (verbatim forward of ProviderConnectRequest
+  // metadata minus reserved built-ins). Observability only — never routing.
+  map<string, string> metadata = 11;
 }
 
 // Agent Registration Request

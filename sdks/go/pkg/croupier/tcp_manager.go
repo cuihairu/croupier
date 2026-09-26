@@ -266,6 +266,7 @@ func (m *TCPManager) RegisterWithAgent(ctx context.Context, serviceID, serviceVe
 		SdkName:     "croupier-go-sdk",
 		GameId:      m.config.GameID,
 		Env:         m.config.Env,
+		Metadata:    m.config.InstanceMetadata,
 	}
 
 	reqBody, err := proto.Marshal(req)
@@ -556,6 +557,7 @@ func (m *TCPManager) Reconnect(ctx context.Context) error {
 		SdkName:     "croupier-go-sdk",
 		GameId:      m.config.GameID,
 		Env:         m.config.Env,
+		Metadata:    m.config.InstanceMetadata,
 	}
 	reqBody, err := proto.Marshal(req)
 	if err != nil {

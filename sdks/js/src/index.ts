@@ -75,6 +75,7 @@ message ProviderConnectRequest {
   repeated string supported_transports = 10;
   string game_id = 11;
   string env = 12;
+  map<string, string> metadata = 13;
 }
 
 message ProviderConnectResponse {
@@ -387,6 +388,13 @@ export interface ClientConfig {
   // === Provider Info ===
   providerLang?: string;
   providerSdk?: string;
+  /**
+   * User-defined provider metadata (multiple key-value pairs), e.g.
+   * `{ serverId: "s1" }`. Sent with ProviderConnectRequest and shown on the
+   * dashboard SDK distribution page. Reserved keys (sdkLanguage/sdkVersion/
+   * sdkName/gameId/env/protocol_version) are dropped by the agent.
+   */
+  instanceMetadata?: Record<string, string>;
 
   // === TLS Configuration ===
   insecure?: boolean;
@@ -623,6 +631,7 @@ export class BasicClient implements CroupierClient {
       // Provider Info
       providerLang: "node",
       providerSdk: "croupier-js-sdk",
+      instanceMetadata: {},
 
       // Inbound payload validation (opt-in)
       validateInputPayloads: false,
@@ -1826,6 +1835,7 @@ export class BasicClient implements CroupierClient {
       sdkName: "croupier-js-sdk",
       protocolVersion: "1.0.0",
       transportSecurityMode: this.config.insecure ? "plaintext" : "tls",
+      metadata: this.config.instanceMetadata,
     });
 
     return Buffer.from(ProviderConnectRequestMessage.encode(payload).finish());

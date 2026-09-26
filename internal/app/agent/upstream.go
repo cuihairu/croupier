@@ -611,6 +611,9 @@ func buildProviders(localData map[string][]agentlocal.Instance, versionSnapshot 
 					p.SdkName = strings.TrimSpace(inst.Metadata["sdkName"])
 					p.GameId = strings.TrimSpace(inst.Metadata["gameId"])
 					p.Env = strings.TrimSpace(inst.Metadata["env"])
+					// 用户自定义实例元数据（serverId 等多 KV）原样上报（保留键
+					// 已在合并时剥离），供服务端 SDK 分布页展示/搜索。
+					p.Metadata = agentlocal.UserMetadata(inst.Metadata)
 				}
 				byServiceID[sid] = p
 				fnSeen[sid] = map[string]struct{}{}

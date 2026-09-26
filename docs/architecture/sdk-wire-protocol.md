@@ -261,7 +261,35 @@ Config `DispatchWorkers`/`BusinessQLen`/`ControlQLen`，默认 NumCPU / workers�
 
 - `session_id`：provider session 标识，后续心跳与 invoke 复用
 - `accepted_capabilities`：Agent 接受的能力列表
-- `warnings`：非阻断告警字符串列表。当前用于作用域漂移检测——provider 上报的 `game_id` / `env` 与 Agent 配置不一致时（仅双方都非空才校验），写入 `game_id mismatch` / `env mismatch`，便于控制台定位多服务共享 Agent 时的作用域错配。空值兼容：任一侧为空则跳过该项校验
+- `warnings`：非阻断告警字符串列表。当前两类来源——作用域漂移检测（provider 上报的 `game_id` / `env` 与 Agent 配置不一致时写入 `game_id mismatch` / `env mismatch`，便于控制台定位多服务共享 Agent 时的作用域错配），以及实例元数据保留键冲突（见下节，写入 `metadata key %q is reserved and dropped`）
+
+### 实例元数据：`ProviderConnectRequest.metadata`
+
+provider 注册时可随首帧携带**用户自定义多 KV 实例元数据**（如 `serverId`、`pod`），用于 SDK 版本分布页展示与按元数据搜索实例（对应 REST `GET /api/v1/providers/sdk-stats?metaKey=&metaValue=`）。
+
+数据链路：
+
+```
+SDK 配置（Go InstanceMetadata / JS providerMetadata）
+  → ProviderConnectRequest.metadata（map<string,string>, field 13）
+  → Agent 合并：保留键冲突丢弃 + warnings 告警；空键跳过
+  → agentlocal.Instance.Metadata
+  → AgentProcess.metadata（field 11）随 RegisterRequest 上报 server
+  → registry ProviderSession / ProviderSessionSnapshot
+  → sdk-stats REST API（服务端子串过滤）→ web SDK 版本分布页
+```
+
+规则：
+
+- **保留键**：`sdkLanguage` / `sdkVersion` / `sdkName` / `protocol_version` / `gameId` / `env` 是平台固定字段（Agent 从请求固定字段生成）。用户元数据撞键时 Agent **丢弃该键并写入 warnings**，不得覆盖平台语义；空键跳过
+- **只做观测，不做路由**：metadata 仅用于展示/搜索/诊断，负载均衡与函数路由不得读它（对应 proto 注释 "observability only, never routing"）
+- 旧版 SDK 不发该字段完全兼容；未配置时 wire 上不发空 map（Go/JS 侧均为 nil/缺省）
+
+存储与查询设计结论（在线态）：
+
+- 在线 provider 会话是**易逝内存数据**（TTL 心跳维持），实例元数据随会话生灭——**不建表、不持久化、无需数据库索引**
+- 搜索实现 = 服务端对快照做内存线性过滤（`metaKey`/`metaValue` 子串、大小写不敏感，value 条件同时匹配键名与 `k=v` 整对）+ 前端实例关键字匹配，量级（单 agent 会话数）远不需要索引
+- 未来若出现持久化需求（历史实例轨迹、离线检索），用 **EAV 表**而非 JSON 列：`(game_id, env, service_id, meta_key, meta_value)` + `UNIQUE(game_id, env, service_id, meta_key)` + `INDEX(meta_key, meta_value)`——sqlite/mysql/postgres 三方言通用，不依赖任何 JSON 查询扩展
 
 历史别名如 `RegisterLocalRequest`、`RegisterLocalResponse`、`HeartbeatLocalRequest` 只属于兼容语义，不应再出现在新设计文档里。
 

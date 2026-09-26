@@ -3,12 +3,48 @@ package agentlocal
 import (
 	"encoding/json"
 	"log/slog"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/cuihairu/croupier/internal/function/converter"
 	sdkv1 "github.com/cuihairu/croupier/pkg/pb/croupier/sdk/v1"
 )
+
+// ReservedMetadataKeys 是平台自用元数据键——由 agent 从 ProviderConnectRequest
+// 固定字段合成（参考 Nacos 内置 metadata）。用户自定义元数据（ProviderConnectRequest
+// metadata 字段，serverId 等多 KV）不允许占用这些键：合并时丢弃并告警，
+// 防止覆盖平台语义。
+var ReservedMetadataKeys = map[string]struct{}{
+	"sdkLanguage":      {},
+	"sdkVersion":       {},
+	"sdkName":          {},
+	"protocol_version": {},
+	"gameId":           {},
+	"env":              {},
+}
+
+// UserMetadata 返回 metadata 中非平台保留键的子集（即用户自定义实例元数据）。
+// 空键忽略；结果为空时返回 nil，避免向上游上报空 map。
+func UserMetadata(metadata map[string]string) map[string]string {
+	if len(metadata) == 0 {
+		return nil
+	}
+	out := make(map[string]string)
+	for k, v := range metadata {
+		if _, reserved := ReservedMetadataKeys[k]; reserved {
+			continue
+		}
+		if strings.TrimSpace(k) == "" {
+			continue
+		}
+		out[k] = v
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
 
 type Instance struct {
 	ProviderID string

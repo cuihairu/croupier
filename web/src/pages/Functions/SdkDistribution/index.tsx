@@ -133,6 +133,12 @@ export default function SdkDistributionPage() {
         item.sdkLanguage,
         item.sdkVersion,
         item.sdkName,
+        // 实例元数据参与搜索：k=v 整对 + 单独的键/值（如直接粘 serverId 值）
+        ...Object.entries(item.metadata ?? {}).flatMap(([key, value]) => [
+          `${key}=${value}`,
+          key,
+          value,
+        ]),
       ]
         .filter(Boolean)
         .some((field) => String(field).toLowerCase().includes(keywordTrimmed)),
@@ -175,6 +181,34 @@ export default function SdkDistributionPage() {
     },
     { title: 'Game', dataIndex: 'gameId', key: 'gameId' },
     { title: 'Env', dataIndex: 'env', key: 'env' },
+    {
+      title: intl.formatMessage({
+        id: 'pages.functionsSdk.column.metadata',
+        defaultMessage: '元数据',
+      }),
+      dataIndex: 'metadata',
+      key: 'metadata',
+      render: (value?: Record<string, string>) => {
+        const entries = Object.entries(value ?? {});
+        if (!entries.length) return '-';
+        return (
+          <Space size={4} wrap>
+            {entries.slice(0, 3).map(([key, val]) => (
+              <Tag key={key} style={{ marginInlineEnd: 0 }}>
+                {key}={val}
+              </Tag>
+            ))}
+            {entries.length > 3 && (
+              <Tooltip
+                title={entries.map(([key, val]) => `${key}=${val}`).join('\n')}
+              >
+                <Tag style={{ marginInlineEnd: 0 }}>+{entries.length - 3}</Tag>
+              </Tooltip>
+            )}
+          </Space>
+        );
+      },
+    },
     {
       title: intl.formatMessage({
         id: 'pages.functionsSdk.column.lastSeen',
@@ -273,7 +307,7 @@ export default function SdkDistributionPage() {
               allowClear
               placeholder={intl.formatMessage({
                 id: 'pages.functionsSdk.instances.searchPlaceholder',
-                defaultMessage: '搜索 provider / agent / 版本…',
+                defaultMessage: '搜索 provider / agent / 版本 / 元数据…',
               })}
               style={{ width: 260 }}
               onSearch={setKeyword}

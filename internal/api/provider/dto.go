@@ -79,15 +79,16 @@ type SdkLanguageStats struct {
 
 // SdkInstanceItem 在线 SDK 实例明细。
 type SdkInstanceItem struct {
-	ProviderID   string `json:"providerId"`
-	AgentID      string `json:"agentId"`
-	GameID       string `json:"gameId"`
-	Env          string `json:"env"`
-	ServiceAddr  string `json:"serviceAddr,omitempty"`
-	SdkName      string `json:"sdkName,omitempty"`
-	SdkLanguage  string `json:"sdkLanguage"`
-	SdkVersion   string `json:"sdkVersion"`
-	LastSeenUnix int64  `json:"lastSeenUnix"`
+	ProviderID   string            `json:"providerId"`
+	AgentID      string            `json:"agentId"`
+	GameID       string            `json:"gameId"`
+	Env          string            `json:"env"`
+	ServiceAddr  string            `json:"serviceAddr,omitempty"`
+	SdkName      string            `json:"sdkName,omitempty"`
+	SdkLanguage  string            `json:"sdkLanguage"`
+	SdkVersion   string            `json:"sdkVersion"`
+	Metadata     map[string]string `json:"metadata,omitempty"`
+	LastSeenUnix int64             `json:"lastSeenUnix"`
 }
 
 // SdkStatsResponse GET /api/v1/providers/sdk-stats 的响应：
@@ -98,5 +99,10 @@ type SdkStatsResponse struct {
 	Instances      []SdkInstanceItem  `json:"instances"`
 }
 
-// SdkStatsRequest 预留查询参数（当前无过滤维度）。
-type SdkStatsRequest struct{}
+// SdkStatsRequest 查询参数：metaKey/metaValue 对用户实例元数据做子串过滤
+// （大小写不敏感；value 条件同时匹配键名与 k=v 整对，详见 matchMetadata；
+// 在线会话是内存态，线性过滤即可，无需数据库索引）。
+type SdkStatsRequest struct {
+	MetaKey   string `form:"metaKey,optional"`
+	MetaValue string `form:"metaValue,optional"`
+}

@@ -677,6 +677,7 @@ func (s *ControlService) handleRegisterRequest(ctx context.Context, req *agentv1
 				SDKLanguage:  p.SdkLanguage,
 				SDKVersion:   p.SdkVersion,
 				SDKName:      p.SdkName,
+				Metadata:     p.GetMetadata(),
 				LastSeenUnix: p.LastSeenUnix,
 				FunctionIDs:  p.FunctionIds,
 			})

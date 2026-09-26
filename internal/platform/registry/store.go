@@ -49,14 +49,17 @@ type FunctionMeta struct {
 
 // ProviderSession represents a single provider registered to an agent (via SDK->Agent local registry).
 type ProviderSession struct {
-	ProviderID   string
-	GameID       string
-	Env          string
-	Addr         string
-	Version      string
-	SDKLanguage  string // SDK 语言（go, java, python, cpp, csharp, custom）
-	SDKVersion   string // SDK 版本
-	SDKName      string // SDK 显示名（如 croupier-js-sdk），用户可自定义
+	ProviderID  string
+	GameID      string
+	Env         string
+	Addr        string
+	Version     string
+	SDKLanguage string // SDK 语言（go, java, python, cpp, csharp, custom）
+	SDKVersion  string // SDK 版本
+	SDKName     string // SDK 显示名（如 croupier-js-sdk），用户可自定义
+	// Metadata 是 provider 自报的用户实例元数据（serverId 等多 KV，保留键已
+	// 在 agent 侧剥离）。仅观测展示/搜索用，永不参与路由。
+	Metadata     map[string]string
 	LastSeenUnix int64
 	FunctionIDs  []string
 	OpenAPIDoc   json.RawMessage
@@ -65,17 +68,18 @@ type ProviderSession struct {
 // ProviderSessionSnapshot 是在线 Provider 的只读快照（含所属 agent/scope），
 // 供 SDK 版本分布等观测 API 消费（F：sdk-stats）。
 type ProviderSessionSnapshot struct {
-	ProviderID   string   `json:"providerId"`
-	AgentID      string   `json:"agentId"`
-	GameID       string   `json:"gameId"`
-	Env          string   `json:"env"`
-	Addr         string   `json:"addr"`
-	Version      string   `json:"version"`
-	SDKLanguage  string   `json:"sdkLanguage"`
-	SDKVersion   string   `json:"sdkVersion"`
-	SDKName      string   `json:"sdkName"`
-	LastSeenUnix int64    `json:"lastSeenUnix"`
-	FunctionIDs  []string `json:"functionIds"`
+	ProviderID   string            `json:"providerId"`
+	AgentID      string            `json:"agentId"`
+	GameID       string            `json:"gameId"`
+	Env          string            `json:"env"`
+	Addr         string            `json:"addr"`
+	Version      string            `json:"version"`
+	SDKLanguage  string            `json:"sdkLanguage"`
+	SDKVersion   string            `json:"sdkVersion"`
+	SDKName      string            `json:"sdkName"`
+	Metadata     map[string]string `json:"metadata,omitempty"`
+	LastSeenUnix int64             `json:"lastSeenUnix"`
+	FunctionIDs  []string          `json:"functionIds"`
 }
 
 // ProviderSessionSnapshots 返回全部在线 Provider 会话的快照（深拷贝）。
@@ -99,6 +103,12 @@ func (s *Store) ProviderSessionSnapshots() []ProviderSessionSnapshot {
 				SDKVersion:   p.SDKVersion,
 				SDKName:      p.SDKName,
 				LastSeenUnix: p.LastSeenUnix,
+			}
+			if len(p.Metadata) > 0 {
+				snapshot.Metadata = make(map[string]string, len(p.Metadata))
+				for key, value := range p.Metadata {
+					snapshot.Metadata[key] = value
+				}
 			}
 			if len(p.FunctionIDs) > 0 {
 				snapshot.FunctionIDs = append([]string(nil), p.FunctionIDs...)

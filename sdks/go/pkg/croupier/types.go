@@ -104,6 +104,13 @@ type ClientConfig struct {
 	ProviderLang   string `json:"providerLang"`   // language reported via ProviderMeta
 	ProviderSDK    string `json:"providerSdk"`    // sdk identifier reported via ProviderMeta
 
+	// InstanceMetadata is user-defined provider metadata (multiple key-value
+	// pairs, e.g. {"serverId": "s1"}). Sent with ProviderConnectRequest and
+	// surfaced on the dashboard SDK distribution page. Reserved keys
+	// (sdkLanguage/sdkVersion/sdkName/gameId/env/protocol_version) are
+	// dropped by the agent.
+	InstanceMetadata map[string]string `json:"instanceMetadata,omitempty"`
+
 	// Control plane settings
 	ControlAddr string `json:"controlAddr"` // optional control-plane address for manifest upload
 

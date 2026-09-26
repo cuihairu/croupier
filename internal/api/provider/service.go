@@ -162,15 +162,36 @@ func (s *Service) Reload(ctx context.Context, req *ProviderActionRequest) (*Prov
 
 // SdkStats 聚合在线 provider 会话的 SDK 语言/版本分布（F：sdk-stats 页面）。
 // 语言/版本缺失归入 "unknown"；语言按实例数降序、版本按实例数降序排列。
-func (s *Service) SdkStats(ctx context.Context, _ *SdkStatsRequest) (*SdkStatsResponse, error) {
+// metaKey/metaValue 对用户实例元数据做子串过滤（大小写不敏感；在线会话
+// 为内存态，线性过滤即可）。
+func (s *Service) SdkStats(ctx context.Context, req *SdkStatsRequest) (*SdkStatsResponse, error) {
 	store, err := ensureRegistryStore(s.svcCtx.RegistryStore)
 	if err != nil {
 		return nil, err
 	}
 
+	if req == nil {
+		req = &SdkStatsRequest{}
+	}
+	// 大小写归一由 matchMetadata 内部处理，这里只去首尾空白
+	metaKey := strings.TrimSpace(req.MetaKey)
+	metaValue := strings.TrimSpace(req.MetaValue)
+
 	snapshots := store.ProviderSessionSnapshots()
 	instances := make([]SdkInstanceItem, 0, len(snapshots))
 	for _, snapshot := range snapshots {
+		metadata := snapshot.Metadata
+		if metadata != nil {
+			metadata = make(map[string]string, len(snapshot.Metadata))
+			for key, value := range snapshot.Metadata {
+				metadata[key] = value
+			}
+		}
+		if metaKey != "" || metaValue != "" {
+			if !matchMetadata(metadata, metaKey, metaValue) {
+				continue
+			}
+		}
 		language := strings.TrimSpace(snapshot.SDKLanguage)
 		if language == "" {
 			language = "unknown"
@@ -188,6 +209,7 @@ func (s *Service) SdkStats(ctx context.Context, _ *SdkStatsRequest) (*SdkStatsRe
 			SdkName:      snapshot.SDKName,
 			SdkLanguage:  language,
 			SdkVersion:   version,
+			Metadata:     metadata,
 			LastSeenUnix: snapshot.LastSeenUnix,
 		})
 	}
@@ -198,6 +220,34 @@ func (s *Service) SdkStats(ctx context.Context, _ *SdkStatsRequest) (*SdkStatsRe
 		Instances:      instances,
 	}
 	return response, nil
+}
+
+// matchMetadata 判断实例元数据是否同时满足 key/value 子串条件（大小写
+// 不敏感、自行归一化入参；空条件恒过）。value 条件同时匹配键名与 k=v
+// 整对——「按 serverId 搜」时用户往往直接粘值或整对，无需指定是哪个键；
+// 与前端实例搜索 haystack（k=v + 键 + 值）保持同构。
+func matchMetadata(metadata map[string]string, key, value string) bool {
+	key = strings.ToLower(strings.TrimSpace(key))
+	value = strings.ToLower(strings.TrimSpace(value))
+	if key == "" && value == "" {
+		return true
+	}
+	if len(metadata) == 0 {
+		return false
+	}
+	for k, v := range metadata {
+		lk := strings.ToLower(k)
+		lv := strings.ToLower(v)
+		keyHit := key == "" || strings.Contains(lk, key)
+		valueHit := value == "" ||
+			strings.Contains(lv, value) ||
+			strings.Contains(lk, value) ||
+			strings.Contains(lk+"="+lv, value)
+		if keyHit && valueHit {
+			return true
+		}
+	}
+	return false
 }
 
 func aggregateSdkLanguages(instances []SdkInstanceItem) []SdkLanguageStats {

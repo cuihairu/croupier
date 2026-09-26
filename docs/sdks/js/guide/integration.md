@@ -42,6 +42,22 @@ async function main() {
 
 `FunctionDescriptor` 的 `tags`/`summary`/`description`/`operationId`/`deprecated` 是展示层字段：注册时会随 protobuf 编码上报，进入控制面的函数分组与页面生成。多语言 SDK 共享同一 function ID 空间时，agent 对跨 provider 的空值注册做合并保护（空值不覆盖他方已有 tags/summary），但每个 SDK 仍应在注册时填写完整元数据，不要依赖合并兜底。
 
+## 实例元数据（provider 自描述）
+
+`ClientConfig.instanceMetadata` 携带**用户自定义多 KV 实例元数据**（如 `serverId`、`pod`），随 `ProviderConnectRequest.metadata` 上报，用于控制台「SDK 版本分布」页展示实例信息与按元数据搜索：
+
+```typescript
+const client = createClient({
+  agentAddr: "127.0.0.1:19091",
+  serviceId: "my-service",
+  instanceMetadata: { serverId: "s1", pod: "game-7c4d" },
+});
+```
+
+- 保留键 `sdkLanguage` / `sdkVersion` / `sdkName` / `protocol_version` / `gameId` / `env` 由平台固定字段生成；用户元数据撞键时 agent 丢弃该键并在注册响应 `warnings` 中告警。
+- 元数据仅用于观测（展示/搜索/诊断），不参与路由与负载均衡。
+- wire 语义与存储设计结论见 `docs/architecture/sdk-wire-protocol.md`「实例元数据」。
+
 ## 连接生命周期
 
 transport 内部维持单读者阻塞读循环，空闲连接上探针（pong）与调用响应不受并发读竞争影响。连接断开或出错时：

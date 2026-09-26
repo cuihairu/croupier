@@ -52,6 +52,12 @@ message ProviderConnectRequest {
   repeated string supported_transports = 10; // currently fixed to "tcp"
   string game_id = 11;                       // game scope the provider belongs to (validated against agent)
   string env = 12;                           // logical environment (prod/stage/dev)
+
+  // User-defined instance metadata (multiple key-value pairs, Nacos-style).
+  // e.g. {"serverId": "s1", "pod": "game-7c4d"}. Surfaced verbatim on the
+  // SDK distribution page; agent drops keys colliding with reserved built-ins
+  // (sdkLanguage/sdkVersion/sdkName/gameId/env/protocol_version).
+  map<string, string> metadata = 13;
 }
 
 message ProviderConnectResponse {

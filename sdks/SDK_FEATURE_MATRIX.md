@@ -254,6 +254,7 @@ SDK 描述符不承载 UI、菜单、页面分类、多语言标题、页面 sch
 | `insecure`                   | `Insecure`          | `insecure`           | `insecure`          | `insecure`                 | `insecure`           | `Insecure`                 |
 | `auto_reconnect`             | `Reconnect.Enabled` | `auto_reconnect`     | `reconnect`         | `autoReconnect`            | `auto_reconnect`     | `AutoReconnect`            |
 | `heartbeat_interval_seconds` | `HeartbeatInterval` | `heartbeat_interval` | `heartbeatInterval` | `heartbeatIntervalSeconds` | `heartbeat_interval` | `HeartbeatIntervalSeconds` |
+| `instance_metadata`（用户自定义实例 KV，随 `ProviderConnectRequest.metadata` 上报；保留键由 agent 剥离） | `InstanceMetadata` | ❌ | ❌ | `instanceMetadata` | ❌ | ❌ |
 
 ### L3 Invoker 能力映射
 

@@ -129,7 +129,12 @@ func (h *Handler) Get(c *gin.Context) {
 // SdkStats handles the request to get SDK language/version distribution
 // across online provider sessions.
 func (h *Handler) SdkStats(c *gin.Context) {
-	resp, err := h.service.SdkStats(c.Request.Context(), &SdkStatsRequest{})
+	var req SdkStatsRequest
+	if err := c.ShouldBindQuery(&req); err != nil {
+		response.Error(c, err)
+		return
+	}
+	resp, err := h.service.SdkStats(c.Request.Context(), &req)
 	if err != nil {
 		response.Error(c, err)
 		return
