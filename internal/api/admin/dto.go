@@ -1,17 +1,27 @@
 // Package admin provides DTOs for admin API operations.
 package admin
 
+// 管理员账号状态取值（对齐 internal/model 的 StatusEnabled/StatusDisabled）。
+// Update 请求用 AdminStatusUnchanged 作为「不修改状态」的哨兵：JSON 里 Go 的
+// int 零值与 StatusDisabled 撞值，无法省略，只能用 -1 显式表达「不改」。
+const (
+	AdminStatusUnchanged = -1
+)
+
 // Admin represents an admin user.
 type Admin struct {
-	Id        int64    `json:"id"`
-	Username  string   `json:"username"`
-	Nickname  string   `json:"nickname"`
-	Email     string   `json:"email"`
-	Phone     string   `json:"phone"`
-	Roles     []string `json:"roles"`
-	Status    int      `json:"status"` // 1:active 0:disabled
-	CreatedAt string   `json:"createdAt"`
-	UpdatedAt string   `json:"updatedAt"`
+	Id       int64    `json:"id"`
+	Username string   `json:"username"`
+	Nickname string   `json:"nickname"`
+	Email    string   `json:"email"`
+	Phone    string   `json:"phone"`
+	Roles    []string `json:"roles"`
+	Status   int      `json:"status"` // model.StatusEnabled(1)/StatusDisabled(0)
+	// bootstrap 标记该账号是否为引导配置（admins.json/users.json）声明的
+	// 自举账号：不可删除（后端 Delete 拒绝），可禁用。前端据此隐藏删除入口。
+	Bootstrap bool   `json:"bootstrap"`
+	CreatedAt string `json:"createdAt"`
+	UpdatedAt string `json:"updatedAt"`
 }
 
 // AdminCreateRequest represents the request to create an admin.
@@ -90,7 +100,7 @@ type AdminUpdateRequest struct {
 	Email    string   `json:"email"`
 	Phone    string   `json:"phone"`
 	Roles    []string `json:"roles"`
-	Status   int      `json:"status"`
+	Status   int      `json:"status"` // model.StatusEnabled/StatusDisabled；AdminStatusUnchanged 表示不修改
 }
 
 // AdminUpdateResponse represents the response after updating an admin.

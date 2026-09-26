@@ -1,7 +1,9 @@
 // pages.permissionsUsers.* — Permissions/UsersV2
 export default {
   'pages.permissionsUsers.action.delete': 'Delete',
+  'pages.permissionsUsers.action.disable': 'Disable',
   'pages.permissionsUsers.action.edit': 'Edit',
+  'pages.permissionsUsers.action.enable': 'Re-enable',
   'pages.permissionsUsers.action.gameScope': 'Assign Games',
   'pages.permissionsUsers.action.loginLogs': 'Login Logs',
   'pages.permissionsUsers.action.operationLogs': 'Operation Logs',
@@ -10,6 +12,10 @@ export default {
   'pages.permissionsUsers.active.yes': 'Yes',
   'pages.permissionsUsers.button.create': 'Add User',
   'pages.permissionsUsers.column.actions': 'Actions',
+  'pages.permissionsUsers.disable.confirm':
+    'The account will be unable to sign in and all issued tokens are revoked immediately. It can be re-enabled later. Disable now?',
+  'pages.permissionsUsers.enable.confirm':
+    'Re-enable this account? It will be able to sign in again.',
   'pages.permissionsUsers.column.active': 'Active',
   'pages.permissionsUsers.column.displayName': 'Display Name',
   'pages.permissionsUsers.column.email': 'Email',
@@ -41,10 +47,14 @@ export default {
   'pages.permissionsUsers.placeholder.roles': 'Select roles',
   'pages.permissionsUsers.scope.gameRequired': 'Please select a game',
   'pages.permissionsUsers.scope.title': 'Assign Games: {name}',
+  'pages.permissionsUsers.tag.bootstrap': 'Bootstrap',
+  'pages.permissionsUsers.tag.bootstrapTip':
+    'Bootstrap account: cannot be deleted, can be disabled',
   'pages.permissionsUsers.title': 'User Management',
   'pages.permissionsUsers.toast.created': 'Created #{id}',
   'pages.permissionsUsers.toast.deleted': 'Deleted',
   'pages.permissionsUsers.toast.passwordSet': 'Password has been set',
   'pages.permissionsUsers.toast.saved': 'Saved',
+  'pages.permissionsUsers.toast.statusUpdated': 'Status updated',
   'pages.permissionsUsers.toast.updated': 'Updated',
 };

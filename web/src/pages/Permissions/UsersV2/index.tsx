@@ -1,10 +1,12 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Card, Table, Button, Form, Input, Switch, Select, Tag, Space, Popconfirm } from 'antd';
+import { Card, Table, Button, Form, Input, Switch, Select, Tag, Space, Popconfirm, Tooltip } from 'antd';
 import { FormattedMessage, useIntl } from '@umijs/max';
 import { ModalForm, PageContainer } from '@ant-design/pro-components';
 import type { ColumnsType } from 'antd/es/table';
 import { getMessage } from '@/utils/antdApp';
 import {
+  ADMIN_STATUS_ACTIVE,
+  ADMIN_STATUS_DISABLED,
   createAdmin,
   deleteAdmin,
   getAdminGames,
@@ -128,7 +130,7 @@ export default function UsersV2() {
           nickname: v.nickname,
           email: v.email,
           phone: v.phone,
-          status: v.active ? 1 : 0,
+          status: v.active ? ADMIN_STATUS_ACTIVE : ADMIN_STATUS_DISABLED,
           roles: v.roles,
         });
         getMessage()?.success(
@@ -219,6 +221,22 @@ export default function UsersV2() {
     refresh();
   };
 
+  // 禁用/解封：status 由后端显式落库；禁用同时吊销已签发 token
+  // （Admin Update → BumpTokenVersion），解封后可重新登录（BUG-028）。
+  const toggleStatus = async (rec: AdminRecord) => {
+    await updateAdmin(rec.id, {
+      status:
+        rec.status === ADMIN_STATUS_ACTIVE ? ADMIN_STATUS_DISABLED : ADMIN_STATUS_ACTIVE,
+    });
+    getMessage()?.success(
+      intl.formatMessage({
+        id: 'pages.permissionsUsers.toast.statusUpdated',
+        defaultMessage: '状态已更新',
+      }),
+    );
+    refresh();
+  };
+
   const columns: ColumnsType<AdminRecord> = [
     {
       title: intl.formatMessage({
@@ -227,6 +245,24 @@ export default function UsersV2() {
       }),
       dataIndex: 'username',
       key: 'username',
+      render: (value: string, rec: AdminRecord) => (
+        <Space>
+          {value}
+          {rec.bootstrap && (
+            <Tooltip title={intl.formatMessage({
+              id: 'pages.permissionsUsers.tag.bootstrapTip',
+              defaultMessage: '引导账号：不可删除，可禁用',
+            })}>
+              <Tag color="purple">
+                {intl.formatMessage({
+                  id: 'pages.permissionsUsers.tag.bootstrap',
+                  defaultMessage: '引导',
+                })}
+              </Tag>
+            </Tooltip>
+          )}
+        </Space>
+      ),
     },
     {
       title: intl.formatMessage({
@@ -260,7 +296,7 @@ export default function UsersV2() {
       dataIndex: 'status',
       key: 'active',
       render: (v: number) =>
-        v === 1
+        v === ADMIN_STATUS_ACTIVE
           ? intl.formatMessage({ id: 'pages.permissionsUsers.active.yes', defaultMessage: '是' })
           : intl.formatMessage({ id: 'pages.permissionsUsers.active.no', defaultMessage: '否' }),
     },
@@ -298,15 +334,41 @@ export default function UsersV2() {
           </Button>
           <Popconfirm
             title={intl.formatMessage({
-              id: 'pages.permissionsUsers.delete.confirm',
-              defaultMessage: '确定删除该用户？',
+              id:
+                rec.status === ADMIN_STATUS_ACTIVE
+                  ? 'pages.permissionsUsers.disable.confirm'
+                  : 'pages.permissionsUsers.enable.confirm',
+              defaultMessage:
+                rec.status === ADMIN_STATUS_ACTIVE
+                  ? '禁用后该账号将无法登录，已签发的登录凭证立即失效，之后可随时解封。确认禁用？'
+                  : '确认解封该账号？解封后可重新登录。',
             })}
-            onConfirm={() => remove(rec)}
+            onConfirm={() => toggleStatus(rec)}
           >
-            <Button size="small" danger>
-              <FormattedMessage id="pages.permissionsUsers.action.delete" defaultMessage="删除" />
+            <Button size="small" danger={rec.status === ADMIN_STATUS_ACTIVE}>
+              <FormattedMessage
+                id={
+                  rec.status === ADMIN_STATUS_ACTIVE
+                    ? 'pages.permissionsUsers.action.disable'
+                    : 'pages.permissionsUsers.action.enable'
+                }
+                defaultMessage={rec.status === ADMIN_STATUS_ACTIVE ? '禁用' : '解封'}
+              />
             </Button>
           </Popconfirm>
+          {!rec.bootstrap && (
+            <Popconfirm
+              title={intl.formatMessage({
+                id: 'pages.permissionsUsers.delete.confirm',
+                defaultMessage: '确定删除该用户？',
+              })}
+              onConfirm={() => remove(rec)}
+            >
+              <Button size="small" danger>
+                <FormattedMessage id="pages.permissionsUsers.action.delete" defaultMessage="删除" />
+              </Button>
+            </Popconfirm>
+          )}
           <Button
             size="small"
             onClick={() =>
@@ -406,7 +468,7 @@ export default function UsersV2() {
                 nickname: editing.nickname,
                 email: editing.email,
                 phone: editing.phone,
-                active: editing.status === 1,
+                active: editing.status === ADMIN_STATUS_ACTIVE,
                 roles: editing.roles || [],
               }
             : { active: true }

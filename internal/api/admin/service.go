@@ -70,7 +70,7 @@ func (s *Service) List(ctx context.Context, req *ListRequest) (*ListResponse, er
 
 	for i := range admins {
 		admin := admins[i]
-		resp.Items = append(resp.Items, buildAdminResponse(&admin, roleMap[admin.ID]))
+		resp.Items = append(resp.Items, s.buildAdminView(&admin, roleMap[admin.ID]))
 	}
 
 	return resp, nil
@@ -101,7 +101,7 @@ func (s *Service) Create(ctx context.Context, req *CreateRequest) (*CreateRespon
 			Nickname: strings.TrimSpace(req.Nickname),
 			Email:    strings.TrimSpace(req.Email),
 			Phone:    strings.TrimSpace(req.Phone),
-			Status:   1,
+			Status:   model.StatusEnabled,
 		}
 
 		if err := adminModel.Create(ctx, admin, password); err != nil {
@@ -129,7 +129,7 @@ func (s *Service) Create(ctx context.Context, req *CreateRequest) (*CreateRespon
 	}
 
 	return &CreateResponse{
-		Admin: buildAdminResponse(createdAdmin, roleNamesFromModels(assignedRoles)),
+		Admin: s.buildAdminView(createdAdmin, roleNamesFromModels(assignedRoles)),
 	}, nil
 }
 
@@ -155,7 +155,7 @@ func (s *Service) Get(ctx context.Context, req *GetRequest) (*GetResponse, error
 	}
 
 	return &GetResponse{
-		Admin: buildAdminResponse(admin, roleNamesFromModels(roles)),
+		Admin: s.buildAdminView(admin, roleNamesFromModels(roles)),
 	}, nil
 }
 
@@ -190,7 +190,7 @@ func (s *Service) Update(ctx context.Context, req *UpdateRequest) (*UpdateRespon
 		if phone := strings.TrimSpace(req.Phone); phone != "" {
 			updates["phone"] = phone
 		}
-		if req.Status != -1 {
+		if req.Status != AdminStatusUnchanged {
 			updates["status"] = req.Status
 		}
 
@@ -199,7 +199,7 @@ func (s *Service) Update(ctx context.Context, req *UpdateRequest) (*UpdateRespon
 				return err
 			}
 			// 禁用账号即吊销所有已签发 token
-			if req.Status == 0 {
+			if req.Status == model.StatusDisabled {
 				if err := adminModel.BumpTokenVersion(ctx, adminID); err != nil {
 					return err
 				}
@@ -249,7 +249,7 @@ func (s *Service) Update(ctx context.Context, req *UpdateRequest) (*UpdateRespon
 	}
 
 	return &UpdateResponse{
-		Admin: buildAdminResponse(admin, roleNamesFromModels(roles)),
+		Admin: s.buildAdminView(admin, roleNamesFromModels(roles)),
 	}, nil
 }
 
@@ -273,6 +273,14 @@ func (s *Service) Delete(ctx context.Context, req *DeleteRequest) error {
 			return err
 		}
 		existing = adminRecord
+
+		// 引导管理员（configs/admins.json 等自举配置声明的账号）不可删除：
+		// 它们是部署的自举凭证，删除会立即打断登录链（重启虽会补种，但已属
+		// 破坏性操作）。需要停用时走禁用（status=0，自动吊销已签发 token），
+		// 之后可随时解封。（BUG-028）
+		if s.isBootstrapAdmin(adminRecord.Username) {
+			return errorx.NewForbidden("引导管理员不可删除，可改为禁用")
+		}
 
 		if err := tx.WithContext(ctx).
 			Where("admin_id = ?", adminID).
@@ -564,6 +572,22 @@ func buildAdminResponse(admin *model.Admin, roleNames []string) Admin {
 		CreatedAt: formatTimestamp(admin.CreatedAt),
 		UpdatedAt: formatTimestamp(admin.UpdatedAt),
 	}
+}
+
+// isBootstrapAdmin 当前用户名是否为引导配置（admins.json/users.json）声明的
+// 自举账号。AdminManager 未接线（测试夹具）时一律视为否。
+func (s *Service) isBootstrapAdmin(username string) bool {
+	return s != nil && s.svcCtx != nil &&
+		s.svcCtx.AdminManager != nil &&
+		s.svcCtx.AdminManager.IsBootstrapAdmin(username)
+}
+
+// buildAdminView 在基础映射上补 bootstrap 标记——前端据此隐藏「删除」入口
+// 并展示「引导」标识（BUG-028）。
+func (s *Service) buildAdminView(admin *model.Admin, roleNames []string) Admin {
+	view := buildAdminResponse(admin, roleNames)
+	view.Bootstrap = s.isBootstrapAdmin(admin.Username)
+	return view
 }
 
 func formatTimestamp(t time.Time) string {

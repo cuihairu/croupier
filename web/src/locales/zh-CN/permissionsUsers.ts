@@ -1,7 +1,9 @@
 // pages.permissionsUsers.* — Permissions/UsersV2
 export default {
   'pages.permissionsUsers.action.delete': '删除',
+  'pages.permissionsUsers.action.disable': '禁用',
   'pages.permissionsUsers.action.edit': '编辑',
+  'pages.permissionsUsers.action.enable': '解封',
   'pages.permissionsUsers.action.gameScope': '游戏分配',
   'pages.permissionsUsers.action.loginLogs': '登录日志',
   'pages.permissionsUsers.action.operationLogs': '操作日志',
@@ -10,6 +12,9 @@ export default {
   'pages.permissionsUsers.active.yes': '是',
   'pages.permissionsUsers.button.create': '新增用户',
   'pages.permissionsUsers.column.actions': '操作',
+  'pages.permissionsUsers.disable.confirm':
+    '禁用后该账号将无法登录，已签发的登录凭证立即失效，之后可随时解封。确认禁用？',
+  'pages.permissionsUsers.enable.confirm': '确认解封该账号？解封后可重新登录。',
   'pages.permissionsUsers.column.active': '启用',
   'pages.permissionsUsers.column.displayName': '显示名',
   'pages.permissionsUsers.column.email': '邮箱',
@@ -41,10 +46,13 @@ export default {
   'pages.permissionsUsers.placeholder.roles': '选择角色',
   'pages.permissionsUsers.scope.gameRequired': '请选择游戏',
   'pages.permissionsUsers.scope.title': '游戏分配：{name}',
+  'pages.permissionsUsers.tag.bootstrap': '引导',
+  'pages.permissionsUsers.tag.bootstrapTip': '引导账号：不可删除，可禁用',
   'pages.permissionsUsers.title': '用户管理',
   'pages.permissionsUsers.toast.created': '已创建 #{id}',
   'pages.permissionsUsers.toast.deleted': '已删除',
   'pages.permissionsUsers.toast.passwordSet': '密码已设置',
   'pages.permissionsUsers.toast.saved': '已保存',
+  'pages.permissionsUsers.toast.statusUpdated': '状态已更新',
   'pages.permissionsUsers.toast.updated': '已更新',
 };

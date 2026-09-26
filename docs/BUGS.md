@@ -1233,6 +1233,61 @@ ops 用户收件箱（GET /messages）仍 200 可读——收发两侧语义一�
 
 ---
 
+## BUG-028 引导管理员可被删除（删除即打断登录链）+ 缺少显式禁用/解封入口
+
+**严重度**：高（`admin` 这类自举账号一旦删除，登录链立即中断；重启虽会补种，
+但已属破坏性操作）+ 体验缺口（停用账号只能靠「编辑」里的启用开关，无独立
+禁用/解封动作，也看不到禁用即吊销 token 的语义）。
+
+**现象与背景**
+
+用户要求：admin（引导配置 `configs/admins.json` 声明的账号）不可删除、可禁用、
+可解封。此前 `/admin/permissions/users` 对所有行无条件渲染「删除」，后端
+Delete 也无保护；状态语义（`1=启用 / 0=禁用`、`-1=不改`）全靠散落的字面量。
+
+**根因**
+
+后端只知道「admins.json 里的账号」这一事实存在于 `AdminManager` 的内存
+map，REST Delete/前端都没接这路信息——引导账号与普通账号在 API 视图里
+无法区分。
+
+**修复**
+
+1. 后端保护：`AdminManager.IsBootstrapAdmin(username)` 暴露自举账号集合；
+   `Delete` 事务内（FindOne 之后）命中引导账号直接 403「引导管理员不可删除，
+   可改为禁用」（事务回滚，无半删状态）；List/Create/Get/Update 响应统一经
+   `buildAdminView` 附加计算字段 `bootstrap`，前端据此隐藏删除入口并渲染
+   「引导」标识。
+2. 显式禁用/解封：操作列新增行内动作——启用中的账号显示「禁用」（danger，
+   Popconfirm 明示「已签发登录凭证立即失效，之后可随时解封」）、禁用账号显示
+   「解封」。提交走既有 Update `status=0/1`（禁用自动 `BumpTokenVersion`
+   吊销全部 token），删除入口仅对非引导账号渲染。
+3. 状态常量化（用户 review 意见：禁止裸字面量）：后端统一复用
+   `model.StatusEnabled/StatusDisabled`；Update 契约的「不修改」哨兵命名
+   为 `admin.AdminStatusUnchanged = -1`（Go int 零值与 0 撞值，只能显式
+   -1 表达）。前端在 `services/api/permissions.ts` 导出
+   `ADMIN_STATUS_ACTIVE/DISABLED/UNCHANGED`，UsersV2 全部字面量替换。
+
+**回归测试**
+
+- Go：`TestService_Delete_BootstrapAdminForbidden`（临时 admins.json 声明
+  `rootadmin`，Delete 必须 403 且账号原样保留；变异验证：摘掉 guard 转红）、
+  `TestService_Delete_NonBootstrapAdminAllowed`（非引导账号不受保护对照）、
+  `TestService_List_BootstrapFlag`（bootstrap 标记只在声明账号上为 true）、
+  `TestAdminManagerIsBootstrapAdmin`（nil/空白/未知用户名安全）。
+- jest：`UsersV2/__tests__/index.test.tsx` 3 条——bootstrap 行无「删除」带
+  「引导」标识、启用账号「禁用」提交 `{status: 0}`、禁用账号「解封」提交
+  `{status: 1}`。
+
+**边界诚实**
+
+- 引导账号禁用后仍不可删除（保护与状态无关）；若把所有管理员全部禁用会锁死
+  登录面——这是运维动作，不做代码限制。
+- `bootstrap` 标记按用户名实时计算：删掉 admins.json 里的声明并重启后，
+  该账号自动退化为普通账号（可删除）。
+
+---
+
 ## 汇总
 
 | BUG | 位置 | 状态 | 回归测试 |
@@ -1264,6 +1319,7 @@ ops 用户收件箱（GET /messages）仍 200 可读——收发两侧语义一�
 | 025 | 审核人跳转回退到申请人（approver 缺失时） | 已修 | jest 1 条（修复前 actor=申请人 转红）|
 | 026 | 站内信「发送」无权限校验（人人可发任意账号） | 已修 | Go 1 条（未认证/ops 403、admin 200、收件侧不受影响）|
 | 027 | 工单详情 Descriptions span 越界刷告警 | 已修 | jest 1 条（修复前红/修复后绿，spy console.error）|
+| 028 | 引导管理员可被删除 + 缺禁用/解封入口 | 已修 | Go 4 条（含 guard 变异转红）+ jest 3 条 |
 
 ### 遗留 / 未修
 

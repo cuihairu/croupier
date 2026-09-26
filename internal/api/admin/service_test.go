@@ -2,12 +2,16 @@ package admin
 
 import (
 	"context"
+	"encoding/json"
+	"os"
+	"path/filepath"
 	"strconv"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/cuihairu/croupier/internal/cache"
+	"github.com/cuihairu/croupier/internal/common/errorx"
 	"github.com/cuihairu/croupier/internal/model"
 	"github.com/cuihairu/croupier/internal/service/permission"
 	"github.com/cuihairu/croupier/internal/svc"
@@ -790,6 +794,120 @@ func TestService_Delete_NotFound(t *testing.T) {
 	})
 
 	assert.Error(t, err)
+}
+
+// writeBootstrapAdminsConfig 在临时目录写入 admins.json，模拟部署的自举配置。
+func writeBootstrapAdminsConfig(t *testing.T, usernames ...string) *svc.AdminManager {
+	t.Helper()
+	configDir := t.TempDir()
+	type bootstrapAdmin struct {
+		Username string   `json:"username"`
+		Password string   `json:"password"`
+		Roles    []string `json:"roles"`
+		Status   int      `json:"status"`
+	}
+	entries := make([]bootstrapAdmin, 0, len(usernames))
+	for _, name := range usernames {
+		entries = append(entries, bootstrapAdmin{
+			Username: name,
+			// bcrypt("MyPass123") 形态即可，IsBootstrapAdmin 只看用户名集合
+			Password: "$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy",
+			Roles:    []string{"admin"},
+			Status:   1,
+		})
+	}
+	data, err := json.Marshal(entries)
+	require.NoError(t, err)
+	require.NoError(t, os.WriteFile(filepath.Join(configDir, "admins.json"), data, 0o600))
+
+	am := svc.NewAdminManager(configDir)
+	require.NoError(t, am.Initialize())
+	return am
+}
+
+// BUG-028：引导管理员（admins.json 声明的自举账号）不可删除。
+func TestService_Delete_BootstrapAdminForbidden(t *testing.T) {
+	db := setupTestDB(t)
+	seedTestPermissions(t, db)
+
+	bootstrapManager := writeBootstrapAdminsConfig(t, "rootadmin")
+	svcCtx := setupTestServiceContext(t, db)
+	svcCtx.AdminManager = bootstrapManager
+
+	adminID := createTestAdminWithRole(t, db, "rootadmin", "MyPass123", "admin")
+
+	ctx, _ := createTestAdminWithContext(t, db, "superadmin", "MyPass123", "admin")
+
+	service := NewService(svcCtx)
+
+	err := service.Delete(ctx, &DeleteRequest{
+		ID: strconv.FormatUint(uint64(adminID), 10),
+	})
+
+	require.Error(t, err)
+	var codeErr *errorx.CodeError
+	require.ErrorAs(t, err, &codeErr)
+	assert.Equal(t, errorx.NewForbidden("").Code, codeErr.Code)
+	assert.Contains(t, codeErr.Message, "不可删除")
+
+	// 删除被拒后账号必须原样保留（事务内拒绝，不产生半删状态）
+	adminModel := model.NewAdminModel(db)
+	found, findErr := adminModel.FindOne(context.Background(), adminID)
+	assert.NoError(t, findErr)
+	assert.Equal(t, "rootadmin", found.Username)
+}
+
+// BUG-028 对照：非引导账号的删除不受保护，行为保持不变。
+func TestService_Delete_NonBootstrapAdminAllowed(t *testing.T) {
+	db := setupTestDB(t)
+	seedTestPermissions(t, db)
+
+	// 自举配置只声明 rootadmin；testadmin 不在其中，删除应照常成功
+	bootstrapManager := writeBootstrapAdminsConfig(t, "rootadmin")
+	svcCtx := setupTestServiceContext(t, db)
+	svcCtx.AdminManager = bootstrapManager
+
+	adminID := createTestAdminWithRole(t, db, "testadmin", "MyPass123", "admin")
+
+	ctx, _ := createTestAdminWithContext(t, db, "superadmin", "MyPass123", "admin")
+
+	service := NewService(svcCtx)
+
+	err := service.Delete(ctx, &DeleteRequest{
+		ID: strconv.FormatUint(uint64(adminID), 10),
+	})
+
+	assert.NoError(t, err)
+	adminModel := model.NewAdminModel(db)
+	_, findErr := adminModel.FindOne(context.Background(), adminID)
+	assert.Error(t, findErr)
+}
+
+// BUG-028：Admin 列表/详情视图必须携带 bootstrap 标记，前端据此隐藏删除入口。
+func TestService_List_BootstrapFlag(t *testing.T) {
+	db := setupTestDB(t)
+	seedTestPermissions(t, db)
+
+	bootstrapManager := writeBootstrapAdminsConfig(t, "rootadmin")
+	svcCtx := setupTestServiceContext(t, db)
+	svcCtx.AdminManager = bootstrapManager
+
+	createTestAdminWithRole(t, db, "rootadmin", "MyPass123", "admin")
+	createTestAdminWithRole(t, db, "plainuser", "MyPass123", "admin")
+
+	ctx, _ := createTestAdminWithContext(t, db, "superadmin", "MyPass123", "admin")
+
+	service := NewService(svcCtx)
+
+	resp, err := service.List(ctx, &ListRequest{Page: 1, PageSize: 20})
+	require.NoError(t, err)
+
+	bootstrapByName := map[string]bool{}
+	for _, item := range resp.Items {
+		bootstrapByName[item.Username] = item.Bootstrap
+	}
+	assert.True(t, bootstrapByName["rootadmin"], "bootstrap 账号应携带 bootstrap=true")
+	assert.False(t, bootstrapByName["plainuser"], "普通账号 bootstrap 应为 false")
 }
 
 func TestService_PasswordReset_Success(t *testing.T) {

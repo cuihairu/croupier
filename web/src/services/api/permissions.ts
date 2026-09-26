@@ -62,6 +62,12 @@ export async function getPermission(id: string) {
 // === 管理员管理 API ===
 
 // Source: croupier/internal/api/admin/dto.go Admin
+/** 管理员账号状态（对齐后端 model.StatusEnabled / model.StatusDisabled） */
+export const ADMIN_STATUS_DISABLED = 0;
+export const ADMIN_STATUS_ACTIVE = 1;
+/** 后端 Update 契约哨兵：-1 = 不修改状态（Go int 零值与 DISABLED 撞值，只能显式表达） */
+export const ADMIN_STATUS_UNCHANGED = -1;
+
 export type AdminRecord = {
   id: number;
   username: string;
@@ -70,6 +76,8 @@ export type AdminRecord = {
   phone?: string;
   roles: string[];
   status: number;
+  /** 引导账号（admins.json 等自举配置声明）：不可删除，可禁用（BUG-028） */
+  bootstrap?: boolean;
   createdAt: string;
   updatedAt: string;
 };

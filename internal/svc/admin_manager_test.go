@@ -295,3 +295,21 @@ func TestAdminManagerLoadDefaultAdmins_SecondFileLoadsWhenFirstEmpty(t *testing.
 	require.NoError(t, err)
 	assert.Equal(t, "超级管理员", admin.Nickname)
 }
+
+// BUG-028：IsBootstrapAdmin 按用户名集合判断自举账号，nil/空白输入安全返回 false。
+func TestAdminManagerIsBootstrapAdmin(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	data := `[{"username":"admin","password":"admin123","roles":["admin"]}]`
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "admins.json"), []byte(data), 0o644))
+
+	manager := NewAdminManager(dir)
+	require.NoError(t, manager.loadDefaultAdmins())
+
+	assert.True(t, manager.IsBootstrapAdmin("admin"))
+	assert.True(t, manager.IsBootstrapAdmin(" admin "), "用户名两侧空白应裁剪后匹配")
+	assert.False(t, manager.IsBootstrapAdmin("nobody"))
+	assert.False(t, manager.IsBootstrapAdmin(""), "空用户名不应命中")
+	assert.False(t, (*AdminManager)(nil).IsBootstrapAdmin("admin"), "nil 接收者不应 panic")
+}

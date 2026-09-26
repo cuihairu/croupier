@@ -11,6 +11,8 @@ import (
 	"time"
 
 	"golang.org/x/crypto/bcrypt"
+
+	"github.com/cuihairu/croupier/internal/model"
 )
 
 // AdminUser 管理员用户结构
@@ -37,7 +39,7 @@ type AdminUser struct {
 	Nickname string   `json:"nickname,omitempty"`
 	Email    string   `json:"email,omitempty"`
 	Phone    string   `json:"phone,omitempty"`
-	Status   int      `json:"status"` // 1:active 0:disabled
+	Status   int      `json:"status"` // model.StatusEnabled(1)/StatusDisabled(0)
 	CreateAt string   `json:"createAt,omitempty"`
 	UpdateAt string   `json:"updateAt,omitempty"`
 }
@@ -142,8 +144,8 @@ func (am *AdminManager) loadDefaultAdmins() error {
 
 		for i, admin := range defaultAdmins {
 			// 设置默认值
-			if admin.Status == 0 {
-				defaultAdmins[i].Status = 1 // 默认激活
+			if admin.Status == model.StatusDisabled {
+				defaultAdmins[i].Status = model.StatusEnabled // 默认激活
 			}
 			if admin.CreateAt == "" {
 				defaultAdmins[i].CreateAt = now
@@ -264,7 +266,7 @@ func (am *AdminManager) ValidateUser(username, password string) (*AdminUser, err
 		return nil, fmt.Errorf("user not found")
 	}
 
-	if admin.Status != 1 {
+	if admin.Status != model.StatusEnabled {
 		return nil, fmt.Errorf("user is disabled")
 	}
 
@@ -304,7 +306,7 @@ func (am *AdminManager) CreateAdmin(admin *AdminUser) error {
 		admin.Password = string(hashedBytes)
 	}
 
-	admin.Status = 1
+	admin.Status = model.StatusEnabled
 	admin.CreateAt = time.Now().Format("2006-01-02 15:04:05")
 	admin.UpdateAt = admin.CreateAt
 
@@ -337,6 +339,19 @@ func (am *AdminManager) ListAdmins() []*AdminUser {
 	}
 
 	return admins
+}
+
+// IsBootstrapAdmin 判断用户名是否为引导配置（admins.json / users.json）里
+// 声明的账号。这些账号是部署的自举凭证（server 启动时自动补种），受保护：
+// 不可删除（BUG-028），可禁用（编辑表单 status=0）。
+func (am *AdminManager) IsBootstrapAdmin(username string) bool {
+	if am == nil {
+		return false
+	}
+	am.mu.RLock()
+	defer am.mu.RUnlock()
+	_, ok := am.admins[strings.TrimSpace(username)]
+	return ok
 }
 
 // UpdateAdmin 更新管理员信息
