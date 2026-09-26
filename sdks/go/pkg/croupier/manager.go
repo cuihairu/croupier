@@ -60,6 +60,10 @@ type ManagerConfig struct {
 
 	// InsecureSkipVerify skips TLS verification (not recommended)
 	InsecureSkipVerify bool
+
+	// InstanceMetadata carries user-defined provider instance metadata
+	// (e.g. serverId) onto ProviderConnectRequest.metadata
+	InstanceMetadata map[string]string
 }
 
 // NewManager creates a new Manager using TCP transport
@@ -77,6 +81,7 @@ func NewManager(config ManagerConfig, handlers map[string]FunctionHandler) (Mana
 		ProviderLang:       config.ProviderLang,
 		ProviderSDK:        config.ProviderSDK,
 		InsecureSkipVerify: config.InsecureSkipVerify,
+		InstanceMetadata:   config.InstanceMetadata,
 	}
 	return NewTCPManager(clientConfig, handlers)
 }

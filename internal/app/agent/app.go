@@ -176,13 +176,10 @@ func (a *App) StartLocalServer() error {
 	}
 	tcpServer.SetOnConnect(func(session *agent.ProviderSession) {
 		addr := session.Conn().RemoteAddr()
-		a.store.Register(session.SessionID, session.ServiceID, addr, session.Version, session.Functions, map[string]string{
-			"sdkLanguage": session.SDKLanguage,
-			"sdkVersion":  session.SDKVersion,
-			"sdkName":     session.SDKName,
-			"gameId":      a.upstream.GameID(),
-			"env":         a.upstream.Env(),
-		})
+		// 平台固定键 + 会话携带的用户实例元数据（保留键已在帧解析时剥离，
+		// 见 agent.MergeUserProviderMetadata）。
+		a.store.Register(session.SessionID, session.ServiceID, addr, session.Version, session.Functions,
+			agent.MergeProviderInstanceMetadata(session, a.upstream.GameID(), a.upstream.Env()))
 	})
 	tcpServer.SetOnDisconnect(func(session *agent.ProviderSession) {
 		a.store.RemoveProvider(session.SessionID)

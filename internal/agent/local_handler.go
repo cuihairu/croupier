@@ -835,26 +835,19 @@ func (h *LocalHandler) handleProviderConnect(ctx context.Context, data []byte) (
 		// 提取元数据（参考 Nacos metadata）：固定字段为平台保留键，用户在
 		// ProviderConnectRequest.metadata 里声明的多 KV 实例元数据（serverId
 		// 等）原样并入——保留键冲突丢弃并告警，防止覆盖平台语义。
-		metadata := map[string]string{
+		// 与 TCP provider 路径共用 MergeUserProviderMetadata，语义一致。
+		metadata, metaWarnings := MergeUserProviderMetadata(map[string]string{
 			"sdkLanguage":      req.SdkLanguage,
 			"sdkVersion":       req.SdkVersion,
 			"sdkName":          req.SdkName,
 			"protocol_version": req.ProtocolVersion,
 			"gameId":           req.GameId,
 			"env":              req.Env,
+		}, req.GetMetadata())
+		for _, warning := range metaWarnings {
+			h.logger.Warn("provider metadata reserved key dropped", "service_id", req.ServiceId, "warning", warning)
 		}
-		for key, value := range req.GetMetadata() {
-			if _, reserved := agentlocal.ReservedMetadataKeys[key]; reserved {
-				warning := fmt.Sprintf("metadata key %q is reserved and dropped", key)
-				warnings = append(warnings, warning)
-				h.logger.Warn("provider metadata reserved key dropped", "service_id", req.ServiceId, "key", key)
-				continue
-			}
-			if strings.TrimSpace(key) == "" {
-				continue
-			}
-			metadata[key] = value
-		}
+		warnings = append(warnings, metaWarnings...)
 		// Use empty addr here; the TCP onConnect path sets the real address.
 		h.store.Register(sessionID, req.ServiceId, "", req.Version, funcs, metadata)
 	}

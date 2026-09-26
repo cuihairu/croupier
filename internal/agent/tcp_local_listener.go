@@ -284,6 +284,14 @@ func (h *providerSessionHandler) handleConnect(ctx context.Context, body []byte)
 
 	sessionID := fmt.Sprintf("ps-%d", time.Now().UnixNano())
 
+	// 用户实例元数据随连接进入会话（保留键丢弃+告警，语义与 local_handler 路径
+	// 一致）；onConnect 注册时经 MergeProviderInstanceMetadata 并入实例元数据。
+	metadata, metaWarnings := MergeUserProviderMetadata(map[string]string{}, req.GetMetadata())
+	for _, warning := range metaWarnings {
+		h.listener.logger.Warn("provider metadata reserved key dropped",
+			"service_id", req.ServiceId, "session_id", sessionID, "warning", warning)
+	}
+
 	sess := &ProviderSession{
 		conn:        h.conn,
 		SessionID:   sessionID,
@@ -294,6 +302,7 @@ func (h *providerSessionHandler) handleConnect(ctx context.Context, body []byte)
 		SDKLanguage: req.SdkLanguage,
 		SDKVersion:  req.SdkVersion,
 		SDKName:     req.SdkName,
+		Metadata:    metadata,
 	}
 	sess.UpdateLastSeen()
 
@@ -310,6 +319,7 @@ func (h *providerSessionHandler) handleConnect(ctx context.Context, body []byte)
 		"sdk_version", req.SdkVersion,
 		"sdk_name", req.SdkName,
 		"functions", len(req.Functions),
+		"user_metadata_keys", len(metadata),
 		"remote", h.conn.RemoteAddr(),
 	)
 
@@ -320,6 +330,7 @@ func (h *providerSessionHandler) handleConnect(ctx context.Context, body []byte)
 
 	resp := &sdkv1.ProviderConnectResponse{
 		SessionId: sessionID,
+		Warnings:  metaWarnings,
 	}
 	return proto.Marshal(resp)
 }

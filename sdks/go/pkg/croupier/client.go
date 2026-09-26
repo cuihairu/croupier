@@ -164,6 +164,7 @@ func (c *client) Connect(ctx context.Context) error {
 		ProviderLang:       c.config.ProviderLang,
 		ProviderSDK:        c.config.ProviderSDK,
 		InsecureSkipVerify: c.config.InsecureSkipVerify,
+		InstanceMetadata:   c.config.InstanceMetadata,
 	}
 
 	var err error

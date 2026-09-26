@@ -43,6 +43,12 @@ type ProviderSession struct {
 
 	// SDKName is the SDK display name (e.g., "croupier-js-sdk"); user-overridable.
 	SDKName string
+
+	// Metadata carries the user-declared instance metadata from
+	// ProviderConnectRequest.metadata (reserved keys stripped at parse time,
+	// see MergeUserProviderMetadata). Consumed by the onConnect registration
+	// path to enrich the agentlocal instance metadata.
+	Metadata map[string]string
 }
 
 // Conn returns the underlying MuxConn for sending requests to this Provider.
