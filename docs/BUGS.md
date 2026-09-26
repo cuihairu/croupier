@@ -1288,6 +1288,59 @@ map，REST Delete/前端都没接这路信息——引导账号与普通账号�
 
 ---
 
+## BUG-029 实例元数据端到端丢失：Go SDK 交接链与 agent TCP 注册路径双漏点
+
+**严重度**：高（功能完全不可用——`sdk-distribution` 元信息页与
+`/api/v1/providers/sdk-stats` 的 `metaKey/metaValue` 过滤对所有 Go SDK 实例
+恒为空，实例元数据 feature 上线即哑火）。
+
+**现象与背景**
+
+实例元数据 feature（SDK `InstanceMetadata` → `ProviderConnectRequest.metadata`
+→ agent → server → sdk-stats）本地各环节单测全绿，但线上端到端验证时所有
+实例 `meta=None`：服务端过滤逻辑可用，却永远筛不到任何用户元数据。
+
+**根因（两处独立丢失点，各有单测覆盖盲区）**
+
+1. **Go SDK 交接链手工拷贝漏字段**：`client.Connect()` 构造 `ManagerConfig`
+   与 `NewManager()` 回拷 `ClientConfig` 时逐字段手工复制，两处都没带上
+   `InstanceMetadata`——元数据在 SDK 内部就被吞掉，注册帧不携带。
+2. **agent TCP provider 路径整体丢弃**：Go SDK 走 TCP 19091 连接，命中
+   `tcp_local_listener.handleConnect`——该路径解析了 `ProviderConnectRequest`
+   却没取 `metadata`（`agent.ProviderSession` 压根没有 Metadata 字段），而
+   `app.go` 的 `SetOnConnect` 回调把实例元数据**硬编码为纯平台键**
+   （sdkLanguage/sdkVersion/sdkName/gameId/env）。既有元数据合并单测覆盖的
+   `local_handler.handleProviderConnect` 在 TCP provider 流程中根本不会被
+   调用——测试绿在生产路径上，生产走的是没人测的路径。
+
+**修复**
+
+1. SDK：`ManagerConfig` 增加 `InstanceMetadata` 字段，`Connect()` 与
+   `NewManager()` 两处交接补拷贝。
+2. Agent：`agent.ProviderSession` 增加 `Metadata` 字段；TCP `handleConnect`
+   经新增共享 helper `MergeUserProviderMetadata` 解析用户 KV（保留键丢弃+
+   warnings 回传响应，空键跳过，语义与 local_handler 路径一致）；
+   `app.go onConnect` 经 `MergeProviderInstanceMetadata` 以「平台键 + 会话
+   用户 KV」注册实例；local_handler 路径改为复用同一 helper，两条连接路径
+   语义收敛到单一来源。
+
+**回归测试**
+
+- Go SDK：`TestNewManagerCarriesInstanceMetadata`、
+  `TestNewTCPManagerCarriesInstanceMetadata`（两处交接断言）、
+  `TestRegisterFrameCarriesInstanceMetadata`（帧级：fake agent 捕获
+  0x050101 帧解码断言 metadata 携带）。
+- Agent：`TestTCPProviderConnectCarriesUserMetadata`（真 TCP 拨号→连接→
+  onConnect 会话携带用户 KV、保留键丢弃、响应 warnings 标注）、
+  `TestMergeProviderInstanceMetadata`（平台键+用户 KV 合并、nil 安全）。
+
+**边界诚实**
+
+- 已注册 SDK 的旧版本（< 本次修复）仍不上送元数据，升级 SDK 后重连即恢复；
+- 保留键冲突仅在 agent 侧丢弃并在连接响应 warnings 中告知，SDK 侧不二次校验。
+
+---
+
 ## 汇总
 
 | BUG | 位置 | 状态 | 回归测试 |
@@ -1320,6 +1373,7 @@ map，REST Delete/前端都没接这路信息——引导账号与普通账号�
 | 026 | 站内信「发送」无权限校验（人人可发任意账号） | 已修 | Go 1 条（未认证/ops 403、admin 200、收件侧不受影响）|
 | 027 | 工单详情 Descriptions span 越界刷告警 | 已修 | jest 1 条（修复前红/修复后绿，spy console.error）|
 | 028 | 引导管理员可被删除 + 缺禁用/解封入口 | 已修 | Go 4 条（含 guard 变异转红）+ jest 3 条 |
+| 029 | 实例元数据端到端丢失（SDK 交接链 + agent TCP 路径双漏点） | 已修 | Go SDK 3 条（含帧级）+ agent 2 条（TCP 真连接）|
 
 ### 遗留 / 未修
 
