@@ -1048,6 +1048,14 @@ go build -o bin/croupier-server ./cmd/server
   恒 0 行。续跑失败（无 live agent）时记录仍 approved、审计仍落链，
   「审批事实」与「续跑结果」分离可判。
 
+### 动态路由走查注意（dev server 默认 mock 拦截登录）
+
+浏览器访问 `:8000` 时，`web/mock/user.ts` 会拦截 `POST /api/v1/auth/login`
+并返回 `mock-jwt-token-*`，后续真实 API 全部 401——**真实栈走查必须以
+`MOCK=none` 启动 dev server**（登录后 localStorage 存的应是真 JWT 而非
+`mock-jwt-token-` 前缀）。走查脚本存档：`/tmp/ui-audit/detail-walkthrough.mjs`
+（登录 → 工单列表/详情 → 函数目录/详情 → console 收集）。
+
 ---
 
 ## BUG-024 审批动作从不写审计链 + 通知把申请人当审批人
@@ -1188,6 +1196,43 @@ ops 用户收件箱（GET /messages）仍 200 可读——收发两侧语义一�
 
 ---
 
+## BUG-027 工单详情 Descriptions 行内 span 越界，每次打开刷 antd 告警
+
+**严重度**：低（console 噪音，无功能影响；BUG-005「TS 不报错、页面也不报错」同族）
+
+**现象**
+
+打开 `/support/tickets/:id`，console 每次渲染刷
+`Warning: [antd: Descriptions] Sum of column 'span' in a line not match 'column' of Descriptions`。
+
+**根因**
+
+`Detail.tsx` 的 `Descriptions column={2}` 里，「玩家ID」（span=1）后面跟了
+「联系方式」（`span={2}`），该行 span 和 1+2=3 超过列数 2——antd 6 运行时
+告警，TypeScript 不报错。走查发现：真实栈（MOCK=none）打开工单详情即触发。
+
+**修复**
+
+「联系方式」去掉 `span={2}`，回到 span=1 与「玩家ID」同排（布局意图本来就是
+两者一对）。
+
+**回归测试**
+
+`Detail.test.tsx` 新增「span 行和等于列数」用例：spy `console.error` 渲染完整
+工单，断言无 `[antd: Descriptions]` 告警。变异验证：修复前该用例红（告警被
+捕获）、修复后绿（37/37）。
+
+**走查结论（本条来源与同轮其余判定）**
+
+- `/support/tickets/:id` 真实 id：详情完整渲染（标题/状态/优先级/操作按钮）✅；
+  不存在 id：优雅兜底「资源不存在」+ 返回按钮，无白屏 ✅；
+- `/functions/:id` 未知 id：优雅兜底「未找到函数 / 当前函数不存在」引导回目录 ✅
+  （dev 无已注册函数，真实 id 场景由占位等价覆盖）；
+- 不存在工单 id 的 404 请求会有无持有者的 `AxiosError` pageerror 日志（UI 已
+  兜底、仅控制台噪音），随本次走查记录，不单独立项。
+
+---
+
 ## 汇总
 
 | BUG | 位置 | 状态 | 回归测试 |
@@ -1218,6 +1263,7 @@ ops 用户收件箱（GET /messages）仍 200 可读——收发两侧语义一�
 | 024 | 审批动作从不写审计链 + 通知把申请人当审批人 | 已修 | Go 3 条（audit_chain_test，含申请人名下恒空反断言）+ 线上栈复证 |
 | 025 | 审核人跳转回退到申请人（approver 缺失时） | 已修 | jest 1 条（修复前 actor=申请人 转红）|
 | 026 | 站内信「发送」无权限校验（人人可发任意账号） | 已修 | Go 1 条（未认证/ops 403、admin 200、收件侧不受影响）|
+| 027 | 工单详情 Descriptions span 越界刷告警 | 已修 | jest 1 条（修复前红/修复后绿，spy console.error）|
 
 ### 遗留 / 未修
 

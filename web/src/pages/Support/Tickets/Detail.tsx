@@ -444,7 +444,6 @@ export default function TicketDetailPage() {
                   id: 'pages.ticketsDetail.field.contact',
                   defaultMessage: '联系方式',
                 })}
-                span={2}
               >
                 {ticket.contact || '-'}
               </Descriptions.Item>

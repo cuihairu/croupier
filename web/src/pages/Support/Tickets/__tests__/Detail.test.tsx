@@ -131,6 +131,20 @@ describe('Support/Tickets/Detail', () => {
     expect(mockedListTicketComments).toHaveBeenCalledWith('1');
   });
 
+  it('字段布局：Descriptions 行内 span 和等于列数，不触发 antd 告警（BUG-027）', async () => {
+    const errSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+    try {
+      renderDetail();
+      expect(await screen.findByText('工单详情 #1')).toBeInTheDocument();
+      // 等到「联系方式」字段真实渲染（它就是越界 span 的那个格子）
+      expect(screen.getByText('wechat:x')).toBeInTheDocument();
+      const all = errSpy.mock.calls.map((c) => c.join(' ')).join('\n');
+      expect(all).not.toContain('[antd: Descriptions]');
+    } finally {
+      errSpy.mockRestore();
+    }
+  });
+
   it('可选字段缺失时以 - 兜底；未知枚举显示原值', async () => {
     mockedGetTicket.mockResolvedValue({
       ...baseTicket,
