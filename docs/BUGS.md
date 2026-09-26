@@ -962,6 +962,46 @@ setter，`status === 'error'` 的 Alert 分支永远不会成立——即 toast 
 
 ---
 
+## BUG-023 公告页 40 个词条只登记了 26 个，双语目录缺 14 条 + 菜单键缺失
+
+**严重度**：中（英文界面回落中文、console 刷 Missing message）
+
+**现象**
+
+`/admin/announcements` 页面在 en-US 语言下，表单标签/占位/校验提示/行操作按钮
+（编辑/删除）/「公告已更新」提示全部显示**中文 defaultMessage**；console 每次渲染刷
+`[React Intl] Missing message: "pages.announcements.field.*"`。侧边栏菜单该条目在
+zh-CN/en-US 都没有 `menu.AccessControl.Announcements` 词条，每渲染一次刷一遍
+（一次走查累计 61 条）。
+
+**根因**
+
+2c236aa 新增公告页时，页面引用 40 个 `pages.announcements.*` id，locale 目录只登记
+了 26 个——漏掉的全部是**弹窗表单**（title/content/audience/role/popup/active/range
+的标签与校验提示）、行操作（edit/delete）和 update.success，即「不点开新建/编辑就
+看不到」的那批；走查脚本当时也只覆盖到列表层。菜单键则是 routes 的 `name` 加了、
+两个 `menu.ts` 都没加。
+
+**修复**
+
+- `src/locales/zh-CN/pages.ts` / `en-US/pages.ts`：补齐 14 条
+  （field.title/.placeholder/.required、field.content/.required、field.audience、
+  field.role/.required、field.popup、field.active、field.range、action.edit、
+  action.delete、update.success），值与页面 defaultMessage 语义一致。
+- `src/locales/zh-CN/menu.ts` / `en-US/menu.ts`：补
+  `menu.AccessControl.Announcements`（系统公告 / Announcements）。
+
+**回归测试**
+
+`web/tests/announcementsLocales.test.ts` 5 条：从**页面源码**提取全部
+`pages.announcements.*` id 引用（≥40，防守卫自身空转），断言 zh-CN/en-US 目录都
+存在；单独断言双语菜单键。新增词条时自动跟随，再出现「代码引用了未登记的 id」
+即失败。变异验证：stash 掉本次 locale 改动后 4/5 转红。
+
+修复后全站走查：console error/warn 0 条（修复前同走查 89 条）。
+
+---
+
 ## 汇总
 
 | BUG | 位置 | 状态 | 回归测试 |
@@ -987,6 +1027,8 @@ setter，`status === 'error'` 的 Alert 分支永远不会成立——即 toast 
 | 019 | 权限概览是编造数据（resource="role"／角色名混入） | 已修 | Go 21 条（含改写 4 条固化旧错的用例） |
 | 020 | 权限概览单层平铺、无授权两态 | 已修 | jest 23 条 + 变异验证 7 条转红 |
 | 021 | 个人中心挂广播入口 + 公告无入口 | 已修 | jest 23 条 |
+| 022 | 登录页无 antd App 上下文，登录提示全部丢失 | 已修 | 布线守卫 4 条 + antdApp 3 条 + Playwright 三路径复证 |
+| 023 | 公告页双语词条缺 14 条 + 菜单键缺失 | 已修 | locale 覆盖守卫 5 条（stash 变异 4/5 转红） |
 
 ### 遗留 / 未修
 

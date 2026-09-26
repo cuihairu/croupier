@@ -1,5 +1,6 @@
 export default {
   'menu.AccessControl': '权限与账号',
+  'menu.AccessControl.Announcements': '系统公告',
   'menu.AccessControl.UserAccount': '账号中心',
   'menu.AccessControl.UserAccount.Center': '个人中心',
   'menu.AccessControl.UserAccount.Messages': '消息通知',

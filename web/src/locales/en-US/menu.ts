@@ -1,5 +1,6 @@
 export default {
   'menu.AccessControl': 'Access & Accounts',
+  'menu.AccessControl.Announcements': 'Announcements',
   'menu.AccessControl.UserAccount': 'Account Center',
   'menu.AccessControl.UserAccount.Center': 'Account Center',
   'menu.AccessControl.UserAccount.Messages': 'Messages',
