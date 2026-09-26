@@ -2,6 +2,7 @@ package dispatch
 
 import (
 	"fmt"
+	"math"
 	"sync"
 	"testing"
 	"time"
@@ -123,19 +124,43 @@ func TestHealthTracker_ScoreDecay(t *testing.T) {
 		t.Errorf("expected initial score 100.0, got %f", state.HealthScore())
 	}
 
-	// Wait for decay
-	time.Sleep(150 * time.Millisecond)
+	// Wait for decay.
+	//
+	// 原实现是 `time.Sleep(150ms)` 后直接断言——把「100ms 的 decay ticker 一定
+	// 至少跳过一次」当成了前提。机器繁忙时（构建/其它测试抢 CPU）ticker 可能
+	// 150ms 内没被调度到，用例就以「score 仍为 100」失败，与被测逻辑无关
+	// （docs/BUGS.md BUG-014）。改为轮询到「已衰减」为止并给出宽松上界。
+	const decayDeadline = 3 * time.Second
+	deadline := time.Now().Add(decayDeadline)
+	for state.HealthScore() >= 100.0 && time.Now().Before(deadline) {
+		time.Sleep(5 * time.Millisecond)
+	}
 
-	// Score should have decayed
 	newScore := state.HealthScore()
 	if newScore >= 100.0 {
-		t.Errorf("expected score to decay, still at %f", newScore)
+		t.Fatalf("等待 %v 后分数仍未衰减: %f", decayDeadline, newScore)
 	}
-	if newScore < 40.0 {
-		t.Errorf("score decayed too much: %f", newScore)
+	if newScore < 0.0 {
+		t.Errorf("分数衰减到下限以下: %f", newScore)
+	}
+	// 每跳衰减 ScoreDecayRate=0.5，故最终分数必为 100 * 0.5^n（n>=1）。
+	// 断言落在该离散集合上：既能抓住「没按速率衰减」，又不依赖到底跳了几次。
+	if !isHalvingOf(100.0, newScore, 0.5) {
+		t.Errorf("分数 %f 不是 100 按 0.5 连续衰减的结果", newScore)
 	}
 
 	tracker.Stop()
+}
+
+// isHalvingOf 判断 score 是否为 base * ratio^n（n>=1，容差内）。
+func isHalvingOf(base, score, ratio float64) bool {
+	const eps = 1e-6
+	for v := base * ratio; v > eps; v *= ratio {
+		if math.Abs(v-score) < eps {
+			return true
+		}
+	}
+	return false
 }
 
 // TestHealthTracker_CircuitBreakerStateTransitions tests circuit breaker state transitions

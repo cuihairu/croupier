@@ -565,6 +565,52 @@ skew 行为）；`otpauth_test.go`（URI 归一/转义/参数）；`api/auth/mfa
 `MfaSettings.test.tsx` 8 条（二维码渲染/恢复码一次性展示/下载/关闭确认/外部
 账号说明）。
 
+线上链路实测（重启后的本地栈，curl 全流程）：setup → confirm（真实 TOTP 码）→
+一次性返回 10 码 → 无码登录 401 `mfa_required` → 恢复码登录 200 → **同一码重放
+401** → TOTP 登录 200 → disable（code+password）后库中恢复码清零、普通登录恢复。
+
+---
+
+## BUG-014 健康分数衰减用例依赖墙钟，机器繁忙时随机失败
+
+**严重度**：中（不稳定的门禁：会让「全绿」随机器负载随机翻车）
+
+**现象**
+
+`internal/platform/dispatch` 的 `TestHealthTracker_ScoreDecay` 间歇性失败：
+
+    expected score to decay, still at 100.000000
+
+同一份代码在低负载时连续通过，机器繁忙时（本次即遇到同机 45 个 C++ 编译进程、
+load average 144）失败。与被测逻辑无关。
+
+**根因**
+
+用例假定「100ms 的 decay ticker 一定会在 150ms 内至少跳一次」：
+
+```go
+tracker.Start()
+// ...
+time.Sleep(150 * time.Millisecond)
+if state.HealthScore() >= 100.0 { t.Errorf("expected score to decay, ...") }
+```
+
+`scoreDecayLoop` 是后台 goroutine 的 `time.NewTicker`。调度器繁忙时 150ms 内
+`ticker.C` 可能一次都没被消费，分数原封不动 → 用例失败。这与 BUG-001 同源：
+**测试把环境时序当成了前提**。
+
+**修复**
+
+改为轮询到「已衰减」为止并给出宽松上界（3s deadline），断言换成与实际跳数
+无关的不变量：
+
+- 分数确实下降（否则报超时并带上实际等待时长，便于定位）；
+- 分数落在 `100 × 0.5^n`（n≥1）的离散集合上——既锁住「按 `ScoreDecayRate`
+  衰减」，又不依赖到底跳了几次。
+
+**验证**：修复后连跑 5 次通过；再人为拉起 8 个 CPU 忙循环制造竞争，连跑 3 次
+仍全绿（原实现在该条件下失败）。
+
 ---
 
 ## 汇总
@@ -584,6 +630,7 @@ skew 行为）；`otpauth_test.go`（URI 归一/转义/参数）；`api/auth/mfa
 | 011 | 审计日志两页 rowKey 全同 | 已修 | 8 条 jest（判别力已验证） |
 | 012 | 头像数据互清/死链/404/顶栏恒占位 | 已修 | Go 2 套 + jest 11 条 + 实测全链路 |
 | 013 | MFA 绑定不可用 + 无恢复码兜底 | 已修 | RFC 向量 + Go 14 条 + jest 8 条 |
+| 014 | 健康分数衰减用例依赖墙钟 | 已修 | 改写为轮询 + 离散不变量 |
 
 ### 遗留 / 未修
 
@@ -591,10 +638,9 @@ skew 行为）；`otpauth_test.go`（URI 归一/转义/参数）；`api/auth/mfa
   `Space.Compact`（6 处）或 `Input.prefix`（3 处）。`prefix` 把标签从输入框**外侧**
   移到**内侧**，这两处的标签位置与改写前不同；已通过组件级单测锁定交互与取值，
   像素级差异未做视觉回归。
-- **BUG-002 的存量数据**：本机 `data/croupier.db` 里 `admin` 的
-  `nickname/email/phone` 仍为空。修复只在 **server 启动时的 `seedBootstrapAdmins`**
-  里回填，而当前跑着的 `./bin/croupier-server` 是修复前的二进制（构建于本轮改动
-  之前）。重启服务后应自动补齐；本轮未重启，以免打断正在使用该栈的手工验证。
+- ~~**BUG-002 的存量数据**~~（已验证关闭）：重建二进制并重启 server 后，
+  `seedBootstrapAdmins` 自动回填，`GET /api/v1/profile` 对 `admin` 返回
+  `nickname: "系统管理员"`、`email: "admin@croupier.local"`。
 - **`Space.Compact` 的宽度行为**：`Space.Compact` 宽度由内容撑开，
   `Analytics/Behavior` 的 `PathControls` 与 `OpenAPISources` 的两个弹窗宽度可能与
   改写前有细微差异。已通过组件级单测锁定交互与取值；像素级差异未做视觉回归。
