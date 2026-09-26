@@ -1349,6 +1349,102 @@ map，REST Delete/前端都没接这路信息——引导账号与普通账号�
 
 ---
 
+## BUG-030 resource-catalog 分类/搜索过滤静默失效：query 绑定按字段名精确匹配
+
+**严重度**：高（功能完全不可用——「选择分类」「搜索」两个前端交互恒无效果，
+用户多次反馈）。
+
+**现象与背景**
+
+`/functions/resource-catalog` 页面选择分类后列表不变。前端接线正确
+（Select onChange → `?category=...` → 自动 refetch），后端 `List()` 的
+category 过滤逻辑本身正确。线上实锤：`GET /api/v1/resource-catalog?category=inventory`
+返回全量 5 条，`?Category=inventory`（大写 C）过滤生效——差一个字母大小写。
+
+**根因（helper 设计病 + DTO 触发条件）**
+
+`internal/common/requestbind.BindQueryCompat` 的反射兜底**只在
+`ShouldBindQuery` 返回错误时执行**；而 gin 的 `ShouldBindQuery` 对无 form tag
+字段按**字段名精确匹配**（大小写敏感），且 string-only 结构体绑定恒成功：
+
+1. `resourcecatalog.ListRequest` 四个字段全无 form tag → gin 按字段名
+   `Category` 匹配，前端契约键 `category` 永不命中；
+2. 绑定又恒「成功」→ 旧代码的反射 fallback 一行都不会执行。
+
+双重失效叠加，过滤参数静默丢失。`handler_coverage_test.go` 里原有的
+`?query=player` 用例只用单个种子数据断言 `Total==1`——不过滤时也是 1，
+**测试看起来覆盖了过滤，实际无判别力**，bug 因此存活。
+
+**修复**
+
+1. `ListRequest` 显式补 canonical form tag（`form:"gameId"/"env"/"category"/"query"`）——本例修复；
+2. `BindQueryCompat` 反射兜底改为**始终执行**（绑定错误不提前返回），无 tag
+   字段按 lcFirst → 全小写 → 大小写不敏感三档兜底。Go 缩写风格字段名
+   （`GameID`）与契约键（`gameId`）大小写分布不同，纯字符串变换推不出来，
+   最后一档 `strings.EqualFold` 兜住。
+
+**回归测试（修复前红/修复后绿）**
+
+- `TestBindQueryCompat_UntaggedFieldsBindLowercaseNames`（无 tag 结构体 +
+  小写 key：gameId/env/category/query/id 全绑定、`form:"-"` 不绑定）；
+- `TestBindQueryCompat_TaggedFieldsStillWinOverLowercaseFallback`（form tag 键优先）；
+- `TestHandler_List_CategoryAndQueryFiltersBindLowercaseParams`（双资源种子下
+  category/query 过滤真收窄——旧实现 total 恒 2）；
+- 改写 `TestHandler_Upsert_GETMethod`（internal/api/config，同病类第三例）：
+  旧断言只查「非 400」，实际 gin 绑不上 `key/value`、service 拿空 key 报错
+  500，测试**因错误原因转绿**；修复使绑定真正生效后暴露该测试 service 为
+  半构造空壳（nil model 会 panic）。改为兄弟用例同款的绑定直测断言
+  （旧代码 req.Key 恒空，可作回归）；
+- 改写 `TestBindQueryCompatJSONFallback`：原断言「json tags don't work with
+  query binding」是**把缺陷固化成预期**的 characterization test，改为断言
+  json fallback 真正兜底。
+
+**教训**
+
+gin 的 `ShouldBindQuery`「成功」≠「绑定上了」；string-only DTO 上它永远
+成功。凡「仅在出错时才走」的兜底路径，遇到恒成功的前置调用就是死代码。
+
+---
+
+## BUG-031 functions/pages 提案版本灌水：jsonb 键序致 digest 恒不等
+
+**严重度**：高（线上每 ~4 分钟 +11 个无意义提案版本，重启/agent 重连后
+functions/pages 冒出一堆需人工处理的警告；已实证单提案累积 2927+ 版）。
+
+**现象与背景**
+
+每次 server 重启或 agent 重连，`/functions/pages` 就出现一批「页面提案待
+确认」警告。demo 重启并不会改字段——用户判断为误报 bug。受控复证：重启
+croupier-agent 后 `proposal_versions` 从 2927 涨到 2971；相邻版本 payload
+diff 的**唯一差异是 UpdatedAt**，`function_digest`/`semantics_digest` 列恒等。
+
+**根因**
+
+`proposalComparableDigest` 对 PageSpec/Diagnostics 的 `model.JSON` **原始
+字节**做哈希，但 `page_proposals.page_spec`/`diagnostics` 是 Postgres
+**jsonb** 列——jsonb 会重排对象键序、去空白。fresh marshal 出的字节与 DB
+回读的字节**永不相等** → `generatedProposalChanged` 恒真 → 每轮提案重建都
+判定「内容变了」，灌入新版本快照。快照灌水同时触发待处理警告堆积。
+
+**修复**
+
+新增 `canonicalJSONBytes`（unmarshal → 重 marshal 键序归一），PageSpec/
+Diagnostics 进 digest 前先归一化，再与 DB 回读侧同法归一后比较。
+
+**回归测试（修复前红/修复后绿）**
+
+`TestGeneratedProposalChanged` 头部新增 jsonb 回归：键序不同的等价 JSON
+（`{"b":1,"a":{"y":1,"x":[2,3]}}` vs 重排+去空白形态）断言「不变化」；
+仅值变化（`"b":2`）仍断言「变化」。修复前第一条恒红（字节 digest 判真）。
+
+**教训**
+
+与 jsonb 列比较一律先键序归一化；「语义相同、字节不同」的存储往返是
+digest/幂等类逻辑的隐形炸弹——本地 sqlite（JSON 文本原样存取）测不出，
+只有线上 postgres 走 jsonb 路径。
+
+---
+
 ## 汇总
 
 | BUG | 位置 | 状态 | 回归测试 |
@@ -1382,6 +1478,8 @@ map，REST Delete/前端都没接这路信息——引导账号与普通账号�
 | 027 | 工单详情 Descriptions span 越界刷告警 | 已修 | jest 1 条（修复前红/修复后绿，spy console.error）|
 | 028 | 引导管理员可被删除 + 缺禁用/解封入口 | 已修 | Go 4 条（含 guard 变异转红）+ jest 3 条 |
 | 029 | 实例元数据端到端丢失（SDK 交接链 + agent TCP 路径双漏点） | 已修 | Go SDK 3 条（含帧级）+ agent 2 条（TCP 真连接）|
+| 030 | resource-catalog 分类/搜索过滤静默失效（query 绑定按字段名精确匹配） | 已修 | requestbind 3 条 + handler 过滤收窄 1 条（均修复前红）|
+| 031 | functions/pages 提案版本灌水（jsonb 键序致 digest 恒不等） | 已修 | TestGeneratedProposalChanged jsonb 回归（修复前红）|
 
 ### 遗留 / 未修
 
