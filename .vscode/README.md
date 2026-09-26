@@ -2,7 +2,7 @@
 
 本目录包含 Croupier 项目的 VS Code 配置。
 
-## 📁 文件说明
+## 文件说明
 
 | 文件 | 用途 |
 |------|------|
@@ -12,7 +12,7 @@
 | `extensions.json` | 推荐扩展 |
 | `AGENT-DEBUG-GUIDE.md` | Agent 调试指南 |
 
-## 🚀 快速开始
+## 快速开始
 
 ### 1. 安装推荐扩展
 
@@ -50,7 +50,7 @@ VS Code 会自动提示安装 `.vscode/extensions.json` 中的推荐扩展。
 - `make: proto` - 生成 proto 代码
 - `make: pack` - 生成 pack 文件
 
-## 📝 项目设置
+## 项目设置
 
 `settings.json` 包含以下配置：
 
@@ -77,7 +77,7 @@ VS Code 会自动提示安装 `.vscode/extensions.json` 中的推荐扩展。
 }
 ```
 
-## 🔍 调试技巧
+## 调试技巧
 
 ### 1. 设置断点
 
@@ -95,7 +95,7 @@ VS Code 会自动提示安装 `.vscode/extensions.json` 中的推荐扩展。
 
 在 "DEBUG CONSOLE" 中查看程序输出。
 
-## 🎯 常用操作
+## 常用操作
 
 ### 启动 Server + Agent
 
@@ -117,7 +117,7 @@ VS Code 会自动提示安装 `.vscode/extensions.json` 中的推荐扩展。
 2. 按 F5 → 选择 "Agent (微服务架构)"
 3. 测试函数调用
 
-## 📚 更多文档
+## 更多文档
 
 - [Agent 调试指南](./AGENT-DEBUG-GUIDE.md)
 - [快速开始](../services/agent/etc/QUICKSTART.md)

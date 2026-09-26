@@ -189,8 +189,8 @@ https://github.com/[your-org]/croupier-dashboard/releases/new
 
 ### 4. 发布选项
 
-- ✅ Set as the latest release
-- ⬜ Set as a pre-release (如果是测试版本)
+- [Set as the latest release]
+- [Set as a pre-release (如果是测试版本)]
 
 ---
 

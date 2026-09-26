@@ -1,8 +1,8 @@
-# 📡 Croupier Node.js SDK 文件传输示例
+# Croupier Node.js SDK 文件传输示例
 
 这个示例展示了如何使用Croupier Node.js SDK进行文件传输，为服务器端热重载提供基础支持。
 
-## 🚀 快速开始
+## 快速开始
 
 ### 1. 安装依赖
 
@@ -33,7 +33,7 @@ npm start
 npm run dev
 ```
 
-## 📡 文件传输功能
+## 文件传输功能
 
 ### 基础文件上传
 
@@ -94,19 +94,19 @@ await client.uploadFileStream({
 });
 ```
 
-## 🛠️ 开发状态
+## 开发状态
 
 当前SDK文件传输功能正在开发中：
 
-- ✅ 接口定义完成
-- ✅ TypeScript类型支持
-- ✅ 客户端侧文件预检与元数据封装
-- ✅ 流式内容预检支持
-- ✅ 批量预检支持
-- ✅ 上传进度回调
-- ✅ 批量失败明细
+- [接口定义完成]
+- [TypeScript类型支持]
+- [客户端侧文件预检与元数据封装]
+- [流式内容预检支持]
+- [批量预检支持]
+- [上传进度回调]
+- [批量失败明细]
 
-## 🎯 功能演示
+## 功能演示
 
 当前示例展示：
 
@@ -120,7 +120,7 @@ await client.uploadFileStream({
    - 元数据处理
    - 基础文件操作
 
-## 🔧 配置选项
+## 配置选项
 
 ### 客户端配置
 
@@ -153,7 +153,7 @@ const config: FileTransferConfig = {
 };
 ```
 
-## 📊 示例函数处理器
+## 示例函数处理器
 
 ### 玩家封禁处理器
 
@@ -227,7 +227,7 @@ const walletTransferHandler: FunctionHandler = async (
 };
 ```
 
-## 🚨 故障排除
+## 故障排除
 
 ### 常见问题
 
@@ -281,7 +281,7 @@ const walletTransferHandler: FunctionHandler = async (
    - 监控传输进度
    - 启用压缩减少带宽使用
 
-## 📚 相关文档
+## 相关文档
 
 - [Croupier 主文档](https://docs.croupier.io)
 - [SDK 功能矩阵](../../SDK_FEATURE_MATRIX.md)

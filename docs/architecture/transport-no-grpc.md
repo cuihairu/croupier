@@ -36,7 +36,7 @@ Croupier 内部 RPC(Server ↔ Agent ↔ SDK Provider)**不使用 gRPC**,采用�
 - 强契约由 proto IDL 保证;传输层轻量、可控、易调试。
 - 如需 gRPC 才有的能力(例如统一 error 协议),在自研 RPC 层补齐(定义 `Status`/`RpcError` proto 消息),**而非引入 gRPC**。
 
-## 为什么「简单 TCP」对 SDK ↔ Agent 足够
+## 为什么「简单 TCP」对 SDK [Agent 足够]
 
 这条链路的**部署拓扑**决定了传输选型:SDK(游戏服务器进程)→ Agent 几乎总是
 同机或同游戏网络——不走公网、不穿 CDN/代理链。在该前提下,gRPC/HTTP2 换来的

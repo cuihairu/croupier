@@ -298,7 +298,7 @@ request: async (params, defaultMenuData) => {
 
 > 以下为原提案内容。标注 ⚠️ 的条目为评审发现的勘误，实施时必须修正。
 
-### A.1 路由结构 ⚠️
+### A.1 路由结构
 
 ```
 /design/*   → 设计态（DesignLayout）
@@ -398,7 +398,7 @@ RuntimeLayout：
 ⚠️ 勘误：两个 Layout 的 chrome（header actions、avatar、footer、menu.request、childrenRender）
 如何复用 `web/src/app.tsx` 现有 `RunTimeLayoutConfig`，必须给出明确方案（建议抽取共享 hook/配置工厂）。
 
-### A.3 核心组件 ⚠️
+### A.3 核心组件
 
 Layout 切换（⚠️ `useHistory` 为无效 API，应使用 `history` 或 `useNavigate`）：
 
@@ -493,7 +493,7 @@ web/src/
     └── defaultSettings.ts
 ```
 
-### A.6 路由配置要点 ⚠️
+### A.6 路由配置要点
 
 ⚠️ 勘误：原文档 `layout: 'DesignLayout'` 写法无效。正确结构示例：
 
@@ -542,7 +542,7 @@ export default [
 ];
 ```
 
-### A.7 权限模型 ⚠️
+### A.7 权限模型
 
 ⚠️ 勘误：需新增两个 Layout 级派生权限（在 `web/src/access.ts`）：
 
@@ -561,7 +561,7 @@ canRuntimeAccess: canConsoleRead || canAnalyticsRead || canOpsRead || canSupport
 - 运营人员：仅运行态可见，进 `/runtime`
 - 无权限用户：跳转 `/403`
 
-### A.8 向后兼容 ⚠️
+### A.8 向后兼容
 
 ⚠️ 勘误：静态 redirect 表无法覆盖带参数路径。实施方案：
 

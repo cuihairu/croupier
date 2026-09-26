@@ -197,7 +197,7 @@ vrrp_instance VI_CROUPIER {
 
 无论入口层怎么换型，Agent 不需要任何改动：单地址连接 + 断线退避重连 + 重新注册（owner 随之更新到新实例）。换 LB 只需改 `agent.yaml` 的 `server.addr` 指向新入口。
 
-## 迁移路径（nginx stream → HAProxy）
+## 迁移路径（nginx stream [HAProxy]
 
 1. 起新 HAProxy（指向现有 croupier-server/croupier-server2:19090）
 2. 灰度：先改一个 agent 的 `server.addr` 指向 HAProxy，验证注册与调用正常

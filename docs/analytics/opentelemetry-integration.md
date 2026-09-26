@@ -2,7 +2,7 @@
 
 本文档详细介绍如何使用 OpenTelemetry (OTel) 构建现代化的游戏数据分析系统。
 
-## 🎯 为什么选择 OpenTelemetry
+## 为什么选择 OpenTelemetry
 
 ### 传统方案 vs OpenTelemetry
 
@@ -14,7 +14,7 @@
 | **扩展性** | 硬编码集成，难扩展 | 丰富的Exporter生态 | 支持任意后端存储 |
 | **性能** | 自建优化，经验有限 | 工业级性能优化 | 高吞吐低延迟 |
 
-## 🏗️ 架构设计
+## 架构设计
 
 ### 整体架构图
 
@@ -73,7 +73,7 @@ graph TB
     F4 --> G3
 ```
 
-## 📋 游戏语义标准化
+## 游戏语义标准化
 
 ### 核心属性定义
 
@@ -333,7 +333,7 @@ func NewGameMetrics(meter metric.Meter) *GameMetrics {
 }
 ```
 
-## 🎮 客户端集成
+## 客户端集成
 
 ### Unity C# SDK 实现
 
@@ -742,7 +742,7 @@ namespace Croupier.Analytics.OpenTelemetry
 }
 ```
 
-## 🖥️ 服务器端集成
+## 服务器端集成
 
 ### Go服务器SDK实现
 
@@ -1101,7 +1101,7 @@ type GameEvent struct {
 }
 ```
 
-## ⚙️ OpenTelemetry Collector 配置
+## OpenTelemetry Collector 配置
 
 ### 游戏优化的Collector配置
 
@@ -1338,7 +1338,7 @@ zpages:
   endpoint: "localhost:55679"
 ```
 
-## 📊 数据查询示例
+## 数据查询示例
 
 ### ClickHouse查询优化
 
@@ -1472,7 +1472,7 @@ HAVING sample_count >= 10
 ORDER BY avg_fps ASC;
 ```
 
-## 🚀 部署指南
+## 部署指南
 
 ### Docker Compose 部署
 
@@ -1719,7 +1719,7 @@ echo "  - OTLP HTTP: http://localhost:4318"
 echo "  - OTLP gRPC: localhost:4317"
 ```
 
-## 📈 业务价值总结
+## 业务价值总结
 
 ### 实施前 vs 实施后对比
 
@@ -1752,7 +1752,7 @@ ROI = (21人月 - 4.5人月) / 4.5人月 = 367%
 
 ---
 
-> 💡 **最佳实践总结**:
+> [**最佳实践总结**:]
 > 1. **分阶段实施**: 先服务器端，再客户端，最后高级功能
 > 2. **合理采样**: 根据业务重要性制定采样策略，平衡性能和数据完整性
 > 3. **标准化优先**: 严格按照OpenTelemetry语义规范定义属性和事件

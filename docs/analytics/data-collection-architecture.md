@@ -2,7 +2,7 @@
 
 本文档详细描述了游戏数据采集的技术架构，包括客户端、服务器端和混合采集策略的最佳实践。
 
-## 🏗️ 总体架构图
+## 总体架构图
 
 ```mermaid
 graph TB
@@ -77,7 +77,7 @@ graph TB
     F3 --> G3
 ```
 
-## 📱 客户端采集策略
+## 客户端采集策略
 
 ### 一、Unity客户端SDK设计
 
@@ -498,7 +498,7 @@ public class SecurityUtils
 }
 ```
 
-## 🖥️ 服务器端采集策略
+## 服务器端采集策略
 
 ### 一、服务器端数据源
 
@@ -798,7 +798,7 @@ func (r *RealTimeAggregator) UpdateRevenue(ctx context.Context, gameID, env stri
 }
 ```
 
-## ⚖️ 混合采集策略
+## 混合采集策略
 
 ### 一、数据源协调
 
@@ -958,7 +958,7 @@ var defaultEventRules = map[string]RoutingRule{
 }
 ```
 
-## 🔄 数据流处理管道
+## 数据流处理管道
 
 ### 一、数据收集网关
 
@@ -1063,7 +1063,7 @@ func (d *DataCollectionGateway) enrichEvent(rawEvent RawEvent) EnrichedEvent {
     compression: gzip
 ```
 
-## 📊 采集策略建议
+## 采集策略建议
 
 ### 一、按游戏类型的采集策略
 
@@ -1170,7 +1170,7 @@ func (a *AnomalyDetector) DetectAnomaly(metric string, value float64, timestamp 
 
 ---
 
-> 💡 **最佳实践**:
+> [**最佳实践**:]
 > 1. 关键业务数据以服务器端为准，客户端数据用于体验优化
 > 2. 建立多层防作弊机制，包括数字签名、行为模式分析等
 > 3. 根据数据重要性制定不同的采样策略，平衡性能和数据完整性

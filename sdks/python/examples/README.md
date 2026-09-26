@@ -1,8 +1,8 @@
-# 📡 Croupier Python SDK 文件传输示例
+# Croupier Python SDK 文件传输示例
 
 这个示例展示了如何使用Croupier Python SDK进行文件传输，为服务器端热重载提供基础支持。
 
-## 🚀 快速开始
+## 快速开始
 
 ### 1. 安装依赖
 
@@ -35,7 +35,7 @@ make build
 python main.py
 ```
 
-## 📡 文件传输功能
+## 文件传输功能
 
 ### 基础文件上传
 
@@ -73,17 +73,17 @@ for file_info in files:
     await client.upload_file(file_info)
 ```
 
-## 🛠️ 开发状态
+## 开发状态
 
 当前SDK文件传输功能正在开发中：
 
-- ✅ 接口定义完成
-- ✅ 类型提示支持
-- 🚧 文件传输实现（开发中）
-- 🚧 批量操作支持（规划中）
-- 🚧 传输进度监控（规划中）
+- [接口定义完成]
+- [类型提示支持]
+- [文件传输实现（开发中）]
+- [批量操作支持（规划中）]
+- [传输进度监控（规划中）]
 
-## 🎯 功能演示
+## 功能演示
 
 当前示例展示：
 
@@ -97,7 +97,7 @@ for file_info in files:
    - 元数据处理
    - 基础文件操作
 
-## 🔧 配置选项
+## 配置选项
 
 ### 客户端配置
 
@@ -122,7 +122,7 @@ transfer_config = {
 }
 ```
 
-## 📊 示例函数处理器
+## 示例函数处理器
 
 ### 玩家封禁处理器
 
@@ -157,7 +157,7 @@ async def handle_server_status(payload: Dict[str, Any]) -> Dict[str, Any]:
     }
 ```
 
-## 🚨 故障排除
+## 故障排除
 
 ### 常见问题
 
@@ -204,7 +204,7 @@ async def handle_server_status(payload: Dict[str, Any]) -> Dict[str, Any]:
    - 实现并发上传
    - 监控传输进度
 
-## 📚 依赖说明
+## 依赖说明
 
 ### 核心依赖
 
@@ -223,7 +223,7 @@ psutil           # 系统资源监控
 aiofiles         # 异步文件操作
 ```
 
-## 📚 相关文档
+## 相关文档
 
 - [Croupier 主文档](https://docs.croupier.io)
 - [gRPC API 参考](https://docs.croupier.io/api/grpc)

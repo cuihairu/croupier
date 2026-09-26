@@ -1,6 +1,6 @@
 # JavaScript SDK 配置项补充总结
 
-## ✅ 完成的工作
+## 完成的工作
 
 已成功为 JavaScript SDK 补充了 **10 个配置项**，使其与 Java 和 C++ SDK 对齐。
 
@@ -190,11 +190,11 @@ Time:        1.467 s
 
 测试覆盖：
 
-- ✅ 基本客户端功能
-- ✅ 函数注册和调用
-- ✅ 作业管理
-- ✅ TCP 传输层
-- ✅ 线程/调度器
+- [基本客户端功能]
+- [函数注册和调用]
+- [作业管理]
+- [TCP 传输层]
+- [线程/调度器]
 
 ## 配置项使用示例
 
@@ -287,7 +287,7 @@ controlAddr?: string;   // 控制服务地址（默认: ''）
 
 - `controlAddr`: 指定控制平面服务的地址
 
-> ⚠️ **历史说明：** `localListen` 配置项已被废弃。SDK 不再使用本地监听模型。
+> [**历史说明：** `localListen` 配置项已被废弃。SDK 不再使用本地监听模型。]
 
 **示例：**
 
@@ -299,9 +299,9 @@ const client = new CroupierClient({
 
 **对齐状态：**
 
-- ✅ Java SDK: 支持 `controlAddr`
-- ✅ C++ SDK: 支持 `control_addr`
-- ✅ JavaScript SDK: 现已支持
+- [Java SDK: 支持 `controlAddr`]
+- [C++ SDK: 支持 `control_addr`]
+- [JavaScript SDK: 现已支持]
 
 ### 8. 日志配置 (Logging)
 
@@ -340,9 +340,9 @@ const perfClient = new CroupierClient({
 
 **对齐状态：**
 
-- ✅ Java SDK: 支持 `disableLogging`, `debugLogging`, `logLevel`
-- ✅ C++ SDK: 支持 `disable_logging`, `debug_logging`, `log_level`
-- ✅ JavaScript SDK: 现已支持
+- [Java SDK: 支持 `disableLogging`, `debugLogging`, `logLevel`]
+- [C++ SDK: 支持 `disable_logging`, `debug_logging`, `log_level`]
+- [JavaScript SDK: 现已支持]
 
 ## 更新的功能对齐状态
 
@@ -358,9 +358,9 @@ const perfClient = new CroupierClient({
 
 新增测试用例：
 
-- ✅ localListen 配置测试 (3 个)
-- ✅ controlAddr 配置测试 (3 个)
-- ✅ 日志配置测试 (6 个)
+- [localListen 配置测试 (3 个)]
+- [controlAddr 配置测试 (3 个)]
+- [日志配置测试 (6 个)]
 
 **总计**: 12 个新测试用例
 **测试总数**: 154 → **166** (+12)
@@ -370,17 +370,17 @@ const perfClient = new CroupierClient({
 
 JavaScript SDK 现在支持以下所有配置类别：
 
-1. ✅ **连接配置** - agentAddr, timeout, localListen, controlAddr
-2. ✅ **服务标识** - serviceId, serviceVersion
-3. ✅ **游戏上下文** - gameId, env
-4. ✅ **心跳** - heartbeatIntervalSeconds
-5. ✅ **提供者信息** - providerLang, providerSdk
-6. ✅ **TLS 配置** - insecure, certFile, keyFile, caFile
-7. ✅ **认证** - authToken, headers
-8. ✅ **重连** - autoReconnect, reconnectInterval, reconnect (ReconnectConfig)
-9. ✅ **重试** - retry (RetryConfig)
-10. ✅ **文件传输** - enableFileTransfer, maxFileSize
-11. ✅ **日志** - disableLogging, debugLogging, logLevel
+1. [**连接配置** - agentAddr, timeout, localListen, controlAddr]
+2. [**服务标识** - serviceId, serviceVersion]
+3. [**游戏上下文** - gameId, env]
+4. [**心跳** - heartbeatIntervalSeconds]
+5. [**提供者信息** - providerLang, providerSdk]
+6. [**TLS 配置** - insecure, certFile, keyFile, caFile]
+7. [**认证** - authToken, headers]
+8. [**重连** - autoReconnect, reconnectInterval, reconnect (ReconnectConfig)]
+9. [**重试** - retry (RetryConfig)]
+10. [**文件传输** - enableFileTransfer, maxFileSize]
+11. [**日志** - disableLogging, debugLogging, logLevel]
 
 **总配置项数**: 24 个
 **与 Java/C++ 对齐度**: **95%** 🎉

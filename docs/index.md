@@ -1,29 +1,36 @@
 ---
-home: true
+layout: home
 title: 首页
-heroImage: /logo.png
-heroText: Croupier
-tagline: 分布式游戏运营控制面与 Agent 协同平台
-actions:
-  - text: 快速开始 →
-    link: /guide/quick-start
-    type: primary
-  - text: SDK 指南
-    link: /sdks/
-    type: secondary
-  - text: API 参考
-    link: /api/
-    type: secondary
+hero:
+  name: Croupier
+  image:
+    src: /logo.png
+  tagline: 分布式游戏运营控制面与 Agent 协同平台
+  actions:
+    - text: 快速开始 →
+      link: /guide/quick-start
+      theme: primary
+    - text: SDK 指南
+      link: /sdks/
+      theme: secondary
+    - text: API 参考
+      link: /api/
+      theme: secondary
 features:
-  - title: 控制面与 Agent 协同
+  - icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" width="24" height="24"><rect x="3" y="4.5" width="18" height="13" rx="2"/><path d="M7 9h5"/><path d="M7 13h7"/><circle cx="17" cy="9" r="1.6"/><circle cx="17" cy="13" r="1.6"/><path d="M9 17.5v2"/><path d="M15 17.5v2"/></svg>'
+    title: 控制面与 Agent 协同
     details: Server 负责权限、审批、审计、配置和函数路由，Agent 通过统一 session 链路接入游戏服务与节点能力。
-  - title: 函数注册驱动
+  - icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" width="24" height="24"><path d="M9.5 3.5h5v3h-5z"/><rect x="4.5" y="6.5" width="15" height="14" rx="2"/><path d="M8.5 11.5h7"/><path d="M8.5 15.5h4.5"/><path d="M15.5 15.5h1.5"/></svg>'
+    title: 函数注册驱动
     details: OpenAPI/JSON Schema 作为函数契约输入，Server 识别资源能力并生成可直接发布、可局部编辑的默认业务页面。
-  - title: 双层政策架构
+  - icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" width="24" height="24"><path d="M12 3 5 6v5.2c0 4.4 2.9 7.4 7 8.8 4.1-1.4 7-4.4 7-8.8V6l-7-3z"/><path d="M9 10.5h6"/><path d="M9 14h6"/></svg>'
+    title: 双层政策架构
     details: YAML 默认政策与数据库覆盖策略结合，支持低/中/高/危险四级风险控制。
-  - title: 完整的审计链
+  - icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" width="24" height="24"><path d="M9.5 14.5H7a2.5 2.5 0 0 1 0-5h2.5"/><path d="M14.5 9.5H17a2.5 2.5 0 0 1 0 5h-2.5"/><path d="M8.5 12h7"/><circle cx="12" cy="12" r="9" stroke-dasharray="2.5 3.5"/></svg>'
+    title: 完整的审计链
     details: 所有操作记录审计日志，高风险操作需要双人审批，支持哈希链防篡改。
-  - title: 数据分析链路
+  - icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" width="24" height="24"><path d="M4 20V11"/><path d="M9.5 20V5"/><path d="M15 20v-6"/><path d="M20.5 20V8"/><path d="m3.5 8.5 5-4 5 4.5 6-5.5"/></svg>'
+    title: 数据分析链路
     details: ingest、worker、Redis Streams 与 ClickHouse 组成独立分析链路，文档单独归入 Analytics 入口。
 footer: Apache-2.0 License | Copyright © 2024-present Croupier
 ---

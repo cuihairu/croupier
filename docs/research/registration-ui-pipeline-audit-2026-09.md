@@ -1,4 +1,4 @@
-# 函数注册 → UI 生成链路审核（2026-09）
+# 函数注册 [UI 生成链路审核（2026-09]
 
 > 状态说明：本文档为审核落盘 + 修复进度跟踪。所有 file:line 已逐条人工核对（2026-09-19）。
 > 「修复批次」列：`B1`=本批修复，`backlog`=记录待办不修。中断后按状态列续作。
@@ -45,7 +45,7 @@ Web ──HTTP:18780──▶ /api/v1/functions/descriptors（FunctionSpec wire�
 | 2.6 | 治理字段事前无感    | wire 有 `approval/permission/risk/executionState/timeoutMs`，TS `FunctionDescriptor`（functions.ts:14-38）未声明未消费：下拉不标注高危/需审批/unbound，选中 unbound 照发拿非结构化失败                                                                                                                                                                                                                                                                                                          | backlog(1.3 修复后至少 timeoutMs 可见) | —    |
 | 2.7 | 死字段/孤儿代码     | TS `FunctionInvokeResponse` 的 duration/timestamp/error 后端不存在（`functions.ts:178-189` vs `dto.go:180-196`）；broadcast 后端有前端无；`plugin/registry.tsx`+`transform.ts` 零生产引用；`PermissionGuard`/`useAnyPermission` 零引用                                                                                                                                                                                                                                                          | backlog                                | —    |
 
-## 3. 阶段三：UI 生成——发布通道（Proposal → PublishedPageSpec）
+## 3. 阶段三：UI 生成——发布通道（Proposal [PublishedPageSpec]
 
 | #   | 环节                                | 关键点（已核对）                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             | 批次                                                           | 状态 |
 | --- | ----------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------- | ---- |
@@ -69,7 +69,7 @@ Web ──HTTP:18780──▶ /api/v1/functions/descriptors（FunctionSpec wire�
 
 DoD 检查（交付前）：`go build ./...`、`go test ./internal/...`（至少触及包）、`gofmt -l .` 空、`pnpm --dir web run tsc` 0 错误、web 相关 jest 用例、`bash scripts/dashboard_vnext_guard.sh`（仓库根）、文档同步（presentation-hints.md / ui-generation.md 补「required/defaultValue/validationRules 已生效」与 risk 映射说明；CLAUDE.md pack 表述纠偏）。
 
-## 4A. B2 立项：函数契约版本历史 ✅已实施（2026-09-19，落地与设计一致，差异见交付记录）
+## 4A. B2 立项：函数契约版本历史 [已实施（2026-09-19，落地与设计一致，差异见交付记录]
 
 现状缺口：`function_contracts` 每函数仅一行（唯一索引 `(game_id,env,function_id)`），历史只有 `prev_*_schema` 一步回看；`CapabilitySemanticVersion` 是资源语义的版本表先例，函数契约无对应物。
 

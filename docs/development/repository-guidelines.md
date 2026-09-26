@@ -32,7 +32,7 @@ title: 仓库规范
 
 平台状态字段与用户契约枚举采用两套完全不同的机制，禁止混用：
 
-### 1) 平台状态机 → Go int 枚举 + DB int 列
+### 1) 平台状态机 [Go int 枚举 + DB int 列]
 
 平台自有状态列（词表由平台定义、编译期收敛）一律使用 `internal/dbenum` 的 int 底座枚举：
 
@@ -43,7 +43,7 @@ title: 仓库规范
 - 写入边界统一走 `Parse*`（非法值返回 422），禁止裸字符串直接落库；`Scan` 兼容历史 string 行以便迁移期平滑读取。
 - proto/SDK wire 层保持 string（协议不受 DB 枚举化影响）。
 
-### 2) 用户契约枚举 → JSON Schema `enum` 数组透传
+### 2) 用户契约枚举 [JSON Schema `enum` 数组透传]
 
 游戏方在 function spec / OpenAPI 里定义的枚举（哪怕字段也叫 status）是**用户数据**，不是平台状态：
 
@@ -109,10 +109,10 @@ title: 仓库规范
 
 ### 违反示例
 
-- ❌ 新增 `startJob` 作为 `startTask` 的别名"方便迁移"。
-- ❌ 在 README 中把 `rpc_addr` / gRPC 回拨描述为当前链路。
-- ❌ 删除旧字段时不写删除条件、不登记 todo。
-- ✅ 直接把 `startJob` 改名为 `startTask`,更新所有调用点和测试。
+- [新增 `startJob` 作为 `startTask` 的别名"方便迁移"。]
+- [在 README 中把 `rpc_addr` / gRPC 回拨描述为当前链路。]
+- [删除旧字段时不写删除条件、不登记 todo。]
+- [直接把 `startJob` 改名为 `startTask`,更新所有调用点和测试。]
 
 ## 传输层决策(不使用 gRPC)
 

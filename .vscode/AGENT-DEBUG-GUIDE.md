@@ -1,14 +1,14 @@
 # VS Code 调试配置 - Agent OpenAPI 注册
 
-## 📋 可用的启动配置
+## 可用的启动配置
 
 在 VS Code 中按 **F5** 或点击调试面板，可以选择以下配置：
 
-### 1. Agent (多文件示例) ⭐
+### 1. Agent (多文件示例)
 
 **加载内容**：
-- ✅ `openapi.example.yaml` (13 个示例函数)
-- ✅ 所有 Packs (6 个函数)
+- [`openapi.example.yaml` (13 个示例函数)]
+- [所有 Packs (6 个函数)]
 
 **适用场景**：开发测试，快速验证
 
@@ -48,7 +48,7 @@ packs.player.ban
 ### 2. Agent (加载所有 Packs)
 
 **加载内容**：
-- ✅ 所有 Packs 的 OpenAPI 文件
+- [所有 Packs 的 OpenAPI 文件]
 
 **适用场景**：Pack 功能测试
 
@@ -75,9 +75,9 @@ packs.alertmanager.list_alerts
 ### 3. Agent (调试模式)
 
 **特点**：
-- ✅ Debug 模式（可设置断点）
-- ✅ 详细的日志输出
-- ✅ 开发环境标识
+- [Debug 模式（可设置断点）]
+- [详细的日志输出]
+- [开发环境标识]
 
 **配置**：
 ```json
@@ -94,12 +94,12 @@ packs.alertmanager.list_alerts
 
 ---
 
-### 4. Agent (微服务架构) 🎯
+### 4. Agent (微服务架构)
 
 **特点**：
-- ✅ 配置多个服务（不同端口）
-- ✅ 每个服务独立认证
-- ✅ 模拟微服务架构
+- [配置多个服务（不同端口）]
+- [每个服务独立认证]
+- [模拟微服务架构]
 
 **配置文件**：`services/agent/etc/providers.multi-service.example.yaml`
 
@@ -134,7 +134,7 @@ alerting_service.alertmanager.list_alerts  → localhost:9093
 
 ---
 
-## 🚀 快速开始
+## 快速开始
 
 ### 方式 1: 使用 VS Code 调试（推荐）
 
@@ -172,7 +172,7 @@ PROVIDER_CONFIG=etc/providers.multi-service.example.yaml \
 
 ---
 
-## 🔍 验证函数注册
+## 验证函数注册
 
 ### 1. 查看 Agent 日志
 
@@ -219,7 +219,7 @@ curl -X POST http://localhost:18888/api/v1/functions/invoke \
 
 ---
 
-## 🛠️ 调试技巧
+## 调试技巧
 
 ### 1. 设置断点
 
@@ -262,7 +262,7 @@ curl -X POST http://localhost:18888/api/v1/functions/invoke \
 
 ---
 
-## 📊 配置文件说明
+## 配置文件说明
 
 ### providers.yaml
 
@@ -315,7 +315,7 @@ platforms:
 
 ---
 
-## 🎯 常见场景
+## 常见场景
 
 ### 场景 1: 开发新 OpenAPI 函数
 
@@ -347,7 +347,7 @@ platforms:
 
 ---
 
-## 🐛 故障排查
+## 故障排查
 
 ### 问题 1: Agent 启动失败
 
@@ -372,7 +372,7 @@ platforms:
 
 ---
 
-## 📚 相关文档
+## 相关文档
 
 - [快速参考](../services/agent/etc/QUICKSTART.md)
 - [完整指南](../services/agent/etc/README-OPENAPI.md)
@@ -381,7 +381,7 @@ platforms:
 
 ---
 
-## 💡 最佳实践
+## 最佳实践
 
 ### 1. 使用不同的配置文件
 

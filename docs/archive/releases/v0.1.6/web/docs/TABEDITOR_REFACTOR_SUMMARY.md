@@ -113,19 +113,19 @@
 
 所有原有功能均已保留，包括：
 
-- ✅ Tab 基本信息编辑
-- ✅ 函数拖拽添加/删除
-- ✅ 函数 JSON 预览
-- ✅ 界面向导（快速生成布局）
-- ✅ 布局类型选择
-- ✅ 场景推荐（智能推荐布局类型）
-- ✅ 自动推导布局
-- ✅ 一键补全布局
-- ✅ 多函数编排向导
-- ✅ 编排撤销/重做（Ctrl+Alt+Z / Ctrl+Alt+Y）
-- ✅ 列/字段编辑
-- ✅ 自动填充列/字段
-- ✅ 所有布局类型配置（list、form、form-detail、detail、kanban、timeline、split、wizard、dashboard、grid、custom）
+- [Tab 基本信息编辑]
+- [函数拖拽添加/删除]
+- [函数 JSON 预览]
+- [界面向导（快速生成布局）]
+- [布局类型选择]
+- [场景推荐（智能推荐布局类型）]
+- [自动推导布局]
+- [一键补全布局]
+- [多函数编排向导]
+- [编排撤销/重做（Ctrl+Alt+Z / Ctrl+Alt+Y）]
+- [列/字段编辑]
+- [自动填充列/字段]
+- [所有布局类型配置（list、form、form-detail、detail、kanban、timeline、split、wizard、dashboard、grid、custom）]
 
 ## 备份文件
 
@@ -136,7 +136,7 @@
 
 ### Phase 1 剩余任务
 
-1. ✅ **TASK-1.2.1 ~ 1.2.7**: 拆分子组件 - 已完成
+1. [**TASK-1.2.1 ~ 1.2.7**: 拆分子组件 - 已完成]
 2. ⏳ **TASK-1.3.1**: 实现 `useOrchestrationHistory` hook - 已创建基础版本，需要完善
 3. ⏳ **TASK-1.3.2**: 用 useReducer 重构 TabEditor 状态 - 待实施
 

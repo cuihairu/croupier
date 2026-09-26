@@ -31,7 +31,7 @@
 
 ---
 
-## 📋 目录
+## 目录
 
 - [简介](#简介)
 - [主项目](#主项目)
@@ -92,22 +92,22 @@ Croupier Go SDK 是 [Croupier](https://github.com/cuihairu/croupier) 游戏后�
 
 **L1 Core Provider（必备）**
 
-- 📡 **TCP session 客户端** - 单条 `sdk-agent subprotocol` 长连接，不监听本地端口
-- 🤝 **握手与心跳** - `ProviderConnectRequest`/`ProviderConnectResponse` 协商，可配置心跳间隔
-- 🔁 **自动重连** - 指数退避 + jitter，可关闭或限制重试次数
-- 📝 **函数注册** - 描述符 + handler 注册，handler 签名 `func(ctx, []byte) ([]byte, error)`
-- 🏢 **多游戏多环境作用域** - 内置 `game_id` / `env` 业务隔离维度
+- [**TCP session 客户端** - 单条 `sdk-agent subprotocol` 长连接，不监听本地端口]
+- [**握手与心跳** - `ProviderConnectRequest`/`ProviderConnectResponse` 协商，可配置心跳间隔]
+- [**自动重连** - 指数退避 + jitter，可关闭或限制重试次数]
+- [**函数注册** - 描述符 + handler 注册，handler 签名 `func(ctx, []byte) ([]byte, error)`]
+- [**多游戏多环境作用域** - 内置 `game_id` / `env` 业务隔离维度]
 
 **L2 Provider 扩展（可选）**
 
-- 🔐 **TLS** - `caFile` / `certFile` / `keyFile` / `serverName`
-- 📋 **控制面 manifest 上传** - 配置 `controlAddr` 后自动推送
-- 🔍 **JSON Schema 校验** - 描述符 `inputSchema` / `outputSchema`
-- 📦 **文件传输** - `enableFileTransfer=true` 启用，受白名单与上限约束
+- [**TLS** - `caFile` / `certFile` / `keyFile` / `serverName`]
+- [**控制面 manifest 上传** - 配置 `controlAddr` 后自动推送]
+- [**JSON Schema 校验** - 描述符 `inputSchema` / `outputSchema`]
+- [**文件传输** - `enableFileTransfer=true` 启用，受白名单与上限约束]
 
 **L3 Invoker（独立调用方）**
 
-- 🚀 **Server HTTP 调用 / 异步任务** - `pkg/croupier/http_invoker.go`，使用独立 `InvokerConfig`，不复用 Provider TCP session；支持函数调用、任务创建/查询、事件轮询和取消。详见 [`HTTP_INVOKER.md`](HTTP_INVOKER.md)。
+- [**Server HTTP 调用 / 异步任务** - `pkg/croupier/http_invoker.go`，使用独立 `InvokerConfig`，不复用 Provider TCP session；支持函数调用、任务创建/查询、事件轮询和取消。详见 [`HTTP_INVOKER.md`](HTTP_INVOKER.md)。]
 
 ## 快速开始
 

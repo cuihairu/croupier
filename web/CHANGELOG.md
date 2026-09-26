@@ -2,11 +2,11 @@
 
 ## [v0.1.6] - 2026-03-10
 
-### 🎉 重大更新：TabEditor 架构重构
+### 重大更新：TabEditor 架构重构
 
 本次版本完成了 TabEditor 组件的架构重构，将 2,685 行的巨型组件拆分为 12 个独立模块，代码可维护性大幅提升。
 
-### ✨ Added
+### Added
 
 #### 新增 UI 组件 (7 个)
 
@@ -33,7 +33,7 @@
 - `../docs/archive/releases/v0.1.6/web/docs/PHASE1_FINAL_REPORT.md` - 最终完成报告
 - `TODO_V2_UI_ENTERPRISE.md` - V2 企业级改造 TODO (75 个任务)
 
-### 🔧 Changed
+### Changed
 
 - **重构 TabEditor 主组件**
 
@@ -46,21 +46,21 @@
   - 工具函数独立，便于测试和复用
   - 模块化程度显著提高
 
-### 🐛 Fixed
+### Fixed
 
 - 修复 `orchestrationUtils.ts` 中的 import 路径错误
 - 修复 `scenarioUtils.ts` 中的 import 路径错误
 - 修复编译警告
 
-### ✅ Maintained
+### Maintained
 
-- ✅ 保留所有原有功能（无破坏性变更）
-- ✅ 保持 API 兼容性
-- ✅ 保持用户体验一致
-- ✅ 支持所有 11 种布局类型
-- ✅ 编排向导、撤销/重做等高级功能正常工作
+- [保留所有原有功能（无破坏性变更）]
+- [保持 API 兼容性]
+- [保持用户体验一致]
+- [支持所有 11 种布局类型]
+- [编排向导、撤销/重做等高级功能正常工作]
 
-### 📊 改进指标
+### 改进指标
 
 | 指标           | 改进                    |
 | -------------- | ----------------------- |
@@ -70,14 +70,14 @@
 | 编译状态       | ✅ 通过                 |
 | Lint 状态      | ✅ 通过                 |
 
-### 🔍 测试验证
+### 测试验证
 
-- ✅ 编译测试通过 (`npm run build`)
-- ✅ Lint 测试通过 (`npm run lint`)
-- ✅ 功能完整性验证通过
-- ✅ 无破坏性变更
+- [编译测试通过 (`npm run build`)]
+- [Lint 测试通过 (`npm run lint`)]
+- [功能完整性验证通过]
+- [无破坏性变更]
 
-### 📁 文件结构
+### 文件结构
 
 ```
 src/pages/WorkspaceEditor/components/
@@ -97,7 +97,7 @@ src/pages/WorkspaceEditor/components/
     └── useOrchestrationHistory.ts
 ```
 
-### 🚀 下一步计划
+### 下一步计划
 
 #### Phase 2: 函数 UI Schema 编辑器升级 (15 tasks)
 
@@ -114,22 +114,22 @@ src/pages/WorkspaceEditor/components/
 - 字段编辑器增强（校验规则、联动规则、默认值表达式）
 - 布局配置增强（模板库、版本对比、导入导出）
 
-### 📝 升级说明
+### 升级说明
 
 **升级方式**: 直接升级，无需额外操作
 
 **兼容性**:
 
-- ✅ 向后兼容
-- ✅ 无破坏性变更
-- ✅ 无需修改现有代码
+- [向后兼容]
+- [无破坏性变更]
+- [无需修改现有代码]
 
 **注意事项**:
 
 - 建议在升级后进行全面测试
 - 如遇问题，可参考 `../docs/archive/releases/v0.1.6/web/docs/TABEDITOR_TEST_GUIDE.md`
 
-### 🔗 相关链接
+### 相关链接
 
 - [重构总结](../docs/archive/releases/v0.1.6/web/docs/TABEDITOR_REFACTOR_SUMMARY.md)
 - [完成报告](../docs/archive/releases/v0.1.6/web/docs/PHASE1_FINAL_REPORT.md)

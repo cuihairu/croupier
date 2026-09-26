@@ -34,7 +34,7 @@
 
 ---
 
-## 📋 目录
+## 目录
 
 - [简介](#简介)
 - [主项目](#主项目)
@@ -94,21 +94,21 @@ Croupier Node.js SDK 是 [Croupier](https://github.com/cuihairu/croupier) 游戏
 
 **L1 Core Provider（必备）**
 
-- 🛰️ **TCP session 客户端** - 单条 `sdk-agent subprotocol` 长连接，不监听本地端口
-- 🤝 **握手与心跳** - `ProviderConnectRequest` 协商，可配置心跳间隔
-- 🔁 **自动重连** - 指数退避 + jitter
-- 📦 **处理器注册** - 强类型描述符，handler 签名 `(context: string, payload: string) => Promise<string> | string`
-- 📝 **TypeScript 优先** - 完整类型定义
+- [**TCP session 客户端** - 单条 `sdk-agent subprotocol` 长连接，不监听本地端口]
+- [**握手与心跳** - `ProviderConnectRequest` 协商，可配置心跳间隔]
+- [**自动重连** - 指数退避 + jitter]
+- [**处理器注册** - 强类型描述符，handler 签名 `(context: string, payload: string) => Promise<string> | string`]
+- [**TypeScript 优先** - 完整类型定义]
 
 **L2 Provider 扩展（可选）**
 
-- 🔐 **TLS** - `certFile` / `keyFile` / `caFile` / `serverName`
-- 📋 **JSON Schema 元数据** - `inputSchema` / `outputSchema`
-- 📤 **Provider Manifest 上传** - 配置 `controlAddr` 后自动推送
+- [**TLS** - `certFile` / `keyFile` / `caFile` / `serverName`]
+- [**JSON Schema 元数据** - `inputSchema` / `outputSchema`]
+- [**Provider Manifest 上传** - 配置 `controlAddr` 后自动推送]
 
 **L3 Invoker**
 
-- ✅ `Invoker` 是独立调用方模块，只访问 Server HTTP API（默认 `http://127.0.0.1:18780/api/v1`），不复用 Provider TCP session。
+- [`Invoker` 是独立调用方模块，只访问 Server HTTP API（默认 `http://127.0.0.1:18780/api/v1`），不复用 Provider TCP session。]
 - 支持 `invoke`、`startTask`、`getTaskStatus`、`streamTask` 和 `cancelTask`；作用域通过 `X-Game-ID` / `X-Env` 传递。
 
 ## 快速开始

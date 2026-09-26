@@ -2,7 +2,7 @@
 
 > **核心答案：是的！C++ SDK 现在支持完全独立构建，无需克隆父项目。**
 
-## 🎯 构建模式对比
+## 构建模式对比
 
 | 构建模式 | 是否需要父项目 | 网络需求 | 构建速度 | 推荐场景 |
 |---------|-------------|---------|---------|----------|
@@ -11,7 +11,7 @@
 | **🔄 Mock 模式** | ❌ 否 | ❌ 无 | ⚡ 最快 | 快速原型 |
 | **🏠 本地模式** | ✅ 是 | ❌ 无 | 🚀 快 | 父项目开发 |
 
-## 🚀 快速开始（推荐方式）
+## 快速开始（推荐方式）
 
 ### 1. 克隆 SDK（无需父项目）
 
@@ -22,28 +22,28 @@ cd croupier-sdk-cpp
 
 ### 2. 选择构建模式
 
-#### 📦 预构建模式（推荐生产使用）
+#### 预构建模式（推荐生产使用）
 ```bash
 # 使用预提交的 protobuf 生成文件
 ./standalone-build.sh configure --with-grpc
 ./standalone-build.sh build
 ```
 
-#### 🌐 在线模式（自动下载 proto 文件）
+#### 在线模式（自动下载 proto 文件）
 ```bash
 # 自动从 GitHub 下载最新 proto 文件并生成代码
 ./standalone-build.sh configure --with-grpc --online
 ./standalone-build.sh build
 ```
 
-#### 🔄 Mock 模式（快速原型开发）
+#### Mock 模式（快速原型开发）
 ```bash
 # 使用 gRPC mock 实现，无需 protobuf 文件
 ./standalone-build.sh configure --mock-grpc
 ./standalone-build.sh build
 ```
 
-## 📋 详细构建选项
+## 详细构建选项
 
 ### 使用构建脚本（推荐）
 
@@ -74,7 +74,7 @@ cmake -B build -DCROUPIER_STANDALONE_BUILD=ON -DENABLE_GRPC=OFF
 cmake --build build
 ```
 
-## 🏗️ 技术实现细节
+## 技术实现细节
 
 ### 问题与解决方案
 
@@ -115,7 +115,7 @@ proto_files=(
 base_url="https://raw.githubusercontent.com/cuihairu/croupier/main/proto"
 ```
 
-## 🔧 高级配置
+## 高级配置
 
 ### 依赖管理
 
@@ -153,7 +153,7 @@ export VCPKG_ROOT=/path/to/vcpkg
 cmake -B build -DBUILD_SHARED_LIBS=OFF -DBUILD_STATIC_LIBS=ON
 ```
 
-## 📦 CI/CD 集成
+## CI/CD 集成
 
 ### GitHub Actions 示例
 
@@ -188,23 +188,23 @@ WORKDIR /sdk
 RUN ./standalone-build.sh build --system-libs
 ```
 
-## 🎯 最佳实践建议
+## 最佳实践建议
 
 ### 1. 生产环境
-- ✅ 使用**预构建模式**：最稳定，构建速度最快
-- ✅ 启用 **Release 构建**：`--release`
-- ✅ 使用**静态链接**：方便部署
+- [使用**预构建模式**：最稳定，构建速度最快]
+- [启用 **Release 构建**：`--release`]
+- [使用**静态链接**：方便部署]
 
 ### 2. 开发环境
-- ✅ 使用**在线模式**：获取最新 proto 定义
-- ✅ 启用 **Debug 构建**：`--debug`
-- ✅ 使用**动态链接**：开发调试方便
+- [使用**在线模式**：获取最新 proto 定义]
+- [启用 **Debug 构建**：`--debug`]
+- [使用**动态链接**：开发调试方便]
 
 ### 3. 原型开发
-- ✅ 使用 **Mock 模式**：无依赖，启动最快
-- ✅ 专注业务逻辑，后续切换到真实实现
+- [使用 **Mock 模式**：无依赖，启动最快]
+- [专注业务逻辑，后续切换到真实实现]
 
-## 🆚 与其他 SDK 语言对比
+## 与其他 SDK 语言对比
 
 | 语言 | 独立构建 | 预构建文件 | 在线模式 | Mock 模式 |
 |------|----------|------------|----------|-----------|
@@ -214,7 +214,7 @@ RUN ./standalone-build.sh build --system-libs
 | Python | 🚧 部分 | ❌ 否 | ✅ 支持 | ✅ 支持 |
 | JavaScript | 🚧 部分 | ❌ 否 | ✅ 支持 | ✅ 支持 |
 
-## 🔍 故障排除
+## 故障排除
 
 ### 常见问题
 
@@ -252,7 +252,7 @@ find generated -name "*.cc" | wc -l  # 应该 > 0
 pkg-config --exists grpc++  # 检查 gRPC 安装
 ```
 
-## 🎉 总结
+## 总结
 
 **回答你的问题：不需要！** C++ SDK 现在支持三种独立构建模式：
 

@@ -50,7 +50,7 @@ tag:
 
 `tls.enabled / certFile / keyFile / caFile / insecureSkipVerify`——游戏服与 Agent 同网段，通常内网明文即可。
 
-### outboundTLS（Agent→Server 链路 TLS）
+### outboundTLS（Agent [Server 链路 TLS]
 
 与 `server.insecure: false` 配套：`enabled / certFile / keyFile / caFile / serverName / insecureSkipVerify`。生产推荐内部 CA 签发，见 [TLS 与证书](./tls-certificates)。
 

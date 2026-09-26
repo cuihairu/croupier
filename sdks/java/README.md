@@ -31,7 +31,7 @@
 
 ---
 
-## 📋 目录
+## 目录
 
 - [简介](#简介)
 - [主项目](#主项目)
@@ -91,22 +91,22 @@ Croupier Java SDK 是 [Croupier](https://github.com/cuihairu/croupier) 游戏后
 
 **L1 Core Provider（必备）**
 
-- 📡 **TCP session 客户端** - 单条 `sdk-agent subprotocol` 长连接，不监听本地端口
-- 🤝 **握手与心跳** - `ProviderConnectRequest` 协商，`ProviderHeartbeatRequest` 保活
-- 🔁 **自动重连** - 指数退避 + jitter
-- 📝 **函数注册** - `FunctionDescriptor` + `FunctionHandler`，handler 签名 `(context, payload: byte[]) -> String`
-- ⚡ **异步 API** - `connect()` / `serveAsync()` 基于 `CompletableFuture`
-- 🏢 **多游戏多环境作用域** - 内置 `gameId` / `env` / `serviceId` 维度
+- [**TCP session 客户端** - 单条 `sdk-agent subprotocol` 长连接，不监听本地端口]
+- [**握手与心跳** - `ProviderConnectRequest` 协商，`ProviderHeartbeatRequest` 保活]
+- [**自动重连** - 指数退避 + jitter]
+- [**函数注册** - `FunctionDescriptor` + `FunctionHandler`，handler 签名 `(context, payload: byte[]) -> String`]
+- [**异步 API** - `connect()` / `serveAsync()` 基于 `CompletableFuture`]
+- [**多游戏多环境作用域** - 内置 `gameId` / `env` / `serviceId` 维度]
 
 **L2 Provider 扩展（可选）**
 
-- 🔐 **TLS** - `caFile` / `certFile` / `keyFile` / `serverName`
-- 📤 **Provider Manifest** - 配置 `controlAddr` 后自动通过 `RegisterCapabilitiesRequest` 推送
-- 📦 **文件传输** - `enableFileTransfer=true`
+- [**TLS** - `caFile` / `certFile` / `keyFile` / `serverName`]
+- [**Provider Manifest** - 配置 `controlAddr` 后自动通过 `RegisterCapabilitiesRequest` 推送]
+- [**文件传输** - `enableFileTransfer=true`]
 
 **L3 Invoker（独立调用方）**
 
-- 🚀 `CroupierSDK.createInvoker` 返回独立的 `ServerHttpInvoker`，只调用 Server HTTP API，不复用 Provider TCP session
+- [`CroupierSDK.createInvoker` 返回独立的 `ServerHttpInvoker`，只调用 Server HTTP API，不复用 Provider TCP session]
 - 覆盖函数调用、任务创建/查询、事件轮询和取消；鉴权、`gameId/env` scope、审计与任务持久化由 Server 负责
 
 ```java
