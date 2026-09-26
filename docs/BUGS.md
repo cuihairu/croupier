@@ -851,6 +851,64 @@ for _, role := range roles {
 
 ---
 
+## BUG-021 「消息通知」Tab 挂着管理员广播入口，且公告功能无任何入口
+
+**严重度**：高（越权入口）+ 中（功能缺失）
+
+**现象**
+
+`/admin/account/center?tab=notifications` 顶部有一个 primary 按钮「发送消息」，
+点开是 `BroadcastModal`（群发站内消息）。个人中心是**所有用户都有**的页面，
+普通用户与管理员看到的是同一个界面。
+
+**根因**
+
+- `NotificationsTab` 接收 `isAdminUser` / `onSendClick` 两个 prop，渲染「发送消息」
+  按钮 + 挂 `BroadcastModal`。个人中心的语义是「我的资料/我的消息」，广播是管理
+  动作，位置错位。
+- 真正的公告接口 `/api/v1/admin/announcements`
+  （`internal/api/announcement`，List/Create/Update/Delete + 用户侧 `/active`）
+  一直存在且有测试，但**前端零引用**——即公告功能此前完全没有入口。
+  `configs/permissions.json` 的 38 条权限里也没有公告相关项。
+
+**修复**
+
+- ① 收到的通知列表：保留未读标记/全部已读/详情，并补上此前缺失的
+  **单条标为已读**（此前只能打开详情或一次性全标）。未读整行加底色 + 左侧竖条，
+  不只靠「加粗」区分。
+- ② 通知渠道偏好：站内/邮件/短信，状态**完全来自后端**
+  `GET /api/v1/profile/notification-channels`（见 BUG-016），未接入的通道禁用开关。
+  判定与渲染从 `SecurityTab` 抽到 `NotificationChannels.tsx`，两处共用同一份实现，
+  避免漂移；开关为只读呈现（当前是平台级设置，没有用户侧写接口）。
+- ③ 广播入口从个人中心**移除**：`NotificationsTab` 不再接受 `isAdminUser` /
+  `onSendClick`，`BroadcastModal.tsx` 删除。新增管理后台
+  `/admin/announcements`（`access: 'canAdmin'`，与后端 admin 路由组鉴权口径一致），
+  接入 List/Create/Update/Delete，支持受众（全体/指定角色）、弹窗标记、生效时间区间。
+
+**顺带修掉的两个缺陷**
+
+- `SimpleList.Item` 不透传 DOM 属性，`data-testid` / `data-*` 被静默丢弃（antd 的
+  `List.Item` 是透传的）。补上 `...rest` 透传，否则「按条目 id 断言未读状态」这类
+  测试根本写不出来。
+- 公告页 `load` 依赖 `intl` 派生的 `t`，测试环境的 intl mock 每次渲染返回新引用 →
+  `useEffect([load])` 反复触发 → 一次提交连拉 9 次列表。改为经 `useRef` 转发让 `t`
+  引用稳定。
+- `submit` 里 `form.validateFields()` 的 reject 未接住 → 点「保存」而表单非法时产生
+  unhandled rejection。
+
+**回归测试**
+
+- `web/src/pages/Profile/__tests__/NotificationsTab.test.tsx` 13 条：③ 无任何发送/
+  广播控件、① 未读高亮/单条已读/全部已读/未读计数/详情、`标为已读` 不打开详情
+  （stopPropagation）、② 通道状态渲染与「未加载时不得出现任何『已开启』」。
+- `web/src/pages/Admin/Announcements/__tests__/index.test.tsx` 10 条：列表/空态/
+  受众/标记如实展示/加载失败不白屏、创建必填校验、`audience=role` 必须填角色名、
+  创建后重拉列表、编辑带 id 走 update、删除二次确认。
+- `SecurityTab.channels.test.tsx`（14 条）改为从 `NotificationChannels` 导入
+  `channelAvailability`，两处共用实现的契约由此被测试锁住。
+
+---
+
 ## 汇总
 
 | BUG | 位置 | 状态 | 回归测试 |
@@ -875,6 +933,7 @@ for _, role := range roles {
 | 018 | 游戏访问权限恒为空（admin 看到空白） | 已修 | Go 2 条 + jest 5 条 |
 | 019 | 权限概览是编造数据（resource="role"／角色名混入） | 已修 | Go 21 条（含改写 4 条固化旧错的用例） |
 | 020 | 权限概览单层平铺、无授权两态 | 已修 | jest 23 条 + 变异验证 7 条转红 |
+| 021 | 个人中心挂广播入口 + 公告无入口 | 已修 | jest 23 条 |
 
 ### 遗留 / 未修
 

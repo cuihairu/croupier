@@ -645,6 +645,20 @@ export default [
         access: 'canAuditRead',
         component: './Admin/LoginLogs',
       },
+      // 系统公告 / 广播（admin-only）。
+      //
+      // 广播入口此前挂在**个人中心**的消息通知页顶部（NotificationsTab 的 primary
+      // 按钮 + BroadcastModal），而个人中心是所有用户都有的页面——既越权又语义
+      // 错位（docs/BUGS.md BUG-021）。后端 /api/v1/admin/announcements 一直存在
+      // 却没有前端入口，等于公告功能不可用；本页是它的落地面。
+      // 权限用 canAdmin，与后端 admin 路由组的鉴权口径一致。
+      {
+        path: '/admin/announcements',
+        name: 'Announcements',
+        access: 'canAdmin',
+        icon: 'notification',
+        component: './Admin/Announcements',
+      },
       {
         path: '/admin/operation-logs',
         name: 'OperationLogs',

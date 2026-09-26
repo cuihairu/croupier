@@ -4,124 +4,189 @@ import { Badge, Button, Card, Modal, Space, Tag, Typography } from 'antd';
 import { FormattedMessage, useIntl } from '@umijs/max';
 import type { MessageItem } from '@/services/api/messages';
 import { formatDateTime } from '@/utils/format';
+import NotificationChannels from './NotificationChannels';
+import type { NotificationChannelState } from './shared';
 
 const { Text, Paragraph } = Typography;
 
-/** 站内通知 Tab：消息列表 + 详情 Modal + 管理员广播入口。
- * 已读标记逻辑（openMessage/markAllRead）在 useProfileData（数据归属侧）。 */
+/**
+ * 「消息通知」Tab：① 我收到的通知 ② 通知渠道偏好。
+ *
+ * 修复前这个 Tab 的顶部挂着管理员的 primary 按钮「发送消息」，个人中心是所有
+ * 用户都有的页面，把广播入口放在这里既越权又语义混乱（docs/BUGS.md BUG-021）。
+ * 广播已迁到管理后台 `/admin/announcements`（`access: 'canAdmin'`），普通用户
+ * 在个人中心看不到、也进不去。
+ *
+ * 通知渠道偏好与安全中心的通道状态同源（后端
+ * `GET /api/v1/profile/notification-channels` 判定「是否真的接入了服务商」，
+ * 见 docs/BUGS.md BUG-016），两处必须保持一致。
+ *
+ * 已读标记逻辑（openMessage/markAllRead）在 useProfileData（数据归属侧）。
+ */
 export default function NotificationsTab({
   items,
   loading,
   detailMessage,
-  isAdminUser,
+  notificationChannels,
   onOpenMessage,
   onMarkAllRead,
-  onSendClick,
+  onMarkRead,
   onDetailClose,
 }: {
   items: MessageItem[];
   loading: boolean;
   detailMessage: MessageItem | null;
-  isAdminUser: boolean;
+  /** 后端上报的通知通道真实状态 */
+  notificationChannels: NotificationChannelState[];
   onOpenMessage: (item: MessageItem) => void;
   onMarkAllRead: () => void;
-  onSendClick: () => void;
+  /** 单条标为已读 */
+  onMarkRead: (item: MessageItem) => void;
   onDetailClose: () => void;
 }) {
   const intl = useIntl();
   const formatMessage = useCallback((id: string) => intl.formatMessage({ id }), [intl]);
+  const unreadCount = items.filter((m) => m.status !== 'read').length;
+
   return (
-    <Card
-      loading={loading}
-      extra={
-        <Space>
-          {isAdminUser && (
-            <Button size="small" type="primary" onClick={onSendClick}>
-              <FormattedMessage
-                id="pages.profile.notifications.action.send"
-                defaultMessage="发送消息"
+    <Space orientation="vertical" size={16} style={{ width: '100%' }}>
+      {/* ② 通知渠道偏好：状态全部来自后端，未接入的通道禁用开关 */}
+      <NotificationChannels channels={notificationChannels} />
+
+      {/* ① 我收到的通知 */}
+      <Card
+        loading={loading}
+        title={
+          <Space>
+            {formatMessage('profile.notifications.title')}
+            {unreadCount > 0 && (
+              <Badge
+                count={unreadCount}
+                data-testid="notifications-unread-count"
+                overflowCount={99}
               />
-            </Button>
-          )}
-          {items.some((m) => m.status !== 'read') && (
-            <Button size="small" onClick={onMarkAllRead}>
+            )}
+          </Space>
+        }
+        extra={
+          unreadCount > 0 ? (
+            <Button
+              size="small"
+              onClick={onMarkAllRead}
+              data-testid="notifications-mark-all-read"
+            >
               <FormattedMessage
                 id="pages.profile.notifications.action.markAllRead"
                 defaultMessage="全部标为已读"
               />
             </Button>
-          )}
-        </Space>
-      }
-    >
-      <SimpleList
-        dataSource={items}
-        locale={{ emptyText: formatMessage('profile.notifications.empty') }}
-        renderItem={(item) => (
-          <SimpleList.Item
-            style={{ cursor: 'pointer', borderRadius: 6, padding: '10px 8px' }}
-            onClick={() => onOpenMessage(item)}
-          >
-            <SimpleList.Item.Meta
-              title={
-                <Space>
-                  <Badge status={item.status === 'read' ? 'default' : 'processing'} />
-                  <Text strong={item.status !== 'read'}>
-                    {item.title || formatMessage('profile.notifications.untitled')}
-                  </Text>
-                  <Tag style={{ fontSize: 10 }}>{item.type}</Tag>
-                  {item.data != null && (
-                    <Tag style={{ fontSize: 10 }} color="blue">
-                      <FormattedMessage
-                        id="pages.profile.notifications.tag.withData"
-                        defaultMessage="含数据"
-                      />
-                    </Tag>
-                  )}
-                  {typeof item.data === 'object' &&
-                    item.data !== null &&
-                    'approvalId' in item.data && (
-                      <a
-                        style={{ fontSize: 12 }}
-                        href={`/approvals?approvalId=${encodeURIComponent(
-                          String((item.data as Record<string, unknown>).approvalId),
-                        )}`}
+          ) : null
+        }
+      >
+        <SimpleList
+          dataSource={items}
+          locale={{ emptyText: formatMessage('profile.notifications.empty') }}
+          renderItem={(item) => {
+            const unread = item.status !== 'read';
+            return (
+              <SimpleList.Item
+                actions={
+                  unread
+                    ? [
+                        <Button
+                          key="read"
+                          type="link"
+                          size="small"
+                          // stopPropagation：点「标为已读」不该同时弹出详情
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onMarkRead(item);
+                          }}
+                          data-testid={`notification-mark-read-${item.id}`}
+                        >
+                          <FormattedMessage
+                            id="pages.profile.notifications.action.markRead"
+                            defaultMessage="标为已读"
+                          />
+                        </Button>,
+                      ]
+                    : undefined
+                }
+                // 未读整行加底色 + 左侧竖条：不只靠「加粗」区分
+                data-testid={`notification-${item.id}`}
+                data-unread={String(unread)}
+                style={{
+                  cursor: 'pointer',
+                  borderRadius: 6,
+                  padding: '10px 8px',
+                  background: unread ? 'rgba(22, 119, 255, 0.06)' : undefined,
+                  borderLeft: unread ? '3px solid #1677ff' : '3px solid transparent',
+                }}
+                onClick={() => onOpenMessage(item)}
+              >
+                <SimpleList.Item.Meta
+                  title={
+                    <Space>
+                      <Badge status={unread ? 'processing' : 'default'} />
+                      <Text strong={unread}>
+                        {item.title || formatMessage('profile.notifications.untitled')}
+                      </Text>
+                      <Tag style={{ fontSize: 10 }}>{item.type}</Tag>
+                      {item.data != null && (
+                        <Tag style={{ fontSize: 10 }} color="blue">
+                          <FormattedMessage
+                            id="pages.profile.notifications.tag.withData"
+                            defaultMessage="含数据"
+                          />
+                        </Tag>
+                      )}
+                      {typeof item.data === 'object' &&
+                        item.data !== null &&
+                        'approvalId' in item.data && (
+                          <a
+                            style={{ fontSize: 12 }}
+                            href={`/approvals?approvalId=${encodeURIComponent(
+                              String((item.data as Record<string, unknown>).approvalId),
+                            )}`}
+                          >
+                            <FormattedMessage
+                              id="pages.profile.notifications.link.viewApproval"
+                              defaultMessage="查看审批"
+                            />
+                          </a>
+                        )}
+                    </Space>
+                  }
+                  description={
+                    <Space orientation="vertical" size={0}>
+                      <Text
+                        type="secondary"
+                        ellipsis
+                        style={{ maxWidth: 560, color: item.status !== 'read' ? undefined : undefined }}
                       >
-                        <FormattedMessage
-                          id="pages.profile.notifications.link.viewApproval"
-                          defaultMessage="查看审批"
-                        />
-                      </a>
-                    )}
-                </Space>
-              }
-              description={
-                <Space orientation="vertical" size={0}>
-                  <Text
-                    type="secondary"
-                    ellipsis
-                    style={{ maxWidth: 560, color: item.status !== 'read' ? undefined : undefined }}
-                  >
-                    {item.content}
-                  </Text>
-                  <Text type="secondary" style={{ fontSize: 12 }}>
-                    {item.createdAt ? formatDateTime(item.createdAt) : ''}
-                    {item.status !== 'read' ? (
-                      <>
-                        {' · '}
-                        <FormattedMessage
-                          id="pages.profile.notifications.status.unread"
-                          defaultMessage="未读"
-                        />
-                      </>
-                    ) : null}
-                  </Text>
-                </Space>
-              }
-            />
-          </SimpleList.Item>
-        )}
-      />
+                        {item.content}
+                      </Text>
+                      <Text type="secondary" style={{ fontSize: 12 }}>
+                        {item.createdAt ? formatDateTime(item.createdAt) : ''}
+                        {unread ? (
+                          <>
+                            {' · '}
+                            <FormattedMessage
+                              id="pages.profile.notifications.status.unread"
+                              defaultMessage="未读"
+                            />
+                          </>
+                        ) : null}
+                      </Text>
+                    </Space>
+                  }
+                />
+              </SimpleList.Item>
+            );
+          }}
+        />
+      </Card>
+
       <Modal
         open={!!detailMessage}
         title={detailMessage?.title || formatMessage('profile.notifications.untitled')}
@@ -157,47 +222,23 @@ export default function NotificationsTab({
                   defaultMessage: '（无正文）',
                 })}
             </Paragraph>
-            {typeof detailMessage.data === 'object' &&
-              detailMessage.data !== null &&
-              'approvalId' in detailMessage.data && (
-                <p>
-                  <a
-                    href={`/approvals?approvalId=${encodeURIComponent(
-                      String((detailMessage.data as Record<string, unknown>).approvalId),
-                    )}`}
-                  >
-                    <FormattedMessage
-                      id="pages.profile.notifications.link.viewApprovalDetail"
-                      defaultMessage="查看审批详情"
-                    />
-                  </a>
-                </p>
-              )}
-            {detailMessage.data != null && (
-              <>
-                <Text type="secondary" style={{ fontSize: 12 }}>
-                  <FormattedMessage
-                    id="pages.profile.notifications.data.label"
-                    defaultMessage="结构化数据："
-                  />
-                </Text>
-                <pre
-                  style={{
-                    background: '#fafafa',
-                    padding: 12,
-                    borderRadius: 6,
-                    fontSize: 12,
-                    maxHeight: 260,
-                    overflow: 'auto',
-                  }}
-                >
-                  {JSON.stringify(detailMessage.data, null, 2)}
-                </pre>
-              </>
+            {typeof detailMessage.data === 'object' && detailMessage.data !== null && (
+              <pre
+                style={{
+                  maxHeight: 220,
+                  overflow: 'auto',
+                  background: 'rgba(0,0,0,0.03)',
+                  padding: 8,
+                  borderRadius: 4,
+                  fontSize: 12,
+                }}
+              >
+                {JSON.stringify(detailMessage.data, null, 2)}
+              </pre>
             )}
           </div>
         )}
       </Modal>
-    </Card>
+    </Space>
   );
 }

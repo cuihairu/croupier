@@ -40,7 +40,6 @@ import SessionsTab from './SessionsTab';
 import NotificationsTab from './NotificationsTab';
 import PasswordModal from './PasswordModal';
 import AvatarModal from './AvatarModal';
-import BroadcastModal from './BroadcastModal';
 import './index.less';
 
 const { Title, Text } = Typography;
@@ -57,7 +56,6 @@ export default function Profile() {
   const [profileEditing, setProfileEditing] = useState(false);
   const [passwordModalVisible, setPasswordModalVisible] = useState(false);
   const [avatarModalVisible, setAvatarModalVisible] = useState(false);
-  const [sendOpen, setSendOpen] = useState(false);
 
   const {
     profile,
@@ -80,6 +78,7 @@ export default function Profile() {
     loadExtras,
     openMessage,
     markAllRead,
+    markMessageRead,
     setDetailMessage,
   } = useProfileData();
 
@@ -117,7 +116,6 @@ export default function Profile() {
   };
 
   const { initialState } = useModel('@@initialState');
-  const isAdminUser = (initialState?.currentUser?.roles || []).includes('admin');
 
   const getStatusBadge = (status?: boolean) => (
     <Badge
@@ -150,16 +148,6 @@ export default function Profile() {
   const passwordModalEl = (
     <PasswordModal open={passwordModalVisible} onClose={() => setPasswordModalVisible(false)} />
   );
-  // 广播弹窗在两个分支（加载中/已加载）都渲染：打开入口在 NotificationsTab，
-  // 仅 profile 加载完成后可见，若只渲染在 !profile 分支则弹窗不可达。
-  const broadcastModalEl = (
-    <BroadcastModal
-      open={sendOpen}
-      onClose={() => setSendOpen(false)}
-      onSent={() => loadExtras(String(profile?.username || ''))}
-    />
-  );
-
   if (!profile) {
     return (
       <>
@@ -172,7 +160,6 @@ export default function Profile() {
           </Card>
         </PageContainer>
         {passwordModalEl}
-        {broadcastModalEl}
       </>
     );
   }
@@ -438,10 +425,10 @@ export default function Profile() {
                       items={notifications}
                       loading={extrasLoading}
                       detailMessage={detailMessage}
-                      isAdminUser={isAdminUser}
+                      notificationChannels={notificationChannels}
                       onOpenMessage={openMessage}
                       onMarkAllRead={markAllRead}
-                      onSendClick={() => setSendOpen(true)}
+                      onMarkRead={markMessageRead}
                       onDetailClose={() => setDetailMessage(null)}
                     />
                   </Space>
@@ -452,7 +439,6 @@ export default function Profile() {
         </Space>
       </PageContainer>
       {passwordModalEl}
-      {broadcastModalEl}
       <AvatarModal
         open={avatarModalVisible}
         avatar={profile?.avatar}

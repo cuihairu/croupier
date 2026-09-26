@@ -54,7 +54,7 @@ const useStyles = createStyles(({ token }) => ({
   },
 }));
 
-export interface SimpleListItemProps {
+export interface SimpleListItemProps extends Omit<React.LiHTMLAttributes<HTMLLIElement>, 'style'> {
   children?: ReactNode;
   /** 条目右侧操作区（按钮/链接），对齐 antd List.Item 的 actions。 */
   actions?: ReactNode[];
@@ -62,10 +62,13 @@ export interface SimpleListItemProps {
   onClick?: React.MouseEventHandler<HTMLLIElement>;
 }
 
-function ItemBase({ children, actions, style, onClick }: SimpleListItemProps) {
+function ItemBase({ children, actions, style, onClick, ...rest }: SimpleListItemProps) {
   const { styles } = useStyles();
   return (
-    <li className={styles.item} style={style} onClick={onClick}>
+    // 其余 DOM 属性（data-testid / data-* / aria-*）透传到根节点：
+    // 调用方需要按条目 id 定位并断言状态（如通知列表的未读标记），
+    // antd 的 List.Item 本身也是透传的，此前的实现把它们静默丢弃了。
+    <li className={styles.item} style={style} onClick={onClick} {...rest}>
       <div className={styles.content}>{children}</div>
       {actions && actions.length > 0 && (
         <div className={styles.actions}>

@@ -10,7 +10,8 @@
  */
 import React from 'react';
 import { render, screen } from '@testing-library/react';
-import SecurityTab, { channelAvailability } from '../SecurityTab';
+import SecurityTab from '../SecurityTab';
+import { channelAvailability } from '../NotificationChannels';
 import type { NotificationChannelState } from '../shared';
 
 jest.mock('../MfaSettings', () => () => <div data-testid="mfa-stub" />);

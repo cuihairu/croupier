@@ -149,6 +149,21 @@ export function useProfileData() {
     }
   }, []);
 
+  // 单条标为已读：不必打开详情（点「标为已读」不该顺带弹 Modal）
+  const markMessageRead = useCallback((item: MessageItem) => {
+    if (item.status === 'read') return;
+    markMessagesRead([item.id])
+      .then(() => {
+        setNotifications((prev) =>
+          prev.map((m) => (m.id === item.id ? { ...m, status: 'read' } : m)),
+        );
+        setDetailMessage((prev) =>
+          prev && prev.id === item.id ? { ...prev, status: 'read' } : prev,
+        );
+      })
+      .catch(() => undefined);
+  }, []);
+
   const markAllRead = useCallback(() => {
     const unread = notifications.filter((m) => m.status !== 'read');
     if (unread.length === 0) return;
@@ -303,6 +318,7 @@ export function useProfileData() {
     loadExtras,
     openMessage,
     markAllRead,
+    markMessageRead,
     setDetailMessage,
     setNotifications,
   };
