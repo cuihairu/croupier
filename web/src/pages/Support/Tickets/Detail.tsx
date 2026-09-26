@@ -1,3 +1,4 @@
+import SimpleList from '@/components/SimpleList';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   App,
@@ -7,7 +8,6 @@ import {
   Button,
   Descriptions,
   Divider,
-  List,
   Input,
   Upload,
   Modal,
@@ -538,7 +538,7 @@ export default function TicketDetailPage() {
                 defaultMessage="评论"
               />
             </Divider>
-            <List<ExtendedComment>
+            <SimpleList<ExtendedComment>
               dataSource={comments}
               renderItem={(it: ExtendedComment) => {
                 let attachments: Attachment[] = [];
@@ -546,8 +546,8 @@ export default function TicketDetailPage() {
                   if (it.attach) attachments = JSON.parse(it.attach);
                 } catch {}
                 return (
-                  <List.Item>
-                    <List.Item.Meta
+                  <SimpleList.Item>
+                    <SimpleList.Item.Meta
                       title={
                         <Space>
                           <strong>{it.author || '-'}</strong>
@@ -588,7 +588,7 @@ export default function TicketDetailPage() {
                         </div>
                       )}
                     </div>
-                  </List.Item>
+                  </SimpleList.Item>
                 );
               }}
             />

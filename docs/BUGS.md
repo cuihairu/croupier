@@ -613,6 +613,43 @@ if state.HealthScore() >= 100.0 { t.Errorf("expected score to decay, ...") }
 
 ---
 
+## BUG-015 antd 6 整体废弃 `List` 组件——属性级守卫的盲区
+
+**严重度**：中（控制台告警 + v7 升级即整体断裂）
+
+**现象**：交互走查 `/admin/account/messages`（消息中心）时控制台报：
+
+```
+Warning: [antd: List] The List component is deprecated. And will be removed in next major version.
+```
+
+而 BUG-005 的静态守卫与此前 52 条路由的运行时审计都是 **0 告警**——因为消息中心、
+工单详情、账户中心各 Tab 都不在当初的审计路由清单里（动态/详情页未纳入）。
+
+**根因**：`List` 是 antd 6 里**组件级**废弃（`warning(false, 'deprecated', ...)`，
+不挂在任何属性上）。BUG-005 守卫的抽取器从 `deprecated('p', 'q')` 表反推**属性**
+对照，组件级废弃天然扫不到——两条守卫（属性级/组件级）是不同维度，缺一不可。
+
+**修复**：
+
+- 全仓 6 个真实调用方（`Profile/GamesTab` / `NotificationsTab` / `AuditList` /
+  `PermissionsTab`、`Assignments/HistoryModal`、`Support/Tickets/Detail`；注意
+  `PageRenderer` / `ResourcePageEditor` 的 `<ListTab` 是同前缀误匹配）全部只用
+  `List / List.Item / List.Item.Meta` 只读面，统一迁到内部替身
+  `src/components/SimpleList`：泛型 + `renderItem` + `Item(actions/style/onClick)` +
+  `Item.Meta(title/description)` + `loading/pagination/locale.emptyText`，
+  createStyles 对齐 antd List 默认视觉契约（分隔线/标题/次要描述/底部分页）。
+- `web/tests/antd6Deprecations.test.ts` 新增**组件级**守卫：前置确认安装的 antd
+  仍处于 List 已废弃状态（升级后自动提示重审），随后断言 `src` 下无 `<List` JSX
+  （负向断言不误伤 `<ListTab`）也无 `import { List } from 'antd'`。
+
+**回归测试**：`SimpleList.test.tsx` 8 条（条目/Meta 渲染、emptyText、actions、
+整行 onClick、rowKey 逐条调用、Spin 包裹、pagination 翻页回调、泛型形态）+
+守卫新用例；迁移文件的既有测试全绿（Profile/Tickets/Permissions 64 条、
+Functions DetailSections 19 条）。运行时复证：重跑走查后 List 告警 0 条。
+
+---
+
 ## 汇总
 
 | BUG | 位置 | 状态 | 回归测试 |
@@ -631,6 +668,7 @@ if state.HealthScore() >= 100.0 { t.Errorf("expected score to decay, ...") }
 | 012 | 头像数据互清/死链/404/顶栏恒占位 | 已修 | Go 2 套 + jest 11 条 + 实测全链路 |
 | 013 | MFA 绑定不可用 + 无恢复码兜底 | 已修 | RFC 向量 + Go 14 条 + jest 8 条 |
 | 014 | 健康分数衰减用例依赖墙钟 | 已修 | 改写为轮询 + 离散不变量 |
+| 015 | antd 6 整体废弃 `List` 组件（组件级守卫盲区） | 已修 | jest 8 条 + 守卫新用例 + 走查复证 |
 
 ### 遗留 / 未修
 

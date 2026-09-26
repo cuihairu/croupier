@@ -1,5 +1,6 @@
+import SimpleList from '@/components/SimpleList';
 import { useCallback, useRef, useState } from 'react';
-import { App, Alert, Button, Card, Form, Input, List, Space, Tag, Typography } from 'antd';
+import { App, Alert, Button, Card, Form, Input, Space, Tag, Typography } from 'antd';
 import type { FormInstance } from 'antd';
 import { ModalForm } from '@ant-design/pro-components';
 import { CopyOutlined } from '@ant-design/icons';
@@ -81,11 +82,11 @@ export default function PermissionsTab({
     <>
       <Space orientation="vertical" size={16} style={{ width: '100%' }}>
         <Card title={formatMessage('profile.permissions.summary.title')}>
-          <List
+          <SimpleList
             dataSource={groups}
             locale={{ emptyText: formatMessage('profile.permissions.empty') }}
             renderItem={(item) => (
-              <List.Item>
+              <SimpleList.Item>
                 <div style={{ width: '100%' }}>
                   <Space>
                     <Text strong>{item.resource}</Text>
@@ -101,7 +102,7 @@ export default function PermissionsTab({
                     </Space>
                   </div>
                 </div>
-              </List.Item>
+              </SimpleList.Item>
             )}
           />
         </Card>
@@ -115,18 +116,18 @@ export default function PermissionsTab({
             )
           }
         >
-          <List
+          <SimpleList
             dataSource={candidates}
             locale={{ emptyText: formatMessage('profile.permissions.apply.empty') }}
             renderItem={(item) => (
-              <List.Item
+              <SimpleList.Item
                 actions={[
                   <Button key="apply" type="link" onClick={() => handleOpenApply(item)}>
                     {formatMessage('profile.permissions.apply.action')}
                   </Button>,
                 ]}
               >
-                <List.Item.Meta
+                <SimpleList.Item.Meta
                   title={
                     <Space>
                       <Text strong>{item.name}</Text>
@@ -140,7 +141,7 @@ export default function PermissionsTab({
                     item.description || formatMessage('profile.permissions.apply.no.description')
                   }
                 />
-              </List.Item>
+              </SimpleList.Item>
             )}
           />
         </Card>

@@ -352,4 +352,30 @@ describe('antd 6 废弃属性守卫', () => {
       .map((b) => `${b.file}: Steps items[].description`);
     expect(offenders).toEqual([]);
   });
+
+  // BUG-014（docs/BUGS.md）：antd 6 整体废弃了 List 组件（v7 移除）。
+  // 这是**组件级**废弃——运行时告警是 `warning(false, 'deprecated', ...)`，不挂在
+  // 任何属性上，上面的属性级抽取器天然扫不到，必须单独守卫。
+  // 现有用法已全部迁到内部替身 `src/components/SimpleList`（视觉契约对齐），
+  // 这里禁止任何形式的回潮。
+  it('src 下不存在被整体废弃的 antd List 组件（组件级废弃，属性级守卫扫不到）', () => {
+    // 前置：确认安装的 antd 仍处于「List 已废弃」状态。若某天升级后 antd
+    // 移除/取消了该废弃，这条前置会失败并提示重新审视本用例。
+    const listEntry = fs.readFileSync(path.join(ANTD_ES, 'list', 'index.js'), 'utf8');
+    expect(listEntry).toMatch(/List` component is deprecated/);
+
+    const offenders: string[] = [];
+    for (const file of collectSourceFiles()) {
+      const src = fs.readFileSync(file, 'utf8');
+      const rel = path.relative(WEB_ROOT, file);
+      // JSX 标签：<List、<List.Item、<List.Item.Meta、<List<T>（泛型）。
+      // 负向断言保证 <ListTab / <ListViewSpec 这类同前缀组件不误伤。
+      if (/<List(?=[\s.<>])/.test(src)) offenders.push(`${rel}: <List JSX`);
+      // 从 antd 解构导入 List 本体。
+      if (/import\s*{[^}]*\bList\b[^}]*}\s*from\s*'antd'/.test(src)) {
+        offenders.push(`${rel}: import { List } from 'antd'`);
+      }
+    }
+    expect(offenders).toEqual([]);
+  });
 });

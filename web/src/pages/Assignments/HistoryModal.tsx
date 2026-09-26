@@ -1,5 +1,6 @@
+import SimpleList from '@/components/SimpleList';
 import React from 'react';
-import { Button, Descriptions, List, Modal, Select, Space, Tag } from 'antd';
+import { Button, Descriptions, Modal, Select, Space, Tag } from 'antd';
 import { ReloadOutlined } from '@ant-design/icons';
 import { FormattedMessage, useIntl } from '@umijs/max';
 import type { AssignmentHistory, HistoryAction } from './types';
@@ -66,7 +67,7 @@ export default function HistoryModal({
           <FormattedMessage id="pages.assignments.history.reload" defaultMessage="刷新" />
         </Button>
       </Space>
-      <List
+      <SimpleList
         loading={loading}
         dataSource={history}
         pagination={{
@@ -77,8 +78,8 @@ export default function HistoryModal({
           onChange: onPageChange,
         }}
         renderItem={(item) => (
-          <List.Item>
-            <List.Item.Meta
+          <SimpleList.Item>
+            <SimpleList.Item.Meta
               title={
                 <Space>
                   <Tag
@@ -136,7 +137,7 @@ export default function HistoryModal({
                 </Space>
               }
             />
-          </List.Item>
+          </SimpleList.Item>
         )}
       />
     </Modal>

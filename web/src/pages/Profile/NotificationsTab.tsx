@@ -1,5 +1,6 @@
+import SimpleList from '@/components/SimpleList';
 import { useCallback } from 'react';
-import { Badge, Button, Card, List, Modal, Space, Tag, Typography } from 'antd';
+import { Badge, Button, Card, Modal, Space, Tag, Typography } from 'antd';
 import { FormattedMessage, useIntl } from '@umijs/max';
 import type { MessageItem } from '@/services/api/messages';
 import { formatDateTime } from '@/utils/format';
@@ -53,15 +54,15 @@ export default function NotificationsTab({
         </Space>
       }
     >
-      <List
+      <SimpleList
         dataSource={items}
         locale={{ emptyText: formatMessage('profile.notifications.empty') }}
         renderItem={(item) => (
-          <List.Item
+          <SimpleList.Item
             style={{ cursor: 'pointer', borderRadius: 6, padding: '10px 8px' }}
             onClick={() => onOpenMessage(item)}
           >
-            <List.Item.Meta
+            <SimpleList.Item.Meta
               title={
                 <Space>
                   <Badge status={item.status === 'read' ? 'default' : 'processing'} />
@@ -118,7 +119,7 @@ export default function NotificationsTab({
                 </Space>
               }
             />
-          </List.Item>
+          </SimpleList.Item>
         )}
       />
       <Modal

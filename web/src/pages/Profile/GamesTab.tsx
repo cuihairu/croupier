@@ -1,5 +1,6 @@
+import SimpleList from '@/components/SimpleList';
 import { useCallback } from 'react';
-import { Card, List, Space, Tag, Typography } from 'antd';
+import { Card, Space, Tag, Typography } from 'antd';
 import { useIntl } from '@umijs/max';
 import type { ProfileGame } from '@/services/api/me';
 
@@ -11,12 +12,12 @@ export default function GamesTab({ games, loading }: { games: ProfileGame[]; loa
   const formatMessage = useCallback((id: string) => intl.formatMessage({ id }), [intl]);
   return (
     <Card loading={loading}>
-      <List
+      <SimpleList
         dataSource={games}
         locale={{ emptyText: formatMessage('profile.games.empty') }}
         renderItem={(game) => (
-          <List.Item>
-            <List.Item.Meta
+          <SimpleList.Item>
+            <SimpleList.Item.Meta
               title={
                 <Space>
                   <Text strong>{game.gameName || game.gameId}</Text>
@@ -46,7 +47,7 @@ export default function GamesTab({ games, loading }: { games: ProfileGame[]; loa
                 </Space>
               }
             />
-          </List.Item>
+          </SimpleList.Item>
         )}
       />
     </Card>

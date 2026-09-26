@@ -1,4 +1,5 @@
-import { List, Space, Tag, Typography } from 'antd';
+import SimpleList from '@/components/SimpleList';
+import { Space, Tag, Typography } from 'antd';
 import type { AuditEvent } from '@/services/api/audit';
 import { formatDateTime } from '@/utils/format';
 
@@ -7,12 +8,12 @@ const { Text } = Typography;
 /** 审计事件列表（活动/会话两个 Tab 共用的展示组件）。 */
 export default function AuditList({ data, emptyText }: { data: AuditEvent[]; emptyText: string }) {
   return (
-    <List
+    <SimpleList
       dataSource={data}
       locale={{ emptyText }}
       renderItem={(item) => (
-        <List.Item>
-          <List.Item.Meta
+        <SimpleList.Item>
+          <SimpleList.Item.Meta
             title={
               <Space>
                 <Tag color="blue">{item.kind}</Tag>
@@ -33,7 +34,7 @@ export default function AuditList({ data, emptyText }: { data: AuditEvent[]; emp
               </Space>
             }
           />
-        </List.Item>
+        </SimpleList.Item>
       )}
     />
   );
