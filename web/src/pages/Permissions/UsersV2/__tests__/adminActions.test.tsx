@@ -11,6 +11,8 @@
  * 5. 操作日志/登录日志 window.open 入口；
  * 6. #19 角色下拉说明副行渲染（含无说明角色分支）；
  * 7. 新增提交失败：静默 catch，弹窗保持开启。
+ * 8. 覆盖率补齐轮：refresh 空响应、openScope/onChange 空值与失败分支、
+ *    编辑禁用、gameName 回退、无角色用户行列、submitScope 失败。
  *
  * ModalForm 以 antd Form 替身复刻 open/onFinish 契约（createForm.test.tsx 同款）。
  */
@@ -96,6 +98,7 @@ const {
   listAdmins,
   listRoles,
   createAdmin,
+  updateAdmin,
   deleteAdmin,
   resetAdminPassword,
   getAdminGames,
@@ -134,6 +137,16 @@ const USERS = [
     createdAt: '2026-01-01T00:00:00Z',
     updatedAt: '2026-01-01T00:00:00Z',
   },
+  // 无 roles 键：roles 列 `(arr || [])` 兜底与编辑 initialValues 回退的分支载体
+  {
+    id: 9,
+    username: 'noroles',
+    nickname: 'NoRoles',
+    status: 1,
+    bootstrap: false,
+    createdAt: '2026-01-01T00:00:00Z',
+    updatedAt: '2026-01-01T00:00:00Z',
+  },
 ];
 
 const ROLES = [
@@ -162,7 +175,7 @@ const fieldByLabel = (label: string): HTMLElement => {
     n.querySelector('label')?.textContent?.includes(label),
   );
   if (!item) throw new Error(`form item ${label} not mounted`);
-  const control = item.querySelector('.ant-input, .ant-select');
+  const control = item.querySelector('.ant-input, .ant-select, button.ant-switch');
   if (!control) throw new Error(`control for ${label} not mounted`);
   return control as HTMLElement;
 };
@@ -218,6 +231,7 @@ beforeEach(() => {
   deleteAdmin.mockResolvedValue(undefined);
   resetAdminPassword.mockResolvedValue(undefined);
   createAdmin.mockResolvedValue({ id: 9 });
+  updateAdmin.mockResolvedValue({ id: 1 });
 });
 
 describe('UsersV2 设置密码弹窗', () => {
@@ -424,5 +438,198 @@ describe('UsersV2 新增失败静默', () => {
     await waitFor(() => expect(createAdmin).toHaveBeenCalledTimes(1));
     expect(mockMessageApi.success).not.toHaveBeenCalled();
     expect(screen.getByTestId('modal-form-submit')).toBeInTheDocument();
+  });
+});
+
+/**
+ * 覆盖率补齐轮（分支残余）
+ *
+ * 据实登记的不可达分支（不构造用例，理由如下）：
+ * - openScope 内层 setEnvSel([]) catch：第 120 行 `.map` 已证明 cur.games 必为
+ *   数组（真值非数组会先在 120 抛出、走外层 catch），数组 `.find` 不会抛；
+ * - 创建表单 `username ?? ''` / `password ?? ''`：必填规则保证非空才进 onFinish
+ *   （代码注释同口径「required 规则保证运行时存在」）；
+ * - `passwordExpiresDays ?? 0`：create initialValues 恒为 0，左侧恒取；
+ * - submitPwd/submitScope `!editing` 守卫：两弹窗仅由 openPwd/openScope 打开，
+ *   两者都先 setEditing，弹窗开启时 editing 必非空；
+ * - 游戏下拉 `(games || [])`：refresh 的 `setGames(g.games || [])` 已归一为数组；
+ * - 环境多选 `arr || []`：antd 多选 onChange 恒传数组；
+ * - `envs: envSel || []`：envSel 由 useState([]) 初始化且仅 setEnvSel(数组) 更新，
+ *   JS 中空数组为真值，右侧 `|| []` 恒不取。
+ */
+describe('UsersV2 分支补齐：加载与弹窗预取', () => {
+  it('refresh 空响应（items/total/roles/games 缺省）不崩，空表渲染', async () => {
+    listAdmins.mockResolvedValue({});
+    listRoles.mockResolvedValue({});
+    listGamesMeta.mockResolvedValue({});
+    renderPage();
+
+    // total=0 时 antd 不渲染分页条，空态走 Empty 占位（title 与描述文本同值，限定描述节点）
+    await screen.findByText('No data', { selector: '.ant-empty-description' });
+    expect(screen.queryByText('Administrator')).toBeNull();
+    expect(mockMessageApi.error).not.toHaveBeenCalled();
+  });
+
+  it('管理员无任何游戏分配：回退首个 meta 游戏，envs 空数组写回', async () => {
+    getAdminGames.mockResolvedValue({ games: undefined });
+    renderPage();
+    await screen.findByText('Administrator');
+
+    fireEvent.click(within(findRow('ops1')).getByText('游戏分配'));
+    await waitForField('选择游戏');
+    await waitFor(() => expect(listGameEnvs).toHaveBeenCalledWith(5));
+
+    fireEvent.click(screen.getByTestId('modal-form-submit'));
+    await waitFor(() => expect(updateAdminGames).toHaveBeenCalledTimes(1));
+    // matchedGame 未命中 → ?? fallbackId（games[0].id=5）；assignedGame 未命中 → envs []
+    expect(updateAdminGames).toHaveBeenCalledWith(2, [
+      { gameId: '5', gameName: '演示游戏 A', envs: [] },
+    ]);
+  });
+
+  it('openScope 环境响应缺 envs 键：环境选项走兜底列表', async () => {
+    listGameEnvs.mockResolvedValueOnce({ envs: undefined });
+    renderPage();
+    await screen.findByText('Administrator');
+
+    fireEvent.click(within(findRow('ops1')).getByText('游戏分配'));
+    await waitForField('环境范围');
+    await waitFor(() => expect(listGameEnvs).toHaveBeenCalledWith(5));
+
+    fireEvent.mouseDown(fieldByLabel('环境范围'));
+    expect(await screen.findByText('dev')).toBeInTheDocument();
+  });
+
+  it('openScope 环境预取拒绝：静默置空，环境选项走兜底列表', async () => {
+    listGameEnvs.mockRejectedValueOnce(new Error('boom'));
+    renderPage();
+    await screen.findByText('Administrator');
+
+    fireEvent.click(within(findRow('ops1')).getByText('游戏分配'));
+    await waitForField('环境范围');
+    await waitFor(() => expect(listGameEnvs).toHaveBeenCalledWith(5));
+
+    fireEvent.mouseDown(fieldByLabel('环境范围'));
+    expect(await screen.findByText('dev')).toBeInTheDocument();
+  });
+});
+
+describe('UsersV2 分支补齐：切换游戏与提交失败', () => {
+  it('切换游戏后环境选项拉取拒绝：静默置空，envs 空数组写回', async () => {
+    listGameEnvs
+      .mockResolvedValueOnce({ envs: [{ env: 'prod' }, { env: 'stage' }] })
+      .mockRejectedValueOnce(new Error('boom'))
+      .mockResolvedValue({ envs: [] });
+    getAdminGames.mockResolvedValueOnce(ADMIN_GAMES).mockResolvedValue({ games: undefined });
+    renderPage();
+    await screen.findByText('Administrator');
+
+    fireEvent.click(within(findRow('ops1')).getByText('游戏分配'));
+    await waitForField('选择游戏');
+    await waitFor(() => expect(listGameEnvs).toHaveBeenCalledWith(5));
+
+    fireEvent.mouseDown(fieldByLabel('选择游戏'));
+    fireEvent.click(await screen.findByText('演示游戏 B'));
+    await waitFor(() => expect(listGameEnvs).toHaveBeenCalledWith(6));
+
+    fireEvent.click(screen.getByTestId('modal-form-submit'));
+    await waitFor(() => expect(updateAdminGames).toHaveBeenCalledTimes(1));
+    // 切到 6：环境选项拉取失败 → envSel 兜底 []（assignedGame 未命中同型兜底）
+    expect(updateAdminGames).toHaveBeenCalledWith(
+      2,
+      expect.arrayContaining([expect.objectContaining({ gameId: '6', envs: [] })]),
+    );
+  });
+
+  it('切换游戏后已分配环境读取拒绝：envSel 兜底空数组写回（响应缺 games 键）', async () => {
+    listGameEnvs
+      .mockResolvedValueOnce({ envs: [{ env: 'prod' }, { env: 'stage' }] })
+      .mockResolvedValueOnce({ envs: undefined })
+      .mockResolvedValue({ envs: [] });
+    getAdminGames
+      .mockResolvedValueOnce(ADMIN_GAMES)
+      .mockRejectedValueOnce(new Error('boom'))
+      .mockResolvedValue(ADMIN_GAMES);
+    renderPage();
+    await screen.findByText('Administrator');
+
+    fireEvent.click(within(findRow('ops1')).getByText('游戏分配'));
+    await waitForField('选择游戏');
+    await waitFor(() => expect(listGameEnvs).toHaveBeenCalledWith(5));
+
+    fireEvent.mouseDown(fieldByLabel('选择游戏'));
+    fireEvent.click(await screen.findByText('演示游戏 B'));
+    await waitFor(() => expect(getAdminGames).toHaveBeenCalledTimes(2));
+
+    fireEvent.click(screen.getByTestId('modal-form-submit'));
+    await waitFor(() => expect(updateAdminGames).toHaveBeenCalledTimes(1));
+    expect(updateAdminGames).toHaveBeenCalledWith(
+      2,
+      expect.arrayContaining([expect.objectContaining({ gameId: '6', envs: [] })]),
+    );
+  });
+
+  it('写回 updateAdminGames 拒绝：静默 catch，弹窗保持开启', async () => {
+    updateAdminGames.mockRejectedValueOnce(new Error('boom'));
+    renderPage();
+    await screen.findByText('Administrator');
+
+    fireEvent.click(within(findRow('ops1')).getByText('游戏分配'));
+    await waitForField('选择游戏');
+    await waitFor(() => expect(getAdminGames).toHaveBeenCalledWith(2));
+
+    fireEvent.click(screen.getByTestId('modal-form-submit'));
+    await waitFor(() => expect(updateAdminGames).toHaveBeenCalledTimes(1));
+    expect(mockMessageApi.success).not.toHaveBeenCalled();
+    expect(screen.getByTestId('modal-form-submit')).toBeInTheDocument();
+  });
+});
+
+describe('UsersV2 分支补齐：表单与列渲染', () => {
+  it('编辑表单关闭「启用」：提交 status=DISABLED', async () => {
+    renderPage();
+    await screen.findByText('Administrator');
+
+    fireEvent.click(within(findRow('ops1')).getByText('编辑'));
+    await waitForField('显示名');
+
+    const activeSwitch = fieldByLabel('启用');
+    expect(activeSwitch.getAttribute('aria-checked')).toBe('true');
+    fireEvent.click(activeSwitch);
+    expect(activeSwitch.getAttribute('aria-checked')).toBe('false');
+
+    fireEvent.click(screen.getByTestId('modal-form-submit'));
+    await waitFor(() => expect(updateAdmin).toHaveBeenCalledTimes(1));
+    expect(updateAdmin).toHaveBeenCalledWith(2, expect.objectContaining({ status: 0 }));
+  });
+
+  it('无 roles 键用户：角色列不崩，编辑提交 roles 空数组', async () => {
+    renderPage();
+    expect(await screen.findByText('NoRoles')).toBeInTheDocument();
+
+    fireEvent.click(within(findRow('noroles')).getByText('编辑'));
+    await waitForField('显示名');
+    fireEvent.click(screen.getByTestId('modal-form-submit'));
+
+    await waitFor(() => expect(updateAdmin).toHaveBeenCalledWith(9, expect.anything()));
+    expect(updateAdmin).toHaveBeenCalledWith(9, expect.objectContaining({ roles: [] }));
+  });
+
+  it('meta 游戏无 displayName：选项名走 name 回退，gameName 回退 gid 字符串', async () => {
+    listGamesMeta.mockResolvedValue({ games: [{ id: 5, name: 'demo-a' }] });
+    renderPage();
+    await screen.findByText('Administrator');
+
+    fireEvent.click(within(findRow('ops1')).getByText('游戏分配'));
+    await waitForField('选择游戏');
+    await waitFor(() => expect(getAdminGames).toHaveBeenCalledWith(2));
+
+    fireEvent.click(screen.getByTestId('modal-form-submit'));
+    await waitFor(() => expect(updateAdminGames).toHaveBeenCalledTimes(1));
+    // games.find(...)?.displayName 未命中 → String(gid)='5'（选项 label 走 name 回退 'demo-a'）
+    expect(updateAdminGames).toHaveBeenCalledWith(
+      2,
+      expect.arrayContaining([expect.objectContaining({ gameId: '5', gameName: '5' })]),
+    );
   });
 });
