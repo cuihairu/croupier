@@ -6,7 +6,7 @@
  * 所有用户都有的个人中心里。本页是 admin-only 的落地面。
  */
 import React from 'react';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { configure, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { App } from 'antd';
 import AnnouncementsPage from '../index';
 import {
@@ -15,6 +15,14 @@ import {
   listAnnouncements,
   updateAnnouncement,
 } from '@/services/api/announcements';
+
+// 负载/串行组合跑时 worker 显著变慢（单独跑 ~21s/套件，跟在 ResourceCatalog/
+// templateUsage 这类重套件后面 90s+，隔离跑稳定绿）——RTL waitFor 默认 1s、
+// jest 每 test 默认 5s 都会 whiplash（同用例先后报过「waitFor 内 Unable to
+// find」与「Exceeded timeout」两种症状）。放宽到与 MenuManagement 同款预算
+// （086e1f4 先例），断言逻辑零改动。
+configure({ asyncUtilTimeout: 5000 });
+jest.setTimeout(30000);
 
 jest.mock('@/services/api/announcements', () => ({
   listAnnouncements: jest.fn(),
