@@ -4,6 +4,7 @@ package agent
 
 import (
 	"fmt"
+	"os/exec"
 	"strings"
 
 	"golang.org/x/sys/windows/svc"
@@ -138,9 +139,31 @@ func getServiceStatusPlatform(name string) (*ServiceStatusDetail, error) {
 	}, nil
 }
 
-// listCronJobsPlatform is a stub for Windows.
+// schtasksQuery 是 Windows 计划任务采集的包级接缝：生产为真实 exec 调用，
+// windows 测试可注入固定输出驱动解析/过滤分支（与 listCronJobs 接缝同法）。
+var schtasksQuery = runSchtasksQuery
+
+func runSchtasksQuery() ([]byte, error) {
+	out, err := exec.Command("schtasks", "/query", "/fo", "csv", "/v").Output()
+	if err != nil {
+		return nil, fmt.Errorf("schtasks 执行失败: %w", err)
+	}
+	return out, nil
+}
+
+// listCronJobsPlatform 采集 Windows 计划任务（schtasks /query /fo csv /v）。
+// #24：此前 Windows 恒返回 not available，宿主机任务只覆盖 linux crontab；
+// 现经 ParseSchtasksCSV 解析后按来源字段映射 CronJob（TaskName→SourceFile、
+// Task To Run→Command、Run As User→User、Scheduled Task State→Enabled）。
+// \Microsoft\ 内置任务（数百条、非 GM 关注点）在采集端剔除。
+// 已知边界：非英文 locale 下 schtasks 列名为译文且输出为 OEM 代码页，
+// 结构解析走固定下标回退仍正确，但中文内容可能显示乱码（不引入编码转换依赖）。
 func listCronJobsPlatform() ([]CronJob, error) {
-	return nil, fmt.Errorf("cron jobs are not available on Windows")
+	out, err := schtasksQuery()
+	if err != nil {
+		return nil, err
+	}
+	return FilterSchtasksSystemJobs(ParseSchtasksCSV(out)), nil
 }
 
 // matchesState checks if the service state matches the filter.
