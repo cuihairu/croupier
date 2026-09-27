@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"sync"
+	"time"
 
 	"encoding/json"
 	"gorm.io/datatypes"
@@ -17,6 +19,12 @@ import (
 
 type Service struct {
 	svcCtx *svc.ServiceContext
+
+	// #24：宿主机任务聚合的短 TTL 缓存——/ops/schedules 的概览统计与
+	// 分组表格共用一次采集，避免每次渲染打满 agent 会话
+	cronJobsMu       sync.Mutex
+	cronJobsCache    []NodeCronJobsReport
+	cronJobsCacheExp time.Time
 }
 
 func NewService(svcCtx *svc.ServiceContext) *Service {
@@ -158,9 +166,22 @@ type NodeCronJob struct {
 
 // ListCronJobs 经会话表代理到在线 Agent，读取其所在主机的定时任务。
 func (s *Service) ListCronJobs(ctx context.Context, nodeID string) ([]NodeCronJob, error) {
-	if s.svcCtx.AgentSessions == nil {
-		return nil, errors.New("会话表未初始化")
+	if err := s.ensureCronJobsDeps(); err != nil {
+		return nil, err
 	}
+	return s.collectCronJobs(ctx, nodeID)
+}
+
+// ensureCronJobsDeps 校验采集链路依赖（会话表）。
+func (s *Service) ensureCronJobsDeps() error {
+	if s.svcCtx.AgentSessions == nil {
+		return errors.New("会话表未初始化")
+	}
+	return nil
+}
+
+// collectCronJobs 单节点原始采集（不经缓存），单点查询与全量聚合共用。
+func (s *Service) collectCronJobs(ctx context.Context, nodeID string) ([]NodeCronJob, error) {
 	caller, ok := s.svcCtx.AgentSessions.ResolveSessionCaller(nodeID)
 	if !ok {
 		return nil, errors.New("节点不在线")
@@ -176,6 +197,73 @@ func (s *Service) ListCronJobs(ctx context.Context, nodeID string) ([]NodeCronJo
 		return nil, fmt.Errorf("解析 agent 响应失败: %w", err)
 	}
 	return resp.Jobs, nil
+}
+
+// NodeCronJobsReport 单节点的宿主机定时任务采集结果；不可达节点 ok=false
+// 并携带原因，不中断整体聚合（#24：/ops/schedules 按来源分组展示）。
+type NodeCronJobsReport struct {
+	NodeID   string        `json:"nodeId"`
+	NodeName string        `json:"nodeName"`
+	Status   string        `json:"status"`
+	OK       bool          `json:"ok"`
+	Error    string        `json:"error,omitempty"`
+	Jobs     []NodeCronJob `json:"jobs"`
+}
+
+// nodeCronJobsCacheTTL 限定聚合结果的陈旧度（与 #14 分类聚合同量级）。
+const nodeCronJobsCacheTTL = 30 * time.Second
+
+// ListAllCronJobs 聚合全部节点的宿主机定时任务。
+// 在线节点并行经会话表采集，离线/失败节点以 ok=false 标注原因；
+// 结果缓存 nodeCronJobsCacheTTL，避免概览+表格双渲染打满 agent。
+func (s *Service) ListAllCronJobs(ctx context.Context) ([]NodeCronJobsReport, error) {
+	s.cronJobsMu.Lock()
+	if s.cronJobsCache != nil && time.Now().Before(s.cronJobsCacheExp) {
+		cached := s.cronJobsCache
+		s.cronJobsMu.Unlock()
+		return cached, nil
+	}
+	s.cronJobsMu.Unlock()
+
+	if s.svcCtx.NodeModel == nil {
+		return nil, errors.New("节点表未初始化")
+	}
+	nodes, err := s.svcCtx.NodeModel.List(ctx, model.ListNodesOptions{})
+	if err != nil {
+		return nil, err
+	}
+
+	reports := make([]NodeCronJobsReport, len(nodes))
+	var wg sync.WaitGroup
+	for i := range nodes {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			n := utils.BuildNode(&nodes[i])
+			rep := NodeCronJobsReport{
+				NodeID:   n.Id,
+				NodeName: n.Name,
+				Status:   n.Status,
+				Jobs:     []NodeCronJob{},
+			}
+			if err := s.ensureCronJobsDeps(); err != nil {
+				rep.Error = err.Error()
+			} else if jobs, err := s.collectCronJobs(ctx, n.Id); err != nil {
+				rep.Error = err.Error()
+			} else {
+				rep.OK = true
+				rep.Jobs = jobs
+			}
+			reports[i] = rep
+		}(i)
+	}
+	wg.Wait()
+
+	s.cronJobsMu.Lock()
+	s.cronJobsCache = reports
+	s.cronJobsCacheExp = time.Now().Add(nodeCronJobsCacheTTL)
+	s.cronJobsMu.Unlock()
+	return reports, nil
 }
 
 // ListCommands returns the list of available node commands
