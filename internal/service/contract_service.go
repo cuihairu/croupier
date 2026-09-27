@@ -1635,7 +1635,7 @@ func (s *ContractService) upsertGeneratedProposal(
 		Quality:          string(generated.Quality),
 		GeneratorVersion: PageProposalGeneratorVersion,
 		FunctionDigest:   computeDigest(contracts),
-		SemanticsDigest:  computeDigest(semantics),
+		SemanticsDigest:  semanticsComparableDigest(semantics),
 		Title:            toJSONMap(generated.Title),
 		Description:      toJSONMap(generated.Description),
 		CategoryKey:      generated.Category.Key,
@@ -1672,6 +1672,71 @@ func generatedProposalChanged(existing *model.PageProposal, next *model.PageProp
 		return true
 	}
 	return proposalComparableDigest(existing) != proposalComparableDigest(next)
+}
+
+// semanticsComparableDigest 只对语义的**稳定内容**做 digest。CapabilitySemantics
+// 内嵌 gorm.Model（ID/CreatedAt/UpdatedAt/DeletedAt）又带一处显式 UpdatedAt，
+// json.Marshal 全量导出——agent 每次重注册都会 upsert 语义行刷新 UpdatedAt，
+// 时间戳被吃进 digest 后，内容未变也判「有变化」，每次重连/重启都灌一版
+// 快照（BUG-031 残留：线上实测 agent 重启后每提案 +4 版，相邻版本唯一
+// 实质差异是 SemanticsDigest，PageSpec/FunctionDigest 恒等）。JSON 字段同时
+// 走 canonicalJSONBytes 归一（jsonb 键序漂移与 BUG-031 同病类）。
+func semanticsComparableDigest(semantics *model.CapabilitySemantics) string {
+	// nil（无资源/无语义行）与全零语义投影等价：digest 保持 64 字符非空
+	// （PageProposal.SemanticsDigest 的列契约），且与「空语义行」不可区分——
+	// 二者本来就没有可比较的内容差异。
+	if semantics == nil {
+		semantics = &model.CapabilitySemantics{}
+	}
+	return computeDigest(struct {
+		Version           int
+		IdentityField     string
+		IdentityFieldType string
+		IdentityPath      string
+		CollectionQueryID uint
+		CollectionPath    string
+		PageFieldName     string
+		PageSizeFieldName string
+		ItemsFieldName    string
+		TotalFieldName    string
+		ItemQueryID       uint
+		ItemPath          string
+		CreateID          uint
+		UpdateID          uint
+		DeleteID          uint
+		Actions           model.JSON
+		Tasks             model.JSON
+		Reports           model.JSON
+		Source            string
+		SourceDigest      string
+		Diagnostics       model.JSON
+		Provenance        model.JSON
+		Conflicts         model.JSON
+	}{
+		Version:           semantics.Version,
+		IdentityField:     semantics.IdentityField,
+		IdentityFieldType: semantics.IdentityFieldType,
+		IdentityPath:      semantics.IdentityPath,
+		CollectionQueryID: semantics.CollectionQueryID,
+		CollectionPath:    semantics.CollectionPath,
+		PageFieldName:     semantics.PageFieldName,
+		PageSizeFieldName: semantics.PageSizeFieldName,
+		ItemsFieldName:    semantics.ItemsFieldName,
+		TotalFieldName:    semantics.TotalFieldName,
+		ItemQueryID:       semantics.ItemQueryID,
+		ItemPath:          semantics.ItemPath,
+		CreateID:          semantics.CreateID,
+		UpdateID:          semantics.UpdateID,
+		DeleteID:          semantics.DeleteID,
+		Actions:           canonicalJSONBytes(semantics.Actions),
+		Tasks:             canonicalJSONBytes(semantics.Tasks),
+		Reports:           canonicalJSONBytes(semantics.Reports),
+		Source:            semantics.Source,
+		SourceDigest:      semantics.SourceDigest,
+		Diagnostics:       canonicalJSONBytes(semantics.Diagnostics),
+		Provenance:        canonicalJSONBytes(semantics.Provenance),
+		Conflicts:         canonicalJSONBytes(semantics.Conflicts),
+	})
 }
 
 func proposalComparableDigest(proposal *model.PageProposal) string {

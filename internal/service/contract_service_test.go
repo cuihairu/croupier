@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/cuihairu/croupier/internal/audit"
 	"github.com/cuihairu/croupier/internal/dashboard/spec"
@@ -891,6 +892,48 @@ func TestReportSemanticsByQueryFunction(t *testing.T) {
 	assert.Len(t, result, 2)
 	assert.Contains(t, result, "report1")
 	assert.Contains(t, result, "report2")
+}
+
+// BUG-031 残留回归：agent 每次重注册 upsert 语义行会刷新 UpdatedAt/ID 等
+// DB 元数据，旧 computeDigest(semantics) 把整结构体（含时间戳）吃进 digest，
+// 内容未变也判「有变化」——线上实测 agent 重启后每提案 +4 版快照。
+func TestSemanticsComparableDigest_StableAcrossRegistrationRefresh(t *testing.T) {
+	base := &model.CapabilitySemantics{
+		GameID: "g", Env: "e", ResourceKey: "player",
+		Version: 3, IdentityField: "player_id", Source: "sdk_explicit",
+		Reports: model.JSON(`{"items":[{"functionId":"ops.restart"}],"b":1}`),
+	}
+
+	// 重注册后的回读形态：语义内容等价（jsonb 键序/空白漂移），DB 元数据全变。
+	refreshed := &model.CapabilitySemantics{
+		GameID: "g", Env: "e", ResourceKey: "player",
+		Version: 3, IdentityField: "player_id", Source: "sdk_explicit",
+		Reports:   model.JSON(`{"b": 1, "items": [{"functionId": "ops.restart"}]}`),
+		UpdatedAt: time.Now(),
+		UpdatedBy: "system",
+	}
+	refreshed.ID = 99
+	refreshed.CreatedAt = time.Now().Add(-time.Hour)
+
+	// 旧整结构体 digest 确实不稳定（本 bug 的根）：同一内容、不同元数据即不同。
+	assert.NotEqual(t, computeDigest(base), computeDigest(refreshed),
+		"old whole-struct digest must be unstable across refresh (documents the residual bug)")
+
+	assert.Equal(t, semanticsComparableDigest(base), semanticsComparableDigest(refreshed),
+		"metadata-only refresh must not change the semantics digest")
+
+	changed := *refreshed
+	changed.IdentityField = "id"
+	assert.NotEqual(t, semanticsComparableDigest(base), semanticsComparableDigest(&changed),
+		"real content change must still be detected")
+
+	// nil（无资源/无语义行）必须仍产出 64 字符稳定 digest（列契约），
+	// 且与全零语义行等价——回归：曾返回空串令无资源提案断言失败。
+	nilDigest := semanticsComparableDigest(nil)
+	assert.Len(t, nilDigest, 64)
+	assert.NotEmpty(t, nilDigest)
+	assert.Equal(t, nilDigest, semanticsComparableDigest(&model.CapabilitySemantics{}))
+	assert.Equal(t, nilDigest, semanticsComparableDigest(nil))
 }
 
 func TestGeneratedProposalChanged(t *testing.T) {

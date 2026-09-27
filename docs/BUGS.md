@@ -11,12 +11,12 @@
 
 ## 验证手段
 
-| 手段 | 位置 | 用途 |
-| --- | --- | --- |
-| 控制台审计脚本 | `web/scripts/console-audit.mjs` | 登录真实栈，遍历 **52** 条路由，收集 console warning/error/pageerror，输出 JSON 报告。dev 模式下 antd 的运行时废弃告警、React 重复 key、缺失 locale key 只有这样才抓得到。 |
-| 废弃属性静态守卫 | `web/tests/antd6Deprecations.test.ts` | 从 `node_modules/antd` 的**运行时告警表**反推废弃清单，扫描 `src/**/*.tsx`，任何新写入的废弃属性直接失败并报文件行号。 |
-| 单元测试 | `pnpm --dir web test`（jest，251 个 suite） | 组件行为回归。 |
-| Go 测试 | `make test`（`go test -short ./...`，169 个包） | 后端回归。 |
+| 手段             | 位置                                            | 用途                                                                                                                                                                       |
+| ---------------- | ----------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 控制台审计脚本   | `web/scripts/console-audit.mjs`                 | 登录真实栈，遍历 **52** 条路由，收集 console warning/error/pageerror，输出 JSON 报告。dev 模式下 antd 的运行时废弃告警、React 重复 key、缺失 locale key 只有这样才抓得到。 |
+| 废弃属性静态守卫 | `web/tests/antd6Deprecations.test.ts`           | 从 `node_modules/antd` 的**运行时告警表**反推废弃清单，扫描 `src/**/*.tsx`，任何新写入的废弃属性直接失败并报文件行号。                                                     |
+| 单元测试         | `pnpm --dir web test`（jest，251 个 suite）     | 组件行为回归。                                                                                                                                                             |
+| Go 测试          | `make test`（`go test -short ./...`，169 个包） | 后端回归。                                                                                                                                                                 |
 
 审计脚本的运行方式（需本地栈已起）：
 
@@ -165,7 +165,10 @@ bind 了**业务端口**。任何跑着本地栈的开发者、或并行占着�
 组件写成：
 
 ```ts
-fmt('pages.menuManagement.page.order', '排序 {order}').replace('{order}', String(n))
+fmt("pages.menuManagement.page.order", "排序 {order}").replace(
+  "{order}",
+  String(n),
+);
 ```
 
 `{order}` 是 ICU 占位符。真实 `react-intl` 在 defaultMessage 含占位符却没有
@@ -175,7 +178,7 @@ fmt('pages.menuManagement.page.order', '排序 {order}').replace('{order}', Stri
 **为什么长期没被发现**：`MenuTree.test.tsx` 自己 mock 了 `@umijs/max`：
 
 ```ts
-formatMessage: ({ defaultMessage }) => defaultMessage   // 丢弃 values
+formatMessage: ({ defaultMessage }) => defaultMessage; // 丢弃 values
 ```
 
 这个 mock 把「漏传 values」的错误一并吞掉，等于替组件打了补丁，于是组件得以停留在
@@ -191,6 +194,7 @@ formatMessage: ({ defaultMessage }) => defaultMessage   // 丢弃 values
 ——断言每个含 `{order}` 的调用都带上了数值型 `order`，且插值后的文本为 `排序 3`。
 
 **变异验证**：把 `MenuTree.tsx` 改回 `.replace` 写法后，
+
 - 旧用例 `已发布/草稿页面…排序 3` **仍然通过**（证明它没有判别力）；
 - 新用例失败（`values` 为 `undefined`）。
 
@@ -205,7 +209,7 @@ formatMessage: ({ defaultMessage }) => defaultMessage   // 丢弃 values
 **现象**
 
 dev 模式每次进页面刷 `Warning: [antd: X] \`p\` is deprecated. Please use \`q\` instead.`。
-其中 `Drawer height` 来自**全局布局**的 `GameSelector`，等于每翻一页都刷一次
+其中 `Drawer height`来自**全局布局**的`GameSelector`，等于每翻一页都刷一次
 （审计脚本量到单页 18 次）。
 
 **根因**
@@ -226,15 +230,15 @@ antd 6 对这批属性**只打告警、不改行为**，所以 `tsc` 全绿、�
 
 **修复（142 处 → 0）**
 
-| 属性 | 处数 | 处理方式 |
-| --- | --- | --- |
-| `Alert message` → `title` | 100 | 直接改名 |
-| `Drawer width` / `height` → `size` | 20 | 直接改名（`drawerSize` 归一后取值一致） |
-| `Space direction` → `orientation` | 12 | 直接改名 |
-| `Input` / `InputNumber addonBefore` → `Space.Compact` | 6 | **结构改写**：前缀移出输入框，成为 `Space.Compact` 的相邻兄弟节点（静态表单：PathControls ×3、BindingModal ×2、SourceModal ×1） |
-| `Input addonBefore` → `Input.prefix` | 3 | **结构改写**，但改用 `prefix` 而非 `Space.Compact`——见 BUG-009（热路径编辑器：ActionEditor ×1、ConstantFieldsEditor ×2） |
-| `Statistic valueStyle` → `styles.content` | 1 | 嵌套路径，改为 `styles` 的 `content` 槽（`content: {...}`） |
-| `Spin tip` → `description` | 5 | 直接改名 |
+| 属性                                                  | 处数 | 处理方式                                                                                                                        |
+| ----------------------------------------------------- | ---- | ------------------------------------------------------------------------------------------------------------------------------- |
+| `Alert message` → `title`                             | 100  | 直接改名                                                                                                                        |
+| `Drawer width` / `height` → `size`                    | 20   | 直接改名（`drawerSize` 归一后取值一致）                                                                                         |
+| `Space direction` → `orientation`                     | 12   | 直接改名                                                                                                                        |
+| `Input` / `InputNumber addonBefore` → `Space.Compact` | 6    | **结构改写**：前缀移出输入框，成为 `Space.Compact` 的相邻兄弟节点（静态表单：PathControls ×3、BindingModal ×2、SourceModal ×1） |
+| `Input addonBefore` → `Input.prefix`                  | 3    | **结构改写**，但改用 `prefix` 而非 `Space.Compact`——见 BUG-009（热路径编辑器：ActionEditor ×1、ConstantFieldsEditor ×2）        |
+| `Statistic valueStyle` → `styles.content`             | 1    | 嵌套路径，改为 `styles` 的 `content` 槽（`content: {...}`）                                                                     |
+| `Spin tip` → `description`                            | 5    | 直接改名                                                                                                                        |
 
 改写通过「按 JSX 开始标签定位」的 codemod 完成，跳过 `{}` 表达式与字符串字面量里的
 `>`（否则 `<Alert title={a > b} />` 会在表达式中间被误判为标签结束），只改属性名，
@@ -360,11 +364,13 @@ Tests:       1 failed, 3251 passed, 3252 total
 antd 的 `Space.Compact` 会给**每个子项**包一层 `CompactItem` context provider：
 
 ```js
-const CompactItem = props => {
+const CompactItem = (props) => {
   const { children, ...others } = props;
-  return <SpaceCompactItemContext.Provider value={useMemo(() => others, [others])}>
-    {children}
-  </SpaceCompactItemContext.Provider>;
+  return (
+    <SpaceCompactItemContext.Provider value={useMemo(() => others, [others])}>
+      {children}
+    </SpaceCompactItemContext.Provider>
+  );
 };
 ```
 
@@ -666,8 +672,8 @@ Functions DetailSections 19 条）。运行时复证：重跑走查后 List 告�
 **修复**（新增 `GET /api/v1/profile/notification-channels`，可用性只由后端判定）：
 
 - `approvals/sms.go`：固定短信接入点——`SMSProvider` 接口 + `ErrSMSNotConfigured`
-  + 默认 `unconfiguredSMSProvider`（未接入时发送**明确失败**而非静默成功）；
-  `SMSRegistry.Status()` 只在「已注册 provider 且凭据齐备」时报可用。
+  - 默认 `unconfiguredSMSProvider`（未接入时发送**明确失败**而非静默成功）；
+    `SMSRegistry.Status()` 只在「已注册 provider 且凭据齐备」时报可用。
 - `api/profile/notification_channels.go`：三通道事实来源——in_app（站内信零配置
   即通，平台设置可关）、email（SMTP 未配置时 EmailSender 是 no-op，不得声称可用）、
   sms（只看注册表）。`available` 与 `userEnabled` 是独立维度；不可用必带 `reason`。
@@ -746,8 +752,9 @@ Permissions: []string{},
 
 **回归测试**：`internal/api/profile/permissions_test.go`（`GetUserGames_AdminSeesFullAccessPerGame`
 断言 `["*"]`+`full`；`GetUserGames_NonAdminWithoutPermissionsIsNone` 断言 `none`）
-+ `web/src/pages/Profile/__tests__/GamesTab.permissions.test.tsx` 5 条（含
-「后端未升级、无 accessLevel 时也绝不留白」这条兼容路径）。
+
+- `web/src/pages/Profile/__tests__/GamesTab.permissions.test.tsx` 5 条（含
+  「后端未升级、无 accessLevel 时也绝不留白」这条兼容路径）。
 
 ---
 
@@ -1443,43 +1450,59 @@ Diagnostics 进 digest 前先归一化，再与 DB 回读侧同法归一后比�
 digest/幂等类逻辑的隐形炸弹——本地 sqlite（JSON 文本原样存取）测不出，
 只有线上 postgres 走 jsonb 路径。
 
+**补充（同日，残留第二病灶——重注册时间戳灌水）**：canonicalJSONBytes 上线后
+持续灌水（每 ~4 分钟 +11）停止、空闲 12 分钟零新版本，但 agent 重启仍每提案
++4 版。相邻版本 payload 的唯一实质差异是 `SemanticsDigest`（PageSpec/
+FunctionDigest 恒等）：`computeDigest(semantics)` 把整个 `CapabilitySemantics`
+结构体吃进 digest——内嵌 gorm.Model（ID/CreatedAt/UpdatedAt/DeletedAt）+ 显式
+UpdatedAt，agent 每次重注册 upsert 语义行都会刷新时间戳，内容未变也判「有
+变化」。修复：`semanticsComparableDigest` 只对语义**稳定内容字段**投影做
+digest（JSON 字段同时 canonical 归一），回归
+`TestSemanticsComparableDigest_StableAcrossRegistrationRefresh`（旧整结构体
+digest 对同一内容/不同元数据确实不稳定——文档化根因断言）。边界：无资源
+提案的 `semantics == nil`（无语义行）投影为全零语义——digest 保持 64 字符
+非空（`PageProposal.SemanticsDigest` 列契约），且与「空语义行」不可区分，
+二者本无内容差异可比较（首版实现返回空串，被
+`TestContractService_RebuildProposalForFunctionWithoutResource` 的 64 长度
+断言当场抓住）。
+
 ---
 
 ## 汇总
 
-| BUG | 位置 | 状态 | 回归测试 |
-| --- | --- | --- | --- |
-| 001 | `internal/server` 测试抢占 `:19090` | 已修 | 3 条 Go 用例 |
-| 002 | 引导管理员档案字段被丢弃 | 已修 | 5 条 Go 用例 |
-| 003 | LB 归属率仪表盘不显示 | 已修 | 7 条 jest |
-| 004 | 排序标签漏传 intl values | 已修 | 1 条 jest（判别力已验证） |
-| 005 | antd 6 废弃属性 142 处 | 已修 | 4 条 jest（判别力已验证） |
-| 006 | 组合页编辑器缺 locale key | 已修 | 随 `consoleMenu` 相关用例覆盖 |
-| 007 | 空头像串触发多余请求 | 已修 | 5 条 jest |
-| 008 | 表单实例未连接 | 已修 | 4 条 jest（判别力已验证） |
-| 009 | `Space.Compact` 迁移拖慢热路径编辑器 | 已修 | 1 条 jest（判别力已验证） |
-| 010 | `app.cancel` 未登记 locale key | 已修 | 随控制台审计守护 |
-| 011 | 审计日志两页 rowKey 全同 | 已修 | 8 条 jest（判别力已验证） |
-| 012 | 头像数据互清/死链/404/顶栏恒占位 | 已修 | Go 2 套 + jest 11 条 + 实测全链路 |
-| 013 | MFA 绑定不可用 + 无恢复码兜底 | 已修 | RFC 向量 + Go 14 条 + jest 8 条 |
-| 014 | 健康分数衰减用例依赖墙钟 | 已修 | 改写为轮询 + 离散不变量 |
-| 015 | antd 6 整体废弃 `List` 组件（组件级守卫盲区） | 已修 | jest 8 条 + 守卫新用例 + 走查复证 |
-| 016 | 安全中心「登录通知」假开关（假状态 + 假交互） | 已修 | Go 10 条 + jest 14 条 |
-| 017 | 飞书密钥漏登记 secretKeys，掩码回存覆盖真值 | 已修 | `IsSecretKey` 断言（修复前红） |
-| 018 | 游戏访问权限恒为空（admin 看到空白） | 已修 | Go 2 条 + jest 5 条 |
-| 019 | 权限概览是编造数据（resource="role"／角色名混入） | 已修 | Go 21 条（含改写 4 条固化旧错的用例） |
-| 020 | 权限概览单层平铺、无授权两态 | 已修 | jest 23 条 + 变异验证 7 条转红 |
-| 021 | 个人中心挂广播入口 + 公告无入口 | 已修 | jest 23 条 |
-| 022 | 登录页无 antd App 上下文，登录提示全部丢失 | 已修 | 布线守卫 4 条 + antdApp 3 条 + Playwright 三路径复证 |
-| 023 | 公告页双语词条缺 14 条 + 菜单键缺失 | 已修 | locale 覆盖守卫 5 条（stash 变异 4/5 转红） |
-| 024 | 审批动作从不写审计链 + 通知把申请人当审批人 | 已修 | Go 3 条（audit_chain_test，含申请人名下恒空反断言）+ 线上栈复证 |
-| 025 | 审核人跳转回退到申请人（approver 缺失时） | 已修 | jest 1 条（修复前 actor=申请人 转红）|
-| 026 | 站内信「发送」无权限校验（人人可发任意账号） | 已修 | Go 1 条（未认证/ops 403、admin 200、收件侧不受影响）|
-| 027 | 工单详情 Descriptions span 越界刷告警 | 已修 | jest 1 条（修复前红/修复后绿，spy console.error）|
-| 028 | 引导管理员可被删除 + 缺禁用/解封入口 | 已修 | Go 4 条（含 guard 变异转红）+ jest 3 条 |
-| 029 | 实例元数据端到端丢失（SDK 交接链 + agent TCP 路径双漏点） | 已修 | Go SDK 3 条（含帧级）+ agent 2 条（TCP 真连接）|
-| 030 | resource-catalog 分类/搜索过滤静默失效（query 绑定按字段名精确匹配） | 已修 | requestbind 3 条 + handler 过滤收窄 1 条（均修复前红）|
-| 031 | functions/pages 提案版本灌水（jsonb 键序致 digest 恒不等） | 已修 | TestGeneratedProposalChanged jsonb 回归（修复前红）|
+| BUG | 位置                                                                 | 状态 | 回归测试                                                                                                              |
+| --- | -------------------------------------------------------------------- | ---- | --------------------------------------------------------------------------------------------------------------------- |
+| 001 | `internal/server` 测试抢占 `:19090`                                  | 已修 | 3 条 Go 用例                                                                                                          |
+| 002 | 引导管理员档案字段被丢弃                                             | 已修 | 5 条 Go 用例                                                                                                          |
+| 003 | LB 归属率仪表盘不显示                                                | 已修 | 7 条 jest                                                                                                             |
+| 004 | 排序标签漏传 intl values                                             | 已修 | 1 条 jest（判别力已验证）                                                                                             |
+| 005 | antd 6 废弃属性 142 处                                               | 已修 | 4 条 jest（判别力已验证）                                                                                             |
+| 006 | 组合页编辑器缺 locale key                                            | 已修 | 随 `consoleMenu` 相关用例覆盖                                                                                         |
+| 007 | 空头像串触发多余请求                                                 | 已修 | 5 条 jest                                                                                                             |
+| 008 | 表单实例未连接                                                       | 已修 | 4 条 jest（判别力已验证）                                                                                             |
+| 009 | `Space.Compact` 迁移拖慢热路径编辑器                                 | 已修 | 1 条 jest（判别力已验证）                                                                                             |
+| 010 | `app.cancel` 未登记 locale key                                       | 已修 | 随控制台审计守护                                                                                                      |
+| 011 | 审计日志两页 rowKey 全同                                             | 已修 | 8 条 jest（判别力已验证）                                                                                             |
+| 012 | 头像数据互清/死链/404/顶栏恒占位                                     | 已修 | Go 2 套 + jest 11 条 + 实测全链路                                                                                     |
+| 013 | MFA 绑定不可用 + 无恢复码兜底                                        | 已修 | RFC 向量 + Go 14 条 + jest 8 条                                                                                       |
+| 014 | 健康分数衰减用例依赖墙钟                                             | 已修 | 改写为轮询 + 离散不变量                                                                                               |
+| 015 | antd 6 整体废弃 `List` 组件（组件级守卫盲区）                        | 已修 | jest 8 条 + 守卫新用例 + 走查复证                                                                                     |
+| 016 | 安全中心「登录通知」假开关（假状态 + 假交互）                        | 已修 | Go 10 条 + jest 14 条                                                                                                 |
+| 017 | 飞书密钥漏登记 secretKeys，掩码回存覆盖真值                          | 已修 | `IsSecretKey` 断言（修复前红）                                                                                        |
+| 018 | 游戏访问权限恒为空（admin 看到空白）                                 | 已修 | Go 2 条 + jest 5 条                                                                                                   |
+| 019 | 权限概览是编造数据（resource="role"／角色名混入）                    | 已修 | Go 21 条（含改写 4 条固化旧错的用例）                                                                                 |
+| 020 | 权限概览单层平铺、无授权两态                                         | 已修 | jest 23 条 + 变异验证 7 条转红                                                                                        |
+| 021 | 个人中心挂广播入口 + 公告无入口                                      | 已修 | jest 23 条                                                                                                            |
+| 022 | 登录页无 antd App 上下文，登录提示全部丢失                           | 已修 | 布线守卫 4 条 + antdApp 3 条 + Playwright 三路径复证                                                                  |
+| 023 | 公告页双语词条缺 14 条 + 菜单键缺失                                  | 已修 | locale 覆盖守卫 5 条（stash 变异 4/5 转红）                                                                           |
+| 024 | 审批动作从不写审计链 + 通知把申请人当审批人                          | 已修 | Go 3 条（audit_chain_test，含申请人名下恒空反断言）+ 线上栈复证                                                       |
+| 025 | 审核人跳转回退到申请人（approver 缺失时）                            | 已修 | jest 1 条（修复前 actor=申请人 转红）                                                                                 |
+| 026 | 站内信「发送」无权限校验（人人可发任意账号）                         | 已修 | Go 1 条（未认证/ops 403、admin 200、收件侧不受影响）                                                                  |
+| 027 | 工单详情 Descriptions span 越界刷告警                                | 已修 | jest 1 条（修复前红/修复后绿，spy console.error）                                                                     |
+| 028 | 引导管理员可被删除 + 缺禁用/解封入口                                 | 已修 | Go 4 条（含 guard 变异转红）+ jest 3 条                                                                               |
+| 029 | 实例元数据端到端丢失（SDK 交接链 + agent TCP 路径双漏点）            | 已修 | Go SDK 3 条（含帧级）+ agent 2 条（TCP 真连接）                                                                       |
+| 030 | resource-catalog 分类/搜索过滤静默失效（query 绑定按字段名精确匹配） | 已修 | requestbind 3 条 + handler 过滤收窄 1 条（均修复前红）                                                                |
+| 031 | functions/pages 提案版本灌水（jsonb 键序 + 重注册时间戳双病灶）      | 已修 | TestGeneratedProposalChanged jsonb 回归 + TestSemanticsComparableDigest_StableAcrossRegistrationRefresh（均修复前红） |
 
 ### 遗留 / 未修
 
