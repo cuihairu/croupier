@@ -59,7 +59,8 @@ export default function AnnouncementsPage() {
   const intlRef = useRef(intl);
   intlRef.current = intl;
   const t = useCallback(
-    (id: string, fallback: string) => intlRef.current.formatMessage({ id, defaultMessage: fallback }),
+    (id: string, fallback: string) =>
+      intlRef.current.formatMessage({ id, defaultMessage: fallback }),
     [],
   );
 
@@ -194,10 +195,17 @@ export default function AnnouncementsPage() {
               title: t('pages.announcements.column.title', '标题'),
               dataIndex: 'title',
               render: (v: string, row) => (
-                <Space orientation="vertical" size={0}>
+                // #15：副标题（内容预览）独立一行、单行省略（悬停看全文），
+                // 与标题留出呼吸间距——此前 size=0 零间距 + 80 字全量换行，
+                // 行内文字全部挤在一起。
+                <Space orientation="vertical" size={4}>
                   <Text strong>{v}</Text>
-                  <Text type="secondary" style={{ fontSize: 12 }}>
-                    {row.contentMd?.slice(0, 80)}
+                  <Text
+                    type="secondary"
+                    style={{ fontSize: 12, maxWidth: 480 }}
+                    ellipsis={{ tooltip: row.contentMd || v }}
+                  >
+                    {row.contentMd}
                   </Text>
                 </Space>
               ),
@@ -254,7 +262,9 @@ export default function AnnouncementsPage() {
                     title={t('pages.announcements.delete.confirm', '确认删除该公告？')}
                     okText={t('pages.announcements.delete.ok', '确认')}
                     cancelText={t('pages.announcements.delete.cancel', '取消')}
-                    okButtonProps={{ 'data-testid': `announcement-delete-confirm-${row.id}` } as never}
+                    okButtonProps={
+                      { 'data-testid': `announcement-delete-confirm-${row.id}` } as never
+                    }
                     onConfirm={() => void remove(row)}
                   >
                     <Button
@@ -295,7 +305,12 @@ export default function AnnouncementsPage() {
           <Form.Item
             name="title"
             label={t('pages.announcements.field.title', '标题')}
-            rules={[{ required: true, message: t('pages.announcements.field.title.required', '请填写标题') }]}
+            rules={[
+              {
+                required: true,
+                message: t('pages.announcements.field.title.required', '请填写标题'),
+              },
+            ]}
           >
             <Input
               placeholder={t('pages.announcements.field.title.placeholder', '一句话说清公告主题')}
@@ -306,7 +321,10 @@ export default function AnnouncementsPage() {
             name="contentMd"
             label={t('pages.announcements.field.content', '正文（Markdown）')}
             rules={[
-              { required: true, message: t('pages.announcements.field.content.required', '请填写正文') },
+              {
+                required: true,
+                message: t('pages.announcements.field.content.required', '请填写正文'),
+              },
             ]}
           >
             <Input.TextArea rows={6} data-testid="announcement-content" />
@@ -327,10 +345,7 @@ export default function AnnouncementsPage() {
               />
             </Form.Item>
             {/* audience=all 时隐藏：留着会让管理员以为 role 仍生效 */}
-            <Form.Item
-              noStyle
-              shouldUpdate={(prev, next) => prev.audience !== next.audience}
-            >
+            <Form.Item noStyle shouldUpdate={(prev, next) => prev.audience !== next.audience}>
               {({ getFieldValue }) =>
                 getFieldValue('audience') === 'role' ? (
                   <Form.Item
@@ -367,7 +382,10 @@ export default function AnnouncementsPage() {
               <Switch data-testid="announcement-active" />
             </Form.Item>
           </Space>
-          <Form.Item name="range" label={t('pages.announcements.field.range', '生效时间区间（可选）')}>
+          <Form.Item
+            name="range"
+            label={t('pages.announcements.field.range', '生效时间区间（可选）')}
+          >
             <DatePicker.RangePicker showTime />
           </Form.Item>
         </Form>

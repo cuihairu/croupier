@@ -126,9 +126,7 @@ describe('AnnouncementsPage 发布', () => {
     fireEvent.mouseDown(await screen.findByTestId('announcement-audience'));
     fireEvent.click(await screen.findByTitle('指定角色'));
     fireEvent.click(screen.getByTestId('announcement-save'));
-    await waitFor(() =>
-      expect(screen.getAllByText('请填写角色名').length).toBeGreaterThan(0),
-    );
+    await waitFor(() => expect(screen.getAllByText('请填写角色名').length).toBeGreaterThan(0));
     expect(mCreate).not.toHaveBeenCalled();
     // 校验失败不得变成 unhandled rejection（submit 必须接住 validateFields 的 reject）
     expect(screen.getByTestId('announcement-save')).toBeInTheDocument();
