@@ -218,6 +218,7 @@ func RegisterHandlers(r *gin.Engine, serverCtx *svc.ServiceContext) {
 		registerConfigExplorerRoutes(scoped.Group("/config-explorer"), serverCtx)
 		registerResourceRoutes(scoped.Group("/resources"), serverCtx)
 		registerResourceCatalogRoutes(scoped.Group("/resource-catalog"), serverCtx)
+		registerProviderSdkStatsRoutes(scoped.Group("/providers"), serverCtx)
 		registerVersioningRoutes(scoped.Group("/versioning"), serverCtx)
 		if flags.Enabled(configpkg.FlagSupport) {
 			registerFeedbackRoutes(scoped.Group("/feedback"), serverCtx)
@@ -986,6 +987,16 @@ func registerProfileRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 // ============================================================================
 // Provider 路由注册
 // ============================================================================
+// registerProviderSdkStatsRoutes 单独把 sdk-stats 挂在 scoped 组：
+// SDK 分布数据按游戏隔离展示（#38），需要 GameDBMiddleware 解析并鉴权
+// X-Game-ID/X-Env 后注入 context；其余 /providers 路由仍与 scope 无关，
+// 留在 protected 组。Service/Handler 是 svcCtx 的无状态包装，独立构造
+// 一份不与 registerProviderRoutes 的实例冲突。
+func registerProviderSdkStatsRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
+	providerHandler := provider.NewHandler(provider.NewService(ctx))
+	g.GET("/sdk-stats", providerHandler.SdkStats)
+}
+
 func registerProviderRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 	providerSvc := provider.NewService(ctx)
 	providerHandler := provider.NewHandler(providerSvc)
@@ -993,7 +1004,8 @@ func registerProviderRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 	g.GET("/", providerHandler.List)
 	g.GET("/capabilities", providerHandler.Capabilities)
 	g.GET("/descriptors", providerHandler.Descriptors)
-	g.GET("/sdk-stats", providerHandler.SdkStats)
+	// #38：sdk-stats 需按全局游戏 scope 过滤，已迁至 scoped 组
+	// （registerProviderSdkStatsRoutes），此处不再注册。
 	g.GET("/:id", providerHandler.Get)
 	g.GET("/:id/resources", providerHandler.Resources)
 	g.DELETE("/:id", providerHandler.Delete)

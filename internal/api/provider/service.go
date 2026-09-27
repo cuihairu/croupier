@@ -163,7 +163,7 @@ func (s *Service) Reload(ctx context.Context, req *ProviderActionRequest) (*Prov
 // SdkStats 聚合在线 provider 会话的 SDK 语言/版本分布（F：sdk-stats 页面）。
 // 语言/版本缺失归入 "unknown"；语言按实例数降序、版本按实例数降序排列。
 // metaKey/metaValue 对用户实例元数据做子串过滤（大小写不敏感；在线会话
-// 为内存态，线性过滤即可）。
+// 为内存态，线性过滤即可）。ctx 带游戏 scope 时按 (gameID, env) 过滤实例。
 func (s *Service) SdkStats(ctx context.Context, req *SdkStatsRequest) (*SdkStatsResponse, error) {
 	store, err := ensureRegistryStore(s.svcCtx.RegistryStore)
 	if err != nil {
@@ -177,9 +177,18 @@ func (s *Service) SdkStats(ctx context.Context, req *SdkStatsRequest) (*SdkStats
 	metaKey := strings.TrimSpace(req.MetaKey)
 	metaValue := strings.TrimSpace(req.MetaValue)
 
+	// #38：SDK 分布按游戏隔离展示——路由挂在 scoped 组，中间件保证 scope
+	// 完整且已授权；scope 缺失（内部调用/测试直调 service）保持全量行为。
+	scope := svc.GameScopeFromContext(ctx)
 	snapshots := store.ProviderSessionSnapshots()
 	instances := make([]SdkInstanceItem, 0, len(snapshots))
 	for _, snapshot := range snapshots {
+		if scope.GameID != "" && strings.TrimSpace(snapshot.GameID) != scope.GameID {
+			continue
+		}
+		if scope.Env != "" && strings.TrimSpace(snapshot.Env) != scope.Env {
+			continue
+		}
 		metadata := snapshot.Metadata
 		if metadata != nil {
 			metadata = make(map[string]string, len(snapshot.Metadata))
