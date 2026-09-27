@@ -104,11 +104,20 @@ providers:
 
 Agent provider 注册的是**运行时函数**；Dashboard 的「OpenAPI Source」导入的是**契约候选**。两者通过函数 ID 关联：Source 绑定 `kind: provider`、`functionId: players.player.list` 后，契约物化为 FunctionContract（source=`openapi`）并可生成页面 Proposal。详见 [OpenAPI 函数注册](openapi-registration.md)。
 
-Dashboard「OpenAPI Sources」页的**运行时导入**区块读取当前 scope 下的 provider 会话（含来源 Agent、函数清单与最近心跳），其数据来自：
+Dashboard「OpenAPI Sources」页的**运行时导入**区块读取当前 scope 下的 provider 会话，其数据来自：
 
 ```http
 GET /api/v1/openapi/runtime-sources   # 认证 + X-Game-ID/X-Env scope
 ```
+
+每条记录除来源 Agent、函数清单、注册版本与最近心跳外，还带注册链观测字段（#27）：
+
+- `metadata`：provider 实例自报的用户元数据（`serverId=s1` 等 key=value 对，仅展示/搜索用）；
+- `serviceAddr`：被调用方（provider 进程）监听地址；
+- `firstSeenUnix`：导入时间——本进程内首次观测到该 provider 的时刻（服务端归一：无观测值时取 `lastSeenUnix`）；
+- `latestVersion`：本进程内观测到的最高注册版本，走高不回退（服务端归一：无可解析历史时取 `version`；与 `version` 不同说明该 provider 曾以更高版本运行过，页面高亮提示排查）。
+
+边界：`firstSeenUnix`/`latestVersion` 为内存态，随会话过期、断连或 server 重启丢失并重新累计，只保证「本进程窗口内」语义（与 `lastSeenUnix` 的既有先例一致）。
 
 绑定弹窗的函数候选同样包含这些运行时函数（标注导入 Agent）。
 
