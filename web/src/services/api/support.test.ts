@@ -385,6 +385,22 @@ describe('support ticket filter options adapter (#21)', () => {
       assignees: [],
     });
   });
+
+  it('coerces option entries with missing name/count fields', async () => {
+    // nullish 兜底分支：缺 name → ''，缺 count → 0，非数组 categories → []
+    mockedRequest.mockResolvedValue({
+      categories: [{ count: 3 }, 'bogus'],
+      assignees: 42,
+    });
+
+    await expect(listTicketFilterOptions()).resolves.toEqual({
+      categories: [
+        { name: '', count: 3 },
+        { name: '', count: 0 },
+      ],
+      assignees: [],
+    });
+  });
 });
 
 describe('FAQ category options adapter (#22)', () => {
