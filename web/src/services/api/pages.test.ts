@@ -136,6 +136,8 @@ describe('pages draft/version API adapters', () => {
       expect(mockedRequest).toHaveBeenCalledWith('/api/v1/pages/players/regenerate', {
         method: 'POST',
         data: { draftRevision: 3 },
+        // #31：409 冲突由页面接管（知情确认 + current 重试），跳过全局错误 toast
+        skipErrorHandler: true,
       });
     });
   });

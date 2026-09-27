@@ -92,6 +92,9 @@ export default {
   'pages.pageStudio.publish.failureReason': 'Failure reason: {reason}',
   'pages.pageStudio.publish.success': 'Published successfully',
   'pages.pageStudio.publish.unknownReason': 'unknown reason',
+  'pages.pageStudio.regenerate.conflictTitle': 'Draft revision outdated',
+  'pages.pageStudio.regenerate.conflictContent':
+    'The draft has been updated elsewhere to revision {current}. Regenerating overwrites the draft content with the latest Proposal. Proceed?',
   'pages.pageStudio.regenerate.failed': 'Failed to regenerate draft',
   'pages.pageStudio.regenerate.success': 'Draft regenerated from the latest Proposal',
   'pages.pageStudio.rollback.draftFailed': 'Failed to roll back draft',

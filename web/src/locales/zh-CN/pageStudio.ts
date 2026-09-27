@@ -85,6 +85,9 @@ export default {
   'pages.pageStudio.publish.failureReason': '失败原因：{reason}',
   'pages.pageStudio.publish.success': '发布成功',
   'pages.pageStudio.publish.unknownReason': '未知原因',
+  'pages.pageStudio.regenerate.conflictTitle': '草稿版本已过期',
+  'pages.pageStudio.regenerate.conflictContent':
+    '草稿已被其他修改更新到第 {current} 版。重新生成会按最新 Proposal 覆盖草稿内容，是否继续？',
   'pages.pageStudio.regenerate.failed': '重新生成草稿失败',
   'pages.pageStudio.regenerate.success': '已按最新 Proposal 重新生成草稿',
   'pages.pageStudio.rollback.draftFailed': '回滚草稿失败',

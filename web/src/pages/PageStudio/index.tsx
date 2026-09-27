@@ -28,7 +28,9 @@ import {
   updatePageMenu,
   bulkPublishPages,
   bulkUnpublishPages,
+  type PageRegenerateResponse,
 } from '@/services/api/pages';
+import { runRegenerate } from './regenerateFlow';
 import { listMenus, type MenuItem } from '@/services/api/menu';
 import {
   getChangeChain,
@@ -393,30 +395,66 @@ export default function PageStudio() {
 
   const handleRegenerate = useCallback(
     async (pageKey: string, draftRevision: number) => {
-      try {
-        const result = await regeneratePageDraft(pageKey, draftRevision);
-        if (selectedDraft?.pageKey === pageKey) {
-          setSelectedDraft(result.page);
-          setSelectedDraftRevision(result.draftRevision);
-        }
-        message.success(
-          intlRef.current.formatMessage({
-            id: 'pages.pageStudio.regenerate.success',
-            defaultMessage: '已按最新 Proposal 重新生成草稿',
-          }),
-        );
-        await loadDrafts();
-      } catch {
-        message.error(
-          intlRef.current.formatMessage({
-            id: 'pages.pageStudio.regenerate.failed',
-            defaultMessage: '重新生成草稿失败',
-          }),
-        );
-      } finally {
-      }
+      // #31：revision 快照来自加载时刻，accept-and-publish / 批量重发布 /
+      // 其他运营保存都会在服务端 bump revision——409 是常态而非异常。
+      // regenerate 的内容来源是 Proposal（非本地输入），409 details.current
+      // 知情确认后重试一次，既保留乐观锁保护语义又不堵死用户。
+      await runRegenerate(pageKey, draftRevision, {
+        regenerate: regeneratePageDraft,
+        confirm: (title, content, onOk) => {
+          modal.confirm({
+            title,
+            content,
+            okText: intlRef.current.formatMessage({ id: 'app.confirm', defaultMessage: '确 定' }),
+            cancelText: intlRef.current.formatMessage({
+              id: 'app.cancel',
+              defaultMessage: '取 消',
+            }),
+            onOk,
+          });
+        },
+        onSuccess: async (result) => {
+          const regenerated = result as PageRegenerateResponse;
+          if (selectedDraft?.pageKey === pageKey) {
+            setSelectedDraft(regenerated.page);
+            setSelectedDraftRevision(regenerated.draftRevision);
+          }
+          message.success(
+            intlRef.current.formatMessage({
+              id: 'pages.pageStudio.regenerate.success',
+              defaultMessage: '已按最新 Proposal 重新生成草稿',
+            }),
+          );
+          await loadDrafts();
+        },
+        onFailure: () => {
+          message.error(
+            intlRef.current.formatMessage({
+              id: 'pages.pageStudio.regenerate.failed',
+              defaultMessage: '重新生成草稿失败',
+            }),
+          );
+        },
+        formatTitle: (current) =>
+          intlRef.current.formatMessage(
+            {
+              id: 'pages.pageStudio.regenerate.conflictTitle',
+              defaultMessage: '草稿版本已过期',
+            },
+            { current },
+          ),
+        formatContent: (current) =>
+          intlRef.current.formatMessage(
+            {
+              id: 'pages.pageStudio.regenerate.conflictContent',
+              defaultMessage:
+                '草稿已被其他修改更新到第 {current} 版。重新生成会按最新 Proposal 覆盖草稿内容，是否继续？',
+            },
+            { current },
+          ),
+      });
     },
-    [loadDrafts, message, selectedDraft?.pageKey],
+    [loadDrafts, message, modal, selectedDraft?.pageKey],
   );
 
   const handleSave = useCallback(

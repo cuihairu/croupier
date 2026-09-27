@@ -71,7 +71,7 @@ type PageRollbackResponse = {
   draftRevision: number;
 };
 
-type PageRegenerateResponse = {
+export type PageRegenerateResponse = {
   pageKey: string;
   draftRevision: number;
   page: PageSpecDraft;
@@ -127,6 +127,9 @@ export async function regeneratePageDraft(
   return request<PageRegenerateResponse>(`${BASE}/${encodeURIComponent(pageKey)}/regenerate`, {
     method: 'POST',
     data: { draftRevision },
+    // #31：409 冲突由页面接管（知情确认 + details.current 重试），
+    // 全局错误处理只 toast 会把可恢复冲突变成死胡同
+    skipErrorHandler: true,
   });
 }
 
