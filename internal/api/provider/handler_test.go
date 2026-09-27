@@ -54,6 +54,7 @@ func TestProviderHandlersReturnServiceErrors(t *testing.T) {
 		{name: "Delete", target: "/api/v1/providers/delete", fn: h.Delete},
 		{name: "Reload", target: "/api/v1/providers/reload", fn: h.Reload},
 		{name: "AliasGet", target: "/api/v1/providers/get", fn: h.Get},
+		{name: "MetaOptions", target: "/api/v1/providers/meta-options", fn: h.MetaOptions},
 	}
 
 	for _, tc := range cases {
