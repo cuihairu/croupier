@@ -645,6 +645,21 @@ export async function batchSetFunctionVersionFloor(
   };
 }
 
+// #26：函数历史版本索引（服务端从契约版本流聚合，30s 内存缓存）。
+// 版本门槛编辑只允许选历史出现过的版本——返回 functionId → 版本列表
+//（semver 降序，新版本在前），无历史的函数不在 map 中。
+export async function listFunctionVersionHistory(): Promise<Record<string, string[]>> {
+  const response = await request<{
+    items?: Array<{ functionId?: string; versions?: string[] }>;
+  }>('/api/v1/functions/version-history');
+  const index: Record<string, string[]> = {};
+  (response?.items ?? []).forEach((item) => {
+    if (!item?.functionId) return;
+    index[item.functionId] = Array.isArray(item.versions) ? item.versions.filter(Boolean) : [];
+  });
+  return index;
+}
+
 // Source: croupier/internal/api/function/dto.go FunctionHistoryItem
 export type FunctionHistoryItemDTO = {
   id: string;
