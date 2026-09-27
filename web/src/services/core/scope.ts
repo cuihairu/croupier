@@ -27,6 +27,8 @@ const SCOPED_API_PREFIXES = [
   '/api/v1/resource-catalog',
   '/api/v1/resources',
   '/api/v1/tasks',
+  // #21：工单迁入后端 scoped 组——页面去掉游戏/环境过滤，归属由顶栏 scope 决定
+  '/api/v1/tickets',
 ];
 
 export function needsResolvedScope(url?: string): boolean {

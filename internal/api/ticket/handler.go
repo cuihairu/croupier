@@ -29,6 +29,17 @@ func (h *Handler) List(c *gin.Context) {
 	response.Success(c, resp)
 }
 
+// FilterOptions handles GET /tickets/filter-options (OPEN-ISSUES #21):
+// server-aggregated category/assignee options under the resolved scope.
+func (h *Handler) FilterOptions(c *gin.Context) {
+	resp, err := h.service.FilterOptions(c.Request.Context())
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
+	response.Success(c, resp)
+}
+
 // Create handles the request to create a ticket
 func (h *Handler) Create(c *gin.Context) {
 	var req CreateRequest

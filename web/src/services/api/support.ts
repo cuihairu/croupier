@@ -286,6 +286,33 @@ export async function listTickets(params?: TicketListParams) {
   };
 }
 
+export interface TicketFilterOption {
+  name: string;
+  count: number;
+}
+
+export interface TicketFilterOptions {
+  categories: TicketFilterOption[];
+  assignees: TicketFilterOption[];
+}
+
+// #21：分类/处理人过滤选项由服务端聚合提供（distinct 全集 + 计数），
+// 页面禁止从当前（已过滤）列表客户端推导——选一项后选项会塌缩。
+export async function listTicketFilterOptions(): Promise<TicketFilterOptions> {
+  const resp = await request<Record<string, JSONValue>>(`${TICKETS_BASE}/filter-options`);
+  const toOptions = (value: JSONValue | undefined): TicketFilterOption[] => {
+    if (!Array.isArray(value)) return [];
+    return value.map((item) => {
+      const rec = item as Record<string, JSONValue>;
+      return { name: String(rec.name ?? ''), count: Number(rec.count ?? 0) };
+    });
+  };
+  return {
+    categories: toOptions(resp?.categories),
+    assignees: toOptions(resp?.assignees),
+  };
+}
+
 export async function createTicket(data: TicketPayload) {
   const resp = await request<Record<string, JSONValue>>(TICKETS_BASE, {
     method: 'POST',
