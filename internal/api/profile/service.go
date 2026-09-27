@@ -382,6 +382,15 @@ func (s *Service) ChangePassword(ctx context.Context, username string, req *Chan
 		return nil, errors.New("修改密码失败")
 	}
 
+	// 改密成功即解除「登录后必须修改密码」与有效期约束（OPEN-ISSUES #20）：
+	// 新密码视为干净状态，下次登录不再被强制改密。
+	if err := s.adminModel.Update(ctx, admin.ID, map[string]interface{}{
+		"must_change_password": false,
+		"password_expires_at":  nil,
+	}); err != nil {
+		return nil, errors.New("修改密码失败")
+	}
+
 	// 密码变更即吊销所有已签发 token（当前请求完成后旧 token 失效，
 	// 前端需引导重新登录）
 	if err := s.adminModel.BumpTokenVersion(ctx, admin.ID); err != nil {

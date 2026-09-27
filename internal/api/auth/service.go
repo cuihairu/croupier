@@ -462,9 +462,20 @@ func (s *Service) issueLogin(ctx context.Context, admin *model.Admin, ident *ide
 			Nickname: admin.Nickname,
 			Roles:    roles,
 		},
-		LastGameID: lastGameID,
-		LastEnv:    lastEnv,
+		LastGameID:         lastGameID,
+		LastEnv:            lastEnv,
+		MustChangePassword: adminNeedsPasswordChange(admin),
 	}, nil
+}
+
+// adminNeedsPasswordChange 判断该账号登录后是否必须先改密：被显式标记
+// must_change_password，或密码已过有效期（password_expires_at）——两者都
+// 通过登录响应 mustChangePassword=true 下发，前端强制走改密流程（#20）。
+func adminNeedsPasswordChange(admin *model.Admin) bool {
+	if admin.MustChangePassword {
+		return true
+	}
+	return admin.PasswordExpiresAt != nil && admin.PasswordExpiresAt.Before(time.Now())
 }
 
 // OIDCAuthCodeURL 生成跳转到身份源的授权 URL，state 内含 HMAC 签名与时间戳。
