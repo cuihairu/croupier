@@ -49,9 +49,13 @@ jest.mock('@/services/api/functions-enhanced', () => ({
   getFunctionSummary: jest.fn(),
 }));
 
+// listFunctionVersionHistory 在 reload 里被 .then() 消费，必须 resolve（否则同步抛错）
 jest.mock('@/services/api/functions', () => ({
   batchSetFunctionVersionFloor: jest.fn(),
   listFunctionVersionFloors: jest.fn(),
+  listFunctionVersionHistory: jest.fn().mockResolvedValue({}),
+  putFunctionVersionFloor: jest.fn(),
+  deleteFunctionVersionFloor: jest.fn(),
 }));
 
 // PageSchemaRenderer 依赖图过重：目标是 onAction 路由分支而非渲染器本身
@@ -256,7 +260,9 @@ describe('useDirectoryPage 残余分支', () => {
     await waitFor(() => expect(mockSummary).toHaveBeenCalled());
 
     // 第二行不在 floors map 里 → floors[r.id] || undefined 走右支
+    //（#26 后门槛列是下拉：无值时展示占位「未设置」，不出现 ≥ 选中项）
     expect(within(screen.getByTestId('row-1')).queryByText(/≥/)).toBeNull();
+    expect(within(screen.getByTestId('row-1')).getByText('未设置')).toBeInTheDocument();
 
     // 之后门槛拉取失败 → reloadFloors 的 catch 分支：列保持旧值、不抛错
     mockFloors.mockRejectedValue(new Error('floors down'));
@@ -265,7 +271,7 @@ describe('useDirectoryPage 残余分支', () => {
 
     await waitFor(() => expect(mockBatch).toHaveBeenCalledWith(['player.list'], '1.0.0'));
     await waitFor(() => expect(mockFloors).toHaveBeenCalledTimes(2));
-    expect(within(screen.getByTestId('row-0')).getByText('≥ 1.0.0')).toBeInTheDocument();
+    expect(within(screen.getByTestId('row-0')).getByTitle('≥ v1.0.0')).toBeInTheDocument();
     expect(screen.getByTestId('detail-open').textContent).toBe('closed');
   });
 });

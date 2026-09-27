@@ -5,6 +5,7 @@ import { CodeOutlined, InfoCircleOutlined, PlayCircleOutlined } from '@ant-desig
 import type { DirectoryPageSchema } from './schema';
 import type { SummaryRow } from './types';
 import { localizedText } from '@/utils/localizedText';
+import VersionFloorSelect from './VersionFloorSelect';
 
 const { Text } = Typography;
 
@@ -22,6 +23,9 @@ type BuildColumnsOptions = {
   rowActions: DirectoryPageSchema['rowActions'];
   /** 当前数据集出现的全部函数版本（离散值，用于列过滤选项） */
   versions: string[];
+  /** #26：functionId → 历史版本列表（门槛下拉选项，服务端聚合） */
+  versionIndex: Record<string, string[]>;
+  onFloorChange: (functionId: string, minVersion: string | undefined) => void;
   onOpenDetail: (record: SummaryRow) => void;
   onOpenSchema: (id: string) => void;
   onInvoke: (record: SummaryRow) => void;
@@ -38,6 +42,8 @@ export const buildDirectoryColumns = ({
   columns,
   rowActions,
   versions,
+  versionIndex,
+  onFloorChange,
   onOpenDetail,
   onOpenSchema,
   onInvoke,
@@ -70,14 +76,20 @@ export const buildDirectoryColumns = ({
       } as ProColumns<SummaryRow>;
     }
     if (col.key === 'minVersion') {
-      // 函数级最低 SDK 版本门槛：有值蓝 Tag（≥ 前缀表达下限语义），未配置
-      // 显示 '-'（与相邻 version 列空态一致）
+      // 函数级最低 SDK 版本门槛（#26）：行内下拉直接修改，选项只来自
+      // 服务端函数历史版本索引——点击单元格即下拉选择，不再跳转设置面板
+      // 手输。清空下拉 = 清除门槛（走 DELETE）。
       return {
         title: col.title,
         dataIndex: 'minVersion',
         width: col.width,
-        render: (_, record) =>
-          record.minVersion ? <Tag color="blue">≥ {record.minVersion}</Tag> : '-',
+        render: (_, record) => (
+          <VersionFloorSelect
+            value={record.minVersion}
+            options={versionIndex[record.id] ?? []}
+            onChange={(next) => onFloorChange(record.id, next)}
+          />
+        ),
       } as ProColumns<SummaryRow>;
     }
     if (col.key === 'displayName') {

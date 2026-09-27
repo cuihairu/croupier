@@ -414,6 +414,7 @@ func registerFunctionRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 	g.PUT("/:id/version-floor", functionHandler.VersionFloorPut)
 	g.DELETE("/:id/version-floor", functionHandler.VersionFloorDelete)
 	g.GET("/version-floors", functionHandler.VersionFloorsList)
+	g.GET("/version-history", functionHandler.VersionHistoryIndex)
 	g.POST("/version-floor/batch", functionHandler.VersionFloorBatch)
 
 	// 待处理

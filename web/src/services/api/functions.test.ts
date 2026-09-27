@@ -24,6 +24,7 @@ import {
   listDescriptors,
   listFunctionInstances,
   listFunctionVersionFloors,
+  listFunctionVersionHistory,
   listFunctionWarnings,
   markAllFunctionWarningsRead,
   markFunctionWarningRead,
@@ -1002,6 +1003,28 @@ describe('function version floor APIs', () => {
     await expect(listFunctionVersionFloors()).resolves.toEqual({});
     expect(mockedRequest).toHaveBeenNthCalledWith(1, '/api/v1/functions/version-floors');
     expect(mockedRequest).toHaveBeenNthCalledWith(2, '/api/v1/functions/version-floors');
+  });
+
+  it('listFunctionVersionHistory builds the functionId→versions index (#26)', async () => {
+    mockedRequest.mockResolvedValue({
+      items: [
+        { functionId: 'a.fn', versions: ['1.0.0', '0.3.0', ''] },
+        { functionId: 'b.fn' },
+        { versions: ['0.9.0'] },
+      ],
+    });
+
+    await expect(listFunctionVersionHistory()).resolves.toEqual({
+      'a.fn': ['1.0.0', '0.3.0'],
+      'b.fn': [],
+    });
+    expect(mockedRequest).toHaveBeenCalledWith('/api/v1/functions/version-history');
+  });
+
+  it('listFunctionVersionHistory returns an empty index when the response has no items', async () => {
+    mockedRequest.mockResolvedValue(undefined);
+
+    await expect(listFunctionVersionHistory()).resolves.toEqual({});
   });
 
   it('batchSetFunctionVersionFloor normalizes the batch result', async () => {
