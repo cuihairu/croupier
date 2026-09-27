@@ -7,11 +7,19 @@ import {
   type ActionType,
   type ProColumns,
 } from '@ant-design/pro-components';
-import { listFAQ, createFAQ, updateFAQ, deleteFAQ, type FAQPayload } from '@/services/api/support';
+import {
+  listFAQ,
+  listFAQCategories,
+  createFAQ,
+  updateFAQ,
+  deleteFAQ,
+  type FAQPayload,
+} from '@/services/api/support';
 import { FormattedMessage, useAccess, useIntl } from '@umijs/max';
 import type { JSONValue } from '@/types/dashboard';
 import { extractErrorMessage } from '@/utils/errors';
 import { formatDateTime } from '@/utils/format';
+import ServerOptionsSelect from '@/components/ServerOptionsSelect';
 
 interface FAQItem {
   id: number;
@@ -39,6 +47,14 @@ export default function SupportFAQPage() {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<FAQItem | null>(null);
   const access: AccessState = useAccess?.() || {};
+  // #22：写操作后递增 epoch 触发分类选项重拉（计数随数据变化）
+  const [optionEpoch, setOptionEpoch] = useState(0);
+
+  // 数据变更后同时刷新表格与分类选项计数
+  const reloadTable = () => {
+    actionRef.current?.reload();
+    setOptionEpoch((e) => e + 1);
+  };
 
   // destroyOnHidden 使弹窗每次关闭即卸载表单，重开时按最新 initialValues
   // 重新挂载，新增/编辑切换不会残留上一次的预填值
@@ -57,7 +73,7 @@ export default function SupportFAQPage() {
       } else {
         await createFAQ(v);
       }
-      actionRef.current?.reload();
+      reloadTable();
       return true;
     } catch {
       // 原实现无本地弹错（全局拦截器已 toast），失败时弹窗保持开启
@@ -72,7 +88,7 @@ export default function SupportFAQPage() {
       }),
       onOk: async () => {
         await deleteFAQ(rec.id);
-        actionRef.current?.reload();
+        reloadTable();
       },
     });
   };
@@ -171,17 +187,29 @@ export default function SupportFAQPage() {
               }}
               style={{ width: 200 }}
             />
-            <Input
+            {/* #22：分类选项由服务端聚合接口提供（distinct+count），
+                不再自由文本输入，也不从当前列表客户端推导 */}
+            <ServerOptionsSelect
               placeholder={intl.formatMessage({
                 id: 'pages.supportFaq.search.category',
                 defaultMessage: '分类',
               })}
               value={category}
-              onChange={(e) => {
-                setCategory(e.target.value);
+              onChange={(v) => {
+                setCategory(v ?? '');
+                // 筛选变化回第 1 页；双触发由 ProTable debounce + abort 合并
                 actionRef.current?.setPageInfo?.({ current: 1 });
               }}
-              style={{ width: 140 }}
+              allowClear
+              style={{ width: 160 }}
+              fetchOptions={async () =>
+                (await listFAQCategories()).map((o) => ({
+                  value: o.name,
+                  label: o.name,
+                  count: o.count,
+                }))
+              }
+              epoch={optionEpoch}
             />
             <Input
               placeholder={intl.formatMessage({
@@ -306,8 +334,7 @@ export default function SupportFAQPage() {
               },
             ]}
           >
-            {' '}
-            <Input.TextArea rows={3} />{' '}
+            <Input.TextArea rows={3} />
           </Form.Item>
           <Form.Item
             label={intl.formatMessage({
@@ -325,8 +352,7 @@ export default function SupportFAQPage() {
               },
             ]}
           >
-            {' '}
-            <Input.TextArea rows={6} />{' '}
+            <Input.TextArea rows={6} />
           </Form.Item>
           <Form.Item
             label={intl.formatMessage({
@@ -335,8 +361,7 @@ export default function SupportFAQPage() {
             })}
             name="category"
           >
-            {' '}
-            <Input />{' '}
+            <Input />
           </Form.Item>
           <Form.Item
             label={intl.formatMessage({
@@ -345,8 +370,7 @@ export default function SupportFAQPage() {
             })}
             name="tags"
           >
-            {' '}
-            <Input placeholder="," />{' '}
+            <Input placeholder="," />
           </Form.Item>
           <Form.Item
             label={intl.formatMessage({
@@ -356,8 +380,7 @@ export default function SupportFAQPage() {
             name="visible"
             valuePropName="checked"
           >
-            {' '}
-            <Switch />{' '}
+            <Switch />
           </Form.Item>
           <Form.Item
             label={intl.formatMessage({
@@ -366,8 +389,7 @@ export default function SupportFAQPage() {
             })}
             name="sort"
           >
-            {' '}
-            <Input type="number" />{' '}
+            <Input type="number" />
           </Form.Item>
         </ModalForm>
       </Card>
