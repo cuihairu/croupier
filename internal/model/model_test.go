@@ -3856,15 +3856,24 @@ func TestFAQModel_UpsertCategory(t *testing.T) {
 }
 
 func TestFAQModel_ListCategories(t *testing.T) {
-	db := setupFAQTestDB(t)
+	// setupFAQTestDB 用的是全局共享内存库（cache=shared），其他 FAQ 用例的
+	// 行会污染聚合断言——此处按库内先例开独占 DSN 验证精确计数/排除语义
+	db, err := gorm.Open(
+		sqlite.Open(fmt.Sprintf("file:faq_listcat_%d?mode=memory&cache=shared", time.Now().UnixNano())),
+		&gorm.Config{Logger: logger.Default.LogMode(logger.Silent)},
+	)
+	require.NoError(t, err)
+	require.NoError(t, db.AutoMigrate(&FAQ{}, &FAQCategory{}))
 	model := NewFAQModel(db)
 	ctx := context.Background()
 
-	// Create FAQs in different categories
+	// Create FAQs in different categories；#22：未分类（空串）不得进入
+	// 聚合选项——List 里 category='' 是「不过滤」语义，会出现假选项
 	faqs := []*FAQ{
 		{Question: "Q1", Answer: "A1", Category: "general"},
 		{Question: "Q2", Answer: "A2", Category: "general"},
 		{Question: "Q3", Answer: "A3", Category: "technical"},
+		{Question: "Q4", Answer: "A4", Category: ""},
 	}
 	for _, f := range faqs {
 		err := model.Create(ctx, f)
@@ -3874,7 +3883,16 @@ func TestFAQModel_ListCategories(t *testing.T) {
 	// List categories
 	categories, err := model.ListCategories(ctx)
 	require.NoError(t, err)
-	assert.GreaterOrEqual(t, len(categories), 2)
+	require.Len(t, categories, 2)
+	names := make([]string, 0, len(categories))
+	for _, c := range categories {
+		assert.NotEmpty(t, c.Name)
+		names = append(names, c.Name)
+	}
+	assert.ElementsMatch(t, []string{"general", "technical"}, names)
+	// count 随 category 聚合（general=2 > technical=1，Order count DESC）
+	assert.Equal(t, "general", categories[0].Name)
+	assert.Equal(t, 2, categories[0].Count)
 }
 
 // ===== ProfileModel Tests =====

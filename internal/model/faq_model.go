@@ -148,6 +148,9 @@ func (m *FAQModel) ListCategories(ctx context.Context) ([]FAQCategoryStat, error
 	var rows []aggResult
 	if err := m.db.WithContext(ctx).
 		Model(&FAQ{}).
+		// #22：未分类（空串）不是可过滤的选项——过滤条件 category='' 在
+		// List 里是「不过滤」语义，放进下拉会产生选了却不过滤的假选项
+		Where("category <> ''").
 		Select("category AS name, COUNT(*) AS count").
 		Group("category").
 		Order("count DESC").
