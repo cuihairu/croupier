@@ -9,11 +9,15 @@
  * ⑤ 无标记账号：正常进入应用（边界回归）；
  * ⑥ 改密接口失败（catch）：提示重试，弹窗保留、token 不清除。
  */
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { configure, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import React from 'react';
 import { history } from '@umijs/max';
 // 全量套件并行时机器负载高，5s 默认超时会误报（与 CI 慢机同型），放宽
 jest.setTimeout(30000);
+// RTL findBy 默认 1s 在共享机高负载下先于 jest 超时放弃（实测 coverage 组合跑
+// 221.9s 时「两次输入的新密码不一致」findBy 超时、单套隔离 6/6 绿），对齐
+// MenuTree/index 套件的本地放宽口径
+configure({ asyncUtilTimeout: 5000 });
 import Login from '../index';
 import { changeCurrentUserPassword, createSession } from '@/services/api';
 import { fetchLoginProviders } from '@/services/api/sites';
