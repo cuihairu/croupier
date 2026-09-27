@@ -428,6 +428,23 @@ export async function deleteFAQ(id: number) {
   return request<void>(`${FAQ_BASE}/${id}`, { method: 'DELETE' });
 }
 
+export interface FAQCategoryOption {
+  name: string;
+  count: number;
+}
+
+// #22：分类过滤选项由服务端聚合接口提供（GET /api/v1/faqs/categories，
+// distinct + count），页面禁止从当前（已过滤）列表客户端推导。
+export async function listFAQCategories(): Promise<FAQCategoryOption[]> {
+  const resp = await request<Record<string, JSONValue>>(`${FAQ_BASE}/categories`);
+  const items = Array.isArray(resp?.items) ? resp.items : [];
+  return items.map((item) => {
+    const rec = item as Record<string, JSONValue>;
+    const count = Number(rec.count);
+    return { name: String(rec.name ?? ''), count: Number.isFinite(count) ? count : 0 };
+  });
+}
+
 // ---------------------------------------------------------------------------
 // Feedback
 // ---------------------------------------------------------------------------

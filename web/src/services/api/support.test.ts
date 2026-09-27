@@ -11,6 +11,7 @@ import {
   deleteTicket,
   getTicket,
   listFAQ,
+  listFAQCategories,
   listFeedback,
   listTicketComments,
   listTicketFilterOptions,
@@ -380,6 +381,43 @@ describe('support ticket filter options adapter (#21)', () => {
       categories: [],
       assignees: [],
     });
+  });
+});
+
+describe('FAQ category options adapter (#22)', () => {
+  beforeEach(() => mockedRequest.mockReset());
+
+  it('normalizes the server-aggregated {items:[{name,count}]} shape', async () => {
+    mockedRequest.mockResolvedValue({
+      items: [
+        { name: 'general', count: 5 },
+        { name: 'technical', count: 2 },
+      ],
+    });
+
+    await expect(listFAQCategories()).resolves.toEqual([
+      { name: 'general', count: 5 },
+      { name: 'technical', count: 2 },
+    ]);
+    expect(mockedRequest).toHaveBeenCalledWith('/api/v1/faqs/categories');
+  });
+
+  it('falls back to an empty list when items is missing or malformed', async () => {
+    // mockReset 后 request 返回 undefined：整个响应缺失也要给出 []
+    await expect(listFAQCategories()).resolves.toEqual([]);
+    mockedRequest.mockResolvedValue({ items: 'not-an-array' });
+    await expect(listFAQCategories()).resolves.toEqual([]);
+    mockedRequest.mockResolvedValue({});
+    await expect(listFAQCategories()).resolves.toEqual([]);
+  });
+
+  it('coerces malformed entries to safe defaults instead of throwing', async () => {
+    mockedRequest.mockResolvedValue({ items: [{ name: null }, { count: 'x' }] });
+
+    await expect(listFAQCategories()).resolves.toEqual([
+      { name: '', count: 0 },
+      { name: '', count: 0 },
+    ]);
   });
 });
 
