@@ -9,6 +9,8 @@ import {
   Descriptions,
   Divider,
   Input,
+  InputNumber,
+  Popconfirm,
   Upload,
   Modal,
   Select,
@@ -30,8 +32,12 @@ import {
   convertTicketToBug,
   rateTicket,
   transitionTicket,
+  listTicketBugs,
+  linkTicketBug,
+  unlinkTicketBug,
   type Ticket,
   type TicketComment,
+  type TicketLinkedBug,
   type TicketPayload,
 } from '@/services/api/support';
 
@@ -83,6 +89,14 @@ const stTextMap: Record<string, IntlMessage> = {
   resolved: { id: 'pages.ticketsDetail.status.resolved', defaultMessage: '已解决' },
   closed: { id: 'pages.ticketsDetail.status.closed', defaultMessage: '已关闭' },
 };
+// 关联缺陷的严重度文案（#25）：与 bugs.ts 的 bugSeverityLabels 同词条，
+// 页面本地维护避免引入其模块级 getIntl 副作用
+const sevTextMap: Record<string, IntlMessage> = {
+  blocker: { id: 'services.bugs.severityLabel.blocker', defaultMessage: '阻断' },
+  critical: { id: 'services.bugs.severityLabel.critical', defaultMessage: '严重' },
+  major: { id: 'services.bugs.severityLabel.major', defaultMessage: '一般' },
+  minor: { id: 'services.bugs.severityLabel.minor', defaultMessage: '轻微' },
+};
 
 export default function TicketDetailPage() {
   const { modal } = App.useApp();
@@ -99,6 +113,10 @@ export default function TicketDetailPage() {
   const [transStatus, setTransStatus] = useState<string>('');
   const [transComment, setTransComment] = useState<string>('');
   const [editOpen, setEditOpen] = useState(false);
+  // #25 关联缺陷（多对多）：详情页展示并可增删
+  const [bugs, setBugs] = useState<TicketLinkedBug[]>([]);
+  const [bugDraft, setBugDraft] = useState<number | null>(null);
+  const [bugLinking, setBugLinking] = useState(false);
   const { initialState } = useModel('@@initialState');
 
   // 处理文件上传
@@ -152,9 +170,14 @@ export default function TicketDetailPage() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [t, cm] = await Promise.all([getTicket(mid), listTicketComments(mid)]);
+      const [t, cm, linkedBugs] = await Promise.all([
+        getTicket(mid),
+        listTicketComments(mid),
+        listTicketBugs(mid),
+      ]);
       setTicket(t);
       setComments(cm.comments || []);
+      setBugs(linkedBugs);
     } finally {
       setLoading(false);
     }
@@ -162,6 +185,51 @@ export default function TicketDetailPage() {
   useEffect(() => {
     if (mid) load();
   }, [mid, load]);
+
+  // #25：按缺陷 ID 建立关联（多对多，缺陷侧同步可见）
+  const addBugLink = async () => {
+    if (!bugDraft) return;
+    setBugLinking(true);
+    try {
+      await linkTicketBug(mid, bugDraft);
+      getMessage()?.success(
+        intl.formatMessage(
+          { id: 'pages.ticketsDetail.bugs.linked', defaultMessage: '已关联缺陷 #{bugId}' },
+          { bugId: bugDraft },
+        ),
+      );
+      setBugDraft(null);
+      setBugs(await listTicketBugs(mid));
+    } catch (e) {
+      const errMsg =
+        e instanceof Error
+          ? e.message
+          : intl.formatMessage({ id: 'pages.ticketsDetail.bugs.linkFailed', defaultMessage: '关联失败' });
+      getMessage()?.error(errMsg);
+    } finally {
+      setBugLinking(false);
+    }
+  };
+
+  // #25：解除关联（幂等，误删可重新添加）
+  const removeBugLink = async (bugId: number) => {
+    try {
+      await unlinkTicketBug(mid, bugId);
+      setBugs((prev) => prev.filter((b) => b.id !== bugId));
+      getMessage()?.success(
+        intl.formatMessage({ id: 'pages.ticketsDetail.bugs.unlinked', defaultMessage: '已解除关联' }),
+      );
+    } catch (e) {
+      const errMsg =
+        e instanceof Error
+          ? e.message
+          : intl.formatMessage({
+              id: 'pages.ticketsDetail.bugs.unlinkFailed',
+              defaultMessage: '解除失败',
+            });
+      getMessage()?.error(errMsg);
+    }
+  };
 
   const submitComment = async () => {
     if (!cmt.trim()) {
@@ -530,6 +598,73 @@ export default function TicketDetailPage() {
                 )}
               </Descriptions.Item>
             </Descriptions>
+
+            <Divider>
+              <FormattedMessage
+                id="pages.ticketsDetail.bugs.sectionTitle"
+                defaultMessage="关联缺陷"
+              />
+            </Divider>
+            <Space orientation="vertical" size={8} style={{ width: '100%' }}>
+              {bugs.length === 0 ? (
+                <span style={{ color: '#999' }}>
+                  <FormattedMessage
+                    id="pages.ticketsDetail.bugs.empty"
+                    defaultMessage="暂无关联缺陷"
+                  />
+                </span>
+              ) : (
+                bugs.map((b) => (
+                  <Space key={b.id} wrap>
+                    <a onClick={() => history.push(`/dev/bugs?bugId=${b.id}`)}>
+                      #{b.id} {b.title}
+                    </a>
+                    {b.severity ? (
+                      <Tag>
+                        {sevTextMap[b.severity] ? intl.formatMessage(sevTextMap[b.severity]) : b.severity}
+                      </Tag>
+                    ) : null}
+                    {priTag(b.priority)}
+                    <Popconfirm
+                      title={intl.formatMessage(
+                        {
+                          id: 'pages.ticketsDetail.bugs.unlinkConfirm',
+                          defaultMessage: '解除与缺陷 #{bugId} 的关联？',
+                        },
+                        { bugId: b.id },
+                      )}
+                      onConfirm={() => removeBugLink(b.id)}
+                    >
+                      <Button type="link" size="small" danger>
+                        <FormattedMessage
+                          id="pages.ticketsDetail.bugs.unlink"
+                          defaultMessage="解除关联"
+                        />
+                      </Button>
+                    </Popconfirm>
+                  </Space>
+                ))
+              )}
+              <Space wrap>
+                <InputNumber
+                  min={1}
+                  precision={0}
+                  value={bugDraft}
+                  onChange={(v) => setBugDraft(typeof v === 'number' ? v : null)}
+                  placeholder={intl.formatMessage({
+                    id: 'pages.ticketsDetail.bugs.idPlaceholder',
+                    defaultMessage: '缺陷 ID',
+                  })}
+                  style={{ width: 140 }}
+                />
+                <Button size="small" disabled={!bugDraft} loading={bugLinking} onClick={addBugLink}>
+                  <FormattedMessage
+                    id="pages.ticketsDetail.bugs.add"
+                    defaultMessage="关联缺陷"
+                  />
+                </Button>
+              </Space>
+            </Space>
 
             <Divider>
               <FormattedMessage

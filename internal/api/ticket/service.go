@@ -5,8 +5,10 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/cuihairu/croupier/internal/api/bug"
 	"github.com/cuihairu/croupier/internal/common/errorx"
 	"github.com/cuihairu/croupier/internal/dbenum"
+	"github.com/cuihairu/croupier/internal/logic/utils"
 	"github.com/cuihairu/croupier/internal/model"
 	"github.com/cuihairu/croupier/internal/svc"
 )
@@ -325,4 +327,30 @@ func parseTicketStatusFilter(value string) dbenum.TicketStatus {
 		return -1
 	}
 	return parsed
+}
+
+// ListBugs returns the bugs linked to the ticket (#25).
+func (s *Service) ListBugs(ctx context.Context, ticketID uint) (*TicketBugsResponse, error) {
+	items, err := s.svcCtx.BugModel.ListBugsByTicket(ctx, ticketID)
+	if err != nil {
+		return nil, err
+	}
+	return &TicketBugsResponse{Items: items}, nil
+}
+
+// LinkBug associates a bug with the ticket (#25).
+func (s *Service) LinkBug(ctx context.Context, ticketID uint, req *TicketBugLinkRequest) error {
+	if req == nil || req.BugID == 0 {
+		return errorx.NewBadRequest("bugId 不能为空")
+	}
+	createdBy, _ := utils.CurrentUsername(ctx)
+	if err := s.svcCtx.BugModel.LinkBugTicket(ctx, req.BugID, ticketID, createdBy); err != nil {
+		return bug.TranslateBugLinkError(err)
+	}
+	return nil
+}
+
+// UnlinkBug removes the ticket↔bug association (#25).
+func (s *Service) UnlinkBug(ctx context.Context, ticketID, bugID uint) error {
+	return s.svcCtx.BugModel.UnlinkBugTicket(ctx, bugID, ticketID)
 }

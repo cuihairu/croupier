@@ -1,5 +1,7 @@
 package ticket
 
+import "github.com/cuihairu/croupier/internal/model"
+
 type Comment struct {
 	Id        int64  `json:"id"`
 	Content   string `json:"content"`
@@ -160,4 +162,14 @@ type RateRequest struct {
 type RateResponse struct {
 	TicketID int64 `json:"ticketId"`
 	Rating   int   `json:"rating"`
+}
+
+// TicketBugsResponse returns the bugs linked to a support ticket (#25).
+type TicketBugsResponse struct {
+	Items []model.BugBrief `json:"items"`
+}
+
+// TicketBugLinkRequest carries the bug to associate (#25).
+type TicketBugLinkRequest struct {
+	BugID uint `json:"bugId"`
 }

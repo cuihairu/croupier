@@ -165,3 +165,13 @@ func decodeBugLinks(data model.JSON) []model.BugLink {
 	}
 	return out
 }
+
+// BugTicketsResponse returns the support tickets linked to a bug (#25).
+type BugTicketsResponse struct {
+	Items []model.TicketBrief `json:"items"`
+}
+
+// BugTicketLinkRequest carries the ticket to associate (#25).
+type BugTicketLinkRequest struct {
+	TicketID uint `json:"ticketId"`
+}

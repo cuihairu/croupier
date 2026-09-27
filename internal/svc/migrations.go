@@ -84,6 +84,8 @@ import (
 //   0033 (Go)   admins 密码策略列（must_change_password 登录后必须改密 +
 //               password_expires_at 密码有效期截止，NULL=长期有效；OPEN-
 //               ISSUES #20；0017/0018 加列同模式）
+//   0034 (Go)   bug_ticket_links 表（bug↔工单多对多关联 #25：新表无存量
+//               数据，0028/0030/0032 同模式）
 
 func init() {
 	registerSvcMigrations()
@@ -127,6 +129,7 @@ func registerSvcMigrations() {
 		contractRemovalPendingColumnMigration(),
 		adminOtpRecoveryCodesMigration(),
 		adminPasswordPolicyMigration(),
+		bugTicketLinkMigration(),
 	); err != nil {
 		panic(fmt.Sprintf("svc: register goose go migrations: %v", err))
 	}
@@ -739,6 +742,30 @@ func adminPasswordPolicyMigration() *goose.Migration {
 				if err := migrator.AddColumn(&model.Admin{}, col); err != nil {
 					return fmt.Errorf("migrate: 0033 add admins.%s: %w", col, err)
 				}
+			}
+			return nil
+		}},
+		nil,
+	)
+}
+
+// bugTicketLinkMigration 为 0034：建 bug_ticket_links 表（bug↔工单多对多
+// 关联，#25）。新表，无存量数据约束；幂等（表已存在则跳过）。
+// 与 0028/0030/0032 同模式：不整模型 AutoMigrate——存量库上会与既有约束
+// 名漂移 panic（0023 教训）。
+func bugTicketLinkMigration() *goose.Migration {
+	return goose.NewGoMigration(34,
+		&goose.GoFunc{RunDB: func(ctx context.Context, sqlDB *sql.DB) error {
+			db, err := wrapGorm(sqlDB)
+			if err != nil {
+				return err
+			}
+			migrator := db.Migrator()
+			if migrator.HasTable(&model.BugTicketLink{}) {
+				return nil
+			}
+			if err := migrator.CreateTable(&model.BugTicketLink{}); err != nil {
+				return fmt.Errorf("migrate: 0034 create bug_ticket_links: %w", err)
 			}
 			return nil
 		}},

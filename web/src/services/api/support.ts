@@ -329,6 +329,32 @@ export async function updateTicket(id: number, data: TicketPayload) {
   return normalizeTicket(resp);
 }
 
+// ---------------------------------------------------------------------------
+// Tickets ↔ Bugs 关联（#25 多对多）
+// ---------------------------------------------------------------------------
+
+/** 工单侧展示的关联 bug 摘要（来源：internal/model/bug.go BugBrief）。 */
+export interface TicketLinkedBug {
+  id: number;
+  title: string;
+  status: string;
+  severity: string;
+  priority: string;
+}
+
+export async function listTicketBugs(id: string | number): Promise<TicketLinkedBug[]> {
+  const resp = await request<{ items?: TicketLinkedBug[] }>(`${TICKETS_BASE}/${id}/bugs`);
+  return Array.isArray(resp?.items) ? resp.items : [];
+}
+
+export async function linkTicketBug(id: string | number, bugId: number): Promise<void> {
+  await request(`${TICKETS_BASE}/${id}/bugs`, { method: 'POST', data: { bugId } });
+}
+
+export async function unlinkTicketBug(id: string | number, bugId: number): Promise<void> {
+  await request(`${TICKETS_BASE}/${id}/bugs/${bugId}`, { method: 'DELETE' });
+}
+
 export async function deleteTicket(id: number) {
   return request<void>(`${TICKETS_BASE}/${id}`, { method: 'DELETE' });
 }

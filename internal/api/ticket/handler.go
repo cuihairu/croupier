@@ -176,3 +176,56 @@ func (h *Handler) ConvertToBug(c *gin.Context) {
 	}
 	response.Success(c, resp)
 }
+
+// ListBugs handles GET /tickets/:id/bugs — bugs linked to the ticket (#25).
+func (h *Handler) ListBugs(c *gin.Context) {
+	id, err := parseTicketID(c.Param("id"))
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
+	resp, err := h.service.ListBugs(c.Request.Context(), id)
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
+	response.Success(c, resp)
+}
+
+// LinkBug handles POST /tickets/:id/bugs — associate a bug (#25).
+func (h *Handler) LinkBug(c *gin.Context) {
+	id, err := parseTicketID(c.Param("id"))
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
+	var req TicketBugLinkRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, err)
+		return
+	}
+	if err := h.service.LinkBug(c.Request.Context(), id, &req); err != nil {
+		response.Error(c, err)
+		return
+	}
+	response.Success(c, gin.H{"ok": true})
+}
+
+// UnlinkBug handles DELETE /tickets/:id/bugs/:bugId (#25).
+func (h *Handler) UnlinkBug(c *gin.Context) {
+	id, err := parseTicketID(c.Param("id"))
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
+	bugID, err := parseTicketID(c.Param("bugId"))
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
+	if err := h.service.UnlinkBug(c.Request.Context(), id, bugID); err != nil {
+		response.Error(c, err)
+		return
+	}
+	response.Success(c, gin.H{"ok": true})
+}

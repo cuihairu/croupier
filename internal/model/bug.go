@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cuihairu/croupier/internal/dbenum"
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
 )
@@ -270,4 +271,137 @@ func ValidateBugLinks(links []BugLink) error {
 		}
 	}
 	return nil
+}
+
+// BugTicketLink is the bug↔ticket many-to-many association (#25).
+// Bug and ticket are different domains (product fix vs service request):
+// the one-shot conversion keeps Bug.SourceTicketID as legacy semantics,
+// while this table supports arbitrary cross-links managed from both sides.
+type BugTicketLink struct {
+	gorm.Model
+	BugID     uint   `gorm:"uniqueIndex:ux_bug_ticket_links_bug_ticket,priority:1"`
+	TicketID  uint   `gorm:"uniqueIndex:ux_bug_ticket_links_bug_ticket,priority:2"`
+	CreatedBy string `gorm:"size:64"`
+}
+
+func (BugTicketLink) TableName() string { return "bug_ticket_links" }
+
+// TicketBrief is the ticket summary rendered on the bug side of the
+// association (links to /support/tickets/:id).
+type TicketBrief struct {
+	ID       uint   `json:"id"`
+	Title    string `json:"title"`
+	Status   string `json:"status"`
+	Priority string `json:"priority"`
+	GameID   string `json:"gameId"`
+	Env      string `json:"env"`
+}
+
+// BugBrief is the bug summary rendered on the ticket side of the
+// association (links to /dev/bugs).
+type BugBrief struct {
+	ID       uint   `json:"id"`
+	Title    string `json:"title"`
+	Status   string `json:"status"`
+	Severity string `json:"severity"`
+	Priority string `json:"priority"`
+}
+
+// 关联校验失败哨兵：model 层保持 plain error，由 API service 层翻译为 4xx
+// （model 包不依赖 errorx 的既有边界）。
+var (
+	ErrBugLinkInvalidID     = errors.New("bug id 和工单 id 均不能为空")
+	ErrBugLinkBugMissing    = errors.New("bug 不存在")
+	ErrBugLinkTicketMissing = errors.New("工单不存在")
+)
+
+// LinkBugTicket associates a bug with a support ticket (idempotent:
+// re-linking an existing pair is a no-op). Both sides must exist.
+func (m *BugModel) LinkBugTicket(ctx context.Context, bugID, ticketID uint, createdBy string) error {
+	if bugID == 0 || ticketID == 0 {
+		return ErrBugLinkInvalidID
+	}
+	var bug Bug
+	if err := m.db.WithContext(ctx).First(&bug, bugID).Error; err != nil {
+		return ErrBugLinkBugMissing
+	}
+	var ticket Ticket
+	if err := m.db.WithContext(ctx).First(&ticket, ticketID).Error; err != nil {
+		return ErrBugLinkTicketMissing
+	}
+	link := BugTicketLink{BugID: bugID, TicketID: ticketID, CreatedBy: createdBy}
+	// 先查后建：唯一索引兜底并发重复，已存在直接成功（幂等语义）
+	var existing BugTicketLink
+	err := m.db.WithContext(ctx).
+		Where("bug_id = ? AND ticket_id = ?", bugID, ticketID).
+		First(&existing).Error
+	if err == nil {
+		return nil
+	}
+	if !errors.Is(err, gorm.ErrRecordNotFound) {
+		return err
+	}
+	return m.db.WithContext(ctx).Create(&link).Error
+}
+
+// UnlinkBugTicket removes the association; unlinking a non-existent pair
+// is a no-op so client retries stay safe.
+func (m *BugModel) UnlinkBugTicket(ctx context.Context, bugID, ticketID uint) error {
+	return m.db.WithContext(ctx).
+		Where("bug_id = ? AND ticket_id = ?", bugID, ticketID).
+		Delete(&BugTicketLink{}).Error
+}
+
+// ListTicketsByBug returns the ticket summaries linked to a bug.
+func (m *BugModel) ListTicketsByBug(ctx context.Context, bugID uint) ([]TicketBrief, error) {
+	// status 在库里是整型枚举，经类型化字段扫描后再转可读字符串
+	var rows []struct {
+		ID       uint
+		Title    string
+		Status   dbenum.TicketStatus
+		Priority string
+		GameID   string
+		Env      string
+	}
+	err := m.db.WithContext(ctx).
+		Table("bug_ticket_links").
+		Select("tickets.id, tickets.title, tickets.status, tickets.priority, tickets.game_id, tickets.env").
+		Joins("JOIN tickets ON tickets.id = bug_ticket_links.ticket_id AND tickets.deleted_at IS NULL").
+		Where("bug_ticket_links.bug_id = ? AND bug_ticket_links.deleted_at IS NULL", bugID).
+		Order("bug_ticket_links.id ASC").
+		Scan(&rows).Error
+	if err != nil {
+		return nil, err
+	}
+	items := make([]TicketBrief, 0, len(rows))
+	for _, r := range rows {
+		items = append(items, TicketBrief{
+			ID:       r.ID,
+			Title:    r.Title,
+			Status:   r.Status.String(),
+			Priority: r.Priority,
+			GameID:   r.GameID,
+			Env:      r.Env,
+		})
+	}
+	return items, nil
+}
+
+// ListBugsByTicket returns the bug summaries linked to a ticket.
+func (m *BugModel) ListBugsByTicket(ctx context.Context, ticketID uint) ([]BugBrief, error) {
+	var rows []BugBrief
+	err := m.db.WithContext(ctx).
+		Table("bug_ticket_links").
+		Select("bugs.id, bugs.title, bugs.status, bugs.severity, bugs.priority").
+		Joins("JOIN bugs ON bugs.id = bug_ticket_links.bug_id AND bugs.deleted_at IS NULL").
+		Where("bug_ticket_links.ticket_id = ? AND bug_ticket_links.deleted_at IS NULL", ticketID).
+		Order("bug_ticket_links.id ASC").
+		Scan(&rows).Error
+	if err != nil {
+		return nil, err
+	}
+	// 空结果返回 [] 而非 null（前端表格与跳转列表依赖数组形态）
+	items := make([]BugBrief, 0, len(rows))
+	items = append(items, rows...)
+	return items, nil
 }
