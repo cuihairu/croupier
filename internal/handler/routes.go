@@ -1197,6 +1197,10 @@ func registerTicketRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 	g.POST("/:id/rate", ticketHandler.Rate)
 	// 升级为缺陷（bug-tracking P2：携带玩家上下文，source=ticket 反查来源）
 	g.POST("/:id/convert-bug", ticketHandler.ConvertToBug)
+	// bug↔工单多对多关联（#25）：工单侧列出/添加/解除 bug 关联
+	g.GET("/:id/bugs", ticketHandler.ListBugs)
+	g.POST("/:id/bugs", ticketHandler.LinkBug)
+	g.DELETE("/:id/bugs/:bugId", ticketHandler.UnlinkBug)
 	g.GET("/:id/comments", ticketHandler.GetComments)
 	g.POST("/:id/comments", ticketHandler.CreateComment)
 }
@@ -1293,6 +1297,10 @@ func registerBugRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 	g.GET("/:id", bugHandler.Get)
 	g.PUT("/:id", bugHandler.Update)
 	g.DELETE("/:id", bugHandler.Delete)
+	// bug↔工单多对多关联（#25）：缺陷侧列出/添加/解除客服工单关联
+	g.GET("/:id/tickets", bugHandler.ListTickets)
+	g.POST("/:id/tickets", bugHandler.LinkTicket)
+	g.DELETE("/:id/tickets/:ticketId", bugHandler.UnlinkTicket)
 }
 
 // ============================================================================

@@ -3,6 +3,7 @@ package bug
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/url"
 	"regexp"
@@ -269,3 +270,57 @@ func deriveBugLinkTitle(rawURL, kind string) string {
 }
 
 var reGithubNumber = regexp.MustCompile(`^/([^/]+)/([^/]+)/(?:issues|pull)/(\d+)`)
+
+// ListTickets returns the support tickets linked to a bug (#25).
+func (s *Service) ListTickets(ctx context.Context, id string) (*BugTicketsResponse, error) {
+	bugID, err := parseBugID(id)
+	if err != nil {
+		return nil, err
+	}
+	items, err := s.svcCtx.BugModel.ListTicketsByBug(ctx, bugID)
+	if err != nil {
+		return nil, err
+	}
+	return &BugTicketsResponse{Items: items}, nil
+}
+
+// LinkTicket associates a support ticket with the bug (#25).
+func (s *Service) LinkTicket(ctx context.Context, id string, req *BugTicketLinkRequest) error {
+	bugID, err := parseBugID(id)
+	if err != nil {
+		return err
+	}
+	if req == nil || req.TicketID == 0 {
+		return errorx.NewBadRequest("ticketId 不能为空")
+	}
+	createdBy, _ := utils.CurrentUsername(ctx)
+	if err := s.svcCtx.BugModel.LinkBugTicket(ctx, bugID, req.TicketID, createdBy); err != nil {
+		return TranslateBugLinkError(err)
+	}
+	return nil
+}
+
+// TranslateBugLinkError maps model-layer link validation sentinels to 4xx
+// (plain model errors would otherwise surface as 500). Exported for the
+// ticket-side handler which shares the same link semantics (#25).
+func TranslateBugLinkError(err error) error {
+	if errors.Is(err, model.ErrBugLinkInvalidID) ||
+		errors.Is(err, model.ErrBugLinkBugMissing) ||
+		errors.Is(err, model.ErrBugLinkTicketMissing) {
+		return errorx.NewBadRequest(err.Error())
+	}
+	return err
+}
+
+// UnlinkTicket removes the bug↔ticket association (#25).
+func (s *Service) UnlinkTicket(ctx context.Context, id, ticketID string) error {
+	bugID, err := parseBugID(id)
+	if err != nil {
+		return err
+	}
+	tid, err := parseBugID(ticketID)
+	if err != nil {
+		return err
+	}
+	return s.svcCtx.BugModel.UnlinkBugTicket(ctx, bugID, tid)
+}

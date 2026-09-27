@@ -7,11 +7,13 @@ import {
   Empty,
   Form,
   Input,
+  InputNumber,
   Modal,
   Popconfirm,
   Row,
   Select,
   Space,
+  Spin,
   Tag,
   Tooltip,
   Typography,
@@ -33,7 +35,7 @@ import {
   ReloadOutlined,
   ReadOutlined,
 } from '@ant-design/icons';
-import { FormattedMessage, useAccess, useIntl } from '@umijs/max';
+import { FormattedMessage, history, useAccess, useIntl, useLocation } from '@umijs/max';
 import {
   BUG_STATUS_FLOW,
   BUG_STATUS_TERMINALS,
@@ -48,10 +50,15 @@ import {
   createBug,
   deleteBug,
   deriveBugLinkTitle,
+  getBug,
+  linkBugTicket,
+  listBugTickets,
   listBugs,
+  unlinkBugTicket,
   updateBug,
   type BugItem,
   type BugLink,
+  type BugLinkedTicket,
 } from '@/services/api/bugs';
 import { listAdmins, type AdminRecord } from '@/services/api/permissions';
 import { extractErrorMessage } from '@/utils/errors';
@@ -91,6 +98,21 @@ function linkIcon(kind: string): React.ReactNode {
   }
 }
 
+// 关联工单的状态文案/配色（#25）：复用 /support/tickets 详情页的既有 intl id，
+// 缺陷侧只读展示，不需要独立词条。
+const linkedTicketStatusText: Record<string, { id: string; defaultMessage: string }> = {
+  open: { id: 'pages.ticketsDetail.status.open', defaultMessage: '打开' },
+  in_progress: { id: 'pages.ticketsDetail.status.inProgress', defaultMessage: '处理中' },
+  resolved: { id: 'pages.ticketsDetail.status.resolved', defaultMessage: '已解决' },
+  closed: { id: 'pages.ticketsDetail.status.closed', defaultMessage: '已关闭' },
+};
+const linkedTicketStatusColors: Record<string, string> = {
+  open: 'gold',
+  in_progress: 'blue',
+  resolved: 'green',
+  closed: 'default',
+};
+
 export default function DevBugsPage() {
   const { message } = App.useApp();
   const intl = useIntl();
@@ -111,6 +133,12 @@ export default function DevBugsPage() {
   const [linkDraft, setLinkDraft] = useState<LinkFormValue>({ url: '', kind: 'github_issue' });
   const [pendingLinks, setPendingLinks] = useState<BugLink[]>([]);
   const [currentLinks, setCurrentLinks] = useState<BugLink[]>([]);
+  // #25 关联工单（多对多）：详情弹窗内展示并可增删，工单可点击跳转
+  const [detailTickets, setDetailTickets] = useState<BugLinkedTicket[]>([]);
+  const [detailTicketsLoading, setDetailTicketsLoading] = useState(false);
+  const [ticketDraft, setTicketDraft] = useState<number | null>(null);
+  const [ticketLinking, setTicketLinking] = useState(false);
+  const location = useLocation();
   const actionRef = useRef<ActionType | undefined>(undefined);
   // 刷新按钮的 loading 转由表格加载态驱动
   const [tableLoading, setTableLoading] = useState(false);
@@ -217,7 +245,83 @@ export default function DevBugsPage() {
   const openDetail = async (bug: BugItem) => {
     setDetail(bug);
     setCurrentLinks(bug.links || []);
+    setDetailTickets([]);
+    setTicketDraft(null);
+    setDetailTicketsLoading(true);
+    try {
+      setDetailTickets(await listBugTickets(bug.id));
+    } catch {
+      // 关联工单列表加载失败不阻塞详情展示（重新打开可重试）
+    } finally {
+      setDetailTicketsLoading(false);
+    }
   };
+
+  const addDetailTicket = async () => {
+    if (!detail || !ticketDraft) return;
+    setTicketLinking(true);
+    try {
+      await linkBugTicket(detail.id, ticketDraft);
+      message.success(
+        intl.formatMessage(
+          { id: 'pages.devBugs.detail.ticketLinked', defaultMessage: '已关联工单 #{ticketId}' },
+          { ticketId: ticketDraft },
+        ),
+      );
+      setTicketDraft(null);
+      setDetailTickets(await listBugTickets(detail.id));
+    } catch (error) {
+      message.error(
+        extractErrorMessage(
+          error,
+          intl.formatMessage({
+            id: 'pages.devBugs.detail.ticketLinkFailed',
+            defaultMessage: '关联失败',
+          }),
+        ),
+      );
+    } finally {
+      setTicketLinking(false);
+    }
+  };
+
+  const removeDetailTicket = async (ticketId: number) => {
+    if (!detail) return;
+    try {
+      await unlinkBugTicket(detail.id, ticketId);
+      setDetailTickets((prev) => prev.filter((t) => t.id !== ticketId));
+      message.success(
+        intl.formatMessage({
+          id: 'pages.devBugs.detail.ticketUnlinked',
+          defaultMessage: '已解除关联',
+        }),
+      );
+    } catch (error) {
+      message.error(
+        extractErrorMessage(
+          error,
+          intl.formatMessage({
+            id: 'pages.devBugs.detail.ticketUnlinkFailed',
+            defaultMessage: '解除失败',
+          }),
+        ),
+      );
+    }
+  };
+
+  // #25：工单详情页「可点击跳转」的落点 —— /dev/bugs?bugId=N 直接打开对应缺陷详情
+  useEffect(() => {
+    const query = (location as { query?: Record<string, string | undefined> }).query;
+    const raw = query?.bugId;
+    if (!raw) return;
+    const bugId = Number(raw);
+    if (!Number.isFinite(bugId) || bugId <= 0) return;
+    getBug(bugId)
+      .then((bug) => openDetail(bug))
+      .catch(() => undefined);
+    // 仅按挂载时的 query 定位一次；openDetail 稳定引用闭包内的 setState
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location]);
 
   const columns: ProColumns<BugItem>[] = [
     {
@@ -918,6 +1022,89 @@ export default function DevBugsPage() {
                   ))}
                 </Space>
               </>
+            ) : null}
+            <Text strong>
+              <FormattedMessage
+                id="pages.devBugs.detail.linkedTickets"
+                defaultMessage="关联工单"
+              />
+            </Text>
+            {detailTicketsLoading ? (
+              <Spin size="small" />
+            ) : detailTickets.length === 0 ? (
+              <Text type="secondary">
+                <FormattedMessage
+                  id="pages.devBugs.detail.noLinkedTickets"
+                  defaultMessage="暂无关联工单"
+                />
+              </Text>
+            ) : (
+              <Space orientation="vertical" size={4} style={{ width: '100%' }}>
+                {detailTickets.map((t) => (
+                  <Space key={t.id} wrap style={{ width: '100%' }}>
+                    <a onClick={() => history.push(`/support/tickets/${t.id}`)}>
+                      #{t.id} {t.title}
+                    </a>
+                    <Tag color={linkedTicketStatusColors[t.status] || 'default'}>
+                      {linkedTicketStatusText[t.status]
+                        ? intl.formatMessage(linkedTicketStatusText[t.status])
+                        : t.status}
+                    </Tag>
+                    {t.priority ? <Tag>{bugPriorityLabels[t.priority] || t.priority}</Tag> : null}
+                    {t.gameId ? (
+                      <Tag>
+                        {t.gameId}/{t.env}
+                      </Tag>
+                    ) : null}
+                    {canManage ? (
+                      <Popconfirm
+                        title={intl.formatMessage(
+                          {
+                            id: 'pages.devBugs.detail.ticketUnlinkConfirm',
+                            defaultMessage: '解除与工单 #{ticketId} 的关联？',
+                          },
+                          { ticketId: t.id },
+                        )}
+                        onConfirm={() => removeDetailTicket(t.id)}
+                      >
+                        <Button type="link" size="small" danger>
+                          <FormattedMessage
+                            id="pages.devBugs.detail.ticketUnlink"
+                            defaultMessage="解除关联"
+                          />
+                        </Button>
+                      </Popconfirm>
+                    ) : null}
+                  </Space>
+                ))}
+              </Space>
+            )}
+            {canManage ? (
+              <Space wrap>
+                <InputNumber
+                  min={1}
+                  precision={0}
+                  value={ticketDraft}
+                  onChange={(v) => setTicketDraft(typeof v === 'number' ? v : null)}
+                  placeholder={intl.formatMessage({
+                    id: 'pages.devBugs.detail.ticketIdPlaceholder',
+                    defaultMessage: '工单 ID',
+                  })}
+                  style={{ width: 140 }}
+                />
+                <Button
+                  size="small"
+                  icon={<PlusOutlined />}
+                  disabled={!ticketDraft}
+                  loading={ticketLinking}
+                  onClick={addDetailTicket}
+                >
+                  <FormattedMessage
+                    id="pages.devBugs.detail.ticketLink"
+                    defaultMessage="添加关联"
+                  />
+                </Button>
+              </Space>
             ) : null}
           </Space>
         ) : (

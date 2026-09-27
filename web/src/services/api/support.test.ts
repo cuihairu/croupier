@@ -10,14 +10,17 @@ import {
   deleteFeedback,
   deleteTicket,
   getTicket,
+  linkTicketBug,
   listFAQ,
   listFAQCategories,
   listFeedback,
+  listTicketBugs,
   listTicketComments,
   listTicketFilterOptions,
   listTickets,
   rateTicket,
   transitionTicket,
+  unlinkTicketBug,
   updateFAQ,
   updateFeedback,
   updateTicket,
@@ -678,5 +681,50 @@ describe('support conversion & CSAT adapters', () => {
       method: 'POST',
       data: { rating: 4 },
     });
+  });
+});
+
+describe('support ticket ↔ bug link adapters (#25)', () => {
+  beforeEach(() => mockedRequest.mockReset());
+
+  it('lists ticket-linked bugs from the items field', async () => {
+    mockedRequest.mockResolvedValue({
+      items: [{ id: 7, title: '副本加载超时', status: 'triage', severity: 'critical', priority: 'urgent' }],
+    });
+
+    const bugs = await listTicketBugs('3');
+
+    expect(mockedRequest).toHaveBeenCalledWith('/api/v1/tickets/3/bugs');
+    expect(bugs).toEqual([
+      { id: 7, title: '副本加载超时', status: 'triage', severity: 'critical', priority: 'urgent' },
+    ]);
+  });
+
+  it('falls back to an empty list when items is missing or not an array', async () => {
+    mockedRequest.mockResolvedValue(undefined);
+    await expect(listTicketBugs(3)).resolves.toEqual([]);
+    expect(mockedRequest).toHaveBeenCalledWith('/api/v1/tickets/3/bugs');
+
+    mockedRequest.mockResolvedValue({ items: 'bad' });
+    await expect(listTicketBugs(3)).resolves.toEqual([]);
+  });
+
+  it('links a bug by ticket id with the bugId payload', async () => {
+    mockedRequest.mockResolvedValue({ ok: true });
+
+    await linkTicketBug('3', 7);
+
+    expect(mockedRequest).toHaveBeenCalledWith('/api/v1/tickets/3/bugs', {
+      method: 'POST',
+      data: { bugId: 7 },
+    });
+  });
+
+  it('unlinks a bug with the DELETE pair route', async () => {
+    mockedRequest.mockResolvedValue({ ok: true });
+
+    await unlinkTicketBug(3, 7);
+
+    expect(mockedRequest).toHaveBeenCalledWith('/api/v1/tickets/3/bugs/7', { method: 'DELETE' });
   });
 });
