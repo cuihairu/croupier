@@ -73,10 +73,7 @@ export default function BindingModal({
         {/* antd 6 废弃 Input.addonBefore：前缀改为 Space.Compact 的相邻兄弟节点 */}
         <Space.Compact>
           bindingId
-          <Input
-            value={bindingId}
-            onChange={(event) => onBindingIdChange(event.target.value)}
-          />
+          <Input value={bindingId} onChange={(event) => onBindingIdChange(event.target.value)} />
         </Space.Compact>
         <Select
           showSearch

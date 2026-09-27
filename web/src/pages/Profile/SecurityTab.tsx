@@ -39,9 +39,7 @@ export default function SecurityTab({
               <Space>
                 <LockOutlined />
                 <div>
-                  <Text strong>
-                    {formatMessage('profile.password.change.title', '修改密码')}
-                  </Text>
+                  <Text strong>{formatMessage('profile.password.change.title', '修改密码')}</Text>
                   <br />
                   <Text type="secondary">
                     {formatMessage('profile.password.description', '定期更换密码可提升账号安全。')}

@@ -57,9 +57,10 @@ export function channelAvailability(
   if (ch.requiresTarget && !ch.hasTarget) {
     return {
       enabled: false,
-      reason: ch.key === 'sms'
-        ? formatMessage('profile.channel.reason.noPhone', '未填写手机号，填了才能接收')
-        : formatMessage('profile.channel.reason.noEmail', '未填写邮箱，填了才能接收'),
+      reason:
+        ch.key === 'sms'
+          ? formatMessage('profile.channel.reason.noPhone', '未填写手机号，填了才能接收')
+          : formatMessage('profile.channel.reason.noEmail', '未填写邮箱，填了才能接收'),
     };
   }
   return { enabled: true, reason: null };
@@ -74,11 +75,12 @@ function ChannelRow({
   formatMessage: (id: string, fallback: string) => string;
 }) {
   const { enabled: operational, reason } = channelAvailability(channel, formatMessage);
-  const label = {
-    in_app: formatMessage('profile.channel.inApp', '站内消息'),
-    email: formatMessage('profile.channel.email', '邮件通知'),
-    sms: formatMessage('profile.channel.sms', '短信通知'),
-  }[channel.key] ?? channel.key;
+  const label =
+    {
+      in_app: formatMessage('profile.channel.inApp', '站内消息'),
+      email: formatMessage('profile.channel.email', '邮件通知'),
+      sms: formatMessage('profile.channel.sms', '短信通知'),
+    }[channel.key] ?? channel.key;
 
   // 开关只读呈现 `userEnabled`（当前来自平台级设置，没有用户侧写入口）。
   // 可点击却没有任何效果的开关同样是假状态——等出现「用户通知偏好」写接口
@@ -139,8 +141,7 @@ function ChannelRow({
           <Text strong>{label}</Text>
           <br />
           <Text type="secondary">
-            {reason ??
-              formatMessage('profile.channel.ready', '已接入，可正常接收通知')}
+            {reason ?? formatMessage('profile.channel.ready', '已接入，可正常接收通知')}
           </Text>
         </div>
       </Space>
@@ -189,10 +190,7 @@ export default function NotificationChannels({
       title={formatMessage('profile.channel.cardTitle', '通知渠道偏好')}
       extra={
         <Text type="secondary" style={{ fontSize: 12 }}>
-          {formatMessage(
-            'profile.channel.readonly.hint',
-            '当前为平台级设置，暂不支持按个人修改',
-          )}
+          {formatMessage('profile.channel.readonly.hint', '当前为平台级设置，暂不支持按个人修改')}
         </Text>
       }
     >

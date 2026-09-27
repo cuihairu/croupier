@@ -31,7 +31,8 @@ export function profileText(value: unknown): string | undefined {
   return undefined;
 }
 
-export const TAB_KEYS = {  PROFILE: 'profile',
+export const TAB_KEYS = {
+  PROFILE: 'profile',
   SECURITY: 'security',
   GAMES: 'games',
   PERMISSIONS: 'permissions',

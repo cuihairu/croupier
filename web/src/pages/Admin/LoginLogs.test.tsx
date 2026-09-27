@@ -124,12 +124,8 @@ describe('LoginLogsPage 登录日志', () => {
    */
   it('hash/id 全缺时行 key 仍互不相同（BUG-011）', async () => {
     // 同形于真实响应：id 唯一但 hash 全空；再叠加一批 id/hash 都缺的极端行
-    const noHash = Array.from({ length: 12 }, (_, i) =>
-      mkRow(i, { id: `audit_${i}_z`, hash: '' }),
-    );
-    const noIds = Array.from({ length: 4 }, (_, i) =>
-      mkRow(100 + i, { id: '', hash: '' }),
-    );
+    const noHash = Array.from({ length: 12 }, (_, i) => mkRow(i, { id: `audit_${i}_z`, hash: '' }));
+    const noIds = Array.from({ length: 4 }, (_, i) => mkRow(100 + i, { id: '', hash: '' }));
     mockedListAudit.mockResolvedValue({
       events: [...noHash, ...noIds],
       total: 16,
@@ -147,7 +143,8 @@ describe('LoginLogsPage 登录日志', () => {
     expect(new Set(keys).size).toBe(keys.length);
   });
 
-  it('初始加载：URL actor 预填 + 默认类型与分页参数', async () => {    window.history.replaceState(null, '', '/admin/login-logs?actor=alice');
+  it('初始加载：URL actor 预填 + 默认类型与分页参数', async () => {
+    window.history.replaceState(null, '', '/admin/login-logs?actor=alice');
     const { container } = render(<LoginLogsPage />);
     await waitFor(() => expect(mockedListAudit).toHaveBeenCalledTimes(1));
     expect(mockedListAudit).toHaveBeenCalledWith({

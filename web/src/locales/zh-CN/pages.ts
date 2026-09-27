@@ -3,7 +3,8 @@ export default {
   'pages.login.accountLogin.tab': '账户密码登录',
   'pages.login.accountLogin.errorMessage': '错误的用户名和密码(admin/ant.design)',
   'pages.login.failure': '登录失败，请重试！',
-  'pages.login.mfa.hint': '两步验证已开启，请输入认证器 App 中的 6 位动态验证码，或绑定时的备用恢复码',
+  'pages.login.mfa.hint':
+    '两步验证已开启，请输入认证器 App 中的 6 位动态验证码，或绑定时的备用恢复码',
   'pages.login.mfa.placeholder': '动态验证码或备用恢复码',
   'pages.login.mfa.required': '请输入动态验证码或备用恢复码！',
   'pages.login.mfa.required.info': '该账号已启用两步验证，请输入动态验证码或备用恢复码',

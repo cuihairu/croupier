@@ -462,7 +462,8 @@ export default {
   'pages.announcements.update.success': 'Announcement updated',
   // Notifications tab ②: channel preferences
   'profile.channel.cardTitle': 'Notification channel preferences',
-  'profile.channel.readonly.hint': 'Currently a platform-level setting; per-user editing is not available yet',
+  'profile.channel.readonly.hint':
+    'Currently a platform-level setting; per-user editing is not available yet',
   'pages.profile.notifications.action.markRead': 'Mark as read',
   'pages.announcements.delete.cancel': 'Cancel',
   'pages.announcements.delete.ok': 'Confirm',

@@ -61,21 +61,21 @@ export function useProfileData() {
           permissionCatalogRes,
           channelsRes,
         ] = await Promise.allSettled([
-            getMyGames(),
-            getMyPermissions({}),
-            listAudit({ actor: username, size: 8 }),
-            username
-              ? listAudit({
-                  actor: username,
-                  kinds: 'login,auth_login,login_fail,login_rate_limited',
-                  size: 20,
-                })
-              : Promise.resolve({ events: [] }),
-            listMessages({ status: 'all', pageSize: 8 }),
-            listPermissions({ page: 1, pageSize: 500 }),
-            // 通知通道状态放最后：失败时留空数组，前端显示「正在读取」而不是假状态
-            fetchMyNotificationChannels().then((r) => r?.channels || []),
-          ]);
+          getMyGames(),
+          getMyPermissions({}),
+          listAudit({ actor: username, size: 8 }),
+          username
+            ? listAudit({
+                actor: username,
+                kinds: 'login,auth_login,login_fail,login_rate_limited',
+                size: 20,
+              })
+            : Promise.resolve({ events: [] }),
+          listMessages({ status: 'all', pageSize: 8 }),
+          listPermissions({ page: 1, pageSize: 500 }),
+          // 通知通道状态放最后：失败时留空数组，前端显示「正在读取」而不是假状态
+          fetchMyNotificationChannels().then((r) => r?.channels || []),
+        ]);
 
         setGames(gamesRes.status === 'fulfilled' ? gamesRes.value?.games || [] : []);
         if (permsRes.status === 'fulfilled') {
@@ -96,9 +96,7 @@ export function useProfileData() {
         setNotifications(
           notificationsRes.status === 'fulfilled' ? notificationsRes.value?.items || [] : [],
         );
-        setNotificationChannels(
-          channelsRes.status === 'fulfilled' ? channelsRes.value || [] : [],
-        );
+        setNotificationChannels(channelsRes.status === 'fulfilled' ? channelsRes.value || [] : []);
         if (permissionCatalogRes.status === 'fulfilled') {
           setPermissionCatalog(permissionCatalogRes.value?.items || []);
           setPermissionCatalogAvailable(true);

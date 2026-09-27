@@ -187,7 +187,9 @@ export async function getMyPermissions(params?: {
       : [],
     // 只在响应真的带这两个字段时才写入，避免给「字段缺失」凭空注入空数组，
     // 那样会掩盖后端的契约变化。
-    ...(Array.isArray(permissionIDs) ? { permissionIDs: sanitizePermissionIds(permissionIDs) } : {}),
+    ...(Array.isArray(permissionIDs)
+      ? { permissionIDs: sanitizePermissionIds(permissionIDs) }
+      : {}),
     ...(Array.isArray(rolePermissions)
       ? {
           rolePermissions: rolePermissions.map((g) => ({

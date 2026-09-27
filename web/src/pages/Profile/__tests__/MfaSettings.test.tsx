@@ -75,14 +75,12 @@ describe('MfaSettings 绑定流程', () => {
   });
 
   it('确认成功后一次性展示恢复码，可下载与关闭', async () => {
-    mockStatus
-      .mockResolvedValueOnce({ enabled: false, local: true })
-      .mockResolvedValueOnce({
-        enabled: true,
-        local: true,
-        recoveryCodesRemaining: 10,
-        recoveryCodeTotal: 10,
-      });
+    mockStatus.mockResolvedValueOnce({ enabled: false, local: true }).mockResolvedValueOnce({
+      enabled: true,
+      local: true,
+      recoveryCodesRemaining: 10,
+      recoveryCodeTotal: 10,
+    });
     mockSetup.mockResolvedValue({
       secret: 'JBSWY3DPEHPK3PXP',
       otpauthUrl: OTPAUTH,
@@ -95,7 +93,9 @@ describe('MfaSettings 绑定流程', () => {
     renderWithApp();
     await waitFor(() => expect(mockStatus).toHaveBeenCalled());
     fireEvent.click(await screen.findByTestId('mfa-enable'));
-    fireEvent.change(await screen.findByTestId('mfa-confirm-code'), { target: { value: '123456' } });
+    fireEvent.change(await screen.findByTestId('mfa-confirm-code'), {
+      target: { value: '123456' },
+    });
     fireEvent.click(await screen.findByTestId('mfa-confirm'));
 
     await waitFor(() => expect(mockConfirm).toHaveBeenCalledWith('123456'));
@@ -123,7 +123,9 @@ describe('MfaSettings 绑定流程', () => {
     renderWithApp();
     await waitFor(() => expect(mockStatus).toHaveBeenCalled());
     fireEvent.click(await screen.findByTestId('mfa-enable'));
-    fireEvent.change(await screen.findByTestId('mfa-confirm-code'), { target: { value: '123456' } });
+    fireEvent.change(await screen.findByTestId('mfa-confirm-code'), {
+      target: { value: '123456' },
+    });
     fireEvent.click(await screen.findByTestId('mfa-confirm'));
 
     await waitFor(() => expect(mockConfirm).toHaveBeenCalled());
@@ -156,7 +158,9 @@ describe('MfaSettings 已启用态', () => {
     renderWithApp();
     await waitFor(() => expect(mockStatus).toHaveBeenCalled());
 
-    fireEvent.change(await screen.findByTestId('mfa-disable-code'), { target: { value: '123456' } });
+    fireEvent.change(await screen.findByTestId('mfa-disable-code'), {
+      target: { value: '123456' },
+    });
     fireEvent.change(screen.getByTestId('mfa-disable-password'), { target: { value: 'admin123' } });
     fireEvent.click(screen.getByTestId('mfa-disable'));
 

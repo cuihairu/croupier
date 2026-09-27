@@ -73,12 +73,7 @@ const PathControls: React.FC<{
             id: 'pages.analyticsBehavior.path.filter.addonBefore.steps',
             defaultMessage: '步数',
           })}
-          <InputNumber
-            value={steps}
-            onChange={(v) => setSteps(Number(v || 5))}
-            min={1}
-            max={10}
-          />
+          <InputNumber value={steps} onChange={(v) => setSteps(Number(v || 5))} min={1} max={10} />
         </Space.Compact>
         <Space.Compact>
           TopN

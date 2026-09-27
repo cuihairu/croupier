@@ -322,7 +322,11 @@ export default function LBMonitor() {
                   `{value}` 不在其列，于是 target/total/percent 全部解构为 undefined，
                   通道 y 退化为 undefined/NaN——百分数被静默丢弃，指针不动、读数空白。
                   两者都不需要 canvas 依赖，故直接换成 antd Progress。 */}
-              <Progress type="dashboard" percent={ownershipRatioPercent(nodes, backends)} size={160} />
+              <Progress
+                type="dashboard"
+                percent={ownershipRatioPercent(nodes, backends)}
+                size={160}
+              />
               <div style={{ marginTop: 4 }}>
                 {intl.formatMessage(
                   {

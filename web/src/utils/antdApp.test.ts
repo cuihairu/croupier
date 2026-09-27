@@ -1,4 +1,11 @@
-import { clearAppApi, getMessage, getModal, getNotification, setAppApi, type AppApi } from './antdApp';
+import {
+  clearAppApi,
+  getMessage,
+  getModal,
+  getNotification,
+  setAppApi,
+  type AppApi,
+} from './antdApp';
 
 describe('antdApp', () => {
   it('未注入前 getters 返回 undefined', () => {

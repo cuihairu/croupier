@@ -131,8 +131,7 @@ function SimpleListBase<T>({
 }: SimpleListProps<T>) {
   const { styles } = useStyles();
   const items = dataSource ?? [];
-  const keyOf = (item: T, index: number): React.Key =>
-    rowKey ? rowKey(item, index) : index;
+  const keyOf = (item: T, index: number): React.Key => (rowKey ? rowKey(item, index) : index);
 
   let body: ReactNode;
   if (items.length === 0) {
@@ -145,9 +144,7 @@ function SimpleListBase<T>({
     body = (
       <ul style={{ margin: 0, padding: 0, listStyle: 'none' }}>
         {items.map((item, index) => (
-          <React.Fragment key={keyOf(item, index)}>
-            {renderItem(item, index)}
-          </React.Fragment>
+          <React.Fragment key={keyOf(item, index)}>{renderItem(item, index)}</React.Fragment>
         ))}
       </ul>
     );

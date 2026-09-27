@@ -150,7 +150,9 @@ describe('buildPermissionTree', () => {
     );
     const byRole = Object.fromEntries(tree.roles.map((r) => [r.role, r]));
     const pick = (role: string, res: string, act: string) =>
-      byRole[role].resources.find((r) => r.resource === res)!.actions.find((a) => a.action === act)!;
+      byRole[role].resources
+        .find((r) => r.resource === res)!
+        .actions.find((a) => a.action === act)!;
     expect(pick('reader', 'user', 'read').granted).toBe(true);
     expect(pick('reader', 'user', 'write').granted).toBe(false);
     expect(pick('writer', 'user', 'write').granted).toBe(true);
@@ -184,18 +186,26 @@ describe('PermissionTreeView 渲染', () => {
     expect(granted).toHaveTextContent('用户查看');
     // 图标用 antd 的 CheckOutlined / CloseOutlined（SVG），按类名断言：
     // 颜色之外必须有第二重区分（色觉障碍），所以图标本身就是契约的一部分
-    expect(within(granted).getByTestId('action-icon-user:read').querySelector('.anticon-check')).not.toBeNull();
+    expect(
+      within(granted).getByTestId('action-icon-user:read').querySelector('.anticon-check'),
+    ).not.toBeNull();
     expect(granted.querySelector('.anticon-close')).toBeNull();
     // 绿色
-    expect(within(granted).getByTestId('action-icon-user:read')).toHaveStyle({ color: GRANTED_COLOR });
+    expect(within(granted).getByTestId('action-icon-user:read')).toHaveStyle({
+      color: GRANTED_COLOR,
+    });
 
     const denied = screen.getByTestId('action-user:write');
     expect(denied).toHaveAttribute('data-granted', 'false');
     expect(denied).toHaveTextContent('用户管理');
-    expect(within(denied).getByTestId('action-icon-user:write').querySelector('.anticon-close')).not.toBeNull();
+    expect(
+      within(denied).getByTestId('action-icon-user:write').querySelector('.anticon-close'),
+    ).not.toBeNull();
     expect(denied.querySelector('.anticon-check')).toBeNull();
     // 灰色，且与绿色不同
-    expect(within(denied).getByTestId('action-icon-user:write')).toHaveStyle({ color: DENIED_COLOR });
+    expect(within(denied).getByTestId('action-icon-user:write')).toHaveStyle({
+      color: DENIED_COLOR,
+    });
     expect(DENIED_COLOR).not.toBe(GRANTED_COLOR);
   });
 

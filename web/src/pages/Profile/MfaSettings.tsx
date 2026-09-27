@@ -216,10 +216,7 @@ const MfaSettings: React.FC = () => {
             </Tag>
           )}
           {status?.enabled && total > 0 && (
-            <Tag
-              color={lowOnCodes ? 'warning' : 'default'}
-              data-testid="mfa-recovery-remaining"
-            >
+            <Tag color={lowOnCodes ? 'warning' : 'default'} data-testid="mfa-recovery-remaining">
               {/* 用 formatMessage 而非 FormattedMessage：需要 values 插值，
                   与仓内其它带占位符的文案一致 */}
               {intl.formatMessage(
@@ -333,7 +330,12 @@ const MfaSettings: React.FC = () => {
               onPressEnter={() => void doDisable()}
               data-testid="mfa-disable-password"
             />
-            <Button danger loading={busy} onClick={() => void doDisable()} data-testid="mfa-disable">
+            <Button
+              danger
+              loading={busy}
+              onClick={() => void doDisable()}
+              data-testid="mfa-disable"
+            >
               <FormattedMessage
                 id="pages.profileMfa.disable.button"
                 defaultMessage="关闭两步验证"
@@ -371,7 +373,10 @@ const MfaSettings: React.FC = () => {
               </div>
             </div>
             <Text>
-              <FormattedMessage id="pages.profileMfa.setup.step2Prefix" defaultMessage="2. 无法扫码时" />
+              <FormattedMessage
+                id="pages.profileMfa.setup.step2Prefix"
+                defaultMessage="2. 无法扫码时"
+              />
               <strong>
                 <FormattedMessage
                   id="pages.profileMfa.setup.step1Bold"
@@ -388,7 +393,10 @@ const MfaSettings: React.FC = () => {
               </Text>
             </Space>
             <Text>
-              <FormattedMessage id="pages.profileMfa.setup.step3Prefix" defaultMessage="3. 输入 App 显示的" />
+              <FormattedMessage
+                id="pages.profileMfa.setup.step3Prefix"
+                defaultMessage="3. 输入 App 显示的"
+              />
               <strong>
                 <FormattedMessage
                   id="pages.profileMfa.setup.step3Bold"

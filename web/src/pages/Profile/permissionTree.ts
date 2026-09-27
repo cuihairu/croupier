@@ -65,9 +65,7 @@ export type PermissionTree = {
 const GLOBAL_WILDCARDS = new Set(['*', 'admin:all']);
 
 /** 把权限 id 拆成资源与操作；与后端 rbac.SplitLogicalPermission 同语义。 */
-export function splitPermissionId(
-  id: string,
-): { resource: string; action: string } {
+export function splitPermissionId(id: string): { resource: string; action: string } {
   const normalized = (id || '').trim().toLowerCase();
   if (normalized === '' || GLOBAL_WILDCARDS.has(normalized)) {
     return { resource: '*', action: '*' };
@@ -150,9 +148,7 @@ export function buildPermissionTree(
 
   const nodes: RoleNode[] = [];
   for (const grant of roles || []) {
-    const roleIds = (grant.permissionIds || []).map((id) =>
-      (id || '').trim().toLowerCase(),
-    );
+    const roleIds = (grant.permissionIds || []).map((id) => (id || '').trim().toLowerCase());
     const roleHasWildcard = hasGlobalWildcard(roleIds);
 
     // 该角色可见的资源 = 目录里的全部资源 + 该角色 id 里出现但目录没有的资源
@@ -176,14 +172,17 @@ export function buildPermissionTree(
         }
       }
       // 持有 resource:* 时补一条通配操作，否则「该资源全部可操作」会看不见
-      if (roleHasWildcard || roleIds.includes(`${resource}:*`) || roleIds.includes(`${resource}:all`)) {
+      if (
+        roleHasWildcard ||
+        roleIds.includes(`${resource}:*`) ||
+        roleIds.includes(`${resource}:all`)
+      ) {
         actionNames.add('*');
       }
       if (actionNames.size === 0) continue;
 
       const actions: ActionNode[] = [...actionNames].sort().map((action) => {
-        const id =
-          action === '*' ? `${resource}:*` : `${resource}:${action}`;
+        const id = action === '*' ? `${resource}:*` : `${resource}:${action}`;
         const meta = catalogActions?.get(action);
         const granted = roleHasWildcard || roleGrants(roleIds, resource, action);
         return {

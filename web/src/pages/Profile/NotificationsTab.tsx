@@ -70,11 +70,7 @@ export default function NotificationsTab({
         }
         extra={
           unreadCount > 0 ? (
-            <Button
-              size="small"
-              onClick={onMarkAllRead}
-              data-testid="notifications-mark-all-read"
-            >
+            <Button size="small" onClick={onMarkAllRead} data-testid="notifications-mark-all-read">
               <FormattedMessage
                 id="pages.profile.notifications.action.markAllRead"
                 defaultMessage="全部标为已读"
@@ -162,7 +158,10 @@ export default function NotificationsTab({
                       <Text
                         type="secondary"
                         ellipsis
-                        style={{ maxWidth: 560, color: item.status !== 'read' ? undefined : undefined }}
+                        style={{
+                          maxWidth: 560,
+                          color: item.status !== 'read' ? undefined : undefined,
+                        }}
                       >
                         {item.content}
                       </Text>

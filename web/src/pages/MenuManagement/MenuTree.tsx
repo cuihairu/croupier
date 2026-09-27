@@ -100,7 +100,10 @@ export default function MenuTree({
   // {order} 是 ICU 占位符，必须经 values 传参；formatMessage 后再 .replace 会触发
   // intl 解析错误（MISSING_VALUE 三连报错，见 docs/BUGS.md BUG-004）。
   const fmtOrder = (order: number) =>
-    intl.formatMessage({ id: 'pages.menuManagement.page.order', defaultMessage: '排序 {order}' }, { order });
+    intl.formatMessage(
+      { id: 'pages.menuManagement.page.order', defaultMessage: '排序 {order}' },
+      { order },
+    );
 
   // defaultExpandAll 不作用于异步后到的 treeData：数据变化时受控全展开
   const allKeys = useMemo(() => collectKeys(items), [items]);
@@ -148,9 +151,7 @@ export default function MenuTree({
             {fmt('pages.menuManagement.page.draftHint', '发布后才会出现在控制台导航')}
           </Typography.Text>
         ) : null}
-        {page.order ? (
-          <Tag style={{ marginInlineEnd: 0 }}>{fmtOrder(page.order)}</Tag>
-        ) : null}
+        {page.order ? <Tag style={{ marginInlineEnd: 0 }}>{fmtOrder(page.order)}</Tag> : null}
         {onEditPage ? (
           <Button
             type="link"

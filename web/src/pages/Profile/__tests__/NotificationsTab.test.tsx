@@ -29,12 +29,14 @@ function msg(over: Partial<MessageItem> & { id: number }): MessageItem {
   } as MessageItem;
 }
 
-function renderTab(over: {
-  items?: MessageItem[];
-  detailMessage?: MessageItem | null;
-  notificationChannels?: NotificationChannelState[];
-  onMarkRead?: (item: MessageItem) => void;
-} = {}) {
+function renderTab(
+  over: {
+    items?: MessageItem[];
+    detailMessage?: MessageItem | null;
+    notificationChannels?: NotificationChannelState[];
+    onMarkRead?: (item: MessageItem) => void;
+  } = {},
+) {
   const onMarkRead = over.onMarkRead ?? jest.fn();
   const result = render(
     <App>
@@ -151,10 +153,14 @@ describe('NotificationsTab ② 通知渠道偏好', () => {
 
   it('与安全中心共用同一份判定实现（channel-row-* testid 相同）', () => {
     renderTab({
-      notificationChannels: [{ key: 'sms', available: false, reason: 'sms provider not configured' }],
+      notificationChannels: [
+        { key: 'sms', available: false, reason: 'sms provider not configured' },
+      ],
     });
     // 断言的是 NotificationChannels 组件的契约，与 SecurityTab 中的一致
-    expect(within(screen.getByTestId('channel-list')).getByTestId('channel-row-sms')).toBeInTheDocument();
+    expect(
+      within(screen.getByTestId('channel-list')).getByTestId('channel-row-sms'),
+    ).toBeInTheDocument();
   });
 
   it('通道状态未加载时显示占位而不是任何「已开启」', () => {

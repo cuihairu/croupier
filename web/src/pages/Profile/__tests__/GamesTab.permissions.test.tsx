@@ -21,13 +21,13 @@ const base = { gameId: 'demo', gameName: 'Demo', envs: ['production'] };
 
 describe('GamesTab 权限区', () => {
   it('accessLevel=full：显示绿色「全部权限」而不是空白', () => {
-    renderTab([
-      { ...base, permissions: ['*'], accessLevel: 'full', permissionScope: 'role' },
-    ]);
+    renderTab([{ ...base, permissions: ['*'], accessLevel: 'full', permissionScope: 'role' }]);
     expect(screen.getByTestId('game-access-full-demo')).toHaveTextContent('全部权限');
     expect(screen.getByTestId('game-perm-demo-*')).toHaveTextContent('全部');
     // 关键：不得再出现空白的权限区
-    expect(within(screen.getByTestId('game-permissions-demo')).queryByText('无显式权限')).toBeNull();
+    expect(
+      within(screen.getByTestId('game-permissions-demo')).queryByText('无显式权限'),
+    ).toBeNull();
   });
 
   it('accessLevel=none：明确说明「无显式权限」并给出原因，不得留白', () => {

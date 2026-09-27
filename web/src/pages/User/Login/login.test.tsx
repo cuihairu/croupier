@@ -246,7 +246,11 @@ describe('Login Page 覆盖补齐（提交链路/品牌兜底/MFA/登录入口�
     await fillAndSubmit('admin', 'ant.design');
 
     expect(await screen.findByPlaceholderText('动态验证码或备用恢复码')).toBeTruthy();
-    expect(screen.getByText('两步验证已开启，请输入认证器 App 中的 6 位动态验证码，或绑定时的备用恢复码')).toBeTruthy();
+    expect(
+      screen.getByText(
+        '两步验证已开启，请输入认证器 App 中的 6 位动态验证码，或绑定时的备用恢复码',
+      ),
+    ).toBeTruthy();
     await waitFor(() => expect(msg.info).toHaveBeenCalledTimes(1));
     expect(msg.error).not.toHaveBeenCalled();
     expect(history.push).not.toHaveBeenCalled();

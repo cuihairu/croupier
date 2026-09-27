@@ -68,8 +68,9 @@ describe('UserAvatar 渲染', () => {
 
   it('data-avatar-src 反映归一后的真实值，便于断言', () => {
     const { container } = render(<UserAvatar src="  " name="A" username="a" />);
-    expect(container.querySelector('[data-testid="user-avatar"]')?.getAttribute('data-avatar-src'))
-      .toBe('');
+    expect(
+      container.querySelector('[data-testid="user-avatar"]')?.getAttribute('data-avatar-src'),
+    ).toBe('');
   });
 });
 

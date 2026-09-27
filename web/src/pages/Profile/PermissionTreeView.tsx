@@ -2,11 +2,7 @@ import { useMemo, useState } from 'react';
 import { Badge, Button, Card, Empty, Space, Tag, Tooltip, Tree, Typography } from 'antd';
 import { CheckOutlined, CloseOutlined } from '@ant-design/icons';
 import { useIntl } from '@umijs/max';
-import {
-  buildPermissionTree,
-  type PermissionCatalogEntry,
-  type RoleGrant,
-} from './permissionTree';
+import { buildPermissionTree, type PermissionCatalogEntry, type RoleGrant } from './permissionTree';
 
 const { Text } = Typography;
 
@@ -85,7 +81,9 @@ export default function PermissionTreeView({
   if (tree.roles.length === 0) {
     return (
       <Card title={formatMessage('profile.permissions.tree.title', '权限树')}>
-        <Empty description={formatMessage('profile.permissions.tree.noRole', '当前账号没有任何角色')} />
+        <Empty
+          description={formatMessage('profile.permissions.tree.noRole', '当前账号没有任何角色')}
+        />
       </Card>
     );
   }
@@ -102,7 +100,10 @@ export default function PermissionTreeView({
           )}
           <Tag data-testid="perm-tree-summary">
             {intl.formatMessage(
-              { id: 'profile.permissions.tree.summary', defaultMessage: '已授权 {granted}/{total} 项操作' },
+              {
+                id: 'profile.permissions.tree.summary',
+                defaultMessage: '已授权 {granted}/{total} 项操作',
+              },
               { granted: tree.totalGranted, total: tree.totalActions },
             )}
           </Tag>
@@ -126,8 +127,16 @@ export default function PermissionTreeView({
     >
       <Space orientation="vertical" size="small" style={{ width: '100%' }}>
         <Space wrap data-testid="perm-tree-legend">
-          <LegendItem color={GRANTED_COLOR} icon={<CheckOutlined />} label={formatMessage('profile.permissions.tree.granted', '已授权')} />
-          <LegendItem color={DENIED_COLOR} icon={<CloseOutlined />} label={formatMessage('profile.permissions.tree.denied', '未授权')} />
+          <LegendItem
+            color={GRANTED_COLOR}
+            icon={<CheckOutlined />}
+            label={formatMessage('profile.permissions.tree.granted', '已授权')}
+          />
+          <LegendItem
+            color={DENIED_COLOR}
+            icon={<CloseOutlined />}
+            label={formatMessage('profile.permissions.tree.denied', '未授权')}
+          />
         </Space>
         {fullAccess && (
           <Badge
@@ -210,7 +219,9 @@ function ResourceTitle({
 function ActionTitle({
   action,
 }: {
-  action: ReturnType<typeof buildPermissionTree>['roles'][number]['resources'][number]['actions'][number];
+  action: ReturnType<
+    typeof buildPermissionTree
+  >['roles'][number]['resources'][number]['actions'][number];
 }) {
   const color = action.granted ? GRANTED_COLOR : DENIED_COLOR;
   return (

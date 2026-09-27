@@ -58,9 +58,7 @@ export async function listAnnouncements(): Promise<{
   };
 }
 
-export async function createAnnouncement(
-  draft: AnnouncementDraft,
-): Promise<AdminAnnouncement> {
+export async function createAnnouncement(draft: AnnouncementDraft): Promise<AdminAnnouncement> {
   return request<AdminAnnouncement>('/api/v1/admin/announcements', {
     method: 'POST',
     data: draft,

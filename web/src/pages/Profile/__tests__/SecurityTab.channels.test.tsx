@@ -29,11 +29,7 @@ function ch(over: Partial<NotificationChannelState>): NotificationChannelState {
 
 function renderTab(channels: NotificationChannelState[]) {
   return render(
-    <SecurityTab
-      hasSessions={false}
-      notificationChannels={channels}
-      onShowPasswordModal={noop}
-    />,
+    <SecurityTab hasSessions={false} notificationChannels={channels} onShowPasswordModal={noop} />,
   );
 }
 
@@ -143,16 +139,20 @@ describe('SecurityTab 通知通道渲染', () => {
     // SMTP 已配置（可达）但 emailEnabled=false：旧实现会走到「已开启」分支，
     // 与未勾选的开关自相矛盾
     renderTab([
-      ch({ key: 'email', available: true, userEnabled: false, requiresTarget: true, hasTarget: true }),
+      ch({
+        key: 'email',
+        available: true,
+        userEnabled: false,
+        requiresTarget: true,
+        hasTarget: true,
+      }),
     ]);
     expect(screen.getByTestId('channel-status-email')).toHaveTextContent('已关闭');
     expect(screen.getByTestId('channel-status-email')).not.toHaveTextContent('已开启');
   });
 
   it('未填手机号：开关禁用并提示', () => {
-    renderTab([
-      ch({ key: 'sms', available: true, requiresTarget: true, hasTarget: false }),
-    ]);
+    renderTab([ch({ key: 'sms', available: true, requiresTarget: true, hasTarget: false })]);
     expect(screen.getByTestId('channel-switch-sms')).toBeDisabled();
     expect(screen.getByTestId('channel-row-sms')).toHaveTextContent('未填写手机号');
   });
@@ -172,7 +172,9 @@ describe('SecurityTab 通知通道渲染', () => {
   });
 
   it('站内信被管理员关闭：标签为「已关闭」并带原因', () => {
-    renderTab([ch({ key: 'in_app', available: true, userEnabled: false, reason: 'in_app_disabled' })]);
+    renderTab([
+      ch({ key: 'in_app', available: true, userEnabled: false, reason: 'in_app_disabled' }),
+    ]);
     expect(screen.getByTestId('channel-status-in_app')).toHaveTextContent('已关闭');
     expect(screen.getByTestId('channel-row-in_app')).toHaveTextContent('站内信已被管理员关闭');
   });
