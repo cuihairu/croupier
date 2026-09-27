@@ -97,6 +97,11 @@ jest.setTimeout(30000);
 // （LocalizedTextEditor typing 恒产 string，见其 L80 `[locale]: text`）。
 // 两翼均被真实用例触达却归零，属 v8 对 `??` 的块级归因工件（nullish 检查边
 // 不产生独立 coverage 块），非真实缺口。
+//
+// index.tsx L104 `values.parentId ?? 0` 右侧登记为构造性不可达：create 链
+// MenuForm initialValues `presetParentId ?? 0`（L103）恒有值，edit 链
+// `editing.parentId ?? 0`（L94）已归一，TreeSelect allowClear={false} 不可
+// 清空——到达提交载荷构造时 values.parentId 恒为 number，右侧仅是纵深防御。
 
 /** jsdom 未实现 DragEvent：RTL 会退回 Event，clientY/clientX 会丢失，
  *  rc-tree 的「顶级上半区」判断需要真实坐标——补一个最小实现。 */
@@ -218,7 +223,13 @@ describe('MenuManagement page', () => {
     await waitFor(() => {
       expect(mockedUpdateMenu).toHaveBeenCalledWith(
         1,
-        expect.objectContaining({ menuKey: 'resource2' }),
+        expect.objectContaining({
+          menuKey: 'resource2',
+          // 顶级菜单 parentId=null：MenuForm initialValues `editing.parentId ?? 0`
+          // 已归一为 0，载荷必须落 0 而非 null（防归一链回归）
+          parentId: 0,
+          permission: 'resource:read',
+        }),
       );
     });
   });
