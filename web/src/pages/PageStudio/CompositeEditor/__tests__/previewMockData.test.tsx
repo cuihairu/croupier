@@ -117,3 +117,136 @@ describe('PreviewRuntime 模拟数据空态提示', () => {
     expect(mockedInvoke).not.toHaveBeenCalled();
   });
 });
+
+// BUG-033 回归：内置组件模板（服务端 generator 产物）fnTable 固定 columns: []，
+// mock 假数据已生成但渲染消费端取不到/取错——此前三个病灶：
+// ① 列回退取 outputSchema 顶层属性（列表形态取到 items/total，items 列裸渲染
+//    对象数组崩）；② 行提取只认 payload.items（数组字段名非 items 时永远取不到）；
+// ③ 函数未注册时 schemaProperties(undefined)=[] 零列空表。
+describe('PreviewRuntime 组件模板内置形态（BUG-033）', () => {
+  // 服务端 generator.go 内置模板的 fnTable 形态：columns:[] + autoRun:true
+  function bareTableTree(): PageNode[] {
+    return [
+      {
+        id: 'tbl1',
+        type: 'fnTable',
+        props: {
+          functionId: 'player.list',
+          title: '玩家列表',
+          span: 24,
+          autoRun: true,
+          columns: [],
+          rowActions: [],
+        },
+      },
+    ];
+  }
+
+  const listSchemaDescriptor = {
+    id: 'player.list',
+    outputSchema: {
+      type: 'object',
+      properties: {
+        items: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: { uid: { type: 'string' }, nickname: { type: 'string' } },
+          },
+        },
+        total: { type: 'integer' },
+      },
+    },
+  } as unknown as FunctionDescriptor;
+
+  it('内置模板 columns:[] + 列表形态 schema：autoRun 直接渲染假数据行，列为行字段', async () => {
+    render(
+      <App>
+        <PreviewRuntime
+          tree={bareTableTree()}
+          fnById={new Map([['player.list', listSchemaDescriptor]])}
+        />
+      </App>,
+    );
+    // mock 行 0 的 uid = u-1001（mockStringByField 启发式）
+    await waitFor(() => {
+      expect(screen.getByText('u-1001')).toBeInTheDocument();
+    });
+    // 列头是行字段 uid/nickname，而非顶层 items/total
+    expect(screen.getByText('uid')).toBeInTheDocument();
+    expect(screen.getByText('nickname')).toBeInTheDocument();
+  });
+
+  it('函数未注册：fallback 行数据可见（此前零列空表）', async () => {
+    render(
+      <App>
+        <PreviewRuntime tree={bareTableTree()} fnById={new Map()} />
+      </App>,
+    );
+    // generateFallbackMockData：player.list 命中 *.list → items 3 行，id=mock-1001…
+    await waitFor(() => {
+      expect(screen.getByText('mock-1001')).toBeInTheDocument();
+    });
+  });
+
+  it('数组字段名非 items（如 players）：行提取兜底首个对象数组字段', async () => {
+    const playersDescriptor = {
+      id: 'player.list',
+      outputSchema: {
+        type: 'object',
+        properties: {
+          players: {
+            type: 'array',
+            items: { type: 'object', properties: { uid: { type: 'string' } } },
+          },
+        },
+      },
+    } as unknown as FunctionDescriptor;
+    render(
+      <App>
+        <PreviewRuntime
+          tree={bareTableTree()}
+          fnById={new Map([['player.list', playersDescriptor]])}
+        />
+      </App>,
+    );
+    await waitFor(() => {
+      expect(screen.getByText('u-1001')).toBeInTheDocument();
+    });
+  });
+
+  it('行内含对象字段：列取行字段并把对象值 JSON 序列化渲染（此前取顶层 items 列，整表空）', async () => {
+    const nestedSchemaDescriptor = {
+      id: 'player.list',
+      outputSchema: {
+        type: 'object',
+        properties: {
+          items: {
+            type: 'array',
+            items: {
+              type: 'object',
+              properties: {
+                uid: { type: 'string' },
+                // 行内嵌套对象：rowFieldsOf 把它列为列，单元格走 JSON 序列化
+                meta: { type: 'object', properties: { zone: { type: 'string' } } },
+              },
+            },
+          },
+        },
+      },
+    } as unknown as FunctionDescriptor;
+    render(
+      <App>
+        <PreviewRuntime
+          tree={bareTableTree()}
+          fnById={new Map([['player.list', nestedSchemaDescriptor]])}
+        />
+      </App>,
+    );
+    await waitFor(() => {
+      expect(screen.getByText('u-1001')).toBeInTheDocument();
+    });
+    // meta 列对象值 → JSON 字符串（含 zone），不再是 React 非法子节点（3 行各一）
+    expect(screen.getAllByText(/"zone"/).length).toBe(3);
+  });
+});

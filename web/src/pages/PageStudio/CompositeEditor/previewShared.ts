@@ -14,10 +14,22 @@ export function payloadOf(resp: unknown): JSONRecord {
   return inner && typeof inner === 'object' ? inner : r;
 }
 
-/** 表格数据条目：payload.items（非数组输出为空表）。 */
+/** 表格数据条目：payload.items；缺失时兜底首个「对象数组」字段（BUG-033：
+ * 数组字段名非 items（如 players）的输出，此前行永远取不到）——与编译端
+ * items selector「把列表字段映射为 pageState.items」的语义对齐。 */
 export function itemsOf(payload: JSONRecord): JSONRecord[] {
   const items = payload.items;
-  return Array.isArray(items) ? (items as JSONRecord[]) : [];
+  if (Array.isArray(items)) return items as JSONRecord[];
+  for (const v of Object.values(payload)) {
+    if (
+      Array.isArray(v) &&
+      v.length > 0 &&
+      v.every((x) => x !== null && typeof x === 'object' && !Array.isArray(x))
+    ) {
+      return v as JSONRecord[];
+    }
+  }
+  return [];
 }
 
 /** 动作步骤的宽松形态（主动作 ActionSpec 与链步骤 ActionStep 共用）。 */

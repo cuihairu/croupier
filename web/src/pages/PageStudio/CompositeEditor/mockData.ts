@@ -118,6 +118,11 @@ export function generateMockOutput(
   return out;
 }
 
+/** 兜底数据的表格列（BUG-033：未注册函数此前 schemaProperties(undefined)=[]
+ * 零列空表，fallback 行数据看得见行数却看不见单元格）。与
+ * generateFallbackMockData 的行形态对齐；列集变更需两侧同步。 */
+export const FALLBACK_ROW_FIELDS = ['id', 'name', 'status', 'createdAt'];
+
 /** 通用兜底假数据：函数未注册（fnById 无记录）时按常见模式生成占位数据，
  *  保证预览可用——表格至少有 items 数组，详情至少有对象字段。 */
 function generateFallbackMockData(functionId: string): JSONValue {
