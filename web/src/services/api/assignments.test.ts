@@ -1,133 +1,108 @@
 import { request } from '@umijs/max';
-import { fetchAssignments, fetchAssignmentsHistory, setAssignments } from './assignments';
+import {
+  fetchAssignments,
+  fetchAssignmentsHistory,
+  setAssignments,
+} from './assignments';
 
 jest.mock('@umijs/max', () => ({ request: jest.fn() }));
 
 const mockedRequest = request as jest.MockedFunction<typeof request>;
 
-describe('assignments API adapters', () => {
-  beforeEach(() => mockedRequest.mockReset());
+beforeEach(() => mockedRequest.mockReset());
 
-  describe('fetchAssignments', () => {
-    it('GETs /api/v1/assignments with scope params and passes the payload through', async () => {
-      const payload = {
-        assignments: { prod: ['player.ban'] },
-        total: 1,
-        page: 1,
-        pageSize: 20,
-      };
-      mockedRequest.mockResolvedValue(payload);
-
-      await expect(fetchAssignments({ gameId: 'demo', env: 'prod' })).resolves.toBe(payload);
-
-      expect(mockedRequest).toHaveBeenCalledTimes(1);
-      expect(mockedRequest).toHaveBeenCalledWith('/api/v1/assignments', {
-        params: { gameId: 'demo', env: 'prod' },
-      });
+describe('assignments adapters', () => {
+  it('fetchAssignments 透传 game/env 查询参数', async () => {
+    mockedRequest.mockResolvedValue({
+      assignments: { 'demo|prod': ['fn.a'] },
+      total: 1,
+      page: 1,
+      pageSize: 20,
     });
 
-    it('forwards params: undefined when called without arguments', async () => {
-      mockedRequest.mockResolvedValue({ assignments: {} });
-
-      await fetchAssignments();
-
-      expect(mockedRequest).toHaveBeenCalledWith('/api/v1/assignments', { params: undefined });
+    await expect(fetchAssignments({ gameId: 'demo', env: 'prod' })).resolves.toEqual({
+      assignments: { 'demo|prod': ['fn.a'] },
+      total: 1,
+      page: 1,
+      pageSize: 20,
     });
-
-    it('falls back to an empty pager shape on empty response', async () => {
-      mockedRequest.mockResolvedValue(undefined);
-
-      await expect(fetchAssignments()).resolves.toEqual({ total: 0, page: 1, pageSize: 20 });
+    expect(mockedRequest).toHaveBeenCalledWith('/api/v1/assignments', {
+      params: { gameId: 'demo', env: 'prod' },
     });
   });
 
-  describe('setAssignments', () => {
-    it('PUTs the mutation body and passes the response through', async () => {
-      const payload = { ok: true, unknown: ['fn.missing'], assignments: { prod: ['a', 'b'] } };
-      mockedRequest.mockResolvedValue(payload);
-
-      const body = { action: 'assign' as const, targetEnv: 'prod', functions: ['a', 'b'] };
-      await expect(setAssignments(body)).resolves.toBe(payload);
-
-      expect(mockedRequest).toHaveBeenCalledWith('/api/v1/assignments', {
-        method: 'PUT',
-        data: body,
-      });
+  it('fetchAssignments 响应缺失时回退分页兜底对象', async () => {
+    // mockReset 后 request 返回 undefined：整个响应缺失也要给出兜底
+    await expect(fetchAssignments()).resolves.toEqual({
+      total: 0,
+      page: 1,
+      pageSize: 20,
     });
+    expect(mockedRequest).toHaveBeenCalledWith('/api/v1/assignments', { params: undefined });
+  });
 
-    it('falls back to a failed-update shape on empty response', async () => {
-      mockedRequest.mockResolvedValue(undefined);
+  it('setAssignments 以 PUT 提交动作与函数清单', async () => {
+    mockedRequest.mockResolvedValue({ ok: true, unknown: [], assignments: {} });
 
-      await expect(setAssignments({ functions: [] })).resolves.toEqual({
-        ok: false,
-        unknown: [],
-        assignments: {},
-      });
+    await expect(
+      setAssignments({ action: 'assign', targetEnv: 'prod', functions: ['fn.a', 'fn.b'] }),
+    ).resolves.toEqual({ ok: true, unknown: [], assignments: {} });
+    expect(mockedRequest).toHaveBeenCalledWith('/api/v1/assignments', {
+      method: 'PUT',
+      data: { action: 'assign', targetEnv: 'prod', functions: ['fn.a', 'fn.b'] },
     });
   });
 
-  describe('fetchAssignmentsHistory', () => {
-    it('GETs history with filters and passes the payload through', async () => {
-      const payload = {
-        items: [
-          {
-            id: 'h1',
-            gameId: 'demo',
-            env: 'prod',
-            functionId: 'player.ban',
-            action: 'assign',
-            count: 2,
-            operatedBy: 'admin',
-            operatedAt: '2026-09-01T00:00:00Z',
-            details: { source: 'ui' },
-          },
-        ],
-        total: 1,
-        page: 1,
-        pageSize: 20,
-      };
-      mockedRequest.mockResolvedValue(payload);
+  it('setAssignments 响应缺失时回退失败兜底对象', async () => {
+    await expect(setAssignments({ functions: [] })).resolves.toEqual({
+      ok: false,
+      unknown: [],
+      assignments: {},
+    });
+  });
 
-      const params = { gameId: 'demo', env: 'prod', action: 'assign', page: 1, pageSize: 20 };
-      await expect(fetchAssignmentsHistory(params)).resolves.toBe(payload);
-
-      expect(mockedRequest).toHaveBeenCalledWith('/api/v1/assignments/history', { params });
+  it('fetchAssignmentsHistory 透传筛选与分页参数', async () => {
+    mockedRequest.mockResolvedValue({
+      items: [
+        {
+          id: 'h1',
+          gameId: 'demo',
+          env: 'prod',
+          functionId: 'all',
+          action: 'assign',
+          count: 2,
+          operatedBy: 'alice',
+          operatedAt: '2026-09-27T08:00:00Z',
+          details: { before: ['a'], after: ['a', 'b'], added: ['b'], removed: [], unknown: [] },
+        },
+      ],
+      total: 1,
+      page: 2,
+      pageSize: 50,
     });
 
-    it('keeps caller paging when the response is empty', async () => {
-      mockedRequest.mockResolvedValue(undefined);
-
-      await expect(fetchAssignmentsHistory({ page: 5, pageSize: 50 })).resolves.toEqual({
-        items: [],
-        total: 0,
-        page: 5,
-        pageSize: 50,
-      });
+    const resp = await fetchAssignmentsHistory({ gameId: 'demo', action: 'assign', page: 2, pageSize: 50 });
+    expect(resp.items).toHaveLength(1);
+    // details 保持 unknown 值类型：数组不被标量 Record 收窄（#37 diff 渲染依赖）
+    expect(resp.items[0].details?.added).toEqual(['b']);
+    expect(mockedRequest).toHaveBeenCalledWith('/api/v1/assignments/history', {
+      params: { gameId: 'demo', action: 'assign', page: 2, pageSize: 50 },
     });
+  });
 
-    it('falls back to default paging when called without arguments', async () => {
-      mockedRequest.mockResolvedValue(undefined);
-
-      await expect(fetchAssignmentsHistory()).resolves.toEqual({
-        items: [],
-        total: 0,
-        page: 1,
-        pageSize: 20,
-      });
-      expect(mockedRequest).toHaveBeenCalledWith('/api/v1/assignments/history', {
-        params: undefined,
-      });
+  it('fetchAssignmentsHistory 响应缺失时回退空列表与入参分页', async () => {
+    await expect(fetchAssignmentsHistory({ page: 3, pageSize: 10 })).resolves.toEqual({
+      items: [],
+      total: 0,
+      page: 3,
+      pageSize: 10,
     });
-
-    it('falls back to default paging when params omit page/pageSize', async () => {
-      mockedRequest.mockResolvedValue(undefined);
-
-      await expect(fetchAssignmentsHistory({ gameId: 'demo' })).resolves.toEqual({
-        items: [],
-        total: 0,
-        page: 1,
-        pageSize: 20,
-      });
+    // 完全无入参时 page/pageSize 走默认值
+    await expect(fetchAssignmentsHistory()).resolves.toEqual({
+      items: [],
+      total: 0,
+      page: 1,
+      pageSize: 20,
     });
   });
 });
