@@ -223,6 +223,13 @@ export interface RuntimeProviderItem {
   gameId: string;
   env: string;
   version?: string;
+  /** #27②③④：实例自报元数据、被调用方地址、导入时间与最新版本高水位
+   * （服务端已归一：firstSeenUnix 无观测回退 lastSeenUnix，latestVersion
+   * 空回退 version；底层为内存态，会话过期/重启后缺失）。 */
+  metadata?: Record<string, string>;
+  serviceAddr?: string;
+  firstSeenUnix: number;
+  latestVersion?: string;
   functionCount: number;
   functions: string[];
   lastSeenUnix: number;

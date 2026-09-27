@@ -3,7 +3,8 @@
  *
  * provider 注册时声明的用户元数据（如 serverId=s1）必须：
  * 1. 在「实例明细」表渲染为 k=v 标签（>3 个折叠为 +N，Tooltip 摘要）；
- * 2. 参与实例搜索——直接粘元数据值（"s1"）或键名/整对都能命中。
+ * 2. 参与实例搜索——直接粘元数据值（"s1"）或键名/整对都能命中；
+ * 3. #2：元数据过滤走服务端聚合下拉（meta-options），不可从过滤后列表推导。
  */
 import React from 'react';
 import { act, configure, fireEvent, render, screen, waitFor } from '@testing-library/react';
@@ -16,6 +17,7 @@ configure({ asyncUtilTimeout: 5000 });
 
 jest.mock('@/services/api/sdkStats', () => ({
   fetchSdkStats: jest.fn(),
+  fetchProviderMetaOptions: jest.fn(),
 }));
 jest.mock('@umijs/max', () => ({
   FormattedMessage: ({ defaultMessage }: { id: string; defaultMessage?: string }) => (
@@ -32,9 +34,16 @@ jest.mock('@umijs/max', () => ({
   }),
 }));
 
-const { fetchSdkStats } = jest.requireMock('@/services/api/sdkStats') as {
+const { fetchSdkStats, fetchProviderMetaOptions } = jest.requireMock('@/services/api/sdkStats') as {
   fetchSdkStats: jest.Mock;
+  fetchProviderMetaOptions: jest.Mock;
 };
+
+// #2：meta-options 聚合（键→值→实例数），服务端 scoped
+const META_OPTIONS = [
+  { key: 'serverId', values: [{ value: 's1', count: 1 }] },
+  { key: 'pod', values: [{ value: 'game-7c4d', count: 1 }] },
+];
 
 const INSTANCES = [
   {
@@ -80,6 +89,7 @@ beforeEach(() => {
     ],
     instances: INSTANCES,
   });
+  fetchProviderMetaOptions.mockResolvedValue(META_OPTIONS);
 });
 
 describe('SdkDistribution 实例元数据', () => {
@@ -120,6 +130,47 @@ describe('SdkDistribution 实例元数据', () => {
     await waitFor(() => {
       expect(screen.getByText('game-demo')).toBeInTheDocument();
       expect(screen.queryByText('prom-adapter')).not.toBeInTheDocument();
+    });
+  });
+});
+
+describe('SdkDistribution 元数据过滤下拉（#2）', () => {
+  const openKeySelect = async () => {
+    renderPage();
+    await screen.findByText('game-demo');
+    const comboboxes = screen.getAllByRole('combobox');
+    fireEvent.mouseDown(comboboxes[0]);
+    await waitFor(() => {
+      expect(screen.getByTitle('serverId (1)')).toBeInTheDocument();
+    });
+  };
+
+  it('键下拉选项来自服务端 meta-options 聚合（含实例数 count）', async () => {
+    await openKeySelect();
+    expect(screen.getByTitle('pod (1)')).toBeInTheDocument();
+    expect(screen.queryByTitle('不存在的键 (1)')).not.toBeInTheDocument();
+    expect(fetchProviderMetaOptions).toHaveBeenCalled();
+  });
+
+  it('选键后以 metaKey 走服务端过滤并重拉；值下拉选项跟随所选键', async () => {
+    await openKeySelect();
+    fireEvent.click(screen.getByTitle('serverId (1)'));
+
+    await waitFor(() => {
+      expect(fetchSdkStats).toHaveBeenLastCalledWith({ metaKey: 'serverId', metaValue: undefined });
+    });
+
+    // 值下拉跟随所选键（epoch 重拉后仅含该键的值）
+    const comboboxes = screen.getAllByRole('combobox');
+    fireEvent.mouseDown(comboboxes[1]);
+    await waitFor(() => {
+      expect(screen.getByTitle('s1 (1)')).toBeInTheDocument();
+    });
+    expect(screen.queryByTitle('game-7c4d (1)')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByTitle('s1 (1)'));
+    await waitFor(() => {
+      expect(fetchSdkStats).toHaveBeenLastCalledWith({ metaKey: 'serverId', metaValue: 's1' });
     });
   });
 });

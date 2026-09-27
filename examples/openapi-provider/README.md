@@ -20,12 +20,15 @@ Croupier Server ──► 函数目录 / 控制台调用 / OpenAPI Source 绑定
 make build && ./bin/croupier-server --config configs/server.yaml
 
 # 2. 启动本 demo（HTTP API + 内嵌 Agent）
-go run ./examples/openapi-provider -server 127.0.0.1:19090 -http 127.0.0.1:8091
+go run ./examples/openapi-provider -server 127.0.0.1:19090 -http 127.0.0.1:8091 \
+  -metadata serverId=openapi-demo-1,pod=demo-1
 ```
 
 启动后：
 
 - demo 自动在临时目录生成 `providers.yaml`（路径见日志）并通过内嵌 Agent 注册；
+- `-metadata`（可选，`k=v` 逗号分隔多项）作为 provider 实例元数据随注册上报，
+  控制台「SDK 版本分布」页可按 `serverId` 等键展示/过滤实例；
 - 控制台「函数目录」（game/env 与 `-game-id`/`-env` 一致，默认 `default/dev`）
   即可看到 `players.player.list`、`player.get`、`player.create`、
   `player.update`、`player.delete`、`player.kick`；

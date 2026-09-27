@@ -12,7 +12,7 @@ export default {
   'pages.functionsDirectory.batch.clearSelection': '取消选择',
   'pages.functionsDirectory.batch.cleared': '{count} 个函数的版本门槛已清除',
   'pages.functionsDirectory.batch.modalDescription':
-    '将把已选 {count} 个函数的最低可注册函数版本统一设为输入值。',
+    '将把已选 {count} 个函数的最低可注册函数版本统一设为所选值。',
   'pages.functionsDirectory.batch.modalTitle': '批量设置版本门槛',
   'pages.functionsDirectory.batch.partialFailed':
     '已更新 {updated} 个，失败 {failed} 个：{failedIds}',
@@ -20,7 +20,7 @@ export default {
   'pages.functionsDirectory.batch.selected': '已选 {count} 项',
   'pages.functionsDirectory.batch.setFloor': '批量设置门槛',
   'pages.functionsDirectory.batch.versionLabel': '最低函数版本',
-  'pages.functionsDirectory.batch.versionPlaceholder': '如 0.3.0',
+  'pages.functionsDirectory.batch.versionPlaceholder': '选择历史版本',
   'pages.functionsDirectory.button.testInvoke': '测试调用',
   'pages.functionsDirectory.button.viewResourceCandidates': '查看资源/页面候选',
   'pages.functionsDirectory.button.viewResources': '查看资源',
@@ -56,6 +56,10 @@ export default {
   'pages.functionsDirectory.drawer.title': '函数详情',
   'pages.functionsDirectory.error.detailLoadFailed': '获取详细信息失败',
   'pages.functionsDirectory.error.loadFailed': '加载失败',
+  'pages.functionsDirectory.floorSelect.cleared': '版本门槛已清除',
+  'pages.functionsDirectory.floorSelect.empty': '暂无历史版本',
+  'pages.functionsDirectory.floorSelect.placeholder': '未设置',
+  'pages.functionsDirectory.floorSelect.saved': '版本门槛已更新',
   'pages.functionsDirectory.intro.description':
     '函数目录负责 descriptor、入参表单、实例覆盖和调用校验，不决定菜单、页面分类、表格、分页或多函数组合。页面发布后的菜单只来自 PublishedPageSpec。',
   'pages.functionsDirectory.intro.title': '先确认函数能力，再进入 Page Studio 编排页面',

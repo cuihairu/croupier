@@ -170,6 +170,7 @@ func GameModels() []interface{} {
 		&FunctionContractVersion{},
 		&SDKVersionHighwatermark{},
 		&FunctionVersionFloor{},
+		&ProviderMetadata{},
 		&ResourceCapability{},
 		&CapabilitySemantics{},
 		&CapabilitySemanticVersion{},

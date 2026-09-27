@@ -45,4 +45,25 @@ export async function fetchSdkStats(params?: {
   return request<SdkStatsResponse>('/api/v1/providers/sdk-stats', { params });
 }
 
+/** 元数据键的单值聚合（实例出现次数），#11 EAV 表聚合产物 */
+export type ProviderMetaValueOption = {
+  value: string;
+  count: number;
+};
+
+/** 元数据键聚合项：键名 + 该键下出现过的值集合（count 降序由服务端保证） */
+export type ProviderMetaKeyOption = {
+  key: string;
+  values: ProviderMetaValueOption[];
+};
+
+/**
+ * GET /api/v1/providers/meta-options：实例元数据键→值聚合（#2 过滤下拉
+ * 选项源；30s TTL 缓存，scoped）。
+ */
+export async function fetchProviderMetaOptions(): Promise<ProviderMetaKeyOption[]> {
+  const res = await request<{ items?: ProviderMetaKeyOption[] }>('/api/v1/providers/meta-options');
+  return Array.isArray(res?.items) ? res.items : [];
+}
+
 export type { JSONValue };

@@ -134,3 +134,25 @@ func (m *FunctionContractVersionModel) FindBySeq(ctx context.Context, gameID, en
 	}
 	return &ver, nil
 }
+
+// FunctionVersionIndexRow 是 ListDistinctVersions 的行形态（函数 → 出现
+// 过的一个契约版本）。
+type FunctionVersionIndexRow struct {
+	FunctionID string
+	Version    string
+}
+
+// ListDistinctVersions 聚合 scope 内每个函数历史出现过的契约版本
+// （OPEN-ISSUES #26：版本门槛只允许选历史出现过的版本）。空版本行
+// （created 时无 semver 的旧数据）排除；去重交给 GROUP BY，排序由
+// 消费方决定（API 层按 semver 降序）。
+func (m *FunctionContractVersionModel) ListDistinctVersions(ctx context.Context, gameID, env string) ([]FunctionVersionIndexRow, error) {
+	var rows []FunctionVersionIndexRow
+	err := dbctx.Resolve(ctx, m.db).WithContext(ctx).
+		Model(&FunctionContractVersion{}).
+		Select("function_id, version").
+		Where("game_id = ? AND env = ? AND version <> ''", gameID, env).
+		Group("function_id, version").
+		Scan(&rows).Error
+	return rows, err
+}

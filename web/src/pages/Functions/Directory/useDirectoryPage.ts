@@ -5,7 +5,13 @@ import { history, useIntl } from '@umijs/max';
 import { listDescriptors, listFunctionInstances, type FunctionDescriptor } from '@/services/api';
 import { getFunctionSummary } from '@/services/api/functions-enhanced';
 import type { FunctionSummary } from '@/services/api/functions-enhanced';
-import { batchSetFunctionVersionFloor, listFunctionVersionFloors } from '@/services/api/functions';
+import {
+  batchSetFunctionVersionFloor,
+  deleteFunctionVersionFloor,
+  listFunctionVersionFloors,
+  listFunctionVersionHistory,
+  putFunctionVersionFloor,
+} from '@/services/api/functions';
 import { renderSchemaActions } from '@/components/page-schema/PageSchemaRenderer';
 import { resolveSchemaIcon } from '@/components/page-schema/icons';
 import { getScope, isScopeReady, subscribeScope, type Scope } from '@/stores/scope';
@@ -75,6 +81,10 @@ export default function useDirectoryPage() {
   const { message } = App.useApp();
   const intl = useIntl();
   const [rows, setRows] = useState<SummaryRow[]>([]);
+  // #26：函数历史版本索引（门槛下拉选项），失败降级为空表（下拉显示
+  // 「暂无历史版本」，不影响列表主数据）。
+  const [versionIndex, setVersionIndex] = useState<Record<string, string[]>>({});
+  const [floorSubmitting, setFloorSubmitting] = useState(false);
   const [loading, setLoading] = useState(false);
   const [detailVisible, setDetailVisible] = useState(false);
   const [selectedFunction, setSelectedFunction] = useState<DetailRow | null>(null);
@@ -96,6 +106,10 @@ export default function useDirectoryPage() {
 
   const reload = useCallback(async () => {
     setLoading(true);
+    // 版本索引随整页重拉（scope 切换后选项必须跟随新 scope 的历史）
+    listFunctionVersionHistory()
+      .then(setVersionIndex)
+      .catch(() => setVersionIndex({}));
     try {
       setRows(await fetchSummary());
     } catch (e) {
@@ -188,6 +202,42 @@ export default function useDirectoryPage() {
     [intl, message, reloadFloors, selectedRowKeys],
   );
 
+  // #26：行内修改版本门槛——下拉选值走 PUT，清空走 DELETE；成功后局部
+  // 刷新门槛列（不清空勾选、不整页重拉），失败报错保持原值。
+  const changeSingleFloor = useCallback(
+    async (functionId: string, minVersion: string | undefined) => {
+      const previous = rows.find((r) => r.id === functionId)?.minVersion;
+      setFloorSubmitting(true);
+      try {
+        if (minVersion) {
+          await putFunctionVersionFloor(functionId, minVersion);
+        } else {
+          await deleteFunctionVersionFloor(functionId);
+        }
+        setRows((prev) =>
+          prev.map((r) => (r.id === functionId ? { ...r, minVersion } : r)),
+        );
+        message.success(
+          intl.formatMessage({
+            id: minVersion
+              ? 'pages.functionsDirectory.floorSelect.saved'
+              : 'pages.functionsDirectory.floorSelect.cleared',
+            defaultMessage: minVersion ? '版本门槛已更新' : '版本门槛已清除',
+          }),
+        );
+      } catch (err) {
+        message.error(err instanceof Error ? err.message : String(err));
+        // 失败回滚单元格显示值
+        setRows((prev) =>
+          prev.map((r) => (r.id === functionId ? { ...r, minVersion: previous } : r)),
+        );
+      } finally {
+        setFloorSubmitting(false);
+      }
+    },
+    [intl, message, rows],
+  );
+
   const rowSelection = useMemo(
     () => ({
       type: 'checkbox' as const,
@@ -232,6 +282,10 @@ export default function useDirectoryPage() {
         versions: Array.from(
           new Set(rows.map((r) => r.version).filter((v): v is string => Boolean(v))),
         ),
+        versionIndex,
+        onFloorChange: (functionId, minVersion) => {
+          void changeSingleFloor(functionId, minVersion);
+        },
         onOpenDetail: (record) => handleViewDetail(record),
         onOpenSchema: (id) =>
           history.push(`/functions/${encodeURIComponent(id)}?tab=config&subTab=schema`),
@@ -239,7 +293,7 @@ export default function useDirectoryPage() {
           history.push(buildInvokePath(record.id));
         },
       }),
-    [buildInvokePath, handleViewDetail, intl, rows],
+    [buildInvokePath, changeSingleFloor, handleViewDetail, intl, rows, versionIndex],
   );
 
   const headerActions = useMemo(
@@ -303,5 +357,7 @@ export default function useDirectoryPage() {
     setBatchModalOpen,
     batchSubmitting,
     applyBatchFloor,
+    versionIndex,
+    floorSubmitting,
   };
 }

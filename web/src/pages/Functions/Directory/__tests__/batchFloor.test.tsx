@@ -10,7 +10,14 @@ import { getIntl } from '@umijs/max';
 import useDirectoryPage from '../useDirectoryPage';
 import { buildDirectoryColumns } from '../columns';
 import { DIRECTORY_PAGE_SCHEMA } from '../schema';
-import { batchSetFunctionVersionFloor, listFunctionVersionFloors } from '@/services/api/functions';
+import { getFunctionSummary } from '@/services/api/functions-enhanced';
+import {
+  batchSetFunctionVersionFloor,
+  deleteFunctionVersionFloor,
+  listFunctionVersionFloors,
+  listFunctionVersionHistory,
+  putFunctionVersionFloor,
+} from '@/services/api/functions';
 
 configure({ asyncUtilTimeout: 5000 });
 jest.setTimeout(20000);
@@ -41,12 +48,15 @@ jest.mock('@/services/api', () => ({
 }));
 
 jest.mock('@/services/api/functions-enhanced', () => ({
-  getFunctionSummary: jest.fn().mockResolvedValue([]),
+  getFunctionSummary: jest.fn(),
 }));
 
 jest.mock('@/services/api/functions', () => ({
   listFunctionVersionFloors: jest.fn(),
+  listFunctionVersionHistory: jest.fn(),
   batchSetFunctionVersionFloor: jest.fn(),
+  putFunctionVersionFloor: jest.fn(),
+  deleteFunctionVersionFloor: jest.fn(),
 }));
 
 // PageSchemaRenderer 依赖图过重，测试目标是批量门槛 hook 行为——按行为最小化复刻。
@@ -59,7 +69,11 @@ jest.mock('@/components/page-schema/icons', () => ({
 }));
 
 const mockListFloors = jest.mocked(listFunctionVersionFloors);
+const mockListHistory = jest.mocked(listFunctionVersionHistory);
 const mockBatchSet = jest.mocked(batchSetFunctionVersionFloor);
+const mockPutFloor = jest.mocked(putFunctionVersionFloor);
+const mockDeleteFloor = jest.mocked(deleteFunctionVersionFloor);
+const mockSummary = jest.mocked(getFunctionSummary);
 
 function Harness() {
   const page = useDirectoryPage();
@@ -86,7 +100,9 @@ function Harness() {
 describe('函数目录批量版本门槛', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockSummary.mockResolvedValue([] as never);
     mockListFloors.mockResolvedValue({});
+    mockListHistory.mockResolvedValue({});
     mockBatchSet.mockResolvedValue({ updated: 2, failed: [] });
   });
 
@@ -163,29 +179,116 @@ describe('函数目录批量版本门槛', () => {
 });
 
 describe('目录 minVersion 列渲染', () => {
-  const renderCell = (record: { minVersion?: string }) => {
+  const renderCell = (record: { id?: string; minVersion?: string }) => {
     const cols = buildDirectoryColumns({
       intl: getIntl(),
       columns: DIRECTORY_PAGE_SCHEMA.columns,
       rowActions: DIRECTORY_PAGE_SCHEMA.rowActions,
       versions: [],
+      versionIndex: {},
+      onFloorChange: () => {},
       onOpenDetail: () => {},
       onOpenSchema: () => {},
       onInvoke: () => {},
     });
     const col = cols.find((c) => c.dataIndex === 'minVersion');
     return render(
-      <AntdApp>{col?.render?.(undefined, record as never) as React.ReactNode}</AntdApp>,
+      <AntdApp>
+        {col?.render?.(undefined, { id: 'a.fn', ...record } as never) as React.ReactNode}
+      </AntdApp>,
     );
   };
 
-  it('有门槛：蓝 Tag ≥ 版本值', () => {
+  it('有门槛：行内下拉选中项显示 ≥ v 版本值（#26 起为下拉非 Tag）', () => {
     renderCell({ minVersion: '0.3.0' });
-    expect(screen.getByText('≥ 0.3.0')).toBeInTheDocument();
+    expect(screen.getByTitle('≥ v0.3.0')).toBeInTheDocument();
   });
 
-  it('未配置：显示 -（与 version 列空态一致）', () => {
+  it('未配置：下拉占位「未设置」（清空 = 门槛未设置）', () => {
     renderCell({});
-    expect(screen.getByText('-')).toBeInTheDocument();
+    expect(screen.getByText('未设置')).toBeInTheDocument();
+  });
+});
+
+describe('行内修改版本门槛（#26：changeSingleFloor 经列下拉接线）', () => {
+  function FloorHarness() {
+    const page = useDirectoryPage();
+    const col = page.columns.find((c) => c.dataIndex === 'minVersion');
+    const row = page.processedData.find((r) => r.id === 'player.ban');
+    return (
+      <div data-testid="floor-cell">
+        {row && col ? (col.render?.(undefined, row as never) as React.ReactNode) : null}
+      </div>
+    );
+  }
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockSummary.mockResolvedValue([
+      { id: 'player.ban', version: '1.0.0', enabled: true, tags: [] },
+    ] as never);
+    mockListFloors.mockResolvedValue({ 'player.ban': '0.2.0' });
+    mockListHistory.mockResolvedValue({ 'player.ban': ['0.2.0', '0.3.0'] });
+  });
+
+  const renderHarness = async () => {
+    render(
+      <AntdApp>
+        <FloorHarness />
+      </AntdApp>,
+    );
+    await waitFor(() => {
+      expect(screen.getByTitle('≥ v0.2.0')).toBeInTheDocument();
+    });
+  };
+
+  it('下拉选历史版本 → PUT 新门槛并提示成功', async () => {
+    await renderHarness();
+    mockPutFloor.mockResolvedValue({ functionId: 'player.ban', minVersion: '0.3.0' } as never);
+
+    fireEvent.mouseDown(screen.getByRole('combobox'));
+    await waitFor(() => {
+      expect(screen.getByTitle('≥ v0.3.0')).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByTitle('≥ v0.3.0'));
+
+    await waitFor(() => {
+      expect(mockPutFloor).toHaveBeenCalledWith('player.ban', '0.3.0');
+    });
+    expect(await screen.findByText('版本门槛已更新')).toBeInTheDocument();
+  });
+
+  it('清空下拉 → DELETE 门槛并提示已清除', async () => {
+    await renderHarness();
+
+    // antd 6 Select 清除钮 = <button class="ant-select-clear">（click 触发）
+    const clear = screen.getByTestId('floor-cell').querySelector('button.ant-select-clear');
+    expect(clear).not.toBeNull();
+    fireEvent.click(clear as Element);
+
+    await waitFor(() => {
+      expect(mockDeleteFloor).toHaveBeenCalledWith('player.ban');
+    });
+    expect(await screen.findByText('版本门槛已清除')).toBeInTheDocument();
+  });
+
+  it('PUT 失败 → error 提示且单元格保持原值（不静默丢弃）', async () => {
+    await renderHarness();
+    mockPutFloor.mockRejectedValue(new Error('forbidden'));
+
+    fireEvent.mouseDown(screen.getByRole('combobox'));
+    await waitFor(() => {
+      expect(screen.getByTitle('≥ v0.3.0')).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByTitle('≥ v0.3.0'));
+
+    expect(await screen.findByText('forbidden')).toBeInTheDocument();
+    // 选中项容器（非下拉里同名 option）回滚为原值
+    await waitFor(() => {
+      const content = screen
+        .getByTestId('floor-cell')
+        .querySelector('.ant-select-content-has-value');
+      expect(content).toHaveAttribute('title', '≥ v0.2.0');
+    });
   });
 });

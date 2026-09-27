@@ -44,9 +44,13 @@ jest.mock('@/services/api/functions-enhanced', () => ({
   getFunctionSummary: jest.fn(),
 }));
 
+// listFunctionVersionHistory 在 reload 里被 .then() 消费，必须 resolve（否则同步抛错）
 jest.mock('@/services/api/functions', () => ({
   listFunctionVersionFloors: jest.fn(),
+  listFunctionVersionHistory: jest.fn().mockResolvedValue({}),
   batchSetFunctionVersionFloor: jest.fn(),
+  putFunctionVersionFloor: jest.fn(),
+  deleteFunctionVersionFloor: jest.fn(),
 }));
 
 // PageSchemaRenderer 依赖图过重，测试目标是数据管道 hook 行为——按行为最小化复刻。

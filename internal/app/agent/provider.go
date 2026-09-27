@@ -11,6 +11,7 @@ import (
 	"sync"
 	"time"
 
+	agent "github.com/cuihairu/croupier/internal/agent"
 	versionutil "github.com/cuihairu/croupier/internal/common/version"
 	agentlocal "github.com/cuihairu/croupier/internal/platform/agentlocal"
 	"github.com/cuihairu/croupier/internal/platform/openapi"
@@ -223,10 +224,16 @@ func (m *ProviderManager) initProvider(ctx context.Context, name string, entry P
 	// validateProviderScope 硬切规则把空 scope 判为 provider_scope_mismatch。
 	// providers.yaml 未显式声明 scope 时不回退继承 agent 自身 scope
 	//（作用域规范 §14：provider 必须显式携带 scope）。
-	m.store.Register(serviceID, serviceID, "", batchVersion, funcs, map[string]string{
+	// 用户自报元数据（entry.metadata，#10/#27①）经统一合并入口并入：
+	// 保留键剥离并告警、空键跳过，其余原样上报。
+	instanceMetadata, warnings := agent.MergeUserProviderMetadata(map[string]string{
 		"gameId": strings.TrimSpace(entry.GameID),
 		"env":    strings.TrimSpace(entry.Env),
-	})
+	}, entry.Metadata)
+	for _, w := range warnings {
+		m.logger.Warn("provider metadata key dropped", "provider", name, "detail", w)
+	}
+	m.store.Register(serviceID, serviceID, "", batchVersion, funcs, instanceMetadata)
 
 	m.logger.Info("provider loaded", "name", name, "methods", len(methods))
 	return nil
@@ -415,9 +422,14 @@ type Config struct {
 
 // ProviderEntry represents a single provider entry in the config.
 type ProviderEntry struct {
-	Enabled bool                   `yaml:"enabled"`
-	Type    string                 `yaml:"type"`
-	GameID  string                 `yaml:"game_id"` // Game ID for game/environment scoping
-	Env     string                 `yaml:"env"`     // Logical environment (prod/dev/staging)
-	Config  map[string]interface{} `yaml:"config"`
+	Enabled bool   `yaml:"enabled"`
+	Type    string `yaml:"type"`
+	GameID  string `yaml:"game_id"` // Game ID for game/environment scoping
+	Env     string `yaml:"env"`     // Logical environment (prod/dev/staging)
+	// Metadata 是该 provider 实例的用户自报元数据（serverId 等多 KV，
+	// OPEN-ISSUES #10/#27①）：随 Instance.Metadata 上报 server，供
+	// sdk-distribution 展示/过滤与 meta-options 聚合。保留键（sdkLanguage/
+	// sdkVersion/sdkName/gameId/env 等）在加载时剥离并告警，不覆盖平台语义。
+	Metadata map[string]string      `yaml:"metadata"`
+	Config   map[string]interface{} `yaml:"config"`
 }
