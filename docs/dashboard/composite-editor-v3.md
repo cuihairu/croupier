@@ -267,6 +267,13 @@ web/src/pages/PageStudio/CompositeEditor/
   不发布**：完成后需再点「一键重新发布全部」才生效（按钮文案已明示）。governance/
   version 等不可由 selector 同步修复的页面整体 skipped 并透传诊断；单页失败不中断
   其余页面（对齐 bulk-republish 取舍）。
+- **诊断直达处理位置（2026-09，OPEN-ISSUES #29）**：提案收件箱三个队列的「诊断/变更原因」
+  计数标签（`n 错误`/`n 警告`/`n 信息`）改为可点击直达对应处理位置——提案行：资源类提案跳
+  资源目录（带 `resourceKey` 锚点），已有草稿/页面跳页面工作台（`?focus=`），纯提案态开
+  提案详情诊断表；阻断项行：与「修复语义」按钮同源跳资源目录；契约变更行：开该页的
+  Selector 同步报告（漂移明细与一键同步入口所在）。「需要处理」队列的主操作「处理」从
+  「更多」下拉前置为行内按钮（此前是该队列唯一动作却藏在二级菜单里）。未配置跳转回调的
+  诊断标签保持纯展示计数（如详情弹窗内）。
 
 发布链：编译产物 `POST /api/v1/versioning/pages/composite`（请求结构含 `key/group/display/rowActions/toolbarActions/onSuccessRefresh/chain`）→ 提案 → 接受发布 → `PageRenderer/CompositeRenderer` 按 spec 渲染。
 

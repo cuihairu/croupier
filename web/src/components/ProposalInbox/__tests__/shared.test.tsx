@@ -1,11 +1,13 @@
 /**
  * ProposalInbox shared 纯函数与展示 helper：
  * formatDate（空/非法/合法）、diagnosticSummary（无诊断 → 「无」；
- * error/warning/info 分档计数标签；0 计数档不显示）、
+ * error/warning/info 分档计数标签；0 计数档不显示；传入 onJump 时标签可点击
+ * 直达处理位置（#29）——未传保持纯展示）、
  * matchesQuery（空关键词全命中；proposalKey/pageKey/resourceKey/title 命中）。
  */
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { diagnosticSummary, emptyInbox, formatDate, matchesQuery } from '../shared';
 import type { IntlFormatter } from '../shared';
 import type { DiagnosticInfo, PageProposal } from '@/types/dashboard';
@@ -98,6 +100,29 @@ describe('diagnosticSummary', () => {
     expect(html).toContain('1 信息');
     expect(html).not.toContain('错误');
     expect(html).not.toContain('警告');
+  });
+
+  it('传入 onJump：计数标签可点击直达（#29），键盘 Enter 同样触发', () => {
+    const onJump = jest.fn();
+    render(
+      <div>
+        {diagnosticSummary(intl, [diag('error'), diag('warning')], onJump) as React.ReactElement}
+      </div>,
+    );
+    const errorTag = screen.getByText('1 错误');
+    expect(errorTag.getAttribute('role')).toBe('button');
+    fireEvent.click(errorTag);
+    expect(onJump).toHaveBeenCalledWith('error');
+    fireEvent.keyDown(screen.getByText('1 警告'), { key: 'Enter' });
+    expect(onJump).toHaveBeenCalledWith('warning');
+  });
+
+  it('未传 onJump：标签为纯展示，不带可点击 role', () => {
+    const html = renderToStaticMarkup(
+      diagnosticSummary(intl, [diag('error')]) as React.ReactElement,
+    );
+    expect(html).toContain('1 错误');
+    expect(html).not.toContain('role="button"');
   });
 });
 

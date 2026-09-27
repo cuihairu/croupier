@@ -312,6 +312,25 @@ export default function ProposalInbox({ focusPageKey = '' }: ProposalInboxProps)
     [handleAccept, handlePreview, intl, message],
   );
 
+  // 诊断标签直达处理位置（OPEN-ISSUES #29）：资源类提案的语义问题在资源目录
+  // 修复；已有草稿/页面的问题进编辑器 focus 定位；纯提案态打开详情诊断表。
+  const handleJumpToDiagnostics = useCallback(
+    async (proposal: PageProposal) => {
+      if (proposal.pageType === 'resource' && proposal.resourceKey) {
+        navigateTo(
+          `/functions/resource-catalog?resourceKey=${encodeURIComponent(proposal.resourceKey)}`,
+        );
+        return;
+      }
+      if (proposal.pageExists && proposal.pageKey) {
+        navigateTo(`/functions/pages?focus=${encodeURIComponent(proposal.pageKey)}`);
+        return;
+      }
+      await handleViewDetail(proposal.proposalKey);
+    },
+    [handleViewDetail],
+  );
+
   const proposalColumns = buildProposalColumns({
     intl,
     modal,
@@ -321,6 +340,7 @@ export default function ProposalInbox({ focusPageKey = '' }: ProposalInboxProps)
     onRequestPublish: (proposal) => void openPublishModal(proposal),
     onReview: handleReviewProposal,
     onReject: handleReject,
+    onJumpToDiagnostics: (proposal) => void handleJumpToDiagnostics(proposal),
   });
   const blockedColumns = buildBlockedColumns({ intl });
 

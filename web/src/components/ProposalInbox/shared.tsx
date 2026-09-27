@@ -85,9 +85,15 @@ export function formatDate(value?: string): string {
   return Number.isNaN(new Date(value).getTime()) ? value : formatDateTime(value);
 }
 
+/**
+ * 诊断计数标签（OPEN-ISSUES #29）：传入 onJump 时错误/警告/信息标签可点击，
+ * 直达对应处理位置（提案详情/编辑器/资源目录/同步报告，由调用方决定落点）；
+ * 未传时保持纯展示计数。
+ */
 export function diagnosticSummary(
   intl: IntlFormatter,
   diagnostics?: DiagnosticInfo[],
+  onJump?: (severity: DiagnosticInfo['severity']) => void,
 ): React.ReactNode {
   if (!diagnostics || diagnostics.length === 0) {
     return (
@@ -96,44 +102,75 @@ export function diagnosticSummary(
       </Tag>
     );
   }
-  const errors = diagnostics.filter((item) => item.severity === 'error').length;
-  const warnings = diagnostics.filter((item) => item.severity === 'warning').length;
-  const infos = diagnostics.filter((item) => item.severity === 'info').length;
+  const countOf = (severity: DiagnosticInfo['severity']) =>
+    diagnostics.filter((item) => item.severity === severity).length;
+  const entries: {
+    severity: DiagnosticInfo['severity'];
+    color: string;
+    count: number;
+    message: { id: string; defaultMessage: string };
+  }[] = [
+    {
+      severity: 'error',
+      color: 'error',
+      count: countOf('error'),
+      message: {
+        id: 'component.proposalInbox.diagnostics.errorCount',
+        defaultMessage: `${countOf('error')} 错误`,
+      },
+    },
+    {
+      severity: 'warning',
+      color: 'warning',
+      count: countOf('warning'),
+      message: {
+        id: 'component.proposalInbox.diagnostics.warningCount',
+        defaultMessage: `${countOf('warning')} 警告`,
+      },
+    },
+    {
+      severity: 'info',
+      color: 'blue',
+      count: countOf('info'),
+      message: {
+        id: 'component.proposalInbox.diagnostics.infoCount',
+        defaultMessage: `${countOf('info')} 信息`,
+      },
+    },
+  ];
+  const jumpTip = intl.formatMessage({
+    id: 'component.proposalInbox.diagnostics.jumpTip',
+    defaultMessage: '点击直达处理位置',
+  });
   return (
     <Space>
-      {errors > 0 && (
-        <Tag color="error">
-          {intl.formatMessage(
-            {
-              id: 'component.proposalInbox.diagnostics.errorCount',
-              defaultMessage: `${errors} 错误`,
-            },
-            { count: errors },
-          )}
-        </Tag>
-      )}
-      {warnings > 0 && (
-        <Tag color="warning">
-          {intl.formatMessage(
-            {
-              id: 'component.proposalInbox.diagnostics.warningCount',
-              defaultMessage: `${warnings} 警告`,
-            },
-            { count: warnings },
-          )}
-        </Tag>
-      )}
-      {infos > 0 && (
-        <Tag color="blue">
-          {intl.formatMessage(
-            {
-              id: 'component.proposalInbox.diagnostics.infoCount',
-              defaultMessage: `${infos} 信息`,
-            },
-            { count: infos },
-          )}
-        </Tag>
-      )}
+      {entries
+        .filter((entry) => entry.count > 0)
+        .map((entry) =>
+          onJump ? (
+            <Tag
+              key={entry.severity}
+              color={entry.color}
+              role="button"
+              tabIndex={0}
+              title={jumpTip}
+              style={{ cursor: 'pointer' }}
+              onClick={() => onJump(entry.severity)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' || event.key === ' ') {
+                  event.preventDefault();
+                  onJump(entry.severity);
+                }
+              }}
+            >
+              {intl.formatMessage(entry.message, { count: entry.count })}
+            </Tag>
+          ) : (
+            <Tag key={entry.severity} color={entry.color}>
+              {intl.formatMessage(entry.message, { count: entry.count })}
+            </Tag>
+          ),
+        )}
     </Space>
   );
 }

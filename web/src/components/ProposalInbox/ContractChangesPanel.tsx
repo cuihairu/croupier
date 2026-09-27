@@ -510,7 +510,9 @@ export default function ContractChangesPanel({
       width: 180,
       render: (_, record) => {
         const diagnostics = record.bindingFreshness?.map((item) => item.diagnostic) || [];
-        return diagnosticSummary(intl, diagnostics);
+        // 点击变更原因标签直达处理位置：该页的 Selector 同步报告（漂移明细
+        // 与一键同步入口都在报告里）（OPEN-ISSUES #29）
+        return diagnosticSummary(intl, diagnostics, () => setSyncPageKeyValue(record.pageKey));
       },
     },
     {
