@@ -8,6 +8,7 @@ import { localizedText } from '@/utils/localizedText';
 import { StandardFilterBar, StandardListSection, SummaryOverview } from '@/components';
 import { FormattedMessage, useIntl } from '@umijs/max';
 import { buildInstanceColumns } from './columns';
+import { useScopeReload } from '@/hooks/useScopeReload';
 import { buildInstanceRowKey, type CoverageData, type FunctionInstanceRow } from './shared';
 import InstanceDetailDrawer from './InstanceDetailDrawer';
 import LogsModal from './LogsModal';
@@ -25,7 +26,6 @@ export default () => {
   const [coverage, setCoverage] = useState<CoverageData | null>(null);
   const [keyword, setKeyword] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('');
-  const [gameFilter, setGameFilter] = useState<string>('');
   const [functionFilter, setFunctionFilter] = useState<string>('');
   const [detailOpen, setDetailOpen] = useState(false);
   const [logsOpen, setLogsOpen] = useState(false);
@@ -57,7 +57,6 @@ export default () => {
       // Calculate coverage statistics
       const functionsMap = new Map<string, number>();
       const resourcePrefixMap = new Map<string, number>();
-      const gameMap = new Map<string, number>();
       let activeCount = 0;
       let inactiveCount = 0;
 
@@ -67,11 +66,6 @@ export default () => {
         // Instances endpoint does not carry FunctionSpec.resource yet; this is display-only.
         const resourcePrefix = instance.functionId.split('.')[0] || 'other';
         resourcePrefixMap.set(resourcePrefix, (resourcePrefixMap.get(resourcePrefix) || 0) + 1);
-
-        // Count by game
-        if (instance.gameId) {
-          gameMap.set(instance.gameId, (gameMap.get(instance.gameId) || 0) + 1);
-        }
 
         if (instance.healthy || instance.status === 'running') {
           activeCount++;
@@ -90,11 +84,6 @@ export default () => {
         functionsByResourcePrefix[resourcePrefix] = count;
       });
 
-      const instancesByGame: Record<string, number> = {};
-      gameMap.forEach((count, game) => {
-        instancesByGame[game] = count;
-      });
-
       setCoverage({
         totalFunctions: totalFunctions,
         coveredFunctions: coveredFunctions,
@@ -104,7 +93,6 @@ export default () => {
         activeInstances: activeCount,
         inactiveInstances: inactiveCount,
         functionsByResourcePrefix: functionsByResourcePrefix,
-        instancesByGame: instancesByGame,
       });
     } catch (e) {
       const errMsg =
@@ -129,6 +117,9 @@ export default () => {
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
+  // #32：数据源按全局 scope（X-Game-ID/X-Env 头）过滤，切游戏必须重拉。
+  useScopeReload(fetchData);
 
   const processedData = useMemo(() => {
     return instances.map((instance) => ({
@@ -188,12 +179,6 @@ export default () => {
       });
   }, [instances, descriptorMeta, intl.locale]);
 
-  const gameOptions = useMemo(() => {
-    return [...new Set(instances.map((instance) => instance.gameId).filter(Boolean))]
-      .sort()
-      .map((game) => ({ label: game, value: game }));
-  }, [instances]);
-
   const summary = useMemo(() => {
     return {
       totalInstances: coverage?.totalInstances || processedData.length,
@@ -201,7 +186,6 @@ export default () => {
       inactiveInstances: coverage?.inactiveInstances || 0,
       totalFunctions: coverage?.totalFunctions || functionOptions.length,
       resourcePrefixCount: Object.keys(coverage?.functionsByResourcePrefix || {}).length,
-      gameCount: Object.keys(coverage?.instancesByGame || {}).length,
       coveragePercentage: coverage?.coveragePercentage || 0,
     };
   }, [coverage, functionOptions.length, processedData.length]);
@@ -214,7 +198,6 @@ export default () => {
         if (statusFilter === 'error' && record.statusText !== '错误') return false;
         if (statusFilter === 'stopped' && record.statusText !== '停止') return false;
       }
-      if (gameFilter && record.gameId !== gameFilter) return false;
       if (functionFilter && record.functionId !== functionFilter) return false;
       if (!normalizedKeyword) return true;
       const searchText = [
@@ -234,9 +217,9 @@ export default () => {
         .toLowerCase();
       return searchText.includes(normalizedKeyword);
     });
-  }, [functionFilter, gameFilter, keyword, processedData, statusFilter]);
+  }, [functionFilter, keyword, processedData, statusFilter]);
 
-  const hasFilters = Boolean(keyword.trim() || statusFilter || gameFilter || functionFilter);
+  const hasFilters = Boolean(keyword.trim() || statusFilter || functionFilter);
   // 状态筛选的展示标签：running→运行中 / error→错误 / 其余→停止（与迁移前 ternary 一致）
   const filterStatusText =
     statusFilter === 'running'
@@ -270,15 +253,6 @@ export default () => {
             defaultMessage: `状态 ${filterStatusText}`,
           },
           { status: filterStatusText },
-        )
-      : null,
-    gameFilter
-      ? intl.formatMessage(
-          {
-            id: 'pages.functionsInstances.filter.summaryGame',
-            defaultMessage: `游戏 ${gameFilter}`,
-          },
-          { name: gameFilter },
         )
       : null,
     functionFilter
@@ -407,16 +381,6 @@ export default () => {
                 { count: summary.resourcePrefixCount },
               ),
             },
-            {
-              color: '#13c2c2',
-              text: intl.formatMessage(
-                {
-                  id: 'pages.functionsInstances.summary.totalGames',
-                  defaultMessage: `游戏 ${summary.gameCount}`,
-                },
-                { count: summary.gameCount },
-              ),
-            },
           ]}
           hint={
             summary.inactiveInstances > 0
@@ -523,18 +487,6 @@ export default () => {
                   showSearch
                   allowClear
                   placeholder={intl.formatMessage({
-                    id: 'pages.functionsInstances.filter.game',
-                    defaultMessage: '游戏',
-                  })}
-                  style={{ width: 160 }}
-                  value={gameFilter || undefined}
-                  onChange={(value) => setGameFilter(value || '')}
-                  options={gameOptions}
-                />
-                <Select
-                  showSearch
-                  allowClear
-                  placeholder={intl.formatMessage({
                     id: 'pages.functionsInstances.filter.function',
                     defaultMessage: '函数',
                   })}
@@ -592,7 +544,6 @@ export default () => {
                     onClick={() => {
                       setKeyword('');
                       setStatusFilter('');
-                      setGameFilter('');
                       setFunctionFilter('');
                     }}
                   >

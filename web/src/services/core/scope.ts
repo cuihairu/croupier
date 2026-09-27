@@ -16,6 +16,14 @@ const SCOPED_API_PREFIXES = [
   '/api/v1/ops',
   '/api/v1/pages',
   '/api/v1/players',
+  // 后端挂在 scoped 组（GameDBMiddleware）但此前前端未注入头，靠中间件的
+  // 「持久化 scope 兜底」——与顶栏选择器存在竞态/漂移，统一显式带头（#38 审计）：
+  '/api/v1/proposals',
+  '/api/v1/versioning',
+  '/api/v1/execution-logs',
+  '/api/v1/schedules',
+  '/api/v1/config-explorer',
+  '/api/v1/providers/sdk-stats',
   '/api/v1/resource-catalog',
   '/api/v1/resources',
   '/api/v1/tasks',

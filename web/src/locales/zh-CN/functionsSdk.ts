@@ -6,7 +6,8 @@ export default {
   'pages.functionsSdk.column.metadata': '元数据',
   'pages.functionsSdk.column.sdkName': 'SDK 名称',
   'pages.functionsSdk.column.sdkVersion': 'SDK 版本',
-  'pages.functionsSdk.empty': '当前没有在线的 provider 实例',
+  'pages.functionsSdk.empty':
+    '游戏 {game} / 环境 {env} 下没有在线的 provider 实例（可切换顶栏游戏或等待 SDK 接入）',
   'pages.functionsSdk.instances.searchPlaceholder': '搜索 provider / agent / 版本 / 元数据…',
   'pages.functionsSdk.instances.title': '实例明细',
   'pages.functionsSdk.languageCard.instanceCount': '{count} 实例',

@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Card, Tag, Space, Button, Drawer, Descriptions, Select, Input, Tabs } from 'antd';
 import { ProTable, type ActionType } from '@ant-design/pro-components';
 import { FormattedMessage, history, useIntl } from '@umijs/max';
+import { useScope } from '@/hooks/useScopeReload';
 import { getMessage } from '@/utils/antdApp';
 import {
   approveApproval,
@@ -47,6 +48,8 @@ const stateText = (state: Approval['state'], intl: ReturnType<typeof useIntl>) =
 export default function ApprovalsPage() {
   const intl = useIntl();
   // 当前页数据副本：审批动作按 id 在当前页定位记录，在 request 成功后同步
+  // 全局 scope（GameSelector）订阅：见 useScopeReload 模块注释
+  const { scopeKey } = useScope();
   const [data, setData] = useState<Approval[]>([]);
   const [viewMode, setViewMode] = useState<ViewMode>('todo');
   const [state, setState] = useState<string>('pending');
@@ -383,7 +386,9 @@ export default function ApprovalsPage() {
         search={false}
         options={false}
         toolBarRender={false}
-        params={{ viewMode, state, functionId, gameId, env, actor, riskFilter, descs }}
+        // scopeKey：顶栏切游戏后触发 ProTable 重发请求（数据按全局 scope 过滤，
+        // request 不解构该键，不会进查询串）
+        params={{ viewMode, state, functionId, gameId, env, actor, riskFilter, descs, scopeKey }}
         request={async ({
           current = 1,
           pageSize = 20,

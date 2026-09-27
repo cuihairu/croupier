@@ -26,6 +26,7 @@ import {
 } from '@ant-design/icons';
 import { PageContainer } from '@ant-design/pro-components';
 import * as XLSX from 'xlsx';
+import { useScope } from '@/hooks/useScopeReload';
 import { CodeEditor } from '@/components/MonacoDynamic';
 import {
   listConfigSources,
@@ -129,6 +130,14 @@ export default function ConfigExplorer() {
   const [games, setGames] = useState<Game[]>([]);
   const [game, setGame] = useState<string>('');
   const [env, setEnv] = useState<string>('');
+
+  // 全局 scope 同步：顶栏切游戏/环境后本页选择跟随并重拉（#38 审计族；
+  // 保留手选能力用于跨环境浏览，但默认与顶栏一致）
+  const { scope: globalScope } = useScope();
+  useEffect(() => {
+    if (globalScope.gameId) setGame(globalScope.gameId);
+    if (globalScope.env) setEnv(globalScope.env);
+  }, [globalScope.gameId, globalScope.env]);
   const [sources, setSources] = useState<ConfigSourceBinding[]>([]);
   const [sourceId, setSourceId] = useState<number | undefined>();
   const [treeData, setTreeData] = useState<DataNode[]>([]);

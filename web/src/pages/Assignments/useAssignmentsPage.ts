@@ -8,6 +8,7 @@ import {
   setAssignments,
   FunctionDescriptor,
 } from '@/services/api';
+import { useScope } from '@/hooks/useScopeReload';
 import { buildAssignmentColumns, buildCategoryColumns, buildRouteColumns } from './columns';
 import type { AssignmentHistory, AssignmentItem, HistoryAction } from './types';
 import { buildAssignmentOptions, buildAssignmentStats, buildGroupedAssignments } from './viewModel';
@@ -53,10 +54,12 @@ export default function useAssignmentsPage() {
   const { message } = App.useApp();
   const intl = useIntl();
   const [descs, setDescs] = useState<FunctionDescriptor[]>([]);
-  const [gameId, setGameId] = useState<string | undefined>(
-    localStorage.getItem('game_id') || undefined,
-  );
-  const [, setEnv] = useState<string | undefined>(localStorage.getItem('env') || undefined);
+  // #35 根因：此前直接读 localStorage('game_id') 并监听 `storage` 事件同步
+  // ——storage 事件只在**其他标签页**写入时触发，同标签页切顶栏游戏永远收
+  // 不到，页面数据停留旧游戏。改为订阅全局 scope store（GameSelector 唯一
+  // 写入方）；gameId 进入 load 的依赖，切换即重建回调并重拉。
+  const { scope } = useScope();
+  const gameId = scope.gameId;
   const [selected, setSelected] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [historyVisible, setHistoryVisible] = useState(false);
@@ -103,23 +106,10 @@ export default function useAssignmentsPage() {
     }
   }, [gameId]);
 
+  // gameId（来自全局 scope）变化 → load 重建 → 此处重拉（#35）
   useEffect(() => {
     load().catch(() => {});
   }, [load]);
-
-  useEffect(() => {
-    const onStorage = () => {
-      setGameId(localStorage.getItem('game_id') || undefined);
-      setEnv(localStorage.getItem('env') || undefined);
-    };
-    const onGamesChanged = () => onStorage();
-    window.addEventListener('storage', onStorage);
-    window.addEventListener('games:changed', onGamesChanged as EventListener);
-    return () => {
-      window.removeEventListener('storage', onStorage);
-      window.removeEventListener('games:changed', onGamesChanged as EventListener);
-    };
-  }, []);
 
   const onSave = useCallback(async () => {
     if (!gameId) {

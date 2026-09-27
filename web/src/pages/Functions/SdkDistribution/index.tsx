@@ -19,6 +19,7 @@ import {
   type SdkLanguageStats,
   type SdkStatsResponse,
 } from '@/services/api/sdkStats';
+import { useScopeReload } from '@/hooks/useScopeReload';
 import { FormattedMessage, useIntl } from '@umijs/max';
 
 const { Text } = Typography;
@@ -120,6 +121,10 @@ export default function SdkDistributionPage() {
     return () => clearInterval(timer);
   }, [refresh]);
 
+  // #38：SDK 实例与游戏绑定（请求经 X-Game-ID/X-Env 由服务端过滤），
+  // 顶栏切游戏后必须重拉，否则列表停留在旧游戏。
+  const { scope } = useScopeReload(refresh);
+
   const filteredInstances = useMemo(() => {
     const items = stats?.instances ?? [];
     const keywordTrimmed = keyword.trim().toLowerCase();
@@ -152,6 +157,35 @@ export default function SdkDistributionPage() {
 
   const columns = [
     { title: 'Provider', dataIndex: 'providerId', key: 'providerId', copyable: true },
+    // #3：元数据是排查实例归属的主信息（serverId 等），从倒数第二列提到
+    // 第二列并加宽——挤在行尾窄列里 tag 全靠悬停才能看全。
+    {
+      title: intl.formatMessage({
+        id: 'pages.functionsSdk.column.metadata',
+        defaultMessage: '元数据',
+      }),
+      dataIndex: 'metadata',
+      key: 'metadata',
+      width: 280,
+      render: (value?: Record<string, string>) => {
+        const entries = Object.entries(value ?? {});
+        if (!entries.length) return '-';
+        return (
+          <Space size={4} wrap>
+            {entries.slice(0, 3).map(([key, val]) => (
+              <Tag key={key} style={{ marginInlineEnd: 0 }}>
+                {key}={val}
+              </Tag>
+            ))}
+            {entries.length > 3 && (
+              <Tooltip title={entries.map(([key, val]) => `${key}=${val}`).join('\n')}>
+                <Tag style={{ marginInlineEnd: 0 }}>+{entries.length - 3}</Tag>
+              </Tooltip>
+            )}
+          </Space>
+        );
+      },
+    },
     { title: 'Agent', dataIndex: 'agentId', key: 'agentId' },
     {
       title: intl.formatMessage({
@@ -181,32 +215,6 @@ export default function SdkDistributionPage() {
     },
     { title: 'Game', dataIndex: 'gameId', key: 'gameId' },
     { title: 'Env', dataIndex: 'env', key: 'env' },
-    {
-      title: intl.formatMessage({
-        id: 'pages.functionsSdk.column.metadata',
-        defaultMessage: '元数据',
-      }),
-      dataIndex: 'metadata',
-      key: 'metadata',
-      render: (value?: Record<string, string>) => {
-        const entries = Object.entries(value ?? {});
-        if (!entries.length) return '-';
-        return (
-          <Space size={4} wrap>
-            {entries.slice(0, 3).map(([key, val]) => (
-              <Tag key={key} style={{ marginInlineEnd: 0 }}>
-                {key}={val}
-              </Tag>
-            ))}
-            {entries.length > 3 && (
-              <Tooltip title={entries.map(([key, val]) => `${key}=${val}`).join('\n')}>
-                <Tag style={{ marginInlineEnd: 0 }}>+{entries.length - 3}</Tag>
-              </Tooltip>
-            )}
-          </Space>
-        );
-      },
-    },
     {
       title: intl.formatMessage({
         id: 'pages.functionsSdk.column.lastSeen',
@@ -284,10 +292,14 @@ export default function SdkDistributionPage() {
           !loading && (
             <Card size="small">
               <Empty
-                description={intl.formatMessage({
-                  id: 'pages.functionsSdk.empty',
-                  defaultMessage: '当前没有在线的 provider 实例',
-                })}
+                description={intl.formatMessage(
+                  {
+                    id: 'pages.functionsSdk.empty',
+                    defaultMessage:
+                      '游戏 {game} / 环境 {env} 下没有在线的 provider 实例（可切换顶栏游戏或等待 SDK 接入）',
+                  },
+                  { game: scope.gameId || '-', env: scope.env || '-' },
+                )}
                 style={{ padding: '24px 0' }}
               />
             </Card>

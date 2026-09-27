@@ -11,6 +11,7 @@ import {
   updateMenuSort,
   type MenuItem,
 } from '@/services/api/menu';
+import { useScopeReload } from '@/hooks/useScopeReload';
 import { listPageDrafts } from '@/services/api/pages';
 import MenuForm, { type MenuFormValues } from './MenuForm';
 import MenuTree, { type MenuMountedPage } from './MenuTree';
@@ -55,6 +56,9 @@ export default function MenuManagementPage() {
       setLoading(false);
     }
   }, []);
+
+  // 菜单数据按全局 scope 过滤（/api/v1/menus），切游戏重拉（#38 族）
+  useScopeReload(load);
 
   useEffect(() => {
     void load();

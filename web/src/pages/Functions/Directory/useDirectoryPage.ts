@@ -8,6 +8,7 @@ import type { FunctionSummary } from '@/services/api/functions-enhanced';
 import { batchSetFunctionVersionFloor, listFunctionVersionFloors } from '@/services/api/functions';
 import { renderSchemaActions } from '@/components/page-schema/PageSchemaRenderer';
 import { resolveSchemaIcon } from '@/components/page-schema/icons';
+import { getScope, isScopeReady, subscribeScope, type Scope } from '@/stores/scope';
 import { DIRECTORY_PAGE_SCHEMA } from './schema';
 import { buildDirectoryColumns } from './columns';
 import type { DetailRow, SummaryRow } from './types';
@@ -80,6 +81,14 @@ export default function useDirectoryPage() {
   const [selectedRowKeys, setSelectedRowKeys] = useState<Key[]>([]);
   const [batchModalOpen, setBatchModalOpen] = useState(false);
   const [batchSubmitting, setBatchSubmitting] = useState(false);
+  // #4：函数按 (game, env) 隔离注册，列表必须跟随顶栏 GameSelector 的 scope
+  // 变化重拉——此前只在挂载时拉一次，切游戏后展示的仍是旧 scope 的数据。
+  const [scope, setScope] = useState<Scope>(() => getScope());
+
+  useEffect(() => {
+    const off = subscribeScope((next) => setScope(next));
+    return off;
+  }, []);
 
   const buildInvokePath = useCallback((functionId: string) => {
     return `/functions/invoke?fid=${encodeURIComponent(functionId)}`;
@@ -103,9 +112,13 @@ export default function useDirectoryPage() {
     }
   }, [intl, message]);
 
+  // scopeKey 变化（用户切换游戏/环境）时整表重拉；scope 未就绪时跳过，
+  // 由 markScopeReady 的 emit 触发首拉（请求层 waitForResolvedScope 亦会兜底）。
+  const scopeKey = `${scope.gameId || ''}:${scope.env || ''}`;
   useEffect(() => {
+    if (!isScopeReady()) return;
     reload();
-  }, [reload]);
+  }, [reload, scopeKey]);
 
   // reloadFloors 只重拉门槛 map 并 patch 现有行（不清空勾选）——批量
   // 设置/清除后的局部刷新；失败保持现状，不打断操作反馈。
@@ -276,6 +289,7 @@ export default function useDirectoryPage() {
     processedData,
     columns,
     headerActions,
+    scope,
     detailVisible,
     setDetailVisible,
     selectedFunction,

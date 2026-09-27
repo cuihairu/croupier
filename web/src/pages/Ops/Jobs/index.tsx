@@ -15,6 +15,7 @@ import {
 } from 'antd';
 import { PageContainer } from '@ant-design/pro-components';
 import type { ColumnsType } from 'antd/es/table';
+import { useScopeReload } from '@/hooks/useScopeReload';
 import { listOpsTasks, type OpsTask, listOpsFunctions } from '@/services/api/ops';
 import {
   cancelTask,
@@ -118,6 +119,8 @@ export default function OpsTasksPage() {
       setLoading(false);
     }
   }, [status, fid, actor, page, pageSize, message]);
+  // #23 族：任务列表按全局 scope 过滤，切游戏重拉
+  useScopeReload(load);
   useEffect(() => {
     load();
   }, [load]);

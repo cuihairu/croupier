@@ -6,9 +6,10 @@
  * 2. 参与实例搜索——直接粘元数据值（"s1"）或键名/整对都能命中。
  */
 import React from 'react';
-import { configure, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, configure, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { App, ConfigProvider } from 'antd';
 import SdkDistributionPage from '../index';
+import { setScope } from '@/stores/scope';
 
 jest.setTimeout(30000);
 configure({ asyncUtilTimeout: 5000 });
@@ -70,6 +71,7 @@ const renderPage = () =>
 
 beforeEach(() => {
   jest.clearAllMocks();
+  act(() => setScope({ gameId: 'default', env: 'dev' }));
   fetchSdkStats.mockResolvedValue({
     totalInstances: INSTANCES.length,
     languages: [
@@ -93,6 +95,17 @@ describe('SdkDistribution 实例元数据', () => {
     expect(screen.queryByText('extra=x')).not.toBeInTheDocument();
     // 无元数据实例显示占位
     expect(screen.getByText('prom-adapter')).toBeInTheDocument();
+  });
+
+  // #38：SDK 实例按游戏隔离（服务端依 X-Game-ID/X-Env 过滤），
+  // 顶栏切换游戏后页面必须重拉，否则列表停留在旧游戏。
+  it('切换全局游戏 scope 后重新拉取 sdk-stats', async () => {
+    renderPage();
+    await screen.findByText('game-demo');
+    const before = fetchSdkStats.mock.calls.length;
+
+    act(() => setScope({ gameId: 'other-game', env: 'prod' }));
+    await waitFor(() => expect(fetchSdkStats).toHaveBeenCalledTimes(before + 1));
   });
 
   it('搜索元数据值可直接命中实例', async () => {

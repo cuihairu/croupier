@@ -24,6 +24,7 @@ import {
   type RunLogItem,
   type ScheduleItem,
 } from '@/services/api/schedules';
+import { useScopeReload } from '@/hooks/useScopeReload';
 import { extractErrorMessage } from '@/utils/errors';
 import { formatDateTime } from '@/utils/format';
 
@@ -104,6 +105,8 @@ export default function SchedulesPage() {
       setLoading(false);
     }
   }, [message, statusFilter]);
+  // #24 族：定时任务按全局 scope（/api/v1/schedules 已显式带头）过滤，切游戏重拉
+  useScopeReload(load);
 
   useEffect(() => {
     load();

@@ -28,6 +28,7 @@ import {
 import { FormattedMessage, useIntl } from '@umijs/max';
 import { StandardFilterBar, StandardListSection, SummaryOverview } from '@/components';
 import { formatDateTime } from '@/utils/format';
+import { useScope } from '@/hooks/useScopeReload';
 
 const { Text } = Typography;
 const { RangePicker } = DatePicker;
@@ -72,6 +73,8 @@ export default function ExecutionLogsPage() {
   // 服务端分页总数：供概览指标与筛选栏结果计数
   const [total, setTotal] = useState(0);
 
+  // 全局 scope 切换 → scopeKey 变化 → ProTable 因 params 变化重发请求（#33 族）
+  const { scopeKey } = useScope();
   const [actor, setActor] = useState('');
   const [functionId, setFunctionId] = useState('');
   const [source, setSource] = useState('');
@@ -584,7 +587,9 @@ export default function ExecutionLogsPage() {
                       '暂无执行留痕。函数被调用或页面发起执行后，记录会出现在这里；可先确认对应函数是否已被调用。',
                   }),
             }}
-            params={{ actor, functionId, source, status, traceId, range }}
+            // scopeKey 仅作为 ProTable 重发请求的触发器（request 不解构它，
+            // 不会漏进查询串）：顶栏切游戏 → 数据必须重拉（#33/#38 审计族）
+            params={{ actor, functionId, source, status, traceId, range, scopeKey }}
             request={async ({
               current = 1,
               pageSize = PAGE_SIZE,

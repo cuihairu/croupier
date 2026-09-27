@@ -31,6 +31,7 @@ export default function DirectoryPage() {
     processedData,
     columns,
     headerActions,
+    scope,
     detailVisible,
     setDetailVisible,
     selectedFunction,
@@ -388,6 +389,29 @@ export default function DirectoryPage() {
                   </Button>
                 </Space>
               }
+            />
+          )}
+          {/* #4：函数按 (game, env) 隔离注册。切到没有函数的游戏时此前是
+              一张无声的空表（API 返回空列表，用户以为页面坏了）——显式
+              说明当前查询 scope 并引导用顶栏切换，而不是静默空白。 */}
+          {!loading && processedData.length === 0 && (
+            <Alert
+              type="warning"
+              showIcon
+              style={{ marginBottom: 12 }}
+              data-testid="directory-scope-empty"
+              title={intl.formatMessage({
+                id: 'pages.functionsDirectory.empty.scopeTitle',
+                defaultMessage: '当前游戏范围下没有已注册函数',
+              })}
+              description={intl.formatMessage(
+                {
+                  id: 'pages.functionsDirectory.empty.scopeDescription',
+                  defaultMessage:
+                    '当前查询范围：游戏 {game} / 环境 {env}。函数按游戏与环境隔离注册，请通过顶栏的游戏切换器切换到已注册函数的游戏后再查询。',
+                },
+                { game: scope.gameId || '-', env: scope.env || '-' },
+              )}
             />
           )}
           <ProTable<SummaryRow>

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useScope } from '@/hooks/useScopeReload';
 import { App } from 'antd';
 import { useIntl } from '@umijs/max';
 import {
@@ -61,6 +62,16 @@ export default function useConfigsPage() {
   useEffect(() => {
     load();
   }, [load]);
+
+  // 全局 scope（顶栏 GameSelector）同步：页面保留 game/env 输入用于跨游戏
+  // 检索，但切游戏时默认跟随全局；load 依赖含 game/env，同步即触发重拉。
+  // （服务端按 X-Game-ID 头优先解析，手选值仅在无头场景生效——保持两值一致
+  // 才能所见即所得，#32 族）
+  const { scope } = useScope();
+  useEffect(() => {
+    if (scope.gameId) setGame(scope.gameId);
+    if (scope.env) setEnv(scope.env);
+  }, [scope.gameId, scope.env]);
 
   const openItem = async (id: string, fmt: string) => {
     try {

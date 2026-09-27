@@ -15,6 +15,7 @@ import {
   deleteFeedback,
   type FeedbackPayload,
 } from '@/services/api/support';
+import { useScope } from '@/hooks/useScopeReload';
 import { getMessage } from '@/utils/antdApp';
 import { extractErrorMessage } from '@/utils/errors';
 import { formatDateTime } from '@/utils/format';
@@ -42,6 +43,8 @@ interface AccessState {
 export default function SupportFeedbackPage() {
   const intl = useIntl();
   const actionRef = useRef<ActionType | undefined>(undefined);
+  // 全局 scope（GameSelector）订阅：见 useScopeReload 模块注释
+  const { scopeKey } = useScope();
   const [q, setQ] = useState('');
   const [category, setCategory] = useState('');
   const [status, setStatus] = useState('');
@@ -339,7 +342,8 @@ export default function SupportFeedbackPage() {
           search={false}
           options={false}
           toolBarRender={false}
-          params={{ q, category, status, gameId, pendingOnly }}
+          // scopeKey：顶栏切游戏后触发 ProTable 重发请求（同 #38 族）
+          params={{ q, category, status, gameId, pendingOnly, scopeKey }}
           request={async ({
             current = 1,
             pageSize = 20,

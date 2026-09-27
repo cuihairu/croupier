@@ -24,6 +24,7 @@ import {
   markFunctionWarningRead,
   type FunctionRegistrationWarning,
 } from '@/services/api/functions';
+import { useScope } from '@/hooks/useScopeReload';
 import { formatDateTime } from '@/utils/format';
 
 type FilterValues = {
@@ -51,6 +52,7 @@ export default function FunctionWarningsPage() {
 
   const { message } = App.useApp();
   const intl = useIntl();
+  const { scopeKey } = useScope();
 
   const loadData = useCallback(async (values: FilterValues) => {
     setLoading(true);
@@ -77,7 +79,9 @@ export default function FunctionWarningsPage() {
     };
     form.setFieldsValue(initial);
     loadData(initial).catch(() => setRows([]));
-  }, [form, location.search, loadData]);
+    // #34 族：warnings 按全局 scope（X-Game-ID/X-Env）过滤，切游戏后以当前
+    // 表单条件重拉。scopeKey 进依赖即可（初值 URL 参数不变）。
+  }, [form, location.search, loadData, scopeKey]);
 
   return (
     <PageContainer

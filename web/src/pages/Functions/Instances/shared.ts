@@ -37,7 +37,6 @@ export type CoverageData = {
   activeInstances: number;
   inactiveInstances: number;
   functionsByResourcePrefix: Record<string, number>;
-  instancesByGame: Record<string, number>;
 };
 
 export type InstanceDetail = {

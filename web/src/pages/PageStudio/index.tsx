@@ -3,6 +3,7 @@ import { FormattedMessage, history, useIntl } from '@umijs/max';
 import { PageContainer, ProTable } from '@ant-design/pro-components';
 import { App, Button, Collapse, Space, Typography } from 'antd';
 import { ReloadOutlined, RocketOutlined } from '@ant-design/icons';
+import { useScopeReload } from '@/hooks/useScopeReload';
 import MergeConflictModal from '@/components/MergeConflictModal';
 import ProposalInbox from '@/components/ProposalInbox';
 import PageWorkflowGuide from '@/components/PageWorkflowGuide';
@@ -124,6 +125,9 @@ export default function PageStudio() {
       setLoading(false);
     }
   }, [message]);
+
+  // #38 族：页面草稿按全局 scope（X-Game-ID/X-Env）过滤，切游戏重拉列表
+  useScopeReload(loadDrafts);
 
   useEffect(() => {
     loadDrafts();
