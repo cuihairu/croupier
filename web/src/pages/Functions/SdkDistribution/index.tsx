@@ -14,11 +14,13 @@ import {
 } from 'antd';
 import { ReloadOutlined } from '@ant-design/icons';
 import {
+  fetchProviderMetaOptions,
   fetchSdkStats,
   type SdkInstanceItem,
   type SdkLanguageStats,
   type SdkStatsResponse,
 } from '@/services/api/sdkStats';
+import ServerOptionsSelect from '@/components/ServerOptionsSelect';
 import { useScopeReload } from '@/hooks/useScopeReload';
 import { FormattedMessage, useIntl } from '@umijs/max';
 
@@ -103,17 +105,21 @@ export default function SdkDistributionPage() {
   const [loading, setLoading] = useState(false);
   const [stats, setStats] = useState<SdkStatsResponse | null>(null);
   const [keyword, setKeyword] = useState('');
+  // #2：元数据过滤下拉（选项来自服务端 meta-options 聚合），选中即走
+  // sdk-stats 的 metaKey/metaValue 服务端过滤（子串匹配）。
+  const [metaKey, setMetaKey] = useState<string | undefined>(undefined);
+  const [metaValue, setMetaValue] = useState<string | undefined>(undefined);
 
   const refresh = useCallback(async () => {
     setLoading(true);
     try {
-      setStats(await fetchSdkStats());
+      setStats(await fetchSdkStats({ metaKey, metaValue }));
     } catch {
       // 错误提示交给全局拦截器；保留旧数据
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [metaKey, metaValue]);
 
   useEffect(() => {
     refresh();
@@ -313,18 +319,63 @@ export default function SdkDistributionPage() {
             defaultMessage: '实例明细',
           })}
           extra={
-            <Input.Search
-              allowClear
-              placeholder={intl.formatMessage({
-                id: 'pages.functionsSdk.instances.searchPlaceholder',
-                defaultMessage: '搜索 provider / agent / 版本 / 元数据…',
-              })}
-              style={{ width: 260 }}
-              onSearch={setKeyword}
-              onChange={(event) => {
-                if (!event.target.value) setKeyword('');
-              }}
-            />
+            <Space size={8} wrap>
+              {/* #2：下拉选项来自服务端实例元数据聚合（不可从过滤后列表
+                  推导——同 #14 塌缩病灶）；count = 该键的实例数 */}
+              <ServerOptionsSelect
+                allowClear
+                placeholder={intl.formatMessage({
+                  id: 'pages.functionsSdk.filter.metaKey',
+                  defaultMessage: '元数据键',
+                })}
+                style={{ minWidth: 160 }}
+                fetchOptions={async () =>
+                  (await fetchProviderMetaOptions()).map((k) => ({
+                    value: k.key,
+                    label: k.key,
+                    count: k.values.reduce((sum, v) => sum + v.count, 0),
+                  }))
+                }
+                value={metaKey}
+                onChange={(next: unknown) => {
+                  setMetaKey(typeof next === 'string' ? next : undefined);
+                  setMetaValue(undefined);
+                }}
+              />
+              {/* 值选项跟随所选键（epoch 触发重拉）；未选键时禁用 */}
+              <ServerOptionsSelect
+                allowClear
+                disabled={!metaKey}
+                placeholder={intl.formatMessage({
+                  id: 'pages.functionsSdk.filter.metaValue',
+                  defaultMessage: '元数据值',
+                })}
+                style={{ minWidth: 160 }}
+                fetchOptions={async () =>
+                  (await fetchProviderMetaOptions())
+                    .find((k) => k.key === metaKey)
+                    ?.values.map((v) => ({ value: v.value, label: v.value, count: v.count })) ??
+                  []
+                }
+                epoch={metaKey}
+                value={metaValue}
+                onChange={(next: unknown) => {
+                  setMetaValue(typeof next === 'string' ? next : undefined);
+                }}
+              />
+              <Input.Search
+                allowClear
+                placeholder={intl.formatMessage({
+                  id: 'pages.functionsSdk.instances.searchPlaceholder',
+                  defaultMessage: '搜索 provider / agent / 版本 / 元数据…',
+                })}
+                style={{ width: 260 }}
+                onSearch={setKeyword}
+                onChange={(event) => {
+                  if (!event.target.value) setKeyword('');
+                }}
+              />
+            </Space>
           }
         >
           <Table
