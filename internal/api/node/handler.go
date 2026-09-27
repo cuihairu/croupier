@@ -131,6 +131,17 @@ func (h *Handler) ListCronJobs(c *gin.Context) {
 	response.Success(c, gin.H{"items": jobs, "total": len(jobs)})
 }
 
+// ListAllCronJobs 聚合全部节点的宿主机定时任务（#24）：
+// /ops/schedules 按来源（platform/host）分组展示的数据源。
+func (h *Handler) ListAllCronJobs(c *gin.Context) {
+	reports, err := h.service.ListAllCronJobs(c.Request.Context())
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
+	response.Success(c, gin.H{"items": reports, "total": len(reports)})
+}
+
 // Commands alias for route compatibility
 func (h *Handler) Commands(c *gin.Context) {
 	h.ListCommands(c)
