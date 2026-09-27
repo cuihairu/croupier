@@ -24,6 +24,9 @@ export default {
   'pages.assignments.history.operatedMeta': 'Operator: {operator} | Time: {time}',
   'pages.assignments.history.reload': 'Reload',
   'pages.assignments.history.title': 'Assignment change history',
+  'pages.assignments.gate.description':
+    'With no saved assignment for a scope (game/env), all functions are callable by default. Once an assignment list is saved, the scope becomes an allowlist — invoking an unassigned function returns 403 "function not assigned". Save an empty list to restore default-open.',
+  'pages.assignments.gate.title': 'Execution gate',
   'pages.assignments.list.title': 'Availability scope',
   'pages.assignments.page.subTitle':
     'Choose which functions are exposed to the current game environment; changes apply after saving',

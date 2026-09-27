@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cuihairu/croupier/internal/api/assignment"
 	"github.com/cuihairu/croupier/internal/common/errorx"
 	"github.com/cuihairu/croupier/internal/logic/utils"
 	"github.com/cuihairu/croupier/internal/model"
@@ -58,6 +59,11 @@ func (s *Service) Start(ctx context.Context, req *StartRequest) (*StartResponse,
 	// 禁用拦截（E2）：与 functionInvoke 同一守卫，/tasks 不能绕过禁用
 	// 状态启动异步任务——同一语义与 CheckInvokePermission 双入口共享同理。
 	if err := utils.EnsureFunctionEnabled(ctx, s.svcCtx, functionID); err != nil {
+		return nil, err
+	}
+	// 分配闸门（BUG-032）：与 functionInvoke 同一守卫，/tasks 不能绕过
+	// 分配白名单（scope 有记录时未分配函数 403 function_not_assigned）。
+	if err := assignment.EnsureFunctionAssigned(ctx, s.svcCtx, functionID, scope.GameID, scope.Env); err != nil {
 		return nil, err
 	}
 

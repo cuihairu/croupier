@@ -135,7 +135,13 @@ func (s *Service) Update(ctx context.Context, req *AssignmentsUpdateRequest) (*A
 	accepted, unknown := splitKnownAndUnknown(functions, known)
 	key := buildAssignmentKey(gameID, env)
 	before := append([]string(nil), assignments[key]...)
-	assignments[key] = accepted
+	// 清空保存 = 删除记录回到默认开放（BUG-032 闸门语义的另一半：空 key
+	// 若保留会被闸门视为白名单空集全拒，用户无法通过 UI 恢复默认开放）
+	if len(accepted) == 0 {
+		delete(assignments, key)
+	} else {
+		assignments[key] = accepted
+	}
 	added, removed := diffFunctions(before, accepted)
 	if action == "" {
 		if len(accepted) == 0 && len(before) > 0 {

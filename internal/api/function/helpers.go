@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cuihairu/croupier/internal/api/assignment"
 	"github.com/cuihairu/croupier/internal/audit"
 	"github.com/cuihairu/croupier/internal/cluster"
 	"github.com/cuihairu/croupier/internal/common/errorx"
@@ -264,6 +265,12 @@ func functionInvoke(ctx context.Context, svcCtx *svc.ServiceContext, req *Functi
 	// 回读，禁用函数照常执行。守卫在遥测/审计/执行留痕之前——被拒的调用
 	// 不是一次执行，不产生失败执行记录污染成功率口径。
 	if err := utils.EnsureFunctionEnabled(ctx, svcCtx, strings.TrimSpace(req.ID)); err != nil {
+		return nil, err
+	}
+	// 分配闸门（BUG-032）：scope 存在分配记录时是执行白名单，未分配函数
+	// 403 function_not_assigned（无记录默认开放）。与 EnsureFunctionEnabled
+	// 同位、/tasks Start 共用，防止绕过。
+	if err := assignment.EnsureFunctionAssigned(ctx, svcCtx, strings.TrimSpace(req.ID), req.GameID, req.Env); err != nil {
 		return nil, err
 	}
 	startedAt := time.Now()

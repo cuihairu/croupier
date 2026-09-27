@@ -83,6 +83,17 @@ func NewForbidden(message string) *CodeError {
 	}
 }
 
+// NewForbiddenWithCode returns a 403 error exposing a stable snake_case
+// business error code instead of the generic "forbidden".
+func NewForbiddenWithCode(code, message string, details map[string]any) *CodeError {
+	return &CodeError{
+		Code:       http.StatusForbidden,
+		Message:    message,
+		Details:    details,
+		StableCode: code,
+	}
+}
+
 func NewNotFound(message string) *CodeError {
 	return &CodeError{
 		Code:    http.StatusNotFound,

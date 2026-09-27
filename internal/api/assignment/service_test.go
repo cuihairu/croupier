@@ -287,10 +287,12 @@ func TestService_Update_RemoveAll(t *testing.T) {
 	assert.NotNil(t, resp)
 	assert.True(t, resp.OK)
 
-	// Verify assignments were removed
+	// 清空保存 = 删除记录回到默认开放（BUG-032 闸门语义：空 key 若保留
+	// 会被 EnsureFunctionAssigned 视为白名单空集全拒，无法恢复默认开放）
 	loaded, err := loadAssignments(assignmentsPath)
 	require.NoError(t, err)
-	assert.Equal(t, []string{}, loaded["game1|prod"])
+	_, exists := loaded["game1|prod"]
+	assert.False(t, exists, "清空保存后不应残留空白名单记录")
 }
 
 func TestService_Update_WithWhitespace(t *testing.T) {

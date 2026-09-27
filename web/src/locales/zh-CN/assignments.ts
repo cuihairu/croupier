@@ -24,6 +24,9 @@ export default {
   'pages.assignments.history.operatedMeta': '操作人: {operator} | 时间: {time}',
   'pages.assignments.history.reload': '刷新',
   'pages.assignments.history.title': '分配变更历史',
+  'pages.assignments.gate.description':
+    '作用域（游戏/环境）未保存过分配时默认开放所有函数；一旦保存分配列表，该作用域按白名单执行——未分配的函数调用会返回 403「函数未开放执行权限」。清空列表保存即恢复默认开放。',
+  'pages.assignments.gate.title': '执行闸门',
   'pages.assignments.list.title': '开放范围列表',
   'pages.assignments.page.subTitle': '选择当前游戏环境开放哪些函数，保存后生效',
   'pages.assignments.page.title': '函数开放范围',

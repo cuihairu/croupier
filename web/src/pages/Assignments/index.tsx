@@ -1,6 +1,6 @@
 import React from 'react';
 import { PageContainer } from '@ant-design/pro-components';
-import { Space } from 'antd';
+import { Alert, Space } from 'antd';
 import { useIntl } from '@umijs/max';
 import { StandardListSection, SummaryOverview } from '@/components';
 import HistoryModal from './HistoryModal';
@@ -119,6 +119,22 @@ export default function AssignmentsPage() {
                 })
           }
           hintType={pageCtx.hasScope ? 'info' : 'warning'}
+        />
+
+        {/* 执行闸门语义说明（OPEN-ISSUES #36）：分配页此前从未讲清「分配即白名单」，
+            用户误以为分配不生效；后端 EnsureFunctionAssigned 按此语义执行 */}
+        <Alert
+          type="info"
+          showIcon
+          title={intl.formatMessage({
+            id: 'pages.assignments.gate.title',
+            defaultMessage: '执行闸门',
+          })}
+          description={intl.formatMessage({
+            id: 'pages.assignments.gate.description',
+            defaultMessage:
+              '作用域（游戏/环境）未保存过分配时默认开放所有函数；一旦保存分配列表，该作用域按白名单执行——未分配的函数调用会返回 403「函数未开放执行权限」。清空列表保存即恢复默认开放。',
+          })}
         />
 
         <StandardListSection
