@@ -23,6 +23,9 @@ export type SessionResponse = {
   user: SessionUser;
   lastGameId?: string;
   lastEnv?: string;
+  /** 账号被标记「登录后必须修改密码」或密码已过有效期（OPEN-ISSUES #20）；
+   *  true 时前端强制走改密流程，改密成功后需重新登录 */
+  mustChangePassword?: boolean;
 };
 
 // Compatibility projection used by runtime bootstrap.

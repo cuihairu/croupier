@@ -31,8 +31,9 @@ import {
 } from '@/services/api/permissions';
 import { listGamesMeta, type Game as GameMeta } from '@/services/api/games';
 import { listGameEnvs } from '@/services/api/envs';
+import { buildRoleOptions, roleOptionFilter } from './roleOptions';
 
-/** 用户编辑表单值（新增独有 username/password，编辑时字段不渲染） */
+/** 用户编辑表单值（新增独有 username/password/密码策略字段，编辑时不渲染） */
 type UserFormValues = {
   username?: string;
   nickname?: string;
@@ -41,7 +42,14 @@ type UserFormValues = {
   password?: string;
   active?: boolean;
   roles?: string[];
+  /** 创建后首次登录必须修改密码（OPEN-ISSUES #20，新增独有） */
+  mustChangePassword?: boolean;
+  /** 密码有效天数，0 = 长期有效（OPEN-ISSUES #20，新增独有） */
+  passwordExpiresDays?: number;
 };
+
+/** 密码有效期候选天数（OPEN-ISSUES #20） */
+const PASSWORD_EXPIRES_DAY_OPTIONS = [0, 30, 60, 90, 180, 365];
 
 /** 设置密码表单值 */
 type PwdFormValues = { password: string };
@@ -55,7 +63,7 @@ export default function UsersV2() {
   const [userTotal, setUserTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
-  const [roles, setRoles] = useState<{ id: number; name: string }[]>([]);
+  const [roles, setRoles] = useState<{ id: number; name: string; description?: string }[]>([]);
   const [loading, setLoading] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
   const [pwdOpen, setPwdOpen] = useState(false);
@@ -66,7 +74,7 @@ export default function UsersV2() {
   const [envOptions, setEnvOptions] = useState<string[]>([]);
   const [envSel, setEnvSel] = useState<string[]>([]);
 
-  const roleOptions = useMemo(() => roles.map((r) => ({ label: r.name, value: r.name })), [roles]);
+  const roleOptions = useMemo(() => buildRoleOptions(roles), [roles]);
 
   const refresh = async (nextPage = page, nextSize = pageSize) => {
     setLoading(true);
@@ -78,7 +86,9 @@ export default function UsersV2() {
       ]);
       setUsers(u.items || []);
       setUserTotal(u.total ?? (u.items || []).length);
-      setRoles((r.items || []).map((x) => ({ id: x.id, name: x.name })));
+      setRoles(
+        (r.items || []).map((x) => ({ id: x.id, name: x.name, description: x.description })),
+      );
       setGames(g.games || []);
     } finally {
       setLoading(false);
@@ -160,6 +170,9 @@ export default function UsersV2() {
           phone: v.phone,
           password: v.password ?? '',
           roles: v.roles ?? [],
+          // 密码策略为新增独有字段（OPEN-ISSUES #20）
+          mustChangePassword: Boolean(v.mustChangePassword),
+          passwordExpiresDays: v.passwordExpiresDays ?? 0,
         });
         getMessage()?.success(
           intl.formatMessage(
@@ -417,6 +430,49 @@ export default function UsersV2() {
     defaultMessage: '确定',
   });
 
+  // OPEN-ISSUES #20：新增表单角色挪到第二项（用户名之后）、编辑表单保持末尾。
+  // 同一元素按 editing 条件渲染到两个位置之一，避免重复定义整段 Select。
+  const rolesField = (
+    <Form.Item
+      label={intl.formatMessage({
+        id: 'pages.permissionsUsers.form.label.roles',
+        defaultMessage: '角色',
+      })}
+      name="roles"
+    >
+      <Select
+        mode="multiple"
+        showSearch
+        options={roleOptions}
+        filterOption={roleOptionFilter}
+        optionRender={(option) => {
+          // OPEN-ISSUES #19：下拉行附简短中文说明（描述副行），tag 仍为角色名
+          const o = option.data as { label?: string; description?: string };
+          return (
+            <div style={{ lineHeight: 1.4 }}>
+              <div>{o.label}</div>
+              {o.description ? (
+                <div
+                  style={{
+                    color: 'rgba(0,0,0,0.55)',
+                    fontSize: 12,
+                    whiteSpace: 'normal',
+                  }}
+                >
+                  {o.description}
+                </div>
+              ) : null}
+            </div>
+          );
+        }}
+        placeholder={intl.formatMessage({
+          id: 'pages.permissionsUsers.placeholder.roles',
+          defaultMessage: '选择角色',
+        })}
+      />
+    </Form.Item>
+  );
+
   return (
     <PageContainer>
       <Card
@@ -484,7 +540,7 @@ export default function UsersV2() {
                 active: editing.status === ADMIN_STATUS_ACTIVE,
                 roles: editing.roles || [],
               }
-            : { active: true }
+            : { active: true, mustChangePassword: false, passwordExpiresDays: 0 }
         }
         onFinish={submitUser}
       >
@@ -505,10 +561,11 @@ export default function UsersV2() {
               },
             ]}
           >
-            {' '}
-            <Input />{' '}
+            <Input />
           </Form.Item>
         )}
+        {/* 新增：角色为第二项；编辑：角色仍在末尾（见文末 rolesField） */}
+        {!editing && rolesField}
         <Form.Item
           label={intl.formatMessage({
             id: 'pages.permissionsUsers.form.label.displayName',
@@ -516,8 +573,7 @@ export default function UsersV2() {
           })}
           name="nickname"
         >
-          {' '}
-          <Input />{' '}
+          <Input />
         </Form.Item>
         <Form.Item
           label={intl.formatMessage({
@@ -535,8 +591,7 @@ export default function UsersV2() {
             },
           ]}
         >
-          {' '}
-          <Input />{' '}
+          <Input />
         </Form.Item>
         <Form.Item
           label={intl.formatMessage({
@@ -545,8 +600,7 @@ export default function UsersV2() {
           })}
           name="phone"
         >
-          {' '}
-          <Input />{' '}
+          <Input />
         </Form.Item>
         {!editing && (
           <Form.Item
@@ -556,8 +610,49 @@ export default function UsersV2() {
             })}
             name="password"
           >
-            {' '}
-            <Input.Password />{' '}
+            <Input.Password />
+          </Form.Item>
+        )}
+        {/* 密码策略（新增独有，OPEN-ISSUES #20）：编辑用户不暴露——改密走
+            「设置密码」、有效期调整暂无入口，避免编辑误清策略标记 */}
+        {!editing && (
+          <Form.Item
+            label={intl.formatMessage({
+              id: 'pages.permissionsUsers.form.mustChangePassword',
+              defaultMessage: '登录后必须修改密码',
+            })}
+            name="mustChangePassword"
+            valuePropName="checked"
+          >
+            <Switch />
+          </Form.Item>
+        )}
+        {!editing && (
+          <Form.Item
+            label={intl.formatMessage({
+              id: 'pages.permissionsUsers.form.passwordExpires',
+              defaultMessage: '密码有效期',
+            })}
+            name="passwordExpiresDays"
+          >
+            <Select
+              options={PASSWORD_EXPIRES_DAY_OPTIONS.map((days) => ({
+                value: days,
+                label:
+                  days === 0
+                    ? intl.formatMessage({
+                        id: 'pages.permissionsUsers.form.passwordExpires.never',
+                        defaultMessage: '长期有效',
+                      })
+                    : intl.formatMessage(
+                        {
+                          id: 'pages.permissionsUsers.form.passwordExpires.days',
+                          defaultMessage: '{days} 天',
+                        },
+                        { days: String(days) },
+                      ),
+              }))}
+            />
           </Form.Item>
         )}
         <Form.Item
@@ -568,26 +663,9 @@ export default function UsersV2() {
           name="active"
           valuePropName="checked"
         >
-          {' '}
-          <Switch />{' '}
+          <Switch />
         </Form.Item>
-        <Form.Item
-          label={intl.formatMessage({
-            id: 'pages.permissionsUsers.form.label.roles',
-            defaultMessage: '角色',
-          })}
-          name="roles"
-        >
-          {' '}
-          <Select
-            mode="multiple"
-            options={roleOptions}
-            placeholder={intl.formatMessage({
-              id: 'pages.permissionsUsers.placeholder.roles',
-              defaultMessage: '选择角色',
-            })}
-          />{' '}
-        </Form.Item>
+        {editing && rolesField}
       </ModalForm>
 
       <ModalForm<PwdFormValues>
@@ -628,8 +706,7 @@ export default function UsersV2() {
             },
           ]}
         >
-          {' '}
-          <Input.Password />{' '}
+          <Input.Password />
         </Form.Item>
       </ModalForm>
 

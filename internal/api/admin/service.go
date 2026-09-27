@@ -97,11 +97,17 @@ func (s *Service) Create(ctx context.Context, req *CreateRequest) (*CreateRespon
 	err = s.svcCtx.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		adminModel := model.NewAdminModel(tx)
 		admin := &model.Admin{
-			Username: username,
-			Nickname: strings.TrimSpace(req.Nickname),
-			Email:    strings.TrimSpace(req.Email),
-			Phone:    strings.TrimSpace(req.Phone),
-			Status:   model.StatusEnabled,
+			Username:           username,
+			Nickname:           strings.TrimSpace(req.Nickname),
+			Email:              strings.TrimSpace(req.Email),
+			Phone:              strings.TrimSpace(req.Phone),
+			Status:             model.StatusEnabled,
+			MustChangePassword: req.MustChangePassword,
+		}
+		// 密码有效期：天数 >0 时落绝对截止时间（OPEN-ISSUES #20）
+		if req.PasswordExpiresDays > 0 {
+			expiresAt := time.Now().UTC().Add(time.Duration(req.PasswordExpiresDays) * 24 * time.Hour)
+			admin.PasswordExpiresAt = &expiresAt
 		}
 
 		if err := adminModel.Create(ctx, admin, password); err != nil {
@@ -339,6 +345,15 @@ func (s *Service) PasswordReset(ctx context.Context, req *PasswordResetRequest) 
 		return err
 	}
 
+	// 管理员重置后的新密码视为干净状态：清除「登录后必须改密」与有效期
+	// 标记（OPEN-ISSUES #20）。
+	if err := s.svcCtx.AdminModel.Update(ctx, adminID, map[string]interface{}{
+		"must_change_password": false,
+		"password_expires_at":  nil,
+	}); err != nil {
+		return err
+	}
+
 	// 密码变更即吊销该账号所有已签发 token
 	if err := s.svcCtx.AdminModel.BumpTokenVersion(ctx, adminID); err != nil {
 		return err
@@ -561,17 +576,22 @@ func parseAdminID(id string) (uint, error) {
 }
 
 func buildAdminResponse(admin *model.Admin, roleNames []string) Admin {
-	return Admin{
-		Id:        int64(admin.ID),
-		Username:  admin.Username,
-		Nickname:  admin.Nickname,
-		Email:     admin.Email,
-		Phone:     admin.Phone,
-		Roles:     roleNames,
-		Status:    admin.Status,
-		CreatedAt: formatTimestamp(admin.CreatedAt),
-		UpdatedAt: formatTimestamp(admin.UpdatedAt),
+	view := Admin{
+		Id:                 int64(admin.ID),
+		Username:           admin.Username,
+		Nickname:           admin.Nickname,
+		Email:              admin.Email,
+		Phone:              admin.Phone,
+		Roles:              roleNames,
+		Status:             admin.Status,
+		MustChangePassword: admin.MustChangePassword,
+		CreatedAt:          formatTimestamp(admin.CreatedAt),
+		UpdatedAt:          formatTimestamp(admin.UpdatedAt),
 	}
+	if admin.PasswordExpiresAt != nil {
+		view.PasswordExpiresAt = formatTimestamp(*admin.PasswordExpiresAt)
+	}
+	return view
 }
 
 // isBootstrapAdmin 当前用户名是否为引导配置（admins.json/users.json）声明的

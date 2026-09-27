@@ -19,9 +19,13 @@ type Admin struct {
 	Status   int      `json:"status"` // model.StatusEnabled(1)/StatusDisabled(0)
 	// bootstrap 标记该账号是否为引导配置（admins.json/users.json）声明的
 	// 自举账号：不可删除（后端 Delete 拒绝），可禁用。前端据此隐藏删除入口。
-	Bootstrap bool   `json:"bootstrap"`
-	CreatedAt string `json:"createdAt"`
-	UpdatedAt string `json:"updatedAt"`
+	Bootstrap bool `json:"bootstrap"`
+	// 密码策略（OPEN-ISSUES #20）：mustChangePassword=下次登录必须改密；
+	// passwordExpiresAt 为密码有效期截止（RFC3339，空=长期有效）。
+	MustChangePassword bool   `json:"mustChangePassword"`
+	PasswordExpiresAt  string `json:"passwordExpiresAt,omitempty"`
+	CreatedAt          string `json:"createdAt"`
+	UpdatedAt          string `json:"updatedAt"`
 }
 
 // AdminCreateRequest represents the request to create an admin.
@@ -32,6 +36,11 @@ type AdminCreateRequest struct {
 	Email    string   `json:"email"`
 	Phone    string   `json:"phone"`
 	Roles    []string `json:"roles"`
+	// MustChangePassword 创建后首次登录是否必须修改密码（OPEN-ISSUES #20）。
+	MustChangePassword bool `json:"mustChangePassword"`
+	// PasswordExpiresDays 密码有效天数；0/缺省=长期有效。落库为绝对截止
+	// 时间 password_expires_at。
+	PasswordExpiresDays int `json:"passwordExpiresDays"`
 }
 
 // AdminCreateResponse represents the response after creating an admin.

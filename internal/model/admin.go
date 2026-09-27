@@ -26,12 +26,19 @@ type Admin struct {
 	LockedUntil    *time.Time `gorm:"index"`
 	// TokenVersion 单调递增，签发 JWT 时写入 claims；改密码/禁用/登出
 	// 时 +1，中间件比对不一致即拒绝，实现 token 即时撤销。
-	TokenVersion int        `gorm:"not null;default:0"`
-	LastLoginAt  *time.Time `gorm:"index"`
-	LastGameID   string     `gorm:"size:64;index"` // 上次选择的游戏 ID（业务标识）
-	LastEnv      string     `gorm:"size:64"`       // 上次选择的环境
-	CreatedBy    uint       `gorm:"index"`
-	UpdatedBy    uint
+	TokenVersion int `gorm:"not null;default:0"`
+	// MustChangePassword 标记下次登录必须先修改密码（创建时用临时密码
+	// 下发的场景）。登录响应带 mustChangePassword=true，前端强制走改密
+	// 流程；自改或管理员重置密码后清零。
+	MustChangePassword bool `gorm:"not null;default:false"`
+	// PasswordExpiresAt 密码有效期截止时间；NULL 表示长期有效。登录时
+	// 已过期视同 MustChangePassword（前端强制改密），改密后重置为 NULL。
+	PasswordExpiresAt *time.Time `gorm:"index"`
+	LastLoginAt       *time.Time `gorm:"index"`
+	LastGameID        string     `gorm:"size:64;index"` // 上次选择的游戏 ID（业务标识）
+	LastEnv           string     `gorm:"size:64"`       // 上次选择的环境
+	CreatedBy         uint       `gorm:"index"`
+	UpdatedBy         uint
 }
 
 // TableName implements gorm's tabler interface.
