@@ -3,7 +3,13 @@
  * 1. buildDropHandler 对 antd Tree drop info 的归一（pos 缺省容错、非法 drop 不回调）；
  * 2. 树节点 switcher 收起/再展开（onExpand 受控回写）；
  * 3. 操作区容器与「加子菜单」按钮阻断树节点选中冒泡（stopPropagation）；
- * 4. 删除 Popconfirm 点取消不触发 onDelete（onCancel 仅阻断冒泡）。
+ * 4. 删除 Popconfirm 点取消不触发 onDelete（onCancel 仅阻断冒泡）；
+ * 5. 挂载页面排序比较器全分支（order 兜底 0 / pageKey 决胜）、archived 徽标、
+ *    sortOrder=0 不渲染排序标签。
+ *
+ * 分支覆盖登记（v8 coverage）：L279 `nodeDraggable` 的 `node.key ?? ''` nullish
+ * 侧结构性不可达——treeData 由本组件构造，key 恒为 String(id) / `page:${pageKey}`
+ * 字符串，不存在缺失 key 的节点。
  */
 import React from 'react';
 import { render, screen, fireEvent, waitFor, within, configure } from '@testing-library/react';
@@ -271,5 +277,91 @@ describe('挂载页面叶子展示', () => {
     const banRow = screen.getByText('封禁玩家').closest('.ant-tree-treenode');
     fireEvent.click(within(banRow as HTMLElement).getByText('编辑页面'));
     expect(onEditPage).toHaveBeenCalledWith('operation--player.ban');
+  });
+
+  it('同菜单多页排序：order 升序、缺省 order 兜底 0、同序按 pageKey 字典序决胜', () => {
+    // 四页覆盖比较器全部分支：(5,5)/(缺省,缺省) 命中 || 右侧 localeCompare，
+    // (5,缺省)/(缺省,5) 命中两侧 ?? 兜底与 || 左侧短路
+    renderTree({
+      pages: [
+        {
+          pageKey: 'zz--late',
+          type: 'resource',
+          menuId: 1,
+          title: { 'zh-CN': '丁页' },
+          status: 'draft',
+        },
+        {
+          pageKey: 'aa--early',
+          type: 'resource',
+          menuId: 1,
+          title: { 'zh-CN': '甲页' },
+          status: 'draft',
+        },
+        {
+          pageKey: 'mm--mid',
+          type: 'operation',
+          menuId: 1,
+          title: { 'zh-CN': '丙页' },
+          status: 'draft',
+          order: 5,
+        },
+        {
+          pageKey: 'nn--mid',
+          type: 'operation',
+          menuId: 1,
+          title: { 'zh-CN': '乙页' },
+          status: 'draft',
+          order: 5,
+        },
+      ],
+    });
+
+    // 期望顺序：aa--early(0) < zz--late(0，pageKey 决胜) < mm--mid(5) < nn--mid(5，决胜)
+    const rowOf = (label: string): HTMLElement => {
+      const row = screen.getByText(label).closest('.ant-tree-treenode');
+      expect(row).not.toBeNull();
+      return row as HTMLElement;
+    };
+    const [jia, ding, bing, yi] = ['甲页', '丁页', '丙页', '乙页'].map(rowOf);
+    const follows = (a: HTMLElement, b: HTMLElement) =>
+      (a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0;
+    expect(follows(jia, ding)).toBe(true);
+    expect(follows(ding, bing)).toBe(true);
+    expect(follows(bing, yi)).toBe(true);
+  });
+
+  it('archived 状态页面：默认徽标「已下架」，不渲染草稿提示', () => {
+    renderTree({
+      pages: [
+        {
+          pageKey: 'legacy--page',
+          type: 'resource',
+          menuId: 2,
+          title: { 'zh-CN': '下架页' },
+          status: 'archived',
+        },
+      ],
+    });
+    expect(screen.getByText('下架页')).toBeInTheDocument();
+    expect(screen.getByText('已下架')).toBeInTheDocument();
+    expect(screen.queryByText('发布后才会出现在控制台导航')).not.toBeInTheDocument();
+  });
+
+  it('sortOrder 为 0 的菜单节点不渲染排序标签（truthy 判断）', () => {
+    render(
+      <MenuTree
+        items={[
+          makeNode({ id: 9, menuKey: 'zero', labels: { 'zh-CN': '零序菜单' }, sortOrder: 0 }),
+        ]}
+        pages={[]}
+        canManage
+        onEdit={jest.fn()}
+        onDelete={jest.fn()}
+        onMove={jest.fn()}
+      />,
+    );
+    expect(screen.getByText('零序菜单')).toBeInTheDocument();
+    expect(screen.queryByText('排序 0')).not.toBeInTheDocument();
   });
 });
