@@ -995,6 +995,9 @@ func registerProfileRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 func registerProviderSdkStatsRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 	providerHandler := provider.NewHandler(provider.NewService(ctx))
 	g.GET("/sdk-stats", providerHandler.SdkStats)
+	// #2：元数据过滤下拉选项按全局 scope 聚合（#11 EAV 表），同样需要
+	// GameDBMiddleware 的 scope 鉴权注入。
+	g.GET("/meta-options", providerHandler.MetaOptions)
 }
 
 func registerProviderRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {

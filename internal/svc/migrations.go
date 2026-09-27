@@ -81,6 +81,9 @@ import (
 //               新建表无存量约束名漂移，0028 同模式）
 //   0032 (Go)   admin_otp_recovery_codes 表（MFA 备用恢复码：TOTP 绑定时
 //               一次性签发、逐条一次性消费；新表无存量数据，0028/0030 同模式）
+//   0033 (Go)   provider_metadata 表（provider 自报元数据 EAV 持久化，
+//               OPEN-ISSUES #11：元数据此前纯内存态重启即失；新表无存量
+//               数据，0028/0030 同模式）
 
 func init() {
 	registerSvcMigrations()
@@ -123,6 +126,7 @@ func registerSvcMigrations() {
 		functionVersionFloorTableMigration(),
 		contractRemovalPendingColumnMigration(),
 		adminOtpRecoveryCodesMigration(),
+		providerMetadataTableMigration(),
 	); err != nil {
 		panic(fmt.Sprintf("svc: register goose go migrations: %v", err))
 	}
@@ -710,6 +714,32 @@ func adminOtpRecoveryCodesMigration() *goose.Migration {
 		}},
 		nil,
 	)
+}
+
+// providerMetadataTableMigration 为 0033：provider 自报元数据 EAV 表
+// （OPEN-ISSUES #11）。元数据此前纯内存态（agent agentlocal + server
+// registry 快照，重启即失），落库后重启可查、聚合接口有源。新表
+// CreateTable（索引随建表一次建出，无存量约束名漂移——0023 教训只针对
+// 改既有表），幂等：已存在时跳过。
+func providerMetadataTableMigration() *goose.Migration {
+	return goose.NewGoMigration(33,
+		&goose.GoFunc{RunDB: migrateProviderMetadataTable},
+		nil,
+	)
+}
+
+// migrateProviderMetadataTable 是 0033 的迁移体（抽出便于直测）。
+func migrateProviderMetadataTable(ctx context.Context, sqlDB *sql.DB) error {
+	db, err := wrapGorm(sqlDB)
+	if err != nil {
+		return err
+	}
+	if !db.Migrator().HasTable(&model.ProviderMetadata{}) {
+		if err := db.Migrator().CreateTable(&model.ProviderMetadata{}); err != nil {
+			return fmt.Errorf("migrate: 0033 create provider_metadata: %w", err)
+		}
+	}
+	return nil
 }
 
 // contractRemovalPendingColumnMigration 为 0031：function_contracts 加

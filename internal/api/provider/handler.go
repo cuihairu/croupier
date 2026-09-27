@@ -141,3 +141,14 @@ func (h *Handler) SdkStats(c *gin.Context) {
 	}
 	response.Success(c, resp)
 }
+
+// MetaOptions handles GET /api/v1/providers/meta-options（#2）：当前 scope
+// 下实例元数据去重键值聚合，供 sdk-distribution 元数据过滤下拉消费。
+func (h *Handler) MetaOptions(c *gin.Context) {
+	resp, err := h.service.MetaOptions(c.Request.Context())
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
+	response.Success(c, resp)
+}
