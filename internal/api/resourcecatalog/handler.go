@@ -36,6 +36,20 @@ func (h *Handler) List(c *gin.Context) {
 	response.Success(c, resp)
 }
 
+// Categories handles GET /api/resource-catalog/categories：distinct 分类聚合
+// （含资源数），供过滤下拉取全量选项——不能由前端从过滤后的列表推导（#14）。
+func (h *Handler) Categories(c *gin.Context) {
+	gameID, env := getScope(c)
+
+	resp, err := h.service.Categories(c.Request.Context(), gameID, env)
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
+
+	response.Success(c, resp)
+}
+
 // Detail handles GET /api/resource-catalog/:resourceKey
 func (h *Handler) Detail(c *gin.Context) {
 	var req DetailRequest

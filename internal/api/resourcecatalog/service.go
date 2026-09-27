@@ -10,6 +10,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/cuihairu/croupier/internal/audit"
@@ -35,6 +36,21 @@ type Service struct {
 	pageModel       *model.PageSpecModel
 	publishedModel  *model.PublishedPageSpecModel
 	auditService    *audit.AuditService
+
+	// 分类聚合的进程内缓存（#14）：下拉选项要展示**全量** distinct 分类，
+	// 不能从（已按分类过滤的）列表数据推导。按 (game, env) 键缓存，短 TTL
+	// + 语义审核写路径主动失效。Service 在路由注册期构造一次，缓存生命周期
+	// 与进程一致；HA 多实例各自持有副本，下拉选项短时陈旧可接受。
+	categoryCacheMu sync.Mutex
+	categoryCache   map[string]cachedCategories
+}
+
+// categoryCacheTTL bounds staleness of the aggregated category options.
+const categoryCacheTTL = 30 * time.Second
+
+type cachedCategories struct {
+	items    []CategoryOption
+	expireAt time.Time
 }
 
 // NewService creates the service.
@@ -50,6 +66,7 @@ func NewService(db *gorm.DB, auditSvc *audit.AuditService) *Service {
 		pageModel:       model.NewPageSpecModel(db),
 		publishedModel:  model.NewPublishedPageSpecModel(db),
 		auditService:    auditSvc,
+		categoryCache:   make(map[string]cachedCategories),
 	}
 }
 
@@ -144,7 +161,65 @@ type AffectedPageInfo struct {
 	UpdatedAt        string                            `json:"updatedAt,omitempty"`
 }
 
-// ListRequest is the request for listing resources.
+// CategoryOption is one distinct category available for filtering.
+type CategoryOption struct {
+	CategoryKey string `json:"categoryKey"`
+	Count       int    `json:"count"`
+}
+
+// CategoriesResponse is the response for the category aggregation endpoint.
+type CategoriesResponse struct {
+	Items []CategoryOption `json:"items"`
+}
+
+// Categories returns the distinct category keys for a scope with resource
+// counts, served from a short-lived in-memory cache. The dropdown must offer
+// the full category set regardless of the currently applied category filter
+// (deriving options client-side from the filtered list collapses them to one).
+func (s *Service) Categories(ctx context.Context, gameID, env string) (*CategoriesResponse, error) {
+	gameID = svc.ResolveGameID(ctx, gameID)
+	env = svc.ResolveEnv(ctx, env)
+	cacheKey := gameID + "\x00" + env
+
+	s.categoryCacheMu.Lock()
+	if cached, ok := s.categoryCache[cacheKey]; ok && time.Now().Before(cached.expireAt) {
+		items := cached.items
+		s.categoryCacheMu.Unlock()
+		return &CategoriesResponse{Items: items}, nil
+	}
+	s.categoryCacheMu.Unlock()
+
+	capabilities, err := s.capabilityModel.ListByScope(ctx, gameID, env)
+	if err != nil {
+		return nil, fmt.Errorf("list resource capabilities for categories: %w", err)
+	}
+
+	counts := make(map[string]int)
+	for _, cap := range capabilities {
+		counts[categoryKeyForResource(cap.ResourceKey, cap.CategoryKey)]++
+	}
+	items := make([]CategoryOption, 0, len(counts))
+	for key, count := range counts {
+		items = append(items, CategoryOption{CategoryKey: key, Count: count})
+	}
+	sort.Slice(items, func(i, j int) bool { return items[i].CategoryKey < items[j].CategoryKey })
+
+	s.categoryCacheMu.Lock()
+	s.categoryCache[cacheKey] = cachedCategories{items: items, expireAt: time.Now().Add(categoryCacheTTL)}
+	s.categoryCacheMu.Unlock()
+
+	return &CategoriesResponse{Items: items}, nil
+}
+
+// invalidateCategoryCache drops cached category options for a scope; called on
+// write paths that may change a resource's category (semantic review). Callers
+// pass the same resolved (gameID, env) used for the cache key.
+func (s *Service) invalidateCategoryCache(gameID, env string) {
+	s.categoryCacheMu.Lock()
+	delete(s.categoryCache, gameID+"\x00"+env)
+	s.categoryCacheMu.Unlock()
+}
+
 // form tag 必须显式小写：gin 对无 tag 字段按字段名精确匹配（大小写敏感），
 // 前端发的 category/query 从未绑定成功过（见 requestbind.BindQueryCompat
 // 与 OPEN-ISSUES #5）。
@@ -526,6 +601,10 @@ func (s *Service) UpdateSemantics(ctx context.Context, req *UpdateSemanticsReque
 	if err := s.rebuildProposals(ctx, svc.ResolveGameID(ctx, req.GameID), svc.ResolveEnv(ctx, req.Env), req.ResourceKey); err != nil {
 		return nil, err
 	}
+
+	// 审核可改写 categoryKey：失效该 scope 的分类聚合缓存，避免下拉 30s 内
+	// 仍展示旧分类。
+	s.invalidateCategoryCache(svc.ResolveGameID(ctx, req.GameID), svc.ResolveEnv(ctx, req.Env))
 
 	// Audit log
 	if s.auditService != nil {

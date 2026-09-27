@@ -1031,6 +1031,8 @@ func registerResourceCatalogRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) 
 	service := resourcecatalog.NewService(ctx.DB, ctx.AuditService)
 	handler := resourcecatalog.NewHandler(service)
 	g.GET("", handler.List)
+	// 静态段 /categories 优先于 /:resourceKey 匹配（gin 路由树静态优先）。
+	g.GET("/categories", handler.Categories)
 	g.GET("/:resourceKey", handler.Detail)
 	g.PUT("/:resourceKey/semantics", handler.UpdateSemantics)
 	g.GET("/:resourceKey/semantics/versions", handler.ListSemanticVersions)
