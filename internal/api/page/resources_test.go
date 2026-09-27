@@ -296,3 +296,30 @@ func TestService_Resources_CountsMultiResourcePages(t *testing.T) {
 	assert.Equal(t, 3, byKey["player"], "player.manage + mixed.board + order.board(binding)")
 	assert.NotContains(t, byKey, "", "空关联页面不成项")
 }
+
+// TestHandler_Resources_AggregatesScopedOptions 补 handler 层缺口（覆盖率
+// 排查中 Resources handler 此前 0%）：GET /pages/resources 的 HTTP 面——
+// scope 内聚合、直接 JSON 无 envelope、按 resourceKey 升序
+// （OPEN-ISSUES #13/#30）。
+func TestHandler_Resources_AggregatesScopedOptions(t *testing.T) {
+	service, ctx, _ := newPageTestService(t, "pages:read", "pages:edit")
+	seedPageDraft(t, service, ctx, "guild.manage", "guild")
+	seedPageDraft(t, service, ctx, "player.manage", "player")
+	// order.board 列是 order、binding 带来 player → 双资源页参与两处计数
+	seedBoundPage(t, service, ctx, "order.board", "order")
+
+	ginCtx, rec := newTestContext(http.MethodGet, "/api/v1/pages/resources", "")
+	ginCtx.Request = ginCtx.Request.WithContext(ctx)
+	NewHandler(service).Resources(ginCtx)
+	require.Equal(t, http.StatusOK, rec.Code)
+
+	var body PageResourcesResponse
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &body))
+	require.Len(t, body.Items, 3)
+	assert.Equal(t, "guild", body.Items[0].ResourceKey)
+	assert.Equal(t, 1, body.Items[0].PageCount)
+	assert.Equal(t, "order", body.Items[1].ResourceKey)
+	assert.Equal(t, 1, body.Items[1].PageCount)
+	assert.Equal(t, "player", body.Items[2].ResourceKey)
+	assert.Equal(t, 2, body.Items[2].PageCount, "player.manage 列 + order.board binding 关联")
+}
