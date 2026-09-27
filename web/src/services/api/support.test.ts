@@ -13,6 +13,7 @@ import {
   listFAQ,
   listFeedback,
   listTicketComments,
+  listTicketFilterOptions,
   listTickets,
   rateTicket,
   transitionTicket,
@@ -346,6 +347,38 @@ describe('support ticket transition adapter', () => {
     expect(mockedRequest).toHaveBeenLastCalledWith('/api/v1/tickets/3/transition', {
       method: 'POST',
       data: { status: 'open', note: '' },
+    });
+  });
+});
+
+describe('support ticket filter options adapter (#21)', () => {
+  beforeEach(() => mockedRequest.mockReset());
+
+  it('normalizes server-aggregated category/assignee options', async () => {
+    mockedRequest.mockResolvedValue({
+      categories: [
+        { name: 'bug', count: 2 },
+        { name: 'billing', count: 1 },
+      ],
+      assignees: [{ name: 'alice', count: 3 }],
+    });
+
+    await expect(listTicketFilterOptions()).resolves.toEqual({
+      categories: [
+        { name: 'bug', count: 2 },
+        { name: 'billing', count: 1 },
+      ],
+      assignees: [{ name: 'alice', count: 3 }],
+    });
+    expect(mockedRequest).toHaveBeenCalledWith('/api/v1/tickets/filter-options');
+  });
+
+  it('falls back to empty arrays when the response shape is missing', async () => {
+    mockedRequest.mockResolvedValue(undefined);
+
+    await expect(listTicketFilterOptions()).resolves.toEqual({
+      categories: [],
+      assignees: [],
     });
   });
 });

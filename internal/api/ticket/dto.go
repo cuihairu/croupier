@@ -116,6 +116,21 @@ type TicketsListResponse struct {
 	Size  int      `json:"pageSize"`
 }
 
+// TicketFilterOption is one server-aggregated filter option with its
+// ticket count (OPEN-ISSUES #21).
+type TicketFilterOption struct {
+	Name  string `json:"name"`
+	Count int64  `json:"count"`
+}
+
+// FilterOptionsResponse serves GET /tickets/filter-options: the category and
+// assignee filter dropdowns must offer the server-side distinct full set,
+// never options derived client-side from the current filtered list.
+type FilterOptionsResponse struct {
+	Categories []TicketFilterOption `json:"categories"`
+	Assignees  []TicketFilterOption `json:"assignees"`
+}
+
 // Type aliases for service layer compatibility
 type ListRequest = TicketsListRequest
 type ListResponse = TicketsListResponse

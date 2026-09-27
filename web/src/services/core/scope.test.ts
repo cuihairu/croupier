@@ -40,8 +40,8 @@ describe('services/core/scope needsResolvedScope', () => {
   it('matches a url equal to a scoped prefix', () => {
     // 列表首项：命中第一个候选，无需继续迭代
     expect(needsResolvedScope('/api/v1/analytics')).toBe(true);
-    // 列表末项：前面所有前缀谓词均为 false 后命中
-    expect(needsResolvedScope('/api/v1/tasks')).toBe(true);
+    // 列表末项：前面所有前缀谓词均为 false 后命中（#21 工单迁 scoped）
+    expect(needsResolvedScope('/api/v1/tickets')).toBe(true);
   });
 
   it('matches a url under a scoped prefix path', () => {
