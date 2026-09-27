@@ -16,6 +16,10 @@ type LoginResponse struct {
 	User       UserInfo `json:"user"`
 	LastGameID string   `json:"lastGameId,omitempty"`
 	LastEnv    string   `json:"lastEnv,omitempty"`
+	// MustChangePassword 账号被标记「登录后必须修改密码」或密码已过有效期
+	// 时为 true：token 照常签发（改密接口需要认证态），前端据此强制进入
+	// 改密流程后再继续使用（OPEN-ISSUES #20）。
+	MustChangePassword bool `json:"mustChangePassword,omitempty"`
 }
 
 // UserInfo 用户信息

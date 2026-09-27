@@ -78,6 +78,10 @@ export type AdminRecord = {
   status: number;
   /** 引导账号（admins.json 等自举配置声明）：不可删除，可禁用（BUG-028） */
   bootstrap?: boolean;
+  /** 下次登录是否必须先修改密码（OPEN-ISSUES #20） */
+  mustChangePassword?: boolean;
+  /** 密码有效期截止时间（RFC3339；空/缺省 = 长期有效，OPEN-ISSUES #20） */
+  passwordExpiresAt?: string;
   createdAt: string;
   updatedAt: string;
 };
@@ -111,6 +115,10 @@ export async function createAdmin(body: {
   email?: string;
   phone?: string;
   roles: string[];
+  /** 创建后首次登录是否必须修改密码（OPEN-ISSUES #20） */
+  mustChangePassword?: boolean;
+  /** 密码有效天数；0/缺省 = 长期有效（OPEN-ISSUES #20） */
+  passwordExpiresDays?: number;
 }) {
   return request<AdminRecord>('/api/v1/admin', {
     method: 'POST',

@@ -81,6 +81,9 @@ import (
 //               新建表无存量约束名漂移，0028 同模式）
 //   0032 (Go)   admin_otp_recovery_codes 表（MFA 备用恢复码：TOTP 绑定时
 //               一次性签发、逐条一次性消费；新表无存量数据，0028/0030 同模式）
+//   0033 (Go)   admins 密码策略列（must_change_password 登录后必须改密 +
+//               password_expires_at 密码有效期截止，NULL=长期有效；OPEN-
+//               ISSUES #20；0017/0018 加列同模式）
 
 func init() {
 	registerSvcMigrations()
@@ -123,6 +126,7 @@ func registerSvcMigrations() {
 		functionVersionFloorTableMigration(),
 		contractRemovalPendingColumnMigration(),
 		adminOtpRecoveryCodesMigration(),
+		adminPasswordPolicyMigration(),
 	); err != nil {
 		panic(fmt.Sprintf("svc: register goose go migrations: %v", err))
 	}
@@ -705,6 +709,36 @@ func adminOtpRecoveryCodesMigration() *goose.Migration {
 			}
 			if err := migrator.CreateTable(&model.AdminOTPRecoveryCode{}); err != nil {
 				return fmt.Errorf("migrate: 0032 create admin_otp_recovery_codes: %w", err)
+			}
+			return nil
+		}},
+		nil,
+	)
+}
+
+// adminPasswordPolicyMigration 为存量库补 admins 密码策略列（0033）：
+// must_change_password（登录后必须修改密码）+ password_expires_at（密码
+// 有效期截止，NULL=长期有效）。新库由 baseline AutoMigrate 带出；逐列
+// HasColumn+AddColumn 幂等（0017/0018 加列同模式）；game 库无 admins 表
+// 直接跳过。
+func adminPasswordPolicyMigration() *goose.Migration {
+	return goose.NewGoMigration(33,
+		&goose.GoFunc{RunDB: func(ctx context.Context, sqlDB *sql.DB) error {
+			db, err := wrapGorm(sqlDB)
+			if err != nil {
+				return err
+			}
+			migrator := db.Migrator()
+			if !migrator.HasTable(&model.Admin{}) {
+				return nil
+			}
+			for _, col := range []string{"MustChangePassword", "PasswordExpiresAt"} {
+				if migrator.HasColumn(&model.Admin{}, col) {
+					continue
+				}
+				if err := migrator.AddColumn(&model.Admin{}, col); err != nil {
+					return fmt.Errorf("migrate: 0033 add admins.%s: %w", col, err)
+				}
 			}
 			return nil
 		}},

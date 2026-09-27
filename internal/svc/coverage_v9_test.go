@@ -202,6 +202,24 @@ func TestAdminMfaMigrationV9(t *testing.T) {
 	require.NoError(t, runV9GooseUp(t, adminMfaMigration(), sqlDB))
 }
 
+// 0033: admins 密码策略列（must_change_password/password_expires_at）在
+// 存量库上补齐（OPEN-ISSUES #20）。DropColumn 模拟过 baseline 的老库，
+// 迁移后两列回归；重放幂等。
+func TestAdminPasswordPolicyMigrationV9(t *testing.T) {
+	db := newV9TestDB(t)
+	require.NoError(t, db.AutoMigrate(&model.Admin{}))
+	require.NoError(t, db.Migrator().DropColumn(&model.Admin{}, "MustChangePassword"))
+	require.NoError(t, db.Migrator().DropColumn(&model.Admin{}, "PasswordExpiresAt"))
+
+	sqlDB, err := db.DB()
+	require.NoError(t, err)
+	require.NoError(t, runV9GooseUp(t, adminPasswordPolicyMigration(), sqlDB))
+	assert.True(t, db.Migrator().HasColumn(&model.Admin{}, "MustChangePassword"))
+	assert.True(t, db.Migrator().HasColumn(&model.Admin{}, "PasswordExpiresAt"))
+	// Idempotent replay.
+	require.NoError(t, runV9GooseUp(t, adminPasswordPolicyMigration(), sqlDB))
+}
+
 // 0005: game-support context columns are re-added on legacy schemas.
 func TestSupportContextMigrationV9(t *testing.T) {
 	db := newV9TestDB(t)

@@ -1,5 +1,5 @@
 import { Footer } from '@/components';
-import { createSession, fetchCurrentUserGames } from '@/services/api';
+import { changeCurrentUserPassword, createSession, fetchCurrentUserGames } from '@/services/api';
 import { isMfaRequiredError } from '@/utils/errors';
 import { fetchLoginProviders, type LoginProviders } from '@/services/api/sites';
 import { setScope } from '@/stores/scope';
@@ -7,7 +7,7 @@ import { LockOutlined, SafetyCertificateOutlined, UserOutlined } from '@ant-desi
 import { LoginForm, ProFormCheckbox, ProFormText } from '@ant-design/pro-components';
 import { LoginOutlined } from '@ant-design/icons';
 import { FormattedMessage, history, SelectLang, useIntl, useModel, Helmet } from '@umijs/max';
-import { Alert, Button, Divider, Modal, Typography } from 'antd';
+import { Alert, Button, Divider, Form, Input, Modal, Typography } from 'antd';
 import { getMessage } from '@/utils/antdApp';
 import Settings from '../../../../config/defaultSettings';
 import { BRAND } from '@/config/branding';
@@ -80,12 +80,20 @@ const LoginMessage: React.FC<{
   );
 };
 
+/** 强制改密弹窗表单值（OPEN-ISSUES #20） */
+type ForceChangePwdValues = { newPassword: string; confirm: string };
+
 const Login: React.FC = () => {
   // siteCfg 在下方 useModel 声明后取用
   // Only account/password login is supported
   const { initialState, setInitialState } = useModel('@@initialState');
   const siteCfg = initialState?.siteConfig;
   const [forgotOpen, setForgotOpen] = useState(false);
+  // 强制改密（OPEN-ISSUES #20）：登录响应 mustChangePassword=true 时弹窗。
+  // oldPassword 复用刚验证通过的登录密码（改密接口要求携带旧密码）。
+  const [forceChangeOpen, setForceChangeOpen] = useState(false);
+  const [forceChangeOldPwd, setForceChangeOldPwd] = useState('');
+  const [forceChangeForm] = Form.useForm<ForceChangePwdValues>();
   // MFA 二次验证：401+mfa_required 后置 true，展示动态验证码输入（凭据由
   // 表单 values 持续携带，重试时一并提供）
   const [mfaRequired, setMfaRequired] = useState(false);
@@ -126,6 +134,14 @@ const Login: React.FC = () => {
         totpCode: values.totpCode,
       });
       localStorage.setItem('token', res.token);
+      if (res.mustChangePassword) {
+        // 被标记「登录后必须修改密码」或密码已过有效期（OPEN-ISSUES #20）：
+        // 不进入应用，强制先改密。token 仍保留——改密接口需要鉴权；改密成功后
+        // 后端吊销该 token（BumpTokenVersion），前端清除并引导用新密码重登。
+        setForceChangeOldPwd(values.password);
+        setForceChangeOpen(true);
+        return;
+      }
       try {
         // Restore last-selected scope from server, or fall back to first authorized game
         let gameId = res.lastGameId;
@@ -170,6 +186,42 @@ const Login: React.FC = () => {
       });
       getMessage()?.error(defaultLoginFailureMessage);
     }
+  };
+
+  // 强制改密提交（OPEN-ISSUES #20）：旧密码复用刚登录成功的密码；成功后后端
+  // 吊销当前 token，清除本地凭据并提示用新密码重新登录（不进入应用）。
+  const submitForceChange = async () => {
+    const values = await forceChangeForm.validateFields().catch(() => null);
+    if (!values) return;
+    try {
+      await changeCurrentUserPassword({
+        oldPassword: forceChangeOldPwd,
+        newPassword: values.newPassword,
+      });
+      localStorage.removeItem('token');
+      setForceChangeOpen(false);
+      forceChangeForm.resetFields();
+      getMessage()?.success(
+        intl.formatMessage({
+          id: 'pages.login.mustChange.success',
+          defaultMessage: '密码已修改，请使用新密码重新登录',
+        }),
+      );
+    } catch {
+      getMessage()?.error(
+        intl.formatMessage({
+          id: 'pages.login.mustChange.error',
+          defaultMessage: '修改密码失败，请重新登录后重试',
+        }),
+      );
+    }
+  };
+
+  // 放弃本次登录：清除刚签发的 token，回到登录表单（不给绕过改密的入口）
+  const cancelForceChange = () => {
+    localStorage.removeItem('token');
+    setForceChangeOpen(false);
+    forceChangeForm.resetFields();
   };
 
   return (
@@ -371,6 +423,110 @@ const Login: React.FC = () => {
               />
             </p>
           </div>
+        </Modal>
+        {/* 强制改密（OPEN-ISSUES #20）：账号被标记或密码过期时登录不进入应用，
+            必须改密（或放弃本次登录清除 token） */}
+        <Modal
+          title={intl.formatMessage({
+            id: 'pages.login.mustChange.title',
+            defaultMessage: '请先修改密码',
+          })}
+          open={forceChangeOpen}
+          onOk={submitForceChange}
+          onCancel={cancelForceChange}
+          okText={intl.formatMessage({
+            id: 'pages.login.mustChange.submit',
+            defaultMessage: '修改密码',
+          })}
+          cancelText={intl.formatMessage({
+            id: 'pages.login.mustChange.cancel',
+            defaultMessage: '放弃本次登录',
+          })}
+          closable={false}
+          mask={{ closable: false }}
+          keyboard={false}
+        >
+          <Alert
+            style={{ marginBottom: 16 }}
+            type="warning"
+            showIcon
+            title={intl.formatMessage({
+              id: 'pages.login.mustChange.alert',
+              defaultMessage:
+                '该账号要求登录后立即修改密码（管理员标记或密码已过有效期），修改成功后需使用新密码重新登录。',
+            })}
+          />
+          <Form form={forceChangeForm} layout="vertical">
+            <Form.Item
+              label={intl.formatMessage({
+                id: 'pages.login.mustChange.new',
+                defaultMessage: '新密码',
+              })}
+              name="newPassword"
+              rules={[
+                {
+                  required: true,
+                  message: intl.formatMessage({
+                    id: 'pages.login.mustChange.required',
+                    defaultMessage: '请输入新密码！',
+                  }),
+                },
+                {
+                  min: 6,
+                  message: intl.formatMessage({
+                    id: 'pages.login.mustChange.min',
+                    defaultMessage: '至少 6 位',
+                  }),
+                },
+              ]}
+            >
+              <Input.Password
+                placeholder={intl.formatMessage({
+                  id: 'pages.login.mustChange.new.placeholder',
+                  defaultMessage: '请输入新密码',
+                })}
+              />
+            </Form.Item>
+            <Form.Item
+              label={intl.formatMessage({
+                id: 'pages.login.mustChange.confirm',
+                defaultMessage: '确认新密码',
+              })}
+              name="confirm"
+              dependencies={['newPassword']}
+              rules={[
+                {
+                  required: true,
+                  message: intl.formatMessage({
+                    id: 'pages.login.mustChange.confirmRequired',
+                    defaultMessage: '请再次输入新密码！',
+                  }),
+                },
+                ({ getFieldValue }) => ({
+                  validator(_, value: string) {
+                    if (!value || getFieldValue('newPassword') === value) {
+                      return Promise.resolve();
+                    }
+                    return Promise.reject(
+                      new Error(
+                        intl.formatMessage({
+                          id: 'pages.login.mustChange.mismatch',
+                          defaultMessage: '两次输入的新密码不一致',
+                        }),
+                      ),
+                    );
+                  },
+                }),
+              ]}
+            >
+              <Input.Password
+                placeholder={intl.formatMessage({
+                  id: 'pages.login.mustChange.confirm.placeholder',
+                  defaultMessage: '请再次输入新密码',
+                })}
+              />
+            </Form.Item>
+          </Form>
         </Modal>
       </div>
       <Footer />
