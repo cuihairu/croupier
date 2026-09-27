@@ -231,6 +231,23 @@ func (s *Service) SdkStats(ctx context.Context, req *SdkStatsRequest) (*SdkStats
 	return response, nil
 }
 
+// MetaOptions 返回当前 scope 下实例元数据的去重键值聚合（#2）：过滤下拉
+// 的选项由服务端提供（来自实例实际元数据，#11 EAV 表/在线会话聚合），
+// 前端不得从（已过滤的）列表数据推导。路由挂在 scoped 组，ctx 带游戏
+// scope；scope 缺失（内部调用/测试直调）保持全量行为。
+func (s *Service) MetaOptions(ctx context.Context) (*ProviderMetaOptionsResponse, error) {
+	store, err := ensureRegistryStore(s.svcCtx.RegistryStore)
+	if err != nil {
+		return nil, err
+	}
+	scope := svc.GameScopeFromContext(ctx)
+	items := store.ProviderMetaOptions(scope.GameID, scope.Env)
+	if items == nil {
+		items = []ProviderMetaKeyOption{}
+	}
+	return &ProviderMetaOptionsResponse{Items: items}, nil
+}
+
 // matchMetadata 判断实例元数据是否同时满足 key/value 子串条件（大小写
 // 不敏感、自行归一化入参；空条件恒过）。value 条件同时匹配键名与 k=v
 // 整对——「按 serverId 搜」时用户往往直接粘值或整对，无需指定是哪个键；

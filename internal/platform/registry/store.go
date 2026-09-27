@@ -157,6 +157,10 @@ type Store struct {
 	// registry 的退化存储；DB-backed 直接读写 function_version_floors 表)。
 	fnFloorMu sync.Mutex
 	fnFloor   map[string]string
+	// metaOptionsMu guards metaOptions（实例元数据去重键值聚合的进程内缓存，
+	// #11/#2：每次注册刷新，短 TTL 兜底；详见 store_metadata.go）。
+	metaOptionsMu sync.Mutex
+	metaOptions   map[string]cachedMetaOptions
 	// Optional database for dual-write persistence
 	db *gorm.DB
 	// scopeContext resolves the DB/scope context used by game-scoped
@@ -268,6 +272,7 @@ func NewStore() *Store {
 		registrationWarnings: make(map[string]*FunctionRegistrationWarning),
 		sdkHwm:               map[string]string{},
 		fnFloor:              map[string]string{},
+		metaOptions:          make(map[string]cachedMetaOptions),
 		db:                   nil,
 		scopeContext:         defaultScopeContext,
 	}
@@ -282,6 +287,7 @@ func NewStoreWithDB(db *gorm.DB) *Store {
 		registrationWarnings: make(map[string]*FunctionRegistrationWarning),
 		sdkHwm:               map[string]string{},
 		fnFloor:              map[string]string{},
+		metaOptions:          make(map[string]cachedMetaOptions),
 		db:                   db,
 		scopeContext:         defaultScopeContext,
 	}
@@ -432,6 +438,11 @@ func (s *Store) UpsertAgent(a *AgentSession) error {
 	}
 
 	// Always write to memory (primary store)
+	// #11：注册成功后把 provider 元数据投影进 DB（best-effort，失败不回滚
+	// 注册）。previousSession 是本次注册前的内存会话，用于清掉本次消失的
+	// service 行。无 DB 时为空操作（在线会话聚合退化路径仍可用）。
+	s.refreshProviderMetadata(previousSession, a)
+
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	cur := s.agents[a.AgentID]
@@ -1280,15 +1291,21 @@ func (s *Store) RemoveAgentIfStale(agentID string, notAfter time.Time) bool {
 		return false
 	}
 	s.mu.Lock()
-	defer s.mu.Unlock()
 	cur := s.agents[agentID]
 	if cur == nil {
+		s.mu.Unlock()
 		return false
 	}
 	if cur.LastSeen.After(notAfter) {
+		s.mu.Unlock()
 		return false
 	}
 	delete(s.agents, agentID)
+	s.mu.Unlock()
+	// 注意：断连摘除不删 provider 元数据行（#11）——HA 下 agent 断 A 连 B
+	// 时，B 的注册可能先于 A 的断连清理落行，此处再删会误删存活实例的
+	// 元数据。行随会话过期清理（ExpireAt 过期的 agent 必然全量重注册，
+	// 重注册先行刷新行，无竞态窗口），滞后有界。
 	return true
 }
 
@@ -1427,10 +1444,12 @@ func (s *Store) StartCleanupRoutine(ctx context.Context, interval time.Duration)
 // cleanupExpiredSessions 清理过期的 AgentSession
 func (s *Store) cleanupExpiredSessions() {
 	s.mu.Lock()
-	defer s.mu.Unlock()
 
 	now := time.Now()
 	expiredCount := 0
+	// 过期会话的 provider 元数据行随会话清理（#11）：锁外做 DB 删除，
+	// 避免在注册锁内做慢 I/O。
+	expiredSessions := make([]*AgentSession, 0)
 
 	for agentID, sess := range s.agents {
 		if sess == nil {
@@ -1441,9 +1460,18 @@ func (s *Store) cleanupExpiredSessions() {
 		if sess.ExpireAt.Before(now) {
 			delete(s.agents, agentID)
 			expiredCount++
+			if len(sess.Providers) > 0 {
+				expiredSessions = append(expiredSessions, sess)
+			}
 
 			slog.Debug("Cleaned up expired agent session", "agent_id", agentID, "expired_at", sess.ExpireAt.Format(time.RFC3339))
 		}
+	}
+
+	s.mu.Unlock()
+
+	for _, sess := range expiredSessions {
+		s.deleteProviderMetadataForServices(sess)
 	}
 
 	if expiredCount > 0 {

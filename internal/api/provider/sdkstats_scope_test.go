@@ -86,3 +86,46 @@ func TestServiceSdkStats_ScopeFilterWithMetaCondition(t *testing.T) {
 	require.NoError(t, err)
 	assert.Empty(t, resp.Instances)
 }
+
+// #2/#11 回归：MetaOptions 按中间件注入的游戏 scope 聚合实例元数据
+// 去重键值（下拉选项服务端提供）；scope 缺失时保持全量。
+func TestServiceMetaOptions_ScopeFilter(t *testing.T) {
+	s := NewService(&svc.ServiceContext{RegistryStore: newScopedMetaStore()})
+
+	resp, err := s.MetaOptions(
+		svc.WithGameScope(context.Background(), svc.GameScope{GameID: "game-a", Env: "dev"}),
+	)
+	require.NoError(t, err)
+	require.Len(t, resp.Items, 1)
+	assert.Equal(t, "serverId", resp.Items[0].Key)
+	require.Len(t, resp.Items[0].Values, 1)
+	assert.Equal(t, "s-a", resp.Items[0].Values[0].Value)
+	assert.Equal(t, 1, resp.Items[0].Values[0].Count)
+
+	// 无 scope → 全量聚合（两游戏各一值）。
+	resp, err = s.MetaOptions(context.Background())
+	require.NoError(t, err)
+	require.Len(t, resp.Items, 1)
+	assert.Len(t, resp.Items[0].Values, 2)
+}
+
+func newScopedMetaStore() *reg.Store {
+	store := reg.NewStore()
+	if err := store.UpsertAgent(&reg.AgentSession{
+		AgentID:   "agent-a",
+		GameID:    "game-a",
+		Env:       "dev",
+		Providers: []reg.ProviderSession{{ProviderID: "a-go", Metadata: map[string]string{"serverId": "s-a"}}},
+	}); err != nil {
+		panic(err)
+	}
+	if err := store.UpsertAgent(&reg.AgentSession{
+		AgentID:   "agent-b",
+		GameID:    "game-b",
+		Env:       "prod",
+		Providers: []reg.ProviderSession{{ProviderID: "b-py", Metadata: map[string]string{"serverId": "s-b"}}},
+	}); err != nil {
+		panic(err)
+	}
+	return store
+}

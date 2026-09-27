@@ -84,6 +84,9 @@ import (
 //   0033 (Go)   admins 密码策略列（must_change_password 登录后必须改密 +
 //               password_expires_at 密码有效期截止，NULL=长期有效；OPEN-
 //               ISSUES #20；0017/0018 加列同模式）
+//   0034 (Go)   provider_metadata 表（provider 自报元数据 EAV 持久化，
+//               OPEN-ISSUES #11：元数据此前纯内存态重启即失；新表无存量
+//               数据，0028/0030 同模式）
 
 func init() {
 	registerSvcMigrations()
@@ -127,6 +130,7 @@ func registerSvcMigrations() {
 		contractRemovalPendingColumnMigration(),
 		adminOtpRecoveryCodesMigration(),
 		adminPasswordPolicyMigration(),
+		providerMetadataTableMigration(),
 	); err != nil {
 		panic(fmt.Sprintf("svc: register goose go migrations: %v", err))
 	}
@@ -744,6 +748,32 @@ func adminPasswordPolicyMigration() *goose.Migration {
 		}},
 		nil,
 	)
+}
+
+// providerMetadataTableMigration 为 0034：provider 自报元数据 EAV 表
+// （OPEN-ISSUES #11）。元数据此前纯内存态（agent agentlocal + server
+// registry 快照，重启即失），落库后重启可查、聚合接口有源。新表
+// CreateTable（索引随建表一次建出，无存量约束名漂移——0023 教训只针对
+// 改既有表），幂等：已存在时跳过。
+func providerMetadataTableMigration() *goose.Migration {
+	return goose.NewGoMigration(34,
+		&goose.GoFunc{RunDB: migrateProviderMetadataTable},
+		nil,
+	)
+}
+
+// migrateProviderMetadataTable 是 0034 的迁移体（抽出便于直测）。
+func migrateProviderMetadataTable(ctx context.Context, sqlDB *sql.DB) error {
+	db, err := wrapGorm(sqlDB)
+	if err != nil {
+		return err
+	}
+	if !db.Migrator().HasTable(&model.ProviderMetadata{}) {
+		if err := db.Migrator().CreateTable(&model.ProviderMetadata{}); err != nil {
+			return fmt.Errorf("migrate: 0034 create provider_metadata: %w", err)
+		}
+	}
+	return nil
 }
 
 // contractRemovalPendingColumnMigration 为 0031：function_contracts 加

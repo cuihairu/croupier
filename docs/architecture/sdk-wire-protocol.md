@@ -285,11 +285,12 @@ SDK 配置（Go InstanceMetadata / JS providerMetadata）
 - **只做观测，不做路由**：metadata 仅用于展示/搜索/诊断，负载均衡与函数路由不得读它（对应 proto 注释 "observability only, never routing"）
 - 旧版 SDK 不发该字段完全兼容；未配置时 wire 上不发空 map（Go/JS 侧均为 nil/缺省）
 
-存储与查询设计结论（在线态）：
+存储与查询设计结论（持久化，#11 落地）：
 
-- 在线 provider 会话是**易逝内存数据**（TTL 心跳维持），实例元数据随会话生灭——**不建表、不持久化、无需数据库索引**
+- 在线 provider 会话是**易逝内存数据**（TTL 心跳维持）；实例元数据另以 **EAV 表持久化**（迁移 0033，`provider_metadata`）：`(game_id, env, service_id, meta_key, meta_value)` + `UNIQUE(game_id, env, service_id, meta_key)` + `INDEX(meta_key, meta_value)`——sqlite/mysql/postgres 三方言通用，不依赖任何 JSON 查询扩展。每次 agent 注册成功后整体刷新（upsert 当前值 + 清掉本次消失的 service 行；无变化的重复注册跳过写放大），会话过期清理时删除对应行；表行集合跟随在册会话，重启后下拉选项与聚合查询仍有源
+- 聚合查询 = `GET /api/v1/providers/meta-options`（scoped 组）：服务端按当前游戏 scope 返回 distinct 键 → 值集合（含使用实例数，值按实例数降序），带 30s 进程内缓存、注册即失效——过滤下拉的选项由服务端提供（#2），前端不得从（已过滤的）列表数据推导
 - 搜索实现 = 服务端对快照做内存线性过滤（`metaKey`/`metaValue` 子串、大小写不敏感，value 条件同时匹配键名与 `k=v` 整对）+ 前端实例关键字匹配，量级（单 agent 会话数）远不需要索引
-- 未来若出现持久化需求（历史实例轨迹、离线检索），用 **EAV 表**而非 JSON 列：`(game_id, env, service_id, meta_key, meta_value)` + `UNIQUE(game_id, env, service_id, meta_key)` + `INDEX(meta_key, meta_value)`——sqlite/mysql/postgres 三方言通用，不依赖任何 JSON 查询扩展
+- DB-less（内存 registry）退化：无 DB 时聚合从在线会话快照即时计算，重启丢失——见部署形态差异
 
 历史别名如 `RegisterLocalRequest`、`RegisterLocalResponse`、`HeartbeatLocalRequest` 只属于兼容语义，不应再出现在新设计文档里。
 
