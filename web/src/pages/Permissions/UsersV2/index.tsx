@@ -31,6 +31,7 @@ import {
 } from '@/services/api/permissions';
 import { listGamesMeta, type Game as GameMeta } from '@/services/api/games';
 import { listGameEnvs } from '@/services/api/envs';
+import { buildRoleOptions, roleOptionFilter } from './roleOptions';
 
 /** 用户编辑表单值（新增独有 username/password，编辑时字段不渲染） */
 type UserFormValues = {
@@ -55,7 +56,7 @@ export default function UsersV2() {
   const [userTotal, setUserTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
-  const [roles, setRoles] = useState<{ id: number; name: string }[]>([]);
+  const [roles, setRoles] = useState<{ id: number; name: string; description?: string }[]>([]);
   const [loading, setLoading] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
   const [pwdOpen, setPwdOpen] = useState(false);
@@ -66,7 +67,7 @@ export default function UsersV2() {
   const [envOptions, setEnvOptions] = useState<string[]>([]);
   const [envSel, setEnvSel] = useState<string[]>([]);
 
-  const roleOptions = useMemo(() => roles.map((r) => ({ label: r.name, value: r.name })), [roles]);
+  const roleOptions = useMemo(() => buildRoleOptions(roles), [roles]);
 
   const refresh = async (nextPage = page, nextSize = pageSize) => {
     setLoading(true);
@@ -78,7 +79,9 @@ export default function UsersV2() {
       ]);
       setUsers(u.items || []);
       setUserTotal(u.total ?? (u.items || []).length);
-      setRoles((r.items || []).map((x) => ({ id: x.id, name: x.name })));
+      setRoles(
+        (r.items || []).map((x) => ({ id: x.id, name: x.name, description: x.description })),
+      );
       setGames(g.games || []);
     } finally {
       setLoading(false);
@@ -581,7 +584,29 @@ export default function UsersV2() {
           {' '}
           <Select
             mode="multiple"
+            showSearch
             options={roleOptions}
+            filterOption={roleOptionFilter}
+            optionRender={(option) => {
+              // OPEN-ISSUES #19：下拉行附简短中文说明（描述副行），tag 仍为角色名
+              const o = option.data as { label?: string; description?: string };
+              return (
+                <div style={{ lineHeight: 1.4 }}>
+                  <div>{o.label}</div>
+                  {o.description ? (
+                    <div
+                      style={{
+                        color: 'rgba(0,0,0,0.55)',
+                        fontSize: 12,
+                        whiteSpace: 'normal',
+                      }}
+                    >
+                      {o.description}
+                    </div>
+                  ) : null}
+                </div>
+              );
+            }}
             placeholder={intl.formatMessage({
               id: 'pages.permissionsUsers.placeholder.roles',
               defaultMessage: '选择角色',
