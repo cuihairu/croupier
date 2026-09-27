@@ -55,6 +55,7 @@ export function buildProposalColumns({
   onRequestPublish,
   onReview,
   onReject,
+  onJumpToDiagnostics,
 }: {
   intl: IntlFormatter;
   modal: ReturnType<typeof App.useApp>['modal'];
@@ -65,6 +66,9 @@ export function buildProposalColumns({
   onRequestPublish: (proposal: PageProposal) => void;
   onReview: (proposal: PageProposal) => Promise<void>;
   onReject: (proposalKey: string) => Promise<void>;
+  /** 诊断标签点击直达处理位置（OPEN-ISSUES #29）：资源类→资源目录、
+   *  已有页面→编辑器 focus、其余→提案详情诊断表。 */
+  onJumpToDiagnostics: (proposal: PageProposal) => void;
 }): ColumnsType<PageProposal> {
   return [
     {
@@ -160,7 +164,8 @@ export function buildProposalColumns({
       dataIndex: 'diagnostics',
       key: 'diagnostics',
       width: 140,
-      render: (diagnostics?: DiagnosticInfo[]) => diagnosticSummary(intl, diagnostics),
+      render: (diagnostics: DiagnosticInfo[] | undefined, record) =>
+        diagnosticSummary(intl, diagnostics, () => onJumpToDiagnostics(record)),
     },
     {
       title: intl.formatMessage({
@@ -200,17 +205,6 @@ export function buildProposalColumns({
                 onOk: () => onAccept(record),
               }),
           });
-          if (record.quality === 'needs_review') {
-            moreItems.push({
-              key: 'review',
-              icon: <ExclamationCircleOutlined />,
-              label: intl.formatMessage({
-                id: 'component.proposalInbox.column.action.review',
-                defaultMessage: '处理',
-              }),
-              onClick: () => onReview(record),
-            });
-          }
           moreItems.push({
             key: 'reject',
             icon: <CloseOutlined />,
@@ -296,6 +290,22 @@ export function buildProposalColumns({
                 />
               </Button>
             )}
+            {/* 处理入口前置（OPEN-ISSUES #29）：needs_review 的「处理」此前藏在
+                「更多」下拉里，是该队列的主操作，改为行内直出。 */}
+            {record.status === 'pending' && record.quality === 'needs_review' && (
+              <Button
+                type="link"
+                size="small"
+                danger
+                icon={<ExclamationCircleOutlined />}
+                onClick={() => onReview(record)}
+              >
+                <FormattedMessage
+                  id="component.proposalInbox.column.action.review"
+                  defaultMessage="处理"
+                />
+              </Button>
+            )}
             {moreItems.length > 0 && (
               <Dropdown menu={{ items: moreItems }} trigger={['click']}>
                 <Tooltip
@@ -313,6 +323,13 @@ export function buildProposalColumns({
       },
     },
   ];
+}
+
+/** 阻断项处理位置：资源目录（带 resourceKey 锚点）。诊断标签与操作按钮共用（#29）。 */
+function blockedRepairPath(record: BlockedProposalIssue): string {
+  return record.resourceKey
+    ? `/functions/resource-catalog?resourceKey=${encodeURIComponent(record.resourceKey)}`
+    : '/functions/resource-catalog';
 }
 
 export function buildBlockedColumns({
@@ -362,7 +379,9 @@ export function buildBlockedColumns({
       dataIndex: 'diagnostics',
       key: 'diagnostics',
       width: 140,
-      render: (diagnostics?: DiagnosticInfo[]) => diagnosticSummary(intl, diagnostics),
+      // 点击诊断标签直达修复位置（资源目录），与操作列同源（#29）
+      render: (diagnostics: DiagnosticInfo[] | undefined, record) =>
+        diagnosticSummary(intl, diagnostics, () => navigateTo(blockedRepairPath(record))),
     },
     {
       title: intl.formatMessage({
@@ -381,34 +400,25 @@ export function buildBlockedColumns({
       }),
       key: 'action',
       width: 120,
-      render: (_, record) =>
-        record.resourceKey ? (
-          <Button
-            type="link"
-            icon={<ExclamationCircleOutlined />}
-            onClick={() =>
-              navigateTo(
-                `/functions/resource-catalog?resourceKey=${encodeURIComponent(record.resourceKey || '')}`,
-              )
-            }
-          >
+      render: (_, record) => (
+        <Button
+          type="link"
+          icon={<ExclamationCircleOutlined />}
+          onClick={() => navigateTo(blockedRepairPath(record))}
+        >
+          {record.resourceKey ? (
             <FormattedMessage
               id="component.proposalInbox.column.blocked.action.repairSemantics"
               defaultMessage="修复语义"
             />
-          </Button>
-        ) : (
-          <Button
-            type="link"
-            icon={<ExclamationCircleOutlined />}
-            onClick={() => navigateTo('/functions/resource-catalog')}
-          >
+          ) : (
             <FormattedMessage
               id="component.proposalInbox.column.blocked.action.viewCatalog"
               defaultMessage="查看目录"
             />
-          </Button>
-        ),
+          )}
+        </Button>
+      ),
     },
   ];
 }

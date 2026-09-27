@@ -117,7 +117,12 @@ beforeEach(() => {
   jest.clearAllMocks();
   mockedAccess.mockReturnValue({ canMenuManage: true } as never);
   mockedListMenus.mockResolvedValue(treeItems as never);
-  mockedListPageDrafts.mockResolvedValue([] as never);
+  mockedListPageDrafts.mockResolvedValue({
+    items: [],
+    total: 0,
+    page: 1,
+    pageSize: 200,
+  } as never);
 });
 
 describe('MenuManagement page', () => {
@@ -381,12 +386,17 @@ describe('MenuManagement page', () => {
   it('页面草稿挂载：menuId>0 渲染菜单页叶子，点击「编辑页面」跳编辑器', async () => {
     const noTitle = draftOf({ pageKey: 'no-title', menuId: 3 });
     Reflect.deleteProperty(noTitle, 'title');
-    mockedListPageDrafts.mockResolvedValue([
-      draftOf(),
-      draftOf({ pageKey: 'zero-menu', menuId: 0 }),
-      draftOf({ pageKey: 'null-menu', menuId: null }),
-      noTitle,
-    ]);
+    mockedListPageDrafts.mockResolvedValue({
+      items: [
+        draftOf(),
+        draftOf({ pageKey: 'zero-menu', menuId: 0 }),
+        draftOf({ pageKey: 'null-menu', menuId: null }),
+        noTitle,
+      ],
+      total: 4,
+      page: 1,
+      pageSize: 200,
+    } as never);
 
     renderPage();
     await screen.findByText('玩家页面');

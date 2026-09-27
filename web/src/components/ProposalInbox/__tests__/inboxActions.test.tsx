@@ -2,7 +2,8 @@
  * 搜索过滤、刷新重拉、创建组合页跳转、accept 三分支（auto 发布成功 /
  * 发布失败 / 静默跳编辑器）、拒绝二次确认、处理三分支（资源跳目录 /
  * 阻断诊断先预览 / 常规走 accept）、契约变更 Tab 渲染、
- * focusPageKey 命中需要处理队列自动切 Tab。 */
+ * focusPageKey 命中需要处理队列自动切 Tab、
+ * 诊断标签直达处理位置三分支（#29：资源目录 / 编辑器 focus / 提案详情）。 */
 import React from 'react';
 import { App as AntdApp } from 'antd';
 import { configure, fireEvent, render, screen, waitFor } from '@testing-library/react';
@@ -343,5 +344,49 @@ describe('ProposalInbox 拒绝与处理分支', () => {
 
     await waitFor(() => expect(mockedAccept).toHaveBeenCalledWith('resource--players'));
     expect(mockedGetProposal).not.toHaveBeenCalled();
+  });
+});
+
+describe('诊断标签直达处理位置（#29）', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  const withError = { code: 'e1', severity: 'error' as const, message: 'broken' };
+
+  it('资源类提案：点诊断标签跳资源目录并带 resourceKey（不 accept、不拉详情）', async () => {
+    renderInbox({ publishable: [proposal({ resourceKey: 'player', diagnostics: [withError] })] });
+    fireEvent.click(await screen.findByText('1 错误'));
+    expect(mockedNavigateTo).toHaveBeenCalledWith('/functions/resource-catalog?resourceKey=player');
+    expect(mockedAccept).not.toHaveBeenCalled();
+    expect(mockedGetProposal).not.toHaveBeenCalled();
+  });
+
+  it('已有页面：跳页面工作台 focus 定位', async () => {
+    renderInbox({
+      publishable: [proposal({ pageExists: true, pageKey: 'players', diagnostics: [withError] })],
+    });
+    fireEvent.click(await screen.findByText('1 错误'));
+    expect(mockedNavigateTo).toHaveBeenCalledWith('/functions/pages?focus=players');
+    expect(mockedGetProposal).not.toHaveBeenCalled();
+  });
+
+  it('纯提案态：拉提案详情（诊断表在详情弹窗内）', async () => {
+    mockedGetProposal.mockResolvedValue(proposal({}) as never);
+    renderInbox({
+      publishable: [
+        proposal({
+          proposalKey: 'operation--solo',
+          pageKey: 'solo',
+          pageType: 'operation',
+          resourceKey: undefined,
+          diagnostics: [withError],
+        }),
+      ],
+    });
+    fireEvent.click(await screen.findByText('1 错误'));
+    await waitFor(() => expect(mockedGetProposal).toHaveBeenCalledWith('operation--solo'));
+    expect(mockedNavigateTo).not.toHaveBeenCalled();
+    expect(mockedAccept).not.toHaveBeenCalled();
   });
 });

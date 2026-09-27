@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { FormattedMessage, history, useIntl } from '@umijs/max';
 import { PageContainer, ProTable } from '@ant-design/pro-components';
-import { App, Button, Collapse, Space, Typography } from 'antd';
+import { App, Button, Collapse, Input, Select, Space, Typography } from 'antd';
 import { ReloadOutlined, RocketOutlined } from '@ant-design/icons';
 import { useScopeReload } from '@/hooks/useScopeReload';
 import MergeConflictModal from '@/components/MergeConflictModal';
@@ -17,10 +17,12 @@ import MergeModal from './studio/MergeModal';
 import MenuMountModal from './studio/MenuMountModal';
 import { buildDraftColumns } from './studio/draftColumns';
 import { clearMountParam, currentFocusPageKey, currentMountFlag } from './studio/shared';
+import ServerOptionsSelect from '@/components/ServerOptionsSelect';
 import {
   getPageDraft,
   listPageVersions,
   listPageDrafts,
+  listPageResources,
   publishPageDraft,
   regeneratePageDraft,
   savePageDraft,
@@ -45,6 +47,7 @@ import {
   type MergeStrategy,
 } from '@/services/api/versioning';
 import type {
+  PageDraftStatus,
   PageSpec,
   PageSpecDraft,
   PageSpecDraftSummary,
@@ -74,6 +77,24 @@ function ErrorDetailList({ error }: { error: unknown }) {
   );
 }
 
+/** 状态过滤选项（#30 服务端条件下拉）：文案渲染期经 intl 解析。 */
+const buildStatusOptions = (
+  formatMessage: (descriptor: { id: string; defaultMessage: string }) => string,
+): { value: PageDraftStatus; label: string }[] => [
+  {
+    value: 'draft',
+    label: formatMessage({ id: 'pages.pageStudio.status.draft', defaultMessage: '草稿' }),
+  },
+  {
+    value: 'published',
+    label: formatMessage({ id: 'pages.pageStudio.status.published', defaultMessage: '已发布' }),
+  },
+  {
+    value: 'archived',
+    label: formatMessage({ id: 'pages.pageStudio.status.archived', defaultMessage: '已归档' }),
+  },
+];
+
 export default function PageStudio() {
   const { message, modal } = App.useApp();
   const intl = useIntl();
@@ -83,6 +104,14 @@ export default function PageStudio() {
   intlRef.current = intl;
   const [drafts, setDrafts] = useState<PageSpecDraftSummary[]>([]);
   const [loading, setLoading] = useState(false);
+  // #13 资源过滤：选项由服务端聚合（/pages/resources），过滤条件下推服务端
+  const [resourceFilter, setResourceFilter] = useState<string | undefined>(undefined);
+  // #30 搜索/状态/分页：过滤与分页全部下推服务端，前端不拉全量自算
+  const [keywordFilter, setKeywordFilter] = useState('');
+  const [statusFilter, setStatusFilter] = useState<PageDraftStatus | undefined>(undefined);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
+  const [total, setTotal] = useState(0);
   const [selectedDraft, setSelectedDraft] = useState<PageSpecDraft | null>(null);
   const [selectedDraftRevision, setSelectedDraftRevision] = useState(0);
   const [previewVisible, setPreviewVisible] = useState(false);
@@ -115,7 +144,15 @@ export default function PageStudio() {
   const loadDrafts = useCallback(async () => {
     setLoading(true);
     try {
-      setDrafts(await listPageDrafts());
+      const result = await listPageDrafts({
+        resourceKey: resourceFilter || undefined,
+        status: statusFilter,
+        keyword: keywordFilter.trim() || undefined,
+        page,
+        pageSize,
+      });
+      setDrafts(result.items);
+      setTotal(result.total);
     } catch {
       message.error(
         intlRef.current.formatMessage({
@@ -126,7 +163,7 @@ export default function PageStudio() {
     } finally {
       setLoading(false);
     }
-  }, [message]);
+  }, [message, resourceFilter, statusFilter, keywordFilter, page, pageSize]);
 
   // #38 族：页面草稿按全局 scope（X-Game-ID/X-Env）过滤，切游戏重拉列表
   useScopeReload(loadDrafts);
@@ -1018,9 +1055,71 @@ export default function PageStudio() {
                 loading={loading}
                 rowKey="pageKey"
                 search={false}
-                pagination={false}
+                // #30 分页由服务端执行：total 来自接口，翻页/换页大小重拉
+                pagination={{
+                  current: page,
+                  pageSize,
+                  total,
+                  showSizeChanger: true,
+                  onChange: (next, nextSize) => {
+                    if (nextSize !== pageSize) {
+                      setPage(1);
+                      setPageSize(nextSize);
+                    } else {
+                      setPage(next);
+                    }
+                  },
+                }}
                 scroll={{ x: 1040 }}
                 toolBarRender={() => [
+                  <Input.Search
+                    key="keyword-filter"
+                    allowClear
+                    style={{ width: 220 }}
+                    placeholder={intl.formatMessage({
+                      id: 'pages.pageStudio.filter.keyword',
+                      defaultMessage: '搜索页面/标题/资源',
+                    })}
+                    onSearch={(value) => {
+                      setKeywordFilter(value);
+                      setPage(1);
+                    }}
+                  />,
+                  <Select<PageDraftStatus>
+                    key="status-filter"
+                    style={{ width: 140 }}
+                    allowClear
+                    placeholder={intl.formatMessage({
+                      id: 'pages.pageStudio.filter.status',
+                      defaultMessage: '按状态过滤',
+                    })}
+                    value={statusFilter}
+                    onChange={(value) => {
+                      setStatusFilter(value ?? undefined);
+                      setPage(1);
+                    }}
+                    options={buildStatusOptions(intl.formatMessage)}
+                  />,
+                  <ServerOptionsSelect
+                    key="resource-filter"
+                    style={{ width: 200 }}
+                    placeholder={intl.formatMessage({
+                      id: 'pages.pageStudio.filter.resource',
+                      defaultMessage: '按资源过滤',
+                    })}
+                    fetchOptions={async () =>
+                      (await listPageResources()).map((item) => ({
+                        value: item.resourceKey,
+                        label: item.resourceKey,
+                        count: item.pageCount,
+                      }))
+                    }
+                    value={resourceFilter}
+                    onChange={(value) => {
+                      setResourceFilter(value ?? undefined);
+                      setPage(1);
+                    }}
+                  />,
                   <Button key="refresh" icon={<ReloadOutlined />} onClick={loadDrafts}>
                     <FormattedMessage id="pages.pageStudio.action.refresh" defaultMessage="刷新" />
                   </Button>,

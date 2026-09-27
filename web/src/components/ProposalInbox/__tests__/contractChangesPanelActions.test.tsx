@@ -10,7 +10,8 @@
  * 明细仅取前 3 条）、一键同步报告弹窗的 onClose/onApplied 回调、
  * 行内编辑跳转（navigateTo 带 focus 参数）、一键重新发布边界（异常提示、
  * 响应缺 published 字段按 0 计）与渲染分支（未知 pageType 回显原文、
- * bindingFreshness 诊断计数、focusPageKey 行高亮、空队列按钮禁用）。
+ * bindingFreshness 诊断计数、「变更原因」标签点击直达同步报告（#29）、
+ * focusPageKey 行高亮、空队列按钮禁用）。
  */
 import React from 'react';
 import { App as AntdApp } from 'antd';
@@ -462,6 +463,22 @@ describe('行内编辑与同步入口', () => {
     // 关闭报告弹窗
     selectorSyncModalProps!.onClose();
     await waitFor(() => expect(selectorSyncModalProps?.open ?? true).toBe(false));
+  });
+
+  it('「变更原因」诊断标签点击直达该页同步报告（#29）', async () => {
+    renderPanel([
+      makeRecord({
+        bindingFreshness: [
+          {
+            bindingId: 'b1',
+            diagnostic: { code: 'binding_stale', severity: 'error', message: '漂移' },
+          } as unknown as NonNullable<ContractChangeInfo['bindingFreshness']>[number],
+        ],
+      }),
+    ]);
+    fireEvent.click(screen.getByText('1 错误'));
+    await waitFor(() => expect(selectorSyncModalProps?.open ?? false).toBe(true));
+    expect(selectorSyncModalProps?.pageKey).toBe('resource--player');
   });
 });
 

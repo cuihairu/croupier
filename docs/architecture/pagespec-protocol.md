@@ -389,6 +389,41 @@ interface PageBulkSyncSelectorsResult {
 
 语义要点：**严格只写 draft**（`published_page_specs` 不动），上线仍需 `bulk-republish`；revision 由服务端读取当前草稿版本（并发冲突在事务内 409，按页计入 `failed` 继续）；先 dry-run 判定——存在 Manual 诊断（governance/version 等不可由 selector 同步修复的漂移）的页面整体 `skipped` 并透传诊断，不做半吊子同步；不自动 publish。
 
+## 草稿列表过滤与资源聚合（wire 契约）
+
+页面工作台的列表过滤、关键词搜索与分页全部由服务端执行（OPEN-ISSUES #13/#30）：前端不得拉全量自行推导，列表响应永远是过滤后的一个分页窗口。
+
+```ts
+// GET /api/v1/pages?resourceKey=&status=&keyword=&page=&pageSize=
+//   （权限 pages:read；query 条件可组合）
+// - resourceKey：按「页面涉及资源」过滤（resourceKey 列 ∪ binding 函数契约资源，
+//   服务端读取时计算；旧单列页面同样命中其 binding 关联资源）
+// - status：draft / published / archived（SQL 条件下推）
+// - keyword：对 pageKey、标题各语言、涉及资源做不区分大小写的包含匹配
+//   （scope 内候选集内存过滤，scope 本身已限定数据面）
+// - page/pageSize：服务端分页窗口；缺省 page=1、pageSize=20，pageSize 上限 200，
+//   非法值（<1 或超上限）钳制，不报错
+// 响应：{
+//   items: PageSpecDraftSummary[];  // 当前窗口；条目含 resources 投影（见下）
+//   total: number;   // 过滤后的总条数（分页依据）
+//   page: number;    // 实际生效页码（钳制后）
+//   pageSize: number; // 实际生效页大小（钳制后）
+// }
+
+// GET /api/v1/pages/resources   （权限 pages:read）
+// scope 内页面涉及资源的服务端聚合——过滤下拉的选项来源，
+// 前端禁止从当前列表页自行推导（列表只是过滤后子集）。
+interface PageResourceOption {
+  resourceKey: string;
+  pageCount: number; // 该资源出现在多少个页面（按 #30 关联口径，多资源页参与计数）
+}
+// 响应：{ items: PageResourceOption[] }，按 resourceKey 升序
+```
+
+`PageSpecDraftSummary.resources`（#30）：条目级「页面→涉及资源」投影，服务端读取时由 `resourceKey` 列 ∪ 顶层 bindings 对应函数契约的 `resourceKey` 聚合去重（升序）。多资源页在此展开展示；旧 payload 缺该字段时前端回退 `resourceKey` 单列。该关联**只读时计算，不落库**——无新列/新表，函数契约重算后下一次列表即反映最新关联。
+
+边界（诚实声明）：`resources` 关联依赖 binding 函数契约在库内的 `resourceKey`；契约缺失或未重建索引时，该 binding 不贡献资源（此时退化为 `resourceKey` 列口径）。`/pages/resources` 聚合与列表侧关联同口径（#30 起多资源页参与 `pageCount`）。resource catalog（函数/契约侧资源清单）是另一份聚合，两者不复用缓存。菜单管理页的「已挂载页面」视图固定拉 `pageSize=200` 一页取 scope 全量挂载映射（挂载态是低频小数据面），非分页绕过。
+
 ## 导航与多语言
 
 分类、标题、图标与排序是 PageSpec 顶层字段（`category{key,order}`、`title`、`icon`、`order`）。`category` 只保留 `key` 与 `order`，是页面工作台侧的分组元数据；运行控制台导航由菜单系统驱动（`menu_items` 树 + `page_specs.menu_id` 挂载映射，见 [运行控制台动态菜单](./console-dynamic-menu.md)），不消费 `category`，分类多语言名称由菜单系统（`menu_items.labels`）提供。`NavigationSpec` 仅承载返回导航行为：

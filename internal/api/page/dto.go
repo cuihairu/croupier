@@ -2,13 +2,44 @@ package page
 
 import "github.com/cuihairu/croupier/internal/dashboard/spec"
 
+// PageDraftListRequest 是 GET /api/v1/pages 的查询绑定（OPEN-ISSUES #30）：
+// 过滤与分页全部由服务端执行，前端禁止拉全量自算。
+// form tag 必须显式 lowerCamelCase（#5 教训：漂移即静默失效）。
 type PageDraftListRequest struct {
 	ResourceKey string `form:"resourceKey"`
 	Status      string `form:"status"`
+	// Keyword 大小写不敏感子串匹配 pageKey/标题/涉及资源（scope 内候选集上过滤）。
+	Keyword string `form:"keyword"`
+	// Page 从 1 起；缺省/非法按 1。
+	Page int `form:"page"`
+	// PageSize 缺省 20，上限 200（scope 内页面量级为几十，显式分页而非隐式全量）。
+	PageSize int `form:"pageSize"`
 }
+
+const (
+	defaultPageDraftPageSize = 20
+	maxPageDraftPageSize     = 200
+)
 
 type PageDraftListResponse struct {
 	Items []spec.PageSpecDraftSummary `json:"items"`
+	// Total 是过滤后、分页前的命中总数（前端分页器据此计算页数）。
+	Total int `json:"total"`
+	// Page/PageSize 回显服务端实际生效的分页窗口。
+	Page     int `json:"page"`
+	PageSize int `json:"pageSize"`
+}
+
+// PageResourceOption 是 GET /api/v1/pages/resources 的一项：scope 内页面
+// 涉及的资源及其页面数（#13 过滤下拉的选项来源——服务端聚合，前端不得
+// 从当前列表自行推导）。
+type PageResourceOption struct {
+	ResourceKey string `json:"resourceKey"`
+	PageCount   int    `json:"pageCount"`
+}
+
+type PageResourcesResponse struct {
+	Items []PageResourceOption `json:"items"`
 }
 
 type PageDraftRequest struct {

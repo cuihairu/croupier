@@ -944,6 +944,9 @@ export interface PageSpecDraftSummary {
   env?: string;
   pageKey: string;
   type: PageType;
+  /** 页面涉及的全部资源（#30）：resourceKey ∪ binding 函数契约资源，
+   *  服务端读取时计算并去重升序；多资源页在此展开。 */
+  resources?: string[];
   resourceKey?: string;
   title: LocalizedText;
   category: PageCategorySpec;

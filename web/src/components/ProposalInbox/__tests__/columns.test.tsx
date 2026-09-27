@@ -57,6 +57,7 @@ function renderTable(items: PageProposal[], handlers: Record<string, unknown> = 
     onRequestPublish: jest.fn(),
     onReview: jest.fn(),
     onReject: jest.fn(),
+    onJumpToDiagnostics: jest.fn(),
     ...handlers,
   } as Parameters<typeof buildProposalColumns>[0]);
   // Table 直接渲染真实 antd 表格（含展开的行 DOM）
@@ -206,14 +207,38 @@ describe('ProposalColumns 展示列与回调接线', () => {
     expect(onReject).toHaveBeenCalledWith('resource--players');
   });
 
-  it('quality=needs_review：更多出「处理」并直接触发 onReview', () => {
+  it('quality=needs_review：「处理」行内直出并触发 onReview（#29 前置，不再藏下拉）', () => {
     const onReview = jest.fn();
     renderTable([proposal({ quality: 'needs_review' })], { onReview });
-    fireEvent.click(document.querySelector('.anticon-more')?.closest('button') as HTMLElement);
-    fireEvent.click(screen.getByText('处理'));
+    // 未打开「更多」下拉即可点击——入口前置
+    fireEvent.click(screen.getByRole('button', { name: /处理/ }));
     expect(onReview).toHaveBeenCalledWith(
       expect.objectContaining({ proposalKey: 'resource--players' }),
     );
+    // 打开下拉后菜单里不再有重复的「处理」项
+    fireEvent.click(document.querySelector('.anticon-more')?.closest('button') as HTMLElement);
+    expect(screen.getAllByText('处理')).toHaveLength(1);
+  });
+
+  it('诊断计数标签可点击：触发 onJumpToDiagnostics 并携带整行提案（#29）', () => {
+    const onJumpToDiagnostics = jest.fn();
+    renderTable(
+      [
+        proposal({
+          diagnostics: [
+            { code: 'e1', severity: 'error', message: 'x' },
+            { code: 'w1', severity: 'warning', message: 'w' },
+          ],
+        }),
+      ],
+      { onJumpToDiagnostics },
+    );
+    fireEvent.click(screen.getByText('1 错误'));
+    expect(onJumpToDiagnostics).toHaveBeenCalledWith(
+      expect.objectContaining({ proposalKey: 'resource--players' }),
+    );
+    fireEvent.click(screen.getByText('1 警告'));
+    expect(onJumpToDiagnostics).toHaveBeenCalledTimes(2);
   });
 });
 
@@ -284,5 +309,15 @@ describe('buildBlockedColumns 阻断项行', () => {
     renderBlocked([blocked({ id: 11, resourceKey: undefined })]);
     fireEvent.click(screen.getByRole('button', { name: /查看目录/ }));
     expect(navigateTo).toHaveBeenCalledWith('/functions/resource-catalog');
+  });
+
+  it('阻断项诊断标签可点击：直达修复位置（资源目录），与操作列同源（#29）', () => {
+    renderBlocked([
+      blocked({
+        diagnostics: [{ code: 'e1', severity: 'error', message: 'x' }],
+      }),
+    ]);
+    fireEvent.click(screen.getByText('1 错误'));
+    expect(navigateTo).toHaveBeenCalledWith('/functions/resource-catalog?resourceKey=player');
   });
 });

@@ -597,6 +597,12 @@ composite 保存路径（`versioning.Service.CreateCompositePage`）在 `auto` �
 
 批量收口（M4，`POST /api/v1/pages/bulk-sync-selectors`）：契约变更队列的草稿侧整体处理——逐页跑与单页 sync-selectors 同源的 planner/apply，语义不变：**严格只写 draft**（已发布快照不动，上线仍需 `bulk-republish`）；revision 由服务端读取当前草稿，并发冲突在事务内 409、按页计入 `failed` 继续不中断；先 dry-run 判定，存在 Manual 诊断（governance/version 等不可由 selector 同步修复的漂移）的页面整体 `skipped` 并透传诊断，不做半吊子同步。
 
+### 页面→资源关联与列表条件下推（#30）
+
+「页面涉及哪些资源」是派生视图，不是存储事实：`resourceKey` 列 ∪ 顶层 bindings 对应函数契约的 `resourceKey`，**读取时计算、不落库**（无新列/新表，避免编号迁移契约面）。多资源页（一个页面绑定多个资源的函数）在此口径下自然展开。函数契约重建后，下一次列表/聚合读取即反映最新关联；契约缺失的 binding 不贡献资源（退化回列口径）。该关联服务三处消费：草稿列表条目的 `resources` 投影、`/pages/resources` 过滤选项聚合（`pageCount` 按页去重）、以及 `resourceKey` 过滤条件的命中判定（旧单列页面同样命中其 binding 关联资源）。
+
+草稿列表的过滤与分页由服务端执行：`status` SQL 条件下推，`resourceKey`/`keyword`（pageKey、标题、涉及资源的包含匹配）在 scope 候选集上过滤，`page/pageSize` 服务端钳制（默认 20、上限 200），响应携带 `total/page/pageSize`。前端不拉全量自算；wire 契约见 [PageSpec 协议规范](./pagespec-protocol.md)。
+
 ## 模型边界
 
 - SDK/OpenAPI 只能提交 FunctionContract 与受控 capability 语义。

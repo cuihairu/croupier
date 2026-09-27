@@ -267,6 +267,13 @@ web/src/pages/PageStudio/CompositeEditor/
   不发布**：完成后需再点「一键重新发布全部」才生效（按钮文案已明示）。governance/
   version 等不可由 selector 同步修复的页面整体 skipped 并透传诊断；单页失败不中断
   其余页面（对齐 bulk-republish 取舍）。
+- **诊断直达处理位置（2026-09，OPEN-ISSUES #29）**：提案收件箱三个队列的「诊断/变更原因」
+  计数标签（`n 错误`/`n 警告`/`n 信息`）改为可点击直达对应处理位置——提案行：资源类提案跳
+  资源目录（带 `resourceKey` 锚点），已有草稿/页面跳页面工作台（`?focus=`），纯提案态开
+  提案详情诊断表；阻断项行：与「修复语义」按钮同源跳资源目录；契约变更行：开该页的
+  Selector 同步报告（漂移明细与一键同步入口所在）。「需要处理」队列的主操作「处理」从
+  「更多」下拉前置为行内按钮（此前是该队列唯一动作却藏在二级菜单里）。未配置跳转回调的
+  诊断标签保持纯展示计数（如详情弹窗内）。
 
 发布链：编译产物 `POST /api/v1/versioning/pages/composite`（请求结构含 `key/group/display/rowActions/toolbarActions/onSuccessRefresh/chain`）→ 提案 → 接受发布 → `PageRenderer/CompositeRenderer` 按 spec 渲染。
 
@@ -435,8 +442,31 @@ DB 持久化接线留待独立需求。
 函数不进本次注册，连接保持）。处理路径：升级对应语言 SDK 至高水位后重新
 注册即恢复。
 
+## 8.8 页面工作台搜索/过滤/分页下推（#30，2026-09）
+
+页面工作台（`/functions/pages`）草稿列表的查询全部由服务端执行，前端不拉全量
+自算：
+
+- **工具栏三个过滤**：关键词搜索（回车提交，匹配页面标识/标题/涉及资源）、
+  状态下拉（draft/published/archived）、资源过滤下拉（#13，选项来自
+  `GET /pages/resources` 服务端聚合）。任一过滤变更都会回到第 1 页重拉。
+- **分页**：ProTable 翻页/改页大小直接下发 `page/pageSize`，服务端默认 20、
+  上限 200（非法值钳制）；`total` 由响应带回驱动页数渲染。
+- **「涉及资源」列**：展示服务端读取时计算的页面→资源关联
+  （`resourceKey` ∪ binding 函数契约资源，多资源页以 `/` 展开展示）；旧
+  payload 缺 `resources` 时回退单列 `resourceKey`。
+
+wire 契约见 [PageSpec 协议规范](../architecture/pagespec-protocol.md)「草稿列表
+过滤与资源聚合」；模型口径见
+[dashboard-page-model](../architecture/dashboard-page-model.md)。
+
 ## 9. 已知边界
 
+- **列表关联口径依赖函数契约索引（#30）**：「涉及资源」与 `resourceKey`
+  过滤的关联命中依赖 binding 函数契约在库内的 `resourceKey`；契约缺失或未重建
+  索引时该 binding 不贡献资源（退化为 `resourceKey` 列口径）。菜单管理页的
+  「已挂载页面」视图固定拉 `pageSize=200` 一页取挂载映射（挂载态低频小数据面），
+  超 200 页的 scope 下该视图不完整
 - **发布分级（T10/M5）覆盖 composite 保存与收件箱接受两处入口**：
   `pages.publishReview=auto` 的自动发布在 `POST /versioning/pages/composite`
   （组合页保存，T10）与 ProposalInbox「接受」（AcceptProposal，M5）生效；其余
