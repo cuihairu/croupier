@@ -33,7 +33,7 @@ const loginPath = '/user/login';
 
 /**
  * 把 <AntdApp> 的 message/notification/modal 实例注册给非 React 模块
- * （utils/antdApp）。必须在 rootContainer 层包裹**全部路由**：登录页是
+ * （utils/antdApp）。必须在包裹**全部路由**的层挂：登录页是
  * `layout: false`，不经过布局的 childrenRender——此前注册器只挂在已登录
  * 布局里，登录页上「登录成功/失败/MFA 提示」的 message 全部被静默丢弃，
  * antd 还会报 "notice in render" 告警（docs/BUGS.md BUG-022）。
@@ -48,8 +48,20 @@ const AppApiRegistrar: React.FC = () => {
   return null;
 };
 
-// umi 运行时 rootContainer：包裹整个应用（含 layout:false 的登录页）。
-export const rootContainer = (container: React.ReactNode) => (
+/**
+ * umi 运行时 innerProvider：包裹整个应用（含 layout:false 的登录页）。
+ *
+ * 挂载层选择（OPEN-ISSUES #41）：必须在 innerProvider 而不是 rootContainer。
+ * umi 渲染链由外到内是 rootContainer（plugin-antd 的 theme ConfigProvider、
+ * 本文件的包裹）→ i18nProvider（plugin-locale 的 _LocaleContainer，antd
+ * locale=zh_CN 就在这里注入）→ innerProvider → 路由。AntdApp 的
+ * modal/message holder 渲染在 AntdApp 所在的 React 层：挂 rootContainer
+ * 时 holder 位于 _LocaleContainer 之外，confirm 弹窗按钮拿不到 zh_CN，
+ * antd 落回默认英文（取消键渲染成 "Cancel"，page-studio e2e 的
+ * 「取 消」定位因此 20s 超时，f56bfa8 引入）；innerProvider 恰好在
+ * _LocaleContainer 之内，语言切换也随其响应式更新。
+ */
+export const innerProvider = (container: React.ReactNode) => (
   <AntdApp>
     <AppApiRegistrar />
     {container}
