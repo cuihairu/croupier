@@ -354,8 +354,7 @@ export default function SdkDistributionPage() {
                 fetchOptions={async () =>
                   (await fetchProviderMetaOptions())
                     .find((k) => k.key === metaKey)
-                    ?.values.map((v) => ({ value: v.value, label: v.value, count: v.count })) ??
-                  []
+                    ?.values.map((v) => ({ value: v.value, label: v.value, count: v.count })) ?? []
                 }
                 epoch={metaKey}
                 value={metaValue}

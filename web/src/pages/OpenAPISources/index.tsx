@@ -562,9 +562,7 @@ export default function OpenAPISourcesPage() {
         // #27④：跳转 Ops 节点页并以 query 过滤定位该 agent
         <Typography.Link
           copyable={{ text: record.agentId }}
-          onClick={() =>
-            history.push(`/ops/nodes?agentId=${encodeURIComponent(record.agentId)}`)
-          }
+          onClick={() => history.push(`/ops/nodes?agentId=${encodeURIComponent(record.agentId)}`)}
         >
           {record.agentId}
         </Typography.Link>

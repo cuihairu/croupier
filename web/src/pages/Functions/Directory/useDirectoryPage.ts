@@ -214,9 +214,7 @@ export default function useDirectoryPage() {
         } else {
           await deleteFunctionVersionFloor(functionId);
         }
-        setRows((prev) =>
-          prev.map((r) => (r.id === functionId ? { ...r, minVersion } : r)),
-        );
+        setRows((prev) => prev.map((r) => (r.id === functionId ? { ...r, minVersion } : r)));
         message.success(
           intl.formatMessage({
             id: minVersion

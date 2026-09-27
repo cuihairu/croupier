@@ -51,9 +51,7 @@ export default function DirectoryPage() {
   // 的版本），semver 降序已由服务端保证，这里仅去重拼接。
   const batchVersionOptions = React.useMemo(() => {
     const seen = new Set<string>();
-    Object.values(versionIndex).forEach((versions) =>
-      versions.forEach((v) => seen.add(v)),
-    );
+    Object.values(versionIndex).forEach((versions) => versions.forEach((v) => seen.add(v)));
     return Array.from(seen);
   }, [versionIndex]);
 

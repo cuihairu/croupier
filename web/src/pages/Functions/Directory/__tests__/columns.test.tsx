@@ -95,7 +95,12 @@ function renderTableWithVersionIndex(
     ...render(
       <ProTable<SummaryRow>
         columns={
-          buildColumns(columnDefs, handlers, ['1.0.0', '2.1.0'], versionIndex) as ProColumns<SummaryRow>[]
+          buildColumns(
+            columnDefs,
+            handlers,
+            ['1.0.0', '2.1.0'],
+            versionIndex,
+          ) as ProColumns<SummaryRow>[]
         }
         dataSource={rows}
         rowKey="id"

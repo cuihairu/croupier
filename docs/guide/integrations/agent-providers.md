@@ -51,20 +51,20 @@ providers:
 
 ### 字段参考
 
-| 字段                       | 必填                     | 说明                                                                                                        |
-| -------------------------- | ------------------------ | ----------------------------------------------------------------------------------------------------------- |
-| `providers.<name>.enabled` | 是                       | `false` 时跳过加载                                                                                          |
-| `providers.<name>.type`    | 是                       | 仅支持 `openapi`                                                                                            |
-| `providers.<name>.game_id` | 是                       | 归属游戏 ID；必须与所属 Agent 注册 scope 一致，为空即报 `provider_scope_mismatch`（不回退继承 Agent scope） |
-| `providers.<name>.env`     | 是                       | 归属环境（prod/stage/test/dev…）；为空同上                                                                  |
-| `providers.<name>.metadata` | 否                      | 用户自报实例元数据（`serverId` 等多 KV）；随注册上报，SDK 版本分布页展示/过滤。保留键（`gameId`/`env`/`sdkLanguage`/`sdkVersion`/`sdkName` 等）由 Agent 剥离并写注册告警 |
-| `config.baseUrl`           | 是                       | 上游 API 根地址，路径直接拼接                                                                               |
-| `config.openapiSpec`       | 与 `openapiSpecs` 二选一 | OpenAPI 文档 URL                                                                                            |
-| `config.openapiSpecs`      | 与 `openapiSpec` 二选一  | 多文档 URL 列表（合并注册）                                                                                 |
-| `config.version`           | 否                       | 本 provider 函数的契约版本（须为合法 semver）                                                               |
-| `config.timeout`           | 否                       | 上游调用超时，Go duration 字符串，默认 `30s`                                                                |
-| `config.headers`           | 否                       | 全部请求附带的默认 header                                                                                   |
-| `config.auth`              | 否                       | 鉴权配置，见下                                                                                              |
+| 字段                        | 必填                     | 说明                                                                                                                                                                     |
+| --------------------------- | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `providers.<name>.enabled`  | 是                       | `false` 时跳过加载                                                                                                                                                       |
+| `providers.<name>.type`     | 是                       | 仅支持 `openapi`                                                                                                                                                         |
+| `providers.<name>.game_id`  | 是                       | 归属游戏 ID；必须与所属 Agent 注册 scope 一致，为空即报 `provider_scope_mismatch`（不回退继承 Agent scope）                                                              |
+| `providers.<name>.env`      | 是                       | 归属环境（prod/stage/test/dev…）；为空同上                                                                                                                               |
+| `providers.<name>.metadata` | 否                       | 用户自报实例元数据（`serverId` 等多 KV）；随注册上报，SDK 版本分布页展示/过滤。保留键（`gameId`/`env`/`sdkLanguage`/`sdkVersion`/`sdkName` 等）由 Agent 剥离并写注册告警 |
+| `config.baseUrl`            | 是                       | 上游 API 根地址，路径直接拼接                                                                                                                                            |
+| `config.openapiSpec`        | 与 `openapiSpecs` 二选一 | OpenAPI 文档 URL                                                                                                                                                         |
+| `config.openapiSpecs`       | 与 `openapiSpec` 二选一  | 多文档 URL 列表（合并注册）                                                                                                                                              |
+| `config.version`            | 否                       | 本 provider 函数的契约版本（须为合法 semver）                                                                                                                            |
+| `config.timeout`            | 否                       | 上游调用超时，Go duration 字符串，默认 `30s`                                                                                                                             |
+| `config.headers`            | 否                       | 全部请求附带的默认 header                                                                                                                                                |
+| `config.auth`               | 否                       | 鉴权配置，见下                                                                                                                                                           |
 
 ### 鉴权（`config.auth`）
 

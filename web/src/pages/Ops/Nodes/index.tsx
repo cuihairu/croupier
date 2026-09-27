@@ -17,9 +17,7 @@ export default function OpsNodesPage() {
   const location = useLocation();
   const [loading, setLoading] = useState(false);
   const [rows, setRows] = useState<NodeRow[]>([]);
-  const [q, setQ] = useState(
-    () => new URLSearchParams(location.search).get('agentId') ?? '',
-  );
+  const [q, setQ] = useState(() => new URLSearchParams(location.search).get('agentId') ?? '');
   const [healthy, setHealthy] = useState<string>('');
   const [env, setEnv] = useState<string>('');
   const [game, setGame] = useState<string>('');
