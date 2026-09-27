@@ -499,27 +499,35 @@ describe('OperationLogsPage 操作日志', () => {
     ]);
   });
 
-  it('过滤控件分布于独立行（Row/Col 两行分组）', async () => {
+  // #16：过滤区分三行——输入行（占满 24 栅格）/ 操作按钮行 / 类型 Tag 行。
+  // 旧断言是「输入+按钮同一行」的两行结构，按钮被挤在输入行尾部。
+  it('过滤控件分三行：输入 / 按钮 / 类型', async () => {
     const { container } = render(<OperationLogsPage />);
     await waitFor(() => expect(mockedListAudit).toHaveBeenCalledTimes(1));
 
     const filterRoot = container.querySelector('[data-testid="operation-log-filters"]');
     expect(filterRoot).toBeTruthy();
     const rows = filterRoot!.querySelectorAll(':scope > .ant-row');
-    expect(rows.length).toBe(2);
+    expect(rows.length).toBe(3);
 
-    // 第 1 行：操作者 / IP / 游戏 / 环境 / 时间 / 查询 / 导出
+    // 第 1 行：操作者 / IP / 游戏 / 环境 / 时间（仅输入控件）
     expect(rows[0].querySelector('input[placeholder="操作者"]')).toBeTruthy();
     expect(rows[0].querySelector('input[placeholder="IP"]')).toBeTruthy();
     expect(rows[0].querySelector('input[placeholder="游戏"]')).toBeTruthy();
     expect(rows[0].querySelector('input[placeholder="环境"]')).toBeTruthy();
     expect(rows[0].querySelector('[data-testid="range-stub"]')).toBeTruthy();
-    expect(within(rows[0] as HTMLElement).getByRole('button', { name: /查\s*询/ })).toBeTruthy();
-    expect(within(rows[0] as HTMLElement).getByRole('button', { name: '导出 CSV' })).toBeTruthy();
+    // 行内不含操作按钮（RangePicker 测试桩本身是 button，按角色排除会误报）
+    expect(within(rows[0] as HTMLElement).queryByRole('button', { name: /查\s*询/ })).toBeNull();
+    expect(within(rows[0] as HTMLElement).queryByRole('button', { name: '导出 CSV' })).toBeNull();
 
-    // 第 2 行：类型 Tag 组（带「类型:」标签），不含输入框
-    expect(rows[1].textContent).toContain('类型');
+    // 第 2 行：查询 / 导出按钮，不含输入框
+    expect(within(rows[1] as HTMLElement).getByRole('button', { name: /查\s*询/ })).toBeTruthy();
+    expect(within(rows[1] as HTMLElement).getByRole('button', { name: '导出 CSV' })).toBeTruthy();
     expect(rows[1].querySelector('input[placeholder="操作者"]')).toBeNull();
-    expect(rows[1].querySelectorAll('.ant-tag').length).toBeGreaterThanOrEqual(3);
+
+    // 第 3 行：类型 Tag 组（带「类型:」标签），不含输入框
+    expect(rows[2].textContent).toContain('类型');
+    expect(rows[2].querySelector('input[placeholder="操作者"]')).toBeNull();
+    expect(rows[2].querySelectorAll('.ant-tag').length).toBeGreaterThanOrEqual(3);
   });
 });

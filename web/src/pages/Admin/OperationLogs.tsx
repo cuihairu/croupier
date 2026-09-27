@@ -164,7 +164,10 @@ export default function OperationLogsPage() {
         id: 'pages.adminLogs.operationLog.column.game',
         defaultMessage: '游戏',
       }),
-      dataIndex: ['meta', 'game_id'],
+      // #18：归一化层（services/api/audit.ts normalizeAuditEvent）输出
+      // camelCase 键（meta.gameId/meta.traceId），此前列读 snake_case 恒空。
+      // 平台级事件（如登录）无游戏上下文时显示平台默认 scope。
+      render: (_: unknown, r: AuditEvent) => String(r?.meta?.gameId || 'default'),
     },
     {
       title: intl.formatMessage({
@@ -173,7 +176,19 @@ export default function OperationLogsPage() {
       }),
       dataIndex: ['meta', 'env'],
     },
-    { title: 'Trace', dataIndex: ['meta', 'trace_id'] },
+    {
+      title: 'Trace',
+      render: (_: unknown, r: AuditEvent) => {
+        const traceId = String(r?.meta?.traceId || '');
+        return traceId ? (
+          <Typography.Text copyable style={{ fontSize: 12 }}>
+            {traceId.slice(0, 8)}
+          </Typography.Text>
+        ) : (
+          '-'
+        );
+      },
+    },
   ];
 
   return (
@@ -184,10 +199,12 @@ export default function OperationLogsPage() {
           defaultMessage: '操作日志',
         })}
       >
-        {/* 过滤区分两行：输入/时间/操作 → 类型 Tag（窄屏 Col 自动换行） */}
+        {/* 过滤区分行：输入/时间一行 → 操作按钮一行 → 类型 Tag（窄屏 Col 自动换行）。
+            #16：原先 md 列宽合计 27>24，按钮被挤到行尾、输入框压窄——拆成
+            独立两行，输入行占满 24 栅格。 */}
         <div data-testid="operation-log-filters">
-          <Row gutter={[12, 12]} align="bottom" style={{ marginBottom: 16 }}>
-            <Col xs={24} sm={12} md={4}>
+          <Row gutter={[12, 12]} align="bottom" style={{ marginBottom: 12 }}>
+            <Col xs={24} sm={12} md={5}>
               <FilterLabel id="pages.adminLogs.operationLog.filter.actor" defaultMessage="操作者" />
               <Input
                 placeholder={intl.formatMessage({
@@ -208,7 +225,7 @@ export default function OperationLogsPage() {
                 style={{ width: '100%' }}
               />
             </Col>
-            <Col xs={24} sm={12} md={4}>
+            <Col xs={24} sm={12} md={5}>
               <FilterLabel id="pages.adminLogs.operationLog.filter.game" defaultMessage="游戏" />
               <Input
                 placeholder={intl.formatMessage({
@@ -220,7 +237,7 @@ export default function OperationLogsPage() {
                 style={{ width: '100%' }}
               />
             </Col>
-            <Col xs={24} sm={12} md={3}>
+            <Col xs={24} sm={12} md={4}>
               <FilterLabel id="pages.adminLogs.operationLog.filter.env" defaultMessage="环境" />
               <Input
                 placeholder={intl.formatMessage({
@@ -241,7 +258,9 @@ export default function OperationLogsPage() {
                 style={{ width: '100%' }}
               />
             </Col>
-            <Col xs={12} sm={12} md={3}>
+          </Row>
+          <Row gutter={[12, 12]} style={{ marginBottom: 16 }}>
+            <Col xs={12} md={3}>
               <Button
                 type="primary"
                 block
@@ -258,7 +277,7 @@ export default function OperationLogsPage() {
                 />
               </Button>
             </Col>
-            <Col xs={12} sm={12} md={3}>
+            <Col xs={12} md={3}>
               <Button onClick={exportCSV} block>
                 <FormattedMessage
                   id="pages.adminLogs.operationLog.action.exportCsv"
