@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { history, useAccess, useIntl } from '@umijs/max';
 import { App, Button, Card, Empty, Spin } from 'antd';
+import { createStyles } from 'antd-style';
 import { PlusOutlined } from '@ant-design/icons';
 import { PageContainer } from '@ant-design/pro-components';
 import {
@@ -17,10 +18,27 @@ import MenuForm, { type MenuFormValues } from './MenuForm';
 import MenuTree, { type MenuMountedPage } from './MenuTree';
 import { type SortUpdate } from './sortUtils';
 
+// #7：菜单树行距。antd Tree 默认行高 24px 且行间零间隙，本页节点标题带
+// 标签/操作按钮（内容自然高度更高），默认密度下相邻行视觉粘连。行节点
+// 加垂直 padding 拉开呼吸空间；indent-unit 随行撑高，showLine 引导线不
+// 断线。样式挂在页面层（index）而非 MenuTree 组件，避免与并行改动耦合。
+const useStyles = createStyles(({ token }) => ({
+  treeSpacing: {
+    '.ant-tree-treenode': {
+      paddingBlock: 4,
+      borderRadius: token.borderRadius,
+    },
+    '.ant-tree-node-content-wrapper': {
+      lineHeight: '26px',
+    },
+  },
+}));
+
 /** MenuManagement 菜单管理页：树查看 + 新建/编辑/删除 + 拖拽排序。 */
 export default function MenuManagementPage() {
   const intl = useIntl();
   const { message } = App.useApp();
+  const { styles } = useStyles();
   const access = useAccess?.() || {};
   const canManage = Boolean(access.canMenuManage);
 
@@ -56,7 +74,6 @@ export default function MenuManagementPage() {
       setLoading(false);
     }
   }, []);
-
   // 菜单数据按全局 scope 过滤（/api/v1/menus），切游戏重拉（#38 族）
   useScopeReload(load);
 
@@ -172,17 +189,19 @@ export default function MenuManagementPage() {
               )}
             />
           ) : (
-            <MenuTree
-              items={items}
-              pages={pages}
-              canManage={canManage}
-              onEditPage={(pageKey) =>
-                history.push(`/functions/pages?focus=${encodeURIComponent(pageKey)}`)
-              }
-              onEdit={handleEdit}
-              onDelete={handleDelete}
-              onMove={handleMove}
-            />
+            <div className={styles.treeSpacing} data-testid="menu-tree-spacing">
+              <MenuTree
+                items={items}
+                pages={pages}
+                canManage={canManage}
+                onEditPage={(pageKey) =>
+                  history.push(`/functions/pages?focus=${encodeURIComponent(pageKey)}`)
+                }
+                onEdit={handleEdit}
+                onDelete={handleDelete}
+                onMove={handleMove}
+              />
+            </div>
           )}
         </Spin>
       </Card>

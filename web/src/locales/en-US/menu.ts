@@ -1,9 +1,7 @@
 export default {
   'menu.AccessControl': 'Access & Accounts',
   'menu.AccessControl.Announcements': 'Announcements',
-  'menu.AccessControl.UserAccount': 'Account Center',
-  'menu.AccessControl.UserAccount.Center': 'Account Center',
-  'menu.AccessControl.UserAccount.Messages': 'Messages',
+  'menu.AccessControl.UserAccount': 'Profile',
   'menu.AccessControl.Permissions': 'Permission Management',
   'menu.AccessControl.Permissions.Roles': 'Role Management',
   'menu.AccessControl.Permissions.Users': 'User Management',
@@ -19,14 +17,12 @@ export default {
 
   'menu.Approvals': 'Approvals',
   'menu.SystemConfig': 'System Management',
-  'menu.SystemConfig.SystemFoundation': 'Foundation',
-  'menu.SystemConfig.SystemFoundation.GameEnvironments': 'Game Environments',
-  'menu.SystemConfig.SystemFoundation.SiteSettings': 'Site Settings',
   'menu.Dev.ExcelConfig': 'Excel Config',
   'menu.Dev.Configs': 'Game Configs',
   'menu.Dev.ConfigExplorer': 'Config Explorer',
-  'menu.SystemConfig.SystemFoundation.Terms': 'Terminology',
   'menu.SystemConfig.GameEnvironments': 'Game Environments',
+  'menu.SystemConfig.SiteSettings': 'Site Settings',
+  'menu.SystemConfig.AnalyticsFilters': 'Sampling Control',
   'menu.FunctionsAndPages': 'Functions & Pages',
   'menu.FunctionsAndPages.FunctionCatalog': 'Function Catalog',
   'menu.FunctionsAndPages.ComponentTemplates': 'Component Templates',
@@ -69,7 +65,6 @@ export default {
   'menu.Ops.RateLimits': 'Rate Limits',
   'menu.Ops.Certificates': 'Certificates',
   'menu.Ops.Notifications': 'Notifications',
-  'menu.SystemConfig.SystemFoundation.AnalyticsFilters': 'Sampling Control',
   'menu.Ops.Backups': 'Backups',
   // Ops
 

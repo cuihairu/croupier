@@ -143,6 +143,9 @@ export default [
   },
 
   // ==================== 平台配置 ====================
+  // #9 菜单扁平化：原「系统管理 → 基础配置 → 子页」三级里基础配置是唯一
+  // 可见分组（extensions 隐藏），单子菜单不上卷一层——子页直接挂在系统
+  // 管理下；旧 /system/foundation/* 路径保留重定向兼容书签。
   {
     path: '/system',
     name: 'SystemConfig',
@@ -151,41 +154,60 @@ export default [
     routes: [
       {
         path: '/system',
-        redirect: '/system/foundation/environments',
+        redirect: '/system/environments',
+      },
+      {
+        path: '/system/environments',
+        name: 'GameEnvironments',
+        access: 'canGamesRead',
+        component: './GamesEnvs',
+      },
+      {
+        // 术语字典是 Console 展示文案的生成期数据源（非运维健康类配置），
+        // 归属系统管理。
+        path: '/system/terms',
+        name: 'Terms',
+        access: 'canSystemConfigRead',
+        component: './Ops/Terms',
+      },
+      {
+        path: '/system/site',
+        name: 'SiteSettings',
+        access: 'canSystemConfigRead',
+        component: './System/SiteSettings',
+      },
+      {
+        // 采样/埋点白名单是配置（agent 端按其过滤 analytics 事件），
+        // 不是运维观测页：归位系统配置。
+        path: '/system/analytics-filters',
+        name: 'AnalyticsFilters',
+        access: 'canSystemConfigRead',
+        component: './Ops/AnalyticsFilters',
       },
       {
         path: '/system/foundation',
-        name: 'SystemFoundation',
-        routes: [
-          {
-            path: '/system/foundation/environments',
-            name: 'GameEnvironments',
-            access: 'canGamesRead',
-            component: './GamesEnvs',
-          },
-          {
-            // 术语字典是 Console 展示文案的生成期数据源（非运维健康类配置），
-            // 归属系统管理-基础配置。
-            path: '/system/foundation/terms',
-            name: 'Terms',
-            access: 'canSystemConfigRead',
-            component: './Ops/Terms',
-          },
-          {
-            path: '/system/foundation/site',
-            name: 'SiteSettings',
-            access: 'canSystemConfigRead',
-            component: './System/SiteSettings',
-          },
-          {
-            // 采样/埋点白名单是配置（agent 端按其过滤 analytics 事件），
-            // 不是运维观测页：归位系统配置-基础配置。
-            path: '/system/foundation/analytics-filters',
-            name: 'AnalyticsFilters',
-            access: 'canSystemConfigRead',
-            component: './Ops/AnalyticsFilters',
-          },
-        ],
+        redirect: '/system/environments',
+        hideInMenu: true,
+      },
+      {
+        path: '/system/foundation/environments',
+        redirect: '/system/environments',
+        hideInMenu: true,
+      },
+      {
+        path: '/system/foundation/terms',
+        redirect: '/system/terms',
+        hideInMenu: true,
+      },
+      {
+        path: '/system/foundation/site',
+        redirect: '/system/site',
+        hideInMenu: true,
+      },
+      {
+        path: '/system/foundation/analytics-filters',
+        redirect: '/system/analytics-filters',
+        hideInMenu: true,
       },
       {
         path: '/system/extensions',
@@ -454,9 +476,9 @@ export default [
         component: './Ops/Notifications',
       },
       {
-        // 旧路径重定向：采样配置已归位系统配置（见 /system/foundation）
+        // 旧路径重定向：采样配置已归位系统配置（/system/analytics-filters）
         path: '/ops/analytics-filters',
-        redirect: '/system/foundation/analytics-filters',
+        redirect: '/system/analytics-filters',
       },
     ],
   },
@@ -594,22 +616,26 @@ export default [
         redirect: '/admin/permissions',
       },
       {
-        path: '/admin/account',
+        // #8 账号中心不再拆「个人中心/消息通知」两项：个人中心页内已有
+        // 消息 tab（收件）；发布/广播是独立管理动作（/admin/announcements，
+        // admin-only），与收件通知不是一回事（BUG-021/026 已分离）。
+        path: '/admin/account/center',
         name: 'UserAccount',
         icon: 'user',
-        routes: [
-          { path: '/admin/account/center', name: 'Center', component: './Profile' },
-          {
-            path: '/admin/account/settings',
-            hideInMenu: true,
-            redirect: '/admin/account/center?tab=security',
-          },
-          {
-            path: '/admin/account/messages',
-            name: 'Messages',
-            redirect: '/admin/account/center?tab=notifications',
-          },
-        ],
+        component: './Profile',
+      },
+      {
+        path: '/admin/account',
+        redirect: '/admin/account/center',
+      },
+      {
+        path: '/admin/account/settings',
+        redirect: '/admin/account/center?tab=security',
+      },
+      {
+        // 旧「消息通知」菜单项：页内 tab 语义等价，仅保留路径重定向。
+        path: '/admin/account/messages',
+        redirect: '/admin/account/center?tab=notifications',
       },
       // Back-office user management (mirrors Security pages for convenience)
       {
