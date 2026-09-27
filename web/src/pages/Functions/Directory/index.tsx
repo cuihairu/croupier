@@ -44,7 +44,16 @@ export default function DirectoryPage() {
     setBatchModalOpen,
     batchSubmitting,
     applyBatchFloor,
+    versionIndex,
   } = useDirectoryPage();
+
+  // #26：批量门槛弹窗的选项 = scope 内全部历史版本并集（含已勾选函数
+  // 的版本），semver 降序已由服务端保证，这里仅去重拼接。
+  const batchVersionOptions = React.useMemo(() => {
+    const seen = new Set<string>();
+    Object.values(versionIndex).forEach((versions) => versions.forEach((v) => seen.add(v)));
+    return Array.from(seen);
+  }, [versionIndex]);
 
   const summary = React.useMemo(() => {
     // 哨兵兜底值经 intl 求值：47/58 行的分组 key 会作为 topResourceLabel 直接
@@ -633,6 +642,7 @@ export default function DirectoryPage() {
         open={batchModalOpen}
         count={selectedRowKeys.length}
         submitting={batchSubmitting}
+        versionOptions={batchVersionOptions}
         onSubmit={(minVersion) => applyBatchFloor(minVersion)}
         onClose={() => setBatchModalOpen(false)}
       />

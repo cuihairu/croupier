@@ -524,6 +524,34 @@ export default function OpenAPISourcesPage() {
       ),
     },
     {
+      // #27①：provider 实例自报元数据（serverId 等），k=v 标签、>3 折叠
+      // +N（渲染对齐 SDK 分发页）；无元数据显示占位。
+      title: intl.formatMessage({
+        id: 'pages.openapiSources.runtime.column.metadata',
+        defaultMessage: '元数据',
+      }),
+      dataIndex: 'metadata',
+      width: 220,
+      render: (_, record) => {
+        const entries = Object.entries(record.metadata ?? {});
+        if (!entries.length) return '-';
+        return (
+          <Space size={4} wrap>
+            {entries.slice(0, 3).map(([key, val]) => (
+              <Tag key={key} style={{ marginInlineEnd: 0 }}>
+                {key}={val}
+              </Tag>
+            ))}
+            {entries.length > 3 && (
+              <Tooltip title={entries.map(([key, val]) => `${key}=${val}`).join('\n')}>
+                <Tag style={{ marginInlineEnd: 0 }}>+{entries.length - 3}</Tag>
+              </Tooltip>
+            )}
+          </Space>
+        );
+      },
+    },
+    {
       title: intl.formatMessage({
         id: 'pages.openapiSources.runtime.column.agent',
         defaultMessage: '来源 Agent',
@@ -531,8 +559,31 @@ export default function OpenAPISourcesPage() {
       dataIndex: 'agentId',
       width: 200,
       render: (_, record) => (
-        <Typography.Text copyable={{ text: record.agentId }}>{record.agentId}</Typography.Text>
+        // #27④：跳转 Ops 节点页并以 query 过滤定位该 agent
+        <Typography.Link
+          copyable={{ text: record.agentId }}
+          onClick={() => history.push(`/ops/nodes?agentId=${encodeURIComponent(record.agentId)}`)}
+        >
+          {record.agentId}
+        </Typography.Link>
       ),
+    },
+    {
+      // #27③：被调用方（provider 进程）监听地址，排障时确认路由目标。
+      title: intl.formatMessage({
+        id: 'pages.openapiSources.runtime.column.serviceAddr',
+        defaultMessage: '目标地址',
+      }),
+      dataIndex: 'serviceAddr',
+      width: 170,
+      render: (_, record) =>
+        record.serviceAddr ? (
+          <Typography.Text code copyable={{ text: record.serviceAddr }}>
+            {record.serviceAddr}
+          </Typography.Text>
+        ) : (
+          '-'
+        ),
     },
     {
       title: intl.formatMessage({
@@ -564,6 +615,35 @@ export default function OpenAPISourcesPage() {
       dataIndex: 'version',
       width: 160,
       render: (_, record) => <Tag>{record.version || '-'}</Tag>,
+    },
+    {
+      // #27②：进程内观测到的最高注册版本（走高不回退）；与当前注册版本
+      // 不同说明该 provider 曾以更高版本运行过（回退/灰度），提示排查。
+      title: intl.formatMessage({
+        id: 'pages.openapiSources.runtime.column.latestVersion',
+        defaultMessage: '最新版本',
+      }),
+      dataIndex: 'latestVersion',
+      width: 130,
+      render: (_, record) =>
+        record.latestVersion && record.latestVersion !== record.version ? (
+          <Tag color="orange">{record.latestVersion}</Tag>
+        ) : (
+          <Tag>{record.latestVersion || '-'}</Tag>
+        ),
+    },
+    {
+      // #27②：本进程窗口内的首次观测时间（会话过期/重启后语义重置）。
+      title: intl.formatMessage({
+        id: 'pages.openapiSources.runtime.column.firstSeen',
+        defaultMessage: '导入时间',
+      }),
+      dataIndex: 'firstSeenUnix',
+      width: 160,
+      render: (_, record) =>
+        record.firstSeenUnix > 0
+          ? formatDate(new Date(record.firstSeenUnix * 1000).toISOString())
+          : '-',
     },
     {
       title: intl.formatMessage({

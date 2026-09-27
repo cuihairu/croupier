@@ -323,6 +323,16 @@ func (s *Service) RuntimeSources(ctx context.Context, _ *RuntimeSourcesListReque
 			}
 			functions := append([]string(nil), snapshot.FunctionIDs...)
 			sort.Strings(functions)
+			// #27②：导入时间/最新版本做服务端归一，前端无需再判零值/空串
+			// （内存快照的历史字段在会话过期/重启后自然缺失）。
+			firstSeen := snapshot.FirstSeenUnix
+			if firstSeen <= 0 {
+				firstSeen = snapshot.LastSeenUnix
+			}
+			latest := snapshot.VersionHWM
+			if latest == "" {
+				latest = snapshot.Version
+			}
 			items = append(items, RuntimeProviderItem{
 				ProviderID:    snapshot.ProviderID,
 				Name:          name,
@@ -330,6 +340,10 @@ func (s *Service) RuntimeSources(ctx context.Context, _ *RuntimeSourcesListReque
 				GameID:        snapshot.GameID,
 				Env:           snapshot.Env,
 				Version:       snapshot.Version,
+				Metadata:      snapshot.Metadata,
+				ServiceAddr:   snapshot.Addr,
+				FirstSeenUnix: firstSeen,
+				LatestVersion: latest,
 				FunctionCount: len(functions),
 				Functions:     functions,
 				LastSeenUnix:  snapshot.LastSeenUnix,

@@ -35,6 +35,8 @@ providers:
     type: openapi # 目前唯一支持的类型
     game_id: default # 归属游戏（与请求 scope 一致才可调用）
     env: dev # 归属环境
+    metadata: # 可选；用户自报实例元数据（多 KV，随注册上报 sdk-distribution 页）
+      serverId: players-svc-1
     config:
       baseUrl: "http://127.0.0.1:8091" # 上游 API 根地址
       openapiSpec: "http://127.0.0.1:8091/openapi.json" # OpenAPI 3.0 文档 URL
@@ -49,19 +51,20 @@ providers:
 
 ### 字段参考
 
-| 字段                       | 必填                     | 说明                                                                                                        |
-| -------------------------- | ------------------------ | ----------------------------------------------------------------------------------------------------------- |
-| `providers.<name>.enabled` | 是                       | `false` 时跳过加载                                                                                          |
-| `providers.<name>.type`    | 是                       | 仅支持 `openapi`                                                                                            |
-| `providers.<name>.game_id` | 是                       | 归属游戏 ID；必须与所属 Agent 注册 scope 一致，为空即报 `provider_scope_mismatch`（不回退继承 Agent scope） |
-| `providers.<name>.env`     | 是                       | 归属环境（prod/stage/test/dev…）；为空同上                                                                  |
-| `config.baseUrl`           | 是                       | 上游 API 根地址，路径直接拼接                                                                               |
-| `config.openapiSpec`       | 与 `openapiSpecs` 二选一 | OpenAPI 文档 URL                                                                                            |
-| `config.openapiSpecs`      | 与 `openapiSpec` 二选一  | 多文档 URL 列表（合并注册）                                                                                 |
-| `config.version`           | 否                       | 本 provider 函数的契约版本（须为合法 semver）                                                               |
-| `config.timeout`           | 否                       | 上游调用超时，Go duration 字符串，默认 `30s`                                                                |
-| `config.headers`           | 否                       | 全部请求附带的默认 header                                                                                   |
-| `config.auth`              | 否                       | 鉴权配置，见下                                                                                              |
+| 字段                        | 必填                     | 说明                                                                                                                                                                     |
+| --------------------------- | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `providers.<name>.enabled`  | 是                       | `false` 时跳过加载                                                                                                                                                       |
+| `providers.<name>.type`     | 是                       | 仅支持 `openapi`                                                                                                                                                         |
+| `providers.<name>.game_id`  | 是                       | 归属游戏 ID；必须与所属 Agent 注册 scope 一致，为空即报 `provider_scope_mismatch`（不回退继承 Agent scope）                                                              |
+| `providers.<name>.env`      | 是                       | 归属环境（prod/stage/test/dev…）；为空同上                                                                                                                               |
+| `providers.<name>.metadata` | 否                       | 用户自报实例元数据（`serverId` 等多 KV）；随注册上报，SDK 版本分布页展示/过滤。保留键（`gameId`/`env`/`sdkLanguage`/`sdkVersion`/`sdkName` 等）由 Agent 剥离并写注册告警 |
+| `config.baseUrl`            | 是                       | 上游 API 根地址，路径直接拼接                                                                                                                                            |
+| `config.openapiSpec`        | 与 `openapiSpecs` 二选一 | OpenAPI 文档 URL                                                                                                                                                         |
+| `config.openapiSpecs`       | 与 `openapiSpec` 二选一  | 多文档 URL 列表（合并注册）                                                                                                                                              |
+| `config.version`            | 否                       | 本 provider 函数的契约版本（须为合法 semver）                                                                                                                            |
+| `config.timeout`            | 否                       | 上游调用超时，Go duration 字符串，默认 `30s`                                                                                                                             |
+| `config.headers`            | 否                       | 全部请求附带的默认 header                                                                                                                                                |
+| `config.auth`               | 否                       | 鉴权配置，见下                                                                                                                                                           |
 
 ### 鉴权（`config.auth`）
 
@@ -101,11 +104,20 @@ providers:
 
 Agent provider 注册的是**运行时函数**；Dashboard 的「OpenAPI Source」导入的是**契约候选**。两者通过函数 ID 关联：Source 绑定 `kind: provider`、`functionId: players.player.list` 后，契约物化为 FunctionContract（source=`openapi`）并可生成页面 Proposal。详见 [OpenAPI 函数注册](openapi-registration.md)。
 
-Dashboard「OpenAPI Sources」页的**运行时导入**区块读取当前 scope 下的 provider 会话（含来源 Agent、函数清单与最近心跳），其数据来自：
+Dashboard「OpenAPI Sources」页的**运行时导入**区块读取当前 scope 下的 provider 会话，其数据来自：
 
 ```http
 GET /api/v1/openapi/runtime-sources   # 认证 + X-Game-ID/X-Env scope
 ```
+
+每条记录除来源 Agent、函数清单、注册版本与最近心跳外，还带注册链观测字段（#27）：
+
+- `metadata`：provider 实例自报的用户元数据（`serverId=s1` 等 key=value 对，仅展示/搜索用）；
+- `serviceAddr`：被调用方（provider 进程）监听地址；
+- `firstSeenUnix`：导入时间——本进程内首次观测到该 provider 的时刻（服务端归一：无观测值时取 `lastSeenUnix`）；
+- `latestVersion`：本进程内观测到的最高注册版本，走高不回退（服务端归一：无可解析历史时取 `version`；与 `version` 不同说明该 provider 曾以更高版本运行过，页面高亮提示排查）。
+
+边界：`firstSeenUnix`/`latestVersion` 为内存态，随会话过期、断连或 server 重启丢失并重新累计，只保证「本进程窗口内」语义（与 `lastSeenUnix` 的既有先例一致）。
 
 绑定弹窗的函数候选同样包含这些运行时函数（标注导入 Agent）。
 

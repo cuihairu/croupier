@@ -17,6 +17,7 @@ import (
 	"github.com/cuihairu/croupier/internal/dashboard/spec"
 	"github.com/cuihairu/croupier/internal/db/dbctx"
 	"github.com/cuihairu/croupier/internal/function/registrationguard"
+	"github.com/cuihairu/croupier/internal/platform/registry/sdkversion"
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
@@ -59,7 +60,14 @@ type ProviderSession struct {
 	SDKName     string // SDK 显示名（如 croupier-js-sdk），用户可自定义
 	// Metadata 是 provider 自报的用户实例元数据（serverId 等多 KV，保留键已
 	// 在 agent 侧剥离）。仅观测展示/搜索用，永不参与路由。
-	Metadata     map[string]string
+	Metadata map[string]string
+	// FirstSeenUnix 是该 provider 在本进程内首次被观测到的时间（#27② 导入
+	// 时间）。零值时展示层回退 LastSeenUnix。内存态：随会话过期/断连消失，
+	// 重启即重置——只保证「本进程窗口内」语义。
+	FirstSeenUnix int64
+	// VersionHWM 是本进程内观测到的最高已注册版本（#27② 最新版本，走高
+	// 不回退）。空值时展示层回退 Version。内存态边界同 FirstSeenUnix。
+	VersionHWM   string
 	LastSeenUnix int64
 	FunctionIDs  []string
 	OpenAPIDoc   json.RawMessage
@@ -68,18 +76,22 @@ type ProviderSession struct {
 // ProviderSessionSnapshot 是在线 Provider 的只读快照（含所属 agent/scope），
 // 供 SDK 版本分布等观测 API 消费（F：sdk-stats）。
 type ProviderSessionSnapshot struct {
-	ProviderID   string            `json:"providerId"`
-	AgentID      string            `json:"agentId"`
-	GameID       string            `json:"gameId"`
-	Env          string            `json:"env"`
-	Addr         string            `json:"addr"`
-	Version      string            `json:"version"`
-	SDKLanguage  string            `json:"sdkLanguage"`
-	SDKVersion   string            `json:"sdkVersion"`
-	SDKName      string            `json:"sdkName"`
-	Metadata     map[string]string `json:"metadata,omitempty"`
-	LastSeenUnix int64             `json:"lastSeenUnix"`
-	FunctionIDs  []string          `json:"functionIds"`
+	ProviderID  string            `json:"providerId"`
+	AgentID     string            `json:"agentId"`
+	GameID      string            `json:"gameId"`
+	Env         string            `json:"env"`
+	Addr        string            `json:"addr"`
+	Version     string            `json:"version"`
+	SDKLanguage string            `json:"sdkLanguage"`
+	SDKVersion  string            `json:"sdkVersion"`
+	SDKName     string            `json:"sdkName"`
+	Metadata    map[string]string `json:"metadata,omitempty"`
+	// #27②：导入时间（零值展示层回退 LastSeenUnix）与版本高水位（空回退
+	// Version）。内存态，边界见 ProviderSession 注释。
+	FirstSeenUnix int64    `json:"firstSeenUnix"`
+	VersionHWM    string   `json:"versionHwm,omitempty"`
+	LastSeenUnix  int64    `json:"lastSeenUnix"`
+	FunctionIDs   []string `json:"functionIds"`
 }
 
 // ProviderSessionSnapshots 返回全部在线 Provider 会话的快照（深拷贝）。
@@ -93,16 +105,18 @@ func (s *Store) ProviderSessionSnapshots() []ProviderSessionSnapshot {
 		}
 		for _, p := range sess.Providers {
 			snapshot := ProviderSessionSnapshot{
-				ProviderID:   p.ProviderID,
-				AgentID:      sess.AgentID,
-				GameID:       sess.GameID,
-				Env:          sess.Env,
-				Addr:         p.Addr,
-				Version:      p.Version,
-				SDKLanguage:  p.SDKLanguage,
-				SDKVersion:   p.SDKVersion,
-				SDKName:      p.SDKName,
-				LastSeenUnix: p.LastSeenUnix,
+				ProviderID:    p.ProviderID,
+				AgentID:       sess.AgentID,
+				GameID:        sess.GameID,
+				Env:           sess.Env,
+				Addr:          p.Addr,
+				Version:       p.Version,
+				SDKLanguage:   p.SDKLanguage,
+				SDKVersion:    p.SDKVersion,
+				SDKName:       p.SDKName,
+				FirstSeenUnix: p.FirstSeenUnix,
+				VersionHWM:    p.VersionHWM,
+				LastSeenUnix:  p.LastSeenUnix,
 			}
 			if len(p.Metadata) > 0 {
 				snapshot.Metadata = make(map[string]string, len(p.Metadata))
@@ -157,6 +171,10 @@ type Store struct {
 	// registry 的退化存储；DB-backed 直接读写 function_version_floors 表)。
 	fnFloorMu sync.Mutex
 	fnFloor   map[string]string
+	// metaOptionsMu guards metaOptions（实例元数据去重键值聚合的进程内缓存，
+	// #11/#2：每次注册刷新，短 TTL 兜底；详见 store_metadata.go）。
+	metaOptionsMu sync.Mutex
+	metaOptions   map[string]cachedMetaOptions
 	// Optional database for dual-write persistence
 	db *gorm.DB
 	// scopeContext resolves the DB/scope context used by game-scoped
@@ -268,6 +286,7 @@ func NewStore() *Store {
 		registrationWarnings: make(map[string]*FunctionRegistrationWarning),
 		sdkHwm:               map[string]string{},
 		fnFloor:              map[string]string{},
+		metaOptions:          make(map[string]cachedMetaOptions),
 		db:                   nil,
 		scopeContext:         defaultScopeContext,
 	}
@@ -282,6 +301,7 @@ func NewStoreWithDB(db *gorm.DB) *Store {
 		registrationWarnings: make(map[string]*FunctionRegistrationWarning),
 		sdkHwm:               map[string]string{},
 		fnFloor:              map[string]string{},
+		metaOptions:          make(map[string]cachedMetaOptions),
 		db:                   db,
 		scopeContext:         defaultScopeContext,
 	}
@@ -432,10 +452,16 @@ func (s *Store) UpsertAgent(a *AgentSession) error {
 	}
 
 	// Always write to memory (primary store)
+	// #11：注册成功后把 provider 元数据投影进 DB（best-effort，失败不回滚
+	// 注册）。previousSession 是本次注册前的内存会话，用于清掉本次消失的
+	// service 行。无 DB 时为空操作（在线会话聚合退化路径仍可用）。
+	s.refreshProviderMetadata(previousSession, a)
+
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	cur := s.agents[a.AgentID]
 	if cur == nil {
+		carryProviderSessionHistory(nil, a.Providers)
 		s.agents[a.AgentID] = a
 		return nil
 	}
@@ -456,11 +482,52 @@ func (s *Store) UpsertAgent(a *AgentSession) error {
 		cur.Functions = a.Functions
 	}
 	if a.Providers != nil {
+		carryProviderSessionHistory(cur.Providers, a.Providers)
 		cur.Providers = a.Providers
 	}
 	cur.ExpireAt = a.ExpireAt
 	cur.LastSeen = a.LastSeen
 	return nil
+}
+
+// carryProviderSessionHistory 在注册合并（内存态）时保留 provider 的进程内
+// 历史观测（#27②）：FirstSeenUnix 取两侧更早的非零观测（新观测缺省补
+// now）；VersionHWM 走高不回退，不可解析版本永不入选（对齐 sdkversion 高
+// 水位语义，全不可解析时保持空、展示层回退 Version）。prev 为 nil 表示
+// 全新会话（首次注册）。next 会被原地修改后整体替换会话的 Providers。
+func carryProviderSessionHistory(prev, next []ProviderSession) {
+	prevByID := make(map[string]ProviderSession, len(prev))
+	for _, p := range prev {
+		prevByID[p.ProviderID] = p
+	}
+	now := time.Now().Unix()
+	for i := range next {
+		n := &next[i]
+		first := n.FirstSeenUnix
+		if p, ok := prevByID[n.ProviderID]; ok && p.FirstSeenUnix > 0 && (first == 0 || p.FirstSeenUnix < first) {
+			first = p.FirstSeenUnix
+		}
+		if first == 0 {
+			first = now
+		}
+		n.FirstSeenUnix = first
+		n.VersionHWM = providerVersionHWM(prevByID[n.ProviderID], *n)
+	}
+}
+
+// providerVersionHWM 合并两次观测的版本高水位：候选为两侧 HWM 与当次
+// Version，取可解析者中最高；无一个可解析时返回空（展示层回退 Version）。
+func providerVersionHWM(prev, cur ProviderSession) string {
+	best := ""
+	for _, cand := range []string{prev.VersionHWM, prev.Version, cur.VersionHWM, cur.Version} {
+		if !sdkversion.Parseable(cand) {
+			continue
+		}
+		if best == "" || sdkversion.Higher(cand, best) {
+			best = cand
+		}
+	}
+	return best
 }
 
 // regenTemplatesAfterRegistration 在注册写入（事务或直写）成功后单次收口
@@ -1280,15 +1347,21 @@ func (s *Store) RemoveAgentIfStale(agentID string, notAfter time.Time) bool {
 		return false
 	}
 	s.mu.Lock()
-	defer s.mu.Unlock()
 	cur := s.agents[agentID]
 	if cur == nil {
+		s.mu.Unlock()
 		return false
 	}
 	if cur.LastSeen.After(notAfter) {
+		s.mu.Unlock()
 		return false
 	}
 	delete(s.agents, agentID)
+	s.mu.Unlock()
+	// 注意：断连摘除不删 provider 元数据行（#11）——HA 下 agent 断 A 连 B
+	// 时，B 的注册可能先于 A 的断连清理落行，此处再删会误删存活实例的
+	// 元数据。行随会话过期清理（ExpireAt 过期的 agent 必然全量重注册，
+	// 重注册先行刷新行，无竞态窗口），滞后有界。
 	return true
 }
 
@@ -1427,10 +1500,12 @@ func (s *Store) StartCleanupRoutine(ctx context.Context, interval time.Duration)
 // cleanupExpiredSessions 清理过期的 AgentSession
 func (s *Store) cleanupExpiredSessions() {
 	s.mu.Lock()
-	defer s.mu.Unlock()
 
 	now := time.Now()
 	expiredCount := 0
+	// 过期会话的 provider 元数据行随会话清理（#11）：锁外做 DB 删除，
+	// 避免在注册锁内做慢 I/O。
+	expiredSessions := make([]*AgentSession, 0)
 
 	for agentID, sess := range s.agents {
 		if sess == nil {
@@ -1441,9 +1516,18 @@ func (s *Store) cleanupExpiredSessions() {
 		if sess.ExpireAt.Before(now) {
 			delete(s.agents, agentID)
 			expiredCount++
+			if len(sess.Providers) > 0 {
+				expiredSessions = append(expiredSessions, sess)
+			}
 
 			slog.Debug("Cleaned up expired agent session", "agent_id", agentID, "expired_at", sess.ExpireAt.Format(time.RFC3339))
 		}
+	}
+
+	s.mu.Unlock()
+
+	for _, sess := range expiredSessions {
+		s.deleteProviderMetadataForServices(sess)
 	}
 
 	if expiredCount > 0 {

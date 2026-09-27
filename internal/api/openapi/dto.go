@@ -207,15 +207,22 @@ type GetDocumentResponse = OpenAPIDocumentResponse
 // 与 OpenAPI Source（控制台上传的契约候选）相对，这里展示的是
 // 已经在运行时注册、可直接绑定为 kind=provider 的函数来源。
 type RuntimeProviderItem struct {
-	ProviderID    string   `json:"providerId"`
-	Name          string   `json:"name"`
-	AgentID       string   `json:"agentId"`
-	GameID        string   `json:"gameId"`
-	Env           string   `json:"env"`
-	Version       string   `json:"version,omitempty"`
-	FunctionCount int      `json:"functionCount"`
-	Functions     []string `json:"functions"`
-	LastSeenUnix  int64    `json:"lastSeenUnix"`
+	ProviderID string `json:"providerId"`
+	Name       string `json:"name"`
+	AgentID    string `json:"agentId"`
+	GameID     string `json:"gameId"`
+	Env        string `json:"env"`
+	Version    string `json:"version,omitempty"`
+	// #27②③④：注册链观测补充——实例元数据、被调用方地址、导入时间与
+	// 最新版本高水位。服务端已归一：firstSeenUnix 无观测值时取 lastSeenUnix，
+	// latestVersion 无可解析历史时取 version；底层均为内存态，随会话过期/重启丢失。
+	Metadata      map[string]string `json:"metadata,omitempty"`
+	ServiceAddr   string            `json:"serviceAddr,omitempty"`
+	FirstSeenUnix int64             `json:"firstSeenUnix"`
+	LatestVersion string            `json:"latestVersion,omitempty"`
+	FunctionCount int               `json:"functionCount"`
+	Functions     []string          `json:"functions"`
+	LastSeenUnix  int64             `json:"lastSeenUnix"`
 }
 
 type RuntimeSourcesListRequest struct{}

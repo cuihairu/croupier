@@ -28,6 +28,8 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"sort"
+	"strings"
 	"syscall"
 	"time"
 
@@ -61,6 +63,7 @@ type runConfig struct {
 	agentID    string
 	localAddr  string
 	configDir  string
+	metadata   string
 	noAgent    bool
 }
 
@@ -106,6 +109,7 @@ func newFlagSet(name string, output io.Writer) (*flag.FlagSet, *runConfig) {
 	fs.StringVar(&cfg.agentID, "agent-id", "openapi-demo-agent", "Agent 实例 ID")
 	fs.StringVar(&cfg.localAddr, "local-addr", "127.0.0.1:19091", "Agent 本地 SDK 监听地址（供 SDK 连接，demo 中不使用）")
 	fs.StringVar(&cfg.configDir, "config-dir", "", "Agent 配置目录（默认使用临时目录，自动写入 providers.yaml）")
+	fs.StringVar(&cfg.metadata, "metadata", "", "provider 实例元数据（k=v 逗号分隔，可多项，如 serverId=demo-1,pod=p-1；随注册上报 sdk-distribution 页）")
 	fs.BoolVar(&cfg.noAgent, "no-agent", false, "只启动 HTTP API，不内嵌 Agent（供外部 Agent 接入）")
 	return fs, cfg
 }
@@ -143,6 +147,14 @@ func run(ctx context.Context, cfg runConfig, newAgent agentFactory) error {
 		shutdownHTTP(httpSrv)
 		return err
 	}
+	// -metadata 启动参数（#10）：k=v 逗号分隔，解析失败属启动错误（退出码 1），
+	// 不静默丢弃——元数据配置错了还静默起服务，sdk-distribution 页会「无声无数据」。
+	instanceMetadata, err := parseInstanceMetadata(cfg.metadata)
+	if err != nil {
+		slog.Error("parse -metadata failed", "error", err)
+		shutdownHTTP(httpSrv)
+		return fmt.Errorf("parse -metadata: %w", err)
+	}
 	providersYAML := fmt.Sprintf(`# 由 demo 自动生成；生产部署请放在 Agent 配置目录并自行维护。
 # 字段说明见 docs/guide/integrations/agent-providers.md
 providers:
@@ -151,18 +163,18 @@ providers:
     type: openapi
     game_id: %q
     env: %q
-    config:
+%s    config:
       baseUrl: %q
       openapiSpec: %q
       timeout: "5s"
-`, cfg.gameID, cfg.env, baseURL, baseURL+"/openapi.json")
+`, cfg.gameID, cfg.env, yamlMetadataBlock(instanceMetadata), baseURL, baseURL+"/openapi.json")
 	providersPath := filepath.Join(dir, "providers.yaml")
 	if err := os.WriteFile(providersPath, []byte(providersYAML), 0o644); err != nil {
 		slog.Error("write providers.yaml failed", "path", providersPath, "error", err)
 		shutdownHTTP(httpSrv)
 		return fmt.Errorf("write providers.yaml: %w", err)
 	}
-	slog.Info("providers.yaml written", "path", providersPath)
+	slog.Info("providers.yaml written", "path", providersPath, "metadata", len(instanceMetadata))
 
 	agent := newAgent(cfg.serverAddr, cfg.agentID, dir)
 	agent.SetLocalAddr(cfg.localAddr)
@@ -180,6 +192,52 @@ providers:
 	<-ctx.Done()
 	shutdownHTTP(httpSrv)
 	return nil
+}
+
+// parseInstanceMetadata 解析 -metadata 启动参数（#10）：k=v 逗号分隔，可多项
+// （如 serverId=demo-1,pod=p-1）。空串/空白返回 nil（不携带元数据）。保留键
+// 由 agent 侧剥离并告警，这里不重复校验。与 Go SDK demo 的
+// CROUPIER_INSTANCE_METADATA 解析语义一致。
+func parseInstanceMetadata(raw string) (map[string]string, error) {
+	trimmed := strings.TrimSpace(raw)
+	if trimmed == "" {
+		return nil, nil
+	}
+	metadata := map[string]string{}
+	for _, pair := range strings.Split(trimmed, ",") {
+		pair = strings.TrimSpace(pair)
+		if pair == "" {
+			continue
+		}
+		key, value, found := strings.Cut(pair, "=")
+		key = strings.TrimSpace(key)
+		if !found || key == "" {
+			return nil, fmt.Errorf("pair %q must be key=value", pair)
+		}
+		metadata[key] = strings.TrimSpace(value)
+	}
+	return metadata, nil
+}
+
+// yamlMetadataBlock 把实例元数据渲染为 providers.yaml 的 metadata 块（键
+// 字典序，输出确定）。空 map 返回空串——不产出现空块。块尾带换行，直接
+// 拼进模板。
+func yamlMetadataBlock(metadata map[string]string) string {
+	if len(metadata) == 0 {
+		return ""
+	}
+	keys := make([]string, 0, len(metadata))
+	for key := range metadata {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	var b strings.Builder
+	b.WriteString("    # 用户自报实例元数据：随注册上报，sdk-distribution 页展示/过滤（保留键会被 agent 剥离并告警）\n")
+	b.WriteString("    metadata:\n")
+	for _, key := range keys {
+		fmt.Fprintf(&b, "      %q: %q\n", key, metadata[key])
+	}
+	return b.String()
 }
 
 // resolveConfigDir 规范化 Agent 配置目录：空值时建临时目录（demo 默认行为），

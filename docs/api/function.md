@@ -626,6 +626,25 @@ type versionFloorBatchResponse struct {
 }
 ```
 
+### 27. "获取函数历史版本索引"
+
+1. route definition
+
+- Url: /api/v1/functions/version-history
+- Method: GET
+- Response: 当前 game/env 下每个函数历史出现过的契约版本（供版本门槛下拉选项，OPEN-ISSUES #26；无历史的函数不出现在返回中）
+
+```go
+type functionVersionIndexResponse struct {
+	Items []struct {
+		FunctionID string   `json:"functionId"` // 字典序
+		Versions   []string `json:"versions"`   // semver 数值降序，不可解析版本殿后
+	} `json:"items"`
+}
+```
+
+数据源为 `function_contract_versions` 的 distinct 聚合（30s TTL 内存缓存，无写失效——选项性数据，陈旧窗口有界，同资源分类聚合先例）。
+
 ### 说明（版本门槛）
 
 - 函数级版本门槛是「UI 按函数配置的最低可注册函数版本」（比函数描述符自身 version，与 SDK 版本无关），判定语义见 `docs/architecture/data-flow.md` §「函数级最低版本（UI 按函数配置）」。
@@ -646,6 +665,7 @@ GET /api/v1/functions/{id}/analytics   # 函数调用分析
 GET /api/v1/functions/instances        # 全量函数实例
 GET /api/v1/functions/warnings         # 注册警告列表
 GET /api/v1/functions/version-floors   # 全部函数版本门槛
+GET /api/v1/functions/version-history  # 函数历史版本索引（门槛下拉选项，#26）
 GET /api/v1/functions/:id/openapi      # 函数 OpenAPI spec（公开）
 POST /api/v1/functions/_openapi-batch  # 批量获取 OpenAPI spec（公开）
 GET /api/v1/openapi/spec               # 全局 OpenAPI 文档（公开）

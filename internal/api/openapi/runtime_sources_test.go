@@ -73,3 +73,65 @@ func TestRuntimeSourcesFiltersByScope(t *testing.T) {
 	assert.Empty(t, resp.Items)
 	assert.Equal(t, 0, resp.Total)
 }
+
+// #27②③：运行时导入条目补充实例元数据、被调用方地址、导入时间与最新
+// 版本高水位；firstSeenUnix/latestVersion 由服务端归一（无观测值回退
+// lastSeenUnix/version），前端无需判零值/空串。
+func TestRuntimeSourcesExposesMetadataAddrAndVersionHistory(t *testing.T) {
+	service, ctx := setupOpenAPITestServiceWithPermissions(t, "openapi_sources:read")
+	store := service.svcCtx.RegistryStore
+	now := time.Now()
+	firstSeen := now.Add(-2 * time.Hour).Unix()
+	require.NoError(t, store.UpsertAgent(&registry.AgentSession{
+		AgentID:  "openapi-demo-agent",
+		GameID:   "demo-game",
+		Env:      "development",
+		LastSeen: now,
+		Providers: []registry.ProviderSession{{
+			ProviderID:    "provider:players",
+			Addr:          "10.0.0.8:9001",
+			Version:       "1.1.0",
+			VersionHWM:    "1.4.0",
+			FirstSeenUnix: firstSeen,
+			Metadata:      map[string]string{"serverId": "s1"},
+			LastSeenUnix:  now.Unix(),
+			FunctionIDs:   []string{"players.player.list"},
+		}},
+	}))
+	// 快照零值归一：FirstSeenUnix=0 / VersionHWM="" 的会话回退 lastSeen/version
+	require.NoError(t, store.UpsertAgent(&registry.AgentSession{
+		AgentID:  "fresh-agent",
+		GameID:   "demo-game",
+		Env:      "development",
+		LastSeen: now,
+		Providers: []registry.ProviderSession{{
+			ProviderID:   "provider:battles",
+			Addr:         "10.0.0.9:9002",
+			Version:      "0.3.0",
+			LastSeenUnix: now.Unix(),
+			FunctionIDs:  []string{"battles.battle.start"},
+		}},
+	}))
+
+	resp, err := service.RuntimeSources(ctx, &RuntimeSourcesListRequest{})
+	require.NoError(t, err)
+	require.Len(t, resp.Items, 2)
+
+	byID := map[string]RuntimeProviderItem{}
+	for _, item := range resp.Items {
+		byID[item.ProviderID] = item
+	}
+
+	players := byID["provider:players"]
+	assert.Equal(t, "10.0.0.8:9001", players.ServiceAddr)
+	assert.Equal(t, map[string]string{"serverId": "s1"}, players.Metadata)
+	assert.Equal(t, firstSeen, players.FirstSeenUnix)
+	assert.Equal(t, "1.4.0", players.LatestVersion, "有高水位时取高水位")
+	assert.Equal(t, "1.1.0", players.Version)
+
+	battles := byID["provider:battles"]
+	assert.Equal(t, "10.0.0.9:9002", battles.ServiceAddr)
+	assert.Empty(t, battles.Metadata)
+	assert.Equal(t, now.Unix(), battles.FirstSeenUnix, "零值归一回退 lastSeenUnix")
+	assert.Equal(t, "0.3.0", battles.LatestVersion, "空高水位归一回退 version")
+}

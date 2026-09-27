@@ -1,5 +1,7 @@
 package provider
 
+import registry "github.com/cuihairu/croupier/internal/platform/registry"
+
 // Provider DTOs - canonical REST contracts for provider API operations.
 type ProviderActionRequest struct {
 	ID string `uri:"id"`
@@ -105,4 +107,18 @@ type SdkStatsResponse struct {
 type SdkStatsRequest struct {
 	MetaKey   string `form:"metaKey,optional"`
 	MetaValue string `form:"metaValue,optional"`
+}
+
+// ProviderMetaValueOption / ProviderMetaKeyOption 直接别名 registry 聚合
+// 结果类型（#2）：选项由 registry Store 聚合产出（EAV 表/在线会话），
+// wire 形态（json tag）以 registry 侧定义为准，此处不重复定义避免漂移。
+type (
+	ProviderMetaValueOption = registry.ProviderMetaValueOption
+	ProviderMetaKeyOption   = registry.ProviderMetaKeyOption
+)
+
+// ProviderMetaOptionsResponse GET /api/v1/providers/meta-options 的响应：
+// 当前 scope 下实例元数据的去重键值聚合（#11 EAV 表/在线会话聚合）。
+type ProviderMetaOptionsResponse struct {
+	Items []ProviderMetaKeyOption `json:"items"`
 }

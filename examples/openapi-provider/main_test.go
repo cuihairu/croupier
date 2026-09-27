@@ -172,6 +172,7 @@ func TestNewFlagSet_Declarations(t *testing.T) {
 		"agent-id":   "openapi-demo-agent",
 		"local-addr": "127.0.0.1:19091",
 		"config-dir": "",
+		"metadata":   "",
 		"no-agent":   "false",
 	}
 	gotDefaults := map[string]string{}

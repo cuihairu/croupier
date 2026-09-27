@@ -4,10 +4,19 @@
 import React from 'react';
 import { ProTable } from '@ant-design/pro-components';
 import type { ProColumns } from '@ant-design/pro-components';
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { buildDirectoryColumns } from '../columns';
 import type { DirectoryPageSchema } from '../schema';
 import type { SummaryRow } from '../types';
+
+// minVersion 列（#26）内嵌 VersionFloorSelect，其 useIntl 走 @umijs/max——
+// 真实模块无 IntlProvider 会抛错，按 defaultMessage 透传即可
+jest.mock('@umijs/max', () => ({
+  __esModule: true,
+  useIntl: () => ({
+    formatMessage: ({ defaultMessage }: { defaultMessage: string }) => defaultMessage,
+  }),
+}));
 
 const intl = {
   formatMessage: ({ defaultMessage }: { id: string; defaultMessage: string }): string =>
@@ -47,24 +56,61 @@ type Handlers = {
   onOpenDetail: jest.Mock;
   onOpenSchema: jest.Mock;
   onInvoke: jest.Mock;
+  onFloorChange: jest.Mock;
 };
 
 function makeHandlers(): Handlers {
-  return { onOpenDetail: jest.fn(), onOpenSchema: jest.fn(), onInvoke: jest.fn() };
+  return {
+    onOpenDetail: jest.fn(),
+    onOpenSchema: jest.fn(),
+    onInvoke: jest.fn(),
+    onFloorChange: jest.fn(),
+  };
 }
 
 function buildColumns(
   columnDefs: DirectoryPageSchema['columns'],
   handlers: Handlers,
   versions = ['1.0.0', '2.1.0'],
+  versionIndex: Record<string, string[]> = {},
 ) {
   return buildDirectoryColumns({
     intl,
     columns: columnDefs,
     rowActions,
     versions,
+    versionIndex,
     ...handlers,
   });
+}
+
+function renderTableWithVersionIndex(
+  rows: SummaryRow[],
+  columnDefs: DirectoryPageSchema['columns'],
+  versionIndex: Record<string, string[]>,
+  handlers = makeHandlers(),
+) {
+  return {
+    handlers,
+    ...render(
+      <ProTable<SummaryRow>
+        columns={
+          buildColumns(
+            columnDefs,
+            handlers,
+            ['1.0.0', '2.1.0'],
+            versionIndex,
+          ) as ProColumns<SummaryRow>[]
+        }
+        dataSource={rows}
+        rowKey="id"
+        search={false}
+        toolBarRender={false}
+        pagination={false}
+        options={false}
+      />,
+    ),
+  };
 }
 
 function renderTable(
@@ -137,10 +183,23 @@ describe('buildDirectoryColumns 列 formatter', () => {
     expect(screen.getByText('-')).toBeInTheDocument();
   });
 
-  it('minVersion 列：有值出 ≥ Tag，未配置回退 -', () => {
+  it('minVersion 列（#26）：行内下拉展示当前门槛选中项，未配置回退占位「未设置」', () => {
     renderTable([fullRow, emptyRow], defs('minVersion'));
-    expect(screen.getByText('≥ 1.4.0')).toBeInTheDocument();
-    expect(screen.getAllByText('-')).toHaveLength(1);
+    expect(screen.getByTitle('≥ v1.4.0')).toBeInTheDocument();
+    expect(screen.getByText('未设置')).toBeInTheDocument();
+  });
+
+  it('minVersion 列（#26）：选项来自 versionIndex，选择后回调 (functionId, version)', async () => {
+    const { handlers } = renderTableWithVersionIndex([fullRow], defs('minVersion'), {
+      'player.kick': ['1.4.0', '2.1.0'],
+    });
+    fireEvent.mouseDown(screen.getByRole('combobox'));
+    await waitFor(() => {
+      expect(screen.getByTitle('≥ v2.1.0')).toBeInTheDocument();
+    });
+    // 1.4.0 已在当前值上；下拉列出全部历史版本供切换
+    fireEvent.click(screen.getByTitle('≥ v2.1.0'));
+    expect(handlers.onFloorChange).toHaveBeenCalledWith('player.kick', '2.1.0');
   });
 
   it('displayName 列：取 zh-CN 文案，缺省回退函数 ID', () => {

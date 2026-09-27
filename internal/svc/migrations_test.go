@@ -557,3 +557,47 @@ func TestAddContractRemovalPendingColumnIdempotent(t *testing.T) {
 		}
 	}
 }
+
+// TestGoMigrations_ProviderMetadataCatchUp 回归（0033，OPEN-ISSUES #11）：
+// 已过 baseline 的存量库不再跑 AutoMigrate——provider_metadata 必须由
+// 0033 建出，否则注册链的元数据投影写入全部告警降级、重启后下拉选项
+// 无源。唯一索引 (game_id, env, service_id, meta_key) 与覆盖更新语义可用。
+func TestGoMigrations_ProviderMetadataCatchUp(t *testing.T) {
+	db := openMigrationTestDB(t)
+	ctx := context.Background()
+
+	if err := autoMigrate(db); err != nil {
+		t.Fatalf("autoMigrate: %v", err)
+	}
+	// 模拟存量库：baseline 后模型才加表 → 库里没有该表。
+	if err := db.Migrator().DropTable(&model.ProviderMetadata{}); err != nil {
+		t.Fatalf("drop table: %v", err)
+	}
+	if _, err := migrate.EnsureUpToDate(ctx, db, migrate.ScopeSingle, func(db *gorm.DB) error {
+		return nil // baseline 已完成，禁止再跑 AutoMigrate
+	}); err != nil {
+		t.Fatalf("EnsureUpToDate: %v", err)
+	}
+	if !db.Migrator().HasTable(&model.ProviderMetadata{}) {
+		t.Fatal("provider_metadata table not created by 0033")
+	}
+	// 建出的表可写入，(game_id, env, service_id, meta_key) 唯一索引生效。
+	if err := db.Exec(`INSERT INTO provider_metadata
+		(updated_at, game_id, env, service_id, meta_key, meta_value)
+		VALUES (datetime('now'), 'demo_game', 'dev', 'svc-1', 'serverId', 's-1')`).Error; err != nil {
+		t.Fatalf("insert row: %v", err)
+	}
+	if err := db.Exec(`INSERT INTO provider_metadata
+		(updated_at, game_id, env, service_id, meta_key, meta_value)
+		VALUES (datetime('now'), 'demo_game', 'dev', 'svc-1', 'serverId', 's-2')`).Error; err == nil {
+		t.Fatal("duplicate EAV key should violate unique index")
+	}
+	// 幂等：再跑一次迁移体（已存在跳过，不报错）。
+	sqlDB, err := db.DB()
+	if err != nil {
+		t.Fatalf("db.DB: %v", err)
+	}
+	if err := migrateProviderMetadataTable(ctx, sqlDB); err != nil {
+		t.Fatalf("0033 rerun: %v", err)
+	}
+}

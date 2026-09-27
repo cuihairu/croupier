@@ -8,6 +8,8 @@ export default {
   'pages.functionsSdk.column.sdkVersion': 'SDK version',
   'pages.functionsSdk.empty':
     'No online provider instances in game {game} / env {env} (switch the game in the top bar or wait for SDKs to connect)',
+  'pages.functionsSdk.filter.metaKey': 'Metadata key',
+  'pages.functionsSdk.filter.metaValue': 'Metadata value',
   'pages.functionsSdk.instances.searchPlaceholder': 'Search provider / agent / version / metadata…',
   'pages.functionsSdk.instances.title': 'Instance details',
   'pages.functionsSdk.languageCard.instanceCount': '{count} instances',

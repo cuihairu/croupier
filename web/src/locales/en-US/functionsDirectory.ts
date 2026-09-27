@@ -13,14 +13,14 @@ export default {
   'pages.functionsDirectory.batch.clearSelection': 'Clear Selection',
   'pages.functionsDirectory.batch.cleared': 'Version floors cleared for {count} functions',
   'pages.functionsDirectory.batch.modalDescription':
-    'Set the minimum registrable function version of all {count} selected functions to the value below.',
+    'Set the minimum registrable function version of all {count} selected functions to the selected value.',
   'pages.functionsDirectory.batch.modalTitle': 'Batch Set Version Floor',
   'pages.functionsDirectory.batch.partialFailed': 'Updated {updated}, failed {failed}: {failedIds}',
   'pages.functionsDirectory.batch.saved': 'Version floor of {count} functions set to {version}',
   'pages.functionsDirectory.batch.selected': '{count} selected',
   'pages.functionsDirectory.batch.setFloor': 'Set Floor',
   'pages.functionsDirectory.batch.versionLabel': 'Minimum Function Version',
-  'pages.functionsDirectory.batch.versionPlaceholder': 'e.g. 0.3.0',
+  'pages.functionsDirectory.batch.versionPlaceholder': 'Select a historical version',
   'pages.functionsDirectory.button.testInvoke': 'Test Invocation',
   'pages.functionsDirectory.button.viewResourceCandidates': 'View Resource/Page Candidates',
   'pages.functionsDirectory.button.viewResources': 'View Resources',
@@ -56,6 +56,10 @@ export default {
   'pages.functionsDirectory.drawer.title': 'Function Detail',
   'pages.functionsDirectory.error.detailLoadFailed': 'Failed to load details',
   'pages.functionsDirectory.error.loadFailed': 'Failed to load',
+  'pages.functionsDirectory.floorSelect.cleared': 'Version floor cleared',
+  'pages.functionsDirectory.floorSelect.empty': 'No version history',
+  'pages.functionsDirectory.floorSelect.placeholder': 'Not set',
+  'pages.functionsDirectory.floorSelect.saved': 'Version floor updated',
   'pages.functionsDirectory.intro.description':
     'The function directory owns descriptors, parameter forms, instance overrides, and invocation validation. It does not decide menus, page categories, tables, pagination, or multi-function composition. Once a page is published, its menu comes only from PublishedPageSpec.',
   'pages.functionsDirectory.intro.title':

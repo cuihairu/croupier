@@ -6,6 +6,9 @@ import { history } from '@umijs/max';
 import type { Location } from 'history';
 import type { MemoryHistory } from 'history';
 
+// 全量套件并行时机器负载高，5s 默认超时会误报（与 CI 慢机同型），放宽
+jest.setTimeout(30000);
+
 // @ts-ignore
 import { startMock } from '@@/requestRecordMock';
 

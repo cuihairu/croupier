@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Alert, App, Button, Input, Select, Space, Table } from 'antd';
 import { PageContainer } from '@ant-design/pro-components';
-import { FormattedMessage, useIntl } from '@umijs/max';
+import { FormattedMessage, useIntl, useLocation } from '@umijs/max';
 import { listOpsNodes, drainOpsNode, restartOpsNode, undrainOpsNode } from '@/services/api/ops';
 import { fetchRegistry } from '@/services/api/registry';
 import { StandardFilterBar, StandardListSection, SummaryOverview } from '@/components';
@@ -13,9 +13,11 @@ import CronJobsDrawer from './CronJobsDrawer';
 export default function OpsNodesPage() {
   const { message, modal } = App.useApp();
   const intl = useIntl();
+  // #27④：支持 ?agentId= 深链（OpenAPI Sources 运行时导入跳转），预填关键字过滤
+  const location = useLocation();
   const [loading, setLoading] = useState(false);
   const [rows, setRows] = useState<NodeRow[]>([]);
-  const [q, setQ] = useState('');
+  const [q, setQ] = useState(() => new URLSearchParams(location.search).get('agentId') ?? '');
   const [healthy, setHealthy] = useState<string>('');
   const [env, setEnv] = useState<string>('');
   const [game, setGame] = useState<string>('');
