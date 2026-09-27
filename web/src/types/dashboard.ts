@@ -999,6 +999,12 @@ export interface ResourceCatalogItem {
   affectedPages?: AffectedPageInfo[];
 }
 
+/** 资源分类聚合项（GET /resource-catalog/categories，服务端 distinct+计数） */
+export interface ResourceCategoryOption {
+  categoryKey: string;
+  count: number;
+}
+
 /** 函数信息 */
 export interface FunctionInfo {
   id: number;

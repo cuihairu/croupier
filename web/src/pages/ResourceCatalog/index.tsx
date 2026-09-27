@@ -15,7 +15,6 @@ import {
   Form,
   Input,
   message,
-  Select,
   Space,
   Table,
   Tag,
@@ -47,9 +46,12 @@ import {
   getResourceSemanticConflicts,
   getResourceSemanticVersions,
   listResourceCatalog,
+  listResourceCategories,
   resolveResourceSemanticConflict,
   updateResourceSemantics,
 } from '@/services/dashboard';
+import { useScopeReload } from '@/hooks/useScopeReload';
+import ServerOptionsSelect from '@/components/ServerOptionsSelect';
 import { extractErrorMessage } from '@/utils/errors';
 import { localizedText } from '@/utils/localizedText';
 import { SummaryOverview } from '@/components';
@@ -80,6 +82,10 @@ const ResourceCatalogPage: React.FC = () => {
   const [data, setData] = useState<ResourceCatalogItem[]>([]);
   const [total, setTotal] = useState(0);
   const [category, setCategory] = useState<string>('');
+  // #14：分类下拉选项统一走 ServerOptionsSelect（服务端聚合 + scope 联动 +
+  // 写后 epoch 刷新）；此处仅保留概览统计所需的分类数。
+  const [categoryCount, setCategoryCount] = useState(0);
+  const [categoriesEpoch, setCategoriesEpoch] = useState(0);
   const [query, setQuery] = useState<string>('');
   const [selectedResource, setSelectedResource] = useState<ResourceCatalogItem | null>(null);
   const [semanticMeta, setSemanticMeta] = useState<ResourceSemanticConflicts>(emptySemanticMeta);
@@ -122,6 +128,10 @@ const ResourceCatalogPage: React.FC = () => {
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
+  // #14/#38 族：目录列表按全局 scope 过滤（X-Game-ID/X-Env），切游戏重拉；
+  // 分类下拉选项的 scope 联动由 ServerOptionsSelect 内置。
+  useScopeReload(fetchData);
 
   const fetchSemanticVersions = useCallback(
     async (resourceKey: string, page: number, pageSize: number) => {
@@ -233,6 +243,8 @@ const ResourceCatalogPage: React.FC = () => {
       setEditVisible(false);
       await loadResourceDetail(selectedResource.resourceKey);
       fetchData();
+      // 审核可能改写分类：epoch 递增触发下拉选项（服务端聚合）重拉
+      setCategoriesEpoch((n) => n + 1);
     } catch (error) {
       message.error(
         intlRef.current.formatMessage(
@@ -313,17 +325,11 @@ const ResourceCatalogPage: React.FC = () => {
     history.push(`/functions/pages?resourceKey=${encodeURIComponent(resourceKey)}`);
   }, []);
 
-  const categoryOptions = data
-    .map((item) => item.categoryKey)
-    .filter((item): item is string => Boolean(item))
-    .filter((item, index, all) => all.indexOf(item) === index)
-    .sort();
-
-  // 概览卡统计：与列表同一份 data 派生，不额外发请求。
+  // 概览卡统计：total/语义/诊断与列表同一份 data 派生；分类数取服务端聚合
+  // （列表可能带分类过滤，不能再从 data 推导——#14 的塌缩病灶）。
   // 已声明语义 = semantics.version 存在；诊断异常 = diagnostics 含 error/warning 的资源数。
   const summary = useMemo(() => {
     const total = data.length;
-    const categoryCount = categoryOptions.length;
     const semanticCount = data.filter((item) => item.semantics?.version).length;
     const diagnosticsCount = data.filter((item) =>
       (item.diagnostics || []).some(
@@ -331,7 +337,7 @@ const ResourceCatalogPage: React.FC = () => {
       ),
     ).length;
     return { total, categoryCount, semanticCount, diagnosticsCount };
-  }, [categoryOptions.length, data]);
+  }, [categoryCount, data]);
 
   const columns: ColumnsType<ResourceCatalogItem> = [
     {
@@ -600,19 +606,25 @@ const ResourceCatalogPage: React.FC = () => {
               onPressEnter={fetchData}
               style={{ width: 220 }}
             />
-            <Select
+            <ServerOptionsSelect
+              fetchOptions={async () => {
+                const result = await listResourceCategories();
+                return (result?.items || []).map((item) => ({
+                  value: item.categoryKey,
+                  label: item.categoryKey,
+                  count: item.count,
+                }));
+              }}
+              epoch={categoriesEpoch}
+              onOptionsLoaded={(opts) => setCategoryCount(opts.length)}
               placeholder={intl.formatMessage({
                 id: 'pages.resourceCatalog.list.search.categoryPlaceholder',
                 defaultMessage: '选择分类',
               })}
               value={category || undefined}
-              onChange={(value) => setCategory(value || '')}
+              onChange={(value) => setCategory((value as string | undefined) || '')}
               allowClear
               style={{ width: 180 }}
-              options={categoryOptions.map((item) => ({
-                value: item,
-                label: item,
-              }))}
             />
             <Button type="primary" icon={<SearchOutlined />} onClick={fetchData}>
               <FormattedMessage

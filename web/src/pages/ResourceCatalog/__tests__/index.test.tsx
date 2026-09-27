@@ -64,6 +64,7 @@ jest.mock('@ant-design/pro-components', () => ({
 }));
 
 const mockListResourceCatalog = jest.fn();
+const mockListResourceCategories = jest.fn();
 const mockGetDetail = jest.fn();
 const mockGetConflicts = jest.fn();
 const mockGetVersions = jest.fn();
@@ -73,6 +74,8 @@ const mockUpdateSemantics = jest.fn();
 jest.mock('@/services/dashboard', () => ({
   __esModule: true,
   listResourceCatalog: (...args: unknown[]) => mockListResourceCatalog(...args),
+  // #14：分类下拉选项来自服务端聚合接口，不再由列表数据推导
+  listResourceCategories: (...args: unknown[]) => mockListResourceCategories(...args),
   getResourceDetail: (...args: unknown[]) => mockGetDetail(...args),
   getResourceSemanticConflicts: (...args: unknown[]) => mockGetConflicts(...args),
   getResourceSemanticVersions: (...args: unknown[]) => mockGetVersions(...args),
@@ -113,6 +116,10 @@ describe('ResourceCatalogPage 定位提示体系', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockListResourceCatalog.mockResolvedValue({ items: fixtureItems, total: 2 });
+    // fixtureItems 两条同属「玩家运营」→ 聚合接口一个分类
+    mockListResourceCategories.mockResolvedValue({
+      items: [{ categoryKey: '玩家运营', count: 2 }],
+    });
   });
 
   it('渲染页面标题与定位副标题（页面、菜单和分类在 Page Studio 确定）', async () => {
@@ -250,6 +257,13 @@ describe('ResourceCatalogPage 列表列渲染', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockListResourceCatalog.mockResolvedValue({ items: colItems, total: colItems.length });
+    // #14：分类聚合由服务端给出全量（colItems 含 玩家运营×2 + 任务×1）
+    mockListResourceCategories.mockResolvedValue({
+      items: [
+        { categoryKey: '任务', count: 1 },
+        { categoryKey: '玩家运营', count: 2 },
+      ],
+    });
     mockGetDetail.mockResolvedValue(detailPlayer);
     mockGetConflicts.mockResolvedValue({ conflicts: [], provenance: [] });
     mockGetVersions.mockResolvedValue({ items: [], total: 0 });
@@ -285,9 +299,12 @@ describe('ResourceCatalogPage 列表列渲染', () => {
     expect(task.getByText('1 警告')).toBeInTheDocument();
   });
 
-  it('分类去重：同分类多项归一，概览「分类 2」', async () => {
+  // #14：概览分类数与下拉选项都取服务端聚合接口（全量 distinct），
+  // 不再从（可能被分类过滤的）列表数据推导。
+  it('分类统计取服务端聚合：概览「分类 2」', async () => {
     renderPage();
     await waitFor(() => expect(screen.getByText('分类 2')).toBeInTheDocument());
+    expect(mockListResourceCategories).toHaveBeenCalled();
     expect(screen.getByText('总数 3')).toBeInTheDocument();
     expect(screen.getByText('诊断异常 2')).toBeInTheDocument();
   });
@@ -322,16 +339,16 @@ describe('ResourceCatalogPage 列表列渲染', () => {
     fireEvent.mouseDown(select as HTMLElement);
 
     // 选项渲染在 body 下的下拉容器（表内也有「任务」同名单元格，必须限定下拉范围）
-    // categoryOptions 按 Unicode 排序：任务(U+4EFB) < 玩家运营(U+73A9)，且同分类去重
+    // #14：选项=服务端聚合全量（label 带资源数），顺序即服务端排序
     await waitFor(() =>
       expect(
         Array.from(document.querySelectorAll('.ant-select-dropdown .ant-select-item-option')).map(
           (el) => el.textContent,
         ),
-      ).toEqual(['任务', '玩家运营']),
+      ).toEqual(['任务 (1)', '玩家运营 (2)']),
     );
     const option = document.querySelector(
-      '.ant-select-dropdown .ant-select-item-option[title="任务"]',
+      '.ant-select-dropdown .ant-select-item-option[title="任务 (1)"]',
     );
     expect(option).not.toBeNull();
     fireEvent.click(option as Element);
@@ -341,6 +358,47 @@ describe('ResourceCatalogPage 列表列渲染', () => {
         query: undefined,
       }),
     );
+  });
+
+  it('#14 选中一个分类后下拉选项不塌缩（列表重查不影响选项）', async () => {
+    // 列表按分类过滤后只剩该分类数据；若选项从列表推导会塌缩成一项——
+    // 选项必须由服务端聚合接口独立提供。
+    mockListResourceCatalog.mockResolvedValue({
+      items: colItems.filter((item) => item.categoryKey === '任务'),
+      total: 1,
+    });
+    renderPage();
+    await waitFor(() => expect(mockListResourceCategories).toHaveBeenCalledTimes(1));
+
+    const select = screen.getByText('选择分类').closest('.ant-select');
+    fireEvent.mouseDown(select as HTMLElement);
+    await waitFor(() =>
+      expect(document.querySelectorAll('.ant-select-dropdown .ant-select-item-option').length).toBe(
+        2,
+      ),
+    );
+    fireEvent.click(
+      document.querySelector(
+        '.ant-select-dropdown .ant-select-item-option[title="任务 (1)"]',
+      ) as Element,
+    );
+    await waitFor(() =>
+      expect(mockListResourceCatalog).toHaveBeenLastCalledWith({
+        category: '任务',
+        query: undefined,
+      }),
+    );
+
+    // 重查后再次展开：仍为服务端全量两项
+    fireEvent.mouseDown(select as HTMLElement);
+    await waitFor(() =>
+      expect(
+        Array.from(document.querySelectorAll('.ant-select-dropdown .ant-select-item-option')).map(
+          (el) => el.textContent,
+        ),
+      ).toEqual(['任务 (1)', '玩家运营 (2)']),
+    );
+    expect(mockListResourceCategories).toHaveBeenCalledTimes(1);
   });
 
   it('列表拉取失败：message.error 提示且页面结构不丢', async () => {
@@ -370,6 +428,13 @@ describe('ResourceCatalogPage 详情与编辑语义', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockListResourceCatalog.mockResolvedValue({ items: colItems, total: colItems.length });
+    // #14：分类聚合由服务端给出全量（colItems 含 玩家运营×2 + 任务×1）
+    mockListResourceCategories.mockResolvedValue({
+      items: [
+        { categoryKey: '任务', count: 1 },
+        { categoryKey: '玩家运营', count: 2 },
+      ],
+    });
     mockGetDetail.mockResolvedValue(detailPlayer);
     mockGetConflicts.mockResolvedValue({ conflicts: [], provenance: [] });
     mockGetVersions.mockResolvedValue({ items: [], total: 0 });
@@ -466,6 +531,13 @@ describe('ResourceCatalogPage 冲突解决流', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockListResourceCatalog.mockResolvedValue({ items: colItems, total: colItems.length });
+    // #14：分类聚合由服务端给出全量（colItems 含 玩家运营×2 + 任务×1）
+    mockListResourceCategories.mockResolvedValue({
+      items: [
+        { categoryKey: '任务', count: 1 },
+        { categoryKey: '玩家运营', count: 2 },
+      ],
+    });
     mockGetDetail.mockResolvedValue(detailPlayer);
     mockGetVersions.mockResolvedValue({ items: [], total: 0 });
     mockGetConflicts.mockResolvedValue({

@@ -7,6 +7,7 @@
 import { request } from '@umijs/max';
 import type {
   ResourceCatalogItem,
+  ResourceCategoryOption,
   PageProposal,
   ProposalInbox,
   ChangeChain,
@@ -29,6 +30,16 @@ export async function listResourceCatalog(params?: {
   return request(`${BASE_URL}/resource-catalog`, {
     method: 'GET',
     params,
+  });
+}
+
+/** 列出资源分类聚合（distinct 分类 + 资源数，服务端短 TTL 内存缓存）。
+ *  下拉选项必须来自这里而不是过滤后的列表——否则选中一个分类后选项塌缩成一项（#14）。 */
+export async function listResourceCategories(): Promise<{
+  items: ResourceCategoryOption[];
+}> {
+  return request(`${BASE_URL}/resource-catalog/categories`, {
+    method: 'GET',
   });
 }
 

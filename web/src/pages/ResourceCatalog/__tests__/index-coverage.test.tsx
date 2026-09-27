@@ -59,9 +59,13 @@ const mockGetVersions = jest.fn();
 const mockResolveConflict = jest.fn();
 const mockUpdateSemantics = jest.fn();
 
+const mockListResourceCategories = jest.fn();
+
 jest.mock('@/services/dashboard', () => ({
   __esModule: true,
   listResourceCatalog: (...args: unknown[]) => mockListResourceCatalog(...args),
+  // #14：分类下拉选项来自服务端聚合接口
+  listResourceCategories: (...args: unknown[]) => mockListResourceCategories(...args),
   getResourceDetail: (...args: unknown[]) => mockGetDetail(...args),
   getResourceSemanticConflicts: (...args: unknown[]) => mockGetConflicts(...args),
   getResourceSemanticVersions: (...args: unknown[]) => mockGetVersions(...args),
@@ -146,6 +150,10 @@ describe('ResourceCatalogPage 残余分支', () => {
     mockGetVersions.mockResolvedValue({ items: [], total: 0 });
     mockResolveConflict.mockResolvedValue(undefined);
     mockUpdateSemantics.mockResolvedValue(undefined);
+    // #14：分类选项来自服务端聚合接口（items 里 player/mail 同属玩家运营，guild 无分类）
+    mockListResourceCategories.mockResolvedValue({
+      items: [{ categoryKey: '玩家运营', count: 2 }],
+    });
     msgError = jest.spyOn(message, 'error').mockImplementation(() => undefined as never);
   });
 
@@ -208,7 +216,8 @@ describe('ResourceCatalogPage 残余分支', () => {
 
     // 选中分类（value 为真分支）→ 清除按钮出现（value || '' 的空串分支）
     fireEvent.mouseDown(document.querySelector('.ant-select-placeholder') as Element);
-    const option = await screen.findAllByText('玩家运营');
+    // #14：选项 label 带服务端聚合的资源数（「玩家运营 (2)」），用前缀匹配
+    const option = await screen.findAllByText(/^玩家运营/);
     fireEvent.click(option[option.length - 1]);
     await waitFor(() => expect(document.querySelector('.ant-select-clear')).not.toBeNull());
 
