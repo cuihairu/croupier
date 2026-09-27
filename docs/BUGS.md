@@ -1658,43 +1658,119 @@ mock 生成链路本身无恙：`generateMockResponse` 对无 outputSchema、
 
 ---
 
+## BUG-034 mock e2e「一键发布/下架」取消键超时：AntdApp 挂载层错位，modal holder 拿不到 zh_CN
+
+**严重度**：中高（CI Dashboard mock e2e 连续 12+ 跑红（2026-09-26 18:13 起），阻断质量门禁；
+且 antd 内置文案在所有 confirm/modal 场景静默英文化，不只影响测试）。
+
+**现象**
+
+`page-studio.spec.ts › 一键发布/下架按钮在主视图直接可见`：confirm 弹窗正常弹出、
+内容文案可见，`getByRole('button', { name: /取 消/ })` 20s 超时。CI 快照显示
+取消键可访问名是 **"Cancel"**，而 okText「发 布」正常（我们自己的字符串）。
+
+**根因（取证）**
+
+f56bfa8（BUG-022）把 `<AntdApp>` 从已登录布局 childrenRender 挪到 app.tsx 的
+`rootContainer`。umi 渲染链由外到内：rootContainer（plugin-antd theme ConfigProvider、
+app.tsx 包裹）→ **i18nProvider（plugin-locale 在此注入 antd zh_CN locale）** →
+innerProvider → 路由。AntdApp 的 modal/message holder 渲染在 AntdApp 所在 React 层，
+挂 rootContainer 时位于 zh_CN ConfigProvider **之外**——App.useApp().modal 的
+confirm 弹窗按钮全部落回 antd 默认 locale（en）。BUG-022 修复前 AntdApp 在布局深处
+（locale 内），所以 9-26 05:38 前的 CI 是绿的；层级一变即红。
+
+**修复**
+
+app.tsx：挂载层 `rootContainer` → `innerProvider`（渲染链最内层、紧贴路由，
+仍全路由覆盖含 `layout:false` 登录页——BUG-022 语义不变；holder 进入 zh_CN
+上下文且随语言切换响应式更新）。
+
+**回归（红→绿）**
+
+- jest 守卫 `tests/appAntdRoot.test.ts`：改锁 innerProvider 布线，并**新增
+  「rootContainer 不得再挂 `<AntdApp>`」断言**——把 `<AntdApp>` 移回 rootContainer
+  的任何改动都会在此先红（本次回归的 jest 级复现）。
+- e2e 原用例：静态构建（CI 同路径 MOCK=all prod build）本地复现红
+  （`waiting for getByRole('button', { name: /取 消/ })` 15s 超时，1 failed）→
+  修复后绿（1 passed，52.7s）。
+
+**教训**
+
+「布局层级修复」要核对其在框架合成 Provider 链中的位置：AntdApp 这类
+**holder 型上下文组件**的挂载层决定了它能否继承下层 Provider（locale/theme）。
+umi 多个 rootContainer/i18nProvider/innerProvider 的包裹顺序是隐式契约，
+布线守卫测试要把「在哪个层」而不只是「有没有」固化下来。
+
+**边界（诚实）**
+
+同一 run 的 dashboard-quality 单测步 21:43 被 GitHub 运行时主动取消
+（"The operation was canceled"；run_attempt=1、无并发组、两个 30min 预算均未触达、
+被杀时用例仍在 PASS；前一跑同 job success）——定性一次性 infra 取消，非用例红
+非超时预算，不做配置改动，随本次 push 的新 run 复证。
+
+## BUG-035 assignments 白名单化石 null 值透出前端：旧版空保存产物，读取侧无兜底
+
+严重度：低-中（选中态/统计污染，不阻断保存链路）
+
+现象（线上诊断实证，2026-09-27）：部署机 `assignments.json` 躺着 `"default|dev": null`
+——861841d（BUG-032）之前 Update 是 `assignments[key] = accepted` 直写，空选保存落盘
+空值，volume 跨部署持久化成化石。GET /api/v1/assignments 原样透出 null，前端
+useAssignmentsPage 的 `Object.values(m).flat()` 把它卷成 `[null]` 选中态幻影项。
+
+根因：读取侧 `loadAssignments` 对逐键 null 无归一；同型实现两份
+（internal/api/assignment 与 internal/logic/assignment）需同步修。
+
+修复：两份 `loadAssignments` 读取时删除 null 键——产品语义「清空列表保存即恢复
+默认开放」（Assignments 页文案）等价于无记录；新代码空保存走 delete-on-empty，
+不再产生新化石。
+
+回归：`TestLoadAssignmentsScrubsNullFossilValues`（api 包）、
+`TestLoadAssignments_ScrubsNullFossilKeyValues`（logic 包）——
+`{"g1|dev": null, "g2|prod": [...]}` 读回后 null 键删除、正常键保留；
+修复前两用例红（git stash 修复文件复跑证得），修复后绿。
+
+教训：直写文件型存储的「空态」表达要先定语义（空数组 vs 删键）；跨部署持久化
+的 volume 会把旧版本写入的形状变成新版本的化石输入。
+
 ## 汇总
 
-| BUG | 位置                                                                 | 状态          | 回归测试                                                                                                      |
-| --- | -------------------------------------------------------------------- | ------------- | ------------------------------------------------------------------------------------------------------------- |
-| 001 | `internal/server` 测试抢占 `:19090`                                  | 已修          | 3 条 Go 用例                                                                                                  |
-| 002 | 引导管理员档案字段被丢弃                                             | 已修          | 5 条 Go 用例                                                                                                  |
-| 003 | LB 归属率仪表盘不显示                                                | 已修          | 7 条 jest                                                                                                     |
-| 004 | 排序标签漏传 intl values                                             | 已修          | 1 条 jest（判别力已验证）                                                                                     |
-| 005 | antd 6 废弃属性 142 处                                               | 已修          | 4 条 jest（判别力已验证）                                                                                     |
-| 006 | 组合页编辑器缺 locale key                                            | 已修          | 随 `consoleMenu` 相关用例覆盖                                                                                 |
-| 007 | 空头像串触发多余请求                                                 | 已修          | 5 条 jest                                                                                                     |
-| 008 | 表单实例未连接                                                       | 已修          | 4 条 jest（判别力已验证）                                                                                     |
-| 009 | `Space.Compact` 迁移拖慢热路径编辑器                                 | 已修          | 1 条 jest（判别力已验证）                                                                                     |
-| 010 | `app.cancel` 未登记 locale key                                       | 已修          | 随控制台审计守护                                                                                              |
-| 011 | 审计日志两页 rowKey 全同                                             | 已修          | 8 条 jest（判别力已验证）                                                                                     |
-| 012 | 头像数据互清/死链/404/顶栏恒占位                                     | 已修          | Go 2 套 + jest 11 条 + 实测全链路                                                                             |
-| 013 | MFA 绑定不可用 + 无恢复码兜底                                        | 已修          | RFC 向量 + Go 14 条 + jest 8 条                                                                               |
-| 014 | 健康分数衰减用例依赖墙钟                                             | 已修          | 改写为轮询 + 离散不变量                                                                                       |
-| 015 | antd 6 整体废弃 `List` 组件（组件级守卫盲区）                        | 已修          | jest 8 条 + 守卫新用例 + 走查复证                                                                             |
-| 016 | 安全中心「登录通知」假开关（假状态 + 假交互）                        | 已修          | Go 10 条 + jest 14 条                                                                                         |
-| 017 | 飞书密钥漏登记 secretKeys，掩码回存覆盖真值                          | 已修          | `IsSecretKey` 断言（修复前红）                                                                                |
-| 018 | 游戏访问权限恒为空（admin 看到空白）                                 | 已修          | Go 2 条 + jest 5 条                                                                                           |
-| 019 | 权限概览是编造数据（resource="role"／角色名混入）                    | 已修          | Go 21 条（含改写 4 条固化旧错的用例）                                                                         |
-| 020 | 权限概览单层平铺、无授权两态                                         | 已修          | jest 23 条 + 变异验证 7 条转红                                                                                |
-| 021 | 个人中心挂广播入口 + 公告无入口                                      | 已修          | jest 23 条                                                                                                    |
-| 022 | 登录页无 antd App 上下文，登录提示全部丢失                           | 已修          | 布线守卫 4 条 + antdApp 3 条 + Playwright 三路径复证                                                          |
-| 023 | 公告页双语词条缺 14 条 + 菜单键缺失                                  | 已修          | locale 覆盖守卫 5 条（stash 变异 4/5 转红）                                                                   |
-| 024 | 审批动作从不写审计链 + 通知把申请人当审批人                          | 已修          | Go 3 条（audit_chain_test，含申请人名下恒空反断言）+ 线上栈复证                                               |
-| 025 | 审核人跳转回退到申请人（approver 缺失时）                            | 已修          | jest 1 条（修复前 actor=申请人 转红）                                                                         |
-| 026 | 站内信「发送」无权限校验（人人可发任意账号）                         | 已修          | Go 1 条（未认证/ops 403、admin 200、收件侧不受影响）                                                          |
-| 027 | 工单详情 Descriptions span 越界刷告警                                | 已修          | jest 1 条（修复前红/修复后绿，spy console.error）                                                             |
-| 028 | 引导管理员可被删除 + 缺禁用/解封入口                                 | 已修          | Go 4 条（含 guard 变异转红）+ jest 3 条                                                                       |
-| 029 | 实例元数据端到端丢失（SDK 交接链 + agent TCP 路径双漏点）            | 已修          | Go SDK 3 条（含帧级）+ agent 2 条（TCP 真连接）                                                               |
-| 030 | resource-catalog 分类/搜索过滤静默失效（query 绑定按字段名精确匹配） | 已修          | requestbind 3 条 + handler 过滤收窄 1 条（均修复前红）                                                        |
-| 031 | functions/pages 提案版本灌水（jsonb 键序 + 时间戳族四病灶）          | 已修+线上闭环 | jsonb 回归 + StableContentDigest/UpsertSemantics 3 条 + Provenance 2 条（均修复前红）；线上 agent 重启零 bump |
-| 032 | functions/assignments 分配从未拦截执行（数据在、闸门不在）           | 已修          | 闸门单测 5 条 + invoke/task 集成 4 条（集成修复前红，stash 调用点证得）+ jest 2 条                            |
-| 033 | 组件模板预览假数据渲染不出（生成无恙，消费端取不到/取错）            | 已修          | jest 4 条（内置形态/未注册/非 items 字段名/嵌套对象列，修复前红，stash 消费端修复证得）                       |
+| BUG | 位置                                                                   | 状态          | 回归测试                                                                                                      |
+| --- | ---------------------------------------------------------------------- | ------------- | ------------------------------------------------------------------------------------------------------------- |
+| 001 | `internal/server` 测试抢占 `:19090`                                    | 已修          | 3 条 Go 用例                                                                                                  |
+| 002 | 引导管理员档案字段被丢弃                                               | 已修          | 5 条 Go 用例                                                                                                  |
+| 003 | LB 归属率仪表盘不显示                                                  | 已修          | 7 条 jest                                                                                                     |
+| 004 | 排序标签漏传 intl values                                               | 已修          | 1 条 jest（判别力已验证）                                                                                     |
+| 005 | antd 6 废弃属性 142 处                                                 | 已修          | 4 条 jest（判别力已验证）                                                                                     |
+| 006 | 组合页编辑器缺 locale key                                              | 已修          | 随 `consoleMenu` 相关用例覆盖                                                                                 |
+| 007 | 空头像串触发多余请求                                                   | 已修          | 5 条 jest                                                                                                     |
+| 008 | 表单实例未连接                                                         | 已修          | 4 条 jest（判别力已验证）                                                                                     |
+| 009 | `Space.Compact` 迁移拖慢热路径编辑器                                   | 已修          | 1 条 jest（判别力已验证）                                                                                     |
+| 010 | `app.cancel` 未登记 locale key                                         | 已修          | 随控制台审计守护                                                                                              |
+| 011 | 审计日志两页 rowKey 全同                                               | 已修          | 8 条 jest（判别力已验证）                                                                                     |
+| 012 | 头像数据互清/死链/404/顶栏恒占位                                       | 已修          | Go 2 套 + jest 11 条 + 实测全链路                                                                             |
+| 013 | MFA 绑定不可用 + 无恢复码兜底                                          | 已修          | RFC 向量 + Go 14 条 + jest 8 条                                                                               |
+| 014 | 健康分数衰减用例依赖墙钟                                               | 已修          | 改写为轮询 + 离散不变量                                                                                       |
+| 015 | antd 6 整体废弃 `List` 组件（组件级守卫盲区）                          | 已修          | jest 8 条 + 守卫新用例 + 走查复证                                                                             |
+| 016 | 安全中心「登录通知」假开关（假状态 + 假交互）                          | 已修          | Go 10 条 + jest 14 条                                                                                         |
+| 017 | 飞书密钥漏登记 secretKeys，掩码回存覆盖真值                            | 已修          | `IsSecretKey` 断言（修复前红）                                                                                |
+| 018 | 游戏访问权限恒为空（admin 看到空白）                                   | 已修          | Go 2 条 + jest 5 条                                                                                           |
+| 019 | 权限概览是编造数据（resource="role"／角色名混入）                      | 已修          | Go 21 条（含改写 4 条固化旧错的用例）                                                                         |
+| 020 | 权限概览单层平铺、无授权两态                                           | 已修          | jest 23 条 + 变异验证 7 条转红                                                                                |
+| 021 | 个人中心挂广播入口 + 公告无入口                                        | 已修          | jest 23 条                                                                                                    |
+| 022 | 登录页无 antd App 上下文，登录提示全部丢失                             | 已修          | 布线守卫 4 条 + antdApp 3 条 + Playwright 三路径复证                                                          |
+| 023 | 公告页双语词条缺 14 条 + 菜单键缺失                                    | 已修          | locale 覆盖守卫 5 条（stash 变异 4/5 转红）                                                                   |
+| 024 | 审批动作从不写审计链 + 通知把申请人当审批人                            | 已修          | Go 3 条（audit_chain_test，含申请人名下恒空反断言）+ 线上栈复证                                               |
+| 025 | 审核人跳转回退到申请人（approver 缺失时）                              | 已修          | jest 1 条（修复前 actor=申请人 转红）                                                                         |
+| 026 | 站内信「发送」无权限校验（人人可发任意账号）                           | 已修          | Go 1 条（未认证/ops 403、admin 200、收件侧不受影响）                                                          |
+| 027 | 工单详情 Descriptions span 越界刷告警                                  | 已修          | jest 1 条（修复前红/修复后绿，spy console.error）                                                             |
+| 028 | 引导管理员可被删除 + 缺禁用/解封入口                                   | 已修          | Go 4 条（含 guard 变异转红）+ jest 3 条                                                                       |
+| 029 | 实例元数据端到端丢失（SDK 交接链 + agent TCP 路径双漏点）              | 已修          | Go SDK 3 条（含帧级）+ agent 2 条（TCP 真连接）                                                               |
+| 030 | resource-catalog 分类/搜索过滤静默失效（query 绑定按字段名精确匹配）   | 已修          | requestbind 3 条 + handler 过滤收窄 1 条（均修复前红）                                                        |
+| 031 | functions/pages 提案版本灌水（jsonb 键序 + 时间戳族四病灶）            | 已修+线上闭环 | jsonb 回归 + StableContentDigest/UpsertSemantics 3 条 + Provenance 2 条（均修复前红）；线上 agent 重启零 bump |
+| 032 | functions/assignments 分配从未拦截执行（数据在、闸门不在）             | 已修          | 闸门单测 5 条 + invoke/task 集成 4 条（集成修复前红，stash 调用点证得）+ jest 2 条                            |
+| 033 | 组件模板预览假数据渲染不出（生成无恙，消费端取不到/取错）              | 已修          | jest 4 条（内置形态/未注册/非 items 字段名/嵌套对象列，修复前红，stash 消费端修复证得）                       |
+| 034 | mock e2e 取消键超时（AntdApp 挂载层错位，holder 拿不到 zh_CN）         | 已修          | jest 守卫新增 rootContainer 禁挂断言 + e2e 本地红→绿（静态构建同 CI 路径）                                    |
+| 035 | assignments 白名单化石 null 值透出前端（旧版空保存产物，读取侧无兜底） | 已修          | api/logic 两包各 1 条读回归（修复前 stash 复跑红证）                                                          |
 
 ### 遗留 / 未修
 
