@@ -51,4 +51,14 @@ describe('roleOptionFilter', () => {
   it('空输入不过滤（展示全部选项）', () => {
     expect(roleOptionFilter('  ', option)).toBe(true);
   });
+
+  it('option 缺失或键缺失：安全兜底为空串，不命中即过滤（antd 索引签名形状容错）', () => {
+    expect(roleOptionFilter('admin')).toBe(false); // option 未传
+    expect(roleOptionFilter('admin', null)).toBe(false); // option 为 null
+    expect(roleOptionFilter('admin', {})).toBe(false); // value/description 均缺失
+    expect(roleOptionFilter('admin', { value: 'ops' })).toBe(false); // 仅 description 缺失
+    expect(roleOptionFilter('admin', { description: '运营' })).toBe(false); // 仅 value 缺失
+    expect(roleOptionFilter('运营', { description: '运营' })).toBe(true); // 仅描述可命中
+    expect(roleOptionFilter('ops', { value: 'ops' })).toBe(true); // 仅名称可命中
+  });
 });

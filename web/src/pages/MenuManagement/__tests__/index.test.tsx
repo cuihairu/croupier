@@ -86,7 +86,9 @@ const renderPage = () =>
     </App>,
   );
 
-jest.setTimeout(20000);
+// 全量套件并行/串行组合跑时机器负载高，20s 曾连续超时（单独跑 2.5s/用例），
+// 与 CI 慢机同型，放宽到与其他重页面套件一致的 30s
+jest.setTimeout(30000);
 
 /** jsdom 未实现 DragEvent：RTL 会退回 Event，clientY/clientX 会丢失，
  *  rc-tree 的「顶级上半区」判断需要真实坐标——补一个最小实现。 */
