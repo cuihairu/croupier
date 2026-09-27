@@ -1,5 +1,6 @@
 import { Footer, Question, SelectLang, AvatarDropdown, AvatarName } from '@/components';
 import MessagesBell from '@/components/MessagesBell';
+import AnnouncementPopup from '@/components/AnnouncementPopup';
 import { LinkOutlined } from '@ant-design/icons';
 import type { Settings as LayoutSettings } from '@ant-design/pro-components';
 import { SettingDrawer } from '@ant-design/pro-components';
@@ -286,6 +287,8 @@ export const layout: RunTimeLayoutConfig = ({ initialState, setInitialState }) =
         <>
           <ScopeMenuRefresher />
           {children}
+          {/* #17：登录后 popup 公告（shouldPopup）逐条弹窗确认，服务端 dismiss 持久化 */}
+          {isAuthed && <AnnouncementPopup />}
           {isDev && (
             <SettingDrawer
               disableUrlParams

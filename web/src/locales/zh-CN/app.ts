@@ -27,4 +27,8 @@ export default {
   'app.request.error.unauthorized': '未授权',
   'app.request.error.unavailable': '服务不可用',
   'app.request.error.unprocessable': '请求语义无效',
+  // app.announcement.popup.* — 登录后公告弹窗（components/AnnouncementPopup）
+  'app.announcement.popup.title': '系统公告',
+  'app.announcement.popup.ack': '知道了',
+  'app.announcement.popup.roleOnly': '面向指定角色',
 };

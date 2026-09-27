@@ -27,4 +27,8 @@ export default {
   'app.request.error.unauthorized': 'Unauthorized',
   'app.request.error.unavailable': 'Service unavailable',
   'app.request.error.unprocessable': 'Unprocessable request',
+  // app.announcement.popup.* — post-login announcement popup (components/AnnouncementPopup)
+  'app.announcement.popup.title': 'Announcement',
+  'app.announcement.popup.ack': 'Got it',
+  'app.announcement.popup.roleOnly': 'Role-targeted',
 };
