@@ -183,6 +183,14 @@ dev-docs:
 	@echo "[docs] starting VitePress documentation dev server..."
 	@cd docs && pnpm install --frozen-lockfile && pnpm run dev
 
+# 铺本地开发/测试数据（幂等可重复）：多游戏多环境、角色用户、工单/FAQ/
+# 缺陷、函数/页面/配置版本、调度任务、公告、边界与异常数据集。
+# 用法：make seed-dev            # data/croupier.db（默认）
+#       make seed-dev HEAVY=1    # 追加万级分页数据
+seed-dev:
+	@echo "[seed] dev-seed -> data/croupier.db$(if $(HEAVY),（含万级数据）,)..."
+	@go run ./examples/cmd/dev-seed -dsn data/croupier.db$(if $(HEAVY), -heavy,)
+
 # ========== Clean Targets ==========
 clean: clean-sdks clean-web
 	rm -rf $(BINDIR)

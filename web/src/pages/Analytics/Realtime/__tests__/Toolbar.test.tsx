@@ -3,11 +3,17 @@
  * null 归零）、「最后更新」文案、刷新/自动刷新/清空趋势回调、
  * 窗口 CSV 与近 10 分钟 CSV 导出（series 合并、时间窗过滤、失败静默）。 */
 import React from 'react';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { configure, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import Toolbar from '../Toolbar';
 import { fetchRealtimeSeries } from '@/services/api/analytics';
 import { exportToCSV } from '@/utils/export';
 import type { StreamStatus } from '../types';
+
+// 全量并行/串行组合跑时 worker 变慢，5s 每 test 预算曾反复超时（隔离跑与
+// 低负载基线均稳定绿，同 Announcements 套件同型——见 086e1f4 先例与
+// docs/BUGS.md 同批记录）。放宽套件预算与 RTL waitFor 上限，断言零改动。
+configure({ asyncUtilTimeout: 5000 });
+jest.setTimeout(30000);
 
 jest.mock('@/services/api/analytics', () => ({
   fetchRealtimeSeries: jest.fn(),

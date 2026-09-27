@@ -83,6 +83,25 @@ func TestLoadAssignments_EmptyFile(t *testing.T) {
 	assert.Empty(t, result)
 }
 
+// 旧版「空选保存」落盘的 `"game|env": null` 化石值（BUG-032 前语义，volume
+// 跨部署持久化）必须在读取时清除：null 被 GET 原样透出、前端
+// Object.values().flat() 卷成 [null] 选中态幻影。产品语义「清空列表保存即
+// 恢复默认开放」等价于无记录，读取侧删除 null 键。
+func TestLoadAssignments_ScrubsNullFossilKeyValues(t *testing.T) {
+	tmpDir := t.TempDir()
+	testFile := filepath.Join(tmpDir, "assignments.json")
+
+	err := os.WriteFile(testFile, []byte(`{"game1|dev": null, "game2|prod": ["func.a"]}`), 0644)
+	require.NoError(t, err)
+
+	result, err := loadAssignments(testFile)
+	assert.NoError(t, err)
+	assert.NotNil(t, result)
+	_, ok := result["game1|dev"]
+	assert.False(t, ok, "null fossil key must be scrubbed, result = %v", result)
+	assert.Equal(t, []string{"func.a"}, result["game2|prod"])
+}
+
 func TestLoadAssignmentHistory_NullEntriesInJSON(t *testing.T) {
 	tmpDir := t.TempDir()
 	testFile := filepath.Join(tmpDir, "history.json")

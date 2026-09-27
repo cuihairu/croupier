@@ -604,6 +604,40 @@ func TestLoadAssignmentsEmptyFile(t *testing.T) {
 	}
 }
 
+// 旧版「空选保存」落盘的 `"game|env": null` 化石值（BUG-032 前语义，volume
+// 跨部署持久化）必须在读取时清除：null 被 GET 原样透出、前端
+// Object.values().flat() 卷成 [null] 选中态幻影。产品语义「清空列表保存即
+// 恢复默认开放」等价于无记录，读取侧删除 null 键。
+func TestLoadAssignmentsScrubsNullFossilValues(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+	path := filepath.Join(tmpDir, "assignments.json")
+
+	content := `{
+  "game1|dev": null,
+  "game2|prod": ["func.a", "func.b"]
+}`
+	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+		t.Fatalf("failed to write fixture: %v", err)
+	}
+
+	loaded, err := loadAssignments(path)
+	if err != nil {
+		t.Fatalf("loadAssignments() error = %v", err)
+	}
+	if _, ok := loaded["game1|dev"]; ok {
+		t.Errorf("null fossil key %q should be scrubbed, still present: %v", "game1|dev", loaded)
+	}
+	got, ok := loaded["game2|prod"]
+	if !ok {
+		t.Fatalf("non-null key %q must be preserved, loaded = %v", "game2|prod", loaded)
+	}
+	if len(got) != 2 || got[0] != "func.a" || got[1] != "func.b" {
+		t.Errorf("loaded[%q] = %v, want [func.a func.b]", "game2|prod", got)
+	}
+}
+
 func TestLoadAssignmentHistoryRoundtrip(t *testing.T) {
 	t.Parallel()
 
