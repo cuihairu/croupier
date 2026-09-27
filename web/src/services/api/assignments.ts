@@ -18,7 +18,9 @@ export type AssignmentHistoryItem = {
   count: number;
   operatedBy: string;
   operatedAt: string;
-  details?: Record<string, string | number | boolean | null | undefined>;
+  // before/after/added/removed 均为 string[]，值类型用 unknown（页面按
+  // 数组/标量自行收窄），不要窄化成标量 Record 导致 diff 明细类型不诚实
+  details?: Record<string, unknown>;
 };
 
 // Source: croupier/internal/api/assignment/dto.go AssignmentsHistoryResponse

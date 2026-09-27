@@ -121,6 +121,40 @@ export async function deleteBug(id: number | string): Promise<void> {
   return request<void>(`${BASE}/${encodeURIComponent(String(id))}`, { method: 'DELETE' });
 }
 
+// ---------------------------------------------------------------------------
+// Bug ↔ Ticket 关联（#25 多对多；缺陷侧）
+// ---------------------------------------------------------------------------
+
+/** 缺陷侧展示的关联工单摘要（来源：internal/model/bug.go TicketBrief）。 */
+export type BugLinkedTicket = {
+  id: number;
+  title: string;
+  status: string;
+  priority: string;
+  gameId: string;
+  env: string;
+};
+
+export async function listBugTickets(id: number | string): Promise<BugLinkedTicket[]> {
+  const resp = await request<{ items?: BugLinkedTicket[] }>(
+    `${BASE}/${encodeURIComponent(String(id))}/tickets`,
+  );
+  return Array.isArray(resp?.items) ? resp.items : [];
+}
+
+export async function linkBugTicket(id: number | string, ticketId: number): Promise<void> {
+  await request(`${BASE}/${encodeURIComponent(String(id))}/tickets`, {
+    method: 'POST',
+    data: { ticketId },
+  });
+}
+
+export async function unlinkBugTicket(id: number | string, ticketId: number): Promise<void> {
+  await request(`${BASE}/${encodeURIComponent(String(id))}/tickets/${ticketId}`, {
+    method: 'DELETE',
+  });
+}
+
 // Status/severity/priority vocabularies mirror internal/model/bug.go.
 export const BUG_STATUS_FLOW = ['triage', 'confirmed', 'fixing', 'verify', 'released'] as const;
 export const BUG_STATUS_TERMINALS = ['wontfix', 'rejected'] as const;

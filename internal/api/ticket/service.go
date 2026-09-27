@@ -5,8 +5,10 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/cuihairu/croupier/internal/api/bug"
 	"github.com/cuihairu/croupier/internal/common/errorx"
 	"github.com/cuihairu/croupier/internal/dbenum"
+	"github.com/cuihairu/croupier/internal/logic/utils"
 	"github.com/cuihairu/croupier/internal/model"
 	"github.com/cuihairu/croupier/internal/svc"
 )
@@ -28,8 +30,10 @@ func (s *Service) List(ctx context.Context, req *ListRequest) (*ListResponse, er
 		Category:          strings.TrimSpace(req.Category),
 		Priority:          strings.TrimSpace(req.Priority),
 		Assignee:          strings.TrimSpace(req.Assignee),
-		GameID:            strings.TrimSpace(req.GameID),
-		Env:               strings.TrimSpace(req.Env),
+		// #21：scope 由 GameDBMiddleware 按 X-Game-ID/X-Env（顶栏）解析，
+		// 请求参数里的 gameId/env 不再作为查询依据（页面已移除游戏/环境过滤）。
+		GameID: svc.ResolveGameID(ctx, strings.TrimSpace(req.GameID)),
+		Env:    svc.ResolveEnv(ctx, strings.TrimSpace(req.Env)),
 	}
 
 	items, total, err := s.svcCtx.TicketModel.List(ctx, opts)
@@ -56,6 +60,11 @@ func (s *Service) Create(ctx context.Context, req *CreateRequest) (*CreateRespon
 	if err != nil {
 		return nil, err
 	}
+
+	// #21：工单归属跟随请求 scope（顶栏）；body 里的 gameId/env 仅在无 scope
+	// 的直调方（玩家侧 SDK 走独立路由）场景下作为兜底。
+	ticket.GameID = svc.ResolveGameID(ctx, ticket.GameID)
+	ticket.Env = svc.ResolveEnv(ctx, ticket.Env)
 
 	assignee, err := s.validateAssignee(ctx, ticket.Assignee)
 	if err != nil {
@@ -278,6 +287,35 @@ func (s *Service) CreateComment(ctx context.Context, req *CreateCommentRequest) 
 	}, nil
 }
 
+// FilterOptions returns server-aggregated filter options for the ticket list
+// (OPEN-ISSUES #21): category/assignee options are the distinct full set
+// under the resolved scope — never derived from the current (filtered) page.
+func (s *Service) FilterOptions(ctx context.Context) (*FilterOptionsResponse, error) {
+	gameID := svc.ResolveGameID(ctx, "")
+	env := svc.ResolveEnv(ctx, "")
+
+	cats, err := s.svcCtx.TicketModel.ListCategories(ctx, gameID, env)
+	if err != nil {
+		return nil, err
+	}
+	assignees, err := s.svcCtx.TicketModel.ListAssignees(ctx, gameID, env)
+	if err != nil {
+		return nil, err
+	}
+
+	resp := &FilterOptionsResponse{
+		Categories: make([]TicketFilterOption, 0, len(cats)),
+		Assignees:  make([]TicketFilterOption, 0, len(assignees)),
+	}
+	for _, c := range cats {
+		resp.Categories = append(resp.Categories, TicketFilterOption{Name: c.Name, Count: int64(c.Count)})
+	}
+	for _, a := range assignees {
+		resp.Assignees = append(resp.Assignees, TicketFilterOption{Name: a.Name, Count: int64(a.Count)})
+	}
+	return resp, nil
+}
+
 // parseTicketStatusFilter converts a wire status filter into the enum.
 // Unknown values map to -1 so no rows match by accident.
 func parseTicketStatusFilter(value string) dbenum.TicketStatus {
@@ -289,4 +327,30 @@ func parseTicketStatusFilter(value string) dbenum.TicketStatus {
 		return -1
 	}
 	return parsed
+}
+
+// ListBugs returns the bugs linked to the ticket (#25).
+func (s *Service) ListBugs(ctx context.Context, ticketID uint) (*TicketBugsResponse, error) {
+	items, err := s.svcCtx.BugModel.ListBugsByTicket(ctx, ticketID)
+	if err != nil {
+		return nil, err
+	}
+	return &TicketBugsResponse{Items: items}, nil
+}
+
+// LinkBug associates a bug with the ticket (#25).
+func (s *Service) LinkBug(ctx context.Context, ticketID uint, req *TicketBugLinkRequest) error {
+	if req == nil || req.BugID == 0 {
+		return errorx.NewBadRequest("bugId 不能为空")
+	}
+	createdBy, _ := utils.CurrentUsername(ctx)
+	if err := s.svcCtx.BugModel.LinkBugTicket(ctx, req.BugID, ticketID, createdBy); err != nil {
+		return bug.TranslateBugLinkError(err)
+	}
+	return nil
+}
+
+// UnlinkBug removes the ticket↔bug association (#25).
+func (s *Service) UnlinkBug(ctx context.Context, ticketID, bugID uint) error {
+	return s.svcCtx.BugModel.UnlinkBugTicket(ctx, bugID, ticketID)
 }

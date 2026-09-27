@@ -18,9 +18,12 @@ import {
   convertTicketToBug,
   deleteTicket,
   getTicket,
+  linkTicketBug,
+  listTicketBugs,
   listTicketComments,
   rateTicket,
   transitionTicket,
+  unlinkTicketBug,
   updateTicket,
 } from '@/services/api/support';
 import Detail from '../Detail';
@@ -69,6 +72,9 @@ const mockedDeleteTicket = jest.mocked(deleteTicket);
 const mockedConvertTicketToBug = jest.mocked(convertTicketToBug);
 const mockedRateTicket = jest.mocked(rateTicket);
 const mockedTransitionTicket = jest.mocked(transitionTicket);
+const mockedListTicketBugs = jest.mocked(listTicketBugs);
+const mockedLinkTicketBug = jest.mocked(linkTicketBug);
+const mockedUnlinkTicketBug = jest.mocked(unlinkTicketBug);
 const mockedUploadAsset = jest.mocked(uploadAsset);
 
 const baseTicket = {
@@ -112,6 +118,9 @@ describe('Support/Tickets/Detail', () => {
     mockedUseModel.mockReturnValue({ initialState: { currentUser: { name: 'alice' } } });
     mockedGetTicket.mockResolvedValue(baseTicket);
     mockedListTicketComments.mockResolvedValue({ comments: [] });
+    mockedListTicketBugs.mockResolvedValue([]);
+    mockedLinkTicketBug.mockResolvedValue(undefined);
+    mockedUnlinkTicketBug.mockResolvedValue(undefined);
     mockedAddTicketComment.mockResolvedValue({ comments: [], items: [] });
     mockedUpdateTicket.mockResolvedValue(baseTicket);
     mockedDeleteTicket.mockResolvedValue(undefined);
@@ -712,6 +721,67 @@ describe('Support/Tickets/Detail', () => {
         expect(screen.getByPlaceholderText('流转备注（可选）')).not.toBeVisible(),
       );
       expect(mockedTransitionTicket).not.toHaveBeenCalled();
+    });
+  });
+
+  // #25：工单 ↔ 缺陷 多对多关联（工单侧）
+  describe('关联缺陷（#25）', () => {
+    const linkedBugs = [
+      { id: 7, title: '副本加载超时', status: 'triage', severity: 'critical', priority: 'urgent' },
+      { id: 9, title: '结算金额错误', status: 'fixing', severity: 'major', priority: 'high' },
+    ];
+
+    it('渲染关联缺陷列表：摘要可点击跳转到缺陷追踪页', async () => {
+      mockedListTicketBugs.mockResolvedValue(linkedBugs);
+      renderDetail();
+      expect(await screen.findByText('#7 副本加载超时')).toBeInTheDocument();
+
+      fireEvent.click(screen.getByText('#9 结算金额错误'));
+      expect(mockedHistoryPush).toHaveBeenCalledWith('/dev/bugs?bugId=9');
+    });
+
+    it('空关联显示占位文案', async () => {
+      renderDetail();
+      expect(await screen.findByText('暂无关联缺陷')).toBeInTheDocument();
+    });
+
+    it('按 ID 关联缺陷：调用 linkTicketBug 并刷新列表', async () => {
+      mockedListTicketBugs.mockResolvedValueOnce([]).mockResolvedValueOnce(linkedBugs.slice(0, 1));
+      renderDetail();
+      await screen.findByText('暂无关联缺陷');
+
+      const input = screen.getByPlaceholderText('缺陷 ID') as HTMLInputElement;
+      fireEvent.change(input, { target: { value: '7' } });
+      fireEvent.click(screen.getByRole('button', { name: '关联缺陷' }));
+      await waitFor(() => expect(mockedLinkTicketBug).toHaveBeenCalledWith('1', 7));
+      // 刷新后列表出现新关联项，占位文案消失
+      expect(await screen.findByText('#7 副本加载超时')).toBeInTheDocument();
+      expect(screen.queryByText('暂无关联缺陷')).toBeNull();
+    });
+
+    it('解除关联：确认后调用 unlinkTicketBug 且行消失', async () => {
+      mockedListTicketBugs.mockResolvedValue(linkedBugs);
+      renderDetail();
+      await screen.findByText('#7 副本加载超时');
+
+      // 两行的解除按钮同名，取第一行（#7）；antd 测试 locale 下确认键为 OK
+      const rows = screen.getAllByText('解除关联');
+      fireEvent.click(rows[0]);
+      fireEvent.click(await screen.findByRole('button', { name: 'OK' }));
+      await waitFor(() => expect(mockedUnlinkTicketBug).toHaveBeenCalledWith('1', 7));
+      await waitFor(() => expect(screen.queryByText('#7 副本加载超时')).toBeNull());
+    });
+
+    it('关联失败：error 提示', async () => {
+      mockedLinkTicketBug.mockRejectedValueOnce(new Error('bug 不存在'));
+      renderDetail();
+      await screen.findByText('暂无关联缺陷');
+
+      fireEvent.change(screen.getByPlaceholderText('缺陷 ID') as HTMLInputElement, {
+        target: { value: '4242' },
+      });
+      fireEvent.click(screen.getByRole('button', { name: '关联缺陷' }));
+      await waitFor(() => expect(mockMessageApi.error).toHaveBeenCalledWith('bug 不存在'));
     });
   });
 });

@@ -90,6 +90,19 @@ const renderPage = () =>
 // 与 CI 慢机同型，放宽到与其他重页面套件一致的 30s
 jest.setTimeout(30000);
 
+// MenuForm.tsx L149 labels validator 分支登记（v8 coverage 两翼归零）：
+// 逐条实证——(1) `value ?? {}` 的 undefined 侧由「空提交必填校验」用例执行
+// （错误消息仅出自该 validator，探针验证过）；object 侧由填写/回填用例执行；
+// (2) `(v ?? '')` 的 string 侧由全部提交路径执行，nullish 侧 UI 不可达
+// （LocalizedTextEditor typing 恒产 string，见其 L80 `[locale]: text`）。
+// 两翼均被真实用例触达却归零，属 v8 对 `??` 的块级归因工件（nullish 检查边
+// 不产生独立 coverage 块），非真实缺口。
+//
+// index.tsx L104 `values.parentId ?? 0` 右侧登记为构造性不可达：create 链
+// MenuForm initialValues `presetParentId ?? 0`（L103）恒有值，edit 链
+// `editing.parentId ?? 0`（L94）已归一，TreeSelect allowClear={false} 不可
+// 清空——到达提交载荷构造时 values.parentId 恒为 number，右侧仅是纵深防御。
+
 /** jsdom 未实现 DragEvent：RTL 会退回 Event，clientY/clientX 会丢失，
  *  rc-tree 的「顶级上半区」判断需要真实坐标——补一个最小实现。 */
 class TestDragEvent extends Event {
@@ -210,7 +223,13 @@ describe('MenuManagement page', () => {
     await waitFor(() => {
       expect(mockedUpdateMenu).toHaveBeenCalledWith(
         1,
-        expect.objectContaining({ menuKey: 'resource2' }),
+        expect.objectContaining({
+          menuKey: 'resource2',
+          // 顶级菜单 parentId=null：MenuForm initialValues `editing.parentId ?? 0`
+          // 已归一为 0，载荷必须落 0 而非 null（防归一链回归）
+          parentId: 0,
+          permission: 'resource:read',
+        }),
       );
     });
   });
@@ -361,6 +380,25 @@ describe('MenuManagement page', () => {
     });
     // onSubmit 返回 false：弹窗保持开启（字段可修正），且不触发 load
     expect(within(screen.getByRole('dialog')).getByLabelText(/菜单标识/)).toBeInTheDocument();
+    expect(mockedListMenus).toHaveBeenCalledTimes(1);
+  });
+
+  it('名称仅空白时 labels 校验拦截：提示必填且不调用 createMenu（validator trim 兜底）', async () => {
+    renderPage();
+    await screen.findByText('资源管理');
+
+    fireEvent.click(screen.getByRole('button', { name: /新建菜单/ }));
+    const modal = await screen.findByRole('dialog');
+    fireEvent.change(within(modal).getByLabelText(/菜单标识/), { target: { value: 'blank' } });
+    // 名称只填空白字符：LocalizedTextEditor 会存 { 'zh-CN': '   ' }，
+    // validator 以 trim 判空拦截
+    fireEvent.change(within(modal).getByPlaceholderText('请输入菜单名称'), {
+      target: { value: '   ' },
+    });
+    fireEvent.click(within(modal).getByRole('button', { name: /确\s*定/ }));
+
+    expect(await screen.findByText('至少填写一个语言的名称')).toBeInTheDocument();
+    expect(mockedCreateMenu).not.toHaveBeenCalled();
     expect(mockedListMenus).toHaveBeenCalledTimes(1);
   });
 

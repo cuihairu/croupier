@@ -2,6 +2,22 @@ import type { MenuItem } from '@/services/api/menu';
 import { computeDragUpdates } from '../sortUtils';
 import { buildDropHandler } from '../MenuTree';
 
+/**
+ * 分支覆盖登记（v8 coverage，2026-09 轮）——以下防御分支经源码不变量推演为
+ * 结构性不可达，补测试无法触达（「只补测试、不改生产逻辑」约束下据实保留）：
+ * - L45 isDescendant 的 `!ancestor`：仅在 L61 被调且 ancestorKey=dragKey 已被
+ *      L57-59 验证存在于 flat，`flatten().get(...).node` 恒真值；
+ * - L70 `!childrenLists.has(null)`：L69 `collect(items, null)` 无条件写入 null 键；
+ * - L75 `childrenLists.get(oldParent) ?? []`：oldParent=drag.parent ∈ {null}∪树内
+ *      节点 id，collect 对两者都已登记键；
+ * - L81 `get(targetParent) ?? []`：targetParent=dropKey（inside）或 drop.parent，
+ *      同理必已登记；
+ * - L89 `insertAt < 0`：inside 走 targetList.length；before/after 时 targetList
+ *      为 drop.parent 的子列表，drop 必在其中（flatten 赋 parent 的一致性），
+ *      findIndex ≥ 0；
+ * - L94 emit 的 `get(parent) ?? []`：parent ∈ {oldParent, targetParent}，同上。
+ */
+
 function node(id: number, children: MenuItem[] = [], parentId: number | null = null): MenuItem {
   return {
     id,

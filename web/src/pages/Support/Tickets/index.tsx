@@ -12,6 +12,7 @@ import { listAdmins, type AdminRecord } from '@/services/api/permissions';
 import { FormattedMessage, history, useIntl } from '@umijs/max';
 import {
   listTickets,
+  listTicketFilterOptions,
   createTicket,
   updateTicket,
   deleteTicket,
@@ -21,6 +22,7 @@ import {
 import { useAccess } from '@umijs/max';
 import { extractErrorMessage } from '@/utils/errors';
 import { formatDateTime } from '@/utils/format';
+import ServerOptionsSelect from '@/components/ServerOptionsSelect';
 
 type TicketPriority = 'urgent' | 'high' | 'normal' | 'low';
 type TicketStatus = 'open' | 'in_progress' | 'resolved' | 'closed';
@@ -95,12 +97,12 @@ export default function SupportTicketsPage() {
   const [priority, setPriority] = useState<string>('');
   const [category, setCategory] = useState<string>('');
   const [assignee, setAssignee] = useState<string>('');
-  const [gameId, setGameId] = useState<string>('');
-  const [env, setEnv] = useState<string>('');
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<SupportTicket | null>(null);
   const access = (useAccess?.() || {}) as SupportAccess;
   const [users, setUsers] = useState<AdminRecord[]>([]);
+  // #21：游戏/环境过滤已移除——列表归属由顶栏 scope（X-Game-ID/X-Env）决定
+  const [optionEpoch, setOptionEpoch] = useState(0);
 
   useEffect(() => {
     (async () => {
@@ -110,6 +112,22 @@ export default function SupportTicketsPage() {
       } catch {}
     })();
   }, []);
+
+  // filter-options 共享单次请求：分类/处理人两个下拉共用一份聚合结果，
+  // epoch 变化（写操作后）时两个下拉各自重拉仍会合并为一次请求
+  const filterReqRef = useRef<ReturnType<typeof listTicketFilterOptions> | null>(null);
+  const fetchFilterOptions = () => {
+    filterReqRef.current ??= listTicketFilterOptions().finally(() => {
+      filterReqRef.current = null;
+    });
+    return filterReqRef.current;
+  };
+
+  // 数据变更后同时刷新表格与选项计数
+  const reloadTable = () => {
+    actionRef.current?.reload();
+    setOptionEpoch((e) => e + 1);
+  };
 
   const priTag = (v?: string) => {
     if (!v) return '-';
@@ -148,7 +166,7 @@ export default function SupportTicketsPage() {
       } else {
         await createTicket(v);
       }
-      actionRef.current?.reload();
+      reloadTable();
       return true;
     } catch {
       return false;
@@ -166,14 +184,14 @@ export default function SupportTicketsPage() {
       ),
       onOk: async () => {
         await deleteTicket(rec.id);
-        actionRef.current?.reload();
+        reloadTable();
       },
     });
   };
 
   const transition = async (rec: SupportTicket, status: TicketStatus) => {
     await transitionTicket(rec.id, { status });
-    actionRef.current?.reload();
+    reloadTable();
   };
 
   const transitionMenu = (rec: SupportTicket): MenuProps['items'] =>
@@ -314,41 +332,45 @@ export default function SupportTicketsPage() {
                 { label: intl.formatMessage(priorityLabels.urgent), value: 'urgent' },
               ]}
             />
-            <Input
+            <ServerOptionsSelect
               placeholder={intl.formatMessage({
                 id: 'pages.tickets.field.category',
                 defaultMessage: '分类',
               })}
               value={category}
-              onChange={(e) => setCategory(e.target.value)}
-              style={{ width: 120 }}
+              onChange={(v) => {
+                setCategory(v ?? '');
+                actionRef.current?.setPageInfo?.({ current: 1 });
+              }}
+              fetchOptions={async () =>
+                (await fetchFilterOptions()).categories.map((o) => ({
+                  value: o.name,
+                  label: o.name,
+                  count: o.count,
+                }))
+              }
+              epoch={optionEpoch}
+              style={{ width: 140 }}
             />
-            <Input
+            <ServerOptionsSelect
               placeholder={intl.formatMessage({
                 id: 'pages.tickets.field.assignee',
                 defaultMessage: '处理人',
               })}
               value={assignee}
-              onChange={(e) => setAssignee(e.target.value)}
-              style={{ width: 120 }}
-            />
-            <Input
-              placeholder={intl.formatMessage({
-                id: 'pages.tickets.field.gameId',
-                defaultMessage: '游戏',
-              })}
-              value={gameId}
-              onChange={(e) => setGameId(e.target.value)}
-              style={{ width: 120 }}
-            />
-            <Input
-              placeholder={intl.formatMessage({
-                id: 'pages.tickets.field.env',
-                defaultMessage: '环境',
-              })}
-              value={env}
-              onChange={(e) => setEnv(e.target.value)}
-              style={{ width: 120 }}
+              onChange={(v) => {
+                setAssignee(v ?? '');
+                actionRef.current?.setPageInfo?.({ current: 1 });
+              }}
+              fetchOptions={async () =>
+                (await fetchFilterOptions()).assignees.map((o) => ({
+                  value: o.name,
+                  label: o.name,
+                  count: o.count,
+                }))
+              }
+              epoch={optionEpoch}
+              style={{ width: 140 }}
             />
             <Button
               type="primary"
@@ -376,7 +398,7 @@ export default function SupportTicketsPage() {
           search={false}
           options={false}
           toolBarRender={false}
-          params={{ q, status, priority, category, assignee, gameId, env }}
+          params={{ q, status, priority, category, assignee }}
           request={async ({
             current = 1,
             pageSize = 20,
@@ -385,8 +407,6 @@ export default function SupportTicketsPage() {
             priority: priorityFilter,
             category: categoryFilter,
             assignee: assigneeFilter,
-            gameId: gameIdFilter,
-            env: envFilter,
           }) => {
             try {
               const res = await listTickets({
@@ -395,8 +415,6 @@ export default function SupportTicketsPage() {
                 priority: priorityFilter ?? '',
                 category: categoryFilter ?? '',
                 assignee: assigneeFilter ?? '',
-                gameId: gameIdFilter ?? '',
-                env: envFilter ?? '',
                 page: current,
                 size: pageSize,
               });
@@ -458,8 +476,7 @@ export default function SupportTicketsPage() {
               },
             ]}
           >
-            {' '}
-            <Input />{' '}
+            <Input />
           </Form.Item>
           <Form.Item
             label={intl.formatMessage({
@@ -468,8 +485,7 @@ export default function SupportTicketsPage() {
             })}
             name="content"
           >
-            {' '}
-            <Input.TextArea rows={4} />{' '}
+            <Input.TextArea rows={4} />
           </Form.Item>
           <Form.Item
             label={intl.formatMessage({
@@ -478,8 +494,7 @@ export default function SupportTicketsPage() {
             })}
             name="category"
           >
-            {' '}
-            <Input />{' '}
+            <Input />
           </Form.Item>
           <Form.Item
             label={intl.formatMessage({
@@ -488,7 +503,6 @@ export default function SupportTicketsPage() {
             })}
             name="priority"
           >
-            {' '}
             <Select
               options={[
                 { label: intl.formatMessage(priorityLabels.low), value: 'low' },
@@ -496,13 +510,12 @@ export default function SupportTicketsPage() {
                 { label: intl.formatMessage(priorityLabels.high), value: 'high' },
                 { label: intl.formatMessage(priorityLabels.urgent), value: 'urgent' },
               ]}
-            />{' '}
+            />
           </Form.Item>
           <Form.Item
             label={intl.formatMessage({ id: 'pages.tickets.field.status', defaultMessage: '状态' })}
             name="status"
           >
-            {' '}
             <Select
               options={[
                 { label: intl.formatMessage(statusLabels.open), value: 'open' },
@@ -510,7 +523,7 @@ export default function SupportTicketsPage() {
                 { label: intl.formatMessage(statusLabels.resolved), value: 'resolved' },
                 { label: intl.formatMessage(statusLabels.closed), value: 'closed' },
               ]}
-            />{' '}
+            />
           </Form.Item>
           <Form.Item
             label={intl.formatMessage({
@@ -519,19 +532,17 @@ export default function SupportTicketsPage() {
             })}
             name="assignee"
           >
-            {' '}
             <Select
               allowClear
               showSearch
               options={users.map((u) => ({ label: u.username, value: u.username }))}
-            />{' '}
+            />
           </Form.Item>
           <Form.Item
             label={intl.formatMessage({ id: 'pages.tickets.field.tags', defaultMessage: '标签' })}
             name="tags"
           >
-            {' '}
-            <Input placeholder="," />{' '}
+            <Input placeholder="," />
           </Form.Item>
           <Form.Item
             label={intl.formatMessage({
@@ -540,8 +551,7 @@ export default function SupportTicketsPage() {
             })}
             name="playerId"
           >
-            {' '}
-            <Input />{' '}
+            <Input />
           </Form.Item>
           <Form.Item
             label={intl.formatMessage({
@@ -550,29 +560,14 @@ export default function SupportTicketsPage() {
             })}
             name="contact"
           >
-            {' '}
-            <Input />{' '}
+            <Input />
           </Form.Item>
-          <Form.Item
-            label={intl.formatMessage({ id: 'pages.tickets.field.gameId', defaultMessage: '游戏' })}
-            name="gameId"
-          >
-            {' '}
-            <Input />{' '}
-          </Form.Item>
-          <Form.Item
-            label={intl.formatMessage({ id: 'pages.tickets.field.env', defaultMessage: '环境' })}
-            name="env"
-          >
-            {' '}
-            <Input />{' '}
-          </Form.Item>
+          {/* #21：游戏/环境不再由表单填写——工单归属跟随顶栏 scope，服务端落库时盖章 */}
           <Form.Item
             label={intl.formatMessage({ id: 'pages.tickets.field.source', defaultMessage: '来源' })}
             name="source"
           >
-            {' '}
-            <Input />{' '}
+            <Input />
           </Form.Item>
         </ModalForm>
       </Card>

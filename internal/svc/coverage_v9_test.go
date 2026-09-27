@@ -483,3 +483,14 @@ func TestFormatFanoutReportsStatusesV9(t *testing.T) {
 	assert.Contains(t, out, "missing-database")
 	assert.Contains(t, out, "total=3 migrated=1 error=1")
 }
+
+// 0033: bug_ticket_links 表在缺表库上建表，重放幂等（#25）。
+func TestBugTicketLinkMigrationV9(t *testing.T) {
+	db := newV9TestDB(t)
+	sqlDB, err := db.DB()
+	require.NoError(t, err)
+	require.NoError(t, runV9GooseUp(t, bugTicketLinkMigration(), sqlDB))
+	assert.True(t, db.Migrator().HasTable(&model.BugTicketLink{}))
+	// 重放：表已存在时幂等跳过，不报错
+	require.NoError(t, runV9GooseUp(t, bugTicketLinkMigration(), sqlDB))
+}

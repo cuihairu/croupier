@@ -4,6 +4,7 @@ import {
   getNodeCommands,
   getNodeMeta,
   listNodes,
+  listNodesCronJobsAll,
   restartNode,
   undrainNode,
   updateNodeMeta,
@@ -123,5 +124,55 @@ describe('nodes API adapters', () => {
     for (const call of mockedRequest.mock.calls) {
       expect(call[1]).not.toHaveProperty('headers');
     }
+  });
+});
+
+describe('nodes cron-jobs aggregate adapter (#24)', () => {
+  beforeEach(() => {
+    mockedRequest.mockReset();
+  });
+
+  it('requests the aggregated endpoint without params', async () => {
+    mockedRequest.mockResolvedValue({
+      items: [
+        {
+          nodeId: 'agent-1',
+          nodeName: 'win-host',
+          status: 'online',
+          ok: true,
+          jobs: [
+            {
+              schedule: 'daily',
+              command: 'C:\\run.exe',
+              user: 'corp\\svc',
+              sourceFile: '\\MyApp\\Nightly',
+              enabled: true,
+            },
+          ],
+        },
+        {
+          nodeId: 'agent-2',
+          nodeName: 'down',
+          status: 'offline',
+          ok: false,
+          error: '节点不在线',
+          jobs: [],
+        },
+      ],
+      total: 2,
+    });
+
+    const res = await listNodesCronJobsAll();
+    expect(res.total).toBe(2);
+    expect(res.items[0].jobs[0].sourceFile).toBe('\\MyApp\\Nightly');
+    expect(res.items[1].ok).toBe(false);
+    expect(mockedRequest).toHaveBeenCalledWith('/api/v1/nodes/cron-jobs', { method: 'GET' });
+  });
+
+  it('keeps the response intact when the server returns an empty list', async () => {
+    mockedRequest.mockResolvedValue({ items: [], total: 0 });
+    const res = await listNodesCronJobsAll();
+    expect(res.items).toEqual([]);
+    expect(res.total).toBe(0);
   });
 });

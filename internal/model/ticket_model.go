@@ -123,3 +123,41 @@ func (m *TicketModel) ListComments(ctx context.Context, ticketID uint) ([]Ticket
 		Find(&comments).Error
 	return comments, err
 }
+
+// TicketOptionStat is one distinct filter option with its ticket count.
+type TicketOptionStat struct {
+	Name  string
+	Count int
+}
+
+// ListCategories aggregates distinct non-empty categories with ticket counts
+// (server-provided filter options; deriving them client-side from the filtered
+// list collapses the dropdown, OPEN-ISSUES #21).
+func (m *TicketModel) ListCategories(ctx context.Context, gameID, env string) ([]TicketOptionStat, error) {
+	return m.listOptionStats(ctx, "category", gameID, env)
+}
+
+// ListAssignees aggregates distinct non-empty assignees with ticket counts.
+func (m *TicketModel) ListAssignees(ctx context.Context, gameID, env string) ([]TicketOptionStat, error) {
+	return m.listOptionStats(ctx, "assignee", gameID, env)
+}
+
+// listOptionStats groups tickets by the given column. column is a
+// compile-time constant ("category"/"assignee"), never user input.
+func (m *TicketModel) listOptionStats(ctx context.Context, column, gameID, env string) ([]TicketOptionStat, error) {
+	var rows []TicketOptionStat
+	query := dbctx.Resolve(ctx, m.db).WithContext(ctx).
+		Model(&Ticket{}).
+		Select(column + " AS name, COUNT(*) AS count").
+		Where(column + " <> ''")
+	if gameID != "" {
+		query = query.Where("game_id = ?", gameID)
+	}
+	if env != "" {
+		query = query.Where("env = ?", env)
+	}
+	if err := query.Group(column).Order("name ASC").Scan(&rows).Error; err != nil {
+		return nil, err
+	}
+	return rows, nil
+}

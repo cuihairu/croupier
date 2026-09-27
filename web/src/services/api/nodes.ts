@@ -1,4 +1,5 @@
 import { request } from '@umijs/max';
+import type { NodeCronJob } from './ops';
 
 // ============================================================================
 // 类型定义
@@ -99,6 +100,37 @@ export async function restartNode(id: string) {
  */
 export async function getNodeCommands() {
   return request<NodeCommandsResponse>('/api/v1/nodes/commands', {
+    method: 'GET',
+  });
+}
+
+// ============================================================================
+// 宿主机定时任务聚合（#24：/ops/schedules 来源分组展示）
+// ============================================================================
+
+/** 单条宿主机定时任务复用 ops.ts 的 NodeCronJob（agent 采集：crontab / 计划任务） */
+
+/** 单节点的宿主机任务采集报告；不可达节点 ok=false 并携带原因 */
+export interface NodeCronJobsReport {
+  nodeId: string;
+  nodeName: string;
+  status: string;
+  ok: boolean;
+  error?: string;
+  jobs: NodeCronJob[];
+}
+
+export interface NodeCronJobsAllResponse {
+  items: NodeCronJobsReport[];
+  total: number;
+}
+
+/**
+ * 聚合全部节点的宿主机定时任务（GET /api/v1/nodes/cron-jobs）。
+ * 服务端并行经 agent 会话采集并缓存 30s；离线节点不中断整体。
+ */
+export async function listNodesCronJobsAll(): Promise<NodeCronJobsAllResponse> {
+  return request<NodeCronJobsAllResponse>('/api/v1/nodes/cron-jobs', {
     method: 'GET',
   });
 }
