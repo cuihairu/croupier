@@ -19,7 +19,7 @@ import (
 // （(game_id, env, service_id, meta_key) 唯一，meta_value 覆盖为最近上报
 // 值），并失效同 scope 的下拉选项缓存。
 //
-// 表模型在 internal/model（migration/0033），但 registry 不能 import model
+// 表模型在 internal/model（migration/0034），但 registry 不能 import model
 // （agent_session_model 反向依赖本包，writeToDB 同款 import cycle），故此处
 // 用匿名 struct + Table() 直达表——列集与 model.ProviderMetadata 保持一致。
 // 无 DB（内存 registry）退化为在线会话聚合：重启丢失，见文档「已知边界」。
