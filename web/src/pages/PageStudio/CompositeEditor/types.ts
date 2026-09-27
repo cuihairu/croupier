@@ -64,6 +64,30 @@ export function schemaProperties(schema: JSONValue | undefined): string[] {
   return Object.keys(props);
 }
 
+/** 预览表格行字段推导（BUG-033）：列表形态 schema 的顶层属性是 items/total
+ * 这类容器字段，不能当表格列渲染。行字段优先取第一个「数组-对象」字段的
+ * 元素属性（与 mockData.generateMockOutput 的行生成、编译端 items selector
+ * 语义同源）；无数组字段时退顶层标量属性（对象/数组值裸渲染会崩）；
+ * 仍为空（无 schema/未注册）→ 返回 []，由调用方决定兜底。 */
+export function rowFieldsOf(schema: JSONValue | undefined): string[] {
+  const props = asObject(asObject(schema)?.properties);
+  if (!props) return [];
+  const entries = Object.entries(props);
+  for (const [, ps] of entries) {
+    const p = asObject(ps);
+    if (p?.type === 'array') {
+      const elementProps = asObject(asObject(p.items)?.properties);
+      if (elementProps) return Object.keys(elementProps);
+    }
+  }
+  return entries
+    .filter(([, ps]) => {
+      const t = asObject(ps)?.type;
+      return t !== 'object' && t !== 'array';
+    })
+    .map(([k]) => k);
+}
+
 /** JSON Schema 必填字段集合。 */
 export function schemaRequired(schema: JSONValue | undefined): Set<string> {
   const req = asObject(schema)?.required;

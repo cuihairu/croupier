@@ -6,7 +6,8 @@ import type { FormPresentationSpec, FormValues, JSONSchema } from '@/types/dashb
 import SchemaFormRenderer, { type SchemaFormRendererProps } from '@/components/SchemaFormRenderer';
 import { derivePresentationSpec } from '@/utils/schemaHints';
 import type { PageNode } from './model';
-import { schemaProperties } from './types';
+import { rowFieldsOf } from './types';
+import { FALLBACK_ROW_FIELDS } from './mockData';
 import { itemsOf, payloadOf, type JSONRecord } from './previewShared';
 
 /** 预览渲染子组件：节点级渲染（表格/字段卡/表单/弹窗内容）与常量表单实时态。
@@ -61,13 +62,25 @@ export default function PreviewNode({
     [node.props.rowActions],
   );
   const previewColumns = useMemo(() => {
+    // BUG-033：声明列 → schema 行字段（首个数组-对象字段的元素属性）→
+    // 兜底列（未注册函数）。此前回退取顶层属性，列表形态取到 items/total
+    // （items 列裸渲染对象数组崩）；未注册时零列空表。
     const base = (
       Array.isArray(node.props.columns) && node.props.columns.length
         ? (node.props.columns as string[])
-        : schemaProperties(fn?.outputSchema)
+        : rowFieldsOf(fn?.outputSchema).length
+          ? rowFieldsOf(fn?.outputSchema)
+          : FALLBACK_ROW_FIELDS
     )
       .slice(0, 8)
-      .map((c) => ({ title: c, dataIndex: c, ellipsis: true }));
+      .map((c) => ({
+        title: c,
+        dataIndex: c,
+        ellipsis: true,
+        // 对象/数组值裸渲染会崩（Objects are not valid as a React child）
+        render: (v: unknown): React.ReactNode =>
+          v !== null && typeof v === 'object' ? JSON.stringify(v) : (v as React.ReactNode),
+      }));
     if (!rowActionDrafts.length) return base;
     return [
       ...base,

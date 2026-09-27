@@ -1599,6 +1599,65 @@ EnsureFunctionEnabled 一致（scope 级准入，无角色豁免），403 文案
 
 ---
 
+## BUG-033 组件模板预览假数据渲染不出：生成链路无恙，消费端三处取不到/取错
+
+**严重度**：中（预览功能核心承诺「开启模拟数据即可安全验证」不成立；
+用户多次反馈「号称修过几次都没解决」——历次修复都在 mock 生成侧，
+真实病灶在渲染消费侧）。
+
+**现象**
+
+`/functions/component-templates` 预览弹窗中「数据来源」已切到模拟，
+预览区仍然没有假数据（空表/崩溃态），内置模板与自定义组件模板均受影响。
+
+**根因（取证）**
+
+mock 生成链路本身无恙：`generateMockResponse` 对无 outputSchema、
+未注册函数均有兜底（`generateFallbackMockData`）。坏在渲染消费端三处：
+
+1. **列回退取顶层 schema 属性**：`PreviewNode.previewColumns` 在
+   `props.columns` 为空（内置模板 generator 产物固定 `columns: []`）时
+   回退 `schemaProperties(fn.outputSchema)`——列表形态 schema
+   （`{items:{...}, total:{...}}`）取到的是 `items`/`total` 容器字段，
+   不是行字段；表格行 `dataSource = itemsOf(payload)` 是 items 元素，
+   `record.items` 恒 undefined → 整表无单元格内容。
+2. **行提取只认 `payload.items`**：`previewShared.itemsOf` 无兜底——
+   schema 数组字段名非 `items`（如 `players`）时 mock 行永远取不到
+   （编译端有 items selector 把列表字段映射为 `pageState.items`，
+   预览端没有等价物）。
+3. **未注册函数零列**：fnById 无记录走 fallback 行数据（有 items 3 行），
+   但 `schemaProperties(undefined) = []` → 0 列空表，行数都看不见。
+
+**修复**
+
+- `types.ts` 新增 `rowFieldsOf(schema)`：行字段 = 第一个「数组-对象」
+  字段的元素属性（与 `generateMockOutput` 行生成、编译端 items selector
+  语义同源）→ 顶层标量属性（排除对象/数组——裸渲染非法）→ 空。
+- `PreviewNode.previewColumns` 回退链改为：声明列 → `rowFieldsOf` →
+  `FALLBACK_ROW_FIELDS`（mockData 新增常量，与
+  `generateFallbackMockData` 行形态对齐）；列单元格对象/数组值
+  JSON 序列化渲染（防 React 非法子节点）。
+- `previewShared.itemsOf` 兜底：payload.items 缺失时取首个
+  「对象数组」字段。
+
+**回归测试（修复前红/修复后绿，`previewMockData.test.tsx` 新增 4 条）**
+
+- 内置模板形态（`columns:[]` + 列表 schema + autoRun）：假数据行可见
+  （`u-1001`），列头为行字段 uid/nickname——修复前整表空。
+- 未注册函数（空 fnById）：fallback 行 `mock-1001` 可见——修复前零列。
+- 数组字段名非 items（`players`）：行提取兜底命中——修复前行取不到。
+- 行内含嵌套对象字段：列取行字段且对象值 JSON 序列化渲染——修复前
+  取顶层 items 列整表空。
+
+**教训**
+
+「数据生成了」≠「用户看得到」：修「不显示」类问题必须沿
+选择 → 生成 → **消费/渲染** 全链验证，只验生成侧就会出现「修了几次
+都没解决」。预览端与发布端共享语义的字段映射（items selector）要
+成对实现，单侧实现就是漂移点。
+
+---
+
 ## 汇总
 
 | BUG | 位置                                                                 | 状态          | 回归测试                                                                                                      |
@@ -1635,6 +1694,7 @@ EnsureFunctionEnabled 一致（scope 级准入，无角色豁免），403 文案
 | 030 | resource-catalog 分类/搜索过滤静默失效（query 绑定按字段名精确匹配） | 已修          | requestbind 3 条 + handler 过滤收窄 1 条（均修复前红）                                                        |
 | 031 | functions/pages 提案版本灌水（jsonb 键序 + 时间戳族四病灶）          | 已修+线上闭环 | jsonb 回归 + StableContentDigest/UpsertSemantics 3 条 + Provenance 2 条（均修复前红）；线上 agent 重启零 bump |
 | 032 | functions/assignments 分配从未拦截执行（数据在、闸门不在）           | 已修          | 闸门单测 5 条 + invoke/task 集成 4 条（集成修复前红，stash 调用点证得）+ jest 2 条                            |
+| 033 | 组件模板预览假数据渲染不出（生成无恙，消费端取不到/取错）            | 已修          | jest 4 条（内置形态/未注册/非 items 字段名/嵌套对象列，修复前红，stash 消费端修复证得）                       |
 
 ### 遗留 / 未修
 
