@@ -629,3 +629,54 @@ func TestCapabilitySemanticsModel_UpsertSkipsBumpWhenContentUnchanged(t *testing
 	assert.Equal(t, 2, changed2.Version,
 		"real content change must bump the semantics row version")
 }
+
+// BUG-031 第四病灶：Provenance 条目内嵌 updatedAt/updatedBy（每次重建刷新，
+// normalizer/provenance.go），属生命周期元数据——不得改变稳定内容 digest。
+func TestCapabilitySemanticsDigest_ProvenanceVolatileKeysIgnored(t *testing.T) {
+	prov := func(updatedAt string) JSON {
+		return JSON(`{"createID":{"field":"createID","value":17,"source":"sdk_explicit",` +
+			`"status":"effective","updatedAt":"` + updatedAt + `","updatedBy":"system",` +
+			`"confidence":"high","sourceDigest":"aaa"},"identityField":{"field":"identityField",` +
+			`"value":"id","source":"sdk_explicit","status":"effective","updatedAt":"` + updatedAt + `"}}`)
+	}
+	base := &CapabilitySemantics{
+		GameID: "g", Env: "e", ResourceKey: "player", Source: "sdk_explicit",
+		Provenance: prov("2026-09-27T08:42:19Z"),
+	}
+	later := *base
+	later.Provenance = prov("2026-09-27T09:13:45Z")
+	assert.Equal(t, base.StableContentDigest(), later.StableContentDigest(),
+		"provenance updatedAt/updatedBy are lifecycle metadata — must not change digest")
+
+	// 实质内容变化（status 翻转）仍必须改变 digest
+	changed := *base
+	changed.Provenance = JSON(`{"createID":{"field":"createID","value":17,"source":"manual_override",` +
+		`"status":"effective","updatedAt":"2026-09-27T08:42:19Z","updatedBy":"system","confidence":"high"}}`)
+	assert.NotEqual(t, base.StableContentDigest(), changed.StableContentDigest(),
+		"real provenance content change (source flip) must change digest")
+}
+
+// UpsertSemantics 级联：仅 Provenance 时间戳不同 → 内容未变，不得 bump 行版本。
+func TestCapabilitySemanticsModel_UpsertIgnoresProvenanceTimestamps(t *testing.T) {
+	db := setupContractTestDB(t)
+	ctx := context.Background()
+	m := NewCapabilitySemanticsModel(db)
+
+	first := &CapabilitySemantics{
+		GameID: "g", Env: "e", ResourceKey: "player", Source: "sdk_explicit",
+		Provenance: JSON(`{"identityField":{"updatedAt":"2026-09-27T08:00:00Z","updatedBy":"system","value":"id"}}`),
+	}
+	changed, err := m.UpsertSemantics(ctx, first)
+	require.NoError(t, err)
+	require.True(t, changed)
+
+	time.Sleep(10 * time.Millisecond)
+	again := &CapabilitySemantics{
+		GameID: "g", Env: "e", ResourceKey: "player", Source: "sdk_explicit",
+		Provenance: JSON(`{"identityField":{"updatedAt":"2026-09-27T09:30:00Z","updatedBy":"system","value":"id"}}`),
+	}
+	changed, err = m.UpsertSemantics(ctx, again)
+	require.NoError(t, err)
+	assert.False(t, changed, "provenance-timestamp-only drift must not count as change")
+	assert.Equal(t, 1, again.Version, "row version must stay 1")
+}

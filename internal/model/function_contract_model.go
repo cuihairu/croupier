@@ -369,6 +369,39 @@ func normalizeJSONContent(raw JSON) interface{} {
 	return v
 }
 
+// stripVolatileKeys 递归剔除 JSON 树里的生命周期元数据键（updatedAt/updatedBy）。
+// Provenance 条目在每次重建时刷新时间戳（normalizer/provenance.go:75/85/103/180
+// `UpdatedAt: time.Now()`），这些是「何时写入」的行级元数据而非语义内容，
+// 必须在内容比较前剥除（BUG-031 第四病灶：Provenance 内嵌时间戳致 digest
+// 永不等，每次重连/重建灌版）。
+func stripVolatileKeys(v interface{}) interface{} {
+	switch t := v.(type) {
+	case map[string]interface{}:
+		for k, child := range t {
+			if k == "updatedAt" || k == "updatedBy" {
+				delete(t, k)
+				continue
+			}
+			t[k] = stripVolatileKeys(child)
+		}
+		return t
+	case []interface{}:
+		for i, child := range t {
+			t[i] = stripVolatileKeys(child)
+		}
+		return t
+	default:
+		return v
+	}
+}
+
+// normalizeProvenance = normalizeJSONContent + 剥除 Provenance 里的生命周期
+// 键；条目的实质内容（field/value/source/status/confidence/sourceDigest）
+// 全部保留参与变化判定。
+func normalizeProvenance(raw JSON) interface{} {
+	return stripVolatileKeys(normalizeJSONContent(raw))
+}
+
 // StableContentDigest 返回语义**稳定内容**的摘要：剔除 ID/时间戳/UpdatedBy/
 // Version 等行生命周期元数据。Version 是行版本计数（历史实现里内容未变也
 // 自增），不是语义内容，绝不能参与变化判定；语义内容变化必然反映在其余
@@ -418,7 +451,7 @@ func (sem *CapabilitySemantics) StableContentDigest() string {
 		Source:            sem.Source,
 		SourceDigest:      sem.SourceDigest,
 		Diagnostics:       normalizeJSONContent(sem.Diagnostics),
-		Provenance:        normalizeJSONContent(sem.Provenance),
+		Provenance:        normalizeProvenance(sem.Provenance),
 		Conflicts:         normalizeJSONContent(sem.Conflicts),
 	})
 	if err != nil {

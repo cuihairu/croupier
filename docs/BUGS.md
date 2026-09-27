@@ -1498,6 +1498,30 @@ upsert 无条件 +1」的行版本计数，而二病灶修复的稳定内容投�
 等于把自增计数器接进变化检测器，任何写入路径的无条件 bump 都会被放大成
 「内容变化」。同一投影必须只有一份实现（model 层），service 层只准委托。
 
+**补充（同日，第四病灶——Provenance 内嵌重建时间戳）**：三病灶修复部署后
+线上复证 **FLOOD-REMAIN**：agent 重启后每提案仍 +3（提案与语义行 410→413，
+后续idle 观察 414 还在涨）。`StableContentDigest` 已在运行的二进制中（symbol
+grep 证实部署无误），但 upsert 恒判「变化」。取证：`capability_semantics.
+provenance` 每个字段条目内嵌 `updatedAt`/`updatedBy`，且 `internal/dashboard/
+normalizer/provenance.go:75/85/103/180` 每次 track 都 `UpdatedAt: time.Now()`
+——**重建即刷新 Provenance 时间戳**，剥掉行级时间戳后，时间戳还藏在 JSON blob
+里。同病灶第四层：投影吃进了「何时写入」而非「内容是什么」。
+
+修复：`normalizeProvenance`（model 层）= jsonb 归一 + 递归剥除
+`updatedAt`/`updatedBy` 键后再进 digest；条目实质内容（field/value/source/
+status/confidence/sourceDigest）全部保留参与变化判定。
+
+回归测试（修复前红/修复后绿，红以临时还原 `normalizeJSONContent` 直投证得）：
+`TestCapabilitySemanticsDigest_ProvenanceVolatileKeysIgnored`（仅时间戳不同
+digest 必须相等；source 翻转仍必须不等）、
+`TestCapabilitySemanticsModel_UpsertIgnoresProvenanceTimestamps`（仅时间戳
+漂移 changed=false、Version 保持 1）。
+
+教训：内容投影不仅要剔除**行上的**生命周期元数据，还要递归审视**JSON blob
+内部**——凡由构建过程写时间戳的 blob（provenance/diagnostics 族）都是同族
+雷区；「投影吃什么」的验收标准是：把系统原样重跑一遍，喂给投影的每个字段
+都必须逐位复现。
+
 ---
 
 ## 汇总
