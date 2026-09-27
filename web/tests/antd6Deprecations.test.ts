@@ -21,8 +21,20 @@ const WEB_ROOT = path.resolve(__dirname, '..');
 const ANTD_ES = path.join(WEB_ROOT, 'node_modules', 'antd', 'es');
 const SRC_ROOT = path.join(WEB_ROOT, 'src');
 
-/** 收集扫描过程中被跳过的目录（与 codemod / 审计脚本保持一致）。 */
-const SKIP_DIRS = new Set(['node_modules', 'dist', '.umi', '__tests__', '__mocks__']);
+/**
+ * 收集扫描过程中被跳过的目录（与 codemod / 审计脚本保持一致）。
+ * `.umi`（dev 生成）与 `.umi-production`（`max build` 生成，MOCK e2e 静态验证
+ * 会留下）都是 Umi 生成产物，不属于 src 源码——漏排 `.umi-production` 时，
+ * 产物内 Umi 自身的 `overlayClassName` 会被误报为源码违规。
+ */
+const SKIP_DIRS = new Set([
+  'node_modules',
+  'dist',
+  '.umi',
+  '.umi-production',
+  '__tests__',
+  '__mocks__',
+]);
 
 interface Deprecation {
   component: string;

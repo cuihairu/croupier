@@ -6,7 +6,8 @@
  * ② 提交改密：旧密码复用刚登录成功的密码；成功后清除本地 token、提示重登；
  * ③ 两次新密码不一致：不提交；
  * ④ 「放弃本次登录」：清除刚签发的 token；
- * ⑤ 无标记账号：正常进入应用（边界回归）。
+ * ⑤ 无标记账号：正常进入应用（边界回归）；
+ * ⑥ 改密接口失败（catch）：提示重试，弹窗保留、token 不清除。
  */
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import React from 'react';
@@ -117,6 +118,33 @@ describe('Login 强制改密（OPEN-ISSUES #20）', () => {
       }),
     );
     await waitFor(() => expect(localStorage.removeItem).toHaveBeenCalledWith('token'));
+    expect(history.push).not.toHaveBeenCalled();
+  });
+
+  it('改密接口失败：提示重试，弹窗保留、token 不清除（catch 路径）', async () => {
+    mockedCreateSession.mockResolvedValue(sessionWith(true));
+    mockedChangePwd.mockRejectedValueOnce(new Error('password policy rejected'));
+    // 错误提示经 getMessage()?.error 弹出（mock 的 antd App 实例无法落在 DOM），
+    // 捕获本用例的 app 实例断言调用
+    const app = msgApi();
+    mockedGetMessage.mockReturnValue(app as unknown as ReturnType<typeof getMessage>);
+
+    render(<Login />);
+    await fillLoginAndSubmit('temp', 'tempPass123');
+    await screen.findByText('请先修改密码');
+
+    fireEvent.change(screen.getByPlaceholderText('请输入新密码'), {
+      target: { value: 'newPass456' },
+    });
+    fireEvent.change(screen.getByPlaceholderText('请再次输入新密码'), {
+      target: { value: 'newPass456' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: '修改密码' }));
+
+    await waitFor(() => expect(app.error).toHaveBeenCalledWith('修改密码失败，请重新登录后重试'));
+    // 失败不清 token、不关弹窗——用户可重试或「放弃本次登录」
+    expect(localStorage.removeItem).not.toHaveBeenCalled();
+    expect(screen.getByText('请先修改密码')).toBeInTheDocument();
     expect(history.push).not.toHaveBeenCalled();
   });
 

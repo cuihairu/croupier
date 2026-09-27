@@ -66,6 +66,15 @@ func loadAssignments(path string) (map[string][]string, error) {
 	if assignments == nil {
 		assignments = map[string][]string{}
 	}
+	// 旧版「空选保存」会落盘 `"game|env": null`（BUG-032 前语义，volume 跨
+	// 部署持久化成化石值）：null 被 GET 原样透出、前端 Object.values().flat()
+	// 卷成 [null] 选中态幻影。产品语义「清空列表保存即恢复默认开放」等价于
+	// 无记录，删除 null 键（新代码空保存本就走 delete-on-empty，不再产生）。
+	for key, fns := range assignments {
+		if fns == nil {
+			delete(assignments, key)
+		}
+	}
 	return assignments, nil
 }
 
