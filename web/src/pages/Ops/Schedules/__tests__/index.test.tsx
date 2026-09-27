@@ -38,6 +38,9 @@ jest.mock('@umijs/max', () => ({
   history: { push: jest.fn(), back: jest.fn() },
 }));
 
+// 创建表单桩：测试用例在渲染前设置提交值，点击 create-submit 驱动 onFinish
+let mockCreateFormValues: Record<string, unknown> = {};
+
 // PageContainer 捕获 props 供副标题断言（subTitle= 行内 vs content= 独立行）
 jest.mock('@ant-design/pro-components', () => ({
   PageContainer: ({
@@ -60,7 +63,26 @@ jest.mock('@ant-design/pro-components', () => ({
       {children}
     </div>
   ),
-  ModalForm: () => null,
+  ModalForm: ({
+    onFinish,
+    trigger,
+  }: {
+    onFinish?: (values: Record<string, unknown>) => Promise<boolean | void>;
+    trigger?: React.ReactNode;
+  }) => (
+    <span>
+      {trigger}
+      <button
+        data-testid="create-submit"
+        type="button"
+        onClick={() => {
+          void onFinish?.(mockCreateFormValues);
+        }}
+      >
+        create-submit
+      </button>
+    </span>
+  ),
 }));
 
 jest.mock('@/services/api/schedules', () => ({
@@ -154,6 +176,7 @@ const statisticText = (title: string): string => {
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockCreateFormValues = {};
   mockListSchedules.mockResolvedValue({ items: platformRows });
   mockListScheduleRuns.mockResolvedValue({ items: [] });
   mockListNodesCronJobsAll.mockResolvedValue({ items: hostReports, total: 2 });
@@ -235,5 +258,200 @@ describe('Ops/Schedules 页面（#24 概览 + 来源分组）', () => {
     expect(mockedUseIntl).toBeTruthy();
     expect(mockSetScheduleStatus).not.toHaveBeenCalled();
     expect(mockDeleteSchedule).not.toHaveBeenCalled();
+  });
+});
+
+describe('Ops/Schedules 行操作与弹窗流程', () => {
+  it('行操作：立即触发调用 triggerScheduleNow 并提示派发结果', async () => {
+    mockTriggerScheduleNow.mockResolvedValue({ taskRunId: 'tr-9' });
+    render(
+      <App>
+        <SchedulesPage />
+      </App>,
+    );
+    // 两行平台调度各渲染一次「立即触发」，取第一行（id=1）
+    fireEvent.click((await screen.findAllByText('立即触发'))[0]);
+    await waitFor(() => expect(mockTriggerScheduleNow).toHaveBeenCalledWith(1));
+    expect(await screen.findByText('已派发任务 tr-9')).toBeInTheDocument();
+  });
+
+  // extractErrorMessage 对带 message 的 Error 透传原文，仅对非对象拒绝回退默认文案
+  it('行操作：触发失败提示「触发失败」', async () => {
+    mockTriggerScheduleNow.mockRejectedValue('agent offline');
+    render(
+      <App>
+        <SchedulesPage />
+      </App>,
+    );
+    fireEvent.click((await screen.findAllByText('立即触发'))[0]);
+    expect(await screen.findByText('触发失败')).toBeInTheDocument();
+  });
+
+  it('行操作：active 行暂停、paused 行启用', async () => {
+    mockSetScheduleStatus.mockResolvedValue({});
+    render(
+      <App>
+        <SchedulesPage />
+      </App>,
+    );
+    await screen.findByText('nightly-cleanup');
+
+    fireEvent.click(screen.getByText('暂停'));
+    await waitFor(() => expect(mockSetScheduleStatus).toHaveBeenCalledWith(1, 'paused'));
+
+    fireEvent.click(screen.getByText('启用'));
+    await waitFor(() => expect(mockSetScheduleStatus).toHaveBeenCalledWith(2, 'active'));
+  });
+
+  it('dead_letter 行：死信标签、失败计数标注、恢复需确认后调用 status 接口', async () => {
+    mockListSchedules.mockResolvedValue({
+      items: [
+        ...platformRows,
+        {
+          id: 3,
+          name: 'dl-job',
+          cronExpr: '* * * * *',
+          functionId: 'player.cleanup',
+          status: 'dead_letter',
+          consecutiveFailures: 5,
+          maxFailedRuns: 5,
+          nextTriggerAt: '2026-09-28T02:30:00Z',
+        },
+      ],
+    });
+    mockSetScheduleStatus.mockResolvedValue({});
+    render(
+      <App>
+        <SchedulesPage />
+      </App>,
+    );
+    await screen.findByText('dl-job');
+
+    expect(screen.getByText('死信')).toBeInTheDocument();
+    expect(screen.getByText('5/5')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByText('恢复'));
+    // 死信恢复必须经二次确认（antd v6 confirm 标题在 .ant-modal-title 与
+    // .ant-modal-confirm-title 各渲染一次，须用 AllBy 变体）
+    await screen.findAllByText('从死信恢复该调度？');
+    fireEvent.click(
+      document.querySelector('.ant-modal-confirm-btns .ant-btn-primary') as HTMLButtonElement,
+    );
+    await waitFor(() => expect(mockSetScheduleStatus).toHaveBeenCalledWith(3, 'active'));
+  });
+
+  it('触发历史 drawer：打开时拉取运行记录并渲染', async () => {
+    mockListScheduleRuns.mockResolvedValue({
+      items: [
+        {
+          id: 'r1',
+          slot: '2026-09-28T02:30:00Z',
+          status: 'dispatched',
+          taskRunId: 'tr-1',
+          message: 'ok',
+        },
+      ],
+    });
+    render(
+      <App>
+        <SchedulesPage />
+      </App>,
+    );
+    await screen.findByText('nightly-cleanup');
+
+    fireEvent.click(screen.getAllByText('历史')[0]);
+    await waitFor(() => expect(mockListScheduleRuns).toHaveBeenCalledWith(1, { pageSize: 50 }));
+    expect(await screen.findByText('触发历史：nightly-cleanup')).toBeInTheDocument();
+    expect(screen.getByText('tr-1')).toBeInTheDocument();
+  });
+
+  it('触发历史 drawer：拉取失败提示「加载触发历史失败」', async () => {
+    mockListScheduleRuns.mockRejectedValue('boom');
+    render(
+      <App>
+        <SchedulesPage />
+      </App>,
+    );
+    await screen.findByText('nightly-cleanup');
+
+    fireEvent.click(screen.getAllByText('历史')[0]);
+    expect(await screen.findByText('加载触发历史失败')).toBeInTheDocument();
+  });
+
+  it('列表加载失败：提示「加载定时任务失败」且不崩溃', async () => {
+    mockListSchedules.mockRejectedValue('boom');
+    render(
+      <App>
+        <SchedulesPage />
+      </App>,
+    );
+    expect(await screen.findByText('加载定时任务失败')).toBeInTheDocument();
+  });
+
+  it('创建调度：payload JSON 解析为对象提交，maxFailedRuns 缺省 5', async () => {
+    mockCreateSchedule.mockResolvedValue({ id: 9 });
+    mockCreateFormValues = {
+      name: 'n1',
+      cronExpr: '* * * * *',
+      functionId: 'f1',
+      payload: '{"k":1}',
+    };
+    render(
+      <App>
+        <SchedulesPage />
+      </App>,
+    );
+    await screen.findByText('nightly-cleanup');
+
+    fireEvent.click(screen.getByTestId('create-submit'));
+    await waitFor(() =>
+      expect(mockCreateSchedule).toHaveBeenCalledWith({
+        name: 'n1',
+        cronExpr: '* * * * *',
+        functionId: 'f1',
+        payload: { k: 1 },
+        maxFailedRuns: 5,
+      }),
+    );
+    expect(await screen.findByText('已创建，调度器将在下次到期自动触发')).toBeInTheDocument();
+  });
+
+  it('创建调度：payload 非法 JSON 本地拦截弹错误 toast（解析错误原文），不发起请求', async () => {
+    mockCreateFormValues = {
+      name: 'n1',
+      cronExpr: '* * * * *',
+      functionId: 'f1',
+      payload: '{bad',
+    };
+    render(
+      <App>
+        <SchedulesPage />
+      </App>,
+    );
+    await screen.findByText('nightly-cleanup');
+
+    fireEvent.click(screen.getByTestId('create-submit'));
+    // SyntaxError 原文经 extractErrorMessage 直出 toast；文本随 Node 版本波动，只断言错误 toast 弹出
+    await waitFor(() => expect(document.querySelector('.ant-message-notice-error')).toBeTruthy());
+    expect(mockCreateSchedule).not.toHaveBeenCalled();
+  });
+
+  it('创建调度：请求失败同样提示创建失败', async () => {
+    mockCreateSchedule.mockRejectedValue('server error');
+    mockCreateFormValues = {
+      name: 'n1',
+      cronExpr: '* * * * *',
+      functionId: 'f1',
+      payload: '',
+    };
+    render(
+      <App>
+        <SchedulesPage />
+      </App>,
+    );
+    await screen.findByText('nightly-cleanup');
+
+    fireEvent.click(screen.getByTestId('create-submit'));
+    expect(await screen.findByText('创建失败')).toBeInTheDocument();
   });
 });

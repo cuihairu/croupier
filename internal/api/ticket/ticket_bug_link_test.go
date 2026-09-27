@@ -93,3 +93,59 @@ func TestTicketBugLinkEndpoints_Validation(t *testing.T) {
 	h.ListBugs(c)
 	assert.NotEqual(t, http.StatusOK, w.Code)
 }
+
+// 补 #25/#21 错误分支：绑定失败、路径参数非法、模型层错误、FilterOptions 错误透传。
+func TestTicketBugLinkErrorBranches(t *testing.T) {
+	db := newTicketTestDB(t)
+	svcCtx := &svc.ServiceContext{
+		TicketModel: model.NewTicketModel(db),
+		BugModel:    model.NewBugModel(db),
+	}
+	h := NewHandler(NewService(svcCtx))
+	ticket := model.Ticket{Title: "x", Status: dbenum.TicketStatusOpen}
+	require.NoError(t, db.Create(&ticket).Error)
+
+	// LinkBug：非法 JSON 体 → 绑定错误
+	c, w := newTicketRequest(http.MethodPost, fmt.Sprintf("/tickets/%d/bugs", ticket.ID), `{invalid`)
+	c.Params = gin.Params{{Key: "id", Value: fmt.Sprint(ticket.ID)}}
+	h.LinkBug(c)
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+
+	// LinkBug：非法工单 id（parse 失败）
+	c, w = newTicketRequest(http.MethodPost, "/tickets/abc/bugs", `{"bugId":1}`)
+	c.Params = gin.Params{{Key: "id", Value: "abc"}}
+	h.LinkBug(c)
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+
+	// UnlinkBug：非法工单 id / 非法 bugId（handler 两处 parse 分支）
+	c, w = newTicketRequest(http.MethodDelete, "/tickets/abc/bugs/1", "")
+	c.Params = gin.Params{{Key: "id", Value: "abc"}, {Key: "bugId", Value: "1"}}
+	h.UnlinkBug(c)
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+
+	c, w = newTicketRequest(http.MethodDelete, "/tickets/1/bugs/abc", "")
+	c.Params = gin.Params{{Key: "id", Value: "1"}, {Key: "bugId", Value: "abc"}}
+	h.UnlinkBug(c)
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+
+	// ListBugs：模型层错误（关闭底层连接后查询失败）
+	sqlDB, err := db.DB()
+	require.NoError(t, err)
+	require.NoError(t, sqlDB.Close())
+
+	c, w = newTicketRequest(http.MethodGet, fmt.Sprintf("/tickets/%d/bugs", ticket.ID), "")
+	c.Params = gin.Params{{Key: "id", Value: fmt.Sprint(ticket.ID)}}
+	h.ListBugs(c)
+	assert.NotEqual(t, http.StatusOK, w.Code)
+
+	// UnlinkBug：模型层错误（合法参数 + 关库 → service 错误透传）
+	c, w = newTicketRequest(http.MethodDelete, fmt.Sprintf("/tickets/%d/bugs/1", ticket.ID), "")
+	c.Params = gin.Params{{Key: "id", Value: fmt.Sprint(ticket.ID)}, {Key: "bugId", Value: "1"}}
+	h.UnlinkBug(c)
+	assert.NotEqual(t, http.StatusOK, w.Code)
+
+	// FilterOptions：模型层错误（同上关库）
+	c, w = newTicketRequest(http.MethodGet, "/tickets/filter-options", "")
+	h.FilterOptions(c)
+	assert.NotEqual(t, http.StatusOK, w.Code)
+}
