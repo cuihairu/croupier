@@ -289,9 +289,10 @@ func TestUpdateSemanticsWritesAuditEventV9(t *testing.T) {
 func TestListSemanticVersionsModelErrorV9(t *testing.T) {
 	db := setupTestDB(t)
 	ctx := context.Background()
-	require.NoError(t, model.NewCapabilitySemanticsModel(db).UpsertSemantics(ctx, &model.CapabilitySemantics{
+	_, _err1 := model.NewCapabilitySemanticsModel(db).UpsertSemantics(ctx, &model.CapabilitySemantics{
 		GameID: "g1", Env: "e1", ResourceKey: "player", Source: "sdk",
-	}))
+	})
+	require.NoError(t, _err1)
 	svc := NewService(db, nil)
 	svc.versionModel = model.NewCapabilitySemanticVersionModel(brokenTableDBV9(t, "capability_semantic_versions"))
 
@@ -798,9 +799,10 @@ func TestLabelsForResourceNilOnUnusableKeyV9(t *testing.T) {
 
 func seedV9ConflictSemantics(t *testing.T, db *gorm.DB, conflicts []byte) {
 	t.Helper()
-	require.NoError(t, model.NewCapabilitySemanticsModel(db).UpsertSemantics(context.Background(), &model.CapabilitySemantics{
+	_, _err2 := model.NewCapabilitySemanticsModel(db).UpsertSemantics(context.Background(), &model.CapabilitySemantics{
 		GameID: "g1", Env: "e1", ResourceKey: "player", Source: "sdk", Conflicts: conflicts,
-	}))
+	})
+	require.NoError(t, _err2)
 }
 
 func TestResolveConflictInvalidConflictsPayloadV9(t *testing.T) {

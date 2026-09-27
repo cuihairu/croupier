@@ -111,7 +111,7 @@ func TestExtra_Diff_WithFullSemanticsAndProposal(t *testing.T) {
 	ctx := context.Background()
 	svc := NewService(db)
 
-	require.NoError(t, model.NewCapabilitySemanticsModel(db).UpsertSemantics(ctx, &model.CapabilitySemantics{
+	_, _err1 := model.NewCapabilitySemanticsModel(db).UpsertSemantics(ctx, &model.CapabilitySemantics{
 		GameID:            "demo-game",
 		Env:               "development",
 		ResourceKey:       "player",
@@ -121,7 +121,8 @@ func TestExtra_Diff_WithFullSemanticsAndProposal(t *testing.T) {
 		UpdateID:          22,
 		DeleteID:          23,
 		Version:           3,
-	}))
+	})
+	require.NoError(t, _err1)
 
 	page := spec.PageSpec{
 		PageKey:     "resource--player",

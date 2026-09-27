@@ -273,7 +273,7 @@ func TestCapabilitySemanticsModel_UpsertSemantics_Create(t *testing.T) {
 		Env:         "prod",
 		ResourceKey: "player",
 	}
-	err := m.UpsertSemantics(ctx, sem)
+	_, err := m.UpsertSemantics(ctx, sem)
 	require.NoError(t, err)
 	assert.Equal(t, 1, sem.Version)
 }
@@ -288,11 +288,13 @@ func TestCapabilitySemanticsModel_UpsertSemantics_Update(t *testing.T) {
 		Env:         "prod",
 		ResourceKey: "player_upd",
 	}
-	require.NoError(t, m.UpsertSemantics(ctx, sem))
+	_, _err1 := m.UpsertSemantics(ctx, sem)
+	require.NoError(t, _err1)
 	assert.Equal(t, 1, sem.Version)
 
 	sem.IdentityField = "id"
-	require.NoError(t, m.UpsertSemantics(ctx, sem))
+	_, _err2 := m.UpsertSemantics(ctx, sem)
+	require.NoError(t, _err2)
 	assert.Equal(t, 2, sem.Version)
 }
 
@@ -301,9 +303,10 @@ func TestCapabilitySemanticsModel_FindByScopeAndResourceKey(t *testing.T) {
 	m := NewCapabilitySemanticsModel(db)
 	ctx := context.Background()
 
-	require.NoError(t, m.UpsertSemantics(ctx, &CapabilitySemantics{
+	_, _err3 := m.UpsertSemantics(ctx, &CapabilitySemantics{
 		GameID: "game1", Env: "prod", ResourceKey: "player",
-	}))
+	})
+	require.NoError(t, _err3)
 
 	found, err := m.FindByScopeAndResourceKey(ctx, "game1", "prod", "player")
 	require.NoError(t, err)
@@ -318,12 +321,14 @@ func TestCapabilitySemanticsModel_ListByScope(t *testing.T) {
 	m := NewCapabilitySemanticsModel(db)
 	ctx := context.Background()
 
-	require.NoError(t, m.UpsertSemantics(ctx, &CapabilitySemantics{
+	_, _err4 := m.UpsertSemantics(ctx, &CapabilitySemantics{
 		GameID: "game1", Env: "prod", ResourceKey: "player_lscope",
-	}))
-	require.NoError(t, m.UpsertSemantics(ctx, &CapabilitySemantics{
+	})
+	require.NoError(t, _err4)
+	_, _err5 := m.UpsertSemantics(ctx, &CapabilitySemantics{
 		GameID: "game1", Env: "prod", ResourceKey: "order_lscope",
-	}))
+	})
+	require.NoError(t, _err5)
 
 	sems, err := m.ListByScope(ctx, "game1", "prod")
 	require.NoError(t, err)
@@ -335,9 +340,10 @@ func TestCapabilitySemanticsModel_Update(t *testing.T) {
 	m := NewCapabilitySemanticsModel(db)
 	ctx := context.Background()
 
-	require.NoError(t, m.UpsertSemantics(ctx, &CapabilitySemantics{
+	_, _err6 := m.UpsertSemantics(ctx, &CapabilitySemantics{
 		GameID: "game1", Env: "prod", ResourceKey: "player",
-	}))
+	})
+	require.NoError(t, _err6)
 
 	sem, err := m.FindByScopeAndResourceKey(ctx, "game1", "prod", "player")
 	require.NoError(t, err)
@@ -359,7 +365,8 @@ func TestCapabilitySemanticsModel_UpsertSemantics_RestoresHistoryAfterDelete(t *
 	ctx := context.Background()
 
 	sem := &CapabilitySemantics{GameID: "game1", Env: "prod", ResourceKey: "player"}
-	require.NoError(t, semModel.UpsertSemantics(ctx, sem))
+	_, _err7 := semModel.UpsertSemantics(ctx, sem)
+	require.NoError(t, _err7)
 	originalID := sem.ID
 	require.NoError(t, versionModel.CreateVersion(ctx, &CapabilitySemanticVersion{
 		SemanticsID: originalID, Version: sem.Version, Semantics: JSON(`{}`),
@@ -367,7 +374,8 @@ func TestCapabilitySemanticsModel_UpsertSemantics_RestoresHistoryAfterDelete(t *
 	require.NoError(t, semModel.DeleteByScopeAndResourceKey(ctx, "game1", "prod", "player"))
 
 	rebuilt := &CapabilitySemantics{GameID: "game1", Env: "prod", ResourceKey: "player", IdentityField: "id"}
-	require.NoError(t, semModel.UpsertSemantics(ctx, rebuilt))
+	_, _err8 := semModel.UpsertSemantics(ctx, rebuilt)
+	require.NoError(t, _err8)
 	assert.Equal(t, originalID, rebuilt.ID)
 	assert.Equal(t, 2, rebuilt.Version)
 	require.NoError(t, versionModel.CreateVersion(ctx, &CapabilitySemanticVersion{
@@ -396,9 +404,10 @@ func TestCapabilitySemanticVersionModel_CreateVersion(t *testing.T) {
 
 	// Create semantics first
 	semModel := NewCapabilitySemanticsModel(db)
-	require.NoError(t, semModel.UpsertSemantics(ctx, &CapabilitySemantics{
+	_, _err9 := semModel.UpsertSemantics(ctx, &CapabilitySemantics{
 		GameID: "game1", Env: "prod", ResourceKey: "player",
-	}))
+	})
+	require.NoError(t, _err9)
 	sem, _ := semModel.FindByScopeAndResourceKey(ctx, "game1", "prod", "player")
 
 	ver := &CapabilitySemanticVersion{
@@ -418,9 +427,10 @@ func TestCapabilitySemanticVersionModel_ListBySemanticsID(t *testing.T) {
 
 	// Create semantics
 	semModel := NewCapabilitySemanticsModel(db)
-	require.NoError(t, semModel.UpsertSemantics(ctx, &CapabilitySemantics{
+	_, _err10 := semModel.UpsertSemantics(ctx, &CapabilitySemantics{
 		GameID: "game1", Env: "prod", ResourceKey: "player_vlist",
-	}))
+	})
+	require.NoError(t, _err10)
 	sem, _ := semModel.FindByScopeAndResourceKey(ctx, "game1", "prod", "player_vlist")
 
 	require.NoError(t, m.CreateVersion(ctx, &CapabilitySemanticVersion{
@@ -574,4 +584,48 @@ func TestGameEnvBindingModel_Create(t *testing.T) {
 	err := db.WithContext(ctx).Create(binding).Error
 	require.NoError(t, err)
 	assert.NotZero(t, binding.ID)
+}
+
+func TestCapabilitySemanticsModel_UpsertSkipsBumpWhenContentUnchanged(t *testing.T) {
+	db := setupContractTestDB(t)
+	ctx := context.Background()
+	m := NewCapabilitySemanticsModel(db)
+
+	sem := &CapabilitySemantics{
+		GameID: "g", Env: "e", ResourceKey: "player",
+		IdentityField: "player_id", Source: "sdk_explicit",
+		Reports: []byte(`{"items":[]}`),
+	}
+	changed, err := m.UpsertSemantics(ctx, sem)
+	require.NoError(t, err)
+	require.True(t, changed, "first upsert must create the row")
+	require.Equal(t, 1, sem.Version)
+	firstUpdated := sem.UpdatedAt
+
+	// 同内容重注册：版本不得自增，行也不应被触碰（UpdatedAt 不刷新）。
+	time.Sleep(10 * time.Millisecond)
+	again := &CapabilitySemantics{
+		GameID: "g", Env: "e", ResourceKey: "player",
+		IdentityField: "player_id", Source: "sdk_explicit",
+		Reports: []byte(`{"items":[]}`),
+	}
+	changed, err = m.UpsertSemantics(ctx, again)
+	require.NoError(t, err)
+	require.False(t, changed, "content-unchanged upsert must report no change")
+	assert.Equal(t, 1, again.Version,
+		"content-unchanged upsert must not bump the semantics row version")
+	assert.True(t, firstUpdated.Equal(again.UpdatedAt),
+		"content-unchanged upsert must not refresh UpdatedAt")
+
+	// 内容真变：版本 +1 且报 changed。
+	changed2 := &CapabilitySemantics{
+		GameID: "g", Env: "e", ResourceKey: "player",
+		IdentityField: "id", Source: "sdk_explicit",
+		Reports: []byte(`{"items":[]}`),
+	}
+	changed, err = m.UpsertSemantics(ctx, changed2)
+	require.NoError(t, err)
+	require.True(t, changed, "real content change must report change")
+	assert.Equal(t, 2, changed2.Version,
+		"real content change must bump the semantics row version")
 }

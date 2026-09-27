@@ -592,7 +592,8 @@ func (s *Service) UpdateSemantics(ctx context.Context, req *UpdateSemanticsReque
 	}
 
 	// Save semantics
-	if err := s.semanticsModel.UpsertSemantics(ctx, semantics); err != nil {
+	// 人工编辑路径：显式保存总视为一次变更（零改动提交也要留版本历史）。
+	if _, err := s.semanticsModel.UpsertSemantics(ctx, semantics); err != nil {
 		return nil, fmt.Errorf("upsert semantics: %w", err)
 	}
 	if err := s.createSemanticVersion(ctx, semantics, req.ChangeReason, actor); err != nil {
@@ -1759,7 +1760,8 @@ func (s *Service) ResolveConflict(ctx context.Context, req *ResolveConflictReque
 	semantics.UpdatedBy = actor
 
 	// Update semantics
-	if err := s.semanticsModel.UpsertSemantics(ctx, semantics); err != nil {
+	// 冲突决议：显式人工动作，零改动提交也要留版本历史，changed 无需判断。
+	if _, err := s.semanticsModel.UpsertSemantics(ctx, semantics); err != nil {
 		return nil, fmt.Errorf("update semantics: %w", err)
 	}
 	if err := s.createSemanticVersion(ctx, semantics, req.Reason, actor); err != nil {

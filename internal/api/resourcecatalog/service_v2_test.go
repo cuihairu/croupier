@@ -341,7 +341,7 @@ func TestFindSemanticsOptionalV2(t *testing.T) {
 
 	// Create semantics
 	semModel := model.NewCapabilitySemanticsModel(db)
-	err = semModel.UpsertSemantics(ctx, &model.CapabilitySemantics{
+	_, err = semModel.UpsertSemantics(ctx, &model.CapabilitySemantics{
 		GameID:      "game1",
 		Env:         "env1",
 		ResourceKey: "resource1",
@@ -730,7 +730,7 @@ func TestCreateSemanticVersionV2(t *testing.T) {
 
 	// Create semantics
 	semModel := model.NewCapabilitySemanticsModel(db)
-	err := semModel.UpsertSemantics(ctx, &model.CapabilitySemantics{
+	_, err := semModel.UpsertSemantics(ctx, &model.CapabilitySemantics{
 		GameID:      "g1",
 		Env:         "e1",
 		ResourceKey: "r1",
@@ -796,7 +796,7 @@ func TestListConflictsV2(t *testing.T) {
 	}
 	provJSON, _ := json.Marshal(prov)
 	semModel := model.NewCapabilitySemanticsModel(db)
-	err = semModel.UpsertSemantics(ctx, &model.CapabilitySemantics{
+	_, err = semModel.UpsertSemantics(ctx, &model.CapabilitySemantics{
 		GameID:      "g1",
 		Env:         "e1",
 		ResourceKey: "r1",
@@ -850,7 +850,7 @@ func TestResolveConflictV2(t *testing.T) {
 	}
 	conflictsJSON, _ := json.Marshal(conflicts)
 	semModel := model.NewCapabilitySemanticsModel(db)
-	err = semModel.UpsertSemantics(ctx, &model.CapabilitySemantics{
+	_, err = semModel.UpsertSemantics(ctx, &model.CapabilitySemantics{
 		GameID:      "g1",
 		Env:         "e1",
 		ResourceKey: "player",
@@ -1232,7 +1232,7 @@ func TestListSemanticVersionsErrorV2(t *testing.T) {
 
 	// Create semantics
 	semModel := model.NewCapabilitySemanticsModel(db)
-	err := semModel.UpsertSemantics(ctx, &model.CapabilitySemantics{
+	_, err := semModel.UpsertSemantics(ctx, &model.CapabilitySemantics{
 		GameID: "g1", Env: "e1", ResourceKey: "player", Source: "sdk",
 	})
 	require.NoError(t, err)
@@ -1267,9 +1267,10 @@ func TestListSemanticVersionsPaginatedV2(t *testing.T) {
 	ctx := context.Background()
 
 	semModel := model.NewCapabilitySemanticsModel(db)
-	require.NoError(t, semModel.UpsertSemantics(ctx, &model.CapabilitySemantics{
+	_, _err1 := semModel.UpsertSemantics(ctx, &model.CapabilitySemantics{
 		GameID: "g1", Env: "e1", ResourceKey: "player", Source: "sdk",
-	}))
+	})
+	require.NoError(t, _err1)
 	sem, err := semModel.FindByScopeAndResourceKey(ctx, "g1", "e1", "player")
 	require.NoError(t, err)
 

@@ -534,22 +534,28 @@ func (s *ContractService) RebuildResourceCapability(ctx context.Context, gameID,
 		return fmt.Errorf("find existing capability semantics: %w", err)
 	}
 	semantics.SourceDigest = computeDigest(contracts)
-	if err := s.semanticsModel.UpsertSemantics(ctx, semantics); err != nil {
+	// BUG-031 第三病灶：内容未变的重注册（agent 重连）不得 bump 版本，也不得
+	// 追加语义版本历史行——否则每次重连灌一版历史+一版提案快照。
+	changed, err := s.semanticsModel.UpsertSemantics(ctx, semantics)
+	if err != nil {
 		return fmt.Errorf("upsert capability semantics: %w", err)
 	}
 
-	// 4. Create version record. This rebuild is triggered by automated
-	// registration sync, not a human operator, so the actor is "system".
-	version := &model.CapabilitySemanticVersion{
-		SemanticsID:  semantics.ID,
-		Version:      semantics.Version,
-		Semantics:    toJSON(semantics),
-		SourceDigest: semantics.SourceDigest,
-		ChangeReason: "rebuild from function registration",
-		CreatedBy:    "system",
-	}
-	if err := s.versionModel.CreateVersion(ctx, version); err != nil {
-		return fmt.Errorf("create semantic version: %w", err)
+	// 4. Create version record only when semantics actually changed. This
+	// rebuild is triggered by automated registration sync, not a human
+	// operator, so the actor is "system".
+	if changed {
+		version := &model.CapabilitySemanticVersion{
+			SemanticsID:  semantics.ID,
+			Version:      semantics.Version,
+			Semantics:    toJSON(semantics),
+			SourceDigest: semantics.SourceDigest,
+			ChangeReason: "rebuild from function registration",
+			CreatedBy:    "system",
+		}
+		if err := s.versionModel.CreateVersion(ctx, version); err != nil {
+			return fmt.Errorf("create semantic version: %w", err)
+		}
 	}
 
 	return nil
@@ -1308,7 +1314,8 @@ func (s *ContractService) RebuildProposalsForResource(ctx context.Context, gameI
 
 	if semantics.SourceDigest != newDigest {
 		semantics.SourceDigest = newDigest
-		if err := s.semanticsModel.UpsertSemantics(ctx, semantics); err != nil {
+		// 源契约 digest 已变（真实内容变化路径），changed 结果无需另行处理。
+		if _, err := s.semanticsModel.UpsertSemantics(ctx, semantics); err != nil {
 			return fmt.Errorf("update semantics digest: %w", err)
 		}
 	}
@@ -1674,13 +1681,13 @@ func generatedProposalChanged(existing *model.PageProposal, next *model.PageProp
 	return proposalComparableDigest(existing) != proposalComparableDigest(next)
 }
 
-// semanticsComparableDigest 只对语义的**稳定内容**做 digest。CapabilitySemantics
-// 内嵌 gorm.Model（ID/CreatedAt/UpdatedAt/DeletedAt）又带一处显式 UpdatedAt，
-// json.Marshal 全量导出——agent 每次重注册都会 upsert 语义行刷新 UpdatedAt，
-// 时间戳被吃进 digest 后，内容未变也判「有变化」，每次重连/重启都灌一版
-// 快照（BUG-031 残留：线上实测 agent 重启后每提案 +4 版，相邻版本唯一
-// 实质差异是 SemanticsDigest，PageSpec/FunctionDigest 恒等）。JSON 字段同时
-// 走 canonicalJSONBytes 归一（jsonb 键序漂移与 BUG-031 同病类）。
+// semanticsComparableDigest 只对语义的**稳定内容**做 digest，唯一实现下沉在
+// model.CapabilitySemantics.StableContentDigest（model 层 UpsertSemantics 的
+// 内容变更判定必须与 proposal 的 SemanticsDigest 同源，两份投影必然漂移）。
+// 历史：BUG-031 两段——先修「整结构体吃 gorm 时间戳」，再修「行 Version 被
+// 无条件自增又被投影吃进」（线上 resource 提案每次 agent 重连 +3 版，
+// FunctionDigest/PageSpec 恒等、仅 SemanticsDigest 变），最终收敛为模型层
+// 单一稳定内容投影，且 UpsertSemantics 内容未变时不再 bump Version。
 func semanticsComparableDigest(semantics *model.CapabilitySemantics) string {
 	// nil（无资源/无语义行）与全零语义投影等价：digest 保持 64 字符非空
 	// （PageProposal.SemanticsDigest 的列契约），且与「空语义行」不可区分——
@@ -1688,55 +1695,7 @@ func semanticsComparableDigest(semantics *model.CapabilitySemantics) string {
 	if semantics == nil {
 		semantics = &model.CapabilitySemantics{}
 	}
-	return computeDigest(struct {
-		Version           int
-		IdentityField     string
-		IdentityFieldType string
-		IdentityPath      string
-		CollectionQueryID uint
-		CollectionPath    string
-		PageFieldName     string
-		PageSizeFieldName string
-		ItemsFieldName    string
-		TotalFieldName    string
-		ItemQueryID       uint
-		ItemPath          string
-		CreateID          uint
-		UpdateID          uint
-		DeleteID          uint
-		Actions           model.JSON
-		Tasks             model.JSON
-		Reports           model.JSON
-		Source            string
-		SourceDigest      string
-		Diagnostics       model.JSON
-		Provenance        model.JSON
-		Conflicts         model.JSON
-	}{
-		Version:           semantics.Version,
-		IdentityField:     semantics.IdentityField,
-		IdentityFieldType: semantics.IdentityFieldType,
-		IdentityPath:      semantics.IdentityPath,
-		CollectionQueryID: semantics.CollectionQueryID,
-		CollectionPath:    semantics.CollectionPath,
-		PageFieldName:     semantics.PageFieldName,
-		PageSizeFieldName: semantics.PageSizeFieldName,
-		ItemsFieldName:    semantics.ItemsFieldName,
-		TotalFieldName:    semantics.TotalFieldName,
-		ItemQueryID:       semantics.ItemQueryID,
-		ItemPath:          semantics.ItemPath,
-		CreateID:          semantics.CreateID,
-		UpdateID:          semantics.UpdateID,
-		DeleteID:          semantics.DeleteID,
-		Actions:           canonicalJSONBytes(semantics.Actions),
-		Tasks:             canonicalJSONBytes(semantics.Tasks),
-		Reports:           canonicalJSONBytes(semantics.Reports),
-		Source:            semantics.Source,
-		SourceDigest:      semantics.SourceDigest,
-		Diagnostics:       canonicalJSONBytes(semantics.Diagnostics),
-		Provenance:        canonicalJSONBytes(semantics.Provenance),
-		Conflicts:         canonicalJSONBytes(semantics.Conflicts),
-	})
+	return semantics.StableContentDigest()
 }
 
 func proposalComparableDigest(proposal *model.PageProposal) string {

@@ -398,7 +398,7 @@ func TestService_ListSemanticVersions(t *testing.T) {
 
 	// Create semantics with versions
 	semModel := model.NewCapabilitySemanticsModel(db)
-	err = semModel.UpsertSemantics(ctx, &model.CapabilitySemantics{
+	_, err = semModel.UpsertSemantics(ctx, &model.CapabilitySemantics{
 		GameID: "g", Env: "e", ResourceKey: "player", Source: "sdk",
 	})
 	require.NoError(t, err)
@@ -432,14 +432,16 @@ func TestService_ListSemanticVersions_PreservesHistoryAfterRebuild(t *testing.T)
 	versionModel := model.NewCapabilitySemanticVersionModel(db)
 
 	sem := &model.CapabilitySemantics{GameID: "g", Env: "e", ResourceKey: "player", Source: "sdk"}
-	require.NoError(t, semModel.UpsertSemantics(ctx, sem))
+	_, _err1 := semModel.UpsertSemantics(ctx, sem)
+	require.NoError(t, _err1)
 	require.NoError(t, versionModel.CreateVersion(ctx, &model.CapabilitySemanticVersion{
 		SemanticsID: sem.ID, Version: sem.Version, SourceDigest: "before",
 	}))
 	require.NoError(t, semModel.DeleteByScopeAndResourceKey(ctx, "g", "e", "player"))
 
 	rebuilt := &model.CapabilitySemantics{GameID: "g", Env: "e", ResourceKey: "player", Source: "sdk", IdentityField: "id"}
-	require.NoError(t, semModel.UpsertSemantics(ctx, rebuilt))
+	_, _err2 := semModel.UpsertSemantics(ctx, rebuilt)
+	require.NoError(t, _err2)
 	require.NoError(t, versionModel.CreateVersion(ctx, &model.CapabilitySemanticVersion{
 		SemanticsID: rebuilt.ID, Version: rebuilt.Version, SourceDigest: "after",
 	}))
@@ -476,7 +478,7 @@ func TestService_ListConflicts(t *testing.T) {
 	}
 	confJSON, _ := json.Marshal(conflicts)
 	semModel := model.NewCapabilitySemanticsModel(db)
-	err = semModel.UpsertSemantics(ctx, &model.CapabilitySemantics{
+	_, err = semModel.UpsertSemantics(ctx, &model.CapabilitySemantics{
 		GameID: "g", Env: "e", ResourceKey: "player", Source: "sdk", Conflicts: confJSON,
 	})
 	require.NoError(t, err)

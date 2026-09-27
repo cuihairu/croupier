@@ -1466,6 +1466,38 @@ digest 对同一内容/不同元数据确实不稳定——文档化根因断言
 `TestContractService_RebuildProposalForFunctionWithoutResource` 的 64 长度
 断言当场抓住）。
 
+**补充（同日，第三病灶——行 Version 无条件自增且被投影吃进）**：二病灶修复
+部署后线上复证：空闲灌水归零，但 **agent 重启后每提案仍 +3 版**（此前实测
++4 是二、三病灶叠加）。线上证据：`resource:order` 提案 v385→v390 相邻版本
+`function_digest` 恒定、仅 `semantics_digest` 变；`capability_semantics` 行
+`version` 390→393 而**全部稳定字段逐列相同**——语义行的 `Version` 是「每次
+upsert 无条件 +1」的行版本计数，而二病灶修复的稳定内容投影**误把 Version
+一并吃进 digest**：重连 upsert → Version+1 → digest 变 → 判「语义变化」→
+每提案灌一版快照 + 一版语义历史行。单测绿而线上红的原因：单测只模拟了
+「时间戳刷新」，没模拟 Version 自增路径。
+
+修复（收敛为模型层单一实现）：
+
+1. `CapabilitySemantics.StableContentDigest()`（model 层）：稳定内容投影
+   **唯一实现**，剔除 ID/时间戳/UpdatedBy/**Version**；JSON 字段经
+   `normalizeJSONContent`（Unmarshal→Marshal）归一 jsonb 字节漂移。service
+   层 `semanticsComparableDigest` 改为薄委托——model 的 upsert 变更判定与
+   proposal 的 SemanticsDigest 同源，两份投影必然漂移。
+2. `UpsertSemantics` 改签名 `(bool, error)`：内容未变**不动行**（Version/
+   UpdatedAt 均不刷新）并回填行标识；真实变化才 `Version+1` 落库。
+3. `rebuildFromContracts` 仅 `changed` 才插 `capability_semantic_versions`
+   历史行（自动重连不再灌历史）。人工编辑/冲突决议路径保持「显式保存即留
+   版本历史」语义（其后 createSemanticVersion 无条件执行）。
+
+回归测试（修复前红/修复后绿）：`TestCapabilitySemanticsModel_UpsertSkipsBumpWhenContentUnchanged`
+（旧实现同内容二跑 Version=2 红；新实现 changed=false、Version=1、UpdatedAt
+不刷新；真变化才 bump）、`TestSemanticsComparableDigest_IgnoresRowVersion`
+（仅 Version 不同的两份语义 digest 必须相等——旧投影吃 Version 恒红）。
+
+教训：**「行版本号」是生命周期元数据，不是内容**——把它放进内容投影，
+等于把自增计数器接进变化检测器，任何写入路径的无条件 bump 都会被放大成
+「内容变化」。同一投影必须只有一份实现（model 层），service 层只准委托。
+
 ---
 
 ## 汇总

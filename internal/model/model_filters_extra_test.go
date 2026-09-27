@@ -838,7 +838,8 @@ func TestContractRelatedModels_ScopeLists(t *testing.T) {
 	assert.Len(t, caps, 1)
 
 	semantics := &CapabilitySemantics{GameID: "demo", Env: "prod", ResourceKey: "player", CollectionQueryID: contract.ID}
-	require.NoError(t, semm.UpsertSemantics(ctx, semantics))
+	_, _err1 := semm.UpsertSemantics(ctx, semantics)
+	require.NoError(t, _err1)
 	sems, err := semm.ListByScope(ctx, "demo", "prod")
 	require.NoError(t, err)
 	require.Len(t, sems, 1)

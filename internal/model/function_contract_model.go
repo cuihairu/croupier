@@ -3,6 +3,8 @@ package model
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"strings"
@@ -319,23 +321,111 @@ func NewCapabilitySemanticsModel(db *gorm.DB) *CapabilitySemanticsModel {
 }
 
 // UpsertSemantics creates or updates capability semantics.
-func (m *CapabilitySemanticsModel) UpsertSemantics(ctx context.Context, sem *CapabilitySemantics) error {
+//
+// 返回 changed 表示语义稳定内容是否发生变化。agent 重注册会以相同内容反复
+// upsert 同一行（BUG-031 第三病灶）：内容未变时不得 bump Version、不得触碰
+// 行（否则 Version 无条件 +1 会被下游 digest 投影吃进去，每次重连灌一版
+// 提案快照）。只有真实内容变化才递增版本并落库。
+func (m *CapabilitySemanticsModel) UpsertSemantics(ctx context.Context, sem *CapabilitySemantics) (bool, error) {
 	db := dbctx.Resolve(ctx, m.db).WithContext(ctx)
 	var existing CapabilitySemantics
 	err := db.Unscoped().Where("game_id = ? AND env = ? AND resource_key = ?",
 		sem.GameID, sem.Env, sem.ResourceKey).First(&existing).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		sem.Version = 1
-		return db.Create(sem).Error
+		return true, db.Create(sem).Error
 	}
 	if err != nil {
-		return err
+		return false, err
+	}
+	if existing.StableContentDigest() == sem.StableContentDigest() {
+		// 内容未变：保持行原样（Version/UpdatedAt 都不动），并回填行标识，
+		// 让调用方拿到的是持久化行的真实状态。
+		sem.ID = existing.ID
+		sem.CreatedAt = existing.CreatedAt
+		sem.DeletedAt = existing.DeletedAt
+		sem.Version = existing.Version
+		sem.UpdatedAt = existing.UpdatedAt
+		return false, nil
 	}
 	sem.ID = existing.ID
 	sem.CreatedAt = existing.CreatedAt
 	sem.DeletedAt = gorm.DeletedAt{}
 	sem.Version = existing.Version + 1
-	return db.Save(sem).Error
+	return true, db.Save(sem).Error
+}
+
+// normalizeJSONContent 归一 JSON 列内容用于内容比较：jsonb 回读的字节序/空白
+// 漂移不代表内容变化（BUG-031 同病类），Unmarshal→Marshal 输出稳定形态。
+func normalizeJSONContent(raw JSON) interface{} {
+	if len(raw) == 0 {
+		return nil
+	}
+	var v interface{}
+	if err := json.Unmarshal(raw, &v); err != nil {
+		// 非法 JSON（不应出现）：按原文字节比较，不掩盖坏数据。
+		return string(raw)
+	}
+	return v
+}
+
+// StableContentDigest 返回语义**稳定内容**的摘要：剔除 ID/时间戳/UpdatedBy/
+// Version 等行生命周期元数据。Version 是行版本计数（历史实现里内容未变也
+// 自增），不是语义内容，绝不能参与变化判定；语义内容变化必然反映在其余
+// 投影字段上。service 层的 semanticsComparableDigest 委托本方法。
+func (sem *CapabilitySemantics) StableContentDigest() string {
+	payload, err := json.Marshal(struct {
+		IdentityField     string
+		IdentityFieldType string
+		IdentityPath      string
+		CollectionQueryID uint
+		CollectionPath    string
+		PageFieldName     string
+		PageSizeFieldName string
+		ItemsFieldName    string
+		TotalFieldName    string
+		ItemQueryID       uint
+		ItemPath          string
+		CreateID          uint
+		UpdateID          uint
+		DeleteID          uint
+		Actions           interface{}
+		Tasks             interface{}
+		Reports           interface{}
+		Source            string
+		SourceDigest      string
+		Diagnostics       interface{}
+		Provenance        interface{}
+		Conflicts         interface{}
+	}{
+		IdentityField:     sem.IdentityField,
+		IdentityFieldType: sem.IdentityFieldType,
+		IdentityPath:      sem.IdentityPath,
+		CollectionQueryID: sem.CollectionQueryID,
+		CollectionPath:    sem.CollectionPath,
+		PageFieldName:     sem.PageFieldName,
+		PageSizeFieldName: sem.PageSizeFieldName,
+		ItemsFieldName:    sem.ItemsFieldName,
+		TotalFieldName:    sem.TotalFieldName,
+		ItemQueryID:       sem.ItemQueryID,
+		ItemPath:          sem.ItemPath,
+		CreateID:          sem.CreateID,
+		UpdateID:          sem.UpdateID,
+		DeleteID:          sem.DeleteID,
+		Actions:           normalizeJSONContent(sem.Actions),
+		Tasks:             normalizeJSONContent(sem.Tasks),
+		Reports:           normalizeJSONContent(sem.Reports),
+		Source:            sem.Source,
+		SourceDigest:      sem.SourceDigest,
+		Diagnostics:       normalizeJSONContent(sem.Diagnostics),
+		Provenance:        normalizeJSONContent(sem.Provenance),
+		Conflicts:         normalizeJSONContent(sem.Conflicts),
+	})
+	if err != nil {
+		return ""
+	}
+	sum := sha256.Sum256(payload)
+	return hex.EncodeToString(sum[:])
 }
 
 // FindByScopeAndResourceKey fetches by scope and resource key.

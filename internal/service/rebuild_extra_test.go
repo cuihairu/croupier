@@ -171,7 +171,8 @@ func TestRebuildProposalsForResource_Paths(t *testing.T) {
 	// Semantics without a collection query cannot produce a resource page:
 	// the stale resource proposal must be removed instead.
 	itemOnly := &model.CapabilitySemantics{GameID: "demo-game", Env: "development", ResourceKey: "solo"}
-	require.NoError(t, svc.semanticsModel.UpsertSemantics(ctx, itemOnly))
+	_, _err1 := svc.semanticsModel.UpsertSemantics(ctx, itemOnly)
+	require.NoError(t, _err1)
 	require.NoError(t, svc.contractModel.UpsertContract(ctx, contractWithID(0, "player.get", dbenum.CapabilityItemQuery, "sdk")))
 	require.NoError(t, svc.RebuildProposalsForResource(ctx, "demo-game", "development", "solo"))
 

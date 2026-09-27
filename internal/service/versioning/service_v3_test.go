@@ -375,10 +375,11 @@ func TestVersioningService_GetChangeChain_WithSemanticsAndProposal(t *testing.T)
 	}))
 
 	semanticsModel := model.NewCapabilitySemanticsModel(db)
-	require.NoError(t, semanticsModel.UpsertSemantics(ctx, &model.CapabilitySemantics{
+	_, _err1 := semanticsModel.UpsertSemantics(ctx, &model.CapabilitySemantics{
 		GameID: "demo-game", Env: "development", ResourceKey: "player",
 		Version: 3, UpdatedAt: time.Now(), UpdatedBy: "admin",
-	}))
+	})
+	require.NoError(t, _err1)
 
 	page := spec.PageSpec{
 		PageKey: "resource--player", Type: spec.PageTypeResource, ResourceKey: "player",

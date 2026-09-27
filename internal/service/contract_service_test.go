@@ -500,7 +500,8 @@ func TestContractService_RebuildProposalsForResourceKeepsUnsafeActionStandalone(
 	semantics, err := model.NewCapabilitySemanticsModel(db).FindByScopeAndResourceKey(ctx, "demo-game", "development", "player")
 	require.NoError(t, err)
 	semantics.Actions = model.JSON(`[{"functionId":"player.ban","subject":"resource_item","identityInput":"/id"}]`)
-	require.NoError(t, model.NewCapabilitySemanticsModel(db).UpsertSemantics(ctx, semantics))
+	_, _err1 := model.NewCapabilitySemanticsModel(db).UpsertSemantics(ctx, semantics)
+	require.NoError(t, _err1)
 	require.NoError(t, service.RebuildProposalsForResource(ctx, "demo-game", "development", "player"))
 
 	proposalModel := model.NewPageProposalModel(db)
@@ -934,6 +935,17 @@ func TestSemanticsComparableDigest_StableAcrossRegistrationRefresh(t *testing.T)
 	assert.NotEmpty(t, nilDigest)
 	assert.Equal(t, nilDigest, semanticsComparableDigest(&model.CapabilitySemantics{}))
 	assert.Equal(t, nilDigest, semanticsComparableDigest(nil))
+}
+
+func TestSemanticsComparableDigest_IgnoresRowVersion(t *testing.T) {
+	v3 := &model.CapabilitySemantics{
+		Version: 3, IdentityField: "player_id", Source: "sdk_explicit",
+		Actions: model.JSON(`{"a":1}`),
+	}
+	v4 := *v3
+	v4.Version = 4
+	assert.Equal(t, semanticsComparableDigest(v3), semanticsComparableDigest(&v4),
+		"row version is lifecycle metadata, not semantic content — must not change digest")
 }
 
 func TestGeneratedProposalChanged(t *testing.T) {

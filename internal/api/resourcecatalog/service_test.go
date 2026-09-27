@@ -79,7 +79,7 @@ func TestService_List(t *testing.T) {
 
 	// Create semantics
 	semanticsModel := model.NewCapabilitySemanticsModel(db)
-	err = semanticsModel.UpsertSemantics(ctx, &model.CapabilitySemantics{
+	_, err = semanticsModel.UpsertSemantics(ctx, &model.CapabilitySemantics{
 		GameID:            "demo-game",
 		Env:               "development",
 		ResourceKey:       "player",
@@ -246,7 +246,7 @@ func TestService_ResolveConflict(t *testing.T) {
 		},
 	}
 	conflictsJSON, _ := json.Marshal(conflicts)
-	err = semanticsModel.UpsertSemantics(ctx, &model.CapabilitySemantics{
+	_, err = semanticsModel.UpsertSemantics(ctx, &model.CapabilitySemantics{
 		GameID:      "demo-game",
 		Env:         "development",
 		ResourceKey: "player",

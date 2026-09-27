@@ -177,9 +177,10 @@ func TestHandler_ListSemanticVersions_Success(t *testing.T) {
 	ctx := context.Background()
 
 	semModel := model.NewCapabilitySemanticsModel(db)
-	require.NoError(t, semModel.UpsertSemantics(ctx, &model.CapabilitySemantics{
+	_, _err1 := semModel.UpsertSemantics(ctx, &model.CapabilitySemantics{
 		GameID: "g1", Env: "e1", ResourceKey: "player", Source: "sdk",
-	}))
+	})
+	require.NoError(t, _err1)
 	sem, err := semModel.FindByScopeAndResourceKey(ctx, "g1", "e1", "player")
 	require.NoError(t, err)
 	require.NoError(t, model.NewCapabilitySemanticVersionModel(db).CreateVersion(ctx, &model.CapabilitySemanticVersion{
@@ -224,9 +225,10 @@ func TestHandler_ListConflicts_Success(t *testing.T) {
 	}
 	raw, err := json.Marshal(conflicts)
 	require.NoError(t, err)
-	require.NoError(t, model.NewCapabilitySemanticsModel(db).UpsertSemantics(ctx, &model.CapabilitySemantics{
+	_, _err2 := model.NewCapabilitySemanticsModel(db).UpsertSemantics(ctx, &model.CapabilitySemantics{
 		GameID: "g1", Env: "e1", ResourceKey: "player", Source: "sdk", Conflicts: raw,
-	}))
+	})
+	require.NoError(t, _err2)
 
 	rec := doCatalogRequest(router, http.MethodGet, "/api/resource-catalog/player/conflicts", "")
 	require.Equal(t, http.StatusOK, rec.Code)
@@ -254,9 +256,10 @@ func TestHandler_ResolveConflict_Success(t *testing.T) {
 	}
 	raw, err := json.Marshal(conflicts)
 	require.NoError(t, err)
-	require.NoError(t, model.NewCapabilitySemanticsModel(db).UpsertSemantics(ctx, &model.CapabilitySemantics{
+	_, _err3 := model.NewCapabilitySemanticsModel(db).UpsertSemantics(ctx, &model.CapabilitySemantics{
 		GameID: "g1", Env: "e1", ResourceKey: "player", Source: "sdk", Conflicts: raw,
-	}))
+	})
+	require.NoError(t, _err3)
 
 	rec := doCatalogRequest(router, http.MethodPost, "/api/resource-catalog/player/conflicts/identityField/resolve",
 		`{"chosenSource":"platform_review","reason":"handler"}`)
@@ -539,9 +542,10 @@ func seedConflictSemantics(t *testing.T, db *gorm.DB) {
 	}
 	raw, err := json.Marshal(conflicts)
 	require.NoError(t, err)
-	require.NoError(t, model.NewCapabilitySemanticsModel(db).UpsertSemantics(ctx, &model.CapabilitySemantics{
+	_, _err4 := model.NewCapabilitySemanticsModel(db).UpsertSemantics(ctx, &model.CapabilitySemantics{
 		GameID: "g1", Env: "e1", ResourceKey: "player", Source: "sdk", Conflicts: raw,
-	}))
+	})
+	require.NoError(t, _err4)
 }
 
 func TestResolveConflict_SourceNotInValues(t *testing.T) {
@@ -597,7 +601,8 @@ func TestResolveConflict_UpdatesExistingProvenance(t *testing.T) {
 	raw, err := json.Marshal(existing)
 	require.NoError(t, err)
 	sem.Provenance = raw
-	require.NoError(t, semModel.UpsertSemantics(ctx, sem))
+	_, _err5 := semModel.UpsertSemantics(ctx, sem)
+	require.NoError(t, _err5)
 
 	resp, err := service.ResolveConflict(ctx, &ResolveConflictRequest{
 		GameID: "g1", Env: "e1", ResourceKey: "player",
@@ -628,9 +633,10 @@ func TestListSemanticVersions_LimitClamping(t *testing.T) {
 	service := NewService(db, nil)
 
 	semModel := model.NewCapabilitySemanticsModel(db)
-	require.NoError(t, semModel.UpsertSemantics(ctx, &model.CapabilitySemantics{
+	_, _err6 := semModel.UpsertSemantics(ctx, &model.CapabilitySemantics{
 		GameID: "g1", Env: "e1", ResourceKey: "player", Source: "sdk",
-	}))
+	})
+	require.NoError(t, _err6)
 
 	// Negative limit falls back to the default; offset below zero is clamped.
 	resp, err := service.ListSemanticVersions(ctx, &ListSemanticVersionsRequest{

@@ -207,7 +207,7 @@ func TestVersioningService_Diff(t *testing.T) {
 
 	// Create semantics
 	semanticsModel := model.NewCapabilitySemanticsModel(db)
-	err := semanticsModel.UpsertSemantics(ctx, &model.CapabilitySemantics{
+	_, err := semanticsModel.UpsertSemantics(ctx, &model.CapabilitySemantics{
 		GameID:        "demo-game",
 		Env:           "development",
 		ResourceKey:   "player",
@@ -613,7 +613,7 @@ func TestVersioningService_RegenerateProposal(t *testing.T) {
 
 	// Create semantics and contracts first
 	semanticsModel := model.NewCapabilitySemanticsModel(db)
-	err := semanticsModel.UpsertSemantics(ctx, &model.CapabilitySemantics{
+	_, err := semanticsModel.UpsertSemantics(ctx, &model.CapabilitySemantics{
 		GameID:      "demo-game",
 		Env:         "development",
 		ResourceKey: "player",
