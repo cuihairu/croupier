@@ -4,6 +4,7 @@ import (
 	"errors"
 	"io"
 
+	"github.com/cuihairu/croupier/internal/common/requestbind"
 	"github.com/cuihairu/croupier/internal/common/response"
 	"github.com/gin-gonic/gin"
 )
@@ -28,12 +29,25 @@ func NewHandler(service *Service) *Handler {
 
 // ListDrafts handles GET /api/v1/pages
 func (h *Handler) ListDrafts(c *gin.Context) {
-	// ShouldBindQuery 恒成功（A 类删除原 err 分支）：PageDraftListRequest
-	// 仅含 form 绑定的 string 字段且无 binding 约束，gin form 绑定对
-	// string 类型不存在类型转换或校验失败路径，任何 query 输入均可绑定。
+	// 过滤参数必须真正绑定（OPEN-ISSUES #13/#30）：此前 req 从未接 query，
+	// dto 上的 resourceKey/status 形同虚设，前端传了也被静默忽略。
+	// BindQueryCompat 与 resource-catalog List 同款：绑定恒成功（无 binding
+	// 约束的 string 字段），反射兜底防 form tag 漂移（#5 教训）。
 	var req PageDraftListRequest
+	_ = requestbind.BindQueryCompat(c, &req)
 
 	resp, err := h.service.ListDrafts(c.Request.Context(), &req)
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
+	response.Success(c, resp)
+}
+
+// Resources handles GET /api/v1/pages/resources — scope 内页面涉及资源的
+// 服务端聚合（#13 过滤下拉选项），静态段优先于 /:pageKey 匹配。
+func (h *Handler) Resources(c *gin.Context) {
+	resp, err := h.service.Resources(c.Request.Context())
 	if err != nil {
 		response.Error(c, err)
 		return

@@ -15,6 +15,8 @@ func RegisterDraftRoutes(group *gin.RouterGroup, svcCtx *svc.ServiceContext) {
 	handler := NewHandler(NewService(svcCtx))
 	group.GET("", handler.ListDrafts)
 	group.GET("/", handler.ListDrafts)
+	// #13：页面涉及资源聚合（过滤下拉选项），静态段优先于 /:pageKey。
+	group.GET("/resources", handler.Resources)
 	group.GET("/:pageKey", handler.GetDraft)
 	group.PUT("/:pageKey", handler.SaveDraft)
 	group.PUT("/:pageKey/menu", handler.SetMenu)

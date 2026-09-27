@@ -17,10 +17,12 @@ import MergeModal from './studio/MergeModal';
 import MenuMountModal from './studio/MenuMountModal';
 import { buildDraftColumns } from './studio/draftColumns';
 import { clearMountParam, currentFocusPageKey, currentMountFlag } from './studio/shared';
+import ServerOptionsSelect from '@/components/ServerOptionsSelect';
 import {
   getPageDraft,
   listPageVersions,
   listPageDrafts,
+  listPageResources,
   publishPageDraft,
   regeneratePageDraft,
   savePageDraft,
@@ -83,6 +85,8 @@ export default function PageStudio() {
   intlRef.current = intl;
   const [drafts, setDrafts] = useState<PageSpecDraftSummary[]>([]);
   const [loading, setLoading] = useState(false);
+  // #13 资源过滤：选项由服务端聚合（/pages/resources），过滤条件下推服务端
+  const [resourceFilter, setResourceFilter] = useState<string | undefined>(undefined);
   const [selectedDraft, setSelectedDraft] = useState<PageSpecDraft | null>(null);
   const [selectedDraftRevision, setSelectedDraftRevision] = useState(0);
   const [previewVisible, setPreviewVisible] = useState(false);
@@ -115,7 +119,7 @@ export default function PageStudio() {
   const loadDrafts = useCallback(async () => {
     setLoading(true);
     try {
-      setDrafts(await listPageDrafts());
+      setDrafts(await listPageDrafts({ resourceKey: resourceFilter || undefined }));
     } catch {
       message.error(
         intlRef.current.formatMessage({
@@ -126,7 +130,7 @@ export default function PageStudio() {
     } finally {
       setLoading(false);
     }
-  }, [message]);
+  }, [message, resourceFilter]);
 
   // #38 族：页面草稿按全局 scope（X-Game-ID/X-Env）过滤，切游戏重拉列表
   useScopeReload(loadDrafts);
@@ -1021,6 +1025,23 @@ export default function PageStudio() {
                 pagination={false}
                 scroll={{ x: 1040 }}
                 toolBarRender={() => [
+                  <ServerOptionsSelect
+                    key="resource-filter"
+                    style={{ width: 200 }}
+                    placeholder={intl.formatMessage({
+                      id: 'pages.pageStudio.filter.resource',
+                      defaultMessage: '按资源过滤',
+                    })}
+                    fetchOptions={async () =>
+                      (await listPageResources()).map((item) => ({
+                        value: item.resourceKey,
+                        label: item.resourceKey,
+                        count: item.pageCount,
+                      }))
+                    }
+                    value={resourceFilter}
+                    onChange={(value) => setResourceFilter(value ?? undefined)}
+                  />,
                   <Button key="refresh" icon={<ReloadOutlined />} onClick={loadDrafts}>
                     <FormattedMessage id="pages.pageStudio.action.refresh" defaultMessage="刷新" />
                   </Button>,

@@ -99,6 +99,40 @@ func (s *Service) ListDrafts(ctx context.Context, req *PageDraftListRequest) (*P
 	return &PageDraftListResponse{Items: items}, nil
 }
 
+// Resources aggregates the resources involved in the scope's pages
+// (GET /api/v1/pages/resources). Options must come from the server: deriving
+// them from the current (possibly filtered) list collapses choices — same
+// failure mode as resource-catalog categories (OPEN-ISSUES #14/#13).
+func (s *Service) Resources(ctx context.Context) (*PageResourcesResponse, error) {
+	if err := s.requirePageRead(ctx); err != nil {
+		return nil, err
+	}
+	gameID, env, err := requireScope(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	pages, err := s.svcCtx.PageSpecModel.ListByScope(ctx, gameID, env)
+	if err != nil {
+		return nil, err
+	}
+
+	counts := make(map[string]int)
+	for i := range pages {
+		key := strings.TrimSpace(pages[i].ResourceKey)
+		if key == "" {
+			continue
+		}
+		counts[key]++
+	}
+	items := make([]PageResourceOption, 0, len(counts))
+	for key, count := range counts {
+		items = append(items, PageResourceOption{ResourceKey: key, PageCount: count})
+	}
+	sort.Slice(items, func(i, j int) bool { return items[i].ResourceKey < items[j].ResourceKey })
+	return &PageResourcesResponse{Items: items}, nil
+}
+
 func (s *Service) GetDraft(ctx context.Context, req *PageDraftRequest) (*PageDraftResponse, error) {
 	if err := s.requirePageRead(ctx); err != nil {
 		return nil, err

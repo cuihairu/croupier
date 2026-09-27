@@ -15,6 +15,12 @@ export type PageDraftListParams = {
   status?: PageSpecDraft['status'];
 };
 
+/** GET /pages/resources 聚合项：scope 内页面涉及资源及页面数（#13 下拉选项） */
+export interface PageResourceOption {
+  resourceKey: string;
+  pageCount: number;
+}
+
 type PageDraftListResponse = {
   items?: PageSpecDraftSummary[];
 };
@@ -103,6 +109,14 @@ export async function listPageDrafts(
   const response = await request<PageDraftListResponse>(BASE, {
     method: 'GET',
     params,
+  });
+  return Array.isArray(response?.items) ? response.items : [];
+}
+
+/** 页面涉及资源聚合（#13）：过滤下拉的选项由服务端提供，不从列表推导。 */
+export async function listPageResources(): Promise<PageResourceOption[]> {
+  const response = await request<{ items?: PageResourceOption[] }>(`${BASE}/resources`, {
+    method: 'GET',
   });
   return Array.isArray(response?.items) ? response.items : [];
 }

@@ -389,6 +389,26 @@ interface PageBulkSyncSelectorsResult {
 
 语义要点：**严格只写 draft**（`published_page_specs` 不动），上线仍需 `bulk-republish`；revision 由服务端读取当前草稿版本（并发冲突在事务内 409，按页计入 `failed` 继续）；先 dry-run 判定——存在 Manual 诊断（governance/version 等不可由 selector 同步修复的漂移）的页面整体 `skipped` 并透传诊断，不做半吊子同步；不自动 publish。
 
+## 草稿列表过滤与资源聚合（wire 契约）
+
+页面工作台的列表过滤条件下推服务端（OPEN-ISSUES #13/#30）：前端不得拉全量自行推导。
+
+```ts
+// GET /api/v1/pages?resourceKey=&status=   （权限 pages:read；query 条件可组合）
+// 响应：{ items: PageSpecDraftSummary[] }，过滤后的子集
+
+// GET /api/v1/pages/resources   （权限 pages:read）
+// scope 内页面涉及资源的服务端聚合——过滤下拉的选项来源，
+// 前端禁止从当前列表页自行推导（列表只是过滤后子集）。
+interface PageResourceOption {
+  resourceKey: string;
+  pageCount: number; // 该资源出现在多少个页面（多资源页按页去重计数）
+}
+// 响应：{ items: PageResourceOption[] }，按 resourceKey 升序
+```
+
+边界（诚实声明）：`pageCount` 按页面的 `resourceKey` 直接统计；多资源页（经 binding 函数契约关联的资源）不计入本聚合，页面级多资源关联的完整口径由列表侧服务端计算（见各条目 `resources` 投影，#30）。resource catalog（函数/契约侧资源清单）是另一份聚合，两者不复用缓存。
+
 ## 导航与多语言
 
 分类、标题、图标与排序是 PageSpec 顶层字段（`category{key,order}`、`title`、`icon`、`order`）。`category` 只保留 `key` 与 `order`，是页面工作台侧的分组元数据；运行控制台导航由菜单系统驱动（`menu_items` 树 + `page_specs.menu_id` 挂载映射，见 [运行控制台动态菜单](./console-dynamic-menu.md)），不消费 `category`，分类多语言名称由菜单系统（`menu_items.labels`）提供。`NavigationSpec` 仅承载返回导航行为：

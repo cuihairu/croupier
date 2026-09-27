@@ -11,6 +11,18 @@ type PageDraftListResponse struct {
 	Items []spec.PageSpecDraftSummary `json:"items"`
 }
 
+// PageResourceOption 是 GET /api/v1/pages/resources 的一项：scope 内页面
+// 涉及的资源及其页面数（#13 过滤下拉的选项来源——服务端聚合，前端不得
+// 从当前列表自行推导）。
+type PageResourceOption struct {
+	ResourceKey string `json:"resourceKey"`
+	PageCount   int    `json:"pageCount"`
+}
+
+type PageResourcesResponse struct {
+	Items []PageResourceOption `json:"items"`
+}
+
 type PageDraftRequest struct {
 	PageKey string `uri:"pageKey" binding:"required"`
 }
