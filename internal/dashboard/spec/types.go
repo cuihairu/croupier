@@ -917,13 +917,18 @@ const (
 
 // PageSpecDraftSummary is a summary of a page draft for list views.
 type PageSpecDraftSummary struct {
-	GameID      string           `json:"gameId,omitempty"`
-	Env         string           `json:"env,omitempty"`
-	PageKey     string           `json:"pageKey"`
-	Type        PageType         `json:"type"`
-	ResourceKey string           `json:"resourceKey,omitempty"`
-	Title       LocalizedText    `json:"title"`
-	Category    PageCategorySpec `json:"category"`
+	GameID      string   `json:"gameId,omitempty"`
+	Env         string   `json:"env,omitempty"`
+	PageKey     string   `json:"pageKey"`
+	Type        PageType `json:"type"`
+	ResourceKey string   `json:"resourceKey,omitempty"`
+	// Resources 是页面涉及的全部资源（OPEN-ISSUES #30）：resourceKey 列 ∪
+	// binding 函数契约资源，服务端读取时计算（不落独立列/表——页面量级小、
+	// 读时聚合即可，避免 goose 迁移面），升序去重。列表的 resourceKey 过滤
+	// 与 /pages/resources 聚合都以此为准，多资源页在每个涉及资源下计一次。
+	Resources []string         `json:"resources,omitempty"`
+	Title     LocalizedText    `json:"title"`
+	Category  PageCategorySpec `json:"category"`
 	// MenuID 是页面挂载的菜单（menu_items.id）；nil 表示未挂载。
 	// 菜单关联属于看板运营属性，存于 page_specs 列，不进 SpecJSON DSL。
 	MenuID           *int64          `json:"menuId,omitempty"`

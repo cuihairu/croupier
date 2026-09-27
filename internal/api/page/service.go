@@ -53,6 +53,55 @@ func NewService(svcCtx *svc.ServiceContext) *Service {
 	return &Service{svcCtx: svcCtx}
 }
 
+// pageInvolvedResources 计算一个页面涉及的资源集合（OPEN-ISSUES #30）：
+// resourceKey 列 ∪ 各 binding 函数契约的 resourceKey，去重升序。关联在读时
+// 从 SpecJSON 现算、不落列——page_specs 量级为每 scope 几十行，且加列要走
+// goose 编号迁移（见 CLAUDE.md 迁移契约），收益不抵风险；SpecJSON 解析失败
+// 时退化为仅 resourceKey 列（不阻断列表）。
+func (s *Service) pageInvolvedResources(p model.PageSpec, functionResources map[string]string) []string {
+	seen := map[string]struct{}{}
+	add := func(key string) {
+		if key = strings.TrimSpace(key); key != "" {
+			seen[key] = struct{}{}
+		}
+	}
+	add(p.ResourceKey)
+	var pageSpec spec.PageSpec
+	if err := json.Unmarshal([]byte(p.SpecJSON), &pageSpec); err == nil {
+		for _, binding := range pageSpec.Bindings {
+			add(functionResources[strings.TrimSpace(binding.FunctionID)])
+		}
+	}
+	if len(seen) == 0 {
+		return nil
+	}
+	out := make([]string, 0, len(seen))
+	for key := range seen {
+		out = append(out, key)
+	}
+	sort.Strings(out)
+	return out
+}
+
+// functionResourceIndex 建 functionID → resourceKey 映射（空资源不入表）。
+// 函数契约表按 scope 一次读取，供关联计算复用。
+func (s *Service) functionResourceIndex(ctx context.Context, gameID, env string) map[string]string {
+	index := map[string]string{}
+	if s == nil || s.svcCtx == nil || s.svcCtx.DB == nil {
+		return index
+	}
+	contracts, err := model.NewFunctionContractModel(s.svcCtx.DB).ListByScope(ctx, gameID, env)
+	if err != nil {
+		return index
+	}
+	for _, contract := range contracts {
+		if key := strings.TrimSpace(contract.ResourceKey); key != "" {
+			index[contract.FunctionID] = key
+		}
+	}
+	return index
+}
+
 func (s *Service) ListDrafts(ctx context.Context, req *PageDraftListRequest) (*PageDraftListResponse, error) {
 	if err := s.requirePageRead(ctx); err != nil {
 		return nil, err
@@ -62,6 +111,8 @@ func (s *Service) ListDrafts(ctx context.Context, req *PageDraftListRequest) (*P
 		return nil, err
 	}
 
+	// 条件下推：status 直接走 SQL（ListByScopeAndStatus）；资源关联与关键词
+	// 依赖 SpecJSON/函数契约，在 scope 候选集上过滤（OPEN-ISSUES #30）。
 	var pages []model.PageSpec
 	if strings.TrimSpace(req.Status) != "" {
 		pages, err = s.svcCtx.PageSpecModel.ListByScopeAndStatus(ctx, gameID, env, strings.TrimSpace(req.Status))
@@ -72,9 +123,17 @@ func (s *Service) ListDrafts(ctx context.Context, req *PageDraftListRequest) (*P
 		return nil, err
 	}
 
+	resourceFilter := strings.TrimSpace(req.ResourceKey)
+	keyword := strings.ToLower(strings.TrimSpace(req.Keyword))
+	functionResources := s.functionResourceIndex(ctx, gameID, env)
+
 	items := make([]spec.PageSpecDraftSummary, 0, len(pages))
 	for _, p := range pages {
-		if req.ResourceKey != "" && p.ResourceKey != req.ResourceKey {
+		resources := s.pageInvolvedResources(p, functionResources)
+		if resourceFilter != "" && !containsString(resources, resourceFilter) {
+			continue
+		}
+		if keyword != "" && !draftMatchesKeyword(p, resources, keyword) {
 			continue
 		}
 		items = append(items, spec.PageSpecDraftSummary{
@@ -83,6 +142,7 @@ func (s *Service) ListDrafts(ctx context.Context, req *PageDraftListRequest) (*P
 			PageKey:     p.PageKey,
 			Type:        spec.PageType(p.Type),
 			ResourceKey: p.ResourceKey,
+			Resources:   resources,
 			Title:       p.GetTitle(),
 			Category: spec.PageCategorySpec{
 				Key:   p.CategoryKey,
@@ -96,7 +156,65 @@ func (s *Service) ListDrafts(ctx context.Context, req *PageDraftListRequest) (*P
 			UpdatedBy:        p.UpdatedBy,
 		})
 	}
-	return &PageDraftListResponse{Items: items}, nil
+
+	total := len(items)
+	page, pageSize := normalizePageDraftPaging(req.Page, req.PageSize)
+	start := (page - 1) * pageSize
+	if start > total {
+		start = total
+	}
+	end := start + pageSize
+	if end > total {
+		end = total
+	}
+	return &PageDraftListResponse{
+		Items:    items[start:end],
+		Total:    total,
+		Page:     page,
+		PageSize: pageSize,
+	}, nil
+}
+
+// normalizePageDraftPaging 收敛非法分页参数：page<1→1；pageSize 缺省 20、上限 200。
+// 非法值钳制而非 400——过滤语义不受影响，只是窗口大小。
+func normalizePageDraftPaging(page, pageSize int) (int, int) {
+	if page < 1 {
+		page = 1
+	}
+	switch {
+	case pageSize <= 0:
+		pageSize = defaultPageDraftPageSize
+	case pageSize > maxPageDraftPageSize:
+		pageSize = maxPageDraftPageSize
+	}
+	return page, pageSize
+}
+
+func containsString(items []string, want string) bool {
+	for _, item := range items {
+		if item == want {
+			return true
+		}
+	}
+	return false
+}
+
+// draftMatchesKeyword 大小写不敏感子串匹配 pageKey / 各 locale 标题 / 涉及资源。
+func draftMatchesKeyword(p model.PageSpec, resources []string, keyword string) bool {
+	if strings.Contains(strings.ToLower(p.PageKey), keyword) {
+		return true
+	}
+	for _, title := range p.GetTitle() {
+		if strings.Contains(strings.ToLower(title), keyword) {
+			return true
+		}
+	}
+	for _, resource := range resources {
+		if strings.Contains(strings.ToLower(resource), keyword) {
+			return true
+		}
+	}
+	return false
 }
 
 // Resources aggregates the resources involved in the scope's pages
@@ -117,13 +235,14 @@ func (s *Service) Resources(ctx context.Context) (*PageResourcesResponse, error)
 		return nil, err
 	}
 
+	// 聚合口径与列表过滤同源（#30）：按页面涉及资源展开计数——多资源页在
+	// 每个涉及资源下计一次（一页多资源是常态），空关联页面不成项。
+	functionResources := s.functionResourceIndex(ctx, gameID, env)
 	counts := make(map[string]int)
 	for i := range pages {
-		key := strings.TrimSpace(pages[i].ResourceKey)
-		if key == "" {
-			continue
+		for _, key := range s.pageInvolvedResources(pages[i], functionResources) {
+			counts[key]++
 		}
-		counts[key]++
 	}
 	items := make([]PageResourceOption, 0, len(counts))
 	for key, count := range counts {

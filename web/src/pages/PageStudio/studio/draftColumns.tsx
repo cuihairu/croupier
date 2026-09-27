@@ -76,6 +76,27 @@ export function buildDraftColumns(
     },
     {
       title: intl.formatMessage({
+        id: 'pages.pageStudio.studio.column.resources',
+        defaultMessage: '涉及资源',
+      }),
+      dataIndex: 'resources',
+      key: 'resources',
+      width: 140,
+      ellipsis: true,
+      // #30：页面→资源关联由服务端读取时计算（resourceKey ∪ binding 函数
+      // 契约资源），多资源页展开展示；旧 payload 缺 resources 时回退单列。
+      render: (_, record) => {
+        const resources =
+          record.resources && record.resources.length > 0
+            ? record.resources
+            : record.resourceKey
+              ? [record.resourceKey]
+              : [];
+        return resources.length > 0 ? resources.join(' / ') : '-';
+      },
+    },
+    {
+      title: intl.formatMessage({
         id: 'pages.pageStudio.studio.column.category',
         defaultMessage: '分类',
       }),

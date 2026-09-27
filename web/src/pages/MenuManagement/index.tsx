@@ -54,10 +54,10 @@ export default function MenuManagementPage() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [menus, drafts] = await Promise.all([listMenus(), listPageDrafts()]);
+      const [menus, drafts] = await Promise.all([listMenus(), listPageDrafts({ pageSize: 200 })]);
       setItems(menus);
       setPages(
-        drafts
+        drafts.items
           .filter((d) => typeof d.menuId === 'number' && d.menuId > 0)
           .map((d) => ({
             pageKey: d.pageKey,

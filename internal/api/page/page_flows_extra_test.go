@@ -326,11 +326,24 @@ func TestPageFlow_ListDraftsFilters(t *testing.T) {
 	resp, err := env.service.ListDrafts(env.ctx, &PageDraftListRequest{ResourceKey: "player"})
 	require.NoError(t, err)
 	keys := map[string]bool{}
+	var otherSummary spec.PageSpecDraftSummary
 	for _, item := range resp.Items {
 		keys[item.PageKey] = true
+		if item.PageKey == "other.b" {
+			otherSummary = item
+		}
 	}
+	// #30 关联语义：other.b 的 resourceKey 列是 order，但其 binding 指向
+	// player 资源函数——多资源页在 player 过滤下命中，resources 投影展开
+	// 为去重升序全集。
 	assert.True(t, keys["list.a"])
-	assert.False(t, keys["other.b"])
+	assert.True(t, keys["other.b"])
+	assert.Equal(t, []string{"order", "player"}, otherSummary.Resources)
+
+	// 关联中不存在的资源（guild）不命中任何页面
+	resp, err = env.service.ListDrafts(env.ctx, &PageDraftListRequest{ResourceKey: "guild"})
+	require.NoError(t, err)
+	assert.Empty(t, resp.Items)
 
 	resp, err = env.service.ListDrafts(env.ctx, &PageDraftListRequest{Status: "draft"})
 	require.NoError(t, err)

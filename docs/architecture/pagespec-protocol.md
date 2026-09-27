@@ -391,23 +391,38 @@ interface PageBulkSyncSelectorsResult {
 
 ## 草稿列表过滤与资源聚合（wire 契约）
 
-页面工作台的列表过滤条件下推服务端（OPEN-ISSUES #13/#30）：前端不得拉全量自行推导。
+页面工作台的列表过滤、关键词搜索与分页全部由服务端执行（OPEN-ISSUES #13/#30）：前端不得拉全量自行推导，列表响应永远是过滤后的一个分页窗口。
 
 ```ts
-// GET /api/v1/pages?resourceKey=&status=   （权限 pages:read；query 条件可组合）
-// 响应：{ items: PageSpecDraftSummary[] }，过滤后的子集
+// GET /api/v1/pages?resourceKey=&status=&keyword=&page=&pageSize=
+//   （权限 pages:read；query 条件可组合）
+// - resourceKey：按「页面涉及资源」过滤（resourceKey 列 ∪ binding 函数契约资源，
+//   服务端读取时计算；旧单列页面同样命中其 binding 关联资源）
+// - status：draft / published / archived（SQL 条件下推）
+// - keyword：对 pageKey、标题各语言、涉及资源做不区分大小写的包含匹配
+//   （scope 内候选集内存过滤，scope 本身已限定数据面）
+// - page/pageSize：服务端分页窗口；缺省 page=1、pageSize=20，pageSize 上限 200，
+//   非法值（<1 或超上限）钳制，不报错
+// 响应：{
+//   items: PageSpecDraftSummary[];  // 当前窗口；条目含 resources 投影（见下）
+//   total: number;   // 过滤后的总条数（分页依据）
+//   page: number;    // 实际生效页码（钳制后）
+//   pageSize: number; // 实际生效页大小（钳制后）
+// }
 
 // GET /api/v1/pages/resources   （权限 pages:read）
 // scope 内页面涉及资源的服务端聚合——过滤下拉的选项来源，
 // 前端禁止从当前列表页自行推导（列表只是过滤后子集）。
 interface PageResourceOption {
   resourceKey: string;
-  pageCount: number; // 该资源出现在多少个页面（多资源页按页去重计数）
+  pageCount: number; // 该资源出现在多少个页面（按 #30 关联口径，多资源页参与计数）
 }
 // 响应：{ items: PageResourceOption[] }，按 resourceKey 升序
 ```
 
-边界（诚实声明）：`pageCount` 按页面的 `resourceKey` 直接统计；多资源页（经 binding 函数契约关联的资源）不计入本聚合，页面级多资源关联的完整口径由列表侧服务端计算（见各条目 `resources` 投影，#30）。resource catalog（函数/契约侧资源清单）是另一份聚合，两者不复用缓存。
+`PageSpecDraftSummary.resources`（#30）：条目级「页面→涉及资源」投影，服务端读取时由 `resourceKey` 列 ∪ 顶层 bindings 对应函数契约的 `resourceKey` 聚合去重（升序）。多资源页在此展开展示；旧 payload 缺该字段时前端回退 `resourceKey` 单列。该关联**只读时计算，不落库**——无新列/新表，函数契约重算后下一次列表即反映最新关联。
+
+边界（诚实声明）：`resources` 关联依赖 binding 函数契约在库内的 `resourceKey`；契约缺失或未重建索引时，该 binding 不贡献资源（此时退化为 `resourceKey` 列口径）。`/pages/resources` 聚合与列表侧关联同口径（#30 起多资源页参与 `pageCount`）。resource catalog（函数/契约侧资源清单）是另一份聚合，两者不复用缓存。菜单管理页的「已挂载页面」视图固定拉 `pageSize=200` 一页取 scope 全量挂载映射（挂载态是低频小数据面），非分页绕过。
 
 ## 导航与多语言
 

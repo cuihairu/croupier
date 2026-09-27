@@ -10,9 +10,13 @@ import type {
 
 const BASE = '/api/v1/pages';
 
+/** 列表查询参数（#30）：过滤与分页全部下推服务端，前端禁止拉全量自算。 */
 export type PageDraftListParams = {
   resourceKey?: string;
   status?: PageSpecDraft['status'];
+  keyword?: string;
+  page?: number;
+  pageSize?: number;
 };
 
 /** GET /pages/resources 聚合项：scope 内页面涉及资源及页面数（#13 下拉选项） */
@@ -23,6 +27,10 @@ export interface PageResourceOption {
 
 type PageDraftListResponse = {
   items?: PageSpecDraftSummary[];
+  /** total 是过滤后、分页前的命中总数（服务端给出，前端据此渲染分页器） */
+  total?: number;
+  page?: number;
+  pageSize?: number;
 };
 
 type PageDraftResponse = PageSpecDraft;
@@ -103,14 +111,25 @@ type PageSyncSelectorsResponse = {
   autoPublishError?: string;
 };
 
-export async function listPageDrafts(
-  params?: PageDraftListParams,
-): Promise<PageSpecDraftSummary[]> {
+export type PageDraftListResult = {
+  items: PageSpecDraftSummary[];
+  total: number;
+  page: number;
+  pageSize: number;
+};
+
+/** 草稿列表（#30）：服务端过滤（资源关联/状态/关键词）+ 服务端分页。 */
+export async function listPageDrafts(params?: PageDraftListParams): Promise<PageDraftListResult> {
   const response = await request<PageDraftListResponse>(BASE, {
     method: 'GET',
     params,
   });
-  return Array.isArray(response?.items) ? response.items : [];
+  return {
+    items: Array.isArray(response?.items) ? response.items : [],
+    total: response?.total ?? 0,
+    page: response?.page ?? params?.page ?? 1,
+    pageSize: response?.pageSize ?? params?.pageSize ?? 0,
+  };
 }
 
 /** 页面涉及资源聚合（#13）：过滤下拉的选项由服务端提供，不从列表推导。 */

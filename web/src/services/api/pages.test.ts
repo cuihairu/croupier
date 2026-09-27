@@ -55,12 +55,17 @@ describe('pages draft/version API adapters', () => {
   beforeEach(() => mockedRequest.mockReset());
 
   describe('listPageDrafts', () => {
-    it('GETs the base URL with filters and returns the items array', async () => {
-      mockedRequest.mockResolvedValue({ items: [draftSummary] });
+    it('GETs the base URL with filters and returns the paginated result (#30)', async () => {
+      mockedRequest.mockResolvedValue({
+        items: [draftSummary],
+        total: 7,
+        page: 1,
+        pageSize: 20,
+      });
 
-      const rows = await listPageDrafts({ resourceKey: 'player', status: 'draft' });
+      const result = await listPageDrafts({ resourceKey: 'player', status: 'draft' });
 
-      expect(rows).toEqual([draftSummary]);
+      expect(result).toEqual({ items: [draftSummary], total: 7, page: 1, pageSize: 20 });
       expect(mockedRequest).toHaveBeenCalledWith('/api/v1/pages', {
         method: 'GET',
         params: { resourceKey: 'player', status: 'draft' },
@@ -68,26 +73,38 @@ describe('pages draft/version API adapters', () => {
     });
 
     it('calls without params when none are given', async () => {
-      mockedRequest.mockResolvedValue({ items: [] });
+      mockedRequest.mockResolvedValue({ items: [], total: 0 });
 
-      await listPageDrafts();
+      const result = await listPageDrafts();
 
+      expect(result.items).toEqual([]);
+      expect(result.total).toBe(0);
       expect(mockedRequest).toHaveBeenCalledWith('/api/v1/pages', {
         method: 'GET',
         params: undefined,
       });
     });
 
-    it('falls back to an empty list when items is missing', async () => {
+    it('falls back to an empty paginated result when items/total are missing', async () => {
       mockedRequest.mockResolvedValue({});
 
-      await expect(listPageDrafts()).resolves.toEqual([]);
+      await expect(listPageDrafts()).resolves.toEqual({
+        items: [],
+        total: 0,
+        page: 1,
+        pageSize: 0,
+      });
     });
 
-    it('falls back to an empty list when the response body is empty', async () => {
+    it('falls back to an empty paginated result when the response body is empty', async () => {
       mockedRequest.mockResolvedValue(undefined);
 
-      await expect(listPageDrafts()).resolves.toEqual([]);
+      await expect(listPageDrafts()).resolves.toEqual({
+        items: [],
+        total: 0,
+        page: 1,
+        pageSize: 0,
+      });
     });
   });
 
