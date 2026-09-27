@@ -19,7 +19,9 @@ import {
 import {
   AppstoreOutlined,
   DeleteOutlined,
+  EditOutlined,
   EyeOutlined,
+  PlusOutlined,
   ProfileOutlined,
   ReloadOutlined,
   SearchOutlined,
@@ -29,6 +31,7 @@ import {
 } from '@ant-design/icons';
 import { PageContainer } from '@ant-design/pro-components';
 import ConstantImportModal from '../CompositeEditor/ConstantImportModal';
+import ConstantEditModal from './ConstantEditModal';
 import { FormattedMessage, history, request, useIntl } from '@umijs/max';
 import { listDescriptors, type FunctionDescriptor } from '@/services/api/functions';
 import {
@@ -109,6 +112,9 @@ export default function ComponentTemplatesPage() {
   const [previewTab, setPreviewTab] = useState<'ui' | 'json'>('ui');
   const [regenerating, setRegenerating] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
+  // 单条常量编辑（#6）：target=null 新增、给定模板=编辑
+  const [constEditOpen, setConstEditOpen] = useState(false);
+  const [constEditTarget, setConstEditTarget] = useState<TemplateDTO | null>(null);
   // 函数契约（fnForm/fnTable 渲染需要 schema；拉取失败按空集降级——
   // 组件结构仍可预览，仅表单缺字段提示）。
   const [fnById, setFnById] = useState<Map<string, FunctionDescriptor>>(new Map());
@@ -355,6 +361,19 @@ export default function ComponentTemplatesPage() {
             />
           </Button>,
           <Button
+            key="add-const"
+            icon={<PlusOutlined />}
+            onClick={() => {
+              setConstEditTarget(null);
+              setConstEditOpen(true);
+            }}
+          >
+            <FormattedMessage
+              id="pages.pageStudio.templates.action.addConstant"
+              defaultMessage="新增常量"
+            />
+          </Button>,
+          <Button
             key="import-consts"
             icon={<ControlOutlined />}
             onClick={() => setImportOpen(true)}
@@ -499,6 +518,25 @@ export default function ComponentTemplatesPage() {
                             defaultMessage="预览"
                           />
                         </Button>,
+                        ...(!tpl.builtin && tpl.category === '常量'
+                          ? [
+                              <Button
+                                key="edit"
+                                size="small"
+                                type="text"
+                                icon={<EditOutlined />}
+                                onClick={() => {
+                                  setConstEditTarget(tpl);
+                                  setConstEditOpen(true);
+                                }}
+                              >
+                                <FormattedMessage
+                                  id="pages.pageStudio.templates.action.editConstant"
+                                  defaultMessage="编辑"
+                                />
+                              </Button>,
+                            ]
+                          : []),
                         ...(!tpl.builtin
                           ? [
                               <Popconfirm
@@ -663,6 +701,16 @@ export default function ComponentTemplatesPage() {
               defaultMessage: '常量模板已保存——组合页编辑器组件库中可拖入使用',
             }),
           );
+          void load();
+        }}
+      />
+      <ConstantEditModal
+        open={constEditOpen}
+        template={constEditTarget}
+        onCancel={() => setConstEditOpen(false)}
+        onSaved={(summary) => {
+          setConstEditOpen(false);
+          message.success(summary);
           void load();
         }}
       />

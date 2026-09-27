@@ -143,9 +143,11 @@ export default {
     '"{name}" updated — template content overwritten with the current canvas selection',
   'pages.pageStudio.subtitle':
     'Default pages are generated automatically once capabilities are registered; preview, publish, and run without creating pages manually',
+  'pages.pageStudio.templates.action.addConstant': 'Add constant',
   'pages.pageStudio.templates.action.createComponent': 'New composite component',
   'pages.pageStudio.templates.action.createComposite': 'Create composite page',
   'pages.pageStudio.templates.action.delete': 'Delete',
+  'pages.pageStudio.templates.action.editConstant': 'Edit',
   'pages.pageStudio.templates.action.importConstants': 'Import constants',
   'pages.pageStudio.templates.action.openEditor': 'Use in editor',
   'pages.pageStudio.templates.action.preview': 'Preview',
@@ -153,6 +155,15 @@ export default {
   'pages.pageStudio.templates.action.seedDemo': 'Create demo constants',
   'pages.pageStudio.templates.cleanLegacy.success':
     'Cleaned up {count} legacy merged templates — re-run "Import constants" to create standalone components',
+  'pages.pageStudio.templates.constantEdit.titleCreate': 'New constant',
+  'pages.pageStudio.templates.constantEdit.titleEdit': 'Edit constant',
+  'pages.pageStudio.templates.constantEdit.save': 'Save',
+  'pages.pageStudio.templates.constantEdit.emptyFields':
+    'Keep at least one constant (an empty template renders nothing)',
+  'pages.pageStudio.templates.constantEdit.saveFailed': 'Save failed',
+  'pages.pageStudio.templates.constantEdit.created': 'Created {count} constant components',
+  'pages.pageStudio.templates.constantEdit.conventionHint':
+    'One constant per component: edit the display name / variable name / options and save; use "Import constants" for bulk changes.',
   'pages.pageStudio.templates.delete.confirm': 'Delete this template?',
   'pages.pageStudio.templates.delete.failed':
     'Delete failed (built-in components cannot be deleted)',
