@@ -286,6 +286,33 @@ export async function listTickets(params?: TicketListParams) {
   };
 }
 
+export interface TicketFilterOption {
+  name: string;
+  count: number;
+}
+
+export interface TicketFilterOptions {
+  categories: TicketFilterOption[];
+  assignees: TicketFilterOption[];
+}
+
+// #21：分类/处理人过滤选项由服务端聚合提供（distinct 全集 + 计数），
+// 页面禁止从当前（已过滤）列表客户端推导——选一项后选项会塌缩。
+export async function listTicketFilterOptions(): Promise<TicketFilterOptions> {
+  const resp = await request<Record<string, JSONValue>>(`${TICKETS_BASE}/filter-options`);
+  const toOptions = (value: JSONValue | undefined): TicketFilterOption[] => {
+    if (!Array.isArray(value)) return [];
+    return value.map((item) => {
+      const rec = item as Record<string, JSONValue>;
+      return { name: String(rec.name ?? ''), count: Number(rec.count ?? 0) };
+    });
+  };
+  return {
+    categories: toOptions(resp?.categories),
+    assignees: toOptions(resp?.assignees),
+  };
+}
+
 export async function createTicket(data: TicketPayload) {
   const resp = await request<Record<string, JSONValue>>(TICKETS_BASE, {
     method: 'POST',
@@ -300,6 +327,32 @@ export async function updateTicket(id: number, data: TicketPayload) {
     data: buildTicketPayload(data),
   });
   return normalizeTicket(resp);
+}
+
+// ---------------------------------------------------------------------------
+// Tickets ↔ Bugs 关联（#25 多对多）
+// ---------------------------------------------------------------------------
+
+/** 工单侧展示的关联 bug 摘要（来源：internal/model/bug.go BugBrief）。 */
+export interface TicketLinkedBug {
+  id: number;
+  title: string;
+  status: string;
+  severity: string;
+  priority: string;
+}
+
+export async function listTicketBugs(id: string | number): Promise<TicketLinkedBug[]> {
+  const resp = await request<{ items?: TicketLinkedBug[] }>(`${TICKETS_BASE}/${id}/bugs`);
+  return Array.isArray(resp?.items) ? resp.items : [];
+}
+
+export async function linkTicketBug(id: string | number, bugId: number): Promise<void> {
+  await request(`${TICKETS_BASE}/${id}/bugs`, { method: 'POST', data: { bugId } });
+}
+
+export async function unlinkTicketBug(id: string | number, bugId: number): Promise<void> {
+  await request(`${TICKETS_BASE}/${id}/bugs/${bugId}`, { method: 'DELETE' });
 }
 
 export async function deleteTicket(id: number) {
@@ -399,6 +452,23 @@ export async function updateFAQ(id: number, data: FAQPayload) {
 
 export async function deleteFAQ(id: number) {
   return request<void>(`${FAQ_BASE}/${id}`, { method: 'DELETE' });
+}
+
+export interface FAQCategoryOption {
+  name: string;
+  count: number;
+}
+
+// #22：分类过滤选项由服务端聚合接口提供（GET /api/v1/faqs/categories，
+// distinct + count），页面禁止从当前（已过滤）列表客户端推导。
+export async function listFAQCategories(): Promise<FAQCategoryOption[]> {
+  const resp = await request<Record<string, JSONValue>>(`${FAQ_BASE}/categories`);
+  const items = Array.isArray(resp?.items) ? resp.items : [];
+  return items.map((item) => {
+    const rec = item as Record<string, JSONValue>;
+    const count = Number(rec.count);
+    return { name: String(rec.name ?? ''), count: Number.isFinite(count) ? count : 0 };
+  });
 }
 
 // ---------------------------------------------------------------------------

@@ -87,6 +87,9 @@ import (
 //   0034 (Go)   provider_metadata 表（provider 自报元数据 EAV 持久化，
 //               OPEN-ISSUES #11：元数据此前纯内存态重启即失；新表无存量
 //               数据，0028/0030 同模式）
+//   0035 (Go)   bug_ticket_links 表（bug↔工单多对多关联 #25：新表无存量
+//               数据，0028/0030/0032 同模式；0034 已被 provider_metadata
+//               占用故顺延）
 
 func init() {
 	registerSvcMigrations()
@@ -131,6 +134,7 @@ func registerSvcMigrations() {
 		adminOtpRecoveryCodesMigration(),
 		adminPasswordPolicyMigration(),
 		providerMetadataTableMigration(),
+		bugTicketLinkMigration(),
 	); err != nil {
 		panic(fmt.Sprintf("svc: register goose go migrations: %v", err))
 	}
@@ -774,6 +778,30 @@ func migrateProviderMetadataTable(ctx context.Context, sqlDB *sql.DB) error {
 		}
 	}
 	return nil
+}
+
+// bugTicketLinkMigration 为 0035：建 bug_ticket_links 表（bug↔工单多对多
+// 关联，#25）。新表，无存量数据约束；幂等（表已存在则跳过）。
+// 与 0028/0030/0032 同模式：不整模型 AutoMigrate——存量库上会与既有约束
+// 名漂移 panic（0023 教训）。0034 已被 provider_metadata 占用故顺延。
+func bugTicketLinkMigration() *goose.Migration {
+	return goose.NewGoMigration(35,
+		&goose.GoFunc{RunDB: func(ctx context.Context, sqlDB *sql.DB) error {
+			db, err := wrapGorm(sqlDB)
+			if err != nil {
+				return err
+			}
+			migrator := db.Migrator()
+			if migrator.HasTable(&model.BugTicketLink{}) {
+				return nil
+			}
+			if err := migrator.CreateTable(&model.BugTicketLink{}); err != nil {
+				return fmt.Errorf("migrate: 0035 create bug_ticket_links: %w", err)
+			}
+			return nil
+		}},
+		nil,
+	)
 }
 
 // contractRemovalPendingColumnMigration 为 0031：function_contracts 加

@@ -10,12 +10,17 @@ import {
   deleteFeedback,
   deleteTicket,
   getTicket,
+  linkTicketBug,
   listFAQ,
+  listFAQCategories,
   listFeedback,
+  listTicketBugs,
   listTicketComments,
+  listTicketFilterOptions,
   listTickets,
   rateTicket,
   transitionTicket,
+  unlinkTicketBug,
   updateFAQ,
   updateFeedback,
   updateTicket,
@@ -350,6 +355,75 @@ describe('support ticket transition adapter', () => {
   });
 });
 
+describe('support ticket filter options adapter (#21)', () => {
+  beforeEach(() => mockedRequest.mockReset());
+
+  it('normalizes server-aggregated category/assignee options', async () => {
+    mockedRequest.mockResolvedValue({
+      categories: [
+        { name: 'bug', count: 2 },
+        { name: 'billing', count: 1 },
+      ],
+      assignees: [{ name: 'alice', count: 3 }],
+    });
+
+    await expect(listTicketFilterOptions()).resolves.toEqual({
+      categories: [
+        { name: 'bug', count: 2 },
+        { name: 'billing', count: 1 },
+      ],
+      assignees: [{ name: 'alice', count: 3 }],
+    });
+    expect(mockedRequest).toHaveBeenCalledWith('/api/v1/tickets/filter-options');
+  });
+
+  it('falls back to empty arrays when the response shape is missing', async () => {
+    mockedRequest.mockResolvedValue(undefined);
+
+    await expect(listTicketFilterOptions()).resolves.toEqual({
+      categories: [],
+      assignees: [],
+    });
+  });
+});
+
+describe('FAQ category options adapter (#22)', () => {
+  beforeEach(() => mockedRequest.mockReset());
+
+  it('normalizes the server-aggregated {items:[{name,count}]} shape', async () => {
+    mockedRequest.mockResolvedValue({
+      items: [
+        { name: 'general', count: 5 },
+        { name: 'technical', count: 2 },
+      ],
+    });
+
+    await expect(listFAQCategories()).resolves.toEqual([
+      { name: 'general', count: 5 },
+      { name: 'technical', count: 2 },
+    ]);
+    expect(mockedRequest).toHaveBeenCalledWith('/api/v1/faqs/categories');
+  });
+
+  it('falls back to an empty list when items is missing or malformed', async () => {
+    // mockReset 后 request 返回 undefined：整个响应缺失也要给出 []
+    await expect(listFAQCategories()).resolves.toEqual([]);
+    mockedRequest.mockResolvedValue({ items: 'not-an-array' });
+    await expect(listFAQCategories()).resolves.toEqual([]);
+    mockedRequest.mockResolvedValue({});
+    await expect(listFAQCategories()).resolves.toEqual([]);
+  });
+
+  it('coerces malformed entries to safe defaults instead of throwing', async () => {
+    mockedRequest.mockResolvedValue({ items: [{ name: null }, { count: 'x' }] });
+
+    await expect(listFAQCategories()).resolves.toEqual([
+      { name: '', count: 0 },
+      { name: '', count: 0 },
+    ]);
+  });
+});
+
 describe('support ticket list fallback chains', () => {
   beforeEach(() => mockedRequest.mockReset());
 
@@ -607,5 +681,58 @@ describe('support conversion & CSAT adapters', () => {
       method: 'POST',
       data: { rating: 4 },
     });
+  });
+});
+
+describe('support ticket ↔ bug link adapters (#25)', () => {
+  beforeEach(() => mockedRequest.mockReset());
+
+  it('lists ticket-linked bugs from the items field', async () => {
+    mockedRequest.mockResolvedValue({
+      items: [
+        {
+          id: 7,
+          title: '副本加载超时',
+          status: 'triage',
+          severity: 'critical',
+          priority: 'urgent',
+        },
+      ],
+    });
+
+    const bugs = await listTicketBugs('3');
+
+    expect(mockedRequest).toHaveBeenCalledWith('/api/v1/tickets/3/bugs');
+    expect(bugs).toEqual([
+      { id: 7, title: '副本加载超时', status: 'triage', severity: 'critical', priority: 'urgent' },
+    ]);
+  });
+
+  it('falls back to an empty list when items is missing or not an array', async () => {
+    mockedRequest.mockResolvedValue(undefined);
+    await expect(listTicketBugs(3)).resolves.toEqual([]);
+    expect(mockedRequest).toHaveBeenCalledWith('/api/v1/tickets/3/bugs');
+
+    mockedRequest.mockResolvedValue({ items: 'bad' });
+    await expect(listTicketBugs(3)).resolves.toEqual([]);
+  });
+
+  it('links a bug by ticket id with the bugId payload', async () => {
+    mockedRequest.mockResolvedValue({ ok: true });
+
+    await linkTicketBug('3', 7);
+
+    expect(mockedRequest).toHaveBeenCalledWith('/api/v1/tickets/3/bugs', {
+      method: 'POST',
+      data: { bugId: 7 },
+    });
+  });
+
+  it('unlinks a bug with the DELETE pair route', async () => {
+    mockedRequest.mockResolvedValue({ ok: true });
+
+    await unlinkTicketBug(3, 7);
+
+    expect(mockedRequest).toHaveBeenCalledWith('/api/v1/tickets/3/bugs/7', { method: 'DELETE' });
   });
 });

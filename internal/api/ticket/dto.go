@@ -1,5 +1,7 @@
 package ticket
 
+import "github.com/cuihairu/croupier/internal/model"
+
 type Comment struct {
 	Id        int64  `json:"id"`
 	Content   string `json:"content"`
@@ -116,6 +118,21 @@ type TicketsListResponse struct {
 	Size  int      `json:"pageSize"`
 }
 
+// TicketFilterOption is one server-aggregated filter option with its
+// ticket count (OPEN-ISSUES #21).
+type TicketFilterOption struct {
+	Name  string `json:"name"`
+	Count int64  `json:"count"`
+}
+
+// FilterOptionsResponse serves GET /tickets/filter-options: the category and
+// assignee filter dropdowns must offer the server-side distinct full set,
+// never options derived client-side from the current filtered list.
+type FilterOptionsResponse struct {
+	Categories []TicketFilterOption `json:"categories"`
+	Assignees  []TicketFilterOption `json:"assignees"`
+}
+
 // Type aliases for service layer compatibility
 type ListRequest = TicketsListRequest
 type ListResponse = TicketsListResponse
@@ -145,4 +162,14 @@ type RateRequest struct {
 type RateResponse struct {
 	TicketID int64 `json:"ticketId"`
 	Rating   int   `json:"rating"`
+}
+
+// TicketBugsResponse returns the bugs linked to a support ticket (#25).
+type TicketBugsResponse struct {
+	Items []model.BugBrief `json:"items"`
+}
+
+// TicketBugLinkRequest carries the bug to associate (#25).
+type TicketBugLinkRequest struct {
+	BugID uint `json:"bugId"`
 }

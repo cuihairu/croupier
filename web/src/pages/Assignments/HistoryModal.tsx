@@ -5,7 +5,11 @@ import { ReloadOutlined } from '@ant-design/icons';
 import { FormattedMessage, useIntl } from '@umijs/max';
 import type { AssignmentHistory, HistoryAction } from './types';
 import { HISTORY_ACTION_OPTIONS } from './constants';
-import { formatDateTime, renderHistoryDetail } from './utils';
+import { formatDateTime, renderHistoryDetail, renderHistoryDiff } from './utils';
+
+// #37：details 中已由 diff 摘要渲染的已知 key；其余 key（未来扩展）仍走
+// 原始键值兜底，避免静默吞掉新字段。
+const DIFF_DETAIL_KEYS = new Set(['before', 'after', 'added', 'removed', 'unknown']);
 
 type Props = {
   open: boolean;
@@ -102,15 +106,8 @@ export default function HistoryModal({
                             defaultMessage: '移除',
                           })}
                   </Tag>
-                  <span>{item.functionId}</span>
                   <span>
-                    {intl.formatMessage(
-                      {
-                        id: 'pages.assignments.history.functionCount',
-                        defaultMessage: `(${item.count} 个函数)`,
-                      },
-                      { count: item.count },
-                    )}
+                    {item.gameId}/{item.env}
                   </span>
                 </Space>
               }
@@ -125,15 +122,20 @@ export default function HistoryModal({
                       { operator: item.operatedBy, time: formatDateTime(item.operatedAt) },
                     )}
                   </span>
-                  {item.details && (
-                    <Descriptions size="small" column={1} bordered>
-                      {Object.entries(item.details).map(([k, v]) => (
-                        <Descriptions.Item key={k} label={k}>
-                          {renderHistoryDetail(k, v)}
-                        </Descriptions.Item>
-                      ))}
-                    </Descriptions>
-                  )}
+                  {renderHistoryDiff(item.details)}
+                  {item.details &&
+                    Object.entries(item.details).filter(([k]) => !DIFF_DETAIL_KEYS.has(k)).length >
+                      0 && (
+                      <Descriptions size="small" column={1} bordered>
+                        {Object.entries(item.details)
+                          .filter(([k]) => !DIFF_DETAIL_KEYS.has(k))
+                          .map(([k, v]) => (
+                            <Descriptions.Item key={k} label={k}>
+                              {renderHistoryDetail(k, v)}
+                            </Descriptions.Item>
+                          ))}
+                      </Descriptions>
+                    )}
                 </Space>
               }
             />

@@ -169,7 +169,6 @@ func RegisterHandlers(r *gin.Engine, serverCtx *svc.ServiceContext) {
 		if flags.Enabled(configpkg.FlagSupport) {
 			supportSoft := protected.Group("/", softFlags.guard(configpkg.FlagSupport))
 			registerFAQRoutes(supportSoft.Group("/faqs"), serverCtx)
-			registerTicketRoutes(supportSoft.Group("/tickets"), serverCtx)
 		}
 		registerMessageRoutes(protected.Group("/messages"), serverCtx)
 		registerAnnouncementRoutes(protected.Group("/admin"), protected.Group("/"), serverCtx)
@@ -222,6 +221,11 @@ func RegisterHandlers(r *gin.Engine, serverCtx *svc.ServiceContext) {
 		registerVersioningRoutes(scoped.Group("/versioning"), serverCtx)
 		if flags.Enabled(configpkg.FlagSupport) {
 			registerFeedbackRoutes(scoped.Group("/feedback"), serverCtx)
+			// #21：工单是 game-scoped 数据（game_id/env 行隔离），迁入 scoped 组
+			// 由 GameDBMiddleware 按顶栏 scope 鉴权+注入（页面不再自带游戏/环境过滤）；
+			// L3 软开关守卫随迁保留。
+			ticketSoft := scoped.Group("/", softFlags.guard(configpkg.FlagSupport))
+			registerTicketRoutes(ticketSoft.Group("/tickets"), serverCtx)
 		}
 		registerPlayerRoutes(scoped.Group("/players"), serverCtx)
 		registerTaskRoutes(scoped.Group("/tasks"), serverCtx)
@@ -508,6 +512,7 @@ func registerNodeRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 	g.POST("/:id/undrain", nodeHandler.Undrain)
 	g.POST("/:id/restart", nodeHandler.Restart)
 	g.GET("/commands", nodeHandler.Commands)
+	g.GET("/cron-jobs", nodeHandler.ListAllCronJobs)
 	g.GET("/:id/cron-jobs", nodeHandler.ListCronJobs)
 }
 
@@ -1180,6 +1185,8 @@ func registerTicketRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 	ticketHandler := ticket.NewHandler(ticketSvc)
 	g.GET("", ticketHandler.List)
 	g.GET("/", ticketHandler.List)
+	// #21：分类/处理人过滤选项由服务端聚合提供（页面禁止客户端推导）
+	g.GET("/filter-options", ticketHandler.FilterOptions)
 	g.POST("", ticketHandler.Create)
 	g.POST("/", ticketHandler.Create)
 	g.GET("/:id", ticketHandler.Get)
@@ -1190,6 +1197,10 @@ func registerTicketRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 	g.POST("/:id/rate", ticketHandler.Rate)
 	// 升级为缺陷（bug-tracking P2：携带玩家上下文，source=ticket 反查来源）
 	g.POST("/:id/convert-bug", ticketHandler.ConvertToBug)
+	// bug↔工单多对多关联（#25）：工单侧列出/添加/解除 bug 关联
+	g.GET("/:id/bugs", ticketHandler.ListBugs)
+	g.POST("/:id/bugs", ticketHandler.LinkBug)
+	g.DELETE("/:id/bugs/:bugId", ticketHandler.UnlinkBug)
 	g.GET("/:id/comments", ticketHandler.GetComments)
 	g.POST("/:id/comments", ticketHandler.CreateComment)
 }
@@ -1286,6 +1297,10 @@ func registerBugRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 	g.GET("/:id", bugHandler.Get)
 	g.PUT("/:id", bugHandler.Update)
 	g.DELETE("/:id", bugHandler.Delete)
+	// bug↔工单多对多关联（#25）：缺陷侧列出/添加/解除客服工单关联
+	g.GET("/:id/tickets", bugHandler.ListTickets)
+	g.POST("/:id/tickets", bugHandler.LinkTicket)
+	g.DELETE("/:id/tickets/:ticketId", bugHandler.UnlinkTicket)
 }
 
 // ============================================================================

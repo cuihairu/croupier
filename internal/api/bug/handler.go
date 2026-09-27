@@ -97,3 +97,36 @@ func (h *Handler) Delete(c *gin.Context) {
 	}
 	response.Success(c, gin.H{"message": "删除成功"})
 }
+
+// ListTickets returns the support tickets linked to a bug (#25).
+func (h *Handler) ListTickets(c *gin.Context) {
+	resp, err := h.service.ListTickets(c.Request.Context(), c.Param("id"))
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
+	response.Success(c, resp)
+}
+
+// LinkTicket associates a support ticket with the bug (#25).
+func (h *Handler) LinkTicket(c *gin.Context) {
+	var req BugTicketLinkRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, err)
+		return
+	}
+	if err := h.service.LinkTicket(c.Request.Context(), c.Param("id"), &req); err != nil {
+		response.Error(c, err)
+		return
+	}
+	response.Success(c, gin.H{"ok": true})
+}
+
+// UnlinkTicket removes the bug↔ticket association (#25).
+func (h *Handler) UnlinkTicket(c *gin.Context) {
+	if err := h.service.UnlinkTicket(c.Request.Context(), c.Param("id"), c.Param("ticketId")); err != nil {
+		response.Error(c, err)
+		return
+	}
+	response.Success(c, gin.H{"ok": true})
+}

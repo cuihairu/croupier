@@ -14,6 +14,10 @@ jest.mock('@/services/api/support', () => ({
   deleteTicket: jest.fn(),
   addTicketComment: jest.fn(),
   transitionTicket: jest.fn(),
+  // #25 关联缺陷：详情页新引入的关联读写
+  listTicketBugs: jest.fn().mockResolvedValue([]),
+  linkTicketBug: jest.fn().mockResolvedValue(undefined),
+  unlinkTicketBug: jest.fn().mockResolvedValue(undefined),
 }));
 
 jest.mock('@/services/api/storage', () => ({ uploadAsset: jest.fn() }));

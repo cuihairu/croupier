@@ -1,14 +1,19 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
+  Alert,
   App,
   Button,
+  Card,
   Drawer,
   Form,
   Input,
   InputNumber,
   Popconfirm,
   Select,
+  Space,
+  Statistic,
   Table,
+  Tabs,
   Tag,
 } from 'antd';
 import { ModalForm, PageContainer } from '@ant-design/pro-components';
@@ -24,6 +29,8 @@ import {
   type RunLogItem,
   type ScheduleItem,
 } from '@/services/api/schedules';
+import { listNodesCronJobsAll, type NodeCronJobsReport } from '@/services/api/nodes';
+import type { NodeCronJob } from '@/services/api/ops';
 import { useScopeReload } from '@/hooks/useScopeReload';
 import { extractErrorMessage } from '@/utils/errors';
 import { formatDateTime } from '@/utils/format';
@@ -85,6 +92,10 @@ export default function SchedulesPage() {
   const [runsTarget, setRunsTarget] = useState<ScheduleItem | null>(null);
   const [runLogs, setRunLogs] = useState<RunLogItem[]>([]);
   const [runsLoading, setRunsLoading] = useState(false);
+  // #24：宿主机任务采集（platform=平台创建调度之外的第二来源）
+  const [hostReports, setHostReports] = useState<NodeCronJobsReport[]>([]);
+  const [hostLoading, setHostLoading] = useState(false);
+  const [hostFailed, setHostFailed] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -111,6 +122,34 @@ export default function SchedulesPage() {
   useEffect(() => {
     load();
   }, [load]);
+
+  // #24：宿主机任务经服务端聚合接口（节点全量并行采集，服务端 30s 缓存）。
+  // host 数据无 game scope 语义（节点全局），不参与 useScopeReload。
+  const loadHost = useCallback(async () => {
+    setHostLoading(true);
+    try {
+      const res = await listNodesCronJobsAll();
+      setHostReports(res?.items || []);
+      setHostFailed(false);
+    } catch {
+      // 采集链路（agent 离线等）是辅助面：失败保留上次数据，概览以「-」标注
+      setHostFailed(true);
+    } finally {
+      setHostLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadHost();
+  }, [loadHost]);
+
+  const hostJobs = hostReports.flatMap((r) => r.jobs);
+  const hostUnreachable = hostReports.filter((r) => !r.ok);
+  // 概览统计：总数/启用为双来源合计；各来源分布单列（#24）
+  const platformActive = rows.filter((r) => r.status === 'active').length;
+  const hostEnabledCount = hostJobs.filter((j) => j.enabled).length;
+  const totalAll = rows.length + (hostFailed ? 0 : hostJobs.length);
+  const enabledAll = platformActive + (hostFailed ? 0 : hostEnabledCount);
 
   const openRuns = async (row: ScheduleItem) => {
     setRunsTarget(row);
@@ -369,9 +408,120 @@ export default function SchedulesPage() {
     apply();
   };
 
+  // #24：宿主机任务平铺行（节点信息随行展示；key 用节点+任务+命令组合兜底重复）
+  const hostRows: (NodeCronJob & { key: string; nodeId: string; nodeName: string })[] =
+    hostReports.flatMap((r) =>
+      r.jobs.map((j, idx) => ({
+        ...j,
+        key: `${r.nodeId}#${j.sourceFile}#${idx}`,
+        nodeId: r.nodeId,
+        nodeName: r.nodeName,
+      })),
+    );
+
+  const hostColumns: ColumnsType<NodeCronJob & { key: string; nodeId: string; nodeName: string }> =
+    [
+      {
+        title: intl.formatMessage({
+          id: 'pages.opsSchedules.host.column.node',
+          defaultMessage: '节点',
+        }),
+        dataIndex: 'nodeName',
+        width: 140,
+        render: (_: unknown, r) => (
+          <Space size={4}>
+            <span>{r.nodeName || r.nodeId}</span>
+            <Tag>{r.nodeId}</Tag>
+          </Space>
+        ),
+      },
+      {
+        title: intl.formatMessage({
+          id: 'pages.opsSchedules.host.column.task',
+          defaultMessage: '任务',
+        }),
+        dataIndex: 'sourceFile',
+        ellipsis: true,
+      },
+      {
+        title: intl.formatMessage({
+          id: 'pages.opsSchedules.host.column.schedule',
+          defaultMessage: '计划',
+        }),
+        dataIndex: 'schedule',
+        width: 200,
+        render: (v: string) => <code>{v || '-'}</code>,
+      },
+      {
+        title: intl.formatMessage({
+          id: 'pages.opsSchedules.host.column.command',
+          defaultMessage: '命令',
+        }),
+        dataIndex: 'command',
+        ellipsis: true,
+      },
+      {
+        title: intl.formatMessage({
+          id: 'pages.opsSchedules.host.column.user',
+          defaultMessage: '用户',
+        }),
+        dataIndex: 'user',
+        width: 120,
+        render: (v?: string) => v || '-',
+      },
+      {
+        title: intl.formatMessage({
+          id: 'pages.opsSchedules.host.column.enabled',
+          defaultMessage: '启用',
+        }),
+        dataIndex: 'enabled',
+        width: 80,
+        render: (v: boolean) => (
+          <Tag color={v ? 'green' : 'default'}>
+            {v
+              ? intl.formatMessage({
+                  id: 'pages.opsSchedules.host.enabled.yes',
+                  defaultMessage: '启用',
+                })
+              : intl.formatMessage({
+                  id: 'pages.opsSchedules.host.enabled.no',
+                  defaultMessage: '禁用',
+                })}
+          </Tag>
+        ),
+      },
+    ];
+
+  const hostView = (
+    <Space orientation="vertical" style={{ width: '100%' }} size={12}>
+      {hostUnreachable.length > 0 && (
+        <Alert
+          type="warning"
+          showIcon
+          title={intl.formatMessage({
+            id: 'pages.opsSchedules.host.unreachable',
+            defaultMessage: '以下节点不可达，未能采集宿主机任务',
+          })}
+          description={hostUnreachable
+            .map((r) => `${r.nodeName || r.nodeId}: ${r.error || '-'}`)
+            .join('；')}
+        />
+      )}
+      <Table<NodeCronJob & { key: string; nodeId: string; nodeName: string }>
+        rowKey="key"
+        loading={hostLoading}
+        columns={hostColumns}
+        dataSource={hostRows}
+        pagination={{ pageSize: 20, showSizeChanger: false }}
+        size="middle"
+      />
+    </Space>
+  );
+
   return (
     <PageContainer
-      subTitle={intl.formatMessage({
+      // #24：副标题从 subTitle（标题右侧同行）改为 content（独立成行）
+      content={intl.formatMessage({
         id: 'pages.opsSchedules.title.sub',
         defaultMessage: '五字段 cron 定时触发函数；连续失败达到上限自动进入死信',
       })}
@@ -415,13 +565,86 @@ export default function SchedulesPage() {
         </Button>,
       ]}
     >
-      <Table<ScheduleItem>
-        rowKey="id"
-        loading={loading}
-        columns={columns}
-        dataSource={rows}
-        pagination={{ pageSize: 20, showSizeChanger: false }}
-        size="middle"
+      {/* #24：概览区——总数/启用为双来源合计，来源分布（平台/宿主机）单列；
+          host 采集失败时相关数字以「-」诚实标注而非归零 */}
+      <Card size="small" style={{ marginBottom: 16 }}>
+        <Space size={48} wrap>
+          <Statistic
+            title={intl.formatMessage({
+              id: 'pages.opsSchedules.overview.total',
+              defaultMessage: '任务总数',
+            })}
+            value={totalAll}
+            suffix={
+              hostFailed
+                ? intl.formatMessage({
+                    id: 'pages.opsSchedules.overview.hostUnavailable',
+                    defaultMessage: '（宿主机采集不可用）',
+                  })
+                : undefined
+            }
+          />
+          <Statistic
+            title={intl.formatMessage({
+              id: 'pages.opsSchedules.overview.enabled',
+              defaultMessage: '启用中',
+            })}
+            value={enabledAll}
+          />
+          <Statistic
+            title={intl.formatMessage({
+              id: 'pages.opsSchedules.overview.platform',
+              defaultMessage: '平台调度',
+            })}
+            value={rows.length}
+          />
+          <Statistic
+            title={intl.formatMessage({
+              id: 'pages.opsSchedules.overview.host',
+              defaultMessage: '宿主机任务',
+            })}
+            value={hostFailed ? '-' : hostJobs.length}
+            suffix={
+              hostFailed
+                ? undefined
+                : `(${hostReports.filter((r) => r.ok).length} ${intl.formatMessage({
+                    id: 'pages.opsSchedules.overview.nodes',
+                    defaultMessage: '个节点',
+                  })})`
+            }
+          />
+        </Space>
+      </Card>
+
+      <Tabs
+        defaultActiveKey="platform"
+        items={[
+          {
+            key: 'platform',
+            label: `${intl.formatMessage({
+              id: 'pages.opsSchedules.tab.platform',
+              defaultMessage: '平台调度',
+            })} (${rows.length})`,
+            children: (
+              <Table<ScheduleItem>
+                rowKey="id"
+                loading={loading}
+                columns={columns}
+                dataSource={rows}
+                pagination={{ pageSize: 20, showSizeChanger: false }}
+                size="middle"
+              />
+            ),
+          },
+          {
+            key: 'host',
+            label: `${intl.formatMessage({
+              id: 'pages.opsSchedules.tab.host',
+              defaultMessage: '宿主机任务',
+            })} (${hostFailed ? '-' : hostJobs.length})`,
+            children: hostView,
+          },
+        ]}
       />
 
       <ModalForm<ScheduleFormValues>
