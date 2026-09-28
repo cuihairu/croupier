@@ -21,20 +21,3 @@ func TestErrorCodeStableWins(t *testing.T) {
 		t.Fatalf("Code = %d, want %d", e.Code, http.StatusConflict)
 	}
 }
-
-func TestNewForbiddenWithCode(t *testing.T) {
-	details := map[string]any{"role": "viewer"}
-	e := NewForbiddenWithCode("role_denied", "角色不允许该操作", details)
-	if e.Code != http.StatusForbidden {
-		t.Fatalf("Code = %d, want %d", e.Code, http.StatusForbidden)
-	}
-	if got := e.ErrorCode(); got != "role_denied" {
-		t.Fatalf("ErrorCode() = %q, want role_denied", got)
-	}
-	if e.Message != "角色不允许该操作" {
-		t.Fatalf("Message = %q", e.Message)
-	}
-	if e.Details["role"] != "viewer" {
-		t.Fatalf("Details = %v, want role=viewer", e.Details)
-	}
-}

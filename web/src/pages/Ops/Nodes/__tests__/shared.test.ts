@@ -1,91 +1,97 @@
 /**
- * Ops/Nodes shared 纯函数补测（覆盖率巡检：语句 100% 但分支 13.33%）：
- * addrHost 三处分支（缺省/无分隔符/前导冒号）+ normalizeOpsNode 全部兜底
- * 分支（缺省字段、labels 非字符串、健康态集合边界）。均为可达分支。
+ * Ops/Nodes shared 纯函数表驱动单测（覆盖率巡检：branch 13.3% → 全覆盖）。
+ *
+ * addrHost 的 ':' 切分边界与 normalizeOpsNode 的缺省归一分支逐一列表；
+ * 既有 index.test.tsx 只经页面渲染间接触达 happy path，分支几乎全未走。
  */
-import { addrHost, normalizeOpsNode } from '../shared';
 import type { OpsNode } from '@/services/api/ops';
+import { addrHost, normalizeOpsNode } from '../shared';
+
+const node = (over: Partial<OpsNode>): OpsNode => ({ id: 'agent-1', ...over });
 
 describe('addrHost', () => {
-  it('extracts the host part from host:port', () => {
-    expect(addrHost('10.0.0.1:7001')).toBe('10.0.0.1');
-    expect(addrHost('[::1]:9090')).toBe('[::1]');
-  });
-
-  it('returns empty for missing addr', () => {
-    expect(addrHost(undefined)).toBe('');
-    expect(addrHost('')).toBe('');
-  });
-
-  it('returns the addr whole when there is no port separator', () => {
-    expect(addrHost('plain-host')).toBe('plain-host');
-    // 前导冒号 lastIndexOf=0 不视为 host:port 分隔
-    expect(addrHost(':8080')).toBe(':8080');
+  it.each<[string | undefined, string]>([
+    ['10.0.0.1:19091', '10.0.0.1'],
+    ['[::1]:19091', '[::1]'],
+    ['host:', 'host'],
+    ['noport', 'noport'],
+    // lastIndexOf=0 不满足 idx>0：原样返回（现状行为，防御 ':port' 畸形 addr）
+    [':19091', ':19091'],
+    ['', ''],
+    [undefined, ''],
+  ])('addrHost(%p) → %p', (input, expected) => {
+    expect(addrHost(input)).toBe(expected);
   });
 });
 
 describe('normalizeOpsNode', () => {
-  it('maps a fully-populated node', () => {
-    const node: OpsNode = {
-      id: 'a1',
-      addr: '10.0.0.1:7001',
-      gameId: 'demo',
-      env: 'prod',
-      status: 'healthy',
-      functions: 3,
-      expiresInSec: 42,
-      sdkName: 'croupier-go',
-      sdkLanguage: 'go',
-      sdkVersion: '1.2.3',
-      lastSeen: '2026-09-28T00:00:00Z',
-      labels: { hostname: 'h1', ip: '10.0.0.9' },
-    };
-
-    expect(normalizeOpsNode(node)).toMatchObject({
-      agentId: 'a1',
+  it('空壳 node（仅 id）全字段缺省归一', () => {
+    expect(normalizeOpsNode(node({}))).toMatchObject({
+      agentId: 'agent-1',
       type: 'agent',
-      ip: '10.0.0.1',
-      hostname: 'h1',
+      gameId: '',
+      env: '',
+      addr: '',
+      ip: '',
+      hostname: '',
+      reportedIp: '',
+      functions: 0,
+      healthy: false,
+      expiresInSec: 0,
+      sdkName: '',
+      sdkLanguage: '',
+      sdkVersion: '',
+      version: '',
+      lastSeen: '',
+      nodeStatus: 'active',
+      labels: {},
+    });
+  });
+
+  it('id 缺失时 agentId 回落 addr，addr/全空两级兜底；labels 自报 hostname/ip 透出', () => {
+    expect(
+      normalizeOpsNode(
+        node({ id: '', addr: '10.0.0.9:19091', labels: { hostname: 'node-9', ip: '10.0.0.9' } }),
+      ),
+    ).toMatchObject({
+      agentId: '10.0.0.9:19091',
+      ip: '10.0.0.9',
+      hostname: 'node-9',
       reportedIp: '10.0.0.9',
-      healthy: true,
-      functions: 3,
-      expiresInSec: 42,
-      sdkName: 'croupier-go',
-      version: '1.2.3',
-      nodeStatus: 'healthy',
-      labels: { hostname: 'h1', ip: '10.0.0.9' },
     });
+    // id/addr 全空：最后一级 '' 兜底
+    expect(normalizeOpsNode(node({ id: '', addr: '' })).agentId).toBe('');
   });
 
-  it('falls back for absent fields (id 从 addr 兜底、健康态集合边界)', () => {
-    const row = normalizeOpsNode({ id: '', addr: '10.0.0.2:7002', status: 'draining' });
-    expect(row.agentId).toBe('10.0.0.2:7002');
-    expect(row.gameId).toBe('');
-    expect(row.env).toBe('');
-    expect(row.healthy).toBe(false);
-    expect(row.functions).toBe(0);
-    expect(row.expiresInSec).toBe(0);
-    expect(row.sdkName).toBe('');
-    expect(row.version).toBe('');
-    expect(row.lastSeen).toBe('');
-    expect(row.labels).toEqual({});
+  it.each(['active', 'healthy', 'online'])('status=%s → healthy=true', (status) => {
+    expect(normalizeOpsNode(node({ status })).healthy).toBe(true);
   });
 
-  it('labels 非字符串值不透传、status 缺省兜底 active、id 缺省取 addr', () => {
-    const row = normalizeOpsNode({
-      id: 'a2',
-      labels: { hostname: 42, ip: null } as unknown as Record<string, string>,
-    });
-    expect(row.hostname).toBe('');
-    expect(row.reportedIp).toBe('');
-    expect(row.healthy).toBe(false);
-    expect(row.nodeStatus).toBe('active');
-    expect(row.addr).toBe('');
+  it.each(['expired', 'offline', ''])(
+    'status=%s → healthy=false，nodeStatus 空值归 active',
+    (status) => {
+      const row = normalizeOpsNode(node({ status }));
+      expect(row.healthy).toBe(false);
+      expect(row.nodeStatus).toBe(status === '' ? 'active' : status);
+    },
+  );
+
+  it('labels 非 string 值（wire 层松散数据）按缺失归一空串，不抛错', () => {
+    expect(
+      normalizeOpsNode(
+        node({ labels: { hostname: 9, ip: 10 } as unknown as Record<string, string> }),
+      ),
+    ).toMatchObject({ hostname: '', reportedIp: '' });
   });
 
-  it('healthy 覆盖 active/healthy/online 三态', () => {
-    for (const status of ['active', 'healthy', 'online']) {
-      expect(normalizeOpsNode({ id: 'n', status }).healthy).toBe(true);
-    }
+  it('数值与 sdk 字段映射：functions/expiresInSec 透传，version 同步 sdkVersion', () => {
+    expect(
+      normalizeOpsNode(node({ sdkVersion: '2.3.4', functions: 7, expiresInSec: 42 })),
+    ).toMatchObject({ functions: 7, expiresInSec: 42, sdkVersion: '2.3.4', version: '2.3.4' });
+  });
+
+  it('metrics（cpu/memory/disks）原样透传不拷贝', () => {
+    const cpu = { usagePercent: 12.5, cores: 8, load1m: 1, load5m: 2, load15m: 3 };
+    expect(normalizeOpsNode(node({ cpu })).cpu).toBe(cpu);
   });
 });
