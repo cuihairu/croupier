@@ -2,12 +2,14 @@
   <img src="docs/.vitepress/public/logo.png" alt="Croupier Logo" width="64"/>
 </p>
 
-# Croupier Platform
+<h1 align="center">Croupier</h1>
 
-![CI](https://github.com/cuihairu/croupier/actions/workflows/ci.yml/badge.svg)
-![codecov](https://codecov.io/gh/cuihairu/croupier/branch/main/graph/badge.svg?t=1789350127)
-![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)
-![Go Version](https://img.shields.io/badge/go-1.26.6+-green.svg)
+<p align="center">
+  <img src="https://github.com/cuihairu/croupier/actions/workflows/ci.yml/badge.svg" alt="CI"/>
+  <img src="https://codecov.io/gh/cuihairu/croupier/branch/main/graph/badge.svg?t=1789350127" alt="codecov"/>
+  <img src="https://img.shields.io/badge/license-Apache%202.0-blue.svg" alt="License"/>
+  <img src="https://img.shields.io/badge/go-1.26.6+-green.svg" alt="Go Version"/>
+</p>
 
 Croupier 是面向游戏运营与控制场景的 Server / Agent / SDK 平台，默认服务于单一游戏公司内部的多个游戏与多个环境。当前架构已经收敛到“统一 session 传输”方向：
 
