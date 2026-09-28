@@ -287,6 +287,81 @@ describe('Ops/Schedules 行操作与弹窗流程', () => {
     expect(await screen.findByText('触发失败')).toBeInTheDocument();
   });
 
+  // —— 以下补覆盖率巡检缺口：未知状态兜底 tag、删除确认成功/失败、状态操作失败 ——
+
+  it('未知状态：状态 tag 兜底渲染原始值', async () => {
+    mockListSchedules.mockResolvedValue({
+      items: [
+        {
+          id: 4,
+          name: 'odd-job',
+          cronExpr: '* * * * *',
+          functionId: 'f1',
+          status: 'some_future_status',
+          consecutiveFailures: 0,
+          maxFailedRuns: 5,
+          nextTriggerAt: '2026-09-28T02:30:00Z',
+        },
+      ],
+    });
+    render(
+      <App>
+        <SchedulesPage />
+      </App>,
+    );
+    await screen.findByText('odd-job');
+    // 非白名单状态不经翻译，直接展示原始字符串（default 分支）
+    expect(screen.getByText('some_future_status')).toBeInTheDocument();
+  });
+
+  it('行操作：删除经 Popconfirm 确认后调用接口并提示已删除', async () => {
+    mockDeleteSchedule.mockResolvedValue({ ok: true });
+    render(
+      <App>
+        <SchedulesPage />
+      </App>,
+    );
+    await screen.findByText('nightly-cleanup');
+
+    fireEvent.click(screen.getAllByText('删除')[0]);
+    fireEvent.click(await screen.findByRole('button', { name: 'OK' }));
+    await waitFor(() => expect(mockDeleteSchedule).toHaveBeenCalledWith(1));
+    expect(await screen.findByText('已删除')).toBeInTheDocument();
+    // 删除后重拉列表
+    await waitFor(() => expect(mockListSchedules.mock.calls.length).toBeGreaterThanOrEqual(2));
+  });
+
+  it('行操作：删除失败提示「删除失败」', async () => {
+    mockDeleteSchedule.mockRejectedValue('boom');
+    render(
+      <App>
+        <SchedulesPage />
+      </App>,
+    );
+    await screen.findByText('nightly-cleanup');
+
+    fireEvent.click(screen.getAllByText('删除')[0]);
+    fireEvent.click(await screen.findByRole('button', { name: 'OK' }));
+    await waitFor(() => expect(mockDeleteSchedule).toHaveBeenCalled());
+    expect(await screen.findByText('删除失败')).toBeInTheDocument();
+  });
+
+  it('行操作：暂停/启用失败提示「操作失败」', async () => {
+    mockSetScheduleStatus.mockRejectedValue('boom');
+    render(
+      <App>
+        <SchedulesPage />
+      </App>,
+    );
+    await screen.findByText('nightly-cleanup');
+
+    fireEvent.click(screen.getByText('暂停'));
+    expect(await screen.findByText('操作失败')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByText('启用'));
+    expect(await screen.findByText('操作失败')).toBeInTheDocument();
+  });
+
   it('行操作：active 行暂停、paused 行启用', async () => {
     mockSetScheduleStatus.mockResolvedValue({});
     render(
