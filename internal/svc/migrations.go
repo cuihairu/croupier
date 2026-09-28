@@ -90,6 +90,9 @@ import (
 //   0035 (Go)   bug_ticket_links 表（bug↔工单多对多关联 #25：新表无存量
 //               数据，0028/0030/0032 同模式；0034 已被 provider_metadata
 //               占用故顺延）
+//   0036 (Go)   announcement_games 表（公告↔游戏多对多绑定 #45：一公告可
+//               绑定多游戏、未绑定=全服可见；新表无存量数据，0019/0035
+//               同模式）
 
 func init() {
 	registerSvcMigrations()
@@ -135,6 +138,7 @@ func registerSvcMigrations() {
 		adminPasswordPolicyMigration(),
 		providerMetadataTableMigration(),
 		bugTicketLinkMigration(),
+		announcementGamesTableMigration(),
 	); err != nil {
 		panic(fmt.Sprintf("svc: register goose go migrations: %v", err))
 	}
@@ -802,6 +806,32 @@ func bugTicketLinkMigration() *goose.Migration {
 		}},
 		nil,
 	)
+}
+
+// announcementGamesTableMigration 为 0036：建 announcement_games 表
+// （公告↔游戏多对多绑定，#45：一公告可绑定多游戏，未绑定=全服可见）。
+// 新表无存量数据，HasTable 检查后 CreateTable（0019 公告两表同模式；
+// 不整模型 AutoMigrate——0023 教训）。
+func announcementGamesTableMigration() *goose.Migration {
+	return goose.NewGoMigration(36,
+		&goose.GoFunc{RunDB: migrateAnnouncementGamesTable},
+		nil,
+	)
+}
+
+// migrateAnnouncementGamesTable 是 0036 的迁移体（抽出便于直测）。
+func migrateAnnouncementGamesTable(ctx context.Context, sqlDB *sql.DB) error {
+	db, err := wrapGorm(sqlDB)
+	if err != nil {
+		return err
+	}
+	if db.Migrator().HasTable(&model.AnnouncementGame{}) {
+		return nil
+	}
+	if err := db.Migrator().CreateTable(&model.AnnouncementGame{}); err != nil {
+		return fmt.Errorf("migrate: 0036 create announcement_games: %w", err)
+	}
+	return nil
 }
 
 // contractRemovalPendingColumnMigration 为 0031：function_contracts 加

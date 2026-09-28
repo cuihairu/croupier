@@ -27,6 +27,8 @@ export type AdminAnnouncement = {
   active: boolean;
   startAt?: string;
   endAt?: string;
+  /** 绑定的游戏标识列表（#45）；空=未绑定=全服可见 */
+  gameIds?: string[];
   createdBy?: string;
   createdAt: string;
   updatedAt: string;
@@ -42,15 +44,17 @@ export type AnnouncementDraft = {
   active?: boolean;
   startAt?: string;
   endAt?: string;
+  /** 绑定的游戏标识（#45）；空数组=全服可见 */
+  gameIds?: string[];
 };
 
-export async function listAnnouncements(): Promise<{
+export async function listAnnouncements(params?: { gameId?: string }): Promise<{
   items: AdminAnnouncement[];
   total: number;
 }> {
   const resp = await request<{ items?: AdminAnnouncement[]; total?: number }>(
     '/api/v1/admin/announcements',
-    { method: 'GET' },
+    { method: 'GET', params },
   );
   return {
     items: Array.isArray(resp?.items) ? resp.items : [],

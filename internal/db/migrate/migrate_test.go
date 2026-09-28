@@ -81,6 +81,7 @@ func TestEnsureUpToDate_FreshDatabaseRunsBaselineAndMigrations(t *testing.T) {
 		"0033_add_probe33.sql": "-- +goose Up\nCREATE TABLE probe33 (id INTEGER PRIMARY KEY);\n\n-- +goose Down\nDROP TABLE probe33;\n",
 		"0034_add_probe34.sql": "-- +goose Up\nCREATE TABLE probe34 (id INTEGER PRIMARY KEY);\n\n-- +goose Down\nDROP TABLE probe34;\n",
 		"0035_add_probe35.sql": "-- +goose Up\nCREATE TABLE probe35 (id INTEGER PRIMARY KEY);\n\n-- +goose Down\nDROP TABLE probe35;\n",
+		"0036_add_probe36.sql": "-- +goose Up\nCREATE TABLE probe36 (id INTEGER PRIMARY KEY);\n\n-- +goose Down\nDROP TABLE probe36;\n",
 	})
 
 	version, err := ensureUpToDate(context.Background(), db, fsys, ScopeMeta, baselineProbe)
@@ -146,6 +147,7 @@ func TestEnsureUpToDate_LegacyDatabaseBridgesOnceThenCatchesUp(t *testing.T) {
 		"0033_add_probe33.sql": "-- +goose Up\nCREATE TABLE probe33 (id INTEGER PRIMARY KEY);\n\n-- +goose Down\nDROP TABLE probe33;\n",
 		"0034_add_probe34.sql": "-- +goose Up\nCREATE TABLE probe34 (id INTEGER PRIMARY KEY);\n\n-- +goose Down\nDROP TABLE probe34;\n",
 		"0035_add_probe35.sql": "-- +goose Up\nCREATE TABLE probe35 (id INTEGER PRIMARY KEY);\n\n-- +goose Down\nDROP TABLE probe35;\n",
+		"0036_add_probe36.sql": "-- +goose Up\nCREATE TABLE probe36 (id INTEGER PRIMARY KEY);\n\n-- +goose Down\nDROP TABLE probe36;\n",
 	})
 	if _, err := ensureUpToDate(context.Background(), db, fsys, ScopeGame, baselineProbe); err != nil {
 		t.Fatalf("ensureUpToDate: %v", err)
@@ -191,6 +193,7 @@ func TestEnsureUpToDate_LegacyDatabaseBridgesOnceThenCatchesUp(t *testing.T) {
 		"0033_add_probe33.sql": "-- +goose Up\nCREATE TABLE probe33 (id INTEGER PRIMARY KEY);\n\n-- +goose Down\nDROP TABLE probe33;\n",
 		"0034_add_probe34.sql": "-- +goose Up\nCREATE TABLE probe34 (id INTEGER PRIMARY KEY);\n\n-- +goose Down\nDROP TABLE probe34;\n",
 		"0035_add_probe35.sql": "-- +goose Up\nCREATE TABLE probe35 (id INTEGER PRIMARY KEY);\n\n-- +goose Down\nDROP TABLE probe35;\n",
+		"0036_add_probe36.sql": "-- +goose Up\nCREATE TABLE probe36 (id INTEGER PRIMARY KEY);\n\n-- +goose Down\nDROP TABLE probe36;\n",
 	})
 	version, err := ensureUpToDate(context.Background(), db, fsys2, ScopeGame, nil)
 	if err != nil {
@@ -240,6 +243,7 @@ func TestEnsureUpToDate_UpToDateDatabaseSkipsBaseline(t *testing.T) {
 		"0033_add_probe33.sql": "-- +goose Up\nCREATE TABLE probe33 (id INTEGER PRIMARY KEY);\n\n-- +goose Down\nDROP TABLE probe33;\n",
 		"0034_add_probe34.sql": "-- +goose Up\nCREATE TABLE probe34 (id INTEGER PRIMARY KEY);\n\n-- +goose Down\nDROP TABLE probe34;\n",
 		"0035_add_probe35.sql": "-- +goose Up\nCREATE TABLE probe35 (id INTEGER PRIMARY KEY);\n\n-- +goose Down\nDROP TABLE probe35;\n",
+		"0036_add_probe36.sql": "-- +goose Up\nCREATE TABLE probe36 (id INTEGER PRIMARY KEY);\n\n-- +goose Down\nDROP TABLE probe36;\n",
 	})
 	if _, err := ensureUpToDate(context.Background(), db, fsys, ScopeMeta, baselineProbe); err != nil {
 		t.Fatalf("first ensureUpToDate: %v", err)

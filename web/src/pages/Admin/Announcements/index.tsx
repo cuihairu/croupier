@@ -26,6 +26,8 @@ import {
   updateAnnouncement,
   type AdminAnnouncement,
 } from '@/services/api/announcements';
+import { listGamesMeta } from '@/services/api/games';
+import { useScope } from '@/hooks/useScopeReload';
 import { extractErrorMessage } from '@/utils/errors';
 import { formatDateTime } from '@/utils/format';
 
@@ -39,6 +41,7 @@ type FormValues = {
   popup: boolean;
   active: boolean;
   range?: [Dayjs, Dayjs];
+  gameIds?: string[];
 };
 
 /**
@@ -70,11 +73,40 @@ export default function AnnouncementsPage() {
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [form] = Form.useForm<FormValues>();
+  // #45：适用游戏过滤——初值取全局 scope 顶栏游戏，切游戏后同步覆盖（#43
+  // 同语义）；选「全部」看所有公告。绑定多选的选项来自 games 列表。
+  const { scope, scopeKey } = useScope();
+  const [gameFilter, setGameFilter] = useState<string>(() => scope.gameId || '');
+  const [gameOptions, setGameOptions] = useState<{ value: string; label: string }[]>([]);
+
+  useEffect(() => {
+    setGameFilter(scope.gameId || '');
+    // scopeKey 是联动信号（gameId:env 派生），随 scope 字段一起变化
+  }, [scopeKey, scope.gameId, scope.env]);
+
+  useEffect(() => {
+    let cancelled = false;
+    listGamesMeta()
+      .then((r) => {
+        if (cancelled) return;
+        setGameOptions(
+          r.games
+            .filter((g): g is typeof g & { name: string } => Boolean(g.name))
+            .map((g) => ({ value: g.name, label: g.aliasName || g.name })),
+        );
+      })
+      .catch(() => {
+        // 游戏列表加载失败不阻塞公告管理（下拉仅剩已绑定的手输值）
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const r = await listAnnouncements();
+      const r = await listAnnouncements(gameFilter ? { gameId: gameFilter } : undefined);
       setRows(r.items);
     } catch (error) {
       message.error(
@@ -83,7 +115,7 @@ export default function AnnouncementsPage() {
     } finally {
       setLoading(false);
     }
-  }, [message, t]);
+  }, [message, t, gameFilter]);
 
   useEffect(() => {
     void load();
@@ -106,6 +138,7 @@ export default function AnnouncementsPage() {
       role: row.role,
       popup: row.popup,
       active: row.active,
+      gameIds: row.gameIds ?? [],
     });
     setOpen(true);
   };
@@ -129,6 +162,9 @@ export default function AnnouncementsPage() {
       active: values.active,
       startAt: values.range?.[0]?.toISOString(),
       endAt: values.range?.[1]?.toISOString(),
+      // #45：始终显式携带（空数组=清空绑定→全服可见），编辑时清空选择
+      // 才能真正落库为「全服」而非保留旧绑定
+      gameIds: values.gameIds ?? [],
     };
     setSaving(true);
     try {
@@ -181,7 +217,24 @@ export default function AnnouncementsPage() {
         </Button>,
       ]}
     >
-      <Card>
+      <Card
+        extra={
+          <Space size={8}>
+            <Text type="secondary" style={{ fontSize: 12 }}>
+              {t('pages.announcements.filter.game', '按游戏过滤')}
+            </Text>
+            <Select
+              allowClear
+              style={{ width: 200 }}
+              data-testid="announcement-game-filter"
+              placeholder={t('pages.announcements.filter.all', '全部游戏')}
+              value={gameFilter || undefined}
+              onChange={(v: unknown) => setGameFilter(typeof v === 'string' ? v : '')}
+              options={gameOptions}
+            />
+          </Space>
+        }
+      >
         <Table<AdminAnnouncement>
           rowKey="id"
           loading={loading}
@@ -221,6 +274,24 @@ export default function AnnouncementsPage() {
                   </Tag>
                 ) : (
                   <Tag color="blue">{t('pages.announcements.audience.all', '全体用户')}</Tag>
+                ),
+            },
+            {
+              // #45：绑定的游戏；未绑定=全服可见
+              title: t('pages.announcements.column.games', '适用游戏'),
+              dataIndex: 'gameIds',
+              width: 180,
+              render: (v?: string[]) =>
+                v && v.length ? (
+                  <Space wrap size={4}>
+                    {v.map((g) => (
+                      <Tag key={g} color="geekblue">
+                        {g}
+                      </Tag>
+                    ))}
+                  </Space>
+                ) : (
+                  <Tag color="green">{t('pages.announcements.games.all', '全服可见')}</Tag>
                 ),
             },
             {
@@ -387,6 +458,20 @@ export default function AnnouncementsPage() {
             label={t('pages.announcements.field.range', '生效时间区间（可选）')}
           >
             <DatePicker.RangePicker showTime />
+          </Form.Item>
+          {/* #45：绑定游戏多选——未选=全服可见；编辑时显式携带（清空=
+              全服），选项来自 games 列表（与顶栏 scope 的 gameId 同口径） */}
+          <Form.Item
+            name="gameIds"
+            label={t('pages.announcements.field.gameIds', '适用游戏（可多选，不选=全服可见）')}
+          >
+            <Select
+              mode="multiple"
+              allowClear
+              placeholder={t('pages.announcements.field.gameIds.placeholder', '不选=全服可见')}
+              data-testid="announcement-game-ids"
+              options={gameOptions}
+            />
           </Form.Item>
         </Form>
       </Modal>

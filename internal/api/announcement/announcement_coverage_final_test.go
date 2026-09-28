@@ -47,7 +47,7 @@ func TestAnnouncementHandler_Create_BindValidatorFailure(t *testing.T) {
 func TestAnnouncementHandler_Active_ServiceError_Authenticated(t *testing.T) {
 	db, err := gorm.Open(gsqlite.Open(":memory:"), &gorm.Config{})
 	require.NoError(t, err)
-	require.NoError(t, db.AutoMigrate(&model.Announcement{}, &model.AnnouncementRead{}, &model.Admin{}, &model.Role{}, &model.AdminRole{}))
+	require.NoError(t, db.AutoMigrate(&model.Announcement{}, &model.AnnouncementRead{}, &model.AnnouncementGame{}, &model.Admin{}, &model.Role{}, &model.AdminRole{}))
 	svcCtx := &svc.ServiceContext{DB: db, AdminModel: model.NewAdminModel(db)}
 	require.NoError(t, svcCtx.AdminModel.Create(context.Background(), &model.Admin{Username: "alice", Nickname: "A"}, "x"))
 	h := NewHandler(NewService(svcCtx))
@@ -80,7 +80,7 @@ func TestAnnouncementService_Update_Failures(t *testing.T) {
 	// Updates 落库失败。
 	db1, err := gorm.Open(gsqlite.Open(":memory:"), &gorm.Config{})
 	require.NoError(t, err)
-	require.NoError(t, db1.AutoMigrate(&model.Announcement{}, &model.AnnouncementRead{}))
+	require.NoError(t, db1.AutoMigrate(&model.Announcement{}, &model.AnnouncementRead{}, &model.AnnouncementGame{}))
 	s1 := NewService(&svc.ServiceContext{DB: db1})
 	created1, err := s1.Create(ctx, &CreateRequest{Title: "t1", ContentMd: "c", Audience: "all"})
 	require.NoError(t, err)
@@ -94,7 +94,7 @@ func TestAnnouncementService_Update_Failures(t *testing.T) {
 	// 回读 First 失败：Update 流程 SELECT 依次 First → (Updates) → 回读 First。
 	db2, err := gorm.Open(gsqlite.Open(":memory:"), &gorm.Config{})
 	require.NoError(t, err)
-	require.NoError(t, db2.AutoMigrate(&model.Announcement{}, &model.AnnouncementRead{}))
+	require.NoError(t, db2.AutoMigrate(&model.Announcement{}, &model.AnnouncementRead{}, &model.AnnouncementGame{}))
 	s2 := NewService(&svc.ServiceContext{DB: db2})
 	created2, err := s2.Create(ctx, &CreateRequest{Title: "t2", ContentMd: "c", Audience: "all"})
 	require.NoError(t, err)

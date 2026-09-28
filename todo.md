@@ -596,7 +596,6 @@ T3（execution_state 字段）→ T4/T6/T8；T2 → T5；T12（后端校验放�
 > 内存态，会话过期或 server 重启后从零重新累计（列注释与 wire 文档均注明）；
 > 持久化历史注册时间需 registry 落库演进，本批不做。
 
-
 ## 覆盖率巡检批次·Go 侧第四轮（wt-api worktree，2026-09-28）
 
 > **交付（2026-09-28）**：上轮候选两文件补齐——① `registry/store_metadata.go`
@@ -634,3 +633,89 @@ T3（execution_state 字段）→ T4/T6/T8；T2 → T5；T12（后端校验放�
 > go test ./internal/... 全绿（fresh）、guard PASSED。
 > **下一轮候选**：巡检主干已近枯竭（99.8%+ 文件余 1-2 语句防御分支为主），
 > 转监控回补：任何新落地 Go 文件 48h 内补齐主函数与错误路径。
+
+## 公告绑定多游戏与按游戏过滤（OPEN-ISSUES #45，2026-09-28）
+
+> **交付（2026-09-28）**：语义拍板「一公告可绑定多个游戏，未绑定任何游戏=全服可见」。
+> `announcement_games` M2M 表（0036 编号迁移三处同步齐：migrations.go 注册 +
+> MinimumRequiredVersion=36 + migrate_test probe 清单；HasTable→CreateTable 幂等，
+> 0019 先例）；Create/Update 全量替换语义（`gameIds` 缺省 nil=绑定不动、空数组=
+> 清空→全服可见、非空=全量替换，归一 trim/去重/丢空保序）；管理列表 `?gameId=`
+> 过滤 + 「适用游戏」列（绑定 Tag / 全服可见 Tag）+ 表单多选（选项来自 games
+> 列表，与顶栏 scope gameId 同口径）；用户侧 `/announcements/active` 按
+> `X-Game-ID` 头过滤（scope.ts SCOPED_API_PREFIXES 注入，无游戏上下文仅见未绑定
+> 公告=严格语义）；Delete 级联删绑定；批量加载绑定防 N+1。
+> 门禁：announcement/svc/migrate/model 包 Go 测试绿（新建 8 用例：绑定生命周期/
+> 过滤矩阵/三态可见性/级联删除/迁移幂等）+ 页面套件 17/17（新 6 用例：列渲染/
+> scope 预填与清空/切 scope 覆盖手选/默认空提交/编辑回填清空/追加携带）+
+> tsc 0 错 + go build ./... + 全量 jest 3839/3839（2 worker 限流——load 5min 峰值
+> 32，非空载直跑）+ guard PASSED；rebase origin/main 后受影响包复验绿。
+> **已知边界（诚实清单）**：① 管理列表过滤为服务端全量后过滤（公告量级小，
+> 不分页下推）；② 游戏列表加载失败时表单多选下拉仅剩手输、过滤下拉为空，
+> 不阻塞公告管理；③ 用户侧可见性未与「玩家归属游戏」联动（无玩家-游戏注册
+> 关系，X-Game-ID 即用户顶栏选择）；④ web 端 `/announcements/active` 消费方
+> （AnnouncementPopup/NotificationsTab）取值链未按绑定渲染游戏名，属纯过滤
+> 透传，不改变展示文案。
+
+## Dev/Bugs 缺陷页覆盖批次（全仓最大零测试页收口，2026-09-28）
+
+> **交付（2026-09-28）**：`Dev/Bugs/index.tsx`（1113 行，此前全仓最大零测试
+> 引用页）0 测试 → 新增 `__tests__/index.test.tsx` 17 用例，v8 口径行/函数/
+> 语句 3×100%、分支 93.75%。锁定契约：列表渲染矩阵（链接图标 5 类内联 +
+> '+N' 溢出徽标、status/severity/priority 未知枚举原文兜底、platform 大写、
+> source 三态、canManage 操作列两态）；工具栏（关键词/四下拉筛选/修复版本/
+> 刷新各自重拉、筛选清空 `|| ''` 翼、回车仅回第一页不重复拉取）；真实
+> ModalForm（required 拦截、GitHub 链接自动标题 o/r#42、空 url 守卫、创建/
+> 编辑载荷与 source:internal、创建/编辑失败兜底两翼、删除 Popconfirm）；详情
+> 弹窗（tag 矩阵、meta 拼接三翼、未知 priority 兜底、外链按钮、关联工单
+> 列表翼矩阵 + 跳转、添加/解除关联成功失败双翼、tickets 加载失败静默、关闭
+> 可重开）；?bugId= 深链三翼与 listAdmins 兜底两翼；canManage=false 只读形态。
+> 门禁：目标套件 17/17 绿、tsc 0 错；全量 jest 限 2 worker 落盘后台
+> （负载口径，结果见交付说明）。
+> **已知边界（诚实清单）**：
+>
+> 1. 守卫与防御性分支经 UI 不可达（分支余量 12 处全部在此）：addDetailTicket
+>    `if (!detail || !ticketDraft) return`（按钮 disabled）、removeDetailTicket
+>    `if (!detail) return`（按钮仅详情开启时存在）、request 包装层参数 `?? ''`
+>    右翼（ProTable 恒传 params 键）、链接 `l.title || l.url` 右翼
+>    （deriveBugLinkTitle 对解析失败 url 也回退原文）、InputNumber
+>    `typeof v === 'number' ? v : null` 右翼（antd 6 jsdom 清空不回调
+>    onChange(null)）。
+> 2. 行内链接图标断言锚定标题文本与溢出徽标（antd Icon aria-label 无文本
+>    节点）；详情 `<Empty />` 兜底在 detail=null 隐藏态渲染（v8 计入覆盖），
+>    用例断言可观测的 onCancel 后果（隐藏 → 可再打开）。
+> 3. ProTable 挂载首拉与快速输入变更会被 20ms 防抖合并（用例先等首拉落定
+>    再驱动筛选，保证计数断言确定性）。
+
+## 插件域设计收口（OPEN-ISSUES #46，2026-09-28）
+
+> **交付（2026-09-28）**：#46 设计层收口完成（用户指令「继续设计插件」），
+> 全库审计后两份核心文档定稿：
+> ① `extension-installation-model.md` 草案→**已收口**——对齐实际落地的 5 表
+> （catalog/release/installation/runtime_binding/event，复数表名+unix 时间戳+
+> JSON 列）；生命周期从草案 12 态收口为实态 4 状态同步流转（install/enable/
+> disable/upgrade/uninstall，中间态无落库消费方）；升级=校验链（release 存在
+> →依赖图→config 兼容）+版本切换，**回滚=upgrade 到旧版本**（不设独立端点）；
+> Agent 运行时副本=内存 RuntimeSnapshot+HTTP 轮询 30s（非 TCP 隧道推送，演进
+> 项）；scope=meta 库行级标记（与 database-per-game 不冲突的论证入档）；
+> capability/health/secret_binding 三表暂缓决策+回补路径入档；如实记录已知
+> 边界：禁用态升级后 `status=enabled && enabled=false` 字段不同步（实施批次修）。
+> ② `extensions-api-contract-baseline.md` 按实现重写——「统一包装 code/message/
+> data」旧表述作废（实现恒为 common/response 直返，纯文档漂移）；字段名
+> snake_case 笔误全部改 lowerCamelCase；canonical 路由=installations/:id 主组，
+> compat 路由组（13 条）判废（唯一前端消费方本就契约错位）；agent wire 契约
+> （/agents/:id/extensions 的 payload 包装）单列防误伤。
+> ③ 四页面审计（结论入基线 §6）：Store/Installations/AgentSync ✅ 一致（adapter
+> 层+错误码分支已接）；**DomainEntry ❌ 实锤**——`listExtensionPages` 期待
+> `{items:[{path}]}` 后端实返 `{pages:[{route}]}` 且 `.catch` 静默，「扩展页面
+> 入口」区块生产环境恒 Empty。
+> ④ 审计副产物：响应 DTO 内嵌 code/message 对前端零影响（normalize 直取业务
+> 字段已核实）；`healthStatus` 恒 "unknown"、`displayName`=extensionId 直填
+> （列表组装未 join catalog）——两处失真入批次链；**catalog/release 无任何写
+> 路径**（repo 只读、无 admin CRUD、无 pack 导入、无 seed）——「扩展从哪来」
+> 是安装模型最大缺口，立为批次链主项。
+> 门禁：`cd docs && pnpm build` 通过（60.93s）。
+> **实施批次链（后续独立批次，设计已定）**：1) 契约收口（24 个响应 DTO 去内
+> 嵌 code/message + agent puller 解析端同步 + compat 组删除 + pages 契约修复，
+> 禁兼容旧键）；2) 列表组装修正（displayName join catalog / healthStatus 推
+> 导）；3) catalog 写路径（admin CRUD + official.* 四扩展 seed，pack 导入后续）；4) DomainEntry 真实渲染恢复+用例。

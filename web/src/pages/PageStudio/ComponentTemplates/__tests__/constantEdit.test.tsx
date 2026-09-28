@@ -204,3 +204,136 @@ describe('页面集成：编辑入口与新增入口', () => {
     );
   });
 });
+
+describe('ConstantEditModal 边界与关闭路径（round-7 覆盖率巡检）', () => {
+  it('编辑模板树无 staticForm → constantSchemaOf 回退空 → 保存被空模板校验拦下且不发请求', async () => {
+    const noFormTpl = {
+      key: 'consts--nf',
+      name: { 'zh-CN': '无表单模板', 'en-US': 'no-form' },
+      builtin: false,
+      tree: [],
+    };
+    render(
+      <App>
+        <ConstantEditModal open template={noFormTpl} onCancel={jest.fn()} onSaved={jest.fn()} />
+      </App>,
+    );
+    // 无 staticForm 可回填 → fields 空 → 保存触发空模板校验（不发 PUT/POST）
+    fireEvent.click(screen.getByRole('button', { name: /保\s*存/ }));
+    expect(
+      await screen.findByText('请至少保留一个常量（空模板无法渲染下拉）', undefined, FIND),
+    ).toBeInTheDocument();
+    expect(mockedRequest).not.toHaveBeenCalled();
+  });
+
+  it('legacy 多常量模板整组回写：描述为「常量组件（N 个常量）」、name 取模板显示名', async () => {
+    const schema2 = JSON.stringify({
+      type: 'object',
+      properties: {
+        阵营: { type: 'string', title: '阵营', enum: ['联盟', '部落'] },
+        段位: { type: 'string', title: '段位', enum: ['青铜', '王者'] },
+      },
+    });
+    const legacyTpl = {
+      key: 'consts--legacy',
+      name: { 'zh-CN': '旧合并模板', 'en-US': 'legacy-bundle' },
+      builtin: false,
+      tree: [
+        {
+          id: 'sf1',
+          type: 'staticForm',
+          props: { title: '旧合并模板', span: 12, staticSchema: schema2 },
+        },
+      ],
+    };
+    render(
+      <App>
+        <ConstantEditModal open template={legacyTpl} onCancel={jest.fn()} onSaved={jest.fn()} />
+      </App>,
+    );
+    fireEvent.click(screen.getByRole('button', { name: /保\s*存/ }));
+    await waitFor(
+      () =>
+        expect(screen.getByRole('button', { name: /保\s*存/ })).not.toHaveClass('ant-btn-loading'),
+      FIND,
+    );
+    const put = mockedRequest.mock.calls.find(
+      ([url, init]) =>
+        typeof url === 'string' &&
+        url.includes('/api/v1/component-templates/consts--legacy') &&
+        (init as { method?: string })?.method === 'PUT',
+    );
+    expect(put).toBeTruthy();
+    const data = (
+      put as unknown as [
+        string,
+        {
+          data: {
+            name: Record<string, string>;
+            description: Record<string, string>;
+            tree: unknown[];
+          };
+        },
+      ]
+    )[1].data;
+    // 多常量：displayName 回落模板显示名（localizedText 取 zh-CN），且 payloadBase
+    // 将同一 displayName 写入 zh-CN/en-US 两键
+    expect(data.name['zh-CN']).toBe('旧合并模板');
+    expect(data.name['en-US']).toBe('旧合并模板');
+    expect(data.description['zh-CN']).toBe('常量组件（2 个常量）');
+    expect(data.description['en-US']).toBe('Constant component (2 constants)');
+  });
+
+  it('保存请求 reject 非 Error 值 → 显示「保存失败」兜底文案', async () => {
+    mockedRequest.mockRejectedValueOnce('boom');
+    render(
+      <App>
+        <ConstantEditModal open template={constTpl} onCancel={jest.fn()} onSaved={jest.fn()} />
+      </App>,
+    );
+    fireEvent.click(screen.getByRole('button', { name: /保\s*存/ }));
+    // reject 的是字符串而非 Error → e instanceof Error 为假 → intl 兜底文案
+    expect(await screen.findByText('保存失败', undefined, FIND)).toBeInTheDocument();
+    expect(screen.queryByText(/consts--z1/)).not.toBeInTheDocument();
+  });
+
+  it('footer「取 消」与弹窗右上角 X 均复位并回调 onCancel；重开后重新回填', async () => {
+    const onCancel = jest.fn();
+    const view = render(
+      <App>
+        <ConstantEditModal open template={constTpl} onCancel={onCancel} onSaved={jest.fn()} />
+      </App>,
+    );
+    const options = () => screen.getByPlaceholderText(/每行一个选项/) as HTMLTextAreaElement;
+    await screen.findByText('编辑常量', { selector: '.ant-modal-title' }, FIND);
+    // 篡改脏状态 → footer 取消 → onCancel + 复位
+    fireEvent.change(options(), { target: { value: '脏数据' } });
+    fireEvent.click(screen.getByRole('button', { name: /取\s*消/ }));
+    expect(onCancel).toHaveBeenCalledTimes(1);
+
+    // 关闭后重开 → effect 重新按模板回填（证明 reset 生效）
+    view.rerender(
+      <App>
+        <ConstantEditModal
+          open={false}
+          template={constTpl}
+          onCancel={onCancel}
+          onSaved={jest.fn()}
+        />
+      </App>,
+    );
+    view.rerender(
+      <App>
+        <ConstantEditModal open template={constTpl} onCancel={onCancel} onSaved={jest.fn()} />
+      </App>,
+    );
+    await waitFor(() => expect(options().value).toContain('部落'), FIND);
+
+    // X 关闭（scope 到可见弹窗根，避免命中残留弹窗壳）
+    const modalRoot = screen
+      .getByText('编辑常量', { selector: '.ant-modal-title' })
+      .closest('.ant-modal');
+    fireEvent.click(modalRoot?.querySelector('.ant-modal-close') as HTMLElement);
+    expect(onCancel).toHaveBeenCalledTimes(2);
+  });
+});
