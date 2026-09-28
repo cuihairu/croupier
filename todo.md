@@ -462,7 +462,6 @@ T3（execution_state 字段）→ T4/T6/T8；T2 → T5；T12（后端校验放�
 > OTP 工作面，回避不碰；assignment/gate.go(89.5%) 属 BUG-035 会话工作面
 > 同理；共享内存库（cache=shared）跨用例数据共享，补测用唯一 scope 隔离。
 
-
 ## 覆盖率巡检批次·Go 侧第二轮（wt-api worktree，2026-09-28）
 
 > **交付（2026-09-28）**：全量 profile 重排（本轮全树 109 未覆盖语句）后按
@@ -498,3 +497,28 @@ T3（execution_state 字段）→ T4/T6/T8；T2 → T5；T12（后端校验放�
 > string/boolean，trim ?? '' 兜底空串），计 9 个未覆盖分支；NotificationTab /
 > FeatureFlagsTab / ObservabilityTab 三个子 Tab 属 croupier-ui 工作面，本会话不碰。
 
+## 通知设置 Tab 覆盖批次（SiteSettings 子 Tab 之二，2026-09-28）
+
+> **交付（2026-09-28）**：`System/SiteSettings/NotificationTab.tsx`（450 行）0 测试 →
+> 语句/分支/函数/行 4×100%（v8），11 用例锁定通知配置读写/校验/失败路径：
+> 加载成功（非密文回填、三个 secret 字段永不回显、开关两态、SMTP 区块随
+> emailEnabled 条件渲染、密文徽标配置/未配置两态）、加载失败（extractErrorMessage
+> 兜底 + null settings 渲染不白屏）、saveKey 三分支（文本 trim 落库 / 空值=清除
+> 走 clearSiteSetting / 端口 InputNumber 数字直提不经 trim）+ 保存失败（透出后端
+> message、不重拉、按钮退出 loading）、toggleBool 开「已开启」/关「已关闭」 +
+> 失败「操作失败」兜底不重拉、placeholderMsg 经 intl 解析、Card loading→finally
+> 骨架收尾。开关无 accessible name 按 DOM 序索引定位；字段保存按钮按所属
+> Form.Item 定位（全局 [0] 在 emailEnabled=true 时会错点 SMTP 字段）。
+> 门禁：目标套件 11/11 绿、tsc 0 错；全量 jest 3853 用例在 load 27-64 限
+> 2 worker 完成（非空载，如实注明）——8 失败中 7 个他域套件纯 timeout 形态、
+> 隔离复跑全绿定责负载型，1 个为并行会话未跟踪 WIP 套件（Operations/Configs
+> **tests** 未入库），均非已交付代码回归。
+> **已知边界（诚实清单）**：
+>
+> 1. secretState 的 ternary 链缺 feishuSecret 特例：飞书密钥徽标实际读
+>    webhookSecretSet/Masked，NotificationSettings.feishuSecretSet 存在但徽标
+>    不消费——现状行为断言（「未配置」仅钉钉 1 个、无尾号「已配置 」2 个），
+>    用例登记翻转条件，组件修正时同步。
+> 2. FieldDef 上 smtpPort 的 `kind: 'int'` 元数据无消费方（字段被 filter 剔除后
+>    走 smtpPortField 专用渲染），无对应行为可断言。
+> 3. FeatureFlagsTab / ObservabilityTab 两个子 Tab 仍留待后续批次。
