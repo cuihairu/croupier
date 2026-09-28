@@ -434,3 +434,14 @@ T3（execution_state 字段）→ T4/T6/T8；T2 → T5；T12（后端校验放�
 6. **M3 门控仅限 builtin 行**：custom 占 key 行维持覆盖路径且 Builtin 标记不翻转；JSON 列解析失败回退字节比较（宁误写不误跳过）。
 
 明确不做（当期范围外）：freshness 评估、Console 菜单聚合、unbound 翻转、`registration_warnings` DB 表接线。
+
+## 覆盖率收尾批次（主树清单 #28/#31/#41 与转正提交闭环后，2026-09-27）
+
+> **交付（2026-09-27）**：主树最大零覆盖模块 `System/SiteSettings`（2118 行五文件 0 测试）入口页补齐——
+> `index.tsx` 0% → 行覆盖 100%（分支 90.9%/函数 100%），7 用例锁定三层配置契约
+> （database 覆盖+恢复按钮 / config 跟随 / default 徽标；保存 trim+空值守卫+成功重拉；
+> 恢复走 clearSiteSetting；加载/保存/恢复失败路径不白屏不重拉）。
+> 全量 jest 3688/3688 绿（空载窗口）、tsc 0 错、go test ./internal/... 全绿（99.8% 总量、
+> 0 文件低于 60%）、guard PASSED。
+> **已知边界**：四个子 Tab（AuthTab 789 / NotificationTab 450 / FeatureFlagsTab 298 /
+> ObservabilityTab 223 行）桩替换未覆盖，留下一批次。
