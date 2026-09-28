@@ -596,3 +596,21 @@ T3（execution_state 字段）→ T4/T6/T8；T2 → T5；T12（后端校验放�
 > 内存态，会话过期或 server 重启后从零重新累计（列注释与 wire 文档均注明）；
 > 持久化历史注册时间需 registry 落库演进，本批不做。
 
+
+## 覆盖率巡检批次·Go 侧第四轮（wt-api worktree，2026-09-28）
+
+> **交付（2026-09-28）**：上轮候选两文件补齐——① `registry/store_metadata.go`
+> **97.3% → 100%**（registry 包 99.7% → **100%**）：4 块全闭——增量判定
+> providerMetadataDelta 的「集合等长但 ID 不同/键数不同」翼（漏判会让重复
+> 注册跳过 DB 写）、staleServiceIDs 的 prev 重复去重翼、DB-less 内存聚合
+> aggregateMetaOptionsFromMemory 的 env 过滤翼、groupMetaOptions 的实例数
+> 降序比较翼；4 例同包直测（未导出字段/类型，不 import internal/model
+> 遵守包边界）。② api/provider/handler.go 的 ShouldBindQuery 错误分支
+> **登记防御性不可达**（SdkStatsRequest 全 optional string 字段，gin form
+> 绑定无失败路径），新增证明性用例锁定「任意 query 绑定永不失败」前提，
+> 文件维持 97.8%（90 语句中 2 条登记）；字段未来引入 required/强类型时
+> 分支转可达，届时补真实错误路径用例。
+> 门禁：触及文件 gofmt 干净、go vet ./internal/... 干净、
+> go test ./internal/... 全绿（fresh）、guard PASSED。
+> **下一轮候选**：svc/migrations.go 97.9%（8 语句，迁移敏感面需谨慎评估）、
+> rbac/logical_permissions.go 97.5%（1 语句）；回避面不变。
