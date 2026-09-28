@@ -614,3 +614,23 @@ T3（execution_state 字段）→ T4/T6/T8；T2 → T5；T12（后端校验放�
 > go test ./internal/... 全绿（fresh）、guard PASSED。
 > **下一轮候选**：svc/migrations.go 97.9%（8 语句，迁移敏感面需谨慎评估）、
 > rbac/logical_permissions.go 97.5%（1 语句）；回避面不变。
+
+## 覆盖率巡检批次·Go 侧第五轮（wt-api worktree，2026-09-28）
+
+> **交付（2026-09-28）**：上轮候选两文件收口——① `svc/migrations.go`
+> 可达性评估结论：**8 块全部可达，零排除项**（与 30+ 同构兄弟迁移同模式：
+> 全查询失败连接注入触达 wrapGorm err 透传翼，PRAGMA query_only 拒写注入
+> 触达 CreateTable/AddColumn 失败翼，夹具复用 C 批 coverage_c_migrations_test.go），
+> 新增 coverage_d_migrations_test.go 5 例闭齐 0032（admin_otp_recovery_codes
+> 建表）/0033（admins 密码策略加列）/0034（provider_metadata 建表，本会话
+> #11 域）/0035（bug_ticket_links 建表）四迁移错误分支至 **100%**；
+> 0032-0033/0035 为 NewGoMigration 内联闭包，经导出字段 UpFnNoTxContext
+> 直调（goose 对 RunDB 的映射），业务源码零改动；0032 虽邻 OTP 面，测试放
+> 本会话独立新文件、零编辑他会话在途的 admin_otp_recovery_test.go。
+> ② `rbac/logical_permissions.go` **97.5% → 100%**（rbac 包 99.8% → 100%）：
+> 导出包装 SplitLogicalPermission 此前 0%——8 形态表驱动锁定透传语义与
+> 通配约定（""/*/admin:all → 通配、无冒号/空 action/all → *、归一）。
+> 门禁：触及文件 gofmt 干净、go vet ./internal/... 干净、
+> go test ./internal/... 全绿（fresh）、guard PASSED。
+> **下一轮候选**：巡检主干已近枯竭（99.8%+ 文件余 1-2 语句防御分支为主），
+> 转监控回补：任何新落地 Go 文件 48h 内补齐主函数与错误路径。
