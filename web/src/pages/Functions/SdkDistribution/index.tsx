@@ -222,6 +222,25 @@ export default function SdkDistributionPage() {
     { title: 'Game', dataIndex: 'gameId', key: 'gameId' },
     { title: 'Env', dataIndex: 'env', key: 'env' },
     {
+      // #44：注册时间（服务端已归一，零值回退最后活跃）。进程窗口语义——
+      // 在线会话是内存态，agent/provider 重启后从零计起，排查「实例活了
+      // 多久 vs 只是无响应」时与最后活跃列对照看。
+      title: intl.formatMessage({
+        id: 'pages.functionsSdk.column.firstSeen',
+        defaultMessage: '注册时间',
+      }),
+      dataIndex: 'firstSeenUnix',
+      key: 'firstSeenUnix',
+      render: (value: number) =>
+        value ? (
+          <Tooltip title={new Date(value * 1000).toLocaleString()}>
+            <Text type="secondary">{new Date(value * 1000).toLocaleTimeString()}</Text>
+          </Tooltip>
+        ) : (
+          '-'
+        ),
+    },
+    {
       title: intl.formatMessage({
         id: 'pages.functionsSdk.column.lastSeen',
         defaultMessage: '最后活跃',

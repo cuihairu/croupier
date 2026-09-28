@@ -279,6 +279,8 @@ SDK 配置（Go InstanceMetadata / JS providerMetadata）
   → sdk-stats REST API（服务端子串过滤）→ web SDK 版本分布页
 ```
 
+sdk-stats 实例明细（`SdkInstanceItem`）同时透出 `firstSeenUnix`（注册时间，#44；服务端归一：无观测值时回退 `lastSeenUnix`）与 `lastSeenUnix`。`firstSeenUnix` 为进程窗口语义——registry 会话是内存态，会话过期或 server 重启后从零重新累计（与下方 runtime-sources 的边界一致）。
+
 规则：
 
 - **保留键**：`sdkLanguage` / `sdkVersion` / `sdkName` / `protocol_version` / `gameId` / `env` 是平台固定字段（Agent 从请求固定字段生成）。用户元数据撞键时 Agent **丢弃该键并写入 warnings**，不得覆盖平台语义；空键跳过

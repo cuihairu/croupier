@@ -548,3 +548,51 @@ T3（execution_state 字段）→ T4/T6/T8；T2 → T5；T12（后端校验放�
 > 本会话旧域有上游新增）、api/provider/handler.go 97.8%（2 语句，同上）；
 > 回避面不变（auth/mfa.go、security/otp、assignment/gate.go、
 > resourcecatalog、他会话在途文件）。
+
+## 功能开关 + 观测配置 Tab 覆盖批次（SiteSettings 子 Tab 收尾，2026-09-28）
+
+> **交付（2026-09-28）**：SiteSettings 四个子 Tab 最后两个补齐——
+> `FeatureFlagsTab.tsx`（298 行）语句/分支/函数/行 4×100%（v8）+ `ObservabilityTab.tsx`
+> （223 行）语句/函数/行 100%、分支 91.66%，合计 15 用例：
+> FeatureFlags 锁定五域合成值回显、来源三态徽标（跟随部署配置/数据库覆盖/
+> 部署已裁剪）、缺省域兜底（snapshot 缺 key 默认开启）、裁剪禁用两翼
+> （trimmed && !enabled → disabled / trimmed 但已开仍可关）、toggle 开/关文案、
+> 成功链三步（重拉快照 + fetchServerFeatures + setInitialState 全局 features
+> 缓存刷新，失败不触达全局同步）、Popconfirm 确认恢复 clearSiteSetting；
+> Observability 锁定三入口回填、徽标三态（数据库覆盖/环境变量/未配置）、
+> 恢复按钮仅 database 来源行可见、trim 落库、空值=清除覆盖、保存失败透出
+> 后端 message 不重拉、Card loading 骨架收尾。
+> 门禁：目标套件 15/15 绿（28s）、tsc 0 错；全量 jest 3901 用例限 2 worker
+> 883s 完成，唯一失败为并行会话未跟踪 WIP 套件（Operations/Configs
+> **tests** 未入库、git 历史无记录），非已交付代码回归，其余 312 套件全绿。
+> **已知边界**：ObservabilityTab saveField 的 `if (!meta) return;` 守卫 true 翼
+> 构造性不可达（按钮 onClick 闭包只传 FIELDS 自有键），分支 91.66% 余量即此，
+> 不造假用例。SiteSettings 五文件（入口 + 四子 Tab）至此全部收口。
+
+## 操作日志页全局 scope 联动（OPEN-ISSUES #43，2026-09-28）
+
+> **交付（2026-09-28）**：`Admin/OperationLogs.tsx` 游戏/环境过滤接入全局 scope
+> store（#32/#35/#38/#39 同族「选了没刷新」收口）：初值取当前 scope，顶栏切
+> 游戏/环境后 useEffect 同步覆盖本地过滤输入（用户可见、可手改，直至下一次
+> scope 变化再覆盖），gameId/env 在 ProTable params 中，params 变化自动重发
+> request。3 用例锁定：挂载 scope 预填进首拉参数、切 scope 覆盖手输值并带新
+> 值重查、scope 清空回全量（请求不带 gameId/env）。store 用真实单例 +
+> setScope 驱动（merge 语义下显式 undefined 才能清空）。门禁：套件 16/16 绿、
+> tsc 0 错、全量 jest 3818/3818（2 worker 限流——并行会话曾把机器打到
+> load 94，回落窗口完成）、guard PASSED。
+
+## SDK 分布注册时间列（OPEN-ISSUES #44，2026-09-28）
+
+> **交付（2026-09-28）**：`/api/v1/providers/sdk-stats` 实例明细透出
+> `firstSeenUnix`（#27② 同模式服务端归一：零值回退 `lastSeenUnix`；dto 字段 +
+> service 映射 + Go 回归 1 例：显式观测值原样透传/无观测实例归一非零），前端
+> `SdkInstanceItem.firstSeenUnix` 类型 + 「注册时间」列（Tooltip 绝对时间，
+> 与「最后活跃」对照区分「实例活了多久 vs 只是无响应」，zh/en locale 同步）+
+> 页面用例 1 例（回退值 firstSeen===lastSeen 同刻渲染两列 → 同文本双元素，
+> _AllBy_ 断言恰为 2）。wire 文档同步 `sdk-wire-protocol.md` 实例元数据小节。
+> 门禁：go build ./... + go test ./internal/... 全绿、tsc 0 错、全量 jest
+> 3818/3818、guard PASSED。
+> **已知边界（诚实清单）**：FirstSeenUnix 为进程窗口语义——registry 会话是
+> 内存态，会话过期或 server 重启后从零重新累计（列注释与 wire 文档均注明）；
+> 持久化历史注册时间需 registry 落库演进，本批不做。
+

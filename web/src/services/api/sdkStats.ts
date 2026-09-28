@@ -24,6 +24,8 @@ export type SdkInstanceItem = {
   sdkVersion: string;
   /** provider 自报的用户实例元数据（serverId 等多 KV；保留键已在 agent 侧剥离） */
   metadata?: Record<string, string>;
+  /** 注册时间（进程窗口语义：服务端已归一，零值回退 lastSeenUnix） */
+  firstSeenUnix: number;
   lastSeenUnix: number;
 };
 
