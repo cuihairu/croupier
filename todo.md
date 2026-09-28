@@ -719,3 +719,38 @@ T3（execution_state 字段）→ T4/T6/T8；T2 → T5；T12（后端校验放�
 > 嵌 code/message + agent puller 解析端同步 + compat 组删除 + pages 契约修复，
 > 禁兼容旧键）；2) 列表组装修正（displayName join catalog / healthStatus 推
 > 导）；3) catalog 写路径（admin CRUD + official.* 四扩展 seed，pack 导入后续）；4) DomainEntry 真实渲染恢复+用例。
+
+## 覆盖率巡检批次·Go 侧第六轮·监控回补（wt-api worktree，2026-09-28）
+
+> **交付（2026-09-28）**：派发「排查最近 48h 新落地 Go 文件，为主函数与错误
+> 路径补齐测试」。排查结论：近期新文件中 `registry/agent/provider_metadata.go`
+> 已 100%、`model/provider_metadata.go` 纯数据型（读写路径经伴生测试覆盖）、
+> `api/function/version_history_handler.go` 归他会话在途（untracked 补测文件
+> 已在其目录，回避）、`server/assignment/gate.go` 归 wt-support BUG-031 域
+> （回避）、`registry/store_metadata.go` 上轮已 100%——唯一真实缺口在
+> `examples/cmd/dev-seed`（包 82%：main 0%、runMain 35%、全部 seeder 错误翼
+> 空）。补齐 `seed_error_injection_test.go`（271 行，15 用例/30 子测试）→
+> **dev-seed 包 100.0%**（main/runMain/seed.go/seed_edges.go 全文件 100%）：
+> ① main 体经 exit 注入点 + os.Args 覆盖（-h → 0）；runMain 五分支全通：
+> 死端口 postgres dsn → 打开失败（1）、games 表预置 NOT NULL 无默认列 →
+> AutoMigrate 容忍但 INSERT 违约 → seedAll 失败（1）、空 dsn + t.Chdir 临时
+> 目录 → 成功（0）、**只读库文件**（合法空库 chmod 0400，Open 只读回落成功、
+> 首个 CREATE TABLE 即拒）→ 建表失败（1）。
+> ② seeder 错误翼双注入（同 svc C 批口径）：读翼（哨兵 Count/Pluck）
+> DropTable 缺表即错；写翼全量预铺 + Unscoped 硬删第 k 组行 + PRAGMA
+> query_only 拒写——前组读命中、第 k 组读未命中写入被拒，k 遍历各组即盖全。
+> ③ 三个注入拦截点如实修正（教训入档）：a) 写在哨兵早退之后的翼（工单评论）
+> 拒写到不了 → 缺表注入（清空工单行放行哨兵 + drop ticket_comments）；
+> b) seedAccounts 的 role_permissions OnConflict Create 无存在性检查，拒写下
+> 必先在 links 翼报错、admins/admin_roles 两翼被拦截 → 缺表注入（links 重放
+> DO NOTHING no-op 放行）；c) 垃圾文件注入实测落「打开失败」分支（glebarez
+> Open 期即校验文件头，与死端口 dsn 同翼），建表失败分支改只读文件注入，
+> 两分支互补不重叠。
+> ④ seedHeavy 万级只铺一次底（与既有 BulkVolume 同价），缺表/拒写变体盖
+> 其余三翼；空库拒写直接盖 players CreateInBatches 翼免铺万级。
+> 门禁：触及文件 gofmt 干净、go vet ./internal/... 干净、go test
+> ./internal/... 全绿（fresh）、dev-seed 包 fresh 全绿（100.0%）、
+> scripts/dashboard_vnext_guard.sh PASSED。
+> **已知边界**：门禁在负载高位窗口执行（并行会话持续占机，dev-seed 包
+> 222s、audit 包 148s 属环境性慢，非回归）；全量 jest 未单跑（本轮零 web
+> 触碰，guard 已覆盖 PageSpec 侧校验）。
