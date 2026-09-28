@@ -759,17 +759,16 @@ func defaultPostJSONWithHeaders(ctx context.Context, u string, payload []byte, h
 	if err := secguard.CheckURL(ctx, guard, u); err != nil {
 		return err
 	}
-	reqCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	// 出站调用策略（OPEN-ISSUES #57）：net.requestTimeoutMs 覆盖整体预算
+	// （重试共享预算防风暴），net.maxRetries/Backoff 控制重试
+	reqCtx, cancel := context.WithTimeout(ctx, guard.TimeoutOrDefault(10*time.Second))
 	defer cancel()
-	req, err := http.NewRequestWithContext(reqCtx, http.MethodPost, u, bytes.NewReader(payload))
-	if err != nil {
-		return err
-	}
-	req.Header.Set("Content-Type", "application/json")
+	hdrs := map[string]string{"Content-Type": "application/json"}
 	for k, v := range headers {
-		req.Header.Set(k, v)
+		hdrs[k] = v
 	}
-	resp, err := secguard.HTTPClient(guard, http.DefaultClient).Do(req)
+	resp, err := secguard.DoWithRetry(reqCtx, secguard.HTTPClient(guard, http.DefaultClient),
+		http.MethodPost, u, payload, hdrs, guard.Retries(), guard.Backoff())
 	if err != nil {
 		return err
 	}

@@ -57,4 +57,19 @@ func TestPutKey_SecOutboundKeys(t *testing.T) {
 	// 未声明的 sec.* 键仍拒绝
 	rec = doSiteReq(t, r, http.MethodPut, "/api/v1/site/sec.unknown", `{"value":"x"}`)
 	assert.Equal(t, http.StatusBadRequest, rec.Code)
+
+	// net.* 出站调用策略（OPEN-ISSUES #57）：int 通用校验（负数/越界拒，
+	// 0 = 沿用调用方缺省）
+	for key := range map[string]struct{}{
+		"net.requestTimeoutMs": {},
+		"net.maxRetries":       {},
+		"net.retryBackoffMs":   {},
+	} {
+		rec = doSiteReq(t, r, http.MethodPut, "/api/v1/site/"+key, `{"value":-1}`)
+		require.Equal(t, http.StatusBadRequest, rec.Code, key)
+		rec = doSiteReq(t, r, http.MethodPut, "/api/v1/site/"+key, `{"value":70000}`)
+		require.Equal(t, http.StatusBadRequest, rec.Code, key)
+		rec = doSiteReq(t, r, http.MethodPut, "/api/v1/site/"+key, `{"value":3}`)
+		assert.Equal(t, http.StatusOK, rec.Code, key)
+	}
 }

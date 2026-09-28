@@ -115,17 +115,14 @@ func systemCheckUpdate(ctx context.Context, svcCtx *svc.ServiceContext) *SystemC
 
 // fetchRemoteVersion 拉取更新源并以字符串返回远端版本号。
 // 出站安全守卫（OPEN-ISSUES #56）：sec.* 开启时拦截受限目标。
+// 出站调用策略（OPEN-ISSUES #57）：net.* 超时/重试/退避接线（GET 幂等可安全重试）。
 func fetchRemoteVersion(ctx context.Context, url string) (string, error) {
 	guard := secguard.Resolve(settings.Current())
 	if err := secguard.CheckURL(ctx, guard, url); err != nil {
 		return "", err
 	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
-	if err != nil {
-		return "", err
-	}
-	client := secguard.HTTPClient(guard, &http.Client{Timeout: 5 * time.Second})
-	httpResp, err := client.Do(req)
+	client := secguard.HTTPClient(guard, &http.Client{Timeout: guard.TimeoutOrDefault(5 * time.Second)})
+	httpResp, err := secguard.DoWithRetry(ctx, client, http.MethodGet, url, nil, nil, guard.Retries(), guard.Backoff())
 	if err != nil {
 		return "", err
 	}

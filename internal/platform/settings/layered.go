@@ -135,12 +135,16 @@ const (
 	// releases/latest 的 tag_name）；空 = 未配置，检查更新仅回版本注记。
 	KeySystemUpdateCheckURL = "system.updateCheckUrl" // string
 
-	// 安全与限制（OPEN-ISSUES #56，ValidKeys 先登记——功能语义由后续批次
-	// 接线；此处仅定义常量补齐编译）
+	// 安全与限制（OPEN-ISSUES #56，语义见 internal/security/secguard）
 	KeySecAllowPorts     = "sec.allowPorts"     // string：允许的端口
 	KeySecAllowIPs       = "sec.allowIPs"       // string：允许的 IP
 	KeySecDomainFilter   = "sec.domainFilter"   // string：域名过滤
 	KeySecSSRFProtection = "sec.ssrfProtection" // bool：SSRF 保护
+
+	// 出站调用策略（OPEN-ISSUES #57，第三方服务健康探针与会话/重试）
+	KeyNetRequestTimeoutMs = "net.requestTimeoutMs" // int：外呼单请求超时 ms（0=沿用调用方缺省）
+	KeyNetMaxRetries       = "net.maxRetries"       // int：5xx/网络错误重试次数（0=不重试）
+	KeyNetRetryBackoffMs   = "net.retryBackoffMs"   // int：重试指数退避基数 ms（0=500ms 缺省）
 )
 
 // ValidKeys is the L3 whitelist.
@@ -173,20 +177,23 @@ var ValidKeys = map[string]struct{}{
 	KeyAuthGitHubEnabled: {}, KeyAuthGitHubClientId: {}, KeyAuthGitHubClientSecret: {},
 	KeyAuthGitHubRedirectUrl: {}, KeyAuthGitHubDefaultRoles: {}, KeyAuthGitHubSuccessURL: {},
 	KeyAuthRegisterEnabled: {}, KeyAuthRegisterDefaultRoles: {},
-	KeyPerfMaxCpuPct:      {},
-	KeyPerfMaxMemoryPct:   {},
-	KeyPerfMaxDiskPct:     {},
-	KeyPerfMaxConcurrent:  {},
-	KeyPerfMaxThreadCount: {},
-	KeyPerfCacheSize:      {},
-	KeyLogRetentionDays:   {},
-	KeyLogCleanupCron:     {},
-	KeyLogCopierDir:       {},
-	KeyLogCopierKeep:      {},
-	KeySecAllowPorts:      {},
-	KeySecAllowIPs:        {},
-	KeySecDomainFilter:    {},
-	KeySecSSRFProtection:  {},
+	KeyPerfMaxCpuPct:       {},
+	KeyPerfMaxMemoryPct:    {},
+	KeyPerfMaxDiskPct:      {},
+	KeyPerfMaxConcurrent:   {},
+	KeyPerfMaxThreadCount:  {},
+	KeyPerfCacheSize:       {},
+	KeyLogRetentionDays:    {},
+	KeyLogCleanupCron:      {},
+	KeyLogCopierDir:        {},
+	KeyLogCopierKeep:       {},
+	KeySecAllowPorts:       {},
+	KeySecAllowIPs:         {},
+	KeySecDomainFilter:     {},
+	KeySecSSRFProtection:   {},
+	KeyNetRequestTimeoutMs: {},
+	KeyNetMaxRetries:       {},
+	KeyNetRetryBackoffMs:   {},
 
 	KeySecurityMFARequired: {}, KeySecurityPasswordMinLength: {},
 	KeySecurityPasswordRequireUpper: {}, KeySecurityPasswordRequireSpecial: {},
@@ -230,6 +237,9 @@ var intKeys = map[string]struct{}{
 	KeyPerfMaxThreadCount:         {},
 	KeyPerfCacheSize:              {},
 	KeyLogRetentionDays:           {},
+	KeyNetRequestTimeoutMs:        {},
+	KeyNetMaxRetries:              {},
+	KeyNetRetryBackoffMs:          {},
 }
 
 // IsIntKey reports whether the key carries a JSON number value.
@@ -902,15 +912,20 @@ func (l *Layered) SecurityPolicy() SecurityPolicySnapshot {
 	}
 }
 
-// OutboundSnapshot 是出站安全与限制（sec.*，OPEN-ISSUES #56）的读视图：
-// 清单为空串 = 不限；ssrfProtection false = 不拦截。语义实现在
-// internal/security/secguard（CheckURL 静态校验 + 拨号 Control 钩子）。
+// OutboundSnapshot 是出站安全与限制（sec.*，OPEN-ISSUES #56）与出站调用
+// 策略（net.*，OPEN-ISSUES #57）的读视图：清单为空串 = 不限；
+// ssrfProtection false = 不拦截；超时/重试 0 = 沿用调用方缺省。语义实现
+// 在 internal/security/secguard（CheckURL 静态校验 + 拨号 Control 钩子 +
+// DoWithRetry/Probe）。
 type OutboundSnapshot struct {
-	AllowPorts     string            `json:"allowPorts"`
-	AllowIPs       string            `json:"allowIPs"`
-	DomainFilter   string            `json:"domainFilter"`
-	SSRFProtection bool              `json:"ssrfProtection"`
-	Sources        map[string]string `json:"sources"`
+	AllowPorts       string            `json:"allowPorts"`
+	AllowIPs         string            `json:"allowIPs"`
+	DomainFilter     string            `json:"domainFilter"`
+	SSRFProtection   bool              `json:"ssrfProtection"`
+	RequestTimeoutMs int               `json:"requestTimeoutMs"`
+	MaxRetries       int               `json:"maxRetries"`
+	RetryBackoffMs   int               `json:"retryBackoffMs"`
+	Sources          map[string]string `json:"sources"`
 }
 
 // OutboundSnapshot resolves the outbound guard settings.
@@ -930,6 +945,15 @@ func (l *Layered) OutboundSnapshot() OutboundSnapshot {
 		}
 	}
 	snap.SSRFProtection, snap.Sources[KeySecSSRFProtection], _ = l.getBoolWithSource(KeySecSSRFProtection, false)
+	for key, dst := range map[string]*int{
+		KeyNetRequestTimeoutMs: &snap.RequestTimeoutMs,
+		KeyNetMaxRetries:       &snap.MaxRetries,
+		KeyNetRetryBackoffMs:   &snap.RetryBackoffMs,
+	} {
+		v, src := l.getIntWithSource(key, 0)
+		*dst = int(v)
+		snap.Sources[key] = src
+	}
 	return snap
 }
 

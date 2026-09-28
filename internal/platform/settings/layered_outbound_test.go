@@ -30,6 +30,10 @@ func TestOutboundSnapshot(t *testing.T) {
 	set(KeySecAllowIPs, `"10.0.0.0/8,127.0.0.1"`)
 	set(KeySecDomainFilter, `"example.com, foo.io"`)
 	set(KeySecSSRFProtection, `true`)
+	// net.* 出站调用策略三键（OPEN-ISSUES #57）
+	set(KeyNetRequestTimeoutMs, `8000`)
+	set(KeyNetMaxRetries, `3`)
+	set(KeyNetRetryBackoffMs, `200`)
 	l.Reload(context.Background(), store)
 
 	snap = l.OutboundSnapshot()
@@ -39,4 +43,8 @@ func TestOutboundSnapshot(t *testing.T) {
 	assert.True(t, snap.SSRFProtection)
 	assert.Equal(t, "database", snap.Sources[KeySecAllowPorts])
 	assert.Equal(t, "database", snap.Sources[KeySecSSRFProtection])
+	assert.Equal(t, 8000, snap.RequestTimeoutMs)
+	assert.Equal(t, 3, snap.MaxRetries)
+	assert.Equal(t, 200, snap.RetryBackoffMs)
+	assert.Equal(t, "database", snap.Sources[KeyNetMaxRetries])
 }

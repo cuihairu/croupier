@@ -20,6 +20,7 @@ import {
 import { fetchSiteConfig } from '@/services/api/sites';
 import { extractErrorMessage } from '@/utils/errors';
 import SmtpCard from './SmtpCard';
+import ThirdPartyProbeCard from './ThirdPartyProbeCard';
 
 const { Text } = Typography;
 
@@ -241,6 +242,9 @@ export default function MaintenanceTab() {
 
       {/* SMTP 邮件服务（OPEN-ISSUES #55）：通知邮件通道传输配置自通知 Tab 迁入运维 */}
       <SmtpCard />
+
+      {/* 第三方服务健康探针（OPEN-ISSUES #57）：webhook 四渠道/更新源/SMTP 手动探活 */}
+      <ThirdPartyProbeCard />
     </Space>
   );
 }

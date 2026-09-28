@@ -268,6 +268,22 @@ export default {
     'Checks and shows a version note only; upgrades are never executed automatically. Without an update source configured, only the current version is shown.',
   'pages.systemSiteSettings.maintenance.uptime': 'Uptime',
   'pages.systemSiteSettings.maintenance.version': 'Version',
+
+  // Maintenance / third-party service health probe (OPEN-ISSUES #57)
+  'pages.systemSiteSettings.maintenance.probe.title': 'Third-Party Service Health Probe',
+  'pages.systemSiteSettings.maintenance.probe.hint':
+    'Manually probe configured third-party targets: webhook channels use read-only GET (no notification is sent), SMTP uses TCP+EHLO (no mail, no auth).',
+  'pages.systemSiteSettings.maintenance.probe.channel.dingtalk': 'DingTalk Bot',
+  'pages.systemSiteSettings.maintenance.probe.channel.wecom': 'WeCom Bot',
+  'pages.systemSiteSettings.maintenance.probe.channel.feishu': 'Feishu Bot',
+  'pages.systemSiteSettings.maintenance.probe.channel.webhook': 'Generic Webhook',
+  'pages.systemSiteSettings.maintenance.probe.channel.update': 'Update Source',
+  'pages.systemSiteSettings.maintenance.probe.channel.smtp': 'SMTP Mail Service',
+  'pages.systemSiteSettings.maintenance.probe.action': 'Probe',
+  'pages.systemSiteSettings.maintenance.probe.healthy': 'Healthy',
+  'pages.systemSiteSettings.maintenance.probe.unhealthy': 'Unhealthy',
+  'pages.systemSiteSettings.maintenance.probe.unconfigured': 'Not configured',
+  'pages.systemSiteSettings.maintenance.probe.error.failed': 'Probe failed',
   'pages.systemSiteSettings.tab.maintenance': 'Maintenance',
   'pages.systemSiteSettings.tab.performance': 'Performance',
   'pages.systemSiteSettings.performance.action.refresh': 'Refresh',

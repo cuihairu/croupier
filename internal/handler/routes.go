@@ -558,6 +558,8 @@ func registerOpsRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 	g.GET("/logs", opsHandler.LogsGet)
 	g.PUT("/logs", opsHandler.LogsPut)
 	g.POST("/logs/cleanup", opsHandler.LogsCleanupPost)
+	// 第三方服务健康探针（OPEN-ISSUES #57）：webhook 四渠道/更新源/SMTP
+	g.POST("/probes/:channel", opsHandler.ThirdPartyProbe)
 	g.GET("/metrics", opsHandler.Metrics)
 	g.GET("/mq", opsHandler.MQ)
 	g.GET("/notifications", opsHandler.NotificationsGet)

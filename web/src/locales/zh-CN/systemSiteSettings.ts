@@ -257,6 +257,22 @@ export default {
     '仅检查并提示版本注记，不会自动执行升级。更新源未配置时仅显示当前版本信息。',
   'pages.systemSiteSettings.maintenance.uptime': '在线时长',
   'pages.systemSiteSettings.maintenance.version': '运行版本',
+
+  // 运维/第三方服务健康探针（OPEN-ISSUES #57）
+  'pages.systemSiteSettings.maintenance.probe.title': '第三方服务健康探针',
+  'pages.systemSiteSettings.maintenance.probe.hint':
+    '对已配置的第三方目标手动探活：webhook 渠道为只读 GET（不发送通知消息），SMTP 为 TCP+EHLO（不发信不认证）。',
+  'pages.systemSiteSettings.maintenance.probe.channel.dingtalk': '钉钉机器人',
+  'pages.systemSiteSettings.maintenance.probe.channel.wecom': '企业微信机器人',
+  'pages.systemSiteSettings.maintenance.probe.channel.feishu': '飞书机器人',
+  'pages.systemSiteSettings.maintenance.probe.channel.webhook': '通用 Webhook',
+  'pages.systemSiteSettings.maintenance.probe.channel.update': '检查更新源',
+  'pages.systemSiteSettings.maintenance.probe.channel.smtp': 'SMTP 邮件服务',
+  'pages.systemSiteSettings.maintenance.probe.action': '探测',
+  'pages.systemSiteSettings.maintenance.probe.healthy': '健康',
+  'pages.systemSiteSettings.maintenance.probe.unhealthy': '异常',
+  'pages.systemSiteSettings.maintenance.probe.unconfigured': '未配置',
+  'pages.systemSiteSettings.maintenance.probe.error.failed': '探测失败',
   'pages.systemSiteSettings.tab.maintenance': '运维',
   'pages.systemSiteSettings.tab.performance': '性能',
   'pages.systemSiteSettings.performance.action.refresh': '刷新',

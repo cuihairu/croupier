@@ -11,6 +11,10 @@
 // （钉钉/飞书/企微/通用）与检查更新拉取；agent/DB/SDK 通道不经过本包。
 // 默认全关（零行为变更），开启后由 CheckURL 静态校验 + HTTPClient 拨号
 // Control 钩子双层拦截（后者消除 DNS 解析 TOCTOU）。
+//
+// 本包同时承载出站调用策略（OPEN-ISSUES #57）：net.* 三键（超时/重试/
+// 退避）经 DoWithRetry 接线 webhook 与检查更新，Probe/ProbeSMTP 为运维
+// 「第三方服务探针」端点提供探测实现。
 package secguard
 
 import (
@@ -27,12 +31,16 @@ import (
 	"github.com/cuihairu/croupier/internal/platform/settings"
 )
 
-// Settings 四键的解析结果（L3∧L2∧默认）。
+// Settings sec.* 四键 + net.* 三键（OPEN-ISSUES #57）的解析结果（L3∧L2∧默认）。
 type Settings struct {
 	AllowPorts     []int
 	AllowIPs       []string
 	AllowDomains   []string
 	SSRFProtection bool
+	// 出站调用策略：0 值 = 沿用各调用方缺省（零行为变更）
+	RequestTimeoutMs int
+	MaxRetries       int
+	RetryBackoffMs   int
 }
 
 // Resolve 从分层设置解析守卫参数（l 为 nil 时返回全关零值——settings 未
@@ -45,11 +53,17 @@ func Resolve(l *settings.Layered) Settings {
 		v, _, _ := l.GetString(context.Background(), key)
 		return v
 	}
+	i := func(key string) int {
+		return l.GetInt(key, 0)
+	}
 	return Settings{
-		AllowPorts:     parsePortList(str(settings.KeySecAllowPorts)),
-		AllowIPs:       parseList(str(settings.KeySecAllowIPs)),
-		AllowDomains:   parseList(str(settings.KeySecDomainFilter)),
-		SSRFProtection: l.GetBool(settings.KeySecSSRFProtection, false),
+		AllowPorts:       parsePortList(str(settings.KeySecAllowPorts)),
+		AllowIPs:         parseList(str(settings.KeySecAllowIPs)),
+		AllowDomains:     parseList(str(settings.KeySecDomainFilter)),
+		SSRFProtection:   l.GetBool(settings.KeySecSSRFProtection, false),
+		RequestTimeoutMs: i(settings.KeyNetRequestTimeoutMs),
+		MaxRetries:       i(settings.KeyNetMaxRetries),
+		RetryBackoffMs:   i(settings.KeyNetRetryBackoffMs),
 	}
 }
 
@@ -138,20 +152,67 @@ func CheckURL(ctx context.Context, s Settings, rawURL string) error {
 }
 
 // HTTPClient 返回带拨号级 SSRF 拦截的客户端（Control 钩子在真实 connect
-// 前检查对端地址，消除静态解析的 TOCTOU）。保护关闭时原样返回 base。
+// 前检查对端地址，消除静态解析的 TOCTOU）。net.requestTimeoutMs > 0 时
+// 覆盖超时——此时即便守卫关闭也派生新实例（不改写共享的 base，可能是
+// http.DefaultClient）；两者皆关时原样返回 base。
 func HTTPClient(s Settings, base *http.Client) *http.Client {
-	if !s.SSRFProtection {
-		return base
+	client := base
+	if s.SSRFProtection {
+		dialer := &net.Dialer{Timeout: 10 * time.Second, Control: dialControl(s)}
+		tr := http.DefaultTransport.(*http.Transport).Clone()
+		tr.DialContext = dialer.DialContext
+		client = &http.Client{Transport: tr}
+		if base != nil {
+			client.Timeout = base.Timeout
+			client.CheckRedirect = base.CheckRedirect
+		}
 	}
-	dialer := &net.Dialer{Timeout: 10 * time.Second, Control: dialControl(s)}
-	tr := http.DefaultTransport.(*http.Transport).Clone()
-	tr.DialContext = dialer.DialContext
-	client := &http.Client{Transport: tr}
-	if base != nil {
-		client.Timeout = base.Timeout
-		client.CheckRedirect = base.CheckRedirect
+	if s.RequestTimeoutMs > 0 {
+		if client == base {
+			// base 可能是包级共享实例（http.DefaultClient），禁止原地改写
+			derived := &http.Client{}
+			if base != nil {
+				*derived = *base
+			}
+			client = derived
+		}
+		client.Timeout = time.Duration(s.RequestTimeoutMs) * time.Millisecond
 	}
 	return client
+}
+
+// TimeoutOrDefault 出站单请求超时：net.requestTimeoutMs 覆盖，否则用调用方缺省。
+func (s Settings) TimeoutOrDefault(def time.Duration) time.Duration {
+	if s.RequestTimeoutMs > 0 {
+		return time.Duration(s.RequestTimeoutMs) * time.Millisecond
+	}
+	return def
+}
+
+// maxRetries 服务端硬上限：L3 写入口仅限 65535（int 通用校验），重试次数
+// 过大将放大故障（对端不可用时请求挂起 retries×超时），钳到 10。
+const maxRetries = 10
+
+// Retries 重试次数（0-10，0=不重试）。
+func (s Settings) Retries() int {
+	if s.MaxRetries < 0 {
+		return 0
+	}
+	if s.MaxRetries > maxRetries {
+		return maxRetries
+	}
+	return s.MaxRetries
+}
+
+// DefaultRetryBackoff 退避基数缺省（net.retryBackoffMs 未配置时）。
+const DefaultRetryBackoff = 500 * time.Millisecond
+
+// Backoff 指数退避基数。
+func (s Settings) Backoff() time.Duration {
+	if s.RetryBackoffMs > 0 {
+		return time.Duration(s.RetryBackoffMs) * time.Millisecond
+	}
+	return DefaultRetryBackoff
 }
 
 // dialControl 返回拨号 Control 钩子：连接前校验对端 IP。
