@@ -522,3 +522,29 @@ T3（execution_state 字段）→ T4/T6/T8；T2 → T5；T12（后端校验放�
 > 2. FieldDef 上 smtpPort 的 `kind: 'int'` 元数据无消费方（字段被 filter 剔除后
 >    走 smtpPortField 专用渲染），无对应行为可断言。
 > 3. FeatureFlagsTab / ObservabilityTab 两个子 Tab 仍留待后续批次。
+
+## 覆盖率巡检批次·Go 侧第三轮 + main 红测修复（wt-api worktree，2026-09-28）
+
+> **交付（2026-09-28）**：派发两项核对结果——① api/function/
+> version_history_handler.go 的 91.4% 是排序管线吃到陈旧测试缓存条目的
+> 假缺口（全量 profile 中该包为 (cached) 旧条目），`-count=1` 实跑 function
+> 包已 100%（version_history_handler_extra_test.go 三例确定性覆盖
+> 错误/排序/去重分支），无需补测；② api/resourcecatalog/handler.go 归属
+> 冲突核实成立——wt-support 分支持有未进 main 的 c79e0e9（BUG-031，
+> resourcecatalog 目录），按派发跳过。同窗发现并修复 main tip 红测：
+> internal/model/bug_error_paths_test.go 两个 sanity check 用例漏建
+> bug_ticket_links 表，与自身「正常表结构下不应报错」断言矛盾，
+> fresh run 必挂（此前被测试缓存掩盖带病落库）；拆出 newBugErrNormalDB
+> 补齐完整表结构（test-only，业务源码零改动），model 包 fresh 全绿
+> 99.9%，bug.go 仅剩两处 Scan 错误防御分支按既有口径登记不可达。
+> 门禁：触及文件 gofmt 干净、go vet ./internal/... 干净、
+> go test ./internal/... 全绿（fresh 实跑）、guard PASSED
+> （负载 ~30-50 非空载窗口执行，如实注明）。
+> **已知边界**：并行会话正在本共享目录在途编辑
+> coverage_contract_version_test.go（ListDistinctVersions 补测，未提交），
+> 按「只 add 自己文件」铁律未纳入本提交，function_contract_version.go
+> 缺口视为已被认领；全树 gofmt -l 现存该在途文件的格式化挂起（非本会话
+> 文件，不代改）。下一轮候选：registry/store_metadata.go 97.3%（4 语句，
+> 本会话旧域有上游新增）、api/provider/handler.go 97.8%（2 语句，同上）；
+> 回避面不变（auth/mfa.go、security/otp、assignment/gate.go、
+> resourcecatalog、他会话在途文件）。
