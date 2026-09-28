@@ -48,6 +48,12 @@ export default {
     'Anyone can register a local account on the login page; passwords are validated by the account security policy',
   'pages.systemSiteSettings.auth.register.rolesTooltip':
     'Roles granted to registered accounts (comma-separated); leave empty to grant none',
+  'pages.systemSiteSettings.auth.register.domainWhitelistLabel': 'Email domain whitelist',
+  'pages.systemSiteSettings.auth.register.domainWhitelistTooltip':
+    'Comma-separated domain suffixes; subdomains allowed automatically (example.com covers api.example.com); empty = unrestricted',
+  'pages.systemSiteSettings.auth.register.aliasRestrictionLabel': 'Email alias restriction',
+  'pages.systemSiteSettings.auth.register.aliasRestrictionTooltip':
+    'Rejects plus aliases (user+tag@) and deduplicates ignoring dots (u.s@ equals us@) when enabled',
   'pages.systemSiteSettings.auth.register.title': 'Self-Registration',
   'pages.systemSiteSettings.auth.provider.disabled': 'Disabled',
   'pages.systemSiteSettings.auth.provider.enabled': 'Enabled',
@@ -383,7 +389,14 @@ export default {
   'pages.systemSiteSettings.smtp.authTypeLogin': 'AUTH LOGIN (forced)',
   'pages.systemSiteSettings.smtp.skipVerify': 'Skip TLS certificate verification',
   'pages.systemSiteSettings.smtp.skipVerifyHint':
-    'Skip verification only for self-signed intranet servers; enabling it for public providers exposes MITM risk. No "send test email" entry yet (later batch)',
+    'Skip verification only for self-signed intranet servers; enabling it for public providers exposes MITM risk.',
+  'pages.systemSiteSettings.smtp.testEmailLabel': 'Send test email',
+  'pages.systemSiteSettings.smtp.testEmailTooltip':
+    'Sends a real email using the saved SMTP config (unsaved form drafts above are ignored)',
+  'pages.systemSiteSettings.smtp.testEmailAction': 'Send',
+  'pages.systemSiteSettings.smtp.testEmailInvalid': 'Invalid email address',
+  'pages.systemSiteSettings.smtp.testEmailSent': 'Test email sent, please check the inbox',
+  'pages.systemSiteSettings.smtp.testEmailFailed': 'Send failed',
   'pages.systemSiteSettings.notification.smtpMoved':
     'SMTP server/encryption/auth settings for the email channel have moved to the "SMTP Email Service" card on the Ops tab.',
 };

@@ -29,6 +29,7 @@ import { FormattedMessage, useIntl } from '@umijs/max';
 import {
   clearSiteSetting,
   fetchNotificationSettings,
+  sendTestEmail,
   setSiteSetting,
   type NotificationSettings,
 } from '@/services/api/sites';
@@ -84,6 +85,40 @@ export default function SmtpCard() {
   const [loading, setLoading] = useState(false);
   const [savingKey, setSavingKey] = useState<string | null>(null);
   const [settings, setSettings] = useState<NotificationSettings | null>(null);
+  const [sendingTest, setSendingTest] = useState(false);
+
+  // #51c：发送测试邮件（仅校验该输入框，不整表校验）
+  const sendTest = async () => {
+    try {
+      await form.validateFields(['testEmailTo']);
+    } catch {
+      return; // 校验错误已内联展示
+    }
+    const to = String(form.getFieldValue('testEmailTo') ?? '').trim();
+    if (!to) return;
+    setSendingTest(true);
+    try {
+      await sendTestEmail(to);
+      message.success(
+        intlRef.current.formatMessage({
+          id: 'pages.systemSiteSettings.smtp.testEmailSent',
+          defaultMessage: '测试邮件已发送，请查收',
+        }),
+      );
+    } catch (error) {
+      message.error(
+        extractErrorMessage(
+          error,
+          intlRef.current.formatMessage({
+            id: 'pages.systemSiteSettings.smtp.testEmailFailed',
+            defaultMessage: '发送失败',
+          }),
+        ),
+      );
+    } finally {
+      setSendingTest(false);
+    }
+  };
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -367,9 +402,42 @@ export default function SmtpCard() {
               title={intl.formatMessage({
                 id: 'pages.systemSiteSettings.smtp.skipVerifyHint',
                 defaultMessage:
-                  '跳过校验仅建议自签证书的内网邮服使用；公网邮服开启将暴露中间人风险。暂无「发送测试邮件」入口（后续批次补充）',
+                  '跳过校验仅建议自签证书的内网邮服使用；公网邮服开启将暴露中间人风险。',
               })}
             />
+            {/* #51c：发送测试邮件（真实发信，验证 SMTP 配置链路） */}
+            <Form.Item
+              label={fmt('pages.systemSiteSettings.smtp.testEmailLabel', '发送测试邮件')}
+              tooltip={fmt(
+                'pages.systemSiteSettings.smtp.testEmailTooltip',
+                '按当前已保存的 SMTP 配置真实发信（不受上方未保存的表单草稿影响）',
+              )}
+              required={false}
+            >
+              <Space.Compact style={{ width: '100%' }}>
+                <Form.Item
+                  name="testEmailTo"
+                  noStyle
+                  rules={[
+                    {
+                      type: 'email',
+                      message: fmt(
+                        'pages.systemSiteSettings.smtp.testEmailInvalid',
+                        '邮箱格式无效',
+                      ),
+                    },
+                  ]}
+                >
+                  <Input placeholder="you@example.com" autoComplete="off" />
+                </Form.Item>
+                <Button loading={sendingTest} onClick={() => void sendTest()}>
+                  <FormattedMessage
+                    id="pages.systemSiteSettings.smtp.testEmailAction"
+                    defaultMessage="发送"
+                  />
+                </Button>
+              </Space.Compact>
+            </Form.Item>
           </>
         ) : null}
       </Form>

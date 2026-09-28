@@ -122,6 +122,10 @@ const (
 	KeyAuthRegisterEnabled      = "auth.register.enabled"      // bool
 	KeyAuthRegisterDefaultRoles = "auth.register.defaultRoles" // string (逗号分隔)
 
+	// 注册邮箱策略（OPEN-ISSUES #51c）
+	KeyAuthEmailDomainWhitelist  = "auth.email.domainWhitelist"  // string：注册邮箱域后缀白名单（空 = 不限）
+	KeyAuthEmailAliasRestriction = "auth.email.aliasRestriction" // bool：拒绝 + 别名，local 去点归一查重
+
 	// 账号安全策略（L3 运行时配置，全部默认关闭——关闭即维持内置基线：
 	// 密码 8-128 位 + 弱密码表 + 至少 2/4 字符类；不限期；TOTP 自助不强制）
 	KeySecurityMFARequired            = "security.mfaRequired"              // bool：强制 local 账号启用 TOTP
@@ -177,6 +181,7 @@ var ValidKeys = map[string]struct{}{
 	KeyAuthGitHubEnabled: {}, KeyAuthGitHubClientId: {}, KeyAuthGitHubClientSecret: {},
 	KeyAuthGitHubRedirectUrl: {}, KeyAuthGitHubDefaultRoles: {}, KeyAuthGitHubSuccessURL: {},
 	KeyAuthRegisterEnabled: {}, KeyAuthRegisterDefaultRoles: {},
+	KeyAuthEmailDomainWhitelist: {}, KeyAuthEmailAliasRestriction: {},
 	KeyPerfMaxCpuPct:       {},
 	KeyPerfMaxMemoryPct:    {},
 	KeyPerfMaxDiskPct:      {},
@@ -260,6 +265,7 @@ var boolKeys = map[string]struct{}{
 	KeySecurityMFARequired: {}, KeySecurityPasswordRequireUpper: {},
 	KeySecurityPasswordRequireSpecial: {},
 	KeySecSSRFProtection:              {},
+	KeyAuthEmailAliasRestriction:      {},
 }
 
 // IsBoolKey reports whether the key carries a JSON boolean value.
@@ -855,6 +861,30 @@ type AuthSnapshot struct {
 	LDAP     AuthProviderSnapshot `json:"ldap"`
 	OIDC     AuthProviderSnapshot `json:"oidc"`
 	Register AuthProviderSnapshot `json:"register"` // 自助注册（#51b）：enabled + defaultRoles
+	Email    EmailPolicySnapshot  `json:"email"`    // 注册邮箱策略（#51c）
+}
+
+// EmailPolicySnapshot 是注册邮箱策略（OPEN-ISSUES #51c）的读视图：
+// 域白名单空串 = 不限；别名限制默认关。语义在 auth service.Register
+// 注册链路执行。
+type EmailPolicySnapshot struct {
+	DomainWhitelist  string            `json:"domainWhitelist"`
+	AliasRestriction bool              `json:"aliasRestriction"`
+	Sources          map[string]string `json:"sources"`
+}
+
+// EmailPolicy resolves the register email policy.
+func (l *Layered) EmailPolicy() EmailPolicySnapshot {
+	snap := EmailPolicySnapshot{Sources: map[string]string{}}
+	v, src, ok := l.GetString(context.Background(), KeyAuthEmailDomainWhitelist)
+	if ok {
+		snap.DomainWhitelist = v
+		snap.Sources[KeyAuthEmailDomainWhitelist] = src
+	} else {
+		snap.Sources[KeyAuthEmailDomainWhitelist] = "default"
+	}
+	snap.AliasRestriction, snap.Sources[KeyAuthEmailAliasRestriction], _ = l.getBoolWithSource(KeyAuthEmailAliasRestriction, false)
+	return snap
 }
 
 // LocalAuthSnapshot 账号密码登录开关读视图（默认启用，显式覆盖 false 才停用；
@@ -888,6 +918,7 @@ func (l *Layered) AuthSnapshot() AuthSnapshot {
 		LDAP:     l.authProviderSnapshot("ldap"),
 		OIDC:     l.authProviderSnapshot("oidc"),
 		Register: l.authProviderSnapshot("register"),
+		Email:    l.EmailPolicy(),
 	}
 }
 

@@ -22,6 +22,7 @@ jest.mock('@/services/api/sites', () => ({
   fetchNotificationSettings: jest.fn(),
   setSiteSetting: jest.fn(),
   clearSiteSetting: jest.fn(),
+  sendTestEmail: jest.fn(),
 }));
 
 jest.mock('@umijs/max', () => ({
@@ -43,11 +44,17 @@ jest.mock('@umijs/max', () => ({
   }),
 }));
 
-import { clearSiteSetting, fetchNotificationSettings, setSiteSetting } from '@/services/api/sites';
+import {
+  clearSiteSetting,
+  fetchNotificationSettings,
+  sendTestEmail,
+  setSiteSetting,
+} from '@/services/api/sites';
 
 const mFetch = fetchNotificationSettings as jest.MockedFunction<typeof fetchNotificationSettings>;
 const mSet = setSiteSetting as jest.MockedFunction<typeof setSiteSetting>;
 const mClear = clearSiteSetting as jest.MockedFunction<typeof clearSiteSetting>;
+const mSend = sendTestEmail as jest.MockedFunction<typeof sendTestEmail>;
 
 const baseSettings: NotificationSettings = {
   emailEnabled: true,
@@ -91,6 +98,7 @@ beforeEach(() => {
   mFetch.mockResolvedValue({ ...baseSettings });
   mSet.mockResolvedValue(undefined);
   mClear.mockResolvedValue(undefined);
+  mSend.mockResolvedValue(undefined);
 });
 
 describe('SmtpCard（OPEN-ISSUES #55）', () => {
@@ -175,5 +183,41 @@ describe('SmtpCard（OPEN-ISSUES #55）', () => {
 
     expect(await screen.findByText('db down')).toBeInTheDocument();
     expect(screen.getByText('邮件通知')).toBeInTheDocument();
+  });
+});
+
+// ---- 发送测试邮件（OPEN-ISSUES #51c 补欠 #55 边界） ----
+
+describe('SmtpCard 测试邮件', () => {
+  async function openAndFill(email: string) {
+    renderCard();
+    await screen.findByDisplayValue('smtp.example.com');
+    const input = screen.getByPlaceholderText('you@example.com');
+    fireEvent.change(input, { target: { value: email } });
+    return input;
+  }
+
+  it('合法邮箱：调 sendTestEmail + 成功提示', async () => {
+    await openAndFill('ops@example.com');
+    fireEvent.click(screen.getByRole('button', { name: '发送' }));
+
+    await waitFor(() => expect(mSend).toHaveBeenCalledWith('ops@example.com'));
+    expect(await screen.findByText('测试邮件已发送，请查收')).toBeInTheDocument();
+  });
+
+  it('非法邮箱：内联校验拦截，不发请求', async () => {
+    await openAndFill('not-an-email');
+    fireEvent.click(screen.getByRole('button', { name: '发送' }));
+
+    expect(await screen.findByText('邮箱格式无效')).toBeInTheDocument();
+    expect(mSend).not.toHaveBeenCalled();
+  });
+
+  it('发送失败：透出后端 message', async () => {
+    mSend.mockRejectedValue(new Error('smtp dial refused'));
+    await openAndFill('ops@example.com');
+    fireEvent.click(screen.getByRole('button', { name: '发送' }));
+
+    expect(await screen.findByText('smtp dial refused')).toBeInTheDocument();
   });
 });

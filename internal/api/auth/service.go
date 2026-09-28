@@ -604,6 +604,12 @@ func (s *Service) Register(ctx context.Context, req *RegisterRequest) (*model.Ad
 	if existing, err := s.adminModel.FindByUsername(ctx, username); err == nil && existing != nil {
 		return nil, fmt.Errorf("用户名已存在")
 	}
+	email := strings.TrimSpace(req.Email)
+	if email != "" {
+		if err := s.checkRegisterEmailPolicy(ctx, email); err != nil {
+			return nil, err
+		}
+	}
 	nickname := strings.TrimSpace(req.Nickname)
 	if nickname == "" {
 		nickname = username
@@ -611,7 +617,7 @@ func (s *Service) Register(ctx context.Context, req *RegisterRequest) (*model.Ad
 	admin := &model.Admin{
 		Username: username,
 		Nickname: nickname,
-		Email:    strings.TrimSpace(req.Email),
+		Email:    email,
 		Status:   1,
 	}
 	if err := s.adminModel.Create(ctx, admin, req.Password); err != nil {
@@ -625,6 +631,59 @@ func (s *Service) Register(ctx context.Context, req *RegisterRequest) (*model.Ad
 		&LoginRequest{ClientIP: req.ClientIP, UserAgent: req.UserAgent}, "", "")
 	slog.Default().Info("self-registered admin account", "username", username)
 	return admin, nil
+}
+
+// checkRegisterEmailPolicy 注册邮箱策略（OPEN-ISSUES #51c）。email 非空时
+// 依次执行：①基础形态校验（恰好一个 @、域含点）；②域后缀白名单
+// （auth.email.domainWhitelist，空 = 不限）；③别名限制
+// （auth.email.aliasRestriction）：拒绝 + 别名形态，并按 local 去点小写
+// 归一与同域既有账号比对（u.s@example.com 视同 us@example.com）。
+// 每次注册实时读 L3——保存即生效，无需接入热刷新装配链。
+func (s *Service) checkRegisterEmailPolicy(ctx context.Context, email string) error {
+	local, domain, hasAt := strings.Cut(email, "@")
+	if !hasAt || local == "" || !strings.Contains(domain, ".") || strings.ContainsAny(email, " \t") {
+		return fmt.Errorf("邮箱格式无效")
+	}
+	cur := settings.Current()
+	if cur == nil {
+		return nil
+	}
+	if wl, _, ok := cur.GetString(ctx, settings.KeyAuthEmailDomainWhitelist); ok && strings.TrimSpace(wl) != "" {
+		domain = strings.ToLower(strings.TrimSuffix(domain, "."))
+		allowed := false
+		for _, entry := range strings.Split(wl, ",") {
+			entry = strings.ToLower(strings.TrimSpace(strings.TrimSuffix(strings.TrimSpace(entry), ".")))
+			if entry == "" {
+				continue
+			}
+			if domain == entry || strings.HasSuffix(domain, "."+entry) {
+				allowed = true
+				break
+			}
+		}
+		if !allowed {
+			return fmt.Errorf("邮箱域名 %s 不在允许清单内", domain)
+		}
+	}
+	if cur.GetBool(settings.KeyAuthEmailAliasRestriction, false) {
+		if strings.Contains(local, "+") {
+			return fmt.Errorf("邮箱别名（+tag 形态）不允许用于注册")
+		}
+		canonical := strings.ReplaceAll(strings.ToLower(local), ".", "")
+		existing, err := s.adminModel.FindEmailsByDomain(ctx, domain)
+		if err == nil {
+			for _, e := range existing {
+				el, ed, ok2 := strings.Cut(strings.TrimSpace(e), "@")
+				if !ok2 {
+					continue
+				}
+				if strings.EqualFold(ed, domain) && strings.ReplaceAll(strings.ToLower(el), ".", "") == canonical {
+					return fmt.Errorf("该邮箱（忽略别名与点号后）已被其他账号使用")
+				}
+			}
+		}
+	}
+	return nil
 }
 
 // isValidRegisterUsername 校验注册用户名形态（3-32 位字母/数字/_/-）。

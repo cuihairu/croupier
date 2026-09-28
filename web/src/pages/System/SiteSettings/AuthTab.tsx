@@ -27,6 +27,7 @@ import {
   setSiteSetting,
   testAuthConnection,
   type AuthProviderSnapshot,
+  type EmailPolicySnapshot,
   type AuthSnapshot,
   type LocalAuthSnapshot,
 } from '@/services/api/sites';
@@ -1117,14 +1118,19 @@ function GitHubCard({
 type RegisterFormValues = {
   enabled: boolean;
   defaultRoles: string;
+  domainWhitelist: string;
+  aliasRestriction: boolean;
 };
 
-/** 自助注册（OPEN-ISSUES #51b）：默认关闭；注册的是本地账密账号。 */
+/** 自助注册（OPEN-ISSUES #51b/#51c）：默认关闭；注册的是本地账密账号。
+ * 邮箱策略两键（域白名单/别名限制）随卡保存，注册链路每次实时读 L3。 */
 function RegisterCard({
   snapshot,
+  emailPolicy,
   onReload,
 }: {
   snapshot: AuthProviderSnapshot | undefined;
+  emailPolicy: EmailPolicySnapshot | undefined;
   onReload: () => Promise<void>;
 }) {
   const { message } = App.useApp();
@@ -1137,8 +1143,10 @@ function RegisterCard({
     form.setFieldsValue({
       enabled: snapshot?.enabled ?? false,
       defaultRoles: f.defaultRoles ?? '',
+      domainWhitelist: emailPolicy?.domainWhitelist ?? '',
+      aliasRestriction: emailPolicy?.aliasRestriction ?? false,
     });
-  }, [snapshot, form]);
+  }, [snapshot, emailPolicy, form]);
 
   const handleSave = async () => {
     try {
@@ -1147,6 +1155,8 @@ function RegisterCard({
       await saveKeys([
         { key: 'auth.register.enabled', value: v.enabled },
         { key: 'auth.register.defaultRoles', value: v.defaultRoles?.trim() ?? '' },
+        { key: 'auth.email.domainWhitelist', value: v.domainWhitelist?.trim() ?? '' },
+        { key: 'auth.email.aliasRestriction', value: v.aliasRestriction },
       ]);
       await onReload();
       message.success(
@@ -1257,6 +1267,55 @@ function RegisterCard({
             </Form.Item>
           </Col>
         </Row>
+        <Row gutter={12}>
+          <Col span={12}>
+            <Form.Item
+              name="domainWhitelist"
+              label={
+                <Space size={4}>
+                  <FormattedMessage
+                    id="pages.systemSiteSettings.auth.register.domainWhitelistLabel"
+                    defaultMessage="邮箱域白名单"
+                  />
+                  <SourceTag source={emailPolicy?.sources?.['auth.email.domainWhitelist']} />
+                </Space>
+              }
+              tooltip={intl.formatMessage({
+                id: 'pages.systemSiteSettings.auth.register.domainWhitelistTooltip',
+                defaultMessage:
+                  '逗号分隔域名后缀，子域自动放行（example.com 覆盖 api.example.com）；留空 = 不限',
+              })}
+            >
+              <Input placeholder="example.com,foo.io" />
+            </Form.Item>
+          </Col>
+          <Col span={12}>
+            <Form.Item
+              name="aliasRestriction"
+              label={intl.formatMessage({
+                id: 'pages.systemSiteSettings.auth.register.aliasRestrictionLabel',
+                defaultMessage: '邮箱别名限制',
+              })}
+              valuePropName="checked"
+              tooltip={intl.formatMessage({
+                id: 'pages.systemSiteSettings.auth.register.aliasRestrictionTooltip',
+                defaultMessage:
+                  '开启后拒绝 + 别名（user+tag@）形态，且忽略点号归一查重（u.s@ 与 us@ 视为同一邮箱）',
+              })}
+            >
+              <Switch
+                checkedChildren={intl.formatMessage({
+                  id: 'pages.systemSiteSettings.auth.switch.enable',
+                  defaultMessage: '启用',
+                })}
+                unCheckedChildren={intl.formatMessage({
+                  id: 'pages.systemSiteSettings.auth.switch.disable',
+                  defaultMessage: '停用',
+                })}
+              />
+            </Form.Item>
+          </Col>
+        </Row>
         <Button type="primary" size="small" loading={saving} onClick={() => void handleSave()}>
           <FormattedMessage id="pages.systemSiteSettings.auth.action.save" defaultMessage="保存" />
         </Button>
@@ -1318,7 +1377,7 @@ export default function AuthTab() {
       <LDAPCard snapshot={snapshot?.ldap} onReload={load} />
       <OIDCCard snapshot={snapshot?.oidc} onReload={load} />
       <GitHubCard snapshot={snapshot?.github} onReload={load} />
-      <RegisterCard snapshot={snapshot?.register} onReload={load} />
+      <RegisterCard snapshot={snapshot?.register} emailPolicy={snapshot?.email} onReload={load} />
     </Space>
   );
 }

@@ -53,6 +53,7 @@ func (h *Handler) RegisterAdmin(g *gin.RouterGroup) {
 	g.GET("/site/notification", h.GetNotification)
 	g.GET("/site/security", h.GetSecurity)
 	g.GET("/site/outbound", h.GetOutbound)
+	g.POST("/site/notification/test-email", h.SendTestEmail)
 }
 
 // GetNotification serves GET /api/v1/site/notification: channel config with
@@ -235,14 +236,28 @@ func validateValue(key string, raw json.RawMessage) error {
 		}
 	}
 	if key == settings.KeySecDomainFilter && v != "" {
-		for _, part := range strings.Split(v, ",") {
-			part = strings.ToLower(strings.TrimSpace(strings.TrimSuffix(strings.TrimSpace(part), ".")))
-			if part == "" {
-				continue
-			}
-			if strings.Contains(part, "://") || strings.ContainsAny(part, "/ ") {
-				return fmt.Errorf("%s 需为域名后缀清单（如 example.com，不带协议/路径）", key)
-			}
+		if err := validateDomainSuffixList(key, v); err != nil {
+			return err
+		}
+	}
+	// #51c 注册邮箱域白名单：同域名后缀清单规则
+	if key == settings.KeyAuthEmailDomainWhitelist && v != "" {
+		if err := validateDomainSuffixList(key, v); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// validateDomainSuffixList 逗号分隔域名后缀清单校验（禁协议/路径/空格）。
+func validateDomainSuffixList(key, v string) error {
+	for _, part := range strings.Split(v, ",") {
+		part = strings.ToLower(strings.TrimSpace(strings.TrimSuffix(strings.TrimSpace(part), ".")))
+		if part == "" {
+			continue
+		}
+		if strings.Contains(part, "://") || strings.ContainsAny(part, "/ ") {
+			return fmt.Errorf("%s 需为域名后缀清单（如 example.com，不带协议/路径）", key)
 		}
 	}
 	return nil

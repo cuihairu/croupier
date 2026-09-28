@@ -50,6 +50,17 @@ export async function clearSiteSetting(key: string): Promise<void> {
   });
 }
 
+// ---- 发送测试邮件（#55 补欠 / #51c） ----
+
+// Admin: send a test email via current SMTP config (real send).
+export async function sendTestEmail(to: string): Promise<void> {
+  await request('/api/v1/site/notification/test-email', {
+    method: 'POST',
+    data: { to },
+    skipErrorHandler: true,
+  });
+}
+
 // ---- 功能开关（features.*，L3 运行时软开关） ----
 
 export type FeatureDomain = 'dev' | 'support' | 'analytics' | 'ops' | 'extensions';
@@ -183,6 +194,17 @@ export type AuthSnapshot = {
   ldap: AuthProviderSnapshot;
   oidc: AuthProviderSnapshot;
   register: AuthProviderSnapshot;
+  /** #51c 注册邮箱策略 */
+  email: EmailPolicySnapshot;
+};
+
+// Source: internal/platform/settings/layered.go EmailPolicySnapshot
+export type EmailPolicySnapshot = {
+  /** 注册邮箱域后缀白名单（逗号分隔；空 = 不限） */
+  domainWhitelist: string;
+  /** 拒绝 + 别名，local 去点归一查重 */
+  aliasRestriction: boolean;
+  sources: Record<string, string>;
 };
 
 // Admin: 登录方式生效配置（凭据脱敏回显）。

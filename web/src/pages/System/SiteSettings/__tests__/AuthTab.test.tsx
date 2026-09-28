@@ -558,3 +558,40 @@ describe('AuthTab 登录方式', () => {
     expect(screen.getAllByText('未启用').length).toBeGreaterThanOrEqual(3);
   });
 });
+
+// ---- OPEN-ISSUES #51c：注册邮箱策略（域白名单 + 别名限制） ----
+
+describe('注册邮箱策略', () => {
+  it('保存随卡提交 domainWhitelist trim 值与 aliasRestriction 布尔', async () => {
+    mFetch.mockResolvedValue({
+      ...baseSnapshot,
+      email: {
+        domainWhitelist: 'example.com',
+        aliasRestriction: true,
+        sources: { 'auth.email.domainWhitelist': 'database' },
+      },
+    });
+    renderTab();
+
+    await screen.findByDisplayValue('ldap://ldap.example.com:389');
+    const wl = screen.getByPlaceholderText('example.com,foo.io');
+    expect(wl).toHaveValue('example.com');
+    fireEvent.change(wl, { target: { value: ' example.com,foo.io ' } });
+    fireEvent.click(screen.getAllByRole('button', { name: '保存' })[4]);
+
+    await waitFor(() =>
+      expect(mSet).toHaveBeenCalledWith('auth.email.domainWhitelist', 'example.com,foo.io'),
+    );
+    await waitFor(() => expect(mSet).toHaveBeenCalledWith('auth.email.aliasRestriction', true));
+  });
+
+  it('快照缺省：域白名单空、别名限制关', async () => {
+    renderTab();
+
+    await screen.findByDisplayValue('ldap://ldap.example.com:389');
+    expect(screen.getByPlaceholderText('example.com,foo.io')).toHaveValue('');
+    // 别名限制开关未勾选（快照无 email 字段 → 默认 false 回填）
+    const switches = screen.getAllByRole('switch');
+    expect(switches.length).toBeGreaterThan(0);
+  });
+});

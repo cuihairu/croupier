@@ -45,6 +45,12 @@ export default {
     '开启后任何人可在登录页注册本地账号；密码走账号安全策略校验',
   'pages.systemSiteSettings.auth.register.rolesTooltip':
     '注册账号被赋予的角色（逗号分隔）；留空则不赋角色',
+  'pages.systemSiteSettings.auth.register.domainWhitelistLabel': '邮箱域白名单',
+  'pages.systemSiteSettings.auth.register.domainWhitelistTooltip':
+    '逗号分隔域名后缀，子域自动放行（example.com 覆盖 api.example.com）；留空 = 不限',
+  'pages.systemSiteSettings.auth.register.aliasRestrictionLabel': '邮箱别名限制',
+  'pages.systemSiteSettings.auth.register.aliasRestrictionTooltip':
+    '开启后拒绝 + 别名（user+tag@）形态，且忽略点号归一查重（u.s@ 与 us@ 视为同一邮箱）',
   'pages.systemSiteSettings.auth.register.title': '自助注册',
   'pages.systemSiteSettings.auth.provider.disabled': '未启用',
   'pages.systemSiteSettings.auth.provider.enabled': '已启用',
@@ -369,7 +375,14 @@ export default {
   'pages.systemSiteSettings.smtp.authTypeLogin': 'AUTH LOGIN（强制）',
   'pages.systemSiteSettings.smtp.skipVerify': '跳过 TLS 证书校验',
   'pages.systemSiteSettings.smtp.skipVerifyHint':
-    '跳过校验仅建议自签证书的内网邮服使用；公网邮服开启将暴露中间人风险。暂无「发送测试邮件」入口（后续批次补充）',
+    '跳过校验仅建议自签证书的内网邮服使用；公网邮服开启将暴露中间人风险。',
+  'pages.systemSiteSettings.smtp.testEmailLabel': '发送测试邮件',
+  'pages.systemSiteSettings.smtp.testEmailTooltip':
+    '按当前已保存的 SMTP 配置真实发信（不受上方未保存的表单草稿影响）',
+  'pages.systemSiteSettings.smtp.testEmailAction': '发送',
+  'pages.systemSiteSettings.smtp.testEmailInvalid': '邮箱格式无效',
+  'pages.systemSiteSettings.smtp.testEmailSent': '测试邮件已发送，请查收',
+  'pages.systemSiteSettings.smtp.testEmailFailed': '发送失败',
   'pages.systemSiteSettings.notification.smtpMoved':
     '邮件通道的 SMTP 服务器/加密/认证配置已迁移至「运维」Tab 的「SMTP 邮件服务」卡。',
 };

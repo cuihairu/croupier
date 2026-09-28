@@ -81,6 +81,16 @@ func (m *AdminModel) FindByUsername(ctx context.Context, username string) (*Admi
 	return &admin, nil
 }
 
+// FindEmailsByDomain 返回同域已注册邮箱（忽略软删行；#51c 注册别名归一
+// 查重用——admins 表量级小，LIKE 扫描可接受）。只取 email 列。
+func (m *AdminModel) FindEmailsByDomain(ctx context.Context, domain string) ([]string, error) {
+	var emails []string
+	err := m.db.WithContext(ctx).Model(&Admin{}).Unscoped().
+		Where("email LIKE ?", "%@"+domain).
+		Pluck("email", &emails).Error
+	return emails, err
+}
+
 // Update updates the admin with arbitrary fields.
 func (m *AdminModel) Update(ctx context.Context, id uint, updates map[string]interface{}) error {
 	return m.db.WithContext(ctx).Model(&Admin{}).Where("id = ?", id).Updates(updates).Error
