@@ -90,6 +90,44 @@ func TestFilterOptions_ServerAggregatesUnderScope(t *testing.T) {
 	}, resp.Assignees)
 }
 
+// TestFilterOptions_AssigneesErrorSurfaced：分类聚合成功、处理人聚合失败时
+// service.go 的第二错误分支（ListAssignees err → nil, err）必须透传而非
+// 返回半截 options。通过 DropColumn("assignee") 模拟存量老库缺列形态：
+// category 查询不受影响，assignee 查询确定性报错（与迁移漏配事故同构）。
+func TestFilterOptions_AssigneesErrorSurfaced(t *testing.T) {
+	db := newTicketTestDB(t)
+	handler := newTicketHandler(db)
+
+	m := model.NewTicketModel(db)
+	require.NoError(t, m.Create(context.Background(), &model.Ticket{Title: "T1", Category: "bug", Assignee: "alice", GameID: "game-a", Env: "prod"}))
+	require.NoError(t, db.Migrator().DropColumn(&model.Ticket{}, "assignee"))
+
+	ctx, rec := newTicketRequest(http.MethodGet, "/api/v1/tickets/filter-options", "")
+	handler.FilterOptions(ctx)
+
+	require.NotEqual(t, http.StatusOK, rec.Code, rec.Body.String())
+	assertTicketErrorShape(t, rec)
+}
+
+// TestFilterOptions_CategoriesErrorSurfaced：分类聚合失败时 service.go 的
+// 第一错误分支（ListCategories err → nil, err）短路返回——处理人聚合不得
+// 被执行，下拉也不得返回空壳 options（#21 ② 契约：选项要么真实，要么报错）。
+func TestFilterOptions_CategoriesErrorSurfaced(t *testing.T) {
+	db := newTicketTestDB(t)
+	handler := newTicketHandler(db)
+
+	m := model.NewTicketModel(db)
+	require.NoError(t, m.Create(context.Background(), &model.Ticket{Title: "T1", Category: "bug", Assignee: "alice", GameID: "game-a", Env: "prod"}))
+	require.NoError(t, db.Migrator().DropColumn(&model.Ticket{}, "category"))
+
+	ctx, rec := newTicketRequest(http.MethodGet, "/api/v1/tickets/filter-options", "")
+	handler.FilterOptions(ctx)
+
+	require.NotEqual(t, http.StatusOK, rec.Code, rec.Body.String())
+	assertTicketErrorShape(t, rec)
+	assert.NotContains(t, rec.Body.String(), `"categories"`)
+}
+
 // TestFilterOptions_EmptyScopeStillReturnsShape：无 scope（直调方兼容路径）
 // 时返回全量聚合与空数组而非 null。
 func TestFilterOptions_EmptyScopeStillReturnsShape(t *testing.T) {
