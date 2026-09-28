@@ -184,6 +184,21 @@ func validateValue(key string, raw json.RawMessage) error {
 			return fmt.Errorf("%s 需要是 http(s) URL", key)
 		}
 	}
+	// #55 SMTP 传输细节：枚举值校验（空串 = 恢复自动/默认）
+	if key == settings.KeyNotifySMTPEncryption {
+		switch v {
+		case "", "none", "ssl", "starttls":
+		default:
+			return fmt.Errorf("%s 仅支持 none / ssl / starttls（留空 = 自动）", key)
+		}
+	}
+	if key == settings.KeyNotifySMTPAuthType {
+		switch v {
+		case "", "plain", "login":
+		default:
+			return fmt.Errorf("%s 仅支持 plain / login（留空 = plain）", key)
+		}
+	}
 	return nil
 }
 

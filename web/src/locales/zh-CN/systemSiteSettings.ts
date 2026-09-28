@@ -313,4 +313,23 @@ export default {
   'pages.systemSiteSettings.logs.tables.col.rows': '行数',
   'pages.systemSiteSettings.logs.tables.col.table': '表',
   'pages.systemSiteSettings.logs.tables.title': '留痕表体量',
+  'pages.systemSiteSettings.smtp.title': 'SMTP 邮件服务',
+  'pages.systemSiteSettings.smtp.hint':
+    '审批与告警事件的邮件通道传输配置；加密方式留空 = 自动（465 端口隐式 TLS，其余端口在服务器宣告时升级 STARTTLS）。保存即热生效。',
+  'pages.systemSiteSettings.smtp.encryption': '加密方式',
+  'pages.systemSiteSettings.smtp.encryptionTooltip':
+    '自动：465 端口走隐式 TLS，其余端口服务器宣告时升级 STARTTLS',
+  'pages.systemSiteSettings.smtp.encryptionAuto': '自动',
+  'pages.systemSiteSettings.smtp.encryptionNone': '无（明文）',
+  'pages.systemSiteSettings.smtp.encryptionSsl': 'SSL/TLS（隐式）',
+  'pages.systemSiteSettings.smtp.encryptionStarttls': 'STARTTLS（强制）',
+  'pages.systemSiteSettings.smtp.authType': '认证方式',
+  'pages.systemSiteSettings.smtp.authTypeTooltip': '部分邮服仅支持 AUTH LOGIN；PLAIN 为标准默认',
+  'pages.systemSiteSettings.smtp.authTypePlain': 'PLAIN（默认）',
+  'pages.systemSiteSettings.smtp.authTypeLogin': 'AUTH LOGIN（强制）',
+  'pages.systemSiteSettings.smtp.skipVerify': '跳过 TLS 证书校验',
+  'pages.systemSiteSettings.smtp.skipVerifyHint':
+    '跳过校验仅建议自签证书的内网邮服使用；公网邮服开启将暴露中间人风险。暂无「发送测试邮件」入口（后续批次补充）',
+  'pages.systemSiteSettings.notification.smtpMoved':
+    '邮件通道的 SMTP 服务器/加密/认证配置已迁移至「运维」Tab 的「SMTP 邮件服务」卡。',
 };

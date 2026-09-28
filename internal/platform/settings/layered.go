@@ -58,20 +58,25 @@ const (
 
 	// notification.* 是审批/告警通知渠道配置（设置中心通知 Tab）。
 	// SMTP 为未配置时邮件渠道静默跳过（与 EmailSender no-op 语义一致）。
-	KeyNotifyEmailEnabled   = "notification.emailEnabled"   // bool
-	KeyNotifySMTPHost       = "notification.smtpHost"       // string
-	KeyNotifySMTPPort       = "notification.smtpPort"       // int
-	KeyNotifySMTPUser       = "notification.smtpUser"       // string
-	KeyNotifySMTPPassword   = "notification.smtpPassword"   // string（写入后读取接口脱敏）
-	KeyNotifySMTPFrom       = "notification.smtpFrom"       // string
-	KeyNotifyDingtalkURL    = "notification.dingtalkUrl"    // string
-	KeyNotifyDingtalkSecret = "notification.dingtalkSecret" // string
-	KeyNotifyWebhookURL     = "notification.webhookUrl"     // string
-	KeyNotifyWebhookSecret  = "notification.webhookSecret"  // string
-	KeyNotifyWecomURL       = "notification.wecomUrl"       // string
-	KeyNotifyFeishuURL      = "notification.feishuUrl"      // string
-	KeyNotifyFeishuSecret   = "notification.feishuSecret"   // string
-	KeyNotifyInAppEnabled   = "notification.inAppEnabled"   // bool
+	// SMTP 传输细节（#55）：encryption 空串 = 自动（465 隐式 TLS，否则
+	// STARTTLS-if-advertised）；authType 默认 plain；insecureSkipVerify 默认 false。
+	KeyNotifyEmailEnabled           = "notification.emailEnabled"           // bool
+	KeyNotifySMTPHost               = "notification.smtpHost"               // string
+	KeyNotifySMTPPort               = "notification.smtpPort"               // int
+	KeyNotifySMTPUser               = "notification.smtpUser"               // string
+	KeyNotifySMTPPassword           = "notification.smtpPassword"           // string（写入后读取接口脱敏）
+	KeyNotifySMTPFrom               = "notification.smtpFrom"               // string
+	KeyNotifySMTPEncryption         = "notification.smtpEncryption"         // string: ""|none|ssl|starttls
+	KeyNotifySMTPAuthType           = "notification.smtpAuthType"           // string: plain|login
+	KeyNotifySMTPInsecureSkipVerify = "notification.smtpInsecureSkipVerify" // bool
+	KeyNotifyDingtalkURL            = "notification.dingtalkUrl"            // string
+	KeyNotifyDingtalkSecret         = "notification.dingtalkSecret"         // string
+	KeyNotifyWebhookURL             = "notification.webhookUrl"             // string
+	KeyNotifyWebhookSecret          = "notification.webhookSecret"          // string
+	KeyNotifyWecomURL               = "notification.wecomUrl"               // string
+	KeyNotifyFeishuURL              = "notification.feishuUrl"              // string
+	KeyNotifyFeishuSecret           = "notification.feishuSecret"           // string
+	KeyNotifyInAppEnabled           = "notification.inAppEnabled"           // bool
 
 	// 性能参数（L3 运行时配置，默认均为 0/false 表示沿用内置基线或无限制）。
 	KeyPerfMaxCpuPct      = "perf.maxCpuPct"      // CPU 阈值%（0 = 不过滤）
@@ -153,7 +158,9 @@ var ValidKeys = map[string]struct{}{
 
 	KeyNotifyEmailEnabled: {}, KeyNotifySMTPHost: {}, KeyNotifySMTPPort: {},
 	KeyNotifySMTPUser: {}, KeyNotifySMTPPassword: {}, KeyNotifySMTPFrom: {},
-	KeyNotifyDingtalkURL: {}, KeyNotifyDingtalkSecret: {},
+	KeyNotifySMTPEncryption: {}, KeyNotifySMTPAuthType: {},
+	KeyNotifySMTPInsecureSkipVerify: {},
+	KeyNotifyDingtalkURL:            {}, KeyNotifyDingtalkSecret: {},
 	KeyNotifyWebhookURL: {}, KeyNotifyWebhookSecret: {}, KeyNotifyInAppEnabled: {},
 	KeyNotifyWecomURL: {}, KeyNotifyFeishuURL: {}, KeyNotifyFeishuSecret: {},
 
@@ -235,7 +242,7 @@ func IsIntKey(key string) bool {
 var boolKeys = map[string]struct{}{
 	KeyFeatureDev: {}, KeyFeatureSupport: {}, KeyFeatureAnalytics: {},
 	KeyFeatureOps: {}, KeyFeatureExtensions: {},
-	KeyNotifyEmailEnabled: {}, KeyNotifyInAppEnabled: {},
+	KeyNotifyEmailEnabled: {}, KeyNotifyInAppEnabled: {}, KeyNotifySMTPInsecureSkipVerify: {},
 	KeyAuthLocalEnabled: {},
 	KeyAuthLdapEnabled:  {}, KeyAuthLdapStartTLS: {}, KeyAuthOidcEnabled: {},
 	KeyAuthGitHubEnabled:   {},
@@ -525,25 +532,28 @@ func (l *Layered) ObsSnapshot() ObsSnapshot {
 // NotificationSnapshot 是通知渠道配置的读取视图。
 // 密钥字段已脱敏（secretMasked），仅用于回显"已配置"状态。
 type NotificationSnapshot struct {
-	EmailEnabled         bool              `json:"emailEnabled"`
-	SMTPHost             string            `json:"smtpHost"`
-	SMTPPort             int               `json:"smtpPort"`
-	SMTPUser             string            `json:"smtpUser"`
-	SMTPFrom             string            `json:"smtpFrom"`
-	SMTPPasswordSet      bool              `json:"smtpPasswordSet"`
-	SMTPPasswordMasked   string            `json:"smtpPasswordMasked,omitempty"`
-	DingtalkURL          string            `json:"dingtalkUrl"`
-	DingtalkSecretSet    bool              `json:"dingtalkSecretSet"`
-	DingtalkSecretMasked string            `json:"dingtalkSecretMasked,omitempty"`
-	WebhookURL           string            `json:"webhookUrl"`
-	WebhookSecretSet     bool              `json:"webhookSecretSet"`
-	WebhookSecretMasked  string            `json:"webhookSecretMasked,omitempty"`
-	WecomURL             string            `json:"wecomUrl"`
-	FeishuURL            string            `json:"feishuUrl"`
-	FeishuSecretSet      bool              `json:"feishuSecretSet"`
-	FeishuSecretMasked   string            `json:"feishuSecretMasked,omitempty"`
-	InAppEnabled         bool              `json:"inAppEnabled"`
-	Sources              map[string]string `json:"sources"`
+	EmailEnabled           bool              `json:"emailEnabled"`
+	SMTPHost               string            `json:"smtpHost"`
+	SMTPPort               int               `json:"smtpPort"`
+	SMTPUser               string            `json:"smtpUser"`
+	SMTPFrom               string            `json:"smtpFrom"`
+	SMTPPasswordSet        bool              `json:"smtpPasswordSet"`
+	SMTPPasswordMasked     string            `json:"smtpPasswordMasked,omitempty"`
+	SMTPEncryption         string            `json:"smtpEncryption"`
+	SMTPAuthType           string            `json:"smtpAuthType"`
+	SMTPInsecureSkipVerify bool              `json:"smtpInsecureSkipVerify"`
+	DingtalkURL            string            `json:"dingtalkUrl"`
+	DingtalkSecretSet      bool              `json:"dingtalkSecretSet"`
+	DingtalkSecretMasked   string            `json:"dingtalkSecretMasked,omitempty"`
+	WebhookURL             string            `json:"webhookUrl"`
+	WebhookSecretSet       bool              `json:"webhookSecretSet"`
+	WebhookSecretMasked    string            `json:"webhookSecretMasked,omitempty"`
+	WecomURL               string            `json:"wecomUrl"`
+	FeishuURL              string            `json:"feishuUrl"`
+	FeishuSecretSet        bool              `json:"feishuSecretSet"`
+	FeishuSecretMasked     string            `json:"feishuSecretMasked,omitempty"`
+	InAppEnabled           bool              `json:"inAppEnabled"`
+	Sources                map[string]string `json:"sources"`
 }
 
 // NotificationSnapshot builds the notification channel view (masked).
@@ -561,6 +571,10 @@ func (l *Layered) NotificationSnapshot() NotificationSnapshot {
 		InAppEnabled: l.GetBool(KeyNotifyInAppEnabled, true),
 		Sources:      map[string]string{},
 	}
+	// #55 SMTP 传输细节回显（encryption/authType 空串 = 未覆盖走自动/默认）
+	snap.SMTPEncryption = stringOrEmpty(l.GetString(context.Background(), KeyNotifySMTPEncryption))
+	snap.SMTPAuthType = stringOrEmpty(l.GetString(context.Background(), KeyNotifySMTPAuthType))
+	snap.SMTPInsecureSkipVerify = l.GetBool(KeyNotifySMTPInsecureSkipVerify, false)
 	mask := func(key string) (set bool, masked string) {
 		v, src, ok := l.GetString(context.Background(), key)
 		if !ok || v == "" {
@@ -587,17 +601,26 @@ type NotifySMTPConfig struct {
 	User     string
 	Password string
 	From     string
+	// Encryption 传输加密：""|none|ssl|starttls（空串 = 自动，见键注释）
+	Encryption string
+	// AuthType 认证方式：plain|login（默认 plain）
+	AuthType string
+	// InsecureSkipVerify 跳过 TLS 证书校验（自签证书场景，默认 false）
+	InsecureSkipVerify bool
 }
 
 // NotifySMTP resolves the raw SMTP configuration (unmasked, internal use).
 func (l *Layered) NotifySMTP() NotifySMTPConfig {
 	return NotifySMTPConfig{
-		Enabled:  l.GetBool(KeyNotifyEmailEnabled, false),
-		Host:     stringOrEmpty(l.GetString(context.Background(), KeyNotifySMTPHost)),
-		Port:     l.GetInt(KeyNotifySMTPPort, 0),
-		User:     stringOrEmpty(l.GetString(context.Background(), KeyNotifySMTPUser)),
-		Password: stringOrEmpty(l.GetString(context.Background(), KeyNotifySMTPPassword)),
-		From:     stringOrEmpty(l.GetString(context.Background(), KeyNotifySMTPFrom)),
+		Enabled:            l.GetBool(KeyNotifyEmailEnabled, false),
+		Host:               stringOrEmpty(l.GetString(context.Background(), KeyNotifySMTPHost)),
+		Port:               l.GetInt(KeyNotifySMTPPort, 0),
+		User:               stringOrEmpty(l.GetString(context.Background(), KeyNotifySMTPUser)),
+		Password:           stringOrEmpty(l.GetString(context.Background(), KeyNotifySMTPPassword)),
+		From:               stringOrEmpty(l.GetString(context.Background(), KeyNotifySMTPFrom)),
+		Encryption:         stringOrEmpty(l.GetString(context.Background(), KeyNotifySMTPEncryption)),
+		AuthType:           stringOrEmpty(l.GetString(context.Background(), KeyNotifySMTPAuthType)),
+		InsecureSkipVerify: l.GetBool(KeyNotifySMTPInsecureSkipVerify, false),
 	}
 }
 

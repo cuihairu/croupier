@@ -127,7 +127,8 @@ func (s *Service) dispatchExternal(ctx context.Context, ev Event) {
 	}
 	if ch.EmailEnabled {
 		if smtp := s.layered.NotifySMTP(); smtp.Host != "" {
-			sender := approvals.NewEmailSender(smtp.Host, smtp.Port, smtp.User, smtp.Password, smtp.From)
+			sender := approvals.NewEmailSender(smtp.Host, smtp.Port, smtp.User, smtp.Password, smtp.From).
+				WithTransport(smtp.Encryption, smtp.AuthType, smtp.InsecureSkipVerify)
 			for _, to := range ev.Recipients {
 				// 邮件按人发送（recipients 携带邮箱时）。
 				if err := sender.Send(ctx, to, approvalEvent); err != nil {

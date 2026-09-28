@@ -341,6 +341,13 @@ type EmailSender struct {
 	smtpPassword string
 	fromAddress  string
 
+	// 传输细节（OPEN-ISSUES #55）：encryption 取 ""|none|ssl|starttls，
+	// 空串 = 自动（465 隐式 TLS，否则 STARTTLS-if-advertised）；
+	// authType 取 plain|login（默认 plain）；insecureSkipVerify 供自签证书。
+	smtpEncryption     string
+	smtpAuthType       string
+	insecureSkipVerify bool
+
 	// sendMail is an injection point for tests in the same package. When nil,
 	// the default net/smtp-based implementation (defaultSendMail) is used.
 	sendMail func(ctx context.Context, msg *emailMessage) error
@@ -364,6 +371,15 @@ func NewEmailSender(host string, port int, user, password, from string) *EmailSe
 		smtpPassword: password,
 		fromAddress:  from,
 	}
+}
+
+// WithTransport 设置传输细节（加密方式/认证方式/跳过 TLS 证书校验），
+// 返回自身便于链式构造（OPEN-ISSUES #55）。
+func (e *EmailSender) WithTransport(encryption, authType string, insecureSkipVerify bool) *EmailSender {
+	e.smtpEncryption = encryption
+	e.smtpAuthType = authType
+	e.insecureSkipVerify = insecureSkipVerify
+	return e
 }
 
 // Send sends an email notification.
@@ -405,8 +421,11 @@ func (e *EmailSender) Channel() NotificationChannel {
 }
 
 // defaultSendMail connects to the configured SMTP server and delivers a single
-// message. Port 465 uses implicit TLS; every other port uses a plain TCP
-// connection and upgrades via STARTTLS when the server advertises it.
+// message. Transport follows smtpEncryption (#55): ""/auto = port 465 implicit
+// TLS, otherwise plain + STARTTLS when advertised; "ssl" = implicit TLS on any
+// port; "starttls" = plain dial + mandatory STARTTLS (fails when the server
+// does not advertise it); "none" = plaintext. smtpAuthType "login" forces the
+// AUTH LOGIN mechanism (net/smtp ships only PLAIN/CRAM-MD5).
 func (e *EmailSender) defaultSendMail(ctx context.Context, msg *emailMessage) error {
 	select {
 	case <-ctx.Done():
@@ -414,13 +433,23 @@ func (e *EmailSender) defaultSendMail(ctx context.Context, msg *emailMessage) er
 	default:
 	}
 
+	mode := e.smtpEncryption
+	if mode == "" {
+		if e.smtpPort == 465 {
+			mode = "ssl"
+		} else {
+			mode = "starttls-auto"
+		}
+	}
+
 	addr := net.JoinHostPort(e.smtpHost, strconv.Itoa(e.smtpPort))
 	dialer := &net.Dialer{Timeout: 10 * time.Second}
+	tlsCfg := &tls.Config{ServerName: e.smtpHost, InsecureSkipVerify: e.insecureSkipVerify}
 
 	var conn net.Conn
 	var err error
-	if e.smtpPort == 465 {
-		conn, err = tls.DialWithDialer(dialer, "tcp", addr, &tls.Config{ServerName: e.smtpHost})
+	if mode == "ssl" {
+		conn, err = tls.DialWithDialer(dialer, "tcp", addr, tlsCfg)
 	} else {
 		conn, err = dialer.DialContext(ctx, "tcp", addr)
 	}
@@ -435,16 +464,26 @@ func (e *EmailSender) defaultSendMail(ctx context.Context, msg *emailMessage) er
 	}
 	defer func() { _ = client.Quit() }()
 
-	if e.smtpPort != 465 {
-		if ok, _ := client.Extension("STARTTLS"); ok {
-			if err := client.StartTLS(&tls.Config{ServerName: e.smtpHost}); err != nil {
+	if mode == "starttls" || mode == "starttls-auto" {
+		ok, _ := client.Extension("STARTTLS")
+		if !ok && mode == "starttls" {
+			return fmt.Errorf("smtp STARTTLS: 服务器未宣告 STARTTLS（强制加密模式）")
+		}
+		if ok {
+			if err := client.StartTLS(tlsCfg); err != nil {
 				return fmt.Errorf("smtp STARTTLS: %w", err)
 			}
 		}
 	}
 
 	if e.smtpUser != "" {
-		if err := client.Auth(smtp.PlainAuth("", e.smtpUser, e.smtpPassword, e.smtpHost)); err != nil {
+		var auth smtp.Auth
+		if e.smtpAuthType == "login" {
+			auth = &loginAuth{username: e.smtpUser, password: e.smtpPassword}
+		} else {
+			auth = smtp.PlainAuth("", e.smtpUser, e.smtpPassword, e.smtpHost)
+		}
+		if err := client.Auth(auth); err != nil {
 			return fmt.Errorf("smtp auth: %w", err)
 		}
 	}
@@ -934,4 +973,31 @@ func (f *FeishuSender) Send(ctx context.Context, recipient string, event Notific
 // Channel returns the channel type.
 func (f *FeishuSender) Channel() NotificationChannel {
 	return ChannelFeishu
+}
+
+// loginAuth 实现 AUTH LOGIN 机制（net/smtp 仅内置 PLAIN/CRAM-MD5；部分
+// 服务商——如强制 AUTH LOGIN 的 Exchange/旧版邮服——不支持 PLAIN）。
+// 协议时序：服务器依次下发 "Username:"/"Password:" 提示，客户端回明文。
+type loginAuth struct {
+	username string
+	password string
+}
+
+func (a *loginAuth) Start(server *smtp.ServerInfo) (string, []byte, error) {
+	return "LOGIN", nil, nil
+}
+
+func (a *loginAuth) Next(fromServer []byte, more bool) ([]byte, error) {
+	if !more {
+		return nil, nil
+	}
+	prompt := strings.ToLower(strings.TrimSpace(string(fromServer)))
+	switch {
+	case strings.Contains(prompt, "username"):
+		return []byte(a.username), nil
+	case strings.Contains(prompt, "password"):
+		return []byte(a.password), nil
+	default:
+		return nil, fmt.Errorf("smtp AUTH LOGIN: unexpected server prompt %q", string(fromServer))
+	}
 }

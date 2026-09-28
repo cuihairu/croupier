@@ -98,6 +98,12 @@ export type NotificationSettings = {
   smtpFrom: string;
   smtpPasswordSet: boolean;
   smtpPasswordMasked?: string;
+  /** #55：""|none|ssl|starttls（空串 = 自动） */
+  smtpEncryption: string;
+  /** #55：plain|login（空串 = plain） */
+  smtpAuthType: string;
+  /** #55：跳过 TLS 证书校验（自签证书场景） */
+  smtpInsecureSkipVerify: boolean;
   dingtalkUrl: string;
   dingtalkSecretSet: boolean;
   dingtalkSecretMasked?: string;

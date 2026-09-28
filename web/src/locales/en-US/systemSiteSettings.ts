@@ -326,4 +326,24 @@ export default {
   'pages.systemSiteSettings.logs.tables.col.rows': 'Rows',
   'pages.systemSiteSettings.logs.tables.col.table': 'Table',
   'pages.systemSiteSettings.logs.tables.title': 'Trail table sizes',
+  'pages.systemSiteSettings.smtp.title': 'SMTP Email Service',
+  'pages.systemSiteSettings.smtp.hint':
+    'Transport settings for the notification email channel; encryption left empty = auto (implicit TLS on port 465, STARTTLS upgrade when advertised on other ports). Changes apply immediately.',
+  'pages.systemSiteSettings.smtp.encryption': 'Encryption',
+  'pages.systemSiteSettings.smtp.encryptionTooltip':
+    'Auto: implicit TLS on port 465; STARTTLS upgrade when advertised on other ports',
+  'pages.systemSiteSettings.smtp.encryptionAuto': 'Auto',
+  'pages.systemSiteSettings.smtp.encryptionNone': 'None (plaintext)',
+  'pages.systemSiteSettings.smtp.encryptionSsl': 'SSL/TLS (implicit)',
+  'pages.systemSiteSettings.smtp.encryptionStarttls': 'STARTTLS (forced)',
+  'pages.systemSiteSettings.smtp.authType': 'Auth method',
+  'pages.systemSiteSettings.smtp.authTypeTooltip':
+    'Some providers only support AUTH LOGIN; PLAIN is the standard default',
+  'pages.systemSiteSettings.smtp.authTypePlain': 'PLAIN (default)',
+  'pages.systemSiteSettings.smtp.authTypeLogin': 'AUTH LOGIN (forced)',
+  'pages.systemSiteSettings.smtp.skipVerify': 'Skip TLS certificate verification',
+  'pages.systemSiteSettings.smtp.skipVerifyHint':
+    'Skip verification only for self-signed intranet servers; enabling it for public providers exposes MITM risk. No "send test email" entry yet (later batch)',
+  'pages.systemSiteSettings.notification.smtpMoved':
+    'SMTP server/encryption/auth settings for the email channel have moved to the "SMTP Email Service" card on the Ops tab.',
 };

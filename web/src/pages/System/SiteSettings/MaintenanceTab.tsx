@@ -19,6 +19,7 @@ import {
 } from '@/services/api/opsStatus';
 import { fetchSiteConfig } from '@/services/api/sites';
 import { extractErrorMessage } from '@/utils/errors';
+import SmtpCard from './SmtpCard';
 
 const { Text } = Typography;
 
@@ -167,7 +168,9 @@ export default function MaintenanceTab() {
               />
             }
           >
-            <span title={runtime?.uptimeSeconds !== undefined ? `${runtime.uptimeSeconds}` : undefined}>
+            <span
+              title={runtime?.uptimeSeconds !== undefined ? `${runtime.uptimeSeconds}` : undefined}
+            >
               {humanizeUptime(runtime?.uptimeSeconds)}
             </span>
           </Descriptions.Item>
@@ -235,6 +238,9 @@ export default function MaintenanceTab() {
           ) : null}
         </Space>
       </Card>
+
+      {/* SMTP 邮件服务（OPEN-ISSUES #55）：通知邮件通道传输配置自通知 Tab 迁入运维 */}
+      <SmtpCard />
     </Space>
   );
 }
