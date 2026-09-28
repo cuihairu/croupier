@@ -12,6 +12,7 @@ import { extractErrorMessage } from '@/utils/errors';
 import AuthTab from './AuthTab';
 import FeatureFlagsTab from './FeatureFlagsTab';
 import MaintenanceTab from './MaintenanceTab';
+import PerformanceTab from './PerformanceTab';
 import ObservabilityTab from './ObservabilityTab';
 import NotificationTab from './NotificationTab';
 import SecurityTab from './SecurityTab';
@@ -461,6 +462,14 @@ export default function SiteSettingsPage() {
               defaultMessage: '运维',
             }),
             children: <MaintenanceTab />,
+          },
+          {
+            key: 'performance',
+            label: intl.formatMessage({
+              id: 'pages.systemSiteSettings.tab.performance',
+              defaultMessage: '性能',
+            }),
+            children: <PerformanceTab />,
           },
         ]}
       />

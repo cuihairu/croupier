@@ -214,6 +214,12 @@ var intKeys = map[string]struct{}{
 	KeyNotifySMTPPort:             {},
 	KeySecurityPasswordMinLength:  {},
 	KeySecurityPasswordMaxAgeDays: {},
+	KeyPerfMaxCpuPct:              {},
+	KeyPerfMaxMemoryPct:           {},
+	KeyPerfMaxDiskPct:             {},
+	KeyPerfMaxConcurrent:          {},
+	KeyPerfMaxThreadCount:         {},
+	KeyPerfCacheSize:              {},
 }
 
 // IsIntKey reports whether the key carries a JSON number value.
@@ -867,6 +873,70 @@ func (l *Layered) SecurityPolicy() SecurityPolicySnapshot {
 		PasswordRequireSpecial:   l.GetBool(KeySecurityPasswordRequireSpecial, false),
 		PasswordMaxAgeDays:       l.GetInt(KeySecurityPasswordMaxAgeDays, 0),
 	}
+}
+
+// PerformanceSettingsSnapshot 是性能参数（perf.*）的读视图：阈值/上限为
+// 0 表示「不启用该限制」，来源逐键标注（default/config/yaml/database）。
+type PerformanceSettingsSnapshot struct {
+	MaxCpuPct      int               `json:"maxCpuPct"`
+	MaxMemoryPct   int               `json:"maxMemoryPct"`
+	MaxDiskPct     int               `json:"maxDiskPct"`
+	MaxConcurrent  int               `json:"maxConcurrent"`
+	MaxThreadCount int               `json:"maxThreadCount"`
+	CacheSize      int64             `json:"cacheSize"`
+	Sources        map[string]string `json:"sources"`
+}
+
+// getIntWithSource 带来源读整型（database/config/default），层逻辑同 GetInt
+// （含数值被存成字符串的容错）。GetString 只解字符串、GetInt 不带来源，
+// perf.* 快照两者都要，故单独成 helper（同 getBoolWithSource 先例）。
+func (l *Layered) getIntWithSource(key string, def int64) (int64, string) {
+	if !IsValidKey(key) || l == nil {
+		return def, "default"
+	}
+	l.mu.RLock()
+	defer l.mu.RUnlock()
+	read := func(raw json.RawMessage) (int64, bool) {
+		var v int64
+		if err := json.Unmarshal(raw, &v); err == nil {
+			return v, true
+		}
+		var s string
+		if err := json.Unmarshal(raw, &s); err == nil {
+			if n, err := strconv.ParseInt(strings.TrimSpace(s), 10, 64); err == nil {
+				return n, true
+			}
+		}
+		return 0, false
+	}
+	if raw, ok := l.l3[key]; ok && l.l3Loaded {
+		if v, ok := read(raw); ok {
+			return v, "database"
+		}
+	}
+	if raw, ok := l.l2Values[key]; ok {
+		if v, ok := read(raw); ok {
+			return v, "config"
+		}
+	}
+	return def, "default"
+}
+
+// PerformanceSettings resolves the performance knobs (defaults all 0 = off).
+func (l *Layered) PerformanceSettings() PerformanceSettingsSnapshot {
+	snap := PerformanceSettingsSnapshot{Sources: map[string]string{}}
+	cpuPct, cpuSrc := l.getIntWithSource(KeyPerfMaxCpuPct, 0)
+	memPct, memSrc := l.getIntWithSource(KeyPerfMaxMemoryPct, 0)
+	diskPct, diskSrc := l.getIntWithSource(KeyPerfMaxDiskPct, 0)
+	maxConc, concSrc := l.getIntWithSource(KeyPerfMaxConcurrent, 0)
+	maxThr, thrSrc := l.getIntWithSource(KeyPerfMaxThreadCount, 0)
+	snap.MaxCpuPct, snap.Sources["maxCpuPct"] = int(cpuPct), cpuSrc
+	snap.MaxMemoryPct, snap.Sources["maxMemoryPct"] = int(memPct), memSrc
+	snap.MaxDiskPct, snap.Sources["maxDiskPct"] = int(diskPct), diskSrc
+	snap.MaxConcurrent, snap.Sources["maxConcurrent"] = int(maxConc), concSrc
+	snap.MaxThreadCount, snap.Sources["maxThreadCount"] = int(maxThr), thrSrc
+	snap.CacheSize, snap.Sources["cacheSize"] = l.getIntWithSource(KeyPerfCacheSize, 0)
+	return snap
 }
 
 func (l *Layered) authProviderSnapshot(kind string) AuthProviderSnapshot {

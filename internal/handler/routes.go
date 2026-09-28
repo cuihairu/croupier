@@ -548,6 +548,10 @@ func registerOpsRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 	// （只检查不升级，为 #53-57 运维家族留 /ops/system/* 组）
 	g.GET("/system/runtime", opsHandler.SystemRuntime)
 	g.POST("/system/check-update", opsHandler.SystemCheckUpdate)
+
+	// 性能参数（OPEN-ISSUES #53）：生效值 + 运行时快照；逐键 L3 覆盖
+	g.GET("/performance", opsHandler.PerformanceGet)
+	g.PUT("/performance", opsHandler.PerformancePut)
 	g.GET("/metrics", opsHandler.Metrics)
 	g.GET("/mq", opsHandler.MQ)
 	g.GET("/notifications", opsHandler.NotificationsGet)
