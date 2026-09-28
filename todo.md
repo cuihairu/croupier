@@ -748,6 +748,7 @@ T3（execution_state 字段）→ T4/T6/T8；T2 → T5；T12（后端校验放�
 > 恒请求恒空），错误提示语义不变；③ agent 同步仍为 HTTP 轮询（演进项不在
 > 批次链内）。
 > 下一批：批次 2（displayName join catalog / healthStatus 推导）。
+
 ## 扩展安装详情抽屉覆盖批次（Extensions 簇缺口首发，2026-09-28）
 
 > **交付（2026-09-28）**：覆盖率快照定位 Extensions 簇为 web 侧最大零测试目录
@@ -774,3 +775,14 @@ T3（execution_state 字段）→ T4/T6/T8；T2 → T5；T12（后端校验放�
 >    回显断言一律用正则（首次踩坑记录）。
 > 3. Extensions 簇余量（Store/index 512、Installations/index 431、
 >    EventsDrawer 286、columns 231、UpgradeModal 151 等）留待后续批次。
+
+## 游戏/环境授权防线 + 新增游戏入口（OPEN-ISSUES #47，2026-09-28）
+
+> **背景（用户双质询）**：① `/system/environments` 为何有独立游戏选择器而不用全局的——「授权游戏就可以编辑其他游戏这不对的」；② 为何看不到新增游戏的入口。
+> **诊断**：① 页面 `loadGames` 优先全量 `listGamesMeta()`（GET /games）并自带可自由切换的 Select，仅单向订阅 scope；后端 games 域 envs 端点唯一防线是功能权限点 `games:manage`（RBAC 不按游戏切分），游戏/环境授权表 `admin_game_env_scopes` 只作用于 `/profile/games` 可见性过滤——质询属实（越权编辑面 + 未授权游戏可见）。② `POST /games` 后端 + `upsertGame` 前端封装都在但零 UI 消费（BUG-021 同款）。
+> **交付（2026-09-28）**：
+> 前端：环境页删独立 Select 与全量列表消费，数据源改 `listMyGames()` 授权视图（与全局选择器同源）；目标游戏恒等于 `scope.gameId`（业务 game_id），未选/未授权两空态引导；新增「新增游戏」入口（`useAccess().canGamesManage` 门控 ModalForm：name/aliasName/description），成功后广播 `games:changed`（GameSelector 监听即时重拉）并刷新授权列表。`envs.ts` 四函数 gameId 参数放宽 `number | string`。
+> 后端：`internal/api/game/helpers.go` 新增 `resolveGameID`（数字主键或业务 game_id 双形态寻址——授权视图无数字主键）、`gameEnvScopes`/`authorizeGameEnv`（admin 直过；非 admin 须命中 `admin_game_env_scopes`）、`filterEnvItemsByScopes`；envs 四端点接线：EnvsList 按授权过滤（无授权=空）、EnvAdd 校验游戏维度（新增环境尚不存在）、EnvUpdate 新旧环境都须授权（改名即扩权防线）、EnvDelete 校验目标环境。
+> 门禁：go build + `go test ./internal/...` 全绿（game 包新增 `service_envscope_test.go` 6 用例：无授权 403/有授权过/Update 双环境授权/Delete 单环境/List 过滤/业务串寻址 404）、tsc 0 错、GamesEnvs 21/21、全量 jest 落盘日志核绿。
+> **已知边界**：① 游戏本体 CRUD（List/Detail/Update/Delete/Create）仍只受 `games:read`/`games:manage` 功能权限点保护，不做游戏维度过滤——游戏元数据（名称/别名）视为平台级信息，环境数据才是租户隔离面；② `GET /games` 全量列表端点保留（GamesEnvs 已不消费；Ops/AnalyticsFilters、Dev/ConfigExplorer、Admin/Announcements、Permissions/UsersV2 仍用），其余页面后续按需收敛；③ 前端「新增环境/编辑/删除」按钮无按钮级权限隐藏（后端授权防线兜底 403），仅「新增游戏」按 canGamesManage 门控。
+> 下一步：#48 账号安全策略（site settings 板块，默认全关）。
