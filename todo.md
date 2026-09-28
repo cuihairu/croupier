@@ -461,3 +461,22 @@ T3（execution_state 字段）→ T4/T6/T8；T2 → T5；T12（后端校验放�
 > OTP 工作面，回避不碰；assignment/gate.go(89.5%) 属 BUG-035 会话工作面
 > 同理；共享内存库（cache=shared）跨用例数据共享，补测用唯一 scope 隔离。
 
+
+## 覆盖率巡检批次·Go 侧第二轮（wt-api worktree，2026-09-28）
+
+> **交付（2026-09-28）**：全量 profile 重排（本轮全树 109 未覆盖语句）后按
+> 文件粒度取最低可离线测文件——`internal/platform/objstore/avatar.go`
+> **91.1% → 98.2%**（56 语句中仅剩 1 条已登记不可达）：补 2 例——
+> ① 相对输入形态的 query/fragment 裁剪（绝对 URL 经 url.Parse 后 u.Path
+> 已不含 ?/#，原测试永远触达不了 105/108 两个 Index 分支，须用相对 key）；
+> ② `LocalBaseDir` 的 filepath.Abs 错误分支与 `mustGetwd` 失败分支
+> （均需 os.Getwd() 失败，chdir 进已删除目录构造），objstore 包
+> 99.2% → 99.8%。门禁：gofmt 干净、go vet 干净、go test ./internal/...
+> 全绿、guard PASSED（机器负载 99→50 回落窗口执行，如实注明）。
+> **已知边界**：NormalizeAvatarKey 的 `key == AvatarPrefix`（key 不能是
+> 目录）防御分支不可达——sanitizeKey 基于 filepath.Clean，Clean 恒去除
+> 尾斜杠（根 "/" 例外，TrimPrefix 后为空串、过不了 HasPrefix 前置校验），
+> 归一结果不可能等于 "avatars/"；不造假用例、不删防御分支。
+> 下一轮候选（本轮快照）：api/resourcecatalog/handler.go 93.1%
+> （9 语句，新落地面，待确认无归属冲突）、api/function/
+> version_history_handler.go 91.4%（#26 旧域，单错误分支）。
