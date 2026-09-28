@@ -122,6 +122,9 @@ type ServiceContext struct {
 	// enabled=false 时为 nil。
 	ExecutionLogWriter *executionlog.Writer
 	ExecutionLogModel  *model.ExecutionLogModel
+	// LogRetention 留痕保留期清理器（R3 + #54 手动清理入口）；
+	// ExecutionLog 关闭时为 nil。
+	LogRetention *executionlog.Retention
 	// Scheduler 是 cron 定时任务调度循环（StartScheduler 启动）。
 	Scheduler *scheduler.Manager
 	// Cluster 是多实例 HA 运行时（未启用时 nil）。
@@ -306,6 +309,8 @@ func NewServiceContext(c config.Config, opts ...Option) *ServiceContext {
 
 	// 执行留痕写入器（R1）：异步批量落库，失败不影响执行主路径
 	var execLogWriter *executionlog.Writer
+	// 留痕保留期清理器（R3/#54）：ExecutionLog 关闭时不启动、保持 nil
+	var logRetention *executionlog.Retention
 	if c.ExecutionLog.IsEnabled() && db != nil {
 		// multiGame：按 entry 的 game+env 路由到对应物理库（否则读写错位）。
 		// 注意 typed-nil：仅 multiGame 启用时才传入 router 接口。
@@ -321,17 +326,27 @@ func NewServiceContext(c config.Config, opts ...Option) *ServiceContext {
 		execLogWriter.Run(context.Background())
 		slog.Default().Info("ExecutionLog writer started")
 
-		// 保留期清理（R3）：默认 7 天，0=永久；audit_records 不参与清理
-		retention := executionlog.NewRetention(db, executionlog.RetentionConfig{
-			ExecutionLogDays: c.ExecutionLog.EffectiveRetentionDays(),
-			TaskLogDays:      c.TaskLog.EffectiveRetentionDays(),
-			Router:           execLogRouter,
-			GameScopes:       listGameEnvScopes(db),
+		// 保留期清理（R3）：默认 7 天，0=永久；audit_records 不参与清理。
+		// ResolveDays 每轮清理前读 L3 log.retentionDays 覆盖（#54，热生效）。
+		execDays, taskDays := c.ExecutionLog.EffectiveRetentionDays(), c.TaskLog.EffectiveRetentionDays()
+		logRetention = executionlog.NewRetention(db, executionlog.RetentionConfig{
+			ExecutionLogDays: execDays,
+			TaskLogDays:      taskDays,
+			ResolveDays: func() (int, int) {
+				ls := settings.Current()
+				if ls == nil {
+					return 0, 0
+				}
+				d := ls.LogsSettings().RetentionDays
+				return d, d
+			},
+			Router:     execLogRouter,
+			GameScopes: listGameEnvScopes(db),
 		})
-		retention.Run(context.Background())
+		logRetention.Run(context.Background())
 		slog.Default().Info("Retention sweep loop started",
-			"executionLogDays", c.ExecutionLog.EffectiveRetentionDays(),
-			"taskLogDays", c.TaskLog.EffectiveRetentionDays())
+			"executionLogDays", execDays,
+			"taskLogDays", taskDays)
 	}
 
 	// 初始化策略管理器
@@ -398,6 +413,7 @@ func NewServiceContext(c config.Config, opts ...Option) *ServiceContext {
 		PlatformSettingModel:      platformSettingModel,
 		MessageModel:              messageModel,
 		ExecutionLogWriter:        execLogWriter,
+		LogRetention:              logRetention,
 		ExecutionLogModel:         model.NewExecutionLogModel(db),
 		NotifyService:             nil, // handler 装配时注入（依赖 Layered）
 		CertificateModel:          certificateModel,

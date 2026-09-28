@@ -234,3 +234,60 @@ func TestRetentionSweepLoggedNoDeletions(t *testing.T) {
 	// 0=永久保留 → 删除总数 0，走 sweepLogged 的静默分支
 	assert.NotPanics(t, func() { r.sweepLogged(context.Background()) })
 }
+
+// TestRetentionResolveDaysOverride L3 log.retentionDays 动态覆盖（#54）：
+// ResolveDays 返回值 >0 压过静态配置，<=0 沿用静态配置。
+func TestRetentionResolveDaysOverride(t *testing.T) {
+	db := newTestDB(t)
+	seedRetentionFixtures(t, db)
+
+	// 静态 0（永久），动态覆盖 7 天 → 30 天前的记录被清
+	r := NewRetention(db, RetentionConfig{
+		ExecutionLogDays: 0,
+		TaskLogDays:      0,
+		ResolveDays:      func() (int, int) { return 7, 7 },
+	})
+	summary := r.Sweep(context.Background())
+	assert.Equal(t, int64(1), summary.ExecutionLogsDeleted)
+	assert.Equal(t, int64(1), summary.TaskRunsDeleted)
+
+	// 动态返回 0 → 沿用静态（永久），不再删
+	r2 := NewRetention(db, RetentionConfig{
+		ExecutionLogDays: 0,
+		TaskLogDays:      0,
+		ResolveDays:      func() (int, int) { return 0, 0 },
+	})
+	summary2 := r2.Sweep(context.Background())
+	assert.Equal(t, int64(0), summary2.ExecutionLogsDeleted+summary2.TaskRunsDeleted+summary2.TaskEventsDeleted)
+}
+
+// TestRetentionPurgeBefore 手动清理（#54）：scope 决定清理面，cutoff 任意。
+func TestRetentionPurgeBefore(t *testing.T) {
+	db := newTestDB(t)
+	seedRetentionFixtures(t, db)
+
+	cutoff := time.Now().UTC().Add(-24 * time.Hour)
+	r := NewRetention(db, RetentionConfig{})
+
+	// scope=execution 只清 execution_logs（1 条 30 天前的）
+	s1, err := r.PurgeBefore(context.Background(), cutoff, "execution")
+	require.NoError(t, err)
+	assert.Equal(t, int64(1), s1.ExecutionLogsDeleted)
+	assert.Equal(t, int64(0), s1.TaskRunsDeleted+s1.TaskEventsDeleted)
+
+	// scope=task 清 task_runs + task_events
+	s2, err := r.PurgeBefore(context.Background(), cutoff, "task")
+	require.NoError(t, err)
+	assert.Equal(t, int64(1), s2.TaskRunsDeleted)
+	assert.Equal(t, int64(1), s2.TaskEventsDeleted)
+	assert.Equal(t, int64(0), s2.ExecutionLogsDeleted)
+
+	// 清后各表仅剩 1 条新记录
+	var logCount, runCount, eventCount int64
+	require.NoError(t, db.Model(&model.ExecutionLog{}).Count(&logCount).Error)
+	require.NoError(t, db.Model(&model.TaskRun{}).Count(&runCount).Error)
+	require.NoError(t, db.Model(&model.TaskEvent{}).Count(&eventCount).Error)
+	assert.Equal(t, int64(1), logCount)
+	assert.Equal(t, int64(1), runCount)
+	assert.Equal(t, int64(1), eventCount)
+}

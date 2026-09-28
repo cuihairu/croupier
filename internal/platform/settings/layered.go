@@ -82,10 +82,12 @@ const (
 	KeyPerfCacheSize      = "perf.cacheSize"      // 内存缓存大小（字节，0 = 沿用默认）
 
 	// 日志维护（L3 运行时配置，默认均为 0 表示沿用内置基线）。
-	KeyLogRetentionDays = "log.retentionDays" // 保留天数（0 = 永久）
-	KeyLogCleanupCron   = "log.cleanupCron"   // 定时清理表达式（如 "0 2 * * *"，每日清理）
-	KeyLogCopierDir     = "log.copierDir"     // 复制器日志目录
-	KeyLogCopierKeep    = "log.copierKeep"    // 复制器日志保留数（0 = 全部）
+	// retentionDays 本批接线（覆盖周期清理保留期，0 = 跟随配置文件）；
+	// cleanupCron/copierDir/copierKeep 为占位未接线（诚实边界见 OPEN-ISSUES #54）。
+	KeyLogRetentionDays = "log.retentionDays" // 保留天数（0 = 跟随配置文件）
+	KeyLogCleanupCron   = "log.cleanupCron"   // 定时清理表达式（占位，未接线）
+	KeyLogCopierDir     = "log.copierDir"     // 复制器日志目录（占位，未接线）
+	KeyLogCopierKeep    = "log.copierKeep"    // 复制器日志保留数（占位，未接线）
 
 	// 登录方式（外部身份源，L3 运行时配置——Harbor 模式：yaml 仅作
 	// bootstrap 初始值，UI 配置热生效；凭据键脱敏回显）
@@ -220,6 +222,7 @@ var intKeys = map[string]struct{}{
 	KeyPerfMaxConcurrent:          {},
 	KeyPerfMaxThreadCount:         {},
 	KeyPerfCacheSize:              {},
+	KeyLogRetentionDays:           {},
 }
 
 // IsIntKey reports whether the key carries a JSON number value.
@@ -936,6 +939,22 @@ func (l *Layered) PerformanceSettings() PerformanceSettingsSnapshot {
 	snap.MaxConcurrent, snap.Sources["maxConcurrent"] = int(maxConc), concSrc
 	snap.MaxThreadCount, snap.Sources["maxThreadCount"] = int(maxThr), thrSrc
 	snap.CacheSize, snap.Sources["cacheSize"] = l.getIntWithSource(KeyPerfCacheSize, 0)
+	return snap
+}
+
+// LogsSettingsSnapshot 日志维护 L3 快照（OPEN-ISSUES #54）。
+type LogsSettingsSnapshot struct {
+	// RetentionDays log.retentionDays 覆盖值；0 = 跟随配置文件
+	// （executionLog.retentionDays / taskLog.retentionDays 各自生效，缺省 7）。
+	RetentionDays int
+	Sources       map[string]string
+}
+
+// LogsSettings resolves the log maintenance knobs.
+func (l *Layered) LogsSettings() LogsSettingsSnapshot {
+	snap := LogsSettingsSnapshot{Sources: map[string]string{}}
+	days, src := l.getIntWithSource(KeyLogRetentionDays, 0)
+	snap.RetentionDays, snap.Sources["retentionDays"] = int(days), src
 	return snap
 }
 

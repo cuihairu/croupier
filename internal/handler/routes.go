@@ -552,6 +552,12 @@ func registerOpsRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 	// 性能参数（OPEN-ISSUES #53）：生效值 + 运行时快照；逐键 L3 覆盖
 	g.GET("/performance", opsHandler.PerformanceGet)
 	g.PUT("/performance", opsHandler.PerformancePut)
+
+	// 日志维护（OPEN-ISSUES #54）：留痕保留期 L3 覆盖 + 按时间手动清理 +
+	// 服务器日志文件只读视图
+	g.GET("/logs", opsHandler.LogsGet)
+	g.PUT("/logs", opsHandler.LogsPut)
+	g.POST("/logs/cleanup", opsHandler.LogsCleanupPost)
 	g.GET("/metrics", opsHandler.Metrics)
 	g.GET("/mq", opsHandler.MQ)
 	g.GET("/notifications", opsHandler.NotificationsGet)
