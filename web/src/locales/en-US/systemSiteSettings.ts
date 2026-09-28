@@ -224,7 +224,31 @@ export default {
     'Applies to account creation, password reset, and self-service change',
   'pages.systemSiteSettings.security.save': 'Save',
   'pages.systemSiteSettings.security.saved': 'Saved',
+  'pages.systemSiteSettings.security.cardTitle': 'Account Security Policy',
   'pages.systemSiteSettings.tab.security': 'Account Security',
+
+  // Outbound security & restrictions (OPEN-ISSUES #56)
+  'pages.systemSiteSettings.outbound.title': 'Outbound Security & Restrictions',
+  'pages.systemSiteSettings.outbound.hint':
+    'Restrict outbound HTTP requests made by the platform (notification webhooks, update checks). All off by default: with everything off, outbound behavior is unchanged.',
+  'pages.systemSiteSettings.outbound.allowPorts': 'Allowed ports',
+  'pages.systemSiteSettings.outbound.allowPortsHelp':
+    'Comma-separated port list (1-65535), e.g. 443,8080; empty = unrestricted',
+  'pages.systemSiteSettings.outbound.allowIPs': 'Allowed private IPs',
+  'pages.systemSiteSettings.outbound.allowIPsHelp':
+    'Allowlist for targets blocked by SSRF protection (single IP or CIDR, e.g. 10.0.0.0/8); empty = none',
+  'pages.systemSiteSettings.outbound.domainFilter': 'Domain filter (allowlist)',
+  'pages.systemSiteSettings.outbound.domainFilterHelp':
+    'Comma-separated domain suffixes; subdomains are allowed automatically (example.com covers api.example.com); empty = unrestricted',
+  'pages.systemSiteSettings.outbound.ssrfProtection': 'SSRF protection',
+  'pages.systemSiteSettings.outbound.ssrfProtectionHelp':
+    'When on, outbound targets resolving or connecting to private/loopback/link-local addresses are rejected (use "Allowed private IPs" to permit internal dependencies); the real connection is re-checked before dialing, so DNS rebinding is ineffective.',
+  'pages.systemSiteSettings.outbound.boundary':
+    'The guard only covers user-configurable outbound HTTP (notification webhooks and update checks); agent / database / SDK channels are not restricted. Domain filter is allowlist semantics (once set, only listed domains can be reached).',
+  'pages.systemSiteSettings.outbound.save': 'Save',
+  'pages.systemSiteSettings.outbound.saved': 'Saved',
+  'pages.systemSiteSettings.outbound.error.loadFailed': 'Failed to load outbound security settings',
+  'pages.systemSiteSettings.outbound.error.saveFailed': 'Save failed',
 
   'pages.systemSiteSettings.tab.site': 'System Info',
 

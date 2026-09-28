@@ -215,7 +215,31 @@ export default {
   'pages.systemSiteSettings.security.requireUppercaseHelp': '作用于建号、重置密码与自助修改密码',
   'pages.systemSiteSettings.security.save': '保存',
   'pages.systemSiteSettings.security.saved': '已保存',
+  'pages.systemSiteSettings.security.cardTitle': '账号安全策略',
   'pages.systemSiteSettings.tab.security': '账号安全',
+
+  // 出站安全与限制（OPEN-ISSUES #56）
+  'pages.systemSiteSettings.outbound.title': '出站安全与限制',
+  'pages.systemSiteSettings.outbound.hint':
+    '限制平台对外发起的 HTTP 请求（通知 webhook、检查更新）。全部默认关闭：关闭时 outbound 行为与既往完全一致。',
+  'pages.systemSiteSettings.outbound.allowPorts': '允许的端口',
+  'pages.systemSiteSettings.outbound.allowPortsHelp':
+    '逗号分隔端口清单（1-65535），如 443,8080；空 = 不限',
+  'pages.systemSiteSettings.outbound.allowIPs': '允许的私有 IP',
+  'pages.systemSiteSettings.outbound.allowIPsHelp':
+    'SSRF 保护拦截内网目标时的放行清单（单 IP 或 CIDR，如 10.0.0.0/8）；空 = 无放行',
+  'pages.systemSiteSettings.outbound.domainFilter': '域名过滤（允许清单）',
+  'pages.systemSiteSettings.outbound.domainFilterHelp':
+    '逗号分隔域名后缀，子域自动放行（example.com 覆盖 api.example.com）；空 = 不限',
+  'pages.systemSiteSettings.outbound.ssrfProtection': 'SSRF 保护',
+  'pages.systemSiteSettings.outbound.ssrfProtectionHelp':
+    '开启后出站目标解析或连接到私有/回环/链路本地地址即拒绝（可用「允许的私有 IP」放行内网依赖）；真实连接前二次复核，DNS 重绑定无效。',
+  'pages.systemSiteSettings.outbound.boundary':
+    '守卫仅覆盖用户可配置 URL 的出站 HTTP（通知 webhook 与检查更新）；agent / 数据库 / SDK 通道不受限。域名过滤为允许清单语义（配置后仅清单内域名可出站）。',
+  'pages.systemSiteSettings.outbound.save': '保存',
+  'pages.systemSiteSettings.outbound.saved': '已保存',
+  'pages.systemSiteSettings.outbound.error.loadFailed': '加载出站安全配置失败',
+  'pages.systemSiteSettings.outbound.error.saveFailed': '保存失败',
 
   // 运维/系统维护（OPEN-ISSUES #52）
   'pages.systemSiteSettings.maintenance.buildTime': '构建时间',

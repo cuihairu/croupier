@@ -142,6 +142,24 @@ export async function fetchSecuritySettings(): Promise<SecuritySettings> {
   });
 }
 
+// ---- 出站安全与限制（sec.*，默认全关 = 不限/不拦截） ----
+
+// Source: internal/platform/settings/layered.go OutboundSnapshot
+export type OutboundSettings = {
+  allowPorts: string;
+  allowIPs: string;
+  domainFilter: string;
+  ssrfProtection: boolean;
+  sources: Record<string, string>;
+};
+
+// Admin: effective outbound guard settings.
+export async function fetchOutboundSettings(): Promise<OutboundSettings> {
+  return request<OutboundSettings>('/api/v1/site/outbound', {
+    skipErrorHandler: true,
+  });
+}
+
 // ---- 登录方式（auth.*，外部身份源 LDAP/OIDC，Harbor 模式热配置） ----
 
 // Source: internal/platform/settings/layered.go AuthSnapshot

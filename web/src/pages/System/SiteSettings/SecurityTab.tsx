@@ -15,6 +15,7 @@ import {
 import { FormattedMessage, useIntl } from '@umijs/max';
 import { clearSiteSetting, fetchSecuritySettings, setSiteSetting } from '@/services/api/sites';
 import { extractErrorMessage } from '@/utils/errors';
+import OutboundSecurityCard from './OutboundSecurityCard';
 
 const { Text } = Typography;
 
@@ -171,75 +172,87 @@ export default function SecurityTab() {
   };
 
   return (
-    <Card loading={loading}>
-      <Form form={form} layout="vertical">
-        <Space orientation="vertical" size="middle" style={{ width: '100%' }}>
-          <Text type="secondary">
-            <FormattedMessage
-              id="pages.systemSiteSettings.security.intro"
-              defaultMessage="全部默认关闭：关闭时维持内置基线（密码 8-128 位、弱密码拦截、至少两类字符、不限期、TOTP 自助绑定）。"
-            />
-          </Text>
-          {BOOL_KEYS.map((item) => (
-            <Row key={item.key} gutter={12} align="middle">
-              <Col>
-                <Form.Item name={item.field} valuePropName="checked" style={{ marginBottom: 0 }}>
-                  <Switch />
-                </Form.Item>
-              </Col>
-              <Col flex="auto">
-                <Space size={4}>
-                  <Text strong>{intl.formatMessage(item.label)}</Text>
-                  <Button
-                    size="small"
-                    type="link"
-                    loading={savingKey === item.key}
-                    onClick={() => saveKey(item.key, item.field)}
-                  >
-                    <FormattedMessage
-                      id="pages.systemSiteSettings.security.save"
-                      defaultMessage="保存"
-                    />
-                  </Button>
-                </Space>
-                <div>
-                  <Text type="secondary">{intl.formatMessage(item.help)}</Text>
-                </div>
-              </Col>
-            </Row>
-          ))}
-          {INT_KEYS.map((item) => (
-            <Row key={item.key} gutter={12} align="middle">
-              <Col>
-                <Form.Item name={item.field} style={{ marginBottom: 0 }}>
-                  <InputNumber min={0} max={3650} style={{ width: 120 }} />
-                </Form.Item>
-              </Col>
-              <Col flex="auto">
-                <Space size={4}>
-                  <Text strong>
-                    {intl.formatMessage(item.label)} <Tag>{item.key}</Tag>
-                  </Text>
-                  <Button
-                    size="small"
-                    type="link"
-                    loading={savingKey === item.key}
-                    onClick={() => saveKey(item.key, item.field)}
-                  >
-                    <FormattedMessage
-                      id="pages.systemSiteSettings.security.save"
-                      defaultMessage="保存"
-                    />
-                  </Button>
-                </Space>
-                <div>
-                  <Text type="secondary">{intl.formatMessage(item.help)}</Text>
-                </div>
-              </Col>
-            </Row>
-          ))}
-        </Space>
-      </Form>
-    </Card>
+    <Space orientation="vertical" size="large" style={{ width: '100%' }}>
+      <Card
+        title={
+          <FormattedMessage
+            id="pages.systemSiteSettings.security.cardTitle"
+            defaultMessage="账号安全策略"
+          />
+        }
+        loading={loading}
+      >
+        <Form form={form} layout="vertical">
+          <Space orientation="vertical" size="middle" style={{ width: '100%' }}>
+            <Text type="secondary">
+              <FormattedMessage
+                id="pages.systemSiteSettings.security.intro"
+                defaultMessage="全部默认关闭：关闭时维持内置基线（密码 8-128 位、弱密码拦截、至少两类字符、不限期、TOTP 自助绑定）。"
+              />
+            </Text>
+            {BOOL_KEYS.map((item) => (
+              <Row key={item.key} gutter={12} align="middle">
+                <Col>
+                  <Form.Item name={item.field} valuePropName="checked" style={{ marginBottom: 0 }}>
+                    <Switch />
+                  </Form.Item>
+                </Col>
+                <Col flex="auto">
+                  <Space size={4}>
+                    <Text strong>{intl.formatMessage(item.label)}</Text>
+                    <Button
+                      size="small"
+                      type="link"
+                      loading={savingKey === item.key}
+                      onClick={() => saveKey(item.key, item.field)}
+                    >
+                      <FormattedMessage
+                        id="pages.systemSiteSettings.security.save"
+                        defaultMessage="保存"
+                      />
+                    </Button>
+                  </Space>
+                  <div>
+                    <Text type="secondary">{intl.formatMessage(item.help)}</Text>
+                  </div>
+                </Col>
+              </Row>
+            ))}
+            {INT_KEYS.map((item) => (
+              <Row key={item.key} gutter={12} align="middle">
+                <Col>
+                  <Form.Item name={item.field} style={{ marginBottom: 0 }}>
+                    <InputNumber min={0} max={3650} style={{ width: 120 }} />
+                  </Form.Item>
+                </Col>
+                <Col flex="auto">
+                  <Space size={4}>
+                    <Text strong>
+                      {intl.formatMessage(item.label)} <Tag>{item.key}</Tag>
+                    </Text>
+                    <Button
+                      size="small"
+                      type="link"
+                      loading={savingKey === item.key}
+                      onClick={() => saveKey(item.key, item.field)}
+                    >
+                      <FormattedMessage
+                        id="pages.systemSiteSettings.security.save"
+                        defaultMessage="保存"
+                      />
+                    </Button>
+                  </Space>
+                  <div>
+                    <Text type="secondary">{intl.formatMessage(item.help)}</Text>
+                  </div>
+                </Col>
+              </Row>
+            ))}
+          </Space>
+        </Form>
+      </Card>
+      {/* #56 出站安全与限制（sec.* 四键）：独立卡独立加载 */}
+      <OutboundSecurityCard />
+    </Space>
   );
 }

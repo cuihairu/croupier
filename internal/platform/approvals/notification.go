@@ -22,6 +22,9 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/cuihairu/croupier/internal/platform/settings"
+	"github.com/cuihairu/croupier/internal/security/secguard"
 )
 
 // NotificationEvent represents a notification event
@@ -751,6 +754,11 @@ func defaultPostJSON(ctx context.Context, u string, payload []byte) error {
 }
 
 func defaultPostJSONWithHeaders(ctx context.Context, u string, payload []byte, headers map[string]string) error {
+	// 出站安全守卫（OPEN-ISSUES #56）：sec.* 四键全关时零开销直通
+	guard := secguard.Resolve(settings.Current())
+	if err := secguard.CheckURL(ctx, guard, u); err != nil {
+		return err
+	}
 	reqCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 	req, err := http.NewRequestWithContext(reqCtx, http.MethodPost, u, bytes.NewReader(payload))
@@ -761,7 +769,7 @@ func defaultPostJSONWithHeaders(ctx context.Context, u string, payload []byte, h
 	for k, v := range headers {
 		req.Header.Set(k, v)
 	}
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := secguard.HTTPClient(guard, http.DefaultClient).Do(req)
 	if err != nil {
 		return err
 	}

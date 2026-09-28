@@ -5,7 +5,9 @@ package sitesettings
 import (
 	"encoding/json"
 	"fmt"
+	"net"
 	"net/url"
+	"strconv"
 	"strings"
 
 	"github.com/cuihairu/croupier/internal/common/errorx"
@@ -50,6 +52,7 @@ func (h *Handler) RegisterAdmin(g *gin.RouterGroup) {
 	g.GET("/site/observability", h.GetObservability)
 	g.GET("/site/notification", h.GetNotification)
 	g.GET("/site/security", h.GetSecurity)
+	g.GET("/site/outbound", h.GetOutbound)
 }
 
 // GetNotification serves GET /api/v1/site/notification: channel config with
@@ -62,6 +65,12 @@ func (h *Handler) GetNotification(c *gin.Context) {
 // （security.* 五键，默认全关）。
 func (h *Handler) GetSecurity(c *gin.Context) {
 	response.Success(c, h.layered.SecurityPolicy())
+}
+
+// GetOutbound serves GET /api/v1/site/outbound: 出站安全与限制生效值
+// （sec.* 四键，默认全关 = 不限/不拦截）。
+func (h *Handler) GetOutbound(c *gin.Context) {
+	response.Success(c, h.layered.OutboundSnapshot())
 }
 
 // GetFeatures serves GET /api/v1/site/features: per-domain composed state
@@ -197,6 +206,43 @@ func validateValue(key string, raw json.RawMessage) error {
 		case "", "plain", "login":
 		default:
 			return fmt.Errorf("%s 仅支持 plain / login（留空 = plain）", key)
+		}
+	}
+	// #56 出站安全：清单格式校验（空串 = 不限）
+	if key == settings.KeySecAllowPorts && v != "" {
+		for _, part := range strings.Split(strings.ReplaceAll(v, " ", ""), ",") {
+			n, err := strconv.Atoi(part)
+			if err != nil || n < 1 || n > 65535 {
+				return fmt.Errorf("%s 需为 1-65535 端口的逗号分隔清单", key)
+			}
+		}
+	}
+	if key == settings.KeySecAllowIPs && v != "" {
+		for _, part := range strings.Split(v, ",") {
+			part = strings.TrimSpace(part)
+			if part == "" {
+				continue
+			}
+			if strings.Contains(part, "/") {
+				if _, _, err := net.ParseCIDR(part); err != nil {
+					return fmt.Errorf("%s 含非法 CIDR：%s", key, part)
+				}
+				continue
+			}
+			if net.ParseIP(part) == nil {
+				return fmt.Errorf("%s 含非法 IP：%s", key, part)
+			}
+		}
+	}
+	if key == settings.KeySecDomainFilter && v != "" {
+		for _, part := range strings.Split(v, ",") {
+			part = strings.ToLower(strings.TrimSpace(strings.TrimSuffix(strings.TrimSpace(part), ".")))
+			if part == "" {
+				continue
+			}
+			if strings.Contains(part, "://") || strings.ContainsAny(part, "/ ") {
+				return fmt.Errorf("%s 需为域名后缀清单（如 example.com，不带协议/路径）", key)
+			}
 		}
 	}
 	return nil

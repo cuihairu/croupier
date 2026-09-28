@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"github.com/cuihairu/croupier/internal/platform/settings"
+	"github.com/cuihairu/croupier/internal/security/secguard"
 	"github.com/cuihairu/croupier/internal/svc"
 )
 
@@ -113,12 +114,17 @@ func systemCheckUpdate(ctx context.Context, svcCtx *svc.ServiceContext) *SystemC
 }
 
 // fetchRemoteVersion 拉取更新源并以字符串返回远端版本号。
+// 出站安全守卫（OPEN-ISSUES #56）：sec.* 开启时拦截受限目标。
 func fetchRemoteVersion(ctx context.Context, url string) (string, error) {
+	guard := secguard.Resolve(settings.Current())
+	if err := secguard.CheckURL(ctx, guard, url); err != nil {
+		return "", err
+	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return "", err
 	}
-	client := &http.Client{Timeout: 5 * time.Second}
+	client := secguard.HTTPClient(guard, &http.Client{Timeout: 5 * time.Second})
 	httpResp, err := client.Do(req)
 	if err != nil {
 		return "", err

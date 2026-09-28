@@ -249,6 +249,7 @@ var boolKeys = map[string]struct{}{
 	KeyAuthRegisterEnabled: {},
 	KeySecurityMFARequired: {}, KeySecurityPasswordRequireUpper: {},
 	KeySecurityPasswordRequireSpecial: {},
+	KeySecSSRFProtection:              {},
 }
 
 // IsBoolKey reports whether the key carries a JSON boolean value.
@@ -899,6 +900,37 @@ func (l *Layered) SecurityPolicy() SecurityPolicySnapshot {
 		PasswordRequireSpecial:   l.GetBool(KeySecurityPasswordRequireSpecial, false),
 		PasswordMaxAgeDays:       l.GetInt(KeySecurityPasswordMaxAgeDays, 0),
 	}
+}
+
+// OutboundSnapshot 是出站安全与限制（sec.*，OPEN-ISSUES #56）的读视图：
+// 清单为空串 = 不限；ssrfProtection false = 不拦截。语义实现在
+// internal/security/secguard（CheckURL 静态校验 + 拨号 Control 钩子）。
+type OutboundSnapshot struct {
+	AllowPorts     string            `json:"allowPorts"`
+	AllowIPs       string            `json:"allowIPs"`
+	DomainFilter   string            `json:"domainFilter"`
+	SSRFProtection bool              `json:"ssrfProtection"`
+	Sources        map[string]string `json:"sources"`
+}
+
+// OutboundSnapshot resolves the outbound guard settings.
+func (l *Layered) OutboundSnapshot() OutboundSnapshot {
+	snap := OutboundSnapshot{Sources: map[string]string{}}
+	for key, dst := range map[string]*string{
+		KeySecAllowPorts:   &snap.AllowPorts,
+		KeySecAllowIPs:     &snap.AllowIPs,
+		KeySecDomainFilter: &snap.DomainFilter,
+	} {
+		v, src, ok := l.GetString(context.Background(), key)
+		if ok {
+			*dst = v
+			snap.Sources[key] = src
+		} else {
+			snap.Sources[key] = "default"
+		}
+	}
+	snap.SSRFProtection, snap.Sources[KeySecSSRFProtection], _ = l.getBoolWithSource(KeySecSSRFProtection, false)
+	return snap
 }
 
 // PerformanceSettingsSnapshot 是性能参数（perf.*）的读视图：阈值/上限为
