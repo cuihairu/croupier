@@ -11,7 +11,7 @@ interface RawGameEnv {
   Color?: string;
 }
 
-export async function listGameEnvs(gameId: number) {
+export async function listGameEnvs(gameId: number | string) {
   const res = await request<{ envs?: RawGameEnv[] }>(`/api/v1/games/${gameId}/envs`);
   const payload = res?.envs;
   const envs = Array.isArray(payload)
@@ -25,7 +25,7 @@ export async function listGameEnvs(gameId: number) {
 }
 
 export async function addGameEnv(
-  gameId: number,
+  gameId: number | string,
   env: string,
   description?: string,
   color?: string,
@@ -37,7 +37,7 @@ export async function addGameEnv(
 }
 
 export async function updateGameEnv(
-  gameId: number,
+  gameId: number | string,
   oldEnv: string,
   env?: string,
   description?: string,
@@ -49,7 +49,7 @@ export async function updateGameEnv(
   });
 }
 
-export async function deleteGameEnv(gameId: number, params: { env: string }) {
+export async function deleteGameEnv(gameId: number | string, params: { env: string }) {
   return request<void>(`/api/v1/games/${gameId}/envs/${encodeURIComponent(params.env)}`, {
     method: 'DELETE',
   });

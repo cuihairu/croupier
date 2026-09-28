@@ -1,5 +1,5 @@
 /**
- * 系统设置 / 站点信息页回归（主树最大零覆盖模块 2118 行的入口文件）。
+ * 系统设置 / 系统信息页回归（主树最大零覆盖模块 2118 行的入口文件）。
  *
  * 核心契约：配置三层（代码默认 ← 配置文件 ← 数据库覆盖最高）——
  * a. sources 里 source==='database' 的字段显示「数据库覆盖」徽标 + 「恢复」按钮；
@@ -63,6 +63,12 @@ const baseConfig = {
   logoUrl: '/logo.svg',
   faviconUrl: '/favicon.ico',
   description: '游戏运营平台',
+  serverUrl: 'https://gm.example.com',
+  taskPublicUrl: 'https://tasks.example.com',
+  docsUrl: 'https://docs.example.com',
+  homeContent: '欢迎接入',
+  userAgreement: '协议全文示例',
+  privacyPolicy: '隐私政策全文示例',
   footerCopyright: '© 2026 Croupier',
   footerIcp: '京ICP备12345678号',
 };
@@ -84,7 +90,7 @@ beforeEach(() => {
   mClear.mockResolvedValue(undefined);
 });
 
-describe('SiteSettings 站点信息', () => {
+describe('SiteSettings 系统信息', () => {
   it('加载回填表单并按来源渲染分层徽标：database→覆盖+恢复、config→跟随', async () => {
     mFetch.mockResolvedValue({
       ...baseConfig,
@@ -101,7 +107,31 @@ describe('SiteSettings 站点信息', () => {
     expect(screen.getByRole('button', { name: '恢复' })).toBeInTheDocument();
     // footer.icp=config：跟随配置文件徽标，无恢复按钮
     expect(screen.getByText('跟随配置文件')).toBeInTheDocument();
-    expect(screen.getAllByRole('button', { name: '保存' })).toHaveLength(6);
+    expect(screen.getAllByRole('button', { name: '保存' })).toHaveLength(12);
+    // 系统信息扩展字段（OPEN-ISSUES #49）回填
+    expect(screen.getByDisplayValue('https://gm.example.com')).toBeInTheDocument();
+    expect(screen.getByDisplayValue('https://tasks.example.com')).toBeInTheDocument();
+    expect(screen.getByDisplayValue('https://docs.example.com')).toBeInTheDocument();
+    expect(screen.getByDisplayValue('欢迎接入')).toBeInTheDocument();
+    expect(screen.getByDisplayValue('协议全文示例')).toBeInTheDocument();
+    expect(screen.getByDisplayValue('隐私政策全文示例')).toBeInTheDocument();
+  });
+
+  it('系统信息扩展字段保存：docsUrl 提交 trim 后的值，homeContent 清空不提交', async () => {
+    renderPage();
+    const docs = await screen.findByDisplayValue('https://docs.example.com');
+    fireEvent.change(docs, { target: { value: '  https://docs.new  ' } });
+    // 字段 DOM 序：siteName(0) logoUrl(1) faviconUrl(2) description(3)
+    // serverUrl(4) taskPublicUrl(5) docsUrl(6)…
+    fireEvent.click(screen.getAllByRole('button', { name: '保存' })[6]);
+    await waitFor(() => expect(mSet).toHaveBeenCalledWith('site.docsUrl', 'https://docs.new'));
+    expect(mFetch).toHaveBeenCalledTimes(2);
+
+    // 空值不提交（saveField 空值守卫），homeContent 保存钮为索引 7
+    const home = screen.getByDisplayValue('欢迎接入');
+    fireEvent.change(home, { target: { value: '   ' } });
+    fireEvent.click(screen.getAllByRole('button', { name: '保存' })[7]);
+    expect(mSet).not.toHaveBeenCalledWith('site.homeContent', '');
   });
 
   it('保存：提交 trim 后的值并重拉；空值不提交', async () => {
@@ -177,8 +207,8 @@ describe('SiteSettings 站点信息', () => {
     renderPage();
 
     await waitFor(() => expect(mFetch).toHaveBeenCalled());
-    expect(screen.getByText('站点信息')).toBeInTheDocument();
-    expect(screen.getAllByRole('button', { name: '保存' })).toHaveLength(6);
+    expect(screen.getByText('系统信息')).toBeInTheDocument();
+    expect(screen.getAllByRole('button', { name: '保存' })).toHaveLength(12);
     expect(screen.queryByDisplayValue('Croupier')).not.toBeInTheDocument();
   });
 });

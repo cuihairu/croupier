@@ -1,6 +1,7 @@
 package game
 
 import (
+	"context"
 	"regexp"
 	"strings"
 
@@ -22,6 +23,79 @@ var gameNamePattern = regexp.MustCompile(`^[A-Za-z0-9_@-]+$`)
 
 func parseGameID(id string) (uint, error) {
 	return utils.ParseUintID(id, "游戏ID")
+}
+
+// resolveGameID 兼容两种寻址形态：数字主键（历史形态）与业务 game_id（=Name，
+// BeforeCreate 自动填充）。前端环境页自授权视图（/profile/games）驱动后不再
+// 持有数字主键，环境端点因此接受业务串寻址。
+func (s *Service) resolveGameID(ctx context.Context, raw string) (uint, error) {
+	if id, err := parseGameID(raw); err == nil {
+		return id, nil
+	}
+	game, err := s.svcCtx.GameModel.FindByGameIDString(ctx, strings.TrimSpace(raw))
+	if err != nil {
+		return 0, errorx.NewNotFound("游戏 " + strings.TrimSpace(raw) + " 不存在")
+	}
+	return game.ID, nil
+}
+
+// gameEnvScopes 返回当前操作者在指定游戏上的授权环境集合。admin 角色直过
+// （isAdmin=true，allowed 为 nil 表示不限制）；其余操作者按 admin_game_env_scopes
+// 授权表过滤——RBAC 功能权限点（games:manage）只表达「能否管理游戏环境」，
+// 该表表达「在哪些 (game, env) 上被授权」，环境写路径两道防线都必须过。
+func (s *Service) gameEnvScopes(ctx context.Context, gameID uint) (map[string]struct{}, bool, error) {
+	admin, roles, err := utils.LoadCurrentAdmin(ctx, s.svcCtx)
+	if err != nil {
+		return nil, false, err
+	}
+	if utils.HasAdminRole(utils.RoleNamesFromModels(roles)) {
+		return nil, true, nil
+	}
+	scopes, err := s.svcCtx.AdminModel.GetAdminEnvScopes(ctx, admin.ID)
+	if err != nil {
+		return nil, false, errorx.NewInternalError("查询游戏环境授权失败")
+	}
+	allowed := make(map[string]struct{}, len(scopes))
+	for _, sc := range scopes {
+		if sc.GameID == gameID {
+			allowed[strings.ToLower(strings.TrimSpace(sc.Env))] = struct{}{}
+		}
+	}
+	return allowed, false, nil
+}
+
+// authorizeGameEnv 是环境写路径的授权防线：目标环境必须命中授权集合。
+// envs 变参为空表示仅校验游戏维度（EnvAdd 场景——新增环境尚不存在，
+// 不在授权表内，只要操作者在该游戏持有任一环境授权即可）。
+func (s *Service) authorizeGameEnv(ctx context.Context, gameID uint, envs ...string) error {
+	allowed, isAdmin, err := s.gameEnvScopes(ctx, gameID)
+	if err != nil {
+		return err
+	}
+	if isAdmin {
+		return nil
+	}
+	if len(allowed) == 0 {
+		return errorx.NewForbidden("无权操作该游戏的环境")
+	}
+	for _, env := range envs {
+		if _, ok := allowed[strings.ToLower(strings.TrimSpace(env))]; !ok {
+			return errorx.NewForbidden("无权操作游戏环境 " + env)
+		}
+	}
+	return nil
+}
+
+// filterEnvItemsByScopes 按授权环境集合过滤列表项（小写对齐 findEnvIndex 的
+// EqualFold 语义）。
+func filterEnvItemsByScopes(items []GameEnvItem, allowed map[string]struct{}) []GameEnvItem {
+	filtered := make([]GameEnvItem, 0, len(items))
+	for _, item := range items {
+		if _, ok := allowed[strings.ToLower(item.Env)]; ok {
+			filtered = append(filtered, item)
+		}
+	}
+	return filtered
 }
 
 func buildGameInfo(game *model.Game) GameInfo {

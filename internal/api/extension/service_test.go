@@ -2285,10 +2285,6 @@ func TestService_CatalogList_Success(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if resp.Code != 200 {
-		t.Fatalf("expected code 200, got: %d", resp.Code)
-	}
-
 	if resp.Total < 3 {
 		t.Fatalf("expected at least 3 catalog items, got: %d", resp.Total)
 	}
@@ -2318,10 +2314,6 @@ func TestService_CatalogDetail_Success(t *testing.T) {
 	resp, err := s.CatalogDetail(ctx, "test.analytics")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
-	}
-
-	if resp.Code != 200 {
-		t.Fatalf("expected code 200, got: %d", resp.Code)
 	}
 
 	if resp.Item == nil {
@@ -2371,10 +2363,6 @@ func TestService_CatalogReleases_Success(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if resp.Code != 200 {
-		t.Fatalf("expected code 200, got: %d", resp.Code)
-	}
-
 	if len(resp.Releases) != 2 {
 		t.Fatalf("expected 2 releases, got: %d", len(resp.Releases))
 	}
@@ -2406,10 +2394,6 @@ func TestService_Install_Success(t *testing.T) {
 	resp, err := s.Install(ctx, req, "test_admin")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
-	}
-
-	if resp.Code != 200 {
-		t.Fatalf("expected code 200, got: %d", resp.Code)
 	}
 
 	if resp.InstallationID == 0 {
@@ -2568,10 +2552,6 @@ func TestService_InstallationList_Success(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if resp.Code != 200 {
-		t.Fatalf("expected code 200, got: %d", resp.Code)
-	}
-
 	if len(resp.Items) == 0 {
 		t.Fatal("expected at least one installation")
 	}
@@ -2605,10 +2585,6 @@ func TestService_InstallationDetail_Success(t *testing.T) {
 	resp, err := s.InstallationDetail(ctx, installResp.InstallationID)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
-	}
-
-	if resp.Code != 200 {
-		t.Fatalf("expected code 200, got: %d", resp.Code)
 	}
 
 	if resp.Installation == nil {
@@ -2666,10 +2642,6 @@ func TestService_UpdateConfig_Success(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if resp.Code != 200 {
-		t.Fatalf("expected code 200, got: %d", resp.Code)
-	}
-
 	if resp.Status != "updated" {
 		t.Fatalf("expected status 'updated', got: %s", resp.Status)
 	}
@@ -2703,10 +2675,6 @@ func TestService_ConfigSchema_Success(t *testing.T) {
 	resp, err := s.ConfigSchema(ctx, installResp.InstallationID)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
-	}
-
-	if resp.Code != 200 {
-		t.Fatalf("expected code 200, got: %d", resp.Code)
 	}
 
 	if len(resp.Schema) == 0 {
@@ -2743,10 +2711,6 @@ func TestService_Config_Success(t *testing.T) {
 	resp, err := s.Config(ctx, installResp.InstallationID)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
-	}
-
-	if resp.Code != 200 {
-		t.Fatalf("expected code 200, got: %d", resp.Code)
 	}
 
 	if resp.Config == nil {
@@ -2788,10 +2752,6 @@ func TestService_TestConnection_Success(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if resp.Code != 200 {
-		t.Fatalf("expected code 200, got: %d", resp.Code)
-	}
-
 	if resp.Status != "disabled" { // New installations start disabled
 		t.Fatalf("expected status 'disabled', got: %s", resp.Status)
 	}
@@ -2825,10 +2785,6 @@ func TestService_Capabilities_Success(t *testing.T) {
 	resp, err := s.Capabilities(ctx, installResp.InstallationID)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
-	}
-
-	if resp.Code != 200 {
-		t.Fatalf("expected code 200, got: %d", resp.Code)
 	}
 
 	// Should have capabilities from manifest since bindings are empty
@@ -2867,10 +2823,6 @@ func TestService_Pages_Success(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if resp.Code != 200 {
-		t.Fatalf("expected code 200, got: %d", resp.Code)
-	}
-
 	// Pages list should be returned (empty if not defined)
 	if resp.Pages == nil {
 		t.Fatal("expected pages list to be initialized")
@@ -2905,10 +2857,6 @@ func TestService_HealthCheck_Success(t *testing.T) {
 	resp, err := s.HealthCheck(ctx, installResp.InstallationID, "test_admin")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
-	}
-
-	if resp.Code != 200 {
-		t.Fatalf("expected code 200, got: %d", resp.Code)
 	}
 
 	if resp.Status != "disabled" { // New installations start disabled
@@ -2948,10 +2896,6 @@ func TestService_Enable_Success(t *testing.T) {
 	resp, err := s.Enable(ctx, installResp.InstallationID, "test_admin")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
-	}
-
-	if resp.Code != 200 {
-		t.Fatalf("expected code 200, got: %d", resp.Code)
 	}
 
 	if resp.Status != "enabled" {
@@ -2995,10 +2939,6 @@ func TestService_Disable_Success(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if resp.Code != 200 {
-		t.Fatalf("expected code 200, got: %d", resp.Code)
-	}
-
 	if resp.Status != "disabled" {
 		t.Fatalf("expected status 'disabled', got: %s", resp.Status)
 	}
@@ -3032,10 +2972,6 @@ func TestService_Upgrade_Success(t *testing.T) {
 	resp, err := s.Upgrade(ctx, installResp.InstallationID, "2.0.0", "test_admin")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
-	}
-
-	if resp.Code != 200 {
-		t.Fatalf("expected code 200, got: %d", resp.Code)
 	}
 
 	if resp.Status != "upgraded" {
@@ -3135,10 +3071,6 @@ func TestService_Reconcile_Success(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if resp.Code != 200 {
-		t.Fatalf("expected code 200, got: %d", resp.Code)
-	}
-
 	if resp.Applied < 0 {
 		t.Fatalf("expected applied >= 0, got: %d", resp.Applied)
 	}
@@ -3172,10 +3104,6 @@ func TestService_Uninstall_Success(t *testing.T) {
 	resp, err := s.Uninstall(ctx, installResp.InstallationID, "test_admin")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
-	}
-
-	if resp.Code != 200 {
-		t.Fatalf("expected code 200, got: %d", resp.Code)
 	}
 
 	if resp.Status != "uninstalled" {
@@ -3218,10 +3146,6 @@ func TestService_Events_Success(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if resp.Code != 200 {
-		t.Fatalf("expected code 200, got: %d", resp.Code)
-	}
-
 	// Events list should be returned (may be empty initially)
 	if resp.Items == nil {
 		t.Fatal("expected events list to be initialized")
@@ -3256,10 +3180,6 @@ func TestService_AgentSyncPayload_Success(t *testing.T) {
 	resp, err := s.AgentSyncPayload(ctx, "test-agent-001")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
-	}
-
-	if resp.Code != 200 {
-		t.Fatalf("expected code 200, got: %d", resp.Code)
 	}
 
 	if resp.Payload == nil {

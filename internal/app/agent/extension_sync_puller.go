@@ -12,9 +12,10 @@ import (
 	extensionsync "github.com/cuihairu/croupier/internal/core/extension/sync"
 )
 
+// extensionSyncAPIResponse 只解 payload 包装（wire 契约见
+// docs/architecture/extensions-api-contract-baseline.md §3.4）；历史响应中的
+// code/message 字段已随契约收口移除，decode 对未知键宽容，不在此声明。
 type extensionSyncAPIResponse struct {
-	Code    int             `json:"code"`
-	Message string          `json:"message"`
 	Payload json.RawMessage `json:"payload"`
 }
 

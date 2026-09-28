@@ -301,25 +301,37 @@ describe('extension API adapters', () => {
 
     await expect(api.listExtensionEvents(1)).resolves.toEqual({ total: 0, items: [] });
 
-    await expect(api.listExtensionPages('x')).resolves.toEqual({ items: [] });
+    await expect(api.listExtensionPages(3)).resolves.toEqual({ items: [] });
   });
 
+  // #46 批次 1：canonical 契约 = GET installations/:id/pages，响应 { pages: [...] }
   it('listExtensionPages projects page descriptors', async () => {
-    mockedRequest.mockResolvedValueOnce({ items: [{ id: 'p1', title: '看板', order: 2 }] });
+    mockedRequest.mockResolvedValueOnce({
+      pages: [
+        {
+          key: 'overview',
+          title: '看板',
+          route: '/ext/grafana/overview',
+          order: 2,
+          source: 'binding',
+        },
+        { key: 'r2', order: 'x' },
+      ],
+    });
 
-    const res = await api.listExtensionPages('grafana');
+    const res = await api.listExtensionPages(7);
 
     expect(res.items).toEqual([
       {
-        id: 'p1',
+        key: 'overview',
         title: '看板',
-        path: undefined,
+        route: '/ext/grafana/overview',
         icon: undefined,
         order: 2,
-        category: undefined,
-        extensionId: undefined,
+        source: 'binding',
       },
+      { key: 'r2', title: '', route: '', icon: undefined, order: 0, source: '' },
     ]);
-    expect(mockedRequest).toHaveBeenCalledWith('/api/v1/extensions/grafana/pages');
+    expect(mockedRequest).toHaveBeenCalledWith('/api/v1/extensions/installations/7/pages');
   });
 });

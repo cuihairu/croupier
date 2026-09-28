@@ -7,7 +7,7 @@ import { LockOutlined, SafetyCertificateOutlined, UserOutlined } from '@ant-desi
 import { LoginForm, ProFormCheckbox, ProFormText } from '@ant-design/pro-components';
 import { LoginOutlined } from '@ant-design/icons';
 import { FormattedMessage, history, SelectLang, useIntl, useModel, Helmet } from '@umijs/max';
-import { Alert, Button, Divider, Form, Input, Modal, Typography } from 'antd';
+import { Alert, Button, Divider, Form, Input, Modal, Space, Typography } from 'antd';
 import { getMessage } from '@/utils/antdApp';
 import Settings from '../../../../config/defaultSettings';
 import { BRAND } from '@/config/branding';
@@ -99,6 +99,8 @@ const Login: React.FC = () => {
   const [mfaRequired, setMfaRequired] = useState(false);
   // 已启用登录方式（LDAP 级联提示 / OIDC SSO 入口）；拉取失败静默回落本地登录
   const [providers, setProviders] = useState<LoginProviders | null>(null);
+  // 系统信息协议弹窗（OPEN-ISSUES #49）：'user' | 'privacy' | null
+  const [agreementView, setAgreementView] = useState<null | 'user' | 'privacy'>(null);
   useEffect(() => {
     fetchLoginProviders()
       .then(setProviders)
@@ -140,6 +142,20 @@ const Login: React.FC = () => {
         // 后端吊销该 token（BumpTokenVersion），前端清除并引导用新密码重登。
         setForceChangeOldPwd(values.password);
         setForceChangeOpen(true);
+        return;
+      }
+      if (res.mfaSetupRequired) {
+        // 账号安全策略强制 TOTP（security.mfaRequired）：token 有效（绑定
+        // 接口需要鉴权），鉴权中间件已把其余 API 拦为 403 mfa_required，
+        // 直接引导到个人安全页绑定，与 mustChangePassword 同构。
+        getMessage()?.warning(
+          intl.formatMessage({
+            id: 'pages.login.mfaSetupRequired',
+            defaultMessage: '管理员已开启强制二次验证，请先绑定 TOTP',
+          }),
+        );
+        await fetchUserInfo();
+        history.push('/profile?tab=security');
         return;
       }
       try {
@@ -400,6 +416,64 @@ const Login: React.FC = () => {
             </a>
           </div>
         </LoginForm>
+        {/* 系统信息消费面（OPEN-ISSUES #49）：首页内容欢迎区 + 文档/协议入口，
+            均按配置存在才渲染，未配置零占位 */}
+        {(siteCfg?.homeContent ||
+          siteCfg?.docsUrl ||
+          siteCfg?.userAgreement ||
+          siteCfg?.privacyPolicy) && (
+          <div
+            style={{
+              width: 'min(420px, calc(100vw - 32px))',
+              margin: '0 auto 24px',
+              textAlign: 'center',
+            }}
+          >
+            {siteCfg?.homeContent && (
+              <Typography.Paragraph type="secondary" style={{ marginBottom: 8 }}>
+                {siteCfg.homeContent}
+              </Typography.Paragraph>
+            )}
+            <Space size={16} wrap>
+              {siteCfg?.docsUrl && (
+                <a href={siteCfg.docsUrl} target="_blank" rel="noreferrer">
+                  <FormattedMessage id="pages.login.docsLink" defaultMessage="文档" />
+                </a>
+              )}
+              {siteCfg?.userAgreement && (
+                <a onClick={() => setAgreementView('user')}>
+                  <FormattedMessage id="pages.login.userAgreement" defaultMessage="用户协议" />
+                </a>
+              )}
+              {siteCfg?.privacyPolicy && (
+                <a onClick={() => setAgreementView('privacy')}>
+                  <FormattedMessage id="pages.login.privacyPolicy" defaultMessage="隐私政策" />
+                </a>
+              )}
+            </Space>
+          </div>
+        )}
+        <Modal
+          title={
+            agreementView === 'user'
+              ? intl.formatMessage({
+                  id: 'pages.login.userAgreement',
+                  defaultMessage: '用户协议',
+                })
+              : intl.formatMessage({
+                  id: 'pages.login.privacyPolicy',
+                  defaultMessage: '隐私政策',
+                })
+          }
+          open={agreementView !== null}
+          footer={null}
+          width={640}
+          onCancel={() => setAgreementView(null)}
+        >
+          <div style={{ whiteSpace: 'pre-wrap', maxHeight: '60vh', overflowY: 'auto' }}>
+            {agreementView === 'user' ? siteCfg?.userAgreement : siteCfg?.privacyPolicy}
+          </div>
+        </Modal>
         <Modal
           title={intl.formatMessage({
             id: 'pages.login.forgotPassword',

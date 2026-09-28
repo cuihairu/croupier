@@ -70,19 +70,27 @@ export default function ExtensionDomainEntryPage() {
 
   const [loading, setLoading] = useState(false);
   const [installedCount, setInstalledCount] = useState(0);
-  const [pages, setPages] = useState<Array<{ title?: string; path?: string }>>([]);
+  const [pages, setPages] = useState<Array<{ title?: string; route?: string }>>([]);
 
+  // #46 批次 1：pages 端点按安装实例（installations/:id/pages）——先取该扩展的
+  // 安装列表，首个安装实例存在时才拉页面绑定；不再 .catch 静默（此前契约错位
+  // +吞错导致「扩展页面入口」恒空且无告警）。
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [installationsResp, pagesResp] = await Promise.all([
-        listExtensionInstallations({ extensionId: meta.extensionId, page: 1, pageSize: 20 }),
-        listExtensionPages(meta.extensionId).catch(() => ({
-          items: [] as Array<{ id?: string; title?: string; path?: string }>,
-        })),
-      ]);
+      const installationsResp = await listExtensionInstallations({
+        extensionId: meta.extensionId,
+        page: 1,
+        pageSize: 20,
+      });
       setInstalledCount(installationsResp?.total || 0);
-      setPages((pagesResp?.items || []).map((x) => ({ title: x.title, path: x.path })));
+      const first = installationsResp?.items?.[0];
+      if (!first) {
+        setPages([]);
+        return;
+      }
+      const pagesResp = await listExtensionPages(first.id);
+      setPages((pagesResp?.items || []).map((x) => ({ title: x.title, route: x.route })));
     } catch {
       message.error(
         intlRef.current.formatMessage({
@@ -142,9 +150,9 @@ export default function ExtensionDomainEntryPage() {
             >
               <Space orientation="vertical" style={{ width: '100%' }}>
                 {pages.map((p, idx) => (
-                  <Space key={`${p.path || p.title || 'page'}-${idx}`} wrap>
+                  <Space key={`${p.route || p.title || 'page'}-${idx}`} wrap>
                     <Text strong>{p.title || `Page ${idx + 1}`}</Text>
-                    <Text type="secondary">{p.path || '-'}</Text>
+                    <Text type="secondary">{p.route || '-'}</Text>
                   </Space>
                 ))}
               </Space>

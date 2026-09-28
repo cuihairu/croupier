@@ -33,6 +33,16 @@ const (
 	KeyFooterLinks     = "footer.links" // JSON array [{key,title,url}]
 	KeyDefaultLocale   = "site.defaultLocale"
 
+	// 系统信息扩展键（OPEN-ISSUES #49）：对外地址、文档链接与协议全文。
+	// serverUrl/taskPublicUrl 为展示与外链拼接预留（消费面见 #52/#53），
+	// 协议/首页内容为纯文本，经公开站点快照下发给匿名访客。
+	KeySiteServerURL     = "site.serverUrl"     // 对外访问地址（域名）
+	KeySiteTaskPublicURL = "site.taskPublicUrl" // 异步任务对外地址
+	KeySiteDocsURL       = "site.docsUrl"       // 文档链接（关于）
+	KeySiteHomeContent   = "site.homeContent"   // 首页内容（登录页欢迎区展示）
+	KeySiteUserAgreement = "site.userAgreement" // 用户协议全文
+	KeySitePrivacyPolicy = "site.privacyPolicy" // 隐私政策全文
+
 	// features.* 是五域功能开关的 L3 运行时覆盖（P2）：只能关闭 L2 已启用
 	// 的域，不能开启 L2 裁剪掉的域（合成语义 L2 ∧ L3，见 FeatureEnabled）。
 	KeyFeatureDev        = "features.dev"
@@ -79,6 +89,14 @@ const (
 	KeyAuthOidcClientSecret = "auth.oidc.clientSecret" // string (secret)
 	KeyAuthOidcRedirectUrl  = "auth.oidc.redirectUrl"  // string
 	KeyAuthOidcDefaultRoles = "auth.oidc.defaultRoles" // string (逗号分隔)
+
+	// 账号安全策略（L3 运行时配置，全部默认关闭——关闭即维持内置基线：
+	// 密码 8-128 位 + 弱密码表 + 至少 2/4 字符类；不限期；TOTP 自助不强制）
+	KeySecurityMFARequired            = "security.mfaRequired"              // bool：强制 local 账号启用 TOTP
+	KeySecurityPasswordMinLength      = "security.passwordMinLength"        // int：0 = 沿用内置 8
+	KeySecurityPasswordRequireUpper   = "security.passwordRequireUppercase" // bool：必须含大写字母
+	KeySecurityPasswordRequireSpecial = "security.passwordRequireSpecial"   // bool：必须含特殊字符
+	KeySecurityPasswordMaxAgeDays     = "security.passwordMaxAgeDays"       // int：0 = 永不过期
 )
 
 // ValidKeys is the L3 whitelist.
@@ -86,6 +104,8 @@ var ValidKeys = map[string]struct{}{
 	KeySiteName: {}, KeySiteLogoURL: {}, KeySiteFaviconURL: {},
 	KeySiteDescription: {}, KeyFooterCopyright: {}, KeyFooterICP: {},
 	KeyFooterLinks: {}, KeyDefaultLocale: {},
+	KeySiteServerURL: {}, KeySiteTaskPublicURL: {}, KeySiteDocsURL: {},
+	KeySiteHomeContent: {}, KeySiteUserAgreement: {}, KeySitePrivacyPolicy: {},
 
 	KeyFeatureDev: {}, KeyFeatureSupport: {}, KeyFeatureAnalytics: {},
 	KeyFeatureOps: {}, KeyFeatureExtensions: {},
@@ -103,6 +123,10 @@ var ValidKeys = map[string]struct{}{
 	KeyAuthLdapStartTLS: {}, KeyAuthLdapDefaultRoles: {},
 	KeyAuthOidcEnabled: {}, KeyAuthOidcIssuer: {}, KeyAuthOidcClientId: {},
 	KeyAuthOidcClientSecret: {}, KeyAuthOidcRedirectUrl: {}, KeyAuthOidcDefaultRoles: {},
+
+	KeySecurityMFARequired: {}, KeySecurityPasswordMinLength: {},
+	KeySecurityPasswordRequireUpper: {}, KeySecurityPasswordRequireSpecial: {},
+	KeySecurityPasswordMaxAgeDays: {},
 }
 
 // secretKeys 是读取时必须脱敏的 key（读取接口只回显尾 4 位）。
@@ -129,7 +153,9 @@ func IsSecretKey(key string) bool {
 
 // intKeys 是整数语义的 key。
 var intKeys = map[string]struct{}{
-	KeyNotifySMTPPort: {},
+	KeyNotifySMTPPort:             {},
+	KeySecurityPasswordMinLength:  {},
+	KeySecurityPasswordMaxAgeDays: {},
 }
 
 // IsIntKey reports whether the key carries a JSON number value.
@@ -144,6 +170,8 @@ var boolKeys = map[string]struct{}{
 	KeyFeatureOps: {}, KeyFeatureExtensions: {},
 	KeyNotifyEmailEnabled: {}, KeyNotifyInAppEnabled: {},
 	KeyAuthLdapEnabled: {}, KeyAuthLdapStartTLS: {}, KeyAuthOidcEnabled: {},
+	KeySecurityMFARequired: {}, KeySecurityPasswordRequireUpper: {},
+	KeySecurityPasswordRequireSpecial: {},
 }
 
 // IsBoolKey reports whether the key carries a JSON boolean value.
@@ -583,6 +611,12 @@ type SiteSnapshot struct {
 	FooterICP     string            `json:"footerIcp,omitempty"`
 	FooterLinks   []FooterLink      `json:"footerLinks,omitempty"`
 	DefaultLocale string            `json:"defaultLocale,omitempty"`
+	ServerURL     string            `json:"serverUrl,omitempty"`
+	TaskPublicURL string            `json:"taskPublicUrl,omitempty"`
+	DocsURL       string            `json:"docsUrl,omitempty"`
+	HomeContent   string            `json:"homeContent,omitempty"`
+	UserAgreement string            `json:"userAgreement,omitempty"`
+	PrivacyPolicy string            `json:"privacyPolicy,omitempty"`
 	Sources       map[string]string `json:"sources"` // per-key provenance
 }
 
@@ -642,6 +676,30 @@ func (l *Layered) SiteSnapshot() SiteSnapshot {
 		snap.DefaultLocale = v
 		snap.Sources[KeyDefaultLocale] = src
 	}
+	if v, src, ok := get(KeySiteServerURL); ok {
+		snap.ServerURL = v
+		snap.Sources[KeySiteServerURL] = src
+	}
+	if v, src, ok := get(KeySiteTaskPublicURL); ok {
+		snap.TaskPublicURL = v
+		snap.Sources[KeySiteTaskPublicURL] = src
+	}
+	if v, src, ok := get(KeySiteDocsURL); ok {
+		snap.DocsURL = v
+		snap.Sources[KeySiteDocsURL] = src
+	}
+	if v, src, ok := get(KeySiteHomeContent); ok {
+		snap.HomeContent = v
+		snap.Sources[KeySiteHomeContent] = src
+	}
+	if v, src, ok := get(KeySiteUserAgreement); ok {
+		snap.UserAgreement = v
+		snap.Sources[KeySiteUserAgreement] = src
+	}
+	if v, src, ok := get(KeySitePrivacyPolicy); ok {
+		snap.PrivacyPolicy = v
+		snap.Sources[KeySitePrivacyPolicy] = src
+	}
 	return snap
 }
 
@@ -677,6 +735,27 @@ func (l *Layered) AuthSnapshot() AuthSnapshot {
 	return AuthSnapshot{
 		LDAP: l.authProviderSnapshot("ldap"),
 		OIDC: l.authProviderSnapshot("oidc"),
+	}
+}
+
+// SecurityPolicySnapshot 是账号安全策略的读视图（登录/改密/建号校验链
+// 与设置页共用；全零值 = 关闭，维持内置基线）。
+type SecurityPolicySnapshot struct {
+	MFARequired              bool `json:"mfaRequired"`
+	PasswordMinLength        int  `json:"passwordMinLength"`
+	PasswordRequireUppercase bool `json:"passwordRequireUppercase"`
+	PasswordRequireSpecial   bool `json:"passwordRequireSpecial"`
+	PasswordMaxAgeDays       int  `json:"passwordMaxAgeDays"`
+}
+
+// SecurityPolicy resolves the account security policy (defaults off).
+func (l *Layered) SecurityPolicy() SecurityPolicySnapshot {
+	return SecurityPolicySnapshot{
+		MFARequired:              l.GetBool(KeySecurityMFARequired, false),
+		PasswordMinLength:        l.GetInt(KeySecurityPasswordMinLength, 0),
+		PasswordRequireUppercase: l.GetBool(KeySecurityPasswordRequireUpper, false),
+		PasswordRequireSpecial:   l.GetBool(KeySecurityPasswordRequireSpecial, false),
+		PasswordMaxAgeDays:       l.GetInt(KeySecurityPasswordMaxAgeDays, 0),
 	}
 }
 

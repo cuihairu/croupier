@@ -13,6 +13,7 @@ import AuthTab from './AuthTab';
 import FeatureFlagsTab from './FeatureFlagsTab';
 import ObservabilityTab from './ObservabilityTab';
 import NotificationTab from './NotificationTab';
+import SecurityTab from './SecurityTab';
 
 const { Text } = Typography;
 
@@ -24,6 +25,12 @@ type FieldKey =
   | 'site.logoUrl'
   | 'site.faviconUrl'
   | 'site.description'
+  | 'site.serverUrl'
+  | 'site.taskPublicUrl'
+  | 'site.docsUrl'
+  | 'site.homeContent'
+  | 'site.userAgreement'
+  | 'site.privacyPolicy'
   | 'footer.copyright'
   | 'footer.icp';
 
@@ -33,6 +40,12 @@ const FIELD_KEYS: Record<string, FieldKey> = {
   logoUrl: 'site.logoUrl',
   faviconUrl: 'site.faviconUrl',
   description: 'site.description',
+  serverUrl: 'site.serverUrl',
+  taskPublicUrl: 'site.taskPublicUrl',
+  docsUrl: 'site.docsUrl',
+  homeContent: 'site.homeContent',
+  userAgreement: 'site.userAgreement',
+  privacyPolicy: 'site.privacyPolicy',
   copyright: 'footer.copyright',
   icp: 'footer.icp',
 };
@@ -60,6 +73,12 @@ export default function SiteSettingsPage() {
         logoUrl: cfg.logoUrl,
         faviconUrl: cfg.faviconUrl,
         description: cfg.description,
+        serverUrl: cfg.serverUrl,
+        taskPublicUrl: cfg.taskPublicUrl,
+        docsUrl: cfg.docsUrl,
+        homeContent: cfg.homeContent,
+        userAgreement: cfg.userAgreement,
+        privacyPolicy: cfg.privacyPolicy,
         copyright: cfg.footerCopyright,
         icp: cfg.footerIcp,
       });
@@ -70,6 +89,12 @@ export default function SiteSettingsPage() {
         logoUrl: src['site.logoUrl'] === 'database',
         faviconUrl: src['site.faviconUrl'] === 'database',
         description: src['site.description'] === 'database',
+        serverUrl: src['site.serverUrl'] === 'database',
+        taskPublicUrl: src['site.taskPublicUrl'] === 'database',
+        docsUrl: src['site.docsUrl'] === 'database',
+        homeContent: src['site.homeContent'] === 'database',
+        userAgreement: src['site.userAgreement'] === 'database',
+        privacyPolicy: src['site.privacyPolicy'] === 'database',
         copyright: src['footer.copyright'] === 'database',
         icp: src['footer.icp'] === 'database',
       });
@@ -281,6 +306,75 @@ export default function SiteSettingsPage() {
             true,
           )}
           {fieldWithActions(
+            'serverUrl',
+            {
+              id: 'pages.systemSiteSettings.field.serverUrl',
+              defaultMessage: '服务器地址',
+            },
+            {
+              id: 'pages.systemSiteSettings.field.serverUrlPlaceholder',
+              defaultMessage: 'https://gm.example.com（对外访问域名）',
+            },
+          )}
+          {fieldWithActions(
+            'taskPublicUrl',
+            {
+              id: 'pages.systemSiteSettings.field.taskPublicUrl',
+              defaultMessage: '异步任务对外地址',
+            },
+            {
+              id: 'pages.systemSiteSettings.field.taskPublicUrlPlaceholder',
+              defaultMessage: 'https://tasks.example.com',
+            },
+          )}
+          {fieldWithActions(
+            'docsUrl',
+            {
+              id: 'pages.systemSiteSettings.field.docsUrl',
+              defaultMessage: '文档链接（关于）',
+            },
+            {
+              id: 'pages.systemSiteSettings.field.docsUrlPlaceholder',
+              defaultMessage: 'https://docs.example.com',
+            },
+          )}
+          {fieldWithActions(
+            'homeContent',
+            {
+              id: 'pages.systemSiteSettings.field.homeContent',
+              defaultMessage: '首页内容',
+            },
+            {
+              id: 'pages.systemSiteSettings.field.homeContentPlaceholder',
+              defaultMessage: '展示在登录页欢迎区的介绍文本',
+            },
+            true,
+          )}
+          {fieldWithActions(
+            'userAgreement',
+            {
+              id: 'pages.systemSiteSettings.field.userAgreement',
+              defaultMessage: '用户协议',
+            },
+            {
+              id: 'pages.systemSiteSettings.field.agreementPlaceholder',
+              defaultMessage: '协议全文，登录页底部展示',
+            },
+            true,
+          )}
+          {fieldWithActions(
+            'privacyPolicy',
+            {
+              id: 'pages.systemSiteSettings.field.privacyPolicy',
+              defaultMessage: '隐私政策',
+            },
+            {
+              id: 'pages.systemSiteSettings.field.agreementPlaceholder',
+              defaultMessage: '协议全文，登录页底部展示',
+            },
+            true,
+          )}
+          {fieldWithActions(
             'copyright',
             {
               id: 'pages.systemSiteSettings.field.copyright',
@@ -315,7 +409,7 @@ export default function SiteSettingsPage() {
             key: 'site',
             label: intl.formatMessage({
               id: 'pages.systemSiteSettings.tab.site',
-              defaultMessage: '站点信息',
+              defaultMessage: '系统信息',
             }),
             children: siteTab,
           },
@@ -342,6 +436,14 @@ export default function SiteSettingsPage() {
               defaultMessage: '通知设置',
             }),
             children: <NotificationTab />,
+          },
+          {
+            key: 'security',
+            label: intl.formatMessage({
+              id: 'pages.systemSiteSettings.tab.security',
+              defaultMessage: '账号安全',
+            }),
+            children: <SecurityTab />,
           },
           {
             key: 'observability',

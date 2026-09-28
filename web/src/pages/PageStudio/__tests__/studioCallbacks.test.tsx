@@ -462,6 +462,32 @@ describe('合并守卫与手动合并全链', () => {
     await waitFor(() => expect(screen.queryByText('手动解决冲突')).not.toBeInTheDocument());
   }, 90000);
 
+  it('手动合并提交失败：错误提示且弹窗保持打开（可改后重试）', async () => {
+    (getPageDraft as jest.Mock).mockResolvedValue(fullDraft());
+    (getDiff as jest.Mock).mockResolvedValue(diffData());
+    // 首调=dry-run 冲突预览成功；二调=manual 提交被拒（并发修改等）→ catch 分支
+    (mergeChanges as jest.Mock)
+      .mockResolvedValueOnce(conflictPreview())
+      .mockRejectedValueOnce(new Error('revision conflict'));
+    renderStudio();
+    await openMore('op.a', '变更对比');
+    await waitFor(() => expect(drawerContent()).toContain('必须人工确认 1 个冲突字段'));
+    fireEvent.click(screen.getByRole('button', { name: /合并变更/ }));
+    fireEvent.click(await screen.findByRole('button', { name: /手动处理冲突/ }));
+    expect(await screen.findByText('手动解决冲突')).toBeInTheDocument();
+    fireEvent.click(screen.getByText('接受最新 Proposal 值'));
+    const okBtn = () =>
+      Array.from(document.querySelectorAll('.ant-modal-footer .ant-btn')).find((b) =>
+        b.textContent?.includes('应用合并结果'),
+      ) as HTMLButtonElement;
+    await waitFor(() => expect(okBtn().disabled).toBe(false));
+    fireEvent.click(okBtn());
+    expect(await screen.findByText('手动合并失败')).toBeInTheDocument();
+    // 失败路径不关弹窗（可修改后重试），且 dry-run+提交恰好两次调用
+    expect(screen.getByText('手动解决冲突')).toBeInTheDocument();
+    expect(mergeChanges).toHaveBeenCalledTimes(2);
+  }, 90000);
+
   it('自定义 JSON 非法：错误提示且不提交', async () => {
     (getPageDraft as jest.Mock).mockResolvedValue(fullDraft());
     (getDiff as jest.Mock).mockResolvedValue(diffData());

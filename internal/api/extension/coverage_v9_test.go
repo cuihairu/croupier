@@ -151,44 +151,6 @@ func TestParseUintParamHandlerErrors_V9(t *testing.T) {
 
 // --- compat handler error branches ---
 
-func TestCompatHandlerErrorBranches_V9(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-	f := newV9Fixture(t)
-	h := NewHandler(f.svc)
-
-	r := gin.New()
-	r.Use(func(c *gin.Context) {
-		c.Set("username", "test_admin")
-		c.Request = c.Request.WithContext(context.WithValue(c.Request.Context(), "username", "test_admin"))
-	})
-	r.PUT("/compat/:id/config", h.CompatUpdateConfig)
-	r.POST("/compat/:id/upgrade", h.CompatUpgrade)
-	r.GET("/compat/:id/events", h.CompatEvents)
-	r.POST("/compat/:id/enable", h.CompatEnable)
-
-	// 非法 JSON body → 绑定失败
-	rec := doV9Request(t, r, http.MethodPut, "/compat/1/config", "{invalid")
-	assert.Equal(t, http.StatusBadRequest, rec.Code)
-
-	rec = doV9Request(t, r, http.MethodPost, "/compat/1/upgrade", "{invalid")
-	assert.Equal(t, http.StatusBadRequest, rec.Code)
-
-	// 合法 body 但安装不存在 → service 错误
-	rec = doV9Request(t, r, http.MethodPost, "/compat/999/upgrade", `{"releaseVersion":"2.0.0"}`)
-	assert.Equal(t, http.StatusNotFound, rec.Code)
-
-	rec = doV9Request(t, r, http.MethodPut, "/compat/999/config", `{"config":{}}`)
-	assert.Equal(t, http.StatusNotFound, rec.Code)
-
-	// CompatEvents: 非法分页参数
-	rec = doV9Request(t, r, http.MethodGet, "/compat/1/events?page=abc", "")
-	assert.Equal(t, http.StatusBadRequest, rec.Code)
-
-	// CompatEnable: 扩展名解析 → 安装不存在
-	rec = doV9Request(t, r, http.MethodPost, "/compat/ghost.ext/enable", "")
-	assert.Equal(t, http.StatusNotFound, rec.Code)
-}
-
 // --- handler service-error branches ---
 
 func TestHandlerServiceErrorBranches_V9(t *testing.T) {

@@ -754,3 +754,90 @@ T3（execution_state 字段）→ T4/T6/T8；T2 → T5；T12（后端校验放�
 > **已知边界**：门禁在负载高位窗口执行（并行会话持续占机，dev-seed 包
 > 222s、audit 包 148s 属环境性慢，非回归）；全量 jest 未单跑（本轮零 web
 > 触碰，guard 已覆盖 PageSpec 侧校验）。
+## 插件域批次 1：契约收口（OPEN-ISSUES #46，2026-09-28）
+
+> **交付（2026-09-28）**：按设计收口定的批次链 1 落地（wire 变更，禁兼容旧键）：
+> ① 16 个响应 DTO 去内嵌 `code`/`message`（32 字段行）——成功响应回到平台契约
+> 直返语义（`response.Success` 直返业务 JSON，前端 normalize 零消费已核实）；
+> 修正设计文档笔误（草案写「24 个 DTO」，实际 16 Response 类型）；事件项的
+> 业务 `Message` 字段（`json:"message"`）不受影响（正则误删后已加回，构成
+> 回归用例覆盖）。
+> ② compat 路由组全删：routes.go 13 条 `/:id/*` 注册 + handler 13 个 Compat*
+> 方法 + `resolveCompatInstallationID`；`registerAgentExtensionCompatRoutes`
+> 更名 `registerAgentExtensionRoutes`（agent wire 端点保留——puller 消费方，
+> 只是命名去误导）。
+> ③ agent puller 同步：`extensionSyncAPIResponse` 仅存 `payload` 包装（与基线
+> §3.4 一致）；mock 响应里遗留 code/message 键由 JSON decode 宽容容忍（该测试
+> 保留兼作多余字段容忍回归）。
+> ④ `listExtensionPages` 切 canonical `GET /installations/:id/pages`（响应
+> `{pages:[...]}`，字段 route/key/title/order/icon/source），DomainEntry 改
+> 「先取首个安装实例再拉页面绑定」并移除 `.catch` 静默（契约错位+吞错=页面
+> 入口恒 Empty 的根因）；渲染 path→route。
+> 门禁：go build ./... + go test ./internal/... 154 包全绿（extension/handler/
+> agent 三包重点复验）、tsc 0 错、extensions 套件 16/16、guard PASSED、全量
+> jest 2-worker 限流（load 17+）；gofmt 全仓净。
+> **已知边界（诚实清单）**：① Extensions 四页面（Store/Installations/
+> AgentSync/DomainEntry）此前零测试文件，本批仅 API 层回归，页面级真实渲染
+> 用例归批次 4；② DomainEntry 在无安装实例时不再请求 pages（行为变化：此前
+> 恒请求恒空），错误提示语义不变；③ agent 同步仍为 HTTP 轮询（演进项不在
+> 批次链内）。
+> 下一批：批次 2（displayName join catalog / healthStatus 推导）。
+
+## 扩展安装详情抽屉覆盖批次（Extensions 簇缺口首发，2026-09-28）
+
+> **交付（2026-09-28）**：覆盖率快照定位 Extensions 簇为 web 侧最大零测试目录
+> （约 2858 行 0%，无任何测试引用），首批收口簇内最大单文件
+> `Extensions/Installations/InstallationDetailDrawer.tsx`（522 行）——新增
+> `__tests__/InstallationDetailDrawer.test.tsx` 17 用例，v8 口径行/分支/函数/
+> 语句 **4×100%**。锁定契约：打开加载链（detail → 真实 adapter 兜底 →
+> schema/config 各自失败静默、卸载 cancelled 竞态）、概览四项（启用态/
+> 健康/版本/绑定数含缺省兜底）、基本信息五行（displayName 空回退
+> extensionId）、Schema 预览（title 兜底 key、type Tag、required 标、
+> 字段值 null 兜底、无 required 键、无 schema 空态）、绑定表行渲染与空态、
+> 工具栏四动作（健康检查 ok/unknown 兜底、测试连接、运行能力 Modal 两态、
+> 保存配置 JSON 双解析校验/空串 `|| '{}'` 双右翼/载荷/onSaved 链）、加载
+> 未就绪点击守卫（`if (!target) return` 四翼经 pending 期点击真实触达）、
+> canExtensionsManage=false 只读形态、onClose 回调与 open/row 守卫。
+> 门禁：目标套件 17/17 绿、tsc 0 错、eslint 干净；全量 jest 门禁与负载口径
+> 见交付说明。
+> **已知边界（诚实清单）**：
+>
+> 1. 组件加载链 try/finally 无 catch：detail 接口 reject 时产生 unhandled
+>    rejection（现状行为，不改组件）；守卫翼改经「加载 pending 期点击」
+>    真实触达，不造假 reject 场景。
+> 2. getByDisplayValue 对 node.value 折叠空白但期望串不折叠——multiline JSON
+>    回显断言一律用正则（首次踩坑记录）。
+> 3. Extensions 簇余量（Store/index 512、Installations/index 431、
+>    EventsDrawer 286、columns 231、UpgradeModal 151 等）留待后续批次。
+
+## 游戏/环境授权防线 + 新增游戏入口（OPEN-ISSUES #47，2026-09-28）
+
+> **背景（用户双质询）**：① `/system/environments` 为何有独立游戏选择器而不用全局的——「授权游戏就可以编辑其他游戏这不对的」；② 为何看不到新增游戏的入口。
+> **诊断**：① 页面 `loadGames` 优先全量 `listGamesMeta()`（GET /games）并自带可自由切换的 Select，仅单向订阅 scope；后端 games 域 envs 端点唯一防线是功能权限点 `games:manage`（RBAC 不按游戏切分），游戏/环境授权表 `admin_game_env_scopes` 只作用于 `/profile/games` 可见性过滤——质询属实（越权编辑面 + 未授权游戏可见）。② `POST /games` 后端 + `upsertGame` 前端封装都在但零 UI 消费（BUG-021 同款）。
+> **交付（2026-09-28）**：
+> 前端：环境页删独立 Select 与全量列表消费，数据源改 `listMyGames()` 授权视图（与全局选择器同源）；目标游戏恒等于 `scope.gameId`（业务 game_id），未选/未授权两空态引导；新增「新增游戏」入口（`useAccess().canGamesManage` 门控 ModalForm：name/aliasName/description），成功后广播 `games:changed`（GameSelector 监听即时重拉）并刷新授权列表。`envs.ts` 四函数 gameId 参数放宽 `number | string`。
+> 后端：`internal/api/game/helpers.go` 新增 `resolveGameID`（数字主键或业务 game_id 双形态寻址——授权视图无数字主键）、`gameEnvScopes`/`authorizeGameEnv`（admin 直过；非 admin 须命中 `admin_game_env_scopes`）、`filterEnvItemsByScopes`；envs 四端点接线：EnvsList 按授权过滤（无授权=空）、EnvAdd 校验游戏维度（新增环境尚不存在）、EnvUpdate 新旧环境都须授权（改名即扩权防线）、EnvDelete 校验目标环境。
+> 门禁：go build + `go test ./internal/...` 全绿（game 包新增 `service_envscope_test.go` 6 用例：无授权 403/有授权过/Update 双环境授权/Delete 单环境/List 过滤/业务串寻址 404）、tsc 0 错、GamesEnvs 21/21、全量 jest 落盘日志核绿。
+> **已知边界**：① 游戏本体 CRUD（List/Detail/Update/Delete/Create）仍只受 `games:read`/`games:manage` 功能权限点保护，不做游戏维度过滤——游戏元数据（名称/别名）视为平台级信息，环境数据才是租户隔离面；② `GET /games` 全量列表端点保留（GamesEnvs 已不消费；Ops/AnalyticsFilters、Dev/ConfigExplorer、Admin/Announcements、Permissions/UsersV2 仍用），其余页面后续按需收敛；③ 前端「新增环境/编辑/删除」按钮无按钮级权限隐藏（后端授权防线兜底 403），仅「新增游戏」按 canGamesManage 门控。
+> 下一步：#48 账号安全策略（site settings 板块，默认全关）。
+
+## 账号安全策略板块（OPEN-ISSUES #48，2026-09-28）
+
+> 用户原话：「设置中为啥没有账号安全呢？比如强制所有人开启二次验证，密码必须多少位，有没有大写字母 特殊符号之类的，密码有效期之类的，默认不开启」。交付=五键策略（默认全关）+ 密码校验接线 + MFA 强制三件套 + SiteSettings「账号安全」Tab。
+> 后端：`internal/platform/settings/layered.go` 新增 `security.*` 五键（mfaRequired/passwordMinLength/passwordRequireUppercase/passwordRequireSpecial/passwordMaxAgeDays）注册 ValidKeys/boolKeys/intKeys + `SecurityPolicySnapshot`/`Layered.SecurityPolicy()`；`GET /api/v1/site/security` 快照端点。密码链：`utils.ValidatePassword` 尾接 `applySecurityPolicy`（策略只收紧不放宽，min<8 不生效），三入口（admin.Create/PasswordReset/profile.ChangePassword——后者原为新密码零校验缺口，本批补上）统一生效；`PasswordExpiresAtFromPolicy`（days>0 → UTC now+days）接 `adminNeedsPasswordChange` 既有 mustChangePassword 链（过期登录强制走改密流程）。
+> MFA 强制：`mfaSetupRequired(provider, otpEnabled)`（仅 local + 未绑定 + 策略开启；外部身份源由 IdP 负责不强制）→ 登录响应 `mfaSetupRequired`；`AuthMiddleware.mfaGate`（策略开启时未绑定账号除白名单外一律 403 `{"error":"mfa_required"}`；白名单 `/api/v1/auth/mfa` + `/api/v1/profile` 保留绑定与改密恢复通道；adminID=0/存储故障 fail-open 不锁人；OTPEnabled 30s 进程内缓存）；前端 Login 收到标记 → warning + 引导 `/profile?tab=security`。
+> 前端：SiteSettings 新增「账号安全」Tab（`SecurityTab.tsx`：3 Switch + 2 InputNumber 逐键保存，空值/关/0 = clearSiteSetting 回默认；locales security.* 双语 15 键）；`sites.ts` 增 `SecuritySettings`/`fetchSecuritySettings`。**收口时发现并修复 saveKey 键路 bug**：Form.Item name 用 `item.field`（如 `mfaRequired`）而取值读 `item.key`（`security.mfaRequired`）——路径不匹配恒 undefined、保存永远走清除分支；修为 `saveKey(key, field)` 双参。
+> 测试：`layered_security_test.go`（默认全关/L3 覆盖热生效/Clear 回默认）、`password_policy_test.go`（基线不放宽/收紧三态/有效期矩阵/Current 透读）、`mfa_setup_required_test.go`（判定矩阵：local+未绑定+策略开才强制）、`mfa_gate_test.go`（403 拦真实未绑定账号/白名单放行/adminID=0 fail-open/已绑定放行——初版用库中不存在的 adminID=42 撞 fail-open 分支语义错位，改为 fixture 建真实 OTPEnabled=false 账号）、profile 旧用例翻转向（原断言「空密码允许」正是本批修的缺口）；SecurityTab 9 用例（回填/缺省回零/加载失败/开关 set-clear/数字 0 清除/失败两态）。
+> 门禁：go build + `go test ./internal/...` 全绿、tsc 0 错、SecurityTab 9/9、全量 jest 落盘核绿、guard PASSED。
+> **已知边界**：① OTPEnabled 查询失败 fail-open（存储故障宁可放行不锁全部管理员），缓存 30s 内策略关闭不即时生效于已拦请求；② mfaGate 只拦 HTTP API，agent/SDK TCP 通道不受影响；③ 密码有效期只在新改密/建号时写入 expiresAt，存量账号不回溯（下次改密起算）；④ 策略收紧不放宽：minLength 策略值小于内置 8 时按内置执行。
+> 下一步：需求清单 #49-57 立项排队（系统信息/系统公告/身份验证+OAuth/系统维护/性能参数/日志维护/SMTP 归运维/安全与限制/第三方探针）。
+
+## 系统信息板块（OPEN-ISSUES #49，2026-09-28）
+
+> 用户原话：「有些网站设置是属于系统信息，应该包含系统名称，也就是网站名称，服务器地址，一般是域名 徽标url 异步任务对外地址，文档链接 也叫 关于，首页内容 用户协议 隐私政策等」。既有「站点信息」Tab 已纳管 name/logo/favicon/description/footer 六键，本批补齐缺的六键并整体更名「系统信息」。
+> 后端：`layered.go` 新增 `site.{serverUrl,taskPublicUrl,docsUrl,homeContent,userAgreement,privacyPolicy}` 六字符串键（ValidKeys 白名单）+ SiteSnapshot 六字段（lowerCamelCase omitempty）+ builder 逐键 provenance；公开快照 `GET /api/v1/public/site` 即时下发（协议全文本就是给访客看的，无脱敏面）。
+> 前端：`sites.ts` SiteConfig 六字段；SiteSettings「站点信息」→「系统信息」（12 键全矩阵：逐键保存/来源徽标/恢复覆盖机制复用 fieldWithActions）；登录页消费面（均按配置存在才渲染）：homeContent 欢迎区段落 + docsUrl 新窗口外链 + userAgreement/privacyPolicy 弹窗全文（pre-wrap + 60vh 滚动，同一弹窗复用按入口切换）。
+> 测试：`layered_notify_test.go` 快照用例扩六键（L3 透传 + provenance）；SiteSettings index 8 用例（保存钮 6→12、扩展字段回填/保存/空值守卫）；新增 `siteInfoFooter.test.tsx` 3 用例（齐全渲染/协议切换/Portal 挂 body）。**测试坑**：本地覆写 @umijs/max 时 useModel 必须给 `initialState.siteConfig` 嵌套形状（平铺无效）；antd Modal 关闭动效 jsdom 不走完，断言 Portal 可达而非 DOM 卸载。
+> 门禁：go build + `go test ./internal/...` 全绿、tsc 0 错、全量 jest 落盘核绿、guard PASSED。
+> **已知边界**：① serverUrl/taskPublicUrl 本批仅存储+快照暴露，真实消费（通知外链拼装/任务地址展示）归 #52/#53；② docsUrl 登录后侧入口（头像菜单/页脚）归 #52 系统维护展示；③ 协议展示暂限登录页，#51 自助注册落地时同步接入；④ 首页内容消费面=匿名首页（登录页），登录后无独立首页路由，若后续做工作台首页（#52 系统维护）再接。
+> 下一步：#50 系统公告核对 → #51 身份验证+OAuth → #52 系统维护 → #53 性能参数 → #54 日志维护 → #55 SMTP 归运维 → #56 安全与限制 → #57 第三方探针。

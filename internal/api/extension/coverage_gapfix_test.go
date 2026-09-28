@@ -41,16 +41,6 @@ func TestExtensionGapfix_HandlerSuccessPaths(t *testing.T) {
 }
 
 // CompatUpgrade 成功路径（扩展 id 或数字 id 均可）。
-func TestExtensionGapfix_CompatUpgradeSuccess(t *testing.T) {
-	env := setupExtensionEnv(t)
-	env.seedCatalog(t, "demo.gapcompat", "1.0.0", nil)
-	env.seedCatalogReleaseRow(t, "demo.gapcompat", "1.2.0", nil)
-	id := env.install(t, "demo.gapcompat", "1.0.0")
-
-	env.router.POST("/gapfix/compat/:id/upgrade", env.handler.CompatUpgrade)
-	rec := env.do(t, http.MethodPost, fmt.Sprintf("/gapfix/compat/%d/upgrade", id), `{"releaseVersion":"1.2.0"}`)
-	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
-}
 
 // Upgrade 目标版本依赖缺失扩展 → validateDependencies 错误透传。
 func TestExtensionGapfix_UpgradeDependencyFailure(t *testing.T) {

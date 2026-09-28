@@ -10,6 +10,7 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/cuihairu/croupier/internal/common/errorx"
+	"github.com/cuihairu/croupier/internal/logic/utils"
 	"github.com/cuihairu/croupier/internal/model"
 	"github.com/cuihairu/croupier/internal/platform/approvals"
 	"github.com/cuihairu/croupier/internal/platform/objstore"
@@ -377,16 +378,24 @@ func (s *Service) ChangePassword(ctx context.Context, username string, req *Chan
 		return nil, errors.New("用户不存在")
 	}
 
+	// 新密码过强度基线（8-128/弱密码表/2-4 类）+ 账号安全策略
+	//（settings.security.*：最小长度/强制大写/强制特殊字符）。与建号、
+	// 重置共用同一校验入口；原先此处不校验，是策略链上的缺口。
+	if err := utils.ValidatePasswordForUser(req.NewPassword, username); err != nil {
+		return nil, err
+	}
+
 	// 更新密码
 	if err := s.adminModel.UpdatePassword(ctx, admin.ID, req.NewPassword); err != nil {
 		return nil, errors.New("修改密码失败")
 	}
 
-	// 改密成功即解除「登录后必须修改密码」与有效期约束（OPEN-ISSUES #20）：
-	// 新密码视为干净状态，下次登录不再被强制改密。
+	// 改密成功即解除「登录后必须修改密码」约束（OPEN-ISSUES #20）；有效期
+	// 按账号安全策略重算：maxAgeDays>0 时新密码自此刻起重新计时，关闭（0）
+	// 时清除（nil = 永不过期）。
 	if err := s.adminModel.Update(ctx, admin.ID, map[string]interface{}{
 		"must_change_password": false,
-		"password_expires_at":  nil,
+		"password_expires_at":  utils.PasswordExpiresAtFromPolicy(),
 	}); err != nil {
 		return nil, errors.New("修改密码失败")
 	}

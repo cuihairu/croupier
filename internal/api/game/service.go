@@ -103,7 +103,7 @@ func (s *Service) Detail(ctx context.Context, req *GameDetailRequest) (*GameDeta
 		return nil, err
 	}
 
-	id, err := parseGameID(req.ID)
+	id, err := s.resolveGameID(ctx, req.ID)
 	if err != nil {
 		return nil, err
 	}
@@ -126,7 +126,7 @@ func (s *Service) Update(ctx context.Context, req *GameUpdateRequest) (*GameUpda
 		return nil, err
 	}
 
-	id, err := parseGameID(req.ID)
+	id, err := s.resolveGameID(ctx, req.ID)
 	if err != nil {
 		return nil, err
 	}
@@ -189,7 +189,7 @@ func (s *Service) Delete(ctx context.Context, req *GameDeleteRequest) error {
 		return err
 	}
 
-	id, err := parseGameID(req.ID)
+	id, err := s.resolveGameID(ctx, req.ID)
 	if err != nil {
 		return err
 	}
@@ -237,7 +237,7 @@ func (s *Service) EnvsList(ctx context.Context, req *GameEnvsListRequest) (*Game
 		return nil, err
 	}
 
-	id, err := parseGameID(req.ID)
+	id, err := s.resolveGameID(ctx, req.ID)
 	if err != nil {
 		return nil, err
 	}
@@ -247,8 +247,17 @@ func (s *Service) EnvsList(ctx context.Context, req *GameEnvsListRequest) (*Game
 		return nil, err
 	}
 
+	envItems := s.enrichedEnvs(game)
+	allowed, isAdmin, err := s.gameEnvScopes(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	if !isAdmin {
+		envItems = filterEnvItemsByScopes(envItems, allowed)
+	}
+
 	return &GameEnvsListResponse{
-		Envs: s.enrichedEnvs(game),
+		Envs: envItems,
 	}, nil
 }
 
@@ -258,7 +267,7 @@ func (s *Service) EnvAdd(ctx context.Context, req *GameEnvAddRequest) (*GameEnvA
 		return nil, err
 	}
 
-	id, err := parseGameID(req.ID)
+	id, err := s.resolveGameID(ctx, req.ID)
 	if err != nil {
 		return nil, err
 	}
@@ -270,6 +279,11 @@ func (s *Service) EnvAdd(ctx context.Context, req *GameEnvAddRequest) (*GameEnvA
 
 	newEnv, err := ensureEnvName(req.Name)
 	if err != nil {
+		return nil, err
+	}
+
+	// 新增环境是游戏级操作（目标环境尚不存在），校验游戏维度授权。
+	if err := s.authorizeGameEnv(ctx, id); err != nil {
 		return nil, err
 	}
 
@@ -317,7 +331,7 @@ func (s *Service) EnvUpdate(ctx context.Context, req *GameEnvUpdateRequest) (*Ga
 		return nil, err
 	}
 
-	id, err := parseGameID(req.ID)
+	id, err := s.resolveGameID(ctx, req.ID)
 	if err != nil {
 		return nil, err
 	}
@@ -344,6 +358,10 @@ func (s *Service) EnvUpdate(ctx context.Context, req *GameEnvUpdateRequest) (*Ga
 			return nil, errorx.NewConflict("环境 " + newName + " 已存在")
 		}
 		target.Env = newName
+	}
+	// 改名场景新旧环境都须在授权内，否则改名即扩权（把授权环境改名为任意新名）。
+	if err := s.authorizeGameEnv(ctx, id, oldEnvName, target.Env); err != nil {
+		return nil, err
 	}
 	if v := strings.TrimSpace(req.Type); v != "" {
 		target.Description = v
@@ -394,7 +412,7 @@ func (s *Service) EnvDelete(ctx context.Context, req *GameEnvDeleteRequest) (*Ga
 		return nil, err
 	}
 
-	id, err := parseGameID(req.ID)
+	id, err := s.resolveGameID(ctx, req.ID)
 	if err != nil {
 		return nil, err
 	}
@@ -412,6 +430,10 @@ func (s *Service) EnvDelete(ctx context.Context, req *GameEnvDeleteRequest) (*Ga
 	idx := findEnvIndex(envs, req.EnvID)
 	if idx < 0 {
 		return nil, errorx.NewNotFound("环境 " + req.EnvID + " 不存在")
+	}
+
+	if err := s.authorizeGameEnv(ctx, id, envs[idx].Env); err != nil {
+		return nil, err
 	}
 
 	removedEnv := envs[idx].Env

@@ -49,12 +49,19 @@ func (h *Handler) RegisterAdmin(g *gin.RouterGroup) {
 	g.GET("/site/features", h.GetFeatures)
 	g.GET("/site/observability", h.GetObservability)
 	g.GET("/site/notification", h.GetNotification)
+	g.GET("/site/security", h.GetSecurity)
 }
 
 // GetNotification serves GET /api/v1/site/notification: channel config with
 // secrets masked (only "set" state + last-4 echo).
 func (h *Handler) GetNotification(c *gin.Context) {
 	response.Success(c, h.layered.NotificationSnapshot())
+}
+
+// GetSecurity serves GET /api/v1/site/security: 账号安全策略生效值
+// （security.* 五键，默认全关）。
+func (h *Handler) GetSecurity(c *gin.Context) {
+	response.Success(c, h.layered.SecurityPolicy())
 }
 
 // GetFeatures serves GET /api/v1/site/features: per-domain composed state

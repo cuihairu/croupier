@@ -10,6 +10,12 @@ export type SiteConfig = {
   footerIcp?: string;
   footerLinks?: Array<{ key: string; title: string; url: string }>;
   defaultLocale?: string;
+  serverUrl?: string;
+  taskPublicUrl?: string;
+  docsUrl?: string;
+  homeContent?: string;
+  userAgreement?: string;
+  privacyPolicy?: string;
 };
 
 // Public snapshot (login page and pre-auth also need it).
@@ -108,6 +114,24 @@ export type NotificationSettings = {
 // Admin: notification channel config (secrets masked to "set + last-4").
 export async function fetchNotificationSettings(): Promise<NotificationSettings> {
   return request<NotificationSettings>('/api/v1/site/notification', {
+    skipErrorHandler: true,
+  });
+}
+
+// ---- 账号安全策略（security.*，默认全关） ----
+
+// Source: internal/platform/settings/layered.go SecurityPolicySnapshot
+export type SecuritySettings = {
+  mfaRequired: boolean;
+  passwordMinLength: number;
+  passwordRequireUppercase: boolean;
+  passwordRequireSpecial: boolean;
+  passwordMaxAgeDays: number;
+};
+
+// Admin: effective account security policy.
+export async function fetchSecuritySettings(): Promise<SecuritySettings> {
+  return request<SecuritySettings>('/api/v1/site/security', {
     skipErrorHandler: true,
   });
 }
