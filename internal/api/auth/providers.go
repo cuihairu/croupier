@@ -32,11 +32,16 @@ type IdentityProviders struct {
 	github       identity.OAuthProvider
 	githubRoles  []string
 	githubURL    string
+	// register 是自助注册开关（#51b，默认关）与注册默认角色。
+	registerEnabled bool
+	registerRoles   []string
 }
 
 func buildIdentityProviders(cfg config.AuthProvidersConfig) (*IdentityProviders, error) {
 	out := &IdentityProviders{}
 	out.localEnabled = cfg.Local.LocalEnabled()
+	out.registerEnabled = cfg.Register.Enabled
+	out.registerRoles = cfg.Register.DefaultRoles
 
 	if cfg.LDAP.Enabled {
 		lc := cfg.LDAP
@@ -125,5 +130,6 @@ func (p *IdentityProviders) Attach(svc *Service) *Service {
 		svc.WithGitHubProvider(p.github, p.githubRoles, p.githubURL)
 	}
 	svc.WithLocalEnabled(p.localEnabled)
+	svc.WithRegister(p.registerEnabled, p.registerRoles)
 	return svc
 }

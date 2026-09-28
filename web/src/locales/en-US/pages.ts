@@ -494,4 +494,16 @@ export default {
   'pages.profile.notifications.action.markRead': 'Mark as read',
   'pages.announcements.delete.cancel': 'Cancel',
   'pages.announcements.delete.ok': 'Confirm',
+  // OPEN-ISSUES #51b: self-service registration (off by default; login entry + modal form)
+  'pages.login.register.entry': 'Create account',
+  'pages.login.register.title': 'Create account',
+  'pages.login.register.submit': 'Register',
+  'pages.login.register.success': 'Account {username} registered. Please sign in',
+  'pages.login.register.error': 'Registration failed. Please check your input and retry',
+  'pages.login.register.usernameRule': '3-32 chars: letters, digits, underscore or hyphen only',
+  'pages.login.register.nickname': 'Nickname (optional)',
+  'pages.login.register.email': 'Email (optional)',
+  'pages.login.register.emailRule': 'Invalid email address',
+  'pages.login.register.passwordPlaceholder': '8+ chars, mixed character classes recommended',
+  'pages.login.register.mismatch': 'Passwords do not match',
 };

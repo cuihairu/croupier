@@ -111,6 +111,10 @@ const (
 	KeyAuthGitHubDefaultRoles = "auth.github.defaultRoles" // string (逗号分隔)
 	KeyAuthGitHubSuccessURL   = "auth.github.successUrl"   // string
 
+	// 自助注册（OPEN-ISSUES #51b）：默认关闭；DefaultRoles 留空则不赋角色。
+	KeyAuthRegisterEnabled      = "auth.register.enabled"      // bool
+	KeyAuthRegisterDefaultRoles = "auth.register.defaultRoles" // string (逗号分隔)
+
 	// 账号安全策略（L3 运行时配置，全部默认关闭——关闭即维持内置基线：
 	// 密码 8-128 位 + 弱密码表 + 至少 2/4 字符类；不限期；TOTP 自助不强制）
 	KeySecurityMFARequired            = "security.mfaRequired"              // bool：强制 local 账号启用 TOTP
@@ -154,6 +158,7 @@ var ValidKeys = map[string]struct{}{
 	KeyAuthOidcClientSecret: {}, KeyAuthOidcRedirectUrl: {}, KeyAuthOidcDefaultRoles: {},
 	KeyAuthGitHubEnabled: {}, KeyAuthGitHubClientId: {}, KeyAuthGitHubClientSecret: {},
 	KeyAuthGitHubRedirectUrl: {}, KeyAuthGitHubDefaultRoles: {}, KeyAuthGitHubSuccessURL: {},
+	KeyAuthRegisterEnabled: {}, KeyAuthRegisterDefaultRoles: {},
 	KeyPerfMaxCpuPct:      {},
 	KeyPerfMaxMemoryPct:   {},
 	KeyPerfMaxDiskPct:     {},
@@ -218,6 +223,7 @@ var boolKeys = map[string]struct{}{
 	KeyAuthLocalEnabled: {},
 	KeyAuthLdapEnabled:  {}, KeyAuthLdapStartTLS: {}, KeyAuthOidcEnabled: {},
 	KeyAuthGitHubEnabled:   {},
+	KeyAuthRegisterEnabled: {},
 	KeySecurityMFARequired: {}, KeySecurityPasswordRequireUpper: {},
 	KeySecurityPasswordRequireSpecial: {},
 }
@@ -794,10 +800,11 @@ func resetForTest() {
 
 // AuthSnapshot 是登录方式（外部身份源）的读视图（凭据脱敏）。
 type AuthSnapshot struct {
-	Local  LocalAuthSnapshot    `json:"local"`
-	GitHub AuthProviderSnapshot `json:"github"`
-	LDAP   AuthProviderSnapshot `json:"ldap"`
-	OIDC   AuthProviderSnapshot `json:"oidc"`
+	Local    LocalAuthSnapshot    `json:"local"`
+	GitHub   AuthProviderSnapshot `json:"github"`
+	LDAP     AuthProviderSnapshot `json:"ldap"`
+	OIDC     AuthProviderSnapshot `json:"oidc"`
+	Register AuthProviderSnapshot `json:"register"` // 自助注册（#51b）：enabled + defaultRoles
 }
 
 // LocalAuthSnapshot 账号密码登录开关读视图（默认启用，显式覆盖 false 才停用；
@@ -826,10 +833,11 @@ func (l *Layered) AuthSnapshot() AuthSnapshot {
 		local.Enabled = v
 	}
 	return AuthSnapshot{
-		Local:  local,
-		GitHub: l.authProviderSnapshot("github"),
-		LDAP:   l.authProviderSnapshot("ldap"),
-		OIDC:   l.authProviderSnapshot("oidc"),
+		Local:    local,
+		GitHub:   l.authProviderSnapshot("github"),
+		LDAP:     l.authProviderSnapshot("ldap"),
+		OIDC:     l.authProviderSnapshot("oidc"),
+		Register: l.authProviderSnapshot("register"),
 	}
 }
 
@@ -948,6 +956,10 @@ func (l *Layered) AuthProviderConfig() config.AuthProvidersConfig {
 			RedirectURL:     str(KeyAuthGitHubRedirectUrl),
 			DefaultRoles:    roles(KeyAuthGitHubDefaultRoles),
 			LoginSuccessURL: str(KeyAuthGitHubSuccessURL),
+		},
+		Register: config.RegisterConfig{
+			Enabled:      l.GetBool(KeyAuthRegisterEnabled, false),
+			DefaultRoles: roles(KeyAuthRegisterDefaultRoles),
 		},
 	}
 }

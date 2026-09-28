@@ -158,6 +158,7 @@ export type AuthSnapshot = {
   github: AuthProviderSnapshot;
   ldap: AuthProviderSnapshot;
   oidc: AuthProviderSnapshot;
+  register: AuthProviderSnapshot;
 };
 
 // Admin: 登录方式生效配置（凭据脱敏回显）。
@@ -183,6 +184,7 @@ export type LoginProviders = {
   ldap: boolean;
   oidc: boolean;
   github: boolean;
+  register: boolean;
 };
 
 // Public: 登录页据此渲染 SSO 入口 / LDAP 提示。

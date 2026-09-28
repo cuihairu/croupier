@@ -29,6 +29,8 @@ export default {
     'Disabling hides the password form on the login page; keep at least one login method enabled',
   'pages.systemSiteSettings.auth.hint.oidcCard':
     'Once enabled, an "SSO Login" entry appears on the login page',
+  'pages.systemSiteSettings.auth.hint.registerCard':
+    'Off by default; once enabled, a "Create account" entry appears on the login page for local password accounts',
   'pages.systemSiteSettings.auth.hint.tab':
     'The config file only provides initial values; changes saved here take effect immediately (no restart needed). Make sure another login method works before disabling password login',
   'pages.systemSiteSettings.auth.local.enableLabel': 'Enable Password Login',
@@ -41,12 +43,19 @@ export default {
     'Roles granted when the account is created automatically on first login (comma-separated)',
   'pages.systemSiteSettings.auth.ldap.title': 'LDAP Directory',
   'pages.systemSiteSettings.auth.oidc.title': 'OIDC Single Sign-On',
+  'pages.systemSiteSettings.auth.register.enableLabel': 'Allow self-registration',
+  'pages.systemSiteSettings.auth.register.enableTooltip':
+    'Anyone can register a local account on the login page; passwords are validated by the account security policy',
+  'pages.systemSiteSettings.auth.register.rolesTooltip':
+    'Roles granted to registered accounts (comma-separated); leave empty to grant none',
+  'pages.systemSiteSettings.auth.register.title': 'Self-Registration',
   'pages.systemSiteSettings.auth.provider.disabled': 'Disabled',
   'pages.systemSiteSettings.auth.provider.enabled': 'Enabled',
   'pages.systemSiteSettings.auth.saveAndTest.ldap': 'Save and Test Connection',
   'pages.systemSiteSettings.auth.saveAndTest.oidc': 'Save and Test Discovery Endpoint',
   'pages.systemSiteSettings.auth.saved.ldap': 'LDAP configuration saved',
   'pages.systemSiteSettings.auth.saved.oidc': 'OIDC configuration saved',
+  'pages.systemSiteSettings.auth.saved.register': 'Self-registration configuration saved',
   'pages.systemSiteSettings.auth.secretPlaceholderKeep': 'Leave blank to keep unchanged',
   'pages.systemSiteSettings.auth.secretPlaceholderUnset': 'Not set',
   'pages.systemSiteSettings.auth.secretSavedTooltip':

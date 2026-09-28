@@ -83,6 +83,22 @@ export async function createSession(params: {
   });
 }
 
+// Self-service registration (OPEN-ISSUES #51b): anonymous, disabled unless
+// auth.register.enabled=true. Returns the created account, NOT a session —
+// the user signs in normally afterwards (MFA/mustChangePassword gates apply).
+export async function registerAccount(params: {
+  username: string;
+  password: string;
+  nickname?: string;
+  email?: string;
+}): Promise<{ username: string; nickname: string }> {
+  return request<{ username: string; nickname: string }>('/api/v1/auth/register', {
+    method: 'POST',
+    data: params,
+    skipErrorHandler: true,
+  });
+}
+
 // Runtime bootstrap projection over canonical profile API.
 export async function fetchCurrentUser(): Promise<CurrentUser> {
   return toCurrentUser(await getMyProfile());

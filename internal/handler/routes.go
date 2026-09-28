@@ -272,6 +272,7 @@ func registerAuthRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 	g.POST("/login", authHandler.Login)
 	g.POST("/logout", authHandler.Logout)
 	g.GET("/providers", authHandler.Providers)
+	g.POST("/register", authHandler.Register)
 	g.GET("/oidc/login", authHandler.OIDCLogin)
 	g.GET("/oidc/callback", authHandler.OIDCCallback)
 	g.GET("/github/login", authHandler.GitHubLogin)

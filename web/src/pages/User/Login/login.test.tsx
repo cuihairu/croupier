@@ -44,7 +44,13 @@ jest.mock('@/services/api', () => ({
 // 登录方式：默认仅本地登录（与 request mock 对未知 URL 返回 {} 的旧行为一致）
 jest.mock('@/services/api/sites', () => ({
   ...jest.requireActual('@/services/api/sites'),
-  fetchLoginProviders: jest.fn(async () => ({ local: true, ldap: false, oidc: false })),
+  fetchLoginProviders: jest.fn(async () => ({
+    local: true,
+    ldap: false,
+    oidc: false,
+    github: false,
+    register: false,
+  })),
 }));
 
 // 初始状态装载：默认透传 fetcher 结果（含 currentUser）

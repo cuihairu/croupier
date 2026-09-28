@@ -65,6 +65,7 @@ jest.mock('@/services/api/sites', () => ({
     ldap: false,
     oidc: false,
     github: false,
+    register: false,
   })),
 }));
 jest.mock('@/utils/antdApp', () => ({

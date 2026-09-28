@@ -27,6 +27,8 @@ export default {
   'pages.systemSiteSettings.auth.hint.localCard':
     '停用后登录页隐藏账密表单；须至少保留一种登录方式',
   'pages.systemSiteSettings.auth.hint.oidcCard': '启用后登录页出现「SSO 登录」入口',
+  'pages.systemSiteSettings.auth.hint.registerCard':
+    '默认关闭；开启后登录页出现「注册账号」入口，注册的是本地账密账号',
   'pages.systemSiteSettings.auth.hint.tab':
     '配置文件仅作初始值，此处保存后热生效（无需重启）；停用账号密码登录前请先确保其他登录方式可用',
   'pages.systemSiteSettings.auth.local.enableLabel': '启用账号密码登录',
@@ -38,6 +40,12 @@ export default {
   'pages.systemSiteSettings.auth.jitRolesTooltip': '首次登录自动建号时赋予的角色（逗号分隔）',
   'pages.systemSiteSettings.auth.ldap.title': 'LDAP 目录',
   'pages.systemSiteSettings.auth.oidc.title': 'OIDC 单点登录',
+  'pages.systemSiteSettings.auth.register.enableLabel': '允许自助注册',
+  'pages.systemSiteSettings.auth.register.enableTooltip':
+    '开启后任何人可在登录页注册本地账号；密码走账号安全策略校验',
+  'pages.systemSiteSettings.auth.register.rolesTooltip':
+    '注册账号被赋予的角色（逗号分隔）；留空则不赋角色',
+  'pages.systemSiteSettings.auth.register.title': '自助注册',
   'pages.systemSiteSettings.auth.provider.disabled': '未启用',
   'pages.systemSiteSettings.auth.provider.enabled': '已启用',
   'pages.systemSiteSettings.auth.saveAndTest.ldap': '保存并测试连接',
@@ -46,6 +54,7 @@ export default {
   'pages.systemSiteSettings.auth.saved.ldap': 'LDAP 配置已保存',
   'pages.systemSiteSettings.auth.saved.local': '本地登录配置已保存',
   'pages.systemSiteSettings.auth.saved.oidc': 'OIDC 配置已保存',
+  'pages.systemSiteSettings.auth.saved.register': '自助注册配置已保存',
   'pages.systemSiteSettings.auth.secretPlaceholderKeep': '留空保持不变',
   'pages.systemSiteSettings.auth.secretPlaceholderUnset': '未设置',
   'pages.systemSiteSettings.auth.secretSavedTooltip': '已保存：{masked}，留空保持不变',

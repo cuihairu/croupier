@@ -20,6 +20,7 @@ import (
 	"github.com/cuihairu/croupier/internal/audit"
 	"github.com/cuihairu/croupier/internal/config"
 	"github.com/cuihairu/croupier/internal/ipgeo"
+	"github.com/cuihairu/croupier/internal/logic/utils"
 	"github.com/cuihairu/croupier/internal/model"
 	"github.com/cuihairu/croupier/internal/platform/settings"
 	"github.com/cuihairu/croupier/internal/security/identity"
@@ -65,6 +66,10 @@ type Service struct {
 	// localDisabled = auth.local.enabled 显式关闭：本地账号密码级联被移除，
 	// 登录须走外部身份源；Providers 端点据此让前端隐藏账密表单。
 	localDisabled bool
+	// registerEnabled/registerRoles 是自助注册开关（#51b，默认关）与注册
+	// 建号赋予的默认角色名（由 auth.register.defaultRoles 配置；留空则不赋角色）。
+	registerEnabled bool
+	registerRoles   []string
 	// providerDefaultRoles 按 Provider Kind 记录 JIT 建号时的默认角色名。
 	providerDefaultRoles map[string][]string
 
@@ -157,6 +162,13 @@ func (s *Service) WithLocalEnabled(enabled bool) *Service {
 	return s
 }
 
+// WithRegister 配置自助注册开关与默认角色（OPEN-ISSUES #51b）。
+func (s *Service) WithRegister(enabled bool, defaultRoles []string) *Service {
+	s.registerEnabled = enabled
+	s.registerRoles = defaultRoles
+	return s
+}
+
 // WithProviderDefaultRoles sets JIT default roles for a provider kind.
 func (s *Service) WithProviderDefaultRoles(kind string, roles []string) *Service {
 	s.providerDefaultRoles[kind] = roles
@@ -202,6 +214,8 @@ func (s *Service) RefreshIdentityProviders(cfg config.AuthProvidersConfig) error
 		}
 	}
 	s.localDisabled = !ip.localEnabled
+	s.registerEnabled = ip.registerEnabled
+	s.registerRoles = ip.registerRoles
 	s.oidc = ip.oidc
 	s.oidcSuccessURL = ip.oidcURL
 	s.github = ip.github
@@ -554,6 +568,96 @@ func (s *Service) LocalEnabled() bool {
 	s.providersMu.RLock()
 	defer s.providersMu.RUnlock()
 	return !s.localDisabled
+}
+
+// RegisterEnabled 报告自助注册是否开启（auth.register.enabled，默认关闭）。
+func (s *Service) RegisterEnabled() bool {
+	s.providersMu.RLock()
+	defer s.providersMu.RUnlock()
+	return s.registerEnabled
+}
+
+// RegisterRequest 是自助注册入参（POST /api/v1/auth/register，匿名可访问）。
+type RegisterRequest struct {
+	Username  string `json:"username"`
+	Password  string `json:"password"`
+	Nickname  string `json:"nickname"`
+	Email     string `json:"email"`
+	ClientIP  string `json:"-"`
+	UserAgent string `json:"-"`
+}
+
+// Register 自助注册本地账号（OPEN-ISSUES #51b，默认关闭）。密码经
+// security.* 策略校验（与建号/改密同链）；成功后赋默认角色。不签发
+// token——注册完成走正常登录（mustChangePassword/MFA 门控照常生效）。
+func (s *Service) Register(ctx context.Context, req *RegisterRequest) (*model.Admin, error) {
+	if !s.RegisterEnabled() {
+		return nil, errors.New("自助注册未开启")
+	}
+	username := strings.TrimSpace(req.Username)
+	if !isValidRegisterUsername(username) {
+		return nil, errors.New("用户名须为 3-32 位字母、数字、下划线或连字符")
+	}
+	if err := utils.ValidatePasswordForUser(req.Password, username); err != nil {
+		return nil, err
+	}
+	if existing, err := s.adminModel.FindByUsername(ctx, username); err == nil && existing != nil {
+		return nil, fmt.Errorf("用户名已存在")
+	}
+	nickname := strings.TrimSpace(req.Nickname)
+	if nickname == "" {
+		nickname = username
+	}
+	admin := &model.Admin{
+		Username: username,
+		Nickname: nickname,
+		Email:    strings.TrimSpace(req.Email),
+		Status:   1,
+	}
+	if err := s.adminModel.Create(ctx, admin, req.Password); err != nil {
+		// 并发重名：唯一索引兜底为失败
+		s.recordLoginAudit(username, "auth.register_failed", "failed",
+			&LoginRequest{ClientIP: req.ClientIP, UserAgent: req.UserAgent}, "create_failed", "")
+		return nil, fmt.Errorf("注册失败：用户名可能已存在")
+	}
+	s.assignRegisterRoles(ctx, admin.ID)
+	s.recordLoginAudit(username, "auth.register", "success",
+		&LoginRequest{ClientIP: req.ClientIP, UserAgent: req.UserAgent}, "", "")
+	slog.Default().Info("self-registered admin account", "username", username)
+	return admin, nil
+}
+
+// isValidRegisterUsername 校验注册用户名形态（3-32 位字母/数字/_/-）。
+func isValidRegisterUsername(u string) bool {
+	if len(u) < 3 || len(u) > 32 {
+		return false
+	}
+	for _, r := range u {
+		switch {
+		case r >= 'a' && r <= 'z', r >= 'A' && r <= 'Z', r >= '0' && r <= '9', r == '_', r == '-':
+		default:
+			return false
+		}
+	}
+	return true
+}
+
+// assignRegisterRoles 赋注册默认角色；角色名不存在时告警跳过（与 JIT 同策略）。
+func (s *Service) assignRegisterRoles(ctx context.Context, adminID uint) {
+	s.providersMu.RLock()
+	names := s.registerRoles
+	s.providersMu.RUnlock()
+	for _, name := range names {
+		role, ok := s.findRoleByName(ctx, name)
+		if !ok {
+			slog.Default().Warn("register default role not found", "role", name)
+			continue
+		}
+		if err := s.adminModel.AssignRole(ctx, adminID, role.ID); err != nil {
+			slog.Default().Warn("assign register default role failed",
+				"role", name, "adminID", adminID, "error", err)
+		}
+	}
 }
 
 // GitHubEnabled reports whether the GitHub login flow is wired.

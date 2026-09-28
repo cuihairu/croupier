@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/url"
 
+	"github.com/cuihairu/croupier/internal/common/errorx"
 	"github.com/cuihairu/croupier/internal/common/response"
 	"github.com/gin-gonic/gin"
 )
@@ -75,11 +76,36 @@ func (h *Handler) Check(c *gin.Context) {
 // Providers 返回已启用的登录方式，供登录页渲染入口。
 func (h *Handler) Providers(c *gin.Context) {
 	response.Success(c, gin.H{
-		"local":  h.service.LocalEnabled(),
-		"ldap":   h.service.LDAPEnabled(),
-		"oidc":   h.service.OIDCEnabled(),
-		"github": h.service.GitHubEnabled(),
+		"local":    h.service.LocalEnabled(),
+		"ldap":     h.service.LDAPEnabled(),
+		"oidc":     h.service.OIDCEnabled(),
+		"github":   h.service.GitHubEnabled(),
+		"register": h.service.RegisterEnabled(),
 	})
+}
+
+// Register 自助注册（POST /api/v1/auth/register，匿名；开关默认关闭——
+// 关闭时 403 registration_disabled，前端不渲染注册入口）。
+func (h *Handler) Register(c *gin.Context) {
+	var req RegisterRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, "参数错误: "+err.Error())
+		return
+	}
+	req.ClientIP = c.ClientIP()
+	req.UserAgent = c.GetHeader("User-Agent")
+
+	admin, err := h.service.Register(c.Request.Context(), &req)
+	if err != nil {
+		if h.service.RegisterEnabled() {
+			// 开关已开：业务校验失败（用户名形态/重复/弱密码）
+			response.BadRequest(c, err.Error())
+			return
+		}
+		response.Error(c, &errorx.CodeError{Code: http.StatusForbidden, Message: err.Error(), StableCode: "registration_disabled"})
+		return
+	}
+	response.Success(c, gin.H{"username": admin.Username, "nickname": admin.Nickname})
 }
 
 // mfaUsername 从认证上下文取当前用户；未登录返回空串并由调用方 401。

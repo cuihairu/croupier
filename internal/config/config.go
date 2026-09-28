@@ -755,10 +755,18 @@ func (c LoginLockoutConfig) LoginLockoutDefaults() (threshold int, lock time.Dur
 
 // AuthProvidersConfig 汇总外部身份提供方配置。
 type AuthProvidersConfig struct {
-	Local  LocalProviderConfig  `json:"local,omitempty" yaml:"local,omitempty"`
-	LDAP   LDAPProviderConfig   `json:"ldap,omitempty" yaml:"ldap,omitempty"`
-	OIDC   OIDCProviderConfig   `json:"oidc,omitempty" yaml:"oidc,omitempty"`
-	GitHub GitHubProviderConfig `json:"github,omitempty" yaml:"github,omitempty"`
+	Local    LocalProviderConfig  `json:"local,omitempty" yaml:"local,omitempty"`
+	LDAP     LDAPProviderConfig   `json:"ldap,omitempty" yaml:"ldap,omitempty"`
+	OIDC     OIDCProviderConfig   `json:"oidc,omitempty" yaml:"oidc,omitempty"`
+	GitHub   GitHubProviderConfig `json:"github,omitempty" yaml:"github,omitempty"`
+	Register RegisterConfig       `json:"register,omitempty" yaml:"register,omitempty"`
+}
+
+// RegisterConfig 描述自助注册（OPEN-ISSUES #51b）：默认关闭；开启后匿名
+// POST /api/v1/auth/register 可建本地账号并赋予 DefaultRoles（缺省 viewer）。
+type RegisterConfig struct {
+	Enabled      bool     `json:"enabled" yaml:"enabled"`
+	DefaultRoles []string `json:"defaultRoles,omitempty" yaml:"defaultRoles,omitempty"`
 }
 
 // LDAPProviderConfig 描述如何连接并校验 LDAP 目录。

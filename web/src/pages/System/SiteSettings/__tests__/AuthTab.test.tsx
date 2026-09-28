@@ -110,6 +110,13 @@ const baseSnapshot = {
       defaultRoles: 'config',
     },
   },
+  register: {
+    enabled: false,
+    fields: {},
+    secretSet: false,
+    secretMasked: '****',
+    sources: {},
+  },
 };
 
 function renderTab() {
@@ -165,8 +172,8 @@ describe('AuthTab 登录方式', () => {
     expect(screen.getByDisplayValue('https://sso.example.com')).toBeInTheDocument();
     expect(screen.getByDisplayValue('croupier-console')).toBeInTheDocument();
 
-    // 四卡片各有保存按钮（本地/LDAP/OIDC/GitHub），保存并测试仅 LDAP/OIDC
-    expect(screen.getAllByRole('button', { name: '保存' })).toHaveLength(4);
+    // 五卡片各有保存按钮（本地/LDAP/OIDC/GitHub/自助注册），保存并测试仅 LDAP/OIDC
+    expect(screen.getAllByRole('button', { name: '保存' })).toHaveLength(5);
     expect(screen.getAllByRole('button', { name: /保存并测试/ })).toHaveLength(2);
   });
 
@@ -331,12 +338,13 @@ describe('AuthTab 登录方式', () => {
     renderTab();
 
     await waitFor(() => expect(mFetch).toHaveBeenCalled());
-    // 四卡片标题仍在
+    // 五卡片标题仍在
     expect(screen.getByText('本地账号密码')).toBeInTheDocument();
     expect(screen.getByText('LDAP 目录')).toBeInTheDocument();
     expect(screen.getByText('OIDC 单点登录')).toBeInTheDocument();
     expect(screen.getByText('GitHub OAuth')).toBeInTheDocument();
-    expect(screen.getAllByRole('button', { name: '保存' })).toHaveLength(4);
+    expect(screen.getByText('自助注册')).toBeInTheDocument();
+    expect(screen.getAllByRole('button', { name: '保存' })).toHaveLength(5);
     // 无回填值
     expect(screen.queryByDisplayValue('ldap://ldap.example.com:389')).not.toBeInTheDocument();
   });
@@ -489,5 +497,64 @@ describe('AuthTab 登录方式', () => {
     //   配置文件 3 = ldap baseDn + oidc clientId/defaultRoles；startTls 无徽标）
     expect(screen.getAllByText('UI')).toHaveLength(4);
     expect(screen.getAllByText('配置文件')).toHaveLength(4);
+  });
+
+  // ---- OPEN-ISSUES #51b：自助注册卡 ----
+
+  it('注册卡保存：提交 auth.register.enabled 布尔 + defaultRoles trim 值，成功后重拉', async () => {
+    renderTab();
+
+    // baseSnapshot register：enabled=false、fields 空。改 defaultRoles（最后一个 viewer 占位）
+    await screen.findByDisplayValue('ldap://ldap.example.com:389');
+    const rolesInput = screen.getAllByPlaceholderText('viewer')[3]; // LDAP/OIDC/GitHub 之后是注册卡
+    fireEvent.change(rolesInput, { target: { value: '  viewer,ops  ' } });
+
+    fireEvent.click(screen.getAllByRole('button', { name: '保存' })[4]); // 注册卡保存
+
+    await waitFor(() => expect(mSet).toHaveBeenCalledWith('auth.register.enabled', false));
+    await waitFor(() =>
+      expect(mSet).toHaveBeenCalledWith('auth.register.defaultRoles', 'viewer,ops'),
+    );
+    await waitFor(() => expect(mFetch).toHaveBeenCalledTimes(2));
+  });
+
+  it('注册卡启用态回填：快照 enabled=true + 已存角色时保存提交 true', async () => {
+    mFetch.mockResolvedValue({
+      ...baseSnapshot,
+      register: {
+        enabled: true,
+        fields: { defaultRoles: 'viewer' },
+        secretSet: false,
+        secretMasked: '****',
+        sources: { enabled: 'database' },
+      },
+    });
+    renderTab();
+
+    await screen.findByDisplayValue('ldap://ldap.example.com:389');
+    fireEvent.click(screen.getAllByRole('button', { name: '保存' })[4]);
+
+    await waitFor(() => expect(mSet).toHaveBeenCalledWith('auth.register.enabled', true));
+    await waitFor(() => expect(mSet).toHaveBeenCalledWith('auth.register.defaultRoles', 'viewer'));
+  });
+
+  it('注册卡启用徽标：快照 enabled=true 渲染「已启用」Tag，默认态渲染「未启用」', async () => {
+    mFetch.mockResolvedValue({
+      ...baseSnapshot,
+      register: {
+        enabled: true,
+        fields: {},
+        secretSet: false,
+        secretMasked: '****',
+        sources: {},
+      },
+    });
+    renderTab();
+
+    // 「已启用」至少出现注册卡徽标一处（页面其他位置可能另有同文案）
+    await screen.findByDisplayValue('ldap://ldap.example.com:389');
+    expect(screen.getAllByText('已启用').length).toBeGreaterThanOrEqual(1);
+    // 停用徽标：LDAP/OIDC/GitHub 三卡 + 本地未启用卡不含（本地卡用 Switch 无徽标）
+    expect(screen.getAllByText('未启用').length).toBeGreaterThanOrEqual(3);
   });
 });

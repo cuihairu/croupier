@@ -18,6 +18,7 @@ import {
   GithubOutlined,
   LockOutlined,
   SafetyCertificateOutlined,
+  UserAddOutlined,
 } from '@ant-design/icons';
 import { FormattedMessage, useIntl } from '@umijs/max';
 import {
@@ -1113,6 +1114,157 @@ function GitHubCard({
   );
 }
 
+type RegisterFormValues = {
+  enabled: boolean;
+  defaultRoles: string;
+};
+
+/** 自助注册（OPEN-ISSUES #51b）：默认关闭；注册的是本地账密账号。 */
+function RegisterCard({
+  snapshot,
+  onReload,
+}: {
+  snapshot: AuthProviderSnapshot | undefined;
+  onReload: () => Promise<void>;
+}) {
+  const { message } = App.useApp();
+  const intl = useIntl();
+  const [form] = Form.useForm<RegisterFormValues>();
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    const f = snapshot?.fields ?? {};
+    form.setFieldsValue({
+      enabled: snapshot?.enabled ?? false,
+      defaultRoles: f.defaultRoles ?? '',
+    });
+  }, [snapshot, form]);
+
+  const handleSave = async () => {
+    try {
+      const v = await form.validateFields();
+      setSaving(true);
+      await saveKeys([
+        { key: 'auth.register.enabled', value: v.enabled },
+        { key: 'auth.register.defaultRoles', value: v.defaultRoles?.trim() ?? '' },
+      ]);
+      await onReload();
+      message.success(
+        intl.formatMessage({
+          id: 'pages.systemSiteSettings.auth.saved.register',
+          defaultMessage: '自助注册配置已保存',
+        }),
+      );
+    } catch (error) {
+      if ((error as { errorFields?: unknown }).errorFields) return;
+      message.error(
+        extractErrorMessage(
+          error,
+          intl.formatMessage({
+            id: 'pages.systemSiteSettings.auth.error.saveFailed',
+            defaultMessage: '保存失败',
+          }),
+        ),
+      );
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Card
+      size="small"
+      title={
+        <Space size={6}>
+          <UserAddOutlined />
+          <Text strong>
+            <FormattedMessage
+              id="pages.systemSiteSettings.auth.register.title"
+              defaultMessage="自助注册"
+            />
+          </Text>
+          {snapshot?.enabled ? (
+            <Tag color="green">
+              <FormattedMessage
+                id="pages.systemSiteSettings.auth.provider.enabled"
+                defaultMessage="已启用"
+              />
+            </Tag>
+          ) : (
+            <Tag>
+              <FormattedMessage
+                id="pages.systemSiteSettings.auth.provider.disabled"
+                defaultMessage="未启用"
+              />
+            </Tag>
+          )}
+        </Space>
+      }
+      extra={
+        <Text type="secondary">
+          <FormattedMessage
+            id="pages.systemSiteSettings.auth.hint.registerCard"
+            defaultMessage="默认关闭；开启后登录页出现「注册账号」入口，注册的是本地账密账号"
+          />
+        </Text>
+      }
+    >
+      <Form form={form} name="auth-register" layout="vertical" size="small">
+        <Row gutter={12}>
+          <Col span={12}>
+            <Form.Item
+              name="defaultRoles"
+              label={
+                <Space size={4}>
+                  <FormattedMessage
+                    id="pages.systemSiteSettings.auth.jitRolesLabel"
+                    defaultMessage="JIT 角色"
+                  />
+                  <SourceTag source={snapshot?.sources?.defaultRoles} />
+                </Space>
+              }
+              tooltip={intl.formatMessage({
+                id: 'pages.systemSiteSettings.auth.register.rolesTooltip',
+                defaultMessage: '注册账号被赋予的角色（逗号分隔）；留空则不赋角色',
+              })}
+            >
+              <Input placeholder="viewer" />
+            </Form.Item>
+          </Col>
+          <Col span={12}>
+            <Form.Item
+              name="enabled"
+              label={intl.formatMessage({
+                id: 'pages.systemSiteSettings.auth.register.enableLabel',
+                defaultMessage: '允许自助注册',
+              })}
+              valuePropName="checked"
+              tooltip={intl.formatMessage({
+                id: 'pages.systemSiteSettings.auth.register.enableTooltip',
+                defaultMessage: '开启后任何人可在登录页注册本地账号；密码走账号安全策略校验',
+              })}
+            >
+              <Switch
+                checkedChildren={intl.formatMessage({
+                  id: 'pages.systemSiteSettings.auth.switch.enable',
+                  defaultMessage: '启用',
+                })}
+                unCheckedChildren={intl.formatMessage({
+                  id: 'pages.systemSiteSettings.auth.switch.disable',
+                  defaultMessage: '停用',
+                })}
+              />
+            </Form.Item>
+          </Col>
+        </Row>
+        <Button type="primary" size="small" loading={saving} onClick={() => void handleSave()}>
+          <FormattedMessage id="pages.systemSiteSettings.auth.action.save" defaultMessage="保存" />
+        </Button>
+      </Form>
+    </Card>
+  );
+}
+
 /** 登录方式 Tab：本地开关 + LDAP 直连级联 + OIDC/GitHub 重定向 SSO（Harbor 模式热配置）。 */
 export default function AuthTab() {
   const { message } = App.useApp();
@@ -1166,6 +1318,7 @@ export default function AuthTab() {
       <LDAPCard snapshot={snapshot?.ldap} onReload={load} />
       <OIDCCard snapshot={snapshot?.oidc} onReload={load} />
       <GitHubCard snapshot={snapshot?.github} onReload={load} />
+      <RegisterCard snapshot={snapshot?.register} onReload={load} />
     </Space>
   );
 }

@@ -40,6 +40,7 @@ jest.mock('@/services/api/sites', () => ({
     ldap: false,
     oidc: false,
     github: false,
+    register: false,
   })),
 }));
 jest.mock('@/services/initialState', () => ({
@@ -86,7 +87,13 @@ const sessionWith = (mustChangePassword: boolean) => ({
 beforeEach(() => {
   jest.clearAllMocks();
   window.history.replaceState(null, '', '/user/login');
-  mockedProviders.mockResolvedValue({ local: true, ldap: false, oidc: false, github: false });
+  mockedProviders.mockResolvedValue({
+    local: true,
+    ldap: false,
+    oidc: false,
+    github: false,
+    register: false,
+  });
   mockedGetMessage.mockReturnValue(msgApi() as ReturnType<typeof getMessage>);
 });
 

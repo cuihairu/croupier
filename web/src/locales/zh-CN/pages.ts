@@ -468,4 +468,16 @@ export default {
   'pages.profile.notifications.action.markRead': '标为已读',
   'pages.announcements.delete.cancel': '取消',
   'pages.announcements.delete.ok': '确认',
+  // OPEN-ISSUES #51b：自助注册（默认关闭；登录页入口 + 弹窗表单）
+  'pages.login.register.entry': '注册账号',
+  'pages.login.register.title': '注册账号',
+  'pages.login.register.submit': '注册',
+  'pages.login.register.success': '账号 {username} 注册成功，请登录',
+  'pages.login.register.error': '注册失败，请检查输入后重试',
+  'pages.login.register.usernameRule': '3-32 位，仅限字母、数字、下划线、中划线',
+  'pages.login.register.nickname': '昵称（可选）',
+  'pages.login.register.email': '邮箱（可选）',
+  'pages.login.register.emailRule': '邮箱格式不正确',
+  'pages.login.register.passwordPlaceholder': '8 位以上，建议混合字符类',
+  'pages.login.register.mismatch': '两次输入的密码不一致',
 };

@@ -66,7 +66,13 @@ beforeEach(() => {
 
 describe('Login 账密表单门控（OPEN-ISSUES #51a）', () => {
   it('local=false 且 ldap=false：账密表单隐藏、显示停用提示，GitHub SSO 按钮出现', async () => {
-    mProviders.mockResolvedValue({ local: false, ldap: false, oidc: false, github: true });
+    mProviders.mockResolvedValue({
+      local: false,
+      ldap: false,
+      oidc: false,
+      github: true,
+      register: true,
+    });
     renderLogin();
 
     // 停用提示 + SSO 分隔线 + GitHub 按钮
@@ -82,7 +88,13 @@ describe('Login 账密表单门控（OPEN-ISSUES #51a）', () => {
   });
 
   it('local=false 但 ldap=true：表单保留（LDAP 共用表单）且无停用提示', async () => {
-    mProviders.mockResolvedValue({ local: false, ldap: true, oidc: false, github: false });
+    mProviders.mockResolvedValue({
+      local: false,
+      ldap: true,
+      oidc: false,
+      github: false,
+      register: false,
+    });
     renderLogin();
 
     expect(await screen.findByPlaceholderText('用户名: admin or user')).toBeInTheDocument();
@@ -101,7 +113,13 @@ describe('Login 账密表单门控（OPEN-ISSUES #51a）', () => {
   });
 
   it('local=true：表单显示且无 SSO 按钮（github/oidc 均关）', async () => {
-    mProviders.mockResolvedValue({ local: true, ldap: false, oidc: false, github: false });
+    mProviders.mockResolvedValue({
+      local: true,
+      ldap: false,
+      oidc: false,
+      github: false,
+      register: false,
+    });
     renderLogin();
 
     expect(await screen.findByPlaceholderText('用户名: admin or user')).toBeInTheDocument();
