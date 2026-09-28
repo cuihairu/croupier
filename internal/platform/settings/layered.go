@@ -73,22 +73,43 @@ const (
 	KeyNotifyFeishuSecret   = "notification.feishuSecret"   // string
 	KeyNotifyInAppEnabled   = "notification.inAppEnabled"   // bool
 
+	// 性能参数（L3 运行时配置，默认均为 0/false 表示沿用内置基线或无限制）。
+	KeyPerfMaxCpuPct      = "perf.maxCpuPct"      // CPU 阈值%（0 = 不过滤）
+	KeyPerfMaxMemoryPct   = "perf.maxMemoryPct"   // 内存阈值%（0 = 不过滤）
+	KeyPerfMaxDiskPct     = "perf.maxDiskPct"     // 磁盘阈值%（0 = 不过滤）
+	KeyPerfMaxConcurrent  = "perf.maxConcurrent"  // 并发请求上限（0 = 无限制）
+	KeyPerfMaxThreadCount = "perf.maxThreadCount" // 线程数上限（0 = 无限制）
+	KeyPerfCacheSize      = "perf.cacheSize"      // 内存缓存大小（字节，0 = 沿用默认）
+
+	// 日志维护（L3 运行时配置，默认均为 0 表示沿用内置基线）。
+	KeyLogRetentionDays = "log.retentionDays" // 保留天数（0 = 永久）
+	KeyLogCleanupCron   = "log.cleanupCron"   // 定时清理表达式（如 "0 2 * * *"，每日清理）
+	KeyLogCopierDir     = "log.copierDir"     // 复制器日志目录
+	KeyLogCopierKeep    = "log.copierKeep"    // 复制器日志保留数（0 = 全部）
+
 	// 登录方式（外部身份源，L3 运行时配置——Harbor 模式：yaml 仅作
 	// bootstrap 初始值，UI 配置热生效；凭据键脱敏回显）
-	KeyAuthLdapEnabled      = "auth.ldap.enabled"      // bool
-	KeyAuthLdapAddr         = "auth.ldap.addr"         // string
-	KeyAuthLdapBaseDn       = "auth.ldap.baseDn"       // string
-	KeyAuthLdapBindDn       = "auth.ldap.bindDn"       // string
-	KeyAuthLdapBindPassword = "auth.ldap.bindPassword" // string (secret)
-	KeyAuthLdapUserFilter   = "auth.ldap.userFilter"   // string
-	KeyAuthLdapStartTLS     = "auth.ldap.startTls"     // bool
-	KeyAuthLdapDefaultRoles = "auth.ldap.defaultRoles" // string (逗号分隔)
-	KeyAuthOidcEnabled      = "auth.oidc.enabled"      // bool
-	KeyAuthOidcIssuer       = "auth.oidc.issuer"       // string
-	KeyAuthOidcClientId     = "auth.oidc.clientId"     // string
-	KeyAuthOidcClientSecret = "auth.oidc.clientSecret" // string (secret)
-	KeyAuthOidcRedirectUrl  = "auth.oidc.redirectUrl"  // string
-	KeyAuthOidcDefaultRoles = "auth.oidc.defaultRoles" // string (逗号分隔)
+	KeyAuthLocalEnabled       = "auth.local.enabled"       // bool：账号密码登录开关（默认 true）
+	KeyAuthLdapEnabled        = "auth.ldap.enabled"        // bool
+	KeyAuthLdapAddr           = "auth.ldap.addr"           // string
+	KeyAuthLdapBaseDn         = "auth.ldap.baseDn"         // string
+	KeyAuthLdapBindDn         = "auth.ldap.bindDn"         // string
+	KeyAuthLdapBindPassword   = "auth.ldap.bindPassword"   // string (secret)
+	KeyAuthLdapUserFilter     = "auth.ldap.userFilter"     // string
+	KeyAuthLdapStartTLS       = "auth.ldap.startTls"       // bool
+	KeyAuthLdapDefaultRoles   = "auth.ldap.defaultRoles"   // string (逗号分隔)
+	KeyAuthOidcEnabled        = "auth.oidc.enabled"        // bool
+	KeyAuthOidcIssuer         = "auth.oidc.issuer"         // string
+	KeyAuthOidcClientId       = "auth.oidc.clientId"       // string
+	KeyAuthOidcClientSecret   = "auth.oidc.clientSecret"   // string (secret)
+	KeyAuthOidcRedirectUrl    = "auth.oidc.redirectUrl"    // string
+	KeyAuthOidcDefaultRoles   = "auth.oidc.defaultRoles"   // string (逗号分隔)
+	KeyAuthGitHubEnabled      = "auth.github.enabled"      // bool
+	KeyAuthGitHubClientId     = "auth.github.clientId"     // string
+	KeyAuthGitHubClientSecret = "auth.github.clientSecret" // string (secret)
+	KeyAuthGitHubRedirectUrl  = "auth.github.redirectUrl"  // string
+	KeyAuthGitHubDefaultRoles = "auth.github.defaultRoles" // string (逗号分隔)
+	KeyAuthGitHubSuccessURL   = "auth.github.successUrl"   // string
 
 	// 账号安全策略（L3 运行时配置，全部默认关闭——关闭即维持内置基线：
 	// 密码 8-128 位 + 弱密码表 + 至少 2/4 字符类；不限期；TOTP 自助不强制）
@@ -97,6 +118,13 @@ const (
 	KeySecurityPasswordRequireUpper   = "security.passwordRequireUppercase" // bool：必须含大写字母
 	KeySecurityPasswordRequireSpecial = "security.passwordRequireSpecial"   // bool：必须含特殊字符
 	KeySecurityPasswordMaxAgeDays     = "security.passwordMaxAgeDays"       // int：0 = 永不过期
+
+	// 安全与限制（OPEN-ISSUES #56，ValidKeys 先登记——功能语义由后续批次
+	// 接线；此处仅定义常量补齐编译）
+	KeySecAllowPorts     = "sec.allowPorts"     // string：允许的端口
+	KeySecAllowIPs       = "sec.allowIPs"       // string：允许的 IP
+	KeySecDomainFilter   = "sec.domainFilter"   // string：域名过滤
+	KeySecSSRFProtection = "sec.ssrfProtection" // bool：SSRF 保护
 )
 
 // ValidKeys is the L3 whitelist.
@@ -118,11 +146,28 @@ var ValidKeys = map[string]struct{}{
 	KeyNotifyWebhookURL: {}, KeyNotifyWebhookSecret: {}, KeyNotifyInAppEnabled: {},
 	KeyNotifyWecomURL: {}, KeyNotifyFeishuURL: {}, KeyNotifyFeishuSecret: {},
 
-	KeyAuthLdapEnabled: {}, KeyAuthLdapAddr: {}, KeyAuthLdapBaseDn: {},
+	KeyAuthLocalEnabled: {},
+	KeyAuthLdapEnabled:  {}, KeyAuthLdapAddr: {}, KeyAuthLdapBaseDn: {},
 	KeyAuthLdapBindDn: {}, KeyAuthLdapBindPassword: {}, KeyAuthLdapUserFilter: {},
 	KeyAuthLdapStartTLS: {}, KeyAuthLdapDefaultRoles: {},
 	KeyAuthOidcEnabled: {}, KeyAuthOidcIssuer: {}, KeyAuthOidcClientId: {},
 	KeyAuthOidcClientSecret: {}, KeyAuthOidcRedirectUrl: {}, KeyAuthOidcDefaultRoles: {},
+	KeyAuthGitHubEnabled: {}, KeyAuthGitHubClientId: {}, KeyAuthGitHubClientSecret: {},
+	KeyAuthGitHubRedirectUrl: {}, KeyAuthGitHubDefaultRoles: {}, KeyAuthGitHubSuccessURL: {},
+	KeyPerfMaxCpuPct:      {},
+	KeyPerfMaxMemoryPct:   {},
+	KeyPerfMaxDiskPct:     {},
+	KeyPerfMaxConcurrent:  {},
+	KeyPerfMaxThreadCount: {},
+	KeyPerfCacheSize:      {},
+	KeyLogRetentionDays:   {},
+	KeyLogCleanupCron:     {},
+	KeyLogCopierDir:       {},
+	KeyLogCopierKeep:      {},
+	KeySecAllowPorts:      {},
+	KeySecAllowIPs:        {},
+	KeySecDomainFilter:    {},
+	KeySecSSRFProtection:  {},
 
 	KeySecurityMFARequired: {}, KeySecurityPasswordMinLength: {},
 	KeySecurityPasswordRequireUpper: {}, KeySecurityPasswordRequireSpecial: {},
@@ -139,9 +184,10 @@ var secretKeys = map[string]struct{}{
 	// feishuSecretMasked 字段（一直有掩码），但 PutKey 的「掩码回存保护」分支
 	// 只认 IsSecretKey——管理端把快照原样回存时，"****+尾4" 会被当成真值
 	// 覆盖入库，通知发送从此静默失败（docs/BUGS.md BUG-017）。
-	KeyNotifyFeishuSecret:   {},
-	KeyAuthLdapBindPassword: {},
-	KeyAuthOidcClientSecret: {},
+	KeyNotifyFeishuSecret:     {},
+	KeyAuthLdapBindPassword:   {},
+	KeyAuthOidcClientSecret:   {},
+	KeyAuthGitHubClientSecret: {},
 }
 
 // IsSecretKey reports whether the key holds a credential that must be masked
@@ -169,7 +215,9 @@ var boolKeys = map[string]struct{}{
 	KeyFeatureDev: {}, KeyFeatureSupport: {}, KeyFeatureAnalytics: {},
 	KeyFeatureOps: {}, KeyFeatureExtensions: {},
 	KeyNotifyEmailEnabled: {}, KeyNotifyInAppEnabled: {},
-	KeyAuthLdapEnabled: {}, KeyAuthLdapStartTLS: {}, KeyAuthOidcEnabled: {},
+	KeyAuthLocalEnabled: {},
+	KeyAuthLdapEnabled:  {}, KeyAuthLdapStartTLS: {}, KeyAuthOidcEnabled: {},
+	KeyAuthGitHubEnabled:   {},
 	KeySecurityMFARequired: {}, KeySecurityPasswordRequireUpper: {},
 	KeySecurityPasswordRequireSpecial: {},
 }
@@ -333,6 +381,35 @@ func (l *Layered) GetBool(key string, def bool) bool {
 		}
 	}
 	return def
+}
+
+// getBoolWithSource resolves a boolean setting through the layers and reports
+// which layer provided it（database/config）and whether any did。bool 原始值
+// 经 GetString 读不出（string unmarshal 失败），探测覆盖必须走本方法。
+func (l *Layered) getBoolWithSource(key string, def bool) (bool, string, bool) {
+	if !IsValidKey(key) || l == nil {
+		return def, "default", false
+	}
+	l.mu.RLock()
+	defer l.mu.RUnlock()
+	read := func(raw json.RawMessage) (bool, bool) {
+		var v bool
+		if err := json.Unmarshal(raw, &v); err == nil {
+			return v, true
+		}
+		return false, false
+	}
+	if raw, ok := l.l3[key]; ok && l.l3Loaded {
+		if v, ok := read(raw); ok {
+			return v, "database", true
+		}
+	}
+	if raw, ok := l.l2Values[key]; ok {
+		if v, ok := read(raw); ok {
+			return v, "config", true
+		}
+	}
+	return def, "default", false
 }
 
 // GetInt resolves an integer setting through the layers.
@@ -717,8 +794,18 @@ func resetForTest() {
 
 // AuthSnapshot 是登录方式（外部身份源）的读视图（凭据脱敏）。
 type AuthSnapshot struct {
-	LDAP AuthProviderSnapshot `json:"ldap"`
-	OIDC AuthProviderSnapshot `json:"oidc"`
+	Local  LocalAuthSnapshot    `json:"local"`
+	GitHub AuthProviderSnapshot `json:"github"`
+	LDAP   AuthProviderSnapshot `json:"ldap"`
+	OIDC   AuthProviderSnapshot `json:"oidc"`
+}
+
+// LocalAuthSnapshot 账号密码登录开关读视图（默认启用，显式覆盖 false 才停用；
+// 停用前置约束见 auth.RefreshIdentityProviders 防锁死守卫）。
+type LocalAuthSnapshot struct {
+	Enabled    bool   `json:"enabled"`
+	Overridden bool   `json:"overridden"`
+	Source     string `json:"source,omitempty"` // database/config
 }
 
 // AuthProviderSnapshot 单一身份源的生效配置（secret 只回 set+尾4）。
@@ -732,9 +819,17 @@ type AuthProviderSnapshot struct {
 
 // AuthSnapshot resolves the identity provider settings (masked).
 func (l *Layered) AuthSnapshot() AuthSnapshot {
+	local := LocalAuthSnapshot{Enabled: true} // L1 默认启用
+	if v, src, ok := l.getBoolWithSource(KeyAuthLocalEnabled, true); ok {
+		local.Overridden = true
+		local.Source = src
+		local.Enabled = v
+	}
 	return AuthSnapshot{
-		LDAP: l.authProviderSnapshot("ldap"),
-		OIDC: l.authProviderSnapshot("oidc"),
+		Local:  local,
+		GitHub: l.authProviderSnapshot("github"),
+		LDAP:   l.authProviderSnapshot("ldap"),
+		OIDC:   l.authProviderSnapshot("oidc"),
 	}
 }
 
@@ -764,7 +859,7 @@ func (l *Layered) authProviderSnapshot(kind string) AuthProviderSnapshot {
 	prefix := "auth." + kind + "."
 	snap := AuthProviderSnapshot{Fields: map[string]string{}, Sources: map[string]string{}}
 	snap.Enabled = l.GetBool(settingsKey(prefix+"enabled"), false)
-	for _, f := range []string{"addr", "baseDn", "bindDn", "userFilter", "issuer", "clientId", "redirectUrl", "defaultRoles", "startTls"} {
+	for _, f := range []string{"addr", "baseDn", "bindDn", "userFilter", "issuer", "clientId", "redirectUrl", "defaultRoles", "startTls", "successUrl"} {
 		if v, src, ok := l.GetString(ctx, settingsKey(prefix+f)); ok && v != "" {
 			snap.Fields[f] = v
 			snap.Sources[f] = src
@@ -775,9 +870,12 @@ func (l *Layered) authProviderSnapshot(kind string) AuthProviderSnapshot {
 		snap.Fields["startTls"] = "true"
 	}
 	var secretKey string
-	if kind == "ldap" {
+	switch kind {
+	case "ldap":
 		secretKey = KeyAuthLdapBindPassword
-	} else {
+	case "github":
+		secretKey = KeyAuthGitHubClientSecret
+	default:
 		secretKey = KeyAuthOidcClientSecret
 	}
 	if v, src, ok := l.GetString(ctx, secretKey); ok && v != "" {
@@ -820,6 +918,10 @@ func (l *Layered) AuthProviderConfig() config.AuthProvidersConfig {
 		return out
 	}
 	return config.AuthProvidersConfig{
+		Local: config.LocalProviderConfig{
+			// 默认启用（L3 未覆盖时 true）；显式 false 才停用账号密码登录
+			Enabled: boolPtr(l.GetBool(KeyAuthLocalEnabled, true)),
+		},
 		LDAP: config.LDAPProviderConfig{
 			Enabled:        l.GetBool(KeyAuthLdapEnabled, false),
 			Addr:           str(KeyAuthLdapAddr),
@@ -839,5 +941,15 @@ func (l *Layered) AuthProviderConfig() config.AuthProvidersConfig {
 			RedirectURL:  str(KeyAuthOidcRedirectUrl),
 			DefaultRoles: roles(KeyAuthOidcDefaultRoles),
 		},
+		GitHub: config.GitHubProviderConfig{
+			Enabled:         l.GetBool(KeyAuthGitHubEnabled, false),
+			ClientID:        str(KeyAuthGitHubClientId),
+			ClientSecret:    str(KeyAuthGitHubClientSecret),
+			RedirectURL:     str(KeyAuthGitHubRedirectUrl),
+			DefaultRoles:    roles(KeyAuthGitHubDefaultRoles),
+			LoginSuccessURL: str(KeyAuthGitHubSuccessURL),
+		},
 	}
 }
+
+func boolPtr(v bool) *bool { return &v }

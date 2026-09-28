@@ -61,6 +61,17 @@ const mClear = clearSiteSetting as jest.MockedFunction<typeof clearSiteSetting>;
 const mTest = testAuthConnection as jest.MockedFunction<typeof testAuthConnection>;
 
 const baseSnapshot = {
+  local: {
+    enabled: true,
+    overridden: false,
+  },
+  github: {
+    enabled: false,
+    fields: {},
+    secretSet: false,
+    secretMasked: '****',
+    sources: {},
+  },
   ldap: {
     enabled: false,
     fields: {
@@ -123,13 +134,21 @@ describe('AuthTab 登录方式', () => {
   it('加载回填两卡片并按来源渲染分层徽标：database→UI、config/yaml→配置文件、default→默认', async () => {
     mFetch.mockResolvedValue({
       ...baseSnapshot,
-      ldap: { ...baseSnapshot.ldap, sources: { addr: 'database', baseDn: 'config', bindDn: 'default' } },
-      oidc: { ...baseSnapshot.oidc, sources: { issuer: 'database', clientId: 'yaml', redirectUrl: 'default' } },
+      ldap: {
+        ...baseSnapshot.ldap,
+        sources: { addr: 'database', baseDn: 'config', bindDn: 'default' },
+      },
+      oidc: {
+        ...baseSnapshot.oidc,
+        sources: { issuer: 'database', clientId: 'yaml', redirectUrl: 'default' },
+      },
     });
     renderTab();
 
     // LDAP 卡片
-    await waitFor(() => expect(screen.getByDisplayValue('ldap://ldap.example.com:389')).toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.getByDisplayValue('ldap://ldap.example.com:389')).toBeInTheDocument(),
+    );
     expect(screen.getByDisplayValue('dc=example,dc=com')).toBeInTheDocument();
     expect(screen.getByDisplayValue('cn=readonly,dc=example,dc=com')).toBeInTheDocument();
 
@@ -146,8 +165,8 @@ describe('AuthTab 登录方式', () => {
     expect(screen.getByDisplayValue('https://sso.example.com')).toBeInTheDocument();
     expect(screen.getByDisplayValue('croupier-console')).toBeInTheDocument();
 
-    // 两卡片各有保存/保存并测试按钮
-    expect(screen.getAllByRole('button', { name: '保存' })).toHaveLength(2);
+    // 四卡片各有保存按钮（本地/LDAP/OIDC/GitHub），保存并测试仅 LDAP/OIDC
+    expect(screen.getAllByRole('button', { name: '保存' })).toHaveLength(4);
     expect(screen.getAllByRole('button', { name: /保存并测试/ })).toHaveLength(2);
   });
 
@@ -176,13 +195,18 @@ describe('AuthTab 登录方式', () => {
     const baseDnInput = screen.getByDisplayValue('dc=example,dc=com');
     fireEvent.change(baseDnInput, { target: { value: '   ' } }); // 空值 → clear
 
-    // 点击 LDAP 保存（第一个保存按钮）
-    fireEvent.click(screen.getAllByRole('button', { name: '保存' })[0]);
+    // 点击 LDAP 保存（卡片顺序：本地/LDAP/OIDC/GitHub → 索引 1）
+    fireEvent.click(screen.getAllByRole('button', { name: '保存' })[1]);
 
-    await waitFor(() => expect(mSet).toHaveBeenCalledWith('auth.ldap.addr', 'ldap://new.example.com:389'));
+    await waitFor(() =>
+      expect(mSet).toHaveBeenCalledWith('auth.ldap.addr', 'ldap://new.example.com:389'),
+    );
     await waitFor(() => expect(mClear).toHaveBeenCalledWith('auth.ldap.baseDn'));
     // secret 留空不应调用 setSiteSetting/clearSiteSetting
-    expect(mSet).not.toHaveBeenCalledWith(expect.stringContaining('bindPassword'), expect.anything());
+    expect(mSet).not.toHaveBeenCalledWith(
+      expect.stringContaining('bindPassword'),
+      expect.anything(),
+    );
     expect(mClear).not.toHaveBeenCalledWith('auth.ldap.bindPassword');
     // 成功后重拉（初始 1 次 + 保存后 1 次）
     await waitFor(() => expect(mFetch).toHaveBeenCalledTimes(2));
@@ -194,15 +218,22 @@ describe('AuthTab 登录方式', () => {
     const issuerInput = await screen.findByDisplayValue('https://sso.example.com');
     fireEvent.change(issuerInput, { target: { value: '  https://new-sso.example.com  ' } });
 
-    const redirectInput = screen.getByDisplayValue('https://croupier.example.com/api/v1/auth/oidc/callback');
+    const redirectInput = screen.getByDisplayValue(
+      'https://croupier.example.com/api/v1/auth/oidc/callback',
+    );
     fireEvent.change(redirectInput, { target: { value: '   ' } }); // 空值 → clear
 
-    // 点击 OIDC 保存（第二个保存按钮）
-    fireEvent.click(screen.getAllByRole('button', { name: '保存' })[1]);
+    // 点击 OIDC 保存（卡片顺序：本地/LDAP/OIDC/GitHub → 索引 2）
+    fireEvent.click(screen.getAllByRole('button', { name: '保存' })[2]);
 
-    await waitFor(() => expect(mSet).toHaveBeenCalledWith('auth.oidc.issuer', 'https://new-sso.example.com'));
+    await waitFor(() =>
+      expect(mSet).toHaveBeenCalledWith('auth.oidc.issuer', 'https://new-sso.example.com'),
+    );
     await waitFor(() => expect(mClear).toHaveBeenCalledWith('auth.oidc.redirectUrl'));
-    expect(mSet).not.toHaveBeenCalledWith(expect.stringContaining('clientSecret'), expect.anything());
+    expect(mSet).not.toHaveBeenCalledWith(
+      expect.stringContaining('clientSecret'),
+      expect.anything(),
+    );
     expect(mClear).not.toHaveBeenCalledWith('auth.oidc.clientSecret');
     await waitFor(() => expect(mFetch).toHaveBeenCalledTimes(2));
   });
@@ -218,7 +249,9 @@ describe('AuthTab 登录方式', () => {
     fireEvent.click(screen.getAllByRole('button', { name: /保存并测试连接/ })[0]);
 
     // 先保存
-    await waitFor(() => expect(mSet).toHaveBeenCalledWith('auth.ldap.addr', 'ldap://test.example.com:389'));
+    await waitFor(() =>
+      expect(mSet).toHaveBeenCalledWith('auth.ldap.addr', 'ldap://test.example.com:389'),
+    );
     await waitFor(() => expect(mFetch).toHaveBeenCalledTimes(2));
     // 再测试连接
     await waitFor(() => expect(mTest).toHaveBeenCalledWith('ldap'));
@@ -233,7 +266,9 @@ describe('AuthTab 登录方式', () => {
 
     fireEvent.click(screen.getAllByRole('button', { name: /保存并测试发现端点/ })[0]);
 
-    await waitFor(() => expect(mSet).toHaveBeenCalledWith('auth.oidc.issuer', 'https://test-sso.example.com'));
+    await waitFor(() =>
+      expect(mSet).toHaveBeenCalledWith('auth.oidc.issuer', 'https://test-sso.example.com'),
+    );
     await waitFor(() => expect(mFetch).toHaveBeenCalledTimes(2));
     await waitFor(() => expect(mTest).toHaveBeenCalledWith('oidc'));
     expect(mTest).toHaveBeenCalledTimes(1);
@@ -282,10 +317,10 @@ describe('AuthTab 登录方式', () => {
 
     const addrInput = await screen.findByDisplayValue('ldap://ldap.example.com:389');
     fireEvent.change(addrInput, { target: { value: 'ldap://x.example.com:389' } });
-    fireEvent.click(screen.getAllByRole('button', { name: '保存' })[0]);
+    fireEvent.click(screen.getAllByRole('button', { name: '保存' })[1]); // LDAP 保存
 
     await waitFor(() => expect(mSet).toHaveBeenCalled());
-    expect(screen.getAllByRole('button', { name: '保存' })[0]).not.toBeDisabled();
+    expect(screen.getAllByRole('button', { name: '保存' })[1]).not.toBeDisabled();
     expect(mFetch).toHaveBeenCalledTimes(1); // 不重拉
     expect(screen.getByDisplayValue('ldap://x.example.com:389')).toBeInTheDocument(); // 表单保留用户输入
   });
@@ -296,10 +331,12 @@ describe('AuthTab 登录方式', () => {
     renderTab();
 
     await waitFor(() => expect(mFetch).toHaveBeenCalled());
-    // 两卡片标题仍在
+    // 四卡片标题仍在
+    expect(screen.getByText('本地账号密码')).toBeInTheDocument();
     expect(screen.getByText('LDAP 目录')).toBeInTheDocument();
     expect(screen.getByText('OIDC 单点登录')).toBeInTheDocument();
-    expect(screen.getAllByRole('button', { name: '保存' })).toHaveLength(2);
+    expect(screen.getByText('GitHub OAuth')).toBeInTheDocument();
+    expect(screen.getAllByRole('button', { name: '保存' })).toHaveLength(4);
     // 无回填值
     expect(screen.queryByDisplayValue('ldap://ldap.example.com:389')).not.toBeInTheDocument();
   });
@@ -307,17 +344,19 @@ describe('AuthTab 登录方式', () => {
   it('enabled 开关切换随表单提交（LDAP 显式 onChange、OIDC valuePropName 受控）', async () => {
     renderTab();
 
+    // 快照回填完成后再点开关：否则点击后到达的 setFieldsValue(enabled:false) 会覆盖点击态
+    await screen.findByDisplayValue('ldap://ldap.example.com:389');
     // LDAP 启用开关（label: 启用 LDAP 登录）——显式 onChange 绑定，点击即生效
     const ldapSwitch = await screen.findByRole('switch', { name: /启用 LDAP 登录/ });
     fireEvent.click(ldapSwitch);
-    fireEvent.click(screen.getAllByRole('button', { name: '保存' })[0]);
+    fireEvent.click(screen.getAllByRole('button', { name: '保存' })[1]); // LDAP 保存
 
     // 验证 auth.ldap.enabled 被提交为 true
     await waitFor(() => {
-      const calls = mSet.mock.calls.map(c => c[0]);
+      const calls = mSet.mock.calls.map((c) => c[0]);
       expect(calls).toContain('auth.ldap.enabled');
     });
-    const ldapEnabledCall = mSet.mock.calls.find(c => c[0] === 'auth.ldap.enabled');
+    const ldapEnabledCall = mSet.mock.calls.find((c) => c[0] === 'auth.ldap.enabled');
     expect(ldapEnabledCall).toBeDefined();
     expect(ldapEnabledCall![1]).toBe(true);
 
@@ -344,16 +383,111 @@ describe('AuthTab 登录方式', () => {
     const ldapRolesInput = screen.getAllByPlaceholderText('viewer')[0];
     fireEvent.change(ldapRolesInput, { target: { value: 'admin,editor' } });
 
-    fireEvent.click(screen.getAllByRole('button', { name: '保存' })[0]);
+    fireEvent.click(screen.getAllByRole('button', { name: '保存' })[1]); // LDAP 保存
 
     await waitFor(() => expect(mSet).toHaveBeenCalledWith('auth.ldap.startTls', true));
-    await waitFor(() => expect(mSet).toHaveBeenCalledWith('auth.ldap.defaultRoles', 'admin,editor'));
+    await waitFor(() =>
+      expect(mSet).toHaveBeenCalledWith('auth.ldap.defaultRoles', 'admin,editor'),
+    );
 
-    // OIDC JIT 角色（第二个 viewer placeholder）
+    // OIDC JIT 角色（第二个 viewer placeholder，第三个是 GitHub 卡片的）
     const oidcRolesInput = screen.getAllByPlaceholderText('viewer')[1];
     fireEvent.change(oidcRolesInput, { target: { value: 'viewer,admin' } });
-    fireEvent.click(screen.getAllByRole('button', { name: '保存' })[1]);
+    fireEvent.click(screen.getAllByRole('button', { name: '保存' })[2]); // OIDC 保存
 
-    await waitFor(() => expect(mSet).toHaveBeenCalledWith('auth.oidc.defaultRoles', 'viewer,admin'));
+    await waitFor(() =>
+      expect(mSet).toHaveBeenCalledWith('auth.oidc.defaultRoles', 'viewer,admin'),
+    );
+  });
+
+  // ---- OPEN-ISSUES #51a：本地开关 + GitHub OAuth ----
+
+  it('本地开关保存：按快照态提交 auth.local.enabled 布尔值，成功后重拉', async () => {
+    renderTab();
+
+    // baseSnapshot local.enabled=true → 保存提交 true
+    const saveButtons = await screen.findAllByRole('button', { name: '保存' });
+    fireEvent.click(saveButtons[0]); // 本地卡片保存
+
+    await waitFor(() => expect(mSet).toHaveBeenCalledWith('auth.local.enabled', true));
+    await waitFor(() => expect(mFetch).toHaveBeenCalledTimes(2));
+  });
+
+  it('本地开关停用态回填：快照 enabled=false 时开关为关，保存提交 false', async () => {
+    mFetch.mockResolvedValue({
+      ...baseSnapshot,
+      local: { enabled: false, overridden: true, source: 'database' },
+    });
+    renderTab();
+
+    const saveButtons = await screen.findAllByRole('button', { name: '保存' });
+    fireEvent.click(saveButtons[0]);
+
+    await waitFor(() => expect(mSet).toHaveBeenCalledWith('auth.local.enabled', false));
+  });
+
+  it('GitHub 保存：六键提交、空值走 clearSiteSetting、secret 留空跳过、成功后重拉', async () => {
+    mFetch.mockResolvedValue({
+      ...baseSnapshot,
+      github: {
+        enabled: false,
+        fields: {
+          clientId: 'cid-base',
+          redirectUrl: 'https://gm.example.com/api/v1/auth/github/callback',
+          defaultRoles: 'viewer',
+        },
+        secretSet: true,
+        secretMasked: 'zz99',
+        sources: { clientId: 'database' },
+      },
+    });
+    renderTab();
+
+    const clientIdInput = await screen.findByDisplayValue('cid-base');
+    fireEvent.change(clientIdInput, { target: { value: '  cid-new  ' } });
+    // defaultRoles 有值（viewer）→ 清空触发 clear（三处 viewer：LDAP/OIDC/GitHub，取 GitHub）
+    const rolesInput = screen.getAllByDisplayValue('viewer')[2];
+    fireEvent.change(rolesInput, { target: { value: '   ' } });
+
+    fireEvent.click(screen.getAllByRole('button', { name: '保存' })[3]); // GitHub 保存
+
+    await waitFor(() => expect(mSet).toHaveBeenCalledWith('auth.github.clientId', 'cid-new'));
+    await waitFor(() => expect(mClear).toHaveBeenCalledWith('auth.github.defaultRoles'));
+    // secret 留空 → 跳过（不 set 不 clear）
+    expect(mSet).not.toHaveBeenCalledWith(
+      expect.stringContaining('clientSecret'),
+      expect.anything(),
+    );
+    expect(mClear).not.toHaveBeenCalledWith('auth.github.clientSecret');
+    // successUrl 空 → clear
+    await waitFor(() => expect(mClear).toHaveBeenCalledWith('auth.github.successUrl'));
+    await waitFor(() => expect(mFetch).toHaveBeenCalledTimes(2));
+  });
+
+  it('GitHub secretSet 渲染脱敏 Tag；快照回填 redirectUrl/successUrl', async () => {
+    mFetch.mockResolvedValue({
+      ...baseSnapshot,
+      github: {
+        enabled: true,
+        fields: {
+          clientId: 'cid-x',
+          redirectUrl: 'https://cb.example.com/github',
+          successUrl: '/welcome',
+        },
+        secretSet: true,
+        secretMasked: 'aa12',
+        sources: { redirectUrl: 'database', successUrl: 'config' },
+      },
+    });
+    renderTab();
+
+    expect(await screen.findByText('aa12')).toBeInTheDocument();
+    expect(screen.getByDisplayValue('https://cb.example.com/github')).toBeInTheDocument();
+    expect(screen.getByDisplayValue('/welcome')).toBeInTheDocument();
+    // sources 徽标：redirectUrl=database → UI，successUrl=config → 配置文件
+    // （baseSnapshot 渲染的徽标：UI 3 = ldap addr/userFilter + oidc issuer；
+    //   配置文件 3 = ldap baseDn + oidc clientId/defaultRoles；startTls 无徽标）
+    expect(screen.getAllByText('UI')).toHaveLength(4);
+    expect(screen.getAllByText('配置文件')).toHaveLength(4);
   });
 });

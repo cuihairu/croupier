@@ -147,7 +147,15 @@ export type AuthProviderSnapshot = {
   sources: Record<string, string>;
 };
 
+export type LocalAuthSnapshot = {
+  enabled: boolean;
+  overridden: boolean;
+  source?: string;
+};
+
 export type AuthSnapshot = {
+  local: LocalAuthSnapshot;
+  github: AuthProviderSnapshot;
   ldap: AuthProviderSnapshot;
   oidc: AuthProviderSnapshot;
 };
@@ -174,6 +182,7 @@ export type LoginProviders = {
   local: boolean;
   ldap: boolean;
   oidc: boolean;
+  github: boolean;
 };
 
 // Public: 登录页据此渲染 SSO 入口 / LDAP 提示。

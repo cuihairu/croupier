@@ -59,6 +59,12 @@ type Service struct {
 	oidc identity.OAuthProvider
 	// oidcSuccessURL 非空时，OIDC 回调成功后携带 token 跳转到该前端地址。
 	oidcSuccessURL string
+	// github 是 GitHub OAuth2 提供方（nil = 未启用）；successURL 语义同 OIDC。
+	github           identity.OAuthProvider
+	githubSuccessURL string
+	// localDisabled = auth.local.enabled 显式关闭：本地账号密码级联被移除，
+	// 登录须走外部身份源；Providers 端点据此让前端隐藏账密表单。
+	localDisabled bool
 	// providerDefaultRoles 按 Provider Kind 记录 JIT 建号时的默认角色名。
 	providerDefaultRoles map[string][]string
 
@@ -136,6 +142,21 @@ func (s *Service) WithOIDCProvider(p identity.OAuthProvider, defaultRoles []stri
 	return s
 }
 
+// WithGitHubProvider enables the redirect-based GitHub OAuth2 login flow
+// （语义同 OIDC：JIT 建号 + 默认角色 + 成功跳转）。
+func (s *Service) WithGitHubProvider(p identity.OAuthProvider, defaultRoles []string, successURL string) *Service {
+	s.github = p
+	s.providerDefaultRoles[identity.KindGitHub] = defaultRoles
+	s.githubSuccessURL = successURL
+	return s
+}
+
+// WithLocalEnabled 设置账号密码登录开关（false = 停用本地级联）。
+func (s *Service) WithLocalEnabled(enabled bool) *Service {
+	s.localDisabled = !enabled
+	return s
+}
+
 // WithProviderDefaultRoles sets JIT default roles for a provider kind.
 func (s *Service) WithProviderDefaultRoles(kind string, roles []string) *Service {
 	s.providerDefaultRoles[kind] = roles
@@ -153,24 +174,46 @@ func (s *Service) snapshotProviders() ([]identity.PasswordProvider, identity.OAu
 	return s.passwordProviders, s.oidc, s.oidcSuccessURL, roles
 }
 
-// RefreshIdentityProviders 用给定配置重建外部身份提供方（本地账号
-// 始终保留为级联首位）。无效配置返回错误且不改变现状（保存端可回滚）。
+// RefreshIdentityProviders 用给定配置重建外部身份提供方（本地账号默认
+// 保留为级联首位；auth.local.enabled 显式关闭时本地级联整体移除）。
+// 无效配置返回错误且不改变现状（保存端可回滚）。
 func (s *Service) RefreshIdentityProviders(cfg config.AuthProvidersConfig) error {
 	ip, err := buildIdentityProviders(cfg)
 	if err != nil {
 		return err
 	}
+	// 防锁死：本地密码登录与全部外部身份源同时不可用 → 拒绝应用，
+	// 保存端（PutKey onAuthChange）据此回滚该键。
+	githubUp := ip.github != nil
+	if !ip.localEnabled && !cfg.LDAP.Enabled && !cfg.OIDC.Enabled && !githubUp {
+		return errors.New("不能停用所有登录方式：账号密码登录关闭时至少需启用 LDAP/OIDC/GitHub 之一")
+	}
 	s.providersMu.Lock()
 	defer s.providersMu.Unlock()
-	// 级联首位固定是本地 admins 表
-	s.passwordProviders = append([]identity.PasswordProvider{identity.NewLocalProvider(s.adminModel)}, ip.ldap)
+	if ip.localEnabled {
+		// 级联首位固定是本地 admins 表
+		s.passwordProviders = append([]identity.PasswordProvider{identity.NewLocalProvider(s.adminModel)}, ip.ldap)
+	} else {
+		// 本地停用：级联只保留 LDAP（可能为空——全靠外部 OAuth 流登录，
+		// 密码级联为空时 authenticatePassword 直接拒绝）
+		s.passwordProviders = nil
+		if ip.ldap != nil {
+			s.passwordProviders = []identity.PasswordProvider{ip.ldap}
+		}
+	}
+	s.localDisabled = !ip.localEnabled
 	s.oidc = ip.oidc
 	s.oidcSuccessURL = ip.oidcURL
+	s.github = ip.github
+	s.githubSuccessURL = ip.githubURL
 	if ip.ldapRoles != nil {
 		s.providerDefaultRoles[identity.KindLDAP] = ip.ldapRoles
 	}
 	if ip.oidc != nil {
 		s.providerDefaultRoles[identity.KindOIDC] = ip.oidcRoles
+	}
+	if ip.github != nil {
+		s.providerDefaultRoles[identity.KindGitHub] = ip.githubRoles
 	}
 	return nil
 }
@@ -497,6 +540,71 @@ func (s *Service) OIDCAuthCodeURL() (string, error) {
 		return "", errors.New("OIDC 登录未启用")
 	}
 	return oidc.AuthCodeURL(s.newOIDCState()), nil
+}
+
+// githubSnapshot 返回 GitHub 提供方与成功跳转地址（热刷新安全读取）。
+func (s *Service) githubSnapshot() (identity.OAuthProvider, string) {
+	s.providersMu.RLock()
+	defer s.providersMu.RUnlock()
+	return s.github, s.githubSuccessURL
+}
+
+// LocalEnabled 报告账号密码登录是否启用（auth.local.enabled，默认启用）。
+func (s *Service) LocalEnabled() bool {
+	s.providersMu.RLock()
+	defer s.providersMu.RUnlock()
+	return !s.localDisabled
+}
+
+// GitHubEnabled reports whether the GitHub login flow is wired.
+func (s *Service) GitHubEnabled() bool {
+	g, _ := s.githubSnapshot()
+	return g != nil
+}
+
+// GitHubAuthCodeURL 生成跳转到 GitHub 的授权 URL（state 复用 OIDC 的
+// HMAC 签名机制，含 10 分钟有效期）。
+func (s *Service) GitHubAuthCodeURL() (string, error) {
+	g, _ := s.githubSnapshot()
+	if g == nil {
+		return "", errors.New("GitHub 登录未启用")
+	}
+	return g.AuthCodeURL(s.newOIDCState()), nil
+}
+
+// GitHubLoginCallback 处理 GitHub 回调：校验 state，换取 GitHub 身份，
+// JIT 解析本地账号后签发平台 token（JIT/角色/MFA 语义与 OIDC 一致）。
+func (s *Service) GitHubLoginCallback(ctx context.Context, code, state string, req *LoginRequest) (*LoginResponse, error) {
+	g, _ := s.githubSnapshot()
+	if g == nil {
+		return nil, errors.New("GitHub 登录未启用")
+	}
+	if !s.verifyOIDCState(state) {
+		s.recordLoginAudit("", "auth.login_failed", "failed", req, "invalid_state", identity.KindGitHub)
+		return nil, errors.New("登录状态校验失败，请重新发起登录")
+	}
+	if strings.TrimSpace(code) == "" {
+		return nil, errors.New("缺少授权码")
+	}
+
+	ident, err := g.Exchange(ctx, code)
+	if err != nil {
+		s.recordLoginAudit("", "auth.login_failed", "failed", req, "github_exchange_failed", identity.KindGitHub)
+		return nil, errors.New("GitHub 登录失败")
+	}
+
+	admin, err := s.resolveAdminForIdentity(ctx, ident)
+	if err != nil {
+		s.recordLoginAudit(ident.Username, "auth.login_failed", "failed", req, "provision_failed", ident.Provider)
+		return nil, errors.New("登录失败")
+	}
+	return s.issueLogin(ctx, admin, ident, req)
+}
+
+// GitHubSuccessURL 返回 GitHub 回调成功跳转地址（可为空）。
+func (s *Service) GitHubSuccessURL() string {
+	_, url := s.githubSnapshot()
+	return url
 }
 
 // OIDCLoginCallback 处理回调：校验 state，用授权码换取身份，JIT 解析本地

@@ -60,7 +60,12 @@ jest.mock('@/services/api', () => ({
 jest.mock('@/services/api/sites', () => ({
   __esModule: true,
   ...jest.requireActual('@/services/api/sites'),
-  fetchLoginProviders: jest.fn(async () => ({ local: true, ldap: false, oidc: false })),
+  fetchLoginProviders: jest.fn(async () => ({
+    local: true,
+    ldap: false,
+    oidc: false,
+    github: false,
+  })),
 }));
 jest.mock('@/utils/antdApp', () => ({
   getMessage: jest.fn(() => ({ success: jest.fn(), error: jest.fn() })),

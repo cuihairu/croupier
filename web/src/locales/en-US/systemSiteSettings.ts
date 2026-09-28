@@ -8,21 +8,33 @@ export default {
   'pages.systemSiteSettings.auth.callbackUrlLabel': 'Callback URL',
   'pages.systemSiteSettings.auth.callbackUrlTooltip':
     'Callback URL registered on the identity provider: https://<host>/api/v1/auth/oidc/callback',
+  'pages.systemSiteSettings.auth.callbackUrlTooltip.github':
+    'Callback URL registered on the GitHub OAuth App: https://<host>/api/v1/auth/github/callback',
   'pages.systemSiteSettings.auth.connectionFailed.ldap': 'LDAP connection failed',
   'pages.systemSiteSettings.auth.connectionFailed.oidc': 'OIDC connection failed',
   'pages.systemSiteSettings.auth.dirAddrLabel': 'Directory Address',
   'pages.systemSiteSettings.auth.dirAddrRule': 'ldap://host:389 or ldaps://host:636',
   'pages.systemSiteSettings.auth.enableLdapLabel': 'Enable LDAP Login',
+  'pages.systemSiteSettings.auth.enableGitHubLabel': 'Enable GitHub Login',
   'pages.systemSiteSettings.auth.enableSsoLabel': 'Enable SSO Login',
   'pages.systemSiteSettings.auth.error.loadFailed': 'Failed to load authentication settings',
   'pages.systemSiteSettings.auth.error.saveFailed': 'Save failed',
   'pages.systemSiteSettings.auth.error.testFailed': 'Test failed',
+  'pages.systemSiteSettings.auth.github.title': 'GitHub OAuth',
+  'pages.systemSiteSettings.auth.hint.githubCard':
+    'Once enabled, a "GitHub Login" entry appears on the login page; accounts are provisioned automatically on first login',
   'pages.systemSiteSettings.auth.hint.ldapCard':
     'Enter username/password in the standard login form; failed local validation cascades to LDAP automatically',
+  'pages.systemSiteSettings.auth.hint.localCard':
+    'Disabling hides the password form on the login page; keep at least one login method enabled',
   'pages.systemSiteSettings.auth.hint.oidcCard':
     'Once enabled, an "SSO Login" entry appears on the login page',
   'pages.systemSiteSettings.auth.hint.tab':
-    'The config file only provides initial values; changes saved here take effect immediately (no restart needed). Local account login is always available',
+    'The config file only provides initial values; changes saved here take effect immediately (no restart needed). Make sure another login method works before disabling password login',
+  'pages.systemSiteSettings.auth.local.enableLabel': 'Enable Password Login',
+  'pages.systemSiteSettings.auth.local.enableTooltip':
+    'Built-in admin accounts use this channel; ensure LDAP/OIDC/GitHub is available first, otherwise the save is rejected to prevent lockout',
+  'pages.systemSiteSettings.auth.local.title': 'Local Password',
   'pages.systemSiteSettings.auth.issuerRule': 'e.g. https://sso.example.com',
   'pages.systemSiteSettings.auth.jitRolesLabel': 'JIT Roles',
   'pages.systemSiteSettings.auth.jitRolesTooltip':

@@ -45,6 +45,8 @@ export default {
   'pages.login.docsLink': 'Docs',
   'pages.login.userAgreement': 'User Agreement',
   'pages.login.privacyPolicy': 'Privacy Policy',
+  'pages.login.passwordDisabled': 'Password login is disabled, please use another sign-in method',
+  'pages.login.github.button': 'Sign in with GitHub',
   'pages.login.submit': 'Login',
   'pages.login.loginWith': 'Login with :',
   'pages.login.registerAccount': 'Register Account',

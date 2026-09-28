@@ -3,7 +3,12 @@ import { changeCurrentUserPassword, createSession, fetchCurrentUserGames } from 
 import { isMfaRequiredError } from '@/utils/errors';
 import { fetchLoginProviders, type LoginProviders } from '@/services/api/sites';
 import { setScope } from '@/stores/scope';
-import { LockOutlined, SafetyCertificateOutlined, UserOutlined } from '@ant-design/icons';
+import {
+  GithubOutlined,
+  LockOutlined,
+  SafetyCertificateOutlined,
+  UserOutlined,
+} from '@ant-design/icons';
 import { LoginForm, ProFormCheckbox, ProFormText } from '@ant-design/pro-components';
 import { LoginOutlined } from '@ant-design/icons';
 import { FormattedMessage, history, SelectLang, useIntl, useModel, Helmet } from '@umijs/max';
@@ -108,6 +113,9 @@ const Login: React.FC = () => {
   }, []);
   const { styles } = useStyles();
   const intl = useIntl();
+  // 账密表单可见性（OPEN-ISSUES #51）：local 关但 LDAP 开时仍要显示
+  //（LDAP 用户走同一表单级联认证）；拉取失败默认显示（fail-open 同现状）
+  const passwordFormVisible = providers ? providers.local || providers.ldap : true;
 
   const fetchUserInfo = async () => {
     const fetcher = initialState?.fetchUserInfo;
@@ -275,7 +283,7 @@ const Login: React.FC = () => {
             autoLogin: true,
           }}
           actions={
-            providers?.oidc
+            providers?.oidc || providers?.github
               ? [
                   <Divider plain key="sso-divider" style={{ margin: '8px 0' }}>
                     <Typography.Text type="secondary" style={{ fontSize: 12 }}>
@@ -285,17 +293,39 @@ const Login: React.FC = () => {
                       />
                     </Typography.Text>
                   </Divider>,
-                  <Button
-                    key="sso"
-                    block
-                    size="large"
-                    icon={<LoginOutlined />}
-                    onClick={() => {
-                      window.location.href = '/api/v1/auth/oidc/login';
-                    }}
-                  >
-                    <FormattedMessage id="pages.login.sso.button" defaultMessage="SSO 登录" />
-                  </Button>,
+                  ...(providers?.oidc
+                    ? [
+                        <Button
+                          key="sso-oidc"
+                          block
+                          size="large"
+                          icon={<LoginOutlined />}
+                          onClick={() => {
+                            window.location.href = '/api/v1/auth/oidc/login';
+                          }}
+                        >
+                          <FormattedMessage id="pages.login.sso.button" defaultMessage="SSO 登录" />
+                        </Button>,
+                      ]
+                    : []),
+                  ...(providers?.github
+                    ? [
+                        <Button
+                          key="sso-github"
+                          block
+                          size="large"
+                          icon={<GithubOutlined />}
+                          onClick={() => {
+                            window.location.href = '/api/v1/auth/github/login';
+                          }}
+                        >
+                          <FormattedMessage
+                            id="pages.login.github.button"
+                            defaultMessage="GitHub 登录"
+                          />
+                        </Button>,
+                      ]
+                    : []),
                 ]
               : []
           }
@@ -315,7 +345,7 @@ const Login: React.FC = () => {
               })}
             />
           )}
-          {
+          {passwordFormVisible ? (
             <>
               <ProFormText
                 name="username"
@@ -390,7 +420,17 @@ const Login: React.FC = () => {
                 />
               )}
             </>
-          }
+          ) : (
+            <Alert
+              style={{ marginBottom: 16 }}
+              type="info"
+              showIcon
+              title={intl.formatMessage({
+                id: 'pages.login.passwordDisabled',
+                defaultMessage: '账号密码登录已停用，请使用其他登录方式',
+              })}
+            />
+          )}
           {providers?.ldap && (
             <Alert
               style={{ marginBottom: 16 }}
@@ -403,18 +443,20 @@ const Login: React.FC = () => {
               })}
             />
           )}
-          <div
-            style={{
-              marginBottom: 24,
-            }}
-          >
-            <ProFormCheckbox noStyle name="autoLogin">
-              <FormattedMessage id="pages.login.rememberMe" defaultMessage="自动登录" />
-            </ProFormCheckbox>
-            <a style={{ float: 'right' }} onClick={() => setForgotOpen(true)}>
-              <FormattedMessage id="pages.login.forgotPassword" defaultMessage="忘记密码" />
-            </a>
-          </div>
+          {passwordFormVisible && (
+            <div
+              style={{
+                marginBottom: 24,
+              }}
+            >
+              <ProFormCheckbox noStyle name="autoLogin">
+                <FormattedMessage id="pages.login.rememberMe" defaultMessage="自动登录" />
+              </ProFormCheckbox>
+              <a style={{ float: 'right' }} onClick={() => setForgotOpen(true)}>
+                <FormattedMessage id="pages.login.forgotPassword" defaultMessage="忘记密码" />
+              </a>
+            </div>
+          )}
         </LoginForm>
         {/* 系统信息消费面（OPEN-ISSUES #49）：首页内容欢迎区 + 文档/协议入口，
             均按配置存在才渲染，未配置零占位 */}
