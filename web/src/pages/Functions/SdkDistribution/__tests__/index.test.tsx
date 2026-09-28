@@ -55,6 +55,7 @@ const INSTANCES = [
     sdkVersion: '1.4.0',
     sdkName: 'croupier-go-sdk',
     metadata: { serverId: 's1', pod: 'game-7c4d', region: 'cn-north', extra: 'x' },
+    firstSeenUnix: 1788900000,
     lastSeenUnix: 1789000000,
   },
   {
@@ -65,6 +66,8 @@ const INSTANCES = [
     sdkLanguage: 'js',
     sdkVersion: '1.5.0',
     metadata: undefined,
+    // 服务端零值归一回退后 firstSeen===lastSeen（旧快照无注册时间）
+    firstSeenUnix: 1789000001,
     lastSeenUnix: 1789000001,
   },
 ];
@@ -131,6 +134,19 @@ describe('SdkDistribution 实例元数据', () => {
       expect(screen.getByText('game-demo')).toBeInTheDocument();
       expect(screen.queryByText('prom-adapter')).not.toBeInTheDocument();
     });
+  });
+
+  // #44：注册时间列——进程窗口语义（在线会话内存态，重启从零计起），
+  // 与「最后活跃」对照可区分「实例活了多久」和「只是无响应」。
+  it('注册时间列：firstSeenUnix 渲染为可悬停时间（含零值归一回退）', async () => {
+    renderPage();
+    await screen.findByText('game-demo');
+
+    expect(screen.getByText('注册时间')).toBeInTheDocument();
+    // 实例 1 的注册时间独立渲染；实例 2 是回退值 firstSeen===lastSeen，
+    // 同一时刻同时出现在「注册时间」「最后活跃」两列 → 文本重复，用 *AllBy*
+    expect(screen.getByText(new Date(1788900000 * 1000).toLocaleTimeString())).toBeInTheDocument();
+    expect(screen.getAllByText(new Date(1789000001 * 1000).toLocaleTimeString()).length).toBe(2);
   });
 });
 

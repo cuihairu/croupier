@@ -1,6 +1,7 @@
 // Functions/SdkDistribution SDK 分发页
 export default {
   'pages.functionsSdk.button.refresh': 'Refresh',
+  'pages.functionsSdk.column.firstSeen': 'Registered at',
   'pages.functionsSdk.column.language': 'Language',
   'pages.functionsSdk.column.lastSeen': 'Last active',
   'pages.functionsSdk.column.metadata': 'Metadata',

@@ -81,16 +81,17 @@ type SdkLanguageStats struct {
 
 // SdkInstanceItem 在线 SDK 实例明细。
 type SdkInstanceItem struct {
-	ProviderID   string            `json:"providerId"`
-	AgentID      string            `json:"agentId"`
-	GameID       string            `json:"gameId"`
-	Env          string            `json:"env"`
-	ServiceAddr  string            `json:"serviceAddr,omitempty"`
-	SdkName      string            `json:"sdkName,omitempty"`
-	SdkLanguage  string            `json:"sdkLanguage"`
-	SdkVersion   string            `json:"sdkVersion"`
-	Metadata     map[string]string `json:"metadata,omitempty"`
-	LastSeenUnix int64             `json:"lastSeenUnix"`
+	ProviderID    string            `json:"providerId"`
+	AgentID       string            `json:"agentId"`
+	GameID        string            `json:"gameId"`
+	Env           string            `json:"env"`
+	ServiceAddr   string            `json:"serviceAddr,omitempty"`
+	SdkName       string            `json:"sdkName,omitempty"`
+	SdkLanguage   string            `json:"sdkLanguage"`
+	SdkVersion    string            `json:"sdkVersion"`
+	Metadata      map[string]string `json:"metadata,omitempty"`
+	FirstSeenUnix int64             `json:"firstSeenUnix"`
+	LastSeenUnix  int64             `json:"lastSeenUnix"`
 }
 
 // SdkStatsResponse GET /api/v1/providers/sdk-stats 的响应：

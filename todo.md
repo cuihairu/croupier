@@ -554,3 +554,18 @@ T3（execution_state 字段）→ T4/T6/T8；T2 → T5；T12（后端校验放�
 > setScope 驱动（merge 语义下显式 undefined 才能清空）。门禁：套件 16/16 绿、
 > tsc 0 错、全量 jest 3818/3818（2 worker 限流——并行会话曾把机器打到
 > load 94，回落窗口完成）、guard PASSED。
+
+## SDK 分布注册时间列（OPEN-ISSUES #44，2026-09-28）
+
+> **交付（2026-09-28）**：`/api/v1/providers/sdk-stats` 实例明细透出
+> `firstSeenUnix`（#27② 同模式服务端归一：零值回退 `lastSeenUnix`；dto 字段 +
+> service 映射 + Go 回归 1 例：显式观测值原样透传/无观测实例归一非零），前端
+> `SdkInstanceItem.firstSeenUnix` 类型 + 「注册时间」列（Tooltip 绝对时间，
+> 与「最后活跃」对照区分「实例活了多久 vs 只是无响应」，zh/en locale 同步）+
+> 页面用例 1 例（回退值 firstSeen===lastSeen 同刻渲染两列 → 同文本双元素，
+> _AllBy_ 断言恰为 2）。wire 文档同步 `sdk-wire-protocol.md` 实例元数据小节。
+> 门禁：go build ./... + go test ./internal/... 全绿、tsc 0 错、全量 jest
+> 3818/3818、guard PASSED。
+> **已知边界（诚实清单）**：FirstSeenUnix 为进程窗口语义——registry 会话是
+> 内存态，会话过期或 server 重启后从零重新累计（列注释与 wire 文档均注明）；
+> 持久化历史注册时间需 registry 落库演进，本批不做。

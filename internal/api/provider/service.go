@@ -209,17 +209,25 @@ func (s *Service) SdkStats(ctx context.Context, req *SdkStatsRequest) (*SdkStats
 		if version == "" {
 			version = "unknown"
 		}
+		// #44：注册时间做服务端归一（openapi #27② 同模式）——内存快照的
+		// 历史字段在会话过期/重启后自然缺失，零值回退最后活跃时间，前端
+		// 无需再判零值。
+		firstSeen := snapshot.FirstSeenUnix
+		if firstSeen <= 0 {
+			firstSeen = snapshot.LastSeenUnix
+		}
 		instances = append(instances, SdkInstanceItem{
-			ProviderID:   snapshot.ProviderID,
-			AgentID:      snapshot.AgentID,
-			GameID:       snapshot.GameID,
-			Env:          snapshot.Env,
-			ServiceAddr:  snapshot.Addr,
-			SdkName:      snapshot.SDKName,
-			SdkLanguage:  language,
-			SdkVersion:   version,
-			Metadata:     metadata,
-			LastSeenUnix: snapshot.LastSeenUnix,
+			ProviderID:    snapshot.ProviderID,
+			AgentID:       snapshot.AgentID,
+			GameID:        snapshot.GameID,
+			Env:           snapshot.Env,
+			ServiceAddr:   snapshot.Addr,
+			SdkName:       snapshot.SDKName,
+			SdkLanguage:   language,
+			SdkVersion:    version,
+			Metadata:      metadata,
+			FirstSeenUnix: firstSeen,
+			LastSeenUnix:  snapshot.LastSeenUnix,
 		})
 	}
 

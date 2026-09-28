@@ -1,6 +1,7 @@
 // Functions/SdkDistribution SDK 分发页
 export default {
   'pages.functionsSdk.button.refresh': '刷新',
+  'pages.functionsSdk.column.firstSeen': '注册时间',
   'pages.functionsSdk.column.language': '语言',
   'pages.functionsSdk.column.lastSeen': '最后活跃',
   'pages.functionsSdk.column.metadata': '元数据',
