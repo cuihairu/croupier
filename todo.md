@@ -522,3 +522,23 @@ T3（execution_state 字段）→ T4/T6/T8；T2 → T5；T12（后端校验放�
 > 2. FieldDef 上 smtpPort 的 `kind: 'int'` 元数据无消费方（字段被 filter 剔除后
 >    走 smtpPortField 专用渲染），无对应行为可断言。
 > 3. FeatureFlagsTab / ObservabilityTab 两个子 Tab 仍留待后续批次。
+
+## 功能开关 + 观测配置 Tab 覆盖批次（SiteSettings 子 Tab 收尾，2026-09-28）
+
+> **交付（2026-09-28）**：SiteSettings 四个子 Tab 最后两个补齐——
+> `FeatureFlagsTab.tsx`（298 行）语句/分支/函数/行 4×100%（v8）+ `ObservabilityTab.tsx`
+> （223 行）语句/函数/行 100%、分支 91.66%，合计 15 用例：
+> FeatureFlags 锁定五域合成值回显、来源三态徽标（跟随部署配置/数据库覆盖/
+> 部署已裁剪）、缺省域兜底（snapshot 缺 key 默认开启）、裁剪禁用两翼
+> （trimmed && !enabled → disabled / trimmed 但已开仍可关）、toggle 开/关文案、
+> 成功链三步（重拉快照 + fetchServerFeatures + setInitialState 全局 features
+> 缓存刷新，失败不触达全局同步）、Popconfirm 确认恢复 clearSiteSetting；
+> Observability 锁定三入口回填、徽标三态（数据库覆盖/环境变量/未配置）、
+> 恢复按钮仅 database 来源行可见、trim 落库、空值=清除覆盖、保存失败透出
+> 后端 message 不重拉、Card loading 骨架收尾。
+> 门禁：目标套件 15/15 绿（28s）、tsc 0 错；全量 jest 3901 用例限 2 worker
+> 883s 完成，唯一失败为并行会话未跟踪 WIP 套件（Operations/Configs
+> **tests** 未入库、git 历史无记录），非已交付代码回归，其余 312 套件全绿。
+> **已知边界**：ObservabilityTab saveField 的 `if (!meta) return;` 守卫 true 翼
+> 构造性不可达（按钮 onClick 闭包只传 FIELDS 自有键），分支 91.66% 余量即此，
+> 不造假用例。SiteSettings 五文件（入口 + 四子 Tab）至此全部收口。
