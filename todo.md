@@ -636,3 +636,32 @@ T3（execution_state 字段）→ T4/T6/T8；T2 → T5；T12（后端校验放�
 > 关系，X-Game-ID 即用户顶栏选择）；④ web 端 `/announcements/active` 消费方
 > （AnnouncementPopup/NotificationsTab）取值链未按绑定渲染游戏名，属纯过滤
 > 透传，不改变展示文案。
+## Dev/Bugs 缺陷页覆盖批次（全仓最大零测试页收口，2026-09-28）
+
+> **交付（2026-09-28）**：`Dev/Bugs/index.tsx`（1113 行，此前全仓最大零测试
+> 引用页）0 测试 → 新增 `__tests__/index.test.tsx` 17 用例，v8 口径行/函数/
+> 语句 3×100%、分支 93.75%。锁定契约：列表渲染矩阵（链接图标 5 类内联 +
+> '+N' 溢出徽标、status/severity/priority 未知枚举原文兜底、platform 大写、
+> source 三态、canManage 操作列两态）；工具栏（关键词/四下拉筛选/修复版本/
+> 刷新各自重拉、筛选清空 `|| ''` 翼、回车仅回第一页不重复拉取）；真实
+> ModalForm（required 拦截、GitHub 链接自动标题 o/r#42、空 url 守卫、创建/
+> 编辑载荷与 source:internal、创建/编辑失败兜底两翼、删除 Popconfirm）；详情
+> 弹窗（tag 矩阵、meta 拼接三翼、未知 priority 兜底、外链按钮、关联工单
+> 列表翼矩阵 + 跳转、添加/解除关联成功失败双翼、tickets 加载失败静默、关闭
+> 可重开）；?bugId= 深链三翼与 listAdmins 兜底两翼；canManage=false 只读形态。
+> 门禁：目标套件 17/17 绿、tsc 0 错；全量 jest 限 2 worker 落盘后台
+> （负载口径，结果见交付说明）。
+> **已知边界（诚实清单）**：
+>
+> 1. 守卫与防御性分支经 UI 不可达（分支余量 12 处全部在此）：addDetailTicket
+>    `if (!detail || !ticketDraft) return`（按钮 disabled）、removeDetailTicket
+>    `if (!detail) return`（按钮仅详情开启时存在）、request 包装层参数 `?? ''`
+>    右翼（ProTable 恒传 params 键）、链接 `l.title || l.url` 右翼
+>    （deriveBugLinkTitle 对解析失败 url 也回退原文）、InputNumber
+>    `typeof v === 'number' ? v : null` 右翼（antd 6 jsdom 清空不回调
+>    onChange(null)）。
+> 2. 行内链接图标断言锚定标题文本与溢出徽标（antd Icon aria-label 无文本
+>    节点）；详情 `<Empty />` 兜底在 detail=null 隐藏态渲染（v8 计入覆盖），
+>    用例断言可观测的 onCancel 后果（隐藏 → 可再打开）。
+> 3. ProTable 挂载首拉与快速输入变更会被 20ms 防抖合并（用例先等首拉落定
+>    再驱动筛选，保证计数断言确定性）。
