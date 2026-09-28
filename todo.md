@@ -636,6 +636,7 @@ T3（execution_state 字段）→ T4/T6/T8；T2 → T5；T12（后端校验放�
 > 关系，X-Game-ID 即用户顶栏选择）；④ web 端 `/announcements/active` 消费方
 > （AnnouncementPopup/NotificationsTab）取值链未按绑定渲染游戏名，属纯过滤
 > 透传，不改变展示文案。
+
 ## Dev/Bugs 缺陷页覆盖批次（全仓最大零测试页收口，2026-09-28）
 
 > **交付（2026-09-28）**：`Dev/Bugs/index.tsx`（1113 行，此前全仓最大零测试
@@ -665,3 +666,36 @@ T3（execution_state 字段）→ T4/T6/T8；T2 → T5；T12（后端校验放�
 >    用例断言可观测的 onCancel 后果（隐藏 → 可再打开）。
 > 3. ProTable 挂载首拉与快速输入变更会被 20ms 防抖合并（用例先等首拉落定
 >    再驱动筛选，保证计数断言确定性）。
+
+## 插件域设计收口（OPEN-ISSUES #46，2026-09-28）
+
+> **交付（2026-09-28）**：#46 设计层收口完成（用户指令「继续设计插件」），
+> 全库审计后两份核心文档定稿：
+> ① `extension-installation-model.md` 草案→**已收口**——对齐实际落地的 5 表
+> （catalog/release/installation/runtime_binding/event，复数表名+unix 时间戳+
+> JSON 列）；生命周期从草案 12 态收口为实态 4 状态同步流转（install/enable/
+> disable/upgrade/uninstall，中间态无落库消费方）；升级=校验链（release 存在
+> →依赖图→config 兼容）+版本切换，**回滚=upgrade 到旧版本**（不设独立端点）；
+> Agent 运行时副本=内存 RuntimeSnapshot+HTTP 轮询 30s（非 TCP 隧道推送，演进
+> 项）；scope=meta 库行级标记（与 database-per-game 不冲突的论证入档）；
+> capability/health/secret_binding 三表暂缓决策+回补路径入档；如实记录已知
+> 边界：禁用态升级后 `status=enabled && enabled=false` 字段不同步（实施批次修）。
+> ② `extensions-api-contract-baseline.md` 按实现重写——「统一包装 code/message/
+> data」旧表述作废（实现恒为 common/response 直返，纯文档漂移）；字段名
+> snake_case 笔误全部改 lowerCamelCase；canonical 路由=installations/:id 主组，
+> compat 路由组（13 条）判废（唯一前端消费方本就契约错位）；agent wire 契约
+> （/agents/:id/extensions 的 payload 包装）单列防误伤。
+> ③ 四页面审计（结论入基线 §6）：Store/Installations/AgentSync ✅ 一致（adapter
+> 层+错误码分支已接）；**DomainEntry ❌ 实锤**——`listExtensionPages` 期待
+> `{items:[{path}]}` 后端实返 `{pages:[{route}]}` 且 `.catch` 静默，「扩展页面
+> 入口」区块生产环境恒 Empty。
+> ④ 审计副产物：响应 DTO 内嵌 code/message 对前端零影响（normalize 直取业务
+> 字段已核实）；`healthStatus` 恒 "unknown"、`displayName`=extensionId 直填
+> （列表组装未 join catalog）——两处失真入批次链；**catalog/release 无任何写
+> 路径**（repo 只读、无 admin CRUD、无 pack 导入、无 seed）——「扩展从哪来」
+> 是安装模型最大缺口，立为批次链主项。
+> 门禁：`cd docs && pnpm build` 通过（60.93s）。
+> **实施批次链（后续独立批次，设计已定）**：1) 契约收口（24 个响应 DTO 去内
+> 嵌 code/message + agent puller 解析端同步 + compat 组删除 + pages 契约修复，
+> 禁兼容旧键）；2) 列表组装修正（displayName join catalog / healthStatus 推
+> 导）；3) catalog 写路径（admin CRUD + official.* 四扩展 seed，pack 导入后续）；4) DomainEntry 真实渲染恢复+用例。
