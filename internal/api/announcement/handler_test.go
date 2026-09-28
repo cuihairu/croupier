@@ -22,7 +22,7 @@ func newHandlerFixture(t *testing.T) (*Handler, *gin.Engine) {
 	gin.SetMode(gin.TestMode)
 	db, err := gorm.Open(gsqlite.Open(":memory:"), &gorm.Config{})
 	require.NoError(t, err)
-	require.NoError(t, db.AutoMigrate(&model.Announcement{}, &model.AnnouncementRead{}, &model.Admin{}, &model.Role{}, &model.AdminRole{}))
+	require.NoError(t, db.AutoMigrate(&model.Announcement{}, &model.AnnouncementRead{}, &model.AnnouncementGame{}, &model.Admin{}, &model.Role{}, &model.AdminRole{}))
 	svcCtx := &svc.ServiceContext{DB: db, AdminModel: model.NewAdminModel(db)}
 	require.NoError(t, svcCtx.AdminModel.Create(context.Background(), &model.Admin{Username: "alice", Nickname: "Alice"}, "x"))
 	h := NewHandler(NewService(svcCtx))

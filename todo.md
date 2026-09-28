@@ -596,7 +596,6 @@ T3（execution_state 字段）→ T4/T6/T8；T2 → T5；T12（后端校验放�
 > 内存态，会话过期或 server 重启后从零重新累计（列注释与 wire 文档均注明）；
 > 持久化历史注册时间需 registry 落库演进，本批不做。
 
-
 ## 覆盖率巡检批次·Go 侧第四轮（wt-api worktree，2026-09-28）
 
 > **交付（2026-09-28）**：上轮候选两文件补齐——① `registry/store_metadata.go`
@@ -614,3 +613,26 @@ T3（execution_state 字段）→ T4/T6/T8；T2 → T5；T12（后端校验放�
 > go test ./internal/... 全绿（fresh）、guard PASSED。
 > **下一轮候选**：svc/migrations.go 97.9%（8 语句，迁移敏感面需谨慎评估）、
 > rbac/logical_permissions.go 97.5%（1 语句）；回避面不变。
+
+## 公告绑定多游戏与按游戏过滤（OPEN-ISSUES #45，2026-09-28）
+
+> **交付（2026-09-28）**：语义拍板「一公告可绑定多个游戏，未绑定任何游戏=全服可见」。
+> `announcement_games` M2M 表（0036 编号迁移三处同步齐：migrations.go 注册 +
+> MinimumRequiredVersion=36 + migrate_test probe 清单；HasTable→CreateTable 幂等，
+> 0019 先例）；Create/Update 全量替换语义（`gameIds` 缺省 nil=绑定不动、空数组=
+> 清空→全服可见、非空=全量替换，归一 trim/去重/丢空保序）；管理列表 `?gameId=`
+> 过滤 + 「适用游戏」列（绑定 Tag / 全服可见 Tag）+ 表单多选（选项来自 games
+> 列表，与顶栏 scope gameId 同口径）；用户侧 `/announcements/active` 按
+> `X-Game-ID` 头过滤（scope.ts SCOPED_API_PREFIXES 注入，无游戏上下文仅见未绑定
+> 公告=严格语义）；Delete 级联删绑定；批量加载绑定防 N+1。
+> 门禁：announcement/svc/migrate/model 包 Go 测试绿（新建 8 用例：绑定生命周期/
+> 过滤矩阵/三态可见性/级联删除/迁移幂等）+ 页面套件 17/17（新 6 用例：列渲染/
+> scope 预填与清空/切 scope 覆盖手选/默认空提交/编辑回填清空/追加携带）+
+> tsc 0 错 + go build ./... + 全量 jest 3839/3839（2 worker 限流——load 5min 峰值
+> 32，非空载直跑）+ guard PASSED；rebase origin/main 后受影响包复验绿。
+> **已知边界（诚实清单）**：① 管理列表过滤为服务端全量后过滤（公告量级小，
+> 不分页下推）；② 游戏列表加载失败时表单多选下拉仅剩手输、过滤下拉为空，
+> 不阻塞公告管理；③ 用户侧可见性未与「玩家归属游戏」联动（无玩家-游戏注册
+> 关系，X-Game-ID 即用户顶栏选择）；④ web 端 `/announcements/active` 消费方
+> （AnnouncementPopup/NotificationsTab）取值链未按绑定渲染游戏名，属纯过滤
+> 透传，不改变展示文案。

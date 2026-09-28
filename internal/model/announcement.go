@@ -36,3 +36,14 @@ type AnnouncementRead struct {
 }
 
 func (AnnouncementRead) TableName() string { return "announcement_reads" }
+
+// AnnouncementGame 公告↔游戏多对多绑定（#45）：一条公告可绑定多个游戏
+// （GameID 存游戏标识，与 X-Game-ID 同口径），未绑定任何游戏 = 全服可见。
+type AnnouncementGame struct {
+	gorm.Model
+	AnnouncementID uint `gorm:"not null;uniqueIndex:uidx_announcement_game,priority:1"`
+	// GameID 为游戏标识（games.name / X-Game-ID 同口径）
+	GameID string `gorm:"size:64;not null;uniqueIndex:uidx_announcement_game,priority:2"`
+}
+
+func (AnnouncementGame) TableName() string { return "announcement_games" }

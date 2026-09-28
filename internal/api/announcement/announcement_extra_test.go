@@ -27,7 +27,7 @@ func TestAnnouncementFieldLevelUpdatesAndList(t *testing.T) {
 	id := uint(created.ID)
 
 	// List 成功路径（此前仅覆盖错误分支）
-	list, listErr := s.List(ctx)
+	list, listErr := s.List(ctx, "")
 	require.NoError(t, listErr)
 	require.NotEmpty(t, list.Items)
 
@@ -57,11 +57,11 @@ func TestAnnouncementVisibleToRoleFiltering(t *testing.T) {
 	_, err := s.Create(ctx, &CreateRequest{Title: "ops-only", ContentMd: "c", Audience: "role", Role: "ops"})
 	require.NoError(t, err)
 
-	resp, err := s.ActiveForUser(ctx, "bob", []string{"player"})
+	resp, err := s.ActiveForUser(ctx, "bob", []string{"player"}, "")
 	require.NoError(t, err)
 	assert.Empty(t, resp.Items, "未命中角色不应可见")
 
-	resp, err = s.ActiveForUser(ctx, "alice", []string{"ops"})
+	resp, err = s.ActiveForUser(ctx, "alice", []string{"ops"}, "")
 	require.NoError(t, err)
 	require.Len(t, resp.Items, 1)
 }
@@ -70,7 +70,7 @@ func TestAnnouncementVisibleToRoleFiltering(t *testing.T) {
 func TestAnnouncementReadsTableFailure(t *testing.T) {
 	db, err := gorm.Open(gsqlite.Open(":memory:"), &gorm.Config{})
 	require.NoError(t, err)
-	require.NoError(t, db.AutoMigrate(&model.Announcement{}, &model.AnnouncementRead{}))
+	require.NoError(t, db.AutoMigrate(&model.Announcement{}, &model.AnnouncementRead{}, &model.AnnouncementGame{}))
 	s := NewService(&svc.ServiceContext{DB: db})
 	ctx := context.Background()
 
@@ -86,7 +86,7 @@ func TestAnnouncementReadsTableFailure(t *testing.T) {
 
 	// 缺 reads 表：readSetOf 与 Dismiss 走错误分支
 	require.NoError(t, db.Migrator().DropTable("announcement_reads"))
-	_, err = s.ActiveForUser(ctx, "bob", nil)
+	_, err = s.ActiveForUser(ctx, "bob", nil, "")
 	assert.Error(t, err)
 	_, err = s.Dismiss(ctx, "bob", uint(created.ID))
 	assert.Error(t, err)

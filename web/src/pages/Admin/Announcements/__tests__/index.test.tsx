@@ -6,7 +6,7 @@
  * 所有用户都有的个人中心里。本页是 admin-only 的落地面。
  */
 import React from 'react';
-import { configure, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, configure, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { App } from 'antd';
 import AnnouncementsPage from '../index';
 import {
@@ -15,6 +15,8 @@ import {
   listAnnouncements,
   updateAnnouncement,
 } from '@/services/api/announcements';
+import { listGamesMeta } from '@/services/api/games';
+import { setScope } from '@/stores/scope';
 import { boundaryTexts, timeEdges } from '../../../../../tests/fixtures/boundaryDataset';
 
 // 负载/串行组合跑时 worker 显著变慢（单独跑 ~21s/套件，跟在 ResourceCatalog/
@@ -31,11 +33,15 @@ jest.mock('@/services/api/announcements', () => ({
   updateAnnouncement: jest.fn(),
   deleteAnnouncement: jest.fn(),
 }));
+jest.mock('@/services/api/games', () => ({
+  listGamesMeta: jest.fn(),
+}));
 
 const mList = listAnnouncements as jest.MockedFunction<typeof listAnnouncements>;
 const mCreate = createAnnouncement as jest.MockedFunction<typeof createAnnouncement>;
 const mUpdate = updateAnnouncement as jest.MockedFunction<typeof updateAnnouncement>;
 const mDelete = deleteAnnouncement as jest.MockedFunction<typeof deleteAnnouncement>;
+const mGames = listGamesMeta as jest.MockedFunction<typeof listGamesMeta>;
 
 const row = (over: Partial<Awaited<ReturnType<typeof listAnnouncements>>['items'][number]>) => ({
   id: 1,
@@ -59,10 +65,22 @@ function renderPage() {
 
 beforeEach(() => {
   jest.clearAllMocks();
+  // store 是模块级单例：显式清空（merge 语义下空对象不会清掉旧值）
+  setScope({ gameId: undefined, env: undefined });
   mList.mockResolvedValue({ items: [], total: 0 });
+  mGames.mockResolvedValue({
+    games: [
+      { id: 1, name: 'demo', aliasName: 'Demo' },
+      { id: 2, name: 'rpg' },
+    ],
+  });
   mCreate.mockResolvedValue(row({}) as never);
   mUpdate.mockResolvedValue(row({}) as never);
   mDelete.mockResolvedValue(undefined);
+});
+
+afterEach(() => {
+  setScope({ gameId: undefined, env: undefined });
 });
 
 describe('AnnouncementsPage 列表', () => {
@@ -205,5 +223,103 @@ describe('AnnouncementsPage 编辑 / 删除', () => {
     fireEvent.click(await screen.findByTestId('announcement-delete-7'));
     fireEvent.click(await screen.findByTestId('announcement-delete-confirm-7'));
     await waitFor(() => expect(mDelete).toHaveBeenCalledWith(7));
+  });
+});
+
+// #45：公告↔游戏绑定——一公告可绑定多游戏，未绑定=全服可见。
+describe('AnnouncementsPage 适用游戏绑定', () => {
+  it('适用游戏列：绑定展示游戏 Tag，未绑定展示「全服可见」', async () => {
+    mList.mockResolvedValue({
+      items: [
+        row({ id: 1, title: '绑定的', gameIds: ['demo', 'rpg'] }),
+        row({ id: 2, title: '全服的' }),
+      ],
+      total: 2,
+    });
+    renderPage();
+    expect(await screen.findByText('绑定的')).toBeInTheDocument();
+    expect(screen.getByText('demo')).toBeInTheDocument();
+    expect(screen.getByText('rpg')).toBeInTheDocument();
+    expect(screen.getByText('全服可见')).toBeInTheDocument();
+  });
+
+  it('全局 scope 预填过滤并带 gameId 首拉；scope 清空回全量', async () => {
+    setScope({ gameId: 'demo', env: 'prod' });
+    renderPage();
+    await waitFor(() => expect(mList).toHaveBeenCalledWith({ gameId: 'demo' }));
+    // 过滤下拉展示选中的游戏（label=aliasName）
+    expect(await screen.findByText('Demo')).toBeInTheDocument();
+
+    act(() => {
+      setScope({ gameId: undefined, env: undefined });
+    });
+    await waitFor(() => expect(mList).toHaveBeenLastCalledWith(undefined));
+  });
+
+  it('切全局 scope 覆盖手选过滤值并重拉', async () => {
+    renderPage();
+    await waitFor(() => expect(mList).toHaveBeenCalledTimes(1));
+
+    // 手选过滤到 rpg（下拉选项来自 games 列表）
+    fireEvent.mouseDown(screen.getByTestId('announcement-game-filter'));
+    fireEvent.click(await screen.findByTitle('rpg'));
+    await waitFor(() => expect(mList).toHaveBeenLastCalledWith({ gameId: 'rpg' }));
+
+    // 顶栏切游戏 → 覆盖手选值
+    act(() => {
+      setScope({ gameId: 'demo', env: 'prod' });
+    });
+    await waitFor(() => expect(mList).toHaveBeenLastCalledWith({ gameId: 'demo' }));
+  });
+
+  it('创建默认提交空 gameIds（=全服可见）', async () => {
+    renderPage();
+    fireEvent.click(await screen.findByTestId('announcement-create'));
+    fireEvent.change(await screen.findByTestId('announcement-title'), {
+      target: { value: 'T' },
+    });
+    fireEvent.change(await screen.findByTestId('announcement-content'), {
+      target: { value: 'C' },
+    });
+    fireEvent.click(screen.getByTestId('announcement-save'));
+    await waitFor(() => expect(mCreate).toHaveBeenCalled());
+    expect(mCreate).toHaveBeenCalledWith(expect.objectContaining({ gameIds: [] }));
+  });
+
+  it('编辑回填绑定并在清空后提交为空数组', async () => {
+    mList.mockResolvedValue({
+      items: [row({ id: 5, title: '旧标题', gameIds: ['demo'] })],
+      total: 1,
+    });
+    renderPage();
+    fireEvent.click(await screen.findByTestId('announcement-edit-5'));
+    await waitFor(() => expect(screen.getByTestId('announcement-title')).toBeInTheDocument());
+    // 回填的绑定以选中项呈现（label=aliasName）
+    expect(screen.getByText('Demo')).toBeInTheDocument();
+
+    // 多选项逐项点移除图标（antd multiple 的 ant-select-selection-item-remove；
+    // Modal 挂在 body portal，不在 render container 内，故用 document 查询）
+    const removes = document.querySelectorAll('.ant-select-selection-item-remove');
+    expect(removes.length).toBeGreaterThan(0);
+    removes.forEach((el) => fireEvent.click(el));
+    fireEvent.change(screen.getByTestId('announcement-title'), { target: { value: '新标题' } });
+    fireEvent.click(screen.getByTestId('announcement-save'));
+    await waitFor(() => expect(mUpdate).toHaveBeenCalled());
+    expect(mUpdate).toHaveBeenCalledWith(5, expect.objectContaining({ gameIds: [] }));
+  });
+
+  it('编辑可追加绑定并随提交携带', async () => {
+    mList.mockResolvedValue({
+      items: [row({ id: 6, title: '绑定单游戏', gameIds: ['demo'] })],
+      total: 1,
+    });
+    renderPage();
+    fireEvent.click(await screen.findByTestId('announcement-edit-6'));
+    await waitFor(() => expect(screen.getByTestId('announcement-title')).toBeInTheDocument());
+    fireEvent.mouseDown(screen.getByTestId('announcement-game-ids'));
+    fireEvent.click(await screen.findByTitle('rpg'));
+    fireEvent.click(screen.getByTestId('announcement-save'));
+    await waitFor(() => expect(mUpdate).toHaveBeenCalled());
+    expect(mUpdate).toHaveBeenCalledWith(6, expect.objectContaining({ gameIds: ['demo', 'rpg'] }));
   });
 });

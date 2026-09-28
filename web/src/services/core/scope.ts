@@ -3,6 +3,8 @@ import { getScope, isScopeReady, scopeReadyPromise } from '@/stores/scope';
 
 const SCOPED_API_PREFIXES = [
   '/api/v1/analytics',
+  // #45：公告按顶栏游戏过滤（用户侧 /announcements/active 取 X-Game-ID 头）
+  '/api/v1/announcements',
   '/api/v1/approvals',
   '/api/v1/assignments',
   '/api/v1/configs',

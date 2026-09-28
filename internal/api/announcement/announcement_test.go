@@ -17,7 +17,7 @@ func newFixture(t *testing.T) *Service {
 	t.Helper()
 	db, err := gorm.Open(gsqlite.Open(":memory:"), &gorm.Config{})
 	require.NoError(t, err)
-	require.NoError(t, db.AutoMigrate(&model.Announcement{}, &model.AnnouncementRead{}))
+	require.NoError(t, db.AutoMigrate(&model.Announcement{}, &model.AnnouncementRead{}, &model.AnnouncementGame{}))
 	return NewService(&svc.ServiceContext{DB: db})
 }
 
@@ -38,14 +38,14 @@ func TestAnnouncementLifecycle(t *testing.T) {
 	require.NoError(t, err)
 
 	// 全员用户：可见维护公告（shouldPopup=未确认），不可见角色公告
-	resp, err := s.ActiveForUser(ctx, "alice", nil)
+	resp, err := s.ActiveForUser(ctx, "alice", nil, "")
 	require.NoError(t, err)
 	require.Len(t, resp.Items, 1)
 	assert.Equal(t, created.ID, resp.Items[0].ID)
 	assert.True(t, resp.Items[0].ShouldPopup, "未确认前应弹窗")
 
 	// admin 角色用户：两条都可见
-	resp, err = s.ActiveForUser(ctx, "bob", []string{"admin"})
+	resp, err = s.ActiveForUser(ctx, "bob", []string{"admin"}, "")
 	require.NoError(t, err)
 	assert.Len(t, resp.Items, 2)
 
@@ -54,7 +54,7 @@ func TestAnnouncementLifecycle(t *testing.T) {
 	require.NoError(t, err)
 	_, err = s.Dismiss(ctx, "alice", uint(created.ID)) // 幂等
 	require.NoError(t, err)
-	resp, err = s.ActiveForUser(ctx, "alice", nil)
+	resp, err = s.ActiveForUser(ctx, "alice", nil, "")
 	require.NoError(t, err)
 	require.Len(t, resp.Items, 1)
 	assert.False(t, resp.Items[0].ShouldPopup, "确认后不再弹窗")
@@ -63,14 +63,14 @@ func TestAnnouncementLifecycle(t *testing.T) {
 	off := false
 	_, err = s.Update(ctx, uint(created.ID), &UpdateRequest{Active: &off})
 	require.NoError(t, err)
-	resp, err = s.ActiveForUser(ctx, "bob", []string{"admin"})
+	resp, err = s.ActiveForUser(ctx, "bob", []string{"admin"}, "")
 	require.NoError(t, err)
 	require.Len(t, resp.Items, 1)
 	assert.Equal(t, roleA.ID, resp.Items[0].ID)
 
 	// 删除 + 确认记录级联清理
 	require.NoError(t, s.Delete(ctx, uint(roleA.ID)))
-	resp, err = s.ActiveForUser(ctx, "bob", []string{"admin"})
+	resp, err = s.ActiveForUser(ctx, "bob", []string{"admin"}, "")
 	require.NoError(t, err)
 	assert.Empty(t, resp.Items)
 }
@@ -89,7 +89,7 @@ func TestAnnouncementWindow(t *testing.T) {
 	pending, err := s.Create(ctx, &CreateRequest{Title: "未开始", ContentMd: "x", StartAt: &future})
 	require.NoError(t, err)
 
-	resp, err := s.ActiveForUser(ctx, "alice", nil)
+	resp, err := s.ActiveForUser(ctx, "alice", nil, "")
 	require.NoError(t, err)
 	for _, item := range resp.Items {
 		assert.NotEqual(t, ended.ID, item.ID, "已结束公告不可见")
@@ -162,7 +162,7 @@ func boolPtr(b bool) *bool    { return &b }
 func TestAnnouncementDBErrorBranches(t *testing.T) {
 	db, err := gorm.Open(gsqlite.Open(":memory:"), &gorm.Config{})
 	require.NoError(t, err)
-	require.NoError(t, db.AutoMigrate(&model.Announcement{}, &model.AnnouncementRead{}))
+	require.NoError(t, db.AutoMigrate(&model.Announcement{}, &model.AnnouncementRead{}, &model.AnnouncementGame{}))
 	s := NewService(&svc.ServiceContext{DB: db})
 	ctx := context.WithValue(context.Background(), "username", "bob")
 
@@ -171,7 +171,7 @@ func TestAnnouncementDBErrorBranches(t *testing.T) {
 	assert.Equal(t, "bob", created.CreatedBy, "currentUser 应取上下文用户名")
 
 	require.NoError(t, db.Migrator().DropTable("announcements"))
-	_, err = s.List(ctx)
+	_, err = s.List(ctx, "")
 	assert.Error(t, err)
 	_, err = s.Create(ctx, &CreateRequest{Title: "t", Audience: "all"})
 	assert.Error(t, err)
@@ -183,7 +183,7 @@ func TestAnnouncementDBErrorBranches(t *testing.T) {
 	assert.Error(t, err)
 
 	require.NoError(t, db.Migrator().DropTable("announcement_reads"))
-	_, err = s.ActiveForUser(ctx, "bob", nil)
+	_, err = s.ActiveForUser(ctx, "bob", nil, "")
 	assert.Error(t, err)
 	_, err = s.Dismiss(ctx, "bob", 1)
 	assert.Error(t, err)

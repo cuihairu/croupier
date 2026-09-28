@@ -479,3 +479,18 @@ func TestRoleAdminSoftDeleteCleanupMigration_ErrorBranches(t *testing.T) {
 		assert.Contains(t, err.Error(), "purge dangling admin_roles")
 	})
 }
+
+// 0036：announcement_games 表迁移（#45 公告↔游戏 M2M 绑定）。新表
+// HasTable 检查后 CreateTable（0019 同模式），幂等：已存在时跳过。
+func TestAnnouncementGamesTableMigration(t *testing.T) {
+	db, err := gorm.Open(gsqlite.Open(t.TempDir()+"/m36.db"), &gorm.Config{})
+	require.NoError(t, err)
+	sqlDB, err := db.DB()
+	require.NoError(t, err)
+
+	require.NoError(t, migrateAnnouncementGamesTable(context.Background(), sqlDB))
+	require.True(t, db.Migrator().HasTable(&model.AnnouncementGame{}))
+
+	// 幂等：重复执行不报错
+	require.NoError(t, migrateAnnouncementGamesTable(context.Background(), sqlDB))
+}
