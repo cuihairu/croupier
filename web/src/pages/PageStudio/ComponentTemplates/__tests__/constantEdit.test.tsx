@@ -9,7 +9,8 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { App } from 'antd';
 import { request } from '@umijs/max';
 import ComponentTemplatesPage from '../index';
-import ConstantEditModal from '../ConstantEditModal';
+import ConstantEditModal, { type ConstantTemplateTarget } from '../ConstantEditModal';
+import type { PageNode } from '../CompositeEditor/model';
 import { listDescriptors, type FunctionDescriptor } from '@/services/api/functions';
 
 jest.mock('@/services/api/functions', () => ({
@@ -335,5 +336,73 @@ describe('ConstantEditModal 边界与关闭路径（round-7 覆盖率巡检）',
       .closest('.ant-modal');
     fireEvent.click(modalRoot?.querySelector('.ant-modal-close') as HTMLElement);
     expect(onCancel).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe('ConstantEditModal 防御性容错（round-8 覆盖率收尾）', () => {
+  /** 模板树来自库内 JSON 持久化，历史/损坏行可能缺 tree 或含非节点垃圾项；
+   * constantSchemaOf 的防御分支（L27-31）按真实容错语义断言，非伪造路径。
+   * 注：displayName 的 `title || key` 回退臂（L119/136）经组件数据流不可达——
+   * init（L70）与编辑器 onChange（L223）都过 schemaToFields 归一（title 空时
+   * 已置换为 key），属 belt-and-braces，登记不硬凑。 */
+  const garbageTree = [
+    null,
+    'corrupted-row',
+    { id: 'c1', type: 'container', props: { title: '容器' }, children: [] },
+    { id: 'sf-broken', type: 'staticForm', props: null },
+    {
+      id: 'sf-ok',
+      type: 'staticForm',
+      props: { title: '阵营', span: 12, staticSchema: schema },
+    },
+  ] as unknown as PageNode[];
+
+  it('tree 缺失（undefined）→ 兜底空数组 → 编辑器空态，保存被空模板校验拦下', async () => {
+    const noTreeTpl = {
+      key: 'consts--notree',
+      name: { 'zh-CN': '缺树模板', 'en-US': 'no-tree' },
+      builtin: false,
+      tree: undefined,
+    } as unknown as ConstantTemplateTarget;
+    render(
+      <App>
+        <ConstantEditModal open template={noTreeTpl} onCancel={jest.fn()} onSaved={jest.fn()} />
+      </App>,
+    );
+    fireEvent.click(screen.getByRole('button', { name: /保\s*存/ }));
+    expect(
+      await screen.findByText('请至少保留一个常量（空模板无法渲染下拉）', undefined, FIND),
+    ).toBeInTheDocument();
+    expect(mockedRequest).not.toHaveBeenCalled();
+  });
+
+  it('树含垃圾项（null/字符串/无 props 的 staticForm）→ 逐项跳过，仍回填首个有效 staticForm', async () => {
+    const dirtyTpl = {
+      key: 'consts--dirty',
+      name: { 'zh-CN': '脏树模板', 'en-US': 'dirty-tree' },
+      builtin: false,
+      tree: garbageTree,
+    };
+    render(
+      <App>
+        <ConstantEditModal open template={dirtyTpl} onCancel={jest.fn()} onSaved={jest.fn()} />
+      </App>,
+    );
+    // 垃圾项被防御分支跳过（非节点/非 staticForm/props 非对象），有效项正常回填
+    await screen.findByText('编辑常量', { selector: '.ant-modal-title' }, FIND);
+    expect((screen.getByPlaceholderText(/每行一个选项/) as HTMLTextAreaElement).value).toContain(
+      '部落',
+    );
+    // 跳过垃圾后保存走正常 PUT，不误伤有效数据
+    fireEvent.click(screen.getByRole('button', { name: /保\s*存/ }));
+    await waitFor(() => {
+      const put = mockedRequest.mock.calls.find(
+        ([url, init]) =>
+          typeof url === 'string' &&
+          url.includes('/api/v1/component-templates/consts--dirty') &&
+          (init as { method?: string })?.method === 'PUT',
+      );
+      expect(put).toBeTruthy();
+    }, FIND);
   });
 });
