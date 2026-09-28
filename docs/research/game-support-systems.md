@@ -124,6 +124,75 @@ FAQ
 
 知识库治理必须与工单/反馈同库闭环（差评→缺口→补内容→AI 生效的飞轮），外挂平台会让知识出现第二事实源。P3 的 AI 层以**自建薄检索 API + 可替换的 LLM provider**实现，知识库本体始终在 croupier。
 
+### 4.6 检索 Provider 接口（P3 落地契约，2026-09-28 设计；未实施）
+
+知识本体始终在 croupier（faqs 表 + slug/summary/tags），检索层做可插拔 Provider：pgvector 内置起步（§4.4 结论），WeKnora（腾讯开源）/ Dify / RAGFlow 等平台经 HTTP 适配接入——它们的文档解析、embedding、重排能力适合承接 §4.1 第 2/3 类内容（公告长文、GM 内部 SOP），与 FAQ 的结构化 Q&A 互补。外接平台只做**检索执行器**，不做事实源。
+
+**Go 接口（internal/knowledge，命名草案）**：
+
+```go
+// Hit 必须携带 FAQ slug——「AI 引用可回链」是硬契约（见 §6 checklist）。
+type Hit struct {
+    Slug     string  `json:"slug"`
+    Score    float32 `json:"score"`
+    Question string  `json:"question"`
+    Answer   string  `json:"answer"`
+    Summary  string  `json:"summary"`
+    Locale   string  `json:"locale"` // BCP47
+}
+
+type SearchRequest struct {
+    Query    string
+    TopK     int
+    GameID   string
+    Env      string
+    Category string
+    Tags     []string
+    Visible  *bool // 治理字段必须可下推过滤
+}
+
+type IndexableDoc struct {
+    Slug     string
+    Locale   string
+    Question string
+    Summary  string
+    Answer   string
+    Tags     []string
+    Category string
+    Chunks   []string
+}
+
+type Provider interface {
+    Name() string
+    Upsert(ctx context.Context, doc IndexableDoc) error // 幂等：slug+chunkIdx 定位
+    Delete(ctx context.Context, slug string) error
+    Search(ctx context.Context, req SearchRequest) ([]Hit, error)
+    Healthz(ctx context.Context) error
+}
+```
+
+**REST 面（走平台统一 API 响应契约，禁止 envelope）**：
+
+- `POST /api/v1/knowledge/search`：AI 消费入口（game scope 过滤；hit 必带 slug）
+- `POST /api/v1/knowledge/reindex`：按分类/全量重建（admin；风险定级走审批）
+- `GET /api/v1/knowledge/status`：provider 名、索引条数、最近索引时间、健康
+
+**接入配置（canonical lowerCamelCase）**：
+
+```yaml
+knowledge:
+  provider: pgvector # pgvector | http
+  http: # provider=http 时生效（WeKnora / Dify / RAGFlow 等）
+    baseUrl: http://weknora:8080
+    apiKey: ""
+    datasetId: ""
+    timeout: 5000
+```
+
+**同步链路**：FAQ CRUD → 异步 upsert/delete 到 provider（失败进重试与知识缺口队列，不阻塞主链路）；存量无 slug 行不进向量索引（迁移补 slug 后才可检索）。多语言沿用 §4.2「一 FAQ 一主语言」现状。
+
+**P3 实施顺序**：pgvector driver（`CREATE EXTENSION vector` + chunk 表 + 相似检索）→ `/knowledge/search`（先关键词后向量，DTO 不变）→ http driver（WeKnora 适配为首个外接实现）。
+
 ## 5. 已落地
 
 ### P2（本轮）
