@@ -79,6 +79,14 @@ const (
 	KeyAuthOidcClientSecret = "auth.oidc.clientSecret" // string (secret)
 	KeyAuthOidcRedirectUrl  = "auth.oidc.redirectUrl"  // string
 	KeyAuthOidcDefaultRoles = "auth.oidc.defaultRoles" // string (逗号分隔)
+
+	// 账号安全策略（L3 运行时配置，全部默认关闭——关闭即维持内置基线：
+	// 密码 8-128 位 + 弱密码表 + 至少 2/4 字符类；不限期；TOTP 自助不强制）
+	KeySecurityMFARequired            = "security.mfaRequired"              // bool：强制 local 账号启用 TOTP
+	KeySecurityPasswordMinLength      = "security.passwordMinLength"        // int：0 = 沿用内置 8
+	KeySecurityPasswordRequireUpper   = "security.passwordRequireUppercase" // bool：必须含大写字母
+	KeySecurityPasswordRequireSpecial = "security.passwordRequireSpecial"   // bool：必须含特殊字符
+	KeySecurityPasswordMaxAgeDays     = "security.passwordMaxAgeDays"       // int：0 = 永不过期
 )
 
 // ValidKeys is the L3 whitelist.
@@ -103,6 +111,10 @@ var ValidKeys = map[string]struct{}{
 	KeyAuthLdapStartTLS: {}, KeyAuthLdapDefaultRoles: {},
 	KeyAuthOidcEnabled: {}, KeyAuthOidcIssuer: {}, KeyAuthOidcClientId: {},
 	KeyAuthOidcClientSecret: {}, KeyAuthOidcRedirectUrl: {}, KeyAuthOidcDefaultRoles: {},
+
+	KeySecurityMFARequired: {}, KeySecurityPasswordMinLength: {},
+	KeySecurityPasswordRequireUpper: {}, KeySecurityPasswordRequireSpecial: {},
+	KeySecurityPasswordMaxAgeDays: {},
 }
 
 // secretKeys 是读取时必须脱敏的 key（读取接口只回显尾 4 位）。
@@ -129,7 +141,9 @@ func IsSecretKey(key string) bool {
 
 // intKeys 是整数语义的 key。
 var intKeys = map[string]struct{}{
-	KeyNotifySMTPPort: {},
+	KeyNotifySMTPPort:             {},
+	KeySecurityPasswordMinLength:  {},
+	KeySecurityPasswordMaxAgeDays: {},
 }
 
 // IsIntKey reports whether the key carries a JSON number value.
@@ -144,6 +158,8 @@ var boolKeys = map[string]struct{}{
 	KeyFeatureOps: {}, KeyFeatureExtensions: {},
 	KeyNotifyEmailEnabled: {}, KeyNotifyInAppEnabled: {},
 	KeyAuthLdapEnabled: {}, KeyAuthLdapStartTLS: {}, KeyAuthOidcEnabled: {},
+	KeySecurityMFARequired: {}, KeySecurityPasswordRequireUpper: {},
+	KeySecurityPasswordRequireSpecial: {},
 }
 
 // IsBoolKey reports whether the key carries a JSON boolean value.
@@ -677,6 +693,27 @@ func (l *Layered) AuthSnapshot() AuthSnapshot {
 	return AuthSnapshot{
 		LDAP: l.authProviderSnapshot("ldap"),
 		OIDC: l.authProviderSnapshot("oidc"),
+	}
+}
+
+// SecurityPolicySnapshot 是账号安全策略的读视图（登录/改密/建号校验链
+// 与设置页共用；全零值 = 关闭，维持内置基线）。
+type SecurityPolicySnapshot struct {
+	MFARequired              bool `json:"mfaRequired"`
+	PasswordMinLength        int  `json:"passwordMinLength"`
+	PasswordRequireUppercase bool `json:"passwordRequireUppercase"`
+	PasswordRequireSpecial   bool `json:"passwordRequireSpecial"`
+	PasswordMaxAgeDays       int  `json:"passwordMaxAgeDays"`
+}
+
+// SecurityPolicy resolves the account security policy (defaults off).
+func (l *Layered) SecurityPolicy() SecurityPolicySnapshot {
+	return SecurityPolicySnapshot{
+		MFARequired:              l.GetBool(KeySecurityMFARequired, false),
+		PasswordMinLength:        l.GetInt(KeySecurityPasswordMinLength, 0),
+		PasswordRequireUppercase: l.GetBool(KeySecurityPasswordRequireUpper, false),
+		PasswordRequireSpecial:   l.GetBool(KeySecurityPasswordRequireSpecial, false),
+		PasswordMaxAgeDays:       l.GetInt(KeySecurityPasswordMaxAgeDays, 0),
 	}
 }
 

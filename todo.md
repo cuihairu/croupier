@@ -786,3 +786,14 @@ T3（execution_state 字段）→ T4/T6/T8；T2 → T5；T12（后端校验放�
 > 门禁：go build + `go test ./internal/...` 全绿（game 包新增 `service_envscope_test.go` 6 用例：无授权 403/有授权过/Update 双环境授权/Delete 单环境/List 过滤/业务串寻址 404）、tsc 0 错、GamesEnvs 21/21、全量 jest 落盘日志核绿。
 > **已知边界**：① 游戏本体 CRUD（List/Detail/Update/Delete/Create）仍只受 `games:read`/`games:manage` 功能权限点保护，不做游戏维度过滤——游戏元数据（名称/别名）视为平台级信息，环境数据才是租户隔离面；② `GET /games` 全量列表端点保留（GamesEnvs 已不消费；Ops/AnalyticsFilters、Dev/ConfigExplorer、Admin/Announcements、Permissions/UsersV2 仍用），其余页面后续按需收敛；③ 前端「新增环境/编辑/删除」按钮无按钮级权限隐藏（后端授权防线兜底 403），仅「新增游戏」按 canGamesManage 门控。
 > 下一步：#48 账号安全策略（site settings 板块，默认全关）。
+
+## 账号安全策略板块（OPEN-ISSUES #48，2026-09-28）
+
+> 用户原话：「设置中为啥没有账号安全呢？比如强制所有人开启二次验证，密码必须多少位，有没有大写字母 特殊符号之类的，密码有效期之类的，默认不开启」。交付=五键策略（默认全关）+ 密码校验接线 + MFA 强制三件套 + SiteSettings「账号安全」Tab。
+> 后端：`internal/platform/settings/layered.go` 新增 `security.*` 五键（mfaRequired/passwordMinLength/passwordRequireUppercase/passwordRequireSpecial/passwordMaxAgeDays）注册 ValidKeys/boolKeys/intKeys + `SecurityPolicySnapshot`/`Layered.SecurityPolicy()`；`GET /api/v1/site/security` 快照端点。密码链：`utils.ValidatePassword` 尾接 `applySecurityPolicy`（策略只收紧不放宽，min<8 不生效），三入口（admin.Create/PasswordReset/profile.ChangePassword——后者原为新密码零校验缺口，本批补上）统一生效；`PasswordExpiresAtFromPolicy`（days>0 → UTC now+days）接 `adminNeedsPasswordChange` 既有 mustChangePassword 链（过期登录强制走改密流程）。
+> MFA 强制：`mfaSetupRequired(provider, otpEnabled)`（仅 local + 未绑定 + 策略开启；外部身份源由 IdP 负责不强制）→ 登录响应 `mfaSetupRequired`；`AuthMiddleware.mfaGate`（策略开启时未绑定账号除白名单外一律 403 `{"error":"mfa_required"}`；白名单 `/api/v1/auth/mfa` + `/api/v1/profile` 保留绑定与改密恢复通道；adminID=0/存储故障 fail-open 不锁人；OTPEnabled 30s 进程内缓存）；前端 Login 收到标记 → warning + 引导 `/profile?tab=security`。
+> 前端：SiteSettings 新增「账号安全」Tab（`SecurityTab.tsx`：3 Switch + 2 InputNumber 逐键保存，空值/关/0 = clearSiteSetting 回默认；locales security.* 双语 15 键）；`sites.ts` 增 `SecuritySettings`/`fetchSecuritySettings`。**收口时发现并修复 saveKey 键路 bug**：Form.Item name 用 `item.field`（如 `mfaRequired`）而取值读 `item.key`（`security.mfaRequired`）——路径不匹配恒 undefined、保存永远走清除分支；修为 `saveKey(key, field)` 双参。
+> 测试：`layered_security_test.go`（默认全关/L3 覆盖热生效/Clear 回默认）、`password_policy_test.go`（基线不放宽/收紧三态/有效期矩阵/Current 透读）、`mfa_setup_required_test.go`（判定矩阵：local+未绑定+策略开才强制）、`mfa_gate_test.go`（403 拦真实未绑定账号/白名单放行/adminID=0 fail-open/已绑定放行——初版用库中不存在的 adminID=42 撞 fail-open 分支语义错位，改为 fixture 建真实 OTPEnabled=false 账号）、profile 旧用例翻转向（原断言「空密码允许」正是本批修的缺口）；SecurityTab 9 用例（回填/缺省回零/加载失败/开关 set-clear/数字 0 清除/失败两态）。
+> 门禁：go build + `go test ./internal/...` 全绿、tsc 0 错、SecurityTab 9/9、全量 jest 落盘核绿、guard PASSED。
+> **已知边界**：① OTPEnabled 查询失败 fail-open（存储故障宁可放行不锁全部管理员），缓存 30s 内策略关闭不即时生效于已拦请求；② mfaGate 只拦 HTTP API，agent/SDK TCP 通道不受影响；③ 密码有效期只在新改密/建号时写入 expiresAt，存量账号不回溯（下次改密起算）；④ 策略收紧不放宽：minLength 策略值小于内置 8 时按内置执行。
+> 下一步：需求清单 #49-57 立项排队（系统信息/系统公告/身份验证+OAuth/系统维护/性能参数/日志维护/SMTP 归运维/安全与限制/第三方探针）。

@@ -142,6 +142,20 @@ const Login: React.FC = () => {
         setForceChangeOpen(true);
         return;
       }
+      if (res.mfaSetupRequired) {
+        // 账号安全策略强制 TOTP（security.mfaRequired）：token 有效（绑定
+        // 接口需要鉴权），鉴权中间件已把其余 API 拦为 403 mfa_required，
+        // 直接引导到个人安全页绑定，与 mustChangePassword 同构。
+        getMessage()?.warning(
+          intl.formatMessage({
+            id: 'pages.login.mfaSetupRequired',
+            defaultMessage: '管理员已开启强制二次验证，请先绑定 TOTP',
+          }),
+        );
+        await fetchUserInfo();
+        history.push('/profile?tab=security');
+        return;
+      }
       try {
         // Restore last-selected scope from server, or fall back to first authorized game
         let gameId = res.lastGameId;

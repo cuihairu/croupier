@@ -24,6 +24,7 @@ export default {
   'pages.login.mfa.required': '请输入动态验证码或备用恢复码！',
   'pages.login.mfa.required.info': '该账号已启用两步验证，请输入动态验证码或备用恢复码',
   'pages.login.success': '登录成功！',
+  'pages.login.mfaSetupRequired': '管理员已开启强制二次验证，请先绑定 TOTP',
   'pages.login.username.placeholder': '用户名: admin or user',
   'pages.login.username.required': '用户名是必填项！',
   'pages.login.password.placeholder': '密码: admin',

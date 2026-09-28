@@ -169,5 +169,28 @@ export default {
   'pages.systemSiteSettings.tab.features': 'Feature Flags',
   'pages.systemSiteSettings.tab.notification': 'Notifications',
   'pages.systemSiteSettings.tab.observability': 'Observability',
+  'pages.systemSiteSettings.security.error.loadFailed': 'Failed to load account security policy',
+  'pages.systemSiteSettings.security.error.saveFailed': 'Failed to save',
+  'pages.systemSiteSettings.security.intro':
+    'Everything defaults to off: when off, the built-in baseline applies (password 8-128 chars, weak-password block, two character classes, no expiry, optional TOTP).',
+  'pages.systemSiteSettings.security.mfaRequired': 'Require two-factor auth (TOTP)',
+  'pages.systemSiteSettings.security.mfaRequiredHelp':
+    'When on, every local account must bind TOTP: unbound accounts get a setup prompt at login and other APIs return 403 mfa_required (external IdP accounts are unaffected)',
+  'pages.systemSiteSettings.security.maxAgeDays': 'Password max age (days)',
+  'pages.systemSiteSettings.security.maxAgeDaysHelp':
+    '0 = never expires; when on, password changes/creations start the clock and expired logins force a password change',
+  'pages.systemSiteSettings.security.minLength': 'Password minimum length',
+  'pages.systemSiteSettings.security.minLengthHelp':
+    '0 = built-in baseline of 8 (max 128); can only tighten, never loosen',
+  'pages.systemSiteSettings.security.requireSpecial': 'Require special character in passwords',
+  'pages.systemSiteSettings.security.requireSpecialHelp':
+    'Applies to account creation, password reset, and self-service change',
+  'pages.systemSiteSettings.security.requireUppercase': 'Require uppercase letter in passwords',
+  'pages.systemSiteSettings.security.requireUppercaseHelp':
+    'Applies to account creation, password reset, and self-service change',
+  'pages.systemSiteSettings.security.save': 'Save',
+  'pages.systemSiteSettings.security.saved': 'Saved',
+  'pages.systemSiteSettings.tab.security': 'Account Security',
+
   'pages.systemSiteSettings.tab.site': 'Site Info',
 };

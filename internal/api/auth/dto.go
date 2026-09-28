@@ -20,6 +20,11 @@ type LoginResponse struct {
 	// 时为 true：token 照常签发（改密接口需要认证态），前端据此强制进入
 	// 改密流程后再继续使用（OPEN-ISSUES #20）。
 	MustChangePassword bool `json:"mustChangePassword,omitempty"`
+	// MFASetupRequired 账号安全策略 security.mfaRequired 开启且该 local
+	// 账号尚未绑定 TOTP 时为 true：token 照常签发（MFA 绑定接口需要认证态），
+	// 前端据此强制引导绑定二次验证；服务端鉴权中间件同步拦截其余 API
+	//（403 mfa_required），与 mustChangePassword 同构。
+	MFASetupRequired bool `json:"mfaSetupRequired,omitempty"`
 }
 
 // UserInfo 用户信息

@@ -112,6 +112,24 @@ export async function fetchNotificationSettings(): Promise<NotificationSettings>
   });
 }
 
+// ---- 账号安全策略（security.*，默认全关） ----
+
+// Source: internal/platform/settings/layered.go SecurityPolicySnapshot
+export type SecuritySettings = {
+  mfaRequired: boolean;
+  passwordMinLength: number;
+  passwordRequireUppercase: boolean;
+  passwordRequireSpecial: boolean;
+  passwordMaxAgeDays: number;
+};
+
+// Admin: effective account security policy.
+export async function fetchSecuritySettings(): Promise<SecuritySettings> {
+  return request<SecuritySettings>('/api/v1/site/security', {
+    skipErrorHandler: true,
+  });
+}
+
 // ---- 登录方式（auth.*，外部身份源 LDAP/OIDC，Harbor 模式热配置） ----
 
 // Source: internal/platform/settings/layered.go AuthSnapshot

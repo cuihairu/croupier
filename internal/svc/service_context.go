@@ -32,6 +32,7 @@ import (
 	"github.com/cuihairu/croupier/internal/platform/executionlog"
 	objstore "github.com/cuihairu/croupier/internal/platform/objstore"
 	reg "github.com/cuihairu/croupier/internal/platform/registry"
+	"github.com/cuihairu/croupier/internal/platform/settings"
 	"github.com/cuihairu/croupier/internal/platform/tlsutil"
 	policymgr "github.com/cuihairu/croupier/internal/policy"
 	extensiongorm "github.com/cuihairu/croupier/internal/repo/gorm/extension"
@@ -1347,6 +1348,11 @@ type AuthMiddleware struct {
 	// tokenVersions 缓存 adminID → (tokenVersion, 缓存时刻)，TTL 内不再打库；
 	// 撤销操作（登出/改密/禁用）最多延迟 TTL 生效，换取每请求零额外查询。
 	tokenVersions sync.Map
+
+	// otpEnabledCache 缓存 adminID → (OTPEnabled, 缓存时刻)，供 MFA 强制
+	// gate 查询（与 tokenVersions 同形同 TTL）；绑定确认后最多延迟一个
+	// TTL 生效。
+	otpEnabledCache sync.Map
 }
 
 // tokenVersionCacheTTL 是 token 版本缓存的生存期。撤销生效延迟上界。
@@ -1435,7 +1441,70 @@ func (m *AuthMiddleware) Handle(c *gin.Context) {
 	c.Set("adminID", adminID)
 	slog.InfoContext(c.Request.Context(), "Authenticated user", "username", username, "roles", roles)
 
+	if !m.mfaGate(c, adminID) {
+		return
+	}
+
 	c.Next()
+}
+
+// mfaBypassPaths 是 MFA 强制 gate 的放行前缀：绑定/解绑流程自身、个人
+// 资料与改密（账号恢复通道）、玩家侧公开端点不受 gate 限制。logout 在
+// 免认证白名单，本就不经过此处。
+var mfaBypassPrefixes = []string{
+	"/api/v1/auth/mfa",
+	"/api/v1/profile",
+}
+
+// mfaGate 账号安全策略强制 TOTP：security.mfaRequired 开启时，未绑定
+// TOTP 的 local 账号（PasswordHash 非空判定，与 MFA 管理语义一致）只能
+// 访问白名单，其余 API 一律 403 mfa_required——与登录响应
+// mfaSetupRequired 同构，前端据此锁定路由强制引导绑定。
+// 返回 false 表示已写响应、请求终止。
+func (m *AuthMiddleware) mfaGate(c *gin.Context, adminID uint) bool {
+	if m.svcCtx == nil || m.svcCtx.AdminModel == nil || adminID == 0 {
+		return true
+	}
+	if !settings.Current().SecurityPolicy().MFARequired {
+		return true
+	}
+	path := c.Request.URL.Path
+	for _, prefix := range mfaBypassPrefixes {
+		if strings.HasPrefix(path, prefix) {
+			return true
+		}
+	}
+	if m.cachedOTPEnabled(c.Request.Context(), adminID) {
+		return true
+	}
+	c.AbortWithStatusJSON(http.StatusForbidden, gin.H{
+		"error":   "mfa_required",
+		"message": "账号安全策略要求先绑定二次验证",
+	})
+	return false
+}
+
+// cachedOTPEnabled 查询（带 30s 进程内缓存）账号是否已启用 TOTP；模型
+// 不可用时放行（单测/精简部署 fail-open，与 token 版本校验同策略）。
+func (m *AuthMiddleware) cachedOTPEnabled(ctx context.Context, adminID uint) bool {
+	if v, ok := m.otpEnabledCache.Load(adminID); ok {
+		entry := v.(tokenVersionEntry)
+		if time.Since(entry.fetchedAt) < tokenVersionCacheTTL {
+			return entry.version == 1
+		}
+	}
+	admin, err := m.svcCtx.AdminModel.FindOne(ctx, adminID)
+	if err != nil {
+		slog.WarnContext(ctx, "otp enabled check skipped", "adminID", adminID, "error", err)
+		return true
+	}
+	enabled := admin.OTPEnabled
+	store := 0
+	if enabled {
+		store = 1
+	}
+	m.otpEnabledCache.Store(adminID, tokenVersionEntry{version: store, fetchedAt: time.Now()})
+	return enabled
 }
 
 func (m *AuthMiddleware) shouldBypassGin(c *gin.Context) bool {

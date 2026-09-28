@@ -13,6 +13,7 @@ import AuthTab from './AuthTab';
 import FeatureFlagsTab from './FeatureFlagsTab';
 import ObservabilityTab from './ObservabilityTab';
 import NotificationTab from './NotificationTab';
+import SecurityTab from './SecurityTab';
 
 const { Text } = Typography;
 
@@ -342,6 +343,14 @@ export default function SiteSettingsPage() {
               defaultMessage: '通知设置',
             }),
             children: <NotificationTab />,
+          },
+          {
+            key: 'security',
+            label: intl.formatMessage({
+              id: 'pages.systemSiteSettings.tab.security',
+              defaultMessage: '账号安全',
+            }),
+            children: <SecurityTab />,
           },
           {
             key: 'observability',

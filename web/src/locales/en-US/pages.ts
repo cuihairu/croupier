@@ -26,6 +26,7 @@ export default {
   'pages.login.mfa.required.info':
     'This account has two-step verification enabled. Enter your verification code or a recovery code',
   'pages.login.success': 'Login successful!',
+  'pages.login.mfaSetupRequired': 'Two-factor auth is required by policy. Bind TOTP first.',
   'pages.login.username.placeholder': 'Username: admin or user',
   'pages.login.username.required': 'Please input your username!',
   'pages.login.password.placeholder': 'Password: ant.design',

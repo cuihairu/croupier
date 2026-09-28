@@ -21,6 +21,7 @@ import (
 	"github.com/cuihairu/croupier/internal/config"
 	"github.com/cuihairu/croupier/internal/ipgeo"
 	"github.com/cuihairu/croupier/internal/model"
+	"github.com/cuihairu/croupier/internal/platform/settings"
 	"github.com/cuihairu/croupier/internal/security/identity"
 	"github.com/cuihairu/croupier/internal/security/jwtutil"
 	permissionservice "github.com/cuihairu/croupier/internal/service/permission"
@@ -465,7 +466,18 @@ func (s *Service) issueLogin(ctx context.Context, admin *model.Admin, ident *ide
 		LastGameID:         lastGameID,
 		LastEnv:            lastEnv,
 		MustChangePassword: adminNeedsPasswordChange(admin),
+		MFASetupRequired:   mfaSetupRequired(ident.Provider, admin.OTPEnabled),
 	}, nil
+}
+
+// mfaSetupRequired 判断本次登录后是否必须绑定 TOTP：账号安全策略
+// security.mfaRequired 开启且该账号尚未确认启用。仅对 local provider
+// 生效（LDAP/OIDC 的二次验证由 IdP 负责，与既有 MFA 语义一致）。
+func mfaSetupRequired(provider string, otpEnabled bool) bool {
+	if provider != identity.KindLocal || otpEnabled {
+		return false
+	}
+	return settings.Current().SecurityPolicy().MFARequired
 }
 
 // adminNeedsPasswordChange 判断该账号登录后是否必须先改密：被显式标记

@@ -2,12 +2,14 @@ package profile
 
 import (
 	"context"
+	"net/http"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/cuihairu/croupier/internal/audit"
 	"github.com/cuihairu/croupier/internal/cache"
+	"github.com/cuihairu/croupier/internal/common/errorx"
 	"github.com/cuihairu/croupier/internal/model"
 	"github.com/cuihairu/croupier/internal/svc"
 	gsqlite "github.com/glebarez/sqlite"
@@ -733,15 +735,17 @@ func TestService_ChangePassword_EmptyNewPassword(t *testing.T) {
 	err := adminModel.Create(context.Background(), admin, "password123")
 	require.NoError(t, err)
 
-	resp, err := service.ChangePassword(context.Background(), "emptypassuser", &ChangePasswordRequest{
+	_, err = service.ChangePassword(context.Background(), "emptypassuser", &ChangePasswordRequest{
 		OldPassword: "password123",
 		NewPassword: "",
 	})
 
-	// Service should allow empty password (no validation in current implementation)
-	assert.NoError(t, err)
-	assert.NotNil(t, resp)
-	assert.True(t, resp.Ok)
+	// #48 起新密码过强度基线（原实现无校验、允许空密码，是策略链缺口）：
+	// 空密码被内置基线拒绝（400 bad_request），不再返回成功。
+	require.Error(t, err)
+	badRequest, ok := err.(*errorx.CodeError)
+	require.True(t, ok, "expect CodeError, got %T: %v", err, err)
+	assert.Equal(t, http.StatusBadRequest, badRequest.Code)
 }
 
 func TestService_UpdateProfile_OnlyNickname(t *testing.T) {
@@ -1085,15 +1089,15 @@ func TestService_ChangePassword_SamePassword(t *testing.T) {
 		Nickname: "Same Pass User",
 		Status:   1,
 	}
-	err := adminModel.Create(context.Background(), admin, "password123")
+	err := adminModel.Create(context.Background(), admin, "Str0ngPass!x")
 	require.NoError(t, err)
 
 	resp, err := service.ChangePassword(context.Background(), "samepassuser", &ChangePasswordRequest{
-		OldPassword: "password123",
-		NewPassword: "password123",
+		OldPassword: "Str0ngPass!x",
+		NewPassword: "Str0ngPass!x",
 	})
 
-	// Should allow changing to same password
+	// 同密码允许（语义保留）；密码须过强度基线，故用非弱密码演示
 	assert.NoError(t, err)
 	assert.NotNil(t, resp)
 	assert.True(t, resp.Ok)

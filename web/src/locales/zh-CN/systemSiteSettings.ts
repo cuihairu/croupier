@@ -160,4 +160,24 @@ export default {
   'pages.systemSiteSettings.tab.notification': '通知设置',
   'pages.systemSiteSettings.tab.observability': '观测集成',
   'pages.systemSiteSettings.tab.site': '站点信息',
+  'pages.systemSiteSettings.security.error.loadFailed': '加载账号安全策略失败',
+  'pages.systemSiteSettings.security.error.saveFailed': '保存失败',
+  'pages.systemSiteSettings.security.intro':
+    '全部默认关闭：关闭时维持内置基线（密码 8-128 位、弱密码拦截、至少两类字符、不限期、TOTP 自助绑定）。',
+  'pages.systemSiteSettings.security.mfaRequired': '强制二次验证 (TOTP)',
+  'pages.systemSiteSettings.security.mfaRequiredHelp':
+    '开启后所有本地账号必须绑定 TOTP：未绑定账号登录时收到引导，其余 API 返回 403 mfa_required（外部身份源账号由 IdP 负责，不受影响）',
+  'pages.systemSiteSettings.security.maxAgeDays': '密码有效期（天）',
+  'pages.systemSiteSettings.security.maxAgeDaysHelp':
+    '0 = 永不过期；开启后改密/建号自当刻起计时，过期登录强制走改密流程',
+  'pages.systemSiteSettings.security.minLength': '密码最小长度',
+  'pages.systemSiteSettings.security.minLengthHelp':
+    '0 = 沿用内置基线 8（上限 128）；仅可收紧不可放宽',
+  'pages.systemSiteSettings.security.requireSpecial': '密码必须含特殊字符',
+  'pages.systemSiteSettings.security.requireSpecialHelp': '作用于建号、重置密码与自助修改密码',
+  'pages.systemSiteSettings.security.requireUppercase': '密码必须含大写字母',
+  'pages.systemSiteSettings.security.requireUppercaseHelp': '作用于建号、重置密码与自助修改密码',
+  'pages.systemSiteSettings.security.save': '保存',
+  'pages.systemSiteSettings.security.saved': '已保存',
+  'pages.systemSiteSettings.tab.security': '账号安全',
 };
