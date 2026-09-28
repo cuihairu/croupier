@@ -1,9 +1,19 @@
 import { Footer } from '@/components';
-import { changeCurrentUserPassword, createSession, fetchCurrentUserGames } from '@/services/api';
-import { isMfaRequiredError } from '@/utils/errors';
+import {
+  changeCurrentUserPassword,
+  createSession,
+  fetchCurrentUserGames,
+  registerAccount,
+} from '@/services/api';
+import { extractErrorMessage, isMfaRequiredError } from '@/utils/errors';
 import { fetchLoginProviders, type LoginProviders } from '@/services/api/sites';
 import { setScope } from '@/stores/scope';
-import { LockOutlined, SafetyCertificateOutlined, UserOutlined } from '@ant-design/icons';
+import {
+  GithubOutlined,
+  LockOutlined,
+  SafetyCertificateOutlined,
+  UserOutlined,
+} from '@ant-design/icons';
 import { LoginForm, ProFormCheckbox, ProFormText } from '@ant-design/pro-components';
 import { LoginOutlined } from '@ant-design/icons';
 import { FormattedMessage, history, SelectLang, useIntl, useModel, Helmet } from '@umijs/max';
@@ -83,6 +93,15 @@ const LoginMessage: React.FC<{
 /** 强制改密弹窗表单值（OPEN-ISSUES #20） */
 type ForceChangePwdValues = { newPassword: string; confirm: string };
 
+/** 自助注册弹窗表单值（OPEN-ISSUES #51b） */
+type RegisterFormValues = {
+  username: string;
+  password: string;
+  confirm: string;
+  nickname?: string;
+  email?: string;
+};
+
 const Login: React.FC = () => {
   // siteCfg 在下方 useModel 声明后取用
   // Only account/password login is supported
@@ -101,6 +120,11 @@ const Login: React.FC = () => {
   const [providers, setProviders] = useState<LoginProviders | null>(null);
   // 系统信息协议弹窗（OPEN-ISSUES #49）：'user' | 'privacy' | null
   const [agreementView, setAgreementView] = useState<null | 'user' | 'privacy'>(null);
+  // 自助注册（OPEN-ISSUES #51b）：providers.register=true 时展示入口；
+  // 仅账密表单可见时注册才有意义（注册的是本地账密账号）
+  const [registerOpen, setRegisterOpen] = useState(false);
+  const [registerSubmitting, setRegisterSubmitting] = useState(false);
+  const [registerForm] = Form.useForm<RegisterFormValues>();
   useEffect(() => {
     fetchLoginProviders()
       .then(setProviders)
@@ -108,6 +132,9 @@ const Login: React.FC = () => {
   }, []);
   const { styles } = useStyles();
   const intl = useIntl();
+  // 账密表单可见性（OPEN-ISSUES #51）：local 关但 LDAP 开时仍要显示
+  //（LDAP 用户走同一表单级联认证）；拉取失败默认显示（fail-open 同现状）
+  const passwordFormVisible = providers ? providers.local || providers.ldap : true;
 
   const fetchUserInfo = async () => {
     const fetcher = initialState?.fetchUserInfo;
@@ -240,6 +267,45 @@ const Login: React.FC = () => {
     forceChangeForm.resetFields();
   };
 
+  // 自助注册提交（OPEN-ISSUES #51b）：成功不自动登录（MFA/强制改密门控
+  // 在登录链上照常生效），提示后回登录表单。
+  const submitRegister = async () => {
+    const values = await registerForm.validateFields().catch(() => null);
+    if (!values) return;
+    setRegisterSubmitting(true);
+    try {
+      const res = await registerAccount({
+        username: values.username,
+        password: values.password,
+        nickname: values.nickname,
+        email: values.email,
+      });
+      setRegisterOpen(false);
+      registerForm.resetFields();
+      getMessage()?.success(
+        intl.formatMessage(
+          {
+            id: 'pages.login.register.success',
+            defaultMessage: '账号 {username} 注册成功，请登录',
+          },
+          { username: res.username },
+        ),
+      );
+    } catch (error) {
+      getMessage()?.error(
+        extractErrorMessage(
+          error,
+          intl.formatMessage({
+            id: 'pages.login.register.error',
+            defaultMessage: '注册失败，请检查输入后重试',
+          }),
+        ),
+      );
+    } finally {
+      setRegisterSubmitting(false);
+    }
+  };
+
   return (
     <div className={styles.container}>
       <Helmet>
@@ -275,7 +341,7 @@ const Login: React.FC = () => {
             autoLogin: true,
           }}
           actions={
-            providers?.oidc
+            providers?.oidc || providers?.github
               ? [
                   <Divider plain key="sso-divider" style={{ margin: '8px 0' }}>
                     <Typography.Text type="secondary" style={{ fontSize: 12 }}>
@@ -285,17 +351,39 @@ const Login: React.FC = () => {
                       />
                     </Typography.Text>
                   </Divider>,
-                  <Button
-                    key="sso"
-                    block
-                    size="large"
-                    icon={<LoginOutlined />}
-                    onClick={() => {
-                      window.location.href = '/api/v1/auth/oidc/login';
-                    }}
-                  >
-                    <FormattedMessage id="pages.login.sso.button" defaultMessage="SSO 登录" />
-                  </Button>,
+                  ...(providers?.oidc
+                    ? [
+                        <Button
+                          key="sso-oidc"
+                          block
+                          size="large"
+                          icon={<LoginOutlined />}
+                          onClick={() => {
+                            window.location.href = '/api/v1/auth/oidc/login';
+                          }}
+                        >
+                          <FormattedMessage id="pages.login.sso.button" defaultMessage="SSO 登录" />
+                        </Button>,
+                      ]
+                    : []),
+                  ...(providers?.github
+                    ? [
+                        <Button
+                          key="sso-github"
+                          block
+                          size="large"
+                          icon={<GithubOutlined />}
+                          onClick={() => {
+                            window.location.href = '/api/v1/auth/github/login';
+                          }}
+                        >
+                          <FormattedMessage
+                            id="pages.login.github.button"
+                            defaultMessage="GitHub 登录"
+                          />
+                        </Button>,
+                      ]
+                    : []),
                 ]
               : []
           }
@@ -315,7 +403,7 @@ const Login: React.FC = () => {
               })}
             />
           )}
-          {
+          {passwordFormVisible ? (
             <>
               <ProFormText
                 name="username"
@@ -390,7 +478,17 @@ const Login: React.FC = () => {
                 />
               )}
             </>
-          }
+          ) : (
+            <Alert
+              style={{ marginBottom: 16 }}
+              type="info"
+              showIcon
+              title={intl.formatMessage({
+                id: 'pages.login.passwordDisabled',
+                defaultMessage: '账号密码登录已停用，请使用其他登录方式',
+              })}
+            />
+          )}
           {providers?.ldap && (
             <Alert
               style={{ marginBottom: 16 }}
@@ -403,18 +501,30 @@ const Login: React.FC = () => {
               })}
             />
           )}
-          <div
-            style={{
-              marginBottom: 24,
-            }}
-          >
-            <ProFormCheckbox noStyle name="autoLogin">
-              <FormattedMessage id="pages.login.rememberMe" defaultMessage="自动登录" />
-            </ProFormCheckbox>
-            <a style={{ float: 'right' }} onClick={() => setForgotOpen(true)}>
-              <FormattedMessage id="pages.login.forgotPassword" defaultMessage="忘记密码" />
-            </a>
-          </div>
+          {passwordFormVisible && (
+            <div
+              style={{
+                marginBottom: 24,
+              }}
+            >
+              <ProFormCheckbox noStyle name="autoLogin">
+                <FormattedMessage id="pages.login.rememberMe" defaultMessage="自动登录" />
+              </ProFormCheckbox>
+              <span style={{ float: 'right' }}>
+                {providers?.register && (
+                  <>
+                    <a onClick={() => setRegisterOpen(true)}>
+                      <FormattedMessage id="pages.login.register.entry" defaultMessage="注册账号" />
+                    </a>
+                    <span style={{ margin: '0 8px', color: 'rgba(0,0,0,0.15)' }}>|</span>
+                  </>
+                )}
+                <a onClick={() => setForgotOpen(true)}>
+                  <FormattedMessage id="pages.login.forgotPassword" defaultMessage="忘记密码" />
+                </a>
+              </span>
+            </div>
+          )}
         </LoginForm>
         {/* 系统信息消费面（OPEN-ISSUES #49）：首页内容欢迎区 + 文档/协议入口，
             均按配置存在才渲染，未配置零占位 */}
@@ -473,6 +583,136 @@ const Login: React.FC = () => {
           <div style={{ whiteSpace: 'pre-wrap', maxHeight: '60vh', overflowY: 'auto' }}>
             {agreementView === 'user' ? siteCfg?.userAgreement : siteCfg?.privacyPolicy}
           </div>
+        </Modal>
+        {/* 自助注册（OPEN-ISSUES #51b）：开关默认关闭，providers.register 才有入口；
+            成功不自动登录，提示后走正常登录 */}
+        <Modal
+          title={intl.formatMessage({
+            id: 'pages.login.register.title',
+            defaultMessage: '注册账号',
+          })}
+          open={registerOpen}
+          onCancel={() => setRegisterOpen(false)}
+          onOk={() => void submitRegister()}
+          okText={intl.formatMessage({
+            id: 'pages.login.register.submit',
+            defaultMessage: '注册',
+          })}
+          confirmLoading={registerSubmitting}
+          destroyOnHidden
+        >
+          <Form form={registerForm} layout="vertical">
+            <Form.Item
+              label={intl.formatMessage({
+                id: 'pages.login.username.placeholder',
+                defaultMessage: '用户名',
+              })}
+              name="username"
+              rules={[
+                { required: true },
+                {
+                  pattern: /^[a-zA-Z0-9_-]{3,32}$/,
+                  message: intl.formatMessage({
+                    id: 'pages.login.register.usernameRule',
+                    defaultMessage: '3-32 位字母、数字、下划线或连字符',
+                  }),
+                },
+              ]}
+            >
+              <Input placeholder="username" autoComplete="username" />
+            </Form.Item>
+            <Form.Item
+              label={intl.formatMessage({
+                id: 'pages.login.register.nickname',
+                defaultMessage: '昵称（可选）',
+              })}
+              name="nickname"
+            >
+              <Input autoComplete="nickname" />
+            </Form.Item>
+            <Form.Item
+              label={intl.formatMessage({
+                id: 'pages.login.register.email',
+                defaultMessage: '邮箱（可选）',
+              })}
+              name="email"
+              rules={[
+                {
+                  type: 'email',
+                  message: intl.formatMessage({
+                    id: 'pages.login.register.emailRule',
+                    defaultMessage: '邮箱格式不正确',
+                  }),
+                },
+              ]}
+            >
+              <Input autoComplete="email" />
+            </Form.Item>
+            <Form.Item
+              label={intl.formatMessage({
+                id: 'pages.login.mustChange.new',
+                defaultMessage: '新密码',
+              })}
+              name="password"
+              rules={[
+                {
+                  required: true,
+                  message: intl.formatMessage({
+                    id: 'pages.login.password.required',
+                    defaultMessage: '请输入密码！',
+                  }),
+                },
+              ]}
+            >
+              <Input.Password
+                placeholder={intl.formatMessage({
+                  id: 'pages.login.register.passwordPlaceholder',
+                  defaultMessage: '8 位以上，建议混合字符类',
+                })}
+                autoComplete="new-password"
+              />
+            </Form.Item>
+            <Form.Item
+              label={intl.formatMessage({
+                id: 'pages.login.mustChange.confirm',
+                defaultMessage: '确认新密码',
+              })}
+              name="confirm"
+              dependencies={['password']}
+              rules={[
+                {
+                  required: true,
+                  message: intl.formatMessage({
+                    id: 'pages.login.mustChange.confirmRequired',
+                    defaultMessage: '请再次输入新密码！',
+                  }),
+                },
+                ({ getFieldValue }) => ({
+                  validator(_, value: string) {
+                    if (!value || getFieldValue('password') === value) {
+                      return Promise.resolve();
+                    }
+                    return Promise.reject(
+                      new Error(
+                        intl.formatMessage({
+                          id: 'pages.login.register.mismatch',
+                          defaultMessage: '两次输入的密码不一致',
+                        }),
+                      ),
+                    );
+                  },
+                }),
+              ]}
+            >
+              <Input.Password
+                placeholder={intl.formatMessage({
+                  id: 'pages.login.mustChange.confirm.placeholder',
+                  defaultMessage: '请再次输入新密码',
+                })}
+                autoComplete="new-password"
+              />
+            </Form.Item>
+          </Form>
         </Modal>
         <Modal
           title={intl.formatMessage({

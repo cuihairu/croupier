@@ -13,7 +13,13 @@ import {
   Tooltip,
   Typography,
 } from 'antd';
-import { ApiOutlined, SafetyCertificateOutlined } from '@ant-design/icons';
+import {
+  ApiOutlined,
+  GithubOutlined,
+  LockOutlined,
+  SafetyCertificateOutlined,
+  UserAddOutlined,
+} from '@ant-design/icons';
 import { FormattedMessage, useIntl } from '@umijs/max';
 import {
   clearSiteSetting,
@@ -22,6 +28,7 @@ import {
   testAuthConnection,
   type AuthProviderSnapshot,
   type AuthSnapshot,
+  type LocalAuthSnapshot,
 } from '@/services/api/sites';
 import { extractErrorMessage } from '@/utils/errors';
 
@@ -98,6 +105,125 @@ async function saveKeys(
     saved += 1;
   }
   return saved;
+}
+
+type LocalFormValues = { enabled: boolean };
+
+/** 本地账号密码登录开关（OPEN-ISSUES #51a）：显式覆盖 auth.local.enabled=false 才停用。 */
+function LocalCard({
+  snapshot,
+  onReload,
+}: {
+  snapshot: LocalAuthSnapshot | undefined;
+  onReload: () => Promise<void>;
+}) {
+  const { message } = App.useApp();
+  const intl = useIntl();
+  const [form] = Form.useForm<LocalFormValues>();
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    form.setFieldsValue({ enabled: snapshot?.enabled ?? true });
+  }, [snapshot, form]);
+
+  const handleSave = async () => {
+    try {
+      const v = await form.validateFields();
+      setSaving(true);
+      await saveKeys([{ key: 'auth.local.enabled', value: v.enabled }]);
+      await onReload();
+      message.success(
+        intl.formatMessage({
+          id: 'pages.systemSiteSettings.auth.saved.local',
+          defaultMessage: '本地登录配置已保存',
+        }),
+      );
+    } catch (error) {
+      if ((error as { errorFields?: unknown }).errorFields) return; // 表单校验错误已提示
+      // 后端防锁死守卫拒绝（全部登录方式关闭）时经此提示，设置已被回滚
+      message.error(
+        extractErrorMessage(
+          error,
+          intl.formatMessage({
+            id: 'pages.systemSiteSettings.auth.error.saveFailed',
+            defaultMessage: '保存失败',
+          }),
+        ),
+      );
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Card
+      size="small"
+      title={
+        <Space size={6}>
+          <LockOutlined />
+          <Text strong>
+            <FormattedMessage
+              id="pages.systemSiteSettings.auth.local.title"
+              defaultMessage="本地账号密码"
+            />
+          </Text>
+          {snapshot?.enabled ? (
+            <Tag color="green">
+              <FormattedMessage
+                id="pages.systemSiteSettings.auth.provider.enabled"
+                defaultMessage="已启用"
+              />
+            </Tag>
+          ) : (
+            <Tag>
+              <FormattedMessage
+                id="pages.systemSiteSettings.auth.provider.disabled"
+                defaultMessage="未启用"
+              />
+            </Tag>
+          )}
+        </Space>
+      }
+      extra={
+        <Text type="secondary">
+          <FormattedMessage
+            id="pages.systemSiteSettings.auth.hint.localCard"
+            defaultMessage="停用后登录页隐藏账密表单；须至少保留一种登录方式"
+          />
+        </Text>
+      }
+    >
+      <Form form={form} name="auth-local" layout="vertical" size="small">
+        <Form.Item
+          name="enabled"
+          label={intl.formatMessage({
+            id: 'pages.systemSiteSettings.auth.local.enableLabel',
+            defaultMessage: '启用账号密码登录',
+          })}
+          valuePropName="checked"
+          tooltip={intl.formatMessage({
+            id: 'pages.systemSiteSettings.auth.local.enableTooltip',
+            defaultMessage:
+              '内置管理员账号走此通道；停用前请先确保 LDAP/OIDC/GitHub 之一可用，否则保存会被拒绝以防锁死',
+          })}
+        >
+          <Switch
+            checkedChildren={intl.formatMessage({
+              id: 'pages.systemSiteSettings.auth.switch.enable',
+              defaultMessage: '启用',
+            })}
+            unCheckedChildren={intl.formatMessage({
+              id: 'pages.systemSiteSettings.auth.switch.disable',
+              defaultMessage: '停用',
+            })}
+          />
+        </Form.Item>
+        <Button type="primary" size="small" loading={saving} onClick={() => void handleSave()}>
+          <FormattedMessage id="pages.systemSiteSettings.auth.action.save" defaultMessage="保存" />
+        </Button>
+      </Form>
+    </Card>
+  );
 }
 
 function LDAPCard({
@@ -236,7 +362,7 @@ function LDAPCard({
         </Text>
       }
     >
-      <Form form={form} layout="vertical" size="small">
+      <Form form={form} name="auth-ldap" layout="vertical" size="small">
         <Row gutter={12}>
           <Col span={12}>
             <Form.Item
@@ -564,7 +690,7 @@ function OIDCCard({
         </Text>
       }
     >
-      <Form form={form} layout="vertical" size="small">
+      <Form form={form} name="auth-oidc" layout="vertical" size="small">
         <Row gutter={12}>
           <Col span={12}>
             <Form.Item
@@ -733,7 +859,413 @@ function OIDCCard({
   );
 }
 
-/** 登录方式 Tab：LDAP 直连级联 + OIDC 重定向 SSO（Harbor 模式热配置）。 */
+type GitHubFormValues = {
+  enabled: boolean;
+  clientId: string;
+  clientSecret: string;
+  redirectUrl: string;
+  defaultRoles: string;
+  successUrl: string;
+};
+
+/** GitHub OAuth 登录（OPEN-ISSUES #51a）：复用 OIDC 的 state/JIT 建号链路。 */
+function GitHubCard({
+  snapshot,
+  onReload,
+}: {
+  snapshot: AuthProviderSnapshot | undefined;
+  onReload: () => Promise<void>;
+}) {
+  const { message } = App.useApp();
+  const intl = useIntl();
+  const [form] = Form.useForm<GitHubFormValues>();
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    const f = snapshot?.fields ?? {};
+    form.setFieldsValue({
+      enabled: snapshot?.enabled ?? false,
+      clientId: f.clientId ?? '',
+      clientSecret: '',
+      redirectUrl: f.redirectUrl ?? '',
+      defaultRoles: f.defaultRoles ?? '',
+      successUrl: f.successUrl ?? '',
+    });
+  }, [snapshot, form]);
+
+  const handleSave = async () => {
+    try {
+      const v = await form.validateFields();
+      setSaving(true);
+      await saveKeys([
+        { key: 'auth.github.enabled', value: v.enabled },
+        { key: 'auth.github.clientId', value: v.clientId?.trim() ?? '' },
+        { key: 'auth.github.clientSecret', value: v.clientSecret, isSecret: true },
+        { key: 'auth.github.redirectUrl', value: v.redirectUrl?.trim() ?? '' },
+        { key: 'auth.github.defaultRoles', value: v.defaultRoles?.trim() ?? '' },
+        { key: 'auth.github.successUrl', value: v.successUrl?.trim() ?? '' },
+      ]);
+      await onReload();
+      // 启用但凭证不全时后端会拒绝并回滚本次保存（错误信息已说明缺哪项）
+      message.success(
+        intl.formatMessage({
+          id: 'pages.systemSiteSettings.auth.saved.github',
+          defaultMessage: 'GitHub 配置已保存',
+        }),
+      );
+    } catch (error) {
+      if ((error as { errorFields?: unknown }).errorFields) return;
+      message.error(
+        extractErrorMessage(
+          error,
+          intl.formatMessage({
+            id: 'pages.systemSiteSettings.auth.error.saveFailed',
+            defaultMessage: '保存失败',
+          }),
+        ),
+      );
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Card
+      size="small"
+      title={
+        <Space size={6}>
+          <GithubOutlined />
+          <Text strong>
+            <FormattedMessage
+              id="pages.systemSiteSettings.auth.github.title"
+              defaultMessage="GitHub OAuth"
+            />
+          </Text>
+          {snapshot?.enabled ? (
+            <Tag color="green">
+              <FormattedMessage
+                id="pages.systemSiteSettings.auth.provider.enabled"
+                defaultMessage="已启用"
+              />
+            </Tag>
+          ) : (
+            <Tag>
+              <FormattedMessage
+                id="pages.systemSiteSettings.auth.provider.disabled"
+                defaultMessage="未启用"
+              />
+            </Tag>
+          )}
+        </Space>
+      }
+      extra={
+        <Text type="secondary">
+          <FormattedMessage
+            id="pages.systemSiteSettings.auth.hint.githubCard"
+            defaultMessage="启用后登录页出现「GitHub 登录」入口，首次登录自动建号"
+          />
+        </Text>
+      }
+    >
+      <Form form={form} name="auth-github" layout="vertical" size="small">
+        <Row gutter={12}>
+          <Col span={12}>
+            <Form.Item
+              name="clientId"
+              label={
+                <Space size={4}>
+                  Client ID
+                  <SourceTag source={snapshot?.sources?.clientId} />
+                </Space>
+              }
+              rules={[{ required: true }]}
+            >
+              <Input placeholder="Ov23liXXXXXXXXXXXXXX" />
+            </Form.Item>
+          </Col>
+          <Col span={12}>
+            <Form.Item
+              name="clientSecret"
+              label={
+                <Space size={4}>
+                  Client Secret
+                  {snapshot?.secretSet ? (
+                    <Tooltip
+                      title={intl.formatMessage(
+                        {
+                          id: 'pages.systemSiteSettings.auth.secretSavedTooltip',
+                          defaultMessage: `已保存：${snapshot.secretMasked}，留空保持不变`,
+                        },
+                        { masked: snapshot.secretMasked },
+                      )}
+                    >
+                      <Tag color="purple" style={{ marginRight: 0 }}>
+                        {snapshot.secretMasked}
+                      </Tag>
+                    </Tooltip>
+                  ) : null}
+                </Space>
+              }
+            >
+              <Input.Password
+                placeholder={
+                  snapshot?.secretSet
+                    ? intl.formatMessage({
+                        id: 'pages.systemSiteSettings.auth.secretPlaceholderKeep',
+                        defaultMessage: '留空保持不变',
+                      })
+                    : intl.formatMessage({
+                        id: 'pages.systemSiteSettings.auth.secretPlaceholderUnset',
+                        defaultMessage: '未设置',
+                      })
+                }
+                autoComplete="new-password"
+              />
+            </Form.Item>
+          </Col>
+          <Col span={12}>
+            <Form.Item
+              name="redirectUrl"
+              label={
+                <Space size={4}>
+                  <FormattedMessage
+                    id="pages.systemSiteSettings.auth.callbackUrlLabel"
+                    defaultMessage="回调地址"
+                  />
+                  <SourceTag source={snapshot?.sources?.redirectUrl} />
+                </Space>
+              }
+              tooltip={intl.formatMessage({
+                id: 'pages.systemSiteSettings.auth.callbackUrlTooltip.github',
+                defaultMessage:
+                  'GitHub OAuth App 侧登记的回调：https://<host>/api/v1/auth/github/callback',
+              })}
+            >
+              <Input placeholder="https://croupier.example.com/api/v1/auth/github/callback" />
+            </Form.Item>
+          </Col>
+          <Col span={12}>
+            <Form.Item
+              name="defaultRoles"
+              label={
+                <Space size={4}>
+                  <FormattedMessage
+                    id="pages.systemSiteSettings.auth.jitRolesLabel"
+                    defaultMessage="JIT 角色"
+                  />
+                  <SourceTag source={snapshot?.sources?.defaultRoles} />
+                </Space>
+              }
+              tooltip={intl.formatMessage({
+                id: 'pages.systemSiteSettings.auth.jitRolesTooltip',
+                defaultMessage: '首次登录自动建号时赋予的角色（逗号分隔）',
+              })}
+            >
+              <Input placeholder="viewer" />
+            </Form.Item>
+          </Col>
+          <Col span={12}>
+            <Form.Item
+              name="successUrl"
+              label={
+                <Space size={4}>
+                  <FormattedMessage
+                    id="pages.systemSiteSettings.auth.successUrlLabel"
+                    defaultMessage="登录成功跳转"
+                  />
+                  <SourceTag source={snapshot?.sources?.successUrl} />
+                </Space>
+              }
+              tooltip={intl.formatMessage({
+                id: 'pages.systemSiteSettings.auth.successUrlTooltip',
+                defaultMessage: '回调签发 token 后跳转的前端地址，留空使用 /',
+              })}
+            >
+              <Input placeholder="/" />
+            </Form.Item>
+          </Col>
+          <Col span={12}>
+            <Form.Item
+              name="enabled"
+              label={intl.formatMessage({
+                id: 'pages.systemSiteSettings.auth.enableGitHubLabel',
+                defaultMessage: '启用 GitHub 登录',
+              })}
+              valuePropName="checked"
+            >
+              <Switch
+                checkedChildren={intl.formatMessage({
+                  id: 'pages.systemSiteSettings.auth.switch.enable',
+                  defaultMessage: '启用',
+                })}
+                unCheckedChildren={intl.formatMessage({
+                  id: 'pages.systemSiteSettings.auth.switch.disable',
+                  defaultMessage: '停用',
+                })}
+              />
+            </Form.Item>
+          </Col>
+        </Row>
+        <Button type="primary" size="small" loading={saving} onClick={() => void handleSave()}>
+          <FormattedMessage id="pages.systemSiteSettings.auth.action.save" defaultMessage="保存" />
+        </Button>
+      </Form>
+    </Card>
+  );
+}
+
+type RegisterFormValues = {
+  enabled: boolean;
+  defaultRoles: string;
+};
+
+/** 自助注册（OPEN-ISSUES #51b）：默认关闭；注册的是本地账密账号。 */
+function RegisterCard({
+  snapshot,
+  onReload,
+}: {
+  snapshot: AuthProviderSnapshot | undefined;
+  onReload: () => Promise<void>;
+}) {
+  const { message } = App.useApp();
+  const intl = useIntl();
+  const [form] = Form.useForm<RegisterFormValues>();
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    const f = snapshot?.fields ?? {};
+    form.setFieldsValue({
+      enabled: snapshot?.enabled ?? false,
+      defaultRoles: f.defaultRoles ?? '',
+    });
+  }, [snapshot, form]);
+
+  const handleSave = async () => {
+    try {
+      const v = await form.validateFields();
+      setSaving(true);
+      await saveKeys([
+        { key: 'auth.register.enabled', value: v.enabled },
+        { key: 'auth.register.defaultRoles', value: v.defaultRoles?.trim() ?? '' },
+      ]);
+      await onReload();
+      message.success(
+        intl.formatMessage({
+          id: 'pages.systemSiteSettings.auth.saved.register',
+          defaultMessage: '自助注册配置已保存',
+        }),
+      );
+    } catch (error) {
+      if ((error as { errorFields?: unknown }).errorFields) return;
+      message.error(
+        extractErrorMessage(
+          error,
+          intl.formatMessage({
+            id: 'pages.systemSiteSettings.auth.error.saveFailed',
+            defaultMessage: '保存失败',
+          }),
+        ),
+      );
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Card
+      size="small"
+      title={
+        <Space size={6}>
+          <UserAddOutlined />
+          <Text strong>
+            <FormattedMessage
+              id="pages.systemSiteSettings.auth.register.title"
+              defaultMessage="自助注册"
+            />
+          </Text>
+          {snapshot?.enabled ? (
+            <Tag color="green">
+              <FormattedMessage
+                id="pages.systemSiteSettings.auth.provider.enabled"
+                defaultMessage="已启用"
+              />
+            </Tag>
+          ) : (
+            <Tag>
+              <FormattedMessage
+                id="pages.systemSiteSettings.auth.provider.disabled"
+                defaultMessage="未启用"
+              />
+            </Tag>
+          )}
+        </Space>
+      }
+      extra={
+        <Text type="secondary">
+          <FormattedMessage
+            id="pages.systemSiteSettings.auth.hint.registerCard"
+            defaultMessage="默认关闭；开启后登录页出现「注册账号」入口，注册的是本地账密账号"
+          />
+        </Text>
+      }
+    >
+      <Form form={form} name="auth-register" layout="vertical" size="small">
+        <Row gutter={12}>
+          <Col span={12}>
+            <Form.Item
+              name="defaultRoles"
+              label={
+                <Space size={4}>
+                  <FormattedMessage
+                    id="pages.systemSiteSettings.auth.jitRolesLabel"
+                    defaultMessage="JIT 角色"
+                  />
+                  <SourceTag source={snapshot?.sources?.defaultRoles} />
+                </Space>
+              }
+              tooltip={intl.formatMessage({
+                id: 'pages.systemSiteSettings.auth.register.rolesTooltip',
+                defaultMessage: '注册账号被赋予的角色（逗号分隔）；留空则不赋角色',
+              })}
+            >
+              <Input placeholder="viewer" />
+            </Form.Item>
+          </Col>
+          <Col span={12}>
+            <Form.Item
+              name="enabled"
+              label={intl.formatMessage({
+                id: 'pages.systemSiteSettings.auth.register.enableLabel',
+                defaultMessage: '允许自助注册',
+              })}
+              valuePropName="checked"
+              tooltip={intl.formatMessage({
+                id: 'pages.systemSiteSettings.auth.register.enableTooltip',
+                defaultMessage: '开启后任何人可在登录页注册本地账号；密码走账号安全策略校验',
+              })}
+            >
+              <Switch
+                checkedChildren={intl.formatMessage({
+                  id: 'pages.systemSiteSettings.auth.switch.enable',
+                  defaultMessage: '启用',
+                })}
+                unCheckedChildren={intl.formatMessage({
+                  id: 'pages.systemSiteSettings.auth.switch.disable',
+                  defaultMessage: '停用',
+                })}
+              />
+            </Form.Item>
+          </Col>
+        </Row>
+        <Button type="primary" size="small" loading={saving} onClick={() => void handleSave()}>
+          <FormattedMessage id="pages.systemSiteSettings.auth.action.save" defaultMessage="保存" />
+        </Button>
+      </Form>
+    </Card>
+  );
+}
+
+/** 登录方式 Tab：本地开关 + LDAP 直连级联 + OIDC/GitHub 重定向 SSO（Harbor 模式热配置）。 */
 export default function AuthTab() {
   const { message } = App.useApp();
   const intl = useIntl();
@@ -772,7 +1304,7 @@ export default function AuthTab() {
       <Text type="secondary" style={{ fontSize: 12 }}>
         <FormattedMessage
           id="pages.systemSiteSettings.auth.hint.tab"
-          defaultMessage="配置文件仅作初始值，此处保存后热生效（无需重启）；本地账号登录始终可用"
+          defaultMessage="配置文件仅作初始值，此处保存后热生效（无需重启）；停用账号密码登录前请先确保其他登录方式可用"
         />
       </Text>
     ),
@@ -782,8 +1314,11 @@ export default function AuthTab() {
   return (
     <Space orientation="vertical" size={12} style={{ width: '100%' }}>
       {extra}
+      <LocalCard snapshot={snapshot?.local} onReload={load} />
       <LDAPCard snapshot={snapshot?.ldap} onReload={load} />
       <OIDCCard snapshot={snapshot?.oidc} onReload={load} />
+      <GitHubCard snapshot={snapshot?.github} onReload={load} />
+      <RegisterCard snapshot={snapshot?.register} onReload={load} />
     </Space>
   );
 }

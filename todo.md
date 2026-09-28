@@ -841,3 +841,55 @@ T3（execution_state 字段）→ T4/T6/T8；T2 → T5；T12（后端校验放�
 > 门禁：go build + `go test ./internal/...` 全绿、tsc 0 错、全量 jest 落盘核绿、guard PASSED。
 > **已知边界**：① serverUrl/taskPublicUrl 本批仅存储+快照暴露，真实消费（通知外链拼装/任务地址展示）归 #52/#53；② docsUrl 登录后侧入口（头像菜单/页脚）归 #52 系统维护展示；③ 协议展示暂限登录页，#51 自助注册落地时同步接入；④ 首页内容消费面=匿名首页（登录页），登录后无独立首页路由，若后续做工作台首页（#52 系统维护）再接。
 > 下一步：#50 系统公告核对 → #51 身份验证+OAuth → #52 系统维护 → #53 性能参数 → #54 日志维护 → #55 SMTP 归运维 → #56 安全与限制 → #57 第三方探针。
+
+## 扩展商店页 + 安装列表页覆盖批次（Extensions 簇缺口第二批，2026-09-28）
+
+> **交付（2026-09-28）**：按上轮台账继续收口 Extensions 簇两个最大页面文件——
+> `Store/index.tsx`（512 行）与 `Installations/index.tsx`（431 行，含连带
+> `columns.tsx` 231 行真实渲染）。新增
+> `Store/__tests__/index.test.tsx` 17 用例 + `Installations/__tests__/index.test.tsx`
+> 17 用例，v8 口径：**Installations/index.tsx 与 columns.tsx 行/分支/函数/语句
+> 4×100%**；Store/index.tsx 行/语句 100%、函数 19/20、分支 92.4%。
+> 锁定契约——安装列表页：概览五项统计（items 派生含作用域去重）、7 列渲染
+> 矩阵（displayName/status/healthStatus/targetId/updatedAt 空值兜底、健康
+> error 红翼）、筛选（扩展 ID 输入/状态下拉 → request 载荷、生效 Alert + chips、
+> 清空筛选复位）、刷新、withReload 成功/失败两翼（extractErrorMessage 兜底）、
+> 启停按 row.enabled 分派 enable/disable、重建绑定、卸载 confirm 流（成功/
+> dependency_blocked blockers warning/普通错误/空 blockers/非 HTTP unknown 兜底）、
+> 三 overlay 受控开合与 onUpgraded/onSaved → reload、canExtensionsManage=false
+> 菜单 aria-disabled 门控——三个 overlay（EventsDrawer/UpgradeModal/详情抽屉）
+> mock 为桩聚焦页面契约；商店页：草稿/提交双态筛选（草稿不触发拉取、查询
+> 提交三态、params 未变 reload 兜底、重置清双态）、7 列矩阵（displayName 兜底
+> name、kind/版本空兜底、标签金标+slice(0,3)+全空 '-'、安装按钮 canManage+
+> installed 双门控）、详情弹窗加载链（adapter fallbackItem 兜底）、安装弹窗
+> 链（latestVersion 兜底链 detail→releases[0]→item、manifest.configSchema 双
+> typeof 提取、setFieldsValue 五字段预填、SchemaFields 默认值回显、成功载荷含
+> schema 默认 config）、configJson 非法拦截/合并覆盖、四错误码分支 + details
+> 缺省 `-`/unknown 兜底、displayName 空成功 message 兜底 name、定位 Alert
+> history.push——InstallModal/CatalogDetailModal/SchemaFields 真实渲染（Form
+> 实例页面持有，mock 掉会使 validateFields 永远空值）。
+> 门禁：目标套件 34/34 绿、tsc 0 错、eslint 干净；全量 jest 门禁与负载口径
+> 见交付说明。
+> **已知边界（诚实清单）**：
+>
+> 1. Store/index.tsx 分支 92.4% 余 4 处均不可达：latestVersion 兜底链 `|| ''`
+>    尾翼（item.latestVersion 空时预填空串被 releaseVersion required 规则拦截，
+>    实测「请选择版本」）；`if (!installItem) return` 守卫（OK 按钮仅在弹窗
+>    打开且 installItem 已设时可见）；标签列 `row.tags || []` 右翼（tags 类型
+>    必填，undefined 仅运行时防御）；request `kw ?? ''` 右翼（params 恒传
+>    keyword 字符串）。
+> 2. Store 函数 19/20：InstallModal `onCancel` 关闭翼未断言——antd6 Modal 未开
+>    destroyOnHidden 关闭后壳残留标题，关闭态文本断言不可靠（坑 8 同源），
+>    不造假断言。
+> 3. openDetail 的 try/finally 无 catch（详情接口 reject 产生 unhandled
+>    rejection，现状行为与上轮详情抽屉巡检结论一致）：reject 场景不造假，
+>    adapter fallbackItem 兜底翼改用 resolve `{}` 覆盖。
+> 4. EventsDrawer（286 行）/UpgradeModal（151 行）在本页套件中为桩组件，本体
+>    覆盖留 Extensions 簇后续批次（簇余量收口顺序：EventsDrawer →
+>    UpgradeModal → AgentSync/DomainEntry）。
+> 5. antd6 交互坑新增实证：Select 无 `.ant-select-selector`（mouseDown 直接落
+>    `.ant-select` 根）；可见 option 行无 role（点击须落
+>    `.ant-select-item-option-content`，role=option 只在 a11y 隐藏 listbox）；
+>    menuitem 禁用形态是 aria-disabled（jest-dom toBeDisabled 不识别）；
+>    modal.confirm 标题双渲染（`.ant-modal-title` + `.ant-modal-confirm-title`，
+>    断言须 selector 收窄）。

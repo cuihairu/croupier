@@ -35,7 +35,13 @@ jest.mock('@/services/api', () => ({
 jest.mock('@/services/api/sites', () => ({
   __esModule: true,
   ...jest.requireActual('@/services/api/sites'),
-  fetchLoginProviders: jest.fn(async () => ({ local: true, ldap: false, oidc: false })),
+  fetchLoginProviders: jest.fn(async () => ({
+    local: true,
+    ldap: false,
+    oidc: false,
+    github: false,
+    register: false,
+  })),
 }));
 jest.mock('@/services/initialState', () => ({
   __esModule: true,
@@ -81,7 +87,13 @@ const sessionWith = (mustChangePassword: boolean) => ({
 beforeEach(() => {
   jest.clearAllMocks();
   window.history.replaceState(null, '', '/user/login');
-  mockedProviders.mockResolvedValue({ local: true, ldap: false, oidc: false });
+  mockedProviders.mockResolvedValue({
+    local: true,
+    ldap: false,
+    oidc: false,
+    github: false,
+    register: false,
+  });
   mockedGetMessage.mockReturnValue(msgApi() as ReturnType<typeof getMessage>);
 });
 

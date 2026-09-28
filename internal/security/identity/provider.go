@@ -16,9 +16,10 @@ import (
 
 // ProviderKind 是身份提供方的种类标识。
 const (
-	KindLocal = "local"
-	KindLDAP  = "ldap"
-	KindOIDC  = "oidc"
+	KindLocal  = "local"
+	KindLDAP   = "ldap"
+	KindOIDC   = "oidc"
+	KindGitHub = "github"
 )
 
 // ErrInvalidCredentials 表示凭证校验失败（用户不存在或密码错误）。
