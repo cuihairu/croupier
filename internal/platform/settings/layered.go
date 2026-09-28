@@ -97,6 +97,11 @@ const (
 	KeySecurityPasswordRequireUpper   = "security.passwordRequireUppercase" // bool：必须含大写字母
 	KeySecurityPasswordRequireSpecial = "security.passwordRequireSpecial"   // bool：必须含特殊字符
 	KeySecurityPasswordMaxAgeDays     = "security.passwordMaxAgeDays"       // int：0 = 永不过期
+
+	// 系统维护（OPEN-ISSUES #52）：更新检查源 URL。返回 JSON 版本清单
+	// （识别 version/tagName/tag_name/latestVersion 任意一键，兼容 GitHub
+	// releases/latest 的 tag_name）；空 = 未配置，检查更新仅回版本注记。
+	KeySystemUpdateCheckURL = "system.updateCheckUrl" // string
 )
 
 // ValidKeys is the L3 whitelist.
@@ -127,6 +132,8 @@ var ValidKeys = map[string]struct{}{
 	KeySecurityMFARequired: {}, KeySecurityPasswordMinLength: {},
 	KeySecurityPasswordRequireUpper: {}, KeySecurityPasswordRequireSpecial: {},
 	KeySecurityPasswordMaxAgeDays: {},
+
+	KeySystemUpdateCheckURL: {},
 }
 
 // secretKeys 是读取时必须脱敏的 key（读取接口只回显尾 4 位）。

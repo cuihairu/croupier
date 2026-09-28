@@ -93,3 +93,32 @@ export async function getOpsMQ(): Promise<OpsMQInfo> {
     groups: res?.groups as OpsMQInfo['groups'],
   };
 }
+
+// ---- 系统维护（OPEN-ISSUES #52）----
+
+export type SystemRuntimeInfo = {
+  version: string;
+  gitCommit?: string;
+  buildTime?: string;
+  startedAt?: string;
+  uptimeSeconds?: number;
+};
+
+export type SystemUpdateCheckResult = {
+  currentVersion: string;
+  latestVersion?: string;
+  hasUpdate: boolean;
+  checked: boolean;
+  checkedAt?: string;
+  note?: string;
+};
+
+export async function getSystemRuntime(): Promise<SystemRuntimeInfo> {
+  return request<SystemRuntimeInfo>('/api/v1/ops/system/runtime');
+}
+
+export async function checkSystemUpdate(): Promise<SystemUpdateCheckResult> {
+  return request<SystemUpdateCheckResult>('/api/v1/ops/system/check-update', {
+    method: 'POST',
+  });
+}

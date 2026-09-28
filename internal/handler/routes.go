@@ -540,6 +540,11 @@ func registerOpsRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 	g.PUT("/health", opsHandler.HealthUpdate)
 	g.GET("/maintenance", opsHandler.MaintenanceGet)
 	g.PUT("/maintenance", opsHandler.MaintenanceUpdate)
+
+	// 系统维护（OPEN-ISSUES #52）：运行版本/启动时间/在线时长 + 检查更新
+	// （只检查不升级，为 #53-57 运维家族留 /ops/system/* 组）
+	g.GET("/system/runtime", opsHandler.SystemRuntime)
+	g.POST("/system/check-update", opsHandler.SystemCheckUpdate)
 	g.GET("/metrics", opsHandler.Metrics)
 	g.GET("/mq", opsHandler.MQ)
 	g.GET("/notifications", opsHandler.NotificationsGet)

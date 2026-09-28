@@ -167,6 +167,16 @@ func (s *Service) OpsMaintenanceUpdate(ctx context.Context, req *OpsMaintenanceU
 	return opsMaintenanceUpdate(ctx, s.svcCtx, req)
 }
 
+// 系统维护（OPEN-ISSUES #52）：运行快照 + 检查更新（只检查不升级）。
+
+func (s *Service) SystemRuntime(ctx context.Context) *SystemRuntimeResponse {
+	return systemRuntime(s.svcCtx)
+}
+
+func (s *Service) SystemCheckUpdate(ctx context.Context) *SystemCheckUpdateResponse {
+	return systemCheckUpdate(ctx, s.svcCtx)
+}
+
 // Metrics and monitoring methods
 
 func (s *Service) OpsMetrics(ctx context.Context, req *OpsMetricsRequest) (*OpsMetricsResponse, error) {
