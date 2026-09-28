@@ -748,3 +748,29 @@ T3（execution_state 字段）→ T4/T6/T8；T2 → T5；T12（后端校验放�
 > 恒请求恒空），错误提示语义不变；③ agent 同步仍为 HTTP 轮询（演进项不在
 > 批次链内）。
 > 下一批：批次 2（displayName join catalog / healthStatus 推导）。
+## 扩展安装详情抽屉覆盖批次（Extensions 簇缺口首发，2026-09-28）
+
+> **交付（2026-09-28）**：覆盖率快照定位 Extensions 簇为 web 侧最大零测试目录
+> （约 2858 行 0%，无任何测试引用），首批收口簇内最大单文件
+> `Extensions/Installations/InstallationDetailDrawer.tsx`（522 行）——新增
+> `__tests__/InstallationDetailDrawer.test.tsx` 17 用例，v8 口径行/分支/函数/
+> 语句 **4×100%**。锁定契约：打开加载链（detail → 真实 adapter 兜底 →
+> schema/config 各自失败静默、卸载 cancelled 竞态）、概览四项（启用态/
+> 健康/版本/绑定数含缺省兜底）、基本信息五行（displayName 空回退
+> extensionId）、Schema 预览（title 兜底 key、type Tag、required 标、
+> 字段值 null 兜底、无 required 键、无 schema 空态）、绑定表行渲染与空态、
+> 工具栏四动作（健康检查 ok/unknown 兜底、测试连接、运行能力 Modal 两态、
+> 保存配置 JSON 双解析校验/空串 `|| '{}'` 双右翼/载荷/onSaved 链）、加载
+> 未就绪点击守卫（`if (!target) return` 四翼经 pending 期点击真实触达）、
+> canExtensionsManage=false 只读形态、onClose 回调与 open/row 守卫。
+> 门禁：目标套件 17/17 绿、tsc 0 错、eslint 干净；全量 jest 门禁与负载口径
+> 见交付说明。
+> **已知边界（诚实清单）**：
+>
+> 1. 组件加载链 try/finally 无 catch：detail 接口 reject 时产生 unhandled
+>    rejection（现状行为，不改组件）；守卫翼改经「加载 pending 期点击」
+>    真实触达，不造假 reject 场景。
+> 2. getByDisplayValue 对 node.value 折叠空白但期望串不折叠——multiline JSON
+>    回显断言一律用正则（首次踩坑记录）。
+> 3. Extensions 簇余量（Store/index 512、Installations/index 431、
+>    EventsDrawer 286、columns 231、UpgradeModal 151 等）留待后续批次。
