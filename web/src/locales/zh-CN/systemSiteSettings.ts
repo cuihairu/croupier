@@ -216,4 +216,21 @@ export default {
   'pages.systemSiteSettings.security.save': '保存',
   'pages.systemSiteSettings.security.saved': '已保存',
   'pages.systemSiteSettings.tab.security': '账号安全',
+
+  // 运维/系统维护（OPEN-ISSUES #52）
+  'pages.systemSiteSettings.maintenance.buildTime': '构建时间',
+  'pages.systemSiteSettings.maintenance.checkNow': '检查更新',
+  'pages.systemSiteSettings.maintenance.docs': '文档（关于）',
+  'pages.systemSiteSettings.maintenance.error.checkFailed': '检查更新失败',
+  'pages.systemSiteSettings.maintenance.error.loadFailed': '加载运行信息失败',
+  'pages.systemSiteSettings.maintenance.gitCommit': 'Git 提交',
+  'pages.systemSiteSettings.maintenance.runtime': '运行信息',
+  'pages.systemSiteSettings.maintenance.startedAt': '运行开始时间',
+  'pages.systemSiteSettings.maintenance.upToDate': '版本检查结果',
+  'pages.systemSiteSettings.maintenance.update': '检查更新',
+  'pages.systemSiteSettings.maintenance.updateAvailable': '发现新版本',
+  'pages.systemSiteSettings.maintenance.updateHint': '仅检查并提示版本注记，不会自动执行升级。更新源未配置时仅显示当前版本信息。',
+  'pages.systemSiteSettings.maintenance.uptime': '在线时长',
+  'pages.systemSiteSettings.maintenance.version': '运行版本',
+  'pages.systemSiteSettings.tab.maintenance': '运维',
 };

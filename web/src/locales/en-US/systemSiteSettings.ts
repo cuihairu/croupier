@@ -227,4 +227,21 @@ export default {
   'pages.systemSiteSettings.tab.security': 'Account Security',
 
   'pages.systemSiteSettings.tab.site': 'System Info',
+
+  // 运维/系统维护（OPEN-ISSUES #52）
+  'pages.systemSiteSettings.maintenance.buildTime': 'Build Time',
+  'pages.systemSiteSettings.maintenance.checkNow': 'Check for Updates',
+  'pages.systemSiteSettings.maintenance.docs': 'Docs (About)',
+  'pages.systemSiteSettings.maintenance.error.checkFailed': 'Update check failed',
+  'pages.systemSiteSettings.maintenance.error.loadFailed': 'Failed to load runtime info',
+  'pages.systemSiteSettings.maintenance.gitCommit': 'Git Commit',
+  'pages.systemSiteSettings.maintenance.runtime': 'Runtime',
+  'pages.systemSiteSettings.maintenance.startedAt': 'Started At',
+  'pages.systemSiteSettings.maintenance.upToDate': 'Version check result',
+  'pages.systemSiteSettings.maintenance.update': 'Check for Updates',
+  'pages.systemSiteSettings.maintenance.updateAvailable': 'New version available',
+  'pages.systemSiteSettings.maintenance.updateHint': 'Checks and shows a version note only; upgrades are never executed automatically. Without an update source configured, only the current version is shown.',
+  'pages.systemSiteSettings.maintenance.uptime': 'Uptime',
+  'pages.systemSiteSettings.maintenance.version': 'Version',
+  'pages.systemSiteSettings.tab.maintenance': 'Maintenance',
 };
