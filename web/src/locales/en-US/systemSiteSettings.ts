@@ -87,6 +87,19 @@ export default {
   'pages.systemSiteSettings.featureFlags.toggle.on': 'Enabled; menus update immediately',
   'pages.systemSiteSettings.field.copyright': 'Footer Copyright',
   'pages.systemSiteSettings.field.description': 'Login Page Subtitle',
+  'pages.systemSiteSettings.field.serverUrl': 'Server Address',
+  'pages.systemSiteSettings.field.serverUrlPlaceholder': 'https://gm.example.com (public domain)',
+  'pages.systemSiteSettings.field.taskPublicUrl': 'Async Task Public URL',
+  'pages.systemSiteSettings.field.taskPublicUrlPlaceholder': 'https://tasks.example.com',
+  'pages.systemSiteSettings.field.docsUrl': 'Docs Link (About)',
+  'pages.systemSiteSettings.field.docsUrlPlaceholder': 'https://docs.example.com',
+  'pages.systemSiteSettings.field.homeContent': 'Home Content',
+  'pages.systemSiteSettings.field.homeContentPlaceholder':
+    'Intro text shown on the login page welcome area',
+  'pages.systemSiteSettings.field.userAgreement': 'User Agreement',
+  'pages.systemSiteSettings.field.privacyPolicy': 'Privacy Policy',
+  'pages.systemSiteSettings.field.agreementPlaceholder':
+    'Full agreement text, shown on the login page footer',
   'pages.systemSiteSettings.field.faviconUrl': 'Favicon URL',
   'pages.systemSiteSettings.field.icp': 'ICP Filing Number',
   'pages.systemSiteSettings.field.icpPlaceholder': 'Beijing ICP Filing No. XXXXXXXX',
@@ -192,5 +205,5 @@ export default {
   'pages.systemSiteSettings.security.saved': 'Saved',
   'pages.systemSiteSettings.tab.security': 'Account Security',
 
-  'pages.systemSiteSettings.tab.site': 'Site Info',
+  'pages.systemSiteSettings.tab.site': 'System Info',
 };

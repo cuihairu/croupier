@@ -797,3 +797,13 @@ T3（execution_state 字段）→ T4/T6/T8；T2 → T5；T12（后端校验放�
 > 门禁：go build + `go test ./internal/...` 全绿、tsc 0 错、SecurityTab 9/9、全量 jest 落盘核绿、guard PASSED。
 > **已知边界**：① OTPEnabled 查询失败 fail-open（存储故障宁可放行不锁全部管理员），缓存 30s 内策略关闭不即时生效于已拦请求；② mfaGate 只拦 HTTP API，agent/SDK TCP 通道不受影响；③ 密码有效期只在新改密/建号时写入 expiresAt，存量账号不回溯（下次改密起算）；④ 策略收紧不放宽：minLength 策略值小于内置 8 时按内置执行。
 > 下一步：需求清单 #49-57 立项排队（系统信息/系统公告/身份验证+OAuth/系统维护/性能参数/日志维护/SMTP 归运维/安全与限制/第三方探针）。
+
+## 系统信息板块（OPEN-ISSUES #49，2026-09-28）
+
+> 用户原话：「有些网站设置是属于系统信息，应该包含系统名称，也就是网站名称，服务器地址，一般是域名 徽标url 异步任务对外地址，文档链接 也叫 关于，首页内容 用户协议 隐私政策等」。既有「站点信息」Tab 已纳管 name/logo/favicon/description/footer 六键，本批补齐缺的六键并整体更名「系统信息」。
+> 后端：`layered.go` 新增 `site.{serverUrl,taskPublicUrl,docsUrl,homeContent,userAgreement,privacyPolicy}` 六字符串键（ValidKeys 白名单）+ SiteSnapshot 六字段（lowerCamelCase omitempty）+ builder 逐键 provenance；公开快照 `GET /api/v1/public/site` 即时下发（协议全文本就是给访客看的，无脱敏面）。
+> 前端：`sites.ts` SiteConfig 六字段；SiteSettings「站点信息」→「系统信息」（12 键全矩阵：逐键保存/来源徽标/恢复覆盖机制复用 fieldWithActions）；登录页消费面（均按配置存在才渲染）：homeContent 欢迎区段落 + docsUrl 新窗口外链 + userAgreement/privacyPolicy 弹窗全文（pre-wrap + 60vh 滚动，同一弹窗复用按入口切换）。
+> 测试：`layered_notify_test.go` 快照用例扩六键（L3 透传 + provenance）；SiteSettings index 8 用例（保存钮 6→12、扩展字段回填/保存/空值守卫）；新增 `siteInfoFooter.test.tsx` 3 用例（齐全渲染/协议切换/Portal 挂 body）。**测试坑**：本地覆写 @umijs/max 时 useModel 必须给 `initialState.siteConfig` 嵌套形状（平铺无效）；antd Modal 关闭动效 jsdom 不走完，断言 Portal 可达而非 DOM 卸载。
+> 门禁：go build + `go test ./internal/...` 全绿、tsc 0 错、全量 jest 落盘核绿、guard PASSED。
+> **已知边界**：① serverUrl/taskPublicUrl 本批仅存储+快照暴露，真实消费（通知外链拼装/任务地址展示）归 #52/#53；② docsUrl 登录后侧入口（头像菜单/页脚）归 #52 系统维护展示；③ 协议展示暂限登录页，#51 自助注册落地时同步接入；④ 首页内容消费面=匿名首页（登录页），登录后无独立首页路由，若后续做工作台首页（#52 系统维护）再接。
+> 下一步：#50 系统公告核对 → #51 身份验证+OAuth → #52 系统维护 → #53 性能参数 → #54 日志维护 → #55 SMTP 归运维 → #56 安全与限制 → #57 第三方探针。

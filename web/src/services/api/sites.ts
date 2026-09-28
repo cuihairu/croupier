@@ -10,6 +10,12 @@ export type SiteConfig = {
   footerIcp?: string;
   footerLinks?: Array<{ key: string; title: string; url: string }>;
   defaultLocale?: string;
+  serverUrl?: string;
+  taskPublicUrl?: string;
+  docsUrl?: string;
+  homeContent?: string;
+  userAgreement?: string;
+  privacyPolicy?: string;
 };
 
 // Public snapshot (login page and pre-auth also need it).

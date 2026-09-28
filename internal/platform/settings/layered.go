@@ -33,6 +33,16 @@ const (
 	KeyFooterLinks     = "footer.links" // JSON array [{key,title,url}]
 	KeyDefaultLocale   = "site.defaultLocale"
 
+	// 系统信息扩展键（OPEN-ISSUES #49）：对外地址、文档链接与协议全文。
+	// serverUrl/taskPublicUrl 为展示与外链拼接预留（消费面见 #52/#53），
+	// 协议/首页内容为纯文本，经公开站点快照下发给匿名访客。
+	KeySiteServerURL     = "site.serverUrl"     // 对外访问地址（域名）
+	KeySiteTaskPublicURL = "site.taskPublicUrl" // 异步任务对外地址
+	KeySiteDocsURL       = "site.docsUrl"       // 文档链接（关于）
+	KeySiteHomeContent   = "site.homeContent"   // 首页内容（登录页欢迎区展示）
+	KeySiteUserAgreement = "site.userAgreement" // 用户协议全文
+	KeySitePrivacyPolicy = "site.privacyPolicy" // 隐私政策全文
+
 	// features.* 是五域功能开关的 L3 运行时覆盖（P2）：只能关闭 L2 已启用
 	// 的域，不能开启 L2 裁剪掉的域（合成语义 L2 ∧ L3，见 FeatureEnabled）。
 	KeyFeatureDev        = "features.dev"
@@ -94,6 +104,8 @@ var ValidKeys = map[string]struct{}{
 	KeySiteName: {}, KeySiteLogoURL: {}, KeySiteFaviconURL: {},
 	KeySiteDescription: {}, KeyFooterCopyright: {}, KeyFooterICP: {},
 	KeyFooterLinks: {}, KeyDefaultLocale: {},
+	KeySiteServerURL: {}, KeySiteTaskPublicURL: {}, KeySiteDocsURL: {},
+	KeySiteHomeContent: {}, KeySiteUserAgreement: {}, KeySitePrivacyPolicy: {},
 
 	KeyFeatureDev: {}, KeyFeatureSupport: {}, KeyFeatureAnalytics: {},
 	KeyFeatureOps: {}, KeyFeatureExtensions: {},
@@ -599,6 +611,12 @@ type SiteSnapshot struct {
 	FooterICP     string            `json:"footerIcp,omitempty"`
 	FooterLinks   []FooterLink      `json:"footerLinks,omitempty"`
 	DefaultLocale string            `json:"defaultLocale,omitempty"`
+	ServerURL     string            `json:"serverUrl,omitempty"`
+	TaskPublicURL string            `json:"taskPublicUrl,omitempty"`
+	DocsURL       string            `json:"docsUrl,omitempty"`
+	HomeContent   string            `json:"homeContent,omitempty"`
+	UserAgreement string            `json:"userAgreement,omitempty"`
+	PrivacyPolicy string            `json:"privacyPolicy,omitempty"`
 	Sources       map[string]string `json:"sources"` // per-key provenance
 }
 
@@ -657,6 +675,30 @@ func (l *Layered) SiteSnapshot() SiteSnapshot {
 	if v, src, ok := get(KeyDefaultLocale); ok {
 		snap.DefaultLocale = v
 		snap.Sources[KeyDefaultLocale] = src
+	}
+	if v, src, ok := get(KeySiteServerURL); ok {
+		snap.ServerURL = v
+		snap.Sources[KeySiteServerURL] = src
+	}
+	if v, src, ok := get(KeySiteTaskPublicURL); ok {
+		snap.TaskPublicURL = v
+		snap.Sources[KeySiteTaskPublicURL] = src
+	}
+	if v, src, ok := get(KeySiteDocsURL); ok {
+		snap.DocsURL = v
+		snap.Sources[KeySiteDocsURL] = src
+	}
+	if v, src, ok := get(KeySiteHomeContent); ok {
+		snap.HomeContent = v
+		snap.Sources[KeySiteHomeContent] = src
+	}
+	if v, src, ok := get(KeySiteUserAgreement); ok {
+		snap.UserAgreement = v
+		snap.Sources[KeySiteUserAgreement] = src
+	}
+	if v, src, ok := get(KeySitePrivacyPolicy); ok {
+		snap.PrivacyPolicy = v
+		snap.Sources[KeySitePrivacyPolicy] = src
 	}
 	return snap
 }
