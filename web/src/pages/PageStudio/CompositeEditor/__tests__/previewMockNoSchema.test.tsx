@@ -8,7 +8,14 @@
  *  functionId 恒有 fallback 兜底（L155-164），runNode 又保证 fid 非空——该
  *  分支在线上不可达，属防御性保留（函数契约缺失/顶层结构不支持的旧
  *  descriptor 形态）。本套件以模块边界 mock 锁定 PreviewRuntime 自身的
- *  warn-once 与空态回写逻辑，非伪造业务路径。 */
+ *  warn-once 与空态回写逻辑，非伪造业务路径。
+ *
+ *  残差登记（round-9）：
+ *  - L170 title ?? fid 兜底臂：已由「节点无 title」用例覆盖；
+ *  - L403 handleSelection 的 results[id] ?? {} 兜底臂：构造性不可达——
+ *    onSelectionChange 仅由 PreviewNode 的 Table 行选择触发，而行渲染以
+ *    results[id].data 为数据源，选中发生时 results 条目必然已存在（runNode
+ *    成功路径先写结果）；空表无行可选，故 ?? 左侧恒命中，不硬凑。 */
 import React from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { App } from 'antd';
@@ -93,6 +100,21 @@ describe('PreviewRuntime 模拟数据合成失败告警', () => {
     await waitFor(() => expect(mockedGenerate).toHaveBeenCalledTimes(2), FIND);
     // 第二次执行不再追加警告——仍是首次那一条
     expect(screen.getAllByText(/无可用 outputSchema/)).toHaveLength(1);
+    expect(mockedInvoke).not.toHaveBeenCalled();
+  });
+
+  it('节点无 title → 警告文案兜底用 functionId（round-9：L170 ?? fid 臂）', async () => {
+    const noTitle: PageNode[] = [
+      {
+        id: 'tbl2',
+        type: 'fnTable',
+        props: { functionId: 'player.list', span: 24, autoRun: true, columns: ['uid'] },
+      },
+    ];
+    renderPreview(noTitle);
+    expect(
+      await screen.findByText(/「player\.list」无可用 outputSchema/, undefined, FIND),
+    ).toBeInTheDocument();
     expect(mockedInvoke).not.toHaveBeenCalled();
   });
 });
