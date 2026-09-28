@@ -173,12 +173,12 @@ pages 返回 `{pages[]}`（**不是 `items[]`**），页面项（`ExtensionPageI
 
 ## 6. 前端消费现状审计（2026-09-28，#46）
 
-| 页面                                        | 消费端点                                                            | 结论                                                                                                                                                                                                                |
-| ------------------------------------------- | ------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Store（`Extensions/Store`）                 | catalog 列表/详情/releases、install                                 | ✅ 一致；adapter 层（`services/adapters/extensions.ts`）薄归一，`EXTENSION_ERROR_CODES` 按 §4 分支已接                                                                                                              |
-| Installations（`Extensions/Installations`） | installations 列表/详情、enable/disable/reconcile/uninstall、events | ✅ 一致；详情/事件/升级三 overlay 受控组合                                                                                                                                                                          |
-| AgentSync（`Extensions/AgentSync`）         | `sync-payload` 预览                                                 | ✅ 一致（只读 JSON 预览）                                                                                                                                                                                           |
-| DomainEntry（`Extensions/DomainEntry`）     | `listExtensionPages`                                                | ❌ **契约错位**：前端期待 `{items:[{path}]}`，后端实返 `{pages:[{route}]}`，且错误被 `.catch` 静默吞掉——「扩展页面入口」区块生产环境恒为 Empty。修复方向：前端改读 `pages` 字段并对齐 `route/key/title`，随实施批次 |
+| 页面                                        | 消费端点                                                            | 结论                                                                                                                                                                       |
+| ------------------------------------------- | ------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Store（`Extensions/Store`）                 | catalog 列表/详情/releases、install                                 | ✅ 一致；adapter 层（`services/adapters/extensions.ts`）薄归一，`EXTENSION_ERROR_CODES` 按 §4 分支已接                                                                     |
+| Installations（`Extensions/Installations`） | installations 列表/详情、enable/disable/reconcile/uninstall、events | ✅ 一致；详情/事件/升级三 overlay 受控组合                                                                                                                                 |
+| AgentSync（`Extensions/AgentSync`）         | `sync-payload` 预览                                                 | ✅ 一致（只读 JSON 预览）                                                                                                                                                  |
+| DomainEntry（`Extensions/DomainEntry`）     | installations 列表 → `listExtensionPages`                           | ✅ 已修（#46 批次 1）：canonical 端点 `installations/:id/pages`，先取首个安装实例再拉页面绑定；`.catch` 静默已移除，加载失败走页面统一错误提示。页面级真实渲染用例归批次 4 |
 
 前端 `services/api/extensions.ts` 的类型/归一**不消费** `code`/`message`
 （normalize 直取业务字段）——后端响应 DTO 去掉内嵌 `code/message` 对前端零影响；
@@ -186,11 +186,13 @@ pages 返回 `{pages[]}`（**不是 `items[]`**），页面项（`ExtensionPageI
 
 ## 7. 已知缺口与实施批次链（#46 收口路径）
 
-1. **契约收口批次（wire 变更，禁兼容旧键）**：响应 DTO 去内嵌 `code/message`
-   字段（24 个 DTO）→ 全部前端类型/归一同步（已确认零消费，类型侧仅注释）；
-   agent puller 解析端同步；删除 compat 路由组（13 条）与
-   `resolveCompatInstallationID`；修复 `listExtensionPages` 契约错位。
-   回归：extension 包 Go 测试全量 + Store/Installations/DomainEntry 前端套件。
+1. ✅ **契约收口批次（2026-09-28 已落地）**：16 个响应 DTO 去内嵌 `code/message`
+   字段；agent puller 解析端同步（wrapper 仅存 `payload`）；删除 compat 路由组
+   （13 条）与 `resolveCompatInstallationID` 及其 18 个测试函数；
+   `listExtensionPages` 切 canonical 端点、DomainEntry 静默吞错移除。
+   已知边界：Extensions 四页面（Store/Installations/AgentSync/DomainEntry）
+   此前零测试文件，本批仅 API 层 `extensions.test.ts` 回归（16 用例），页面级
+   真实渲染用例归批次 4。
 2. **列表组装修正**：`displayName` join catalog 真名；`healthStatus` 从
    status/enabled 推导（或引 runtime binding 状态），替换恒 `unknown`。
 3. **catalog 写路径批次（V2 主缺口）**：admin catalog/release CRUD（登记/

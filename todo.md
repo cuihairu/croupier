@@ -719,3 +719,32 @@ T3（execution_state 字段）→ T4/T6/T8；T2 → T5；T12（后端校验放�
 > 嵌 code/message + agent puller 解析端同步 + compat 组删除 + pages 契约修复，
 > 禁兼容旧键）；2) 列表组装修正（displayName join catalog / healthStatus 推
 > 导）；3) catalog 写路径（admin CRUD + official.* 四扩展 seed，pack 导入后续）；4) DomainEntry 真实渲染恢复+用例。
+
+## 插件域批次 1：契约收口（OPEN-ISSUES #46，2026-09-28）
+
+> **交付（2026-09-28）**：按设计收口定的批次链 1 落地（wire 变更，禁兼容旧键）：
+> ① 16 个响应 DTO 去内嵌 `code`/`message`（32 字段行）——成功响应回到平台契约
+> 直返语义（`response.Success` 直返业务 JSON，前端 normalize 零消费已核实）；
+> 修正设计文档笔误（草案写「24 个 DTO」，实际 16 Response 类型）；事件项的
+> 业务 `Message` 字段（`json:"message"`）不受影响（正则误删后已加回，构成
+> 回归用例覆盖）。
+> ② compat 路由组全删：routes.go 13 条 `/:id/*` 注册 + handler 13 个 Compat*
+> 方法 + `resolveCompatInstallationID`；`registerAgentExtensionCompatRoutes`
+> 更名 `registerAgentExtensionRoutes`（agent wire 端点保留——puller 消费方，
+> 只是命名去误导）。
+> ③ agent puller 同步：`extensionSyncAPIResponse` 仅存 `payload` 包装（与基线
+> §3.4 一致）；mock 响应里遗留 code/message 键由 JSON decode 宽容容忍（该测试
+> 保留兼作多余字段容忍回归）。
+> ④ `listExtensionPages` 切 canonical `GET /installations/:id/pages`（响应
+> `{pages:[...]}`，字段 route/key/title/order/icon/source），DomainEntry 改
+> 「先取首个安装实例再拉页面绑定」并移除 `.catch` 静默（契约错位+吞错=页面
+> 入口恒 Empty 的根因）；渲染 path→route。
+> 门禁：go build ./... + go test ./internal/... 154 包全绿（extension/handler/
+> agent 三包重点复验）、tsc 0 错、extensions 套件 16/16、guard PASSED、全量
+> jest 2-worker 限流（load 17+）；gofmt 全仓净。
+> **已知边界（诚实清单）**：① Extensions 四页面（Store/Installations/
+> AgentSync/DomainEntry）此前零测试文件，本批仅 API 层回归，页面级真实渲染
+> 用例归批次 4；② DomainEntry 在无安装实例时不再请求 pages（行为变化：此前
+> 恒请求恒空），错误提示语义不变；③ agent 同步仍为 HTTP 轮询（演进项不在
+> 批次链内）。
+> 下一批：批次 2（displayName join catalog / healthStatus 推导）。

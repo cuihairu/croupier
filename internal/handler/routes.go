@@ -163,7 +163,7 @@ func RegisterHandlers(r *gin.Engine, serverCtx *svc.ServiceContext) {
 		if flags.Enabled(configpkg.FlagExtensions) {
 			extSoft := protected.Group("/", softFlags.guard(configpkg.FlagExtensions))
 			registerExtensionRoutes(extSoft.Group("/extensions"), serverCtx)
-			registerAgentExtensionCompatRoutes(extSoft.Group("/agents"), serverCtx)
+			registerAgentExtensionRoutes(extSoft.Group("/agents"), serverCtx)
 			registerPlatformRoutes(extSoft.Group("/platforms"), serverCtx)
 		}
 		if flags.Enabled(configpkg.FlagSupport) {
@@ -342,25 +342,10 @@ func registerExtensionRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 	g.POST("/installations/:id/reconcile", extensionHandler.Reconcile)
 	g.DELETE("/installations/:id", extensionHandler.Uninstall)
 	g.GET("/installations/:id/events", extensionHandler.Events)
-	// Compatibility routes aligned with target API shape:
-	// /api/v1/extensions/:id/*
-	g.GET("/:id/config-schema", extensionHandler.CompatConfigSchema)
-	g.GET("/:id/config", extensionHandler.CompatConfig)
-	g.PUT("/:id/config", extensionHandler.CompatUpdateConfig)
-	g.POST("/:id/test-connection", extensionHandler.CompatTestConnection)
-	g.GET("/:id/capabilities", extensionHandler.CompatCapabilities)
-	g.GET("/:id/pages", extensionHandler.CompatPages)
-	g.POST("/:id/health-check", extensionHandler.CompatHealthCheck)
-	g.POST("/:id/enable", extensionHandler.CompatEnable)
-	g.POST("/:id/disable", extensionHandler.CompatDisable)
-	g.POST("/:id/upgrade", extensionHandler.CompatUpgrade)
-	g.POST("/:id/reconcile", extensionHandler.CompatReconcile)
-	g.DELETE("/:id/uninstall", extensionHandler.CompatUninstall)
-	g.GET("/:id/events", extensionHandler.CompatEvents)
 	g.GET("/agents/:agentId/sync-payload", extensionHandler.AgentSyncPayload)
 }
 
-func registerAgentExtensionCompatRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
+func registerAgentExtensionRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 	extensionSvc := extension.NewService(ctx)
 	extensionHandler := extension.NewHandler(extensionSvc)
 	g.GET("/:id/extensions", extensionHandler.AgentExtensions)

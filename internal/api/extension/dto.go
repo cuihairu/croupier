@@ -36,15 +36,11 @@ type ExtensionReleaseItem struct {
 }
 
 type ExtensionCatalogListResponse struct {
-	Code    int                    `json:"code"`
-	Message string                 `json:"message"`
-	Total   int64                  `json:"total"`
-	Items   []ExtensionCatalogItem `json:"items"`
+	Total int64                  `json:"total"`
+	Items []ExtensionCatalogItem `json:"items"`
 }
 
 type ExtensionCatalogDetailResponse struct {
-	Code         int                    `json:"code"`
-	Message      string                 `json:"message"`
 	Item         *ExtensionCatalogItem  `json:"item"`
 	Releases     []ExtensionReleaseItem `json:"releases"`
 	Manifest     map[string]any         `json:"manifest"`
@@ -52,8 +48,6 @@ type ExtensionCatalogDetailResponse struct {
 }
 
 type ExtensionCatalogReleasesResponse struct {
-	Code     int                    `json:"code"`
-	Message  string                 `json:"message"`
 	Total    int64                  `json:"total"`
 	Releases []ExtensionReleaseItem `json:"releases"`
 }
@@ -82,8 +76,6 @@ type ExtensionInstallationListRequest struct {
 }
 
 type ExtensionInstallResponse struct {
-	Code           int    `json:"code"`
-	Message        string `json:"message"`
 	InstallationID uint   `json:"installationId"`
 	Status         string `json:"status"`
 }
@@ -107,10 +99,8 @@ type ExtensionInstallationItem struct {
 }
 
 type ExtensionInstallationListResponse struct {
-	Code    int                         `json:"code"`
-	Message string                      `json:"message"`
-	Total   int64                       `json:"total"`
-	Items   []ExtensionInstallationItem `json:"items"`
+	Total int64                       `json:"total"`
+	Items []ExtensionInstallationItem `json:"items"`
 }
 
 type ExtensionBindingItem struct {
@@ -131,8 +121,6 @@ type ExtensionEventItem struct {
 }
 
 type ExtensionInstallationDetailResponse struct {
-	Code         int                        `json:"code"`
-	Message      string                     `json:"message"`
 	Installation *ExtensionInstallationItem `json:"installation"`
 	ConfigSchema map[string]any             `json:"configSchema"`
 	Config       map[string]any             `json:"config"`
@@ -151,41 +139,29 @@ type ExtensionUpgradeRequest struct {
 }
 
 type ExtensionActionResponse struct {
-	Code    int    `json:"code"`
-	Message string `json:"message"`
-	Status  string `json:"status"`
+	Status string `json:"status"`
 }
 
 type ExtensionReconcileResponse struct {
-	Code    int    `json:"code"`
-	Message string `json:"message"`
 	Status  string `json:"status"`
 	Applied int    `json:"applied"`
 	Failed  int    `json:"failed"`
 }
 
 type ExtensionConfigSchemaResponse struct {
-	Code    int            `json:"code"`
-	Message string         `json:"message"`
-	Schema  map[string]any `json:"schema"`
+	Schema map[string]any `json:"schema"`
 }
 
 type ExtensionConfigResponse struct {
-	Code       int               `json:"code"`
-	Message    string            `json:"message"`
 	Config     map[string]any    `json:"config"`
 	SecretRefs map[string]string `json:"secretRefs"`
 }
 
 type ExtensionTestConnectionResponse struct {
-	Code    int    `json:"code"`
-	Message string `json:"message"`
-	Status  string `json:"status"`
+	Status string `json:"status"`
 }
 
 type ExtensionCapabilitiesResponse struct {
-	Code         int                         `json:"code"`
-	Message      string                      `json:"message"`
 	Capabilities []string                    `json:"capabilities"`
 	Details      []ExtensionCapabilityDetail `json:"details"`
 }
@@ -215,23 +191,17 @@ type ExtensionPageItem struct {
 }
 
 type ExtensionPagesResponse struct {
-	Code    int                 `json:"code"`
-	Message string              `json:"message"`
-	Pages   []ExtensionPageItem `json:"pages"`
+	Pages []ExtensionPageItem `json:"pages"`
 }
 
 type ExtensionHealthCheckResponse struct {
-	Code      int    `json:"code"`
-	Message   string `json:"message"`
 	Status    string `json:"status"`
 	CheckedAt int64  `json:"checkedAt"`
 }
 
 type ExtensionEventListResponse struct {
-	Code    int                  `json:"code"`
-	Message string               `json:"message"`
-	Total   int64                `json:"total"`
-	Items   []ExtensionEventItem `json:"items"`
+	Total int64                `json:"total"`
+	Items []ExtensionEventItem `json:"items"`
 }
 
 type ExtensionEventListRequest struct {
@@ -242,7 +212,5 @@ type ExtensionEventListRequest struct {
 }
 
 type ExtensionAgentSyncResponse struct {
-	Code    int         `json:"code"`
-	Message string      `json:"message"`
 	Payload interface{} `json:"payload"`
 }

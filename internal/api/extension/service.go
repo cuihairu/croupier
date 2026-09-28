@@ -60,7 +60,7 @@ func (s *Service) CatalogList(ctx context.Context, req ExtensionCatalogListReque
 			Tags:           tags,
 		})
 	}
-	return &ExtensionCatalogListResponse{Code: 200, Message: "success", Total: total, Items: respItems}, nil
+	return &ExtensionCatalogListResponse{Total: total, Items: respItems}, nil
 }
 
 func (s *Service) CatalogDetail(ctx context.Context, extensionID string) (*ExtensionCatalogDetailResponse, error) {
@@ -92,8 +92,6 @@ func (s *Service) CatalogDetail(ctx context.Context, extensionID string) (*Exten
 	defaultInstall := extractDefaultInstall(manifest)
 	tags := extractTags(manifest)
 	return &ExtensionCatalogDetailResponse{
-		Code:    200,
-		Message: "success",
 		Item: &ExtensionCatalogItem{
 			ID:             item.ExtensionID,
 			Name:           item.Name,
@@ -136,8 +134,6 @@ func (s *Service) CatalogReleases(ctx context.Context, extensionID string) (*Ext
 		})
 	}
 	return &ExtensionCatalogReleasesResponse{
-		Code:     200,
-		Message:  "success",
 		Total:    int64(len(items)),
 		Releases: items,
 	}, nil
@@ -189,7 +185,7 @@ func (s *Service) Install(ctx context.Context, req ExtensionInstallRequest, oper
 	if err != nil {
 		return nil, mapServiceError(err)
 	}
-	return &ExtensionInstallResponse{Code: 200, Message: "success", InstallationID: item.ID, Status: item.Status}, nil
+	return &ExtensionInstallResponse{InstallationID: item.ID, Status: item.Status}, nil
 }
 
 func (s *Service) InstallationList(ctx context.Context, req ExtensionInstallationListRequest) (*ExtensionInstallationListResponse, error) {
@@ -207,7 +203,7 @@ func (s *Service) InstallationList(ctx context.Context, req ExtensionInstallatio
 	for _, item := range items {
 		respItems = append(respItems, toInstallationItem(item))
 	}
-	return &ExtensionInstallationListResponse{Code: 200, Message: "success", Total: total, Items: respItems}, nil
+	return &ExtensionInstallationListResponse{Total: total, Items: respItems}, nil
 }
 
 func (s *Service) InstallationDetail(ctx context.Context, id uint) (*ExtensionInstallationDetailResponse, error) {
@@ -235,8 +231,6 @@ func (s *Service) InstallationDetail(ctx context.Context, id uint) (*ExtensionIn
 	_ = json.Unmarshal(item.SecretRefsJSON, &secretRefs)
 	configSchema := s.resolveConfigSchema(ctx, item.ExtensionID, item.ReleaseVersion)
 	return &ExtensionInstallationDetailResponse{
-		Code:         200,
-		Message:      "success",
 		Installation: ptrInstallationItem(*item),
 		ConfigSchema: configSchema,
 		Config:       config,
@@ -260,7 +254,7 @@ func (s *Service) UpdateConfig(ctx context.Context, id uint, req ExtensionConfig
 	if err := s.svcCtx.Extensions.Installation.UpdateConfig(ctx, id, req.Config, req.SecretRefs, operator); err != nil {
 		return nil, mapServiceError(err)
 	}
-	return &ExtensionActionResponse{Code: 200, Message: "success", Status: "updated"}, nil
+	return &ExtensionActionResponse{Status: "updated"}, nil
 }
 
 func (s *Service) ConfigSchema(ctx context.Context, id uint) (*ExtensionConfigSchemaResponse, error) {
@@ -273,9 +267,7 @@ func (s *Service) ConfigSchema(ctx context.Context, id uint) (*ExtensionConfigSc
 	}
 	schema := s.resolveConfigSchema(ctx, item.ExtensionID, item.ReleaseVersion)
 	return &ExtensionConfigSchemaResponse{
-		Code:    200,
-		Message: "success",
-		Schema:  schema,
+		Schema: schema,
 	}, nil
 }
 
@@ -292,8 +284,6 @@ func (s *Service) Config(ctx context.Context, id uint) (*ExtensionConfigResponse
 	_ = json.Unmarshal(item.ConfigJSON, &config)
 	_ = json.Unmarshal(item.SecretRefsJSON, &secretRefs)
 	return &ExtensionConfigResponse{
-		Code:       200,
-		Message:    "success",
 		Config:     config,
 		SecretRefs: secretRefs,
 	}, nil
@@ -317,9 +307,7 @@ func (s *Service) TestConnection(ctx context.Context, id uint, operator string) 
 		`{"status":"ok"}`,
 	)
 	return &ExtensionTestConnectionResponse{
-		Code:    200,
-		Message: "success",
-		Status:  connectionStatusByInstallation(item),
+		Status: connectionStatusByInstallation(item),
 	}, nil
 }
 
@@ -356,8 +344,6 @@ func (s *Service) Capabilities(ctx context.Context, id uint) (*ExtensionCapabili
 		}
 	}
 	return &ExtensionCapabilitiesResponse{
-		Code:         200,
-		Message:      "success",
 		Capabilities: caps,
 		Details:      details,
 	}, nil
@@ -407,9 +393,7 @@ func (s *Service) Pages(ctx context.Context, id uint) (*ExtensionPagesResponse, 
 		return pages[i].Order < pages[j].Order
 	})
 	return &ExtensionPagesResponse{
-		Code:    200,
-		Message: "success",
-		Pages:   pages,
+		Pages: pages,
 	}, nil
 }
 
@@ -691,8 +675,6 @@ func (s *Service) HealthCheck(ctx context.Context, id uint, operator string) (*E
 		fmt.Sprintf(`{"status":"%s"}`, status),
 	)
 	return &ExtensionHealthCheckResponse{
-		Code:      200,
-		Message:   "success",
 		Status:    status,
 		CheckedAt: time.Now().Unix(),
 	}, nil
@@ -718,7 +700,7 @@ func (s *Service) Enable(ctx context.Context, id uint, operator string) (*Extens
 	if err := s.svcCtx.Extensions.Installation.Enable(ctx, id, operator); err != nil {
 		return nil, mapServiceError(err)
 	}
-	return &ExtensionActionResponse{Code: 200, Message: "success", Status: "enabled"}, nil
+	return &ExtensionActionResponse{Status: "enabled"}, nil
 }
 
 func (s *Service) Disable(ctx context.Context, id uint, operator string) (*ExtensionActionResponse, error) {
@@ -728,7 +710,7 @@ func (s *Service) Disable(ctx context.Context, id uint, operator string) (*Exten
 	if err := s.svcCtx.Extensions.Installation.Disable(ctx, id, operator); err != nil {
 		return nil, mapServiceError(err)
 	}
-	return &ExtensionActionResponse{Code: 200, Message: "success", Status: "disabled"}, nil
+	return &ExtensionActionResponse{Status: "disabled"}, nil
 }
 
 func (s *Service) Upgrade(ctx context.Context, id uint, version, operator string) (*ExtensionActionResponse, error) {
@@ -766,7 +748,7 @@ func (s *Service) Upgrade(ctx context.Context, id uint, version, operator string
 	if err := s.svcCtx.Extensions.Installation.Upgrade(ctx, id, targetVersion, operator); err != nil {
 		return nil, mapServiceError(err)
 	}
-	return &ExtensionActionResponse{Code: 200, Message: "success", Status: "upgraded"}, nil
+	return &ExtensionActionResponse{Status: "upgraded"}, nil
 }
 
 func (s *Service) Reconcile(ctx context.Context, id uint) (*ExtensionReconcileResponse, error) {
@@ -778,8 +760,6 @@ func (s *Service) Reconcile(ctx context.Context, id uint) (*ExtensionReconcileRe
 		return nil, mapServiceError(err)
 	}
 	return &ExtensionReconcileResponse{
-		Code:    200,
-		Message: "success",
 		Status:  result.Status,
 		Applied: result.Applied,
 		Failed:  result.Failed,
@@ -796,7 +776,7 @@ func (s *Service) Uninstall(ctx context.Context, id uint, operator string) (*Ext
 	if err := s.svcCtx.Extensions.Installation.Uninstall(ctx, id, operator); err != nil {
 		return nil, mapServiceError(err)
 	}
-	return &ExtensionActionResponse{Code: 200, Message: "success", Status: "uninstalled"}, nil
+	return &ExtensionActionResponse{Status: "uninstalled"}, nil
 }
 
 func (s *Service) Events(ctx context.Context, id uint, req ExtensionEventListRequest) (*ExtensionEventListResponse, error) {
@@ -824,7 +804,7 @@ func (s *Service) Events(ctx context.Context, id uint, req ExtensionEventListReq
 		return nil, mapServiceError(err)
 	}
 	items := toEventItems(events)
-	return &ExtensionEventListResponse{Code: 200, Message: "success", Total: total, Items: items}, nil
+	return &ExtensionEventListResponse{Total: total, Items: items}, nil
 }
 
 func (s *Service) AgentSyncPayload(ctx context.Context, agentID string) (*ExtensionAgentSyncResponse, error) {
@@ -839,8 +819,6 @@ func (s *Service) AgentSyncPayload(ctx context.Context, agentID string) (*Extens
 		return nil, mapServiceError(err)
 	}
 	return &ExtensionAgentSyncResponse{
-		Code:    200,
-		Message: "success",
 		Payload: payload,
 	}, nil
 }

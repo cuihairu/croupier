@@ -256,49 +256,6 @@ func bodyForMethod(method string) string {
 	return ""
 }
 
-func TestExtensionFlow_CompatHandlerErrors(t *testing.T) {
-	env := setupExtensionEnv(t)
-
-	router := env.router
-	router.GET("/compat2/:id/config-schema", env.handler.CompatConfigSchema)
-	router.GET("/compat2/:id/config", env.handler.CompatConfig)
-	router.PUT("/compat2/:id/config", env.handler.CompatUpdateConfig)
-	router.POST("/compat2/:id/test-connection", env.handler.CompatTestConnection)
-	router.GET("/compat2/:id/capabilities", env.handler.CompatCapabilities)
-	router.GET("/compat2/:id/pages", env.handler.CompatPages)
-	router.POST("/compat2/:id/health-check", env.handler.CompatHealthCheck)
-	router.POST("/compat2/:id/enable", env.handler.CompatEnable)
-	router.POST("/compat2/:id/disable", env.handler.CompatDisable)
-	router.POST("/compat2/:id/upgrade", env.handler.CompatUpgrade)
-	router.POST("/compat2/:id/reconcile", env.handler.CompatReconcile)
-	router.DELETE("/compat2/:id", env.handler.CompatUninstall)
-	router.GET("/compat2/:id/events", env.handler.CompatEvents)
-
-	for _, path := range []string{
-		"/compat2/missing-ext/config-schema",
-		"/compat2/missing-ext/config",
-		"/compat2/missing-ext/test-connection",
-		"/compat2/missing-ext/capabilities",
-		"/compat2/missing-ext/pages",
-		"/compat2/missing-ext/health-check",
-		"/compat2/missing-ext/enable",
-		"/compat2/missing-ext/disable",
-		"/compat2/missing-ext/reconcile",
-		"/compat2/missing-ext",
-		"/compat2/missing-ext/events",
-	} {
-		rec := env.do(t, methodForPath(path), path, "")
-		assert.Equal(t, http.StatusNotFound, rec.Code, path)
-	}
-
-	// Identifier resolution runs before body binding: bad JSON still yields 404.
-	rec := env.do(t, http.MethodPost, "/compat2/missing-ext/upgrade", "{bad")
-	assert.Equal(t, http.StatusNotFound, rec.Code)
-
-	rec = env.do(t, http.MethodPut, "/compat2/missing-ext/config", "{bad")
-	assert.Equal(t, http.StatusNotFound, rec.Code)
-}
-
 func methodForPath(path string) string {
 	switch {
 	case hasSuffix(path, "/config"), hasSuffix(path, "/config-schema"), hasSuffix(path, "/capabilities"), hasSuffix(path, "/pages"), hasSuffix(path, "/events"):

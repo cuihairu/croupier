@@ -436,27 +436,37 @@ export async function getAgentSyncPayload(agentId: string) {
   );
 }
 
-export async function listExtensionPages(id: string | number) {
+// #46 批次 1 契约收口：canonical 端点为 installations/:id/pages（按安装实例），
+// 响应为 { pages: [...] }（Source: dto.go ExtensionPagesResponse）——旧
+// /extensions/:extensionId/pages 兼容路由已删除。
+export type ExtensionPageEntry = {
+  key: string;
+  title: string;
+  route: string;
+  icon?: string;
+  order: number;
+  source: string;
+};
+
+export async function listExtensionPages(id: number): Promise<{ items: ExtensionPageEntry[] }> {
   const response = await request<{
-    items?: Array<{
-      id?: string;
+    pages?: Array<{
+      key?: string;
       title?: string;
-      path?: string;
+      route?: string;
       icon?: string;
       order?: number;
-      category?: string;
-      extensionId?: string;
+      source?: string;
     }>;
-  }>(`${BASE}/${encodeURIComponent(String(id))}/pages`);
+  }>(`${BASE}/installations/${id}/pages`);
   return {
-    items: (response?.items || []).map((item) => ({
-      id: item.id,
-      title: item.title,
-      path: item.path,
-      icon: item.icon,
-      order: item.order,
-      category: item.category,
-      extensionId: item.extensionId,
+    items: (response?.pages || []).map((page) => ({
+      key: page.key ?? '',
+      title: page.title ?? '',
+      route: page.route ?? '',
+      icon: page.icon,
+      order: typeof page.order === 'number' ? page.order : 0,
+      source: page.source ?? '',
     })),
   };
 }
