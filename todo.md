@@ -445,3 +445,19 @@ T3（execution_state 字段）→ T4/T6/T8；T2 → T5；T12（后端校验放�
 > 0 文件低于 60%）、guard PASSED。
 > **已知边界**：四个子 Tab（AuthTab 789 / NotificationTab 450 / FeatureFlagsTab 298 /
 > ObservabilityTab 223 行）桩替换未覆盖，留下一批次。
+
+## 覆盖率巡检批次·Go 侧（wt-api worktree，2026-09-28）
+
+> **交付（2026-09-28）**：全量 profile（99.82%，61051/61160 语句）后按文件粒度
+> 取最低可离线测文件补齐——`internal/model/ticket_model.go` **79.2% → 100%**
+> （internal/ 全树最低文件）：缺口为 #21 服务端下拉聚合
+> `ListCategories`/`ListAssignees`/`listOptionStats`（落地时无模型层测试），
+> 补 3 例锁定契约：distinct 非空聚合 + COUNT + name ASC、空串不成行、
+> (game_id, env) 双带/单带/不带三口径、缺表报错不 panic。
+> 此前批次已封顶（均在 main）：api/provider 99.2%、registry 99.7%、
+> api/profile 99.5%、api/node 100%、common/errorx 100%。
+> 门禁：gofmt 干净、go vet 干净、go test ./internal/... 全绿、guard PASSED。
+> **已知边界**：auth/mfa.go(90.4%) 与 security/otp 缺口属 d9fdc05 会话
+> OTP 工作面，回避不碰；assignment/gate.go(89.5%) 属 BUG-035 会话工作面
+> 同理；共享内存库（cache=shared）跨用例数据共享，补测用唯一 scope 隔离。
+
