@@ -1,10 +1,11 @@
 import React from 'react';
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import type { Dayjs } from 'dayjs';
 import type { JSONValue } from '@/types/dashboard';
 import OperationLogsPage from './OperationLogs';
 import { listAudit } from '@/services/api';
 import type { AuditEvent } from '@/services/api';
+import { setScope } from '@/stores/scope';
 import { exportToCSV } from '@/utils/export';
 
 jest.mock('@/services/api', () => ({
@@ -529,5 +530,81 @@ describe('OperationLogsPage 操作日志', () => {
     expect(rows[2].textContent).toContain('类型');
     expect(rows[2].querySelector('input[placeholder="操作者"]')).toBeNull();
     expect(rows[2].querySelectorAll('.ant-tag').length).toBeGreaterThanOrEqual(3);
+  });
+});
+
+// #43：游戏/环境过滤联动全局 scope——顶栏切游戏/环境后，本页自持的过滤
+// 输入与列表必须跟随（「选了没刷新」#32/#35/#38 同族问题的操作日志页形态）。
+describe('OperationLogsPage 全局 scope 联动', () => {
+  // store 是模块级单例：显式清空（merge 语义下空对象不会清掉旧值）
+  const resetScope = () => setScope({ gameId: undefined, env: undefined });
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    window.history.replaceState(null, '', '/');
+    resetScope();
+    mockedListAudit.mockResolvedValue({
+      events: opRows,
+      total: opRows.length,
+      page: 1,
+      pageSize: 20,
+    });
+  });
+
+  afterEach(resetScope);
+
+  it('挂载时全局 scope 预填游戏/环境过滤并进入首拉参数', async () => {
+    setScope({ gameId: 'game-a', env: 'prod' });
+    render(<OperationLogsPage />);
+    await waitFor(() => expect(mockedListAudit).toHaveBeenCalledTimes(1));
+    expect(mockedListAudit).toHaveBeenCalledWith({
+      page: 1,
+      size: 20,
+      gameId: 'game-a',
+      env: 'prod',
+      kinds: DEFAULT_KINDS.join(','),
+    });
+    expect((screen.getByPlaceholderText('游戏') as HTMLInputElement).value).toBe('game-a');
+    expect((screen.getByPlaceholderText('环境') as HTMLInputElement).value).toBe('prod');
+  });
+
+  it('切全局 scope：同步覆盖手输过滤值，重查带新 scope', async () => {
+    render(<OperationLogsPage />);
+    await waitFor(() => expect(mockedListAudit).toHaveBeenCalledTimes(1));
+
+    // 用户先手输覆盖
+    fireEvent.change(screen.getByPlaceholderText('游戏'), { target: { value: 'manual' } });
+    expect((screen.getByPlaceholderText('游戏') as HTMLInputElement).value).toBe('manual');
+
+    // 顶栏切游戏/环境 → setScope 广播
+    act(() => {
+      setScope({ gameId: 'game-b', env: 'staging' });
+    });
+    expect((screen.getByPlaceholderText('游戏') as HTMLInputElement).value).toBe('game-b');
+    expect((screen.getByPlaceholderText('环境') as HTMLInputElement).value).toBe('staging');
+
+    fireEvent.click(screen.getByTestId('fire-params'));
+    await waitFor(() => expect(mockedListAudit).toHaveBeenCalledTimes(2));
+    expect(mockedListAudit).toHaveBeenLastCalledWith(
+      expect.objectContaining({ gameId: 'game-b', env: 'staging' }),
+    );
+  });
+
+  it('scope 清空（切回全部）：输入清空，重查不带 gameId/env', async () => {
+    setScope({ gameId: 'game-a', env: 'prod' });
+    render(<OperationLogsPage />);
+    await waitFor(() => expect(mockedListAudit).toHaveBeenCalledTimes(1));
+
+    act(() => {
+      setScope({ gameId: undefined, env: undefined });
+    });
+    expect((screen.getByPlaceholderText('游戏') as HTMLInputElement).value).toBe('');
+    expect((screen.getByPlaceholderText('环境') as HTMLInputElement).value).toBe('');
+
+    fireEvent.click(screen.getByTestId('fire-params'));
+    await waitFor(() => expect(mockedListAudit).toHaveBeenCalledTimes(2));
+    const call = mockedListAudit.mock.calls[1][0] as Record<string, unknown>;
+    expect(call).not.toHaveProperty('gameId');
+    expect(call).not.toHaveProperty('env');
   });
 });

@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Card, Space, Input, Button, DatePicker, Tag, Row, Col, Typography } from 'antd';
 import type { Dayjs } from 'dayjs';
 import {
@@ -9,6 +9,7 @@ import {
 } from '@ant-design/pro-components';
 import { FormattedMessage, useIntl } from '@umijs/max';
 import { auditRowKey, listAudit, type AuditEvent } from '@/services/api';
+import { useScope } from '@/hooks/useScopeReload';
 import { exportToCSV } from '@/utils/export';
 import { formatDateTime } from '@/utils/format';
 
@@ -60,8 +61,17 @@ export default function OperationLogsPage() {
   );
   const [kinds, setKinds] = useState<string[]>(() => (presetKind ? [presetKind] : defaultKinds));
   const [timeRange, setTimeRange] = useState<[Dayjs | null, Dayjs | null] | null>(null);
-  const [gameId, setGameId] = useState<string>('');
-  const [env, setEnv] = useState<string>('');
+  // #43：游戏/环境过滤接入全局 scope——初值取当前 scope，顶栏切换后同步
+  // 覆盖本地输入（用户可见、可手改，直至下一次 scope 变化再覆盖）。
+  // gameId/env 在 ProTable params 里，params 变化即自动重发 request。
+  const { scope, scopeKey } = useScope();
+  const [gameId, setGameId] = useState<string>(() => scope.gameId || '');
+  const [env, setEnv] = useState<string>(() => scope.env || '');
+  useEffect(() => {
+    setGameId(scope.gameId || '');
+    setEnv(scope.env || '');
+    // scopeKey 是联动信号（gameId:env 派生），随 scope 字段一起变化
+  }, [scopeKey, scope.gameId, scope.env]);
 
   const exportCSV = () => {
     const arr = (rows || []).map((e: AuditEvent) => [

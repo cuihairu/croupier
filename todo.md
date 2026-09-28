@@ -542,3 +542,15 @@ T3（execution_state 字段）→ T4/T6/T8；T2 → T5；T12（后端校验放�
 > **已知边界**：ObservabilityTab saveField 的 `if (!meta) return;` 守卫 true 翼
 > 构造性不可达（按钮 onClick 闭包只传 FIELDS 自有键），分支 91.66% 余量即此，
 > 不造假用例。SiteSettings 五文件（入口 + 四子 Tab）至此全部收口。
+
+## 操作日志页全局 scope 联动（OPEN-ISSUES #43，2026-09-28）
+
+> **交付（2026-09-28）**：`Admin/OperationLogs.tsx` 游戏/环境过滤接入全局 scope
+> store（#32/#35/#38/#39 同族「选了没刷新」收口）：初值取当前 scope，顶栏切
+> 游戏/环境后 useEffect 同步覆盖本地过滤输入（用户可见、可手改，直至下一次
+> scope 变化再覆盖），gameId/env 在 ProTable params 中，params 变化自动重发
+> request。3 用例锁定：挂载 scope 预填进首拉参数、切 scope 覆盖手输值并带新
+> 值重查、scope 清空回全量（请求不带 gameId/env）。store 用真实单例 +
+> setScope 驱动（merge 语义下显式 undefined 才能清空）。门禁：套件 16/16 绿、
+> tsc 0 错、全量 jest 3818/3818（2 worker 限流——并行会话曾把机器打到
+> load 94，回落窗口完成）、guard PASSED。
