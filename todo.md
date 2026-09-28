@@ -444,7 +444,8 @@ T3（execution_state 字段）→ T4/T6/T8；T2 → T5；T12（后端校验放�
 > 全量 jest 3688/3688 绿（空载窗口）、tsc 0 错、go test ./internal/... 全绿（99.8% 总量、
 > 0 文件低于 60%）、guard PASSED。
 > **已知边界**：四个子 Tab（AuthTab 789 / NotificationTab 450 / FeatureFlagsTab 298 /
-> ObservabilityTab 223 行）桩替换未覆盖，留下一批次。
+> ObservabilityTab 223 行）桩替换未覆盖，留下一批次（AuthTab 已于 2026-09-28 批次闭环，
+> 见下节；其余三个属 croupier-ui 工作面）。
 
 ## 覆盖率巡检批次·Go 侧（wt-api worktree，2026-09-28）
 
@@ -480,3 +481,20 @@ T3（execution_state 字段）→ T4/T6/T8；T2 → T5；T12（后端校验放�
 > 下一轮候选（本轮快照）：api/resourcecatalog/handler.go 93.1%
 > （9 语句，新落地面，待确认无归属冲突）、api/function/
 > version_history_handler.go 91.4%（#26 旧域，单错误分支）。
+
+## 登录方式 Tab 覆盖批次（SiteSettings 子 Tab 之一，2026-09-28）
+
+> **交付（2026-09-28）**：`System/SiteSettings/AuthTab.tsx`（789 行）0 测试 →
+> 行覆盖 100%（789/789）、函数 100%（12/12）、分支 92.0%（104/113），12 用例锁定
+> LDAP/OIDC 双卡片契约：快照回填（SourceTag 矩阵 database→UI / yaml·config→配置文件 /
+> default→默认 / 未知与缺失来源不渲染；secretSet 脱敏徽标 +「留空保持不变」占位；
+> startTls 'true' 解析）、保存 saveKeys（trim 落库、空串 clearSiteSetting 回落配置文件、
+> secret 留空既不清也不提、布尔透传、成功重拉）、保存并测试三态（ok=true message 透传 /
+> ok=false modal.warning / 抛错 extractErrorMessage 兜底，test 路径不弹「已保存」toast）、
+> required 校验失败静默早退（不提交不弹错）、保存失败不重拉、enabled 开关载荷翻转、
+> 加载失败不白屏。
+> 门禁：套件 12/12 绿、tsc 0 错、go test ./internal/... 全绿、全量 jest 空载窗口绿。
+> **已知边界**：saveKeys 的 value===undefined/null 分支臂经 UI 不可达（表单值只会产生
+> string/boolean，trim ?? '' 兜底空串），计 9 个未覆盖分支；NotificationTab /
+> FeatureFlagsTab / ObservabilityTab 三个子 Tab 属 croupier-ui 工作面，本会话不碰。
+
