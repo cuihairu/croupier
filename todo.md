@@ -754,6 +754,7 @@ T3（execution_state 字段）→ T4/T6/T8；T2 → T5；T12（后端校验放�
 > **已知边界**：门禁在负载高位窗口执行（并行会话持续占机，dev-seed 包
 > 222s、audit 包 148s 属环境性慢，非回归）；全量 jest 未单跑（本轮零 web
 > 触碰，guard 已覆盖 PageSpec 侧校验）。
+
 ## 插件域批次 1：契约收口（OPEN-ISSUES #46，2026-09-28）
 
 > **交付（2026-09-28）**：按设计收口定的批次链 1 落地（wire 变更，禁兼容旧键）：
@@ -926,6 +927,7 @@ T3（execution_state 字段）→ T4/T6/T8；T2 → T5；T12（后端校验放�
 > 构造期失败）；⑧ DB 关闭态两读端点 500。
 >
 > service/webhook 注入口径（沿用本仓既有批次）：
+>
 > - 读翼「缺表」：DropTable 后 gorm 立即报错且无副作用；
 > - 写翼「触发器拦写」：BEFORE UPDATE TRIGGER + RAISE(ABORT)，覆盖「校验
 >   全过、SQL 真执行才炸」这一类（Update 落库、删除级联、构建状态回写三处）；
@@ -944,6 +946,7 @@ T3（execution_state 字段）→ T4/T6/T8；T2 → T5；T12（后端校验放�
 > 属独立修复批次，已写跳过用例锁定契约（修好后该用例转绿，删除 t.Skip）。
 >
 > **四处不可达分支登记（房规：不造假用例、不删防御分支）**：
+>
 > 1. `handler.go List` 的 ShouldBindQuery 错误分支：IntegrationListRequest
 >    仅两个 `form` string 字段，gin form 绑定无失败路径；
 > 2. `service.go normalizeExtra` 的 `case float64`：入参只有两个来源——
@@ -970,7 +973,7 @@ T3（execution_state 字段）→ T4/T6/T8；T2 → T5；T12（后端校验放�
 > 目录内的并行会话代为 commit（我的两轮测试文件当时已被它在提交信息中
 > 完整描述）。复核结论：① 两提交当时**尚未进 main**，需本会话推送；
 > ② 其间的折叠提交 `ebd6193`（`-s ours`）曾使 `docs/design/
-> mobile-companion-design.md` 停留在旧版（较 main 少 67 行），已由本次
+mobile-companion-design.md` 停留在旧版（较 main 少 67 行），已由本次
 > merge 同步修正（取上游新版，无冲突）；
 > ③ 逐文件核实 6 份收尾测试 + 2 份 cicd 测试在 HEAD 中**全部在位**，
 > 无内容丢弃。
@@ -979,7 +982,7 @@ T3（execution_state 字段）→ T4/T6/T8；T2 → T5；T12（后端校验放�
 > 失败——panic 于 `stale_heal.go:66` healScopes 拿 nil `*gorm.DB`（后台
 > stale-heal goroutine 撞上被测 DB 已关闭），发生在高负载窗口（1 分钟负载
 > 126）。**单跑复核 300s 全绿**，且该域零改动（`git diff HEAD -- internal/
-> api/page/` 为空，源文件最近改动是 09-25 的 main 提交），判定为负载性偶发
+api/page/` 为空，源文件最近改动是 09-25 的 main 提交），判定为负载性偶发
 > 而非回归；我涉及的 4 包在全量中均 `ok`。合并后复跑 cicd 97.9%、
 > resourcecatalog 100.0%，gofmt/vet 干净，guard PASSED。
 
@@ -1013,7 +1016,7 @@ T3（execution_state 字段）→ T4/T6/T8；T2 → T5；T12（后端校验放�
 >
 > **顺带收口**（同域，`internal/cicd` 95.0%→**100.0%**）：`Register` 对
 > 空 kind / nil 工厂的 fail-fast panic 契约此前无用例（既有 `TestRegister_
-> DuplicatePanics` 只覆盖「同名重复注册」那一处 panic）——新增
+DuplicatePanics` 只覆盖「同名重复注册」那一处 panic）——新增
 > `internal/cicd/register_guard_test.go`，并断言失败的注册尝试不污染
 > 注册表 `Kinds()`。
 >
@@ -1043,6 +1046,7 @@ ops 包整体 98.6%（残余在 logs.go / performance.go / probe.go，属 #53/#5
 他会话刚落地域，本轮未触碰）。已推 wt-api：`ebd6193..1d41707`（纯 FF）。
 
 **本轮新增**：
+
 1. `internal/security/secguard/secguard_coverage_test.go`——secguard
    **74.3% → 100.0%**（secguard.go 28 块 + retry_probe.go 9 块全收）：
    七键解析（Resolve 非 nil 路径 + 未配置零值 + 缓存路径幂等）、端口 scheme
@@ -1392,3 +1396,32 @@ fresh 全绿（158 包零 FAIL）、guard PASSED。**已知边界**：门禁在�
 > 3. Extensions 簇余量剩 AgentSync/index.tsx（93 行 0%）、Store/shared.ts
 >    normalizeConfigBySchema 分支（73%）、SchemaFields 类型分派（64%）、
 >    DomainEntry 回调残余（ funcs 50%）——下一批按此序收口。
+
+## Agent 扩展同步调试页覆盖批次（Extensions 簇余量第四批，2026-09-29）
+
+> **交付（2026-09-29）**：簇余量收口 `Extensions/AgentSync/index.tsx`（93 行
+> 0%）——新增 `__tests__/index.test.tsx` 7 用例，v8 口径 **4×100%**。锁定
+> 契约：初态渲染（标题/副标题/Payload JSON 卡片空态）、空 ID 查询 warning
+> 拦截不触达服务、查询链（getAgentSyncPayload 载荷 + multiline JSON 回显 +
+> 按钮退出 loading）、resp.payload 缺省 `|| {}` 右翼、ID trim 翼、
+> onPressEnter 触发、清空复位双态。
+> **同轮代提交记录（诚实）**：上一批 EventsDrawer + UpgradeModal（本会话
+> 产出的测试文件与 todo 段）在负载等待门禁期间被并行会话以 301d1f0 代提交
+> 并推送 origin/wt-ui（含本会话文件，内容逐字节一致）；本会话按重复派发
+> 协议停止重复提交，独立复核：目标套件隔离复跑 19/19 绿 + 全量 jest 门禁
+> （load 9.47 起跑，335/336 套件、4128/4129 用例，唯一失败为他人未跟踪
+> Configs WIP，既定排除口径）。
+> **环境事件（诚实）**：并行会话向 web/src 全树倾倒 tsc 转译产物（同名
+> .jsx + .jsx.map），jest 默认解析序 js/jsx 先于 ts/tsx → 无扩展 import 解析
+> 到转译副本、coverage 归零，且与既有 jest.config.ts 冲突形成双配置阻断。
+> 本批以临时 `jest.coverage-order.config.ts`（moduleFileExtensions 把 ts/tsx
+> 提前，其余逐项同项目配置）修正解析序后取数与跑门禁，跑完即删，不随批
+> 提交；洪水产物属他会话未跟踪文件未做删动。indent=2 的 JSON.stringify 数组
+> 也折行——multiline 回显断言按键拆分正则。
+> **已知边界（诚实清单）**：
+>
+> 1. runSyncQuery 的 try/finally 无 catch——接口 reject 产生 unhandled
+>    rejection（组件现状缺陷，同簇既定结论），不造假 reject 用例。
+> 2. Extensions 簇页面侧余量：Store/shared.ts normalizeConfigBySchema 分支
+>    （73%）、SchemaFields 类型分派（64%）、DomainEntry 回调残余（funcs 50%）
+>    ——cluster 页面主体至此收口，余量为子组件/纯函数层。
