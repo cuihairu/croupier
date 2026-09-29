@@ -1087,3 +1087,46 @@ fresh 全绿（158 包零 FAIL）、guard PASSED。**已知边界**：门禁在�
 高位窗口执行（model 包单跑 64s~447s 波动，一次整包跑在 447s 时报 FAIL、
 复跑即绿，判为环境性慢非回归）；本轮零 web 触碰，故未单跑 jest/tsc
 （guard 已覆盖 PageSpec 侧校验）。
+
+## 第九轮：extension catalog/release 写路径覆盖收口（repo 80.3%→100.0%，core service 38.2%→100.0%）
+
+> **落地**：`30042bb`（本轮）+ 并行会话的 `97d6f8c`（secguard 74.3%→100%、
+> email_verification 2.2%→100%）经 `git merge origin/main` 同步上游 7 个
+> 提交（`f6cc599` PR #73 / wt-pages 折叠 tip / 文档死链修复）后，纯快进
+> 推送到 main（`f6cc599..2da24e0`）。合并无冲突——上游改动落在 docs/ 与
+> web 测试，与本轮 Go 写路径测试零重叠；合并后复跑本轮三域
+> （`repo/gorm/extension`、`core/extension/catalog`、`cicd/...`）全绿。
+>
+> **本轮目标**：队列里的次大缺口。`internal/core/extension/catalog` 38.2% 与
+> `internal/repo/gorm/extension` 80.3% 的缺口**是同一组方法**——catalog/
+> release 写路径在两层都整段 0%（service 的七个委托方法 + repo 的七个
+> 仓储方法），故合并为一批做完。扩展域的 `api/extension` 侧由并行会话在途
+> （`catalog_writes_paths_test.go`），本轮只碰 core/repo 两层，目录不相交。
+>
+> **repo 层（`internal/repo/gorm/extension/catalog_release_writes_test.go`）**
+> - 主链：批量读（缺席 id 直接不返回而非报错）、按列更新、版本命中、
+> 级联清版本只清目标扩展；
+> - 语义锁定三条：`DeleteByExtensionID` 走 `Unscoped` 物理删除才释放
+> `extension_id` 唯一索引（软删行会继续占用 → 重登记冲突）；Update/Delete
+> 行不存在返回 `gorm.ErrRecordNotFound`；`ReleaseRepo.DeleteByExtensionID`
+> 无匹配行**不**报错（级联语义）；`GetByExtensionIDs` 空入参短路不打 DB；
+> - 错误域：缺表 + `CREATE TRIGGER ... BEFORE UPDATE/DELETE ... RAISE(ABORT)`
+>   打穿 `res.Error` 分支，并断言拦截错误**不退化**为 `ErrRecordNotFound`
+>   （否则写翼注入故障会被误读成「行不存在」）；
+> - **契约发现并锁定**：`idx_extension_release_version` 是普通复合索引而**非**
+>   唯一索引——repo 层写重复 `(extension_id, version)` 不报错，唯一性校验确由
+>   调用方承担（与 `PublishRelease` 的服务层注释一致）。已写成契约用例：若日后
+>   收紧为唯一索引，该用例会失败并提示同步收紧调用方校验。
+>
+> **core service 层（`internal/core/extension/catalog/service_writes_test.go`）**
+> 七个委托方法（ListByExtensionIDs / Create / UpdateFields / Remove /
+> PublishRelease / ReleaseByVersion / RemoveReleases）三形态覆盖：
+> ① **nil 接收者**（读路径 ListByExtensionIDs 回 `nil,nil`，写路径回
+> `gorm.ErrInvalidDB`——方法内先判 `s == nil` 再判仓储）；
+> ② **仓储缺失守卫**：catalog 侧与 release 侧分别以 `NewService(repo, nil)`
+> 与 `NewService(nil, repo)` 构造，验证各方法只依赖自己那半边仓储；
+> ③ **真实库主链 + 仓储错误透传**（缺表、`ErrRecordNotFound`、唯一键冲突）。
+>
+> 门禁：gofmt 干净、`go vet` 两包干净、`go test` 两包 `-count=1` 全绿、
+> `scripts/localized_text_guard.sh` PASSED。**已知边界**：本批零 web 触碰，
+> 未单跑 jest/tsc（上游同批带进 web 测试改动，属上游提交的范围）。
