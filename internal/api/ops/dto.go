@@ -392,6 +392,17 @@ type OpsNodeMetaResponse struct {
 	Labels map[string]string `json:"labels"`
 }
 
+// OpsNodeDetailRequest/Response 支撑 GET /ops/nodes/:nodeId 单设备详情：
+// 与列表同源（listNodes），按 id 过滤，字段集一致。GET 走 BindQueryCompat
+// 只认 form/json tag（不绑 uri tag），handler 侧以 c.Param 兜底路径参数。
+type OpsNodeDetailRequest struct {
+	NodeID string `form:"nodeId" uri:"nodeId"`
+}
+
+type OpsNodeDetailResponse struct {
+	Node Node `json:"node"`
+}
+
 type OpsNodeRestartResponse struct {
 	NodeId string `json:"nodeId"`
 	Status string `json:"status"`
@@ -606,6 +617,7 @@ type Node struct {
 	SDKLanguage  string            `json:"sdkLanguage,omitempty"`
 	SDKVersion   string            `json:"sdkVersion,omitempty"`
 	SDKName      string            `json:"sdkName,omitempty"`
+	Version      string            `json:"version,omitempty"` // agent 二进制版本（agent_sessions.Version）
 	Functions    int               `json:"functions"`
 	ExpiresInSec int64             `json:"expiresInSec"`
 	// System metrics (from SystemInfoCache)
@@ -672,6 +684,8 @@ type NodeCommandsResponse = OpsNodeCommandsResponse
 type NodeDrainResponse = OpsNodeDrainResponse
 type NodeMetaRequest = OpsNodeMetaRequest
 type NodeMetaResponse = OpsNodeMetaResponse
+type NodeDetailRequest = OpsNodeDetailRequest
+type NodeDetailResponse = OpsNodeDetailResponse
 type NodeRestartResponse = OpsNodeRestartResponse
 type NodeUndrainResponse = OpsNodeUndrainResponse
 type NodesRequest = OpsNodesRequest

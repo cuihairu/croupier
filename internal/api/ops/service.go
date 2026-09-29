@@ -137,6 +137,10 @@ func (s *Service) OpsNodeMeta(ctx context.Context, req *OpsNodeMetaRequest) (*Op
 	return opsNodeMeta(ctx, s.svcCtx, req)
 }
 
+func (s *Service) OpsNodeDetail(ctx context.Context, req *OpsNodeDetailRequest) (*OpsNodeDetailResponse, error) {
+	return opsNodeDetail(ctx, s.svcCtx, req)
+}
+
 func (s *Service) OpsNodeRestart(ctx context.Context, req *OpsNodeCommandsRequest) (*OpsNodeRestartResponse, error) {
 	return opsNodeRestart(ctx, s.svcCtx, req)
 }

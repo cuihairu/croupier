@@ -507,6 +507,23 @@ func opsNodeMeta(ctx context.Context, svcCtx *svc.ServiceContext, req *OpsNodeMe
 	return nil, errors.New("node not found")
 }
 
+// opsNodeDetail 单设备详情：与 GET /ops/nodes 列表同源同过滤（含 scope 头
+// 可见性语义），按 id 命中返回完整 Node；未命中按契约回 404。
+func opsNodeDetail(ctx context.Context, svcCtx *svc.ServiceContext, req *OpsNodeDetailRequest) (*OpsNodeDetailResponse, error) {
+	nodeID := strings.TrimSpace(req.NodeID)
+	if nodeID == "" {
+		return nil, errorx.NewBadRequest("nodeId is required")
+	}
+	// 与 opsNodes 相同的 scope 口径：切换游戏/环境后详情可见性随列表一致。
+	scope := svc.GameScopeFromContext(ctx)
+	for _, node := range listNodes(ctx, svcCtx, strings.TrimSpace(scope.GameID), strings.TrimSpace(scope.Env), "") {
+		if node.Id == nodeID {
+			return &OpsNodeDetailResponse{Node: node}, nil
+		}
+	}
+	return nil, errorx.NewNotFound("node not found: " + nodeID)
+}
+
 func opsNodeRestart(ctx context.Context, svcCtx *svc.ServiceContext, req *OpsNodeCommandsRequest) (*OpsNodeRestartResponse, error) {
 	nodeID := strings.TrimSpace(req.NodeId)
 	if nodeID == "" {

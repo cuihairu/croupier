@@ -75,14 +75,14 @@
 **数据面盘点（既有端点，全部现成）**
 
 - `GET /api/v1/ops/nodes`（ops 域、scoped）：agent 会话聚合视图，Web Ops 页同款数据源。单条 Node DTO 字段：`id`（agentId）/ `hostname` / `addr` / `gameId` / `env` / `status` / `labels` / `lastSeen`（最近心跳）/ `sdkLanguage` / `sdkVersion` / `sdkName` / `functions`（已注册函数数）/ `expiresInSec` / `cpu` / `memory` / `disks`（有系统信息上报时）；
-- `status` 四态语义：`online`（会话活跃）/ `offline`（过期或断开）/ `drained`（运维排空）/ `stale`（心跳超时或会话被集群其他实例持有的过渡态）；
+- `status` 值域（实现批核实修正）：`active`（本实例持有且活跃）/ `online`（集群对端实例持有）/ `drained`（运维排空）/ `stale`（心跳超时或会话过期）/ `offline`（数据库静态节点未注册）——移动端徽标归并为四档：在线（active/online 绿）/ drained（灰）/ 异常（stale 橙）/ 离线（offline 红）；
 - `GET /api/v1/registry`：函数覆盖视角（`agents[]{agentId, gameId, env, addr, functions, healthy, expiresInSec}` + coverage 汇总），设备页不直接消费，排障时可对照；
 - 勘误：`GET /api/v1/nodes` 是静态节点注册表（nodes 表：id/name/type/status/ip/port），**不是** agent 会话数据面——v1 稿曾误引为设备数据源，本版修正，移动端不消费该端点。
 
 **设备列表页**
 
 - 数据：`GET /api/v1/ops/nodes`；
-- 行：`hostname`（次行 `id`）、`gameId/env` Tag、四态徽标（online 绿 / offline 红 / drained 灰 / stale 橙）、`lastSeen` 相对时间（「3 分钟前」）、版本（`sdkVersion` 优先展示，agent 版本见下述最小补集）、`functions` 数；
+- 行：`hostname`（次行 `id`）、`gameId/env` Tag、状态徽标（按上述值域归并四档）、`lastSeen` 相对时间（「3 分钟前」）、版本（`version` 优先展示，回退 `sdkVersion`）、`functions` 数；
 - 能力标签：`labels`（通用 k/v，可承载能力/分组标注）渲染为芯片，支持按 label 值客户端侧过滤（agent 规模通常 <100，整表返回后本地过滤足够）；
 - 下拉刷新 + 前台 60s 定时刷新（离线推送未落地前的发现手段，见下）；无分页（端点整表返回）。
 
@@ -93,14 +93,14 @@
 - 函数卡：`functions` 计数（端点只回数量；函数清单不展开，需要时引导回 Web）；
 - **历史在线状态：不承诺**。agent 生命周期钩子（注册/心跳/断开）当前不落任何事件表，无历史数据可查；如后续要做，须后端新增在线事件落库——超出本设计后端零改动边界，列 M4 可选并标注该依赖。
 
-**后端最小补充端点集（只读、零新业务逻辑，实现批落地）**
+**后端最小补充端点集（只读、零新业务逻辑；两项均已落地 2026-09-29）**
 
 | 补充                            | 形态                                                                                                                                                                             | 动机                                                                       |
 | ------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
 | Node DTO 暴露 `version` 字段    | `internal/api/ops` 的 Node DTO 增加 `version string`；`agent_sessions` 表已有 `Version` 列（agent 二进制版本），listNodes 组装处一行映射即可                                     | 列表/详情页「版本」当前只能显示 SDK 版本；agent 自身版本已有落库数据未出参 |
 | `GET /api/v1/ops/nodes/:nodeId` | 单设备详情：复用 listNodes 同源数据（RegistryStore 快照 + agent_sessions + 集群归属判定）按 id 过滤返回单个 Node；现有 `/ops/nodes/:nodeId/meta` 只回 `{labels}`，承载不了详情页 | 详情页现只能整表拉取后客户端过滤；设备多时省流量，也让单设备语义完整       |
 
-两项均为既有数据的出参整理：不加表、不加迁移、不加写路径、不新写业务逻辑。
+两项均为既有数据的出参整理：不加表、不加迁移、不加写路径、不新写业务逻辑。已落地：Node DTO `version` 字段随列表出参（`registry.AgentSession.Version` 一行映射），单设备详情挂 `GET /nodes/:nodeId`（与列表同源同 scope 过滤，未命中 404；路径参数兜底 `c.Param`，因 GET 绑定走 BindQueryCompat 不绑 uri tag）。
 
 **推送联动（设备离线 → ntfy，复用既有告警通道）**
 

@@ -344,6 +344,27 @@ func (h *Handler) OpsNodeMeta(c *gin.Context) {
 	response.Success(c, resp)
 }
 
+// OpsNodeDetail handles GET /ops/nodes/:nodeId —— 单设备详情（NodeDetail 别名
+// 挂 /nodes/:nodeId 路由，语义同 meta 族）。
+func (h *Handler) OpsNodeDetail(c *gin.Context) {
+	var req OpsNodeDetailRequest
+	if err := bindOpsRequest(c, &req); err != nil {
+		response.Error(c, err)
+		return
+	}
+	// 路径参数兜底：BindQueryCompat 只绑 query，不绑 uri tag。
+	if req.NodeID == "" {
+		req.NodeID = c.Param("nodeId")
+	}
+
+	resp, err := h.service.OpsNodeDetail(c.Request.Context(), &req)
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
+	response.Success(c, resp)
+}
+
 func (h *Handler) OpsNodeRestart(c *gin.Context) {
 	var req OpsNodeCommandsRequest
 	if err := bindOpsRequest(c, &req); err != nil {
@@ -663,6 +684,11 @@ func (h *Handler) NodeDrain(c *gin.Context) {
 
 func (h *Handler) NodeMeta(c *gin.Context) {
 	h.OpsNodeMeta(c)
+}
+
+// NodeDetail handles GET /nodes/:nodeId（单设备详情，与列表同源）。
+func (h *Handler) NodeDetail(c *gin.Context) {
+	h.OpsNodeDetail(c)
 }
 
 func (h *Handler) NodeRestart(c *gin.Context) {
