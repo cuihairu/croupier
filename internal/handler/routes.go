@@ -591,6 +591,7 @@ func registerOpsRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 	g.GET("/nodes", opsHandler.Nodes)
 	g.POST("/cluster/lb-stats", opsHandler.LBStatsQuery)
 	g.GET("/nodes/commands", opsHandler.NodeCommands)
+	g.GET("/nodes/:nodeId", opsHandler.NodeDetail)
 	g.GET("/nodes/:nodeId/meta", opsHandler.NodeMeta)
 	g.POST("/nodes/:nodeId/drain", opsHandler.NodeDrain)
 	g.POST("/nodes/:nodeId/undrain", opsHandler.NodeUndrain)

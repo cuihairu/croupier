@@ -183,6 +183,7 @@ func runtimeNodeListItem(sess *registry.AgentSession, nodeStatus string, metrics
 		SDKLanguage:  sdkLanguage,
 		SDKVersion:   sdkVersion,
 		SDKName:      sdkName,
+		Version:      sess.Version,
 		Functions:    len(sess.Functions),
 		ExpiresInSec: expiresInSec,
 	}
