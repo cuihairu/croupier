@@ -64,7 +64,7 @@ tag:
 
 ## 双 Agent / 多 Agent 部署
 
-同一宿主多 Agent（多游戏或多环境）：复制配置差异点只有 `agent.id`、`agent.gameId/env`、`agent.localAddr`、`agent.httpAddr` 四项（参考 `configs/agent2.yaml`）。上游 `server.addr` 共用同一 LB 入口。
+同一宿主多 Agent（多游戏或多环境）：复制配置差异点只有 `agent.id`、`agent.gameId/env`、`agent.localAddr`、`agent.httpAddr` 四项（`configs/agent2.yaml` 不入库，由运维复制 `configs/agent.yaml` 改上述四项生成——`docker/docker-compose.deploy.yml` 的 `agent2` 服务按该路径挂载）。上游 `server.addr` 共用同一 LB 入口。
 
 ## 环境变量示例
 

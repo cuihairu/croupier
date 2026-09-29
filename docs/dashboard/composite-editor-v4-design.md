@@ -210,15 +210,27 @@ type ComponentTemplate struct {
 ```json
 {
   "params": [
-    { "key": "table.title", "label": { "zh-CN": "表格·标题" }, "nodeId": "table", "prop": "title", "default": "玩家列表" },
-    { "key": "table.autoRun", "label": { "zh-CN": "表格·自动执行" }, "nodeId": "table", "prop": "autoRun", "default": true }
+    {
+      "key": "table.title",
+      "label": { "zh-CN": "表格·标题" },
+      "nodeId": "table",
+      "prop": "title",
+      "default": "玩家列表"
+    },
+    {
+      "key": "table.autoRun",
+      "label": { "zh-CN": "表格·自动执行" },
+      "nodeId": "table",
+      "prop": "autoRun",
+      "default": true
+    }
   ]
 }
 ```
 
 规则：
 
-1. **白名单 prop**：仅 `title`/`span`/`autoRun`（展示类字段）可参数化；执行类配置（functionId/rowActions/事件/参数映射）由后端 `validateTemplateParams` 拒绝（`internal/api/component/params.go` 逻辑位于 handler.go）。
+1. **白名单 prop**：仅 `title`/`span`/`autoRun`（展示类字段）可参数化；执行类配置（functionId/rowActions/事件/参数映射）由后端 `validateTemplateParams` 拒绝（实现位于 `internal/api/component/handler.go`）。
 2. **校验**：`key` 非空且唯一；`nodeId` 必须存在于 `tree`（含子树）；违反返回 400。
 3. **保存**：保存为组件弹窗列出候选（选中节点子树扫描），勾选生成参数定义（`default` = 保存时当前值）。
 4. **使用**：拖入/点击带参数模板 → 弹「配置组件参数」（default 预填，title=Input / span=InputNumber / autoRun=Switch）→ 确认后 `instantiateTemplate(tpl, values)` 应用（未填项回退 default）。

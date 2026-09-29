@@ -14,7 +14,7 @@
 - `execution`：`sync` / `task`（批量扇出等长耗时操作用 `task`）
 - 高危操作（如 `risk = "danger"` / `"high"`）可声明 `approval_required = true` 并附带 `approval_policy_key`
 
-语义分配示例：列表 → `collection_query` + `sync`；单查 → `item_query` + `sync`；创建 → `create` + `sync`；批量 → `action` + `task`。完整示例见 `examples/game_demo.cpp`。
+语义分配示例：列表 → `collection_query` + `sync`；单查 → `item_query` + `sync`；创建 → `create` + `sync`；批量 → `action` + `task`。完整示例见 `sdks/cpp/examples/game_demo.cpp`。
 
 ## OpenAPI 导入
 
