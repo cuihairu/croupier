@@ -1926,3 +1926,36 @@ fresh 全绿（158 包零 FAIL）、guard PASSED。**已知边界**：门禁在�
 > （sheet_to_json(header:1) 恒产数组）；xlsx `String(c ?? '')` 右翼（稀疏
 > 洞被 Array.map 跳过、sheet_to_json 不产显式 null，c 恒有值）。
 > 门禁：目标双套件 20/20 绿、eslint 干净、tsc 0 错；全量 jest 负载口径见交付说明。
+
+## 版本发布页覆盖批次（Dev/Releases，2026-09-29）
+
+> **交付（2026-09-29）**：零测试页排行首位——`Dev/Releases/index.tsx`
+> （576 行）单件收口，新增 `__tests__/index.test.tsx` 15 用例：
+> **行/语句/函数 100%、分支 96.29%**（余 3 臂登记为结构不可达）。锁定
+> 契约——表格矩阵（渠道/平台/类型/状态四列查表 + 未知值回退原文、
+> 状态 Tag 色查表、灰度列三臂 strong/plain/'-'、资源包列 objectKey 有值
+> formatSize 三段位（size 缺省 '-'/KB/MB）+ title=checksum / 无值未上传）、
+> 状态机操作矩阵（draft 传包 / uploading 内测 / testing 开始灰度 / gray
+> 放量+全量+废弃 / full 回滚 / archived/rolled_back/未知态无操作）、
+> 灰度放量弹窗（标题 `灰度放量：{version}（当前 {n}%）` + Slider step5
+> 键盘 ArrowRight 步进 + min=当前灰度值取 max(grayPercent,10) + 确认
+> transition(id,'gray',value) + footer 取消与右上 X 双关流）、传包
+> Upload customRequest（uploadReleaseArtifact(id, file) → onSuccess +
+> 已上传 + 重拉；失败两翼）、四 Popconfirm 流转主链与失败两翼、工具栏
+> 双筛选下拉（值进 request + clear 复位 `v || ''` 右翼 + 回第 1 页）、
+> 创建版本 ModalForm（version/platform required 拦截 + channel
+> initialValue official + type 默认 full + 载荷 `{...v, gameId: ''}`
+> X-Game-ID 契约 + 已创建 + 重拉 + 关闭 + 失败两翼弹窗保持）、load 失败
+> 两翼与响应缺省右翼、刷新重拉、canManage false 操作列全 '-'。
+> **antd6 坑实证续档**：Upload 隐藏 input[type=file] 直接触发 change 可
+> 驱动 customRequest，但同一 input 二次 change 被 rc-upload 吞（首次
+> 处理后 value 复位去重）——失败两翼须分渲染各自触发；Popconfirm 确认
+> 锚未隐藏 .ant-popover 内 .ant-btn-primary（类名两态通吃，绕开 zh/en
+> 文案漂移）；ModalForm 提交锚 .ant-modal-footer .ant-btn-primary
+> （submitText 双字中文插空格「创 建」）；带图标按钮 accessible name
+> 前缀拼 icon aria-label（「cloud-upload 传包」）。
+> **登记不可达（防御分支，不造假用例不删分支）**：request 回调
+> `statusFilter ?? ''`/`platformFilter ?? ''` 右翼（params 键由 useState
+> 恒为 string）；确认放量 onClick 的 `!grayTarget` 守卫（按钮仅在
+> grayTarget 态渲染，闭包捕获恒非空）。
+> 门禁：目标套件 15/15 绿、eslint 干净、tsc 0 错；全量 jest 负载口径见交付说明。
