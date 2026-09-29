@@ -203,6 +203,8 @@ func GameModels() []interface{} {
 		&Bug{},
 		&BugTicketLink{},
 		&ToolLink{},
+		&CicdIntegration{},
+		&CicdBuild{},
 		&GameRelease{},
 		&Hotpatch{},
 		&DBSource{},

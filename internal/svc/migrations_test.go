@@ -653,3 +653,53 @@ func TestGoMigrations_EmailVerificationCatchUp(t *testing.T) {
 		t.Fatal("duplicate token_hash should violate unique index")
 	}
 }
+
+// TestGoMigrations_CicdTablesCatchUp 回归（#58 批 1）：已过 baseline 的
+// 存量库缺 cicd_integrations/cicd_builds 两表，0038 应幂等补建且唯一
+// 索引（同接入同 external_id、同 scope 同名接入）生效。
+func TestGoMigrations_CicdTablesCatchUp(t *testing.T) {
+	db := openMigrationTestDB(t)
+	ctx := context.Background()
+
+	if err := autoMigrate(db); err != nil {
+		t.Fatalf("autoMigrate: %v", err)
+	}
+	// 模拟存量形态：两表整体缺失
+	if err := db.Migrator().DropTable(&model.CicdBuild{}); err != nil {
+		t.Fatalf("drop cicd_builds: %v", err)
+	}
+	if err := db.Migrator().DropTable(&model.CicdIntegration{}); err != nil {
+		t.Fatalf("drop cicd_integrations: %v", err)
+	}
+	if _, err := migrate.EnsureUpToDate(ctx, db, migrate.ScopeSingle, func(db *gorm.DB) error {
+		return nil // baseline 已完成，禁止再跑 AutoMigrate
+	}); err != nil {
+		t.Fatalf("EnsureUpToDate: %v", err)
+	}
+	if !db.Migrator().HasTable(&model.CicdIntegration{}) {
+		t.Fatal("cicd_integrations table not created by 0038")
+	}
+	if !db.Migrator().HasTable(&model.CicdBuild{}) {
+		t.Fatal("cicd_builds table not created by 0038")
+	}
+	// cicd_integrations 可写入且 (game_id, env, name) 唯一索引生效
+	cols := `created_at, updated_at, game_id, env, kind, name, endpoint, token, enabled`
+	if err := db.Exec(`INSERT INTO cicd_integrations (` + cols + `)
+		VALUES (datetime('now'), datetime('now'), 'demo', 'prod', 'jenkins', 'main-ci', 'https://ci.example.com', 'tok', 1)`).Error; err != nil {
+		t.Fatalf("insert cicd_integrations: %v", err)
+	}
+	if err := db.Exec(`INSERT INTO cicd_integrations (` + cols + `)
+		VALUES (datetime('now'), datetime('now'), 'demo', 'prod', 'generic', 'main-ci', 'https://ci2.example.com', '', 1)`).Error; err == nil {
+		t.Fatal("duplicate (game, env, name) should violate unique index")
+	}
+	// cicd_builds 可写入且 (integration_id, external_id) 唯一索引生效
+	bcols := `created_at, updated_at, game_id, env, integration_id, external_id, kind, pipeline, status, triggered_by`
+	if err := db.Exec(`INSERT INTO cicd_builds (` + bcols + `)
+		VALUES (datetime('now'), datetime('now'), 'demo', 'prod', 1, 'main-ci#12', 'jenkins', 'pack', 'queued', 'api')`).Error; err != nil {
+		t.Fatalf("insert cicd_builds: %v", err)
+	}
+	if err := db.Exec(`INSERT INTO cicd_builds (` + bcols + `)
+		VALUES (datetime('now'), datetime('now'), 'demo', 'prod', 1, 'main-ci#12', 'jenkins', 'pack', 'success', 'webhook')`).Error; err == nil {
+		t.Fatal("duplicate (integration, external_id) should violate unique index")
+	}
+}

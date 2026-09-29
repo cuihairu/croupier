@@ -111,6 +111,8 @@ type ServiceContext struct {
 	TicketModel            *model.TicketModel
 	BugModel               *model.BugModel
 	ToolModel              *model.ToolLinkModel
+	CicdIntegrationModel   *model.CicdIntegrationModel
+	CicdBuildModel         *model.CicdBuildModel
 	ReleaseModel           *model.GameReleaseModel
 	HotpatchModel          *model.HotpatchModel
 	DBSourceModel          *model.DBSourceModel
@@ -227,6 +229,8 @@ func NewServiceContext(c config.Config, opts ...Option) *ServiceContext {
 	ticketModel := model.NewTicketModel(db)
 	bugModel := model.NewBugModel(db)
 	toolModel := model.NewToolLinkModel(db)
+	cicdIntegrationModel := model.NewCicdIntegrationModel(db)
+	cicdBuildModel := model.NewCicdBuildModel(db)
 	releaseModel := model.NewGameReleaseModel(db)
 	hotpatchModel := model.NewHotpatchModel(db)
 	dbSourceModel := model.NewDBSourceModel(db)
@@ -410,6 +414,8 @@ func NewServiceContext(c config.Config, opts ...Option) *ServiceContext {
 		TicketModel:               ticketModel,
 		BugModel:                  bugModel,
 		ToolModel:                 toolModel,
+		CicdIntegrationModel:      cicdIntegrationModel,
+		CicdBuildModel:            cicdBuildModel,
 		ReleaseModel:              releaseModel,
 		HotpatchModel:             hotpatchModel,
 		DBSourceModel:             dbSourceModel,

@@ -96,6 +96,9 @@ import (
 //   0037 (Go)   email_verifications 表（注册邮箱验证令牌 #51c 第二批：只存
 //               SHA-256 哈希、一次性 used_at、重发即作废）+ admins 逐列补
 //               email_verified（0033 密码策略列同模式）
+//   0038 (Go)   cicd_integrations + cicd_builds 表（CI/CD 可插拔 provider
+//               接入 #58：外部构建系统注册 + 构建记录；game-scoped，单库/
+//               多游戏两 scope 都补齐；0020 execution_logs 同模式）
 
 func init() {
 	registerSvcMigrations()
@@ -143,6 +146,7 @@ func registerSvcMigrations() {
 		bugTicketLinkMigration(),
 		announcementGamesTableMigration(),
 		emailVerificationMigration(),
+		cicdTablesMigration(),
 	); err != nil {
 		panic(fmt.Sprintf("svc: register goose go migrations: %v", err))
 	}
@@ -1164,4 +1168,35 @@ func probeDialect(sqlDB *sql.DB) (string, error) {
 		return "mssql", nil
 	}
 	return "", fmt.Errorf("svc: probe dialect: unsupported database")
+}
+
+// cicdTablesMigration 为 0038：建 cicd_integrations + cicd_builds 表（CI/CD
+// 可插拔 provider 接入 #58）。两张均为新表（无存量约束名漂移问题），
+// HasTable 检查后 CreateTable，幂等；单库/多游戏两种模式都会在对应
+// scope 上执行本迁移（0020 execution_logs 同模式）。
+func cicdTablesMigration() *goose.Migration {
+	return goose.NewGoMigration(38,
+		&goose.GoFunc{RunDB: migrateCicdTables},
+		nil,
+	)
+}
+
+// migrateCicdTables 是 0038 的迁移体（抽出便于直测）。
+func migrateCicdTables(ctx context.Context, sqlDB *sql.DB) error {
+	db, err := wrapGorm(sqlDB)
+	if err != nil {
+		return err
+	}
+	migrator := db.Migrator()
+	if !migrator.HasTable(&model.CicdIntegration{}) {
+		if err := migrator.CreateTable(&model.CicdIntegration{}); err != nil {
+			return fmt.Errorf("migrate: 0038 create cicd_integrations: %w", err)
+		}
+	}
+	if !migrator.HasTable(&model.CicdBuild{}) {
+		if err := migrator.CreateTable(&model.CicdBuild{}); err != nil {
+			return fmt.Errorf("migrate: 0038 create cicd_builds: %w", err)
+		}
+	}
+	return nil
 }

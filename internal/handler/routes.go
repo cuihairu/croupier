@@ -18,6 +18,7 @@ import (
 	"github.com/cuihairu/croupier/internal/api/backup"
 	"github.com/cuihairu/croupier/internal/api/bug"
 	"github.com/cuihairu/croupier/internal/api/certificate"
+	cicdapi "github.com/cuihairu/croupier/internal/api/cicd"
 	"github.com/cuihairu/croupier/internal/api/component"
 	"github.com/cuihairu/croupier/internal/api/config"
 	"github.com/cuihairu/croupier/internal/api/configexplorer"
@@ -68,6 +69,7 @@ import (
 	"github.com/cuihairu/croupier/internal/platform/objstore"
 	settings "github.com/cuihairu/croupier/internal/platform/settings"
 	"github.com/cuihairu/croupier/internal/security/jwtutil"
+	secguard "github.com/cuihairu/croupier/internal/security/secguard"
 	"github.com/cuihairu/croupier/internal/service"
 	notify "github.com/cuihairu/croupier/internal/service/notify"
 	permissionservice "github.com/cuihairu/croupier/internal/service/permission"
@@ -103,6 +105,7 @@ func RegisterHandlers(r *gin.Engine, serverCtx *svc.ServiceContext) {
 	registerRegistryRoutes(v1.Group("/registry"), serverCtx) // 公开访问
 	registerOpenAPIReadRoutes(v1, serverCtx)
 	registerPublicReleaseRoutes(v1, serverCtx) // 客户端检查更新(公开)
+	registerCicdWebhookRoute(v1, serverCtx)    // 外部 CI 构建状态回写（公开端点，令牌校验在 handler）
 	registerPublicConfigRoutes(v1, serverCtx)  // 客户端配置拉取(公开只读)
 	if serverCtx.Config.FeatureFlags.Enabled(configpkg.FlagSupport) {
 		playerSupport := v1.Group("/", newSoftFeatureGuard(settings.Current()).guard(configpkg.FlagSupport))
@@ -186,6 +189,7 @@ func RegisterHandlers(r *gin.Engine, serverCtx *svc.ServiceContext) {
 			registerToolRoutes(devSoft.Group("/tools"), serverCtx)
 			registerReleaseRoutes(devSoft.Group("/releases"), serverCtx)
 			registerHotpatchRoutes(devSoft.Group("/hotpatches"), serverCtx)
+			registerCicdRoutes(devSoft.Group("/cicd"), serverCtx)
 		}
 		registerRegistryShortcutRoutes(protected, serverCtx)
 		registerAuditRoutes(protected, serverCtx)
@@ -1290,6 +1294,33 @@ func registerToolRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 	g.POST("/", toolHandler.Create)
 	g.PUT("/:id", toolHandler.Update)
 	g.DELETE("/:id", toolHandler.Delete)
+}
+
+// ============================================================================
+// CI/CD 接入（可插拔 provider：jenkins/gitlab-ci/github-actions/generic #58）
+// ============================================================================
+func registerCicdRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
+	cicdSvc := cicdapi.NewService(ctx)
+	// 出站调用走 secguard 守卫客户端（SSRF/端口/域过滤与既有 webhook 探针同口径）
+	cicdSvc = cicdSvc.WithHTTPClient(secguard.HTTPClient(secguard.Resolve(settings.Current()), nil))
+	cicdHandler := cicdapi.NewHandler(cicdSvc)
+	g.GET("/integrations", cicdHandler.List)
+	g.POST("/integrations", cicdHandler.Create)
+	g.PUT("/integrations/:id", cicdHandler.Update)
+	g.DELETE("/integrations/:id", cicdHandler.Delete)
+	g.POST("/integrations/:id/test", cicdHandler.Test)
+	g.POST("/integrations/:id/trigger", cicdHandler.Trigger)
+	g.GET("/builds", cicdHandler.Builds)
+	g.POST("/builds/:id/refresh", cicdHandler.RefreshBuild)
+}
+
+// registerCicdWebhookRoute 挂公开构建状态回写端点（外部 CI 服务器无法携带
+// JWT；鉴权 = integration.Token 的 X-CICD-Token 精确匹配，未配 Token 的
+// 接入为开放端点——诚实边界）。
+func registerCicdWebhookRoute(g *gin.RouterGroup, ctx *svc.ServiceContext) {
+	cicdSvc := cicdapi.NewService(ctx)
+	cicdHandler := cicdapi.NewHandler(cicdSvc)
+	g.POST("/cicd/webhooks/:id", cicdHandler.Webhook)
 }
 
 // ============================================================================
