@@ -61,7 +61,9 @@ func TestCheckURL_SSRFResolvesPrivate(t *testing.T) {
 }
 
 func TestCheckURL_SSRFAllowListCIDR(t *testing.T) {
-	s := Settings{SSRFProtection: true, AllowIPs: []string{"127.0.0.0/8"}}
+	// 双栈 allow-list：runner 上 localhost 可能先解析到 ::1（IPv6 环回同样受限），
+	// 只配 127.0.0.0/8 会随解析顺序偶发挂（CI 实证）。
+	s := Settings{SSRFProtection: true, AllowIPs: []string{"127.0.0.0/8", "::1/128"}}
 	assert.NoError(t, CheckURL(context.Background(), s, "http://localhost:8080"))
 }
 
