@@ -1273,3 +1273,19 @@ fresh 全绿（158 包零 FAIL）、guard PASSED。**已知边界**：门禁在�
 > 门禁：gofmt 干净、go vet 两包干净、两包 fresh 全绿（0.1s/38s，
 > openapi 属包体量大非环境慢）。本批 test-only，未重跑全量
 > （同日全量基线 157 ok）。
+
+## 覆盖率巡检批次·Go 侧第十八轮·requestbind + config 收口双 100.0%（wt-api worktree，2026-09-29）
+
+> **交付（2026-09-29）**：全量 profile（11:16 快照）重排后，排除已收口
+> 包（第 10-17 轮）与回避域（identity 90.8%/otp 98.3% 属他会话在途，
+> auth/announcement/extension/sitesettings 同前），剩余可动缺口仅两处，
+> 各 1 新测试文件收口：
+> ① `common/requestbind` 93.8% → **100.0%**（`lcfirst_wing_test.go`）：
+> query.go lcFirst 空串早退翼（107-108）——空 tag 名不进 rune 切片；
+> 顺带锁定「仅首字符折叠、其余保留」契约。
+> ② `internal/config` 97.5% → **100.0%**（`local_provider_wing_test.go`）：
+> LocalEnabled 归一化方法整段 0%（964e40b 05:00 新增、消费方在
+> api/auth providers.go，本包内零覆盖）——nil → true（默认启用，停用
+> 须显式 false，防 YAML 省略键误停本地登录锁死）、显式 true/false 透传。
+> 门禁：gofmt/vet 干净，两包 fresh 全绿 100.0%（0.02s/0.02s，零未覆盖
+> 块）。本批 test-only，未重跑全量（同日全量基线 157 ok）。
