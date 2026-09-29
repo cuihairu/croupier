@@ -216,5 +216,9 @@ pages 返回 `{pages[]}`（**不是 `items[]`**），页面项（`ExtensionPageI
    导入自动登记列为后续。已知边界：Store 页管理动作（登记/上下架/发布 UI）
    未接线，本批仅 API 面；catalog 写操作无独立审计事件（经 HTTP 层通用审计
    链，catalog 表无 createdBy 列）。
-4. **DomainEntry 恢复实测**：批次 1 后页面入口区块真实渲染 binding/manifest
-   pages，补真实渲染用例（替换恒 Empty 的现状）。
+4. ✅ **DomainEntry 恢复实测（2026-09-29 已落地）**：页面级真实渲染用例 3 例
+   （`web/src/pages/Extensions/DomainEntry/__tests__/`）——有安装实例时
+   installations→pages 两跳拉取并渲染入口卡（title+route，断言 pages 端点以
+   安装实例 ID 调用）；无安装实例时 Empty 引导且不调 pages 端点；拉取失败时
+   message.error 提示（批次 1 前被静默吞掉的路径现在有回归防护）且页面不崩。
+   批次链至此全部收口。
