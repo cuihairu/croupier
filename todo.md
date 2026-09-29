@@ -1453,3 +1453,27 @@ fresh 全绿（158 包零 FAIL）、guard PASSED。**已知边界**：门禁在�
 >   他人未跟踪文件一律不动。
 > - **已知边界**：Extensions 簇页面侧余量剩 SchemaFields.tsx 类型分派
 >   （64%）、DomainEntry 回调残余（funcs 50%）——下一批按此序收口。
+
+## 扩展商店 SchemaFields 渲染器覆盖批次（Extensions 簇余量第六批，2026-09-29）
+
+> **交付（2026-09-29）**：簇余量收口 `Extensions/Store/SchemaFields.tsx`
+> （174 行，分支 64% 起）——新增 `Store/__tests__/SchemaFields.test.tsx`
+> （8 用例）。
+>
+> - **覆盖**：SchemaFields.tsx 行/语句/函数 100%、分支 96.87%。唯一缺口为
+>   default 翼 Input 的 placeholder 三元 `'0'` 支——number/integer 已在
+>   L86 提前 return，此处条件恒 false，防御式结构不可达，登记不造假。
+> - **契约锁定**：守卫三翼（schema 缺省经防御 `?.`/properties 缺省/非对象
+>   → 不渲染）；六路类型分派（enum→Select 枚举选项、boolean→true/false
+>   二值、number/integer→InputNumber、array/object→TextArea +
+>   placeholder「[]」「{}」+ extra 双态 description 优先/类型提示兜底、
+>   default→Input）；五处 fallback（type 缺省 'string'、title 缺省回 key、
+>   description 缺省 ''、enum 非数组穿过 enum 翼落类型分派、prop null 走
+>   default 翼）；required 成员标记 + required 非数组全非必填翼。
+> - **门禁**：隔离套件 8/8 绿；tsc 0 错误；全量 jest（load<10 起跑）
+>   338 套件、4158/4159 用例（总用例 4151+8 吻合；唯一失败仍为他会话未
+>   跟踪 Configs WIP，既定非交付排除口径）。
+> - **环境事件（诚实登记）**：`.js/.jsx` 转译洪水仍在——覆盖率归因须临时
+>   `jest.coverage-order.config.ts`（解析序 ts/tsx 优先），测量后即删不入库。
+> - **已知边界**：Extensions 簇页面侧余量仅剩 DomainEntry 回调残余
+>   （funcs 50%）——下一批收口后簇页面主体全部完成。
