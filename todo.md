@@ -1740,3 +1740,32 @@ fresh 全绿（158 包零 FAIL）、guard PASSED。**已知边界**：门禁在�
 > **Extensions 簇余量**：Store/CatalogManageModals 与两处 shared.ts 留
 > 后续批次；簇内四个页面（Store/Installations/AgentSync/DomainEntry）
 > 与五个 overlay 本体全部有测试。
+
+## 目录管理弹窗 + Store 纯逻辑覆盖批次（Extensions 簇收官，2026-09-29）
+
+> **交付（2026-09-29）**：簇最后两个零覆盖件收口——
+> ① `Store/CatalogManageModals.tsx`（291 行，登记扩展/发布版本两弹窗，
+> 此前 Store 页套件未触达管理动作）→ `__tests__/CatalogManageModals.test.tsx`
+> 10 用例，**4×100%**：CatalogRegisterModal 打开预填 kind=community/
+> status=active + resetFields、extensionId required/pattern 拦截（transform
+> 先 trim 再校验、提交载荷保持原始值——trim 由父层承担，两侧一致口径）、
+> 默认值载荷与全字段载荷（kind/status 切换）、confirmLoading 透传；
+> ReleasePublishModal 标题 displayName 兜底 name 与 item undefined 无后缀
+> 两翼、releaseChannel 预填 stable、version semver pattern（预发布后缀
+> 通过）、manifest 校验器四翼（空/纯空白必填、非 JSON 格式错、数组须为
+> 对象、合法对象通过）、全字段载荷。
+> ② `Store/shared.ts`（64 行纯逻辑）→ `__tests__/shared.test.ts` 11 用例，
+> **4×100%**：buildSchemaDefaults 三级缺省 + hasOwnProperty 口径（falsy
+> default 也拾取）；normalizeConfigBySchema 全矩阵（无 schema/坏形态
+> 原样透传、rawConfig 缺省防御翼、number/integer 转换与截断、NaN 保留、
+> boolean 四词含空白大小写、array/object JSON 解析与坏 JSON 保留、
+> null/undefined 值跳过、null/缺 type 属性条目不动）。
+> **坑实证续档**：antd6 Select 选中项无稳定类名——预填显示断言改锚
+> .ant-select 根 textContent；未触碰的 Form 字段 validateFields 运行时为
+> undefined（类型上是 string，父层兜底），载荷断言用 objectContaining；
+> 帮助函数 `props?.item ?? item` 会吞掉显式 undefined-item 用例，透传须
+> 用 `'item' in props` 判别。
+> 门禁：目标套件 21/21 绿、tsc 0 错、eslint 干净、全量 jest 336 套件
+> 4087/4087 绿（2 worker 限流 669s，load ~1 低位窗口直跑）。
+> **Extensions 簇收官**：四个页面 + 全部 overlay/弹窗/纯逻辑件均有测试
+> 且非防御分支 100%——簇零测试目录清零。
