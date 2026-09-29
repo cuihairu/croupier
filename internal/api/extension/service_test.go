@@ -179,7 +179,7 @@ func TestToInstallationItem(t *testing.T) {
 		Status:          "enabled",
 		DesiredState:    "enabled",
 	}
-	item := toInstallationItem(modelItem)
+	item := toInstallationItem(modelItem, "") // displayName 空串 → 回退 extensionID
 	if item.ID != 123 {
 		t.Fatalf("unexpected id: %d", item.ID)
 	}
@@ -203,7 +203,7 @@ func TestPtrInstallationItem(t *testing.T) {
 		ExtensionID:    "test.ext",
 		ReleaseVersion: "2.0.0",
 	}
-	ptr := ptrInstallationItem(modelItem)
+	ptr := ptrInstallationItem(modelItem, "")
 	if ptr == nil {
 		t.Fatalf("expected non-nil pointer")
 	}
@@ -1311,7 +1311,7 @@ func TestToInstallationItem_WithTimestamp(t *testing.T) {
 		DesiredState:   "enabled",
 		Enabled:        true,
 	}
-	item := toInstallationItem(modelItem)
+	item := toInstallationItem(modelItem, "")
 	if item.ID != 123 {
 		t.Fatalf("unexpected id: %d", item.ID)
 	}
@@ -1934,7 +1934,7 @@ func TestToInstallationItem_AllFields(t *testing.T) {
 		LastError:       "some error",
 	}
 
-	item := toInstallationItem(modelItem)
+	item := toInstallationItem(modelItem, "")
 	assert.Equal(t, uint(999), item.ID)
 	assert.Equal(t, "test-key", item.InstallationKey)
 	assert.Equal(t, "official.analytics", item.ExtensionID)
@@ -1947,7 +1947,8 @@ func TestToInstallationItem_AllFields(t *testing.T) {
 	assert.Equal(t, "enabled", item.Status)
 	assert.Equal(t, "enabled", item.DesiredState)
 	assert.True(t, item.Enabled)
-	assert.Equal(t, "unknown", item.HealthStatus)
+	// #46 批次 2：healthStatus 由 status/enabled 推导（enabled + 未卸载 → healthy），不再恒 unknown
+	assert.Equal(t, "healthy", item.HealthStatus)
 	assert.Equal(t, "some error", item.LastError)
 	assert.Equal(t, now.Unix(), item.UpdatedAt)
 }
@@ -3588,4 +3589,118 @@ func TestApplyVersionOp_UnknownOpRejected(t *testing.T) {
 
 	// 已知操作符走表分派。
 	assert.True(t, applyVersionOp(">", cur, tgt, 1))
+}
+
+// TestService_InstallationList_DisplayNameJoin_HealthDerived（#46 批次 2）：
+// 列表组装 join catalog 真名（displayName → name → extensionID 兜底）+
+// healthStatus 由 status/enabled 推导（替换恒 unknown）。
+func TestService_InstallationList_DisplayNameJoin_HealthDerived(t *testing.T) {
+	db := setupIntegrationTestDB(t)
+	svcCtx := setupExtensionTestContext(t, db)
+	ctx := setupAdminContext(t, svcCtx)
+	createTestCatalogData(t, svcCtx)
+	bg := context.Background()
+
+	// catalog 行无 displayName：验证回退链走到 name
+	bare := &model.ExtensionCatalog{
+		ExtensionID: "test.bare",
+		Name:        "bare-name",
+		Kind:        "official",
+		Status:      "active",
+	}
+	if err := db.WithContext(bg).Create(bare).Error; err != nil {
+		t.Fatalf("create bare catalog: %v", err)
+	}
+	bareRelease := &model.ExtensionRelease{
+		ExtensionID:     "test.bare",
+		Version:         "1.0.0",
+		ReleaseChannel:  "stable",
+		MinCoreVersion:  "1.0.0",
+		PublishedAtUnix: time.Now().Unix(),
+		ManifestJSON:    model.JSON([]byte(`{"id":"test.bare","version":"1.0.0"}`)),
+	}
+	if err := db.WithContext(bg).Create(bareRelease).Error; err != nil {
+		t.Fatalf("create bare release: %v", err)
+	}
+
+	s := NewService(svcCtx)
+
+	install := func(extID, version string) uint {
+		resp, err := s.Install(ctx, ExtensionInstallRequest{
+			ExtensionID:    extID,
+			ReleaseVersion: version,
+			ScopeType:      "system",
+			ScopeID:        "global",
+			TargetType:     "agent",
+			TargetID:       "default",
+			Config:         map[string]any{"enabled": true},
+		}, "test_admin")
+		if err != nil {
+			t.Fatalf("install %s: %v", extID, err)
+		}
+		return resp.InstallationID
+	}
+
+	analyticsID := install("test.analytics", "2.0.0")
+	bareID := install("test.bare", "1.0.0")
+
+	// Install 创建的实例 Enabled 固定 false（装后手动启用语义），analytics 启用、bare 保持停用
+	if _, err := s.Enable(ctx, analyticsID, "test_admin"); err != nil {
+		t.Fatalf("enable analytics: %v", err)
+	}
+
+	req := ExtensionInstallationListRequest{Page: 1, PageSize: 10}
+	resp, err := s.InstallationList(ctx, req)
+	if err != nil {
+		t.Fatalf("list: %v", err)
+	}
+	byID := map[uint]ExtensionInstallationItem{}
+	for _, item := range resp.Items {
+		byID[item.ID] = item
+	}
+
+	// displayName join catalog 真名
+	if got := byID[analyticsID].DisplayName; got != "Test Analytics" {
+		t.Fatalf("expected display name joined from catalog, got: %q", got)
+	}
+	// 无 displayName 行 → 回退 name（不再透传 extensionID）
+	if got := byID[bareID].DisplayName; got != "bare-name" {
+		t.Fatalf("expected name fallback, got: %q", got)
+	}
+	// healthStatus 推导：enabled + 未卸载 → healthy
+	if got := byID[analyticsID].HealthStatus; got != "healthy" {
+		t.Fatalf("expected healthy, got: %q", got)
+	}
+
+	// 停用实例列表即时反映为 disabled，启用实例不受影响
+	for _, item := range resp.Items {
+		if item.ID == bareID && item.HealthStatus != "disabled" {
+			t.Fatalf("expected disabled for disabled installation, got: %q", item.HealthStatus)
+		}
+		if item.ID == analyticsID && item.HealthStatus != "healthy" {
+			t.Fatalf("analytics should be healthy, got: %q", item.HealthStatus)
+		}
+	}
+}
+
+// TestDeriveExtensionHealthStatus_Matrix：推导矩阵（与 HealthCheck 同语义）
+func TestDeriveExtensionHealthStatus_Matrix(t *testing.T) {
+	cases := []struct {
+		name string
+		item *model.ExtensionInstallation
+		want string
+	}{
+		{"nil → unknown", nil, "unknown"},
+		{"status uninstalled → uninstalled", &model.ExtensionInstallation{Status: "Uninstalled", Enabled: true}, "uninstalled"},
+		{"desired uninstalled → uninstalled", &model.ExtensionInstallation{Status: "enabled", DesiredState: "uninstalled", Enabled: true}, "uninstalled"},
+		{"enabled → healthy", &model.ExtensionInstallation{Status: "enabled", Enabled: true}, "healthy"},
+		{"not enabled → disabled", &model.ExtensionInstallation{Status: "enabled", Enabled: false}, "disabled"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := deriveExtensionHealthStatus(tc.item); got != tc.want {
+				t.Fatalf("deriveExtensionHealthStatus() = %q, want %q", got, tc.want)
+			}
+		})
+	}
 }

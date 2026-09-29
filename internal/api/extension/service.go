@@ -199,9 +199,10 @@ func (s *Service) InstallationList(ctx context.Context, req ExtensionInstallatio
 	if err != nil {
 		return nil, mapServiceError(err)
 	}
+	displayNames := s.catalogDisplayNames(ctx, items)
 	respItems := make([]ExtensionInstallationItem, 0, len(items))
 	for _, item := range items {
-		respItems = append(respItems, toInstallationItem(item))
+		respItems = append(respItems, toInstallationItem(item, displayNames[normalizeExtensionID(item.ExtensionID)]))
 	}
 	return &ExtensionInstallationListResponse{Total: total, Items: respItems}, nil
 }
@@ -230,8 +231,9 @@ func (s *Service) InstallationDetail(ctx context.Context, id uint) (*ExtensionIn
 	_ = json.Unmarshal(item.ConfigJSON, &config)
 	_ = json.Unmarshal(item.SecretRefsJSON, &secretRefs)
 	configSchema := s.resolveConfigSchema(ctx, item.ExtensionID, item.ReleaseVersion)
+	displayNames := s.catalogDisplayNames(ctx, []model.ExtensionInstallation{*item})
 	return &ExtensionInstallationDetailResponse{
-		Installation: ptrInstallationItem(*item),
+		Installation: ptrInstallationItem(*item, displayNames[normalizeExtensionID(item.ExtensionID)]),
 		ConfigSchema: configSchema,
 		Config:       config,
 		SecretRefs:   secretRefs,
@@ -657,14 +659,7 @@ func (s *Service) HealthCheck(ctx context.Context, id uint, operator string) (*E
 	if err != nil {
 		return nil, mapServiceError(err)
 	}
-	var status string
-	if strings.EqualFold(item.Status, "uninstalled") || strings.EqualFold(item.DesiredState, "uninstalled") {
-		status = "uninstalled"
-	} else if item.Enabled {
-		status = "healthy"
-	} else {
-		status = "disabled"
-	}
+	status := deriveExtensionHealthStatus(item)
 	_ = s.svcCtx.Extensions.Installation.RecordEvent(
 		ctx,
 		id,
@@ -966,12 +961,15 @@ func isJSONIntegerType(v any) bool {
 	}
 }
 
-func toInstallationItem(item model.ExtensionInstallation) ExtensionInstallationItem {
+func toInstallationItem(item model.ExtensionInstallation, displayName string) ExtensionInstallationItem {
+	if strings.TrimSpace(displayName) == "" {
+		displayName = item.ExtensionID
+	}
 	return ExtensionInstallationItem{
 		ID:              item.ID,
 		InstallationKey: item.InstallationKey,
 		ExtensionID:     item.ExtensionID,
-		DisplayName:     item.ExtensionID,
+		DisplayName:     displayName,
 		ReleaseVersion:  item.ReleaseVersion,
 		ScopeType:       item.ScopeType,
 		ScopeID:         item.ScopeID,
@@ -980,15 +978,64 @@ func toInstallationItem(item model.ExtensionInstallation) ExtensionInstallationI
 		Status:          item.Status,
 		DesiredState:    item.DesiredState,
 		Enabled:         item.Enabled,
-		HealthStatus:    "unknown",
+		HealthStatus:    deriveExtensionHealthStatus(&item),
 		LastError:       item.LastError,
 		UpdatedAt:       item.UpdatedAt.Unix(),
 	}
 }
 
-func ptrInstallationItem(item model.ExtensionInstallation) *ExtensionInstallationItem {
-	out := toInstallationItem(item)
+func ptrInstallationItem(item model.ExtensionInstallation, displayName string) *ExtensionInstallationItem {
+	out := toInstallationItem(item, displayName)
 	return &out
+}
+
+// deriveExtensionHealthStatus 与 HealthCheck 同口径（无健康探测落库，按 status/enabled 推导）：
+// uninstalled（status 或 desired_state）→ uninstalled；enabled → healthy；否则 disabled。
+func deriveExtensionHealthStatus(item *model.ExtensionInstallation) string {
+	if item == nil {
+		return "unknown"
+	}
+	if strings.EqualFold(item.Status, "uninstalled") || strings.EqualFold(item.DesiredState, "uninstalled") {
+		return "uninstalled"
+	}
+	if item.Enabled {
+		return "healthy"
+	}
+	return "disabled"
+}
+
+// catalogDisplayNames 批量取安装实例对应 catalog 行的真名（#46 批次 2）：
+// 归一 extensionID → displayName（空则回退 name）；查表失败返回空 map，
+// 调用侧回退 extensionID 原值，不阻塞列表。
+func (s *Service) catalogDisplayNames(ctx context.Context, items []model.ExtensionInstallation) map[string]string {
+	names := make(map[string]string)
+	ids := make([]string, 0, len(items))
+	seen := make(map[string]bool, len(items))
+	for _, item := range items {
+		id := normalizeExtensionID(item.ExtensionID)
+		if id == "" || seen[id] {
+			continue
+		}
+		seen[id] = true
+		ids = append(ids, item.ExtensionID)
+	}
+	if len(ids) == 0 {
+		return names
+	}
+	rows, err := s.svcCtx.Extensions.Catalog.ListByExtensionIDs(ctx, ids)
+	if err != nil {
+		return names
+	}
+	for _, row := range rows {
+		name := strings.TrimSpace(row.DisplayName)
+		if name == "" {
+			name = strings.TrimSpace(row.Name)
+		}
+		if name != "" {
+			names[normalizeExtensionID(row.ExtensionID)] = name
+		}
+	}
+	return names
 }
 
 func toEventItems(events []model.ExtensionEvent) []ExtensionEventItem {

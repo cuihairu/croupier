@@ -92,8 +92,8 @@ releases 关键字段（`ExtensionReleaseItem`）：`version` / `releaseChannel`
 - `healthStatus`（**V1 恒 `unknown`**：无健康探测落库，`extension_health` 表按
   简化决策不建，见安装模型文档；health-check 端点的**响应**才是推导值——
   enabled→healthy、否则 disabled、卸载→uninstalled）
-- `displayName`（V1 实为 `extensionId` 原值：列表组装未 join catalog，列为批次
-  链待修项）
+- `displayName`（列表组装批量 join catalog：`displayName` → `name` →
+  `extensionId` 兜底；✅ #46 批次 2 已落地）
 - `lastError` / `updatedAt`
 
 detail 额外返回：`installation`、`configSchema`、`config`、`secretRefs`、
@@ -193,8 +193,13 @@ pages 返回 `{pages[]}`（**不是 `items[]`**），页面项（`ExtensionPageI
    已知边界：Extensions 四页面（Store/Installations/AgentSync/DomainEntry）
    此前零测试文件，本批仅 API 层 `extensions.test.ts` 回归（16 用例），页面级
    真实渲染用例归批次 4。
-2. **列表组装修正**：`displayName` join catalog 真名；`healthStatus` 从
-   status/enabled 推导（或引 runtime binding 状态），替换恒 `unknown`。
+2. ✅ **列表组装修正（2026-09-29 已落地）**：`displayName` 批量 join catalog
+   真名（`CatalogRepo.GetByExtensionIDs` 单查避免 N+1，displayName → name →
+   extensionId 兜底；查表失败静默回退不阻塞列表）；`healthStatus` 从
+   status/enabled 推导（`deriveExtensionHealthStatus`，与 HealthCheck 同语义：
+   status/desired_state uninstalled → uninstalled、enabled → healthy、否则
+   disabled），替换恒 `unknown`；detail 响应同步。引 runtime binding 状态的
+   深探测仍不承诺（无健康探测落库，见安装模型文档）。
 3. **catalog 写路径批次（V2 主缺口）**：admin catalog/release CRUD（登记/
    上下架/发布版本）+ 官方扩展 seed（`official.notification/alerting/approval/
 backup-advanced`，对齐 `official-extension-unified-pattern.md`）；pack

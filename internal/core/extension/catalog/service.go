@@ -52,3 +52,11 @@ func (s *Service) Get(ctx context.Context, extensionID string) (*model.Extension
 	}
 	return item, releases, nil
 }
+
+// ListByExtensionIDs fetches catalog rows by a set of ids in batch (for installation list assembly to join real names); nil when input is empty.
+func (s *Service) ListByExtensionIDs(ctx context.Context, extensionIDs []string) ([]model.ExtensionCatalog, error) {
+	if s == nil || s.catalogRepo == nil {
+		return nil, nil
+	}
+	return s.catalogRepo.GetByExtensionIDs(ctx, extensionIDs)
+}

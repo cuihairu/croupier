@@ -59,3 +59,15 @@ func (r *CatalogRepo) GetByExtensionID(ctx context.Context, extensionID string) 
 	}
 	return &item, nil
 }
+
+// GetByExtensionIDs fetches catalog rows by a set of extension ids (for list assembly to avoid N+1 queries); missing ids are simply absent.
+func (r *CatalogRepo) GetByExtensionIDs(ctx context.Context, extensionIDs []string) ([]model.ExtensionCatalog, error) {
+	if len(extensionIDs) == 0 {
+		return nil, nil
+	}
+	var items []model.ExtensionCatalog
+	if err := r.db.WithContext(ctx).Where("extension_id IN ?", extensionIDs).Find(&items).Error; err != nil {
+		return nil, err
+	}
+	return items, nil
+}
