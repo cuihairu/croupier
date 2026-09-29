@@ -1610,3 +1610,40 @@ fresh 全绿（158 包零 FAIL）、guard PASSED。**已知边界**：门禁在�
 > ingest/cmd 99.5%、analytics-export 87.7%（main-only，cmd-1）——
 > cmd/ 树非豁免余量枯竭，后续轮次转监控回补（新落地文件 48h 口径）
 > 或 web 侧工作面。
+
+## 覆盖率巡检批次·Go 侧第二十七轮·弃置在途收养 + identity 收口（wt-api worktree，2026-09-29）
+
+> **在途收养（第七轮同款口径）**：工作区 6 份未跟踪测试（mtime 停在
+> 09-29 05:07–06:14，近 12h 无人动；`git log --all` 证实无任何分支持有
+> ——仅存在于共享工作区；其间 main 流过 15+ 提交而文件零更新）经
+> vet + 全量包测试核验后收养：announcement_db_error_test /
+> oauth_register_handler_gap_test / register_verify_gap_test /
+> catalog_writes_paths_test / github_error_paths_test 五份原样绿色收养；
+> handler_gaps_v10_test 一处 seam 误用修正——原稿 `sendTestEmailFn = nil`
+> 意图「复原 default」，实则把缝隙变量置 nil（default 只存在于声明初始
+> 化器），调用即 nil 函数 panic（r21 台账记录的 TestSendTestEmailRealSendPath
+> panic 根因即此）；修为 NotNil 前提断言 + 直接使用当前值（tracked 注入
+> 用例均经 t.Cleanup 复原，本文件按字母序先于 testemail_test.go 执行，
+> 起点必为 default）。非生产缺陷，testemail.go 本体无恙。
+> 收养战果：**announcement 96.8%→100.0%、auth 90.1%→99.0%、
+> extension→99.9%、sitesettings 95.6%→100.0%**。
+>
+> **本轮新增**：`identity/wechat_generic_wings_r27_test.go`——964e40b
+> 落地的 WeChat/自定义 OAuth2 两 provider 残余错误翼，identity
+> **88.2%→99.2%**：两 Kind 标识（0%）、WeChat 构造缺省 base 回落
+> （官方双域名 + AuthCodeURL 前缀）、generic Exchange 双层失败（token
+> 端点传输失败 / token 成功后 userinfo 500 透传）、fetchUserInfo 直测
+> 四翼（非法 URL NewRequest / 传输失败 / **声明 Content-Length 后断连的
+> 体读取错误**——原生 listener + Hijack 形态，ReadAll unexpected EOF 的
+> 唯一确定性注入 / 坏 JSON 解码）、wechat Exchange 缺 access_token/
+> openid 守卫 + userinfo 500 透传、apiGet 直测同四翼。
+> **新增豁免条目 #4**：wechat.go Exchange 尾部 openid 回退（134）与双
+> 缺失兜底（137）——上方 122 守卫已按 TrimSpace 拒绝空 openid，通过后
+> TrimSpace(token.OpenID) 必非空，两处 `if openID == ""` 恒假（自证性
+> 双保险，同 "fn-" 前缀构造）；pin = TestWeChat_ExchangeWings 首臂
+> （缺字段形态先于回退触发守卫）。
+> 门禁：触及文件 gofmt 干净、go vet 干净、五包 fresh 全绿（37.9s 最重
+> 的 auth 属包体量）。本批 test-only + 文档同步，未重跑全量（同日基线）。
+> **下一轮候选**：auth 残余 9 块（email_verification 78/87/103/163、
+> mfa 95、providers 114/134/162 init 失败日志翼、service 738 continue）
+> + extension service.go:513（manifest 非 JSON 对象 400）。

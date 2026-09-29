@@ -11,7 +11,7 @@ internal/ 目标的逐包语句覆盖率为 100%。本文档是**唯一豁免清
 - fire-and-forget goroutine「调度运气」型覆盖抖动——先例：`TracerProvider.EndSpan` 逐 exporter 起的 goroutine，用通道等待交付信号后确定性覆盖，而非豁免。
 - 锁相位对齐/概率轮次的时序编排——先例：`Router.GameDB` 的 singleflight re-check 分支，以回调入口测试接缝 `gameDBInflightHook` 确定性触发，替代已退役的 24 轮锁泊车 + TryLock 自旋编排（该编排在全量负载下会整轮落空，正是覆盖抖动来源；时序分支用注入点）。
 
-## 当前豁免清单（共 3 条）
+## 当前豁免清单（共 4 条）
 
 ### 1. `internal/api/menu` — filterAccessibleTree 的 `!check(parent)` 分支
 
@@ -42,6 +42,16 @@ internal/ 目标的逐包语句覆盖率为 100%。本文档是**唯一豁免清
 **论证**：`tls.DialWithDialer` 握手成功即保证 `ConnectionState().PeerCertificates` 非空——Go 标准库 TLS 客户端不实现任何匿名（aNULL）套件，服务器不出示证书则握手必然失败并进入上方 err 分支；Go 客户端亦不支持客户端侧 PSK，TLS 1.3 会话恢复场景下服务器仍发送 Certificate 消息。该分支是对标准库行为之外的防御性兜底，且 dialer/config 均为函数内构造、无注入缝，无法用 fake server 触达（Go 的 `tls.Server` 同样要求出示证书才能完成握手）。
 
 **失效条件**：Go 标准库引入客户端侧 PSK/匿名套件，或函数改为可注入 `tls.Config`/拨号器。
+
+### 4. `internal/security/identity` — WeChat Exchange 的 openid 回退与双缺失兜底
+
+**位置**：`internal/security/identity/wechat.go`（`Exchange` 尾部 `if openID == "" { openID = ...user.OpenID }` 与 `if openID == "" { return ... "identity has no openid" }`，2026-09-29 第二十七轮登记）。
+
+**论证**：上方守卫 `if strings.TrimSpace(token.AccessToken) == "" || strings.TrimSpace(token.OpenID) == ""` 已拒绝空 `access_token`/`openid` 并返回错误；通过后 `openID := strings.TrimSpace(token.OpenID)` 必非空，两处 `if openID == ""` 恒假。自证性双保险（同第 2 条 `"fn-"` 前缀的构造）：openid 语义上由 token 端点提供，userinfo 的 openid 字段仅冗余。
+
+**pin**：`wechat_generic_wings_r27_test.go` 的 `TestWeChat_ExchangeWings` 首臂锁定「token 响应缺 access_token/openid → 122 守卫先于回退触发」；若守卫被移除或放宽，该臂失败即提示补真实回退路径用例。
+
+**失效条件**：122 守卫删除/放宽（如允许 token 无 openid、以 userinfo 为准）时分支转为可达，届时必须补覆盖而不是续期豁免。
 
 ---
 
