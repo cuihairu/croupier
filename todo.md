@@ -1511,3 +1511,49 @@ fresh 全绿（158 包零 FAIL）、guard PASSED。**已知边界**：门禁在�
 > **cmd/server 余量**：dashboard_fixture.go 69（boot 步骤错误翼群，
 > E2E 基础设施口径既有登记）、service.go 56（cmd-2/6 域）；随后
 > cmd/agent 89.6%、cmd/analytics-export 87.7%、cmd/ingest 99.5%。
+
+## 覆盖率巡检批次·Go 侧第二十五轮·service 变更命令五体收口（wt-api worktree，2026-09-29）
+
+> **交付（2026-09-29）**：接第二十四轮收 cmd/server service.go（56 块）+
+> cmd/agent service 域（57 块）——两包各新增 `service_wings_r25_test.go`
+> （agent 30 子用例 / server 33 子用例），经 `newKardianosService` 包级
+> 接缝注入可控 fake（status/statusErr + per-method installErr/
+> uninstallErr/startErr/stopErr + 调用计数），**变更命令五体分支矩阵
+> 全数直测**（不碰真实 systemd）：
+> ① install——创建失败/已存在早退（计数断言 Install 未触达）/Install
+> 错误/成功（agent 打 `Platform()[:1]`、server 打完整平台串，两包契约
+> 各自锁定）；
+> ② uninstall——创建失败/状态查询失败/不存在/运行中 Stop 错误/Stopped
+> 形态卸载错误/运行中成功（Stop→2s 等待→Uninstall，sleep 翼随成功路径
+> 覆盖，全轮仅 2 处 2s 臂）；
+> ③ start——状态查询失败/不存在提示 install/已在运行早退（Start 计数
+> 为 0）/Start 错误/成功；
+> ④ stop——状态查询失败/不存在/已停止早退（无 ✅ 成功标 + Stop 计数
+> 为 0，与成功翼以标点+计数双锚区分）/Stop 错误/成功；
+> ⑤ restart——状态查询失败/不存在/运行中 Stop 错误/运行中 Stop 干净
+> 后 Start 错误（2s 等待翼）/stopped 直启（Stop 计数为 0，status !=
+> Running 分支）。
+> cmd/server 侧另补两块：**Start 后台 goroutine 的 panic 恢复翼**
+> （154-156：runServerFunc 替身 panic → recover → svc.Stop，既有用例
+> 只盖错误返回与成功两翼；cmd/agent 侧同位翼已被既有用例覆盖）与
+> **wd() 的 Getwd 失败翼**（595：chdir 进已删除目录构造 ENOENT——
+> 全包无 t.Parallel，顺序执行下进程级 cwd 操纵安全，结束恢复）。
+> 包口径：**cmd/agent 89.6% → 98.9%、cmd/server 91.3% → 95.1%**
+> （fresh 全包）。cmd-2 豁免随之**收窄归零**：接缝之下五体的每个
+> 错误/早退/成功分支均可构造，「真实系统级变更」只对被替换掉的未注入
+> 路径成立——coverage-exemptions.md cmd-2 改写为收窄记录（无豁免块
+> 保留），读数段同步（server ≈95 / agent ≈99 / analytics-export
+> 87.7 / ingest 99.5）。analytics-export 的 3 块经核实为 main() 体
+> （flag 解析 + panic），cmd-1 既有枚举已覆盖登记，无需新条目。
+> **service.go 剩余 6 块全部归 cmd-6 既有登记**：os.Executable 守卫
+> （agent 255-256 同位）、Abs 内层回退翼、windows StartType 分支、
+> defaultConfigDir 系 windows/darwin case、exePath 失败回落 "unknown"
+> （cmd-6 位置清单本轮补显式枚举）。
+> 门禁：触及文件 gofmt 干净、go vet 两包干净、go build ./... 通过、
+> 两包 fresh 全绿（4.7s/19.1s，含 4 次 NewServiceContext 完整启动 +
+> 8 次 2s sleep 臂）。本批 test-only + 注释/文档同步，未重跑全量
+> （同日基线 157 ok；并行会话 cargo test 占机持续，属环境性慢）。
+> **cmd/ 余量**：cmd/server 95.1%（dashboard_fixture.go E2E 基础设施
+> 口径 + root.go/cluster/mesh 既有登记翼）、cmd/agent 98.9%（全部为
+> cmd-1/cmd-6 登记块）、cmd/ingest/cmd 99.5%、analytics-export 87.7%
+> （main-only，cmd-1）——cmd/ 树非豁免余量至此收官。

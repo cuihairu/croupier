@@ -47,7 +47,7 @@ internal/ 目标的逐包语句覆盖率为 100%。本文档是**唯一豁免清
 
 ## cmd/ 覆盖口径与豁免清单（2026-09-22 扩展）
 
-cmd/ 的覆盖目标与 internal/ 不同：二进制装配层允许存在进程边界与系统变更面，**策略逻辑全部下沉 internal/**（已 100%）。当前读数（`go test -cover`）：`cmd/server` ≈75%、`cmd/agent` ≈84%、`cmd/analytics-export` 91.7%、`cmd/schema-validator` ≈91%、`cmd/ingest/cmd` 99.1%。除下述豁免外，cmd/ 其余不可达分支均已按「先构造、构造不出才豁免」收口（含 fixture REST 全语义、startCluster 全装配矩阵、interconnect 全路由、service manager 状态机、service status 三态与平台分支、schema-validator 归档解剖边界等）。`pkg/protocol` 100%；`pkg/pb/**` 为 protoc 生成物（`make proto` 产物，随生成链更新），不纳入手写测试口径。
+cmd/ 的覆盖目标与 internal/ 不同：二进制装配层允许存在进程边界与系统变更面，**策略逻辑全部下沉 internal/**（已 100%）。当前读数（`go test -cover`，2026-09-29 第二十五轮后）：`cmd/server` ≈95%、`cmd/agent` ≈99%、`cmd/analytics-export` 87.7%、`cmd/schema-validator` ≈91%、`cmd/ingest/cmd` 99.5%。除下述豁免外，cmd/ 其余不可达分支均已按「先构造、构造不出才豁免」收口（含 fixture REST 全语义、startCluster 全装配矩阵、interconnect 全路由、service manager 状态机、service 变更命令五体分支矩阵、schema-validator 归档解剖边界等）。`pkg/protocol` 100%；`pkg/pb/**` 为 protoc 生成物（`make proto` 产物，随生成链更新），不纳入手写测试口径。
 
 ### cmd-1.（进程边界）全部二进制的 `main` / `Execute`
 
@@ -57,13 +57,15 @@ cmd/ 的覆盖目标与 internal/ 不同：二进制装配层允许存在进程�
 
 **失效条件**：无（结构性边界）。若 `Execute` 内出现可单测的分支逻辑，应把逻辑抽出为可直测函数而非在入口测。
 
-### cmd-2.（系统变更）server/agent 的 service 变更命令主体
+### cmd-2.（系统变更）server/agent 的 service 变更命令主体【2026-09-29 第二十五轮收窄后无豁免块】
 
-**位置**：`cmd/server/service.go` 与 `cmd/agent/service.go` 的 `run*ServiceInstall/Uninstall/Start/Stop/Restart` 中 `svc.Install()/Uninstall()/Start()/Stop()` 调用及其后的打印。
+**位置（历史）**：`cmd/server/service.go` 与 `cmd/agent/service.go` 的 `run*ServiceInstall/Uninstall/Start/Stop/Restart` 中 `svc.Install()/Uninstall()/Start()/Stop()` 调用及其后的打印。
 
-**论证**：install/uninstall/start/stop/restart 触发**真实系统级变更**（写 systemd unit、启停系统服务），单测进程不可执行。每个函数可安全触达的前置面已覆盖：入口守卫（`createServerService`/`createService` 失败 → "创建服务失败"）、状态查询（`runServiceStatus`/`runServerServiceStatus` 经 `service.New` 接缝注入 fake，运行/停止/未安装三态与 linux/windows 平台提示分支全直测）、`service run` 前台运行路径（fakeService 注入 Start 失败/取消/成功三态 + createService 失败与成功路径）。
+**原论证（已失效）**：install/uninstall/start/stop/restart 触发**真实系统级变更**（写 systemd unit、启停系统服务），单测进程不可执行。
 
-**失效条件**：命令增加纯校验类前置分支（如参数合法性检查）时应直测；若引入 dry-run 模式则守卫面应随实现补齐。
+**2026-09-29 收窄（第二十五轮）**：`newKardianosService` 是两包的包级接缝变量，`createService`/`createServerService` 对它的调用使五体在注入 fake 后**不再触达真实 systemd**——「系统级变更」的前提只对未注入接缝的路径成立，而该路径正是被替换掉的那一行。两包各新增 `service_wings_r25_test.go`（可控 fake：status/statusErr + per-method 错误 + 调用计数）分支矩阵全数直测：install（创建失败/已存在早退/Install 错误/成功）、uninstall（状态查询失败/不存在/运行中 Stop 错误/Stopped 卸载错误/运行中成功含 2s 等待翼）、start（状态查询失败/不存在提示 install/已在运行早退/Start 错误/成功）、stop（状态查询失败/不存在/已停止早退/Stop 错误/成功）、restart（状态查询失败/不存在/运行中 Stop 错误/运行中 Stop 成功后 Start 错误含 2s 等待翼/stopped 直启）。cmd/server 侧另补 Start 后台 goroutine 的 panic 恢复翼（runServerFunc 替身 panic → recover → svc.Stop）与 `wd()` 的 Getwd 失败翼（chdir 进已删除目录）。本条目自此**不再覆盖任何块**，保留为收窄记录；service.go 剩余未覆盖块全部归 cmd-6。
+
+**失效条件**：不适用（无豁免块）。命令新增分支时应按接缝注入模式补测。
 
 ### cmd-3.（main 壳包）cmd/check-db、cmd/analytics-worker、cmd/ingest
 
@@ -98,7 +100,7 @@ cmd/ 的覆盖目标与 internal/ 不同：二进制装配层允许存在进程�
 
 ### cmd-6.（C 类防御 + 跨平台面）server/agent service.go 的环境恒成功守卫与 windows/darwin 分支
 
-**位置**：`cmd/server/service.go` 与 `cmd/agent/service.go`（`createServerService`/`createService` 的三处守卫与 windows 分支、`defaultServerConfigDir`/`defaultConfigDir` 的 windows/darwin case）；`cmd/agent/root.go`（`resolveAgentID` 的 `os.Hostname` 空值兜底）。
+**位置**：`cmd/server/service.go` 与 `cmd/agent/service.go`（`createServerService`/`createService` 的三处守卫与 windows 分支、`defaultServerConfigDir`/`defaultConfigDir` 的 windows/darwin case、cmd/server 尾部 `exePath()` 的 `os.Executable` 失败回落 "unknown"）；`cmd/agent/root.go`（`resolveAgentID` 的 `os.Hostname` 空值兜底）。
 
 **论证**：
 
