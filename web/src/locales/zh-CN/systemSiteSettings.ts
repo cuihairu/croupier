@@ -16,6 +16,32 @@ export default {
   'pages.systemSiteSettings.auth.dirAddrRule': 'ldap://host:389 或 ldaps://host:636',
   'pages.systemSiteSettings.auth.enableLdapLabel': '启用 LDAP 登录',
   'pages.systemSiteSettings.auth.enableGitHubLabel': '启用 GitHub 登录',
+  'pages.systemSiteSettings.auth.callbackUrlTooltip.wechat':
+    '微信开放平台「授权回调域」登记：https://<host>/api/v1/auth/wechat/callback',
+  'pages.systemSiteSettings.auth.callbackUrlTooltip.genericoauth':
+    '身份源侧登记的回调：https://<host>/api/v1/auth/generic/callback',
+  'pages.systemSiteSettings.auth.enableWeChatLabel': '启用微信扫码登录',
+  'pages.systemSiteSettings.auth.enableGenericOAuthLabel': '启用自定义 OAuth 登录',
+  'pages.systemSiteSettings.auth.wechat.title': '微信扫码登录',
+  'pages.systemSiteSettings.auth.hint.wechatCard':
+    '启用后登录页出现「微信扫码登录」入口，首次登录自动建号（用户名=openid）',
+  'pages.systemSiteSettings.auth.saved.wechat': '微信配置已保存',
+  'pages.systemSiteSettings.auth.genericoauth.title': '自定义 OAuth2',
+  'pages.systemSiteSettings.auth.hint.genericoauthCard':
+    '适配任意标准授权码流程身份源（Keycloak/Authentik/Auth0 等），首次登录自动建号',
+  'pages.systemSiteSettings.auth.saved.genericoauth': '自定义 OAuth 配置已保存',
+  'pages.systemSiteSettings.auth.authUrlLabel': '授权端点 AuthURL',
+  'pages.systemSiteSettings.auth.tokenUrlLabel': '令牌端点 TokenURL',
+  'pages.systemSiteSettings.auth.userInfoUrlLabel': 'UserInfo 端点',
+  'pages.systemSiteSettings.auth.scopesLabel': '授权范围 Scopes',
+  'pages.systemSiteSettings.auth.scopesTooltip': '逗号分隔，如 openid,profile；留空不带 scope',
+  'pages.systemSiteSettings.auth.usernameFieldLabel': '用户名属性',
+  'pages.systemSiteSettings.auth.usernameFieldTooltip':
+    'UserInfo JSON 中的属性名，默认 username（仅支持顶层字段）',
+  'pages.systemSiteSettings.auth.nicknameFieldLabel': '昵称属性',
+  'pages.systemSiteSettings.auth.nicknameFieldTooltip': 'UserInfo JSON 中的属性名，默认 name',
+  'pages.systemSiteSettings.auth.emailFieldLabel': '邮箱属性',
+  'pages.systemSiteSettings.auth.emailFieldTooltip': 'UserInfo JSON 中的属性名，默认 email',
   'pages.systemSiteSettings.auth.enableSsoLabel': '启用 SSO 登录',
   'pages.systemSiteSettings.auth.error.loadFailed': '加载登录方式配置失败',
   'pages.systemSiteSettings.auth.error.saveFailed': '保存失败',

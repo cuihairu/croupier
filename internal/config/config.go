@@ -755,11 +755,13 @@ func (c LoginLockoutConfig) LoginLockoutDefaults() (threshold int, lock time.Dur
 
 // AuthProvidersConfig 汇总外部身份提供方配置。
 type AuthProvidersConfig struct {
-	Local    LocalProviderConfig  `json:"local,omitempty" yaml:"local,omitempty"`
-	LDAP     LDAPProviderConfig   `json:"ldap,omitempty" yaml:"ldap,omitempty"`
-	OIDC     OIDCProviderConfig   `json:"oidc,omitempty" yaml:"oidc,omitempty"`
-	GitHub   GitHubProviderConfig `json:"github,omitempty" yaml:"github,omitempty"`
-	Register RegisterConfig       `json:"register,omitempty" yaml:"register,omitempty"`
+	Local        LocalProviderConfig        `json:"local,omitempty" yaml:"local,omitempty"`
+	LDAP         LDAPProviderConfig         `json:"ldap,omitempty" yaml:"ldap,omitempty"`
+	OIDC         OIDCProviderConfig         `json:"oidc,omitempty" yaml:"oidc,omitempty"`
+	GitHub       GitHubProviderConfig       `json:"github,omitempty" yaml:"github,omitempty"`
+	WeChat       WeChatProviderConfig       `json:"wechat,omitempty" yaml:"wechat,omitempty"`
+	GenericOAuth GenericOAuthProviderConfig `json:"genericoauth,omitempty" yaml:"genericoauth,omitempty"`
+	Register     RegisterConfig             `json:"register,omitempty" yaml:"register,omitempty"`
 }
 
 // RegisterConfig 描述自助注册（OPEN-ISSUES #51b）：默认关闭；开启后匿名
@@ -824,6 +826,43 @@ type GitHubProviderConfig struct {
 	DefaultRoles []string `json:"defaultRoles,omitempty" yaml:"defaultRoles,omitempty"`
 	// LoginSuccessURL 语义同 OIDC。
 	LoginSuccessURL string `json:"loginSuccessUrl,omitempty" yaml:"loginSuccessUrl,omitempty"`
+}
+
+// WeChatProviderConfig 描述微信开放平台「网站应用扫码登录」（qrconnect
+// 授权码流程，openid 为本地影子账号主键；微信不提供邮箱）。
+type WeChatProviderConfig struct {
+	Enabled   bool   `json:"enabled" yaml:"enabled"`
+	AppID     string `json:"appId,omitempty" yaml:"appId,omitempty"`
+	AppSecret string `json:"appSecret,omitempty" yaml:"appSecret,omitempty"`
+	// RedirectURL 须与开放平台「授权回调域」一致。
+	RedirectURL string `json:"redirectUrl,omitempty" yaml:"redirectUrl,omitempty"`
+	// DefaultRoles 是 JIT 建号时赋予的本地角色名列表。
+	DefaultRoles []string `json:"defaultRoles,omitempty" yaml:"defaultRoles,omitempty"`
+	// LoginSuccessURL 语义同 OIDC。
+	LoginSuccessURL string `json:"loginSuccessUrl,omitempty" yaml:"loginSuccessUrl,omitempty"`
+}
+
+// GenericOAuthProviderConfig 描述自定义 OAuth2 身份源（标准授权码流程，
+// 适配 Keycloak/Authentik/企业内网 SSO 等，身份字段经 UserInfo 属性映射）。
+type GenericOAuthProviderConfig struct {
+	Enabled      bool   `json:"enabled" yaml:"enabled"`
+	ClientID     string `json:"clientId,omitempty" yaml:"clientId,omitempty"`
+	ClientSecret string `json:"clientSecret,omitempty" yaml:"clientSecret,omitempty"`
+	RedirectURL  string `json:"redirectUrl,omitempty" yaml:"redirectUrl,omitempty"`
+	// AuthURL / TokenURL / UserInfoURL 是身份源三端点（均必填）。
+	AuthURL     string `json:"authUrl,omitempty" yaml:"authUrl,omitempty"`
+	TokenURL    string `json:"tokenUrl,omitempty" yaml:"tokenUrl,omitempty"`
+	UserInfoURL string `json:"userInfoUrl,omitempty" yaml:"userInfoUrl,omitempty"`
+	// Scopes 是授权范围（逗号分隔配置，构建时切分）。
+	Scopes string `json:"scopes,omitempty" yaml:"scopes,omitempty"`
+	// UsernameField/NicknameField/EmailField 是 UserInfo JSON 顶层属性名
+	// （默认 username/name/email；嵌套属性属 IdP 侧映射职责）。
+	UsernameField string `json:"usernameField,omitempty" yaml:"usernameField,omitempty"`
+	NicknameField string `json:"nicknameField,omitempty" yaml:"nicknameField,omitempty"`
+	EmailField    string `json:"emailField,omitempty" yaml:"emailField,omitempty"`
+	// DefaultRoles / LoginSuccessURL 语义同 OIDC。
+	DefaultRoles    []string `json:"defaultRoles,omitempty" yaml:"defaultRoles,omitempty"`
+	LoginSuccessURL string   `json:"loginSuccessUrl,omitempty" yaml:"loginSuccessUrl,omitempty"`
 }
 
 func (c *AuthConfig) UnmarshalYAML(value *yaml.Node) error {

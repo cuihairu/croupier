@@ -16,7 +16,7 @@ import {
   UserOutlined,
 } from '@ant-design/icons';
 import { LoginForm, ProFormCheckbox, ProFormText } from '@ant-design/pro-components';
-import { LoginOutlined } from '@ant-design/icons';
+import { LoginOutlined, QrcodeOutlined } from '@ant-design/icons';
 import { FormattedMessage, history, SelectLang, useIntl, useModel, Helmet } from '@umijs/max';
 import { Alert, Button, Divider, Form, Input, Modal, Space, Typography } from 'antd';
 import { getMessage } from '@/utils/antdApp';
@@ -354,7 +354,7 @@ const Login: React.FC = () => {
             autoLogin: true,
           }}
           actions={
-            providers?.oidc || providers?.github
+            providers?.oidc || providers?.github || providers?.wechat || providers?.genericoauth
               ? [
                   <Divider plain key="sso-divider" style={{ margin: '8px 0' }}>
                     <Typography.Text type="secondary" style={{ fontSize: 12 }}>
@@ -393,6 +393,42 @@ const Login: React.FC = () => {
                           <FormattedMessage
                             id="pages.login.github.button"
                             defaultMessage="GitHub 登录"
+                          />
+                        </Button>,
+                      ]
+                    : []),
+                  ...(providers?.wechat
+                    ? [
+                        <Button
+                          key="sso-wechat"
+                          block
+                          size="large"
+                          icon={<QrcodeOutlined />}
+                          onClick={() => {
+                            window.location.href = '/api/v1/auth/wechat/login';
+                          }}
+                        >
+                          <FormattedMessage
+                            id="pages.login.wechat.button"
+                            defaultMessage="微信扫码登录"
+                          />
+                        </Button>,
+                      ]
+                    : []),
+                  ...(providers?.genericoauth
+                    ? [
+                        <Button
+                          key="sso-generic"
+                          block
+                          size="large"
+                          icon={<LoginOutlined />}
+                          onClick={() => {
+                            window.location.href = '/api/v1/auth/generic/login';
+                          }}
+                        >
+                          <FormattedMessage
+                            id="pages.login.generic.button"
+                            defaultMessage="自定义 OAuth 登录"
                           />
                         </Button>,
                       ]

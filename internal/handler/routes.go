@@ -286,6 +286,11 @@ func registerAuthRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 	g.GET("/oidc/callback", authHandler.OIDCCallback)
 	g.GET("/github/login", authHandler.GitHubLogin)
 	g.GET("/github/callback", authHandler.GitHubCallback)
+	// 微信扫码 + 自定义 OAuth2（#51 第三批，均匿名，语义同 oidc/github）。
+	g.GET("/wechat/login", authHandler.WeChatLogin)
+	g.GET("/wechat/callback", authHandler.WeChatCallback)
+	g.GET("/generic/login", authHandler.GenericOAuthLogin)
+	g.GET("/generic/callback", authHandler.GenericOAuthCallback)
 	g.GET("/mfa/status", ctx.Authority, authHandler.MFAStatus)
 	g.POST("/mfa/setup", ctx.Authority, authHandler.MFASetup)
 	g.POST("/mfa/confirm", ctx.Authority, authHandler.MFAConfirm)

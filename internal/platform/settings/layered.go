@@ -118,6 +118,29 @@ const (
 	KeyAuthGitHubDefaultRoles = "auth.github.defaultRoles" // string (逗号分隔)
 	KeyAuthGitHubSuccessURL   = "auth.github.successUrl"   // string
 
+	// 微信开放平台扫码登录（OPEN-ISSUES #51 第三批）：openid 为影子账号主键。
+	KeyAuthWeChatEnabled      = "auth.wechat.enabled"      // bool
+	KeyAuthWeChatAppId        = "auth.wechat.appId"        // string
+	KeyAuthWeChatAppSecret    = "auth.wechat.appSecret"    // string (secret)
+	KeyAuthWeChatRedirectUrl  = "auth.wechat.redirectUrl"  // string
+	KeyAuthWeChatDefaultRoles = "auth.wechat.defaultRoles" // string (逗号分隔)
+	KeyAuthWeChatSuccessURL   = "auth.wechat.successUrl"   // string
+
+	// 自定义 OAuth2 身份源（OPEN-ISSUES #51 第三批）：三端点 + UserInfo 属性映射。
+	KeyAuthGenericOAuthEnabled       = "auth.genericoauth.enabled"       // bool
+	KeyAuthGenericOAuthClientId      = "auth.genericoauth.clientId"      // string
+	KeyAuthGenericOAuthClientSecret  = "auth.genericoauth.clientSecret"  // string (secret)
+	KeyAuthGenericOAuthRedirectUrl   = "auth.genericoauth.redirectUrl"   // string
+	KeyAuthGenericOAuthAuthUrl       = "auth.genericoauth.authUrl"       // string
+	KeyAuthGenericOAuthTokenUrl      = "auth.genericoauth.tokenUrl"      // string
+	KeyAuthGenericOAuthUserInfoUrl   = "auth.genericoauth.userInfoUrl"   // string
+	KeyAuthGenericOAuthScopes        = "auth.genericoauth.scopes"        // string (逗号分隔)
+	KeyAuthGenericOAuthUsernameField = "auth.genericoauth.usernameField" // string
+	KeyAuthGenericOAuthNicknameField = "auth.genericoauth.nicknameField" // string
+	KeyAuthGenericOAuthEmailField    = "auth.genericoauth.emailField"    // string
+	KeyAuthGenericOAuthDefaultRoles  = "auth.genericoauth.defaultRoles"  // string (逗号分隔)
+	KeyAuthGenericOAuthSuccessURL    = "auth.genericoauth.successUrl"    // string
+
 	// 自助注册（OPEN-ISSUES #51b）：默认关闭；DefaultRoles 留空则不赋角色。
 	KeyAuthRegisterEnabled      = "auth.register.enabled"      // bool
 	KeyAuthRegisterDefaultRoles = "auth.register.defaultRoles" // string (逗号分隔)
@@ -181,7 +204,14 @@ var ValidKeys = map[string]struct{}{
 	KeyAuthOidcClientSecret: {}, KeyAuthOidcRedirectUrl: {}, KeyAuthOidcDefaultRoles: {},
 	KeyAuthGitHubEnabled: {}, KeyAuthGitHubClientId: {}, KeyAuthGitHubClientSecret: {},
 	KeyAuthGitHubRedirectUrl: {}, KeyAuthGitHubDefaultRoles: {}, KeyAuthGitHubSuccessURL: {},
-	KeyAuthRegisterEnabled: {}, KeyAuthRegisterDefaultRoles: {},
+	KeyAuthWeChatEnabled: {}, KeyAuthWeChatAppId: {}, KeyAuthWeChatAppSecret: {},
+	KeyAuthWeChatRedirectUrl: {}, KeyAuthWeChatDefaultRoles: {}, KeyAuthWeChatSuccessURL: {},
+	KeyAuthGenericOAuthEnabled: {}, KeyAuthGenericOAuthClientId: {}, KeyAuthGenericOAuthClientSecret: {},
+	KeyAuthGenericOAuthRedirectUrl: {}, KeyAuthGenericOAuthAuthUrl: {}, KeyAuthGenericOAuthTokenUrl: {},
+	KeyAuthGenericOAuthUserInfoUrl: {}, KeyAuthGenericOAuthScopes: {}, KeyAuthGenericOAuthUsernameField: {},
+	KeyAuthGenericOAuthNicknameField: {}, KeyAuthGenericOAuthEmailField: {}, KeyAuthGenericOAuthDefaultRoles: {},
+	KeyAuthGenericOAuthSuccessURL: {},
+	KeyAuthRegisterEnabled:        {}, KeyAuthRegisterDefaultRoles: {},
 	KeyAuthEmailDomainWhitelist: {}, KeyAuthEmailAliasRestriction: {},
 	KeyAuthEmailVerificationRequired: {},
 	KeyPerfMaxCpuPct:                 {},
@@ -219,10 +249,12 @@ var secretKeys = map[string]struct{}{
 	// feishuSecretMasked 字段（一直有掩码），但 PutKey 的「掩码回存保护」分支
 	// 只认 IsSecretKey——管理端把快照原样回存时，"****+尾4" 会被当成真值
 	// 覆盖入库，通知发送从此静默失败（docs/BUGS.md BUG-017）。
-	KeyNotifyFeishuSecret:     {},
-	KeyAuthLdapBindPassword:   {},
-	KeyAuthOidcClientSecret:   {},
-	KeyAuthGitHubClientSecret: {},
+	KeyNotifyFeishuSecret:           {},
+	KeyAuthLdapBindPassword:         {},
+	KeyAuthOidcClientSecret:         {},
+	KeyAuthGitHubClientSecret:       {},
+	KeyAuthWeChatAppSecret:          {},
+	KeyAuthGenericOAuthClientSecret: {},
 }
 
 // IsSecretKey reports whether the key holds a credential that must be masked
@@ -262,9 +294,11 @@ var boolKeys = map[string]struct{}{
 	KeyNotifyEmailEnabled: {}, KeyNotifyInAppEnabled: {}, KeyNotifySMTPInsecureSkipVerify: {},
 	KeyAuthLocalEnabled: {},
 	KeyAuthLdapEnabled:  {}, KeyAuthLdapStartTLS: {}, KeyAuthOidcEnabled: {},
-	KeyAuthGitHubEnabled:   {},
-	KeyAuthRegisterEnabled: {},
-	KeySecurityMFARequired: {}, KeySecurityPasswordRequireUpper: {},
+	KeyAuthGitHubEnabled:       {},
+	KeyAuthWeChatEnabled:       {},
+	KeyAuthGenericOAuthEnabled: {},
+	KeyAuthRegisterEnabled:     {},
+	KeySecurityMFARequired:     {}, KeySecurityPasswordRequireUpper: {},
 	KeySecurityPasswordRequireSpecial: {},
 	KeySecSSRFProtection:              {},
 	KeyAuthEmailAliasRestriction:      {},
@@ -859,12 +893,14 @@ func resetForTest() {
 
 // AuthSnapshot 是登录方式（外部身份源）的读视图（凭据脱敏）。
 type AuthSnapshot struct {
-	Local    LocalAuthSnapshot    `json:"local"`
-	GitHub   AuthProviderSnapshot `json:"github"`
-	LDAP     AuthProviderSnapshot `json:"ldap"`
-	OIDC     AuthProviderSnapshot `json:"oidc"`
-	Register AuthProviderSnapshot `json:"register"` // 自助注册（#51b）：enabled + defaultRoles
-	Email    EmailPolicySnapshot  `json:"email"`    // 注册邮箱策略（#51c）
+	Local        LocalAuthSnapshot    `json:"local"`
+	GitHub       AuthProviderSnapshot `json:"github"`
+	WeChat       AuthProviderSnapshot `json:"wechat"`
+	GenericOAuth AuthProviderSnapshot `json:"genericoauth"`
+	LDAP         AuthProviderSnapshot `json:"ldap"`
+	OIDC         AuthProviderSnapshot `json:"oidc"`
+	Register     AuthProviderSnapshot `json:"register"` // 自助注册（#51b）：enabled + defaultRoles
+	Email        EmailPolicySnapshot  `json:"email"`    // 注册邮箱策略（#51c）
 }
 
 // EmailPolicySnapshot 是注册邮箱策略（OPEN-ISSUES #51c）的读视图：
@@ -920,12 +956,14 @@ func (l *Layered) AuthSnapshot() AuthSnapshot {
 		local.Enabled = v
 	}
 	return AuthSnapshot{
-		Local:    local,
-		GitHub:   l.authProviderSnapshot("github"),
-		LDAP:     l.authProviderSnapshot("ldap"),
-		OIDC:     l.authProviderSnapshot("oidc"),
-		Register: l.authProviderSnapshot("register"),
-		Email:    l.EmailPolicy(),
+		Local:        local,
+		GitHub:       l.authProviderSnapshot("github"),
+		WeChat:       l.authProviderSnapshot("wechat"),
+		GenericOAuth: l.authProviderSnapshot("genericoauth"),
+		LDAP:         l.authProviderSnapshot("ldap"),
+		OIDC:         l.authProviderSnapshot("oidc"),
+		Register:     l.authProviderSnapshot("register"),
+		Email:        l.EmailPolicy(),
 	}
 }
 
@@ -1080,7 +1118,7 @@ func (l *Layered) authProviderSnapshot(kind string) AuthProviderSnapshot {
 	prefix := "auth." + kind + "."
 	snap := AuthProviderSnapshot{Fields: map[string]string{}, Sources: map[string]string{}}
 	snap.Enabled = l.GetBool(settingsKey(prefix+"enabled"), false)
-	for _, f := range []string{"addr", "baseDn", "bindDn", "userFilter", "issuer", "clientId", "redirectUrl", "defaultRoles", "startTls", "successUrl"} {
+	for _, f := range []string{"addr", "baseDn", "bindDn", "userFilter", "issuer", "clientId", "redirectUrl", "defaultRoles", "startTls", "successUrl", "appId", "authUrl", "tokenUrl", "userInfoUrl", "scopes", "usernameField", "nicknameField", "emailField"} {
 		if v, src, ok := l.GetString(ctx, settingsKey(prefix+f)); ok && v != "" {
 			snap.Fields[f] = v
 			snap.Sources[f] = src
@@ -1096,6 +1134,10 @@ func (l *Layered) authProviderSnapshot(kind string) AuthProviderSnapshot {
 		secretKey = KeyAuthLdapBindPassword
 	case "github":
 		secretKey = KeyAuthGitHubClientSecret
+	case "wechat":
+		secretKey = KeyAuthWeChatAppSecret
+	case "genericoauth":
+		secretKey = KeyAuthGenericOAuthClientSecret
 	default:
 		secretKey = KeyAuthOidcClientSecret
 	}
@@ -1169,6 +1211,28 @@ func (l *Layered) AuthProviderConfig() config.AuthProvidersConfig {
 			RedirectURL:     str(KeyAuthGitHubRedirectUrl),
 			DefaultRoles:    roles(KeyAuthGitHubDefaultRoles),
 			LoginSuccessURL: str(KeyAuthGitHubSuccessURL),
+		},
+		WeChat: config.WeChatProviderConfig{
+			Enabled:         l.GetBool(KeyAuthWeChatEnabled, false),
+			AppID:           str(KeyAuthWeChatAppId),
+			AppSecret:       str(KeyAuthWeChatAppSecret),
+			RedirectURL:     str(KeyAuthWeChatRedirectUrl),
+			DefaultRoles:    roles(KeyAuthWeChatDefaultRoles),
+			LoginSuccessURL: str(KeyAuthWeChatSuccessURL),
+		},
+		GenericOAuth: config.GenericOAuthProviderConfig{
+			Enabled:       l.GetBool(KeyAuthGenericOAuthEnabled, false),
+			ClientID:      str(KeyAuthGenericOAuthClientId),
+			ClientSecret:  str(KeyAuthGenericOAuthClientSecret),
+			RedirectURL:   str(KeyAuthGenericOAuthRedirectUrl),
+			AuthURL:       str(KeyAuthGenericOAuthAuthUrl),
+			TokenURL:      str(KeyAuthGenericOAuthTokenUrl),
+			UserInfoURL:   str(KeyAuthGenericOAuthUserInfoUrl),
+			Scopes:        str(KeyAuthGenericOAuthScopes),
+			UsernameField: str(KeyAuthGenericOAuthUsernameField),
+			NicknameField: str(KeyAuthGenericOAuthNicknameField),
+			EmailField:    str(KeyAuthGenericOAuthEmailField),
+			DefaultRoles:  roles(KeyAuthGenericOAuthDefaultRoles),
 		},
 		Register: config.RegisterConfig{
 			Enabled:      l.GetBool(KeyAuthRegisterEnabled, false),

@@ -191,6 +191,9 @@ export type LocalAuthSnapshot = {
 export type AuthSnapshot = {
   local: LocalAuthSnapshot;
   github: AuthProviderSnapshot;
+  /** #51 第三批：微信扫码 + 自定义 OAuth2 */
+  wechat: AuthProviderSnapshot;
+  genericoauth: AuthProviderSnapshot;
   ldap: AuthProviderSnapshot;
   oidc: AuthProviderSnapshot;
   register: AuthProviderSnapshot;
@@ -232,6 +235,8 @@ export type LoginProviders = {
   ldap: boolean;
   oidc: boolean;
   github: boolean;
+  wechat: boolean;
+  genericoauth: boolean;
   register: boolean;
 };
 

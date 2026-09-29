@@ -16,6 +16,35 @@ export default {
   'pages.systemSiteSettings.auth.dirAddrRule': 'ldap://host:389 or ldaps://host:636',
   'pages.systemSiteSettings.auth.enableLdapLabel': 'Enable LDAP Login',
   'pages.systemSiteSettings.auth.enableGitHubLabel': 'Enable GitHub Login',
+  'pages.systemSiteSettings.auth.callbackUrlTooltip.wechat':
+    'Callback domain registered on WeChat Open Platform: https://<host>/api/v1/auth/wechat/callback',
+  'pages.systemSiteSettings.auth.callbackUrlTooltip.genericoauth':
+    'Callback URL registered at the identity provider: https://<host>/api/v1/auth/generic/callback',
+  'pages.systemSiteSettings.auth.enableWeChatLabel': 'Enable WeChat QR Login',
+  'pages.systemSiteSettings.auth.enableGenericOAuthLabel': 'Enable Custom OAuth Login',
+  'pages.systemSiteSettings.auth.wechat.title': 'WeChat QR Login',
+  'pages.systemSiteSettings.auth.hint.wechatCard':
+    'Adds a "WeChat QR Login" entry on the login page; shadow accounts are created on first login (username = openid)',
+  'pages.systemSiteSettings.auth.saved.wechat': 'WeChat configuration saved',
+  'pages.systemSiteSettings.auth.genericoauth.title': 'Custom OAuth2',
+  'pages.systemSiteSettings.auth.hint.genericoauthCard':
+    'Works with any standard authorization-code identity provider (Keycloak/Authentik/Auth0, etc.); shadow accounts are created on first login',
+  'pages.systemSiteSettings.auth.saved.genericoauth': 'Custom OAuth configuration saved',
+  'pages.systemSiteSettings.auth.authUrlLabel': 'AuthURL',
+  'pages.systemSiteSettings.auth.tokenUrlLabel': 'TokenURL',
+  'pages.systemSiteSettings.auth.userInfoUrlLabel': 'UserInfo Endpoint',
+  'pages.systemSiteSettings.auth.scopesLabel': 'Scopes',
+  'pages.systemSiteSettings.auth.scopesTooltip':
+    'Comma separated, e.g. openid,profile; leave empty for no scope',
+  'pages.systemSiteSettings.auth.usernameFieldLabel': 'Username Field',
+  'pages.systemSiteSettings.auth.usernameFieldTooltip':
+    'Property name in the UserInfo JSON, default username (top-level fields only)',
+  'pages.systemSiteSettings.auth.nicknameFieldLabel': 'Nickname Field',
+  'pages.systemSiteSettings.auth.nicknameFieldTooltip':
+    'Property name in the UserInfo JSON, default name',
+  'pages.systemSiteSettings.auth.emailFieldLabel': 'Email Field',
+  'pages.systemSiteSettings.auth.emailFieldTooltip':
+    'Property name in the UserInfo JSON, default email',
   'pages.systemSiteSettings.auth.enableSsoLabel': 'Enable SSO Login',
   'pages.systemSiteSettings.auth.error.loadFailed': 'Failed to load authentication settings',
   'pages.systemSiteSettings.auth.error.saveFailed': 'Save failed',

@@ -54,6 +54,8 @@ export default {
   'pages.login.privacyPolicy': '隐私政策',
   'pages.login.passwordDisabled': '账号密码登录已停用，请使用其他登录方式',
   'pages.login.github.button': 'GitHub 登录',
+  'pages.login.wechat.button': '微信扫码登录',
+  'pages.login.generic.button': '自定义 OAuth 登录',
   'pages.login.submit': '登录',
   'pages.login.loginWith': '其他登录方式 :',
   'pages.login.registerAccount': '注册账户',

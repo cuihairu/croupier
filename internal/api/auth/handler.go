@@ -77,11 +77,13 @@ func (h *Handler) Check(c *gin.Context) {
 // Providers 返回已启用的登录方式，供登录页渲染入口。
 func (h *Handler) Providers(c *gin.Context) {
 	response.Success(c, gin.H{
-		"local":    h.service.LocalEnabled(),
-		"ldap":     h.service.LDAPEnabled(),
-		"oidc":     h.service.OIDCEnabled(),
-		"github":   h.service.GitHubEnabled(),
-		"register": h.service.RegisterEnabled(),
+		"local":        h.service.LocalEnabled(),
+		"ldap":         h.service.LDAPEnabled(),
+		"oidc":         h.service.OIDCEnabled(),
+		"github":       h.service.GitHubEnabled(),
+		"wechat":       h.service.WeChatEnabled(),
+		"genericoauth": h.service.GenericOAuthEnabled(),
+		"register":     h.service.RegisterEnabled(),
 	})
 }
 
@@ -228,28 +230,11 @@ func (h *Handler) OIDCLogin(c *gin.Context) {
 // OIDCCallback 处理身份源回调：换取身份并签发平台 token。
 // 配置了 loginSuccessUrl 时携带 token 跳转前端；否则返回 JSON。
 func (h *Handler) OIDCCallback(c *gin.Context) {
-	req := &LoginRequest{
-		ClientIP:  c.ClientIP(),
-		UserAgent: c.GetHeader("User-Agent"),
-	}
-	resp, err := h.service.OIDCLoginCallback(c.Request.Context(), c.Query("code"), c.Query("state"), req)
-	if err != nil {
-		response.Unauthorized(c, err.Error())
-		return
-	}
-	if target := h.service.OIDCSuccessURL(); target != "" {
-		u, parseErr := url.Parse(target)
-		if parseErr != nil {
-			response.InternalServerError(c, "loginSuccessUrl 配置无效")
-			return
-		}
-		q := u.Query()
-		q.Set("token", resp.Token)
-		u.RawQuery = q.Encode()
-		c.Redirect(http.StatusFound, u.String())
-		return
-	}
-	response.Success(c, resp)
+	h.oauthCallback(c,
+		func(code, state string, req *LoginRequest) (*LoginResponse, error) {
+			return h.service.OIDCLoginCallback(c.Request.Context(), code, state, req)
+		},
+		h.service.OIDCSuccessURL)
 }
 
 // GitHubLogin 生成跳转到 GitHub 的授权 URL 并 302 重定向。
@@ -264,16 +249,68 @@ func (h *Handler) GitHubLogin(c *gin.Context) {
 
 // GitHubCallback 处理 GitHub OAuth2 回调（成功跳转语义同 OIDC）。
 func (h *Handler) GitHubCallback(c *gin.Context) {
+	h.oauthCallback(c,
+		func(code, state string, req *LoginRequest) (*LoginResponse, error) {
+			return h.service.GitHubLoginCallback(c.Request.Context(), code, state, req)
+		},
+		h.service.GitHubSuccessURL)
+}
+
+// WeChatLogin 生成微信扫码登录页地址并 302 重定向（#51 第三批）。
+func (h *Handler) WeChatLogin(c *gin.Context) {
+	u, err := h.service.WeChatAuthCodeURL()
+	if err != nil {
+		response.BadRequest(c, err.Error())
+		return
+	}
+	c.Redirect(http.StatusFound, u)
+}
+
+// WeChatCallback 处理微信扫码回调（成功跳转语义同 OIDC/GitHub）。
+func (h *Handler) WeChatCallback(c *gin.Context) {
+	h.oauthCallback(c,
+		func(code, state string, req *LoginRequest) (*LoginResponse, error) {
+			return h.service.WeChatLoginCallback(c.Request.Context(), code, state, req)
+		},
+		h.service.WeChatSuccessURL)
+}
+
+// GenericOAuthLogin 生成自定义 OAuth 授权 URL 并 302 重定向（#51 第三批）。
+func (h *Handler) GenericOAuthLogin(c *gin.Context) {
+	u, err := h.service.GenericOAuthAuthCodeURL()
+	if err != nil {
+		response.BadRequest(c, err.Error())
+		return
+	}
+	c.Redirect(http.StatusFound, u)
+}
+
+// GenericOAuthCallback 处理自定义 OAuth 回调（成功跳转语义同 OIDC/GitHub）。
+func (h *Handler) GenericOAuthCallback(c *gin.Context) {
+	h.oauthCallback(c,
+		func(code, state string, req *LoginRequest) (*LoginResponse, error) {
+			return h.service.GenericOAuthLoginCallback(c.Request.Context(), code, state, req)
+		},
+		h.service.GenericOAuthSuccessURL)
+}
+
+// oauthCallback 是重定向授权型回调 handler 的公共出口：成功且配置了
+// loginSuccessUrl 时携带 token 302 跳前端，否则返回 JSON（OIDC/GitHub/
+// WeChat/自定义 OAuth 四路同构）。
+func (h *Handler) oauthCallback(c *gin.Context,
+	callback func(code, state string, req *LoginRequest) (*LoginResponse, error),
+	successURL func() string,
+) {
 	req := &LoginRequest{
 		ClientIP:  c.ClientIP(),
 		UserAgent: c.GetHeader("User-Agent"),
 	}
-	resp, err := h.service.GitHubLoginCallback(c.Request.Context(), c.Query("code"), c.Query("state"), req)
+	resp, err := callback(c.Query("code"), c.Query("state"), req)
 	if err != nil {
 		response.Unauthorized(c, err.Error())
 		return
 	}
-	if target := h.service.GitHubSuccessURL(); target != "" {
+	if target := successURL(); target != "" {
 		u, parseErr := url.Parse(target)
 		if parseErr != nil {
 			response.InternalServerError(c, "loginSuccessUrl 配置无效")

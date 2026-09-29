@@ -505,6 +505,22 @@ describe('Login Page 覆盖补齐（提交链路/品牌兜底/MFA/登录入口�
     }
   });
 
+  it('微信扫码：providers.wechat 时渲染扫码入口按钮（#51 第三批）', async () => {
+    mockedProviders.mockResolvedValueOnce({ local: true, wechat: true });
+
+    render(<Login />);
+    const sso = await screen.findByRole('button', { name: /微信扫码登录/ });
+    expect(sso).toBeTruthy();
+  });
+
+  it('自定义 OAuth：providers.genericoauth 时渲染自定义 OAuth 入口按钮（#51 第三批）', async () => {
+    mockedProviders.mockResolvedValueOnce({ local: true, genericoauth: true });
+
+    render(<Login />);
+    const sso = await screen.findByRole('button', { name: /自定义 OAuth 登录/ });
+    expect(sso).toBeTruthy();
+  });
+
   it('LDAP：providers.ldap 时渲染域账号提示', async () => {
     mockedProviders.mockResolvedValueOnce({ local: true, ldap: true, oidc: false });
 

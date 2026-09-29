@@ -58,6 +58,8 @@ export default {
   'pages.login.privacyPolicy': 'Privacy Policy',
   'pages.login.passwordDisabled': 'Password login is disabled, please use another sign-in method',
   'pages.login.github.button': 'Sign in with GitHub',
+  'pages.login.wechat.button': 'WeChat QR Login',
+  'pages.login.generic.button': 'Custom OAuth Login',
   'pages.login.submit': 'Login',
   'pages.login.loginWith': 'Login with :',
   'pages.login.registerAccount': 'Register Account',

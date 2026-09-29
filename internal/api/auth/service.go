@@ -66,6 +66,11 @@ type Service struct {
 	// github 是 GitHub OAuth2 提供方（nil = 未启用）；successURL 语义同 OIDC。
 	github           identity.OAuthProvider
 	githubSuccessURL string
+	// wechat / genericOAuth 是扩展外部 OAuth 提供方（#51 第三批，nil = 未启用）。
+	wechat                 identity.OAuthProvider
+	wechatSuccessURL       string
+	genericOAuth           identity.OAuthProvider
+	genericOAuthSuccessURL string
 	// localDisabled = auth.local.enabled 显式关闭：本地账号密码级联被移除，
 	// 登录须走外部身份源；Providers 端点据此让前端隐藏账密表单。
 	localDisabled bool
@@ -166,6 +171,24 @@ func (s *Service) WithGitHubProvider(p identity.OAuthProvider, defaultRoles []st
 	return s
 }
 
+// WithWeChatProvider enables the WeChat Open Platform QR login flow
+// （语义同 OIDC：JIT 建号 + 默认角色 + 成功跳转）。
+func (s *Service) WithWeChatProvider(p identity.OAuthProvider, defaultRoles []string, successURL string) *Service {
+	s.wechat = p
+	s.providerDefaultRoles[identity.KindWeChat] = defaultRoles
+	s.wechatSuccessURL = successURL
+	return s
+}
+
+// WithGenericOAuthProvider enables a custom OAuth2 (authorization code) login
+// flow（语义同 OIDC：JIT 建号 + 默认角色 + 成功跳转）。
+func (s *Service) WithGenericOAuthProvider(p identity.OAuthProvider, defaultRoles []string, successURL string) *Service {
+	s.genericOAuth = p
+	s.providerDefaultRoles[identity.KindGenericOAuth] = defaultRoles
+	s.genericOAuthSuccessURL = successURL
+	return s
+}
+
 // WithLocalEnabled 设置账号密码登录开关（false = 停用本地级联）。
 func (s *Service) WithLocalEnabled(enabled bool) *Service {
 	s.localDisabled = !enabled
@@ -207,8 +230,10 @@ func (s *Service) RefreshIdentityProviders(cfg config.AuthProvidersConfig) error
 	// 防锁死：本地密码登录与全部外部身份源同时不可用 → 拒绝应用，
 	// 保存端（PutKey onAuthChange）据此回滚该键。
 	githubUp := ip.github != nil
-	if !ip.localEnabled && !cfg.LDAP.Enabled && !cfg.OIDC.Enabled && !githubUp {
-		return errors.New("不能停用所有登录方式：账号密码登录关闭时至少需启用 LDAP/OIDC/GitHub 之一")
+	wechatUp := ip.wechat != nil
+	genericUp := ip.genericOAuth != nil
+	if !ip.localEnabled && !cfg.LDAP.Enabled && !cfg.OIDC.Enabled && !githubUp && !wechatUp && !genericUp {
+		return errors.New("不能停用所有登录方式：账号密码登录关闭时至少需启用 LDAP/OIDC/GitHub/WeChat/自定义 OAuth 之一")
 	}
 	s.providersMu.Lock()
 	defer s.providersMu.Unlock()
@@ -230,6 +255,10 @@ func (s *Service) RefreshIdentityProviders(cfg config.AuthProvidersConfig) error
 	s.oidcSuccessURL = ip.oidcURL
 	s.github = ip.github
 	s.githubSuccessURL = ip.githubURL
+	s.wechat = ip.wechat
+	s.wechatSuccessURL = ip.wechatURL
+	s.genericOAuth = ip.genericOAuth
+	s.genericOAuthSuccessURL = ip.genericOAuthURL
 	if ip.ldapRoles != nil {
 		s.providerDefaultRoles[identity.KindLDAP] = ip.ldapRoles
 	}
@@ -238,6 +267,12 @@ func (s *Service) RefreshIdentityProviders(cfg config.AuthProvidersConfig) error
 	}
 	if ip.github != nil {
 		s.providerDefaultRoles[identity.KindGitHub] = ip.githubRoles
+	}
+	if ip.wechat != nil {
+		s.providerDefaultRoles[identity.KindWeChat] = ip.wechatRoles
+	}
+	if ip.genericOAuth != nil {
+		s.providerDefaultRoles[identity.KindGenericOAuth] = ip.genericOAuthRoles
 	}
 	return nil
 }
@@ -760,33 +795,10 @@ func (s *Service) GitHubAuthCodeURL() (string, error) {
 	return g.AuthCodeURL(s.newOIDCState()), nil
 }
 
-// GitHubLoginCallback 处理 GitHub 回调：校验 state，换取 GitHub 身份，
-// JIT 解析本地账号后签发平台 token（JIT/角色/MFA 语义与 OIDC 一致）。
+// GitHubLoginCallback 处理 GitHub 回调（公共出口见 externalOAuthCallback）。
 func (s *Service) GitHubLoginCallback(ctx context.Context, code, state string, req *LoginRequest) (*LoginResponse, error) {
 	g, _ := s.githubSnapshot()
-	if g == nil {
-		return nil, errors.New("GitHub 登录未启用")
-	}
-	if !s.verifyOIDCState(state) {
-		s.recordLoginAudit("", "auth.login_failed", "failed", req, "invalid_state", identity.KindGitHub)
-		return nil, errors.New("登录状态校验失败，请重新发起登录")
-	}
-	if strings.TrimSpace(code) == "" {
-		return nil, errors.New("缺少授权码")
-	}
-
-	ident, err := g.Exchange(ctx, code)
-	if err != nil {
-		s.recordLoginAudit("", "auth.login_failed", "failed", req, "github_exchange_failed", identity.KindGitHub)
-		return nil, errors.New("GitHub 登录失败")
-	}
-
-	admin, err := s.resolveAdminForIdentity(ctx, ident)
-	if err != nil {
-		s.recordLoginAudit(ident.Username, "auth.login_failed", "failed", req, "provision_failed", ident.Provider)
-		return nil, errors.New("登录失败")
-	}
-	return s.issueLogin(ctx, admin, ident, req)
+	return s.externalOAuthCallback(ctx, g, identity.KindGitHub, "GitHub", code, state, req)
 }
 
 // GitHubSuccessURL 返回 GitHub 回调成功跳转地址（可为空）。
@@ -795,25 +807,96 @@ func (s *Service) GitHubSuccessURL() string {
 	return url
 }
 
-// OIDCLoginCallback 处理回调：校验 state，用授权码换取身份，JIT 解析本地
-// 账号后签发平台 JWT。
-func (s *Service) OIDCLoginCallback(ctx context.Context, code, state string, req *LoginRequest) (*LoginResponse, error) {
-	_, oidc, _, _ := s.snapshotProviders()
-	if oidc == nil {
-		return nil, errors.New("OIDC 登录未启用")
+// wechatSnapshot 返回微信扫码提供方与成功跳转地址（热刷新安全读取）。
+func (s *Service) wechatSnapshot() (identity.OAuthProvider, string) {
+	s.providersMu.RLock()
+	defer s.providersMu.RUnlock()
+	return s.wechat, s.wechatSuccessURL
+}
+
+// WeChatEnabled reports whether the WeChat QR login flow is wired.
+func (s *Service) WeChatEnabled() bool {
+	p, _ := s.wechatSnapshot()
+	return p != nil
+}
+
+// WeChatAuthCodeURL 生成微信扫码登录页地址（state 复用 OIDC 的 HMAC
+// 签名机制，含 10 分钟有效期）。
+func (s *Service) WeChatAuthCodeURL() (string, error) {
+	p, _ := s.wechatSnapshot()
+	if p == nil {
+		return "", errors.New("微信登录未启用")
+	}
+	return p.AuthCodeURL(s.newOIDCState()), nil
+}
+
+// WeChatLoginCallback 处理微信回调（公共出口见 externalOAuthCallback）。
+func (s *Service) WeChatLoginCallback(ctx context.Context, code, state string, req *LoginRequest) (*LoginResponse, error) {
+	p, _ := s.wechatSnapshot()
+	return s.externalOAuthCallback(ctx, p, identity.KindWeChat, "微信", code, state, req)
+}
+
+// WeChatSuccessURL 返回微信回调成功跳转地址（可为空）。
+func (s *Service) WeChatSuccessURL() string {
+	_, url := s.wechatSnapshot()
+	return url
+}
+
+// genericOAuthSnapshot 返回自定义 OAuth 提供方与成功跳转地址（热刷新安全读取）。
+func (s *Service) genericOAuthSnapshot() (identity.OAuthProvider, string) {
+	s.providersMu.RLock()
+	defer s.providersMu.RUnlock()
+	return s.genericOAuth, s.genericOAuthSuccessURL
+}
+
+// GenericOAuthEnabled reports whether the custom OAuth login flow is wired.
+func (s *Service) GenericOAuthEnabled() bool {
+	p, _ := s.genericOAuthSnapshot()
+	return p != nil
+}
+
+// GenericOAuthAuthCodeURL 生成自定义 OAuth 的授权 URL（state 复用 OIDC 的
+// HMAC 签名机制，含 10 分钟有效期）。
+func (s *Service) GenericOAuthAuthCodeURL() (string, error) {
+	p, _ := s.genericOAuthSnapshot()
+	if p == nil {
+		return "", errors.New("自定义 OAuth 登录未启用")
+	}
+	return p.AuthCodeURL(s.newOIDCState()), nil
+}
+
+// GenericOAuthLoginCallback 处理自定义 OAuth 回调（公共出口见 externalOAuthCallback）。
+func (s *Service) GenericOAuthLoginCallback(ctx context.Context, code, state string, req *LoginRequest) (*LoginResponse, error) {
+	p, _ := s.genericOAuthSnapshot()
+	return s.externalOAuthCallback(ctx, p, identity.KindGenericOAuth, "自定义 OAuth", code, state, req)
+}
+
+// GenericOAuthSuccessURL 返回自定义 OAuth 回调成功跳转地址（可为空）。
+func (s *Service) GenericOAuthSuccessURL() string {
+	_, url := s.genericOAuthSnapshot()
+	return url
+}
+
+// externalOAuthCallback 是重定向授权型回调的公共出口：校验 state（HMAC，
+// 10 分钟有效）→ 授权码换身份 → JIT 解析/创建本地影子账号 → 签发平台
+// token。OIDC/GitHub/WeChat/自定义 OAuth 四路逐行同构，仅 kind（审计
+// metadata）与 label（错误文案）不同。kind/label 由调用方按提供方传入。
+func (s *Service) externalOAuthCallback(ctx context.Context, p identity.OAuthProvider, kind, label, code, state string, req *LoginRequest) (*LoginResponse, error) {
+	if p == nil {
+		return nil, errors.New(label + " 登录未启用")
 	}
 	if !s.verifyOIDCState(state) {
-		s.recordLoginAudit("", "auth.login_failed", "failed", req, "invalid_state", identity.KindOIDC)
+		s.recordLoginAudit("", "auth.login_failed", "failed", req, "invalid_state", kind)
 		return nil, errors.New("登录状态校验失败，请重新发起登录")
 	}
 	if strings.TrimSpace(code) == "" {
 		return nil, errors.New("缺少授权码")
 	}
 
-	ident, err := oidc.Exchange(ctx, code)
+	ident, err := p.Exchange(ctx, code)
 	if err != nil {
-		s.recordLoginAudit("", "auth.login_failed", "failed", req, "oidc_exchange_failed", identity.KindOIDC)
-		return nil, errors.New("OIDC 登录失败")
+		s.recordLoginAudit("", "auth.login_failed", "failed", req, kind+"_exchange_failed", kind)
+		return nil, errors.New(label + " 登录失败")
 	}
 
 	admin, err := s.resolveAdminForIdentity(ctx, ident)
@@ -822,6 +905,13 @@ func (s *Service) OIDCLoginCallback(ctx context.Context, code, state string, req
 		return nil, errors.New("登录失败")
 	}
 	return s.issueLogin(ctx, admin, ident, req)
+}
+
+// OIDCLoginCallback 处理回调：校验 state，用授权码换取身份，JIT 解析本地
+// 账号后签发平台 JWT。
+func (s *Service) OIDCLoginCallback(ctx context.Context, code, state string, req *LoginRequest) (*LoginResponse, error) {
+	_, oidc, _, _ := s.snapshotProviders()
+	return s.externalOAuthCallback(ctx, oidc, identity.KindOIDC, "OIDC", code, state, req)
 }
 
 // OIDCSuccessURL 返回配置的登录成功跳转地址（可为空）。
