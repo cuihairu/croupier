@@ -2,7 +2,7 @@
 
 > 状态：设计稿（本批仅设计文档，不含实现代码）
 > 日期：2026-09-29 · 目标仓库路径：`mobile/` · CI：`.github/workflows/ci-mobile.yml`
-> 原则：契约零新增——移动端直连既有 `/api/*`，服务端除 ntfy 发布钩子（后端后续项，见 §6.4）外**零改动**。
+> 原则：契约零新增——移动端直连既有 `/api/*`；服务端改动收敛为两处：§2.3 设备视图最小补集（只读、字段级、零新业务逻辑）与 §6.4/§6.5 两个事件发布钩子（后端后续项），除此之外**零改动**。
 
 ## 1. 背景与定位
 
@@ -16,18 +16,18 @@
 
 ### 范围（四域）
 
-| 域       | 内容                                                   |
-| -------- | ------------------------------------------------------ |
-| 审批中心 | 待批列表 / 详情 / 批准 / 拒绝 / 两人规则与高风险确认   |
-| 监控大盘 | 性能快照 / 节点状态 / LB 统计（只读）+ 告警列表与静默  |
-| 审计查询 | 审计事件检索（筛选 + 分页，只读）                      |
-| 函数调用 | 描述符驱动动态表单的**简单参数**调用（含异步任务跟进） |
+| 域       | 内容                                                               |
+| -------- | ------------------------------------------------------------------ |
+| 审批中心 | 待批列表 / 详情 / 批准 / 拒绝 / 两人规则与高风险确认               |
+| 监控大盘 | 性能快照 / 设备（Agent）在线状态 / LB 统计（只读）+ 告警列表与静默 |
+| 审计查询 | 审计事件检索（筛选 + 分页，只读）                                  |
+| 函数调用 | 描述符驱动动态表单的**简单参数**调用（含异步任务跟进）             |
 
 ### 明确不做（负面范围）
 
 - **复合编辑器**（PageStudio/Composite Editor 域）——编辑归 Web；
 - **pack 管理**（extensions 域：catalog 登记/发布/导入）——治理归 Web；
-- 监控**写操作**（`PUT /ops/health`、`PUT /ops/maintenance`）；
+- 监控与设备**写操作**（`PUT /ops/health`、`PUT /ops/maintenance`、`POST /ops/nodes/:nodeId/drain|undrain|restart` 等）——设备页只读，drain/重启等治理动作归 Web；
 - 站内信/公告/工单等其余域（不消费 `/messages`、`/announcements`、`/tickets`）；
 - 消息中心与富通知模板（通知只做「有待批 + 深链」级别）。
 
@@ -60,7 +60,7 @@
 **大盘页**
 
 - 性能快照：`GET /api/v1/ops/performance` → `runtime`（goroutines/heap/GC/uptime）、`host`（CPU/内存/磁盘）、`overload` 三块布尔——各一张卡片，`overload.*=true` 的卡片描红；
-- 节点列表：`GET /api/v1/nodes`（agent 节点：在线状态/lastSeen/functionsCount/gameId/env）；
+- 设备（Agent）在线状态：`GET /api/v1/ops/nodes`（scoped），独立设备页承载——在线/离线徽标、最近心跳、版本、能力标签，详见 §2.3；
 - LB 统计：`GET /api/v1/ops/cluster/lb-stats`（按后端返回形态列表格）；
 - 全部**只读**，不提供健康开关与维护模式操作。
 
@@ -70,7 +70,44 @@
 - 行：`type`、`level`（色阶 Tag）、`message`、`source`、`createdAt`、`status`；
 - 静默：`POST /api/v1/alerts/:id/silence`，body `{duration, reason}`（duration 分钟数，reason 必填）；静默规则列表 `GET /api/v1/alerts/silences` 只读展示。
 
-### 2.3 审计查询（M2 交付）
+### 2.3 设备 / Agent 在线状态（M2 交付）
+
+**数据面盘点（既有端点，全部现成）**
+
+- `GET /api/v1/ops/nodes`（ops 域、scoped）：agent 会话聚合视图，Web Ops 页同款数据源。单条 Node DTO 字段：`id`（agentId）/ `hostname` / `addr` / `gameId` / `env` / `status` / `labels` / `lastSeen`（最近心跳）/ `sdkLanguage` / `sdkVersion` / `sdkName` / `functions`（已注册函数数）/ `expiresInSec` / `cpu` / `memory` / `disks`（有系统信息上报时）；
+- `status` 四态语义：`online`（会话活跃）/ `offline`（过期或断开）/ `drained`（运维排空）/ `stale`（心跳超时或会话被集群其他实例持有的过渡态）；
+- `GET /api/v1/registry`：函数覆盖视角（`agents[]{agentId, gameId, env, addr, functions, healthy, expiresInSec}` + coverage 汇总），设备页不直接消费，排障时可对照；
+- 勘误：`GET /api/v1/nodes` 是静态节点注册表（nodes 表：id/name/type/status/ip/port），**不是** agent 会话数据面——v1 稿曾误引为设备数据源，本版修正，移动端不消费该端点。
+
+**设备列表页**
+
+- 数据：`GET /api/v1/ops/nodes`；
+- 行：`hostname`（次行 `id`）、`gameId/env` Tag、四态徽标（online 绿 / offline 红 / drained 灰 / stale 橙）、`lastSeen` 相对时间（「3 分钟前」）、版本（`sdkVersion` 优先展示，agent 版本见下述最小补集）、`functions` 数；
+- 能力标签：`labels`（通用 k/v，可承载能力/分组标注）渲染为芯片，支持按 label 值客户端侧过滤（agent 规模通常 <100，整表返回后本地过滤足够）；
+- 下拉刷新 + 前台 60s 定时刷新（离线推送未落地前的发现手段，见下）；无分页（端点整表返回）。
+
+**设备详情页**
+
+- 基础信息卡：id / hostname / addr / gameId / env / status / lastSeen / expiresInSec / 版本（agent 版本 + sdkLanguage / sdkVersion / sdkName）；
+- 资源卡：`cpu` / `memory` / `disks`（无系统信息上报时显示「暂无上报」）；
+- 函数卡：`functions` 计数（端点只回数量；函数清单不展开，需要时引导回 Web）；
+- **历史在线状态：不承诺**。agent 生命周期钩子（注册/心跳/断开）当前不落任何事件表，无历史数据可查；如后续要做，须后端新增在线事件落库——超出本设计后端零改动边界，列 M4 可选并标注该依赖。
+
+**后端最小补充端点集（只读、零新业务逻辑，实现批落地）**
+
+| 补充                            | 形态                                                                                                                                                                             | 动机                                                                       |
+| ------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
+| Node DTO 暴露 `version` 字段    | `internal/api/ops` 的 Node DTO 增加 `version string`；`agent_sessions` 表已有 `Version` 列（agent 二进制版本），listNodes 组装处一行映射即可                                     | 列表/详情页「版本」当前只能显示 SDK 版本；agent 自身版本已有落库数据未出参 |
+| `GET /api/v1/ops/nodes/:nodeId` | 单设备详情：复用 listNodes 同源数据（RegistryStore 快照 + agent_sessions + 集群归属判定）按 id 过滤返回单个 Node；现有 `/ops/nodes/:nodeId/meta` 只回 `{labels}`，承载不了详情页 | 详情页现只能整表拉取后客户端过滤；设备多时省流量，也让单设备语义完整       |
+
+两项均为既有数据的出参整理：不加表、不加迁移、不加写路径、不新写业务逻辑。
+
+**推送联动（设备离线 → ntfy，复用既有告警通道）**
+
+- 通道面已存在：`GET/PUT /api/v1/ops/notifications`（`channels[]{id, type, url, secret}` + `rules[]{event, channels, thresholdDays}`），channel 即 URL 型推送配置（webhook/ntfy 类）——离线告警复用这套通道，移动端只订阅对应 topic；
+- 缺口：`agent_offline` 事件的**生成端**未实现（registry 生命周期钩子未接 notifications 派发，当前 rules 只服务备份到期类事件）。该生成端为后端后续项，与 §6.4 审批发布钩子同族跟踪；落地前移动端的离线发现降级为轮询（设备列表页前台 60s 刷新）。
+
+### 2.4 审计查询（M2 交付）
 
 **审计页**（只读检索）
 
@@ -80,19 +117,19 @@
 - 行：`createdAt`、`action`、`userId`、`target`、`result`、`gameId/env`；点行展开 `metadata` JSON 折叠视图 + 审计链 `hash/prevHash`（有值才显示）；
 - 分页：`page/pageSize`（默认 20，与 Web 同）。
 
-### 2.4 函数调用（M3 交付）
+### 2.5 函数调用（M3 交付）
 
 **函数选择页**：`GET /api/v1/functions`（响应形态兜底：裸数组 / `{functions}` / `{items}` 三态，对齐 Web `getFunctionSummary`）→ 搜索 + 描述符映射（risk/approvalRequired 标签同审批中心）。
 
 **调用页（描述符驱动动态表单）**
 
 - `GET /api/v1/functions/:id` 取 descriptor：`inputSchema`（JSON Schema）+ `risk` + `approvalRequired`；
-- `inputSchema` → Flutter 表单：映射表见 §2.5；
+- `inputSchema` → Flutter 表单：映射表见 §2.6；
 - 提交：`POST /api/v1/functions/:id/invoke`，body `{payload, route?, targetServiceId?, hashKey?, mode?}`；移动端 `route` 固定省略（服务端默认 lb），`targetServiceId/hashKey` 折叠在「高级」区，`mode=async` 由「异步任务」开关控制；
 - `approvalRequired` 的函数：调用后提示「已提交审批，等待第二审批人」（移动端仅发起侧，审批在审批中心完成）；
 - 异步任务：响应带 taskId 时进入任务跟进页——`GET /api/v1/tasks/:id` 轮询（5s 间隔，页面可见时）、`POST /api/v1/tasks/:id/cancel`。
 
-### 2.5 JSON Schema → Flutter 控件映射表
+### 2.6 JSON Schema → Flutter 控件映射表
 
 收敛原则：**简单参数表单化，复杂结构只读化**。顶层任一参数为复杂形态（嵌套 object / object 数组）时，该参数只读展示，不进入表单编辑区。
 
@@ -114,7 +151,7 @@
 
 提交组装：表单值 + 只读参数原值合并为 `payload`；「编辑原始 JSON」修改过的只读参数以编辑值为准（用户显式改写优先）。
 
-### 2.6 明确页面外的系统界面
+### 2.7 明确页面外的系统界面
 
 - 登录页（双步，§3.2）、scope 选择页（§3.3）、设置页（服务器地址 / ntfy 配置 / 主题 / 语言 / 生物门禁开关）、生物门禁锁屏（§4.1）。
 
@@ -133,7 +170,8 @@
 | 审批  | `/api/v1/approvals/:id/reject`  | POST | `{reason}`                             | ✓                              |
 | 监控  | `/api/v1/ops/performance`       | GET  | 性能快照                               | ✓                              |
 | 监控  | `/api/v1/ops/cluster/lb-stats`  | GET  | LB 统计                                | ✓                              |
-| 监控  | `/api/v1/nodes`                 | GET  | agent 节点                             | ✗                              |
+| 设备  | `/api/v1/ops/nodes`             | GET  | 设备（Agent）在线状态列表（§2.3）      | ✓                              |
+| 设备  | `/api/v1/ops/nodes/:nodeId`     | GET  | 单设备详情（§2.3 最小补集）            | ✓                              |
 | 告警  | `/api/v1/alerts`                | GET  | 告警列表（level/status/page/pageSize） | ✗                              |
 | 告警  | `/api/v1/alerts/:id/silence`    | POST | `{duration, reason}`                   | ✗                              |
 | 告警  | `/api/v1/alerts/silences`       | GET  | 静默规则                               | ✗                              |
@@ -255,12 +293,12 @@ mobile/
       auth/                   # session_controller、biometric_gate、login_service
       scope/                  # scope_controller、scoped_prefixes.dart
       storage/                # session_store
-      schema_form/            # §2.5 映射实现：schema_form.dart、field builders、json_view.dart
+      schema_form/            # §2.6 映射实现：schema_form.dart、field builders、json_view.dart
     features/
       approvals/              # M1：list/ detail/ controllers/ widgets/
       login/                  # M1
       settings/               # M1：服务器地址、ntfy、门禁开关
-      monitoring/             # M2：dashboard/ alerts/
+      monitoring/             # M2：dashboard/ alerts/ devices/
       audit/                  # M2
       invoke/                 # M3：functions/ call/ task/
       push/                   # M3：ntfy 订阅、深链分发
@@ -282,7 +320,8 @@ mobile/
 - topic 规范：`croupier/<env>/approvals/<usernameHash>`（usernameHash = SHA-256(username + serverUrl) 前 16 位——避免 topic 直接暴露用户名被枚举遍历）；
 - 订阅鉴权：ntfy 访问 token（ntfy `accessTokens`，设置页粘贴或扫码录入），topic 侧配 read-allowlist；
 - 订阅方式：ntfy HTTP stream（`GET {ntfyBase}/{topic}/json` 长连接）+ `app_links` 深链 `croupier://approvals/<id>`；
-- 通知内容只含「有新的待批：functionId @ gameId/env」级别，**不含 payload**（最小化泄露面）。
+- 通知内容只含「有新的待批：functionId @ gameId/env」级别，**不含 payload**（最小化泄露面）；
+- 运维告警 topic：`croupier/<env>/ops`（设备离线等事件，由服务端 ops notifications 通道发布，见 §6.5）——订阅为设置页可选项，值班角色才建议开。
 
 ### 6.3 前台提醒（既有能力复用）
 
@@ -291,6 +330,10 @@ App 前台时：审批列表页 60s 定时轮询 + 下拉刷新（不依赖 ntfy
 ### 6.4 服务端发布钩子（后端后续项，明确不在本设计范围）
 
 审批创建 → ntfy publish 的服务端钩子需要后端改动（settings 键 `notifications.ntfy.baseurl` / `notifications.ntfy.topicPrefix` + approval 创建路径挂钩）。**本设计只定义客户端订阅与深链**；钩子落地前 ntfy 推送整体降级为轮询（功能不缺失，及时性降）。列为依赖项跟踪，不阻塞 M1-M2。
+
+### 6.5 设备离线推送（复用告警通道，后端后续项）
+
+设备（agent）离线事件复用 ops notifications 既有通道面（§2.3 推送联动）：channel URL 指向 ntfy topic `croupier/<env>/ops`，`agent_offline` 规则把事件路由到该通道。移动端设置页追加订阅该 topic，收到离线通知深链直达设备详情页。`agent_offline` 事件生成端未落地前此推送不可用（设备页降级轮询发现），不阻塞 M1-M2。
 
 ## 7. CI 接线
 
@@ -334,8 +377,8 @@ jobs:
 | 批次                               | 内容                                                                                                                                                                                                       | 验收标准                                                                                                                                                      |
 | ---------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **M1（P0）骨架 + 登录 + 审批中心** | 工程脚手架、dio 拦截器链（token/scope/ApiError）、登录双步（mfa_required 分支）、scope 选择、审批列表/详情/批准/拒绝（含 409 竞态）、高危 step-up 三段确认、local_auth 门禁、secure storage、ci-mobile.yml | 真机对自签 server 完成：登录（TOTP 双步）→ 切 scope → 批准一条两人规则高危审批（生物+函数ID+OTP 全链）；`flutter analyze`/`test` 全绿；CI - Mobile 工作流上线 |
-| **M2 监控 + 审计**                 | 性能/节点/LB 只读大盘、告警列表+静默、审计筛选查询、APK debug 构建烟测入 CI                                                                                                                                | 三域页面真机可用；监控写操作确认不存在（负面范围回归）                                                                                                        |
-| **M3 函数调用 + 推送**             | descriptor 拉取、SchemaForm 映射表全实现（§2.5）、invoke 同步/异步（任务轮询+取消）、ntfy 订阅+深链（服务端钩子未落地则轮询降级）                                                                          | 全映射矩阵单测覆盖（每种 schema 形态一例）；复杂 object 只读边界有测试锁定；ntfy 深链直达审批详情                                                             |
+| **M2 监控 + 审计**                 | 性能/设备（Agent）在线状态/LB 只读大盘、设备列表+详情（§2.3，含后端最小补集两项落地）、告警列表+静默、审计筛选查询、APK debug 构建烟测入 CI                                                                | 三域页面真机可用；监控写操作确认不存在（负面范围回归）                                                                                                        |
+| **M3 函数调用 + 推送**             | descriptor 拉取、SchemaForm 映射表全实现（§2.6）、invoke 同步/异步（任务轮询+取消）、ntfy 订阅+深链（服务端钩子未落地则轮询降级）                                                                          | 全映射矩阵单测覆盖（每种 schema 形态一例）；复杂 object 只读边界有测试锁定；ntfy 深链直达审批详情                                                             |
 | **M4 打磨**                        | i18n（zh-CN/en-US 双语，键位结构对齐 web locales 习惯）、平板/横屏布局、证书固定（可选）、离线最近数据缓存、APK 产物流水线（workflow_dispatch 手动触发）                                                   | 双语切换；横屏可用；APK 产物可下载                                                                                                                            |
 
 批次节奏：M1 单独一批先上（P0 场景尽早闭环），M2/M3 可并行，M4 收尾。
@@ -346,15 +389,17 @@ jobs:
 
 1. **cockpit mobile 先例不在本仓库**——按用户口径对齐其技术选型（Flutter + Riverpod + dio、feature-first 目录、拦截器分层）；具体目录命名若与 cockpit 实际不一致，以 cockpit 现行规范为准回改。
 2. **ntfy 实例**：部署机（192.168.5.5）docker ps 未见 ntfy 容器（2026-09-29 核查）——假设自备/后续部署自托管 ntfy；其 BASE URL 为 App 设置项，不硬编码。
-3. **服务端零改动**：除 §6.4 ntfy 发布钩子（后端后续项）外，移动端全部功能直连既有端点；若实现中发现端点缺口，回本设计补「契约变更」节而非直接加端点。
+3. **服务端改动收敛**：仅两处——§2.3 后端最小补集（Node DTO `version` 字段 + 单设备详情端点，均为只读出参整理）与 §6.4/§6.5 两个事件发布钩子（后端后续项）；其余功能全部直连既有端点。若实现中发现新缺口，回本设计补「契约变更」节而非直接加端点。
 4. docs/design/ 目录现有文档（menu-management.md）未挂 VitePress 侧边栏——本文档沿用该约定，不加侧边栏项（URL 直达）。
 
 **已知边界（诚实清单）：**
 
 - 高危判定的描述符映射依赖 `GET /api/v1/functions` 列表数据：函数列表拉取失败时审批行降级为「风险未知」，step-up 仍强制走全三段（宁可多确认）；
-- 复杂 object 只读（§2.5）：移动端不提供嵌套结构逐字段编辑，需要编辑时引导回 Web；
+- 复杂 object 只读（§2.6）：移动端不提供嵌套结构逐字段编辑，需要编辑时引导回 Web；
 - 审计只读无导出；监控只读无开关操作；
 - ntfy 推送依赖服务端发布钩子（未落地前仅轮询，及时性降为分钟级）；
+- 设备历史在线状态无落库数据（agent 生命周期钩子不产事件），详情页不承诺历史在线曲线；补齐须后端新增事件落库（M4 可选，标注依赖）；
+- 设备离线推送依赖 `agent_offline` 事件生成端（未落地前设备页靠前台轮询发现离线）；
 - `mustChangePassword` / `mfaSetupRequired` / 邮箱未验证（403 email_not_verified）账号：移动端一律引导回 Web 完成对应流程，App 内不做改密/绑定/验证；
 - 生物门禁可被用户在设置中关闭（默认开），关闭后保护仅剩系统级锁；
 - 自签 TLS 指纹确认是「用户确认一次」级别，certificate pinning 列 M4 可选；
