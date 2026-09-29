@@ -1209,3 +1209,15 @@ fresh 全绿（158 包零 FAIL）、guard PASSED。**已知边界**：门禁在�
 > function_contracts 缺表按空索引降级（不 panic 不报错）。
 > 门禁：gofmt 干净、go vet 干净、api/page 包 fresh 全绿 100.0%（67s）。
 > 本批单包 test-only，未重跑全量（同日全量基线 157 ok）。
+
+## 覆盖率巡检批次·Go 侧第十四轮·internal/handler 收口至 100.0%（wt-api worktree，2026-09-29）
+
+> **交付（2026-09-29）**：routes.go registerUploadStaticRoute 残余
+> 5 块收口，新增 `routes_upload_static_test.go`，包 **100.0%**
+> （零未覆盖块）：挂载成功主链（GET /uploads/avatars/* 路由注册 +
+> avatars 目录未建自动创建）；MkdirAll 失败翼（avatars 路径被同名
+> 文件占位 → warn 后不挂载）；LocalAvatarDir 解析失败翼（相对 baseDir
+> 须 filepath.Abs→Getwd——chdir 进已删目录构造 Getwd ENOENT；本包
+> 核实无 t.Parallel 用例，顺序执行下进程级 cwd 操纵安全，结束恢复）。
+> 门禁：gofmt 干净、go vet 干净、handler 包 fresh 全绿 100.0%（1.5s）。
+> 本批单包 test-only，未重跑全量（同日全量基线 157 ok）。
