@@ -1289,3 +1289,36 @@ fresh 全绿（158 包零 FAIL）、guard PASSED。**已知边界**：门禁在�
 > 须显式 false，防 YAML 省略键误停本地登录锁死）、显式 true/false 透传。
 > 门禁：gofmt/vet 干净，两包 fresh 全绿 100.0%（0.02s/0.02s，零未覆盖
 > 块）。本批 test-only，未重跑全量（同日全量基线 157 ok）。
+
+## 覆盖率巡检批次·Go 侧第十九轮·admin + approval 双 100.0%，profile/model 尾翼（wt-api worktree，2026-09-29）
+
+> **交付（2026-09-29）**：全量 profile 剩余非回避块逐一定性后，
+> 可达翼 4 处收口（4 新测试文件）+ 不可达翼 2 处登记：
+> ① `api/admin` **100.0%**（99.83% 起）：PasswordReset 善后 Update 错误翼
+> （354-355）——map 目标列 UPDATE 拦截回调（本包自建，参照 profile 包
+> registerFailUpdateCallback 形态），UpdatePassword 的列名写法不受影响；
+> 断言密码本体已换（UpdatePassword 先行成功）且 must_change_password
+> 标记保持原样（善后失败不假装干净）。
+> ② `api/approval` **100.0%**（99.61% 起）：recordApprovalAudit 的
+> resultKind/taskId 富化两翼（331/334）——同包直调 + 内存审计断言
+> details 落库（operation-logs 审批动作过滤的结构化上下文数据源）。
+> ③ `api/profile` 99.8%（99.74% 起）：ChangePassword 善后 Update 错误翼
+> （400-401），复用本包 registerFailUpdateCallback 只拦
+> must_change_password 列。剩余 179.6 登记不可达：seenGrant 去重
+> continue 翼要求同名角色并存，Role.Name 带 uniqueIndex、任何 DB 路径
+> 造不出重名。
+> ④ `model` 99.9%（99.78% 起）：FindEmailsByDomain 整函数 0% 收口
+> （#51c 新增）——LIKE 域后缀主链 + Unscoped 语义锁定（软删行邮箱
+> 仍参与查重，防删号后原邮箱被别名重复注册漏报）。剩余三处均登记
+> 不可达：bug.go 374/401（第三轮既有登记，Scan 错误防御）、
+> function_contract_model.go:458（StableContentDigest 的 Marshal 失败翼：
+> payload 为全字符串结构体 + normalizeJSONContent 输出（nil/string/
+> Unmarshal 基础类型），json.Marshal 无失败路径——与第十六轮
+> canonicalJSONBytes 同构证明）。
+> **menu/service.go:381 登记不可达（零改动）**：构建循环里的父级
+> 二次 check 恒真——check(item) 递归覆盖父链且 accessible 记忆化一致，
+> check(item)=true 时 check(parent) 必为 true（防环语义下先落 false 再
+> 递归，可见性契约已由 coverage_f_test.go 脏数据用例锁定）。
+> 门禁：触及包 gofmt/vet 干净、四包 fresh 全绿（26s/3s/14s/55s，
+> model 属包体量大非环境慢）。本批 test-only，未重跑全量
+> （同日全量基线 157 ok）。
