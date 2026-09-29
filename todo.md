@@ -1585,3 +1585,68 @@ fresh 全绿（158 包零 FAIL）、guard PASSED。**已知边界**：门禁在�
 >   批次 3 UpgradeModal、批次 4 AgentSync、批次 5 Store/shared、批次 6
 >   SchemaFields、批次 7 DomainEntry），簇内各页面主体 4×100% 或带登记
 >   不可达翼（防御式 `?.`/结构不可达三元）。
+
+## 覆盖率巡检批次·Go 侧第二十四轮·cmd/server root.go 装配面（wt-api worktree，2026-09-29）
+
+> **交付（2026-09-29）**：接第二十三轮收 cmd/server 最大余量文件
+> root.go（110 块），新增 `root_wings_r24_test.go`（8 用例），包
+> **77.9% → 91.3%**，root.go 余 14 块全部登记归属：
+> ① **runServer 全链 ×3 boot 矩阵**——mode(prod/test/default) ×
+> debug × logLevel × gin 三模式一次排满（boot A test+logLevel=debug →
+> 131+146-150+gin TestMode；boot B prod → 129+ReleaseMode；boot C
+> default+debug → 133+137-143+DebugMode），boot C 另经全局 port/host
+> 覆盖翼（119-124，预选空闲端口防 os.Exit 竞态）；同 boot 内集群 db
+> 协调面（SetHeartbeatOwnerLookup/ActiveAgentDirectory/
+> SetRemoteForwarder/SetRemoteAgentSource/SetTaskAgentLookup 五注入翼）
+> 与遥测启用（199-208 装配 + defer Shutdown 主链 + wrapHTTPHandler
+> 中间件翼）一并触达；就绪锚定 "Starting Croupier Server at " 同步
+> 打印行 + SIGINT 幂等重发（第二十三轮 fixture 同款竞态消除法），
+> 优雅停机全序列（TCP listener→HTTP drain→rootCancel→ControlService
+> →Router.Close）真实走完；
+> ② 廉价翼群——runServer 配置缺失翼与 rootCmd.RunE / server 别名
+> 闭包（坏 cfgFile 三入口共享）、startControlServer 地址归一两翼
+> （""→:19090→0.0.0.0、':'前缀拼接；19090 被占时落到 TLS 同款错误
+> 翼，断言容忍两态）+ TLS 证书缺失失败翼（确定性构造，不赌端口
+> 冲突）、startRegistryCleanup nil store 翼、三个 env 覆盖函数
+> （storage/cluster/auth-secrets）nil 配置翼 + 全部注入体、
+> validateAndAdjustTimeout 矩阵（自定义/缺省间隔 × 调整/通过两翼）；
+> ③ wrapHTTPHandler 遥测翼以**行为证明**锁定（otelhttp.NewHandler
+> 自身也返回 http.HandlerFunc，类型断言与 testify 函数值比较均不可
+> 用）。
+> **两枚新教训（入档）**：
+>
+> 1. **全局 slog 指向启动管道的 closed-file panic**——runServer 的
+>    SetupLoggerWithFile 替换进程级 slog 默认 logger 并捕获当时
+>    os.Stdout（测试管道 w）；用例收尾 Close(w) 后，后续任意用例的
+>    slog.Info → coloredTextHandler → isTerminal → 对 closed
+>    *os.File Stat 得 nil FileInfo → 解引用 SIGSEGV（实测炸在
+>    AddrAndTLS 用例的 StartBackgroundTasks）。处置：管道**留开不
+>    Close**（排空 goroutine 持续消费）+ 矩阵结束 slog.SetDefault
+>    恢复原 logger。internal/cli/common/logging.go:108 的
+>    `fileInfo.Mode()` 无 nil 防护是潜在生产隐患（closed-file 场景
+>    任何进程内 slog 都会炸），如实登记备查，本批不改。
+> 2. **TelemetryConfig yaml tag 是遗留 snake_case**（enable_tracing/
+>    collector_url）——键按 lowerCamelCase 写会静默零值；首版遥测
+>    失败翼用例因此没触发、卡在 runServer 的 <-quit（挂死而非失败）。
+>    修正法：任何「期待 runServer 早退」的用例必须带就绪行兜底分支
+>    （就绪即 SIGINT 收尾 + 报构造失效），杜绝挂死。
+>    **遥测 init 失败翼证伪登记（198-199）**：internal/telemetry 侧
+>    临时探针六形态扫描（坏 OTEL_RESOURCE_ATTRIBUTES ×2 / 畸形
+>    collector URL ×2 / metrics 畸形 URL / headers 坏 JSON）——
+>    NewGameTelemetryService 全部 EAGER 返回 nil error：OTLP HTTP 客户端
+>    不预解析 endpoint（首次上传才失败）、resource 解析宽松。构造路径
+>    无可注入失败面，登记不可达（探针用例已移除，不留测试垃圾）。
+>    **登记不可达（14 块全数归属）**：Execute/main ×3 块（cmd-1 进程
+>    边界）；HTTP ListenAndServe 错误翼 348-350（分支体 os.Exit(1)，
+>    进程内构造即杀测试二进制，cmd-1 同族）；遥测 init 198-199（上段
+>    证伪）+ Shutdown 错误翼 205-206（需失败后端）；优雅停机内四个
+>    错误子翼 371-372/377-378/391-393（listener Close/HTTP Shutdown/
+>    Router Close 成功路径无注入面）+ 超时翼 401（需挂死组件 + 30s
+>    等待）；prune ticker 体 486-489（30s 硬编码 + 5min 陈旧阈值，无
+>    注入点）；tcpListener.Serve 非 Canceled 翼 497-498（Close→nil、
+>    cancel→Canceled 被过滤，无第三形态）。
+>    门禁：gofmt/vet 干净、go build ./... 通过、cmd/server 包 fresh
+>    全绿 14.3s（含 4 次完整 NewServiceContext 启动）。
+>    **cmd/server 余量**：dashboard_fixture.go 69（boot 步骤错误翼群，
+>    E2E 基础设施口径既有登记）、service.go 56（cmd-2/6 域）；随后
+>    cmd/agent 89.6%、cmd/analytics-export 87.7%、cmd/ingest 99.5%。
