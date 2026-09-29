@@ -17,10 +17,10 @@ function mockFetch(
   responder: (url: string, init?: RequestInit) => Promise<Response>,
 ): void {
   originalFetch = globalThis.fetch;
-  globalThis.fetch = (((url: string | URL | Request, init?: RequestInit) => {
+  globalThis.fetch = ((url: string | URL | Request, init?: RequestInit) => {
     const u = typeof url === "string" ? url : url.toString();
     return responder(u, init);
-  }) as unknown) as FetchImpl;
+  }) as unknown as FetchImpl;
 }
 
 function restoreFetch(): void {
@@ -41,7 +41,9 @@ afterEach(() => restoreFetch());
 
 describe("Invoker construction (edge cases)", () => {
   it("rejects non-HTTP schemes", () => {
-    expect(() => new Invoker({ baseUrl: "ftp://server:21" })).toThrow("HTTP(S)");
+    expect(() => new Invoker({ baseUrl: "ftp://server:21" })).toThrow(
+      "HTTP(S)",
+    );
     expect(() => new Invoker({ baseUrl: "ws://server" })).toThrow("HTTP(S)");
   });
 
@@ -63,8 +65,8 @@ describe("Invoker construction (edge cases)", () => {
 
 describe("Invoker error parsing", () => {
   it("falls back to statusText when the body is not JSON", async () => {
-    mockFetch(async () =>
-      new Response("boom", { status: 418, statusText: "teapot" }),
+    mockFetch(
+      async () => new Response("boom", { status: 418, statusText: "teapot" }),
     );
     const inv = new Invoker({ baseUrl: "https://h/api/v1" });
     const err = await inv.invoke("f").catch((e) => e);
@@ -253,7 +255,9 @@ describe("Invoker.streamTask (edge cases)", () => {
       { items: [{ seq: 3, type: "progress", progress: 99 }], done: true },
     ];
     let call = 0;
-    mockFetch(async () => jsonResponse(batches[Math.min(call++, batches.length - 1)]));
+    mockFetch(async () =>
+      jsonResponse(batches[Math.min(call++, batches.length - 1)]),
+    );
     const inv = new Invoker({ baseUrl: "https://h/api/v1" });
     const types: string[] = [];
     for await (const ev of inv.streamTask("t-1", { pollIntervalMs: 1 })) {
@@ -286,7 +290,10 @@ describe("Invoker.streamTask (edge cases)", () => {
     mockFetch(async () => {
       call += 1;
       if (call === 1) {
-        return jsonResponse({ items: [{ seq: 1, type: "started" }], done: false });
+        return jsonResponse({
+          items: [{ seq: 1, type: "started" }],
+          done: false,
+        });
       }
       return jsonResponse({ error: "server_error", message: "kaboom" }, 500);
     });
@@ -311,7 +318,9 @@ describe("Invoker.streamTask (edge cases)", () => {
       { items: [{ seq: 2, type: "completed" }], done: true },
     ];
     let call = 0;
-    mockFetch(async () => jsonResponse(batches[Math.min(call++, batches.length - 1)]));
+    mockFetch(async () =>
+      jsonResponse(batches[Math.min(call++, batches.length - 1)]),
+    );
     const inv = new Invoker({ baseUrl: "https://h/api/v1" });
     const started = Date.now();
     for await (const _ev of inv.streamTask("t-1", { pollIntervalMs: 25 })) {
@@ -332,7 +341,9 @@ describe("InvokerEventSource", () => {
   it("emits events and done for a terminal event", async () => {
     const batches = eventBatches();
     let call = 0;
-    mockFetch(async () => jsonResponse(batches[Math.min(call++, batches.length - 1)]));
+    mockFetch(async () =>
+      jsonResponse(batches[Math.min(call++, batches.length - 1)]),
+    );
     const inv = createInvoker({ baseUrl: "https://h/api/v1" });
     const src = new InvokerEventSource(inv, "t-1");
 
@@ -350,7 +361,9 @@ describe("InvokerEventSource", () => {
   it("stops iterating once cancelled", async () => {
     const batches = eventBatches();
     let call = 0;
-    mockFetch(async () => jsonResponse(batches[Math.min(call++, batches.length - 1)]));
+    mockFetch(async () =>
+      jsonResponse(batches[Math.min(call++, batches.length - 1)]),
+    );
     const inv = createInvoker({ baseUrl: "https://h/api/v1" });
     const src = new InvokerEventSource(inv, "t-1");
 
@@ -373,7 +386,9 @@ describe("InvokerEventSource", () => {
   });
 
   it("emits error when the stream fails", async () => {
-    mockFetch(async () => jsonResponse({ error: "not_found", message: "nope" }, 404));
+    mockFetch(async () =>
+      jsonResponse({ error: "not_found", message: "nope" }, 404),
+    );
     const inv = createInvoker({ baseUrl: "https://h/api/v1" });
     const src = new InvokerEventSource(inv, "t-404");
 

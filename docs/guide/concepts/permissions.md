@@ -177,13 +177,13 @@ game:{gameId}:{permission}
 
 ### 可用变量
 
-| 变量          | 类型   | 说明                        |
-| ------------- | ------ | --------------------------- |
-| `user`        | object | 当前用户信息                |
-| `user.roles`  | array  | 用户角色列表                |
-| `gameId`      | string | 目标游戏 ID                 |
-| `env`         | string | 逻辑环境 (dev/staging/prod) |
-| `functionId`  | string | 被调用的函数 ID             |
+| 变量         | 类型   | 说明                        |
+| ------------ | ------ | --------------------------- |
+| `user`       | object | 当前用户信息                |
+| `user.roles` | array  | 用户角色列表                |
+| `gameId`     | string | 目标游戏 ID                 |
+| `env`        | string | 逻辑环境 (dev/staging/prod) |
+| `functionId` | string | 被调用的函数 ID             |
 
 ## 审批流程
 

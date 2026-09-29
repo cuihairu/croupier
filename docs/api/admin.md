@@ -11,8 +11,6 @@
 
 2. request definition
 
-
-
 ```go
 type AdminsListRequest struct {
 	Page int `form:"page,optional,default=1"`
@@ -23,10 +21,7 @@ type AdminsListRequest struct {
 }
 ```
 
-
 3. response definition
-
-
 
 ```go
 type AdminsListResponse struct {
@@ -48,8 +43,6 @@ type AdminsListResponse struct {
 
 2. request definition
 
-
-
 ```go
 type AdminCreateRequest struct {
 	Username string `json:"username"`
@@ -61,10 +54,7 @@ type AdminCreateRequest struct {
 }
 ```
 
-
 3. response definition
-
-
 
 ```go
 type AdminCreateResponse struct {
@@ -103,18 +93,13 @@ type Admin struct {
 
 2. request definition
 
-
-
 ```go
 type AdminDetailRequest struct {
 	ID string `path:"id"`
 }
 ```
 
-
 3. response definition
-
-
 
 ```go
 type AdminDetailResponse struct {
@@ -153,8 +138,6 @@ type Admin struct {
 
 2. request definition
 
-
-
 ```go
 type AdminUpdateRequest struct {
 	ID string `path:"id"`
@@ -166,10 +149,7 @@ type AdminUpdateRequest struct {
 }
 ```
 
-
 3. response definition
-
-
 
 ```go
 type AdminUpdateResponse struct {
@@ -208,17 +188,13 @@ type Admin struct {
 
 2. request definition
 
-
-
 ```go
 type AdminDeleteRequest struct {
 	ID string `path:"id"`
 }
 ```
 
-
 3. response definition
-
 
 ### 6. "重置管理员密码"
 
@@ -231,8 +207,6 @@ type AdminDeleteRequest struct {
 
 2. request definition
 
-
-
 ```go
 type AdminPasswordResetRequest struct {
 	ID string `path:"id"`
@@ -240,9 +214,7 @@ type AdminPasswordResetRequest struct {
 }
 ```
 
-
 3. response definition
-
 
 ### 7. "获取权限列表"
 
@@ -255,8 +227,6 @@ type AdminPasswordResetRequest struct {
 
 2. request definition
 
-
-
 ```go
 type PermissionsListRequest struct {
 	Page int `form:"page,optional,default=1"`
@@ -266,10 +236,7 @@ type PermissionsListRequest struct {
 }
 ```
 
-
 3. response definition
-
-
 
 ```go
 type PermissionsListResponse struct {
@@ -291,18 +258,13 @@ type PermissionsListResponse struct {
 
 2. request definition
 
-
-
 ```go
 type PermissionDetailRequest struct {
 	ID string `path:"id"`
 }
 ```
 
-
 3. response definition
-
-
 
 ```go
 type PermissionDetailResponse struct {
@@ -339,8 +301,6 @@ type Permission struct {
 
 2. request definition
 
-
-
 ```go
 type RolesListRequest struct {
 	Page int `form:"page,optional,default=1"`
@@ -350,10 +310,7 @@ type RolesListRequest struct {
 }
 ```
 
-
 3. response definition
-
-
 
 ```go
 type RolesListResponse struct {
@@ -375,8 +332,6 @@ type RolesListResponse struct {
 
 2. request definition
 
-
-
 ```go
 type RoleCreateRequest struct {
 	Name string `json:"name"`
@@ -386,10 +341,7 @@ type RoleCreateRequest struct {
 }
 ```
 
-
 3. response definition
-
-
 
 ```go
 type RoleCreateResponse struct {
@@ -424,18 +376,13 @@ type Role struct {
 
 2. request definition
 
-
-
 ```go
 type RoleDetailRequest struct {
 	ID string `path:"id"`
 }
 ```
 
-
 3. response definition
-
-
 
 ```go
 type RoleDetailResponse struct {
@@ -470,8 +417,6 @@ type Role struct {
 
 2. request definition
 
-
-
 ```go
 type RoleUpdateRequest struct {
 	ID string `path:"id"`
@@ -482,10 +427,7 @@ type RoleUpdateRequest struct {
 }
 ```
 
-
 3. response definition
-
-
 
 ```go
 type RoleUpdateResponse struct {
@@ -520,15 +462,10 @@ type Role struct {
 
 2. request definition
 
-
-
 ```go
 type RoleDeleteRequest struct {
 	ID string `path:"id"`
 }
 ```
 
-
 3. response definition
-
-

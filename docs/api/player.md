@@ -11,8 +11,6 @@
 
 2. request definition
 
-
-
 ```go
 type PlayersListRequest struct {
 	Page int `form:"page,optional,default=1"`
@@ -25,10 +23,7 @@ type PlayersListRequest struct {
 }
 ```
 
-
 3. response definition
-
-
 
 ```go
 type PlayersListResponse struct {
@@ -50,8 +45,6 @@ type PlayersListResponse struct {
 
 2. request definition
 
-
-
 ```go
 type PlayerCreateRequest struct {
 	Username string `json:"username"`
@@ -63,10 +56,7 @@ type PlayerCreateRequest struct {
 }
 ```
 
-
 3. response definition
-
-
 
 ```go
 type PlayerCreateResponse struct {
@@ -111,18 +101,13 @@ type Player struct {
 
 2. request definition
 
-
-
 ```go
 type PlayerDetailRequest struct {
 	ID string `path:"id"`
 }
 ```
 
-
 3. response definition
-
-
 
 ```go
 type PlayerDetailResponse struct {
@@ -167,8 +152,6 @@ type Player struct {
 
 2. request definition
 
-
-
 ```go
 type PlayerUpdateRequest struct {
 	ID string `path:"id"`
@@ -181,10 +164,7 @@ type PlayerUpdateRequest struct {
 }
 ```
 
-
 3. response definition
-
-
 
 ```go
 type PlayerUpdateResponse struct {
@@ -229,17 +209,13 @@ type Player struct {
 
 2. request definition
 
-
-
 ```go
 type PlayerDeleteRequest struct {
 	ID string `path:"id"`
 }
 ```
 
-
 3. response definition
-
 
 ### 6. "调整玩家余额"
 
@@ -252,8 +228,6 @@ type PlayerDeleteRequest struct {
 
 2. request definition
 
-
-
 ```go
 type PlayerBalanceRequest struct {
 	ID string `path:"id"`
@@ -262,10 +236,7 @@ type PlayerBalanceRequest struct {
 }
 ```
 
-
 3. response definition
-
-
 
 ```go
 type PlayerBalanceResponse struct {
@@ -298,4 +269,3 @@ type Player struct {
 	UpdatedAt string `json:"updatedAt"`
 }
 ```
-

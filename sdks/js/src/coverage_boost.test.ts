@@ -6,10 +6,7 @@
 
 import { BasicClient } from "./index";
 import { Invoker, createInvoker, InvokerError } from "./invoker";
-import {
-  MainThreadDispatcher,
-  getDispatcher,
-} from "./threading/dispatcher";
+import { MainThreadDispatcher, getDispatcher } from "./threading/dispatcher";
 import { TCPTransport } from "./tcp_transport";
 
 // ---------------------------------------------------------------------------
@@ -23,10 +20,10 @@ function mockFetch(
   responder: (url: string, init?: RequestInit) => Promise<Response>,
 ): void {
   originalFetch = globalThis.fetch;
-  globalThis.fetch = (((url: string | URL | Request, init?: RequestInit) => {
+  globalThis.fetch = ((url: string | URL | Request, init?: RequestInit) => {
     const u = typeof url === "string" ? url : url.toString();
     return responder(u, init);
-  }) as unknown) as FetchImpl;
+  }) as unknown as FetchImpl;
 }
 
 function restoreFetch(): void {
@@ -112,7 +109,10 @@ describe("Invoker response validation", () => {
     mockFetch(async (url) => {
       afterSeqSeen = url;
       return jsonResponse({
-        items: [{ seq: 1, type: "started" }, { seq: 2, type: "failed" }],
+        items: [
+          { seq: 1, type: "started" },
+          { seq: 2, type: "failed" },
+        ],
         done: false,
       });
     });
@@ -132,7 +132,10 @@ describe("Invoker response validation", () => {
       if (calls === 1) {
         return jsonResponse({ items: [], done: false });
       }
-      return jsonResponse({ items: [{ seq: 1, type: "completed" }], done: true });
+      return jsonResponse({
+        items: [{ seq: 1, type: "completed" }],
+        done: true,
+      });
     });
     const inv = new Invoker({ baseUrl: "http://s:18780/api/v1" });
     const types: string[] = [];
@@ -156,9 +159,7 @@ describe("Invoker response validation", () => {
       env: "e",
     });
     await inv.cancelTask("t 1");
-    expect(captured!.url).toBe(
-      "http://s:18780/api/v1/tasks/t%201/cancel",
-    );
+    expect(captured!.url).toBe("http://s:18780/api/v1/tasks/t%201/cancel");
     expect(captured!.method).toBe("POST");
   });
 });
@@ -170,7 +171,10 @@ describe("Invoker response validation", () => {
 describe("BasicClient register request serialization", () => {
   it("getRegisterRequest renders optional schema fields as empty strings", () => {
     const client = new BasicClient();
-    client.registerFunction({ id: "plain.fn", version: "1.0.0" }, async () => "ok");
+    client.registerFunction(
+      { id: "plain.fn", version: "1.0.0" },
+      async () => "ok",
+    );
     const req = (client as any).getRegisterRequest();
     expect(req.functions).toHaveLength(1);
     expect(req.functions[0].inputSchema).toBe("");
@@ -360,7 +364,11 @@ describe("MainThreadDispatcher queue edges", () => {
     const errorSpy = jest
       .spyOn(console, "error")
       .mockImplementation(() => undefined);
-    expect(() => d.enqueue(() => { throw new Error("boom"); })).not.toThrow();
+    expect(() =>
+      d.enqueue(() => {
+        throw new Error("boom");
+      }),
+    ).not.toThrow();
     expect(errorSpy).toHaveBeenCalled();
   });
 });

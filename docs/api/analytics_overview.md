@@ -11,18 +11,13 @@
 
 2. request definition
 
-
-
 ```go
 type FiltersGetRequest struct {
 	GameId string `form:"gameId,optional"`
 }
 ```
 
-
 3. response definition
-
-
 
 ```go
 type FiltersGetResponse struct {
@@ -41,8 +36,6 @@ type FiltersGetResponse struct {
 
 2. request definition
 
-
-
 ```go
 type FiltersUpdateRequest struct {
 	GameId string `json:"gameId"`
@@ -50,10 +43,7 @@ type FiltersUpdateRequest struct {
 }
 ```
 
-
 3. response definition
-
-
 
 ```go
 type FiltersGetResponse struct {
@@ -72,8 +62,6 @@ type FiltersGetResponse struct {
 
 2. request definition
 
-
-
 ```go
 type IngestRequest struct {
 	GameId string `json:"gameId"`
@@ -83,10 +71,7 @@ type IngestRequest struct {
 }
 ```
 
-
 3. response definition
-
-
 
 ```go
 type IngestResponse struct {
@@ -107,8 +92,6 @@ type IngestResponse struct {
 
 2. request definition
 
-
-
 ```go
 type OverviewRequest struct {
 	GameId string `form:"gameId,optional"`
@@ -125,10 +108,7 @@ type AnalyticsQuery struct {
 }
 ```
 
-
 3. response definition
-
-
 
 ```go
 type OverviewResponse struct {
@@ -158,8 +138,6 @@ type OverviewMetrics struct {
 
 2. request definition
 
-
-
 ```go
 type RealtimeRequest struct {
 	GameId string `form:"gameId,optional"`
@@ -167,10 +145,7 @@ type RealtimeRequest struct {
 }
 ```
 
-
 3. response definition
-
-
 
 ```go
 type RealtimeResponse struct {
@@ -204,8 +179,6 @@ type RealtimeMetrics struct {
 
 2. request definition
 
-
-
 ```go
 type RealtimeSeriesRequest struct {
 	GameId string `form:"gameId,optional"`
@@ -215,14 +188,10 @@ type RealtimeSeriesRequest struct {
 }
 ```
 
-
 3. response definition
-
-
 
 ```go
 type RealtimeSeriesResponse struct {
 	Series interface{} `json:"series"`
 }
 ```
-

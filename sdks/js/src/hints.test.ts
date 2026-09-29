@@ -22,16 +22,16 @@ describe("F14: setFieldHint", () => {
         ...base(),
         inputSchema: {
           type: "object",
-          properties: { id: { type: "string", title: "玩家 ID", "x-widget": "Input" } },
+          properties: {
+            id: { type: "string", title: "玩家 ID", "x-widget": "Input" },
+          },
         },
       },
       "id",
       "TreeSelect",
     );
-    const props = (descriptor.inputSchema as Record<string, unknown>).properties as Record<
-      string,
-      Record<string, unknown>
-    >;
+    const props = (descriptor.inputSchema as Record<string, unknown>)
+      .properties as Record<string, Record<string, unknown>>;
     expect(props.id.title).toBe("玩家 ID");
     expect(props.id["x-widget"]).toBe("TreeSelect");
   });
@@ -42,10 +42,8 @@ describe("F14: setFieldHint", () => {
       labelPath: "/items/*/name",
       valuePath: "/items/*/id",
     });
-    const props = (descriptor.inputSchema as Record<string, unknown>).properties as Record<
-      string,
-      Record<string, unknown>
-    >;
+    const props = (descriptor.inputSchema as Record<string, unknown>)
+      .properties as Record<string, Record<string, unknown>>;
     expect(props.id["x-options-source"]).toEqual({
       functionId: "player.list",
       labelPath: "/items/*/name",
@@ -54,10 +52,14 @@ describe("F14: setFieldHint", () => {
   });
 
   test("非 x- hint 拒绝", () => {
-    expect(() => setFieldHint(base(), "a", "widget", "Input")).toThrow(/x- extension key/);
+    expect(() => setFieldHint(base(), "a", "widget", "Input")).toThrow(
+      /x- extension key/,
+    );
   });
 
   test("空 field 拒绝", () => {
-    expect(() => setFieldHint(base(), "  ", "x-widget", "Input")).toThrow(/field key is required/);
+    expect(() => setFieldHint(base(), "  ", "x-widget", "Input")).toThrow(
+      /field key is required/,
+    );
   });
 });

@@ -11,8 +11,6 @@
 
 2. request definition
 
-
-
 ```go
 type BackupsListRequest struct {
 	Page int `form:"page,optional,default=1"`
@@ -21,10 +19,7 @@ type BackupsListRequest struct {
 }
 ```
 
-
 3. response definition
-
-
 
 ```go
 type BackupsListResponse struct {
@@ -46,8 +41,6 @@ type BackupsListResponse struct {
 
 2. request definition
 
-
-
 ```go
 type BackupCreateRequest struct {
 	Name string `json:"name,optional"`
@@ -55,10 +48,7 @@ type BackupCreateRequest struct {
 }
 ```
 
-
 3. response definition
-
-
 
 ```go
 type BackupDetailResponse struct {
@@ -91,17 +81,13 @@ type Backup struct {
 
 2. request definition
 
-
-
 ```go
 type BackupDeleteRequest struct {
 	ID string `path:"id"`
 }
 ```
 
-
 3. response definition
-
 
 ### 4. "下载备份"
 
@@ -114,15 +100,10 @@ type BackupDeleteRequest struct {
 
 2. request definition
 
-
-
 ```go
 type BackupDownloadRequest struct {
 	ID string `path:"id"`
 }
 ```
 
-
 3. response definition
-
-

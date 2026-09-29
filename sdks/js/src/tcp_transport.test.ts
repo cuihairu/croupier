@@ -219,7 +219,9 @@ describe("TCPTransport", () => {
     it("setConnectTimeout updates the connect timeout", () => {
       const t = makeTransport();
       t.setConnectTimeout(1234);
-      expect((t as unknown as { connectTimeoutMs: number }).connectTimeoutMs).toBe(1234);
+      expect(
+        (t as unknown as { connectTimeoutMs: number }).connectTimeoutMs,
+      ).toBe(1234);
     });
 
     it("close before connect is a no-op", () => {
@@ -301,11 +303,11 @@ describe("TCPTransport", () => {
       const f1 = await agent.nextFrame();
       const f2 = await agent.nextFrame();
       const f3 = await agent.nextFrame();
-      expect([f1.body.toString(), f2.body.toString(), f3.body.toString()]).toEqual([
-        "one",
-        "two",
-        "three",
-      ]);
+      expect([
+        f1.body.toString(),
+        f2.body.toString(),
+        f3.body.toString(),
+      ]).toEqual(["one", "two", "three"]);
 
       // Respond in reverse order.
       agent.send(MSG_INVOKE_RESPONSE, f3.reqId, Buffer.from("r3"));
@@ -360,7 +362,9 @@ describe("TCPTransport", () => {
 
       // 超限帧意味着流已失步，无法重新对齐：读循环退出、挂起调用立即
       // 失败（不再干等到请求超时），连接显式断开。
-      await expect(pending).rejects.toThrow(/frame too large|connection closed/);
+      await expect(pending).rejects.toThrow(
+        /frame too large|connection closed/,
+      );
       expect(t.isConnected()).toBe(false);
     });
 
@@ -371,7 +375,9 @@ describe("TCPTransport", () => {
       const pending = t.call(MSG_INVOKE_REQUEST, Buffer.from("x"));
       const req = await agent.nextFrame();
 
-      const raw = frame(encodeMessage(MSG_INVOKE_RESPONSE, req.reqId, Buffer.from("chunked")));
+      const raw = frame(
+        encodeMessage(MSG_INVOKE_RESPONSE, req.reqId, Buffer.from("chunked")),
+      );
       for (const b of raw) {
         agent.writeRaw(Buffer.from([b]));
       }

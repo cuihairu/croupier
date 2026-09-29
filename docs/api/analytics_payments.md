@@ -11,8 +11,6 @@
 
 2. request definition
 
-
-
 ```go
 type PaymentsRequest struct {
 	GameId string `form:"gameId,optional"`
@@ -22,10 +20,7 @@ type PaymentsRequest struct {
 }
 ```
 
-
 3. response definition
-
-
 
 ```go
 type PaymentsResponse struct {
@@ -54,8 +49,6 @@ type PaymentsMetrics struct {
 
 2. request definition
 
-
-
 ```go
 type PaymentsIngestRequest struct {
 	GameId string `json:"gameId"`
@@ -65,10 +58,7 @@ type PaymentsIngestRequest struct {
 }
 ```
 
-
 3. response definition
-
-
 
 ```go
 type PaymentsIngestResponse struct {
@@ -89,8 +79,6 @@ type PaymentsIngestResponse struct {
 
 2. request definition
 
-
-
 ```go
 type PaymentsProductTrendRequest struct {
 	GameId string `form:"gameId,optional"`
@@ -101,10 +89,7 @@ type PaymentsProductTrendRequest struct {
 }
 ```
 
-
 3. response definition
-
-
 
 ```go
 type PaymentsProductTrendResponse struct {
@@ -123,8 +108,6 @@ type PaymentsProductTrendResponse struct {
 
 2. request definition
 
-
-
 ```go
 type PaymentsSummaryRequest struct {
 	GameId string `form:"gameId,optional"`
@@ -135,10 +118,7 @@ type PaymentsSummaryRequest struct {
 }
 ```
 
-
 3. response definition
-
-
 
 ```go
 type PaymentsSummaryResponse struct {
@@ -157,8 +137,6 @@ type PaymentsSummaryResponse struct {
 
 2. request definition
 
-
-
 ```go
 type PaymentsTransactionsRequest struct {
 	Page int `form:"page,optional,default=1"`
@@ -171,10 +149,7 @@ type PaymentsTransactionsRequest struct {
 }
 ```
 
-
 3. response definition
-
-
 
 ```go
 type PaymentsTransactionsResponse struct {
@@ -184,4 +159,3 @@ type PaymentsTransactionsResponse struct {
 	Size int `json:"pageSize"`
 }
 ```
-

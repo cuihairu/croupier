@@ -28,21 +28,26 @@ To create a custom requirements template:
 # Requirements Document
 
 ## Executive Summary
+
 [Your custom section]
 
 ## Business Requirements
+
 [Your custom structure]
 
 ## Technical Requirements
+
 [Your custom fields]
 
 ## Custom Sections
+
 [Add any sections specific to your workflow]
 ```
 
 ## Template Variables
 
 Templates can include placeholders that will be replaced when documents are created:
+
 - `{{projectName}}` - The name of your project
 - `{{featureName}}` - The name of the feature being specified
 - `{{date}}` - The current date

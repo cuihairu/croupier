@@ -32,7 +32,7 @@ Checks: >
   -readability-function-cognitive-complexity,
   -readability-convert-member-functions-to-static
 
-WarningsAsErrors: ''
+WarningsAsErrors: ""
 
 HeaderFilterRegex: '.*/(include|src)/.*\.h$'
 
@@ -55,7 +55,7 @@ CheckOptions:
   - key: readability-identifier-naming.MemberCase
     value: lower_case
   - key: readability-identifier-naming.PrivateMemberSuffix
-    value: '_'
+    value: "_"
   - key: readability-identifier-naming.ConstantCase
     value: UPPER_CASE
   - key: readability-identifier-naming.MacroDefinitionCase
@@ -65,19 +65,19 @@ CheckOptions:
 
   # Function size limits
   - key: readability-function-size.LineThreshold
-    value: '200'
+    value: "200"
   - key: readability-function-size.StatementThreshold
-    value: '100'
+    value: "100"
   - key: readability-function-size.ParameterThreshold
-    value: '8'
+    value: "8"
 
   # Performance settings
   - key: performance-unnecessary-value-param.AllowedTypes
-    value: 'std::shared_ptr;std::unique_ptr'
+    value: "std::shared_ptr;std::unique_ptr"
 
   # Modernize settings
   - key: modernize-use-nullptr.NullMacros
-    value: 'NULL'
+    value: "NULL"
   - key: modernize-loop-convert.MinConfidence
     value: reasonable
   - key: modernize-pass-by-value.IncludeStyle
@@ -85,4 +85,4 @@ CheckOptions:
 
   # Misc settings
   - key: misc-throw-by-value-catch-by-reference.CheckThrowTemporaries
-    value: 'true'
+    value: "true"

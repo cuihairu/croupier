@@ -13,17 +13,12 @@
 
 2. request definition
 
-
-
 ```go
 type OpsConfigRequest struct {
 }
 ```
 
-
 3. response definition
-
-
 
 ```go
 type OpsConfigResponse struct {
@@ -50,18 +45,13 @@ type OpsConfig struct {
 
 2. request definition
 
-
-
 ```go
 type OpsFunctionsRequest struct {
 	GameId string `form:"gameId,optional"`
 }
 ```
 
-
 3. response definition
-
-
 
 ```go
 type OpsFunctionsResponse struct {
@@ -80,17 +70,12 @@ type OpsFunctionsResponse struct {
 
 2. request definition
 
-
-
 ```go
 type OpsHealthGetRequest struct {
 }
 ```
 
-
 3. response definition
-
-
 
 ```go
 type OpsHealthResponse struct {
@@ -110,18 +95,13 @@ type OpsHealthResponse struct {
 
 2. request definition
 
-
-
 ```go
 type OpsHealthUpdateRequest struct {
 	Config interface{} `json:"config"`
 }
 ```
 
-
 3. response definition
-
-
 
 ```go
 type OpsHealthResponse struct {
@@ -141,17 +121,12 @@ type OpsHealthResponse struct {
 
 2. request definition
 
-
-
 ```go
 type OpsHealthRunRequest struct {
 }
 ```
 
-
 3. response definition
-
-
 
 ```go
 type OpsHealthResponse struct {
@@ -171,17 +146,12 @@ type OpsHealthResponse struct {
 
 2. request definition
 
-
-
 ```go
 type OpsMaintenanceGetRequest struct {
 }
 ```
 
-
 3. response definition
-
-
 
 ```go
 type OpsMaintenanceResponse struct {
@@ -203,8 +173,6 @@ type OpsMaintenanceResponse struct {
 
 2. request definition
 
-
-
 ```go
 type OpsMaintenanceUpdateRequest struct {
 	Enabled bool `json:"enabled"`
@@ -213,10 +181,7 @@ type OpsMaintenanceUpdateRequest struct {
 }
 ```
 
-
 3. response definition
-
-
 
 ```go
 type OpsMaintenanceResponse struct {
@@ -238,8 +203,6 @@ type OpsMaintenanceResponse struct {
 
 2. request definition
 
-
-
 ```go
 type OpsMetricsRequest struct {
 	From string `form:"from,optional"`
@@ -247,10 +210,7 @@ type OpsMetricsRequest struct {
 }
 ```
 
-
 3. response definition
-
-
 
 ```go
 type OpsMetricsResponse struct {
@@ -271,17 +231,12 @@ type OpsMetricsResponse struct {
 
 2. request definition
 
-
-
 ```go
 type OpsMQRequest struct {
 }
 ```
 
-
 3. response definition
-
-
 
 ```go
 type OpsMQResponse struct {
@@ -300,17 +255,12 @@ type OpsMQResponse struct {
 
 2. request definition
 
-
-
 ```go
 type OpsNotificationsGetRequest struct {
 }
 ```
 
-
 3. response definition
-
-
 
 ```go
 type OpsNotificationsResponse struct {
@@ -331,8 +281,6 @@ type OpsNotificationsResponse struct {
 
 2. request definition
 
-
-
 ```go
 type OpsNotificationsUpdateRequest struct {
 	Email interface{} `json:"email,optional"`
@@ -341,10 +289,7 @@ type OpsNotificationsUpdateRequest struct {
 }
 ```
 
-
 3. response definition
-
-
 
 ```go
 type OpsNotificationsResponse struct {
@@ -365,21 +310,15 @@ type OpsNotificationsResponse struct {
 
 2. request definition
 
-
-
 ```go
 type OpsServicesRequest struct {
 }
 ```
 
-
 3. response definition
-
-
 
 ```go
 type OpsServicesResponse struct {
 	Items []OpsService `json:"items"`
 }
 ```
-

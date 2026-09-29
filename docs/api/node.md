@@ -11,8 +11,6 @@
 
 2. request definition
 
-
-
 ```go
 type NodesListRequest struct {
 	Type string `form:"type,optional"`
@@ -20,10 +18,7 @@ type NodesListRequest struct {
 }
 ```
 
-
 3. response definition
-
-
 
 ```go
 type NodesListResponse struct {
@@ -57,8 +52,6 @@ type Node struct {
 
 2. request definition
 
-
-
 ```go
 type NodeDrainRequest struct {
 	ID string `path:"id"`
@@ -66,9 +59,7 @@ type NodeDrainRequest struct {
 }
 ```
 
-
 3. response definition
-
 
 ### 3. "获取节点元数据"
 
@@ -81,18 +72,13 @@ type NodeDrainRequest struct {
 
 2. request definition
 
-
-
 ```go
 type NodeMetaRequest struct {
 	ID string `path:"id"`
 }
 ```
 
-
 3. response definition
-
-
 
 ```go
 type NodeMetaResponse struct {
@@ -111,8 +97,6 @@ type NodeMetaResponse struct {
 
 2. request definition
 
-
-
 ```go
 type NodeMetaUpdateRequest struct {
 	ID string `path:"id"`
@@ -120,10 +104,7 @@ type NodeMetaUpdateRequest struct {
 }
 ```
 
-
 3. response definition
-
-
 
 ```go
 type NodeMetaResponse struct {
@@ -142,17 +123,13 @@ type NodeMetaResponse struct {
 
 2. request definition
 
-
-
 ```go
 type NodeActionRequest struct {
 	ID string `path:"id"`
 }
 ```
 
-
 3. response definition
-
 
 ### 6. "取消排空节点"
 
@@ -165,17 +142,13 @@ type NodeActionRequest struct {
 
 2. request definition
 
-
-
 ```go
 type NodeActionRequest struct {
 	ID string `path:"id"`
 }
 ```
 
-
 3. response definition
-
 
 ### 7. "获取节点命令"
 
@@ -188,21 +161,15 @@ type NodeActionRequest struct {
 
 2. request definition
 
-
-
 ```go
 type NodeCommandsRequest struct {
 }
 ```
 
-
 3. response definition
-
-
 
 ```go
 type NodeCommandsResponse struct {
 	Items []NodeCommand `json:"items"`
 }
 ```
-

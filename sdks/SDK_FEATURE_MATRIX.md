@@ -244,17 +244,17 @@ SDK 描述符不承载 UI、菜单、页面分类、多语言标题、页面 sch
 
 ### L1 配置字段映射
 
-| 字段（canonical snake_case） | Go                  | Python               | Java                | JS                         | C++                  | C#                         |
-| ---------------------------- | ------------------- | -------------------- | ------------------- | -------------------------- | -------------------- | -------------------------- |
-| `agent_addr`                 | `AgentAddr`         | `agent_addr`         | `agentAddr`         | `agentAddr`                | `agent_addr`         | `AgentAddr`                |
-| `service_id`                 | `ServiceID`         | `service_id`         | `serviceId`         | `serviceId`                | `service_id`         | `ServiceId`                |
-| `service_version`            | `ServiceVersion`    | `service_version`    | `serviceVersion`    | `serviceVersion`           | `service_version`    | `ServiceVersion`           |
-| `game_id`                    | `GameID`            | `game_id`            | `gameId`            | `gameId`                   | `game_id`            | `GameId`                   |
-| `env`                        | `Env`               | `env`                | `env`               | `env`                      | `env`                | `Env`                      |
-| `insecure`                   | `Insecure`          | `insecure`           | `insecure`          | `insecure`                 | `insecure`           | `Insecure`                 |
-| `auto_reconnect`             | `Reconnect.Enabled` | `auto_reconnect`     | `reconnect`         | `autoReconnect`            | `auto_reconnect`     | `AutoReconnect`            |
-| `heartbeat_interval_seconds` | `HeartbeatInterval` | `heartbeat_interval` | `heartbeatInterval` | `heartbeatIntervalSeconds` | `heartbeat_interval` | `HeartbeatIntervalSeconds` |
-| `instance_metadata`（用户自定义实例 KV，随 `ProviderConnectRequest.metadata` 上报；保留键由 agent 剥离） | `InstanceMetadata` | ❌ | ❌ | `instanceMetadata` | ❌ | ❌ |
+| 字段（canonical snake_case）                                                                             | Go                  | Python               | Java                | JS                         | C++                  | C#                         |
+| -------------------------------------------------------------------------------------------------------- | ------------------- | -------------------- | ------------------- | -------------------------- | -------------------- | -------------------------- |
+| `agent_addr`                                                                                             | `AgentAddr`         | `agent_addr`         | `agentAddr`         | `agentAddr`                | `agent_addr`         | `AgentAddr`                |
+| `service_id`                                                                                             | `ServiceID`         | `service_id`         | `serviceId`         | `serviceId`                | `service_id`         | `ServiceId`                |
+| `service_version`                                                                                        | `ServiceVersion`    | `service_version`    | `serviceVersion`    | `serviceVersion`           | `service_version`    | `ServiceVersion`           |
+| `game_id`                                                                                                | `GameID`            | `game_id`            | `gameId`            | `gameId`                   | `game_id`            | `GameId`                   |
+| `env`                                                                                                    | `Env`               | `env`                | `env`               | `env`                      | `env`                | `Env`                      |
+| `insecure`                                                                                               | `Insecure`          | `insecure`           | `insecure`          | `insecure`                 | `insecure`           | `Insecure`                 |
+| `auto_reconnect`                                                                                         | `Reconnect.Enabled` | `auto_reconnect`     | `reconnect`         | `autoReconnect`            | `auto_reconnect`     | `AutoReconnect`            |
+| `heartbeat_interval_seconds`                                                                             | `HeartbeatInterval` | `heartbeat_interval` | `heartbeatInterval` | `heartbeatIntervalSeconds` | `heartbeat_interval` | `HeartbeatIntervalSeconds` |
+| `instance_metadata`（用户自定义实例 KV，随 `ProviderConnectRequest.metadata` 上报；保留键由 agent 剥离） | `InstanceMetadata`  | ❌                   | ❌                  | `instanceMetadata`         | ❌                   | ❌                         |
 
 ### L3 Invoker 能力映射
 

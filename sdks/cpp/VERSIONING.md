@@ -61,13 +61,13 @@ This will trigger the release workflow and create a GitHub Release.
 
 ### VERSION.cmake Variables
 
-| Variable | Purpose | Example |
-|----------|---------|---------|
-| `CROUPIER_SDK_VERSION_MAJOR` | Major version number | `0` |
-| `CROUPIER_SDK_VERSION_MINOR` | Minor version number | `1` |
-| `CROUPIER_SDK_VERSION_PATCH` | Patch version number | `0` |
-| `CROUPIER_SDK_VERSION` | Full version string | `0.1.0` |
-| `CROUPIER_SDK_ABI_VERSION` | ABI version for soname | `0.1` |
+| Variable                     | Purpose                | Example |
+| ---------------------------- | ---------------------- | ------- |
+| `CROUPIER_SDK_VERSION_MAJOR` | Major version number   | `0`     |
+| `CROUPIER_SDK_VERSION_MINOR` | Minor version number   | `1`     |
+| `CROUPIER_SDK_VERSION_PATCH` | Patch version number   | `0`     |
+| `CROUPIER_SDK_VERSION`       | Full version string    | `0.1.0` |
+| `CROUPIER_SDK_ABI_VERSION`   | ABI version for soname | `0.1`   |
 
 ### CMake Integration
 
@@ -81,6 +81,7 @@ project(croupier-cpp-sdk
 ```
 
 This sets:
+
 - `PROJECT_VERSION` → `0.1.0`
 - `PROJECT_VERSION_MAJOR` → `0`
 - `PROJECT_VERSION_MINOR` → `1`
@@ -91,6 +92,7 @@ This sets:
 ### Nightly Builds
 
 Triggered on:
+
 - Every push to `main` branch
 - Daily schedule (UTC 02:00)
 - Manual workflow dispatch
@@ -102,6 +104,7 @@ Example: `0.1.0-nightly.20250103.1430`
 ### Official Releases
 
 Triggered on:
+
 - Git tag push matching `v*` pattern (e.g., `v0.1.0`, `v1.2.3`)
 
 Version format: Uses tag version (e.g., `0.1.0`)
@@ -111,6 +114,7 @@ Version format: Uses tag version (e.g., `0.1.0`)
 ### Making a New Release
 
 1. **Update version numbers**:
+
    ```bash
    # Edit VERSION.cmake
    vim VERSION.cmake
@@ -119,12 +123,14 @@ Version format: Uses tag version (e.g., `0.1.0`)
    ```
 
 2. **Commit changes**:
+
    ```bash
    git add VERSION.cmake vcpkg.json
    git commit -m "chore: bump version to 0.2.0"
    ```
 
 3. **Create and push tag**:
+
    ```bash
    git tag v0.2.0
    git push origin main
@@ -139,6 +145,7 @@ Version format: Uses tag version (e.g., `0.1.0`)
 ### Nightly Builds
 
 No manual action required. Nightly builds are automatically created:
+
 - On every push to `main`
 - Daily at UTC 02:00
 - Marked as pre-release
@@ -153,10 +160,12 @@ No manual action required. Nightly builds are automatically created:
 ### ABI Compatibility
 
 The ABI version (`MAJOR.MINOR`) is used for:
+
 - Shared library soname (Linux: `libcroupier-sdk.so.0.1`)
 - macOS library versioning (macOS: `libcroupier-sdk.0.1.dylib`)
 
 When MINOR version changes, ABI may change:
+
 - Rebuild dependent applications
 - Update linker flags
 

@@ -52,16 +52,16 @@ Croupier 当前真正要的是一套：
 
 ## 参考对象概览
 
-| 项目 | 借鉴点 | 不直接采用的主因 |
-| --- | --- | --- |
-| `RSocket` | 双向、多路复用、交互模型清晰 | 协议栈偏重，超出当前最小需求 |
-| `Aeron` | 同机/低延迟/媒体驱动思维 | 更像高性能消息基础设施，不适合作为默认控制面 |
-| `eCAL` | 多传输层抽象、工程化强 | 面向数据分发系统，模型与当前 session 不完全重合 |
-| `Zenoh` | 跨网络传输与统一抽象 | 体系更大，超出当前平台边界 |
-| `libp2p` | secure channel + stream mux 思维 | 更偏 P2P、多节点网络能力 |
-| `IceRPC / Ice` | 传输抽象、RPC 工程化成熟 | 整体 RPC 框架语义偏重 |
-| `yamux` | 轻量 stream multiplexing | 只解决 mux，不解决上层 session 语义 |
-| `kcp-go` | UDP 可靠传输实现参考 | 只是一种 transport 选择，不是完整 session runtime |
+| 项目           | 借鉴点                           | 不直接采用的主因                                  |
+| -------------- | -------------------------------- | ------------------------------------------------- |
+| `RSocket`      | 双向、多路复用、交互模型清晰     | 协议栈偏重，超出当前最小需求                      |
+| `Aeron`        | 同机/低延迟/媒体驱动思维         | 更像高性能消息基础设施，不适合作为默认控制面      |
+| `eCAL`         | 多传输层抽象、工程化强           | 面向数据分发系统，模型与当前 session 不完全重合   |
+| `Zenoh`        | 跨网络传输与统一抽象             | 体系更大，超出当前平台边界                        |
+| `libp2p`       | secure channel + stream mux 思维 | 更偏 P2P、多节点网络能力                          |
+| `IceRPC / Ice` | 传输抽象、RPC 工程化成熟         | 整体 RPC 框架语义偏重                             |
+| `yamux`        | 轻量 stream multiplexing         | 只解决 mux，不解决上层 session 语义               |
+| `kcp-go`       | UDP 可靠传输实现参考             | 只是一种 transport 选择，不是完整 session runtime |
 
 ## RSocket
 

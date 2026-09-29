@@ -69,12 +69,14 @@ approved, err := s.approvalStore.Approve(approvalID)
 ## 配置建议
 
 ### 开发环境配置
+
 ```yaml
 approvals:
-  type: memory  # 无需配置
+  type: memory # 无需配置
 ```
 
 ### 测试环境配置
+
 ```yaml
 approvals:
   type: sqlite
@@ -82,6 +84,7 @@ approvals:
 ```
 
 ### 生产环境配置
+
 ```yaml
 approvals:
   type: postgres
@@ -100,6 +103,7 @@ approvals:
 ## 监控指标
 
 建议监控以下指标：
+
 - 待审批数量
 - 审批处理时间
 - 存储查询延迟

@@ -6,13 +6,13 @@
 
 ### 传统方案 vs OpenTelemetry
 
-| 维度 | 传统自建方案 | OpenTelemetry方案 | 提升效果 |
-|------|-------------|-------------------|---------|
-| **标准化** | 自定义格式，维护成本高 | CNCF标准，生态丰富 | 降低70%维护成本 |
-| **多语言** | 每种语言重复开发 | 官方多语言SDK | 节省60%开发时间 |
-| **可观测性** | 指标孤岛，难以关联 | Trace/Metric/Log统一 | 提升80%问题定位速度 |
-| **扩展性** | 硬编码集成，难扩展 | 丰富的Exporter生态 | 支持任意后端存储 |
-| **性能** | 自建优化，经验有限 | 工业级性能优化 | 高吞吐低延迟 |
+| 维度         | 传统自建方案           | OpenTelemetry方案    | 提升效果            |
+| ------------ | ---------------------- | -------------------- | ------------------- |
+| **标准化**   | 自定义格式，维护成本高 | CNCF标准，生态丰富   | 降低70%维护成本     |
+| **多语言**   | 每种语言重复开发       | 官方多语言SDK        | 节省60%开发时间     |
+| **可观测性** | 指标孤岛，难以关联     | Trace/Metric/Log统一 | 提升80%问题定位速度 |
+| **扩展性**   | 硬编码集成，难扩展     | 丰富的Exporter生态   | 支持任意后端存储    |
+| **性能**     | 自建优化，经验有限     | 工业级性能优化       | 高吞吐低延迟        |
 
 ## 架构设计
 
@@ -1123,7 +1123,7 @@ receivers:
 
   # 文件日志接收器 - 接收游戏服务器日志
   filelog:
-    include: [ "/var/log/game/*.log" ]
+    include: ["/var/log/game/*.log"]
     operators:
       - type: json_parser
         parse_from: body
@@ -1198,7 +1198,7 @@ processors:
 
   # 采样器 - 智能采样策略
   probabilistic_sampler:
-    sampling_percentage: 10  # 基础采样率10%
+    sampling_percentage: 10 # 基础采样率10%
     hash_seed: 22
 
   # 属性过滤器 - 移除敏感信息
@@ -1249,7 +1249,7 @@ exporters:
     key_prefix: "otel:game:"
 
     # 过期时间配置
-    ttl: 3600  # 1小时
+    ttl: 3600 # 1小时
 
     # 仅导出关键实时指标
     metrics_filter:
@@ -1300,7 +1300,15 @@ service:
     # Traces管道 - 用户行为路径分析
     traces:
       receivers: [otlp]
-      processors: [memory_limiter, resource, transform, probabilistic_sampler, attributes, batch]
+      processors:
+        [
+          memory_limiter,
+          resource,
+          transform,
+          probabilistic_sampler,
+          attributes,
+          batch,
+        ]
       exporters: [clickhouse, file]
 
     # Metrics管道 - 游戏KPI指标
@@ -1478,7 +1486,7 @@ ORDER BY avg_fps ASC;
 
 ```yaml
 # docker-compose-otel-game.yml
-version: '3.8'
+version: "3.8"
 
 services:
   # OpenTelemetry Collector
@@ -1486,9 +1494,9 @@ services:
     image: otel/opentelemetry-collector:0.88.0
     container_name: game-otel-collector
     ports:
-      - "4317:4317"   # OTLP gRPC receiver
-      - "4318:4318"   # OTLP HTTP receiver
-      - "8889:8889"   # Prometheus exporter
+      - "4317:4317" # OTLP gRPC receiver
+      - "4318:4318" # OTLP HTTP receiver
+      - "8889:8889" # Prometheus exporter
       - "13133:13133" # Health check
     volumes:
       - ./otel-collector-game.yaml:/etc/otel-collector-config.yaml
@@ -1539,7 +1547,7 @@ services:
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
       KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
-      KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'true'
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
     volumes:
       - kafka_data:/var/lib/kafka/data
     depends_on:
@@ -1566,11 +1574,11 @@ services:
       - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
       - prometheus_data:/prometheus
     command:
-      - '--config.file=/etc/prometheus/prometheus.yml'
-      - '--storage.tsdb.path=/prometheus'
-      - '--web.console.libraries=/etc/prometheus/console_libraries'
-      - '--web.console.templates=/etc/prometheus/consoles'
-      - '--web.enable-lifecycle'
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--web.console.libraries=/etc/prometheus/console_libraries"
+      - "--web.console.templates=/etc/prometheus/consoles"
+      - "--web.enable-lifecycle"
     restart: unless-stopped
 
   # Grafana - 可视化面板
@@ -1723,14 +1731,14 @@ echo "  - OTLP gRPC: localhost:4317"
 
 ### 实施前 vs 实施后对比
 
-| 指标维度 | 实施前 | 实施后 | 改善幅度 |
-|---------|--------|--------|---------|
-| **数据标准化** | 各语言自定义格式 | OpenTelemetry统一标准 | 提升90% |
-| **开发效率** | 重复开发SDK | 标准SDK复用 | 节省70%时间 |
-| **问题定位** | 单点指标查看 | 分布式链路追踪 | 提升80%速度 |
-| **系统可扩展性** | 硬编码后端集成 | 插件化exporter | 支持任意存储 |
-| **运维复杂度** | 多套监控工具 | 统一可观测性 | 降低50%成本 |
-| **数据质量** | 格式不一致 | 类型安全保证 | 提升60%准确性 |
+| 指标维度         | 实施前           | 实施后                | 改善幅度      |
+| ---------------- | ---------------- | --------------------- | ------------- |
+| **数据标准化**   | 各语言自定义格式 | OpenTelemetry统一标准 | 提升90%       |
+| **开发效率**     | 重复开发SDK      | 标准SDK复用           | 节省70%时间   |
+| **问题定位**     | 单点指标查看     | 分布式链路追踪        | 提升80%速度   |
+| **系统可扩展性** | 硬编码后端集成   | 插件化exporter        | 支持任意存储  |
+| **运维复杂度**   | 多套监控工具     | 统一可观测性          | 降低50%成本   |
+| **数据质量**     | 格式不一致       | 类型安全保证          | 提升60%准确性 |
 
 ### ROI分析
 
@@ -1753,6 +1761,7 @@ ROI = (21人月 - 4.5人月) / 4.5人月 = 367%
 ---
 
 > [**最佳实践总结**:]
+>
 > 1. **分阶段实施**: 先服务器端，再客户端，最后高级功能
 > 2. **合理采样**: 根据业务重要性制定采样策略，平衡性能和数据完整性
 > 3. **标准化优先**: 严格按照OpenTelemetry语义规范定义属性和事件
