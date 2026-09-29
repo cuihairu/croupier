@@ -1677,3 +1677,37 @@ fresh 全绿（158 包零 FAIL）、guard PASSED。**已知边界**：门禁在�
 > （2 块豁免 #4）、auth 99.3%（6 块登记）、extension 99.9%（1 块
 > 登记）、announcement/sitesettings 100%、cicd 97.9%（4 块登记）。
 > 全仓非登记缺口枯竭，转监控回补口径（新落地 48h）。
+
+## 事件抽屉 + 升级弹窗覆盖批次（Extensions 簇缺口第三批，2026-09-29）
+
+> **交付（2026-09-29）**：接簇余量收口顺序收 Installations 目录剩余两个
+> overlay 本体——`EventsDrawer.tsx`（286 行）与 `UpgradeModal.tsx`（151 行）
+> 此前在页面套件中为桩组件，本体 0 测试。新增
+> `__tests__/EventsDrawer.test.tsx` 12 用例 + `__tests__/UpgradeModal.test.tsx`
+> 7 用例（v8 口径）：**EventsDrawer 行/分支/函数/语句 4×100%**；
+> **UpgradeModal 行/函数/语句 100%、分支 97.36%**（余 1 处为 handleOk 的
+> `if (!row) return` 守卫——OK 按钮仅在 open 且 effect 已按 row 拉取后可点，
+> 经 UI 不可达，不造假用例）。
+> 锁定契约——事件抽屉：标题（displayName 兜底 extensionId）、概览三项
+> （总数副本在 request 成功后同步 + 未筛选态 chips）、六列矩阵（formatUnix
+> 秒/毫秒自适应、payload 空 '-'）、无安装实例守卫（不发请求 + 默认空态）、
+> 关键词/级别筛选（trim 载荷、Alert 已生效条件单/组合 ' / ' 拼接、筛选态
+> 空态文案切换、清空双态复位 + 按钮禁用门）、切换安装实例重置筛选并按新
+> id 重拉、request 失败静默翼（success:false 不弹错）、关闭态不挂载不拉取。
+> 升级弹窗：打开拉目录版本（当前版本已在列不重复前置 / 不在列前置补齐 /
+> releaseVersion 空不补三翼）、空版本提交拦截（warning 不触达写服务）、
+> 成功链（upgrade → message → onClose → onUpgraded）、失败四分支结构化
+> 文案（missing_dependency/version_mismatch/dependency_cycle 各带 details
+> 字段缺省 unknown/'-' 兜底臂 + 非 HTTP unknown 兜底 message）、三分支
+> 失败保持弹窗开启。
+> **antd6 交互坑新增实证**：Select 的 placeholder 无稳定形态（span/input
+> 因版本而异），锚定改为「容器内首个 .ant-select」（DOM 序上工具栏先于
+> 表格分页 size changer）；option 双份 DOM（a11y role=option + 可见
+> .ant-select-item-option-content），计数断言必须带 selector 收窄。
+> 筛选断言口径：打开时 effect 的 reload 与首挂载请求会被 ProTable 内部
+> abort 合并，计数不具确定性，一律锚「最后一次调用」。
+> 门禁：目标套件 19/19 绿、tsc 0 错、eslint 干净、全量 jest 333 套件
+> 4060/4060 绿（2 worker 限流 697s，load ~2.5 低位窗口直跑）。
+> **Extensions 簇余量**：AgentSync/index（无测试文件）与 Store/
+> CatalogManageModals、两处 shared.ts 留后续批次；DomainEntry 已由
+> 4d1fbb3（#46 批次 4）收口。
