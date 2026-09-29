@@ -1236,3 +1236,15 @@ fresh 全绿（158 包零 FAIL）、guard PASSED。**已知边界**：门禁在�
 > 缺表注入必须独立命名内存库（`file:<unique>?mode=memory&cache=shared`）。
 > 门禁：gofmt 干净、go vet 干净、api/game 包 fresh 全绿 100.0%（34s）。
 > 本批单包 test-only，未重跑全量（同日全量基线 157 ok）。
+
+## 覆盖率巡检批次·Go 侧第十六轮·executionlog + service 尾翼（wt-api worktree，2026-09-29）
+
+> **交付（2026-09-29）**：两包尾翼收口——① `platform/executionlog`
+> PurgeBefore 双错误翼（execution_logs 缺表直传 / task_events 缺表：
+> runs 已删、events 报错仍上抛），包 **100.0%**；② `internal/service`
+> canonicalJSONBytes 非法 JSON 原样透传翼（提案摘要核对面对存量坏行
+> 不炸不吞），包 99.9%——Marshal 失败翼登记不可达：入参 v 来自
+> json.Unmarshal 合法输出（map/slice/string/float64/bool/nil），
+> json.Marshal 对这些类型无失败路径，不造假用例。
+> 门禁：gofmt 干净、go vet 两包干净、两包 fresh 全绿（1.0s/7.1s）。
+> 本批 test-only，未重跑全量（同日全量基线 157 ok）。
