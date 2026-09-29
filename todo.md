@@ -1175,3 +1175,22 @@ fresh 全绿（158 包零 FAIL）、guard PASSED。**已知边界**：门禁在�
 > 门禁：gofmt 干净、go vet 干净、svc 包 fresh 全绿 **100.0%**
 > （全包零未覆盖块）、全量 `go test ./internal/...` fresh 复跑
 > （低载窗口 load~10 执行）。
+
+## 覆盖率巡检批次·Go 侧第十二轮·platform/settings 收口至 100.0%（wt-api worktree，2026-09-29）
+
+> **交付（2026-09-29）**：svc 收口后全仓 fresh profile 重排（157 包 ok；
+> 唯一 FAIL 为他会话 sitesettings 在途 WIP 用例，符号核实只存在于其
+> 未跟踪 handler_gaps_v10_test.go），排除在途域后最大无冲突缺口为
+> `platform/settings/layered.go` 7 块，新增
+> `layered_withsource_wings_test.go` 2 用例收口至包 **100.0%**：
+> getBoolWithSource——L3 raw 非 bool 解析失败翼（字符串形态经
+> store.Set 直写 `\"yes\"` + Reload）与 L2 命中翼
+> （ConfigInput.FeatureFlags → resolveL2 真实产出触达）；
+> getIntWithSource——非法键翼、raw 既非数字也非数字串的解析失败翼
+> （布尔形态：int64 与 string 两段 Unmarshal 均败）、L2 命中翼。
+> **口径登记**：resolveL2 目前只产出字符串与五域布尔键、整型键无生产方，
+> getIntWithSource 的 L2 翼以白盒直构 `&Layered{l2Values:…}` 锁层契约
+> （未来 L2 产出整型键时行为已定），注释注明生产不可达原因。
+> 门禁：gofmt 干净、go vet 干净、settings 包 fresh 全绿 100.0%
+> （13.7s，零未覆盖块）。本批单包 test-only，未重跑全量
+> （20 分钟前全量基线 157 ok）。
