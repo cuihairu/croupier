@@ -1799,3 +1799,42 @@ fresh 全绿（158 包零 FAIL）、guard PASSED。**已知边界**：门禁在�
 > 4103/4103 绿（2 worker 限流 677s，load ~1.4 低位窗口直跑）。
 > **下一批候选（零测试页排行余量）**：Approvals（694）、Analytics/Levels（683）、
 > Ops/DBMonitor（667）、Ops/Alerts（600）、Dev/Releases（576）。
+
+## 告警中心页覆盖批次（Ops/Alerts 簇，2026-09-29）
+
+> **交付（2026-09-29）**：零测试页排行次席——`Ops/Alerts/index.tsx`（765 行）+
+> `AlertRulesTab.tsx`（600 行，入口套件中为桩）双件收口，新增
+> `__tests__/index.test.tsx` 27 用例 + `__tests__/AlertRulesTab.test.tsx` 12 用例：
+> **index.tsx 行/函数 100%、分支 98.23%**；**AlertRulesTab.tsx 行/函数/语句 100%、
+> 分支 98.24%**。锁定契约——入口页：初始三请求（alerts/config/silences）与
+> 渲染矩阵（severity 三色 + 空串、firing/silenced、静默行无静默按钮、cfg 双
+> URL 条件按钮、静默列表 ID/创建者/起止拼接与缺省 ' -> '）、筛选矩阵
+> （severity/service 下拉精确、关键词 summary+labels JSON 小写包含、labelKey
+> 判空 + labelValue String 精确）、双刷新（{} 响应 `s.silences || []` 右翼 +
+> reject 静默 catch）、外链三入口（Grafana/AM/#/alerts/静默查看 encode 两
+> 形态）、行内 1h/1d 与抽屉三档静默（matchers toStringRecord 归一、comment
+> 取 summary、各档独立 catch 三翼全覆盖）、解除静默主链 + 失败翼、详情抽屉
+> （全字段 + 兜底 '-'、runbook/grafana 条件按钮、onClose 可重开）、load 失败
+> 三翼、Tabs 切换。规则 Tab：七列矩阵（条件 code 文本、level 三色 + 未知
+> default、forCount 阈值文案、冷却 Math.round 分钟、agentFilter 空 → '全部'、
+> lastFiredAt 格式化/缺省）、load 三翼 + items 缺省右翼、新建默认值链
+> （required 拦截 + agentFilter 归一空串）、自定义指标链（Select 切换 →
+> 内层 Input 显形；失前缀自动落非 preset 手输形态）、编辑回填三形态
+> （preset/非 preset/自定义 + agentFilter 透传）、启停三翼、删除 Popconfirm
+> 两翼、保存失败弹窗保持。
+> **antd6 坑实证续档**：rc-select 开/关都走 message 宏任务——同一卡内两次
+> 连开下拉须留 ≥60ms 时间隙（立即重开与上一次关闭竞态、第二次打不开）；
+> getByText 只对内容做 trim 归一、查询串不 trim（' -> ' 单元格须用 '->'
+> 查询）；antd Table 行按钮点击冒泡触发 onRow（抽屉随之打开，行锚须限卡内
+> 表格）；Space 包裹子项致 textContent 双命中（getAllBy 取首）；modal.confirm
+> 标题双渲染须 selector 收窄；无 ConfigProvider zh 时 Popconfirm 默认按钮
+> 文案是 en（OK/Cancel）；ModalForm 标题与入口按钮同文本（锚 .ant-modal-title
+> 的 textContent，footer 主按钮走类名——中文文案自动插空格「确 定」）。
+> **登记不可达（防御分支，不造假用例不删分支）**：index 81/88 `(rows || [])`
+> 右翼（rows 是 useState 数组、setRows 只赋数组）；index 742
+> `(detail.annotations || {}).runbook_url` 右翼（Runbook 按钮仅在
+> annotations 已是对象时渲染）；rules 499 pattern 失败分支（isCustom 谓词与
+> pattern 谓词等价，失前缀即重渲染摘规则——自证性双保险，同 r27 wechat 族）；
+> rules 467 `getFieldValue('metric') || ''` 右翼（新建/编辑 initialValues 恒含
+> metric）。
+> 门禁：目标套件 39/39 绿、eslint 干净、tsc 0 错；全量 jest 负载口径见交付说明。
