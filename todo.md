@@ -1557,3 +1557,56 @@ fresh 全绿（158 包零 FAIL）、guard PASSED。**已知边界**：门禁在�
 > 口径 + root.go/cluster/mesh 既有登记翼）、cmd/agent 98.9%（全部为
 > cmd-1/cmd-6 登记块）、cmd/ingest/cmd 99.5%、analytics-export 87.7%
 > （main-only，cmd-1）——cmd/ 树非豁免余量至此收官。
+
+## 覆盖率巡检批次·Go 侧第二十六轮·dashboard_fixture.go 装配翼收口（wt-api worktree，2026-09-29）
+
+> **交付（2026-09-29）**：接第二十五轮收 cmd/server 最后一个大量块文件
+> dashboard_fixture.go（69 块），新增 `fixture_wings_r26_test.go`，
+> 包 **95.1% → 98.1%**，文件余 14 块全部登记不可达（测试头注释与
+> 豁免文档同源）：
+> ① **纯 helper 矩阵**——fixtureAddrWithPort 六形态（空串/裁剪 ":0"/
+> 0.0.0.0 归一/localhost 保留/非数字端口契约放行/无冒号报错）、
+> defaultFixtureBootstrapDir 与 fixtureSDKDir 的 Getwd 失败翼
+> （chdir 进已删除目录）与候选缺失回落；
+> ② **StartDashboardFixture 前置错误翼**——五个 addr 解析失败
+> （startServer 之前拦截）、MkdirTemp 失败（TMPDIR 指向文件）、
+> 空 BaseDir 自有目录分支与 cleanupOnError 删除链；
+> ③ **五步失败翼 + listen 翼**——Sscanf（cleanupOnError 首次真实执行）、
+> server listen 被占（顺带覆盖 CROUPIER_E2E_PUBLISH_REVIEW 环境翼）、
+> provider/fixture API 端口被占、agent 目录被占、SDK cmd.Start 失败
+> （各一次真实 startServer boot 后在目标步骤失败）；
+> ④ **start\* 手工构造错误翼**——provider/fixture API listen、agent
+> MkdirAll、providers.yaml 被目录占位、SDK 建目录与 go build 失败
+> （GOOS=invalidos）；
+> ⑤ **ensureUIScope 阶梯**——nil 模型守卫、缺表查询错、FindEnvBinding
+> 缺表、AddEnvBinding 触发器拒写（含 Router 非 nil 翼——databaseName
+> 改走 NameForGame）、FindByUsername 缺表、UpdateLastScope 触发器拒写；
+> ⑥ **fixture API 全方法臂**——health 双态（经 UpsertAgent 注入带函数
+> 契约会话后 agentConnected=true）、sdk/functions 三态（405/坏 JSON/
+> 合法+BIN 目录 500）、sdk/calls 五臂、audit 三态（404/垃圾 ActorJSON
+> 500 解码失败/合法 200）与查询失败翼（缺表 500）、provider 两端点；
+> ⑦ **ready() 三翼**——nil svcCtx、空 store、函数缺一（Functions 少
+> 一项 sdkFn）、契约缺表（函数齐备+DB 非 nil 但 function_contracts
+> 缺表）；
+> ⑧ **CleanupScope 六级错误阶梯**——子查询缺表×2（semantic versions/
+> proposal versions）、scoped 循环缺 page_specs、admin scope 恢复被
+> BEFORE UPDATE 触发器拒、env binding 删除被 BEFORE DELETE 拒、game
+> 删除被 BEFORE DELETE 拒（后三处先铺真实行使 UPDATE/DELETE 命中行——
+> 零行更新不报错、触发器无从引爆，首轮实证三翼全漏）；
+> ⑨ **Close 运行时句柄全走**——control + 双 HTTP 服务 + telemetry +
+> Router（空缓存）+ 自有 BaseDir 删除链 + 幂等。
+> **登记不可达（14 块）**：fixtureFreePort Listen 错误翼及两透传翼
+> （fd 耗尽不可构造）、候选循环内 Abs 失败翼 ×2、telemetry init 翼
+> （二十四轮探针证伪）、startServer 内 ensureUIScope 透传翼（boot
+> 自有 DB 全新迁移无注入缝，深层阶梯已直测）、四个 Serve goroutine
+> 非 ErrServerClosed 日志翼、SetEnvs/startSDKLocked 的 Marshal 翼、
+> WaitReady 60s 超时翼。
+> 门禁：触及文件 gofmt 干净、go vet 干净、cmd/server 包 fresh 全绿
+> 19.9s（98.1%）。本批 test-only + 注释/文档同步，未重跑全量
+> （同日基线 157 ok；并行会话持续占机属环境性慢）。
+> **cmd/ 收官状态**：cmd/server 98.1%（余量为六文件登记翼——
+> root 14/service 6/mesh 2/cluster 2/fixture_cmd 1/completion 1/
+> dashboard_fixture 14 全部有归属）、cmd/agent 98.9%（cmd-1/cmd-6）、
+> ingest/cmd 99.5%、analytics-export 87.7%（main-only，cmd-1）——
+> cmd/ 树非豁免余量枯竭，后续轮次转监控回补（新落地文件 48h 口径）
+> 或 web 侧工作面。

@@ -47,7 +47,7 @@ internal/ 目标的逐包语句覆盖率为 100%。本文档是**唯一豁免清
 
 ## cmd/ 覆盖口径与豁免清单（2026-09-22 扩展）
 
-cmd/ 的覆盖目标与 internal/ 不同：二进制装配层允许存在进程边界与系统变更面，**策略逻辑全部下沉 internal/**（已 100%）。当前读数（`go test -cover`，2026-09-29 第二十五轮后）：`cmd/server` ≈95%、`cmd/agent` ≈99%、`cmd/analytics-export` 87.7%、`cmd/schema-validator` ≈91%、`cmd/ingest/cmd` 99.5%。除下述豁免外，cmd/ 其余不可达分支均已按「先构造、构造不出才豁免」收口（含 fixture REST 全语义、startCluster 全装配矩阵、interconnect 全路由、service manager 状态机、service 变更命令五体分支矩阵、schema-validator 归档解剖边界等）。`pkg/protocol` 100%；`pkg/pb/**` 为 protoc 生成物（`make proto` 产物，随生成链更新），不纳入手写测试口径。
+cmd/ 的覆盖目标与 internal/ 不同：二进制装配层允许存在进程边界与系统变更面，**策略逻辑全部下沉 internal/**（已 100%）。当前读数（`go test -cover`，2026-09-29 第二十六轮后）：`cmd/server` ≈98%、`cmd/agent` ≈99%、`cmd/analytics-export` 87.7%、`cmd/schema-validator` ≈91%、`cmd/ingest/cmd` 99.5%。除下述豁免外，cmd/ 其余不可达分支均已按「先构造、构造不出才豁免」收口（含 fixture REST 全语义、startCluster 全装配矩阵、interconnect 全路由、service manager 状态机、service 变更命令五体分支矩阵、schema-validator 归档解剖边界、dashboard fixture 装配翼直测等）。`pkg/protocol` 100%；`pkg/pb/**` 为 protoc 生成物（`make proto` 产物，随生成链更新），不纳入手写测试口径。
 
 ### cmd-1.（进程边界）全部二进制的 `main` / `Execute`
 
@@ -115,9 +115,9 @@ cmd/ 的覆盖目标与 internal/ 不同：二进制装配层允许存在进程�
 
 ### cmd/ 残留部分覆盖面（非豁免，如实记录）
 
-`cmd/server/dashboard_fixture.go` 的 E2E fixture 全链启动（`StartDashboardFixture`/`startServer`/`startAgent`/`ensureUIScope` 等约 55%-88% 覆盖）依赖真实 server+agent+dashboard 子进程编排，属 E2E 领域基础设施：可测面（fixture REST、SDK 替换、存储句柄、未启动防御）已在 `dashboard_fixture_*_test.go` 直测，全链编排由 `real-dashboard` E2E 套件承担，不在单测覆盖率口径内。
+`cmd/server/dashboard_fixture.go`（2026-09-29 第二十六轮收口后文件内仅余 14 块，全部为测试文件头注释同源登记的不可达翼）：E2E fixture 装配面已由 `fixture_wings_r26_test.go` 直测收口——纯 helper 矩阵（addr 归一/候选回落）、StartDashboardFixture 前置错误翼（五 addr 解析失败、MkdirTemp 失败、空 BaseDir 自有目录分支）、五步失败翼（Sscanf/serve listen 被占/provider/agent 目录/SDK cmd.Start/fixture API 端口，含 `CROUPIER_E2E_PUBLISH_REVIEW` 环境覆盖翼）、start* 手工构造错误翼、ensureUIScope nil/缺表/触发器拒写四级阶梯（含 Router 非 nil 翼）、fixture API 端点全方法臂（health 双态/SDK 三态/calls 五臂/audit 三态/provider 两端点）、ready() 空 store/函数缺一/契约缺表三翼、CleanupScope 六级错误阶梯（缺表×3 + BEFORE UPDATE/DELETE 触发器×3，均先铺真实行使 UPDATE/DELETE 命中行）、Close 运行时句柄全走（control/双 HTTP/telemetry/Router/自有 BaseDir 删除链）。登记不可达：`fixtureFreePort` 环回随机端口 Listen 错误翼及其透传（fd 耗尽不可构造）、候选循环内 `filepath.Abs` 失败翼（Getwd 已成功后同进程再失败的窗口不可稳定构造）、startServer 的 telemetry init 翼（第二十四轮探针证伪）、startServer 内 ensureUIScope 错误透传翼（boot 自有 DB 每次全新迁移，无注入缝；其深层阶梯已直测）、四个 Serve goroutine 非 ErrServerClosed 错误日志翼（Shutdown 路径被过滤，listener 突发故障无确定性注入面）、`Game.SetEnvs`/`startSDKLocked` 的 json.Marshal 翼（纯字符串字段无失败路径）、`WaitReady` 60s 超时翼（硬编码 deadline，成本与价值不成比例）。全链真实编排由 `real-dashboard` E2E 套件承担。
 
-`cmd/server/root.go` runServer 的运行翼群（2026-09-29 第二十四轮，`root_wings_r24_test.go` 注释同源登记）：遥测 init 失败翼（构造路径经六形态探针证伪——OTLP 客户端不预解析 endpoint，EAGER 恒 nil error）与 Shutdown 错误翼、优雅停机内 listener/HTTP/Router Close 成功路径的错误子翼与 30s 超时翼、会话 prune ticker 体（30s 硬编码 + 5min 陈旧阈值，无注入点）、tcpListener.Serve 非 Canceled 错误翼（Close→nil、cancel→Canceled 被过滤）。runServer 主链与 mode/debug/logLevel/gin 全矩阵已由三次完整 boot + SIGINT 优雅停机真实覆盖（91.3% 包口径）。
+`cmd/server/root.go` runServer 的运行翼群（2026-09-29 第二十四轮，`root_wings_r24_test.go` 注释同源登记）：遥测 init 失败翼（构造路径经六形态探针证伪——OTLP 客户端不预解析 endpoint，EAGER 恒 nil error）与 Shutdown 错误翼、优雅停机内 listener/HTTP/Router Close 成功路径的错误子翼与 30s 超时翼、会话 prune ticker 体（30s 硬编码 + 5min 陈旧阈值，无注入点）、tcpListener.Serve 非 Canceled 错误翼（Close→nil、cancel→Canceled 被过滤）。runServer 主链与 mode/debug/logLevel/gin 全矩阵已由三次完整 boot + SIGINT 优雅停机真实覆盖。
 
 ## tools/ 与 scripts/ 覆盖口径与豁免清单（2026-09-23 扩展）
 
