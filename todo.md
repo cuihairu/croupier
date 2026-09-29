@@ -754,6 +754,7 @@ T3（execution_state 字段）→ T4/T6/T8；T2 → T5；T12（后端校验放�
 > **已知边界**：门禁在负载高位窗口执行（并行会话持续占机，dev-seed 包
 > 222s、audit 包 148s 属环境性慢，非回归）；全量 jest 未单跑（本轮零 web
 > 触碰，guard 已覆盖 PageSpec 侧校验）。
+
 ## 插件域批次 1：契约收口（OPEN-ISSUES #46，2026-09-28）
 
 > **交付（2026-09-28）**：按设计收口定的批次链 1 落地（wire 变更，禁兼容旧键）：
@@ -926,6 +927,7 @@ T3（execution_state 字段）→ T4/T6/T8；T2 → T5；T12（后端校验放�
 > 构造期失败）；⑧ DB 关闭态两读端点 500。
 >
 > service/webhook 注入口径（沿用本仓既有批次）：
+>
 > - 读翼「缺表」：DropTable 后 gorm 立即报错且无副作用；
 > - 写翼「触发器拦写」：BEFORE UPDATE TRIGGER + RAISE(ABORT)，覆盖「校验
 >   全过、SQL 真执行才炸」这一类（Update 落库、删除级联、构建状态回写三处）；
@@ -944,6 +946,7 @@ T3（execution_state 字段）→ T4/T6/T8；T2 → T5；T12（后端校验放�
 > 属独立修复批次，已写跳过用例锁定契约（修好后该用例转绿，删除 t.Skip）。
 >
 > **四处不可达分支登记（房规：不造假用例、不删防御分支）**：
+>
 > 1. `handler.go List` 的 ShouldBindQuery 错误分支：IntegrationListRequest
 >    仅两个 `form` string 字段，gin form 绑定无失败路径；
 > 2. `service.go normalizeExtra` 的 `case float64`：入参只有两个来源——
@@ -970,7 +973,7 @@ T3（execution_state 字段）→ T4/T6/T8；T2 → T5；T12（后端校验放�
 > 目录内的并行会话代为 commit（我的两轮测试文件当时已被它在提交信息中
 > 完整描述）。复核结论：① 两提交当时**尚未进 main**，需本会话推送；
 > ② 其间的折叠提交 `ebd6193`（`-s ours`）曾使 `docs/design/
-> mobile-companion-design.md` 停留在旧版（较 main 少 67 行），已由本次
+mobile-companion-design.md` 停留在旧版（较 main 少 67 行），已由本次
 > merge 同步修正（取上游新版，无冲突）；
 > ③ 逐文件核实 6 份收尾测试 + 2 份 cicd 测试在 HEAD 中**全部在位**，
 > 无内容丢弃。
@@ -979,7 +982,7 @@ T3（execution_state 字段）→ T4/T6/T8；T2 → T5；T12（后端校验放�
 > 失败——panic 于 `stale_heal.go:66` healScopes 拿 nil `*gorm.DB`（后台
 > stale-heal goroutine 撞上被测 DB 已关闭），发生在高负载窗口（1 分钟负载
 > 126）。**单跑复核 300s 全绿**，且该域零改动（`git diff HEAD -- internal/
-> api/page/` 为空，源文件最近改动是 09-25 的 main 提交），判定为负载性偶发
+api/page/` 为空，源文件最近改动是 09-25 的 main 提交），判定为负载性偶发
 > 而非回归；我涉及的 4 包在全量中均 `ok`。合并后复跑 cicd 97.9%、
 > resourcecatalog 100.0%，gofmt/vet 干净，guard PASSED。
 
@@ -1013,7 +1016,7 @@ T3（execution_state 字段）→ T4/T6/T8；T2 → T5；T12（后端校验放�
 >
 > **顺带收口**（同域，`internal/cicd` 95.0%→**100.0%**）：`Register` 对
 > 空 kind / nil 工厂的 fail-fast panic 契约此前无用例（既有 `TestRegister_
-> DuplicatePanics` 只覆盖「同名重复注册」那一处 panic）——新增
+DuplicatePanics` 只覆盖「同名重复注册」那一处 panic）——新增
 > `internal/cicd/register_guard_test.go`，并断言失败的注册尝试不污染
 > 注册表 `Kinds()`。
 >
@@ -1043,6 +1046,7 @@ ops 包整体 98.6%（残余在 logs.go / performance.go / probe.go，属 #53/#5
 他会话刚落地域，本轮未触碰）。已推 wt-api：`ebd6193..1d41707`（纯 FF）。
 
 **本轮新增**：
+
 1. `internal/security/secguard/secguard_coverage_test.go`——secguard
    **74.3% → 100.0%**（secguard.go 28 块 + retry_probe.go 9 块全收）：
    七键解析（Resolve 非 nil 路径 + 未配置零值 + 缓存路径幂等）、端口 scheme
@@ -1104,12 +1108,13 @@ fresh 全绿（158 包零 FAIL）、guard PASSED。**已知边界**：门禁在�
 > （`catalog_writes_paths_test.go`），本轮只碰 core/repo 两层，目录不相交。
 >
 > **repo 层（`internal/repo/gorm/extension/catalog_release_writes_test.go`）**
+>
 > - 主链：批量读（缺席 id 直接不返回而非报错）、按列更新、版本命中、
-> 级联清版本只清目标扩展；
+>   级联清版本只清目标扩展；
 > - 语义锁定三条：`DeleteByExtensionID` 走 `Unscoped` 物理删除才释放
-> `extension_id` 唯一索引（软删行会继续占用 → 重登记冲突）；Update/Delete
-> 行不存在返回 `gorm.ErrRecordNotFound`；`ReleaseRepo.DeleteByExtensionID`
-> 无匹配行**不**报错（级联语义）；`GetByExtensionIDs` 空入参短路不打 DB；
+>   `extension_id` 唯一索引（软删行会继续占用 → 重登记冲突）；Update/Delete
+>   行不存在返回 `gorm.ErrRecordNotFound`；`ReleaseRepo.DeleteByExtensionID`
+>   无匹配行**不**报错（级联语义）；`GetByExtensionIDs` 空入参短路不打 DB；
 > - 错误域：缺表 + `CREATE TRIGGER ... BEFORE UPDATE/DELETE ... RAISE(ABORT)`
 >   打穿 `res.Error` 分支，并断言拦截错误**不退化**为 `ErrRecordNotFound`
 >   （否则写翼注入故障会被误读成「行不存在」）；
@@ -1392,20 +1397,21 @@ fresh 全绿（158 包零 FAIL）、guard PASSED。**已知边界**：门禁在�
 > RunE 直调经 `&cobra.Command{}+SetContext`（裸 cmd 的 Context() 为
 > nil，database/sql 对 nil ctx 会 panic）。
 > **登记不可达（三处，不造假用例不删防御分支）**：
+>
 > 1. completion.go:59 default 臂——Args=cobra.OnlyValidArgs 在 RunE 前
 >    拦截四词之外一切参数，证明性断言锁定前提；
 > 2. mesh_forwarder.go:47-48 NotOwner 翼——res.NotOwner 仅由真实远端
 >    peer 在 stale-epoch fencing 路径设置（ServeForwardHandler），单机
 >    构造不可达，cluster 层 interconnect e2e 覆盖同语义；
 > 3. mesh_forwarder.go:53 成功载荷返回——需活 peer 环路（transport 拨号
->    + 应答），同上。
-> 门禁：gofmt/vet 干净、go build ./... 通过、cmd/server 包 fresh 全绿
-> 8.5s（含两次 NewServiceContext 全量启动）。本批 test-only 单包改动，
-> 未重跑全量（同日全量基线 157 ok + 1 他会话 WIP FAIL）。
-> **cmd/server 余量（后续轮次）**：root.go 110 块、dashboard_fixture.go
-> 70、service.go 56、dashboard_fixture_cmd.go 9、cluster.go 5、
-> dashboard_fixture_provider.go 2；随后 cmd/agent 89.6%、
-> cmd/analytics-export 87.7%、cmd/ingest 99.5%。
+>    - 应答），同上。
+>      门禁：gofmt/vet 干净、go build ./... 通过、cmd/server 包 fresh 全绿
+>      8.5s（含两次 NewServiceContext 全量启动）。本批 test-only 单包改动，
+>      未重跑全量（同日全量基线 157 ok + 1 他会话 WIP FAIL）。
+>      **cmd/server 余量（后续轮次）**：root.go 110 块、dashboard_fixture.go
+>      70、service.go 56、dashboard_fixture_cmd.go 9、cluster.go 5、
+>      dashboard_fixture_provider.go 2；随后 cmd/agent 89.6%、
+>      cmd/analytics-export 87.7%、cmd/ingest 99.5%。
 
 ## 覆盖率巡检批次·Go 侧第二十三轮·cmd/server cluster + fixture 命令翼（wt-api worktree，2026-09-29）
 
@@ -1476,6 +1482,7 @@ fresh 全绿（158 包零 FAIL）、guard PASSED。**已知边界**：门禁在�
 > 自身也返回 http.HandlerFunc，类型断言与 testify 函数值比较均不可
 > 用）。
 > **两枚新教训（入档）**：
+>
 > 1. **全局 slog 指向启动管道的 closed-file panic**——runServer 的
 >    SetupLoggerWithFile 替换进程级 slog 默认 logger 并捕获当时
 >    os.Stdout（测试管道 w）；用例收尾 Close(w) 后，后续任意用例的
@@ -1491,26 +1498,26 @@ fresh 全绿（158 包零 FAIL）、guard PASSED。**已知边界**：门禁在�
 >    失败翼用例因此没触发、卡在 runServer 的 <-quit（挂死而非失败）。
 >    修正法：任何「期待 runServer 早退」的用例必须带就绪行兜底分支
 >    （就绪即 SIGINT 收尾 + 报构造失效），杜绝挂死。
-> **遥测 init 失败翼证伪登记（198-199）**：internal/telemetry 侧
-> 临时探针六形态扫描（坏 OTEL_RESOURCE_ATTRIBUTES ×2 / 畸形
-> collector URL ×2 / metrics 畸形 URL / headers 坏 JSON）——
-> NewGameTelemetryService 全部 EAGER 返回 nil error：OTLP HTTP 客户端
-> 不预解析 endpoint（首次上传才失败）、resource 解析宽松。构造路径
-> 无可注入失败面，登记不可达（探针用例已移除，不留测试垃圾）。
-> **登记不可达（14 块全数归属）**：Execute/main ×3 块（cmd-1 进程
-> 边界）；HTTP ListenAndServe 错误翼 348-350（分支体 os.Exit(1)，
-> 进程内构造即杀测试二进制，cmd-1 同族）；遥测 init 198-199（上段
-> 证伪）+ Shutdown 错误翼 205-206（需失败后端）；优雅停机内四个
-> 错误子翼 371-372/377-378/391-393（listener Close/HTTP Shutdown/
-> Router Close 成功路径无注入面）+ 超时翼 401（需挂死组件 + 30s
-> 等待）；prune ticker 体 486-489（30s 硬编码 + 5min 陈旧阈值，无
-> 注入点）；tcpListener.Serve 非 Canceled 翼 497-498（Close→nil、
-> cancel→Canceled 被过滤，无第三形态）。
-> 门禁：gofmt/vet 干净、go build ./... 通过、cmd/server 包 fresh
-> 全绿 14.3s（含 4 次完整 NewServiceContext 启动）。
-> **cmd/server 余量**：dashboard_fixture.go 69（boot 步骤错误翼群，
-> E2E 基础设施口径既有登记）、service.go 56（cmd-2/6 域）；随后
-> cmd/agent 89.6%、cmd/analytics-export 87.7%、cmd/ingest 99.5%。
+>    **遥测 init 失败翼证伪登记（198-199）**：internal/telemetry 侧
+>    临时探针六形态扫描（坏 OTEL_RESOURCE_ATTRIBUTES ×2 / 畸形
+>    collector URL ×2 / metrics 畸形 URL / headers 坏 JSON）——
+>    NewGameTelemetryService 全部 EAGER 返回 nil error：OTLP HTTP 客户端
+>    不预解析 endpoint（首次上传才失败）、resource 解析宽松。构造路径
+>    无可注入失败面，登记不可达（探针用例已移除，不留测试垃圾）。
+>    **登记不可达（14 块全数归属）**：Execute/main ×3 块（cmd-1 进程
+>    边界）；HTTP ListenAndServe 错误翼 348-350（分支体 os.Exit(1)，
+>    进程内构造即杀测试二进制，cmd-1 同族）；遥测 init 198-199（上段
+>    证伪）+ Shutdown 错误翼 205-206（需失败后端）；优雅停机内四个
+>    错误子翼 371-372/377-378/391-393（listener Close/HTTP Shutdown/
+>    Router Close 成功路径无注入面）+ 超时翼 401（需挂死组件 + 30s
+>    等待）；prune ticker 体 486-489（30s 硬编码 + 5min 陈旧阈值，无
+>    注入点）；tcpListener.Serve 非 Canceled 翼 497-498（Close→nil、
+>    cancel→Canceled 被过滤，无第三形态）。
+>    门禁：gofmt/vet 干净、go build ./... 通过、cmd/server 包 fresh
+>    全绿 14.3s（含 4 次完整 NewServiceContext 启动）。
+>    **cmd/server 余量**：dashboard_fixture.go 69（boot 步骤错误翼群，
+>    E2E 基础设施口径既有登记）、service.go 56（cmd-2/6 域）；随后
+>    cmd/agent 89.6%、cmd/analytics-export 87.7%、cmd/ingest 99.5%。
 
 ## 覆盖率巡检批次·Go 侧第二十五轮·service 变更命令五体收口（wt-api worktree，2026-09-29）
 
@@ -1646,7 +1653,8 @@ fresh 全绿（158 包零 FAIL）、guard PASSED。**已知边界**：门禁在�
 > 的 auth 属包体量）。本批 test-only + 文档同步，未重跑全量（同日基线）。
 > **下一轮候选**：auth 残余 9 块（email_verification 78/87/103/163、
 > mfa 95、providers 114/134/162 init 失败日志翼、service 738 continue）
-> + extension service.go:513（manifest 非 JSON 对象 400）。
+>
+> - extension service.go:513（manifest 非 JSON 对象 400）。
 
 ## 覆盖率巡检批次·Go 侧第二十八轮·auth + extension 残余收口（wt-api worktree，2026-09-29）
 
@@ -1711,3 +1719,24 @@ fresh 全绿（158 包零 FAIL）、guard PASSED。**已知边界**：门禁在�
 > **Extensions 簇余量**：AgentSync/index（无测试文件）与 Store/
 > CatalogManageModals、两处 shared.ts 留后续批次；DomainEntry 已由
 > 4d1fbb3（#46 批次 4）收口。
+
+## Agent 同步调试页覆盖批次（Extensions 簇缺口第四批，2026-09-29）
+
+> **交付（2026-09-29）**：`Extensions/AgentSync/index.tsx`（93 行，簇内
+> 唯一零测试页面）→ 新增 `__tests__/index.test.tsx` 6 用例，v8 口径
+> **行/分支/函数/语句 4×100%**。锁定契约：页头与初始空态（暂无数据）、
+> 空输入/纯空白拦截（warning + 不触达服务）、查询主链（trim 归一入参 +
+> 载荷 JSON.stringify(null,2) 落只读 TextArea）、payload undefined →
+> '{}' 兜底、onPressEnter 等价查询、清空双态复位（输入 + 载荷回空态）。
+> **坑实证补档**：getByDisplayValue 对 value 也做默认空白归一（连续空白
+> 折叠为单空格）——多行 pretty JSON 须以「单空格折叠形态」字符串断言，
+> 字面换行的正则恒不匹配（此前只记了「用正则」，本例证伪并修正口径）。
+> 边界（诚实）：runSyncQuery 是 try/finally 无 catch——查询 reject 产生
+> unhandled rejection（现状行为，与 InstallationDetailDrawer 巡检结论
+> 同族，不改组件），不造假 reject 场景；`resp?.payload || {}` 右翼经
+> resolve undefined 形态覆盖。
+> 门禁：目标套件 6/6 绿、tsc 0 错、eslint 干净、全量 jest 334 套件
+> 4066/4066 绿（2 worker 限流 658s，load 回落 0.6 窗口直跑）。
+> **Extensions 簇余量**：Store/CatalogManageModals 与两处 shared.ts 留
+> 后续批次；簇内四个页面（Store/Installations/AgentSync/DomainEntry）
+> 与五个 overlay 本体全部有测试。
