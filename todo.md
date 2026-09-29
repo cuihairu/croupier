@@ -982,3 +982,108 @@ T3（execution_state 字段）→ T4/T6/T8；T2 → T5；T12（后端校验放�
 > api/page/` 为空，源文件最近改动是 09-25 的 main 提交），判定为负载性偶发
 > 而非回归；我涉及的 4 包在全量中均 `ok`。合并后复跑 cicd 97.9%、
 > resourcecatalog 100.0%，gofmt/vet 干净，guard PASSED。
+
+## 第八轮：cicd/providers 域覆盖收口 73.5%→99.8% + cicd 抽象 95.0%→100.0%
+
+> **本轮两提交已推送**：`4d8c913`（6 份弃置在途测试收尾）、`be6bab4`
+> （api/cicd 50.2%→97.9%）、`1d41707`（ops/systeminfo 100%）、
+> `4a6127b`（model 99.8%，并行会话所提）、`f33b9f5`（台账）经
+> `git push origin HEAD:main` 纯快进落地（`8a5337d..f33b9f5`，16 提交）。
+> 合并后复跑 `api/function`、`model`、`platform/approvals` 三包全绿
+> （EXIT=0）——即已进 main 的内容在合并态下复验通过。
+>
+> **本轮目标**：`internal/cicd/providers` 包（四个外部系统适配面，provider
+> 是与 Jenkins/GitLab/GitHub/generic 通信的唯一边界，错误分支回归价值最高），
+> 73.5% 是当时可动缺口里的最大者（`api/cicd` 上一轮已收至 97.9%）。
+> 回避在途域：identity 88.2% / auth 90.1% / announcement / ops /
+> auth/mfa / security/otp / assignment/gate / extension 簇。
+>
+> **新增 `internal/cicd/providers/edge_paths_test.go`（20 顶层用例，含矩阵
+> 子用例共 77 例）**，收口四类系统性缺口：
+> ① **四 provider 的 `Kind()` 全为 0%**（外部系统类型标识面，此前无人碰）；
+> ② **构造默认兜底**：Config.HTTP/Now 缺省回落 `http.DefaultClient`/
+> `time.Now`、jenkins 裸 token（无 `user:` 前缀）形态；
+> ③ **出站错误域四族**：传输失败（恒失败 RoundTripper 一次打穿四个
+> provider 的全部 `client.Do` 错误分支）、URL 解析失败（`http://exa mple.com`
+> 能过「必须 http(s) 前缀」校验但 `http.NewRequest` 解析炸）、非 2xx、
+> 畸形 JSON（`{"id":` / `[` / `nope` / `{"status":` 等十处）；
+> ④ **状态映射全矩阵**：generic 24 词（大小写/空白不敏感、未识别→unknown）
+> / gh 12 组（status × conclusion，含 conclusion 缺失与 neutral 等未知结论）/
+> gitlab 10 词，外加 RFC3339 时间字段四形态（null / 空串 / 非法串 / 合法串）。
+>
+> **顺带收口**（同域，`internal/cicd` 95.0%→**100.0%**）：`Register` 对
+> 空 kind / nil 工厂的 fail-fast panic 契约此前无用例（既有 `TestRegister_
+> DuplicatePanics` 只覆盖「同名重复注册」那一处 panic）——新增
+> `internal/cicd/register_guard_test.go`，并断言失败的注册尝试不污染
+> 注册表 `Kinds()`。
+>
+> **不可达登记（一处，不造假用例不删防御分支）**：
+> `gitlabci.go:75` `isAllDigits` 的 `s == ""` → `return false` 分支。
+> 该函数唯一调用点 `projectEsc()` 的入参 `p.project` 来自
+> `init()` 的 `strings.TrimSpace(cfg.Extra["project"])`，为空时构造期已被
+> `gitlab-ci: 缺少 project` 拦下；构造成功后该分支无法到达。保留为防御
+> 分支（未来若新增非工厂构造路径即生效），登记备查。
+>
+> 门禁：gofmt 干净、`go vet ./internal/cicd/...` 干净、
+> `go test ./internal/cicd/... -count=1` 全绿（cicd 100.0% /
+> providers 99.8%）、`scripts/localized_text_guard.sh` PASSED。
+> **已知边界**：门禁只覆盖本轮触及的 cicd 域（零 web 触碰故未跑 jest/tsc），
+> 未重跑全量 `go test ./internal/...`（该命令在并行会话占机的高负载窗口
+> 需 30+ 分钟，环境性慢）；上一轮全量的唯一失败 `api/page` 已单跑复验为
+> 负载性偶发。
+
+## 覆盖率巡检批次·Go 侧第九轮·在途收尾 + secguard 域收口（wt-api worktree，2026-09-29）
+
+**在途收尾（上一轮半途产物）**：`internal/api/ops/systeminfo_fetch_test.go`
+（138 行 4 用例）——`systeminfo.go` 残余 8 块收口至 **100%**（六函数全绿）：
+更新源 settings 真实读取体三翼（未初始化 / L3 未配置 / 已配置去空白）、出站
+三翼（sec.allowPorts 白名单静态拦截 / 传输层连接失败 / 响应体中途断连
+unexpected EOF）、清单无可用版本字段的错误分支（缺失 / 非字符串 / 纯空白）。
+ops 包整体 98.6%（残余在 logs.go / performance.go / probe.go，属 #53/#54/#57
+他会话刚落地域，本轮未触碰）。已推 wt-api：`ebd6193..1d41707`（纯 FF）。
+
+**本轮新增**：
+1. `internal/security/secguard/secguard_coverage_test.go`——secguard
+   **74.3% → 100.0%**（secguard.go 28 块 + retry_probe.go 9 块全收）：
+   七键解析（Resolve 非 nil 路径 + 未配置零值 + 缓存路径幂等）、端口 scheme
+   缺省（含 strconv.Atoi 溢出回落）、HTTPClient 派生副本不污染共享
+   `http.DefaultClient`（#56 契约）、超时/重试/退避钳制矩阵（负值→0、
+   999→10）、拨号钩子非法地址/非法 IP、ipAllowed 跳过非法 CIDR 且不中断后续
+   条目、DoWithRetry（退避缺省 / 坏请求 / 5xx 重试并逐轮重建 body+header）、
+   Probe 重定向跳数（3 跳内放行 + 超限报错）、ProbeSMTP 脚本化假 SMTP 服务
+   7 态（成功 / SSRF 放行 / SSRF 拦截 / 问候缺失 / EHLO 拒 / NOOP 拒 / 拨号失败）。
+2. `internal/model/email_verification_test.go`——email_verification.go
+   **2.2% → 100%**（3 用例，增量口径见下）：TableName 契约；
+   `CreateInvalidatingActive` 事务**第二段**（`tx.Create`）错误翼（sqlite
+   `BEFORE INSERT` trigger 拦写——缺表注入只能打中第一段 UPDATE）并锁定
+   回滚不变量（旧令牌不得被误作废、新令牌不得残留）；`Consume` 事务**首段**
+   （used_at UPDATE）的 DB 错误回传。
+
+**主动收敛的重复投入（如实登记）**：`email_verification.go` 的主干用例
+（签发即作废 / 四态查找 / 消费幂等 / 重发频控时间源 / 缺表错误翼）已由并行
+会话 `internal/model/cicd_email_models_test.go` 同批覆盖。本文件初版写了
+13 条重叠用例，发现后收敛为"只补其未覆盖的三处"，避免双份维护与符号撞车
+（已核双方 helper/用例名零重叠）。**并集证据**：全包 fresh 覆盖率下该文件
+七个函数全 100%。
+
+**缺口排查结论（内部 API/模型层排行，fresh 覆盖率）**：最大缺口集中在
+刚落地的 CI/CD 域（`api/cicd` 4.7% / `model/cicd_build.go` 1.3% /
+`model/cicd_integration.go` 2.0% / `cicd/providers/*` 67-77%），已由并行会话
+连做两轮收口（见第七、八轮台账）；`api/extension`（handler 84.4% /
+service 96.7%）属插件域批次链在途；`api/auth/*` 与 `api/announcement/*`
+有他会话在途测试文件（`oauth_register_handler_gap_test.go`、
+`register_verify_gap_test.go`、`announcement_db_error_test.go`），一律回避。
+本轮取无冲突的 secguard 域（#56/#57）作为落点。
+
+**本机环境注记（影响用例构造，已按实测调整）**：① 本机解析器把任意短主机名
+劫持到 198.18.0.0/15（基准段，非 Go 私有段故不触发 SSRF 判定），`.invalid`
+反而解析成功——DNS 解析失败用例改用 >253 字符超长主机名触发本地解析器直接
+失败，不依赖外网 DNS；② `http.Redirect` 对伪造的空 `*http.Request` 不写
+Location 头（客户端收到 EOF），改直写响应头构造重定向链；③ 端口片段
+`notaport` 在 `url.Parse` 阶段即被拒（不可达），Atoi 溢出回落改用 20 位数字端口。
+
+**门禁**：gofmt 干净、`go vet ./internal/...` 干净、`go test ./internal/...`
+fresh 全绿（158 包零 FAIL）、guard PASSED。**已知边界**：门禁在负载 30-87
+高位窗口执行（model 包单跑 64s~447s 波动，一次整包跑在 447s 时报 FAIL、
+复跑即绿，判为环境性慢非回归）；本轮零 web 触碰，故未单跑 jest/tsc
+（guard 已覆盖 PageSpec 侧校验）。
