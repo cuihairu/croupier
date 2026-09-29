@@ -3,7 +3,9 @@ package installation
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/cuihairu/croupier/internal/model"
@@ -149,8 +151,21 @@ func (s *Service) Upgrade(ctx context.Context, id uint, version, operator string
 	if err != nil {
 		return err
 	}
+	if strings.EqualFold(strings.TrimSpace(item.DesiredState), "uninstalled") {
+		return errors.New("extension installation is uninstalled; reinstall instead")
+	}
 	item.ReleaseVersion = version
-	item.Status = "enabled"
+	// 升级保留期望态（#46 遗留边界修复）：enabled 布尔不翻转，status 与
+	// desired_state 跟随 enabled 同步——历史实现无条件写 status=enabled，
+	// 禁用实例升级后 status=enabled 与 enabled=false 漂移，健康推导
+	// （deriveExtensionHealthStatus）与启用门控语义错乱。
+	if item.Enabled {
+		item.Status = "enabled"
+		item.DesiredState = "enabled"
+	} else {
+		item.Status = "disabled"
+		item.DesiredState = "disabled"
+	}
 	if err := s.installationRepo.Save(ctx, item); err != nil {
 		return err
 	}

@@ -544,9 +544,11 @@ func TestExtensionFlow_LifecycleActions(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "upgraded", upgraded.Status)
 
+	// 升级保留期望态（#46 边界修复）：此前禁用实例升级被无条件翻成
+	// enabled，Reconcile 随之误报 enabled；现在期望态保持 disabled。
 	reconciled, err := env.service.Reconcile(env.ctx, id)
 	require.NoError(t, err)
-	assert.Equal(t, "enabled", reconciled.Status)
+	assert.Equal(t, "disabled", reconciled.Status)
 
 	_, err = env.service.Reconcile(env.ctx, 654321)
 	require.Error(t, err)

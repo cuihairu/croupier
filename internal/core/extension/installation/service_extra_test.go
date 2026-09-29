@@ -208,12 +208,48 @@ func TestService_Upgrade(t *testing.T) {
 	got, err := svc.Get(ctx, item.ID)
 	require.NoError(t, err)
 	assert.Equal(t, "2.0.0", got.ReleaseVersion)
-	assert.Equal(t, "enabled", got.Status)
+	// 安装默认禁用态：升级保留期望态（#46 边界修复），不得翻成 enabled
+	assert.Equal(t, "disabled", got.Status)
+	assert.Equal(t, "disabled", got.DesiredState)
+	assert.False(t, got.Enabled)
 
 	var events []model.ExtensionEvent
 	require.NoError(t, db.Where("installation_id = ? AND event_type = ?", item.ID, "upgrade").Find(&events).Error)
 	require.Len(t, events, 1)
 	assert.Equal(t, `2.0.0`, string(events[0].PayloadJSON))
+}
+
+// TestService_Upgrade_PreservesEnabledState 已启用实例升级后保持启用；
+// 禁用实例升级后保持禁用（status/enabled/desired_state 三态一致）。
+func TestService_Upgrade_PreservesEnabledState(t *testing.T) {
+	svc, _ := newInstallService(t)
+	ctx := context.Background()
+	item, err := svc.Install(ctx, InstallRequest{ExtensionID: "ext-keep", ReleaseVersion: "1.0.0"})
+	require.NoError(t, err)
+	require.NoError(t, svc.Enable(ctx, item.ID, "op"))
+
+	require.NoError(t, svc.Upgrade(ctx, item.ID, "2.0.0", "op"))
+	got, err := svc.Get(ctx, item.ID)
+	require.NoError(t, err)
+	assert.Equal(t, "2.0.0", got.ReleaseVersion)
+	assert.True(t, got.Enabled)
+	assert.Equal(t, "enabled", got.Status)
+	assert.Equal(t, "enabled", got.DesiredState)
+}
+
+// TestService_Upgrade_RejectsUninstalled 已卸载实例拒绝升级（重装才是路径）。
+func TestService_Upgrade_RejectsUninstalled(t *testing.T) {
+	svc, _ := newInstallService(t)
+	ctx := context.Background()
+	item, err := svc.Install(ctx, InstallRequest{ExtensionID: "ext-un", ReleaseVersion: "1.0.0"})
+	require.NoError(t, err)
+	require.NoError(t, svc.Uninstall(ctx, item.ID, "op"))
+
+	require.Error(t, svc.Upgrade(ctx, item.ID, "2.0.0", "op"))
+	got, err := svc.Get(ctx, item.ID)
+	require.NoError(t, err)
+	assert.Equal(t, "uninstalled", got.Status)
+	assert.Equal(t, "1.0.0", got.ReleaseVersion)
 }
 
 func TestService_Upgrade_Missing(t *testing.T) {
