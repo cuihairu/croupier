@@ -1647,3 +1647,33 @@ fresh 全绿（158 包零 FAIL）、guard PASSED。**已知边界**：门禁在�
 > **下一轮候选**：auth 残余 9 块（email_verification 78/87/103/163、
 > mfa 95、providers 114/134/162 init 失败日志翼、service 738 continue）
 > + extension service.go:513（manifest 非 JSON 对象 400）。
+
+## 覆盖率巡检批次·Go 侧第二十八轮·auth + extension 残余收口（wt-api worktree，2026-09-29）
+
+> **交付（2026-09-29）**：接第二十七轮收养后的两包残余——
+> ① `api/auth/providers_wings_r28_test.go`：**auth 99.0% → 99.3%**。
+> 可达翼四处：BuildIdentityProviders 三处「guard 查非空、ctor 查
+> TrimSpace 非空」缝——空白串凭据（ClientID/AppID=" "）过 guard、构造
+> 失败 → 失效降级日志翼（github/wechat/generic 三臂各自断言 provider
+> 置空且整体不报错，本地与其他登录源不受影响）；VerifyEmailToken 未知
+> 令牌翼（155 row==nil → 统一「无效或已过期」，防令牌探测语义）。
+> 登记不可达六处（头注释同源）：siteServerURL Current()==nil（settings
+> 单例由服务装配初始化，包外无复位缝）；newVerificationToken rand.Read
+> 翼及其透传翼（getrandom(2) 引导后无失败路径）；mfa.go:95 恢复码生成
+> 失败翼（同 rand 族）；service.go:738 Cut 失败 continue（LIKE
+> '%@'+domain 入列行必含 @，Cut 恒成功——register_verify_gap_test 脏行
+> 用例已锁 SQL 层前提）；email_verification.go:163 的 !ok 并发消费翼
+> （FindValidByTokenHash 过滤 used_at IS NULL，行到 Consume 前单线程
+> 无变化窗口，仅并发竞态可达——收养文件既有登记）。
+> ② `api/extension/manifest_object_wing_r28_test.go`：PackImport 的
+> manifest 非 JSON 对象 Unmarshal 翼（内层 "manifest" 为数组/null——
+> extensionPackManifest.Manifest 是 RawMessage 原样透传到落库前校验）
+> 两形态收口；extension 维持 99.9%，余 1 块即收养文件登记的
+> Marshal 再序列化翼。
+> 门禁：触及文件 gofmt 干净、go vet 两包干净、两包 fresh 全绿
+> （36.5s/19.1s，包体量非环境慢）。本批 test-only，未重跑全量
+> （同日基线 157 ok）。
+> **巡检状态**：收养后原回避域全数打开且已收口——identity 99.2%
+> （2 块豁免 #4）、auth 99.3%（6 块登记）、extension 99.9%（1 块
+> 登记）、announcement/sitesettings 100%、cicd 97.9%（4 块登记）。
+> 全仓非登记缺口枯竭，转监控回补口径（新落地 48h）。
