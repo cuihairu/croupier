@@ -1959,3 +1959,31 @@ fresh 全绿（158 包零 FAIL）、guard PASSED。**已知边界**：门禁在�
 > 恒为 string）；确认放量 onClick 的 `!grayTarget` 守卫（按钮仅在
 > grayTarget 态渲染，闭包捕获恒非空）。
 > 门禁：目标套件 15/15 绿、eslint 干净、tsc 0 错；全量 jest 负载口径见交付说明。
+
+## 服务端热更新页覆盖批次（Dev/Hotpatches，2026-09-29）
+
+> **交付（2026-09-29）**：零测试页排行次席——`Dev/Hotpatches/index.tsx`
+> （554 行）单件收口，新增 `__tests__/index.test.tsx` 14 用例：
+> **行/语句/函数 100%、分支 96.15%**（余 3 臂登记为结构不可达）。骨架与
+> Dev/Releases 同族（ProTable + 双筛选 + 创建 ModalForm + 灰度 Slider
+> 弹窗 + Upload 传包），锁定契约——表格矩阵（框架查表 skynet/KBEngine/
+> JVM/Node.js/自定义 + 未知回退、关联缺陷 `#id`、状态 Tag 查表 + 未知
+> 双回退、灰度列三臂、补丁包 formatSize 三段位 + 未上传）、状态机矩阵
+> （draft 无包仅传包——提交审批两条件臂 false 侧 / draft 有包传包+
+> 提交审批双人规则文案 / approved 开始灰度 / rolling 放量+标记生效+回滚 /
+> failed 回滚 / applied/rolled_back/未知态无操作）、灰度弹窗（标题
+> `节点灰度放量（当前 {n}%）` + Slider 键盘步进 + rolling 放量 min=当前
+> 值 + footer 取消与右上 X 双关流）、传包 customRequest 主链与失败两翼、
+> 创建热更单（title/bugId required + framework 默认 skynet + 切自定义 +
+> InputNumber 数值载荷 + `{...v, gameId: ''}` 契约 + 失败两翼）、双筛选
+>
+> - clear 复位右翼、load 失败两翼与响应缺省右翼、刷新重拉、canManage
+>   false 操作列全 '-'。
+>   **坑实证（同 Releases 坑档复用）**：Upload 同一 input 二次 change 被
+>   rc-upload 吞（value 复位去重），失败两翼分渲染；Popconfirm 确认锚
+>   .ant-popover .ant-btn-primary；ModalForm 提交锚 footer 主按钮。
+>   **登记不可达（防御分支，不造假用例不删分支）**：request 回调
+>   `statusFilter ?? ''`/`fw ?? ''` 右翼（params 键由 useState 恒为
+>   string）；确认放量 onClick 的 `!rollTarget` 守卫（按钮仅在 rollTarget
+>   态渲染，闭包捕获恒非空）。
+>   门禁：目标套件 14/14 绿、eslint 干净、tsc 0 错；全量 jest 负载口径见交付说明。
