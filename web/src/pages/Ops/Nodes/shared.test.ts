@@ -30,8 +30,25 @@ describe('normalizeOpsNode', () => {
     lastSeen: '2026-09-28T00:00:00Z',
     labels: { hostname: 'agent-host', ip: '10.0.0.5' },
     cpu: { usagePercent: 10, cores: 4, load1m: 0.5, load5m: 0.4, load15m: 0.3 },
-    memory: { totalBytes: 8_000_000_000, usedBytes: 4_000_000_000, availableBytes: 4_000_000_000, usagePercent: 50, swapTotal: 0, swapUsed: 0 },
-    disks: [{ mountPoint: '/', device: '/dev/sda1', fsType: 'ext4', totalBytes: 100_000_000_000, usedBytes: 30_000_000_000, availableBytes: 70_000_000_000, usagePercent: 30 }],
+    memory: {
+      totalBytes: 8_000_000_000,
+      usedBytes: 4_000_000_000,
+      availableBytes: 4_000_000_000,
+      usagePercent: 50,
+      swapTotal: 0,
+      swapUsed: 0,
+    },
+    disks: [
+      {
+        mountPoint: '/',
+        device: '/dev/sda1',
+        fsType: 'ext4',
+        totalBytes: 100_000_000_000,
+        usedBytes: 30_000_000_000,
+        availableBytes: 70_000_000_000,
+        usagePercent: 30,
+      },
+    ],
     ...overrides,
   });
 
@@ -99,7 +116,10 @@ describe('normalizeOpsNode', () => {
   });
 
   it('labels hostname/ip non-string -> empty string', () => {
-    const row = normalizeOpsNode(baseNode({ labels: { hostname: 123 as any, ip: null as any } }));
+    // 故意喂非字符串运行时值（触发 typeof 守卫），经 unknown 双断言满足 labels 类型
+    const row = normalizeOpsNode(
+      baseNode({ labels: { hostname: 123 as unknown as string, ip: null as unknown as string } }),
+    );
     expect(row.hostname).toBe('');
     expect(row.reportedIp).toBe('');
   });
