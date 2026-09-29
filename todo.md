@@ -893,3 +893,74 @@ T3（execution_state 字段）→ T4/T6/T8；T2 → T5；T12（后端校验放�
 >    menuitem 禁用形态是 aria-disabled（jest-dom toBeDisabled 不识别）；
 >    modal.confirm 标题双渲染（`.ant-modal-title` + `.ant-modal-confirm-title`，
 >    断言须 selector 收窄）。
+
+## 覆盖率巡检批次·Go 侧第七轮·CI/CD 域收口（wt-api worktree，2026-09-29）
+
+> **交付（2026-09-29）**：派发「清单 #11/#10/#2/#26/#27 全部 MERGED，转覆盖率
+> 补强，找缺口最大的包补单测」。先收尾工作区 6 份弃置在途测试（mtime 停在
+> 09-28 05–07 点、近 22h 无人动，与 main 无重叠）→ 提交 `4d8c913`，api/function
+> 与 api/resourcecatalog 双包随之 100.0%（version_history_handler 排序双不可
+> 字典序翼、空白变体去重翼、ListDistinctVersions 缺表 500；categories handler
+> 聚合/scope 隔离/空数组非 null/缺表 500）。收尾时发现两处需修正：①
+> `coverage_contract_version_test.go` 未格式化（gofmt 补齐）；②
+> `handler_coverage_test.go` 注释以行号锚定生产路由（已随上游漂移到
+> 1042→1069），改为按函数名锚定。
+>
+> 随后按缺口排序开工：全仓 32 个包 <100%，最大可动缺口为
+> **internal/api/cicd 50.2%**（OPEN-ISSUES #58 落地时只补了 service 层，
+> handler.go 九个端点整段 0%）。回避面（已核实为在途/他人域）：identity 88.2%
+> 与 auth 90.1%（他会话 05:03–05:24 持续落新测试文件）、announcement 96.8%、
+> ops 98.3%（同上）、auth/mfa·security/otp·assignment/gate·extension 簇、
+> model 95.0%·sitesettings 95.6%（缺口零散且与在途文件同包）。
+>
+> 补齐 `handler_coverage_test.go`（310 行 9 用例）+ `service_paths_test.go`
+> （506 行 17 用例）→ **api/cicd 50.2% → 97.9%**，handler.go 十方法
+> 100%（List 除外，见登记），service/webhook 残余 5 块全部定性：
+> ① CRUD 主链（建/列/改/测连通/删，断言掩码不回传明文、空 token 不覆盖、
+> 删后 items 非 null）；② 路径 id 非法 10 例（abc/0 × 五端点，400 且不
+> 触达 service）；③ 绑定失败 7 例（bool/map 收错类型、截断 JSON、query 整型
+> 收非数字）；④ service 错误透传（记录不存在 404 / 缺表 500 / 建表被拦）；
+> ⑤ 创建业务校验三例（未知 kind、非 http endpoint、provider 必填键缺失）；
+> ⑥ 触发全链（假 CI 服务器 201+Location → queued 落库 → 刷新 running →
+> 停用后 400）；⑦ 连通性三翼（4xx 算可达、传输失败 ok:false、畸形 endpoint
+> 构造期失败）；⑧ DB 关闭态两读端点 500。
+>
+> service/webhook 注入口径（沿用本仓既有批次）：
+> - 读翼「缺表」：DropTable 后 gorm 立即报错且无副作用；
+> - 写翼「触发器拦写」：BEFORE UPDATE TRIGGER + RAISE(ABORT)，覆盖「校验
+>   全过、SQL 真执行才炸」这一类（Update 落库、删除级联、构建状态回写三处）；
+> - 记录缺失走真实 404；provider 出错用 httptest 假 CI 服务器按例返回
+>   4xx/5xx；provider 构造失败用「库里直写校验层造不出的形态」（未知 kind、
+>   畸形 endpoint）绕过 Create 校验。
+>
+> **一处已发现缺陷（本批未改生产代码，如实登记）**：
+> `POST /cicd/integrations` 显式传 `enabled:false` 时**落库仍为 true**。
+> 根因：model.CicdIntegration.Enabled 带 `gorm:"default:true"`，GORM 对「有
+> default 标签且值为零值」的字段在 INSERT 中省略该列、回退 DB 默认值；服务层
+> `row.Enabled = *req.Enabled` 赋值正确但被驱动层丢弃。实测 `Select("*")` 与
+> 逐字段 Select 均无法绕过（本仓 GORM 版本无条件回退）。影响面仅「创建即
+> 停用」一条路径——Update 走 Save 写全字段，实测正常。修法须把模型字段改
+> `*bool`（连带 service 读侧，并触发仓库「模型改动须配编号迁移」契约），
+> 属独立修复批次，已写跳过用例锁定契约（修好后该用例转绿，删除 t.Skip）。
+>
+> **四处不可达分支登记（房规：不造假用例、不删防御分支）**：
+> 1. `handler.go List` 的 ShouldBindQuery 错误分支：IntegrationListRequest
+>    仅两个 `form` string 字段，gin form 绑定无失败路径；
+> 2. `service.go normalizeExtra` 的 `case float64`：入参只有两个来源——
+>    JSON 列读出（datatypes 启用 decoder.UseNumber()，数字是 json.Number，
+>    见 datatypes@v1.2.7 json_map.go:48）与进程内刚构造的行（值来自
+>    map[string]string，只可能是 string），都不产出 float64，数字实际走
+>    default 分支（Marshal 同样得 "42"）；
+> 3. `service.go Trigger` 的 `if build.ExternalID == ""`：上一行已被
+>    `firstNonEmpty(ref.ExternalID, fmt.Sprintf("trigger-%d", UnixNano))`
+>    兜底，两参不可能同时为空——实测 provider 返回空 Location 时确实落到
+>    本地生成的 `trigger-*`（登记用例锁定了这一形态）；
+> 4. `webhook.go IngestWebhook` 尾部 GetByID 错误分支：上一行
+>    UpsertByExternalKey 已成功返回 id，要让「写成功→紧接着读失败」成立需
+>    在同一次请求两次存储调用之间注入存储故障，生产路径不存在此形态。
+>
+> 门禁：触及文件 gofmt 干净、go vet ./internal/... 干净、go test
+> ./internal/... 全绿（fresh）、api/cicd fresh 全绿 97.9%。
+> **已知边界**：门禁在负载高位窗口执行（并行会话持续占机，全量 internal
+> 属环境性慢，非回归）；本批零 web 触碰故未单跑 jest/tsc（guard 覆盖
+> PageSpec 侧校验）。
