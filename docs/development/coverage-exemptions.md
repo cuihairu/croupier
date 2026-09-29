@@ -53,7 +53,7 @@ cmd/ 的覆盖目标与 internal/ 不同：二进制装配层允许存在进程�
 
 **位置**：`cmd/{server,agent,ingest,schema-validator,analytics-export,analytics-worker,check-db}` 的 `root.go` / `main.go` 入口函数。
 
-**论证**：`main` 与 `Execute` 是进程装配边界（全局 flag 绑定、cobra 执行、`os.Exit`、信号与生命周期归 init 进程所有）。测试进程内执行会与被测进程生命周期冲突。各命令的 `run*` 策略函数均已直测——入口只做转发，无分支逻辑。
+**论证**：`main` 与 `Execute` 是进程装配边界（全局 flag 绑定、cobra 执行、`os.Exit`、信号与生命周期归 init 进程所有）。测试进程内执行会与被测进程生命周期冲突。各命令的 `run*` 策略函数均已直测——入口只做转发，无分支逻辑。同族：`cmd/server/root.go` runServer 内 HTTP `ListenAndServe` 错误分支（2026-09-29 第二十四轮登记）——分支体是 `os.Exit(1)`，进程内任何构造（端口被占即触发）都直接杀死测试二进制。
 
 **失效条件**：无（结构性边界）。若 `Execute` 内出现可单测的分支逻辑，应把逻辑抽出为可直测函数而非在入口测。
 
@@ -114,6 +114,8 @@ cmd/ 的覆盖目标与 internal/ 不同：二进制装配层允许存在进程�
 ### cmd/ 残留部分覆盖面（非豁免，如实记录）
 
 `cmd/server/dashboard_fixture.go` 的 E2E fixture 全链启动（`StartDashboardFixture`/`startServer`/`startAgent`/`ensureUIScope` 等约 55%-88% 覆盖）依赖真实 server+agent+dashboard 子进程编排，属 E2E 领域基础设施：可测面（fixture REST、SDK 替换、存储句柄、未启动防御）已在 `dashboard_fixture_*_test.go` 直测，全链编排由 `real-dashboard` E2E 套件承担，不在单测覆盖率口径内。
+
+`cmd/server/root.go` runServer 的运行翼群（2026-09-29 第二十四轮，`root_wings_r24_test.go` 注释同源登记）：遥测 init 失败翼（构造路径经六形态探针证伪——OTLP 客户端不预解析 endpoint，EAGER 恒 nil error）与 Shutdown 错误翼、优雅停机内 listener/HTTP/Router Close 成功路径的错误子翼与 30s 超时翼、会话 prune ticker 体（30s 硬编码 + 5min 陈旧阈值，无注入点）、tcpListener.Serve 非 Canceled 错误翼（Close→nil、cancel→Canceled 被过滤）。runServer 主链与 mode/debug/logLevel/gin 全矩阵已由三次完整 boot + SIGINT 优雅停机真实覆盖（91.3% 包口径）。
 
 ## tools/ 与 scripts/ 覆盖口径与豁免清单（2026-09-23 扩展）
 
