@@ -1254,6 +1254,119 @@ fresh 全绿（158 包零 FAIL）、guard PASSED。**已知边界**：门禁在�
 > 门禁：gofmt 干净、go vet 两包干净、两包 fresh 全绿（1.0s/7.1s）。
 > 本批 test-only，未重跑全量（同日全量基线 157 ok）。
 
+## 覆盖率巡检批次·Go 侧第十七轮·api/provider + api/openapi 尾翼（wt-api worktree，2026-09-29）
+
+> **交付（2026-09-29）**：两包残余可达翼收口，各 1 新测试文件：
+> ① `api/provider`（`sdkstats_wings_test.go`，2 用例）98.9% → 99.4%——
+> SdkStats 的 `firstSeen <= 0` 回退翼（217-218）：注册链
+> carryProviderSessionHistory 只把 `first == 0` 补 now，**负值穿透**，
+> `FirstSeenUnix: -1` 是唯一能触达服务端回退翼的注入形态（断言回退
+> lastSeenUnix）；MetaOptions 的 items nil → 空切片翼（254-255）：**首版
+> 踩坑**——内存聚合路径 `groupMetaOptions` 恒 `make([]…, 0, n)` 返回
+> 非 nil 空切片，空 store 测不到该翼；真实形态是 DB 聚合失败
+> （provider_metadata 缺表）返回 nil 的 **fail-soft 契约**（聚合故障只
+> 损失下拉选项、不报错不透出 null），改 `NewStoreWithDB` + 独立命名
+> 内存库缺表触达。
+> ② `api/openapi`（`runtime_firstseen_wing_test.go`，1 用例）
+> 99.8% → 99.9%——RuntimeSources 同款 `firstSeen <= 0` 回退翼
+> （330-331），负 FirstSeenUnix 注入，断言回退 lastSeenUnix（#27②）。
+> **两包剩余 1 块均为既有登记不可达**：provider handler.go SdkStats 的
+> ShouldBindQuery 错误分支（第四轮 sdkstats_bind_registration_test.go
+> 证明性登记）、openapi service.go:710 `"fn-"` 前缀分支
+> （coverage_f_test.go 证明性登记：builder 字符集 [a-z0-9._-] + Trim
+> 剥首尾 .-_ ⇒ 非空结果首字符恒字母数字）。
+> 门禁：gofmt 干净、go vet 两包干净、两包 fresh 全绿（0.1s/38s，
+> openapi 属包体量大非环境慢）。本批 test-only，未重跑全量
+> （同日全量基线 157 ok）。
+
+## 覆盖率巡检批次·Go 侧第十八轮·requestbind + config 收口双 100.0%（wt-api worktree，2026-09-29）
+
+> **交付（2026-09-29）**：全量 profile（11:16 快照）重排后，排除已收口
+> 包（第 10-17 轮）与回避域（identity 90.8%/otp 98.3% 属他会话在途，
+> auth/announcement/extension/sitesettings 同前），剩余可动缺口仅两处，
+> 各 1 新测试文件收口：
+> ① `common/requestbind` 93.8% → **100.0%**（`lcfirst_wing_test.go`）：
+> query.go lcFirst 空串早退翼（107-108）——空 tag 名不进 rune 切片；
+> 顺带锁定「仅首字符折叠、其余保留」契约。
+> ② `internal/config` 97.5% → **100.0%**（`local_provider_wing_test.go`）：
+> LocalEnabled 归一化方法整段 0%（964e40b 05:00 新增、消费方在
+> api/auth providers.go，本包内零覆盖）——nil → true（默认启用，停用
+> 须显式 false，防 YAML 省略键误停本地登录锁死）、显式 true/false 透传。
+> 门禁：gofmt/vet 干净，两包 fresh 全绿 100.0%（0.02s/0.02s，零未覆盖
+> 块）。本批 test-only，未重跑全量（同日全量基线 157 ok）。
+
+## 覆盖率巡检批次·Go 侧第十九轮·admin + approval 双 100.0%，profile/model 尾翼（wt-api worktree，2026-09-29）
+
+> **交付（2026-09-29）**：全量 profile 剩余非回避块逐一定性后，
+> 可达翼 4 处收口（4 新测试文件）+ 不可达翼 2 处登记：
+> ① `api/admin` **100.0%**（99.83% 起）：PasswordReset 善后 Update 错误翼
+> （354-355）——map 目标列 UPDATE 拦截回调（本包自建，参照 profile 包
+> registerFailUpdateCallback 形态），UpdatePassword 的列名写法不受影响；
+> 断言密码本体已换（UpdatePassword 先行成功）且 must_change_password
+> 标记保持原样（善后失败不假装干净）。
+> ② `api/approval` **100.0%**（99.61% 起）：recordApprovalAudit 的
+> resultKind/taskId 富化两翼（331/334）——同包直调 + 内存审计断言
+> details 落库（operation-logs 审批动作过滤的结构化上下文数据源）。
+> ③ `api/profile` 99.8%（99.74% 起）：ChangePassword 善后 Update 错误翼
+> （400-401），复用本包 registerFailUpdateCallback 只拦
+> must_change_password 列。剩余 179.6 登记不可达：seenGrant 去重
+> continue 翼要求同名角色并存，Role.Name 带 uniqueIndex、任何 DB 路径
+> 造不出重名。
+> ④ `model` 99.9%（99.78% 起）：FindEmailsByDomain 整函数 0% 收口
+> （#51c 新增）——LIKE 域后缀主链 + Unscoped 语义锁定（软删行邮箱
+> 仍参与查重，防删号后原邮箱被别名重复注册漏报）。剩余三处均登记
+> 不可达：bug.go 374/401（第三轮既有登记，Scan 错误防御）、
+> function_contract_model.go:458（StableContentDigest 的 Marshal 失败翼：
+> payload 为全字符串结构体 + normalizeJSONContent 输出（nil/string/
+> Unmarshal 基础类型），json.Marshal 无失败路径——与第十六轮
+> canonicalJSONBytes 同构证明）。
+> **menu/service.go:381 登记不可达（零改动）**：构建循环里的父级
+> 二次 check 恒真——check(item) 递归覆盖父链且 accessible 记忆化一致，
+> check(item)=true 时 check(parent) 必为 true（防环语义下先落 false 再
+> 递归，可见性契约已由 coverage_f_test.go 脏数据用例锁定）。
+> 门禁：触及包 gofmt/vet 干净、四包 fresh 全绿（26s/3s/14s/55s，
+> model 属包体量大非环境慢）。本批 test-only，未重跑全量
+> （同日全量基线 157 ok）。
+
+## 覆盖率巡检批次·Go 侧第二十轮·approvals + app/agent 双 100.0%（wt-api worktree，2026-09-29）
+
+> **交付（2026-09-29）**：全量 profile 剩余最后两处非回避可达翼收口：
+> ① `platform/approvals` **100.0%**（99.96% 起）：
+> defaultPostJSONWithHeaders 的出站安全守卫拦截翼（760-761）——
+> settings 单例铺 L3（sec.allowPorts="80"）后非白名单端口（:9999）在
+> CheckURL 即被拒、不发起真实连接；注入键选 allowPorts 因端口判定在
+> DNS 解析前，规避本机解析器劫持短主机名的坑（第九轮台账）。本包无
+> t.Parallel（已核实），settings 单例操纵安全。
+> ② `app/agent` **100.0%**：updateLoop 退出 defer 的 timer.Stop 非 nil 翼
+> （364-365）——debounce 10s + 单条消息创建 timer 后立即取消 ctx，
+> select 仅 ctx.Done 就绪 → 退出路径必经 defer Stop（既有用例到期后
+> nil 再取消，只盖 nil 翼）；exited channel 断言 loop 随取消退出且
+> 无 sync 出站。
+> 门禁：gofmt/vet 干净、两包 fresh 全绿 100.0%（1.5s/28s，零未覆盖
+> 块）。本批 test-only，未重跑全量（同日全量基线 157 ok）。
+
+## 覆盖率巡检批次·Go 侧第二十一轮·全量收官核验 + ops 绑定翼登记（wt-api worktree，2026-09-29）
+
+> **全量 fresh profile 收官核验**：第 10-20 轮战役后全树
+> **99.8% → 99.9%**（全量重跑 12:14，157 包 ok + 1 FAIL——
+> sitesettings 的 TestSendTestEmailRealSendPath panic，符号核实仅存在
+> 于他会话未跟踪 handler_gaps_v10_test.go，非已交付代码，维持既有
+> 分类不碰）。非回避域剩余 19 块全部有归属：12 块为既有登记不可达
+> （cicd×4 / gitlabci:75 / provider:134 / openapi:710 / menu:381 /
+> profile:179 / fn_contract:458 / bug.go×2 / service:1752 /
+> objstore:128 / certificates:202），identity/otp/auth/announcement/
+> extension/sitesettings/assignment-gate 为他会话域回避。
+> **本轮新增**：上游合并 f63acca（ops 单设备详情端点）带进的
+> handler.go:352-354 绑定错误翼登记不可达——OpsNodeDetailRequest 仅
+> 一个可选 string 字段（无 binding 约束），GET 的 query 兼容绑定无
+> 失败路径（第四轮 provider SdkStats 同构证明）；新增
+> `node_detail_bind_wing_test.go` 证明性用例锁定「任意 query 绑定
+> 永不失败」前提（%zz 畸形转义/脚本串/重复键四形态）。
+> **非回避域巡检至此收官**：所有剩余块均已收口或登记，新缺口只能
+> 来自后续新落地面（48h 回补口径）。
+> 门禁：gofmt/vet 干净、api/ops 包 fresh 全绿 99.9%（唯一剩余块即
+> 本轮登记项）。本批 test-only，未重跑全量（本轮核验本身就是全量）。
+
 ## 第十四轮派发核验：todo P0 T1–T6 完成状态 + EventsDrawer 补测（wt-pages worktree，2026-09-29）
 
 > **派发**：检查 todo.md 中 P0 任务 T1-T6 完成状态，挑最靠前未完成项补测。

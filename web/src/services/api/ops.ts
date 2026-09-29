@@ -210,6 +210,7 @@ export type OpsNode = {
   sdkLanguage?: string;
   sdkVersion?: string;
   sdkName?: string;
+  version?: string;
   functions?: number;
   expiresInSec?: number;
   // System metrics
@@ -308,6 +309,7 @@ type RawOpsNode = {
   sdkLanguage?: string;
   sdkVersion?: string;
   sdkName?: string;
+  version?: string;
   functions?: number;
   expiresInSec?: number;
   // System metrics
@@ -407,6 +409,7 @@ function normalizeOpsNode(raw: RawOpsNode): OpsNode {
     sdkLanguage: raw?.sdkLanguage,
     sdkVersion: raw?.sdkVersion,
     sdkName: raw?.sdkName,
+    version: raw?.version,
     functions: raw?.functions ?? 0,
     expiresInSec: raw?.expiresInSec ?? 0,
     // System metrics
