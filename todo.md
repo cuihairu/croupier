@@ -1361,3 +1361,48 @@ fresh 全绿（158 包零 FAIL）、guard PASSED。**已知边界**：门禁在�
 > 来自后续新落地面（48h 回补口径）。
 > 门禁：gofmt/vet 干净、api/ops 包 fresh 全绿 99.9%（唯一剩余块即
 > 本轮登记项）。本批 test-only，未重跑全量（本轮核验本身就是全量）。
+
+## 覆盖率巡检批次·Go 侧第二十二轮·cmd/server 小文件 CLI 翼（wt-api worktree，2026-09-29）
+
+> **交付（2026-09-29）**：internal/ 非回避域收官后转战 cmd/ 树——
+> cmd/server 73.0% 为最大真实余量（pkg/pb 生成代码按惯例不进覆盖率
+> 口径）。本批收小文件簇（认领窗口核实无未跟踪撞车），新增
+> `cli_wings_r22_test.go`（8 用例），包 **73.0% → 76.0%**：
+> ① healthCmd.RunE 三形态——sqlite 全配置（DB/JWT 已配置双 ✓ 翼 +
+> bootstrapDataDir 覆盖翼）、空 DataSource 双警告翼（driver=auto 回落
+> sqlite 默认 data/croupier.db，t.Chdir 隔离防污染包目录；NewServiceContext
+> 全量启动在测试内完成，与 svc 包用例同先例）、配置缺失错误翼；
+> ② validateCmd.RunE——multiGame 启用打印翼 + 长密钥掩码尾 4 位 +
+> maskIfSet 三翼直测（空/≤8/长）+ 配置缺失错误翼；
+> ③ versionCmd/PrintVersionInfo——ldflags 双形态（GitCommit/BuildTime
+> 有值打印 / unknown+空串不打印行）；
+> ④ completionCmd 四 shell 生成（os.Stdout 捕获防刷屏）；
+> ⑤ meshForwarder 的 !OK 返回翼——self-owner 解析器触达 mesh 防御性
+> `OK:false("owner is self")`，断言包装为 "remote invoke failed"；
+> callerFromContext nil-ctx 早退翼（不读身份键）；
+> ⑥ activeAgentIDDirectory.ActiveAgentIDs 的 ListAliveOwners 错误翼
+> （嵌入 OwnerStore 只覆写单方法）；
+> ⑦ dbFanoutCmd.RunE 四路径——dry-run 报告表格（(meta) 行 + total=1）、
+> 配置缺失错误、DSN=目录（open meta database 错误上抛、空表仍打印）、
+> **迁移拒写 → ErrFanoutFailures**：DSN 带 `_pragma=query_only(1)`
+> 使每条连接只读（Open/ping 成功、首个 CREATE TABLE 被拒）——错误经
+> 报告通道（status=error）而非 RunMigrationFanout 返回值，正是命令层
+> for-loop 汇总翼；sqliteFileDSN 的 `_pragma=` 幂等守卫保证注入 DSN
+> 原样透传（不追加 WAL pragma，规避只读库上 journal_mode 的不确定面）。
+> RunE 直调经 `&cobra.Command{}+SetContext`（裸 cmd 的 Context() 为
+> nil，database/sql 对 nil ctx 会 panic）。
+> **登记不可达（三处，不造假用例不删防御分支）**：
+> 1. completion.go:59 default 臂——Args=cobra.OnlyValidArgs 在 RunE 前
+>    拦截四词之外一切参数，证明性断言锁定前提；
+> 2. mesh_forwarder.go:47-48 NotOwner 翼——res.NotOwner 仅由真实远端
+>    peer 在 stale-epoch fencing 路径设置（ServeForwardHandler），单机
+>    构造不可达，cluster 层 interconnect e2e 覆盖同语义；
+> 3. mesh_forwarder.go:53 成功载荷返回——需活 peer 环路（transport 拨号
+>    + 应答），同上。
+> 门禁：gofmt/vet 干净、go build ./... 通过、cmd/server 包 fresh 全绿
+> 8.5s（含两次 NewServiceContext 全量启动）。本批 test-only 单包改动，
+> 未重跑全量（同日全量基线 157 ok + 1 他会话 WIP FAIL）。
+> **cmd/server 余量（后续轮次）**：root.go 110 块、dashboard_fixture.go
+> 70、service.go 56、dashboard_fixture_cmd.go 9、cluster.go 5、
+> dashboard_fixture_provider.go 2；随后 cmd/agent 89.6%、
+> cmd/analytics-export 87.7%、cmd/ingest 99.5%。
