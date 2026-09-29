@@ -109,7 +109,24 @@ const cases: Case[] = [
 ];
 
 describe('site settings & auth provider API adapters', () => {
-  beforeEach(() => mockedRequest.mockReset().mockResolvedValue(undefined));
+  beforeEach(() =>
+    mockedRequest.mockReset().mockImplementation((url: string) => {
+      // fetchLoginProviders 现校验响应形态：providers URL 须回合法对象，
+      // 其余端点维持 undefined 旧默认。
+      if (url === '/api/v1/auth/providers') {
+        return Promise.resolve({
+          local: true,
+          ldap: false,
+          oidc: false,
+          github: false,
+          wechat: false,
+          genericoauth: false,
+          register: false,
+        });
+      }
+      return Promise.resolve(undefined);
+    }),
+  );
 
   it.each(cases)('$name hits the right URL and options', async ({ call, url, options }) => {
     await call();
@@ -130,6 +147,19 @@ describe('site settings & auth provider API adapters', () => {
     mockedRequest.mockResolvedValue(snapshot);
 
     await expect(fetchSiteConfig()).resolves.toEqual(snapshot);
+  });
+
+  it('fetchLoginProviders throws on non-object payload (SPA fallback HTML)', async () => {
+    // 回归：路由缺失时静态服务器 SPA 兜底回 index.html（200 HTML 字符串），
+    // 曾被误读为 providers 使账密表单「停用」，mock E2E 全灭——必须抛错
+    // 让登录页 fail-open。
+    mockedRequest.mockResolvedValue('<!doctype html><html>…</html>');
+    await expect(fetchLoginProviders()).rejects.toThrow('invalid login providers payload');
+  });
+
+  it('fetchLoginProviders throws when local is not boolean', async () => {
+    mockedRequest.mockResolvedValue({});
+    await expect(fetchLoginProviders()).rejects.toThrow('invalid login providers payload');
   });
 
   it('returns the feature snapshot with per-domain state untouched', async () => {
