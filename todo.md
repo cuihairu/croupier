@@ -1108,12 +1108,13 @@ fresh 全绿（158 包零 FAIL）、guard PASSED。**已知边界**：门禁在�
 > （`catalog_writes_paths_test.go`），本轮只碰 core/repo 两层，目录不相交。
 >
 > **repo 层（`internal/repo/gorm/extension/catalog_release_writes_test.go`）**
+>
 > - 主链：批量读（缺席 id 直接不返回而非报错）、按列更新、版本命中、
-> 级联清版本只清目标扩展；
+>   级联清版本只清目标扩展；
 > - 语义锁定三条：`DeleteByExtensionID` 走 `Unscoped` 物理删除才释放
-> `extension_id` 唯一索引（软删行会继续占用 → 重登记冲突）；Update/Delete
-> 行不存在返回 `gorm.ErrRecordNotFound`；`ReleaseRepo.DeleteByExtensionID`
-> 无匹配行**不**报错（级联语义）；`GetByExtensionIDs` 空入参短路不打 DB；
+>   `extension_id` 唯一索引（软删行会继续占用 → 重登记冲突）；Update/Delete
+>   行不存在返回 `gorm.ErrRecordNotFound`；`ReleaseRepo.DeleteByExtensionID`
+>   无匹配行**不**报错（级联语义）；`GetByExtensionIDs` 空入参短路不打 DB；
 > - 错误域：缺表 + `CREATE TRIGGER ... BEFORE UPDATE/DELETE ... RAISE(ABORT)`
 >   打穿 `res.Error` 分支，并断言拦截错误**不退化**为 `ErrRecordNotFound`
 >   （否则写翼注入故障会被误读成「行不存在」）；
@@ -1252,3 +1253,49 @@ fresh 全绿（158 包零 FAIL）、guard PASSED。**已知边界**：门禁在�
 > json.Marshal 对这些类型无失败路径，不造假用例。
 > 门禁：gofmt 干净、go vet 两包干净、两包 fresh 全绿（1.0s/7.1s）。
 > 本批 test-only，未重跑全量（同日全量基线 157 ok）。
+
+## 第十四轮派发核验：todo P0 T1–T6 完成状态 + EventsDrawer 补测（wt-pages worktree，2026-09-29）
+
+> **派发**：检查 todo.md 中 P0 任务 T1-T6 完成状态，挑最靠前未完成项补测。
+>
+> **核验结论：T1–T6 六项全部真实完成，无未完成项**。逐项按验收口径核对
+> 代码工件与测试：T1（contract_service.go:1863 注释明示「单区块组合页
+> 合法——仅要求 pageKey 非空」，≥2 拦截与前端文案均不存在）、T2（以
+> `ContractTemplateRegenerator` 装配期注入闭包实现——正是 T2 改动点括号里
+> 预判的「注意包依赖方向，必要时抽公共接口到 service 层」方案，
+> contract_template_regen.go 是唯一收口）、T3（ExecutionState 字段 +
+> 0025 编号迁移三处同步 + `TestExecutionStateExcludedFromContractDigest`
+> digest 排除锁定）、T4（createUnboundContractsForSource 同事务 +
+> unbound_contracts_test.go）、T5（dto.go contractsCreated/templatesUpdated/
+> proposalsCreated + upload_summary_test.go）、T6（rebuildContract 命中
+> unbound 翻转 + 自动绑定审计事件）。**勘误**：台账头部的提交号
+> （65f88486b 等 10 位短 SHA）在本仓库对象库中不存在——系 squash/改写
+> 前的陈旧引用，交付本体为真，SHA 引用按历史记录口径看待。
+>
+> **延伸查重（按最靠前未完成项假设推进）**：#46 批次链 2/3/4 已全部被
+> 并行会话代做入库（批次 2 `b12aecd` displayName join catalog + healthStatus
+> 推导、批次 3 `1b50c90` catalog 写路径 CRUD + seed、批次 4 `4d1fbb3`
+> DomainEntry 渲染用例），todo.md 行 785「下一批：批次 2」表述已过时。
+> 台账剩余最靠前显式未收口项 = Extensions 簇余量顺序
+> 「EventsDrawer → UpgradeModal → AgentSync」（行 889-890）。
+>
+> **交付（2026-09-29）**：`EventsDrawer.tsx`（286 行，0 测试）→ 新增
+> `__tests__/EventsDrawer.test.tsx` 11 用例，v8 口径行/分支/函数/语句
+> **4×100%**。锁定契约：打开主链（抽屉标题 displayName 兜底 extensionId、
+> 概览三 chip 含 total 经 adaptEventListResponse 归一同步、首拉载荷
+> page/pageSize/level/keyword 缺省形态）、六列渲染矩阵（formatUnix 时间、
+> payload 有值 code 文本/空值 '-'、createdAt=0 → '-'）、无安装实例守卫
+> （不发请求 + 默认空态文案）、关键词筛选（trim 入参 + 生效 Alert
+> 「已生效条件」+ chip）、级别下拉（antd6 mouseDown 落 .ant-select 根、
+> option 点可见 content——Installations 套件坑位复用）、双条件「 / 」拼接、
+> 清空筛选（初始 disabled → 复位 chip/Alert/载荷）、筛选空态与默认空态
+> 两套文案、请求失败翼（success:false 静默空表不本地弹错——全局拦截器
+> toast 语义）、切换安装实例重置筛选并以新 id 重拉、onClose 回调。
+> **已知边界**：actionRef.current 的 undefined 翼（filter onChange 里
+> `?.setPageInfo?.()`）经 UI 不可达——筛选栏与 ProTable 同 commit 渲染，
+> 用户可交互时 ref 必已赋值；Select allowClear 清除翼与「清空筛选」按钮
+> 同函数体不重复铺用例。簇余量剩 UpgradeModal（151 行）→ AgentSync
+> （93 行）两项留后续批次。
+> 门禁：目标套件 11/11 绿（格式化后复跑同绿）、`pnpm --dir web run tsc`
+> 0 错、prettier 干净、`scripts/dashboard_vnext_guard.sh` PASSED、全量
+> jest 负载守卫（load<10）窗口执行——结果见交付说明。
