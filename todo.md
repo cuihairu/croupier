@@ -1339,3 +1339,25 @@ fresh 全绿（158 包零 FAIL）、guard PASSED。**已知边界**：门禁在�
 > 无 sync 出站。
 > 门禁：gofmt/vet 干净、两包 fresh 全绿 100.0%（1.5s/28s，零未覆盖
 > 块）。本批 test-only，未重跑全量（同日全量基线 157 ok）。
+
+## 覆盖率巡检批次·Go 侧第二十一轮·全量收官核验 + ops 绑定翼登记（wt-api worktree，2026-09-29）
+
+> **全量 fresh profile 收官核验**：第 10-20 轮战役后全树
+> **99.8% → 99.9%**（全量重跑 12:14，157 包 ok + 1 FAIL——
+> sitesettings 的 TestSendTestEmailRealSendPath panic，符号核实仅存在
+> 于他会话未跟踪 handler_gaps_v10_test.go，非已交付代码，维持既有
+> 分类不碰）。非回避域剩余 19 块全部有归属：12 块为既有登记不可达
+> （cicd×4 / gitlabci:75 / provider:134 / openapi:710 / menu:381 /
+> profile:179 / fn_contract:458 / bug.go×2 / service:1752 /
+> objstore:128 / certificates:202），identity/otp/auth/announcement/
+> extension/sitesettings/assignment-gate 为他会话域回避。
+> **本轮新增**：上游合并 f63acca（ops 单设备详情端点）带进的
+> handler.go:352-354 绑定错误翼登记不可达——OpsNodeDetailRequest 仅
+> 一个可选 string 字段（无 binding 约束），GET 的 query 兼容绑定无
+> 失败路径（第四轮 provider SdkStats 同构证明）；新增
+> `node_detail_bind_wing_test.go` 证明性用例锁定「任意 query 绑定
+> 永不失败」前提（%zz 畸形转义/脚本串/重复键四形态）。
+> **非回避域巡检至此收官**：所有剩余块均已收口或登记，新缺口只能
+> 来自后续新落地面（48h 回补口径）。
+> 门禁：gofmt/vet 干净、api/ops 包 fresh 全绿 99.9%（唯一剩余块即
+> 本轮登记项）。本批 test-only，未重跑全量（本轮核验本身就是全量）。
