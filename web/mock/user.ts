@@ -186,6 +186,20 @@ export default {
     });
     access = 'guest';
   },
+  // 登录方式配置（public）：登录页据此渲染账密表单/SSO 入口。缺此 mock 时
+  // 静态 E2E 服务器的 SPA 兜底会回 index.html，曾把 providers 误读为字符串
+  // 而「停用账密登录」，mock E2E 登录页无用户名输入框全灭。
+  'GET /api/v1/auth/providers': (req: Request, res: Response) => {
+    res.json({
+      local: true,
+      ldap: false,
+      oidc: false,
+      github: false,
+      wechat: false,
+      genericoauth: false,
+      register: false,
+    });
+  },
   // Mock for /api/v1/auth/login endpoint used by the app
   'POST /api/v1/auth/login': async (req: Request, res: Response) => {
     const { password, username } = req.body;
