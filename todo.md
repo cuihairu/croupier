@@ -1564,3 +1564,24 @@ fresh 全绿（158 包零 FAIL）、guard PASSED。**已知边界**：门禁在�
 > **cmd/server 余量**：root.go 110、dashboard_fixture.go 69（boot
 > 步骤错误翼群）、service.go 56；随后 cmd/agent 89.6%、
 > cmd/analytics-export 87.7%。
+
+## 扩展域入口回调覆盖批次（Extensions 簇余量第七批·收官，2026-09-29）
+
+> **交付（2026-09-29）**：簇余量收口 `Extensions/DomainEntry/index.tsx`
+> （197 行，funcs 50% 起）——新增 `DomainEntry/__tests__/callbacks.test.tsx`
+> （8 用例），与既有 index.test.tsx 合并后 **4×100%**。
+>
+> - **补齐面**：resolveDomainMeta 三真翼（/approvals、/alerts、/backups
+>   分派标题 + 扩展 ID Tag + 载荷 extensionId；缺省翼既有覆盖）；两个导航
+>   回调（前往扩展商店/安装管理的 history.push 目标）；刷新按钮 load 再入；
+>   pages map fallback 翼（title 缺省 `Page ${idx+1}`、route 缺省 '-'）+
+>   pagesResp.items 缺省 `|| []` 右翼；安装实例 Tag green/blue 上色翼。
+> - **门禁**：隔离双套件 11/11 绿；tsc 0 错误；全量 jest（load<10 起跑）
+>   339 套件、4169/4170 用例（总用例 4159+10 吻合……修正：4158+11=4169；
+>   唯一失败仍为他会话未跟踪 Configs WIP，既定非交付排除口径）。
+> - **环境事件（诚实登记）**：`.js/.jsx` 转译洪水仍在——覆盖率归因须临时
+>   `jest.coverage-order.config.ts`，测量后即删不入库。
+> - **簇收口结论**：Extensions 簇页面侧余量至此全部完成（批次 3 EventsDrawer、
+>   批次 3 UpgradeModal、批次 4 AgentSync、批次 5 Store/shared、批次 6
+>   SchemaFields、批次 7 DomainEntry），簇内各页面主体 4×100% 或带登记
+>   不可达翼（防御式 `?.`/结构不可达三元）。
