@@ -56,6 +56,9 @@ export default {
   'pages.extensionsStore.manage.registerTitle': '登记扩展到目录',
   'pages.extensionsStore.manage.registerOk': '已登记到目录',
   'pages.extensionsStore.manage.registerConflict': '登记失败：该扩展 ID 已存在于目录',
+  'pages.extensionsStore.manage.import': '导入扩展包',
+  'pages.extensionsStore.manage.importOk': '已导入并发布版本 {version}',
+  'pages.extensionsStore.manage.importConflict': '导入失败：该版本已存在',
   'pages.extensionsStore.manage.extensionIdPattern':
     '小写字母或数字开头，仅含小写字母、数字、点、下划线、连字符',
   'pages.extensionsStore.manage.displayName': '显示名',

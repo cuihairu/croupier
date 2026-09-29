@@ -44,6 +44,7 @@ jest.mock('@/services/api/extensions', () => ({
   updateExtensionCatalog: jest.fn(),
   deleteExtensionCatalog: jest.fn(),
   publishExtensionRelease: jest.fn(),
+  importExtensionPack: jest.fn(),
 }));
 
 // mock* 前缀变量：babel-jest hoist 白名单，允许 mock 工厂延迟绑定
@@ -87,6 +88,7 @@ import {
   createExtensionCatalog,
   deleteExtensionCatalog,
   getExtensionCatalogDetail,
+  importExtensionPack,
   installExtension,
   listExtensionCatalog,
   listExtensionCatalogReleases,
@@ -104,6 +106,7 @@ const mCreate = createExtensionCatalog as jest.MockedFunction<typeof createExten
 const mUpdate = updateExtensionCatalog as jest.MockedFunction<typeof updateExtensionCatalog>;
 const mDelete = deleteExtensionCatalog as jest.MockedFunction<typeof deleteExtensionCatalog>;
 const mPublish = publishExtensionRelease as jest.MockedFunction<typeof publishExtensionRelease>;
+const mImport = importExtensionPack as jest.MockedFunction<typeof importExtensionPack>;
 
 const item1: ExtensionCatalogItem = {
   id: 'chatops',
@@ -227,6 +230,14 @@ beforeEach(() => {
   mUpdate.mockResolvedValue({ item: item1 });
   mDelete.mockResolvedValue({ deleted: true });
   mPublish.mockResolvedValue({ release: releaseOf('1.5.0') });
+  mImport.mockResolvedValue({
+    catalog: item1,
+    release: releaseOf('2.0.0'),
+    catalogCreated: true,
+    packageRef: 'extension-packs/chatops/2.0.0.tgz',
+    checksum: 'sha256:' + 'a'.repeat(64),
+    size: 1024,
+  });
 });
 
 describe('扩展商店 列表与筛选', () => {
@@ -798,5 +809,37 @@ describe('扩展商店 管理动作（登记/上下架/发布/删除）', () => 
       confirm2.querySelector('.ant-modal-confirm-btns .ant-btn-dangerous') as HTMLButtonElement,
     );
     expect(await screen.findByText('删除失败：存在活跃安装实例，请先卸载')).toBeInTheDocument();
+  });
+
+  it('导入扩展包：上传 .tgz 调导入接口，成功提示带版本号并 reload', async () => {
+    renderPage();
+    await waitFirstLoad();
+
+    expect(screen.getByText('导入扩展包')).toBeInTheDocument();
+    const input = document.querySelector('input[type="file"]') as HTMLInputElement;
+    expect(input).not.toBeNull();
+    const pack = new File([new Uint8Array([0x1f, 0x8b])], 'chatops-2.0.0.tgz', {
+      type: 'application/gzip',
+    });
+    fireEvent.change(input, { target: { files: [pack] } });
+
+    await waitFor(() => expect(mImport).toHaveBeenCalledWith(pack));
+    expect(await screen.findByText('已导入并发布版本 2.0.0')).toBeInTheDocument();
+    await waitFor(() => expect(mList).toHaveBeenCalledTimes(2));
+  });
+
+  it('导入扩展包 409：版本已存在透出冲突文案，不 reload', async () => {
+    mImport.mockRejectedValueOnce({ response: { status: 409 } });
+    renderPage();
+    await waitFirstLoad();
+
+    const input = document.querySelector('input[type="file"]') as HTMLInputElement;
+    fireEvent.change(input, {
+      target: {
+        files: [new File([new Uint8Array([0x1f, 0x8b])], 'chatops-2.0.0.tgz')],
+      },
+    });
+    expect(await screen.findByText('导入失败：该版本已存在')).toBeInTheDocument();
+    expect(mList).toHaveBeenCalledTimes(1);
   });
 });

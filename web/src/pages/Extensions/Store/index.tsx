@@ -11,8 +11,10 @@ import {
   Space,
   Tag,
   Typography,
+  Upload,
 } from 'antd';
-import { DownOutlined, MoreOutlined, PlusOutlined } from '@ant-design/icons';
+import type { UploadProps } from 'antd';
+import { DownOutlined, MoreOutlined, PlusOutlined, UploadOutlined } from '@ant-design/icons';
 import {
   PageContainer,
   ProTable,
@@ -24,6 +26,7 @@ import {
   createExtensionCatalog,
   deleteExtensionCatalog,
   getExtensionCatalogDetail,
+  importExtensionPack,
   installExtension,
   listExtensionCatalog,
   listExtensionCatalogReleases,
@@ -85,6 +88,8 @@ export default function ExtensionsStorePage() {
   const [publishOpen, setPublishOpen] = useState(false);
   const [publishSubmitting, setPublishSubmitting] = useState(false);
   const [publishItem, setPublishItem] = useState<ExtensionCatalogItem | undefined>(undefined);
+  // pack(.tgz) 导入（#46 批次 6）：上传即登记 + 发布版本
+  const [importing, setImporting] = useState(false);
 
   const openDetail = async (item: ExtensionCatalogItem) => {
     setDetailOpen(true);
@@ -264,6 +269,45 @@ export default function ExtensionsStorePage() {
   /** HTTP 状态读取（409 冲突分支按状态码分支，body message 兜底透出） */
   const statusOf = (err: unknown): number =>
     (err as { response?: { status?: number } })?.response?.status ?? 0;
+
+  // pack(.tgz) 导入（#46 批次 6）：上传即服务端登记 + 发布版本。
+  const importUploadProps: UploadProps = {
+    accept: '.tgz',
+    showUploadList: false,
+    disabled: importing,
+    customRequest: async (options) => {
+      const { file, onSuccess, onError } = options;
+      setImporting(true);
+      try {
+        const resp = await importExtensionPack(file as File);
+        onSuccess?.(resp, new XMLHttpRequest());
+        message.success(
+          intl.formatMessage(
+            {
+              id: 'pages.extensionsStore.manage.importOk',
+              defaultMessage: '已导入并发布版本 {version}',
+            },
+            { version: resp.release.version },
+          ),
+        );
+        actionRef.current?.reload();
+      } catch (err) {
+        onError?.(err as Error);
+        if (statusOf(err) === 409) {
+          message.error(
+            intl.formatMessage({
+              id: 'pages.extensionsStore.manage.importConflict',
+              defaultMessage: '导入失败：该版本已存在',
+            }),
+          );
+          return;
+        }
+        message.error(mapExtensionError(err as Error).message);
+      } finally {
+        setImporting(false);
+      }
+    },
+  };
 
   const handleRegister = async (values: CatalogRegisterValues) => {
     setRegisterSubmitting(true);
@@ -712,17 +756,27 @@ export default function ExtensionsStorePage() {
             <FormattedMessage id="pages.extensionsStore.filter.reset" defaultMessage="重置" />
           </Button>
           {access.canExtensionsManage && (
-            <Button
-              type="primary"
-              ghost
-              icon={<PlusOutlined />}
-              onClick={() => setRegisterOpen(true)}
-            >
-              <FormattedMessage
-                id="pages.extensionsStore.manage.register"
-                defaultMessage="登记扩展"
-              />
-            </Button>
+            <>
+              <Button
+                type="primary"
+                ghost
+                icon={<PlusOutlined />}
+                onClick={() => setRegisterOpen(true)}
+              >
+                <FormattedMessage
+                  id="pages.extensionsStore.manage.register"
+                  defaultMessage="登记扩展"
+                />
+              </Button>
+              <Upload {...importUploadProps}>
+                <Button icon={<UploadOutlined />} loading={importing}>
+                  <FormattedMessage
+                    id="pages.extensionsStore.manage.import"
+                    defaultMessage="导入扩展包"
+                  />
+                </Button>
+              </Upload>
+            </>
           )}
         </Space>
 

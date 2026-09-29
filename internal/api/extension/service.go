@@ -1,11 +1,16 @@
 package extension
 
 import (
+	"archive/tar"
 	"bytes"
+	"compress/gzip"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"sort"
 	"strconv"
 	"strings"
@@ -380,6 +385,220 @@ func (s *Service) CatalogReleasePublish(ctx context.Context, extensionID string,
 		PublishedAt:    release.PublishedAtUnix,
 		Changelog:      release.Changelog,
 	}}, nil
+}
+
+// extensionPackMaxSize 是单个 pack(.tgz) 的字节上限（64 MiB）。
+const extensionPackMaxSize = 64 << 20
+
+// extensionPackManifestMaxSize 是包内 manifest.json 的字节上限（1 MiB）。
+const extensionPackManifestMaxSize = 1 << 20
+
+// extensionPackManifest 是 pack 内 manifest.json 的解析目标。字段语义与
+// catalog 登记 / release 发布请求一致（extensionId/version/manifest 必填），
+// 其余缺省走各自写路径的同一套兜底链。
+type extensionPackManifest struct {
+	ExtensionID    string          `json:"extensionId"`
+	Name           string          `json:"name"`
+	DisplayName    string          `json:"displayName"`
+	Vendor         string          `json:"vendor"`
+	Kind           string          `json:"kind"`
+	Summary        string          `json:"summary"`
+	IconURL        string          `json:"iconUrl"`
+	HomepageURL    string          `json:"homepageUrl"`
+	Version        string          `json:"version"`
+	ReleaseChannel string          `json:"releaseChannel"`
+	MinCoreVersion string          `json:"minCoreVersion"`
+	Changelog      string          `json:"changelog"`
+	Manifest       json.RawMessage `json:"manifest"`
+}
+
+// parseExtensionPack 解包 .tgz 并取出 manifest.json。包根或单一顶层目录下
+// 的 manifest.json 均可（tar czf 常见的 ./ 前缀与 builddir 前缀都容忍）；
+// 多层嵌套取最浅一份。非 gzip/tar、缺 manifest、manifest 坏 JSON 均报
+// 400 语义错误。
+func parseExtensionPack(data []byte) (*extensionPackManifest, error) {
+	gz, err := gzip.NewReader(bytes.NewReader(data))
+	if err != nil {
+		return nil, errorx.NewBadRequest("pack 不是有效的 gzip 流")
+	}
+	tr := tar.NewReader(gz)
+	var found *extensionPackManifest
+	bestDepth := -1
+	for {
+		hdr, err := tr.Next()
+		if errors.Is(err, io.EOF) {
+			break
+		}
+		if err != nil {
+			return nil, errorx.NewBadRequest("pack 不是有效的 tar 归档")
+		}
+		name := strings.TrimPrefix(hdr.Name, "./")
+		parts := strings.Split(name, "/")
+		if parts[len(parts)-1] != "manifest.json" {
+			continue
+		}
+		depth := len(parts) - 1
+		if bestDepth >= 0 && depth >= bestDepth {
+			continue
+		}
+		if hdr.Size > extensionPackManifestMaxSize {
+			return nil, errorx.NewBadRequest("manifest.json 超过大小上限 1MiB")
+		}
+		raw, err := io.ReadAll(io.LimitReader(tr, extensionPackManifestMaxSize+1))
+		if err != nil {
+			return nil, errorx.NewBadRequest("读取 manifest.json 失败")
+		}
+		var m extensionPackManifest
+		if err := json.Unmarshal(raw, &m); err != nil {
+			return nil, errorx.NewBadRequest("manifest.json 不是有效 JSON")
+		}
+		found, bestDepth = &m, depth
+	}
+	if found == nil {
+		return nil, errorx.NewBadRequest("pack 缺少 manifest.json")
+	}
+	return found, nil
+}
+
+// PackImport 处理 POST /extensions/packs/import：上传 .tgz → 解出
+// manifest.json → 自动登记 catalog（已存在则复用）→ 发布 release（版本查重
+// 409）→ 工件写入对象存储（sha256 服务端计算）。非 catalog 闭集/形态校验
+// 与手填写路径共用同一套规则；包内其余文件不解析，仅随工件整体存储。
+func (s *Service) PackImport(ctx context.Context, data io.Reader, size int64, operator string) (*ExtensionPackImportResponse, error) {
+	if err := s.requireWritePermission(ctx, "无权导入扩展包"); err != nil {
+		return nil, err
+	}
+	if s.svcCtx.ObjectStore == nil {
+		return nil, errorx.NewBadRequest("对象存储未配置")
+	}
+	if size > extensionPackMaxSize {
+		return nil, errorx.NewBadRequest(fmt.Sprintf("pack 超过大小上限 %dMiB", extensionPackMaxSize>>20))
+	}
+	buf, err := io.ReadAll(io.LimitReader(data, extensionPackMaxSize+1))
+	if err != nil {
+		return nil, errorx.NewBadRequest("读取上传内容失败")
+	}
+	if int64(len(buf)) > extensionPackMaxSize {
+		return nil, errorx.NewBadRequest(fmt.Sprintf("pack 超过大小上限 %dMiB", extensionPackMaxSize>>20))
+	}
+	digest := sha256.Sum256(buf)
+	checksum := "sha256:" + hex.EncodeToString(digest[:])
+
+	m, err := parseExtensionPack(buf)
+	if err != nil {
+		return nil, err
+	}
+	extID := strings.TrimSpace(m.ExtensionID)
+	if err := validateCatalogExtensionID(extID); err != nil {
+		return nil, err
+	}
+	version := strings.TrimSpace(m.Version)
+	parsed, ok := parseSemVersion(version)
+	if !ok {
+		return nil, errorx.NewBadRequest("invalid version: expected semver like 1.2.3")
+	}
+	channel := strings.TrimSpace(m.ReleaseChannel)
+	if channel == "" {
+		channel = "stable"
+	}
+	if !catalogReleaseChannels[channel] {
+		return nil, errorx.NewBadRequest("invalid releaseChannel: only stable/beta/alpha allowed")
+	}
+	var manifestObj map[string]any
+	if err := json.Unmarshal(m.Manifest, &manifestObj); err != nil || manifestObj == nil {
+		return nil, errorx.NewBadRequest("manifest 必须为 JSON 对象")
+	}
+	manifestJSON, err := json.Marshal(manifestObj)
+	if err != nil {
+		return nil, errorx.NewBadRequest("manifest 必须为 JSON 对象")
+	}
+
+	// catalog 登记：已存在则复用（导入迭代版本不改登记元数据）。
+	existing, _, err := s.svcCtx.Extensions.Catalog.Get(ctx, extID)
+	catalogCreated := false
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		name := strings.TrimSpace(m.Name)
+		if name == "" {
+			name = extID
+		}
+		displayName := strings.TrimSpace(m.DisplayName)
+		if displayName == "" {
+			displayName = name
+		}
+		vendor := strings.TrimSpace(m.Vendor)
+		if vendor == "" {
+			vendor = "external"
+		}
+		kind := strings.TrimSpace(m.Kind)
+		if kind == "" {
+			kind = "community"
+		}
+		existing = &model.ExtensionCatalog{
+			ExtensionID:   extID,
+			Name:          name,
+			DisplayName:   displayName,
+			Vendor:        vendor,
+			Kind:          kind,
+			Summary:       strings.TrimSpace(m.Summary),
+			IconURL:       strings.TrimSpace(m.IconURL),
+			HomepageURL:   strings.TrimSpace(m.HomepageURL),
+			Status:        "active",
+			LatestVersion: version,
+		}
+		if err := s.svcCtx.Extensions.Catalog.Create(ctx, existing); err != nil {
+			return nil, mapServiceError(err)
+		}
+		catalogCreated = true
+	} else if err != nil {
+		return nil, mapServiceError(err)
+	}
+
+	if _, dup := s.svcCtx.Extensions.Catalog.ReleaseByVersion(ctx, extID, version); dup == nil {
+		return nil, errorx.NewConflict("release version already exists")
+	} else if !errors.Is(dup, gorm.ErrRecordNotFound) {
+		return nil, mapServiceError(dup)
+	}
+
+	packageRef := fmt.Sprintf("extension-packs/%s/%s.tgz", extID, version)
+	if err := s.svcCtx.ObjectStore.Put(ctx, packageRef, bytes.NewReader(buf), int64(len(buf)), "application/gzip"); err != nil {
+		return nil, fmt.Errorf("写入对象存储失败: %w", err)
+	}
+	release := &model.ExtensionRelease{
+		ExtensionID:     extID,
+		Version:         version,
+		ReleaseChannel:  channel,
+		ManifestJSON:    model.JSON(manifestJSON),
+		PackageRef:      packageRef,
+		Checksum:        checksum,
+		MinCoreVersion:  strings.TrimSpace(m.MinCoreVersion),
+		Changelog:       strings.TrimSpace(m.Changelog),
+		PublishedAtUnix: time.Now().Unix(),
+	}
+	if err := s.svcCtx.Extensions.Catalog.PublishRelease(ctx, release); err != nil {
+		return nil, mapServiceError(err)
+	}
+	// latestVersion 语义与 CatalogReleasePublish 一致：仅更高 semver 回填。
+	if shouldBumpLatestVersion(existing.LatestVersion, parsed) {
+		if err := s.svcCtx.Extensions.Catalog.UpdateFields(ctx, extID, map[string]any{"latest_version": version}); err != nil {
+			return nil, mapServiceError(err)
+		}
+		existing.LatestVersion = version
+	}
+	_ = operator // 审计经 HTTP 层统一审计链
+	return &ExtensionPackImportResponse{
+		Catalog: catalogItemFromModel(existing),
+		Release: ExtensionReleaseItem{
+			Version:        release.Version,
+			ReleaseChannel: release.ReleaseChannel,
+			MinCoreVersion: release.MinCoreVersion,
+			PublishedAt:    release.PublishedAtUnix,
+			Changelog:      release.Changelog,
+		},
+		CatalogCreated: catalogCreated,
+		PackageRef:     packageRef,
+		Checksum:       checksum,
+		Size:           int64(len(buf)),
+	}, nil
 }
 
 // shouldBumpLatestVersion：catalog 无 latest 或新版本 semver 严格更高时回填。

@@ -353,6 +353,27 @@ export async function publishExtensionRelease(id: string, data: ExtensionRelease
   );
 }
 
+// Source: croupier/internal/api/extension/dto.go ExtensionPackImportResponse.
+export type ExtensionPackImportResponse = {
+  catalog: ExtensionCatalogItem;
+  release: ExtensionReleaseItem;
+  catalogCreated: boolean;
+  packageRef: string;
+  checksum: string;
+  size: number;
+};
+
+// pack(.tgz) 导入自动登记（#46 批次 6）：multipart 上传，服务端解
+// manifest.json 后登记 catalog + 发布 release + 工件入对象存储。
+export async function importExtensionPack(file: File): Promise<ExtensionPackImportResponse> {
+  const form = new FormData();
+  form.append('file', file);
+  return request<ExtensionPackImportResponse>(`${BASE}/packs/import`, {
+    method: 'POST',
+    data: form,
+  });
+}
+
 export async function installExtension(data: ExtensionInstallRequest) {
   return request<{ installationId: number; status: string }>(`${BASE}/install`, {
     method: 'POST',

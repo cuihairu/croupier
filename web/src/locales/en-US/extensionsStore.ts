@@ -61,6 +61,9 @@ export default {
   'pages.extensionsStore.manage.registerOk': 'Registered to catalog',
   'pages.extensionsStore.manage.registerConflict':
     'Register failed: extension ID already exists in catalog',
+  'pages.extensionsStore.manage.import': 'Import pack',
+  'pages.extensionsStore.manage.importOk': 'Pack imported, released {version}',
+  'pages.extensionsStore.manage.importConflict': 'Import failed: release version already exists',
   'pages.extensionsStore.manage.extensionIdPattern':
     'Must start with a lowercase letter or digit; only lowercase letters, digits, dot, underscore and hyphen allowed',
   'pages.extensionsStore.manage.displayName': 'Display Name',

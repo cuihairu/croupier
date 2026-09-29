@@ -52,6 +52,11 @@ canonical 路由形态如下（与 `internal/handler/routes.go registerExtension
 1. `GET /api/v1/extensions/catalog`
 2. `GET /api/v1/extensions/catalog/:id`
 3. `GET /api/v1/extensions/catalog/:id/releases`
+4. `POST /api/v1/extensions/catalog`（登记）
+5. `PUT /api/v1/extensions/catalog/:id`（更新/上下架）
+6. `DELETE /api/v1/extensions/catalog/:id`（移除）
+7. `POST /api/v1/extensions/catalog/:id/releases`（发布版本）
+8. `POST /api/v1/extensions/packs/import`（pack `.tgz` 导入自动登记）
 
 关键字段（`ExtensionCatalogItem`）：
 
@@ -64,9 +69,8 @@ detail 额外返回：`releases[]`、`manifest`（快照）、`capabilities[]`�
 releases 关键字段（`ExtensionReleaseItem`）：`version` / `releaseChannel`
 （`stable|beta|experimental`）/ `minCoreVersion` / `publishedAt` / `changelog`。
 
-> **已知缺口（V2 批次）**：catalog/release 目前**只读**——repo 层无写方法、
-> 无 admin CRUD、无 pack 导入登记。目录行如何产生是安装模型收口的最大缺口，
-> 批次链见 §7。
+> 写路径（admin CRUD + pack 导入）已随 §7 批次 3/6 落地；catalog/release
+> 读端点形态不变。
 
 ### 3.2 Installation
 
@@ -221,4 +225,20 @@ pages 返回 `{pages[]}`（**不是 `items[]`**），页面项（`ExtensionPageI
    installations→pages 两跳拉取并渲染入口卡（title+route，断言 pages 端点以
    安装实例 ID 调用）；无安装实例时 Empty 引导且不调 pages 端点；拉取失败时
    message.error 提示（批次 1 前被静默吞掉的路径现在有回归防护）且页面不崩。
-   批次链至此全部收口。
+5. ✅ **Store 页管理动作 UI（2026-09-29 已落地）**：批次 3 四端点的页面接线——
+   工具栏「登记扩展」+ 行「更多」菜单（下架/上架/发布版本/删除），双受控弹窗
+   （登记表单 extensionId 形态校验、发布表单 semver + manifest JSON 对象
+   预检）；409 三分支（登记重复/活跃安装阻止删除/版本重复）本地化文案。
+6. ✅ **pack（.tgz）导入自动登记（2026-09-29 已落地）**：`POST
+/api/v1/extensions/packs/import`（multipart，`file` 字段，写权限 +
+   64MiB 上限）——服务端解包取 `manifest.json`（包根或单层顶层目录，多层取
+   最浅；字段与手填写路径同语义：extensionId/version/manifest 必填，渠道
+   stable/beta/alpha 默认 stable）→ sha256 服务端计算 → 工件写入对象存储
+   `extension-packs/<extensionId>/<version>.tgz` → catalog 登记或复用
+   （已登记扩展再导入只补版本，`catalogCreated=false`）→ release 发布
+   （版本查重 409，latestVersion 仅更高 semver 回填，与手填发布同规则）。
+   Store 页「导入扩展包」Upload 按钮接线（成功提示带版本号，409 出冲突文案）。
+   已知边界：包内其余文件（descriptors/schemas）不解析，仅随工件整体存储；
+   manifest 业务闭集校验以后端为准；导入复用既有登记时不改登记元数据
+   （改 displayName 等须走 PUT /catalog/:id）。
+   批次链至此全部收口（Store UI 批次 5 详见 OPEN-ISSUES #46）。

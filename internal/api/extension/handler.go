@@ -98,6 +98,22 @@ func (h *Handler) CatalogReleasePublish(c *gin.Context) {
 	response.Success(c, resp)
 }
 
+// PackImport handles POST /extensions/packs/import (multipart .tgz).
+func (h *Handler) PackImport(c *gin.Context) {
+	file, header, err := c.Request.FormFile("file")
+	if err != nil {
+		response.Error(c, errorx.NewBadRequest("缺少 file 字段"))
+		return
+	}
+	defer func() { _ = file.Close() }()
+	resp, err := h.service.PackImport(c.Request.Context(), file, header.Size, h.operator(c))
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
+	response.Success(c, resp)
+}
+
 func (h *Handler) Install(c *gin.Context) {
 	var req ExtensionInstallRequest
 	if err := c.ShouldBindJSON(&req); err != nil {

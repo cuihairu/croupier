@@ -97,6 +97,17 @@ type ExtensionReleasePublishResponse struct {
 	Release ExtensionReleaseItem `json:"release"`
 }
 
+// ExtensionPackImportResponse 是 pack(.tgz) 导入的结果：catalog 行（可能
+// 复用既有登记）、发布出的 release、以及工件存储信息（#46 批次 6）。
+type ExtensionPackImportResponse struct {
+	Catalog        ExtensionCatalogItem `json:"catalog"`
+	Release        ExtensionReleaseItem `json:"release"`
+	CatalogCreated bool                 `json:"catalogCreated"`
+	PackageRef     string               `json:"packageRef"`
+	Checksum       string               `json:"checksum"`
+	Size           int64                `json:"size"`
+}
+
 type ExtensionInstallRequest struct {
 	ExtensionID    string            `json:"extensionId" binding:"required"`
 	ReleaseVersion string            `json:"releaseVersion" binding:"required"`

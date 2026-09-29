@@ -348,6 +348,8 @@ func registerExtensionRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 	g.PUT("/catalog/:id", extensionHandler.CatalogUpdate)
 	g.DELETE("/catalog/:id", extensionHandler.CatalogDelete)
 	g.POST("/catalog/:id/releases", extensionHandler.CatalogReleasePublish)
+	// pack(.tgz) 导入自动登记（#46 批次 6）：解 manifest.json → 登记 + 发布版本 + 工件入库
+	g.POST("/packs/import", extensionHandler.PackImport)
 	g.GET("/installations", extensionHandler.InstallationList)
 	g.POST("/install", extensionHandler.Install)
 	g.GET("/installations/:id", extensionHandler.InstallationDetail)
