@@ -66,6 +66,43 @@ export type ExtensionEventItem = {
   createdAt: number;
 };
 
+// Source: croupier/internal/api/extension/dto.go ExtensionCatalogCreateRequest（#46 批次 3）。
+export type ExtensionCatalogCreateRequest = {
+  extensionId: string;
+  name?: string;
+  displayName?: string;
+  vendor?: string;
+  kind?: string;
+  summary?: string;
+  iconUrl?: string;
+  homepageUrl?: string;
+  status?: string;
+  latestVersion?: string;
+};
+
+// Source: croupier/internal/api/extension/dto.go ExtensionCatalogUpdateRequest（非空覆盖）。
+export type ExtensionCatalogUpdateRequest = {
+  name?: string;
+  displayName?: string;
+  vendor?: string;
+  kind?: string;
+  summary?: string;
+  iconUrl?: string;
+  homepageUrl?: string;
+  status?: string;
+};
+
+// Source: croupier/internal/api/extension/dto.go ExtensionReleasePublishRequest。
+export type ExtensionReleasePublishRequest = {
+  version: string;
+  releaseChannel?: string;
+  minCoreVersion?: string;
+  packageRef?: string;
+  checksum?: string;
+  changelog?: string;
+  manifest?: Record<string, JSONValue>;
+};
+
 // Source: croupier/internal/api/extension/dto.go request DTOs.
 export type ExtensionCatalogListParams = {
   keyword?: string;
@@ -289,6 +326,52 @@ export async function listExtensionInstallations(params?: ExtensionInstallationL
     total: Number(response?.total || 0),
     items: (response?.items || []).map(normalizeInstallationItem),
   };
+}
+
+// Admin: 登记/上下架/删除/发布版本（#46 批次 3 catalog 写路径，扩展商店管理动作）。
+export async function createExtensionCatalog(data: ExtensionCatalogCreateRequest) {
+  return request<{ item: ExtensionCatalogItem }>(`${BASE}/catalog`, { method: 'POST', data });
+}
+
+export async function updateExtensionCatalog(id: string, data: ExtensionCatalogUpdateRequest) {
+  return request<{ item: ExtensionCatalogItem }>(`${BASE}/catalog/${encodeURIComponent(id)}`, {
+    method: 'PUT',
+    data,
+  });
+}
+
+export async function deleteExtensionCatalog(id: string) {
+  return request<{ deleted: boolean }>(`${BASE}/catalog/${encodeURIComponent(id)}`, {
+    method: 'DELETE',
+  });
+}
+
+export async function publishExtensionRelease(id: string, data: ExtensionReleasePublishRequest) {
+  return request<{ release: ExtensionReleaseItem }>(
+    `${BASE}/catalog/${encodeURIComponent(id)}/releases`,
+    { method: 'POST', data },
+  );
+}
+
+// Source: croupier/internal/api/extension/dto.go ExtensionPackImportResponse.
+export type ExtensionPackImportResponse = {
+  catalog: ExtensionCatalogItem;
+  release: ExtensionReleaseItem;
+  catalogCreated: boolean;
+  packageRef: string;
+  checksum: string;
+  size: number;
+};
+
+// pack(.tgz) 导入自动登记（#46 批次 6）：multipart 上传，服务端解
+// manifest.json 后登记 catalog + 发布 release + 工件入对象存储。
+export async function importExtensionPack(file: File): Promise<ExtensionPackImportResponse> {
+  const form = new FormData();
+  form.append('file', file);
+  return request<ExtensionPackImportResponse>(`${BASE}/packs/import`, {
+    method: 'POST',
+    data: form,
+  });
 }
 
 export async function installExtension(data: ExtensionInstallRequest) {

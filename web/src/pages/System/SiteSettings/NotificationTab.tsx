@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { App, Button, Card, Form, Input, InputNumber, Space, Switch, Tag, Typography } from 'antd';
+import { App, Button, Card, Form, Input, Space, Switch, Tag, Typography } from 'antd';
 import { FormattedMessage, useIntl } from '@umijs/max';
 import {
   clearSiteSetting,
@@ -22,51 +22,6 @@ type FieldDef = {
   help?: FieldMsg;
   secret?: boolean;
 };
-
-const SMTP_FIELDS: FieldDef[] = [
-  {
-    key: 'notification.smtpHost',
-    label: {
-      id: 'pages.systemSiteSettings.notification.field.smtpHostLabel',
-      defaultMessage: 'SMTP 服务器',
-    },
-    placeholder: 'smtp.example.com',
-  },
-  {
-    key: 'notification.smtpPort',
-    label: {
-      id: 'pages.systemSiteSettings.notification.field.smtpPortLabel',
-      defaultMessage: 'SMTP 端口',
-    },
-    placeholder: '465',
-    kind: 'int',
-  },
-  {
-    key: 'notification.smtpUser',
-    label: {
-      id: 'pages.systemSiteSettings.notification.field.smtpUserLabel',
-      defaultMessage: 'SMTP 用户名',
-    },
-    placeholder: 'noreply@example.com',
-  },
-  {
-    key: 'notification.smtpPassword',
-    label: {
-      id: 'pages.systemSiteSettings.notification.field.smtpPasswordLabel',
-      defaultMessage: 'SMTP 密码',
-    },
-    placeholder: '••••••••',
-    secret: true,
-  },
-  {
-    key: 'notification.smtpFrom',
-    label: {
-      id: 'pages.systemSiteSettings.notification.field.fromAddressLabel',
-      defaultMessage: '发件人地址',
-    },
-    placeholder: 'Croupier <noreply@example.com>',
-  },
-] as FieldDef[];
 
 const DINGTALK_FIELDS: FieldDef[] = [
   {
@@ -187,10 +142,6 @@ export default function NotificationTab() {
       const cfg = await fetchNotificationSettings();
       setSettings(cfg);
       form.setFieldsValue({
-        'notification.smtpHost': cfg.smtpHost || undefined,
-        'notification.smtpPort': cfg.smtpPort || undefined,
-        'notification.smtpUser': cfg.smtpUser || undefined,
-        'notification.smtpFrom': cfg.smtpFrom || undefined,
         'notification.dingtalkUrl': cfg.dingtalkUrl || undefined,
         'notification.dingtalkSecret': undefined,
         'notification.webhookUrl': cfg.webhookUrl || undefined,
@@ -305,16 +256,12 @@ export default function NotificationTab() {
           {intl.formatMessage(f.label)}
           {f.secret && settings
             ? secretState(
-                f.key === 'notification.smtpPassword'
-                  ? settings.smtpPasswordSet
-                  : f.key === 'notification.dingtalkSecret'
-                    ? settings.dingtalkSecretSet
-                    : settings.webhookSecretSet,
-                f.key === 'notification.smtpPassword'
-                  ? settings.smtpPasswordMasked
-                  : f.key === 'notification.dingtalkSecret'
-                    ? settings.dingtalkSecretMasked
-                    : settings.webhookSecretMasked,
+                f.key === 'notification.dingtalkSecret'
+                  ? settings.dingtalkSecretSet
+                  : settings.webhookSecretSet,
+                f.key === 'notification.dingtalkSecret'
+                  ? settings.dingtalkSecretMasked
+                  : settings.webhookSecretMasked,
               )
             : null}
         </Space>
@@ -340,39 +287,12 @@ export default function NotificationTab() {
     </Form.Item>
   );
 
-  const smtpPortField = (
-    <Form.Item
-      key="notification.smtpPort"
-      label={intl.formatMessage({
-        id: 'pages.systemSiteSettings.notification.field.smtpPortLabel',
-        defaultMessage: 'SMTP 端口',
-      })}
-      required={false}
-    >
-      <Space.Compact>
-        <Form.Item name="notification.smtpPort" noStyle>
-          <InputNumber min={1} max={65535} placeholder="465" style={{ width: 120 }} />
-        </Form.Item>
-        <Button
-          type="primary"
-          loading={savingKey === 'notification.smtpPort'}
-          onClick={() => saveKey('notification.smtpPort')}
-        >
-          <FormattedMessage
-            id="pages.systemSiteSettings.notification.action.save"
-            defaultMessage="保存"
-          />
-        </Button>
-      </Space.Compact>
-    </Form.Item>
-  );
-
   return (
     <Card loading={loading}>
       <Text type="secondary">
         <FormattedMessage
           id="pages.systemSiteSettings.notification.hint"
-          defaultMessage="审批与告警事件的通知渠道。站内信默认开启（零配置）；钉钉/通用 Webhook/邮件按需配置，保存即生效。密钥只回显尾 4 位，留空保存即清除。"
+          defaultMessage="审批与告警事件的通知渠道。站内信默认开启（零配置）；钉钉/通用 Webhook 按需配置，保存即生效。密钥只回显尾 4 位，留空保存即清除。"
         />
       </Text>
 
@@ -391,27 +311,15 @@ export default function NotificationTab() {
               onChange={(v) => toggleBool('notification.inAppEnabled', v)}
             />
           </Space>
-          <Space>
-            <Text strong>
-              <FormattedMessage
-                id="pages.systemSiteSettings.notification.toggle.email"
-                defaultMessage="邮件通知"
-              />
-            </Text>
-            <Switch
-              checked={settings?.emailEnabled ?? false}
-              loading={savingKey === 'notification.emailEnabled'}
-              onChange={(v) => toggleBool('notification.emailEnabled', v)}
-            />
-          </Space>
         </Space>
-
-        {settings?.emailEnabled ? (
-          <>
-            {SMTP_FIELDS.filter((f) => f.key !== 'notification.smtpPort').map(renderField)}
-            {smtpPortField}
-          </>
-        ) : null}
+        <div style={{ marginBottom: 8 }}>
+          <Text type="secondary">
+            <FormattedMessage
+              id="pages.systemSiteSettings.notification.smtpMoved"
+              defaultMessage="邮件通道的 SMTP 服务器/加密/认证配置已迁移至「运维」Tab 的「SMTP 邮件服务」卡。"
+            />
+          </Text>
+        </div>
 
         <Typography.Title level={5} style={{ marginTop: 16 }}>
           <FormattedMessage

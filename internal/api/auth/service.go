@@ -20,6 +20,7 @@ import (
 	"github.com/cuihairu/croupier/internal/audit"
 	"github.com/cuihairu/croupier/internal/config"
 	"github.com/cuihairu/croupier/internal/ipgeo"
+	"github.com/cuihairu/croupier/internal/logic/utils"
 	"github.com/cuihairu/croupier/internal/model"
 	"github.com/cuihairu/croupier/internal/platform/settings"
 	"github.com/cuihairu/croupier/internal/security/identity"
@@ -51,6 +52,9 @@ type Service struct {
 	otpRecoveryModel *model.AdminOTPRecoveryCodeModel
 	// recoveryDB 是 otpRecoveryModel 未注入时兜底建模型用的 DB（可为 nil）。
 	recoveryDB *gorm.DB
+	// verificationModel 持久化注册邮箱验证令牌（#51c 第二批，可为 nil：
+	// nil 时验证链路整体降级为不拦不发）。
+	verificationModel *model.EmailVerificationModel
 
 	// passwordProviders 是密码型身份提供方级联，按顺序尝试；
 	// 首个元素始终是本地 admins 表。
@@ -59,6 +63,21 @@ type Service struct {
 	oidc identity.OAuthProvider
 	// oidcSuccessURL 非空时，OIDC 回调成功后携带 token 跳转到该前端地址。
 	oidcSuccessURL string
+	// github 是 GitHub OAuth2 提供方（nil = 未启用）；successURL 语义同 OIDC。
+	github           identity.OAuthProvider
+	githubSuccessURL string
+	// wechat / genericOAuth 是扩展外部 OAuth 提供方（#51 第三批，nil = 未启用）。
+	wechat                 identity.OAuthProvider
+	wechatSuccessURL       string
+	genericOAuth           identity.OAuthProvider
+	genericOAuthSuccessURL string
+	// localDisabled = auth.local.enabled 显式关闭：本地账号密码级联被移除，
+	// 登录须走外部身份源；Providers 端点据此让前端隐藏账密表单。
+	localDisabled bool
+	// registerEnabled/registerRoles 是自助注册开关（#51b，默认关）与注册
+	// 建号赋予的默认角色名（由 auth.register.defaultRoles 配置；留空则不赋角色）。
+	registerEnabled bool
+	registerRoles   []string
 	// providerDefaultRoles 按 Provider Kind 记录 JIT 建号时的默认角色名。
 	providerDefaultRoles map[string][]string
 
@@ -92,6 +111,13 @@ func (s *Service) WithOTPRecoveryModel(m *model.AdminOTPRecoveryCodeModel) *Serv
 // DB handle. Used by tests and by wiring paths that only have *gorm.DB.
 func (s *Service) WithRecoveryDB(db *gorm.DB) *Service {
 	s.recoveryDB = db
+	return s
+}
+
+// WithVerificationModel 注入邮箱验证令牌模型（#51c 第二批）。nil 时验证
+// 链路整体降级：不发信、登录不拦（开关语义仍由 settings 决定）。
+func (s *Service) WithVerificationModel(m *model.EmailVerificationModel) *Service {
+	s.verificationModel = m
 	return s
 }
 
@@ -136,6 +162,46 @@ func (s *Service) WithOIDCProvider(p identity.OAuthProvider, defaultRoles []stri
 	return s
 }
 
+// WithGitHubProvider enables the redirect-based GitHub OAuth2 login flow
+// （语义同 OIDC：JIT 建号 + 默认角色 + 成功跳转）。
+func (s *Service) WithGitHubProvider(p identity.OAuthProvider, defaultRoles []string, successURL string) *Service {
+	s.github = p
+	s.providerDefaultRoles[identity.KindGitHub] = defaultRoles
+	s.githubSuccessURL = successURL
+	return s
+}
+
+// WithWeChatProvider enables the WeChat Open Platform QR login flow
+// （语义同 OIDC：JIT 建号 + 默认角色 + 成功跳转）。
+func (s *Service) WithWeChatProvider(p identity.OAuthProvider, defaultRoles []string, successURL string) *Service {
+	s.wechat = p
+	s.providerDefaultRoles[identity.KindWeChat] = defaultRoles
+	s.wechatSuccessURL = successURL
+	return s
+}
+
+// WithGenericOAuthProvider enables a custom OAuth2 (authorization code) login
+// flow（语义同 OIDC：JIT 建号 + 默认角色 + 成功跳转）。
+func (s *Service) WithGenericOAuthProvider(p identity.OAuthProvider, defaultRoles []string, successURL string) *Service {
+	s.genericOAuth = p
+	s.providerDefaultRoles[identity.KindGenericOAuth] = defaultRoles
+	s.genericOAuthSuccessURL = successURL
+	return s
+}
+
+// WithLocalEnabled 设置账号密码登录开关（false = 停用本地级联）。
+func (s *Service) WithLocalEnabled(enabled bool) *Service {
+	s.localDisabled = !enabled
+	return s
+}
+
+// WithRegister 配置自助注册开关与默认角色（OPEN-ISSUES #51b）。
+func (s *Service) WithRegister(enabled bool, defaultRoles []string) *Service {
+	s.registerEnabled = enabled
+	s.registerRoles = defaultRoles
+	return s
+}
+
 // WithProviderDefaultRoles sets JIT default roles for a provider kind.
 func (s *Service) WithProviderDefaultRoles(kind string, roles []string) *Service {
 	s.providerDefaultRoles[kind] = roles
@@ -153,24 +219,60 @@ func (s *Service) snapshotProviders() ([]identity.PasswordProvider, identity.OAu
 	return s.passwordProviders, s.oidc, s.oidcSuccessURL, roles
 }
 
-// RefreshIdentityProviders 用给定配置重建外部身份提供方（本地账号
-// 始终保留为级联首位）。无效配置返回错误且不改变现状（保存端可回滚）。
+// RefreshIdentityProviders 用给定配置重建外部身份提供方（本地账号默认
+// 保留为级联首位；auth.local.enabled 显式关闭时本地级联整体移除）。
+// 无效配置返回错误且不改变现状（保存端可回滚）。
 func (s *Service) RefreshIdentityProviders(cfg config.AuthProvidersConfig) error {
 	ip, err := buildIdentityProviders(cfg)
 	if err != nil {
 		return err
 	}
+	// 防锁死：本地密码登录与全部外部身份源同时不可用 → 拒绝应用，
+	// 保存端（PutKey onAuthChange）据此回滚该键。
+	githubUp := ip.github != nil
+	wechatUp := ip.wechat != nil
+	genericUp := ip.genericOAuth != nil
+	if !ip.localEnabled && !cfg.LDAP.Enabled && !cfg.OIDC.Enabled && !githubUp && !wechatUp && !genericUp {
+		return errors.New("不能停用所有登录方式：账号密码登录关闭时至少需启用 LDAP/OIDC/GitHub/WeChat/自定义 OAuth 之一")
+	}
 	s.providersMu.Lock()
 	defer s.providersMu.Unlock()
-	// 级联首位固定是本地 admins 表
-	s.passwordProviders = append([]identity.PasswordProvider{identity.NewLocalProvider(s.adminModel)}, ip.ldap)
+	if ip.localEnabled {
+		// 级联首位固定是本地 admins 表
+		s.passwordProviders = append([]identity.PasswordProvider{identity.NewLocalProvider(s.adminModel)}, ip.ldap)
+	} else {
+		// 本地停用：级联只保留 LDAP（可能为空——全靠外部 OAuth 流登录，
+		// 密码级联为空时 authenticatePassword 直接拒绝）
+		s.passwordProviders = nil
+		if ip.ldap != nil {
+			s.passwordProviders = []identity.PasswordProvider{ip.ldap}
+		}
+	}
+	s.localDisabled = !ip.localEnabled
+	s.registerEnabled = ip.registerEnabled
+	s.registerRoles = ip.registerRoles
 	s.oidc = ip.oidc
 	s.oidcSuccessURL = ip.oidcURL
+	s.github = ip.github
+	s.githubSuccessURL = ip.githubURL
+	s.wechat = ip.wechat
+	s.wechatSuccessURL = ip.wechatURL
+	s.genericOAuth = ip.genericOAuth
+	s.genericOAuthSuccessURL = ip.genericOAuthURL
 	if ip.ldapRoles != nil {
 		s.providerDefaultRoles[identity.KindLDAP] = ip.ldapRoles
 	}
 	if ip.oidc != nil {
 		s.providerDefaultRoles[identity.KindOIDC] = ip.oidcRoles
+	}
+	if ip.github != nil {
+		s.providerDefaultRoles[identity.KindGitHub] = ip.githubRoles
+	}
+	if ip.wechat != nil {
+		s.providerDefaultRoles[identity.KindWeChat] = ip.wechatRoles
+	}
+	if ip.genericOAuth != nil {
+		s.providerDefaultRoles[identity.KindGenericOAuth] = ip.genericOAuthRoles
 	}
 	return nil
 }
@@ -262,6 +364,14 @@ func (s *Service) Login(ctx context.Context, req *LoginRequest) (*LoginResponse,
 	if err != nil {
 		s.recordLoginAudit(username, "auth.login_failed", "failed", req, "provision_failed", ident.Provider)
 		return nil, errors.New("登录失败")
+	}
+
+	// 邮箱验证门（#51c 第二批）：仅 local provider + 开关开启 + 账号填过
+	// 邮箱且未验证。密码通过后、MFA 之前——邮箱所有权是账号激活的前置，
+	// 二次验证是登录的第二因子，顺序先激活后验真。
+	if ident.Provider == identity.KindLocal && emailVerificationRequired() && emailVerificationBlocksLogin(admin) {
+		s.recordLoginAudit(username, "auth.login_blocked", "failed", req, "email_not_verified", ident.Provider)
+		return nil, ErrEmailNotVerified
 	}
 
 	// MFA 仅对 local provider 生效：LDAP/OIDC 的二次验证是 IdP 的职责
@@ -499,25 +609,294 @@ func (s *Service) OIDCAuthCodeURL() (string, error) {
 	return oidc.AuthCodeURL(s.newOIDCState()), nil
 }
 
-// OIDCLoginCallback 处理回调：校验 state，用授权码换取身份，JIT 解析本地
-// 账号后签发平台 JWT。
-func (s *Service) OIDCLoginCallback(ctx context.Context, code, state string, req *LoginRequest) (*LoginResponse, error) {
-	_, oidc, _, _ := s.snapshotProviders()
-	if oidc == nil {
-		return nil, errors.New("OIDC 登录未启用")
+// githubSnapshot 返回 GitHub 提供方与成功跳转地址（热刷新安全读取）。
+func (s *Service) githubSnapshot() (identity.OAuthProvider, string) {
+	s.providersMu.RLock()
+	defer s.providersMu.RUnlock()
+	return s.github, s.githubSuccessURL
+}
+
+// LocalEnabled 报告账号密码登录是否启用（auth.local.enabled，默认启用）。
+func (s *Service) LocalEnabled() bool {
+	s.providersMu.RLock()
+	defer s.providersMu.RUnlock()
+	return !s.localDisabled
+}
+
+// RegisterEnabled 报告自助注册是否开启（auth.register.enabled，默认关闭）。
+func (s *Service) RegisterEnabled() bool {
+	s.providersMu.RLock()
+	defer s.providersMu.RUnlock()
+	return s.registerEnabled
+}
+
+// RegisterRequest 是自助注册入参（POST /api/v1/auth/register，匿名可访问）。
+type RegisterRequest struct {
+	Username  string `json:"username"`
+	Password  string `json:"password"`
+	Nickname  string `json:"nickname"`
+	Email     string `json:"email"`
+	ClientIP  string `json:"-"`
+	UserAgent string `json:"-"`
+}
+
+// Register 自助注册本地账号（OPEN-ISSUES #51b，默认关闭）。密码经
+// security.* 策略校验（与建号/改密同链）；成功后赋默认角色。不签发
+// token——注册完成走正常登录（mustChangePassword/MFA 门控照常生效）。
+func (s *Service) Register(ctx context.Context, req *RegisterRequest) (*model.Admin, error) {
+	if !s.RegisterEnabled() {
+		return nil, errors.New("自助注册未开启")
+	}
+	username := strings.TrimSpace(req.Username)
+	if !isValidRegisterUsername(username) {
+		return nil, errors.New("用户名须为 3-32 位字母、数字、下划线或连字符")
+	}
+	if err := utils.ValidatePasswordForUser(req.Password, username); err != nil {
+		return nil, err
+	}
+	if existing, err := s.adminModel.FindByUsername(ctx, username); err == nil && existing != nil {
+		return nil, fmt.Errorf("用户名已存在")
+	}
+	email := strings.TrimSpace(req.Email)
+	if emailVerificationRequired() && email == "" {
+		// required 开启后邮箱从选填变必填：没有收件地址就没有可验证之物。
+		return nil, errorx.NewBadRequest("已开启注册邮箱验证，注册必须填写邮箱")
+	}
+	if email != "" {
+		if err := s.checkRegisterEmailPolicy(ctx, email); err != nil {
+			return nil, err
+		}
+	}
+	nickname := strings.TrimSpace(req.Nickname)
+	if nickname == "" {
+		nickname = username
+	}
+	admin := &model.Admin{
+		Username: username,
+		Nickname: nickname,
+		Email:    email,
+		Status:   1,
+	}
+	if err := s.adminModel.Create(ctx, admin, req.Password); err != nil {
+		// 并发重名：唯一索引兜底为失败
+		s.recordLoginAudit(username, "auth.register_failed", "failed",
+			&LoginRequest{ClientIP: req.ClientIP, UserAgent: req.UserAgent}, "create_failed", "")
+		return nil, fmt.Errorf("注册失败：用户名可能已存在")
+	}
+	s.assignRegisterRoles(ctx, admin.ID)
+	// #51c 第二批：required 开启且填了邮箱 → 签发验证令牌并发信。失败仅
+	// 日志（令牌已落库，用户可走重发端点），不影响注册结果。
+	s.maybeSendVerificationOnRegister(ctx, admin)
+	s.recordLoginAudit(username, "auth.register", "success",
+		&LoginRequest{ClientIP: req.ClientIP, UserAgent: req.UserAgent}, "", "")
+	slog.Default().Info("self-registered admin account", "username", username)
+	return admin, nil
+}
+
+// checkRegisterEmailPolicy 注册邮箱策略（OPEN-ISSUES #51c）。email 非空时
+// 依次执行：①基础形态校验（恰好一个 @、域含点）；②域后缀白名单
+// （auth.email.domainWhitelist，空 = 不限）；③别名限制
+// （auth.email.aliasRestriction）：拒绝 + 别名形态，并按 local 去点小写
+// 归一与同域既有账号比对（u.s@example.com 视同 us@example.com）。
+// 每次注册实时读 L3——保存即生效，无需接入热刷新装配链。
+func (s *Service) checkRegisterEmailPolicy(ctx context.Context, email string) error {
+	local, domain, hasAt := strings.Cut(email, "@")
+	if !hasAt || local == "" || !strings.Contains(domain, ".") || strings.ContainsAny(email, " \t") {
+		return fmt.Errorf("邮箱格式无效")
+	}
+	cur := settings.Current()
+	if cur == nil {
+		return nil
+	}
+	if wl, _, ok := cur.GetString(ctx, settings.KeyAuthEmailDomainWhitelist); ok && strings.TrimSpace(wl) != "" {
+		domain = strings.ToLower(strings.TrimSuffix(domain, "."))
+		allowed := false
+		for _, entry := range strings.Split(wl, ",") {
+			entry = strings.ToLower(strings.TrimSpace(strings.TrimSuffix(strings.TrimSpace(entry), ".")))
+			if entry == "" {
+				continue
+			}
+			if domain == entry || strings.HasSuffix(domain, "."+entry) {
+				allowed = true
+				break
+			}
+		}
+		if !allowed {
+			return fmt.Errorf("邮箱域名 %s 不在允许清单内", domain)
+		}
+	}
+	if cur.GetBool(settings.KeyAuthEmailAliasRestriction, false) {
+		if strings.Contains(local, "+") {
+			return fmt.Errorf("邮箱别名（+tag 形态）不允许用于注册")
+		}
+		canonical := strings.ReplaceAll(strings.ToLower(local), ".", "")
+		existing, err := s.adminModel.FindEmailsByDomain(ctx, domain)
+		if err == nil {
+			for _, e := range existing {
+				el, ed, ok2 := strings.Cut(strings.TrimSpace(e), "@")
+				if !ok2 {
+					continue
+				}
+				if strings.EqualFold(ed, domain) && strings.ReplaceAll(strings.ToLower(el), ".", "") == canonical {
+					return fmt.Errorf("该邮箱（忽略别名与点号后）已被其他账号使用")
+				}
+			}
+		}
+	}
+	return nil
+}
+
+// isValidRegisterUsername 校验注册用户名形态（3-32 位字母/数字/_/-）。
+func isValidRegisterUsername(u string) bool {
+	if len(u) < 3 || len(u) > 32 {
+		return false
+	}
+	for _, r := range u {
+		switch {
+		case r >= 'a' && r <= 'z', r >= 'A' && r <= 'Z', r >= '0' && r <= '9', r == '_', r == '-':
+		default:
+			return false
+		}
+	}
+	return true
+}
+
+// assignRegisterRoles 赋注册默认角色；角色名不存在时告警跳过（与 JIT 同策略）。
+func (s *Service) assignRegisterRoles(ctx context.Context, adminID uint) {
+	s.providersMu.RLock()
+	names := s.registerRoles
+	s.providersMu.RUnlock()
+	for _, name := range names {
+		role, ok := s.findRoleByName(ctx, name)
+		if !ok {
+			slog.Default().Warn("register default role not found", "role", name)
+			continue
+		}
+		if err := s.adminModel.AssignRole(ctx, adminID, role.ID); err != nil {
+			slog.Default().Warn("assign register default role failed",
+				"role", name, "adminID", adminID, "error", err)
+		}
+	}
+}
+
+// GitHubEnabled reports whether the GitHub login flow is wired.
+func (s *Service) GitHubEnabled() bool {
+	g, _ := s.githubSnapshot()
+	return g != nil
+}
+
+// GitHubAuthCodeURL 生成跳转到 GitHub 的授权 URL（state 复用 OIDC 的
+// HMAC 签名机制，含 10 分钟有效期）。
+func (s *Service) GitHubAuthCodeURL() (string, error) {
+	g, _ := s.githubSnapshot()
+	if g == nil {
+		return "", errors.New("GitHub 登录未启用")
+	}
+	return g.AuthCodeURL(s.newOIDCState()), nil
+}
+
+// GitHubLoginCallback 处理 GitHub 回调（公共出口见 externalOAuthCallback）。
+func (s *Service) GitHubLoginCallback(ctx context.Context, code, state string, req *LoginRequest) (*LoginResponse, error) {
+	g, _ := s.githubSnapshot()
+	return s.externalOAuthCallback(ctx, g, identity.KindGitHub, "GitHub", code, state, req)
+}
+
+// GitHubSuccessURL 返回 GitHub 回调成功跳转地址（可为空）。
+func (s *Service) GitHubSuccessURL() string {
+	_, url := s.githubSnapshot()
+	return url
+}
+
+// wechatSnapshot 返回微信扫码提供方与成功跳转地址（热刷新安全读取）。
+func (s *Service) wechatSnapshot() (identity.OAuthProvider, string) {
+	s.providersMu.RLock()
+	defer s.providersMu.RUnlock()
+	return s.wechat, s.wechatSuccessURL
+}
+
+// WeChatEnabled reports whether the WeChat QR login flow is wired.
+func (s *Service) WeChatEnabled() bool {
+	p, _ := s.wechatSnapshot()
+	return p != nil
+}
+
+// WeChatAuthCodeURL 生成微信扫码登录页地址（state 复用 OIDC 的 HMAC
+// 签名机制，含 10 分钟有效期）。
+func (s *Service) WeChatAuthCodeURL() (string, error) {
+	p, _ := s.wechatSnapshot()
+	if p == nil {
+		return "", errors.New("微信登录未启用")
+	}
+	return p.AuthCodeURL(s.newOIDCState()), nil
+}
+
+// WeChatLoginCallback 处理微信回调（公共出口见 externalOAuthCallback）。
+func (s *Service) WeChatLoginCallback(ctx context.Context, code, state string, req *LoginRequest) (*LoginResponse, error) {
+	p, _ := s.wechatSnapshot()
+	return s.externalOAuthCallback(ctx, p, identity.KindWeChat, "微信", code, state, req)
+}
+
+// WeChatSuccessURL 返回微信回调成功跳转地址（可为空）。
+func (s *Service) WeChatSuccessURL() string {
+	_, url := s.wechatSnapshot()
+	return url
+}
+
+// genericOAuthSnapshot 返回自定义 OAuth 提供方与成功跳转地址（热刷新安全读取）。
+func (s *Service) genericOAuthSnapshot() (identity.OAuthProvider, string) {
+	s.providersMu.RLock()
+	defer s.providersMu.RUnlock()
+	return s.genericOAuth, s.genericOAuthSuccessURL
+}
+
+// GenericOAuthEnabled reports whether the custom OAuth login flow is wired.
+func (s *Service) GenericOAuthEnabled() bool {
+	p, _ := s.genericOAuthSnapshot()
+	return p != nil
+}
+
+// GenericOAuthAuthCodeURL 生成自定义 OAuth 的授权 URL（state 复用 OIDC 的
+// HMAC 签名机制，含 10 分钟有效期）。
+func (s *Service) GenericOAuthAuthCodeURL() (string, error) {
+	p, _ := s.genericOAuthSnapshot()
+	if p == nil {
+		return "", errors.New("自定义 OAuth 登录未启用")
+	}
+	return p.AuthCodeURL(s.newOIDCState()), nil
+}
+
+// GenericOAuthLoginCallback 处理自定义 OAuth 回调（公共出口见 externalOAuthCallback）。
+func (s *Service) GenericOAuthLoginCallback(ctx context.Context, code, state string, req *LoginRequest) (*LoginResponse, error) {
+	p, _ := s.genericOAuthSnapshot()
+	return s.externalOAuthCallback(ctx, p, identity.KindGenericOAuth, "自定义 OAuth", code, state, req)
+}
+
+// GenericOAuthSuccessURL 返回自定义 OAuth 回调成功跳转地址（可为空）。
+func (s *Service) GenericOAuthSuccessURL() string {
+	_, url := s.genericOAuthSnapshot()
+	return url
+}
+
+// externalOAuthCallback 是重定向授权型回调的公共出口：校验 state（HMAC，
+// 10 分钟有效）→ 授权码换身份 → JIT 解析/创建本地影子账号 → 签发平台
+// token。OIDC/GitHub/WeChat/自定义 OAuth 四路逐行同构，仅 kind（审计
+// metadata）与 label（错误文案）不同。kind/label 由调用方按提供方传入。
+func (s *Service) externalOAuthCallback(ctx context.Context, p identity.OAuthProvider, kind, label, code, state string, req *LoginRequest) (*LoginResponse, error) {
+	if p == nil {
+		return nil, errors.New(label + " 登录未启用")
 	}
 	if !s.verifyOIDCState(state) {
-		s.recordLoginAudit("", "auth.login_failed", "failed", req, "invalid_state", identity.KindOIDC)
+		s.recordLoginAudit("", "auth.login_failed", "failed", req, "invalid_state", kind)
 		return nil, errors.New("登录状态校验失败，请重新发起登录")
 	}
 	if strings.TrimSpace(code) == "" {
 		return nil, errors.New("缺少授权码")
 	}
 
-	ident, err := oidc.Exchange(ctx, code)
+	ident, err := p.Exchange(ctx, code)
 	if err != nil {
-		s.recordLoginAudit("", "auth.login_failed", "failed", req, "oidc_exchange_failed", identity.KindOIDC)
-		return nil, errors.New("OIDC 登录失败")
+		s.recordLoginAudit("", "auth.login_failed", "failed", req, kind+"_exchange_failed", kind)
+		return nil, errors.New(label + " 登录失败")
 	}
 
 	admin, err := s.resolveAdminForIdentity(ctx, ident)
@@ -526,6 +905,13 @@ func (s *Service) OIDCLoginCallback(ctx context.Context, code, state string, req
 		return nil, errors.New("登录失败")
 	}
 	return s.issueLogin(ctx, admin, ident, req)
+}
+
+// OIDCLoginCallback 处理回调：校验 state，用授权码换取身份，JIT 解析本地
+// 账号后签发平台 JWT。
+func (s *Service) OIDCLoginCallback(ctx context.Context, code, state string, req *LoginRequest) (*LoginResponse, error) {
+	_, oidc, _, _ := s.snapshotProviders()
+	return s.externalOAuthCallback(ctx, oidc, identity.KindOIDC, "OIDC", code, state, req)
 }
 
 // OIDCSuccessURL 返回配置的登录成功跳转地址（可为空）。

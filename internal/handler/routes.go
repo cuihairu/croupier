@@ -18,6 +18,7 @@ import (
 	"github.com/cuihairu/croupier/internal/api/backup"
 	"github.com/cuihairu/croupier/internal/api/bug"
 	"github.com/cuihairu/croupier/internal/api/certificate"
+	cicdapi "github.com/cuihairu/croupier/internal/api/cicd"
 	"github.com/cuihairu/croupier/internal/api/component"
 	"github.com/cuihairu/croupier/internal/api/config"
 	"github.com/cuihairu/croupier/internal/api/configexplorer"
@@ -68,6 +69,7 @@ import (
 	"github.com/cuihairu/croupier/internal/platform/objstore"
 	settings "github.com/cuihairu/croupier/internal/platform/settings"
 	"github.com/cuihairu/croupier/internal/security/jwtutil"
+	secguard "github.com/cuihairu/croupier/internal/security/secguard"
 	"github.com/cuihairu/croupier/internal/service"
 	notify "github.com/cuihairu/croupier/internal/service/notify"
 	permissionservice "github.com/cuihairu/croupier/internal/service/permission"
@@ -103,6 +105,7 @@ func RegisterHandlers(r *gin.Engine, serverCtx *svc.ServiceContext) {
 	registerRegistryRoutes(v1.Group("/registry"), serverCtx) // 公开访问
 	registerOpenAPIReadRoutes(v1, serverCtx)
 	registerPublicReleaseRoutes(v1, serverCtx) // 客户端检查更新(公开)
+	registerCicdWebhookRoute(v1, serverCtx)    // 外部 CI 构建状态回写（公开端点，令牌校验在 handler）
 	registerPublicConfigRoutes(v1, serverCtx)  // 客户端配置拉取(公开只读)
 	if serverCtx.Config.FeatureFlags.Enabled(configpkg.FlagSupport) {
 		playerSupport := v1.Group("/", newSoftFeatureGuard(settings.Current()).guard(configpkg.FlagSupport))
@@ -186,6 +189,7 @@ func RegisterHandlers(r *gin.Engine, serverCtx *svc.ServiceContext) {
 			registerToolRoutes(devSoft.Group("/tools"), serverCtx)
 			registerReleaseRoutes(devSoft.Group("/releases"), serverCtx)
 			registerHotpatchRoutes(devSoft.Group("/hotpatches"), serverCtx)
+			registerCicdRoutes(devSoft.Group("/cicd"), serverCtx)
 		}
 		registerRegistryShortcutRoutes(protected, serverCtx)
 		registerAuditRoutes(protected, serverCtx)
@@ -253,6 +257,7 @@ func registerAuthRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 		WithAuditService(ctx.AuditService).
 		WithRoleModel(model.NewRoleModel(ctx.DB)).
 		WithOTPRecoveryModel(ctx.AdminOTPRecoveryModel).
+		WithVerificationModel(ctx.EmailVerificationModel).
 		WithRecoveryDB(ctx.DB).
 		WithLoginLockout(ctx.Config.Auth.LoginLockout)
 	// 初始装配从分层设置读取（yaml 初始值 + database L3 覆盖）：
@@ -272,8 +277,20 @@ func registerAuthRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 	g.POST("/login", authHandler.Login)
 	g.POST("/logout", authHandler.Logout)
 	g.GET("/providers", authHandler.Providers)
+	g.POST("/register", authHandler.Register)
+	// 注册邮箱验证（#51c 第二批，均匿名）：令牌即凭据的验证回调 +
+	// 用户名+邮箱重发（service 层防枚举静默）。
+	g.GET("/verify-email", authHandler.VerifyEmail)
+	g.POST("/resend-verification", authHandler.ResendVerification)
 	g.GET("/oidc/login", authHandler.OIDCLogin)
 	g.GET("/oidc/callback", authHandler.OIDCCallback)
+	g.GET("/github/login", authHandler.GitHubLogin)
+	g.GET("/github/callback", authHandler.GitHubCallback)
+	// 微信扫码 + 自定义 OAuth2（#51 第三批，均匿名，语义同 oidc/github）。
+	g.GET("/wechat/login", authHandler.WeChatLogin)
+	g.GET("/wechat/callback", authHandler.WeChatCallback)
+	g.GET("/generic/login", authHandler.GenericOAuthLogin)
+	g.GET("/generic/callback", authHandler.GenericOAuthCallback)
 	g.GET("/mfa/status", ctx.Authority, authHandler.MFAStatus)
 	g.POST("/mfa/setup", ctx.Authority, authHandler.MFASetup)
 	g.POST("/mfa/confirm", ctx.Authority, authHandler.MFAConfirm)
@@ -326,6 +343,13 @@ func registerExtensionRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 	g.GET("/catalog", extensionHandler.CatalogList)
 	g.GET("/catalog/:id", extensionHandler.CatalogDetail)
 	g.GET("/catalog/:id/releases", extensionHandler.CatalogReleases)
+	// catalog 写路径（#46 批次 3）：登记 / 更新（含上下架）/ 移除 / 发布版本
+	g.POST("/catalog", extensionHandler.CatalogCreate)
+	g.PUT("/catalog/:id", extensionHandler.CatalogUpdate)
+	g.DELETE("/catalog/:id", extensionHandler.CatalogDelete)
+	g.POST("/catalog/:id/releases", extensionHandler.CatalogReleasePublish)
+	// pack(.tgz) 导入自动登记（#46 批次 6）：解 manifest.json → 登记 + 发布版本 + 工件入库
+	g.POST("/packs/import", extensionHandler.PackImport)
 	g.GET("/installations", extensionHandler.InstallationList)
 	g.POST("/install", extensionHandler.Install)
 	g.GET("/installations/:id", extensionHandler.InstallationDetail)
@@ -540,6 +564,23 @@ func registerOpsRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 	g.PUT("/health", opsHandler.HealthUpdate)
 	g.GET("/maintenance", opsHandler.MaintenanceGet)
 	g.PUT("/maintenance", opsHandler.MaintenanceUpdate)
+
+	// 系统维护（OPEN-ISSUES #52）：运行版本/启动时间/在线时长 + 检查更新
+	// （只检查不升级，为 #53-57 运维家族留 /ops/system/* 组）
+	g.GET("/system/runtime", opsHandler.SystemRuntime)
+	g.POST("/system/check-update", opsHandler.SystemCheckUpdate)
+
+	// 性能参数（OPEN-ISSUES #53）：生效值 + 运行时快照；逐键 L3 覆盖
+	g.GET("/performance", opsHandler.PerformanceGet)
+	g.PUT("/performance", opsHandler.PerformancePut)
+
+	// 日志维护（OPEN-ISSUES #54）：留痕保留期 L3 覆盖 + 按时间手动清理 +
+	// 服务器日志文件只读视图
+	g.GET("/logs", opsHandler.LogsGet)
+	g.PUT("/logs", opsHandler.LogsPut)
+	g.POST("/logs/cleanup", opsHandler.LogsCleanupPost)
+	// 第三方服务健康探针（OPEN-ISSUES #57）：webhook 四渠道/更新源/SMTP
+	g.POST("/probes/:channel", opsHandler.ThirdPartyProbe)
 	g.GET("/metrics", opsHandler.Metrics)
 	g.GET("/mq", opsHandler.MQ)
 	g.GET("/notifications", opsHandler.NotificationsGet)
@@ -1265,6 +1306,33 @@ func registerToolRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 	g.POST("/", toolHandler.Create)
 	g.PUT("/:id", toolHandler.Update)
 	g.DELETE("/:id", toolHandler.Delete)
+}
+
+// ============================================================================
+// CI/CD 接入（可插拔 provider：jenkins/gitlab-ci/github-actions/generic #58）
+// ============================================================================
+func registerCicdRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
+	cicdSvc := cicdapi.NewService(ctx)
+	// 出站调用走 secguard 守卫客户端（SSRF/端口/域过滤与既有 webhook 探针同口径）
+	cicdSvc = cicdSvc.WithHTTPClient(secguard.HTTPClient(secguard.Resolve(settings.Current()), nil))
+	cicdHandler := cicdapi.NewHandler(cicdSvc)
+	g.GET("/integrations", cicdHandler.List)
+	g.POST("/integrations", cicdHandler.Create)
+	g.PUT("/integrations/:id", cicdHandler.Update)
+	g.DELETE("/integrations/:id", cicdHandler.Delete)
+	g.POST("/integrations/:id/test", cicdHandler.Test)
+	g.POST("/integrations/:id/trigger", cicdHandler.Trigger)
+	g.GET("/builds", cicdHandler.Builds)
+	g.POST("/builds/:id/refresh", cicdHandler.RefreshBuild)
+}
+
+// registerCicdWebhookRoute 挂公开构建状态回写端点（外部 CI 服务器无法携带
+// JWT；鉴权 = integration.Token 的 X-CICD-Token 精确匹配，未配 Token 的
+// 接入为开放端点——诚实边界）。
+func registerCicdWebhookRoute(g *gin.RouterGroup, ctx *svc.ServiceContext) {
+	cicdSvc := cicdapi.NewService(ctx)
+	cicdHandler := cicdapi.NewHandler(cicdSvc)
+	g.POST("/cicd/webhooks/:id", cicdHandler.Webhook)
 }
 
 // ============================================================================

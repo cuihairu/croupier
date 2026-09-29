@@ -370,6 +370,13 @@ export default [
         component: './Dev/Releases',
       },
       {
+        // 外部 CI/CD 接入（可插拔 provider）+ 打包记录（#58）
+        path: '/dev/cicd',
+        name: 'Cicd',
+        access: 'canDevRead',
+        component: './Dev/Cicd',
+      },
+      {
         // Excel 在线编辑器：游戏业务数值表（道具/活动/数值）的策划创作
         // 入口，编译为 ConfigVersion。
         path: '/dev/excel-config',
@@ -490,6 +497,12 @@ export default [
         name: 'login',
         path: '/user/login',
         component: './User/Login',
+      },
+      {
+        // 邮箱验证结果页（#51c 第二批）：验证邮件链接指向这里
+        name: 'verifyEmail',
+        path: '/user/verify-email',
+        component: './User/VerifyEmail',
       },
     ],
   },

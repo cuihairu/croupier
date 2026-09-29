@@ -52,6 +52,11 @@ canonical 路由形态如下（与 `internal/handler/routes.go registerExtension
 1. `GET /api/v1/extensions/catalog`
 2. `GET /api/v1/extensions/catalog/:id`
 3. `GET /api/v1/extensions/catalog/:id/releases`
+4. `POST /api/v1/extensions/catalog`（登记）
+5. `PUT /api/v1/extensions/catalog/:id`（更新/上下架）
+6. `DELETE /api/v1/extensions/catalog/:id`（移除）
+7. `POST /api/v1/extensions/catalog/:id/releases`（发布版本）
+8. `POST /api/v1/extensions/packs/import`（pack `.tgz` 导入自动登记）
 
 关键字段（`ExtensionCatalogItem`）：
 
@@ -64,9 +69,8 @@ detail 额外返回：`releases[]`、`manifest`（快照）、`capabilities[]`�
 releases 关键字段（`ExtensionReleaseItem`）：`version` / `releaseChannel`
 （`stable|beta|experimental`）/ `minCoreVersion` / `publishedAt` / `changelog`。
 
-> **已知缺口（V2 批次）**：catalog/release 目前**只读**——repo 层无写方法、
-> 无 admin CRUD、无 pack 导入登记。目录行如何产生是安装模型收口的最大缺口，
-> 批次链见 §7。
+> 写路径（admin CRUD + pack 导入）已随 §7 批次 3/6 落地；catalog/release
+> 读端点形态不变。
 
 ### 3.2 Installation
 
@@ -92,8 +96,8 @@ releases 关键字段（`ExtensionReleaseItem`）：`version` / `releaseChannel`
 - `healthStatus`（**V1 恒 `unknown`**：无健康探测落库，`extension_health` 表按
   简化决策不建，见安装模型文档；health-check 端点的**响应**才是推导值——
   enabled→healthy、否则 disabled、卸载→uninstalled）
-- `displayName`（V1 实为 `extensionId` 原值：列表组装未 join catalog，列为批次
-  链待修项）
+- `displayName`（列表组装批量 join catalog：`displayName` → `name` →
+  `extensionId` 兜底；✅ #46 批次 2 已落地）
 - `lastError` / `updatedAt`
 
 detail 额外返回：`installation`、`configSchema`、`config`、`secretRefs`、
@@ -193,11 +197,48 @@ pages 返回 `{pages[]}`（**不是 `items[]`**），页面项（`ExtensionPageI
    已知边界：Extensions 四页面（Store/Installations/AgentSync/DomainEntry）
    此前零测试文件，本批仅 API 层 `extensions.test.ts` 回归（16 用例），页面级
    真实渲染用例归批次 4。
-2. **列表组装修正**：`displayName` join catalog 真名；`healthStatus` 从
-   status/enabled 推导（或引 runtime binding 状态），替换恒 `unknown`。
-3. **catalog 写路径批次（V2 主缺口）**：admin catalog/release CRUD（登记/
-   上下架/发布版本）+ 官方扩展 seed（`official.notification/alerting/approval/
-backup-advanced`，对齐 `official-extension-unified-pattern.md`）；pack
-   （`.tgz`，protoc-gen-croupier 产物）导入自动登记列为后续。
-4. **DomainEntry 恢复实测**：批次 1 后页面入口区块真实渲染 binding/manifest
-   pages，补真实渲染用例（替换恒 Empty 的现状）。
+2. ✅ **列表组装修正（2026-09-29 已落地）**：`displayName` 批量 join catalog
+   真名（`CatalogRepo.GetByExtensionIDs` 单查避免 N+1，displayName → name →
+   extensionId 兜底；查表失败静默回退不阻塞列表）；`healthStatus` 从
+   status/enabled 推导（`deriveExtensionHealthStatus`，与 HealthCheck 同语义：
+   status/desired_state uninstalled → uninstalled、enabled → healthy、否则
+   disabled），替换恒 `unknown`；detail 响应同步。引 runtime binding 状态的
+   深探测仍不承诺（无健康探测落库，见安装模型文档）。
+3. ✅ **catalog 写路径批次（2026-09-29 已落地）**：admin catalog/release
+   CRUD——`POST /extensions/catalog`（登记，name/displayName/vendor/kind
+   兜底链，extensionId 形态校验，重复 409）、`PUT /extensions/catalog/:id`
+   （非空覆盖 + status 上下架 active|delisted 闭集）、`DELETE
+/extensions/catalog/:id`（活跃安装实例阻止 → 409；卸载后物理删除并级联
+   清 releases，物理删避免软删行占用 extension_id 唯一索引）、`POST
+/extensions/catalog/:id/releases`（发布版本，semver 校验、渠道
+   stable/beta/alpha 闭集、manifest 必须对象、(extension,version) 应用层查重
+   409、latestVersion 仅在新版本 semver 更高时回填）；官方扩展 seed 补齐
+   `official.notification/alerting/approval/backup-advanced`（对齐统一模式：
+   manifest 声明三层权限键/pages.requiredPermission/configSchema 属性
+   type+description，仓库守卫测试防漂移；official.external-platform 为先于
+   模式的连接器条目不回溯改造）。pack（`.tgz`，protoc-gen-croupier 产物）
+   导入自动登记列为后续。已知边界：Store 页管理动作（登记/上下架/发布 UI）
+   未接线，本批仅 API 面；catalog 写操作无独立审计事件（经 HTTP 层通用审计
+   链，catalog 表无 createdBy 列）。
+4. ✅ **DomainEntry 恢复实测（2026-09-29 已落地）**：页面级真实渲染用例 3 例
+   （`web/src/pages/Extensions/DomainEntry/__tests__/`）——有安装实例时
+   installations→pages 两跳拉取并渲染入口卡（title+route，断言 pages 端点以
+   安装实例 ID 调用）；无安装实例时 Empty 引导且不调 pages 端点；拉取失败时
+   message.error 提示（批次 1 前被静默吞掉的路径现在有回归防护）且页面不崩。
+5. ✅ **Store 页管理动作 UI（2026-09-29 已落地）**：批次 3 四端点的页面接线——
+   工具栏「登记扩展」+ 行「更多」菜单（下架/上架/发布版本/删除），双受控弹窗
+   （登记表单 extensionId 形态校验、发布表单 semver + manifest JSON 对象
+   预检）；409 三分支（登记重复/活跃安装阻止删除/版本重复）本地化文案。
+6. ✅ **pack（.tgz）导入自动登记（2026-09-29 已落地）**：`POST
+/api/v1/extensions/packs/import`（multipart，`file` 字段，写权限 +
+   64MiB 上限）——服务端解包取 `manifest.json`（包根或单层顶层目录，多层取
+   最浅；字段与手填写路径同语义：extensionId/version/manifest 必填，渠道
+   stable/beta/alpha 默认 stable）→ sha256 服务端计算 → 工件写入对象存储
+   `extension-packs/<extensionId>/<version>.tgz` → catalog 登记或复用
+   （已登记扩展再导入只补版本，`catalogCreated=false`）→ release 发布
+   （版本查重 409，latestVersion 仅更高 semver 回填，与手填发布同规则）。
+   Store 页「导入扩展包」Upload 按钮接线（成功提示带版本号，409 出冲突文案）。
+   已知边界：包内其余文件（descriptors/schemas）不解析，仅随工件整体存储；
+   manifest 业务闭集校验以后端为准；导入复用既有登记时不改登记元数据
+   （改 displayName 等须走 PUT /catalog/:id）。
+   批次链至此全部收口（Store UI 批次 5 详见 OPEN-ISSUES #46）。

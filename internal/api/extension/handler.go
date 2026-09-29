@@ -48,6 +48,72 @@ func (h *Handler) CatalogReleases(c *gin.Context) {
 	response.Success(c, resp)
 }
 
+func (h *Handler) CatalogCreate(c *gin.Context) {
+	var req ExtensionCatalogCreateRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, err)
+		return
+	}
+	resp, err := h.service.CatalogCreate(c.Request.Context(), req, h.operator(c))
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
+	response.Success(c, resp)
+}
+
+func (h *Handler) CatalogUpdate(c *gin.Context) {
+	var req ExtensionCatalogUpdateRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, err)
+		return
+	}
+	resp, err := h.service.CatalogUpdate(c.Request.Context(), c.Param("id"), req)
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
+	response.Success(c, resp)
+}
+
+func (h *Handler) CatalogDelete(c *gin.Context) {
+	if err := h.service.CatalogDelete(c.Request.Context(), c.Param("id")); err != nil {
+		response.Error(c, err)
+		return
+	}
+	response.Success(c, gin.H{"deleted": true})
+}
+
+func (h *Handler) CatalogReleasePublish(c *gin.Context) {
+	var req ExtensionReleasePublishRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, err)
+		return
+	}
+	resp, err := h.service.CatalogReleasePublish(c.Request.Context(), c.Param("id"), req, h.operator(c))
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
+	response.Success(c, resp)
+}
+
+// PackImport handles POST /extensions/packs/import (multipart .tgz).
+func (h *Handler) PackImport(c *gin.Context) {
+	file, header, err := c.Request.FormFile("file")
+	if err != nil {
+		response.Error(c, errorx.NewBadRequest("缺少 file 字段"))
+		return
+	}
+	defer func() { _ = file.Close() }()
+	resp, err := h.service.PackImport(c.Request.Context(), file, header.Size, h.operator(c))
+	if err != nil {
+		response.Error(c, err)
+		return
+	}
+	response.Success(c, resp)
+}
+
 func (h *Handler) Install(c *gin.Context) {
 	var req ExtensionInstallRequest
 	if err := c.ShouldBindJSON(&req); err != nil {

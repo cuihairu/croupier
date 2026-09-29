@@ -118,6 +118,7 @@ func MetaModels() []interface{} {
 	return []interface{}{
 		&Admin{},
 		&AdminOTPRecoveryCode{},
+		&EmailVerification{},
 		&Role{},
 		&Permission{},
 		&AdminRole{},
@@ -202,6 +203,8 @@ func GameModels() []interface{} {
 		&Bug{},
 		&BugTicketLink{},
 		&ToolLink{},
+		&CicdIntegration{},
+		&CicdBuild{},
 		&GameRelease{},
 		&Hotpatch{},
 		&DBSource{},

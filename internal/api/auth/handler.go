@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/url"
 
+	"github.com/cuihairu/croupier/internal/common/errorx"
 	"github.com/cuihairu/croupier/internal/common/response"
 	"github.com/gin-gonic/gin"
 )
@@ -31,9 +32,10 @@ func (h *Handler) Login(c *gin.Context) {
 
 	resp, err := h.service.Login(c.Request.Context(), &req)
 	if err != nil {
-		if errors.Is(err, ErrMFARequired) {
-			// CodeError → 401 + error=mfa_required（前端按稳定码分支
-			// 展示二次验证码输入）；其余凭据错误保持 401 语义。
+		if errors.Is(err, ErrMFARequired) || errors.Is(err, ErrEmailNotVerified) {
+			// CodeError → 401+mfa_required / 403+email_not_verified（前端按
+			// 稳定码分支展示二次验证码输入或重发验证邮件入口）；其余凭据
+			// 错误保持 401 语义。
 			response.Error(c, err)
 			return
 		}
@@ -75,10 +77,68 @@ func (h *Handler) Check(c *gin.Context) {
 // Providers 返回已启用的登录方式，供登录页渲染入口。
 func (h *Handler) Providers(c *gin.Context) {
 	response.Success(c, gin.H{
-		"local": true,
-		"ldap":  h.service.LDAPEnabled(),
-		"oidc":  h.service.OIDCEnabled(),
+		"local":        h.service.LocalEnabled(),
+		"ldap":         h.service.LDAPEnabled(),
+		"oidc":         h.service.OIDCEnabled(),
+		"github":       h.service.GitHubEnabled(),
+		"wechat":       h.service.WeChatEnabled(),
+		"genericoauth": h.service.GenericOAuthEnabled(),
+		"register":     h.service.RegisterEnabled(),
 	})
+}
+
+// Register 自助注册（POST /api/v1/auth/register，匿名；开关默认关闭——
+// 关闭时 403 registration_disabled，前端不渲染注册入口）。
+func (h *Handler) Register(c *gin.Context) {
+	var req RegisterRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, "参数错误: "+err.Error())
+		return
+	}
+	req.ClientIP = c.ClientIP()
+	req.UserAgent = c.GetHeader("User-Agent")
+
+	admin, err := h.service.Register(c.Request.Context(), &req)
+	if err != nil {
+		if h.service.RegisterEnabled() {
+			// 开关已开：业务校验失败（用户名形态/重复/弱密码）
+			response.BadRequest(c, err.Error())
+			return
+		}
+		response.Error(c, &errorx.CodeError{Code: http.StatusForbidden, Message: err.Error(), StableCode: "registration_disabled"})
+		return
+	}
+	response.Success(c, gin.H{"username": admin.Username, "nickname": admin.Nickname})
+}
+
+// VerifyEmail serves GET /api/v1/auth/verify-email?token=...（匿名，令牌即
+// 凭据）。校验通过落 admins.email_verified=true；无效/过期/已用统一 400
+// 同文案（不区分原因，防令牌有效性探测）。
+func (h *Handler) VerifyEmail(c *gin.Context) {
+	if err := h.service.VerifyEmailToken(c.Request.Context(), c.Query("token")); err != nil {
+		response.Error(c, err)
+		return
+	}
+	response.Success(c, gin.H{"verified": true})
+}
+
+// ResendVerification serves POST /api/v1/auth/resend-verification（匿名）。
+// 防枚举：用户名+邮箱不匹配/已验证/频控内一律 200 {resent:false}，仅真实
+// 匹配且未验证时发信返回 {resent:true}。
+func (h *Handler) ResendVerification(c *gin.Context) {
+	var req struct {
+		Username string `json:"username"`
+		Email    string `json:"email"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, "参数错误: "+err.Error())
+		return
+	}
+	if err := h.service.ResendVerification(c.Request.Context(), req.Username, req.Email); err != nil {
+		response.Error(c, err)
+		return
+	}
+	response.Success(c, gin.H{"resent": true})
 }
 
 // mfaUsername 从认证上下文取当前用户；未登录返回空串并由调用方 401。
@@ -170,16 +230,87 @@ func (h *Handler) OIDCLogin(c *gin.Context) {
 // OIDCCallback 处理身份源回调：换取身份并签发平台 token。
 // 配置了 loginSuccessUrl 时携带 token 跳转前端；否则返回 JSON。
 func (h *Handler) OIDCCallback(c *gin.Context) {
+	h.oauthCallback(c,
+		func(code, state string, req *LoginRequest) (*LoginResponse, error) {
+			return h.service.OIDCLoginCallback(c.Request.Context(), code, state, req)
+		},
+		h.service.OIDCSuccessURL)
+}
+
+// GitHubLogin 生成跳转到 GitHub 的授权 URL 并 302 重定向。
+func (h *Handler) GitHubLogin(c *gin.Context) {
+	u, err := h.service.GitHubAuthCodeURL()
+	if err != nil {
+		response.BadRequest(c, err.Error())
+		return
+	}
+	c.Redirect(http.StatusFound, u)
+}
+
+// GitHubCallback 处理 GitHub OAuth2 回调（成功跳转语义同 OIDC）。
+func (h *Handler) GitHubCallback(c *gin.Context) {
+	h.oauthCallback(c,
+		func(code, state string, req *LoginRequest) (*LoginResponse, error) {
+			return h.service.GitHubLoginCallback(c.Request.Context(), code, state, req)
+		},
+		h.service.GitHubSuccessURL)
+}
+
+// WeChatLogin 生成微信扫码登录页地址并 302 重定向（#51 第三批）。
+func (h *Handler) WeChatLogin(c *gin.Context) {
+	u, err := h.service.WeChatAuthCodeURL()
+	if err != nil {
+		response.BadRequest(c, err.Error())
+		return
+	}
+	c.Redirect(http.StatusFound, u)
+}
+
+// WeChatCallback 处理微信扫码回调（成功跳转语义同 OIDC/GitHub）。
+func (h *Handler) WeChatCallback(c *gin.Context) {
+	h.oauthCallback(c,
+		func(code, state string, req *LoginRequest) (*LoginResponse, error) {
+			return h.service.WeChatLoginCallback(c.Request.Context(), code, state, req)
+		},
+		h.service.WeChatSuccessURL)
+}
+
+// GenericOAuthLogin 生成自定义 OAuth 授权 URL 并 302 重定向（#51 第三批）。
+func (h *Handler) GenericOAuthLogin(c *gin.Context) {
+	u, err := h.service.GenericOAuthAuthCodeURL()
+	if err != nil {
+		response.BadRequest(c, err.Error())
+		return
+	}
+	c.Redirect(http.StatusFound, u)
+}
+
+// GenericOAuthCallback 处理自定义 OAuth 回调（成功跳转语义同 OIDC/GitHub）。
+func (h *Handler) GenericOAuthCallback(c *gin.Context) {
+	h.oauthCallback(c,
+		func(code, state string, req *LoginRequest) (*LoginResponse, error) {
+			return h.service.GenericOAuthLoginCallback(c.Request.Context(), code, state, req)
+		},
+		h.service.GenericOAuthSuccessURL)
+}
+
+// oauthCallback 是重定向授权型回调 handler 的公共出口：成功且配置了
+// loginSuccessUrl 时携带 token 302 跳前端，否则返回 JSON（OIDC/GitHub/
+// WeChat/自定义 OAuth 四路同构）。
+func (h *Handler) oauthCallback(c *gin.Context,
+	callback func(code, state string, req *LoginRequest) (*LoginResponse, error),
+	successURL func() string,
+) {
 	req := &LoginRequest{
 		ClientIP:  c.ClientIP(),
 		UserAgent: c.GetHeader("User-Agent"),
 	}
-	resp, err := h.service.OIDCLoginCallback(c.Request.Context(), c.Query("code"), c.Query("state"), req)
+	resp, err := callback(c.Query("code"), c.Query("state"), req)
 	if err != nil {
 		response.Unauthorized(c, err.Error())
 		return
 	}
-	if target := h.service.OIDCSuccessURL(); target != "" {
+	if target := successURL(); target != "" {
 		u, parseErr := url.Parse(target)
 		if parseErr != nil {
 			response.InternalServerError(c, "loginSuccessUrl 配置无效")

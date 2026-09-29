@@ -693,6 +693,17 @@ func (h *Handler) MaintenanceUpdate(c *gin.Context) {
 	h.OpsMaintenanceUpdate(c)
 }
 
+// SystemRuntime serves GET /api/v1/ops/system/runtime（系统维护 #52）。
+func (h *Handler) SystemRuntime(c *gin.Context) {
+	response.Success(c, h.service.SystemRuntime(c.Request.Context()))
+}
+
+// SystemCheckUpdate serves POST /api/v1/ops/system/check-update（只检查
+// 不升级，结果带版本注记）。
+func (h *Handler) SystemCheckUpdate(c *gin.Context) {
+	response.Success(c, h.service.SystemCheckUpdate(c.Request.Context()))
+}
+
 func (h *Handler) Metrics(c *gin.Context) {
 	h.OpsMetrics(c)
 }

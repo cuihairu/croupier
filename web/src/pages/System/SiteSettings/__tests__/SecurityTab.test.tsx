@@ -22,6 +22,7 @@ configure({ asyncUtilTimeout: 5000 });
 
 jest.mock('@/services/api/sites', () => ({
   fetchSecuritySettings: jest.fn(),
+  fetchOutboundSettings: jest.fn(),
   setSiteSetting: jest.fn(),
   clearSiteSetting: jest.fn(),
 }));
@@ -33,9 +34,15 @@ jest.mock('@umijs/max', () => ({
   }),
 }));
 
-import { clearSiteSetting, fetchSecuritySettings, setSiteSetting } from '@/services/api/sites';
+import {
+  clearSiteSetting,
+  fetchOutboundSettings,
+  fetchSecuritySettings,
+  setSiteSetting,
+} from '@/services/api/sites';
 
 const mFetch = fetchSecuritySettings as jest.MockedFunction<typeof fetchSecuritySettings>;
+const mFetchOutbound = fetchOutboundSettings as jest.MockedFunction<typeof fetchOutboundSettings>;
 const mSet = setSiteSetting as jest.MockedFunction<typeof setSiteSetting>;
 const mClear = clearSiteSetting as jest.MockedFunction<typeof clearSiteSetting>;
 
@@ -64,9 +71,22 @@ function saveButtonOf(control: HTMLElement): HTMLElement {
   return within(row as HTMLElement).getByRole('button', { name: '保存' });
 }
 
+/** 按卡标题取卡片根节点（#56 起双卡并存：账号安全策略 + 出站安全与限制，查询须按卡收窄） */
+function cardOf(title: string): HTMLElement {
+  const heading = screen.getByText(title);
+  return heading.closest('.ant-card') as HTMLElement;
+}
+
 beforeEach(() => {
   jest.clearAllMocks();
   mFetch.mockResolvedValue({ ...baseSettings });
+  mFetchOutbound.mockResolvedValue({
+    allowPorts: '',
+    allowIPs: '',
+    domainFilter: '',
+    ssrfProtection: false,
+    sources: {},
+  });
   mSet.mockResolvedValue(undefined);
   mClear.mockResolvedValue(undefined);
 });
@@ -83,7 +103,7 @@ describe('SecurityTab 加载', () => {
     renderTab();
 
     expect(await screen.findByText('强制二次验证 (TOTP)')).toBeInTheDocument();
-    const [mfa, upper, special] = screen.getAllByRole('switch');
+    const [mfa, upper, special] = within(cardOf('账号安全策略')).getAllByRole('switch');
     expect(mfa).toBeChecked();
     expect(upper).toBeChecked();
     expect(special).not.toBeChecked();
@@ -97,9 +117,11 @@ describe('SecurityTab 加载', () => {
     renderTab();
 
     await screen.findByText('强制二次验证 (TOTP)');
-    screen.getAllByRole('switch').forEach((sw) => expect(sw).not.toBeChecked());
+    within(cardOf('账号安全策略'))
+      .getAllByRole('switch')
+      .forEach((sw) => expect(sw).not.toBeChecked());
     screen.getAllByRole('spinbutton').forEach((num) => expect(num).toHaveValue('0'));
-    expect(screen.getByText(/全部默认关闭/)).toBeInTheDocument();
+    expect(within(cardOf('账号安全策略')).getByText(/全部默认关闭/)).toBeInTheDocument();
   });
 
   it('加载失败：错误提示走 extractErrorMessage 兜底文案，表单落默认关闭态', async () => {
@@ -108,14 +130,16 @@ describe('SecurityTab 加载', () => {
 
     expect(await screen.findByText('加载账号安全策略失败')).toBeInTheDocument();
     // 表单仍渲染（Card 只在 loading 期出骨架），字段未回填 = 默认全关
-    screen.getAllByRole('switch').forEach((sw) => expect(sw).not.toBeChecked());
+    within(cardOf('账号安全策略'))
+      .getAllByRole('switch')
+      .forEach((sw) => expect(sw).not.toBeChecked());
   });
 });
 
 describe('SecurityTab 保存（saveKey）', () => {
   it('开关开启：setSiteSetting(key, true) + 「已保存」+ 重拉', async () => {
     renderTab();
-    const mfa = (await screen.findAllByRole('switch'))[0];
+    const mfa = (await within(cardOf('账号安全策略')).findAllByRole('switch'))[0];
     fireEvent.click(mfa);
     fireEvent.click(saveButtonOf(mfa));
 
@@ -128,7 +152,7 @@ describe('SecurityTab 保存（saveKey）', () => {
   it('开关关闭：false 走 clearSiteSetting 回默认', async () => {
     mFetch.mockResolvedValue({ ...baseSettings, mfaRequired: true });
     renderTab();
-    const mfa = (await screen.findAllByRole('switch'))[0];
+    const mfa = (await within(cardOf('账号安全策略')).findAllByRole('switch'))[0];
     expect(mfa).toBeChecked();
     fireEvent.click(mfa); // → false
     fireEvent.click(saveButtonOf(mfa));
@@ -165,7 +189,7 @@ describe('SecurityTab 保存（saveKey）', () => {
   it('保存失败：错误提示透出后端 message、不重拉、按钮退出 loading', async () => {
     mSet.mockRejectedValue(new Error('policy key readonly'));
     renderTab();
-    const mfa = (await screen.findAllByRole('switch'))[0];
+    const mfa = (await within(cardOf('账号安全策略')).findAllByRole('switch'))[0];
     fireEvent.click(mfa);
     fireEvent.click(saveButtonOf(mfa));
 
@@ -177,7 +201,7 @@ describe('SecurityTab 保存（saveKey）', () => {
   it('保存失败（无可提取信息）：「保存失败」兜底文案', async () => {
     mSet.mockRejectedValue(undefined);
     renderTab();
-    const mfa = (await screen.findAllByRole('switch'))[0];
+    const mfa = (await within(cardOf('账号安全策略')).findAllByRole('switch'))[0];
     fireEvent.click(mfa);
     fireEvent.click(saveButtonOf(mfa));
 

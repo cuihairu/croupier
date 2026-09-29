@@ -51,11 +51,13 @@ overrides:
   node-fetch@>=2.0.0 <2.6.1: '>=2.6.1'
   path-to-regexp@<0.1.10: '>=0.1.10'
   path-to-regexp@<0.1.12: '>=0.1.12'
-  path-to-regexp@>=0.2.0 <1.9.0: '>=1.9.0'
   path-to-regexp@>=8.0.0 <8.4.0: '>=8.4.0'
-  # Fix Umi mock system: force path-to-regexp to 1.x for @umijs/preset-umi
-  # (1.9.0 fixes the ReDoS reported for >=0.2.0 <1.9.0)
-  path-to-regexp: '1.9.0'
+  # Fix Umi mock system: pin ONLY the 1.x line for @umijs/preset-umi (its
+  # range is bare 1.7.0; 1.9.0 keeps the ReDoS fix). A previous bare-key
+  # `path-to-regexp: 1.9.0` also dragged @ant-design/pro-layout's
+  # path-to-regexp@8.x down to 1.9.0, which has no `match` export and
+  # crashed ProLayout menu matching on every route (regression fixed here).
+  path-to-regexp@>=1.0.0 <1.9.0: '1.9.0'
   postcss@<8.4.31: '>=8.4.31'
   qs@<6.14.1: '>=6.14.1'
   qs@>=6.7.0 <6.7.3: '>=6.7.3'

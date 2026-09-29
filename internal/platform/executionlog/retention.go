@@ -16,6 +16,10 @@ type RetentionConfig struct {
 	ExecutionLogDays int
 	TaskLogDays      int
 	Interval         time.Duration
+	// ResolveDays 可选的动态保留期来源（L3 log.retentionDays 覆盖，OPEN-ISSUES
+	// #54）：每轮 Sweep 前调用一次，返回 (executionLogDays, taskLogDays)；
+	// 返回值 >0 时覆盖静态字段，<=0 时沿用静态字段。nil 时仅用静态配置。
+	ResolveDays func() (execDays, taskDays int)
 	// Router 为 multiGame 模式的 per-game 库路由；nil 时仅清理 meta 库
 	// （单库模式）。多游戏模式下 execution_logs/task_runs 分散在各 game 库，
 	// 需逐库清理。
@@ -63,12 +67,29 @@ func (r *Retention) Run(ctx context.Context) {
 	}()
 }
 
+// effectiveDays 每轮清理前的保留期合成：ResolveDays（L3 覆盖）>0 时压过静态配置。
+func (r *Retention) effectiveDays() (execDays, taskDays int) {
+	execDays, taskDays = r.cfg.ExecutionLogDays, r.cfg.TaskLogDays
+	if r.cfg.ResolveDays == nil {
+		return execDays, taskDays
+	}
+	d1, d2 := r.cfg.ResolveDays()
+	if d1 > 0 {
+		execDays = d1
+	}
+	if d2 > 0 {
+		taskDays = d2
+	}
+	return execDays, taskDays
+}
+
 // Sweep 执行单轮清理，返回摘要。
 func (r *Retention) Sweep(ctx context.Context) RetentionSummary {
 	var summary RetentionSummary
 	now := time.Now().UTC()
-	if r.cfg.ExecutionLogDays > 0 {
-		cutoff := now.AddDate(0, 0, -r.cfg.ExecutionLogDays)
+	execDays, taskDays := r.effectiveDays()
+	if execDays > 0 {
+		cutoff := now.AddDate(0, 0, -execDays)
 		deleted, err := r.sweepExecutionLogs(ctx, cutoff)
 		if err != nil {
 			slog.WarnContext(ctx, "execution_logs retention sweep failed", "error", err)
@@ -76,8 +97,8 @@ func (r *Retention) Sweep(ctx context.Context) RetentionSummary {
 		summary.ExecutionLogsDeleted = deleted
 		summary.ExecutionLogCutoff = cutoff
 	}
-	if r.cfg.TaskLogDays > 0 {
-		cutoff := now.AddDate(0, 0, -r.cfg.TaskLogDays)
+	if taskDays > 0 {
+		cutoff := now.AddDate(0, 0, -taskDays)
 		runDeleted, eventDeleted, err := r.sweepTaskLogs(ctx, cutoff)
 		if err != nil {
 			slog.WarnContext(ctx, "task log retention sweep failed", "error", err)
@@ -87,6 +108,32 @@ func (r *Retention) Sweep(ctx context.Context) RetentionSummary {
 		summary.TaskLogCutoff = cutoff
 	}
 	return summary
+}
+
+// PurgeBefore 手动清理（OPEN-ISSUES #54）：按任意 cutoff 清理留痕表，
+// scope 取 "execution"（仅 execution_logs）/"task"（task_runs+task_events）/
+// "all"。multiGame 逐 game 库 fanout 与 Sweep 同路径；audit_records 不参与。
+func (r *Retention) PurgeBefore(ctx context.Context, cutoff time.Time, scope string) (RetentionSummary, error) {
+	var summary RetentionSummary
+	if scope == "execution" || scope == "all" {
+		deleted, err := r.sweepExecutionLogs(ctx, cutoff)
+		if err != nil {
+			return summary, err
+		}
+		summary.ExecutionLogsDeleted = deleted
+		summary.ExecutionLogCutoff = cutoff
+	}
+	if scope == "task" || scope == "all" {
+		runDeleted, eventDeleted, err := r.sweepTaskLogs(ctx, cutoff)
+		if err != nil {
+			summary.TaskRunsDeleted = runDeleted
+			return summary, err
+		}
+		summary.TaskRunsDeleted = runDeleted
+		summary.TaskEventsDeleted = eventDeleted
+		summary.TaskLogCutoff = cutoff
+	}
+	return summary, nil
 }
 
 // sweepExecutionLogs 清理 execution_logs：单库清 meta；multiGame 清全部

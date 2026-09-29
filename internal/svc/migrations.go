@@ -93,6 +93,12 @@ import (
 //   0036 (Go)   announcement_games 表（公告↔游戏多对多绑定 #45：一公告可
 //               绑定多游戏、未绑定=全服可见；新表无存量数据，0019/0035
 //               同模式）
+//   0037 (Go)   email_verifications 表（注册邮箱验证令牌 #51c 第二批：只存
+//               SHA-256 哈希、一次性 used_at、重发即作废）+ admins 逐列补
+//               email_verified（0033 密码策略列同模式）
+//   0038 (Go)   cicd_integrations + cicd_builds 表（CI/CD 可插拔 provider
+//               接入 #58：外部构建系统注册 + 构建记录；game-scoped，单库/
+//               多游戏两 scope 都补齐；0020 execution_logs 同模式）
 
 func init() {
 	registerSvcMigrations()
@@ -139,6 +145,8 @@ func registerSvcMigrations() {
 		providerMetadataTableMigration(),
 		bugTicketLinkMigration(),
 		announcementGamesTableMigration(),
+		emailVerificationMigration(),
+		cicdTablesMigration(),
 	); err != nil {
 		panic(fmt.Sprintf("svc: register goose go migrations: %v", err))
 	}
@@ -834,6 +842,42 @@ func migrateAnnouncementGamesTable(ctx context.Context, sqlDB *sql.DB) error {
 	return nil
 }
 
+// emailVerificationMigration 为 0037：建 email_verifications 表（注册邮箱
+// 验证令牌，#51c 第二批）+ admins 逐列补 email_verified。新表无存量数据
+// （HasTable 后 CreateTable，0032/0035/0036 同模式）；改既有表走
+// HasColumn+AddColumn 逐列补齐（0033 密码策略列同模式；不整模型
+// AutoMigrate——存量约束名漂移 panic，0023 教训）。
+func emailVerificationMigration() *goose.Migration {
+	return goose.NewGoMigration(37,
+		&goose.GoFunc{RunDB: migrateEmailVerification},
+		nil,
+	)
+}
+
+// migrateEmailVerification 是 0037 的迁移体（抽出便于直测）。
+func migrateEmailVerification(ctx context.Context, sqlDB *sql.DB) error {
+	db, err := wrapGorm(sqlDB)
+	if err != nil {
+		return err
+	}
+	migrator := db.Migrator()
+	if !migrator.HasTable(&model.EmailVerification{}) {
+		if err := migrator.CreateTable(&model.EmailVerification{}); err != nil {
+			return fmt.Errorf("migrate: 0037 create email_verifications: %w", err)
+		}
+	}
+	if !migrator.HasTable(&model.Admin{}) {
+		return nil // game 库无 admins 表：缺表跳过，fanout 不报错
+	}
+	if migrator.HasColumn(&model.Admin{}, "EmailVerified") {
+		return nil
+	}
+	if err := migrator.AddColumn(&model.Admin{}, "EmailVerified"); err != nil {
+		return fmt.Errorf("migrate: 0037 add admins.email_verified: %w", err)
+	}
+	return nil
+}
+
 // contractRemovalPendingColumnMigration 为 0031：function_contracts 加
 // removal_pending_at 列 + 清扫候选过滤索引（摘除宽限——瞬态摘除不立即
 // 真删，过期清扫）。改既有表走 HasColumn+AddColumn 逐列补齐（0021/0025
@@ -1124,4 +1168,35 @@ func probeDialect(sqlDB *sql.DB) (string, error) {
 		return "mssql", nil
 	}
 	return "", fmt.Errorf("svc: probe dialect: unsupported database")
+}
+
+// cicdTablesMigration 为 0038：建 cicd_integrations + cicd_builds 表（CI/CD
+// 可插拔 provider 接入 #58）。两张均为新表（无存量约束名漂移问题），
+// HasTable 检查后 CreateTable，幂等；单库/多游戏两种模式都会在对应
+// scope 上执行本迁移（0020 execution_logs 同模式）。
+func cicdTablesMigration() *goose.Migration {
+	return goose.NewGoMigration(38,
+		&goose.GoFunc{RunDB: migrateCicdTables},
+		nil,
+	)
+}
+
+// migrateCicdTables 是 0038 的迁移体（抽出便于直测）。
+func migrateCicdTables(ctx context.Context, sqlDB *sql.DB) error {
+	db, err := wrapGorm(sqlDB)
+	if err != nil {
+		return err
+	}
+	migrator := db.Migrator()
+	if !migrator.HasTable(&model.CicdIntegration{}) {
+		if err := migrator.CreateTable(&model.CicdIntegration{}); err != nil {
+			return fmt.Errorf("migrate: 0038 create cicd_integrations: %w", err)
+		}
+	}
+	if !migrator.HasTable(&model.CicdBuild{}) {
+		if err := migrator.CreateTable(&model.CicdBuild{}); err != nil {
+			return fmt.Errorf("migrate: 0038 create cicd_builds: %w", err)
+		}
+	}
+	return nil
 }

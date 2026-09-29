@@ -601,3 +601,105 @@ func TestGoMigrations_ProviderMetadataCatchUp(t *testing.T) {
 		t.Fatalf("0033 rerun: %v", err)
 	}
 }
+
+// TestGoMigrations_EmailVerificationCatchUp 回归（#51c 第二批）：已过
+// baseline 的存量库（无 email_verifications 表、无 admins.email_verified
+// 列、已有 admin 行）经 0037 catch-up 建表补列，存量行保留——模型加表/
+// 加列不等于迁移完成（0023/0027 同族教训：本地全绿、线上 postgres 即断）。
+func TestGoMigrations_EmailVerificationCatchUp(t *testing.T) {
+	db := openMigrationTestDB(t)
+	ctx := context.Background()
+
+	if err := autoMigrate(db); err != nil {
+		t.Fatalf("autoMigrate: %v", err)
+	}
+	// 落一行存量 admin，再删列 + 删表模拟 0037 之前的形态。
+	if err := db.Exec(`INSERT INTO admins (username, nickname, email, password_hash, status, created_at, updated_at)
+		VALUES ('legacyadmin', 'Legacy', 'legacy@example.com', 'x', 1, datetime('now'), datetime('now'))`).Error; err != nil {
+		t.Fatalf("seed legacy admin: %v", err)
+	}
+	if err := db.Migrator().DropColumn(&model.Admin{}, "EmailVerified"); err != nil {
+		t.Fatalf("drop email_verified: %v", err)
+	}
+	if err := db.Migrator().DropTable(&model.EmailVerification{}); err != nil {
+		t.Fatalf("drop email_verifications: %v", err)
+	}
+	if _, err := migrate.EnsureUpToDate(ctx, db, migrate.ScopeSingle, func(db *gorm.DB) error {
+		return nil // baseline 已完成，禁止再跑 AutoMigrate
+	}); err != nil {
+		t.Fatalf("EnsureUpToDate: %v", err)
+	}
+	if !db.Migrator().HasTable(&model.EmailVerification{}) {
+		t.Fatal("email_verifications table not created by 0037")
+	}
+	if !db.Migrator().HasColumn(&model.Admin{}, "EmailVerified") {
+		t.Fatal("admins.email_verified not backfilled by 0037")
+	}
+	var count int64
+	if err := db.Raw("SELECT COUNT(*) FROM admins WHERE username = 'legacyadmin'").Scan(&count).Error; err != nil {
+		t.Fatalf("read legacy admin: %v", err)
+	}
+	if count != 1 {
+		t.Fatalf("legacy admin row lost: %d", count)
+	}
+	// 建出的 email_verifications 可正常写入（token_hash uniqueIndex 生效：
+	// 同哈希二次写入应被拒）。
+	if err := db.Exec(`INSERT INTO email_verifications (admin_id, token_hash, purpose, expires_at, created_at)
+		VALUES (1, 'deadbeef', 'register', datetime('now'), datetime('now'))`).Error; err != nil {
+		t.Fatalf("insert email_verifications: %v", err)
+	}
+	if err := db.Exec(`INSERT INTO email_verifications (admin_id, token_hash, purpose, expires_at, created_at)
+		VALUES (1, 'deadbeef', 'register', datetime('now'), datetime('now'))`).Error; err == nil {
+		t.Fatal("duplicate token_hash should violate unique index")
+	}
+}
+
+// TestGoMigrations_CicdTablesCatchUp 回归（#58 批 1）：已过 baseline 的
+// 存量库缺 cicd_integrations/cicd_builds 两表，0038 应幂等补建且唯一
+// 索引（同接入同 external_id、同 scope 同名接入）生效。
+func TestGoMigrations_CicdTablesCatchUp(t *testing.T) {
+	db := openMigrationTestDB(t)
+	ctx := context.Background()
+
+	if err := autoMigrate(db); err != nil {
+		t.Fatalf("autoMigrate: %v", err)
+	}
+	// 模拟存量形态：两表整体缺失
+	if err := db.Migrator().DropTable(&model.CicdBuild{}); err != nil {
+		t.Fatalf("drop cicd_builds: %v", err)
+	}
+	if err := db.Migrator().DropTable(&model.CicdIntegration{}); err != nil {
+		t.Fatalf("drop cicd_integrations: %v", err)
+	}
+	if _, err := migrate.EnsureUpToDate(ctx, db, migrate.ScopeSingle, func(db *gorm.DB) error {
+		return nil // baseline 已完成，禁止再跑 AutoMigrate
+	}); err != nil {
+		t.Fatalf("EnsureUpToDate: %v", err)
+	}
+	if !db.Migrator().HasTable(&model.CicdIntegration{}) {
+		t.Fatal("cicd_integrations table not created by 0038")
+	}
+	if !db.Migrator().HasTable(&model.CicdBuild{}) {
+		t.Fatal("cicd_builds table not created by 0038")
+	}
+	// cicd_integrations 可写入且 (game_id, env, name) 唯一索引生效
+	cols := `created_at, updated_at, game_id, env, kind, name, endpoint, token, enabled`
+	if err := db.Exec(`INSERT INTO cicd_integrations (` + cols + `)
+		VALUES (datetime('now'), datetime('now'), 'demo', 'prod', 'jenkins', 'main-ci', 'https://ci.example.com', 'tok', 1)`).Error; err != nil {
+		t.Fatalf("insert cicd_integrations: %v", err)
+	}
+	if err := db.Exec(`INSERT INTO cicd_integrations (` + cols + `)
+		VALUES (datetime('now'), datetime('now'), 'demo', 'prod', 'generic', 'main-ci', 'https://ci2.example.com', '', 1)`).Error; err == nil {
+		t.Fatal("duplicate (game, env, name) should violate unique index")
+	}
+	// cicd_builds 可写入且 (integration_id, external_id) 唯一索引生效
+	bcols := `created_at, updated_at, game_id, env, integration_id, external_id, kind, pipeline, status, triggered_by`
+	if err := db.Exec(`INSERT INTO cicd_builds (` + bcols + `)
+		VALUES (datetime('now'), datetime('now'), 'demo', 'prod', 1, 'main-ci#12', 'jenkins', 'pack', 'queued', 'api')`).Error; err != nil {
+		t.Fatalf("insert cicd_builds: %v", err)
+	}
+	if err := db.Exec(`INSERT INTO cicd_builds (` + bcols + `)
+		VALUES (datetime('now'), datetime('now'), 'demo', 'prod', 1, 'main-ci#12', 'jenkins', 'pack', 'success', 'webhook')`).Error; err == nil {
+		t.Fatal("duplicate (integration, external_id) should violate unique index")
+	}
+}

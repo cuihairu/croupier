@@ -11,6 +11,9 @@ import {
 import { extractErrorMessage } from '@/utils/errors';
 import AuthTab from './AuthTab';
 import FeatureFlagsTab from './FeatureFlagsTab';
+import LogsTab from './LogsTab';
+import MaintenanceTab from './MaintenanceTab';
+import PerformanceTab from './PerformanceTab';
 import ObservabilityTab from './ObservabilityTab';
 import NotificationTab from './NotificationTab';
 import SecurityTab from './SecurityTab';
@@ -452,6 +455,30 @@ export default function SiteSettingsPage() {
               defaultMessage: '观测集成',
             }),
             children: <ObservabilityTab />,
+          },
+          {
+            key: 'maintenance',
+            label: intl.formatMessage({
+              id: 'pages.systemSiteSettings.tab.maintenance',
+              defaultMessage: '运维',
+            }),
+            children: <MaintenanceTab />,
+          },
+          {
+            key: 'performance',
+            label: intl.formatMessage({
+              id: 'pages.systemSiteSettings.tab.performance',
+              defaultMessage: '性能',
+            }),
+            children: <PerformanceTab />,
+          },
+          {
+            key: 'logs',
+            label: intl.formatMessage({
+              id: 'pages.systemSiteSettings.tab.logs',
+              defaultMessage: '日志',
+            }),
+            children: <LogsTab />,
           },
         ]}
       />

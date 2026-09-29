@@ -50,6 +50,17 @@ export async function clearSiteSetting(key: string): Promise<void> {
   });
 }
 
+// ---- 发送测试邮件（#55 补欠 / #51c） ----
+
+// Admin: send a test email via current SMTP config (real send).
+export async function sendTestEmail(to: string): Promise<void> {
+  await request('/api/v1/site/notification/test-email', {
+    method: 'POST',
+    data: { to },
+    skipErrorHandler: true,
+  });
+}
+
 // ---- 功能开关（features.*，L3 运行时软开关） ----
 
 export type FeatureDomain = 'dev' | 'support' | 'analytics' | 'ops' | 'extensions';
@@ -98,6 +109,12 @@ export type NotificationSettings = {
   smtpFrom: string;
   smtpPasswordSet: boolean;
   smtpPasswordMasked?: string;
+  /** #55：""|none|ssl|starttls（空串 = 自动） */
+  smtpEncryption: string;
+  /** #55：plain|login（空串 = plain） */
+  smtpAuthType: string;
+  /** #55：跳过 TLS 证书校验（自签证书场景） */
+  smtpInsecureSkipVerify: boolean;
   dingtalkUrl: string;
   dingtalkSecretSet: boolean;
   dingtalkSecretMasked?: string;
@@ -136,6 +153,24 @@ export async function fetchSecuritySettings(): Promise<SecuritySettings> {
   });
 }
 
+// ---- 出站安全与限制（sec.*，默认全关 = 不限/不拦截） ----
+
+// Source: internal/platform/settings/layered.go OutboundSnapshot
+export type OutboundSettings = {
+  allowPorts: string;
+  allowIPs: string;
+  domainFilter: string;
+  ssrfProtection: boolean;
+  sources: Record<string, string>;
+};
+
+// Admin: effective outbound guard settings.
+export async function fetchOutboundSettings(): Promise<OutboundSettings> {
+  return request<OutboundSettings>('/api/v1/site/outbound', {
+    skipErrorHandler: true,
+  });
+}
+
 // ---- 登录方式（auth.*，外部身份源 LDAP/OIDC，Harbor 模式热配置） ----
 
 // Source: internal/platform/settings/layered.go AuthSnapshot
@@ -147,9 +182,34 @@ export type AuthProviderSnapshot = {
   sources: Record<string, string>;
 };
 
+export type LocalAuthSnapshot = {
+  enabled: boolean;
+  overridden: boolean;
+  source?: string;
+};
+
 export type AuthSnapshot = {
+  local: LocalAuthSnapshot;
+  github: AuthProviderSnapshot;
+  /** #51 第三批：微信扫码 + 自定义 OAuth2 */
+  wechat: AuthProviderSnapshot;
+  genericoauth: AuthProviderSnapshot;
   ldap: AuthProviderSnapshot;
   oidc: AuthProviderSnapshot;
+  register: AuthProviderSnapshot;
+  /** #51c 注册邮箱策略 */
+  email: EmailPolicySnapshot;
+};
+
+// Source: internal/platform/settings/layered.go EmailPolicySnapshot
+export type EmailPolicySnapshot = {
+  /** 注册邮箱域后缀白名单（逗号分隔；空 = 不限） */
+  domainWhitelist: string;
+  /** 拒绝 + 别名，local 去点归一查重 */
+  aliasRestriction: boolean;
+  /** #51c 第二批：注册后须邮箱验证才能登录 */
+  verificationRequired: boolean;
+  sources: Record<string, string>;
 };
 
 // Admin: 登录方式生效配置（凭据脱敏回显）。
@@ -174,6 +234,10 @@ export type LoginProviders = {
   local: boolean;
   ldap: boolean;
   oidc: boolean;
+  github: boolean;
+  wechat: boolean;
+  genericoauth: boolean;
+  register: boolean;
 };
 
 // Public: 登录页据此渲染 SSO 入口 / LDAP 提示。

@@ -79,6 +79,7 @@ export default {
 
   // 客服系统
   'menu.Dev': '研发',
+  'menu.Dev.Cicd': 'CI/CD 集成',
   'menu.Dev.DevTools': '工具箱',
   'menu.Dev.Hotpatches': '热更新',
   'menu.Dev.Releases': '版本发布',
