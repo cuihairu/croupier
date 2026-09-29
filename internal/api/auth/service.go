@@ -52,6 +52,9 @@ type Service struct {
 	otpRecoveryModel *model.AdminOTPRecoveryCodeModel
 	// recoveryDB 是 otpRecoveryModel 未注入时兜底建模型用的 DB（可为 nil）。
 	recoveryDB *gorm.DB
+	// verificationModel 持久化注册邮箱验证令牌（#51c 第二批，可为 nil：
+	// nil 时验证链路整体降级为不拦不发）。
+	verificationModel *model.EmailVerificationModel
 
 	// passwordProviders 是密码型身份提供方级联，按顺序尝试；
 	// 首个元素始终是本地 admins 表。
@@ -103,6 +106,13 @@ func (s *Service) WithOTPRecoveryModel(m *model.AdminOTPRecoveryCodeModel) *Serv
 // DB handle. Used by tests and by wiring paths that only have *gorm.DB.
 func (s *Service) WithRecoveryDB(db *gorm.DB) *Service {
 	s.recoveryDB = db
+	return s
+}
+
+// WithVerificationModel 注入邮箱验证令牌模型（#51c 第二批）。nil 时验证
+// 链路整体降级：不发信、登录不拦（开关语义仍由 settings 决定）。
+func (s *Service) WithVerificationModel(m *model.EmailVerificationModel) *Service {
+	s.verificationModel = m
 	return s
 }
 
@@ -319,6 +329,14 @@ func (s *Service) Login(ctx context.Context, req *LoginRequest) (*LoginResponse,
 	if err != nil {
 		s.recordLoginAudit(username, "auth.login_failed", "failed", req, "provision_failed", ident.Provider)
 		return nil, errors.New("登录失败")
+	}
+
+	// 邮箱验证门（#51c 第二批）：仅 local provider + 开关开启 + 账号填过
+	// 邮箱且未验证。密码通过后、MFA 之前——邮箱所有权是账号激活的前置，
+	// 二次验证是登录的第二因子，顺序先激活后验真。
+	if ident.Provider == identity.KindLocal && emailVerificationRequired() && emailVerificationBlocksLogin(admin) {
+		s.recordLoginAudit(username, "auth.login_blocked", "failed", req, "email_not_verified", ident.Provider)
+		return nil, ErrEmailNotVerified
 	}
 
 	// MFA 仅对 local provider 生效：LDAP/OIDC 的二次验证是 IdP 的职责
@@ -605,6 +623,10 @@ func (s *Service) Register(ctx context.Context, req *RegisterRequest) (*model.Ad
 		return nil, fmt.Errorf("用户名已存在")
 	}
 	email := strings.TrimSpace(req.Email)
+	if emailVerificationRequired() && email == "" {
+		// required 开启后邮箱从选填变必填：没有收件地址就没有可验证之物。
+		return nil, errorx.NewBadRequest("已开启注册邮箱验证，注册必须填写邮箱")
+	}
 	if email != "" {
 		if err := s.checkRegisterEmailPolicy(ctx, email); err != nil {
 			return nil, err
@@ -627,6 +649,9 @@ func (s *Service) Register(ctx context.Context, req *RegisterRequest) (*model.Ad
 		return nil, fmt.Errorf("注册失败：用户名可能已存在")
 	}
 	s.assignRegisterRoles(ctx, admin.ID)
+	// #51c 第二批：required 开启且填了邮箱 → 签发验证令牌并发信。失败仅
+	// 日志（令牌已落库，用户可走重发端点），不影响注册结果。
+	s.maybeSendVerificationOnRegister(ctx, admin)
 	s.recordLoginAudit(username, "auth.register", "success",
 		&LoginRequest{ClientIP: req.ClientIP, UserAgent: req.UserAgent}, "", "")
 	slog.Default().Info("self-registered admin account", "username", username)

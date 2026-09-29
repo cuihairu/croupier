@@ -123,8 +123,9 @@ const (
 	KeyAuthRegisterDefaultRoles = "auth.register.defaultRoles" // string (逗号分隔)
 
 	// 注册邮箱策略（OPEN-ISSUES #51c）
-	KeyAuthEmailDomainWhitelist  = "auth.email.domainWhitelist"  // string：注册邮箱域后缀白名单（空 = 不限）
-	KeyAuthEmailAliasRestriction = "auth.email.aliasRestriction" // bool：拒绝 + 别名，local 去点归一查重
+	KeyAuthEmailDomainWhitelist      = "auth.email.domainWhitelist"      // string：注册邮箱域后缀白名单（空 = 不限）
+	KeyAuthEmailAliasRestriction     = "auth.email.aliasRestriction"     // bool：拒绝 + 别名，local 去点归一查重
+	KeyAuthEmailVerificationRequired = "auth.email.verificationRequired" // bool：注册后须邮箱验证才能登录（#51c 第二批）
 
 	// 账号安全策略（L3 运行时配置，全部默认关闭——关闭即维持内置基线：
 	// 密码 8-128 位 + 弱密码表 + 至少 2/4 字符类；不限期；TOTP 自助不强制）
@@ -182,23 +183,24 @@ var ValidKeys = map[string]struct{}{
 	KeyAuthGitHubRedirectUrl: {}, KeyAuthGitHubDefaultRoles: {}, KeyAuthGitHubSuccessURL: {},
 	KeyAuthRegisterEnabled: {}, KeyAuthRegisterDefaultRoles: {},
 	KeyAuthEmailDomainWhitelist: {}, KeyAuthEmailAliasRestriction: {},
-	KeyPerfMaxCpuPct:       {},
-	KeyPerfMaxMemoryPct:    {},
-	KeyPerfMaxDiskPct:      {},
-	KeyPerfMaxConcurrent:   {},
-	KeyPerfMaxThreadCount:  {},
-	KeyPerfCacheSize:       {},
-	KeyLogRetentionDays:    {},
-	KeyLogCleanupCron:      {},
-	KeyLogCopierDir:        {},
-	KeyLogCopierKeep:       {},
-	KeySecAllowPorts:       {},
-	KeySecAllowIPs:         {},
-	KeySecDomainFilter:     {},
-	KeySecSSRFProtection:   {},
-	KeyNetRequestTimeoutMs: {},
-	KeyNetMaxRetries:       {},
-	KeyNetRetryBackoffMs:   {},
+	KeyAuthEmailVerificationRequired: {},
+	KeyPerfMaxCpuPct:                 {},
+	KeyPerfMaxMemoryPct:              {},
+	KeyPerfMaxDiskPct:                {},
+	KeyPerfMaxConcurrent:             {},
+	KeyPerfMaxThreadCount:            {},
+	KeyPerfCacheSize:                 {},
+	KeyLogRetentionDays:              {},
+	KeyLogCleanupCron:                {},
+	KeyLogCopierDir:                  {},
+	KeyLogCopierKeep:                 {},
+	KeySecAllowPorts:                 {},
+	KeySecAllowIPs:                   {},
+	KeySecDomainFilter:               {},
+	KeySecSSRFProtection:             {},
+	KeyNetRequestTimeoutMs:           {},
+	KeyNetMaxRetries:                 {},
+	KeyNetRetryBackoffMs:             {},
 
 	KeySecurityMFARequired: {}, KeySecurityPasswordMinLength: {},
 	KeySecurityPasswordRequireUpper: {}, KeySecurityPasswordRequireSpecial: {},
@@ -266,6 +268,7 @@ var boolKeys = map[string]struct{}{
 	KeySecurityPasswordRequireSpecial: {},
 	KeySecSSRFProtection:              {},
 	KeyAuthEmailAliasRestriction:      {},
+	KeyAuthEmailVerificationRequired:  {},
 }
 
 // IsBoolKey reports whether the key carries a JSON boolean value.
@@ -868,9 +871,12 @@ type AuthSnapshot struct {
 // 域白名单空串 = 不限；别名限制默认关。语义在 auth service.Register
 // 注册链路执行。
 type EmailPolicySnapshot struct {
-	DomainWhitelist  string            `json:"domainWhitelist"`
-	AliasRestriction bool              `json:"aliasRestriction"`
-	Sources          map[string]string `json:"sources"`
+	DomainWhitelist  string `json:"domainWhitelist"`
+	AliasRestriction bool   `json:"aliasRestriction"`
+	// VerificationRequired：注册后须邮箱验证才能登录（令牌链路见
+	// auth service #51c 第二批）。
+	VerificationRequired bool              `json:"verificationRequired"`
+	Sources              map[string]string `json:"sources"`
 }
 
 // EmailPolicy resolves the register email policy.
@@ -884,6 +890,7 @@ func (l *Layered) EmailPolicy() EmailPolicySnapshot {
 		snap.Sources[KeyAuthEmailDomainWhitelist] = "default"
 	}
 	snap.AliasRestriction, snap.Sources[KeyAuthEmailAliasRestriction], _ = l.getBoolWithSource(KeyAuthEmailAliasRestriction, false)
+	snap.VerificationRequired, snap.Sources[KeyAuthEmailVerificationRequired], _ = l.getBoolWithSource(KeyAuthEmailVerificationRequired, false)
 	return snap
 }
 

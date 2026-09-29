@@ -35,3 +35,23 @@ func TestEmailPolicySnapshot(t *testing.T) {
 	assert.Equal(t, "example.com, foo.io", auth.Email.DomainWhitelist)
 	assert.True(t, auth.Email.AliasRestriction)
 }
+
+// TestEmailPolicySnapshot_VerificationRequired 注册邮箱验证开关 L3 读写
+// （#51c 第二批）：默认关；bool 键 L3 播种须存裸 JSON；AuthSnapshot 透出。
+func TestEmailPolicySnapshot_VerificationRequired(t *testing.T) {
+	resetForTest()
+	store := newStore(t)
+	l := InitLayered(context.Background(), &ConfigInput{}, store)
+
+	snap := l.EmailPolicy()
+	assert.False(t, snap.VerificationRequired)
+	assert.Equal(t, "default", snap.Sources[KeyAuthEmailVerificationRequired])
+
+	require.NoError(t, store.Set(context.Background(), KeyAuthEmailVerificationRequired, json.RawMessage(`true`), "tester"))
+	l.Reload(context.Background(), store)
+
+	snap = l.EmailPolicy()
+	assert.True(t, snap.VerificationRequired)
+	assert.Equal(t, "database", snap.Sources[KeyAuthEmailVerificationRequired])
+	assert.True(t, l.AuthSnapshot().Email.VerificationRequired)
+}

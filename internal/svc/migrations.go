@@ -93,6 +93,9 @@ import (
 //   0036 (Go)   announcement_games 表（公告↔游戏多对多绑定 #45：一公告可
 //               绑定多游戏、未绑定=全服可见；新表无存量数据，0019/0035
 //               同模式）
+//   0037 (Go)   email_verifications 表（注册邮箱验证令牌 #51c 第二批：只存
+//               SHA-256 哈希、一次性 used_at、重发即作废）+ admins 逐列补
+//               email_verified（0033 密码策略列同模式）
 
 func init() {
 	registerSvcMigrations()
@@ -139,6 +142,7 @@ func registerSvcMigrations() {
 		providerMetadataTableMigration(),
 		bugTicketLinkMigration(),
 		announcementGamesTableMigration(),
+		emailVerificationMigration(),
 	); err != nil {
 		panic(fmt.Sprintf("svc: register goose go migrations: %v", err))
 	}
@@ -830,6 +834,42 @@ func migrateAnnouncementGamesTable(ctx context.Context, sqlDB *sql.DB) error {
 	}
 	if err := db.Migrator().CreateTable(&model.AnnouncementGame{}); err != nil {
 		return fmt.Errorf("migrate: 0036 create announcement_games: %w", err)
+	}
+	return nil
+}
+
+// emailVerificationMigration 为 0037：建 email_verifications 表（注册邮箱
+// 验证令牌，#51c 第二批）+ admins 逐列补 email_verified。新表无存量数据
+// （HasTable 后 CreateTable，0032/0035/0036 同模式）；改既有表走
+// HasColumn+AddColumn 逐列补齐（0033 密码策略列同模式；不整模型
+// AutoMigrate——存量约束名漂移 panic，0023 教训）。
+func emailVerificationMigration() *goose.Migration {
+	return goose.NewGoMigration(37,
+		&goose.GoFunc{RunDB: migrateEmailVerification},
+		nil,
+	)
+}
+
+// migrateEmailVerification 是 0037 的迁移体（抽出便于直测）。
+func migrateEmailVerification(ctx context.Context, sqlDB *sql.DB) error {
+	db, err := wrapGorm(sqlDB)
+	if err != nil {
+		return err
+	}
+	migrator := db.Migrator()
+	if !migrator.HasTable(&model.EmailVerification{}) {
+		if err := migrator.CreateTable(&model.EmailVerification{}); err != nil {
+			return fmt.Errorf("migrate: 0037 create email_verifications: %w", err)
+		}
+	}
+	if !migrator.HasTable(&model.Admin{}) {
+		return nil // game 库无 admins 表：缺表跳过，fanout 不报错
+	}
+	if migrator.HasColumn(&model.Admin{}, "EmailVerified") {
+		return nil
+	}
+	if err := migrator.AddColumn(&model.Admin{}, "EmailVerified"); err != nil {
+		return fmt.Errorf("migrate: 0037 add admins.email_verified: %w", err)
 	}
 	return nil
 }

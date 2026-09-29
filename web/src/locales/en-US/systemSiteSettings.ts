@@ -54,6 +54,9 @@ export default {
   'pages.systemSiteSettings.auth.register.aliasRestrictionLabel': 'Email alias restriction',
   'pages.systemSiteSettings.auth.register.aliasRestrictionTooltip':
     'Rejects plus aliases (user+tag@) and deduplicates ignoring dots (u.s@ equals us@) when enabled',
+  'pages.systemSiteSettings.auth.register.verificationRequiredLabel': 'Email verification',
+  'pages.systemSiteSettings.auth.register.verificationRequiredTooltip':
+    'When on, sign-up requires an email address verified via mail before login. Users will not receive mail while SMTP is unconfigured (they may retry with username + email).',
   'pages.systemSiteSettings.auth.register.title': 'Self-Registration',
   'pages.systemSiteSettings.auth.provider.disabled': 'Disabled',
   'pages.systemSiteSettings.auth.provider.enabled': 'Enabled',

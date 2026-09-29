@@ -204,6 +204,8 @@ export type EmailPolicySnapshot = {
   domainWhitelist: string;
   /** 拒绝 + 别名，local 去点归一查重 */
   aliasRestriction: boolean;
+  /** #51c 第二批：注册后须邮箱验证才能登录 */
+  verificationRequired: boolean;
   sources: Record<string, string>;
 };
 

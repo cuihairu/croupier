@@ -568,6 +568,7 @@ describe('注册邮箱策略', () => {
       email: {
         domainWhitelist: 'example.com',
         aliasRestriction: true,
+        verificationRequired: false,
         sources: { 'auth.email.domainWhitelist': 'database' },
       },
     });
@@ -583,6 +584,41 @@ describe('注册邮箱策略', () => {
       expect(mSet).toHaveBeenCalledWith('auth.email.domainWhitelist', 'example.com,foo.io'),
     );
     await waitFor(() => expect(mSet).toHaveBeenCalledWith('auth.email.aliasRestriction', true));
+    await waitFor(() =>
+      expect(mSet).toHaveBeenCalledWith('auth.email.verificationRequired', false),
+    );
+  });
+
+  it('verificationRequired 开关：快照回填 + 开启后保存 true（#51c 第二批）', async () => {
+    mFetch.mockResolvedValue({
+      ...baseSnapshot,
+      email: {
+        domainWhitelist: '',
+        aliasRestriction: false,
+        verificationRequired: true,
+        sources: {},
+      },
+    });
+    renderTab();
+
+    await screen.findByDisplayValue('ldap://ldap.example.com:389');
+    // 快照 verificationRequired=true → 开关回填为开
+    const item = screen.getByText('注册邮箱验证').closest('.ant-form-item');
+    expect(item).toBeTruthy();
+    const sw = item!.querySelector('.ant-switch') as HTMLButtonElement;
+    expect(sw).toHaveClass('ant-switch-checked');
+
+    // 关闭再保存 → 提交 false
+    fireEvent.click(sw);
+    fireEvent.click(screen.getAllByRole('button', { name: '保存' })[4]);
+    await waitFor(() =>
+      expect(mSet).toHaveBeenCalledWith('auth.email.verificationRequired', false),
+    );
+
+    // 再开启保存 → 提交 true
+    fireEvent.click(sw);
+    fireEvent.click(screen.getAllByRole('button', { name: '保存' })[4]);
+    await waitFor(() => expect(mSet).toHaveBeenCalledWith('auth.email.verificationRequired', true));
   });
 
   it('快照缺省：域白名单空、别名限制关', async () => {

@@ -32,9 +32,10 @@ func (h *Handler) Login(c *gin.Context) {
 
 	resp, err := h.service.Login(c.Request.Context(), &req)
 	if err != nil {
-		if errors.Is(err, ErrMFARequired) {
-			// CodeError → 401 + error=mfa_required（前端按稳定码分支
-			// 展示二次验证码输入）；其余凭据错误保持 401 语义。
+		if errors.Is(err, ErrMFARequired) || errors.Is(err, ErrEmailNotVerified) {
+			// CodeError → 401+mfa_required / 403+email_not_verified（前端按
+			// 稳定码分支展示二次验证码输入或重发验证邮件入口）；其余凭据
+			// 错误保持 401 语义。
 			response.Error(c, err)
 			return
 		}
@@ -106,6 +107,36 @@ func (h *Handler) Register(c *gin.Context) {
 		return
 	}
 	response.Success(c, gin.H{"username": admin.Username, "nickname": admin.Nickname})
+}
+
+// VerifyEmail serves GET /api/v1/auth/verify-email?token=...（匿名，令牌即
+// 凭据）。校验通过落 admins.email_verified=true；无效/过期/已用统一 400
+// 同文案（不区分原因，防令牌有效性探测）。
+func (h *Handler) VerifyEmail(c *gin.Context) {
+	if err := h.service.VerifyEmailToken(c.Request.Context(), c.Query("token")); err != nil {
+		response.Error(c, err)
+		return
+	}
+	response.Success(c, gin.H{"verified": true})
+}
+
+// ResendVerification serves POST /api/v1/auth/resend-verification（匿名）。
+// 防枚举：用户名+邮箱不匹配/已验证/频控内一律 200 {resent:false}，仅真实
+// 匹配且未验证时发信返回 {resent:true}。
+func (h *Handler) ResendVerification(c *gin.Context) {
+	var req struct {
+		Username string `json:"username"`
+		Email    string `json:"email"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, "参数错误: "+err.Error())
+		return
+	}
+	if err := h.service.ResendVerification(c.Request.Context(), req.Username, req.Email); err != nil {
+		response.Error(c, err)
+		return
+	}
+	response.Success(c, gin.H{"resent": true})
 }
 
 // mfaUsername 从认证上下文取当前用户；未登录返回空串并由调用方 401。

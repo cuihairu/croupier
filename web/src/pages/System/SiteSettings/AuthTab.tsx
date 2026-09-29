@@ -1120,6 +1120,7 @@ type RegisterFormValues = {
   defaultRoles: string;
   domainWhitelist: string;
   aliasRestriction: boolean;
+  verificationRequired: boolean;
 };
 
 /** 自助注册（OPEN-ISSUES #51b/#51c）：默认关闭；注册的是本地账密账号。
@@ -1145,6 +1146,7 @@ function RegisterCard({
       defaultRoles: f.defaultRoles ?? '',
       domainWhitelist: emailPolicy?.domainWhitelist ?? '',
       aliasRestriction: emailPolicy?.aliasRestriction ?? false,
+      verificationRequired: emailPolicy?.verificationRequired ?? false,
     });
   }, [snapshot, emailPolicy, form]);
 
@@ -1157,6 +1159,7 @@ function RegisterCard({
         { key: 'auth.register.defaultRoles', value: v.defaultRoles?.trim() ?? '' },
         { key: 'auth.email.domainWhitelist', value: v.domainWhitelist?.trim() ?? '' },
         { key: 'auth.email.aliasRestriction', value: v.aliasRestriction },
+        { key: 'auth.email.verificationRequired', value: v.verificationRequired },
       ]);
       await onReload();
       message.success(
@@ -1301,6 +1304,32 @@ function RegisterCard({
                 id: 'pages.systemSiteSettings.auth.register.aliasRestrictionTooltip',
                 defaultMessage:
                   '开启后拒绝 + 别名（user+tag@）形态，且忽略点号归一查重（u.s@ 与 us@ 视为同一邮箱）',
+              })}
+            >
+              <Switch
+                checkedChildren={intl.formatMessage({
+                  id: 'pages.systemSiteSettings.auth.switch.enable',
+                  defaultMessage: '启用',
+                })}
+                unCheckedChildren={intl.formatMessage({
+                  id: 'pages.systemSiteSettings.auth.switch.disable',
+                  defaultMessage: '停用',
+                })}
+              />
+            </Form.Item>
+          </Col>
+          <Col span={12}>
+            <Form.Item
+              name="verificationRequired"
+              label={intl.formatMessage({
+                id: 'pages.systemSiteSettings.auth.register.verificationRequiredLabel',
+                defaultMessage: '注册邮箱验证',
+              })}
+              valuePropName="checked"
+              tooltip={intl.formatMessage({
+                id: 'pages.systemSiteSettings.auth.register.verificationRequiredTooltip',
+                defaultMessage:
+                  '开启后注册须填写邮箱并完成邮件验证才能登录；SMTP 未配置时用户将收不到验证邮件（可凭用户名+邮箱重发）',
               })}
             >
               <Switch

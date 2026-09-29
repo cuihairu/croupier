@@ -99,6 +99,28 @@ export async function registerAccount(params: {
   });
 }
 
+// Email verification (#51c batch 2): anonymous endpoints. Token is the
+// credential for GET verify-email; resend is username+email (anti-enumeration
+// on the server: mismatched pairs return 200 silently).
+export async function verifyEmailToken(token: string): Promise<{ verified: boolean }> {
+  return request<{ verified: boolean }>('/api/v1/auth/verify-email', {
+    method: 'GET',
+    params: { token },
+    skipErrorHandler: true,
+  });
+}
+
+export async function resendVerification(
+  username: string,
+  email: string,
+): Promise<{ resent: boolean }> {
+  return request<{ resent: boolean }>('/api/v1/auth/resend-verification', {
+    method: 'POST',
+    data: { username, email },
+    skipErrorHandler: true,
+  });
+}
+
 // Runtime bootstrap projection over canonical profile API.
 export async function fetchCurrentUser(): Promise<CurrentUser> {
   return toCurrentUser(await getMyProfile());

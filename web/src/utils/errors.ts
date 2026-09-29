@@ -37,6 +37,11 @@ export function isMfaRequiredError(error: unknown): boolean {
   return extractErrorCode(error) === 'mfa_required';
 }
 
+// #51c 第二批：403 + error=email_not_verified（注册邮箱未验证被登录拦截）。
+export function isEmailNotVerifiedError(error: unknown): boolean {
+  return extractErrorCode(error) === 'email_not_verified';
+}
+
 export function extractErrorMessage(error: unknown, fallback: string): string {
   if (!error || typeof error !== 'object') return fallback;
   const err = error as RequestLikeError;

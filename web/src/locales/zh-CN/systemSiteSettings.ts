@@ -51,6 +51,9 @@ export default {
   'pages.systemSiteSettings.auth.register.aliasRestrictionLabel': '邮箱别名限制',
   'pages.systemSiteSettings.auth.register.aliasRestrictionTooltip':
     '开启后拒绝 + 别名（user+tag@）形态，且忽略点号归一查重（u.s@ 与 us@ 视为同一邮箱）',
+  'pages.systemSiteSettings.auth.register.verificationRequiredLabel': '注册邮箱验证',
+  'pages.systemSiteSettings.auth.register.verificationRequiredTooltip':
+    '开启后注册须填写邮箱并完成邮件验证才能登录；SMTP 未配置时用户将收不到验证邮件（可凭用户名+邮箱重发）',
   'pages.systemSiteSettings.auth.register.title': '自助注册',
   'pages.systemSiteSettings.auth.provider.disabled': '未启用',
   'pages.systemSiteSettings.auth.provider.enabled': '已启用',

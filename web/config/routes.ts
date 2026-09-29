@@ -491,6 +491,12 @@ export default [
         path: '/user/login',
         component: './User/Login',
       },
+      {
+        // 邮箱验证结果页（#51c 第二批）：验证邮件链接指向这里
+        name: 'verifyEmail',
+        path: '/user/verify-email',
+        component: './User/VerifyEmail',
+      },
     ],
   },
   {

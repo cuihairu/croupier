@@ -118,6 +118,7 @@ func MetaModels() []interface{} {
 	return []interface{}{
 		&Admin{},
 		&AdminOTPRecoveryCode{},
+		&EmailVerification{},
 		&Role{},
 		&Permission{},
 		&AdminRole{},

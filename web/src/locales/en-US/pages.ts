@@ -22,6 +22,17 @@ export default {
   'pages.login.mfa.hint':
     'Two-step verification is on. Enter the 6-digit code from your authenticator app, or a backup recovery code',
   'pages.login.mfa.placeholder': 'Verification code or recovery code',
+  'pages.login.emailNotVerified.hint':
+    'Email not verified yet. Check your inbox, or resend with your username and email',
+  'pages.login.emailNotVerified.placeholder': 'Email used at registration',
+  'pages.login.emailNotVerified.resend': 'Resend verification email',
+  'pages.login.emailNotVerified.sent': 'If the details match, a verification email has been sent',
+  'pages.login.emailNotVerified.failed': 'Resend failed, please try again later',
+  'pages.verifyEmail.success': 'Email verified. You can now sign in with your account',
+  'pages.verifyEmail.invalid':
+    'This verification link is invalid or expired. Resend the email from the login page',
+  'pages.verifyEmail.verifying': 'Verifying your email…',
+  'pages.verifyEmail.backToLogin': 'Back to sign in',
   'pages.login.mfa.required': 'Please enter the verification code or a recovery code!',
   'pages.login.mfa.required.info':
     'This account has two-step verification enabled. Enter your verification code or a recovery code',

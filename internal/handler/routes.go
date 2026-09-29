@@ -253,6 +253,7 @@ func registerAuthRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 		WithAuditService(ctx.AuditService).
 		WithRoleModel(model.NewRoleModel(ctx.DB)).
 		WithOTPRecoveryModel(ctx.AdminOTPRecoveryModel).
+		WithVerificationModel(ctx.EmailVerificationModel).
 		WithRecoveryDB(ctx.DB).
 		WithLoginLockout(ctx.Config.Auth.LoginLockout)
 	// 初始装配从分层设置读取（yaml 初始值 + database L3 覆盖）：
@@ -273,6 +274,10 @@ func registerAuthRoutes(g *gin.RouterGroup, ctx *svc.ServiceContext) {
 	g.POST("/logout", authHandler.Logout)
 	g.GET("/providers", authHandler.Providers)
 	g.POST("/register", authHandler.Register)
+	// 注册邮箱验证（#51c 第二批，均匿名）：令牌即凭据的验证回调 +
+	// 用户名+邮箱重发（service 层防枚举静默）。
+	g.GET("/verify-email", authHandler.VerifyEmail)
+	g.POST("/resend-verification", authHandler.ResendVerification)
 	g.GET("/oidc/login", authHandler.OIDCLogin)
 	g.GET("/oidc/callback", authHandler.OIDCCallback)
 	g.GET("/github/login", authHandler.GitHubLogin)

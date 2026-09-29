@@ -87,34 +87,35 @@ type ServiceContext struct {
 	SystemInfoCache      *reg.SystemInfoCache
 	AgentSessionResolver dispatch.AgentSessionResolver
 
-	AdminModel            *model.AdminModel
-	AdminOTPRecoveryModel *model.AdminOTPRecoveryCodeModel
-	AlertModel            *model.AlertModel
-	BehaviorModel         *model.BehaviorModel
-	RetentionModel        *model.RetentionModel
-	PaymentsModel         *model.PaymentsModel
-	BackupModel           *model.BackupModel
-	AlertRuleModel        *model.AlertRuleModel
-	FAQModel              *model.FAQModel
-	FeedbackModel         *model.FeedbackModel
-	GameModel             *model.GameModel
-	PlayerModel           *model.PlayerModel
-	ProfileModel          *model.ProfileModel
-	FunctionModel         *model.FunctionModel
-	TermDictModel         *model.TermDictionaryModel
-	RoleModel             *model.RoleModel
-	NodeModel             *model.NodeModel
-	PermissionModel       *model.PermissionModel
-	RateLimitModel        *model.RateLimitModel
-	SupportModel          *model.SupportModel
-	TicketModel           *model.TicketModel
-	BugModel              *model.BugModel
-	ToolModel             *model.ToolLinkModel
-	ReleaseModel          *model.GameReleaseModel
-	HotpatchModel         *model.HotpatchModel
-	DBSourceModel         *model.DBSourceModel
-	PlatformSettingModel  *model.PlatformSettingModel
-	MessageModel          *model.MessageModel
+	AdminModel             *model.AdminModel
+	AdminOTPRecoveryModel  *model.AdminOTPRecoveryCodeModel
+	EmailVerificationModel *model.EmailVerificationModel
+	AlertModel             *model.AlertModel
+	BehaviorModel          *model.BehaviorModel
+	RetentionModel         *model.RetentionModel
+	PaymentsModel          *model.PaymentsModel
+	BackupModel            *model.BackupModel
+	AlertRuleModel         *model.AlertRuleModel
+	FAQModel               *model.FAQModel
+	FeedbackModel          *model.FeedbackModel
+	GameModel              *model.GameModel
+	PlayerModel            *model.PlayerModel
+	ProfileModel           *model.ProfileModel
+	FunctionModel          *model.FunctionModel
+	TermDictModel          *model.TermDictionaryModel
+	RoleModel              *model.RoleModel
+	NodeModel              *model.NodeModel
+	PermissionModel        *model.PermissionModel
+	RateLimitModel         *model.RateLimitModel
+	SupportModel           *model.SupportModel
+	TicketModel            *model.TicketModel
+	BugModel               *model.BugModel
+	ToolModel              *model.ToolLinkModel
+	ReleaseModel           *model.GameReleaseModel
+	HotpatchModel          *model.HotpatchModel
+	DBSourceModel          *model.DBSourceModel
+	PlatformSettingModel   *model.PlatformSettingModel
+	MessageModel           *model.MessageModel
 	// NotifyService 分发审批/告警事件到已配置渠道（站内信/钉钉/webhook/邮件）。
 	// 在 handler 装配时注入（依赖 settings.Layered 单例）。
 	NotifyService *notify.Service
@@ -204,6 +205,7 @@ func NewServiceContext(c config.Config, opts ...Option) *ServiceContext {
 	// 模型实例（保持在同一处构建，便于逻辑层复用）
 	adminModel := model.NewAdminModel(db)
 	adminOTPRecoveryModel := model.NewAdminOTPRecoveryCodeModel(db)
+	emailVerificationModel := model.NewEmailVerificationModel(db)
 	alertModel := model.NewAlertModel(db)
 	behaviorModel := model.NewBehaviorModel(db)
 	retentionModel := model.NewRetentionModel(db)
@@ -386,6 +388,7 @@ func NewServiceContext(c config.Config, opts ...Option) *ServiceContext {
 
 		AdminModel:                adminModel,
 		AdminOTPRecoveryModel:     adminOTPRecoveryModel,
+		EmailVerificationModel:    emailVerificationModel,
 		AlertModel:                alertModel,
 		BehaviorModel:             behaviorModel,
 		RetentionModel:            retentionModel,

@@ -5,7 +5,8 @@ import {
   fetchCurrentUserGames,
   registerAccount,
 } from '@/services/api';
-import { extractErrorMessage, isMfaRequiredError } from '@/utils/errors';
+import { extractErrorMessage, isMfaRequiredError, isEmailNotVerifiedError } from '@/utils/errors';
+import { resendVerification } from '@/services/api/auth';
 import { fetchLoginProviders, type LoginProviders } from '@/services/api/sites';
 import { setScope } from '@/stores/scope';
 import {
@@ -123,6 +124,12 @@ const Login: React.FC = () => {
   // 自助注册（OPEN-ISSUES #51b）：providers.register=true 时展示入口；
   // 仅账密表单可见时注册才有意义（注册的是本地账密账号）
   const [registerOpen, setRegisterOpen] = useState(false);
+  // #51c 第二批：403 email_not_verified → 展示重发验证邮件块；用户名在
+  // 登录提交被拦时一并捕获，邮箱由用户补填——后端防枚举，不匹配静默成功
+  const [emailNotVerified, setEmailNotVerified] = useState(false);
+  const [resendUsername, setResendUsername] = useState('');
+  const [resendTo, setResendTo] = useState('');
+  const [resending, setResending] = useState(false);
   const [registerSubmitting, setRegisterSubmitting] = useState(false);
   const [registerForm] = Form.useForm<RegisterFormValues>();
   useEffect(() => {
@@ -211,6 +218,12 @@ const Login: React.FC = () => {
       history.push(urlParams.get('redirect') || '/');
       return;
     } catch (error) {
+      // #51c 第二批：403 + email_not_verified → 展示重发验证邮件块。
+      if (isEmailNotVerifiedError(error)) {
+        setResendUsername(values.username);
+        setEmailNotVerified(true);
+        return;
+      }
       // MFA 已启用账号：401 + error=mfa_required → 展示动态验证码输入，
       // 凭据由表单 values 保留，重试时一并提供 totpCode。
       if (isMfaRequiredError(error)) {
@@ -401,6 +414,65 @@ const Login: React.FC = () => {
                 defaultMessage:
                   '两步验证已开启，请输入认证器 App 中的 6 位动态验证码，或绑定时的备用恢复码',
               })}
+            />
+          )}
+
+          {emailNotVerified && (
+            <Alert
+              style={{ marginBottom: 16 }}
+              type="warning"
+              showIcon
+              title={intl.formatMessage({
+                id: 'pages.login.emailNotVerified.hint',
+                defaultMessage: '邮箱尚未验证，请查收验证邮件；未收到可凭用户名和邮箱重发',
+              })}
+              description={
+                <Space.Compact style={{ width: '100%', marginTop: 8 }}>
+                  <Input
+                    value={resendTo}
+                    onChange={(e) => setResendTo(e.target.value)}
+                    placeholder={intl.formatMessage({
+                      id: 'pages.login.emailNotVerified.placeholder',
+                      defaultMessage: '注册时填写的邮箱',
+                    })}
+                  />
+                  <Button
+                    loading={resending}
+                    onClick={async () => {
+                      const username = resendUsername;
+                      const email = resendTo.trim();
+                      if (!email) return;
+                      setResending(true);
+                      try {
+                        await resendVerification(username, email);
+                        getMessage()?.success(
+                          intl.formatMessage({
+                            id: 'pages.login.emailNotVerified.sent',
+                            defaultMessage: '若信息匹配，验证邮件已重新发送，请查收',
+                          }),
+                        );
+                      } catch (err) {
+                        getMessage()?.error(
+                          extractErrorMessage(
+                            err,
+                            intl.formatMessage({
+                              id: 'pages.login.emailNotVerified.failed',
+                              defaultMessage: '重发失败，请稍后重试',
+                            }),
+                          ),
+                        );
+                      } finally {
+                        setResending(false);
+                      }
+                    }}
+                  >
+                    <FormattedMessage
+                      id="pages.login.emailNotVerified.resend"
+                      defaultMessage="重发验证邮件"
+                    />
+                  </Button>
+                </Space.Compact>
+              }
             />
           )}
           {passwordFormVisible ? (
