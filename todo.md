@@ -1221,3 +1221,18 @@ fresh 全绿（158 包零 FAIL）、guard PASSED。**已知边界**：门禁在�
 > 核实无 t.Parallel 用例，顺序执行下进程级 cwd 操纵安全，结束恢复）。
 > 门禁：gofmt 干净、go vet 干净、handler 包 fresh 全绿 100.0%（1.5s）。
 > 本批单包 test-only，未重跑全量（同日全量基线 157 ok）。
+
+## 覆盖率巡检批次·Go 侧第十五轮·api/game 收口至 100.0%（wt-api worktree，2026-09-29）
+
+> **交付（2026-09-29）**：helpers.go 3 块 + service.go EnvsList 透传翼
+> 1 块收口，新增 `helpers_envscope_wings_test.go`，包 **100.0%**：
+> gameEnvScopes 双错误翼（上下文无身份 LoadCurrentAdmin 失败 /
+> admin_game_env_scopes 缺表包装 CodeError 不裸传 SQL 错误）+
+> authorizeGameEnv 与 EnvsList 对底层错误的透传翼（权限与游戏寻址
+> 都过后撞存储故障）。
+> **坑实证（共享库毒化）**：api/game 的 setupTestDB 是
+> `file::memory:?cache=shared` 进程级单例——对其 DropTable 会毒化
+> 全部后续用例（首轮实证 5 例 envscope 用例连环 500/缺表报错），
+> 缺表注入必须独立命名内存库（`file:<unique>?mode=memory&cache=shared`）。
+> 门禁：gofmt 干净、go vet 干净、api/game 包 fresh 全绿 100.0%（34s）。
+> 本批单包 test-only，未重跑全量（同日全量基线 157 ok）。
