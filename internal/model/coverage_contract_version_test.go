@@ -326,6 +326,57 @@ func TestCoverage_RemovalPendingErrorBranches(t *testing.T) {
 	assert.False(t, deleted)
 }
 
+// TestCoverage_FunctionContractVersionModel_ListDistinctVersions 覆盖
+// ListDistinctVersions 的成功路径（GROUP BY 去重、version <> ” 过滤空串、
+// 按 scope 聚合）与错误分支（查询失败）。
+func TestCoverage_FunctionContractVersionModel_ListDistinctVersions(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("distinct versions per function", func(t *testing.T) {
+		db := setupAllModelsDB(t)
+		m := NewFunctionContractVersionModel(db)
+
+		// 同 function_id、不同 version：应各产生一行。
+		require.NoError(t, db.Create(covContractVersionRow("cov-g", "dev", "cov.fn", 1)).Error)
+		v2 := covContractVersionRow("cov-g", "dev", "cov.fn", 2)
+		v2.Version = "2.0.0"
+		require.NoError(t, db.Create(v2).Error)
+
+		// 另一函数的版本：不干扰 cov.fn 的聚合。
+		require.NoError(t, db.Create(covContractVersionRow("cov-g", "dev", "cov.other", 1)).Error)
+
+		// 空 version 行：应被 WHERE version <> '' 排除。
+		emptyVer := covContractVersionRow("cov-g", "dev", "cov.fn", 3)
+		emptyVer.Version = ""
+		require.NoError(t, db.Create(emptyVer).Error)
+
+		rows, err := m.ListDistinctVersions(ctx, "cov-g", "dev")
+		require.NoError(t, err)
+		// 预期：cov.fn → 1.0.0、2.0.0；cov.other → 1.0.0；空 version 被过滤
+		require.Len(t, rows, 3)
+		found := map[string][]string{}
+		for _, r := range rows {
+			found[r.FunctionID] = append(found[r.FunctionID], r.Version)
+		}
+		assert.ElementsMatch(t, []string{"1.0.0", "2.0.0"}, found["cov.fn"])
+		assert.ElementsMatch(t, []string{"1.0.0"}, found["cov.other"])
+	})
+
+	t.Run("empty scope returns empty", func(t *testing.T) {
+		db := setupAllModelsDB(t)
+		m := NewFunctionContractVersionModel(db)
+		rows, err := m.ListDistinctVersions(ctx, "cov-empty", "dev")
+		require.NoError(t, err)
+		assert.Empty(t, rows)
+	})
+
+	t.Run("query error", func(t *testing.T) {
+		m := NewFunctionContractVersionModel(newClosedDB(t))
+		_, err := m.ListDistinctVersions(ctx, "cov-g", "dev")
+		assert.Error(t, err)
+	})
+}
+
 // TestCoverage_MenuItemModel_CountByScope 覆盖 CountByScope 的成功与错误
 // 分支。成功路径此前包内从未触达（播种器只在 service 层被间接调用）；
 // 断言按 scope 过滤且软删除行不计入——播种器正是靠「计数>0 判定 scope
@@ -364,4 +415,79 @@ func TestCoverage_MenuItemModel_CountByScope(t *testing.T) {
 	closed, err := mClosed.CountByScope(ctx, "cov-g", "dev")
 	assert.Error(t, err)
 	assert.Equal(t, int64(0), closed)
+}
+
+// TestCoverage_NormalizeJSONContent 覆盖 normalizeJSONContent 的非法 JSON
+// 兜底分支（line 367）：json.Unmarshal 失败时返回原始字节字符串而非 panic。
+func TestCoverage_NormalizeJSONContent(t *testing.T) {
+	// 合法 JSON：正常解析返回 interface{}
+	assert.Equal(t, map[string]interface{}{"a": float64(1)}, normalizeJSONContent(JSON(`{"a":1}`)))
+
+	// 空输入：返回 nil（line 362）
+	assert.Nil(t, normalizeJSONContent(JSON(``)))
+
+	// 非法 JSON：json.Unmarshal 报错，兜底返回 string(raw)（line 367）
+	// 这种情况理论上不应出现（DB 列是 jsonb，写入时已校验），但作为防御分支保留。
+	bad := JSON(`{not valid json}`)
+	result := normalizeJSONContent(bad)
+	assert.Equal(t, "{not valid json}", result, "非法 JSON 应回退为原始字符串")
+}
+
+// TestCoverage_StripVolatileKeys 覆盖 stripVolatileKeys 的三类输入分支：
+// map（含 updatedAt/updatedBy 剔除）、slice 递归、默认原值返回。
+func TestCoverage_StripVolatileKeys(t *testing.T) {
+	// map 分支：剔除 updatedAt/updatedBy，其余键递归处理
+	inMap := map[string]interface{}{
+		"stable":    "keep",
+		"updatedAt": "2024-01-01T00:00:00Z",
+		"updatedBy": "user1",
+		"nested": map[string]interface{}{
+			"value":     42,
+			"updatedAt": "should be stripped",
+		},
+	}
+	outMap := stripVolatileKeys(inMap).(map[string]interface{})
+	assert.Equal(t, "keep", outMap["stable"])
+	assert.NotContains(t, outMap, "updatedAt")
+	assert.NotContains(t, outMap, "updatedBy")
+	assert.Equal(t, 42, outMap["nested"].(map[string]interface{})["value"])
+	assert.NotContains(t, outMap["nested"].(map[string]interface{}), "updatedAt")
+
+	// slice 分支：逐元素递归（line 389-390）
+	inSlice := []interface{}{
+		map[string]interface{}{"updatedAt": "strip", "keep": 1},
+		"plain string",
+		42,
+	}
+	outSlice := stripVolatileKeys(inSlice).([]interface{})
+	assert.Equal(t, 1, outSlice[0].(map[string]interface{})["keep"])
+	assert.NotContains(t, outSlice[0].(map[string]interface{}), "updatedAt")
+	assert.Equal(t, "plain string", outSlice[1])
+	assert.Equal(t, 42, outSlice[2])
+
+	// 默认分支：非 map/非 slice 原值返回（line 392）
+	assert.Equal(t, "plain string", stripVolatileKeys("plain string"))
+	assert.Equal(t, 42, stripVolatileKeys(42))
+	assert.Equal(t, true, stripVolatileKeys(true))
+	assert.Nil(t, stripVolatileKeys(nil))
+}
+
+// TestCoverage_StableContentDigest_ErrorBranch 说明 StableContentDigest 的
+// json.Marshal 错误分支（line 458）为防御性不可达。
+// 原因：方法接收者为 *CapabilitySemantics，所有字段均为 Go 原生可序列化类型
+// （string、uint、interface{} 承载已归一化的 JSON）、无循环引用、无 channel/func。
+// json.Marshal 仅在遇到不支持类型（channel、func、循环引用）或编码器内部
+// 错误时失败，上述条件在本结构体不具备。分支保留为防御性兜底，不造假用例触达。
+func TestCoverage_StableContentDigest_ErrorBranch(t *testing.T) {
+	// 仅验证正常路径产出非空摘要；错误分支不构造触达场景（见上方注释）。
+	sem := &CapabilitySemantics{
+		IdentityField:     "id",
+		IdentityFieldType: "string",
+		IdentityPath:      "$.id",
+		Source:            "test",
+		SourceDigest:      "abc123",
+	}
+	digest := sem.StableContentDigest()
+	assert.Len(t, digest, 64, "SHA256 hex 长度固定 64")
+	assert.NotEqual(t, "", digest)
 }

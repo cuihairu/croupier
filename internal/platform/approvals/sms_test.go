@@ -155,6 +155,28 @@ func TestHTTPSMSProviderSend(t *testing.T) {
 	}
 }
 
+// TestHTTPSMSProviderDescribe 参考实现的 Describe 方法透传配置信息。
+func TestHTTPSMSProviderDescribe(t *testing.T) {
+	p := &httpSMSProvider{
+		provider:  "acme",
+		signature: "Croupier",
+		template:  "tpl-1",
+		endpoint:  "https://sms",
+		apiKey:    "key",
+	}
+	info := p.Describe()
+	if info.Provider != "acme" || info.Signature != "Croupier" || info.Template != "tpl-1" {
+		t.Fatalf("Describe 应透传配置，got %+v", info)
+	}
+
+	// 零值时返回零值结构体
+	var zero httpSMSProvider
+	info = zero.Describe()
+	if info.Provider != "" || info.Signature != "" || info.Template != "" {
+		t.Fatalf("零值 Describe 应为零值，got %+v", info)
+	}
+}
+
 // TestSMSRegistryConcurrentSwap 热替换与并发发送互不 panic（-race 下运行）。
 func TestSMSRegistryConcurrentSwap(t *testing.T) {
 	r := NewSMSRegistry()

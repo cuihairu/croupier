@@ -39,6 +39,9 @@ func newResourceCatalogRouter(t *testing.T, db *gorm.DB) *gin.Engine {
 	})
 	api := router.Group("/api/resource-catalog")
 	api.GET("", handler.List)
+	// 静态段 /categories 优先于 /:resourceKey（复刻生产注册序
+	// registerResourceCatalogRoutes，routes.go 内该函数；不用行号锚定以免上游漂移）
+	api.GET("/categories", handler.Categories)
 	api.GET("/:resourceKey", handler.Detail)
 	api.PUT("/:resourceKey/semantics", handler.UpdateSemantics)
 	api.GET("/:resourceKey/semantics/versions", handler.ListSemanticVersions)

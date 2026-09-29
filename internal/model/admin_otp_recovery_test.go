@@ -140,3 +140,56 @@ func TestOTPRecoveryGuards(t *testing.T) {
 	assert.Error(t, emptyModel.Replace(ctx, 1, []string{"h"}))
 	assert.Error(t, emptyModel.DeleteAll(ctx, 1))
 }
+
+// TestOTPRecoveryReplaceErrorBranches 覆盖 Replace 事务内的错误分支：
+// Delete 失败（line 52）与 Create 失败（事务回滚）。
+func TestOTPRecoveryReplaceErrorBranches(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("delete error in transaction", func(t *testing.T) {
+		// Use a DB with a trigger to block DELETE
+		db, err := gorm.Open(sqlite.Open("file:otp_err_delete?mode=memory&cache=shared"), &gorm.Config{Logger: logger.Default.LogMode(logger.Silent)})
+		require.NoError(t, err)
+		require.NoError(t, db.AutoMigrate(&AdminOTPRecoveryCode{}))
+		// Pre-insert a row so DELETE has something to act on
+		require.NoError(t, db.Create(&AdminOTPRecoveryCode{AdminID: 1, CodeHash: "h1"}).Error)
+		// Trigger blocks DELETE
+		require.NoError(t, db.Exec(`CREATE TRIGGER otp_block_del BEFORE DELETE ON admin_otp_recovery_codes BEGIN SELECT RAISE(ABORT, 'blocked'); END`).Error)
+
+		m := NewAdminOTPRecoveryCodeModel(db)
+		err = m.Replace(ctx, 1, []string{"h2"})
+		assert.Error(t, err)
+	})
+
+	t.Run("create error in transaction", func(t *testing.T) {
+		// Use a DB with a trigger to block INSERT
+		db, err := gorm.Open(sqlite.Open("file:otp_err_create?mode=memory&cache=shared"), &gorm.Config{Logger: logger.Default.LogMode(logger.Silent)})
+		require.NoError(t, err)
+		require.NoError(t, db.AutoMigrate(&AdminOTPRecoveryCode{}))
+		// Trigger blocks INSERT after Delete succeeds
+		require.NoError(t, db.Exec(`CREATE TRIGGER otp_block_ins BEFORE INSERT ON admin_otp_recovery_codes BEGIN SELECT RAISE(ABORT, 'blocked'); END`).Error)
+
+		m := NewAdminOTPRecoveryCodeModel(db)
+		err = m.Replace(ctx, 2, []string{"h1"})
+		assert.Error(t, err)
+		// Verify no rows were inserted (transaction rolled back)
+		var count int64
+		require.NoError(t, db.Model(&AdminOTPRecoveryCode{}).Count(&count).Error)
+		assert.Equal(t, int64(0), count)
+	})
+}
+
+// TestOTPRecoveryConsumeErrorBranch 覆盖 Consume 的 Update 错误分支（line 93）。
+func TestOTPRecoveryConsumeErrorBranch(t *testing.T) {
+	ctx := context.Background()
+
+	db, err := gorm.Open(sqlite.Open("file::memory:?cache=shared"), &gorm.Config{Logger: logger.Default.LogMode(logger.Silent)})
+	require.NoError(t, err)
+	sqlDB, _ := db.DB()
+	require.NoError(t, sqlDB.Close())
+
+	m := NewAdminOTPRecoveryCodeModel(db)
+	consumed, err := m.Consume(ctx, 1, "h1")
+	assert.Error(t, err)
+	assert.False(t, consumed)
+}
