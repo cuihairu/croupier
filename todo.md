@@ -1091,3 +1091,164 @@ fresh 全绿（158 包零 FAIL）、guard PASSED。**已知边界**：门禁在�
 高位窗口执行（model 包单跑 64s~447s 波动，一次整包跑在 447s 时报 FAIL、
 复跑即绿，判为环境性慢非回归）；本轮零 web 触碰，故未单跑 jest/tsc
 （guard 已覆盖 PageSpec 侧校验）。
+
+## 第九轮：extension catalog/release 写路径覆盖收口（repo 80.3%→100.0%，core service 38.2%→100.0%）
+
+> **落地**：`30042bb`（本轮）+ 并行会话的 `97d6f8c`（secguard 74.3%→100%、
+> email_verification 2.2%→100%）经 `git merge origin/main` 同步上游 7 个
+> 提交（`f6cc599` PR #73 / wt-pages 折叠 tip / 文档死链修复）后，纯快进
+> 推送到 main（`f6cc599..2da24e0`）。合并无冲突——上游改动落在 docs/ 与
+> web 测试，与本轮 Go 写路径测试零重叠；合并后复跑本轮三域
+> （`repo/gorm/extension`、`core/extension/catalog`、`cicd/...`）全绿。
+>
+> **本轮目标**：队列里的次大缺口。`internal/core/extension/catalog` 38.2% 与
+> `internal/repo/gorm/extension` 80.3% 的缺口**是同一组方法**——catalog/
+> release 写路径在两层都整段 0%（service 的七个委托方法 + repo 的七个
+> 仓储方法），故合并为一批做完。扩展域的 `api/extension` 侧由并行会话在途
+> （`catalog_writes_paths_test.go`），本轮只碰 core/repo 两层，目录不相交。
+>
+> **repo 层（`internal/repo/gorm/extension/catalog_release_writes_test.go`）**
+> - 主链：批量读（缺席 id 直接不返回而非报错）、按列更新、版本命中、
+> 级联清版本只清目标扩展；
+> - 语义锁定三条：`DeleteByExtensionID` 走 `Unscoped` 物理删除才释放
+> `extension_id` 唯一索引（软删行会继续占用 → 重登记冲突）；Update/Delete
+> 行不存在返回 `gorm.ErrRecordNotFound`；`ReleaseRepo.DeleteByExtensionID`
+> 无匹配行**不**报错（级联语义）；`GetByExtensionIDs` 空入参短路不打 DB；
+> - 错误域：缺表 + `CREATE TRIGGER ... BEFORE UPDATE/DELETE ... RAISE(ABORT)`
+>   打穿 `res.Error` 分支，并断言拦截错误**不退化**为 `ErrRecordNotFound`
+>   （否则写翼注入故障会被误读成「行不存在」）；
+> - **契约发现并锁定**：`idx_extension_release_version` 是普通复合索引而**非**
+>   唯一索引——repo 层写重复 `(extension_id, version)` 不报错，唯一性校验确由
+>   调用方承担（与 `PublishRelease` 的服务层注释一致）。已写成契约用例：若日后
+>   收紧为唯一索引，该用例会失败并提示同步收紧调用方校验。
+>
+> **core service 层（`internal/core/extension/catalog/service_writes_test.go`）**
+> 七个委托方法（ListByExtensionIDs / Create / UpdateFields / Remove /
+> PublishRelease / ReleaseByVersion / RemoveReleases）三形态覆盖：
+> ① **nil 接收者**（读路径 ListByExtensionIDs 回 `nil,nil`，写路径回
+> `gorm.ErrInvalidDB`——方法内先判 `s == nil` 再判仓储）；
+> ② **仓储缺失守卫**：catalog 侧与 release 侧分别以 `NewService(repo, nil)`
+> 与 `NewService(nil, repo)` 构造，验证各方法只依赖自己那半边仓储；
+> ③ **真实库主链 + 仓储错误透传**（缺表、`ErrRecordNotFound`、唯一键冲突）。
+>
+> 门禁：gofmt 干净、`go vet` 两包干净、`go test` 两包 `-count=1` 全绿、
+> `scripts/localized_text_guard.sh` PASSED。**已知边界**：本批零 web 触碰，
+> 未单跑 jest/tsc（上游同批带进 web 测试改动，属上游提交的范围）。
+
+## 覆盖率巡检批次·Go 侧第十轮·api/ops 收口 98.6%→100.0%（wt-api worktree，2026-09-29）
+
+> **交付（2026-09-29，提交 `ba27e79`）**：api/ops 残余 26 块全部收口——
+> probe.go 9 块（wecom/feishu 渠道经 httptest 假目标、SMTP 已配置探活主链）、
+> performance.go 5 块（绑定错误双翼含 jsonNumber 非数值解错、L3 写拒 500、
+> svcCtx.StartTime 可达分支）、logs.go 12 块（nil 守卫×2、写失败、绑定×2、
+> PurgeBefore 缺表与直清三表逐表错误翼、nil 快照早退、轮转目录不可读降级）。
+> **关键技法入档**：ProbeSMTP 的 Hello 阶段阻塞等 220 问候（连接无读超时），
+> 假目标必须是裸 `net.Listener` 真 SMTP 形态（220 问候 + 逐行 250 应答）——
+> HTTP httptest 服务器一句话不发会把用例挂死（首轮 600s 包级超时实证）。
+> sitesettings 有他会话 v10 在途文件（06:14 落盘）已按认领窗口协议回避。
+> 门禁：gofmt 干净、go vet 干净、api/ops 包 fresh 全绿 100.0%；
+> 全量 `go test ./internal/...` 未在高负载窗口重跑（test-only 单包改动，
+> 158 包基线 06:12 全绿）。
+
+## 覆盖率巡检批次·Go 侧第十一轮·svc 包收口 99.3%→100.0%（wt-api worktree，2026-09-29）
+
+> **交付（2026-09-29）**：svc 包残余 19 块全部收口
+> （`internal/svc/coverage_e_svc_wings_test.go`，11 用例）：
+> migrations.go 8 块——0036/0037/0038 三迁移的 wrapGorm 探针失败翼
+> （复用 C/D 批 `probeFailingDBC`）+ CreateTable/AddColumn 拒写翼
+> （复用 `writeRefusingSQLiteDBC`；0037 的 AddColumn 翼须手工
+> `CREATE TABLE admins (id integer primary key)` 最小表——AutoMigrate
+> 带出全列会让 HasColumn 恒真到不了目标分支；0038 的第二表翼先以可写
+> 连接预建 cicd_integrations 再开只读，使首个 CreateTable 通过、
+> cicd_builds 缺表触达失败）；
+> service_context.go 11 块——ResolveDays 闭包两翼（settings 单例空窗短路
+> (0,0) / 就绪后读取 L3 RetentionDays，两阶段 Sweep；闭包在
+> NewServiceContext 构造期定义、352 行另有后台 ticker 循环但间隔不可依赖，
+> 须显式调 Sweep）、引导管理员 phone 档案回填主链（users.json phone 键 +
+> 存量行 Status:1 跳过状态同步）与回填被拦降级翼（BEFORE UPDATE 触发器
+> RAISE(ABORT)，错误只 warn 不上抛、档案保持原样）、AuthMiddleware.Handle
+> 完整链触达 mfaGate 403（ResetGlobalSecretForTesting 即时换键 + Sign 版本
+> 对齐 + newMFAGateFixture 真实未绑定账号）、cachedOTPEnabled 三翼
+> （缓存命中 version 0/1 直答不回源 / TTL 过期回源并刷新缓存——回源后
+> 库值翻转不再影响结果即为刷新证据 / admins 缺表 FindOne 出错 fail-open）。
+> **发现并登记的 profile 陷阱实例**：闭包未覆盖块的行号语义——初版测试
+> 只盖了 nil 翼，profile 显示 346-347（非 nil 翼）仍 0 覆盖；闭包内分支
+> 各自独立成块，逐块核对而非按区间推断。
+> 回避他会话在途域不变：api/announcement、api/auth×2、api/extension、
+> api/sitesettings、security/identity。
+> 门禁：gofmt 干净、go vet 干净、svc 包 fresh 全绿 **100.0%**
+> （全包零未覆盖块）、全量 `go test ./internal/...` fresh 复跑
+> （低载窗口 load~10 执行）。
+
+## 覆盖率巡检批次·Go 侧第十二轮·platform/settings 收口至 100.0%（wt-api worktree，2026-09-29）
+
+> **交付（2026-09-29）**：svc 收口后全仓 fresh profile 重排（157 包 ok；
+> 唯一 FAIL 为他会话 sitesettings 在途 WIP 用例，符号核实只存在于其
+> 未跟踪 handler_gaps_v10_test.go），排除在途域后最大无冲突缺口为
+> `platform/settings/layered.go` 7 块，新增
+> `layered_withsource_wings_test.go` 2 用例收口至包 **100.0%**：
+> getBoolWithSource——L3 raw 非 bool 解析失败翼（字符串形态经
+> store.Set 直写 `\"yes\"` + Reload）与 L2 命中翼
+> （ConfigInput.FeatureFlags → resolveL2 真实产出触达）；
+> getIntWithSource——非法键翼、raw 既非数字也非数字串的解析失败翼
+> （布尔形态：int64 与 string 两段 Unmarshal 均败）、L2 命中翼。
+> **口径登记**：resolveL2 目前只产出字符串与五域布尔键、整型键无生产方，
+> getIntWithSource 的 L2 翼以白盒直构 `&Layered{l2Values:…}` 锁层契约
+> （未来 L2 产出整型键时行为已定），注释注明生产不可达原因。
+> 门禁：gofmt 干净、go vet 干净、settings 包 fresh 全绿 100.0%
+> （13.7s，零未覆盖块）。本批单包 test-only，未重跑全量
+> （20 分钟前全量基线 157 ok）。
+
+## 覆盖率巡检批次·Go 侧第十三轮·api/page 收口至 100.0%（wt-api worktree，2026-09-29）
+
+> **交付（2026-09-29）**：第十二轮 profile 重排后 api/page/service.go
+> 5 块 + handler.go Resources 错误翼 1 块收口，新增
+> `coverage_e_resources_wings_test.go` 3 用例，包 **99.9% → 100.0%**
+> （零未覆盖块）：Resources 双守卫翼——无 pages:read 族权限直接拒绝；
+> username 在库但请求上下文缺 game scope（fixture 自带 scope 值，须手动
+> 构造 `context.WithValue(bg, \"username\", …)` 绕开——直接传
+> context.Background() 会先撞 requirePageRead 的 LoadCurrentAdmin 失败，
+> 走错翼）；page_specs 缺表存储错误透传；handler 层错误翼 400。
+> functionResourceIndex——nil Service 与无 DB 连线双早退翼、
+> function_contracts 缺表按空索引降级（不 panic 不报错）。
+> 门禁：gofmt 干净、go vet 干净、api/page 包 fresh 全绿 100.0%（67s）。
+> 本批单包 test-only，未重跑全量（同日全量基线 157 ok）。
+
+## 覆盖率巡检批次·Go 侧第十四轮·internal/handler 收口至 100.0%（wt-api worktree，2026-09-29）
+
+> **交付（2026-09-29）**：routes.go registerUploadStaticRoute 残余
+> 5 块收口，新增 `routes_upload_static_test.go`，包 **100.0%**
+> （零未覆盖块）：挂载成功主链（GET /uploads/avatars/* 路由注册 +
+> avatars 目录未建自动创建）；MkdirAll 失败翼（avatars 路径被同名
+> 文件占位 → warn 后不挂载）；LocalAvatarDir 解析失败翼（相对 baseDir
+> 须 filepath.Abs→Getwd——chdir 进已删目录构造 Getwd ENOENT；本包
+> 核实无 t.Parallel 用例，顺序执行下进程级 cwd 操纵安全，结束恢复）。
+> 门禁：gofmt 干净、go vet 干净、handler 包 fresh 全绿 100.0%（1.5s）。
+> 本批单包 test-only，未重跑全量（同日全量基线 157 ok）。
+
+## 覆盖率巡检批次·Go 侧第十五轮·api/game 收口至 100.0%（wt-api worktree，2026-09-29）
+
+> **交付（2026-09-29）**：helpers.go 3 块 + service.go EnvsList 透传翼
+> 1 块收口，新增 `helpers_envscope_wings_test.go`，包 **100.0%**：
+> gameEnvScopes 双错误翼（上下文无身份 LoadCurrentAdmin 失败 /
+> admin_game_env_scopes 缺表包装 CodeError 不裸传 SQL 错误）+
+> authorizeGameEnv 与 EnvsList 对底层错误的透传翼（权限与游戏寻址
+> 都过后撞存储故障）。
+> **坑实证（共享库毒化）**：api/game 的 setupTestDB 是
+> `file::memory:?cache=shared` 进程级单例——对其 DropTable 会毒化
+> 全部后续用例（首轮实证 5 例 envscope 用例连环 500/缺表报错），
+> 缺表注入必须独立命名内存库（`file:<unique>?mode=memory&cache=shared`）。
+> 门禁：gofmt 干净、go vet 干净、api/game 包 fresh 全绿 100.0%（34s）。
+> 本批单包 test-only，未重跑全量（同日全量基线 157 ok）。
+
+## 覆盖率巡检批次·Go 侧第十六轮·executionlog + service 尾翼（wt-api worktree，2026-09-29）
+
+> **交付（2026-09-29）**：两包尾翼收口——① `platform/executionlog`
+> PurgeBefore 双错误翼（execution_logs 缺表直传 / task_events 缺表：
+> runs 已删、events 报错仍上抛），包 **100.0%**；② `internal/service`
+> canonicalJSONBytes 非法 JSON 原样透传翼（提案摘要核对面对存量坏行
+> 不炸不吞），包 99.9%——Marshal 失败翼登记不可达：入参 v 来自
+> json.Unmarshal 合法输出（map/slice/string/float64/bool/nil），
+> json.Marshal 对这些类型无失败路径，不造假用例。
+> 门禁：gofmt 干净、go vet 两包干净、两包 fresh 全绿（1.0s/7.1s）。
+> 本批 test-only，未重跑全量（同日全量基线 157 ok）。
