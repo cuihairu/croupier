@@ -1194,3 +1194,18 @@ fresh 全绿（158 包零 FAIL）、guard PASSED。**已知边界**：门禁在�
 > 门禁：gofmt 干净、go vet 干净、settings 包 fresh 全绿 100.0%
 > （13.7s，零未覆盖块）。本批单包 test-only，未重跑全量
 > （20 分钟前全量基线 157 ok）。
+
+## 覆盖率巡检批次·Go 侧第十三轮·api/page 收口至 100.0%（wt-api worktree，2026-09-29）
+
+> **交付（2026-09-29）**：第十二轮 profile 重排后 api/page/service.go
+> 5 块 + handler.go Resources 错误翼 1 块收口，新增
+> `coverage_e_resources_wings_test.go` 3 用例，包 **99.9% → 100.0%**
+> （零未覆盖块）：Resources 双守卫翼——无 pages:read 族权限直接拒绝；
+> username 在库但请求上下文缺 game scope（fixture 自带 scope 值，须手动
+> 构造 `context.WithValue(bg, \"username\", …)` 绕开——直接传
+> context.Background() 会先撞 requirePageRead 的 LoadCurrentAdmin 失败，
+> 走错翼）；page_specs 缺表存储错误透传；handler 层错误翼 400。
+> functionResourceIndex——nil Service 与无 DB 连线双早退翼、
+> function_contracts 缺表按空索引降级（不 panic 不报错）。
+> 门禁：gofmt 干净、go vet 干净、api/page 包 fresh 全绿 100.0%（67s）。
+> 本批单包 test-only，未重跑全量（同日全量基线 157 ok）。
