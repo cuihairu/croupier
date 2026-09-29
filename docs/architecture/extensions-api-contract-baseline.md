@@ -200,9 +200,21 @@ pages 返回 `{pages[]}`（**不是 `items[]`**），页面项（`ExtensionPageI
    status/desired_state uninstalled → uninstalled、enabled → healthy、否则
    disabled），替换恒 `unknown`；detail 响应同步。引 runtime binding 状态的
    深探测仍不承诺（无健康探测落库，见安装模型文档）。
-3. **catalog 写路径批次（V2 主缺口）**：admin catalog/release CRUD（登记/
-   上下架/发布版本）+ 官方扩展 seed（`official.notification/alerting/approval/
-backup-advanced`，对齐 `official-extension-unified-pattern.md`）；pack
-   （`.tgz`，protoc-gen-croupier 产物）导入自动登记列为后续。
+3. ✅ **catalog 写路径批次（2026-09-29 已落地）**：admin catalog/release
+   CRUD——`POST /extensions/catalog`（登记，name/displayName/vendor/kind
+   兜底链，extensionId 形态校验，重复 409）、`PUT /extensions/catalog/:id`
+   （非空覆盖 + status 上下架 active|delisted 闭集）、`DELETE
+/extensions/catalog/:id`（活跃安装实例阻止 → 409；卸载后物理删除并级联
+   清 releases，物理删避免软删行占用 extension_id 唯一索引）、`POST
+/extensions/catalog/:id/releases`（发布版本，semver 校验、渠道
+   stable/beta/alpha 闭集、manifest 必须对象、(extension,version) 应用层查重
+   409、latestVersion 仅在新版本 semver 更高时回填）；官方扩展 seed 补齐
+   `official.notification/alerting/approval/backup-advanced`（对齐统一模式：
+   manifest 声明三层权限键/pages.requiredPermission/configSchema 属性
+   type+description，仓库守卫测试防漂移；official.external-platform 为先于
+   模式的连接器条目不回溯改造）。pack（`.tgz`，protoc-gen-croupier 产物）
+   导入自动登记列为后续。已知边界：Store 页管理动作（登记/上下架/发布 UI）
+   未接线，本批仅 API 面；catalog 写操作无独立审计事件（经 HTTP 层通用审计
+   链，catalog 表无 createdBy 列）。
 4. **DomainEntry 恢复实测**：批次 1 后页面入口区块真实渲染 binding/manifest
    pages，补真实渲染用例（替换恒 Empty 的现状）。

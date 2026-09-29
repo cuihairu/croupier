@@ -4,11 +4,13 @@ import (
 	"context"
 	"database/sql"
 	"database/sql/driver"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -197,4 +199,71 @@ func TestGameDBMiddleware_RouterFailureReturns400(t *testing.T) {
 	GameDBMiddleware(svcCtx)(c)
 	assert.True(t, c.IsAborted())
 	assert.Equal(t, http.StatusBadRequest, w.Code)
+}
+
+// TestOfficialExtensionSeedFollowsUnifiedPattern（#46 批次 3）：仓库 seed 文件里
+// official.* 四扩展必须符合 official-extension-unified-pattern.md 统一模式——
+// ① 三层权限键 <domain>.read/operate/admin；② 每个版本 manifest 声明页面
+// （required_permission 必填）；③ configSchema 每个属性必须带 type/description。
+func TestOfficialExtensionSeedFollowsUnifiedPattern(t *testing.T) {
+	raw, err := os.ReadFile(filepath.Join("..", "..", "configs", "extensions", "catalog.json"))
+	if err != nil {
+		t.Skipf("seed file not available: %v", err)
+	}
+	var payload struct {
+		Items []struct {
+			ExtensionID string `json:"extensionId"`
+			Releases    []struct {
+				Version  string         `json:"version"`
+				Manifest map[string]any `json:"manifest"`
+			} `json:"releases"`
+		} `json:"items"`
+	}
+	if err := json.Unmarshal(raw, &payload); err != nil {
+		t.Fatalf("seed json invalid: %v", err)
+	}
+	checked := 0
+	for _, item := range payload.Items {
+		domain, ok := strings.CutPrefix(item.ExtensionID, "official.")
+		// 统一模式只约束四个业务扩展（见 official-extension-unified-pattern.md §1）；
+		// official.external-platform 是先于模式的连接器条目，不回溯改造。
+		if !ok || !map[string]bool{"notification": true, "alerting": true, "approval": true, "backup-advanced": true}[domain] {
+			continue
+		}
+		checked++
+		for _, release := range item.Releases {
+			manifest := release.Manifest
+			if manifest == nil {
+				t.Fatalf("%s@%s: manifest missing", item.ExtensionID, release.Version)
+			}
+			perms, _ := manifest["permissions"].(map[string]any)
+			for _, tier := range []string{"read", "operate", "admin"} {
+				key, _ := perms[tier].(string)
+				if key != domain+"."+tier {
+					t.Fatalf("%s@%s: permission tier %q = %q, want %q", item.ExtensionID, release.Version, tier, key, domain+"."+tier)
+				}
+			}
+			pages, _ := manifest["pages"].([]any)
+			if len(pages) == 0 {
+				t.Fatalf("%s@%s: pages declaration missing", item.ExtensionID, release.Version)
+			}
+			for _, rawPage := range pages {
+				page, _ := rawPage.(map[string]any)
+				if page["requiredPermission"] == "" {
+					t.Fatalf("%s@%s: page %v missing requiredPermission", item.ExtensionID, release.Version, page["key"])
+				}
+			}
+			schema, _ := manifest["configSchema"].(map[string]any)
+			props, _ := schema["properties"].(map[string]any)
+			for name, rawProp := range props {
+				prop, _ := rawProp.(map[string]any)
+				if prop["type"] == "" || prop["description"] == "" {
+					t.Fatalf("%s@%s: config prop %q must declare type and description", item.ExtensionID, release.Version, name)
+				}
+			}
+		}
+	}
+	if checked < 4 {
+		t.Fatalf("expected at least 4 official.* seed items, got: %d", checked)
+	}
 }

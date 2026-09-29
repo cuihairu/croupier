@@ -71,3 +71,31 @@ func (r *CatalogRepo) GetByExtensionIDs(ctx context.Context, extensionIDs []stri
 	}
 	return items, nil
 }
+
+func (r *CatalogRepo) Create(ctx context.Context, item *model.ExtensionCatalog) error {
+	return r.db.WithContext(ctx).Create(item).Error
+}
+
+// UpdateByExtensionID updates specified columns by extension_id (updates only when the row exists; returns ErrRecordNotFound when the row does not exist).
+func (r *CatalogRepo) UpdateByExtensionID(ctx context.Context, extensionID string, updates map[string]any) error {
+	res := r.db.WithContext(ctx).Model(&model.ExtensionCatalog{}).Where("extension_id = ?", extensionID).Updates(updates)
+	if res.Error != nil {
+		return res.Error
+	}
+	if res.RowsAffected == 0 {
+		return gorm.ErrRecordNotFound
+	}
+	return nil
+}
+
+// DeleteByExtensionID physically removes the catalog row (soft-deleted rows would continue to occupy the extension_id unique index, causing re-registration conflicts).
+func (r *CatalogRepo) DeleteByExtensionID(ctx context.Context, extensionID string) error {
+	res := r.db.WithContext(ctx).Unscoped().Where("extension_id = ?", extensionID).Delete(&model.ExtensionCatalog{})
+	if res.Error != nil {
+		return res.Error
+	}
+	if res.RowsAffected == 0 {
+		return gorm.ErrRecordNotFound
+	}
+	return nil
+}

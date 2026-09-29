@@ -139,6 +139,268 @@ func (s *Service) CatalogReleases(ctx context.Context, extensionID string) (*Ext
 	}, nil
 }
 
+// ---- catalog 写路径（#46 批次 3）：登记 / 更新（含上下架）/ 移除 / 发布版本 ----
+
+// catalogStatuses：上下架语义闭集（delisted=下架，列表与安装入口按 status 过滤）。
+var catalogStatuses = map[string]bool{"active": true, "delisted": true}
+
+// catalogReleaseChannels：发布渠道闭集。
+var catalogReleaseChannels = map[string]bool{"stable": true, "beta": true, "alpha": true}
+
+// validateCatalogExtensionID：extension id 形态约束（小写字母/数字开头，允许 . _ -，
+// 与 official.<domain> 命名规则兼容，禁空白防路由参数歧义）。
+func validateCatalogExtensionID(id string) error {
+	if id == "" {
+		return errorx.NewBadRequest("extensionId is required")
+	}
+	if len(id) > 128 {
+		return errorx.NewBadRequest("extensionId must be at most 128 characters")
+	}
+	for i, r := range id {
+		switch {
+		case r >= 'a' && r <= 'z', r >= '0' && r <= '9':
+		case r == '.' || r == '_' || r == '-':
+			if i == 0 {
+				return errorx.NewBadRequest("extensionId must start with a letter or digit")
+			}
+		default:
+			return errorx.NewBadRequest("extensionId only allows lowercase letters, digits, '.', '_', '-'")
+		}
+	}
+	return nil
+}
+
+// catalogItemFromModel：写路径返回体组装（复用读侧 item 形态，不含 installed 派生）。
+func catalogItemFromModel(item *model.ExtensionCatalog) ExtensionCatalogItem {
+	return ExtensionCatalogItem{
+		ID:            item.ExtensionID,
+		Name:          item.Name,
+		DisplayName:   item.DisplayName,
+		Vendor:        item.Vendor,
+		Kind:          item.Kind,
+		Summary:       item.Summary,
+		IconURL:       item.IconURL,
+		Status:        item.Status,
+		LatestVersion: item.LatestVersion,
+	}
+}
+
+func (s *Service) CatalogCreate(ctx context.Context, req ExtensionCatalogCreateRequest, operator string) (*ExtensionCatalogMutateResponse, error) {
+	if err := s.requireWritePermission(ctx, "无权登记扩展"); err != nil {
+		return nil, err
+	}
+	extID := strings.TrimSpace(req.ExtensionID)
+	if err := validateCatalogExtensionID(extID); err != nil {
+		return nil, err
+	}
+	status := strings.TrimSpace(req.Status)
+	if status == "" {
+		status = "active"
+	}
+	if !catalogStatuses[status] {
+		return nil, errorx.NewBadRequest("invalid status: only active/delisted allowed")
+	}
+	kind := strings.TrimSpace(req.Kind)
+	if kind == "" {
+		kind = "community"
+	}
+	if _, _, err := s.svcCtx.Extensions.Catalog.Get(ctx, extID); err == nil {
+		return nil, errorx.NewConflict("extension already exists in catalog")
+	} else if !errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, mapServiceError(err)
+	}
+	name := strings.TrimSpace(req.Name)
+	if name == "" {
+		name = extID
+	}
+	displayName := strings.TrimSpace(req.DisplayName)
+	if displayName == "" {
+		displayName = name
+	}
+	vendor := strings.TrimSpace(req.Vendor)
+	if vendor == "" {
+		vendor = "external"
+	}
+	record := &model.ExtensionCatalog{
+		ExtensionID:   extID,
+		Name:          name,
+		DisplayName:   displayName,
+		Vendor:        vendor,
+		Kind:          kind,
+		Summary:       strings.TrimSpace(req.Summary),
+		IconURL:       strings.TrimSpace(req.IconURL),
+		HomepageURL:   strings.TrimSpace(req.HomepageURL),
+		Status:        status,
+		LatestVersion: strings.TrimSpace(req.LatestVersion),
+	}
+	if err := s.svcCtx.Extensions.Catalog.Create(ctx, record); err != nil {
+		return nil, mapServiceError(err)
+	}
+	_ = operator // 审计经 HTTP 层统一审计链；catalog 行无 createdBy 列
+	return &ExtensionCatalogMutateResponse{Item: catalogItemFromModel(record)}, nil
+}
+
+func (s *Service) CatalogUpdate(ctx context.Context, extensionID string, req ExtensionCatalogUpdateRequest) (*ExtensionCatalogMutateResponse, error) {
+	if err := s.requireWritePermission(ctx, "无权修改扩展登记"); err != nil {
+		return nil, err
+	}
+	existing, _, err := s.svcCtx.Extensions.Catalog.Get(ctx, extensionID)
+	if err != nil {
+		return nil, mapServiceError(err)
+	}
+	updates := map[string]any{}
+	if v := strings.TrimSpace(req.Name); v != "" {
+		updates["name"] = v
+	}
+	if v := strings.TrimSpace(req.DisplayName); v != "" {
+		updates["display_name"] = v
+	}
+	if v := strings.TrimSpace(req.Vendor); v != "" {
+		updates["vendor"] = v
+	}
+	if v := strings.TrimSpace(req.Kind); v != "" {
+		updates["kind"] = v
+	}
+	updates["summary"] = strings.TrimSpace(req.Summary)
+	updates["icon_url"] = strings.TrimSpace(req.IconURL)
+	updates["homepage_url"] = strings.TrimSpace(req.HomepageURL)
+	if v := strings.TrimSpace(req.Status); v != "" {
+		if !catalogStatuses[v] {
+			return nil, errorx.NewBadRequest("invalid status: only active/delisted allowed")
+		}
+		updates["status"] = v
+	}
+	if len(updates) > 0 {
+		if err := s.svcCtx.Extensions.Catalog.UpdateFields(ctx, existing.ExtensionID, updates); err != nil {
+			return nil, mapServiceError(err)
+		}
+	}
+	updated, _, err := s.svcCtx.Extensions.Catalog.Get(ctx, existing.ExtensionID)
+	if err != nil {
+		return nil, mapServiceError(err)
+	}
+	return &ExtensionCatalogMutateResponse{Item: catalogItemFromModel(updated)}, nil
+}
+
+func (s *Service) CatalogDelete(ctx context.Context, extensionID string) error {
+	if err := s.requireWritePermission(ctx, "无权移除扩展登记"); err != nil {
+		return err
+	}
+	existing, _, err := s.svcCtx.Extensions.Catalog.Get(ctx, extensionID)
+	if err != nil {
+		return mapServiceError(err)
+	}
+	// 有活跃安装实例时拒绝移除（先卸载再移除，避免悬挂引用）
+	if err := s.rejectActiveInstallations(ctx, existing.ExtensionID); err != nil {
+		return err
+	}
+	if err := s.svcCtx.Extensions.Catalog.RemoveReleases(ctx, existing.ExtensionID); err != nil {
+		return mapServiceError(err)
+	}
+	return mapServiceError(s.svcCtx.Extensions.Catalog.Remove(ctx, existing.ExtensionID))
+}
+
+// rejectActiveInstallations：存在未卸载安装实例时拒绝 catalog 移除/下架外的破坏性操作。
+func (s *Service) rejectActiveInstallations(ctx context.Context, extensionID string) error {
+	items, _, err := s.svcCtx.Extensions.Installation.List(ctx, extensioninstallation.ListQuery{
+		ExtensionID: extensionID,
+		Limit:       1,
+	})
+	if err != nil {
+		return mapServiceError(err)
+	}
+	for _, item := range items {
+		if !strings.EqualFold(item.Status, "uninstalled") && !strings.EqualFold(item.DesiredState, "uninstalled") {
+			return errorx.NewConflictWithDetails(
+				"extension has active installations; uninstall first",
+				map[string]any{"installationId": item.ID},
+			)
+		}
+	}
+	return nil
+}
+
+func (s *Service) CatalogReleasePublish(ctx context.Context, extensionID string, req ExtensionReleasePublishRequest, operator string) (*ExtensionReleasePublishResponse, error) {
+	if err := s.requireWritePermission(ctx, "无权发布扩展版本"); err != nil {
+		return nil, err
+	}
+	existing, _, err := s.svcCtx.Extensions.Catalog.Get(ctx, extensionID)
+	if err != nil {
+		return nil, mapServiceError(err)
+	}
+	version := strings.TrimSpace(req.Version)
+	parsed, ok := parseSemVersion(version)
+	if !ok {
+		return nil, errorx.NewBadRequest("invalid version: expected semver like 1.2.3")
+	}
+	channel := strings.TrimSpace(req.ReleaseChannel)
+	if channel == "" {
+		channel = "stable"
+	}
+	if !catalogReleaseChannels[channel] {
+		return nil, errorx.NewBadRequest("invalid releaseChannel: only stable/beta/alpha allowed")
+	}
+	if req.Manifest == nil {
+		return nil, errorx.NewBadRequest("manifest is required")
+	}
+	if _, dup := s.svcCtx.Extensions.Catalog.ReleaseByVersion(ctx, existing.ExtensionID, version); dup == nil {
+		return nil, errorx.NewConflict("release version already exists")
+	} else if !errors.Is(dup, gorm.ErrRecordNotFound) {
+		return nil, mapServiceError(dup)
+	}
+	manifestJSON, err := json.Marshal(req.Manifest)
+	if err != nil {
+		return nil, errorx.NewBadRequest("invalid manifest: must be a JSON object")
+	}
+	release := &model.ExtensionRelease{
+		ExtensionID:     existing.ExtensionID,
+		Version:         version,
+		ReleaseChannel:  channel,
+		ManifestJSON:    model.JSON(manifestJSON),
+		PackageRef:      strings.TrimSpace(req.PackageRef),
+		Checksum:        strings.TrimSpace(req.Checksum),
+		MinCoreVersion:  strings.TrimSpace(req.MinCoreVersion),
+		Changelog:       strings.TrimSpace(req.Changelog),
+		PublishedAtUnix: time.Now().Unix(),
+	}
+	if err := s.svcCtx.Extensions.Catalog.PublishRelease(ctx, release); err != nil {
+		return nil, mapServiceError(err)
+	}
+	// latestVersion 语义：仅当新版本 semver 更高时回滚 catalog 指针（降渠道补发不回退 latest）
+	if shouldBumpLatestVersion(existing.LatestVersion, parsed) {
+		if err := s.svcCtx.Extensions.Catalog.UpdateFields(ctx, existing.ExtensionID, map[string]any{"latest_version": version}); err != nil {
+			return nil, mapServiceError(err)
+		}
+	}
+	_ = operator
+	return &ExtensionReleasePublishResponse{Release: ExtensionReleaseItem{
+		Version:        release.Version,
+		ReleaseChannel: release.ReleaseChannel,
+		MinCoreVersion: release.MinCoreVersion,
+		PublishedAt:    release.PublishedAtUnix,
+		Changelog:      release.Changelog,
+	}}, nil
+}
+
+// shouldBumpLatestVersion：catalog 无 latest 或新版本 semver 严格更高时回填。
+func shouldBumpLatestVersion(current string, candidate semVersion) bool {
+	curRaw := strings.TrimSpace(current)
+	if curRaw == "" {
+		return true
+	}
+	cur, ok := parseSemVersion(curRaw)
+	if !ok {
+		return true
+	}
+	if candidate.major != cur.major {
+		return candidate.major > cur.major
+	}
+	if candidate.minor != cur.minor {
+		return candidate.minor > cur.minor
+	}
+	return candidate.patch > cur.patch
+}
+
 func (s *Service) Install(ctx context.Context, req ExtensionInstallRequest, operator string) (*ExtensionInstallResponse, error) {
 	if err := s.requireWritePermission(ctx, "无权安装扩展"); err != nil {
 		return nil, err

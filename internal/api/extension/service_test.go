@@ -2,6 +2,7 @@ package extension
 
 import (
 	"context"
+	"errors"
 	"sync"
 	"testing"
 	"time"
@@ -3702,5 +3703,189 @@ func TestDeriveExtensionHealthStatus_Matrix(t *testing.T) {
 				t.Fatalf("deriveExtensionHealthStatus() = %q, want %q", got, tc.want)
 			}
 		})
+	}
+}
+
+// TestService_CatalogWrite_Lifecycle（#46 批次 3）：登记 → 更新（上下架）→
+// 发布版本（latestVersion 回填规则）→ 活跃安装阻止移除 → 卸载后级联移除。
+func TestService_CatalogWrite_Lifecycle(t *testing.T) {
+	db := setupIntegrationTestDB(t)
+	svcCtx := setupExtensionTestContext(t, db)
+	ctx := setupAdminContext(t, svcCtx)
+
+	s := NewService(svcCtx)
+
+	// ① Create：name/displayName/vendor 留空走兜底
+	created, err := s.CatalogCreate(ctx, ExtensionCatalogCreateRequest{
+		ExtensionID: "vendor.demo-ext",
+		Summary:     "demo extension",
+	}, "test_admin")
+	if err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	if created.Item.Name != "vendor.demo-ext" || created.Item.DisplayName != "vendor.demo-ext" {
+		t.Fatalf("expected name fallback to extensionId, got: %q/%q", created.Item.Name, created.Item.DisplayName)
+	}
+	if created.Item.Vendor != "external" || created.Item.Kind != "community" || created.Item.Status != "active" {
+		t.Fatalf("unexpected defaults: %+v", created.Item)
+	}
+
+	// ② 重复登记 → 409
+	if _, err := s.CatalogCreate(ctx, ExtensionCatalogCreateRequest{ExtensionID: "vendor.demo-ext"}, "test_admin"); err == nil {
+		t.Fatal("expected conflict on duplicate create")
+	}
+
+	// ③ 非法 extensionId / status → 400
+	if _, err := s.CatalogCreate(ctx, ExtensionCatalogCreateRequest{ExtensionID: "Bad_ID"}, "test_admin"); err == nil {
+		t.Fatal("expected invalid extensionId rejected")
+	}
+	if _, err := s.CatalogCreate(ctx, ExtensionCatalogCreateRequest{ExtensionID: "vendor.ok", Status: "archived"}, "test_admin"); err == nil {
+		t.Fatal("expected invalid status rejected")
+	}
+
+	// ④ Update：displayName + 下架 delisted
+	updated, err := s.CatalogUpdate(ctx, "vendor.demo-ext", ExtensionCatalogUpdateRequest{
+		DisplayName: "演示扩展",
+		Status:      "delisted",
+	})
+	if err != nil {
+		t.Fatalf("update: %v", err)
+	}
+	if updated.Item.DisplayName != "演示扩展" || updated.Item.Status != "delisted" {
+		t.Fatalf("expected update applied, got: %+v", updated.Item)
+	}
+	// 非法 status → 400
+	if _, err := s.CatalogUpdate(ctx, "vendor.demo-ext", ExtensionCatalogUpdateRequest{Status: "gone"}); err == nil {
+		t.Fatal("expected invalid status rejected on update")
+	}
+	// 不存在的扩展 → 404
+	if _, err := s.CatalogUpdate(ctx, "vendor.missing", ExtensionCatalogUpdateRequest{DisplayName: "x"}); err == nil {
+		t.Fatal("expected not found on missing update")
+	}
+
+	// ⑤ 发布版本：v1.0.0 → latestVersion 回填
+	pub, err := s.CatalogReleasePublish(ctx, "vendor.demo-ext", ExtensionReleasePublishRequest{
+		Version:   "1.0.0",
+		Changelog: "first",
+		Manifest: map[string]any{
+			"id":      "vendor.demo-ext",
+			"version": "1.0.0",
+		},
+	}, "test_admin")
+	if err != nil {
+		t.Fatalf("publish 1.0.0: %v", err)
+	}
+	if pub.Release.Version != "1.0.0" || pub.Release.PublishedAt == 0 {
+		t.Fatalf("unexpected release item: %+v", pub.Release)
+	}
+	// 0.9.0 更低 → latest 不回退
+	if _, err := s.CatalogReleasePublish(ctx, "vendor.demo-ext", ExtensionReleasePublishRequest{
+		Version:  "0.9.0",
+		Manifest: map[string]any{"id": "vendor.demo-ext", "version": "0.9.0"},
+	}, "test_admin"); err != nil {
+		t.Fatalf("publish 0.9.0: %v", err)
+	}
+	detail, err := s.CatalogDetail(ctx, "vendor.demo-ext")
+	if err != nil {
+		t.Fatalf("detail: %v", err)
+	}
+	if detail.Item.LatestVersion != "1.0.0" {
+		t.Fatalf("expected latest stay 1.0.0, got: %q", detail.Item.LatestVersion)
+	}
+	if len(detail.Releases) != 2 {
+		t.Fatalf("expected 2 releases, got: %d", len(detail.Releases))
+	}
+	// 重复版本 → 409；坏 semver/渠道/缺 manifest → 400
+	dup := ExtensionReleasePublishRequest{Version: "1.0.0", Manifest: map[string]any{"id": "x"}}
+	if _, err := s.CatalogReleasePublish(ctx, "vendor.demo-ext", dup, "test_admin"); err == nil {
+		t.Fatal("expected duplicate version rejected")
+	}
+	badVer := ExtensionReleasePublishRequest{Version: "not-semver", Manifest: map[string]any{"id": "x"}}
+	if _, err := s.CatalogReleasePublish(ctx, "vendor.demo-ext", badVer, "test_admin"); err == nil {
+		t.Fatal("expected invalid semver rejected")
+	}
+	badChannel := ExtensionReleasePublishRequest{Version: "2.0.0", ReleaseChannel: "rc", Manifest: map[string]any{"id": "x"}}
+	if _, err := s.CatalogReleasePublish(ctx, "vendor.demo-ext", badChannel, "test_admin"); err == nil {
+		t.Fatal("expected invalid channel rejected")
+	}
+	noManifest := ExtensionReleasePublishRequest{Version: "2.0.0"}
+	if _, err := s.CatalogReleasePublish(ctx, "vendor.demo-ext", noManifest, "test_admin"); err == nil {
+		t.Fatal("expected missing manifest rejected")
+	}
+	// 不存在的扩展 → 404
+	if _, err := s.CatalogReleasePublish(ctx, "vendor.missing", ExtensionReleasePublishRequest{Version: "1.0.0", Manifest: map[string]any{}}, "test_admin"); err == nil {
+		t.Fatal("expected not found on missing publish")
+	}
+
+	// ⑥ 活跃安装实例阻止移除
+	if _, err := s.Install(ctx, ExtensionInstallRequest{
+		ExtensionID:    "vendor.demo-ext",
+		ReleaseVersion: "1.0.0",
+		ScopeType:      "system",
+		ScopeID:        "global",
+		TargetType:     "agent",
+		TargetID:       "default",
+		Config:         map[string]any{"enabled": true},
+	}, "test_admin"); err != nil {
+		t.Fatalf("install: %v", err)
+	}
+	if err := s.CatalogDelete(ctx, "vendor.demo-ext"); err == nil {
+		t.Fatal("expected delete blocked by active installation")
+	}
+	// 卸载后移除 → 成功且级联清 releases
+	if _, err := s.Uninstall(ctx, detailItemID(t, s, ctx, "vendor.demo-ext"), "test_admin"); err != nil {
+		t.Fatalf("uninstall: %v", err)
+	}
+	if err := s.CatalogDelete(ctx, "vendor.demo-ext"); err != nil {
+		t.Fatalf("delete after uninstall: %v", err)
+	}
+	if _, err := s.CatalogDetail(ctx, "vendor.demo-ext"); err == nil {
+		t.Fatal("expected deleted extension not found")
+	}
+	if _, err := s.CatalogReleases(ctx, "vendor.demo-ext"); err == nil || detail != nil && len(detail.Releases) == 0 {
+		// releases 级联清除：版本列表也应为空（Get 找不到 catalog 行时返回 not found）
+		_ = err
+	}
+	if _, _, err := svcCtx.Extensions.Catalog.Get(ctx, "vendor.demo-ext"); !errors.Is(err, gorm.ErrRecordNotFound) {
+		t.Fatalf("expected catalog row removed, got: %v", err)
+	}
+	if _, err := svcCtx.Extensions.Catalog.ReleaseByVersion(ctx, "vendor.demo-ext", "1.0.0"); !errors.Is(err, gorm.ErrRecordNotFound) {
+		t.Fatalf("expected releases cascaded away, got: %v", err)
+	}
+}
+
+// detailItemID：经安装列表取该扩展当前安装实例 ID 的测试助手。
+func detailItemID(t *testing.T, s *Service, ctx context.Context, extensionID string) uint {
+	t.Helper()
+	resp, err := s.InstallationList(ctx, ExtensionInstallationListRequest{
+		ExtensionID: extensionID,
+		Page:        1,
+		PageSize:    10,
+	})
+	if err != nil {
+		t.Fatalf("installation list: %v", err)
+	}
+	if len(resp.Items) == 0 {
+		t.Fatal("expected at least one installation")
+	}
+	return resp.Items[0].ID
+}
+
+// TestService_CatalogWrite_PermissionDenied：无写权限 ctx 被拒（utils 层守卫语义在本包的接线验证）。
+func TestService_CatalogWrite_PermissionDenied(t *testing.T) {
+	db := setupIntegrationTestDB(t)
+	svcCtx := setupExtensionTestContext(t, db)
+	// 无任何角色/权限的普通用户 ctx
+	ctx := context.WithValue(context.Background(), "username", "plain_user")
+
+	s := NewService(svcCtx)
+	if _, err := s.CatalogCreate(ctx, ExtensionCatalogCreateRequest{ExtensionID: "vendor.x"}, "plain_user"); err == nil {
+		t.Fatal("expected create denied without permission")
+	}
+	if err := s.CatalogDelete(ctx, "vendor.x"); err == nil {
+		t.Fatal("expected delete denied without permission")
+	}
+	if _, err := s.CatalogReleasePublish(ctx, "vendor.x", ExtensionReleasePublishRequest{Version: "1.0.0", Manifest: map[string]any{}}, "plain_user"); err == nil {
+		t.Fatal("expected publish denied without permission")
 	}
 }

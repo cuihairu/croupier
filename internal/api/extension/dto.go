@@ -52,6 +52,51 @@ type ExtensionCatalogReleasesResponse struct {
 	Releases []ExtensionReleaseItem `json:"releases"`
 }
 
+// ExtensionCatalogCreateRequest（#46 批次 3）：登记扩展到 catalog。
+type ExtensionCatalogCreateRequest struct {
+	ExtensionID   string `json:"extensionId" binding:"required"`
+	Name          string `json:"name"`
+	DisplayName   string `json:"displayName"`
+	Vendor        string `json:"vendor"`
+	Kind          string `json:"kind"`
+	Summary       string `json:"summary"`
+	IconURL       string `json:"iconUrl"`
+	HomepageURL   string `json:"homepageUrl"`
+	Status        string `json:"status"`
+	LatestVersion string `json:"latestVersion"`
+}
+
+// ExtensionCatalogUpdateRequest：非空字段覆盖（含 status 上下架 active|delisted）。
+type ExtensionCatalogUpdateRequest struct {
+	Name        string `json:"name"`
+	DisplayName string `json:"displayName"`
+	Vendor      string `json:"vendor"`
+	Kind        string `json:"kind"`
+	Summary     string `json:"summary"`
+	IconURL     string `json:"iconUrl"`
+	HomepageURL string `json:"homepageUrl"`
+	Status      string `json:"status"`
+}
+
+type ExtensionCatalogMutateResponse struct {
+	Item ExtensionCatalogItem `json:"item"`
+}
+
+// ExtensionReleasePublishRequest：发布版本（manifest 必须是 JSON 对象）。
+type ExtensionReleasePublishRequest struct {
+	Version        string         `json:"version" binding:"required"`
+	ReleaseChannel string         `json:"releaseChannel"`
+	MinCoreVersion string         `json:"minCoreVersion"`
+	PackageRef     string         `json:"packageRef"`
+	Checksum       string         `json:"checksum"`
+	Changelog      string         `json:"changelog"`
+	Manifest       map[string]any `json:"manifest"`
+}
+
+type ExtensionReleasePublishResponse struct {
+	Release ExtensionReleaseItem `json:"release"`
+}
+
 type ExtensionInstallRequest struct {
 	ExtensionID    string            `json:"extensionId" binding:"required"`
 	ReleaseVersion string            `json:"releaseVersion" binding:"required"`

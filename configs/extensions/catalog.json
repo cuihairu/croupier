@@ -40,6 +40,305 @@
           }
         }
       ]
+    },
+    {
+      "extensionId": "official.notification",
+      "name": "notification",
+      "displayName": "通知中心",
+      "vendor": "official",
+      "kind": "official",
+      "summary": "站内通知/邮件/Webhook 通知渠道的统一管理与发送。",
+      "iconUrl": "",
+      "homepageUrl": "https://github.com/cuihairu/croupier",
+      "status": "active",
+      "latestVersion": "1.0.0",
+      "releases": [
+        {
+          "version": "1.0.0",
+          "releaseChannel": "stable",
+          "minCoreVersion": "1.26.0",
+          "packageRef": "builtin://official.notification@1.0.0",
+          "checksum": "",
+          "changelog": "Initial official notification extension.",
+          "publishedAt": "2026-03-15T00:00:00Z",
+          "manifest": {
+            "id": "official.notification",
+            "name": "notification",
+            "displayName": "通知中心",
+            "version": "1.0.0",
+            "kind": "official",
+            "defaultInstall": false,
+            "tags": [
+              "official",
+              "notification"
+            ],
+            "capabilities": [
+              "notifications.management",
+              "notifications.send"
+            ],
+            "permissions": {
+              "read": "notification.read",
+              "operate": "notification.operate",
+              "admin": "notification.admin"
+            },
+            "pages": [
+              {
+                "key": "notifications.overview",
+                "title": "通知中心",
+                "route": "/extensions/official/notification",
+                "icon": "notification",
+                "order": 10,
+                "requiredPermission": "notification.read"
+              }
+            ],
+            "configSchema": {
+              "type": "object",
+              "properties": {
+                "emailEnabled": {
+                  "type": "boolean",
+                  "description": "是否启用邮件渠道",
+                  "required": false,
+                  "default": true
+                },
+                "webhookUrl": {
+                  "type": "string",
+                  "description": "Webhook 回调地址",
+                  "required": false
+                },
+                "retryTimes": {
+                  "type": "integer",
+                  "description": "发送失败重试次数",
+                  "required": false,
+                  "default": 3
+                }
+              },
+              "required": []
+            }
+          }
+        }
+      ]
+    },
+    {
+      "extensionId": "official.alerting",
+      "name": "alerting",
+      "displayName": "告警中心",
+      "vendor": "official",
+      "kind": "official",
+      "summary": "指标告警规则、静默窗口与告警通知路由。",
+      "iconUrl": "",
+      "homepageUrl": "https://github.com/cuihairu/croupier",
+      "status": "active",
+      "latestVersion": "1.0.0",
+      "releases": [
+        {
+          "version": "1.0.0",
+          "releaseChannel": "stable",
+          "minCoreVersion": "1.26.0",
+          "packageRef": "builtin://official.alerting@1.0.0",
+          "checksum": "",
+          "changelog": "Initial official alerting extension.",
+          "publishedAt": "2026-03-15T00:00:00Z",
+          "manifest": {
+            "id": "official.alerting",
+            "name": "alerting",
+            "displayName": "告警中心",
+            "version": "1.0.0",
+            "kind": "official",
+            "defaultInstall": false,
+            "tags": [
+              "official",
+              "alerting"
+            ],
+            "capabilities": [
+              "alerts.management",
+              "alerts.silence"
+            ],
+            "permissions": {
+              "read": "alerting.read",
+              "operate": "alerting.operate",
+              "admin": "alerting.admin"
+            },
+            "pages": [
+              {
+                "key": "alerts.overview",
+                "title": "告警中心",
+                "route": "/extensions/official/alerting",
+                "icon": "alerting",
+                "order": 10,
+                "requiredPermission": "alerting.read"
+              }
+            ],
+            "configSchema": {
+              "type": "object",
+              "properties": {
+                "evaluationIntervalSeconds": {
+                  "type": "integer",
+                  "description": "规则评估间隔（秒）",
+                  "required": false,
+                  "default": 60
+                },
+                "silenceDefaultMinutes": {
+                  "type": "integer",
+                  "description": "静默默认时长（分钟）",
+                  "required": false,
+                  "default": 30
+                }
+              },
+              "required": []
+            }
+          }
+        }
+      ]
+    },
+    {
+      "extensionId": "official.approval",
+      "name": "approval",
+      "displayName": "审批流",
+      "vendor": "official",
+      "kind": "official",
+      "summary": "高危操作两人复核与多级审批流的扩展编排。",
+      "iconUrl": "",
+      "homepageUrl": "https://github.com/cuihairu/croupier",
+      "status": "active",
+      "latestVersion": "1.0.0",
+      "releases": [
+        {
+          "version": "1.0.0",
+          "releaseChannel": "stable",
+          "minCoreVersion": "1.26.0",
+          "packageRef": "builtin://official.approval@1.0.0",
+          "checksum": "",
+          "changelog": "Initial official approval extension.",
+          "publishedAt": "2026-03-15T00:00:00Z",
+          "manifest": {
+            "id": "official.approval",
+            "name": "approval",
+            "displayName": "审批流",
+            "version": "1.0.0",
+            "kind": "official",
+            "defaultInstall": false,
+            "tags": [
+              "official",
+              "approval"
+            ],
+            "capabilities": [
+              "approvals.management",
+              "approvals.decide"
+            ],
+            "permissions": {
+              "read": "approval.read",
+              "operate": "approval.operate",
+              "admin": "approval.admin"
+            },
+            "pages": [
+              {
+                "key": "approvals.overview",
+                "title": "审批流",
+                "route": "/extensions/official/approval",
+                "icon": "approval",
+                "order": 10,
+                "requiredPermission": "approval.read"
+              }
+            ],
+            "configSchema": {
+              "type": "object",
+              "properties": {
+                "twoPersonRule": {
+                  "type": "boolean",
+                  "description": "强制两人复核",
+                  "required": false,
+                  "default": true
+                },
+                "expireHours": {
+                  "type": "integer",
+                  "description": "待审单过期时长（小时）",
+                  "required": false,
+                  "default": 72
+                }
+              },
+              "required": []
+            }
+          }
+        }
+      ]
+    },
+    {
+      "extensionId": "official.backup-advanced",
+      "name": "backup-advanced",
+      "displayName": "高级备份",
+      "vendor": "official",
+      "kind": "official",
+      "summary": "数据库与配置的定时备份、校验和留存与恢复演练。",
+      "iconUrl": "",
+      "homepageUrl": "https://github.com/cuihairu/croupier",
+      "status": "active",
+      "latestVersion": "1.0.0",
+      "releases": [
+        {
+          "version": "1.0.0",
+          "releaseChannel": "stable",
+          "minCoreVersion": "1.26.0",
+          "packageRef": "builtin://official.backup-advanced@1.0.0",
+          "checksum": "",
+          "changelog": "Initial official backup-advanced extension.",
+          "publishedAt": "2026-03-15T00:00:00Z",
+          "manifest": {
+            "id": "official.backup-advanced",
+            "name": "backup-advanced",
+            "displayName": "高级备份",
+            "version": "1.0.0",
+            "kind": "official",
+            "defaultInstall": false,
+            "tags": [
+              "official",
+              "backup"
+            ],
+            "capabilities": [
+              "backups.management",
+              "backups.create"
+            ],
+            "permissions": {
+              "read": "backup-advanced.read",
+              "operate": "backup-advanced.operate",
+              "admin": "backup-advanced.admin"
+            },
+            "pages": [
+              {
+                "key": "backups.overview",
+                "title": "高级备份",
+                "route": "/extensions/official/backup-advanced",
+                "icon": "backup-advanced",
+                "order": 10,
+                "requiredPermission": "backup-advanced.read"
+              }
+            ],
+            "configSchema": {
+              "type": "object",
+              "properties": {
+                "schedule": {
+                  "type": "string",
+                  "description": "备份 cron 表达式",
+                  "required": false,
+                  "default": "0 3 * * *"
+                },
+                "retainDays": {
+                  "type": "integer",
+                  "description": "备份保留天数",
+                  "required": false,
+                  "default": 14
+                },
+                "checksum": {
+                  "type": "boolean",
+                  "description": "生成校验和",
+                  "required": false,
+                  "default": true
+                }
+              },
+              "required": []
+            }
+          }
+        }
+      ]
     }
   ]
 }
