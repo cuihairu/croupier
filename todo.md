@@ -1769,3 +1769,33 @@ fresh 全绿（158 包零 FAIL）、guard PASSED。**已知边界**：门禁在�
 > 4087/4087 绿（2 worker 限流 669s，load ~1 低位窗口直跑）。
 > **Extensions 簇收官**：四个页面 + 全部 overlay/弹窗/纯逻辑件均有测试
 > 且非防御分支 100%——簇零测试目录清零。
+
+## 函数调用历史页覆盖批次（全仓最大零测试页，2026-09-29）
+
+> **交付（2026-09-29）**：Extensions 簇收官后转全仓零测试页排行首位——
+> `Functions/History/index.tsx`（739 行，0 测试引用）→ 新增
+> `__tests__/index.test.tsx` 16 用例，v8 口径**行/分支/函数/语句 4×100%**。
+> 锁定契约：统计六卡（成功 `/ total` 后缀、平均耗时复用 formatDuration、
+> 成功率 total>0 toFixed(1)/total=0 数值 0 两臂）+ 统计失败静默（console.warn、
+> 卡片不渲染）；列表渲染矩阵（六状态徽标 + 未知状态回退 pending、gameId/env
+> 兜底、formatDuration 三段位 ms/s/m 与缺省、formatTime 合法/非法/缺省、
+> errorMessage Tooltip 红字与 '-' 兜底、共 N 条分页）；request 合并契约
+> （工具栏筛选经 params.filters 与查询表单字段合并、表单显式输入优先）+
+> 失败翼（extractErrorMessage → message.error）+ 响应缺省翼；工具栏状态下拉、
+> RangePicker 起止 Enter 提交（ISO 载荷）与清空剥键、LightFilter 三字段
+> （functionId/status/gameId）chip→popover→确 认 提交；刷新按钮双拉；
+> 详情抽屉（富化全字段 + payload/result 卡片 + response 缺省回落行数据 +
+> 失败两翼 + 空值形态全兜底/未知状态原文）；自动刷新轮询（fake timers：
+> 含 running/pending 5s 重拉列表与统计、全终态不重拉）。
+> **antd6 坑实证续档**：RangePicker 单面板且直接 change+OK 不提交——须逐输入
+> focus+change+Enter；清空图标须先 mouseEnter；LightFilter chip 与表头同文本
+> 须按 .ant-pro-core-field-label 锚定、popover 取未隐藏实例、确认按钮锚
+> button[data-type="confirm"]；Statistic 值与 % 后缀分元素（整串 getByText 不
+> 匹配，按 .ant-statistic-title 锚卡断拼接内容）；loading 态表格即渲染 Empty 壳
+> （空态断言先锚请求已发）；jsdom 下 Drawer 关闭动效不收尾（关闭翼以可再打开
+> 且重拉锁定）；useIntl mock 须稳定实例——fetchStats 的 useCallback 依赖 intl，
+> 不稳定会让统计重复拉取、计数断言失真。
+> 门禁：目标套件 16/16 绿（4×100%）、eslint 干净、tsc 0 错、全量 jest 337 套件
+> 4103/4103 绿（2 worker 限流 677s，load ~1.4 低位窗口直跑）。
+> **下一批候选（零测试页排行余量）**：Approvals（694）、Analytics/Levels（683）、
+> Ops/DBMonitor（667）、Ops/Alerts（600）、Dev/Releases（576）。
