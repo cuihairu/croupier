@@ -40,6 +40,10 @@ jest.mock('@/services/api/extensions', () => ({
   getExtensionCatalogDetail: jest.fn(),
   listExtensionCatalogReleases: jest.fn(),
   installExtension: jest.fn(),
+  createExtensionCatalog: jest.fn(),
+  updateExtensionCatalog: jest.fn(),
+  deleteExtensionCatalog: jest.fn(),
+  publishExtensionRelease: jest.fn(),
 }));
 
 // mock* 前缀变量：babel-jest hoist 白名单，允许 mock 工厂延迟绑定
@@ -80,10 +84,14 @@ jest.mock('@umijs/max', () => ({
 }));
 
 import {
+  createExtensionCatalog,
+  deleteExtensionCatalog,
   getExtensionCatalogDetail,
   installExtension,
   listExtensionCatalog,
   listExtensionCatalogReleases,
+  publishExtensionRelease,
+  updateExtensionCatalog,
 } from '@/services/api/extensions';
 
 const mList = listExtensionCatalog as jest.MockedFunction<typeof listExtensionCatalog>;
@@ -92,6 +100,10 @@ const mReleases = listExtensionCatalogReleases as jest.MockedFunction<
   typeof listExtensionCatalogReleases
 >;
 const mInstall = installExtension as jest.MockedFunction<typeof installExtension>;
+const mCreate = createExtensionCatalog as jest.MockedFunction<typeof createExtensionCatalog>;
+const mUpdate = updateExtensionCatalog as jest.MockedFunction<typeof updateExtensionCatalog>;
+const mDelete = deleteExtensionCatalog as jest.MockedFunction<typeof deleteExtensionCatalog>;
+const mPublish = publishExtensionRelease as jest.MockedFunction<typeof publishExtensionRelease>;
 
 const item1: ExtensionCatalogItem = {
   id: 'chatops',
@@ -211,6 +223,10 @@ beforeEach(() => {
   });
   mReleases.mockResolvedValue({ total: 2, releases: [releaseOf('1.4.0'), releaseOf('1.5.0')] });
   mInstall.mockResolvedValue({ installationId: 9, status: 'installing' });
+  mCreate.mockResolvedValue({ item: item1 });
+  mUpdate.mockResolvedValue({ item: item1 });
+  mDelete.mockResolvedValue({ deleted: true });
+  mPublish.mockResolvedValue({ release: releaseOf('1.5.0') });
 });
 
 describe('扩展商店 列表与筛选', () => {
@@ -630,5 +646,157 @@ describe('扩展商店 权限与跳转', () => {
 
     fireEvent.click(screen.getByRole('button', { name: '查看安装列表' }));
     expect(mockHistoryPush).toHaveBeenCalledWith('/system/extensions/installations');
+  });
+});
+
+// ---- OPEN-ISSUES #46 批次 3 写路径 UI 接线：登记 / 上下架 / 发布版本 / 删除 ----
+
+/** 打开某行「更多」菜单并点指定项（前一个菜单可能残留在 DOM，取最后一个可见菜单里的目标项） */
+async function openMoreAndClick(rowTitle: string, menuItem: string) {
+  const row = screen.getByText(rowTitle).closest('tr') as HTMLElement;
+  fireEvent.click(within(row).getByRole('button', { name: 'more-actions' }));
+  const item = await waitFor(() => {
+    const items = Array.from(
+      document.querySelectorAll(
+        '.ant-dropdown:not(.ant-dropdown-hidden) .ant-dropdown-menu-title-content',
+      ),
+    ).filter((el) => el.textContent === menuItem);
+    expect(items.length).toBeGreaterThan(0);
+    return items[items.length - 1] as HTMLElement;
+  });
+  fireEvent.click(item);
+}
+
+/** 点最近弹窗 footer 的主按钮（「确定」被 antd 双中文字符插空，按选择器点） */
+function clickModalOk() {
+  const ok = document.querySelector('.ant-modal-footer .ant-btn-primary') as HTMLButtonElement;
+  expect(ok).not.toBeNull();
+  fireEvent.click(ok);
+}
+
+/**
+ * 定位删除确认弹窗：antd 6 的 modal.confirm 会把标题同时渲染进
+ * .ant-modal-title 与 .ant-modal-confirm-title（全局 findByText 命中双份），
+ * 须按 .ant-modal-confirm 容器 + content 内条目名圈定目标弹窗。
+ */
+async function findDeleteConfirm(itemName: string) {
+  return await waitFor(() => {
+    const confirms = Array.from(document.querySelectorAll('.ant-modal-confirm'));
+    const target = confirms.find((c) => c.textContent?.includes(itemName));
+    expect(target).toBeTruthy();
+    return target as HTMLElement;
+  });
+}
+
+describe('扩展商店 管理动作（登记/上下架/发布/删除）', () => {
+  it('登记：表单提交载荷（extensionId trim + 默认 kind/status）+ 成功提示 + reload', async () => {
+    renderPage();
+    await waitFirstLoad();
+
+    fireEvent.click(screen.getByRole('button', { name: /登记扩展/ }));
+    expect(await screen.findByText('登记扩展到目录')).toBeInTheDocument();
+    fireEvent.change(screen.getByPlaceholderText('com.example.myextension'), {
+      target: { value: '  com.example.new  ' },
+    });
+    clickModalOk();
+
+    await waitFor(() =>
+      expect(mCreate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          extensionId: 'com.example.new',
+          kind: 'community',
+          status: 'active',
+        }),
+      ),
+    );
+    expect(await screen.findByText('已登记到目录')).toBeInTheDocument();
+    await waitFor(() => expect(mList).toHaveBeenCalledTimes(2));
+  });
+
+  it('登记重复 409：冲突文案、弹窗不关、不 reload', async () => {
+    mCreate.mockRejectedValueOnce({ response: { status: 409 } });
+    renderPage();
+    await waitFirstLoad();
+
+    fireEvent.click(screen.getByRole('button', { name: /登记扩展/ }));
+    fireEvent.change(await screen.findByPlaceholderText('com.example.myextension'), {
+      target: { value: 'com.example.dup' },
+    });
+    clickModalOk();
+
+    expect(await screen.findByText('登记失败：该扩展 ID 已存在于目录')).toBeInTheDocument();
+    expect(screen.getByText('登记扩展到目录')).toBeInTheDocument();
+    expect(mList).toHaveBeenCalledTimes(1);
+  });
+
+  it('下架：行更多菜单提交 status=delisted 并 reload；上架对称（inactive 行）', async () => {
+    renderPage();
+    await waitFirstLoad();
+
+    await openMoreAndClick('ChatOps', '下架');
+    await waitFor(() => expect(mUpdate).toHaveBeenCalledWith('chatops', { status: 'delisted' }));
+    expect(await screen.findByText('已下架：ChatOps')).toBeInTheDocument();
+    await waitFor(() => expect(mList).toHaveBeenCalledTimes(2));
+
+    await openMoreAndClick('Legacy', '上架');
+    await waitFor(() => expect(mUpdate).toHaveBeenCalledWith('legacy', { status: 'active' }));
+    expect(await screen.findByText('已上架：Legacy')).toBeInTheDocument();
+  });
+
+  it('发布版本：manifest 非法被前端拦截不调接口；合法 JSON 解析进载荷', async () => {
+    renderPage();
+    await waitFirstLoad();
+
+    await openMoreAndClick('ChatOps', '发布版本');
+    expect(await screen.findByText('发布版本: ChatOps')).toBeInTheDocument();
+
+    // 非法 manifest：validator 拦截、不调接口
+    fireEvent.change(screen.getByPlaceholderText('1.2.3'), { target: { value: '1.5.0' } });
+    fireEvent.change(screen.getByPlaceholderText('{"capabilities": []}'), {
+      target: { value: 'not-json' },
+    });
+    clickModalOk();
+    await waitFor(() => expect(screen.getByText('Manifest JSON 格式不正确')).toBeInTheDocument());
+    expect(mPublish).not.toHaveBeenCalled();
+
+    // 合法 manifest：解析为对象进载荷
+    fireEvent.change(screen.getByPlaceholderText('{"capabilities": []}'), {
+      target: { value: '{"capabilities":["cap.echo"]}' },
+    });
+    clickModalOk();
+    await waitFor(() =>
+      expect(mPublish).toHaveBeenCalledWith(
+        'chatops',
+        expect.objectContaining({
+          version: '1.5.0',
+          releaseChannel: 'stable',
+          manifest: { capabilities: ['cap.echo'] },
+        }),
+      ),
+    );
+    expect(await screen.findByText('版本已发布')).toBeInTheDocument();
+    await waitFor(() => expect(mList).toHaveBeenCalledTimes(2));
+  });
+
+  it('删除：确认弹窗后调用删除；409 冲突透出「先卸载」文案', async () => {
+    renderPage();
+    await waitFirstLoad();
+
+    await openMoreAndClick('ChatOps', '删除');
+    const confirm1 = await findDeleteConfirm('ChatOps');
+    fireEvent.click(
+      confirm1.querySelector('.ant-modal-confirm-btns .ant-btn-dangerous') as HTMLButtonElement,
+    );
+    await waitFor(() => expect(mDelete).toHaveBeenCalledWith('chatops'));
+    expect(await screen.findByText('已删除（含历史版本）')).toBeInTheDocument();
+
+    // 活跃安装阻止：409
+    mDelete.mockRejectedValueOnce({ response: { status: 409 } });
+    await openMoreAndClick('Legacy', '删除');
+    const confirm2 = await findDeleteConfirm('Legacy');
+    fireEvent.click(
+      confirm2.querySelector('.ant-modal-confirm-btns .ant-btn-dangerous') as HTMLButtonElement,
+    );
+    expect(await screen.findByText('删除失败：存在活跃安装实例，请先卸载')).toBeInTheDocument();
   });
 });

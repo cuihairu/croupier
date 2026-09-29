@@ -56,4 +56,36 @@ export default {
   'pages.extensionsStore.schema.jsonTypeHint': '{type} value in JSON text',
   'pages.extensionsStore.schema.selectRequired': 'Please select {label}',
   'pages.extensionsStore.schema.setRequired': 'Please set {label}',
+  'pages.extensionsStore.manage.register': 'Register Extension',
+  'pages.extensionsStore.manage.registerTitle': 'Register Extension to Catalog',
+  'pages.extensionsStore.manage.registerOk': 'Registered to catalog',
+  'pages.extensionsStore.manage.registerConflict':
+    'Register failed: extension ID already exists in catalog',
+  'pages.extensionsStore.manage.extensionIdPattern':
+    'Must start with a lowercase letter or digit; only lowercase letters, digits, dot, underscore and hyphen allowed',
+  'pages.extensionsStore.manage.displayName': 'Display Name',
+  'pages.extensionsStore.manage.summary': 'Summary',
+  'pages.extensionsStore.manage.activate': 'Activate',
+  'pages.extensionsStore.manage.delist': 'Delist',
+  'pages.extensionsStore.manage.statusChanged': '{action}: {name}',
+  'pages.extensionsStore.manage.publish': 'Publish Release',
+  'pages.extensionsStore.manage.publishTitle': 'Publish Release',
+  'pages.extensionsStore.manage.publishOk': 'Release published',
+  'pages.extensionsStore.manage.publishConflict': 'Publish failed: this version already exists',
+  'pages.extensionsStore.manage.version': 'Version',
+  'pages.extensionsStore.manage.versionPattern': 'Must be semver, e.g. 1.2.3 or 1.0.0-beta.1',
+  'pages.extensionsStore.manage.minCoreVersion': 'Min Core Version',
+  'pages.extensionsStore.manage.packageRef': 'Package Ref',
+  'pages.extensionsStore.manage.checksum': 'Checksum',
+  'pages.extensionsStore.manage.manifestRequired':
+    'Manifest is required (capability/page manifest ships with the release)',
+  'pages.extensionsStore.manage.manifestObject': 'Manifest must be a JSON object',
+  'pages.extensionsStore.manage.manifestJsonInvalid': 'Manifest JSON is invalid',
+  'pages.extensionsStore.manage.delete': 'Delete',
+  'pages.extensionsStore.manage.deleteConfirmTitle': 'Delete Catalog Entry',
+  'pages.extensionsStore.manage.deleteConfirmContent':
+    'Delete {name}? Deletion is rejected while active installations exist (uninstall first).',
+  'pages.extensionsStore.manage.deleteOk': 'Deleted (with release history)',
+  'pages.extensionsStore.manage.deleteConflict':
+    'Delete failed: active installations exist, uninstall first',
 };

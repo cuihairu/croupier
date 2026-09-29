@@ -1,5 +1,18 @@
 import React, { useRef, useState } from 'react';
-import { Alert, App, Button, Card, Form, Input, Select, Space, Tag, Typography } from 'antd';
+import {
+  Alert,
+  App,
+  Button,
+  Card,
+  Dropdown,
+  Form,
+  Input,
+  Select,
+  Space,
+  Tag,
+  Typography,
+} from 'antd';
+import { DownOutlined, MoreOutlined, PlusOutlined } from '@ant-design/icons';
 import {
   PageContainer,
   ProTable,
@@ -8,10 +21,14 @@ import {
 } from '@ant-design/pro-components';
 import { FormattedMessage, history, useAccess, useIntl } from '@umijs/max';
 import {
+  createExtensionCatalog,
+  deleteExtensionCatalog,
   getExtensionCatalogDetail,
   installExtension,
   listExtensionCatalog,
   listExtensionCatalogReleases,
+  publishExtensionRelease,
+  updateExtensionCatalog,
   type ExtensionCatalogItem,
   type ExtensionReleaseItem,
 } from '@/services/api/extensions';
@@ -25,6 +42,12 @@ import { mapExtensionError } from '@/services/errors/mapper';
 import type { JSONValue } from '@/types/dashboard';
 import CatalogDetailModal from './CatalogDetailModal';
 import InstallModal from './InstallModal';
+import {
+  CatalogRegisterModal,
+  ReleasePublishModal,
+  type CatalogRegisterValues,
+  type ReleasePublishValues,
+} from './CatalogManageModals';
 import { buildSchemaDefaults, normalizeConfigBySchema, type InstallFormValues } from './shared';
 
 const { Text } = Typography;
@@ -32,7 +55,7 @@ const { Text } = Typography;
 export default function ExtensionsStorePage() {
   const access = useAccess();
   const intl = useIntl();
-  const { message } = App.useApp();
+  const { message, modal } = App.useApp();
   const actionRef = useRef<ActionType | undefined>(undefined);
 
   const [keywordDraft, setKeywordDraft] = useState('');
@@ -55,6 +78,13 @@ export default function ExtensionsStorePage() {
     Record<string, JSONValue> | undefined
   >(undefined);
   const [installForm] = Form.useForm<InstallFormValues>();
+
+  // 管理动作（#46 批次 3 写路径 UI 接线）：登记 / 上下架 / 发布版本 / 删除
+  const [registerOpen, setRegisterOpen] = useState(false);
+  const [registerSubmitting, setRegisterSubmitting] = useState(false);
+  const [publishOpen, setPublishOpen] = useState(false);
+  const [publishSubmitting, setPublishSubmitting] = useState(false);
+  const [publishItem, setPublishItem] = useState<ExtensionCatalogItem | undefined>(undefined);
 
   const openDetail = async (item: ExtensionCatalogItem) => {
     setDetailOpen(true);
@@ -231,6 +261,175 @@ export default function ExtensionsStorePage() {
     }
   };
 
+  /** HTTP 状态读取（409 冲突分支按状态码分支，body message 兜底透出） */
+  const statusOf = (err: unknown): number =>
+    (err as { response?: { status?: number } })?.response?.status ?? 0;
+
+  const handleRegister = async (values: CatalogRegisterValues) => {
+    setRegisterSubmitting(true);
+    try {
+      await createExtensionCatalog({
+        extensionId: values.extensionId.trim(),
+        name: values.name?.trim(),
+        displayName: values.displayName?.trim(),
+        vendor: values.vendor?.trim(),
+        kind: values.kind,
+        summary: values.summary?.trim(),
+        iconUrl: values.iconUrl?.trim(),
+        homepageUrl: values.homepageUrl?.trim(),
+        status: values.status,
+      });
+      message.success(
+        intl.formatMessage({
+          id: 'pages.extensionsStore.manage.registerOk',
+          defaultMessage: '已登记到目录',
+        }),
+      );
+      setRegisterOpen(false);
+      actionRef.current?.reload();
+    } catch (err) {
+      if (statusOf(err) === 409) {
+        message.error(
+          intl.formatMessage({
+            id: 'pages.extensionsStore.manage.registerConflict',
+            defaultMessage: '登记失败：该扩展 ID 已存在于目录',
+          }),
+        );
+        return;
+      }
+      message.error(mapExtensionError(err as Error).message);
+    } finally {
+      setRegisterSubmitting(false);
+    }
+  };
+
+  const toggleStatus = async (item: ExtensionCatalogItem) => {
+    const target = item.status === 'active' ? 'delisted' : 'active';
+    try {
+      await updateExtensionCatalog(item.id, { status: target });
+      message.success(
+        intl.formatMessage(
+          {
+            id: 'pages.extensionsStore.manage.statusChanged',
+            defaultMessage: '已{action}：{name}',
+          },
+          {
+            action:
+              target === 'active'
+                ? intl.formatMessage({
+                    id: 'pages.extensionsStore.manage.activate',
+                    defaultMessage: '上架',
+                  })
+                : intl.formatMessage({
+                    id: 'pages.extensionsStore.manage.delist',
+                    defaultMessage: '下架',
+                  }),
+            name: item.displayName || item.name,
+          },
+        ),
+      );
+      actionRef.current?.reload();
+    } catch (err) {
+      message.error(mapExtensionError(err as Error).message);
+    }
+  };
+
+  const confirmDelete = (item: ExtensionCatalogItem) => {
+    modal.confirm({
+      title: intl.formatMessage({
+        id: 'pages.extensionsStore.manage.deleteConfirmTitle',
+        defaultMessage: '删除目录条目',
+      }),
+      content: intl.formatMessage(
+        {
+          id: 'pages.extensionsStore.manage.deleteConfirmContent',
+          defaultMessage: '确定删除 {name}？存在活跃安装实例时删除会被拒绝（须先卸载）。',
+        },
+        { name: item.displayName || item.name },
+      ),
+      okButtonProps: { danger: true },
+      onOk: async () => {
+        try {
+          await deleteExtensionCatalog(item.id);
+          message.success(
+            intl.formatMessage({
+              id: 'pages.extensionsStore.manage.deleteOk',
+              defaultMessage: '已删除（含历史版本）',
+            }),
+          );
+          actionRef.current?.reload();
+        } catch (err) {
+          if (statusOf(err) === 409) {
+            message.error(
+              intl.formatMessage({
+                id: 'pages.extensionsStore.manage.deleteConflict',
+                defaultMessage: '删除失败：存在活跃安装实例，请先卸载',
+              }),
+            );
+            return;
+          }
+          message.error(mapExtensionError(err as Error).message);
+        }
+      },
+    });
+  };
+
+  const openPublish = (item: ExtensionCatalogItem) => {
+    setPublishItem(item);
+    setPublishOpen(true);
+  };
+
+  const handlePublish = async (values: ReleasePublishValues) => {
+    if (!publishItem) return;
+    let manifest: Record<string, JSONValue>;
+    try {
+      manifest = JSON.parse(values.manifestJson) as Record<string, JSONValue>;
+    } catch {
+      // 表单 validator 已拦截，此处兜底
+      message.error(
+        intl.formatMessage({
+          id: 'pages.extensionsStore.manage.manifestJsonInvalid',
+          defaultMessage: 'Manifest JSON 格式不正确',
+        }),
+      );
+      return;
+    }
+    setPublishSubmitting(true);
+    try {
+      await publishExtensionRelease(publishItem.id, {
+        version: values.version.trim(),
+        releaseChannel: values.releaseChannel,
+        minCoreVersion: values.minCoreVersion?.trim(),
+        packageRef: values.packageRef?.trim(),
+        checksum: values.checksum?.trim(),
+        changelog: values.changelog?.trim(),
+        manifest,
+      });
+      message.success(
+        intl.formatMessage({
+          id: 'pages.extensionsStore.manage.publishOk',
+          defaultMessage: '版本已发布',
+        }),
+      );
+      setPublishOpen(false);
+      setPublishItem(undefined);
+      actionRef.current?.reload();
+    } catch (err) {
+      if (statusOf(err) === 409) {
+        message.error(
+          intl.formatMessage({
+            id: 'pages.extensionsStore.manage.publishConflict',
+            defaultMessage: '发布失败：该版本已存在',
+          }),
+        );
+        return;
+      }
+      message.error(mapExtensionError(err as Error).message);
+    } finally {
+      setPublishSubmitting(false);
+    }
+  };
+
   const columns: ProColumns<ExtensionCatalogItem>[] = [
     {
       title: intl.formatMessage({
@@ -328,7 +527,7 @@ export default function ExtensionsStorePage() {
         defaultMessage: '操作',
       }),
       key: 'actions',
-      width: 220,
+      width: 280,
       render: (_, row) => (
         <Space>
           <Button size="small" onClick={() => openDetail(row)}>
@@ -349,6 +548,61 @@ export default function ExtensionsStorePage() {
               <FormattedMessage id="pages.extensionsStore.action.install" defaultMessage="安装" />
             )}
           </Button>
+          {access.canExtensionsManage && (
+            <Dropdown
+              trigger={['click']}
+              menu={{
+                items: [
+                  row.status === 'active'
+                    ? {
+                        key: 'delist',
+                        label: (
+                          <FormattedMessage
+                            id="pages.extensionsStore.manage.delist"
+                            defaultMessage="下架"
+                          />
+                        ),
+                      }
+                    : {
+                        key: 'activate',
+                        label: (
+                          <FormattedMessage
+                            id="pages.extensionsStore.manage.activate"
+                            defaultMessage="上架"
+                          />
+                        ),
+                      },
+                  {
+                    key: 'publish',
+                    label: (
+                      <FormattedMessage
+                        id="pages.extensionsStore.manage.publish"
+                        defaultMessage="发布版本"
+                      />
+                    ),
+                  },
+                  { type: 'divider' as const },
+                  {
+                    key: 'delete',
+                    label: (
+                      <FormattedMessage
+                        id="pages.extensionsStore.manage.delete"
+                        defaultMessage="删除"
+                      />
+                    ),
+                    danger: true,
+                  },
+                ],
+                onClick: ({ key }) => {
+                  if (key === 'activate' || key === 'delist') void toggleStatus(row);
+                  if (key === 'publish') openPublish(row);
+                  if (key === 'delete') confirmDelete(row);
+                },
+              }}
+            >
+              <Button size="small" icon={<MoreOutlined />} aria-label="more-actions" />
+            </Dropdown>
+          )}
         </Space>
       ),
     },
@@ -457,6 +711,19 @@ export default function ExtensionsStorePage() {
           >
             <FormattedMessage id="pages.extensionsStore.filter.reset" defaultMessage="重置" />
           </Button>
+          {access.canExtensionsManage && (
+            <Button
+              type="primary"
+              ghost
+              icon={<PlusOutlined />}
+              onClick={() => setRegisterOpen(true)}
+            >
+              <FormattedMessage
+                id="pages.extensionsStore.manage.register"
+                defaultMessage="登记扩展"
+              />
+            </Button>
+          )}
         </Space>
 
         <ProTable<ExtensionCatalogItem>
@@ -495,6 +762,24 @@ export default function ExtensionsStorePage() {
         capabilities={detailCapabilities}
         releases={detailReleases}
         onClose={() => setDetailOpen(false)}
+      />
+
+      <CatalogRegisterModal
+        open={registerOpen}
+        confirmLoading={registerSubmitting}
+        onClose={() => setRegisterOpen(false)}
+        onSubmit={(values) => void handleRegister(values)}
+      />
+
+      <ReleasePublishModal
+        item={publishItem}
+        open={publishOpen}
+        confirmLoading={publishSubmitting}
+        onClose={() => {
+          setPublishOpen(false);
+          setPublishItem(undefined);
+        }}
+        onSubmit={(values) => void handlePublish(values)}
       />
 
       <InstallModal
