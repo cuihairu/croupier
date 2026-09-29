@@ -1248,3 +1248,28 @@ fresh 全绿（158 包零 FAIL）、guard PASSED。**已知边界**：门禁在�
 > json.Marshal 对这些类型无失败路径，不造假用例。
 > 门禁：gofmt 干净、go vet 两包干净、两包 fresh 全绿（1.0s/7.1s）。
 > 本批 test-only，未重跑全量（同日全量基线 157 ok）。
+
+## 覆盖率巡检批次·Go 侧第十七轮·api/provider + api/openapi 尾翼（wt-api worktree，2026-09-29）
+
+> **交付（2026-09-29）**：两包残余可达翼收口，各 1 新测试文件：
+> ① `api/provider`（`sdkstats_wings_test.go`，2 用例）98.9% → 99.4%——
+> SdkStats 的 `firstSeen <= 0` 回退翼（217-218）：注册链
+> carryProviderSessionHistory 只把 `first == 0` 补 now，**负值穿透**，
+> `FirstSeenUnix: -1` 是唯一能触达服务端回退翼的注入形态（断言回退
+> lastSeenUnix）；MetaOptions 的 items nil → 空切片翼（254-255）：**首版
+> 踩坑**——内存聚合路径 `groupMetaOptions` 恒 `make([]…, 0, n)` 返回
+> 非 nil 空切片，空 store 测不到该翼；真实形态是 DB 聚合失败
+> （provider_metadata 缺表）返回 nil 的 **fail-soft 契约**（聚合故障只
+> 损失下拉选项、不报错不透出 null），改 `NewStoreWithDB` + 独立命名
+> 内存库缺表触达。
+> ② `api/openapi`（`runtime_firstseen_wing_test.go`，1 用例）
+> 99.8% → 99.9%——RuntimeSources 同款 `firstSeen <= 0` 回退翼
+> （330-331），负 FirstSeenUnix 注入，断言回退 lastSeenUnix（#27②）。
+> **两包剩余 1 块均为既有登记不可达**：provider handler.go SdkStats 的
+> ShouldBindQuery 错误分支（第四轮 sdkstats_bind_registration_test.go
+> 证明性登记）、openapi service.go:710 `"fn-"` 前缀分支
+> （coverage_f_test.go 证明性登记：builder 字符集 [a-z0-9._-] + Trim
+> 剥首尾 .-_ ⇒ 非空结果首字符恒字母数字）。
+> 门禁：gofmt 干净、go vet 两包干净、两包 fresh 全绿（0.1s/38s，
+> openapi 属包体量大非环境慢）。本批 test-only，未重跑全量
+> （同日全量基线 157 ok）。
