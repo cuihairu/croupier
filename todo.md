@@ -1406,3 +1406,44 @@ fresh 全绿（158 包零 FAIL）、guard PASSED。**已知边界**：门禁在�
 > 70、service.go 56、dashboard_fixture_cmd.go 9、cluster.go 5、
 > dashboard_fixture_provider.go 2；随后 cmd/agent 89.6%、
 > cmd/analytics-export 87.7%、cmd/ingest 99.5%。
+
+## 覆盖率巡检批次·Go 侧第二十三轮·cmd/server cluster + fixture 命令翼（wt-api worktree，2026-09-29）
+
+> **交付（2026-09-29）**：接第二十二轮继续收 cmd/server 小文件余量，
+> 新增 `cluster_ddl_wings_test.go`（3 用例）+ `fixture_cmd_wings_test.go`
+> （4 用例），包 **76.0% → 77.9%**：
+> ① **owner 表 EnsureTable 失败翼（cluster.go:115）**——两连接构造：
+> 可写连接预建 cluster_instances 后以 `mode=ro` 重开，成员表
+> EnsureTable 对已存在同构表纯读比对幂等通过、owner 表 CREATE 被拒
+> → standalone 降级。**推翻 coverage-exemptions.md cmd-5 的旧论证**
+> （「单连接无法构造」——两连接即可分叉两表 DDL 命运），豁免项收窄为
+> 仅 NormalizeConfig，三处 stale 注释同步（cluster.go 源内、
+> cluster_extra_test.go、豁免文档，文档附收窄记录）；
+> ② **reconcile 循环 Touch 失败翼（170）**——BEFORE UPDATE 触发器
+> 只拦 cluster_agent_owners：成员表 Register/Renew（INSERT/UPDATE）
+> 不受影响、集群正常启动，归属行 last_seen_at 保持陈旧即续期失败的
+> 可观测后果（断言锁定）；reconcileTickerInterval 注入点 20ms 驱动；
+> ③ **互联 Serve 错误翼（221）**——cancel 而不 Close：Accept 的 1s
+> deadline 到期后走 ctx.Done → 返回 Canceled（非 nil）→ goroutine
+> 记 warn（既有用例先 srv.Close 走 closing 通道返回 nil，结构性到不了）；
+> ④ **fixtureCmd.RunE 全链 + 启动失败翼**——错误翼：BaseDir 被文件
+> 占位 → MkdirAll 失败上抛；全链：真实 server+agent+SDK+provider
+> 起全栈，**就绪锚定 FIXTURE_READY 行**（stdout 管道探测 + 持续排空
+> 防子进程写满管道）——首版锚 healthz 实证竞态：HTTP 监听先起、命令
+> 内 signal.Notify 尚未注册，SIGINT 只被测试侧预注册通道吃掉，RunE
+> 60s 不退出；修正后幂等重发 SIGINT 覆盖注册窗口，RunE 干净走完
+> 清理与 Close；
+> ⑤ provider 两翼——PUT name-only（192，既有 CRUD 只动 level）+
+> readBody nil Body（237，http.Server 恒非 nil，零值 Request 直测
+> helper 契约）。
+> **登记不可达（三处）**：cluster.go:68 NormalizeConfig err（恒 nil
+> error，cmd-5 保留）、cluster.go:439 nil 会话 continue
+> （LoadActiveSessions 值扫描不产出 nil 元素）、
+> dashboard_fixture_cmd.go:58 CleanupScope 失败 Fprintf（需运行中
+> 破坏 fixture 库写路径，无确定性注入面）。
+> 门禁：gofmt/vet 干净、go build ./... 通过、cmd/server 包 fresh
+> 全绿 13.5s、`cd docs && pnpm build` 通过（豁免文档变更联动）。
+> 本批 test-only + 注释/文档同步，未重跑全量（同日基线）。
+> **cmd/server 余量**：root.go 110、dashboard_fixture.go 69（boot
+> 步骤错误翼群）、service.go 56；随后 cmd/agent 89.6%、
+> cmd/analytics-export 87.7%。

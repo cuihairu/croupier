@@ -84,16 +84,17 @@ cmd/ 的覆盖目标与 internal/ 不同：二进制装配层允许存在进程�
 
 **失效条件**：归一化链改动（换掉 `Clean`+`Join` 组合、放开 `..` 检查）使 `invalid path` 变为可达；或引入写路径抽象（如可注入 fs）使 Close 失败可注入。
 
-### cmd-5.（C 类防御）cmd/server — startCluster 的两处装配降级死分支
+### cmd-5.（C 类防御）cmd/server — startCluster 的 NormalizeConfig 降级死分支
 
-**位置**：`cmd/server/cluster.go`（`NormalizeConfig` err → standalone 分支；DB 存储下 `DBOwnerResolver.EnsureTable` err → standalone 分支）。
+**位置**：`cmd/server/cluster.go`（`NormalizeConfig` err → standalone 分支）。
 
 **论证**：
 
 - `NormalizeConfig` 对任意输入恒返回 nil error（默认值填充型归一化，无失败路径），err 分支为死代码防御。
-- `DBOwnerResolver.EnsureTable` 失败分支：成员表 `EnsureTable` 先行且使用**同一 DB 连接**，若连接可写则两表 DDL 同命运、若不可写则先行分支已拦截（只读库用例已覆盖先行分支）。让「成员表成功而 owner 表失败」需要 DDL 在同连接上对两个同构 `CreateTable` 分叉，无法确定性构造。gorm 层错误注入（如按表名 After 回调注错）对未来实现的回归有 pin 价值，但当前实现下两分支结构性同源。
 
-**失效条件**：两表 EnsureTable 引入独立连接/不同 DDL 路径，或 `NormalizeConfig` 增加真实校验——届时按错误注入工具箱补测。
+> **2026-09-29 收窄（第二十三轮）**：原并列豁免的 `DBOwnerResolver.EnsureTable` err → standalone 分支已落地真实用例（`cmd/server/cluster_ddl_wings_test.go` 的 `TestStartCluster_OwnerEnsureTableFailure`：可写连接预建成员表后 `mode=ro` 重开，成员表 `EnsureTable` 幂等通过、owner 表 CREATE 被拒）——「单连接无法构造」的旧论证不成立，两连接即可分叉两表 DDL 命运。同测试文件另覆盖 reconcile Touch 失败 warn 翼与互联 Serve 错误翼。
+
+**失效条件**：`NormalizeConfig` 增加真实校验——届时按错误注入工具箱补测。
 
 ### cmd-6.（C 类防御 + 跨平台面）server/agent service.go 的环境恒成功守卫与 windows/darwin 分支
 
