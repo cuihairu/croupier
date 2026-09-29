@@ -1987,3 +1987,31 @@ fresh 全绿（158 包零 FAIL）、guard PASSED。**已知边界**：门禁在�
 >   string）；确认放量 onClick 的 `!rollTarget` 守卫（按钮仅在 rollTarget
 >   态渲染，闭包捕获恒非空）。
 >   门禁：目标套件 14/14 绿、eslint 干净、tsc 0 错；全量 jest 负载口径见交付说明。
+
+## 工具箱页覆盖批次（Dev/Tools，2026-09-29）
+
+> **交付（2026-09-29）**：零测试页排行第三——`Dev/Tools/index.tsx`
+> （539 行）单件收口，新增 `__tests__/index.test.tsx` 13 用例：
+> **行/语句/函数/分支 100%**（四维全满，无登记不可达臂）。
+> **附带修定一处真缺陷**：`ScopeModeSelect` 未透传 Form.Item 经
+> cloneElement 注入的 value/onChange——内层 Select 长期脱管，scopeMode
+> 永远进不了 form store（提交恒按 global、scoped 工具无法从 UI 创建、
+> gameId/env 联动输入永不出现；rc-select 内部态自顾示正常，仅提交载荷
+> 暴露）。修法：`{...rest}` 展开 + 先调 `rest.onChange`（派发 scopeMode
+> 落库）再做 setFieldsValue 回填/清空；测试以「切 scoped → 双输入渲染 +
+> 提交载荷 scopeMode scoped + gameId/env」「切回全局清空」回归锁定。
+> 锁定契约——六类分组矩阵（icon + label + 计数 Tag）、未知分类静默
+> 过滤、卡片标题外链、description 有无两臂、作用域 Tag 双态、Switch
+> 启停矩阵、外链开窗（export 图标操作）、首拉 scope 透传（demo/prod 与
+> 双 undefined 两臂）、空态 Empty、load 失败两翼、登记主链（name/url
+> 双 required + url pattern 翼 + 默认值载荷 + 已登记 + 重拉 + 关闭）、
+> 编辑主链（回填 + enabled + 全局工具 scopeMode 'global' 臂 + 载荷无
+> gameId/env 键）、保存/启停/删除失败两翼、canManage false 面收敛。
+> **坑实证（antd6 新档）**：Form.Item 子为自定义组件时注入的 value/
+> onChange 必须显式透传，脱管表象是「UI 选中正常、store 不动」；作用域
+> option 文案括号全/半角混排（`当前游戏环境（demo/prod)`），matcher 勿带
+> 闭合括号；卡面 description 区恒含作用域 Tag，无描述时 textContent 即
+> Tag 文案；卡片 actions 图标操作按 aria-label 锚点（标题链接含同名
+> icon 需限容器）。
+> 门禁：目标套件 13/13 绿、eslint 0、tsc 0 错、guard PASSED、全量 jest
+> 口径见交付说明。
