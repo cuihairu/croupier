@@ -54,7 +54,7 @@ openapi-provider-demo ── TCP ──► haproxy :19090（内嵌 Agent，provi
 ```
 
 - **双 Server**（`server`/`server2`，YAML anchor 共享配置）：集群成员表 + owner 转发自动协同；任一实例故障，另一实例接管调用（Agent 断连重连经 LB 分发至存活实例，架构文档 §6 故障语义）
-- **双 Agent**（`agent`/`agent2`）：上游统一走 `haproxy:19090` L4 LB；`configs/agent2.yaml` 区分 Agent ID 与 httpAddr
+- **双 Agent**（`agent`/`agent2`）：上游统一走 `haproxy:19090` L4 LB；`configs/agent2.yaml` 区分 Agent ID 与 httpAddr（该文件不入库，部署时复制 `configs/agent.yaml` 修改差异项生成）
 - **两层负载均衡各司其职**（nginx 管人，HAProxy 管机器）：
   - dashboard nginx（L7）：`split_clients` 按请求哈希分流到两实例 18780 + docker DNS resolver 运行时解析（10s，实例重建换 IP 不 502）；SSE 已关缓冲
   - haproxy（L4）：Agent 自研 transport TCP 长连接 `leastconn` 打散 + `tcp-check` 主动健康检查 + `resolvers` 运行时重解析（实例重建自动跟随）+ stats 页（:8404）

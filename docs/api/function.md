@@ -654,7 +654,7 @@ type functionVersionIndexResponse struct {
 
 ## 函数政策 API（未接线）
 
-函数政策（`GET/PUT/DELETE /api/v1/functions/:function_id/policy`）与系统政策（`/api/v1/policies/*`）端点当前**未在生效路由**（`internal/handler/routes.go`）注册，仅存在于并行注册文件 `internal/router/router.go` 中，不对外提供。政策行为由函数合同的 risk/approval 字段与执行链路治理承载；本节历史文档已删除，待端点接线后再恢复。
+函数政策（`GET/PUT/DELETE /api/v1/functions/:function_id/policy`）与系统政策（`/api/v1/policies/*`）端点当前**未在生效路由**（`internal/handler/routes.go`）注册（早期文档提及的并行注册文件已随路由收口移除），不对外提供。政策行为由函数合同的 risk/approval 字段与执行链路治理承载；本节历史文档已删除，待端点接线后再恢复。
 
 ## 补充端点
 
