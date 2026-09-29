@@ -1892,3 +1892,37 @@ fresh 全绿（158 包零 FAIL）、guard PASSED。**已知边界**：门禁在�
 > `dsn: v.dsn || ''` 右翼（新建态 dsn 带 required 规则，空值被 ModalForm
 > 校验拦截，提交时 dsn 恒非空串——`|| ''` 仅满足类型收窄）。
 > 门禁：目标套件 13/13 绿、eslint 干净、tsc 0 错；全量 jest 负载口径见交付说明。
+
+## 配置中心浏览器覆盖批次（Dev/ConfigExplorer，2026-09-29）
+
+> **交付（2026-09-29）**：零测试页排行第三——`Dev/ConfigExplorer/`
+> 簇双件收口，新增 `__tests__/index.test.tsx` 13 用例 +
+> `__tests__/SourceManageModal.test.tsx` 7 用例：
+> **index.tsx（599 行）行 99.49%/函数 100%/分支 94.44%（余 7 臂登记为
+> 结构不可达）、SourceManageModal.tsx（400 行）四维 100%**。锁定契约——
+> 挂载链（listGamesMeta → scope 同步 → loadSources → 默认源 → 树首拉；
+> scope 空态在 effect 处即短路）、三下拉矩阵（游戏 displayName/name/双缺省
+> 三臂 label、环境派生、源类型 meta + 可写/只读 Tag）、文件打开全矩阵
+> （humanSize B/KB/MB 三段位 + langOf 全 switch 臂 + 只读无应急按钮 +
+> 编辑器值/语言/只读透传）、目录树懒加载（expand conf → 子节点 → 嵌套
+> conf/sub → 孙节点递归挂载）、xlsx 预览（真实 xlsx 库造 fixture：满表/
+> 空 sheet rows[] 右翼/参差中洞+短行 → `r[i] ?? ''` 补空）、应急写回流
+> （编辑 → Popconfirm → 通知文案 → 取消关流可重开 → 空 reason 拦截 →
+> 载荷 → 「已写回」+ 弹窗关闭 + 文件重开 + 失败两翼弹窗保持）、
+> 三失败静默文案（三连渲染显式 unmount 防状态串染）、切换矩阵（切源重拉树/
+> 切环境切游戏重拉源、空源 Empty）、canDevManage false 双门控、管理弹窗
+> 桩替身（挂载透传/OnChanged 重拉/OnClose 卸载）；SourceManageModal——
+> open 门控加载、列表矩阵、新增主链（默认值 + required/JSON 双拦截 +
+> type 联动模板 + 上下文补齐载荷）、保存失败两翼、编辑回填（脱敏值 +
+> type 禁用 + id 透传精确载荷）、删除主链与失败翼。
+> **antd6 坑实证续档**：Modal okText 双字中文渲染插空格（「写 回」），
+> danger 主按钮锚 `.ant-modal-footer .ant-btn-dangerous`；管理 Modal
+> footer=null、嵌套 ModalForm 是页面唯一带 footer 弹窗；树节点与文件头
+> 同文本双实例（getAllByText）；xlsx 列头 ellipsis 双渲染（th + title）。
+> **登记不可达（防御分支，不造假用例不删分支）**：loadSources `!g || !e`
+> 短路体（唯一调用方 effect 先行判空）；loadDir/openFile/doSave 三处
+> `!sourceId` 守卫与 doSave `!file`（调用面均在 sources/file 态渲染之后）；
+> onSelect 非 array 臂（antd Tree 单选恒传 Key[]）；xlsx `(r || [])` 右翼
+> （sheet_to_json(header:1) 恒产数组）；xlsx `String(c ?? '')` 右翼（稀疏
+> 洞被 Array.map 跳过、sheet_to_json 不产显式 null，c 恒有值）。
+> 门禁：目标双套件 20/20 绿、eslint 干净、tsc 0 错；全量 jest 负载口径见交付说明。
