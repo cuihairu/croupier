@@ -1130,3 +1130,48 @@ fresh 全绿（158 包零 FAIL）、guard PASSED。**已知边界**：门禁在�
 > 门禁：gofmt 干净、`go vet` 两包干净、`go test` 两包 `-count=1` 全绿、
 > `scripts/localized_text_guard.sh` PASSED。**已知边界**：本批零 web 触碰，
 > 未单跑 jest/tsc（上游同批带进 web 测试改动，属上游提交的范围）。
+
+## 覆盖率巡检批次·Go 侧第十轮·api/ops 收口 98.6%→100.0%（wt-api worktree，2026-09-29）
+
+> **交付（2026-09-29，提交 `ba27e79`）**：api/ops 残余 26 块全部收口——
+> probe.go 9 块（wecom/feishu 渠道经 httptest 假目标、SMTP 已配置探活主链）、
+> performance.go 5 块（绑定错误双翼含 jsonNumber 非数值解错、L3 写拒 500、
+> svcCtx.StartTime 可达分支）、logs.go 12 块（nil 守卫×2、写失败、绑定×2、
+> PurgeBefore 缺表与直清三表逐表错误翼、nil 快照早退、轮转目录不可读降级）。
+> **关键技法入档**：ProbeSMTP 的 Hello 阶段阻塞等 220 问候（连接无读超时），
+> 假目标必须是裸 `net.Listener` 真 SMTP 形态（220 问候 + 逐行 250 应答）——
+> HTTP httptest 服务器一句话不发会把用例挂死（首轮 600s 包级超时实证）。
+> sitesettings 有他会话 v10 在途文件（06:14 落盘）已按认领窗口协议回避。
+> 门禁：gofmt 干净、go vet 干净、api/ops 包 fresh 全绿 100.0%；
+> 全量 `go test ./internal/...` 未在高负载窗口重跑（test-only 单包改动，
+> 158 包基线 06:12 全绿）。
+
+## 覆盖率巡检批次·Go 侧第十一轮·svc 包收口 99.3%→100.0%（wt-api worktree，2026-09-29）
+
+> **交付（2026-09-29）**：svc 包残余 19 块全部收口
+> （`internal/svc/coverage_e_svc_wings_test.go`，11 用例）：
+> migrations.go 8 块——0036/0037/0038 三迁移的 wrapGorm 探针失败翼
+> （复用 C/D 批 `probeFailingDBC`）+ CreateTable/AddColumn 拒写翼
+> （复用 `writeRefusingSQLiteDBC`；0037 的 AddColumn 翼须手工
+> `CREATE TABLE admins (id integer primary key)` 最小表——AutoMigrate
+> 带出全列会让 HasColumn 恒真到不了目标分支；0038 的第二表翼先以可写
+> 连接预建 cicd_integrations 再开只读，使首个 CreateTable 通过、
+> cicd_builds 缺表触达失败）；
+> service_context.go 11 块——ResolveDays 闭包两翼（settings 单例空窗短路
+> (0,0) / 就绪后读取 L3 RetentionDays，两阶段 Sweep；闭包在
+> NewServiceContext 构造期定义、352 行另有后台 ticker 循环但间隔不可依赖，
+> 须显式调 Sweep）、引导管理员 phone 档案回填主链（users.json phone 键 +
+> 存量行 Status:1 跳过状态同步）与回填被拦降级翼（BEFORE UPDATE 触发器
+> RAISE(ABORT)，错误只 warn 不上抛、档案保持原样）、AuthMiddleware.Handle
+> 完整链触达 mfaGate 403（ResetGlobalSecretForTesting 即时换键 + Sign 版本
+> 对齐 + newMFAGateFixture 真实未绑定账号）、cachedOTPEnabled 三翼
+> （缓存命中 version 0/1 直答不回源 / TTL 过期回源并刷新缓存——回源后
+> 库值翻转不再影响结果即为刷新证据 / admins 缺表 FindOne 出错 fail-open）。
+> **发现并登记的 profile 陷阱实例**：闭包未覆盖块的行号语义——初版测试
+> 只盖了 nil 翼，profile 显示 346-347（非 nil 翼）仍 0 覆盖；闭包内分支
+> 各自独立成块，逐块核对而非按区间推断。
+> 回避他会话在途域不变：api/announcement、api/auth×2、api/extension、
+> api/sitesettings、security/identity。
+> 门禁：gofmt 干净、go vet 干净、svc 包 fresh 全绿 **100.0%**
+> （全包零未覆盖块）、全量 `go test ./internal/...` fresh 复跑
+> （低载窗口 load~10 执行）。
