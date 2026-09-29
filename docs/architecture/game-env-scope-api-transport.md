@@ -188,7 +188,7 @@ POST /api/v1/functions/fn-1/copy
 新增两个工具函数，避免各 service 自行拼装：
 
 ```ts
-// web/src/utils/scope.ts
+// web/src/services/core/scope.ts（落地路径）
 export function getScopeHeaders(): Record<string, string> {
   const { gameId, env } = getScope();
   const headers: Record<string, string> = {};
@@ -398,7 +398,7 @@ POST /api/v1/functions/fn-1/copy
 
 ### Phase 1：统一前端 scope 工具（低风险）
 
-1. 新增 `web/src/utils/scope.ts`；
+1. 新增 `web/src/services/core/scope.ts`（已落地：`getScopeHeaders`/`applyScopeHeaders` 等）；
 2. 修改 `web/src/services/core/http.ts` 与 `requestErrorConfig.ts`，统一从 `getScope()` 取；
 3. 替换所有 `localStorage.getItem('game_id')` / `localStorage.getItem('env')` 直接调用。
 
