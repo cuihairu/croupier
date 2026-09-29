@@ -1322,3 +1322,20 @@ fresh 全绿（158 包零 FAIL）、guard PASSED。**已知边界**：门禁在�
 > 门禁：触及包 gofmt/vet 干净、四包 fresh 全绿（26s/3s/14s/55s，
 > model 属包体量大非环境慢）。本批 test-only，未重跑全量
 > （同日全量基线 157 ok）。
+
+## 覆盖率巡检批次·Go 侧第二十轮·approvals + app/agent 双 100.0%（wt-api worktree，2026-09-29）
+
+> **交付（2026-09-29）**：全量 profile 剩余最后两处非回避可达翼收口：
+> ① `platform/approvals` **100.0%**（99.96% 起）：
+> defaultPostJSONWithHeaders 的出站安全守卫拦截翼（760-761）——
+> settings 单例铺 L3（sec.allowPorts="80"）后非白名单端口（:9999）在
+> CheckURL 即被拒、不发起真实连接；注入键选 allowPorts 因端口判定在
+> DNS 解析前，规避本机解析器劫持短主机名的坑（第九轮台账）。本包无
+> t.Parallel（已核实），settings 单例操纵安全。
+> ② `app/agent` **100.0%**：updateLoop 退出 defer 的 timer.Stop 非 nil 翼
+> （364-365）——debounce 10s + 单条消息创建 timer 后立即取消 ctx，
+> select 仅 ctx.Done 就绪 → 退出路径必经 defer Stop（既有用例到期后
+> nil 再取消，只盖 nil 翼）；exited channel 断言 loop 随取消退出且
+> 无 sync 出站。
+> 门禁：gofmt/vet 干净、两包 fresh 全绿 100.0%（1.5s/28s，零未覆盖
+> 块）。本批 test-only，未重跑全量（同日全量基线 157 ok）。
