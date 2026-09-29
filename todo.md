@@ -1087,3 +1087,35 @@ fresh 全绿（158 包零 FAIL）、guard PASSED。**已知边界**：门禁在�
 高位窗口执行（model 包单跑 64s~447s 波动，一次整包跑在 447s 时报 FAIL、
 复跑即绿，判为环境性慢非回归）；本轮零 web 触碰，故未单跑 jest/tsc
 （guard 已覆盖 PageSpec 侧校验）。
+
+## 扩展事件抽屉 + 升级弹窗覆盖批次（Extensions 簇余量第三批，2026-09-29）
+
+> **交付（2026-09-29）**：上轮台账登记的下一批收口——`Installations/EventsDrawer.tsx`
+> （286 行）与 `Installations/UpgradeModal.tsx`（151 行）双零测试文件。新增
+> `__tests__/EventsDrawer.test.tsx` 11 用例 + `__tests__/UpgradeModal.test.tsx`
+> 8 用例，v8 口径：**EventsDrawer 行/分支/函数/语句 4×100%**；UpgradeModal
+> 行/语句/函数 100%、分支 97.29%（余 54 行 `if (!row) return` 守卫经 UI 不可达，
+> 登记于文件头）。锁定契约——事件抽屉：打开加载链（listExtensionEvents 载荷 +
+> adapter 真实归一 + total 同步概览）、标题 displayName 兜底 extensionId、
+> 概览三项（事件 total/级别/关键词双态文案）、六列渲染（formatUnix 真实输出 +
+> createdAt=0 兜底 '-'、payload 空 '-'）、关键词筛选 trim 翼 + 级别筛选 →
+> request 载荷与生效 Alert chips、清空筛选双态禁用/复位、空态双文案（默认/
+> 筛选后）、request 失败静默 success:false、installationId 缺省 guard、open=false
+> 不挂载、onClose、重开 reload（useEffect [open, installation]）；升级弹窗：
+> 版本列表三态（当前版本在列表不重复 / 不在列表前插 / 为空不前插）、空版本
+> warning 拦截、选择提交链（载荷 + 成功文案 + onClose + onUpgraded + 按钮
+> 退出 loading）、失败四分支（missing_dependency / version_mismatch 含
+> details 缺省 unknown-兜底 / dependency_cycle 双翼 / forbidden + 非 HTTP
+> unknown 兜底 `|| {}` 右翼）且失败不关弹窗、open/row 守卫不发请求。
+> 复核：上游 #46 批次 5/6 同域改动（Store/index +345、CatalogManageModals
+> 新增、services +83）经 rebase 后既有 Extensions 套件隔离复跑 61 用例全绿
+> （并行会话已同步扩展 Store 套件 +211 行覆盖其 UI 接线）。
+> **已知边界（诚实清单）**：
+>
+> 1. UpgradeModal 加载链 `.then().finally()` 无 catch——releases reject 产生
+>    unhandled rejection（组件现状缺陷，同簇既定结论），不造假 reject 用例。
+> 2. UpgradeModal 54 行 `if (!row) return` 与 `version.trim()` 空白翼经 UI
+>    不可达（OK 仅在 open 且 row 已设时可点；Select 只产出选项值）。
+> 3. Extensions 簇余量剩 AgentSync/index.tsx（93 行 0%）、Store/shared.ts
+>    normalizeConfigBySchema 分支（73%）、SchemaFields 类型分派（64%）、
+>    DomainEntry 回调残余（ funcs 50%）——下一批按此序收口。
