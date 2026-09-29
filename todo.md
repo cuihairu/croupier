@@ -1838,3 +1838,31 @@ fresh 全绿（158 包零 FAIL）、guard PASSED。**已知边界**：门禁在�
 > rules 467 `getFieldValue('metric') || ''` 右翼（新建/编辑 initialValues 恒含
 > metric）。
 > 门禁：目标套件 39/39 绿、eslint 干净、tsc 0 错；全量 jest 负载口径见交付说明。
+
+## 关卡分析页覆盖批次（Analytics/Levels，2026-09-29）
+
+> **交付（2026-09-29）**：零测试页排行第三——`Analytics/Levels/index.tsx`
+> （683 行，页面 + LevelsSegmentsChart/EpisodeFacets/MapFacets/EpisodeFacet/
+> MapFacet 五内联组件）单件收口，新增 `__tests__/index.test.tsx` 12 用例：
+> **行/语句/函数 99.7%（仅图表 catch 两行登记）、分支 92.96%**（余 9 臂全部
+> 登记为结构不可达防御分支）。锁定契约——四卡矩阵（漏斗表 rate `${v}%`、
+> 分关卡表 winRate toFixed(2)/难度 Tag 高红/中金/缺省 '-'、分群图四折线
+> path + Top10 按参与数排序 + 图例、章节/地图分面 Statistic 计数与非数组
+> 守卫）、查询链（episode 输入即时重拉、查询按钮、RangePicker 起止 ISO 进
+> 载荷）、分群下拉切段空态、导出六入口全载荷（卡头 CSV String 归一 +
+> 缺省空串、漏斗/统计底 XLSX 多 sheet、章节 ep_<id> 多 Sheet、地图 map_<id>
+> 计数行、各 catch 静默）、响应缺省（{} → 空表 + 图不渲 + 表头行导出）、
+> 加载前导出（慢接口 data null 形态下三入口出表头行 + 切分群段 {} 兜底）。
+> **页面真实行为差异（本轮关键发现）**：`MapFacets` 与 `EpisodeFacets` 不同，
+> **没有挂载 useEffect**——load 只接「加载」按钮，地图数据挂载后为空、
+> mMaps 首拉须显式点击（range 变更也不会自动重拉，测试按此建模）。
+> **antd6 坑实证续档**：无 showTime 的 RangePicker 输入须用日期串
+> （'2026-09-01'，datetime 串解析失败不提交）；页面首个 svg 是 RangePicker
+> 的 swap-right 图标，图表 svg 须按含纵轴 label 定位；antd6 Select 选中态
+> 类名是 `.ant-select-content`（非 antd5 的 selection-item）。
+> **登记不可达（防御分支，不造假用例不删分支）**：漏斗/分关卡两处
+> render `v != null ? … : '-'` 右翼（映射恒产 number）；图表 find 助手与
+> 统计导出 mk 的 `(arr || [])` 右翼（入参恒为数组）；图表 try/catch 的
+> catch（纯数值计算无可抛路径，L435-436）；EpisodeFacets/MapFacets 渲染
+> 与导出的 `(episodes || [])`/`(maps || [])` 右翼（state 恒为数组）。
+> 门禁：目标套件 12/12 绿、eslint 干净、tsc 0 错；全量 jest 负载口径见交付说明。
