@@ -964,3 +964,21 @@ T3（execution_state 字段）→ T4/T6/T8；T2 → T5；T12（后端校验放�
 > **已知边界**：门禁在负载高位窗口执行（并行会话持续占机，全量 internal
 > 属环境性慢，非回归）；本批零 web 触碰故未单跑 jest/tsc（guard 覆盖
 > PageSpec 侧校验）。
+
+> **提交链路核验（并行会话代提交后的复核）**：本轮两个提交
+> （`4d8c913` 收尾 6 份弃置在途测试、`be6bab4` cicd 域 50.2%→97.9%）由共享
+> 目录内的并行会话代为 commit（我的两轮测试文件当时已被它在提交信息中
+> 完整描述）。复核结论：① 两提交当时**尚未进 main**，需本会话推送；
+> ② 其间的折叠提交 `ebd6193`（`-s ours`）曾使 `docs/design/
+> mobile-companion-design.md` 停留在旧版（较 main 少 67 行），已由本次
+> merge 同步修正（取上游新版，无冲突）；
+> ③ 逐文件核实 6 份收尾测试 + 2 份 cicd 测试在 HEAD 中**全部在位**，
+> 无内容丢弃。
+>
+> **门禁补充**：`go test ./internal/...` 全量中 `internal/api/page` 一次
+> 失败——panic 于 `stale_heal.go:66` healScopes 拿 nil `*gorm.DB`（后台
+> stale-heal goroutine 撞上被测 DB 已关闭），发生在高负载窗口（1 分钟负载
+> 126）。**单跑复核 300s 全绿**，且该域零改动（`git diff HEAD -- internal/
+> api/page/` 为空，源文件最近改动是 09-25 的 main 提交），判定为负载性偶发
+> 而非回归；我涉及的 4 包在全量中均 `ok`。合并后复跑 cicd 97.9%、
+> resourcecatalog 100.0%，gofmt/vet 干净，guard PASSED。
