@@ -33,10 +33,7 @@ jest.mock('@umijs/max', () => ({
   }),
 }));
 
-import {
-  checkSystemUpdate,
-  getSystemRuntime,
-} from '@/services/api/opsStatus';
+import { checkSystemUpdate, getSystemRuntime } from '@/services/api/opsStatus';
 import { fetchSiteConfig } from '@/services/api/sites';
 
 const mRuntime = getSystemRuntime as jest.MockedFunction<typeof getSystemRuntime>;
@@ -152,16 +149,12 @@ describe('MaintenanceTab', () => {
     renderTab();
     fireEvent.click(await screen.findByRole('button', { name: /检查更新/ }));
     // 错误 toast 文本随环境波动，按 house 口径断言错误 notice 弹出
-    await waitFor(() =>
-      expect(document.querySelector('.ant-message-notice-error')).toBeTruthy(),
-    );
+    await waitFor(() => expect(document.querySelector('.ant-message-notice-error')).toBeTruthy());
   });
 
   it('运行信息加载失败 → portal 内错误提示', async () => {
     mRuntime.mockRejectedValue(new Error('net down'));
     renderTab();
-    await waitFor(() =>
-      expect(document.querySelector('.ant-message-notice-error')).toBeTruthy(),
-    );
+    await waitFor(() => expect(document.querySelector('.ant-message-notice-error')).toBeTruthy());
   });
 });
