@@ -1108,12 +1108,13 @@ fresh 全绿（158 包零 FAIL）、guard PASSED。**已知边界**：门禁在�
 > （`catalog_writes_paths_test.go`），本轮只碰 core/repo 两层，目录不相交。
 >
 > **repo 层（`internal/repo/gorm/extension/catalog_release_writes_test.go`）**
+>
 > - 主链：批量读（缺席 id 直接不返回而非报错）、按列更新、版本命中、
-> 级联清版本只清目标扩展；
+>   级联清版本只清目标扩展；
 > - 语义锁定三条：`DeleteByExtensionID` 走 `Unscoped` 物理删除才释放
-> `extension_id` 唯一索引（软删行会继续占用 → 重登记冲突）；Update/Delete
-> 行不存在返回 `gorm.ErrRecordNotFound`；`ReleaseRepo.DeleteByExtensionID`
-> 无匹配行**不**报错（级联语义）；`GetByExtensionIDs` 空入参短路不打 DB；
+>   `extension_id` 唯一索引（软删行会继续占用 → 重登记冲突）；Update/Delete
+>   行不存在返回 `gorm.ErrRecordNotFound`；`ReleaseRepo.DeleteByExtensionID`
+>   无匹配行**不**报错（级联语义）；`GetByExtensionIDs` 空入参短路不打 DB；
 > - 错误域：缺表 + `CREATE TRIGGER ... BEFORE UPDATE/DELETE ... RAISE(ABORT)`
 >   打穿 `res.Error` 分支，并断言拦截错误**不退化**为 `ErrRecordNotFound`
 >   （否则写翼注入故障会被误读成「行不存在」）；
@@ -1365,6 +1366,7 @@ fresh 全绿（158 包零 FAIL）、guard PASSED。**已知边界**：门禁在�
 > 来自后续新落地面（48h 回补口径）。
 > 门禁：gofmt/vet 干净、api/ops 包 fresh 全绿 99.9%（唯一剩余块即
 > 本轮登记项）。本批 test-only，未重跑全量（本轮核验本身就是全量）。
+
 ## 扩展事件抽屉 + 升级弹窗覆盖批次（Extensions 簇余量第三批，2026-09-29）
 
 > **交付（2026-09-29）**：上轮台账登记的下一批收口——`Installations/EventsDrawer.tsx`
@@ -1425,3 +1427,29 @@ fresh 全绿（158 包零 FAIL）、guard PASSED。**已知边界**：门禁在�
 > 2. Extensions 簇页面侧余量：Store/shared.ts normalizeConfigBySchema 分支
 >    （73%）、SchemaFields 类型分派（64%）、DomainEntry 回调残余（funcs 50%）
 >    ——cluster 页面主体至此收口，余量为子组件/纯函数层。
+
+## 扩展商店 shared 纯函数覆盖批次（Extensions 簇余量第五批，2026-09-29）
+
+> **交付（2026-09-29）**：簇余量收口 `Extensions/Store/shared.ts`（64 行，
+> normalizeConfigBySchema 分支 73% 起）——新增专用纯单测
+> `Store/__tests__/shared.test.ts`（14 用例）。
+>
+> - **覆盖**：shared.ts 行/语句/函数 100%、分支 97.67%（43 缺 1）。唯一
+>   缺口为 `schema?.properties` 可选链 null 短路翼——函数头 `!schema`
+>   判空守卫已提前返回，防御式 `?.` 结构不可达，登记不造假。
+> - **契约锁定**：buildSchemaDefaults 四守卫翼 + default 键提取（null 仍提取/
+>   无 default 跳过/prop null 兜底）；normalizeConfigBySchema 守卫翼 +
+>   rawConfig `|| {}` 右翼 + number/integer（trunc/NaN 保持原文）+ boolean
+>   四值与 'yes' 双翼不命中 + array/object JSON 解析与非法串 catch 翼 +
+>   value null/undefined 跳过 + 浅拷贝语义（原入参不变异、多余键保留）。
+> - **实证新契约**：`{properties: []}` 因数组 typeof 恒 object 穿过守卫，
+>   返回值相等的新对象（拷贝非引用）——已固化为用例。
+> - **门禁**：隔离套件 14/14 绿；tsc 0 错误；全量 jest（load<10 起跑）
+>   338 套件、4150/4151 用例（起跑 load 1.86；唯一失败仍为他会话未
+>   跟踪 Configs WIP，既定非交付排除口径；总用例 4137+14 吻合）。
+> - **环境事件（诚实登记）**：并行会话 `.js/.jsx` 转译洪水仍在——覆盖率
+>   归因与解析序须临时 `jest.coverage-order.config.ts`（moduleFileExtensions
+>   ts/tsx 优先，async 工厂无法 extends 故整份复制），测量后即删不入库；
+>   他人未跟踪文件一律不动。
+> - **已知边界**：Extensions 簇页面侧余量剩 SchemaFields.tsx 类型分派
+>   （64%）、DomainEntry 回调残余（funcs 50%）——下一批按此序收口。
