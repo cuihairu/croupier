@@ -240,7 +240,15 @@ export type LoginProviders = {
   register: boolean;
 };
 
-// Public: 登录页据此渲染 SSO 入口 / LDAP 提示。
+// Public: 登录页据此渲染 SSO 入口 / LDAP 提示。响应形态不对（如路由缺失时
+// 静态兜底回 index.html 的 HTML 字符串）视为拉取失败抛错——登录页 catch 后
+// fail-open 显示账密表单，避免把字符串误读成 providers 而「停用账密登录」。
 export async function fetchLoginProviders(): Promise<LoginProviders> {
-  return request<LoginProviders>('/api/v1/auth/providers', { skipErrorHandler: true });
+  const data = await request<LoginProviders>('/api/v1/auth/providers', {
+    skipErrorHandler: true,
+  });
+  if (typeof data !== 'object' || data === null || typeof data.local !== 'boolean') {
+    throw new Error('invalid login providers payload');
+  }
+  return data;
 }

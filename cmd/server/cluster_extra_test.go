@@ -366,8 +366,9 @@ func TestStartCluster_DBEnsureTableFailure(t *testing.T) {
 	assert.Nil(t, srv)
 }
 
-// 归属表 DDL 失败（成员表已建成但 owner 表建不上）需要两个独立 DDL 命运
-// 分叉，单连接上无法干净构造；该分支归入 DDL 基础设施失败防御豁免。
+// 归属表 DDL 失败（成员表已建成但 owner 表建不上）：两连接构造已落地，
+// 见 cluster_ddl_wings_test.go 的 TestStartCluster_OwnerEnsureTableFailure
+//（可写连接预建成员表 + mode=ro 重开，成员表幂等通过、owner 表 CREATE 被拒）。
 
 // AdvertiseAddr 为空 → cluster.Start 拒绝 → standalone。
 func TestStartCluster_EmptyAdvertiseAddr(t *testing.T) {
