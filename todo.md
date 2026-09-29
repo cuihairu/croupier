@@ -1866,3 +1866,29 @@ fresh 全绿（158 包零 FAIL）、guard PASSED。**已知边界**：门禁在�
 > catch（纯数值计算无可抛路径，L435-436）；EpisodeFacets/MapFacets 渲染
 > 与导出的 `(episodes || [])`/`(maps || [])` 右翼（state 恒为数组）。
 > 门禁：目标套件 12/12 绿、eslint 干净、tsc 0 错；全量 jest 负载口径见交付说明。
+
+## 数据库监控页覆盖批次（Ops/DBMonitor，2026-09-29）
+
+> **交付（2026-09-29）**：零测试页排行现席——`Ops/DBMonitor/index.tsx`
+> （667 行）单件收口，新增 `__tests__/index.test.tsx` 13 用例：
+> **行/语句/函数 100%、分支 98.61%**（余 1 臂登记为结构不可达）。锁定
+> 契约——卡片矩阵（驱动 Tag blue、kind 查表 + 未知回退原文、停用/全局
+> Tag、gameId/env geekblue、dsnMask code、无结果提示、canManage 三处门控）、
+> 空态（items 缺省右翼 → Empty）与 load 失败两翼、立即探测主链（results
+> 按 sourceId 归并 + 五卡指标全矩阵：连接 current/max 与 max<=0 '?'、
+> connections 缺省 '-/?'、锁等待红 Tag 计数/绿 0、死锁 volcano/绿 0/null
+> 与 undefined 双翼「不可用」、延迟 `?? '-'`ms、锁等待表 waitSecs>30 红 Tag
+> 双臂）、results 缺省右翼、探测失败两翼、新建主链（name/dsn required
+> 拦截 + driver/kind/enabled 默认值 + 阈值双 InputNumber 全量载荷 + 关闭）、
+> 保存失败两翼弹窗保持、编辑回填（DSN 掩码不回填 + extra 编辑语义 + 阈值
+> 0 归一 undefined + 停用开关透传）、删除 Popconfirm 主链与失败翼、刷新重拉。
+> **antd6 坑实证续档**：本页 Popconfirm 默认按钮是 zh（确 定）——与
+> AlertRulesTab 的 en（OK）不同源，role 查询统一 name=/确/ 两态通吃；
+> 带图标工具按钮 accessible name 前缀拼 icon aria-label（「reload 刷新」），
+> 须用正则查询；antd Form 序列化丢弃 undefined 值键——undefined 归一断言
+> 须直读 mock.calls 载荷键而非 objectContaining（jest 30 下后者不把
+> undefined 键视同缺失）。
+> **登记不可达（防御分支，不造假用例不删分支）**：新建提交
+> `dsn: v.dsn || ''` 右翼（新建态 dsn 带 required 规则，空值被 ModalForm
+> 校验拦截，提交时 dsn 恒非空串——`|| ''` 仅满足类型收窄）。
+> 门禁：目标套件 13/13 绿、eslint 干净、tsc 0 错；全量 jest 负载口径见交付说明。
