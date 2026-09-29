@@ -2015,3 +2015,40 @@ fresh 全绿（158 包零 FAIL）、guard PASSED。**已知边界**：门禁在�
 > icon 需限容器）。
 > 门禁：目标套件 13/13 绿、eslint 0、tsc 0 错、guard PASSED、全量 jest
 > 口径见交付说明。
+
+## 2026-09-29 Round 40（wt-api）：Ops/RateLimits 覆盖收口 100/98.46/100/100——零测试页排行第四 + 四处真缺陷修定
+
+> 覆盖率巡检第四站：`web/src/pages/Ops/RateLimits/index.tsx`（513 行 0%）。
+> 12 用例；本轮在页内修定 **四处真缺陷**（全部回归锁定）：
+>
+> 1. **load 顶层 reject 未收敛**：try/finally 无 catch——listRateLimits
+>    失败成为未处理 rejection 且用户只见空表。补 catch + message.error
+>    「加载限速规则失败」。
+> 2. **matchLabels 字段整体缺失**：编辑回填把多余键还原为 JSON 文本、
+>    提交侧 labels 合并两段逻辑全是死代码（回填不可见、合并恒空）。
+>    补 Form.Item + TextArea 落地编辑入口。
+> 3. **named Form.Item 子为三元素数组**（`{' '}<Input/>{' '}`）：antd
+>    cloneElement 注入跳过——limitQps/percent/match 四键完全脱管（默认
+>    值 10/100 不显示、键入永不落库、提交恒按默认、match 全丢，用户无法
+>    从 UI 配置限速参数）。去掉 `{' '}` 补齐单子。
+> 4. **编辑路径未 resetFields**：form 实例 store 在 destroyOnHidden 卸载
+>    后存活，上次新建/编辑残留的 match 键静默并入本次提交（幻影匹配条
+>    件写入规则）。编辑按钮补 resetFields（与新建按钮同口径）。
+>    锁定契约——三连拉（funcs/nodes 内层双 catch 静默 + 响应缺省三右臂）、
+>    表格矩阵（scope 双 Tag/percent 缺省 100/match 展开 '-'）、新建主链
+>    （required 拦截 + 默认值 + 载荷 + 已保存 + 重拉 + 关闭）、scope 切换
+>    （清 key + 选项源切 agents + label 切 Agent ID + id 缺省回退 addr）、
+>    percent 边界（编辑回填 0/150 双臂不入载荷）、labels 三态（合法合并/
+>    非法警告忽略/数组静默忽略/仅 labels 无标准键从零建 match）、编辑回填
+>    （标准四键平铺 + 多余键 JSON 文本 + 重组）、预览全景（空表单早退/
+>    function info 不触达/service 载荷 + 降序列表 + 仅超限过滤 + CSV 含
+>    缺省行）、失败三翼、自动预览（防抖/条件不齐/reject 静默/恢复）、
+>    弹窗取消、删除 modal.confirm。
+>    **坑实证（新档）**：jest.clearAllMocks 不清 mockRejectedValueOnce
+>    队列——外层 catch 短路内层拉取时预挂的 Once 跨用例毒化函数源，表象是
+>    key 下拉空 options（ant-select-dropdown-empty），单测隔离运行不复现、
+>    全文件才炸；Once 必须本用例内消费殆尽。antd InputNumber min=1 下手输
+>    0 只变更显示不派发 onChange（falsy 臂仅编辑回填可达）；双字中文
+>    Button 自动插空格（编 辑/删 除，Tag 不插）。
+>    门禁：目标套件 12/12 绿、eslint 0、tsc 0 错、guard PASSED、全量 jest
+>    口径见交付说明。
