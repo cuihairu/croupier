@@ -17,6 +17,7 @@ import devConfigExplorer from './en-US/devConfigExplorer';
 import devHotpatches from './en-US/devHotpatches';
 import devReleases from './en-US/devReleases';
 import devTools from './en-US/devTools';
+import devCicd from './en-US/devCicd';
 import extensionsAgentSync from './en-US/extensionsAgentSync';
 import extensionsDomainEntry from './en-US/extensionsDomainEntry';
 import extensionsInstallations from './en-US/extensionsInstallations';
@@ -108,6 +109,7 @@ export default {
   ...devHotpatches,
   ...devReleases,
   ...devTools,
+  ...devCicd,
   ...extensionsAgentSync,
   ...extensionsDomainEntry,
   ...extensionsInstallations,

@@ -81,6 +81,7 @@ export default {
 
   // Support
   'menu.Dev': 'Development',
+  'menu.Dev.Cicd': 'CI/CD Integrations',
   'menu.Dev.DevTools': 'Toolbox',
   'menu.Dev.Hotpatches': 'Hot Patch',
   'menu.Dev.Releases': 'Releases',
