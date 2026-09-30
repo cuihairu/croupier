@@ -2158,3 +2158,29 @@ fresh 全绿（158 包零 FAIL）、guard PASSED。**已知边界**：门禁在�
 > （上游 filter 保证）、Select list || [] 右臂（useState 恒数组）。
 > 门禁：目标套件 16/16 绿、eslint 0、tsc 0 错、guard PASSED、全量 jest
 > 口径见交付说明。
+
+## 2026-09-30 Round 45（wt-api）：Analytics/Invocations 覆盖收口 100/100/100/100——零测试页排行第九
+
+> 覆盖率巡检第九站：`web/src/pages/Analytics/Invocations/index.tsx`（396 行 0%）。
+> 5 用例，4×100%（v8），无页面缺陷（纯补测）。锁定契约——挂载双拉
+> （summary {hours:24} + trend {interval:'hour'}）、窗口切换（近 30 天 →
+> hours 720 + interval day + 趋势卡标题切换）、摘要统计卡五值（total/failed
+> 原值、成功率 (rate*100).toFixed(1)+'%'、avg/p95 toFixed(1)）、summary/points/
+> items/total 缺省右臂（DEFAULT_SUMMARY 0 兜底 + 空表）、Top 函数表
+> avgDurationMs 双臂（值/0 → '-'）、趋势装配（points flatMap 双系列 ||
+> 0 右臂）、明细矩阵（outcome success/error Tag、durationMs ==null '-' 与
+> 0 显式、traceId 截 16 code/缺省 '-'、timestamp 缺省 ?? '' 右臂、error 列）、
+> 首查载荷 {page:1,pageSize:20}、reject → success:false（ProTable 不落地
+> data、明细保留上次数据）、函数 ID 搜索（trim 并入载荷）、结果下拉
+> （选中并入 + allowClear 清除回到无 outcome）。
+> **坑实证（新档，三条）**：① antd6 Input.Search 的搜索按钮类名是
+> `.ant-input-search-btn`（非 v5 的 -button）；② ProTable 对 success:false
+> 的响应在 useFetchData 里早退 return、不调 setDataAndLoading——「reject
+> → 空表」是错误预期，实际保留上次数据；③ 'fn.a' 在 Top 函数表（summary
+> 来源，reject 不清它）与明细表同名——明细断言必须锚最后一张
+> .ant-table-container。
+> 登记不可达：request 的 current/pageSize 默认参右臂（ProTable 恒传显式
+> 值）；loadSummary 无 try/catch（reject 时 unhandled，页面原语义如此，
+> 测试避免该路径）。
+> 门禁：目标套件 5/5 绿（4×100%）、eslint 0、tsc 0 错、guard PASSED、
+> 全量 jest 口径见交付说明。
