@@ -7,6 +7,7 @@ overrides:
   esbuild@<=0.24.2: "~0.25.0"
   postcss@<=8.5.17: ">=8.5.18"
   dompurify@<=3.4.11: ">=3.4.12"
+  dompurify@<3.4.16: ">=3.4.16" # 2026-09-30 抬（afterSanitize hook DOM XSS，patched 3.4.16）
   immutable@>=5.0.0-beta.1 <5.1.8: ">=5.1.8"
   # 保留不修复（2026-08-15 评估）：
   # - vite <=6.4.2（#50/#151/#152）：补丁仅在 6.4.3+，vitepress 1.6.4 依赖 vite ^5，
