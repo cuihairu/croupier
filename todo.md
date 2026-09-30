@@ -2332,3 +2332,65 @@ fresh 全绿（158 包零 FAIL）、guard PASSED。**已知边界**：门禁在�
 > 门禁：OpenAPISources 3 套件 39/39 绿、全量 jest **4358/4359**（唯一失败
 > Functions/History「刷新双拉」在隔离重跑 16/16 绿——173.6s vs 60.7s 负载竞态，
 > 与改动零交集）、tsc 0、eslint 0；R49-1 侧 flutter analyze/test 188 全绿。
+> **R49-3（本批）**：web OpenAPISources 三文件拉满——SourceDetailDrawer.tsx
+> 39.8%→**100% 行**（16 用例：概要卡三态/诊断空双臂/三 severity Tag 色/
+> operationLabel 三臂/六契约 Tag 二态/approval 兜底/绑定回调/Popconfirm 删除/
+> 只读三按钮省略/原始 JSON 回退）、DiagnosticsList.tsx 27.6%→**100%**（经
+> drawer 真渲染联动）、shared.ts 55.6%（70/126）→**100%（126/126）**——
+> 12 导出纯函数专项：errorMessage 三臂/diagnosticsFromError isDiagnostic
+> 过滤/五色函数缺省臂/formatDate 空·非法·合法/functionLabel 三级回退/
+> operationLabel 三臂/proposalInboxPath 拼接/parseOpenAPIDocument 四类非法
+> JSON（错误文案经模块级 getIntl()）。全树 **98.10%→98.35%**
+> （93976/95548，+248 语句）。**登记不可达（分支）**：SourceDetailDrawer
+> 245-252 行 `diagnostics || []` 右臂——条件 237 行已判 length===0 才进
+> else，此时 diagnostics 必非空，防御性兜底不可达（行覆盖 100%、分支 96.29%）。
+> **坑实证（新档三条）**：① 双臂用例同文断言——antd Drawer 经 portal 挂
+> document.body，两次 render 并存时 `无诊断` 同文两处 findByText 报
+> multiple，前臂须显式 unmount 再渲后臂；② `localizedText` zh-CN 缺失时
+> 回退 en-US——functionLabel 断言「summary 仅 en-US」期望 id 兜底实为
+> en-US 命中（OnlyEn (fn.d)），三级回退的「皆空臂」须 summary 整体缺失；
+> ③ Popconfirm 确认键在 `.ant-popconfirm .ant-btn-primary`（portal 查询，
+> findBy* 不可见），须 waitFor 内 querySelector 断非空后 fireEvent。
+> 门禁：OpenAPISources 5 套件 **80/80** 绿、全量 jest **4399/4400**（唯一
+> 失败 Functions/History 150.5s 超时，隔离重跑 16/16 绿 41.5s——R49-2 同款
+> 负载竞态，本批零源码改动）、tsc 0、eslint 0、guard PASSED（仓库根）。
+> **R49-4（本批）**：web Assignments/columns.tsx 61.7%（121 miss）→
+> **100%（100/100/100/100 语句/分支/函数/行）**，16 用例——三个 build 纯
+> 函数（buildAssignmentColumns 七类列分派+行操作矩阵、buildCategoryColumns
+> 五列+批量回调、buildRouteColumns 四列+查看回调）经 RTL 真渲染断言 DOM。
+> **坑实证（新档五条，antd 6.6.0 实测）**：① Badge 状态色渲染在内部 dot
+> （`.ant-badge-status-success`），非外层 `.ant-badge-success`；② Progress
+> 文本在 `.ant-progress-indicator`（带 title 属性），success 态在外层
+> `.ant-progress-status-success`——antd 5 的 `.ant-progress-text`/
+> `.ant-progress-success` 在 6.x 均不存在；③ antd 6 Tooltip **不设** title
+> 属性，icon-only 按钮可访问名来自图标 `aria-label`（check-circle/delete/
+> setting），getByTitle 全挂；④ 图标类名 CheckCircleOutlined→
+> `anticon-check-circle`（非 `anticon-check`，后者按类 token 精确匹配）；
+> ⑤ 同用例多次 render() 均追加容器到 document.body，screen 级断言遇同文
+> 多匹配——须 within(container) 限定或前臂 unmount。另：本机 TZ=UTC，
+> toLocaleString('zh-CN') 期望值须按运行机动态计算。**并发实录**：本批
+> 与并行会话同改 columns.test.tsx（对方先落盘 13/16 绿版本，我补最后 3
+> 处 antd 6 选择器修复）；并行会话另生成未跟踪 jest.config.js（.ts 的编译
+> 产物，与跟踪版 jest.config.ts 内容相同）致 `pnpm test:coverage` 报
+> Multiple configurations——全量跑改用 `npx jest --config jest.config.ts`
+> 显式指定绕开，未删对方文件。门禁：Assignments 5 套件 44/44 绿、tsc 0、
+> eslint 0、guard PASSED（仓库根）。
+> **R49-4b（会话续作，本提交）**：useAssignmentsPage.ts 67.2%（108 miss）
+> → **99.59% 行 / 97.29% 分支**（产物 .jsx/.js 口径），30 用例——descriptors
+> 三信封形态、gameId 有无的 assignments 拉取与失败兜底、onSave
+> remove/assign/unknown/reject-finally 四臂、onBatchAssign 并集去重/过滤、
+> onCloneToEnv 四臂、loadHistory 信封解包/items 缺省/失败清空、canWrite
+> 六态参数化、pageCtx 全回调、onOpenDetail 闭包两臂经捕获 opts 驱动
+> （columns mock 后 push 逻辑不可 UI 触达）、gameId 变化重拉（#35）。
+> **登记不可达/防御性（2 行）**：`Object.values(m).flat() || []` 右臂
+> （flat() 恒返回数组 truthy）、onSave finally 残余块（异常入口已由
+> rejects.toThrow 用例执行，v8 块计数器合并不可再分）。
+> **全量污染期判定**：web 并行会话编译产物滞留期（src 下 663 个 .jsx/.js
+>
+> - .map，jest 默认 moduleFileExtensions js 优先于 ts——测试实际加载等价
+>   编译产物，行为等价但 coverage 统计口径落产物文件；产物随时可能被对方
+>   清理，数字不可复现）；污染期全量 jest 34 suites 失败判**环境性**（定向
+>   域全绿 + 产物/源码同步性决定失败分布，与本批零源码改动无交集），本批
+>   门禁以 Assignments 全目录 6 套件 **74/74** 绿 + tsc 0 + eslint 0 +
+>   guard PASSED（仓库根）收口，全树覆盖率基线与全量全绿待产物清理后由
+>   R49-5 复核。
