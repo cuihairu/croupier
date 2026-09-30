@@ -2394,3 +2394,31 @@ fresh 全绿（158 包零 FAIL）、guard PASSED。**已知边界**：门禁在�
 >   门禁以 Assignments 全目录 6 套件 **74/74** 绿 + tsc 0 + eslint 0 +
 >   guard PASSED（仓库根）收口，全树覆盖率基线与全量全绿待产物清理后由
 >   R49-5 复核。
+
+## 覆盖率巡检批次·Go 侧第五十轮·登记面重审翻案——bug/profile 错误翼收口（wt-api worktree，2026-09-30）
+
+> 交付：全量 profile 重排（99.949%，21 文件 29 语句余量）后，本轮主线
+> **逐条重审第 3-28 轮「不可达」登记**。29 语句全审，3 处初判翻案后被
+> 自证否决（如实留档）：auth/service.go:738 实为 `!ok2` continue（非
+> return——FindEmailsByDomain 的 `LIKE '%@domain'` 保证 Cut 恒得 @，
+> :741 return 本就被既有用例覆盖）；gitlabci.go:75 空串守卫（New() 拒空
+> project，group/repo 非数字分支已被覆盖）；cicd/service.go:93 float64
+> （Create 请求 DTO Extra 为 map[string]string、DB 读回 json.Number
+> 双路径均不产 float64）。判死补强论证：menu:381（check(item)=true ⇒
+> 既有 parent 必 true，环项在首循环先跳）、openapi:710（替换字母表 ⊆
+> Trim cutset，trim 后首字符恒 alnum）、avatar:128（filepath.Clean 恒剥
+> 尾斜杠 → 前置 HasPrefix 守卫先拒）、wechat:134/:137（:121 守卫先行）、
+> handler 系三处（纯 string DTO 绑定恒过）、re-Marshal 系三处（Unmarshal
+> 过的值再 Marshal 恒过）、certificates:202（源内 C 类论证）、rand 系
+> （crypto/rand）、email_verification:78/163（layered 恒 init / CAS 竞态
+> 窗口）、webhook:106（单请求内无法注入读故障）。
+> **翻案收口 3 翼**：① model/bug.go :374/:401——#21 轮「sqlite 无法模拟
+> 连接/列级错误」登记不成立，同文件 LinkBugTicket 缺表技法对 JOIN 同样
+> 有效，newBugErrTestDB（Bug+Ticket 无 link 表）收口；旧 sanity 用例改名
+> NormalShapeSanity、文件头登记同步翻案。② api/profile/permissions.go
+> :179——空白名角色被一循环挡在 roleIDs 外、但 grants 二循环遍历原集，
+> 混入用例收口。bug.go / permissions.go 双双 100%；余量 29→26 语句。
+> 回避面维持：otp/otpauth.go（d9fdc05 OTP 域）、api/assignment/gate.go
+> （BUG-035 域）。
+> 门禁：触及文件 gofmt 干净、go vet 干净、go test ./internal/... 全绿
+> （fresh，-p 4 从宽于 load 111 洪峰下 158 包 exit=0 零 FAIL）。

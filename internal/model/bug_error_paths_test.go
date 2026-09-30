@@ -5,9 +5,10 @@ package model
 // 分支处置：
 // 1. LinkBugTicket 第 342 行：First(&existing) 返回非 NotFound 错误——
 //    缺 bug_ticket_links 表触达（TestBugModel_LinkBugTicket_ExistingQueryError）。
-// 2. ListTicketsByBug 第 374 行：Scan(&rows) 错误——防御性不可达登记
-//    （sqlite 无法模拟连接/列级错误），不造假用例、不删防御分支。
-// 3. ListBugsByTicket 第 401 行：Scan(&rows) 错误——同上登记。
+// 2. ListTicketsByBug 第 374 行：Scan(&rows) 错误——R50 翻案收口（缺
+//    bug_ticket_links 表即触达，同第 1 条技法；见
+//    bug_list_scan_error_r50_test.go，原「sqlite 无法模拟」登记不成立）。
+// 3. ListBugsByTicket 第 401 行：Scan(&rows) 错误——同上 R50 翻案收口。
 //
 // 构造方式：用共享内存库的独立 DSN + 手工制造表结构损坏/连接失效。
 // 由于 sqlite 内存库无法真正模拟连接级错误，这里用“表不存在/列不存在”
@@ -71,9 +72,8 @@ func TestBugModel_LinkBugTicket_ExistingQueryError(t *testing.T) {
 	assert.NotContains(t, err.Error(), "record not found", "应为 DDL 级错误，非 NotFound")
 }
 
-// ListTicketsByBug: Scan(&rows) 错误分支为防御性不可达（见文件头登记），
-// 本用例证明正常表结构下 Scan 不报错。
-func TestBugModel_ListTicketsByBug_ScanError(t *testing.T) {
+// ListTicketsByBug: 正常表结构 sanity（错误分支收口见 R50 新文件）。
+func TestBugModel_ListTicketsByBug_NormalShapeSanity(t *testing.T) {
 	db := newBugErrNormalDB(t)
 	ctx := context.Background()
 	m := NewBugModel(db)
@@ -85,13 +85,12 @@ func TestBugModel_ListTicketsByBug_ScanError(t *testing.T) {
 	_, err := m.ListTicketsByBug(ctx, bug.ID)
 	require.NoError(t, err, "正常表结构下不应报错")
 
-	// 登记边界：ListTicketsByBug/L istBugsByTicket 的 Scan 错误分支在正常运行
-	// 下不可触达（sqlite 无法模拟连接/列级错误），属防御性分支，不造假用例。
-	t.Log("边界：ListTicketsByBug 第 374 行 Scan 错误分支为防御性不可达，已在文件头登记")
+	// 正常表结构 sanity；错误分支（缺表 DDL 故障）在 R50 翻案收口，
+	// 见 bug_list_scan_error_r50_test.go。
 }
 
-// ListBugsByTicket: Scan(&rows) 错误分支同理登记防御性不可达。
-func TestBugModel_ListBugsByTicket_ScanError(t *testing.T) {
+// ListBugsByTicket: 正常表结构 sanity（错误分支收口见 R50 新文件）。
+func TestBugModel_ListBugsByTicket_NormalShapeSanity(t *testing.T) {
 	db := newBugErrNormalDB(t)
 	ctx := context.Background()
 	m := NewBugModel(db)
@@ -101,6 +100,4 @@ func TestBugModel_ListBugsByTicket_ScanError(t *testing.T) {
 
 	_, err := m.ListBugsByTicket(ctx, ticket.ID)
 	require.NoError(t, err, "正常表结构下不应报错")
-
-	t.Log("边界：ListBugsByTicket 第 401 行 Scan 错误分支为防御性不可达，已在文件头登记")
 }
