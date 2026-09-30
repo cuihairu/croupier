@@ -2318,3 +2318,25 @@ fresh 全绿（158 包零 FAIL）、guard PASSED。**已知边界**：门禁在�
 > 门禁：OpenAPISources 3 套件 39/39 绿、全量 jest **4358/4359**（唯一失败
 > Functions/History「刷新双拉」在隔离重跑 16/16 绿——173.6s vs 60.7s 负载竞态，
 > 与改动零交集）、tsc 0、eslint 0；R49-1 侧 flutter analyze/test 188 全绿。
+> **R49-3（本批）**：web OpenAPISources 三文件拉满——SourceDetailDrawer.tsx
+> 39.8%→**100% 行**（16 用例：概要卡三态/诊断空双臂/三 severity Tag 色/
+> operationLabel 三臂/六契约 Tag 二态/approval 兜底/绑定回调/Popconfirm 删除/
+> 只读三按钮省略/原始 JSON 回退）、DiagnosticsList.tsx 27.6%→**100%**（经
+> drawer 真渲染联动）、shared.ts 55.6%（70/126）→**100%（126/126）**——
+> 12 导出纯函数专项：errorMessage 三臂/diagnosticsFromError isDiagnostic
+> 过滤/五色函数缺省臂/formatDate 空·非法·合法/functionLabel 三级回退/
+> operationLabel 三臂/proposalInboxPath 拼接/parseOpenAPIDocument 四类非法
+> JSON（错误文案经模块级 getIntl()）。全树 **98.10%→98.35%**
+> （93976/95548，+248 语句）。**登记不可达（分支）**：SourceDetailDrawer
+> 245-252 行 `diagnostics || []` 右臂——条件 237 行已判 length===0 才进
+> else，此时 diagnostics 必非空，防御性兜底不可达（行覆盖 100%、分支 96.29%）。
+> **坑实证（新档三条）**：① 双臂用例同文断言——antd Drawer 经 portal 挂
+> document.body，两次 render 并存时 `无诊断` 同文两处 findByText 报
+> multiple，前臂须显式 unmount 再渲后臂；② `localizedText` zh-CN 缺失时
+> 回退 en-US——functionLabel 断言「summary 仅 en-US」期望 id 兜底实为
+> en-US 命中（OnlyEn (fn.d)），三级回退的「皆空臂」须 summary 整体缺失；
+> ③ Popconfirm 确认键在 `.ant-popconfirm .ant-btn-primary`（portal 查询，
+> findBy* 不可见），须 waitFor 内 querySelector 断非空后 fireEvent。
+> 门禁：OpenAPISources 5 套件 **80/80** 绿、全量 jest **4399/4400**（唯一
+> 失败 Functions/History 150.5s 超时，隔离重跑 16/16 绿 41.5s——R49-2 同款
+> 负载竞态，本批零源码改动）、tsc 0、eslint 0、guard PASSED（仓库根）。
