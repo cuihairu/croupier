@@ -2316,3 +2316,29 @@ fresh 全绿（158 包零 FAIL）、guard PASSED。**已知边界**：门禁在�
 > 测试避免该路径）。
 > 门禁：目标套件 5/5 绿（4×100%）、eslint 0、tsc 0 错、guard PASSED、
 > 全量 jest 口径见交付说明。
+
+## Guard 复验批次（七批纯 web 测试的 PageSpec/渲染面守卫，2026-09-30）
+
+> **交付（2026-09-30）**：派发核验 wt-ui 认领清单 #7 #8 #9 #19 #20 均已
+> 合入（「已提交」+MERGED 确认，无未完成项）→ 转
+> `bash scripts/dashboard_vnext_guard.sh` 全套守卫复验（此前七批纯 web
+> 测试批次口径未跑）：**PASSED**（canonical 入口/路由与渲染契约/遗留
+> 文件保持移除/legacy 术语未回流/core 无 any/表单运行时边界/执行与审批
+> 边界/注册侧 UI 字段拒绝/依赖检查全绿）——纯测试批次未破坏 PageSpec
+> 与渲染面。
+>
+> - **同域撞车处置（坑 6/7 再实证）**：本轮 fetch 发现上游 main 已含他会话
+>   对 Extensions 簇批次 3-5 平替实现（shared 11 例/AgentSync 6 例等四
+>   文件，经 wt-api 链合入）→ merge 解 add/add 冲突**取上游 canonical
+>   版**，我方同名四文件让路；独立隔离复跑 Extensions 全域 11 套件
+>   123/123 绿（含对方版本独立核验）。我方独有价值保留：批次 6
+>   SchemaFields.test.tsx（8 例，分支 96.87%+登记不可达）、批次 7
+>   DomainEntry/callbacks.test.tsx（8 例，与既有套件合并 4×100%）。
+> - **门禁**：guard PASSED；tsc 0 错误；隔离 Extensions 123/123；全量
+>   jest（起跑 load 4.99）357 套件、4367/4379——12 例红全数定性：
+>   ① Configs WIP ×1（他会话未跟踪，既定排除口径）；
+>   ② 洪水假信号 ×11（sites ×2 + RateLimits/Dev/Tools/Certificates ×9，
+>   三页 .jsx 孪生均为 09:16 陈旧时间戳 vs 02:33 新 tsx——序修正配置下
+>   四套件复证 53/53 全绿，CI 无洪水必绿；坑 13 规模化再实证）。
+> - **已知边界**：本轮未改任何产品代码（纯守卫复验+合并让路，guard 未红
+>   故无回归断言需求）；不删他人未跟踪洪水文件。
