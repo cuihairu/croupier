@@ -111,30 +111,26 @@ void main() {
     expect(find.text('42'), findsOneWidget);
   });
 
-  testWidgets('入口卡：设备/告警已启用，审计仍为禁用占位', (WidgetTester tester) async {
+  testWidgets('入口卡：设备/告警/审计全部启用，LB 统计明示不接入', (WidgetTester tester) async {
     await seedSession();
     adapter.handler = (options, _) => jsonResponse(200, okPayload);
     await pumpMonitoring(tester);
 
+    for (final key in ['devices', 'alerts', 'audit']) {
+      expect(
+        tester
+            .widget<ListTile>(find.byKey(ValueKey('monitor-entry-$key')))
+            .enabled,
+        isTrue,
+        reason: key,
+      );
+    }
     expect(
       tester
-          .widget<ListTile>(find.byKey(const ValueKey('monitor-entry-devices')))
-          .enabled,
-      isTrue,
-    );
-    expect(
-      tester
-          .widget<ListTile>(find.byKey(const ValueKey('monitor-entry-alerts')))
-          .enabled,
-      isTrue,
-    );
-    expect(
-      tester
-          .widget<ListTile>(find.byKey(const ValueKey('monitor-entry-audit')))
+          .widget<ListTile>(find.byKey(const ValueKey('monitor-entry-lbstats')))
           .enabled,
       isFalse,
     );
-    expect(find.text('M2 交付'), findsOneWidget);
   });
 
   testWidgets('点设备入口进入设备列表页', (WidgetTester tester) async {
