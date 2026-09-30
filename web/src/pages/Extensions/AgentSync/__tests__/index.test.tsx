@@ -1,18 +1,19 @@
 /**
- * Agent 扩展同步调试页单测（覆盖率巡检：Extensions 簇余量收口，AgentSync
- * index.tsx 93 行 0% → 全覆盖）。
+ * Agent 扩展同步调试页单测（覆盖率巡检：AgentSync/index.tsx 93 行 0% →
+ * 收口，Extensions 簇余量顺序第三位）。
  *
- * 锁定契约：初态渲染（标题/副标题/Payload JSON 卡片空态「暂无数据」）、
- * 空 ID 查询 warning 拦截（服务不触达）、查询链（getAgentSyncPayload 载荷
- * + payload JSON 回显 + 按钮退出 loading）、resp.payload 缺省 `|| {}` 右翼、
- * ID trim 翼、onPressEnter 触发查询、清空复位双态。
+ * 锁定契约：空输入/纯空白拦截（warning + 不触达服务）、trim 后查询
+ * （getAgentSyncPayload 收归一值）、载荷 pretty-print（JSON.stringify
+ * null,2）与 payload 缺省 '{}' 兜底、onPressEnter 等价查询、清空双态
+ * 复位（输入 + 载荷回「暂无数据」）、Card 标题与空态文案。
  *
- * mock 口径：services/api/extensions 仅 getAgentSyncPayload；
- * @ant-design/pro-components 本地 mock（PageContainer 桩透传）；@umijs/max
- * 本地 mock。App 包裹（App.useApp message）。
+ * mock 口径：services/api/extensions 的 getAgentSyncPayload jest.mock；
+ * @umijs/max 本地 mock；PageContainer/antd 真实渲染（App 包裹供 message）。
  *
- * 边界（诚实）：runSyncQuery 的 try/finally 无 catch——接口 reject 产生
- * unhandled rejection（组件现状缺陷，同簇既定结论），不造假 reject 用例。
+ * 边界（诚实）：runSyncQuery 是 try/finally 无 catch——查询 reject 会产生
+ * unhandled rejection（现状行为，与 InstallationDetailDrawer/openDetail 巡检
+ * 结论同族，不改组件），不造假 reject 场景；`resp?.payload || {}` 的右翼经
+ * payload undefined 的 resolve 形态覆盖。
  */
 import React from 'react';
 import { configure, fireEvent, render, screen, waitFor } from '@testing-library/react';
@@ -26,34 +27,18 @@ jest.mock('@/services/api/extensions', () => ({
   getAgentSyncPayload: jest.fn(),
 }));
 
-jest.mock('@ant-design/pro-components', () => ({
-  PageContainer: ({
-    children,
-    title,
-    subTitle,
-  }: {
-    children?: React.ReactNode;
-    title?: React.ReactNode;
-    subTitle?: React.ReactNode;
-  }) => (
-    <div>
-      <h1>
-        {title}
-        {subTitle ? <span>{subTitle}</span> : null}
-      </h1>
-      {children}
-    </div>
-  ),
-}));
-
 jest.mock('@umijs/max', () => ({
-  FormattedMessage: ({ defaultMessage }: { defaultMessage?: string }) => <>{defaultMessage}</>,
-  useIntl: () => ({ formatMessage: (o: { defaultMessage?: string }) => o.defaultMessage ?? '' }),
+  FormattedMessage: ({ defaultMessage }: { defaultMessage?: string }) => (
+    <>{defaultMessage ?? ''}</>
+  ),
+  useIntl: () => ({
+    formatMessage: (opts: { defaultMessage?: string }) => opts.defaultMessage ?? '',
+  }),
 }));
 
 import { getAgentSyncPayload } from '@/services/api/extensions';
 
-const mPayload = getAgentSyncPayload as jest.MockedFunction<typeof getAgentSyncPayload>;
+const mSync = getAgentSyncPayload as jest.MockedFunction<typeof getAgentSyncPayload>;
 
 function renderPage() {
   return render(
@@ -63,101 +48,83 @@ function renderPage() {
   );
 }
 
+function agentInput() {
+  return screen.getByPlaceholderText('例如: agent-001') as HTMLInputElement;
+}
+
 beforeEach(() => {
   jest.clearAllMocks();
-  mPayload.mockResolvedValue({ payload: { functions: ['chat.echo'], version: '1.4.0' } } as never);
+  mSync.mockResolvedValue({ payload: { extensions: ['chatops@1.4.0'], revision: 7 } });
 });
 
-describe('AgentSync 初态与拦截', () => {
-  it('初态渲染：标题/副标题/Payload JSON 卡片空态「暂无数据」', () => {
+describe('Agent 扩展同步调试页', () => {
+  it('页头与初始空态：标题/副标题/Agent ID 表单/暂无数据', () => {
     renderPage();
-
     expect(screen.getByText('Agent 扩展同步调试')).toBeInTheDocument();
     expect(screen.getByText('查看指定 Agent 的扩展同步载荷')).toBeInTheDocument();
+    expect(screen.getByText('Agent ID')).toBeInTheDocument();
     expect(screen.getByText('Payload JSON')).toBeInTheDocument();
     expect(screen.getByText('暂无数据')).toBeInTheDocument();
-    expect(mPayload).not.toHaveBeenCalled();
+    expect(screen.queryByDisplayValue(/.+/s)).not.toBeInTheDocument();
   });
 
-  it('空 ID 查询：warning 拦截、不触达服务', async () => {
+  it('空输入与纯空白拦截：warning + 不触达服务', async () => {
     renderPage();
 
     fireEvent.click(screen.getByRole('button', { name: '查询同步载荷' }));
     expect(await screen.findByText('请输入 Agent ID')).toBeInTheDocument();
-    expect(mPayload).not.toHaveBeenCalled();
-    expect(screen.getByText('暂无数据')).toBeInTheDocument();
-  });
-});
+    expect(mSync).not.toHaveBeenCalled();
 
-describe('AgentSync 查询链', () => {
-  it('输入 ID 点查询：getAgentSyncPayload 载荷 + payload JSON 回显 + 按钮退出 loading', async () => {
+    fireEvent.change(agentInput(), { target: { value: '   ' } });
+    fireEvent.click(screen.getByRole('button', { name: '查询同步载荷' }));
+    expect(await screen.findByText('请输入 Agent ID')).toBeInTheDocument();
+    expect(mSync).not.toHaveBeenCalled();
+  });
+
+  it('查询主链：trim 归一 + 载荷 pretty-print 到只读 TextArea', async () => {
     renderPage();
 
-    fireEvent.change(screen.getByPlaceholderText('例如: agent-001'), {
-      target: { value: 'agent-001' },
-    });
+    fireEvent.change(agentInput(), { target: { value: '  agent-001  ' } });
     fireEvent.click(screen.getByRole('button', { name: '查询同步载荷' }));
 
-    await waitFor(() => expect(mPayload).toHaveBeenCalledWith('agent-001'));
-    // multiline JSON 回显（坑 10：期望串用正则；indent=2 时数组也折行，拆键断言）
-    expect(await screen.findByDisplayValue(/"functions": \[/)).toBeInTheDocument();
-    expect(screen.getByDisplayValue(/"chat\.echo"/)).toBeInTheDocument();
-    expect(screen.getByDisplayValue(/"version": "1.4.0"/)).toBeInTheDocument();
-    await waitFor(() =>
-      expect(screen.getByRole('button', { name: '查询同步载荷' })).not.toHaveClass(
-        'ant-btn-loading',
-      ),
-    );
+    await waitFor(() => expect(mSync).toHaveBeenCalledWith('agent-001'));
+    // getByDisplayValue 会对 value 做空白归一（折叠连续空白）——多行
+    // pretty JSON 以「单空格折叠形态」断言（坑记：字面换行正则不匹配）
+    expect(
+      await screen.findByDisplayValue('{ "extensions": [ "chatops@1.4.0" ], "revision": 7 }'),
+    ).toBeInTheDocument();
+    expect(screen.queryByText('暂无数据')).not.toBeInTheDocument();
   });
 
-  it('ID trim 翼：输入带空白 → 调用 trim 后 ID', async () => {
+  it('payload 缺省兜底：resp.payload undefined → {} 落 TextArea', async () => {
+    mSync.mockResolvedValue({ payload: undefined } as never);
     renderPage();
 
-    fireEvent.change(screen.getByPlaceholderText('例如: agent-001'), {
-      target: { value: '  agent-007  ' },
-    });
+    fireEvent.change(agentInput(), { target: { value: 'agent-002' } });
     fireEvent.click(screen.getByRole('button', { name: '查询同步载荷' }));
 
-    await waitFor(() => expect(mPayload).toHaveBeenCalledWith('agent-007'));
+    await waitFor(() => expect(mSync).toHaveBeenCalledWith('agent-002'));
+    expect(await screen.findByDisplayValue(/^\{\}$/)).toBeInTheDocument();
   });
 
-  it('resp.payload 缺省：`|| {}` 右翼 → 空 JSON 对象回显', async () => {
-    mPayload.mockResolvedValue({} as never);
+  it('onPressEnter 等价查询', async () => {
     renderPage();
 
-    fireEvent.change(screen.getByPlaceholderText('例如: agent-001'), {
-      target: { value: 'agent-001' },
-    });
+    fireEvent.change(agentInput(), { target: { value: 'agent-003' } });
+    fireEvent.keyDown(agentInput(), { key: 'Enter' });
+
+    await waitFor(() => expect(mSync).toHaveBeenCalledWith('agent-003'));
+  });
+
+  it('清空：输入与载荷双复位', async () => {
+    renderPage();
+
+    fireEvent.change(agentInput(), { target: { value: 'agent-001' } });
     fireEvent.click(screen.getByRole('button', { name: '查询同步载荷' }));
-
-    expect(await screen.findByDisplayValue('{}')).toBeInTheDocument();
-  });
-
-  it('onPressEnter：输入框回车触发查询', async () => {
-    renderPage();
-
-    const input = screen.getByPlaceholderText('例如: agent-001');
-    fireEvent.change(input, { target: { value: 'agent-009' } });
-    fireEvent.keyDown(input, { key: 'Enter', keyCode: 13 });
-
-    await waitFor(() => expect(mPayload).toHaveBeenCalledWith('agent-009'));
-    expect(await screen.findByDisplayValue(/"functions": \[/)).toBeInTheDocument();
-  });
-});
-
-describe('AgentSync 清空', () => {
-  it('查询后点清空：输入与回显双态复位、回空态「暂无数据」', async () => {
-    renderPage();
-
-    fireEvent.change(screen.getByPlaceholderText('例如: agent-001'), {
-      target: { value: 'agent-001' },
-    });
-    fireEvent.click(screen.getByRole('button', { name: '查询同步载荷' }));
-    await waitFor(() => expect(mPayload).toHaveBeenCalledWith('agent-001'));
-    expect(await screen.findByDisplayValue(/"functions"/)).toBeInTheDocument();
+    await waitFor(() => expect(mSync).toHaveBeenCalledTimes(1));
 
     fireEvent.click(screen.getByRole('button', { name: '清空' }));
-    expect((screen.getByPlaceholderText('例如: agent-001') as HTMLInputElement).value).toBe('');
+    expect(agentInput().value).toBe('');
     expect(screen.getByText('暂无数据')).toBeInTheDocument();
   });
 });

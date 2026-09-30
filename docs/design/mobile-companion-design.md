@@ -269,17 +269,17 @@ scoped 前缀清单从 Web `services/core/scope.ts` 的 `SCOPED_API_PREFIXES` �
 
 ### 5.1 选型
 
-| 层   | 选型                               | 说明                                                                                         |
-| ---- | ---------------------------------- | -------------------------------------------------------------------------------------------- |
-| 框架 | Flutter 3.38（stable）+ Material 3 | 本机 `~/.local/flutter`，`ANDROID_HOME=~/android-sdk`（已配）                                |
-| 状态 | Riverpod 2                         | 对齐 cockpit mobile 先例（见 §9 假设 1）；feature 级 NotifierProvider + core 级单例 Provider |
-| 网络 | dio                                | 拦截器链：token 注入 → scope 头 → 错误归一（ApiError）                                       |
-| 路由 | go_router                          | 底部 Tab + 详情页 + 深链（`croupier://`）                                                    |
-| 存储 | flutter_secure_storage             | §4.2                                                                                         |
-| 生物 | local_auth                         | §4.1                                                                                         |
-| 推送 | ntfy（自托管，HTTP subscribe）     | §6，不接 FCM/APNs                                                                            |
-| 深链 | app_links                          | ntfy 通知点击直达审批详情                                                                    |
-| DTO  | 手写 `fromJson` + 归一层           | 对齐 Web services/api 的 normalize 先例（响应三态兜底等），不引 codegen                      |
+| 层   | 选型                                 | 说明                                                                                                                                      |
+| ---- | ------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| 框架 | Flutter 3.35.1（stable）+ Material 3 | 本机 `~/.local/flutter`，`ANDROID_HOME=~/android-sdk`（已配）；v1 稿写 3.38 系为笔误，按实际钉版修正（2026-09-30，与 ci-mobile.yml 一致） |
+| 状态 | Riverpod 2                           | 对齐 cockpit mobile 先例（见 §9 假设 1）；feature 级 NotifierProvider + core 级单例 Provider                                              |
+| 网络 | dio                                  | 拦截器链：token 注入 → scope 头 → 错误归一（ApiError）                                                                                    |
+| 路由 | go_router                            | 底部 Tab + 详情页 + 深链（`croupier://`）                                                                                                 |
+| 存储 | flutter_secure_storage               | §4.2                                                                                                                                      |
+| 生物 | local_auth                           | §4.1                                                                                                                                      |
+| 推送 | ntfy（自托管，HTTP subscribe）       | §6，不接 FCM/APNs                                                                                                                         |
+| 深链 | app_links                            | ntfy 通知点击直达审批详情                                                                                                                 |
+| DTO  | 手写 `fromJson` + 归一层             | 对齐 Web services/api 的 normalize 先例（响应三态兜底等），不引 codegen                                                                   |
 
 ### 5.2 目录结构（目标态）
 
@@ -361,16 +361,16 @@ jobs:
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
-          flutter-version: 3.38.x # 与本机工具链对齐
+          flutter-version: 3.35.1 # 与本机工具链对齐（v1 稿 3.38 系为笔误）
       - run: flutter pub get
-      - run: dart format --set-exit-if-changed .
+      - run: dart format --set-exit-if-changed --output=none .
       - run: flutter analyze # 0 warning 纪律（对齐 web tsc 0 错）
       - run: flutter test
 ```
 
 - `flutter analyze` / `dart format` 零容忍，对齐仓库「tsc 0 错」门禁纪律；
 - Android 构建烟测（`flutter build apk --debug`）M2 起追加（M1 无 android/ 完整工程时可跳过）；
-- 本机工具链（`~/.local/flutter` 3.38 + `~/android-sdk`，`ANDROID_HOME` 已配）用于本地真机调试与 APK 侧载产物，CI 不依赖本机。
+- 本机工具链（`~/.local/flutter` 3.35.1 + `~/android-sdk`，`ANDROID_HOME` 已配）用于本地真机调试与 APK 侧载产物，CI 不依赖本机。
 
 ## 8. 分批实施计划
 
@@ -383,6 +383,20 @@ jobs:
 
 批次节奏：M1 单独一批先上（P0 场景尽早闭环），M2/M3 可并行，M4 收尾。
 
+### 8.1 M1 落地事实（2026-09-30）
+
+M1 已分五切片全部合入 main（de4dfd3 工程脚手架 + core 层 → da3816f 登录双步 → 8609a8e scope 选择器 → dd062e3 审批中心 + Tab 主壳 → 20feae7 设置页）：
+
+- **core 层**：`mobile/lib/core/`——ApiClient 拦截器链（token 注入 → scope 头成对校验且先剥外部同名头 → 401 清会话回登录）、ApiError 响应形态归一（非契约体退化 `http_<status>`，防 SPA 兜底当空列表）、SessionData secure storage（单 key JSON 整块）、LoginService 双步；
+- **登录双步**：401+`mfa_required` → TOTP 输入框按需出现（错误文案透传服务端 message）；`mustChangePassword` / `mfaSetupRequired` → 弹窗引导回 Web 且**不写会话**（防冷启动带残留 token 直进 App）；
+- **scope 选择器**：`GET /api/v1/profile/games` 拉取 + `PUT /api/v1/profile/scope`（先 PUT 成功再改本地，失败不动现状）；顶栏切换器 + 底部 Sheet 两段（game→env）选择，预选命中 lastGameId/lastEnv 否则落第一个可用项；审批列表监听 scope 变更自动刷新；
+- **审批中心**：列表（pending/approved/rejected 三段筛选、下拉刷新、加载更多，pageSize 20）+ 详情（payloadPreview 折叠、reject reason 必填、409 竞态→「该审批已被处理」并自动刷新、两人规则发起人=自己时按钮隐藏 + 只读横幅）+ 批准/拒绝；
+- **Tab 主壳**：审批（默认着陆）/监控占位（M2）/设置；AppBar 挂 scope 切换器与登出；
+- **设置页**：会话信息（用户/scope/服务器地址）+ 更换地址（清会话回登录 + 新地址预填登录表单）+ ntfy / 生物门禁禁用占位（M3/M2 边界明示）；
+- **质量门禁**：`flutter analyze` 0 告警、`dart format` 零 diff、`flutter test` 72 用例全绿；`ci-mobile.yml` 上线（钉版 3.35.1）。
+
+**M1 验收标准修订（诚实边界）**：原验收「真机完成生物+函数 ID+OTP 全链」未全额达成——批准实际为**单段确认**：① 生物识别（local_auth）按批次表归 M2 引入；② `POST /api/v1/approvals/{id}/approve` 后端只读 URI 不读请求体，step-up TOTP 的 `otp` 无落点（见 §9 边界，待后端立项）。其余验收项（analyze/test 全绿、CI 工作流上线）达成；「真机全链」验收顺延至 step-up 补齐后，M1 以 CI 门禁 + 模拟器测试替代。
+
 ## 9. 假设与已知边界汇总
 
 **假设（缺信息自行判定，实现批如与事实不符在此修订）：**
@@ -394,7 +408,10 @@ jobs:
 
 **已知边界（诚实清单）：**
 
-- 高危判定的描述符映射依赖 `GET /api/v1/functions` 列表数据：函数列表拉取失败时审批行降级为「风险未知」，step-up 仍强制走全三段（宁可多确认）；
+- **M1 实测（2026-09-30）**：`POST /api/v1/approvals/{id}/approve` 后端只 `ShouldBindUri` 不读请求体——step-up TOTP 的 `otp` 无落点，高危批准当前降级为单段确认（设计稿 §2.1 三段确认中的 OTP 段待后端补 otp 落点后接线，列后端立项项）；
+- **M1 实测（2026-09-30）**：`GET /api/v1/functions/descriptors` 返回项无 `risk` / `approvalRequired` 字段（Web 端 descMap 同样拿不到）——审批行高危/两人复核标签按向前兼容解析实现，后端字段补上即自动生效；标签缺失不阻塞列表（修正上条设计期假设：标签来源是 descriptors 端点而非 `GET /api/v1/functions` 列表）；
+- 生物识别（local_auth）与 ntfy 推送分别为 M2 / M3 交付；设置页对应开关以禁用占位明示，不冒充可用；
+- 高危判定的描述符映射依赖 `GET /api/v1/functions` 列表数据：函数列表拉取失败时审批行降级为「风险未知」；设计期意图为「标签缺失仍强制走全三段 step-up（宁可多确认）」——M1 实测后该意图受上面 otp 落点边界约束，当前为单段确认（见上方 M1 实测条目）；
 - 复杂 object 只读（§2.6）：移动端不提供嵌套结构逐字段编辑，需要编辑时引导回 Web；
 - 审计只读无导出；监控只读无开关操作；
 - ntfy 推送依赖服务端发布钩子（未落地前仅轮询，及时性降为分钟级）；

@@ -11,7 +11,7 @@ internal/ 目标的逐包语句覆盖率为 100%。本文档是**唯一豁免清
 - fire-and-forget goroutine「调度运气」型覆盖抖动——先例：`TracerProvider.EndSpan` 逐 exporter 起的 goroutine，用通道等待交付信号后确定性覆盖，而非豁免。
 - 锁相位对齐/概率轮次的时序编排——先例：`Router.GameDB` 的 singleflight re-check 分支，以回调入口测试接缝 `gameDBInflightHook` 确定性触发，替代已退役的 24 轮锁泊车 + TryLock 自旋编排（该编排在全量负载下会整轮落空，正是覆盖抖动来源；时序分支用注入点）。
 
-## 当前豁免清单（共 3 条）
+## 当前豁免清单（共 4 条）
 
 ### 1. `internal/api/menu` — filterAccessibleTree 的 `!check(parent)` 分支
 
@@ -43,11 +43,21 @@ internal/ 目标的逐包语句覆盖率为 100%。本文档是**唯一豁免清
 
 **失效条件**：Go 标准库引入客户端侧 PSK/匿名套件，或函数改为可注入 `tls.Config`/拨号器。
 
+### 4. `internal/security/identity` — WeChat Exchange 的 openid 回退与双缺失兜底
+
+**位置**：`internal/security/identity/wechat.go`（`Exchange` 尾部 `if openID == "" { openID = ...user.OpenID }` 与 `if openID == "" { return ... "identity has no openid" }`，2026-09-29 第二十七轮登记）。
+
+**论证**：上方守卫 `if strings.TrimSpace(token.AccessToken) == "" || strings.TrimSpace(token.OpenID) == ""` 已拒绝空 `access_token`/`openid` 并返回错误；通过后 `openID := strings.TrimSpace(token.OpenID)` 必非空，两处 `if openID == ""` 恒假。自证性双保险（同第 2 条 `"fn-"` 前缀的构造）：openid 语义上由 token 端点提供，userinfo 的 openid 字段仅冗余。
+
+**pin**：`wechat_generic_wings_r27_test.go` 的 `TestWeChat_ExchangeWings` 首臂锁定「token 响应缺 access_token/openid → 122 守卫先于回退触发」；若守卫被移除或放宽，该臂失败即提示补真实回退路径用例。
+
+**失效条件**：122 守卫删除/放宽（如允许 token 无 openid、以 userinfo 为准）时分支转为可达，届时必须补覆盖而不是续期豁免。
+
 ---
 
 ## cmd/ 覆盖口径与豁免清单（2026-09-22 扩展）
 
-cmd/ 的覆盖目标与 internal/ 不同：二进制装配层允许存在进程边界与系统变更面，**策略逻辑全部下沉 internal/**（已 100%）。当前读数（`go test -cover`）：`cmd/server` ≈75%、`cmd/agent` ≈84%、`cmd/analytics-export` 91.7%、`cmd/schema-validator` ≈91%、`cmd/ingest/cmd` 99.1%。除下述豁免外，cmd/ 其余不可达分支均已按「先构造、构造不出才豁免」收口（含 fixture REST 全语义、startCluster 全装配矩阵、interconnect 全路由、service manager 状态机、service status 三态与平台分支、schema-validator 归档解剖边界等）。`pkg/protocol` 100%；`pkg/pb/**` 为 protoc 生成物（`make proto` 产物，随生成链更新），不纳入手写测试口径。
+cmd/ 的覆盖目标与 internal/ 不同：二进制装配层允许存在进程边界与系统变更面，**策略逻辑全部下沉 internal/**（已 100%）。当前读数（`go test -cover`，2026-09-29 第二十六轮后）：`cmd/server` ≈98%、`cmd/agent` ≈99%、`cmd/analytics-export` 87.7%、`cmd/schema-validator` ≈91%、`cmd/ingest/cmd` 99.5%。除下述豁免外，cmd/ 其余不可达分支均已按「先构造、构造不出才豁免」收口（含 fixture REST 全语义、startCluster 全装配矩阵、interconnect 全路由、service manager 状态机、service 变更命令五体分支矩阵、schema-validator 归档解剖边界、dashboard fixture 装配翼直测等）。`pkg/protocol` 100%；`pkg/pb/**` 为 protoc 生成物（`make proto` 产物，随生成链更新），不纳入手写测试口径。
 
 ### cmd-1.（进程边界）全部二进制的 `main` / `Execute`
 
@@ -57,13 +67,15 @@ cmd/ 的覆盖目标与 internal/ 不同：二进制装配层允许存在进程�
 
 **失效条件**：无（结构性边界）。若 `Execute` 内出现可单测的分支逻辑，应把逻辑抽出为可直测函数而非在入口测。
 
-### cmd-2.（系统变更）server/agent 的 service 变更命令主体
+### cmd-2.（系统变更）server/agent 的 service 变更命令主体【2026-09-29 第二十五轮收窄后无豁免块】
 
-**位置**：`cmd/server/service.go` 与 `cmd/agent/service.go` 的 `run*ServiceInstall/Uninstall/Start/Stop/Restart` 中 `svc.Install()/Uninstall()/Start()/Stop()` 调用及其后的打印。
+**位置（历史）**：`cmd/server/service.go` 与 `cmd/agent/service.go` 的 `run*ServiceInstall/Uninstall/Start/Stop/Restart` 中 `svc.Install()/Uninstall()/Start()/Stop()` 调用及其后的打印。
 
-**论证**：install/uninstall/start/stop/restart 触发**真实系统级变更**（写 systemd unit、启停系统服务），单测进程不可执行。每个函数可安全触达的前置面已覆盖：入口守卫（`createServerService`/`createService` 失败 → "创建服务失败"）、状态查询（`runServiceStatus`/`runServerServiceStatus` 经 `service.New` 接缝注入 fake，运行/停止/未安装三态与 linux/windows 平台提示分支全直测）、`service run` 前台运行路径（fakeService 注入 Start 失败/取消/成功三态 + createService 失败与成功路径）。
+**原论证（已失效）**：install/uninstall/start/stop/restart 触发**真实系统级变更**（写 systemd unit、启停系统服务），单测进程不可执行。
 
-**失效条件**：命令增加纯校验类前置分支（如参数合法性检查）时应直测；若引入 dry-run 模式则守卫面应随实现补齐。
+**2026-09-29 收窄（第二十五轮）**：`newKardianosService` 是两包的包级接缝变量，`createService`/`createServerService` 对它的调用使五体在注入 fake 后**不再触达真实 systemd**——「系统级变更」的前提只对未注入接缝的路径成立，而该路径正是被替换掉的那一行。两包各新增 `service_wings_r25_test.go`（可控 fake：status/statusErr + per-method 错误 + 调用计数）分支矩阵全数直测：install（创建失败/已存在早退/Install 错误/成功）、uninstall（状态查询失败/不存在/运行中 Stop 错误/Stopped 卸载错误/运行中成功含 2s 等待翼）、start（状态查询失败/不存在提示 install/已在运行早退/Start 错误/成功）、stop（状态查询失败/不存在/已停止早退/Stop 错误/成功）、restart（状态查询失败/不存在/运行中 Stop 错误/运行中 Stop 成功后 Start 错误含 2s 等待翼/stopped 直启）。cmd/server 侧另补 Start 后台 goroutine 的 panic 恢复翼（runServerFunc 替身 panic → recover → svc.Stop）与 `wd()` 的 Getwd 失败翼（chdir 进已删除目录）。本条目自此**不再覆盖任何块**，保留为收窄记录；service.go 剩余未覆盖块全部归 cmd-6。
+
+**失效条件**：不适用（无豁免块）。命令新增分支时应按接缝注入模式补测。
 
 ### cmd-3.（main 壳包）cmd/check-db、cmd/analytics-worker、cmd/ingest
 
@@ -98,7 +110,7 @@ cmd/ 的覆盖目标与 internal/ 不同：二进制装配层允许存在进程�
 
 ### cmd-6.（C 类防御 + 跨平台面）server/agent service.go 的环境恒成功守卫与 windows/darwin 分支
 
-**位置**：`cmd/server/service.go` 与 `cmd/agent/service.go`（`createServerService`/`createService` 的三处守卫与 windows 分支、`defaultServerConfigDir`/`defaultConfigDir` 的 windows/darwin case）；`cmd/agent/root.go`（`resolveAgentID` 的 `os.Hostname` 空值兜底）。
+**位置**：`cmd/server/service.go` 与 `cmd/agent/service.go`（`createServerService`/`createService` 的三处守卫与 windows 分支、`defaultServerConfigDir`/`defaultConfigDir` 的 windows/darwin case、cmd/server 尾部 `exePath()` 的 `os.Executable` 失败回落 "unknown"）；`cmd/agent/root.go`（`resolveAgentID` 的 `os.Hostname` 空值兜底）。
 
 **论证**：
 
@@ -113,9 +125,9 @@ cmd/ 的覆盖目标与 internal/ 不同：二进制装配层允许存在进程�
 
 ### cmd/ 残留部分覆盖面（非豁免，如实记录）
 
-`cmd/server/dashboard_fixture.go` 的 E2E fixture 全链启动（`StartDashboardFixture`/`startServer`/`startAgent`/`ensureUIScope` 等约 55%-88% 覆盖）依赖真实 server+agent+dashboard 子进程编排，属 E2E 领域基础设施：可测面（fixture REST、SDK 替换、存储句柄、未启动防御）已在 `dashboard_fixture_*_test.go` 直测，全链编排由 `real-dashboard` E2E 套件承担，不在单测覆盖率口径内。
+`cmd/server/dashboard_fixture.go`（2026-09-29 第二十六轮收口后文件内仅余 14 块，全部为测试文件头注释同源登记的不可达翼）：E2E fixture 装配面已由 `fixture_wings_r26_test.go` 直测收口——纯 helper 矩阵（addr 归一/候选回落）、StartDashboardFixture 前置错误翼（五 addr 解析失败、MkdirTemp 失败、空 BaseDir 自有目录分支）、五步失败翼（Sscanf/serve listen 被占/provider/agent 目录/SDK cmd.Start/fixture API 端口，含 `CROUPIER_E2E_PUBLISH_REVIEW` 环境覆盖翼）、start* 手工构造错误翼、ensureUIScope nil/缺表/触发器拒写四级阶梯（含 Router 非 nil 翼）、fixture API 端点全方法臂（health 双态/SDK 三态/calls 五臂/audit 三态/provider 两端点）、ready() 空 store/函数缺一/契约缺表三翼、CleanupScope 六级错误阶梯（缺表×3 + BEFORE UPDATE/DELETE 触发器×3，均先铺真实行使 UPDATE/DELETE 命中行）、Close 运行时句柄全走（control/双 HTTP/telemetry/Router/自有 BaseDir 删除链）。登记不可达：`fixtureFreePort` 环回随机端口 Listen 错误翼及其透传（fd 耗尽不可构造）、候选循环内 `filepath.Abs` 失败翼（Getwd 已成功后同进程再失败的窗口不可稳定构造）、startServer 的 telemetry init 翼（第二十四轮探针证伪）、startServer 内 ensureUIScope 错误透传翼（boot 自有 DB 每次全新迁移，无注入缝；其深层阶梯已直测）、四个 Serve goroutine 非 ErrServerClosed 错误日志翼（Shutdown 路径被过滤，listener 突发故障无确定性注入面）、`Game.SetEnvs`/`startSDKLocked` 的 json.Marshal 翼（纯字符串字段无失败路径）、`WaitReady` 60s 超时翼（硬编码 deadline，成本与价值不成比例）。全链真实编排由 `real-dashboard` E2E 套件承担。
 
-`cmd/server/root.go` runServer 的运行翼群（2026-09-29 第二十四轮，`root_wings_r24_test.go` 注释同源登记）：遥测 init 失败翼（构造路径经六形态探针证伪——OTLP 客户端不预解析 endpoint，EAGER 恒 nil error）与 Shutdown 错误翼、优雅停机内 listener/HTTP/Router Close 成功路径的错误子翼与 30s 超时翼、会话 prune ticker 体（30s 硬编码 + 5min 陈旧阈值，无注入点）、tcpListener.Serve 非 Canceled 错误翼（Close→nil、cancel→Canceled 被过滤）。runServer 主链与 mode/debug/logLevel/gin 全矩阵已由三次完整 boot + SIGINT 优雅停机真实覆盖（91.3% 包口径）。
+`cmd/server/root.go` runServer 的运行翼群（2026-09-29 第二十四轮，`root_wings_r24_test.go` 注释同源登记）：遥测 init 失败翼（构造路径经六形态探针证伪——OTLP 客户端不预解析 endpoint，EAGER 恒 nil error）与 Shutdown 错误翼、优雅停机内 listener/HTTP/Router Close 成功路径的错误子翼与 30s 超时翼、会话 prune ticker 体（30s 硬编码 + 5min 陈旧阈值，无注入点）、tcpListener.Serve 非 Canceled 错误翼（Close→nil、cancel→Canceled 被过滤）。runServer 主链与 mode/debug/logLevel/gin 全矩阵已由三次完整 boot + SIGINT 优雅停机真实覆盖。
 
 ## tools/ 与 scripts/ 覆盖口径与豁免清单（2026-09-23 扩展）
 

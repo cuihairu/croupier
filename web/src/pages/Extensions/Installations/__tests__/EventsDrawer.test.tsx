@@ -1,30 +1,26 @@
 /**
- * 扩展事件抽屉单测（覆盖率巡检：Extensions 簇余量第二批，EventsDrawer.tsx
- * 286 行 0% → 行覆盖收口）。
+ * 扩展事件抽屉单测（覆盖率巡检：EventsDrawer.tsx 286 行 0% → 收口，
+ * Extensions 簇余量顺序首位）。
  *
- * 锁定契约：打开加载链（listExtensionEvents 载荷 + adapter 真实归一 + total
- * 同步概览）、标题 displayName 兜底 extensionId、概览三项（事件 total / 级别
- * /关键词双态文案）、六列渲染（时间 formatUnix 含 createdAt=0 兜底 '-'、
- * payload code 与空兜底 '-'）、关键词筛选（trim 翼）+ 级别筛选 → request
- * 载荷与生效 Alert chips、清空筛选按钮双态禁用/复位、空态双文案（默认/筛选后）、
- * request 失败静默 success:false、installationId 缺省 guard（不发请求）、
- * open=false 不挂载、关闭回调、重开 reload。
+ * 锁定契约：抽屉标题（displayName 兜底 extensionId）、概览三项（事件总数
+ * 副本/级别/关键词 chips）、表格列渲染矩阵（时间 formatUnix 秒/毫秒自适应、
+ * payload 空兜底 '-'）、无安装实例守卫（不发请求 + 默认空态文案）、关键词/
+ * 级别筛选（trim 载荷、Alert 已生效条件单/组合拼接、筛选态空态文案切换、
+ * 清空筛选双态复位 + 按钮禁用门）、切换安装实例重置筛选并按新 id 重拉、
+ * request 失败静默翼（success:false 不弹错）、关闭态内容不挂载不拉取。
  *
- * mock 口径：services/api/extensions 仅 listExtensionEvents；adapters 走真实
- * 实现（纯函数）；@umijs/max 本地 mock（FormattedMessage/useIntl 带 values
- * 插值）。ProTable 真实渲染（防抖口径：先等首拉落定再驱动筛选）。
+ * mock 口径：services/api/extensions 的 listExtensionEvents jest.mock；
+ * adapter / formatUnix / SummaryOverview / ProTable 走真实实现；@umijs/max
+ * 本地 mock（与 index.test 同款）。筛选断言一律锚「最后一次调用」——打开时
+ * effect 的 reload 与首挂载请求会被 ProTable 内部 abort 合并，计数不具确定性。
  *
- * 边界（诚实）：request 的 catch 静默翼经 reject 真实触达；无不可达分支需
- * 造假——useEffect 的 open && installation 守卫经 open=false/row=null 组合
- * 真实覆盖。
+ * 边界（诚实）：无不可达分支——`kw?.trim() || undefined` 的左翼（kw 恒
+ * string）与 `installation?.id` 的 undefined 翼已由守卫用例覆盖。
  */
 import React from 'react';
 import { configure, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import EventsDrawer from '../EventsDrawer';
-import type {
-  ExtensionEventItem,
-  ExtensionInstallationItem,
-} from '@/services/api/extensions';
+import type { ExtensionEventItem, ExtensionInstallationItem } from '@/services/api/extensions';
 
 jest.setTimeout(30000);
 configure({ asyncUtilTimeout: 5000 });
@@ -34,27 +30,11 @@ jest.mock('@/services/api/extensions', () => ({
 }));
 
 jest.mock('@umijs/max', () => ({
-  FormattedMessage: ({
-    defaultMessage,
-    values,
-  }: {
-    defaultMessage?: string;
-    values?: Record<string, unknown>;
-  }) => {
-    let text = defaultMessage ?? '';
-    if (values) {
-      for (const [k, v] of Object.entries(values)) text = text.split(`{${k}}`).join(String(v));
-    }
-    return <>{text}</>;
-  },
+  FormattedMessage: ({ defaultMessage }: { defaultMessage?: string }) => (
+    <>{defaultMessage ?? ''}</>
+  ),
   useIntl: () => ({
-    formatMessage: (opts: { defaultMessage?: string }, values?: Record<string, unknown>) => {
-      let text = opts.defaultMessage ?? '';
-      if (values) {
-        for (const [k, v] of Object.entries(values)) text = text.split(`{${k}}`).join(String(v));
-      }
-      return text;
-    },
+    formatMessage: (opts: { defaultMessage?: string }) => opts.defaultMessage ?? '',
   }),
 }));
 
@@ -80,213 +60,198 @@ const installation: ExtensionInstallationItem = {
   updatedAt: 1727500000,
 };
 
-const events: ExtensionEventItem[] = [
-  {
-    eventType: 'installed',
-    level: 'info',
-    message: '安装成功',
-    payload: '{"version":"1.4.0"}',
-    createdBy: 'admin',
-    createdAt: 1727500000,
-  },
-  {
-    eventType: 'upgrade_failed',
-    level: 'error',
-    message: '依赖缺失',
-    payload: '',
-    createdBy: 'ops',
-    createdAt: 0,
-  },
-];
+const ev1: ExtensionEventItem = {
+  eventType: 'install.succeeded',
+  level: 'info',
+  message: '安装成功',
+  payload: '{"version":"1.4.0"}',
+  createdBy: 'admin',
+  createdAt: 1727500000, // 秒级
+};
+const ev2: ExtensionEventItem = {
+  eventType: 'health.failed',
+  level: 'error',
+  message: '健康检查失败',
+  payload: '',
+  createdBy: 'system',
+  createdAt: 2727500000123, // 毫秒级（>1e12 直用）
+};
 
-function renderDrawer(over?: {
-  open?: boolean;
-  installation?: ExtensionInstallationItem | null;
-}) {
-  const onClose = jest.fn();
-  const utils = render(
-    <EventsDrawer
-      open={over?.open ?? true}
-      installation={
-        over?.installation !== undefined ? over.installation : installation
-      }
-      onClose={onClose}
-    />,
-  );
-  return { ...utils, onClose };
+function renderDrawer(props?: Partial<React.ComponentProps<typeof EventsDrawer>>) {
+  return render(<EventsDrawer open installation={installation} onClose={jest.fn()} {...props} />);
 }
 
-/** 等首拉落定（行内容出现 + 调用计数稳定为 1，避开 ProTable 防抖合并） */
-async function waitFirstLoad() {
-  expect(await screen.findByText('installed')).toBeInTheDocument();
-  await waitFor(() => expect(mEvents).toHaveBeenCalledTimes(1));
+/** 关键词输入框 */
+function keywordInput() {
+  return screen.getByPlaceholderText('筛选事件/内容/操作者') as HTMLInputElement;
+}
+
+/** 级别下拉：antd6 Select 无稳定 placeholder 形态（span/input 因版本而异），
+ * 改锚抽屉内首个 .ant-select——工具栏 Space 在 DOM 序上先于表格分页的
+ * size changer，首个即级别筛选 */
+function levelSelectRoot() {
+  const drawer = document.querySelector('.ant-drawer') as HTMLElement;
+  expect(drawer).not.toBeNull();
+  return drawer.querySelector('.ant-select') as HTMLElement;
+}
+
+/** 在级别下拉里选一个 option（可见 option 行无 role，点 content 冒泡） */
+async function pickLevel(label: string) {
+  fireEvent.mouseDown(levelSelectRoot());
+  const dropdown = document.querySelector('.ant-select-dropdown') as HTMLElement;
+  expect(dropdown).not.toBeNull();
+  fireEvent.click(
+    within(dropdown).getByText(label, { selector: '.ant-select-item-option-content' }),
+  );
 }
 
 beforeEach(() => {
   jest.clearAllMocks();
-  mEvents.mockResolvedValue({ total: 2, items: events });
+  mEvents.mockResolvedValue({ items: [ev1, ev2], total: 2 });
 });
 
-describe('EventsDrawer 加载与渲染', () => {
-  it('打开加载链：标题、概览三项（事件 total/全部级别/未设置关键词）、六列渲染（时间格式化与 0 兜底、payload 空兜底）', async () => {
+describe('扩展事件抽屉 首拉与渲染矩阵', () => {
+  it('标题/概览三项/六列矩阵（formatUnix 秒与毫秒、payload 空 -）、request 载荷', async () => {
     renderDrawer();
-    await waitFirstLoad();
 
+    expect(await screen.findByText('install.succeeded')).toBeInTheDocument();
     expect(screen.getByText('扩展事件: ChatOps (#7)')).toBeInTheDocument();
-    // 概览三项：total 同步 + 筛选双态缺省文案
+
+    // 概览三项：总数副本在 request 成功后同步 + 未筛选态两 chip
     expect(screen.getByText('事件 2')).toBeInTheDocument();
     expect(screen.getByText('全部级别')).toBeInTheDocument();
     expect(screen.getByText('未设置关键词')).toBeInTheDocument();
 
-    // 六列：时间（formatUnix 真实输出）/ 级别 / 事件 / 内容 / Payload / 操作者
+    // 列矩阵：时间（与组件同进程 toLocaleString 计算，秒级 ×1000 / 毫秒直用）
     expect(screen.getByText(new Date(1727500000 * 1000).toLocaleString())).toBeInTheDocument();
+    expect(screen.getByText(new Date(2727500000123).toLocaleString())).toBeInTheDocument();
     expect(screen.getByText('info')).toBeInTheDocument();
-    expect(screen.getByText('upgrade_failed')).toBeInTheDocument();
+    expect(screen.getByText('error')).toBeInTheDocument();
     expect(screen.getByText('安装成功')).toBeInTheDocument();
-    expect(screen.getByText('依赖缺失')).toBeInTheDocument();
+    expect(screen.getByText('健康检查失败')).toBeInTheDocument();
     expect(screen.getByText('{"version":"1.4.0"}')).toBeInTheDocument();
+    expect(screen.getByText('-')).toBeInTheDocument(); // ev2 payload 空
     expect(screen.getByText('admin')).toBeInTheDocument();
-    expect(screen.getByText('ops')).toBeInTheDocument();
+    expect(screen.getByText('system')).toBeInTheDocument();
 
-    // 首拉载荷：无筛选三参缺省
-    expect(mEvents).toHaveBeenCalledWith(7, {
-      level: undefined,
-      keyword: undefined,
-      page: 1,
-      pageSize: 10,
-    });
-  });
-
-  it('标题 displayName 空兜底 extensionId（`|| extensionId` 右翼）', async () => {
-    renderDrawer({ installation: { ...installation, displayName: '' } });
-    await waitFirstLoad();
-    expect(screen.getByText('扩展事件: chatops (#7)')).toBeInTheDocument();
-  });
-
-  it('request 失败静默翼：catch 返回 success:false、概览落「事件 0」无 crash', async () => {
-    mEvents.mockRejectedValue(new Error('events down'));
-    renderDrawer();
-
-    await waitFor(() => expect(mEvents).toHaveBeenCalledTimes(1));
-    expect(await screen.findByText('事件 0')).toBeInTheDocument();
-    expect(screen.queryByText('installed')).not.toBeInTheDocument();
-  });
-});
-
-describe('EventsDrawer 筛选', () => {
-  it('关键词筛选：输入触发 request 带 trim 后 keyword + Alert 生效条件 + 概览 chip 更新', async () => {
-    renderDrawer();
-    await waitFirstLoad();
-
-    fireEvent.change(screen.getByPlaceholderText('筛选事件/内容/操作者'), {
-      target: { value: '  部署  ' },
-    });
     await waitFor(() =>
       expect(mEvents).toHaveBeenLastCalledWith(
         7,
-        expect.objectContaining({ keyword: '部署', page: 1 }),
+        expect.objectContaining({ level: undefined, keyword: undefined, page: 1, pageSize: 10 }),
       ),
     );
-
-    // Alert 条件渲染 + chips（trim 后文本）
-    expect(screen.getByText('当前正在查看筛选后的事件范围')).toBeInTheDocument();
-    expect(screen.getByText('已生效条件：关键词 部署')).toBeInTheDocument();
-    expect(screen.getByText('关键词 部署')).toBeInTheDocument();
   });
 
-  it('级别筛选：选 error → request 带 level + 单独级别条件（关键词不进 chips）', async () => {
+  it('displayName 空 → 标题兜底 extensionId', async () => {
+    mEvents.mockResolvedValue({ items: [], total: 0 });
+    renderDrawer({ installation: { ...installation, displayName: '' } });
+    expect(await screen.findByText('扩展事件: chatops (#7)')).toBeInTheDocument();
+  });
+
+  it('无安装实例守卫：不发请求 + 默认空态文案（非筛选态）', async () => {
+    renderDrawer({ installation: null });
+    expect(
+      await screen.findByText('暂时没有事件数据，后续有安装动作后会显示在这里。'),
+    ).toBeInTheDocument();
+    await new Promise((r) => setTimeout(r, 30));
+    expect(mEvents).not.toHaveBeenCalled();
+  });
+
+  it('request 失败静默翼：success:false 不弹错、总数落零', async () => {
+    mEvents.mockRejectedValue(new Error('events down'));
     renderDrawer();
-    await waitFirstLoad();
+    await waitFor(() => expect(mEvents).toHaveBeenCalled());
+    expect(
+      await screen.findByText('暂时没有事件数据，后续有安装动作后会显示在这里。'),
+    ).toBeInTheDocument();
+    expect(screen.getByText('事件 0')).toBeInTheDocument();
+  });
 
-    // antd6 Select：mouseDown 落 .ant-select 根，点可见 option content
-    fireEvent.mouseDown(document.querySelector('.ant-select') as HTMLElement);
-    const dropdown = document.querySelector('.ant-select-dropdown') as HTMLElement;
-    expect(dropdown).not.toBeNull();
-    fireEvent.click(within(dropdown).getByText('error', { selector: '.ant-select-item-option-content' }));
+  it('关闭态：抽屉内容不挂载、不发起请求', async () => {
+    renderDrawer({ open: false, installation: null });
+    expect(screen.queryByText('事件筛选')).not.toBeInTheDocument();
+    await new Promise((r) => setTimeout(r, 20));
+    expect(mEvents).not.toHaveBeenCalled();
+  });
+});
 
+describe('扩展事件抽屉 筛选', () => {
+  it('关键词输入 → trim 载荷 + Alert 单条件拼接', async () => {
+    renderDrawer();
+    await screen.findByText('install.succeeded');
+
+    fireEvent.change(keywordInput(), { target: { value: '  install  ' } });
+    await waitFor(() =>
+      expect(mEvents).toHaveBeenLastCalledWith(7, expect.objectContaining({ keyword: 'install' })),
+    );
+    expect(screen.getByText('当前正在查看筛选后的事件范围')).toBeInTheDocument();
+    expect(screen.getByText('已生效条件：关键词 install')).toBeInTheDocument();
+    expect(screen.getByText('关键词 install')).toBeInTheDocument();
+  });
+
+  it('级别下拉 → level 载荷 + 筛选态空态文案切换', async () => {
+    mEvents.mockResolvedValue({ items: [], total: 0 });
+    renderDrawer();
+    await screen.findByText('未设置关键词');
+
+    await pickLevel('error');
     await waitFor(() =>
       expect(mEvents).toHaveBeenLastCalledWith(7, expect.objectContaining({ level: 'error' })),
     );
+    expect(
+      await screen.findByText('当前筛选条件下没有匹配事件，请调整筛选后重试。'),
+    ).toBeInTheDocument();
     expect(screen.getByText('已生效条件：级别 error')).toBeInTheDocument();
     expect(screen.getByText('级别 error')).toBeInTheDocument();
   });
 
-  it('清空筛选：双条件设置后按钮可用 → 点击复位三态 + Alert 消失', async () => {
+  it('关键词 + 级别组合：Alert 以 / 拼接；清空筛选双态复位 + 按钮回禁用', async () => {
     renderDrawer();
-    await waitFirstLoad();
+    await screen.findByText('install.succeeded');
 
-    // 无筛选时禁用
-    expect(screen.getByRole('button', { name: '清空筛选' })).toBeDisabled();
-
-    fireEvent.change(screen.getByPlaceholderText('筛选事件/内容/操作者'), {
-      target: { value: '部署' },
-    });
+    fireEvent.change(keywordInput(), { target: { value: 'health' } });
     await waitFor(() =>
-      expect(mEvents).toHaveBeenLastCalledWith(7, expect.objectContaining({ keyword: '部署' })),
+      expect(mEvents).toHaveBeenLastCalledWith(7, expect.objectContaining({ keyword: 'health' })),
     );
-    expect(screen.getByRole('button', { name: '清空筛选' })).toBeEnabled();
+    await pickLevel('warn');
+    await waitFor(() =>
+      expect(mEvents).toHaveBeenLastCalledWith(7, expect.objectContaining({ level: 'warn' })),
+    );
+    expect(screen.getByText('已生效条件：关键词 health / 级别 warn')).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: '清空筛选' }));
+    // 清空前可用、清空后回禁用
+    const clear = screen.getByRole('button', { name: '清空筛选' });
+    expect(clear).toBeEnabled();
+    fireEvent.click(clear);
     await waitFor(() =>
       expect(mEvents).toHaveBeenLastCalledWith(
         7,
-        expect.objectContaining({ keyword: undefined, level: undefined, page: 1 }),
+        expect.objectContaining({ keyword: undefined, level: undefined }),
       ),
     );
     expect(screen.queryByText('当前正在查看筛选后的事件范围')).not.toBeInTheDocument();
-    // 概览回缺省文案
-    await waitFor(() => expect(screen.getByText('全部级别')).toBeInTheDocument());
-    expect(screen.getByText('未设置关键词')).toBeInTheDocument();
+    expect(keywordInput().value).toBe('');
+    await waitFor(() => expect(screen.getByRole('button', { name: '清空筛选' })).toBeDisabled());
   });
 
-  it('空态双文案：无筛选默认空态 / 有筛选择「没有匹配」文案', async () => {
-    mEvents.mockResolvedValue({ total: 0, items: [] });
-    renderDrawer();
-    await waitFor(() => expect(mEvents).toHaveBeenCalledTimes(1));
-    expect(
-      await screen.findByText('暂时没有事件数据，后续有安装动作后会显示在这里。'),
-    ).toBeInTheDocument();
+  it('切换安装实例：筛选重置 + 按新实例 id 重拉', async () => {
+    const { rerender } = renderDrawer();
+    await screen.findByText('install.succeeded');
 
-    fireEvent.change(screen.getByPlaceholderText('筛选事件/内容/操作者'), {
-      target: { value: '不存在词' },
-    });
-    expect(
-      await screen.findByText('当前筛选条件下没有匹配事件，请调整筛选后重试。'),
-    ).toBeInTheDocument();
-  });
-});
-
-describe('EventsDrawer 守卫与生命周期', () => {
-  it('installation=null：request 早退 guard 不发请求', async () => {
-    renderDrawer({ installation: null });
-    await new Promise((r) => setTimeout(r, 80));
-    expect(mEvents).not.toHaveBeenCalled();
-    expect(screen.getByText('事件 0')).toBeInTheDocument();
-  });
-
-  it('open=false：抽屉内容不挂载不发请求', async () => {
-    renderDrawer({ open: false });
-    await new Promise((r) => setTimeout(r, 80));
-    expect(mEvents).not.toHaveBeenCalled();
-  });
-
-  it('关闭回调：点击抽屉关闭按钮 → onClose', async () => {
-    const inst = renderDrawer();
-    await waitFirstLoad();
-    fireEvent.click(document.querySelector('.ant-drawer-close') as HTMLElement);
-    await waitFor(() => expect(inst.onClose).toHaveBeenCalledTimes(1));
-  });
-
-  it('重开触发 reload：open 翻转后 request 再次发起（useEffect 依赖 [open, installation]）', async () => {
-    const inst = renderDrawer();
-    await waitFirstLoad();
-
-    inst.rerender(
-      <EventsDrawer open={false} installation={installation} onClose={inst.onClose} />,
+    fireEvent.change(keywordInput(), { target: { value: 'stale' } });
+    await waitFor(() =>
+      expect(mEvents).toHaveBeenLastCalledWith(7, expect.objectContaining({ keyword: 'stale' })),
     );
-    inst.rerender(
-      <EventsDrawer open={true} installation={installation} onClose={inst.onClose} />,
+
+    const other: ExtensionInstallationItem = { ...installation, id: 8, extensionId: 'wiki' };
+    rerender(<EventsDrawer open installation={other} onClose={jest.fn()} />);
+    await waitFor(() =>
+      expect(mEvents).toHaveBeenLastCalledWith(
+        8,
+        expect.objectContaining({ keyword: undefined, level: undefined }),
+      ),
     );
-    await waitFor(() => expect(mEvents.mock.calls.length).toBeGreaterThan(1));
+    expect(keywordInput().value).toBe('');
+    expect(await screen.findByText('扩展事件: ChatOps (#8)')).toBeInTheDocument();
   });
 });

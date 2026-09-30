@@ -1650,3 +1650,669 @@ fresh 全绿（158 包零 FAIL）、guard PASSED。**已知边界**：门禁在�
 >    **cmd/server 余量**：dashboard_fixture.go 69（boot 步骤错误翼群，
 >    E2E 基础设施口径既有登记）、service.go 56（cmd-2/6 域）；随后
 >    cmd/agent 89.6%、cmd/analytics-export 87.7%、cmd/ingest 99.5%。
+
+## 覆盖率巡检批次·Go 侧第二十五轮·service 变更命令五体收口（wt-api worktree，2026-09-29）
+
+> **交付（2026-09-29）**：接第二十四轮收 cmd/server service.go（56 块）+
+> cmd/agent service 域（57 块）——两包各新增 `service_wings_r25_test.go`
+> （agent 30 子用例 / server 33 子用例），经 `newKardianosService` 包级
+> 接缝注入可控 fake（status/statusErr + per-method installErr/
+> uninstallErr/startErr/stopErr + 调用计数），**变更命令五体分支矩阵
+> 全数直测**（不碰真实 systemd）：
+> ① install——创建失败/已存在早退（计数断言 Install 未触达）/Install
+> 错误/成功（agent 打 `Platform()[:1]`、server 打完整平台串，两包契约
+> 各自锁定）；
+> ② uninstall——创建失败/状态查询失败/不存在/运行中 Stop 错误/Stopped
+> 形态卸载错误/运行中成功（Stop→2s 等待→Uninstall，sleep 翼随成功路径
+> 覆盖，全轮仅 2 处 2s 臂）；
+> ③ start——状态查询失败/不存在提示 install/已在运行早退（Start 计数
+> 为 0）/Start 错误/成功；
+> ④ stop——状态查询失败/不存在/已停止早退（无 ✅ 成功标 + Stop 计数
+> 为 0，与成功翼以标点+计数双锚区分）/Stop 错误/成功；
+> ⑤ restart——状态查询失败/不存在/运行中 Stop 错误/运行中 Stop 干净
+> 后 Start 错误（2s 等待翼）/stopped 直启（Stop 计数为 0，status !=
+> Running 分支）。
+> cmd/server 侧另补两块：**Start 后台 goroutine 的 panic 恢复翼**
+> （154-156：runServerFunc 替身 panic → recover → svc.Stop，既有用例
+> 只盖错误返回与成功两翼；cmd/agent 侧同位翼已被既有用例覆盖）与
+> **wd() 的 Getwd 失败翼**（595：chdir 进已删除目录构造 ENOENT——
+> 全包无 t.Parallel，顺序执行下进程级 cwd 操纵安全，结束恢复）。
+> 包口径：**cmd/agent 89.6% → 98.9%、cmd/server 91.3% → 95.1%**
+> （fresh 全包）。cmd-2 豁免随之**收窄归零**：接缝之下五体的每个
+> 错误/早退/成功分支均可构造，「真实系统级变更」只对被替换掉的未注入
+> 路径成立——coverage-exemptions.md cmd-2 改写为收窄记录（无豁免块
+> 保留），读数段同步（server ≈95 / agent ≈99 / analytics-export
+> 87.7 / ingest 99.5）。analytics-export 的 3 块经核实为 main() 体
+> （flag 解析 + panic），cmd-1 既有枚举已覆盖登记，无需新条目。
+> **service.go 剩余 6 块全部归 cmd-6 既有登记**：os.Executable 守卫
+> （agent 255-256 同位）、Abs 内层回退翼、windows StartType 分支、
+> defaultConfigDir 系 windows/darwin case、exePath 失败回落 "unknown"
+> （cmd-6 位置清单本轮补显式枚举）。
+> 门禁：触及文件 gofmt 干净、go vet 两包干净、go build ./... 通过、
+> 两包 fresh 全绿（4.7s/19.1s，含 4 次 NewServiceContext 完整启动 +
+> 8 次 2s sleep 臂）。本批 test-only + 注释/文档同步，未重跑全量
+> （同日基线 157 ok；并行会话 cargo test 占机持续，属环境性慢）。
+> **cmd/ 余量**：cmd/server 95.1%（dashboard_fixture.go E2E 基础设施
+> 口径 + root.go/cluster/mesh 既有登记翼）、cmd/agent 98.9%（全部为
+> cmd-1/cmd-6 登记块）、cmd/ingest/cmd 99.5%、analytics-export 87.7%
+> （main-only，cmd-1）——cmd/ 树非豁免余量至此收官。
+
+## 覆盖率巡检批次·Go 侧第二十六轮·dashboard_fixture.go 装配翼收口（wt-api worktree，2026-09-29）
+
+> **交付（2026-09-29）**：接第二十五轮收 cmd/server 最后一个大量块文件
+> dashboard_fixture.go（69 块），新增 `fixture_wings_r26_test.go`，
+> 包 **95.1% → 98.1%**，文件余 14 块全部登记不可达（测试头注释与
+> 豁免文档同源）：
+> ① **纯 helper 矩阵**——fixtureAddrWithPort 六形态（空串/裁剪 ":0"/
+> 0.0.0.0 归一/localhost 保留/非数字端口契约放行/无冒号报错）、
+> defaultFixtureBootstrapDir 与 fixtureSDKDir 的 Getwd 失败翼
+> （chdir 进已删除目录）与候选缺失回落；
+> ② **StartDashboardFixture 前置错误翼**——五个 addr 解析失败
+> （startServer 之前拦截）、MkdirTemp 失败（TMPDIR 指向文件）、
+> 空 BaseDir 自有目录分支与 cleanupOnError 删除链；
+> ③ **五步失败翼 + listen 翼**——Sscanf（cleanupOnError 首次真实执行）、
+> server listen 被占（顺带覆盖 CROUPIER_E2E_PUBLISH_REVIEW 环境翼）、
+> provider/fixture API 端口被占、agent 目录被占、SDK cmd.Start 失败
+> （各一次真实 startServer boot 后在目标步骤失败）；
+> ④ **start\* 手工构造错误翼**——provider/fixture API listen、agent
+> MkdirAll、providers.yaml 被目录占位、SDK 建目录与 go build 失败
+> （GOOS=invalidos）；
+> ⑤ **ensureUIScope 阶梯**——nil 模型守卫、缺表查询错、FindEnvBinding
+> 缺表、AddEnvBinding 触发器拒写（含 Router 非 nil 翼——databaseName
+> 改走 NameForGame）、FindByUsername 缺表、UpdateLastScope 触发器拒写；
+> ⑥ **fixture API 全方法臂**——health 双态（经 UpsertAgent 注入带函数
+> 契约会话后 agentConnected=true）、sdk/functions 三态（405/坏 JSON/
+> 合法+BIN 目录 500）、sdk/calls 五臂、audit 三态（404/垃圾 ActorJSON
+> 500 解码失败/合法 200）与查询失败翼（缺表 500）、provider 两端点；
+> ⑦ **ready() 三翼**——nil svcCtx、空 store、函数缺一（Functions 少
+> 一项 sdkFn）、契约缺表（函数齐备+DB 非 nil 但 function_contracts
+> 缺表）；
+> ⑧ **CleanupScope 六级错误阶梯**——子查询缺表×2（semantic versions/
+> proposal versions）、scoped 循环缺 page_specs、admin scope 恢复被
+> BEFORE UPDATE 触发器拒、env binding 删除被 BEFORE DELETE 拒、game
+> 删除被 BEFORE DELETE 拒（后三处先铺真实行使 UPDATE/DELETE 命中行——
+> 零行更新不报错、触发器无从引爆，首轮实证三翼全漏）；
+> ⑨ **Close 运行时句柄全走**——control + 双 HTTP 服务 + telemetry +
+> Router（空缓存）+ 自有 BaseDir 删除链 + 幂等。
+> **登记不可达（14 块）**：fixtureFreePort Listen 错误翼及两透传翼
+> （fd 耗尽不可构造）、候选循环内 Abs 失败翼 ×2、telemetry init 翼
+> （二十四轮探针证伪）、startServer 内 ensureUIScope 透传翼（boot
+> 自有 DB 全新迁移无注入缝，深层阶梯已直测）、四个 Serve goroutine
+> 非 ErrServerClosed 日志翼、SetEnvs/startSDKLocked 的 Marshal 翼、
+> WaitReady 60s 超时翼。
+> 门禁：触及文件 gofmt 干净、go vet 干净、cmd/server 包 fresh 全绿
+> 19.9s（98.1%）。本批 test-only + 注释/文档同步，未重跑全量
+> （同日基线 157 ok；并行会话持续占机属环境性慢）。
+> **cmd/ 收官状态**：cmd/server 98.1%（余量为六文件登记翼——
+> root 14/service 6/mesh 2/cluster 2/fixture_cmd 1/completion 1/
+> dashboard_fixture 14 全部有归属）、cmd/agent 98.9%（cmd-1/cmd-6）、
+> ingest/cmd 99.5%、analytics-export 87.7%（main-only，cmd-1）——
+> cmd/ 树非豁免余量枯竭，后续轮次转监控回补（新落地文件 48h 口径）
+> 或 web 侧工作面。
+
+## 覆盖率巡检批次·Go 侧第二十七轮·弃置在途收养 + identity 收口（wt-api worktree，2026-09-29）
+
+> **在途收养（第七轮同款口径）**：工作区 6 份未跟踪测试（mtime 停在
+> 09-29 05:07–06:14，近 12h 无人动；`git log --all` 证实无任何分支持有
+> ——仅存在于共享工作区；其间 main 流过 15+ 提交而文件零更新）经
+> vet + 全量包测试核验后收养：announcement_db_error_test /
+> oauth_register_handler_gap_test / register_verify_gap_test /
+> catalog_writes_paths_test / github_error_paths_test 五份原样绿色收养；
+> handler_gaps_v10_test 一处 seam 误用修正——原稿 `sendTestEmailFn = nil`
+> 意图「复原 default」，实则把缝隙变量置 nil（default 只存在于声明初始
+> 化器），调用即 nil 函数 panic（r21 台账记录的 TestSendTestEmailRealSendPath
+> panic 根因即此）；修为 NotNil 前提断言 + 直接使用当前值（tracked 注入
+> 用例均经 t.Cleanup 复原，本文件按字母序先于 testemail_test.go 执行，
+> 起点必为 default）。非生产缺陷，testemail.go 本体无恙。
+> 收养战果：**announcement 96.8%→100.0%、auth 90.1%→99.0%、
+> extension→99.9%、sitesettings 95.6%→100.0%**。
+>
+> **本轮新增**：`identity/wechat_generic_wings_r27_test.go`——964e40b
+> 落地的 WeChat/自定义 OAuth2 两 provider 残余错误翼，identity
+> **88.2%→99.2%**：两 Kind 标识（0%）、WeChat 构造缺省 base 回落
+> （官方双域名 + AuthCodeURL 前缀）、generic Exchange 双层失败（token
+> 端点传输失败 / token 成功后 userinfo 500 透传）、fetchUserInfo 直测
+> 四翼（非法 URL NewRequest / 传输失败 / **声明 Content-Length 后断连的
+> 体读取错误**——原生 listener + Hijack 形态，ReadAll unexpected EOF 的
+> 唯一确定性注入 / 坏 JSON 解码）、wechat Exchange 缺 access_token/
+> openid 守卫 + userinfo 500 透传、apiGet 直测同四翼。
+> **新增豁免条目 #4**：wechat.go Exchange 尾部 openid 回退（134）与双
+> 缺失兜底（137）——上方 122 守卫已按 TrimSpace 拒绝空 openid，通过后
+> TrimSpace(token.OpenID) 必非空，两处 `if openID == ""` 恒假（自证性
+> 双保险，同 "fn-" 前缀构造）；pin = TestWeChat_ExchangeWings 首臂
+> （缺字段形态先于回退触发守卫）。
+> 门禁：触及文件 gofmt 干净、go vet 干净、五包 fresh 全绿（37.9s 最重
+> 的 auth 属包体量）。本批 test-only + 文档同步，未重跑全量（同日基线）。
+> **下一轮候选**：auth 残余 9 块（email_verification 78/87/103/163、
+> mfa 95、providers 114/134/162 init 失败日志翼、service 738 continue）
+>
+> - extension service.go:513（manifest 非 JSON 对象 400）。
+
+## 覆盖率巡检批次·Go 侧第二十八轮·auth + extension 残余收口（wt-api worktree，2026-09-29）
+
+> **交付（2026-09-29）**：接第二十七轮收养后的两包残余——
+> ① `api/auth/providers_wings_r28_test.go`：**auth 99.0% → 99.3%**。
+> 可达翼四处：BuildIdentityProviders 三处「guard 查非空、ctor 查
+> TrimSpace 非空」缝——空白串凭据（ClientID/AppID=" "）过 guard、构造
+> 失败 → 失效降级日志翼（github/wechat/generic 三臂各自断言 provider
+> 置空且整体不报错，本地与其他登录源不受影响）；VerifyEmailToken 未知
+> 令牌翼（155 row==nil → 统一「无效或已过期」，防令牌探测语义）。
+> 登记不可达六处（头注释同源）：siteServerURL Current()==nil（settings
+> 单例由服务装配初始化，包外无复位缝）；newVerificationToken rand.Read
+> 翼及其透传翼（getrandom(2) 引导后无失败路径）；mfa.go:95 恢复码生成
+> 失败翼（同 rand 族）；service.go:738 Cut 失败 continue（LIKE
+> '%@'+domain 入列行必含 @，Cut 恒成功——register_verify_gap_test 脏行
+> 用例已锁 SQL 层前提）；email_verification.go:163 的 !ok 并发消费翼
+> （FindValidByTokenHash 过滤 used_at IS NULL，行到 Consume 前单线程
+> 无变化窗口，仅并发竞态可达——收养文件既有登记）。
+> ② `api/extension/manifest_object_wing_r28_test.go`：PackImport 的
+> manifest 非 JSON 对象 Unmarshal 翼（内层 "manifest" 为数组/null——
+> extensionPackManifest.Manifest 是 RawMessage 原样透传到落库前校验）
+> 两形态收口；extension 维持 99.9%，余 1 块即收养文件登记的
+> Marshal 再序列化翼。
+> 门禁：触及文件 gofmt 干净、go vet 两包干净、两包 fresh 全绿
+> （36.5s/19.1s，包体量非环境慢）。本批 test-only，未重跑全量
+> （同日基线 157 ok）。
+> **巡检状态**：收养后原回避域全数打开且已收口——identity 99.2%
+> （2 块豁免 #4）、auth 99.3%（6 块登记）、extension 99.9%（1 块
+> 登记）、announcement/sitesettings 100%、cicd 97.9%（4 块登记）。
+> 全仓非登记缺口枯竭，转监控回补口径（新落地 48h）。
+
+## 事件抽屉 + 升级弹窗覆盖批次（Extensions 簇缺口第三批，2026-09-29）
+
+> **交付（2026-09-29）**：接簇余量收口顺序收 Installations 目录剩余两个
+> overlay 本体——`EventsDrawer.tsx`（286 行）与 `UpgradeModal.tsx`（151 行）
+> 此前在页面套件中为桩组件，本体 0 测试。新增
+> `__tests__/EventsDrawer.test.tsx` 12 用例 + `__tests__/UpgradeModal.test.tsx`
+> 7 用例（v8 口径）：**EventsDrawer 行/分支/函数/语句 4×100%**；
+> **UpgradeModal 行/函数/语句 100%、分支 97.36%**（余 1 处为 handleOk 的
+> `if (!row) return` 守卫——OK 按钮仅在 open 且 effect 已按 row 拉取后可点，
+> 经 UI 不可达，不造假用例）。
+> 锁定契约——事件抽屉：标题（displayName 兜底 extensionId）、概览三项
+> （总数副本在 request 成功后同步 + 未筛选态 chips）、六列矩阵（formatUnix
+> 秒/毫秒自适应、payload 空 '-'）、无安装实例守卫（不发请求 + 默认空态）、
+> 关键词/级别筛选（trim 载荷、Alert 已生效条件单/组合 ' / ' 拼接、筛选态
+> 空态文案切换、清空双态复位 + 按钮禁用门）、切换安装实例重置筛选并按新
+> id 重拉、request 失败静默翼（success:false 不弹错）、关闭态不挂载不拉取。
+> 升级弹窗：打开拉目录版本（当前版本已在列不重复前置 / 不在列前置补齐 /
+> releaseVersion 空不补三翼）、空版本提交拦截（warning 不触达写服务）、
+> 成功链（upgrade → message → onClose → onUpgraded）、失败四分支结构化
+> 文案（missing_dependency/version_mismatch/dependency_cycle 各带 details
+> 字段缺省 unknown/'-' 兜底臂 + 非 HTTP unknown 兜底 message）、三分支
+> 失败保持弹窗开启。
+> **antd6 交互坑新增实证**：Select 的 placeholder 无稳定形态（span/input
+> 因版本而异），锚定改为「容器内首个 .ant-select」（DOM 序上工具栏先于
+> 表格分页 size changer）；option 双份 DOM（a11y role=option + 可见
+> .ant-select-item-option-content），计数断言必须带 selector 收窄。
+> 筛选断言口径：打开时 effect 的 reload 与首挂载请求会被 ProTable 内部
+> abort 合并，计数不具确定性，一律锚「最后一次调用」。
+> 门禁：目标套件 19/19 绿、tsc 0 错、eslint 干净、全量 jest 333 套件
+> 4060/4060 绿（2 worker 限流 697s，load ~2.5 低位窗口直跑）。
+> **Extensions 簇余量**：AgentSync/index（无测试文件）与 Store/
+> CatalogManageModals、两处 shared.ts 留后续批次；DomainEntry 已由
+> 4d1fbb3（#46 批次 4）收口。
+
+## Agent 同步调试页覆盖批次（Extensions 簇缺口第四批，2026-09-29）
+
+> **交付（2026-09-29）**：`Extensions/AgentSync/index.tsx`（93 行，簇内
+> 唯一零测试页面）→ 新增 `__tests__/index.test.tsx` 6 用例，v8 口径
+> **行/分支/函数/语句 4×100%**。锁定契约：页头与初始空态（暂无数据）、
+> 空输入/纯空白拦截（warning + 不触达服务）、查询主链（trim 归一入参 +
+> 载荷 JSON.stringify(null,2) 落只读 TextArea）、payload undefined →
+> '{}' 兜底、onPressEnter 等价查询、清空双态复位（输入 + 载荷回空态）。
+> **坑实证补档**：getByDisplayValue 对 value 也做默认空白归一（连续空白
+> 折叠为单空格）——多行 pretty JSON 须以「单空格折叠形态」字符串断言，
+> 字面换行的正则恒不匹配（此前只记了「用正则」，本例证伪并修正口径）。
+> 边界（诚实）：runSyncQuery 是 try/finally 无 catch——查询 reject 产生
+> unhandled rejection（现状行为，与 InstallationDetailDrawer 巡检结论
+> 同族，不改组件），不造假 reject 场景；`resp?.payload || {}` 右翼经
+> resolve undefined 形态覆盖。
+> 门禁：目标套件 6/6 绿、tsc 0 错、eslint 干净、全量 jest 334 套件
+> 4066/4066 绿（2 worker 限流 658s，load 回落 0.6 窗口直跑）。
+> **Extensions 簇余量**：Store/CatalogManageModals 与两处 shared.ts 留
+> 后续批次；簇内四个页面（Store/Installations/AgentSync/DomainEntry）
+> 与五个 overlay 本体全部有测试。
+
+## 目录管理弹窗 + Store 纯逻辑覆盖批次（Extensions 簇收官，2026-09-29）
+
+> **交付（2026-09-29）**：簇最后两个零覆盖件收口——
+> ① `Store/CatalogManageModals.tsx`（291 行，登记扩展/发布版本两弹窗，
+> 此前 Store 页套件未触达管理动作）→ `__tests__/CatalogManageModals.test.tsx`
+> 10 用例，**4×100%**：CatalogRegisterModal 打开预填 kind=community/
+> status=active + resetFields、extensionId required/pattern 拦截（transform
+> 先 trim 再校验、提交载荷保持原始值——trim 由父层承担，两侧一致口径）、
+> 默认值载荷与全字段载荷（kind/status 切换）、confirmLoading 透传；
+> ReleasePublishModal 标题 displayName 兜底 name 与 item undefined 无后缀
+> 两翼、releaseChannel 预填 stable、version semver pattern（预发布后缀
+> 通过）、manifest 校验器四翼（空/纯空白必填、非 JSON 格式错、数组须为
+> 对象、合法对象通过）、全字段载荷。
+> ② `Store/shared.ts`（64 行纯逻辑）→ `__tests__/shared.test.ts` 11 用例，
+> **4×100%**：buildSchemaDefaults 三级缺省 + hasOwnProperty 口径（falsy
+> default 也拾取）；normalizeConfigBySchema 全矩阵（无 schema/坏形态
+> 原样透传、rawConfig 缺省防御翼、number/integer 转换与截断、NaN 保留、
+> boolean 四词含空白大小写、array/object JSON 解析与坏 JSON 保留、
+> null/undefined 值跳过、null/缺 type 属性条目不动）。
+> **坑实证续档**：antd6 Select 选中项无稳定类名——预填显示断言改锚
+> .ant-select 根 textContent；未触碰的 Form 字段 validateFields 运行时为
+> undefined（类型上是 string，父层兜底），载荷断言用 objectContaining；
+> 帮助函数 `props?.item ?? item` 会吞掉显式 undefined-item 用例，透传须
+> 用 `'item' in props` 判别。
+> 门禁：目标套件 21/21 绿、tsc 0 错、eslint 干净、全量 jest 336 套件
+> 4087/4087 绿（2 worker 限流 669s，load ~1 低位窗口直跑）。
+> **Extensions 簇收官**：四个页面 + 全部 overlay/弹窗/纯逻辑件均有测试
+> 且非防御分支 100%——簇零测试目录清零。
+
+## 函数调用历史页覆盖批次（全仓最大零测试页，2026-09-29）
+
+> **交付（2026-09-29）**：Extensions 簇收官后转全仓零测试页排行首位——
+> `Functions/History/index.tsx`（739 行，0 测试引用）→ 新增
+> `__tests__/index.test.tsx` 16 用例，v8 口径**行/分支/函数/语句 4×100%**。
+> 锁定契约：统计六卡（成功 `/ total` 后缀、平均耗时复用 formatDuration、
+> 成功率 total>0 toFixed(1)/total=0 数值 0 两臂）+ 统计失败静默（console.warn、
+> 卡片不渲染）；列表渲染矩阵（六状态徽标 + 未知状态回退 pending、gameId/env
+> 兜底、formatDuration 三段位 ms/s/m 与缺省、formatTime 合法/非法/缺省、
+> errorMessage Tooltip 红字与 '-' 兜底、共 N 条分页）；request 合并契约
+> （工具栏筛选经 params.filters 与查询表单字段合并、表单显式输入优先）+
+> 失败翼（extractErrorMessage → message.error）+ 响应缺省翼；工具栏状态下拉、
+> RangePicker 起止 Enter 提交（ISO 载荷）与清空剥键、LightFilter 三字段
+> （functionId/status/gameId）chip→popover→确 认 提交；刷新按钮双拉；
+> 详情抽屉（富化全字段 + payload/result 卡片 + response 缺省回落行数据 +
+> 失败两翼 + 空值形态全兜底/未知状态原文）；自动刷新轮询（fake timers：
+> 含 running/pending 5s 重拉列表与统计、全终态不重拉）。
+> **antd6 坑实证续档**：RangePicker 单面板且直接 change+OK 不提交——须逐输入
+> focus+change+Enter；清空图标须先 mouseEnter；LightFilter chip 与表头同文本
+> 须按 .ant-pro-core-field-label 锚定、popover 取未隐藏实例、确认按钮锚
+> button[data-type="confirm"]；Statistic 值与 % 后缀分元素（整串 getByText 不
+> 匹配，按 .ant-statistic-title 锚卡断拼接内容）；loading 态表格即渲染 Empty 壳
+> （空态断言先锚请求已发）；jsdom 下 Drawer 关闭动效不收尾（关闭翼以可再打开
+> 且重拉锁定）；useIntl mock 须稳定实例——fetchStats 的 useCallback 依赖 intl，
+> 不稳定会让统计重复拉取、计数断言失真。
+> 门禁：目标套件 16/16 绿（4×100%）、eslint 干净、tsc 0 错、全量 jest 337 套件
+> 4103/4103 绿（2 worker 限流 677s，load ~1.4 低位窗口直跑）。
+> **下一批候选（零测试页排行余量）**：Approvals（694）、Analytics/Levels（683）、
+> Ops/DBMonitor（667）、Ops/Alerts（600）、Dev/Releases（576）。
+
+## 告警中心页覆盖批次（Ops/Alerts 簇，2026-09-29）
+
+> **交付（2026-09-29）**：零测试页排行次席——`Ops/Alerts/index.tsx`（765 行）+
+> `AlertRulesTab.tsx`（600 行，入口套件中为桩）双件收口，新增
+> `__tests__/index.test.tsx` 27 用例 + `__tests__/AlertRulesTab.test.tsx` 12 用例：
+> **index.tsx 行/函数 100%、分支 98.23%**；**AlertRulesTab.tsx 行/函数/语句 100%、
+> 分支 98.24%**。锁定契约——入口页：初始三请求（alerts/config/silences）与
+> 渲染矩阵（severity 三色 + 空串、firing/silenced、静默行无静默按钮、cfg 双
+> URL 条件按钮、静默列表 ID/创建者/起止拼接与缺省 ' -> '）、筛选矩阵
+> （severity/service 下拉精确、关键词 summary+labels JSON 小写包含、labelKey
+> 判空 + labelValue String 精确）、双刷新（{} 响应 `s.silences || []` 右翼 +
+> reject 静默 catch）、外链三入口（Grafana/AM/#/alerts/静默查看 encode 两
+> 形态）、行内 1h/1d 与抽屉三档静默（matchers toStringRecord 归一、comment
+> 取 summary、各档独立 catch 三翼全覆盖）、解除静默主链 + 失败翼、详情抽屉
+> （全字段 + 兜底 '-'、runbook/grafana 条件按钮、onClose 可重开）、load 失败
+> 三翼、Tabs 切换。规则 Tab：七列矩阵（条件 code 文本、level 三色 + 未知
+> default、forCount 阈值文案、冷却 Math.round 分钟、agentFilter 空 → '全部'、
+> lastFiredAt 格式化/缺省）、load 三翼 + items 缺省右翼、新建默认值链
+> （required 拦截 + agentFilter 归一空串）、自定义指标链（Select 切换 →
+> 内层 Input 显形；失前缀自动落非 preset 手输形态）、编辑回填三形态
+> （preset/非 preset/自定义 + agentFilter 透传）、启停三翼、删除 Popconfirm
+> 两翼、保存失败弹窗保持。
+> **antd6 坑实证续档**：rc-select 开/关都走 message 宏任务——同一卡内两次
+> 连开下拉须留 ≥60ms 时间隙（立即重开与上一次关闭竞态、第二次打不开）；
+> getByText 只对内容做 trim 归一、查询串不 trim（' -> ' 单元格须用 '->'
+> 查询）；antd Table 行按钮点击冒泡触发 onRow（抽屉随之打开，行锚须限卡内
+> 表格）；Space 包裹子项致 textContent 双命中（getAllBy 取首）；modal.confirm
+> 标题双渲染须 selector 收窄；无 ConfigProvider zh 时 Popconfirm 默认按钮
+> 文案是 en（OK/Cancel）；ModalForm 标题与入口按钮同文本（锚 .ant-modal-title
+> 的 textContent，footer 主按钮走类名——中文文案自动插空格「确 定」）。
+> **登记不可达（防御分支，不造假用例不删分支）**：index 81/88 `(rows || [])`
+> 右翼（rows 是 useState 数组、setRows 只赋数组）；index 742
+> `(detail.annotations || {}).runbook_url` 右翼（Runbook 按钮仅在
+> annotations 已是对象时渲染）；rules 499 pattern 失败分支（isCustom 谓词与
+> pattern 谓词等价，失前缀即重渲染摘规则——自证性双保险，同 r27 wechat 族）；
+> rules 467 `getFieldValue('metric') || ''` 右翼（新建/编辑 initialValues 恒含
+> metric）。
+> 门禁：目标套件 39/39 绿、eslint 干净、tsc 0 错；全量 jest 负载口径见交付说明。
+
+## 关卡分析页覆盖批次（Analytics/Levels，2026-09-29）
+
+> **交付（2026-09-29）**：零测试页排行第三——`Analytics/Levels/index.tsx`
+> （683 行，页面 + LevelsSegmentsChart/EpisodeFacets/MapFacets/EpisodeFacet/
+> MapFacet 五内联组件）单件收口，新增 `__tests__/index.test.tsx` 12 用例：
+> **行/语句/函数 99.7%（仅图表 catch 两行登记）、分支 92.96%**（余 9 臂全部
+> 登记为结构不可达防御分支）。锁定契约——四卡矩阵（漏斗表 rate `${v}%`、
+> 分关卡表 winRate toFixed(2)/难度 Tag 高红/中金/缺省 '-'、分群图四折线
+> path + Top10 按参与数排序 + 图例、章节/地图分面 Statistic 计数与非数组
+> 守卫）、查询链（episode 输入即时重拉、查询按钮、RangePicker 起止 ISO 进
+> 载荷）、分群下拉切段空态、导出六入口全载荷（卡头 CSV String 归一 +
+> 缺省空串、漏斗/统计底 XLSX 多 sheet、章节 ep_<id> 多 Sheet、地图 map_<id>
+> 计数行、各 catch 静默）、响应缺省（{} → 空表 + 图不渲 + 表头行导出）、
+> 加载前导出（慢接口 data null 形态下三入口出表头行 + 切分群段 {} 兜底）。
+> **页面真实行为差异（本轮关键发现）**：`MapFacets` 与 `EpisodeFacets` 不同，
+> **没有挂载 useEffect**——load 只接「加载」按钮，地图数据挂载后为空、
+> mMaps 首拉须显式点击（range 变更也不会自动重拉，测试按此建模）。
+> **antd6 坑实证续档**：无 showTime 的 RangePicker 输入须用日期串
+> （'2026-09-01'，datetime 串解析失败不提交）；页面首个 svg 是 RangePicker
+> 的 swap-right 图标，图表 svg 须按含纵轴 label 定位；antd6 Select 选中态
+> 类名是 `.ant-select-content`（非 antd5 的 selection-item）。
+> **登记不可达（防御分支，不造假用例不删分支）**：漏斗/分关卡两处
+> render `v != null ? … : '-'` 右翼（映射恒产 number）；图表 find 助手与
+> 统计导出 mk 的 `(arr || [])` 右翼（入参恒为数组）；图表 try/catch 的
+> catch（纯数值计算无可抛路径，L435-436）；EpisodeFacets/MapFacets 渲染
+> 与导出的 `(episodes || [])`/`(maps || [])` 右翼（state 恒为数组）。
+> 门禁：目标套件 12/12 绿、eslint 干净、tsc 0 错；全量 jest 负载口径见交付说明。
+
+## 数据库监控页覆盖批次（Ops/DBMonitor，2026-09-29）
+
+> **交付（2026-09-29）**：零测试页排行现席——`Ops/DBMonitor/index.tsx`
+> （667 行）单件收口，新增 `__tests__/index.test.tsx` 13 用例：
+> **行/语句/函数 100%、分支 98.61%**（余 1 臂登记为结构不可达）。锁定
+> 契约——卡片矩阵（驱动 Tag blue、kind 查表 + 未知回退原文、停用/全局
+> Tag、gameId/env geekblue、dsnMask code、无结果提示、canManage 三处门控）、
+> 空态（items 缺省右翼 → Empty）与 load 失败两翼、立即探测主链（results
+> 按 sourceId 归并 + 五卡指标全矩阵：连接 current/max 与 max<=0 '?'、
+> connections 缺省 '-/?'、锁等待红 Tag 计数/绿 0、死锁 volcano/绿 0/null
+> 与 undefined 双翼「不可用」、延迟 `?? '-'`ms、锁等待表 waitSecs>30 红 Tag
+> 双臂）、results 缺省右翼、探测失败两翼、新建主链（name/dsn required
+> 拦截 + driver/kind/enabled 默认值 + 阈值双 InputNumber 全量载荷 + 关闭）、
+> 保存失败两翼弹窗保持、编辑回填（DSN 掩码不回填 + extra 编辑语义 + 阈值
+> 0 归一 undefined + 停用开关透传）、删除 Popconfirm 主链与失败翼、刷新重拉。
+> **antd6 坑实证续档**：本页 Popconfirm 默认按钮是 zh（确 定）——与
+> AlertRulesTab 的 en（OK）不同源，role 查询统一 name=/确/ 两态通吃；
+> 带图标工具按钮 accessible name 前缀拼 icon aria-label（「reload 刷新」），
+> 须用正则查询；antd Form 序列化丢弃 undefined 值键——undefined 归一断言
+> 须直读 mock.calls 载荷键而非 objectContaining（jest 30 下后者不把
+> undefined 键视同缺失）。
+> **登记不可达（防御分支，不造假用例不删分支）**：新建提交
+> `dsn: v.dsn || ''` 右翼（新建态 dsn 带 required 规则，空值被 ModalForm
+> 校验拦截，提交时 dsn 恒非空串——`|| ''` 仅满足类型收窄）。
+> 门禁：目标套件 13/13 绿、eslint 干净、tsc 0 错；全量 jest 负载口径见交付说明。
+
+## 配置中心浏览器覆盖批次（Dev/ConfigExplorer，2026-09-29）
+
+> **交付（2026-09-29）**：零测试页排行第三——`Dev/ConfigExplorer/`
+> 簇双件收口，新增 `__tests__/index.test.tsx` 13 用例 +
+> `__tests__/SourceManageModal.test.tsx` 7 用例：
+> **index.tsx（599 行）行 99.49%/函数 100%/分支 94.44%（余 7 臂登记为
+> 结构不可达）、SourceManageModal.tsx（400 行）四维 100%**。锁定契约——
+> 挂载链（listGamesMeta → scope 同步 → loadSources → 默认源 → 树首拉；
+> scope 空态在 effect 处即短路）、三下拉矩阵（游戏 displayName/name/双缺省
+> 三臂 label、环境派生、源类型 meta + 可写/只读 Tag）、文件打开全矩阵
+> （humanSize B/KB/MB 三段位 + langOf 全 switch 臂 + 只读无应急按钮 +
+> 编辑器值/语言/只读透传）、目录树懒加载（expand conf → 子节点 → 嵌套
+> conf/sub → 孙节点递归挂载）、xlsx 预览（真实 xlsx 库造 fixture：满表/
+> 空 sheet rows[] 右翼/参差中洞+短行 → `r[i] ?? ''` 补空）、应急写回流
+> （编辑 → Popconfirm → 通知文案 → 取消关流可重开 → 空 reason 拦截 →
+> 载荷 → 「已写回」+ 弹窗关闭 + 文件重开 + 失败两翼弹窗保持）、
+> 三失败静默文案（三连渲染显式 unmount 防状态串染）、切换矩阵（切源重拉树/
+> 切环境切游戏重拉源、空源 Empty）、canDevManage false 双门控、管理弹窗
+> 桩替身（挂载透传/OnChanged 重拉/OnClose 卸载）；SourceManageModal——
+> open 门控加载、列表矩阵、新增主链（默认值 + required/JSON 双拦截 +
+> type 联动模板 + 上下文补齐载荷）、保存失败两翼、编辑回填（脱敏值 +
+> type 禁用 + id 透传精确载荷）、删除主链与失败翼。
+> **antd6 坑实证续档**：Modal okText 双字中文渲染插空格（「写 回」），
+> danger 主按钮锚 `.ant-modal-footer .ant-btn-dangerous`；管理 Modal
+> footer=null、嵌套 ModalForm 是页面唯一带 footer 弹窗；树节点与文件头
+> 同文本双实例（getAllByText）；xlsx 列头 ellipsis 双渲染（th + title）。
+> **登记不可达（防御分支，不造假用例不删分支）**：loadSources `!g || !e`
+> 短路体（唯一调用方 effect 先行判空）；loadDir/openFile/doSave 三处
+> `!sourceId` 守卫与 doSave `!file`（调用面均在 sources/file 态渲染之后）；
+> onSelect 非 array 臂（antd Tree 单选恒传 Key[]）；xlsx `(r || [])` 右翼
+> （sheet_to_json(header:1) 恒产数组）；xlsx `String(c ?? '')` 右翼（稀疏
+> 洞被 Array.map 跳过、sheet_to_json 不产显式 null，c 恒有值）。
+> 门禁：目标双套件 20/20 绿、eslint 干净、tsc 0 错；全量 jest 负载口径见交付说明。
+
+## 版本发布页覆盖批次（Dev/Releases，2026-09-29）
+
+> **交付（2026-09-29）**：零测试页排行首位——`Dev/Releases/index.tsx`
+> （576 行）单件收口，新增 `__tests__/index.test.tsx` 15 用例：
+> **行/语句/函数 100%、分支 96.29%**（余 3 臂登记为结构不可达）。锁定
+> 契约——表格矩阵（渠道/平台/类型/状态四列查表 + 未知值回退原文、
+> 状态 Tag 色查表、灰度列三臂 strong/plain/'-'、资源包列 objectKey 有值
+> formatSize 三段位（size 缺省 '-'/KB/MB）+ title=checksum / 无值未上传）、
+> 状态机操作矩阵（draft 传包 / uploading 内测 / testing 开始灰度 / gray
+> 放量+全量+废弃 / full 回滚 / archived/rolled_back/未知态无操作）、
+> 灰度放量弹窗（标题 `灰度放量：{version}（当前 {n}%）` + Slider step5
+> 键盘 ArrowRight 步进 + min=当前灰度值取 max(grayPercent,10) + 确认
+> transition(id,'gray',value) + footer 取消与右上 X 双关流）、传包
+> Upload customRequest（uploadReleaseArtifact(id, file) → onSuccess +
+> 已上传 + 重拉；失败两翼）、四 Popconfirm 流转主链与失败两翼、工具栏
+> 双筛选下拉（值进 request + clear 复位 `v || ''` 右翼 + 回第 1 页）、
+> 创建版本 ModalForm（version/platform required 拦截 + channel
+> initialValue official + type 默认 full + 载荷 `{...v, gameId: ''}`
+> X-Game-ID 契约 + 已创建 + 重拉 + 关闭 + 失败两翼弹窗保持）、load 失败
+> 两翼与响应缺省右翼、刷新重拉、canManage false 操作列全 '-'。
+> **antd6 坑实证续档**：Upload 隐藏 input[type=file] 直接触发 change 可
+> 驱动 customRequest，但同一 input 二次 change 被 rc-upload 吞（首次
+> 处理后 value 复位去重）——失败两翼须分渲染各自触发；Popconfirm 确认
+> 锚未隐藏 .ant-popover 内 .ant-btn-primary（类名两态通吃，绕开 zh/en
+> 文案漂移）；ModalForm 提交锚 .ant-modal-footer .ant-btn-primary
+> （submitText 双字中文插空格「创 建」）；带图标按钮 accessible name
+> 前缀拼 icon aria-label（「cloud-upload 传包」）。
+> **登记不可达（防御分支，不造假用例不删分支）**：request 回调
+> `statusFilter ?? ''`/`platformFilter ?? ''` 右翼（params 键由 useState
+> 恒为 string）；确认放量 onClick 的 `!grayTarget` 守卫（按钮仅在
+> grayTarget 态渲染，闭包捕获恒非空）。
+> 门禁：目标套件 15/15 绿、eslint 干净、tsc 0 错；全量 jest 负载口径见交付说明。
+
+## 服务端热更新页覆盖批次（Dev/Hotpatches，2026-09-29）
+
+> **交付（2026-09-29）**：零测试页排行次席——`Dev/Hotpatches/index.tsx`
+> （554 行）单件收口，新增 `__tests__/index.test.tsx` 14 用例：
+> **行/语句/函数 100%、分支 96.15%**（余 3 臂登记为结构不可达）。骨架与
+> Dev/Releases 同族（ProTable + 双筛选 + 创建 ModalForm + 灰度 Slider
+> 弹窗 + Upload 传包），锁定契约——表格矩阵（框架查表 skynet/KBEngine/
+> JVM/Node.js/自定义 + 未知回退、关联缺陷 `#id`、状态 Tag 查表 + 未知
+> 双回退、灰度列三臂、补丁包 formatSize 三段位 + 未上传）、状态机矩阵
+> （draft 无包仅传包——提交审批两条件臂 false 侧 / draft 有包传包+
+> 提交审批双人规则文案 / approved 开始灰度 / rolling 放量+标记生效+回滚 /
+> failed 回滚 / applied/rolled_back/未知态无操作）、灰度弹窗（标题
+> `节点灰度放量（当前 {n}%）` + Slider 键盘步进 + rolling 放量 min=当前
+> 值 + footer 取消与右上 X 双关流）、传包 customRequest 主链与失败两翼、
+> 创建热更单（title/bugId required + framework 默认 skynet + 切自定义 +
+> InputNumber 数值载荷 + `{...v, gameId: ''}` 契约 + 失败两翼）、双筛选
+>
+> - clear 复位右翼、load 失败两翼与响应缺省右翼、刷新重拉、canManage
+>   false 操作列全 '-'。
+>   **坑实证（同 Releases 坑档复用）**：Upload 同一 input 二次 change 被
+>   rc-upload 吞（value 复位去重），失败两翼分渲染；Popconfirm 确认锚
+>   .ant-popover .ant-btn-primary；ModalForm 提交锚 footer 主按钮。
+>   **登记不可达（防御分支，不造假用例不删分支）**：request 回调
+>   `statusFilter ?? ''`/`fw ?? ''` 右翼（params 键由 useState 恒为
+>   string）；确认放量 onClick 的 `!rollTarget` 守卫（按钮仅在 rollTarget
+>   态渲染，闭包捕获恒非空）。
+>   门禁：目标套件 14/14 绿、eslint 干净、tsc 0 错；全量 jest 负载口径见交付说明。
+
+## 工具箱页覆盖批次（Dev/Tools，2026-09-29）
+
+> **交付（2026-09-29）**：零测试页排行第三——`Dev/Tools/index.tsx`
+> （539 行）单件收口，新增 `__tests__/index.test.tsx` 13 用例：
+> **行/语句/函数/分支 100%**（四维全满，无登记不可达臂）。
+> **附带修定一处真缺陷**：`ScopeModeSelect` 未透传 Form.Item 经
+> cloneElement 注入的 value/onChange——内层 Select 长期脱管，scopeMode
+> 永远进不了 form store（提交恒按 global、scoped 工具无法从 UI 创建、
+> gameId/env 联动输入永不出现；rc-select 内部态自顾示正常，仅提交载荷
+> 暴露）。修法：`{...rest}` 展开 + 先调 `rest.onChange`（派发 scopeMode
+> 落库）再做 setFieldsValue 回填/清空；测试以「切 scoped → 双输入渲染 +
+> 提交载荷 scopeMode scoped + gameId/env」「切回全局清空」回归锁定。
+> 锁定契约——六类分组矩阵（icon + label + 计数 Tag）、未知分类静默
+> 过滤、卡片标题外链、description 有无两臂、作用域 Tag 双态、Switch
+> 启停矩阵、外链开窗（export 图标操作）、首拉 scope 透传（demo/prod 与
+> 双 undefined 两臂）、空态 Empty、load 失败两翼、登记主链（name/url
+> 双 required + url pattern 翼 + 默认值载荷 + 已登记 + 重拉 + 关闭）、
+> 编辑主链（回填 + enabled + 全局工具 scopeMode 'global' 臂 + 载荷无
+> gameId/env 键）、保存/启停/删除失败两翼、canManage false 面收敛。
+> **坑实证（antd6 新档）**：Form.Item 子为自定义组件时注入的 value/
+> onChange 必须显式透传，脱管表象是「UI 选中正常、store 不动」；作用域
+> option 文案括号全/半角混排（`当前游戏环境（demo/prod)`），matcher 勿带
+> 闭合括号；卡面 description 区恒含作用域 Tag，无描述时 textContent 即
+> Tag 文案；卡片 actions 图标操作按 aria-label 锚点（标题链接含同名
+> icon 需限容器）。
+> 门禁：目标套件 13/13 绿、eslint 0、tsc 0 错、guard PASSED、全量 jest
+> 口径见交付说明。
+
+## 2026-09-29 Round 40（wt-api）：Ops/RateLimits 覆盖收口 100/98.46/100/100——零测试页排行第四 + 四处真缺陷修定
+
+> 覆盖率巡检第四站：`web/src/pages/Ops/RateLimits/index.tsx`（513 行 0%）。
+> 12 用例；本轮在页内修定 **四处真缺陷**（全部回归锁定）：
+>
+> 1. **load 顶层 reject 未收敛**：try/finally 无 catch——listRateLimits
+>    失败成为未处理 rejection 且用户只见空表。补 catch + message.error
+>    「加载限速规则失败」。
+> 2. **matchLabels 字段整体缺失**：编辑回填把多余键还原为 JSON 文本、
+>    提交侧 labels 合并两段逻辑全是死代码（回填不可见、合并恒空）。
+>    补 Form.Item + TextArea 落地编辑入口。
+> 3. **named Form.Item 子为三元素数组**（`{' '}<Input/>{' '}`）：antd
+>    cloneElement 注入跳过——limitQps/percent/match 四键完全脱管（默认
+>    值 10/100 不显示、键入永不落库、提交恒按默认、match 全丢，用户无法
+>    从 UI 配置限速参数）。去掉 `{' '}` 补齐单子。
+> 4. **编辑路径未 resetFields**：form 实例 store 在 destroyOnHidden 卸载
+>    后存活，上次新建/编辑残留的 match 键静默并入本次提交（幻影匹配条
+>    件写入规则）。编辑按钮补 resetFields（与新建按钮同口径）。
+>    锁定契约——三连拉（funcs/nodes 内层双 catch 静默 + 响应缺省三右臂）、
+>    表格矩阵（scope 双 Tag/percent 缺省 100/match 展开 '-'）、新建主链
+>    （required 拦截 + 默认值 + 载荷 + 已保存 + 重拉 + 关闭）、scope 切换
+>    （清 key + 选项源切 agents + label 切 Agent ID + id 缺省回退 addr）、
+>    percent 边界（编辑回填 0/150 双臂不入载荷）、labels 三态（合法合并/
+>    非法警告忽略/数组静默忽略/仅 labels 无标准键从零建 match）、编辑回填
+>    （标准四键平铺 + 多余键 JSON 文本 + 重组）、预览全景（空表单早退/
+>    function info 不触达/service 载荷 + 降序列表 + 仅超限过滤 + CSV 含
+>    缺省行）、失败三翼、自动预览（防抖/条件不齐/reject 静默/恢复）、
+>    弹窗取消、删除 modal.confirm。
+>    **坑实证（新档）**：jest.clearAllMocks 不清 mockRejectedValueOnce
+>    队列——外层 catch 短路内层拉取时预挂的 Once 跨用例毒化函数源，表象是
+>    key 下拉空 options（ant-select-dropdown-empty），单测隔离运行不复现、
+>    全文件才炸；Once 必须本用例内消费殆尽。antd InputNumber min=1 下手输
+>    0 只变更显示不派发 onChange（falsy 臂仅编辑回填可达）；双字中文
+>    Button 自动插空格（编 辑/删 除，Tag 不插）。
+>    门禁：目标套件 12/12 绿、eslint 0、tsc 0 错、guard PASSED、全量 jest
+>    口径见交付说明。
+
+## 2026-09-29 Round 41（wt-api）：Ops/Certificates 覆盖收口 100/98.79/100/100——零测试页排行第五 + 分页回弹真缺陷修定
+
+> 覆盖率巡检第五站：`web/src/pages/Ops/Certificates/index.tsx`（460 行 0%）。
+> 11 用例；本轮修定 **一处真缺陷**（回归锁定）：
+>
+> - **分页回弹**：`useEffect(() => load(1, ...), [load, size, status])` 而
+>   load 身份随 page 重建——翻第 2 页 → setPage(2) → effect 复跑
+>   load(1,...)，任何翻页立即被拉回第 1 页（实证：4 连调用
+>   mount(1)→click(2)→bounce(1)→stable(1)）。修法：effect 只响应
+>   [size, status]（首挂载 + 筛选/页大小复位），分页由 Table onChange
+>   直驱。
+>   锁定契约——首拉载荷 {page:1,size:10,status:''}、渲染矩阵（域名
+>   port 缺省回 443、日期三列 formatDateTime、剩余天数三态含数值缺省
+>   双臂、状态四色 + 大写 toLowerCase 防御臂、派生链 pending/expiring/
+>   expired/valid、errorMessage 红「错误」Tag）、状态筛选选值/clear 复位、
+>   分页稳定（mock 回显请求页——响应页硬编码会把 mount 顶到第 2 页、
+>   点击落空，此为 mock 设计坑）、刷新、重新检查/检查全部/移除监听
+>   （confirm 取消/确认/失败三翼）、新增域名（required + 默认值
+>   port 443/alertDays 30 + 已添加 + 失败保持）、load 失败 + 响应缺省
+>   四右臂。
+>   **坑实证（新档）**：分页断言的 list mock 必须回显请求页
+>   （mockImplementation echo），响应 page 硬编码会自我干扰。
+>   门禁：目标套件 11/11 绿、eslint 0、tsc 0 错、guard PASSED、全量 jest
+>   口径见交付说明。
+
+## 2026-09-30 Round 42（wt-api）：System/ExcelConfig 覆盖收口 98.19/95.23/100/98.19——零测试页排行第六
+
+> 覆盖率巡检第六站：`web/src/pages/System/ExcelConfig/index.tsx`（444 行 0%）。
+> 9 用例，无页面缺陷（本轮纯补测）；锁定契约——草稿生命周期（默认
+> Sheet1 [['id','name','value']]、合法草稿载入、非法 JSON 回退、编辑即
+> 持久化、重置草稿重读）、setCell 数字 int/float 双正则 + 参差行补列、
+> 类型行 Select 矩阵（首列 disabled、空类型格 value undefined 无选中项）、
+>
+> - 行（等宽空行）、+ sheet（SheetN + 激活）、CheckableTag 切换 + 双表
+>   存续下编辑（updateRows 非激活表 `: s` 原样臂）、XLSX 真实 round-trip
+>   导入（raw:true 数值保持 number）、坏文件（PK+垃圾 → SheetJS 抛
+>   Unsupported ZIP encryption → extractErrorMessage 透传）、导出
+>   writeFile 文件名双臂（key / excel-config 回退）、保存并发布（Popconfirm
+>   → 稀疏 cellData 快照（''/null/undefined 跳过）+ message 透传 + 最新
+>   版本 Tag + 说明清空 + 失败两翼）、服务端编译上传（importExcelFile
+>   (file,{message}) + 失败两翼）。
+>   **坑实证（新档，四条）**：① tests/setupTests.jsx 的 localStorage 是
+>   无存储 jest.fn() 壳（getItem 恒 undefined），依赖 localStorage 草稿的
+>   页面测试须文件内补 Map 存储；② 本 jsdom Blob/File 无 arrayBuffer()
+>   （页面导入链 file.arrayBuffer → XLSX.read），须 FileReader 打底
+>   polyfill；③ scroll 表格 tbody 首行是 aria-hidden 的
+>   ant-table-measure-row，行选择器须 .ant-table-row；④ XLSX 极宽松——
+>   垃圾字节不抛错而是按文本回退解析出 1 个 sheet（要触发 catch 臂须
+>   PK 头+垃圾让 zip 检测抛 Unsupported ZIP encryption），且 XLSX.write
+>   对零表工作簿抛 Workbook is empty（「文件没有 sheet」分支不可从真实
+>   文件构造，登记不可达）。
+>   登记不可达：setCell 行补齐 while、addRow `|| 1` 右臂、
+>   parsed.length===0、单元格 render 的 `(current?.rows || [])` 右臂
+>   （dataSource 即 current?.rows，current undefined 时零行不进 render）、
+>   导入/上传 catch 的 extractErrorMessage 非 Error 兜底右臂。
+>   门禁：目标套件 9/9 绿、eslint 0、tsc 0 错、guard PASSED、全量 jest
+>   口径见交付说明。
+
+## 2026-09-30 Round 43（wt-api）：Ops/Status 覆盖收口 100/100/100/100——零测试页排行第七
+
+> 覆盖率巡检第七站：`web/src/pages/Ops/Status/index.tsx`（437 行 0%）。
+> 9 用例全分支覆盖，无登记不可达、无页面缺陷（纯补测）。锁定契约——
+> 挂载链 Promise.all 三连拉 + getOpsMaintenance best-effort 回填
+> （enabled Boolean 化 / message || '' / allowAdmins !== false）、
+> maintenance 拉取失败静默、健康表矩阵（类型/目标/启用 Switch 乐观
+> 更新 + updateOpsHealth 载荷 + 失败不回滚）、执行链三翼（ok 绿
+> latencyMs Tag + 成功 toast / !ok error 缺省右臂红 异常 Tag / reject
+> 透传）、禁用项执行按钮 disabled、服务状态四态（up/healthy 绿、truthy
+> 红、falsy default '-'）、MQ lengths 缺省 || {} 右臂 + 空态文案 + 积压
+> 双档（>10000 红）、维护模式保存（Popconfirm → updateOpsMaintenance
+> 表单值 → 已更新 / 失败透传）、刷新重拉三连且 maintenance 不重拉。
+> **坑实证（新档）**：带 icon 的双字中文 Button 的可访问名是
+> 「play-circle 执 行」——icon 名成为可访问名前缀，getByRole name 须
+> /执\s*行/ 宽松正则；页内四张表时行锚文本要跨全页查
+> （querySelector('.ant-table') 只命中第一张表）。
+> 门禁：目标套件 9/9 绿（100/100/100/100）、eslint 0、tsc 0 错、guard
+> PASSED、全量 jest 口径见交付说明。
+
+## 2026-09-30 Round 44（wt-api）：Analytics/Behavior/FunnelPresetBar 覆盖收口 98.35/84.9/100/98.35——零测试页排行第八
+
+> 覆盖率巡检第八站：`FunnelPresetBar.tsx`（426 行 0%，组件已实现但
+> 未挂载到漏斗卡片——直接渲染组件本体）。16 用例；无页面缺陷（纯补测）。
+> 锁定契约——读链（空列表按钮组 disabled / 合法载入 / 非法 JSON 与
+> 非数组 JSON 防御回空）、排序（lastUsed 降序、缺省 0 臂、并列
+> localeCompare 名称序、无名预设 String(name||'') 双臂——label 模板串
+> 把 '' 插值为字面 'undefined'）、保存（完整字段落库含 range ISO 与
+> [null,null] 可选链双臂、seq/sameSess 四组合、重名 confirm 覆盖/取消、
+> prompt 取消与纯空白早退）、应用（onApply(cleaned) undefined 剔除 +
+> lastUsed 顶格、storage 失配静默）、删除/清空（confirm 双翼）、重命名
+> （非重名直接改、重名 confirm 覆盖含 splice 移除同名、prompt 取消、
+> found 失配早退）、导出（全部/当前 blob + createObjectURL）、导入预览
+> （解析三翼：非法 JSON / 非数组 / 合法 → 覆盖|新增 状态全选、勾选
+> 合并 + 未勾跳过、取消关闭）。
+> **坑实证（新档）**：rc-select 选项点击前必须 sleep ≥60ms 再 mouseDown
+> （含二次打开——关闭动画落定要 ~300ms）；antd6 Select 选中值类是
+> .ant-select-content（非 v5 的 .ant-select-selection-item）；antd6
+> Modal 关闭后留在 DOM（display: none），关闭断言须查 style 而非
+> null；jsdom 无 URL.revokeObjectURL（createObjectURL 已是 setupTests
+> 的 jest.fn）——直接 defineProperty 补 jest.fn，勿 spyOn 不存在的属性。
+> 登记不可达：九处静默 catch（Map 存储/纯内存操作不抛）、四处
+> !sel 早退（按钮 disabled={!sel}，jsdom 不派发 disabled click）、
+> prompt 默认值 sel || '' 右臂、parseImport x.name || String(i) 右臂
+> （上游 filter 保证）、Select list || [] 右臂（useState 恒数组）。
+> 门禁：目标套件 16/16 绿、eslint 0、tsc 0 错、guard PASSED、全量 jest
+> 口径见交付说明。
+
+## 2026-09-30 Round 45（wt-api）：Analytics/Invocations 覆盖收口 100/100/100/100——零测试页排行第九
+
+> 覆盖率巡检第九站：`web/src/pages/Analytics/Invocations/index.tsx`（396 行 0%）。
+> 5 用例，4×100%（v8），无页面缺陷（纯补测）。锁定契约——挂载双拉
+> （summary {hours:24} + trend {interval:'hour'}）、窗口切换（近 30 天 →
+> hours 720 + interval day + 趋势卡标题切换）、摘要统计卡五值（total/failed
+> 原值、成功率 (rate*100).toFixed(1)+'%'、avg/p95 toFixed(1)）、summary/points/
+> items/total 缺省右臂（DEFAULT_SUMMARY 0 兜底 + 空表）、Top 函数表
+> avgDurationMs 双臂（值/0 → '-'）、趋势装配（points flatMap 双系列 ||
+> 0 右臂）、明细矩阵（outcome success/error Tag、durationMs ==null '-' 与
+> 0 显式、traceId 截 16 code/缺省 '-'、timestamp 缺省 ?? '' 右臂、error 列）、
+> 首查载荷 {page:1,pageSize:20}、reject → success:false（ProTable 不落地
+> data、明细保留上次数据）、函数 ID 搜索（trim 并入载荷）、结果下拉
+> （选中并入 + allowClear 清除回到无 outcome）。
+> **坑实证（新档，三条）**：① antd6 Input.Search 的搜索按钮类名是
+> `.ant-input-search-btn`（非 v5 的 -button）；② ProTable 对 success:false
+> 的响应在 useFetchData 里早退 return、不调 setDataAndLoading——「reject
+> → 空表」是错误预期，实际保留上次数据；③ 'fn.a' 在 Top 函数表（summary
+> 来源，reject 不清它）与明细表同名——明细断言必须锚最后一张
+> .ant-table-container。
+> 登记不可达：request 的 current/pageSize 默认参右臂（ProTable 恒传显式
+> 值）；loadSummary 无 try/catch（reject 时 unhandled，页面原语义如此，
+> 测试避免该路径）。
+> 门禁：目标套件 5/5 绿（4×100%）、eslint 0、tsc 0 错、guard PASSED、
+> 全量 jest 口径见交付说明。

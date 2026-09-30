@@ -105,6 +105,15 @@ export default function OpsRateLimitsPage() {
             .filter(Boolean) as string[],
         );
       } catch {}
+    } catch {
+      // 顶层拉取失败须收敛为提示：静默 rejection 会让调用方（effect）收到
+      // 未处理 Promise 拒绝，且用户只见空表无从判断
+      message.error(
+        intl.formatMessage({
+          id: 'pages.opsRateLimits.error.loadFailed',
+          defaultMessage: '加载限速规则失败',
+        }),
+      );
     } finally {
       setLoading(false);
     }
@@ -154,6 +163,9 @@ export default function OpsRateLimitsPage() {
             size="small"
             onClick={() => {
               setOpen(true);
+              // 先清空：form 实例的 store 在弹窗 destroyOnHidden 卸载后仍然
+              // 存活，上次新建/编辑残留的 match 键会被并入本次提交载荷
+              form.resetFields();
               // 表单字段是平铺的 matchGameId/matchEnv/...，而规则里的 match 是
               // 嵌套对象：回填时映射标准四键，其余键还原为 labels JSON 文本，
               // 否则提交侧按空输入重建 match，静默清空全部匹配条件。
@@ -214,7 +226,10 @@ export default function OpsRateLimitsPage() {
   ];
 
   const onSubmit = async () => {
-    const v = await form.validateFields();
+    // 校验拒绝须收敛：Modal onOk 的 Promise 拒绝无人接盘会成为未处理
+    // rejection（浏览器控制台噪音、测试环境直接判失败）
+    const v = await form.validateFields().catch(() => null);
+    if (!v) return;
     const match: Record<string, string> = {};
     if (v.matchGameId) match.gameId = v.matchGameId;
     if (v.matchEnv) match.env = v.matchEnv;
@@ -248,7 +263,8 @@ export default function OpsRateLimitsPage() {
     load();
   };
   const onPreview = async () => {
-    const v = await form.validateFields();
+    const v = await form.validateFields().catch(() => null);
+    if (!v) return;
     if (v.scope !== 'service') {
       message.info(
         intl.formatMessage({
@@ -382,8 +398,7 @@ export default function OpsRateLimitsPage() {
             name="limitQps"
             rules={[{ required: true, type: 'number', min: 1 }]}
           >
-            {' '}
-            <InputNumber min={1} />{' '}
+            <InputNumber min={1} />
           </Form.Item>
           <Form.Item
             label={intl.formatMessage({ id: 'pages.rate.limits.percentage' })}
@@ -393,28 +408,35 @@ export default function OpsRateLimitsPage() {
               defaultMessage: '按比例生效（函数灰度为按 trace 采样；服务灰度折算 QPS）',
             })}
           >
-            {' '}
-            <InputNumber min={1} max={100} />{' '}
+            <InputNumber min={1} max={100} />
           </Form.Item>
           <Form.Item label={intl.formatMessage({ id: 'pages.rate.limits.match' })}>
             <Space>
               <Form.Item name="matchGameId" noStyle>
-                {' '}
-                <Input placeholder="game_id" style={{ width: 160 }} />{' '}
+                <Input placeholder="game_id" style={{ width: 160 }} />
               </Form.Item>
               <Form.Item name="matchEnv" noStyle>
-                {' '}
-                <Input placeholder="env" style={{ width: 120 }} />{' '}
+                <Input placeholder="env" style={{ width: 120 }} />
               </Form.Item>
               <Form.Item name="matchRegion" noStyle>
-                {' '}
-                <Input placeholder="region" style={{ width: 120 }} />{' '}
+                <Input placeholder="region" style={{ width: 120 }} />
               </Form.Item>
               <Form.Item name="matchZone" noStyle>
-                {' '}
-                <Input placeholder="zone" style={{ width: 120 }} />{' '}
+                <Input placeholder="zone" style={{ width: 120 }} />
               </Form.Item>
             </Space>
+          </Form.Item>
+          {/* matchLabels 落地编辑入口：编辑回填把 match 中标准四键之外的键
+              还原为 JSON 文本写进该字段，提交侧再合并回 match——缺此字段时
+              两端皆为死代码（回填不可见、合并恒空） */}
+          <Form.Item
+            name="matchLabels"
+            label={intl.formatMessage({
+              id: 'pages.rate.limits.match.labels',
+              defaultMessage: '标签 JSON（可选，合并进匹配条件）',
+            })}
+          >
+            <Input.TextArea rows={2} placeholder={'{"channel":"wechat"}'} />
           </Form.Item>
           <Space>
             <Button onClick={onPreview}>

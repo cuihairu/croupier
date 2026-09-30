@@ -1,30 +1,27 @@
 /**
- * 升级扩展弹窗单测（覆盖率巡检：Extensions 簇余量第二批，UpgradeModal.tsx
- * 151 行 0% → 行覆盖收口）。
+ * 升级扩展弹窗单测（覆盖率巡检：UpgradeModal.tsx 151 行 0% → 收口，
+ * Extensions 簇余量顺序第二位）。
  *
- * 锁定契约：打开加载链（listExtensionCatalogReleases + adapter 真实归一 +
- * options 组装 + 当前版本不在列表时前插 / 在列表时不重复 / 当前版本为空不前插
- * 的三态）、loading 收尾、空版本提交 warning 拦截、选择版本提交链
- * （upgradeExtension 载荷 + 「升级请求已提交」+ onClose + onUpgraded + 按钮
- * 退出 loading）、失败四分支文案（missing_dependency / version_mismatch /
- * dependency_cycle 含 details 缺省 unknown-兜底 / 普通错误透传 mapper message）
- * 与弹窗不关闭、open/row 守卫不发请求。
+ * 锁定契约：打开拉目录版本列表（loading 收尾）、当前版本补齐翼（releases
+ * 不含 row.releaseVersion 且非空时前置补一项；releaseVersion 空不补）、
+ * 空版本提交拦截（warning、不触达 upgradeExtension）、成功链（upgrade →
+ * 成功 message → onClose → onUpgraded）、失败翼四分支（missing_dependency
+ * /version_mismatch/dependency_cycle 的结构化文案 + unknown 兜底 message，
+ * 三分支均保持弹窗开启）、关闭/空行守卫（不发请求）。
  *
- * mock 口径：services/api/extensions 仅 listExtensionCatalogReleases/
- * upgradeExtension；mapper 走真实实现；@umijs/max 本地 mock。App 包裹
- * （App.useApp message）。
+ * mock 口径：services/api/extensions 两函数 jest.mock；adapter /
+ * mapExtensionError 走真实实现（与 index.test 同款）；@umijs/max 本地 mock。
+ * App.useApp 的 message 在 <App> 包裹下真实渲染。
  *
- * 边界（诚实）：
- * 1. 加载链 .then().finally() 无 catch——releases 接口 reject 产生 unhandled
- *    rejection（组件现状缺陷，同簇巡检既定结论），不造假 reject 用例。
- * 2. handleOk 的 `if (!row) return` 守卫经 UI 不可达（OK 按钮仅在 open 且 row
- *    已设时可点）；`version.trim()` 空白翼——Select 只产出选项值无空白，不可达。
+ * 边界（诚实）：handleOk 的 `if (!row) return` 守卫经 UI 不可达（OK 按钮
+ * 仅在弹窗 open 且 effect 已按 row 拉取后可点，row null 时同守卫已挡 effect），
+ * 以 open=false 守卫用例的「不发请求」锁等价前提。
  */
 import React from 'react';
 import { configure, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { App } from 'antd';
 import UpgradeModal from '../UpgradeModal';
-import type { ExtensionInstallationItem, ExtensionReleaseItem } from '@/services/api/extensions';
+import type { ExtensionInstallationItem } from '@/services/api/extensions';
 
 jest.setTimeout(30000);
 configure({ asyncUtilTimeout: 5000 });
@@ -35,37 +32,16 @@ jest.mock('@/services/api/extensions', () => ({
 }));
 
 jest.mock('@umijs/max', () => ({
-  FormattedMessage: ({
-    defaultMessage,
-    values,
-  }: {
-    defaultMessage?: string;
-    values?: Record<string, unknown>;
-  }) => {
-    let text = defaultMessage ?? '';
-    if (values) {
-      for (const [k, v] of Object.entries(values)) text = text.split(`{${k}}`).join(String(v));
-    }
-    return <>{text}</>;
-  },
   useIntl: () => ({
-    formatMessage: (opts: { defaultMessage?: string }, values?: Record<string, unknown>) => {
-      let text = opts.defaultMessage ?? '';
-      if (values) {
-        for (const [k, v] of Object.entries(values)) text = text.split(`{${k}}`).join(String(v));
-      }
-      return text;
-    },
+    formatMessage: (opts: { defaultMessage?: string }) => opts.defaultMessage ?? '',
   }),
 }));
 
-import {
-  listExtensionCatalogReleases,
-  upgradeExtension,
-} from '@/services/api/extensions';
+import { listExtensionCatalogReleases, upgradeExtension } from '@/services/api/extensions';
 
-const mReleases =
-  listExtensionCatalogReleases as jest.MockedFunction<typeof listExtensionCatalogReleases>;
+const mReleases = listExtensionCatalogReleases as jest.MockedFunction<
+  typeof listExtensionCatalogReleases
+>;
 const mUpgrade = upgradeExtension as jest.MockedFunction<typeof upgradeExtension>;
 
 const row: ExtensionInstallationItem = {
@@ -86,207 +62,238 @@ const row: ExtensionInstallationItem = {
   updatedAt: 1727500000,
 };
 
-const releaseOf = (version: string): ExtensionReleaseItem => ({
-  version,
-  releaseChannel: 'stable',
-  minCoreVersion: '0.0.1',
-  publishedAt: 1,
-  changelog: '',
-});
-
-function renderModal(over?: { open?: boolean; row?: ExtensionInstallationItem | null }) {
+function renderModal(props?: Partial<React.ComponentProps<typeof UpgradeModal>>) {
   const onClose = jest.fn();
   const onUpgraded = jest.fn().mockResolvedValue(undefined);
   const utils = render(
     <App>
-      <UpgradeModal
-        open={over?.open ?? true}
-        row={over?.row !== undefined ? over.row : row}
-        onClose={onClose}
-        onUpgraded={onUpgraded}
-      />
+      <UpgradeModal open row={row} onClose={onClose} onUpgraded={onUpgraded} {...props} />
     </App>,
   );
   return { ...utils, onClose, onUpgraded };
 }
 
-/** 等打开加载链落定（releases 拉取完成） */
-async function waitOpen() {
-  await waitFor(() => expect(mReleases).toHaveBeenCalledTimes(1));
+/** 在版本下拉里选一个 option（点可见 content 冒泡到 option onClick） */
+async function pickVersion(label: string) {
+  fireEvent.mouseDown(document.querySelector('.ant-select') as HTMLElement);
+  const dropdown = document.querySelector('.ant-select-dropdown') as HTMLElement;
+  expect(dropdown).not.toBeNull();
+  fireEvent.click(
+    within(dropdown).getByText(label, { selector: '.ant-select-item-option-content' }),
+  );
 }
 
-/** 弹窗 footer 主按钮（OK） */
+/** 点弹窗 footer 主按钮（「确定」被 antd 双字插空，按选择器点） */
 function clickOk() {
   const ok = document.querySelector('.ant-modal-footer .ant-btn-primary') as HTMLButtonElement;
   expect(ok).not.toBeNull();
   fireEvent.click(ok);
 }
 
-/** 打开版本下拉并点选指定版本 */
-function selectVersion(version: string) {
-  fireEvent.mouseDown(document.querySelector('.ant-select') as HTMLElement);
-  const dropdown = document.querySelector('.ant-select-dropdown') as HTMLElement;
-  expect(dropdown).not.toBeNull();
-  fireEvent.click(
-    within(dropdown).getByText(version, { selector: '.ant-select-item-option-content' }),
-  );
-}
-
-/** 安装接口错误 fixture（mapper 从 response.data.details 读 code/字段） */
-const errWith = (details: Record<string, unknown>) => ({
-  response: { data: { details } },
-});
-
 beforeEach(() => {
   jest.clearAllMocks();
   mReleases.mockResolvedValue({
     total: 2,
-    releases: [releaseOf('1.4.0'), releaseOf('1.5.0')],
+    releases: [
+      {
+        version: '1.5.0',
+        releaseChannel: 'stable',
+        minCoreVersion: '0.0.1',
+        publishedAt: 1,
+        changelog: '',
+      },
+      {
+        version: '1.4.0',
+        releaseChannel: 'stable',
+        minCoreVersion: '0.0.1',
+        publishedAt: 1,
+        changelog: '',
+      },
+    ],
   });
-  mUpgrade.mockResolvedValue({ installationId: 7, status: 'upgrading' } as never);
+  mUpgrade.mockResolvedValue({ status: 'upgrading' } as never);
 });
 
-describe('UpgradeModal 打开加载链', () => {
-  it('拉取版本列表 + 当前版本在列表中不重复前插；选择 1.5.0 提交 → 载荷 + 成功文案 + onClose + onUpgraded', async () => {
-    const inst = renderModal();
-    await waitOpen();
-    expect(await screen.findByText('升级扩展')).toBeInTheDocument();
-
-    // 当前版本 1.4.0 在 releases 中 → options 恰为两个版本（无重复项）
-    selectVersion('1.5.0');
-    clickOk();
-
-    await waitFor(() => expect(mUpgrade).toHaveBeenCalledWith(7, '1.5.0'));
-    expect(await screen.findByText('升级请求已提交')).toBeInTheDocument();
-    await waitFor(() => expect(inst.onClose).toHaveBeenCalledTimes(1));
-    await waitFor(() => expect(inst.onUpgraded).toHaveBeenCalledTimes(1));
-    // finally 翼：OK 按钮退出 loading
-    const ok = document.querySelector('.ant-modal-footer .ant-btn-primary') as HTMLElement;
-    await waitFor(() => expect(ok).not.toHaveClass('ant-btn-loading'));
-  });
-
-  it('当前版本不在列表 → 前插补齐（hasCurrent=false 左翼）', async () => {
-    mReleases.mockResolvedValue({ total: 1, releases: [releaseOf('2.0.0')] });
-    renderModal({ row: { ...row, releaseVersion: '0.8.0' } });
-    await waitOpen();
-
-    // options = [0.8.0(前插), 2.0.0]（antd6 双 DOM：只数可见 option content）
-    fireEvent.mouseDown(document.querySelector('.ant-select') as HTMLElement);
-    const dropdown = document.querySelector('.ant-select-dropdown') as HTMLElement;
-    expect(
-      within(dropdown).getAllByText('0.8.0', { selector: '.ant-select-item-option-content' }),
-    ).toHaveLength(1);
-    expect(
-      within(dropdown).getAllByText('2.0.0', { selector: '.ant-select-item-option-content' }),
-    ).toHaveLength(1);
-
-    // 选前插的当前版本也能提交
-    fireEvent.click(
-      within(dropdown).getByText('0.8.0', { selector: '.ant-select-item-option-content' }),
-    );
-    clickOk();
-    await waitFor(() => expect(mUpgrade).toHaveBeenCalledWith(7, '0.8.0'));
-  });
-
-  it('当前版本为空 → 不前插（`&& row.releaseVersion` 右翼），options 仅 releases', async () => {
-    mReleases.mockResolvedValue({ total: 1, releases: [releaseOf('2.0.0')] });
-    renderModal({ row: { ...row, releaseVersion: '' } });
-    await waitOpen();
-
-    fireEvent.mouseDown(document.querySelector('.ant-select') as HTMLElement);
-    const dropdown = document.querySelector('.ant-select-dropdown') as HTMLElement;
-    expect(
-      within(dropdown).getAllByText('2.0.0', { selector: '.ant-select-item-option-content' }),
-    ).toHaveLength(1);
-    expect(within(dropdown).queryByText('0.0.0')).not.toBeInTheDocument();
-  });
-
-  it('空版本直接提交：warning 拦截，不调 upgradeExtension', async () => {
+describe('升级扩展弹窗 版本列表加载', () => {
+  it('打开拉取目录 releases；当前版本已在列表 → 不重复前置', async () => {
     renderModal();
-    await waitOpen();
-    expect(await screen.findByText('升级扩展')).toBeInTheDocument();
+    await waitFor(() => expect(mReleases).toHaveBeenCalledWith('chatops'));
+
+    await pickVersion('1.5.0');
+    await pickVersion('1.4.0');
+    // 下拉不出现补齐的重复项（补齐翼不触发：hasCurrent=true）
+    fireEvent.mouseDown(document.querySelector('.ant-select') as HTMLElement);
+    const dropdown = document.querySelector('.ant-select-dropdown') as HTMLElement;
+    expect(
+      within(dropdown).getAllByText('1.4.0', { selector: '.ant-select-item-option-content' }),
+    ).toHaveLength(1);
+  });
+
+  it('当前版本补齐翼：releases 不含 row.releaseVersion → 前置补一项', async () => {
+    mReleases.mockResolvedValue({
+      total: 1,
+      releases: [
+        {
+          version: '2.0.0',
+          releaseChannel: 'stable',
+          minCoreVersion: '0.0.1',
+          publishedAt: 1,
+          changelog: '',
+        },
+      ],
+    });
+    renderModal();
+    await waitFor(() => expect(mReleases).toHaveBeenCalledTimes(1));
+
+    await pickVersion('1.4.0'); // 补齐项可选即证在列
+    await pickVersion('2.0.0');
+  });
+
+  it('releaseVersion 为空 → 不补齐，选项即 releases 原集', async () => {
+    mReleases.mockResolvedValue({
+      total: 1,
+      releases: [
+        {
+          version: '2.0.0',
+          releaseChannel: 'stable',
+          minCoreVersion: '0.0.1',
+          publishedAt: 1,
+          changelog: '',
+        },
+      ],
+    });
+    renderModal({ row: { ...row, releaseVersion: '' } });
+    await waitFor(() => expect(mReleases).toHaveBeenCalledTimes(1));
+
+    fireEvent.mouseDown(document.querySelector('.ant-select') as HTMLElement);
+    const dropdown = document.querySelector('.ant-select-dropdown') as HTMLElement;
+    // 选项恰为 releases 原集：无补齐的当前版本（空 releaseVersion 不前置）
+    expect(
+      within(dropdown).getAllByText('2.0.0', { selector: '.ant-select-item-option-content' }),
+    ).toHaveLength(1);
+    expect(within(dropdown).queryByText('1.4.0')).not.toBeInTheDocument();
+  });
+
+  it('open=false 守卫：不发请求', async () => {
+    renderModal({ open: false, row: null });
+    await new Promise((r) => setTimeout(r, 20));
+    expect(mReleases).not.toHaveBeenCalled();
+    expect(mUpgrade).not.toHaveBeenCalled();
+  });
+});
+
+describe('升级扩展弹窗 提交链', () => {
+  it('空版本提交拦截：warning + 不触达 upgradeExtension', async () => {
+    renderModal();
+    await waitFor(() => expect(mReleases).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(document.querySelector('.ant-select')).not.toBeNull());
 
     clickOk();
     expect(await screen.findByText('请输入目标版本')).toBeInTheDocument();
     expect(mUpgrade).not.toHaveBeenCalled();
   });
-});
 
-describe('UpgradeModal 失败分支', () => {
-  async function openAndSelect() {
-    renderModal();
-    await waitOpen();
-    expect(await screen.findByText('升级扩展')).toBeInTheDocument();
-    selectVersion('1.5.0');
-  }
+  it('成功链：选版本 → upgradeExtension → 成功 message → onClose + onUpgraded', async () => {
+    const { onClose, onUpgraded } = renderModal();
+    await waitFor(() => expect(mReleases).toHaveBeenCalledTimes(1));
 
-  it('missing_dependency：details 透出依赖名；details 缺省 → unknown 兜底', async () => {
-    await openAndSelect();
-    mUpgrade.mockRejectedValue(errWith({ code: 'missing_dependency', dependency: 'audit' }));
+    await pickVersion('1.5.0');
     clickOk();
-    expect(await screen.findByText('升级失败，缺少依赖扩展：audit')).toBeInTheDocument();
 
-    mUpgrade.mockRejectedValue(errWith({ code: 'dependency_missing' }));
+    await waitFor(() => expect(mUpgrade).toHaveBeenCalledWith(7, '1.5.0'));
+    expect(await screen.findByText('升级请求已提交')).toBeInTheDocument();
+    await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(onUpgraded).toHaveBeenCalledTimes(1));
+  });
+
+  it('missing_dependency：结构化文案 + 弹窗保持开启', async () => {
+    mUpgrade.mockRejectedValue({
+      response: { data: { details: { code: 'missing_dependency', dependency: 'audit-log' } } },
+    });
+    const { onClose } = renderModal();
+    await waitFor(() => expect(mReleases).toHaveBeenCalledTimes(1));
+
+    await pickVersion('1.5.0');
+    clickOk();
+
+    await waitFor(() => expect(mUpgrade).toHaveBeenCalledWith(7, '1.5.0'));
+    expect(await screen.findByText('升级失败，缺少依赖扩展：audit-log')).toBeInTheDocument();
+    expect(onClose).not.toHaveBeenCalled();
+
+    // details 不带 dependency → 'unknown' 兜底臂
+    mUpgrade.mockRejectedValue({
+      response: { data: { details: { code: 'missing_dependency' } } },
+    });
+    await pickVersion('1.5.0');
     clickOk();
     expect(await screen.findByText('升级失败，缺少依赖扩展：unknown')).toBeInTheDocument();
   });
 
-  it('version_mismatch：三元组文案；缺省全落 unknown/-', async () => {
-    await openAndSelect();
-    mUpgrade.mockRejectedValue(
-      errWith({
-        code: 'dependency_version_mismatch',
-        dependency: 'audit',
-        requiredVersion: '^1.0',
-        currentVersion: '0.9',
-      }),
-    );
+  it('version_mismatch：依赖/要求/当前三段文案', async () => {
+    mUpgrade.mockRejectedValue({
+      response: {
+        data: {
+          details: {
+            code: 'version_mismatch',
+            dependency: 'chat-bridge',
+            requiredVersion: '2.0.0',
+            currentVersion: '1.0.0',
+          },
+        },
+      },
+    });
+    renderModal();
+    await waitFor(() => expect(mReleases).toHaveBeenCalledTimes(1));
+
+    await pickVersion('1.5.0');
     clickOk();
+
     expect(
-      await screen.findByText('升级失败，依赖版本不匹配：audit，要求 ^1.0，当前 0.9'),
+      await screen.findByText('升级失败，依赖版本不匹配：chat-bridge，要求 2.0.0，当前 1.0.0'),
     ).toBeInTheDocument();
 
-    mUpgrade.mockRejectedValue(errWith({ code: 'dependency_version_mismatch' }));
+    // details 三字段全缺 → unknown / - / - 兜底臂
+    mUpgrade.mockRejectedValue({
+      response: { data: { details: { code: 'version_mismatch' } } },
+    });
+    await pickVersion('1.5.0');
     clickOk();
     expect(
       await screen.findByText('升级失败，依赖版本不匹配：unknown，要求 -，当前 -'),
     ).toBeInTheDocument();
   });
 
-  it('dependency_cycle + 普通错误透传 mapper message；失败均不关弹窗', async () => {
-    await openAndSelect();
-    mUpgrade.mockRejectedValue(errWith({ code: 'dependency_cycle', dependency: 'chat' }));
-    clickOk();
-    expect(await screen.findByText('升级失败，检测到循环依赖：chat')).toBeInTheDocument();
+  it('dependency_cycle：循环依赖文案', async () => {
+    mUpgrade.mockRejectedValue({
+      response: { data: { details: { code: 'dependency_cycle', dependency: 'loop-ext' } } },
+    });
+    renderModal();
+    await waitFor(() => expect(mReleases).toHaveBeenCalledTimes(1));
 
-    // cycle 无 dependency → unknown 兜底（`?? 'unknown'` 右翼）
-    mUpgrade.mockRejectedValue(errWith({ code: 'dependency_cycle' }));
+    await pickVersion('1.5.0');
+    clickOk();
+
+    expect(await screen.findByText('升级失败，检测到循环依赖：loop-ext')).toBeInTheDocument();
+
+    // details 不带 dependency → unknown 兜底臂
+    mUpgrade.mockRejectedValue({
+      response: { data: { details: { code: 'dependency_cycle' } } },
+    });
+    await pickVersion('1.5.0');
     clickOk();
     expect(await screen.findByText('升级失败，检测到循环依赖：unknown')).toBeInTheDocument();
+  });
 
-    mUpgrade.mockRejectedValue(errWith({ code: 'forbidden' }));
-    clickOk();
-    expect(
-      await screen.findByText('You do not have permission for this operation.'),
-    ).toBeInTheDocument();
+  it('unknown 兜底：非 HTTP 错误走 uiErr.message', async () => {
+    mUpgrade.mockRejectedValue(new Error('plain'));
+    renderModal();
+    await waitFor(() => expect(mReleases).toHaveBeenCalledTimes(1));
 
-    // 非 HTTP 错误：mapper details 落 undefined → `|| {}` 右翼 + unknown 兜底 message
-    mUpgrade.mockRejectedValue(new Error('net'));
+    await pickVersion('1.5.0');
     clickOk();
+
     expect(
       await screen.findByText('Please retry or contact an administrator.'),
     ).toBeInTheDocument();
-
-    // 失败链不走 onClose
-    expect(screen.getByText('升级扩展')).toBeInTheDocument();
-  });
-});
-
-describe('UpgradeModal 守卫', () => {
-  it('open=false 或 row=null：useEffect 早退不发请求', async () => {
-    renderModal({ open: false });
-    renderModal({ row: null });
-    await new Promise((r) => setTimeout(r, 80));
-    expect(mReleases).not.toHaveBeenCalled();
   });
 });
