@@ -2130,3 +2130,31 @@ fresh 全绿（158 包零 FAIL）、guard PASSED。**已知边界**：门禁在�
 > （querySelector('.ant-table') 只命中第一张表）。
 > 门禁：目标套件 9/9 绿（100/100/100/100）、eslint 0、tsc 0 错、guard
 > PASSED、全量 jest 口径见交付说明。
+
+## 2026-09-30 Round 44（wt-api）：Analytics/Behavior/FunnelPresetBar 覆盖收口 98.35/84.9/100/98.35——零测试页排行第八
+
+> 覆盖率巡检第八站：`FunnelPresetBar.tsx`（426 行 0%，组件已实现但
+> 未挂载到漏斗卡片——直接渲染组件本体）。16 用例；无页面缺陷（纯补测）。
+> 锁定契约——读链（空列表按钮组 disabled / 合法载入 / 非法 JSON 与
+> 非数组 JSON 防御回空）、排序（lastUsed 降序、缺省 0 臂、并列
+> localeCompare 名称序、无名预设 String(name||'') 双臂——label 模板串
+> 把 '' 插值为字面 'undefined'）、保存（完整字段落库含 range ISO 与
+> [null,null] 可选链双臂、seq/sameSess 四组合、重名 confirm 覆盖/取消、
+> prompt 取消与纯空白早退）、应用（onApply(cleaned) undefined 剔除 +
+> lastUsed 顶格、storage 失配静默）、删除/清空（confirm 双翼）、重命名
+> （非重名直接改、重名 confirm 覆盖含 splice 移除同名、prompt 取消、
+> found 失配早退）、导出（全部/当前 blob + createObjectURL）、导入预览
+> （解析三翼：非法 JSON / 非数组 / 合法 → 覆盖|新增 状态全选、勾选
+> 合并 + 未勾跳过、取消关闭）。
+> **坑实证（新档）**：rc-select 选项点击前必须 sleep ≥60ms 再 mouseDown
+> （含二次打开——关闭动画落定要 ~300ms）；antd6 Select 选中值类是
+> .ant-select-content（非 v5 的 .ant-select-selection-item）；antd6
+> Modal 关闭后留在 DOM（display: none），关闭断言须查 style 而非
+> null；jsdom 无 URL.revokeObjectURL（createObjectURL 已是 setupTests
+> 的 jest.fn）——直接 defineProperty 补 jest.fn，勿 spyOn 不存在的属性。
+> 登记不可达：九处静默 catch（Map 存储/纯内存操作不抛）、四处
+> !sel 早退（按钮 disabled={!sel}，jsdom 不派发 disabled click）、
+> prompt 默认值 sel || '' 右臂、parseImport x.name || String(i) 右臂
+> （上游 filter 保证）、Select list || [] 右臂（useState 恒数组）。
+> 门禁：目标套件 16/16 绿、eslint 0、tsc 0 错、guard PASSED、全量 jest
+> 口径见交付说明。
