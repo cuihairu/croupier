@@ -12,13 +12,14 @@ overrides:
   '@octokit/request-error@>=1.0.0 <5.1.1': '>=5.1.1'
   '@octokit/request@>=1.0.0 <8.4.1': '>=8.4.1'
   '@remix-run/router@<=1.23.3': '>=1.23.4'
-  axios@<0.30.0: '>=0.30.0'
+  axios@<0.30.0: '>=0.30.0 <1.0.0'
   axios@>=0.8.1 <0.28.0: '>=0.28.0'
   body-parser@<1.20.3: '>=1.20.3'
   cookie@<0.7.0: '>=0.7.0'
   cross-spawn@<6.0.6: '>=6.0.6'
   debug@<2.6.9: '>=2.6.9'
   dompurify@<3.2.4: '>=3.2.4'
+  dompurify@<3.4.16: '>=3.4.16'
   esbuild@<=0.24.2: '>=0.25.0'
   express@<4.19.2: '>=4.19.2'
   express@<4.20.0: '>=4.20.0'
@@ -4498,8 +4499,8 @@ packages:
     resolution: {integrity: sha512-wvUjBtSGN7+7SjNpq/9M2Tg350UZD3q62IFZLbRAR1bSMlCo1ZaeW+BJ+D090e4hIIZLBcTDWe4Mh4jvUDajzQ==}
     engines: {node: '>= 0.4'}
 
-  axios@1.19.0:
-    resolution: {integrity: sha512-ht/iuYZXEjFxLH/Hkezgd7m6JKlHHXEUSneaDz8uZe1Gj5QZtCnpyDsckvAiEnT89OEbCLmnte4R4sn7P0EKFw==}
+  axios@1.20.0:
+    resolution: {integrity: sha512-r8aOh8j9cGKpgQAqpzrUHnSIc6a59Y3Xf/cv8sy1DrHCkZHzQGEuoq1tARk6qSyDdtQGSDgpb9kFlruzPvrgwg==}
 
   babel-jest@29.7.0:
     resolution: {integrity: sha512-BrvGY3xZSwEcCzKvKsCi2GgHqDqsYkOP4/by5xCgIwGXQxIEh+8ew3gmrE1y7XRR6LHZIj6yLYnUi/mm2KXKBg==}
@@ -5714,8 +5715,8 @@ packages:
     cpu: [x64]
     os: [win32]
 
-  dompurify@3.4.13:
-    resolution: {integrity: sha512-2vmYIoqjze2d+kakP8S/nS5shfsl587kzwEjcGlTdiksUVgFHnFCsLYDVj/JNqJVOQZGSYBTmuycv0PodwmnMQ==}
+  dompurify@3.4.16:
+    resolution: {integrity: sha512-sqo+pNp3qRhCIpbgRi1y8Tgk27Bo2Ry7w0dC1NBeNTdZChWjz9Xb/KOoZbRP/R6pQZ80Qw8YhXw13hWWBbMRnQ==}
 
   domutils@1.7.0:
     resolution: {integrity: sha512-Lgd2XcJ/NjEw+7tFvfKxOzCYKZsdct5lczQ2ZaQY8Djz7pfAD3Gbp8ySJWtreII/vDlMVmxwa6pHmdxIYgttDg==}
@@ -12145,7 +12146,7 @@ snapshots:
   '@ant-design/x-markdown@2.9.0(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)':
     dependencies:
       clsx: 2.1.1
-      dompurify: 3.4.13
+      dompurify: 3.4.16
       html-react-parser: 5.2.17(@types/react@19.2.18)(react@19.2.8)
       katex: 0.16.47
       marked: 15.0.12
@@ -16511,7 +16512,7 @@ snapshots:
       '@umijs/bundler-utils': 4.4.11
       '@umijs/valtio': 1.0.4(@types/react@19.2.18)(react@19.2.8)
       antd-dayjs-webpack-plugin: 1.0.6(dayjs@1.11.21)
-      axios: 1.19.0
+      axios: 1.20.0
       babel-plugin-import: 1.13.8
       babel-plugin-styled-components: 2.1.4(@babel/core@8.0.1)(styled-components@6.1.1(react-dom@19.2.8(react@19.2.8))(react@19.2.8))
       dayjs: 1.11.21
@@ -16557,7 +16558,7 @@ snapshots:
       '@umijs/bundler-utils': 4.7.3
       '@umijs/valtio': 1.0.4(@types/react@19.2.18)(react@19.2.8)
       antd-dayjs-webpack-plugin: 1.0.6(dayjs@1.11.21)
-      axios: 1.19.0
+      axios: 1.20.0
       babel-plugin-import: 1.13.8
       babel-plugin-styled-components: 2.1.4(@babel/core@8.0.1)(styled-components@6.1.1(react-dom@19.2.8(react@19.2.8))(react@19.2.8))
       dayjs: 1.11.21
@@ -16605,7 +16606,7 @@ snapshots:
       '@umijs/bundler-utils': 4.7.3
       '@umijs/valtio': 1.0.4(@types/react@19.2.18)(react@19.2.8)
       antd-dayjs-webpack-plugin: 1.0.6(dayjs@1.11.21)
-      axios: 1.19.0
+      axios: 1.20.0
       babel-plugin-import: 1.13.8
       babel-plugin-styled-components: 2.1.4(@babel/core@8.0.1)(styled-components@6.1.1(react-dom@19.2.8(react@19.2.8))(react@19.2.8))
       dayjs: 1.11.21
@@ -17465,7 +17466,7 @@ snapshots:
     dependencies:
       possible-typed-array-names: 1.1.0
 
-  axios@1.19.0:
+  axios@1.20.0:
     dependencies:
       follow-redirects: 1.16.0
       form-data: 4.0.6
@@ -18804,7 +18805,7 @@ snapshots:
   domparser-win32-x64-msvc@0.0.7:
     optional: true
 
-  dompurify@3.4.13:
+  dompurify@3.4.16:
     optionalDependencies:
       '@types/trusted-types': 2.0.7
 
@@ -21705,7 +21706,7 @@ snapshots:
       d3-sankey: 0.12.3
       dagre-d3-es: 7.0.14
       dayjs: 1.11.21
-      dompurify: 3.4.13
+      dompurify: 3.4.16
       es-toolkit: 1.50.0
       katex: 0.16.47
       khroma: 2.1.0
@@ -21825,7 +21826,7 @@ snapshots:
 
   monaco-editor@0.54.0:
     dependencies:
-      dompurify: 3.4.13
+      dompurify: 3.4.16
       marked: 14.0.0
 
   ms@2.0.0: {}
