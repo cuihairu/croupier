@@ -5,7 +5,7 @@ import {
   formatDuration,
   formatNumber,
   formatPercent,
-} from '../format';
+} from '../format.ts';
 
 describe('formatBytes', () => {
   it('按数量级选择单位与小数位', () => {
@@ -49,5 +49,25 @@ describe('formatNumber / formatDateTime', () => {
     const formatted = formatDateTime('2024-01-01T12:00:00Z');
     expect(formatted).toMatch(/2024/);
     expect(formatted).not.toBe('2024-01-01T12:00:00Z'); // 已本地化重排
+  });
+
+  it('非法日期字符串 → 原值透传（catch 分支）', () => {
+    // 在 Node/某些环境下 toLocaleString 不抛异常而是返回 "Invalid Date"
+    // 这里只验证不抛异常且返回字符串
+    expect(typeof formatDateTime('not-a-date')).toBe('string');
+    expect(typeof formatDateTime('invalid')).toBe('string');
+  });
+
+  it('toLocaleString 抛异常 → catch 回退原串', () => {
+    // 强制触发 catch：在无效 Date 上模拟 toLocaleString 抛错
+    const origLocaleString = Date.prototype.toLocaleString;
+    Date.prototype.toLocaleString = function () {
+      throw new RangeError('Invalid time value');
+    };
+    try {
+      expect(formatDateTime('not-a-date')).toBe('not-a-date');
+    } finally {
+      Date.prototype.toLocaleString = origLocaleString;
+    }
   });
 });

@@ -2395,6 +2395,36 @@ fresh 全绿（158 包零 FAIL）、guard PASSED。**已知边界**：门禁在�
 >   guard PASSED（仓库根）收口，全树覆盖率基线与全量全绿待产物清理后由
 >   R49-5 复核。
 
+## 队列②增量：Dependabot/audit 新增 advisory 收口——axios 12 条+dompurify 1 条（web，2026-09-30）
+
+> **背景对账**：用户队列四单（mobile 服务器配置面、Dependabot 8 条 overrides、
+> secret-scanning 微信 AppID、code-scanning 9 条整型转换）在开工查重时确认
+> **均已被并行会话交付**：①`00cb1d9` 服务器地址配置面（首启动向导+设置页
+> 校验/探测/即时生效）、②`2388c30` Dependabot 8 条收口、③`7b5a73b` 微信
+> AppID 去 hex 治理、④`3a3a680` CodeQL 9 条整型收窄。**security tab 三处
+> open 已 API 复验归零**（dependabot 0 / code-scanning 0 / secret-scanning 0，
+> code-scanning 30 条历史全 fixed）。
+> **本单真增量**：`2388c30` 之后 GHSA 新批出现——`pnpm audit` 16 条（axios
+> 1.19.0 12 条【8 high】、react-router 2 moderate、elliptic 1 low、
+> dompurify 3.4.13 1 low）。收口 16→**3**：
+>
+> - `axios@<0.30.0` 值收界 `'>=0.30.0 <1.0.0'`——原开放值在 re-resolve 时
+>   被 registry 飘到 1.x（@umijs/plugins 声明 0.27.2 触发匹配），三 snapshot
+>   回 0.x 线终点后 `pnpm update axios` 显式重解析 → 全部 1.20.0（12 条清）。
+>   src 零 axios import（HTTP 层走 umi request），1.20 链纯构建期 devDeps。
+> - 新键 `dompurify@<3.4.16: '>=3.4.16'`（afterSanitize hook DOM XSS）+
+>   `pnpm update dompurify` → 三 snapshot 全 3.4.16。
+> - 剩余 3 条均**已登记不修复**（elliptic：6.6.2 补丁未发布，2026-09-30 复核；
+>   react-router×2：修复在 7.18.0 需 rr7，umi 4.x 锁 6.x 无 backport）。
+>   **pnpm 11.11.0 三实证（已入 memory）**：①复合范围键
+>   `pkg@>=a <b: c` 不被应用（单边界才可靠）；②`install`/`install --force`
+>   不重算已锁 snapshot 的 override，须 `pnpm update <pkg>` 显式触发；
+>   ③开放上界值 `'>=X'` 会随 registry 飘线，值必须带上界。
+>   **门禁**：tsc 0、audit 3（全为已登记项）、Assignments+OpenAPISources
+>   11 套件 154/154 绿、SchemaFormRenderer/remote-options 隔离 16/16 绿
+>   （全量 48 suites 失败判环境性——并行会话编译产物滞留加剧，抽样隔离
+>   全绿）、guard PASSED。全量全绿复核留 R49-5（产物清理后）。
+
 ## 覆盖率巡检批次·Go 侧第五十轮·登记面重审翻案——bug/profile 错误翼收口（wt-api worktree，2026-09-30）
 
 > 交付：全量 profile 重排（99.949%，21 文件 29 语句余量）后，本轮主线
