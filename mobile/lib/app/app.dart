@@ -1,4 +1,6 @@
-/// App 根装配：冷启动会话探测 → 登录页 / 主壳（底部 Tab）。
+/// App 根装配：冷启动三态分流——
+/// 无存储块（从未配置地址）→ 设置向导；已配置未登录（token 空）→ 登录页
+/// （预填已存地址）；已登录 → 主壳（底部 Tab）。
 library;
 
 import 'package:flutter/material.dart';
@@ -10,6 +12,7 @@ import '../features/login/login_page.dart';
 import '../features/monitoring/monitoring_page.dart';
 import '../features/scope/scope_switcher.dart';
 import '../features/settings/settings_page.dart';
+import '../features/setup/server_setup_page.dart';
 import 'providers.dart';
 
 class CroupierApp extends ConsumerWidget {
@@ -41,8 +44,13 @@ class CroupierApp extends ConsumerWidget {
             ),
           ),
         ),
-        data: (SessionData? session) =>
-            session == null ? const LoginPage() : MainShell(session: session),
+        data: (SessionData? session) {
+          if (session == null) return const ServerSetupPage();
+          if (session.token.isEmpty) {
+            return LoginPage(initialServerUrl: session.serverUrl);
+          }
+          return MainShell(session: session);
+        },
       ),
     );
   }
