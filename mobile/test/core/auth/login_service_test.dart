@@ -82,16 +82,36 @@ void main() {
     );
   });
 
-  test('mustChangePassword / mfaSetupRequired 旗标透传（UI 引导回 Web）', () async {
+  test('mustChangePassword → LoginBlockedException 且不写会话（终止登录）', () async {
     adapter.handler = (options, _) => jsonResponse(200, {
       'token': 'jwt-flag',
       'user': {},
       'mustChangePassword': true,
+    });
+    await expectLater(
+      service.login(username: 'op', password: 'x'),
+      throwsA(
+        isA<LoginBlockedException>().having(
+          (e) => e.message,
+          'message',
+          contains('改密'),
+        ),
+      ),
+    );
+    expect(await store.load(), isNull);
+  });
+
+  test('mfaSetupRequired → LoginBlockedException 且不写会话（引导回 Web 绑定）', () async {
+    adapter.handler = (options, _) => jsonResponse(200, {
+      'token': 'jwt-flag',
+      'user': {},
       'mfaSetupRequired': true,
     });
-    final result = await service.login(username: 'op', password: 'x');
-    expect(result.mustChangePassword, isTrue);
-    expect(result.mfaSetupRequired, isTrue);
+    await expectLater(
+      service.login(username: 'op', password: 'x'),
+      throwsA(isA<LoginBlockedException>()),
+    );
+    expect(await store.load(), isNull);
   });
 
   test('200 但缺 token → invalid_login_response（不当成功处理）', () async {

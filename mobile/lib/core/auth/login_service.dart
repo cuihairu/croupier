@@ -5,8 +5,9 @@
 ///    UI 补动态码后携 `{username, password, totpCode}` 重试；
 /// 3. 成功 `{token, user, lastGameId, lastEnv, mustChangePassword?,
 ///    mfaSetupRequired?}`：token 入 SessionStore，lastGameId/lastEnv
-///    预选 scope；mustChangePassword / mfaSetupRequired 由 UI 引导回 Web
-///    （移动端不做改密/绑定）。
+///    预选 scope；mustChangePassword / mfaSetupRequired → 抛
+///    [LoginBlockedException] 终止登录并引导回 Web（移动端不做改密/绑定，
+///    见 §3.2——带 token 冷启动直进 App 是错误行为）。
 library;
 
 import '../api/api_client.dart';
@@ -15,6 +16,15 @@ import '../storage/session_store.dart';
 
 class MfaRequiredException implements Exception {
   const MfaRequiredException(this.message);
+  final String message;
+
+  @override
+  String toString() => message;
+}
+
+/// 平台策略阻止登录：改密 / TOTP 绑定未完成，须回 Web 处理。
+class LoginBlockedException implements Exception {
+  const LoginBlockedException(this.message);
   final String message;
 
   @override
@@ -48,7 +58,8 @@ class LoginService {
   final SessionStore sessionStore;
 
   /// 双步登录。成功即写会话（token + 预选 scope）并返回结果；
-  /// 需要 TOTP 时抛 [MfaRequiredException]，其余失败抛 [ApiError]。
+  /// 需要 TOTP 时抛 [MfaRequiredException]，改密/绑定未完成时抛
+  /// [LoginBlockedException]（不写会话），其余失败抛 [ApiError]。
   Future<LoginResult> login({
     required String username,
     required String password,
@@ -66,7 +77,7 @@ class LoginService {
       data = await client.post<Map<String, Object?>>(loginPath, body: body);
     } on ApiError catch (e) {
       if (e.status == 401 && e.code == 'mfa_required') {
-        throw const MfaRequiredException('请输入动态验证码');
+        throw MfaRequiredException(e.message);
       }
       rethrow;
     }
@@ -90,6 +101,15 @@ class LoginService {
       mustChangePassword: data['mustChangePassword'] == true,
       mfaSetupRequired: data['mfaSetupRequired'] == true,
     );
+
+    // 旗标=true 终止登录（§3.2）：不写会话，避免冷启动带 token 直进 App。
+    if (result.mustChangePassword || result.mfaSetupRequired) {
+      throw LoginBlockedException(
+        result.mustChangePassword
+            ? '请回 Web 端完成改密后重新登录'
+            : '请回 Web 端绑定 TOTP 后重新登录',
+      );
+    }
 
     await sessionStore.save(
       SessionData(
