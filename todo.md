@@ -2491,3 +2491,36 @@ fresh 全绿（158 包零 FAIL）、guard PASSED。**已知边界**：门禁在�
 > api/assignment/gate.go（BUG-035 域）——各 2 语句。
 > 门禁：触及文件 gofmt 干净、go vet 干净、go test ./internal/...
 > 全绿（fresh，恢复窗口执行）。
+
+## 覆盖率补缺·web 侧 Functions/Instances 页面本体收口（wt-ui worktree，2026-09-30）
+
+> 选靶：全量 v8 扫描 0% 排行首位 = `Functions/Instances/index.tsx`
+> （634 行页面组件真 0%）——import 面核验防「目录已有测试」误判：域内
+> 既有 2 套件只打 InstanceDetailDrawer，`grep "from '\.\./"` 无人
+> import `../index`；origin/main 撞车核验通过（上游无 index 测试、
+> 域内 ?? 仅洪水产物与我方新文件）。
+> 交付：新建 `__tests__/index.test.tsx`（5 describe / 17 用例全绿），
+> `index.tsx` v8 覆盖 **lines 100 / branches 96.4 / functions 100 /
+> statements 100**。锁定链：加载归一+竞态 fetchId 守卫、概览统计
+> （healthy||running、split 前缀 ||'other'、coverage 缺省兜底）、失败
+> 三翼、descriptor 下拉（summary??description 本地化、无 id 跳过、
+> 失败不阻断、cancelled 卫兵）、filterOption 三翼、筛选链（trim+
+> lowercase、状态三档、三条件叠加 join、清空复位、空态两翼）、行回调
+> 与三弹层接线（含抽屉内联动+关闭余弹层）。
+> **已知边界（头注登记四组结构不可达翼，即 96.4% 全部缺口）**：
+> ① coveredFunctions `count>0` 谓词假翼（计数恒≥1）；② L141 lastSeen
+> 内层 `|| ''` 第三操作数（外层三元已保证真值）；③ L495 filterOption
+> `if(!q)` 空串早退（antd6 仅 searchValue 非空才调 filterOption，
+> change('') 实测不触发）；④ L500-506 `o.value??''`/`o.summary??''`
+> 右翼（functionOptions 恒产非空 value 与 string summary）。
+> 门禁：eslint 0 error（49 条均既有 warning）、`pnpm run tsc` 0 错、
+> `dashboard_vnext_guard.sh` PASSED、目标套件隔离 17/17、全量 jest
+> 362/363 套件 4469/4470 用例（load<10 连续双检后起跑）——唯一红
+> `Operations/Configs/__tests__` 为他会话未跟踪 WIP（`??` 整目录未
+> 追踪 + 同目录洪水孪生），空载隔离复跑仍 1/15 红 = 确定性 WIP 缺陷，
+> 按惯例登记不代修（前批同签名）。
+> 生成物纪律：Instances 目录 7 个洪水孪生（index.jsx/columns.jsx/
+> 三弹层.jsx/shared.js/locales）不删不提交；坑 13 序修正配置
+> `jest.coverage-order.config.ts` 用后即删不入库。偏离注明：派发写
+> 「push 前 fetch --rebase」，已推送分支按铁律改 merge 同步 origin/main
+> 后 FF push。
