@@ -26,6 +26,22 @@ class SessionData {
   bool get hasCompleteScope =>
       gameId.trim().isNotEmpty && env.trim().isNotEmpty;
 
+  SessionData copyWith({
+    String? token,
+    Map<String, Object?>? user,
+    String? gameId,
+    String? env,
+    String? serverUrl,
+  }) {
+    return SessionData(
+      token: token ?? this.token,
+      user: user ?? this.user,
+      gameId: gameId ?? this.gameId,
+      env: env ?? this.env,
+      serverUrl: serverUrl ?? this.serverUrl,
+    );
+  }
+
   Map<String, Object?> toJson() => {
     'token': token,
     'user': user,

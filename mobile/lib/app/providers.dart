@@ -18,6 +18,19 @@ final sessionFutureProvider = FutureProvider<SessionData?>(
   (ref) => ref.watch(sessionStoreProvider).load(),
 );
 
+typedef ApiClientFactory = ApiClient Function(String baseUrl);
+
+/// 按需装配 API 客户端（serverUrl 登录后来自会话；登录前由用户输入）。
+/// 401 时 invalidate 会话探测，App 根自动切回登录页。
+final apiClientFactoryProvider = Provider<ApiClientFactory>((ref) {
+  final store = ref.watch(sessionStoreProvider);
+  return (baseUrl) => ApiClient.create(
+    baseUrl: baseUrl,
+    sessionStore: store,
+    onUnauthorized: () => ref.invalidate(sessionFutureProvider),
+  );
+});
+
 typedef LoginServiceFactory = LoginService Function(String baseUrl);
 
 /// 按 serverUrl 现场装配登录服务——服务器地址登录前由用户输入，

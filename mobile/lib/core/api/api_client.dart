@@ -100,4 +100,14 @@ class ApiClient {
       throw ApiError.fromDio(e);
     }
   }
+
+  /// PUT 并归一响应/错误。
+  Future<T> put<T>(String path, {Object? body, Options? options}) async {
+    try {
+      final res = await dio.put<T>(path, data: body, options: options);
+      return res.data as T;
+    } on DioException catch (e) {
+      throw ApiError.fromDio(e);
+    }
+  }
 }

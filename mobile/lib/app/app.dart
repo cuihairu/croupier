@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/storage/session_store.dart';
 import '../features/login/login_page.dart';
+import '../features/scope/scope_switcher.dart';
 import 'providers.dart';
 
 class CroupierApp extends ConsumerWidget {
@@ -45,7 +46,7 @@ class CroupierApp extends ConsumerWidget {
   }
 }
 
-/// 已登录占位首页：验证会话链路用（用户名 + 当前 scope + 登出）。
+/// 已登录占位首页：验证会话 + scope 链路用（底部 Tab router 壳在下一片替换）。
 class HomeStub extends ConsumerWidget {
   const HomeStub({required this.session, super.key});
 
@@ -60,6 +61,7 @@ class HomeStub extends ConsumerWidget {
           username is String && username.isNotEmpty ? username : '已登录',
         ),
         actions: [
+          const ScopeSwitcher(),
           IconButton(
             icon: const Icon(Icons.logout),
             tooltip: '退出登录',
@@ -74,7 +76,7 @@ class HomeStub extends ConsumerWidget {
         child: Text(
           session.hasCompleteScope
               ? '${session.gameId} / ${session.env}'
-              : '未选择 scope（scope 选择器在下一片）',
+              : '未选择 scope',
         ),
       ),
     );
