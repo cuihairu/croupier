@@ -2184,3 +2184,30 @@ fresh 全绿（158 包零 FAIL）、guard PASSED。**已知边界**：门禁在�
 > 测试避免该路径）。
 > 门禁：目标套件 5/5 绿（4×100%）、eslint 0、tsc 0 错、guard PASSED、
 > 全量 jest 口径见交付说明。
+
+## 2026-09-30 Round 46（wt-api）：Ops/AnalyticsFilters 覆盖收口 97.15/89.79/100/97.15——零测试页排行第十
+
+> 覆盖率巡检第十站：`web/src/pages/Ops/AnalyticsFilters/index.tsx`（281 行 0%）。
+> 8 用例，行/语句/函数 97.15/97.15/100、分支 89.79%，无页面缺陷（纯补测）。
+> 锁定契约——挂载映射矩阵（label 链 displayName→aliasName→name、envs 直取/
+> envMeta 回退含空串与 null 条目过滤/双缺 []、name 空 Filter 出列）、
+> 游戏/环境联动（切游戏清 env + 选项重建 + canQuery 双条件门：未选齐双按钮
+> disabled）、加载主链（{gameId,env} 载荷 + events||[]/paymentsEnabled!==false/
+> sampleGlobal??100 三归一 + 事件数 Tag/支付红禁用/采样 50 gold）、加载缺省
+> （{} → 全部允许/允许上报/100 绿）与失败（加载失败）、保存主链（全字段
+> 载荷 + 已保存）与失败（保存失败（需要 analytics:manage 权限））、交互面
+> （InputNumber 改值与清空 → Number(v||0) 0 兜底、Switch 双态文案与 Tag、
+> 事件 tags Select 增 tag → 事件数 1）。
+> **坑实证（新档，三条）**：① antd6 Select 选中值有 aria-live 镜像双 DOM
+> （getByText 'beta' 双命中），按 Select 根 textContent 聚合断言；② 摘要条
+> 的 FormattedMessage 与 {gameId||'-'} 是同级文本节点（无独立元素可锚），
+> 按 .ant-card-body toHaveTextContent 聚合；③ 两字中文 Button 自动插空格
+> （加 载/保 存），getByRole name 用 /加\s*载/ 正则。
+> 登记不可达（5 处防御分支，不造假用例不删分支）：save 的 !canQuery
+> warning 早退体（77-84 行 8 语句，按钮 disabled jsdom 不派发）、label 链尾
+> 'Unknown'（幸存行 name 恒真）、(r?.games||[]) 双右臂（服务契约恒返
+> {games:[]}，构造 undefined 违反返回类型即造假）、selectedGame?.envs 的 ?.
+> 右臂（gameId 恒来自同数组选项）、listGamesMeta catch{} 静默翼（reject 与
+> 空 resolve 在 DOM 不可区分）。
+> 门禁：目标套件 8/8 绿、eslint 0、tsc 0 错、guard PASSED、全量 jest
+> 口径见交付说明。
