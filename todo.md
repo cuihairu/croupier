@@ -2285,3 +2285,36 @@ fresh 全绿（158 包零 FAIL）、guard PASSED。**已知边界**：门禁在�
 > api/assignment/gate.go（BUG-035 域）——各 2 语句。
 > 门禁：触及文件 gofmt 干净、go vet 干净、go test ./internal/...
 > 全绿（fresh，恢复窗口执行）。
+
+## 覆盖率补缺 R49：mobile 审计/会话域 + web NodeDetailDrawer/OpenAPISources（主树，2026-09-30）
+
+> **R49-1（`cf336c9` 已推送）**：mobile 90.71%→**94.29%**（1898/2013）——
+> audit_controller 81/81=100%（StateError 透传、loadMore 双 guard 含 Completer
+> 门控防竞态、AuditFilters 契约）、audit_page 175/175=100%（加载更多/空附加
+> 信息 metadata 空 map 令 `==null||`短路右侧求值、下拉刷新、自定义 chip、
+> 时间区间 RFC3339 归一——M3 DateRangePickerDialog 确认按钮是 **Save** 非 OK、
+> 宽屏双月 `.first` 取当月）、session_store 58/58=100%（FakeSecurePlatform
+> 内存实现绕 MethodChannel；SessionData 无 == 重载须逐字段断言）；
+> fake_dio_adapter handler 放宽 `FutureOr<ResponseBody>` 支持挂起门控。
+> web NodeDetailDrawer 11.6%→**100% 行**（22 用例）——**修真实缺陷**：
+> 时间窗 onClick 手动 load + useCallback 重建触发 useEffect 重放，末次调用把
+> limit 覆盖回 50；改默认 limit 随窗口放大（5m→50/1h→120/长窗→200）+ onClick
+> 只 set 状态由 effect 统一驱动（消除双请求）。
+> **R49-2（本批）**：web OpenAPISources/index.tsx 60.4%（335 miss）→
+> **97.2%（822/846）**，30 用例（子组件 SourceModal/BindingModal/
+> SourceDetailDrawer/PipelineSummaryModal 替身接管回调，驱动页面自身全分支：
+> 加载失败/只读/详情/创建/更新/绑定/解绑/守卫）；全树 **97.63%→98.10%**
+> （93728/95548）。**登记不可达（24 行，三处 UI 不可达守卫）**：
+> 214-221 submitSource noWrite 早退、227-234 update 态 editingSource=null 早退、
+> 333-340 submitBinding noWrite 早退——只读时入口按钮与弹窗均不渲染、update
+> 态 editingSource 与 modal 同批置位恒非 null，无任何交互路径可达。
+> **坑实证（新档四条）**：① PageContainer extra 按钮 accessible name 含图标
+> aria-label 前缀（`reload 刷新`），getByRole name 须正则；② 运行时候选 label
+> 的 `runtimeAgent` 词条无 defaultMessage（语言包外置），mock useIntl 须按 id
+> 特判注入 agent 值；③ 绑定提交前 guard（operation 无 functionId）须先点候选
+> 按钮选函数，否则 warning 早退、bind 服务零调用（初次 4 用例集体挂同根）；
+> ④ jest.mock 工厂内闭包引用模块级变量须惰性（解构进 props 时才读），声明位置
+> 不影响——但 const 的 TDZ 仍受声明顺序约束（SPEC_JSON 供 DETAIL 前须先声明）。
+> 门禁：OpenAPISources 3 套件 39/39 绿、全量 jest **4358/4359**（唯一失败
+> Functions/History「刷新双拉」在隔离重跑 16/16 绿——173.6s vs 60.7s 负载竞态，
+> 与改动零交集）、tsc 0、eslint 0；R49-1 侧 flutter analyze/test 188 全绿。
