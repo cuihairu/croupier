@@ -38,6 +38,7 @@ void main() {
   }
 
   testWidgets('切换器：打开弹层列游戏，选 env 后持久化并更新顶栏', (WidgetTester tester) async {
+    var scopePutBody = '';
     adapter.handler = (options, _) {
       final path = options.uri.path;
       if (path == '/api/v1/profile/games') {
@@ -52,7 +53,15 @@ void main() {
         });
       }
       if (path == '/api/v1/profile/scope') {
+        scopePutBody = adapter.lastBody ?? '';
         return jsonResponse(200, {'ok': true});
+      }
+      // MainShell 挂载后审批域请求：给合法空数据，避免噪音
+      if (path == '/api/v1/approvals/') {
+        return jsonResponse(200, {'approvals': <Object>[], 'total': 0});
+      }
+      if (path == '/api/v1/functions/descriptors') {
+        return jsonResponse(200, {'items': <Object>[]});
       }
       return jsonResponse(404, {'error': 'not_found', 'message': path});
     };
@@ -74,11 +83,11 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('scope-env-demo-prod')));
     await tester.pumpAndSettle();
 
-    // 弹层关闭，顶栏与正文展示新 scope；PUT body 正确
+    // 弹层关闭，顶栏展示新 scope；PUT body 正确（捕获变量，lastRequest 已被
+    // 后续审批域请求覆盖）
     expect(find.byKey(const ValueKey('scope-env-demo-prod')), findsNothing);
-    expect(find.text('demo / prod'), findsNWidgets(2));
-    expect(adapter.lastRequest?.path, '/api/v1/profile/scope');
-    expect(adapter.lastBody, contains('"env":"prod"'));
+    expect(find.text('demo / prod'), findsOneWidget);
+    expect(scopePutBody, contains('"env":"prod"'));
     expect((await store.load())?.env, 'prod');
   });
 
@@ -93,7 +102,8 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('scope-switcher')));
     await tester.pumpAndSettle();
 
-    expect(find.text('服务不可用'), findsOneWidget);
-    expect(find.text('重试'), findsOneWidget);
+    // 弹层与底层审批列表同走 500，两处都展示服务端 message
+    expect(find.text('服务不可用'), findsWidgets);
+    expect(find.text('重试'), findsWidgets);
   });
 }
