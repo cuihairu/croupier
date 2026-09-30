@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/storage/session_store.dart';
 import '../features/approvals/approvals_page.dart';
 import '../features/login/login_page.dart';
+import '../features/monitoring/monitoring_page.dart';
 import '../features/scope/scope_switcher.dart';
 import '../features/settings/settings_page.dart';
 import 'providers.dart';
@@ -48,7 +49,7 @@ class CroupierApp extends ConsumerWidget {
 }
 
 /// 已登录主壳：底部 Tab（§2.1 审批为默认着陆 Tab；
-/// 监控 M2 / 设置下一片交付）。
+/// 监控大盘 M2 起真页面，设备/告警/审计由大盘入口进入）。
 class MainShell extends ConsumerStatefulWidget {
   const MainShell({required this.session, super.key});
 
@@ -83,11 +84,7 @@ class _MainShellState extends ConsumerState<MainShell> {
       ),
       body: IndexedStack(
         index: _tab,
-        children: const [
-          ApprovalsPage(),
-          Center(child: Text('监控大盘（M2 交付）')),
-          SettingsPage(),
-        ],
+        children: const [ApprovalsPage(), MonitoringPage(), SettingsPage()],
       ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _tab,
