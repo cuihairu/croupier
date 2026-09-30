@@ -2570,3 +2570,51 @@ fresh 全绿（158 包零 FAIL）、guard PASSED。**已知边界**：门禁在�
 > 用例真实触达，其余不造假 reject 场景。
 > 门禁：目标套件 12/12 绿、`pnpm --dir web run tsc` 0 错、eslint/prettier
 > 干净、guard PASSED；全量 jest 负载口径见交付说明。
+
+## 第二十轮：角色管理页覆盖收口 + 附带修定表单脱管缺陷（Permissions/RolesV2，2026-09-30）
+
+> **交付（2026-09-30，wt-pages worktree）**：覆盖率补缺轮——零测试簇排行现席
+> `Permissions/RolesV2/index.tsx`（312 行，簇内无任何测试文件）单件收口，
+> 新增 `__tests__/index.test.tsx` 12 用例，v8 口径 **行/语句/函数 100%、
+> 分支 94.73%**（余 2 翼即登记边界，见下）。
+>
+> **附带修定一处真缺陷（回归锁定）**：两个 Form.Item（name/description）
+> 原为 `{' '}<Input />{' '}` 三元素数组子节点——antd Form.Item 源码
+> `Array.isArray(mergedChildren) && hasName` 分支只 warning 不做
+> cloneElement 控制注入（同 Round 40 RateLimits 同族）：输入脱管 form
+> store——新建 name 恒 undefined 过不了 required（新增角色不可用）、
+> 编辑键入不落 store（提交恒初始值）、label htmlFor 无 id 可指。
+> 修法：去掉 `{' '}` 恢复单子节点；套件对未修页面实跑取证后修定，
+> 「键入值进载荷」「回填显示」两断言即回归锁。
+>
+> 锁定契约——挂载首拉 {page:1,pageSize:10} + 列头/三按钮/showTotal；
+> 权限列 slice(0,6) + 缺字段行 (arr||[]) 右翼；响应归一（缺 total 回落
+> items 长度 `共 2 条`、{} 空表）；分页 onChange 参数透传；新增（required
+> 拦截 + 载荷 + `已创建 #7` + 重拉 + destroyOnHidden 卸载）；编辑（回填
+> 显示 + 改值载荷 + 失败弹窗保持）；权限弹窗（标题内插 + 8 权限回显 +
+> 追加 tag 载荷 + 失败保持）；删除 Popconfirm 主链；description undefined
+> 直传态（新增失败载荷断言）。
+>
+> **坑实证（新档，四条）**：① 分页 showSizeChanger 的 Select 在主内容区、
+> DOM 序先于 portal 弹窗——`querySelector('.ant-select')` 打到 page-size
+> 选择器（表象 tags 输入无反应、载荷恒 []），Select 锚必须限 `.ant-modal`；
+> ② antd6 Pager 是 `<li title onClick><a rel=nofollow>`，a 无 href 无
+> button/link role——翻页点击落 `.ant-pagination-item-N` 的 li 本体；
+> ③ total=0 时 antd Table 不渲染分页（`共 0 条` 不可见）——空态锚
+> `.ant-empty-description`（与 Empty svg 内 `<title>No data</title>`
+> 同文双命中须 selector 收窄）；④ 弹窗标题与工具栏按钮同文本锚
+> `.ant-modal-title`；同用例多渲一次会多吃一个 mockResolvedValueOnce
+> 队列（unmount 取自首渲）。
+>
+> **边界（诚实清单，不造假用例不删防御分支）**：分支余量 2 处恰为登记
+> 项——submitPerms `if (!editing) return false` 守卫（openPerms 先置
+> editing，构造性不可达）与 `v.permissions || []` 右翼（initialValues
+> 恒设键，undefined 违反表单值契约）；refresh/remove 无 catch 按同族
+> 页面口径不造假 reject；description 直传无分支差异，'' 显式清空态与
+> undefined 走同一行不另铺用例。
+>
+> 门禁：目标套件 12/12 绿（格式化后复跑同绿）、`pnpm --dir web run tsc`
+> 0 错、eslint/prettier 干净、`scripts/dashboard_vnext_guard.sh` PASSED；
+> 全量 jest 默认 worker（起跑负载 ~9，跑中升至 28-31 并行会话占机）：
+> 361 套件 4421 用例，4420 绿 + 唯一失败 Extensions/Store 190s 超时形态
+> （既有绿套件，负载回落后隔离复跑 31/31 绿定责负载型非回归）。
