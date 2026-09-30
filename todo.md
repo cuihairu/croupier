@@ -2425,6 +2425,23 @@ fresh 全绿（158 包零 FAIL）、guard PASSED。**已知边界**：门禁在�
 >   （全量 48 suites 失败判环境性——并行会话编译产物滞留加剧，抽样隔离
 >   全绿）、guard PASSED。全量全绿复核留 R49-5（产物清理后）。
 
+### 队列②收尾残留：docs 工作区 dompurify #413（docs，2026-09-30）
+
+> e3c0f 系列（web 侧 16→3）落地后，dependabot 新冒 **#413**（唯一 open）：
+> 同款 dompurify >=3.4.13 <=3.4.15 advisory（afterSanitize hook DOM XSS，
+> patched 3.4.16），manifest 为 **docs/pnpm-lock.yaml**——docs 子工作区
+> 独立 lockfile 同样被扫。处理与 web 同款：`docs/pnpm-workspace.yaml`
+> 增单边界键 `dompurify@<3.4.16: ">=3.4.16"` + `pnpm update dompurify`
+> 重解析落锁（lock 三处 3.4.13→3.4.16）。docs `pnpm audit` 余 4 条均为
+> vitepress 1.6.4 依赖链 vite/vitepress 已登记「保留不修复」项（#50/#151/#152，
+> vitepress 1.x 锁 vite ^5 强制 6.x 构建失败）。lint-staged prettier 将
+> pnpm 11 update 产生的 lockfile 格式噪音重排抵消，提交实质 diff +9/-4；
+> 提交后 `pnpm install` 复验 lock 一致（Already up to date，无新漂移）。
+> **门禁**：`cd docs && pnpm build` 过（110.15s）。commit `965649f`
+> （merge 上游 6 提交后快进推送）。
+> **三 tab 终态归零 API 复验**：dependabot 0 / code-scanning 0 /
+> secret-scanning 0——用户指令「做完回报三个 security tab open 归零」达成。
+
 ## 覆盖率巡检批次·Go 侧第五十轮·登记面重审翻案——bug/profile 错误翼收口（wt-api worktree，2026-09-30）
 
 > 交付：全量 profile 重排（99.949%，21 文件 29 语句余量）后，本轮主线
