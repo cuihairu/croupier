@@ -47,7 +47,8 @@ export default function NodeDetailDrawer({
       try {
         const entries = await getAgentMetricsHistory(agentId, {
           since: since || new Date(Date.now() - metricsMinutes * 60 * 1000).toISOString(),
-          limit: limit || 50,
+          // 默认取数上限随时间窗放大（短窗 50，长窗 200），避免长窗被 50 条截断。
+          limit: limit || (metricsMinutes === 5 ? 50 : metricsMinutes === 60 ? 120 : 200),
         });
         setMetricsHistory(entries || []);
       } catch (error) {
@@ -494,17 +495,10 @@ export default function NodeDetailDrawer({
                     key={range.value}
                     size="small"
                     type={metricsMinutes === range.value ? 'primary' : 'default'}
-                    onClick={() => {
-                      setMetricsMinutes(range.value);
-                      if (node?.agentId) {
-                        const since = new Date(Date.now() - range.value * 60 * 1000).toISOString();
-                        loadMetricsHistory(
-                          node.agentId,
-                          since,
-                          range.value === 5 ? 50 : range.value === 60 ? 120 : 200,
-                        );
-                      }
-                    }}
+                    // 只改窗口状态：metricsMinutes 驱动 loadMetricsHistory 重建，
+                    // useEffect 自动以新窗口的 since/limit 重载（避免双请求，
+                    // 且旧写法手动 load 的 limit 会被 effect 重放覆盖回默认）。
+                    onClick={() => setMetricsMinutes(range.value)}
                   >
                     {range.label}
                   </Button>
