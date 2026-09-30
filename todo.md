@@ -2617,4 +2617,72 @@ fresh 全绿（158 包零 FAIL）、guard PASSED。**已知边界**：门禁在�
 > 0 错、eslint/prettier 干净、`scripts/dashboard_vnext_guard.sh` PASSED；
 > 全量 jest 默认 worker（起跑负载 ~9，跑中升至 28-31 并行会话占机）：
 > 361 套件 4421 用例，4420 绿 + 唯一失败 Extensions/Store 190s 超时形态
-> （既有绿套件，负载回落后隔离复跑 31/31 绿定责负载型非回归）。
+> （既有绿套件，负载回落后隔离复跑 31/31 绿定责负载型非回归）。> **CI 处置（287efcb，test-only 推送后四 run 判形）**：
+> CodeQL ✅、CI-Core ✅（全 Go 测试含本新用例在内）；Docker 首挂
+> （`Build and push Docker image` 15min step 超时，日志唯一 error 为 timeout、
+> 无编译错误；test-only 改动不进 `go build`，同树其余 4 镜像全绿）→ rerun
+> **全绿**（5 构建 + 5 supply-chain 全 success）。Dashboard
+> `dashboard-quality` attempt 1 挂（shutdown signal、151k 行零 ✕）→ 按探针
+> 协议先验后代：`cf336c9` 同 job 同签名挂（142k 行零 ✕，窗口仍活，不盲重试）
+> → 等 `767ab2b` 探针整绿（窗口开）→ rerun attempt 2 **同签名再挂**
+> （142k 行零 ✕，19:44 被回收时套件仍 PASS）→ 按既定处置**终止重试、以证据
+> 链定案**：本改动仅新增 Go 测试文件 + 本台账（不触 web/，jest 与本提交无
+> 交集），dashboard-quality 本体在 `3a3a680`/`7b5a73b`/`767ab2b` 多次整绿可
+> 证，两次失败均零真实用例失败——判 GitHub hosted runner 当日概率性回收
+> （基础设施退化），非本提交回归。已知边界：若该 workflow 后续持续同签名挂，
+> 属 runner 侧问题，排查口径见记忆档 ci-dashboard-runner-shutdown-signature。
+
+## 覆盖率补缺 R49：mobile 审计/会话域 + web NodeDetailDrawer/OpenAPISources（主树，2026-09-30）
+
+> **R49-1（`cf336c9` 已推送）**：mobile 90.71%→**94.29%**（1898/2013）——
+> audit_controller 81/81=100%（StateError 透传、loadMore 双 guard 含 Completer
+> 门控防竞态、AuditFilters 契约）、audit_page 175/175=100%（加载更多/空附加
+> 信息 metadata 空 map 令 `==null||`短路右侧求值、下拉刷新、自定义 chip、
+> 时间区间 RFC3339 归一——M3 DateRangePickerDialog 确认按钮是 **Save** 非 OK、
+> 宽屏双月 `.first` 取当月）、session_store 58/58=100%（FakeSecurePlatform
+> 内存实现绕 MethodChannel；SessionData 无 == 重载须逐字段断言）；
+> fake_dio_adapter handler 放宽 `FutureOr<ResponseBody>` 支持挂起门控。
+> web NodeDetailDrawer 11.6%→**100% 行**（22 用例）——**修真实缺陷**：
+> 时间窗 onClick 手动 load + useCallback 重建触发 useEffect 重放，末次调用把
+> limit 覆盖回 50；改默认 limit 随窗口放大（5m→50/1h→120/长窗→200）+ onClick
+> 只 set 状态由 effect 统一驱动（消除双请求）。
+> **R49-2（本批）**：web OpenAPISources/index.tsx 60.4%（335 miss）→
+> **97.2%（822/846）**，30 用例（子组件 SourceModal/BindingModal/
+> SourceDetailDrawer/PipelineSummaryModal 替身接管回调，驱动页面自身全分支：
+> 加载失败/只读/详情/创建/更新/绑定/解绑/守卫）；全树 **97.63%→98.10%**
+> （93728/95548）。**登记不可达（24 行，三处 UI 不可达守卫）**：
+> 214-221 submitSource noWrite 早退、227-234 update 态 editingSource=null 早退、
+> 333-340 submitBinding noWrite 早退——只读时入口按钮与弹窗均不渲染、update
+> 态 editingSource 与 modal 同批置位恒非 null，无任何交互路径可达。
+> **坑实证（新档四条）**：① PageContainer extra 按钮 accessible name 含图标
+> aria-label 前缀（`reload 刷新`），getByRole name 须正则；② 运行时候选 label
+> 的 `runtimeAgent` 词条无 defaultMessage（语言包外置），mock useIntl 须按 id
+> 特判注入 agent 值；③ 绑定提交前 guard（operation 无 functionId）须先点候选
+> 按钮选函数，否则 warning 早退、bind 服务零调用（初次 4 用例集体挂同根）；
+> ④ jest.mock 工厂内闭包引用模块级变量须惰性（解构进 props 时才读），声明位置
+> 不影响——但 const 的 TDZ 仍受声明顺序约束（SPEC_JSON 供 DETAIL 前须先声明）。
+> 门禁：OpenAPISources 3 套件 39/39 绿、全量 jest **4358/4359**（唯一失败
+> Functions/History「刷新双拉」在隔离重跑 16/16 绿——173.6s vs 60.7s 负载竞态，
+> 与改动零交集）、tsc 0、eslint 0；R49-1 侧 flutter analyze/test 188 全绿。
+> **R49-3（本批）**：web OpenAPISources 三文件拉满——SourceDetailDrawer.tsx
+> 39.8%→**100% 行**（16 用例：概要卡三态/诊断空双臂/三 severity Tag 色/
+> operationLabel 三臂/六契约 Tag 二态/approval 兜底/绑定回调/Popconfirm 删除/
+> 只读三按钮省略/原始 JSON 回退）、DiagnosticsList.tsx 27.6%→**100%**（经
+> drawer 真渲染联动）、shared.ts 55.6%（70/126）→**100%（126/126）**——
+> 12 导出纯函数专项：errorMessage 三臂/diagnosticsFromError isDiagnostic
+> 过滤/五色函数缺省臂/formatDate 空·非法·合法/functionLabel 三级回退/
+> operationLabel 三臂/proposalInboxPath 拼接/parseOpenAPIDocument 四类非法
+> JSON（错误文案经模块级 getIntl()）。全树 **98.10%→98.35%**
+> （93976/95548，+248 语句）。**登记不可达（分支）**：SourceDetailDrawer
+> 245-252 行 `diagnostics || []` 右臂——条件 237 行已判 length===0 才进
+> else，此时 diagnostics 必非空，防御性兜底不可达（行覆盖 100%、分支 96.29%）。
+> **坑实证（新档三条）**：① 双臂用例同文断言——antd Drawer 经 portal 挂
+> document.body，两次 render 并存时 `无诊断` 同文两处 findByText 报
+> multiple，前臂须显式 unmount 再渲后臂；② `localizedText` zh-CN 缺失时
+> 回退 en-US——functionLabel 断言「summary 仅 en-US」期望 id 兜底实为
+> en-US 命中（OnlyEn (fn.d)），三级回退的「皆空臂」须 summary 整体缺失；
+> ③ Popconfirm 确认键在 `.ant-popconfirm .ant-btn-primary`（portal 查询，
+> findBy* 不可见），须 waitFor 内 querySelector 断非空后 fireEvent。
+> 门禁：OpenAPISources 5 套件 **80/80** 绿、全量 jest **4399/4400**（唯一
+> 失败 Functions/History 150.5s 超时，隔离重跑 16/16 绿 41.5s——R49-2 同款
+> 负载竞态，本批零源码改动）、tsc 0、eslint 0、guard PASSED（仓库根）。
