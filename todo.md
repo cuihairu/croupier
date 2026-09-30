@@ -2397,3 +2397,51 @@ fresh 全绿（158 包零 FAIL）、guard PASSED。**已知边界**：门禁在�
 >   四套件复证 53/53 全绿，CI 无洪水必绿；坑 13 规模化再实证）。
 > - **已知边界**：本轮未改任何产品代码（纯守卫复验+合并让路，guard 未红
 >   故无回归断言需求）；不删他人未跟踪洪水文件。
+
+## 2026-09-30 wt-ui 覆盖率补缺轮：Functions/Directory/index.tsx（全仓最大零覆盖页面 651 行 → 4×100%）
+
+- **靶点选定依据**：全量 v8 扫描（357 套件插桩口径）0% 排行 + 撞车核验——
+  Directory/**tests** 既有 6 测试文件全部只打 hook/columns/schema/BatchFloorModal
+  （无人 import `../index`），origin/main 无 index.test.tsx，`??` 在途域图干净
+  （Functions 域全部为 09:16 洪水 .jsx/.js 孪生）。「目录已有测试所以已覆盖」
+  是扫描后的第一误判，import 面核实后推翻。
+- **新增** `web/src/pages/Functions/Directory/__tests__/index.test.tsx`（17 例）：
+  - summary 汇总（enabled 过滤、resource 缺省并入「未声明」参与 distinct、
+    operation 真值计数、topResource 降序取首 + 空数据兜底翼、紫 Tag 条件翼）；
+  - 三处导航回调（resource-catalog 直跳 ×2、测试调用 selectedFunction 有无两翼
+    走 buildInvokePath vs /functions/invoke）；
+  - 空范围提示（!loading && 空表双翼、scope.gameId/env 缺省 '-' 兜底）；
+  - 批量门槛链（已选 N 项、设置门槛/取消选择回调、Popconfirm 清除 →
+    applyBatchFloor('')、BatchFloorModal 桩锁 props 接线含 versionIndex 去重并集
+    与 onSubmit/onClose 回流、open=false 翼）；
+  - ProTable 透传（行渲染 + showTotal 共 N 个函数）；
+  - 详情抽屉富/贫/无三形态（version/resource/operation/instances 四缺省兜底、
+    enabled 徽标双翼、displayName/summary/tags 三卡条件渲染、drawerActions
+    extra、onClose 回调、Footer 双导航、关闭态不渲染）。
+  - mock 口径：useDirectoryPage 整体 mock（hook 面已由既有 4 文件覆盖）、
+    BatchFloorModal 桩（内部自有测试）、antd/pro-components 真实渲染；
+    antd6 坑实证：带图标 Button 的可访问名含图标前缀（apartment/play-circle），
+    name 精确串匹配不到，须正则。
+- **覆盖率**：index.tsx lines/statements/branches/functions = 100/100/100/100
+  （651 行 0% 起，无登记不可达翼）。
+- **门禁实况**：tsc 0 错误；guard PASSED；全量 jest 361 套件 356 绿
+  （4426/4431），新套件在列 PASS；5 红全数环境性/WIP 定性——
+  ① 4 套件 5000ms 超时形状（previewActions/SelectorSyncReportModal/
+  compositeCascade/visible-when），负载 30-54 中段跑出，隔离复跑 4/4 全绿实证；
+  ② Configs WIP ×1（他会话未跟踪 `?? Operations/Configs/__tests__/`，origin/main
+  无此目录，确定性断言失败非超时——归属其交付链，不代修）。
+- **环境事件（坑 13 延伸）**：本机今日负载风暴两轮（load 100-190 持续 ~2.5h，
+  他会话 java/VBCSCompiler 构建洪峰）。首轮 90 分钟 fallback 起跑的全量门禁
+  在 load 127 起跑 → 10+ 红全为超时噪音（含 100 分钟前刚验证 47/47 绿的
+  columns.test.tsx），判定数据不可用已杀掉；二轮门禁改「连续双检 load1<10」
+  起跑（8.87 过线），中段负载仍回升 54。红集随负载漂移（两轮全量红集交集仅
+  Configs）→ 红集漂移本身即环境性证据，隔离复跑为终审。
+- **生成物纪律（本批同步落地）**：.gitignore 追加 4 条——`web/config/*.js`、
+  `web/config/*.js.map`、`web/**/*.js.map`、`web/**/*.jsx.map`（依据：全仓零
+  tracked .map、web/config 零 tracked .js，tsc 转译产物不入库；不 ignore .jsx
+  本体防未来真实 jsx 源被吞）。临时序修正配置 `web/jest.coverage-order.config.ts`
+  （坑 13 洪水遮蔽解法，整份复制项目配置仅调 moduleFileExtensions 序）门禁后
+  删除，不入库。
+- **已知边界**：intro「测试函数调用」依赖的 selectedFunction 由行点击链设置
+  （hook 域），本文件经 mock 直供两翼值不经表格交互；BatchFloorModal 内部
+  交互（版本选择/提交链）由其自有测试覆盖，本文件只锁页面侧接线。
