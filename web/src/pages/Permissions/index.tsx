@@ -104,9 +104,15 @@ const PermissionsPage: React.FC = () => {
           <a
             key="edit"
             onClick={async () => {
-              setEditing(r);
+              // 先取权限再开窗：permDraft 与 editing 同批落 state，弹窗内容以
+              // 最新 draft 挂载。若先 setEditing，ModalForm 字段会在旧 draft
+              // （首次为 {}）上挂载而 initialValue 不再重放——编辑态
+              // verbs/scopes 恒空显示，且 tags 增删会整组覆盖 store 值，
+              // 提交即丢失既有 verbs/scopes/i18n（回归锁定见 __tests__）。
               const perm = await fetchPermissions(r.id);
               setPermDraft(perm || {});
+              setFormI18nKeys([]);
+              setEditing(r);
             }}
           >
             {intl.formatMessage({ id: 'pages.permissions.edit.button' })}
@@ -127,7 +133,10 @@ const PermissionsPage: React.FC = () => {
         dataSource={rows}
         pagination={{ pageSize: 10 }}
       />
+      {/* destroyOnHidden：表单实例随关闭销毁，重开按最新 permDraft 重新
+          挂载 initialValue——否则 form store 存活、二次编辑沿用首开的旧值 */}
       <ModalForm
+        modalProps={{ destroyOnHidden: true }}
         title={
           editing
             ? `${intl.formatMessage({ id: 'pages.permissions.configure' })}：${editing.id}`

@@ -2686,3 +2686,65 @@ fresh 全绿（158 包零 FAIL）、guard PASSED。**已知边界**：门禁在�
 > 门禁：OpenAPISources 5 套件 **80/80** 绿、全量 jest **4399/4400**（唯一
 > 失败 Functions/History 150.5s 超时，隔离重跑 16/16 绿 41.5s——R49-2 同款
 > 负载竞态，本批零源码改动）、tsc 0、eslint 0、guard PASSED（仓库根）。
+
+## 第二十一轮：函数权限配置页覆盖收口 + 附带修定编辑弹窗竞态缺陷（Permissions/index，2026-09-30）
+
+> **交付（2026-09-30，wt-pages worktree）**：覆盖率补缺轮——零测试簇排行现席
+> `Permissions/index.tsx`（222 行，目录内 RolesV2 已于第二十轮收口、本件此前
+> 0% 无任何测试）单件收口，新增 `__tests__/index.test.tsx` 9 用例，v8 口径
+> **行/语句 99.13%（余 27-28 两行即登记项）、函数 100%、分支 92.15%**（余
+> 4 翼逐一登记，见边界）。
+>
+> **附带修定一处真缺陷（回归锁定）**：编辑动作原为「先 setEditing(r) 再
+> await fetchPermissions」——ModalForm 内容在 open 翻真时即以**旧 permDraft**
+> （首次 {}）挂载，而 antd initialValue 挂载后不随 prop 变化重放，连锁三害：
+> ① 编辑态 verbs/scopes tags 恒空显示（placeholder 常驻，用户看不到既有配置）；
+> ② tags onChange 整组覆盖 store 值——追加/删减任一 tag 后 values.verbs 即为
+> 手工小集合，onFinish 的 `values.verbs || permDraft.verbs` 取左值，**提交把
+> 既有 verbs/scopes/i18n 静默丢弃**（保存丢值）；③ form store 跨开合存活
+> （无 destroyOnHidden），二次编辑沿用首开旧值。修定 = 先取权限再与
+> setEditing 同批落 state（React 18 promise 内自动批处理，弹窗以最新 draft
+> 挂载）+ 开窗时 setFormI18nKeys([]) 重置 + modalProps.destroyOnHidden。
+> 套件对未修页面实跑取证（tags 恒空、zh 输入框只随手工键渲染）后修定，
+> 「编辑回显 read/write tags」「追加 exec 后 i18n_zh 仍含 read」两组断言
+> 即回归锁。
+>
+> 锁定契约——首拉无参 + 列渲染矩阵（id/名称/verbs/scopes Tag/编辑链接 ×3）；
+> 行缺 permissions / 空配置两形态（列渲染 `?.verbs || []` 右翼）；加载失败
+> 双翼（reject Error → e.message toast；字符串 → intl id 兜底）；编辑主链
+> （fetchPermissions(fid) + 标题内插 + verbs/scopes tags 回显 + 中文输入
+> 回显且仅配置过的 verb 出输入框）；缺 permissions 行空表单直提
+> （`values.verbs || permDraft.verbs || []` 中+尾翼全链 [] + defaults
+> `(draft || []).slice()` 右翼 + i18n_zh {}）；保存主链（i18n_zh 只收非空
+> 串键——initialValue '' 的 write 不进 payload + success toast + 关闭 +
+> 重拉）；动态中文输入（verbs tags 追加 → onChange setFormI18nKeys → 中文组
+> 即时渲染新 verb 输入框 → 填值进 payload）；保存失败双翼（Error/非 Error
+> → error toast + return false 弹窗保持）；取消关闭 onOpenChange(false)。
+>
+> **坑实证（新档，三条）**：① jest 区分「零参调用」与「传 undefined」——
+> `getFunctionSummary()` 无参调用须 `toHaveBeenCalledWith()` 断言（传
+> undefined 形态反而不匹配）；② 同用例双 render 的 toast 计数——首个
+> render 未卸载、其 toast 文案为 Error message，intl id 文案仅第二渲染
+> 产出（findAllByText 计数按此推算勿翻倍）；③ ModalForm（无 destroyOnHidden）
+> 关闭是 display:none 残留而 destroyOnHidden 后是整体卸载——关闭断言用
+> 「null 或 display:none 二择」兼容式，修定引入 destroyOnHidden 后自动落
+> null 分支。另：本页 intl 全部 id-only（无 defaultMessage），@umijs/max
+> mock 取 `defaultMessage ?? id ?? ''` 使标题/按钮/toast 按 id 确定性可见。
+>
+> **边界（诚实清单，不造假用例不删防御分支）**：① fetchSummary 的
+> `Array.isArray(res)` 右翼（27-28 行）——getFunctionSummary 归一层恒返
+> FunctionSummary[]，resolve 非数组违反返回类型即造假，登记；②
+> `perm || {}` 右翼（113 行）——getAdminFunctionPermissions 恒返
+> `res?.permissions || {}`，nullish 违反返回类型，登记（{} 形态经缺
+> permissions 行真实覆盖）；③ `(verbs || [])` 右翼（154 行）——链结果
+> 恒真值；④ onChange `(vals as string[]) || []` 右翼（186 行）——antd
+> tags 模式恒传数组；⑤ i18n 收集 `typeof val === 'string'` 非 string 翼
+> ——ProFormText 值恒 string|undefined；⑥ 编辑 onClick 无 catch——
+> fetchPermissions reject 成 unhandled rejection 且弹窗不开（修定后先取
+> 数后开窗），同族页面既有口径不造假 reject。修定后 `values.verbs` 为
+> 「左值但 draft 有值」的混合态不可达（弹窗与 draft 同批挂载），onFinish
+> 链三段翼经满配置/裸行双形态真实覆盖。
+>
+> 门禁：目标套件 9/9 绿（格式化后复跑同绿）、`pnpm --dir web run tsc`
+> 0 错、eslint/prettier 干净、`scripts/dashboard_vnext_guard.sh` PASSED；
+> 全量 jest 负载口径见交付说明。
