@@ -18,6 +18,9 @@ void main() {
     adapter = FakeDioAdapter((options, _) => jsonResponse(200, {}));
   });
 
+  /// 启动分流前置：地址已配置（token 空块）才会进登录页而非设置向导。
+  Future<void> seedServerUrl() => store.saveServerUrl('http://10.0.2.2:18780');
+
   Future<void> pumpApp(WidgetTester tester) async {
     await tester.pumpWidget(
       ProviderScope(
@@ -62,6 +65,7 @@ void main() {
   }
 
   testWidgets('首屏：凭据三件套，TOTP 框不出现', (WidgetTester tester) async {
+    await seedServerUrl();
     await pumpApp(tester);
     expect(find.byKey(const ValueKey('login-server')), findsOneWidget);
     expect(find.byKey(const ValueKey('login-username')), findsOneWidget);
@@ -74,6 +78,7 @@ void main() {
   ) async {
     adapter.handler = (options, _) =>
         jsonResponse(401, {'error': 'mfa_required', 'message': '需要动态验证码'});
+    await seedServerUrl();
     await pumpApp(tester);
 
     await fillCredentials(tester);
@@ -122,6 +127,7 @@ void main() {
       }
       return jsonResponse(404, {'error': 'not_found', 'message': path});
     };
+    await seedServerUrl();
     await pumpApp(tester);
 
     await fillCredentials(tester);
@@ -143,6 +149,7 @@ void main() {
       'user': {},
       'mustChangePassword': true,
     });
+    await seedServerUrl();
     await pumpApp(tester);
 
     await fillCredentials(tester);
@@ -155,6 +162,7 @@ void main() {
   testWidgets('凭据错误：内联展示服务端 message，停留登录页', (WidgetTester tester) async {
     adapter.handler = (options, _) =>
         jsonResponse(401, {'error': 'unauthorized', 'message': '用户名或密码错误'});
+    await seedServerUrl();
     await pumpApp(tester);
 
     await fillCredentials(tester);
@@ -179,7 +187,10 @@ void main() {
     await tester.tap(find.byTooltip('退出登录'));
     await tester.pumpAndSettle();
 
-    expect(await store.load(), isNull);
+    // 会话整清、地址保留（配置与凭据分层）→ 登录页并预填原地址。
+    final after = await store.load();
+    expect(after?.token ?? '', isEmpty);
+    expect(after?.serverUrl, 'http://gm.test');
     expect(find.byKey(const ValueKey('login-submit')), findsOneWidget);
   });
 }

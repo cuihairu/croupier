@@ -12,6 +12,7 @@ import (
 	"encoding/json"
 	"github.com/cuihairu/croupier/internal/config"
 	"log/slog"
+	"math"
 	"strconv"
 	"strings"
 	"sync"
@@ -1027,7 +1028,7 @@ func (l *Layered) OutboundSnapshot() OutboundSnapshot {
 		KeyNetRetryBackoffMs:   &snap.RetryBackoffMs,
 	} {
 		v, src := l.getIntWithSource(key, 0)
-		*dst = int(v)
+		*dst = intSafe(v, 0)
 		snap.Sources[key] = src
 	}
 	return snap
@@ -1043,6 +1044,17 @@ type PerformanceSettingsSnapshot struct {
 	MaxThreadCount int               `json:"maxThreadCount"`
 	CacheSize      int64             `json:"cacheSize"`
 	Sources        map[string]string `json:"sources"`
+}
+
+// intSafe 将 int64 配置值收窄到 int：超出 int32 可表示范围时回退默认值。
+// 32 位平台（GOARCH=386/arm）上 int 为 32 位，直接 int(v) 会静默截断
+// （CodeQL go/incorrect-integer-conversion）；统一按 int32 边界收口，
+// 跨平台行为一致，配置值合理域远小于该边界。
+func intSafe(v, def int64) int {
+	if v < math.MinInt32 || v > math.MaxInt32 {
+		return int(def)
+	}
+	return int(v)
 }
 
 // getIntWithSource 带来源读整型（database/config/default），层逻辑同 GetInt
@@ -1088,11 +1100,11 @@ func (l *Layered) PerformanceSettings() PerformanceSettingsSnapshot {
 	diskPct, diskSrc := l.getIntWithSource(KeyPerfMaxDiskPct, 0)
 	maxConc, concSrc := l.getIntWithSource(KeyPerfMaxConcurrent, 0)
 	maxThr, thrSrc := l.getIntWithSource(KeyPerfMaxThreadCount, 0)
-	snap.MaxCpuPct, snap.Sources["maxCpuPct"] = int(cpuPct), cpuSrc
-	snap.MaxMemoryPct, snap.Sources["maxMemoryPct"] = int(memPct), memSrc
-	snap.MaxDiskPct, snap.Sources["maxDiskPct"] = int(diskPct), diskSrc
-	snap.MaxConcurrent, snap.Sources["maxConcurrent"] = int(maxConc), concSrc
-	snap.MaxThreadCount, snap.Sources["maxThreadCount"] = int(maxThr), thrSrc
+	snap.MaxCpuPct, snap.Sources["maxCpuPct"] = intSafe(cpuPct, 0), cpuSrc
+	snap.MaxMemoryPct, snap.Sources["maxMemoryPct"] = intSafe(memPct, 0), memSrc
+	snap.MaxDiskPct, snap.Sources["maxDiskPct"] = intSafe(diskPct, 0), diskSrc
+	snap.MaxConcurrent, snap.Sources["maxConcurrent"] = intSafe(maxConc, 0), concSrc
+	snap.MaxThreadCount, snap.Sources["maxThreadCount"] = intSafe(maxThr, 0), thrSrc
 	snap.CacheSize, snap.Sources["cacheSize"] = l.getIntWithSource(KeyPerfCacheSize, 0)
 	return snap
 }
@@ -1109,7 +1121,7 @@ type LogsSettingsSnapshot struct {
 func (l *Layered) LogsSettings() LogsSettingsSnapshot {
 	snap := LogsSettingsSnapshot{Sources: map[string]string{}}
 	days, src := l.getIntWithSource(KeyLogRetentionDays, 0)
-	snap.RetentionDays, snap.Sources["retentionDays"] = int(days), src
+	snap.RetentionDays, snap.Sources["retentionDays"] = intSafe(days, 0), src
 	return snap
 }
 

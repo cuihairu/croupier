@@ -411,9 +411,19 @@ M2 已分四切片 + 收口批全部合入 main（68b566e 监控大盘 → 9cd1c
 - **LB 统计不接入（契约修正）**：本稿 v1 写 `GET lb-stats`，实况为 **POST** PromQL 代理、强依赖服务端 Prometheus——移动端不接入，大盘入口禁用占位明示（§2.2/§3.1/§9 已按实况修正）；
 - **审计链哈希预留**：列表 DTO 不出参 hash/prevHash，移动端按可选字段预留「有值才显示」语义（§9 实测边界）；
 - **M2-E 收口（本批）**：`ci-mobile.yml` 追加 `flutter build apk --debug` 构建烟测步（§7 已同步）；本节与 §9 边界落稿；
-- **质量门禁**：`flutter analyze` 0 告警、`dart format` 零 diff、`flutter test` 139 用例全绿（M1 基线 72 → M2 逐切片递增）。
+- **质量门禁**：`flutter analyze` 0 告警、`dart format` 零 diff、`flutter test` 136 用例全绿（M1 基线 72 → M2 逐切片递增；2026-09-30 勘误：前记 139 系笔误，以本机全量实跑为准）。
 
 **M2 验收标准修订（诚实边界）**：原验收「三域页面真机可用」——真机侧载验收未执行（同 M1 顺延），以模拟器/widget 测试 + CI 门禁替代；「监控写操作确认不存在」达成——大盘/设备/审计全只读，告警静默为设计内唯一写操作（§2.2）。
+
+### 8.3 插单：服务器地址配置面（2026-09-30）
+
+M2 收口后的独立插单（需求点名）：① 首次启动（未配置过服务器地址）进设置向导；② 设置页修改地址即时生效。落地：
+
+- **存储分层（`core/storage/session_store.dart`）**：`clear()` 语义演进为「会话整清（token/user/scope）、已配置 serverUrl 保留写回」——地址属配置而非凭据；新增 `loadServerUrl()` / `saveServerUrl()`（抽象类默认实现，读地址不要求登录态）。`load()` 改为「有块即返回对象」，token 为空的块表示「已配置未登录」，未登录判定由调用方看 token；
+- **冷启动三分支（`app.dart`）**：无存储块（从未配置）→ **设置向导** `ServerSetupPage`；已配置未登录（token 空）→ 登录页（预填已存地址，`LoginPage.initialServerUrl`）；已登录 → 主壳。存储块损坏按无块处理（进向导重新配置）；
+- **向导页（`features/setup/server_setup_page.dart`）**：输入地址 → `validateServerUrl` 格式校验（空/无法解析/无 host/非 http(s) 均给明确文案）→ `probeServer` 连通探测 `GET /api/v1/public/site`（公开端点；2xx 且响应为 **JSON 对象**才算通，防 200 HTML 的 SPA 兜底页假阳性）→ 保存落盘 → invalidate 切登录页；
+- **设置页改地址**：对话框内联校验/探测错误展示，通过才放行；生效链 = 新地址先落盘 → 清会话（保留地址）→ 内存预填 → invalidate 回登录页；API 客户端为按 serverUrl 现场装配的工厂（无缓存实例），切址即生效；
+- **质量门禁**：analyze 0 告警、format 零 diff、`flutter test` 168 用例全绿（136 → 168，新增校验/探测/存储分层/向导/设置页探测用例 32 个）。
 
 ## 9. 假设与已知边界汇总
 
@@ -428,6 +438,8 @@ M2 已分四切片 + 收口批全部合入 main（68b566e 监控大盘 → 9cd1c
 
 - **M2 实测（2026-09-30）**：`/api/v1/ops/cluster/lb-stats` 实况为 **POST** PromQL 代理、强依赖服务端 Prometheus（v1 写 GET 系漂移）——移动端不接入，大盘以禁用入口占位明示；后续接入须先确认 Prometheus 部署形态；
 - **M2 实测（2026-09-30）**：审计列表 DTO 不出参 hash/prevHash（审计链哈希仅 chain/verify 端点暴露）——移动端按可选字段预留「有值才显示」语义，后端补出参即自动生效；当前行展开仅 target/traceId/metadata；
+- **服务器配置面（2026-09-30）**：登出/401 清会话但**保留服务器地址**（配置与凭据分层）——登录页预填原地址；设置页改地址须连通探测通过才放行（`GET /api/v1/public/site`，200 且 JSON 对象形态；SPA HTML 兜底不计为可达）；存储块损坏按「从未配置」进向导重新配置；
+- **服务器配置面（2026-09-30）**：探测仅验证「可达且像 Croupier 服务」（公开端点返回 JSON），不验证账号/版本兼容性；登录后的授权校验仍由既有 401 链路兜底；
 - **M1 实测（2026-09-30）**：`POST /api/v1/approvals/{id}/approve` 后端只 `ShouldBindUri` 不读请求体——step-up TOTP 的 `otp` 无落点，高危批准当前降级为单段确认（设计稿 §2.1 三段确认中的 OTP 段待后端补 otp 落点后接线，列后端立项项）；
 - **M1 实测（2026-09-30）**：`GET /api/v1/functions/descriptors` 返回项无 `risk` / `approvalRequired` 字段（Web 端 descMap 同样拿不到）——审批行高危/两人复核标签按向前兼容解析实现，后端字段补上即自动生效；标签缺失不阻塞列表（修正上条设计期假设：标签来源是 descriptors 端点而非 `GET /api/v1/functions` 列表）；
 - 生物识别（local_auth）与 ntfy 推送分别为 M2 / M3 交付；设置页对应开关以禁用占位明示，不冒充可用；

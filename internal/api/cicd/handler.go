@@ -17,7 +17,7 @@ func NewHandler(service *Service) *Handler {
 }
 
 func pathID(c *gin.Context) (uint, bool) {
-	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
 	if err != nil || id == 0 {
 		return 0, false
 	}
@@ -141,7 +141,7 @@ func (h *Handler) Builds(c *gin.Context) {
 
 // RefreshBuild handles POST /cicd/builds/:id/refresh.
 func (h *Handler) RefreshBuild(c *gin.Context) {
-	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	id, err := strconv.ParseUint(c.Param("id"), 10, 32)
 	if err != nil || id == 0 {
 		response.Error(c, errBadPathID)
 		return
