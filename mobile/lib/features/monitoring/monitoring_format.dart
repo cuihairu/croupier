@@ -37,3 +37,16 @@ String formatPercent(double pct) {
       ? pct.round().toString()
       : pct.toStringAsFixed(1);
 }
+
+/// 相对时间（「3 分钟前」）：解析失败回退原文。
+/// lastSeen 无时区后缀时按本地时区解读（服务端与展示端同机的部署形态）。
+String formatRelativeTime(String raw) {
+  if (raw.isEmpty) return '-';
+  final time = DateTime.tryParse(raw);
+  if (time == null) return raw;
+  final diff = DateTime.now().difference(time);
+  if (diff.inSeconds < 60) return '刚刚';
+  if (diff.inMinutes < 60) return '${diff.inMinutes} 分钟前';
+  if (diff.inHours < 24) return '${diff.inHours} 小时前';
+  return '${diff.inDays} 天前';
+}

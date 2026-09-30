@@ -111,17 +111,49 @@ void main() {
     expect(find.text('42'), findsOneWidget);
   });
 
-  testWidgets('设备/告警/审计入口为禁用占位（切片边界明示）', (WidgetTester tester) async {
+  testWidgets('入口卡：设备已启用，告警/审计仍为禁用占位', (WidgetTester tester) async {
     await seedSession();
     adapter.handler = (options, _) => jsonResponse(200, okPayload);
     await pumpMonitoring(tester);
 
-    expect(find.text('设备（Agent）'), findsOneWidget);
-    expect(find.text('M2 下一片交付'), findsOneWidget);
-    final entry = tester.widget<ListTile>(
+    final devices = tester.widget<ListTile>(
       find.byKey(const ValueKey('monitor-entry-devices')),
     );
-    expect(entry.enabled, isFalse);
+    expect(devices.enabled, isTrue);
+    final alerts = tester.widget<ListTile>(
+      find.byKey(const ValueKey('monitor-entry-alerts')),
+    );
+    expect(alerts.enabled, isFalse);
+    final audit = tester.widget<ListTile>(
+      find.byKey(const ValueKey('monitor-entry-audit')),
+    );
+    expect(audit.enabled, isFalse);
     expect(find.text('M2 交付'), findsNWidgets(2));
+  });
+
+  testWidgets('点设备入口进入设备列表页', (WidgetTester tester) async {
+    await seedSession();
+    adapter.handler = (options, _) {
+      if (options.uri.path == '/api/v1/ops/nodes') {
+        return jsonResponse(200, {
+          'nodes': [
+            {
+              'id': 'agent-1',
+              'hostname': 'gm-node-a',
+              'gameId': 'demo',
+              'env': 'prod',
+              'status': 'active',
+            },
+          ],
+        });
+      }
+      return jsonResponse(200, okPayload);
+    };
+    await pumpMonitoring(tester);
+
+    await tester.tap(find.byKey(const ValueKey('monitor-entry-devices')));
+    await tester.pumpAndSettle();
+    expect(find.text('设备（Agent）'), findsWidgets);
+    expect(find.byKey(const ValueKey('device-card-agent-1')), findsOneWidget);
   });
 }

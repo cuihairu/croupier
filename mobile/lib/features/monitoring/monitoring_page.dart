@@ -5,6 +5,7 @@ library;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../devices/devices_page.dart';
 import 'monitoring_controller.dart';
 import 'monitoring_format.dart';
 import 'performance_service.dart';
@@ -166,7 +167,7 @@ Widget _metric(String label, String value, {bool overloaded = false}) {
   );
 }
 
-/// 二级页面入口：设备/告警/审计随 M2 各切片交付启用；
+/// 二级页面入口：设备（已交付）/ 告警/审计随 M2 各切片交付启用；
 /// LB 统计为 PromQL 代理（依赖服务端 Prometheus），不接入移动端。
 class _EntriesCard extends StatelessWidget {
   const _EntriesCard();
@@ -175,29 +176,34 @@ class _EntriesCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Card(
       child: Column(
-        children: const [
+        children: [
           ListTile(
-            key: ValueKey('monitor-entry-devices'),
-            leading: Icon(Icons.dns_outlined),
-            title: Text('设备（Agent）'),
-            subtitle: Text('M2 下一片交付'),
-            enabled: false,
+            key: const ValueKey('monitor-entry-devices'),
+            leading: const Icon(Icons.dns_outlined),
+            title: const Text('设备（Agent）'),
+            subtitle: const Text('在线状态 / 资源 / 已注册函数'),
+            enabled: true,
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (context) => const DevicesPage(),
+              ),
+            ),
           ),
-          ListTile(
+          const ListTile(
             key: ValueKey('monitor-entry-alerts'),
             leading: Icon(Icons.notifications_outlined),
             title: Text('告警'),
             subtitle: Text('M2 交付'),
             enabled: false,
           ),
-          ListTile(
+          const ListTile(
             key: ValueKey('monitor-entry-audit'),
             leading: Icon(Icons.receipt_long_outlined),
             title: Text('审计查询'),
             subtitle: Text('M2 交付'),
             enabled: false,
           ),
-          ListTile(
+          const ListTile(
             key: ValueKey('monitor-entry-lbstats'),
             leading: Icon(Icons.device_hub_outlined),
             title: Text('LB 统计'),
