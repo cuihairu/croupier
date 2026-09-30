@@ -2077,3 +2077,36 @@ fresh 全绿（158 包零 FAIL）、guard PASSED。**已知边界**：门禁在�
 >   （mockImplementation echo），响应 page 硬编码会自我干扰。
 >   门禁：目标套件 11/11 绿、eslint 0、tsc 0 错、guard PASSED、全量 jest
 >   口径见交付说明。
+
+## 2026-09-30 Round 42（wt-api）：System/ExcelConfig 覆盖收口 98.19/95.23/100/98.19——零测试页排行第六
+
+> 覆盖率巡检第六站：`web/src/pages/System/ExcelConfig/index.tsx`（444 行 0%）。
+> 9 用例，无页面缺陷（本轮纯补测）；锁定契约——草稿生命周期（默认
+> Sheet1 [['id','name','value']]、合法草稿载入、非法 JSON 回退、编辑即
+> 持久化、重置草稿重读）、setCell 数字 int/float 双正则 + 参差行补列、
+> 类型行 Select 矩阵（首列 disabled、空类型格 value undefined 无选中项）、
+>
+> - 行（等宽空行）、+ sheet（SheetN + 激活）、CheckableTag 切换 + 双表
+>   存续下编辑（updateRows 非激活表 `: s` 原样臂）、XLSX 真实 round-trip
+>   导入（raw:true 数值保持 number）、坏文件（PK+垃圾 → SheetJS 抛
+>   Unsupported ZIP encryption → extractErrorMessage 透传）、导出
+>   writeFile 文件名双臂（key / excel-config 回退）、保存并发布（Popconfirm
+>   → 稀疏 cellData 快照（''/null/undefined 跳过）+ message 透传 + 最新
+>   版本 Tag + 说明清空 + 失败两翼）、服务端编译上传（importExcelFile
+>   (file,{message}) + 失败两翼）。
+>   **坑实证（新档，四条）**：① tests/setupTests.jsx 的 localStorage 是
+>   无存储 jest.fn() 壳（getItem 恒 undefined），依赖 localStorage 草稿的
+>   页面测试须文件内补 Map 存储；② 本 jsdom Blob/File 无 arrayBuffer()
+>   （页面导入链 file.arrayBuffer → XLSX.read），须 FileReader 打底
+>   polyfill；③ scroll 表格 tbody 首行是 aria-hidden 的
+>   ant-table-measure-row，行选择器须 .ant-table-row；④ XLSX 极宽松——
+>   垃圾字节不抛错而是按文本回退解析出 1 个 sheet（要触发 catch 臂须
+>   PK 头+垃圾让 zip 检测抛 Unsupported ZIP encryption），且 XLSX.write
+>   对零表工作簿抛 Workbook is empty（「文件没有 sheet」分支不可从真实
+>   文件构造，登记不可达）。
+>   登记不可达：setCell 行补齐 while、addRow `|| 1` 右臂、
+>   parsed.length===0、单元格 render 的 `(current?.rows || [])` 右臂
+>   （dataSource 即 current?.rows，current undefined 时零行不进 render）、
+>   导入/上传 catch 的 extractErrorMessage 非 Error 兜底右臂。
+>   门禁：目标套件 9/9 绿、eslint 0、tsc 0 错、guard PASSED、全量 jest
+>   口径见交付说明。
