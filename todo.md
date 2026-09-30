@@ -2299,7 +2299,7 @@ fresh 全绿（158 包零 FAIL）、guard PASSED。**已知边界**：门禁在�
 > 证，两次失败均零真实用例失败——判 GitHub hosted runner 当日概率性回收
 > （基础设施退化），非本提交回归。已知边界：若该 workflow 后续持续同签名挂，
 > 属 runner 侧问题，排查口径见记忆档 ci-dashboard-runner-shutdown-signature。
-
+> <<<<<<< HEAD
 
 ## 覆盖率补缺 R49：mobile 审计/会话域 + web NodeDetailDrawer/OpenAPISources（主树，2026-09-30）
 
@@ -2333,3 +2333,6 @@ fresh 全绿（158 包零 FAIL）、guard PASSED。**已知边界**：门禁在�
 > 门禁：OpenAPISources 3 套件 39/39 绿、全量 jest **4358/4359**（唯一失败
 > Functions/History「刷新双拉」在隔离重跑 16/16 绿——173.6s vs 60.7s 负载竞态，
 > 与改动零交集）、tsc 0、eslint 0；R49-1 侧 flutter analyze/test 188 全绿。
+> \=======
+>
+> > > > > > > origin/wt-api
