@@ -9,6 +9,10 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  # 选型依据 docs/design/mobile-companion-design.md §5.1
+  dio: ^5.7.0
+  flutter_riverpod: ^2.6.1
+  flutter_secure_storage: ^9.2.4
 
 dev_dependencies:
   flutter_test:
