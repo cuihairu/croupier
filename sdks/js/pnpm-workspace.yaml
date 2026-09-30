@@ -7,10 +7,14 @@ onlyBuiltDependencies:
 
 overrides:
   handlebars: ^4.7.9
-  brace-expansion: ^2.1.2
+  # 2026-09-30 安全补丁：brace-expansion ReDoS/DoS 链（2.x 线修复 2.1.7）
+  brace-expansion: ^2.1.7
   flatted: ^3.4.2
   picomatch: ^2.3.2
   "@babel/core": ^7.29.6
   js-yaml: ">=4.3.2 <5.0.0"
-  # 2026-09-04 安全补丁：fast-uri SSRF/host confusion（patched 3.1.6）
-  fast-uri: ">=3.1.6 <4.0.0"
+  # 2026-09-04 安全补丁：fast-uri SSRF/host confusion；2026-09-30 补 3.x 线
+  # inconsistent host 解析修复（patched 3.1.8）
+  fast-uri: ">=3.1.8 <4.0.0"
+  # 2026-09-30 安全补丁：semver 6.x ReDoS（patched 6.3.1；本仓 semver 全 6.x 线）
+  semver: ">=6.3.1 <7.0.0"

@@ -8,7 +8,11 @@ import '../../app/providers.dart';
 import 'login_controller.dart';
 
 class LoginPage extends ConsumerStatefulWidget {
-  const LoginPage({super.key});
+  const LoginPage({super.key, this.initialServerUrl});
+
+  /// 冷启动分流传入的已存地址（会话存储块里的 serverUrl），
+  /// 优先级低于设置页「更换地址」的内存预填值。
+  final String? initialServerUrl;
 
   @override
   ConsumerState<LoginPage> createState() => _LoginPageState();
@@ -16,9 +20,14 @@ class LoginPage extends ConsumerStatefulWidget {
 
 class _LoginPageState extends ConsumerState<LoginPage> {
   // Android 模拟器访问宿主机回环地址的约定别名；用户可改。
-  // 设置页「更换服务器地址」会经 pendingServerUrlProvider 预填。
+  // 设置页「更换服务器地址」会经 pendingServerUrlProvider 预填；
+  // 向导保存的地址走 initialServerUrl。
   late final TextEditingController _server = TextEditingController(
-    text: ref.read(pendingServerUrlProvider) ?? 'http://10.0.2.2:18780',
+    text:
+        ref.read(pendingServerUrlProvider) ??
+        (widget.initialServerUrl?.trim().isNotEmpty ?? false
+            ? widget.initialServerUrl!.trim()
+            : 'http://10.0.2.2:18780'),
   );
   final _username = TextEditingController();
   final _password = TextEditingController();

@@ -59,7 +59,7 @@ overrides:
   # crashed ProLayout menu matching on every route (regression fixed here).
   path-to-regexp@>=1.0.0 <1.9.0: '1.9.0'
   postcss@<8.4.31: '>=8.4.31'
-  qs@<6.14.1: '>=6.14.1'
+  qs@<6.14.1: '>=6.16.0' # 2026-09-30 抬（array-limit bypass 等，patched 6.16.0）
   qs@>=6.7.0 <6.7.3: '>=6.7.3'
   # 2026-08-19 安全补丁：react-router 6.30.6 为官方 6.x 安全回移（open redirect 修复，
   # @remix-run/router 1.23.4 修复 double slash normalization），兼容 umi 4.x
@@ -78,6 +78,14 @@ overrides:
   vite@<=4.5.13: '>=4.5.14'
   vite@<=4.5.5: '>=4.5.6'
   vite@<=5.4.19: '>=5.4.20'
+  # 2026-09-30 安全批次（Dependabot 8 条 + pnpm audit 扩展清单；修复版按
+  # pnpm audit patched_versions，同 major/minor 内升级。fast-uri/js-yaml/
+  # multer 抬下方既有裸键下限迫使重解析；qs 新增裸键（原仅有范围键，
+  # 6.15.x 实例无键管辖）。elliptic 修复版 6.6.2 审计库已录但 npm
+  # registry 未发布（latest 6.6.1），沿用 2026-08-15 评估：保留不修复）：
+  brace-expansion@>=4.0.0 <5.0.12: '>=5.0.12'
+  moment@>=2.29.2 <2.31.0: '>=2.31.0'
+  qs: '>=6.16.0'
   vite@>=4.0.0 <4.5.4: '>=4.5.4'
   vite@>=4.0.0 <=4.5.2: '>=4.5.3'
   vite@>=4.0.0 <=4.5.3: '>=4.5.4'
@@ -100,21 +108,22 @@ overrides:
   js-yaml@<4.2.0: '>=4.2.0'
   multer@<2.2.0: '>=2.2.0'
   piscina@<4.9.3: '>=4.9.3'
-  qs@<6.15.2: '>=6.15.2'
+  qs@<6.15.2: '>=6.16.0' # 2026-09-30 抬（同上，统一 6.16.0 下限）
   shell-quote@<1.8.4: '>=1.8.4'
   ws@<8.21.0: '>=8.21.0'
   # 2026-08-02 安全补丁：修复 Dependabot 报告的可修复漏洞
   dompurify@<=3.4.11: '>=3.4.12'
   # 2026-09-04 安全补丁：fast-uri SSRF/host confusion（patched 4.1.3）、
-  # decode-uri-component DoS（patched 0.5.0）
-  fast-uri: '>=4.1.3 <5.0.0'
+  # decode-uri-component DoS（patched 0.5.0）；2026-09-30 抬至 4.1.5
+  # （inconsistent host parsing，两条 moderate）
+  fast-uri: '>=4.1.5 <5.0.0'
   decode-uri-component: '>=0.5.0 <1.0.0'
   immutable: '>=4.3.9 <5.0.0'
-  js-yaml: '>=5.2.2 <6.0.0'
+  js-yaml: '>=5.4.1 <6.0.0' # 2026-09-30 抬至 5.4.1（maxTotalMergeKeys 限制）
   postcss@<=8.5.17: '>=8.5.18'
   # 2026-09-09 安全补丁：multer 大小限制绕过/上传描述符泄漏（patched 2.3.0）、
   # hono query parser 差异与 SSG 路径穿越（patched 4.13.5）、svgo removeScripts 绕过（patched 2.8.4）
-  multer: '>=2.3.0 <3.0.0'
+  multer: '>=2.4.0 <3.0.0' # 2026-09-30 抬至 2.4.0（DoS patched 2.4.0）
   hono: '>=4.13.5 <5.0.0'
   svgo: '>=2.8.4 <3.0.0'
   svgo@>=1.0.0 <2.8.3: '>=2.8.3 <3.0.0'
@@ -124,3 +133,8 @@ overrides:
   # 保留不修复（2026-08-15 评估）：
   # - elliptic <=6.6.1（#77，low）：上游无补丁版本（所有已发布版本均在受影响范围），
   #   仅经 umi bundler 的 node-libs-browser crypto polyfill 引入，构建期浏览器 polyfill，不处理服务端密钥。
+  #   （2026-09-30 复核：audit 修复版标记 6.6.2，npm registry latest 仍 6.6.1，补丁未发布，维持不修复）
+  # 保留不修复（2026-09-30 评估）：
+  # - react-router（moderate×2，open redirect/构造注入）：修复版 7.18.0 需 react-router 7，
+  #   umi 4.x（@umijs/renderer-react）锁 6.x 且 6.x 线无 backport，跨两个 major 不可行；
+  #   6.30.6（2026-08-19 回移版）为 6.x 末版。待 umi 官方支持 rr7 后再评估。
