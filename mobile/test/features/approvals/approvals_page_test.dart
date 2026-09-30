@@ -86,6 +86,54 @@ void main() {
     expect(find.text('暂无审批'), findsOneWidget);
   });
 
+  testWidgets('标签：risk=high 显「高危」；approval.required 显「两人复核」', (
+    WidgetTester tester,
+  ) async {
+    adapter.handler = (options, _) {
+      final path = options.uri.path;
+      if (path == '/api/v1/approvals/') {
+        return jsonResponse(200, {
+          'approvals': [
+            {
+              'id': 'a1',
+              'functionId': 'player.kick',
+              'actor': 'op1',
+              'state': 'pending',
+              'mode': 'invoke',
+              'createdAt': '2026-09-30 10:00',
+            },
+            {
+              'id': 'a2',
+              'functionId': 'mail.send',
+              'actor': 'op1',
+              'state': 'pending',
+              'mode': 'invoke',
+              'createdAt': '2026-09-30 10:01',
+            },
+          ],
+          'total': 2,
+        });
+      }
+      if (path == '/api/v1/functions/descriptors') {
+        return jsonResponse(200, {
+          'functions': [
+            {'id': 'player.kick', 'risk': 'high'},
+            {
+              'id': 'mail.send',
+              'risk': 'safe',
+              'approval': {'required': true},
+            },
+          ],
+        });
+      }
+      return jsonResponse(200, {});
+    };
+    await pumpShell(tester);
+
+    expect(find.text('高危'), findsOneWidget);
+    expect(find.text('两人复核'), findsOneWidget);
+  });
+
   testWidgets('错误态：展示 message + 重试', (WidgetTester tester) async {
     adapter.handler = (options, _) =>
         jsonResponse(500, {'error': 'internal', 'message': '服务不可用'});

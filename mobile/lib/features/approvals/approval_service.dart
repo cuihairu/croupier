@@ -58,20 +58,6 @@ class ApprovalPage {
   final int total;
 }
 
-/// 函数描述符摘要（descMap 用）。risk/approvalRequired 为向前兼容字段：
-/// 当前 /functions/descriptors 仅返回 {id,name,description}，字段补上即生效。
-class FunctionDescInfo {
-  const FunctionDescInfo({
-    required this.id,
-    this.risk = '',
-    this.approvalRequired = false,
-  });
-
-  final String id;
-  final String risk;
-  final bool approvalRequired;
-}
-
 class ApprovalService {
   ApprovalService({required this.client});
 
@@ -129,30 +115,5 @@ class ApprovalService {
       '$listPath$id/reject',
       body: {'reason': reason},
     );
-  }
-
-  /// 函数描述符摘要（descMap 数据源，scoped）。
-  Future<List<FunctionDescInfo>> fetchDescriptors() async {
-    final data = await client.get<Map<String, Object?>>(
-      '/api/v1/functions/descriptors',
-    );
-    final raw = data['items'];
-    if (raw is! List) {
-      throw StateError('invalid descriptors payload');
-    }
-    final descs = <FunctionDescInfo>[];
-    for (final item in raw) {
-      if (item is! Map) continue;
-      final id = item['id'];
-      if (id is! String || id.isEmpty) continue;
-      descs.add(
-        FunctionDescInfo(
-          id: id,
-          risk: item['risk'] is String ? item['risk'] as String : '',
-          approvalRequired: item['approvalRequired'] == true,
-        ),
-      );
-    }
-    return descs;
   }
 }
