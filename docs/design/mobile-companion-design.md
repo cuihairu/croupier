@@ -369,10 +369,36 @@ jobs:
       - run: flutter test
       # 构建烟测（M2-E 追加）：验证 android/ 工程与原生依赖可编译，不产 artifact。
       - run: flutter build apk --debug
+
+  # APK 产物流水线（M4 追加）：手动触发产可下载 release APK。
+  apk:
+    if: github.event_name == 'workflow_dispatch'
+    needs: flutter # 门禁绿才产产物
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    defaults:
+      run:
+        working-directory: mobile
+    steps:
+      - uses: actions/checkout@v7
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.35.1
+          cache: true
+      - run: flutter pub get
+      - run: flutter build apk --release # debug keystore 签名（模板默认）
+      - uses: actions/upload-artifact@v7
+        with:
+          name: croupier-mobile-release-apk
+          path: mobile/build/app/outputs/flutter-apk/app-release.apk
+          retention-days: 14
+          if-no-files-found: error
 ```
 
 - `flutter analyze` / `dart format` 零容忍，对齐仓库「tsc 0 错」门禁纪律；
 - Android 构建烟测（`flutter build apk --debug`）已随 M2-E 追加入工作流（仅验证 android/ 工程可编译，不产 artifact）；
+- APK 产物流水线（M4 追加）：`workflow_dispatch` 手动触发 → 门禁 job 绿 → `flutter build apk --release` → `upload-artifact`（14 天保留、`if-no-files-found: error`）——产物可下载验收即以 GitHub Actions artifact 为准；签名沿用 debug keystore（仓库暂无正式发布签名配置，`android/app/build.gradle.kts` 模板默认），定位内部分发/侧载，对外发布签名列后续项；
 - 本机工具链（`~/.local/flutter` 3.35.1 + `~/android-sdk`，`ANDROID_HOME` 已配）用于本地真机调试与 APK 侧载产物，CI 不依赖本机。
 
 ## 8. 分批实施计划
