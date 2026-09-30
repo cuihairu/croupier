@@ -8,6 +8,7 @@ import '../core/storage/session_store.dart';
 import '../features/approvals/approvals_page.dart';
 import '../features/login/login_page.dart';
 import '../features/scope/scope_switcher.dart';
+import '../features/settings/settings_page.dart';
 import 'providers.dart';
 
 class CroupierApp extends ConsumerWidget {
@@ -85,7 +86,7 @@ class _MainShellState extends ConsumerState<MainShell> {
         children: const [
           ApprovalsPage(),
           Center(child: Text('监控大盘（M2 交付）')),
-          Center(child: Text('设置（下一片交付）')),
+          SettingsPage(),
         ],
       ),
       bottomNavigationBar: NavigationBar(
