@@ -2390,3 +2390,58 @@ fresh 全绿（158 包零 FAIL）、guard PASSED。**已知边界**：门禁在�
 > reject 路径按惯例不造假（unhandled rejection 现状语义）。
 > 门禁：目标套件 8/8 绿、eslint 0、tsc 0 错、guard PASSED、全量 jest
 > 口径见交付说明。
+
+## 第十七轮：个人中心页覆盖收口（Profile 入口 + 数据层 0% → index 4×100，2026-09-30）
+
+> **交付（2026-09-30，wt-pages worktree）**：覆盖率补缺轮——Profile 簇
+> 六份既有套件全是单组件回归（GamesTab/InfoTab/MfaSettings/NotificationsTab/
+> PermissionTree/SecurityTab），页面入口 index.tsx（452 行）、数据层
+> useProfileData.ts（323 行）与 shared.ts 的页面级接线全程 0 覆盖。新增
+> `Profile/__tests__/index.test.tsx` 23 用例经真实页面渲染锁定三文件契约：
+> **index.tsx 行/分支/函数/语句 4×100%**；useProfileData.ts 行/语句/函数
+> 100%、分支 80%（余翼全部登记，见边界）；shared.ts 行/语句/函数 100%、
+> 分支 83.33%（全目录合并口径：normalizeAvatarSrc 两翼由 InfoTab.regression
+> 姊妹套件覆盖，余 profileText number 翼与 pickAuditMetaValue !meta 守卫
+> 登记）。锁定契约——首拉链（loadProfile → hero 矩阵 + loadExtras 七路
+> allSettled 并行载荷含 login kinds 双查/listPermissions pageSize 500 +
+> stats 四卡派生）、加载双翼（pending 骨架 / reject toast 停留骨架）、
+> 未设置兜底矩阵（displayName 空串 hero Title 回退 username、active
+> undefined 无徽标 / 显式 false 未启用徽标、roles undefined 右翼、四行
+> 未设置）、Tab 编排（URL 深链初始 tab + InfoTab 不挂载、切 tab navigate
+> replace 同步、hero 编辑按钮强制回资料页 + scrollIntoView、pane 缓存
+> 共存）、资料编辑链（保存成功载荷 + toast + 退出 + 重拉、失败 + 必填/
+> 手机号 pattern 双拦截、取消回填 displayName||nickname 右翼）、消息已读链
+> （未读详情打开即标读翻转、已读不触发、单条标读 stopPropagation、
+> markAllRead 按 unread 过滤、徽标/按钮随 unreadCount 消失）、权限派生
+> （同 resource+scope 并集合并、scope Tag 双形态、目录驱动候选 key/id 双
+> 过滤、空目录 → fallback 模板兜底（owned 过滤后仅 functions:manage
+> 存活）标记仍绿、reject → 金色受限 Tag、申请弹窗 reason 必填 +
+> createFeedback 载荷 + destroyOnHidden、fullAccess 徽标、catalog name
+> 空串回退 id）、loginSessionRows（ip/client_ip、ipRegion/region、
+> userAgent/ua 键族、成败从 kind 推断含空串 kind 服务端真实形态兜底、
+> time 空串 key 兜底）、loadExtras 失败矩阵（七路全 reject settled 静默、
+> stats 归零、各 Tab 空态、目录回退；perms {} nullish 右翼、username
+> 空串 login 查询不发）、密码/头像弹窗开合接线（不触达改密服务）。
+> **边界（诚实清单）**：① loadExtras 外层 catch 结构性不可达（allSettled
+> 永不 reject）；② markAllRead unread===0 早退与 markMessageRead 已读
+> 早退经 UI 不可达（按钮条件渲染）；③ 契约死翼族登记（不造假用例）——
+> settled 取值链 nullish 右翼（games/perms/messages/channels 由 service
+> 归一层保证形状、listPermissions/listAudit 契约声明必填字段）、
+> Array.isArray false 翼（getMyPermissions 归一化「缺失会被补」）、
+> detailMessage 更新器 prev 失配翼（openMessage 先置 detail 再标读；行内
+> 标读时 Modal 遮罩挡列表）、loginRecords||[]（useState 恒数组）、
+> item.meta||{}（normalizeAuditEvent 恒对象）、profileText number 翼
+> （调用点类型均 string|undefined）、pickAuditMetaValue !meta 守卫（唯一
+> 调用方先经 (item.meta||{}) 归一）；④ MfaSettings/PasswordModal/
+> AvatarModal 提交/上传本体属各组件自有套件域，本套件只锁开合接线。
+> **坑实证（新档，三条）**：① 详情弹窗标题锚 .ant-modal-title 仍需注意
+> 标题取 item.title 而非 content——错把 content 当标题断言必挂；② 权限
+> 树目录（未拥有灰字）与申请卡候选（strong 标题）同名双命中，断言须
+> cardByTitle 收窄；③ owned 集合 = permissions(resource:action) ∪
+> permissionIds——fallback 六模板经 owned 过滤后存活数按夹具拥有面推算，
+> 六模板 ≠ 六候选。
+> 门禁：目标套件 23/23 绿、tsc 0 错、eslint/prettier 干净、guard PASSED、
+> 全量 jest 357 套件 4361 用例（2 worker 限流，load 50-216 极高位窗口）：
+> 4354 绿、5 套件 7 用例失败——Approvals/Extensions Store/Functions History/
+> previewActions/serverPushdown 全 timeout 形态且均他域既有绿套件，
+> 隔离复跑 5 套件 110/110 绿（152s）定责负载型非回归；Profile 套件全量中绿。
