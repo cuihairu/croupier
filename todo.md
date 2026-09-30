@@ -2285,6 +2285,21 @@ fresh 全绿（158 包零 FAIL）、guard PASSED。**已知边界**：门禁在�
 > api/assignment/gate.go（BUG-035 域）——各 2 语句。
 > 门禁：触及文件 gofmt 干净、go vet 干净、go test ./internal/...
 > 全绿（fresh，恢复窗口执行）。
+> **CI 处置（287efcb，test-only 推送后四 run 判形）**：
+> CodeQL ✅、CI-Core ✅（全 Go 测试含本新用例在内）；Docker 首挂
+> （`Build and push Docker image` 15min step 超时，日志唯一 error 为 timeout、
+> 无编译错误；test-only 改动不进 `go build`，同树其余 4 镜像全绿）→ rerun
+> **全绿**（5 构建 + 5 supply-chain 全 success）。Dashboard
+> `dashboard-quality` attempt 1 挂（shutdown signal、151k 行零 ✕）→ 按探针
+> 协议先验后代：`cf336c9` 同 job 同签名挂（142k 行零 ✕，窗口仍活，不盲重试）
+> → 等 `767ab2b` 探针整绿（窗口开）→ rerun attempt 2 **同签名再挂**
+> （142k 行零 ✕，19:44 被回收时套件仍 PASS）→ 按既定处置**终止重试、以证据
+> 链定案**：本改动仅新增 Go 测试文件 + 本台账（不触 web/，jest 与本提交无
+> 交集），dashboard-quality 本体在 `3a3a680`/`7b5a73b`/`767ab2b` 多次整绿可
+> 证，两次失败均零真实用例失败——判 GitHub hosted runner 当日概率性回收
+> （基础设施退化），非本提交回归。已知边界：若该 workflow 后续持续同签名挂，
+> 属 runner 侧问题，排查口径见记忆档 ci-dashboard-runner-shutdown-signature。
+
 
 ## 覆盖率补缺 R49：mobile 审计/会话域 + web NodeDetailDrawer/OpenAPISources（主树，2026-09-30）
 
