@@ -2536,3 +2536,37 @@ fresh 全绿（158 包零 FAIL）、guard PASSED。**已知边界**：门禁在�
 > 隔离复跑与其同窗核绿（连同 merge 带进的 Ops/Nodes NodeDetailDrawer 上游
 > 新套件一并隔离验证）；push 前 fetch → merge origin/main（todo.md 冲突
 > 保双方）。
+
+## 第十九轮：函数注册告警页覆盖收口（Functions/Warnings 0% → 语句/行/函数 3×100，2026-09-30）
+
+> **交付（2026-09-30，wt-pages worktree）**：覆盖率补缺轮——零测试簇排行
+> 现席 `Functions/Warnings/index.tsx`（328 行，簇内无任何测试文件）单件
+> 收口，新增 `__tests__/index.test.tsx` 12 用例，v8 口径
+> **行/语句/函数 100%、分支 95.65%**（余 2 翼登记，见边界）。锁定契约——
+> 挂载链（URL 四参 function_id/agent_id/code/limit 解析预填表单 +
+> loadData 四键缺省、limit=abc 经 `Number(NaN) || 100` 回落 100、
+> reject → effect .catch 兜底空表不白屏）；查询与 URL 同步（syncUrl 只写
+> 真值键——全填 replace 全参 URL、空值键剥除后全空表单落裸 pathname 无
+> `?`、随后 loadData 透传）；刷新仅重拉不动 URL；行内动作（标为已读
+> markOne(key) + 本地翻转不重拉——行锚收窄断言 w1 行按钮消失而 w3 稀疏行
+> 保留、行删除 Popconfirm → deleteOne + 本地过滤不重拉）；批量动作
+> （全部已读 markAll → toast + 以当前表单条件重拉、清空 Popconfirm →
+> deleteAll → toast 已清空 + 重拉）；列渲染矩阵（code orange Tag + 空串
+> '-'、functionId/version/agentId 空串 '-'、count 原值、lastSeen
+> formatDateTime 双翼、稀疏行 '-' 计数 ≥5）；scope 联动 #34 族（scopeKey
+> 变化 → 以当前表单条件重拉，URL 参数不重复消费）。
+> **坑实证（新档，两条）**：① RTL `within()` 返回查询 API 而非 DOM 元素——
+> `within(pop).querySelector` 直接 TypeError，Popconfirm 确认按钮须在
+> HTMLElement 本体上 querySelector；② 行条件渲染按「字段存在性」计数——
+> 稀疏行无 read 字段 → `!record.read` 走真翼同样渲染「标为已读」，按钮
+> 计数须按夹具逐行推算（非只数显式置值的行）。另：PageContainer 桩只渲
+> children，页面 title 不进 DOM——挂载失败翼断言改锚 Alert 的「规则说明」。
+> **边界（诚实清单，不造假用例不删防御分支）**：① 66 行
+> `Array.isArray(res?.items)` 右翼——service 归一层恒返 items 数组，
+> resolve {} 形态违反返回类型即造假，登记；② 307 行 `text ?? ''` 右翼——
+> 列参类型 string，null 形态违反类型契约，空串左翼经 w3 稀疏行覆盖；
+> ③ loadData 与四个动作函数 try/finally 无 catch——接口 reject 成 unhandled
+> rejection（同族页面既有口径），唯一 catch 翼（挂载 effect）以 reject
+> 用例真实触达，其余不造假 reject 场景。
+> 门禁：目标套件 12/12 绿、`pnpm --dir web run tsc` 0 错、eslint/prettier
+> 干净、guard PASSED；全量 jest 负载口径见交付说明。
