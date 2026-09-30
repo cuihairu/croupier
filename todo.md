@@ -2748,3 +2748,43 @@ fresh 全绿（158 包零 FAIL）、guard PASSED。**已知边界**：门禁在�
 > 门禁：目标套件 9/9 绿（格式化后复跑同绿）、`pnpm --dir web run tsc`
 > 0 错、eslint/prettier 干净、`scripts/dashboard_vnext_guard.sh` PASSED；
 > 全量 jest 负载口径见交付说明。
+
+> **100%（100/100/100/100 语句/分支/函数/行）**，16 用例——三个 build 纯
+> 函数（buildAssignmentColumns 七类列分派+行操作矩阵、buildCategoryColumns
+> 五列+批量回调、buildRouteColumns 四列+查看回调）经 RTL 真渲染断言 DOM。
+> **坑实证（新档五条，antd 6.6.0 实测）**：① Badge 状态色渲染在内部 dot
+> （`.ant-badge-status-success`），非外层 `.ant-badge-success`；② Progress
+> 文本在 `.ant-progress-indicator`（带 title 属性），success 态在外层
+> `.ant-progress-status-success`——antd 5 的 `.ant-progress-text`/
+> `.ant-progress-success` 在 6.x 均不存在；③ antd 6 Tooltip **不设** title
+> 属性，icon-only 按钮可访问名来自图标 `aria-label`（check-circle/delete/
+> setting），getByTitle 全挂；④ 图标类名 CheckCircleOutlined→
+> `anticon-check-circle`（非 `anticon-check`，后者按类 token 精确匹配）；
+> ⑤ 同用例多次 render() 均追加容器到 document.body，screen 级断言遇同文
+> 多匹配——须 within(container) 限定或前臂 unmount。另：本机 TZ=UTC，
+> toLocaleString('zh-CN') 期望值须按运行机动态计算。**并发实录**：本批
+> 与并行会话同改 columns.test.tsx（对方先落盘 13/16 绿版本，我补最后 3
+> 处 antd 6 选择器修复）；并行会话另生成未跟踪 jest.config.js（.ts 的编译
+> 产物，与跟踪版 jest.config.ts 内容相同）致 `pnpm test:coverage` 报
+> Multiple configurations——全量跑改用 `npx jest --config jest.config.ts`
+> 显式指定绕开，未删对方文件。门禁：Assignments 5 套件 44/44 绿、tsc 0、
+> eslint 0、guard PASSED（仓库根）。
+> **R49-4b（会话续作，本提交）**：useAssignmentsPage.ts 67.2%（108 miss）
+> → **99.59% 行 / 97.29% 分支**（产物 .jsx/.js 口径），30 用例——descriptors
+> 三信封形态、gameId 有无的 assignments 拉取与失败兜底、onSave
+> remove/assign/unknown/reject-finally 四臂、onBatchAssign 并集去重/过滤、
+> onCloneToEnv 四臂、loadHistory 信封解包/items 缺省/失败清空、canWrite
+> 六态参数化、pageCtx 全回调、onOpenDetail 闭包两臂经捕获 opts 驱动
+> （columns mock 后 push 逻辑不可 UI 触达）、gameId 变化重拉（#35）。
+> **登记不可达/防御性（2 行）**：`Object.values(m).flat() || []` 右臂
+> （flat() 恒返回数组 truthy）、onSave finally 残余块（异常入口已由
+> rejects.toThrow 用例执行，v8 块计数器合并不可再分）。
+> **全量污染期判定**：web 并行会话编译产物滞留期（src 下 663 个 .jsx/.js
+>
+> - .map，jest 默认 moduleFileExtensions js 优先于 ts——测试实际加载等价
+>   编译产物，行为等价但 coverage 统计口径落产物文件；产物随时可能被对方
+>   清理，数字不可复现）；污染期全量 jest 34 suites 失败判**环境性**（定向
+>   域全绿 + 产物/源码同步性决定失败分布，与本批零源码改动无交集），本批
+>   门禁以 Assignments 全目录 6 套件 **74/74** 绿 + tsc 0 + eslint 0 +
+>   guard PASSED（仓库根）收口，全树覆盖率基线与全量全绿待产物清理后由
+>   R49-5 复核。
