@@ -1,7 +1,8 @@
 name: CI - Mobile
 
 # 移动伴侣端（docs/design/mobile-companion-design.md）质量门禁：
-# flutter analyze 0 告警 + dart format 零 diff + flutter test 全绿。
+# flutter analyze 0 告警 + dart format 零 diff + flutter test 全绿
+# + APK debug 构建烟测（设计稿 §7，M2 起追加）。
 # 版本与本机工具链对齐（~/flutter 3.35.1，2026-09-29 核实；设计稿 v1
 # 写的 3.38 系笔误，实现批按实际 stable 修正）。
 
@@ -21,7 +22,7 @@ on:
 jobs:
   flutter:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     defaults:
       run:
         working-directory: mobile
@@ -36,3 +37,5 @@ jobs:
       - run: dart format --set-exit-if-changed --output=none .
       - run: flutter analyze
       - run: flutter test
+      # 构建烟测：验证 android/ 工程与原生依赖可编译（不产 artifact）。
+      - run: flutter build apk --debug
