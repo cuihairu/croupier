@@ -2491,3 +2491,48 @@ fresh 全绿（158 包零 FAIL）、guard PASSED。**已知边界**：门禁在�
 > api/assignment/gate.go（BUG-035 域）——各 2 语句。
 > 门禁：触及文件 gofmt 干净、go vet 干净、go test ./internal/...
 > 全绿（fresh，恢复窗口执行）。
+
+## 第十八轮：行为分析页覆盖收口（Analytics/Behavior 三文件 0% → 三文件语句/行/函数 3×100，2026-09-30）
+
+> **交付（2026-09-30，wt-pages worktree）**：覆盖率补缺轮——`Analytics/Behavior/`
+> 零测试簇收口：入口 `index.tsx`（383 行）+ `PathControls.tsx`（245 行）+
+> `AdoptionControls.tsx`（251 行）合计 879 行 0%（姊妹件 FunnelPresetBar 已由
+> Round 44 套件覆盖）→ 新增 `__tests__/index.test.tsx` 14 用例。v8 口径：
+> **三文件语句/行/函数 3×100%、分支 87.73%**（index 87.05 / PathControls
+> 89.58 / AdoptionControls 86.66，余翼全部登记见测试头注释诚实清单）。
+> 锁定契约——事件探索（首拉空筛选载荷、三输入+RangePicker ISO 载荷、
+> events.csv 导出 user_id/userId 双回退、{} 右翼空表+header-only 导出）；
+> 漏斗（默认态 {steps:'',sequential:0}、tags 双步+顺序 Switch+同会话
+> Checkbox+步间秒数四键齐载荷、`${v}%` 渲染、gapSec 清空 Number(v||0) 键
+> 消失、{} 右翼清表、funnel.csv String 强转）；复制链接（空态仅 `?`、
+> 全参六键按插入序 URLSearchParams）；深链（steps trim/filter 归一+四态
+> 预填+setTimeout 自动漏斗、负翼四项）；路径分析（默认 {per:'session',
+> steps:5,limit:50}、全参数 include/exclude tags+正则 trim、InputNumber
+> 清空回默认、匹配漏斗指示器是/否/非法正则/无 steps 四态、填充漏斗
+> split('>') 回填+scrollIntoView、复制步骤、paths.csv 空值兜底）；功能
+> 采用率（基数行 {per} 内插、features join+per 切换、range 传播进
+> load/loadDim 载荷、breakdown 分层载荷+dim 表+adoption_breakdown.csv、
+> falsy 行 rowKey 三段右翼、{} 双右翼归零）。
+> **现状锁定（页面 quirk，如实断言不代改）**：① 事件表「用户」列
+> dataIndex='user_id' 而归一化层产出键为 userId——生产环境该列恒空，
+> 导出侧 (r.user_id || r.userId || '') 双翼都有回退（夹具分列验证）；
+> ② 深链自动计算经挂载期闭包捕获 range=null，start/end 不进自动漏斗
+> 载荷——range 预填只对后续手动计算/事件查询生效（负翼用例+双段断言）。
+> **坑实证（新档，两条）**：① antd6 tags 模式 Select 无
+> `.ant-select-selection-search-input` 类（querySelector null →
+> "Unable to fire change"），输入锚改 `selectRoot.querySelector('input')`；
+> ② Enter keyDown 追 tag 连续添加只落首个 token（rc-select tokenization
+> 宏任务竞态），多 tag 追加改走 dropdown 点选配方（mouseDown → change →
+> 点非隐藏下拉内 `.ant-select-item-option-content` 匹配项）。
+> **边界（诚实清单，详见测试头注释）**：try/finally 无 catch 族（同族
+> 页面既有口径，不造假 reject）；rate `v != null` 右翼（归一恒 number）；
+> `(rows||[])`/`(funnel||[])`/`(rowsDim||[])`/`(currentSteps||[])` 右翼
+> （useState 恒数组）；复制链接 `range && range[0/1]` 半开翼（RangePicker
+> 只产完整对或 null）；深链外/内 catch（dayjs 不抛、isValid 门已兜）；
+> `onUsePath &&` 守卫翼；rowKey/导出单元格 `|| ''` 类型防御族。
+> 门禁：目标套件 14/14 绿、`pnpm --dir web run tsc` 0 错、eslint/prettier
+> 干净、guard PASSED；全量 jest 4375 用例 2-worker 限流（load 31-45 高位
+> 窗口，非空载）：4374 绿 + 唯一失败 Extensions/Store 超时形态（139s），
+> 隔离复跑与其同窗核绿（连同 merge 带进的 Ops/Nodes NodeDetailDrawer 上游
+> 新套件一并隔离验证）；push 前 fetch → merge origin/main（todo.md 冲突
+> 保双方）。
