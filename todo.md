@@ -2110,3 +2110,23 @@ fresh 全绿（158 包零 FAIL）、guard PASSED。**已知边界**：门禁在�
 >   导入/上传 catch 的 extractErrorMessage 非 Error 兜底右臂。
 >   门禁：目标套件 9/9 绿、eslint 0、tsc 0 错、guard PASSED、全量 jest
 >   口径见交付说明。
+
+## 2026-09-30 Round 43（wt-api）：Ops/Status 覆盖收口 100/100/100/100——零测试页排行第七
+
+> 覆盖率巡检第七站：`web/src/pages/Ops/Status/index.tsx`（437 行 0%）。
+> 9 用例全分支覆盖，无登记不可达、无页面缺陷（纯补测）。锁定契约——
+> 挂载链 Promise.all 三连拉 + getOpsMaintenance best-effort 回填
+> （enabled Boolean 化 / message || '' / allowAdmins !== false）、
+> maintenance 拉取失败静默、健康表矩阵（类型/目标/启用 Switch 乐观
+> 更新 + updateOpsHealth 载荷 + 失败不回滚）、执行链三翼（ok 绿
+> latencyMs Tag + 成功 toast / !ok error 缺省右臂红 异常 Tag / reject
+> 透传）、禁用项执行按钮 disabled、服务状态四态（up/healthy 绿、truthy
+> 红、falsy default '-'）、MQ lengths 缺省 || {} 右臂 + 空态文案 + 积压
+> 双档（>10000 红）、维护模式保存（Popconfirm → updateOpsMaintenance
+> 表单值 → 已更新 / 失败透传）、刷新重拉三连且 maintenance 不重拉。
+> **坑实证（新档）**：带 icon 的双字中文 Button 的可访问名是
+> 「play-circle 执 行」——icon 名成为可访问名前缀，getByRole name 须
+> /执\s*行/ 宽松正则；页内四张表时行锚文本要跨全页查
+> （querySelector('.ant-table') 只命中第一张表）。
+> 门禁：目标套件 9/9 绿（100/100/100/100）、eslint 0、tsc 0 错、guard
+> PASSED、全量 jest 口径见交付说明。
