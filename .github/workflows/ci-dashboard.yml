@@ -40,7 +40,10 @@ permissions:
 jobs:
   dashboard-quality:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    # job 预算按 unit step 实际耗时定：覆盖率巡检把套件扩到 331 套件/4041
+    # 用例后，jest+coverage 在 ubuntu-latest 上 >27 分钟（2026-09-29 两次
+    # 30 分钟墙钟强杀 / runner shutdown，见 step 内注释）；60 留满慢机余量。
+    timeout-minutes: 60
     defaults:
       run:
         working-directory: ./web
@@ -112,10 +115,11 @@ jobs:
         run: pnpm exec tsc --noEmit
 
       - name: Unit tests with coverage
-        # 全量 jest+coverage 在自托管 runner 上实测 ~908s（210 套件/2766 用例
-        # 全绿后仍被 15 分钟墙钟强杀，2026-09-21 两次连炸），15 已低于实际
-        # 耗时；放宽到 30 留出慢机余量。
-        timeout-minutes: 30
+        # 全量 jest+coverage 实测随套件体量水涨船高：2026-09-21 为 210 套件/
+        # 2766 用例 ~908s（15 分钟墙钟两次连炸后放宽到 30）；2026-09-29 覆盖
+        # 率巡检已扩到 331 套件/4041 用例，ubuntu-latest 上 26.5 分钟仍未跑完
+        # 被墙钟/runner shutdown 强杀，30 已再次低于实际耗时——放宽到 45。
+        timeout-minutes: 45
         run: pnpm test:coverage
 
       # jest rootDir 为 web/，lcov 的 SF 路径不带 web/ 前缀；web 又是

@@ -109,8 +109,8 @@ func startCluster(ctx context.Context, c *config.Config, svcCtx *svc.ServiceCont
 		}
 		member = dbm
 		dbr := cluster.NewDBOwnerResolver(svcCtx.DB, ownerTTL)
-		// 与成员表共用同一 DB 连接：连接可写则两表 DDL 同命运，不可写则
-		// 上方分支已拦截，本分支不可确定性构造（coverage-exemptions.md cmd-5）。
+		// 与成员表共用同一 DB 连接；owner 表 DDL 失败翼经「可写连接预建
+		// 成员表 + mode=ro 重开」构造（cluster_ddl_wings_test.go）。
 		if err := dbr.EnsureTable(ctx); err != nil {
 			slog.Error("cluster: ensure owner table failed, running standalone", "error", err)
 			return nil, nil

@@ -67,7 +67,11 @@ export default function OpsCertificatesPage() {
   );
   useEffect(() => {
     load(1, size, status);
-  }, [load, size, status]);
+    // 分页由 Table onChange 直驱：依赖若含 load（其身份随 page 重建），
+    // 任何翻页都会被本 effect 立即拉回第 1 页（分页失效）。此 effect 只
+    // 负责首挂载与筛选/页大小变化的复位重拉。
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [size, status]);
 
   const daysTag = (d?: number, st?: string) => {
     const v = typeof d === 'number' ? d : undefined;
