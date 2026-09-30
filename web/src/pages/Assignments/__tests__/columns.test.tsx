@@ -11,7 +11,7 @@
  */
 import React from 'react';
 import { fireEvent, render, screen, within } from '@testing-library/react';
-import { buildAssignmentColumns, buildCategoryColumns, buildRouteColumns } from '../columns';
+import { buildAssignmentColumns, buildCategoryColumns, buildRouteColumns } from '../columns.tsx';
 import type { AssignmentPageSchema } from '../pageSchema';
 import type { AssignmentGroup, AssignmentItem } from '../types';
 
