@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../devices/devices_page.dart';
+import '../alerts/alerts_page.dart';
 import 'monitoring_controller.dart';
 import 'monitoring_format.dart';
 import 'performance_service.dart';
@@ -189,12 +190,15 @@ class _EntriesCard extends StatelessWidget {
               ),
             ),
           ),
-          const ListTile(
-            key: ValueKey('monitor-entry-alerts'),
-            leading: Icon(Icons.notifications_outlined),
-            title: Text('告警'),
-            subtitle: Text('M2 交付'),
-            enabled: false,
+          ListTile(
+            key: const ValueKey('monitor-entry-alerts'),
+            leading: const Icon(Icons.notifications_outlined),
+            title: const Text('告警'),
+            subtitle: const Text('列表 / 静默 / 静默规则'),
+            enabled: true,
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(builder: (context) => const AlertsPage()),
+            ),
           ),
           const ListTile(
             key: ValueKey('monitor-entry-audit'),
