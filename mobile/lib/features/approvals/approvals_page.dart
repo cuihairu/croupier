@@ -5,6 +5,7 @@ library;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/function/function_spec.dart';
 import 'approval_service.dart';
 import 'approvals_controller.dart';
 import 'approval_detail_page.dart';
@@ -116,11 +117,12 @@ class ApprovalListTile extends StatelessWidget {
   const ApprovalListTile({required this.item, this.desc, super.key});
 
   final ApprovalItem item;
-  final FunctionDescInfo? desc;
+  final FunctionSpec? desc;
 
   @override
   Widget build(BuildContext context) {
-    final risk = desc?.risk.toLowerCase() ?? '';
+    // high/danger 均算高危（risk 值域 safe/warning/high/danger）。
+    final showHighRisk = desc?.isHighRisk ?? false;
     final showTwoPerson = desc?.approvalRequired ?? false;
     return ListTile(
       title: Text(item.functionId, overflow: TextOverflow.ellipsis),
@@ -129,7 +131,7 @@ class ApprovalListTile extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
-          if (risk == 'high')
+          if (showHighRisk)
             const _Tag(label: '高危', color: Colors.red)
           else if (showTwoPerson)
             const _Tag(label: '两人复核', color: Colors.orange),
