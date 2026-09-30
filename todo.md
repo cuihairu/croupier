@@ -2211,3 +2211,31 @@ fresh 全绿（158 包零 FAIL）、guard PASSED。**已知边界**：门禁在�
 > 空 resolve 在 DOM 不可区分）。
 > 门禁：目标套件 8/8 绿、eslint 0、tsc 0 错、guard PASSED、全量 jest
 > 口径见交付说明。
+
+## 2026-09-30 Round 47（wt-api）：Ops/Terms 覆盖收口 100/96.55/100/100
+
+> 覆盖率巡检第十一站：`web/src/pages/Ops/Terms/index.tsx`（231 行 0%）。
+> 8 用例，行/语句/函数 100%、分支 96.55%，无页面缺陷（纯补测）。锁定
+> 契约——挂载 load('resource')（默认域）+ 域 Select 切换 → listTerms
+> ('operation') 重拉；渲染矩阵（Domain Tag resource 蓝/其余紫、显示文本
+> localizedText 三臂：zh 命中/zh 空串→en 回退/display 缺省→termKey 兜底、
+> 语言列 keys||{} + filter 真值过滤 + 空数组 '-'、Order 空值 ProTable '-'
+> 兜底）；新增（initialValues {domain: 当前筛选域, order:100} + destroyOnHidden
+> 重开重挂载 + required 三键拦截不触达服务 + 全字段落库 + 保存成功 + 重拉 +
+> 关闭）；编辑（整行回填 termKey/alias/display/order + 载荷不含 id——
+> TermFormValues=Omit<TermItem,'id'> 契约）；保存失败 return false 弹窗保持
+> 不重拉无本地弹错；删除（Popconfirm → deleteTerm(domain,alias) + 已删除 +
+> 重拉）；load 失败 toast 透传 Error.message（getErrorMessage 经 getIntl()
+> 调用时解析——mock 下 getIntl 必须与 useIntl 同一稳定实例，否则页内注释
+> 言明的无限请求循环）。
+> **坑实证（新档，两条）**：① ModalForm（destroyOnHidden）关闭后**整体
+> 卸载**——.ant-modal 从 DOM 消失（探针实证 modalCount=0），区别于普通
+> antd Modal 的 display:none 残留（FunnelPresetBar 坑档），关闭断言用
+> querySelector('.ant-modal') 为 null；② 空值 Order 列 ProTable 兜底渲染
+> '-'，与语言列 '-' 同行同文本双命中，断言须 getAllByText。
+> 登记不可达（1 处防御分支）：line 82 `(row.display||{})[k]` 的 `|| {}`
+> 右臂——display undefined 时上游 Object.keys({}) 已得 []、filter 回调
+> 不执行，回调内二次归一右臂结构不可达；delete onConfirm 无 catch 的
+> reject 路径按惯例不造假（unhandled rejection 现状语义）。
+> 门禁：目标套件 8/8 绿、eslint 0、tsc 0 错、guard PASSED、全量 jest
+> 口径见交付说明。
